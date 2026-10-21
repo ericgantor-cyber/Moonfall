@@ -19,7 +19,8 @@ else app.on('second-instance',()=>{
   mainWindow.focus();
  }
 });
-const gamePath=path.join(__dirname,'game.html');
+const gameRoot=fs.existsSync(path.join(__dirname,'modular','game.html'))?path.join(__dirname,'modular'):__dirname;
+const gamePath=path.join(gameRoot,'game.html');
 const enginePath=path.join(__dirname,'node_modules','three','build','three.module.js');
 function serveFile(res,file,type){
  // Check before committing headers; never duplicate or lose the first chunk.
@@ -63,6 +64,10 @@ function startLocalGameServer(){
    try{route=new URL(req.url||'/', 'http://127.0.0.1').pathname}catch{route='/invalid'}
    if(route==='/'||route==='/game.html')return serveFile(res,gamePath,'text/html; charset=utf-8');
    if(route==='/vendor/three.module.js')return serveFile(res,enginePath,'text/javascript; charset=utf-8');
+   if(route==='/game.js'&&gameRoot!==__dirname)return serveFile(res,path.join(gameRoot,'game.js'),'text/javascript; charset=utf-8');
+   if(/^\/assets\/art-[0-9]{3}\.(webp|png|jpeg)$/.test(route)&&gameRoot!==__dirname){
+    const ext=path.extname(route).slice(1);return serveFile(res,path.join(gameRoot,route.slice(1)),'image/'+(ext==='jpeg'?'jpeg':ext));
+   }
    res.writeHead(404,{'Content-Type':'text/plain; charset=utf-8'});res.end('Not found');
   });
   const onStartupError=err=>{
