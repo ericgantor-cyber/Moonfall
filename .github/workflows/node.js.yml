@@ -41,5 +41,7 @@ jobs:
           done
       - name: Run Moonfall game regression checks
         run: node verify-project.js
+      - name: Test boss phase engine
+        run: node test-boss-phases.js
       - name: Audit embedded asset sizes
         run: node audit-bloat.js
