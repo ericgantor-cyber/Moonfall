@@ -1,0 +1,1 @@
+Moonfall 7.1: Restored complete game.html from verified 6.8 project. Previous 7.0 file omitted the upgrade pool and gameplay logic, causing all regression checks to fail. Five automated test commands now pass. For GitHub upload use GitHub Desktop (the game.html file exceeds GitHub browser upload limits). Windows installer has NOT been compiled or playtested. Artwork unchanged.

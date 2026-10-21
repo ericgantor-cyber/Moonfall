@@ -1,0 +1,2 @@
+Moonfall 5.1 Combat Polish
+Updated projectile cleanup or responsive HUD polish (see game.html). Preserved original artwork and game content. ZIP integrity checked; gameplay testing not performed.

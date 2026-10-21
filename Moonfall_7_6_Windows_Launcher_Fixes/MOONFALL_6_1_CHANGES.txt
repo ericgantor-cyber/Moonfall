@@ -1,0 +1,5 @@
+Moonfall 6.1 Combat Safety
+- Boss attack warning locations reject nonfinite coordinates.
+- Warning radius and delay are clamped before creating geometry.
+- All existing game art, boss effects, enemy formations and saves preserved.
+- Automated regression checks run; interactive Windows gameplay testing still needed.

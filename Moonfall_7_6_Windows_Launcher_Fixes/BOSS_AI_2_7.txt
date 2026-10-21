@@ -1,0 +1,1 @@
+Moonfall 2.7 Boss AI: Dragon bosses adapt their attack selection to player movement and proximity from phase two onward; avoid repeating the same attack; final-phase ultimates have an 11-second cooldown; fan/ring projectile pressure is capped. Boss attacks still use existing visible warnings. This is a source-level update, not a full gameplay playthrough.

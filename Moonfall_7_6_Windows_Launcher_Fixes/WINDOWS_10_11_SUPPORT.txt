@@ -1,0 +1,5 @@
+Moonfall 7.0: Windows 10 and Windows 11 (64-bit) installer build kit.
+Both operating systems use the same x64 Electron NSIS installer.
+GitHub Actions workflow uploads Moonfall-Windows-10-and-11-Installer artifact.
+The .exe has NOT been compiled or tested on Windows 10 or 11 in this environment.
+Original Z and Nyra artwork unchanged.

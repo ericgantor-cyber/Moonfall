@@ -1,0 +1,1 @@
+Moonfall 7.4: Windows 10/11 launcher crash recovery. Renderer auto-reload limited to two attempts, plus Recover Frozen Game menu command. Keeps fixed local save origin. GitHub Actions verifies Windows installer exists before upload. No changes to original Z/Nyra artwork. Windows installer has NOT been compiled or tested in this environment.

@@ -1,0 +1,5 @@
+Moonfall 5.8: Formation and Crowd Performance
+- Scouts split into near/far flanking wings based on stable spawn-assigned flank.
+- Crowd separation checks scale in three bands, reducing work for >400 active mobs.
+- All existing boss warnings, character artwork, saves and effects retained.
+- Automated tests performed; live Windows gameplay/FPS not verified.

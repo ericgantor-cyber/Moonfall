@@ -1,0 +1,51 @@
+{
+  "name": "moonfall-desktop",
+  "version": "7.6.0",
+  "private": true,
+  "description": "Moonfall 2.5D Windows desktop game",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build:windows": "electron-builder --win nsis --x64"
+  },
+  "devDependencies": {
+    "electron": "^33.4.11",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.moonfall.game",
+    "productName": "Moonfall",
+    "asar": true,
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "game.html",
+      "assets/icon.ico",
+      "node_modules/three/build/three.module.js"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "assets/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Moonfall",
+      "artifactName": "Moonfall-7.6-Windows-10-11-Setup.${ext}"
+    }
+  },
+  "dependencies": {
+    "three": "0.160.1"
+  }
+}

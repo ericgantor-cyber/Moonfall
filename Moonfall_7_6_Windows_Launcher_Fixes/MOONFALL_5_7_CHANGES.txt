@@ -1,0 +1,7 @@
+Moonfall 5.7 Boss Effects & Performance
+- Increased simultaneous boss danger warnings from 18 to 24, reducing dropped multi-element attack telegraphs.
+- Reduced danger ring geometry from 48 to 32 segments, reducing vertices per effect by a third.
+- Disabled depth buffer writing for translucent danger warnings.
+- Added animated opacity and scale pulses without extra draw calls.
+- All previous gameplay, boss attacks, saves, and Z/Nyra artwork retained.
+- Automated tests run; live Windows gameplay not tested.

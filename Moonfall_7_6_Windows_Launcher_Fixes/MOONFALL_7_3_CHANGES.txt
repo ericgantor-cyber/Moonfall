@@ -1,0 +1,6 @@
+Moonfall 7.3 launcher stability
+- Added Windows native game menu: restart, fullscreen, exit and reload.
+- Corrected local server startup error listener cleanup to avoid unhandled errors after successful startup.
+- Windows 10/11 GitHub Actions installer build maintained.
+- Z and Nyra original art unchanged.
+- No compiled Windows executable or physical gameplay verification included.

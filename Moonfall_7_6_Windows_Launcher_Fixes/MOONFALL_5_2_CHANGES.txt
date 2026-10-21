@@ -1,0 +1,5 @@
+Moonfall 5.2 Crowd Tactics
+- Scout enemies occasionally reverse strafing direction when reapproaching from range.
+- Crowds above 300 enemies use adaptive spatial separation update frequency and neighbor budgets.
+- All original art and characters retained.
+- ZIP integrity checked. Gameplay and FPS gains not independently tested.

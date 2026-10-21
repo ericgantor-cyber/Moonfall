@@ -1,0 +1,4 @@
+Moonfall 3.6: Added exactly 1,000 unique upgrade items across 20 themed families and 50 relic forms.
+Original 605 cards retained: 1,605 total upgrade cards.
+All new items provide an active gameplay stat effect with existing safety caps.
+Single-switch controls remain removed.

@@ -1,0 +1,1 @@
+Moonfall 4.5: Reuses up to 150 projectile meshes, preserving shared geometry/material and existing projectile limits. Resets recycled mesh transform/material; pools meshes on collisions, expiry, restart, and boss transitions. Uses squared distance for projectile hit testing. Not a measured FPS benchmark.

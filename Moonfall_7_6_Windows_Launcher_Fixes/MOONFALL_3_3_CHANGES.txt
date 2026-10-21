@@ -1,0 +1,1 @@
+3.3: Save and restore boss health and phase for Screamer, Abyss, Phoenix (normal form), Trinity, Oracle and elemental dragons. Hydra heads and Phoenix egg, enemies, projectiles, and temporary effects still restart. Old checkpoints remain compatible. Source checks are not full gameplay testing.

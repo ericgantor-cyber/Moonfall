@@ -1,0 +1,10 @@
+Moonfall 3.1: Save Integrity & Combat QA foundation
+
+- Added checksum seals to newly committed checkpoints. Existing legacy saves remain compatible.
+- Detects accidental corruption in sealed checkpoint data and rejects it during restore/import.
+- Seals imported and recovered checkpoints, and checkpoint exports.
+- Manual and optional auto-saving work while paused (not during upgrade selection).
+- Added a Check save health button showing validity and dates for all four slots.
+- Added source-level regression checks for these features.
+
+LIMITATIONS: Checksums are not cryptographic security. Saves still restart encounters; exact boss/enemy/projectile state is not yet preserved. Boss playthrough and Windows EXE testing have not been completed.

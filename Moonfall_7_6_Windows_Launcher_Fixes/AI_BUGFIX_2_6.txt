@@ -1,0 +1,1 @@
+Moonfall 2.6 AI bug fixes: keep resumed timer; prioritize low-health pressure; stable scout flanks; frame-normalized movement prediction; reset velocity on resume. Source-level verification only, not a full gameplay playthrough.

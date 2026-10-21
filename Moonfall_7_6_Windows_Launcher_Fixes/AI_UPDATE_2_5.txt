@@ -1,0 +1,9 @@
+Moonfall 2.5 Smarter AI
+- Smoothed player motion prediction, capped to avoid teleport spikes.
+- Adaptive pressure tactic for low-health players.
+- Tactic hold period prevents constant switching.
+- Scout flanks distributed across pack.
+- Raiders anticipate frequent dodges more aggressively.
+- Existing mob and projectile caps preserved.
+- No single-switch controls.
+Note: Source syntax checks passed; full live playtesting and Windows installer testing not performed.

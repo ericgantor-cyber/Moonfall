@@ -1,0 +1,1 @@
+Moonfall 4.6: Added toggleable in-game performance HUD (F8). Shows rolling FPS and approximate frame time. No changes to Z or Nyra artwork, controls, enemies, saves, or upgrade balance. This is a source upgrade; Windows executable must be built on Windows.

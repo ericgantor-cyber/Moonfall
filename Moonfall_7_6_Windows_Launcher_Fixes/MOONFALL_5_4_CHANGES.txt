@@ -1,0 +1,7 @@
+Moonfall 5.4: All Upgrades
+- Combat shockwave rings have additive glow and softer fade.
+- Shockwave radius validates non-finite input to prevent broken mesh scaling.
+- Effect fade clamps to [0,1] to prevent negative opacity and overshoot after lag spikes.
+- Projectile step handles non-finite frame delta safely.
+- Original Z and Nyra artwork and existing boss/enemy AI preserved.
+- No live Windows playtesting performed.

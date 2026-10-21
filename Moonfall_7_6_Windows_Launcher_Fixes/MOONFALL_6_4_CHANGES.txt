@@ -1,0 +1,5 @@
+Moonfall 6.4 Enemy AI Stability
+- Protects crowd collision logic against missing/despawned neighbors.
+- Prevents non-finite and extreme avoidance forces from destabilizing enemy movement.
+- Keeps existing enemy formations, effects, boss attacks, saves, and original Z/Nyra artwork.
+- Automated checks passed; live Windows gameplay and FPS testing still required.

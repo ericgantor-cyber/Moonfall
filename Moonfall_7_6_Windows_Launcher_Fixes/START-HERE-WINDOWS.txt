@@ -1,0 +1,22 @@
+MOONFALL: ECLIPSE REBORN - WINDOWS LAUNCHER BUILD KIT (6.8)
+
+This ZIP is a Windows installer BUILD KIT, not a compiled .exe.
+To make the standalone launcher and desktop shortcut on Windows:
+
+1. Extract this entire ZIP into a folder.
+2. Install Node.js LTS from https://nodejs.org/ if you don't already have it.
+3. Double-click Build-Moonfall-Windows.bat.
+4. When it finishes, open dist\Moonfall-6.8-Setup.exe.
+5. Run the installer and leave "Create desktop shortcut" enabled.
+6. Double-click the Moonfall desktop shortcut to play without Chrome.
+
+Launcher opens the game in its own Electron window.
+F11 toggles fullscreen. The game runs locally without a public website.
+First-time build needs internet access to download npm dependencies.
+If Windows warns about an unsigned installer, review the publisher and source
+before choosing whether to run it.
+
+No Windows executable has been compiled or playtested in this environment.
+Z and Nyra artwork unchanged.
+
+6.8 fixes: single-instance lock, safer HTTP method handling, renderer-crash notification, npm preflight.

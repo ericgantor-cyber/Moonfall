@@ -1,0 +1,6 @@
+Moonfall 2.9 Combat Performance and Cleanup
+- Reuses per-frame camera and hydra vectors.
+- Computes projectile frame step once per frame.
+- Disposes short-lived effect materials on run reset and finish.
+- Keeps shared projectile geometry/materials cached, rather than disposing them per projectile.
+- This is a targeted static fix, not a full boss playthrough or Windows installer test.

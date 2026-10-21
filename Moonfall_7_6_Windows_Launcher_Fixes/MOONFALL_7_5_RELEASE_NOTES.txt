@@ -1,0 +1,7 @@
+Moonfall 7.5: Windows build verification
+- GitHub Actions now verifies the generated installer is at least 1MB and has the Windows MZ executable header.
+- Workflow reports SHA-256 for the installer.
+- Windows 10 and 11 x64 installer configuration retained.
+- Existing encounter checkpoint system restores at encounter start, NOT exact mid-battle state.
+- Z and Nyra artwork unchanged.
+- Actual Windows installer has not been built or played in this environment.

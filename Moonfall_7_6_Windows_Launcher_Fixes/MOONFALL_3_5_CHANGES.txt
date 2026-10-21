@@ -1,0 +1,1 @@
+3.5: Hydra five-head checkpoint restoration, including individual HP, cooldown, split-phase positions, and save validation. Split restoration avoids awarding XP twice. Also reinstates Phoenix egg HP, timer and position restoration in the packaged source. Enemies, projectiles and temporary buffs are not yet saved.

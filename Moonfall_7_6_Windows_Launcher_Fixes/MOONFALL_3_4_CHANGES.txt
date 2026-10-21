@@ -1,0 +1,1 @@
+3.4: Phoenix egg HP, countdown and position are now restored when resuming an egg-phase checkpoint. Egg snapshots validate timer and position. The existing boss HP restoration remains. Hydra heads, ordinary enemies, projectiles, temporary buffs, and complete Windows installer testing remain unfinished.

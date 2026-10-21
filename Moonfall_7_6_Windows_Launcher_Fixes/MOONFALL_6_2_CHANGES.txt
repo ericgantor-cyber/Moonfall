@@ -1,0 +1,4 @@
+Moonfall 6.2 Crowd Stability
+- Adaptive collision-neighbor budget scales for 200+ and 400+ enemy crowds.
+- Preserves all prior boss attacks, formations, saves, artwork and visual effects.
+- This change prioritizes frame rate during extreme crowds and may reduce avoidance precision; live gameplay and FPS testing needed.

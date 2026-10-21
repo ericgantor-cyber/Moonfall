@@ -1,0 +1,6 @@
+Moonfall 3.8: Checkpoint Guards
+- Reject checkpoint boss state that does not match the saved chapter.
+- Reject impossible boss phases before they reach restore logic.
+- Add automated regression tests for valid and invalid boss/chapter combinations.
+- Preserve existing 1,605 items, artwork, AI, and save functionality.
+- Full interactive gameplay and Windows installer testing remain outstanding.

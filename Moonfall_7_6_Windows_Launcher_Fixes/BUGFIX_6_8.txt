@@ -1,0 +1,1 @@
+6.8 launcher fixes: avoid simultaneous app instances/save conflicts, reject unexpected HTTP methods, report renderer crashes, check npm availability in Windows build script. Windows .exe not compiled here.

@@ -1,0 +1,6 @@
+Moonfall 3.7 Item Bugfix
+- Fixed checkpoint validation mismatch: chosen upgrade history can hold up to 10,000 entries, matching its existing in-memory limit.
+- Renamed four duplicate upgrade cards so all 1,605 names are unique.
+- Added automated tests for all 1,605 upgrade definitions and execution of the 1,000 newest item effects.
+- Preserved the 11 bosses, offline engine, and Windows installer build script.
+- Full gameplay testing and compiled Windows installer remain unfinished.

@@ -1,0 +1,6 @@
+Moonfall 6.6 Combat Intelligence
+- Clamp raider movement prediction to eight world units.
+- Clamp brute charge prediction to six world units.
+- Prevent extreme predicted targets during sudden player movement or lag.
+- Preserve Z and Nyra original artwork, existing saves, boss attacks and graphics.
+- Automated checks only; gameplay and FPS not verified on Windows.

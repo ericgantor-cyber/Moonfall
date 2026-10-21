@@ -1,0 +1,3 @@
+Moonfall 4.9 Elemental Fury
+Each of five dragon bosses has a distinct final-phase fury attack, triggered every sixth attack. Uses existing telegraphed dragonZone warnings and existing battle message. Original artwork unchanged.
+Not yet playtested on Windows.
