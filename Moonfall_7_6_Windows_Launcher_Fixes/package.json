@@ -22,7 +22,6 @@
     "files": [
       "main.js",
       "game.html",
-      "assets/icon.ico",
       "node_modules/three/build/three.module.js"
     ],
     "win": {
@@ -33,8 +32,7 @@
             "x64"
           ]
         }
-      ],
-      "icon": "assets/icon.ico"
+      ]
     },
     "nsis": {
       "oneClick": false,
@@ -42,7 +40,7 @@
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "Moonfall",
-      "artifactName": "Moonfall-7.6-Windows-10-11-Setup.${ext}"
+      "artifactName": "Moonfall-${version}-Windows-Setup.${ext}"
     }
   },
   "dependencies": {
