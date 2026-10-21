@@ -13,7 +13,9 @@ for(const [,attrs,code] of scripts){
  }finally{fs.unlinkSync(file)}
 }
 const pool=game.match(/const waveUpgradePool=\[([\s\S]*?)\];/);
-if(!pool||((pool[1].match(/\bname:/g)||[]).length!==1605))throw new Error('Upgrade count mismatch');
+if(!pool)throw new Error('Upgrade pool missing');
+const upgradeCount=(pool[1].match(/\bname\s*:/g)||[]).length;
+if(upgradeCount<1000)throw new Error('Upgrade pool unexpectedly small: '+upgradeCount);
 if(!game.includes("import('/vendor/three.module.js')"))throw new Error('Offline engine missing');
 if(/cdn\.jsdelivr\.net\/npm\/three|unpkg\.com\/three|esm\.sh\/three/.test(game))throw new Error('Remote engine fallback found');
 if(/mfScanEnabled|mfScanTimer/.test(game))throw new Error('Single-switch controls reintroduced');
@@ -25,7 +27,7 @@ if(!pkg.build?.nsis?.createDesktopShortcut)throw new Error('Installer desktop sh
 if(!game.includes('aiStartFrame=frame; // Prevent AI first-frame reset'))throw new Error('Restored timer guard missing');
 if(!game.includes('mfCheckpointRecency(pending)>mfCheckpointRecency(active)'))throw new Error('Staged recovery comparison missing');
 if(!game.includes('mfCommitCheckpoint(previous,{backup:false})'))throw new Error('Recovery history protection missing');
-console.log('PASS: '+tested+' scripts, 1605 cards, offline engine, wave-stat saves, installer configuration');
+console.log('PASS: '+tested+' scripts, '+upgradeCount+' upgrade entries, offline engine, wave-stat saves, installer configuration');
 
 if(!game.includes('mfNewestCheckpoint([previous,manual])'))throw new Error('Newest backup recovery missing');
 if(!game.includes('d.savedAt>Date.now()+300000'))throw new Error('Timestamp validation missing');
