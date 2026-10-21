@@ -25,7 +25,8 @@
       "game.html",
       "node_modules/three/build/three.module.js",
       "modular/**/*",
-      "modularize.js"
+      "modularize.js",
+      "boss-phases-browser.js"
     ],
     "win": {
       "target": [
