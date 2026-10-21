@@ -1,0 +1,46 @@
+name: Build Moonfall Windows Installer
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'Moonfall_7_6_Windows_Launcher_Fixes/**'
+      - '.github/workflows/windows-installer.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-installer:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: Moonfall_7_6_Windows_Launcher_Fixes
+    steps:
+      - name: Checkout Moonfall
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify game files
+        shell: pwsh
+        run: |
+          foreach ($file in @('game.html', 'main.js', 'package.json')) {
+            if (!(Test-Path $file)) { throw "Missing required file: $file" }
+          }
+          node --check main.js
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Build Windows installer
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: npm run build:windows
+      - name: Upload Windows setup executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: Moonfall-Windows-Installer
+          path: Moonfall_7_6_Windows_Launcher_Fixes/dist/*.exe
+          if-no-files-found: error
+          retention-days: 30
