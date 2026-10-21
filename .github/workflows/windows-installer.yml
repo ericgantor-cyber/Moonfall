@@ -37,6 +37,19 @@ jobs:
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
         run: npm run build:windows
+      - name: Verify generated installer and modular game
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem dist -Filter 'Moonfall-*-Windows-Setup.exe' -File | Select-Object -First 1
+          if (-not $installer) { throw 'Windows setup executable missing' }
+          if ($installer.Length -lt 1000000) { throw 'Windows installer is unexpectedly small' }
+          foreach ($file in @('modular/game.html', 'modular/game.js')) {
+            if (!(Test-Path $file)) { throw "Missing modular game file: $file" }
+          }
+          node --check modular/game.js
+          $html = Get-Content modular/game.html -Raw
+          if ($html -notmatch 'src="game.js"') { throw 'Modular HTML does not load game.js' }
+          Write-Host "Verified installer: $($installer.Name) ($($installer.Length) bytes)"
       - name: Upload Windows setup executable
         uses: actions/upload-artifact@v4
         with:
