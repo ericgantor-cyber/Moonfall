@@ -17,7 +17,7 @@ for(const [,attrs,code] of scripts){
 const shellSource=fs.readFileSync(path.join(__dirname,'main.js'),'utf8');
 if(!shellSource.includes("node_modules','three','build','three.module.js"))throw new Error('Bundled Three.js engine path missing');
 if(!shellSource.includes("'/vendor/three.module.js'"))throw new Error('Offline Three.js route missing');
-if(/cdn\\.jsdelivr\\.net\\/npm\\/three|unpkg\\.com\\/three|esm\\.sh\\/three/.test(game))throw new Error('Remote engine fallback found');
+if(['cdn.jsdelivr.net/npm/three','unpkg.com/three','esm.sh/three'].some(host=>game.includes(host)))throw new Error('Remote engine fallback found');
 if(/mfScanEnabled|mfScanTimer/.test(game))throw new Error('Single-switch controls reintroduced');
 const main=require('child_process').spawnSync(process.execPath,['--check',path.join(__dirname,'main.js')],{encoding:'utf8'});
 if(main.status!==0)throw new Error(main.stderr);
