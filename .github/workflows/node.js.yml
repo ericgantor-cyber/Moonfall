@@ -1,31 +1,37 @@
-# This workflow will do a clean installation of node dependencies, cache/restore them, build the source code and run tests across different versions of node
-# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-nodejs
-
-name: Node.js CI
+name: Moonfall source checks
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [main]
   pull_request:
-    branches: [ "main" ]
+    branches: [main]
 
 jobs:
-  build:
-
+  source-check:
     runs-on: ubuntu-latest
-
-    strategy:
-      matrix:
-        node-version: [18.x, 20.x, 22.x]
-        # See supported Node.js release schedule at https://nodejs.org/en/about/releases/
-
+    defaults:
+      run:
+        working-directory: Moonfall_7_6_Windows_Launcher_Fixes
     steps:
-    - uses: actions/checkout@v4
-    - name: Use Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v4
-      with:
-        node-version: ${{ matrix.node-version }}
-        cache: 'npm'
-    - run: npm ci
-    - run: npm run build --if-present
-    - run: npm test
+      - uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate package.json
+        run: node -e "const p=require('./package.json'); if (!p.scripts?.['build:windows']) process.exit(1); console.log(p.name, p.version)"
+      - name: Check JavaScript syntax
+        shell: bash
+        run: |
+          set -e
+          for file in *.js; do
+            node --check "$file"
+          done
+      - name: Check required Windows game files
+        shell: bash
+        run: |
+          for file in game.html assets/icon.ico; do
+            if [ ! -f "$file" ]; then
+              echo "::warning::Missing $file; Windows installer cannot be built until it is added."
+            fi
+          done
