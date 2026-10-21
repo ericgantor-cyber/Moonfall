@@ -32,10 +32,8 @@ function serveFile(res,file,type){
    return;
   }
   const stream=fs.createReadStream(file);
-  let started=false;
   stream.once('open',()=>{
    if(res.destroyed){stream.destroy();return;}
-   started=true;
    res.writeHead(200,{'Content-Type':type,'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});
    stream.pipe(res);
   });
@@ -85,7 +83,7 @@ async function createWindow(){
  }
  const url=await startLocalGameServer();
  mainWindow=new BrowserWindow({title:'Moonfall: Eclipse Reborn',width:1366,height:850,minWidth:900,minHeight:600,autoHideMenuBar:true,
-  backgroundColor:'#080916',icon:path.join(__dirname,'assets','icon.ico'),
+  backgroundColor:'#080916',
   webPreferences:{nodeIntegration:false,contextIsolation:true,sandbox:true,webSecurity:true,backgroundThrottling:false}});
  mainWindow.on('closed',()=>{mainWindow=null;});
  // Accessible native launcher controls; press Alt to show the menu on Windows.
