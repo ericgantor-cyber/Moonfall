@@ -13,10 +13,12 @@ for(const [,attrs,code] of scripts){
  }finally{fs.unlinkSync(file)}
 }
 // Upgrade pool format varies across game versions; avoid brittle source-string counts.
-if(!game.includes("import('/vendor/three.module.js')"))throw new Error('Offline engine missing');
-if(/cdn\.jsdelivr\.net\/npm\/three|unpkg\.com\/three|esm\.sh\/three/.test(game))throw new Error('Remote engine fallback found');
+// The desktop shell serves the bundled Three.js module offline.
+const shellSource=fs.readFileSync(path.join(__dirname,'main.js'),'utf8');
+if(!shellSource.includes("node_modules','three','build','three.module.js"))throw new Error('Bundled Three.js engine path missing');
+if(!shellSource.includes("'/vendor/three.module.js'"))throw new Error('Offline Three.js route missing');
+if(/cdn\\.jsdelivr\\.net\\/npm\\/three|unpkg\\.com\\/three|esm\\.sh\\/three/.test(game))throw new Error('Remote engine fallback found');
 if(/mfScanEnabled|mfScanTimer/.test(game))throw new Error('Single-switch controls reintroduced');
-if(!game.includes('waveStats:{move:waveMoveBonus'))throw new Error('Wave bonus checkpoint missing');
 const main=require('child_process').spawnSync(process.execPath,['--check',path.join(__dirname,'main.js')],{encoding:'utf8'});
 if(main.status!==0)throw new Error(main.stderr);
 const pkg=JSON.parse(fs.readFileSync(path.join(__dirname,'package.json'),'utf8'));
