@@ -64,6 +64,7 @@ function startLocalGameServer(){
    try{route=new URL(req.url||'/', 'http://127.0.0.1').pathname}catch{route='/invalid'}
    if(route==='/'||route==='/game.html')return serveFile(res,gamePath,'text/html; charset=utf-8');
    if(route==='/vendor/three.module.js')return serveFile(res,enginePath,'text/javascript; charset=utf-8');
+   if(route==='/boss-phases-browser.js'&&gameRoot!==__dirname)return serveFile(res,path.join(__dirname,'boss-phases-browser.js'),'text/javascript; charset=utf-8');
    if(route==='/game.js'&&gameRoot!==__dirname)return serveFile(res,path.join(gameRoot,'game.js'),'text/javascript; charset=utf-8');
    if(/^\/assets\/art-[0-9]{3}\.(webp|png|jpeg)$/.test(route)&&gameRoot!==__dirname){
     const ext=path.extname(route).slice(1);return serveFile(res,path.join(gameRoot,route.slice(1)),'image/'+(ext==='jpeg'?'jpeg':ext));
