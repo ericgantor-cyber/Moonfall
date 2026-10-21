@@ -6,7 +6,8 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "build:windows": "electron-builder --win nsis --x64"
+    "build:windows": "npm run prepare:modular && electron-builder --win nsis --x64",
+    "prepare:modular": "node modularize.js"
   },
   "devDependencies": {
     "electron": "^33.4.11",
@@ -22,7 +23,9 @@
     "files": [
       "main.js",
       "game.html",
-      "node_modules/three/build/three.module.js"
+      "node_modules/three/build/three.module.js",
+      "modular/**/*",
+      "modularize.js"
     ],
     "win": {
       "target": [
