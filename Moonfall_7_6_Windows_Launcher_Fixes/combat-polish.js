@@ -11,6 +11,9 @@ function patchJs(s){
  patch('if(mouseAttackHeld||padAttack)shoot();frame++;','if(mouseAttackHeld||padAttack)shoot();frame++;if(mfEvadeFrames>0)mfEvadeFrames--;if(mfEvadeCooldown>0)mfEvadeCooldown--;if(mfCombo>0&&frame-mfLastAttack>150){mfCombo=0;mfUpdateCombo()}','tick');
  patch('function reset(){pendingLevelChoices=0;','function reset(){mfEvadeFrames=0;mfEvadeCooldown=0;mfCombo=0;mfLastAttack=-1000;mfUpdateCombo();pendingLevelChoices=0;','reset');
  patch("if(e.key.toLowerCase()==='e')dash();","if(e.key.toLowerCase()==='e')dash();if(e.key==='Shift'&&!e.repeat)mfEvade();",'input');
+ // Nearest-target selection in linear time; avoid allocating and sorting all enemies for every shot.
+ patch('let targets=enemies.filter(e=>e.hp>0);if(!targets.length)return;targets.sort((a,b)=>Math.hypot(a.x-player.x,a.y-player.y)-Math.hypot(b.x-player.x,b.y-player.y));let t=targets[0],a=',
+ 'let t=null,closest=Infinity;for(const enemy of enemies){if(enemy.hp<=0)continue;const dx=enemy.x-player.x,dy=enemy.y-player.y,d=dx*dx+dy*dy;if(d<closest){closest=d;t=enemy}}if(!t)return;let a=', 'target selection');
  patch('function draw(){paintBackground();',"function draw(){paintBackground();if(mfEvadeFrames>0){ctx.save();ctx.strokeStyle=selectedHero==='nyra'?'#fff099':'#bc78ff';ctx.lineWidth=5;ctx.shadowBlur=24;ctx.shadowColor=ctx.strokeStyle;ctx.beginPath();ctx.arc(player.x,player.y,player.r+12+Math.sin(frame*.5)*3,0,Math.PI*2);ctx.stroke();ctx.restore();}",'evade drawing');
  const logic=`let mfEvadeFrames=0,mfEvadeCooldown=0,mfCombo=0,mfLastAttack=-1000;
 function mfUpdateCombo(){const el=document.getElementById('mfComboHud');if(el)el.textContent=mfCombo>1?'⚔ COMBO x'+mfCombo:'⚔ COMBO';}
