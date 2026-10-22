@@ -1,0 +1,55 @@
+name: Moonfall Windows Installer
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'Moonfall_7_6_Windows_Launcher_Fixes/**'
+      - '.github/workflows/moonfall-windows-installer.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: Moonfall_7_6_Windows_Launcher_Fixes
+    steps:
+      - name: Check out Moonfall
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Validate JavaScript syntax
+        shell: pwsh
+        run: |
+          Get-ChildItem -Filter *.js | ForEach-Object { node --check $_.FullName; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE } }
+      - name: Run game regression checks
+        run: node verify-project.js
+      - name: Test boss phases
+        run: node test-boss-phases.js
+      - name: Audit bundle bloat
+        run: node audit-bloat.js
+      - name: Build Windows installer
+        run: npm run build:windows
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      - name: Verify installer exists
+        shell: pwsh
+        run: |
+          $files = @(Get-ChildItem -Path dist -Filter 'Moonfall-*-Windows-Setup.exe' -File)
+          if ($files.Count -eq 0) { throw 'Windows installer not found' }
+          $files | ForEach-Object { Write-Host "Built $($_.Name) ($($_.Length) bytes)" }
+      - name: Upload Windows installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: Moonfall-Windows-Installer
+          path: Moonfall_7_6_Windows_Launcher_Fixes/dist/Moonfall-*-Windows-Setup.exe
+          if-no-files-found: error
+          retention-days: 30
