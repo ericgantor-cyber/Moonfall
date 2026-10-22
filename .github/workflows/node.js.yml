@@ -39,6 +39,27 @@ jobs:
           for file in *.js; do
             node --check "$file"
           done
+      - name: Verify modular Windows game and prevent duplicate assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          node modularize.js
+          node --check modular/game.js
+          node - <<'NODE'
+          const fs=require('node:fs');
+          const assert=require('node:assert/strict');
+          const pkg=require('./package.json');
+          const js=fs.readFileSync('modular/game.js','utf8');
+          const html=fs.readFileSync('modular/game.html','utf8');
+          assert(!pkg.build.files.includes('game.html'),'duplicate original game packaged');
+          assert(!pkg.build.files.includes('modularize.js'),'unneeded builder script packaged');
+          assert(js.includes('function mfEvade()'),'evade missing from game');
+          assert(js.includes('function showLevelChoices()'),'automatic upgrades missing');
+          assert(js.includes('closest=Infinity'),'linear enemy targeting missing');
+          assert(html.includes('id="mfEvadeBtn"'),'evade button missing');
+          assert(html.includes('id="levelCards"'),'upgrade cards missing');
+          console.log('PASS: modular game, upgrade/dodge controls, targeting, package size');
+          NODE
       - name: Run Moonfall game regression checks
         run: node verify-project.js
       - name: Test boss phase engine
