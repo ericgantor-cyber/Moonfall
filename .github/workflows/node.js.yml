@@ -43,5 +43,11 @@ jobs:
         run: node verify-project.js
       - name: Test boss phase engine
         run: node test-boss-phases.js
+      - name: Verify boss integration in modular build
+        run: |
+          node modularize.js
+          node --check modular/game.js
+          node --check modular/boss-phases.browser.js
+          node -e "const fs=require('fs');const h=fs.readFileSync('modular/game.html','utf8');const j=fs.readFileSync('modular/game.js','utf8');if(!h.includes('boss-phases.browser.js')||!j.includes('MoonfallBossPhases.updateBossPhase'))process.exit(1)"
       - name: Audit embedded asset sizes
         run: node audit-bloat.js
