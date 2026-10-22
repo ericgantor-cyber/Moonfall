@@ -22,10 +22,8 @@
     },
     "files": [
       "main.js",
-      "game.html",
       "node_modules/three/build/three.module.js",
-      "modular/**/*",
-      "modularize.js"
+      "modular/**/*"
     ],
     "win": {
       "target": [
