@@ -10,7 +10,10 @@ const patch=require('./auto-level-cards.js');
 const combat=require('./combat-polish.js');
 const boons=require('./roguelike-boons.js');
 const rooms=require('./roguelike-rooms.js');
-const js=rooms.patchJs(boons.patchJs(combat.patchJs(patch.patchJs(match[1])))).replace(/data:image\/(webp|png|jpeg);base64,([A-Za-z0-9+/=]+)/g,(_,ext,data)=>{
+const mobs=require('./integrate-mob-variants.js');
+const mobCatalog=fs.readFileSync(path.join(root,'mob-variants.js'),'utf8');
+const patchedJs=mobs.patchJs(rooms.patchJs(boons.patchJs(combat.patchJs(patch.patchJs(match[1])))));
+const js=(mobCatalog+'\n'+patchedJs).replace(/data:image\/(webp|png|jpeg);base64,([A-Za-z0-9+/=]+)/g,(_,ext,data)=>{
  const name='art-'+String(++count).padStart(3,'0')+'.'+ext;
  fs.writeFileSync(path.join(assets,name),Buffer.from(data,'base64'));
  return 'assets/'+name;

@@ -64,6 +64,9 @@ jobs:
           assert(js.includes('function mfReadMastery()'),'permanent mastery missing');
           assert(js.includes('function mfSetRoom()'),'room modifier missing');
           assert(html.includes('id="mfRoomHud"'),'room HUD missing');
+          assert(js.includes('function mfCreateMob(e)'),'mob spawn integration missing');
+          assert(js.includes('const COUNT=11111'),'mob catalog missing');
+          assert(js.includes('e.mobVariant?.stats.speed'),'mob stat modifier missing');
           console.log('PASS: modular game, upgrade/dodge controls, targeting, package size');
           NODE
       - name: Test automatic level-up card interaction
