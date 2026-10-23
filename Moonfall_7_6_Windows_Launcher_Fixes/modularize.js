@@ -20,6 +20,7 @@ const transforms = [
   require('./sanctuary-upgrades.js'),
   require('./weapon-evolutions.js'),
   require('./combat-feedback-stage.js'),
+  require('./hades-combo.js'),
 ];
 const mobs = require('./integrate-mob-variants.js');
 const mobCatalog = fs.readFileSync(path.join(root, 'mob-variants.js'), 'utf8');
