@@ -20,8 +20,8 @@ function section(start,end){
  assert(a>=0&&b>a,'Missing generated-game section: '+start);
  return source.slice(a,b);
 }
-const roleCode=section('function mfRoleMove(e,a,s){','function mfNormalEnemyCount(){');
-const countCode=section('function mfNormalEnemyCount(){','function mfSetRoom(){');
+const roleCode=section('function mfRoleMove(e,a,s){','function mfSetRoom(){');
+const countCode=section('function mfNormalEnemyCount(){','let mfRouteChoice=null');
 const env={frame:0,stage:1,Math,player:{x:100,y:100},shots:[],enemies:[],mfMobDamage:(_e,n)=>n,burst(){}};
 vm.createContext(env);
 vm.runInContext(roleCode+'\n'+countCode,env);
