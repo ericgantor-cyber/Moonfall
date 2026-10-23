@@ -21,7 +21,7 @@ const extra=[
 ' const n=Math.max(65,Math.round(135/(v.stats.attackRate||1)));',
 ' if(v.role==="ranged"&&(frame+v.id)%n===0){',
 '  const a=Math.atan2(player.y-e.y,player.x-e.x);',
-'  shots.push({x:e.x,y:e.y,vx:Math.cos(a)*3.4,vy:Math.sin(a)*3.4,r:6,damage:mfMobDamage(e,7),friendly:false,color:"#dd90ff"});',
+'  if(shots.length<240)shots.push({x:e.x,y:e.y,vx:Math.cos(a)*3.4,vy:Math.sin(a)*3.4,r:6,damage:mfMobDamage(e,7),friendly:false,color:"#dd90ff"});',
 ' }else if(v.role==="support"&&(frame+v.id)%190===0){',
 '  let n=0;for(const f of enemies){if(f===e||f.boss||f.hp>=f.max)continue;',
 '    const dx=e.x-f.x,dy=e.y-f.y;if(dx*dx+dy*dy<16000){f.hp=Math.min(f.max,f.hp+10);if(++n===3)break;}}',

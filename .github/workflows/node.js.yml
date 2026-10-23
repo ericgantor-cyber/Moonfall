@@ -75,6 +75,9 @@ jobs:
           assert(js.includes('function mfBossWarningsDraw()'),'boss attack telegraph missing');
           assert(js.includes('function mfSanctuaryBuy(type)'),'Sanctuary purchasing missing');
           assert(js.includes('function mfElementAttack()'),'element attack missing');
+          assert(js.includes('shots.length<240'),'projectile budget missing');
+          assert(js.includes('shots.length>=210'),'boss volley cap missing');
+          assert(js.includes('i===0?!mfElements.fire'),'elemental reward filtering missing');
           assert(js.includes('function mfToggleEffects()'),'accessibility effects toggle missing');
           assert(js.includes('function mfShowMilestone()'),'combo feedback missing');
           assert(html.includes('id="mfEffectsBtn"'),'visual effects control missing');
