@@ -73,6 +73,10 @@ jobs:
           assert(js.includes('mfHeroFlash=12'),'combat feedback missing');
           assert(js.includes('function mfBossExtra(e)'),'boss pattern AI missing');
           assert(js.includes('function mfBossWarningsDraw()'),'boss attack telegraph missing');
+          assert(js.includes('function mfSanctuaryBuy(type)'),'Sanctuary purchasing missing');
+          assert(js.includes('mfSanctuary.vitality*30'),'permanent vitality missing');
+          assert(js.includes('mfSanctuary.evasion*5'),'permanent evasion mastery missing');
+          assert(html.includes('id="mfSanctuary"'),'Sanctuary shop UI missing');
           assert(js.includes('mfBossExtra(e);mfEliteAttack(e);'),'boss updates not connected');
           assert(html.includes('.mf-route-options'),'route choice styles missing');
           console.log('PASS: modular game, upgrade/dodge controls, targeting, package size');
