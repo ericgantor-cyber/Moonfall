@@ -18,7 +18,7 @@ function damageEnemy(e,d){`, 'damage function');
 draw=function(){
  ctx.save();
  try{
-   if(combatShake>0.1 && !(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches)){
+   if(playing && !paused && combatShake>0.1 && !(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches)){
      ctx.translate((Math.random()-.5)*combatShake,(Math.random()-.5)*combatShake);
      combatShake*=.78;
    } else combatShake=0;
