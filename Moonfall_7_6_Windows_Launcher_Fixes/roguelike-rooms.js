@@ -54,7 +54,6 @@ function patchJs(s){
  s=changeOnce(s,"(!e.root&&![2,4,5,6,7,8].includes(stage)&&killCount>=stages[stage].count))next()","(!e.root&&![2,4,5,6,7,8].includes(stage)&&killCount>=stages[stage].count&&!enemies.some(z=>z.mfElite)))next()",'room exit lock');
  s=changeOnce(s,"if(title.includes('FALLEN')||title.includes('SAVED')){","if(title.includes('FALLEN')||title.includes('SAVED')){mfCompleteRun();msg+=' 🌙 Permanent mastery '+mfMastery+'/10: +'+(mfMastery*40)+' max HP next run.';",'permanent rewards');
  s=changeOnce(s,"document.getElementById('bossLabel').textContent='Stage '","document.getElementById('bossLabel').textContent='Stage '",'HUD keep');
- s=changeOnce(s,"if(![2,4,5,6,7,8].includes(stage)&&killCount+enemies.filter","if(![2,4,5,6,7,8].includes(stage)&&killCount+enemies.filter",'spawn sanity');
  return s;
 }
 function patchHtml(s){
