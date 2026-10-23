@@ -67,6 +67,11 @@ jobs:
           assert(js.includes('function mfCreateMob(e)'),'mob spawn integration missing');
           assert(js.includes('const COUNT=11111'),'mob catalog missing');
           assert(js.includes('e.mobVariant?.stats.speed'),'mob stat modifier missing');
+          assert(js.includes('function mfRoleAttack(e)'),'new role attacks missing');
+          assert(js.includes('function mfRoleMove(e,a,s)'),'enemy behaviors missing');
+          assert(js.includes('function mfRouteButtons()'),'arena choice missing');
+          assert(js.includes('mfHeroFlash=12'),'combat feedback missing');
+          assert(html.includes('.mf-route-options'),'route choice styles missing');
           console.log('PASS: modular game, upgrade/dodge controls, targeting, package size');
           NODE
       - name: Check clean reproducible builds and safe asset cleanup
