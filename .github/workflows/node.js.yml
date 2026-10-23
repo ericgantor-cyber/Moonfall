@@ -58,6 +58,8 @@ jobs:
           assert(js.includes('closest=Infinity'),'linear enemy targeting missing');
           assert(html.includes('id="mfEvadeBtn"'),'evade button missing');
           assert(html.includes('id="levelCards"'),'upgrade cards missing');
+          assert(js.includes('function mfTakeBoon(slot)'),'stage reward selection missing');
+          assert(html.includes('id="mfBoonChoices"'),'stage reward UI missing');
           console.log('PASS: modular game, upgrade/dodge controls, targeting, package size');
           NODE
       - name: Test automatic level-up card interaction
