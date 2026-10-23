@@ -25,7 +25,7 @@ function mfTakeBoon(slot){
  if(!upgradePending||!Number.isInteger(slot)||slot<0||slot>=mfBoonChoices.length)return;
  mfBoonPool[mfBoonChoices[slot]].apply();upgradePending=false;mfBoonChoices=[];mfDrawBoons();
  player.max=maxHp();player.hp=Math.min(player.max,player.hp+50);
- beginStage();playing=true;document.getElementById('overlay').classList.add('hidden');updateHUD();
+ beginStage();playing=true;document.getElementById('overlay').classList.add('hidden');showLevelChoices();updateHUD();
 }
 document.getElementById('mfBoonChoices').addEventListener('click',event=>{
  const card=event.target.closest('[data-boon]');if(card){mfTakeBoon(Number(card.dataset.boon));return;}
