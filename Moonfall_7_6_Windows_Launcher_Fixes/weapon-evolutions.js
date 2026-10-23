@@ -34,6 +34,7 @@ function patchJs(s){
  '{name:"⚡ Storm Weapon",description:"Attacks arc to nearby foes",apply(){mfElements.storm=true;mfRefreshElements()}},',
  'elemental boons');
  s=once(s,'function mfRollBoons(){',runtime+'\nfunction mfRollBoons(){','elemental runtime');
+ s=once(s,'const pool=mfBoonPool.map((_,i)=>i);','const pool=mfBoonPool.map((_,i)=>i).filter(i=>i===0?!mfElements.fire:i===1?!mfElements.ice:i===2?!mfElements.storm:true);','hide already unlocked elemental boons');
  s=once(s,'function shoot(){','function shoot(){mfElementAttack();','attack hook');
  s=once(s,'function reset(){','function reset(){mfElementReset();','reset');
  s=once(s,'mfRoleMove(e,a,speed);','mfRoleMove(e,a,speed*(e.mfChillUntil>frame?.65:1));','ice slowdown');
