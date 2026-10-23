@@ -63,10 +63,11 @@ new vm.Script(bundledScript, {filename: 'modular/game.js'});
 
 // Avoid rewriting unchanged outputs; preserve unrelated assets.
 function writeIfChanged(file, data) {
-  if (fs.existsSync(file) && fs.readFileSync(file).equals(Buffer.isBuffer(data) ? data : Buffer.from(data))) return;
+  const bytes = Buffer.isBuffer(data) ? data : Buffer.from(data);
+  if (fs.existsSync(file) && fs.statSync(file).size === bytes.length && fs.readFileSync(file).equals(bytes)) return;
   const temporary = file + '.moonfall-tmp';
   try {
-    fs.writeFileSync(temporary, data);
+    fs.writeFileSync(temporary, bytes);
     fs.renameSync(temporary, file);
   } finally {
     if (fs.existsSync(temporary)) fs.unlinkSync(temporary);
