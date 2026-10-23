@@ -4,7 +4,7 @@ function one(s,a,b,n){let i=s.indexOf(a);if(i<0||s.indexOf(a,i+a.length)>=0)thro
 const extra=[
 'let mfRouteChoice=null,mfHeroFlash=0;',
 'function mfRouteButtons(){',
-' if(!upgradePending)return "";',
+' if(!upgradePending)return "";if([2,4,5,6,7,8].includes(stage))return "<p>⚔ Boss chamber ahead</p>";',
 ' return "<div class=\\"mf-route-options\\"><b>Choose the next arena</b>"+mfRoomTypes.map((room,i)=>"<button type=\\"button\\" data-mf-route=\\""+i+"\\""+(mfRouteChoice===i?" class=\\"selected\\"":"")+">"+room.name+"</button>").join("")+"</div>";',
 '}',
 'function mfRoleMove(e,a,s){',
@@ -14,7 +14,7 @@ const extra=[
 ' if(role==="ranged"&&d>=170&&d<260)a+=Math.PI/2;',
 ' if(role==="tank")s*=.8;',
 ' if(role==="ambusher")s*=(frame+v.id)%140<25?1.8:.8;',
-' return {x:Math.cos(a)*s,y:Math.sin(a)*s};',
+' e.x+=Math.cos(a)*s;e.y+=Math.sin(a)*s;',
 '}',
 'function mfRoleAttack(e){',
 ' const v=e.mobVariant;if(!v||e.boss||e.mfElite||e.hp<=0)return;',
@@ -32,7 +32,7 @@ function patchJs(s){
  s=one(s,'function mfSetRoom(){',extra+'\nfunction mfSetRoom(){','state');
  s=one(s,'mfRoom=![2,4,5,6,7,8].includes(stage)?mfRoomTypes[(stage+mfMastery)%mfRoomTypes.length]:null;',
  'mfRoom=![2,4,5,6,7,8].includes(stage)?mfRoomTypes[mfRouteChoice===null?(stage+mfMastery)%mfRoomTypes.length:mfRouteChoice]:null;mfRouteChoice=null;','room path');
- s=one(s,'function mfRollBoons(){','function mfRollBoons(){mfRouteChoice=null;','route reset');
+ s=one(s,'function mfRollBoons(){','function mfRollBoons(){mfRouteChoice=[2,4,5,6,7,8].includes(stage)?0:null;','route reset');
  s=one(s,"root.innerHTML='<p>Choose one blessing before the next battle.</p>",
  "root.innerHTML=mfRouteButtons()+'<p>Choose one blessing before the next battle.</p>",'route buttons');
  s=one(s,'if(!upgradePending||!Number.isInteger(slot)||slot<0||slot>=mfBoonChoices.length)return;',
@@ -41,8 +41,8 @@ function patchJs(s){
  "const route=event.target.closest('[data-mf-route]');if(route){mfRouteChoice=Number(route.dataset.mfRoute);mfDrawBoons();return;}const card=event.target.closest('[data-boon]');",'route click');
  s=one(s,'function reset(){','function reset(){mfRouteChoice=null;mfHeroFlash=0;','reset');
  s=one(s,'mfEliteAttack(e);e.x+=Math.cos(a)*speed;',
- 'mfRoleAttack(e);mfEliteAttack(e);const mfVector=mfRoleMove(e,a,speed);e.x+=mfVector.x;','role x');
- s=one(s,'e.y+=Math.sin(a)*speed;','e.y+=mfVector.y;','role y');
+ 'mfRoleAttack(e);mfEliteAttack(e);mfRoleMove(e,a,speed);','role x');
+ s=one(s,'e.y+=Math.sin(a)*speed;','','role y');
  s=one(s,'mfCombo=0;mfUpdateCombo()};','mfCombo=0;mfHeroFlash=12;mfUpdateCombo()};','damage pulse');
  s=one(s,'function draw(){paintBackground();',
  'function draw(){paintBackground();if(mfHeroFlash>0){ctx.save();ctx.strokeStyle="rgba(255,55,110,"+(mfHeroFlash/12)+")";ctx.lineWidth=5;ctx.beginPath();ctx.arc(player.x,player.y,player.r+17,0,Math.PI*2);ctx.stroke();ctx.restore();mfHeroFlash--;}','pulse drawing');
