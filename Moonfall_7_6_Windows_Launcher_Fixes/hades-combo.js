@@ -32,7 +32,7 @@ draw=function(){
    ctx.restore();
  }
 };
-function loop(){pollController();tick();draw();requestAnimationFrame(loop)`, 'draw wrapper');
+function loop(){pollController();tick();draw();requestAnimationFrame(loop)}`, 'draw wrapper');
   return s;
 }
 module.exports={patchJs};
