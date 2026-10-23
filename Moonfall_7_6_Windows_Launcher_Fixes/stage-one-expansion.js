@@ -39,7 +39,7 @@ function patchJs(s){
  'if(!upgradePending||mfRouteChoice===null||!Number.isInteger(slot)||slot<0||slot>=mfBoonChoices.length)return;','choose route');
  s=one(s,"const card=event.target.closest('[data-boon]');",
  "const route=event.target.closest('[data-mf-route]');if(route){mfRouteChoice=Number(route.dataset.mfRoute);mfDrawBoons();return;}const card=event.target.closest('[data-boon]');",'route click');
- s=one(s,'function reset(){mfMobRunSeed=','function reset(){mfRouteChoice=null;mfHeroFlash=0;mfMobRunSeed=','reset');
+ s=one(s,'function reset(){','function reset(){mfRouteChoice=null;mfHeroFlash=0;','reset');
  s=one(s,'mfEliteAttack(e);e.x+=Math.cos(a)*speed;',
  'mfRoleAttack(e);mfEliteAttack(e);const mfVector=mfRoleMove(e,a,speed);e.x+=mfVector.x;','role x');
  s=one(s,'e.y+=Math.sin(a)*speed;','e.y+=mfVector.y;','role y');
