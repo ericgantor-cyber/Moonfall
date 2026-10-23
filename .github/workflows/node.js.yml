@@ -74,6 +74,9 @@ jobs:
           assert(js.includes('function mfBossExtra(e)'),'boss pattern AI missing');
           assert(js.includes('function mfBossWarningsDraw()'),'boss attack telegraph missing');
           assert(js.includes('function mfSanctuaryBuy(type)'),'Sanctuary purchasing missing');
+          assert(js.includes('function mfElementAttack()'),'element attack missing');
+          assert(js.includes('function mfElementReset()'),'element reset missing');
+          assert(html.includes('id="mfElementsHud"'),'element HUD missing');
           assert(js.includes('mfSanctuary.vitality*30'),'permanent vitality missing');
           assert(js.includes('mfSanctuary.evasion*5'),'permanent evasion mastery missing');
           assert(html.includes('id="mfSanctuary"'),'Sanctuary shop UI missing');
