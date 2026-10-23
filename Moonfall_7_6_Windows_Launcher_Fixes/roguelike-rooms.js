@@ -15,7 +15,7 @@ function mfReadMastery(){
  try{const n=Number(localStorage.getItem(mfMasteryKey));return Number.isFinite(n)?Math.max(0,Math.min(10,Math.floor(n))):0}catch{return 0}
 }
 function mfStoreMastery(n){try{localStorage.setItem(mfMasteryKey,String(n))}catch{}}
-function mfSetRoom(){
+function mfNormalEnemyCount(){let count=0;for(const e of enemies)if(!e.mfElite)count++;return count}\nfunction mfSetRoom(){
  mfEliteSpawned=false;
  mfRoom=![2,4,5,6,7,8].includes(stage)?mfRoomTypes[(stage+mfMastery)%mfRoomTypes.length]:null;
  const label=document.getElementById('mfRoomHud');
@@ -47,7 +47,7 @@ function patchJs(s){
  s=changeOnce(s,'function reset(){',logic+'function reset(){mfMastery=mfReadMastery();mfRunFinished=false;','run initialization');
  s=changeOnce(s,"const maxHp=()=>(val(0)+","const maxHp=()=>(mfMastery*40+val(0)+",'permanent vitality');
  s=changeOnce(s,'function beginStage(){bossWarnings=[];','function beginStage(){mfSetRoom();bossWarnings=[];','room setup');
- s=changeOnce(s,"if(![2,4,5,6,7,8].includes(stage)&&killCount+enemies.length<stages[stage].count&&frame%47===0)","if(![2,4,5,6,7,8].includes(stage)&&killCount+enemies.filter(e=>!e.mfElite).length<stages[stage].count&&frame%Math.max(30,Math.round(47/(mfRoom?.cadence||1)))===0)",'spawn cadence');
+ s=changeOnce(s,"if(![2,4,5,6,7,8].includes(stage)&&killCount+enemies.length<stages[stage].count&&frame%47===0)","if(![2,4,5,6,7,8].includes(stage)&&killCount+mfNormalEnemyCount()<stages[stage].count&&frame%Math.max(30,Math.round(47/(mfRoom?.cadence||1)))===0)",'spawn cadence');
  s=changeOnce(s,"let hp=[320,150,220][type]*(1+stage*.23);enemies.push(","let hp=[320,150,220][type]*(1+stage*.23);enemies.push(",'enemy hp');
  s=changeOnce(s,"let speed=[1.28,1.65,1.12][e.type??1];e.x+=Math.cos(a)*speed;","let speed=[1.28,1.65,1.12][e.type??1]*(mfRoom?.speed||1);mfEliteAttack(e);e.x+=Math.cos(a)*speed;",'enemy variety');
  s=changeOnce(s,"if(!e.boss){killCount++;player.hp=Math.min(player.max,player.hp+2)}","if(!e.boss){if(!e.mfElite)killCount++;else{souls+=60;gainXP(70)}mfSpawnElite();player.hp=Math.min(player.max,player.hp+2)}",'elite progression');
