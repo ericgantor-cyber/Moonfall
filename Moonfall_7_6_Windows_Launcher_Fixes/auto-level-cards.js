@@ -7,7 +7,7 @@ function once(s,find,replacement,label){
 function patchJs(s){
  s=once(s,"skillOpen=false,stats=","skillOpen=false,pendingLevelChoices=0,activeLevelCards=[],stats=","state");
  s=once(s,"level++;skillPoints+=3;burst(","level++;skillPoints+=3;pendingLevelChoices++;burst(","XP");
- s=once(s,"renderSkills()}const spellNames=","renderSkills();setTimeout(()=>{if(playing)showLevelChoices()},0)}const spellNames=","XP scheduling");
+ s=once(s,"renderSkills()}const spellNames=","renderSkills();if(pendingLevelChoices>0)showLevelChoices()}const spellNames=","XP scheduling");
  const logic=String.raw`function renderLevelCards(){
  const node=document.getElementById('levelCards');if(!node)return;
  if(pendingLevelChoices===0){node.classList.add('hidden');node.innerHTML='';return;}
@@ -15,7 +15,7 @@ function patchJs(s){
  node.innerHTML='<h3>🌙 LEVEL '+level+' • CHOOSE ONE UPGRADE</h3><p>Choose one card to continue. '+pendingLevelChoices+' selection(s) remaining.</p><div class="level-card-grid">'+activeLevelCards.map(i=>'<button type="button" class="level-card" data-level-card="'+i+'"><b>'+statNames[i]+'</b><span>Rank '+stats[i]+' → '+(stats[i]+1)+'</span><span>+'+increments[i]+' upgrade</span></button>').join('')+'</div>';
 }
 function showLevelChoices(){
- if(!playing||pendingLevelChoices<1)return;
+ if(pendingLevelChoices<1)return;
  if(!skillOpen)toggleSkills(true);
  if(activeLevelCards.length)return renderLevelCards();
  const pool=stats.map((r,i)=>r<20?i:-1).filter(i=>i>=0);
@@ -24,7 +24,7 @@ function showLevelChoices(){
  activeLevelCards=pool.slice(0,3);renderLevelCards();
 }
 function chooseLevelCard(i){
- if(!playing||pendingLevelChoices<1||!activeLevelCards.includes(i)||skillPoints<1||stats[i]>=20)return;
+ if(pendingLevelChoices<1||!activeLevelCards.includes(i)||skillPoints<1||stats[i]>=20)return;
  pendingLevelChoices--;activeLevelCards=[];upgrade(i);
  if(pendingLevelChoices>0)showLevelChoices();else{renderLevelCards();toggleSkills(false);}
 }
