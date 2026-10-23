@@ -69,6 +69,19 @@ jobs:
           assert(js.includes('e.mobVariant?.stats.speed'),'mob stat modifier missing');
           console.log('PASS: modular game, upgrade/dodge controls, targeting, package size');
           NODE
+      - name: Check clean reproducible builds and safe asset cleanup
+        shell: bash
+        run: |
+          set -euo pipefail
+          before=$(sha256sum modular/game.js modular/game.html | sha256sum | cut -d' ' -f1)
+          echo 'stale generated asset' > modular/assets/art-999.webp
+          echo 'keep unrelated asset' > modular/assets/readme.txt
+          node modularize.js
+          after=$(sha256sum modular/game.js modular/game.html | sha256sum | cut -d' ' -f1)
+          test "$before" = "$after" || { echo "::error::Modular build is not deterministic"; exit 1; }
+          test ! -e modular/assets/art-999.webp || { echo "::error::Stale generated art wasn't removed"; exit 1; }
+          test -f modular/assets/readme.txt || { echo "::error::Unrelated asset was removed"; exit 1; }
+          rm modular/assets/readme.txt
       - name: Test automatic level-up card interaction
         run: node test-level-cards.js
       - name: Run Moonfall game regression checks
