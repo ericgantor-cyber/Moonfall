@@ -60,6 +60,8 @@ jobs:
           assert(html.includes('id="levelCards"'),'upgrade cards missing');
           console.log('PASS: modular game, upgrade/dodge controls, targeting, package size');
           NODE
+      - name: Test automatic level-up card interaction
+        run: node test-level-cards.js
       - name: Run Moonfall game regression checks
         run: node verify-project.js
       - name: Test boss phase engine
