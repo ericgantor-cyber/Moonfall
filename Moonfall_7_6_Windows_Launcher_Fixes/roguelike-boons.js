@@ -36,7 +36,7 @@ function patchJs(s){
  s=once(s,'function next(){',logic+'function next(){','boon logic');
  s=once(s,"document.getElementById('start').textContent='CONTINUE WITH +25% DAMAGE';document.getElementById('overlay').classList.remove('hidden')","document.getElementById('start').textContent='CHOOSE A BOON ABOVE';document.getElementById('overlay').classList.remove('hidden');mfRollBoons()",'stage clear');
  s=once(s,"if(upgradePending){upgradePending=false;damageLevel++;player.max=maxHp();player.hp=Math.min(player.max,player.hp+50);beginStage();playing=true;document.getElementById('overlay').classList.add('hidden');showLevelChoices()}else","if(upgradePending){return;}else",'prevent skipping choices');
- s=once(s,'function reset(){bossWarnings=[];','function reset(){mfBoonChoices=[];mfBoonRerolls=1;bossWarnings=[];','reset');
+ s=once(s,'function reset(){','function reset(){mfBoonChoices=[];mfBoonRerolls=1;','reset');
  return s;
 }
 function patchHtml(s){
