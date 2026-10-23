@@ -15,6 +15,7 @@ const transforms = [
   require('./combat-polish.js'),
   require('./roguelike-boons.js'),
   require('./roguelike-rooms.js'),
+  require('./stage-one-expansion.js'),
 ];
 const mobs = require('./integrate-mob-variants.js');
 const mobCatalog = fs.readFileSync(path.join(root, 'mob-variants.js'), 'utf8');
