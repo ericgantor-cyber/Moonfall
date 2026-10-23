@@ -15,7 +15,8 @@ function mfReadMastery(){
  try{const n=Number(localStorage.getItem(mfMasteryKey));return Number.isFinite(n)?Math.max(0,Math.min(10,Math.floor(n))):0}catch{return 0}
 }
 function mfStoreMastery(n){try{localStorage.setItem(mfMasteryKey,String(n))}catch{}}
-function mfNormalEnemyCount(){let count=0;for(const e of enemies)if(!e.mfElite)count++;return count}\nfunction mfSetRoom(){
+function mfNormalEnemyCount(){let count=0;for(const e of enemies)if(!e.mfElite)count++;return count}
+function mfSetRoom(){
  mfEliteSpawned=false;
  mfRoom=![2,4,5,6,7,8].includes(stage)?mfRoomTypes[(stage+mfMastery)%mfRoomTypes.length]:null;
  const label=document.getElementById('mfRoomHud');
