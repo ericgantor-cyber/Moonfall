@@ -33,8 +33,8 @@ function patchJs(s){
  s=one(s,'mfRoom=![2,4,5,6,7,8].includes(stage)?mfRoomTypes[(stage+mfMastery)%mfRoomTypes.length]:null;',
  'mfRoom=![2,4,5,6,7,8].includes(stage)?mfRoomTypes[mfRouteChoice===null?(stage+mfMastery)%mfRoomTypes.length:mfRouteChoice]:null;mfRouteChoice=null;','room path');
  s=one(s,'function mfRollBoons(){','function mfRollBoons(){mfRouteChoice=null;','route reset');
- s=one(s,"node.innerHTML='<p>Choose one blessing before the next battle.</p>",
- "node.innerHTML=mfRouteButtons()+'<p>Choose one blessing before the next battle.</p>",'route buttons');
+ s=one(s,"root.innerHTML='<p>Choose one blessing before the next battle.</p>",
+ "root.innerHTML=mfRouteButtons()+'<p>Choose one blessing before the next battle.</p>",'route buttons');
  s=one(s,'if(!upgradePending||!Number.isInteger(slot)||slot<0||slot>=mfBoonChoices.length)return;',
  'if(!upgradePending||mfRouteChoice===null||!Number.isInteger(slot)||slot<0||slot>=mfBoonChoices.length)return;','choose route');
  s=one(s,"const card=event.target.closest('[data-boon]');",
