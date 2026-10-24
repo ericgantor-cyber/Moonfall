@@ -5,6 +5,7 @@ const fs=require('node:fs');
 const path=require('node:path');
 const {formatGpuReport}=require('./gpu-support.js');
 const {loadBackend,saveBackend,configureBackend}=require('./direct3d-backend.js');
+const {prototypePath,launchPrototype}=require('./dx12-launch.js');
 // Configure Chromium's requested ANGLE backend before app.ready.
 // Existing game saves remain on the same local origin regardless of mode.
 const activeGraphicsBackend=configureBackend(app,process.platform,process.argv);
@@ -117,6 +118,21 @@ async function chooseGraphicsBackend(nextMode){
   buttons:['OK']
  });
 }
+async function showDx12Demo(){
+ if(process.platform!=='win32'||!mainWindow||mainWindow.isDestroyed())return;
+ const choice=await dialog.showMessageBox(mainWindow,{
+  type:'info',title:'Experimental DirectX 12 demo',
+  message:'Open the separate DirectX 12 graphics experiment?',
+  detail:'This is a standalone renderer test with an animated background, not Moonfall gameplay. It will open another window. DLSS and RTX graphics are not enabled. Your Moonfall game stays open.',
+  buttons:['Cancel','Launch demo'],defaultId:0,cancelId:0,noLink:true
+ });
+ if(choice.response!==1)return;
+ const executable=prototypePath({isPackaged:app.isPackaged,resourcesPath:process.resourcesPath,appDir:__dirname});
+ try{
+  const child=launchPrototype(executable);
+  child.on('error',err=>dialog.showErrorBox('DirectX 12 demo could not start',String(err)));
+ }catch(err){dialog.showErrorBox('DirectX 12 demo is unavailable',String(err))}
+}
 function showNvidiaTips(){
  if(!mainWindow||mainWindow.isDestroyed())return;
  dialog.showMessageBox(mainWindow,{
@@ -149,6 +165,8 @@ async function createWindow(){
    {label:'Renderer: ANGLE Direct3D 11 (experimental, Windows)',type:'radio',checked:loadBackend(app)==='d3d11',
     enabled:process.platform==='win32',click:()=>chooseGraphicsBackend('d3d11').catch(err=>console.error('Graphics backend:',err))},
    {type:'separator'},
+   {label:'Launch DirectX 12 Demo (experimental)',enabled:process.platform==='win32',
+    click:()=>showDx12Demo().catch(err=>dialog.showErrorBox('DirectX 12 demo error',String(err)))},
    {label:'GPU Status / NVIDIA Check',click:()=>showGraphicsStatus().catch(err=>dialog.showErrorBox('GPU diagnostics error',String(err)))},
    {label:'NVIDIA Recording Tips',click:showNvidiaTips},
    {label:'Download NVIDIA App (Official)',click:()=>shell.openExternal('https://www.nvidia.com/en-us/software/nvidia-app/').catch(err=>dialog.showErrorBox('Could not open NVIDIA website',String(err)))}
