@@ -30,11 +30,12 @@ function mfSpawnElite(){
  burst(W*.5,125,mfRoom.color,35);
 }
 function mfEliteAttack(e){
- if(!e.mfElite||frame%85!==0)return;
+ if(!e.mfElite||e.hp<=0||frame%85!==0||shots.length>=240)return;
  const a=Math.atan2(player.y-e.y,player.x-e.x);
- for(let i=-2;i<=2;i++){const dir=a+i*.21;
- shots.push({x:e.x,y:e.y,vx:Math.cos(dir)*4.2,vy:Math.sin(dir)*4.2,r:8,damage:13,friendly:false,color:mfRoom?.color||'#ff87ee'})}
- burst(e.x,e.y,mfRoom?.color||'#ff87ee',8);
+ let spawned=0;
+ for(let i=-2;i<=2&&shots.length<240;i++){const dir=a+i*.21;
+ shots.push({x:e.x,y:e.y,vx:Math.cos(dir)*4.2,vy:Math.sin(dir)*4.2,r:8,damage:13,friendly:false,color:mfRoom?.color||'#ff87ee'});spawned++}
+ if(spawned)burst(e.x,e.y,mfRoom?.color||'#ff87ee',8);
 }
 function mfCompleteRun(){
  if(mfRunFinished)return;
