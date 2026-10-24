@@ -31,7 +31,7 @@ assert(pkg.scripts['build:dx12'].includes('cmake --build'));
 assert(pkg.build.files.includes('dx12-launch.js'));
 assert(pkg.build.extraResources.some(x=>x.to==='dx12/'+EXE&&x.from.endsWith('/Release/'+EXE)));
 const source=fs.readFileSync('main.js','utf8');
-assert(source.includes("label:'Play DX12 Combat Arena (experimental)'"));
+assert(source.includes("label:'Play DX12 Original Art Arena (experimental)'"));
 assert(source.includes("prototypePath({isPackaged:app.isPackaged,resourcesPath:process.resourcesPath,appDir:__dirname})"));
 assert(source.includes("child.on('error'"),'spawn errors must be handled');
 console.log('PASS: bundled DX12 executable path, safe launcher, source wiring, and installer configuration');
