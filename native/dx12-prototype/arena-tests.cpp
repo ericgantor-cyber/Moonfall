@@ -202,7 +202,9 @@ int main(){
     upgraded.strike(e,1000.f);
   assert(upgraded.phase==Phase::Won && upgraded.stage==2);
   upgraded.update(.016f,moonsteel);
-  assert(upgraded.stage==2 && upgraded.phase==Phase::Won); // no stage 3
+  assert(upgraded.stage==3 && upgraded.phase==Phase::Playing);
+  assert(upgraded.room==moonfall::Room::Bloodmoon && upgraded.damageMultiplier==1.25f);
+  assert(upgraded.roomRules().speed==1.17f && upgraded.roomRules().cadence==1.2f);
   Arena vitality;
   vitality.health=35.f;
   vitality.bossSummoned=true;vitality.bossDefeated=true;
@@ -225,5 +227,59 @@ int main(){
   assert(barrage.health==100.f && barrage.hostileProjectileCount()==0);
   for(int n=0;n<100;n++)barrage.launchBossVolley(*barrage.hydra());
   assert(barrage.hostileProjectileCount()<=96);
-  std::cout<<"PASS: DX12 arena input, fixed-step bounds, dash, seeded waves, bullets, AI, health, restart, boss volley timing, actual image mappings and 2-stage blessings\n";
+  // Original room modifiers and elite projectile fan ported from roguelike-rooms.js.
+  Arena roomChoice;
+  roomChoice.stage=2;roomChoice.phase=Phase::Won;
+  Input shadow{};shadow.boonVitality=true;
+  roomChoice.update(.016f,shadow);
+  assert(roomChoice.stage==3 && roomChoice.room==moonfall::Room::Shadow);
+  assert(roomChoice.roomRules().speed==1.05f&&roomChoice.roomRules().cadence==1.f);
+  roomChoice.reset();
+  assert(roomChoice.stage==1 && !roomChoice.eliteSpawned);
+  roomChoice.stage=2;roomChoice.phase=Phase::Won;
+  Input cinder{};cinder.roomCinder=true;
+  roomChoice.update(.016f,cinder);
+  assert(roomChoice.room==moonfall::Room::Cinder);
+  assert(roomChoice.roomRules().speed==1.f && roomChoice.roomRules().cadence==1.4f);
+  assert(roomChoice.stage==3);
+  // Enemy movement changes with the source-defined room speed modifier.
+  Arena speedA,speedB;
+  speedA.stage=3;speedB.stage=3;
+  speedA.room=moonfall::Room::Bloodmoon;
+  speedB.room=moonfall::Room::Cinder;
+  speedA.spawnCooldown=1000.f;speedB.spawnCooldown=1000.f;
+  speedA.enemies[0]={speedA.x+200.f,speedA.y,3.f,true};
+  speedB.enemies[0]=speedA.enemies[0];
+  speedA.update(.05f,Input{});speedB.update(.05f,Input{});
+  assert(speedA.enemies[0].x < speedB.enemies[0].x);
+  // Elite must appear only after ten kills, only once, and block victory.
+  Arena elite;
+  elite.stage=3;elite.spawnCooldown=1000.f;elite.kills=9;
+  elite.update(.05f,Input{});
+  assert(!elite.eliteSpawned);
+  elite.kills=10;
+  elite.update(.05f,Input{});
+  assert(elite.eliteSpawned&&elite.activeElite());
+  const int occupied=elite.enemyCount();
+  elite.spawnElite();
+  assert(elite.enemyCount()==occupied);
+  elite.eliteVolleyTimer=0.f;
+  elite.update(.05f,Input{});
+  assert(elite.hostileProjectileCount()==5 && elite.eliteVolleys==1);
+  // Native copies the original five shot angles, 4.2px/frame and 13 damage.
+  for(const auto& bullet:elite.hostileShots)if(bullet.active){
+    assert(bullet.damage==13.f);
+    const float velocity=std::sqrt(bullet.vx*bullet.vx+bullet.vy*bullet.vy);
+    assert(std::abs(velocity-252.f)<.05f);
+  }
+  elite.kills=20;
+  elite.update(.016f,Input{});
+  assert(elite.phase==Phase::Playing); // elite room gate is enforced
+  for(auto& enemy:elite.enemies)if(enemy.active&&enemy.role==moonfall::EnemyRole::Elite)
+    elite.strike(enemy,1000.f);
+  elite.update(.016f,Input{});
+  assert(elite.phase==Phase::Won && elite.stage==3);
+  elite.update(.016f,moonsteel);
+  assert(elite.stage==3 && elite.phase==Phase::Won); // no hidden next stage
+  std::cout<<"PASS: DX12 arena input, fixed-step bounds, dash, seeded waves, bullets, AI, health, restart, boss volley timing, actual image mappings and 3-stage progression, original room modifiers and elite AI\n";
 }
