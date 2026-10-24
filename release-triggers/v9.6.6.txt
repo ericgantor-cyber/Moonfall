@@ -1,0 +1,2 @@
+Moonfall v9.6.6: publish Windows installer with separate playable experimental DirectX 12 combat arena.
+Original JavaScript gameplay and Z/Nyra artwork remain unchanged; no DLSS.
