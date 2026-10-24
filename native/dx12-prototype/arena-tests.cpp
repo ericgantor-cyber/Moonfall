@@ -70,5 +70,35 @@ int main(){
   for(auto& shot:limited.shots)shot={500,200,0,0,1.f,true};
   limited.fire();
   assert(limited.projectileCount()==moonfall::MaxShots);
+  // Early, deliberately isolated hero skill prototypes, not parity with the full game.
+  Arena heroes;
+  assert(heroes.hero==moonfall::Hero::Z);
+  Input toggle{};toggle.switchHero=true;
+  heroes.update(.016f,toggle);
+  assert(heroes.hero==moonfall::Hero::Nyra);
+  heroes.spawnCooldown=1000.f;
+  heroes.enemies[0]={heroes.x,heroes.y,2.f,true};
+  Input skill{};skill.special=true;
+  heroes.update(.016f,skill);
+  assert(heroes.nyraShield>2.f&&heroes.health==100.f);
+  assert(heroes.heroSkillCooldown>0.f);
+  for(int i=0;i<40;i++)heroes.update(.016f,Input{});
+  assert(heroes.health==100.f);
+  heroes.update(.016f,toggle);
+  assert(heroes.hero==moonfall::Hero::Z);
+  assert(heroes.nyraShield==0.f);
+  heroes.enemies[0].active=false;
+  heroes.update(.016f,skill);
+  assert(heroes.dragonPower>2.f);
+  assert(heroes.heroSkillCooldown>0.f);
+  heroes.enemies[0]={heroes.x+45.f,heroes.y,2.f,true};
+  Input attack{};attack.attack=true;
+  heroes.update(.016f,attack);
+  assert(heroes.projectileCount()==1);
+  assert(heroes.shots[0].damage==2.f);
+  for(int i=0;i<15;i++)heroes.update(.016f,Input{});
+  assert(heroes.kills==1);
+  heroes.update(.016f,Input{false,false,false,false,false,false,true});
+  assert(heroes.hero==moonfall::Hero::Z && heroes.dragonPower==0 && heroes.heroSkillCooldown==0);
   std::cout<<"PASS: DX12 arena input, fixed-step bounds, dash, seeded waves, bullets, AI, health, restart, victory\n";
 }
