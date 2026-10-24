@@ -109,6 +109,8 @@ jobs:
         run: node test-gpu-support.js
       - name: Test opt-in Direct3D 11 ANGLE configuration
         run: node test-direct3d-backend.js
+      - name: Test optional FPS and frame pacing overlay
+        run: node test-performance-overlay.js
       - name: Test 2D performance render scaling
         run: node test-render-scale.js
       - name: Test generated enemy roles and performance regressions
