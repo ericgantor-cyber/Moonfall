@@ -1,0 +1,15 @@
+'use strict';
+const assert=require('node:assert/strict');
+const {patchHtml}=require('./arcane-ui.js');
+const input='<html><head><style>.original{color:red}</style></head><body><div id="overlay"></div></body></html>';
+const output=patchHtml(input);
+assert(output.includes('.original{color:red}'));
+assert(output.includes('#mfBoonChoices .mf-boon'));
+assert(output.includes('prefers-reduced-motion'));
+assert(output.includes('#levelCards .level-card'));
+assert(output.includes('#mfComboHud'));
+assert(output.includes('#mfCombatToast'));
+assert(output.includes('focus-visible'));
+assert(output.includes('<div id="overlay"></div>'));
+assert.throws(()=>patchHtml('<html></html>'),/expected one style close tag/);
+console.log('PASS arcane UI transform: style scoped; original HTML intact');
