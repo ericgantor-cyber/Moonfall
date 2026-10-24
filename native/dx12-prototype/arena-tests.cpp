@@ -159,5 +159,71 @@ int main(){
   for(int i=0;i<50;i++)ra.impact(100.f,100.f,20.f);
   int fxCount=0;for(const auto& fx:ra.impacts)if(fx.active)fxCount++;
   assert(fxCount<=moonfall::MaxImpacts);
-  std::cout<<"PASS: DX12 arena input, fixed-step bounds, dash, seeded waves, bullets, AI, health, restart, Hydra boss victory\n";
+  // Source-derived generic boss patterns: 5 projectiles in phase 1,
+  // 9 in phase 2; 190/145 frame intervals, 35 frame warnings at 60Hz.
+  Arena original;
+  original.spawnCooldown=1000.f;
+  original.spawnHydra();
+  auto* originalBoss=original.hydra();
+  assert(originalBoss!=nullptr);
+  original.launchBossVolley(*originalBoss);
+  assert(original.hostileProjectileCount()==5);
+  assert(original.volleyCount==1);
+  for(auto& b:original.hostileShots)b.active=false;
+  originalBoss->hp=15.f;
+  original.launchBossVolley(*originalBoss);
+  assert(original.hostileProjectileCount()==9);
+  assert(original.volleyCount==2);
+  for(const auto& b:original.hostileShots)if(b.active)
+    assert(b.damage==15.f && std::abs(std::sqrt(b.vx*b.vx+b.vy*b.vy)-240.f)<.05f);
+  original.bossVolleyTell=0;
+  original.bossVolleyTimer=0;
+  original.update(.016f,Input{});
+  assert(original.bossVolleyTell>0.f);
+  // Original bear and creep imagery uses fixed sprite indices, no new art.
+  // First cleared Hydra gate offers genuine named main-game blessing choices.
+  Arena upgraded;
+  upgraded.spawnCooldown=1000.f;
+  upgraded.spawnHydra();
+  for(auto& e:upgraded.enemies)if(e.active&&e.role==moonfall::EnemyRole::Hydra)
+    upgraded.strike(e,1000.f);
+  assert(upgraded.phase==Phase::Won && upgraded.stage==1);
+  Input moonsteel{};moonsteel.boonDamage=true;
+  upgraded.update(.016f,moonsteel);
+  assert(upgraded.phase==Phase::Playing && upgraded.stage==2);
+  assert(upgraded.damageMultiplier==1.25f && upgraded.maxHealth==100.f);
+  assert(upgraded.activeBoss()!=nullptr &&
+         upgraded.activeBoss()->role==moonfall::EnemyRole::Titan);
+  upgraded.hero=moonfall::Hero::Z;
+  upgraded.dragonPower=0;
+  upgraded.fireBolt();
+  assert(upgraded.shots[0].damage==1.25f);
+  for(auto& e:upgraded.enemies)if(e.active&&e.role==moonfall::EnemyRole::Titan)
+    upgraded.strike(e,1000.f);
+  assert(upgraded.phase==Phase::Won && upgraded.stage==2);
+  upgraded.update(.016f,moonsteel);
+  assert(upgraded.stage==2 && upgraded.phase==Phase::Won); // no stage 3
+  Arena vitality;
+  vitality.health=35.f;
+  vitality.bossSummoned=true;vitality.bossDefeated=true;
+  vitality.phase=Phase::Won;
+  Input crimson{};crimson.boonVitality=true;
+  vitality.update(.016f,crimson);
+  assert(vitality.stage==2 && vitality.maxHealth==130.f);
+  assert(vitality.health==85.f && vitality.damageMultiplier==1.f);
+  assert(vitality.activeBoss()->role==moonfall::EnemyRole::Titan);
+  vitality.reset();
+  assert(vitality.stage==1 && vitality.maxHealth==100.f &&
+         vitality.damageMultiplier==1.f && vitality.hostileProjectileCount()==0);
+  // Enemy shots obey shields and the fixed capacity under extreme volleys.
+  Arena barrage;
+  barrage.spawnCooldown=1000.f;barrage.spawnHydra();
+  barrage.hero=moonfall::Hero::Nyra;
+  barrage.nyraShield=1.f;
+  barrage.hostileShots[0]={barrage.x,barrage.y,0,0,1.f,10.f,true};
+  barrage.update(.016f,Input{});
+  assert(barrage.health==100.f && barrage.hostileProjectileCount()==0);
+  for(int n=0;n<100;n++)barrage.launchBossVolley(*barrage.hydra());
+  assert(barrage.hostileProjectileCount()<=96);
+  std::cout<<"PASS: DX12 arena input, fixed-step bounds, dash, seeded waves, bullets, AI, health, restart, boss volley timing, actual image mappings and 2-stage blessings\n";
 }

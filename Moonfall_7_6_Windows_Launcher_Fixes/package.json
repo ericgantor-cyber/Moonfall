@@ -64,6 +64,30 @@
       {
         "from": "../native/dx12-prototype/build/Release/original-hero-art.json",
         "to": "dx12/original-hero-art.json"
+      },
+      {
+        "from": "../native/dx12-prototype/build/Release/enemy-bear.png",
+        "to": "dx12/enemy-bear.png"
+      },
+      {
+        "from": "../native/dx12-prototype/build/Release/enemy-creep-1.png",
+        "to": "dx12/enemy-creep-1.png"
+      },
+      {
+        "from": "../native/dx12-prototype/build/Release/enemy-creep-2.png",
+        "to": "dx12/enemy-creep-2.png"
+      },
+      {
+        "from": "../native/dx12-prototype/build/Release/enemy-creep-3.png",
+        "to": "dx12/enemy-creep-3.png"
+      },
+      {
+        "from": "../native/dx12-prototype/build/Release/boss-titan-fire.png",
+        "to": "dx12/boss-titan-fire.png"
+      },
+      {
+        "from": "../native/dx12-prototype/build/Release/boss-titan-nature.png",
+        "to": "dx12/boss-titan-nature.png"
       }
     ]
   },

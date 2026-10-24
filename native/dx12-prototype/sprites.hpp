@@ -1,4 +1,4 @@
-// Exact-pixel original hero sprite copies rendered using Direct3D 12.
+// Original Moonfall characters, bear, creeps and Titans rendered with Direct3D 12.
 // Image bytes are prepared from the embedded Moonfall assets at build time.
 // No frame generation, NVIDIA SDK or changes to the original artwork.
 #pragma once
@@ -31,11 +31,13 @@ struct OriginalHeroImage {
 struct SpriteVertex { float x,y,u,v; };
 
 class OriginalHeroSprites {
+    static constexpr UINT MaxSpritesPerFrame=128;
+    UINT drawCursor=0;
     ComPtr<ID3D12RootSignature> root;
     ComPtr<ID3D12PipelineState> pipeline;
     ComPtr<ID3D12DescriptorHeap> descriptors;
     ComPtr<ID3D12Resource> vertices;
-    std::array<OriginalHeroImage,2> heroes{};
+    std::array<OriginalHeroImage,8> heroes{};
     UINT stride=0;
 
     static D3D12_RESOURCE_DESC BufferDescription(UINT64 size) {
@@ -219,10 +221,10 @@ class OriginalHeroSprites {
     }
 public:
     void Initialize(ID3D12Device* device,ID3D12GraphicsCommandList* command,
-                    const wchar_t* zArt,const wchar_t* nyraArt){
+                    const std::array<std::wstring,8>& originalArt){
         CreateShaders(device);
         D3D12_DESCRIPTOR_HEAP_DESC heap={};
-        heap.NumDescriptors=2;
+        heap.NumDescriptors=static_cast<UINT>(heroes.size());
         heap.Type=D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
         heap.Flags=D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
         RequireDx(device->CreateDescriptorHeap(&heap,IID_PPV_ARGS(&descriptors)),
@@ -230,18 +232,19 @@ public:
         stride=device->GetDescriptorHandleIncrementSize(heap.Type);
         D3D12_HEAP_PROPERTIES memory={};
         memory.Type=D3D12_HEAP_TYPE_UPLOAD;
-        auto desc=BufferDescription(sizeof(SpriteVertex)*6);
+        auto desc=BufferDescription(sizeof(SpriteVertex)*6*MaxSpritesPerFrame);
         RequireDx(device->CreateCommittedResource(&memory,D3D12_HEAP_FLAG_NONE,
             &desc,D3D12_RESOURCE_STATE_GENERIC_READ,nullptr,IID_PPV_ARGS(&vertices)),
             "Allocate dynamic sprite vertices");
-        LoadImage(device,command,0,zArt);
-        LoadImage(device,command,1,nyraArt);
+        for(size_t i=0;i<originalArt.size();++i)
+            LoadImage(device,command,static_cast<int>(i),originalArt[i].c_str());
     }
+    void StartFrame(){drawCursor=0;}
     void Draw(ID3D12GraphicsCommandList* cmd,int selected,float x,float y,
-              D3D12_CPU_DESCRIPTOR_HANDLE renderTarget){
-        const int hero=selected==1?1:0;
+              D3D12_CPU_DESCRIPTOR_HANDLE renderTarget,float size=94.f){
+        if(drawCursor>=MaxSpritesPerFrame)throw std::runtime_error("Sprite vertex draw capacity exceeded");
+        const int hero=std::max(0,std::min(7,selected));
         const auto& source=heroes[size_t(hero)];
-        const float size=94.f;
         const float ratio=static_cast<float>(source.width)/static_cast<float>(source.height);
         const float width=ratio>1.f?size:size*ratio;
         const float height=ratio>1.f?size/ratio:size;
@@ -252,12 +255,13 @@ public:
             {clipX(l),clipY(t),0,0},{clipX(r),clipY(t),1,0},{clipX(l),clipY(b),0,1},
             {clipX(r),clipY(t),1,0},{clipX(r),clipY(b),1,1},{clipX(l),clipY(b),0,1}
         };
+        const size_t offset=size_t(drawCursor++)*sizeof(quad);
         void* mapped=nullptr;
-        RequireDx(vertices->Map(0,nullptr,&mapped),"Map original hero quad");
-        std::memcpy(mapped,quad,sizeof(quad));
+        RequireDx(vertices->Map(0,nullptr,&mapped),"Map original art quad");
+        std::memcpy(static_cast<std::uint8_t*>(mapped)+offset,quad,sizeof(quad));
         vertices->Unmap(0,nullptr);
         D3D12_VERTEX_BUFFER_VIEW view={};
-        view.BufferLocation=vertices->GetGPUVirtualAddress();
+        view.BufferLocation=vertices->GetGPUVirtualAddress()+offset;
         view.SizeInBytes=sizeof(quad);
         view.StrideInBytes=sizeof(SpriteVertex);
         ID3D12DescriptorHeap* heap=descriptors.Get();
