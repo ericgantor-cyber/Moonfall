@@ -123,7 +123,7 @@ async function showDx12Demo(){
  const choice=await dialog.showMessageBox(mainWindow,{
   type:'info',title:'Experimental DirectX 12 demo',
   message:'Play the experimental DirectX 12 combat arena?',
-  detail:'This is a separate experimental arena using original Z/Nyra character art where installed. Tab changes hero; WASD/Arrows move; Space/Click shoots; Shift dashes; E uses an early hero skill; R restarts. The main Moonfall game stays open. The full original combat system and DLSS are NOT integrated.',
+  detail:'This is a separate experimental arena using original Z/Nyra character art where installed. Tab changes hero; WASD/Arrows move; Space/Click shoots; Q switches Bolt/Nova weapons; Shift dashes; E uses an early hero skill; R restarts. Three enemy roles and an experimental Hydra boss appear. The main Moonfall game stays open. Bosses and weapons are simplified prototypes, not full original combat or DLSS.',
   buttons:['Cancel','Launch demo'],defaultId:0,cancelId:0,noLink:true
  });
  if(choice.response!==1)return;
