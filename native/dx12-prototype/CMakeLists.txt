@@ -7,3 +7,9 @@ add_executable(MoonfallDX12Prototype main.cpp)
 target_compile_features(MoonfallDX12Prototype PRIVATE cxx_std_17)
 target_compile_definitions(MoonfallDX12Prototype PRIVATE UNICODE _UNICODE NOMINMAX)
 target_link_libraries(MoonfallDX12Prototype PRIVATE d3d12 dxgi)
+
+# Test gameplay logic independently from the DX12 device and renderer.
+enable_testing()
+add_executable(MoonfallArenaTests arena-tests.cpp)
+target_compile_features(MoonfallArenaTests PRIVATE cxx_std_17)
+add_test(NAME ArenaLogic COMMAND MoonfallArenaTests)
