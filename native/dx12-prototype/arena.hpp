@@ -10,13 +10,16 @@ namespace moonfall {
 constexpr float Width = 1024.f, Height = 576.f;
 constexpr int MaxEnemies = 48, MaxShots = 96;
 enum class Phase { Playing, Won, Lost };
-struct Input { bool up=false, down=false, left=false, right=false, attack=false, dash=false, restart=false; };
+enum class Hero { Z, Nyra };
+struct Input { bool up=false, down=false, left=false, right=false, attack=false, dash=false, restart=false, switchHero=false, special=false; };
 struct Enemy { float x=0, y=0, hp=0; bool active=false; };
-struct Shot { float x=0, y=0, vx=0, vy=0, life=0; bool active=false; };
+struct Shot { float x=0, y=0, vx=0, vy=0, life=0; bool active=false; float damage=1.f; };
 
 struct Arena {
   float x=Width/2, y=Height/2;
   float health=100, seconds=0, fireCooldown=0, dashCooldown=0, invulnerable=0, spawnCooldown=0.4f;
+  float heroSkillCooldown=0, dragonPower=0, nyraShield=0;
+  Hero hero=Hero::Z;
   int kills=0, wave=1;
   Phase phase=Phase::Playing;
   uint32_t randomState=0xC0FFEEu;
@@ -35,7 +38,7 @@ struct Arena {
   }
   int enemyCount() const {int n=0;for(const auto& e:enemies)if(e.active)++n;return n;}
   int projectileCount() const {int n=0;for(const auto& s:shots)if(s.active)++n;return n;}
-  void reset(){*this=Arena{};}
+  void reset(){const Hero previous=hero;*this=Arena{};hero=previous;}
   void spawnEnemy(){
     if(enemyCount()>=32)return;
     for(auto& e:enemies)if(!e.active){
@@ -57,18 +60,30 @@ struct Arena {
       float dx=1,dy=0;
       if(target){dx=target->x-x;dy=target->y-y;}
       const float len=std::max(0.0001f,std::sqrt(dx*dx+dy*dy));
-      shot={x,y,dx/len*650.f,dy/len*650.f,1.15f,true};
+      shot={x,y,dx/len*650.f,dy/len*650.f,1.15f,true,
+            hero==Hero::Z&&dragonPower>0?2.f:1.f};
       return;
     }
   }
   void update(float dt,const Input& input){
     if(input.restart){reset();return;}
+    if(input.switchHero){
+      hero=hero==Hero::Z?Hero::Nyra:Hero::Z;
+      dragonPower=0;nyraShield=0;heroSkillCooldown=0;
+    }
     if(phase!=Phase::Playing)return;
     dt=clamp(dt,0.f,0.05f);
     seconds+=dt;
     fireCooldown=std::max(0.f,fireCooldown-dt);
     dashCooldown=std::max(0.f,dashCooldown-dt);
     invulnerable=std::max(0.f,invulnerable-dt);
+    heroSkillCooldown=std::max(0.f,heroSkillCooldown-dt);
+    dragonPower=std::max(0.f,dragonPower-dt);
+    nyraShield=std::max(0.f,nyraShield-dt);
+    if(input.special&&heroSkillCooldown<=0){
+      if(hero==Hero::Z){dragonPower=2.2f;heroSkillCooldown=7.f;}
+      else{nyraShield=2.2f;heroSkillCooldown=6.f;}
+    }
     float dx=float(input.right)-float(input.left),dy=float(input.down)-float(input.up);
     const float len=std::sqrt(dx*dx+dy*dy);
     if(len>0){dx/=len;dy/=len;}
@@ -84,13 +99,13 @@ struct Arena {
       spawnCooldown+=std::max(0.30f,0.90f-float(wave-1)*0.20f);
       spawnEnemy();
     }
-    if(input.attack&&fireCooldown<=0){fireCooldown=0.19f;fire();}
+    if(input.attack&&fireCooldown<=0){fireCooldown=hero==Hero::Z&&dragonPower>0?0.11f:0.19f;fire();}
     for(auto& e:enemies)if(e.active){
       float vx=x-e.x,vy=y-e.y;
       const float dist=std::max(0.0001f,std::sqrt(vx*vx+vy*vy));
       const float speed=58.f+float(wave-1)*18.f;
       e.x+=vx/dist*speed*dt;e.y+=vy/dist*speed*dt;
-      if(dist<31.f&&invulnerable<=0){
+      if(dist<31.f&&invulnerable<=0&&nyraShield<=0){
         health=std::max(0.f,health-12.f);
         invulnerable=0.58f;
         if(health<=0)phase=Phase::Lost;
@@ -101,7 +116,7 @@ struct Arena {
       if(s.life<=0||s.x<0||s.x>Width||s.y<0||s.y>Height){s.active=false;continue;}
       for(auto& e:enemies)if(e.active&&distanceSquared(s.x,s.y,e.x,e.y)<24.f*24.f){
         s.active=false;
-        e.hp-=1.f;
+        e.hp-=s.damage;
         if(e.hp<=0){e.active=false;++kills;}
         break;
       }
