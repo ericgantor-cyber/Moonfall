@@ -12,10 +12,11 @@ constexpr int MaxEnemies=48, MaxShots=96, MaxImpacts=32;
 enum class Phase { Playing, Won, Lost };
 enum class Hero { Z, Nyra };
 enum class Weapon { Bolt, Nova };
-enum class EnemyRole { Chaser, Runner, Brute, Hydra };
+enum class EnemyRole { Chaser, Runner, Brute, Hydra, Titan };
 struct Input {
   bool up=false,down=false,left=false,right=false,attack=false,dash=false;
   bool restart=false,switchHero=false,special=false,switchWeapon=false;
+  bool boonDamage=false,boonVitality=false;
 };
 struct Enemy {
   float x=0,y=0,hp=0; bool active=false;
@@ -26,6 +27,7 @@ struct Shot {
   float x=0,y=0,vx=0,vy=0,life=0; bool active=false; float damage=1.f;
 };
 struct Impact { float x=0,y=0,radius=0,life=0; bool active=false; };
+struct HostileShot {float x=0,y=0,vx=0,vy=0,life=0,damage=0;bool active=false;};
 
 struct Arena {
   float x=Width/2,y=Height/2;
@@ -33,6 +35,9 @@ struct Arena {
   float heroSkillCooldown=0,dragonPower=0,nyraShield=0;
   float hydraTell=0,hydraAttackCooldown=2.4f,hydraMinionCooldown=1.5f;
   float novaPulse=0;
+  float bossVolleyTimer=190.f/60.f,bossVolleyTell=0;
+  float damageMultiplier=1.f,maxHealth=100.f;
+  int stage=1,volleyCount=0;
   Hero hero=Hero::Z;
   Weapon weapon=Weapon::Bolt;
   int kills=0,wave=1;
@@ -42,6 +47,7 @@ struct Arena {
   std::array<Enemy,MaxEnemies> enemies{};
   std::array<Shot,MaxShots> shots{};
   std::array<Impact,MaxImpacts> impacts{};
+  std::array<HostileShot,96> hostileShots{};
 
   static float clamp(float n,float lo,float hi){return std::max(lo,std::min(n,hi));}
   static float distanceSquared(float ax,float ay,float bx,float by){
@@ -55,6 +61,7 @@ struct Arena {
   }
   int enemyCount() const {int n=0;for(const auto& e:enemies)if(e.active)++n;return n;}
   int projectileCount() const {int n=0;for(const auto& s:shots)if(s.active)++n;return n;}
+  int hostileProjectileCount() const {int n=0;for(const auto& s:hostileShots)if(s.active)++n;return n;}
   const Enemy* hydra() const {
     for(const auto& e:enemies)if(e.active&&e.role==EnemyRole::Hydra)return &e;
     return nullptr;
@@ -65,6 +72,13 @@ struct Arena {
   }
   bool hydraEnraged() const {
     const auto* h=hydra();return h&&h->hp<=h->maxHp*.5f;
+  }
+  const Enemy* activeBoss() const {
+    for(const auto& e:enemies)if(e.active&&(e.role==EnemyRole::Hydra||e.role==EnemyRole::Titan))return &e;
+    return nullptr;
+  }
+  bool bossInSecondPhase() const {
+    const auto* boss=activeBoss();return boss&&boss->hp<=boss->maxHp*.5f;
   }
   void reset(){const Hero h=hero;const Weapon w=weapon;*this=Arena{};hero=h;weapon=w;}
   void impact(float ix,float iy,float radius,float life=.25f){
@@ -96,9 +110,56 @@ struct Arena {
       hydraTell=0;
       hydraAttackCooldown=2.4f;
       hydraMinionCooldown=1.5f;
+      bossVolleyTimer=190.f/60.f;bossVolleyTell=0;
       impact(e.x,e.y,80.f,.45f);
       return;
     }
+  }
+  void spawnTitan(){
+    for(auto& e:enemies)if(!e.active){
+      e={Width/2,100.f,42.f,true,EnemyRole::Titan,42.f,0};
+      bossSummoned=true;bossDefeated=false;
+      bossVolleyTimer=190.f/60.f;bossVolleyTell=0;volleyCount=0;
+      impact(e.x,e.y,100.f,.6f);
+      return;
+    }
+  }
+  void startTitanStage(bool chooseVitality){
+    stage=2;phase=Phase::Playing;bossSummoned=false;bossDefeated=false;
+    kills=0;wave=3;spawnCooldown=1000.f;invulnerable=1.f;
+    hydraTell=0;hydraAttackCooldown=2.4f;
+    for(auto& e:enemies)e.active=false;
+    for(auto& shot:shots)shot.active=false;
+    for(auto& shot:hostileShots)shot.active=false;
+    for(auto& fx:impacts)fx.active=false;
+    if(chooseVitality){
+      maxHealth+=30.f;health=std::min(maxHealth,health+50.f);
+    }else{
+      damageMultiplier*=1.25f;
+      health=std::min(maxHealth,health+25.f);
+    }
+    spawnTitan();
+  }
+  void launchBossVolley(const Enemy& boss){
+    // Faithful numeric port of mfBossExtra in boss-combat-stage.js:
+    // 5 shots phase one, 9 phase two; stage%3 picks radial/aimed fan;
+    // 4/3.1 px per 60Hz frame, 10/15 damage.
+    constexpr float Pi=3.14159265358979323846f;
+    const bool second=boss.hp<=boss.maxHp*.5f;
+    const int n=second?9:5,pattern=stage%3;
+    const float dir=std::atan2(y-boss.y,x-boss.x);
+    const float speed=(pattern==1?4.f:3.1f)*60.f;
+    for(int i=0;i<n;++i){
+      const float angle=pattern==0?float(i)*2.f*Pi/float(n):
+        dir+(float(i)-float(n-1)*.5f)*(pattern==1?.18f:.32f);
+      for(auto& bullet:hostileShots)if(!bullet.active){
+        bullet={boss.x,boss.y,std::cos(angle)*speed,std::sin(angle)*speed,
+                3.5f,second?15.f:10.f,true};
+        break;
+      }
+    }
+    ++volleyCount;
+    impact(boss.x,boss.y,52.f,.25f);
   }
   void damagePlayer(float damage){
     if(phase!=Phase::Playing||invulnerable>0||nyraShield>0)return;
@@ -114,7 +175,7 @@ struct Arena {
     impact(e.x,e.y,e.role==EnemyRole::Hydra?30.f:14.f,.18f);
     if(e.hp<=0){
       e.active=false;
-      if(e.role==EnemyRole::Hydra){bossDefeated=true;phase=Phase::Won;impact(e.x,e.y,92.f,.6f);}
+      if(e.role==EnemyRole::Hydra||e.role==EnemyRole::Titan){bossDefeated=true;phase=Phase::Won;impact(e.x,e.y,92.f,.6f);}
       else ++kills;
     }
   }
@@ -129,7 +190,7 @@ struct Arena {
       if(target){dx=target->x-x;dy=target->y-y;}
       const float len=std::max(.0001f,std::sqrt(dx*dx+dy*dy));
       shot={x,y,dx/len*650.f,dy/len*650.f,1.15f,true,
-            hero==Hero::Z&&dragonPower>0?2.f:1.f};
+            (hero==Hero::Z&&dragonPower>0?2.f:1.f)*damageMultiplier};
       return;
     }
   }
@@ -137,7 +198,7 @@ struct Arena {
   void fireNova(){
     novaPulse=.24f;
     impact(x,y,116.f,.28f);
-    const float damage=hero==Hero::Z&&dragonPower>0?3.5f:2.f;
+    const float damage=(hero==Hero::Z&&dragonPower>0?3.5f:2.f)*damageMultiplier;
     for(auto& e:enemies)if(e.active){
       const float radius=e.role==EnemyRole::Hydra?143.f:124.f;
       if(distanceSquared(x,y,e.x,e.y)<=radius*radius)strike(e,damage);
@@ -145,6 +206,9 @@ struct Arena {
   }
   void update(float dt,const Input& input){
     if(input.restart){reset();return;}
+    if(phase==Phase::Won&&stage==1&&(input.boonDamage||input.boonVitality)){
+      startTitanStage(input.boonVitality);return;
+    }
     if(input.switchHero){
       hero=hero==Hero::Z?Hero::Nyra:Hero::Z;
       dragonPower=0;nyraShield=0;heroSkillCooldown=0;
@@ -192,13 +256,14 @@ struct Arena {
       const float speed=e.role==EnemyRole::Runner?110.f+wave*10.f:
                         e.role==EnemyRole::Brute?43.f:
                         e.role==EnemyRole::Hydra?(hydraEnraged()?50.f:28.f):
+                        e.role==EnemyRole::Titan?(bossInSecondPhase()?42.f:24.f):
                         58.f+float(wave-1)*18.f;
       e.x=clamp(e.x+vx/distance*speed*dt,18.f,Width-18.f);
       e.y=clamp(e.y+vy/distance*speed*dt,18.f,Height-18.f);
-      const float touch=e.role==EnemyRole::Hydra?52.f:
+      const float touch=e.role==EnemyRole::Hydra||e.role==EnemyRole::Titan?52.f:
                         e.role==EnemyRole::Brute?38.f:31.f;
       if(distance<touch)damagePlayer(e.role==EnemyRole::Brute?20.f:
-                                    e.role==EnemyRole::Hydra?17.f:12.f);
+                                    e.role==EnemyRole::Hydra||e.role==EnemyRole::Titan?17.f:12.f);
     }
     if(bossSummoned&&phase==Phase::Playing){
       auto* h=hydra();
@@ -225,11 +290,35 @@ struct Arena {
         }
       }
     }
+    // Original game boss projectile patterns, translated from 60fps ticks to seconds.
+    if(phase==Phase::Playing){
+      if(const auto* boss=activeBoss()){
+        const bool second=bossInSecondPhase();
+        if(bossVolleyTell>0){
+          bossVolleyTell-=dt;
+          if(bossVolleyTell<=0){
+            launchBossVolley(*boss);
+            bossVolleyTimer=(second?145.f:190.f)/60.f;
+          }
+        }else{
+          bossVolleyTimer-=dt;
+          if(bossVolleyTimer<=0)bossVolleyTell=35.f/60.f;
+        }
+      }
+    }
+    for(auto& bullet:hostileShots)if(bullet.active&&phase==Phase::Playing){
+      bullet.x+=bullet.vx*dt;bullet.y+=bullet.vy*dt;bullet.life-=dt;
+      if(bullet.life<=0||bullet.x<0||bullet.x>Width||bullet.y<0||bullet.y>Height)
+        {bullet.active=false;continue;}
+      if(distanceSquared(bullet.x,bullet.y,x,y)<20.f*20.f){
+        bullet.active=false;damagePlayer(bullet.damage);
+      }
+    }
     for(auto& s:shots)if(s.active&&phase==Phase::Playing){
       s.x+=s.vx*dt;s.y+=s.vy*dt;s.life-=dt;
       if(s.life<=0||s.x<0||s.x>Width||s.y<0||s.y>Height){s.active=false;continue;}
       for(auto& e:enemies)if(e.active){
-        const float radius=e.role==EnemyRole::Hydra?42.f:
+        const float radius=e.role==EnemyRole::Hydra||e.role==EnemyRole::Titan?42.f:
                            e.role==EnemyRole::Brute?31.f:24.f;
         if(distanceSquared(s.x,s.y,e.x,e.y)<radius*radius){
           s.active=false;strike(e,s.damage);break;
@@ -237,7 +326,7 @@ struct Arena {
       }
     }
     wave=kills<8?1:kills<20?2:3;
-    if(kills>=36&&!bossSummoned&&phase==Phase::Playing)spawnHydra();
+    if(stage==1&&kills>=36&&!bossSummoned&&phase==Phase::Playing)spawnHydra();
   }
 };
 } // namespace moonfall
