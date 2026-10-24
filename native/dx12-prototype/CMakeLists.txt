@@ -6,7 +6,7 @@ endif()
 add_executable(MoonfallDX12Prototype main.cpp)
 target_compile_features(MoonfallDX12Prototype PRIVATE cxx_std_17)
 target_compile_definitions(MoonfallDX12Prototype PRIVATE UNICODE _UNICODE NOMINMAX)
-target_link_libraries(MoonfallDX12Prototype PRIVATE d3d12 dxgi)
+target_link_libraries(MoonfallDX12Prototype PRIVATE d3d12 dxgi d3dcompiler windowscodecs ole32)
 
 # Test gameplay logic independently from the DX12 device and renderer.
 enable_testing()
