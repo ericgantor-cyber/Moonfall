@@ -47,6 +47,6 @@ function mfDrawAtmosphere(){
 }
 `;
 function patchJs(source){
- return replaceOnce(source,'function draw(){paintBackground();','function draw(){paintBackground();mfDrawAtmosphere();').replace('function draw(){paintBackground();mfDrawAtmosphere();',runtime+'\nfunction draw(){paintBackground();mfDrawAtmosphere();');
+ return replaceOnce(source,'function draw(){paintBackground();',runtime+'\nfunction draw(){paintBackground();mfDrawAtmosphere();');
 }
 module.exports={patchJs};
