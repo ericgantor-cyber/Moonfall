@@ -105,6 +105,8 @@ jobs:
           rm modular/assets/readme.txt
       - name: Test chat bubbles and dialogue accessibility
         run: node test-speech-bubbles.js
+      - name: Test Windows GPU diagnostics and NVIDIA app launcher links
+        run: node test-gpu-support.js
       - name: Test generated enemy roles and performance regressions
         run: node test-generated-combat.js
       - name: Test automatic level-up card interaction
