@@ -381,6 +381,7 @@ int main(int argc, char** argv) {
                 }
                 originalSprites.Draw(commands.Get(),arena.hero==moonfall::Hero::Nyra?1:0,
                                      arena.x,arena.y,rtv);
+                originalSprites.EndFrame();
             }else{
                 rectangle(arena.x-13.f,arena.y-13.f,26,26,
                           arena.invulnerable>0 && frameNumber%4<2?hurtTint:playerTint);
