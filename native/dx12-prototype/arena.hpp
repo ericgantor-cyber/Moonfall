@@ -59,6 +59,10 @@ struct Arena {
     for(const auto& e:enemies)if(e.active&&e.role==EnemyRole::Hydra)return &e;
     return nullptr;
   }
+  Enemy* hydra() {
+    for(auto& e:enemies)if(e.active&&e.role==EnemyRole::Hydra)return &e;
+    return nullptr;
+  }
   bool hydraEnraged() const {
     const auto* h=hydra();return h&&h->hp<=h->maxHp*.5f;
   }
@@ -197,7 +201,7 @@ struct Arena {
                                     e.role==EnemyRole::Hydra?17.f:12.f);
     }
     if(bossSummoned&&phase==Phase::Playing){
-      auto* h=const_cast<Enemy*>(hydra());
+      auto* h=hydra();
       if(h){
         if(hydraTell>0){
           hydraTell-=dt;
