@@ -1,0 +1,1 @@
+Moonfall v9.6.9: source-original bear/creep/Titan sprites, verified boss projectile patterns, native Titan stage and boon choices. Preserves Z/Nyra art and the original playable game; no DLSS or full game parity.
