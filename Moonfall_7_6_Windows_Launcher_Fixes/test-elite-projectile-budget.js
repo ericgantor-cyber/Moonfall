@@ -1,0 +1,20 @@
+'use strict';
+const assert=require('node:assert/strict');
+const vm=require('node:vm');
+const {patchJs}=require('./roguelike-rooms');
+const source='function reset(){} const maxHp=()=>(val(0)+; function beginStage(){bossWarnings=[]; if(![2,4,5,6,7,8].includes(stage)&&killCount+enemies.length<stages[stage].count&&frame%47===0){} let hp=[320,150,220][type]*(1+stage*.23);enemies.push( let speed=[1.28,1.65,1.12][e.type??1];e.x+=Math.cos(a)*speed; if(!e.boss){killCount++;player.hp=Math.min(player.max,player.hp+2)} (!e.root&&![2,4,5,6,7,8].includes(stage)&&killCount>=stages[stage].count))next() if(title.includes(\'FALLEN\')||title.includes(\'SAVED\')){ document.getElementById(\'bossLabel\').textContent=\'Stage \'';
+ // Test the actual embedded attack function in isolation without rewriting gameplay.
+const transform=require('node:fs').readFileSync(require('node:path').join(__dirname,'roguelike-rooms.js'),'utf8');
+const match=transform.match(/function mfEliteAttack\(e\)\{[\s\S]*?\n\}/);
+assert(match,'elite attack function exists');
+const attacks=vm.runInNewContext('('+match[0]+')',{Math,frame:85,player:{x:50,y:50},shots:Array.from({length:238},()=>({})),mfRoom:{color:'#fff'},burst(){}});
+const e={mfElite:true,hp:100,x:0,y:0};
+attacks(e);
+assert.equal(vm.runInNewContext('1+1'),2);
+const scope={Math,frame:85,player:{x:50,y:50},shots:Array.from({length:238},()=>({})),mfRoom:{color:'#fff'},burst(){}};
+vm.runInNewContext('('+match[0]+')(e)',{...scope,e});
+assert.equal(scope.shots.length,240,'elite volley must respect shot limit');
+const full={...scope,shots:Array.from({length:240},()=>({}))};
+vm.runInNewContext('('+match[0]+')(e)',{...full,e});
+assert.equal(full.shots.length,240,'full shot buffer must not grow');
+console.log('PASS: elite shots remain within shared projectile budget');
