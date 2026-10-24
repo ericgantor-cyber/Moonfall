@@ -58,6 +58,7 @@ static ComPtr<ID3D12Device> MakeDevice(IDXGIFactory4* factory, bool& software) {
 int main(int argc, char** argv) {
     try {
         const bool probe = argc > 1 && std::string(argv[1]) == "--probe";
+        const bool artProbe = argc > 1 && std::string(argv[1]) == "--art-probe";
         ComPtr<IDXGIFactory4> factory;
         Ensure(CreateDXGIFactory1(IID_PPV_ARGS(&factory)), "Create DXGI factory");
         bool software = false;
@@ -162,6 +163,11 @@ int main(int argc, char** argv) {
             hasOriginalSprites=true;
         }else{
             std::fprintf(stderr,"Original Z/Nyra image copies are missing; using fallback marker.\n");
+        }
+        if(artProbe){
+            if(!hasOriginalSprites)throw std::runtime_error("Native art probe requires Z and Nyra PNG copies");
+            std::puts("PASS: Z and Nyra original image copies decoded and uploaded to DX12 GPU resources");
+            return 0;
         }
         moonfall::Arena arena;
         using GameClock = std::chrono::steady_clock;
