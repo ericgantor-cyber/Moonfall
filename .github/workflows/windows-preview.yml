@@ -48,6 +48,11 @@ jobs:
         run: npm run build:windows
       - name: Run bundled C++ arena tests
         run: ctest --test-dir ../native/dx12-prototype/build --build-config Release --output-on-failure
+      - name: Probe original Z and Nyra textures on Windows DX12
+        shell: pwsh
+        run: |
+          & ..\native\dx12-prototype\build\Release\MoonfallDX12Prototype.exe --art-probe
+          if ($LASTEXITCODE -ne 0) { throw "Original hero sprite GPU upload failed ($LASTEXITCODE)" }
       - name: Verify generated setup and packaged files
         shell: pwsh
         run: |
@@ -64,6 +69,12 @@ jobs:
           if (-not (Test-Path $dx12) -or (Get-Item $dx12).Length -lt 8000) { throw 'Bundled DirectX 12 demo missing' }
           $compiled = Join-Path (Get-Location) '../native/dx12-prototype/build/Release/MoonfallDX12Prototype.exe'
           if ((Get-FileHash $dx12).Hash -ne (Get-FileHash $compiled).Hash) { throw 'Bundled DX12 demo differs from compiled version' }
+          foreach ($hero in @('hero-z.png','hero-nyra.png','original-hero-art.json')) {
+            $sourceHero = Join-Path (Get-Location) "../native/dx12-prototype/build/Release/$hero"
+            $packedHero = Join-Path (Get-Location) "dist/win-unpacked/resources/dx12/$hero"
+            if (-not (Test-Path $packedHero)) { throw "Original hero art missing from installer: $hero" }
+            if ((Get-FileHash $sourceHero).Hash -ne (Get-FileHash $packedHero).Hash) { throw "Packed original hero art differs: $hero" }
+          }
           Write-Host "Verified unsigned preview installer: $($installer[0].Name)"
       - uses: actions/upload-artifact@v4
         with:
