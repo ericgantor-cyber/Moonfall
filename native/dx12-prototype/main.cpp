@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <chrono>
 #include "arena.hpp"
+#include "sprites.hpp"
 #include <cmath>
 #include <cstdio>
 #include <exception>
@@ -57,6 +58,7 @@ static ComPtr<ID3D12Device> MakeDevice(IDXGIFactory4* factory, bool& software) {
 int main(int argc, char** argv) {
     try {
         const bool probe = argc > 1 && std::string(argv[1]) == "--probe";
+        const bool artProbe = argc > 1 && std::string(argv[1]) == "--art-probe";
         ComPtr<IDXGIFactory4> factory;
         Ensure(CreateDXGIFactory1(IID_PPV_ARGS(&factory)), "Create DXGI factory");
         bool software = false;
@@ -75,7 +77,7 @@ int main(int argc, char** argv) {
         wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
         if (!RegisterClassW(&wc)) throw std::runtime_error("RegisterClassW failed");
         HWND window = CreateWindowExW(0, wc.lpszClassName,
-            L"Moonfall DX12 Combat Test | WASD move | SPACE shoot | SHIFT dash | R restart",
+            L"Moonfall DX12 Original Art Test | Tab Z/Nyra | E hero skill | WASD move | Space attack",
             WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
             CW_USEDEFAULT, CW_USEDEFAULT, 1040, 616,
             nullptr, nullptr, instance, nullptr);
@@ -132,10 +134,45 @@ int main(int argc, char** argv) {
         HANDLE fenceEvent = CreateEventW(nullptr, FALSE, FALSE, nullptr);
         if (!fenceEvent) throw std::runtime_error("CreateEventW failed");
         UINT64 fenceValue = 0, frameNumber = 0;
+        moonfall::OriginalHeroSprites originalSprites;
+        bool hasOriginalSprites=false;
+        wchar_t modulePath[MAX_PATH]={};
+        if(!GetModuleFileNameW(nullptr,modulePath,MAX_PATH))
+            throw std::runtime_error("Could not locate the DX12 executable");
+        std::wstring moduleDirectory(modulePath);
+        const auto separator=moduleDirectory.find_last_of(L"\\/");
+        if(separator==std::wstring::npos)throw std::runtime_error("Invalid DX12 executable path");
+        moduleDirectory.resize(separator+1);
+        const std::wstring zArt=moduleDirectory+L"hero-z.png";
+        const std::wstring nyraArt=moduleDirectory+L"hero-nyra.png";
+        if(GetFileAttributesW(zArt.c_str())!=INVALID_FILE_ATTRIBUTES &&
+           GetFileAttributesW(nyraArt.c_str())!=INVALID_FILE_ATTRIBUTES){
+            const HRESULT comResult=CoInitializeEx(nullptr,COINIT_MULTITHREADED);
+            if(FAILED(comResult))throw std::runtime_error("WIC COM initialization failed");
+            Ensure(allocator->Reset(),"Reset art upload allocator");
+            Ensure(commands->Reset(allocator.Get(),nullptr),"Begin hero sprite texture uploads");
+            originalSprites.Initialize(device.Get(),commands.Get(),zArt.c_str(),nyraArt.c_str());
+            Ensure(commands->Close(),"Complete hero sprite uploads");
+            ID3D12CommandList* assetCommands[]={commands.Get()};
+            queue->ExecuteCommandLists(1,assetCommands);
+            Ensure(queue->Signal(fence.Get(),++fenceValue),"Signal image upload fence");
+            if(fence->GetCompletedValue()<fenceValue){
+                Ensure(fence->SetEventOnCompletion(fenceValue,fenceEvent),"Wait for hero uploads");
+                WaitForSingleObject(fenceEvent,INFINITE);
+            }
+            hasOriginalSprites=true;
+        }else{
+            std::fprintf(stderr,"Original Z/Nyra image copies are missing; using fallback marker.\n");
+        }
+        if(artProbe){
+            if(!hasOriginalSprites)throw std::runtime_error("Native art probe requires Z and Nyra PNG copies");
+            std::puts("PASS: Z and Nyra original image copies decoded and uploaded to DX12 GPU resources");
+            return 0;
+        }
         moonfall::Arena arena;
         using GameClock = std::chrono::steady_clock;
         auto previousFrame = GameClock::now();
-        bool wasRestartDown = false;
+        bool wasRestartDown = false, wasSwitchDown=false, wasSpecialDown=false;
         const float gridTint[4] = {0.11f, 0.10f, 0.21f, 1.f};
         const float boundaryTint[4] = {0.29f, 0.19f, 0.44f, 1.f};
         const float playerTint[4] = {0.35f, 0.88f, 0.98f, 1.f};
@@ -175,13 +212,20 @@ int main(int argc, char** argv) {
             const bool restartDown=held('R');
             input.restart=restartDown&&!wasRestartDown;
             wasRestartDown=restartDown;
+            const bool switchDown=held(VK_TAB);
+            input.switchHero=switchDown&&!wasSwitchDown;
+            wasSwitchDown=switchDown;
+            const bool specialDown=held('E');
+            input.special=specialDown&&!wasSpecialDown;
+            wasSpecialDown=specialDown;
             arena.update(dt,input);
             if ((frameNumber % 15) == 0) {
-                std::wstring title=L"Moonfall DX12 ARENA TEST | HP "+std::to_wstring(static_cast<int>(arena.health))+
+                std::wstring title=L"Moonfall DX12 ART TEST | "+std::wstring(arena.hero==moonfall::Hero::Z?L"Z":L"Nyra")+
+                    L" | HP "+std::to_wstring(static_cast<int>(arena.health))+
                     L" | Defeated "+std::to_wstring(arena.kills)+L"/36 | Wave "+std::to_wstring(arena.wave);
                 if (arena.phase == moonfall::Phase::Won) title+=L" | VICTORY! Press R to restart";
                 else if (arena.phase == moonfall::Phase::Lost) title+=L" | FALLEN! Press R to restart";
-                else title+=L" | WASD/Arrows, Space/Click shoot, Shift dash, R restart";
+                else title+=L" | Tab: Z/Nyra | E: Dragon Burst/Shield | WASD, Space, Shift, R";
                 SetWindowTextW(window,title.c_str());
             }
             const UINT current = swap->GetCurrentBackBufferIndex();
@@ -200,7 +244,7 @@ int main(int argc, char** argv) {
             const float phase = 0.5f + 0.5f * std::sin(static_cast<float>(frameNumber) * 0.015f);
             const float clearColor[4] = {0.04f + 0.12f * phase, 0.02f, 0.14f + 0.22f * phase, 1.0f};
             commands->ClearRenderTargetView(rtv, clearColor, 0, nullptr);
-            // Renderer test uses DX12 RTV rectangle clears, no new shaders or art.
+            // DX12 scene: primitive enemies and bullets, with actual original hero art if present.
             // Logic coordinates stay independent of future sprite/asset migration.
             const auto rectangle = [&](float x, float y, float w, float h, const float* color){
                 D3D12_RECT rect{};
@@ -227,9 +271,21 @@ int main(int argc, char** argv) {
             }
             for(const auto& shot:arena.shots)if(shot.active)
                 rectangle(shot.x-4.f,shot.y-4.f,8,8,projectileTint);
-            rectangle(arena.x-13.f,arena.y-13.f,26,26,
-                      arena.invulnerable>0 && frameNumber%4<2?hurtTint:playerTint);
-            rectangle(arena.x-4.f,arena.y-4.f,8,8,clearColor);
+            if(arena.hero==moonfall::Hero::Nyra && arena.nyraShield>0){
+                rectangle(arena.x-58.f,arena.y-58.f,116.f,116.f,boundaryTint);
+                rectangle(arena.x-54.f,arena.y-54.f,108.f,108.f,clearColor);
+            }
+            if(arena.hero==moonfall::Hero::Z && arena.dragonPower>0){
+                rectangle(arena.x-53.f,arena.y-53.f,106.f,106.f,enemyEliteTint);
+            }
+            if(hasOriginalSprites){
+                originalSprites.Draw(commands.Get(),arena.hero==moonfall::Hero::Nyra?1:0,
+                                     arena.x,arena.y,rtv);
+            }else{
+                rectangle(arena.x-13.f,arena.y-13.f,26,26,
+                          arena.invulnerable>0 && frameNumber%4<2?hurtTint:playerTint);
+                rectangle(arena.x-4.f,arena.y-4.f,8,8,clearColor);
+            }
             if(arena.phase==moonfall::Phase::Won){
                 rectangle(190,250,644,74,successTint);
                 rectangle(208,266,608,42,gridTint);

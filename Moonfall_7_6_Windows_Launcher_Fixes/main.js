@@ -123,7 +123,7 @@ async function showDx12Demo(){
  const choice=await dialog.showMessageBox(mainWindow,{
   type:'info',title:'Experimental DirectX 12 demo',
   message:'Play the experimental DirectX 12 combat arena?',
-  detail:'This is a separate arena prototype with abstract shapes, movement, enemies, shooting and waves. WASD/Arrows move; Space or Click shoots; Shift dashes; R restarts. The original Moonfall game remains open. Z and Nyra artwork is not yet loaded here. DLSS is NOT enabled.',
+  detail:'This is a separate experimental arena using original Z/Nyra character art where installed. Tab changes hero; WASD/Arrows move; Space/Click shoots; Shift dashes; E uses an early hero skill; R restarts. The main Moonfall game stays open. The full original combat system and DLSS are NOT integrated.',
   buttons:['Cancel','Launch demo'],defaultId:0,cancelId:0,noLink:true
  });
  if(choice.response!==1)return;
@@ -165,7 +165,7 @@ async function createWindow(){
    {label:'Renderer: ANGLE Direct3D 11 (experimental, Windows)',type:'radio',checked:loadBackend(app)==='d3d11',
     enabled:process.platform==='win32',click:()=>chooseGraphicsBackend('d3d11').catch(err=>console.error('Graphics backend:',err))},
    {type:'separator'},
-   {label:'Play DX12 Combat Arena (experimental)',enabled:process.platform==='win32',
+   {label:'Play DX12 Original Art Arena (experimental)',enabled:process.platform==='win32',
     click:()=>showDx12Demo().catch(err=>dialog.showErrorBox('DirectX 12 demo error',String(err)))},
    {label:'GPU Status / NVIDIA Check',click:()=>showGraphicsStatus().catch(err=>dialog.showErrorBox('GPU diagnostics error',String(err)))},
    {label:'NVIDIA Recording Tips',click:showNvidiaTips},
