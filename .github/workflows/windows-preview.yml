@@ -31,6 +31,7 @@ jobs:
       - name: Run performance and game regression checks
         run: |
           node modularize.js
+          node ../native/dx12-prototype/inspect-art.js
           node --check modular/game.js
           node test-performance-overlay.js
           node test-render-scale.js
