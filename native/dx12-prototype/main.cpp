@@ -27,7 +27,11 @@ static void Ensure(HRESULT result, const char* label) {
         throw std::runtime_error(message);
     }
 }
+static bool spaceAttackHeld = false;
 static LRESULT CALLBACK WindowProc(HWND window, UINT event, WPARAM w, LPARAM l) {
+    if (event == WM_KEYDOWN && w == VK_SPACE) { spaceAttackHeld = true; return 0; }
+    if (event == WM_KEYUP && w == VK_SPACE) { spaceAttackHeld = false; return 0; }
+    if (event == WM_KILLFOCUS) spaceAttackHeld = false;
     if (event == WM_DESTROY) { PostQuitMessage(0); return 0; }
     return DefWindowProcW(window, event, w, l);
 }
@@ -77,7 +81,7 @@ int main(int argc, char** argv) {
         wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
         if (!RegisterClassW(&wc)) throw std::runtime_error("RegisterClassW failed");
         HWND window = CreateWindowExW(0, wc.lpszClassName,
-            L"Moonfall DX12 Original Art Test | Tab Z/Nyra | E hero skill | WASD move | Space attack",
+            L"Moonfall DX12 Original Art Test | Tab Z/Nyra | E hero skill | WASD move | Space/F attack",
             WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
             CW_USEDEFAULT, CW_USEDEFAULT, 1040, 616,
             nullptr, nullptr, instance, nullptr);
@@ -222,7 +226,7 @@ int main(int argc, char** argv) {
             input.down=held('S') || held(VK_DOWN);
             input.left=held('A') || held(VK_LEFT);
             input.right=held('D') || held(VK_RIGHT);
-            input.attack=held(VK_SPACE) || held(VK_LBUTTON);
+            input.attack=(focused && spaceAttackHeld) || held(VK_SPACE) || held('F') || held(VK_LBUTTON);
             input.dash=held(VK_SHIFT);
             const bool restartDown=held('R');
             input.restart=restartDown&&!wasRestartDown;
