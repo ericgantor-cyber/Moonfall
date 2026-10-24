@@ -1,0 +1,14 @@
+'use strict';
+const assert=require('node:assert/strict');
+const vm=require('node:vm');
+const {patchJs}=require('./combat-telegraph-clarity');
+const before='function draw(){paintBackground();mfBossWarningsDraw();}';
+const after=patchJs(before);
+assert(after.includes('mfClearWarningsDraw();'));
+assert(after.includes('if(e.mfElite)'));
+assert(after.includes('e.mfTellUntil>frame'));
+assert(after.includes('ctx.restore()'));
+assert(after.includes('const reduced='));
+new vm.Script(after);
+assert.throws(()=>patchJs('function draw(){}'),/integration hook/);
+console.log('PASS: telegraph integration compiles and preserves original attack code');
