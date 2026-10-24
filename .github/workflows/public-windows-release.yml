@@ -45,6 +45,7 @@ jobs:
           node --check modular/game.js
           node test-performance-overlay.js
           node test-render-scale.js
+          node test-dx12-launch.js
           node test-direct3d-backend.js
           node test-gpu-support.js
           node test-speech-bubbles.js
@@ -61,7 +62,11 @@ jobs:
           $expected = 'Moonfall-' + $env:RELEASE_TAG.Substring(1) + '-Windows-Setup.exe'
           if ($installer.Name -ne $expected) { throw "Installer name $($installer.Name) did not match $expected" }
           node --check modular/game.js
-          Write-Host "Verified $($installer.Name)"
+          $dx12 = Join-Path (Get-Location) 'dist/win-unpacked/resources/dx12/MoonfallDX12Prototype.exe'
+          if (-not (Test-Path $dx12) -or (Get-Item $dx12).Length -lt 8000) { throw 'Bundled DirectX 12 demo missing' }
+          $compiled = Join-Path (Get-Location) '../native/dx12-prototype/build/Release/MoonfallDX12Prototype.exe'
+          if ((Get-FileHash $dx12).Hash -ne (Get-FileHash $compiled).Hash) { throw 'Bundled DX12 demo differs from compiled version' }
+          Write-Host "Verified $($installer.Name) with native DX12 demo"
       - name: Publish GitHub Release
         shell: pwsh
         env:
