@@ -63,7 +63,11 @@ int main(){
   victory.enemies[0]={victory.x,victory.y+50.f,1.f,true};
   victory.shots[0]={victory.x,victory.y+50.f,0,0,1.f,true};
   victory.update(.016f,Input{});
-  assert(victory.kills==36&&victory.phase==Phase::Won);
+  assert(victory.kills==36&&victory.phase==Phase::Playing&&victory.bossSummoned);
+  assert(victory.hydra()!=nullptr&&victory.hydra()->hp==32.f);
+  for(auto& enemy:victory.enemies)if(enemy.active&&enemy.role==moonfall::EnemyRole::Hydra)
+    victory.strike(enemy,999.f);
+  assert(victory.bossDefeated&&victory.phase==Phase::Won);
   victory.update(.016f,Input{false,false,false,false,false,false,true});
   assert(victory.kills==0&&victory.phase==Phase::Playing);
   Arena limited;
@@ -100,5 +104,60 @@ int main(){
   assert(heroes.kills==1);
   heroes.update(.016f,Input{false,false,false,false,false,false,true});
   assert(heroes.hero==moonfall::Hero::Z && heroes.dragonPower==0 && heroes.heroSkillCooldown==0);
-  std::cout<<"PASS: DX12 arena input, fixed-step bounds, dash, seeded waves, bullets, AI, health, restart, victory\n";
+  // Role AI: Runner advances faster than Brute at equal distance.
+  Arena roles;roles.spawnCooldown=1000.f;
+  roles.enemies[0]={roles.x+150.f,roles.y,2.f,true,moonfall::EnemyRole::Runner,2.f};
+  roles.enemies[1]={roles.x+150.f,roles.y+40.f,8.f,true,moonfall::EnemyRole::Brute,8.f};
+  const float runnerStart=roles.enemies[0].x,bruteStart=roles.enemies[1].x;
+  roles.update(.05f,Input{});
+  assert(runnerStart-roles.enemies[0].x > bruteStart-roles.enemies[1].x);
+  assert(roles.enemies[1].hp==8.f);
+  // A second selectable weapon hits nearby enemies without creating bullets.
+  Arena nova;nova.spawnCooldown=1000.f;
+  nova.enemies[0]={nova.x+70.f,nova.y,2.f,true,moonfall::EnemyRole::Chaser,2.f};
+  Input blast{};blast.switchWeapon=true;blast.attack=true;
+  nova.update(.016f,blast);
+  assert(nova.weapon==moonfall::Weapon::Nova);
+  assert(nova.kills==1&&nova.projectileCount()==0&&nova.novaPulse>0);
+  assert(nova.fireCooldown>.5f);
+  nova.enemies[0]={nova.x+70.f,nova.y,2.f,true};
+  nova.update(.016f,Input{false,false,false,false,true});
+  assert(nova.kills==1); // Nova cannot fire again during cooldown.
+  nova.update(.016f,Input{false,false,false,false,false,false,false,false,false,true});
+  assert(nova.weapon==moonfall::Weapon::Bolt);
+  // The Hydra is an actual boss gate, with a visible telegraph and enrage.
+  Arena boss;boss.spawnCooldown=1000.f;
+  boss.spawnHydra();
+  assert(boss.bossSummoned&&boss.hydra()!=nullptr&&boss.hydra()->maxHp==32.f);
+  boss.hydraAttackCooldown=0;
+  boss.update(.05f,Input{});
+  assert(boss.hydraTell>0.f);
+  boss.enemies[0].active=false; // Non-boss enemy slots are independent of boss state.
+  for(auto& enemy:boss.enemies)if(enemy.active&&enemy.role==moonfall::EnemyRole::Hydra)
+    boss.strike(enemy,17.f);
+  assert(boss.hydraEnraged());
+  boss.hydraMinionCooldown=0;
+  boss.update(.05f,Input{});
+  assert(boss.enemyCount()>=2);
+  boss.update(.05f,Input{false,false,false,false,false,false,true});
+  assert(!boss.bossSummoned&&boss.phase==Phase::Playing);
+  // Shield stops boss telegraph damage while held.
+  Arena shieldBoss;shieldBoss.spawnCooldown=1000.f;
+  shieldBoss.x=512;shieldBoss.y=325;
+  shieldBoss.spawnHydra();
+  shieldBoss.hero=moonfall::Hero::Nyra;
+  shieldBoss.hydraAttackCooldown=0;
+  Input guard{};guard.special=true;
+  shieldBoss.update(.05f,guard);
+  assert(shieldBoss.nyraShield>0&&shieldBoss.hydraTell>0);
+  for(int i=0;i<18;i++)shieldBoss.update(.05f,Input{});
+  assert(shieldBoss.health==100.f);
+  // Deterministic roles and finite projectile/effect allocation across runs.
+  Arena ra,rb;for(int i=0;i<9;i++){ra.spawnEnemy();rb.spawnEnemy();}
+  for(int i=0;i<moonfall::MaxEnemies;i++)
+    assert(ra.enemies[i].role==rb.enemies[i].role);
+  for(int i=0;i<50;i++)ra.impact(100.f,100.f,20.f);
+  int fxCount=0;for(const auto& fx:ra.impacts)if(fx.active)fxCount++;
+  assert(fxCount<=moonfall::MaxImpacts);
+  std::cout<<"PASS: DX12 arena input, fixed-step bounds, dash, seeded waves, bullets, AI, health, restart, Hydra boss victory\n";
 }
