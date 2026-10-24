@@ -172,12 +172,17 @@ int main(int argc, char** argv) {
         moonfall::Arena arena;
         using GameClock = std::chrono::steady_clock;
         auto previousFrame = GameClock::now();
-        bool wasRestartDown = false, wasSwitchDown=false, wasSpecialDown=false;
+        bool wasRestartDown = false, wasSwitchDown=false, wasSpecialDown=false, wasWeaponDown=false;
         const float gridTint[4] = {0.11f, 0.10f, 0.21f, 1.f};
         const float boundaryTint[4] = {0.29f, 0.19f, 0.44f, 1.f};
         const float playerTint[4] = {0.35f, 0.88f, 0.98f, 1.f};
         const float enemyTint[4] = {0.91f, 0.24f, 0.38f, 1.f};
         const float enemyEliteTint[4] = {0.96f, 0.51f, 0.25f, 1.f};
+        const float runnerTint[4] = {0.19f, 0.75f, 0.85f, 1.f};
+        const float bruteTint[4] = {0.84f, 0.39f, 0.17f, 1.f};
+        const float hydraTint[4] = {0.52f, 0.22f, 0.79f, 1.f};
+        const float hydraEnrageTint[4] = {0.93f, 0.17f, 0.69f, 1.f};
+        const float telegraphTint[4] = {0.91f, 0.13f, 0.33f, 1.f};
         const float projectileTint[4] = {0.99f, 0.87f, 0.39f, 1.f};
         const float hpTint[4] = {0.31f, 0.94f, 0.62f, 1.f};
         const float hurtTint[4] = {0.96f, 0.96f, 0.99f, 1.f};
@@ -218,14 +223,22 @@ int main(int argc, char** argv) {
             const bool specialDown=held('E');
             input.special=specialDown&&!wasSpecialDown;
             wasSpecialDown=specialDown;
+            const bool weaponDown=held('Q');
+            input.switchWeapon=weaponDown&&!wasWeaponDown;
+            wasWeaponDown=weaponDown;
             arena.update(dt,input);
             if ((frameNumber % 15) == 0) {
                 std::wstring title=L"Moonfall DX12 ART TEST | "+std::wstring(arena.hero==moonfall::Hero::Z?L"Z":L"Nyra")+
                     L" | HP "+std::to_wstring(static_cast<int>(arena.health))+
                     L" | Defeated "+std::to_wstring(arena.kills)+L"/36 | Wave "+std::to_wstring(arena.wave);
-                if (arena.phase == moonfall::Phase::Won) title+=L" | VICTORY! Press R to restart";
+                title+=L" | "+std::wstring(arena.weapon==moonfall::Weapon::Bolt?L"Bolt":L"Nova");
+                if(const auto* hydra=arena.hydra()){
+                    title+=L" | HYDRA "+std::to_wstring(static_cast<int>(std::max(0.f,hydra->hp)))+
+                           L"/32"+(arena.hydraEnraged()?std::wstring(L" ENRAGED"):std::wstring());
+                }
+                if (arena.phase == moonfall::Phase::Won) title+=L" | HYDRA DEFEATED! Press R to restart";
                 else if (arena.phase == moonfall::Phase::Lost) title+=L" | FALLEN! Press R to restart";
-                else title+=L" | Tab: Z/Nyra | E: Dragon Burst/Shield | WASD, Space, Shift, R";
+                else title+=L" | Q: weapon | Tab: hero | E: skill | WASD, Space, Shift, R";
                 SetWindowTextW(window,title.c_str());
             }
             const UINT current = swap->GetCurrentBackBufferIndex();
@@ -263,14 +276,49 @@ int main(int argc, char** argv) {
             rectangle(1010,12,2,553,boundaryTint);
             rectangle(18,18,220,16,boundaryTint);
             rectangle(20,20,216.f*arena.health/100.f,12,hpTint);
-            // Abstract geometric markers deliberately do not replace Z/Nyra art.
-            for(const auto& enemy:arena.enemies)if(enemy.active) {
-                rectangle(enemy.x-12.f,enemy.y-12.f,24,24,
-                          arena.wave==3?enemyEliteTint:enemyTint);
-                rectangle(enemy.x-7.f,enemy.y-17.f,14.f*enemy.hp/4.f,3,hpTint);
+            // Enemies and weapons are simplified abstract DX12 prototypes.
+            // The Hydra's large warning box indicates an upcoming area attack.
+            const auto* hydra=arena.hydra();
+            if(hydra&&arena.hydraTell>0){
+                const float r=100.f;
+                rectangle(hydra->x-r,hydra->y-r,r*2,3,telegraphTint);
+                rectangle(hydra->x-r,hydra->y+r-3,r*2,3,telegraphTint);
+                rectangle(hydra->x-r,hydra->y-r,3,r*2,telegraphTint);
+                rectangle(hydra->x+r-3,hydra->y-r,3,r*2,telegraphTint);
+            }
+            for(const auto& enemy:arena.enemies)if(enemy.active){
+                const float size=enemy.role==moonfall::EnemyRole::Hydra?76.f:
+                                 enemy.role==moonfall::EnemyRole::Brute?36.f:
+                                 enemy.role==moonfall::EnemyRole::Runner?18.f:24.f;
+                const float* roleColor=enemy.role==moonfall::EnemyRole::Runner?runnerTint:
+                                       enemy.role==moonfall::EnemyRole::Brute?bruteTint:
+                                       enemy.role==moonfall::EnemyRole::Hydra?
+                                         (arena.hydraEnraged()?hydraEnrageTint:hydraTint):enemyTint;
+                rectangle(enemy.x-size*.5f,enemy.y-size*.5f,size,size,
+                          enemy.flash>0?hurtTint:roleColor);
+                const float healthRatio=std::max(0.f,std::min(1.f,
+                                           enemy.hp/std::max(1.f,enemy.maxHp)));
+                rectangle(enemy.x-size*.5f,enemy.y-size*.5f-8,size,4,boundaryTint);
+                rectangle(enemy.x-size*.5f,enemy.y-size*.5f-8,size*healthRatio,4,hpTint);
             }
             for(const auto& shot:arena.shots)if(shot.active)
                 rectangle(shot.x-4.f,shot.y-4.f,8,8,projectileTint);
+            // Fixed-capacity short-lived impact effects (no art regeneration).
+            for(const auto& fx:arena.impacts)if(fx.active){
+                const float r=fx.radius;
+                const float thickness=std::max(2.f,std::min(5.f,r*.07f));
+                rectangle(fx.x-r,fx.y-r,r*2,thickness,projectileTint);
+                rectangle(fx.x-r,fx.y+r-thickness,r*2,thickness,projectileTint);
+                rectangle(fx.x-r,fx.y-r,thickness,r*2,projectileTint);
+                rectangle(fx.x+r-thickness,fx.y-r,thickness,r*2,projectileTint);
+            }
+            if(arena.novaPulse>0){
+                const float r=116.f;
+                rectangle(arena.x-r,arena.y-r,r*2,4,enemyEliteTint);
+                rectangle(arena.x-r,arena.y+r-4,r*2,4,enemyEliteTint);
+                rectangle(arena.x-r,arena.y-r,4,r*2,enemyEliteTint);
+                rectangle(arena.x+r-4,arena.y-r,4,r*2,enemyEliteTint);
+            }
             if(arena.hero==moonfall::Hero::Nyra && arena.nyraShield>0){
                 rectangle(arena.x-58.f,arena.y-58.f,116.f,116.f,boundaryTint);
                 rectangle(arena.x-54.f,arena.y-54.f,108.f,108.f,clearColor);

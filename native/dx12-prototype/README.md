@@ -21,19 +21,22 @@ The `--probe` command initializes a Direct3D 12 device without opening a window.
 
 - WASD or arrow keys: move the selected character using original Z or Nyra art
 - Tab: switch between original Z and Nyra artwork (same run)
-- E: early prototype hero skill. Z uses a faster, stronger **Dragon Burst**; Nyra uses a temporary **Shield**. These are simplified native prototypes, not full game-mechanics parity
+- E: early prototype hero skill. Z has a faster, stronger **Dragon Burst**; Nyra has a temporary **Shield**. These remain approximations, not full-game parity
+- Q: switch between **Bolt** (auto-targeted projectile) and **Nova** (close-range pulse with cooldown)
 - Space or left mouse button: auto-target shot at the nearest enemy
 - Shift + movement: dash (cooldown)
 - R: restart arena after victory/defeat, or start a new run anytime
-- Three increasingly difficult waves; 36 defeats wins the prototype arena; health at zero loses
-- The window title displays hero, health, progress and wave. Enemies and shots are still test rectangles; original Z and Nyra art is now displayed as textures.
+- Three waves with **Chaser**, **Runner** (fast) and **Brute** (slow/tough) enemy roles
+- After 36 regular defeats, a two-phase **Hydra prototype** appears. At half health it enrages, moves faster, and summons minions. A visible warning box precedes its area strike; defeat it to win
+- Short-lived hit flashes, impact outlines, enemy health bars and weapon pulse effects are rendered natively using simple DX12 rectangles; health at zero loses
+- The window title displays hero, health, progress and wave. Enemies, projectiles, Hydra and effects still use simple test geometry; Z and Nyra use their exact original art textures.
 
-Native simulation is deliberately separated in `arena.hpp` and checked by `MoonfallArenaTests` under CTest. A separate `--art-probe` initializes original character textures on the Windows runner, verifying the WIC decode and DX12 uploads. This is **not** a port of Moonfall's original abilities, bosses, saves, effects or art.
+Native simulation is deliberately separated in `arena.hpp` and checked by `MoonfallArenaTests` under CTest. A separate `--art-probe` initializes original character textures on the Windows runner, verifying the WIC decode and DX12 uploads. This **is not a full port** of the main game's actual weapons, bosses, enemies, saves, level systems or art. The Hydra, enemy roles and weapons are **prototype interpretations**. Z and Nyra's *actual original* image files are preserved and used as-is.
 
 ## Next milestones
 
 1. Verify prototype runs on a real gaming PC, collects vendor/driver information, and handles device loss.
-2. Replace prototype rectangles with a carefully verified art/sprite loading pipeline while preserving original art, then port one real Moonfall encounter and its mechanics.
+2. Port verified main-game enemy/boss art and move-set data, including the Hydra's actual attack phases, rather than treating these simplified placeholders as full parity.
 3. Replace experimental skill approximations with verified game-equivalent abilities and add depth, motion vectors, temporal jitter, texture residency and measured frame times.
 4. Only then evaluate NVIDIA DLSS Super Resolution integration/licensing on supported RTX GPUs.
 
