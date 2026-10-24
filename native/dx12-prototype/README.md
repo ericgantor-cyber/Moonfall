@@ -21,10 +21,10 @@ The `--probe` command initializes a Direct3D 12 device without opening a window.
 
 - WASD or arrow keys: move the selected character using original Z or Nyra art
 - Tab: switch between original Z and Nyra artwork (same run)
-- E: early prototype hero skill. Z has a faster, stronger **Dragon Burst**; Nyra has a temporary **Shield**. These remain approximations, not full-game parity
-- Q: switch between **Bolt** (auto-targeted projectile) and **Nova** (close-range pulse with cooldown)
-- Space or left mouse button: auto-target shot at the nearest enemy
-- Shift + movement: dash (cooldown)
+- Left mouse button or F: auto-targeted primary attack (keyboard alternative for accessibility)
+- Right mouse button, Q, or E: prototype hero skill. Z has a faster, stronger **Dragon Burst**; Nyra has a temporary **Shield**. These remain approximations, not full-game parity
+- Space or Shift + movement: dash (cooldown). Space is deliberately dash, not attack, to avoid overlapping actions
+- C: switch between **Bolt** (auto-targeted projectile) and **Nova** (close-range pulse with cooldown)
 - R: restart arena after victory/defeat, or start a new run anytime
 - Three waves with Chaser, Runner and Brute prototype roles, now displayed using the actual original creep and bear images where installed
 - After 36 defeats, the Hydra prototype appears, with its existing enrage/minions/area strike and **additional original-game-derived volley patterns**. Boss projectile counts (5 then 9), 190/145-frame cadence, 35-frame warning, and stage-dependent aimed spread are based on `boss-combat-stage.js` at 60 FPS
