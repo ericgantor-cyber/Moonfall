@@ -298,8 +298,8 @@ struct Arena {
       spawnEnemy();
     }
     if(input.attack&&fireCooldown<=0){
-      if(weapon==Weapon::Nova){fireCooldown=.55f;fireNova();}
-      else{fireCooldown=hero==Hero::Z&&dragonPower>0?.11f:.19f;fireBolt();}
+      if(weapon==Weapon::Nova){fireCooldown=.48f;fireNova();}
+      else{fireCooldown=hero==Hero::Z&&dragonPower>0?.10f:.16f;fireBolt();}
     }
     for(auto& e:enemies)if(e.active&&phase==Phase::Playing){
       const float vx=x-e.x,vy=y-e.y;
