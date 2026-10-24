@@ -143,15 +143,25 @@ int main(int argc, char** argv) {
         const auto separator=moduleDirectory.find_last_of(L"\\/");
         if(separator==std::wstring::npos)throw std::runtime_error("Invalid DX12 executable path");
         moduleDirectory.resize(separator+1);
-        const std::wstring zArt=moduleDirectory+L"hero-z.png";
-        const std::wstring nyraArt=moduleDirectory+L"hero-nyra.png";
-        if(GetFileAttributesW(zArt.c_str())!=INVALID_FILE_ATTRIBUTES &&
-           GetFileAttributesW(nyraArt.c_str())!=INVALID_FILE_ATTRIBUTES){
+        const std::array<std::wstring,8> originalArt={
+            moduleDirectory+L"hero-z.png",
+            moduleDirectory+L"hero-nyra.png",
+            moduleDirectory+L"enemy-bear.png",
+            moduleDirectory+L"enemy-creep-1.png",
+            moduleDirectory+L"enemy-creep-2.png",
+            moduleDirectory+L"enemy-creep-3.png",
+            moduleDirectory+L"boss-titan-fire.png",
+            moduleDirectory+L"boss-titan-nature.png"
+        };
+        bool allOriginalArtPresent=true;
+        for(const auto& filename:originalArt)
+            if(GetFileAttributesW(filename.c_str())==INVALID_FILE_ATTRIBUTES)allOriginalArtPresent=false;
+        if(allOriginalArtPresent){
             const HRESULT comResult=CoInitializeEx(nullptr,COINIT_MULTITHREADED);
             if(FAILED(comResult))throw std::runtime_error("WIC COM initialization failed");
             Ensure(allocator->Reset(),"Reset art upload allocator");
             Ensure(commands->Reset(allocator.Get(),nullptr),"Begin hero sprite texture uploads");
-            originalSprites.Initialize(device.Get(),commands.Get(),zArt.c_str(),nyraArt.c_str());
+            originalSprites.Initialize(device.Get(),commands.Get(),originalArt);
             Ensure(commands->Close(),"Complete hero sprite uploads");
             ID3D12CommandList* assetCommands[]={commands.Get()};
             queue->ExecuteCommandLists(1,assetCommands);
@@ -162,11 +172,11 @@ int main(int argc, char** argv) {
             }
             hasOriginalSprites=true;
         }else{
-            std::fprintf(stderr,"Original Z/Nyra image copies are missing; using fallback marker.\n");
+            std::fprintf(stderr,"One or more original Moonfall art copies are missing; using fallback markers.\n");
         }
         if(artProbe){
-            if(!hasOriginalSprites)throw std::runtime_error("Native art probe requires Z and Nyra PNG copies");
-            std::puts("PASS: Z and Nyra original image copies decoded and uploaded to DX12 GPU resources");
+            if(!hasOriginalSprites)throw std::runtime_error("Native art probe requires all eight source-matched Moonfall PNGs");
+            std::puts("PASS: original Z, Nyra, bear, creeps and Titan sprites decoded and uploaded to DX12 GPU resources");
             return 0;
         }
         moonfall::Arena arena;
@@ -226,19 +236,29 @@ int main(int argc, char** argv) {
             const bool weaponDown=held('Q');
             input.switchWeapon=weaponDown&&!wasWeaponDown;
             wasWeaponDown=weaponDown;
+            // Native stage-clear boon choices mirror Moonsteel Edge and Crimson Vitality.
+            input.boonDamage=held('1');
+            input.boonVitality=held('2');
             arena.update(dt,input);
             if ((frameNumber % 15) == 0) {
                 std::wstring title=L"Moonfall DX12 ART TEST | "+std::wstring(arena.hero==moonfall::Hero::Z?L"Z":L"Nyra")+
                     L" | HP "+std::to_wstring(static_cast<int>(arena.health))+
-                    L" | Defeated "+std::to_wstring(arena.kills)+L"/36 | Wave "+std::to_wstring(arena.wave);
+                    L" | Stage "+std::to_wstring(arena.stage)+L" | Defeated "+std::to_wstring(arena.kills)+L"/36 | Wave "+std::to_wstring(arena.wave);
                 title+=L" | "+std::wstring(arena.weapon==moonfall::Weapon::Bolt?L"Bolt":L"Nova");
                 if(const auto* hydra=arena.hydra()){
                     title+=L" | HYDRA "+std::to_wstring(static_cast<int>(std::max(0.f,hydra->hp)))+
                            L"/32"+(arena.hydraEnraged()?std::wstring(L" ENRAGED"):std::wstring());
                 }
-                if (arena.phase == moonfall::Phase::Won) title+=L" | HYDRA DEFEATED! Press R to restart";
+                if(const auto* titan=arena.activeBoss();titan&&titan->role==moonfall::EnemyRole::Titan){
+                    title+=L" | TITAN "+std::to_wstring(static_cast<int>(std::max(0.f,titan->hp)))+
+                           L"/42"+(arena.bossInSecondPhase()?std::wstring(L" PHASE II"):std::wstring());
+                }
+                if (arena.phase == moonfall::Phase::Won)
+                    title+=arena.stage==1?L" | HYDRA CLEARED! 1: Moonsteel Edge 2: Crimson Vitality":
+                                           L" | TITAN CLEARED! Press R";
+
                 else if (arena.phase == moonfall::Phase::Lost) title+=L" | FALLEN! Press R to restart";
-                else title+=L" | Q: weapon | Tab: hero | E: skill | WASD, Space, Shift, R";
+                else title+=L" | Q weapon | Tab hero | E skill | WASD Space Shift R";
                 SetWindowTextW(window,title.c_str());
             }
             const UINT current = swap->GetCurrentBackBufferIndex();
@@ -287,13 +307,13 @@ int main(int argc, char** argv) {
                 rectangle(hydra->x+r-3,hydra->y-r,3,r*2,telegraphTint);
             }
             for(const auto& enemy:arena.enemies)if(enemy.active){
-                const float size=enemy.role==moonfall::EnemyRole::Hydra?76.f:
+                const float size=enemy.role==moonfall::EnemyRole::Hydra||enemy.role==moonfall::EnemyRole::Titan?76.f:
                                  enemy.role==moonfall::EnemyRole::Brute?36.f:
                                  enemy.role==moonfall::EnemyRole::Runner?18.f:24.f;
                 const float* roleColor=enemy.role==moonfall::EnemyRole::Runner?runnerTint:
                                        enemy.role==moonfall::EnemyRole::Brute?bruteTint:
-                                       enemy.role==moonfall::EnemyRole::Hydra?
-                                         (arena.hydraEnraged()?hydraEnrageTint:hydraTint):enemyTint;
+                                       enemy.role==moonfall::EnemyRole::Hydra||enemy.role==moonfall::EnemyRole::Titan?
+                                         (arena.bossInSecondPhase()?hydraEnrageTint:hydraTint):enemyTint;
                 rectangle(enemy.x-size*.5f,enemy.y-size*.5f,size,size,
                           enemy.flash>0?hurtTint:roleColor);
                 const float healthRatio=std::max(0.f,std::min(1.f,
@@ -303,6 +323,16 @@ int main(int argc, char** argv) {
             }
             for(const auto& shot:arena.shots)if(shot.active)
                 rectangle(shot.x-4.f,shot.y-4.f,8,8,projectileTint);
+            // Source-derived 5/9-way boss projectiles and 35-frame warning.
+            for(const auto& bullet:arena.hostileShots)if(bullet.active)
+                rectangle(bullet.x-6.f,bullet.y-6.f,12,12,telegraphTint);
+            if(arena.bossVolleyTell>0){
+                if(const auto* boss=arena.activeBoss()){
+                    const float r=arena.bossVolleyTell*(45.f/(35.f/60.f))+56.f;
+                    rectangle(boss->x-r,boss->y-r,2.f*r,4.f,telegraphTint);
+                    rectangle(boss->x-r,boss->y+r-4.f,2.f*r,4.f,telegraphTint);
+                }
+            }
             // Fixed-capacity short-lived impact effects (no art regeneration).
             for(const auto& fx:arena.impacts)if(fx.active){
                 const float r=fx.radius;
@@ -327,6 +357,20 @@ int main(int argc, char** argv) {
                 rectangle(arena.x-53.f,arena.y-53.f,106.f,106.f,enemyEliteTint);
             }
             if(hasOriginalSprites){
+                originalSprites.StartFrame();
+                // Bear, creep and Titan textures come from actual embedded Moonfall art.
+                // The Hydra still uses geometric placeholder art: no verified Hydra
+                // sprite is present in the source image mapping.
+                for(const auto& enemy:arena.enemies)if(enemy.active&&enemy.role!=moonfall::EnemyRole::Hydra){
+                    int art=enemy.role==moonfall::EnemyRole::Brute?2:
+                            enemy.role==moonfall::EnemyRole::Runner?4:
+                            enemy.role==moonfall::EnemyRole::Titan?
+                               (arena.bossInSecondPhase()?7:6):
+                               (enemy.hp<enemy.maxHp*.5f?5:3);
+                    originalSprites.Draw(commands.Get(),art,enemy.x,enemy.y,rtv,
+                        enemy.role==moonfall::EnemyRole::Titan?158.f:
+                        enemy.role==moonfall::EnemyRole::Brute?65.f:49.f);
+                }
                 originalSprites.Draw(commands.Get(),arena.hero==moonfall::Hero::Nyra?1:0,
                                      arena.x,arena.y,rtv);
             }else{
