@@ -9,7 +9,15 @@ const assets=path.join(root,'modular','assets');
 const output=path.resolve(root,'../native/dx12-prototype/build/Release');
 const heroSources=[
  {name:'Z',source:'art-001.webp',target:'hero-z.png'},
- {name:'Nyra',source:'art-004.png',target:'hero-nyra.png'}
+ {name:'Nyra',source:'art-004.png',target:'hero-nyra.png'},
+ // Original embedded sprites referenced by BEAR_ART, CREEP_ART and titanImages
+ // in the generated Moonfall game. Preserve source bytes and decoded pixels.
+ {name:'Bear enemy',source:'art-005.webp',target:'enemy-bear.png'},
+ {name:'Creep enemy 1',source:'art-006.webp',target:'enemy-creep-1.png'},
+ {name:'Creep enemy 2',source:'art-007.webp',target:'enemy-creep-2.png'},
+ {name:'Creep enemy 3',source:'art-008.webp',target:'enemy-creep-3.png'},
+ {name:'Fire Titan',source:'art-009.png',target:'boss-titan-fire.png'},
+ {name:'Nature Titan',source:'art-010.png',target:'boss-titan-nature.png'}
 ];
 function sha(data){return crypto.createHash('sha256').update(data).digest('hex')}
 async function buildHeroes(){
