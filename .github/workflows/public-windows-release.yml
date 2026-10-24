@@ -36,6 +36,16 @@ jobs:
           npm version $version --no-git-tag-version --no-commit-hooks
           $actual = (node -p "require('./package.json').version").Trim()
           if ($actual -ne $version) { throw "Package version $actual does not match release $version" }
+      - name: Run Windows release regression tests
+        run: |
+          node modularize.js
+          node --check modular/game.js
+          node test-performance-overlay.js
+          node test-render-scale.js
+          node test-direct3d-backend.js
+          node test-gpu-support.js
+          node test-speech-bubbles.js
+          node audit-bloat.js
       - name: Build Windows setup
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
