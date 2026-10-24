@@ -54,6 +54,8 @@ jobs:
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
         run: npm run build:windows
+      - name: Test native DX12 arena logic before publishing
+        run: ctest --test-dir ../native/dx12-prototype/build --build-config Release --output-on-failure
       - name: Verify installer
         shell: pwsh
         run: |
