@@ -26,6 +26,7 @@ const transforms = [
   require('./speech-bubbles.js'),
   require('./render-scale.js'),
   require('./performance-overlay.js'),
+  require('./arcane-ui.js'),
 ];
 const mobs = require('./integrate-mob-variants.js');
 const mobCatalog = fs.readFileSync(path.join(root, 'mob-variants.js'), 'utf8');
