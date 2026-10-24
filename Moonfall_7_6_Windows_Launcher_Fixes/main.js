@@ -123,7 +123,7 @@ async function showDx12Demo(){
  const choice=await dialog.showMessageBox(mainWindow,{
   type:'info',title:'Experimental DirectX 12 demo',
   message:'Play the experimental DirectX 12 combat arena?',
-  detail:'This is a separate experimental arena using original Z/Nyra character art where installed. Tab changes hero; WASD/Arrows move; Space/Click shoots; Q switches Bolt/Nova weapons; Shift dashes; E uses an early hero skill; R restarts. Three enemy roles and an experimental Hydra boss appear. The main Moonfall game stays open. Bosses and weapons are simplified prototypes, not full original combat or DLSS.',
+  detail:'This is a separate experimental arena using original Z/Nyra character art where installed. Tab changes hero; WASD/Arrows move; Space/Click shoots; Q switches Bolt/Nova weapons; Shift dashes; E uses an early hero skill; R restarts. Three enemy roles and an experimental Hydra boss appear. The main Moonfall game stays open. Original bear, creep, and Titan art is included. After defeating the Hydra, press 1 for Moonsteel Edge or 2 for Crimson Vitality and fight the Titan. Original-game boss bullet patterns are partially ported. Some gameplay and Hydra art remain prototypes; DLSS is NOT integrated.',
   buttons:['Cancel','Launch demo'],defaultId:0,cancelId:0,noLink:true
  });
  if(choice.response!==1)return;
