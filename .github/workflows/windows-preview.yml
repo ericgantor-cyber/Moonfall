@@ -1,0 +1,85 @@
+name: Moonfall Windows Preview and DX12 Prototype
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'Moonfall_7_6_Windows_Launcher_Fixes/**'
+      - 'native/dx12-prototype/**'
+      - '.github/workflows/windows-preview.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'Moonfall_7_6_Windows_Launcher_Fixes/**'
+      - 'native/dx12-prototype/**'
+      - '.github/workflows/windows-preview.yml'
+permissions:
+  contents: read
+jobs:
+  game-installer:
+    runs-on: windows-2022
+    timeout-minutes: 35
+    defaults:
+      run:
+        working-directory: Moonfall_7_6_Windows_Launcher_Fixes
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Windows build dependencies
+        run: npm install --no-audit --no-fund
+      - name: Run performance and game regression checks
+        run: |
+          node modularize.js
+          node --check modular/game.js
+          node test-performance-overlay.js
+          node test-render-scale.js
+          node test-gpu-support.js
+          node test-direct3d-backend.js
+          node test-generated-combat.js
+          node test-speech-bubbles.js
+          node verify-project.js
+          node audit-bloat.js
+      - name: Build unsigned Windows preview installer
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: npm run build:windows
+      - name: Verify generated setup and packaged files
+        shell: pwsh
+        run: |
+          $installer = @(Get-ChildItem dist -Filter 'Moonfall-*-Windows-Setup.exe' -File)
+          if ($installer.Count -ne 1 -or $installer[0].Length -lt 1000000) {
+            throw 'Expected one nonempty Windows installer'
+          }
+          foreach ($name in @('main.js','gpu-support.js','direct3d-backend.js','modular/game.html','modular/game.js')) {
+            if (-not (Test-Path $name)) { throw "Missing required source file: $name" }
+          }
+          $unpacked = Join-Path (Get-Location) 'dist/win-unpacked/resources/app.asar'
+          if (-not (Test-Path $unpacked)) { throw 'Packaged app.asar missing' }
+          Write-Host "Verified unsigned preview installer: $($installer[0].Name)"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Moonfall-Windows-Preview-${{ github.run_number }}
+          path: Moonfall_7_6_Windows_Launcher_Fixes/dist/Moonfall-*-Windows-Setup.exe
+          retention-days: 7
+          if-no-files-found: error
+  dx12-prototype:
+    runs-on: windows-2022
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure native C++ DX12 prototype
+        run: cmake -S native/dx12-prototype -B native/dx12-prototype/build -G "Visual Studio 17 2022" -A x64
+      - name: Compile prototype
+        run: cmake --build native/dx12-prototype/build --config Release --parallel
+      - name: Probe DX12 device initialization
+        shell: pwsh
+        run: |
+          & .\native\dx12-prototype\build\Release\MoonfallDX12Prototype.exe --probe
+          if ($LASTEXITCODE -ne 0) { throw "DX12 device probe failed ($LASTEXITCODE)" }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Moonfall-DX12-Prototype-${{ github.run_number }}
+          path: native/dx12-prototype/build/Release/MoonfallDX12Prototype.exe
+          retention-days: 7
+          if-no-files-found: error
