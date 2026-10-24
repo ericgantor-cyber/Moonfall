@@ -6,6 +6,9 @@
 #include <dxgi1_6.h>
 #include <wrl/client.h>
 #include <array>
+#include <algorithm>
+#include <chrono>
+#include "arena.hpp"
 #include <cmath>
 #include <cstdio>
 #include <exception>
@@ -72,9 +75,9 @@ int main(int argc, char** argv) {
         wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
         if (!RegisterClassW(&wc)) throw std::runtime_error("RegisterClassW failed");
         HWND window = CreateWindowExW(0, wc.lpszClassName,
-            L"Moonfall DX12 prototype (experimental, no gameplay)",
+            L"Moonfall DX12 Combat Test | WASD move | SPACE shoot | SHIFT dash | R restart",
             WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
-            CW_USEDEFAULT, CW_USEDEFAULT, 1024, 576,
+            CW_USEDEFAULT, CW_USEDEFAULT, 1040, 616,
             nullptr, nullptr, instance, nullptr);
         if (!window) throw std::runtime_error("CreateWindowExW failed");
 
@@ -129,6 +132,21 @@ int main(int argc, char** argv) {
         HANDLE fenceEvent = CreateEventW(nullptr, FALSE, FALSE, nullptr);
         if (!fenceEvent) throw std::runtime_error("CreateEventW failed");
         UINT64 fenceValue = 0, frameNumber = 0;
+        moonfall::Arena arena;
+        using GameClock = std::chrono::steady_clock;
+        auto previousFrame = GameClock::now();
+        bool wasRestartDown = false;
+        const float gridTint[4] = {0.11f, 0.10f, 0.21f, 1.f};
+        const float boundaryTint[4] = {0.29f, 0.19f, 0.44f, 1.f};
+        const float playerTint[4] = {0.35f, 0.88f, 0.98f, 1.f};
+        const float enemyTint[4] = {0.91f, 0.24f, 0.38f, 1.f};
+        const float enemyEliteTint[4] = {0.96f, 0.51f, 0.25f, 1.f};
+        const float projectileTint[4] = {0.99f, 0.87f, 0.39f, 1.f};
+        const float hpTint[4] = {0.31f, 0.94f, 0.62f, 1.f};
+        const float hurtTint[4] = {0.96f, 0.96f, 0.99f, 1.f};
+        const float successTint[4] = {0.16f, 0.66f, 0.43f, 1.f};
+        const float defeatTint[4] = {0.48f, 0.11f, 0.23f, 1.f};
+
 
         ShowWindow(window, SW_SHOW);
         bool running = true;
@@ -140,6 +158,32 @@ int main(int argc, char** argv) {
                 DispatchMessageW(&msg);
             }
             if (!running) break;
+            const auto now = GameClock::now();
+            const float dt = std::chrono::duration<float>(now-previousFrame).count();
+            previousFrame = now;
+            const bool focused = GetForegroundWindow() == window;
+            const auto held = [focused](int key) {
+                return focused && (GetAsyncKeyState(key) & 0x8000) != 0;
+            };
+            moonfall::Input input{};
+            input.up=held('W') || held(VK_UP);
+            input.down=held('S') || held(VK_DOWN);
+            input.left=held('A') || held(VK_LEFT);
+            input.right=held('D') || held(VK_RIGHT);
+            input.attack=held(VK_SPACE) || held(VK_LBUTTON);
+            input.dash=held(VK_SHIFT);
+            const bool restartDown=held('R');
+            input.restart=restartDown&&!wasRestartDown;
+            wasRestartDown=restartDown;
+            arena.update(dt,input);
+            if ((frameNumber % 15) == 0) {
+                std::wstring title=L"Moonfall DX12 ARENA TEST | HP "+std::to_wstring(static_cast<int>(arena.health))+
+                    L" | Defeated "+std::to_wstring(arena.kills)+L"/36 | Wave "+std::to_wstring(arena.wave);
+                if (arena.phase == moonfall::Phase::Won) title+=L" | VICTORY! Press R to restart";
+                else if (arena.phase == moonfall::Phase::Lost) title+=L" | FALLEN! Press R to restart";
+                else title+=L" | WASD/Arrows, Space/Click shoot, Shift dash, R restart";
+                SetWindowTextW(window,title.c_str());
+            }
             const UINT current = swap->GetCurrentBackBufferIndex();
             Ensure(allocator->Reset(), "Reset allocator");
             Ensure(commands->Reset(allocator.Get(), nullptr), "Reset commands");
@@ -156,6 +200,43 @@ int main(int argc, char** argv) {
             const float phase = 0.5f + 0.5f * std::sin(static_cast<float>(frameNumber) * 0.015f);
             const float clearColor[4] = {0.04f + 0.12f * phase, 0.02f, 0.14f + 0.22f * phase, 1.0f};
             commands->ClearRenderTargetView(rtv, clearColor, 0, nullptr);
+            // Renderer test uses DX12 RTV rectangle clears, no new shaders or art.
+            // Logic coordinates stay independent of future sprite/asset migration.
+            const auto rectangle = [&](float x, float y, float w, float h, const float* color){
+                D3D12_RECT rect{};
+                rect.left=std::max<LONG>(0,static_cast<LONG>(std::floor(x)));
+                rect.top=std::max<LONG>(0,static_cast<LONG>(std::floor(y)));
+                rect.right=std::min<LONG>(1024,static_cast<LONG>(std::ceil(x+w)));
+                rect.bottom=std::min<LONG>(576,static_cast<LONG>(std::ceil(y+h)));
+                if(rect.right>rect.left&&rect.bottom>rect.top)
+                    commands->ClearRenderTargetView(rtv,color,1,&rect);
+            };
+            for(int xx=64;xx<1024;xx+=64)rectangle(float(xx),0,1,576,gridTint);
+            for(int yy=64;yy<576;yy+=64)rectangle(0,float(yy),1024,1,gridTint);
+            rectangle(12,12,1000,2,boundaryTint);
+            rectangle(12,563,1000,2,boundaryTint);
+            rectangle(12,12,2,553,boundaryTint);
+            rectangle(1010,12,2,553,boundaryTint);
+            rectangle(18,18,220,16,boundaryTint);
+            rectangle(20,20,216.f*arena.health/100.f,12,hpTint);
+            // Abstract geometric markers deliberately do not replace Z/Nyra art.
+            for(const auto& enemy:arena.enemies)if(enemy.active) {
+                rectangle(enemy.x-12.f,enemy.y-12.f,24,24,
+                          arena.wave==3?enemyEliteTint:enemyTint);
+                rectangle(enemy.x-7.f,enemy.y-17.f,14.f*enemy.hp/4.f,3,hpTint);
+            }
+            for(const auto& shot:arena.shots)if(shot.active)
+                rectangle(shot.x-4.f,shot.y-4.f,8,8,projectileTint);
+            rectangle(arena.x-13.f,arena.y-13.f,26,26,
+                      arena.invulnerable>0 && frameNumber%4<2?hurtTint:playerTint);
+            rectangle(arena.x-4.f,arena.y-4.f,8,8,clearColor);
+            if(arena.phase==moonfall::Phase::Won){
+                rectangle(190,250,644,74,successTint);
+                rectangle(208,266,608,42,gridTint);
+            }else if(arena.phase==moonfall::Phase::Lost){
+                rectangle(190,250,644,74,defeatTint);
+                rectangle(208,266,608,42,gridTint);
+            }
             transition.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
             transition.Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
             commands->ResourceBarrier(1, &transition);
