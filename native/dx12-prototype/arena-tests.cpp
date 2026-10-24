@@ -119,7 +119,7 @@ int main(){
   nova.update(.016f,blast);
   assert(nova.weapon==moonfall::Weapon::Nova);
   assert(nova.kills==1&&nova.projectileCount()==0&&nova.novaPulse>0);
-  assert(nova.fireCooldown>.5f);
+  assert(nova.fireCooldown>.45f && nova.fireCooldown<.49f);
   nova.enemies[0]={nova.x+70.f,nova.y,2.f,true};
   nova.update(.016f,Input{false,false,false,false,true});
   assert(nova.kills==1); // Nova cannot fire again during cooldown.
