@@ -16,7 +16,7 @@ enum class EnemyRole { Chaser, Runner, Brute, Hydra, Titan, Elite };
 enum class Room { Bloodmoon, Shadow, Cinder };
 struct RoomRules {float speed=1.f,cadence=1.f;};
 constexpr std::array<RoomRules,3> OriginalRoomRules{{{1.17f,1.2f},{1.05f,1.f},{1.f,1.4f}}};
-constexpr const char* RoomNames[]={"Bloodmoon Arena","Shadow Labyrinth","Cinder Gauntlet"};
+constexpr const wchar_t* RoomNames[]={L"Bloodmoon Arena",L"Shadow Labyrinth",L"Cinder Gauntlet"};
 struct Input {
   bool up=false,down=false,left=false,right=false,attack=false,dash=false;
   bool restart=false,switchHero=false,special=false,switchWeapon=false;
