@@ -45,6 +45,8 @@ jobs:
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
         run: npm run build:windows
+      - name: Run bundled C++ arena tests
+        run: ctest --test-dir ../native/dx12-prototype/build --build-config Release --output-on-failure
       - name: Verify generated setup and packaged files
         shell: pwsh
         run: |
@@ -77,6 +79,8 @@ jobs:
         run: cmake -S native/dx12-prototype -B native/dx12-prototype/build -G "Visual Studio 17 2022" -A x64
       - name: Compile prototype
         run: cmake --build native/dx12-prototype/build --config Release --parallel
+      - name: Test native DX12 arena game rules
+        run: ctest --test-dir native/dx12-prototype/build --build-config Release --output-on-failure
       - name: Probe DX12 device initialization
         shell: pwsh
         run: |
