@@ -1,0 +1,1 @@
+Moonfall v9.6.10 Windows release: original Bloodmoon/Shadow/Cinder modifiers and elite attack in standalone DX12 arena, final-room victory, and reduced per-sprite GPU buffer mapping. Main Moonfall and original character artwork preserved; no DLSS.
