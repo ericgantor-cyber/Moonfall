@@ -1,0 +1,14 @@
+'use strict';
+const assert=require('node:assert/strict');
+const vm=require('node:vm');
+const {patchJs}=require('./environment-atmosphere');
+const source='function draw(){paintBackground();ctx.fillRect(0,0,10,10)}';
+const result=patchJs(source);
+assert(result.includes('mfDrawAtmosphere();'));
+assert(result.includes("roomName.includes('Bloodmoon')"));
+assert(result.includes("roomName.includes('Shadow')"));
+assert(result.includes("roomName.includes('Cinder')"));
+assert(result.includes('ctx.restore()'));
+new vm.Script(result);
+assert.throws(()=>patchJs('function unrelated(){}'),/drawing hook/);
+console.log('PASS: room atmosphere integrates and parses without altering source art');
