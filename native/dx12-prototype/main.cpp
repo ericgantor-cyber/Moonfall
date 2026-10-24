@@ -34,7 +34,8 @@ static ComPtr<ID3D12Device> MakeDevice(IDXGIFactory4* factory, bool& software) {
         if (factory->EnumAdapters1(index, &adapter) == DXGI_ERROR_NOT_FOUND) break;
         DXGI_ADAPTER_DESC1 details = {};
         Ensure(adapter->GetDesc1(&details), "Get adapter details");
-        if (details.Flags & DXGI_ADAPTER_FLAG_SOFTWARE) continue;
+        // Microsoft Basic Render Driver (vendor 0x1414) is not evidence of a discrete GPU.
+        if ((details.Flags & DXGI_ADAPTER_FLAG_SOFTWARE) || details.VendorId == 0x1414u) continue;
         if (SUCCEEDED(D3D12CreateDevice(adapter.Get(), D3D_FEATURE_LEVEL_11_0,
                                          IID_PPV_ARGS(&device)))) {
             software = false;
