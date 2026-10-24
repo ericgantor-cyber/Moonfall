@@ -23,6 +23,7 @@
     "files": [
       "main.js",
       "gpu-support.js",
+      "direct3d-backend.js",
       "node_modules/three/build/three.module.js",
       "modular/**/*"
     ],

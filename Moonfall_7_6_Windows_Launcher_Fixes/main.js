@@ -4,6 +4,11 @@ const http=require('node:http');
 const fs=require('node:fs');
 const path=require('node:path');
 const {formatGpuReport}=require('./gpu-support.js');
+const {loadBackend,saveBackend,configureBackend}=require('./direct3d-backend.js');
+// Configure Chromium's requested ANGLE backend before app.ready.
+// Existing game saves remain on the same local origin regardless of mode.
+const activeGraphicsBackend=configureBackend(app,process.platform,process.argv);
+
 let server=null,mainWindow=null;
 let rendererRecoveryAttempts=0;
 const MAX_RENDERER_RECOVERY_ATTEMPTS=2;
@@ -88,10 +93,28 @@ async function showGraphicsStatus(){
  let gpuInfo={};
  try{gpuInfo=await app.getGPUInfo('basic');}
  catch(err){console.warn('GPU device details unavailable:',err.message);}
- const details=formatGpuReport(app.getGPUFeatureStatus(),gpuInfo,app.isHardwareAccelerationEnabled());
+ const details=formatGpuReport(app.getGPUFeatureStatus(),gpuInfo,app.isHardwareAccelerationEnabled())
+  +'\n\nBackend requested for this launch: '+(activeGraphicsBackend==='d3d11'?'ANGLE Direct3D 11':'Chromium automatic')
+  +'\nSaved backend for next launch: '+(loadBackend(app)==='d3d11'?'ANGLE Direct3D 11':'Chromium automatic')
+  +'\nBackend selection is a request, not proof that the GPU is using Direct3D 11.'
+  +'\nDirect3D 11 through ANGLE does not expose NVIDIA DLSS to Moonfall.';
  await dialog.showMessageBox(mainWindow,{
   type:'info',title:'Moonfall Graphics / NVIDIA',message:'Moonfall graphics diagnostics',
   detail:details,buttons:['OK']
+ });
+}
+async function chooseGraphicsBackend(nextMode){
+ if(process.platform!=='win32')return;
+ try{saveBackend(app,nextMode)}
+ catch(err){dialog.showErrorBox('Could not save graphics backend',String(err));return}
+ if(!mainWindow||mainWindow.isDestroyed())return;
+ await dialog.showMessageBox(mainWindow,{
+  type:'info',title:'Moonfall renderer settings',
+  message:'Graphics setting saved',
+  detail:(nextMode==='d3d11'?'ANGLE Direct3D 11':'Chromium automatic')+
+   ' will be requested the next time Moonfall launches.\nClose and reopen Moonfall when it is safe to stop the game.\n'+
+   'If the experimental option causes graphics trouble, choose Automatic or start with --moonfall-safe-graphics. This setting does not enable DLSS.',
+  buttons:['OK']
  });
 }
 function showNvidiaTips(){
@@ -121,6 +144,11 @@ async function createWindow(){
    {label:'Exit',accelerator:'Alt+F4',click:()=>app.quit()}
   ]},
   {label:'Graphics',submenu:[
+   {label:'Renderer: Automatic (recommended)',type:'radio',checked:loadBackend(app)!=='d3d11',
+    click:()=>chooseGraphicsBackend('auto').catch(err=>console.error('Graphics backend:',err))},
+   {label:'Renderer: ANGLE Direct3D 11 (experimental, Windows)',type:'radio',checked:loadBackend(app)==='d3d11',
+    enabled:process.platform==='win32',click:()=>chooseGraphicsBackend('d3d11').catch(err=>console.error('Graphics backend:',err))},
+   {type:'separator'},
    {label:'GPU Status / NVIDIA Check',click:()=>showGraphicsStatus().catch(err=>dialog.showErrorBox('GPU diagnostics error',String(err)))},
    {label:'NVIDIA Recording Tips',click:showNvidiaTips},
    {label:'Download NVIDIA App (Official)',click:()=>shell.openExternal('https://www.nvidia.com/en-us/software/nvidia-app/').catch(err=>dialog.showErrorBox('Could not open NVIDIA website',String(err)))}
