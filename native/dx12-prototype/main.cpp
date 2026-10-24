@@ -27,11 +27,11 @@ static void Ensure(HRESULT result, const char* label) {
         throw std::runtime_error(message);
     }
 }
-static bool spaceAttackHeld = false;
+static bool spaceDashHeld = false;
 static LRESULT CALLBACK WindowProc(HWND window, UINT event, WPARAM w, LPARAM l) {
-    if (event == WM_KEYDOWN && w == VK_SPACE) { spaceAttackHeld = true; return 0; }
-    if (event == WM_KEYUP && w == VK_SPACE) { spaceAttackHeld = false; return 0; }
-    if (event == WM_KILLFOCUS) spaceAttackHeld = false;
+    if (event == WM_KEYDOWN && w == VK_SPACE) { spaceDashHeld = true; return 0; }
+    if (event == WM_KEYUP && w == VK_SPACE) { spaceDashHeld = false; return 0; }
+    if (event == WM_KILLFOCUS) spaceDashHeld = false;
     if (event == WM_DESTROY) { PostQuitMessage(0); return 0; }
     return DefWindowProcW(window, event, w, l);
 }
@@ -227,7 +227,7 @@ int main(int argc, char** argv) {
             input.left=held('A') || held(VK_LEFT);
             input.right=held('D') || held(VK_RIGHT);
             input.attack=held(VK_LBUTTON) || held('F');
-            input.dash=(focused && spaceAttackHeld) || held(VK_SPACE) || held(VK_SHIFT);
+            input.dash=(focused && spaceDashHeld) || held(VK_SPACE) || held(VK_SHIFT);
             const bool restartDown=held('R');
             input.restart=restartDown&&!wasRestartDown;
             wasRestartDown=restartDown;
