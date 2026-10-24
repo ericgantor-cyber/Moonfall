@@ -6,18 +6,18 @@ on:
         description: 'Public release tag (example: v7.6.1)'
         required: true
         type: string
-  # One-time, narrowly scoped v9.6.9 release. Manual releases still work.
+  # One-time, narrowly scoped v9.6.10 release. Manual releases still work.
   push:
     branches: [main]
     paths:
-      - 'release-triggers/v9.6.9.txt'
+      - 'release-triggers/v9.6.10.txt'
 permissions:
   contents: write
 jobs:
   release:
     runs-on: windows-2022
     env:
-      RELEASE_TAG: ${{ github.event_name == 'push' && 'v9.6.9' || inputs.version }}
+      RELEASE_TAG: ${{ github.event_name == 'push' && 'v9.6.10' || inputs.version }}
     defaults:
       run:
         working-directory: Moonfall_7_6_Windows_Launcher_Fixes
@@ -88,4 +88,4 @@ jobs:
         run: |
           $files = @(Get-ChildItem dist -Filter 'Moonfall-*-Windows-Setup.exe' -File | ForEach-Object { $_.FullName })
           if ($files.Count -ne 1) { throw 'Expected exactly one setup executable' }
-          gh release create $env:RELEASE_TAG $files[0] --repo "${{ github.repository }}" --target "${{ github.sha }}" --title "Moonfall $env:RELEASE_TAG" --notes "Windows 10/11 64-bit installer. Experimental DX12 arena now displays source-identical Z/Nyra, bear, creep and Titan art. Adds partial original Moonfall boss volley patterns, a post-Hydra Fire/Nature Titan stage, and stage boon choices. Hydra remains a geometry placeholder and progression is simplified. Main Moonfall game unchanged. No NVIDIA DLSS. Unsigned application: Windows SmartScreen may show a warning. Gameplay and installation on user hardware are not yet fully verified."
+          gh release create $env:RELEASE_TAG $files[0] --repo "${{ github.repository }}" --target "${{ github.sha }}" --title "Moonfall $env:RELEASE_TAG" --notes "Windows 10/11 64-bit installer. Experimental DX12 arena adds three source-derived dungeon chambers (Bloodmoon, Shadow, Cinder), a five-shot elite attack, final-room progression and once-per-frame sprite vertex mapping. Original Z/Nyra, bear, creep and Titan artwork preserved. Main game unchanged; native gameplay remains a partial port. No NVIDIA DLSS. Unsigned application: Windows SmartScreen may show a warning. Gameplay and installation on user hardware are not yet fully verified."
