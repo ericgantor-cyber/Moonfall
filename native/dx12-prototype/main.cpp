@@ -81,7 +81,7 @@ int main(int argc, char** argv) {
         wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
         if (!RegisterClassW(&wc)) throw std::runtime_error("RegisterClassW failed");
         HWND window = CreateWindowExW(0, wc.lpszClassName,
-            L"Moonfall DX12 Original Art Test | Tab Z/Nyra | E hero skill | WASD move | Space/F attack",
+            L"Moonfall DX12 | WASD move | Click/F attack | Space/Shift dash | Right-click/Q/E skill | C weapon",
             WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
             CW_USEDEFAULT, CW_USEDEFAULT, 1040, 616,
             nullptr, nullptr, instance, nullptr);
@@ -226,18 +226,18 @@ int main(int argc, char** argv) {
             input.down=held('S') || held(VK_DOWN);
             input.left=held('A') || held(VK_LEFT);
             input.right=held('D') || held(VK_RIGHT);
-            input.attack=(focused && spaceAttackHeld) || held(VK_SPACE) || held('F') || held(VK_LBUTTON);
-            input.dash=held(VK_SHIFT);
+            input.attack=held(VK_LBUTTON) || held('F');
+            input.dash=(focused && spaceAttackHeld) || held(VK_SPACE) || held(VK_SHIFT);
             const bool restartDown=held('R');
             input.restart=restartDown&&!wasRestartDown;
             wasRestartDown=restartDown;
             const bool switchDown=held(VK_TAB);
             input.switchHero=switchDown&&!wasSwitchDown;
             wasSwitchDown=switchDown;
-            const bool specialDown=held('E');
+            const bool specialDown=held(VK_RBUTTON) || held('Q') || held('E');
             input.special=specialDown&&!wasSpecialDown;
             wasSpecialDown=specialDown;
-            const bool weaponDown=held('Q');
+            const bool weaponDown=held('C');
             input.switchWeapon=weaponDown&&!wasWeaponDown;
             wasWeaponDown=weaponDown;
             // Native stage-clear boon choices mirror Moonsteel Edge and Crimson Vitality.
