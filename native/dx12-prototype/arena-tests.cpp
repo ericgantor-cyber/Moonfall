@@ -132,7 +132,6 @@ int main(){
   boss.hydraAttackCooldown=0;
   boss.update(.05f,Input{});
   assert(boss.hydraTell>0.f);
-  boss.enemies[0].active=false; // Non-boss enemy slots are independent of boss state.
   for(auto& enemy:boss.enemies)if(enemy.active&&enemy.role==moonfall::EnemyRole::Hydra)
     boss.strike(enemy,17.f);
   assert(boss.hydraEnraged());
@@ -145,6 +144,7 @@ int main(){
   Arena shieldBoss;shieldBoss.spawnCooldown=1000.f;
   shieldBoss.x=512;shieldBoss.y=325;
   shieldBoss.spawnHydra();
+  for(auto& enemy:shieldBoss.enemies)if(enemy.role==moonfall::EnemyRole::Hydra)enemy.y=250.f;
   shieldBoss.hero=moonfall::Hero::Nyra;
   shieldBoss.hydraAttackCooldown=0;
   Input guard{};guard.special=true;
