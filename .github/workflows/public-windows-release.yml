@@ -6,18 +6,18 @@ on:
         description: 'Public release tag (example: v7.6.1)'
         required: true
         type: string
-  # One-time, narrowly scoped v9.6.4 release. Manual releases still work.
+  # One-time, narrowly scoped v9.6.5 release. Manual releases still work.
   push:
     branches: [main]
     paths:
-      - 'release-triggers/v9.6.4.txt'
+      - 'release-triggers/v9.6.5.txt'
 permissions:
   contents: write
 jobs:
   release:
     runs-on: windows-latest
     env:
-      RELEASE_TAG: ${{ github.event_name == 'push' && 'v9.6.4' || inputs.version }}
+      RELEASE_TAG: ${{ github.event_name == 'push' && 'v9.6.5' || inputs.version }}
     defaults:
       run:
         working-directory: Moonfall_7_6_Windows_Launcher_Fixes
@@ -74,4 +74,4 @@ jobs:
         run: |
           $files = @(Get-ChildItem dist -Filter 'Moonfall-*-Windows-Setup.exe' -File | ForEach-Object { $_.FullName })
           if ($files.Count -ne 1) { throw 'Expected exactly one setup executable' }
-          gh release create $env:RELEASE_TAG $files[0] --repo "${{ github.repository }}" --target "${{ github.sha }}" --title "Moonfall $env:RELEASE_TAG" --notes "Windows 10/11 64-bit installer. Unsigned application: Windows SmartScreen may show a warning. Gameplay and installation on user hardware are not yet fully verified."
+          gh release create $env:RELEASE_TAG $files[0] --repo "${{ github.repository }}" --target "${{ github.sha }}" --title "Moonfall $env:RELEASE_TAG" --notes "Windows 10/11 64-bit installer. Includes optional standalone experimental DX12 demo (Graphics menu), not a DLSS or gameplay renderer. Unsigned application: Windows SmartScreen may show a warning. Gameplay and installation on user hardware are not yet fully verified."
