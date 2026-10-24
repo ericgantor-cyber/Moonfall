@@ -6,13 +6,14 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "build:windows": "npm run prepare:modular && npm run build:dx12 && electron-builder --win nsis --x64",
+    "build:windows": "npm run prepare:modular && node prepare-dx12-heroes.js && npm run build:dx12 && electron-builder --win nsis --x64",
     "prepare:modular": "node modularize.js",
     "build:dx12": "cmake -S ../native/dx12-prototype -B ../native/dx12-prototype/build -G \"Visual Studio 17 2022\" -A x64 && cmake --build ../native/dx12-prototype/build --config Release --parallel"
   },
   "devDependencies": {
     "electron": "^33.4.11",
-    "electron-builder": "^25.1.8"
+    "electron-builder": "^25.1.8",
+    "sharp": "^0.34.5"
   },
   "build": {
     "appId": "com.moonfall.game",
@@ -51,6 +52,18 @@
       {
         "from": "../native/dx12-prototype/build/Release/MoonfallDX12Prototype.exe",
         "to": "dx12/MoonfallDX12Prototype.exe"
+      },
+      {
+        "from": "../native/dx12-prototype/build/Release/hero-z.png",
+        "to": "dx12/hero-z.png"
+      },
+      {
+        "from": "../native/dx12-prototype/build/Release/hero-nyra.png",
+        "to": "dx12/hero-nyra.png"
+      },
+      {
+        "from": "../native/dx12-prototype/build/Release/original-hero-art.json",
+        "to": "dx12/original-hero-art.json"
       }
     ]
   },
