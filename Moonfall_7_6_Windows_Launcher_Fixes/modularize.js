@@ -23,6 +23,7 @@ const transforms = [
   require('./weapon-evolutions.js'),
   require('./combat-feedback-stage.js'),
   require('./hades-combo.js'),
+  require('./speech-bubbles.js'),
 ];
 const mobs = require('./integrate-mob-variants.js');
 const mobCatalog = fs.readFileSync(path.join(root, 'mob-variants.js'), 'utf8');
