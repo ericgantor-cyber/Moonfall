@@ -4,6 +4,8 @@ This is a **separate native Windows graphics prototype**, not the Moonfall game 
 
 The project uses the installed Windows SDK and CMake/MSVC; no copied NVIDIA binaries or artwork. Z and Nyra's original art remains entirely in the game.
 
+The **Moonfall Windows installer also bundles this experimental executable** and offers **Alt → Graphics → Launch DirectX 12 Demo (experimental)**. This starts a separate window and does not switch Moonfall's renderer or enable DLSS. A full Windows build now requires CMake, Visual Studio 2022 C++ build tools and a Windows SDK.
+
 ## Build (Windows 10/11, Visual Studio 2022 C++ workload, Windows SDK)
 
 ```powershell

@@ -107,6 +107,8 @@ jobs:
         run: node test-speech-bubbles.js
       - name: Test Windows GPU diagnostics and NVIDIA app launcher links
         run: node test-gpu-support.js
+      - name: Test native DirectX 12 demo launcher packaging
+        run: node test-dx12-launch.js
       - name: Test opt-in Direct3D 11 ANGLE configuration
         run: node test-direct3d-backend.js
       - name: Test optional FPS and frame pacing overlay

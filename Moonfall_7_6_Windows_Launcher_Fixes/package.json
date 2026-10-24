@@ -6,8 +6,9 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "build:windows": "npm run prepare:modular && electron-builder --win nsis --x64",
-    "prepare:modular": "node modularize.js"
+    "build:windows": "npm run prepare:modular && npm run build:dx12 && electron-builder --win nsis --x64",
+    "prepare:modular": "node modularize.js",
+    "build:dx12": "cmake -S ../native/dx12-prototype -B ../native/dx12-prototype/build -G \"Visual Studio 17 2022\" -A x64 && cmake --build ../native/dx12-prototype/build --config Release --parallel"
   },
   "devDependencies": {
     "electron": "^33.4.11",
@@ -22,6 +23,7 @@
     },
     "files": [
       "main.js",
+      "dx12-launch.js",
       "gpu-support.js",
       "direct3d-backend.js",
       "node_modules/three/build/three.module.js",
@@ -44,7 +46,13 @@
       "createStartMenuShortcut": true,
       "shortcutName": "Moonfall",
       "artifactName": "Moonfall-${version}-Windows-Setup.${ext}"
-    }
+    },
+    "extraResources": [
+      {
+        "from": "../native/dx12-prototype/build/Release/MoonfallDX12Prototype.exe",
+        "to": "dx12/MoonfallDX12Prototype.exe"
+      }
+    ]
   },
   "dependencies": {
     "three": "0.160.1"
