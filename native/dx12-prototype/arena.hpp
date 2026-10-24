@@ -12,11 +12,15 @@ constexpr int MaxEnemies=48, MaxShots=96, MaxImpacts=32;
 enum class Phase { Playing, Won, Lost };
 enum class Hero { Z, Nyra };
 enum class Weapon { Bolt, Nova };
-enum class EnemyRole { Chaser, Runner, Brute, Hydra, Titan };
+enum class EnemyRole { Chaser, Runner, Brute, Hydra, Titan, Elite };
+enum class Room { Bloodmoon, Shadow, Cinder };
+struct RoomRules {float speed=1.f,cadence=1.f;};
+constexpr std::array<RoomRules,3> OriginalRoomRules{{{1.17f,1.2f},{1.05f,1.f},{1.f,1.4f}}};
+constexpr const wchar_t* RoomNames[]={L"Bloodmoon Arena",L"Shadow Labyrinth",L"Cinder Gauntlet"};
 struct Input {
   bool up=false,down=false,left=false,right=false,attack=false,dash=false;
   bool restart=false,switchHero=false,special=false,switchWeapon=false;
-  bool boonDamage=false,boonVitality=false;
+  bool boonDamage=false,boonVitality=false,roomCinder=false;
 };
 struct Enemy {
   float x=0,y=0,hp=0; bool active=false;
@@ -38,6 +42,10 @@ struct Arena {
   float bossVolleyTimer=190.f/60.f,bossVolleyTell=0;
   float damageMultiplier=1.f,maxHealth=100.f;
   int stage=1,volleyCount=0;
+  Room room=Room::Bloodmoon;
+  bool eliteSpawned=false;
+  float eliteVolleyTimer=85.f/60.f;
+  int eliteVolleys=0;
   Hero hero=Hero::Z;
   Weapon weapon=Weapon::Bolt;
   int kills=0,wave=1;
@@ -81,8 +89,47 @@ struct Arena {
     const auto* boss=activeBoss();return boss&&boss->hp<=boss->maxHp*.5f;
   }
   void reset(){const Hero h=hero;const Weapon w=weapon;*this=Arena{};hero=h;weapon=w;}
+  RoomRules roomRules() const {return OriginalRoomRules[static_cast<int>(room)];}
+  bool activeElite() const {for(const auto& e:enemies)if(e.active&&e.role==EnemyRole::Elite)return true;return false;}
   void impact(float ix,float iy,float radius,float life=.25f){
     for(auto& e:impacts)if(!e.active){e={ix,iy,radius,life,true};return;}
+  }
+  void spawnElite(){
+    if(stage!=3||eliteSpawned||kills<10||phase!=Phase::Playing)return;
+    for(auto& e:enemies)if(!e.active){
+      // Prototype-scaled health, original elite location / source-defined attack.
+      e={Width*.5f,125.f,24.f,true,EnemyRole::Elite,24.f,0.f};
+      eliteSpawned=true;eliteVolleyTimer=85.f/60.f;
+      impact(e.x,e.y,52.f,.45f);
+      return;
+    }
+  }
+  void launchEliteVolley(const Enemy& elite){
+    // Source: roguelike-rooms.js mfEliteAttack, five aimed projectiles,
+    // offsets +/-2*0.21, speed 4.2 px/frame, damage 13, every 85 frames.
+    const float aim=std::atan2(y-elite.y,x-elite.x);
+    for(int i=-2;i<=2;++i){
+      const float angle=aim+float(i)*.21f;
+      for(auto& bullet:hostileShots)if(!bullet.active){
+        bullet={elite.x,elite.y,std::cos(angle)*4.2f*60.f,
+                std::sin(angle)*4.2f*60.f,3.5f,13.f,true};
+        break;
+      }
+    }
+    ++eliteVolleys;
+    impact(elite.x,elite.y,28.f,.24f);
+  }
+  void startRoomStage(Room choice){
+    stage=3;room=choice;phase=Phase::Playing;
+    bossSummoned=false;bossDefeated=false;eliteSpawned=false;
+    kills=0;wave=3;spawnCooldown=.4f;eliteVolleyTimer=85.f/60.f;eliteVolleys=0;
+    invulnerable=1.f;
+    fireCooldown=0;bossVolleyTell=0;hydraTell=0;
+    for(auto& e:enemies)e.active=false;
+    for(auto& p:shots)p.active=false;
+    for(auto& p:hostileShots)p.active=false;
+    for(auto& fx:impacts)fx.active=false;
+    health=std::min(maxHealth,health+35.f);
   }
   void spawnEnemy(bool summonedMinion=false){
     if(enemyCount()>=32||(!summonedMinion&&bossSummoned))return;
@@ -176,7 +223,7 @@ struct Arena {
     if(e.hp<=0){
       e.active=false;
       if(e.role==EnemyRole::Hydra||e.role==EnemyRole::Titan){bossDefeated=true;phase=Phase::Won;impact(e.x,e.y,92.f,.6f);}
-      else ++kills;
+      else if(e.role!=EnemyRole::Elite)++kills;
     }
   }
   void fireBolt(){
@@ -208,6 +255,10 @@ struct Arena {
     if(input.restart){reset();return;}
     if(phase==Phase::Won&&stage==1&&(input.boonDamage||input.boonVitality)){
       startTitanStage(input.boonVitality);return;
+    }
+    if(phase==Phase::Won&&stage==2&&(input.boonDamage||input.boonVitality||input.roomCinder)){
+      startRoomStage(input.roomCinder?Room::Cinder:input.boonVitality?Room::Shadow:Room::Bloodmoon);
+      return;
     }
     if(input.switchHero){
       hero=hero==Hero::Z?Hero::Nyra:Hero::Z;
@@ -243,7 +294,7 @@ struct Arena {
 
     spawnCooldown-=dt;
     if(spawnCooldown<=0&&!bossSummoned){
-      spawnCooldown+=std::max(.30f,.90f-float(wave-1)*.20f);
+      spawnCooldown+=std::max(.30f,.90f-float(wave-1)*.20f)/(stage==3?roomRules().cadence:1.f);
       spawnEnemy();
     }
     if(input.attack&&fireCooldown<=0){
@@ -257,12 +308,14 @@ struct Arena {
                         e.role==EnemyRole::Brute?43.f:
                         e.role==EnemyRole::Hydra?(hydraEnraged()?50.f:28.f):
                         e.role==EnemyRole::Titan?(bossInSecondPhase()?42.f:24.f):
+                        e.role==EnemyRole::Elite?38.f:
                         58.f+float(wave-1)*18.f;
-      e.x=clamp(e.x+vx/distance*speed*dt,18.f,Width-18.f);
-      e.y=clamp(e.y+vy/distance*speed*dt,18.f,Height-18.f);
+      const float adjustedSpeed=speed*(stage==3?roomRules().speed:1.f);
+      e.x=clamp(e.x+vx/distance*adjustedSpeed*dt,18.f,Width-18.f);
+      e.y=clamp(e.y+vy/distance*adjustedSpeed*dt,18.f,Height-18.f);
       const float touch=e.role==EnemyRole::Hydra||e.role==EnemyRole::Titan?52.f:
-                        e.role==EnemyRole::Brute?38.f:31.f;
-      if(distance<touch)damagePlayer(e.role==EnemyRole::Brute?20.f:
+                        e.role==EnemyRole::Brute||e.role==EnemyRole::Elite?38.f:31.f;
+      if(distance<touch)damagePlayer(e.role==EnemyRole::Brute||e.role==EnemyRole::Elite?20.f:
                                     e.role==EnemyRole::Hydra||e.role==EnemyRole::Titan?17.f:12.f);
     }
     if(bossSummoned&&phase==Phase::Playing){
@@ -306,6 +359,19 @@ struct Arena {
         }
       }
     }
+    if(stage==3&&phase==Phase::Playing){
+      // Elite spawns after half of the 20 required normal kills.
+      spawnElite();
+      if(activeElite()){
+        eliteVolleyTimer-=dt;
+        if(eliteVolleyTimer<=0){
+          for(const auto& enemy:enemies)if(enemy.active&&enemy.role==EnemyRole::Elite){
+            launchEliteVolley(enemy);break;
+          }
+          eliteVolleyTimer+=85.f/60.f;
+        }
+      }
+    }
     for(auto& bullet:hostileShots)if(bullet.active&&phase==Phase::Playing){
       bullet.x+=bullet.vx*dt;bullet.y+=bullet.vy*dt;bullet.life-=dt;
       if(bullet.life<=0||bullet.x<0||bullet.x>Width||bullet.y<0||bullet.y>Height)
@@ -319,7 +385,7 @@ struct Arena {
       if(s.life<=0||s.x<0||s.x>Width||s.y<0||s.y>Height){s.active=false;continue;}
       for(auto& e:enemies)if(e.active){
         const float radius=e.role==EnemyRole::Hydra||e.role==EnemyRole::Titan?42.f:
-                           e.role==EnemyRole::Brute?31.f:24.f;
+                           e.role==EnemyRole::Brute||e.role==EnemyRole::Elite?31.f:24.f;
         if(distanceSquared(s.x,s.y,e.x,e.y)<radius*radius){
           s.active=false;strike(e,s.damage);break;
         }
@@ -327,6 +393,7 @@ struct Arena {
     }
     wave=kills<8?1:kills<20?2:3;
     if(stage==1&&kills>=36&&!bossSummoned&&phase==Phase::Playing)spawnHydra();
+    if(stage==3&&kills>=20&&!activeElite()&&phase==Phase::Playing)phase=Phase::Won;
   }
 };
 } // namespace moonfall

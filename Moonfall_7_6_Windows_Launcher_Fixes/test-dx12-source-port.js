@@ -31,4 +31,12 @@ assert(game.includes('const pattern=stage%3'),'Original boss targeting mode chan
 assert(game.includes('Moonsteel Edge')&&game.includes('Crimson Vitality'),'Original boon names changed');
 const cpp=fs.readFileSync(path.join(__dirname,'../native/dx12-prototype/arena.hpp'),'utf8');
 assert(cpp.includes('145.f:190.f')&&cpp.includes('second?9:5'),'Native patterns diverged from game counts');
-console.log('PASS: original Moonfall bear, creep, Titan sprite mapping; boss volleys; room blessings; packed resource names');
+const rooms=require('./roguelike-rooms.js');
+assert(rooms.logic===undefined,'Keep original stage transforms encapsulated');
+// Verify the exact room and elite source constants, then their native equivalents.
+const roomSource=fs.readFileSync(path.join(__dirname,'roguelike-rooms.js'),'utf8');
+for(const token of ["speed:1.17,cadence:1.2","speed:1.05,cadence:1.0","speed:1.0,cadence:1.4","frame%85","i*.21","*4.2","damage:13"])
+  assert(roomSource.includes(token),'Main-game room/elite source constant changed: '+token);
+for(const token of ["{1.17f,1.2f}","{1.05f,1.f}","{1.f,1.4f}","85.f/60.f","float(i)*.21f","4.2f*60.f","3.5f,13.f,true"])
+  assert(cpp.includes(token),'Native room/elite rule missing: '+token);
+console.log('PASS: original enemies/Titan artwork; boss volleys; 3 room modifiers and elite attack; packaged resources');

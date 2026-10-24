@@ -33,6 +33,7 @@ struct SpriteVertex { float x,y,u,v; };
 class OriginalHeroSprites {
     static constexpr UINT MaxSpritesPerFrame=128;
     UINT drawCursor=0;
+    std::uint8_t* mappedVertices=nullptr;
     ComPtr<ID3D12RootSignature> root;
     ComPtr<ID3D12PipelineState> pipeline;
     ComPtr<ID3D12DescriptorHeap> descriptors;
@@ -239,9 +240,24 @@ public:
         for(size_t i=0;i<originalArt.size();++i)
             LoadImage(device,command,static_cast<int>(i),originalArt[i].c_str());
     }
-    void StartFrame(){drawCursor=0;}
+    void StartFrame(){
+        if(mappedVertices)throw std::runtime_error("Sprite frame already mapped");
+        drawCursor=0;
+        D3D12_RANGE noRead={0,0};
+        void* pointer=nullptr;
+        RequireDx(vertices->Map(0,&noRead,&pointer),"Map sprite frame once");
+        mappedVertices=static_cast<std::uint8_t*>(pointer);
+    }
+    void EndFrame(){
+        if(!mappedVertices)return;
+        const size_t used=size_t(drawCursor)*sizeof(SpriteVertex)*6;
+        const D3D12_RANGE written={0,used};
+        vertices->Unmap(0,&written);
+        mappedVertices=nullptr;
+    }
     void Draw(ID3D12GraphicsCommandList* cmd,int selected,float x,float y,
               D3D12_CPU_DESCRIPTOR_HANDLE renderTarget,float size=94.f){
+        if(!mappedVertices)throw std::runtime_error("Sprite draw outside frame");
         if(drawCursor>=MaxSpritesPerFrame)throw std::runtime_error("Sprite vertex draw capacity exceeded");
         const int hero=std::max(0,std::min(7,selected));
         const auto& source=heroes[size_t(hero)];
@@ -256,10 +272,7 @@ public:
             {clipX(r),clipY(t),1,0},{clipX(r),clipY(b),1,1},{clipX(l),clipY(b),0,1}
         };
         const size_t offset=size_t(drawCursor++)*sizeof(quad);
-        void* mapped=nullptr;
-        RequireDx(vertices->Map(0,nullptr,&mapped),"Map original art quad");
-        std::memcpy(static_cast<std::uint8_t*>(mapped)+offset,quad,sizeof(quad));
-        vertices->Unmap(0,nullptr);
+        std::memcpy(mappedVertices+offset,quad,sizeof(quad));
         D3D12_VERTEX_BUFFER_VIEW view={};
         view.BufferLocation=vertices->GetGPUVirtualAddress()+offset;
         view.SizeInBytes=sizeof(quad);

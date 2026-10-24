@@ -239,6 +239,7 @@ int main(int argc, char** argv) {
             // Native stage-clear boon choices mirror Moonsteel Edge and Crimson Vitality.
             input.boonDamage=held('1');
             input.boonVitality=held('2');
+            input.roomCinder=held('3');
             arena.update(dt,input);
             if ((frameNumber % 15) == 0) {
                 std::wstring title=L"Moonfall DX12 ART TEST | "+std::wstring(arena.hero==moonfall::Hero::Z?L"Z":L"Nyra")+
@@ -253,9 +254,14 @@ int main(int argc, char** argv) {
                     title+=L" | TITAN "+std::to_wstring(static_cast<int>(std::max(0.f,titan->hp)))+
                            L"/42"+(arena.bossInSecondPhase()?std::wstring(L" PHASE II"):std::wstring());
                 }
+                if(arena.stage==3){
+                    title+=L" | "+std::wstring(moonfall::RoomNames[static_cast<int>(arena.room)])+
+                           L" | Elite volleys "+std::to_wstring(arena.eliteVolleys);
+                }
                 if (arena.phase == moonfall::Phase::Won)
-                    title+=arena.stage==1?L" | HYDRA CLEARED! 1: Moonsteel Edge 2: Crimson Vitality":
-                                           L" | TITAN CLEARED! Press R";
+                    title+=arena.stage==1?L" | HYDRA CLEARED! 1: Moonsteel 2: Vitality":
+                           arena.stage==2?L" | TITAN CLEARED! 1: Bloodmoon 2: Shadow 3: Cinder":
+                                           L" | FINAL ROOM CLEARED! Press R";
 
                 else if (arena.phase == moonfall::Phase::Lost) title+=L" | FALLEN! Press R to restart";
                 else title+=L" | Q weapon | Tab hero | E skill | WASD Space Shift R";
@@ -308,10 +314,11 @@ int main(int argc, char** argv) {
             }
             for(const auto& enemy:arena.enemies)if(enemy.active){
                 const float size=enemy.role==moonfall::EnemyRole::Hydra||enemy.role==moonfall::EnemyRole::Titan?76.f:
+                                 enemy.role==moonfall::EnemyRole::Elite?58.f:
                                  enemy.role==moonfall::EnemyRole::Brute?36.f:
                                  enemy.role==moonfall::EnemyRole::Runner?18.f:24.f;
                 const float* roleColor=enemy.role==moonfall::EnemyRole::Runner?runnerTint:
-                                       enemy.role==moonfall::EnemyRole::Brute?bruteTint:
+                                       enemy.role==moonfall::EnemyRole::Brute||enemy.role==moonfall::EnemyRole::Elite?bruteTint:
                                        enemy.role==moonfall::EnemyRole::Hydra||enemy.role==moonfall::EnemyRole::Titan?
                                          (arena.bossInSecondPhase()?hydraEnrageTint:hydraTint):enemyTint;
                 rectangle(enemy.x-size*.5f,enemy.y-size*.5f,size,size,
@@ -362,17 +369,19 @@ int main(int argc, char** argv) {
                 // The Hydra still uses geometric placeholder art: no verified Hydra
                 // sprite is present in the source image mapping.
                 for(const auto& enemy:arena.enemies)if(enemy.active&&enemy.role!=moonfall::EnemyRole::Hydra){
-                    int art=enemy.role==moonfall::EnemyRole::Brute?2:
+                    int art=enemy.role==moonfall::EnemyRole::Brute||enemy.role==moonfall::EnemyRole::Elite?2:
                             enemy.role==moonfall::EnemyRole::Runner?4:
                             enemy.role==moonfall::EnemyRole::Titan?
                                (arena.bossInSecondPhase()?7:6):
                                (enemy.hp<enemy.maxHp*.5f?5:3);
                     originalSprites.Draw(commands.Get(),art,enemy.x,enemy.y,rtv,
                         enemy.role==moonfall::EnemyRole::Titan?158.f:
+                        enemy.role==moonfall::EnemyRole::Elite?93.f:
                         enemy.role==moonfall::EnemyRole::Brute?65.f:49.f);
                 }
                 originalSprites.Draw(commands.Get(),arena.hero==moonfall::Hero::Nyra?1:0,
                                      arena.x,arena.y,rtv);
+                originalSprites.EndFrame();
             }else{
                 rectangle(arena.x-13.f,arena.y-13.f,26,26,
                           arena.invulnerable>0 && frameNumber%4<2?hurtTint:playerTint);
