@@ -2,3 +2,5 @@ Moonfall v9.6.4 one-time release trigger
 Source: main branch after PR #40 (Windows installer and DirectX 12 prototype checks passed).
 Purpose: publish Moonfall v9.6.4 as a Windows installer using the existing public release workflow.
 This trigger does not change gameplay, saves, or original character artwork.
+
+Retry after correcting release uploader environment to inherit the job's RELEASE_TAG.
