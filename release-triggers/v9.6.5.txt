@@ -1,0 +1,1 @@
+Moonfall v9.6.5 release trigger: package the experimental DirectX 12 demo in the Windows setup; leave existing game and artwork unchanged.
