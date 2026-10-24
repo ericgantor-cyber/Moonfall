@@ -1,0 +1,18 @@
+'use strict';
+const assert=require('node:assert/strict');
+const {formatGpuReport}=require('./gpu-support.js');
+const fs=require('node:fs');
+const pkg=require('./package.json');
+const gpu={gpu_compositing:'enabled',webgl:'enabled',webgl2:'enabled', '2d_canvas':'enabled'};
+const nvidia=formatGpuReport(gpu,{gpuDevice:[{active:true,vendorId:0x10de}]},true);
+assert.match(nvidia,/NVIDIA/);
+assert.match(nvidia,/hardware acceleration: enabled/);
+assert.match(nvidia,/WebGL: enabled/);
+assert.match(formatGpuReport(gpu,{gpuDevice:[{active:true,vendorId:0x1002}]},true),/AMD/);
+assert.match(formatGpuReport(gpu,{gpuDevice:[{active:true,vendorId:0x8086}]},true),/Intel/);
+assert.match(formatGpuReport(),/Not reported/);
+assert(pkg.build.files.includes('gpu-support.js'),'GPU diagnostics missing from installer');
+const main=fs.readFileSync('main.js','utf8');
+assert(main.includes("label:'GPU Status / NVIDIA Check'"),'GPU diagnostics menu missing');
+assert(main.includes("https://www.nvidia.com/en-us/software/nvidia-app/"),'official NVIDIA link missing');
+console.log('PASS: GPU report, vendor detection, graphics menu and packaging');

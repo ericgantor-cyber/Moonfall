@@ -3,6 +3,7 @@ const {app,BrowserWindow,shell,dialog,Menu}=require('electron');
 const http=require('node:http');
 const fs=require('node:fs');
 const path=require('node:path');
+const {formatGpuReport}=require('./gpu-support.js');
 let server=null,mainWindow=null;
 let rendererRecoveryAttempts=0;
 const MAX_RENDERER_RECOVERY_ATTEMPTS=2;
@@ -82,6 +83,25 @@ function startLocalGameServer(){
   });
  });
 }
+async function showGraphicsStatus(){
+ if(!mainWindow||mainWindow.isDestroyed())return;
+ let gpuInfo={};
+ try{gpuInfo=await app.getGPUInfo('basic');}
+ catch(err){console.warn('GPU device details unavailable:',err.message);}
+ const details=formatGpuReport(app.getGPUFeatureStatus(),gpuInfo,app.isHardwareAccelerationEnabled());
+ await dialog.showMessageBox(mainWindow,{
+  type:'info',title:'Moonfall Graphics / NVIDIA',message:'Moonfall graphics diagnostics',
+  detail:details,buttons:['OK']
+ });
+}
+function showNvidiaTips(){
+ if(!mainWindow||mainWindow.isDestroyed())return;
+ dialog.showMessageBox(mainWindow,{
+  type:'info',title:'NVIDIA App recording',message:'Capture Moonfall with NVIDIA App',
+  detail:'Install NVIDIA App and turn on its in-game overlay.\nPress Alt+Z to open NVIDIA controls, or Alt+F9 to start/stop recording.\nIf Moonfall is not recognized for capture, check the NVIDIA App recording settings. NVIDIA features depend on your GPU, drivers and app support.',
+  buttons:['OK']
+ }).catch(err=>console.error('NVIDIA help dialog:',err));
+}
 async function createWindow(){
  for(const file of [gamePath,enginePath]){
   if(!fs.existsSync(file))throw new Error('Missing required file: '+file+'\nPlease reinstall Moonfall.');
@@ -99,6 +119,11 @@ async function createWindow(){
    {label:'Fullscreen',accelerator:'F11',click:()=>{if(mainWindow&&!mainWindow.isDestroyed())mainWindow.setFullScreen(!mainWindow.isFullScreen())}},
    {type:'separator'},
    {label:'Exit',accelerator:'Alt+F4',click:()=>app.quit()}
+  ]},
+  {label:'Graphics',submenu:[
+   {label:'GPU Status / NVIDIA Check',click:()=>showGraphicsStatus().catch(err=>dialog.showErrorBox('GPU diagnostics error',String(err)))},
+   {label:'NVIDIA Recording Tips',click:showNvidiaTips},
+   {label:'Download NVIDIA App (Official)',click:()=>shell.openExternal('https://www.nvidia.com/en-us/software/nvidia-app/').catch(err=>dialog.showErrorBox('Could not open NVIDIA website',String(err)))}
   ]},
   {label:'View',submenu:[
    {label:'Show Game Settings',click:()=>{if(mainWindow&&!mainWindow.isDestroyed()){mainWindow.show();mainWindow.focus();}}},

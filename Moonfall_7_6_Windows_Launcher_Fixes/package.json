@@ -22,6 +22,7 @@
     },
     "files": [
       "main.js",
+      "gpu-support.js",
       "node_modules/three/build/three.module.js",
       "modular/**/*"
     ],
