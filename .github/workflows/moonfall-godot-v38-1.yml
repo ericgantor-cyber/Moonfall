@@ -115,30 +115,43 @@ jobs:
         with:
           path: native/godot-v38_1/Godot_4.7.2/export_templates
           key: godot-4.7.2-stable-windows-x64-template-f298490b8d44d934
-      - name: Install Inno Setup compiler on hosted Windows runner
+      - name: Install Inno Setup 6 directly on CI runner
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          . .\tools\Bootstrap-WindowsPrerequisites.ps1
-          $compiler = Find-MoonfallInno6
-          if (-not $compiler) {
-            Write-Host 'Inno Setup not detected in host image. Repairing Chocolatey installation.'
-            choco upgrade innosetup --yes --no-progress --force
-            if ($LASTEXITCODE -ne 0) { throw "Inno Setup repair failed: $LASTEXITCODE" }
-            $compiler = Find-MoonfallInno6
+          choco upgrade innosetup --yes --no-progress --force
+          if ($LASTEXITCODE -ne 0) { throw "Chocolatey install failed: $LASTEXITCODE" }
+          $compiler = Join-Path ([Environment]::GetFolderPath('ProgramFilesX86')) 'Inno Setup 6\ISCC.exe'
+          if (!(Test-Path -LiteralPath $compiler -PathType Leaf)) {
+            throw "Inno compiler missing at expected path: $compiler"
           }
-          if (-not $compiler) {
-            Write-Host "Chocolatey root: $env:ChocolateyInstall"
-            Write-Host "ProgramFiles(x86): ${env:ProgramFiles(x86)}"
-            throw 'Inno Setup 6 ISCC.exe still missing after Chocolatey repair.'
-          }
-          Write-Host "Using verified Inno Setup 6 compiler: $compiler"
-      - name: Run all source checks, 66 Godot suites, export and installer
+          $version = [Diagnostics.FileVersionInfo]::GetVersionInfo($compiler)
+          Write-Host "Compiler: $compiler; FileVersion: $($version.FileVersion); ProductVersion: $($version.ProductVersion)"
+      - name: Run all offline source checks, 66 Godot suites and export portable EXE
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          .\BUILD_MOONFALL_ONE_CLICK.ps1
-          if ($LASTEXITCODE -ne 0) { throw "Moonfall release gate failed: $LASTEXITCODE" }
+          .\BUILD_MOONFALL_ONE_CLICK.ps1 -PortableOnly
+          if ($LASTEXITCODE -ne 0) { throw "Godot release gate failed: $LASTEXITCODE" }
+      - name: Compile Windows installer using verified Inno Setup 6
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $compiler = Join-Path ([Environment]::GetFolderPath('ProgramFilesX86')) 'Inno Setup 6\ISCC.exe'
+          if (!(Test-Path -LiteralPath $compiler -PathType Leaf)) { throw 'Inno compiler missing' }
+          & $compiler 'Moonfall_Native_v34_4_Setup.iss'
+          if ($LASTEXITCODE -ne 0) { throw "Inno build failed: $LASTEXITCODE" }
+          $game = 'build\MoonfallNative_v34_4.exe'
+          $setup = 'Release_Windows\Moonfall_Native_v34_4_Windows_Setup.exe'
+          if (!(Test-Path $game) -or !(Test-Path $setup)) { throw 'Game or installer missing' }
+          .\VERIFY_WINDOWS_RELEASE.ps1 -GameExe $game -InstallerExe $setup -SkipLaunch
+          if ($LASTEXITCODE -ne 0) { throw 'Installer integrity verification failed' }
+          $status = 'build\BUILD_STATUS_v38_1.json'
+          $e = Get-Content -LiteralPath $status -Raw | ConvertFrom-Json
+          $e.installer_built = $true
+          $e.installer_exe = (Resolve-Path $setup).Path
+          $e.installer_sha256 = (Get-FileHash $setup -Algorithm SHA256).Hash.ToLowerInvariant()
+          $e | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $status -Encoding utf8
       - name: Verify actual installed game, shortcuts and uninstall
         shell: pwsh
         run: |
