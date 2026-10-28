@@ -84,7 +84,7 @@ def main():
   print('ERROR: Set GODOT_BIN to Godot 4.7.2, or place Windows Godot under Godot_4.7.2',file=sys.stderr);return 2
  def run(args, expect=None):
   env=os.environ.copy()
-  env['MOONFALL_TEST_PROFILE']=str(TEST_PROFILE)
+  env['MOONFALL_TEST_PROFILE']=str(TEST_PROFILE).replace('\\', '/')
   env['XDG_DATA_HOME']=str(TEST_PROFILE)
   env['APPDATA']=str(TEST_PROFILE/'Roaming')
   env['LOCALAPPDATA']=str(TEST_PROFILE/'Local')

@@ -48,7 +48,8 @@ python tests\verify_publish_handoff.py
 if errorlevel 1 goto failed
 if not exist build mkdir build
 rem Checkpoint-writing regression tests fail closed unless user data points to a sandbox.
-set "MOONFALL_TEST_PROFILE=%CD%\build\test-profile"
+rem Normalize Windows drive paths to Godot user:// slash format for safe prefix checks.
+set "MOONFALL_TEST_PROFILE=%CD:\=/%/build/test-profile"
 set "APPDATA=%CD%\build\test-profile\Roaming"
 set "LOCALAPPDATA=%CD%\build\test-profile\Local"
 if not exist "%APPDATA%" mkdir "%APPDATA%"
