@@ -22,7 +22,13 @@ func _run() -> void:
  var wisps:Array=game.get("regional_wisps")
  check(tracks.size()==beasts.size() and tracks.size()==74,"All 74 living creatures get bounded motion tracks")
  check(coats.size()>=8,"Procedural coat textures generated for all eight species")
- check(coronas.size()==5,"Every guardian receives a phase corona")
+ var roaming_coronas:=0
+ var invasion_coronas:=0
+ for beast in beasts:
+  if bool(beast.get("boss",false)) and coronas.has(int(beast["boss_id"])):
+   if int(beast.get("invasion_slot",-1))>=0:invasion_coronas+=1
+   else:roaming_coronas+=1
+ check(coronas.size()==8 and roaming_coronas==5 and invasion_coronas==3,"Five roaming guardians and three invasion commanders receive phase coronas")
  check(wisps.size()==30,"Five ambient wisps per region, six regions")
  var unique_patterns:=true
  for entry in tracks:
