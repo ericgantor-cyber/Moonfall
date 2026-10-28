@@ -1,0 +1,15 @@
+{
+  "files.exclude": {
+    "**/.godot": true,
+    "**/build": true
+  },
+  "files.associations": {
+    "*.gd": "gdscript"
+  },
+  "editor.insertSpaces": true,
+  "editor.tabSize": 4,
+  "search.exclude": {
+    "**/.godot": true,
+    "**/build": true
+  }
+}

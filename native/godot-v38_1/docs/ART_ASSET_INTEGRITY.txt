@@ -1,0 +1,4 @@
+Original hero SHA-256 checksums (unchanged from previous native projects):
+Z_Original.webp: 81b8ac6bae0830ab8d8bf53d2cdcbc8bae07256a8b7a9d4398ce4591bafd0666
+Nyra_Original.png: 64aa23e2de7ea0e07347171c3ebe4beae13166359b08855d1076db9dd25871a9
+All other art assets copied byte-for-byte from Native v3.

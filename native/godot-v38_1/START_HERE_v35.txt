@@ -1,0 +1,15 @@
+MOONFALL v35 RELEASE READINESS (game code remains v34.4)
+
+IMPORTANT: THIS IS GODOT SOURCE, NOT A WINDOWS EXE OR INSTALLER.
+
+1) Extract this ZIP on Windows.
+2) Install Git for Windows and authenticate to your GitHub account.
+3) Double-click PUBLISH_NATIVE_TO_GITHUB.bat, then open the pull request URL it prints.
+4) The Windows GitHub Actions workflow must succeed. Download the portable EXE, installer, and RELEASE_EVIDENCE.json from the workflow artifacts.
+
+Until GitHub Actions actually builds, tests and uploads an EXE, a playable Windows release is not verified. Manual playtesting with a graphics card and controller is still necessary afterward.
+
+Local engine tests, when Godot 4.7.2 is installed:
+  python tools/run_tests.py --all
+
+Release-readiness notes: README_v35_RELEASE_GATE.md

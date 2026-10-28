@@ -1,0 +1,12 @@
+{
+  "package": "Moonfall v37.8 one-click Windows build handoff",
+  "gameplay_source": "v37.7",
+  "offline_checks": "38/38 passed",
+  "godot_gameplay_suites_registered": 65,
+  "godot_gameplay_suites_executed_here": 0,
+  "windows_executable_built_here": false,
+  "windows_installer_built_here": false,
+  "github_source_published_this_turn": false,
+  "original_art_assets_sha256_verified": 70,
+  "engine_download_sha256": "731980f9608d61333e5baf54a2ef17210acc7a538446c0cb9969f002aca1e953"
+}

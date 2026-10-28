@@ -1,0 +1,26 @@
+; Moonfall Native v30, six-region Godot source project.
+config_version=5
+
+[application]
+config/name="Moonfall Native v34.4"
+run/main_scene="res://scenes/main.tscn"
+config/features=PackedStringArray("4.5", "Forward Plus")
+
+[display]
+window/size/viewport_width=1280
+window/size/viewport_height=800
+window/size/window_width_override=1280
+window/size/window_height_override=800
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
+
+[rendering]
+renderer/rendering_method="forward_plus"
+renderer/rendering_method.mobile="mobile"
+rendering_device/driver.windows="d3d12"
+rendering_device/fallback_to_vulkan=true
+rendering_device/fallback_to_opengl3=true
+textures/default_filters/use_nearest_mipmap_filter=false
+
+[physics]
+3d/default_gravity=17.0
