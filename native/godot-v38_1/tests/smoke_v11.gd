@@ -33,6 +33,7 @@ func _run() -> void:
  for zone in range(6):
   total+=lists[zone].size()
   _check(regions[zone].get_child_count()>10,"Sector "+str(zone)+" scenery grouped")
+ print("MOONFALL_ACTOR_COUNT actual=",total," expected_by_test=56; region_counts=", [lists[0].size(),lists[1].size(),lists[2].size(),lists[3].size(),lists[4].size(),lists[5].size()])
  _check(total==game.get("beasts").size(),"Each creature mapped to exactly one sector")
  _check(total==56,"42 wildlife, 5 guardians, 9 dormant rift combat slots")
  var events:Array=game.get("world_events")
