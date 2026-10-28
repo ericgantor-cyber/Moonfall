@@ -5,3 +5,5 @@
 *.png -text
 *.jpg -text
 *.jpeg -text
+*.md -text
+*.txt -text
