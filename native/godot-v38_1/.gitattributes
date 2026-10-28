@@ -1,0 +1,7 @@
+# Moonfall artwork fingerprints include Godot *.import metadata.
+# Disable Windows checkout CRLF conversion to keep SHA256 values exact.
+*.import -text
+*.webp -text
+*.png -text
+*.jpg -text
+*.jpeg -text
