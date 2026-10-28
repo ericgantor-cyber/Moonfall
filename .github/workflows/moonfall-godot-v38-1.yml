@@ -1,0 +1,172 @@
+name: Moonfall v38.1 Godot Windows CI
+on:
+  push:
+    branches:
+      - feature/moonfall-godot-v38-1-ci
+    paths:
+      - .github/workflows/moonfall-godot-v38-1.yml
+      - native/godot-v38_1/**
+  pull_request:
+    paths:
+      - .github/workflows/moonfall-godot-v38-1.yml
+      - native/godot-v38_1/**
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  import-release-source:
+    # Import the published source on branch pushes only. A PR validates the already-imported files.
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/moonfall-godot-v38-1-ci
+          persist-credentials: true
+      - name: Download, authenticate and import Moonfall v38.1 source
+        shell: bash
+        env:
+          MOONFALL_ZIP_URL: https://github.com/ericgantor-cyber/Moonfall/releases/download/v38.1/Moonfall_38_1.zip
+          MOONFALL_ZIP_SHA256: 75867cbe927c5a1e9f339985f956637f9920615083c7c3a615be15025b1e2eaf
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 3 --silent --show-error "$MOONFALL_ZIP_URL" --output "$RUNNER_TEMP/moonfall-v38.1.zip"
+          echo "$MOONFALL_ZIP_SHA256  $RUNNER_TEMP/moonfall-v38.1.zip" | sha256sum -c -
+          python3 - <<'PY'
+          import os, pathlib, shutil, zipfile
+          archive = pathlib.Path(os.environ['RUNNER_TEMP']) / 'moonfall-v38.1.zip'
+          unpack = pathlib.Path(os.environ['RUNNER_TEMP']) / 'moonfall-v38.1-unpacked'
+          dest = pathlib.Path('native/godot-v38_1')
+          with zipfile.ZipFile(archive) as z:
+              for info in z.infolist():
+                  p = pathlib.PurePosixPath(info.filename)
+                  if p.is_absolute() or '..' in p.parts or info.filename.startswith('\\'):
+                      raise SystemExit('Unsafe path in release ZIP: ' + info.filename)
+              z.extractall(unpack)
+          projects = list(unpack.rglob('project.godot'))
+          if len(projects) != 1:
+              raise SystemExit(f'Expected exactly one project.godot; found {len(projects)}')
+          src = projects[0].parent
+          expected = ('BUILD_MOONFALL_ONE_CLICK.ps1', 'BUILD_WINDOWS.bat',
+                      'scenes/main.tscn', 'tools/run_tests.py',
+                      'docs/ART_SHA256_V36_2_ALL_IMAGES.txt')
+          for item in expected:
+              if not (src/item).exists():
+                  raise SystemExit('Missing required Godot source file: ' + item)
+          ignore = shutil.ignore_patterns('.git', '.godot', '__pycache__', 'Godot_4.7.2',
+                                           'Release_Windows', 'build', '*.pyc')
+          shutil.copytree(src, dest, dirs_exist_ok=True, ignore=ignore)
+          print('Imported verified release into', dest, 'with',
+                sum(p.is_file() for p in dest.rglob('*')), 'source files')
+          PY
+      - name: Commit imported Godot source to this feature branch only
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A -- native/godot-v38_1
+          if git diff --cached --quiet; then
+            echo 'Source already matches v38.1 release.'
+          else
+            git commit -m 'Import SHA256-verified Moonfall Godot v38.1 source'
+            git push origin HEAD:feature/moonfall-godot-v38-1-ci
+          fi
+
+  windows-godot-installer:
+    needs: import-release-source
+    if: always() && (needs.import-release-source.result == 'success' || needs.import-release-source.result == 'skipped')
+    runs-on: windows-2022
+    timeout-minutes: 110
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: native/godot-v38_1
+    steps:
+      - name: Checkout imported Godot branch
+        uses: actions/checkout@v4
+        with:
+          ref: feature/moonfall-godot-v38-1-ci
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Verify Godot project checkout
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          foreach ($path in @('project.godot', 'scenes/main.tscn', 'BUILD_WINDOWS.bat',
+                              'BUILD_MOONFALL_ONE_CLICK.ps1', 'tools/run_tests.py',
+                              'scripts/native_v38_0.gd')) {
+            if (!(Test-Path -LiteralPath $path)) { throw "Missing: $path" }
+          }
+          python --version
+      - name: Cache Godot 4.7.2 x64 export templates
+        uses: actions/cache@v4
+        with:
+          path: native/godot-v38_1/Godot_4.7.2/export_templates
+          key: godot-4.7.2-stable-windows-x64-template-f298490b8d44d934
+      - name: Install Inno Setup compiler on hosted Windows runner
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          choco install innosetup --yes --no-progress
+          if ($LASTEXITCODE -ne 0) { throw "Inno Setup install failed: $LASTEXITCODE" }
+      - name: Run all source checks, 66 Godot suites, export and installer
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          .\BUILD_MOONFALL_ONE_CLICK.ps1
+          if ($LASTEXITCODE -ne 0) { throw "Moonfall release gate failed: $LASTEXITCODE" }
+      - name: Verify actual installed game, shortcuts and uninstall
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $setup = (Resolve-Path 'Release_Windows\Moonfall_Native_v34_4_Windows_Setup.exe').Path
+          $p = Start-Process -FilePath $setup -ArgumentList @('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/SP-','/TASKS=desktopicon') -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "Installer failed: $($p.ExitCode)" }
+          $app = Join-Path $env:LOCALAPPDATA 'Programs\Moonfall Native'
+          $installed = Join-Path $app 'MoonfallNative_v34_4.exe'
+          if (!(Test-Path $installed)) { throw 'Installed game executable missing.' }
+          $desktop = Join-Path ([Environment]::GetFolderPath('Desktop')) 'Moonfall Native.lnk'
+          $menu = Join-Path ([Environment]::GetFolderPath('Programs')) 'Moonfall Native.lnk'
+          if (!(Test-Path $desktop) -or !(Test-Path $menu)) { throw 'Shortcut creation failed.' }
+          & $installed --headless --quit-after 180 *> installed-run.log
+          if ($LASTEXITCODE -ne 0) { throw "Installed game headless launch failed: $LASTEXITCODE" }
+          if ((Get-Content installed-run.log -Raw) -match 'SCRIPT ERROR|Parse Error|ERROR:') {
+            throw 'Installed game emitted a Godot error.'
+          }
+          $uninstall = Join-Path $app 'unins000.exe'
+          if (!(Test-Path $uninstall)) { throw 'Inno uninstaller missing.' }
+          $u = Start-Process -FilePath $uninstall -ArgumentList @('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART') -Wait -PassThru
+          if ($u.ExitCode -ne 0) { throw "Uninstall failed: $($u.ExitCode)" }
+          Start-Sleep -Seconds 3
+          if (Test-Path $installed) { throw 'Uninstall left the game executable behind.' }
+          Write-Host 'PASS: installation, shortcuts, headless launch and uninstall'
+      - name: Upload Windows installer, portable EXE and release evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: Moonfall-v38.1-Godot-Windows-verified
+          path: |
+            native/godot-v38_1/build/MoonfallNative_v34_4.exe
+            native/godot-v38_1/build/BUILD_STATUS_v38_1.json
+            native/godot-v38_1/Release_Windows/Moonfall_Native_v34_4_Windows_Setup.exe
+          if-no-files-found: error
+          retention-days: 30
+      - name: Upload diagnostic logs if testing fails
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Moonfall-v38.1-Godot-Windows-build-diagnostics
+          path: |
+            native/godot-v38_1/build/BUILD_FAILURE_v38_1.txt
+            native/godot-v38_1/GODOT_*_LOG.txt
+            native/godot-v38_1/installed-run.log
+          if-no-files-found: ignore
+          retention-days: 14
