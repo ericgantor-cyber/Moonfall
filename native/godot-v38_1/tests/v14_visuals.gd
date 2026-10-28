@@ -24,6 +24,7 @@ func _run() -> void:
   check(zones[z].get_child_count()>=10,"Zone "+str(z)+" has landmarks and glowing motifs")
  var kinds:Dictionary={}
  var boss_rigs:=0
+ var invasion_boss_rigs:=0
  for i in range(fauna.size()):
   var beast:Dictionary=fauna[i]
   var kind:String=beast["kind"]
@@ -39,9 +40,12 @@ func _run() -> void:
   # Additional v32 boss warning meshes may be visible; only legacy placeholders must stay hidden.
   if existing_meshes<2 or hidden_meshes<2:
    check(false,"Old placeholder capsules are hidden")
-  if bool(beast.get("boss",false)) and bool(rigs[i].get_meta("boss_ornamented",false)):boss_rigs+=1
+  if bool(beast.get("boss",false)) and bool(rigs[i].get_meta("boss_ornamented",false)):
+   if int(beast.get("invasion_slot",-1))>=0:invasion_boss_rigs+=1
+   else:boss_rigs+=1
  check(kinds.size()==8,"Eight unique species silhouettes")
  check(boss_rigs==5,"All five roaming guardians have ornate rigs")
+ check(invasion_boss_rigs==3,"All three dormant invasion commanders have ornate rigs")
  var all_colliders_ok:=true
  for beast in fauna:
   var collider_found:=false
