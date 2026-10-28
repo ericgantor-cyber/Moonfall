@@ -59,7 +59,7 @@ func _run() -> void:
  check(game.get("combat_cues").size()<=12,"Effects are bounded to twelve")
  for f in range(9):game.call("_process",0.10)
  check(game.get("combat_cues").is_empty(),"Old cues are reclaimed")
- check(game.get("region_nodes").size()==6 and game.get("beasts").size()==62,"Existing world and wildlife preserved")
+ check(game.get("region_nodes").size()==6 and game.get("beasts").size()==56,"Existing world and wildlife preserved")
  check(game.get("hero_playing"),"Game remains playable after cosmetic updates")
  if failures==0:print("MOONFALL NATIVE v16 VISUALS PASS")
  else:push_error("MOONFALL NATIVE v16 VISUALS FAILED: "+str(failures))

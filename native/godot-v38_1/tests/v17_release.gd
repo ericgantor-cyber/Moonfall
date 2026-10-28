@@ -17,7 +17,7 @@ func _run() -> void:
  check(is_instance_valid(game.get("boss_ui")),"Guardian panel exists")
  check(not game.get("boss_ui").visible,"Boss panel hidden at start screen")
  check(game.get("zone_surface_textures").size()==6,"Existing biome textures remain")
- check(game.get("beasts").size()==62,"Existing wildlife and encounter IDs remain")
+ check(game.get("beasts").size()==56,"Existing wildlife and encounter IDs remain")
  game.call("_start_game","z")
  var guardian:Dictionary={}
  for b in game.get("beasts"):

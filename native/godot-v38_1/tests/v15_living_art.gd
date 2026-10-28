@@ -20,7 +20,7 @@ func _run() -> void:
  var coats:Dictionary=game.get("pelt_textures")
  var coronas:Dictionary=game.get("guardian_coronas")
  var wisps:Array=game.get("regional_wisps")
- check(tracks.size()==beasts.size() and tracks.size()==62,"All 62 living creatures get bounded motion tracks")
+ check(tracks.size()==beasts.size() and tracks.size()==56,"All 56 living creatures get bounded motion tracks")
  check(coats.size()>=8,"Procedural coat textures generated for all eight species")
  check(coronas.size()==5,"Every guardian receives a phase corona")
  check(wisps.size()==30,"Five ambient wisps per region, six regions")

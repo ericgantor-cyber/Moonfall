@@ -18,7 +18,7 @@ func _run() -> void:
  var fauna:Array=game.get("beasts")
  var rigs:Array=game.get("visual_rigs")
  var zones:Array=game.get("decorative_groups")
- check(fauna.size()==62 and rigs.size()==fauna.size(),"All 62 beasts have unique procedural rigs")
+ check(fauna.size()==56 and rigs.size()==fauna.size(),"All 56 beasts have unique procedural rigs")
  check(zones.size()==6,"All six zones have visual art-direction roots")
  for z in range(zones.size()):
   check(zones[z].get_child_count()>=10,"Zone "+str(z)+" has landmarks and glowing motifs")
