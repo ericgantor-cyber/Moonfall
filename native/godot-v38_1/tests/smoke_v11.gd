@@ -35,7 +35,7 @@ func _run() -> void:
   _check(regions[zone].get_child_count()>10,"Sector "+str(zone)+" scenery grouped")
  print("MOONFALL_ACTOR_COUNT actual=",total," expected_by_test=56; region_counts=", [lists[0].size(),lists[1].size(),lists[2].size(),lists[3].size(),lists[4].size(),lists[5].size()])
  _check(total==game.get("beasts").size(),"Each creature mapped to exactly one sector")
- _check(total==56,"42 wildlife, 5 guardians, 9 dormant rift combat slots")
+ _check(total==74,"48 wildlife (including six owls), 5 guardians, 9 rift slots, 12 dormant invasion slots")
  var events:Array=game.get("world_events")
  _check(events.size()==6,"Six regional living-world events")
  _check(game.get("events_completed").is_empty(),"Events begin unclaimed")
