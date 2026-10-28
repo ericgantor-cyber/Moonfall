@@ -46,6 +46,18 @@ function Find-MoonfallInno6 {
             $candidates.Add((Join-Path $base 'Programs\Inno Setup 6\ISCC.exe'))
         }
     }
+    # CI hosts may install Inno under Chocolatey's tools directory instead
+    # of the canonical Program Files location. Search only known install roots.
+    foreach ($base in @($env:ChocolateyInstall, $env:ProgramFiles,
+                         ${env:ProgramFiles(x86)}, $env:LOCALAPPDATA)) {
+        if ([string]::IsNullOrWhiteSpace($base)) { continue }
+        foreach ($subdir in @('lib\innosetup', 'Inno Setup 6', 'Programs\Inno Setup 6')) {
+            $dir = Join-Path $base $subdir
+            if (!(Test-Path -LiteralPath $dir -PathType Container)) { continue }
+            Get-ChildItem -LiteralPath $dir -Filter 'ISCC.exe' -File -Recurse -ErrorAction SilentlyContinue |
+                ForEach-Object { $candidates.Add($_.FullName) }
+        }
+    }
     $registry = @(
         'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\Inno Setup 6_is1',
         'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Inno Setup 6_is1',
@@ -65,7 +77,7 @@ function Find-MoonfallInno6 {
         if (!(Test-Path -LiteralPath $candidate -PathType Leaf)) { continue }
         try {
             $version = [System.Diagnostics.FileVersionInfo]::GetVersionInfo($candidate)
-            if ($version.FileMajorPart -eq 6) { return $candidate }
+            if ($version.FileMajorPart -eq 6 -or $version.ProductMajorPart -eq 6 -or $version.FileVersion -match '^6\.' -or $version.ProductVersion -match '^6\.') { return $candidate }
         } catch { }
     }
     return $null

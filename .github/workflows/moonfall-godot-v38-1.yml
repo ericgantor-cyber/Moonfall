@@ -60,7 +60,10 @@ jobs:
                   raise SystemExit('Missing required Godot source file: ' + item)
           ignore = shutil.ignore_patterns('.git', '.godot', '__pycache__', 'Godot_4.7.2',
                                            'Release_Windows', 'build', '*.pyc')
-          shutil.copytree(src, dest, dirs_exist_ok=True, ignore=ignore)
+          if (dest / 'project.godot').exists():
+              print('Keeping committed source without overwriting local CI fixes')
+          else:
+              shutil.copytree(src, dest, dirs_exist_ok=True, ignore=ignore)
           print('Imported verified release into', dest, 'with',
                 sum(p.is_file() for p in dest.rglob('*')), 'source files')
           PY
@@ -116,8 +119,20 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          choco install innosetup --yes --no-progress
-          if ($LASTEXITCODE -ne 0) { throw "Inno Setup install failed: $LASTEXITCODE" }
+          . .\tools\Bootstrap-WindowsPrerequisites.ps1
+          $compiler = Find-MoonfallInno6
+          if (-not $compiler) {
+            Write-Host 'Inno Setup not detected in host image. Repairing Chocolatey installation.'
+            choco upgrade innosetup --yes --no-progress --force
+            if ($LASTEXITCODE -ne 0) { throw "Inno Setup repair failed: $LASTEXITCODE" }
+            $compiler = Find-MoonfallInno6
+          }
+          if (-not $compiler) {
+            Write-Host "Chocolatey root: $env:ChocolateyInstall"
+            Write-Host "ProgramFiles(x86): ${env:ProgramFiles(x86)}"
+            throw 'Inno Setup 6 ISCC.exe still missing after Chocolatey repair.'
+          }
+          Write-Host "Using verified Inno Setup 6 compiler: $compiler"
       - name: Run all source checks, 66 Godot suites, export and installer
         shell: pwsh
         run: |
