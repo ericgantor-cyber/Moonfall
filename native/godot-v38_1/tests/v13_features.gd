@@ -10,10 +10,10 @@ func _initialize() -> void:
  call_deferred("_run")
 func _run() -> void:
  # Never run checkpoint-writing tests against someone's real saved game.
- var sandbox_path: String=OS.get_environment("MOONFALL_TEST_PROFILE")
- var game_data_path: String=OS.get_user_data_dir()
- if sandbox_path.is_empty() or not game_data_path.to_lower().begins_with(sandbox_path.to_lower()):
-  push_error("Unsafe test save location. Run through tools/run_tests.py or the isolated Windows build script.")
+ var sandbox_path: String=OS.get_environment("MOONFALL_TEST_PROFILE").replace("\\", "/").simplify_path().trim_suffix("/").to_lower()
+ var game_data_path: String=OS.get_user_data_dir().replace("\\", "/").simplify_path().to_lower()
+ if sandbox_path.is_empty() or not (game_data_path == sandbox_path or game_data_path.begins_with(sandbox_path + "/")):
+  push_error("Unsafe test save location. Godot user data: " + game_data_path + "; expected sandbox: " + sandbox_path + ". Run through tools/run_tests.py or the isolated Windows build script.")
   quit(2)
   return
  var scene:PackedScene=load("res://scenes/main.tscn")
