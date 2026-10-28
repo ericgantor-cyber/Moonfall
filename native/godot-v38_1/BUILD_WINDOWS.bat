@@ -53,19 +53,6 @@ set "APPDATA=%CD%\build\test-profile\Roaming"
 set "LOCALAPPDATA=%CD%\build\test-profile\Local"
 if not exist "%APPDATA%" mkdir "%APPDATA%"
 if not exist "%LOCALAPPDATA%" mkdir "%LOCALAPPDATA%"
-rem Windows Godot may use Known Folders rather than APPDATA overrides for user://.
-rem To protect personal saves, run EVERY gameplay test using a dedicated Godot
-rem executable in official self-contained mode. Keep the release engine intact.
-set "MOONFALL_RELEASE_ENGINE=%ENGINE%"
-set "MOONFALL_TEST_ENGINE_DIR=%CD%\build\test-profile\godot"
-if not exist "%MOONFALL_TEST_ENGINE_DIR%" mkdir "%MOONFALL_TEST_ENGINE_DIR%"
-if errorlevel 1 goto failed
-copy /y "%MOONFALL_RELEASE_ENGINE%" "%MOONFALL_TEST_ENGINE_DIR%\MoonfallTestGodot.exe" >nul
-if errorlevel 1 goto failed
-type nul > "%MOONFALL_TEST_ENGINE_DIR%\_sc_"
-if errorlevel 1 goto failed
-set "ENGINE=%MOONFALL_TEST_ENGINE_DIR%\MoonfallTestGodot.exe"
-set "MOONFALL_TEST_PROFILE=%MOONFALL_TEST_ENGINE_DIR%\editor_data"
 "%ENGINE%" --headless --editor --path "%CD%" --import --quit > GODOT_IMPORT_LOG.txt 2>&1
 if errorlevel 1 goto failed
 findstr /i /c:"SCRIPT ERROR" /c:"Parse Error" GODOT_IMPORT_LOG.txt >nul
@@ -346,12 +333,8 @@ if not exist "%GODOT_TEMPLATE%" (
  echo Install it with INSTALL_GODOT_WINDOWS_TEMPLATES.ps1 before building.
  goto failed
 )
-rem Export using original engine and its separately verified official templates.
-set "ENGINE=%MOONFALL_RELEASE_ENGINE%"
 "%ENGINE%" --headless --path "%CD%" --export-release "Windows Desktop" "%CD%\build\MoonfallNative_v34_4.exe" > GODOT_EXPORT_LOG.txt 2>&1
 if errorlevel 1 goto failed
-rem Resume sandboxed game tests after export.
-set "ENGINE=%MOONFALL_TEST_ENGINE_DIR%\MoonfallTestGodot.exe"
 if not exist build\MoonfallNative_v34_4.exe goto failed
 findstr /i /c:"SCRIPT ERROR" /c:"Parse Error" /c:"ERROR:" GODOT_EXPORT_LOG.txt >nul
 if not errorlevel 1 goto failed
