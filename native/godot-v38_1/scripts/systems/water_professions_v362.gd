@@ -1,6 +1,6 @@
 extends RefCounted
 ## v36.2 finite resource nodes and bounded, persistent crafting. No new currency.
-const JOBS:=PackedStringArray(["Fishing","Herbalism","Mining","Cooking","Alchemy","Smithing"])
+const JOBS:=["Fishing","Herbalism","Mining","Cooking","Alchemy","Smithing"]
 const RECIPES:=[
  {"name":"Moonfish Stew","job":"Cooking","cost":{"Moonwater Fish":2,"herb":1},"result":"Moonfish Stew","power":0},
  {"name":"Moonwater Tonic","job":"Alchemy","cost":{"River Reed":2,"herb":2},"result":"Moonwater Tonic","power":0},
