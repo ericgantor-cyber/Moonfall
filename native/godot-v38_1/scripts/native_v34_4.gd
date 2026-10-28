@@ -372,6 +372,7 @@ func _v361_animate(delta:float)->void:
 
 ## v36.2 LIVING WATERS AND PROFESSIONS. Original Z/Nyra imagery is never modified.
 const V362_JOBS:=preload("res://scripts/systems/water_professions_v362.gd")
+const V362_WATER_HEX := ["517fbb", "468e8d", "3e91a5", "667c96", "6665a4", "8d527e"]
 var v362_water_ready:bool=false
 var v362_water_roots:Array[Node3D]=[]
 var v362_water_sites:Array[Dictionary]=[]
@@ -430,7 +431,7 @@ void fragment() {
   region_nodes[zone].add_child(water_root)
   var lake_scale:Vector3=Vector3(10.2 if zone==2 else 7.8,1.0,7.0 if zone==2 else 5.8)
   var region_water:=v362_water_shader.duplicate() as ShaderMaterial
-  var hue:Color=Color("517fbb") if zone==0 else (Color("468e8d") if zone==1 else (Color("3e91a5") if zone==2 else (Color("667c96") if zone==3 else (Color("6665a4") if zone==4 else Color("8d527e")))
+  var hue:Color=Color(V362_WATER_HEX[zone])
   region_water.set_shader_parameter("shallow_color",hue)
   var lake:=_v361_primitive(water_root,plane,region_water,Vector3(sx,0.069,sz),lake_scale)
   lake.name="V362_AnimatedWaterSurface"
