@@ -136,6 +136,18 @@ jobs:
           $ErrorActionPreference = 'Stop'
           .\BUILD_MOONFALL_ONE_CLICK.ps1 -PortableOnly
           if ($LASTEXITCODE -ne 0) { throw "Godot release gate failed: $LASTEXITCODE" }
+      - name: Diagnose parent-script parsing after a failed Godot gate
+        if: failure()
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          $engine = '.\Godot_4.7.2\Godot_v4.7.2-stable_win64.exe'
+          if (Test-Path -LiteralPath $engine) {
+            & $engine --headless --path . --script res://tests/ci_inheritance_probe.gd *> inheritance-probe.log
+            $log = Get-Content -LiteralPath inheritance-probe.log -Raw
+            Write-Host $log
+            if ($log -match 'MOONFALL_PROBE.*FAILED') { Write-Warning 'Godot parent-class parse errors identified' }
+          }
       - name: Compile Windows installer using verified Inno Setup 6
         shell: pwsh
         run: |
@@ -199,5 +211,6 @@ jobs:
             native/godot-v38_1/build/BUILD_FAILURE_v38_1.txt
             native/godot-v38_1/GODOT_*_LOG.txt
             native/godot-v38_1/installed-run.log
+            native/godot-v38_1/inheritance-probe.log
           if-no-files-found: ignore
           retention-days: 14
