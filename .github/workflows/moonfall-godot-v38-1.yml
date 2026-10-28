@@ -141,12 +141,17 @@ jobs:
         continue-on-error: true
         shell: pwsh
         run: |
-          $engine = '.\Godot_4.7.2\Godot_v4.7.2-stable_win64.exe'
-          if (Test-Path -LiteralPath $engine) {
-            & $engine --headless --path . --script res://tests/ci_inheritance_probe.gd *> inheritance-probe.log
-            $log = Get-Content -LiteralPath inheritance-probe.log -Raw
-            Write-Host $log
-            if ($log -match 'MOONFALL_PROBE.*FAILED') { Write-Warning 'Godot parent-class parse errors identified' }
+          $engine = '.\Godot_4.7.2\Godot_v4.7.2-stable_win64_console.exe'
+          if (!(Test-Path -LiteralPath $engine -PathType Leaf)) { 
+            Write-Warning "Godot console binary is unavailable: $engine"
+          } else {
+            $allOutput = & $engine --headless --path . --script res://tests/ci_inheritance_probe.gd 2>&1 | Out-String
+            $allOutput | Set-Content -LiteralPath inheritance-probe.log -Encoding utf8
+            Write-Host $allOutput
+            Write-Host "Inheritance probe exit code: $LASTEXITCODE"
+            if ($allOutput -match 'MOONFALL_PROBE.*FAILED|SCRIPT ERROR|Parse Error') {
+              Write-Warning 'Godot parent-class parse errors identified'
+            }
           }
       - name: Compile Windows installer using verified Inno Setup 6
         shell: pwsh
