@@ -1,0 +1,7 @@
+# Godot import metadata participates in the original-art SHA-256 gate.
+# Prevent Windows checkout from rewriting LF to CRLF.
+*.import -text
+*.webp -text
+*.png -text
+*.jpg -text
+*.jpeg -text
