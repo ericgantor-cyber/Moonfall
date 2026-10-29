@@ -1,0 +1,13 @@
+'use strict';
+const assert=require('node:assert/strict');
+const {continuationPlan}=require('./phase22-start-core.js');
+const m={version:1,hero:'nyra',region:'city',stage:2,x:120,y:160,checkpointFrame:300,rank:7};
+const cp={version:1,region:'city',stage:2,x:120,y:160,hp:75,at:300};
+const plan=continuationPlan(m,cp,{level:7});
+assert.deepEqual(plan,{hero:'nyra',region:'city',stage:2,x:120,y:160,rank:7});
+assert(Object.isFrozen(plan));
+assert.equal(continuationPlan(m,cp,{level:8}),null);
+assert.equal(continuationPlan(m,{...cp,at:250},{level:7}),null);
+assert.equal(continuationPlan(m,{...cp,hp:0},{level:7}),null);
+assert.equal(continuationPlan({...m,hero:'other'},cp,{level:7}),null);
+console.log('Phase22 start plan validation: PASS');
