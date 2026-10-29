@@ -103,6 +103,8 @@ jobs:
           test ! -e modular/assets/art-999.webp || { echo "::error::Stale generated art wasn't removed"; exit 1; }
           test -f modular/assets/readme.txt || { echo "::error::Unrelated asset was removed"; exit 1; }
           rm modular/assets/readme.txt
+      - name: Test persistent RPG character profiles and checkpoint respawn
+        run: node test-rpg-persistence.js
       - name: Test Phase 11 regional bosses, runes, and rewards
         run: node test-phase11-regional.js
       - name: Test Phase 10 boss tactics, formations and sanctum objectives
