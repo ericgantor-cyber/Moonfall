@@ -1,0 +1,17 @@
+'use strict';
+const assert=require('node:assert/strict'),vm=require('node:vm');
+const core=require('./phase16-death-core.js');
+const i=require('./phase16-death-integration.js');
+const cp={version:1,region:'foundry',stage:2,x:125,y:140};
+assert.deepEqual(core.deathRecovery(cp,'foundry',2,800,600,200,false),{x:125,y:140,hp:70});
+assert.equal(core.deathRecovery(cp,'foundry',2,800,600,200,true),null);
+assert.equal(core.deathRecovery(cp,'foundry',3,800,600,200,false),null);
+assert.equal(core.deathRecovery({...cp,x:NaN},'foundry',2,800,600,200,false),null);
+assert.equal(core.deathRecovery(cp,'foundry',2,800,600,0,false),null);
+const input='function reset(){}\nfunction loop(){pollController();tick();mfCheckpointCapture();draw();requestAnimationFrame(loop)}';
+const out=i.patchJs(input);
+new vm.Script(out);
+assert(out.includes('mfTryDeathRecovery'));
+assert(i.patchHtml('<button type="button" id="mfResumeBtn"').includes('mfDeathBtn'));
+assert.throws(()=>i.patchJs('bad'),/hook mismatch/);
+console.log('Phase 16 recovery rules: PASS');
