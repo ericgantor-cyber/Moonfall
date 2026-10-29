@@ -285,6 +285,6 @@ func _perf_report()->Dictionary:
  report["hero_rigs"]=v382_rigs.size()
  report["hero_rig_animation_events"]=v382_animation_events
  report["world_event_crafting_bonuses"]=v383_event_rewards
- report["witchwood_visual_batches"]=4 if not v384_slice.is_empty() else 0
+ report["witchwood_visual_batches"]=8 if not v384_slice.is_empty() else 0
  report["witchwood_hero_fill"]=is_instance_valid(v384_hero_fill) and v384_hero_fill.visible
  return report
