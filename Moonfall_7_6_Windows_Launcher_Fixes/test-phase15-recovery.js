@@ -1,0 +1,17 @@
+'use strict';
+const assert=require('node:assert/strict'),vm=require('node:vm');
+const c=require('./phase15-recovery-core.js'),p=require('./phase15-recovery-integration.js');
+const cp={version:1,region:'city',stage:3,x:75,y:80,hp:22,maxHp:50,at:10};
+const second={...cp,x:86,at:20};
+assert.equal(c.valid(cp,'city',3),true);
+assert.equal(c.valid({...cp,x:NaN},'city',3),false);
+assert.equal(c.select({...cp,hp:-1},cp,'city',3).source,'backup');
+assert.equal(c.select(cp,second,'city',4).source,'none');
+assert.deepEqual(c.savePair(cp,null,second),{primary:second,backup:cp});
+assert.equal(c.savePair(cp,null,{...cp,x:Infinity}).primary,cp);
+const js="function loop(){pollController();tick();mfCheckpointCapture();draw();requestAnimationFrame(loop)}\n mfWorld.flags['rpg:checkpoint']=cp;\n mfWorldSave();\n const cp=mfWorld.flags['rpg:checkpoint'];\n const state=mfResume.restorePosition(";
+const result=p.patchJs(js);new vm.Script(result+'null);');
+assert(result.includes('mfRecoveredCheckpoint()'));
+assert(result.includes('rpg:checkpoint-backup'));
+assert.throws(()=>p.patchJs(''),/hook mismatch/);
+console.log('Phase 15 backup recovery tests: PASS');
