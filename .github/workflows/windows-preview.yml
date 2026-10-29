@@ -47,6 +47,7 @@ jobs:
           node test-phase9-dungeon-ai.js
           node test-phase10-tactics.js
           node test-phase11-regional.js
+          node test-rpg-persistence.js
           node verify-project.js
           node audit-bloat.js
       - name: Build unsigned Windows preview installer
