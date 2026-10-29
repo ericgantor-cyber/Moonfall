@@ -113,8 +113,8 @@ func _build_animations()->void:
  _add_motion(library,"walk",0.68,true,[[0.0,0.0,-0.035],[0.17,0.065*power,0.0],[0.34,0.0,0.035],[0.51,0.065*power,0.0],[0.68,0.0,-0.035]])
  _add_motion(library,"run",0.44,true,[[0.0,0.0,-0.065],[0.11,0.09*power,0.0],[0.22,0.0,0.065],[0.33,0.09*power,0.0],[0.44,0.0,-0.065]])
  _add_motion(library,"swim",0.95,true,[[0.0,0.0,-0.025],[0.48,0.04,0.025],[0.95,0.0,-0.025]])
- _add_motion(library,"attack",0.32,false,[[0.0,0.0,0.0],[0.09,0.035,-0.10*power],[0.19,0.065,0.14*power],[0.32,0.0,0.0]])
- _add_motion(library,"cast",0.55,false,[[0.0,0.0,0.0],[0.22,0.065,0.055*power],[0.35,0.08,-0.07*power],[0.55,0.0,0.0]])
+ _add_motion(library,"attack",0.32,false,[[0.0,0.0,0.0],[0.06,0.025,-0.12*power],[0.14,0.075,0.17*power],[0.23,0.035,0.08*power],[0.32,0.0,0.0]])
+ _add_motion(library,"cast",0.55,false,[[0.0,0.0,0.0],[0.14,0.025,0.045*power],[0.29,0.09,0.09*power],[0.38,0.065,-0.085*power],[0.55,0.0,0.0]])
  _add_motion(library,"dash",0.50,false,[[0.0,0.0,0.0],[0.12,-0.05,-0.11],[0.31,-0.05,0.08],[0.50,0.0,0.0]])
  _add_motion(library,"hurt",0.30,false,[[0.0,0.0,0.0],[0.10,-0.06,0.10],[0.30,0.0,0.0]])
  _add_motion(library,"death",0.55,false,[[0.0,0.0,0.0],[0.35,-0.14,0.18],[0.55,-0.22,0.22]])
@@ -140,7 +140,9 @@ func play_state(next_state:String)->void:
  if not animation_player.has_animation(next_state):return
  if current_state==next_state and animation_player.is_playing():return
  current_state=next_state
- animation_player.play(next_state)
+ # Fast combat transitions preserve response time; movement gets softer blends.
+ var blend:float=0.045 if next_state in ["attack","cast","dash","hurt","death"] else 0.12
+ animation_player.play(next_state,blend)
 
 func step_bones(delta:float)->void:
  # Art sockets and approved cutouts move independently. The uncut source never changes.
@@ -166,7 +168,10 @@ func step_bones(delta:float)->void:
 
 func _rotate_bone(bone_name:String,angle:float)->void:
  var index:int=skeleton.find_bone(bone_name)
- if index>=0:skeleton.set_bone_pose_rotation(index,Quaternion(Vector3(0.0,0.0,1.0),angle))
+ if index>=0:
+  var goal:=Quaternion(Vector3(0.0,0.0,1.0),angle)
+  var current:Quaternion=skeleton.get_bone_pose_rotation(index)
+  skeleton.set_bone_pose_rotation(index,current.slerp(goal,0.36))
 
 func required_cutout_parts()->PackedStringArray:
  var parts:=PackedStringArray()
