@@ -25,7 +25,27 @@ func _run()->void:
  var sprite:Sprite3D=game.get("hero_sprite") as Sprite3D
  var pose:Node3D=game.get("v374_swim_pose_anchor") as Node3D
  check(is_instance_valid(pose),"independent swim pose anchor exists")
- check(is_instance_valid(sprite) and sprite.get_parent()==pose,"existing original hero art is mounted under pose anchor")
+ var rigs:Dictionary=game.get("v382_rigs") as Dictionary
+ check(rigs.size()==2,"Z and Nyra each have a rig scene")
+ var z_rig:Node3D=rigs.get("z") as Node3D
+ var nyra_rig:Node3D=rigs.get("nyra") as Node3D
+ check(is_instance_valid(z_rig) and is_instance_valid(nyra_rig),"both rigs instantiate")
+ check(is_instance_valid(sprite) and sprite.get_parent().name=="ArtMotionAnchor" and sprite.get_parent().get_parent()==z_rig and z_rig.get_parent()==pose,"original hero art remains under independent swim and animation anchors")
+ var z_skeleton:Skeleton3D=z_rig.get_node_or_null("HeroSkeleton") as Skeleton3D
+ var nyra_skeleton:Skeleton3D=nyra_rig.get_node_or_null("HeroSkeleton") as Skeleton3D
+ check(is_instance_valid(z_skeleton) and z_skeleton.get_bone_count()==17 and is_instance_valid(nyra_skeleton) and nyra_skeleton.get_bone_count()==17,"both rigs have 17 joint definitions")
+ check(is_instance_valid(z_rig.call("get_socket","WeaponSocket")) and is_instance_valid(nyra_rig.call("get_socket","AuraSocket")),"character attachment sockets exist")
+ check((z_rig.get_node("AnimationPlayer") as AnimationPlayer).has_animation("attack") and (nyra_rig.get_node("AnimationPlayer") as AnimationPlayer).has_animation("cast"),"both rigs have Godot animation clips")
+ game.call("_start_game","z")
+ check(sprite.texture==load("res://assets/heroes/Z_Original.webp"),"Z original texture is unchanged")
+ game.call("_attack")
+ check(z_rig.get("current_state")=="attack","Z attack triggers rig motion")
+ game.call("_start_game","nyra")
+ check(sprite.texture==load("res://assets/heroes/Nyra_Original.png") and sprite.get_parent().get_parent()==nyra_rig,"Nyra uses unedited original art on her own rig")
+ game.call("_spell","nova")
+ check(nyra_rig.get("current_state")=="cast","Nyra spell triggers rig motion")
+ game.call("_start_game","z")
+ check(sprite.texture==load("res://assets/heroes/Z_Original.webp") and sprite.get_parent().get_parent()==z_rig,"Z and Nyra swap rigs without replacing art")
  check(is_instance_valid(sprite) and sprite.texture!=null,"original art sprite remains textured")
  check(is_instance_valid(pose) and pose.scale.is_equal_approx(Vector3.ONE),"pose transform has no cumulative scaling")
  # Dark-fantasy rendering reuses existing graphics options and has a

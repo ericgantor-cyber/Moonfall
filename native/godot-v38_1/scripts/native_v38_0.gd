@@ -2,6 +2,12 @@ extends "res://scripts/native_v37_7.gd"
 ## v38 practical overhaul: on-demand concise status and ocean safety feedback,
 ## leaving the combat/loot/world/save systems untouched and inheritance intact.
 const V380_RULES:=preload("res://scripts/systems/overhaul_v380.gd")
+const V382_Z_RIG:=preload("res://scenes/rigs/z_rig.tscn")
+const V382_NYRA_RIG:=preload("res://scenes/rigs/nyra_rig.tscn")
+var v382_rigs:Dictionary={}
+var v382_active_rig:Node3D
+var v382_action_until:float=0.0
+var v382_animation_events:int=0
 var v380_status_enabled:bool=false
 var v380_status_panel:PanelContainer
 var v380_status_text:Label
@@ -12,6 +18,7 @@ func _ready()->void:
  super._ready()
  _v380_build_status_panel()
  _v381_apply_atmosphere()
+ _v382_build_rigs()
 
 func _build_ui()->void:
  super._build_ui()
@@ -64,6 +71,7 @@ func _unhandled_key_input(event:InputEvent)->void:
 
 func _process(delta:float)->void:
  super._process(delta)
+ _v382_tick_rig(delta)
  if not is_instance_valid(v380_status_panel):return
  var visible_now:bool=v380_status_enabled and hero_playing and not death_active and not menu_open
  v380_status_panel.visible=visible_now
@@ -124,6 +132,84 @@ func _gfx_apply(apply_display:bool=true)->void:
  super._gfx_apply(apply_display)
  _v381_apply_atmosphere()
 
+
+# Art-safe character animation: the existing Sprite3D stays a whole original
+# texture. Rigs animate a separate parent, with 17 virtual bones and VFX sockets.
+func _v382_build_rigs()->void:
+ if not is_instance_valid(v374_swim_pose_anchor) or not is_instance_valid(hero_sprite):return
+ for rig_id in ["z","nyra"]:
+  var packed:PackedScene=V382_NYRA_RIG if rig_id=="nyra" else V382_Z_RIG
+  var rig:Node3D=packed.instantiate()
+  v374_swim_pose_anchor.add_child(rig)
+  rig.visible=false
+  v382_rigs[rig_id]=rig
+ _v382_switch_rig("z")
+
+func _v382_switch_rig(selected:String)->void:
+ var chosen:String="nyra" if selected=="nyra" else "z"
+ if not v382_rigs.has(chosen) or not is_instance_valid(hero_sprite):return
+ for entry in v382_rigs.values():
+  var rig:Node3D=entry as Node3D
+  rig.call("reset_pose")
+  rig.visible=rig==v382_rigs[chosen]
+ v382_active_rig=v382_rigs[chosen] as Node3D
+ var art_parent:Node3D=v382_active_rig.call("get_art_pivot") as Node3D
+ if is_instance_valid(art_parent) and hero_sprite.get_parent()!=art_parent:
+  # Identity rig pivots preserve the sprite's existing world pose and texture.
+  hero_sprite.reparent(art_parent,true)
+ v382_action_until=0.0
+ v382_active_rig.call("play_state","idle")
+
+func _start_game(selected:String)->void:
+ super._start_game(selected)
+ _v382_switch_rig(hero)
+
+func _restore_data(data:Dictionary)->void:
+ super._restore_data(data)
+ _v382_switch_rig(hero)
+
+func _v382_action(name:String,hold:float)->void:
+ if not is_instance_valid(v382_active_rig):return
+ v382_action_until=map_time+hold
+ v382_active_rig.call("play_state",name)
+ v382_animation_events+=1
+
+func _attack()->void:
+ var ready:bool=hero_playing and not menu_open and not mounted and attack_cooldown<=0.0
+ super._attack()
+ if ready and not death_active:_v382_action("attack",0.32)
+
+func _spell(which:String)->void:
+ var ready:bool=hero_playing and not menu_open and not mounted and ability_cooldown<=0.0
+ super._spell(which)
+ if ready and not death_active:_v382_action("dash" if which=="dash" else "cast",0.52 if which!="dash" else 0.5)
+
+func _dodge()->void:
+ var ready:bool=hero_playing and not menu_open and not mounted and dodge_cooldown<=0.0
+ super._dodge()
+ if ready and not death_active:_v382_action("dash",0.5)
+
+func _apply_incoming_damage(raw:float)->void:
+ var previous:float=hp
+ super._apply_incoming_damage(raw)
+ if hero_playing and hp<previous and not death_active:_v382_action("hurt",0.30)
+
+func _v382_tick_rig(delta:float)->void:
+ if not is_instance_valid(v382_active_rig):return
+ var desired:String="idle"
+ if death_active:desired="death"
+ elif hero_playing and not menu_open:
+  if map_time<v382_action_until:
+   v382_active_rig.call("step_bones",delta)
+   return
+  if v37_swimming:desired="swim"
+  elif not mounted and is_instance_valid(player):
+   var speed_squared:float=player.velocity.length_squared()
+   if speed_squared>25.0:desired="run"
+   elif speed_squared>0.15:desired="walk"
+ v382_active_rig.call("play_state",desired)
+ v382_active_rig.call("step_bones",delta)
+
 func _perf_report()->Dictionary:
  var report:Dictionary=super._perf_report()
  report["overhaul"]="v38.0 safer swim art pose, optional status and lean handoff"
@@ -131,4 +217,6 @@ func _perf_report()->Dictionary:
  report["status_ui_updates"]=v380_status_updates
  report["dark_fantasy_grade"]=str(gfx_settings.get("realism_grade","Natural"))
  report["volumetric_fog"]=living_environment!=null and living_environment.volumetric_fog_enabled
+ report["hero_rigs"]=v382_rigs.size()
+ report["hero_rig_animation_events"]=v382_animation_events
  return report

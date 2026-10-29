@@ -31,6 +31,7 @@ checks={
  'Windows build detects new errors in v38 log':'GODOT_V38_0_OVERHAUL_LOG.txt' in bat and r'python tests\check_godot_logs.py' in bat,
  'Source prerequisites and installer still pinned':all(x in (root/'BUILD_MOONFALL_ONE_CLICK.ps1').read_text() for x in ['Ensure-MoonfallPython3','Ensure-MoonfallInno6','engine_test_suites_registered = 66']),
  'Art hash inventory unchanged':len(assets)==70 and all((root/rel).is_file() and hashlib.sha256((root/rel).read_bytes()).hexdigest()==digest for digest,rel in assets),
+ 'Hero rigs preserve original art and provide independent skeletons':all((root/p).is_file() for p in ['scenes/rigs/z_rig.tscn','scenes/rigs/nyra_rig.tscn','scripts/systems/hero_art_rig.gd']) and all(x in active for x in ['_v382_build_rigs()', 'hero_sprite.reparent(art_parent,true)', 'v382_active_rig.call("play_state",name)']),
  'No duplicate functions in v38':len(re.findall(r'^func (\w+)\(',active,re.M))==len(set(re.findall(r'^func (\w+)\(',active,re.M))),
  'No new currencies, mode switches or global survival clocks':all(x not in active+rules for x in ['new_currency','survival_timer','new_game_mode','func _save_game(']),
 }
