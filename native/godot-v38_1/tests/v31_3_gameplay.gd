@@ -47,7 +47,7 @@ func _run()->void:
  game.call("_v313_tick_surge")
  check(int(game.get("v313_surge_zone"))>=0,"Moon surge becomes active")
  var before:Dictionary=game.call("_perf_report")
- check(before.get("version")in ["v31.4","v31.5","v31.6","v32.0","v32.1"],"F9 report identifies version")
+ check(CURRENT_RELEASE.matches_report(before),"F9 report identifies the installed project version")
  check(before.has("v313_average_update_usec"),"F9 includes additional profiler fields")
  game.call("_reset_new_adventure")
  check(int(game.get("v313_combo"))==0,"New game resets combo")
