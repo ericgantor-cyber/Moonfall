@@ -15,10 +15,13 @@ func _ready()->void:
 func _build_ui()->void:
  super._build_ui()
  if not is_instance_valid(start_screen):return
+ # Always show the active project release, not a legacy v37/v38 hard-coded name.
+ var release:String=str(_release_label())
  for node in start_screen.find_children("*","Label",true,false):
   var title:Label=node as Label
-  if is_instance_valid(title) and "MOONFALL v37.7" in title.text:
-   title.text="☾  MOONFALL v38.0 • THE LIVING REALM"
+  if is_instance_valid(title) and "MOONFALL" in title.text.to_upper():
+   title.text="☾  MOONFALL "+release+" • THE LIVING REALM"
+   break
 
 func _v380_build_status_panel()->void:
  var layer:CanvasLayer=get_node_or_null("NativeAtlasUI") as CanvasLayer
