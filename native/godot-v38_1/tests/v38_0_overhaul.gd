@@ -122,7 +122,7 @@ func _run()->void:
   check(undergrowth_root.get_parent()==forest_root and undergrowth_root.find_children("*","CollisionObject3D",true,false).is_empty(),"forest floor is attached to existing Witchwood visuals without physics")
   check(moss.multimesh.instance_count==96 and ferns.multimesh.instance_count==72 and logs.multimesh.instance_count==16 and roots.multimesh.instance_count==24,"forest floor uses four fixed batches instead of per-leaf scene nodes")
   check(not FLOOR._valid_spot(0.0,12.0) and not FLOOR._valid_spot(12.0,0.0) and FLOOR._valid_spot(-20.0,20.0),"undergrowth placement leaves crossing roads and shrine approach clear")
-  check(moss.multimesh.get_instance_transform(0).origin.y>=0.02,"forest moss stays above the existing ground rather than sinking into it")
+  check(moss.position.y>=0.02 and moss.position.y<=0.08,"forest moss GPU batch stays above the existing ground without floating visibly")
   var moonwood_mesh:ArrayMesh=trunks.multimesh.mesh as ArrayMesh
   var organic_canopy:ArrayMesh=canopies.multimesh.mesh as ArrayMesh
   check(is_instance_valid(moonwood_mesh) and is_instance_valid(organic_canopy),"Witchwood uses native procedural meshes, not primitive cylinder and cone")
