@@ -41,6 +41,8 @@ jobs:
           node test-direct3d-backend.js
           node test-generated-combat.js
           node test-speech-bubbles.js
+          node test-phase6-world-core.js
+          node test-phase6-world-integration.js
           node verify-project.js
           node audit-bloat.js
       - name: Build unsigned Windows preview installer
