@@ -31,9 +31,15 @@ func _run()->void:
  check(is_instance_valid(body) and "PLAYABILITY" in body.text,"System page has help actions")
  check(not game.call("_v377_can_rescue"),"no emergency exit on title screen")
  var accurate_title:bool=false
+ var displayed_titles:PackedStringArray=[]
+ var release_label:String=str(game.call("_release_label"))
  for node in (game.get("start_screen") as Control).find_children("*","Label",true,false):
-  if "MOONFALL v37.7" in (node as Label).text or "MOONFALL v38.0" in (node as Label).text:accurate_title=true
- check(accurate_title,"title screen no longer advertises obsolete v13")
+  var label_text:String=(node as Label).text
+  if "MOONFALL" not in label_text.to_upper():continue
+  displayed_titles.append(label_text)
+  if "MOONFALL "+release_label in label_text and "v13" not in label_text:accurate_title=true
+ if not accurate_title:print("MOONFALL_TITLE_DIAG release=",release_label," titles=",displayed_titles)
+ check(accurate_title,"title screen displays active release without obsolete v13")
  game.call("_atlas_execute","v377_help")
  check(game.get("current_tab")=="Tips","Tips action works")
  check("RIGHT NOW" in body.text,"contextual help shown")
