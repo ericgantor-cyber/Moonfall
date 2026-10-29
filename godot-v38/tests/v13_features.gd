@@ -14,7 +14,9 @@ func _run() -> void:
  var game_data_path: String=OS.get_user_data_dir()
  print("SAVE TEST SANDBOX: ",sandbox_path.replace("\\","/"))
  print("GODOT USER DATA: ",game_data_path.replace("\\","/"))
- if sandbox_path.is_empty() or not game_data_path.to_lower().begins_with(sandbox_path.to_lower()):
+ var sandbox_normalized:String=sandbox_path.replace("\\","/").trim_suffix("/").to_lower()
+ var data_normalized:String=game_data_path.replace("\\","/").to_lower()
+ if sandbox_normalized.is_empty() or not data_normalized.begins_with(sandbox_normalized+"/"):
   push_error("Unsafe test save location. Run through tools/run_tests.py or the isolated Windows build script.")
   quit(2)
   return
