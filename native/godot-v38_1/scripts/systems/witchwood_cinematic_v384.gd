@@ -1,5 +1,6 @@
 extends RefCounted
 const V385_ASSETS:=preload("res://scripts/systems/witchwood_assets_v385.gd")
+const V386_FLOOR:=preload("res://scripts/systems/witchwood_floor_v386.gd")
 ## Witchwood Wilds visual-only vertical slice. Deterministic geometry, no collision,
 ## gameplay RNG, character texture changes, world modes, or per-frame mesh creation.
 const TREE_COUNT:int=48
@@ -135,7 +136,8 @@ static func build(region:Node3D,center:Vector2)->Dictionary:
  moon_glow.omni_range=8.0
  moon_glow.shadow_enabled=false
  ruins.add_child(moon_glow)
- return {"root":root,"trunks":bark,"crowns":crowns,"stones":stones,"motes":motes,"ruins":ruins,"light":moon_glow,"tree_count":placed}
+ var floor_slice:Dictionary=V386_FLOOR.build(root)
+ return {"root":root,"trunks":bark,"crowns":crowns,"stones":stones,"motes":motes,"ruins":ruins,"light":moon_glow,"tree_count":placed,"forest_floor":floor_slice}
 
 static func apply_quality(slice:Dictionary,settings:Dictionary)->void:
  if slice.is_empty():return
@@ -172,3 +174,4 @@ static func apply_quality(slice:Dictionary,settings:Dictionary)->void:
  var limit:float=25.0 if str(settings.get("scenery_lod","Balanced"))=="Near" else 75.0 if str(settings.get("scenery_lod","Balanced"))=="Far" else 48.0
  for batch in [trunks,canopies,stones,fireflies]:
   batch.visibility_range_end=limit
+ V386_FLOOR.apply_quality(slice["forest_floor"],settings)
