@@ -19,4 +19,11 @@ assert.deepEqual(streamer.activeRooms(),['a','c']);
 assert.deepEqual(events,['load:a','load:b','load:c','unload:b']);
 streamer.clear();
 assert.deepEqual(streamer.activeRooms(),[]);
+const failures=[];
+const failing=w.createRoomStreamer({limit:1,
+ load:id=>({id}),unload:id=>{failures.push(id);if(id==='old')throw Error('blocked eviction');}});
+failing.visit('old');
+assert.throws(()=>failing.visit('new'),/blocked eviction/);
+assert.deepEqual(failing.activeRooms(),['old'],'unload failure must not evict active room');
+assert.deepEqual(failures,['old','new'],'failed loads should be released');
 console.log('Phase 6 living-world core tests passed');
