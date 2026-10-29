@@ -46,3 +46,11 @@ The scenery is placed with an independent deterministic seed (`2026386`) and avo
 Existing `environment_detail`, `ground_clutter`, `foliage_quality` and `scenery_lod` preferences control the new density and draw range. On low settings the optional forest floor disappears, while high settings show all 208 additional instances. Mesh and texture resources are shared by their batches, with no per-frame spawn work.
 
 This creates material variation and forest-depth cues without falsely claiming displacement terrain or physically simulated fallen trees. Future realism requires original environment meshes/terrain sculpting and real-hardware profiling.
+
+## Phase 4: Textured terrain micro-relief
+
+Witchwood now has one **32x32 procedural terrain-detail mesh**, overlaid on the existing collision ground, with an original 96x96 moss/soil grain texture and softly faded color variation. Contours range only a few centimeters above the ground. The transparent mesh fades to zero over the crossing roads, combat approach, shrine, and region edges so the paths and encounter telegraphs stay readable.
+
+This is visual micro-relief, not actual terrain sculpting: **player and enemy collision, pathfinding, and elevation are unchanged**. The mesh has no collision body or runtime update loop. The `environment_detail`, `terrain_surface`, `ground_clutter`, and `scenery_lod` preferences already in Moonfall control rendering. On low settings the surface is disabled entirely.
+
+The original Z and Nyra images, all six connected regions, gameplay RNG, bosses and saves remain untouched. Proper 3D terrain sculpting will need a later dedicated collision/navmesh pass and on-device testing.
