@@ -430,7 +430,8 @@ void fragment() {
   region_nodes[zone].add_child(water_root)
   var lake_scale:Vector3=Vector3(10.2 if zone==2 else 7.8,1.0,7.0 if zone==2 else 5.8)
   var region_water:=v362_water_shader.duplicate() as ShaderMaterial
-  var hue:Color=Color("517fbb") if zone==0 else (Color("468e8d") if zone==1 else (Color("3e91a5") if zone==2 else (Color("667c96") if zone==3 else (Color("6665a4") if zone==4 else Color("8d527e")))
+   var water_hues:Array[Color]=[Color("517fbb"),Color("468e8d"),Color("3e91a5"),Color("667c96"),Color("6665a4"),Color("8d527e")]
+   var hue:Color=water_hues[zone]
   region_water.set_shader_parameter("shallow_color",hue)
   var lake:=_v361_primitive(water_root,plane,region_water,Vector3(sx,0.069,sz),lake_scale)
   lake.name="V362_AnimatedWaterSurface"
