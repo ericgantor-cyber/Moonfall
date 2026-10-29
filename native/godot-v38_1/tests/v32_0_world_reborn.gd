@@ -37,7 +37,7 @@ func _run()->void:
  check(int(game.get("contract_zone"))==0,"Warden uses original persistent region contract")
  check(int(game.get("v320_warden_interactions"))==1,"Warden interaction counted")
  var report:Dictionary=game.call("_perf_report")
- check(str(report["version"]) in ["v32.0","v32.1"] and report.has("world_stream_peak_usec"),"F9 profiler shows World Reborn counters")
+ check(CURRENT_RELEASE.matches_report(report) and report.has("world_stream_peak_usec"),"F9 profiler shows World Reborn counters")
  check(report["regional_npc_wardens"]==6,"NPC profiling count")
  game.queue_free()
  print("MOONFALL v32 WORLD REBORN PASS" if failures==0 else "MOONFALL v32 WORLD REBORN FAIL")
