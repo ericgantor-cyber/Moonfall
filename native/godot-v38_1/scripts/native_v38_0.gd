@@ -4,6 +4,8 @@ extends "res://scripts/native_v37_7.gd"
 const V380_RULES:=preload("res://scripts/systems/overhaul_v380.gd")
 const V383_WORLD:=preload("res://scripts/systems/world_fusion_rules.gd")
 const V384_WITCHWOOD:=preload("res://scripts/systems/witchwood_cinematic_v384.gd")
+const V388_REACTIVITY:=preload("res://scripts/systems/witchwood_reactivity_v388.gd")
+var v388_feedback:Node3D
 var v384_slice:Dictionary={}
 var v384_hero_fill:OmniLight3D
 var v384_visual_tick:float=0.0
@@ -193,6 +195,7 @@ func _v382_action(name:String,hold:float)->void:
  v382_action_until=map_time+hold
  v382_active_rig.call("play_state",name)
  v382_animation_events+=1
+ _v388_impact(name)
 
 func _attack()->void:
  var ready:bool=hero_playing and not menu_open and not mounted and attack_cooldown<=0.0
@@ -263,17 +266,29 @@ func _v384_build_witchwood()->void:
  v384_hero_fill.position=Vector3(0.0,1.35,0.5)
  v384_hero_fill.shadow_enabled=false
  player.add_child(v384_hero_fill)
+ # One pooled two-ripple effect for existing attacks, spells, dodges and hurt.
+ # Its shader bends only already-instanced Witchwood ferns on the GPU.
+ v388_feedback=V388_REACTIVITY.new()
+ v388_feedback.name="WitchwoodCombatReactivity"
+ (v384_slice["root"] as Node3D).add_child(v388_feedback)
+ v388_feedback.call("setup",v384_slice["forest_floor"]["ferns"])
  _v384_apply_quality()
 
 func _v384_apply_quality()->void:
  if v384_slice.is_empty() or not gfx_ready:return
  V384_WITCHWOOD.apply_quality(v384_slice,gfx_settings)
+ if is_instance_valid(v388_feedback):v388_feedback.call("configure",gfx_settings)
  _v384_update_hero_light()
 
 func _v384_update_hero_light()->void:
  if not is_instance_valid(v384_hero_fill):return
  var detail:int=int(gfx_settings.get("environment_detail","7"))
  v384_hero_fill.visible=hero_playing and not death_active and not mounted and region_index==1 and detail>=6 and str(gfx_settings.get("cinematic_lighting","Natural"))!="Classic"
+
+func _v388_impact(action:String)->void:
+ if region_index!=1 or not hero_playing or death_active:return
+ if not is_instance_valid(v388_feedback) or not is_instance_valid(player):return
+ v388_feedback.call("trigger",action,player.global_position)
 
 func _perf_report()->Dictionary:
  var report:Dictionary=super._perf_report()
@@ -287,4 +302,5 @@ func _perf_report()->Dictionary:
  report["world_event_crafting_bonuses"]=v383_event_rewards
  report["witchwood_visual_batches"]=8 if not v384_slice.is_empty() else 0
  report["witchwood_hero_fill"]=is_instance_valid(v384_hero_fill) and v384_hero_fill.visible
+ report["witchwood_combat_reactions"]=int(v388_feedback.get("triggers")) if is_instance_valid(v388_feedback) else 0
  return report
