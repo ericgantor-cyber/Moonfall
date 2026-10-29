@@ -34,7 +34,7 @@ func _run() -> void:
   total+=lists[zone].size()
   _check(regions[zone].get_child_count()>10,"Sector "+str(zone)+" scenery grouped")
  _check(total==game.get("beasts").size(),"Each creature mapped to exactly one sector")
- _check(total==62,"48 wildlife, 5 guardians, 9 dormant rift combat slots (actual="+str(total)+")")
+ _check(total==74,"48 wildlife, 5 guardians, 9 rift slots, 12 lunar invasion slots (actual="+str(total)+")")
  var events:Array=game.get("world_events")
  _check(events.size()==6,"Six regional living-world events")
  _check(game.get("events_completed").is_empty(),"Events begin unclaimed")
