@@ -27,6 +27,7 @@ const transforms = [
   require('./phase9-dungeon-integration.js'),
   require('./phase10-tactics-integration.js'),
   require('./phase11-regional-integration.js'),
+  require('./rpg-persistence-integration.js'),
   require('./hades-combo.js'),
   require('./speech-bubbles.js'),
   require('./render-scale.js'),
