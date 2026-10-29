@@ -1,5 +1,6 @@
 extends SceneTree
 const R:=preload("res://scripts/systems/overhaul_v380.gd")
+const FUSION:=preload("res://scripts/systems/world_fusion_rules.gd")
 var failures:int=0
 func _initialize()->void:call_deferred("_run")
 func check(ok:bool,label:String)->void:
@@ -16,6 +17,13 @@ func _run()->void:
  check("COMBAT" in R.threat_status(100.0,false,true,90.0,100.0),"combat warning")
  check("LOW HEALTH" in R.threat_status(100.0,false,false,25.0,100.0),"low health warning")
  check("AIR: 20%" in R.safe_label("Moonmist",80.0,100.0,19.5,true,2.4,false),"accessible numeric air readout")
+ var zones:Array=[{"name":"Forest"},{"name":"Citadel"}]
+ check(FUSION.next_objective(zones,[80,225],[],2,95)["name"]=="Forest","power-aware world guide selects reachable event")
+ check(FUSION.next_objective(zones,[80,225],[0],2,95)["name"]=="Citadel","guide advances through unfinished events")
+ check(FUSION.next_objective(zones,[80,225],[0,1],2,95)["kind"]=="Rift","world events lead to existing rifts")
+ check(FUSION.event_crafting_bonus(2,{"Mining":1})["name"]=="Moon Sigil","world quests reward existing profession materials")
+ check(FUSION.event_crafting_bonus(5,{"Herbalism":26})["amount"]==2,"trained professions grant a capped bonus")
+ check("no region is locked" in FUSION.guidance({"name":"Citadel","kind":"World event"},30,100),"region power remains advisory")
  var packed:PackedScene=load("res://scenes/main.tscn")
  check(packed!=null,"v38 source scene loads")
  if packed==null:quit(1);return
@@ -107,6 +115,16 @@ func _run()->void:
  game.call("_menu_tab","System")
  var body:RichTextLabel=game.get("menu_body") as RichTextLabel
  check(is_instance_valid(body) and "F2" in body.text,"F2 discoverable inside system menu")
+ game.call("_menu_tab","World")
+ check("ONE CONNECTED REALM" in body.text and "WORLD RIFTS" in body.text,"World page unifies existing adventure systems")
+ var before_material:int=int((game.get("materials") as Dictionary).get("herb",0))
+ game.call("_complete_world_event",0,true)
+ check(int((game.get("materials") as Dictionary).get("herb",0))>before_material,"world completion contributes to existing crafting inventory")
+ var once:int=int(game.get("v383_event_rewards"))
+ game.call("_complete_world_event",0,true)
+ check(int(game.get("v383_event_rewards"))==once,"regional reward cannot be claimed twice")
+ game.call("_atlas_execute","v383:professions")
+ check(game.get("current_tab")=="Professions","World navigation reuses existing profession page")
  game.queue_free()
  print("MOONFALL v38.0 OVERHAUL PASS" if failures==0 else "MOONFALL v38.0 OVERHAUL FAIL")
  quit(0 if failures==0 else 1)
