@@ -46,8 +46,9 @@ func _run()->void:
   game.get("player").global_position=body.global_position+Vector3(2.2,0,0)
   game.set("region_index",1)
   game.call("_update_region_visibility")
+  # Smooth intentionally disables expensive guardian animation. Test Full first.
+  game.call("_apply_graphics_quality","Full")
   game.call("_process",0.2)
-  print("MOONFALL_V20_DIAG animated=",game.get("v20_animated_guardians")," region=",game.get("region_index")," target_zone=",target["zone"]," phase=",target["boss_phase"]," alive=",target["alive"]," graphics=",game.get("graphics_quality")," playing=",game.get("hero_playing")," distance_squared=",body.global_position.distance_squared_to(game.get("player").global_position)," visible=",root_sigil.visible)
   check(game.get("v20_animated_guardians")>0,"Boss spellwheel animates when close")
   game.call("_apply_graphics_quality","Smooth")
   game.call("_process",0.2)
