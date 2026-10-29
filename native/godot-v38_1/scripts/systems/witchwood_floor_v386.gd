@@ -116,6 +116,9 @@ static func build(witchwood_root:Node3D)->Dictionary:
  root.name="ForestFloorDetail"
  witchwood_root.add_child(root)
  var moss:=_batch(root,"LeafMossPatches",_moss_mesh(),_moss_material(),MOSS_COUNT)
+ # Fix the transparent moss layer above the existing flat ground as a whole.
+ # This position is independent of GPU MultiMesh per-instance readback.
+ moss.position.y=0.045
  var ferns:=_batch(root,"MoonFernClumps",_fern_mesh(),_fern_material(),FERN_COUNT)
  var log_mesh:=CylinderMesh.new()
  log_mesh.top_radius=0.25
@@ -148,7 +151,7 @@ static func build(witchwood_root:Node3D)->Dictionary:
    match kind:
     0:
      var ground_basis:Basis=Basis(Vector3.UP,angle)*Basis(Vector3.RIGHT,-PI*0.5)
-     transform=Transform3D(ground_basis.scaled(Vector3(scale,scale,scale)),Vector3(x,0.04,z))
+     transform=Transform3D(ground_basis.scaled(Vector3(scale,scale,scale)),Vector3(x,0.0,z))
     1:
      transform=Transform3D(Basis(Vector3.UP,angle).scaled(Vector3.ONE*scale),Vector3(x,0.015,z))
     2:
