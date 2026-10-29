@@ -12,7 +12,9 @@ return {checkpoint,matches,respawn};
 })();
 let mfCheckpointLastFrame=-1;
 function mfCheckpointCapture(){
- if(!playing||paused||!player||!mfWorld||frame===mfCheckpointLastFrame||frame%300!==0)return;
+ if(!playing||paused||skillOpen||gearOpen||!player||!mfWorld||!mfWorld.flags||
+    (Number.isFinite(player.hp)&&player.hp<=0)||
+    !Number.isFinite(frame)||frame<0||frame===mfCheckpointLastFrame||frame%300!==0)return;
  mfCheckpointLastFrame=frame;
  const cp=mfCheckpoint.checkpoint({region:mfWorld.region,stage,player,frame});
  if(!cp)return;
