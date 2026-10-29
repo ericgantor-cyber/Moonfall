@@ -31,9 +31,15 @@ func _run()->void:
  check(is_instance_valid(game.get("v380_status_panel")),"optional status panel created")
  check(not (game.get("v380_status_panel") as PanelContainer).visible,"status HUD hidden at title screen")
  var current_title:bool=false
+ var release_label:String=str(game.call("_release_label"))
+ var found_titles:PackedStringArray=[]
  for label_node in (game.get("start_screen") as Control).find_children("*","Label",true,false):
-  if "MOONFALL v38.0" in (label_node as Label).text:current_title=true
- check(current_title,"start screen presents current v38 source")
+  var title_text:String=(label_node as Label).text
+  if "MOONFALL" not in title_text.to_upper():continue
+  found_titles.append(title_text)
+  if "MOONFALL "+release_label in title_text:current_title=true
+ if not current_title:print("MOONFALL_V38_TITLE_DIAG expected=",release_label," actual=",found_titles)
+ check(current_title,"start screen presents the current project release")
  game.call("_menu_tab","System")
  var body:RichTextLabel=game.get("menu_body") as RichTextLabel
  check(is_instance_valid(body) and "F2" in body.text,"F2 discoverable inside system menu")
