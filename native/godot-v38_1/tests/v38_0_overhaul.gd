@@ -112,6 +112,15 @@ func _run()->void:
   var canopies:MultiMeshInstance3D=slice["crowns"] as MultiMeshInstance3D
   var motes:MultiMeshInstance3D=slice["motes"] as MultiMeshInstance3D
   check(trunks.multimesh.instance_count==48 and canopies.multimesh.instance_count==96 and motes.multimesh.instance_count==28,"trees, canopy and fireflies use fixed GPU batches")
+  var moonwood_mesh:ArrayMesh=trunks.multimesh.mesh as ArrayMesh
+  var organic_canopy:ArrayMesh=canopies.multimesh.mesh as ArrayMesh
+  check(is_instance_valid(moonwood_mesh) and is_instance_valid(organic_canopy),"Witchwood uses native procedural meshes, not primitive cylinder and cone")
+  if is_instance_valid(moonwood_mesh) and is_instance_valid(organic_canopy):
+   var bark_vertices:PackedVector3Array=moonwood_mesh.surface_get_arrays(0)[Mesh.ARRAY_VERTEX]
+   var canopy_vertices:PackedVector3Array=organic_canopy.surface_get_arrays(0)[Mesh.ARRAY_VERTEX]
+   check(bark_vertices.size()>500 and canopy_vertices.size()>500,"branched tree geometry and lobed canopies have real 3D silhouette detail")
+  var bark_mat:StandardMaterial3D=trunks.material_override as StandardMaterial3D
+  check(is_instance_valid(bark_mat) and bark_mat.albedo_texture!=null and bark_mat.normal_texture!=null,"bark has original tiny PBR detail textures and normal map")
   var light:OmniLight3D=slice["light"] as OmniLight3D
   check(is_instance_valid(light) and not light.shadow_enabled,"moonwood gate uses bounded, unshadowed accent light")
   var low:Dictionary=original_graphics.duplicate(true)
@@ -121,6 +130,7 @@ func _run()->void:
   game.set("gfx_settings",low)
   game.call("_gfx_apply",false)
   check(not trunks.visible and not motes.visible and not light.visible,"low settings cull expensive scene details")
+  if is_instance_valid(bark_mat):check(not bark_mat.normal_enabled,"low detail avoids Witchwood normal-map sampling")
   var high:Dictionary=original_graphics.duplicate(true)
   high["environment_detail"]="9"
   high["foliage_quality"]="High"
@@ -130,6 +140,7 @@ func _run()->void:
   game.set("gfx_settings",high)
   game.call("_gfx_apply",false)
   check(trunks.visible and trunks.multimesh.visible_instance_count==48 and motes.visible,"high settings restore detailed Witchwood scenery")
+  if is_instance_valid(bark_mat):check(bark_mat.normal_enabled,"high detail enables Moonwood PBR normal mapping")
   game.set("region_index",1)
   game.call("_v384_update_hero_light")
   var hero_fill:OmniLight3D=game.get("v384_hero_fill") as OmniLight3D
