@@ -7,6 +7,8 @@ function continuationPlan(manifest,checkpoint,profile){
     !Number.isInteger(manifest.stage)||manifest.stage<1||manifest.stage>1000||
     checkpoint.region!==manifest.region||checkpoint.stage!==manifest.stage||
     !Number.isFinite(checkpoint.x)||!Number.isFinite(checkpoint.y)||
+    checkpoint.x<0||checkpoint.y<0||checkpoint.x>10000||checkpoint.y>10000||
+    !Number.isInteger(checkpoint.at)||checkpoint.at<0||
     checkpoint.x!==manifest.x||checkpoint.y!==manifest.y||
     checkpoint.at!==manifest.checkpointFrame||
     !Number.isFinite(checkpoint.hp)||checkpoint.hp<=0||
