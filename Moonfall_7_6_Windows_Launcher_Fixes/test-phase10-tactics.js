@@ -57,7 +57,7 @@ assert.match(built,/mfP10FormationPosition/);
 assert.match(p10.patchHtml('<b id="mfDungeonHud">Dungeon</b>'),/id="mfP10Hud"/);
 const huds=new Map();
 let saved=0,xp=0,advanced=0;
-const ctx={save(){},restore(){},beginPath(){},arc(){},stroke(){},fillText(){}};
+const ctx={save(){},restore(){},beginPath(){},arc(){},stroke(){},fillText(){},fillRect(){},strokeRect(){}};
 const scope={ctx,paintBackground(){},get saved(){return saved},get xp(){return xp},get advanced(){return advanced},
  document:{getElementById(id){if(!huds.has(id))huds.set(id,{textContent:''});return huds.get(id)}}};
 vm.createContext(scope);
