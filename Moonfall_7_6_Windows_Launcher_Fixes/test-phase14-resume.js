@@ -1,0 +1,14 @@
+'use strict';
+const assert=require('node:assert/strict'),vm=require('node:vm');
+const c=require('./phase14-resume-core.js'),p=require('./phase14-resume-integration.js');
+const cp={version:1,region:'city',stage:2,x:80,y:90,hp:25};
+assert.deepEqual(c.restorePosition(cp,'city',2,600,500,100),{x:80,y:90,hp:25});
+assert.equal(c.restorePosition(cp,'city',3,600,500,100),null);
+assert.equal(c.restorePosition({...cp,x:Infinity},'city',2,600,500,100),null);
+assert.deepEqual(c.restorePosition({...cp,hp:200,x:1},'city',2,600,500,75),{x:30,y:90,hp:75});
+assert.deepEqual(c.restorePosition({...cp,hp:-2},'city',2,600,500,75),{x:80,y:90});
+const js=p.patchJs('function reset(){} function loop(){pollController();tick();mfCheckpointCapture();draw();requestAnimationFrame(loop)}');
+assert(js.includes('mfResumeCheckpoint()'));new vm.Script(js);
+assert(p.patchHtml('<b id="mfRpgHud"').includes('mfResumeBtn'));
+assert.throws(()=>p.patchJs(''),/hook missing/);
+console.log('Phase 14 resume tests: PASS');
