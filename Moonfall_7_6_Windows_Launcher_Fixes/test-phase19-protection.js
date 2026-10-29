@@ -6,6 +6,7 @@ assert.equal(c.recoveryProtected(150,150),false);
 assert.equal(c.protectionEnd(100,90),190);
 assert.equal(c.protectionEnd(100,300),280);
 let sample='const receiveDamage=d=>{if(mfEvadeFrames>0)return;if(mfP18TryLethalRecovery(d))return;';
+sample+='}';
 sample+='\n mfDeathRecoveryUsed=true;\n player.x=state.x;player.y=state.y;player.hp=state.hp;';
 sample+='\n mfDeathRecoveryUsed=true;\n player.x=state.x;player.y=state.y;player.hp=state.hp;';
 sample+='\nfunction reset(){mfDeathRecoveryUsed=false;}';
