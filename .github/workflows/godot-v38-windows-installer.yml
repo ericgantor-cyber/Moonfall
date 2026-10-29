@@ -105,18 +105,34 @@ jobs:
       - name: Install Godot Windows release export template
         shell: pwsh
         run: .\INSTALL_GODOT_WINDOWS_TEMPLATES.ps1
-      - name: Diagnose Godot inheritance chain before build
+      - name: Diagnose entire Godot inheritance chain root-first
         shell: pwsh
         run: |
           $engine = Get-ChildItem 'Godot_4.7.2' -Filter 'Godot*.exe' -Recurse -File | Select-Object -First 1
           if (-not $engine) { throw 'Godot engine executable missing' }
-          Write-Host "=== GODOT EDITOR IMPORT / DEPENDENCY DIAGNOSTICS ==="
           & $engine.FullName --headless --editor --path . --import 2>&1 | Out-String | Write-Host
-          Write-Host "=== EARLIER INHERITANCE CHAIN ==="
-          foreach ($script in @('scripts/native_v37_2.gd','scripts/native_v37_3.gd','scripts/native_v37_4.gd','scripts/native_v37_6.gd','scripts/native_v37_7.gd','scripts/native_v38_0.gd')) {
-            Write-Host "=== PARSING $script ==="
-            & $engine.FullName --headless --path . --check-only --script $script 2>&1 | Out-String | Write-Host
+          $script = 'scripts/native_v38_0.gd'
+          $chain = [System.Collections.Generic.List[string]]::new()
+          while ($script -and -not $chain.Contains($script)) {
+            if (-not (Test-Path $script)) { throw "Missing inherited script: $script" }
+            $chain.Add($script)
+            $content = Get-Content $script -Raw -Encoding utf8
+            $m = [regex]::Match($content, '(?m)^extends\s+"res://([^"]+)"')
+            if ($m.Success) { $script = $m.Groups[1].Value } else { $script = $null }
           }
+          $chain.Reverse()
+          $firstFailure = $null
+          foreach ($script in $chain) {
+            Write-Host "=== ROOT-FIRST PARSING $script ==="
+            $output = (& $engine.FullName --headless --path . --check-only --script $script 2>&1 | Out-String)
+            Write-Host $output
+            if (-not $firstFailure -and ($LASTEXITCODE -ne 0 -or $output -match 'SCRIPT ERROR|Parse Error|Failed to load script')) {
+              $firstFailure = $script
+              Write-Host "FIRST FAILING SCRIPT: $firstFailure"
+              break
+            }
+          }
+          if ($firstFailure) { throw "Godot inheritance chain fails first at $firstFailure" }
       - name: Build and test single-file Windows game
         shell: cmd
         run: BUILD_WINDOWS.bat
