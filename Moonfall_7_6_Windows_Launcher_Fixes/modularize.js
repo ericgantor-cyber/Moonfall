@@ -30,6 +30,7 @@ const transforms = [
   require('./arcane-ui.js'),
   require('./environment-atmosphere.js'),
   require('./combat-telegraph-clarity.js'),
+  require('./phase7-world-visuals.js'),
 ];
 const mobs = require('./integrate-mob-variants.js');
 const mobCatalog = fs.readFileSync(path.join(root, 'mob-variants.js'), 'utf8');

@@ -103,6 +103,10 @@ jobs:
           test ! -e modular/assets/art-999.webp || { echo "::error::Stale generated art wasn't removed"; exit 1; }
           test -f modular/assets/readme.txt || { echo "::error::Unrelated asset was removed"; exit 1; }
           rm modular/assets/readme.txt
+      - name: Test Phase 5 combat and Phase 7 living-world visuals
+        run: |
+          node test-phase5-feedback.js
+          node test-phase7-world-visuals.js
       - name: Test connected-world core and stage integration
         run: |
           node test-phase6-world-core.js
