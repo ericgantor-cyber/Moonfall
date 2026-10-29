@@ -42,12 +42,13 @@ static func _tube(st:SurfaceTool,start:Vector3,finish:Vector3,base_radius:float,
    var n1:Vector3=(right*cos(a1)+forward*sin(a1)).normalized()
    var u0:float=float(side)/float(SIDES)
    var u1:float=float(side+1)/float(SIDES)
+   # Axis frame uses a negative-Z tangent; winding must face outward.
    _vertex(st,p00,n0,Vector2(u0,t0))
-   _vertex(st,p10,n0,Vector2(u0,t1))
-   _vertex(st,p01,n1,Vector2(u1,t0))
    _vertex(st,p01,n1,Vector2(u1,t0))
    _vertex(st,p10,n0,Vector2(u0,t1))
+   _vertex(st,p01,n1,Vector2(u1,t0))
    _vertex(st,p11,n1,Vector2(u1,t1))
+   _vertex(st,p10,n0,Vector2(u0,t1))
 
 static func make_moonwood_trunk()->ArrayMesh:
  var st:=SurfaceTool.new()
