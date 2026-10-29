@@ -30,7 +30,7 @@ func run_test()->void:
  check(legged>=20,"Jointed quadruped legs")
  check(feathered>=6,"Owls have animated wing fans")
  check(slithering>=1,"Serpents have articulated spine")
- check(bosses==5,"Five bosses receive unique phase breath cues")
+ check(bosses==8,"Five guardians and three invasion commanders receive phase breath cues (actual="+str(bosses)+")")
  game.call("_start_game","z")
  game.call("_apply_graphics_quality","Smooth")
  check(not game.get("v23_tracks")[0]["legs"][0]["hip"].visible,"Smooth mode hides optional details")
