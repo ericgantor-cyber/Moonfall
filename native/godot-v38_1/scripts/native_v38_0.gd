@@ -92,7 +92,7 @@ func _menu_tab(which:String)->void:
  super._menu_tab(which)
  if not is_instance_valid(menu_body):return
  if which=="System":
-  menu_body.text+="\n\n[b]v38 LIVE STATUS[/b]\nF2 toggles a compact status readout showing your region, HP, underwater depth and oxygen. It updates only four times per second and stays hidden by default.
+  menu_body.text+="\n\n[b]v38 LIVE STATUS[/b]\nF2 toggles a compact status readout showing your region, HP, underwater depth and oxygen. It updates only four times per second and stays hidden by default."
  if which=="World":
   var levels:Array=[]
   for zone in range(REGIONS.size()):levels.append(_recommended_power(zone))
@@ -100,7 +100,7 @@ func _menu_tab(which:String)->void:
   menu_body.text+="\n\n"+V383_WORLD.guidance(mission,_current_power(),_recommended_power(region_index))
   _atlas_action("OPEN PROFESSIONS & CRAFTING","v383:professions","Use your existing shared material inventory")
   _atlas_action("OPEN HERO SPECIALIZATIONS","v383:skills","Spend your existing hero level points")
-  _atlas_action("OPEN EQUIPMENT BAG","v383:gear","Equip rewards from hunts, rifts and bosses")"
+  _atlas_action("OPEN EQUIPMENT BAG","v383:gear","Equip rewards from hunts, rifts and bosses")
 
 
 # Dark-fantasy atmosphere builds on the existing PBR, day/night and quality
