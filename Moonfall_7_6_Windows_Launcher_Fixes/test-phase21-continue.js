@@ -1,0 +1,15 @@
+'use strict';
+const assert=require('node:assert/strict'),vm=require('node:vm');
+const c=require('./phase21-continue-core.js'),p=require('./phase21-continue-integration.js');
+const checkpoint={version:1,region:'city',stage:3,x:120,y:90,hp:50,at:400};
+const manifest={version:1,hero:'nyra',region:'city',stage:3,x:120,y:90,checkpointFrame:400,rank:4};
+assert(c.canContinue(manifest,checkpoint,'nyra','city',3));
+assert(!c.canContinue(manifest,checkpoint,'z','city',3));
+assert(!c.canContinue(manifest,{...checkpoint,at:390},'nyra','city',3));
+assert(!c.canContinue(manifest,{...checkpoint,hp:0},'nyra','city',3));
+const script=p.patchJs('function loop(){pollController();tick();mfCheckpointCapture();draw();requestAnimationFrame(loop)}');
+new vm.Script(script);
+assert(script.includes('mfResumeCheckpoint()'));
+assert(p.patchHtml('<span id="mfContinueStatus"').includes('mfContinueBtn'));
+assert.throws(()=>p.patchJs('bad'),/hook mismatch/);
+console.log('Phase21 saved adventure guard: PASS');
