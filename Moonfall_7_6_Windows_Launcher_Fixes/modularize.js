@@ -28,6 +28,7 @@ const transforms = [
   require('./phase10-tactics-integration.js'),
   require('./phase11-regional-integration.js'),
   require('./phase12-rpg-integration.js'),
+  require('./phase13-checkpoint-integration.js'),
   require('./hades-combo.js'),
   require('./speech-bubbles.js'),
   require('./render-scale.js'),
