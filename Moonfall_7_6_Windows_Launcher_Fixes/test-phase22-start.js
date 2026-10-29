@@ -10,4 +10,6 @@ assert.equal(continuationPlan(m,cp,{level:8}),null);
 assert.equal(continuationPlan(m,{...cp,at:250},{level:7}),null);
 assert.equal(continuationPlan(m,{...cp,hp:0},{level:7}),null);
 assert.equal(continuationPlan({...m,hero:'other'},cp,{level:7}),null);
+assert.equal(continuationPlan({...m,x:12001},{...cp,x:12001},{level:7}),null);
+assert.equal(continuationPlan({...m,checkpointFrame:-1},{...cp,at:-1},{level:7}),null);
 console.log('Phase22 start plan validation: PASS');
