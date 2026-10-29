@@ -103,6 +103,8 @@ jobs:
           test ! -e modular/assets/art-999.webp || { echo "::error::Stale generated art wasn't removed"; exit 1; }
           test -f modular/assets/readme.txt || { echo "::error::Unrelated asset was removed"; exit 1; }
           rm modular/assets/readme.txt
+      - name: Test Phase 10 boss tactics, formations and sanctum objectives
+        run: node test-phase10-tactics.js
       - name: Test Phase 9 dungeon AI and chamber encounters
         run: node test-phase9-dungeon-ai.js
       - name: Test explorable dungeon chambers and hazard collisions
