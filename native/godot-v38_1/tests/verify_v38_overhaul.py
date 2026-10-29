@@ -23,6 +23,7 @@ checks={
  'HUD is optional and bounded to <=4hz updates': 'const UPDATE_PERIOD:float=0.25' in rules and 'if v380_update_elapsed<V380_RULES.UPDATE_PERIOD:return' in active,
  'Critical oxygen and combat/health warning priorities':all(x in rules for x in ['CRITICAL AIR','LOW AIR','COMBAT','LOW HEALTH']),
  'Status hides during menus/death/title': 'v380_status_enabled and hero_playing and not death_active and not menu_open' in active,
+ 'Cinematic realism uses quality and fog guards':all(x in active for x in ['func _v381_apply_atmosphere(', 'living_environment.volumetric_fog_enabled=enable_volume', 'living_environment.fog_enabled', 'environment_detail', 'DisplayServer.get_name()!=\"headless\"']),
  'Current title version updated from real release metadata': 'str(_release_label())' in active and '"☾  MOONFALL "+release' in active and '"MOONFALL" in title.text.to_upper()' in active,
  'System tab explains F2 without a new game mode':'if which=="System"' in active and 'F2 toggles' in active,
  'Actual Godot test registered by both launchers':"'v38_0_overhaul':" in runner and 'res://tests/v38_0_overhaul.gd' in bat,

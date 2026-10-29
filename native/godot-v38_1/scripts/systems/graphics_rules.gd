@@ -52,9 +52,9 @@ const DEFAULTS:Dictionary={
  "window_mode":"Windowed","resolution":"1280x800","render_scale":"100%","upscaler":"Bilinear","dynamic_resolution":"Off","target_fps":"60","vsync":"On",
  "aa":"MSAA 2x","fps_foreground":"120","fps_background":"30","ui_text":"Normal",
  "view_distance":"7","shadow_quality":"High","shadow_distance":"Medium","environment_detail":"7","ground_clutter":"High",
- "fog":"Normal","weather_visibility":"Normal","terrain_surface":"PBR Detail","realism_grade":"Natural","wet_surfaces":"On","soft_shadows":"On","ssao":"Low","ssil":"Off","reflections":"Off",
+ "fog":"Normal","weather_visibility":"Normal","terrain_surface":"PBR Detail","realism_grade":"Cinematic","wet_surfaces":"On","soft_shadows":"On","ssao":"Low","ssil":"Off","reflections":"Off",
  "glow":"Off","particle_density":"High","treasure_highlights":"Full",
- "texture_filter":"Linear","anisotropy":"4x","brightness":"Normal","contrast":"Normal","cinematic_lighting":"Natural","foliage_quality":"High","scenery_lod":"Balanced","combat_effects":"Medium","projected_telegraphs":"Always Visible"}
+ "texture_filter":"Linear","anisotropy":"4x","brightness":"Normal","contrast":"Normal","cinematic_lighting":"Cinematic","foliage_quality":"High","scenery_lod":"Balanced","combat_effects":"Medium","projected_telegraphs":"Always Visible"}
 const UNSUPPORTED:Array[String]=[
  "DLSS / NVIDIA Reflex / Intel XeSS (requires vendor integration)",
  "FSR 2.2 temporal upscaling and vendor-specific sharpen controls (not configured)",

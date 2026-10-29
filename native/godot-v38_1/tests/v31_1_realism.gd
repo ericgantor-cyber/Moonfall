@@ -10,7 +10,7 @@ func check(ok:bool,reason:String)->void:
 func _initialize()->void:call_deferred("_run")
 func _run()->void:
  check(RULES.DEFAULTS["terrain_surface"]=="PBR Detail","PBR default")
- check(RULES.normalize({"realism_grade":"Invalid"})["realism_grade"]=="Natural","invalid grading rejected")
+ check(RULES.normalize({"realism_grade":"Invalid"})["realism_grade"]=="Cinematic","invalid grading rejected")
  check(RULES.preset(1)["terrain_surface"]=="Off" and RULES.preset(10)["terrain_surface"]=="PBR Detail","quality presets scale terrain detail")
  check(RULES.normalize({"projected_telegraphs":"Off"})["projected_telegraphs"]=="Always Visible","combat cue protected")
  var packed:PackedScene=load("res://scenes/main.tscn")

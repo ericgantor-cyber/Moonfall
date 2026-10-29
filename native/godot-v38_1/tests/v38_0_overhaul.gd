@@ -28,6 +28,31 @@ func _run()->void:
  check(is_instance_valid(sprite) and sprite.get_parent()==pose,"existing original hero art is mounted under pose anchor")
  check(is_instance_valid(sprite) and sprite.texture!=null,"original art sprite remains textured")
  check(is_instance_valid(pose) and pose.scale.is_equal_approx(Vector3.ONE),"pose transform has no cumulative scaling")
+ # Dark-fantasy rendering reuses existing graphics options and has a
+ # bounded cost. Real GPU volumetrics must never run in headless CI.
+ var original_graphics:Dictionary=(game.get("gfx_settings") as Dictionary).duplicate(true)
+ var dark:Dictionary=original_graphics.duplicate(true)
+ dark["realism_grade"]="Cinematic"
+ dark["cinematic_lighting"]="Cinematic"
+ dark["environment_detail"]="9"
+ dark["shadow_quality"]="High"
+ dark["fog"]="Normal"
+ game.set("gfx_settings",dark)
+ game.call("_gfx_apply",false)
+ var atmosphere:Environment=game.get("living_environment") as Environment
+ check(atmosphere.adjustment_saturation<=0.86,"gothic color grading is applied")
+ check(atmosphere.fog_enabled,"mist respects enabled fog setting")
+ check(DisplayServer.get_name()!="headless" or not atmosphere.volumetric_fog_enabled,"GPU fog is disabled for headless")
+ dark["fog"]="Off"
+ game.set("gfx_settings",dark)
+ game.call("_gfx_apply",false)
+ check(not atmosphere.fog_enabled and not atmosphere.volumetric_fog_enabled,"fog Off disables normal and volumetric mist")
+ dark["realism_grade"]="Classic"
+ game.set("gfx_settings",dark)
+ game.call("_gfx_apply",false)
+ check(is_equal_approx(atmosphere.adjustment_saturation,1.0),"Classic restores neutral color grading")
+ game.set("gfx_settings",original_graphics)
+ game.call("_gfx_apply",false)
  check(is_instance_valid(game.get("v380_status_panel")),"optional status panel created")
  check(not (game.get("v380_status_panel") as PanelContainer).visible,"status HUD hidden at title screen")
  var current_title:bool=false

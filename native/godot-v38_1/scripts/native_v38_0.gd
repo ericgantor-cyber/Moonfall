@@ -11,6 +11,7 @@ var v380_status_updates:int=0
 func _ready()->void:
  super._ready()
  _v380_build_status_panel()
+ _v381_apply_atmosphere()
 
 func _build_ui()->void:
  super._build_ui()
@@ -83,9 +84,51 @@ func _menu_tab(which:String)->void:
  if which=="System":
   menu_body.text+="\n\n[b]v38 LIVE STATUS[/b]\nF2 toggles a compact status readout showing your region, HP, underwater depth and oxygen. It updates only four times per second and stays hidden by default."
 
+
+# Dark-fantasy atmosphere builds on the existing PBR, day/night and quality
+# systems. No character textures, collision, enemy cues or save data are changed.
+# Recompute from the parent lighting each time, never compound adjustments.
+func _v381_apply_atmosphere()->void:
+ if not gfx_ready or living_environment==null:return
+ var grade:String=str(gfx_settings.get("realism_grade","Natural"))
+ var cinematic:bool=grade=="Cinematic"
+ var natural:bool=grade=="Natural"
+ # Preserve the old appearance when Classic is selected.
+ if cinematic:
+  living_environment.adjustment_saturation=0.84
+  living_environment.tonemap_exposure=0.83
+ elif natural:
+  living_environment.adjustment_saturation=0.93
+ if living_environment.fog_enabled and (cinematic or natural):
+  living_environment.fog_density=minf(0.018,living_environment.fog_density*(1.18 if cinematic else 1.04))
+  living_environment.fog_light_color=living_environment.fog_light_color.lerp(Color("555b70"),0.25 if cinematic else 0.06)
+ # Volumetric fog is deliberately high-end only, and never created on headless CI.
+ var high_quality:bool=int(gfx_settings.get("environment_detail","7"))>=8
+ var enable_volume:bool=cinematic and high_quality and living_environment.fog_enabled and str(gfx_settings.get("shadow_quality","Off"))!="Off" and DisplayServer.get_name()!="headless"
+ living_environment.volumetric_fog_enabled=enable_volume
+ if enable_volume:
+  living_environment.volumetric_fog_density=0.025
+  living_environment.volumetric_fog_albedo=Color("8991a5")
+  living_environment.volumetric_fog_anisotropy=0.4
+ var moon:=get_node_or_null("TwinMoonlight") as DirectionalLight3D
+ if is_instance_valid(moon) and cinematic:
+  var night:bool="night" in _day_phase().to_lower() or "dusk" in _day_phase().to_lower()
+  moon.light_color=moon.light_color.lerp(Color("aabbe5") if night else Color("e7d1ca"),0.24)
+  moon.light_energy*=0.94 if night else 0.98
+
+func _refresh_world_lighting()->void:
+ super._refresh_world_lighting()
+ _v381_apply_atmosphere()
+
+func _gfx_apply(apply_display:bool=true)->void:
+ super._gfx_apply(apply_display)
+ _v381_apply_atmosphere()
+
 func _perf_report()->Dictionary:
  var report:Dictionary=super._perf_report()
  report["overhaul"]="v38.0 safer swim art pose, optional status and lean handoff"
  report["status_visible"]=v380_status_enabled
  report["status_ui_updates"]=v380_status_updates
+ report["dark_fantasy_grade"]=str(gfx_settings.get("realism_grade","Natural"))
+ report["volumetric_fog"]=living_environment!=null and living_environment.volumetric_fog_enabled
  return report
