@@ -3,6 +3,10 @@ extends "res://scripts/native_v37_7.gd"
 ## leaving the combat/loot/world/save systems untouched and inheritance intact.
 const V380_RULES:=preload("res://scripts/systems/overhaul_v380.gd")
 const V383_WORLD:=preload("res://scripts/systems/world_fusion_rules.gd")
+const V384_WITCHWOOD:=preload("res://scripts/systems/witchwood_cinematic_v384.gd")
+var v384_slice:Dictionary={}
+var v384_hero_fill:OmniLight3D
+var v384_visual_tick:float=0.0
 var v383_event_rewards:int=0
 const V382_Z_RIG:=preload("res://scenes/rigs/z_rig.tscn")
 const V382_NYRA_RIG:=preload("res://scenes/rigs/nyra_rig.tscn")
@@ -21,6 +25,7 @@ func _ready()->void:
  _v380_build_status_panel()
  _v381_apply_atmosphere()
  _v382_build_rigs()
+ _v384_build_witchwood()
 
 func _build_ui()->void:
  super._build_ui()
@@ -74,6 +79,10 @@ func _unhandled_key_input(event:InputEvent)->void:
 func _process(delta:float)->void:
  super._process(delta)
  _v382_tick_rig(delta)
+ v384_visual_tick+=minf(delta,0.15)
+ if v384_visual_tick>=0.25:
+  v384_visual_tick=0.0
+  _v384_update_hero_light()
  if not is_instance_valid(v380_status_panel):return
  var visible_now:bool=v380_status_enabled and hero_playing and not death_active and not menu_open
  v380_status_panel.visible=visible_now
@@ -141,6 +150,7 @@ func _refresh_world_lighting()->void:
 func _gfx_apply(apply_display:bool=true)->void:
  super._gfx_apply(apply_display)
  _v381_apply_atmosphere()
+ _v384_apply_quality()
 
 
 # Art-safe character animation: the existing Sprite3D stays a whole original
@@ -240,6 +250,31 @@ func _complete_world_event(zone:int,defer_save:bool=false)->void:
   v383_event_rewards+=1
  super._complete_world_event(zone,defer_save)
 
+# AAA-inspired Witchwood vertical slice, keeping gameplay and existing hero art.
+# Region visibility is managed by the parent six-region world culling.
+func _v384_build_witchwood()->void:
+ if region_nodes.size()<=1 or not is_instance_valid(player):return
+ v384_slice=V384_WITCHWOOD.build(region_nodes[1],REGIONS[1]["at"])
+ v384_hero_fill=OmniLight3D.new()
+ v384_hero_fill.name="WitchwoodHeroFill"
+ v384_hero_fill.light_color=Color("a2c5dc")
+ v384_hero_fill.light_energy=0.32
+ v384_hero_fill.omni_range=3.7
+ v384_hero_fill.position=Vector3(0.0,1.35,0.5)
+ v384_hero_fill.shadow_enabled=false
+ player.add_child(v384_hero_fill)
+ _v384_apply_quality()
+
+func _v384_apply_quality()->void:
+ if v384_slice.is_empty() or not gfx_ready:return
+ V384_WITCHWOOD.apply_quality(v384_slice,gfx_settings)
+ _v384_update_hero_light()
+
+func _v384_update_hero_light()->void:
+ if not is_instance_valid(v384_hero_fill):return
+ var detail:int=int(gfx_settings.get("environment_detail","7"))
+ v384_hero_fill.visible=hero_playing and not death_active and not mounted and region_index==1 and detail>=6 and str(gfx_settings.get("cinematic_lighting","Natural"))!="Classic"
+
 func _perf_report()->Dictionary:
  var report:Dictionary=super._perf_report()
  report["overhaul"]="v38.0 safer swim art pose, optional status and lean handoff"
@@ -250,4 +285,6 @@ func _perf_report()->Dictionary:
  report["hero_rigs"]=v382_rigs.size()
  report["hero_rig_animation_events"]=v382_animation_events
  report["world_event_crafting_bonuses"]=v383_event_rewards
+ report["witchwood_visual_batches"]=4 if not v384_slice.is_empty() else 0
+ report["witchwood_hero_fill"]=is_instance_valid(v384_hero_fill) and v384_hero_fill.visible
  return report
