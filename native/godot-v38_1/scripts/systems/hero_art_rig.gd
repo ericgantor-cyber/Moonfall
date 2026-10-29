@@ -179,7 +179,7 @@ func is_cutout_active()->bool:
 func install_cutouts(original:Sprite3D,layers:Dictionary,approved:bool=false)->bool:
  # Missing or unreviewed pieces are not allowed to hide the source artwork.
  if not approved or not is_instance_valid(original) or original.texture==null:return false
- var source_size:Vector2i=original.texture.get_size()
+ var source_size:Vector2=original.texture.get_size()
  if source_size.x<=0 or source_size.y<=0:return false
  for part in CUTOUT_BONES:
   if not layers.has(part) or not (layers[part] is Texture2D):return false
