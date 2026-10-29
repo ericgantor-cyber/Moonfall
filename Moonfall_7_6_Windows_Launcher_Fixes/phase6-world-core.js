@@ -58,12 +58,13 @@ function createRoomStreamer({limit=DEFAULT_ROOM_LIMIT,load,unload}={}){
   if(typeof roomId!=='string'||!roomId)throw new Error('Invalid room id');
   if(active.has(roomId)){const value=active.get(roomId);active.delete(roomId);active.set(roomId,value);return value}
   const value=load(roomId);
-  active.set(roomId,value);
-  while(active.size>limit){
+  if(active.size>=limit){
    const [oldId,oldValue]=active.entries().next().value;
-   try{unload(oldId,oldValue)}catch(e){active.delete(roomId);throw e}
+   try{unload(oldId,oldValue)}
+   catch(e){try{unload(roomId,value)}catch(_){}throw e}
    active.delete(oldId);
   }
+  active.set(roomId,value);
   return value;
  }
  function clear(){for(const [id,value] of active){unload(id,value);active.delete(id)}}
