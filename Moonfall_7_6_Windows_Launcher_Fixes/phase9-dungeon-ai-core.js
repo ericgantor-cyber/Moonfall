@@ -9,8 +9,7 @@ function segmentRectHit(from,to,box,padding=0){
  if(!from||!to||!box||![from.x,from.y,to.x,to.y,box.x,box.y,box.w,box.h,padding].every(Number.isFinite))return false;
  const b=expanded(box,Math.max(0,padding)),dx=to.x-from.x,dy=to.y-from.y;
  let lo=0,hi=1;
- for(const [p,v,d] of [[from.x,b.x,dx],[from.y,b.y,dy]]){
-  const span=d===dx&&p===from.x?b.w:b.h;
+ for(const [p,v,d,span] of [[from.x,b.x,dx,b.w],[from.y,b.y,dy,b.h]]){
   if(Math.abs(d)<1e-9){if(p<v||p>v+span)return false;continue;}
   const a=(v-p)/d,c=(v+span-p)/d;
   lo=Math.max(lo,Math.min(a,c));hi=Math.min(hi,Math.max(a,c));
