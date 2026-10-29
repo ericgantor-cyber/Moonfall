@@ -1,0 +1,192 @@
+name: Moonfall v38.2 Godot Windows build and installer
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "godot-v38/**"
+      - ".github/workflows/godot-v38-windows-installer.yml"
+permissions:
+  contents: read
+jobs:
+  windows:
+    runs-on: windows-2022
+    timeout-minutes: 90
+    defaults:
+      run:
+        working-directory: godot-v38
+    steps:
+      - name: Checkout Moonfall Native v34_4 source
+        uses: actions/checkout@v4
+      - name: Validate source and release metadata
+        shell: pwsh
+        run: |
+          python tests/verify_source.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python tests/verify_v34_4_ci_guards.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python tests/verify_ci_release.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python tests/verify_official_windows_export.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python tests/verify_build_test_manifest.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python tests/verify_godot_log_gate.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python tests/verify_engine_test_parity.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python tests/verify_v37_6_all_tips.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python tests/verify_v37_7_playability.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python tests/verify_v37_8_build_handoff.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python tests/verify_v37_9_prerequisites.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python tests/verify_v38_overhaul.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python tests/verify_v38_1_release.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python tests/verify_v38_2_checkpoint.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python tests/verify_v37_5_lean.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python tests/verify_v36_camera.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python tests/verify_v35_release_gate.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python tests/verify_legacy_release_guards.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python tests/verify_invasion_guard.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python tests/verify_v34_4_release.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python tests/verify_v34_1_invasions.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python tests/verify_v34_2_elemental.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python tests/verify_v34_3_lunar_war.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python tests/verify_4k_display.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python tests/verify_v34_4_fair_fight.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python tests/verify_v34_overhaul.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python tests/verify_world_depth.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python tests/verify_living_rifts.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python tests/verify_publish_handoff.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Confirm complete Godot project checkout
+        shell: pwsh
+        run: |
+          $required = @('project.godot', 'scenes/main.tscn', 'scripts/native_v34_4.gd', 'assets/heroes', 'docs/ART_SHA256_V30_1_BASELINE.txt', 'BUILD_WINDOWS.bat', 'Moonfall_Native_v34_4_Setup.iss')
+          foreach ($path in $required) { if (!(Test-Path $path)) { throw "Missing native Godot project file: $path" } }
+      - name: Download and verify Godot v4.7.2 Windows engine
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $url = 'https://github.com/godotengine/godot/releases/download/4.7.2-stable/Godot_v4.7.2-stable_win64.exe.zip'
+          Invoke-WebRequest -Uri $url -OutFile 'godot-win.zip'
+          $expected = '731980f9608d61333e5baf54a2ef17210acc7a538446c0cb9969f002aca1e953'
+          $actual = (Get-FileHash 'godot-win.zip' -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actual -ne $expected) { throw "Godot ZIP SHA256 mismatch: $actual" }
+          New-Item -ItemType Directory -Force -Path 'Godot_4.7.2' | Out-Null
+          Expand-Archive -Path 'godot-win.zip' -DestinationPath 'Godot_4.7.2'
+      - name: Cache Godot verified Windows x64 export template
+        uses: actions/cache@v4
+        with:
+          path: godot-v38/Godot_4.7.2/export_templates
+          key: godot-4.7.2-stable-windows-x64-template-f298490b8d44d934
+      - name: Install Godot Windows release export template
+        shell: pwsh
+        run: .\INSTALL_GODOT_WINDOWS_TEMPLATES.ps1
+      - name: Build and test single-file Windows game
+        shell: cmd
+        run: BUILD_WINDOWS.bat
+      - name: Install Inno Setup 6
+        shell: pwsh
+        run: choco install innosetup -y --no-progress
+      - name: Compile per-user installer with optional desktop shortcut
+        shell: pwsh
+        run: |
+          $iscc = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
+          if (!(Test-Path $iscc)) { $iscc = "$env:ProgramFiles\Inno Setup 6\ISCC.exe" }
+          if (!(Test-Path $iscc)) { throw 'Inno Setup 6 compiler missing' }
+          & $iscc 'Moonfall_Native_v34_4_Setup.iss'
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if (!(Test-Path 'Release_Windows\Moonfall_Native_v34_4_Windows_Setup.exe')) { throw 'Installer missing' }
+      - name: Verify portable game on Windows
+        shell: pwsh
+        run: |
+          .\VERIFY_WINDOWS_RELEASE.ps1 -GameExe 'build\MoonfallNative_v34_4.exe'
+      - name: Smoke test installed game and uninstall on Windows runner
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $setup = (Resolve-Path 'Release_Windows\Moonfall_Native_v34_4_Windows_Setup.exe').Path
+          $p = Start-Process -FilePath $setup -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/SP-','/TASKS=desktopicon' -PassThru -Wait
+          if ($p.ExitCode -ne 0) { throw "Installer returned $($p.ExitCode)" }
+          $appDir = Join-Path $env:LOCALAPPDATA 'Programs\Moonfall Native'
+          $game = Join-Path $appDir 'MoonfallNative_v34_4.exe'
+          if (!(Test-Path $game)) { throw 'Installed executable missing' }
+          $desktop = Join-Path ([Environment]::GetFolderPath('Desktop')) 'Moonfall Native.lnk'
+          $menu = Join-Path ([Environment]::GetFolderPath('Programs')) 'Moonfall Native.lnk'
+          if (!(Test-Path $desktop)) { throw 'Desktop shortcut missing' }
+          if (!(Test-Path $menu)) { throw 'Start Menu shortcut missing' }
+          & $game --headless --quit-after 180 *> installed-run.log
+          if ($LASTEXITCODE -ne 0) { throw "Installed game failed: $LASTEXITCODE" }
+          $output = Get-Content 'installed-run.log' -Raw
+          if ($output -match 'SCRIPT ERROR|Parse Error') { throw 'Godot script errors during installed run' }
+          $uninstaller = Join-Path $appDir 'unins000.exe'
+          if (!(Test-Path $uninstaller)) { throw 'Uninstaller missing' }
+          $u = Start-Process -FilePath $uninstaller -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART' -PassThru -Wait
+          if ($u.ExitCode -ne 0) { throw "Uninstaller returned $($u.ExitCode)" }
+          Start-Sleep -Seconds 3
+          if (Test-Path $game) { throw 'Uninstall left the game executable behind' }
+          Write-Host 'PASS: Windows installation, shortcuts, packed startup and uninstall'
+      - name: Record verified Windows build evidence
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $game = 'build/MoonfallNative_v34_4.exe'
+          $setup = 'Release_Windows/Moonfall_Native_v34_4_Windows_Setup.exe'
+          if (!(Test-Path $game) -or !(Test-Path $setup)) { throw 'Cannot record release evidence without both binaries' }
+          $evidence = [ordered]@{
+            project = 'Moonfall Native'
+            gameplay_source_version = '38.0'
+            release_stage = 'v38.0 Windows build handoff'
+            windows_runner = $env:RUNNER_NAME
+            github_sha = $env:GITHUB_SHA
+            test_result = 'passed 66 CI engine suites and installed-game smoke'
+            game_sha256 = (Get-FileHash $game -Algorithm SHA256).Hash.ToLowerInvariant()
+            installer_sha256 = (Get-FileHash $setup -Algorithm SHA256).Hash.ToLowerInvariant()
+            real_gpu_4k_tested = $false
+            actual_human_gameplay_tested = $false
+          }
+          $evidence | ConvertTo-Json | Set-Content 'build/RELEASE_EVIDENCE.json'
+      - name: Upload portable v34_4 EXE
+        uses: actions/upload-artifact@v4
+        with:
+          name: Moonfall-v34_4-single-exe
+          path: |
+            godot-v38/build/MoonfallNative_v34_4.exe
+            godot-v38/build/GODOT_LICENSE.txt
+            godot-v38/build/RELEASE_EVIDENCE.json
+          if-no-files-found: error
+      - name: Upload Windows installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: Moonfall-v34_4-windows-installer
+          path: Release_Windows/Moonfall_Native_v34_4_Windows_Setup.exe
+          if-no-files-found: error
+      - name: Upload test logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Moonfall-v34_4-diagnostic-logs
+          path: |
+            godot-v38/GODOT_*_LOG.txt
+            godot-v38/installed-run.log
+          if-no-files-found: ignore
