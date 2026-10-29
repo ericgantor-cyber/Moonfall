@@ -31,11 +31,30 @@ func _run()->void:
  var nyra_rig:Node3D=rigs.get("nyra") as Node3D
  check(is_instance_valid(z_rig) and is_instance_valid(nyra_rig),"both rigs instantiate")
  check(is_instance_valid(sprite) and sprite.get_parent().name=="ArtMotionAnchor" and sprite.get_parent().get_parent()==z_rig and z_rig.get_parent()==pose,"original hero art remains under independent swim and animation anchors")
- var z_skeleton:Skeleton3D=z_rig.get_node_or_null("HeroSkeleton") as Skeleton3D
- var nyra_skeleton:Skeleton3D=nyra_rig.get_node_or_null("HeroSkeleton") as Skeleton3D
- check(is_instance_valid(z_skeleton) and z_skeleton.get_bone_count()==17 and is_instance_valid(nyra_skeleton) and nyra_skeleton.get_bone_count()==17,"both rigs have 17 joint definitions")
+ var z_skeleton:Skeleton3D=z_rig.get_node_or_null("ArtMotionAnchor/HeroSkeleton") as Skeleton3D
+ var nyra_skeleton:Skeleton3D=nyra_rig.get_node_or_null("ArtMotionAnchor/HeroSkeleton") as Skeleton3D
+ check(is_instance_valid(z_skeleton) and z_skeleton.get_bone_count()==23 and is_instance_valid(nyra_skeleton) and nyra_skeleton.get_bone_count()==23,"both rigs have 17 core joints and six secondary hair/cloth joints")
  check(is_instance_valid(z_rig.call("get_socket","WeaponSocket")) and is_instance_valid(nyra_rig.call("get_socket","AuraSocket")),"character attachment sockets exist")
  check((z_rig.get_node("AnimationPlayer") as AnimationPlayer).has_animation("attack") and (nyra_rig.get_node("AnimationPlayer") as AnimationPlayer).has_animation("cast"),"both rigs have Godot animation clips")
+ # Synthetic image proves cutout import, movement and fail-safe fallback.
+ var demo_image:Image=Image.create(8,8,false,Image.FORMAT_RGBA8)
+ demo_image.fill(Color.WHITE)
+ var demo_tex:ImageTexture=ImageTexture.create_from_image(demo_image)
+ var demo_sprite:=Sprite3D.new()
+ demo_sprite.texture=demo_tex
+ (z_rig.call("get_art_pivot") as Node3D).add_child(demo_sprite)
+ var test_layers:Dictionary={}
+ for part in (z_rig.call("required_cutout_parts") as PackedStringArray):test_layers[part]=demo_tex
+ check(not z_rig.call("install_cutouts",demo_sprite,test_layers,false) and demo_sprite.visible,"unreviewed layers never hide original art")
+ check(z_rig.call("install_cutouts",demo_sprite,test_layers,true),"complete approved cutout layers bind")
+ check(z_rig.call("is_cutout_active") and not demo_sprite.visible,"approved layers can move separately")
+ z_rig.call("play_state","run")
+ z_rig.call("step_bones",0.12)
+ var hip_index:int=z_skeleton.find_bone("Hip_L")
+ check(not z_skeleton.get_bone_pose_rotation(hip_index).is_equal_approx(Quaternion.IDENTITY),"articulated hips move independently")
+ z_rig.call("restore_original")
+ check(demo_sprite.visible and not z_rig.call("is_cutout_active"),"original source restored by one call")
+ demo_sprite.queue_free()
  game.call("_start_game","z")
  check(sprite.texture==load("res://assets/heroes/Z_Original.webp"),"Z original texture is unchanged")
  game.call("_attack")

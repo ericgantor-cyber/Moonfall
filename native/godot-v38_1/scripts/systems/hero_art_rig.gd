@@ -9,6 +9,18 @@ var animation_player:AnimationPlayer
 var sockets:Dictionary={}
 var current_state:String=""
 var gait_phase:float=0.0
+# Layers are full-frame transparent cutouts, retaining exact original coordinates.
+# Nothing auto-slices the original hero painting or its painted background.
+const CUTOUT_BONES:Dictionary={
+ "Backplate":"",
+ "Pelvis":"Pelvis","Torso":"Torso","Head":"Head",
+ "UpperArm_L":"Shoulder_L","LowerArm_L":"Elbow_L","Hand_L":"Hand_L",
+ "UpperArm_R":"Shoulder_R","LowerArm_R":"Elbow_R","Hand_R":"Hand_R",
+ "UpperLeg_L":"Hip_L","LowerLeg_L":"Knee_L","Foot_L":"Foot_L",
+ "UpperLeg_R":"Hip_R","LowerLeg_R":"Knee_R","Foot_R":"Foot_R"
+}
+var cutout_source:Sprite3D
+var cutout_sprites:Array[Sprite3D]=[]
 
 func _ready()->void:
  art_pivot=Node3D.new()
@@ -16,7 +28,7 @@ func _ready()->void:
  add_child(art_pivot)
  skeleton=Skeleton3D.new()
  skeleton.name="HeroSkeleton"
- add_child(skeleton)
+ art_pivot.add_child(skeleton)
  _build_bones()
  _build_sockets()
  animation_player=AnimationPlayer.new()
@@ -45,7 +57,13 @@ func _build_bones()->void:
   ["Foot_L",12,Vector3(0.0,-0.41,0.12)],
   ["Hip_R",1,Vector3(0.20,-0.18,0.0)],
   ["Knee_R",14,Vector3(0.06,-0.46,0.0)],
-  ["Foot_R",15,Vector3(0.0,-0.41,0.12)]
+  ["Foot_R",15,Vector3(0.0,-0.41,0.12)],
+  ["HairFront",4,Vector3(0.0,0.22,-0.01)],
+  ["HairBack",4,Vector3(0.0,0.20,0.02)],
+  ["CapeTop",2,Vector3(0.0,0.24,0.06)],
+  ["CapeEnd",19,Vector3(0.0,-0.59,0.05)],
+  ["ClothFront",1,Vector3(0.0,-0.18,-0.03)],
+  ["ClothBack",1,Vector3(0.0,-0.17,0.04)]
  ]
  for definition in definitions:
   skeleton.add_bone(str(definition[0]))
@@ -110,6 +128,8 @@ func get_socket(which:String)->Node3D:
 
 func reset_pose()->void:
  if is_instance_valid(animation_player):animation_player.stop()
+ for bone in range(skeleton.get_bone_count()):
+  skeleton.set_bone_pose_rotation(bone,Quaternion.IDENTITY)
  art_pivot.position=Vector3.ZERO
  art_pivot.rotation=Vector3.ZERO
  art_pivot.scale=Vector3.ONE
@@ -123,16 +143,83 @@ func play_state(next_state:String)->void:
  animation_player.play(next_state)
 
 func step_bones(delta:float)->void:
- # Hand joints animate effect sockets, never the uncut original hero sprite.
+ # Art sockets and approved cutouts move independently. The uncut source never changes.
  gait_phase+=minf(maxf(delta,0.0),0.08)
- var swing:float=0.0
- if current_state in ["walk","run"]:
-  swing=sin(gait_phase*(13.0 if current_state=="run" else 8.0))*(0.24 if hero_id=="z" else 0.18)
- elif current_state=="attack":swing=-0.45
+ var cycle:float=sin(gait_phase*(13.0 if current_state=="run" else 8.0))
+ var locomotion:bool=current_state in ["walk","run"]
+ var swing:float=cycle*(0.24 if hero_id=="z" else 0.18) if locomotion else 0.0
+ if current_state=="attack":swing=-0.45
  elif current_state=="cast":swing=0.35 if hero_id=="nyra" else 0.24
- elif current_state=="death":swing=0.0
  for side in ["L","R"]:
-  var index:int=skeleton.find_bone("Shoulder_"+side)
-  if index>=0:
-   var direction:float=-1.0 if side=="L" else 1.0
-   skeleton.set_bone_pose_rotation(index,Quaternion(Vector3(0.0,0.0,1.0),swing*direction))
+  var sign:float=-1.0 if side=="L" else 1.0
+  _rotate_bone("Shoulder_"+side,swing*sign)
+  _rotate_bone("Elbow_"+side,-0.28*sign if current_state=="attack" else 0.09*swing)
+  _rotate_bone("Hip_"+side,-swing*sign if locomotion else 0.0)
+  _rotate_bone("Knee_"+side,absf(swing)*0.42 if locomotion else 0.0)
+ var wind:float=sin(gait_phase*(4.0 if hero_id=="nyra" else 3.1))
+ _rotate_bone("HairFront",0.035*wind)
+ _rotate_bone("HairBack",-0.06*wind)
+ _rotate_bone("CapeTop",0.06*wind+(-0.08 if current_state=="run" else 0.0))
+ _rotate_bone("CapeEnd",-0.10*wind+(0.15 if current_state=="run" else 0.0))
+ _rotate_bone("ClothFront",0.055*wind)
+ _rotate_bone("ClothBack",-0.07*wind)
+
+func _rotate_bone(bone_name:String,angle:float)->void:
+ var index:int=skeleton.find_bone(bone_name)
+ if index>=0:skeleton.set_bone_pose_rotation(index,Quaternion(Vector3(0.0,0.0,1.0),angle))
+
+func required_cutout_parts()->PackedStringArray:
+ var parts:=PackedStringArray()
+ for part in CUTOUT_BONES:parts.append(str(part))
+ return parts
+
+func is_cutout_active()->bool:
+ return is_instance_valid(cutout_source) and not cutout_source.visible and cutout_sprites.size()==CUTOUT_BONES.size()
+
+func install_cutouts(original:Sprite3D,layers:Dictionary,approved:bool=false)->bool:
+ # Missing or unreviewed pieces are not allowed to hide the source artwork.
+ if not approved or not is_instance_valid(original) or original.texture==null:return false
+ var source_size:Vector2i=original.texture.get_size()
+ if source_size.x<=0 or source_size.y<=0:return false
+ for part in CUTOUT_BONES:
+  if not layers.has(part) or not (layers[part] is Texture2D):return false
+  if (layers[part] as Texture2D).get_size()!=source_size:return false
+ restore_original()
+ cutout_source=original
+ for part in CUTOUT_BONES:
+  var target:Node3D=art_pivot
+  var bone_name:String=str(CUTOUT_BONES[part])
+  var rest_point:Vector3=Vector3.ZERO
+  if bone_name!="":
+   var bone:int=skeleton.find_bone(bone_name)
+   if bone<0:
+    restore_original()
+    return false
+   rest_point=skeleton.get_bone_global_rest(bone).origin
+   var attachment:=BoneAttachment3D.new()
+   attachment.name="LayerAttachment_"+str(part)
+   attachment.bone_name=bone_name
+   skeleton.add_child(attachment)
+   target=attachment
+  var layer:=Sprite3D.new()
+  layer.name="Cutout_"+str(part)
+  layer.texture=layers[part] as Texture2D
+  layer.pixel_size=original.pixel_size
+  layer.billboard=original.billboard
+  layer.alpha_cut=original.alpha_cut
+  layer.flip_h=original.flip_h
+  layer.position=original.position-rest_point
+  target.add_child(layer)
+  cutout_sprites.append(layer)
+ original.visible=false
+ return true
+
+func restore_original()->void:
+ if is_instance_valid(cutout_source):cutout_source.visible=true
+ for layer in cutout_sprites:
+  if not is_instance_valid(layer):continue
+  var parent:Node=layer.get_parent()
+  layer.queue_free()
+  if parent is BoneAttachment3D:parent.queue_free()
+ cutout_sprites.clear()
+ cutout_source=null
