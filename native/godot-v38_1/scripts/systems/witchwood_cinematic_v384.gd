@@ -154,12 +154,12 @@ static func apply_quality(slice:Dictionary,settings:Dictionary)->void:
  var shadows:bool=detail>=8 and str(settings.get("shadow_quality","Off")) in ["High","Ultra"]
  trunks.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_ON if shadows else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
  canopies.cast_shadow=trunks.cast_shadow
+ var stone_count:int=STONE_COUNT if detail>=7 else 12 if detail>=4 else 0
+ var stones:MultiMeshInstance3D=slice["stones"]
  # Normal maps are a near-field detail feature; low presets skip the extra samples.
  for batch in [trunks,canopies,stones]:
   var mat:StandardMaterial3D=batch.material_override as StandardMaterial3D
   if is_instance_valid(mat):mat.normal_enabled=detail>=6
- var stone_count:int=STONE_COUNT if detail>=7 else 12 if detail>=4 else 0
- var stones:MultiMeshInstance3D=slice["stones"]
  stones.visible=stone_count>0 and clutter!="Off"
  stones.multimesh.visible_instance_count=stone_count if stones.visible else 0
  var fireflies:MultiMeshInstance3D=slice["motes"]
