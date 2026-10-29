@@ -142,6 +142,33 @@ jobs:
           $ErrorActionPreference = 'Stop'
           .\BUILD_MOONFALL_ONE_CLICK.ps1 -PortableOnly
           if ($LASTEXITCODE -ne 0) { throw "Godot release gate failed: $LASTEXITCODE" }
+      - name: Show exact Godot test failures in Actions summary
+        if: failure()
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Continue'
+          $logs = @(Get-ChildItem -Path . -Filter 'GODOT_*_LOG.txt' -File | Sort-Object LastWriteTimeUtc)
+          $problems = @()
+          foreach ($file in $logs) {
+            $bad = @(Get-Content -LiteralPath $file.FullName | Where-Object { $_ -match '(^ERROR:|SCRIPT ERROR|Parse Error|^MOONFALL .* FAIL$)' })
+            if ($bad.Count -eq 0) { continue }
+            $problems += "- $($file.Name): " + (($bad | Select-Object -First 4) -join ' | ')
+          }
+          if ($problems.Count -eq 0 -and $logs.Count -gt 0) {
+            $latest = $logs[-1]
+            $problems += "- Last executed suite: $($latest.Name) (no explicit error marker; inspect its log)"
+          }
+          if ($problems.Count -eq 0) {
+            $problems += '- No Godot test log found; check the runner setup and source gates above.'
+          }
+          Write-Host 'MOONFALL FAILURE SUMMARY'
+          $problems | ForEach-Object { Write-Host $_ }
+          if ($env:GITHUB_STEP_SUMMARY) {
+            '## Moonfall build failure: actual Godot log evidence' | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+            $problems | ForEach-Object { $_ | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8 }
+            'Diagnostics ZIP contains the complete Godot logs.' | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+          }
       - name: Diagnose parent-script parsing after a failed Godot gate
         if: failure()
         continue-on-error: true
