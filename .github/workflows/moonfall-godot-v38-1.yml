@@ -231,7 +231,9 @@ jobs:
           foreach ($log in @($stdout,$stderr)) {
             if (Test-Path -LiteralPath $log) { $output += @(Get-Content -LiteralPath $log) }
           }
-          $output | Set-Content -LiteralPath 'installed-run.log' -Encoding utf8
+          # A GUI-subsystem executable may emit no stdout; still create the log.
+          Set-Content -LiteralPath 'installed-run.log' -Value ($output -join [Environment]::NewLine) -Encoding utf8
+          if ($output.Count -gt 0) { $output | Select-Object -Last 40 | ForEach-Object { Write-Host $_ } }
           Write-Host "Installed game process exited with code $($launch.ExitCode)"
           if ($launch.ExitCode -ne 0) { throw "Installed game headless launch failed: $($launch.ExitCode)" }
           if ((Get-Content installed-run.log -Raw) -match 'SCRIPT ERROR|Parse Error|ERROR:') {
