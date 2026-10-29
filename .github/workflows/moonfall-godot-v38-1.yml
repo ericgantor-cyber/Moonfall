@@ -15,6 +15,12 @@ on:
 permissions:
   contents: read
 
+# Only the newest build for a branch needs to run. Prevent outdated red results
+# and redundant Windows runner usage after successive test fixes.
+concurrency:
+  group: moonfall-v38-1-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   import-release-source:
     # Import the published source on branch pushes only. A PR validates the already-imported files.
