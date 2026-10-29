@@ -57,6 +57,7 @@ jobs:
           node test-phase19-protection.js
           node test-phase20-continue.js
           node test-phase21-continue.js
+          node test-phase22-start.js
           node verify-project.js
           node audit-bloat.js
       - name: Build unsigned Windows preview installer
