@@ -29,7 +29,7 @@ assert(source.includes(art),'source artwork must be unchanged');
 assert.throws(()=>transform.patchJs('function tick(){}'),/hook missing/);
 assert.match(transform.patchHtml('<b id="mfWorldHud">World</b>'),/mfDungeonHud/);
 const ui={textContent:''};
-let rendered=0,saved=0;
+let rendered=0;
 const ctx={save(){},restore(){},fillRect(){rendered++},strokeRect(){rendered++},
  beginPath(){},arc(){},fillText(){}};
 const scope={saves:0,ctx,document:{getElementById:id=>id==='mfDungeonHud'?ui:null},paintBackground(){}};
@@ -58,5 +58,5 @@ run('tick()');assert.equal(run('enemyHits'),8,'hazard damage cooldown');
 run('draw()');assert(rendered>4,'geometry must render');
 run('reset()');assert.equal(run('mfDungeonChamber'),0);
 assert.equal(run('mfDungeonLayout'),null);
-assert(saved>=3,'discoveries must persist');
+assert(scope.saves>=3,'discoveries must persist');
 console.log('PASS: solid dash collision, connected doors, reversible traversal, hazard cooldown, drawing, persistence, original art');
