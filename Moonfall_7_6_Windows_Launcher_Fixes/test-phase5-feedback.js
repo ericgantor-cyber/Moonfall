@@ -1,0 +1,20 @@
+'use strict';
+const assert=require('node:assert/strict');
+const {blendPose,combatPulse,witchwoodSway,witchwoodReaction}=require('./phase5-feedback.js');
+const a={x:0,y:0,angle:0},b={x:10,y:20,angle:2};
+assert.deepEqual(blendPose(a,b,0),a);
+assert.deepEqual(blendPose(a,b,120),b);
+assert.deepEqual(blendPose(a,b,60),{x:5,y:10,angle:1});
+assert.equal(witchwoodSway({reducedMotion:true}),0);
+assert.equal(witchwoodReaction({distance:90}),0);
+assert.equal(witchwoodReaction({distance:0}),1);
+assert.equal(witchwoodReaction({distance:0,reducedMotion:true}),0);
+const calls=[];
+const ctx={save(){calls.push('save')},restore(){calls.push('restore')},
+ beginPath(){calls.push('begin')},arc(){calls.push('arc')},stroke(){calls.push('stroke')}};
+combatPulse(ctx,{x:1,y:2,age:50});
+assert.deepEqual(calls,['save','begin','arc','stroke','restore']);
+calls.length=0;
+combatPulse(ctx,{x:1,y:2,age:50,reducedMotion:true});
+assert.equal(calls.length,0);
+console.log('Phase 5 feedback unit tests passed');
