@@ -14,7 +14,7 @@ func _run() -> void:
  root.add_child(game)
  await process_frame
  check(game.get("v22_beast_details").size()==game.get("beasts").size(),"Every creature gets optional anatomy")
- check(game.get("v22_guardian_headdresses").size()==5,"Five roaming bosses have distinct headdresses")
+ check(game.get("v22_guardian_headdresses").size()==8,"Five roaming guardians and three invasion commanders have headdresses")
  check(game.get("v22_arena_roots").size()==3,"Three existing world rifts are dressed as arenas")
  check(game.get("v22_arenas")==3,"Rift arena count")
  check(game.get("v22_visual_parts")>=300,"Hundreds of creature details added")
