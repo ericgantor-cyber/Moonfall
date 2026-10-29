@@ -26,7 +26,7 @@ function makeDungeonRoom({region='witchwood',stage=1,chamber=0,width,height}){
  if(chamber===2)hazards.push({
   x:W*.49-W*.045,y:H*.22-H*.043,w:W*.09,h:H*.086
  });
- return {id:region+':'+stage+':'+chamber,region,stage,chamber,color:PALETTES[region],
+ return {id:region+':'+stage+':'+chamber,region,stage,chamber,width:W,height:H,color:PALETTES[region],
   pillars,hazards,doors:{left:chamber>0,right:chamber<CHAMBERS-1}};
 }
 function hitCircleRect(x,y,r,box){
