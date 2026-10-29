@@ -31,6 +31,7 @@ const transforms = [
   require('./phase13-checkpoint-integration.js'),
   require('./phase14-resume-integration.js'),
   require('./phase15-recovery-integration.js'),
+  require('./phase16-death-integration.js'),
   require('./hades-combo.js'),
   require('./speech-bubbles.js'),
   require('./render-scale.js'),
