@@ -17,6 +17,7 @@ const transforms = [
   require('./combat-polish.js'),
   require('./roguelike-boons.js'),
   require('./roguelike-rooms.js'),
+  require('./phase6-world-integration.js'),
   require('./stage-one-expansion.js'),
   require('./boss-combat-stage.js'),
   require('./sanctuary-upgrades.js'),
@@ -29,7 +30,6 @@ const transforms = [
   require('./arcane-ui.js'),
   require('./environment-atmosphere.js'),
   require('./combat-telegraph-clarity.js'),
-  require('./phase6-world-integration.js'),
 ];
 const mobs = require('./integrate-mob-variants.js');
 const mobCatalog = fs.readFileSync(path.join(root, 'mob-variants.js'), 'utf8');
