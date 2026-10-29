@@ -20,7 +20,12 @@ function mfContinueRemember(){
    checkpoint:cp,hero:selectedHero,
    rank:mfRpgProfile().level
  });
- if(!m)return;
+ if(!m){
+  // Never advertise a stale resume manifest after checkpoint validation fails.
+  delete mfWorld.flags['rpg:continue-manifest'];
+  mfWorldSave();
+  return;
+ }
  mfWorld.flags['rpg:continue-manifest']=m;
  mfWorldSave();
 }
