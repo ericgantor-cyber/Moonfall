@@ -14,7 +14,14 @@ func _run()->void:
  root.add_child(game)
  await process_frame
  var sigils:Dictionary=game.get("v20_guardian_sigils")
- check(sigils.size()==5,"Five guardian spellwheels created")
+ var roaming_sigils:=0
+ var invasion_sigils:=0
+ for creature in game.get("beasts"):
+  if not bool(creature.get("boss",false)):continue
+  if not sigils.has(int(creature.get("boss_id",-1))):continue
+  if int(creature.get("invasion_slot",-1))>=0:invasion_sigils+=1
+  else:roaming_sigils+=1
+ check(sigils.size()==8 and roaming_sigils==5 and invasion_sigils==3,"Five guardian and three invasion commander spellwheels created")
  check(game.get("v19_scenery_count")==54,"Biome scenery preserved")
  check(game.get("grid_regions").size()==2400,"Invisible terrain grid preserved")
  game.call("_start_game","z")
@@ -40,6 +47,7 @@ func _run()->void:
   game.set("region_index",1)
   game.call("_update_region_visibility")
   game.call("_process",0.2)
+  print("MOONFALL_V20_DIAG animated=",game.get("v20_animated_guardians")," region=",game.get("region_index")," target_zone=",target["zone"]," phase=",target["boss_phase"]," alive=",target["alive"]," graphics=",game.get("graphics_quality")," playing=",game.get("hero_playing")," distance_squared=",body.global_position.distance_squared_to(game.get("player").global_position)," visible=",root_sigil.visible)
   check(game.get("v20_animated_guardians")>0,"Boss spellwheel animates when close")
   game.call("_apply_graphics_quality","Smooth")
   game.call("_process",0.2)
