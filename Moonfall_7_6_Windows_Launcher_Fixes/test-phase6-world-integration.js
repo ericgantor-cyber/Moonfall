@@ -57,6 +57,7 @@ assert(run('mfRoom.speed')>1,'biome should influence arena challenge');
 assert.equal(node('mfWorldTravel').hidden,true);
 run('next()');
 assert.equal(run("mfWorld.unlocked.includes('city')"),true);
+assert.equal(run('mfWorld.defeatedBosses.length'),1,'boss-stage clear must persist');
 assert.equal(run("mfWorldRoomCache.activeRooms().length"),2);
 for(let i=3;i<14;i++){env.stage=i;run('mfWorldBeginStage()');}
 assert.equal(run('mfWorldRoomCache.activeRooms().length'),5,'room descriptors must be bounded');
