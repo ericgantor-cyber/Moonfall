@@ -1,0 +1,23 @@
+'use strict';
+// Regression coverage for the RPG save stack and dead-character autosave guard.
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const p13=require('./phase13-checkpoint-integration.js');
+const cp=require('./phase13-checkpoint-core.js');
+const recovery=require('./phase15-recovery-core.js');
+const death=require('./phase16-death-core.js');
+const fragment='function loop(){pollController();tick();draw();requestAnimationFrame(loop)}';
+const transformed=p13.patchJs(fragment);
+assert(transformed.includes('Number.isFinite(player.hp)&&player.hp<=0'),'dead players must not overwrite last-good checkpoint');
+assert(transformed.includes('skillOpen||gearOpen'),'menus must suspend autosaving');
+assert(transformed.includes('mfWorld.flags'),'world flags must exist');
+const good=cp.checkpoint({region:'city',stage:2,frame:300,player:{x:150,y:175,hp:60,maxHp:100}});
+assert(good);
+const newer={...good,x:180,at:600};
+const pair=recovery.savePair(good,null,newer);
+assert.deepEqual(pair.backup,good);
+assert.equal(recovery.select({...newer,hp:-20},pair.backup,'city',2).source,'backup');
+assert.equal(recovery.select(pair.primary,pair.backup,'city',3).source,'none');
+assert.equal(death.deathRecovery(pair.backup,'city',2,800,600,100,false).hp,35);
+assert.equal(death.deathRecovery(pair.backup,'city',2,800,600,100,true),null);
+console.log('Phase 17 RPG stability tests: PASS');
