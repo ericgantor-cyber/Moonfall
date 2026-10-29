@@ -110,7 +110,10 @@ jobs:
         run: |
           $engine = Get-ChildItem 'Godot_4.7.2' -Filter 'Godot*.exe' -Recurse -File | Select-Object -First 1
           if (-not $engine) { throw 'Godot engine executable missing' }
-          foreach ($script in @('scripts/native_v37_4.gd','scripts/native_v37_6.gd','scripts/native_v37_7.gd','scripts/native_v38_0.gd')) {
+          Write-Host "=== GODOT EDITOR IMPORT / DEPENDENCY DIAGNOSTICS ==="
+          & $engine.FullName --headless --editor --path . --import 2>&1 | Out-String | Write-Host
+          Write-Host "=== EARLIER INHERITANCE CHAIN ==="
+          foreach ($script in @('scripts/native_v37_2.gd','scripts/native_v37_3.gd','scripts/native_v37_4.gd','scripts/native_v37_6.gd','scripts/native_v37_7.gd','scripts/native_v38_0.gd')) {
             Write-Host "=== PARSING $script ==="
             & $engine.FullName --headless --path . --check-only --script $script 2>&1 | Out-String | Write-Host
           }
