@@ -19,9 +19,9 @@ func _run() -> void:
  check(game.get("v21_landmarks").size()==6,"all region monuments retained")
  game.call("_start_game","z")
  game.call("_v24_set_zoom",2.0)
- check(is_equal_approx(game.get("camera").size,14.0),"zoom clamps at minimum")
+ check(game.get("camera").projection==Camera3D.PROJECTION_PERSPECTIVE and is_equal_approx(float(game.get("v24_camera_size")),12.0) and is_equal_approx(float(game.get("v36_distance")),6.5),"third-person zoom clamps at minimum")
  game.call("_v24_set_zoom",100.0)
- check(is_equal_approx(game.get("camera").size,30.0),"zoom clamps at maximum")
+ check(is_equal_approx(float(game.get("v24_camera_size")),31.0) and is_equal_approx(float(game.get("v36_distance")),21.6),"third-person zoom clamps at maximum")
  game.call("_v24_update_lod")
  var monuments_ok:=true
  for m in game.get("v21_landmarks"):
