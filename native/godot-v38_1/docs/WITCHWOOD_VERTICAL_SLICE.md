@@ -36,3 +36,13 @@ To move from the stylized procedural scene to near-photorealistic dark fantasy, 
 - At low detail, normal-map samples are disabled; high detail uses the richer materials. Existing fog, shadow, foliage and draw-distance settings still apply.
 - No original hero art changes, commercial asset imports, new game modes, new collision, or game-save changes.
 - This is an original procedural asset foundation, **not a substitute for artist-authored photo-scanned AAA geometry**. Camera framing, readability and GPU performance still need hands-on testing on a real Windows gaming PC.
+
+## Phase 3: Witchwood forest-floor detail
+
+The original-art-only scene now includes **four additional GPU batches**: 96 translucent moss patches, 72 modeled fern clumps, 16 fallen moonwood logs and 24 exposed tree roots. The moss texture is generated once (64×64 RGBA), using a softened uneven edge; fern geometry is generated once and instanced across Witchwood.
+
+The scenery is placed with an independent deterministic seed (`2026386`) and avoids main roads, the shrine area, the central combat approach and the existing moonwood monument. All pieces remain decorative and have no physics bodies. Trees, hero textures, loot/encounters and save data are unchanged.
+
+Existing `environment_detail`, `ground_clutter`, `foliage_quality` and `scenery_lod` preferences control the new density and draw range. On low settings the optional forest floor disappears, while high settings show all 208 additional instances. Mesh and texture resources are shared by their batches, with no per-frame spawn work.
+
+This creates material variation and forest-depth cues without falsely claiming displacement terrain or physically simulated fallen trees. Future realism requires original environment meshes/terrain sculpting and real-hardware profiling.
