@@ -54,3 +54,13 @@ Witchwood now has one **32x32 procedural terrain-detail mesh**, overlaid on the 
 This is visual micro-relief, not actual terrain sculpting: **player and enemy collision, pathfinding, and elevation are unchanged**. The mesh has no collision body or runtime update loop. The `environment_detail`, `terrain_surface`, `ground_clutter`, and `scenery_lod` preferences already in Moonfall control rendering. On low settings the surface is disabled entirely.
 
 The original Z and Nyra images, all six connected regions, gameplay RNG, bosses and saves remain untouched. Proper 3D terrain sculpting will need a later dedicated collision/navmesh pass and on-device testing.
+
+## Phase 5: Responsive character animation and environmental reactions
+
+**Hero animation:** The existing art-safe Godot rigs use short animation crossfades for idle, walk, run, attack, dodge, hurt and cast transitions. Z's attack and Nyra's cast clips now have clearer windup, action and recovery frames. Bone motion blends toward new joint targets instead of snapping. Their *original* Z/Nyra textures and untouched source files remain intact; the visible original portrait still moves as a single Sprite3D pending approved segmented artwork.
+
+**Environmental reactions:** A single dedicated Witchwood scene node owns a **two-item pooled** ground-ripple effect for actual attack/cast/dash/hurt animation events. It reuses the ring mesh and creates no new gameplay colliders or projectile systems. The existing 72 fern instances use a tiny vertex shader for ambient wind, with a localized, decaying impulse near the player's action.
+
+**Performance:** Ripple geometry is shared, fades out in 0.42 seconds, and stops CPU updates when idle. Under low graphics settings the pulses are disabled and the existing low-quality foliage culling still applies. Under other presets the native shader handles fern bending on the GPU, without a per-plant CPU loop. The effects stay attached to the existing Witchwood region to inherit its culling and never appear in other regions.
+
+**Safety:** No changes to combat damage, loot, enemy AI, hitboxes, level progression, save files, original art, or separate game modes. CI asserts that effects are pooled, remain absent at low detail/outside Witchwood, contain no collision objects, and expire automatically.
