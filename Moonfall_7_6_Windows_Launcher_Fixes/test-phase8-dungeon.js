@@ -21,6 +21,7 @@ const art='data:image/png;base64,AAABAA==';
 const fixture="const heroArt='"+art+"';let frame=1,W=960,H=540,stage=1,playing=true,paused=false,skillOpen=false,gearOpen=false, "+
  "mfReducedEffects=false,mfWorld={region:'witchwood',flags:{}},player={x:480,y:270,r:16},enemyHits=0;"+
  "function mfWorldSave(){saves++;} function receiveDamage(d){enemyHits+=d;} "+
+ "function mfEvade(){const oldX=player.x,oldY=player.y,dy=0,len=1;player.x+=300;player.y=Math.max(70,Math.min(H-30,player.y+dy/len*115));}"+
  "function reset(){}function beginStage(){}function tick(){frame++;}"+
  "function draw(){paintBackground();}function loop(){pollController();tick();draw();requestAnimationFrame(loop)}";
 const source=transform.patchJs(fixture);
@@ -39,6 +40,8 @@ run('beginStage()');
 assert.equal(run('mfDungeonChamber'),0);
 assert.match(ui.textContent,/Entrance/);
 assert.equal(run('mfDungeonLayout.pillars.length'),4);
+run('player.x=mfDungeonLayout.pillars[0].x-50;player.y=mfDungeonLayout.pillars[0].y+mfDungeonLayout.pillars[0].h/2;mfEvade()');
+assert.equal(run('player.x'),run('mfDungeonLayout.pillars[0].x-16'),'evade must stop at solid pillar');
 assert.equal(run("mfWorld.flags['chamber:witchwood:1:0']"),true);
 run('player.x=W-43;player.y=H*.5;tick()');
 assert.equal(run('mfDungeonChamber'),1,'walk through east doorway');
@@ -56,6 +59,8 @@ run('player.x=mfDungeonLayout.hazards[0].x+15;player.y=mfDungeonLayout.hazards[0
 assert.equal(run('enemyHits'),8,'danger tiles must damage through existing damage handler');
 run('tick()');assert.equal(run('enemyHits'),8,'hazard damage cooldown');
 run('draw()');assert(rendered>4,'geometry must render');
+run('W=1000;tick()');
+assert.equal(run('mfDungeonLayout.width'),1000,'room layout must update on resize');
 run('reset()');assert.equal(run('mfDungeonChamber'),0);
 assert.equal(run('mfDungeonLayout'),null);
 assert(scope.saves>=3,'discoveries must persist');
