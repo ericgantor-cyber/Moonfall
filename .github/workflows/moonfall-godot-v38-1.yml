@@ -222,8 +222,18 @@ jobs:
           $desktop = Join-Path ([Environment]::GetFolderPath('Desktop')) 'Moonfall Native.lnk'
           $menu = Join-Path ([Environment]::GetFolderPath('Programs')) 'Moonfall Native.lnk'
           if (!(Test-Path $desktop) -or !(Test-Path $menu)) { throw 'Shortcut creation failed.' }
-          & $installed --headless --quit-after 180 *> installed-run.log
-          if ($LASTEXITCODE -ne 0) { throw "Installed game headless launch failed: $LASTEXITCODE" }
+          # Exported game uses the Windows GUI subsystem. Direct invocation can
+          # leave $LASTEXITCODE unset, so wait for the actual process exit.
+          $stdout = Join-Path (Get-Location).Path 'installed-run.stdout.log'
+          $stderr = Join-Path (Get-Location).Path 'installed-run.stderr.log'
+          $launch = Start-Process -FilePath $installed -WorkingDirectory $app -ArgumentList @('--headless','--quit-after','180') -PassThru -Wait -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+          $output = @()
+          foreach ($log in @($stdout,$stderr)) {
+            if (Test-Path -LiteralPath $log) { $output += @(Get-Content -LiteralPath $log) }
+          }
+          $output | Set-Content -LiteralPath 'installed-run.log' -Encoding utf8
+          Write-Host "Installed game process exited with code $($launch.ExitCode)"
+          if ($launch.ExitCode -ne 0) { throw "Installed game headless launch failed: $($launch.ExitCode)" }
           if ((Get-Content installed-run.log -Raw) -match 'SCRIPT ERROR|Parse Error|ERROR:') {
             throw 'Installed game emitted a Godot error.'
           }
