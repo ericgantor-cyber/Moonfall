@@ -1,0 +1,17 @@
+'use strict';
+const assert=require('node:assert/strict'),vm=require('node:vm');
+const c=require('./phase19-protection-core.js'),p=require('./phase19-protection-integration.js');
+assert.equal(c.recoveryProtected(110,150),true);
+assert.equal(c.recoveryProtected(150,150),false);
+assert.equal(c.protectionEnd(100,90),190);
+assert.equal(c.protectionEnd(100,300),280);
+let sample='const receiveDamage=d=>{if(mfEvadeFrames>0)return;if(mfP18TryLethalRecovery(d))return;';
+sample+='\n mfDeathRecoveryUsed=true;\n player.x=state.x;player.y=state.y;player.hp=state.hp;';
+sample+='\n mfDeathRecoveryUsed=true;\n player.x=state.x;player.y=state.y;player.hp=state.hp;';
+sample+='\nfunction reset(){mfDeathRecoveryUsed=false;}';
+sample+='\nfunction loop(){pollController();tick();mfCheckpointCapture();draw();requestAnimationFrame(loop)}';
+const result=p.patchJs(sample);
+assert.equal((result.match(/mfP19ProtectedUntil=mfP19.protectionEnd\(frame\)/g)||[]).length,2);
+new vm.Script(result);
+assert.throws(()=>p.patchJs(''),/hook missing/);
+console.log('Phase19 respawn safety: PASS');
