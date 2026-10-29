@@ -1,0 +1,62 @@
+'use strict';
+const assert=require('node:assert/strict'),vm=require('node:vm');
+const core=require('./phase8-dungeon-core.js');
+const transform=require('./phase8-dungeon-integration.js');
+const a=core.makeDungeonRoom({region:'witchwood',stage:1,chamber:0,width:960,height:540});
+const b=core.makeDungeonRoom({region:'witchwood',stage:1,chamber:1,width:960,height:540});
+assert.equal(a.pillars.length,4);
+assert.equal(a.hazards.length,0);
+assert.equal(b.hazards.length,1);
+assert(!a.doors.left&&a.doors.right);
+assert(b.doors.left&&b.doors.right);
+assert.equal(core.doorway(a,940,270,960,540,0),'right');
+assert.equal(core.doorway(a,940,270,960,540,2),null);
+assert.equal(core.doorway(a,940,35,960,540,0),null);
+assert.throws(()=>core.makeDungeonRoom({region:'bad',stage:1,chamber:0,width:960,height:540}));
+const p=a.pillars[0],y=p.y+p.h/2;
+const sweep=core.resolveDungeonMotion({x:p.x-50,y},{x:p.x+p.w+55,y},12,a.pillars);
+assert.equal(sweep.x,p.x-12,'dash may not tunnel through solid pillar');
+assert(core.hitCircleRect(p.x+10,p.y+10,8,p));
+const art='data:image/png;base64,AAABAA==';
+const fixture="const heroArt='"+art+"';let frame=1,W=960,H=540,stage=1,playing=true,paused=false,skillOpen=false,gearOpen=false, "+
+ "mfReducedEffects=false,mfWorld={region:'witchwood',flags:{}},player={x:480,y:270,r:16},enemyHits=0;"+
+ "function mfWorldSave(){saves++;} function receiveDamage(d){enemyHits+=d;} "+
+ "function reset(){}function beginStage(){}function tick(){frame++;}"+
+ "function draw(){paintBackground();}function loop(){pollController();tick();draw();requestAnimationFrame(loop)}";
+const source=transform.patchJs(fixture);
+new vm.Script(source);
+assert(source.includes(art),'source artwork must be unchanged');
+assert.throws(()=>transform.patchJs('function tick(){}'),/hook missing/);
+assert.match(transform.patchHtml('<b id="mfWorldHud">World</b>'),/mfDungeonHud/);
+const ui={textContent:''};
+let rendered=0,saved=0;
+const ctx={save(){},restore(){},fillRect(){rendered++},strokeRect(){rendered++},
+ beginPath(){},arc(){},fillText(){}};
+const scope={saves:0,ctx,document:{getElementById:id=>id==='mfDungeonHud'?ui:null},paintBackground(){}};
+vm.createContext(scope);vm.runInContext(source,scope);
+const run=code=>vm.runInContext(code,scope);
+run('beginStage()');
+assert.equal(run('mfDungeonChamber'),0);
+assert.match(ui.textContent,/Entrance/);
+assert.equal(run('mfDungeonLayout.pillars.length'),4);
+assert.equal(run("mfWorld.flags['chamber:witchwood:1:0']"),true);
+run('player.x=W-43;player.y=H*.5;tick()');
+assert.equal(run('mfDungeonChamber'),1,'walk through east doorway');
+assert.equal(run('player.x'),91,'enter next room from west');
+assert.match(ui.textContent,/Crossroads/);
+assert.equal(run("mfWorld.flags['chamber:witchwood:1:1']"),true);
+run('mfDungeonDoorCooldown=0;player.x=43;player.y=H*.5;tick()');
+assert.equal(run('mfDungeonChamber'),0,'walk back through west doorway');
+assert.equal(run('player.x'),960-91);
+run('mfDungeonDoorCooldown=0;player.x=W-43;player.y=H*.5;tick()');
+run('mfDungeonDoorCooldown=0;player.x=W-43;player.y=H*.5;tick()');
+assert.equal(run('mfDungeonChamber'),2);
+assert.equal(run('mfDungeonLayout.hazards.length'),2);
+run('player.x=mfDungeonLayout.hazards[0].x+15;player.y=mfDungeonLayout.hazards[0].y+15;frame=200;tick()');
+assert.equal(run('enemyHits'),8,'danger tiles must damage through existing damage handler');
+run('tick()');assert.equal(run('enemyHits'),8,'hazard damage cooldown');
+run('draw()');assert(rendered>4,'geometry must render');
+run('reset()');assert.equal(run('mfDungeonChamber'),0);
+assert.equal(run('mfDungeonLayout'),null);
+assert(saved>=3,'discoveries must persist');
+console.log('PASS: solid dash collision, connected doors, reversible traversal, hazard cooldown, drawing, persistence, original art');
