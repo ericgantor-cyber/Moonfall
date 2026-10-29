@@ -23,7 +23,7 @@ checks={
  'HUD is optional and bounded to <=4hz updates': 'const UPDATE_PERIOD:float=0.25' in rules and 'if v380_update_elapsed<V380_RULES.UPDATE_PERIOD:return' in active,
  'Critical oxygen and combat/health warning priorities':all(x in rules for x in ['CRITICAL AIR','LOW AIR','COMBAT','LOW HEALTH']),
  'Status hides during menus/death/title': 'v380_status_enabled and hero_playing and not death_active and not menu_open' in active,
- 'Current title version updated': 'MOONFALL v38.0' in active,
+ 'Current title version updated from real release metadata': 'str(_release_label())' in active and '"☾  MOONFALL "+release' in active and '"MOONFALL" in title.text.to_upper()' in active,
  'System tab explains F2 without a new game mode':'if which=="System"' in active and 'F2 toggles' in active,
  'Actual Godot test registered by both launchers':"'v38_0_overhaul':" in runner and 'res://tests/v38_0_overhaul.gd' in bat,
  'Python runner and Windows batch have 66 matching suites':len(suites)==66 and set(re.findall(r'--script res://tests/(\w+)\.gd',bat))==set(suites),
