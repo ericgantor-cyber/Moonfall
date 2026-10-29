@@ -25,16 +25,27 @@ func _run()->void:
  var search:LineEdit=game.get("v376_search") as LineEdit
  check(is_instance_valid(tips_button) and tips_button.text=="Tips","Raven Atlas exposes Tips tab")
  check(is_instance_valid(search),"Atlas has dedicated Tips search")
+ # Simulate actual play: the live-search handler redraws only while Atlas is open.
+ game.call("_start_game","z")
+ game.call("_toggle_menu")
+ check(game.get("menu_open"),"Atlas opens during gameplay")
  game.call("_menu_tab","Tips")
  var codex_text:String=(game.get("menu_body") as RichTextLabel).text
  check("TIPS CODEX" in codex_text,"Tips panel displays the guide")
  check(is_instance_valid(search) and search.visible,"search field shown only on Tips tab")
- game.call("_v376_search_changed","oxygen")
+ # Programmatic text assignment does not emit LineEdit.text_changed in Godot.
+ # Emit the real connected UI signal instead of directly calling the handler.
+ if is_instance_valid(search):
+  search.text="oxygen"
+  search.text_changed.emit("oxygen")
+ check(game.get("v376_query")=="oxygen","Tips search input updates the active query")
  check("OXYGEN" in (game.get("menu_body") as RichTextLabel).text.to_upper(),"live search displays matching entries")
  game.call("_atlas_execute","tipcat:Water & Diving")
  check(game.get("v376_topic")=="Water & Diving","topic filter buttons work")
  game.call("_menu_tab","Character")
  check(not search.visible,"Tips search hidden outside Tips tab")
+ game.call("_toggle_menu")
+ check(not game.get("menu_open"),"Atlas closes after searching")
  game.queue_free()
  print("MOONFALL v37.6 ALL TIPS PASS" if failures==0 else "MOONFALL v37.6 ALL TIPS FAIL")
  quit(0 if failures==0 else 1)
