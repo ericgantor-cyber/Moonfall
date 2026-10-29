@@ -100,6 +100,45 @@ func _run()->void:
  check(is_equal_approx(atmosphere.adjustment_saturation,1.0),"Classic restores neutral color grading")
  game.set("gfx_settings",original_graphics)
  game.call("_gfx_apply",false)
+ # Witchwood only: actual Godot batch count, parent culling and quality sweep.
+ var slice:Dictionary=game.get("v384_slice") as Dictionary
+ check(not slice.is_empty() and int(slice.get("tree_count",0))==48,"Witchwood builds 48 deterministic forest trees")
+ if not slice.is_empty():
+  var forest_root:Node3D=slice["root"] as Node3D
+  var regions:Array=game.get("region_nodes") as Array
+  check(forest_root.get_parent()==regions[1],"forest visuals are culled with Witchwood rather than a new world")
+  check(forest_root.find_children("*","CollisionObject3D",true,false).is_empty(),"cinematic scenery adds no collisions or combat blockers")
+  var trunks:MultiMeshInstance3D=slice["trunks"] as MultiMeshInstance3D
+  var canopies:MultiMeshInstance3D=slice["crowns"] as MultiMeshInstance3D
+  var motes:MultiMeshInstance3D=slice["motes"] as MultiMeshInstance3D
+  check(trunks.multimesh.instance_count==48 and canopies.multimesh.instance_count==96 and motes.multimesh.instance_count==28,"trees, canopy and fireflies use fixed GPU batches")
+  var light:OmniLight3D=slice["light"] as OmniLight3D
+  check(is_instance_valid(light) and not light.shadow_enabled,"moonwood gate uses bounded, unshadowed accent light")
+  var low:Dictionary=original_graphics.duplicate(true)
+  low["environment_detail"]="2"
+  low["foliage_quality"]="Off"
+  low["ground_clutter"]="Off"
+  game.set("gfx_settings",low)
+  game.call("_gfx_apply",false)
+  check(not trunks.visible and not motes.visible and not light.visible,"low settings cull expensive scene details")
+  var high:Dictionary=original_graphics.duplicate(true)
+  high["environment_detail"]="9"
+  high["foliage_quality"]="High"
+  high["ground_clutter"]="High"
+  high["shadow_quality"]="High"
+  high["particle_density"]="High"
+  game.set("gfx_settings",high)
+  game.call("_gfx_apply",false)
+  check(trunks.visible and trunks.multimesh.visible_instance_count==48 and motes.visible,"high settings restore detailed Witchwood scenery")
+  game.set("region_index",1)
+  game.call("_v384_update_hero_light")
+  var hero_fill:OmniLight3D=game.get("v384_hero_fill") as OmniLight3D
+  check(is_instance_valid(hero_fill) and hero_fill.get_parent()==game.get("player") and hero_fill.visible,"Witchwood hero fill follows untouched original character")
+  game.set("region_index",0)
+  game.call("_v384_update_hero_light")
+  check(not hero_fill.visible,"hero fill automatically switches off outside Witchwood")
+  game.set("gfx_settings",original_graphics)
+  game.call("_gfx_apply",false)
  check(is_instance_valid(game.get("v380_status_panel")),"optional status panel created")
  check(not (game.get("v380_status_panel") as PanelContainer).visible,"status HUD hidden at title screen")
  var current_title:bool=false
