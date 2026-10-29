@@ -2,6 +2,8 @@ extends "res://scripts/native_v37_7.gd"
 ## v38 practical overhaul: on-demand concise status and ocean safety feedback,
 ## leaving the combat/loot/world/save systems untouched and inheritance intact.
 const V380_RULES:=preload("res://scripts/systems/overhaul_v380.gd")
+const V383_WORLD:=preload("res://scripts/systems/world_fusion_rules.gd")
+var v383_event_rewards:int=0
 const V382_Z_RIG:=preload("res://scenes/rigs/z_rig.tscn")
 const V382_NYRA_RIG:=preload("res://scenes/rigs/nyra_rig.tscn")
 var v382_rigs:Dictionary={}
@@ -90,7 +92,15 @@ func _menu_tab(which:String)->void:
  super._menu_tab(which)
  if not is_instance_valid(menu_body):return
  if which=="System":
-  menu_body.text+="\n\n[b]v38 LIVE STATUS[/b]\nF2 toggles a compact status readout showing your region, HP, underwater depth and oxygen. It updates only four times per second and stays hidden by default."
+  menu_body.text+="\n\n[b]v38 LIVE STATUS[/b]\nF2 toggles a compact status readout showing your region, HP, underwater depth and oxygen. It updates only four times per second and stays hidden by default.
+ if which=="World":
+  var levels:Array=[]
+  for zone in range(REGIONS.size()):levels.append(_recommended_power(zone))
+  var mission:Dictionary=V383_WORLD.next_objective(REGIONS,levels,events_completed,rifts.size()-rifts_cleared.size(),_current_power())
+  menu_body.text+="\n\n"+V383_WORLD.guidance(mission,_current_power(),_recommended_power(region_index))
+  _atlas_action("OPEN PROFESSIONS & CRAFTING","v383:professions","Use your existing shared material inventory")
+  _atlas_action("OPEN HERO SPECIALIZATIONS","v383:skills","Spend your existing hero level points")
+  _atlas_action("OPEN EQUIPMENT BAG","v383:gear","Equip rewards from hunts, rifts and bosses")"
 
 
 # Dark-fantasy atmosphere builds on the existing PBR, day/night and quality
@@ -210,6 +220,26 @@ func _v382_tick_rig(delta:float)->void:
  v382_active_rig.call("play_state",desired)
  v382_active_rig.call("step_bones",delta)
 
+func _atlas_execute(action:String)->void:
+ if action.begins_with("v383:"):
+  var destination:String=""
+  match action:
+   "v383:professions":destination="Professions"
+   "v383:skills":destination="Hero Skills"
+   "v383:gear":destination="Inventory"
+  if destination!="":
+   _menu_tab(destination)
+   return
+ super._atlas_execute(action)
+
+func _complete_world_event(zone:int,defer_save:bool=false)->void:
+ # The inherited event flag prevents duplicates; award before its save.
+ if zone>=0 and zone<world_events.size() and not bool(world_events[zone].get("completed",false)):
+  var bonus:Dictionary=V383_WORLD.event_crafting_bonus(zone,water_professions)
+  _gain_material(str(bonus["name"]),int(bonus["amount"]))
+  v383_event_rewards+=1
+ super._complete_world_event(zone,defer_save)
+
 func _perf_report()->Dictionary:
  var report:Dictionary=super._perf_report()
  report["overhaul"]="v38.0 safer swim art pose, optional status and lean handoff"
@@ -219,4 +249,5 @@ func _perf_report()->Dictionary:
  report["volumetric_fog"]=living_environment!=null and living_environment.volumetric_fog_enabled
  report["hero_rigs"]=v382_rigs.size()
  report["hero_rig_animation_events"]=v382_animation_events
+ report["world_event_crafting_bonuses"]=v383_event_rewards
  return report
