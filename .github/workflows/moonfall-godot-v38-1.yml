@@ -41,6 +41,10 @@ jobs:
           MOONFALL_ZIP_SHA256: 75867cbe927c5a1e9f339985f956637f9920615083c7c3a615be15025b1e2eaf
         run: |
           set -euo pipefail
+          if [ -f native/godot-v38_1/project.godot ]; then
+            echo "Verified source already committed; skip redundant release download."
+            exit 0
+          fi
           curl --fail --location --retry 3 --silent --show-error "$MOONFALL_ZIP_URL" --output "$RUNNER_TEMP/moonfall-v38.1.zip"
           echo "$MOONFALL_ZIP_SHA256  $RUNNER_TEMP/moonfall-v38.1.zip" | sha256sum -c -
           python3 - <<'PY'
@@ -124,18 +128,6 @@ jobs:
         with:
           path: native/godot-v38_1/Godot_4.7.2/export_templates
           key: godot-4.7.2-stable-windows-x64-template-f298490b8d44d934
-      - name: Install Inno Setup 6 directly on CI runner
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
-          choco upgrade innosetup --yes --no-progress --force
-          if ($LASTEXITCODE -ne 0) { throw "Chocolatey install failed: $LASTEXITCODE" }
-          $compiler = Join-Path ([Environment]::GetFolderPath('ProgramFilesX86')) 'Inno Setup 6\ISCC.exe'
-          if (!(Test-Path -LiteralPath $compiler -PathType Leaf)) {
-            throw "Inno compiler missing at expected path: $compiler"
-          }
-          $version = [Diagnostics.FileVersionInfo]::GetVersionInfo($compiler)
-          Write-Host "Compiler: $compiler; FileVersion: $($version.FileVersion); ProductVersion: $($version.ProductVersion)"
       - name: Run all offline source checks, 66 Godot suites and export portable EXE
         shell: pwsh
         run: |
@@ -186,6 +178,18 @@ jobs:
               Write-Warning 'Godot parent-class parse errors identified'
             }
           }
+      - name: Install Inno Setup 6 directly on CI runner
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          choco upgrade innosetup --yes --no-progress --force
+          if ($LASTEXITCODE -ne 0) { throw "Chocolatey install failed: $LASTEXITCODE" }
+          $compiler = Join-Path ([Environment]::GetFolderPath('ProgramFilesX86')) 'Inno Setup 6\ISCC.exe'
+          if (!(Test-Path -LiteralPath $compiler -PathType Leaf)) {
+            throw "Inno compiler missing at expected path: $compiler"
+          }
+          $version = [Diagnostics.FileVersionInfo]::GetVersionInfo($compiler)
+          Write-Host "Compiler: $compiler; FileVersion: $($version.FileVersion); ProductVersion: $($version.ProductVersion)"
       - name: Compile Windows installer using verified Inno Setup 6
         shell: pwsh
         run: |
