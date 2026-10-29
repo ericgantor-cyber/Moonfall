@@ -21,13 +21,13 @@ func _run() -> void:
  zoom_key.keycode=KEY_EQUAL
  zoom_key.pressed=true
  game.call("_unhandled_input", zoom_key)
- check(is_equal_approx(game.get("camera").size,20.5), "keyboard zoom in")
+ check(game.get("camera").projection==Camera3D.PROJECTION_PERSPECTIVE and is_equal_approx(float(game.get("v24_camera_size")),20.5) and is_equal_approx(float(game.get("v36_distance")),13.2), "keyboard zoom in updates third-person distance")
  zoom_key.keycode=KEY_MINUS
  game.call("_unhandled_input", zoom_key)
- check(is_equal_approx(game.get("camera").size,22.0), "keyboard zoom out")
+ check(is_equal_approx(float(game.get("v24_camera_size")),22.0) and is_equal_approx(float(game.get("v36_distance")),14.4), "keyboard zoom out updates third-person distance")
  game.set("menu_open", true)
  game.call("_unhandled_input", zoom_key)
- check(is_equal_approx(game.get("camera").size,22.0), "menus block gameplay zoom")
+ check(is_equal_approx(float(game.get("v24_camera_size")),22.0) and is_equal_approx(float(game.get("v36_distance")),14.4), "menus block gameplay zoom")
  game.set("menu_open", false)
  var victim:Dictionary={}
  for beast in game.get("beasts"):
