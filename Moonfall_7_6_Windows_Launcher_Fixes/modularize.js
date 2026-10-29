@@ -25,6 +25,7 @@ const transforms = [
   require('./combat-feedback-stage.js'),
   require('./phase8-dungeon-integration.js'),
   require('./phase9-dungeon-integration.js'),
+  require('./phase10-tactics-integration.js'),
   require('./hades-combo.js'),
   require('./speech-bubbles.js'),
   require('./render-scale.js'),
