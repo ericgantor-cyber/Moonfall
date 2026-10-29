@@ -7,7 +7,12 @@ function changeOnce(s,a,b,label){
 const logic=String.raw`const mfRoomTypes=[
  {name:'🩸 Bloodmoon Arena',color:'#ff466c',speed:1.17,cadence:1.2},
  {name:'🌑 Shadow Labyrinth',color:'#aa7bff',speed:1.05,cadence:1.0},
- {name:'🔥 Cinder Gauntlet',color:'#ffad59',speed:1.0,cadence:1.4}
+ {name:'🔥 Cinder Gauntlet',color:'#ffad59',speed:1.0,cadence:1.4},
+ {name:'🦴 Forgotten Crypt',color:'#ddd0bd',speed:0.97,cadence:1.22},
+ {name:'🌲 Cursed Grove',color:'#71d9a4',speed:1.13,cadence:1.08},
+ {name:'🌋 Magma Crucible',color:'#ff7955',speed:1.08,cadence:1.32},
+ {name:'🌙 Lunar Temple',color:'#8ddcff',speed:1.09,cadence:1.15},
+ {name:'🌀 Void Rift',color:'#ad83ff',speed:1.23,cadence:1.18}
 ];
 let mfRoom=null,mfEliteSpawned=false,mfMastery=0,mfRunFinished=false;
 const mfMasteryKey='moonfall-permanent-mastery-v1';
