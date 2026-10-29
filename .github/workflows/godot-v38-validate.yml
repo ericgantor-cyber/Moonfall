@@ -1,0 +1,32 @@
+name: Moonfall v38.2 imported Godot source checks
+on:
+  pull_request:
+    paths:
+      - "godot-v38/**"
+      - ".github/workflows/godot-v38-validate.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  godot-source:
+    runs-on: windows-2022
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: godot-v38
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Verify source import and original assets
+        shell: pwsh
+        run: |
+          if (-not (Test-Path project.godot)) { throw "Missing Godot project" }
+          if (-not (Test-Path export_presets.cfg)) { throw "Missing export presets" }
+          python tests/verify_v38_2_checkpoint.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python tests/verify_v38_1_release.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python tests/verify_v38_overhaul.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
