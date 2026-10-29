@@ -1,0 +1,10 @@
+.godot/
+build/
+__pycache__/
+*.pyc
+.DS_Store
+GODOT_*_LOG.txt
+*.pck
+Godot_4.7.2/
+godot-win.zip
+*.tpz

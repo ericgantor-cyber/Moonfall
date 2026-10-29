@@ -1,0 +1,16 @@
+MOONFALL v24.1 VALIDATION SUMMARY
+Godot 4.7.2 engine import: PASS
+16 Godot test suites: PASS (complete isolated test-suite run)
+- smoke_v11, v13_features, v14_visuals, v15_living_art, v16_visuals,
+  v17_release, v18_grid, v18_stability, v19_world_art, v20_guardians,
+  v21_grand_art, v22_art, v23_animation, v24_overhaul,
+  v24_1_accessibility, live_v11.
+Automated save tests guard against writing to a real player profile: PASS
+Packed Linux engine launched v24.1 for 300 frames: PASS
+Single-file Windows PE + appended Godot PCK footer/size: PASS
+Original inherited artwork hashes: PASS (all image bytes unchanged)
+VS Code 1.143.1 Debian package metadata inspected: PASS
+Windows executable runtime playtest: NOT RUN
+Windows installer build or installation: NOT RUN
+Windows GPU/controller performance: NOT MEASURED
+GitHub: NOT MODIFIED

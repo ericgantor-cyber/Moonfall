@@ -1,0 +1,80 @@
+verify_4k_display.py: 0
+PASS
+verify_build_test_manifest.py: 0
+PASS
+verify_ci_release.py: 0
+PASS
+verify_death_system.py: 0
+PASS
+verify_engine_test_parity.py: 0
+PASS
+verify_godot_log_gate.py: 0
+PASS
+verify_invasion_guard.py: 0
+PASS
+verify_legacy_release_guards.py: 0
+PASS
+verify_living_rifts.py: 0
+PASS
+verify_moon_sigil_forge.py: 0
+PASS
+verify_no_survival_timer.py: 0
+PASS
+verify_official_windows_export.py: 0
+PASS
+verify_publish_handoff.py: 0
+PASS
+verify_source.py: 0
+PASS
+verify_updater_offline.py: 0
+PASS
+verify_v33_1_candidate_cap.py: 0
+PASS
+verify_v33_stability.py: 0
+PASS
+verify_v34_1_invasions.py: 0
+PASS
+verify_v34_2_elemental.py: 0
+PASS
+verify_v34_3_lunar_war.py: 0
+PASS
+verify_v34_4_ci_guards.py: 0
+PASS
+verify_v34_4_fair_fight.py: 0
+PASS
+verify_v34_4_release.py: 0
+PASS
+verify_v34_overhaul.py: 0
+PASS
+verify_v35_release_gate.py: 0
+PASS
+verify_v36_2_water_professions.py: 0
+PASS
+verify_v36_3_living_world.py: 0
+PASS
+verify_v36_camera.py: 0
+PASS
+verify_v36_world_art.py: 0
+PASS
+verify_v37_2_oxygen.py: 0
+PASS
+verify_v37_3_deep_water.py: 0
+PASS
+verify_v37_4_solid_grottos.py: 0
+PASS
+verify_v37_5_lean.py: 0
+PASS
+verify_v37_6_all_tips.py: 0
+PASS
+verify_v37_7_playability.py: 0
+PASS
+verify_v37_8_build_handoff.py: 0
+PASS
+verify_v37_9_prerequisites.py: 0
+PASS
+verify_v37_living_realm.py: 0
+PASS
+verify_v38_overhaul.py: 0
+PASS
+verify_world_depth.py: 0
+PASS

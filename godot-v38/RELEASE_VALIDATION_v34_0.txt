@@ -1,0 +1,8 @@
+Moonfall v34.0 Grand Lunar Overhaul | offline release summary
+
+PASS: Source, release metadata, CI guards, upload handoff, death system, no survival timer, Moon Sigil crafting, world depth, Living Rifts, stability, 34.0 overhaul, and artwork baseline static checks (13 total).
+PASS: 139 assets identical byte-for-byte to v33.8 Living Rifts source ZIP.
+PASS: Isolated Git staging rehearsal including nested .github project files.
+NOT RUN: Actual Godot GDScript parser, headless gameplay tests, Windows executable creation, Windows installer/shortcuts/uninstall. Godot binary unavailable and outgoing network disabled in this environment.
+
+This ZIP is not a compiled Windows game. Source-only update pending runtime and installer validation.
