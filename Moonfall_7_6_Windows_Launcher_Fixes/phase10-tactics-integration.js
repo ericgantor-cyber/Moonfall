@@ -16,7 +16,7 @@ function patchJs(s){
   'const position=mfP10FormationPosition(mfDungeonLayout,chamber,i,count,21);\n  const e={x:position.x,y:position.y,',
   'formation positions');
  s=unique(s,' if(!e.boss||e.hp<=0||!playing)return;',
-  ' if(!e.boss||e.hp<=0||!playing)return;mfP10BossThink(e);',
+  ' if(!e.boss||e.hp<=0||!playing)return;if(typeof mfP10BossThink===\"function\")mfP10BossThink(e);',
   'boss decision');
  s=unique(s,'mfBossWarningsDraw();',
   'mfBossWarningsDraw();mfP10BossWarningDraw();','boss windup drawing');
