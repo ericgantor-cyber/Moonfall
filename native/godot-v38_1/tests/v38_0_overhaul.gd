@@ -2,6 +2,7 @@ extends SceneTree
 const R:=preload("res://scripts/systems/overhaul_v380.gd")
 const FUSION:=preload("res://scripts/systems/world_fusion_rules.gd")
 const FLOOR:=preload("res://scripts/systems/witchwood_floor_v386.gd")
+const TERRAIN:=preload("res://scripts/systems/witchwood_terrain_v387.gd")
 var failures:int=0
 func _initialize()->void:call_deferred("_run")
 func check(ok:bool,label:String)->void:
@@ -123,6 +124,14 @@ func _run()->void:
   check(moss.multimesh.instance_count==96 and ferns.multimesh.instance_count==72 and logs.multimesh.instance_count==16 and roots.multimesh.instance_count==24,"forest floor uses four fixed batches instead of per-leaf scene nodes")
   check(not FLOOR._valid_spot(0.0,12.0) and not FLOOR._valid_spot(12.0,0.0) and FLOOR._valid_spot(-20.0,20.0),"undergrowth placement leaves crossing roads and shrine approach clear")
   check(moss.position.y>=0.02 and moss.position.y<=0.08,"forest moss GPU batch stays above the existing ground without floating visibly")
+  var terrain_detail:Dictionary=slice["terrain_detail"] as Dictionary
+  var soil:MeshInstance3D=terrain_detail["surface"] as MeshInstance3D
+  var soil_mesh:ArrayMesh=soil.mesh as ArrayMesh
+  check(soil.get_parent()==forest_root and is_instance_valid(soil_mesh) and soil_mesh.get_surface_count()==1,"soil detail is one terrain surface parented under the existing Witchwood region")
+  check(soil_mesh.surface_get_array_len(0)==TERRAIN.GRID*TERRAIN.GRID*6,"Witchwood terrain uses bounded 32x32 micro-relief mesh")
+  check(soil.material_override is StandardMaterial3D and (soil.material_override as StandardMaterial3D).albedo_texture!=null,"Witchwood forest soil has original procedural PBR base color texture")
+  check(TERRAIN._clearance(0.0,15.0)==0.0 and TERRAIN._clearance(15.0,0.0)==0.0 and TERRAIN._clearance(-22.0,22.0)>0.0,"forest soil avoids original crossroads and remains visible away from paths")
+  check(TERRAIN._height(19.0,19.0)>0.01 and TERRAIN._height(19.0,19.0)<0.06,"terrain visual offset is centimeter-scale and never changes walkable collision")
   var moonwood_mesh:ArrayMesh=trunks.multimesh.mesh as ArrayMesh
   var organic_canopy:ArrayMesh=canopies.multimesh.mesh as ArrayMesh
   check(is_instance_valid(moonwood_mesh) and is_instance_valid(organic_canopy),"Witchwood uses native procedural meshes, not primitive cylinder and cone")
@@ -142,6 +151,7 @@ func _run()->void:
   game.call("_gfx_apply",false)
   check(not trunks.visible and not motes.visible and not light.visible,"low settings cull expensive scene details")
   check(not moss.visible and not ferns.visible and not logs.visible and not roots.visible,"low graphics turn off all optional undergrowth")
+  check(not soil.visible,"low graphics turn off optional forest soil geometry")
   if is_instance_valid(bark_mat):check(not bark_mat.normal_enabled,"low detail avoids Witchwood normal-map sampling")
   var high:Dictionary=original_graphics.duplicate(true)
   high["environment_detail"]="9"
@@ -154,6 +164,7 @@ func _run()->void:
   check(trunks.visible and trunks.multimesh.visible_instance_count==48 and motes.visible,"high settings restore detailed Witchwood scenery")
   check(moss.visible and moss.multimesh.visible_instance_count==96 and ferns.multimesh.visible_instance_count==72,"high settings restore forest moss and fern density")
   check(logs.visible and roots.visible and logs.multimesh.visible_instance_count==16 and roots.multimesh.visible_instance_count==24,"high settings restore fallen wood and exposed roots")
+  check(soil.visible,"high graphics restore procedural forest soil detail")
   if is_instance_valid(bark_mat):check(bark_mat.normal_enabled,"high detail enables Moonwood PBR normal mapping")
   game.set("region_index",1)
   game.call("_v384_update_hero_light")
