@@ -1,0 +1,12 @@
+'use strict';
+const assert=require('node:assert/strict'),vm=require('node:vm');
+const t=require('./phase18-lethal-integration.js');
+const input='const receiveDamage=d=>{if(mfEvadeFrames>0)return;player.hp-=nyraShield>0?0:d*100/(100+armor());mfCombo=0;mfUpdateCombo()}\nfunction loop(){pollController();tick();mfCheckpointCapture();draw();requestAnimationFrame(loop)}';
+const result=t.patchJs(input);
+assert(result.includes('if(mfP18TryLethalRecovery(d))return'));
+assert(result.includes('mfDeathRecovery.deathRecovery'));
+assert(result.includes('mfDeathRecoveryUsed=true'));
+assert(result.includes('nyraShield>0'));
+new vm.Script(result);
+assert.throws(()=>t.patchJs('invalid'),/hook mismatch/);
+console.log('Phase18 lethal recovery integration: PASS');
