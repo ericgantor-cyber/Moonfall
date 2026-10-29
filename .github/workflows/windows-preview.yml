@@ -50,6 +50,7 @@ jobs:
           node test-phase12-rpg.js
           node test-phase13-checkpoint.js
           node test-phase14-resume.js
+          node test-phase15-recovery.js
           node verify-project.js
           node audit-bloat.js
       - name: Build unsigned Windows preview installer
