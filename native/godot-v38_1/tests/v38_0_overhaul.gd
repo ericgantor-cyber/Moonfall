@@ -1,6 +1,7 @@
 extends SceneTree
 const R:=preload("res://scripts/systems/overhaul_v380.gd")
 const FUSION:=preload("res://scripts/systems/world_fusion_rules.gd")
+const FLOOR:=preload("res://scripts/systems/witchwood_floor_v386.gd")
 var failures:int=0
 func _initialize()->void:call_deferred("_run")
 func check(ok:bool,label:String)->void:
@@ -112,6 +113,16 @@ func _run()->void:
   var canopies:MultiMeshInstance3D=slice["crowns"] as MultiMeshInstance3D
   var motes:MultiMeshInstance3D=slice["motes"] as MultiMeshInstance3D
   check(trunks.multimesh.instance_count==48 and canopies.multimesh.instance_count==96 and motes.multimesh.instance_count==28,"trees, canopy and fireflies use fixed GPU batches")
+  var undergrowth:Dictionary=slice["forest_floor"] as Dictionary
+  var undergrowth_root:Node3D=undergrowth["root"] as Node3D
+  var moss:MultiMeshInstance3D=undergrowth["moss"] as MultiMeshInstance3D
+  var ferns:MultiMeshInstance3D=undergrowth["ferns"] as MultiMeshInstance3D
+  var logs:MultiMeshInstance3D=undergrowth["logs"] as MultiMeshInstance3D
+  var roots:MultiMeshInstance3D=undergrowth["roots"] as MultiMeshInstance3D
+  check(undergrowth_root.get_parent()==forest_root and undergrowth_root.find_children("*","CollisionObject3D",true,false).is_empty(),"forest floor is attached to existing Witchwood visuals without physics")
+  check(moss.multimesh.instance_count==96 and ferns.multimesh.instance_count==72 and logs.multimesh.instance_count==16 and roots.multimesh.instance_count==24,"forest floor uses four fixed batches instead of per-leaf scene nodes")
+  check(not FLOOR._valid_spot(0.0,12.0) and not FLOOR._valid_spot(12.0,0.0) and FLOOR._valid_spot(-20.0,20.0),"undergrowth placement leaves crossing roads and shrine approach clear")
+  check(moss.multimesh.get_instance_transform(0).origin.y>=0.02,"forest moss stays above the existing ground rather than sinking into it")
   var moonwood_mesh:ArrayMesh=trunks.multimesh.mesh as ArrayMesh
   var organic_canopy:ArrayMesh=canopies.multimesh.mesh as ArrayMesh
   check(is_instance_valid(moonwood_mesh) and is_instance_valid(organic_canopy),"Witchwood uses native procedural meshes, not primitive cylinder and cone")
@@ -130,6 +141,7 @@ func _run()->void:
   game.set("gfx_settings",low)
   game.call("_gfx_apply",false)
   check(not trunks.visible and not motes.visible and not light.visible,"low settings cull expensive scene details")
+  check(not moss.visible and not ferns.visible and not logs.visible and not roots.visible,"low graphics turn off all optional undergrowth")
   if is_instance_valid(bark_mat):check(not bark_mat.normal_enabled,"low detail avoids Witchwood normal-map sampling")
   var high:Dictionary=original_graphics.duplicate(true)
   high["environment_detail"]="9"
@@ -140,6 +152,8 @@ func _run()->void:
   game.set("gfx_settings",high)
   game.call("_gfx_apply",false)
   check(trunks.visible and trunks.multimesh.visible_instance_count==48 and motes.visible,"high settings restore detailed Witchwood scenery")
+  check(moss.visible and moss.multimesh.visible_instance_count==96 and ferns.multimesh.visible_instance_count==72,"high settings restore forest moss and fern density")
+  check(logs.visible and roots.visible and logs.multimesh.visible_instance_count==16 and roots.multimesh.visible_instance_count==24,"high settings restore fallen wood and exposed roots")
   if is_instance_valid(bark_mat):check(bark_mat.normal_enabled,"high detail enables Moonwood PBR normal mapping")
   game.set("region_index",1)
   game.call("_v384_update_hero_light")
