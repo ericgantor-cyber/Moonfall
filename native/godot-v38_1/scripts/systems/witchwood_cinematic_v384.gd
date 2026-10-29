@@ -1,4 +1,5 @@
 extends RefCounted
+const V385_ASSETS:=preload("res://scripts/systems/witchwood_assets_v385.gd")
 ## Witchwood Wilds visual-only vertical slice. Deterministic geometry, no collision,
 ## gameplay RNG, character texture changes, world modes, or per-frame mesh creation.
 const TREE_COUNT:int=48
@@ -51,29 +52,18 @@ static func build(region:Node3D,center:Vector2)->Dictionary:
  region.add_child(root)
  var rng:=RandomNumberGenerator.new()
  rng.seed=SEED
- var bark_mesh:=CylinderMesh.new()
- bark_mesh.top_radius=0.22
- bark_mesh.bottom_radius=0.38
- bark_mesh.height=3.8
- bark_mesh.radial_segments=7
- var crown_mesh:=CylinderMesh.new()
- crown_mesh.top_radius=0.0
- crown_mesh.bottom_radius=1.35
- crown_mesh.height=3.4
- crown_mesh.radial_segments=9
- var stone_mesh:=SphereMesh.new()
- stone_mesh.radius=0.62
- stone_mesh.height=1.24
- stone_mesh.radial_segments=9
- stone_mesh.rings=5
+ # Original handcrafted-by-code 3D silhouettes, shared by all 48 trees.
+ var bark_mesh:Mesh=V385_ASSETS.make_moonwood_trunk()
+ var crown_mesh:Mesh=V385_ASSETS.make_moonwood_canopy()
+ var stone_mesh:Mesh=V385_ASSETS.make_mossy_rock()
  var mote_mesh:=SphereMesh.new()
  mote_mesh.radius=0.07
  mote_mesh.height=0.14
  mote_mesh.radial_segments=6
  mote_mesh.rings=3
- var bark:=_batch(root,"MoonwoodTrunks",bark_mesh,_material(Color("302b32")),TREE_COUNT)
- var crowns:=_batch(root,"MoonwoodCanopies",crown_mesh,_material(Color("294d43")),TREE_COUNT*2)
- var stones:=_batch(root,"WeatheredMossStones",stone_mesh,_material(Color("545c5e")),STONE_COUNT)
+ var bark:=_batch(root,"MoonwoodTrunks",bark_mesh,V385_ASSETS.make_surface_material("bark",Color("353037")),TREE_COUNT)
+ var crowns:=_batch(root,"MoonwoodCanopies",crown_mesh,V385_ASSETS.make_surface_material("foliage",Color("345c50")),TREE_COUNT*2)
+ var stones:=_batch(root,"WeatheredMossStones",stone_mesh,V385_ASSETS.make_surface_material("stone",Color("63676b")),STONE_COUNT)
  var motes:=_batch(root,"WitchwoodFireflies",mote_mesh,_material(Color("8dc5bd"),0.0,true),MOTE_COUNT)
  var placed:int=0
  var attempts:int=0
@@ -118,7 +108,7 @@ static func build(region:Node3D,center:Vector2)->Dictionary:
  ruins.name="MoonwoodRuinGate"
  ruins.position=Vector3(15.0,0.0,16.0)
  root.add_child(ruins)
- var stone_mat:=_material(Color("555b67"),0.10)
+ var stone_mat:=V385_ASSETS.make_surface_material("stone",Color("616777"))
  _stone(ruins,"LeftMoonPillar",Vector3(-3.6,1.5,0.0),Vector3(1.0,3.0,1.2),stone_mat,-7.0)
  _stone(ruins,"RightMoonPillar",Vector3(3.6,1.45,0.0),Vector3(1.0,2.9,1.2),stone_mat,9.0)
  _stone(ruins,"BrokenMoonLintel",Vector3(0.0,3.05,0.0),Vector3(6.0,0.8,0.95),stone_mat,3.0)
@@ -164,6 +154,10 @@ static func apply_quality(slice:Dictionary,settings:Dictionary)->void:
  var shadows:bool=detail>=8 and str(settings.get("shadow_quality","Off")) in ["High","Ultra"]
  trunks.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_ON if shadows else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
  canopies.cast_shadow=trunks.cast_shadow
+ # Normal maps are a near-field detail feature; low presets skip the extra samples.
+ for batch in [trunks,canopies,stones]:
+  var mat:StandardMaterial3D=batch.material_override as StandardMaterial3D
+  if is_instance_valid(mat):mat.normal_enabled=detail>=6
  var stone_count:int=STONE_COUNT if detail>=7 else 12 if detail>=4 else 0
  var stones:MultiMeshInstance3D=slice["stones"]
  stones.visible=stone_count>0 and clutter!="Off"
