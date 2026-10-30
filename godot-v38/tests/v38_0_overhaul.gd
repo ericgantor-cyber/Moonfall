@@ -78,6 +78,12 @@ func _run()->void:
  game.call("_dodge")
  check(is_equal_approx(float(game.get("v387_stamina")),0.0),"dodge blocked with exhausted stamina")
  game.set("v387_stamina",150.0)
+ game.set("dodge_cooldown",0.0)
+ game.call("_dodge")
+ check(is_equal_approx(float(game.get("v387_stamina")),122.0),"successful dodge spends exactly 28 stamina")
+ check(float(game.get("dodge_cooldown"))>0.0,"successful dodge retains original cooldown")
+ game.set("dodge_cooldown",0.0)
+ game.set("v387_stamina",150.0)
  check(not (game.get("v380_status_panel") as PanelContainer).visible,"status HUD hidden at title screen")
  var obsolete_title:bool=false
  for label_node in (game.get("start_screen") as Control).find_children("*","Label",true,false):
