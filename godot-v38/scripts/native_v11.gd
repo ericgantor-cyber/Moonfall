@@ -529,7 +529,7 @@ func _spawn_beast(at: Vector3, kind: String, zone: int, variant: String="normal"
  var def:Dictionary=BEASTS[kind]
  var scaling:float=SPAWN_RULES.health_scale(int(REGIONS[zone]["tier"]),variant,boss)
  var spawn_id:=beasts.size()
- var creature:Dictionary={"body":body,"kind":kind,"variant":variant,"zone":zone,"hp":float(def["hp"])*scaling,"max":float(def["hp"])*scaling,"attack":0.0,"alive":true,"hostile":bool(def["hostile"]),"home":at,"rewarded":false,"boss":boss,"boss_id":spawn_id,"windup":0.0,"fed_until":0.0,"hunting_until":0.0,"scared_until":0.0,"engaged":false,"respawn_at":0.0,"stagger_until":0.0,"stagger_resist_until":0.0,"elite_lunge_cd":2.0,"elite_lunge_windup":0.0,"elite_lunge_target":Vector3.ZERO,"boss_phase":1,"boss_pattern":0,"warning_radius":2.8,"nameplate":label,"hit_visual":art,"hit_react_until":0.0,"hit_react_critical":false,"hit_flash_until":0.0,"alert_until":0.0,"dungeon_site":-1,"base_hp":float(def["hp"])*scaling,"retreat_until":0.0,"retreat_cooldown":0.0}
+ var creature:Dictionary={"body":body,"kind":kind,"variant":variant,"zone":zone,"hp":float(def["hp"])*scaling,"max":float(def["hp"])*scaling,"attack":0.0,"alive":true,"hostile":bool(def["hostile"]),"home":at,"rewarded":false,"boss":boss,"boss_id":spawn_id,"windup":0.0,"fed_until":0.0,"hunting_until":0.0,"scared_until":0.0,"engaged":false,"respawn_at":0.0,"stagger_until":0.0,"stagger_resist_until":0.0,"elite_lunge_cd":2.0,"elite_lunge_windup":0.0,"elite_lunge_target":Vector3.ZERO,"boss_phase":1,"boss_pattern":0,"warning_radius":2.8,"nameplate":label,"hit_visual":art,"hit_react_until":0.0,"hit_react_critical":false,"hit_flash_until":0.0,"attack_swing_until":0.0,"alert_until":0.0,"dungeon_site":-1,"base_hp":float(def["hp"])*scaling,"retreat_until":0.0,"retreat_cooldown":0.0}
  beasts.append(creature)
  zone_beast_lists[zone].append(creature)
 
@@ -1557,11 +1557,19 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
   if is_instance_valid(hit_label):
    hit_label.modulate=Color(str(REGIONS[int(beast["zone"])]["light"])) if str(beast.get("variant","normal"))!="normal" else Color("f4dcbb")
  var react_until:float=float(beast.get("hit_react_until",0.0))
- if react_until>0.0:
+ var swing_until:float=float(beast.get("attack_swing_until",0.0))
+ if react_until>0.0 or swing_until>0.0:
   var hit_mesh:MeshInstance3D=beast.get("hit_visual") as MeshInstance3D
   if is_instance_valid(hit_mesh):
-   hit_mesh.rotation_degrees=Vector3(0.0,0.0,90.0+V383_FEEDBACK.recoil_degrees(react_until-map_time,bool(beast.get("hit_react_critical",false))))
+   var pose_degrees:float=90.0
+   if map_time<react_until:
+    pose_degrees+=V383_FEEDBACK.recoil_degrees(react_until-map_time,bool(beast.get("hit_react_critical",false)))
+   elif map_time<swing_until:
+    var swing_side:float=1.0 if int(beast["boss_id"])%2==0 else -1.0
+    pose_degrees+=swing_side*V383_FEEDBACK.attack_followthrough_degrees(swing_until-map_time)
+   hit_mesh.rotation_degrees=Vector3(0.0,0.0,pose_degrees)
   if map_time>=react_until:beast["hit_react_until"]=0.0
+  if map_time>=swing_until:beast["attack_swing_until"]=0.0
  var diff:=player.global_position-body.global_position
  diff.y=0.0
  var distance:=diff.length()
@@ -1676,6 +1684,8 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
  elif engaged and distance<1.7 and float(beast["attack"])<=0.0:
   if dodge_time<=0 and _has_clear_sight(body,player):
    _apply_incoming_damage(float(BEASTS[kind]["atk"]))
+  # Visual follow-through only; preserve established hit timing and damage.
+  beast["attack_swing_until"]=map_time+V383_FEEDBACK.ATTACK_SWING_SECONDS
   beast["attack"]=1.5
 
 func _despawn_native_beast(beast:Dictionary,delay:float) -> void:
@@ -1702,6 +1712,7 @@ func _reset_native_beast(beast:Dictionary) -> void:
  beast["hit_react_until"]=0.0
  beast["hit_react_critical"]=false
  beast["hit_flash_until"]=0.0
+ beast["attack_swing_until"]=0.0
  var reset_mesh:MeshInstance3D=beast.get("hit_visual") as MeshInstance3D
  if is_instance_valid(reset_mesh):reset_mesh.rotation_degrees=Vector3(0.0,0.0,90.0)
  if not bool(beast.get("boss",false)):
