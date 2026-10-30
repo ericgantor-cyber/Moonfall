@@ -112,7 +112,7 @@ func _run()->void:
  if enemy_script!=null:
   var source:String=enemy_script.source_code
   var tick_start:int=source.find("func _update_beast_step(")
-  var tick_end:int=source.find("\\nfunc ",tick_start+1)
+  var tick_end:int=source.find("\nfunc ",tick_start+1)
   var tick:String=source.substr(tick_start,(tick_end-tick_start) if tick_end>tick_start else -1) if tick_start>=0 else ""
   check(tick_start>=0 and "V383_COMBAT_RULES.combat_intent(" in tick,"combat intent policy invoked in live enemy tick")
   check("v383_intent==\"retreat\"" in tick and "body.velocity=-diff.normalized()" in tick,"low-health retreat produces actual movement")
