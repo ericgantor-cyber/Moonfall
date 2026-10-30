@@ -121,7 +121,8 @@ func _apply_player_hit(target:Dictionary,base_damage:float,stagger_strength:floa
  v24_popup_index+=1
  var label:Label3D=v24_popups[index]
  label.text=str(ceili(amount))
- label.position=body.global_position+Vector3(0,2.2,0)
+ label.font_size=58 if last_hit_critical else 48
+ label.position=body.global_position+Vector3(0,2.45 if last_hit_critical else 2.2,0)
  label.modulate=Color(1.0,0.74,0.25) if last_hit_critical else Color(0.92,0.95,1.0)
  label.visible=graphics_quality!="Smooth"
  v24_popup_time[index]=V24_POPUP_LIFE
