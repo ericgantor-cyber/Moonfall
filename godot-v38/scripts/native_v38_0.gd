@@ -114,7 +114,7 @@ func _perf_report()->Dictionary:
    var body:CharacterBody3D=beast.get("body") as CharacterBody3D
    if not is_instance_valid(body):continue
    for child in body.get_children():
-    if child is Label3D and child.name.begins_with("DamageFloat"):
+    if child is Label3D and (child.has_meta("damage_float_tween") or child.name.begins_with("DamageFloat")):
      if not child.is_queued_for_deletion():damage_number_count+=1
  report["combat_active_hostiles"]=active_hostiles
  report["combat_damage_floaters"]=damage_number_count
