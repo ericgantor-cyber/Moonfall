@@ -113,11 +113,17 @@ func _start_game(selected_hero:String)->void:
  super._start_game(selected_hero)
  v385_mana=V385_MAX_MANA
 
+func _checkpoint_extra_data()->Dictionary:
+ return {"mana":clampf(v385_mana,0.0,V385_MAX_MANA)}
+
 func _restore_data(data:Dictionary)->void:
  super._restore_data(data)
- # Mana is not yet part of native checkpoint schema; do not carry stale mana
- # between characters or checkpoint loads.
- v385_mana=V385_MAX_MANA
+ var resources:Variant=data.get("optional_resources",{})
+ # Legacy checkpoints without a mana field continue to load at full mana.
+ if resources is Dictionary:
+  v385_mana=clampf(float(resources.get("mana",V385_MAX_MANA)),0.0,V385_MAX_MANA)
+ else:
+  v385_mana=V385_MAX_MANA
 
 func _v384_refresh_vitals()->void:
  if not is_instance_valid(v384_vitals_label):return
