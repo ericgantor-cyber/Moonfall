@@ -23,7 +23,9 @@ func _run()->void:
  check(FORGE.chest_reward(5)["coins"]>FORGE.chest_reward(0)["coins"],"higher region caches award more")
  check(FORGE.carrier_reward(5,"normal")>FORGE.carrier_reward(0,"normal"),"carriers scale with region")
  var profile:String=OS.get_environment("MOONFALL_TEST_PROFILE")
- if profile.is_empty() or not ProjectSettings.globalize_path("user://").begins_with(profile):
+ var profile_normalized:String=profile.replace("\\","/").trim_suffix("/").to_lower()
+ var data_normalized:String=ProjectSettings.globalize_path("user://").replace("\\","/").to_lower()
+ if profile_normalized.is_empty() or not data_normalized.begins_with(profile_normalized+"/"):
   check(false,"requires isolated save profile")
   quit(1)
   return
