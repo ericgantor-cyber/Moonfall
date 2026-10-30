@@ -62,6 +62,9 @@ func _run()->void:
  game.set("v385_mana",5.0)
  game.call("_spell","nova")
  check(is_equal_approx(float(game.get("v385_mana")),5.0),"insufficient mana blocks spell consumption")
+ game.set("v385_mana",42.5)
+ var resource_snapshot:Dictionary=game.call("_checkpoint_extra_data")
+ check(is_equal_approx(float(resource_snapshot.get("mana",-1)),42.5),"checkpoint captures exact remaining mana")
  game.set("v385_mana",100.0)
  check(not (game.get("v380_status_panel") as PanelContainer).visible,"status HUD hidden at title screen")
  var obsolete_title:bool=false
