@@ -30,10 +30,10 @@ func _run()->void:
  check(is_instance_valid(pose) and pose.scale.is_equal_approx(Vector3.ONE),"pose transform has no cumulative scaling")
  check(is_instance_valid(game.get("v380_status_panel")),"optional status panel created")
  check(not (game.get("v380_status_panel") as PanelContainer).visible,"status HUD hidden at title screen")
- var current_title:bool=false
+ var obsolete_title:bool=false
  for label_node in (game.get("start_screen") as Control).find_children("*","Label",true,false):
-  if "MOONFALL v3" in (label_node as Label).text and not "MOONFALL v13" in (label_node as Label).text:current_title=true
- check(current_title,"start screen presents current v38 source")
+  if "MOONFALL NATIVE v13" in (label_node as Label).text:obsolete_title=true
+ check(not obsolete_title and str(game.call("_release_label")).begins_with("v3"),"no obsolete title and active v3x release")
  game.call("_menu_tab","System")
  var body:RichTextLabel=game.get("menu_body") as RichTextLabel
  check(is_instance_valid(body) and "F2" in body.text,"F2 discoverable inside system menu")
