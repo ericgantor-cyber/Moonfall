@@ -105,6 +105,20 @@ func _run()->void:
  game.add_child(other_beast)
  game.call("_show_floating_damage",{"body":other_beast},55,false)
  check(other_beast.get_child_count()==1 and dummy_beast.get_child_count()==6,"floater cap stays independent per target")
+ # v38.3 runtime integration guard: ensure role policy is invoked inside the live beast tick.
+ # This complements pure policy checks but does not replace interactive gameplay testing.
+ var enemy_script:GDScript=load("res://scripts/native_v11.gd") as GDScript
+ check(enemy_script!=null,"native enemy runtime script loads")
+ if enemy_script!=null:
+  var source:String=enemy_script.source_code
+  var tick_start:int=source.find("func _update_beast_step(")
+  var tick_end:int=source.find("\\nfunc ",tick_start+1)
+  var tick:String=source.substr(tick_start,(tick_end-tick_start) if tick_end>tick_start else -1) if tick_start>=0 else ""
+  check(tick_start>=0 and "V383_COMBAT_RULES.combat_intent(" in tick,"combat intent policy invoked in live enemy tick")
+  check("v383_intent==\"retreat\"" in tick and "body.velocity=-diff.normalized()" in tick,"low-health retreat produces actual movement")
+  check("v383_intent==\"strafe\"" in tick and "body.velocity=(flank*orbit_side" in tick,"flank intent produces actual movement")
+  check("if staggered:" in tick and "if staggered:return" in tick,"stagger still prevents attack resolution")
+  check("if bool(beast.get(\"boss\",false)):" in tick,"boss windup attack path preserved")
  game.queue_free()
  print("MOONFALL v38.0 OVERHAUL PASS" if failures==0 else "MOONFALL v38.0 OVERHAUL FAIL")
  quit(0 if failures==0 else 1)
