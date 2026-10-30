@@ -21,3 +21,7 @@ static func boss_telegraph_transparency(elapsed:float,phase:int)->float:
  var speed:float=2.0+float(clampi(phase,1,3)-1)*0.65
  var wave:float=0.5+0.5*sin(maxf(0.0,elapsed)*TAU*speed)
  return 0.05+0.24*wave
+
+## Avoid forcing Godot to rebuild unchanged CylinderMesh geometry every frame.
+static func warning_radius_changed(current_radius:float,target_radius:float)->bool:
+ return not is_equal_approx(current_radius,target_radius)
