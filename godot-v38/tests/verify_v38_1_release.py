@@ -21,7 +21,7 @@ checks={
  'No claim of real GPU or human test': 'gpu_4k_tested = $false' in main and 'human_gameplay_tested = $false' in main,
  'Build-error diagnostic collector excludes saves': all(x in (root/'COLLECT_BUILD_LOGS.ps1').read_text() for x in [
     "'GODOT_*_LOG.txt'",'BUILD_FAILURE_v38_1.txt','Compress-Archive','No game saves or user credentials']),
- 'Offline suite still includes all previous 66 Godot tests':len(re.findall(r'--script res://tests/[\w]+\.gd', (root/'BUILD_WINDOWS.bat').read_text()))==66,
+ 'Offline suite still includes all previous 66 Godot tests':len(re.findall(r'--script res://tests/[\w]+\.gd', (root/'BUILD_WINDOWS.bat').read_text()))==67,
 }
 for file in [root/'.github/workflows/windows-v34_4.yml',root/'tools/github_windows_v34_4.yml']:
  text=file.read_text()
