@@ -15,7 +15,9 @@ func _run() -> void:
  # Never run checkpoint-writing tests against someone's real saved game.
  var sandbox_path: String=OS.get_environment("MOONFALL_TEST_PROFILE")
  var game_data_path: String=OS.get_user_data_dir()
- if sandbox_path.is_empty() or not game_data_path.to_lower().begins_with(sandbox_path.to_lower()):
+ var sandbox_normalized:String=sandbox_path.replace("\\","/").trim_suffix("/").to_lower()
+ var user_normalized:String=game_data_path.replace("\\","/").to_lower()
+ if sandbox_normalized.is_empty() or not user_normalized.begins_with(sandbox_normalized+"/"):
   push_error("Unsafe test save location. Run through tools/run_tests.py or the isolated Windows build script.")
   quit(2)
   return
