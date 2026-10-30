@@ -21,6 +21,16 @@ var v384_vitals_elapsed:float=0.0
 var v385_mana:float=100.0
 const V385_MAX_MANA:float=100.0
 const V385_MANA_REGEN:float=7.0
+const V387_MAX_STAMINA:float=150.0
+const V387_STAMINA_REGEN:float=18.0
+const V387_DODGE_COST:float=28.0
+var v387_stamina:float=V387_MAX_STAMINA
+var v387_stamina_bar:ProgressBar
+var v387_fallback_stamina_bar:ProgressBar
+var v387_stamina_warning:Label
+var v387_stamina_warning_elapsed:float=0.0
+var v387_stamina_regen_wait:float=0.0
+const V387_STAMINA_REGEN_DELAY:float=0.65
 
 func _ready()->void:
  super._ready()
@@ -98,6 +108,28 @@ func _v384_build_vitals()->void:
  v384_vitals_label.add_theme_font_size_override("normal_font_size",16)
  v384_vitals_label.custom_minimum_size=Vector2(205.0,96.0)
  layout.add_child(v384_vitals_label)
+ # Functional green stamina meter even before the custom art PNG is installed.
+ var fallback_stamina:=ProgressBar.new()
+ fallback_stamina.name="V387_FallbackStaminaBar"
+ fallback_stamina.min_value=0.0
+ fallback_stamina.max_value=V387_MAX_STAMINA
+ fallback_stamina.value=v387_stamina
+ fallback_stamina.show_percentage=false
+ fallback_stamina.custom_minimum_size=Vector2(110.0,14.0)
+ fallback_stamina.mouse_filter=Control.MOUSE_FILTER_IGNORE
+ var fallback_fill:=StyleBoxFlat.new()
+ fallback_fill.bg_color=Color("#69e26b")
+ fallback_fill.set_corner_radius_all(4)
+ fallback_stamina.add_theme_stylebox_override("fill",fallback_fill)
+ layout.add_child(fallback_stamina)
+ v387_fallback_stamina_bar=fallback_stamina
+ v387_stamina_warning=Label.new()
+ v387_stamina_warning.name="V387_LowStaminaWarning"
+ v387_stamina_warning.text="LOW STAMINA"
+ v387_stamina_warning.add_theme_font_size_override("font_size",12)
+ v387_stamina_warning.add_theme_color_override("font_color",Color("#ffd16e"))
+ v387_stamina_warning.visible=false
+ layout.add_child(v387_stamina_warning)
  v384_vitals_panel.visible=false
  # Use the user's HUD PNG when present; fall back to functional meters otherwise.
  if ResourceLoader.exists("res://assets/ui/moonfall_orb_hud.png"):
@@ -128,6 +160,39 @@ func _v384_build_vitals()->void:
   v386_orb_values=Label.new()
   v386_orb_values.mouse_filter=Control.MOUSE_FILTER_IGNORE
   overlay.add_child(v386_orb_values)
+  v387_stamina_bar=ProgressBar.new()
+  v387_stamina_bar.name="V387_StaminaBar"
+  v387_stamina_bar.min_value=0.0
+  v387_stamina_bar.max_value=V387_MAX_STAMINA
+  v387_stamina_bar.value=v387_stamina
+  v387_stamina_bar.show_percentage=false
+  v387_stamina_bar.mouse_filter=Control.MOUSE_FILTER_IGNORE
+  var stamina_fill:=StyleBoxFlat.new()
+  stamina_fill.bg_color=Color("#69e26b")
+  stamina_fill.set_corner_radius_all(5)
+  v387_stamina_bar.add_theme_stylebox_override("fill",stamina_fill)
+  var stamina_track:=StyleBoxFlat.new()
+  stamina_track.bg_color=Color(0.04,0.14,0.06,0.85)
+  stamina_track.set_corner_radius_all(5)
+  v387_stamina_bar.add_theme_stylebox_override("background",stamina_track)
+  overlay.add_child(v387_stamina_bar)
+  v387_stamina_bar.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+  v387_stamina_bar.offset_left=24.0
+  v387_stamina_bar.offset_right=-24.0
+  v387_stamina_bar.offset_top=-48.0
+  v387_stamina_bar.offset_bottom=-36.0
+  # Keep the low-resource cue available alongside the artwork, without a HUD box.
+  var low_stam_hint:=Label.new()
+  low_stam_hint.name="V387_OrbLowStamina"
+  low_stam_hint.text="LOW STAMINA"
+  low_stam_hint.add_theme_font_size_override("font_size",12)
+  low_stam_hint.add_theme_color_override("font_color",Color("#ffd16e"))
+  overlay.add_child(low_stam_hint)
+  low_stam_hint.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+  low_stam_hint.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+  low_stam_hint.offset_top=-70.0
+  low_stam_hint.offset_bottom=-50.0
+  low_stam_hint.visible=false
   v386_orb_values.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
   v386_orb_values.offset_left=6.0
   v386_orb_values.offset_right=237.0
@@ -155,28 +220,52 @@ func _spell(which:String)->void:
  v385_mana-=cost
  super._spell(which)
 
+func _dodge()->void:
+ if mounted or dodge_cooldown>0.0:
+  super._dodge()
+  return
+ if v387_stamina<V387_DODGE_COST:
+  _show_message("Not enough stamina to dodge.",1.0)
+  return
+ # Only charge stamina when a dodge can actually begin.
+ if not hero_playing or menu_open or death_active:return
+ v387_stamina-=V387_DODGE_COST
+ v387_stamina_regen_wait=V387_STAMINA_REGEN_DELAY
+ super._dodge()
+
 func _start_game(selected_hero:String)->void:
  super._start_game(selected_hero)
  v385_mana=V385_MAX_MANA
+ v387_stamina=V387_MAX_STAMINA
+ v387_stamina_regen_wait=0.0
 
 func _checkpoint_extra_data()->Dictionary:
- return {"mana":clampf(v385_mana,0.0,V385_MAX_MANA)}
+ return {"mana":clampf(v385_mana,0.0,V385_MAX_MANA),"stamina":clampf(v387_stamina,0.0,V387_MAX_STAMINA)}
 
 func _restore_data(data:Dictionary)->void:
  super._restore_data(data)
+ v387_stamina_regen_wait=0.0
  var resources:Variant=data.get("optional_resources",{})
  # Legacy checkpoints without a mana field continue to load at full mana.
  if resources is Dictionary:
   v385_mana=clampf(float(resources.get("mana",V385_MAX_MANA)),0.0,V385_MAX_MANA)
+  v387_stamina=clampf(float(resources.get("stamina",V387_MAX_STAMINA)),0.0,V387_MAX_STAMINA)
  else:
   v385_mana=V385_MAX_MANA
+  v387_stamina=V387_MAX_STAMINA
 
 func _v384_refresh_vitals()->void:
+ if is_instance_valid(v387_stamina_bar):
+  v387_stamina_bar.value=clampf(v387_stamina,0.0,V387_MAX_STAMINA)
+  var orb_hint:Label=v387_stamina_bar.get_parent().get_node_or_null("V387_OrbLowStamina") as Label
+  if is_instance_valid(orb_hint):orb_hint.visible=v387_stamina<V387_DODGE_COST
+ if is_instance_valid(v387_fallback_stamina_bar):v387_fallback_stamina_bar.value=clampf(v387_stamina,0.0,V387_MAX_STAMINA)
+ if is_instance_valid(v387_stamina_warning):v387_stamina_warning.visible=v387_stamina<V387_DODGE_COST
  if is_instance_valid(v386_orb_values):
   var hp_value:int=clampi(roundi(hp),0,maxi(1,roundi(max_hp)))
   var mana_value:int=clampi(roundi(v385_mana),0,roundi(V385_MAX_MANA))
   var xp_value:int=clampi(hero_xp,0,maxi(1,hero_xp_to_next))
-  v386_orb_values.text="♥ %d/%d   ◆ %d/%d   ✦ %d/%d" % [hp_value,roundi(max_hp),mana_value,roundi(V385_MAX_MANA),xp_value,hero_xp_to_next]
+  v386_orb_values.text="♥ %d/%d   ◆ %d/%d   ✦ %d/%d   STAM %d/%d" % [hp_value,roundi(max_hp),mana_value,roundi(V385_MAX_MANA),xp_value,hero_xp_to_next,roundi(v387_stamina),roundi(V387_MAX_STAMINA)]
  if not is_instance_valid(v384_vitals_label):return
  if is_instance_valid(v384_rings):
   v384_rings.call("set_vitals",hp/maxf(1.0,max_hp),float(hero_xp)/float(maxi(1,hero_xp_to_next)))
@@ -185,7 +274,7 @@ func _v384_refresh_vitals()->void:
  var experience:int=maxi(0,hero_xp)
  var experience_target:int=maxi(1,hero_xp_to_next)
  # This display is backed by the spell-cost resource in v38.5.
- v384_vitals_label.text="[color=#ff555f]● HP   %d / %d[/color]\\n[color=#5caeff]● MANA   %d / %d[/color]\\n[color=#b786ff]● XP   %d / %d[/color]" % [health,health_max,roundi(v385_mana),roundi(V385_MAX_MANA),experience,experience_target]
+ v384_vitals_label.text="[color=#ff555f]● HP   %d / %d[/color]\\n[color=#5caeff]● MANA   %d / %d[/color]\\n[color=#b786ff]● XP   %d / %d[/color]\\n[color=#69e26b]● STAM   %d / %d[/color]" % [health,health_max,roundi(v385_mana),roundi(V385_MAX_MANA),experience,experience_target,roundi(v387_stamina),roundi(V387_MAX_STAMINA)]
 
 func _unhandled_key_input(event:InputEvent)->void:
  if event is InputEventKey and event.pressed and not event.echo and event.keycode==KEY_F2 and hero_playing and not menu_open:
@@ -203,6 +292,12 @@ func _process(delta:float)->void:
  super._process(delta)
  if hero_playing and not death_active and not menu_open:
   v385_mana=minf(V385_MAX_MANA,v385_mana+V385_MANA_REGEN*maxf(0.0,delta))
+  var stamina_step:float=maxf(0.0,delta)
+  if v387_stamina_regen_wait>0.0:
+   var delay_used:float=minf(v387_stamina_regen_wait,stamina_step)
+   v387_stamina_regen_wait-=delay_used
+   stamina_step-=delay_used
+  if stamina_step>0.0:v387_stamina=minf(V387_MAX_STAMINA,v387_stamina+V387_STAMINA_REGEN*stamina_step)
  if is_instance_valid(v384_vitals_panel):
   var vitals_visible:bool=hero_playing and not death_active and not menu_open
   v384_vitals_panel.visible=vitals_visible
