@@ -74,6 +74,10 @@ func _run()->void:
  check(is_equal_approx(float(stamina_snapshot.get("stamina",-1.0)),42.0),"stamina included in checkpoint")
  var stamina_ui_source:String=FileAccess.get_file_as_string("res://scripts/native_v38_0.gd")
  check("V387_StaminaBar" in stamina_ui_source and "stamina_fill.bg_color" in stamina_ui_source,"custom orb HUD includes green stamina fill")
+ var fallback_stamina:ProgressBar=game.get_node_or_null("NativeAtlasUI/V384_Vitals/HBoxContainer/V387_FallbackStaminaBar") as ProgressBar
+ check(is_instance_valid(fallback_stamina),"green stamina bar available without custom artwork")
+ game.call("_v384_refresh_vitals")
+ if is_instance_valid(fallback_stamina):check(is_equal_approx(fallback_stamina.value,42.0),"fallback stamina bar reflects current resource")
  game.set("v387_stamina",0.0)
  game.call("_dodge")
  check(is_equal_approx(float(game.get("v387_stamina")),0.0),"dodge blocked with exhausted stamina")
