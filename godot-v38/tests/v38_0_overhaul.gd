@@ -65,6 +65,9 @@ func _run()->void:
  check(perf.has("combat_sample_count") and int(perf["combat_sample_count"])==0,"FPS samples disabled at title")
  check(perf.has("combat_sample_min_fps") and perf.has("combat_sample_avg_fps"),"FPS summary exported to performance report")
  check(perf.has("combat_peak_hostiles") and int(perf["combat_peak_hostiles"])==0,"hostile peak is zero before gameplay")
+ check(perf.has("combat_encounter_sample_count") and int(perf["combat_encounter_sample_count"])==0,"combat-only FPS history starts empty")
+ check(perf.has("combat_encounter_avg_fps") and int(perf["combat_encounter_avg_fps"])==0,"empty combat FPS average never invents data")
+ check(perf.has("combat_encounter_min_fps") and int(perf["combat_encounter_min_fps"])==0,"empty combat FPS minimum never invents data")
  # Burst-hit smoke test: cap at six labels per target, recycle instead of allocating.
  var dummy_beast:=CharacterBody3D.new()
  game.add_child(dummy_beast)
