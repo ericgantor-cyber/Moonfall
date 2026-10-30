@@ -1880,8 +1880,12 @@ func _show_floating_damage(target:Dictionary,amount:int,critical:bool)->void:
  label.billboard=BaseMaterial3D.BILLBOARD_ENABLED
  label.no_depth_test=true
  label.modulate=Color("fff8d2") if critical else Color("fff4e8")
- var side:float=-0.3 if active_count%2==0 else 0.3
- label.position=Vector3(side,1.65+0.12*float(active_count%3),0.0)
+ # Use the hit sequence, not the capped label count, to keep rapid hits
+ # alternating across sides and vertical lanes after recycling begins.
+ var hit_sequence:int=int(target.get("damage_float_sequence",0))
+ target["damage_float_sequence"]=hit_sequence+1
+ var side:float=-0.3 if hit_sequence%2==0 else 0.3
+ label.position=Vector3(side,1.65+0.12*float(hit_sequence%3),0.0)
  # Floaters still self-clean after their short animation. No permanent pools.
  var finish:Vector3=label.position+Vector3(side*0.35,1.05 if critical else 0.6,0.0)
  var tween:Tween=label.create_tween()
