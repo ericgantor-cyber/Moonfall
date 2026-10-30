@@ -1782,6 +1782,8 @@ func _set_boss_telegraph(beast:Dictionary,active:bool) -> void:
  var node:MeshInstance3D=boss_telegraphs[id]
  if not is_instance_valid(node):return
  node.visible=active
+ # Warn at the true hit radius; subtle faster opacity pulses in later phases.
+ node.transparency=V383_FEEDBACK.boss_telegraph_transparency(map_time,int(beast.get("boss_phase",1))) if active else 0.0
  if active:
   var body:CharacterBody3D=beast["body"]
   if is_instance_valid(body):
