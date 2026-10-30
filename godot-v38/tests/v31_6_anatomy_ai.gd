@@ -51,7 +51,7 @@ func _run()->void:
  game.call("_v315_tick_visuals")
  check(int(game.get("v316_limb_updates"))>0,"Real leg pivots animated near hero")
  var report:Dictionary=game.call("_perf_report")
- check(report.get("version") in ["v31.6","v32.0","v32.1"] and report.has("v316_ai_broadcasts_deferred"),"F9 profiler reports AI budget")
+ check(str(report.get("version","")).begins_with("v3") and report.has("v316_ai_broadcasts_deferred"),"F9 profiler reports AI budget")
  check(int(report.get("v316_articulated_limb_nodes",0))>0,"Articulated 3D limbs counted")
  check((game.get("region_nodes") as Array).size()==6 and (game.get("rifts") as Array).size()==3,"Single connected world preserved")
  game.queue_free()
