@@ -1848,7 +1848,8 @@ func _show_floating_damage(target:Dictionary,amount:int,critical:bool)->void:
  if critical:
   label.scale=Vector3.ONE*1.3
   tween.tween_property(label,"scale",Vector3.ONE,0.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-  tween.tween_property(label,"modulate",Color("ffd34d"),0.24).set_delay(0.10)
+  tween.tween_property(label,"modulate:g",0.827,0.24).set_delay(0.10)
+  tween.tween_property(label,"modulate:b",0.302,0.24).set_delay(0.10)
  tween.set_parallel(false)
  tween.tween_callback(label.queue_free)
 
