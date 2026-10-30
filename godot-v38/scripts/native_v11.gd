@@ -1,4 +1,5 @@
 extends "res://scripts/main.gd"
+const V383_COMBAT_RULES:=preload("res://scripts/systems/procedural_variants_v382.gd")
 const MINI_MAP_SCRIPT := preload("res://scripts/native_minimap.gd")
 # v26: Stateless modules isolate persistence and progression from the world scene.
 const SAVE_STORE := preload("res://scripts/systems/checkpoint_store.gd")
@@ -1562,12 +1563,21 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
  var perception:float=AI_RULES.perception(map_time<float(beast.get("alert_until",0.0)),weather_name,_day_phase()=="Night")
  var engaged:=is_hostile and distance<perception and _has_clear_sight(body,player)
  beast["engaged"]=engaged
+ # v38.3: role-aware low-health retreat for live hostile fauna.
+ # Preserve existing boss telegraphs, ecology, attacks and actor pools.
+ var v383_intent:String=""
+ if engaged and not bool(beast.get("boss",false)):
+  var v383_role:String="ambusher" if kind=="panther" else "bruiser"
+  var v383_health:float=float(beast.get("hp",1.0))/maxf(1.0,float(beast.get("max",1.0)))
+  v383_intent=V383_COMBAT_RULES.combat_intent(v383_role,distance,v383_health,float(beast["attack"])<=0.0,true)
  var activity:Dictionary=beast.get("ecology_target",{})
  var pursuing:=not activity.is_empty() and map_time<float(beast.get("hunting_until",0.0)) and not engaged and not bool(beast.get("boss",false))
  if staggered:
   body.velocity=Vector3.ZERO
  elif engaged and map_time<float(beast.get("retreat_until",0.0)) and distance<10.0:
   body.velocity=-diff.normalized()*move_speed*0.9
+ elif engaged and v383_intent=="retreat" and distance<8.0:
+  body.velocity=-diff.normalized()*move_speed*0.85
  elif engaged and distance>1.7:
   body.velocity=AI_RULES.approach(diff,move_speed,int(beast["boss_id"]),bool(beast.get("boss",false)),int(beast.get("boss_phase",1)),distance)
  elif not is_hostile and (distance<6.0 or map_time<float(beast.get("scared_until",0.0))):
