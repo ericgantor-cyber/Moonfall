@@ -99,7 +99,9 @@ func _v384_build_vitals()->void:
  v384_vitals_panel.visible=false
 
 func _spell(which:String)->void:
- if mounted or ability_cooldown>0.0:return super._spell(which)
+ if mounted or ability_cooldown>0.0:
+  super._spell(which)
+  return
  var cost:float=15.0 if which=="dash" else 25.0 if which=="nova" else 30.0
  if v385_mana<cost:
   _show_message("Not enough mana! Need "+str(roundi(cost))+".",1.3)
@@ -108,8 +110,14 @@ func _spell(which:String)->void:
  super._spell(which)
 
 func _start_game(selected_hero:String)->void:
- v385_mana=V385_MAX_MANA
  super._start_game(selected_hero)
+ v385_mana=V385_MAX_MANA
+
+func _restore_data(data:Dictionary)->void:
+ super._restore_data(data)
+ # Mana is not yet part of native checkpoint schema; do not carry stale mana
+ # between characters or checkpoint loads.
+ v385_mana=V385_MAX_MANA
 
 func _v384_refresh_vitals()->void:
  if not is_instance_valid(v384_vitals_label):return
