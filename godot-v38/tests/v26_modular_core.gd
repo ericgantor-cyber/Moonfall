@@ -34,8 +34,11 @@ func _run() -> void:
  check(unknown["rarity"]=="Common" and unknown["power"]==0 and not unknown.has("affix"),"invalid gear rarity sanitized")
  # Must be isolated from any live checkpoint directory.
  var profile:String=OS.get_environment("MOONFALL_TEST_PROFILE")
- check(not profile.is_empty() and ProjectSettings.globalize_path("user://").begins_with(profile),"isolated test profile")
- if profile.is_empty() or not ProjectSettings.globalize_path("user://").begins_with(profile):
+ var profile_normalized:String=profile.replace("\\","/").trim_suffix("/").to_lower()
+ var user_path_normalized:String=ProjectSettings.globalize_path("user://").replace("\\","/").to_lower()
+ var isolated:bool=not profile_normalized.is_empty() and user_path_normalized.begins_with(profile_normalized+"/")
+ check(isolated,"isolated test profile")
+ if not isolated:
   game.queue_free()
   quit(1)
   return
