@@ -32,6 +32,17 @@ func _run()->void:
  for hit in hit_distances:
   var safe:float=RULES.safe_distance(hit)
   check(safe>=2.4 and is_equal_approx(safe,maxf(2.4,hit-0.55)),"camera collision clearance "+str(hit))
+ # 44 additional deterministic movement and camera geometry cases.
+ # Eight direction vectors across multiple yaw angles, plus edge cases.
+ var directions:=[Vector3(0,0,-1),Vector3(0,0,1),Vector3(-1,0,0),Vector3(1,0,0),Vector3(-1,0,-1),Vector3(1,0,-1),Vector3(-1,0,1),Vector3(1,0,1)]
+ var movement_yaws:=[0.0,0.78539816339,1.57079632679,3.14159265359,4.71238898038]
+ for yaw in movement_yaws:
+  for direction in directions:
+   var mapped:Vector3=RULES.move_relative(direction,yaw)
+   check(mapped.is_finite() and is_equal_approx(mapped.y,0.0) and mapped.length()<=1.001 and mapped.length()>0.01,"camera-relative movement direction "+str(yaw)+" "+str(direction))
+ for direction in [Vector3.ZERO,Vector3(0,2,0),Vector3(0,-2,0),Vector3(0.0001,0,0.0001)]:
+  var mapped:Vector3=RULES.move_relative(direction,0.0)
+  check(mapped.is_finite() and is_equal_approx(mapped.y,0.0) and mapped.length()<=1.001,"degenerate movement input "+str(direction))
  var game:Node3D=load("res://scenes/main.tscn").instantiate()
  root.add_child(game)
  await process_frame
