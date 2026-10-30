@@ -77,7 +77,7 @@ func _run()->void:
  var prey_outside:=Vector3(6.0,0.0,0.0)
  check(prey_inside.distance_squared_to(chase_origin)<5.8*5.8,"prey inside range is eligible")
  check(prey_outside.distance_squared_to(chase_origin)>=5.8*5.8,"prey outside range is excluded")
- check(not prey_inside.distance_squared_to(chase_origin)<5.0*5.0,"strict range excludes exact boundary")
+ check(prey_inside.distance_squared_to(chase_origin)>=5.0*5.0,"strict range excludes exact boundary")
  check(prey_inside.distance_squared_to(chase_origin)>16.0,"distant wildlife returns toward home")
  check(prey_inside.distance_squared_to(chase_origin)<64.0,"nearby targets block respawn by radius")
  var boss_mark:=Vector2(0.0,0.0)
