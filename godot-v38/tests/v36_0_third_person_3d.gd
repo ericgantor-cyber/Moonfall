@@ -62,6 +62,17 @@ func _run()->void:
  for hit in hit_cases:
   var safe:float=RULES.safe_distance(hit)
   check(is_finite(safe) and safe>=2.4 and safe<=maxf(2.4,hit),"camera collision setback "+str(hit))
+ # 44 additional movement invariants: 11 yaw angles x 4 cardinal directions.
+ var precision_yaws:=[-6.28318530718,-3.14159265359,-1.57079632679,-0.78539816339,-0.1,0.0,0.1,0.78539816339,1.57079632679,3.14159265359,6.28318530718]
+ var cardinal_inputs:=[Vector3.FORWARD,Vector3.BACK,Vector3.LEFT,Vector3.RIGHT]
+ for yaw in precision_yaws:
+  var forward:Vector3=RULES.move_relative(Vector3.FORWARD,yaw)
+  var backward:Vector3=RULES.move_relative(Vector3.BACK,yaw)
+  var left:Vector3=RULES.move_relative(Vector3.LEFT,yaw)
+  var right:Vector3=RULES.move_relative(Vector3.RIGHT,yaw)
+  for input in cardinal_inputs:
+   var mapped:Vector3=RULES.move_relative(input,yaw)
+   check(mapped.is_finite() and absf(mapped.length()-1.0)<0.001 and absf(mapped.y)<0.001 and absf(forward.dot(right))<0.001 and (forward+backward).length()<0.001 and (left+right).length()<0.001,"cardinal movement orthogonality "+str(yaw)+" "+str(input))
  var game:Node3D=load("res://scenes/main.tscn").instantiate()
  root.add_child(game)
  await process_frame
