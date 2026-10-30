@@ -225,6 +225,8 @@ func _dodge()->void:
  if v387_stamina<V387_DODGE_COST:
   _show_message("Not enough stamina to dodge.",1.0)
   return
+ # Only charge stamina when a dodge can actually begin.
+ if not hero_playing or menu_open or death_active:return
  v387_stamina-=V387_DODGE_COST
  v387_stamina_regen_wait=V387_STAMINA_REGEN_DELAY
  super._dodge()
