@@ -251,9 +251,9 @@ func _attack()->void:
  if not hero_playing or menu_open or death_active:
   v390_blocked_attacks+=1
   return
- if mounted or attack_cooldown>0.0:return
- v390_valid_attacks+=1
+ var cooldown_before:float=attack_cooldown
  super._attack()
+ if attack_cooldown>cooldown_before:v390_valid_attacks+=1
 
 func _spell(which:String)->void:
  # Rejected combat inputs must never consume mana while menus or death screens are active.
