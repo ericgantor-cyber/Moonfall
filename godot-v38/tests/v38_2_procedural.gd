@@ -1,5 +1,6 @@
 extends SceneTree
 const GEN:=preload("res://scripts/systems/procedural_variants_v382.gd")
+const FEEDBACK:=preload("res://scripts/systems/combat_feedback_v383.gd")
 var failures:int=0
 func check(ok:bool,label:String)->void:
  if ok:print("PASS procedural: "+label)
@@ -35,5 +36,12 @@ func _run()->void:
  check(GEN.combat_intent("ambusher",8.0,0.1,true,true)=="retreat","injured agile enemy retreats")
  check(GEN.combat_intent("guardian",-50.0,99.0,true,true)=="attack","invalid distance and HP clamp safely")
  check(GEN.combat_intent("sniper",8.0,1.0,true,true)==GEN.combat_intent("sniper",8.0,1.0,true,true),"AI intent deterministic")
+ check(is_equal_approx(FEEDBACK.recoil_degrees(0.0,false),0.0),"hit recoil ends at zero")
+ check(is_equal_approx(FEEDBACK.recoil_degrees(-100.0,true),0.0),"negative recoil duration safely clamped")
+ check(is_equal_approx(FEEDBACK.recoil_degrees(FEEDBACK.REACTION_SECONDS,false),9.0),"normal hits have bounded recoil")
+ check(is_equal_approx(FEEDBACK.recoil_degrees(FEEDBACK.REACTION_SECONDS,true),14.0),"critical hits have stronger bounded recoil")
+ check(is_equal_approx(FEEDBACK.recoil_degrees(1000.0,true),14.0),"critical recoil cannot exceed cap")
+ check(FEEDBACK.recoil_degrees(FEEDBACK.REACTION_SECONDS*0.5,false)<FEEDBACK.recoil_degrees(FEEDBACK.REACTION_SECONDS,false),"hit recoil smoothly diminishes")
+ check(FEEDBACK.recoil_degrees(FEEDBACK.REACTION_SECONDS*0.5,true)>FEEDBACK.recoil_degrees(FEEDBACK.REACTION_SECONDS*0.5,false),"critical recoil remains stronger through fade")
  print("MOONFALL v38.2 PROCEDURAL PASS" if failures==0 else "MOONFALL v38.2 PROCEDURAL FAIL")
  quit(0 if failures==0 else 1)
