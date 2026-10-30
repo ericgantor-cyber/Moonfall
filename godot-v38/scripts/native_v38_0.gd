@@ -120,12 +120,14 @@ func _v384_build_vitals()->void:
   v384_vitals_panel.add_child(overlay)
   v386_orb_image=TextureRect.new()
   v386_orb_image.set_texture(load("res://assets/ui/moonfall_orb_hud.png"))
-  v386_orb_image.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
   v386_orb_image.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
   v386_orb_image.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
   v386_orb_image.mouse_filter=Control.MOUSE_FILTER_IGNORE
   overlay.add_child(v386_orb_image)
+  v386_orb_image.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
   v386_orb_values=Label.new()
+  v386_orb_values.mouse_filter=Control.MOUSE_FILTER_IGNORE
+  overlay.add_child(v386_orb_values)
   v386_orb_values.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
   v386_orb_values.offset_left=6.0
   v386_orb_values.offset_right=237.0
@@ -137,8 +139,6 @@ func _v384_build_vitals()->void:
   v386_orb_values.add_theme_constant_override("shadow_offset_x",1)
   v386_orb_values.add_theme_constant_override("shadow_offset_y",2)
   v386_orb_values.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
-  v386_orb_values.mouse_filter=Control.MOUSE_FILTER_IGNORE
-  overlay.add_child(v386_orb_values)
   layer.add_child(v384_vitals_panel)
   v384_vitals_panel.visible=false
   plain_vitals.name="V384_BackupVitals"
