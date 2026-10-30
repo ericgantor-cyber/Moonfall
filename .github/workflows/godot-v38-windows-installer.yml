@@ -166,8 +166,9 @@ jobs:
           $menu = Join-Path ([Environment]::GetFolderPath('Programs')) 'Moonfall Native.lnk'
           if (!(Test-Path $desktop)) { throw 'Desktop shortcut missing' }
           if (!(Test-Path $menu)) { throw 'Start Menu shortcut missing' }
-          & $game --headless --quit-after 180 *> installed-run.log
-          if ($LASTEXITCODE -ne 0) { throw "Installed game failed: $LASTEXITCODE" }
+          # Use a process handle so exit code is reliable even when pwsh native redirection leaves LASTEXITCODE unset.
+          $installedRun = Start-Process -FilePath $game -ArgumentList '--headless','--quit-after','180' -PassThru -Wait -RedirectStandardOutput 'installed-run.log' -RedirectStandardError 'installed-run-errors.log'
+          if ($installedRun.ExitCode -ne 0) { throw "Installed game failed: $($installedRun.ExitCode)" }
           $output = Get-Content 'installed-run.log' -Raw
           if ($output -match 'SCRIPT ERROR|Parse Error') { throw 'Godot script errors during installed run' }
           $uninstaller = Join-Path $appDir 'unins000.exe'
@@ -190,7 +191,7 @@ jobs:
             release_stage = 'v38.0 Windows build handoff'
             windows_runner = $env:RUNNER_NAME
             github_sha = $env:GITHUB_SHA
-            test_result = 'passed 66 CI engine suites and installed-game smoke'
+            test_result = 'passed 67 CI engine suites and installed-game smoke'
             game_sha256 = (Get-FileHash $game -Algorithm SHA256).Hash.ToLowerInvariant()
             installer_sha256 = (Get-FileHash $setup -Algorithm SHA256).Hash.ToLowerInvariant()
             real_gpu_4k_tested = $false
@@ -210,7 +211,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Moonfall-v34_4-windows-installer
-          path: Release_Windows/Moonfall_Native_v34_4_Windows_Setup.exe
+          path: godot-v38/Release_Windows/Moonfall_Native_v34_4_Windows_Setup.exe
           if-no-files-found: error
       - name: Upload test logs on failure
         if: failure()
@@ -220,4 +221,5 @@ jobs:
           path: |
             godot-v38/GODOT_*_LOG.txt
             godot-v38/installed-run.log
+            godot-v38/installed-run-errors.log
           if-no-files-found: ignore
