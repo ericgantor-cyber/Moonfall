@@ -90,6 +90,7 @@ func _run()->void:
  game.call("_dodge")
  check(is_equal_approx(float(game.get("v387_stamina")),122.0),"successful dodge spends exactly 28 stamina")
  check(float(game.get("dodge_cooldown"))>0.0,"successful dodge retains original cooldown")
+ check(float(game.get("v387_stamina_regen_wait"))>0.0,"stamina regen briefly pauses after dodge")
  game.set("dodge_cooldown",0.0)
  game.set("v387_stamina",150.0)
  check(not (game.get("v380_status_panel") as PanelContainer).visible,"status HUD hidden at title screen")
