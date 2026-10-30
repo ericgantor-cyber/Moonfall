@@ -43,6 +43,25 @@ func _run()->void:
  for direction in [Vector3.ZERO,Vector3(0,2,0),Vector3(0,-2,0),Vector3(0.0001,0,0.0001)]:
   var mapped:Vector3=RULES.move_relative(direction,0.0)
   check(mapped.is_finite() and is_equal_approx(mapped.y,0.0) and mapped.length()<=1.001,"degenerate movement input "+str(direction))
+ # 44 more camera geometry regressions: pitch clamping and orbit symmetry.
+ var orbit_pitches:=[-10.0,-1.0,0.0,0.21,0.35,0.56,0.85,1.13,1.5,3.0,10.0]
+ for pitch in orbit_pitches:
+  var offset:Vector3=RULES.camera_offset(0.0,pitch,RULES.DEFAULT_DISTANCE)
+  check(offset.is_finite() and absf(offset.length()-RULES.DEFAULT_DISTANCE)<0.001 and offset.y>=0.0,"pitch-clamped orbit geometry "+str(pitch))
+ var zoom_samples:=[-100.0,0.0,8.0,12.0,15.0,17.5,19.0,20.5,23.0,31.0,100.0]
+ for sample in zoom_samples:
+  var distance:float=RULES.zoom_from_legacy(sample)
+  var offset:Vector3=RULES.camera_offset(RULES.DEFAULT_YAW,RULES.DEFAULT_PITCH,distance)
+  check(offset.is_finite() and absf(offset.length()-distance)<0.001,"zoom distance matches orbit geometry "+str(sample))
+ var symmetry_angles:=[0.0,0.3,0.78539816339,1.0,1.57,2.0,2.5,3.14,4.0,5.0,6.0]
+ for angle in symmetry_angles:
+  var left:Vector3=RULES.camera_offset(angle,RULES.DEFAULT_PITCH,RULES.DEFAULT_DISTANCE)
+  var right:Vector3=RULES.camera_offset(-angle,RULES.DEFAULT_PITCH,RULES.DEFAULT_DISTANCE)
+  check(absf(left.x+right.x)<0.001 and absf(left.z-right.z)<0.001,"orbit yaw symmetry "+str(angle))
+ var hit_cases:=[-100.0,-1.0,0.0,0.5,1.0,2.4,2.95,4.0,6.0,15.0,100.0]
+ for hit in hit_cases:
+  var safe:float=RULES.safe_distance(hit)
+  check(is_finite(safe) and safe>=2.4 and safe<=maxf(2.4,hit),"camera collision setback "+str(hit))
  var game:Node3D=load("res://scenes/main.tscn").instantiate()
  root.add_child(game)
  await process_frame
