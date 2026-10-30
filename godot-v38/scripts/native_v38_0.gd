@@ -213,6 +213,8 @@ func _v384_build_vitals()->void:
 
 
 func _spell(which:String)->void:
+ # Rejected combat inputs must never consume mana while menus or death screens are active.
+ if not hero_playing or menu_open or death_active:return
  if mounted or ability_cooldown>0.0:
   super._spell(which)
   return
