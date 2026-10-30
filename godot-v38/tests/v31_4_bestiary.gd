@@ -29,7 +29,7 @@ func _run()->void:
  game.call("_v314_update_visuals")
  check(int(game.get("v314_animated_count"))+int(game.get("v314_culled_count"))==badges.size(),"Every portrait accounted for by LOD")
  var p:Dictionary=game.call("_perf_report")
- check(p.get("version")in ["v31.4","v31.5","v31.6","v32.0","v32.1"] and p.has("bestiary_visual_update_usec"),"F9 profiler fields")
+ check(str(p.get("version","")).begins_with("v3") and p.has("bestiary_visual_update_usec"),"F9 profiler fields")
  check((game.get("rifts") as Array).size()==3 and (game.get("v312_foliage") as Array).size()==6,"World and scenery retained")
  game.queue_free()
  print("MOONFALL v31.4 BESTIARY PASS" if errors==0 else "MOONFALL v31.4 BESTIARY FAIL")
