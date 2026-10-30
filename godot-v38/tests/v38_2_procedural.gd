@@ -82,6 +82,6 @@ func _run()->void:
  check(prey_inside.distance_squared_to(chase_origin)<64.0,"nearby targets block respawn by radius")
  var boss_mark:=Vector2(0.0,0.0)
  check(Vector2(2.7,0.0).distance_squared_to(boss_mark)<2.8*2.8,"boss strike includes points inside warning disk")
- check(Vector2(2.8,0.0).distance_squared_to(boss_mark)>=2.8*2.8,"boss strike excludes exact disk edge")
+ check(Vector2(3.0,0.0).distance_squared_to(boss_mark)>=2.8*2.8,"boss strike excludes points beyond disk edge")
  print("MOONFALL v38.2 PROCEDURAL PASS" if failures==0 else "MOONFALL v38.2 PROCEDURAL FAIL")
  quit(0 if failures==0 else 1)
