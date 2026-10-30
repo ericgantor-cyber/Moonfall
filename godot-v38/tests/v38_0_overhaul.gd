@@ -72,6 +72,8 @@ func _run()->void:
  for hit_number in range(6):
   game.call("_show_floating_damage",dummy_target,hit_number+1,false)
  check(dummy_beast.get_child_count()==6,"first six hits create exactly six floaters")
+ var original_floater_ids:Array[int]=[]
+ for child in dummy_beast.get_children():original_floater_ids.append(child.get_instance_id())
  var tracked_floaters:int=0
  for child in dummy_beast.get_children():
   if child is Label3D and child.has_meta("damage_float_tween"):tracked_floaters+=1
@@ -83,6 +85,10 @@ func _run()->void:
  for hit_number in range(30):
   game.call("_show_floating_damage",dummy_target,hit_number+100,hit_number%2==0)
  check(dummy_beast.get_child_count()==6,"repeated burst hits never exceed the six-label cap")
+ var same_floaters:bool=true
+ for child in dummy_beast.get_children():
+  if not (child.get_instance_id() in original_floater_ids):same_floaters=false
+ check(same_floaters,"burst damage reuses the original six labels rather than allocating more")
  var other_beast:=CharacterBody3D.new()
  game.add_child(other_beast)
  game.call("_show_floating_damage",{"body":other_beast},55,false)
