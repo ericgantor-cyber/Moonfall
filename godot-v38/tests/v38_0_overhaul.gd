@@ -53,8 +53,9 @@ func _run()->void:
  check("res://assets/ui/moonfall_orb_hud.png" in orb_source,"original orb HUD asset path supported")
  check("res://assets/ui/a_high_detail_fantasy_rpg_hud_game_ui_overlay_on.png" in orb_source,"uploaded four-resource artwork prioritized")
  check("ResourceLoader.exists(selected_hud_art)" in orb_source,"missing image falls back without breaking HUD")
- check("v386_orb_values.offset_top=-58.0" in orb_source and "v387_stamina_bar.offset_top=-80.0" in orb_source,"four numeric values and stamina bar use separate HUD rows")
- check("STAM %d/%d" in orb_source,"stamina value displays alongside HP mana and XP")
+ check("overlay.custom_minimum_size=Vector2(420,280)" in orb_source,"four-resource artwork retains landscape ratio")
+ check("v386_orb_values.offset_top=284.0" in orb_source and "v387_stamina_bar.offset_top=330.0" in orb_source,"live numeric values and stamina bar sit below artwork")
+ check("LIVE  ♥" in orb_source and "STAM %d/%d" in orb_source,"stamina value displays alongside HP mana and XP")
  check("HORIZONTAL_ALIGNMENT_CENTER" in orb_source and "font_shadow_color" in orb_source,"orb numerals are centered and legible")
  var rings:Control=game.get("v384_rings") as Control
  check(is_instance_valid(rings) and rings.has_method("set_vitals"),"HP and XP progress rings created")
