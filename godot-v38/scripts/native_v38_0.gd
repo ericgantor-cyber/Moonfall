@@ -26,6 +26,7 @@ const V387_STAMINA_REGEN:float=18.0
 const V387_DODGE_COST:float=28.0
 var v387_stamina:float=V387_MAX_STAMINA
 var v387_stamina_bar:ProgressBar
+var v387_fallback_stamina_bar:ProgressBar
 var v387_stamina_warning:Label
 var v387_stamina_warning_elapsed:float=0.0
 var v387_stamina_regen_wait:float=0.0
@@ -121,6 +122,7 @@ func _v384_build_vitals()->void:
  fallback_fill.set_corner_radius_all(4)
  fallback_stamina.add_theme_stylebox_override("fill",fallback_fill)
  layout.add_child(fallback_stamina)
+ v387_fallback_stamina_bar=fallback_stamina
  v387_stamina_warning=Label.new()
  v387_stamina_warning.name="V387_LowStaminaWarning"
  v387_stamina_warning.text="LOW STAMINA"
@@ -257,8 +259,7 @@ func _v384_refresh_vitals()->void:
   v387_stamina_bar.value=clampf(v387_stamina,0.0,V387_MAX_STAMINA)
   var orb_hint:Label=v387_stamina_bar.get_parent().get_node_or_null("V387_OrbLowStamina") as Label
   if is_instance_valid(orb_hint):orb_hint.visible=v387_stamina<V387_DODGE_COST
- var fallback_meter:ProgressBar=get_node_or_null("NativeAtlasUI/V384_Vitals/HBoxContainer/V387_FallbackStaminaBar") as ProgressBar
- if is_instance_valid(fallback_meter):fallback_meter.value=clampf(v387_stamina,0.0,V387_MAX_STAMINA)
+ if is_instance_valid(v387_fallback_stamina_bar):v387_fallback_stamina_bar.value=clampf(v387_stamina,0.0,V387_MAX_STAMINA)
  if is_instance_valid(v387_stamina_warning):v387_stamina_warning.visible=v387_stamina<V387_DODGE_COST
  if is_instance_valid(v386_orb_values):
   var hp_value:int=clampi(roundi(hp),0,maxi(1,roundi(max_hp)))
