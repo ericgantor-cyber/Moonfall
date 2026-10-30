@@ -50,7 +50,7 @@ func _run()->void:
  game.call("_apply_graphics_quality","Balanced")
  game.call("_v315_tick_visuals")
  var report:Dictionary=game.call("_perf_report")
- check(report.get("version")in ["v31.5","v31.6","v32.0","v32.1"] and report.has("v315_visual_peak_usec"),"F9 profiling includes v31.5")
+ check(str(report.get("version","")).begins_with("v3") and report.has("v315_visual_peak_usec"),"F9 profiling includes v31.5")
  check((game.get("rifts") as Array).size()==3 and (game.get("region_nodes") as Array).size()==6,"Connected world intact")
  game.queue_free()
  print("MOONFALL v31.5 LIVING MESH PASS" if failures==0 else "MOONFALL v31.5 LIVING MESH FAIL")
