@@ -72,7 +72,7 @@ try {
    & $pythonExe $check.FullName
    if ($LASTEXITCODE -ne 0) {throw "Offline source regression: $($check.Name) (exit $LASTEXITCODE)"}
   }
-  Write-Host "PASS: $($verifiers.Count) offline source checks. Starting the 66 Godot suites."
+  Write-Host "PASS: $($verifiers.Count) offline source checks. Starting the 67 Godot suites."
   $env:MOONFALL_GODOT_EXE = $engine
   # A hung Godot integration test must not leave a double-click build running forever.
   # cmd.exe /D /S /C ""C:\path with spaces\BUILD_WINDOWS.bat"" handles spaces.
@@ -108,7 +108,7 @@ try {
     inno_compiler = if ($installerBuilt) {$iscc} else {$null}
     gameplay_source = 'v38.0'
     godot_version = $versionOutput
-    engine_test_suites_registered = 66
+    engine_test_suites_registered = 67
     game_exe = $game
     game_sha256 = (Get-FileHash -LiteralPath $game -Algorithm SHA256).Hash.ToLowerInvariant()
     installer_built = $installerBuilt
