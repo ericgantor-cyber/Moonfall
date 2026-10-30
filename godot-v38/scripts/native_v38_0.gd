@@ -3,6 +3,7 @@ extends "res://scripts/native_v37_7.gd"
 ## leaving the combat/loot/world/save systems untouched and inheritance intact.
 const V380_RULES:=preload("res://scripts/systems/overhaul_v380.gd")
 const V383_BENCHMARK:=preload("res://scripts/systems/combat_benchmark_v383.gd")
+const V384_RINGS:=preload("res://scripts/systems/vitals_rings_v384.gd")
 var v380_status_enabled:bool=false
 var v380_status_panel:PanelContainer
 var v380_status_text:Label
@@ -13,6 +14,7 @@ var v383_combat_fps_samples:Array[int]=[]
 var v383_peak_hostiles:int=0
 var v384_vitals_panel:PanelContainer
 var v384_vitals_label:RichTextLabel
+var v384_rings:Control
 var v384_vitals_elapsed:float=0.0
 
 func _ready()->void:
@@ -65,8 +67,8 @@ func _v384_build_vitals()->void:
  v384_vitals_panel.name="V384_Vitals"
  v384_vitals_panel.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
  v384_vitals_panel.offset_left=16.0
- v384_vitals_panel.offset_right=290.0
- v384_vitals_panel.offset_top=-124.0
+ v384_vitals_panel.offset_right=435.0
+ v384_vitals_panel.offset_top=-135.0
  v384_vitals_panel.offset_bottom=-14.0
  v384_vitals_panel.mouse_filter=Control.MOUSE_FILTER_IGNORE
  var backdrop:=StyleBoxFlat.new()
@@ -77,17 +79,26 @@ func _v384_build_vitals()->void:
  backdrop.set_content_margin_all(9)
  v384_vitals_panel.add_theme_stylebox_override("panel",backdrop)
  layer.add_child(v384_vitals_panel)
+ var layout:=HBoxContainer.new()
+ layout.add_theme_constant_override("separation",12)
+ v384_vitals_panel.add_child(layout)
+ v384_rings=V384_RINGS.new()
+ v384_rings.name="V384_HP_XP_Rings"
+ layout.add_child(v384_rings)
  v384_vitals_label=RichTextLabel.new()
  v384_vitals_label.name="V384_VitalsText"
  v384_vitals_label.bbcode_enabled=true
  v384_vitals_label.scroll_active=false
  v384_vitals_label.mouse_filter=Control.MOUSE_FILTER_IGNORE
  v384_vitals_label.add_theme_font_size_override("normal_font_size",16)
- v384_vitals_panel.add_child(v384_vitals_label)
+ v384_vitals_label.custom_minimum_size=Vector2(205.0,96.0)
+ layout.add_child(v384_vitals_label)
  v384_vitals_panel.visible=false
 
 func _v384_refresh_vitals()->void:
  if not is_instance_valid(v384_vitals_label):return
+ if is_instance_valid(v384_rings):
+  v384_rings.call("set_vitals",hp/maxf(1.0,max_hp),float(hero_xp)/float(maxi(1,hero_xp_to_next)))
  var health:int=roundi(maxf(0.0,hp))
  var health_max:int=maxi(1,roundi(max_hp))
  var experience:int=maxi(0,hero_xp)
