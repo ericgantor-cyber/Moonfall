@@ -1852,7 +1852,7 @@ func _show_floating_damage(target:Dictionary,amount:int,critical:bool)->void:
  if not is_instance_valid(body):return
  var floaters:Array[Node]=[]
  for child in body.get_children():
-  if child is Label3D and child.name.begins_with("DamageFloat") and not child.is_queued_for_deletion():
+  if child is Label3D and (child.has_meta("damage_float_tween") or child.name.begins_with("DamageFloat")) and not child.is_queued_for_deletion():
    floaters.append(child)
  var label:Label3D
  if floaters.size()>=MAX_DAMAGE_FLOATERS_PER_TARGET:
