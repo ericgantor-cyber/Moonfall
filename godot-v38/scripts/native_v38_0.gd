@@ -183,12 +183,12 @@ func _v384_build_vitals()->void:
   low_stam_hint.text="LOW STAMINA"
   low_stam_hint.add_theme_font_size_override("font_size",12)
   low_stam_hint.add_theme_color_override("font_color",Color("#ffd16e"))
+  overlay.add_child(low_stam_hint)
   low_stam_hint.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
   low_stam_hint.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
   low_stam_hint.offset_top=-70.0
   low_stam_hint.offset_bottom=-50.0
   low_stam_hint.visible=false
-  overlay.add_child(low_stam_hint)
   v386_orb_values.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
   v386_orb_values.offset_left=6.0
   v386_orb_values.offset_right=237.0
