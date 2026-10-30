@@ -1595,6 +1595,9 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
  var pursuing:=not activity.is_empty() and map_time<float(beast.get("hunting_until",0.0)) and not engaged and not bool(beast.get("boss",false))
  if staggered:
   body.velocity=Vector3.ZERO
+ elif bool(beast.get("boss",false)) and float(beast.get("windup",0.0))>0.0:
+  # Keep the boss anchored while its existing warning disk resolves.
+  body.velocity=Vector3.ZERO
  elif engaged and map_time<float(beast.get("retreat_until",0.0)) and distance<10.0:
   body.velocity=-diff.normalized()*move_speed*0.9
  elif engaged and v383_intent=="retreat" and distance<8.0:
