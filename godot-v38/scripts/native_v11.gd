@@ -2395,6 +2395,9 @@ func _update_hud() -> void:
  status.text=status_message
  world_hud.text="CRITS "+str(critical_hits)+"  | STAGGERS "+str(stagger_events)+"  | COMBO "+str(combat_combo if map_time<=combat_combo_until else 0)+"  | HERO PTS "+str(hero_points)+"  | TAMER PTS "+str(tamer_points)+"  | POWER "+str(_current_power())+"/"+str(_recommended_power(region_index))+"  | PET "+companion_stance+"  | RIFTS "+str(rifts_cleared.size())+"/3  | EVENTS "+str(events_completed.size())+"/6  | LOOT "+str(gear_drops.size())+("  | SKIN "+str(snappedf(skinning_left,0.1))+"s" if skinning_left>0 else "")
 
+func _checkpoint_extra_data()->Dictionary:
+ return {}
+
 func _save_game() -> void:
  if not hero_playing:return
  var drops: Array=[]
@@ -2426,6 +2429,7 @@ func _save_game() -> void:
   "world_clock":world_clock,"world_day":world_day,"weather":weather_name,"weather_remaining":weather_remaining,
   "world_events_completed":events_completed.duplicate(),"world_event_active":active_world_event,"world_event_kills":active_event_kills
  }
+ save["optional_resources"]=_checkpoint_extra_data()
  var result:String=SAVE_STORE.commit_checkpoint(save,SAVE_STAGING,SAVE_V2,SAVE_BACKUP,kills_total,hero)
  save_health=result
  if result=="OK":
