@@ -15,3 +15,9 @@ static func attack_followthrough_degrees(time_remaining:float)->float:
 static func recoil_degrees(time_remaining:float,critical:bool)->float:
  var fraction:float=clampf(time_remaining/REACTION_SECONDS,0.0,1.0)
  return (CRITICAL_ANGLE if critical else NORMAL_ANGLE)*fraction
+
+## Animate the existing boss warning disk's opacity, not its radius or damage area.
+static func boss_telegraph_transparency(elapsed:float,phase:int)->float:
+ var speed:float=2.0+float(clampi(phase,1,3)-1)*0.65
+ var wave:float=0.5+0.5*sin(maxf(0.0,elapsed)*TAU*speed)
+ return 0.05+0.24*wave
