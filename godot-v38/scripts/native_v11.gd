@@ -1790,8 +1790,11 @@ func _set_boss_telegraph(beast:Dictionary,active:bool) -> void:
    var area:Vector3=beast.get("warning_pos",body.global_position)
    var disk: CylinderMesh=node.mesh as CylinderMesh
    if is_instance_valid(disk):
-    disk.bottom_radius=float(beast.get("warning_radius",2.8))
-    disk.top_radius=float(beast.get("warning_radius",2.8))
+    var desired_radius:float=float(beast.get("warning_radius",2.8))
+    if V383_FEEDBACK.warning_radius_changed(disk.bottom_radius,desired_radius):
+     disk.bottom_radius=desired_radius
+    if V383_FEEDBACK.warning_radius_changed(disk.top_radius,desired_radius):
+     disk.top_radius=desired_radius
    node.position=Vector3(area.x,0.03,area.z)
 
 func _update_companion(delta: float) -> void:
