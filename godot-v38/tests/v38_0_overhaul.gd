@@ -16,6 +16,8 @@ func _run()->void:
  check("CRITICAL AIR" in R.threat_status(5.0,true,true,10.0,100.0),"oxygen emergency prioritized")
  check("COMBAT" in R.threat_status(100.0,false,true,90.0,100.0),"combat warning")
  check("LOW HEALTH" in R.threat_status(100.0,false,false,25.0,100.0),"low health warning")
+ var pack_script:GDScript=load("res://scripts/native_v31_5.gd") as GDScript
+ check(pack_script!=null and "sender_position.distance_squared_to(other.global_position)" in pack_script.source_code,"pack alert reuses cached sender position")
  var anatomy_script:GDScript=load("res://scripts/native_v31_6.gd") as GDScript
  check(anatomy_script!=null and "i==1 or i==2" in anatomy_script.source_code,"AI anatomy animation avoids per-limb temporary arrays")
  var popup_script:GDScript=load("res://scripts/native_v24.gd") as GDScript
