@@ -220,6 +220,28 @@ func _apply_player_hit(target:Dictionary,base_damage:float,stagger_strength:floa
  if not bool(target.get("hostile",false)) or bool(target.get("boss",false)) or not bool(target.get("alive",false)):return
  # Successful hits briefly interrupt ordinary enemies; stronger inherited staggers win.
  target["stagger_until"]=maxf(float(target.get("stagger_until",0.0)),map_time+0.22)
+ # A brief, collision-aware impulse follows the original damage and hit reaction.
+ # Never push bosses or creatures with invalid bodies.
+ var enemy_body:CharacterBody3D=target.get("body") as CharacterBody3D
+ if not is_instance_valid(enemy_body) or not is_instance_valid(player):return
+ var away:Vector3=enemy_body.global_position-player.global_position
+ away.y=0.0
+ if away.length_squared()<0.01:return
+ target["v388_knock_dir"]=away.normalized()
+ target["v388_knock_until"]=map_time+0.14
+ target["hit_react_until"]=maxf(float(target.get("hit_react_until",0.0)),map_time+0.25)
+
+
+func _update_beast_step(beast:Dictionary,delta:float)->void:
+ super._update_beast_step(beast,delta)
+ if not bool(beast.get("alive",false)) or bool(beast.get("boss",false)):return
+ if map_time>=float(beast.get("v388_knock_until",0.0)):return
+ var body:CharacterBody3D=beast.get("body") as CharacterBody3D
+ if not is_instance_valid(body):return
+ var direction:Vector3=beast.get("v388_knock_dir",Vector3.ZERO)
+ if direction.length_squared()<0.01:return
+ # Bounded 1.8-meter/second separation that obeys physics collisions.
+ body.move_and_collide(direction*1.8*minf(maxf(delta,0.0),0.05))
 
 func _attack()->void:
  # Ignore combat clicks when the game is paused, at a menu, or after defeat.
