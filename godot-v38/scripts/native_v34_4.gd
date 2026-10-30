@@ -95,6 +95,14 @@ func _v24_set_zoom(target:float)->void:
  v24_zoom_events+=1
 
 func _unhandled_input(event:InputEvent)->void:
+ # WoW-style third-person zoom: wheel up approaches, wheel down retreats.
+ # Only active during gameplay; UI scroll and menus remain unaffected.
+ if event is InputEventMouseButton and event.pressed and hero_playing and not menu_open and not death_active:
+  if event.button_index==MOUSE_BUTTON_WHEEL_UP or event.button_index==MOUSE_BUTTON_WHEEL_DOWN:
+   var direction:float=-1.5 if event.button_index==MOUSE_BUTTON_WHEEL_UP else 1.5
+   _v24_set_zoom(v24_camera_size+direction)
+   get_viewport().set_input_as_handled()
+   return
  if event is InputEventMouseButton and event.button_index==MOUSE_BUTTON_RIGHT:
   if not event.pressed:
    v36_dragging=false
