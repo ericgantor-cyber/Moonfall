@@ -1578,6 +1578,11 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
   body.velocity=-diff.normalized()*move_speed*0.9
  elif engaged and v383_intent=="retreat" and distance<8.0:
   body.velocity=-diff.normalized()*move_speed*0.85
+ elif engaged and v383_intent=="strafe" and distance>1.7 and distance<6.0:
+  # Stable per-actor orbit side, no random calls or additional physics bodies.
+  var flank:Vector3=Vector3(-diff.z,0.0,diff.x).normalized()
+  var orbit_side:float=1.0 if int(beast["boss_id"])%2==0 else -1.0
+  body.velocity=(flank*orbit_side+diff.normalized()*0.25).normalized()*move_speed*0.7
  elif engaged and distance>1.7:
   body.velocity=AI_RULES.approach(diff,move_speed,int(beast["boss_id"]),bool(beast.get("boss",false)),int(beast.get("boss_phase",1)),distance)
  elif not is_hostile and (distance<6.0 or map_time<float(beast.get("scared_until",0.0))):
