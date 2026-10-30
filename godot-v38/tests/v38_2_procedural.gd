@@ -71,5 +71,17 @@ func _run()->void:
  check(hit_near.distance_squared_to(hit_origin)>=5.0*5.0,"target at exact radius remains excluded")
  check(hit_near.distance_squared_to(hit_origin)<hit_far.distance_squared_to(hit_origin),"nearest target chosen by squared distance")
  check(hit_far.distance_squared_to(hit_origin)<6.1*6.1,"area spell within radius remains eligible")
+ # Strict squared-range boundaries for native enemy pursuit, prey search and boss markers.
+ var chase_origin:=Vector3.ZERO
+ var prey_inside:=Vector3(3.0,0.0,4.0)
+ var prey_outside:=Vector3(6.0,0.0,0.0)
+ check(prey_inside.distance_squared_to(chase_origin)<5.8*5.8,"prey inside range is eligible")
+ check(prey_outside.distance_squared_to(chase_origin)>=5.8*5.8,"prey outside range is excluded")
+ check(not prey_inside.distance_squared_to(chase_origin)<5.0*5.0,"strict range excludes exact boundary")
+ check(prey_inside.distance_squared_to(chase_origin)>16.0,"distant wildlife returns toward home")
+ check(prey_inside.distance_squared_to(chase_origin)<64.0,"nearby targets block respawn by radius")
+ var boss_mark:=Vector2(0.0,0.0)
+ check(Vector2(2.7,0.0).distance_squared_to(boss_mark)<2.8*2.8,"boss strike includes points inside warning disk")
+ check(Vector2(2.8,0.0).distance_squared_to(boss_mark)>=2.8*2.8,"boss strike excludes exact disk edge")
  print("MOONFALL v38.2 PROCEDURAL PASS" if failures==0 else "MOONFALL v38.2 PROCEDURAL FAIL")
  quit(0 if failures==0 else 1)
