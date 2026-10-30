@@ -353,6 +353,10 @@ copy /y GODOT_LICENSE.txt build\GODOT_LICENSE.txt >nul
 if errorlevel 1 goto failed
 findstr /i /c:"SCRIPT ERROR" /c:"Parse Error" GODOT_PACKED_LOG.txt >nul
 if not errorlevel 1 goto failed
+"%ENGINE%" --headless --path "%CD%" --script res://tests/v38_2_procedural.gd > GODOT_V38_2_PROCEDURAL_LOG.txt 2>&1
+if errorlevel 1 goto failed
+findstr /c:"MOONFALL v38.2 PROCEDURAL PASS" GODOT_V38_2_PROCEDURAL_LOG.txt >nul
+if errorlevel 1 goto failed
 rem A script may print its PASS banner while Godot also emits ERROR diagnostics.
 rem Inspect all import, gameplay, export and packed startup logs before success.
 python tests\check_godot_logs.py
