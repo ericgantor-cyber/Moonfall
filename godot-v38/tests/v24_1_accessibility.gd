@@ -43,6 +43,27 @@ func _run() -> void:
  game.call("_unhandled_input",wheel)
  check(is_equal_approx(game.get("v24_camera_size"),22.0),"Mouse wheel leaves camera unchanged while menu is open")
  game.set("menu_open",false)
+ # Third-person zoom regression checks: wheel direction, bounds, and inactive inputs.
+ game.call("_v24_set_zoom",-100.0)
+ check(is_equal_approx(game.get("v24_camera_size"),12.0),"3D zoom minimum clamp")
+ wheel.button_index=MOUSE_BUTTON_WHEEL_UP
+ game.call("_unhandled_input",wheel)
+ check(is_equal_approx(game.get("v24_camera_size"),12.0),"wheel up respects minimum zoom")
+ game.call("_v24_set_zoom",100.0)
+ check(is_equal_approx(game.get("v24_camera_size"),31.0),"3D zoom maximum clamp")
+ wheel.button_index=MOUSE_BUTTON_WHEEL_DOWN
+ game.call("_unhandled_input",wheel)
+ check(is_equal_approx(game.get("v24_camera_size"),31.0),"wheel down respects maximum zoom")
+ wheel.button_index=MOUSE_BUTTON_WHEEL_UP
+ wheel.pressed=false
+ game.call("_unhandled_input",wheel)
+ check(is_equal_approx(game.get("v24_camera_size"),31.0),"wheel release does not zoom")
+ wheel.pressed=true
+ game.set("death_active",true)
+ game.call("_unhandled_input",wheel)
+ check(is_equal_approx(game.get("v24_camera_size"),31.0),"death state blocks wheel zoom")
+ game.set("death_active",false)
+ game.call("_v24_set_zoom",22.0)
  var victim:Dictionary={}
  for beast in game.get("beasts"):
   if int(beast.get("zone", -1)) == 0 and bool(beast.get("alive",false)) and not bool(beast.get("boss",false)):
