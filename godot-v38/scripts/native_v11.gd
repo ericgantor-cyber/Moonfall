@@ -1445,7 +1445,7 @@ func _combat_threat() -> bool:
   if not bool(enemy.get("alive",false)) or not bool(enemy.get("hostile",false)):continue
   var body:CharacterBody3D=enemy["body"]
   if not is_instance_valid(body):continue
-  if body.global_position.distance_to(player.global_position)>BEAST_THREAT_RANGE:continue
+  if body.global_position.distance_squared_to(player.global_position)>BEAST_THREAT_RANGE*BEAST_THREAT_RANGE:continue
   if _has_clear_sight(body,player):return true
  return false
 
@@ -1832,15 +1832,15 @@ func _update_companion(delta: float) -> void:
 
 func _nearest_beast(radius: float,hostile_only: bool=false,require_sight: bool=false) -> Dictionary:
  var nearest:Dictionary={}
- var dist:=radius
+ var dist_squared:float=maxf(0.0,radius)*maxf(0.0,radius)
  for beast in zone_beast_lists[region_index]:
   if not bool(beast["alive"]):continue
   if hostile_only and not bool(beast["hostile"]):continue
   var body:CharacterBody3D=beast["body"]
   if not is_instance_valid(body):continue
-  var d:=player.global_position.distance_to(body.global_position)
-  if d<dist and (not require_sight or _has_clear_sight(player,body)):
-   dist=d
+  var d_squared:float=player.global_position.distance_squared_to(body.global_position)
+  if d_squared<dist_squared and (not require_sight or _has_clear_sight(player,body)):
+   dist_squared=d_squared
    nearest=beast
  return nearest
 
@@ -1913,7 +1913,7 @@ func _apply_player_hit(target:Dictionary, base_damage:float, stagger_strength:fl
   if not bool(ally.get("hostile",false)) or not bool(ally.get("alive",false)):continue
   var ally_body:CharacterBody3D=ally["body"]
   var target_body:CharacterBody3D=target["body"]
-  if is_instance_valid(ally_body) and is_instance_valid(target_body) and ally_body.global_position.distance_to(target_body.global_position)<8.0:
+  if is_instance_valid(ally_body) and is_instance_valid(target_body) and ally_body.global_position.distance_squared_to(target_body.global_position)<64.0:
    ally["alert_until"]=map_time+5.0
  _refresh_boss_phase(target)
  if AI_RULES.retreat_due(float(target["hp"]),float(target["max"]),bool(target.get("boss",false)),int(target.get("dungeon_site",-1)),map_time,float(target.get("retreat_cooldown",0.0))):
@@ -1950,10 +1950,12 @@ func _spell(which: String) -> void:
   return
  var power:float=(20.0 if which=="nova" else 35.0)*_hero_damage_multiplier()*(1.0+0.08*float(_perk_rank("focus")))
  var hits:=0
+ var spell_radius:float=(5.0 if which=="nova" else 3.8)+0.5*float(_perk_rank("reach"))
+ var spell_radius_squared:float=spell_radius*spell_radius
  for beast in zone_beast_lists[region_index]:
   if not bool(beast["alive"]):continue
   var body:CharacterBody3D=beast["body"]
-  if is_instance_valid(body) and body.position.distance_to(player.position)<((5.0 if which=="nova" else 3.8)+0.5*float(_perk_rank("reach"))) and _has_clear_sight(player,body):
+  if is_instance_valid(body) and body.position.distance_squared_to(player.position)<spell_radius_squared and _has_clear_sight(player,body):
    _apply_player_hit(beast,power,0.36 if which=="nova" else 0.18)
    hits+=1
  _show_message(("Moon Nova" if which=="nova" else "Eclipse Flame")+": "+str(hits)+" hits",1.3)
