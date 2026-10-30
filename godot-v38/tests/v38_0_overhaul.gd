@@ -48,6 +48,12 @@ func _run()->void:
  check(is_instance_valid(sprite) and sprite.texture!=null,"original art sprite remains textured")
  check(is_instance_valid(pose) and pose.scale.is_equal_approx(Vector3.ONE),"pose transform has no cumulative scaling")
  check(is_instance_valid(game.get("v380_status_panel")),"optional status panel created")
+ check(is_instance_valid(game.get("v384_vitals_panel")),"HP mana XP vitals panel created")
+ check(not (game.get("v384_vitals_panel") as PanelContainer).visible,"vitals hidden before gameplay")
+ game.call("_v384_refresh_vitals")
+ var vitals:RichTextLabel=game.get("v384_vitals_label") as RichTextLabel
+ check(is_instance_valid(vitals) and "HP" in vitals.text and "XP" in vitals.text,"live health and XP shown in vitals")
+ check(is_instance_valid(vitals) and "MANA   N/A" in vitals.text,"mana accurately marked unavailable")
  check(not (game.get("v380_status_panel") as PanelContainer).visible,"status HUD hidden at title screen")
  var obsolete_title:bool=false
  for label_node in (game.get("start_screen") as Control).find_children("*","Label",true,false):
