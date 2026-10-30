@@ -1550,6 +1550,11 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
  if not bool(beast.get("alive",false)):return
  var body:CharacterBody3D=beast["body"]
  if not is_instance_valid(body):return
+ if float(beast.get("hit_flash_until",0.0))>0.0 and map_time>=float(beast.get("hit_flash_until",0.0)):
+  beast["hit_flash_until"]=0.0
+  var hit_label:Label3D=beast.get("nameplate") as Label3D
+  if is_instance_valid(hit_label):
+   hit_label.modulate=Color(str(REGIONS[int(beast["zone"])]["light"])) if str(beast.get("variant","normal"))!="normal" else Color("f4dcbb")
  var diff:=player.global_position-body.global_position
  diff.y=0.0
  var distance:=diff.length()
@@ -1813,6 +1818,13 @@ func _apply_player_hit(target:Dictionary, base_damage:float, stagger_strength:fl
  if critical:critical_hits+=1
  var damage:float=COMBAT_RULES.outgoing_damage(base_damage,critical,float(target["hp"])<=float(target["max"])*0.5,_perk_rank("execute"),_gear_affix_value("Fury"),_power_modifier(int(target.get("zone",region_index))))
  target["hp"]=float(target["hp"])-damage
+ # Lightweight readable impact feedback on existing non-boss nameplates.
+ # Avoid animations, new nodes, or alterations to the hero artwork.
+ if not bool(target.get("boss",false)):
+  var hit_label:Label3D=target.get("nameplate") as Label3D
+  if is_instance_valid(hit_label):
+   hit_label.modulate=Color("ffdd7a") if critical else Color("ff877c")
+   target["hit_flash_until"]=map_time+0.18
  last_hit_damage=int(round(damage))
  if critical:
   hp=minf(max_hp,hp+3.0*float(_perk_rank("bloodmoon")))
