@@ -49,6 +49,9 @@ func _run()->void:
  check(is_instance_valid(pose) and pose.scale.is_equal_approx(Vector3.ONE),"pose transform has no cumulative scaling")
  check(is_instance_valid(game.get("v380_status_panel")),"optional status panel created")
  check(is_instance_valid(game.get("v384_vitals_panel")),"HP mana XP vitals panel created")
+ var orb_source:String=FileAccess.get_file_as_string("res://scripts/native_v38_0.gd")
+ check("res://assets/ui/moonfall_orb_hud.png" in orb_source,"original orb HUD asset path supported")
+ check("HORIZONTAL_ALIGNMENT_CENTER" in orb_source and "font_shadow_color" in orb_source,"orb numerals are centered and legible")
  var rings:Control=game.get("v384_rings") as Control
  check(is_instance_valid(rings) and rings.has_method("set_vitals"),"HP and XP progress rings created")
  if is_instance_valid(rings):
