@@ -63,5 +63,13 @@ func _run()->void:
  check(probe_far.distance_squared_to(probe_a)>=25.0,"herd boundary excludes range above five")
  check(probe_near.distance_squared_to(probe_a)>=25.0,"herd strict range excludes exact boundary")
  check(probe_near.distance_squared_to(probe_a)<64.0,"player proximity inside eight")
+ # Distance-squared targeting keeps the same strict radius and nearest-first semantics.
+ var hit_origin:=Vector3.ZERO
+ var hit_near:=Vector3(3.0,0.0,4.0)
+ var hit_far:=Vector3(6.0,0.0,0.0)
+ check(hit_near.distance_squared_to(hit_origin)<5.1*5.1,"target inside radius remains eligible")
+ check(hit_near.distance_squared_to(hit_origin)>=5.0*5.0,"target at exact radius remains excluded")
+ check(hit_near.distance_squared_to(hit_origin)<hit_far.distance_squared_to(hit_origin),"nearest target chosen by squared distance")
+ check(hit_far.distance_squared_to(hit_origin)<6.1*6.1,"area spell within radius remains eligible")
  print("MOONFALL v38.2 PROCEDURAL PASS" if failures==0 else "MOONFALL v38.2 PROCEDURAL FAIL")
  quit(0 if failures==0 else 1)
