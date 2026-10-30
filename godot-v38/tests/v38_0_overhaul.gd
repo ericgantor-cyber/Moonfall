@@ -20,6 +20,7 @@ func _run()->void:
  check(pack_script!=null and "sender_position.distance_squared_to(other.global_position)" in pack_script.source_code,"pack alert reuses cached sender position")
  var anatomy_script:GDScript=load("res://scripts/native_v31_6.gd") as GDScript
  check(anatomy_script!=null and "i==1 or i==2" in anatomy_script.source_code,"AI anatomy animation avoids per-limb temporary arrays")
+ check(anatomy_script!=null and "if is_owl:joint.rotation.x" in anatomy_script.source_code,"enemy animation caches species outside limb loop")
  check(anatomy_script!=null and "body.global_position.distance_squared_to(hero_position)" in anatomy_script.source_code,"enemy detail LOD caches hero position")
  var popup_script:GDScript=load("res://scripts/native_v24.gd") as GDScript
  check(popup_script!=null and "label.text=str(ceili(amount))" in popup_script.source_code,"damage numbers stay numeric without CRIT text")
