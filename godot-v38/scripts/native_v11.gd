@@ -1850,15 +1850,18 @@ const MAX_DAMAGE_FLOATERS_PER_TARGET:int=6
 func _show_floating_damage(target:Dictionary,amount:int,critical:bool)->void:
  var body:CharacterBody3D=target.get("body") as CharacterBody3D
  if not is_instance_valid(body):return
- var floaters:Array[Node]=[]
+ # Existing child ordering tracks age; recycled labels move to the end.
+ # Count in one pass instead of allocating a new array on every hit.
+ var active_count:int=0
+ var oldest:Label3D=null
  for child in body.get_children():
   if child is Label3D and (child.has_meta("damage_float_tween") or child.name.begins_with("DamageFloat")) and not child.is_queued_for_deletion():
-   floaters.append(child)
+   active_count+=1
+   if oldest==null:oldest=child as Label3D
  var label:Label3D
- if floaters.size()>=MAX_DAMAGE_FLOATERS_PER_TARGET:
-  # Recycle the oldest active label instead of creating a seventh.
-  # Kill its old animation so its queued-free callback cannot delete the reused label.
-  label=floaters[0] as Label3D
+ if active_count>=MAX_DAMAGE_FLOATERS_PER_TARGET and is_instance_valid(oldest):
+  # Kill the former animation before recycling, preventing its cleanup callback.
+  label=oldest
   var old_tween:Tween=label.get_meta("damage_float_tween",null) as Tween
   if old_tween!=null and old_tween.is_valid():old_tween.kill()
   body.move_child(label,body.get_child_count()-1)
@@ -1876,8 +1879,8 @@ func _show_floating_damage(target:Dictionary,amount:int,critical:bool)->void:
  label.billboard=BaseMaterial3D.BILLBOARD_ENABLED
  label.no_depth_test=true
  label.modulate=Color("fff8d2") if critical else Color("fff4e8")
- var side:float=-0.3 if floaters.size()%2==0 else 0.3
- label.position=Vector3(side,1.65+0.12*float(floaters.size()%3),0.0)
+ var side:float=-0.3 if active_count%2==0 else 0.3
+ label.position=Vector3(side,1.65+0.12*float(active_count%3),0.0)
  # Floaters still self-clean after their short animation. No permanent pools.
  var finish:Vector3=label.position+Vector3(side*0.35,1.05 if critical else 0.6,0.0)
  var tween:Tween=label.create_tween()
