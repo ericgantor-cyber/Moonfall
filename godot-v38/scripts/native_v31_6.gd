@@ -31,6 +31,7 @@ func _v315_tick_visuals()->void:
  if not hero_playing or not is_instance_valid(player):return
  # Budget detailed models by actual hero proximity. Swap overflow actors to
  # their existing low-poly rig rather than hiding the actor or disabling AI.
+ var hero_position:Vector3=player.global_position
  var nearby:Array[Dictionary]=[]
  for entry in v315_tracks:
   var geo:Dictionary=entry["geometry"]
@@ -38,7 +39,7 @@ func _v315_tick_visuals()->void:
   if not root.visible:continue
   var body:CharacterBody3D=entry["body"]
   if not is_instance_valid(body):continue
-  nearby.append({"track":entry,"distance":body.global_position.distance_squared_to(player.global_position)})
+  nearby.append({"track":entry,"distance":body.global_position.distance_squared_to(hero_position)})
  if nearby.size()>V316_DETAIL_BUDGET:
   nearby.sort_custom(func(a:Dictionary,b:Dictionary)->bool:return float(a["distance"])<float(b["distance"]))
   for i in range(V316_DETAIL_BUDGET,nearby.size()):
