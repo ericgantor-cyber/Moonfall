@@ -1476,6 +1476,7 @@ func _nearest_prey(hunter:Dictionary,range_limit:float) -> Dictionary:
 
 func _ecology_update(delta:float) -> void:
  # Scan up to the small native population. Avoid spawning and new timers per beast.
+ # Squared-distance thresholds avoid repeated square roots in herd/predator loops.
  if ecology_step<0.32:return
  ecology_step=0.0
  for creature in zone_beast_lists[region_index]:
@@ -1485,7 +1486,7 @@ func _ecology_update(delta:float) -> void:
   if bool(creature["hostile"]):
    if creature.get("boss",false):continue
    if float(creature.get("fed_until",0.0))>map_time:continue
-   if body.global_position.distance_to(player.global_position)<8.0:continue
+   if body.global_position.distance_squared_to(player.global_position)<64.0:continue
    var prey:=_nearest_prey(creature,5.8)
    if prey.is_empty():continue
    creature["ecology_target"]=prey
@@ -1494,7 +1495,7 @@ func _ecology_update(delta:float) -> void:
    for ally in zone_beast_lists[region_index]:
     if ally==creature or not bool(ally.get("alive",false)) or str(ally.get("kind",""))!=str(creature["kind"]):continue
     var ab:CharacterBody3D=ally["body"]
-    if is_instance_valid(ab) and ab.global_position.distance_to(body.global_position)<5.5:
+    if is_instance_valid(ab) and ab.global_position.distance_squared_to(body.global_position)<30.25:
      peer=ally
      break
    if not peer.is_empty():
@@ -1506,14 +1507,14 @@ func _ecology_update(delta:float) -> void:
    for predator in zone_beast_lists[region_index]:
     if not bool(predator.get("alive",false)) or not bool(predator.get("hostile",false)) or int(predator.get("zone",-1))!=region_index:continue
     var pb:CharacterBody3D=predator["body"]
-    if is_instance_valid(pb) and pb.global_position.distance_to(body.global_position)<4.5:scared=true;break
+    if is_instance_valid(pb) and pb.global_position.distance_squared_to(body.global_position)<20.25:scared=true;break
    if scared and map_time>=float(creature.get("scared_until",0.0)):
     creature["scared_until"]=map_time+3.2
     herds_alerted+=1
     for friend in zone_beast_lists[region_index]:
      if friend==creature or not bool(friend.get("alive",false)) or str(friend.get("kind",""))!=str(creature["kind"]):continue
      var fb:CharacterBody3D=friend["body"]
-     if is_instance_valid(fb) and fb.global_position.distance_to(body.global_position)<5.0:friend["scared_until"]=map_time+2.6
+     if is_instance_valid(fb) and fb.global_position.distance_squared_to(body.global_position)<25.0:friend["scared_until"]=map_time+2.6
 
 func _apply_incoming_damage(raw:float) -> void:
  var reduction:=0.0
