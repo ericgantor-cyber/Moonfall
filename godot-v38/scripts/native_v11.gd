@@ -1811,6 +1811,37 @@ func _nearest_beast(radius: float,hostile_only: bool=false,require_sight: bool=f
    nearest=beast
  return nearest
 
+# WoW-style floating damage over the target: bounded, short-lived, no hero-art changes.
+const MAX_DAMAGE_FLOATERS_PER_TARGET:int=6
+
+func _show_floating_damage(target:Dictionary,amount:int,critical:bool)->void:
+ var body:CharacterBody3D=target.get("body") as CharacterBody3D
+ if not is_instance_valid(body):return
+ var floaters:Array[Node]=[]
+ for child in body.get_children():
+  if child is Label3D and child.name.begins_with("DamageFloat"):
+   floaters.append(child)
+ if floaters.size()>=MAX_DAMAGE_FLOATERS_PER_TARGET:
+  floaters[0].queue_free()
+ var label:=Label3D.new()
+ label.name="DamageFloat"
+ label.text=str(amount)+("!" if critical else "")
+ label.font_size=64 if critical else 46
+ label.pixel_size=0.005
+ label.outline_size=8
+ label.billboard=BaseMaterial3D.BILLBOARD_ENABLED
+ label.no_depth_test=true
+ label.modulate=Color("ffd34d") if critical else Color("fff4e8")
+ var side:float=-0.3 if floaters.size()%2==0 else 0.3
+ label.position=Vector3(side,1.65+0.12*float(floaters.size()%3),0.0)
+ body.add_child(label)
+ var tween:Tween=label.create_tween()
+ tween.set_parallel(true)
+ tween.tween_property(label,"position",label.position+Vector3(side*0.35,0.85 if critical else 0.6,0),0.85)
+ tween.tween_property(label,"modulate:a",0.0,0.85)
+ tween.set_parallel(false)
+ tween.tween_callback(label.queue_free)
+
 func _apply_player_hit(target:Dictionary, base_damage:float, stagger_strength:float=0.0) -> void:
  if target.is_empty() or not bool(target.get("alive",false)):return
  var critical:=rng.randf()<minf(0.32,0.07+float(hero_level)*0.0015)
@@ -1826,6 +1857,7 @@ func _apply_player_hit(target:Dictionary, base_damage:float, stagger_strength:fl
    hit_label.modulate=Color("ffdd7a") if critical else Color("ff877c")
    target["hit_flash_until"]=map_time+0.18
  last_hit_damage=int(round(damage))
+ _show_floating_damage(target,last_hit_damage,critical)
  if critical:
   hp=minf(max_hp,hp+3.0*float(_perk_rank("bloodmoon")))
  if _gear_affix_value("Vampiric")>0.0:
