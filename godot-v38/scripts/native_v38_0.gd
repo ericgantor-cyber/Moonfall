@@ -173,7 +173,10 @@ func _restore_data(data:Dictionary)->void:
 
 func _v384_refresh_vitals()->void:
  if is_instance_valid(v386_orb_values):
-  v386_orb_values.text="♥ %d/%d   ◆ %d/%d   ✦ %d/%d" % [roundi(hp),roundi(max_hp),roundi(v385_mana),roundi(V385_MAX_MANA),hero_xp,hero_xp_to_next]
+  var hp_value:int=clampi(roundi(hp),0,maxi(1,roundi(max_hp)))
+  var mana_value:int=clampi(roundi(v385_mana),0,roundi(V385_MAX_MANA))
+  var xp_value:int=clampi(hero_xp,0,maxi(1,hero_xp_to_next))
+  v386_orb_values.text="♥ %d/%d   ◆ %d/%d   ✦ %d/%d" % [hp_value,roundi(max_hp),mana_value,roundi(V385_MAX_MANA),xp_value,hero_xp_to_next]
  if not is_instance_valid(v384_vitals_label):return
  if is_instance_valid(v384_rings):
   v384_rings.call("set_vitals",hp/maxf(1.0,max_hp),float(hero_xp)/float(maxi(1,hero_xp_to_next)))
