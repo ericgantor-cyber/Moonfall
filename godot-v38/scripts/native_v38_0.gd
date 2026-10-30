@@ -268,7 +268,7 @@ func _v384_refresh_vitals()->void:
   var hp_value:int=clampi(roundi(hp),0,maxi(1,roundi(max_hp)))
   var mana_value:int=clampi(roundi(v385_mana),0,roundi(V385_MAX_MANA))
   var xp_value:int=clampi(hero_xp,0,maxi(1,hero_xp_to_next))
-  v386_orb_values.text="LIVE  ♥ %d/%d   ◆ %d/%d\\n✦ %d/%d   STAM %d/%d" % [hp_value,roundi(max_hp),mana_value,roundi(V385_MAX_MANA),xp_value,hero_xp_to_next,roundi(v387_stamina),roundi(V387_MAX_STAMINA)]
+  v386_orb_values.text="LIVE  ♥ %d/%d   ◆ %d/%d\n✦ %d/%d   STAM %d/%d" % [hp_value,roundi(max_hp),mana_value,roundi(V385_MAX_MANA),xp_value,hero_xp_to_next,roundi(v387_stamina),roundi(V387_MAX_STAMINA)]
  if not is_instance_valid(v384_vitals_label):return
  if is_instance_valid(v384_rings):
   v384_rings.call("set_vitals",hp/maxf(1.0,max_hp),float(hero_xp)/float(maxi(1,hero_xp_to_next)))
@@ -277,7 +277,7 @@ func _v384_refresh_vitals()->void:
  var experience:int=maxi(0,hero_xp)
  var experience_target:int=maxi(1,hero_xp_to_next)
  # This display is backed by the spell-cost resource in v38.5.
- v384_vitals_label.text="[color=#ff555f]● HP   %d / %d[/color]\\n[color=#5caeff]● MANA   %d / %d[/color]\\n[color=#b786ff]● XP   %d / %d[/color]\\n[color=#69e26b]● STAM   %d / %d[/color]" % [health,health_max,roundi(v385_mana),roundi(V385_MAX_MANA),experience,experience_target,roundi(v387_stamina),roundi(V387_MAX_STAMINA)]
+ v384_vitals_label.text="[color=#ff555f]● HP   %d / %d[/color]\n[color=#5caeff]● MANA   %d / %d[/color]\n[color=#b786ff]● XP   %d / %d[/color]\n[color=#69e26b]● STAM   %d / %d[/color]" % [health,health_max,roundi(v385_mana),roundi(V385_MAX_MANA),experience,experience_target,roundi(v387_stamina),roundi(V387_MAX_STAMINA)]
 
 func _unhandled_key_input(event:InputEvent)->void:
  if event is InputEventKey and event.pressed and not event.echo and event.keycode==KEY_F2 and hero_playing and not menu_open:

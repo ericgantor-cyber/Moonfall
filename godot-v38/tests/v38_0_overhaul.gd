@@ -56,6 +56,7 @@ func _run()->void:
  check("overlay.custom_minimum_size=Vector2(420,280)" in orb_source,"four-resource artwork retains landscape ratio")
  check("v386_orb_values.offset_top=284.0" in orb_source and "v387_stamina_bar.offset_top=330.0" in orb_source,"live numeric values and stamina bar sit below artwork")
  check("LIVE  ♥" in orb_source and "STAM %d/%d" in orb_source,"stamina value displays alongside HP mana and XP")
+ check(not ("\\\\n✦" in orb_source),"HUD live number text uses a real escaped newline instead of printed slash-n")
  check("HORIZONTAL_ALIGNMENT_CENTER" in orb_source and "font_shadow_color" in orb_source,"orb numerals are centered and legible")
  var rings:Control=game.get("v384_rings") as Control
  check(is_instance_valid(rings) and rings.has_method("set_vitals"),"HP and XP progress rings created")
