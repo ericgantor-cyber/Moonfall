@@ -1832,6 +1832,10 @@ func _show_floating_damage(target:Dictionary,amount:int,critical:bool)->void:
  label.billboard=BaseMaterial3D.BILLBOARD_ENABLED
  label.no_depth_test=true
  label.modulate=Color("ffd34d") if critical else Color("fff4e8")
+ # Small critical-only impact pulse uses the existing damage label.
+ # Does not spawn meshes, lights, particles, or physics actors.
+ if critical:
+  label.modulate=Color("fff8d2")
  var side:float=-0.3 if floaters.size()%2==0 else 0.3
  label.position=Vector3(side,1.65+0.12*float(floaters.size()%3),0.0)
  body.add_child(label)
@@ -1844,6 +1848,7 @@ func _show_floating_damage(target:Dictionary,amount:int,critical:bool)->void:
  if critical:
   label.scale=Vector3.ONE*1.3
   tween.tween_property(label,"scale",Vector3.ONE,0.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+  tween.tween_property(label,"modulate",Color("ffd34d"),0.24).set_delay(0.10)
  tween.set_parallel(false)
  tween.tween_callback(label.queue_free)
 
