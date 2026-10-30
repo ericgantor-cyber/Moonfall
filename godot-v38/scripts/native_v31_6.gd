@@ -66,13 +66,13 @@ func _v315_tick_visuals()->void:
   var rhythm:float=map_time*(5.0+gait*5.0)+float(track["stride"])
   var species:String=str(track["kind"])
   var is_owl:bool=species=="owl"
-  var owl_sway:float=0.15*sin(rhythm*0.5)*gait if is_owl else 0.0
+  var stride_wave:float=sin(rhythm)*gait
   var legs:Array=details["legs"]
   for i in range(legs.size()):
    var joint:Node3D=legs[i]
-   var opposite:float=PI if i==1 or i==2 else 0.0
-   joint.rotation.z=lerpf(joint.rotation.z,(-0.24 if activity else -0.13 if strike else 0.42*sin(rhythm+opposite)*gait),0.50)
-   if is_owl:joint.rotation.x=owl_sway
+   var leg_wave:float=-stride_wave if i==1 or i==2 else stride_wave
+   joint.rotation.z=lerpf(joint.rotation.z,(-0.24 if activity else -0.13 if strike else 0.42*leg_wave),0.50)
+   if is_owl:joint.rotation.x=0.15*sin(rhythm*0.5+float(i))*gait
    v316_limb_updates+=1
   if species=="serpent":
    root.rotation.y=0.11*sin(rhythm*0.55)*maxf(0.25,gait)
