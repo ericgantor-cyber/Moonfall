@@ -29,6 +29,8 @@ func _run()->void:
  check(int(checkpoint.get("schema",0))==2,"existing checkpoint schema remains valid")
  check(int(checkpoint.get("level",0))==12 and int(checkpoint.get("kills",0))==25,"permanent progress persists")
  game.set("materials",{"Moon Phoenix Feather":1})
+ # Sanctuary grants a short invulnerability window; simulate its expiry before testing resurrection.
+ game.set("phoenix_grace_until",0.0)
  game.call("_apply_incoming_damage",100000.0)
  check(not game.get("death_active"),"rare feather prevents one death")
  check(is_equal_approx(float(game.get("hp")),float(game.get("max_hp"))*0.30),"phoenix returns with thirty percent HP")
