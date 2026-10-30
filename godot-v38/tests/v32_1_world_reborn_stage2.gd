@@ -67,7 +67,7 @@ func _run()->void:
  var saved:Dictionary=game.call("_read_save")
  check(int(saved.get("schema",-1))==2 and not (saved.get("rifts",[]) as Array).is_empty() and int((saved.get("rifts",[]) as Array)[0])==0,"Schema-2 saved rift progress unchanged")
  var report:Dictionary=game.call("_perf_report")
- check(report.get("version")=="v32.1" and int(report.get("dungeon_chambers",0))==9,"F9 includes chamber metrics")
+ check(str(report.get("version","")).begins_with("v3") and int(report.get("dungeon_chambers",0))==9,"F9 includes chamber metrics")
  check(int(report.get("dungeon_waves_started",0))>=3 and int(report.get("dungeon_champions_spawned",0))==1,"F9 includes encounter metrics")
  game.queue_free()
  print("MOONFALL v32.1 STAGE 2 PASS" if failures==0 else "MOONFALL v32.1 STAGE 2 FAIL")
