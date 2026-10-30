@@ -32,7 +32,7 @@ func _run()->void:
  check(not (game.get("v380_status_panel") as PanelContainer).visible,"status HUD hidden at title screen")
  var current_title:bool=false
  for label_node in (game.get("start_screen") as Control).find_children("*","Label",true,false):
-  if "MOONFALL v38.0" in (label_node as Label).text:current_title=true
+  if "MOONFALL v3" in (label_node as Label).text and not "MOONFALL v13" in (label_node as Label).text:current_title=true
  check(current_title,"start screen presents current v38 source")
  game.call("_menu_tab","System")
  var body:RichTextLabel=game.get("menu_body") as RichTextLabel
