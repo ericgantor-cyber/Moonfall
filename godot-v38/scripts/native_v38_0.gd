@@ -132,7 +132,10 @@ func _v384_build_vitals()->void:
  layout.add_child(v387_stamina_warning)
  v384_vitals_panel.visible=false
  # Use the user's HUD PNG when present; fall back to functional meters otherwise.
- if ResourceLoader.exists("res://assets/ui/moonfall_orb_hud.png"):
+ var four_color_art:String="res://assets/ui/moonfall_four_resource_hud.png"
+ var original_orb_art:String="res://assets/ui/moonfall_orb_hud.png"
+ var selected_hud_art:String=four_color_art if ResourceLoader.exists(four_color_art) else original_orb_art
+ if ResourceLoader.exists(selected_hud_art):
   # Keep the fallback alive but hidden so regressions and asset reloads stay safe.
   v384_vitals_panel.visible=false
   var plain_vitals:PanelContainer=v384_vitals_panel
@@ -151,7 +154,7 @@ func _v384_build_vitals()->void:
   overlay.mouse_filter=Control.MOUSE_FILTER_IGNORE
   v384_vitals_panel.add_child(overlay)
   v386_orb_image=TextureRect.new()
-  v386_orb_image.set_texture(load("res://assets/ui/moonfall_orb_hud.png"))
+  v386_orb_image.set_texture(load(selected_hud_art))
   v386_orb_image.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
   v386_orb_image.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
   v386_orb_image.mouse_filter=Control.MOUSE_FILTER_IGNORE
