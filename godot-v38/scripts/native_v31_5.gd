@@ -114,11 +114,13 @@ func _update_beast_step(beast:Dictionary,delta:float)->void:
    beast["v315_next_signal"]=map_time+1.8
    var sender:CharacterBody3D=beast.get("body")
    if is_instance_valid(sender):
+    # Cache the sender transform once per pack alert, not once per candidate ally.
+    var sender_position:Vector3=sender.global_position
     var sent:int=0
     for ally in zone_beast_lists[int(beast.get("zone",0))]:
      if ally==beast or not bool(ally.get("alive",false)) or not bool(ally.get("hostile",false)) or bool(ally.get("boss",false)):continue
      var other:CharacterBody3D=ally.get("body")
-     if not is_instance_valid(other) or sender.global_position.distance_squared_to(other.global_position)>81.0:continue
+     if not is_instance_valid(other) or sender_position.distance_squared_to(other.global_position)>81.0:continue
      ally["alert_until"]=maxf(float(ally.get("alert_until",0.0)),map_time+2.2)
      v315_pack_signals+=1
      sent+=1
