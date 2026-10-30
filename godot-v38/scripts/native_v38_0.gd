@@ -30,10 +30,10 @@ func _v380_build_status_panel()->void:
  v380_status_panel=PanelContainer.new()
  v380_status_panel.name="V380_OptionalLiveStatus"
  v380_status_panel.set_anchors_preset(Control.PRESET_TOP_RIGHT)
- v380_status_panel.offset_left=-370.0
+ v380_status_panel.offset_left=-410.0
  v380_status_panel.offset_right=-15.0
  v380_status_panel.offset_top=20.0
- v380_status_panel.offset_bottom=150.0
+ v380_status_panel.offset_bottom=185.0
  v380_status_panel.mouse_filter=Control.MOUSE_FILTER_IGNORE
  var background:=StyleBoxFlat.new()
  background.bg_color=Color(0.03,0.09,0.16,0.86)
@@ -48,7 +48,8 @@ func _v380_build_status_panel()->void:
  layer.add_child(v380_status_panel)
  v380_status_text=Label.new()
  v380_status_text.name="V380_AccessibleReadout"
- v380_status_text.add_theme_font_size_override("font_size",13)
+ v380_status_text.add_theme_font_size_override("font_size",16)
+ v380_status_text.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
  v380_status_text.add_theme_color_override("font_color",Color("cce9f5"))
  v380_status_text.mouse_filter=Control.MOUSE_FILTER_IGNORE
  v380_status_panel.add_child(v380_status_text)
@@ -89,11 +90,11 @@ func _process(delta:float)->void:
    if bool(creature.get("alive",false)) and bool(creature.get("hostile",false)):hostile_count+=1
  v383_peak_hostiles=maxi(v383_peak_hostiles,hostile_count)
  v380_status_text.text=V380_RULES.safe_label(region,hp,max_hp,v372_oxygen,underwater,v373_depth,current_threat)
- v380_status_text.text+="\nFPS "+str(fps_now)+" (avg/min "+str(summary["average"])+"/"+str(summary["min"])+")  •  Foes "+str(hostile_count)
+ v380_status_text.text+="\nPERFORMANCE  FPS "+str(fps_now)+" (avg/min "+str(summary["average"])+"/"+str(summary["min"])+")  •  Foes "+str(hostile_count)
  if int(combat_summary["count"])>0:
-  v380_status_text.text+="\nCombat FPS avg/min: "+str(combat_summary["average"])+"/"+str(combat_summary["min"])
+  v380_status_text.text+="\nCOMBAT FPS avg/min: "+str(combat_summary["average"])+"/"+str(combat_summary["min"])
  else:
-  v380_status_text.text+="\nCombat FPS: no encounter sampled yet"
+  v380_status_text.text+="\nCOMBAT FPS: no encounter sampled yet"
  v380_status_text.add_theme_color_override("font_color",Color("ffb5a9") if V380_RULES.air_urgency(v372_oxygen,underwater)>0 else Color("cce9f5"))
  v380_status_updates+=1
 
