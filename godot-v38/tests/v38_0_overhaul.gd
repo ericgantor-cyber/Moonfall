@@ -65,6 +65,24 @@ func _run()->void:
  check(perf.has("combat_sample_count") and int(perf["combat_sample_count"])==0,"FPS samples disabled at title")
  check(perf.has("combat_sample_min_fps") and perf.has("combat_sample_avg_fps"),"FPS summary exported to performance report")
  check(perf.has("combat_peak_hostiles") and int(perf["combat_peak_hostiles"])==0,"hostile peak is zero before gameplay")
+ # Burst-hit smoke test: cap at six labels per target, recycle instead of allocating.
+ var dummy_beast:=CharacterBody3D.new()
+ game.add_child(dummy_beast)
+ var dummy_target:Dictionary={"body":dummy_beast}
+ for hit_number in range(6):
+  game.call("_show_floating_damage",dummy_target,hit_number+1,false)
+ check(dummy_beast.get_child_count()==6,"first six hits create exactly six floaters")
+ var oldest:Label3D=dummy_beast.get_child(0) as Label3D
+ game.call("_show_floating_damage",dummy_target,77,true)
+ check(dummy_beast.get_child_count()==6,"seventh hit reuses floater; hard cap preserved")
+ check(is_instance_valid(oldest) and oldest.text=="77!" and is_equal_approx(oldest.scale.x,1.3),"recycled critical label restores impact styling")
+ for hit_number in range(30):
+  game.call("_show_floating_damage",dummy_target,hit_number+100,hit_number%2==0)
+ check(dummy_beast.get_child_count()==6,"repeated burst hits never exceed the six-label cap")
+ var other_beast:=CharacterBody3D.new()
+ game.add_child(other_beast)
+ game.call("_show_floating_damage",{"body":other_beast},55,false)
+ check(other_beast.get_child_count()==1 and dummy_beast.get_child_count()==6,"floater cap stays independent per target")
  game.queue_free()
  print("MOONFALL v38.0 OVERHAUL PASS" if failures==0 else "MOONFALL v38.0 OVERHAUL FAIL")
  quit(0 if failures==0 else 1)
