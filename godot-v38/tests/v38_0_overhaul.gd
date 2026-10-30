@@ -18,6 +18,7 @@ func _run()->void:
  check("LOW HEALTH" in R.threat_status(100.0,false,false,25.0,100.0),"low health warning")
  var popup_script:GDScript=load("res://scripts/native_v24.gd") as GDScript
  check(popup_script!=null and "label.text=str(ceili(amount))" in popup_script.source_code,"damage numbers stay numeric without CRIT text")
+ check(popup_script!=null and 'if amount<=0.0 or not hero_playing or graphics_quality=="Smooth":return' in popup_script.source_code,"Smooth mode skips damage popup scheduling")
  check(popup_script!=null and "label.font_size=58 if last_hit_critical else 48" in popup_script.source_code,"critical damage uses larger text without extra nodes")
  check("AIR: 20%" in R.safe_label("Moonmist",80.0,100.0,19.5,true,2.4,false),"accessible numeric air readout")
  var fps_samples:Array[int]=[]
