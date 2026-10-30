@@ -29,6 +29,20 @@ func _run() -> void:
  game.call("_unhandled_input", zoom_key)
  check(is_equal_approx(game.get("v24_camera_size"),22.0), "menus block gameplay zoom")
  game.set("menu_open", false)
+ game.call("_v24_set_zoom",22.0)
+ var wheel:=InputEventMouseButton.new()
+ wheel.pressed=true
+ wheel.button_index=MOUSE_BUTTON_WHEEL_UP
+ game.call("_unhandled_input",wheel)
+ check(is_equal_approx(game.get("v24_camera_size"),20.5),"WoW mouse wheel up zooms third-person camera in")
+ wheel.button_index=MOUSE_BUTTON_WHEEL_DOWN
+ game.call("_unhandled_input",wheel)
+ check(is_equal_approx(game.get("v24_camera_size"),22.0),"WoW mouse wheel down zooms third-person camera out")
+ game.set("menu_open",true)
+ wheel.button_index=MOUSE_BUTTON_WHEEL_UP
+ game.call("_unhandled_input",wheel)
+ check(is_equal_approx(game.get("v24_camera_size"),22.0),"Mouse wheel leaves camera unchanged while menu is open")
+ game.set("menu_open",false)
  var victim:Dictionary={}
  for beast in game.get("beasts"):
   if int(beast.get("zone", -1)) == 0 and bool(beast.get("alive",false)) and not bool(beast.get("boss",false)):
