@@ -129,6 +129,7 @@ func _run()->void:
  var perf:Dictionary=game.call("_perf_report")
  check(perf.has("combat_fps") and int(perf["combat_fps"])>=0,"on-demand FPS reported")
  check(perf.has("combat_frame_ms") and float(perf["combat_frame_ms"])>=0.0,"on-demand frame duration reported")
+ check(perf.has("combat_slow_fight_samples") and int(perf["combat_slow_fight_samples"])>=0,"slow combat sample metric available")
  check(perf.has("combat_draw_calls_per_hostile") and float(perf["combat_draw_calls_per_hostile"])>=0.0,"normalized draw-call metric safe without hostiles")
  check(perf.has("combat_frame_process_ms") and float(perf["combat_frame_process_ms"])>=0.0,"frame process time reported")
  check(perf.has("combat_frame_physics_ms") and float(perf["combat_frame_physics_ms"])>=0.0,"frame physics time reported")
