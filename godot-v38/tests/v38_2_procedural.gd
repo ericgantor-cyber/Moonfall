@@ -55,5 +55,13 @@ func _run()->void:
  check(not FEEDBACK.warning_radius_changed(2.8,2.8),"unchanged telegraph radius skips mesh rebuild")
  check(FEEDBACK.warning_radius_changed(2.8,3.8),"boss phase resize updates geometry")
  check(not FEEDBACK.warning_radius_changed(2.8,2.8+0.000001),"tiny radius jitter ignored")
+ # Ecology crowd scans use squared distance, preserving boundary behavior.
+ var probe_a:=Vector3.ZERO
+ var probe_near:=Vector3(3.0,0.0,4.0)
+ var probe_far:=Vector3(5.01,0.0,0.0)
+ check(probe_near.distance_squared_to(probe_a)<30.25,"herd ally inside 5.5 radius")
+ check(not probe_far.distance_squared_to(probe_a)<25.0,"herd boundary excludes range above five")
+ check(not probe_near.distance_squared_to(probe_a)<25.0,"herd strict range excludes exact boundary")
+ check(probe_near.distance_squared_to(probe_a)<64.0,"player proximity inside eight")
  print("MOONFALL v38.2 PROCEDURAL PASS" if failures==0 else "MOONFALL v38.2 PROCEDURAL FAIL")
  quit(0 if failures==0 else 1)
