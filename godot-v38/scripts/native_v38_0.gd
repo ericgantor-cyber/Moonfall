@@ -16,6 +16,9 @@ var v384_vitals_panel:PanelContainer
 var v384_vitals_label:RichTextLabel
 var v384_rings:Control
 var v384_vitals_elapsed:float=0.0
+var v385_mana:float=100.0
+const V385_MAX_MANA:float=100.0
+const V385_MANA_REGEN:float=7.0
 
 func _ready()->void:
  super._ready()
@@ -95,6 +98,19 @@ func _v384_build_vitals()->void:
  layout.add_child(v384_vitals_label)
  v384_vitals_panel.visible=false
 
+func _spell(which:String)->void:
+ if mounted or ability_cooldown>0.0:return super._spell(which)
+ var cost:float=15.0 if which=="dash" else 25.0 if which=="nova" else 30.0
+ if v385_mana<cost:
+  _show_message("Not enough mana! Need "+str(roundi(cost))+".",1.3)
+  return
+ v385_mana-=cost
+ super._spell(which)
+
+func _start_game(selected_hero:String)->void:
+ v385_mana=V385_MAX_MANA
+ super._start_game(selected_hero)
+
 func _v384_refresh_vitals()->void:
  if not is_instance_valid(v384_vitals_label):return
  if is_instance_valid(v384_rings):
@@ -103,8 +119,8 @@ func _v384_refresh_vitals()->void:
  var health_max:int=maxi(1,roundi(max_hp))
  var experience:int=maxi(0,hero_xp)
  var experience_target:int=maxi(1,hero_xp_to_next)
- # There is no actual mana resource in this build; never fabricate its value.
- v384_vitals_label.text="[color=#ff555f]● HP   %d / %d[/color]\\n[color=#5caeff]● MANA   N/A[/color]\\n[color=#b786ff]● XP   %d / %d[/color]" % [health,health_max,experience,experience_target]
+ # This display is backed by the spell-cost resource in v38.5.
+ v384_vitals_label.text="[color=#ff555f]● HP   %d / %d[/color]\\n[color=#5caeff]● MANA   %d / %d[/color]\\n[color=#b786ff]● XP   %d / %d[/color]" % [health,health_max,roundi(v385_mana),roundi(V385_MAX_MANA),experience,experience_target]
 
 func _unhandled_key_input(event:InputEvent)->void:
  if event is InputEventKey and event.pressed and not event.echo and event.keycode==KEY_F2 and hero_playing and not menu_open:
@@ -120,6 +136,8 @@ func _unhandled_key_input(event:InputEvent)->void:
 
 func _process(delta:float)->void:
  super._process(delta)
+ if hero_playing and not death_active and not menu_open:
+  v385_mana=minf(V385_MAX_MANA,v385_mana+V385_MANA_REGEN*maxf(0.0,delta))
  if is_instance_valid(v384_vitals_panel):
   var vitals_visible:bool=hero_playing and not death_active and not menu_open
   v384_vitals_panel.visible=vitals_visible
