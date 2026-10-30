@@ -69,6 +69,13 @@ func _run()->void:
  var resource_snapshot:Dictionary=game.call("_checkpoint_extra_data")
  check(is_equal_approx(float(resource_snapshot.get("mana",-1)),42.5),"checkpoint captures exact remaining mana")
  game.set("v385_mana",100.0)
+ game.set("v387_stamina",42.0)
+ var stamina_snapshot:Dictionary=game.call("_checkpoint_extra_data")
+ check(is_equal_approx(float(stamina_snapshot.get("stamina",-1.0)),42.0),"stamina included in checkpoint")
+ game.set("v387_stamina",0.0)
+ game.call("_dodge")
+ check(is_equal_approx(float(game.get("v387_stamina")),0.0),"dodge blocked with exhausted stamina")
+ game.set("v387_stamina",150.0)
  check(not (game.get("v380_status_panel") as PanelContainer).visible,"status HUD hidden at title screen")
  var obsolete_title:bool=false
  for label_node in (game.get("start_screen") as Control).find_children("*","Label",true,false):
