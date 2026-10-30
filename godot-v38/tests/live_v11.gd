@@ -36,7 +36,7 @@ func _run() -> void:
  check(game.get("map_time") > t + 0.5, "Player simulation advances 120 physics frames")
  check(game.get("hero_playing"), "Hero remains active in live simulation")
  check(game.get("visible_regions") >= 1, "Region visibility remains valid")
- check(game.get("beasts").size() == 62, "Wildlife actor list stable")
+ check(game.get("beasts").size() == 74, "Wildlife and invasion actor pools remain stable")
  for i in range(6):
   game.call("_award_experience", i % 6, "elder", false)
  check(game.get("hero_level") >= 2, "Experience grants level-up and talent points")
