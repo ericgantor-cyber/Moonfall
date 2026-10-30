@@ -13,6 +13,25 @@ func _run()->void:
  check(RULES.zoom_from_legacy(17.5)<RULES.DEFAULT_DISTANCE,"wheel zooms closer")
  check(RULES.zoom_from_legacy(20.5)>RULES.DEFAULT_DISTANCE,"wheel zooms farther")
  check(RULES.safe_distance(10.0)<10.0,"collision avoids scenery")
+ # Forty-four additional camera safety cases: 11 each for zoom, orbit, pitch and collision.
+ var zoom_inputs:=[-100.0,-10.0,0.0,12.0,15.0,17.5,19.0,20.5,25.0,31.0,100.0]
+ var last_zoom:float=RULES.MIN_DISTANCE
+ for value in zoom_inputs:
+  var distance:float=RULES.zoom_from_legacy(value)
+  check(distance>=RULES.MIN_DISTANCE and distance<=RULES.MAX_DISTANCE and distance>=last_zoom,"zoom bounds and ordering "+str(value))
+  last_zoom=distance
+ var yaws:=[-6.28,-3.14,-1.57,-0.78,0.0,0.78,1.57,2.35,3.14,4.71,6.28]
+ for yaw in yaws:
+  var offset:Vector3=RULES.camera_offset(yaw,RULES.DEFAULT_PITCH,RULES.DEFAULT_DISTANCE)
+  check(absf(offset.length()-RULES.DEFAULT_DISTANCE)<0.001,"3D orbit radius "+str(yaw))
+ var pitch_inputs:=[-10.0,-3.0,-1.0,-0.5,-0.1,0.0,0.1,0.5,1.0,3.0,10.0]
+ for delta in pitch_inputs:
+  var pitch:float=RULES.orbit_pitch(RULES.DEFAULT_PITCH,delta)
+  check(pitch>=RULES.MIN_PITCH and pitch<=RULES.MAX_PITCH,"orbit vertical safety "+str(delta))
+ var hit_distances:=[0.0,0.1,1.0,2.0,2.9,3.0,4.0,6.0,10.0,20.0,40.0]
+ for hit in hit_distances:
+  var safe:float=RULES.safe_distance(hit)
+  check(safe>=2.4 and is_equal_approx(safe,maxf(2.4,hit-0.55)),"camera collision clearance "+str(hit))
  var game:Node3D=load("res://scenes/main.tscn").instantiate()
  root.add_child(game)
  await process_frame
