@@ -1464,14 +1464,14 @@ func _nearest_prey(hunter:Dictionary,range_limit:float) -> Dictionary:
  var best:Dictionary={}
  var body:CharacterBody3D=hunter["body"]
  if not is_instance_valid(body):return best
- var closest:=range_limit
+ var closest_squared:float=maxf(0.0,range_limit)*maxf(0.0,range_limit)
  for prey in zone_beast_lists[int(hunter["zone"])]:
   if not bool(prey.get("alive",false)) or bool(prey.get("hostile",false)) or prey==hunter:continue
   if int(prey["zone"])!=int(hunter["zone"]):continue
   var target:CharacterBody3D=prey["body"]
   if not is_instance_valid(target):continue
-  var d:=target.global_position.distance_to(body.global_position)
-  if d<closest and _has_clear_sight(body,target):best=prey;closest=d
+  var d_squared:float=target.global_position.distance_squared_to(body.global_position)
+  if d_squared<closest_squared and _has_clear_sight(body,target):best=prey;closest_squared=d_squared
  return best
 
 func _ecology_update(delta:float) -> void:
@@ -1616,7 +1616,7 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
   if is_instance_valid(prey_body):
    var to_prey:=prey_body.global_position-body.global_position
    to_prey.y=0
-   if to_prey.length()<1.55:
+   if to_prey.length_squared()<1.55*1.55:
     activity["hp"]=float(activity["hp"])-float(BEASTS[kind]["atk"])*0.65
     beast["fed_until"]=map_time+7.0
     beast["hunting_until"]=0.0
@@ -1626,7 +1626,7 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
     body.velocity=Vector3.ZERO
    else:body.velocity=to_prey.normalized()*move_speed*0.8
   else:body.velocity=Vector3.ZERO
- elif body.global_position.distance_to(beast["home"])>4.0:
+ elif body.global_position.distance_squared_to(beast["home"])>16.0:
   var toward:Vector3=beast["home"]
   toward-=body.global_position
   toward.y=0
@@ -1662,7 +1662,8 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
    if float(beast["windup"])<=0.0:
     _set_boss_telegraph(beast,false)
     var marked:Vector3=beast.get("warning_pos",body.global_position)
-    var near_hit:=Vector2(marked.x-player.global_position.x,marked.z-player.global_position.z).length()<float(beast.get("warning_radius",2.8))
+    var warning_radius:float=float(beast.get("warning_radius",2.8))
+    var near_hit:=Vector2(marked.x-player.global_position.x,marked.z-player.global_position.z).length_squared()<warning_radius*warning_radius
     if near_hit and dodge_time<=0 and _has_clear_sight(body,player):
      _apply_incoming_damage(19.0+7.0*float(int(beast.get("boss_phase",1))))
     beast["attack"]=COMBAT_RULES.guardian_attack_cooldown(int(beast.get("boss_phase",1)))
@@ -1758,7 +1759,7 @@ func _update_respawns() -> void:
   var ready:=float(beast.get("respawn_at",0.0))
   if ready<0.0 or map_time<ready:continue
   var home:Vector3=beast["home"]
-  if player.global_position.distance_to(home)<MIN_RESPAWN_DISTANCE:continue
+  if player.global_position.distance_squared_to(home)<MIN_RESPAWN_DISTANCE*MIN_RESPAWN_DISTANCE:continue
   _reset_native_beast(beast)
   respawns_total+=1
 
