@@ -1852,29 +1852,36 @@ func _show_floating_damage(target:Dictionary,amount:int,critical:bool)->void:
  if not is_instance_valid(body):return
  var floaters:Array[Node]=[]
  for child in body.get_children():
-  if child is Label3D and child.name.begins_with("DamageFloat"):
+  if child is Label3D and child.name.begins_with("DamageFloat") and not child.is_queued_for_deletion():
    floaters.append(child)
+ var label:Label3D
  if floaters.size()>=MAX_DAMAGE_FLOATERS_PER_TARGET:
-  floaters[0].queue_free()
- var label:=Label3D.new()
- label.name="DamageFloat"
+  # Recycle the oldest active label instead of creating a seventh.
+  # Kill its old animation so its queued-free callback cannot delete the reused label.
+  label=floaters[0] as Label3D
+  var old_tween:Tween=label.get_meta("damage_float_tween",null) as Tween
+  if old_tween!=null and old_tween.is_valid():old_tween.kill()
+  body.move_child(label,body.get_child_count()-1)
+ else:
+  label=Label3D.new()
+  label.name="DamageFloat"
+  body.add_child(label)
+ # Always restore the baseline before applying critical size and color.
+ label.show()
+ label.scale=Vector3.ONE
  label.text=("%d!" % amount) if critical else str(amount)
  label.font_size=72 if critical else 46
  label.pixel_size=0.005
  label.outline_size=10 if critical else 8
  label.billboard=BaseMaterial3D.BILLBOARD_ENABLED
  label.no_depth_test=true
- label.modulate=Color("ffd34d") if critical else Color("fff4e8")
- # Small critical-only impact pulse uses the existing damage label.
- # Does not spawn meshes, lights, particles, or physics actors.
- if critical:
-  label.modulate=Color("fff8d2")
+ label.modulate=Color("fff8d2") if critical else Color("fff4e8")
  var side:float=-0.3 if floaters.size()%2==0 else 0.3
  label.position=Vector3(side,1.65+0.12*float(floaters.size()%3),0.0)
- body.add_child(label)
- # Stronger critical pop, then a smooth rise and late fade for readability.
+ # Floaters still self-clean after their short animation. No permanent pools.
  var finish:Vector3=label.position+Vector3(side*0.35,1.05 if critical else 0.6,0.0)
  var tween:Tween=label.create_tween()
+ label.set_meta("damage_float_tween",tween)
  tween.set_parallel(true)
  tween.tween_property(label,"position",finish,1.0 if critical else 0.85).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
  tween.tween_property(label,"modulate:a",0.0,0.36).set_delay(0.64 if critical else 0.49)
