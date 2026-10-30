@@ -113,7 +113,7 @@ func _apply_player_hit(target:Dictionary,base_damage:float,stagger_strength:floa
  var before:=float(target.get("hp",0.0))
  super._apply_player_hit(target,base_damage,stagger_strength)
  var amount:=maxf(0.0,before-float(target.get("hp",0.0)))
- if amount<=0.0 or not hero_playing:return
+ if amount<=0.0 or not hero_playing or graphics_quality=="Smooth":return
  var body:CharacterBody3D=target.get("body")
  if not is_instance_valid(body) or not body.visible:return
  if not is_instance_valid(player) or body.global_position.distance_squared_to(player.global_position)>36.0*36.0:return
@@ -167,6 +167,10 @@ func _process(delta:float) -> void:
  var step:=clampf(delta,0.0,0.2)
  for i in range(v24_popups.size()):
   if v24_popup_time[i]<=0.0:continue
+  if graphics_quality=="Smooth":
+   v24_popup_time[i]=0.0
+   v24_popups[i].visible=false
+   continue
   v24_popup_time[i]=maxf(0.0,v24_popup_time[i]-step)
   var label:Label3D=v24_popups[i]
   if v24_popup_time[i]<=0.0:label.visible=false
