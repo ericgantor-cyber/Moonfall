@@ -85,7 +85,7 @@ func _process(delta:float)->void:
    if bool(creature.get("alive",false)) and bool(creature.get("hostile",false)):hostile_count+=1
  v383_peak_hostiles=maxi(v383_peak_hostiles,hostile_count)
  v380_status_text.text=V380_RULES.safe_label(region,hp,max_hp,v372_oxygen,underwater,v373_depth,current_threat)
- v380_status_text.text+="\nFPS: "+str(fps_now)+"  •  10s avg/min: "+str(summary["average"])+"/"+str(summary["min"])+"  •  Enemies: "+str(hostile_count)
+ v380_status_text.text+="\nFPS "+str(fps_now)+" (avg/min "+str(summary["average"])+"/"+str(summary["min"])+")  •  Foes "+str(hostile_count)
  v380_status_text.add_theme_color_override("font_color",Color("ffb5a9") if V380_RULES.air_urgency(v372_oxygen,underwater)>0 else Color("cce9f5"))
  v380_status_updates+=1
 
