@@ -1,0 +1,57 @@
+name: Import Moonfall Godot v38.2 source
+on:
+  push:
+    branches:
+      - import/moonfall-godot-v38-2
+    paths:
+      - .github/workflows/import-moonfall-godot.yml
+      - Moonfall_v38_2_FRESH.zip
+permissions:
+  contents: write
+jobs:
+  extract-and-commit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Extract and verify complete source tree
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import zipfile, hashlib
+          archive=Path('Moonfall_v38_2_FRESH.zip')
+          target=Path('godot-v38')
+          assert archive.is_file(), 'Uploaded ZIP not found'
+          with zipfile.ZipFile(archive) as z:
+              assert z.testzip() is None, 'Corrupted ZIP'
+              entries=[i for i in z.infolist() if not i.is_dir()]
+              assert len(entries)>400, 'Unexpectedly incomplete archive'
+              for i in entries:
+                  p=Path(i.filename)
+                  assert len(p.parts)>=2 and p.parts[0]=='moonfall38_work', 'Unexpected ZIP layout'
+                  relative=Path(*p.parts[1:])
+                  assert not relative.is_absolute() and '..' not in relative.parts
+                  assert not any(part.startswith('.git') and part=='.git' for part in relative.parts)
+                  output=target/relative
+                  output.parent.mkdir(parents=True,exist_ok=True)
+                  content=z.read(i)
+                  output.write_bytes(content)
+                  assert hashlib.sha256(output.read_bytes()).digest()==hashlib.sha256(content).digest()
+          assert (target/'project.godot').exists(), 'Godot project.godot missing'
+          print('Extracted and verified',len(entries),'files')
+          PY
+      - name: Commit extracted Godot project to import branch
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add godot-v38
+          if git diff --cached --quiet; then
+            echo "Godot source already imported"
+          else
+            git commit -m "Import complete Moonfall Godot v38.2 source and artwork"
+            git push origin HEAD:import/moonfall-godot-v38-2
+          fi

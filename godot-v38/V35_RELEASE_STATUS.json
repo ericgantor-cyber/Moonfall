@@ -1,0 +1,13 @@
+{
+  "release_milestone": "v35 release-readiness, gameplay v34.4",
+  "result": "source checks passed; engine and Windows build pending",
+  "offline_python_checks_passed": 25,
+  "godot_gameplay_test_suites_registered": 55,
+  "godot_gameplay_test_suites_executed": 0,
+  "original_image_assets_sha256_unchanged": 69,
+  "godot_runtime": "Not available here; local command exits 2",
+  "windows_installer": "Not built",
+  "github_publish": "Not performed",
+  "4k_hardware_test": "Not performed",
+  "next_action": "Run PUBLISH_NATIVE_TO_GITHUB.bat, open PR, inspect Windows workflow tests and artifacts"
+}

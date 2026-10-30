@@ -1,0 +1,2 @@
+96 historical markdown documents moved to optional archive; 17 key current documents retained.
+No scripts, tests, build tools, project scenes or original art were deleted.

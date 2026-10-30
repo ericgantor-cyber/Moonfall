@@ -1,0 +1,3 @@
+# Preserve exact uploaded Godot source and artwork bytes on Windows checkout.
+# Historical SHA-256 manifests include image metadata and asset README files.
+* -text

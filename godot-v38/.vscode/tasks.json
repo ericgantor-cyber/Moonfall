@@ -1,0 +1,153 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Moonfall: Run all Godot tests",
+      "type": "shell",
+      "command": "python",
+      "args": [
+        "tools/run_tests.py"
+      ],
+      "group": {
+        "kind": "test",
+        "isDefault": true
+      },
+      "problemMatcher": [],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      }
+    },
+    {
+      "label": "Moonfall: Build Windows EXE",
+      "type": "shell",
+      "command": "cmd",
+      "args": [
+        "/c",
+        "BUILD_WINDOWS.bat"
+      ],
+      "problemMatcher": [],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "windows": {
+        "command": "cmd"
+      },
+      "linux": {
+        "command": "echo",
+        "args": [
+          "Windows builds must run on Windows or GitHub Actions"
+        ]
+      }
+    },
+    {
+      "label": "Moonfall: Compile Windows installer",
+      "type": "shell",
+      "command": "cmd",
+      "args": [
+        "/c",
+        "COMPILE_INSTALLER_ONLY.bat"
+      ],
+      "problemMatcher": [],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "windows": {
+        "command": "cmd"
+      },
+      "linux": {
+        "command": "echo",
+        "args": [
+          "Inno Setup requires Windows or GitHub Actions"
+        ]
+      }
+    },
+    {
+      "label": "Moonfall: Check Godot and VS Code updates",
+      "type": "shell",
+      "command": "cmd",
+      "args": [
+        "/c",
+        "tools\\updates\\CHECK_DEV_UPDATES.bat"
+      ],
+      "problemMatcher": [],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "windows": {
+        "command": "cmd"
+      },
+      "linux": {
+        "command": "echo",
+        "args": [
+          "These developer updates run on Windows."
+        ]
+      }
+    },
+    {
+      "label": "Moonfall: Update dev tools now",
+      "type": "shell",
+      "command": "cmd",
+      "args": [
+        "/c",
+        "tools\\updates\\UPDATE_DEV_TOOLS_NOW.bat"
+      ],
+      "problemMatcher": [],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "windows": {
+        "command": "cmd"
+      },
+      "linux": {
+        "command": "echo",
+        "args": [
+          "These developer updates run on Windows."
+        ]
+      }
+    },
+    {
+      "label": "Moonfall: Enable weekly dev tool updates",
+      "type": "shell",
+      "command": "cmd",
+      "args": [
+        "/c",
+        "tools\\updates\\ENABLE_WEEKLY_UPDATES.bat"
+      ],
+      "problemMatcher": [],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "windows": {
+        "command": "cmd"
+      },
+      "linux": {
+        "command": "echo",
+        "args": [
+          "These developer updates run on Windows."
+        ]
+      }
+    },
+    {
+      "label": "Moonfall: Disable weekly dev tool updates",
+      "type": "shell",
+      "command": "cmd",
+      "args": [
+        "/c",
+        "tools\\updates\\DISABLE_WEEKLY_UPDATES.bat"
+      ],
+      "problemMatcher": [],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "windows": {
+        "command": "cmd"
+      },
+      "linux": {
+        "command": "echo",
+        "args": [
+          "These developer updates run on Windows."
+        ]
+      }
+    }
+  ]
+}
