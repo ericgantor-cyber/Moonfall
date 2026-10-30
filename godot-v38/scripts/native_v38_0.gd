@@ -425,6 +425,7 @@ func _perf_report()->Dictionary:
  report["combat_sample_min_fps"]=int(summary["min"])
  report["combat_sample_max_fps"]=int(summary["max"])
  report["combat_peak_hostiles"]=v383_peak_hostiles
+ report["combat_slow_fight_samples"]=v389_slow_fight_samples
  var combat_summary:Dictionary=V383_BENCHMARK.summarize_fps(v383_combat_fps_samples)
  report["combat_encounter_sample_count"]=int(combat_summary["count"])
  report["combat_encounter_avg_fps"]=int(combat_summary["average"])
