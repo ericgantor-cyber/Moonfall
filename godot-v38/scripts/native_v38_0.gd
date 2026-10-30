@@ -182,8 +182,8 @@ func _v384_build_vitals()->void:
   v387_stamina_bar.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
   v387_stamina_bar.offset_left=24.0
   v387_stamina_bar.offset_right=-24.0
-  v387_stamina_bar.offset_top=-48.0
-  v387_stamina_bar.offset_bottom=-36.0
+  v387_stamina_bar.offset_top=-80.0
+  v387_stamina_bar.offset_bottom=-67.0
   # Keep the low-resource cue available alongside the artwork, without a HUD box.
   var low_stam_hint:=Label.new()
   low_stam_hint.name="V387_OrbLowStamina"
@@ -193,15 +193,15 @@ func _v384_build_vitals()->void:
   overlay.add_child(low_stam_hint)
   low_stam_hint.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
   low_stam_hint.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
-  low_stam_hint.offset_top=-70.0
-  low_stam_hint.offset_bottom=-50.0
+  low_stam_hint.offset_top=-105.0
+  low_stam_hint.offset_bottom=-85.0
   low_stam_hint.visible=false
   v386_orb_values.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
   v386_orb_values.offset_left=6.0
   v386_orb_values.offset_right=237.0
-  v386_orb_values.offset_top=-26.0
-  v386_orb_values.offset_bottom=-4.0
-  v386_orb_values.add_theme_font_size_override("font_size",15)
+  v386_orb_values.offset_top=-58.0
+  v386_orb_values.offset_bottom=-8.0
+  v386_orb_values.add_theme_font_size_override("font_size",13)
   v386_orb_values.add_theme_color_override("font_color",Color.WHITE)
   v386_orb_values.add_theme_color_override("font_shadow_color",Color(0.02,0.01,0.07,0.98))
   v386_orb_values.add_theme_constant_override("shadow_offset_x",1)
@@ -268,7 +268,7 @@ func _v384_refresh_vitals()->void:
   var hp_value:int=clampi(roundi(hp),0,maxi(1,roundi(max_hp)))
   var mana_value:int=clampi(roundi(v385_mana),0,roundi(V385_MAX_MANA))
   var xp_value:int=clampi(hero_xp,0,maxi(1,hero_xp_to_next))
-  v386_orb_values.text="♥ %d/%d   ◆ %d/%d   ✦ %d/%d   STAM %d/%d" % [hp_value,roundi(max_hp),mana_value,roundi(V385_MAX_MANA),xp_value,hero_xp_to_next,roundi(v387_stamina),roundi(V387_MAX_STAMINA)]
+  v386_orb_values.text="♥ %d/%d   ◆ %d/%d\\n✦ %d/%d   STAM %d/%d" % [hp_value,roundi(max_hp),mana_value,roundi(V385_MAX_MANA),xp_value,hero_xp_to_next,roundi(v387_stamina),roundi(V387_MAX_STAMINA)]
  if not is_instance_valid(v384_vitals_label):return
  if is_instance_valid(v384_rings):
   v384_rings.call("set_vitals",hp/maxf(1.0,max_hp),float(hero_xp)/float(maxi(1,hero_xp_to_next)))
