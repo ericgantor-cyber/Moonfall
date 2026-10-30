@@ -103,6 +103,20 @@ func _v384_build_vitals()->void:
  v384_vitals_label.add_theme_font_size_override("normal_font_size",16)
  v384_vitals_label.custom_minimum_size=Vector2(205.0,96.0)
  layout.add_child(v384_vitals_label)
+ # Functional green stamina meter even before the custom art PNG is installed.
+ var fallback_stamina:=ProgressBar.new()
+ fallback_stamina.name="V387_FallbackStaminaBar"
+ fallback_stamina.min_value=0.0
+ fallback_stamina.max_value=V387_MAX_STAMINA
+ fallback_stamina.value=v387_stamina
+ fallback_stamina.show_percentage=false
+ fallback_stamina.custom_minimum_size=Vector2(110.0,14.0)
+ fallback_stamina.mouse_filter=Control.MOUSE_FILTER_IGNORE
+ var fallback_fill:=StyleBoxFlat.new()
+ fallback_fill.bg_color=Color("#69e26b")
+ fallback_fill.set_corner_radius_all(4)
+ fallback_stamina.add_theme_stylebox_override("fill",fallback_fill)
+ layout.add_child(fallback_stamina)
  v384_vitals_panel.visible=false
  # Use the user's HUD PNG when present; fall back to functional meters otherwise.
  if ResourceLoader.exists("res://assets/ui/moonfall_orb_hud.png"):
@@ -212,6 +226,8 @@ func _restore_data(data:Dictionary)->void:
 
 func _v384_refresh_vitals()->void:
  if is_instance_valid(v387_stamina_bar):v387_stamina_bar.value=clampf(v387_stamina,0.0,V387_MAX_STAMINA)
+ var fallback_meter:ProgressBar=get_node_or_null("NativeAtlasUI/V384_Vitals/HBoxContainer/V387_FallbackStaminaBar") as ProgressBar
+ if is_instance_valid(fallback_meter):fallback_meter.value=clampf(v387_stamina,0.0,V387_MAX_STAMINA)
  if is_instance_valid(v386_orb_values):
   var hp_value:int=clampi(roundi(hp),0,maxi(1,roundi(max_hp)))
   var mana_value:int=clampi(roundi(v385_mana),0,roundi(V385_MAX_MANA))
