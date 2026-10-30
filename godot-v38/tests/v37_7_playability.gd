@@ -30,10 +30,10 @@ func _run()->void:
  var body:RichTextLabel=game.get("menu_body") as RichTextLabel
  check(is_instance_valid(body) and "PLAYABILITY" in body.text,"System page has help actions")
  check(not game.call("_v377_can_rescue"),"no emergency exit on title screen")
- var accurate_title:bool=false
+ var obsolete_title:bool=false
  for node in (game.get("start_screen") as Control).find_children("*","Label",true,false):
-  if "MOONFALL v3" in (node as Label).text and not "MOONFALL v13" in (node as Label).text:accurate_title=true
- check(accurate_title,"title screen no longer advertises obsolete v13")
+  if "MOONFALL NATIVE v13" in (node as Label).text:obsolete_title=true
+ check(not obsolete_title and str(game.call("_release_label")).begins_with("v3"),"title has no obsolete v13 label and gameplay reports current v3x release")
  game.call("_atlas_execute","v377_help")
  check(game.get("current_tab")=="Tips","Tips action works")
  check("RIGHT NOW" in body.text,"contextual help shown")
