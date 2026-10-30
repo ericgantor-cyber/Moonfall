@@ -111,6 +111,8 @@ func _v384_build_vitals()->void:
   v384_vitals_panel.offset_top=-335.0
   v384_vitals_panel.offset_bottom=-12.0
   v384_vitals_panel.mouse_filter=Control.MOUSE_FILTER_IGNORE
+  var transparent_panel:=StyleBoxEmpty.new()
+  v384_vitals_panel.add_theme_stylebox_override("panel",transparent_panel)
   var overlay:=Control.new()
   overlay.custom_minimum_size=Vector2(242,323)
   overlay.mouse_filter=Control.MOUSE_FILTER_IGNORE
@@ -123,7 +125,11 @@ func _v384_build_vitals()->void:
   v386_orb_image.mouse_filter=Control.MOUSE_FILTER_IGNORE
   overlay.add_child(v386_orb_image)
   v386_orb_values=Label.new()
-  v386_orb_values.set_anchors_preset(Control.PRESET_FULL_RECT)
+  v386_orb_values.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+  v386_orb_values.offset_left=6.0
+  v386_orb_values.offset_right=237.0
+  v386_orb_values.offset_top=-26.0
+  v386_orb_values.offset_bottom=-4.0
   v386_orb_values.add_theme_font_size_override("font_size",14)
   v386_orb_values.add_theme_color_override("font_color",Color.WHITE)
   v386_orb_values.mouse_filter=Control.MOUSE_FILTER_IGNORE
@@ -161,7 +167,7 @@ func _restore_data(data:Dictionary)->void:
 
 func _v384_refresh_vitals()->void:
  if is_instance_valid(v386_orb_values):
-  v386_orb_values.text="HP %d/%d   M %d/%d   XP %d/%d" % [roundi(hp),roundi(max_hp),roundi(v385_mana),roundi(V385_MAX_MANA),hero_xp,hero_xp_to_next]
+  v386_orb_values.text="HP %d/%d · M %d/%d · XP %d/%d" % [roundi(hp),roundi(max_hp),roundi(v385_mana),roundi(V385_MAX_MANA),hero_xp,hero_xp_to_next]
  if not is_instance_valid(v384_vitals_label):return
  if is_instance_valid(v384_rings):
   v384_rings.call("set_vitals",hp/maxf(1.0,max_hp),float(hero_xp)/float(maxi(1,hero_xp_to_next)))
