@@ -25,6 +25,7 @@ const V387_MAX_STAMINA:float=150.0
 const V387_STAMINA_REGEN:float=18.0
 const V387_DODGE_COST:float=28.0
 var v387_stamina:float=V387_MAX_STAMINA
+var v387_stamina_bar:ProgressBar
 
 func _ready()->void:
  super._ready()
@@ -132,6 +133,27 @@ func _v384_build_vitals()->void:
   v386_orb_values=Label.new()
   v386_orb_values.mouse_filter=Control.MOUSE_FILTER_IGNORE
   overlay.add_child(v386_orb_values)
+  v387_stamina_bar=ProgressBar.new()
+  v387_stamina_bar.name="V387_StaminaBar"
+  v387_stamina_bar.min_value=0.0
+  v387_stamina_bar.max_value=V387_MAX_STAMINA
+  v387_stamina_bar.value=v387_stamina
+  v387_stamina_bar.show_percentage=false
+  v387_stamina_bar.mouse_filter=Control.MOUSE_FILTER_IGNORE
+  var stamina_fill:=StyleBoxFlat.new()
+  stamina_fill.bg_color=Color("#69e26b")
+  stamina_fill.set_corner_radius_all(5)
+  v387_stamina_bar.add_theme_stylebox_override("fill",stamina_fill)
+  var stamina_track:=StyleBoxFlat.new()
+  stamina_track.bg_color=Color(0.04,0.14,0.06,0.85)
+  stamina_track.set_corner_radius_all(5)
+  v387_stamina_bar.add_theme_stylebox_override("background",stamina_track)
+  overlay.add_child(v387_stamina_bar)
+  v387_stamina_bar.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+  v387_stamina_bar.offset_left=24.0
+  v387_stamina_bar.offset_right=-24.0
+  v387_stamina_bar.offset_top=-48.0
+  v387_stamina_bar.offset_bottom=-36.0
   v386_orb_values.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
   v386_orb_values.offset_left=6.0
   v386_orb_values.offset_right=237.0
@@ -189,6 +211,7 @@ func _restore_data(data:Dictionary)->void:
   v387_stamina=V387_MAX_STAMINA
 
 func _v384_refresh_vitals()->void:
+ if is_instance_valid(v387_stamina_bar):v387_stamina_bar.value=clampf(v387_stamina,0.0,V387_MAX_STAMINA)
  if is_instance_valid(v386_orb_values):
   var hp_value:int=clampi(roundi(hp),0,maxi(1,roundi(max_hp)))
   var mana_value:int=clampi(roundi(v385_mana),0,roundi(V385_MAX_MANA))
