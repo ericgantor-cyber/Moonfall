@@ -1,5 +1,6 @@
 extends "res://scripts/main.gd"
 const V383_COMBAT_RULES:=preload("res://scripts/systems/procedural_variants_v382.gd")
+const V383_FEEDBACK:=preload("res://scripts/systems/combat_feedback_v383.gd")
 const MINI_MAP_SCRIPT := preload("res://scripts/native_minimap.gd")
 # v26: Stateless modules isolate persistence and progression from the world scene.
 const SAVE_STORE := preload("res://scripts/systems/checkpoint_store.gd")
@@ -528,7 +529,7 @@ func _spawn_beast(at: Vector3, kind: String, zone: int, variant: String="normal"
  var def:Dictionary=BEASTS[kind]
  var scaling:float=SPAWN_RULES.health_scale(int(REGIONS[zone]["tier"]),variant,boss)
  var spawn_id:=beasts.size()
- var creature:Dictionary={"body":body,"kind":kind,"variant":variant,"zone":zone,"hp":float(def["hp"])*scaling,"max":float(def["hp"])*scaling,"attack":0.0,"alive":true,"hostile":bool(def["hostile"]),"home":at,"rewarded":false,"boss":boss,"boss_id":spawn_id,"windup":0.0,"fed_until":0.0,"hunting_until":0.0,"scared_until":0.0,"engaged":false,"respawn_at":0.0,"stagger_until":0.0,"stagger_resist_until":0.0,"elite_lunge_cd":2.0,"elite_lunge_windup":0.0,"elite_lunge_target":Vector3.ZERO,"boss_phase":1,"boss_pattern":0,"warning_radius":2.8,"nameplate":label,"alert_until":0.0,"dungeon_site":-1,"base_hp":float(def["hp"])*scaling,"retreat_until":0.0,"retreat_cooldown":0.0}
+ var creature:Dictionary={"body":body,"kind":kind,"variant":variant,"zone":zone,"hp":float(def["hp"])*scaling,"max":float(def["hp"])*scaling,"attack":0.0,"alive":true,"hostile":bool(def["hostile"]),"home":at,"rewarded":false,"boss":boss,"boss_id":spawn_id,"windup":0.0,"fed_until":0.0,"hunting_until":0.0,"scared_until":0.0,"engaged":false,"respawn_at":0.0,"stagger_until":0.0,"stagger_resist_until":0.0,"elite_lunge_cd":2.0,"elite_lunge_windup":0.0,"elite_lunge_target":Vector3.ZERO,"boss_phase":1,"boss_pattern":0,"warning_radius":2.8,"nameplate":label,"hit_visual":art,"hit_react_until":0.0,"hit_react_critical":false,"hit_flash_until":0.0,"alert_until":0.0,"dungeon_site":-1,"base_hp":float(def["hp"])*scaling,"retreat_until":0.0,"retreat_cooldown":0.0}
  beasts.append(creature)
  zone_beast_lists[zone].append(creature)
 
@@ -1555,6 +1556,12 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
   var hit_label:Label3D=beast.get("nameplate") as Label3D
   if is_instance_valid(hit_label):
    hit_label.modulate=Color(str(REGIONS[int(beast["zone"])]["light"])) if str(beast.get("variant","normal"))!="normal" else Color("f4dcbb")
+ var react_until:float=float(beast.get("hit_react_until",0.0))
+ if react_until>0.0:
+  var hit_mesh:MeshInstance3D=beast.get("hit_visual") as MeshInstance3D
+  if is_instance_valid(hit_mesh):
+   hit_mesh.rotation_degrees=Vector3(0.0,0.0,90.0+V383_FEEDBACK.recoil_degrees(react_until-map_time,bool(beast.get("hit_react_critical",false))))
+  if map_time>=react_until:beast["hit_react_until"]=0.0
  var diff:=player.global_position-body.global_position
  diff.y=0.0
  var distance:=diff.length()
@@ -1692,6 +1699,15 @@ func _reset_native_beast(beast:Dictionary) -> void:
  beast["alive"]=true
  beast["hp"]=float(beast["max"])
  beast["attack"]=0.0
+ beast["hit_react_until"]=0.0
+ beast["hit_react_critical"]=false
+ beast["hit_flash_until"]=0.0
+ var reset_mesh:MeshInstance3D=beast.get("hit_visual") as MeshInstance3D
+ if is_instance_valid(reset_mesh):reset_mesh.rotation_degrees=Vector3(0.0,0.0,90.0)
+ if not bool(beast.get("boss",false)):
+  var reset_label:Label3D=beast.get("nameplate") as Label3D
+  if is_instance_valid(reset_label):
+   reset_label.modulate=Color(str(REGIONS[int(beast["zone"])]["light"])) if str(beast.get("variant","normal"))!="normal" else Color("f4dcbb")
  beast["stagger_until"]=0.0
  beast["stagger_resist_until"]=0.0
  beast["boss_phase"]=1
@@ -1867,6 +1883,8 @@ func _apply_player_hit(target:Dictionary, base_damage:float, stagger_strength:fl
   if is_instance_valid(hit_label):
    hit_label.modulate=Color("ffdd7a") if critical else Color("ff877c")
    target["hit_flash_until"]=map_time+0.18
+  target["hit_react_until"]=map_time+V383_FEEDBACK.REACTION_SECONDS
+  target["hit_react_critical"]=critical
  last_hit_damage=int(round(damage))
  _show_floating_damage(target,last_hit_damage,critical)
  if critical:
