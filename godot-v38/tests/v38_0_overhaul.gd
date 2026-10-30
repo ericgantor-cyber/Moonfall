@@ -71,6 +71,7 @@ func _run()->void:
  check("body.move_and_collide(direction*1.8*minf(maxf(delta,0.0),0.05))" in orb_source,"knockback uses collision-aware bounded movement")
  check("if not bool(beast.get(\"alive\",false)) or bool(beast.get(\"boss\",false)):return" in orb_source,"knockback excludes bosses and defeated enemies")
  check("func _attack()->void:" in orb_source and "super._attack()" in orb_source,"combat attack guard delegates valid hits to inherited combo and damage code")
+ check("combat_valid_attack_inputs" in orb_source and "combat_blocked_attack_inputs" in orb_source,"combat input counts included in diagnostics")
  check("LIVE  ♥" in orb_source and "STAM %d/%d" in orb_source,"stamina value displays alongside HP mana and XP")
  check(not ("\\\\n✦" in orb_source),"HUD live number text uses a real escaped newline instead of printed slash-n")
  check("HORIZONTAL_ALIGNMENT_CENTER" in orb_source and "font_shadow_color" in orb_source,"orb numerals are centered and legible")
