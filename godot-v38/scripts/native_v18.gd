@@ -107,5 +107,14 @@ func _terrain_grid_steer(body:CharacterBody3D,desired:Vector3) -> Vector3:
  if left_open or right_open:
   grid_avoided_steps+=1
   return left if left_open and not right_open else right if right_open and not left_open else (left if body.get_instance_id()%2==0 else right)
- # If surrounding cells are blocked, let Godot's physical sliding resolve it.
+ # At blocked corners, probe a wider turn before relying on physics sliding.
+ # Keep all probes bounded and deterministic, with no new nodes or pathfinding allocations.
+ var wide_left:=desired.rotated(Vector3.UP,2.0*PI/3.0)
+ var wide_right:=desired.rotated(Vector3.UP,-2.0*PI/3.0)
+ var wide_left_open:=_grid_is_open(position+wide_left.normalized()*GRID_AVOID_LOOKAHEAD)
+ var wide_right_open:=_grid_is_open(position+wide_right.normalized()*GRID_AVOID_LOOKAHEAD)
+ if wide_left_open or wide_right_open:
+  grid_avoided_steps+=1
+  return wide_left if wide_left_open and not wide_right_open else wide_right if wide_right_open and not wide_left_open else (wide_left if body.get_instance_id()%2==0 else wide_right)
+ # If every probe is blocked, let Godot's physical sliding resolve it.
  return desired
