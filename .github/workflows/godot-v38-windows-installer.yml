@@ -1,4 +1,4 @@
-name: Moonfall v38.2 Godot Windows build and installer
+name: Moonfall v38.3 Godot Windows build and installer
 on:
   workflow_dispatch:
   pull_request:
@@ -187,21 +187,23 @@ jobs:
           if (!(Test-Path $game) -or !(Test-Path $setup)) { throw 'Cannot record release evidence without both binaries' }
           $evidence = [ordered]@{
             project = 'Moonfall Native'
-            gameplay_source_version = '38.0'
-            release_stage = 'v38.0 Windows build handoff'
+            gameplay_source_version = '38.3'
+            release_stage = 'v38.3 PR #90 Windows validation'
             windows_runner = $env:RUNNER_NAME
             github_sha = $env:GITHUB_SHA
-            test_result = 'passed 67 CI engine suites and installed-game smoke'
+            test_result = 'Godot engine test suite and installed-game smoke (see workflow logs)'
             game_sha256 = (Get-FileHash $game -Algorithm SHA256).Hash.ToLowerInvariant()
             installer_sha256 = (Get-FileHash $setup -Algorithm SHA256).Hash.ToLowerInvariant()
             real_gpu_4k_tested = $false
             actual_human_gameplay_tested = $false
+            combat_ai_human_playtest_verified = $false
+            executable_legacy_filename = 'MoonfallNative_v34_4.exe'
           }
           $evidence | ConvertTo-Json | Set-Content 'build/RELEASE_EVIDENCE.json'
       - name: Upload portable v34_4 EXE
         uses: actions/upload-artifact@v4
         with:
-          name: Moonfall-v34_4-single-exe
+          name: Moonfall-v38_3-PR90-single-exe
           path: |
             godot-v38/build/MoonfallNative_v34_4.exe
             godot-v38/build/GODOT_LICENSE.txt
@@ -210,14 +212,14 @@ jobs:
       - name: Upload Windows installer
         uses: actions/upload-artifact@v4
         with:
-          name: Moonfall-v34_4-windows-installer
+          name: Moonfall-v38_3-PR90-windows-installer
           path: godot-v38/Release_Windows/Moonfall_Native_v34_4_Windows_Setup.exe
           if-no-files-found: error
       - name: Upload test logs on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: Moonfall-v34_4-diagnostic-logs
+          name: Moonfall-v38_3-PR90-diagnostic-logs
           path: |
             godot-v38/GODOT_*_LOG.txt
             godot-v38/installed-run.log
