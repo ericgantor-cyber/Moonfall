@@ -37,6 +37,12 @@ func _run()->void:
  game.call("_menu_tab","System")
  var body:RichTextLabel=game.get("menu_body") as RichTextLabel
  check(is_instance_valid(body) and "F2" in body.text,"F2 discoverable inside system menu")
+ var perf:Dictionary=game.call("_perf_report")
+ check(perf.has("combat_fps") and int(perf["combat_fps"])>=0,"on-demand FPS reported")
+ check(perf.has("combat_frame_process_ms") and float(perf["combat_frame_process_ms"])>=0.0,"frame process time reported")
+ check(perf.has("combat_frame_physics_ms") and float(perf["combat_frame_physics_ms"])>=0.0,"frame physics time reported")
+ check(perf.has("combat_active_hostiles") and int(perf["combat_active_hostiles"])>=0,"active hostile count nonnegative")
+ check(perf.has("combat_damage_floaters") and int(perf["combat_damage_floaters"])>=0,"damage floater count nonnegative")
  game.queue_free()
  print("MOONFALL v38.0 OVERHAUL PASS" if failures==0 else "MOONFALL v38.0 OVERHAUL FAIL")
  quit(0 if failures==0 else 1)
