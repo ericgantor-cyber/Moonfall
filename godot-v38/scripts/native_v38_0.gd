@@ -12,6 +12,7 @@ var v380_status_updates:int=0
 var v383_fps_samples:Array[int]=[]
 var v383_combat_fps_samples:Array[int]=[]
 var v383_peak_hostiles:int=0
+var v389_slow_fight_samples:int=0
 var v384_vitals_panel:PanelContainer
 var v384_vitals_label:RichTextLabel
 var v384_rings:Control
