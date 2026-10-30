@@ -1597,8 +1597,9 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
   body.velocity=Vector3.ZERO
  elif engaged and map_time<float(beast.get("retreat_until",0.0)) and distance<10.0:
   body.velocity=-diff.normalized()*move_speed*0.9
- elif engaged and v383_intent=="retreat" and distance<8.0:
-  body.velocity=-diff.normalized()*move_speed*0.85
+ elif engaged and v383_intent=="retreat":
+  # Flee while close; once outside the safe spacing, hold instead of chasing back in.
+  body.velocity=-diff.normalized()*move_speed*0.85 if distance<8.0 else Vector3.ZERO
  elif engaged and v383_intent=="strafe" and distance>1.7 and distance<6.0:
   # Stable per-actor orbit side, no random calls or additional physics bodies.
   var flank:Vector3=Vector3(-diff.z,0.0,diff.x).normalized()
