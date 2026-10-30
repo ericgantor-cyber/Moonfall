@@ -55,4 +55,4 @@ static func combat_intent(role:String,distance:float,hp_ratio:float,attack_ready
   return "pursue"
  if attack_ready:
   return "attack"
- return "strafe" if ranged else "guard"
+ return "strafe" if ranged or role=="ambusher" else "guard"
