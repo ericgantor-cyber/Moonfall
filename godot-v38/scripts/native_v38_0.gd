@@ -361,7 +361,9 @@ func _process(delta:float)->void:
  var underwater:bool=V373_RULES.truly_submerged(v373_depth)
  var fps_now:int=maxi(0,Engine.get_frames_per_second())
  V383_BENCHMARK.record_fps(v383_fps_samples,fps_now)
- if current_threat:V383_BENCHMARK.record_fps(v383_combat_fps_samples,fps_now)
+ if current_threat:
+  V383_BENCHMARK.record_fps(v383_combat_fps_samples,fps_now)
+  if fps_now>0 and fps_now<30:v389_slow_fight_samples+=1
  var summary:Dictionary=V383_BENCHMARK.summarize_fps(v383_fps_samples)
  var combat_summary:Dictionary=V383_BENCHMARK.summarize_fps(v383_combat_fps_samples)
  var hostile_count:int=0
