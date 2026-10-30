@@ -28,6 +28,8 @@ var v387_stamina:float=V387_MAX_STAMINA
 var v387_stamina_bar:ProgressBar
 var v387_stamina_warning:Label
 var v387_stamina_warning_elapsed:float=0.0
+var v387_stamina_regen_wait:float=0.0
+const V387_STAMINA_REGEN_DELAY:float=0.65
 
 func _ready()->void:
  super._ready()
@@ -224,18 +226,21 @@ func _dodge()->void:
   _show_message("Not enough stamina to dodge.",1.0)
   return
  v387_stamina-=V387_DODGE_COST
+ v387_stamina_regen_wait=V387_STAMINA_REGEN_DELAY
  super._dodge()
 
 func _start_game(selected_hero:String)->void:
  super._start_game(selected_hero)
  v385_mana=V385_MAX_MANA
  v387_stamina=V387_MAX_STAMINA
+ v387_stamina_regen_wait=0.0
 
 func _checkpoint_extra_data()->Dictionary:
  return {"mana":clampf(v385_mana,0.0,V385_MAX_MANA),"stamina":clampf(v387_stamina,0.0,V387_MAX_STAMINA)}
 
 func _restore_data(data:Dictionary)->void:
  super._restore_data(data)
+ v387_stamina_regen_wait=0.0
  var resources:Variant=data.get("optional_resources",{})
  # Legacy checkpoints without a mana field continue to load at full mana.
  if resources is Dictionary:
@@ -284,7 +289,12 @@ func _process(delta:float)->void:
  super._process(delta)
  if hero_playing and not death_active and not menu_open:
   v385_mana=minf(V385_MAX_MANA,v385_mana+V385_MANA_REGEN*maxf(0.0,delta))
-  v387_stamina=minf(V387_MAX_STAMINA,v387_stamina+V387_STAMINA_REGEN*maxf(0.0,delta))
+  var stamina_step:float=maxf(0.0,delta)
+  if v387_stamina_regen_wait>0.0:
+   var delay_used:float=minf(v387_stamina_regen_wait,stamina_step)
+   v387_stamina_regen_wait-=delay_used
+   stamina_step-=delay_used
+  if stamina_step>0.0:v387_stamina=minf(V387_MAX_STAMINA,v387_stamina+V387_STAMINA_REGEN*stamina_step)
  if is_instance_valid(v384_vitals_panel):
   var vitals_visible:bool=hero_playing and not death_active and not menu_open
   v384_vitals_panel.visible=vitals_visible
