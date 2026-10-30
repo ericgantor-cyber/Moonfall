@@ -52,5 +52,8 @@ func _run()->void:
  check(FEEDBACK.boss_telegraph_transparency(1.25,3)<=0.29,"boss warning opacity is bounded")
  check(FEEDBACK.boss_telegraph_transparency(0.2,1)!=FEEDBACK.boss_telegraph_transparency(0.2,3),"later boss phases pulse at a different cadence")
  check(FEEDBACK.boss_telegraph_transparency(0.2,999)<=0.29,"invalid boss phase clamps safely")
+ check(not FEEDBACK.warning_radius_changed(2.8,2.8),"unchanged telegraph radius skips mesh rebuild")
+ check(FEEDBACK.warning_radius_changed(2.8,3.8),"boss phase resize updates geometry")
+ check(not FEEDBACK.warning_radius_changed(2.8,2.8+0.000001),"tiny radius jitter ignored")
  print("MOONFALL v38.2 PROCEDURAL PASS" if failures==0 else "MOONFALL v38.2 PROCEDURAL FAIL")
  quit(0 if failures==0 else 1)
