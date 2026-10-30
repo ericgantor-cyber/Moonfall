@@ -51,7 +51,7 @@ func _run()->void:
  check(is_instance_valid(game.get("v384_vitals_panel")),"HP mana XP vitals panel created")
  var orb_source:String=FileAccess.get_file_as_string("res://scripts/native_v38_0.gd")
  check("res://assets/ui/moonfall_orb_hud.png" in orb_source,"original orb HUD asset path supported")
- check("res://assets/ui/moonfall_four_resource_hud.png" in orb_source,"four-resource user artwork prioritized")
+ check("res://assets/ui/a_high_detail_fantasy_rpg_hud_game_ui_overlay_on.png" in orb_source,"uploaded four-resource artwork prioritized")
  check("ResourceLoader.exists(selected_hud_art)" in orb_source,"missing image falls back without breaking HUD")
  check("HORIZONTAL_ALIGNMENT_CENTER" in orb_source and "font_shadow_color" in orb_source,"orb numerals are centered and legible")
  var rings:Control=game.get("v384_rings") as Control
