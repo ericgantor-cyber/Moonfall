@@ -71,6 +71,7 @@ SUITES={
  'v37_6_all_tips':'MOONFALL v37.6 ALL TIPS PASS',
  'v37_7_playability':'MOONFALL v37.7 PLAYABILITY PASS',
  'v38_0_overhaul':'MOONFALL v38.0 OVERHAUL PASS',
+ 'v38_2_procedural':'MOONFALL v38.2 PROCEDURAL PASS',
 }
 def main():
  selected=sys.argv[1:]
