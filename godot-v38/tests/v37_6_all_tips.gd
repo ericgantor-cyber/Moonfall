@@ -29,6 +29,8 @@ func _run()->void:
  var codex_text:String=(game.get("menu_body") as RichTextLabel).text
  check("TIPS CODEX" in codex_text,"Tips panel displays the guide")
  check(is_instance_valid(search) and search.visible,"search field shown only on Tips tab")
+ # Live filtering only redraws an open Atlas, as it does in real gameplay.
+ game.set("menu_open",true)
  game.call("_v376_search_changed","oxygen")
  check("OXYGEN" in (game.get("menu_body") as RichTextLabel).text.to_upper(),"live search displays matching entries")
  game.call("_atlas_execute","tipcat:Water & Diving")
