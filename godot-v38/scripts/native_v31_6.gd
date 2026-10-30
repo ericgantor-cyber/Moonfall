@@ -66,7 +66,7 @@ func _v315_tick_visuals()->void:
   var legs:Array=details["legs"]
   for i in range(legs.size()):
    var joint:Node3D=legs[i]
-   var opposite:float=PI if i in [1,2] else 0.0
+   var opposite:float=PI if i==1 or i==2 else 0.0
    joint.rotation.z=lerpf(joint.rotation.z,(-0.24 if activity else -0.13 if strike else 0.42*sin(rhythm+opposite)*gait),0.50)
    if str(track["kind"])=="owl":joint.rotation.x=0.15*sin(rhythm*0.5+float(i))*gait
    v316_limb_updates+=1
