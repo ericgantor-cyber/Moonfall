@@ -212,6 +212,12 @@ func _v384_build_vitals()->void:
   plain_vitals.name="V384_BackupVitals"
 
 
+func _attack()->void:
+ # Ignore combat clicks when the game is paused, at a menu, or after defeat.
+ # Preserve the inherited combo, attack feedback, and hit detection unchanged.
+ if not hero_playing or menu_open or death_active:return
+ super._attack()
+
 func _spell(which:String)->void:
  # Rejected combat inputs must never consume mana while menus or death screens are active.
  if not hero_playing or menu_open or death_active:return
