@@ -1825,20 +1825,25 @@ func _show_floating_damage(target:Dictionary,amount:int,critical:bool)->void:
   floaters[0].queue_free()
  var label:=Label3D.new()
  label.name="DamageFloat"
- label.text=str(amount)+("!" if critical else "")
- label.font_size=64 if critical else 46
+ label.text=("%d!" % amount) if critical else str(amount)
+ label.font_size=72 if critical else 46
  label.pixel_size=0.005
- label.outline_size=8
+ label.outline_size=10 if critical else 8
  label.billboard=BaseMaterial3D.BILLBOARD_ENABLED
  label.no_depth_test=true
  label.modulate=Color("ffd34d") if critical else Color("fff4e8")
  var side:float=-0.3 if floaters.size()%2==0 else 0.3
  label.position=Vector3(side,1.65+0.12*float(floaters.size()%3),0.0)
  body.add_child(label)
+ # Stronger critical pop, then a smooth rise and late fade for readability.
+ var finish:Vector3=label.position+Vector3(side*0.35,1.05 if critical else 0.6,0.0)
  var tween:Tween=label.create_tween()
  tween.set_parallel(true)
- tween.tween_property(label,"position",label.position+Vector3(side*0.35,0.85 if critical else 0.6,0),0.85)
- tween.tween_property(label,"modulate:a",0.0,0.85)
+ tween.tween_property(label,"position",finish,1.0 if critical else 0.85).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+ tween.tween_property(label,"modulate:a",0.0,0.36).set_delay(0.64 if critical else 0.49)
+ if critical:
+  label.scale=Vector3.ONE*1.3
+  tween.tween_property(label,"scale",Vector3.ONE,0.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
  tween.set_parallel(false)
  tween.tween_callback(label.queue_free)
 
