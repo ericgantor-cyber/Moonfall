@@ -12,6 +12,7 @@ var v380_status_updates:int=0
 var v383_fps_samples:Array[int]=[]
 var v383_combat_fps_samples:Array[int]=[]
 var v383_peak_hostiles:int=0
+var v389_slow_fight_samples:int=0
 var v384_vitals_panel:PanelContainer
 var v384_vitals_label:RichTextLabel
 var v384_rings:Control
@@ -360,7 +361,9 @@ func _process(delta:float)->void:
  var underwater:bool=V373_RULES.truly_submerged(v373_depth)
  var fps_now:int=maxi(0,Engine.get_frames_per_second())
  V383_BENCHMARK.record_fps(v383_fps_samples,fps_now)
- if current_threat:V383_BENCHMARK.record_fps(v383_combat_fps_samples,fps_now)
+ if current_threat:
+  V383_BENCHMARK.record_fps(v383_combat_fps_samples,fps_now)
+  if fps_now>0 and fps_now<30:v389_slow_fight_samples+=1
  var summary:Dictionary=V383_BENCHMARK.summarize_fps(v383_fps_samples)
  var combat_summary:Dictionary=V383_BENCHMARK.summarize_fps(v383_combat_fps_samples)
  var hostile_count:int=0
@@ -399,6 +402,9 @@ func _perf_report()->Dictionary:
  report["combat_render_primitives"]=int(Performance.get_monitor(Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME))
  report["combat_scene_nodes"]=int(Performance.get_monitor(Performance.OBJECT_NODE_COUNT))
  report["combat_physics_collision_pairs"]=int(Performance.get_monitor(Performance.PHYSICS_3D_COLLISION_PAIRS))
+ # Per-frame rendering/physics monitors are sampled only when a report is opened.
+ report["combat_frame_ms"]=1000.0/maxf(1.0,float(Engine.get_frames_per_second()))
+ report["combat_draw_calls_per_hostile"]=0.0
  var active_hostiles:int=0
  var damage_number_count:int=0
  if region_index>=0 and region_index<zone_beast_lists.size():
@@ -411,6 +417,7 @@ func _perf_report()->Dictionary:
     if child is Label3D and (child.has_meta("damage_float_tween") or child.name.begins_with("DamageFloat")):
      if not child.is_queued_for_deletion():damage_number_count+=1
  report["combat_active_hostiles"]=active_hostiles
+ if active_hostiles>0:report["combat_draw_calls_per_hostile"]=float(report["combat_render_draw_calls"])/float(active_hostiles)
  report["combat_damage_floaters"]=damage_number_count
  var summary:Dictionary=V383_BENCHMARK.summarize_fps(v383_fps_samples)
  report["combat_sample_count"]=int(summary["count"])
@@ -418,6 +425,7 @@ func _perf_report()->Dictionary:
  report["combat_sample_min_fps"]=int(summary["min"])
  report["combat_sample_max_fps"]=int(summary["max"])
  report["combat_peak_hostiles"]=v383_peak_hostiles
+ report["combat_slow_fight_samples"]=v389_slow_fight_samples
  var combat_summary:Dictionary=V383_BENCHMARK.summarize_fps(v383_combat_fps_samples)
  report["combat_encounter_sample_count"]=int(combat_summary["count"])
  report["combat_encounter_avg_fps"]=int(combat_summary["average"])
