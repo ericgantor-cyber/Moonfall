@@ -118,7 +118,7 @@ func _v384_build_vitals()->void:
   overlay.mouse_filter=Control.MOUSE_FILTER_IGNORE
   v384_vitals_panel.add_child(overlay)
   v386_orb_image=TextureRect.new()
-  v386_orb_image.texture=load("res://assets/ui/moonfall_orb_hud.png")
+  v386_orb_image.set_texture(load("res://assets/ui/moonfall_orb_hud.png"))
   v386_orb_image.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
   v386_orb_image.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
   v386_orb_image.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
