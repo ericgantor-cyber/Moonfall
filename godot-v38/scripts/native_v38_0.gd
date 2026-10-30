@@ -212,6 +212,15 @@ func _v384_build_vitals()->void:
   plain_vitals.name="V384_BackupVitals"
 
 
+func _apply_player_hit(target:Dictionary,base_damage:float,stagger_strength:float=0.0)->void:
+ # Reuse the existing stagger timer and hit visuals; do not create new AI state.
+ var hp_before:float=float(target.get("hp",0.0))
+ super._apply_player_hit(target,base_damage,stagger_strength)
+ if hp_before<=float(target.get("hp",0.0)):return
+ if not bool(target.get("hostile",false)) or bool(target.get("boss",false)) or not bool(target.get("alive",false)):return
+ # Successful hits briefly interrupt ordinary enemies; stronger inherited staggers win.
+ target["stagger_until"]=maxf(float(target.get("stagger_until",0.0)),map_time+0.22)
+
 func _attack()->void:
  # Ignore combat clicks when the game is paused, at a menu, or after defeat.
  # Preserve the inherited combo, attack feedback, and hit detection unchanged.
