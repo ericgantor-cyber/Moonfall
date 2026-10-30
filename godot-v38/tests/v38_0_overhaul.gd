@@ -49,6 +49,11 @@ func _run()->void:
  check(is_instance_valid(pose) and pose.scale.is_equal_approx(Vector3.ONE),"pose transform has no cumulative scaling")
  check(is_instance_valid(game.get("v380_status_panel")),"optional status panel created")
  check(is_instance_valid(game.get("v384_vitals_panel")),"HP mana XP vitals panel created")
+ var rings:Control=game.get("v384_rings") as Control
+ check(is_instance_valid(rings) and rings.has_method("set_vitals"),"HP and XP progress rings created")
+ if is_instance_valid(rings):
+  rings.call("set_vitals",0.35,0.7)
+  check(is_equal_approx(float(rings.get("hp_ratio")),0.35) and is_equal_approx(float(rings.get("xp_ratio")),0.7),"circular vitals update from progress values")
  check(not (game.get("v384_vitals_panel") as PanelContainer).visible,"vitals hidden before gameplay")
  game.call("_v384_refresh_vitals")
  var vitals:RichTextLabel=game.get("v384_vitals_label") as RichTextLabel
