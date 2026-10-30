@@ -55,6 +55,7 @@ func _run()->void:
  check("ResourceLoader.exists(selected_hud_art)" in orb_source,"missing image falls back without breaking HUD")
  check("overlay.custom_minimum_size=Vector2(420,280)" in orb_source,"four-resource artwork retains landscape ratio")
  check("v386_orb_values.offset_top=284.0" in orb_source and "v387_stamina_bar.offset_top=330.0" in orb_source,"live numeric values and stamina bar sit below artwork")
+ check("if not hero_playing or menu_open or death_active:return" in orb_source,"spell input cannot consume mana when gameplay is inactive")
  check("LIVE  ♥" in orb_source and "STAM %d/%d" in orb_source,"stamina value displays alongside HP mana and XP")
  check(not ("\\\\n✦" in orb_source),"HUD live number text uses a real escaped newline instead of printed slash-n")
  check("HORIZONTAL_ALIGNMENT_CENTER" in orb_source and "font_shadow_color" in orb_source,"orb numerals are centered and legible")
