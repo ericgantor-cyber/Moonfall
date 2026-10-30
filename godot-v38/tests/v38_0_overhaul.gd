@@ -89,6 +89,11 @@ func _run()->void:
  game.call("_show_floating_damage",dummy_target,77,true)
  check(dummy_beast.get_child_count()==6,"seventh hit reuses floater; hard cap preserved")
  check(is_instance_valid(oldest) and oldest.text=="77!" and is_equal_approx(oldest.scale.x,1.3),"recycled critical label restores impact styling")
+ check(int(dummy_target.get("damage_float_sequence",-1))==7,"damage float lane sequence advances across recycling")
+ check(is_equal_approx(oldest.position.x,-0.3),"seventh hit alternates to the left damage lane")
+ game.call("_show_floating_damage",dummy_target,78,false)
+ var next_floater:Label3D=dummy_beast.get_child(5) as Label3D
+ check(is_instance_valid(next_floater) and next_floater.text=="78" and is_equal_approx(next_floater.position.x,0.3),"eighth hit alternates to the right damage lane")
  for hit_number in range(30):
   game.call("_show_floating_damage",dummy_target,hit_number+100,hit_number%2==0)
  check(dummy_beast.get_child_count()==6,"repeated burst hits never exceed the six-label cap")
