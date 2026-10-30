@@ -116,6 +116,7 @@ func _run()->void:
   var tick:String=source.substr(tick_start,(tick_end-tick_start) if tick_end>tick_start else -1) if tick_start>=0 else ""
   check(tick_start>=0 and "V383_COMBAT_RULES.combat_intent(" in tick,"combat intent policy invoked in live enemy tick")
   check("v383_intent==\"retreat\"" in tick and "body.velocity=-diff.normalized()" in tick,"low-health retreat produces actual movement")
+  check("distance<8.0 else Vector3.ZERO" in tick,"low-health retreat holds safe spacing instead of re-engaging")
   check("v383_intent==\"strafe\"" in tick and "body.velocity=(flank*orbit_side" in tick,"flank intent produces actual movement")
   check("if staggered:" in tick and "if staggered:return" in tick,"stagger still prevents attack resolution")
   check("if bool(beast.get(\"boss\",false)):" in tick,"boss windup attack path preserved")
