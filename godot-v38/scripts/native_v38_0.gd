@@ -113,6 +113,12 @@ func _perf_report()->Dictionary:
  report["combat_fps"]=Engine.get_frames_per_second()
  report["combat_frame_process_ms"]=Performance.get_monitor(Performance.TIME_PROCESS)*1000.0
  report["combat_frame_physics_ms"]=Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS)*1000.0
+ # Engine counters help distinguish render load, scene size and physics pressure.
+ # Query only when the existing performance report is requested, never every frame.
+ report["combat_render_draw_calls"]=int(Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME))
+ report["combat_render_primitives"]=int(Performance.get_monitor(Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME))
+ report["combat_scene_nodes"]=int(Performance.get_monitor(Performance.OBJECT_NODE_COUNT))
+ report["combat_physics_collision_pairs"]=int(Performance.get_monitor(Performance.PHYSICS_3D_COLLISION_PAIRS))
  var active_hostiles:int=0
  var damage_number_count:int=0
  if region_index>=0 and region_index<zone_beast_lists.size():
