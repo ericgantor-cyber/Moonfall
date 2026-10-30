@@ -132,7 +132,7 @@ func _v384_build_vitals()->void:
  layout.add_child(v387_stamina_warning)
  v384_vitals_panel.visible=false
  # Use the user's HUD PNG when present; fall back to functional meters otherwise.
- var four_color_art:String="res://assets/ui/moonfall_four_resource_hud.png"
+ var four_color_art:String="res://assets/ui/a_high_detail_fantasy_rpg_hud_game_ui_overlay_on.png"
  var original_orb_art:String="res://assets/ui/moonfall_orb_hud.png"
  var selected_hud_art:String=four_color_art if ResourceLoader.exists(four_color_art) else original_orb_art
  if ResourceLoader.exists(selected_hud_art):
