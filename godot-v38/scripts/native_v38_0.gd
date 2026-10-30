@@ -85,4 +85,22 @@ func _perf_report()->Dictionary:
  report["overhaul"]="v38.0 safer swim art pose, optional status and lean handoff"
  report["status_visible"]=v380_status_enabled
  report["status_ui_updates"]=v380_status_updates
+ # Collected only on demand when the existing profiler requests a report.
+ # Never scan enemy children during normal render/physics frames.
+ report["combat_fps"]=Engine.get_frames_per_second()
+ report["combat_frame_process_ms"]=Performance.get_monitor(Performance.TIME_PROCESS)*1000.0
+ report["combat_frame_physics_ms"]=Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS)*1000.0
+ var active_hostiles:int=0
+ var damage_number_count:int=0
+ if region_index>=0 and region_index<zone_beast_lists.size():
+  for beast in zone_beast_lists[region_index]:
+   if not bool(beast.get("alive",false)):continue
+   if bool(beast.get("hostile",false)):active_hostiles+=1
+   var body:CharacterBody3D=beast.get("body") as CharacterBody3D
+   if not is_instance_valid(body):continue
+   for child in body.get_children():
+    if child is Label3D and child.name.begins_with("DamageFloat"):
+     if not child.is_queued_for_deletion():damage_number_count+=1
+ report["combat_active_hostiles"]=active_hostiles
+ report["combat_damage_floaters"]=damage_number_count
  return report
