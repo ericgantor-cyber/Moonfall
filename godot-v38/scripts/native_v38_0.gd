@@ -21,6 +21,10 @@ var v384_vitals_elapsed:float=0.0
 var v385_mana:float=100.0
 const V385_MAX_MANA:float=100.0
 const V385_MANA_REGEN:float=7.0
+const V387_MAX_STAMINA:float=150.0
+const V387_STAMINA_REGEN:float=18.0
+const V387_DODGE_COST:float=28.0
+var v387_stamina:float=V387_MAX_STAMINA
 
 func _ready()->void:
  super._ready()
@@ -155,12 +159,23 @@ func _spell(which:String)->void:
  v385_mana-=cost
  super._spell(which)
 
+func _dodge()->void:
+ if mounted or dodge_cooldown>0.0:
+  super._dodge()
+  return
+ if v387_stamina<V387_DODGE_COST:
+  _show_message("Not enough stamina to dodge.",1.0)
+  return
+ v387_stamina-=V387_DODGE_COST
+ super._dodge()
+
 func _start_game(selected_hero:String)->void:
  super._start_game(selected_hero)
  v385_mana=V385_MAX_MANA
+ v387_stamina=V387_MAX_STAMINA
 
 func _checkpoint_extra_data()->Dictionary:
- return {"mana":clampf(v385_mana,0.0,V385_MAX_MANA)}
+ return {"mana":clampf(v385_mana,0.0,V385_MAX_MANA),"stamina":clampf(v387_stamina,0.0,V387_MAX_STAMINA)}
 
 func _restore_data(data:Dictionary)->void:
  super._restore_data(data)
@@ -168,15 +183,17 @@ func _restore_data(data:Dictionary)->void:
  # Legacy checkpoints without a mana field continue to load at full mana.
  if resources is Dictionary:
   v385_mana=clampf(float(resources.get("mana",V385_MAX_MANA)),0.0,V385_MAX_MANA)
+  v387_stamina=clampf(float(resources.get("stamina",V387_MAX_STAMINA)),0.0,V387_MAX_STAMINA)
  else:
   v385_mana=V385_MAX_MANA
+  v387_stamina=V387_MAX_STAMINA
 
 func _v384_refresh_vitals()->void:
  if is_instance_valid(v386_orb_values):
   var hp_value:int=clampi(roundi(hp),0,maxi(1,roundi(max_hp)))
   var mana_value:int=clampi(roundi(v385_mana),0,roundi(V385_MAX_MANA))
   var xp_value:int=clampi(hero_xp,0,maxi(1,hero_xp_to_next))
-  v386_orb_values.text="♥ %d/%d   ◆ %d/%d   ✦ %d/%d" % [hp_value,roundi(max_hp),mana_value,roundi(V385_MAX_MANA),xp_value,hero_xp_to_next]
+  v386_orb_values.text="♥ %d/%d   ◆ %d/%d   ✦ %d/%d   STAM %d/%d" % [hp_value,roundi(max_hp),mana_value,roundi(V385_MAX_MANA),xp_value,hero_xp_to_next,roundi(v387_stamina),roundi(V387_MAX_STAMINA)]
  if not is_instance_valid(v384_vitals_label):return
  if is_instance_valid(v384_rings):
   v384_rings.call("set_vitals",hp/maxf(1.0,max_hp),float(hero_xp)/float(maxi(1,hero_xp_to_next)))
@@ -185,7 +202,7 @@ func _v384_refresh_vitals()->void:
  var experience:int=maxi(0,hero_xp)
  var experience_target:int=maxi(1,hero_xp_to_next)
  # This display is backed by the spell-cost resource in v38.5.
- v384_vitals_label.text="[color=#ff555f]● HP   %d / %d[/color]\\n[color=#5caeff]● MANA   %d / %d[/color]\\n[color=#b786ff]● XP   %d / %d[/color]" % [health,health_max,roundi(v385_mana),roundi(V385_MAX_MANA),experience,experience_target]
+ v384_vitals_label.text="[color=#ff555f]● HP   %d / %d[/color]\\n[color=#5caeff]● MANA   %d / %d[/color]\\n[color=#b786ff]● XP   %d / %d[/color]\\n[color=#69e26b]● STAM   %d / %d[/color]" % [health,health_max,roundi(v385_mana),roundi(V385_MAX_MANA),experience,experience_target,roundi(v387_stamina),roundi(V387_MAX_STAMINA)]
 
 func _unhandled_key_input(event:InputEvent)->void:
  if event is InputEventKey and event.pressed and not event.echo and event.keycode==KEY_F2 and hero_playing and not menu_open:
@@ -203,6 +220,7 @@ func _process(delta:float)->void:
  super._process(delta)
  if hero_playing and not death_active and not menu_open:
   v385_mana=minf(V385_MAX_MANA,v385_mana+V385_MANA_REGEN*maxf(0.0,delta))
+  v387_stamina=minf(V387_MAX_STAMINA,v387_stamina+V387_STAMINA_REGEN*maxf(0.0,delta))
  if is_instance_valid(v384_vitals_panel):
   var vitals_visible:bool=hero_playing and not death_active and not menu_open
   v384_vitals_panel.visible=vitals_visible
