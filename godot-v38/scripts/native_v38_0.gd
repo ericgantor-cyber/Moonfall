@@ -11,10 +11,14 @@ var v380_status_updates:int=0
 var v383_fps_samples:Array[int]=[]
 var v383_combat_fps_samples:Array[int]=[]
 var v383_peak_hostiles:int=0
+var v384_vitals_panel:PanelContainer
+var v384_vitals_label:RichTextLabel
+var v384_vitals_elapsed:float=0.0
 
 func _ready()->void:
  super._ready()
  _v380_build_status_panel()
+ _v384_build_vitals()
 
 func _build_ui()->void:
  super._build_ui()
@@ -54,6 +58,43 @@ func _v380_build_status_panel()->void:
  v380_status_panel.add_child(v380_status_text)
  v380_status_panel.visible=false
 
+func _v384_build_vitals()->void:
+ var layer:CanvasLayer=get_node_or_null("NativeAtlasUI") as CanvasLayer
+ if not is_instance_valid(layer):return
+ v384_vitals_panel=PanelContainer.new()
+ v384_vitals_panel.name="V384_Vitals"
+ v384_vitals_panel.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+ v384_vitals_panel.offset_left=16.0
+ v384_vitals_panel.offset_right=290.0
+ v384_vitals_panel.offset_top=-124.0
+ v384_vitals_panel.offset_bottom=-14.0
+ v384_vitals_panel.mouse_filter=Control.MOUSE_FILTER_IGNORE
+ var backdrop:=StyleBoxFlat.new()
+ backdrop.bg_color=Color(0.045,0.035,0.09,0.86)
+ backdrop.border_color=Color(0.47,0.34,0.58,0.9)
+ backdrop.set_border_width_all(1)
+ backdrop.set_corner_radius_all(12)
+ backdrop.set_content_margin_all(9)
+ v384_vitals_panel.add_theme_stylebox_override("panel",backdrop)
+ layer.add_child(v384_vitals_panel)
+ v384_vitals_label=RichTextLabel.new()
+ v384_vitals_label.name="V384_VitalsText"
+ v384_vitals_label.bbcode_enabled=true
+ v384_vitals_label.scroll_active=false
+ v384_vitals_label.mouse_filter=Control.MOUSE_FILTER_IGNORE
+ v384_vitals_label.add_theme_font_size_override("normal_font_size",16)
+ v384_vitals_panel.add_child(v384_vitals_label)
+ v384_vitals_panel.visible=false
+
+func _v384_refresh_vitals()->void:
+ if not is_instance_valid(v384_vitals_label):return
+ var health:int=roundi(maxf(0.0,hp))
+ var health_max:int=maxi(1,roundi(max_hp))
+ var experience:int=maxi(0,hero_xp)
+ var experience_target:int=maxi(1,hero_xp_to_next)
+ # There is no actual mana resource in this build; never fabricate its value.
+ v384_vitals_label.text="[color=#ff555f]● HP   %d / %d[/color]\\n[color=#5caeff]● MANA   N/A[/color]\\n[color=#b786ff]● XP   %d / %d[/color]" % [health,health_max,experience,experience_target]
+
 func _unhandled_key_input(event:InputEvent)->void:
  if event is InputEventKey and event.pressed and not event.echo and event.keycode==KEY_F2 and hero_playing and not menu_open:
   v380_status_enabled=not v380_status_enabled
@@ -68,6 +109,14 @@ func _unhandled_key_input(event:InputEvent)->void:
 
 func _process(delta:float)->void:
  super._process(delta)
+ if is_instance_valid(v384_vitals_panel):
+  var vitals_visible:bool=hero_playing and not death_active and not menu_open
+  v384_vitals_panel.visible=vitals_visible
+  if vitals_visible:
+   v384_vitals_elapsed+=minf(delta,0.15)
+   if v384_vitals_elapsed>=0.25:
+    v384_vitals_elapsed=0.0
+    _v384_refresh_vitals()
  if not is_instance_valid(v380_status_panel):return
  var visible_now:bool=v380_status_enabled and hero_playing and not death_active and not menu_open
  v380_status_panel.visible=visible_now

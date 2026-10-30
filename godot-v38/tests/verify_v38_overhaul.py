@@ -6,12 +6,12 @@ from pathlib import Path
 import hashlib,ast,re,sys
 from active_scene_guard import active_scene_inherits
 root=Path(__file__).resolve().parents[1]
-active=(root/'scripts/native_v38_0.gd').read_text()
-pose=(root/'scripts/native_v37_4.gd').read_text()
-rules=(root/'scripts/systems/overhaul_v380.gd').read_text()
-runner=(root/'tools/run_tests.py').read_text()
-bat=(root/'BUILD_WINDOWS.bat').read_text()
-manifest=(root/'docs/ART_SHA256_V36_2_ALL_IMAGES.txt').read_text().splitlines()
+active=(root/'scripts/native_v38_0.gd').read_text(encoding="utf-8")
+pose=(root/'scripts/native_v37_4.gd').read_text(encoding="utf-8")
+rules=(root/'scripts/systems/overhaul_v380.gd').read_text(encoding="utf-8")
+runner=(root/'tools/run_tests.py').read_text(encoding="utf-8")
+bat=(root/'BUILD_WINDOWS.bat').read_text(encoding="utf-8")
+manifest=(root/'docs/ART_SHA256_V36_2_ALL_IMAGES.txt').read_text(encoding="utf-8").splitlines()
 assets=[line.split('  ',1) for line in manifest if line.strip()]
 module=ast.parse(runner)
 suites=next(ast.literal_eval(n.value) for n in ast.walk(module) if isinstance(n,ast.Assign) and any(isinstance(t,ast.Name) and t.id=='SUITES' for t in n.targets))
@@ -28,7 +28,7 @@ checks={
  'Actual Godot test registered by both launchers':"'v38_0_overhaul':" in runner and 'res://tests/v38_0_overhaul.gd' in bat,
  'Python runner and Windows batch have 67 matching suites':len(suites)==67 and set(re.findall(r'--script res://tests/(\w+)\.gd',bat))==set(suites),
  'Windows build detects new errors in v38 log':'GODOT_V38_0_OVERHAUL_LOG.txt' in bat and r'python tests\check_godot_logs.py' in bat,
- 'Source prerequisites and installer still pinned':all(x in (root/'BUILD_MOONFALL_ONE_CLICK.ps1').read_text() for x in ['Ensure-MoonfallPython3','Ensure-MoonfallInno6','engine_test_suites_registered = 67']),
+ 'Source prerequisites and installer still pinned':all(x in (root/'BUILD_MOONFALL_ONE_CLICK.ps1').read_text(encoding="utf-8") for x in ['Ensure-MoonfallPython3','Ensure-MoonfallInno6','engine_test_suites_registered = 67']),
  'Art hash inventory unchanged':len(assets)==70 and all((root/rel).is_file() and hashlib.sha256((root/rel).read_bytes()).hexdigest()==digest for digest,rel in assets),
  'No duplicate functions in v38':len(re.findall(r'^func (\w+)\(',active,re.M))==len(set(re.findall(r'^func (\w+)\(',active,re.M))),
  'No new currencies, mode switches or global survival clocks':all(x not in active+rules for x in ['new_currency','survival_timer','new_game_mode','func _save_game(']),
