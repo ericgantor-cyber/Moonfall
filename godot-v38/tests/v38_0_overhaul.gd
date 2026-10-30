@@ -56,6 +56,7 @@ func _run()->void:
  check("overlay.custom_minimum_size=Vector2(420,280)" in orb_source,"four-resource artwork retains landscape ratio")
  check("v386_orb_values.offset_top=284.0" in orb_source and "v387_stamina_bar.offset_top=330.0" in orb_source,"live numeric values and stamina bar sit below artwork")
  check("if not hero_playing or menu_open or death_active:return" in orb_source,"spell input cannot consume mana when gameplay is inactive")
+ check("target[\"stagger_until\"]=maxf(" in orb_source,"successful regular enemy hits use existing stagger timer")
  check("func _attack()->void:" in orb_source and "super._attack()" in orb_source,"combat attack guard delegates valid hits to inherited combo and damage code")
  check("LIVE  ♥" in orb_source and "STAM %d/%d" in orb_source,"stamina value displays alongside HP mana and XP")
  check(not ("\\\\n✦" in orb_source),"HUD live number text uses a real escaped newline instead of printed slash-n")
