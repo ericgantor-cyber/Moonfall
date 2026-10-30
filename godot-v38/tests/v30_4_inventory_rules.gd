@@ -56,7 +56,9 @@ func _run()->void:
   game.set("equipped",{"name":"Test","power":999})
   check(int(game.call("_equipment_power"))==250,"legacy equipment wrapper delegates to module")
   var profile:String=OS.get_environment("MOONFALL_TEST_PROFILE")
-  if profile.is_empty() or not ProjectSettings.globalize_path("user://").begins_with(profile):
+  var profile_normalized:String=profile.replace("\\","/").trim_suffix("/").to_lower()
+  var data_normalized:String=ProjectSettings.globalize_path("user://").replace("\\","/").to_lower()
+  if profile_normalized.is_empty() or not data_normalized.begins_with(profile_normalized+"/"):
    check(false,"integration tests require isolated save profile")
   else:
    game.call("_start_game","z")
