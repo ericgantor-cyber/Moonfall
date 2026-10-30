@@ -101,8 +101,9 @@ func _v384_build_vitals()->void:
  v384_vitals_panel.visible=false
  # Use the user's HUD PNG when present; fall back to functional meters otherwise.
  if ResourceLoader.exists("res://assets/ui/moonfall_orb_hud.png"):
+  # Keep the fallback alive but hidden so regressions and asset reloads stay safe.
   v384_vitals_panel.visible=false
-  v384_vitals_panel.queue_free()
+  var plain_vitals:PanelContainer=v384_vitals_panel
   v384_vitals_panel=PanelContainer.new()
   v384_vitals_panel.name="V386_OriginalOrbHUD"
   v384_vitals_panel.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
@@ -136,6 +137,7 @@ func _v384_build_vitals()->void:
   overlay.add_child(v386_orb_values)
   layer.add_child(v384_vitals_panel)
   v384_vitals_panel.visible=false
+  plain_vitals.name="V384_BackupVitals"
 
 
 func _spell(which:String)->void:
