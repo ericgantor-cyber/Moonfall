@@ -1,4 +1,6 @@
 extends "res://scripts/main.gd"
+const V383_COMBAT_RULES:=preload("res://scripts/systems/procedural_variants_v382.gd")
+const V383_FEEDBACK:=preload("res://scripts/systems/combat_feedback_v383.gd")
 const MINI_MAP_SCRIPT := preload("res://scripts/native_minimap.gd")
 # v26: Stateless modules isolate persistence and progression from the world scene.
 const SAVE_STORE := preload("res://scripts/systems/checkpoint_store.gd")
@@ -527,7 +529,7 @@ func _spawn_beast(at: Vector3, kind: String, zone: int, variant: String="normal"
  var def:Dictionary=BEASTS[kind]
  var scaling:float=SPAWN_RULES.health_scale(int(REGIONS[zone]["tier"]),variant,boss)
  var spawn_id:=beasts.size()
- var creature:Dictionary={"body":body,"kind":kind,"variant":variant,"zone":zone,"hp":float(def["hp"])*scaling,"max":float(def["hp"])*scaling,"attack":0.0,"alive":true,"hostile":bool(def["hostile"]),"home":at,"rewarded":false,"boss":boss,"boss_id":spawn_id,"windup":0.0,"fed_until":0.0,"hunting_until":0.0,"scared_until":0.0,"engaged":false,"respawn_at":0.0,"stagger_until":0.0,"stagger_resist_until":0.0,"elite_lunge_cd":2.0,"elite_lunge_windup":0.0,"elite_lunge_target":Vector3.ZERO,"boss_phase":1,"boss_pattern":0,"warning_radius":2.8,"nameplate":label,"alert_until":0.0,"dungeon_site":-1,"base_hp":float(def["hp"])*scaling,"retreat_until":0.0,"retreat_cooldown":0.0}
+ var creature:Dictionary={"body":body,"kind":kind,"variant":variant,"zone":zone,"hp":float(def["hp"])*scaling,"max":float(def["hp"])*scaling,"attack":0.0,"alive":true,"hostile":bool(def["hostile"]),"home":at,"rewarded":false,"boss":boss,"boss_id":spawn_id,"windup":0.0,"fed_until":0.0,"hunting_until":0.0,"scared_until":0.0,"engaged":false,"respawn_at":0.0,"stagger_until":0.0,"stagger_resist_until":0.0,"elite_lunge_cd":2.0,"elite_lunge_windup":0.0,"elite_lunge_target":Vector3.ZERO,"boss_phase":1,"boss_pattern":0,"warning_radius":2.8,"nameplate":label,"hit_visual":art,"hit_react_until":0.0,"hit_react_critical":false,"hit_flash_until":0.0,"attack_swing_until":0.0,"alert_until":0.0,"dungeon_site":-1,"base_hp":float(def["hp"])*scaling,"retreat_until":0.0,"retreat_cooldown":0.0}
  beasts.append(creature)
  zone_beast_lists[zone].append(creature)
 
@@ -1443,7 +1445,7 @@ func _combat_threat() -> bool:
   if not bool(enemy.get("alive",false)) or not bool(enemy.get("hostile",false)):continue
   var body:CharacterBody3D=enemy["body"]
   if not is_instance_valid(body):continue
-  if body.global_position.distance_to(player.global_position)>BEAST_THREAT_RANGE:continue
+  if body.global_position.distance_squared_to(player.global_position)>BEAST_THREAT_RANGE*BEAST_THREAT_RANGE:continue
   if _has_clear_sight(body,player):return true
  return false
 
@@ -1462,18 +1464,19 @@ func _nearest_prey(hunter:Dictionary,range_limit:float) -> Dictionary:
  var best:Dictionary={}
  var body:CharacterBody3D=hunter["body"]
  if not is_instance_valid(body):return best
- var closest:=range_limit
+ var closest_squared:float=maxf(0.0,range_limit)*maxf(0.0,range_limit)
  for prey in zone_beast_lists[int(hunter["zone"])]:
   if not bool(prey.get("alive",false)) or bool(prey.get("hostile",false)) or prey==hunter:continue
   if int(prey["zone"])!=int(hunter["zone"]):continue
   var target:CharacterBody3D=prey["body"]
   if not is_instance_valid(target):continue
-  var d:=target.global_position.distance_to(body.global_position)
-  if d<closest and _has_clear_sight(body,target):best=prey;closest=d
+  var d_squared:float=target.global_position.distance_squared_to(body.global_position)
+  if d_squared<closest_squared and _has_clear_sight(body,target):best=prey;closest_squared=d_squared
  return best
 
 func _ecology_update(delta:float) -> void:
  # Scan up to the small native population. Avoid spawning and new timers per beast.
+ # Squared-distance thresholds avoid repeated square roots in herd/predator loops.
  if ecology_step<0.32:return
  ecology_step=0.0
  for creature in zone_beast_lists[region_index]:
@@ -1483,7 +1486,7 @@ func _ecology_update(delta:float) -> void:
   if bool(creature["hostile"]):
    if creature.get("boss",false):continue
    if float(creature.get("fed_until",0.0))>map_time:continue
-   if body.global_position.distance_to(player.global_position)<8.0:continue
+   if body.global_position.distance_squared_to(player.global_position)<64.0:continue
    var prey:=_nearest_prey(creature,5.8)
    if prey.is_empty():continue
    creature["ecology_target"]=prey
@@ -1492,7 +1495,7 @@ func _ecology_update(delta:float) -> void:
    for ally in zone_beast_lists[region_index]:
     if ally==creature or not bool(ally.get("alive",false)) or str(ally.get("kind",""))!=str(creature["kind"]):continue
     var ab:CharacterBody3D=ally["body"]
-    if is_instance_valid(ab) and ab.global_position.distance_to(body.global_position)<5.5:
+    if is_instance_valid(ab) and ab.global_position.distance_squared_to(body.global_position)<30.25:
      peer=ally
      break
    if not peer.is_empty():
@@ -1504,14 +1507,14 @@ func _ecology_update(delta:float) -> void:
    for predator in zone_beast_lists[region_index]:
     if not bool(predator.get("alive",false)) or not bool(predator.get("hostile",false)) or int(predator.get("zone",-1))!=region_index:continue
     var pb:CharacterBody3D=predator["body"]
-    if is_instance_valid(pb) and pb.global_position.distance_to(body.global_position)<4.5:scared=true;break
+    if is_instance_valid(pb) and pb.global_position.distance_squared_to(body.global_position)<20.25:scared=true;break
    if scared and map_time>=float(creature.get("scared_until",0.0)):
     creature["scared_until"]=map_time+3.2
     herds_alerted+=1
     for friend in zone_beast_lists[region_index]:
      if friend==creature or not bool(friend.get("alive",false)) or str(friend.get("kind",""))!=str(creature["kind"]):continue
      var fb:CharacterBody3D=friend["body"]
-     if is_instance_valid(fb) and fb.global_position.distance_to(body.global_position)<5.0:friend["scared_until"]=map_time+2.6
+     if is_instance_valid(fb) and fb.global_position.distance_squared_to(body.global_position)<25.0:friend["scared_until"]=map_time+2.6
 
 func _apply_incoming_damage(raw:float) -> void:
  var reduction:=0.0
@@ -1549,6 +1552,25 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
  if not bool(beast.get("alive",false)):return
  var body:CharacterBody3D=beast["body"]
  if not is_instance_valid(body):return
+ if float(beast.get("hit_flash_until",0.0))>0.0 and map_time>=float(beast.get("hit_flash_until",0.0)):
+  beast["hit_flash_until"]=0.0
+  var hit_label:Label3D=beast.get("nameplate") as Label3D
+  if is_instance_valid(hit_label):
+   hit_label.modulate=Color(str(REGIONS[int(beast["zone"])]["light"])) if str(beast.get("variant","normal"))!="normal" else Color("f4dcbb")
+ var react_until:float=float(beast.get("hit_react_until",0.0))
+ var swing_until:float=float(beast.get("attack_swing_until",0.0))
+ if react_until>0.0 or swing_until>0.0:
+  var hit_mesh:MeshInstance3D=beast.get("hit_visual") as MeshInstance3D
+  if is_instance_valid(hit_mesh):
+   var pose_degrees:float=90.0
+   if map_time<react_until:
+    pose_degrees+=V383_FEEDBACK.recoil_degrees(react_until-map_time,bool(beast.get("hit_react_critical",false)))
+   elif map_time<swing_until:
+    var swing_side:float=1.0 if int(beast["boss_id"])%2==0 else -1.0
+    pose_degrees+=swing_side*V383_FEEDBACK.attack_followthrough_degrees(swing_until-map_time)
+   hit_mesh.rotation_degrees=Vector3(0.0,0.0,pose_degrees)
+  if map_time>=react_until:beast["hit_react_until"]=0.0
+  if map_time>=swing_until:beast["attack_swing_until"]=0.0
  var diff:=player.global_position-body.global_position
  diff.y=0.0
  var distance:=diff.length()
@@ -1562,12 +1584,26 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
  var perception:float=AI_RULES.perception(map_time<float(beast.get("alert_until",0.0)),weather_name,_day_phase()=="Night")
  var engaged:=is_hostile and distance<perception and _has_clear_sight(body,player)
  beast["engaged"]=engaged
+ # v38.3: role-aware low-health retreat for live hostile fauna.
+ # Preserve existing boss telegraphs, ecology, attacks and actor pools.
+ var v383_intent:String=""
+ if engaged and not bool(beast.get("boss",false)):
+  var v383_role:String="ambusher" if kind=="panther" else "bruiser"
+  var v383_health:float=float(beast.get("hp",1.0))/maxf(1.0,float(beast.get("max",1.0)))
+  v383_intent=V383_COMBAT_RULES.combat_intent(v383_role,distance,v383_health,float(beast["attack"])<=0.0,true)
  var activity:Dictionary=beast.get("ecology_target",{})
  var pursuing:=not activity.is_empty() and map_time<float(beast.get("hunting_until",0.0)) and not engaged and not bool(beast.get("boss",false))
  if staggered:
   body.velocity=Vector3.ZERO
  elif engaged and map_time<float(beast.get("retreat_until",0.0)) and distance<10.0:
   body.velocity=-diff.normalized()*move_speed*0.9
+ elif engaged and v383_intent=="retreat" and distance<8.0:
+  body.velocity=-diff.normalized()*move_speed*0.85
+ elif engaged and v383_intent=="strafe" and distance>1.7 and distance<6.0:
+  # Stable per-actor orbit side, no random calls or additional physics bodies.
+  var flank:Vector3=Vector3(-diff.z,0.0,diff.x).normalized()
+  var orbit_side:float=1.0 if int(beast["boss_id"])%2==0 else -1.0
+  body.velocity=(flank*orbit_side+diff.normalized()*0.25).normalized()*move_speed*0.7
  elif engaged and distance>1.7:
   body.velocity=AI_RULES.approach(diff,move_speed,int(beast["boss_id"]),bool(beast.get("boss",false)),int(beast.get("boss_phase",1)),distance)
  elif not is_hostile and (distance<6.0 or map_time<float(beast.get("scared_until",0.0))):
@@ -1580,7 +1616,7 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
   if is_instance_valid(prey_body):
    var to_prey:=prey_body.global_position-body.global_position
    to_prey.y=0
-   if to_prey.length()<1.55:
+   if to_prey.length_squared()<1.55*1.55:
     activity["hp"]=float(activity["hp"])-float(BEASTS[kind]["atk"])*0.65
     beast["fed_until"]=map_time+7.0
     beast["hunting_until"]=0.0
@@ -1590,7 +1626,7 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
     body.velocity=Vector3.ZERO
    else:body.velocity=to_prey.normalized()*move_speed*0.8
   else:body.velocity=Vector3.ZERO
- elif body.global_position.distance_to(beast["home"])>4.0:
+ elif body.global_position.distance_squared_to(beast["home"])>16.0:
   var toward:Vector3=beast["home"]
   toward-=body.global_position
   toward.y=0
@@ -1626,7 +1662,8 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
    if float(beast["windup"])<=0.0:
     _set_boss_telegraph(beast,false)
     var marked:Vector3=beast.get("warning_pos",body.global_position)
-    var near_hit:=Vector2(marked.x-player.global_position.x,marked.z-player.global_position.z).length()<float(beast.get("warning_radius",2.8))
+    var warning_radius:float=float(beast.get("warning_radius",2.8))
+    var near_hit:=Vector2(marked.x-player.global_position.x,marked.z-player.global_position.z).length_squared()<warning_radius*warning_radius
     if near_hit and dodge_time<=0 and _has_clear_sight(body,player):
      _apply_incoming_damage(19.0+7.0*float(int(beast.get("boss_phase",1))))
     beast["attack"]=COMBAT_RULES.guardian_attack_cooldown(int(beast.get("boss_phase",1)))
@@ -1649,6 +1686,8 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
  elif engaged and distance<1.7 and float(beast["attack"])<=0.0:
   if dodge_time<=0 and _has_clear_sight(body,player):
    _apply_incoming_damage(float(BEASTS[kind]["atk"]))
+  # Visual follow-through only; preserve established hit timing and damage.
+  beast["attack_swing_until"]=map_time+V383_FEEDBACK.ATTACK_SWING_SECONDS
   beast["attack"]=1.5
 
 func _despawn_native_beast(beast:Dictionary,delay:float) -> void:
@@ -1672,6 +1711,16 @@ func _reset_native_beast(beast:Dictionary) -> void:
  beast["alive"]=true
  beast["hp"]=float(beast["max"])
  beast["attack"]=0.0
+ beast["hit_react_until"]=0.0
+ beast["hit_react_critical"]=false
+ beast["hit_flash_until"]=0.0
+ beast["attack_swing_until"]=0.0
+ var reset_mesh:MeshInstance3D=beast.get("hit_visual") as MeshInstance3D
+ if is_instance_valid(reset_mesh):reset_mesh.rotation_degrees=Vector3(0.0,0.0,90.0)
+ if not bool(beast.get("boss",false)):
+  var reset_label:Label3D=beast.get("nameplate") as Label3D
+  if is_instance_valid(reset_label):
+   reset_label.modulate=Color(str(REGIONS[int(beast["zone"])]["light"])) if str(beast.get("variant","normal"))!="normal" else Color("f4dcbb")
  beast["stagger_until"]=0.0
  beast["stagger_resist_until"]=0.0
  beast["boss_phase"]=1
@@ -1710,7 +1759,7 @@ func _update_respawns() -> void:
   var ready:=float(beast.get("respawn_at",0.0))
   if ready<0.0 or map_time<ready:continue
   var home:Vector3=beast["home"]
-  if player.global_position.distance_to(home)<MIN_RESPAWN_DISTANCE:continue
+  if player.global_position.distance_squared_to(home)<MIN_RESPAWN_DISTANCE*MIN_RESPAWN_DISTANCE:continue
   _reset_native_beast(beast)
   respawns_total+=1
 
@@ -1735,14 +1784,19 @@ func _set_boss_telegraph(beast:Dictionary,active:bool) -> void:
  var node:MeshInstance3D=boss_telegraphs[id]
  if not is_instance_valid(node):return
  node.visible=active
+ # Warn at the true hit radius; subtle faster opacity pulses in later phases.
+ node.transparency=V383_FEEDBACK.boss_telegraph_transparency(map_time,int(beast.get("boss_phase",1))) if active else 0.0
  if active:
   var body:CharacterBody3D=beast["body"]
   if is_instance_valid(body):
    var area:Vector3=beast.get("warning_pos",body.global_position)
    var disk: CylinderMesh=node.mesh as CylinderMesh
    if is_instance_valid(disk):
-    disk.bottom_radius=float(beast.get("warning_radius",2.8))
-    disk.top_radius=float(beast.get("warning_radius",2.8))
+    var desired_radius:float=float(beast.get("warning_radius",2.8))
+    if V383_FEEDBACK.warning_radius_changed(disk.bottom_radius,desired_radius):
+     disk.bottom_radius=desired_radius
+    if V383_FEEDBACK.warning_radius_changed(disk.top_radius,desired_radius):
+     disk.top_radius=desired_radius
    node.position=Vector3(area.x,0.03,area.z)
 
 func _update_companion(delta: float) -> void:
@@ -1779,17 +1833,73 @@ func _update_companion(delta: float) -> void:
 
 func _nearest_beast(radius: float,hostile_only: bool=false,require_sight: bool=false) -> Dictionary:
  var nearest:Dictionary={}
- var dist:=radius
+ var dist_squared:float=maxf(0.0,radius)*maxf(0.0,radius)
  for beast in zone_beast_lists[region_index]:
   if not bool(beast["alive"]):continue
   if hostile_only and not bool(beast["hostile"]):continue
   var body:CharacterBody3D=beast["body"]
   if not is_instance_valid(body):continue
-  var d:=player.global_position.distance_to(body.global_position)
-  if d<dist and (not require_sight or _has_clear_sight(player,body)):
-   dist=d
+  var d_squared:float=player.global_position.distance_squared_to(body.global_position)
+  if d_squared<dist_squared and (not require_sight or _has_clear_sight(player,body)):
+   dist_squared=d_squared
    nearest=beast
  return nearest
+
+# WoW-style floating damage over the target: bounded, short-lived, no hero-art changes.
+const MAX_DAMAGE_FLOATERS_PER_TARGET:int=6
+
+func _show_floating_damage(target:Dictionary,amount:int,critical:bool)->void:
+ var body:CharacterBody3D=target.get("body") as CharacterBody3D
+ if not is_instance_valid(body):return
+ # Existing child ordering tracks age; recycled labels move to the end.
+ # Count in one pass instead of allocating a new array on every hit.
+ var active_count:int=0
+ var oldest:Label3D=null
+ for child in body.get_children():
+  if child is Label3D and (child.has_meta("damage_float_tween") or child.name.begins_with("DamageFloat")) and not child.is_queued_for_deletion():
+   active_count+=1
+   if oldest==null:oldest=child as Label3D
+ var label:Label3D
+ if active_count>=MAX_DAMAGE_FLOATERS_PER_TARGET and is_instance_valid(oldest):
+  # Kill the former animation before recycling, preventing its cleanup callback.
+  label=oldest
+  var old_tween:Tween=label.get_meta("damage_float_tween",null) as Tween
+  if old_tween!=null and old_tween.is_valid():old_tween.kill()
+  body.move_child(label,body.get_child_count()-1)
+ else:
+  label=Label3D.new()
+  label.name="DamageFloat"
+  body.add_child(label)
+ # Always restore the baseline before applying critical size and color.
+ label.show()
+ label.scale=Vector3.ONE
+ label.text=("%d!" % amount) if critical else str(amount)
+ label.font_size=72 if critical else 46
+ label.pixel_size=0.005
+ label.outline_size=10 if critical else 8
+ label.billboard=BaseMaterial3D.BILLBOARD_ENABLED
+ label.no_depth_test=true
+ label.modulate=Color("fff8d2") if critical else Color("fff4e8")
+ # Use the hit sequence, not the capped label count, to keep rapid hits
+ # alternating across sides and vertical lanes after recycling begins.
+ var hit_sequence:int=int(target.get("damage_float_sequence",0))
+ target["damage_float_sequence"]=hit_sequence+1
+ var side:float=-0.3 if hit_sequence%2==0 else 0.3
+ label.position=Vector3(side,1.65+0.12*float(hit_sequence%3),0.0)
+ # Floaters still self-clean after their short animation. No permanent pools.
+ var finish:Vector3=label.position+Vector3(side*0.35,1.05 if critical else 0.6,0.0)
+ var tween:Tween=label.create_tween()
+ label.set_meta("damage_float_tween",tween)
+ tween.set_parallel(true)
+ tween.tween_property(label,"position",finish,1.0 if critical else 0.85).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+ tween.tween_property(label,"modulate:a",0.0,0.36).set_delay(0.64 if critical else 0.49)
+ if critical:
+  label.scale=Vector3.ONE*1.3
+  tween.tween_property(label,"scale",Vector3.ONE,0.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+  tween.tween_property(label,"modulate:g",0.827,0.24).set_delay(0.10)
+  tween.tween_property(label,"modulate:b",0.302,0.24).set_delay(0.10)
+ tween.set_parallel(false)
+ tween.tween_callback(label.queue_free)
 
 func _apply_player_hit(target:Dictionary, base_damage:float, stagger_strength:float=0.0) -> void:
  if target.is_empty() or not bool(target.get("alive",false)):return
@@ -1798,7 +1908,17 @@ func _apply_player_hit(target:Dictionary, base_damage:float, stagger_strength:fl
  if critical:critical_hits+=1
  var damage:float=COMBAT_RULES.outgoing_damage(base_damage,critical,float(target["hp"])<=float(target["max"])*0.5,_perk_rank("execute"),_gear_affix_value("Fury"),_power_modifier(int(target.get("zone",region_index))))
  target["hp"]=float(target["hp"])-damage
+ # Lightweight readable impact feedback on existing non-boss nameplates.
+ # Avoid animations, new nodes, or alterations to the hero artwork.
+ if not bool(target.get("boss",false)):
+  var hit_label:Label3D=target.get("nameplate") as Label3D
+  if is_instance_valid(hit_label):
+   hit_label.modulate=Color("ffdd7a") if critical else Color("ff877c")
+   target["hit_flash_until"]=map_time+0.18
+  target["hit_react_until"]=map_time+V383_FEEDBACK.REACTION_SECONDS
+  target["hit_react_critical"]=critical
  last_hit_damage=int(round(damage))
+ _show_floating_damage(target,last_hit_damage,critical)
  if critical:
   hp=minf(max_hp,hp+3.0*float(_perk_rank("bloodmoon")))
  if _gear_affix_value("Vampiric")>0.0:
@@ -1808,7 +1928,7 @@ func _apply_player_hit(target:Dictionary, base_damage:float, stagger_strength:fl
   if not bool(ally.get("hostile",false)) or not bool(ally.get("alive",false)):continue
   var ally_body:CharacterBody3D=ally["body"]
   var target_body:CharacterBody3D=target["body"]
-  if is_instance_valid(ally_body) and is_instance_valid(target_body) and ally_body.global_position.distance_to(target_body.global_position)<8.0:
+  if is_instance_valid(ally_body) and is_instance_valid(target_body) and ally_body.global_position.distance_squared_to(target_body.global_position)<64.0:
    ally["alert_until"]=map_time+5.0
  _refresh_boss_phase(target)
  if AI_RULES.retreat_due(float(target["hp"]),float(target["max"]),bool(target.get("boss",false)),int(target.get("dungeon_site",-1)),map_time,float(target.get("retreat_cooldown",0.0))):
@@ -1845,10 +1965,12 @@ func _spell(which: String) -> void:
   return
  var power:float=(20.0 if which=="nova" else 35.0)*_hero_damage_multiplier()*(1.0+0.08*float(_perk_rank("focus")))
  var hits:=0
+ var spell_radius:float=(5.0 if which=="nova" else 3.8)+0.5*float(_perk_rank("reach"))
+ var spell_radius_squared:float=spell_radius*spell_radius
  for beast in zone_beast_lists[region_index]:
   if not bool(beast["alive"]):continue
   var body:CharacterBody3D=beast["body"]
-  if is_instance_valid(body) and body.position.distance_to(player.position)<((5.0 if which=="nova" else 3.8)+0.5*float(_perk_rank("reach"))) and _has_clear_sight(player,body):
+  if is_instance_valid(body) and body.position.distance_squared_to(player.position)<spell_radius_squared and _has_clear_sight(player,body):
    _apply_player_hit(beast,power,0.36 if which=="nova" else 0.18)
    hits+=1
  _show_message(("Moon Nova" if which=="nova" else "Eclipse Flame")+": "+str(hits)+" hits",1.3)
