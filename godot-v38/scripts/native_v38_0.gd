@@ -131,8 +131,12 @@ func _v384_build_vitals()->void:
   v386_orb_values.offset_right=237.0
   v386_orb_values.offset_top=-26.0
   v386_orb_values.offset_bottom=-4.0
-  v386_orb_values.add_theme_font_size_override("font_size",14)
+  v386_orb_values.add_theme_font_size_override("font_size",15)
   v386_orb_values.add_theme_color_override("font_color",Color.WHITE)
+  v386_orb_values.add_theme_color_override("font_shadow_color",Color(0.02,0.01,0.07,0.98))
+  v386_orb_values.add_theme_constant_override("shadow_offset_x",1)
+  v386_orb_values.add_theme_constant_override("shadow_offset_y",2)
+  v386_orb_values.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
   v386_orb_values.mouse_filter=Control.MOUSE_FILTER_IGNORE
   overlay.add_child(v386_orb_values)
   layer.add_child(v384_vitals_panel)
@@ -169,7 +173,7 @@ func _restore_data(data:Dictionary)->void:
 
 func _v384_refresh_vitals()->void:
  if is_instance_valid(v386_orb_values):
-  v386_orb_values.text="HP %d/%d · M %d/%d · XP %d/%d" % [roundi(hp),roundi(max_hp),roundi(v385_mana),roundi(V385_MAX_MANA),hero_xp,hero_xp_to_next]
+  v386_orb_values.text="♥ %d/%d   ◆ %d/%d   ✦ %d/%d" % [roundi(hp),roundi(max_hp),roundi(v385_mana),roundi(V385_MAX_MANA),hero_xp,hero_xp_to_next]
  if not is_instance_valid(v384_vitals_label):return
  if is_instance_valid(v384_rings):
   v384_rings.call("set_vitals",hp/maxf(1.0,max_hp),float(hero_xp)/float(maxi(1,hero_xp_to_next)))
