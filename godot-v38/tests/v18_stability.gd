@@ -15,6 +15,8 @@ func _run() -> void:
  await process_frame
  check(game.has_method("_terrain_grid_steer"),"Invisible terrain navigation retained")
  check(game.get("grid_regions").size()==2400,"Grid allocations are bounded")
+ var steering_script:GDScript=load("res://scripts/native_v18.gd") as GDScript
+ check(steering_script!=null and "wide_left_open or wide_right_open" in steering_script.source_code,"blocked corner has bounded wide-angle fallback")
  game.call("_apply_graphics_quality","Smooth")
  check(Engine.max_fps==60,"Smooth mode caps FPS at 60")
  game.call("_apply_graphics_quality","Full")
