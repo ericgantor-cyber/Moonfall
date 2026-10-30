@@ -58,7 +58,11 @@ func _run()->void:
  game.call("_v384_refresh_vitals")
  var vitals:RichTextLabel=game.get("v384_vitals_label") as RichTextLabel
  check(is_instance_valid(vitals) and "HP" in vitals.text and "XP" in vitals.text,"live health and XP shown in vitals")
- check(is_instance_valid(vitals) and "MANA   N/A" in vitals.text,"mana accurately marked unavailable")
+ check(is_instance_valid(vitals) and "MANA   100 / 100" in vitals.text,"mana displays actual starting resource")
+ game.set("v385_mana",5.0)
+ game.call("_spell","nova")
+ check(is_equal_approx(float(game.get("v385_mana")),5.0),"insufficient mana blocks spell consumption")
+ game.set("v385_mana",100.0)
  check(not (game.get("v380_status_panel") as PanelContainer).visible,"status HUD hidden at title screen")
  var obsolete_title:bool=false
  for label_node in (game.get("start_screen") as Control).find_children("*","Label",true,false):
