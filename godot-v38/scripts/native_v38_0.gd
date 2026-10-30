@@ -179,7 +179,7 @@ func _v384_build_vitals()->void:
   stamina_track.set_corner_radius_all(5)
   v387_stamina_bar.add_theme_stylebox_override("background",stamina_track)
   overlay.add_child(v387_stamina_bar)
-  v387_stamina_bar.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+  v387_stamina_bar.set_anchors_preset(Control.PRESET_TOP_WIDE)
   v387_stamina_bar.offset_left=24.0
   v387_stamina_bar.offset_right=-24.0
   v387_stamina_bar.offset_top=330.0
@@ -191,12 +191,12 @@ func _v384_build_vitals()->void:
   low_stam_hint.add_theme_font_size_override("font_size",12)
   low_stam_hint.add_theme_color_override("font_color",Color("#ffd16e"))
   overlay.add_child(low_stam_hint)
-  low_stam_hint.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+  low_stam_hint.set_anchors_preset(Control.PRESET_TOP_WIDE)
   low_stam_hint.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
   low_stam_hint.offset_top=348.0
   low_stam_hint.offset_bottom=370.0
   low_stam_hint.visible=false
-  v386_orb_values.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+  v386_orb_values.set_anchors_preset(Control.PRESET_TOP_LEFT)
   v386_orb_values.offset_left=10.0
   v386_orb_values.offset_right=410.0
   v386_orb_values.offset_top=284.0
