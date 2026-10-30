@@ -15,6 +15,8 @@ var v383_peak_hostiles:int=0
 var v384_vitals_panel:PanelContainer
 var v384_vitals_label:RichTextLabel
 var v384_rings:Control
+var v386_orb_image:TextureRect
+var v386_orb_values:Label
 var v384_vitals_elapsed:float=0.0
 var v385_mana:float=100.0
 const V385_MAX_MANA:float=100.0
@@ -97,6 +99,38 @@ func _v384_build_vitals()->void:
  v384_vitals_label.custom_minimum_size=Vector2(205.0,96.0)
  layout.add_child(v384_vitals_label)
  v384_vitals_panel.visible=false
+ # Use the user's HUD PNG when present; fall back to functional meters otherwise.
+ if ResourceLoader.exists("res://assets/ui/moonfall_orb_hud.png"):
+  v384_vitals_panel.visible=false
+  v384_vitals_panel.queue_free()
+  v384_vitals_panel=PanelContainer.new()
+  v384_vitals_panel.name="V386_OriginalOrbHUD"
+  v384_vitals_panel.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+  v384_vitals_panel.offset_left=12.0
+  v384_vitals_panel.offset_right=254.0
+  v384_vitals_panel.offset_top=-335.0
+  v384_vitals_panel.offset_bottom=-12.0
+  v384_vitals_panel.mouse_filter=Control.MOUSE_FILTER_IGNORE
+  var overlay:=Control.new()
+  overlay.custom_minimum_size=Vector2(242,323)
+  overlay.mouse_filter=Control.MOUSE_FILTER_IGNORE
+  v384_vitals_panel.add_child(overlay)
+  v386_orb_image=TextureRect.new()
+  v386_orb_image.texture=load("res://assets/ui/moonfall_orb_hud.png")
+  v386_orb_image.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+  v386_orb_image.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
+  v386_orb_image.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+  v386_orb_image.mouse_filter=Control.MOUSE_FILTER_IGNORE
+  overlay.add_child(v386_orb_image)
+  v386_orb_values=Label.new()
+  v386_orb_values.set_anchors_preset(Control.PRESET_FULL_RECT)
+  v386_orb_values.add_theme_font_size_override("font_size",14)
+  v386_orb_values.add_theme_color_override("font_color",Color.WHITE)
+  v386_orb_values.mouse_filter=Control.MOUSE_FILTER_IGNORE
+  overlay.add_child(v386_orb_values)
+  layer.add_child(v384_vitals_panel)
+  v384_vitals_panel.visible=false
+
 
 func _spell(which:String)->void:
  if mounted or ability_cooldown>0.0:
@@ -126,6 +160,8 @@ func _restore_data(data:Dictionary)->void:
   v385_mana=V385_MAX_MANA
 
 func _v384_refresh_vitals()->void:
+ if is_instance_valid(v386_orb_values):
+  v386_orb_values.text="HP %d/%d   M %d/%d   XP %d/%d" % [roundi(hp),roundi(max_hp),roundi(v385_mana),roundi(V385_MAX_MANA),hero_xp,hero_xp_to_next]
  if not is_instance_valid(v384_vitals_label):return
  if is_instance_valid(v384_rings):
   v384_rings.call("set_vitals",hp/maxf(1.0,max_hp),float(hero_xp)/float(maxi(1,hero_xp_to_next)))
