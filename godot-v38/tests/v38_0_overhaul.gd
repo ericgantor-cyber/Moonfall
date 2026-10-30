@@ -76,9 +76,13 @@ func _run()->void:
  check("V387_StaminaBar" in stamina_ui_source and "stamina_fill.bg_color" in stamina_ui_source,"custom orb HUD includes green stamina fill")
  var fallback_stamina:ProgressBar=game.get_node_or_null("NativeAtlasUI/V384_Vitals/HBoxContainer/V387_FallbackStaminaBar") as ProgressBar
  check(is_instance_valid(fallback_stamina),"green stamina bar available without custom artwork")
+ var low_stamina_warning:Label=game.get("v387_stamina_warning") as Label
+ check(is_instance_valid(low_stamina_warning),"low stamina warning exists")
  game.call("_v384_refresh_vitals")
  if is_instance_valid(fallback_stamina):check(is_equal_approx(fallback_stamina.value,42.0),"fallback stamina bar reflects current resource")
  game.set("v387_stamina",0.0)
+ game.call("_v384_refresh_vitals")
+ if is_instance_valid(low_stamina_warning):check(low_stamina_warning.visible,"stamina warning appears when dodge unavailable")
  game.call("_dodge")
  check(is_equal_approx(float(game.get("v387_stamina")),0.0),"dodge blocked with exhausted stamina")
  game.set("v387_stamina",150.0)
