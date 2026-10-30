@@ -23,7 +23,9 @@ func _run()->void:
  await process_frame
  check(CURRENT_RELEASE.matches_project(game),"new version scene active")
  var profile:String=OS.get_environment("MOONFALL_TEST_PROFILE")
- if profile.is_empty() or not ProjectSettings.globalize_path("user://").begins_with(profile):
+ var profile_normalized:String=profile.replace("\\","/").trim_suffix("/").to_lower()
+ var data_normalized:String=ProjectSettings.globalize_path("user://").replace("\\","/").to_lower()
+ if profile_normalized.is_empty() or not data_normalized.begins_with(profile_normalized+"/"):
   check(false,"requires isolated test profile")
  else:
   game.call("_start_game","z")
