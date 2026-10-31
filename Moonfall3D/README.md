@@ -167,3 +167,7 @@ Bosses choose between a larger delayed impact (1.1-second windup, 3.1-unit radiu
 ## Phase 2: boss phases and charger enemies
 
 Bosses now transition at 65% and 30% health. Each transition announces the new phase and adds a magic effect; later phases attack more frequently, with quicker warnings, and phase three prioritizes fast strikes. Regular enemies now include a third archetype, a charger that attempts a short line-of-sight-checked dash when its ability triggers. Dashes are constrained to the arena. These are early combat systems, not unique fully rigged bosses or full pathfinding. Source changes require CI and in-game verification. No WoW action bars, and original Z/Nyra art is untouched.
+
+## RPG progression pass
+
+Leveling now increases max HP, damage and max mana and announces the level gained. Defeated enemies grant small gold amounts and have a 12% equipment reward chance; boss kills grant bonus gold and a guaranteed equipment roll. Item power now also scales modestly with player level. Inventory displays gold and level. This is a small progression step, not finished crafting or dungeon progression; Godot gameplay and balancing tests are still needed. No WoW action bars; original hero art remains untouched.
