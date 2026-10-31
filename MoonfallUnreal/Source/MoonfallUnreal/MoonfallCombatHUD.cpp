@@ -11,6 +11,7 @@ void AMoonfallCombatHUD::DrawHUD()
  if (!Canvas) return;
  const AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this,0));
  if (!IsValid(Hero)) return;
+ DrawText(TEXT("F6: Graphics quality    F7: Window / Fullscreen"), FLinearColor(0.85f,0.78f,1.f), 32.f, 25.f, nullptr, 1.f);
  const float X = 32.f, Y = Canvas->SizeY - 90.f, Width = 260.f;
  DrawRect(FLinearColor(0.07f,0.05f,0.11f,0.85f),X-6.f,Y-6.f,Width+12.f,68.f);
  DrawRect(FLinearColor(0.25f,0.06f,0.1f),X,Y,Width,22.f);
