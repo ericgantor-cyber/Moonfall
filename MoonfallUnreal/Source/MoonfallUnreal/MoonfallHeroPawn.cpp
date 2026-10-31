@@ -4,11 +4,13 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Components/InputComponent.h"
 #include "Engine/World.h"
+#include "Engine/Engine.h"
 #include "MoonfallEnemy.h"
 #include "CollisionQueryParams.h"
 AMoonfallHeroPawn::AMoonfallHeroPawn()
 {
- PrimaryActorTick.bCanEverTick = false;
+ PrimaryActorTick.bCanEverTick = true;
+ PrimaryActorTick.TickInterval = 0.2f;
  CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
  CameraBoom->SetupAttachment(GetRootComponent());
  CameraBoom->TargetArmLength = 450.f;
@@ -99,4 +101,12 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
  if (Health <= 0.f || Amount <= 0.f) return;
  Health = FMath::Max(0.f, Health - Amount);
  OnHealthChanged(Health, 100.f);
+}
+
+void AMoonfallHeroPawn::Tick(float DeltaSeconds) {
+ Super::Tick(DeltaSeconds);
+ if (GEngine) {
+  const FString Status = FString::Printf(TEXT("Health %.0f / 100     Mana %.0f / %.0f"), Health, Mana, MaxMana);
+  GEngine->AddOnScreenDebugMessage(12345, 0.3f, FColor::Cyan, Status);
+ }
 }

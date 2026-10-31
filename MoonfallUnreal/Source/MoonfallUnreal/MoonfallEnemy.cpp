@@ -5,6 +5,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "Engine/World.h"
 #include "NavigationSystem.h"
+#include "NavigationPath.h"
 #include "DrawDebugHelpers.h"
 AMoonfallEnemy::AMoonfallEnemy() {
   Body = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Body"));
@@ -37,7 +38,10 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   FVector Target = Hero->GetActorLocation();
   if (UNavigationSystemV1* Nav = FNavigationSystem::GetCurrent<UNavigationSystemV1>(GetWorld())) {
    FNavLocation Point;
-   if (Nav->ProjectPointToNavigation(Target, Point)) Target = Point.Location;
+   if (Nav->ProjectPointToNavigation(Target, Point)) {
+    UNavigationPath* Path = Nav->FindPathToLocationSynchronously(GetWorld(), GetActorLocation(), Point.Location, this);
+    if (IsValid(Path) && !Path->IsPartial() && Path->PathPoints.Num() > 1) Target = Path->PathPoints[1];
+   }
   }
   FVector Direction = Target - GetActorLocation();
   Direction.Z = 0.f;
