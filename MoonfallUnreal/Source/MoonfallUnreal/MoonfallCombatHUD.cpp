@@ -19,8 +19,10 @@ void AMoonfallCombatHUD::DrawHUD()
   DrawText(TEXT("MOONFALL  |  GRAPHICS OPTIONS"),FLinearColor::White,Canvas->SizeX*0.5f-230.f,Canvas->SizeY*0.5f-120.f,nullptr,1.25f);
   UGameUserSettings* Settings = GEngine ? GEngine->GetGameUserSettings() : nullptr;
   if (Settings) {
+   float ScalePct = 100.f, ScaleNormalized = 0.f, ScaleMin = 50.f, ScaleMax = 100.f;
+   Settings->GetResolutionScaleInformationEx(ScalePct, ScaleNormalized, ScaleMin, ScaleMax);
    const FIntPoint Res = Settings->GetScreenResolution();
-   const FString Rows[] = {FString::Printf(TEXT("Resolution: %d x %d"),Res.X,Res.Y),FString::Printf(TEXT("Render scale: %.0f%%"),Settings->GetResolutionScaleNormalized()*100.f),FString::Printf(TEXT("Quality preset: %d (0 Low - 3 Epic)"),Settings->GetOverallScalabilityLevel())};
+   const FString Rows[] = {FString::Printf(TEXT("Resolution: %d x %d"),Res.X,Res.Y),FString::Printf(TEXT("Render scale: %.0f%%"),ScalePct),FString::Printf(TEXT("Quality preset: %d (0 Low - 3 Epic)"),Settings->GetOverallScalabilityLevel())};
    for (int32 i=0;i<3;++i) DrawText(Rows[i],i==Hero->OptionsSelection?FLinearColor::Yellow:FLinearColor::White,Canvas->SizeX*0.5f-210.f,Canvas->SizeY*0.5f-60.f+i*53.f,nullptr,1.1f);
   }
   DrawText(TEXT("Arrow keys / D-pad: select and adjust    Esc / Start: close"),FLinearColor::White,Canvas->SizeX*0.5f-240.f,Canvas->SizeY*0.5f+120.f,nullptr,0.85f);
