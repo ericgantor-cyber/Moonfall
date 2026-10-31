@@ -26,6 +26,7 @@ internal sealed class LaunchWindow : Form
     private readonly ProgressBar downloadProgress;
     private readonly Button cancelDownload;
     private CancellationTokenSource? downloadCancellation;
+    private bool updateCheckRunning;
     private readonly string gamePath = Path.Combine(AppContext.BaseDirectory, "MoonfallUnreal.exe");
     internal LaunchWindow()
     {
@@ -172,7 +173,8 @@ internal sealed class LaunchWindow : Form
 
     private async Task CheckUpdatesAsync(bool automatic)
     {
-        if (IsDisposed) return;
+        if (IsDisposed || updateCheckRunning) return;
+        updateCheckRunning = true;
         updates.Enabled = false;
         try
         {
@@ -226,6 +228,7 @@ internal sealed class LaunchWindow : Form
         {
             downloadCancellation?.Dispose();
             downloadCancellation = null;
+            updateCheckRunning = false;
             if (!IsDisposed) { updates.Enabled = true; updates.Text = "UPDATES"; cancelDownload.Visible = false; downloadProgress.Visible = false; }
         }
     }
