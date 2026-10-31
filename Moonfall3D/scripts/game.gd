@@ -68,6 +68,8 @@ var preview_time := 0.0
 var spell_menu_open := false
 var pad_menu_latch := false
 var pad_select_latch := false
+var pad_target_latch := false
+var pad_inventory_latch := false
 var pad_cursor_latch := false
 var pad_camera_speed := 2.1
 var mana := 100.0
@@ -326,12 +328,16 @@ func _process(dt: float) -> void:
             _cast_hand(0)
         if Input.is_key_pressed(KEY_X) or _pad_button(JOY_BUTTON_RIGHT_SHOULDER):
             _cast_hand(1)
-    var inventory_key := _pressed("inventory")
+    var inventory_key := _pressed("inventory") or _pad_button(JOY_BUTTON_BACK)
     if inventory_key and not inventory_latch:
         inventory_open = not inventory_open
         inventory_panel.visible = inventory_open
         _refresh_inventory()
     inventory_latch = inventory_key
+    var target_button := _pad_button(JOY_BUTTON_RIGHT_STICK)
+    if target_button and not pad_target_latch:
+        _next_target()
+    pad_target_latch = target_button
     var equip_key := Input.is_key_pressed(KEY_G)
     if inventory_open and equip_key and not equip_latch and not inventory.is_empty():
         selected_item = (selected_item + 1) % inventory.size()
