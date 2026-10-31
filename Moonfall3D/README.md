@@ -55,3 +55,7 @@ Each new run seeds three interior obstacle positions while retaining the existin
 ## Equipment and inventory prototype
 
 Chests now give gold plus one weighted-rarity weapon: Common, Uncommon, Rare, Epic, or Legendary. Inventory is capped at 20 items; an overflow chest awards extra gold instead. Press **I** to toggle the bag listing. The strongest found weapon automatically equips and contributes its power differential to damage, without stacking duplicate bonuses. No manual equip, sell, persistence, armor slots, or full equipment UI yet. Existing doorway-steering AI is unchanged; sophisticated navigation is still pending. Godot runtime tests are not yet run.
+
+## Equipment slots and enemy abilities (experimental)
+
+Chests may now yield Weapon or Armor items. Weapon damage and armor damage-reduction are independent. Open inventory with I and press F to cycle through inventory items and equip the selected item; this is a rudimentary control, not a full equipment screen. Armor reduces each enemy hit by its power with a minimum of 1 damage. Bosses gain a close-range magic strike on cooldown and skirmishers can retreat in short bursts. These are simple prototypes, not full tactical AI. No changes to original Z/Nyra art, WoW camera or removed survival timer. Godot gameplay testing is still pending.
