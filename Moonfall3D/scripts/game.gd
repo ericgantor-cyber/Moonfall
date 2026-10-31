@@ -54,6 +54,8 @@ var binds_open := false
 var binds_panel: Label
 var binding_index := 0
 var binding_capture := false
+var target_latch := false
+var locked_target: Node3D
 var bindings: Dictionary = {"forward": KEY_W, "back": KEY_S, "left": KEY_A, "right": KEY_D, "dodge": KEY_SPACE, "attack": KEY_1, "spell": KEY_2, "inventory": KEY_B, "interact": KEY_F, "target": KEY_TAB}
 const BIND_ORDER := ["forward", "back", "left", "right", "dodge", "attack", "spell", "inventory", "interact", "target"]
 var selected_item := 0
@@ -216,7 +218,7 @@ func _process(dt: float) -> void:
         inventory_panel.visible = inventory_open
         _refresh_inventory()
     inventory_latch = inventory_key
-    var equip_key := Input.is_key_pressed(KEY_F)
+    var equip_key := Input.is_key_pressed(KEY_G)
     if inventory_open and equip_key and not equip_latch and not inventory.is_empty():
         selected_item = (selected_item + 1) % inventory.size()
         _equip_item(selected_item)
@@ -283,6 +285,10 @@ func _process(dt: float) -> void:
         desired_camera = near_hit + (focus - near_hit).normalized() * 0.35
     camera.position = camera.position.lerp(desired_camera, minf(1.0, dt * 6.0))
     camera.look_at(focus)
+    var target_key := _pressed("target")
+    if target_key and not target_latch:
+        locked_target = _next_target()
+    target_latch = target_key
     cached_target = _select_target()
     target_marker.visible = cached_target != null
     if cached_target != null:
@@ -438,7 +444,7 @@ func _attack() -> void:
         pickups.append(pickup)
 
 func _hud() -> void:
-    ui.text = "%s   Room: %d   HP: %d/%d   Level: %d   XP: %d   Kills: %d   DMG: %d   Gold: %d   Gear: %d/%d   [E] Chest [I] Bag" % [hero, room_index + 1, int(hp), int(max_hp), level, xp, kills, int(damage), gold, inventory.size(), MAX_INVENTORY]
+    ui.text = "%s   Room: %d   HP: %d/%d   Level: %d   XP: %d   Kills: %d   DMG: %d   Gold: %d   Gear: %d/%d   [F] Chest [B] Bag [F10] Keys" % [hero, room_index + 1, int(hp), int(max_hp), level, xp, kills, int(damage), gold, inventory.size(), MAX_INVENTORY]
     if dead:
         ui.text += "\nDefeated. Press R to restart."
 
@@ -490,6 +496,8 @@ func _spell_effect(at: Vector3, nyra: bool) -> void:
 # This does not implement mouse cursor picking or lock-on yet.
 func _select_target() -> Node3D:
     var max_range := 5.2 if hero == "Z" else 8.0
+    if is_instance_valid(locked_target) and locked_target != null and player.position.distance_to(locked_target.position) <= max_range:
+        return locked_target
     var chosen: Node3D = null
     var best_score := INF
     var facing := -player.global_transform.basis.z
@@ -615,7 +623,7 @@ func _refresh_inventory() -> void:
     if inventory_panel == null:
         return
     var lines := PackedStringArray()
-    lines.append("INVENTORY  [I] Close  [F] Equip next")
+    lines.append("INVENTORY  [B] Close  [G] Equip next")
     lines.append("Armor: %d" % int(armor))
     if equipped.is_empty():
         lines.append("Equipped: None")
@@ -668,3 +676,15 @@ func _load_bindings() -> void:
     for action in BIND_ORDER:
         if parsed.has(action) and int(parsed[action]) > 0:
             bindings[action] = int(parsed[action])
+
+func _next_target() -> Node3D:
+    var candidates: Array[Node3D] = []
+    for mob in mobs:
+        if is_instance_valid(mob) and player.position.distance_to(mob.position) <= 12.0:
+            candidates.append(mob)
+    if candidates.is_empty():
+        return null
+    candidates.sort_custom(func(a: Node3D, b: Node3D) -> bool:
+        return a.position.distance_to(player.position) < b.position.distance_to(player.position))
+    var index := candidates.find(locked_target)
+    return candidates[(index + 1) % candidates.size()]
