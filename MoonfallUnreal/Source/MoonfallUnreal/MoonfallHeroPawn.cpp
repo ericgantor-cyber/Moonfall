@@ -9,8 +9,7 @@
 #include "CollisionQueryParams.h"
 AMoonfallHeroPawn::AMoonfallHeroPawn()
 {
- PrimaryActorTick.bCanEverTick = true;
- PrimaryActorTick.TickInterval = 0.2f;
+ PrimaryActorTick.bCanEverTick = false;
  CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
  CameraBoom->SetupAttachment(GetRootComponent());
  CameraBoom->TargetArmLength = 450.f;
@@ -103,10 +102,3 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
  OnHealthChanged(Health, 100.f);
 }
 
-void AMoonfallHeroPawn::Tick(float DeltaSeconds) {
- Super::Tick(DeltaSeconds);
- if (GEngine) {
-  const FString Status = FString::Printf(TEXT("Health %.0f / 100     Mana %.0f / %.0f"), Health, Mana, MaxMana);
-  GEngine->AddOnScreenDebugMessage(12345, 0.3f, FColor::Cyan, Status);
- }
-}
