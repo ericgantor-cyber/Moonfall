@@ -72,6 +72,10 @@ var pad_target_latch := false
 var pad_inventory_latch := false
 var pad_cursor_latch := false
 var pad_camera_speed := 2.1
+var pad_move_deadzone := 0.18
+var pad_look_deadzone := 0.20
+var pad_settings: PanelContainer
+var pad_settings_open := false
 var mana := 100.0
 var max_mana := 100.0
 var spell_cursor := 0
@@ -195,6 +199,7 @@ func _ready() -> void:
     binds_panel.visible = false
     layer.add_child(binds_panel)
     _load_bindings()
+    _build_pad_settings(layer)
     var center := CenterContainer.new()
     center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
     layer.add_child(center)
@@ -238,7 +243,12 @@ func _unhandled_input(event: InputEvent) -> void:
             _render_binds()
             get_viewport().set_input_as_handled()
             return
-        if event.keycode == KEY_M and started and not binds_open:
+        if event.keycode == KEY_F9 and started and not binds_open:
+            pad_settings_open = not pad_settings_open
+            pad_settings.visible = pad_settings_open
+            get_viewport().set_input_as_handled()
+            return
+        if event.keycode == KEY_M and started and not binds_open and not pad_settings_open:
             spell_menu_open = not spell_menu_open
             spell_menu.visible = spell_menu_open
             _render_spell_menu()
@@ -304,13 +314,13 @@ func _process(dt: float) -> void:
     if spell_menu_open:
         preview_time += dt
         _animate_spell_preview()
-    if not started or dead or binds_open or spell_menu_open:
+    if not started or dead or binds_open or spell_menu_open or pad_settings_open:
         return
     var look := Vector2.ZERO
     if not Input.get_connected_joypads().is_empty():
         var pad: int = Input.get_connected_joypads()[0]
         look = Vector2(Input.get_joy_axis(pad, JOY_AXIS_RIGHT_X), Input.get_joy_axis(pad, JOY_AXIS_RIGHT_Y))
-        if look.length() < 0.2:
+        if look.length() < pad_look_deadzone:
             look = Vector2.ZERO
     camera_yaw -= look.x * pad_camera_speed * dt
     camera_pitch = clampf(camera_pitch - look.y * pad_camera_speed * dt, -1.25, -0.1)
@@ -395,7 +405,7 @@ func _process(dt: float) -> void:
     if not Input.get_connected_joypads().is_empty():
         var pad: int = Input.get_connected_joypads()[0]
         stick = Vector2(Input.get_joy_axis(pad, JOY_AXIS_LEFT_X), Input.get_joy_axis(pad, JOY_AXIS_LEFT_Y))
-        if stick.length() < 0.18:
+        if stick.length() < pad_move_deadzone:
             stick = Vector2.ZERO
     motion += Vector3(stick.x, 0.0, stick.y)
     motion = motion.limit_length(1.0)
@@ -1118,3 +1128,41 @@ func _controller_menus() -> void:
     if equip_pressed and not pad_select_latch:
         _equip_spell_hand(spell_cursor, 0 if _pad_button(JOY_BUTTON_X) else 1)
     pad_select_latch = equip_pressed
+
+func _build_pad_settings(layer: CanvasLayer) -> void:
+    pad_settings = PanelContainer.new()
+    pad_settings.position = Vector2(365, 145)
+    pad_settings.custom_minimum_size = Vector2(540, 300)
+    pad_settings.visible = false
+    layer.add_child(pad_settings)
+    var rows := VBoxContainer.new()
+    pad_settings.add_child(rows)
+    var title := Label.new()
+    title.text = "CONTROLLER ACCESSIBILITY  [F9] Close"
+    rows.add_child(title)
+    _add_pad_slider(rows, "Movement dead zone", 0.05, 0.55, pad_move_deadzone, 0)
+    _add_pad_slider(rows, "Camera dead zone", 0.05, 0.55, pad_look_deadzone, 1)
+    _add_pad_slider(rows, "Camera sensitivity", 0.4, 4.5, pad_camera_speed, 2)
+
+func _add_pad_slider(rows: VBoxContainer, title: String, minimum: float, maximum: float, initial: float, setting: int) -> void:
+    var label := Label.new()
+    label.text = title
+    rows.add_child(label)
+    var slider := HSlider.new()
+    slider.min_value = minimum
+    slider.max_value = maximum
+    slider.step = 0.05
+    slider.value = initial
+    slider.custom_minimum_size.x = 440
+    slider.value_changed.connect(_pad_setting_changed.bind(setting, label, title))
+    rows.add_child(slider)
+
+func _pad_setting_changed(value: float, setting: int, label: Label, title: String) -> void:
+    match setting:
+        0:
+            pad_move_deadzone = value
+        1:
+            pad_look_deadzone = value
+        2:
+            pad_camera_speed = value
+    label.text = "%s: %.2f" % [title, value]
