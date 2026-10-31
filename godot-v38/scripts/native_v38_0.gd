@@ -210,6 +210,7 @@ func _spawn_beast(at:Vector3,kind:String,zone:int,variant:String="normal",boss:b
  creature["v400_bloodline"]=true
  creature["v404_tell_next"]=map_time+3.0
  creature["v404_tell_until"]=0.0
+ creature["v404_attack_pending"]=false
  # Z and Nyra appear as boss encounters in their original artwork.
  if zone==0 or zone==1:
   var boss_body:CharacterBody3D=creature.get("body") as CharacterBody3D
@@ -587,7 +588,15 @@ func _update_beast_step(beast:Dictionary,delta:float)->void:
    var boss_plate:Label3D=beast.get("nameplate") as Label3D
    if map_time>=float(beast.get("v404_tell_next",0.0)):
     beast["v404_tell_until"]=map_time+1.35
+    beast["v404_attack_pending"]=true
     beast["v404_tell_next"]=map_time+7.0
+   if bool(beast.get("v404_attack_pending",false)) and map_time>=float(beast.get("v404_tell_until",0.0)):
+    beast["v404_attack_pending"]=false
+    var boss_body:Node3D=beast.get("body") as Node3D
+    if hero_playing and not death_active and not menu_open and is_instance_valid(player) and is_instance_valid(boss_body):
+     var hit_radius:float=4.0 if boss_name.begins_with("Z ") else 7.0
+     if player.global_position.distance_to(boss_body.global_position)<=hit_radius:
+      _apply_incoming_damage((13.0 if boss_name.begins_with("Z ") else 9.0)*float(clampi(int(beast.get("boss_phase",1)),1,3)))
    if is_instance_valid(boss_plate):
     if map_time<float(beast.get("v404_tell_until",0.0)):
      var warning:String="⚔ ECLIPSE CLEAVE" if boss_name.begins_with("Z ") else "✦ VOID SURGE"
