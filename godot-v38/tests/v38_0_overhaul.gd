@@ -74,6 +74,7 @@ func _run()->void:
  var dodge_code:String=orb_source.substr(orb_source.find("func _dodge()->void:"),orb_source.find("func _start_game(")-orb_source.find("func _dodge()->void:"))
  check(dodge_code.find("if not hero_playing or menu_open or death_active:return")<dodge_code.find("if v387_stamina<V387_DODGE_COST:"),"dodge state guarded before insufficient stamina warning")
  check("combat_valid_attack_inputs" in orb_source and "combat_blocked_attack_inputs" in orb_source,"combat input counts included in diagnostics")
+ check("ATTACK REGISTERED" in orb_source and "v380_status_enabled" in orb_source,"optional combat status acknowledges registered attacks")
  check("LIVE  ♥" in orb_source and "STAM %d/%d" in orb_source,"stamina value displays alongside HP mana and XP")
  check(not ("\\\\n✦" in orb_source),"HUD live number text uses a real escaped newline instead of printed slash-n")
  check("HORIZONTAL_ALIGNMENT_CENTER" in orb_source and "font_shadow_color" in orb_source,"orb numerals are centered and legible")
