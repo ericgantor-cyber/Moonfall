@@ -257,7 +257,7 @@ func _v398_build_tree()->void:
 func _v398_refresh_tree()->void:
  if not is_instance_valid(v398_tree_list):return
  for child in v398_tree_list.get_children():child.queue_free()
- var level_now:int=maxi(1,int(level))
+ var level_now:int=maxi(1,int(hero_level))
  var points:int=CELESTIAL_TALENTS.points_for_level(level_now)-CELESTIAL_TALENTS.points_spent(v398_ranks)
  var heading:Label=Label.new()
  heading.text="CELESTIAL TALENTS  |  Points: "+str(points)+"  |  K to close"
@@ -277,7 +277,7 @@ func _v398_refresh_tree()->void:
    v398_tree_list.add_child(talent_button)
 
 func _v398_unlock(id:String)->void:
- v398_ranks=CELESTIAL_TALENTS.unlock(str(hero),maxi(1,int(level)),v398_ranks,id)
+ v398_ranks=CELESTIAL_TALENTS.unlock(str(hero),maxi(1,int(hero_level)),v398_ranks,id)
  _v398_refresh_tree()
 
 func _v398_toggle_tree()->void:
