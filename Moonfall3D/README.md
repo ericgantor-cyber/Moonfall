@@ -87,3 +87,7 @@ Flame applies a 4-second burn (6 damage/second), Frost applies a 3.5-second slow
 ## Stabilization pass (Oct 2026)
 
 Adds solid-wall line-of-sight checks for basic enemy melee and auto-target acquisition, prevents holding Q from repeatedly retriggering dodge after cooldown, and gives C dual casting input priority over Z/X hand casting. Godot binary was not available in the execution environment; these are source-reviewed changes rather than successful Godot playtest results. Other gameplay and performance regressions may still exist.
+
+## GitHub automated Godot checks and experimental Windows build
+
+Workflow `.github/workflows/moonfall3d-godot.yml` downloads Godot 4.3 and export templates, imports the Godot project, runs a short headless scene check and exports a Windows x86_64 executable. An `Moonfall3D-Windows-experimental` artifact is uploaded only if earlier stages succeed. Runs on Moonfall3D or workflow changes, and manually via Actions. This is a portable executable artifact, **not an installer** and has not yet passed CI or been tested on Windows. The original browser game and hero art are unaffected.
