@@ -37,6 +37,10 @@ var room_index := 0
 var room_label: Label
 var combat_flash := 0.0
 var active_effects: Array[Node3D] = []
+var animation_phase := 0.0
+var target_marker: MeshInstance3D
+var room_waypoints: Array[Vector3] = []
+var cached_target: Node3D
 
 func _ready() -> void:
     randomize()
@@ -61,6 +65,17 @@ func _ready() -> void:
     body.mesh = capsule
     body.position.y = 1.1
     player.add_child(body)
+    target_marker = MeshInstance3D.new()
+    var ring := TorusMesh.new()
+    ring.inner_radius = 0.8
+    ring.outer_radius = 1.1
+    target_marker.mesh = ring
+    var ring_material := StandardMaterial3D.new()
+    ring_material.albedo_color = Color(1, 0.8, 0.1)
+    ring_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+    target_marker.material_override = ring_material
+    target_marker.visible = false
+    add_child(target_marker)
     camera = Camera3D.new()
     camera.current = true
     add_child(camera)
@@ -155,6 +170,10 @@ func _process(dt: float) -> void:
         dodge_wait = 1.1
         invulnerable = 0.35
     var velocity := dodge_dir * 18.0 if dodge_left > 0.0 else motion * 7.0
+    animation_phase += dt * (11.0 if velocity.length() > 0.0 else 3.0)
+    # Placeholder animation only; replace when original-design character models arrive.
+    var placeholder := player.get_node("Placeholder") as MeshInstance3D
+    placeholder.position.y = 1.1 + (absf(sin(animation_phase)) * 0.12 if velocity.length() > 0.0 else sin(animation_phase) * 0.025)
     player.position += velocity * dt
     player.position.x = clampf(player.position.x, -ARENA, ARENA)
     player.position.z = clampf(player.position.z, -ARENA, ARENA)
@@ -165,8 +184,19 @@ func _process(dt: float) -> void:
     var horizontal := cos(camera_pitch) * radius
     var follow_offset := Vector3(sin(camera_yaw) * horizontal, -sin(camera_pitch) * radius + 1.3, cos(camera_yaw) * horizontal)
     var focus := player.position + Vector3.UP * 1.3
-    camera.position = camera.position.lerp(player.position + follow_offset, minf(1.0, dt * 6.0))
+    var desired_camera := player.position + follow_offset
+    # Pull camera forward when scene collision obstructs the third-person view.
+    var ray := PhysicsRayQueryParameters3D.create(focus, desired_camera)
+    var hit := get_world_3d().direct_space_state.intersect_ray(ray)
+    if not hit.is_empty():
+        var near_hit: Vector3 = hit["position"]
+        desired_camera = near_hit + (focus - near_hit).normalized() * 0.35
+    camera.position = camera.position.lerp(desired_camera, minf(1.0, dt * 6.0))
     camera.look_at(focus)
+    cached_target = _select_target()
+    target_marker.visible = cached_target != null
+    if cached_target != null:
+        target_marker.position = cached_target.position + Vector3.UP * 0.08
     if (Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) or Input.is_key_pressed(KEY_J)) and attack_wait <= 0.0:
         _attack()
     spawn_wait -= dt
@@ -237,13 +267,7 @@ func _spawn(boss: bool) -> void:
 
 func _attack() -> void:
     attack_wait = 0.25 if hero == "Z" else 0.38
-    var target: Node3D = null
-    var nearest := 5.2 if hero == "Z" else 8.0
-    for mob in mobs:
-        var d := mob.position.distance_to(player.position)
-        if d < nearest:
-            target = mob
-            nearest = d
+    var target: Node3D = _select_target()
     if target == null:
         return
     _spell_effect(target.position, hero == "Nyra")
@@ -296,6 +320,9 @@ func _build_room() -> void:
         old.queue_free()
     var decor := Node3D.new()
     decor.name = "RoomDecor"
+    room_waypoints.clear()
+    for direction in [Vector3(18, 0, 0), Vector3(-18, 0, 0), Vector3(0, 0, 18), Vector3(0, 0, -18)]:
+        room_waypoints.append(direction)
     add_child(decor)
     var tint := [Color(0.3, 0.12, 0.4), Color(0.22, 0.45, 0.55), Color(0.65, 0.2, 0.15)][room_index % 3]
     for i in range(12):
@@ -329,3 +356,25 @@ func _spell_effect(at: Vector3, nyra: bool) -> void:
     effect.set_meta("life", 0.3)
     add_child(effect)
     active_effects.append(effect)
+
+# Select in-range targets in front of the character preferentially.
+# This does not implement mouse cursor picking or lock-on yet.
+func _select_target() -> Node3D:
+    var max_range := 5.2 if hero == "Z" else 8.0
+    var chosen: Node3D = null
+    var best_score := INF
+    var facing := -player.global_transform.basis.z
+    for mob in mobs:
+        if not is_instance_valid(mob):
+            continue
+        var toward := mob.position - player.position
+        toward.y = 0.0
+        var distance := toward.length()
+        if distance > max_range or distance < 0.01:
+            continue
+        var facing_score := facing.dot(toward.normalized())
+        var score := distance + (1.0 - facing_score) * 3.0
+        if score < best_score:
+            best_score = score
+            chosen = mob
+    return chosen
