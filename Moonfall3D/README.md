@@ -83,3 +83,7 @@ M opens an expanded six-spell spellbook. Up/Down browse; Z assigns selected spel
 ## Elemental spell overhaul
 
 Flame applies a 4-second burn (6 damage/second), Frost applies a 3.5-second slow (35% movement reduction), Venom applies a 6-second poison (3.5 damage/second), and Storm adds a 9-damage shock burst. Effects scale in duration or burst with dual cast. Arcane retains direct damage and Restoration heals. Damage-over-time defeats now use the existing XP, kill and loot routine. Spell schools have shared cooldowns across hands and the 12-slot bar; action-slot cooldown is only consumed after successful casts. Spell menu now displays each school effect, cost and cooldown. This is a substantial source-level prototype, **not** a verified Godot build, animated hands, persistence or a fully graphical spellbook. Original character artwork and WoW camera are untouched.
+
+## Stabilization pass (Oct 2026)
+
+Adds solid-wall line-of-sight checks for basic enemy melee and auto-target acquisition, prevents holding Q from repeatedly retriggering dodge after cooldown, and gives C dual casting input priority over Z/X hand casting. Godot binary was not available in the execution environment; these are source-reviewed changes rather than successful Godot playtest results. Other gameplay and performance regressions may still exist.

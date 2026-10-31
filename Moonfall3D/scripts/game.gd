@@ -50,6 +50,7 @@ var inventory_open := false
 var inventory_panel: Label
 var inventory_latch := false
 var equip_latch := false
+var dodge_latch := false
 var binds_open := false
 var binds_panel: Label
 var binding_index := 0
@@ -292,12 +293,13 @@ func _process(dt: float) -> void:
         school_cooldowns[school] = maxf(0.0, school_cooldowns[school] - dt)
     for hand in range(hand_cooldowns.size()):
         hand_cooldowns[hand] = maxf(0.0, hand_cooldowns[hand] - dt)
-    if Input.is_key_pressed(KEY_Z):
-        _cast_hand(0)
-    if Input.is_key_pressed(KEY_X):
-        _cast_hand(1)
     if Input.is_key_pressed(KEY_C):
         _dual_cast()
+    else:
+        if Input.is_key_pressed(KEY_Z):
+            _cast_hand(0)
+        if Input.is_key_pressed(KEY_X):
+            _cast_hand(1)
     var inventory_key := _pressed("inventory")
     if inventory_key and not inventory_latch:
         inventory_open = not inventory_open
@@ -353,11 +355,13 @@ func _process(dt: float) -> void:
     motion = motion.normalized()
     # Camera-relative movement, with right-drag turning the character.
     motion = motion.rotated(Vector3.UP, camera_yaw)
-    if _pressed("dodge") and dodge_wait <= 0.0:
+    var dodge_pressed := _pressed("dodge")
+    if dodge_pressed and not dodge_latch and dodge_wait <= 0.0:
         dodge_dir = motion if motion.length() > 0.0 else Vector3.FORWARD
         dodge_left = 0.24
         dodge_wait = 1.1
         invulnerable = 0.35
+    dodge_latch = dodge_pressed
     var velocity := dodge_dir * 18.0 if dodge_left > 0.0 else motion * 7.0
     animation_phase += dt * (11.0 if velocity.length() > 0.0 else 3.0)
     # Placeholder animation only; replace when original-design character models arrive.
@@ -473,7 +477,7 @@ func _process(dt: float) -> void:
         var hit_cd: float = maxf(0.0, float(mob.get_meta("hit_cd")) - dt)
         # Skirmishers circle at close range; bruisers pursue directly.
         # Damage requires actual proximity, not proximity to the doorway waypoint.
-        if mob.position.distance_to(player.position) <= reach + 0.3 and hit_cd <= 0.0 and invulnerable <= 0.0:
+        if mob.position.distance_to(player.position) <= reach + 0.3 and hit_cd <= 0.0 and invulnerable <= 0.0 and _has_clear_path(mob.position + Vector3.UP, player.position + Vector3.UP):
             hp -= maxf(1.0, (25.0 if boss else 12.0) - armor)
             hit_cd = 1.1
             if hp <= 0:
@@ -625,6 +629,8 @@ func _select_target() -> Node3D:
     var facing := -player.global_transform.basis.z
     for mob in mobs:
         if not is_instance_valid(mob):
+            continue
+        if not _has_clear_path(player.position + Vector3.UP, mob.position + Vector3.UP):
             continue
         var toward := mob.position - player.position
         toward.y = 0.0
@@ -958,3 +964,8 @@ func _school_effect(at: Vector3, spell_index: int) -> void:
     pulse.set_meta("life", 0.3)
     add_child(pulse)
     active_effects.append(pulse)
+
+func _has_clear_path(start: Vector3, finish: Vector3) -> bool:
+    var query := PhysicsRayQueryParameters3D.create(start, finish)
+    query.collision_mask = 2
+    return get_world_3d().direct_space_state.intersect_ray(query).is_empty()
