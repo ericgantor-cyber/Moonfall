@@ -51,6 +51,9 @@ var inventory: Array[Dictionary] = []
 var equipped: Dictionary = {}
 var inventory_open := false
 var inventory_panel: Label
+var equipment_panel: PanelContainer
+var equipment_list: VBoxContainer
+var equipment_open := false
 var inventory_latch := false
 var equip_latch := false
 var dodge_latch := false
@@ -212,6 +215,7 @@ func _ready() -> void:
     _load_bindings()
     _build_pad_settings(layer)
     _build_options_menu(layer)
+    _build_equipment_menu(layer)
     _build_crafting_menu(layer)
     var center := CenterContainer.new()
     center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -259,7 +263,7 @@ func _unhandled_input(event: InputEvent) -> void:
         if event.keycode == KEY_ESCAPE and started:
             if options_open:
                 _close_all_options()
-            elif spell_menu_open or pad_settings_open or binds_open or inventory_open or crafting_open:
+            elif spell_menu_open or pad_settings_open or binds_open or inventory_open or crafting_open or equipment_open:
                 _close_all_options()
                 _open_options_menu()
             else:
@@ -341,7 +345,7 @@ func _process(dt: float) -> void:
     if spell_menu_open:
         preview_time += dt
         _animate_spell_preview()
-    if not started or dead or binds_open or spell_menu_open or pad_settings_open or options_open or inventory_open or crafting_open:
+    if not started or dead or binds_open or spell_menu_open or pad_settings_open or options_open or inventory_open or crafting_open or equipment_open:
         return
     var look := Vector2.ZERO
     if not Input.get_connected_joypads().is_empty():
@@ -928,6 +932,8 @@ func _equip_item(index: int) -> void:
         equipped_armor = item.duplicate()
         armor = float(item["power"])
     _refresh_inventory()
+    if equipment_open:
+        _refresh_equipment_menu()
 
 func _pressed(action: String) -> bool:
     return Input.is_key_pressed(int(bindings[action]))
@@ -1304,7 +1310,7 @@ func _build_options_menu(layer: CanvasLayer) -> void:
     title.text = "MOONFALL | OPTIONS"
     title.add_theme_font_size_override("font_size", 26)
     menu.add_child(title)
-    for entry in ["Resume", "Spellbook", "Inventory", "Crafting", "Keybindings", "Controller Settings"]:
+    for entry in ["Resume", "Spellbook", "Inventory", "Equipment", "Crafting", "Keybindings", "Controller Settings"]:
         var button := Button.new()
         button.text = entry
         button.custom_minimum_size.y = 60
@@ -1317,6 +1323,8 @@ func _close_all_options() -> void:
     options_panel.visible = false
     crafting_open = false
     crafting_panel.visible = false
+    equipment_open = false
+    equipment_panel.visible = false
     spell_menu_open = false
     spell_menu.visible = false
     pad_settings_open = false
@@ -1346,6 +1354,10 @@ func _options_action(action: String) -> void:
             inventory_open = true
             inventory_panel.visible = true
             _refresh_inventory()
+        "Equipment":
+            equipment_open = true
+            equipment_panel.visible = true
+            _refresh_equipment_menu()
         "Crafting":
             crafting_open = true
             crafting_panel.visible = true
@@ -1485,3 +1497,44 @@ func _forge_armor() -> void:
     _cast_notice("Armor forged: +2 armor")
     _refresh_inventory()
     _refresh_crafting()
+
+func _build_equipment_menu(layer: CanvasLayer) -> void:
+    equipment_panel = PanelContainer.new()
+    equipment_panel.position = Vector2(380, 110)
+    equipment_panel.custom_minimum_size = Vector2(540, 460)
+    equipment_panel.visible = false
+    layer.add_child(equipment_panel)
+    var scroll := ScrollContainer.new()
+    equipment_panel.add_child(scroll)
+    equipment_list = VBoxContainer.new()
+    equipment_list.custom_minimum_size.x = 490
+    scroll.add_child(equipment_list)
+
+func _refresh_equipment_menu() -> void:
+    if equipment_list == null:
+        return
+    for old in equipment_list.get_children():
+        equipment_list.remove_child(old)
+        old.queue_free()
+    var title := Label.new()
+    title.text = "EQUIPMENT | Choose an item"
+    equipment_list.add_child(title)
+    for i in range(inventory.size()):
+        var item: Dictionary = inventory[i]
+        var button := Button.new()
+        button.text = "%s %s (%s) +%d" % [item["rarity"], item["name"], item["slot"], int(item["power"])]
+        button.custom_minimum_size.y = 52
+        button.focus_mode = Control.FOCUS_ALL
+        button.pressed.connect(_choose_equipment.bind(i))
+        equipment_list.add_child(button)
+    var back := Button.new()
+    back.text = "Back to Options"
+    back.custom_minimum_size.y = 56
+    back.pressed.connect(_open_options_menu)
+    equipment_list.add_child(back)
+    if equipment_list.get_child_count() > 1:
+        (equipment_list.get_child(1) as Button).grab_focus()
+
+func _choose_equipment(index: int) -> void:
+    _equip_item(index)
+    _refresh_equipment_menu()
