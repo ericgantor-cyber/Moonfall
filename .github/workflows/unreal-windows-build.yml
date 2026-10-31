@@ -1,0 +1,28 @@
+name: Moonfall Unreal Windows build (self-hosted)
+on:
+  workflow_dispatch:
+jobs:
+  unreal-build:
+    runs-on: [self-hosted, Windows, X64, unreal-5-4]
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify Unreal 5.4 installation
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if (-not $env:UE54_ROOT) { throw 'Set UE54_ROOT on your trusted self-hosted Windows runner (e.g. C:\Program Files\Epic Games\UE_5.4).' }
+          $buildTool = Join-Path $env:UE54_ROOT 'Engine\Build\BatchFiles\Build.bat'
+          if (-not (Test-Path $buildTool)) { throw "Build.bat not found: $buildTool" }
+          if (-not (Test-Path 'MoonfallUnreal\MoonfallUnreal.uproject')) { throw 'Missing Unreal project' }
+      - name: Compile Unreal Editor Win64 Development
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $buildTool = Join-Path $env:UE54_ROOT 'Engine\Build\BatchFiles\Build.bat'
+          $uproject = (Resolve-Path 'MoonfallUnreal\MoonfallUnreal.uproject').Path
+          & $buildTool MoonfallUnrealEditor Win64 Development "-Project=$uproject" -WaitMutex -NoHotReload
+          if ($LASTEXITCODE -ne 0) { throw "Unreal compilation failed with exit code $LASTEXITCODE" }
+      - name: Report status
+        shell: pwsh
+        run: Write-Host 'Unreal Editor C++ target compiled. No packaged build, gameplay test, or frame generation test was performed.'
