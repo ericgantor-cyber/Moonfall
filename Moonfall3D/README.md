@@ -111,3 +111,7 @@ The M spellbook now opens a Godot PanelContainer with readable spell buttons, ma
 ## Mouse-friendly spellbook controls
 
 The graphical spellbook now displays six school symbols, a highlighted selected row, and separate LEFT/RIGHT buttons on each spell. Click either hand button to equip that spell, with a checkmark showing the current loadout. Keyboard assignment with Z/X remains available. The obsolete WoW 12-slot action bar stays removed. Characters' original artwork remains unchanged. This update has not been runtime-tested in Godot.
+
+## Expanded spellbook school categories
+
+The graphical spellbook groups Flame, Frost and Storm under Destruction; Arcane under Mysticism; Restoration under Restoration; and Venom under Alchemy. Spell rows now have larger symbols, full gameplay descriptions, costs, and cooldown values. Left and right equip buttons remain clickable. No twelve-slot WoW action bars have returned. Godot runtime validation of this change is pending.
