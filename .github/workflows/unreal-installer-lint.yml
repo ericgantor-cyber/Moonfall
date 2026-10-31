@@ -19,7 +19,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p /tmp/moonfall-installer-fixture/Engine
+          mkdir -p /tmp/moonfall-installer-fixture/Engine /tmp/moonfall-installer-fixture/MoonfallUnreal
           printf 'fixture only, not a Windows executable\n' > /tmp/moonfall-installer-fixture/MoonfallUnreal.exe
           printf 'package data fixture\n' > /tmp/moonfall-installer-fixture/Engine/test.txt
           makensis -V2 -DSOURCE_DIR=/tmp/moonfall-installer-fixture -DOUTPUT_EXE=/tmp/MoonfallUnreal-ScriptTest.exe MoonfallUnreal/Installer/MoonfallUnreal.nsi
