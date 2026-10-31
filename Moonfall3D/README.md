@@ -99,3 +99,7 @@ After the Godot validation/export job succeeds, the Windows CI job runs Inno Set
 ## Action bar combat feedback
 
 The twelve action slots now display their assigned school names, the larger of their slot or school cooldowns, and insufficient-mana warnings. Spellbook shows mana and the dual-casting requirement. Cast failure due to insufficient mana displays a short message. This is source-level UI feedback and does not add twelve unique spells. Godot runtime test still required.
+
+## Current controls: no WoW-style action bars
+
+The twelve-slot WoW-style action bar and the 1–0/-/= ability-slot bindings have been **removed** by request. Magic uses the Skyrim-inspired **M** spellbook, **Z** left-hand cast, **X** right-hand cast, and **C** matching-spell dual cast. Space jumps, Q dodges, and F10 remains the movement/accessibility keybinding menu. Inside the spellbook, numeric keys 1–4 and 5–8 still provide spell-selection shortcuts (they no longer cast from a bar). Some earlier log sections describe the old bar and are historical only. The third-person camera stays; the original 2D/browser game and Z/Nyra art remain untouched.

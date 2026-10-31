@@ -59,9 +59,6 @@ var target_latch := false
 var locked_target: Node3D
 var jump_velocity := 0.0
 var jump_latch := false
-var slot_cooldowns := [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-const DEFAULT_SLOT_KEYS := [KEY_1, KEY_2, KEY_3, KEY_4, KEY_5, KEY_6, KEY_7, KEY_8, KEY_9, KEY_0, KEY_MINUS, KEY_EQUAL]
-var action_bar: Label
 var spell_menu: Label
 var spell_menu_open := false
 var mana := 100.0
@@ -82,8 +79,7 @@ var spells := [
     {"name": "Venom", "cost": 14.0, "power": 1.2, "cooldown": 0.9}
 ]
 var bindings: Dictionary = {"forward": KEY_W, "back": KEY_S, "left": KEY_A, "right": KEY_D, "jump": KEY_SPACE, "dodge": KEY_Q, "inventory": KEY_B, "interact": KEY_F, "target": KEY_TAB}
-var slot_keys: Array[int] = []
-const BIND_ORDER := ["forward", "back", "left", "right", "jump", "dodge", "inventory", "interact", "target", "slot_1", "slot_2", "slot_3", "slot_4", "slot_5", "slot_6", "slot_7", "slot_8", "slot_9", "slot_10", "slot_11", "slot_12"]
+const BIND_ORDER := ["forward", "back", "left", "right", "jump", "dodge", "inventory", "interact", "target"]
 var selected_item := 0
 var armor := 0.0
 const MAX_INVENTORY := 20
@@ -91,8 +87,6 @@ const RARITIES := ["Common", "Uncommon", "Rare", "Epic", "Legendary"]
 
 func _ready() -> void:
     randomize()
-    for key in DEFAULT_SLOT_KEYS:
-        slot_keys.append(key)
     dungeon_seed = randi()
     var ground := MeshInstance3D.new()
     var plane := PlaneMesh.new()
@@ -156,10 +150,6 @@ func _ready() -> void:
     ui.position = Vector2(20, 20)
     ui.add_theme_font_size_override("font_size", 20)
     layer.add_child(ui)
-    action_bar = Label.new()
-    action_bar.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
-    action_bar.position = Vector2(20, 630)
-    layer.add_child(action_bar)
     spell_menu = Label.new()
     spell_menu.position = Vector2(450, 95)
     spell_menu.add_theme_font_size_override("font_size", 20)
@@ -213,10 +203,7 @@ func _unhandled_input(event: InputEvent) -> void:
             else:
                 var action: String = BIND_ORDER[binding_index]
                 if not _key_in_use(event.keycode, action):
-                    if action.begins_with("slot_"):
-                        slot_keys[int(action.trim_prefix("slot_")) - 1] = event.keycode
-                    else:
-                        bindings[action] = event.keycode
+                    bindings[action] = event.keycode
                     _save_bindings()
                 binding_capture = false
             _render_binds()
@@ -329,9 +316,6 @@ func _process(dt: float) -> void:
             effect.set_meta("life", life)
             effect.scale = Vector3.ONE * (1.0 + (0.3 - life) * 2.0)
     attack_wait = maxf(0.0, attack_wait - dt)
-    for index in range(slot_cooldowns.size()):
-        slot_cooldowns[index] = maxf(0.0, slot_cooldowns[index] - dt)
-    _render_action_bar()
     var jump_key := _pressed("jump")
     if jump_key and not jump_latch and player.is_on_floor():
         jump_velocity = 9.0
@@ -400,11 +384,6 @@ func _process(dt: float) -> void:
         _open_nearby_chest()
     if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) and attack_wait <= 0.0:
         _attack()
-    for slot in range(slot_keys.size()):
-        var key_active := Input.is_key_pressed(slot_keys[slot])
-        if key_active and slot_cooldowns[slot] <= 0.0:
-            _use_action_slot(slot)
-            break
     spawn_wait -= dt
     if spawn_wait <= 0.0 and mobs.size() < MAX_MOBS:
         _spawn(false)
@@ -782,7 +761,7 @@ func _render_binds() -> void:
     for i in range(BIND_ORDER.size()):
         var action: String = BIND_ORDER[i]
         var prefix := "> " if i == binding_index else "  "
-        var key := slot_keys[int(action.trim_prefix("slot_")) - 1] if action.begins_with("slot_") else int(bindings[action])
+        var key := int(bindings[action])
         lines.append("%s%s : %s" % [prefix, action, OS.get_keycode_string(key)])
     if binding_capture:
         lines.append("Press a new key, or Esc to cancel")
@@ -792,8 +771,6 @@ func _save_bindings() -> void:
     var file := FileAccess.open("user://moonfall_keybinds.json", FileAccess.WRITE)
     if file != null:
         var saved := bindings.duplicate()
-        for slot in range(slot_keys.size()):
-            saved["slot_%d" % (slot + 1)] = slot_keys[slot]
         file.store_string(JSON.stringify(saved))
 
 func _load_bindings() -> void:
@@ -808,14 +785,7 @@ func _load_bindings() -> void:
     for action in BIND_ORDER:
         if not parsed.has(action) or int(parsed[action]) <= 0:
             continue
-        if action.begins_with("slot_"):
-            slot_keys[int(action.trim_prefix("slot_")) - 1] = int(parsed[action])
-        else:
-            bindings[action] = int(parsed[action])
-    if not parsed.has("slot_1") and parsed.has("attack"):
-        slot_keys[0] = int(parsed["attack"])
-    if not parsed.has("slot_2") and parsed.has("spell"):
-        slot_keys[1] = int(parsed["spell"])
+        bindings[action] = int(parsed[action])
     # Migrate saved profiles: Space was dodge; now Space must jump.
     if not parsed.has("jump") and int(bindings["dodge"]) == KEY_SPACE:
         bindings["jump"] = KEY_SPACE
@@ -836,32 +806,9 @@ func _next_target() -> Node3D:
 
 # Twelve visible action slots. Every slot uses the current placeholder attack,
 # with three distinct variants and individual cooldowns. Future abilities can replace these.
-func _use_action_slot(slot: int) -> void:
-    if slot < 0 or slot >= slot_cooldowns.size():
-        return
-    var school := slot % spells.size()
-    if _cast_spell(school, 1.0):
-        slot_cooldowns[slot] = float(spells[school]["cooldown"])
-
-func _render_action_bar() -> void:
-    if action_bar == null:
-        return
-    var labels := PackedStringArray()
-    for slot in range(slot_keys.size()):
-        var key := OS.get_keycode_string(slot_keys[slot])
-        var school := slot % spells.size()
-        var remaining := maxf(slot_cooldowns[slot], school_cooldowns[school])
-        var readiness := "READY" if remaining <= 0.0 else "%.1fs" % remaining
-        var affordable := "" if mana >= float(spells[school]["cost"]) else " NO MANA"
-        labels.append("%s %s [%s%s]" % [key, spells[school]["name"], readiness, affordable])
-    action_bar.text = "Mana %d/%d | Left [Z] %s | Right [X] %s | Dual [C] | [M] Spells\n%s%s" % [int(mana), int(max_mana), spells[left_spell]["name"], spells[right_spell]["name"], "  ".join(labels), ("\n" + spell_notice if notice_left > 0.0 else "")]
-
 func _key_in_use(key: int, except_action: String) -> bool:
     for action in bindings:
         if action != except_action and int(bindings[action]) == key:
-            return true
-    for index in range(slot_keys.size()):
-        if except_action != "slot_%d" % (index + 1) and slot_keys[index] == key:
             return true
     return key == KEY_F10 or key == KEY_ESCAPE
 
