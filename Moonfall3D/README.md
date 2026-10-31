@@ -95,3 +95,7 @@ Workflow `.github/workflows/moonfall3d-godot.yml` downloads Godot 4.3 and export
 ## Experimental Windows installer
 
 After the Godot validation/export job succeeds, the Windows CI job runs Inno Setup and uploads `Moonfall3D-Windows-Installer-experimental`. The setup installs the game, adds a Start Menu shortcut, and offers an optional desktop shortcut plus launch-on-finish. Requires an actual successful Actions run and Windows 10/11 playtesting before release. This prototype installer does not contain original 3D Z/Nyra models, only existing temporary placeholders.
+
+## Action bar combat feedback
+
+The twelve action slots now display their assigned school names, the larger of their slot or school cooldowns, and insufficient-mana warnings. Spellbook shows mana and the dual-casting requirement. Cast failure due to insufficient mana displays a short message. This is source-level UI feedback and does not add twelve unique spells. Godot runtime test still required.
