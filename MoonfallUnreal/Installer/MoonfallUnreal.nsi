@@ -24,6 +24,8 @@ Section "Moonfall Unreal" Main
     Abort "Missing packaged Unreal runtime files"
   IfFileExists "$INSTDIR\\MoonfallUnreal\\*.*" +2 0
     Abort "Missing cooked game content"
+  IfFileExists "$INSTDIR\\MoonfallLauncher.exe" +2 0
+    Abort "Missing Moonfall launcher"
   CreateDirectory "$SMPROGRAMS\\Moonfall Unreal"
   CreateShortcut "$SMPROGRAMS\\Moonfall Unreal\\Moonfall Unreal.lnk" "$INSTDIR\\MoonfallUnreal.exe"
   CreateShortcut "$DESKTOP\\Moonfall Unreal.lnk" "$INSTDIR\\MoonfallUnreal.exe"
