@@ -139,3 +139,7 @@ The six magic schools now have slightly different impact-orb proportions in addi
 ## Headless gameplay smoke-test gate
 
 GitHub Actions now runs `Moonfall3D/tests/smoke_test.gd` before exporting Windows builds. It checks default Space/Q bindings, absence of WoW action-bar slot bindings, hero selection, spellbook construction, independent hand equip, Restoration healing/mana cost, and school cooldown enforcement. A failing test blocks the installer build. These are automated smoke checks, **not** a substitute for mouse/keyboard, visual, performance, or Windows 10/11 testing.
+
+## Controller overhaul (experimental)
+
+Godot gamepad support now uses left stick for analog camera-relative movement (dead zone 0.18), right stick for orbital camera (dead zone 0.20), A for jump, B for dodge, left/right shoulder for left/right spellcasting and both shoulders for same-spell dual cast. Y opens or closes the M spellbook. While the spellbook is open, move the left stick up/down to select, X equips left hand, and A equips right hand. Back/View opens inventory; pressing the right stick cycles targets. Space/Q keyboard behavior remains, and no WoW-style action bars have been restored. Defaults currently target standard Xbox-style button names; controller-specific differences, input conflicts, and analog feel still require physical Windows gameplay testing. No controller remapping UI has been added yet. Original character art unchanged.

@@ -66,6 +66,12 @@ var spell_preview: Label
 var spell_scroll: ScrollContainer
 var preview_time := 0.0
 var spell_menu_open := false
+var pad_menu_latch := false
+var pad_select_latch := false
+var pad_target_latch := false
+var pad_inventory_latch := false
+var pad_cursor_latch := false
+var pad_camera_speed := 2.1
 var mana := 100.0
 var max_mana := 100.0
 var spell_cursor := 0
@@ -291,6 +297,7 @@ func _unhandled_input(event: InputEvent) -> void:
                 player.rotation.y = camera_yaw
 
 func _process(dt: float) -> void:
+    _controller_menus()
     if dead and Input.is_key_pressed(KEY_R):
         get_tree().reload_current_scene()
         return
@@ -299,6 +306,14 @@ func _process(dt: float) -> void:
         _animate_spell_preview()
     if not started or dead or binds_open or spell_menu_open:
         return
+    var look := Vector2.ZERO
+    if not Input.get_connected_joypads().is_empty():
+        var pad: int = Input.get_connected_joypads()[0]
+        look = Vector2(Input.get_joy_axis(pad, JOY_AXIS_RIGHT_X), Input.get_joy_axis(pad, JOY_AXIS_RIGHT_Y))
+        if look.length() < 0.2:
+            look = Vector2.ZERO
+    camera_yaw -= look.x * pad_camera_speed * dt
+    camera_pitch = clampf(camera_pitch - look.y * pad_camera_speed * dt, -1.25, -0.1)
     clock += dt
     mana = minf(max_mana, mana + 7.0 * dt)
     notice_left = maxf(0.0, notice_left - dt)
@@ -306,19 +321,23 @@ func _process(dt: float) -> void:
         school_cooldowns[school] = maxf(0.0, school_cooldowns[school] - dt)
     for hand in range(hand_cooldowns.size()):
         hand_cooldowns[hand] = maxf(0.0, hand_cooldowns[hand] - dt)
-    if Input.is_key_pressed(KEY_C):
+    if Input.is_key_pressed(KEY_C) or _pad_button(JOY_BUTTON_LEFT_SHOULDER) and _pad_button(JOY_BUTTON_RIGHT_SHOULDER):
         _dual_cast()
     else:
-        if Input.is_key_pressed(KEY_Z):
+        if Input.is_key_pressed(KEY_Z) or _pad_button(JOY_BUTTON_LEFT_SHOULDER):
             _cast_hand(0)
-        if Input.is_key_pressed(KEY_X):
+        if Input.is_key_pressed(KEY_X) or _pad_button(JOY_BUTTON_RIGHT_SHOULDER):
             _cast_hand(1)
-    var inventory_key := _pressed("inventory")
+    var inventory_key := _pressed("inventory") or _pad_button(JOY_BUTTON_BACK)
     if inventory_key and not inventory_latch:
         inventory_open = not inventory_open
         inventory_panel.visible = inventory_open
         _refresh_inventory()
     inventory_latch = inventory_key
+    var target_button := _pad_button(JOY_BUTTON_RIGHT_STICK)
+    if target_button and not pad_target_latch:
+        _next_target()
+    pad_target_latch = target_button
     var equip_key := Input.is_key_pressed(KEY_G)
     if inventory_open and equip_key and not equip_latch and not inventory.is_empty():
         selected_item = (selected_item + 1) % inventory.size()
@@ -352,7 +371,7 @@ func _process(dt: float) -> void:
                 effect.position = player.position + player.global_transform.basis.x * side + Vector3.UP * (1.2 + arc)
 
     attack_wait = maxf(0.0, attack_wait - dt)
-    var jump_key := _pressed("jump")
+    var jump_key := _pressed("jump") or _pad_button(JOY_BUTTON_A)
     if jump_key and not jump_latch and player.is_on_floor():
         jump_velocity = 9.0
     jump_latch = jump_key
@@ -372,10 +391,17 @@ func _process(dt: float) -> void:
         motion.z -= 1
     if _pressed("back") or Input.is_key_pressed(KEY_DOWN):
         motion.z += 1
-    motion = motion.normalized()
+    var stick := Vector2.ZERO
+    if not Input.get_connected_joypads().is_empty():
+        var pad: int = Input.get_connected_joypads()[0]
+        stick = Vector2(Input.get_joy_axis(pad, JOY_AXIS_LEFT_X), Input.get_joy_axis(pad, JOY_AXIS_LEFT_Y))
+        if stick.length() < 0.18:
+            stick = Vector2.ZERO
+    motion += Vector3(stick.x, 0.0, stick.y)
+    motion = motion.limit_length(1.0)
     # Camera-relative movement, with right-drag turning the character.
     motion = motion.rotated(Vector3.UP, camera_yaw)
-    var dodge_pressed := _pressed("dodge")
+    var dodge_pressed := _pressed("dodge") or _pad_button(JOY_BUTTON_B)
     if dodge_pressed and not dodge_latch and dodge_wait <= 0.0:
         dodge_dir = motion if motion.length() > 0.0 else Vector3.FORWARD
         dodge_left = 0.24
@@ -1060,3 +1086,35 @@ func _hand_cast_effect(hand: int, school: int) -> void:
     spark.set_meta("cast_school", school)
     add_child(spark)
     active_effects.append(spark)
+
+func _pad_button(button: int) -> bool:
+    var pads := Input.get_connected_joypads()
+    return not pads.is_empty() and Input.is_joy_button_pressed(pads[0], button)
+
+func _controller_menus() -> void:
+    if not started or dead or binds_open:
+        return
+    var menu_pressed := _pad_button(JOY_BUTTON_Y)
+    if menu_pressed and not pad_menu_latch:
+        spell_menu_open = not spell_menu_open
+        spell_menu.visible = spell_menu_open
+        if spell_menu_open:
+            _render_spell_menu()
+    pad_menu_latch = menu_pressed
+    if not spell_menu_open:
+        pad_cursor_latch = false
+        pad_select_latch = false
+        return
+    var pads := Input.get_connected_joypads()
+    var axis := 0.0
+    if not pads.is_empty():
+        axis = Input.get_joy_axis(pads[0], JOY_AXIS_LEFT_Y)
+    var direction := 1 if axis > 0.55 else (-1 if axis < -0.55 else 0)
+    if direction != 0 and not pad_cursor_latch:
+        spell_cursor = posmod(spell_cursor + direction, spells.size())
+        _render_spell_menu()
+    pad_cursor_latch = direction != 0
+    var equip_pressed := _pad_button(JOY_BUTTON_A) or _pad_button(JOY_BUTTON_X)
+    if equip_pressed and not pad_select_latch:
+        _equip_spell_hand(spell_cursor, 0 if _pad_button(JOY_BUTTON_X) else 1)
+    pad_select_latch = equip_pressed
