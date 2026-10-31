@@ -650,6 +650,35 @@ func _spawn(boss: bool) -> void:
     mat.albedo_color = Color(1.0, 0.25, 0.75) if boss else [Color(0.9, 0.2, 0.25), Color(0.4, 0.75, 0.9), Color(0.95, 0.65, 0.18)][mob_kind]
     body.material_override = mat
     mob.add_child(body)
+    # Small readable silhouettes distinguish enemy archetypes without new assets.
+    if boss:
+        for side in [-1.0, 1.0]:
+            var horn := MeshInstance3D.new()
+            var horn_mesh := CylinderMesh.new()
+            horn_mesh.top_radius = 0.0
+            horn_mesh.bottom_radius = 0.38
+            horn_mesh.height = 1.4
+            horn.mesh = horn_mesh
+            horn.position = Vector3(side * 0.85, 3.25, 0.0)
+            horn.material_override = mat
+            mob.add_child(horn)
+    elif mob_kind == 2:
+        var crest := MeshInstance3D.new()
+        var crest_mesh := PrismMesh.new()
+        crest_mesh.size = Vector3(0.9, 0.8, 0.8)
+        crest.mesh = crest_mesh
+        crest.position = Vector3(0, 1.6, -0.25)
+        crest.material_override = mat
+        mob.add_child(crest)
+    elif mob_kind == 1:
+        var halo := MeshInstance3D.new()
+        var halo_mesh := TorusMesh.new()
+        halo_mesh.inner_radius = 0.54
+        halo_mesh.outer_radius = 0.78
+        halo.mesh = halo_mesh
+        halo.position.y = 1.75
+        halo.material_override = mat
+        mob.add_child(halo)
     var angle := randf() * TAU
     mob.position = player.position + Vector3(cos(angle) * 8.0, 0, sin(angle) * 5.0)
     mob.position.x = clampf(mob.position.x, -ARENA, ARENA)
@@ -758,6 +787,17 @@ func _build_room() -> void:
         monument.material_override = mon_mat
         monument.position = Vector3(-9.0 + landmark * 9.0, mon_mesh.size.y * 0.5, -17.0 + room_index * 17.0)
         decor.add_child(monument)
+        var crystal := MeshInstance3D.new()
+        var crystal_mesh := PrismMesh.new()
+        crystal_mesh.size = Vector3(0.9, 1.8, 0.9)
+        crystal.mesh = crystal_mesh
+        crystal.position = monument.position + Vector3.UP * (mon_mesh.size.y * 0.5 + 0.9)
+        var crystal_mat := StandardMaterial3D.new()
+        crystal_mat.albedo_color = tint.lightened(0.55)
+        crystal_mat.emission_enabled = true
+        crystal_mat.emission = tint * 0.6
+        crystal.material_override = crystal_mat
+        decor.add_child(crystal)
     # Two readable floor hazards per region; always clear of the central doorway.
     for i in range(2):
         var hazard_pos := Vector3(-11.0 if i == 0 else 11.0, 0.0, -17.0 + float(room_index) * 17.0)
@@ -895,6 +935,29 @@ func _spawn_chests() -> void:
         mat.albedo_color = Color(0.75, 0.52, 0.12)
         mesh_node.material_override = mat
         chest.add_child(mesh_node)
+        # Metal bands, clasp, and a floating gem make loot recognizable at distance.
+        for band_x in [-0.46, 0.46]:
+            var band := MeshInstance3D.new()
+            var band_mesh := BoxMesh.new()
+            band_mesh.size = Vector3(0.12, 1.05, 1.08)
+            band.mesh = band_mesh
+            band.position = Vector3(band_x, 0.52, 0)
+            var steel := StandardMaterial3D.new()
+            steel.albedo_color = Color(0.43, 0.47, 0.56)
+            band.material_override = steel
+            chest.add_child(band)
+        var jewel := MeshInstance3D.new()
+        var jewel_mesh := SphereMesh.new()
+        jewel_mesh.radius = 0.17
+        jewel_mesh.height = 0.34
+        jewel.mesh = jewel_mesh
+        jewel.position = Vector3(0, 0.72, -0.55)
+        var jewel_mat := StandardMaterial3D.new()
+        jewel_mat.albedo_color = Color(0.2, 0.95, 1.0) if absf(pos.x) > 1.0 else Color(1.0, 0.8, 0.25)
+        jewel_mat.emission_enabled = true
+        jewel_mat.emission = jewel_mat.albedo_color * 0.8
+        jewel.material_override = jewel_mat
+        chest.add_child(jewel)
         chest.position = pos
         chest.set_meta("greater", absf(pos.x) > 1.0)
         if bool(chest.get_meta("greater")):

@@ -203,3 +203,7 @@ The three existing dungeon regions now include different landmark clusters and r
 ## Dungeon floor hazards
 
 Each of the three dungeon regions now contains two visible glowing hazard circles placed away from the central doorway. Standing on a hazard while grounded causes modest damage, limited by a 1.5-second shared cooldown; dodging grants invulnerability, and jumping avoids a grounded hit. The hazards use inexpensive fixed meshes and do not add particle effects. This is an initial environmental danger system; balance and Windows gameplay tests remain necessary. No extra modes, WoW action bars, or character-art changes.
+
+## Procedural environment and enemy art pass
+
+Chest meshes now include metal bands and color-coded glowing clasps; dungeon monuments gain arcane crystal caps; boss placeholders gain horns, chargers gain crests, and skirmishers receive halo silhouettes. All these details are lightweight Godot primitive meshes and share the existing region/loot palette. These are integrated visual placeholders, **not final authored character models or animations**. Z and Nyra's original supplied artwork is not modified. No WoW-style bars. Build and visual gameplay validation still needed.
