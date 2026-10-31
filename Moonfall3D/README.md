@@ -2,9 +2,9 @@
 
 This is a standalone **Godot 4.3+** prototype, kept separate from the existing Moonfall browser game. Open this folder's `project.godot` with Godot and press F5.
 
-Controls: **WASD/arrows** move; **left mouse/J** attack; **space** dodge; **mouse wheel** zoom the fixed overhead camera; **R** restart after defeat.
+Controls: **WASD/arrows** move; **left mouse/J** attack; **space** dodge; **mouse wheel** zoom the third-person follow camera; **R** restart after defeat.
 
-Included: Z/Nyra choice using **geometric placeholders**, enemy spawning/chasing, attack, HP, XP, leveling, healing pickups, a boss spawning approximately every 120 seconds (after the previous boss is defeated), and a fixed overhead 3D camera with zoom.
+Included: Z/Nyra choice using **geometric placeholders**, enemy spawning/chasing, attack, HP, XP, leveling, healing pickups, a boss spawning approximately every 120 seconds (after the previous boss is defeated), and a third-person follow camera with zoom.
 
 Excluded by request: switchable camera modes, camera switch on C, survival timer and visible boss countdown. Internal boss scheduling remains.
 
@@ -17,5 +17,7 @@ Excluded by request: switchable camera modes, camera switch on C, survival timer
 - Visual room themes and perimeter pillars rotate every 15 defeated enemies. These are decorative arena variations, not separate connected levels.
 - Ordinary enemies have two basic steering patterns; full obstacle-aware pathfinding is not implemented.
 - Z and Nyra produce distinct temporary colored spell impact spheres. These do not change original character art.
-- Fixed overhead camera and no survival timer remain unchanged.
+- Third-person follow camera and no survival timer remain unchanged.
 - Requires testing in Godot; no runtime gameplay validation was performed.
+
+Camera update: the overhead viewpoint was removed. Camera follows behind the facing direction of the player with mouse-wheel distance adjustment. No camera-mode toggle.
