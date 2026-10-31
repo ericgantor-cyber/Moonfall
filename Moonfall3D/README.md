@@ -175,3 +175,7 @@ Leveling now increases max HP, damage and max mana and announces the level gaine
 ## Crafting and Moon Shards
 
 Regular enemies have a 40% chance to grant one Moon Shard on defeat, while bosses grant four. Open inventory and press **H** to craft Vitality (+10 maximum HP) or **J** to craft Focus (+10 maximum mana). Each costs 50 gold and three Moon Shards. Recipes are repeatable and deducted atomically, and an automated smoke test checks the cost and insufficient-resource behavior. This is initial crafting with keyboard shortcuts, not the planned fully controller-navigable crafting screen.
+
+## Controller-friendly crafting menu
+
+Open **Esc / Start > Crafting** to view your materials and craft Vitality or Focus through large focusable buttons. This uses the existing 50 gold + three shards recipes, not a new progression mode. A Back to Options button and Esc / Start navigation return to the unified options menu. Button focus allows standard Godot UI controller navigation, though physical controller verification remains necessary. Existing inventory H/J shortcuts remain available.

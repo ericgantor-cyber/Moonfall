@@ -81,6 +81,9 @@ var pad_settings: PanelContainer
 var pad_settings_open := false
 var options_panel: PanelContainer
 var options_open := false
+var crafting_panel: PanelContainer
+var crafting_open := false
+var crafting_info: Label
 var start_latch := false
 var pad_vibration := false
 var mana := 100.0
@@ -208,6 +211,7 @@ func _ready() -> void:
     _load_bindings()
     _build_pad_settings(layer)
     _build_options_menu(layer)
+    _build_crafting_menu(layer)
     var center := CenterContainer.new()
     center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
     layer.add_child(center)
@@ -254,7 +258,7 @@ func _unhandled_input(event: InputEvent) -> void:
         if event.keycode == KEY_ESCAPE and started:
             if options_open:
                 _close_all_options()
-            elif spell_menu_open or pad_settings_open or binds_open or inventory_open:
+            elif spell_menu_open or pad_settings_open or binds_open or inventory_open or crafting_open:
                 _close_all_options()
                 _open_options_menu()
             else:
@@ -336,7 +340,7 @@ func _process(dt: float) -> void:
     if spell_menu_open:
         preview_time += dt
         _animate_spell_preview()
-    if not started or dead or binds_open or spell_menu_open or pad_settings_open or options_open or inventory_open:
+    if not started or dead or binds_open or spell_menu_open or pad_settings_open or options_open or inventory_open or crafting_open:
         return
     var look := Vector2.ZERO
     if not Input.get_connected_joypads().is_empty():
@@ -1201,7 +1205,7 @@ func _pad_button(button: int) -> bool:
     return not pads.is_empty() and Input.is_joy_button_pressed(pads[0], button)
 
 func _controller_menus() -> void:
-    if not started or dead or binds_open or options_open or pad_settings_open:
+    if not started or dead or binds_open or options_open or pad_settings_open or crafting_open:
         return
     var menu_pressed := _pad_button(JOY_BUTTON_Y)
     if menu_pressed and not pad_menu_latch:
@@ -1296,7 +1300,7 @@ func _build_options_menu(layer: CanvasLayer) -> void:
     title.text = "MOONFALL | OPTIONS"
     title.add_theme_font_size_override("font_size", 26)
     menu.add_child(title)
-    for entry in ["Resume", "Spellbook", "Inventory", "Keybindings", "Controller Settings"]:
+    for entry in ["Resume", "Spellbook", "Inventory", "Crafting", "Keybindings", "Controller Settings"]:
         var button := Button.new()
         button.text = entry
         button.custom_minimum_size.y = 60
@@ -1307,6 +1311,8 @@ func _build_options_menu(layer: CanvasLayer) -> void:
 func _close_all_options() -> void:
     options_open = false
     options_panel.visible = false
+    crafting_open = false
+    crafting_panel.visible = false
     spell_menu_open = false
     spell_menu.visible = false
     pad_settings_open = false
@@ -1336,6 +1342,11 @@ func _options_action(action: String) -> void:
             inventory_open = true
             inventory_panel.visible = true
             _refresh_inventory()
+        "Crafting":
+            crafting_open = true
+            crafting_panel.visible = true
+            _refresh_crafting()
+            (crafting_panel.get_child(0).get_child(2) as Button).grab_focus()
         "Keybindings":
             binds_open = true
             binds_panel.visible = true
@@ -1387,3 +1398,36 @@ func _craft_upgrade(mana_upgrade: bool) -> void:
         hp = minf(max_hp, hp + 10.0)
         _cast_notice("Crafted Vitality: +10 max HP")
     _refresh_inventory()
+    if crafting_open:
+        _refresh_crafting()
+
+func _build_crafting_menu(layer: CanvasLayer) -> void:
+    crafting_panel = PanelContainer.new()
+    crafting_panel.position = Vector2(420, 155)
+    crafting_panel.custom_minimum_size = Vector2(460, 360)
+    crafting_panel.visible = false
+    layer.add_child(crafting_panel)
+    var rows := VBoxContainer.new()
+    crafting_panel.add_child(rows)
+    var title := Label.new()
+    title.text = "MOONFALL | CRAFTING"
+    title.add_theme_font_size_override("font_size", 24)
+    rows.add_child(title)
+    crafting_info = Label.new()
+    rows.add_child(crafting_info)
+    for recipe in ["Vitality (+10 max HP)", "Focus (+10 max Mana)"]:
+        var button := Button.new()
+        button.text = recipe + " | 50 Gold + 3 Shards"
+        button.custom_minimum_size.y = 62
+        button.focus_mode = Control.FOCUS_ALL
+        button.pressed.connect(_craft_upgrade.bind(recipe.begins_with("Focus")))
+        rows.add_child(button)
+    var back := Button.new()
+    back.text = "Back to Options"
+    back.custom_minimum_size.y = 58
+    back.pressed.connect(_open_options_menu)
+    rows.add_child(back)
+
+func _refresh_crafting() -> void:
+    if crafting_info != null:
+        crafting_info.text = "Gold: %d | Moon Shards: %d" % [gold, moon_shards]
