@@ -1514,6 +1514,7 @@ func _refresh_equipment_menu() -> void:
     if equipment_list == null:
         return
     for old in equipment_list.get_children():
+        equipment_list.remove_child(old)
         old.queue_free()
     var title := Label.new()
     title.text = "EQUIPMENT | Choose an item"
