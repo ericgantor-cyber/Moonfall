@@ -46,9 +46,17 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   FVector Direction = Target - GetActorLocation();
   Direction.Z = 0.f;
   AddActorWorldOffset(Direction.GetSafeNormal() * ChaseSpeed * DeltaSeconds, true, &Hit);
- } else if (Distance <= AttackRange && GetWorld()->GetTimeSeconds() >= NextAttackAt) {
-  NextAttackAt = GetWorld()->GetTimeSeconds() + AttackCooldown;
-  Hero->ApplyMoonfallDamage(AttackDamage);
-  OnEnemyAttack();
+ } else if (Distance <= AttackRange) {
+  const float Now = GetWorld()->GetTimeSeconds();
+  if (WindupEndsAt > 0.f && Now >= WindupEndsAt) {
+   WindupEndsAt = -1.f;
+   NextAttackAt = Now + AttackCooldown;
+   if (Distance <= AttackRange) { Hero->ApplyMoonfallDamage(AttackDamage); OnEnemyAttack(); }
+  } else if (WindupEndsAt < 0.f && Now >= NextAttackAt) {
+   WindupEndsAt = Now + 0.5f;
+  }
+  if (WindupEndsAt > 0.f) DrawDebugSphere(GetWorld(), GetActorLocation(), AttackRange, 16, FColor::Red, false, 0.12f);
+ } else {
+  WindupEndsAt = -1.f;
  }
 }
