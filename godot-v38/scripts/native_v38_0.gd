@@ -365,7 +365,8 @@ func _update_beast_step(beast:Dictionary,delta:float)->void:
    # Reuse one lightweight floating label per enemy, only while guarding.
    var guard_visible:bool=bool(beast["v395_guarding"])
    var guard_label:Label3D=beast.get("v397_guard_label") as Label3D
-   if not guard_visible and not is_instance_valid(guard_label):return
+   if not guard_visible and not is_instance_valid(guard_label):
+    guard_visible=false
    if not is_instance_valid(guard_label):
     guard_label=Label3D.new()
     guard_label.name="GuardDirection"
