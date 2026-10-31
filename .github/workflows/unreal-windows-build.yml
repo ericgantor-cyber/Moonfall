@@ -15,6 +15,15 @@ jobs:
           $buildTool = Join-Path $env:UE54_ROOT 'Engine\Build\BatchFiles\Build.bat'
           if (-not (Test-Path $buildTool)) { throw "Build.bat not found: $buildTool" }
           if (-not (Test-Path 'MoonfallUnreal\MoonfallUnreal.uproject')) { throw 'Missing Unreal project' }
+          if (-not (Test-Path 'MoonfallUnreal\Source\MoonfallUnreal.Target.cs')) { throw 'Missing Win64 Game target' }
+          if (-not (Test-Path 'MoonfallUnreal\Source\MoonfallUnrealEditor.Target.cs')) { throw 'Missing Win64 Editor target' }
+          $dotnet = Get-Command dotnet -ErrorAction SilentlyContinue
+          if (-not $dotnet) { throw 'Missing .NET SDK: install .NET 8 before starting the Unreal build.' }
+          $sdks = @(& dotnet --list-sdks)
+          if (-not ($sdks | Where-Object { $_ -match '^8\.' })) { throw 'Install .NET 8 SDK for the launcher.' }
+          $nsis = Get-Command makensis.exe -ErrorAction SilentlyContinue
+          if (-not $nsis) { throw 'Missing NSIS 3 makensis.exe on PATH.' }
+          Write-Host 'Prerequisites passed: Unreal build tools, game targets, .NET 8 SDK and NSIS.'
       - name: Compile Unreal Editor Win64 Development
         shell: pwsh
         run: |
