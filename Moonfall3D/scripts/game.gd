@@ -865,6 +865,7 @@ func _open_nearby_chest() -> void:
         if not is_instance_valid(chest) or player.position.distance_to(chest.position) > 2.5:
             continue
         gold += randi_range(10, 35)
+        moon_shards += randi_range(1, 3)
         _loot_equipment()
         chests.erase(chest)
         chest.queue_free()
@@ -1422,6 +1423,12 @@ func _build_crafting_menu(layer: CanvasLayer) -> void:
         button.focus_mode = Control.FOCUS_ALL
         button.pressed.connect(_craft_upgrade.bind(recipe.begins_with("Focus")))
         rows.add_child(button)
+    var forge := Button.new()
+    forge.text = "Forge equipped weapon: +3 damage | 80 Gold + 5 Shards"
+    forge.custom_minimum_size.y = 62
+    forge.focus_mode = Control.FOCUS_ALL
+    forge.pressed.connect(_forge_weapon)
+    rows.add_child(forge)
     var back := Button.new()
     back.text = "Back to Options"
     back.custom_minimum_size.y = 58
@@ -1431,3 +1438,22 @@ func _build_crafting_menu(layer: CanvasLayer) -> void:
 func _refresh_crafting() -> void:
     if crafting_info != null:
         crafting_info.text = "Gold: %d | Moon Shards: %d" % [gold, moon_shards]
+
+func _forge_weapon() -> void:
+    if equipped.is_empty():
+        _cast_notice("Equip a weapon before forging")
+        return
+    if gold < 80 or moon_shards < 5:
+        _cast_notice("Forging needs 80 gold and 5 Moon Shards")
+        return
+    gold -= 80
+    moon_shards -= 5
+    equipped["power"] = int(equipped["power"]) + 3
+    damage += 3.0
+    for i in range(inventory.size()):
+        if inventory[i].get("slot", "") == "Weapon" and inventory[i].get("name", "") == equipped["name"]:
+            inventory[i]["power"] = equipped["power"]
+            break
+    _cast_notice("Weapon forged: +3 damage")
+    _refresh_inventory()
+    _refresh_crafting()

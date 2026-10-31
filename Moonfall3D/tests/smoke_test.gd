@@ -58,6 +58,19 @@ func _run_tests() -> void:
     if game.max_hp != old_max_hp + 10.0:
         _fail("Crafting allowed without resources")
         return
+    game.gold = 80
+    game.moon_shards = 5
+    game.inventory.append({"name": "Test Blade", "rarity": "Common", "slot": "Weapon", "power": 3})
+    game._equip_item(game.inventory.size() - 1)
+    var old_damage: float = game.damage
+    game._forge_weapon()
+    if game.damage != old_damage + 3.0 or game.gold != 0 or game.moon_shards != 0:
+        _fail("Weapon forge failed to apply upgrade or consume resources")
+        return
+    game._forge_weapon()
+    if game.damage != old_damage + 3.0:
+        _fail("Forge allowed without enough resources")
+        return
     print("MOONFALL3D_SMOKE_TEST_PASS")
     quit(0)
 
