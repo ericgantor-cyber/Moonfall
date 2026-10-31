@@ -76,6 +76,8 @@ func _run()->void:
  check("combat_valid_attack_inputs" in orb_source and "combat_blocked_attack_inputs" in orb_source,"combat input counts included in diagnostics")
  check("func _apply_incoming_damage(raw:float)->void:" in orb_source and "V392_PARRY_WINDOW" in orb_source,"guard and timed parry intercept incoming damage")
  check("MOUSE_BUTTON_RIGHT" in orb_source and "raw*0.35" in orb_source,"right mouse guard mitigates incoming damage")
+ check("V393_RIPOSTE_WINDOW" in orb_source and "v393_riposte_until=map_time+V393_RIPOSTE_WINDOW" in orb_source,"timed parries open riposte opportunity")
+ check("V393_RIPOSTE_MULTIPLIER" in orb_source and "v393_riposte_active=false" in orb_source,"riposte damage returns to normal after attack")
  check("Input.is_key_pressed(KEY_SHIFT)" in orb_source and "V391_HEAVY_DAMAGE_MULTIPLIER" in orb_source,"Shift heavy strike uses same combat damage pipeline")
  check("V391_HEAVY_STAMINA_COST" in orb_source and "v387_stamina_regen_wait=V387_STAMINA_REGEN_DELAY" in orb_source,"heavy melee strike spends stamina and delays regeneration")
  check("v391_heavy_attack_active=false" in orb_source,"heavy attack state resets after inherited hit processing")
