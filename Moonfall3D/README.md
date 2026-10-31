@@ -143,3 +143,7 @@ GitHub Actions now runs `Moonfall3D/tests/smoke_test.gd` before exporting Window
 ## Controller overhaul (experimental)
 
 Godot gamepad support now uses left stick for analog camera-relative movement (dead zone 0.18), right stick for orbital camera (dead zone 0.20), A for jump, B for dodge, left/right shoulder for left/right spellcasting and both shoulders for same-spell dual cast. Y opens or closes the M spellbook. While the spellbook is open, move the left stick up/down to select, X equips left hand, and A equips right hand. Back/View opens inventory; pressing the right stick cycles targets. Space/Q keyboard behavior remains, and no WoW-style action bars have been restored. Defaults currently target standard Xbox-style button names; controller-specific differences, input conflicts, and analog feel still require physical Windows gameplay testing. No controller remapping UI has been added yet. Original character art unchanged.
+
+## Controller accessibility settings (F9)
+
+Press **F9** to open a graphical controller settings panel. It provides sliders for movement stick dead zone, right-stick camera dead zone, and camera sensitivity. It also provides an **opt-in vibration** toggle (off by default). Successful spell casts briefly vibrate the first connected gamepad when enabled; switching vibration off stops the motors. Values currently apply for the active session only; saving controller preferences and remapping controller buttons still need development. No WoW action bars or changes to original Z/Nyra character artwork.
