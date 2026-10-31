@@ -93,13 +93,13 @@ func _v399_confirm_creator()->void:
  if not is_instance_valid(v399_creator):return
  var nickname:String=v399_name.text.strip_edges().substr(0,24)
  if nickname.is_empty():nickname="Nyra" if v399_hero=="nyra" else "Z"
- v399_identity={"name":nickname,"origin":v399_origin.get_item_text(v399_origin.selected),"style":v399_style.get_item_text(v399_style.selected)}
+ v399_identity={"name":nickname,"origin":v399_origin.get_item_text(v399_origin.selected),"style":v399_style.get_item_text(v399_style.selected),"bloodline":"Eclipse","kin":"Nyra" if v399_hero=="z" else "Z"}
  v399_creator.visible=false
  _start_game(v399_hero)
  # Starting profiles adjust initial resources only; no permanent locked-in classes.
  if str(v399_identity["origin"])=="Wanderer":v387_stamina=V387_MAX_STAMINA
  elif str(v399_identity["origin"])=="Scholar":v385_mana=V385_MAX_MANA
- _show_message("Welcome, "+nickname+". Your path is yours to shape.",3.0)
+ _show_message("Welcome, "+nickname+". The Eclipse family awaits among the guardians.",3.0)
 
 func _v399_build_creator()->void:
  if not is_instance_valid(start_screen):return
@@ -124,7 +124,7 @@ func _v399_build_creator()->void:
  heading.text="CHARACTER CREATION  |  MOONFALL"
  contents.add_child(heading)
  var desc:Label=Label.new()
- desc.text="Keep the original hero appearance. Choose a name and backstory.\nNo fixed classes: grow through equipment and Celestial Talents."
+ desc.text="Z and Nyra are siblings of the Eclipse bloodline. Their estranged family guards the six regions.\nChoose your identity and fighting path; original appearances never change."
  contents.add_child(desc)
  v399_name=LineEdit.new()
  v399_name.placeholder_text="Character name"
@@ -155,6 +155,35 @@ func _v399_build_creator()->void:
  confirm.pressed.connect(_v399_confirm_creator)
  actions.add_child(confirm)
  v399_creator.visible=false
+
+# Z and Nyra are siblings of the Eclipse bloodline. Family guardians remain bosses,
+# never replacements for either playable character or their original portraits.
+const V400_FAMILY_BOSSES:PackedStringArray=[
+ "Veyra • Eclipse Matriarch",
+ "Draeven • Moonbound Patriarch",
+ "Kael • The Lost Elder Brother",
+ "Selene • The Exiled Aunt",
+ "Morrow • Bloodline Warden",
+ "Astra • The First Ancestor"
+]
+
+func _spawn_beast(at:Vector3,kind:String,zone:int,variant:String="normal",boss:bool=false)->void:
+ super._spawn_beast(at,kind,zone,variant,boss)
+ if not boss or beasts.is_empty():return
+ var creature:Dictionary=beasts.back()
+ if not bool(creature.get("boss",false)):return
+ var family_name:String=V400_FAMILY_BOSSES[clampi(zone,0,V400_FAMILY_BOSSES.size()-1)]
+ creature["v400_family_name"]=family_name
+ creature["v400_bloodline"]=true
+ var title:Label3D=creature.get("nameplate") as Label3D
+ if is_instance_valid(title):title.text=family_name+"  •  GUARDIAN"
+ # Existing three-phase boss behavior, loot, combat and scaling remain intact.
+
+func _refresh_boss_phase(beast:Dictionary)->void:
+ super._refresh_boss_phase(beast)
+ if not bool(beast.get("v400_bloodline",false)):return
+ var title:Label3D=beast.get("nameplate") as Label3D
+ if is_instance_valid(title):title.text=str(beast.get("v400_family_name","Eclipse Guardian"))+"  •  PHASE "+str(beast.get("boss_phase",1))
 
 func _v380_build_status_panel()->void:
  var layer:CanvasLayer=get_node_or_null("NativeAtlasUI") as CanvasLayer
