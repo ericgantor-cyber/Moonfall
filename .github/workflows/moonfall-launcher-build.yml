@@ -1,0 +1,29 @@
+name: Moonfall launcher Windows compile
+on:
+  push:
+    paths:
+      - 'MoonfallUnreal/Launcher/**'
+      - '.github/workflows/moonfall-launcher-build.yml'
+  pull_request:
+    paths:
+      - 'MoonfallUnreal/Launcher/**'
+      - '.github/workflows/moonfall-launcher-build.yml'
+jobs:
+  launcher:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Compile self-contained launcher
+        shell: pwsh
+        run: |
+          dotnet publish MoonfallUnreal/Launcher/MoonfallLauncher.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:PublishTrimmed=false -o LauncherOutput
+          if ($LASTEXITCODE -ne 0) { throw 'Launcher compilation failed' }
+          if (-not (Test-Path LauncherOutput/MoonfallLauncher.exe)) { throw 'Missing launcher exe' }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MoonfallLauncher-Windows-Standalone
+          path: LauncherOutput/
+          retention-days: 7
