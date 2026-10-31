@@ -56,6 +56,18 @@ jobs:
           & dotnet publish 'MoonfallUnreal/Launcher/MoonfallLauncher.csproj' -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:PublishTrimmed=false "-o=$gameRoot"
           if ($LASTEXITCODE -ne 0) { throw 'Launcher publish failed' }
           if (-not (Test-Path (Join-Path $gameRoot 'MoonfallLauncher.exe'))) { throw 'Launcher executable missing' }
+      - name: Verify launcher recognizes packaged Unreal game
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $exes = @(Get-ChildItem 'MoonfallUnrealPackaged' -Recurse -File -Filter 'MoonfallUnreal.exe')
+          if ($exes.Count -ne 1) { throw "Expected one packaged game executable; found $($exes.Count)" }
+          $root = $exes[0].Directory.FullName
+          $launcher = Join-Path $root 'MoonfallLauncher.exe'
+          if (-not (Test-Path $launcher)) { throw 'Compiled launcher missing from game package' }
+          $process = Start-Process -FilePath $launcher -ArgumentList '--check-install' -WorkingDirectory $root -PassThru -Wait
+          if ($process.ExitCode -ne 0) { throw "Launcher rejected packaged game files: $($process.ExitCode)" }
+          Write-Host 'Launcher recognizes packaged Unreal game file structure. Gameplay has NOT been tested.'
       - name: Upload packaged Windows build
         uses: actions/upload-artifact@v4
         with:
