@@ -343,6 +343,14 @@ func _process(dt: float) -> void:
             effect.scale = Vector3.ONE * (1.0 + (0.3 - life) * 2.0)
             if effect.get_meta("spin", false):
                 effect.rotate_y(dt * 7.0)
+            if effect.has_meta("cast_hand"):
+                var age: float = float(effect.get_meta("cast_age")) + dt
+                effect.set_meta("cast_age", age)
+                var hand: int = int(effect.get_meta("cast_hand"))
+                var side := -0.7 if hand == 0 else 0.7
+                var arc := sin(minf(age / 0.25, 1.0) * PI) * 0.4
+                effect.position = player.position + player.global_transform.basis.x * side + Vector3.UP * (1.2 + arc)
+
     attack_wait = maxf(0.0, attack_wait - dt)
     var jump_key := _pressed("jump")
     if jump_key and not jump_latch and player.is_on_floor():
@@ -998,6 +1006,7 @@ func _school_effect(at: Vector3, spell_index: int) -> void:
     pulse.position = at + Vector3.UP
     pulse.set_meta("life", 0.3)
     pulse.set_meta("spin", true)
+    pulse.set_meta("school", spell_index)
     add_child(pulse)
     active_effects.append(pulse)
 
@@ -1044,5 +1053,8 @@ func _hand_cast_effect(hand: int, school: int) -> void:
     spark.position = player.position + player.global_transform.basis.x * (-0.7 if hand == 0 else 0.7) + Vector3.UP * 1.2
     spark.set_meta("life", 0.25)
     spark.set_meta("spin", true)
+    spark.set_meta("cast_hand", hand)
+    spark.set_meta("cast_age", 0.0)
+    spark.set_meta("cast_school", school)
     add_child(spark)
     active_effects.append(spark)
