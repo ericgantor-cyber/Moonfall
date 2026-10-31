@@ -212,6 +212,7 @@ func _spawn_beast(at:Vector3,kind:String,zone:int,variant:String="normal",boss:b
  creature["v404_tell_until"]=0.0
  creature["v404_attack_pending"]=false
  creature["v405_cleave_facing"]=Vector3.FORWARD
+ creature["v406_attack_origin"]=Vector3.ZERO
  # Z and Nyra appear as boss encounters in their original artwork.
  if zone==0 or zone==1:
   var boss_body:CharacterBody3D=creature.get("body") as CharacterBody3D
@@ -225,6 +226,23 @@ func _spawn_beast(at:Vector3,kind:String,zone:int,variant:String="normal",boss:b
    portrait.billboard=BaseMaterial3D.BILLBOARD_ENABLED
    portrait.position=Vector3(0.0,0.4,0.0)
    boss_body.add_child(portrait)
+   var warning_ring:MeshInstance3D=MeshInstance3D.new()
+   warning_ring.name="BossAttackGroundWarning"
+   var disc:CylinderMesh=CylinderMesh.new()
+   disc.top_radius=4.0 if zone==0 else 7.0
+   disc.bottom_radius=disc.top_radius
+   disc.height=0.025
+   warning_ring.mesh=disc
+   var paint:StandardMaterial3D=StandardMaterial3D.new()
+   paint.albedo_color=Color(1.0,0.15,0.14,0.28) if zone==0 else Color(0.6,0.18,1.0,0.28)
+   paint.transparency=BaseMaterial3D.TRANSPARENCY_ALPHA
+   paint.shading_mode=BaseMaterial3D.SHADING_MODE_UNSHADED
+   paint.no_depth_test=false
+   warning_ring.material_override=paint
+   warning_ring.position.y=0.08
+   warning_ring.visible=false
+   boss_body.add_child(warning_ring)
+   creature["v406_warning_ring"]=warning_ring
    var aura:OmniLight3D=OmniLight3D.new()
    aura.name="EclipsePhaseAura"
    aura.light_color=Color(0.85,0.1,0.24) if zone==0 else Color(0.42,0.15,0.9)
@@ -590,13 +608,15 @@ func _update_beast_step(beast:Dictionary,delta:float)->void:
    if map_time>=float(beast.get("v404_tell_next",0.0)):
     beast["v404_tell_until"]=map_time+1.35
     beast["v404_attack_pending"]=true
+    var warning_body:Node3D=beast.get("body") as Node3D
+    if is_instance_valid(warning_body):beast["v406_attack_origin"]=warning_body.global_position
     if boss_name.begins_with("Z ") and is_instance_valid(player):
      var origin:Node3D=beast.get("body") as Node3D
      if is_instance_valid(origin):
       var aim:Vector3=player.global_position-origin.global_position
       aim.y=0.0
       if aim.length_squared()>0.01:beast["v405_cleave_facing"]=aim.normalized()
-    beast["v404_tell_next"]=map_time+7.0
+    beast["v404_tell_next"]=map_time+maxf(4.0,8.0-float(clampi(int(beast.get("boss_phase",1)),1,3)))
    if bool(beast.get("v404_attack_pending",false)) and map_time>=float(beast.get("v404_tell_until",0.0)):
     beast["v404_attack_pending"]=false
     var boss_body:Node3D=beast.get("body") as Node3D
@@ -610,6 +630,8 @@ func _update_beast_step(beast:Dictionary,delta:float)->void:
       in_arc=forward.dot(offset.normalized())>=0.5
      if offset.length()<=hit_radius and in_arc:
       _apply_incoming_damage((13.0 if boss_name.begins_with("Z ") else 9.0)*float(clampi(int(beast.get("boss_phase",1)),1,3)))
+   var ground_ring:MeshInstance3D=beast.get("v406_warning_ring") as MeshInstance3D
+   if is_instance_valid(ground_ring):ground_ring.visible=bool(beast.get("v404_attack_pending",false))
    if is_instance_valid(boss_plate):
     if map_time<float(beast.get("v404_tell_until",0.0)):
      var warning:String="⚔ ECLIPSE CLEAVE" if boss_name.begins_with("Z ") else "✦ VOID SURGE"
@@ -718,6 +740,7 @@ func _dodge()->void:
  v387_stamina-=dodge_cost
  v387_stamina_regen_wait=V387_STAMINA_REGEN_DELAY
  super._dodge()
+ _show_message("DODGE!",0.45)
 
 func _start_game(selected_hero:String)->void:
  super._start_game("z") # Legacy save/combat slot; never expose Z as the playable character.
