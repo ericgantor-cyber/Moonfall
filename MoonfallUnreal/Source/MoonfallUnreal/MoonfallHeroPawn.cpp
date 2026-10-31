@@ -7,6 +7,7 @@
 #include "DrawDebugHelpers.h"
 #include "Engine/Engine.h"
 #include "GameFramework/GameUserSettings.h"
+#include "Misc/ConfigCacheIni.h"
 #include "MoonfallEnemy.h"
 #include "CollisionQueryParams.h"
 AMoonfallHeroPawn::AMoonfallHeroPawn()
@@ -22,6 +23,14 @@ AMoonfallHeroPawn::AMoonfallHeroPawn()
  bUseControllerRotationYaw = false;
  GetCharacterMovement()->bOrientRotationToMovement = true;
  GetCharacterMovement()->JumpZVelocity = 600.f;
+}
+void AMoonfallHeroPawn::BeginPlay() {
+ Super::BeginPlay();
+ int32 SavedPreference = 0;
+ if (GConfig) GConfig->GetInt(TEXT("Moonfall.Graphics"), TEXT("FrameGenerationPreference"), SavedPreference, GGameUserSettingsIni);
+ FrameGenerationPreference = FMath::Clamp(SavedPreference, 0, 2);
+ // No FG vendor plugin or runtime capability integration has been added.
+ bFrameGenerationAvailable = false;
 }
 void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
 {
@@ -165,7 +174,11 @@ void AMoonfallHeroPawn::AdjustOption(int32 Direction) {
   Settings->SetOverallScalabilityLevel(FMath::Clamp(Settings->GetOverallScalabilityLevel() + Direction, 0, 3));
  } else {
   FrameGenerationPreference = FMath::Clamp(FrameGenerationPreference + Direction, 0, 2);
-  // UI preference only. Do not enable FG without a verified vendor plugin and compatible GPU.
+  // Store user preference only. The feature remains inactive without vendor integration.
+  if (GConfig) {
+   GConfig->SetInt(TEXT("Moonfall.Graphics"), TEXT("FrameGenerationPreference"), FrameGenerationPreference, GGameUserSettingsIni);
+   GConfig->Flush(false, GGameUserSettingsIni);
+  }
   return;
  }
  Settings->ApplySettings(false);
