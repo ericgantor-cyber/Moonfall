@@ -31,5 +31,7 @@ private:
  void CastRight();
  void CastBoth();
  void Dodge();
+ void CycleGraphicsQuality();
+ void ToggleDisplayMode();
  bool TryCast(int32 School, int32 Hand, float Multiplier);
 };

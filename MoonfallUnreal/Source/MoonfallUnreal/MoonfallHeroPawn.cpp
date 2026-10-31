@@ -6,6 +6,7 @@
 #include "Engine/World.h"
 #include "DrawDebugHelpers.h"
 #include "Engine/Engine.h"
+#include "GameFramework/GameUserSettings.h"
 #include "MoonfallEnemy.h"
 #include "CollisionQueryParams.h"
 AMoonfallHeroPawn::AMoonfallHeroPawn()
@@ -35,6 +36,8 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("CastRight"), IE_Pressed, this, &AMoonfallHeroPawn::CastRight);
  Input->BindAction(TEXT("DualCast"), IE_Pressed, this, &AMoonfallHeroPawn::CastBoth);
  Input->BindAction(TEXT("Dodge"), IE_Pressed, this, &AMoonfallHeroPawn::Dodge);
+ Input->BindAction(TEXT("GraphicsQuality"), IE_Pressed, this, &AMoonfallHeroPawn::CycleGraphicsQuality);
+ Input->BindAction(TEXT("DisplayMode"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleDisplayMode);
 }
 void AMoonfallHeroPawn::MoveForward(float Value)
 {
@@ -107,3 +110,22 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
  OnHealthChanged(Health, 100.f);
 }
 
+
+void AMoonfallHeroPawn::CycleGraphicsQuality() {
+ if (!GEngine) return;
+ UGameUserSettings* Settings = GEngine->GetGameUserSettings();
+ if (!Settings) return;
+ const int32 Next = (Settings->GetOverallScalabilityLevel() + 1) % 4;
+ Settings->SetOverallScalabilityLevel(Next);
+ Settings->ApplySettings(false);
+ Settings->SaveSettings();
+}
+void AMoonfallHeroPawn::ToggleDisplayMode() {
+ if (!GEngine) return;
+ UGameUserSettings* Settings = GEngine->GetGameUserSettings();
+ if (!Settings) return;
+ const EWindowMode::Type Next = Settings->GetFullscreenMode() == EWindowMode::WindowedFullscreen ? EWindowMode::Windowed : EWindowMode::WindowedFullscreen;
+ Settings->SetFullscreenMode(Next);
+ Settings->ApplySettings(false);
+ Settings->SaveSettings();
+}
