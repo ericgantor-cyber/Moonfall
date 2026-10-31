@@ -66,6 +66,9 @@ var spell_menu_open := false
 var mana := 100.0
 var max_mana := 100.0
 var spell_cursor := 0
+var school_cooldowns := [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+var spell_notice := ""
+var notice_left := 0.0
 var left_spell := 0
 var right_spell := 1
 var hand_cooldowns := [0.0, 0.0]
@@ -284,6 +287,9 @@ func _process(dt: float) -> void:
         return
     clock += dt
     mana = minf(max_mana, mana + 7.0 * dt)
+    notice_left = maxf(0.0, notice_left - dt)
+    for school in range(school_cooldowns.size()):
+        school_cooldowns[school] = maxf(0.0, school_cooldowns[school] - dt)
     for hand in range(hand_cooldowns.size()):
         hand_cooldowns[hand] = maxf(0.0, hand_cooldowns[hand] - dt)
     if Input.is_key_pressed(KEY_Z):
@@ -405,6 +411,19 @@ func _process(dt: float) -> void:
     for mob in mobs.duplicate():
         if not is_instance_valid(mob):
             continue
+        var burn: float = maxf(0.0, float(mob.get_meta("burn", 0.0)) - dt)
+        var venom: float = maxf(0.0, float(mob.get_meta("venom", 0.0)) - dt)
+        var chill: float = maxf(0.0, float(mob.get_meta("chill", 0.0)) - dt)
+        mob.set_meta("burn", burn)
+        mob.set_meta("venom", venom)
+        mob.set_meta("chill", chill)
+        if burn > 0.0 or venom > 0.0:
+            var dot := (6.0 if burn > 0.0 else 0.0) + (3.5 if venom > 0.0 else 0.0)
+            var tick_hp := float(mob.get_meta("hp")) - dot * dt
+            mob.set_meta("hp", tick_hp)
+            if tick_hp <= 0.0:
+                _defeat_mob(mob)
+                continue
         var destination := player.position
         # Agents in separate regions aim for the doorway before pursuing the player.
         var mob_region := _region_for_z(mob.position.z)
@@ -436,7 +455,7 @@ func _process(dt: float) -> void:
                 var right_ray := PhysicsRayQueryParameters3D.create(mob.position + Vector3.UP, mob.position + Vector3.UP + right_dir * 3.0)
                 right_ray.collision_mask = 2
                 travel = left_dir if get_world_3d().direct_space_state.intersect_ray(left_ray).is_empty() else right_dir
-            mob.position += travel * (1.9 if boss else 2.3) * dt
+            mob.position += travel * (1.9 if boss else 2.3) * (0.65 if chill > 0.0 else 1.0) * dt
             mob.position.x = clampf(mob.position.x, -ARENA, ARENA)
             mob.position.z = clampf(mob.position.z, -ARENA, ARENA)
         var ability_cd: float = maxf(0.0, float(mob.get_meta("ability_cd")) - dt)
@@ -510,6 +529,11 @@ func _attack() -> void:
     var left: float = float(target.get_meta("hp")) - damage
     target.set_meta("hp", left)
     if left > 0.0:
+        return
+    _defeat_mob(target)
+
+func _defeat_mob(target: Node3D) -> void:
+    if not is_instance_valid(target) or not mobs.has(target):
         return
     var was_boss: bool = target.get_meta("boss")
     var death_position := target.position
@@ -809,8 +833,9 @@ func _next_target() -> Node3D:
 func _use_action_slot(slot: int) -> void:
     if slot < 0 or slot >= slot_cooldowns.size():
         return
-    _cast_spell(slot % spells.size(), 1.0)
-    slot_cooldowns[slot] = 0.7 + float(slot % 3) * 0.35
+    var school := slot % spells.size()
+    if _cast_spell(school, 1.0):
+        slot_cooldowns[slot] = float(spells[school]["cooldown"])
 
 func _render_action_bar() -> void:
     if action_bar == null:
@@ -819,7 +844,7 @@ func _render_action_bar() -> void:
     for slot in range(slot_keys.size()):
         var key := OS.get_keycode_string(slot_keys[slot])
         labels.append("%s:%s" % [key, "READY" if slot_cooldowns[slot] <= 0.0 else "%.1f" % slot_cooldowns[slot]])
-    action_bar.text = "Mana %d/%d | Left [Z] %s | Right [X] %s | Dual [C] | [M] Spells\n%s" % [int(mana), int(max_mana), spells[left_spell]["name"], spells[right_spell]["name"], "  ".join(labels)]
+    action_bar.text = "Mana %d/%d | Left [Z] %s | Right [X] %s | Dual [C] | [M] Spells\n%s%s" % [int(mana), int(max_mana), spells[left_spell]["name"], spells[right_spell]["name"], "  ".join(labels), ("\n" + spell_notice if notice_left > 0.0 else "")]
 
 func _key_in_use(key: int, except_action: String) -> bool:
     for action in bindings:
@@ -833,10 +858,11 @@ func _key_in_use(key: int, except_action: String) -> bool:
 func _render_spell_menu() -> void:
     if spell_menu == null:
         return
-    var lines := PackedStringArray(["MOONFALL SPELLBOOK  [M] Close", "Up/Down: browse | Z: left hand | X: right hand", "1-4 / 5-8: quick assign original four spells"])
+    var lines := PackedStringArray(["MOONFALL  |  ARCANE CODEX", "=========================", "[M] Close    [UP/DOWN] Browse", "[Z] Left hand    [X] Right hand", "1-4 / 5-8: quick assign originals", "  "])
     for i in range(spells.size()):
         var marker := "> " if i == spell_cursor else "  "
-        lines.append("%s%s | Mana %d | %.1fs | Power %.1fx" % [marker, spells[i]["name"], int(spells[i]["cost"]), float(spells[i]["cooldown"]), float(spells[i]["power"])])
+        var status := ["Burn", "Slow", "Arcane burst", "Heal", "Shock", "Poison"][i]
+        lines.append("%s%s  [%s]\n     Mana %d | %.1fs | Power %.1fx" % [marker, spells[i]["name"], status, int(spells[i]["cost"]), float(spells[i]["cooldown"]), float(spells[i]["power"])])
     lines.append("Left: %s  |  Right: %s" % [spells[left_spell]["name"], spells[right_spell]["name"]])
     spell_menu.text = "\n".join(lines)
 
@@ -858,6 +884,10 @@ func _dual_cast() -> void:
         hand_cooldowns[1] = hand_cooldowns[0]
 
 func _cast_spell(index: int, multiplier: float, cost_multiplier: float = 1.0) -> bool:
+    if index < 0 or index >= spells.size():
+        return false
+    if school_cooldowns[index] > 0.0:
+        return false
     var spell: Dictionary = spells[index]
     var cost: float = float(spell["cost"]) * cost_multiplier
     if mana < cost:
@@ -877,8 +907,25 @@ func _cast_spell(index: int, multiplier: float, cost_multiplier: float = 1.0) ->
         damage = dealt
         _attack_target(target)
         damage = original
-        _school_effect(target.position, index)
+        if is_instance_valid(target) and mobs.has(target):
+            match index:
+                0:
+                    target.set_meta("burn", 4.0 * multiplier)
+                1:
+                    target.set_meta("chill", 3.5 * multiplier)
+                4:
+                    # Storm: bonus burst damage on the selected target.
+                    var shock_hp := float(target.get_meta("hp")) - 9.0 * multiplier
+                    target.set_meta("hp", shock_hp)
+                    if shock_hp <= 0.0:
+                        _defeat_mob(target)
+                5:
+                    target.set_meta("venom", 6.0 * multiplier)
+        _school_effect(target.position if is_instance_valid(target) else player.position, index)
     mana -= cost
+    school_cooldowns[index] = float(spell["cooldown"])
+    spell_notice = "%s cast" % spell["name"]
+    notice_left = 1.3
     return true
 
 func _attack_target(target: Node3D) -> void:
