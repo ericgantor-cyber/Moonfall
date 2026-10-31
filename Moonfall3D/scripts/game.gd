@@ -294,12 +294,12 @@ func _process(dt: float) -> void:
     if dead and Input.is_key_pressed(KEY_R):
         get_tree().reload_current_scene()
         return
+    if spell_menu_open:
+        preview_time += dt
+        _animate_spell_preview()
     if not started or dead or binds_open or spell_menu_open:
         return
     clock += dt
-    preview_time += dt
-    if spell_menu_open:
-        _animate_spell_preview()
     mana = minf(max_mana, mana + 7.0 * dt)
     notice_left = maxf(0.0, notice_left - dt)
     for school in range(school_cooldowns.size()):
