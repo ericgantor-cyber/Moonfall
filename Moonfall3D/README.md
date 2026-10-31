@@ -47,3 +47,7 @@ Hold **right mouse button** and drag to orbit camera and turn your character. Ho
 ## Three connected dungeon rooms (experimental)
 
 Two solid divider walls with center doorways divide the arena into three traversable rooms. Room label and visual theme now follow the character's Z position instead of kill count. Enemies in different rooms aim for divider doorways first; their navigation is heuristic and not NavMesh pathfinding. All rooms remain in one loaded scene. Boss timer remains internal, without a displayed survival timer. WoW-style third-person camera and original character art are unchanged. **Godot gameplay and pathfinding tests not yet run.**
+
+## Randomized room obstacles and loot chests
+
+Each new run seeds three interior obstacle positions while retaining the existing three-room floor plan and central doorways. Three golden chests appear, one per room. Press **E** within 2.5 units to open a chest for 10–35 gold and either +25 HP (capped at max HP) or +2 damage. Gold appears on the HUD. This is a small procedural-variation and loot prototype, **not** a full procedural dungeon generator, inventory system, or NavMesh pathfinding implementation. Godot runtime gameplay tests are still needed. Original Z/Nyra art and the WoW-style camera remain unchanged.

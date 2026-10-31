@@ -41,9 +41,13 @@ var animation_phase := 0.0
 var target_marker: MeshInstance3D
 var room_waypoints: Array[Vector3] = []
 var cached_target: Node3D
+var chests: Array[Node3D] = []
+var gold := 0
+var dungeon_seed := 0
 
 func _ready() -> void:
     randomize()
+    dungeon_seed = randi()
     var ground := MeshInstance3D.new()
     var plane := PlaneMesh.new()
     plane.size = Vector2(60, 60)
@@ -114,6 +118,7 @@ func _ready() -> void:
         choices.add_child(btn)
     _build_room()
     _build_solid_dungeon()
+    _spawn_chests()
     _hud()
 
 func _choose(name: String) -> void:
@@ -212,6 +217,8 @@ func _process(dt: float) -> void:
     target_marker.visible = cached_target != null
     if cached_target != null:
         target_marker.position = cached_target.position + Vector3.UP * 0.08
+    if Input.is_key_pressed(KEY_E):
+        _open_nearby_chest()
     if (Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) or Input.is_key_pressed(KEY_J)) and attack_wait <= 0.0:
         _attack()
     spawn_wait -= dt
@@ -346,7 +353,7 @@ func _attack() -> void:
         pickups.append(pickup)
 
 func _hud() -> void:
-    ui.text = "%s   Room: %d   HP: %d/%d   Level: %d   XP: %d   Kills: %d   DMG: %d" % [hero, room_index + 1, int(hp), int(max_hp), level, xp, kills, int(damage)]
+    ui.text = "%s   Room: %d   HP: %d/%d   Level: %d   XP: %d   Kills: %d   DMG: %d   Gold: %d   [E] Chest" % [hero, room_index + 1, int(hp), int(max_hp), level, xp, kills, int(damage), gold]
     if dead:
         ui.text += "\nDefeated. Press R to restart."
 
@@ -430,8 +437,12 @@ func _build_solid_dungeon() -> void:
     for dividing_z in [-8.0, 8.0]:
         _solid_block(walls, Vector3(-14.0, 2.0, dividing_z), Vector3(20.0, 4.0, 1.5))
         _solid_block(walls, Vector3(14.0, 2.0, dividing_z), Vector3(20.0, 4.0, 1.5))
-    for location in [Vector3(-13, 1.8, -16), Vector3(13, 1.8, -16), Vector3(-13, 1.8, 16), Vector3(13, 1.8, 16)]:
-        _solid_block(walls, location, Vector3(3, 3.6, 3))
+    # Seeded variations in obstacle size/position while retaining center doorways.
+    var rng := RandomNumberGenerator.new()
+    rng.seed = dungeon_seed
+    for z in [-17.0, 0.0, 17.0]:
+        var x := (-1.0 if rng.randi_range(0, 1) == 0 else 1.0) * rng.randf_range(12.0, 17.0)
+        _solid_block(walls, Vector3(x, 1.5, z), Vector3(2.5, 3.0, 2.5))
 
 func _solid_block(parent: Node3D, location: Vector3, dimensions: Vector3) -> void:
     var block := StaticBody3D.new()
@@ -460,3 +471,33 @@ func _region_for_z(z: float) -> int:
     if z > 8.0:
         return 2
     return 1
+
+# Three chests per run, one in each connected room.
+func _spawn_chests() -> void:
+    for pos in [Vector3(0, 0, -17), Vector3(0, 0, 0), Vector3(0, 0, 17)]:
+        var chest := Node3D.new()
+        var mesh_node := MeshInstance3D.new()
+        var mesh := BoxMesh.new()
+        mesh.size = Vector3(1.4, 1.0, 1.0)
+        mesh_node.mesh = mesh
+        mesh_node.position.y = 0.5
+        var mat := StandardMaterial3D.new()
+        mat.albedo_color = Color(0.75, 0.52, 0.12)
+        mesh_node.material_override = mat
+        chest.add_child(mesh_node)
+        chest.position = pos
+        add_child(chest)
+        chests.append(chest)
+
+func _open_nearby_chest() -> void:
+    for chest in chests.duplicate():
+        if not is_instance_valid(chest) or player.position.distance_to(chest.position) > 2.5:
+            continue
+        gold += randi_range(10, 35)
+        if randi_range(0, 1) == 0:
+            hp = minf(max_hp, hp + 25.0)
+        else:
+            damage += 2.0
+        chests.erase(chest)
+        chest.queue_free()
+        break
