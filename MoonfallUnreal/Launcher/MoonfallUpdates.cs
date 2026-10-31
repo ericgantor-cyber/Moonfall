@@ -64,6 +64,7 @@ internal static class MoonfallUpdates
         var destination = Path.Combine(dir, "MoonfallUnreal-Setup-" + Guid.NewGuid().ToString("N") + ".exe");
         try
         {
+            long written = 0;
             using (var response = await Client.GetAsync(update.DownloadUrl, HttpCompletionOption.ResponseHeadersRead, cancellation))
             {
                 response.EnsureSuccessStatusCode();
@@ -72,19 +73,21 @@ internal static class MoonfallUpdates
                 await using var input = await response.Content.ReadAsStreamAsync(cancellation);
                 await using var output = File.Create(destination);
                 var buffer = new byte[1024 * 128];
-                long written = 0;
                 int count;
                 while ((count = await input.ReadAsync(buffer, cancellation)) > 0)
                 {
                     written += count;
-                    progress?.Report(written);
-                    if (written > MaximumInstallerBytes)
+                    if (written > MaximumInstallerBytes || written > update.Size)
                         throw new InvalidDataException("Update installer exceeded the allowed download limit.");
                     await output.WriteAsync(buffer.AsMemory(0, count), cancellation);
+                    progress?.Report(written);
                 }
             }
+            cancellation.ThrowIfCancellationRequested();
+            if (written != update.Size) throw new InvalidDataException("Downloaded installer size does not match release metadata.");
             await using var stream = File.OpenRead(destination);
             var calculated = Convert.ToHexString(await SHA256.HashDataAsync(stream, cancellation));
+            cancellation.ThrowIfCancellationRequested();
             if (!calculated.Equals(update.Sha256, StringComparison.OrdinalIgnoreCase))
                 throw new InvalidDataException("Downloaded installer failed SHA-256 verification.");
             return destination;
