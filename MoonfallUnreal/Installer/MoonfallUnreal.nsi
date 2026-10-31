@@ -32,6 +32,7 @@ Section "Moonfall Unreal" Main
   WriteUninstaller "$INSTDIR\\Uninstall.exe"
 SectionEnd
 Section "Uninstall"
+  DeleteRegKey HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\MoonfallUnreal"
   Delete "$DESKTOP\\Moonfall Unreal.lnk"
   Delete "$SMPROGRAMS\\Moonfall Unreal\\Moonfall Unreal.lnk"
   RMDir "$SMPROGRAMS\\Moonfall Unreal"
