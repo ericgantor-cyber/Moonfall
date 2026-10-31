@@ -54,6 +54,9 @@ jobs:
           if ($exes.Count -ne 1) { throw "Expected exactly one packaged game executable; found $($exes.Count)" }
           $sourceDir = $exes[0].Directory.FullName
           if (-not (Test-Path (Join-Path $sourceDir 'MoonfallUnreal.exe'))) { throw 'Staged game entrypoint is missing' }
+          if (-not (Test-Path (Join-Path $sourceDir 'Engine'))) { throw 'Packaged Unreal Engine runtime directory missing; refusing incomplete installer' }
+          if (-not (Test-Path (Join-Path $sourceDir 'MoonfallUnreal'))) { throw 'Packaged Moonfall content directory missing; refusing incomplete installer' }
+          Write-Host 'Packaging complete game root including Unreal runtime and cooked content.'
           $out = Join-Path $env:GITHUB_WORKSPACE 'MoonfallUnreal-Setup.exe'
           & $nsis.Source "/DSOURCE_DIR=$sourceDir" "/DOUTPUT_EXE=$out" 'MoonfallUnreal\Installer\MoonfallUnreal.nsi'
           if ($LASTEXITCODE -ne 0 -or -not (Test-Path $out)) { throw 'NSIS installer compilation failed' }
