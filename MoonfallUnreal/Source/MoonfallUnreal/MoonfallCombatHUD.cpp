@@ -49,6 +49,10 @@ void AMoonfallCombatHUD::DrawHUD()
  const float HealthFraction = DisplayHealth;
  const float ManaFraction = DisplayMana;
  const float XpFraction = DisplayXP;
+ // Keep critical health unmistakable without flashing the entire screen.
+ const bool bCriticalHealth = Hero->Health > 0.f && ActualHealth <= 0.25f;
+ const float LowHealthPulse = bCriticalHealth && GetWorld()
+     ? 0.5f + 0.5f * FMath::Sin(GetWorld()->GetTimeSeconds() * 4.f) : 0.f;
  const float InnerRadius = Radius * 0.69f;
  // Fill by horizontal rows to give the orb a true circular silhouette, not a rectangle.
  for (int32 I = -static_cast<int32>(InnerRadius); I <= static_cast<int32>(InnerRadius); I += 2) {
@@ -69,6 +73,10 @@ void AMoonfallCombatHUD::DrawHUD()
   }
  };
  DrawArc(Radius * 0.78f, 1.f, FLinearColor(0.42f, 0.27f, 0.32f), FLinearColor(0.42f, 0.27f, 0.32f), 2.5f);
+ if (bCriticalHealth) {
+  DrawArc(Radius * 1.055f, 1.f, FLinearColor(0.4f, 0.05f, 0.09f, 0.35f),
+          FLinearColor(1.f, 0.10f, 0.16f, 0.35f + LowHealthPulse * 0.45f), 2.5f);
+ }
  DrawArc(Radius * 0.85f, ManaFraction, FLinearColor(0.06f, 0.11f, 0.23f), FLinearColor(0.19f, 0.59f, 1.f), 5.f);
  DrawArc(Radius * 0.97f, XpFraction, FLinearColor(0.19f, 0.10f, 0.28f), FLinearColor(0.73f, 0.32f, 1.f), 4.f);
  const float GlowLeft = GetWorld() ? FMath::Max(0.f, LevelGlowUntil - GetWorld()->GetTimeSeconds()) : 0.f;
@@ -77,7 +85,8 @@ void AMoonfallCombatHUD::DrawHUD()
   DrawArc(Radius * 1.055f, 1.f, FLinearColor(0.f,0.f,0.f,0.f),
           FLinearColor(0.85f, 0.48f, 1.f, Intensity), 2.f);
  }
- DrawText(FString::Printf(TEXT("%.0f HP"), FMath::Max(0.f, Hero->Health)), FLinearColor::White,
+ DrawText(FString::Printf(TEXT("%.0f HP"), FMath::Max(0.f, Hero->Health)),
+          bCriticalHealth ? FLinearColor(1.f, 0.95f, 0.95f) : FLinearColor::White,
           CX - Radius * 0.39f, CY - Radius * 0.19f, nullptr, 0.88f * LabelScale);
  DrawText(FString::Printf(TEXT("LV %d"), Hero->Level), FLinearColor(0.91f,0.80f,1.f),
           CX - Radius * 0.26f, CY + Radius * 0.28f, nullptr, 0.73f * LabelScale);
