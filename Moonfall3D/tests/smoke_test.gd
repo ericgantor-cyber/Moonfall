@@ -15,8 +15,8 @@ func _run_tests() -> void:
     if game.bindings.get("jump") != KEY_SPACE or game.bindings.get("dodge") != KEY_Q:
         _fail("Space jump / Q dodge defaults changed")
         return
-    if game.get("action_bar") != null:
-        _fail("Removed WoW action bar unexpectedly returned")
+    if game.bindings.has("slot_1"):
+        _fail("Removed WoW action-bar bindings unexpectedly returned")
         return
     if game.spells.size() != 6 or game.spell_menu == null:
         _fail("Spellbook missing schools or menu")
