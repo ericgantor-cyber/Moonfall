@@ -258,7 +258,7 @@ func _unhandled_input(event: InputEvent) -> void:
         if event.keycode == KEY_ESCAPE and started:
             if options_open:
                 _close_all_options()
-            elif spell_menu_open or pad_settings_open or binds_open or inventory_open:
+            elif spell_menu_open or pad_settings_open or binds_open or inventory_open or crafting_open:
                 _close_all_options()
                 _open_options_menu()
             else:
@@ -1205,7 +1205,7 @@ func _pad_button(button: int) -> bool:
     return not pads.is_empty() and Input.is_joy_button_pressed(pads[0], button)
 
 func _controller_menus() -> void:
-    if not started or dead or binds_open or options_open or pad_settings_open:
+    if not started or dead or binds_open or options_open or pad_settings_open or crafting_open:
         return
     var menu_pressed := _pad_button(JOY_BUTTON_Y)
     if menu_pressed and not pad_menu_latch:
