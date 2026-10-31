@@ -908,6 +908,7 @@ func _cast_hand(hand: int) -> void:
     var index := left_spell if hand == 0 else right_spell
     if _cast_spell(index, 1.0):
         hand_cooldowns[hand] = float(spells[index]["cooldown"])
+        _hand_cast_effect(hand, index)
 
 func _dual_cast() -> void:
     if hand_cooldowns[0] > 0.0 or hand_cooldowns[1] > 0.0:
@@ -918,6 +919,8 @@ func _dual_cast() -> void:
     if _cast_spell(index, 1.75, 2.0):
         hand_cooldowns[0] = float(spells[index]["cooldown"]) * 1.5
         hand_cooldowns[1] = hand_cooldowns[0]
+        _hand_cast_effect(0, index)
+        _hand_cast_effect(1, index)
 
 func _cast_spell(index: int, multiplier: float, cost_multiplier: float = 1.0) -> bool:
     if index < 0 or index >= spells.size():
@@ -975,6 +978,8 @@ func _attack_target(target: Node3D) -> void:
 
 # Lightweight color-coded school flashes; does not alter either hero's artwork.
 func _school_effect(at: Vector3, spell_index: int) -> void:
+    if active_effects.size() >= 65:
+        return
     var colors := [
         Color(1.0, 0.24, 0.05), Color(0.2, 0.85, 1.0),
         Color(0.65, 0.25, 1.0), Color(0.2, 1.0, 0.35),
@@ -1016,3 +1021,28 @@ func _animate_spell_preview() -> void:
         phases[phase], selected["name"], phases[phase],
         int(selected["cost"]), float(selected["power"]), float(selected["cooldown"])
     ]
+
+# Transient casting glows are separate from hero geometry and original art.
+func _hand_cast_effect(hand: int, school: int) -> void:
+    if active_effects.size() >= 65:
+        return
+    var colors := [
+        Color(1.0, 0.22, 0.08), Color(0.3, 0.85, 1.0),
+        Color(0.65, 0.3, 1.0), Color(0.2, 1.0, 0.4),
+        Color(1.0, 0.88, 0.18), Color(0.3, 0.85, 0.25)
+    ]
+    var spark := MeshInstance3D.new()
+    var sphere := SphereMesh.new()
+    sphere.radius = 0.25
+    sphere.height = 0.5
+    spark.mesh = sphere
+    var material := StandardMaterial3D.new()
+    material.albedo_color = colors[school]
+    material.emission_enabled = true
+    material.emission = colors[school]
+    spark.material_override = material
+    spark.position = player.position + player.global_transform.basis.x * (-0.7 if hand == 0 else 0.7) + Vector3.UP * 1.2
+    spark.set_meta("life", 0.25)
+    spark.set_meta("spin", true)
+    add_child(spark)
+    active_effects.append(spark)

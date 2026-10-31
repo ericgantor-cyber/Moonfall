@@ -123,3 +123,7 @@ The M spellbook now places its categorized list in a ScrollContainer for mouse-w
 ## Animated spell feedback
 
 The spellbook's selected spell preview has a subtle rotating symbol sequence even while the spellbook pauses gameplay; combat impact spheres also spin during their brief lifespan. No new character art or WoW action bars. These effects are lightweight prototypes, not hand-casting animations or cinematic effects. Build validation and Windows playtest remain necessary.
+
+## Dual-hand casting visuals
+
+Successful Z/X spells now emit independent left- or right-side elemental glows; matching-spell C dual casting emits both. Cast effects are short lived and have a 65-active-visual cap to guard against effect buildup. These are lightweight geometric spell effects attached to neither original hero art nor custom 3D hand rigs. No WoW action bars are restored. A running Godot build and gameplay frame-rate test are still needed.
