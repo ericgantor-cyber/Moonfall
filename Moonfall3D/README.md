@@ -11,3 +11,11 @@ Excluded by request: switchable camera modes, camera switch on C, survival timer
 **Do not change Z or Nyra's original art.** No character models have been ported. The existing Moonfall game and its art remain unchanged.
 
 **Status:** experimental integration source. Not yet launched or gameplay-tested in Godot. Not a replacement for the existing game or Windows installer.
+
+## Experimental dungeon/combat pass
+
+- Visual room themes and perimeter pillars rotate every 15 defeated enemies. These are decorative arena variations, not separate connected levels.
+- Ordinary enemies have two basic steering patterns; full obstacle-aware pathfinding is not implemented.
+- Z and Nyra produce distinct temporary colored spell impact spheres. These do not change original character art.
+- Fixed overhead camera and no survival timer remain unchanged.
+- Requires testing in Godot; no runtime gameplay validation was performed.

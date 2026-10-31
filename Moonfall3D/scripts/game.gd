@@ -30,6 +30,10 @@ var dodge_left := 0.0
 var invulnerable := 0.0
 var dodge_dir := Vector3.ZERO
 var zoom := 1.0
+var room_index := 0
+var room_label: Label
+var combat_flash := 0.0
+var active_effects: Array[Node3D] = []
 
 func _ready() -> void:
     randomize()
@@ -81,6 +85,7 @@ func _ready() -> void:
         btn.text = "Play as " + name
         btn.pressed.connect(_choose.bind(name))
         choices.add_child(btn)
+    _build_room()
     _hud()
 
 func _choose(name: String) -> void:
@@ -105,6 +110,18 @@ func _process(dt: float) -> void:
     if not started or dead:
         return
     clock += dt
+    combat_flash = maxf(0.0, combat_flash - dt)
+    for effect in active_effects.duplicate():
+        if not is_instance_valid(effect):
+            active_effects.erase(effect)
+            continue
+        var life: float = float(effect.get_meta("life")) - dt
+        if life <= 0.0:
+            active_effects.erase(effect)
+            effect.queue_free()
+        else:
+            effect.set_meta("life", life)
+            effect.scale = Vector3.ONE * (1.0 + (0.3 - life) * 2.0)
     attack_wait = maxf(0.0, attack_wait - dt)
     dodge_wait = maxf(0.0, dodge_wait - dt)
     dodge_left = maxf(0.0, dodge_left - dt)
@@ -149,7 +166,13 @@ func _process(dt: float) -> void:
         var boss: bool = mob.get_meta("boss")
         var reach := 2.8 if boss else 1.7
         if diff.length() > reach:
-            mob.position += diff.normalized() * (1.9 if boss else 2.3) * dt
+            var steering := diff.normalized()
+            # Different enemy movement patterns; no collision-pathfinding claim.
+            if not boss and int(mob.get_meta("kind")) == 1 and diff.length() < 6.0:
+                steering = Vector3(-steering.z, 0, steering.x) * 0.65 + steering * 0.35
+            mob.position += steering.normalized() * (1.9 if boss else 2.3) * dt
+            mob.position.x = clampf(mob.position.x, -ARENA, ARENA)
+            mob.position.z = clampf(mob.position.z, -ARENA, ARENA)
         var hit_cd: float = maxf(0.0, float(mob.get_meta("hit_cd")) - dt)
         if diff.length() <= reach + 0.3 and hit_cd <= 0.0 and invulnerable <= 0.0:
             hp -= 25.0 if boss else 12.0
@@ -187,6 +210,7 @@ func _spawn(boss: bool) -> void:
     mob.position.z = clampf(mob.position.z, -ARENA, ARENA)
     mob.set_meta("hp", 600.0 + level * 70.0 if boss else 45.0 + level * 10.0)
     mob.set_meta("boss", boss)
+    mob.set_meta("kind", randi_range(0, 1))
     mob.set_meta("hit_cd", 0.0)
     add_child(mob)
     mobs.append(mob)
@@ -204,6 +228,7 @@ func _attack() -> void:
             nearest = d
     if target == null:
         return
+    _spell_effect(target.position, hero == "Nyra")
     var left: float = float(target.get_meta("hp")) - damage
     target.set_meta("hp", left)
     if left > 0.0:
@@ -215,6 +240,9 @@ func _attack() -> void:
     if was_boss:
         boss_alive = false
     kills += 1
+    if kills % 15 == 0:
+        room_index += 1
+        _build_room()
     xp += 10 if not was_boss else 100
     while xp >= level * 60:
         xp -= level * 60
@@ -239,6 +267,47 @@ func _attack() -> void:
         pickups.append(pickup)
 
 func _hud() -> void:
-    ui.text = "%s   HP: %d/%d   Level: %d   XP: %d   Kills: %d   DMG: %d" % [hero, int(hp), int(max_hp), level, xp, kills, int(damage)]
+    ui.text = "%s   Room: %d   HP: %d/%d   Level: %d   XP: %d   Kills: %d   DMG: %d" % [hero, room_index + 1, int(hp), int(max_hp), level, xp, kills, int(damage)]
     if dead:
         ui.text += "\nDefeated. Press R to restart."
+
+# Decorative room changes every 15 kills. The arena stays connected and traversable.
+func _build_room() -> void:
+    var old := get_node_or_null("RoomDecor")
+    if old != null:
+        old.queue_free()
+    var decor := Node3D.new()
+    decor.name = "RoomDecor"
+    add_child(decor)
+    var tint := [Color(0.3, 0.12, 0.4), Color(0.22, 0.45, 0.55), Color(0.65, 0.2, 0.15)][room_index % 3]
+    for i in range(12):
+        var pillar := MeshInstance3D.new()
+        var mesh := CylinderMesh.new()
+        mesh.top_radius = 0.65
+        mesh.bottom_radius = 0.9
+        mesh.height = 4.0
+        pillar.mesh = mesh
+        var mat := StandardMaterial3D.new()
+        mat.albedo_color = tint
+        pillar.material_override = mat
+        var a := float(i) * TAU / 12.0
+        pillar.position = Vector3(cos(a) * 29.0, 2.0, sin(a) * 29.0)
+        decor.add_child(pillar)
+
+func _spell_effect(at: Vector3, nyra: bool) -> void:
+    var effect := Node3D.new()
+    var orb := MeshInstance3D.new()
+    var mesh := SphereMesh.new()
+    mesh.radius = 0.55 if nyra else 0.9
+    mesh.height = 1.1 if nyra else 1.8
+    orb.mesh = mesh
+    var mat := StandardMaterial3D.new()
+    mat.albedo_color = Color(0.5, 0.2, 1.0) if nyra else Color(1.0, 0.32, 0.1)
+    mat.emission_enabled = true
+    mat.emission = mat.albedo_color
+    orb.material_override = mat
+    effect.add_child(orb)
+    effect.position = at + Vector3.UP
+    effect.set_meta("life", 0.3)
+    add_child(effect)
+    active_effects.append(effect)
