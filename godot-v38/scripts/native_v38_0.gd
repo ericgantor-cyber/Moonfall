@@ -6,6 +6,14 @@ const CELESTIAL_TALENTS:=preload("res://scripts/systems/celestial_talents_v398.g
 var v398_panel:PanelContainer
 var v398_tree_list:VBoxContainer
 var v398_ranks:Dictionary={}
+# Character creation keeps original Z/Nyra artwork; customization is identity and origin.
+var v399_creator:PanelContainer
+var v399_name:LineEdit
+var v399_origin:OptionButton
+var v399_style:OptionButton
+var v399_hero:String="z"
+var v399_identity:Dictionary={}
+
 const V383_BENCHMARK:=preload("res://scripts/systems/combat_benchmark_v383.gd")
 const V384_RINGS:=preload("res://scripts/systems/vitals_rings_v384.gd")
 var v380_status_enabled:bool=false
@@ -66,10 +74,87 @@ func _ready()->void:
 func _build_ui()->void:
  super._build_ui()
  if not is_instance_valid(start_screen):return
+ _v399_build_creator()
  for node in start_screen.find_children("*","Label",true,false):
   var title:Label=node as Label
   if is_instance_valid(title) and "MOONFALL v37.7" in title.text:
    title.text="☾  MOONFALL v38.0 • THE LIVING REALM"
+
+func _v399_open_creator(selected:String)->void:
+ v399_hero="nyra" if selected=="nyra" else "z"
+ if not is_instance_valid(v399_creator):return
+ v399_creator.visible=true
+ v399_name.text="Nyra" if v399_hero=="nyra" else "Z"
+ v399_origin.select(0)
+ v399_style.select(0)
+ v399_name.grab_focus()
+
+func _v399_confirm_creator()->void:
+ if not is_instance_valid(v399_creator):return
+ var nickname:String=v399_name.text.strip_edges().substr(0,24)
+ if nickname.is_empty():nickname="Nyra" if v399_hero=="nyra" else "Z"
+ v399_identity={"name":nickname,"origin":v399_origin.get_item_text(v399_origin.selected),"style":v399_style.get_item_text(v399_style.selected)}
+ v399_creator.visible=false
+ _start_game(v399_hero)
+ # Starting profiles adjust initial resources only; no permanent locked-in classes.
+ if str(v399_identity["origin"])=="Wanderer":v387_stamina=V387_MAX_STAMINA
+ elif str(v399_identity["origin"])=="Scholar":v385_mana=V385_MAX_MANA
+ _show_message("Welcome, "+nickname+". Your path is yours to shape.",3.0)
+
+func _v399_build_creator()->void:
+ if not is_instance_valid(start_screen):return
+ # Only NEW GAME buttons open creation. Continue loads old checkpoints directly.
+ for node in start_screen.find_children("*","Button",true,false):
+  var button:Button=node as Button
+  if not button.text.begins_with("NEW GAME AS "):continue
+  for connection in button.pressed.get_connections():
+   button.pressed.disconnect(connection["callable"])
+  var chosen:String="nyra" if "Nyra" in button.text else "z"
+  button.pressed.connect(_v399_open_creator.bind(chosen))
+  button.text=button.text.replace("NEW GAME AS ","CREATE ")
+ v399_creator=PanelContainer.new()
+ v399_creator.name="MoonfallCharacterCreator"
+ v399_creator.position=Vector2(90,90)
+ v399_creator.custom_minimum_size=Vector2(620,480)
+ start_screen.add_child(v399_creator)
+ var contents:VBoxContainer=VBoxContainer.new()
+ contents.add_theme_constant_override("separation",12)
+ v399_creator.add_child(contents)
+ var heading:Label=Label.new()
+ heading.text="CHARACTER CREATION  |  MOONFALL"
+ contents.add_child(heading)
+ var desc:Label=Label.new()
+ desc.text="Keep the original hero appearance. Choose a name and backstory.\nNo fixed classes: grow through equipment and Celestial Talents."
+ contents.add_child(desc)
+ v399_name=LineEdit.new()
+ v399_name.placeholder_text="Character name"
+ v399_name.max_length=24
+ contents.add_child(v399_name)
+ var origin_label:Label=Label.new()
+ origin_label.text="BACKGROUND"
+ contents.add_child(origin_label)
+ v399_origin=OptionButton.new()
+ for origin in ["Wanderer","Scholar","Outlander","Oathkeeper"]:
+  v399_origin.add_item(origin)
+ contents.add_child(v399_origin)
+ var style_label:Label=Label.new()
+ style_label.text="STARTING COMBAT PATH (roleplay; freely change builds later)"
+ contents.add_child(style_label)
+ v399_style=OptionButton.new()
+ for style in ["Warrior","Ranger","Mage","Survivor"]:
+  v399_style.add_item(style)
+ contents.add_child(v399_style)
+ var actions:HBoxContainer=HBoxContainer.new()
+ contents.add_child(actions)
+ var back:Button=Button.new()
+ back.text="BACK"
+ back.pressed.connect(func():v399_creator.visible=false)
+ actions.add_child(back)
+ var confirm:Button=Button.new()
+ confirm.text="BEGIN ADVENTURE"
+ confirm.pressed.connect(_v399_confirm_creator)
+ actions.add_child(confirm)
+ v399_creator.visible=false
 
 func _v380_build_status_panel()->void:
  var layer:CanvasLayer=get_node_or_null("NativeAtlasUI") as CanvasLayer
@@ -463,14 +548,17 @@ func _start_game(selected_hero:String)->void:
  if is_instance_valid(v398_panel):v398_panel.visible=false
 
 func _checkpoint_extra_data()->Dictionary:
- return {"mana":clampf(v385_mana,0.0,V385_MAX_MANA),"stamina":clampf(v387_stamina,0.0,V387_MAX_STAMINA),"celestial_ranks":v398_ranks.duplicate(true)}
+ return {"mana":clampf(v385_mana,0.0,V385_MAX_MANA),"stamina":clampf(v387_stamina,0.0,V387_MAX_STAMINA),"celestial_ranks":v398_ranks.duplicate(true),"character_identity":v399_identity.duplicate(true)}
 
 func _restore_data(data:Dictionary)->void:
  super._restore_data(data)
  v387_stamina_regen_wait=0.0
  v398_ranks={}
+ v399_identity={}
  var resources:Variant=data.get("optional_resources",{})
  if resources is Dictionary:
+  var saved_identity:Variant=resources.get("character_identity",{})
+  if saved_identity is Dictionary:v399_identity=saved_identity.duplicate(true)
   v385_mana=clampf(float(resources.get("mana",V385_MAX_MANA)),0.0,V385_MAX_MANA)
   v387_stamina=clampf(float(resources.get("stamina",V387_MAX_STAMINA)),0.0,V387_MAX_STAMINA)
   var saved_ranks:Variant=resources.get("celestial_ranks",{})
