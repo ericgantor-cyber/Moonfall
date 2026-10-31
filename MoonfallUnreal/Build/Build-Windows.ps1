@@ -24,7 +24,16 @@ $sdks = @(& dotnet --list-sdks)
 if (-not ($sdks | Where-Object { $_ -match '^8\.' })) { throw 'The .NET 8 SDK is required.' }
 $OutputDirectory = [IO.Path]::GetFullPath($OutputDirectory)
 $gameOutput = Join-Path $OutputDirectory 'Game'
+$repoRootFull = [IO.Path]::GetFullPath($repoRoot).TrimEnd([IO.Path]::DirectorySeparatorChar)
+if ($OutputDirectory.TrimEnd([IO.Path]::DirectorySeparatorChar) -eq $repoRootFull) {
+    throw 'OutputDirectory cannot be the repository root. Choose a dedicated build-output folder.'
+}
 New-Item -ItemType Directory -Force -Path $OutputDirectory | Out-Null
+# Do not package stale cooked assets from a previous run if the current build fails.
+if (Test-Path -LiteralPath $gameOutput) {
+    Write-Host "Removing previous packaged game output: $gameOutput"
+    Remove-Item -LiteralPath $gameOutput -Recurse -Force
+}
 
 Write-Host 'Compiling Unreal 5.4 Editor target...'
 & $build MoonfallUnrealEditor Win64 Development "-Project=$project" -WaitMutex -NoHotReload
