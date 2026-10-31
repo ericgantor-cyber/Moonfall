@@ -43,6 +43,17 @@ jobs:
           path: MoonfallUnrealPackaged/
           if-no-files-found: error
           retention-days: 7
+      - name: Publish self-contained Windows launcher
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if (-not (Get-Command dotnet -ErrorAction SilentlyContinue)) { throw 'Install .NET 8 SDK on the Windows build runner.' }
+          $exes = @(Get-ChildItem 'MoonfallUnrealPackaged' -Recurse -File -Filter 'MoonfallUnreal.exe')
+          if ($exes.Count -ne 1) { throw "Expected one packaged game executable; found $($exes.Count)" }
+          $gameRoot = $exes[0].Directory.FullName
+          & dotnet publish 'MoonfallUnreal/Launcher/MoonfallLauncher.csproj' -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:PublishTrimmed=false "-o=$gameRoot"
+          if ($LASTEXITCODE -ne 0) { throw 'Launcher publish failed' }
+          if (-not (Test-Path (Join-Path $gameRoot 'MoonfallLauncher.exe'))) { throw 'Launcher executable missing' }
       - name: Build Windows installer with NSIS
         shell: pwsh
         run: |
@@ -54,6 +65,7 @@ jobs:
           if ($exes.Count -ne 1) { throw "Expected exactly one packaged game executable; found $($exes.Count)" }
           $sourceDir = $exes[0].Directory.FullName
           if (-not (Test-Path (Join-Path $sourceDir 'MoonfallUnreal.exe'))) { throw 'Staged game entrypoint is missing' }
+          if (-not (Test-Path (Join-Path $sourceDir 'MoonfallLauncher.exe'))) { throw 'Published launcher missing' }
           if (-not (Test-Path (Join-Path $sourceDir 'Engine'))) { throw 'Packaged Unreal Engine runtime directory missing; refusing incomplete installer' }
           if (-not (Test-Path (Join-Path $sourceDir 'MoonfallUnreal'))) { throw 'Packaged Moonfall content directory missing; refusing incomplete installer' }
           Write-Host 'Packaging complete game root including Unreal runtime and cooked content.'
