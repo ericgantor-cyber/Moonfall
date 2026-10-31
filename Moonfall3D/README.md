@@ -43,3 +43,7 @@ Hold **right mouse button** and drag to orbit camera and turn your character. Ho
 - Camera obstacle checks use world geometry collision layer 2, avoiding player collision interference.
 - This remains **one arena** rather than a true multi-room dungeon. No changes to original Z/Nyra art, camera mode, or removed survival timer.
 - GDScript changes merged only after source review; **Godot playtesting is still required**.
+
+## Three connected dungeon rooms (experimental)
+
+Two solid divider walls with center doorways divide the arena into three traversable rooms. Room label and visual theme now follow the character's Z position instead of kill count. Enemies in different rooms aim for divider doorways first; their navigation is heuristic and not NavMesh pathfinding. All rooms remain in one loaded scene. Boss timer remains internal, without a displayed survival timer. WoW-style third-person camera and original character art are unchanged. **Godot gameplay and pathfinding tests not yet run.**
