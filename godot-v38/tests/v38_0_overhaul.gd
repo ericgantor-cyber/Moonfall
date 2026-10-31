@@ -27,6 +27,8 @@ func _run()->void:
  check(talent_scene!=null and "v398_ranks.get(\"defense_guard\",0)" in talent_scene.source_code,"defense ranks improve blocking and parry timing")
  check(talent_scene!=null and "func _v399_build_creator()" in talent_scene.source_code,"new game has character creator")
  check(talent_scene!=null and "const V400_FAMILY_BOSSES" in talent_scene.source_code,"six Eclipse bloodline family bosses defined")
+ check(talent_scene!=null and "\"Z • Eclipse Champion\"" in talent_scene.source_code and "\"Nyra • Eclipse Queen\"" in talent_scene.source_code,"Z and Nyra are named regional bosses")
+ check(talent_scene!=null and "portrait.texture=Z_ART if zone==0 else NYRA_ART" in talent_scene.source_code,"Z and Nyra boss visuals reuse original unaltered character textures")
  check(talent_scene!=null and "super._spawn_beast(at,kind,zone,variant,boss)" in talent_scene.source_code,"family bosses reuse current guardian encounter system")
  check(talent_scene!=null and "super._refresh_boss_phase(beast)" in talent_scene.source_code,"family bosses retain inherited boss phase mechanics")
  check(talent_scene!=null and "\"bloodline\":\"Eclipse\"" in talent_scene.source_code,"character creator records bloodline")
