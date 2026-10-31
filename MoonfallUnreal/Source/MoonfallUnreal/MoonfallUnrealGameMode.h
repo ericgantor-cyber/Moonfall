@@ -8,4 +8,5 @@ class MOONFALLUNREAL_API AMoonfallUnrealGameMode : public AGameModeBase
  GENERATED_BODY()
 public:
  AMoonfallUnrealGameMode();
+ virtual void BeginPlay() override;
 };
