@@ -30,7 +30,11 @@ internal static class MoonfallUpdates
         if (root.TryGetProperty("draft", out var draft) && draft.GetBoolean()) return null;
         if (root.TryGetProperty("prerelease", out var prerelease) && prerelease.GetBoolean()) return null;
         var tag = root.GetProperty("tag_name").GetString() ?? "";
-        if (!Version.TryParse(tag.TrimStart('v', 'V'), out var remoteVersion)) return null;
+        // Only strictly numeric stable tags are eligible, e.g. v1.2.3 or v1.2.3.4.
+        var numericTag = tag.TrimStart('v', 'V');
+        if (numericTag.Length == 0 || numericTag.Split('.').Length is < 2 or > 4 ||
+            numericTag.Split('.').Any(part => part.Length == 0 || !part.All(char.IsAsciiDigit)) ||
+            !Version.TryParse(numericTag, out var remoteVersion)) return null;
         var current = typeof(Program).Assembly.GetName().Version ?? new Version(0, 1, 0);
         if (remoteVersion <= current) return null;
 
