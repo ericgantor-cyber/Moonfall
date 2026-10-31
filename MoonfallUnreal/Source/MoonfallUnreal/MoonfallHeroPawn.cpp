@@ -158,8 +158,8 @@ void AMoonfallHeroPawn::AdjustOption(int32 Direction) {
   Settings->SetScreenResolution(Resolutions[FMath::Clamp(Current + Direction, 0, 3)]);
  } else if (OptionsSelection == 1) {
   float CurrentScale = 100.f;
-  float MinScale = 50.f, MaxScale = 100.f;
-  Settings->GetResolutionScaleInformationEx(CurrentScale, MinScale, MaxScale);
+  float NormalizedScale = 0.f, MinScale = 50.f, MaxScale = 100.f;
+  Settings->GetResolutionScaleInformationEx(CurrentScale, NormalizedScale, MinScale, MaxScale);
   Settings->SetResolutionScaleValueEx(FMath::Clamp(CurrentScale + Direction * 10.f, FMath::Max(50.f, MinScale), FMath::Min(100.f, MaxScale)));
  } else {
   Settings->SetOverallScalabilityLevel(FMath::Clamp(Settings->GetOverallScalabilityLevel() + Direction, 0, 3));
