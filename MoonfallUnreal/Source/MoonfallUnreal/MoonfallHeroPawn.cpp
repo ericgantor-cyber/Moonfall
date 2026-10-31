@@ -88,7 +88,10 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
  }
  Mana -= Costs[School] * Multiplier;
  LastCastTime[Hand] = Time;
- if (School == 3) Health = FMath::Min(100.f, Health + 24.f * Multiplier);
+ if (School == 3) {
+  Health = FMath::Min(100.f, Health + 24.f * Multiplier);
+  OnHealthChanged(Health, 100.f);
+ }
  OnSpellCast(School, Hand == 0);
  return true;
 }
@@ -154,7 +157,10 @@ void AMoonfallHeroPawn::AdjustOption(int32 Direction) {
   for (int32 i = 0; i < 4; ++i) if (Settings->GetScreenResolution() == Resolutions[i]) Current = i;
   Settings->SetScreenResolution(Resolutions[FMath::Clamp(Current + Direction, 0, 3)]);
  } else if (OptionsSelection == 1) {
-  Settings->SetResolutionScaleValueEx(FMath::Clamp(Settings->GetResolutionScaleNormalized() * 100.f + Direction * 10.f, 50.f, 100.f));
+  float CurrentScale = 100.f;
+  float MinScale = 50.f, MaxScale = 100.f;
+  Settings->GetResolutionScaleInformationEx(CurrentScale, MinScale, MaxScale);
+  Settings->SetResolutionScaleValueEx(FMath::Clamp(CurrentScale + Direction * 10.f, FMath::Max(50.f, MinScale), FMath::Min(100.f, MaxScale)));
  } else {
   Settings->SetOverallScalabilityLevel(FMath::Clamp(Settings->GetOverallScalabilityLevel() + Direction, 0, 3));
  }
