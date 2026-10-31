@@ -16,6 +16,10 @@ func _run()->void:
  check("CRITICAL AIR" in R.threat_status(5.0,true,true,10.0,100.0),"oxygen emergency prioritized")
  check("COMBAT" in R.threat_status(100.0,false,true,90.0,100.0),"combat warning")
  check("LOW HEALTH" in R.threat_status(100.0,false,false,25.0,100.0),"low health warning")
+ var jump_script:GDScript=load("res://scripts/native_v11.gd") as GDScript
+ check(jump_script!=null and "KEY_SPACE:_jump()" in jump_script.source_code and "KEY_CTRL:_dodge()" in jump_script.source_code,"Space jump and Ctrl dodge bindings")
+ check(jump_script!=null and "player.velocity.y=8.0" in jump_script.source_code and "player.is_on_floor()" in jump_script.source_code,"jump requires floor contact and uses vertical velocity")
+ check(jump_script!=null and "vertical_speed-=22.0*delta" in jump_script.source_code,"jump gravity runs in movement update")
  var pack_script:GDScript=load("res://scripts/native_v31_5.gd") as GDScript
  check(pack_script!=null and "sender_position.distance_squared_to(other.global_position)" in pack_script.source_code,"pack alert reuses cached sender position")
  var anatomy_script:GDScript=load("res://scripts/native_v31_6.gd") as GDScript
