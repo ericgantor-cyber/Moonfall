@@ -433,7 +433,8 @@ func _spell(which:String)->void:
  if mounted or ability_cooldown>0.0:
   super._spell(which)
   return
- var cost:float=15.0 if which=="dash" else 25.0 if which=="nova" else 30.0
+ var base_cost:float=15.0 if which=="dash" else 25.0 if which=="nova" else 30.0
+ var cost:float=maxf(5.0,base_cost-2.0*float(v398_ranks.get("magic_focus",0))-3.0*float(v398_ranks.get("magic_mastery",0)))
  if v385_mana<cost:
   _show_message("Not enough mana! Need "+str(roundi(cost))+".",1.3)
   return
@@ -446,11 +447,12 @@ func _dodge()->void:
  if mounted or dodge_cooldown>0.0:
   super._dodge()
   return
- if v387_stamina<V387_DODGE_COST:
+ var dodge_cost:float=maxf(12.0,V387_DODGE_COST-2.0*float(v398_ranks.get("agility_footwork",0))-4.0*float(v398_ranks.get("agility_airborne",0)))
+ if v387_stamina<dodge_cost:
   _show_message("Not enough stamina to dodge.",1.0)
   return
  # Charge stamina only when the dodge is eligible to start.
- v387_stamina-=V387_DODGE_COST
+ v387_stamina-=dodge_cost
  v387_stamina_regen_wait=V387_STAMINA_REGEN_DELAY
  super._dodge()
 
@@ -526,13 +528,13 @@ func _unhandled_key_input(event:InputEvent)->void:
 func _process(delta:float)->void:
  super._process(delta)
  if hero_playing and not death_active and not menu_open:
-  v385_mana=minf(V385_MAX_MANA,v385_mana+V385_MANA_REGEN*maxf(0.0,delta))
+  v385_mana=minf(V385_MAX_MANA,v385_mana+(V385_MANA_REGEN+0.75*float(v398_ranks.get("magic_focus",0)))*maxf(0.0,delta))
   var stamina_step:float=maxf(0.0,delta)
   if v387_stamina_regen_wait>0.0:
    var delay_used:float=minf(v387_stamina_regen_wait,stamina_step)
    v387_stamina_regen_wait-=delay_used
    stamina_step-=delay_used
-  if stamina_step>0.0:v387_stamina=minf(V387_MAX_STAMINA,v387_stamina+V387_STAMINA_REGEN*stamina_step)
+  if stamina_step>0.0:v387_stamina=minf(V387_MAX_STAMINA,v387_stamina+(V387_STAMINA_REGEN+1.5*float(v398_ranks.get("survival_fortitude",0)))*stamina_step)
  if is_instance_valid(v384_vitals_panel):
   var vitals_visible:bool=hero_playing and not death_active and not menu_open
   v384_vitals_panel.visible=vitals_visible
