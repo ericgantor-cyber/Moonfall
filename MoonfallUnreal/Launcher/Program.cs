@@ -62,13 +62,17 @@ internal sealed class LaunchWindow : Form
             Anchor = AnchorStyles.Bottom | AnchorStyles.Left, FlatStyle = FlatStyle.Flat,
             ForeColor = Color.WhiteSmoke, BackColor = Color.FromArgb(49, 35, 68), TabIndex = 4 };
         help.Click += (_, _) => MessageBox.Show(this,
-            "Moonfall must be installed as a complete Unreal package.\\n" +
-            "Use CHECK FILES to refresh installation status.\\n" +
-            "Use GAME FOLDER to inspect the files.\\n" +
-            "If files are missing, reinstall the complete game.\\n" +
+            "Moonfall must be installed as a complete Unreal package.\n" +
+            "Use CHECK FILES to refresh installation status.\n" +
+            "Use GAME FOLDER to inspect the files.\n" +
+            "If files are missing, reinstall the complete game.\n" +
             "Settings and gameplay controls are inside Moonfall.",
             "Moonfall Help", MessageBoxButtons.OK, MessageBoxIcon.Information);
-        Controls.AddRange([title, subtitle, play, status, exit, folder, retry, help]);
+        var logs = new Button { Text = "GAME LOGS", Bounds = new Rectangle(461, 562, 160, 28),
+            Anchor = AnchorStyles.Bottom | AnchorStyles.Left, FlatStyle = FlatStyle.Flat,
+            ForeColor = Color.WhiteSmoke, BackColor = Color.FromArgb(49, 35, 68), TabIndex = 5 };
+        logs.Click += (_, _) => OpenLogs();
+        Controls.AddRange([title, subtitle, play, status, exit, folder, retry, help, logs]);
         AcceptButton = play;
         DoubleBuffered = true;
         Resize += (_, _) => Invalidate();
@@ -135,7 +139,23 @@ internal sealed class LaunchWindow : Form
         bool ready = HasGameFiles(AppContext.BaseDirectory);
         play.Enabled = ready;
         status.Text = ready ? "Game files found. Ready to launch." :
-            "Game files missing. Reinstall the complete Moonfall package.";
+            !File.Exists(gamePath) ? "Game executable missing. Reinstall the complete package." :
+            !Directory.Exists(Path.Combine(AppContext.BaseDirectory, "Engine")) ? "Unreal runtime folder missing. Reinstall Moonfall." :
+            "Cooked game content missing. Reinstall the complete package.";
+    }
+    private void OpenLogs()
+    {
+        var logs = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "MoonfallUnreal", "Saved", "Logs");
+        if (!Directory.Exists(logs))
+        {
+            MessageBox.Show(this, "No game logs have been created yet. Start the packaged game first.",
+                "Game Logs", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+        try { Process.Start(new ProcessStartInfo("explorer.exe", logs) { UseShellExecute = true }); }
+        catch (Exception ex) { MessageBox.Show(this, ex.Message, "Could not open logs", MessageBoxButtons.OK, MessageBoxIcon.Warning); }
     }
     private void OpenFolder()
     {
@@ -148,10 +168,11 @@ internal sealed class LaunchWindow : Form
         if (!play.Enabled) return;
         try
         {
-            Process.Start(new ProcessStartInfo(gamePath) {
+            var process = Process.Start(new ProcessStartInfo(gamePath) {
                 WorkingDirectory = AppContext.BaseDirectory,
                 UseShellExecute = true
             });
+            if (process == null) throw new InvalidOperationException("Windows did not start the game process.");
             Close();
         }
         catch (Exception ex)
