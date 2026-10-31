@@ -37,7 +37,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   FVector Target = Hero->GetActorLocation();
   if (UNavigationSystemV1* Nav = FNavigationSystem::GetCurrent<UNavigationSystemV1>(GetWorld())) {
    FNavLocation Point;
-   if (Nav->GetRandomReachablePointInRadius(Target, 0.f, Point)) Target = Point.Location;
+   if (Nav->ProjectPointToNavigation(Target, Point)) Target = Point.Location;
   }
   FVector Direction = Target - GetActorLocation();
   Direction.Z = 0.f;
