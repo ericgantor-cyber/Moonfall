@@ -107,3 +107,7 @@ The twelve-slot WoW-style action bar and the 1–0/-/= ability-slot bindings hav
 ## Graphical spellbook
 
 The M spellbook now opens a Godot PanelContainer with readable spell buttons, mana/cooldown information and left/right hand summary. Select spells by clicking or with Up/Down, equip selected spell to left with Z or right with X, close with M. The older 12-slot WoW-style action bars stay removed. These are functional UI widgets, not new spell art; Godot CI and gameplay validation are required.
+
+## Mouse-friendly spellbook controls
+
+The graphical spellbook now displays six school symbols, a highlighted selected row, and separate LEFT/RIGHT buttons on each spell. Click either hand button to equip that spell, with a checkmark showing the current loadout. Keyboard assignment with Z/X remains available. The obsolete WoW 12-slot action bar stays removed. Characters' original artwork remains unchanged. This update has not been runtime-tested in Godot.
