@@ -6,8 +6,13 @@ namespace MoonfallLauncher;
 internal static class Program
 {
     [STAThread]
-    static void Main()
+    static void Main(string[] args)
     {
+        if (args.Length == 1 && args[0] == "--check-install")
+        {
+            Environment.ExitCode = LaunchWindow.HasGameFiles(AppContext.BaseDirectory) ? 0 : 2;
+            return;
+        }
         ApplicationConfiguration.Initialize();
         Application.Run(new LaunchWindow());
     }
@@ -119,11 +124,15 @@ internal sealed class LaunchWindow : Form
         using var horizon = new Pen(Color.FromArgb(135, 190, 67, 156), 2);
         g.DrawLine(horizon, 0, artHeight, width, artHeight);
     }
+    internal static bool HasGameFiles(string directory) =>
+        File.Exists(Path.Combine(directory, "MoonfallUnreal.exe")) &&
+        Directory.Exists(Path.Combine(directory, "Engine")) &&
+        Directory.Exists(Path.Combine(directory, "MoonfallUnreal")) &&
+        Directory.EnumerateFiles(Path.Combine(directory, "MoonfallUnreal"), "*", SearchOption.AllDirectories).Any();
+
     private void UpdateStatus()
     {
-        bool ready = File.Exists(gamePath) &&
-                     Directory.Exists(Path.Combine(AppContext.BaseDirectory, "Engine")) &&
-                     Directory.Exists(Path.Combine(AppContext.BaseDirectory, "MoonfallUnreal"));
+        bool ready = HasGameFiles(AppContext.BaseDirectory);
         play.Enabled = ready;
         status.Text = ready ? "Game files found. Ready to launch." :
             "Game files missing. Reinstall the complete Moonfall package.";
