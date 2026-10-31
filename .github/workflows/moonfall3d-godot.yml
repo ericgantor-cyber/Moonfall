@@ -1,0 +1,65 @@
+name: Moonfall 3D Godot Validation and Windows Export
+
+on:
+  push:
+    paths:
+      - 'Moonfall3D/**'
+      - '.github/workflows/moonfall3d-godot.yml'
+  pull_request:
+    paths:
+      - 'Moonfall3D/**'
+      - '.github/workflows/moonfall3d-godot.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-and-export:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Godot 4.3 headless and export templates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import urllib.request
+          base="https://github.com/godotengine/godot-builds/releases/download/4.3-stable/"
+          files={
+            "godot.zip":"Godot_v4.3-stable_linux.x86_64.zip",
+            "templates.tpz":"Godot_v4.3-stable_export_templates.tpz",
+          }
+          for dest, name in files.items():
+              urllib.request.urlretrieve(base+name, dest)
+          PY
+          unzip -q godot.zip -d /tmp
+          sudo install -m 755 /tmp/Godot_v4.3-stable_linux.x86_64 /usr/local/bin/godot
+          mkdir -p "$HOME/.local/share/godot/export_templates/4.3.stable"
+          unzip -q templates.tpz -d /tmp/moonfall-templates
+          cp /tmp/moonfall-templates/templates/* "$HOME/.local/share/godot/export_templates/4.3.stable/"
+          godot --headless --version
+      - name: Parse/import Godot project
+        shell: bash
+        run: |
+          set -euo pipefail
+          godot --headless --path Moonfall3D --editor --import --quit
+      - name: Validate main scene and script
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 30s godot --headless --path Moonfall3D --quit-after 20
+      - name: Export Windows x86_64 executable
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          godot --headless --path Moonfall3D --export-release "Windows Desktop" "../dist/Moonfall3D.exe"
+          test -s dist/Moonfall3D.exe
+      - name: Upload Windows build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Moonfall3D-Windows-experimental
+          path: dist/Moonfall3D.exe
+          if-no-files-found: error
