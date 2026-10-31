@@ -196,6 +196,7 @@ func _process(dt: float) -> void:
     var desired_camera := player.position + follow_offset
     # Pull camera forward when scene collision obstructs the third-person view.
     var ray := PhysicsRayQueryParameters3D.create(focus, desired_camera)
+    ray.collision_mask = 2
     var hit := get_world_3d().direct_space_state.intersect_ray(ray)
     if not hit.is_empty():
         var near_hit: Vector3 = hit["position"]
