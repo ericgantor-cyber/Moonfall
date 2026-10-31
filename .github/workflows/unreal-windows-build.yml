@@ -40,7 +40,7 @@ jobs:
           if (-not (Test-Path $uat)) { throw "RunUAT.bat not found: $uat" }
           $uproject = (Resolve-Path 'MoonfallUnreal\MoonfallUnreal.uproject').Path
           $destination = Join-Path $env:GITHUB_WORKSPACE 'MoonfallUnrealPackaged'
-          & $uat BuildCookRun "-project=$uproject" -noP4 -platform=Win64 -clientconfig=Development -build -cook -stage -pak -archive "-archivedirectory=$destination" -utf8output
+          & $uat BuildCookRun "-project=$uproject" -noP4 -platform=Win64 -clientconfig=Development -build -cook -stage -pak -prereqs -archive "-archivedirectory=$destination" -utf8output
           if ($LASTEXITCODE -ne 0) { throw "Unreal packaging failed: $LASTEXITCODE" }
           $exe = Get-ChildItem $destination -Recurse -File -Filter 'MoonfallUnreal.exe' | Select-Object -First 1
           if (-not $exe) { throw 'Packaging finished without MoonfallUnreal.exe' }

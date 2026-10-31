@@ -55,3 +55,7 @@ Enemy AI now caches navigation waypoints and refreshes paths at most approximate
 - Character source asset import only with approval and without altering Z or Nyra's original designs
 - GPU performance measurements at 1080p/1440p/4K, accessibility and controller UI verification
 - Compatible DLSS/FSR frame generation plugin install, capability detection, and Windows GPU testing; currently inactive
+
+## Windows runtime prerequisites
+
+The Unreal Windows `BuildCookRun` workflow now requests `-prereqs` so the packaged distribution includes Unreal's supported prerequisite redistributable installer when available. This is distinct from bundling the Unreal Editor or integrating GPU-specific DLSS/FSR plugins. Test VC++/DirectX prerequisite installation and launch on a clean Windows 10/11 machine before distribution; some prerequisites may still require installation or elevation. The real Unreal Win64 packaging workflow has not yet been executed successfully.
