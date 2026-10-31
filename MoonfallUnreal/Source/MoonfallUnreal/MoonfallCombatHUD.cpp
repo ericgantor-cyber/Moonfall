@@ -31,9 +31,23 @@ void AMoonfallCombatHUD::DrawHUD()
  const float Radius = FMath::Clamp(FMath::Min(Canvas->SizeX, Canvas->SizeY) * 0.085f, 45.f, 76.f);
  const float CX = Radius + 33.f;
  const float CY = Canvas->SizeY - Radius - 34.f;
- const float HealthFraction = FMath::Clamp(Hero->Health / 100.f, 0.f, 1.f);
- const float ManaFraction = FMath::Clamp(Hero->Mana / FMath::Max(1.f, Hero->MaxMana), 0.f, 1.f);
- const float XpFraction = FMath::Clamp(static_cast<float>(Hero->Experience) / FMath::Max(1, Hero->ExperienceToNextLevel), 0.f, 1.f);
+ const float ActualHealth = FMath::Clamp(Hero->Health / 100.f, 0.f, 1.f);
+ const float ActualMana = FMath::Clamp(Hero->Mana / FMath::Max(1.f, Hero->MaxMana), 0.f, 1.f);
+ const float ActualXP = FMath::Clamp(static_cast<float>(Hero->Experience) / FMath::Max(1, Hero->ExperienceToNextLevel), 0.f, 1.f);
+ const float Delta = GetWorld() ? FMath::Clamp(GetWorld()->GetDeltaSeconds(), 0.f, 0.1f) : 0.f;
+ if (DisplayHealth < 0.f) { DisplayHealth = ActualHealth; DisplayMana = ActualMana; DisplayXP = ActualXP; }
+ if (LastShownLevel < 0) LastShownLevel = Hero->Level;
+ if (Hero->Level != LastShownLevel) {
+  LastShownLevel = Hero->Level;
+  DisplayXP = 0.f;
+  LevelGlowUntil = GetWorld() ? GetWorld()->GetTimeSeconds() + 1.25f : 0.f;
+ }
+ DisplayHealth = FMath::FInterpTo(DisplayHealth, ActualHealth, Delta, 9.f);
+ DisplayMana = FMath::FInterpTo(DisplayMana, ActualMana, Delta, 9.f);
+ DisplayXP = FMath::FInterpTo(DisplayXP, ActualXP, Delta, 7.f);
+ const float HealthFraction = DisplayHealth;
+ const float ManaFraction = DisplayMana;
+ const float XpFraction = DisplayXP;
  const float InnerRadius = Radius * 0.69f;
  // Fill by horizontal rows to give the orb a true circular silhouette, not a rectangle.
  for (int32 I = -static_cast<int32>(InnerRadius); I <= static_cast<int32>(InnerRadius); I += 2) {
@@ -56,6 +70,12 @@ void AMoonfallCombatHUD::DrawHUD()
  DrawArc(Radius * 0.78f, 1.f, FLinearColor(0.42f, 0.27f, 0.32f), FLinearColor(0.42f, 0.27f, 0.32f), 2.5f);
  DrawArc(Radius * 0.85f, ManaFraction, FLinearColor(0.06f, 0.11f, 0.23f), FLinearColor(0.19f, 0.59f, 1.f), 5.f);
  DrawArc(Radius * 0.97f, XpFraction, FLinearColor(0.19f, 0.10f, 0.28f), FLinearColor(0.73f, 0.32f, 1.f), 4.f);
+ const float GlowLeft = GetWorld() ? FMath::Max(0.f, LevelGlowUntil - GetWorld()->GetTimeSeconds()) : 0.f;
+ if (GlowLeft > 0.f) {
+  const float Intensity = FMath::Clamp(GlowLeft / 1.25f, 0.f, 1.f);
+  DrawArc(Radius * 1.055f, 1.f, FLinearColor(0.f,0.f,0.f,0.f),
+          FLinearColor(0.85f, 0.48f, 1.f, Intensity), 2.f);
+ }
  DrawText(FString::Printf(TEXT("%.0f HP"), FMath::Max(0.f, Hero->Health)), FLinearColor::White,
           CX - Radius * 0.39f, CY - 12.f, nullptr, 0.88f);
  DrawText(FString::Printf(TEXT("LV %d"), Hero->Level), FLinearColor(0.91f,0.80f,1.f),
