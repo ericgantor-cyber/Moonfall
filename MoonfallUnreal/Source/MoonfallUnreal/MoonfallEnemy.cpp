@@ -24,12 +24,21 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
   // Hit feedback is now tracked by the HUD rather than persistent debug strings.
   LastHitAmount = Amount;
   LastHitTime = GetWorld() ? GetWorld()->GetTimeSeconds() : -10.f;
+  HitReactionEndsAt = LastHitTime + 0.22f;
   if (Health <= 0.0f) { SetActorHiddenInGame(true); SetActorEnableCollision(false); }
 }
 
 void AMoonfallEnemy::Tick(float DeltaSeconds) {
  Super::Tick(DeltaSeconds);
  if (Health <= 0.f || !GetWorld()) return;
+ const float Now = GetWorld()->GetTimeSeconds();
+ const bool Staggered = Now < HitReactionEndsAt;
+ if (IsValid(Body)) {
+  const float Windup = WindupEndsAt > Now ? FMath::Clamp((WindupEndsAt - Now) / 0.5f, 0.f, 1.f) : 0.f;
+  const float Scale = Staggered ? 0.92f : 1.f + (Windup > 0.f ? (1.f - Windup) * 0.18f : 0.f);
+  Body->SetRelativeScale3D(FVector(0.85f * Scale, 0.85f * Scale, 1.4f / Scale));
+ }
+ if (Staggered) return;
  AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0));
  if (!IsValid(Hero) || Hero->Health <= 0.f) return;
  FVector Difference = Hero->GetActorLocation() - GetActorLocation();

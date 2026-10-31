@@ -19,6 +19,7 @@ public:
 private:
  float NextAttackAt = 0.f;
  float WindupEndsAt = -1.f;
+ float HitReactionEndsAt = -1.f;
 public:
  UPROPERTY(VisibleAnywhere) UStaticMeshComponent* Body;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Combat") float LastHitAmount = 0.f;
