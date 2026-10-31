@@ -221,6 +221,14 @@ func _spawn_beast(at:Vector3,kind:String,zone:int,variant:String="normal",boss:b
    portrait.billboard=BaseMaterial3D.BILLBOARD_ENABLED
    portrait.position=Vector3(0.0,0.4,0.0)
    boss_body.add_child(portrait)
+   var aura:OmniLight3D=OmniLight3D.new()
+   aura.name="EclipsePhaseAura"
+   aura.light_color=Color(0.85,0.1,0.24) if zone==0 else Color(0.42,0.15,0.9)
+   aura.light_energy=0.85
+   aura.omni_range=4.0
+   aura.shadow_enabled=false
+   boss_body.add_child(aura)
+   creature["v403_aura"]=aura
  var title:Label3D=creature.get("nameplate") as Label3D
  if is_instance_valid(title):title.text=family_name+"  •  GUARDIAN"
  # Existing three-phase boss behavior, loot, combat and scaling remain intact.
@@ -230,6 +238,11 @@ func _refresh_boss_phase(beast:Dictionary)->void:
  if not bool(beast.get("v400_bloodline",false)):return
  var title:Label3D=beast.get("nameplate") as Label3D
  if is_instance_valid(title):title.text=str(beast.get("v400_family_name","Eclipse Guardian"))+"  •  PHASE "+str(beast.get("boss_phase",1))
+ var aura:OmniLight3D=beast.get("v403_aura") as OmniLight3D
+ if is_instance_valid(aura):
+  var phase:int=clampi(int(beast.get("boss_phase",1)),1,3)
+  aura.light_energy=0.75+float(phase)*0.45
+  aura.omni_range=3.5+float(phase)*0.8
 
 func _v401_build_z_intro()->void:
  var layer:CanvasLayer=get_node_or_null("NativeAtlasUI") as CanvasLayer
