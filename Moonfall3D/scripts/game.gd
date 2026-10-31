@@ -126,6 +126,9 @@ func _ready() -> void:
     var ground_mat := StandardMaterial3D.new()
     ground_mat.albedo_color = Color(0.16, 0.10, 0.22)
     ground_mat.roughness = 0.92
+    # Procedural stone checker uses a small shared texture, not large downloaded art.
+    ground_mat.albedo_texture = _stone_texture()
+    ground_mat.uv1_scale = Vector3(12.0, 12.0, 1.0)
     ground_mat.metallic = 0.08
     ground.material_override = ground_mat
     add_child(ground)
@@ -1721,3 +1724,15 @@ func _update_room_hazards() -> void:
             _cast_notice("Hazard! Move off the glowing floor")
             dead = hp <= 0.0
             break
+
+func _stone_texture() -> ImageTexture:
+    var img := Image.create(64, 64, false, Image.FORMAT_RGBA8)
+    var rng := RandomNumberGenerator.new()
+    rng.seed = 78621
+    for y in range(64):
+        for x in range(64):
+            var seam := x % 16 == 0 or y % 16 == 0
+            var noise := rng.randf_range(-0.055, 0.055)
+            var base := 0.42 + noise - (0.16 if seam else 0.0)
+            img.set_pixel(x, y, Color(base, base * 0.89, base * 1.09, 1.0))
+    return ImageTexture.create_from_image(img)
