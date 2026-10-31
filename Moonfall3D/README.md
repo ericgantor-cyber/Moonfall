@@ -63,3 +63,7 @@ Chests may now yield Weapon or Armor items. Weapon damage and armor damage-reduc
 ## WoW-inspired keybinds (experimental)
 
 Default keys: WASD movement, Space dodge, 1 attack, 2 second attack trigger (currently uses same base attack, not a separate spell), Tab cycle nearby targets, B inventory, F interact, G equip next item with inventory open, F10 keybind settings. Left mouse attack and right/middle drag camera remain. In F10 keybind settings use Up/Down to select an action, Enter to capture a new key, Esc to cancel. Remaps save to user://moonfall_keybinds.json. Duplicate key choices are not assigned. This is a prototype, not a full WoW action-bar UI. Existing arrow-key movement and mouse zoom remain. Godot runtime testing has not yet been performed.
+
+## Jump and initial 12-slot action bar
+
+Space now jumps; Q dodges. Existing locally saved defaults with Space dodge are migrated to Space jump/Q dodge. The 12 action slots use keys 1–0, minus, and equals and show cooldowns. These are placeholder variants of the same attack, **not twelve unique spells**. F10 continues to support remapping movement/jump/dodge/attack/spell, while full remapping of all twelve slots remains future work. The three-room arena still lacks full floor physics and the jump implementation uses simple vertical velocity and a y=0 ground clamp. Godot runtime testing required.
