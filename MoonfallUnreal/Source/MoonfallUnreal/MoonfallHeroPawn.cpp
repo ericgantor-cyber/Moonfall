@@ -76,8 +76,8 @@ void AMoonfallHeroPawn::MoveRight(float Value)
   AddMovementInput(FRotationMatrix(Yaw).GetUnitAxis(EAxis::Y), Value);
  }
 }
-void AMoonfallHeroPawn::Turn(float Value) { AddControllerYawInput(Value); }
-void AMoonfallHeroPawn::LookUp(float Value) { AddControllerPitchInput(Value); }
+void AMoonfallHeroPawn::Turn(float Value) { if (!bOptionsOpen) AddControllerYawInput(Value); }
+void AMoonfallHeroPawn::LookUp(float Value) { if (!bOptionsOpen) AddControllerPitchInput(Value); }
 bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
 {
  static const float Costs[6] = {16.f,13.f,22.f,25.f,18.f,14.f};
@@ -95,7 +95,7 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
   AMoonfallEnemy* Enemy = Cast<AMoonfallEnemy>(Hit.GetActor());
   if (!IsValid(Enemy) || Enemy->Health <= 0.f) return false;
   Enemy->TakeSpellDamage((18.f + School * 5.f) * Multiplier);
-  const FColor SpellColors[6] = {FColor::Red, FColor::Cyan, FColor::Purple, FColor::Green, FColor::Yellow, FColor::Emerald};
+  const FColor SpellColors[6] = {FColor(245, 60, 39), FColor(65, 204, 245), FColor(168, 72, 236), FColor(72, 230, 130), FColor(245, 224, 64), FColor(76, 178, 68)};
   const FColor ImpactColor = SpellColors[School];
   DrawDebugSphere(GetWorld(), Hit.ImpactPoint, 24.f * Multiplier, 12, ImpactColor, false, 0.22f, 0, 2.f);
   DrawDebugLine(GetWorld(), Origin, Hit.ImpactPoint, ImpactColor, false, 0.12f, 0, 1.5f);

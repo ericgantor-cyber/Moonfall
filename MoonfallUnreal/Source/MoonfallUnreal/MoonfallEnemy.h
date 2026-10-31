@@ -18,6 +18,8 @@ public:
  UFUNCTION(BlueprintImplementableEvent, Category="Combat") void OnEnemyAttack();
 private:
  float NextAttackAt = 0.f;
+ float NextPathRefreshAt = 0.f;
+ FVector CachedWaypoint = FVector::ZeroVector;
  float WindupEndsAt = -1.f;
  float HitReactionEndsAt = -1.f;
 public:

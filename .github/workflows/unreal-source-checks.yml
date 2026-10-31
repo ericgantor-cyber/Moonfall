@@ -26,5 +26,11 @@ jobs:
           for path in root.rglob('*.cpp'):
               text = path.read_text()
               assert text.count('{') == text.count('}'), path
-          print('Source structure checks passed. Unreal compilation NOT performed.')
+          enemy = (root/'MoonfallUnreal'/'MoonfallEnemy.cpp').read_text()
+          hero = (root/'MoonfallUnreal'/'MoonfallHeroPawn.cpp').read_text()
+          assert 'NextPathRefreshAt' in enemy and 'CachedWaypoint' in enemy
+          assert 'SetLifeSpan(1.25f)' in enemy
+          assert 'if (!bOptionsOpen) AddControllerYawInput' in hero
+          assert 'if (!bOptionsOpen) AddControllerPitchInput' in hero
+          print('Source structure and feature regression checks passed. Unreal compilation NOT performed.')
           PY

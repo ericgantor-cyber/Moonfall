@@ -43,3 +43,15 @@ The optional self-hosted Windows workflow now compiles the Unreal editor target,
 ## Windows installer (NSIS)
 
 The manual self-hosted Windows workflow now attempts an **NSIS 3 per-user installer** only after Unreal packaging succeeds and exactly one packaged `MoonfallUnreal.exe` is found. Install NSIS 3 on the trusted Windows build machine and add `makensis.exe` to `PATH`. The installer script lives at `Installer/MoonfallUnreal.nsi`; it copies the game package, creates desktop and Start Menu shortcuts, and supplies an uninstaller. The successful workflow uploads `MoonfallUnreal-Setup.exe` separately. **No successful run, installed game, or functional executable has been verified yet.** Test shortcut launching, dependencies, uninstall, permissions and real gameplay on Windows before distributing. The workflow requires Unreal 5.4, Visual Studio C++ build tools, NSIS 3, and a self-hosted runner.
+
+## Major quality pass (performance and combat correctness)
+
+Enemy AI now caches navigation waypoints and refreshes paths at most approximately twice per second per enemy, with small randomized staggering to reduce coincident path solves. Defeated enemies stop ticking and are destroyed after a short period. Opening Options prevents camera orbit as well as movement and spellcasting. School colors now use explicit color values rather than engine predefined constants. Added source regression assertions; they are not UE engine compilation or playtesting.
+
+### Remaining roadmap
+
+- UE 5.4 Windows editor/game compilation on configured Unreal runner, then packaged game and NSIS installation tests
+- Runtime Niagara or comparable real effects replacing debug-only traces; enemy animation assets and multi-phase boss design
+- Character source asset import only with approval and without altering Z or Nyra's original designs
+- GPU performance measurements at 1080p/1440p/4K, accessibility and controller UI verification
+- Compatible DLSS/FSR frame generation plugin install, capability detection, and Windows GPU testing; currently inactive
