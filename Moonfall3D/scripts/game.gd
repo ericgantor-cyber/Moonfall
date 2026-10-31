@@ -30,6 +30,9 @@ var dodge_left := 0.0
 var invulnerable := 0.0
 var dodge_dir := Vector3.ZERO
 var zoom := 1.0
+var camera_yaw := 0.0
+var camera_pitch := -0.32
+const CAMERA_SENSITIVITY := 0.006
 var room_index := 0
 var room_label: Label
 var combat_flash := 0.0
@@ -97,11 +100,19 @@ func _choose(name: String) -> void:
     (player.get_node("Placeholder") as MeshInstance3D).material_override = mat
 
 func _unhandled_input(event: InputEvent) -> void:
-    if event is InputEventMouseButton and event.pressed and started:
+    if not started or dead:
+        return
+    if event is InputEventMouseButton and event.pressed:
         if event.button_index == MOUSE_BUTTON_WHEEL_UP:
             zoom = clampf(zoom - 0.1, 0.55, 1.8)
         elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
             zoom = clampf(zoom + 0.1, 0.55, 1.8)
+    elif event is InputEventMouseMotion:
+        if Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT) or Input.is_mouse_button_pressed(MOUSE_BUTTON_MIDDLE):
+            camera_yaw -= event.relative.x * CAMERA_SENSITIVITY
+            camera_pitch = clampf(camera_pitch - event.relative.y * CAMERA_SENSITIVITY, -1.25, -0.1)
+            if Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT):
+                player.rotation.y = camera_yaw
 
 func _process(dt: float) -> void:
     if dead and Input.is_key_pressed(KEY_R):
@@ -136,6 +147,8 @@ func _process(dt: float) -> void:
     if Input.is_key_pressed(KEY_S) or Input.is_key_pressed(KEY_DOWN):
         motion.z += 1
     motion = motion.normalized()
+    # Camera-relative movement, with right-drag turning the character.
+    motion = motion.rotated(Vector3.UP, camera_yaw)
     if Input.is_key_pressed(KEY_SPACE) and dodge_wait <= 0.0:
         dodge_dir = motion if motion.length() > 0.0 else Vector3.FORWARD
         dodge_left = 0.24
@@ -145,11 +158,15 @@ func _process(dt: float) -> void:
     player.position += velocity * dt
     player.position.x = clampf(player.position.x, -ARENA, ARENA)
     player.position.z = clampf(player.position.z, -ARENA, ARENA)
-    if velocity.length() > 0.0:
+    # Normal movement turns to travel direction, except while right-drag turning.
+    if velocity.length() > 0.0 and not Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT):
         player.rotation.y = atan2(velocity.x, velocity.z)
-    var follow_offset := player.global_transform.basis.z * (8.0 * zoom) + Vector3.UP * (3.4 * zoom)
-    camera.position = camera.position.lerp(player.position + follow_offset, minf(1.0, dt * 5.0))
-    camera.look_at(player.position + Vector3.UP * 1.3)
+    var radius := 9.0 * zoom
+    var horizontal := cos(camera_pitch) * radius
+    var follow_offset := Vector3(sin(camera_yaw) * horizontal, -sin(camera_pitch) * radius + 1.3, cos(camera_yaw) * horizontal)
+    var focus := player.position + Vector3.UP * 1.3
+    camera.position = camera.position.lerp(player.position + follow_offset, minf(1.0, dt * 6.0))
+    camera.look_at(focus)
     if (Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) or Input.is_key_pressed(KEY_J)) and attack_wait <= 0.0:
         _attack()
     spawn_wait -= dt

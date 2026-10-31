@@ -21,3 +21,7 @@ Excluded by request: switchable camera modes, camera switch on C, survival timer
 - Requires testing in Godot; no runtime gameplay validation was performed.
 
 Camera update: the overhead viewpoint was removed. Camera follows behind the facing direction of the player with mouse-wheel distance adjustment. No camera-mode toggle.
+
+## WoW-style third-person camera
+
+Hold **right mouse button** and drag to orbit camera and turn your character. Hold **middle mouse button** and drag to orbit without turning the character. Mouse wheel zooms. WASD/arrows move relative to the current camera direction. There is no overhead mode, camera-toggle key, or survival timer. Camera collision avoidance and full WoW movement bindings are not yet implemented. Godot playtesting is pending.
