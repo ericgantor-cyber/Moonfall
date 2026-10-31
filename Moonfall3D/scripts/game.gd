@@ -507,17 +507,17 @@ func _process(dt: float) -> void:
             destination = Vector3(0, 0, door_z)
             if absf(mob.position.z - door_z) < 2.0 and absf(mob.position.x) < 3.5:
                 destination = player.position
-        var diff := destination - mob.position
+        var diff: Vector3 = destination - mob.position
         diff.y = 0.0
         var boss: bool = mob.get_meta("boss")
         var reach := 2.8 if boss else 1.7
         if diff.length() > reach:
-            var steering := diff.normalized()
+            var steering: Vector3 = diff.normalized()
             # Different enemy movement patterns; no collision-pathfinding claim.
             if not boss and int(mob.get_meta("kind")) == 1 and diff.length() < 6.0:
                 steering = Vector3(-steering.z, 0, steering.x) * 0.65 + steering * 0.35
             # Raycast ahead to steer around solid obstacles.
-            var travel := steering.normalized()
+            var travel: Vector3 = steering.normalized()
             var probe := PhysicsRayQueryParameters3D.create(mob.position + Vector3.UP, mob.position + Vector3.UP + travel * 3.0)
             probe.collision_mask = 2
             var obstacle := get_world_3d().direct_space_state.intersect_ray(probe)
@@ -533,7 +533,7 @@ func _process(dt: float) -> void:
             mob.position.x = clampf(mob.position.x, -ARENA, ARENA)
             mob.position.z = clampf(mob.position.z, -ARENA, ARENA)
         var ability_cd: float = maxf(0.0, float(mob.get_meta("ability_cd")) - dt)
-        var actual_distance := mob.position.distance_to(player.position)
+        var actual_distance: float = mob.position.distance_to(player.position)
         if ability_cd <= 0.0 and actual_distance < 7.0 and actual_distance > reach:
             if boss:
                 _spell_effect(player.position, false)
@@ -655,7 +655,7 @@ func _build_room() -> void:
     for direction in [Vector3(18, 0, 0), Vector3(-18, 0, 0), Vector3(0, 0, 18), Vector3(0, 0, -18)]:
         room_waypoints.append(direction)
     add_child(decor)
-    var tint := [Color(0.3, 0.12, 0.4), Color(0.22, 0.45, 0.55), Color(0.65, 0.2, 0.15)][room_index % 3]
+    var tint: Color = [Color(0.3, 0.12, 0.4), Color(0.22, 0.45, 0.55), Color(0.65, 0.2, 0.15)][room_index % 3]
     for i in range(12):
         var pillar := MeshInstance3D.new()
         var mesh := CylinderMesh.new()
@@ -908,7 +908,7 @@ func _render_spell_menu() -> void:
         return
     spell_summary.text = "Mana %d/%d | LEFT: %s | RIGHT: %s\nSelect a spell, then choose LEFT or RIGHT. [M] Close" % [int(mana), int(max_mana), spells[left_spell]["name"], spells[right_spell]["name"]]
     var selected: Dictionary = spells[spell_cursor]
-    var status := ["Burning", "Chilling", "Arcane burst", "Healing", "Shock", "Poisoning"][spell_cursor]
+    var status: String = ["Burning", "Chilling", "Arcane burst", "Healing", "Shock", "Poisoning"][spell_cursor]
     spell_preview.text = "SELECTED: %s  |  %s\nMana: %d  |  Power: %.1fx  |  Cooldown: %.2fs" % [selected["name"], status, int(selected["cost"]), float(selected["power"]), float(selected["cooldown"])]
     for child in spell_list.get_children():
         spell_list.remove_child(child)
