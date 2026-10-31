@@ -13,7 +13,8 @@ if ([string]::IsNullOrWhiteSpace($UnrealRoot)) {
 }
 $build = Join-Path $UnrealRoot 'Engine\Build\BatchFiles\Build.bat'
 $uat = Join-Path $UnrealRoot 'Engine\Build\BatchFiles\RunUAT.bat'
-foreach ($file in @($project,$build,$uat)) {
+$entryMap = Join-Path $UnrealRoot 'Engine\Content\Maps\Entry.umap'
+foreach ($file in @($project,$build,$uat,$entryMap)) {
     if (-not (Test-Path $file)) { throw "Required file not found: $file" }
 }
 foreach ($command in @('dotnet','makensis.exe')) {
