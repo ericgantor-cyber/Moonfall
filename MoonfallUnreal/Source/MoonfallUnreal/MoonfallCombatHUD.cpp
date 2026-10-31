@@ -32,6 +32,7 @@ void AMoonfallCombatHUD::DrawHUD()
  const float CX = Radius + 25.f;
  const float CY = Canvas->SizeY - Radius - 25.f;
  const float LabelScale = FMath::Clamp(Radius / 65.f, 0.78f, 1.16f);
+ const bool bCompactScreen = Canvas->SizeX < 760.f || Canvas->SizeY < 480.f;
  const float ActualHealth = FMath::Clamp(Hero->Health / 100.f, 0.f, 1.f);
  const float ActualMana = FMath::Clamp(Hero->Mana / FMath::Max(1.f, Hero->MaxMana), 0.f, 1.f);
  const float ActualXP = FMath::Clamp(static_cast<float>(Hero->Experience) / FMath::Max(1, Hero->ExperienceToNextLevel), 0.f, 1.f);
@@ -62,7 +63,7 @@ void AMoonfallCombatHUD::DrawHUD()
            CX - HalfWidth, CY + I, HalfWidth * 2.f, 2.5f);
  }
  auto DrawArc = [this, CX, CY](float ArcRadius, float Fraction, const FLinearColor& Track, const FLinearColor& Fill, float Thickness) {
-  constexpr int32 Segments = 96;
+  const int32 Segments = FMath::Clamp(FMath::RoundToInt(ArcRadius * 0.9f), 48, 96);
   const float Progress = FMath::Clamp(Fraction, 0.f, 1.f);
   for (int32 I = 0; I < Segments; ++I) {
    const float StartFraction = static_cast<float>(I) / Segments;
@@ -103,14 +104,17 @@ void AMoonfallCombatHUD::DrawHUD()
   DrawText(TEXT("LEVEL UP"), FLinearColor(0.91f, 0.73f, 1.f, Alpha),
            CX + Radius + 14.f, CY - 13.f, nullptr, 0.96f * LabelScale);
  }
- DrawText(TEXT("ESC  OPTIONS"), FLinearColor(0.73f, 0.70f, 0.83f, 0.85f),
+ if (!bCompactScreen) DrawText(TEXT("ESC  OPTIONS"), FLinearColor(0.73f, 0.70f, 0.83f, 0.85f),
           FMath::Max(16.f, Canvas->SizeX - 142.f), Canvas->SizeY - 37.f, nullptr, 0.82f);
- for (TActorIterator<AMoonfallEnemy> It(GetWorld()); It; ++It) {
+ int32 VisibleDamageNumbers = 0;
+ for (TActorIterator<AMoonfallEnemy> It(GetWorld()); It && VisibleDamageNumbers < 32; ++It) {
   const AMoonfallEnemy* Enemy = *It;
   const float Age = GetWorld()->GetTimeSeconds() - Enemy->LastHitTime;
-  if (Age < 0.f || Age > 0.8f) continue;
+  if (Age < 0.f || Age > 0.8f || Enemy->LastHitAmount <= 0.f) continue;
   FVector2D Screen;
-  if (GetOwningPlayerController() && GetOwningPlayerController()->ProjectWorldLocationToScreen(Enemy->GetActorLocation() + FVector(0,0,175.f + Age*65.f), Screen)) {
+  if (GetOwningPlayerController() && GetOwningPlayerController()->ProjectWorldLocationToScreen(Enemy->GetActorLocation() + FVector(0,0,175.f + Age*65.f), Screen) &&
+      Screen.X >= 0.f && Screen.X < Canvas->SizeX && Screen.Y >= 0.f && Screen.Y < Canvas->SizeY) {
+   ++VisibleDamageNumbers;
    DrawText(FString::Printf(TEXT("-%.0f"), Enemy->LastHitAmount), FLinearColor(1.f,0.84f,0.2f,1.f-Age/0.8f), Screen.X, Screen.Y, nullptr, 1.3f);
   }
  }
