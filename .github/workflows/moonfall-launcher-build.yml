@@ -22,6 +22,22 @@ jobs:
           dotnet publish MoonfallUnreal/Launcher/MoonfallLauncher.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:PublishTrimmed=false -o LauncherOutput
           if ($LASTEXITCODE -ne 0) { throw 'Launcher compilation failed' }
           if (-not (Test-Path LauncherOutput/MoonfallLauncher.exe)) { throw 'Missing launcher exe' }
+      - name: Smoke-test launcher game-file checks
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $exe = (Resolve-Path 'LauncherOutput/MoonfallLauncher.exe').Path
+          $missing = Start-Process -FilePath $exe -ArgumentList '--check-install' -PassThru -Wait
+          if ($missing.ExitCode -ne 2) { throw "Expected incomplete installation exit 2, got $($missing.ExitCode)" }
+          Set-Content -Path 'LauncherOutput/MoonfallUnreal.exe' -Value 'test fixture, not a game'
+          New-Item -ItemType Directory -Path 'LauncherOutput/Engine' -Force | Out-Null
+          New-Item -ItemType Directory -Path 'LauncherOutput/MoonfallUnreal' -Force | Out-Null
+          Set-Content -Path 'LauncherOutput/MoonfallUnreal/content.test' -Value 'test fixture'
+          $ready = Start-Process -FilePath $exe -ArgumentList '--check-install' -PassThru -Wait
+          if ($ready.ExitCode -ne 0) { throw "Expected complete fixture exit 0, got $($ready.ExitCode)" }
+          Remove-Item 'LauncherOutput/MoonfallUnreal.exe' -Force
+          Remove-Item 'LauncherOutput/Engine','LauncherOutput/MoonfallUnreal' -Recurse -Force
+          Write-Host 'Windows launcher integrity-check smoke tests passed with synthetic files.'
       - uses: actions/upload-artifact@v4
         with:
           name: MoonfallLauncher-Windows-Standalone
