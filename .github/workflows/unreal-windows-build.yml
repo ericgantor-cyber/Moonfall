@@ -14,6 +14,14 @@ jobs:
           if (-not $env:UE54_ROOT) { throw 'Set UE54_ROOT on your trusted self-hosted Windows runner (e.g. C:\Program Files\Epic Games\UE_5.4).' }
           $buildTool = Join-Path $env:UE54_ROOT 'Engine\Build\BatchFiles\Build.bat'
           if (-not (Test-Path $buildTool)) { throw "Build.bat not found: $buildTool" }
+          $uatTool = Join-Path $env:UE54_ROOT 'Engine\Build\BatchFiles\RunUAT.bat'
+          if (-not (Test-Path $uatTool)) { throw "Unreal AutomationTool missing: $uatTool" }
+          $entryMap = Join-Path $env:UE54_ROOT 'Engine\Content\Maps\Entry.umap'
+          if (-not (Test-Path $entryMap)) { throw "Configured Unreal startup level is missing: $entryMap. Verify UE 5.4 engine content before cooking." }
+          $vswhere = Join-Path $env:ProgramFiles(x86) 'Microsoft Visual Studio\Installer\vswhere.exe'
+          if (-not (Test-Path $vswhere)) { throw 'Visual Studio Installer / vswhere.exe missing. Install Visual Studio 2022 with Desktop development with C++.' }
+          $vsInstallation = & $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if ($LASTEXITCODE -ne 0 -or -not $vsInstallation) { throw 'Visual Studio 2022 C++ build tools are missing. Install Desktop development with C++ and Windows SDK.' }
           if (-not (Test-Path 'MoonfallUnreal\MoonfallUnreal.uproject')) { throw 'Missing Unreal project' }
           if (-not (Test-Path 'MoonfallUnreal\Source\MoonfallUnreal.Target.cs')) { throw 'Missing Win64 Game target' }
           if (-not (Test-Path 'MoonfallUnreal\Source\MoonfallUnrealEditor.Target.cs')) { throw 'Missing Win64 Editor target' }
@@ -23,7 +31,7 @@ jobs:
           if (-not ($sdks | Where-Object { $_ -match '^8\.' })) { throw 'Install .NET 8 SDK for the launcher.' }
           $nsis = Get-Command makensis.exe -ErrorAction SilentlyContinue
           if (-not $nsis) { throw 'Missing NSIS 3 makensis.exe on PATH.' }
-          Write-Host 'Prerequisites passed: Unreal build tools, game targets, .NET 8 SDK and NSIS.'
+          Write-Host 'Prerequisites passed: Unreal engine and startup map, VS C++ tools, game targets, .NET 8 SDK and NSIS.'
       - name: Compile Unreal Editor Win64 Development
         shell: pwsh
         run: |
