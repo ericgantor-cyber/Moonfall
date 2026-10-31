@@ -1,0 +1,30 @@
+name: Unreal source structure checks
+on:
+  push:
+    paths:
+      - 'MoonfallUnreal/**'
+      - '.github/workflows/unreal-source-checks.yml'
+  pull_request:
+    paths:
+      - 'MoonfallUnreal/**'
+      - '.github/workflows/unreal-source-checks.yml'
+jobs:
+  source-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate Unreal source layout
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f MoonfallUnreal/MoonfallUnreal.uproject
+          test -f MoonfallUnreal/Source/MoonfallUnreal/MoonfallEnemy.cpp
+          test -f MoonfallUnreal/Source/MoonfallUnreal/MoonfallCombatHUD.cpp
+          python3 - <<'PY'
+          from pathlib import Path
+          root = Path('MoonfallUnreal/Source')
+          for path in root.rglob('*.cpp'):
+              text = path.read_text()
+              assert text.count('{') == text.count('}'), path
+          print('Source structure checks passed. Unreal compilation NOT performed.')
+          PY
