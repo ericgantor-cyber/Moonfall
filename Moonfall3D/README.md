@@ -25,3 +25,12 @@ Camera update: the overhead viewpoint was removed. Camera follows behind the fac
 ## WoW-style third-person camera
 
 Hold **right mouse button** and drag to orbit camera and turn your character. Hold **middle mouse button** and drag to orbit without turning the character. Mouse wheel zooms. WASD/arrows move relative to the current camera direction. There is no overhead mode, camera-toggle key, or survival timer. Camera collision avoidance and full WoW movement bindings are not yet implemented. Godot playtesting is pending.
+
+## Third-person combat and navigation pass
+
+- Camera obstruction raycast pulls the camera forward when it intersects **physics colliders**; current decorative pillars do not have colliders, so practical collision avoidance is limited until solid dungeon geometry is added.
+- Basic directional target selection prioritizes reachable nearby enemies in front of the character and displays a visible target ring; this is not mouse cursor picking or full lock-on.
+- Procedural capsule placeholder bobs during movement. Original Z and Nyra artwork/models are not modified.
+- Four room waypoints are tracked as navigation landmarks; actual connected rooms and NavMesh pathfinding are still future work.
+- No overhead camera, camera switching, or survival timer.
+- Source updated, **not tested in a Godot runtime**.
