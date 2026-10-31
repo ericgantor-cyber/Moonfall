@@ -59,3 +59,7 @@ Chests now give gold plus one weighted-rarity weapon: Common, Uncommon, Rare, Ep
 ## Equipment slots and enemy abilities (experimental)
 
 Chests may now yield Weapon or Armor items. Weapon damage and armor damage-reduction are independent. Open inventory with I and press F to cycle through inventory items and equip the selected item; this is a rudimentary control, not a full equipment screen. Armor reduces each enemy hit by its power with a minimum of 1 damage. Bosses gain a close-range magic strike on cooldown and skirmishers can retreat in short bursts. These are simple prototypes, not full tactical AI. No changes to original Z/Nyra art, WoW camera or removed survival timer. Godot gameplay testing is still pending.
+
+## WoW-inspired keybinds (experimental)
+
+Default keys: WASD movement, Space dodge, 1 attack, 2 second attack trigger (currently uses same base attack, not a separate spell), Tab cycle nearby targets, B inventory, F interact, G equip next item with inventory open, F10 keybind settings. Left mouse attack and right/middle drag camera remain. In F10 keybind settings use Up/Down to select an action, Enter to capture a new key, Esc to cancel. Remaps save to user://moonfall_keybinds.json. Duplicate key choices are not assigned. This is a prototype, not a full WoW action-bar UI. Existing arrow-key movement and mouse zoom remain. Godot runtime testing has not yet been performed.
