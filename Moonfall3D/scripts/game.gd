@@ -995,8 +995,9 @@ func _school_effect(at: Vector3, spell_index: int) -> void:
     ]
     var pulse := MeshInstance3D.new()
     var sphere := SphereMesh.new()
-    sphere.radius = 0.7
-    sphere.height = 1.4
+    # Varied silhouettes without external textures or expensive particles.
+    sphere.radius = [0.85, 0.65, 0.52, 0.78, 0.43, 0.60][spell_index]
+    sphere.height = [1.2, 1.8, 1.1, 1.3, 2.1, 0.85][spell_index]
     pulse.mesh = sphere
     var mat := StandardMaterial3D.new()
     mat.albedo_color = colors[spell_index]
@@ -1007,6 +1008,7 @@ func _school_effect(at: Vector3, spell_index: int) -> void:
     pulse.set_meta("life", 0.3)
     pulse.set_meta("spin", true)
     pulse.set_meta("school", spell_index)
+    pulse.set_meta("start_life", 0.3)
     add_child(pulse)
     active_effects.append(pulse)
 
