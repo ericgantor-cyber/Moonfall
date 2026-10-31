@@ -44,6 +44,13 @@ var cached_target: Node3D
 var chests: Array[Node3D] = []
 var gold := 0
 var dungeon_seed := 0
+var inventory: Array[Dictionary] = []
+var equipped: Dictionary = {}
+var inventory_open := false
+var inventory_panel: Label
+var inventory_latch := false
+const MAX_INVENTORY := 20
+const RARITIES := ["Common", "Uncommon", "Rare", "Epic", "Legendary"]
 
 func _ready() -> void:
     randomize()
@@ -100,6 +107,11 @@ func _ready() -> void:
     ui.position = Vector2(20, 20)
     ui.add_theme_font_size_override("font_size", 20)
     layer.add_child(ui)
+    inventory_panel = Label.new()
+    inventory_panel.position = Vector2(20, 65)
+    inventory_panel.add_theme_font_size_override("font_size", 18)
+    inventory_panel.visible = false
+    layer.add_child(inventory_panel)
     var center := CenterContainer.new()
     center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
     layer.add_child(center)
@@ -151,6 +163,12 @@ func _process(dt: float) -> void:
     if not started or dead:
         return
     clock += dt
+    var inventory_key := Input.is_key_pressed(KEY_I)
+    if inventory_key and not inventory_latch:
+        inventory_open = not inventory_open
+        inventory_panel.visible = inventory_open
+        _refresh_inventory()
+    inventory_latch = inventory_key
     # Three traversable regions, divided by walls with central doorways.
     var entered_room := _region_for_z(player.position.z)
     if entered_room != room_index:
@@ -266,6 +284,8 @@ func _process(dt: float) -> void:
             mob.position.x = clampf(mob.position.x, -ARENA, ARENA)
             mob.position.z = clampf(mob.position.z, -ARENA, ARENA)
         var hit_cd: float = maxf(0.0, float(mob.get_meta("hit_cd")) - dt)
+        # Skirmishers circle at close range; bruisers pursue directly.
+        # Damage requires actual proximity, not proximity to the doorway waypoint.
         if mob.position.distance_to(player.position) <= reach + 0.3 and hit_cd <= 0.0 and invulnerable <= 0.0:
             hp -= 25.0 if boss else 12.0
             hit_cd = 1.1
@@ -353,7 +373,7 @@ func _attack() -> void:
         pickups.append(pickup)
 
 func _hud() -> void:
-    ui.text = "%s   Room: %d   HP: %d/%d   Level: %d   XP: %d   Kills: %d   DMG: %d   Gold: %d   [E] Chest" % [hero, room_index + 1, int(hp), int(max_hp), level, xp, kills, int(damage), gold]
+    ui.text = "%s   Room: %d   HP: %d/%d   Level: %d   XP: %d   Kills: %d   DMG: %d   Gold: %d   Gear: %d/%d   [E] Chest [I] Bag" % [hero, room_index + 1, int(hp), int(max_hp), level, xp, kills, int(damage), gold, inventory.size(), MAX_INVENTORY]
     if dead:
         ui.text += "\nDefeated. Press R to restart."
 
@@ -494,10 +514,48 @@ func _open_nearby_chest() -> void:
         if not is_instance_valid(chest) or player.position.distance_to(chest.position) > 2.5:
             continue
         gold += randi_range(10, 35)
-        if randi_range(0, 1) == 0:
-            hp = minf(max_hp, hp + 25.0)
-        else:
-            damage += 2.0
+        _loot_equipment()
         chests.erase(chest)
         chest.queue_free()
         break
+
+# First inventory pass: chests yield equipment with weighted rarities.
+# Best found weapon auto-equips. A manual equip interface can follow.
+func _loot_equipment() -> void:
+    if inventory.size() >= MAX_INVENTORY:
+        gold += 15
+        return
+    var roll := randf()
+    var rarity_index := 0
+    if roll > 0.995:
+        rarity_index = 4
+    elif roll > 0.965:
+        rarity_index = 3
+    elif roll > 0.85:
+        rarity_index = 2
+    elif roll > 0.55:
+        rarity_index = 1
+    var item := {
+        "name": ["Worn Blade", "Runed Sword", "Moonsteel Edge", "Astral Fang", "Eclipse Crownblade"][rarity_index],
+        "rarity": RARITIES[rarity_index],
+        "power": (rarity_index + 1) * 3
+    }
+    inventory.append(item)
+    if equipped.is_empty() or int(item["power"]) > int(equipped["power"]):
+        var prior_power := int(equipped.get("power", 0))
+        damage += float(int(item["power"]) - prior_power)
+        equipped = item.duplicate()
+    _refresh_inventory()
+
+func _refresh_inventory() -> void:
+    if inventory_panel == null:
+        return
+    var lines := PackedStringArray()
+    lines.append("INVENTORY  [I] Close")
+    if equipped.is_empty():
+        lines.append("Equipped: None")
+    else:
+        lines.append("Equipped: %s (+%d)" % [equipped["name"], equipped["power"]])
+    for item in inventory:
+        lines.append("%s  %s  +%d" % [item["rarity"], item["name"], item["power"]])
+    inventory_panel.text = "\n".join(lines)
