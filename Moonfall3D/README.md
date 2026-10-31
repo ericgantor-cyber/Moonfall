@@ -103,3 +103,7 @@ The twelve action slots now display their assigned school names, the larger of t
 ## Current controls: no WoW-style action bars
 
 The twelve-slot WoW-style action bar and the 1–0/-/= ability-slot bindings have been **removed** by request. Magic uses the Skyrim-inspired **M** spellbook, **Z** left-hand cast, **X** right-hand cast, and **C** matching-spell dual cast. Space jumps, Q dodges, and F10 remains the movement/accessibility keybinding menu. Inside the spellbook, numeric keys 1–4 and 5–8 still provide spell-selection shortcuts (they no longer cast from a bar). Some earlier log sections describe the old bar and are historical only. The third-person camera stays; the original 2D/browser game and Z/Nyra art remain untouched.
+
+## Graphical spellbook
+
+The M spellbook now opens a Godot PanelContainer with readable spell buttons, mana/cooldown information and left/right hand summary. Select spells by clicking or with Up/Down, equip selected spell to left with Z or right with X, close with M. The older 12-slot WoW-style action bars stay removed. These are functional UI widgets, not new spell art; Godot CI and gameplay validation are required.

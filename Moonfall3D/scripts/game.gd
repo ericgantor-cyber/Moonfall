@@ -59,7 +59,9 @@ var target_latch := false
 var locked_target: Node3D
 var jump_velocity := 0.0
 var jump_latch := false
-var spell_menu: Label
+var spell_menu: PanelContainer
+var spell_list: VBoxContainer
+var spell_summary: Label
 var spell_menu_open := false
 var mana := 100.0
 var max_mana := 100.0
@@ -150,11 +152,21 @@ func _ready() -> void:
     ui.position = Vector2(20, 20)
     ui.add_theme_font_size_override("font_size", 20)
     layer.add_child(ui)
-    spell_menu = Label.new()
-    spell_menu.position = Vector2(450, 95)
-    spell_menu.add_theme_font_size_override("font_size", 20)
+    spell_menu = PanelContainer.new()
+    spell_menu.position = Vector2(370, 75)
+    spell_menu.custom_minimum_size = Vector2(560, 500)
     spell_menu.visible = false
     layer.add_child(spell_menu)
+    var spell_layout := VBoxContainer.new()
+    spell_menu.add_child(spell_layout)
+    var spell_title := Label.new()
+    spell_title.text = "MOONFALL | ARCANE CODEX"
+    spell_title.add_theme_font_size_override("font_size", 27)
+    spell_layout.add_child(spell_title)
+    spell_summary = Label.new()
+    spell_layout.add_child(spell_summary)
+    spell_list = VBoxContainer.new()
+    spell_layout.add_child(spell_list)
     inventory_panel = Label.new()
     inventory_panel.position = Vector2(20, 65)
     inventory_panel.add_theme_font_size_override("font_size", 18)
@@ -815,14 +827,21 @@ func _key_in_use(key: int, except_action: String) -> bool:
 func _render_spell_menu() -> void:
     if spell_menu == null:
         return
-    var lines := PackedStringArray(["MOONFALL  |  ARCANE CODEX", "=========================", "[M] Close    [UP/DOWN] Browse", "[Z] Left hand    [X] Right hand", "1-4 / 5-8: quick assign originals", "  "])
+    spell_summary.text = "Mana: %d/%d   |   Left [Z]: %s   |   Right [X]: %s\nBrowse with Up/Down; Z/X equip; M closes; C dual casts matching spells" % [int(mana), int(max_mana), spells[left_spell]["name"], spells[right_spell]["name"]]
+    for child in spell_list.get_children():
+        child.queue_free()
+    var descriptions := ["Burn", "Slow", "Arcane burst", "Heal", "Shock", "Poison"]
     for i in range(spells.size()):
-        var marker := "> " if i == spell_cursor else "  "
-        var status := ["Burn", "Slow", "Arcane burst", "Heal", "Shock", "Poison"][i]
-        lines.append("%s%s  [%s]\n     Mana %d | %.1fs | Power %.1fx" % [marker, spells[i]["name"], status, int(spells[i]["cost"]), float(spells[i]["cooldown"]), float(spells[i]["power"])])
-    lines.append("Left: %s  |  Right: %s" % [spells[left_spell]["name"], spells[right_spell]["name"]])
-    lines.append("Mana: %d/%d | Dual casting requires matching spells" % [int(mana), int(max_mana)])
-    spell_menu.text = "\n".join(lines)
+        var button := Button.new()
+        button.text = "%s  %s | %s | Mana %d | Cooldown %.1fs" % [">" if i == spell_cursor else " ", spells[i]["name"], descriptions[i], int(spells[i]["cost"]), float(spells[i]["cooldown"])]
+        button.alignment = HORIZONTAL_ALIGNMENT_LEFT
+        button.custom_minimum_size.y = 48
+        button.pressed.connect(_select_spell_entry.bind(i))
+        spell_list.add_child(button)
+
+func _select_spell_entry(index: int) -> void:
+    spell_cursor = index
+    _render_spell_menu()
 
 func _cast_hand(hand: int) -> void:
     if hand_cooldowns[hand] > 0.0:
