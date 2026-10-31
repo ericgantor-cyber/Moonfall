@@ -115,3 +115,7 @@ The graphical spellbook now displays six school symbols, a highlighted selected 
 ## Expanded spellbook school categories
 
 The graphical spellbook groups Flame, Frost and Storm under Destruction; Arcane under Mysticism; Restoration under Restoration; and Venom under Alchemy. Spell rows now have larger symbols, full gameplay descriptions, costs, and cooldown values. Left and right equip buttons remain clickable. No twelve-slot WoW action bars have returned. Godot runtime validation of this change is pending.
+
+## Scrollable spellbook and spell preview
+
+The M spellbook now places its categorized list in a ScrollContainer for mouse-wheel browsing and adds a selected-spell details panel showing school effect, mana, power, and cooldown. Clicking spell rows changes the preview; LEFT/RIGHT equipping remains. These UI changes do not add a WoW action bar, modify Z/Nyra artwork, or change the camera. Godot runtime validation required.
