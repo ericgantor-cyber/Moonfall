@@ -1391,9 +1391,20 @@ func _physics_process(delta: float) -> void:
  if mounted:speed=8.4+float(learned_talents.get("endurance",0))*0.4
  if dodge_time>0:speed*=1.6
  if weather_name=="Rain" and not mounted:speed*=0.93
+ var grounded:bool=player.is_on_floor()
+ if grounded:jump_coyote_remaining=JUMP_COYOTE_SECONDS
+ else:jump_coyote_remaining=maxf(0.0,jump_coyote_remaining-delta)
+ if jump_buffer_remaining>0.0:
+  jump_buffer_remaining=maxf(0.0,jump_buffer_remaining-delta)
+  if not mounted and (grounded or jump_coyote_remaining>0.0):
+   player.velocity.y=8.0
+   jump_buffer_remaining=0.0
+   jump_coyote_remaining=0.0
  var vertical_speed:float=player.velocity.y
- if player.is_on_floor() and vertical_speed<=0.0:vertical_speed=-0.05
- else:vertical_speed-=22.0*delta
+ if grounded and vertical_speed<=0.0:vertical_speed=-0.05
+ else:
+  vertical_speed-=22.0*delta
+  if vertical_speed>0.0 and not Input.is_key_pressed(KEY_SPACE):vertical_speed-=12.0*delta
  player.velocity=Vector3(dir.x*speed,vertical_speed,dir.z*speed)
  player.move_and_slide()
  player.position.x=clampf(player.position.x,-WORLD_X,WORLD_X)
