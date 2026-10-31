@@ -211,6 +211,7 @@ func _spawn_beast(at:Vector3,kind:String,zone:int,variant:String="normal",boss:b
  creature["v404_tell_next"]=map_time+3.0
  creature["v404_tell_until"]=0.0
  creature["v404_attack_pending"]=false
+ creature["v405_cleave_facing"]=Vector3.FORWARD
  # Z and Nyra appear as boss encounters in their original artwork.
  if zone==0 or zone==1:
   var boss_body:CharacterBody3D=creature.get("body") as CharacterBody3D
@@ -589,13 +590,25 @@ func _update_beast_step(beast:Dictionary,delta:float)->void:
    if map_time>=float(beast.get("v404_tell_next",0.0)):
     beast["v404_tell_until"]=map_time+1.35
     beast["v404_attack_pending"]=true
+    if boss_name.begins_with("Z ") and is_instance_valid(player):
+     var origin:Node3D=beast.get("body") as Node3D
+     if is_instance_valid(origin):
+      var aim:Vector3=player.global_position-origin.global_position
+      aim.y=0.0
+      if aim.length_squared()>0.01:beast["v405_cleave_facing"]=aim.normalized()
     beast["v404_tell_next"]=map_time+7.0
    if bool(beast.get("v404_attack_pending",false)) and map_time>=float(beast.get("v404_tell_until",0.0)):
     beast["v404_attack_pending"]=false
     var boss_body:Node3D=beast.get("body") as Node3D
     if hero_playing and not death_active and not menu_open and is_instance_valid(player) and is_instance_valid(boss_body):
      var hit_radius:float=4.0 if boss_name.begins_with("Z ") else 7.0
-     if player.global_position.distance_to(boss_body.global_position)<=hit_radius:
+     var offset:Vector3=player.global_position-boss_body.global_position
+     offset.y=0.0
+     var in_arc:bool=true
+     if boss_name.begins_with("Z ") and offset.length_squared()>0.01:
+      var forward:Vector3=beast.get("v405_cleave_facing",Vector3.FORWARD)
+      in_arc=forward.dot(offset.normalized())>=0.5
+     if offset.length()<=hit_radius and in_arc:
       _apply_incoming_damage((13.0 if boss_name.begins_with("Z ") else 9.0)*float(clampi(int(beast.get("boss_phase",1)),1,3)))
    if is_instance_valid(boss_plate):
     if map_time<float(beast.get("v404_tell_until",0.0)):
