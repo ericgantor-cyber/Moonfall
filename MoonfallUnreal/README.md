@@ -59,3 +59,13 @@ Enemy AI now caches navigation waypoints and refreshes paths at most approximate
 ## Windows runtime prerequisites
 
 The Unreal Windows `BuildCookRun` workflow now requests `-prereqs` so the packaged distribution includes Unreal's supported prerequisite redistributable installer when available. This is distinct from bundling the Unreal Editor or integrating GPU-specific DLSS/FSR plugins. Test VC++/DirectX prerequisite installation and launch on a clean Windows 10/11 machine before distribution; some prerequisites may still require installation or elevation. The real Unreal Win64 packaging workflow has not yet been executed successfully.
+
+## Build locally on Windows without a GitHub runner
+
+Install Unreal Engine 5.4, Visual Studio game-development/C++ build tools, .NET 8 SDK and NSIS 3 (with `makensis.exe` on PATH). From the repository root, run PowerShell:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\MoonfallUnreal\Build\Build-Windows.ps1 -UnrealRoot 'C:\Program Files\Epic Games\UE_5.4'
+```
+
+The script fails early if prerequisites are absent, compiles the editor target, runs Unreal Windows packaging with prerequisites, builds the self-contained launcher, runs the launcher file check, and creates `MoonfallUnrealLocalBuild\MoonfallUnreal-Setup.exe`. **No Windows Unreal compile has been run here.** This does not remove the need for UE 5.4 on the build machine, nor replace manual game/installer tests. The finished installer is intended for end users without Unreal Editor.
