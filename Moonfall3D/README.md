@@ -195,3 +195,7 @@ Open Esc / Start > Equipment to choose which acquired weapon or armor to equip u
 ## Greater treasure chests and item variety
 
 Two additional blue-tinted greater chests appear in the dungeon wings. They yield more gold (30-65), more Moon Shards (3-6), and equipment of at least Rare rarity. Standard chests retain their previous loot. Equipment names now distinguish weapon and armor slots, while rarity weights and stat scaling stay intact. The dungeon still has three basic areas; this is a treasure extension, not a newly generated room system. Godot validation and gameplay testing are required.
+
+## Dungeon readability and enemy archetypes
+
+The three existing dungeon regions now include different landmark clusters and region colors, making them easier to recognize without adding modes or changing solid walls. Bruiser, skirmisher and charger placeholder enemies have distinct colors to telegraph their behaviors. These are low-cost primitive meshes, not new handcrafted rooms or final enemy art. Godot validation and gameplay testing remain necessary. Z/Nyra original artwork is preserved and WoW action bars stay removed.
