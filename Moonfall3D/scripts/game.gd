@@ -56,8 +56,13 @@ var binding_index := 0
 var binding_capture := false
 var target_latch := false
 var locked_target: Node3D
-var bindings: Dictionary = {"forward": KEY_W, "back": KEY_S, "left": KEY_A, "right": KEY_D, "dodge": KEY_SPACE, "attack": KEY_1, "spell": KEY_2, "inventory": KEY_B, "interact": KEY_F, "target": KEY_TAB}
-const BIND_ORDER := ["forward", "back", "left", "right", "dodge", "attack", "spell", "inventory", "interact", "target"]
+var jump_velocity := 0.0
+var jump_latch := false
+var slot_cooldowns := [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+const SLOT_KEYS := [KEY_1, KEY_2, KEY_3, KEY_4, KEY_5, KEY_6, KEY_7, KEY_8, KEY_9, KEY_0, KEY_MINUS, KEY_EQUAL]
+var action_bar: Label
+var bindings: Dictionary = {"forward": KEY_W, "back": KEY_S, "left": KEY_A, "right": KEY_D, "jump": KEY_SPACE, "dodge": KEY_Q, "attack": KEY_1, "spell": KEY_2, "inventory": KEY_B, "interact": KEY_F, "target": KEY_TAB}
+const BIND_ORDER := ["forward", "back", "left", "right", "jump", "dodge", "attack", "spell", "inventory", "interact", "target"]
 var selected_item := 0
 var armor := 0.0
 const MAX_INVENTORY := 20
@@ -118,6 +123,10 @@ func _ready() -> void:
     ui.position = Vector2(20, 20)
     ui.add_theme_font_size_override("font_size", 20)
     layer.add_child(ui)
+    action_bar = Label.new()
+    action_bar.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
+    action_bar.position = Vector2(20, 630)
+    layer.add_child(action_bar)
     inventory_panel = Label.new()
     inventory_panel.position = Vector2(20, 65)
     inventory_panel.add_theme_font_size_override("font_size", 18)
@@ -241,6 +250,14 @@ func _process(dt: float) -> void:
             effect.set_meta("life", life)
             effect.scale = Vector3.ONE * (1.0 + (0.3 - life) * 2.0)
     attack_wait = maxf(0.0, attack_wait - dt)
+    for index in range(slot_cooldowns.size()):
+        slot_cooldowns[index] = maxf(0.0, slot_cooldowns[index] - dt)
+    _render_action_bar()
+    var jump_key := _pressed("jump")
+    if jump_key and not jump_latch and player.position.y <= 0.01:
+        jump_velocity = 9.0
+    jump_latch = jump_key
+    jump_velocity -= 25.0 * dt
     dodge_wait = maxf(0.0, dodge_wait - dt)
     dodge_left = maxf(0.0, dodge_left - dt)
     invulnerable = maxf(0.0, invulnerable - dt)
@@ -266,8 +283,11 @@ func _process(dt: float) -> void:
     # Placeholder animation only; replace when original-design character models arrive.
     var placeholder := player.get_node("Placeholder") as MeshInstance3D
     placeholder.position.y = 1.1 + (absf(sin(animation_phase)) * 0.12 if velocity.length() > 0.0 else sin(animation_phase) * 0.025)
-    player.velocity = velocity
+    player.velocity = velocity + Vector3.UP * jump_velocity
     player.move_and_slide()
+    if player.position.y <= 0.0:
+        player.position.y = 0.0
+        jump_velocity = maxf(0.0, jump_velocity)
     # Normal movement turns to travel direction, except while right-drag turning.
     if velocity.length() > 0.0 and not Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT):
         player.rotation.y = atan2(velocity.x, velocity.z)
@@ -295,8 +315,17 @@ func _process(dt: float) -> void:
         target_marker.position = cached_target.position + Vector3.UP * 0.08
     if _pressed("interact"):
         _open_nearby_chest()
-    if (Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) or _pressed("attack") or _pressed("spell")) and attack_wait <= 0.0:
+    if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) and attack_wait <= 0.0:
         _attack()
+    for slot in range(SLOT_KEYS.size()):
+        var key_active := Input.is_key_pressed(SLOT_KEYS[slot])
+        if slot == 0:
+            key_active = key_active or _pressed("attack")
+        elif slot == 1:
+            key_active = key_active or _pressed("spell")
+        if key_active and slot_cooldowns[slot] <= 0.0:
+            _use_action_slot(slot)
+            break
     spawn_wait -= dt
     if spawn_wait <= 0.0 and mobs.size() < MAX_MOBS:
         _spawn(false)
@@ -676,6 +705,11 @@ func _load_bindings() -> void:
     for action in BIND_ORDER:
         if parsed.has(action) and int(parsed[action]) > 0:
             bindings[action] = int(parsed[action])
+    # Migrate saved profiles: Space was dodge; now Space must jump.
+    if not parsed.has("jump") and int(bindings["dodge"]) == KEY_SPACE:
+        bindings["jump"] = KEY_SPACE
+        bindings["dodge"] = KEY_Q
+    _save_bindings()
 
 func _next_target() -> Node3D:
     var candidates: Array[Node3D] = []
@@ -688,3 +722,23 @@ func _next_target() -> Node3D:
         return a.position.distance_to(player.position) < b.position.distance_to(player.position))
     var index := candidates.find(locked_target)
     return candidates[(index + 1) % candidates.size()]
+
+# Twelve visible action slots. Every slot uses the current placeholder attack,
+# with three distinct variants and individual cooldowns. Future abilities can replace these.
+func _use_action_slot(slot: int) -> void:
+    if slot < 0 or slot >= slot_cooldowns.size():
+        return
+    var original_damage := damage
+    damage *= [1.0, 1.35, 0.8][slot % 3]
+    _attack()
+    damage = original_damage
+    slot_cooldowns[slot] = 0.5 + float(slot % 3) * 0.6
+
+func _render_action_bar() -> void:
+    if action_bar == null:
+        return
+    var labels := PackedStringArray()
+    for slot in range(SLOT_KEYS.size()):
+        var key := OS.get_keycode_string(SLOT_KEYS[slot])
+        labels.append("%s:%s" % [key, "READY" if slot_cooldowns[slot] <= 0.0 else "%.1f" % slot_cooldowns[slot]])
+    action_bar.text = "  ".join(labels)
