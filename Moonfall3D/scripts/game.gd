@@ -49,6 +49,9 @@ var equipped: Dictionary = {}
 var inventory_open := false
 var inventory_panel: Label
 var inventory_latch := false
+var equip_latch := false
+var selected_item := 0
+var armor := 0.0
 const MAX_INVENTORY := 20
 const RARITIES := ["Common", "Uncommon", "Rare", "Epic", "Legendary"]
 
@@ -169,6 +172,11 @@ func _process(dt: float) -> void:
         inventory_panel.visible = inventory_open
         _refresh_inventory()
     inventory_latch = inventory_key
+    var equip_key := Input.is_key_pressed(KEY_F)
+    if inventory_open and equip_key and not equip_latch and not inventory.is_empty():
+        selected_item = (selected_item + 1) % inventory.size()
+        _equip_item(selected_item)
+    equip_latch = equip_key
     # Three traversable regions, divided by walls with central doorways.
     var entered_room := _region_for_z(player.position.z)
     if entered_room != room_index:
@@ -283,11 +291,23 @@ func _process(dt: float) -> void:
             mob.position += travel * (1.9 if boss else 2.3) * dt
             mob.position.x = clampf(mob.position.x, -ARENA, ARENA)
             mob.position.z = clampf(mob.position.z, -ARENA, ARENA)
+        var ability_cd: float = maxf(0.0, float(mob.get_meta("ability_cd")) - dt)
+        var actual_distance := mob.position.distance_to(player.position)
+        if ability_cd <= 0.0 and actual_distance < 7.0 and actual_distance > reach:
+            if boss:
+                _spell_effect(player.position, false)
+                if invulnerable <= 0.0:
+                    hp = maxf(0.0, hp - maxf(1.0, 18.0 - armor))
+                    dead = hp <= 0.0
+            elif int(mob.get_meta("kind")) == 1:
+                mob.position -= (player.position - mob.position).normalized() * 2.0
+            ability_cd = 6.0 if boss else 4.0
+        mob.set_meta("ability_cd", ability_cd)
         var hit_cd: float = maxf(0.0, float(mob.get_meta("hit_cd")) - dt)
         # Skirmishers circle at close range; bruisers pursue directly.
         # Damage requires actual proximity, not proximity to the doorway waypoint.
         if mob.position.distance_to(player.position) <= reach + 0.3 and hit_cd <= 0.0 and invulnerable <= 0.0:
-            hp -= 25.0 if boss else 12.0
+            hp -= maxf(1.0, (25.0 if boss else 12.0) - armor)
             hit_cd = 1.1
             if hp <= 0:
                 hp = 0
@@ -327,6 +347,7 @@ func _spawn(boss: bool) -> void:
     mob.set_meta("boss", boss)
     mob.set_meta("kind", randi_range(0, 1))
     mob.set_meta("hit_cd", 0.0)
+    mob.set_meta("ability_cd", randf_range(3.0, 6.0))
     add_child(mob)
     mobs.append(mob)
     if boss:
@@ -538,24 +559,35 @@ func _loot_equipment() -> void:
     var item := {
         "name": ["Worn Blade", "Runed Sword", "Moonsteel Edge", "Astral Fang", "Eclipse Crownblade"][rarity_index],
         "rarity": RARITIES[rarity_index],
-        "power": (rarity_index + 1) * 3
+        "power": (rarity_index + 1) * 3,
+        "slot": "Armor" if randi_range(0, 1) == 0 else "Weapon"
     }
     inventory.append(item)
-    if equipped.is_empty() or int(item["power"]) > int(equipped["power"]):
-        var prior_power := int(equipped.get("power", 0))
-        damage += float(int(item["power"]) - prior_power)
-        equipped = item.duplicate()
+    if item["slot"] == "Weapon" and (equipped.is_empty() or int(item["power"]) > int(equipped.get("power", 0))):
+        _equip_item(inventory.size() - 1)
     _refresh_inventory()
 
 func _refresh_inventory() -> void:
     if inventory_panel == null:
         return
     var lines := PackedStringArray()
-    lines.append("INVENTORY  [I] Close")
+    lines.append("INVENTORY  [I] Close  [F] Equip next")
+    lines.append("Armor: %d" % int(armor))
     if equipped.is_empty():
         lines.append("Equipped: None")
     else:
         lines.append("Equipped: %s (+%d)" % [equipped["name"], equipped["power"]])
     for item in inventory:
-        lines.append("%s  %s  +%d" % [item["rarity"], item["name"], item["power"]])
+        lines.append("%s  %s (%s)  +%d" % [item["rarity"], item["name"], item["slot"], item["power"]])
     inventory_panel.text = "\n".join(lines)
+
+func _equip_item(index: int) -> void:
+    if index < 0 or index >= inventory.size():
+        return
+    var item: Dictionary = inventory[index]
+    if item["slot"] == "Weapon":
+        damage += float(int(item["power"]) - int(equipped.get("power", 0)))
+        equipped = item.duplicate()
+    else:
+        armor = float(item["power"])
+    _refresh_inventory()
