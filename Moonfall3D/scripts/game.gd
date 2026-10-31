@@ -61,6 +61,19 @@ var jump_latch := false
 var slot_cooldowns := [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 const DEFAULT_SLOT_KEYS := [KEY_1, KEY_2, KEY_3, KEY_4, KEY_5, KEY_6, KEY_7, KEY_8, KEY_9, KEY_0, KEY_MINUS, KEY_EQUAL]
 var action_bar: Label
+var spell_menu: Label
+var spell_menu_open := false
+var mana := 100.0
+var max_mana := 100.0
+var left_spell := 0
+var right_spell := 1
+var hand_cooldowns := [0.0, 0.0]
+var spells := [
+    {"name": "Flame", "cost": 16.0, "power": 1.4, "cooldown": 0.8},
+    {"name": "Frost", "cost": 13.0, "power": 1.1, "cooldown": 0.65},
+    {"name": "Arcane", "cost": 22.0, "power": 1.9, "cooldown": 1.2},
+    {"name": "Restoration", "cost": 25.0, "power": 0.0, "cooldown": 2.0}
+]
 var bindings: Dictionary = {"forward": KEY_W, "back": KEY_S, "left": KEY_A, "right": KEY_D, "jump": KEY_SPACE, "dodge": KEY_Q, "inventory": KEY_B, "interact": KEY_F, "target": KEY_TAB}
 var slot_keys: Array[int] = []
 const BIND_ORDER := ["forward", "back", "left", "right", "jump", "dodge", "inventory", "interact", "target", "slot_1", "slot_2", "slot_3", "slot_4", "slot_5", "slot_6", "slot_7", "slot_8", "slot_9", "slot_10", "slot_11", "slot_12"]
@@ -140,6 +153,11 @@ func _ready() -> void:
     action_bar.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
     action_bar.position = Vector2(20, 630)
     layer.add_child(action_bar)
+    spell_menu = Label.new()
+    spell_menu.position = Vector2(450, 95)
+    spell_menu.add_theme_font_size_override("font_size", 20)
+    spell_menu.visible = false
+    layer.add_child(spell_menu)
     inventory_panel = Label.new()
     inventory_panel.position = Vector2(20, 65)
     inventory_panel.add_theme_font_size_override("font_size", 18)
@@ -197,6 +215,23 @@ func _unhandled_input(event: InputEvent) -> void:
             _render_binds()
             get_viewport().set_input_as_handled()
             return
+        if event.keycode == KEY_M and started and not binds_open:
+            spell_menu_open = not spell_menu_open
+            spell_menu.visible = spell_menu_open
+            _render_spell_menu()
+            get_viewport().set_input_as_handled()
+            return
+        if spell_menu_open:
+            if event.keycode >= KEY_1 and event.keycode <= KEY_4:
+                left_spell = event.keycode - KEY_1
+            elif event.keycode >= KEY_5 and event.keycode <= KEY_8:
+                right_spell = event.keycode - KEY_5
+            elif event.keycode == KEY_ESCAPE:
+                spell_menu_open = false
+                spell_menu.visible = false
+            _render_spell_menu()
+            get_viewport().set_input_as_handled()
+            return
         if event.keycode == KEY_F10 and started:
             binds_open = not binds_open
             binds_panel.visible = binds_open
@@ -234,9 +269,18 @@ func _process(dt: float) -> void:
     if dead and Input.is_key_pressed(KEY_R):
         get_tree().reload_current_scene()
         return
-    if not started or dead or binds_open:
+    if not started or dead or binds_open or spell_menu_open:
         return
     clock += dt
+    mana = minf(max_mana, mana + 7.0 * dt)
+    for hand in range(hand_cooldowns.size()):
+        hand_cooldowns[hand] = maxf(0.0, hand_cooldowns[hand] - dt)
+    if Input.is_key_pressed(KEY_Z):
+        _cast_hand(0)
+    if Input.is_key_pressed(KEY_X):
+        _cast_hand(1)
+    if Input.is_key_pressed(KEY_C):
+        _dual_cast()
     var inventory_key := _pressed("inventory")
     if inventory_key and not inventory_latch:
         inventory_open = not inventory_open
@@ -754,11 +798,11 @@ func _next_target() -> Node3D:
 func _use_action_slot(slot: int) -> void:
     if slot < 0 or slot >= slot_cooldowns.size():
         return
-    var original_damage := damage
-    damage *= [1.0, 1.35, 0.8][slot % 3]
-    _attack()
-    damage = original_damage
-    slot_cooldowns[slot] = 0.5 + float(slot % 3) * 0.6
+    if slot % 4 == 3:
+        _cast_spell(3, 1.0)
+    else:
+        _cast_spell(slot % 3, 1.0)
+    slot_cooldowns[slot] = 0.7 + float(slot % 3) * 0.35
 
 func _render_action_bar() -> void:
     if action_bar == null:
@@ -767,7 +811,7 @@ func _render_action_bar() -> void:
     for slot in range(slot_keys.size()):
         var key := OS.get_keycode_string(slot_keys[slot])
         labels.append("%s:%s" % [key, "READY" if slot_cooldowns[slot] <= 0.0 else "%.1f" % slot_cooldowns[slot]])
-    action_bar.text = "  ".join(labels)
+    action_bar.text = "Mana %d/%d | Left [Z] %s | Right [X] %s | Dual [C] | [M] Spells\n%s" % [int(mana), int(max_mana), spells[left_spell]["name"], spells[right_spell]["name"], "  ".join(labels)]
 
 func _key_in_use(key: int, except_action: String) -> bool:
     for action in bindings:
@@ -777,3 +821,61 @@ func _key_in_use(key: int, except_action: String) -> bool:
         if except_action != "slot_%d" % (index + 1) and slot_keys[index] == key:
             return true
     return key == KEY_F10 or key == KEY_ESCAPE
+
+func _render_spell_menu() -> void:
+    if spell_menu == null:
+        return
+    var lines := PackedStringArray(["SPELLS [M] Close", "1-4: assign LEFT hand", "5-8: assign RIGHT hand"])
+    for i in range(spells.size()):
+        lines.append("%d / %d : %s  Mana %d" % [i + 1, i + 5, spells[i]["name"], int(spells[i]["cost"])])
+    lines.append("Left: %s  |  Right: %s" % [spells[left_spell]["name"], spells[right_spell]["name"]])
+    spell_menu.text = "\n".join(lines)
+
+func _cast_hand(hand: int) -> void:
+    if hand_cooldowns[hand] > 0.0:
+        return
+    var index := left_spell if hand == 0 else right_spell
+    if _cast_spell(index, 1.0):
+        hand_cooldowns[hand] = float(spells[index]["cooldown"])
+
+func _dual_cast() -> void:
+    if hand_cooldowns[0] > 0.0 or hand_cooldowns[1] > 0.0:
+        return
+    if left_spell != right_spell:
+        return
+    var index := left_spell
+    if _cast_spell(index, 1.75, 2.0):
+        hand_cooldowns[0] = float(spells[index]["cooldown"]) * 1.5
+        hand_cooldowns[1] = hand_cooldowns[0]
+
+func _cast_spell(index: int, multiplier: float, cost_multiplier: float = 1.0) -> bool:
+    var spell: Dictionary = spells[index]
+    var cost: float = float(spell["cost"]) * cost_multiplier
+    if mana < cost:
+        return false
+    if index == 3:
+        if hp >= max_hp:
+            return false
+        hp = minf(max_hp, hp + 24.0 * multiplier)
+        _spell_effect(player.position, true)
+    else:
+        var target := _select_target()
+        if target == null:
+            return false
+        var dealt := damage * float(spell["power"]) * multiplier
+        # Use the existing kill/XP/loot pipeline rather than bypassing it.
+        var original := damage
+        damage = dealt
+        _attack_target(target)
+        damage = original
+    mana -= cost
+    return true
+
+func _attack_target(target: Node3D) -> void:
+    if target == null or not is_instance_valid(target):
+        return
+    # Delegate through the established attack routine with the selected target lock.
+    var previous := locked_target
+    locked_target = target
+    _attack()
+    locked_target = previous
