@@ -23,6 +23,26 @@ jobs:
           $uproject = (Resolve-Path 'MoonfallUnreal\MoonfallUnreal.uproject').Path
           & $buildTool MoonfallUnrealEditor Win64 Development "-Project=$uproject" -WaitMutex -NoHotReload
           if ($LASTEXITCODE -ne 0) { throw "Unreal compilation failed with exit code $LASTEXITCODE" }
+      - name: Package Windows game using AutomationTool
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $uat = Join-Path $env:UE54_ROOT 'Engine\Build\BatchFiles\RunUAT.bat'
+          if (-not (Test-Path $uat)) { throw "RunUAT.bat not found: $uat" }
+          $uproject = (Resolve-Path 'MoonfallUnreal\MoonfallUnreal.uproject').Path
+          $destination = Join-Path $env:GITHUB_WORKSPACE 'MoonfallUnrealPackaged'
+          & $uat BuildCookRun "-project=$uproject" -noP4 -platform=Win64 -clientconfig=Development -build -cook -stage -pak -archive "-archivedirectory=$destination" -utf8output
+          if ($LASTEXITCODE -ne 0) { throw "Unreal packaging failed: $LASTEXITCODE" }
+          $exe = Get-ChildItem $destination -Recurse -File -Filter 'MoonfallUnreal.exe' | Select-Object -First 1
+          if (-not $exe) { throw 'Packaging finished without MoonfallUnreal.exe' }
+          Write-Host "Packaged executable found: $($exe.FullName)"
+      - name: Upload packaged Windows build
+        uses: actions/upload-artifact@v4
+        with:
+          name: MoonfallUnreal-Windows-Development
+          path: MoonfallUnrealPackaged/
+          if-no-files-found: error
+          retention-days: 7
       - name: Report status
         shell: pwsh
-        run: Write-Host 'Unreal Editor C++ target compiled. No packaged build, gameplay test, or frame generation test was performed.'
+        run: Write-Host 'Unreal project packaged and archived. Gameplay, installer, and frame generation still require verification.'
