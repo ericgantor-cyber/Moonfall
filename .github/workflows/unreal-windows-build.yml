@@ -14,6 +14,8 @@ jobs:
           if (-not $env:UE54_ROOT) { throw 'Set UE54_ROOT on your trusted self-hosted Windows runner (e.g. C:\Program Files\Epic Games\UE_5.4).' }
           $buildTool = Join-Path $env:UE54_ROOT 'Engine\Build\BatchFiles\Build.bat'
           if (-not (Test-Path $buildTool)) { throw "Build.bat not found: $buildTool" }
+          $entryMap = Join-Path $env:UE54_ROOT 'Engine\Content\Maps\Entry.umap'
+          if (-not (Test-Path $entryMap)) { throw "Configured startup map /Engine/Maps/Entry was not found: $entryMap" }
           if (-not (Test-Path 'MoonfallUnreal\MoonfallUnreal.uproject')) { throw 'Missing Unreal project' }
           if (-not (Test-Path 'MoonfallUnreal\Source\MoonfallUnreal.Target.cs')) { throw 'Missing Win64 Game target' }
           if (-not (Test-Path 'MoonfallUnreal\Source\MoonfallUnrealEditor.Target.cs')) { throw 'Missing Win64 Editor target' }
