@@ -76,6 +76,7 @@ var pad_move_deadzone := 0.18
 var pad_look_deadzone := 0.20
 var pad_settings: PanelContainer
 var pad_settings_open := false
+var pad_vibration := false
 var mana := 100.0
 var max_mana := 100.0
 var spell_cursor := 0
@@ -1009,6 +1010,7 @@ func _cast_spell(index: int, multiplier: float, cost_multiplier: float = 1.0) ->
     mana -= cost
     school_cooldowns[index] = float(spell["cooldown"])
     _cast_notice("%s cast" % spell["name"])
+    _rumble_cast()
     return true
 
 func _attack_target(target: Node3D) -> void:
@@ -1143,6 +1145,11 @@ func _build_pad_settings(layer: CanvasLayer) -> void:
     _add_pad_slider(rows, "Movement dead zone", 0.05, 0.55, pad_move_deadzone, 0)
     _add_pad_slider(rows, "Camera dead zone", 0.05, 0.55, pad_look_deadzone, 1)
     _add_pad_slider(rows, "Camera sensitivity", 0.4, 4.5, pad_camera_speed, 2)
+    var rumble := CheckButton.new()
+    rumble.text = "Controller vibration (off by default)"
+    rumble.button_pressed = pad_vibration
+    rumble.toggled.connect(_pad_rumble_changed)
+    rows.add_child(rumble)
 
 func _add_pad_slider(rows: VBoxContainer, title: String, minimum: float, maximum: float, initial: float, setting: int) -> void:
     var label := Label.new()
@@ -1166,3 +1173,16 @@ func _pad_setting_changed(value: float, setting: int, label: Label, title: Strin
         2:
             pad_camera_speed = value
     label.text = "%s: %.2f" % [title, value]
+
+func _pad_rumble_changed(enabled: bool) -> void:
+    pad_vibration = enabled
+    if not enabled:
+        for pad_id in Input.get_connected_joypads():
+            Input.stop_joy_vibration(pad_id)
+
+func _rumble_cast() -> void:
+    if not pad_vibration:
+        return
+    var pads := Input.get_connected_joypads()
+    if not pads.is_empty():
+        Input.start_joy_vibration(pads[0], 0.18, 0.3, 0.12)
