@@ -13,6 +13,8 @@ public:
  virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
  UFUNCTION(BlueprintCallable, Category="Moonfall|Combat") void ApplyMoonfallDamage(float Amount);
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Combat") void OnHealthChanged(float NewHealth, float MaxHealth);
+ UPROPERTY(BlueprintReadOnly, Category="Moonfall|Options") bool bOptionsOpen = false;
+ UPROPERTY(BlueprintReadOnly, Category="Moonfall|Options") int32 OptionsSelection = 0;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Combat") float Mana = 100.f;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Combat") float MaxMana = 100.f;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Combat") float Health = 100.f;
@@ -31,6 +33,12 @@ private:
  void CastRight();
  void CastBoth();
  void Dodge();
+ void OpenOptions();
+ void OptionsUp();
+ void OptionsDown();
+ void OptionsLeft();
+ void OptionsRight();
+ void AdjustOption(int32 Direction);
  void CycleGraphicsQuality();
  void ToggleDisplayMode();
  bool TryCast(int32 School, int32 Hand, float Multiplier);
