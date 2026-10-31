@@ -127,3 +127,7 @@ The spellbook's selected spell preview has a subtle rotating symbol sequence eve
 ## Dual-hand casting visuals
 
 Successful Z/X spells now emit independent left- or right-side elemental glows; matching-spell C dual casting emits both. Cast effects are short lived and have a 65-active-visual cap to guard against effect buildup. These are lightweight geometric spell effects attached to neither original hero art nor custom 3D hand rigs. No WoW action bars are restored. A running Godot build and gameplay frame-rate test are still needed.
+
+## Hand casting arc animation
+
+Each temporary left/right casting glow follows its respective side of the character and rises in a short arc over the 0.25-second effect lifetime. Effects continue to use the existing capped VFX pool; no additional art assets, WoW action bars, or hero redesigns. This is a procedural spell animation, **not** skeletal hand animation. Godot runtime verification required.
