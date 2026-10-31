@@ -50,6 +50,11 @@ jobs:
         run: |
           set -euo pipefail
           timeout 30s godot --headless --path Moonfall3D --quit-after 20
+      - name: Test hero selection, spellbook, dual hands, and cooldowns
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 40s godot --headless --path Moonfall3D --script res://tests/smoke_test.gd
       - name: Export Windows x86_64 executable
         shell: bash
         run: |

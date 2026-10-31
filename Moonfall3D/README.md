@@ -135,3 +135,7 @@ Each temporary left/right casting glow follows its respective side of the charac
 ## Elemental impact silhouettes
 
 The six magic schools now have slightly different impact-orb proportions in addition to their existing colors. These are lightweight meshes rather than particle simulations. The VFX cap and original artwork remain unchanged; no WoW action bars are reintroduced. Requires Godot build and gameplay verification.
+
+## Headless gameplay smoke-test gate
+
+GitHub Actions now runs `Moonfall3D/tests/smoke_test.gd` before exporting Windows builds. It checks default Space/Q bindings, absence of WoW action-bar slot bindings, hero selection, spellbook construction, independent hand equip, Restoration healing/mana cost, and school cooldown enforcement. A failing test blocks the installer build. These are automated smoke checks, **not** a substitute for mouse/keyboard, visual, performance, or Windows 10/11 testing.
