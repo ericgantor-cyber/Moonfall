@@ -35,6 +35,11 @@ const V387_STAMINA_REGEN_DELAY:float=0.65
 const V391_HEAVY_STAMINA_COST:float=32.0
 const V391_HEAVY_DAMAGE_MULTIPLIER:float=1.65
 var v391_heavy_attack_active:bool=false
+const V392_PARRY_WINDOW:float=0.22
+const V392_BLOCK_STAMINA_COST:float=12.0
+const V392_PARRY_STAMINA_COST:float=18.0
+var v392_guard_started:float=-999.0
+
 var v390_valid_attacks:int=0
 var v390_blocked_attacks:int=0
 
@@ -217,6 +222,30 @@ func _v384_build_vitals()->void:
   v384_vitals_panel.visible=false
   plain_vitals.name="V384_BackupVitals"
 
+
+func _unhandled_input(event:InputEvent)->void:
+ if event is InputEventMouseButton and event.button_index==MOUSE_BUTTON_RIGHT and event.pressed and hero_playing and not menu_open and not death_active:
+  v392_guard_started=map_time
+  get_viewport().set_input_as_handled()
+  return
+ super._unhandled_input(event)
+
+func _apply_incoming_damage(raw:float)->void:
+ if not hero_playing or menu_open or death_active or mounted or not Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT):
+  super._apply_incoming_damage(raw)
+  return
+ var parry:bool=map_time-v392_guard_started<=V392_PARRY_WINDOW
+ var cost:float=V392_PARRY_STAMINA_COST if parry else V392_BLOCK_STAMINA_COST
+ if v387_stamina<cost:
+  super._apply_incoming_damage(raw)
+  return
+ v387_stamina-=cost
+ v387_stamina_regen_wait=V387_STAMINA_REGEN_DELAY
+ if parry:
+  _show_message("PARRY! Attack now!",0.8)
+ else:
+  _show_message("Blocked!",0.5)
+  super._apply_incoming_damage(raw*0.35)
 
 func _apply_player_hit(target:Dictionary,base_damage:float,stagger_strength:float=0.0)->void:
  # Reuse the existing stagger timer and hit visuals; do not create new AI state.

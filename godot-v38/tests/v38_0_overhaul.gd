@@ -74,6 +74,8 @@ func _run()->void:
  var dodge_code:String=orb_source.substr(orb_source.find("func _dodge()->void:"),orb_source.find("func _start_game(")-orb_source.find("func _dodge()->void:"))
  check(dodge_code.find("if not hero_playing or menu_open or death_active:return")<dodge_code.find("if v387_stamina<V387_DODGE_COST:"),"dodge state guarded before insufficient stamina warning")
  check("combat_valid_attack_inputs" in orb_source and "combat_blocked_attack_inputs" in orb_source,"combat input counts included in diagnostics")
+ check("func _apply_incoming_damage(raw:float)->void:" in orb_source and "V392_PARRY_WINDOW" in orb_source,"guard and timed parry intercept incoming damage")
+ check("MOUSE_BUTTON_RIGHT" in orb_source and "raw*0.35" in orb_source,"right mouse guard mitigates incoming damage")
  check("Input.is_key_pressed(KEY_SHIFT)" in orb_source and "V391_HEAVY_DAMAGE_MULTIPLIER" in orb_source,"Shift heavy strike uses same combat damage pipeline")
  check("V391_HEAVY_STAMINA_COST" in orb_source and "v387_stamina_regen_wait=V387_STAMINA_REGEN_DELAY" in orb_source,"heavy melee strike spends stamina and delays regeneration")
  check("v391_heavy_attack_active=false" in orb_source,"heavy attack state resets after inherited hit processing")
