@@ -260,7 +260,7 @@ func _v398_refresh_tree()->void:
  var level_now:int=maxi(1,int(level))
  var points:int=CELESTIAL_TALENTS.points_for_level(level_now)-CELESTIAL_TALENTS.points_spent(v398_ranks)
  var heading:Label=Label.new()
- heading.text="CELESTIAL TALENTS  |  Points: "+str(points)+"  |  T to close"
+ heading.text="CELESTIAL TALENTS  |  Points: "+str(points)+"  |  K to close"
  v398_tree_list.add_child(heading)
  for branch in CELESTIAL_TALENTS.BRANCHES:
   var section:Label=Label.new()
@@ -286,7 +286,7 @@ func _v398_toggle_tree()->void:
  if v398_panel.visible:_v398_refresh_tree()
 
 func _unhandled_input(event:InputEvent)->void:
- if event is InputEventKey and event.pressed and not event.echo and event.keycode==KEY_T:
+ if event is InputEventKey and event.pressed and not event.echo and event.keycode==KEY_K:
   _v398_toggle_tree()
   get_viewport().set_input_as_handled()
   return
