@@ -22,6 +22,8 @@ jobs:
           mkdir -p /tmp/moonfall-installer-fixture/Engine /tmp/moonfall-installer-fixture/MoonfallUnreal
           printf 'fixture only, not a Windows executable\n' > /tmp/moonfall-installer-fixture/MoonfallUnreal.exe
           printf 'package data fixture\n' > /tmp/moonfall-installer-fixture/Engine/test.txt
+          printf 'launcher fixture, not executable\n' > /tmp/moonfall-installer-fixture/MoonfallLauncher.exe
+          printf 'content fixture\n' > /tmp/moonfall-installer-fixture/MoonfallUnreal/test.pak
           makensis -V2 -DSOURCE_DIR=/tmp/moonfall-installer-fixture -DOUTPUT_EXE=/tmp/MoonfallUnreal-ScriptTest.exe MoonfallUnreal/Installer/MoonfallUnreal.nsi
           test -s /tmp/MoonfallUnreal-ScriptTest.exe
           echo 'NSIS script syntax and fixture compilation passed. This is NOT a playable game or verified Windows installer.'
