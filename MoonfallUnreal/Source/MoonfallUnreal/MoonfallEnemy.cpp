@@ -56,7 +56,10 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   } else if (WindupEndsAt < 0.f && Now >= NextAttackAt) {
    WindupEndsAt = Now + 0.5f;
   }
-  if (WindupEndsAt > 0.f) DrawDebugSphere(GetWorld(), GetActorLocation(), AttackRange, 16, FColor::Red, false, 0.12f);
+  if (WindupEndsAt > 0.f) {
+   DrawDebugSphere(GetWorld(), GetActorLocation(), AttackRange, 16, FColor::Red, false, 0.12f);
+   DrawDebugString(GetWorld(), GetActorLocation() + FVector(0.f,0.f,160.f), TEXT("ATTACK"), nullptr, FColor::Red, 0.12f, false);
+  }
  } else {
   WindupEndsAt = -1.f;
  }
