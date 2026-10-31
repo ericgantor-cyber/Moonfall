@@ -107,6 +107,7 @@ var bindings: Dictionary = {"forward": KEY_W, "back": KEY_S, "left": KEY_A, "rig
 const BIND_ORDER := ["forward", "back", "left", "right", "jump", "dodge", "inventory", "interact", "target"]
 var selected_item := 0
 var armor := 0.0
+var equipped_armor: Dictionary = {}
 const MAX_INVENTORY := 20
 const RARITIES := ["Common", "Uncommon", "Rare", "Epic", "Legendary"]
 
@@ -905,6 +906,7 @@ func _refresh_inventory() -> void:
     var lines := PackedStringArray()
     lines.append("INVENTORY  [B] Close  [G] Equip next")
     lines.append("Armor: %d | Gold: %d | Shards: %d | Level: %d" % [int(armor), gold, moon_shards, level])
+    lines.append("Equipped armor: %s" % str(equipped_armor.get("name", "None")))
     lines.append("CRAFT [H] Vitality (+10 max HP): 50 gold + 3 shards")
     lines.append("CRAFT [J] Focus (+10 max mana): 50 gold + 3 shards")
     if equipped.is_empty():
@@ -923,6 +925,7 @@ func _equip_item(index: int) -> void:
         damage += float(int(item["power"]) - int(equipped.get("power", 0)))
         equipped = item.duplicate()
     else:
+        equipped_armor = item.duplicate()
         armor = float(item["power"])
     _refresh_inventory()
 
@@ -1429,6 +1432,12 @@ func _build_crafting_menu(layer: CanvasLayer) -> void:
     forge.focus_mode = Control.FOCUS_ALL
     forge.pressed.connect(_forge_weapon)
     rows.add_child(forge)
+    var forge_armor := Button.new()
+    forge_armor.text = "Forge equipped armor: +2 armor | 70 Gold + 4 Shards"
+    forge_armor.custom_minimum_size.y = 62
+    forge_armor.focus_mode = Control.FOCUS_ALL
+    forge_armor.pressed.connect(_forge_armor)
+    rows.add_child(forge_armor)
     var back := Button.new()
     back.text = "Back to Options"
     back.custom_minimum_size.y = 58
@@ -1455,5 +1464,24 @@ func _forge_weapon() -> void:
             inventory[i]["power"] = equipped["power"]
             break
     _cast_notice("Weapon forged: +3 damage")
+    _refresh_inventory()
+    _refresh_crafting()
+
+func _forge_armor() -> void:
+    if equipped_armor.is_empty():
+        _cast_notice("Equip armor before forging")
+        return
+    if gold < 70 or moon_shards < 4:
+        _cast_notice("Armor forging needs 70 gold and 4 Moon Shards")
+        return
+    gold -= 70
+    moon_shards -= 4
+    equipped_armor["power"] = int(equipped_armor["power"]) + 2
+    armor = float(equipped_armor["power"])
+    for i in range(inventory.size()):
+        if inventory[i].get("slot", "") == "Armor" and inventory[i].get("name", "") == equipped_armor["name"]:
+            inventory[i]["power"] = equipped_armor["power"]
+            break
+    _cast_notice("Armor forged: +2 armor")
     _refresh_inventory()
     _refresh_crafting()
