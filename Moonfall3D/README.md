@@ -211,3 +211,7 @@ Chest meshes now include metal bands and color-coded glowing clasps; dungeon mon
 ## Arcane atmosphere pass
 
 Added four glowing rune rings to each existing dungeon region, colored to match its palette. Spell impacts now optionally add a contrasting glowing ring, respecting the 65-active-effect budget. These are lightweight built-in Godot meshes, not final authored textures or effects. Z and Nyra's original art remains unchanged. Godot CI and in-game visual/performance validation required.
+
+## Moonlit lighting and boss crowns
+
+WorldEnvironment now uses a dark violet background and purple ambient lighting, with a softened lavender directional light. Bosses gain a lightweight luminous crown ring above the existing horns. These are actual game-scene geometry and lighting adjustments, but not final character rigs or external artwork. Preserve the supplied original Z and Nyra artwork and no WoW bars. Verify readability and performance on Windows.
