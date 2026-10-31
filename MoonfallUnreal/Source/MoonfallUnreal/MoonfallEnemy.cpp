@@ -40,7 +40,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
  }
  if (Staggered) return;
  AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0));
- if (!IsValid(Hero) || Hero->Health <= 0.f) return;
+ if (!IsValid(Hero) || Hero->Health <= 0.f || Hero->bOptionsOpen) return;
  FVector Difference = Hero->GetActorLocation() - GetActorLocation();
  Difference.Z = 0.f;
  const float Distance = Difference.Size();
