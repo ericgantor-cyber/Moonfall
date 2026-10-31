@@ -191,3 +191,7 @@ The existing Esc/Start > Crafting menu now offers +2 equipped-armor forging for 
 ## Equipment selection menu
 
 Open Esc / Start > Equipment to choose which acquired weapon or armor to equip using focusable buttons. The list scrolls for larger inventories and retains a Back to Options control. Keyboard and mouse also work. The existing stat delta logic applies when swapping weapons. Controller hardware navigation and menu presentation still need real gameplay testing.
+
+## Greater treasure chests and item variety
+
+Two additional blue-tinted greater chests appear in the dungeon wings. They yield more gold (30-65), more Moon Shards (3-6), and equipment of at least Rare rarity. Standard chests retain their previous loot. Equipment names now distinguish weapon and armor slots, while rarity weights and stat scaling stay intact. The dungeon still has three basic areas; this is a treasure extension, not a newly generated room system. Godot validation and gameplay testing are required.
