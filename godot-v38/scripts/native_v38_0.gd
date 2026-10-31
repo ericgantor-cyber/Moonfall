@@ -13,6 +13,7 @@ var v399_origin:OptionButton
 var v399_style:OptionButton
 var v399_hero:String="z"
 var v399_identity:Dictionary={}
+var v400_adventurer_sprite:Sprite3D
 
 const V383_BENCHMARK:=preload("res://scripts/systems/combat_benchmark_v383.gd")
 const V384_RINGS:=preload("res://scripts/systems/vitals_rings_v384.gd")
@@ -92,8 +93,15 @@ func _v400_apply_adventurer_look()->void:
  for y in range(39,47):
   for x in range(8,14):art.set_pixel(x,y,Color(0.14,0.20,0.30))
   for x in range(18,24):art.set_pixel(x,y,Color(0.14,0.20,0.30))
- hero_sprite.texture=ImageTexture.create_from_image(art)
- hero_sprite.pixel_size=2.65/48.0
+ if not is_instance_valid(v400_adventurer_sprite):
+  v400_adventurer_sprite=Sprite3D.new()
+  v400_adventurer_sprite.name="CustomAdventurerAppearance"
+  hero_sprite.get_parent().add_child(v400_adventurer_sprite)
+  v400_adventurer_sprite.position=hero_sprite.position
+  v400_adventurer_sprite.billboard=BaseMaterial3D.BILLBOARD_ENABLED
+ v400_adventurer_sprite.set_texture(ImageTexture.create_from_image(art))
+ v400_adventurer_sprite.pixel_size=2.65/48.0
+ hero_sprite.visible=false
 
 func _v399_open_creator(selected:String)->void:
  v399_hero="adventurer"
