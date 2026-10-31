@@ -205,14 +205,29 @@ internal sealed class LaunchWindow : Form
                 status.Text = $"Downloading update: {percentage}% ({bytes / (1024.0 * 1024.0):F1} MiB)";
             });
             var installer = await MoonfallUpdates.DownloadVerifiedAsync(available, progress, downloadCancellation.Token);
+            downloadCancellation.Token.ThrowIfCancellationRequested();
             if (!IsDisposed) status.Text = "Update verified. Ready to install.";
-            if (IsDisposed) return;
+            if (IsDisposed) { File.Delete(installer); return; }
             var install = MessageBox.Show(this,
                 "Update downloaded and SHA-256 verified. Close Moonfall before running setup. Start the installer now?",
                 "Install Moonfall Update", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
-            if (install != DialogResult.Yes) return;
-            Process.Start(new ProcessStartInfo(installer) { UseShellExecute = true });
-            Close();
+            if (install != DialogResult.Yes)
+            {
+                File.Delete(installer);
+                return;
+            }
+            downloadCancellation.Token.ThrowIfCancellationRequested();
+            try
+            {
+                var process = Process.Start(new ProcessStartInfo(installer) { UseShellExecute = true });
+                if (process is null) throw new InvalidOperationException("Windows did not start setup.");
+                Close();
+            }
+            catch
+            {
+                File.Delete(installer);
+                throw;
+            }
         }
         catch (OperationCanceledException)
         {
