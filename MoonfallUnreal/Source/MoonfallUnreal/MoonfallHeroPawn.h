@@ -11,6 +11,7 @@ class MOONFALLUNREAL_API AMoonfallHeroPawn : public ACharacter
 public:
  AMoonfallHeroPawn();
  virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
+ virtual void BeginPlay() override;
  UFUNCTION(BlueprintCallable, Category="Moonfall|Combat") void ApplyMoonfallDamage(float Amount);
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Combat") void OnHealthChanged(float NewHealth, float MaxHealth);
  UPROPERTY(BlueprintReadOnly, Category="Moonfall|Options") bool bOptionsOpen = false;
