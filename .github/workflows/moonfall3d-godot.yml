@@ -63,3 +63,31 @@ jobs:
           name: Moonfall3D-Windows-experimental
           path: dist/Moonfall3D.exe
           if-no-files-found: error
+
+  windows-installer:
+    needs: validate-and-export
+    runs-on: windows-2022
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download validated Windows game
+        uses: actions/download-artifact@v4
+        with:
+          name: Moonfall3D-Windows-experimental
+          path: dist
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup --yes --no-progress
+      - name: Compile installer
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path installer-output | Out-Null
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "Moonfall3D\windows-installer.iss"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if (!(Test-Path "installer-output\Moonfall3D-Setup.exe")) { throw "Installer missing" }
+      - name: Upload Windows installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: Moonfall3D-Windows-Installer-experimental
+          path: installer-output/Moonfall3D-Setup.exe
+          if-no-files-found: error

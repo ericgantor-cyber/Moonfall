@@ -91,3 +91,7 @@ Adds solid-wall line-of-sight checks for basic enemy melee and auto-target acqui
 ## GitHub automated Godot checks and experimental Windows build
 
 Workflow `.github/workflows/moonfall3d-godot.yml` downloads Godot 4.3 and export templates, imports the Godot project, runs a short headless scene check and exports a Windows x86_64 executable. An `Moonfall3D-Windows-experimental` artifact is uploaded only if earlier stages succeed. Runs on Moonfall3D or workflow changes, and manually via Actions. This is a portable executable artifact, **not an installer** and has not yet passed CI or been tested on Windows. The original browser game and hero art are unaffected.
+
+## Experimental Windows installer
+
+After the Godot validation/export job succeeds, the Windows CI job runs Inno Setup and uploads `Moonfall3D-Windows-Installer-experimental`. The setup installs the game, adds a Start Menu shortcut, and offers an optional desktop shortcut plus launch-on-finish. Requires an actual successful Actions run and Windows 10/11 playtesting before release. This prototype installer does not contain original 3D Z/Nyra models, only existing temporary placeholders.
