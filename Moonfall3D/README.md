@@ -179,3 +179,7 @@ Regular enemies have a 40% chance to grant one Moon Shard on defeat, while bosse
 ## Controller-friendly crafting menu
 
 Open **Esc / Start > Crafting** to view your materials and craft Vitality or Focus through large focusable buttons. This uses the existing 50 gold + three shards recipes, not a new progression mode. A Back to Options button and Esc / Start navigation return to the unified options menu. Button focus allows standard Godot UI controller navigation, though physical controller verification remains necessary. Existing inventory H/J shortcuts remain available.
+
+## Dungeon chest and forging upgrade
+
+Dungeon chests now grant one to three Moon Shards along with gold and equipment. The existing Esc/Start > Crafting menu adds **Forge equipped weapon** for 80 gold and five shards, improving the currently equipped weapon by three damage. Forging requires an equipped weapon and enough resources. Automated smoke tests cover success and insufficient resources. Godot and controller gameplay verification remain required.
