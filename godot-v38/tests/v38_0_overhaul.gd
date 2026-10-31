@@ -16,6 +16,9 @@ func _run()->void:
  check("CRITICAL AIR" in R.threat_status(5.0,true,true,10.0,100.0),"oxygen emergency prioritized")
  check("COMBAT" in R.threat_status(100.0,false,true,90.0,100.0),"combat warning")
  check("LOW HEALTH" in R.threat_status(100.0,false,false,25.0,100.0),"low health warning")
+ var talent_scene:GDScript=load("res://scripts/native_v38_0.gd") as GDScript
+ check(talent_scene!=null and "func _v398_build_tree()" in talent_scene.source_code and "func _v398_unlock(id:String)" in talent_scene.source_code,"celestial talent screen and button unlocking wired")
+ check(talent_scene!=null and "event.keycode==KEY_K" in talent_scene.source_code,"K opens tree without replacing T tame control")
  var talent_rules=load("res://scripts/systems/celestial_talents_v398.gd")
  check(talent_rules!=null and talent_rules.TALENTS.size()==14,"celestial talent catalog has six branches and two signature talents")
  check(talent_rules.points_for_level(1)==0 and talent_rules.points_for_level(5)==8,"talent points accrue at two per level")

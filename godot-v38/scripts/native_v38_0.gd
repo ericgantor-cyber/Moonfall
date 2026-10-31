@@ -2,6 +2,10 @@ extends "res://scripts/native_v37_7.gd"
 ## v38 practical overhaul: on-demand concise status and ocean safety feedback,
 ## leaving the combat/loot/world/save systems untouched and inheritance intact.
 const V380_RULES:=preload("res://scripts/systems/overhaul_v380.gd")
+const CELESTIAL_TALENTS:=preload("res://scripts/systems/celestial_talents_v398.gd")
+var v398_panel:PanelContainer
+var v398_tree_list:VBoxContainer
+var v398_ranks:Dictionary={}
 const V383_BENCHMARK:=preload("res://scripts/systems/combat_benchmark_v383.gd")
 const V384_RINGS:=preload("res://scripts/systems/vitals_rings_v384.gd")
 var v380_status_enabled:bool=false
@@ -57,6 +61,7 @@ func _ready()->void:
  super._ready()
  _v380_build_status_panel()
  _v384_build_vitals()
+ _v398_build_tree()
 
 func _build_ui()->void:
  super._build_ui()
@@ -233,7 +238,58 @@ func _v384_build_vitals()->void:
   plain_vitals.name="V384_BackupVitals"
 
 
+func _v398_build_tree()->void:
+ var layer:CanvasLayer=get_node_or_null("NativeAtlasUI") as CanvasLayer
+ if not is_instance_valid(layer):return
+ v398_panel=PanelContainer.new()
+ v398_panel.name="CelestialTalentTree"
+ v398_panel.set_anchors_preset(Control.PRESET_CENTER)
+ v398_panel.custom_minimum_size=Vector2(490,550)
+ v398_panel.position=Vector2(-245,-275)
+ layer.add_child(v398_panel)
+ var scroller:ScrollContainer=ScrollContainer.new()
+ v398_panel.add_child(scroller)
+ v398_tree_list=VBoxContainer.new()
+ v398_tree_list.custom_minimum_size=Vector2(465,0)
+ scroller.add_child(v398_tree_list)
+ v398_panel.visible=false
+
+func _v398_refresh_tree()->void:
+ if not is_instance_valid(v398_tree_list):return
+ for child in v398_tree_list.get_children():child.queue_free()
+ var level_now:int=maxi(1,int(hero_level))
+ var points:int=CELESTIAL_TALENTS.points_for_level(level_now)-CELESTIAL_TALENTS.points_spent(v398_ranks)
+ var heading:Label=Label.new()
+ heading.text="CELESTIAL TALENTS  |  Points: "+str(points)+"  |  K to close"
+ v398_tree_list.add_child(heading)
+ for branch in CELESTIAL_TALENTS.BRANCHES:
+  var section:Label=Label.new()
+  section.text=str(branch).to_upper()
+  v398_tree_list.add_child(section)
+  for id in CELESTIAL_TALENTS.TALENTS:
+   var info:Dictionary=CELESTIAL_TALENTS.TALENTS[id]
+   if str(info["branch"])!=str(branch):continue
+   if info.has("hero") and str(info["hero"])!=str(hero):continue
+   var talent_button:Button=Button.new()
+   talent_button.text=str(id).replace("_"," ").capitalize()+"  "+str(v398_ranks.get(id,0))+"/"+str(info["max_rank"])
+   talent_button.disabled=not CELESTIAL_TALENTS.can_unlock(str(hero),level_now,v398_ranks,str(id))
+   talent_button.pressed.connect(_v398_unlock.bind(str(id)))
+   v398_tree_list.add_child(talent_button)
+
+func _v398_unlock(id:String)->void:
+ v398_ranks=CELESTIAL_TALENTS.unlock(str(hero),maxi(1,int(hero_level)),v398_ranks,id)
+ _v398_refresh_tree()
+
+func _v398_toggle_tree()->void:
+ if not hero_playing or death_active or menu_open or not is_instance_valid(v398_panel):return
+ v398_panel.visible=not v398_panel.visible
+ if v398_panel.visible:_v398_refresh_tree()
+
 func _unhandled_input(event:InputEvent)->void:
+ if event is InputEventKey and event.pressed and not event.echo and event.keycode==KEY_K:
+  _v398_toggle_tree()
+  get_viewport().set_input_as_handled()
+  return
  if event is InputEventKey and event.pressed and not event.echo and hero_playing and not menu_open and not death_active:
   if event.keycode in [KEY_UP,KEY_RIGHT,KEY_DOWN,KEY_LEFT]:
    v394_strike_direction=[KEY_UP,KEY_RIGHT,KEY_DOWN,KEY_LEFT].find(event.keycode)
