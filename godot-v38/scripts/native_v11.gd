@@ -1996,8 +1996,11 @@ func _spell(which: String) -> void:
 
 func _jump() -> void:
  if not hero_playing or menu_open or mounted or not is_instance_valid(player):return
- if not player.is_on_floor():return
- player.velocity.y=8.0
+ jump_buffer_remaining=JUMP_BUFFER_SECONDS
+ if player.is_on_floor() or jump_coyote_remaining>0.0:
+  player.velocity.y=8.0
+  jump_buffer_remaining=0.0
+  jump_coyote_remaining=0.0
 
 func _dodge() -> void:
  if mounted:_show_message("No dodging on a mount.",1);return
