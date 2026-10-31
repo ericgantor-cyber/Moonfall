@@ -44,12 +44,20 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          godot --headless --path Moonfall3D --editor --import --quit
+          godot --headless --path Moonfall3D --editor --import --quit 2>&1 | tee /tmp/moonfall-import.log
+          if grep -Eq 'SCRIPT ERROR|Parse Error|Failed to load script' /tmp/moonfall-import.log; then
+            echo "Godot import reported script errors"
+            exit 1
+          fi
       - name: Validate main scene and script
         shell: bash
         run: |
           set -euo pipefail
-          timeout 30s godot --headless --path Moonfall3D --quit-after 20
+          timeout 30s godot --headless --path Moonfall3D --quit-after 20 2>&1 | tee /tmp/moonfall-start.log
+          if grep -Eq 'SCRIPT ERROR|Parse Error|Failed to load script' /tmp/moonfall-start.log; then
+            echo "Godot startup reported script errors"
+            exit 1
+          fi
       - name: Test hero selection, spellbook, dual hands, and cooldowns
         shell: bash
         run: |

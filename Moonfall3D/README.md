@@ -151,3 +151,7 @@ Press **F9** to open a graphical controller settings panel. It provides sliders 
 ## Unified Options menu
 
 Press **Esc** on the keyboard or **Start/Menu** on a connected Xbox-style controller to open the centralized Options menu. Choose Resume, Spellbook, Inventory, Keybindings, or Controller Settings using the focusable buttons. Esc or Start closes the main menu; Esc while in a submenu returns to the main Options menu; Start from a submenu opens the main menu. Gameplay pauses while Options, the spellbook, controller settings, keybindings, or inventory are open. Older direct shortcuts may still open their own panels, but Esc/Start is the universal entry point. No WoW action bars are added. Z and Nyra's original artwork remains untouched. Requires build and controller playtesting.
+
+## Full-game overhaul, stabilization phase
+
+October 2026 stability pass: identified a failing Godot CI run where six GDScript type inference parse errors prevented the main game script from loading and made the smoke test time out. Explicit types were added to navigation, distance, room tint and spell description values. CI now checks Godot import and startup output for script errors, failing early instead of allowing misleading green steps. This is **phase 1** of a larger full-game overhaul, not a claim that gameplay/graphics/Windows controller testing is complete. Keep Esc/Start options, Skyrim hand casting, third-person camera, Space jump, Q dodge, original Z and Nyra art, and no WoW action bars.
