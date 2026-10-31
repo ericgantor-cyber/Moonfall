@@ -455,18 +455,32 @@ func _start_game(selected_hero:String)->void:
  v385_mana=V385_MAX_MANA
  v387_stamina=V387_MAX_STAMINA
  v387_stamina_regen_wait=0.0
+ v398_ranks={}
+ if is_instance_valid(v398_panel):v398_panel.visible=false
 
 func _checkpoint_extra_data()->Dictionary:
- return {"mana":clampf(v385_mana,0.0,V385_MAX_MANA),"stamina":clampf(v387_stamina,0.0,V387_MAX_STAMINA)}
+ return {"mana":clampf(v385_mana,0.0,V385_MAX_MANA),"stamina":clampf(v387_stamina,0.0,V387_MAX_STAMINA),"celestial_ranks":v398_ranks.duplicate(true)}
 
 func _restore_data(data:Dictionary)->void:
  super._restore_data(data)
  v387_stamina_regen_wait=0.0
+ v398_ranks={}
  var resources:Variant=data.get("optional_resources",{})
- # Legacy checkpoints without a mana field continue to load at full mana.
  if resources is Dictionary:
   v385_mana=clampf(float(resources.get("mana",V385_MAX_MANA)),0.0,V385_MAX_MANA)
   v387_stamina=clampf(float(resources.get("stamina",V387_MAX_STAMINA)),0.0,V387_MAX_STAMINA)
+  var saved_ranks:Variant=resources.get("celestial_ranks",{})
+  if saved_ranks is Dictionary:
+   # Reconstruct only legal unlocks, respecting level, prerequisites, and hero choice.
+   for pass_index in range(CELESTIAL_TALENTS.TALENTS.size()):
+    var made_progress:bool=false
+    for id in saved_ranks:
+     if not CELESTIAL_TALENTS.TALENTS.has(id):continue
+     if int(v398_ranks.get(id,0))>=int(saved_ranks[id]):continue
+     if CELESTIAL_TALENTS.can_unlock(str(hero),maxi(1,hero_level),v398_ranks,str(id)):
+      v398_ranks=CELESTIAL_TALENTS.unlock(str(hero),maxi(1,hero_level),v398_ranks,str(id))
+      made_progress=true
+    if not made_progress:break
  else:
   v385_mana=V385_MAX_MANA
   v387_stamina=V387_MAX_STAMINA

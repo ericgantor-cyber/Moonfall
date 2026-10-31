@@ -19,6 +19,9 @@ func _run()->void:
  var talent_scene:GDScript=load("res://scripts/native_v38_0.gd") as GDScript
  check(talent_scene!=null and "func _v398_build_tree()" in talent_scene.source_code and "func _v398_unlock(id:String)" in talent_scene.source_code,"celestial talent screen and button unlocking wired")
  check(talent_scene!=null and "event.keycode==KEY_K" in talent_scene.source_code,"K opens tree without replacing T tame control")
+ check(talent_scene!=null and "\"celestial_ranks\":v398_ranks.duplicate(true)" in talent_scene.source_code,"checkpoint includes celestial talent ranks")
+ check(talent_scene!=null and "resources.get(\"celestial_ranks\",{})" in talent_scene.source_code,"legacy checkpoint remains compatible with missing ranks")
+ check(talent_scene!=null and "CELESTIAL_TALENTS.can_unlock" in talent_scene.source_code,"loaded talents validated against hero prerequisites and point budget")
  var talent_rules=load("res://scripts/systems/celestial_talents_v398.gd")
  check(talent_rules!=null and talent_rules.TALENTS.size()==14,"celestial talent catalog has six branches and two signature talents")
  check(talent_rules.points_for_level(1)==0 and talent_rules.points_for_level(5)==8,"talent points accrue at two per level")
