@@ -71,6 +71,18 @@ func _run_tests() -> void:
     if game.damage != old_damage + 3.0:
         _fail("Forge allowed without enough resources")
         return
+    game.gold = 70
+    game.moon_shards = 4
+    game.inventory.append({"name": "Test Armor", "rarity": "Common", "slot": "Armor", "power": 5})
+    game._equip_item(game.inventory.size() - 1)
+    game._forge_armor()
+    if game.armor != 7.0 or game.gold != 0 or game.moon_shards != 0:
+        _fail("Armor forging did not upgrade armor and spend resources")
+        return
+    game._forge_armor()
+    if game.armor != 7.0:
+        _fail("Armor forging bypassed resource requirements")
+        return
     print("MOONFALL3D_SMOKE_TEST_PASS")
     quit(0)
 
