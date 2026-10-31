@@ -65,11 +65,19 @@ void AMoonfallCombatHUD::DrawHUD()
   constexpr int32 Segments = 96;
   const float Progress = FMath::Clamp(Fraction, 0.f, 1.f);
   for (int32 I = 0; I < Segments; ++I) {
-   const float A0 = -PI * 0.5f + 2.f * PI * I / Segments;
-   const float A1 = -PI * 0.5f + 2.f * PI * (I+1) / Segments;
-   const FLinearColor Color = (static_cast<float>(I) / Segments < Progress) ? Fill : Track;
-   Canvas->K2_DrawLine(FVector2D(CX + FMath::Cos(A0)*ArcRadius, CY + FMath::Sin(A0)*ArcRadius),
-                       FVector2D(CX + FMath::Cos(A1)*ArcRadius, CY + FMath::Sin(A1)*ArcRadius), Thickness, Color);
+   const float StartFraction = static_cast<float>(I) / Segments;
+   const float EndFraction = static_cast<float>(I + 1) / Segments;
+   const float A0 = -PI * 0.5f + 2.f * PI * StartFraction;
+   const float A1 = -PI * 0.5f + 2.f * PI * EndFraction;
+   const FVector2D Start(CX + FMath::Cos(A0) * ArcRadius, CY + FMath::Sin(A0) * ArcRadius);
+   const FVector2D End(CX + FMath::Cos(A1) * ArcRadius, CY + FMath::Sin(A1) * ArcRadius);
+   Canvas->K2_DrawLine(Start, End, Thickness, Track);
+   if (Progress <= StartFraction) continue;
+   const float FilledEnd = FMath::Min(Progress, EndFraction);
+   const float AFilled = -PI * 0.5f + 2.f * PI * FilledEnd;
+   Canvas->K2_DrawLine(Start,
+       FVector2D(CX + FMath::Cos(AFilled) * ArcRadius, CY + FMath::Sin(AFilled) * ArcRadius),
+       Thickness, Fill);
   }
  };
  DrawArc(Radius * 0.78f, 1.f, FLinearColor(0.42f, 0.27f, 0.32f), FLinearColor(0.42f, 0.27f, 0.32f), 2.5f);
