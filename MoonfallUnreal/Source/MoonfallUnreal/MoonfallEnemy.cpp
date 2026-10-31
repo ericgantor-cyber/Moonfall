@@ -34,6 +34,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
  Difference.Z = 0.f;
  const float Distance = Difference.Size();
  if (Distance > AttackRange && Distance < 2200.f) {
+  WindupEndsAt = -1.f;
   FHitResult Hit;
   FVector Target = Hero->GetActorLocation();
   if (UNavigationSystemV1* Nav = FNavigationSystem::GetCurrent<UNavigationSystemV1>(GetWorld())) {
