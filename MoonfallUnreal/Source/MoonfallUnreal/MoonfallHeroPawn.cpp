@@ -94,3 +94,9 @@ void AMoonfallHeroPawn::Dodge()
 {
  LaunchCharacter(GetActorForwardVector() * 600.f, true, false);
 }
+
+void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
+ if (Health <= 0.f || Amount <= 0.f) return;
+ Health = FMath::Max(0.f, Health - Amount);
+ OnHealthChanged(Health, 100.f);
+}

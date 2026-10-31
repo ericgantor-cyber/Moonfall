@@ -4,6 +4,8 @@
 #include "MoonfallHeroPawn.h"
 #include "Kismet/GameplayStatics.h"
 #include "Engine/World.h"
+#include "NavigationSystem.h"
+#include "DrawDebugHelpers.h"
 AMoonfallEnemy::AMoonfallEnemy() {
   Body = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Body"));
   SetRootComponent(Body);
@@ -18,6 +20,7 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
   if (Health <= 0.f) return;
   Health = FMath::Max(0.0f, Health - FMath::Max(0.0f, Amount));
   OnHitFeedback(Amount, Health);
+  DrawDebugString(GetWorld(), GetActorLocation() + FVector(0,0,145), FString::Printf(TEXT("-%.0f"), Amount), nullptr, FColor::Yellow, 0.8f, false);
   if (Health <= 0.0f) { SetActorHiddenInGame(true); SetActorEnableCollision(false); }
 }
 
@@ -31,10 +34,17 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
  const float Distance = Difference.Size();
  if (Distance > AttackRange && Distance < 2200.f) {
   FHitResult Hit;
-  AddActorWorldOffset(Difference.GetSafeNormal() * ChaseSpeed * DeltaSeconds, true, &Hit);
+  FVector Target = Hero->GetActorLocation();
+  if (UNavigationSystemV1* Nav = FNavigationSystem::GetCurrent<UNavigationSystemV1>(GetWorld())) {
+   FNavLocation Point;
+   if (Nav->ProjectPointToNavigation(Target, Point)) Target = Point.Location;
+  }
+  FVector Direction = Target - GetActorLocation();
+  Direction.Z = 0.f;
+  AddActorWorldOffset(Direction.GetSafeNormal() * ChaseSpeed * DeltaSeconds, true, &Hit);
  } else if (Distance <= AttackRange && GetWorld()->GetTimeSeconds() >= NextAttackAt) {
   NextAttackAt = GetWorld()->GetTimeSeconds() + AttackCooldown;
-  Hero->Health = FMath::Max(0.f, Hero->Health - AttackDamage);
+  Hero->ApplyMoonfallDamage(AttackDamage);
   OnEnemyAttack();
  }
 }
