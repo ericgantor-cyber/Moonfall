@@ -4,6 +4,7 @@ extends Node3D
 const ARENA := 24.0
 const BOSS_INTERVAL := 120.0
 const MAX_MOBS := 28
+const MAX_PICKUPS := 40
 var player: Node3D
 var camera: Camera3D
 var ui: Label
@@ -100,6 +101,7 @@ func _unhandled_input(event: InputEvent) -> void:
 func _process(dt: float) -> void:
     if dead and Input.is_key_pressed(KEY_R):
         get_tree().reload_current_scene()
+        return
     if not started or dead:
         return
     clock += dt
@@ -138,7 +140,7 @@ func _process(dt: float) -> void:
         spawn_wait = maxf(0.5, 2.2 - float(kills) * 0.025)
     if clock >= next_boss and not boss_alive:
         _spawn(true)
-        next_boss += BOSS_INTERVAL
+        next_boss = clock + BOSS_INTERVAL
     for mob in mobs.duplicate():
         if not is_instance_valid(mob):
             continue
@@ -156,6 +158,8 @@ func _process(dt: float) -> void:
                 hp = 0
                 dead = true
         mob.set_meta("hit_cd", hit_cd)
+        if dead:
+            break
     for pickup in pickups.duplicate():
         if not is_instance_valid(pickup):
             continue
@@ -212,13 +216,13 @@ func _attack() -> void:
         boss_alive = false
     kills += 1
     xp += 10 if not was_boss else 100
-    if xp >= level * 60:
+    while xp >= level * 60:
         xp -= level * 60
         level += 1
         max_hp += 12.0
         hp = minf(max_hp, hp + 12.0)
         damage += 5.0
-    if randf() < 0.3 or was_boss:
+    if (randf() < 0.3 or was_boss) and pickups.size() < MAX_PICKUPS:
         var pickup := Node3D.new()
         var shape := MeshInstance3D.new()
         var sphere := SphereMesh.new()
