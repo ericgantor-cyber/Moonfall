@@ -307,7 +307,7 @@ func _apply_incoming_damage(raw:float)->void:
  if not hero_playing or menu_open or death_active or mounted or not Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT):
   super._apply_incoming_damage(raw)
   return
- var parry:bool=map_time-v392_guard_started<=V392_PARRY_WINDOW
+ var parry:bool=map_time-v392_guard_started<=V392_PARRY_WINDOW+0.035*float(v398_ranks.get("defense_guard",0))
  var cost:float=V392_PARRY_STAMINA_COST if parry else V392_BLOCK_STAMINA_COST
  if v387_stamina<cost:
   super._apply_incoming_damage(raw)
@@ -319,7 +319,7 @@ func _apply_incoming_damage(raw:float)->void:
   _show_message("PARRY! Riposte now!",0.8)
  else:
   _show_message("Blocked!",0.5)
-  super._apply_incoming_damage(raw*0.35)
+  super._apply_incoming_damage(raw*maxf(0.20,0.35-0.035*float(v398_ranks.get("defense_guard",0))))
 
 func _apply_player_hit(target:Dictionary,base_damage:float,stagger_strength:float=0.0)->void:
  # Reuse the existing stagger timer and hit visuals; do not create new AI state.
@@ -327,6 +327,8 @@ func _apply_player_hit(target:Dictionary,base_damage:float,stagger_strength:floa
  # Regular hostile creatures periodically guard. Heavy strikes or ripostes break their guard.
  var guarding:bool=bool(target.get("v395_guarding",false)) and bool(target.get("hostile",false)) and not bool(target.get("boss",false))
  var guard_break:bool=guarding and (v391_heavy_attack_active or v393_riposte_active)
+ if guard_break and int(v398_ranks.get("warrior_guardbreak",0))>0:
+  target["stagger_until"]=maxf(float(target.get("stagger_until",0.0)),map_time+0.9)
  var matched_guard:bool=guarding and int(target.get("v396_guard_direction",-1))==v394_strike_direction
  if guard_break:
   target["v395_guarding"]=false
@@ -334,7 +336,7 @@ func _apply_player_hit(target:Dictionary,base_damage:float,stagger_strength:floa
   _show_message("GUARD BROKEN!",0.65)
  elif guarding:
   _show_message("Guarded "+(["HIGH","RIGHT","LOW","LEFT"][v394_strike_direction])+"! Change angle or strike heavy.",0.65)
- var angle_damage:float=1.08 if v394_strike_direction==0 else 1.0
+ var angle_damage:float=(1.08 if v394_strike_direction==0 else 1.0)*(1.0+0.04*float(v398_ranks.get("weapon_technique",0)))
  var angle_stagger:float=0.30 if v394_strike_direction==2 else stagger_strength
  super._apply_player_hit(target,base_damage*(V396_MATCHED_GUARD_REDUCTION if matched_guard and not guard_break else V395_GUARD_REDUCTION if guarding and not guard_break else 1.0)*angle_damage*(V391_HEAVY_DAMAGE_MULTIPLIER if v391_heavy_attack_active else 1.0)*(V393_RIPOSTE_MULTIPLIER if v393_riposte_active else 1.0),maxf(angle_stagger,0.42) if v393_riposte_active else maxf(angle_stagger,0.38) if v391_heavy_attack_active else angle_stagger)
  if hp_before<=float(target.get("hp",0.0)):return
@@ -399,7 +401,8 @@ func _attack()->void:
  # Hold Shift while attacking for a slower, harder-hitting melee strike.
  # Regular attacks continue through the original combo and targeting pipeline.
  var heavy_requested:bool=Input.is_key_pressed(KEY_SHIFT)
- if heavy_requested and attack_cooldown<=0.0 and not mounted and v387_stamina<V391_HEAVY_STAMINA_COST:
+ var heavy_cost:float=maxf(20.0,V391_HEAVY_STAMINA_COST-2.0*float(v398_ranks.get("warrior_power",0)))
+ if heavy_requested and attack_cooldown<=0.0 and not mounted and v387_stamina<heavy_cost:
   _show_message("Not enough stamina for a heavy attack.",0.9)
   return
  # Arrow keys select one of four sword angles; normal attack remains usable without selection.
@@ -420,7 +423,7 @@ func _attack()->void:
   v390_valid_attacks+=1
   if map_time<=v393_riposte_until:v393_riposte_until=-999.0
   if heavy_requested and not mounted:
-   v387_stamina-=V391_HEAVY_STAMINA_COST
+   v387_stamina-=heavy_cost
    v387_stamina_regen_wait=V387_STAMINA_REGEN_DELAY
    attack_cooldown=maxf(attack_cooldown,0.62)
 
