@@ -32,6 +32,8 @@ var v387_stamina_warning:Label
 var v387_stamina_warning_elapsed:float=0.0
 var v387_stamina_regen_wait:float=0.0
 const V387_STAMINA_REGEN_DELAY:float=0.65
+var v390_valid_attacks:int=0
+var v390_blocked_attacks:int=0
 
 func _ready()->void:
  super._ready()
@@ -245,10 +247,13 @@ func _update_beast_step(beast:Dictionary,delta:float)->void:
  body.move_and_collide(direction*1.8*minf(maxf(delta,0.0),0.05))
 
 func _attack()->void:
- # Ignore combat clicks when the game is paused, at a menu, or after defeat.
- # Preserve the inherited combo, attack feedback, and hit detection unchanged.
- if not hero_playing or menu_open or death_active:return
+ # Measure accepted and blocked attack inputs without altering inherited combat.
+ if not hero_playing or menu_open or death_active:
+  v390_blocked_attacks+=1
+  return
+ var cooldown_before:float=attack_cooldown
  super._attack()
+ if attack_cooldown>cooldown_before:v390_valid_attacks+=1
 
 func _spell(which:String)->void:
  # Rejected combat inputs must never consume mana while menus or death screens are active.
@@ -391,6 +396,8 @@ func _perf_report()->Dictionary:
  report["overhaul"]="v38.0 safer swim art pose, optional status and lean handoff"
  report["status_visible"]=v380_status_enabled
  report["status_ui_updates"]=v380_status_updates
+ report["combat_valid_attack_inputs"]=v390_valid_attacks
+ report["combat_blocked_attack_inputs"]=v390_blocked_attacks
  # Collected only on demand when the existing profiler requests a report.
  # Never scan enemy children during normal render/physics frames.
  report["combat_fps"]=Engine.get_frames_per_second()
