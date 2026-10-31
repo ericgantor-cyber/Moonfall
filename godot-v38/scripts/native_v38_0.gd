@@ -32,6 +32,9 @@ var v387_stamina_warning:Label
 var v387_stamina_warning_elapsed:float=0.0
 var v387_stamina_regen_wait:float=0.0
 const V387_STAMINA_REGEN_DELAY:float=0.65
+const V391_HEAVY_STAMINA_COST:float=32.0
+const V391_HEAVY_DAMAGE_MULTIPLIER:float=1.65
+var v391_heavy_attack_active:bool=false
 var v390_valid_attacks:int=0
 var v390_blocked_attacks:int=0
 
@@ -218,7 +221,7 @@ func _v384_build_vitals()->void:
 func _apply_player_hit(target:Dictionary,base_damage:float,stagger_strength:float=0.0)->void:
  # Reuse the existing stagger timer and hit visuals; do not create new AI state.
  var hp_before:float=float(target.get("hp",0.0))
- super._apply_player_hit(target,base_damage,stagger_strength)
+ super._apply_player_hit(target,base_damage*(V391_HEAVY_DAMAGE_MULTIPLIER if v391_heavy_attack_active else 1.0),maxf(stagger_strength,0.38) if v391_heavy_attack_active else stagger_strength)
  if hp_before<=float(target.get("hp",0.0)):return
  if not bool(target.get("hostile",false)) or bool(target.get("boss",false)) or not bool(target.get("alive",false)):return
  # Successful hits briefly interrupt ordinary enemies; stronger inherited staggers win.
@@ -247,13 +250,25 @@ func _update_beast_step(beast:Dictionary,delta:float)->void:
  body.move_and_collide(direction*1.8*minf(maxf(delta,0.0),0.05))
 
 func _attack()->void:
- # Measure accepted and blocked attack inputs without altering inherited combat.
  if not hero_playing or menu_open or death_active:
   v390_blocked_attacks+=1
   return
+ # Hold Shift while attacking for a slower, harder-hitting melee strike.
+ # Regular attacks continue through the original combo and targeting pipeline.
+ var heavy_requested:bool=Input.is_key_pressed(KEY_SHIFT)
+ if heavy_requested and attack_cooldown<=0.0 and not mounted and v387_stamina<V391_HEAVY_STAMINA_COST:
+  _show_message("Not enough stamina for a heavy attack.",0.9)
+  return
  var cooldown_before:float=attack_cooldown
+ v391_heavy_attack_active=heavy_requested and not mounted and attack_cooldown<=0.0
  super._attack()
- if attack_cooldown>cooldown_before:v390_valid_attacks+=1
+ v391_heavy_attack_active=false
+ if attack_cooldown>cooldown_before:
+  v390_valid_attacks+=1
+  if heavy_requested and not mounted:
+   v387_stamina-=V391_HEAVY_STAMINA_COST
+   v387_stamina_regen_wait=V387_STAMINA_REGEN_DELAY
+   attack_cooldown=maxf(attack_cooldown,0.62)
 
 func _spell(which:String)->void:
  # Rejected combat inputs must never consume mana while menus or death screens are active.
