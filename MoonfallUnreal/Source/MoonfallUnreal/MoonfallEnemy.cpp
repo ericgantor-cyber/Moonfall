@@ -25,7 +25,7 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
   LastHitAmount = Amount;
   LastHitTime = GetWorld() ? GetWorld()->GetTimeSeconds() : -10.f;
   HitReactionEndsAt = LastHitTime + 0.22f;
-  if (Health <= 0.0f) { SetActorHiddenInGame(true); SetActorEnableCollision(false); }
+  if (Health <= 0.0f) { SetActorHiddenInGame(true); SetActorEnableCollision(false); SetActorTickEnabled(false); SetLifeSpan(1.25f); }
 }
 
 void AMoonfallEnemy::Tick(float DeltaSeconds) {
