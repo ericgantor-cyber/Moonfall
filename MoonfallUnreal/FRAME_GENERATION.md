@@ -17,3 +17,7 @@
 6. Expose a user-facing Frame Generation choice only after plugin availability and GPU/driver compatibility can be detected; otherwise hide/disable the setting with an explanation. Keep the 4K resolution-scale fallback working when FG is unavailable.
 
 **No claims of working DLSS/FSR frame generation, doubled FPS, NVIDIA Reflex, or a 4K Windows build should be made until hardware testing succeeds.** Godot Moonfall3D and Z/Nyra artwork are unchanged.
+
+## Graphics Options placeholder
+
+A fourth graphics Options row now presents Off / Auto / On as a **UI preference only**. The row explicitly says the plugin is unavailable, and switching preferences does not activate frame generation. The setting is not persisted yet. `bFrameGenerationAvailable` is false until a real supported vendor integration provides capability detection and activation. The game must continue to render normally regardless of this preference.
