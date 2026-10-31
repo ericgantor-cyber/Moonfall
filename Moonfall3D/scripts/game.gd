@@ -705,6 +705,11 @@ func _load_bindings() -> void:
     for action in BIND_ORDER:
         if parsed.has(action) and int(parsed[action]) > 0:
             bindings[action] = int(parsed[action])
+    # Migrate saved profiles: Space was dodge; now Space must jump.
+    if not parsed.has("jump") and int(bindings["dodge"]) == KEY_SPACE:
+        bindings["jump"] = KEY_SPACE
+        bindings["dodge"] = KEY_Q
+    _save_bindings()
 
 func _next_target() -> Node3D:
     var candidates: Array[Node3D] = []
