@@ -67,3 +67,7 @@ Default keys: WASD movement, Space dodge, 1 attack, 2 second attack trigger (cur
 ## Jump and initial 12-slot action bar
 
 Space now jumps; Q dodges. Existing locally saved defaults with Space dodge are migrated to Space jump/Q dodge. The 12 action slots use keys 1–0, minus, and equals and show cooldowns. These are placeholder variants of the same attack, **not twelve unique spells**. F10 continues to support remapping movement/jump/dodge/attack/spell, while full remapping of all twelve slots remains future work. The three-room arena still lacks full floor physics and the jump implementation uses simple vertical velocity and a y=0 ground clamp. Godot runtime testing required.
+
+## Action-bar remapping and grounded jumping
+
+A solid physics floor now supports CharacterBody3D grounded jumping. **Space** jumps, **Q** dodges. F10 settings now list all twelve independently remappable action slots (1–0, minus, equals by default). Up/down selects, Enter captures a new key, Esc cancels. Saved bindings migrate the former Attack and Spell entries into slots 1 and 2; duplicate key assignments are rejected. The actions still use repeated prototype attack variants, not twelve unique spells. Godot execution/playtesting is pending. The WoW-style camera, removed survival timer and original Z/Nyra artwork remain unchanged.
