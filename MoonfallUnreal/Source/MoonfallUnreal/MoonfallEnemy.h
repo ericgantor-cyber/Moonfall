@@ -22,6 +22,10 @@ private:
  FVector CachedWaypoint = FVector::ZeroVector;
  float WindupEndsAt = -1.f;
  float HitReactionEndsAt = -1.f;
+ int32 AttackSequence = 0;
+ float CurrentWindup = 0.5f;
+ float CurrentAttackMultiplier = 1.f;
+ float CurrentAttackRangeMultiplier = 1.f;
 public:
  UPROPERTY(VisibleAnywhere) UStaticMeshComponent* Body;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Combat") float LastHitAmount = 0.f;

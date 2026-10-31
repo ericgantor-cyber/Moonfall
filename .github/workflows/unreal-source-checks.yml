@@ -37,5 +37,10 @@ jobs:
           assert 'GetLastMovementInputVector' in hero
           assert enemy.count('Nav->ProjectPointToNavigation(') == 1
           assert enemy.index('if (Now >= NextPathRefreshAt)') < enemy.index('Nav->ProjectPointToNavigation(')
-          print('Combat overhaul regression checks passed. Unreal compilation NOT performed.')
+          enemy_header = (root/'MoonfallUnreal'/'MoonfallEnemy.h').read_text()
+          assert 'AttackSequence++ % 3' in enemy
+          assert 'CurrentAttackMultiplier' in enemy and 'CurrentAttackRangeMultiplier' in enemy
+          assert 'CurrentWindup' in enemy and 'CurrentWindup' in enemy_header
+          assert 'TEXT("HEAVY")' in enemy and 'TEXT("SWEEP")' in enemy
+          print('Enemy combat pattern source checks passed. Unreal compilation NOT performed.')
           PY
