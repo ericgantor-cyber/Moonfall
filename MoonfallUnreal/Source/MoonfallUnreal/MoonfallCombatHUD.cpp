@@ -28,9 +28,10 @@ void AMoonfallCombatHUD::DrawHUD()
   return;
  }
  // Compact circular resource HUD at bottom left, with actual gameplay values.
- const float Radius = FMath::Clamp(FMath::Min(Canvas->SizeX, Canvas->SizeY) * 0.085f, 45.f, 76.f);
- const float CX = Radius + 33.f;
- const float CY = Canvas->SizeY - Radius - 34.f;
+ const float Radius = FMath::Clamp(FMath::Min(Canvas->SizeX, Canvas->SizeY) * 0.092f, 50.f, 80.f);
+ const float CX = Radius + 25.f;
+ const float CY = Canvas->SizeY - Radius - 25.f;
+ const float LabelScale = FMath::Clamp(Radius / 65.f, 0.78f, 1.16f);
  const float ActualHealth = FMath::Clamp(Hero->Health / 100.f, 0.f, 1.f);
  const float ActualMana = FMath::Clamp(Hero->Mana / FMath::Max(1.f, Hero->MaxMana), 0.f, 1.f);
  const float ActualXP = FMath::Clamp(static_cast<float>(Hero->Experience) / FMath::Max(1, Hero->ExperienceToNextLevel), 0.f, 1.f);
@@ -77,9 +78,14 @@ void AMoonfallCombatHUD::DrawHUD()
           FLinearColor(0.85f, 0.48f, 1.f, Intensity), 2.f);
  }
  DrawText(FString::Printf(TEXT("%.0f HP"), FMath::Max(0.f, Hero->Health)), FLinearColor::White,
-          CX - Radius * 0.39f, CY - 12.f, nullptr, 0.88f);
+          CX - Radius * 0.39f, CY - Radius * 0.19f, nullptr, 0.88f * LabelScale);
  DrawText(FString::Printf(TEXT("LV %d"), Hero->Level), FLinearColor(0.91f,0.80f,1.f),
-          CX - Radius * 0.26f, CY + Radius * 0.28f, nullptr, 0.73f);
+          CX - Radius * 0.26f, CY + Radius * 0.28f, nullptr, 0.73f * LabelScale);
+ if (GlowLeft > 0.f) {
+  const float Alpha = FMath::Clamp(GlowLeft / 1.25f, 0.f, 1.f);
+  DrawText(TEXT("LEVEL UP"), FLinearColor(0.91f, 0.73f, 1.f, Alpha),
+           CX + Radius + 14.f, CY - 13.f, nullptr, 0.96f * LabelScale);
+ }
  DrawText(TEXT("ESC  OPTIONS"), FLinearColor(0.73f, 0.70f, 0.83f, 0.85f),
           FMath::Max(16.f, Canvas->SizeX - 142.f), Canvas->SizeY - 37.f, nullptr, 0.82f);
  for (TActorIterator<AMoonfallEnemy> It(GetWorld()); It; ++It) {
