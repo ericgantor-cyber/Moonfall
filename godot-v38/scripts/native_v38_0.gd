@@ -232,7 +232,18 @@ func _spawn_beast(at:Vector3,kind:String,zone:int,variant:String="normal",boss:b
    disc.top_radius=4.0 if zone==0 else 7.0
    disc.bottom_radius=disc.top_radius
    disc.height=0.025
-   warning_ring.mesh=disc
+   if zone==0:
+    var wedge:SurfaceTool=SurfaceTool.new()
+    wedge.begin(Mesh.PRIMITIVE_TRIANGLES)
+    for segment in range(24):
+     var angle_a:float=deg_to_rad(-60.0+float(segment)*5.0)
+     var angle_b:float=deg_to_rad(-60.0+float(segment+1)*5.0)
+     wedge.add_vertex(Vector3.ZERO)
+     wedge.add_vertex(Vector3(sin(angle_a)*4.0,0.0,-cos(angle_a)*4.0))
+     wedge.add_vertex(Vector3(sin(angle_b)*4.0,0.0,-cos(angle_b)*4.0))
+    warning_ring.mesh=wedge.commit()
+   else:
+    warning_ring.mesh=disc
    var paint:StandardMaterial3D=StandardMaterial3D.new()
    paint.albedo_color=Color(1.0,0.15,0.14,0.28) if zone==0 else Color(0.6,0.18,1.0,0.28)
    paint.transparency=BaseMaterial3D.TRANSPARENCY_ALPHA
@@ -631,7 +642,11 @@ func _update_beast_step(beast:Dictionary,delta:float)->void:
      if offset.length()<=hit_radius and in_arc:
       _apply_incoming_damage((13.0 if boss_name.begins_with("Z ") else 9.0)*float(clampi(int(beast.get("boss_phase",1)),1,3)))
    var ground_ring:MeshInstance3D=beast.get("v406_warning_ring") as MeshInstance3D
-   if is_instance_valid(ground_ring):ground_ring.visible=bool(beast.get("v404_attack_pending",false))
+   if is_instance_valid(ground_ring):
+    ground_ring.visible=bool(beast.get("v404_attack_pending",false))
+    if boss_name.begins_with("Z ") and ground_ring.visible:
+     var cleave_facing:Vector3=beast.get("v405_cleave_facing",Vector3.FORWARD)
+     ground_ring.rotation.y=atan2(cleave_facing.x,-cleave_facing.z)
    if is_instance_valid(boss_plate):
     if map_time<float(beast.get("v404_tell_until",0.0)):
      var warning:String="⚔ ECLIPSE CLEAVE" if boss_name.begins_with("Z ") else "✦ VOID SURGE"
