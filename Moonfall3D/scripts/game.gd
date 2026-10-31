@@ -677,6 +677,16 @@ func _defeat_mob(target: Node3D) -> void:
         max_hp += 12.0
         hp = minf(max_hp, hp + 12.0)
         damage += 5.0
+        max_mana += 6.0
+        mana = minf(max_mana, mana + 6.0)
+        _cast_notice("LEVEL %d! HP, damage and mana increased" % level)
+    if was_boss:
+        gold += 100 + level * 10
+        _loot_equipment()
+    else:
+        gold += randi_range(1, 5) + level
+        if randf() < 0.12:
+            _loot_equipment()
     if (randf() < 0.3 or was_boss) and pickups.size() < MAX_PICKUPS:
         var pickup := Node3D.new()
         var shape := MeshInstance3D.new()
@@ -860,11 +870,12 @@ func _loot_equipment() -> void:
         rarity_index = 2
     elif roll > 0.55:
         rarity_index = 1
+    var slot := "Armor" if randi_range(0, 1) == 0 else "Weapon"
     var item := {
         "name": ["Worn Blade", "Runed Sword", "Moonsteel Edge", "Astral Fang", "Eclipse Crownblade"][rarity_index],
         "rarity": RARITIES[rarity_index],
-        "power": (rarity_index + 1) * 3,
-        "slot": "Armor" if randi_range(0, 1) == 0 else "Weapon"
+        "power": (rarity_index + 1) * 3 + maxi(0, level - 1),
+        "slot": slot
     }
     inventory.append(item)
     if item["slot"] == "Weapon" and (equipped.is_empty() or int(item["power"]) > int(equipped.get("power", 0))):
@@ -876,7 +887,7 @@ func _refresh_inventory() -> void:
         return
     var lines := PackedStringArray()
     lines.append("INVENTORY  [B] Close  [G] Equip next")
-    lines.append("Armor: %d" % int(armor))
+    lines.append("Armor: %d | Gold: %d | Level: %d" % [int(armor), gold, level])
     if equipped.is_empty():
         lines.append("Equipped: None")
     else:
