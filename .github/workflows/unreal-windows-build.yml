@@ -18,7 +18,7 @@ jobs:
           if (-not (Test-Path $uatTool)) { throw "Unreal AutomationTool missing: $uatTool" }
           $entryMap = Join-Path $env:UE54_ROOT 'Engine\Content\Maps\Entry.umap'
           if (-not (Test-Path $entryMap)) { throw "Configured Unreal startup level is missing: $entryMap. Verify UE 5.4 engine content before cooking." }
-          $vswhere = Join-Path $env:ProgramFiles(x86) 'Microsoft Visual Studio\Installer\vswhere.exe'
+          $vswhere = Join-Path ([Environment]::GetFolderPath('ProgramFilesX86')) 'Microsoft Visual Studio\Installer\vswhere.exe'
           if (-not (Test-Path $vswhere)) { throw 'Visual Studio Installer / vswhere.exe missing. Install Visual Studio 2022 with Desktop development with C++.' }
           $vsInstallation = & $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
           if ($LASTEXITCODE -ne 0 -or -not $vsInstallation) { throw 'Visual Studio 2022 C++ build tools are missing. Install Desktop development with C++ and Windows SDK.' }
