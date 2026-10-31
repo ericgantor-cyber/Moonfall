@@ -42,5 +42,11 @@ jobs:
           assert 'CurrentAttackMultiplier' in enemy and 'CurrentAttackRangeMultiplier' in enemy
           assert 'CurrentWindup' in enemy and 'CurrentWindup' in enemy_header
           assert 'TEXT("HEAVY")' in enemy and 'TEXT("SWEEP")' in enemy
-          print('Enemy combat pattern source checks passed. Unreal compilation NOT performed.')
+          inputs = Path('MoonfallUnreal/Config/DefaultInput.ini').read_text()
+          hud = (root/'MoonfallUnreal'/'MoonfallCombatHUD.cpp').read_text()
+          assert 'ActionName="CastLeft",Key=LeftMouseButton' in inputs
+          assert 'ActionName="CastRight",Key=RightMouseButton' in inputs
+          assert 'ActionName="DualCast",Key=Gamepad_LeftTrigger' in inputs
+          assert 'Mouse L/R: Cast' in hud
+          print('Input mapping and combat source checks passed. Unreal compilation NOT performed.')
           PY
