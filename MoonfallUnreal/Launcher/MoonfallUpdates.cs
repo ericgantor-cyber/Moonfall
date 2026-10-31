@@ -5,7 +5,7 @@ using System.Text.Json;
 
 namespace MoonfallLauncher;
 
-internal sealed record UpdateInfo(string Version, string DownloadUrl, string Sha256, string ReleaseUrl);
+internal sealed record UpdateInfo(string Version, string DownloadUrl, string Sha256, string ReleaseUrl, long Size);
 
 internal static class MoonfallUpdates
 {
@@ -51,7 +51,7 @@ internal static class MoonfallUpdates
             var releaseUrl = root.GetProperty("html_url").GetString() ?? "";
             if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) ||
                 uri.Scheme != Uri.UriSchemeHttps || uri.Host != "github.com") continue;
-            return new UpdateInfo(tag, url, hash, releaseUrl);
+            return new UpdateInfo(tag, url, hash, releaseUrl, assetSize.GetInt64());
         }
         // Do not offer unverified installers or a release without the exact Unreal installer.
         return null;
