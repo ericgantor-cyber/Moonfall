@@ -65,7 +65,7 @@ internal sealed class LaunchWindow : Form
             ForeColor = Color.WhiteSmoke, BackColor = Color.FromArgb(49, 35, 68), TabIndex = 4 };
         help.Click += (_, _) => MessageBox.Show(this,
             "Moonfall must be installed as a complete Unreal package.\n" +
-            "Use CHECK FILES to refresh installation status.\n" +
+            "Use CHECK FILES or F5 to refresh installation status.\n" +
             "Use GAME FOLDER to inspect the files.\n" +
             "If files are missing, reinstall the complete game.\n" +
             "Settings and gameplay controls are inside Moonfall.",
@@ -76,11 +76,14 @@ internal sealed class LaunchWindow : Form
         logs.Click += (_, _) => OpenLogs();
         folder.AccessibleName = "Open Moonfall installation folder";
         retry.AccessibleName = "Check Moonfall installation files";
+        retry.AccessibleDescription = "Refresh installation status. Keyboard shortcut F5.";
         help.AccessibleName = "Show Moonfall launcher help";
         logs.AccessibleName = "Open Moonfall game logs";
         exit.AccessibleName = "Exit Moonfall launcher";
         status.AccessibleName = "Moonfall installation status";
         Controls.AddRange([title, subtitle, play, status, exit, folder, retry, help, logs]);
+        KeyPreview = true;
+        KeyDown += (_, e) => { if (e.KeyCode == Keys.F5) { UpdateStatus(); e.Handled = true; } };
         AcceptButton = play;
         DoubleBuffered = true;
         Resize += (_, _) => Invalidate();
@@ -136,11 +139,18 @@ internal sealed class LaunchWindow : Form
         using var horizon = new Pen(Color.FromArgb(135, 190, 67, 156), 2);
         g.DrawLine(horizon, 0, artHeight, width, artHeight);
     }
-    internal static bool HasGameFiles(string directory) =>
-        File.Exists(Path.Combine(directory, "MoonfallUnreal.exe")) &&
-        Directory.Exists(Path.Combine(directory, "Engine")) &&
-        Directory.Exists(Path.Combine(directory, "MoonfallUnreal")) &&
-        Directory.EnumerateFiles(Path.Combine(directory, "MoonfallUnreal"), "*", SearchOption.AllDirectories).Any();
+    internal static bool HasGameFiles(string directory)
+    {
+        try
+        {
+            return File.Exists(Path.Combine(directory, "MoonfallUnreal.exe")) &&
+                Directory.Exists(Path.Combine(directory, "Engine")) &&
+                Directory.Exists(Path.Combine(directory, "MoonfallUnreal")) &&
+                Directory.EnumerateFiles(Path.Combine(directory, "MoonfallUnreal"), "*", SearchOption.AllDirectories).Any();
+        }
+        catch (IOException) { return false; }
+        catch (UnauthorizedAccessException) { return false; }
+    }
 
     private void UpdateStatus()
     {
