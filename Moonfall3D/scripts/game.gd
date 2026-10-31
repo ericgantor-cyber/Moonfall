@@ -798,6 +798,20 @@ func _build_room() -> void:
         crystal_mat.emission = tint * 0.6
         crystal.material_override = crystal_mat
         decor.add_child(crystal)
+    # Color-coded floor runes tie the region together without expensive particles.
+    for rune_index in range(4):
+        var rune := MeshInstance3D.new()
+        var ring := TorusMesh.new()
+        ring.inner_radius = 0.95
+        ring.outer_radius = 1.08
+        rune.mesh = ring
+        rune.position = Vector3(-14.0 + rune_index * 9.0, 0.08, -17.0 + room_index * 17.0)
+        var rune_mat := StandardMaterial3D.new()
+        rune_mat.albedo_color = tint.lightened(0.6)
+        rune_mat.emission_enabled = true
+        rune_mat.emission = tint * 0.35
+        rune.material_override = rune_mat
+        decor.add_child(rune)
     # Two readable floor hazards per region; always clear of the central doorway.
     for i in range(2):
         var hazard_pos := Vector3(-11.0 if i == 0 else 11.0, 0.0, -17.0 + float(room_index) * 17.0)
@@ -1255,6 +1269,23 @@ func _school_effect(at: Vector3, spell_index: int) -> void:
     mat.emission_enabled = true
     mat.emission = mat.albedo_color
     pulse.material_override = mat
+    # A contrasting spell ring sharpens the impact shape for each magic school.
+    if active_effects.size() < 63:
+        var ring_effect := MeshInstance3D.new()
+        var ring_mesh := TorusMesh.new()
+        ring_mesh.inner_radius = 0.65
+        ring_mesh.outer_radius = 0.86
+        ring_effect.mesh = ring_mesh
+        var ring_mat := StandardMaterial3D.new()
+        ring_mat.albedo_color = colors[spell_index].lightened(0.4)
+        ring_mat.emission_enabled = true
+        ring_mat.emission = ring_mat.albedo_color
+        ring_effect.material_override = ring_mat
+        ring_effect.position = at + Vector3.UP * 0.15
+        ring_effect.set_meta("life", 0.3)
+        ring_effect.set_meta("spin", true)
+        add_child(ring_effect)
+        active_effects.append(ring_effect)
     pulse.position = at + Vector3.UP
     pulse.set_meta("life", 0.3)
     pulse.set_meta("spin", true)
