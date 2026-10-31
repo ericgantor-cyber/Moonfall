@@ -71,3 +71,7 @@ Space now jumps; Q dodges. Existing locally saved defaults with Space dodge are 
 ## Action-bar remapping and grounded jumping
 
 A solid physics floor now supports CharacterBody3D grounded jumping. **Space** jumps, **Q** dodges. F10 settings now list all twelve independently remappable action slots (1–0, minus, equals by default). Up/down selects, Enter captures a new key, Esc cancels. Saved bindings migrate the former Attack and Spell entries into slots 1 and 2; duplicate key assignments are rejected. The actions still use repeated prototype attack variants, not twelve unique spells. Godot execution/playtesting is pending. The WoW-style camera, removed survival timer and original Z/Nyra artwork remain unchanged.
+
+## Skyrim-inspired dual-hand spell menu (experimental)
+
+Press M to open the spell menu. Keys 1–4 assign Flame, Frost, Arcane or Restoration to the left hand; 5–8 assign the same spells to the right hand. Press Z to cast left, X to cast right, and C to dual-cast when both hands have the same spell. Dual cast consumes twice the mana and has enhanced effect/cooldown. Mana regenerates; hand spell cooldowns are independent. Restoration heals, and other spells use the existing target and combat/loot pipeline. The original twelve action slots now trigger spell types, but repeated slots and generic visuals remain, rather than twelve unique spells. No actual animated Skyrim hand assets or copied designs are used. Godot runtime testing remains pending. WoW camera, Space jump/Q dodge, and original Z/Nyra art remain unchanged.
