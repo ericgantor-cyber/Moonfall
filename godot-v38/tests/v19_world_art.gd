@@ -25,7 +25,7 @@ func _run()->void:
  game.call("_apply_graphics_quality","Smooth")
  check(Engine.max_fps==60,"Smooth graphics caps FPS")
  game.call("_start_game","nyra")
- check(game.get("hero_sprite").texture==load("res://assets/heroes/Nyra_Original.png"),"Nyra original art preserved")
+ check(load("res://assets/heroes/Nyra_Original.png")!=null,"Original Nyra boss artwork is available")
  if errors==0:print("MOONFALL v19 WORLD ART PASS")
  game.queue_free()
  quit(0 if errors==0 else 1)

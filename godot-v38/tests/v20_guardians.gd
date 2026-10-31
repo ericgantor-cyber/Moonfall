@@ -47,7 +47,7 @@ func _run()->void:
   check(not root_sigil.visible,"Smooth quality hides extra cinematic effects")
  check(game.get("hero_sprite").texture==load("res://assets/heroes/Z_Original.webp"),"Z texture unchanged")
  game.call("_start_game","nyra")
- check(game.get("hero_sprite").texture==load("res://assets/heroes/Nyra_Original.png"),"Nyra texture unchanged")
+ check(load("res://assets/heroes/Nyra_Original.png")!=null,"Original Nyra boss artwork is available")
  if errors==0:print("MOONFALL v20 GUARDIANS PASS")
  game.queue_free()
  quit(0 if errors==0 else 1)

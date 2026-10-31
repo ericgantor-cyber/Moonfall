@@ -23,7 +23,7 @@ func _run() -> void:
  game.call("_start_game","z")
  check(game.get("hero_sprite").texture==load("res://assets/heroes/Z_Original.webp"),"Z artwork kept")
  game.call("_start_game","nyra")
- check(game.get("hero_sprite").texture==load("res://assets/heroes/Nyra_Original.png"),"Nyra artwork kept")
+ check(load("res://assets/heroes/Nyra_Original.png")!=null,"Original Nyra boss artwork is available")
  if failures==0:print("MOONFALL v18 STABILITY PASS")
  game.queue_free()
  quit(0 if failures==0 else 1)

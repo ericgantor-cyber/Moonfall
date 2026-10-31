@@ -13,6 +13,7 @@ var v399_origin:OptionButton
 var v399_style:OptionButton
 var v399_hero:String="z"
 var v399_identity:Dictionary={}
+var v400_adventurer_sprite:Sprite3D
 
 const V383_BENCHMARK:=preload("res://scripts/systems/combat_benchmark_v383.gd")
 const V384_RINGS:=preload("res://scripts/systems/vitals_rings_v384.gd")
@@ -80,11 +81,33 @@ func _build_ui()->void:
   if is_instance_valid(title) and "MOONFALL v37.7" in title.text:
    title.text="☾  MOONFALL v38.0 • THE LIVING REALM"
 
+func _v400_apply_adventurer_look()->void:
+ # Distinct placeholder adventurer sprite; original Z_ART/NYRA_ART files are untouched.
+ if not is_instance_valid(hero_sprite):return
+ var art:Image=Image.create(32,48,false,Image.FORMAT_RGBA8)
+ art.fill(Color(0,0,0,0))
+ for y in range(4,16):
+  for x in range(10,22):art.set_pixel(x,y,Color(0.77,0.62,0.48))
+ for y in range(16,39):
+  for x in range(7,25):art.set_pixel(x,y,Color(0.20,0.45,0.53))
+ for y in range(39,47):
+  for x in range(8,14):art.set_pixel(x,y,Color(0.14,0.20,0.30))
+  for x in range(18,24):art.set_pixel(x,y,Color(0.14,0.20,0.30))
+ if not is_instance_valid(v400_adventurer_sprite):
+  v400_adventurer_sprite=Sprite3D.new()
+  v400_adventurer_sprite.name="CustomAdventurerAppearance"
+  hero_sprite.get_parent().add_child(v400_adventurer_sprite)
+  v400_adventurer_sprite.position=hero_sprite.position
+  v400_adventurer_sprite.billboard=BaseMaterial3D.BILLBOARD_ENABLED
+ v400_adventurer_sprite.set_texture(ImageTexture.create_from_image(art))
+ v400_adventurer_sprite.pixel_size=2.65/48.0
+ hero_sprite.visible=false
+
 func _v399_open_creator(selected:String)->void:
- v399_hero="nyra" if selected=="nyra" else "z"
+ v399_hero="adventurer"
  if not is_instance_valid(v399_creator):return
  v399_creator.visible=true
- v399_name.text="Nyra" if v399_hero=="nyra" else "Z"
+ v399_name.text="Adventurer"
  v399_origin.select(0)
  v399_style.select(0)
  v399_name.grab_focus()
@@ -92,26 +115,31 @@ func _v399_open_creator(selected:String)->void:
 func _v399_confirm_creator()->void:
  if not is_instance_valid(v399_creator):return
  var nickname:String=v399_name.text.strip_edges().substr(0,24)
- if nickname.is_empty():nickname="Nyra" if v399_hero=="nyra" else "Z"
+ if nickname.is_empty():nickname="Adventurer"
  v399_identity={"name":nickname,"origin":v399_origin.get_item_text(v399_origin.selected),"style":v399_style.get_item_text(v399_style.selected)}
  v399_creator.visible=false
  _start_game(v399_hero)
  # Starting profiles adjust initial resources only; no permanent locked-in classes.
  if str(v399_identity["origin"])=="Wanderer":v387_stamina=V387_MAX_STAMINA
  elif str(v399_identity["origin"])=="Scholar":v385_mana=V385_MAX_MANA
- _show_message("Welcome, "+nickname+". Your path is yours to shape.",3.0)
+ _show_message("Welcome, "+nickname+". The Eclipse family awaits among the guardians.",3.0)
 
 func _v399_build_creator()->void:
  if not is_instance_valid(start_screen):return
- # Only NEW GAME buttons open creation. Continue loads old checkpoints directly.
+ # Replace legacy hero selection with one custom-adventurer entry point.
  for node in start_screen.find_children("*","Button",true,false):
   var button:Button=node as Button
   if not button.text.begins_with("NEW GAME AS "):continue
   for connection in button.pressed.get_connections():
    button.pressed.disconnect(connection["callable"])
-  var chosen:String="nyra" if "Nyra" in button.text else "z"
-  button.pressed.connect(_v399_open_creator.bind(chosen))
-  button.text=button.text.replace("NEW GAME AS ","CREATE ")
+  button.visible=false
+  if is_instance_valid(button.get_parent()):button.get_parent().visible=false
+ var new_character:Button=Button.new()
+ new_character.text="CREATE CUSTOM ADVENTURER"
+ new_character.position=Vector2(120,130)
+ new_character.custom_minimum_size=Vector2(410,64)
+ new_character.pressed.connect(_v399_open_creator.bind("adventurer"))
+ start_screen.add_child(new_character)
  v399_creator=PanelContainer.new()
  v399_creator.name="MoonfallCharacterCreator"
  v399_creator.position=Vector2(90,90)
@@ -124,7 +152,7 @@ func _v399_build_creator()->void:
  heading.text="CHARACTER CREATION  |  MOONFALL"
  contents.add_child(heading)
  var desc:Label=Label.new()
- desc.text="Keep the original hero appearance. Choose a name and backstory.\nNo fixed classes: grow through equipment and Celestial Talents."
+ desc.text="Create your own adventurer. Z and Nyra are powerful bosses, not selectable heroes.\nYour choices shape your identity; the bosses retain their original artwork."
  contents.add_child(desc)
  v399_name=LineEdit.new()
  v399_name.placeholder_text="Character name"
@@ -155,6 +183,47 @@ func _v399_build_creator()->void:
  confirm.pressed.connect(_v399_confirm_creator)
  actions.add_child(confirm)
  v399_creator.visible=false
+
+# Z and Nyra are bosses only. Existing boss texture files remain unchanged.
+const V400_FAMILY_BOSSES:PackedStringArray=[
+ "Z • Eclipse Champion",
+ "Nyra • Eclipse Queen",
+ "Kael • The Lost Elder Brother",
+ "Selene • The Exiled Aunt",
+ "Morrow • Bloodline Warden",
+ "Astra • The First Ancestor"
+]
+
+func _spawn_beast(at:Vector3,kind:String,zone:int,variant:String="normal",boss:bool=false)->void:
+ super._spawn_beast(at,kind,zone,variant,boss)
+ if not boss or beasts.is_empty():return
+ var creature:Dictionary=beasts.back()
+ if not bool(creature.get("boss",false)):return
+ var family_name:String=V400_FAMILY_BOSSES[clampi(zone,0,V400_FAMILY_BOSSES.size()-1)]
+ creature["v400_family_name"]=family_name
+ creature["v400_bloodline"]=true
+ # Z and Nyra appear as boss encounters in their original artwork.
+ if zone==0 or zone==1:
+  var boss_body:CharacterBody3D=creature.get("body") as CharacterBody3D
+  if is_instance_valid(boss_body):
+   for visual in boss_body.get_children():
+    if visual is MeshInstance3D:visual.visible=false
+   var portrait:Sprite3D=Sprite3D.new()
+   portrait.name="OriginalHeroBossArtwork"
+   portrait.set_texture(Z_ART if zone==0 else NYRA_ART)
+   portrait.pixel_size=2.65/float(portrait.texture.get_height())
+   portrait.billboard=BaseMaterial3D.BILLBOARD_ENABLED
+   portrait.position=Vector3(0.0,0.4,0.0)
+   boss_body.add_child(portrait)
+ var title:Label3D=creature.get("nameplate") as Label3D
+ if is_instance_valid(title):title.text=family_name+"  •  GUARDIAN"
+ # Existing three-phase boss behavior, loot, combat and scaling remain intact.
+
+func _refresh_boss_phase(beast:Dictionary)->void:
+ super._refresh_boss_phase(beast)
+ if not bool(beast.get("v400_bloodline",false)):return
+ var title:Label3D=beast.get("nameplate") as Label3D
+ if is_instance_valid(title):title.text=str(beast.get("v400_family_name","Eclipse Guardian"))+"  •  PHASE "+str(beast.get("boss_phase",1))
 
 func _v380_build_status_panel()->void:
  var layer:CanvasLayer=get_node_or_null("NativeAtlasUI") as CanvasLayer
@@ -542,7 +611,8 @@ func _dodge()->void:
  super._dodge()
 
 func _start_game(selected_hero:String)->void:
- super._start_game(selected_hero)
+ super._start_game("z") # Legacy save/combat slot; never expose Z as the playable character.
+ _v400_apply_adventurer_look()
  v385_mana=V385_MAX_MANA
  v387_stamina=V387_MAX_STAMINA
  v387_stamina_regen_wait=0.0
@@ -554,6 +624,7 @@ func _checkpoint_extra_data()->Dictionary:
 
 func _restore_data(data:Dictionary)->void:
  super._restore_data(data)
+ _v400_apply_adventurer_look()
  v387_stamina_regen_wait=0.0
  v398_ranks={}
  v399_identity={}

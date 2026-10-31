@@ -51,7 +51,7 @@ func _run() -> void:
  check(int(saved.get("gold", 0)) >= 527, "Checkpoint preserves gold and earned event reward")
  check(saved.get("hero", "") == "z", "Checkpoint hero identity stored")
  game.call("_start_game", "nyra")
- check(game.get("hero") == "nyra" and game.get("gold") == 0, "New hero starts with reset state")
+ check(game.get("hero") == "z" and game.get("gold") == 0, "New adventurer starts with reset state in legacy combat slot")
  game.call("_load_game")
  check(game.get("hero") == "z", "Loading checkpoint restores correct hero")
  check(game.get("world_day") == 3 and game.get("weather_name") == "Rain", "Loading restores world clock and weather")

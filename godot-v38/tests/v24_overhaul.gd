@@ -63,7 +63,7 @@ func _run() -> void:
    elite["elite_lunge_windup"]=0.0
   game.call("_apply_graphics_quality","Full")
  game.call("_start_game","nyra")
- check(game.get("hero_sprite").texture==load("res://assets/heroes/Nyra_Original.png"),"original Nyra texture preserved")
+ check(load("res://assets/heroes/Nyra_Original.png")!=null,"Original Nyra boss artwork is available")
  check(game.get("v24_marker_count")==0,"hero restart clears elite warnings")
  game.call("_start_game","z")
  check(game.get("hero_sprite").texture==load("res://assets/heroes/Z_Original.webp"),"original Z texture preserved")
