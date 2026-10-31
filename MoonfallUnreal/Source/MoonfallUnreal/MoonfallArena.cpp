@@ -3,7 +3,7 @@
 #include "Components/SceneComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/World.h"
-#include "UObject/ConstructorHelpers.h"
+#include "UObject/UObjectGlobals.h"
 AMoonfallArena::AMoonfallArena() {
  PrimaryActorTick.bCanEverTick = false;
  SetRootComponent(CreateDefaultSubobject<USceneComponent>(TEXT("Root")));
@@ -15,8 +15,8 @@ void AMoonfallArena::CreateBlock(FVector Position, FVector Scale) {
  Block->SetRelativeLocation(Position);
  Block->SetRelativeScale3D(Scale);
  Block->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
- static ConstructorHelpers::FObjectFinder<UStaticMesh> Cube(TEXT("/Engine/BasicShapes/Cube.Cube"));
- if (Cube.Succeeded()) Block->SetStaticMesh(Cube.Object);
+ UStaticMesh* Cube = LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Cube.Cube"));
+ if (Cube) Block->SetStaticMesh(Cube);
 }
 void AMoonfallArena::BeginPlay() {
  Super::BeginPlay();

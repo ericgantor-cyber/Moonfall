@@ -53,6 +53,7 @@ jobs:
           $exes = @(Get-ChildItem $packaged -Recurse -File -Filter 'MoonfallUnreal.exe')
           if ($exes.Count -ne 1) { throw "Expected exactly one packaged game executable; found $($exes.Count)" }
           $sourceDir = $exes[0].Directory.FullName
+          if (-not (Test-Path (Join-Path $sourceDir 'MoonfallUnreal.exe'))) { throw 'Staged game entrypoint is missing' }
           $out = Join-Path $env:GITHUB_WORKSPACE 'MoonfallUnreal-Setup.exe'
           & $nsis.Source "/DSOURCE_DIR=$sourceDir" "/DOUTPUT_EXE=$out" 'MoonfallUnreal\Installer\MoonfallUnreal.nsi'
           if ($LASTEXITCODE -ne 0 -or -not (Test-Path $out)) { throw 'NSIS installer compilation failed' }
