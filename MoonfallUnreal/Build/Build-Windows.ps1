@@ -29,6 +29,10 @@ if ($OutputDirectory.TrimEnd([IO.Path]::DirectorySeparatorChar) -eq $repoRootFul
     throw 'OutputDirectory cannot be the repository root. Choose a dedicated build-output folder.'
 }
 New-Item -ItemType Directory -Force -Path $OutputDirectory | Out-Null
+$previousSetup = Join-Path $OutputDirectory 'MoonfallUnreal-Setup.exe'
+foreach ($old in @($previousSetup, "$previousSetup.sha256")) {
+    if (Test-Path -LiteralPath $old) { Remove-Item -LiteralPath $old -Force }
+}
 # Do not package stale cooked assets from a previous run if the current build fails.
 if (Test-Path -LiteralPath $gameOutput) {
     Write-Host "Removing previous packaged game output: $gameOutput"
@@ -48,6 +52,9 @@ if ($games.Count -ne 1) { throw "Expected one game executable, found $($games.Co
 $gameRoot = $games[0].Directory.FullName
 foreach ($dir in @('Engine','MoonfallUnreal')) {
     if (-not (Test-Path (Join-Path $gameRoot $dir))) { throw "Packaged game is missing $dir" }
+}
+if (-not (Get-ChildItem (Join-Path $gameRoot 'MoonfallUnreal') -Recurse -File | Select-Object -First 1)) {
+    throw 'Cooked Moonfall game content is empty; refusing incomplete installer.'
 }
 Write-Host 'Building self-contained Windows launcher...'
 $launcherProject = Join-Path $repoRoot 'MoonfallUnreal\Launcher\MoonfallLauncher.csproj'
