@@ -62,6 +62,8 @@ var jump_latch := false
 var spell_menu: PanelContainer
 var spell_list: VBoxContainer
 var spell_summary: Label
+var spell_preview: Label
+var spell_scroll: ScrollContainer
 var spell_menu_open := false
 var mana := 100.0
 var max_mana := 100.0
@@ -165,8 +167,16 @@ func _ready() -> void:
     spell_layout.add_child(spell_title)
     spell_summary = Label.new()
     spell_layout.add_child(spell_summary)
+    spell_preview = Label.new()
+    spell_preview.add_theme_font_size_override("font_size", 19)
+    spell_layout.add_child(spell_preview)
+    spell_scroll = ScrollContainer.new()
+    spell_scroll.custom_minimum_size = Vector2(760, 400)
+    spell_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+    spell_layout.add_child(spell_scroll)
     spell_list = VBoxContainer.new()
-    spell_layout.add_child(spell_list)
+    spell_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    spell_scroll.add_child(spell_list)
     inventory_panel = Label.new()
     inventory_panel.position = Vector2(20, 65)
     inventory_panel.add_theme_font_size_override("font_size", 18)
@@ -828,6 +838,9 @@ func _render_spell_menu() -> void:
     if spell_menu == null:
         return
     spell_summary.text = "Mana %d/%d | LEFT: %s | RIGHT: %s\nSelect a spell, then choose LEFT or RIGHT. [M] Close" % [int(mana), int(max_mana), spells[left_spell]["name"], spells[right_spell]["name"]]
+    var selected: Dictionary = spells[spell_cursor]
+    var status := ["Burning", "Chilling", "Arcane burst", "Healing", "Shock", "Poisoning"][spell_cursor]
+    spell_preview.text = "SELECTED: %s  |  %s\nMana: %d  |  Power: %.1fx  |  Cooldown: %.2fs" % [selected["name"], status, int(selected["cost"]), float(selected["power"]), float(selected["cooldown"])]
     for child in spell_list.get_children():
         spell_list.remove_child(child)
         child.queue_free()
