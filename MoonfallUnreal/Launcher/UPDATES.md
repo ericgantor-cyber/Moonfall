@@ -13,3 +13,5 @@ The launcher requests permission before downloading, streams the installer to a 
 Publish real tested releases with a numeric tag such as `v0.2.0`, attach the packaged Unreal installer under the exact asset name, and update the launcher project's `<Version>` for each build. Keep the installed version consistent with the release tag; the launcher version is used for comparisons. GitHub release assets without a SHA-256 digest or without that exact installer name are not eligible.
 
 The existing self-hosted Unreal game and installer build is **not yet verified**. A complete release pipeline and end-to-end updater test are still needed. The updater detects new versions while the launcher runs; it is not a background Windows service and does not patch individual files.
+
+Additional safety: draft and prerelease releases are ignored. Update assets must have a declared positive size within 12 GiB, and the download stream is bounded to the same maximum even when the HTTP server does not announce a content length. Every byte is still SHA-256 checked before an update can be launched.
