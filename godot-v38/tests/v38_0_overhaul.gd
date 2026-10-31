@@ -94,7 +94,7 @@ func _run()->void:
  check(dodge_code.find("if not hero_playing or menu_open or death_active:return")<dodge_code.find("if v387_stamina<V387_DODGE_COST:"),"dodge state guarded before insufficient stamina warning")
  check("combat_valid_attack_inputs" in orb_source and "combat_blocked_attack_inputs" in orb_source,"combat input counts included in diagnostics")
  check("func _apply_incoming_damage(raw:float)->void:" in orb_source and "V392_PARRY_WINDOW" in orb_source,"guard and timed parry intercept incoming damage")
- check("MOUSE_BUTTON_RIGHT" in orb_source and "raw*0.35" in orb_source,"right mouse guard mitigates incoming damage")
+ check("MOUSE_BUTTON_RIGHT" in orb_source and "raw*maxf(0.20,0.35-0.035*float(v398_ranks.get(\"defense_guard\",0)))" in orb_source,"right mouse guard mitigates damage and scales with defense talents")
  check("V393_RIPOSTE_WINDOW" in orb_source and "v393_riposte_until=map_time+V393_RIPOSTE_WINDOW" in orb_source,"timed parries open riposte opportunity")
  check("V393_RIPOSTE_MULTIPLIER" in orb_source and "v393_riposte_active=false" in orb_source,"riposte damage returns to normal after attack")
  check("v394_strike_direction" in orb_source and "KEY_UP,KEY_RIGHT,KEY_DOWN,KEY_LEFT" in orb_source,"four directional sword angles selectable by arrow keys")
