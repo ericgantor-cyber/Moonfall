@@ -44,6 +44,8 @@ internal sealed class LaunchWindow : Form
             BackColor = Color.FromArgb(96, 42, 128), ForeColor = Color.White,
             FlatStyle = FlatStyle.Flat, TabIndex = 0 };
         play.FlatAppearance.BorderSize = 0;
+        play.AccessibleName = "Play Moonfall";
+        play.AccessibleDescription = "Launch the installed Moonfall Unreal game";
         play.Click += (_, _) => LaunchGame();
         status = new Label { Bounds = new Rectangle(125, 515, 610, 25), Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right,
             TextAlign = ContentAlignment.MiddleCenter, ForeColor = Color.FromArgb(198, 196, 222) };
@@ -72,6 +74,12 @@ internal sealed class LaunchWindow : Form
             Anchor = AnchorStyles.Bottom | AnchorStyles.Left, FlatStyle = FlatStyle.Flat,
             ForeColor = Color.WhiteSmoke, BackColor = Color.FromArgb(49, 35, 68), TabIndex = 5 };
         logs.Click += (_, _) => OpenLogs();
+        folder.AccessibleName = "Open Moonfall installation folder";
+        retry.AccessibleName = "Check Moonfall installation files";
+        help.AccessibleName = "Show Moonfall launcher help";
+        logs.AccessibleName = "Open Moonfall game logs";
+        exit.AccessibleName = "Exit Moonfall launcher";
+        status.AccessibleName = "Moonfall installation status";
         Controls.AddRange([title, subtitle, play, status, exit, folder, retry, help, logs]);
         AcceptButton = play;
         DoubleBuffered = true;
@@ -138,6 +146,7 @@ internal sealed class LaunchWindow : Form
     {
         bool ready = HasGameFiles(AppContext.BaseDirectory);
         play.Enabled = ready;
+        play.AccessibleDescription = ready ? "Launch Moonfall" : "Unavailable until all required game files are present";
         status.Text = ready ? "Game files found. Ready to launch." :
             !File.Exists(gamePath) ? "Game executable missing. Reinstall the complete package." :
             !Directory.Exists(Path.Combine(AppContext.BaseDirectory, "Engine")) ? "Unreal runtime folder missing. Reinstall Moonfall." :
