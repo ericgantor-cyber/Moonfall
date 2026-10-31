@@ -270,12 +270,6 @@ func _attack()->void:
    v387_stamina_regen_wait=V387_STAMINA_REGEN_DELAY
    attack_cooldown=maxf(attack_cooldown,0.62)
 
-func _apply_player_hit(target:Dictionary,base_damage:float,stagger_strength:float=0.0)->void:
- # Heavy attacks preserve original hit registration and enemy recoil.
- var damage:float=base_damage*V391_HEAVY_DAMAGE_MULTIPLIER if v391_heavy_attack_active else base_damage
- var stagger:float=maxf(stagger_strength,0.38) if v391_heavy_attack_active else stagger_strength
- super._apply_player_hit(target,damage,stagger)
-
 func _spell(which:String)->void:
  # Rejected combat inputs must never consume mana while menus or death screens are active.
  if not hero_playing or menu_open or death_active:return
