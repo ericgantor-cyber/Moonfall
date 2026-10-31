@@ -20,6 +20,10 @@ Section "Moonfall Unreal" Main
   File /r "${SOURCE_DIR}\\*.*"
   IfFileExists "$INSTDIR\\MoonfallUnreal.exe" +2 0
     Abort "Missing game executable"
+  IfFileExists "$INSTDIR\\Engine\\*.*" +2 0
+    Abort "Missing packaged Unreal runtime files"
+  IfFileExists "$INSTDIR\\MoonfallUnreal\\*.*" +2 0
+    Abort "Missing cooked game content"
   CreateDirectory "$SMPROGRAMS\\Moonfall Unreal"
   CreateShortcut "$SMPROGRAMS\\Moonfall Unreal\\Moonfall Unreal.lnk" "$INSTDIR\\MoonfallUnreal.exe"
   CreateShortcut "$DESKTOP\\Moonfall Unreal.lnk" "$INSTDIR\\MoonfallUnreal.exe"
