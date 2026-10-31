@@ -849,7 +849,11 @@ func _render_action_bar() -> void:
     var labels := PackedStringArray()
     for slot in range(slot_keys.size()):
         var key := OS.get_keycode_string(slot_keys[slot])
-        labels.append("%s:%s" % [key, "READY" if slot_cooldowns[slot] <= 0.0 else "%.1f" % slot_cooldowns[slot]])
+        var school := slot % spells.size()
+        var remaining := maxf(slot_cooldowns[slot], school_cooldowns[school])
+        var readiness := "READY" if remaining <= 0.0 else "%.1fs" % remaining
+        var affordable := "" if mana >= float(spells[school]["cost"]) else " NO MANA"
+        labels.append("%s %s [%s%s]" % [key, spells[school]["name"], readiness, affordable])
     action_bar.text = "Mana %d/%d | Left [Z] %s | Right [X] %s | Dual [C] | [M] Spells\n%s%s" % [int(mana), int(max_mana), spells[left_spell]["name"], spells[right_spell]["name"], "  ".join(labels), ("\n" + spell_notice if notice_left > 0.0 else "")]
 
 func _key_in_use(key: int, except_action: String) -> bool:
@@ -870,6 +874,7 @@ func _render_spell_menu() -> void:
         var status := ["Burn", "Slow", "Arcane burst", "Heal", "Shock", "Poison"][i]
         lines.append("%s%s  [%s]\n     Mana %d | %.1fs | Power %.1fx" % [marker, spells[i]["name"], status, int(spells[i]["cost"]), float(spells[i]["cooldown"]), float(spells[i]["power"])])
     lines.append("Left: %s  |  Right: %s" % [spells[left_spell]["name"], spells[right_spell]["name"]])
+    lines.append("Mana: %d/%d | Dual casting requires matching spells" % [int(mana), int(max_mana)])
     spell_menu.text = "\n".join(lines)
 
 func _cast_hand(hand: int) -> void:
@@ -897,6 +902,7 @@ func _cast_spell(index: int, multiplier: float, cost_multiplier: float = 1.0) ->
     var spell: Dictionary = spells[index]
     var cost: float = float(spell["cost"]) * cost_multiplier
     if mana < cost:
+        _cast_notice("Not enough mana")
         return false
     if index == 3:
         if hp >= max_hp:
@@ -930,8 +936,7 @@ func _cast_spell(index: int, multiplier: float, cost_multiplier: float = 1.0) ->
         _school_effect(target.position if is_instance_valid(target) else player.position, index)
     mana -= cost
     school_cooldowns[index] = float(spell["cooldown"])
-    spell_notice = "%s cast" % spell["name"]
-    notice_left = 1.3
+    _cast_notice("%s cast" % spell["name"])
     return true
 
 func _attack_target(target: Node3D) -> void:
@@ -969,3 +974,7 @@ func _has_clear_path(start: Vector3, finish: Vector3) -> bool:
     var query := PhysicsRayQueryParameters3D.create(start, finish)
     query.collision_mask = 2
     return get_world_3d().direct_space_state.intersect_ray(query).is_empty()
+
+func _cast_notice(message: String) -> void:
+    spell_notice = message
+    notice_left = 1.3
