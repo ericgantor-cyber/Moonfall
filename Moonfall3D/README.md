@@ -34,3 +34,12 @@ Hold **right mouse button** and drag to orbit camera and turn your character. Ho
 - Four room waypoints are tracked as navigation landmarks; actual connected rooms and NavMesh pathfinding are still future work.
 - No overhead camera, camera switching, or survival timer.
 - Source updated, **not tested in a Godot runtime**.
+
+## Solid dungeon collision pass
+
+- Added collision-enabled perimeter walls and four interior obstacles.
+- Player now uses CharacterBody3D move_and_slide() with capsule collision against static walls.
+- Basic ray-based enemy obstacle steering attempts to move around walls, but enemies are still Node3D agents without full navigation meshes or collision bodies. They may become stuck or pass through obstacles.
+- Camera obstacle checks use world geometry collision layer 2, avoiding player collision interference.
+- This remains **one arena** rather than a true multi-room dungeon. No changes to original Z/Nyra art, camera mode, or removed survival timer.
+- GDScript changes merged only after source review; **Godot playtesting is still required**.
