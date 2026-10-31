@@ -317,10 +317,14 @@ func _update_beast_step(beast:Dictionary,delta:float)->void:
     guard_label.position=Vector3(0.0,2.15,0.0)
     guard_body.add_child(guard_label)
     beast["v397_guard_label"]=guard_label
+   # Defensive tell: guarded attacks glow amber; staggered foes cannot guard.
+   guard_label.modulate=Color(1.0,0.74,0.25,1.0)
    guard_label.visible=bool(beast["v395_guarding"])
    if guard_label.visible:
     var guard_index:int=int(beast["v396_guard_direction"])
-    guard_label.text="GUARD "+(["HIGH","RIGHT","LOW","LEFT"][guard_index])
+    var guard_name:String=["HIGH","RIGHT","LOW","LEFT"][guard_index]
+    if guard_label.text!="GUARD "+guard_name:
+     guard_label.text="GUARD "+guard_name
 
 
  if map_time>=float(beast.get("v388_knock_until",0.0)):return
