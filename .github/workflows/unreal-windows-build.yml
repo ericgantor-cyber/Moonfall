@@ -89,6 +89,26 @@ jobs:
           path: MoonfallUnreal-Setup.exe
           if-no-files-found: error
           retention-days: 7
+      - name: Upload Unreal diagnostic logs on failure
+        if: failure()
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: MoonfallUnreal-Windows-Build-Logs
+          path: |
+            MoonfallUnreal/Saved/Logs/
+            MoonfallUnreal/Saved/CookReports/
+            MoonfallUnreal/Intermediate/Build/Win64/*.log
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Summarize Windows build result
+        if: always()
+        shell: pwsh
+        run: |
+          "## Moonfall Unreal Windows build" >> $env:GITHUB_STEP_SUMMARY
+          "Job result: ${{ job.status }}" >> $env:GITHUB_STEP_SUMMARY
+          "Requires trusted self-hosted Unreal Engine 5.4 runner. Source lint and launcher compilation alone do not prove gameplay." >> $env:GITHUB_STEP_SUMMARY
+          "On failure, inspect compilation/AutomationTool console logs and the diagnostic artifact if present." >> $env:GITHUB_STEP_SUMMARY
       - name: Report status
         shell: pwsh
         run: Write-Host 'Unreal project packaged and NSIS installer compiled. Installation testing, gameplay and frame generation still require verification.'
