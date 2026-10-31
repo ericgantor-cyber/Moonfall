@@ -76,6 +76,9 @@ var pad_move_deadzone := 0.18
 var pad_look_deadzone := 0.20
 var pad_settings: PanelContainer
 var pad_settings_open := false
+var options_panel: PanelContainer
+var options_open := false
+var start_latch := false
 var pad_vibration := false
 var mana := 100.0
 var max_mana := 100.0
@@ -201,6 +204,7 @@ func _ready() -> void:
     layer.add_child(binds_panel)
     _load_bindings()
     _build_pad_settings(layer)
+    _build_options_menu(layer)
     var center := CenterContainer.new()
     center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
     layer.add_child(center)
@@ -242,6 +246,19 @@ func _unhandled_input(event: InputEvent) -> void:
                     _save_bindings()
                 binding_capture = false
             _render_binds()
+            get_viewport().set_input_as_handled()
+            return
+        if event.keycode == KEY_ESCAPE and started:
+            if options_open:
+                _close_all_options()
+            elif spell_menu_open or pad_settings_open or binds_open or inventory_open:
+                _close_all_options()
+                _open_options_menu()
+            else:
+                _open_options_menu()
+            get_viewport().set_input_as_handled()
+            return
+        if options_open:
             get_viewport().set_input_as_handled()
             return
         if event.keycode == KEY_F9 and started and not binds_open:
@@ -309,13 +326,14 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _process(dt: float) -> void:
     _controller_menus()
+    _controller_start_menu()
     if dead and Input.is_key_pressed(KEY_R):
         get_tree().reload_current_scene()
         return
     if spell_menu_open:
         preview_time += dt
         _animate_spell_preview()
-    if not started or dead or binds_open or spell_menu_open or pad_settings_open:
+    if not started or dead or binds_open or spell_menu_open or pad_settings_open or options_open or inventory_open:
         return
     var look := Vector2.ZERO
     if not Input.get_connected_joypads().is_empty():
@@ -1104,7 +1122,7 @@ func _pad_button(button: int) -> bool:
     return not pads.is_empty() and Input.is_joy_button_pressed(pads[0], button)
 
 func _controller_menus() -> void:
-    if not started or dead or binds_open:
+    if not started or dead or binds_open or options_open or pad_settings_open:
         return
     var menu_pressed := _pad_button(JOY_BUTTON_Y)
     if menu_pressed and not pad_menu_latch:
@@ -1186,3 +1204,72 @@ func _rumble_cast() -> void:
     var pads := Input.get_connected_joypads()
     if not pads.is_empty():
         Input.start_joy_vibration(pads[0], 0.18, 0.3, 0.12)
+
+func _build_options_menu(layer: CanvasLayer) -> void:
+    options_panel = PanelContainer.new()
+    options_panel.position = Vector2(440, 150)
+    options_panel.custom_minimum_size = Vector2(400, 420)
+    options_panel.visible = false
+    layer.add_child(options_panel)
+    var menu := VBoxContainer.new()
+    options_panel.add_child(menu)
+    var title := Label.new()
+    title.text = "MOONFALL | OPTIONS"
+    title.add_theme_font_size_override("font_size", 26)
+    menu.add_child(title)
+    for entry in ["Resume", "Spellbook", "Inventory", "Keybindings", "Controller Settings"]:
+        var button := Button.new()
+        button.text = entry
+        button.custom_minimum_size.y = 60
+        button.focus_mode = Control.FOCUS_ALL
+        button.pressed.connect(_options_action.bind(entry))
+        menu.add_child(button)
+
+func _close_all_options() -> void:
+    options_open = false
+    options_panel.visible = false
+    spell_menu_open = false
+    spell_menu.visible = false
+    pad_settings_open = false
+    pad_settings.visible = false
+    binds_open = false
+    binding_capture = false
+    binds_panel.visible = false
+    inventory_open = false
+    inventory_panel.visible = false
+
+func _open_options_menu() -> void:
+    _close_all_options()
+    options_open = true
+    options_panel.visible = true
+    var buttons := options_panel.get_child(0).get_children()
+    if buttons.size() > 1:
+        (buttons[1] as Button).grab_focus()
+
+func _options_action(action: String) -> void:
+    _close_all_options()
+    match action:
+        "Spellbook":
+            spell_menu_open = true
+            spell_menu.visible = true
+            _render_spell_menu()
+        "Inventory":
+            inventory_open = true
+            inventory_panel.visible = true
+            _refresh_inventory()
+        "Keybindings":
+            binds_open = true
+            binds_panel.visible = true
+            _render_binds()
+        "Controller Settings":
+            pad_settings_open = true
+            pad_settings.visible = true
+
+func _controller_start_menu() -> void:
+    var pressed := _pad_button(JOY_BUTTON_START)
+    if pressed and not start_latch and started:
+        if options_open:
+            _close_all_options()
+        else:
+            _open_options_menu()
+    start_latch = pressed

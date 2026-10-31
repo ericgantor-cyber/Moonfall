@@ -147,3 +147,7 @@ Godot gamepad support now uses left stick for analog camera-relative movement (d
 ## Controller accessibility settings (F9)
 
 Press **F9** to open a graphical controller settings panel. It provides sliders for movement stick dead zone, right-stick camera dead zone, and camera sensitivity. It also provides an **opt-in vibration** toggle (off by default). Successful spell casts briefly vibrate the first connected gamepad when enabled; switching vibration off stops the motors. Values currently apply for the active session only; saving controller preferences and remapping controller buttons still need development. No WoW action bars or changes to original Z/Nyra character artwork.
+
+## Unified Options menu
+
+Press **Esc** on the keyboard or **Start/Menu** on a connected Xbox-style controller to open the centralized Options menu. Choose Resume, Spellbook, Inventory, Keybindings, or Controller Settings using the focusable buttons. Esc or Start closes the main menu; Esc while in a submenu returns to the main Options menu; Start from a submenu opens the main menu. Gameplay pauses while Options, the spellbook, controller settings, keybindings, or inventory are open. Older direct shortcuts may still open their own panels, but Esc/Start is the universal entry point. No WoW action bars are added. Z and Nyra's original artwork remains untouched. Requires build and controller playtesting.
