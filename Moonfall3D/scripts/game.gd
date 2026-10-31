@@ -64,6 +64,7 @@ var spell_list: VBoxContainer
 var spell_summary: Label
 var spell_preview: Label
 var spell_scroll: ScrollContainer
+var preview_time := 0.0
 var spell_menu_open := false
 var mana := 100.0
 var max_mana := 100.0
@@ -293,6 +294,9 @@ func _process(dt: float) -> void:
     if dead and Input.is_key_pressed(KEY_R):
         get_tree().reload_current_scene()
         return
+    if spell_menu_open:
+        preview_time += dt
+        _animate_spell_preview()
     if not started or dead or binds_open or spell_menu_open:
         return
     clock += dt
@@ -337,6 +341,8 @@ func _process(dt: float) -> void:
         else:
             effect.set_meta("life", life)
             effect.scale = Vector3.ONE * (1.0 + (0.3 - life) * 2.0)
+            if effect.get_meta("spin", false):
+                effect.rotate_y(dt * 7.0)
     attack_wait = maxf(0.0, attack_wait - dt)
     var jump_key := _pressed("jump")
     if jump_key and not jump_latch and player.is_on_floor():
@@ -986,6 +992,7 @@ func _school_effect(at: Vector3, spell_index: int) -> void:
     pulse.material_override = mat
     pulse.position = at + Vector3.UP
     pulse.set_meta("life", 0.3)
+    pulse.set_meta("spin", true)
     add_child(pulse)
     active_effects.append(pulse)
 
@@ -997,3 +1004,15 @@ func _has_clear_path(start: Vector3, finish: Vector3) -> bool:
 func _cast_notice(message: String) -> void:
     spell_notice = message
     notice_left = 1.3
+
+func _animate_spell_preview() -> void:
+    if spell_preview == null or not spell_menu_open:
+        return
+    # Text-based arcane animation remains readable and requires no new assets.
+    var phases := ["✦ · ·", "· ✦ ·", "· · ✦", "· ✦ ·"]
+    var phase := int(preview_time * 5.0) % phases.size()
+    var selected: Dictionary = spells[spell_cursor]
+    spell_preview.text = "%s  %s  %s\nMana %d | Power %.1fx | Cooldown %.2fs" % [
+        phases[phase], selected["name"], phases[phase],
+        int(selected["cost"]), float(selected["power"]), float(selected["cooldown"])
+    ]

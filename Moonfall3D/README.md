@@ -119,3 +119,7 @@ The graphical spellbook groups Flame, Frost and Storm under Destruction; Arcane 
 ## Scrollable spellbook and spell preview
 
 The M spellbook now places its categorized list in a ScrollContainer for mouse-wheel browsing and adds a selected-spell details panel showing school effect, mana, power, and cooldown. Clicking spell rows changes the preview; LEFT/RIGHT equipping remains. These UI changes do not add a WoW action bar, modify Z/Nyra artwork, or change the camera. Godot runtime validation required.
+
+## Animated spell feedback
+
+The spellbook's selected spell preview has a subtle rotating symbol sequence even while the spellbook pauses gameplay; combat impact spheres also spin during their brief lifespan. No new character art or WoW action bars. These effects are lightweight prototypes, not hand-casting animations or cinematic effects. Build validation and Windows playtest remain necessary.
