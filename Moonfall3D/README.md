@@ -131,3 +131,7 @@ Successful Z/X spells now emit independent left- or right-side elemental glows; 
 ## Hand casting arc animation
 
 Each temporary left/right casting glow follows its respective side of the character and rises in a short arc over the 0.25-second effect lifetime. Effects continue to use the existing capped VFX pool; no additional art assets, WoW action bars, or hero redesigns. This is a procedural spell animation, **not** skeletal hand animation. Godot runtime verification required.
+
+## Elemental impact silhouettes
+
+The six magic schools now have slightly different impact-orb proportions in addition to their existing colors. These are lightweight meshes rather than particle simulations. The VFX cap and original artwork remain unchanged; no WoW action bars are reintroduced. Requires Godot build and gameplay verification.
