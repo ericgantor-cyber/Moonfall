@@ -139,7 +139,18 @@ func _ready() -> void:
     add_child(ground_body)
     var sun := DirectionalLight3D.new()
     sun.rotation_degrees = Vector3(-55, -35, 0)
+    sun.light_color = Color(0.72, 0.63, 1.0)
+    sun.light_energy = 0.85
     add_child(sun)
+    var atmosphere := WorldEnvironment.new()
+    var environment := Environment.new()
+    environment.background_mode = Environment.BG_COLOR
+    environment.background_color = Color(0.045, 0.025, 0.09)
+    environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+    environment.ambient_light_color = Color(0.28, 0.18, 0.43)
+    environment.ambient_light_energy = 0.55
+    atmosphere.environment = environment
+    add_child(atmosphere)
     player = CharacterBody3D.new()
     player.collision_layer = 1
     player.collision_mask = 2
@@ -662,6 +673,18 @@ func _spawn(boss: bool) -> void:
             horn.position = Vector3(side * 0.85, 3.25, 0.0)
             horn.material_override = mat
             mob.add_child(horn)
+        var crown := MeshInstance3D.new()
+        var crown_mesh := TorusMesh.new()
+        crown_mesh.inner_radius = 1.15
+        crown_mesh.outer_radius = 1.36
+        crown.mesh = crown_mesh
+        crown.position.y = 3.35
+        var crown_material := StandardMaterial3D.new()
+        crown_material.albedo_color = Color(0.85, 0.3, 1.0)
+        crown_material.emission_enabled = true
+        crown_material.emission = Color(0.4, 0.08, 0.65)
+        crown.material_override = crown_material
+        mob.add_child(crown)
     elif mob_kind == 2:
         var crest := MeshInstance3D.new()
         var crest_mesh := PrismMesh.new()
