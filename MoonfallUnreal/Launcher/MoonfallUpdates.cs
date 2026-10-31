@@ -57,7 +57,7 @@ internal static class MoonfallUpdates
         return null;
     }
 
-    internal static async Task<string> DownloadVerifiedAsync(UpdateInfo update, CancellationToken cancellation = default)
+    internal static async Task<string> DownloadVerifiedAsync(UpdateInfo update, IProgress<long>? progress = null, CancellationToken cancellation = default)
     {
         var dir = Path.Combine(Path.GetTempPath(), "MoonfallUpdater");
         Directory.CreateDirectory(dir);
@@ -77,6 +77,7 @@ internal static class MoonfallUpdates
                 while ((count = await input.ReadAsync(buffer, cancellation)) > 0)
                 {
                     written += count;
+                    progress?.Report(written);
                     if (written > MaximumInstallerBytes)
                         throw new InvalidDataException("Update installer exceeded the allowed download limit.");
                     await output.WriteAsync(buffer.AsMemory(0, count), cancellation);

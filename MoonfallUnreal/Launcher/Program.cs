@@ -179,7 +179,13 @@ internal sealed class LaunchWindow : Form
                 "Moonfall Update Available", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
             if (choice != DialogResult.Yes) return;
             updates.Text = "DOWNLOADING";
-            var installer = await MoonfallUpdates.DownloadVerifiedAsync(available);
+            status.Text = "Downloading update...";
+            var progress = new Progress<long>(bytes =>
+            {
+                if (!IsDisposed) status.Text = $"Downloading update: {bytes / (1024.0 * 1024.0):F1} MiB received";
+            });
+            var installer = await MoonfallUpdates.DownloadVerifiedAsync(available, progress);
+            if (!IsDisposed) status.Text = "Update verified. Ready to install.";
             if (IsDisposed) return;
             var install = MessageBox.Show(this,
                 "Update downloaded and SHA-256 verified. Close Moonfall before running setup. Start the installer now?",
@@ -196,7 +202,7 @@ internal sealed class LaunchWindow : Form
         }
         finally
         {
-            if (!IsDisposed) { updates.Enabled = true; updates.Text = "UPDATES"; }
+            if (!IsDisposed) { updates.Enabled = true; updates.Text = "UPDATES"; if (status.Text.StartsWith("Downloading update:")) UpdateStatus(); }
         }
     }
 
