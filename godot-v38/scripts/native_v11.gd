@@ -1,4 +1,8 @@
 extends "res://scripts/main.gd"
+const JUMP_BUFFER_SECONDS:float=0.14
+const JUMP_COYOTE_SECONDS:float=0.12
+var jump_buffer_remaining:float=0.0
+var jump_coyote_remaining:float=0.0
 const V383_COMBAT_RULES:=preload("res://scripts/systems/procedural_variants_v382.gd")
 const V383_FEEDBACK:=preload("res://scripts/systems/combat_feedback_v383.gd")
 const MINI_MAP_SCRIPT := preload("res://scripts/native_minimap.gd")
@@ -1333,7 +1337,8 @@ func _unhandled_key_input(event: InputEvent) -> void:
   KEY_Q:_spell("nova")
   KEY_E:_spell("dash")
   KEY_R:_spell("fire")
-  KEY_SPACE:_dodge()
+  KEY_SPACE:_jump()
+  KEY_CTRL:_dodge()
   KEY_H:_cycle_companion_stance()
   KEY_TAB:_toggle_minimap()
  get_viewport().set_input_as_handled()
@@ -1386,7 +1391,21 @@ func _physics_process(delta: float) -> void:
  if mounted:speed=8.4+float(learned_talents.get("endurance",0))*0.4
  if dodge_time>0:speed*=1.6
  if weather_name=="Rain" and not mounted:speed*=0.93
- player.velocity=dir*speed
+ var grounded:bool=player.is_on_floor()
+ if grounded:jump_coyote_remaining=JUMP_COYOTE_SECONDS
+ else:jump_coyote_remaining=maxf(0.0,jump_coyote_remaining-delta)
+ if jump_buffer_remaining>0.0:
+  jump_buffer_remaining=maxf(0.0,jump_buffer_remaining-delta)
+  if not mounted and (grounded or jump_coyote_remaining>0.0):
+   player.velocity.y=8.0
+   jump_buffer_remaining=0.0
+   jump_coyote_remaining=0.0
+ var vertical_speed:float=player.velocity.y
+ if grounded and vertical_speed<=0.0:vertical_speed=-0.05
+ else:
+  vertical_speed-=22.0*delta
+  if vertical_speed>0.0 and not Input.is_key_pressed(KEY_SPACE):vertical_speed-=12.0*delta
+ player.velocity=Vector3(dir.x*speed,vertical_speed,dir.z*speed)
  player.move_and_slide()
  player.position.x=clampf(player.position.x,-WORLD_X,WORLD_X)
  player.position.z=clampf(player.position.z,-WORLD_Z,WORLD_Z)
@@ -1974,6 +1993,14 @@ func _spell(which: String) -> void:
    _apply_player_hit(beast,power,0.36 if which=="nova" else 0.18)
    hits+=1
  _show_message(("Moon Nova" if which=="nova" else "Eclipse Flame")+": "+str(hits)+" hits",1.3)
+
+func _jump() -> void:
+ if not hero_playing or menu_open or mounted or not is_instance_valid(player):return
+ jump_buffer_remaining=JUMP_BUFFER_SECONDS
+ if player.is_on_floor() or jump_coyote_remaining>0.0:
+  player.velocity.y=8.0
+  jump_buffer_remaining=0.0
+  jump_coyote_remaining=0.0
 
 func _dodge() -> void:
  if mounted:_show_message("No dodging on a mount.",1);return
