@@ -69,6 +69,11 @@ internal sealed class LaunchWindow : Form
         Resize += (_, _) => Invalidate();
         UpdateStatus();
     }
+    protected override void OnShown(EventArgs e)
+    {
+        base.OnShown(e);
+        play.Focus();
+    }
     protected override void OnPaintBackground(PaintEventArgs e)
     {
         base.OnPaintBackground(e);
