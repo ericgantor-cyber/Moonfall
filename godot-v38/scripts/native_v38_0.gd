@@ -208,6 +208,9 @@ func _spawn_beast(at:Vector3,kind:String,zone:int,variant:String="normal",boss:b
  var family_name:String=V400_FAMILY_BOSSES[clampi(zone,0,V400_FAMILY_BOSSES.size()-1)]
  creature["v400_family_name"]=family_name
  creature["v400_bloodline"]=true
+ creature["v404_tell_next"]=map_time+3.0
+ creature["v404_tell_until"]=0.0
+ creature["v404_attack_pending"]=false
  # Z and Nyra appear as boss encounters in their original artwork.
  if zone==0 or zone==1:
   var boss_body:CharacterBody3D=creature.get("body") as CharacterBody3D
@@ -579,6 +582,30 @@ func _apply_player_hit(target:Dictionary,base_damage:float,stagger_strength:floa
 
 func _update_beast_step(beast:Dictionary,delta:float)->void:
  super._update_beast_step(beast,delta)
+ if bool(beast.get("alive",false)) and bool(beast.get("boss",false)) and bool(beast.get("v400_bloodline",false)):
+  var boss_name:String=str(beast.get("v400_family_name",""))
+  if boss_name.begins_with("Z ") or boss_name.begins_with("Nyra "):
+   var boss_plate:Label3D=beast.get("nameplate") as Label3D
+   if map_time>=float(beast.get("v404_tell_next",0.0)):
+    beast["v404_tell_until"]=map_time+1.35
+    beast["v404_attack_pending"]=true
+    beast["v404_tell_next"]=map_time+7.0
+   if bool(beast.get("v404_attack_pending",false)) and map_time>=float(beast.get("v404_tell_until",0.0)):
+    beast["v404_attack_pending"]=false
+    var boss_body:Node3D=beast.get("body") as Node3D
+    if hero_playing and not death_active and not menu_open and is_instance_valid(player) and is_instance_valid(boss_body):
+     var hit_radius:float=4.0 if boss_name.begins_with("Z ") else 7.0
+     if player.global_position.distance_to(boss_body.global_position)<=hit_radius:
+      _apply_incoming_damage((13.0 if boss_name.begins_with("Z ") else 9.0)*float(clampi(int(beast.get("boss_phase",1)),1,3)))
+   if is_instance_valid(boss_plate):
+    if map_time<float(beast.get("v404_tell_until",0.0)):
+     var warning:String="⚔ ECLIPSE CLEAVE" if boss_name.begins_with("Z ") else "✦ VOID SURGE"
+     boss_plate.text=boss_name+"  •  "+warning+"  •  DODGE!"
+     boss_plate.modulate=Color(1.0,0.35,0.3) if boss_name.begins_with("Z ") else Color(0.75,0.4,1.0)
+    else:
+     var expected:String=boss_name+"  •  PHASE "+str(beast.get("boss_phase",1))
+     if boss_plate.text!=expected:boss_plate.text=expected
+     boss_plate.modulate=Color.WHITE
  if not bool(beast.get("alive",false)) or bool(beast.get("boss",false)):return
  if bool(beast.get("hostile",false)):
   var guard_body:CharacterBody3D=beast.get("body") as CharacterBody3D
