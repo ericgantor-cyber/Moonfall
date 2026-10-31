@@ -83,6 +83,8 @@ func _run()->void:
  check("V395_GUARD_PERIOD" in orb_source and "v395_guarding" in orb_source,"hostiles get periodic guard windows")
  check("GUARD BROKEN!" in orb_source and "V395_GUARD_REDUCTION" in orb_source,"heavy attacks or ripostes break enemy guards")
  check("V396_MATCHED_GUARD_REDUCTION" in orb_source and "v396_guard_direction" in orb_source,"directional enemy guard reacts to sword angle")
+ check("GuardDirection" in orb_source and "guard_label.visible" in orb_source,"enemy guard angle has visible combat telegraph")
+ check("guard_label.text=" in orb_source and "GUARD " in orb_source,"guard indicator displays the defended angle")
  check("Input.is_key_pressed(KEY_SHIFT)" in orb_source and "V391_HEAVY_DAMAGE_MULTIPLIER" in orb_source,"Shift heavy strike uses same combat damage pipeline")
  check("V391_HEAVY_STAMINA_COST" in orb_source and "v387_stamina_regen_wait=V387_STAMINA_REGEN_DELAY" in orb_source,"heavy melee strike spends stamina and delays regeneration")
  check("v391_heavy_attack_active=false" in orb_source,"heavy attack state resets after inherited hit processing")
