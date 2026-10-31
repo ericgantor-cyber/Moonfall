@@ -43,6 +43,8 @@ const V393_RIPOSTE_WINDOW:float=1.1
 const V393_RIPOSTE_MULTIPLIER:float=1.35
 var v393_riposte_until:float=-999.0
 var v393_riposte_active:bool=false
+var v394_strike_direction:int=0
+var v394_strike_direction_label:String="FRONT"
 
 var v390_valid_attacks:int=0
 var v390_blocked_attacks:int=0
@@ -228,6 +230,13 @@ func _v384_build_vitals()->void:
 
 
 func _unhandled_input(event:InputEvent)->void:
+ if event is InputEventKey and event.pressed and not event.echo and hero_playing and not menu_open and not death_active:
+  if event.keycode in [KEY_UP,KEY_RIGHT,KEY_DOWN,KEY_LEFT]:
+   v394_strike_direction=[KEY_UP,KEY_RIGHT,KEY_DOWN,KEY_LEFT].find(event.keycode)
+   v394_strike_direction_label=["HIGH","RIGHT","LOW","LEFT"][v394_strike_direction]
+   _show_message("Sword angle: "+v394_strike_direction_label,0.55)
+   get_viewport().set_input_as_handled()
+   return
  if event is InputEventMouseButton and event.button_index==MOUSE_BUTTON_RIGHT and event.pressed and hero_playing and not menu_open and not death_active:
   v392_guard_started=map_time
   get_viewport().set_input_as_handled()
@@ -293,6 +302,14 @@ func _attack()->void:
  if heavy_requested and attack_cooldown<=0.0 and not mounted and v387_stamina<V391_HEAVY_STAMINA_COST:
   _show_message("Not enough stamina for a heavy attack.",0.9)
   return
+ # Arrow keys select one of four sword angles; normal attack remains usable without selection.
+ var chosen_direction:int=v394_strike_direction
+ if Input.is_key_pressed(KEY_UP):chosen_direction=0
+ elif Input.is_key_pressed(KEY_RIGHT):chosen_direction=1
+ elif Input.is_key_pressed(KEY_DOWN):chosen_direction=2
+ elif Input.is_key_pressed(KEY_LEFT):chosen_direction=3
+ v394_strike_direction=chosen_direction
+ v394_strike_direction_label=["HIGH","RIGHT","LOW","LEFT"][chosen_direction]
  var cooldown_before:float=attack_cooldown
  v391_heavy_attack_active=heavy_requested and not mounted and attack_cooldown<=0.0
  v393_riposte_active=map_time<=v393_riposte_until and not mounted and attack_cooldown<=0.0
