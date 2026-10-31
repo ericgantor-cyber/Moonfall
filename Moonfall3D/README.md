@@ -159,3 +159,7 @@ October 2026 stability pass: identified a failing Godot CI run where six GDScrip
 ## Full game overhaul phase 2: combat AI
 
 Boss ranged attacks now require an unobstructed line of sight. Enemy groups use short-range repulsion to limit overlap, skirmishers select independent clockwise/counterclockwise strafing directions, and ranged skirmisher retreat is frame-scaled to avoid abrupt teleport-like movement. Separation remains a basic capped-mob steering heuristic, not NavMesh pathfinding. Godot build and actual gameplay verification still required. Skyrim-style casting, Esc/Start Options, Space jump, Q dodge, no WoW action bars, and original Z/Nyra art remain unchanged.
+
+## Phase 2: telegraphed boss attacks
+
+Bosses choose between a larger delayed impact (1.1-second windup, 3.1-unit radius) and a smaller faster impact (0.75-second windup, 1.8-unit radius). A red translucent ground indicator marks the target area before impact, letting the player move or dodge out of it. Damage resolves against the marked spot, checks dodge invulnerability and wall line-of-sight, and obeys the visual-effect cap. This is an experimental first pair of boss attack patterns and does not yet constitute fully distinct bosses or animation rigs. Godot gameplay testing is still required. Original Z/Nyra art and the removal of WoW bars are preserved.
