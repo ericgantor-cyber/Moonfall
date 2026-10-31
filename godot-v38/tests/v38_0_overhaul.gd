@@ -16,6 +16,16 @@ func _run()->void:
  check("CRITICAL AIR" in R.threat_status(5.0,true,true,10.0,100.0),"oxygen emergency prioritized")
  check("COMBAT" in R.threat_status(100.0,false,true,90.0,100.0),"combat warning")
  check("LOW HEALTH" in R.threat_status(100.0,false,false,25.0,100.0),"low health warning")
+ var talent_rules=load("res://scripts/systems/celestial_talents_v398.gd")
+ check(talent_rules!=null and talent_rules.TALENTS.size()==14,"celestial talent catalog has six branches and two signature talents")
+ check(talent_rules.points_for_level(1)==0 and talent_rules.points_for_level(5)==8,"talent points accrue at two per level")
+ var starting_ranks:Dictionary={}
+ check(talent_rules.can_unlock("z",2,starting_ranks,"weapon_technique"),"Z can unlock shared weapon technique")
+ check(not talent_rules.can_unlock("nyra",2,starting_ranks,"z_dragon_transformation"),"Nyra cannot unlock Z signature talent")
+ var first_rank:Dictionary=talent_rules.unlock("z",2,starting_ranks,"weapon_technique")
+ check(int(first_rank.get("weapon_technique",0))==1 and starting_ranks.is_empty(),"unlock returns new ranks without mutating saved data")
+ check(not talent_rules.can_unlock("z",2,starting_ranks,"weapon_mastery"),"advanced talents require prerequisite")
+ check(talent_rules.reset().is_empty(),"respec returns empty ranks")
  var pack_script:GDScript=load("res://scripts/native_v31_5.gd") as GDScript
  check(pack_script!=null and "sender_position.distance_squared_to(other.global_position)" in pack_script.source_code,"pack alert reuses cached sender position")
  var anatomy_script:GDScript=load("res://scripts/native_v31_6.gd") as GDScript
