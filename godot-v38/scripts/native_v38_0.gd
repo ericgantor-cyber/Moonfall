@@ -264,7 +264,9 @@ func _apply_incoming_damage(raw:float)->void:
 func _apply_player_hit(target:Dictionary,base_damage:float,stagger_strength:float=0.0)->void:
  # Reuse the existing stagger timer and hit visuals; do not create new AI state.
  var hp_before:float=float(target.get("hp",0.0))
- super._apply_player_hit(target,base_damage*(V391_HEAVY_DAMAGE_MULTIPLIER if v391_heavy_attack_active else 1.0)*(V393_RIPOSTE_MULTIPLIER if v393_riposte_active else 1.0),maxf(stagger_strength,0.42) if v393_riposte_active else maxf(stagger_strength,0.38) if v391_heavy_attack_active else stagger_strength)
+ var angle_damage:float=1.08 if v394_strike_direction==0 else 1.0
+ var angle_stagger:float=0.30 if v394_strike_direction==2 else stagger_strength
+ super._apply_player_hit(target,base_damage*angle_damage*(V391_HEAVY_DAMAGE_MULTIPLIER if v391_heavy_attack_active else 1.0)*(V393_RIPOSTE_MULTIPLIER if v393_riposte_active else 1.0),maxf(angle_stagger,0.42) if v393_riposte_active else maxf(angle_stagger,0.38) if v391_heavy_attack_active else angle_stagger)
  if hp_before<=float(target.get("hp",0.0)):return
  if not bool(target.get("hostile",false)) or bool(target.get("boss",false)) or not bool(target.get("alive",false)):return
  # Successful hits briefly interrupt ordinary enemies; stronger inherited staggers win.
