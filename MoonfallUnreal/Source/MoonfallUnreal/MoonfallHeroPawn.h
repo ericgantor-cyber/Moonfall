@@ -12,6 +12,7 @@ public:
  AMoonfallHeroPawn();
  virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
  virtual void BeginPlay() override;
+ virtual void Tick(float DeltaSeconds) override;
  UFUNCTION(BlueprintCallable, Category="Moonfall|Combat") void ApplyMoonfallDamage(float Amount);
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Combat") void OnHealthChanged(float NewHealth, float MaxHealth);
  UPROPERTY(BlueprintReadOnly, Category="Moonfall|Options") bool bOptionsOpen = false;
@@ -29,6 +30,10 @@ private:
  UPROPERTY(VisibleAnywhere) USpringArmComponent* CameraBoom;
  UPROPERTY(VisibleAnywhere) UCameraComponent* FollowCamera;
  float LastCastTime[2] = {-100.f,-100.f};
+ float NextDodgeAt = 0.f;
+ float DamageImmunityUntil = 0.f;
+ UPROPERTY(EditAnywhere, Category="Moonfall|Combat") float ManaRegenPerSecond = 8.f;
+ UPROPERTY(EditAnywhere, Category="Moonfall|Combat") float DodgeCooldown = 1.3f;
  void MoveForward(float Amount);
  void MoveRight(float Amount);
  void Turn(float Amount);
