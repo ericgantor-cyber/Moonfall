@@ -187,3 +187,7 @@ Dungeon chests now grant one to three Moon Shards along with gold and equipment.
 ## Armor forging and equipment tracking
 
 The existing Esc/Start > Crafting menu now offers +2 equipped-armor forging for 70 gold and four Moon Shards. Inventory displays which armor is equipped. Forging requires both armor and resources; automated smoke checks cover successful and insufficient-resource attempts. Expanded dungeon exploration and controller inventory navigation remain planned rather than completed.
+
+## Equipment selection menu
+
+Open Esc / Start > Equipment to choose which acquired weapon or armor to equip using focusable buttons. The list scrolls for larger inventories and retains a Back to Options control. Keyboard and mouse also work. The existing stat delta logic applies when swapping weapons. Controller hardware navigation and menu presentation still need real gameplay testing.
