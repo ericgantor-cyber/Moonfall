@@ -51,3 +51,7 @@ Two solid divider walls with center doorways divide the arena into three travers
 ## Randomized room obstacles and loot chests
 
 Each new run seeds three interior obstacle positions while retaining the existing three-room floor plan and central doorways. Three golden chests appear, one per room. Press **E** within 2.5 units to open a chest for 10–35 gold and either +25 HP (capped at max HP) or +2 damage. Gold appears on the HUD. This is a small procedural-variation and loot prototype, **not** a full procedural dungeon generator, inventory system, or NavMesh pathfinding implementation. Godot runtime gameplay tests are still needed. Original Z/Nyra art and the WoW-style camera remain unchanged.
+
+## Equipment and inventory prototype
+
+Chests now give gold plus one weighted-rarity weapon: Common, Uncommon, Rare, Epic, or Legendary. Inventory is capped at 20 items; an overflow chest awards extra gold instead. Press **I** to toggle the bag listing. The strongest found weapon automatically equips and contributes its power differential to damage, without stacking duplicate bonuses. No manual equip, sell, persistence, armor slots, or full equipment UI yet. Existing doorway-steering AI is unchanged; sophisticated navigation is still pending. Godot runtime tests are not yet run.
