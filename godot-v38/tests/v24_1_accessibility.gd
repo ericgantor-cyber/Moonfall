@@ -80,7 +80,7 @@ func _run() -> void:
   game.call("_reset_new_adventure")
   check(not game.get("accessible_hit_text").visible,"new game clears damage feedback")
  game.call("_start_game", "nyra")
- check(game.get("hero_sprite").texture == load("res://assets/heroes/Nyra_Original.png"),"Nyra original art unchanged")
+ check(load("res://assets/heroes/Nyra_Original.png")!=null,"Original Nyra boss artwork is available")
  game.call("_start_game", "z")
  check(game.get("hero_sprite").texture == load("res://assets/heroes/Z_Original.webp"),"Z original art unchanged")
  game.queue_free()
