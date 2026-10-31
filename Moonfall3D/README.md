@@ -199,3 +199,7 @@ Two additional blue-tinted greater chests appear in the dungeon wings. They yiel
 ## Dungeon readability and enemy archetypes
 
 The three existing dungeon regions now include different landmark clusters and region colors, making them easier to recognize without adding modes or changing solid walls. Bruiser, skirmisher and charger placeholder enemies have distinct colors to telegraph their behaviors. These are low-cost primitive meshes, not new handcrafted rooms or final enemy art. Godot validation and gameplay testing remain necessary. Z/Nyra original artwork is preserved and WoW action bars stay removed.
+
+## Dungeon floor hazards
+
+Each of the three dungeon regions now contains two visible glowing hazard circles placed away from the central doorway. Standing on a hazard while grounded causes modest damage, limited by a 1.5-second shared cooldown; dodging grants invulnerability, and jumping avoids a grounded hit. The hazards use inexpensive fixed meshes and do not add particle effects. This is an initial environmental danger system; balance and Windows gameplay tests remain necessary. No extra modes, WoW action bars, or character-art changes.
