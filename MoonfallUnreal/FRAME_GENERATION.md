@@ -21,3 +21,7 @@
 ## Graphics Options placeholder
 
 A fourth graphics Options row now presents Off / Auto / On as a **UI preference only**. The row explicitly says the plugin is unavailable, and switching preferences does not activate frame generation. The user preference is now saved to and loaded from the Unreal game-user settings INI. `bFrameGenerationAvailable` remains false until a real supported vendor integration provides capability detection and activation. The game must continue to render normally regardless of this preference.
+
+## Plugin discovery (without activation)
+
+At startup, the Unreal prototype queries Unreal's `IPluginManager` for enabled `FSR` or `DLSS` plugins. The graphics Options row indicates whether a plugin is discovered, but explicitly shows that frame generation stays **inactive**. Detection does not check GPU capability, the frame-generation submodule, driver, operating system, or actual runtime support. `bFrameGenerationAvailable` therefore remains false, even if a plugin is found. A vendor-specific runtime API and tested compatibility check are required before connecting On/Auto to real rendering.
