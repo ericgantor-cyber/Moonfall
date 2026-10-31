@@ -1,0 +1,32 @@
+name: Moonfall Unreal local build script checks
+on:
+  push:
+    paths:
+      - 'MoonfallUnreal/Build/**'
+      - '.github/workflows/unreal-local-build-script-checks.yml'
+  pull_request:
+    paths:
+      - 'MoonfallUnreal/Build/**'
+      - '.github/workflows/unreal-local-build-script-checks.yml'
+jobs:
+  powershell-parse:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check local build script PowerShell syntax
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $file = 'MoonfallUnreal/Build/Build-Windows.ps1'
+          $tokens = $null
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path $file).Path, [ref]$tokens, [ref]$errors) | Out-Null
+          if ($errors.Count -gt 0) {
+            $errors | ForEach-Object { Write-Error $_.Message }
+            throw 'Local Unreal build script contains PowerShell parse errors'
+          }
+          $content = Get-Content $file -Raw
+          foreach ($item in @('MoonfallUnrealEditor', 'BuildCookRun', '--check-install', 'makensis.exe')) {
+            if (-not $content.Contains($item)) { throw "Build step absent: $item" }
+          }
+          Write-Host 'Build script parses and core stages are present. Unreal SDK compilation NOT performed.'
