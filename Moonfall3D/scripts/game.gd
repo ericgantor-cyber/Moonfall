@@ -65,6 +65,7 @@ var spell_menu: Label
 var spell_menu_open := false
 var mana := 100.0
 var max_mana := 100.0
+var spell_cursor := 0
 var left_spell := 0
 var right_spell := 1
 var hand_cooldowns := [0.0, 0.0]
@@ -72,7 +73,9 @@ var spells := [
     {"name": "Flame", "cost": 16.0, "power": 1.4, "cooldown": 0.8},
     {"name": "Frost", "cost": 13.0, "power": 1.1, "cooldown": 0.65},
     {"name": "Arcane", "cost": 22.0, "power": 1.9, "cooldown": 1.2},
-    {"name": "Restoration", "cost": 25.0, "power": 0.0, "cooldown": 2.0}
+    {"name": "Restoration", "cost": 25.0, "power": 0.0, "cooldown": 2.0},
+    {"name": "Storm", "cost": 18.0, "power": 1.6, "cooldown": 1.0},
+    {"name": "Venom", "cost": 14.0, "power": 1.2, "cooldown": 0.9}
 ]
 var bindings: Dictionary = {"forward": KEY_W, "back": KEY_S, "left": KEY_A, "right": KEY_D, "jump": KEY_SPACE, "dodge": KEY_Q, "inventory": KEY_B, "interact": KEY_F, "target": KEY_TAB}
 var slot_keys: Array[int] = []
@@ -222,6 +225,14 @@ func _unhandled_input(event: InputEvent) -> void:
             get_viewport().set_input_as_handled()
             return
         if spell_menu_open:
+            if event.keycode == KEY_UP:
+                spell_cursor = posmod(spell_cursor - 1, spells.size())
+            elif event.keycode == KEY_DOWN:
+                spell_cursor = (spell_cursor + 1) % spells.size()
+            elif event.keycode == KEY_Z:
+                left_spell = spell_cursor
+            elif event.keycode == KEY_X:
+                right_spell = spell_cursor
             if event.keycode >= KEY_1 and event.keycode <= KEY_4:
                 left_spell = event.keycode - KEY_1
             elif event.keycode >= KEY_5 and event.keycode <= KEY_8:
@@ -798,10 +809,7 @@ func _next_target() -> Node3D:
 func _use_action_slot(slot: int) -> void:
     if slot < 0 or slot >= slot_cooldowns.size():
         return
-    if slot % 4 == 3:
-        _cast_spell(3, 1.0)
-    else:
-        _cast_spell(slot % 3, 1.0)
+    _cast_spell(slot % spells.size(), 1.0)
     slot_cooldowns[slot] = 0.7 + float(slot % 3) * 0.35
 
 func _render_action_bar() -> void:
@@ -825,9 +833,10 @@ func _key_in_use(key: int, except_action: String) -> bool:
 func _render_spell_menu() -> void:
     if spell_menu == null:
         return
-    var lines := PackedStringArray(["SPELLS [M] Close", "1-4: assign LEFT hand", "5-8: assign RIGHT hand"])
+    var lines := PackedStringArray(["MOONFALL SPELLBOOK  [M] Close", "Up/Down: browse | Z: left hand | X: right hand", "1-4 / 5-8: quick assign original four spells"])
     for i in range(spells.size()):
-        lines.append("%d / %d : %s  Mana %d" % [i + 1, i + 5, spells[i]["name"], int(spells[i]["cost"])])
+        var marker := "> " if i == spell_cursor else "  "
+        lines.append("%s%s | Mana %d | %.1fs | Power %.1fx" % [marker, spells[i]["name"], int(spells[i]["cost"]), float(spells[i]["cooldown"]), float(spells[i]["power"])])
     lines.append("Left: %s  |  Right: %s" % [spells[left_spell]["name"], spells[right_spell]["name"]])
     spell_menu.text = "\n".join(lines)
 
@@ -857,7 +866,7 @@ func _cast_spell(index: int, multiplier: float, cost_multiplier: float = 1.0) ->
         if hp >= max_hp:
             return false
         hp = minf(max_hp, hp + 24.0 * multiplier)
-        _spell_effect(player.position, true)
+        _school_effect(player.position, index)
     else:
         var target := _select_target()
         if target == null:
@@ -868,6 +877,7 @@ func _cast_spell(index: int, multiplier: float, cost_multiplier: float = 1.0) ->
         damage = dealt
         _attack_target(target)
         damage = original
+        _school_effect(target.position, index)
     mana -= cost
     return true
 
@@ -879,3 +889,25 @@ func _attack_target(target: Node3D) -> void:
     locked_target = target
     _attack()
     locked_target = previous
+
+# Lightweight color-coded school flashes; does not alter either hero's artwork.
+func _school_effect(at: Vector3, spell_index: int) -> void:
+    var colors := [
+        Color(1.0, 0.24, 0.05), Color(0.2, 0.85, 1.0),
+        Color(0.65, 0.25, 1.0), Color(0.2, 1.0, 0.35),
+        Color(1.0, 0.92, 0.2), Color(0.32, 0.9, 0.2)
+    ]
+    var pulse := MeshInstance3D.new()
+    var sphere := SphereMesh.new()
+    sphere.radius = 0.7
+    sphere.height = 1.4
+    pulse.mesh = sphere
+    var mat := StandardMaterial3D.new()
+    mat.albedo_color = colors[spell_index]
+    mat.emission_enabled = true
+    mat.emission = mat.albedo_color
+    pulse.material_override = mat
+    pulse.position = at + Vector3.UP
+    pulse.set_meta("life", 0.3)
+    add_child(pulse)
+    active_effects.append(pulse)
