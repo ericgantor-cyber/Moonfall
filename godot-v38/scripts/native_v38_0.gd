@@ -159,8 +159,8 @@ func _v399_build_creator()->void:
 # Z and Nyra are siblings of the Eclipse bloodline. Family guardians remain bosses,
 # never replacements for either playable character or their original portraits.
 const V400_FAMILY_BOSSES:PackedStringArray=[
- "Veyra • Eclipse Matriarch",
- "Draeven • Moonbound Patriarch",
+ "Z • Eclipse Champion",
+ "Nyra • Eclipse Queen",
  "Kael • The Lost Elder Brother",
  "Selene • The Exiled Aunt",
  "Morrow • Bloodline Warden",
@@ -175,6 +175,19 @@ func _spawn_beast(at:Vector3,kind:String,zone:int,variant:String="normal",boss:b
  var family_name:String=V400_FAMILY_BOSSES[clampi(zone,0,V400_FAMILY_BOSSES.size()-1)]
  creature["v400_family_name"]=family_name
  creature["v400_bloodline"]=true
+ # Z and Nyra appear as boss encounters in their original artwork.
+ if zone==0 or zone==1:
+  var boss_body:CharacterBody3D=creature.get("body") as CharacterBody3D
+  if is_instance_valid(boss_body):
+   for visual in boss_body.get_children():
+    if visual is MeshInstance3D:visual.visible=false
+   var portrait:Sprite3D=Sprite3D.new()
+   portrait.name="OriginalHeroBossArtwork"
+   portrait.texture=Z_ART if zone==0 else NYRA_ART
+   portrait.pixel_size=2.65/float(portrait.texture.get_height())
+   portrait.billboard=BaseMaterial3D.BILLBOARD_ENABLED
+   portrait.position=Vector3(0.0,0.4,0.0)
+   boss_body.add_child(portrait)
  var title:Label3D=creature.get("nameplate") as Label3D
  if is_instance_valid(title):title.text=family_name+"  •  GUARDIAN"
  # Existing three-phase boss behavior, loot, combat and scaling remain intact.
