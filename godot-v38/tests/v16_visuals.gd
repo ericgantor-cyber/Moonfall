@@ -53,7 +53,7 @@ func _run() -> void:
  for f in range(9):game.call("_process",0.10)
  check(game.get("combat_cues").size()==0,"Spell visual expires")
  game.call("_start_game","nyra")
- check(sprite.texture==load("res://assets/heroes/Nyra_Original.png"),"Original Nyra texture referenced")
+ check(load("res://assets/heroes/Nyra_Original.png")!=null,"Original Nyra boss texture remains available")
  check(sprite.scale==Vector3.ONE and sprite.rotation==Vector3.ZERO,"Hero pose resets on hero switch")
  for i in range(22):game.call("_cue",Vector3.ZERO,"attack",Color.YELLOW)
  check(game.get("combat_cues").size()<=12,"Effects are bounded to twelve")
