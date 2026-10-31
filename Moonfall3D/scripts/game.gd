@@ -50,6 +50,12 @@ var inventory_open := false
 var inventory_panel: Label
 var inventory_latch := false
 var equip_latch := false
+var binds_open := false
+var binds_panel: Label
+var binding_index := 0
+var binding_capture := false
+var bindings: Dictionary = {"forward": KEY_W, "back": KEY_S, "left": KEY_A, "right": KEY_D, "dodge": KEY_SPACE, "attack": KEY_1, "spell": KEY_2, "inventory": KEY_B, "interact": KEY_F, "target": KEY_TAB}
+const BIND_ORDER := ["forward", "back", "left", "right", "dodge", "attack", "spell", "inventory", "interact", "target"]
 var selected_item := 0
 var armor := 0.0
 const MAX_INVENTORY := 20
@@ -115,6 +121,12 @@ func _ready() -> void:
     inventory_panel.add_theme_font_size_override("font_size", 18)
     inventory_panel.visible = false
     layer.add_child(inventory_panel)
+    binds_panel = Label.new()
+    binds_panel.position = Vector2(420, 65)
+    binds_panel.add_theme_font_size_override("font_size", 18)
+    binds_panel.visible = false
+    layer.add_child(binds_panel)
+    _load_bindings()
     var center := CenterContainer.new()
     center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
     layer.add_child(center)
@@ -145,6 +157,38 @@ func _choose(name: String) -> void:
     (player.get_node("Placeholder") as MeshInstance3D).material_override = mat
 
 func _unhandled_input(event: InputEvent) -> void:
+    if event is InputEventKey and event.pressed and not event.echo:
+        if binding_capture:
+            if event.keycode == KEY_ESCAPE:
+                binding_capture = false
+            else:
+                var action: String = BIND_ORDER[binding_index]
+                if not bindings.values().has(event.keycode):
+                    bindings[action] = event.keycode
+                    _save_bindings()
+                binding_capture = false
+            _render_binds()
+            get_viewport().set_input_as_handled()
+            return
+        if event.keycode == KEY_F10 and started:
+            binds_open = not binds_open
+            binds_panel.visible = binds_open
+            _render_binds()
+            get_viewport().set_input_as_handled()
+            return
+        if binds_open:
+            if event.keycode == KEY_UP:
+                binding_index = posmod(binding_index - 1, BIND_ORDER.size())
+            elif event.keycode == KEY_DOWN:
+                binding_index = (binding_index + 1) % BIND_ORDER.size()
+            elif event.keycode == KEY_ENTER:
+                binding_capture = true
+            elif event.keycode == KEY_ESCAPE:
+                binds_open = false
+                binds_panel.visible = false
+            _render_binds()
+            get_viewport().set_input_as_handled()
+            return
     if not started or dead:
         return
     if event is InputEventMouseButton and event.pressed:
@@ -163,10 +207,10 @@ func _process(dt: float) -> void:
     if dead and Input.is_key_pressed(KEY_R):
         get_tree().reload_current_scene()
         return
-    if not started or dead:
+    if not started or dead or binds_open:
         return
     clock += dt
-    var inventory_key := Input.is_key_pressed(KEY_I)
+    var inventory_key := _pressed("inventory")
     if inventory_key and not inventory_latch:
         inventory_open = not inventory_open
         inventory_panel.visible = inventory_open
@@ -199,18 +243,18 @@ func _process(dt: float) -> void:
     dodge_left = maxf(0.0, dodge_left - dt)
     invulnerable = maxf(0.0, invulnerable - dt)
     var motion := Vector3.ZERO
-    if Input.is_key_pressed(KEY_A) or Input.is_key_pressed(KEY_LEFT):
+    if _pressed("left") or Input.is_key_pressed(KEY_LEFT):
         motion.x -= 1
-    if Input.is_key_pressed(KEY_D) or Input.is_key_pressed(KEY_RIGHT):
+    if _pressed("right") or Input.is_key_pressed(KEY_RIGHT):
         motion.x += 1
-    if Input.is_key_pressed(KEY_W) or Input.is_key_pressed(KEY_UP):
+    if _pressed("forward") or Input.is_key_pressed(KEY_UP):
         motion.z -= 1
-    if Input.is_key_pressed(KEY_S) or Input.is_key_pressed(KEY_DOWN):
+    if _pressed("back") or Input.is_key_pressed(KEY_DOWN):
         motion.z += 1
     motion = motion.normalized()
     # Camera-relative movement, with right-drag turning the character.
     motion = motion.rotated(Vector3.UP, camera_yaw)
-    if Input.is_key_pressed(KEY_SPACE) and dodge_wait <= 0.0:
+    if _pressed("dodge") and dodge_wait <= 0.0:
         dodge_dir = motion if motion.length() > 0.0 else Vector3.FORWARD
         dodge_left = 0.24
         dodge_wait = 1.1
@@ -243,9 +287,9 @@ func _process(dt: float) -> void:
     target_marker.visible = cached_target != null
     if cached_target != null:
         target_marker.position = cached_target.position + Vector3.UP * 0.08
-    if Input.is_key_pressed(KEY_E):
+    if _pressed("interact"):
         _open_nearby_chest()
-    if (Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) or Input.is_key_pressed(KEY_J)) and attack_wait <= 0.0:
+    if (Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) or _pressed("attack") or _pressed("spell")) and attack_wait <= 0.0:
         _attack()
     spawn_wait -= dt
     if spawn_wait <= 0.0 and mobs.size() < MAX_MOBS:
@@ -591,3 +635,36 @@ func _equip_item(index: int) -> void:
     else:
         armor = float(item["power"])
     _refresh_inventory()
+
+func _pressed(action: String) -> bool:
+    return Input.is_key_pressed(int(bindings[action]))
+
+func _render_binds() -> void:
+    if binds_panel == null:
+        return
+    var lines := PackedStringArray(["KEYBINDS [F10] Close", "Up/Down: select | Enter: remap | Esc: cancel"])
+    for i in range(BIND_ORDER.size()):
+        var action: String = BIND_ORDER[i]
+        var prefix := "> " if i == binding_index else "  "
+        lines.append("%s%s : %s" % [prefix, action, OS.get_keycode_string(int(bindings[action]))])
+    if binding_capture:
+        lines.append("Press a new key, or Esc to cancel")
+    binds_panel.text = "\n".join(lines)
+
+func _save_bindings() -> void:
+    var file := FileAccess.open("user://moonfall_keybinds.json", FileAccess.WRITE)
+    if file != null:
+        file.store_string(JSON.stringify(bindings))
+
+func _load_bindings() -> void:
+    if not FileAccess.file_exists("user://moonfall_keybinds.json"):
+        return
+    var file := FileAccess.open("user://moonfall_keybinds.json", FileAccess.READ)
+    if file == null:
+        return
+    var parsed = JSON.parse_string(file.get_as_text())
+    if not parsed is Dictionary:
+        return
+    for action in BIND_ORDER:
+        if parsed.has(action) and int(parsed[action]) > 0:
+            bindings[action] = int(parsed[action])
