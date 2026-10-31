@@ -4,6 +4,8 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Components/InputComponent.h"
 #include "Engine/World.h"
+#include "MoonfallEnemy.h"
+#include "CollisionQueryParams.h"
 AMoonfallHeroPawn::AMoonfallHeroPawn()
 {
  PrimaryActorTick.bCanEverTick = false;
@@ -58,6 +60,16 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
  const float Time = GetWorld()->GetTimeSeconds();
  if (Mana < Costs[School] * Multiplier || Time - LastCastTime[Hand] < Cooldowns[School]) return false;
  if (School == 3 && Health >= 100.f) return false;
+ if (School != 3) {
+  FHitResult Hit;
+  const FVector Origin = FollowCamera->GetComponentLocation();
+  const FVector End = Origin + FollowCamera->GetForwardVector() * 1800.f;
+  FCollisionQueryParams Params(SCENE_QUERY_STAT(MoonfallSpell), false, this);
+  if (!GetWorld()->LineTraceSingleByChannel(Hit, Origin, End, ECC_Visibility, Params)) return false;
+  AMoonfallEnemy* Enemy = Cast<AMoonfallEnemy>(Hit.GetActor());
+  if (!IsValid(Enemy) || Enemy->Health <= 0.f) return false;
+  Enemy->TakeSpellDamage((18.f + School * 5.f) * Multiplier);
+ }
  Mana -= Costs[School] * Multiplier;
  LastCastTime[Hand] = Time;
  if (School == 3) Health = FMath::Min(100.f, Health + 24.f * Multiplier);
