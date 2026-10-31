@@ -13,7 +13,7 @@ void AMoonfallCombatHUD::DrawHUD()
  if (!Canvas) return;
  const AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this,0));
  if (!IsValid(Hero)) return;
- DrawText(TEXT("F6: Graphics quality    F7: Window / Fullscreen"), FLinearColor(0.85f,0.78f,1.f), 32.f, 25.f, nullptr, 1.f);
+ DrawText(TEXT("Mouse L/R: Cast  |  C: Dual spell  |  Q: Dodge  |  Esc: Options  |  F6/F7: Display"), FLinearColor(0.85f,0.78f,1.f), 32.f, 25.f, nullptr, 1.f);
  if (Hero->bOptionsOpen) {
   DrawRect(FLinearColor(0.04f,0.03f,0.11f,0.94f),Canvas->SizeX*0.5f-280.f,Canvas->SizeY*0.5f-190.f,560.f,380.f);
   DrawText(TEXT("MOONFALL  |  GRAPHICS OPTIONS"),FLinearColor::White,Canvas->SizeX*0.5f-230.f,Canvas->SizeY*0.5f-150.f,nullptr,1.25f);
