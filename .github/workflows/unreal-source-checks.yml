@@ -32,5 +32,10 @@ jobs:
           assert 'SetLifeSpan(1.25f)' in enemy
           assert 'if (!bOptionsOpen) AddControllerYawInput' in hero
           assert 'if (!bOptionsOpen) AddControllerPitchInput' in hero
-          print('Source structure and feature regression checks passed. Unreal compilation NOT performed.')
+          assert 'ManaRegenPerSecond' in hero and 'Tick(float DeltaSeconds)' in hero
+          assert 'DamageImmunityUntil' in hero and 'NextDodgeAt' in hero
+          assert 'GetLastMovementInputVector' in hero
+          assert enemy.count('Nav->ProjectPointToNavigation(') == 1
+          assert enemy.index('if (Now >= NextPathRefreshAt)') < enemy.index('Nav->ProjectPointToNavigation(')
+          print('Combat overhaul regression checks passed. Unreal compilation NOT performed.')
           PY
