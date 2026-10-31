@@ -31,7 +31,7 @@ func _run()->void:
  check(talent_scene!=null and "button.visible=false" in talent_scene.source_code,"original hero selection buttons are hidden")
  check(talent_scene!=null and "_v400_apply_adventurer_look()" in talent_scene.source_code,"custom adventurer uses separate placeholder art")
  check(talent_scene!=null and "\"Z • Eclipse Champion\"" in talent_scene.source_code and "\"Nyra • Eclipse Queen\"" in talent_scene.source_code,"Z and Nyra are named regional bosses")
- check(talent_scene!=null and "portrait.texture=Z_ART if zone==0 else NYRA_ART" in talent_scene.source_code,"Z and Nyra boss visuals reuse original unaltered character textures")
+ check(talent_scene!=null and "portrait.set_texture(Z_ART if zone==0 else NYRA_ART)" in talent_scene.source_code,"Z and Nyra boss visuals reuse original unaltered character textures")
  check(talent_scene!=null and "super._spawn_beast(at,kind,zone,variant,boss)" in talent_scene.source_code,"family bosses reuse current guardian encounter system")
  check(talent_scene!=null and "super._refresh_boss_phase(beast)" in talent_scene.source_code,"family bosses retain inherited boss phase mechanics")
  check(talent_scene!=null and "\"bloodline\":\"Eclipse\"" in talent_scene.source_code,"character creator records bloodline")
