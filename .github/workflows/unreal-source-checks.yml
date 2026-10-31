@@ -26,6 +26,9 @@ jobs:
           for path in root.rglob('*.cpp'):
               text = path.read_text()
               assert text.count('{') == text.count('}'), path
+          config = Path('MoonfallUnreal/Config/DefaultEngine.ini').read_text()
+          assert 'GameDefaultMap=/Engine/Maps/Entry' in config
+          assert 'EditorStartupMap=/Engine/Maps/Entry' in config
           enemy = (root/'MoonfallUnreal'/'MoonfallEnemy.cpp').read_text()
           hero = (root/'MoonfallUnreal'/'MoonfallHeroPawn.cpp').read_text()
           assert 'NextPathRefreshAt' in enemy and 'CachedWaypoint' in enemy
