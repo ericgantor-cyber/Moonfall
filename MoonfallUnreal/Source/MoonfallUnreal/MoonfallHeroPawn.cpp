@@ -13,7 +13,7 @@
 #include "CollisionQueryParams.h"
 AMoonfallHeroPawn::AMoonfallHeroPawn()
 {
- PrimaryActorTick.bCanEverTick = false;
+ PrimaryActorTick.bCanEverTick = true;
  CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
  CameraBoom->SetupAttachment(GetRootComponent());
  CameraBoom->TargetArmLength = 450.f;
@@ -36,6 +36,11 @@ void AMoonfallHeroPawn::BeginPlay() {
  const TSharedPtr<IPlugin> DLSS = IPluginManager::Get().FindPlugin(TEXT("DLSS"));
  bFrameGenerationPluginDetected = (FSR.IsValid() && FSR->IsEnabled()) || (DLSS.IsValid() && DLSS->IsEnabled());
  // Detection is only a hint, never proof of a supported frame-generation runtime.
+}
+void AMoonfallHeroPawn::Tick(float DeltaSeconds)
+{
+ Super::Tick(DeltaSeconds);
+ if (Health > 0.f && Mana < MaxMana) Mana = FMath::Min(MaxMana, Mana + ManaRegenPerSecond * FMath::Max(0.f, DeltaSeconds));
 }
 void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
 {
@@ -82,7 +87,7 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
 {
  static const float Costs[6] = {16.f,13.f,22.f,25.f,18.f,14.f};
  static const float Cooldowns[6] = {0.8f,0.65f,1.2f,2.f,1.f,0.9f};
- if (!GetWorld() || School < 0 || School >= 6 || Hand < 0 || Hand > 1) return false;
+ if (Health <= 0.f || bOptionsOpen || !GetWorld() || School < 0 || School >= 6 || Hand < 0 || Hand > 1) return false;
  const float Time = GetWorld()->GetTimeSeconds();
  if (Mana < Costs[School] * Multiplier || Time - LastCastTime[Hand] < Cooldowns[School]) return false;
  if (School == 3 && Health >= 100.f) return false;
@@ -126,12 +131,18 @@ void AMoonfallHeroPawn::CastBoth()
 }
 void AMoonfallHeroPawn::Dodge()
 {
- if (bOptionsOpen) return;
- LaunchCharacter(GetActorForwardVector() * 600.f, true, false);
+ if (bOptionsOpen || Health <= 0.f || !GetWorld()) return;
+ const float Now = GetWorld()->GetTimeSeconds();
+ if (Now < NextDodgeAt) return;
+ NextDodgeAt = Now + DodgeCooldown;
+ DamageImmunityUntil = Now + 0.24f;
+ const FVector MoveDirection = GetLastMovementInputVector().GetSafeNormal2D();
+ const FVector Direction = MoveDirection.IsNearlyZero() ? GetActorForwardVector() : MoveDirection;
+ LaunchCharacter(Direction * 650.f, true, false);
 }
 
 void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
- if (Health <= 0.f || Amount <= 0.f) return;
+ if (Health <= 0.f || Amount <= 0.f || !GetWorld() || GetWorld()->GetTimeSeconds() < DamageImmunityUntil) return;
  Health = FMath::Max(0.f, Health - Amount);
  OnHealthChanged(Health, 100.f);
 }
