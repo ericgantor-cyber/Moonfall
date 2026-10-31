@@ -521,7 +521,7 @@ func _update_beast_step(beast:Dictionary,delta:float)->void:
    # Reuse one lightweight floating label per enemy, only while guarding.
    var guard_visible:bool=bool(beast["v395_guarding"])
    var guard_label:Label3D=beast.get("v397_guard_label") as Label3D
-   if not is_instance_valid(guard_label):
+   if guard_visible and not is_instance_valid(guard_label):
     guard_label=Label3D.new()
     guard_label.name="GuardDirection"
     guard_label.billboard=BaseMaterial3D.BILLBOARD_ENABLED
@@ -532,12 +532,13 @@ func _update_beast_step(beast:Dictionary,delta:float)->void:
     guard_body.add_child(guard_label)
     beast["v397_guard_label"]=guard_label
    # Defensive tell: guarded attacks glow amber; staggered foes cannot guard.
-   guard_label.visible=guard_visible
-   if guard_label.visible:
-    var guard_index:int=int(beast["v396_guard_direction"])
-    var guard_name:String=["HIGH","RIGHT","LOW","LEFT"][guard_index]
-    if guard_label.text!="GUARD "+guard_name:
-     guard_label.text="GUARD "+guard_name
+   if is_instance_valid(guard_label):
+    guard_label.visible=guard_visible
+    if guard_visible:
+     var guard_index:int=int(beast["v396_guard_direction"])
+     var guard_name:String=["HIGH","RIGHT","LOW","LEFT"][guard_index]
+     if guard_label.text!="GUARD "+guard_name:
+      guard_label.text="GUARD "+guard_name
 
 
  if map_time>=float(beast.get("v388_knock_until",0.0)):return
