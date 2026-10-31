@@ -1,0 +1,27 @@
+name: Unreal installer script verification
+on:
+  push:
+    paths:
+      - 'MoonfallUnreal/Installer/**'
+      - '.github/workflows/unreal-installer-lint.yml'
+  pull_request:
+    paths:
+      - 'MoonfallUnreal/Installer/**'
+      - '.github/workflows/unreal-installer-lint.yml'
+jobs:
+  nsis-script:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install NSIS
+        run: sudo apt-get update && sudo apt-get install -y nsis
+      - name: Compile installer against synthetic fixture
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/moonfall-installer-fixture/Engine
+          printf 'fixture only, not a Windows executable\n' > /tmp/moonfall-installer-fixture/MoonfallUnreal.exe
+          printf 'package data fixture\n' > /tmp/moonfall-installer-fixture/Engine/test.txt
+          makensis -V2 -DSOURCE_DIR=/tmp/moonfall-installer-fixture -DOUTPUT_EXE=/tmp/MoonfallUnreal-ScriptTest.exe MoonfallUnreal/Installer/MoonfallUnreal.nsi
+          test -s /tmp/MoonfallUnreal-ScriptTest.exe
+          echo 'NSIS script syntax and fixture compilation passed. This is NOT a playable game or verified Windows installer.'
