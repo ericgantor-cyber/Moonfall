@@ -146,6 +146,11 @@ func _process(dt: float) -> void:
     if not started or dead:
         return
     clock += dt
+    # Three traversable regions, divided by walls with central doorways.
+    var entered_room := _region_for_z(player.position.z)
+    if entered_room != room_index:
+        room_index = entered_room
+        _build_room()
     combat_flash = maxf(0.0, combat_flash - dt)
     for effect in active_effects.duplicate():
         if not is_instance_valid(effect):
@@ -219,7 +224,16 @@ func _process(dt: float) -> void:
     for mob in mobs.duplicate():
         if not is_instance_valid(mob):
             continue
-        var diff := player.position - mob.position
+        var destination := player.position
+        # Agents in separate regions aim for the doorway before pursuing the player.
+        var mob_region := _region_for_z(mob.position.z)
+        var player_region := _region_for_z(player.position.z)
+        if mob_region != player_region:
+            var door_z := -8.0 if mini(mob_region, player_region) == 0 else 8.0
+            destination = Vector3(0, 0, door_z)
+            if absf(mob.position.z - door_z) < 2.0 and absf(mob.position.x) < 3.5:
+                destination = player.position
+        var diff := destination - mob.position
         diff.y = 0.0
         var boss: bool = mob.get_meta("boss")
         var reach := 2.8 if boss else 1.7
@@ -245,7 +259,7 @@ func _process(dt: float) -> void:
             mob.position.x = clampf(mob.position.x, -ARENA, ARENA)
             mob.position.z = clampf(mob.position.z, -ARENA, ARENA)
         var hit_cd: float = maxf(0.0, float(mob.get_meta("hit_cd")) - dt)
-        if diff.length() <= reach + 0.3 and hit_cd <= 0.0 and invulnerable <= 0.0:
+        if mob.position.distance_to(player.position) <= reach + 0.3 and hit_cd <= 0.0 and invulnerable <= 0.0:
             hp -= 25.0 if boss else 12.0
             hit_cd = 1.1
             if hp <= 0:
@@ -276,9 +290,12 @@ func _spawn(boss: bool) -> void:
     body.material_override = mat
     mob.add_child(body)
     var angle := randf() * TAU
-    mob.position = player.position + Vector3(cos(angle) * 18.0, 0, sin(angle) * 18.0)
+    mob.position = player.position + Vector3(cos(angle) * 8.0, 0, sin(angle) * 5.0)
     mob.position.x = clampf(mob.position.x, -ARENA, ARENA)
     mob.position.z = clampf(mob.position.z, -ARENA, ARENA)
+    # Avoid placing enemies inside dividing walls.
+    if absf(absf(mob.position.z) - 8.0) < 2.0 and absf(mob.position.x) > 3.0:
+        mob.position.z += -3.0 if mob.position.z > 0 else 3.0
     mob.set_meta("hp", 600.0 + level * 70.0 if boss else 45.0 + level * 10.0)
     mob.set_meta("boss", boss)
     mob.set_meta("kind", randi_range(0, 1))
@@ -305,9 +322,6 @@ func _attack() -> void:
     if was_boss:
         boss_alive = false
     kills += 1
-    if kills % 15 == 0:
-        room_index += 1
-        _build_room()
     xp += 10 if not was_boss else 100
     while xp >= level * 60:
         xp -= level * 60
@@ -412,7 +426,11 @@ func _build_solid_dungeon() -> void:
     _solid_block(walls, Vector3(0, 2, 25), Vector3(52, 4, 2))
     _solid_block(walls, Vector3(-25, 2, 0), Vector3(2, 4, 52))
     _solid_block(walls, Vector3(25, 2, 0), Vector3(2, 4, 52))
-    for location in [Vector3(-10, 1.8, -10), Vector3(10, 1.8, -10), Vector3(-10, 1.8, 10), Vector3(10, 1.8, 10)]:
+    # Divide the arena into three walkable rooms. Each partition has an 8-unit doorway.
+    for dividing_z in [-8.0, 8.0]:
+        _solid_block(walls, Vector3(-14.0, 2.0, dividing_z), Vector3(20.0, 4.0, 1.5))
+        _solid_block(walls, Vector3(14.0, 2.0, dividing_z), Vector3(20.0, 4.0, 1.5))
+    for location in [Vector3(-13, 1.8, -16), Vector3(13, 1.8, -16), Vector3(-13, 1.8, 16), Vector3(13, 1.8, 16)]:
         _solid_block(walls, location, Vector3(3, 3.6, 3))
 
 func _solid_block(parent: Node3D, location: Vector3, dimensions: Vector3) -> void:
@@ -434,3 +452,11 @@ func _solid_block(parent: Node3D, location: Vector3, dimensions: Vector3) -> voi
     visual.material_override = mat
     block.add_child(visual)
     parent.add_child(block)
+
+# Region identifiers for the three connected dungeon spaces.
+func _region_for_z(z: float) -> int:
+    if z < -8.0:
+        return 0
+    if z > 8.0:
+        return 2
+    return 1
