@@ -14,6 +14,10 @@ var v399_style:OptionButton
 var v399_hero:String="z"
 var v399_identity:Dictionary={}
 var v400_adventurer_sprite:Sprite3D
+var v401_z_intro_seen:bool=false
+var v401_z_intro_timer:float=0.0
+var v401_z_intro_panel:PanelContainer
+var v401_z_intro_label:Label
 
 const V383_BENCHMARK:=preload("res://scripts/systems/combat_benchmark_v383.gd")
 const V384_RINGS:=preload("res://scripts/systems/vitals_rings_v384.gd")
@@ -71,6 +75,7 @@ func _ready()->void:
  _v380_build_status_panel()
  _v384_build_vitals()
  _v398_build_tree()
+ _v401_build_z_intro()
 
 func _build_ui()->void:
  super._build_ui()
@@ -224,6 +229,42 @@ func _refresh_boss_phase(beast:Dictionary)->void:
  if not bool(beast.get("v400_bloodline",false)):return
  var title:Label3D=beast.get("nameplate") as Label3D
  if is_instance_valid(title):title.text=str(beast.get("v400_family_name","Eclipse Guardian"))+"  •  PHASE "+str(beast.get("boss_phase",1))
+
+func _v401_build_z_intro()->void:
+ var layer:CanvasLayer=get_node_or_null("NativeAtlasUI") as CanvasLayer
+ if not is_instance_valid(layer):return
+ v401_z_intro_panel=PanelContainer.new()
+ v401_z_intro_panel.name="ZBossCinematicIntroduction"
+ v401_z_intro_panel.set_anchors_preset(Control.PRESET_CENTER)
+ v401_z_intro_panel.custom_minimum_size=Vector2(560,190)
+ v401_z_intro_panel.position=Vector2(-280,-95)
+ layer.add_child(v401_z_intro_panel)
+ var layout:VBoxContainer=VBoxContainer.new()
+ v401_z_intro_panel.add_child(layout)
+ v401_z_intro_label=Label.new()
+ v401_z_intro_label.text="THE ECLIPSE STIRS...\nZ  •  ECLIPSE CHAMPION\nThe moon remembers every fallen blade."
+ v401_z_intro_label.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+ v401_z_intro_label.add_theme_font_size_override("font_size",25)
+ layout.add_child(v401_z_intro_label)
+ var skip:Button=Button.new()
+ skip.text="SKIP INTRO  (ESC)"
+ skip.pressed.connect(_v401_end_z_intro)
+ layout.add_child(skip)
+ v401_z_intro_panel.visible=false
+
+func _v401_begin_z_intro()->void:
+ if v401_z_intro_seen or not hero_playing or death_active:return
+ v401_z_intro_seen=true
+ v401_z_intro_timer=3.5
+ if is_instance_valid(v401_z_intro_panel):
+  v401_z_intro_panel.visible=true
+  v401_z_intro_panel.modulate.a=0.0
+  var fade:Tween=create_tween()
+  fade.tween_property(v401_z_intro_panel,"modulate:a",1.0,0.7)
+
+func _v401_end_z_intro()->void:
+ v401_z_intro_timer=0.0
+ if is_instance_valid(v401_z_intro_panel):v401_z_intro_panel.visible=false
 
 func _v380_build_status_panel()->void:
  var layer:CanvasLayer=get_node_or_null("NativeAtlasUI") as CanvasLayer
@@ -440,6 +481,10 @@ func _v398_toggle_tree()->void:
  if v398_panel.visible:_v398_refresh_tree()
 
 func _unhandled_input(event:InputEvent)->void:
+ if event is InputEventKey and event.pressed and not event.echo and event.keycode==KEY_ESCAPE and v401_z_intro_timer>0.0:
+  _v401_end_z_intro()
+  get_viewport().set_input_as_handled()
+  return
  if event is InputEventKey and event.pressed and not event.echo and event.keycode==KEY_K:
   _v398_toggle_tree()
   get_viewport().set_input_as_handled()
@@ -617,6 +662,8 @@ func _start_game(selected_hero:String)->void:
  v387_stamina=V387_MAX_STAMINA
  v387_stamina_regen_wait=0.0
  v398_ranks={}
+ v401_z_intro_seen=false
+ _v401_end_z_intro()
  if is_instance_valid(v398_panel):v398_panel.visible=false
 
 func _checkpoint_extra_data()->Dictionary:
@@ -686,6 +733,16 @@ func _unhandled_key_input(event:InputEvent)->void:
 
 func _process(delta:float)->void:
  super._process(delta)
+ if v401_z_intro_timer>0.0:
+  v401_z_intro_timer=maxf(0.0,v401_z_intro_timer-delta)
+  if v401_z_intro_timer<=0.0:_v401_end_z_intro()
+ if hero_playing and not v401_z_intro_seen and is_instance_valid(player):
+  for encounter in beasts:
+   if bool(encounter.get("boss",false)) and bool(encounter.get("alive",false)) and str(encounter.get("v400_family_name","")).begins_with("Z "):
+    var target:Node3D=encounter.get("body") as Node3D
+    if is_instance_valid(target) and player.global_position.distance_to(target.global_position)<18.0:
+     _v401_begin_z_intro()
+     break
  if hero_playing and not death_active and not menu_open:
   v385_mana=minf(V385_MAX_MANA,v385_mana+(V385_MANA_REGEN+0.75*float(v398_ranks.get("magic_focus",0)))*maxf(0.0,delta))
   var stamina_step:float=maxf(0.0,delta)
