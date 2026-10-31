@@ -544,19 +544,32 @@ func _process(dt: float) -> void:
             mob.position.x = clampf(mob.position.x, -ARENA, ARENA)
             mob.position.z = clampf(mob.position.z, -ARENA, ARENA)
         var ability_cd: float = maxf(0.0, float(mob.get_meta("ability_cd")) - dt)
+        var windup: float = maxf(0.0, float(mob.get_meta("windup", 0.0)) - dt)
         var actual_distance: float = mob.position.distance_to(player.position)
-        if ability_cd <= 0.0 and actual_distance < 7.0 and actual_distance > reach and _has_clear_path(mob.position + Vector3.UP, player.position + Vector3.UP):
-            if boss:
-                _spell_effect(player.position, false)
-                if invulnerable <= 0.0:
-                    hp = maxf(0.0, hp - maxf(1.0, 18.0 - armor))
-                    dead = hp <= 0.0
-            elif int(mob.get_meta("kind")) == 1:
+        if float(mob.get_meta("windup", 0.0)) > 0.0 and windup <= 0.0:
+            # Boss attacks resolve at the previously telegraphed location.
+            var impact: Vector3 = mob.get_meta("attack_position")
+            var pattern: int = int(mob.get_meta("attack_kind"))
+            _spell_effect(impact, false)
+            var safe_distance := 3.1 if pattern == 0 else 1.8
+            if player.position.distance_to(impact) < safe_distance and invulnerable <= 0.0 and _has_clear_path(mob.position + Vector3.UP, player.position + Vector3.UP):
+                hp = maxf(0.0, hp - maxf(1.0, (19.0 if pattern == 0 else 13.0) - armor))
+                dead = hp <= 0.0
+        if boss and ability_cd <= 0.0 and windup <= 0.0 and actual_distance < 8.0 and actual_distance > reach and _has_clear_path(mob.position + Vector3.UP, player.position + Vector3.UP):
+            var kind: int = randi_range(0, 1)
+            mob.set_meta("attack_kind", kind)
+            mob.set_meta("attack_position", player.position if kind == 0 else mob.position + (player.position - mob.position).normalized() * 4.0)
+            windup = 1.1 if kind == 0 else 0.75
+            ability_cd = 5.0 if kind == 0 else 3.5
+            _boss_warning(mob.get_meta("attack_position"), kind)
+        elif not boss and ability_cd <= 0.0 and actual_distance < 7.0 and actual_distance > reach and _has_clear_path(mob.position + Vector3.UP, player.position + Vector3.UP):
+            if int(mob.get_meta("kind")) == 1:
                 var retreat: Vector3 = mob.position - player.position
                 retreat.y = 0.0
                 if retreat.length_squared() > 0.01:
                     mob.position += retreat.normalized() * minf(2.0, dt * 6.0)
-            ability_cd = 6.0 if boss else 4.0
+            ability_cd = 4.0
+        mob.set_meta("windup", windup)
         mob.set_meta("ability_cd", ability_cd)
         var hit_cd: float = maxf(0.0, float(mob.get_meta("hit_cd")) - dt)
         # Skirmishers circle at close range; bruisers pursue directly.
@@ -604,6 +617,9 @@ func _spawn(boss: bool) -> void:
     mob.set_meta("hit_cd", 0.0)
     mob.set_meta("ability_cd", randf_range(3.0, 6.0))
     mob.set_meta("strafe_sign", -1.0 if randf() < 0.5 else 1.0)
+    mob.set_meta("windup", 0.0)
+    mob.set_meta("attack_position", Vector3.ZERO)
+    mob.set_meta("attack_kind", 0)
     add_child(mob)
     mobs.append(mob)
     if boss:
@@ -1288,3 +1304,22 @@ func _controller_start_menu() -> void:
         else:
             _open_options_menu()
     start_latch = pressed
+
+func _boss_warning(position: Vector3, kind: int) -> void:
+    if active_effects.size() >= 65:
+        return
+    var indicator := MeshInstance3D.new()
+    var cylinder := CylinderMesh.new()
+    cylinder.top_radius = 3.1 if kind == 0 else 1.8
+    cylinder.bottom_radius = cylinder.top_radius
+    cylinder.height = 0.05
+    indicator.mesh = cylinder
+    indicator.position = position + Vector3.UP * 0.06
+    var material := StandardMaterial3D.new()
+    material.albedo_color = Color(1.0, 0.12, 0.1, 0.65)
+    material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+    material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+    indicator.material_override = material
+    indicator.set_meta("life", 1.1 if kind == 0 else 0.75)
+    add_child(indicator)
+    active_effects.append(indicator)
