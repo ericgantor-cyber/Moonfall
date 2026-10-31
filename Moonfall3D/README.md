@@ -215,3 +215,7 @@ Added four glowing rune rings to each existing dungeon region, colored to match 
 ## Moonlit lighting and boss crowns
 
 WorldEnvironment now uses a dark violet background and purple ambient lighting, with a softened lavender directional light. Bosses gain a lightweight luminous crown ring above the existing horns. These are actual game-scene geometry and lighting adjustments, but not final character rigs or external artwork. Preserve the supplied original Z and Nyra artwork and no WoW bars. Verify readability and performance on Windows.
+
+## Dungeon stone surface pass
+
+The ground now has a rough stone-like material finish, while the three existing regions gain low-profile decorative floor seams. The seams are non-colliding geometry and are not a final tiled texture pack. Original Z and Nyra artwork unchanged. Real visual inspection and Windows performance testing remain necessary.

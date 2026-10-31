@@ -125,6 +125,8 @@ func _ready() -> void:
     ground.mesh = plane
     var ground_mat := StandardMaterial3D.new()
     ground_mat.albedo_color = Color(0.16, 0.10, 0.22)
+    ground_mat.roughness = 0.92
+    ground_mat.metallic = 0.08
     ground.material_override = ground_mat
     add_child(ground)
     var ground_body := StaticBody3D.new()
@@ -835,6 +837,18 @@ func _build_room() -> void:
         rune_mat.emission = tint * 0.35
         rune.material_override = rune_mat
         decor.add_child(rune)
+    # Decorative stone seams mark the traversable region without collision.
+    var seam_material := StandardMaterial3D.new()
+    seam_material.albedo_color = tint.darkened(0.35)
+    seam_material.roughness = 0.95
+    for seam_index in range(5):
+        var seam := MeshInstance3D.new()
+        var seam_mesh := BoxMesh.new()
+        seam_mesh.size = Vector3(24.0, 0.025, 0.12)
+        seam.mesh = seam_mesh
+        seam.material_override = seam_material
+        seam.position = Vector3(0.0, 0.018, -23.0 + float(room_index) * 17.0 + float(seam_index) * 3.0)
+        decor.add_child(seam)
     # Two readable floor hazards per region; always clear of the central doorway.
     for i in range(2):
         var hazard_pos := Vector3(-11.0 if i == 0 else 11.0, 0.0, -17.0 + float(room_index) * 17.0)
