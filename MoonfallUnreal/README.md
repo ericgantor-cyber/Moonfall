@@ -19,3 +19,7 @@ Enemy pursuit now optionally projects its target onto the Unreal navigation syst
 ## Unreal build verification procedure
 
 The GitHub `Unreal source structure checks` workflow only checks repository layout and rudimentary brace balance; it does **not** compile the C++ project. To actually validate, install Unreal Engine 5.4 and the Visual Studio C++ game-development workload on Windows, right-click `MoonfallUnreal.uproject` and generate project files, then open the generated solution and build the `MoonfallUnrealEditor` Development Editor Win64 target. Open the project in Unreal Editor, create a blank level containing a PlayerStart and a NavMeshBoundsVolume covering the arena, press P to inspect navigation, and Play to verify the pawn, HP/mana HUD, enemies and attack windup. The warning currently uses Unreal debug drawing and is not a finished telegraph. Record build failures from the compiler before claiming runtime readiness.
+
+## Migration step 9: provisional spell impact feedback
+
+Successful offensive spell hits now draw a brief school-colored impact sphere and casting line using Unreal's debug renderer. These are temporary in-editor combat readability effects, not packaged production VFX, Niagara particles, or animated spell assets. Restoration does not create an offensive hit effect. Unreal compilation and Windows runtime are still unverified; source layout checks are not compiler checks. Original Godot game and original Z/Nyra art are untouched.

@@ -4,6 +4,7 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Components/InputComponent.h"
 #include "Engine/World.h"
+#include "DrawDebugHelpers.h"
 #include "Engine/Engine.h"
 #include "MoonfallEnemy.h"
 #include "CollisionQueryParams.h"
@@ -70,6 +71,10 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
   AMoonfallEnemy* Enemy = Cast<AMoonfallEnemy>(Hit.GetActor());
   if (!IsValid(Enemy) || Enemy->Health <= 0.f) return false;
   Enemy->TakeSpellDamage((18.f + School * 5.f) * Multiplier);
+  const FColor SpellColors[6] = {FColor::Red, FColor::Cyan, FColor::Purple, FColor::Green, FColor::Yellow, FColor::Emerald};
+  const FColor ImpactColor = SpellColors[School];
+  DrawDebugSphere(GetWorld(), Hit.ImpactPoint, 24.f * Multiplier, 12, ImpactColor, false, 0.22f, 0, 2.f);
+  DrawDebugLine(GetWorld(), Origin, Hit.ImpactPoint, ImpactColor, false, 0.12f, 0, 1.5f);
  }
  Mana -= Costs[School] * Multiplier;
  LastCastTime[Hand] = Time;
