@@ -171,3 +171,7 @@ Bosses now transition at 65% and 30% health. Each transition announces the new p
 ## RPG progression pass
 
 Leveling now increases max HP, damage and max mana and announces the level gained. Defeated enemies grant small gold amounts and have a 12% equipment reward chance; boss kills grant bonus gold and a guaranteed equipment roll. Item power now also scales modestly with player level. Inventory displays gold and level. This is a small progression step, not finished crafting or dungeon progression; Godot gameplay and balancing tests are still needed. No WoW action bars; original hero art remains untouched.
+
+## Crafting and Moon Shards
+
+Regular enemies have a 40% chance to grant one Moon Shard on defeat, while bosses grant four. Open inventory and press **H** to craft Vitality (+10 maximum HP) or **J** to craft Focus (+10 maximum mana). Each costs 50 gold and three Moon Shards. Recipes are repeatable and deducted atomically, and an automated smoke test checks the cost and insufficient-resource behavior. This is initial crafting with keyboard shortcuts, not the planned fully controller-navigable crafting screen.

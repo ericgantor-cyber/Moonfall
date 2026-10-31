@@ -47,6 +47,17 @@ func _run_tests() -> void:
     if game._cast_spell(3, 1.0):
         _fail("Spell cooldown bypass")
         return
+    game.gold = 50
+    game.moon_shards = 3
+    var old_max_hp: float = game.max_hp
+    game._craft_upgrade(false)
+    if game.max_hp != old_max_hp + 10.0 or game.gold != 0 or game.moon_shards != 0:
+        _fail("Vitality recipe did not grant stats and consume currency")
+        return
+    game._craft_upgrade(false)
+    if game.max_hp != old_max_hp + 10.0:
+        _fail("Crafting allowed without resources")
+        return
     print("MOONFALL3D_SMOKE_TEST_PASS")
     quit(0)
 
