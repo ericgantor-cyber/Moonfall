@@ -642,7 +642,8 @@ func _spawn(boss: bool) -> void:
     body.mesh = shape
     body.position.y = 1.6 if boss else 0.8
     var mat := StandardMaterial3D.new()
-    mat.albedo_color = Color(1.0, 0.25, 0.75) if boss else Color(0.9, 0.2, 0.25)
+    var mob_kind := randi_range(0, 2)
+    mat.albedo_color = Color(1.0, 0.25, 0.75) if boss else [Color(0.9, 0.2, 0.25), Color(0.4, 0.75, 0.9), Color(0.95, 0.65, 0.18)][mob_kind]
     body.material_override = mat
     mob.add_child(body)
     var angle := randf() * TAU
@@ -656,7 +657,7 @@ func _spawn(boss: bool) -> void:
     mob.set_meta("boss", boss)
     mob.set_meta("max_hp", 600.0 + level * 70.0 if boss else 45.0 + level * 10.0)
     mob.set_meta("phase", 1)
-    mob.set_meta("kind", randi_range(0, 2))
+    mob.set_meta("kind", mob_kind)
     mob.set_meta("hit_cd", 0.0)
     mob.set_meta("ability_cd", randf_range(3.0, 6.0))
     mob.set_meta("strafe_sign", -1.0 if randf() < 0.5 else 1.0)
@@ -741,6 +742,17 @@ func _build_room() -> void:
         room_waypoints.append(direction)
     add_child(decor)
     var tint: Color = [Color(0.3, 0.12, 0.4), Color(0.22, 0.45, 0.55), Color(0.65, 0.2, 0.15)][room_index % 3]
+    # Room-specific landmark clusters give each existing dungeon region an identity.
+    for landmark in range(3):
+        var monument := MeshInstance3D.new()
+        var mon_mesh := BoxMesh.new()
+        mon_mesh.size = Vector3(1.5, 1.0 + float(room_index) * 0.65, 1.5)
+        monument.mesh = mon_mesh
+        var mon_mat := StandardMaterial3D.new()
+        mon_mat.albedo_color = tint.lightened(0.2)
+        monument.material_override = mon_mat
+        monument.position = Vector3(-9.0 + landmark * 9.0, mon_mesh.size.y * 0.5, -17.0 + room_index * 17.0)
+        decor.add_child(monument)
     for i in range(12):
         var pillar := MeshInstance3D.new()
         var mesh := CylinderMesh.new()
