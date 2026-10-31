@@ -850,7 +850,7 @@ func _region_for_z(z: float) -> int:
 
 # Three chests per run, one in each connected room.
 func _spawn_chests() -> void:
-    for pos in [Vector3(0, 0, -17), Vector3(0, 0, 0), Vector3(0, 0, 17)]:
+    for pos in [Vector3(0, 0, -17), Vector3(0, 0, 0), Vector3(0, 0, 17), Vector3(-12, 0, -15), Vector3(12, 0, 15)]:
         var chest := Node3D.new()
         var mesh_node := MeshInstance3D.new()
         var mesh := BoxMesh.new()
@@ -862,6 +862,9 @@ func _spawn_chests() -> void:
         mesh_node.material_override = mat
         chest.add_child(mesh_node)
         chest.position = pos
+        chest.set_meta("greater", absf(pos.x) > 1.0)
+        if bool(chest.get_meta("greater")):
+            mat.albedo_color = Color(0.45, 0.7, 0.95)
         add_child(chest)
         chests.append(chest)
 
@@ -869,16 +872,17 @@ func _open_nearby_chest() -> void:
     for chest in chests.duplicate():
         if not is_instance_valid(chest) or player.position.distance_to(chest.position) > 2.5:
             continue
-        gold += randi_range(10, 35)
-        moon_shards += randi_range(1, 3)
-        _loot_equipment()
+        var greater: bool = bool(chest.get_meta("greater", false))
+        gold += randi_range(30, 65) if greater else randi_range(10, 35)
+        moon_shards += randi_range(3, 6) if greater else randi_range(1, 3)
+        _loot_equipment(2 if greater else 0)
         chests.erase(chest)
         chest.queue_free()
         break
 
 # First inventory pass: chests yield equipment with weighted rarities.
 # Best found weapon auto-equips. A manual equip interface can follow.
-func _loot_equipment() -> void:
+func _loot_equipment(min_rarity: int = 0) -> void:
     if inventory.size() >= MAX_INVENTORY:
         gold += 15
         return
@@ -892,9 +896,10 @@ func _loot_equipment() -> void:
         rarity_index = 2
     elif roll > 0.55:
         rarity_index = 1
+    rarity_index = maxi(rarity_index, mini(min_rarity, 4))
     var slot := "Armor" if randi_range(0, 1) == 0 else "Weapon"
     var item := {
-        "name": ["Worn Blade", "Runed Sword", "Moonsteel Edge", "Astral Fang", "Eclipse Crownblade"][rarity_index],
+        "name": (["Worn Blade", "Runed Sword", "Moonsteel Edge", "Astral Fang", "Eclipse Crownblade"] if slot == "Weapon" else ["Worn Guard", "Runed Vest", "Moonsteel Plate", "Astral Ward", "Eclipse Aegis"])[rarity_index],
         "rarity": RARITIES[rarity_index],
         "power": (rarity_index + 1) * 3 + maxi(0, level - 1),
         "slot": slot
