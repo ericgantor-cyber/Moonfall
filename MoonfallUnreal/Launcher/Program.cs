@@ -23,6 +23,9 @@ internal sealed class LaunchWindow : Form
     private readonly Label status;
     private readonly Button play;
     private readonly Button updates;
+    private readonly ProgressBar downloadProgress;
+    private readonly Button cancelDownload;
+    private CancellationTokenSource? downloadCancellation;
     private readonly string gamePath = Path.Combine(AppContext.BaseDirectory, "MoonfallUnreal.exe");
     internal LaunchWindow()
     {
@@ -87,7 +90,15 @@ internal sealed class LaunchWindow : Form
             ForeColor = Color.WhiteSmoke, BackColor = Color.FromArgb(49, 35, 68), TabIndex = 6,
             AccessibleName = "Check for Moonfall updates" };
         updates.Click += async (_, _) => await CheckUpdatesAsync(false);
-        Controls.AddRange([title, subtitle, play, status, exit, folder, retry, help, logs, updates]);
+        downloadProgress = new ProgressBar { Bounds = new Rectangle(125, 543, 490, 11),
+            Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right,
+            Minimum = 0, Maximum = 100, Visible = false, Style = ProgressBarStyle.Continuous,
+            AccessibleName = "Moonfall update download progress" };
+        cancelDownload = new Button { Text = "CANCEL", Bounds = new Rectangle(621, 533, 110, 25),
+            Anchor = AnchorStyles.Bottom | AnchorStyles.Right, Visible = false,
+            AccessibleName = "Cancel Moonfall update download", TabIndex = 7 };
+        cancelDownload.Click += (_, _) => downloadCancellation?.Cancel();
+        Controls.AddRange([title, subtitle, play, status, exit, folder, retry, help, logs, updates, downloadProgress, cancelDownload]);
         KeyPreview = true;
         KeyDown += (_, e) => { if (e.KeyCode == Keys.F5) { UpdateStatus(); e.Handled = true; } };
         AcceptButton = play;
@@ -178,13 +189,20 @@ internal sealed class LaunchWindow : Form
                 $"Moonfall {available.Version} is available. Download its SHA-256 verified Windows installer?",
                 "Moonfall Update Available", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
             if (choice != DialogResult.Yes) return;
+            downloadCancellation = new CancellationTokenSource();
             updates.Text = "DOWNLOADING";
+            downloadProgress.Value = 0;
+            downloadProgress.Visible = true;
+            cancelDownload.Visible = true;
             status.Text = "Downloading update...";
             var progress = new Progress<long>(bytes =>
             {
-                if (!IsDisposed) status.Text = $"Downloading update: {bytes / (1024.0 * 1024.0):F1} MiB received";
+                if (IsDisposed || downloadCancellation?.IsCancellationRequested == true) return;
+                var percentage = (int)Math.Clamp(bytes * 100.0 / Math.Max(1, available.Size), 0, 100);
+                downloadProgress.Value = percentage;
+                status.Text = $"Downloading update: {percentage}% ({bytes / (1024.0 * 1024.0):F1} MiB)";
             });
-            var installer = await MoonfallUpdates.DownloadVerifiedAsync(available, progress);
+            var installer = await MoonfallUpdates.DownloadVerifiedAsync(available, progress, downloadCancellation.Token);
             if (!IsDisposed) status.Text = "Update verified. Ready to install.";
             if (IsDisposed) return;
             var install = MessageBox.Show(this,
@@ -194,6 +212,10 @@ internal sealed class LaunchWindow : Form
             Process.Start(new ProcessStartInfo(installer) { UseShellExecute = true });
             Close();
         }
+        catch (OperationCanceledException)
+        {
+            if (!IsDisposed) status.Text = "Update download canceled. No installer was run.";
+        }
         catch (Exception ex)
         {
             if (!automatic && !IsDisposed)
@@ -202,7 +224,9 @@ internal sealed class LaunchWindow : Form
         }
         finally
         {
-            if (!IsDisposed) { updates.Enabled = true; updates.Text = "UPDATES"; if (status.Text.StartsWith("Downloading update:")) UpdateStatus(); }
+            downloadCancellation?.Dispose();
+            downloadCancellation = null;
+            if (!IsDisposed) { updates.Enabled = true; updates.Text = "UPDATES"; cancelDownload.Visible = false; downloadProgress.Visible = false; }
         }
     }
 
