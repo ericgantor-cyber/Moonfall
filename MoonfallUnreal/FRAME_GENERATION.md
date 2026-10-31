@@ -20,4 +20,4 @@
 
 ## Graphics Options placeholder
 
-A fourth graphics Options row now presents Off / Auto / On as a **UI preference only**. The row explicitly says the plugin is unavailable, and switching preferences does not activate frame generation. The setting is not persisted yet. `bFrameGenerationAvailable` is false until a real supported vendor integration provides capability detection and activation. The game must continue to render normally regardless of this preference.
+A fourth graphics Options row now presents Off / Auto / On as a **UI preference only**. The row explicitly says the plugin is unavailable, and switching preferences does not activate frame generation. The user preference is now saved to and loaded from the Unreal game-user settings INI. `bFrameGenerationAvailable` remains false until a real supported vendor integration provides capability detection and activation. The game must continue to render normally regardless of this preference.
