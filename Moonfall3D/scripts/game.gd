@@ -515,7 +515,7 @@ func _process(dt: float) -> void:
             var steering: Vector3 = diff.normalized()
             # Different enemy movement patterns; no collision-pathfinding claim.
             if not boss and int(mob.get_meta("kind")) == 1 and diff.length() < 6.0:
-                steering = Vector3(-steering.z, 0, steering.x) * 0.65 + steering * 0.35
+                steering = Vector3(-steering.z, 0, steering.x) * 0.65 * float(mob.get_meta("strafe_sign", 1.0)) + steering * 0.35
             # Raycast ahead to steer around solid obstacles.
             var travel: Vector3 = steering.normalized()
             var probe := PhysicsRayQueryParameters3D.create(mob.position + Vector3.UP, mob.position + Vector3.UP + travel * 3.0)
@@ -529,19 +529,33 @@ func _process(dt: float) -> void:
                 var right_ray := PhysicsRayQueryParameters3D.create(mob.position + Vector3.UP, mob.position + Vector3.UP + right_dir * 3.0)
                 right_ray.collision_mask = 2
                 travel = left_dir if get_world_3d().direct_space_state.intersect_ray(left_ray).is_empty() else right_dir
+            # Simple separation avoids piling every enemy onto the same point.
+            var separation := Vector3.ZERO
+            for other in mobs:
+                if other == mob or not is_instance_valid(other):
+                    continue
+                var apart: Vector3 = mob.position - other.position
+                apart.y = 0.0
+                var distance_sq: float = apart.length_squared()
+                if distance_sq > 0.01 and distance_sq < 3.24:
+                    separation += apart.normalized() * (1.8 - sqrt(distance_sq))
+            travel = (travel + separation * 0.6).normalized()
             mob.position += travel * (1.9 if boss else 2.3) * (0.65 if chill > 0.0 else 1.0) * dt
             mob.position.x = clampf(mob.position.x, -ARENA, ARENA)
             mob.position.z = clampf(mob.position.z, -ARENA, ARENA)
         var ability_cd: float = maxf(0.0, float(mob.get_meta("ability_cd")) - dt)
         var actual_distance: float = mob.position.distance_to(player.position)
-        if ability_cd <= 0.0 and actual_distance < 7.0 and actual_distance > reach:
+        if ability_cd <= 0.0 and actual_distance < 7.0 and actual_distance > reach and _has_clear_path(mob.position + Vector3.UP, player.position + Vector3.UP):
             if boss:
                 _spell_effect(player.position, false)
                 if invulnerable <= 0.0:
                     hp = maxf(0.0, hp - maxf(1.0, 18.0 - armor))
                     dead = hp <= 0.0
             elif int(mob.get_meta("kind")) == 1:
-                mob.position -= (player.position - mob.position).normalized() * 2.0
+                var retreat: Vector3 = mob.position - player.position
+                retreat.y = 0.0
+                if retreat.length_squared() > 0.01:
+                    mob.position += retreat.normalized() * minf(2.0, dt * 6.0)
             ability_cd = 6.0 if boss else 4.0
         mob.set_meta("ability_cd", ability_cd)
         var hit_cd: float = maxf(0.0, float(mob.get_meta("hit_cd")) - dt)
@@ -589,6 +603,7 @@ func _spawn(boss: bool) -> void:
     mob.set_meta("kind", randi_range(0, 1))
     mob.set_meta("hit_cd", 0.0)
     mob.set_meta("ability_cd", randf_range(3.0, 6.0))
+    mob.set_meta("strafe_sign", -1.0 if randf() < 0.5 else 1.0)
     add_child(mob)
     mobs.append(mob)
     if boss:
