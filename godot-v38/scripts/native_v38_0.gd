@@ -39,6 +39,10 @@ const V392_PARRY_WINDOW:float=0.22
 const V392_BLOCK_STAMINA_COST:float=12.0
 const V392_PARRY_STAMINA_COST:float=18.0
 var v392_guard_started:float=-999.0
+const V393_RIPOSTE_WINDOW:float=1.1
+const V393_RIPOSTE_MULTIPLIER:float=1.35
+var v393_riposte_until:float=-999.0
+var v393_riposte_active:bool=false
 
 var v390_valid_attacks:int=0
 var v390_blocked_attacks:int=0
@@ -242,7 +246,8 @@ func _apply_incoming_damage(raw:float)->void:
  v387_stamina-=cost
  v387_stamina_regen_wait=V387_STAMINA_REGEN_DELAY
  if parry:
-  _show_message("PARRY! Attack now!",0.8)
+  v393_riposte_until=map_time+V393_RIPOSTE_WINDOW
+  _show_message("PARRY! Riposte now!",0.8)
  else:
   _show_message("Blocked!",0.5)
   super._apply_incoming_damage(raw*0.35)
@@ -250,7 +255,7 @@ func _apply_incoming_damage(raw:float)->void:
 func _apply_player_hit(target:Dictionary,base_damage:float,stagger_strength:float=0.0)->void:
  # Reuse the existing stagger timer and hit visuals; do not create new AI state.
  var hp_before:float=float(target.get("hp",0.0))
- super._apply_player_hit(target,base_damage*(V391_HEAVY_DAMAGE_MULTIPLIER if v391_heavy_attack_active else 1.0),maxf(stagger_strength,0.38) if v391_heavy_attack_active else stagger_strength)
+ super._apply_player_hit(target,base_damage*(V391_HEAVY_DAMAGE_MULTIPLIER if v391_heavy_attack_active else 1.0)*(V393_RIPOSTE_MULTIPLIER if v393_riposte_active else 1.0),maxf(stagger_strength,0.42) if v393_riposte_active else maxf(stagger_strength,0.38) if v391_heavy_attack_active else stagger_strength)
  if hp_before<=float(target.get("hp",0.0)):return
  if not bool(target.get("hostile",false)) or bool(target.get("boss",false)) or not bool(target.get("alive",false)):return
  # Successful hits briefly interrupt ordinary enemies; stronger inherited staggers win.
@@ -290,10 +295,13 @@ func _attack()->void:
   return
  var cooldown_before:float=attack_cooldown
  v391_heavy_attack_active=heavy_requested and not mounted and attack_cooldown<=0.0
+ v393_riposte_active=map_time<=v393_riposte_until and not mounted and attack_cooldown<=0.0
  super._attack()
  v391_heavy_attack_active=false
+ v393_riposte_active=false
  if attack_cooldown>cooldown_before:
   v390_valid_attacks+=1
+  if map_time<=v393_riposte_until:v393_riposte_until=-999.0
   if heavy_requested and not mounted:
    v387_stamina-=V391_HEAVY_STAMINA_COST
    v387_stamina_regen_wait=V387_STAMINA_REGEN_DELAY
