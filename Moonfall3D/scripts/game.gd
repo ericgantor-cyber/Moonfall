@@ -5,7 +5,7 @@ const ARENA := 24.0
 const BOSS_INTERVAL := 120.0
 const MAX_MOBS := 28
 const MAX_PICKUPS := 40
-var player: Node3D
+var player: CharacterBody3D
 var camera: Camera3D
 var ui: Label
 var overlay: PanelContainer
@@ -55,7 +55,16 @@ func _ready() -> void:
     var sun := DirectionalLight3D.new()
     sun.rotation_degrees = Vector3(-55, -35, 0)
     add_child(sun)
-    player = Node3D.new()
+    player = CharacterBody3D.new()
+    player.collision_layer = 1
+    player.collision_mask = 2
+    var player_collider := CollisionShape3D.new()
+    var player_capsule := CapsuleShape3D.new()
+    player_capsule.radius = 0.55
+    player_capsule.height = 2.2
+    player_collider.shape = player_capsule
+    player_collider.position.y = 1.1
+    player.add_child(player_collider)
     add_child(player)
     var body := MeshInstance3D.new()
     body.name = "Placeholder"
@@ -104,6 +113,7 @@ func _ready() -> void:
         btn.pressed.connect(_choose.bind(name))
         choices.add_child(btn)
     _build_room()
+    _build_solid_dungeon()
     _hud()
 
 func _choose(name: String) -> void:
@@ -174,9 +184,8 @@ func _process(dt: float) -> void:
     # Placeholder animation only; replace when original-design character models arrive.
     var placeholder := player.get_node("Placeholder") as MeshInstance3D
     placeholder.position.y = 1.1 + (absf(sin(animation_phase)) * 0.12 if velocity.length() > 0.0 else sin(animation_phase) * 0.025)
-    player.position += velocity * dt
-    player.position.x = clampf(player.position.x, -ARENA, ARENA)
-    player.position.z = clampf(player.position.z, -ARENA, ARENA)
+    player.velocity = velocity
+    player.move_and_slide()
     # Normal movement turns to travel direction, except while right-drag turning.
     if velocity.length() > 0.0 and not Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT):
         player.rotation.y = atan2(velocity.x, velocity.z)
@@ -218,7 +227,20 @@ func _process(dt: float) -> void:
             # Different enemy movement patterns; no collision-pathfinding claim.
             if not boss and int(mob.get_meta("kind")) == 1 and diff.length() < 6.0:
                 steering = Vector3(-steering.z, 0, steering.x) * 0.65 + steering * 0.35
-            mob.position += steering.normalized() * (1.9 if boss else 2.3) * dt
+            # Raycast ahead to steer around solid obstacles.
+            var travel := steering.normalized()
+            var probe := PhysicsRayQueryParameters3D.create(mob.position + Vector3.UP, mob.position + Vector3.UP + travel * 3.0)
+            probe.collision_mask = 2
+            var obstacle := get_world_3d().direct_space_state.intersect_ray(probe)
+            if not obstacle.is_empty():
+                var left_dir := Vector3(-travel.z, 0, travel.x)
+                var right_dir := -left_dir
+                var left_ray := PhysicsRayQueryParameters3D.create(mob.position + Vector3.UP, mob.position + Vector3.UP + left_dir * 3.0)
+                left_ray.collision_mask = 2
+                var right_ray := PhysicsRayQueryParameters3D.create(mob.position + Vector3.UP, mob.position + Vector3.UP + right_dir * 3.0)
+                right_ray.collision_mask = 2
+                travel = left_dir if get_world_3d().direct_space_state.intersect_ray(left_ray).is_empty() else right_dir
+            mob.position += travel * (1.9 if boss else 2.3) * dt
             mob.position.x = clampf(mob.position.x, -ARENA, ARENA)
             mob.position.z = clampf(mob.position.z, -ARENA, ARENA)
         var hit_cd: float = maxf(0.0, float(mob.get_meta("hit_cd")) - dt)
@@ -378,3 +400,36 @@ func _select_target() -> Node3D:
             best_score = score
             chosen = mob
     return chosen
+
+# Solid arena boundaries and four interior obstacles.
+# Physics layer 2 is world geometry; these meshes remain separate from original artwork.
+func _build_solid_dungeon() -> void:
+    var walls := Node3D.new()
+    walls.name = "SolidDungeon"
+    add_child(walls)
+    _solid_block(walls, Vector3(0, 2, -25), Vector3(52, 4, 2))
+    _solid_block(walls, Vector3(0, 2, 25), Vector3(52, 4, 2))
+    _solid_block(walls, Vector3(-25, 2, 0), Vector3(2, 4, 52))
+    _solid_block(walls, Vector3(25, 2, 0), Vector3(2, 4, 52))
+    for location in [Vector3(-10, 1.8, -10), Vector3(10, 1.8, -10), Vector3(-10, 1.8, 10), Vector3(10, 1.8, 10)]:
+        _solid_block(walls, location, Vector3(3, 3.6, 3))
+
+func _solid_block(parent: Node3D, location: Vector3, dimensions: Vector3) -> void:
+    var block := StaticBody3D.new()
+    block.collision_layer = 2
+    block.collision_mask = 0
+    block.position = location
+    var collision := CollisionShape3D.new()
+    var shape := BoxShape3D.new()
+    shape.size = dimensions
+    collision.shape = shape
+    block.add_child(collision)
+    var visual := MeshInstance3D.new()
+    var mesh := BoxMesh.new()
+    mesh.size = dimensions
+    visual.mesh = mesh
+    var mat := StandardMaterial3D.new()
+    mat.albedo_color = Color(0.24, 0.21, 0.31)
+    visual.material_override = mat
+    block.add_child(visual)
+    parent.add_child(block)
