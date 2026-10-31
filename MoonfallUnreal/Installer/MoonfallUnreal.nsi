@@ -30,6 +30,11 @@ Section "Moonfall Unreal" Main
   CreateShortcut "$SMPROGRAMS\\Moonfall Unreal\\Moonfall Unreal.lnk" "$INSTDIR\\MoonfallLauncher.exe"
   CreateShortcut "$DESKTOP\\Moonfall Unreal.lnk" "$INSTDIR\\MoonfallLauncher.exe"
   WriteUninstaller "$INSTDIR\\Uninstall.exe"
+  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\MoonfallUnreal" "DisplayName" "Moonfall Unreal"
+  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\MoonfallUnreal" "UninstallString" '$\"$INSTDIR\\Uninstall.exe$\"'
+  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\MoonfallUnreal" "InstallLocation" "$INSTDIR"
+  WriteRegDWORD HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\MoonfallUnreal" "NoModify" 1
+  WriteRegDWORD HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\MoonfallUnreal" "NoRepair" 1
 SectionEnd
 Section "Uninstall"
   DeleteRegKey HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\MoonfallUnreal"
