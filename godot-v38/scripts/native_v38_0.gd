@@ -18,6 +18,7 @@ var v401_z_intro_seen:bool=false
 var v401_z_intro_timer:float=0.0
 var v401_z_intro_panel:PanelContainer
 var v401_z_intro_label:Label
+var v401_eclipse_overlay:ColorRect
 
 const V383_BENCHMARK:=preload("res://scripts/systems/combat_benchmark_v383.gd")
 const V384_RINGS:=preload("res://scripts/systems/vitals_rings_v384.gd")
@@ -233,6 +234,13 @@ func _refresh_boss_phase(beast:Dictionary)->void:
 func _v401_build_z_intro()->void:
  var layer:CanvasLayer=get_node_or_null("NativeAtlasUI") as CanvasLayer
  if not is_instance_valid(layer):return
+ v401_eclipse_overlay=ColorRect.new()
+ v401_eclipse_overlay.name="ZEclipseShade"
+ v401_eclipse_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+ v401_eclipse_overlay.color=Color(0.16,0.015,0.055,0.72)
+ v401_eclipse_overlay.mouse_filter=Control.MOUSE_FILTER_IGNORE
+ layer.add_child(v401_eclipse_overlay)
+ v401_eclipse_overlay.visible=false
  v401_z_intro_panel=PanelContainer.new()
  v401_z_intro_panel.name="ZBossCinematicIntroduction"
  v401_z_intro_panel.set_anchors_preset(Control.PRESET_CENTER)
@@ -257,6 +265,7 @@ func _v401_begin_z_intro()->void:
  v401_z_intro_seen=true
  v401_z_intro_timer=3.5
  if is_instance_valid(v401_z_intro_panel):
+  if is_instance_valid(v401_eclipse_overlay):v401_eclipse_overlay.visible=true
   v401_z_intro_panel.visible=true
   v401_z_intro_panel.modulate.a=0.0
   var fade:Tween=create_tween()
@@ -265,6 +274,7 @@ func _v401_begin_z_intro()->void:
 func _v401_end_z_intro()->void:
  v401_z_intro_timer=0.0
  if is_instance_valid(v401_z_intro_panel):v401_z_intro_panel.visible=false
+ if is_instance_valid(v401_eclipse_overlay):v401_eclipse_overlay.visible=false
 
 func _v380_build_status_panel()->void:
  var layer:CanvasLayer=get_node_or_null("NativeAtlasUI") as CanvasLayer
