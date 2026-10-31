@@ -22,6 +22,7 @@ internal sealed class LaunchWindow : Form
 {
     private readonly Label status;
     private readonly Button play;
+    private readonly Button updates;
     private readonly string gamePath = Path.Combine(AppContext.BaseDirectory, "MoonfallUnreal.exe");
     internal LaunchWindow()
     {
@@ -81,7 +82,12 @@ internal sealed class LaunchWindow : Form
         logs.AccessibleName = "Open Moonfall game logs";
         exit.AccessibleName = "Exit Moonfall launcher";
         status.AccessibleName = "Moonfall installation status";
-        Controls.AddRange([title, subtitle, play, status, exit, folder, retry, help, logs]);
+        updates = new Button { Text = "UPDATES", Bounds = new Rectangle(629, 562, 108, 28),
+            Anchor = AnchorStyles.Bottom | AnchorStyles.Right, FlatStyle = FlatStyle.Flat,
+            ForeColor = Color.WhiteSmoke, BackColor = Color.FromArgb(49, 35, 68), TabIndex = 6,
+            AccessibleName = "Check for Moonfall updates" };
+        updates.Click += async (_, _) => await CheckUpdatesAsync(false);
+        Controls.AddRange([title, subtitle, play, status, exit, folder, retry, help, logs, updates]);
         KeyPreview = true;
         KeyDown += (_, e) => { if (e.KeyCode == Keys.F5) { UpdateStatus(); e.Handled = true; } };
         AcceptButton = play;
@@ -93,6 +99,7 @@ internal sealed class LaunchWindow : Form
     {
         base.OnShown(e);
         play.Focus();
+        _ = CheckUpdatesAsync(true);
     }
     protected override void OnPaintBackground(PaintEventArgs e)
     {
@@ -150,6 +157,47 @@ internal sealed class LaunchWindow : Form
         }
         catch (IOException) { return false; }
         catch (UnauthorizedAccessException) { return false; }
+    }
+
+    private async Task CheckUpdatesAsync(bool automatic)
+    {
+        if (IsDisposed) return;
+        updates.Enabled = false;
+        try
+        {
+            var available = await MoonfallUpdates.CheckAsync();
+            if (IsDisposed) return;
+            if (available is null)
+            {
+                if (!automatic) MessageBox.Show(this,
+                    "No compatible verified Unreal installer update is available. Check GitHub Releases for details.",
+                    "Moonfall Updates", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+            var choice = MessageBox.Show(this,
+                $"Moonfall {available.Version} is available. Download its SHA-256 verified Windows installer?",
+                "Moonfall Update Available", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+            if (choice != DialogResult.Yes) return;
+            updates.Text = "DOWNLOADING";
+            var installer = await MoonfallUpdates.DownloadVerifiedAsync(available);
+            if (IsDisposed) return;
+            var install = MessageBox.Show(this,
+                "Update downloaded and SHA-256 verified. Close Moonfall before running setup. Start the installer now?",
+                "Install Moonfall Update", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+            if (install != DialogResult.Yes) return;
+            Process.Start(new ProcessStartInfo(installer) { UseShellExecute = true });
+            Close();
+        }
+        catch (Exception ex)
+        {
+            if (!automatic && !IsDisposed)
+                MessageBox.Show(this, "Unable to check or download updates: " + ex.Message,
+                    "Moonfall Updates", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        }
+        finally
+        {
+            if (!IsDisposed) { updates.Enabled = true; updates.Text = "UPDATES"; }
+        }
     }
 
     private void UpdateStatus()
