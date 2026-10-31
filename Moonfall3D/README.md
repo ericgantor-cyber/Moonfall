@@ -183,3 +183,7 @@ Open **Esc / Start > Crafting** to view your materials and craft Vitality or Foc
 ## Dungeon chest and forging upgrade
 
 Dungeon chests now grant one to three Moon Shards along with gold and equipment. The existing Esc/Start > Crafting menu adds **Forge equipped weapon** for 80 gold and five shards, improving the currently equipped weapon by three damage. Forging requires an equipped weapon and enough resources. Automated smoke tests cover success and insufficient resources. Godot and controller gameplay verification remain required.
+
+## Armor forging and equipment tracking
+
+The existing Esc/Start > Crafting menu now offers +2 equipped-armor forging for 70 gold and four Moon Shards. Inventory displays which armor is equipped. Forging requires both armor and resources; automated smoke checks cover successful and insufficient-resource attempts. Expanded dungeon exploration and controller inventory navigation remain planned rather than completed.
