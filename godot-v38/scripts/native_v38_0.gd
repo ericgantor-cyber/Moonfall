@@ -210,7 +210,7 @@ func _spawn_beast(at:Vector3,kind:String,zone:int,variant:String="normal",boss:b
     if visual is MeshInstance3D:visual.visible=false
    var portrait:Sprite3D=Sprite3D.new()
    portrait.name="OriginalHeroBossArtwork"
-   portrait.texture=Z_ART if zone==0 else NYRA_ART
+   portrait.set_texture(Z_ART if zone==0 else NYRA_ART)
    portrait.pixel_size=2.65/float(portrait.texture.get_height())
    portrait.billboard=BaseMaterial3D.BILLBOARD_ENABLED
    portrait.position=Vector3(0.0,0.4,0.0)
