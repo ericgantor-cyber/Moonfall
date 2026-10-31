@@ -253,7 +253,11 @@ func _attack()->void:
   return
  var cooldown_before:float=attack_cooldown
  super._attack()
- if attack_cooldown>cooldown_before:v390_valid_attacks+=1
+ if attack_cooldown>cooldown_before:
+  v390_valid_attacks+=1
+  # Give immediate, unobtrusive acknowledgement of a registered attack.
+  if is_instance_valid(v380_status_panel) and v380_status_enabled:
+   v380_status_text.text="ATTACK REGISTERED  •  "+str(v390_valid_attacks)
 
 func _spell(which:String)->void:
  # Rejected combat inputs must never consume mana while menus or death screens are active.
