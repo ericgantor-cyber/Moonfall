@@ -21,33 +21,52 @@ internal sealed class LaunchWindow : Form
     internal LaunchWindow()
     {
         Text = "Moonfall | Launcher";
-        ClientSize = new Size(620, 470);
-        MinimumSize = new Size(620, 470);
+        ClientSize = new Size(860, 600);
+        MinimumSize = new Size(760, 550);
         BackColor = Color.FromArgb(17, 14, 30);
         ForeColor = Color.WhiteSmoke;
         Font = new Font("Segoe UI", 11);
         StartPosition = FormStartPosition.CenterScreen;
-        FormBorderStyle = FormBorderStyle.FixedSingle;
-        MaximizeBox = false;
+        FormBorderStyle = FormBorderStyle.Sizable;
+        MaximizeBox = true;
 
         var title = new Label { Text = "MOONFALL", Font = new Font("Segoe UI", 34, FontStyle.Bold),
             ForeColor = Color.FromArgb(230, 139, 210), TextAlign = ContentAlignment.MiddleCenter,
-            Bounds = new Rectangle(20, 260, 580, 74) };
+            Bounds = new Rectangle(120, 335, 620, 74), Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right };
         var subtitle = new Label { Text = "UNREAL ENGINE EDITION", TextAlign = ContentAlignment.MiddleCenter,
-            ForeColor = Color.FromArgb(174, 173, 204), Bounds = new Rectangle(20, 330, 580, 30) };
-        play = new Button { Text = "PLAY", Bounds = new Rectangle(205, 368, 210, 54),
+            ForeColor = Color.FromArgb(174, 173, 204), Bounds = new Rectangle(120, 401, 620, 30), Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right };
+        play = new Button { Text = "PLAY", Bounds = new Rectangle(315, 447, 230, 58), Anchor = AnchorStyles.Bottom,
             BackColor = Color.FromArgb(96, 42, 128), ForeColor = Color.White,
             FlatStyle = FlatStyle.Flat, TabIndex = 0 };
         play.FlatAppearance.BorderSize = 0;
         play.Click += (_, _) => LaunchGame();
-        status = new Label { Bounds = new Rectangle(65, 423, 490, 25),
+        status = new Label { Bounds = new Rectangle(125, 515, 610, 25), Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right,
             TextAlign = ContentAlignment.MiddleCenter, ForeColor = Color.FromArgb(198, 196, 222) };
-        var exit = new Button { Text = "Exit", Bounds = new Rectangle(520, 438, 88, 27),
+        var exit = new Button { Text = "Exit", Bounds = new Rectangle(745, 562, 95, 28), Anchor = AnchorStyles.Bottom | AnchorStyles.Right,
             FlatStyle = FlatStyle.Flat, ForeColor = Color.Gainsboro, BackColor = BackColor, TabIndex = 1 };
         exit.Click += (_, _) => Close();
-        Controls.AddRange([title, subtitle, play, status, exit]);
+        var folder = new Button { Text = "GAME FOLDER", Bounds = new Rectangle(22, 562, 160, 28),
+            Anchor = AnchorStyles.Bottom | AnchorStyles.Left, FlatStyle = FlatStyle.Flat,
+            ForeColor = Color.WhiteSmoke, BackColor = Color.FromArgb(49, 35, 68), TabIndex = 2 };
+        folder.Click += (_, _) => OpenFolder();
+        var retry = new Button { Text = "CHECK FILES", Bounds = new Rectangle(190, 562, 160, 28),
+            Anchor = AnchorStyles.Bottom | AnchorStyles.Left, FlatStyle = FlatStyle.Flat,
+            ForeColor = Color.WhiteSmoke, BackColor = Color.FromArgb(49, 35, 68), TabIndex = 3 };
+        retry.Click += (_, _) => UpdateStatus();
+        var help = new Button { Text = "HELP", Bounds = new Rectangle(358, 562, 95, 28),
+            Anchor = AnchorStyles.Bottom | AnchorStyles.Left, FlatStyle = FlatStyle.Flat,
+            ForeColor = Color.WhiteSmoke, BackColor = Color.FromArgb(49, 35, 68), TabIndex = 4 };
+        help.Click += (_, _) => MessageBox.Show(this,
+            "Moonfall must be installed as a complete Unreal package.\\n" +
+            "Use CHECK FILES to refresh installation status.\\n" +
+            "Use GAME FOLDER to inspect the files.\\n" +
+            "If files are missing, reinstall the complete game.\\n" +
+            "Settings and gameplay controls are inside Moonfall.",
+            "Moonfall Help", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        Controls.AddRange([title, subtitle, play, status, exit, folder, retry, help]);
         AcceptButton = play;
         DoubleBuffered = true;
+        Resize += (_, _) => Invalidate();
         UpdateStatus();
     }
     protected override void OnPaintBackground(PaintEventArgs e)
@@ -55,15 +74,17 @@ internal sealed class LaunchWindow : Form
         base.OnPaintBackground(e);
         var g = e.Graphics;
         g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+        var width = ClientSize.Width;
+        var artHeight = Math.Max(280, ClientSize.Height - 265);
         using var sky = new System.Drawing.Drawing2D.LinearGradientBrush(
-            new Rectangle(0, 0, ClientSize.Width, 265),
+            new Rectangle(0, 0, width, artHeight),
             Color.FromArgb(13, 12, 34), Color.FromArgb(60, 23, 70), 90f);
-        g.FillRectangle(sky, new Rectangle(0, 0, ClientSize.Width, 265));
+        g.FillRectangle(sky, new Rectangle(0, 0, width, artHeight));
         var stars = new Random(2207);
         using var star = new SolidBrush(Color.FromArgb(170, 207, 181, 241));
         for (var i = 0; i < 80; ++i)
         {
-            float x = stars.Next(ClientSize.Width), y = stars.Next(240);
+            float x = stars.Next(ClientSize.Width), y = stars.Next(artHeight);
             float size = stars.Next(1, 4);
             g.FillEllipse(star, x, y, size, size);
         }
@@ -71,24 +92,27 @@ internal sealed class LaunchWindow : Form
         using var outerGlow = new SolidBrush(Color.FromArgb(24, 250, 73, 193));
         using var moon = new SolidBrush(Color.FromArgb(242, 101, 162));
         using var moonCore = new SolidBrush(Color.FromArgb(242, 154, 195));
-        g.FillEllipse(outerGlow, 188, 0, 244, 244);
-        g.FillEllipse(glow, 212, 24, 196, 196);
-        g.FillEllipse(moon, 237, 44, 146, 146);
-        g.FillEllipse(moonCore, 258, 63, 95, 95);
+        var cx = width / 2;
+        g.FillEllipse(outerGlow, cx-122, 18, 244, 244);
+        g.FillEllipse(glow, cx-98, 42, 196, 196);
+        g.FillEllipse(moon, cx-73, 62, 146, 146);
+        g.FillEllipse(moonCore, cx-52, 81, 95, 95);
         using var crater = new SolidBrush(Color.FromArgb(38, 89, 35, 95));
-        g.FillEllipse(crater, 269, 93, 29, 21);
-        g.FillEllipse(crater, 316, 120, 17, 13);
-        g.FillEllipse(crater, 302, 69, 22, 17);
+        g.FillEllipse(crater, cx-41, 111, 29, 21);
+        g.FillEllipse(crater, cx+6, 138, 17, 13);
+        g.FillEllipse(crater, cx-8, 87, 22, 17);
         var mountains = new[] {
-            new Point(0, 230), new Point(75, 155), new Point(127, 216),
-            new Point(200, 165), new Point(280, 231), new Point(365, 174),
-            new Point(445, 224), new Point(541, 152), new Point(620, 228),
-            new Point(620, 270), new Point(0, 270)
+            new Point(0, artHeight-28), new Point(width/8, artHeight-106),
+            new Point(width/5, artHeight-41), new Point(width/3, artHeight-113),
+            new Point(width/2, artHeight-30), new Point(width*2/3, artHeight-118),
+            new Point(width*4/5, artHeight-47), new Point(width*9/10, artHeight-102),
+            new Point(width, artHeight-26), new Point(width, artHeight+5),
+            new Point(0, artHeight+5)
         };
         using var ridge = new SolidBrush(Color.FromArgb(24, 18, 44));
         g.FillPolygon(ridge, mountains);
         using var horizon = new Pen(Color.FromArgb(135, 190, 67, 156), 2);
-        g.DrawLine(horizon, 0, 263, ClientSize.Width, 263);
+        g.DrawLine(horizon, 0, artHeight, width, artHeight);
     }
     private void UpdateStatus()
     {
@@ -98,6 +122,11 @@ internal sealed class LaunchWindow : Form
         play.Enabled = ready;
         status.Text = ready ? "Game files found. Ready to launch." :
             "Game files missing. Reinstall the complete Moonfall package.";
+    }
+    private void OpenFolder()
+    {
+        try { Process.Start(new ProcessStartInfo("explorer.exe", AppContext.BaseDirectory) { UseShellExecute = true }); }
+        catch (Exception ex) { MessageBox.Show(this, ex.Message, "Could not open folder", MessageBoxButtons.OK, MessageBoxIcon.Warning); }
     }
     private void LaunchGame()
     {
