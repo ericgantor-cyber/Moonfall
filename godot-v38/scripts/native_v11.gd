@@ -1,4 +1,8 @@
 extends "res://scripts/main.gd"
+const JUMP_BUFFER_SECONDS:float=0.14
+const JUMP_COYOTE_SECONDS:float=0.12
+var jump_buffer_remaining:float=0.0
+var jump_coyote_remaining:float=0.0
 const V383_COMBAT_RULES:=preload("res://scripts/systems/procedural_variants_v382.gd")
 const V383_FEEDBACK:=preload("res://scripts/systems/combat_feedback_v383.gd")
 const MINI_MAP_SCRIPT := preload("res://scripts/native_minimap.gd")
