@@ -43,6 +43,26 @@ jobs:
           path: MoonfallUnrealPackaged/
           if-no-files-found: error
           retention-days: 7
+      - name: Build Windows installer with NSIS
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $nsis = Get-Command makensis.exe -ErrorAction SilentlyContinue
+          if (-not $nsis) { throw 'Install NSIS 3 and put makensis.exe on PATH on the trusted Windows runner.' }
+          $packaged = Join-Path $env:GITHUB_WORKSPACE 'MoonfallUnrealPackaged'
+          $exes = @(Get-ChildItem $packaged -Recurse -File -Filter 'MoonfallUnreal.exe')
+          if ($exes.Count -ne 1) { throw "Expected exactly one packaged game executable; found $($exes.Count)" }
+          $sourceDir = $exes[0].Directory.FullName
+          $out = Join-Path $env:GITHUB_WORKSPACE 'MoonfallUnreal-Setup.exe'
+          & $nsis.Source "/DSOURCE_DIR=$sourceDir" "/DOUTPUT_EXE=$out" 'MoonfallUnreal\Installer\MoonfallUnreal.nsi'
+          if ($LASTEXITCODE -ne 0 -or -not (Test-Path $out)) { throw 'NSIS installer compilation failed' }
+      - name: Upload Windows installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: MoonfallUnreal-Windows-Installer
+          path: MoonfallUnreal-Setup.exe
+          if-no-files-found: error
+          retention-days: 7
       - name: Report status
         shell: pwsh
-        run: Write-Host 'Unreal project packaged and archived. Gameplay, installer, and frame generation still require verification.'
+        run: Write-Host 'Unreal project packaged and NSIS installer compiled. Installation testing, gameplay and frame generation still require verification.'
