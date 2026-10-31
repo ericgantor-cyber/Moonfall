@@ -363,6 +363,7 @@ func _update_beast_step(beast:Dictionary,delta:float)->void:
    beast["v395_guarding"]=phase<V395_GUARD_WINDOW and map_time>=float(beast.get("stagger_until",0.0))
    beast["v396_guard_direction"]=(int(floor(map_time/V395_GUARD_PERIOD))+guard_body.get_instance_id())%4
    # Reuse one lightweight floating label per enemy, only while guarding.
+   var guard_visible:bool=bool(beast["v395_guarding"])
    var guard_label:Label3D=beast.get("v397_guard_label") as Label3D
    if not is_instance_valid(guard_label):
     guard_label=Label3D.new()
@@ -371,11 +372,11 @@ func _update_beast_step(beast:Dictionary,delta:float)->void:
     guard_label.font_size=28
     guard_label.pixel_size=0.009
     guard_label.position=Vector3(0.0,2.15,0.0)
+    guard_label.modulate=Color(1.0,0.74,0.25,1.0)
     guard_body.add_child(guard_label)
     beast["v397_guard_label"]=guard_label
    # Defensive tell: guarded attacks glow amber; staggered foes cannot guard.
-   guard_label.modulate=Color(1.0,0.74,0.25,1.0)
-   guard_label.visible=bool(beast["v395_guarding"])
+   guard_label.visible=guard_visible
    if guard_label.visible:
     var guard_index:int=int(beast["v396_guard_direction"])
     var guard_name:String=["HIGH","RIGHT","LOW","LEFT"][guard_index]
