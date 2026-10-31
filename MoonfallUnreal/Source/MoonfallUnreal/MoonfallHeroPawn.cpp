@@ -8,6 +8,7 @@
 #include "Engine/Engine.h"
 #include "GameFramework/GameUserSettings.h"
 #include "Misc/ConfigCacheIni.h"
+#include "Interfaces/IPluginManager.h"
 #include "MoonfallEnemy.h"
 #include "CollisionQueryParams.h"
 AMoonfallHeroPawn::AMoonfallHeroPawn()
@@ -31,6 +32,10 @@ void AMoonfallHeroPawn::BeginPlay() {
  FrameGenerationPreference = FMath::Clamp(SavedPreference, 0, 2);
  // No FG vendor plugin or runtime capability integration has been added.
  bFrameGenerationAvailable = false;
+ const TSharedPtr<IPlugin> FSR = IPluginManager::Get().FindPlugin(TEXT("FSR"));
+ const TSharedPtr<IPlugin> DLSS = IPluginManager::Get().FindPlugin(TEXT("DLSS"));
+ bFrameGenerationPluginDetected = (FSR.IsValid() && FSR->IsEnabled()) || (DLSS.IsValid() && DLSS->IsEnabled());
+ // Detection is only a hint, never proof of a supported frame-generation runtime.
 }
 void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
 {
