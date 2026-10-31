@@ -1,0 +1,13 @@
+{
+  "FileVersion": 3,
+  "EngineAssociation": "5.4",
+  "Category": "Games",
+  "Description": "Experimental Moonfall Unreal Engine 5 starter; Godot version remains authoritative.",
+  "Modules": [
+    {
+      "Name": "MoonfallUnreal",
+      "Type": "Runtime",
+      "LoadingPhase": "Default"
+    }
+  ]
+}
