@@ -38,9 +38,15 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("Dodge"), IE_Pressed, this, &AMoonfallHeroPawn::Dodge);
  Input->BindAction(TEXT("GraphicsQuality"), IE_Pressed, this, &AMoonfallHeroPawn::CycleGraphicsQuality);
  Input->BindAction(TEXT("DisplayMode"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleDisplayMode);
+ Input->BindAction(TEXT("Options"), IE_Pressed, this, &AMoonfallHeroPawn::OpenOptions);
+ Input->BindAction(TEXT("OptionsUp"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsUp);
+ Input->BindAction(TEXT("OptionsDown"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsDown);
+ Input->BindAction(TEXT("OptionsLeft"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsLeft);
+ Input->BindAction(TEXT("OptionsRight"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsRight);
 }
 void AMoonfallHeroPawn::MoveForward(float Value)
 {
+ if (bOptionsOpen) return;
  if (Controller && !FMath::IsNearlyZero(Value))
  {
   const FRotator Yaw(0.f, Controller->GetControlRotation().Yaw, 0.f);
@@ -49,6 +55,7 @@ void AMoonfallHeroPawn::MoveForward(float Value)
 }
 void AMoonfallHeroPawn::MoveRight(float Value)
 {
+ if (bOptionsOpen) return;
  if (Controller && !FMath::IsNearlyZero(Value))
  {
   const FRotator Yaw(0.f, Controller->GetControlRotation().Yaw, 0.f);
@@ -85,10 +92,11 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
  OnSpellCast(School, Hand == 0);
  return true;
 }
-void AMoonfallHeroPawn::CastLeft() { TryCast(LeftSpell, 0, 1.f); }
-void AMoonfallHeroPawn::CastRight() { TryCast(RightSpell, 1, 1.f); }
+void AMoonfallHeroPawn::CastLeft() { if (bOptionsOpen) return; TryCast(LeftSpell, 0, 1.f); }
+void AMoonfallHeroPawn::CastRight() { if (bOptionsOpen) return; TryCast(RightSpell, 1, 1.f); }
 void AMoonfallHeroPawn::CastBoth()
 {
+ if (bOptionsOpen) return;
  if (LeftSpell != RightSpell || !GetWorld()) return;
  const float Time = GetWorld()->GetTimeSeconds();
  static const float Cooldowns[6] = {0.8f,0.65f,1.2f,2.f,1.f,0.9f};
@@ -101,6 +109,7 @@ void AMoonfallHeroPawn::CastBoth()
 }
 void AMoonfallHeroPawn::Dodge()
 {
+ if (bOptionsOpen) return;
  LaunchCharacter(GetActorForwardVector() * 600.f, true, false);
 }
 
@@ -126,6 +135,29 @@ void AMoonfallHeroPawn::ToggleDisplayMode() {
  if (!Settings) return;
  const EWindowMode::Type Next = Settings->GetFullscreenMode() == EWindowMode::WindowedFullscreen ? EWindowMode::Windowed : EWindowMode::WindowedFullscreen;
  Settings->SetFullscreenMode(Next);
+ Settings->ApplySettings(false);
+ Settings->SaveSettings();
+}
+
+void AMoonfallHeroPawn::OpenOptions() { bOptionsOpen = !bOptionsOpen; }
+void AMoonfallHeroPawn::OptionsUp() { if (bOptionsOpen) OptionsSelection = (OptionsSelection + 2) % 3; }
+void AMoonfallHeroPawn::OptionsDown() { if (bOptionsOpen) OptionsSelection = (OptionsSelection + 1) % 3; }
+void AMoonfallHeroPawn::OptionsLeft() { AdjustOption(-1); }
+void AMoonfallHeroPawn::OptionsRight() { AdjustOption(1); }
+void AMoonfallHeroPawn::AdjustOption(int32 Direction) {
+ if (!bOptionsOpen || !GEngine) return;
+ UGameUserSettings* Settings = GEngine->GetGameUserSettings();
+ if (!Settings) return;
+ if (OptionsSelection == 0) {
+  const FIntPoint Resolutions[] = {FIntPoint(1280,720), FIntPoint(1920,1080), FIntPoint(2560,1440), FIntPoint(3840,2160)};
+  int32 Current = 1;
+  for (int32 i = 0; i < 4; ++i) if (Settings->GetScreenResolution() == Resolutions[i]) Current = i;
+  Settings->SetScreenResolution(Resolutions[FMath::Clamp(Current + Direction, 0, 3)]);
+ } else if (OptionsSelection == 1) {
+  Settings->SetResolutionScaleValueEx(FMath::Clamp(Settings->GetResolutionScaleNormalized() * 100.f + Direction * 10.f, 50.f, 100.f));
+ } else {
+  Settings->SetOverallScalabilityLevel(FMath::Clamp(Settings->GetOverallScalabilityLevel() + Direction, 0, 3));
+ }
  Settings->ApplySettings(false);
  Settings->SaveSettings();
 }
