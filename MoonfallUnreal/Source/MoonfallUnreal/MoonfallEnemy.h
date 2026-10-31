@@ -18,6 +18,7 @@ public:
  UFUNCTION(BlueprintImplementableEvent, Category="Combat") void OnEnemyAttack();
 private:
  float NextAttackAt = 0.f;
+ float WindupEndsAt = -1.f;
 public:
  UPROPERTY(VisibleAnywhere) UStaticMeshComponent* Body;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat") float Health = 80.f;
