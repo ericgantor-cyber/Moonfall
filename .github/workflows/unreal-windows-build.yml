@@ -102,11 +102,25 @@ jobs:
           $out = Join-Path $env:GITHUB_WORKSPACE 'MoonfallUnreal-Setup.exe'
           & $nsis.Source "/DSOURCE_DIR=$sourceDir" "/DOUTPUT_EXE=$out" 'MoonfallUnreal\Installer\MoonfallUnreal.nsi'
           if ($LASTEXITCODE -ne 0 -or -not (Test-Path $out)) { throw 'NSIS installer compilation failed' }
+      - name: Verify installer and write SHA-256 checksum
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $installer = Join-Path $env:GITHUB_WORKSPACE 'MoonfallUnreal-Setup.exe'
+          if (-not (Test-Path -LiteralPath $installer -PathType Leaf)) { throw 'Cannot hash missing Windows installer.' }
+          $details = Get-Item -LiteralPath $installer
+          if ($details.Length -le 0) { throw 'Windows installer is empty.' }
+          $hash = (Get-FileHash -LiteralPath $installer -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  MoonfallUnreal-Setup.exe" | Set-Content -Encoding ascii -Path "$installer.sha256"
+          "Installer size: $($details.Length) bytes" >> $env:GITHUB_STEP_SUMMARY
+          "Installer SHA-256: $hash" >> $env:GITHUB_STEP_SUMMARY
       - name: Upload Windows installer
         uses: actions/upload-artifact@v4
         with:
           name: MoonfallUnreal-Windows-Installer
-          path: MoonfallUnreal-Setup.exe
+          path: |
+            MoonfallUnreal-Setup.exe
+            MoonfallUnreal-Setup.exe.sha256
           if-no-files-found: error
           retention-days: 7
       - name: Upload Unreal diagnostic logs on failure
