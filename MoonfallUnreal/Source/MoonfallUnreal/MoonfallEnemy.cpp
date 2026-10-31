@@ -50,16 +50,15 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   FVector Target = Hero->GetActorLocation();
   if (UNavigationSystemV1* Nav = FNavigationSystem::GetCurrent<UNavigationSystemV1>(GetWorld())) {
    FNavLocation Point;
-   if (Nav->ProjectPointToNavigation(Target, Point)) {
-    // Navigation replanning is throttled: no expensive path solve every enemy tick.
-    if (Now >= NextPathRefreshAt) {
-     NextPathRefreshAt = Now + 0.5f + FMath::FRandRange(0.f, 0.2f);
+   // Cache both nav projection and path solves to avoid repeated work each tick.
+   if (Now >= NextPathRefreshAt) {
+    NextPathRefreshAt = Now + 0.5f + FMath::FRandRange(0.f, 0.2f);
+    if (Nav->ProjectPointToNavigation(Target, Point)) {
      UNavigationPath* Path = Nav->FindPathToLocationSynchronously(GetWorld(), GetActorLocation(), Point.Location, this);
-     if (IsValid(Path) && !Path->IsPartial() && Path->PathPoints.Num() > 1) CachedWaypoint = Path->PathPoints[1];
-     else CachedWaypoint = Point.Location;
-    }
-    Target = CachedWaypoint;
+     CachedWaypoint = (IsValid(Path) && !Path->IsPartial() && Path->PathPoints.Num() > 1) ? Path->PathPoints[1] : Point.Location;
+    } else CachedWaypoint = Target;
    }
+   Target = CachedWaypoint;
   }
   FVector Direction = Target - GetActorLocation();
   Direction.Z = 0.f;
