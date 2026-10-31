@@ -21,7 +21,9 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
   if (Health <= 0.f) return;
   Health = FMath::Max(0.0f, Health - FMath::Max(0.0f, Amount));
   OnHitFeedback(Amount, Health);
-  DrawDebugString(GetWorld(), GetActorLocation() + FVector(0,0,145), FString::Printf(TEXT("-%.0f"), Amount), nullptr, FColor::Yellow, 0.8f, false);
+  // Hit feedback is now tracked by the HUD rather than persistent debug strings.
+  LastHitAmount = Amount;
+  LastHitTime = GetWorld() ? GetWorld()->GetTimeSeconds() : -10.f;
   if (Health <= 0.0f) { SetActorHiddenInGame(true); SetActorEnableCollision(false); }
 }
 
