@@ -155,3 +155,7 @@ Press **Esc** on the keyboard or **Start/Menu** on a connected Xbox-style contro
 ## Full-game overhaul, stabilization phase
 
 October 2026 stability pass: identified a failing Godot CI run where six GDScript type inference parse errors prevented the main game script from loading and made the smoke test time out. Explicit types were added to navigation, distance, room tint and spell description values. CI now checks Godot import and startup output for script errors, failing early instead of allowing misleading green steps. This is **phase 1** of a larger full-game overhaul, not a claim that gameplay/graphics/Windows controller testing is complete. Keep Esc/Start options, Skyrim hand casting, third-person camera, Space jump, Q dodge, original Z and Nyra art, and no WoW action bars.
+
+## Full game overhaul phase 2: combat AI
+
+Boss ranged attacks now require an unobstructed line of sight. Enemy groups use short-range repulsion to limit overlap, skirmishers select independent clockwise/counterclockwise strafing directions, and ranged skirmisher retreat is frame-scaled to avoid abrupt teleport-like movement. Separation remains a basic capped-mob steering heuristic, not NavMesh pathfinding. Godot build and actual gameplay verification still required. Skyrim-style casting, Esc/Start Options, Space jump, Q dodge, no WoW action bars, and original Z/Nyra art remain unchanged.
