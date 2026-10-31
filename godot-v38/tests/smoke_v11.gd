@@ -81,7 +81,7 @@ func _run() -> void:
  game.set("tamer_points",9)
  game.set("materials",{"fang":99})
  game.call("_start_game","nyra")
- _check(game.get("hero")=="nyra","Original Nyra hero selection")
+ _check(game.get("hero")=="z","Custom adventurer uses legacy combat slot while Nyra remains boss only")
  _check(game.get("hero_sprite").texture!=null,"Nyra artwork loads without modification")
  _check(game.get("gold")==0 and game.get("tamer_points")==0,"Hero selection clears previous run progression")
  _check(game.get("materials").has("herb") and not game.get("materials").has("fang"),"Starter materials restored for new game")
