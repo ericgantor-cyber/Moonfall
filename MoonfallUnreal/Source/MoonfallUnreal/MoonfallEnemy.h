@@ -21,6 +21,8 @@ private:
  float WindupEndsAt = -1.f;
 public:
  UPROPERTY(VisibleAnywhere) UStaticMeshComponent* Body;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Combat") float LastHitAmount = 0.f;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Combat") float LastHitTime = -10.f;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat") float Health = 80.f;
  UFUNCTION(BlueprintCallable, Category="Combat") void TakeSpellDamage(float Amount);
 };
