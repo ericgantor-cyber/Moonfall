@@ -80,6 +80,8 @@ func _run()->void:
  check("V393_RIPOSTE_MULTIPLIER" in orb_source and "v393_riposte_active=false" in orb_source,"riposte damage returns to normal after attack")
  check("v394_strike_direction" in orb_source and "KEY_UP,KEY_RIGHT,KEY_DOWN,KEY_LEFT" in orb_source,"four directional sword angles selectable by arrow keys")
  check("angle_damage" in orb_source and "angle_stagger" in orb_source,"high and low attack angles affect hit results")
+ check("V395_GUARD_PERIOD" in orb_source and "v395_guarding" in orb_source,"hostiles get periodic guard windows")
+ check("GUARD BROKEN!" in orb_source and "V395_GUARD_REDUCTION" in orb_source,"heavy attacks or ripostes break enemy guards")
  check("Input.is_key_pressed(KEY_SHIFT)" in orb_source and "V391_HEAVY_DAMAGE_MULTIPLIER" in orb_source,"Shift heavy strike uses same combat damage pipeline")
  check("V391_HEAVY_STAMINA_COST" in orb_source and "v387_stamina_regen_wait=V387_STAMINA_REGEN_DELAY" in orb_source,"heavy melee strike spends stamina and delays regeneration")
  check("v391_heavy_attack_active=false" in orb_source,"heavy attack state resets after inherited hit processing")
