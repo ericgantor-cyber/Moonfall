@@ -200,3 +200,16 @@ void AMoonfallHeroPawn::AdjustOption(int32 Direction) {
  Settings->ApplySettings(false);
  Settings->SaveSettings();
 }
+
+void AMoonfallHeroPawn::AwardExperience(int32 Amount)
+{
+ if (Amount <= 0 || Health <= 0.f) return;
+ Experience += FMath::Clamp(Amount, 0, 100000);
+ while (Experience >= ExperienceToNextLevel && Level < 100) {
+  Experience -= ExperienceToNextLevel;
+  ++Level;
+  ExperienceToNextLevel = 100 + (Level - 1) * 55;
+  Health = FMath::Min(100.f, Health + 15.f);
+  Mana = FMath::Min(MaxMana, Mana + 15.f);
+ }
+}

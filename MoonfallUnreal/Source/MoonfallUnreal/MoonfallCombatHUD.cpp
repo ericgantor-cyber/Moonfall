@@ -27,27 +27,39 @@ void AMoonfallCombatHUD::DrawHUD()
   DrawText(TEXT("Arrow keys / D-pad: select and adjust    Esc / Start: close"),FLinearColor::White,Canvas->SizeX*0.5f-240.f,Canvas->SizeY*0.5f+155.f,nullptr,0.85f);
   return;
  }
- // Minimal, resolution-aware HUD. Keep the center of the screen clear for combat.
- const float Margin = 24.f;
- const float Width = FMath::Clamp(Canvas->SizeX * 0.21f, 190.f, 300.f);
- const float Height = 104.f;
- const float X = Margin;
- const float Y = Canvas->SizeY - Height - Margin;
+ // Compact circular resource HUD at bottom left, with actual gameplay values.
+ const float Radius = FMath::Clamp(FMath::Min(Canvas->SizeX, Canvas->SizeY) * 0.085f, 45.f, 76.f);
+ const float CX = Radius + 33.f;
+ const float CY = Canvas->SizeY - Radius - 34.f;
  const float HealthFraction = FMath::Clamp(Hero->Health / 100.f, 0.f, 1.f);
  const float ManaFraction = FMath::Clamp(Hero->Mana / FMath::Max(1.f, Hero->MaxMana), 0.f, 1.f);
- const FLinearColor TextColor(0.91f, 0.90f, 0.96f);
- DrawRect(FLinearColor(0.025f, 0.026f, 0.055f, 0.80f), X-10.f, Y-9.f, Width+20.f, Height+12.f);
- DrawText(TEXT("HEALTH"), TextColor, X, Y, nullptr, 0.83f);
- DrawText(FString::Printf(TEXT("%.0f / 100"), FMath::Max(0.f, Hero->Health)), TextColor,
-          X + Width - 102.f, Y, nullptr, 0.83f);
- DrawRect(FLinearColor(0.20f, 0.08f, 0.13f), X, Y+25.f, Width, 15.f);
- DrawRect(FLinearColor(0.86f, 0.13f, 0.24f), X, Y+25.f, Width*HealthFraction, 15.f);
- DrawText(TEXT("MANA"), TextColor, X, Y+51.f, nullptr, 0.83f);
- DrawText(FString::Printf(TEXT("%.0f / %.0f"), FMath::Max(0.f, Hero->Mana), Hero->MaxMana), TextColor,
-          X + Width - 102.f, Y+51.f, nullptr, 0.83f);
- DrawRect(FLinearColor(0.06f, 0.12f, 0.24f), X, Y+75.f, Width, 15.f);
- DrawRect(FLinearColor(0.15f, 0.53f, 0.98f), X, Y+75.f, Width*ManaFraction, 15.f);
- // Only one unobtrusive shortcut hint; detailed graphics controls live in Options.
+ const float XpFraction = FMath::Clamp(static_cast<float>(Hero->Experience) / FMath::Max(1, Hero->ExperienceToNextLevel), 0.f, 1.f);
+ const float InnerRadius = Radius * 0.69f;
+ // Fill by horizontal rows to give the orb a true circular silhouette, not a rectangle.
+ for (int32 I = -static_cast<int32>(InnerRadius); I <= static_cast<int32>(InnerRadius); I += 2) {
+  const float HalfWidth = FMath::Sqrt(FMath::Max(0.f, InnerRadius * InnerRadius - I * I));
+  const bool bFilled = static_cast<float>(I) >= InnerRadius * (1.f - 2.f * HealthFraction);
+  DrawRect(bFilled ? FLinearColor(0.91f, 0.09f, 0.17f, 0.96f) : FLinearColor(0.16f, 0.04f, 0.09f, 0.88f),
+           CX - HalfWidth, CY + I, HalfWidth * 2.f, 2.5f);
+ }
+ auto DrawArc = [this, CX, CY](float ArcRadius, float Fraction, const FLinearColor& Track, const FLinearColor& Fill, float Thickness) {
+  constexpr int32 Segments = 96;
+  const float Progress = FMath::Clamp(Fraction, 0.f, 1.f);
+  for (int32 I = 0; I < Segments; ++I) {
+   const float A0 = -PI * 0.5f + 2.f * PI * I / Segments;
+   const float A1 = -PI * 0.5f + 2.f * PI * (I+1) / Segments;
+   const FLinearColor Color = (static_cast<float>(I) / Segments < Progress) ? Fill : Track;
+   Canvas->K2_DrawLine(FVector2D(CX + FMath::Cos(A0)*ArcRadius, CY + FMath::Sin(A0)*ArcRadius),
+                       FVector2D(CX + FMath::Cos(A1)*ArcRadius, CY + FMath::Sin(A1)*ArcRadius), Thickness, Color);
+  }
+ };
+ DrawArc(Radius * 0.78f, 1.f, FLinearColor(0.42f, 0.27f, 0.32f), FLinearColor(0.42f, 0.27f, 0.32f), 2.5f);
+ DrawArc(Radius * 0.85f, ManaFraction, FLinearColor(0.06f, 0.11f, 0.23f), FLinearColor(0.19f, 0.59f, 1.f), 5.f);
+ DrawArc(Radius * 0.97f, XpFraction, FLinearColor(0.19f, 0.10f, 0.28f), FLinearColor(0.73f, 0.32f, 1.f), 4.f);
+ DrawText(FString::Printf(TEXT("%.0f HP"), FMath::Max(0.f, Hero->Health)), FLinearColor::White,
+          CX - Radius * 0.39f, CY - 12.f, nullptr, 0.88f);
+ DrawText(FString::Printf(TEXT("LV %d"), Hero->Level), FLinearColor(0.91f,0.80f,1.f),
+          CX - Radius * 0.26f, CY + Radius * 0.28f, nullptr, 0.73f);
  DrawText(TEXT("ESC  OPTIONS"), FLinearColor(0.73f, 0.70f, 0.83f, 0.85f),
           FMath::Max(16.f, Canvas->SizeX - 142.f), Canvas->SizeY - 37.f, nullptr, 0.82f);
  for (TActorIterator<AMoonfallEnemy> It(GetWorld()); It; ++It) {
