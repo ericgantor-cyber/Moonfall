@@ -61,8 +61,8 @@ func _ready() -> void:
     camera = Camera3D.new()
     camera.current = true
     add_child(camera)
-    camera.position = Vector3(0, 22, 16)
-    camera.look_at(Vector3.UP)
+    camera.position = Vector3(0, 4, 9)
+    camera.look_at(Vector3(0, 1.3, 0))
     var layer := CanvasLayer.new()
     add_child(layer)
     ui = Label.new()
@@ -147,8 +147,9 @@ func _process(dt: float) -> void:
     player.position.z = clampf(player.position.z, -ARENA, ARENA)
     if velocity.length() > 0.0:
         player.rotation.y = atan2(velocity.x, velocity.z)
-    camera.position = camera.position.lerp(player.position + Vector3(0, 22, 16) * zoom, minf(1.0, dt * 7.0))
-    camera.look_at(player.position + Vector3.UP)
+    var follow_offset := player.global_transform.basis.z * (8.0 * zoom) + Vector3.UP * (3.4 * zoom)
+    camera.position = camera.position.lerp(player.position + follow_offset, minf(1.0, dt * 5.0))
+    camera.look_at(player.position + Vector3.UP * 1.3)
     if (Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) or Input.is_key_pressed(KEY_J)) and attack_wait <= 0.0:
         _attack()
     spawn_wait -= dt
