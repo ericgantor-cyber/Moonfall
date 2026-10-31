@@ -43,6 +43,11 @@ const V393_RIPOSTE_WINDOW:float=1.1
 const V393_RIPOSTE_MULTIPLIER:float=1.35
 var v393_riposte_until:float=-999.0
 var v393_riposte_active:bool=false
+var v394_strike_direction:int=0
+var v394_strike_direction_label:String="FRONT"
+const V395_GUARD_WINDOW:float=0.9
+const V395_GUARD_PERIOD:float=5.0
+const V395_GUARD_REDUCTION:float=0.4
 
 var v390_valid_attacks:int=0
 var v390_blocked_attacks:int=0
@@ -228,6 +233,13 @@ func _v384_build_vitals()->void:
 
 
 func _unhandled_input(event:InputEvent)->void:
+ if event is InputEventKey and event.pressed and not event.echo and hero_playing and not menu_open and not death_active:
+  if event.keycode in [KEY_UP,KEY_RIGHT,KEY_DOWN,KEY_LEFT]:
+   v394_strike_direction=[KEY_UP,KEY_RIGHT,KEY_DOWN,KEY_LEFT].find(event.keycode)
+   v394_strike_direction_label=["HIGH","RIGHT","LOW","LEFT"][v394_strike_direction]
+   _show_message("Sword angle: "+v394_strike_direction_label,0.55)
+   get_viewport().set_input_as_handled()
+   return
  if event is InputEventMouseButton and event.button_index==MOUSE_BUTTON_RIGHT and event.pressed and hero_playing and not menu_open and not death_active:
   v392_guard_started=map_time
   get_viewport().set_input_as_handled()
@@ -255,7 +267,18 @@ func _apply_incoming_damage(raw:float)->void:
 func _apply_player_hit(target:Dictionary,base_damage:float,stagger_strength:float=0.0)->void:
  # Reuse the existing stagger timer and hit visuals; do not create new AI state.
  var hp_before:float=float(target.get("hp",0.0))
- super._apply_player_hit(target,base_damage*(V391_HEAVY_DAMAGE_MULTIPLIER if v391_heavy_attack_active else 1.0)*(V393_RIPOSTE_MULTIPLIER if v393_riposte_active else 1.0),maxf(stagger_strength,0.42) if v393_riposte_active else maxf(stagger_strength,0.38) if v391_heavy_attack_active else stagger_strength)
+ # Regular hostile creatures periodically guard. Heavy strikes or ripostes break their guard.
+ var guarding:bool=bool(target.get("v395_guarding",false)) and bool(target.get("hostile",false)) and not bool(target.get("boss",false))
+ var guard_break:bool=guarding and (v391_heavy_attack_active or v393_riposte_active)
+ if guard_break:
+  target["v395_guarding"]=false
+  target["stagger_until"]=maxf(float(target.get("stagger_until",0.0)),map_time+0.65)
+  _show_message("GUARD BROKEN!",0.65)
+ elif guarding:
+  _show_message("Blocked! Use a heavy strike.",0.65)
+ var angle_damage:float=1.08 if v394_strike_direction==0 else 1.0
+ var angle_stagger:float=0.30 if v394_strike_direction==2 else stagger_strength
+ super._apply_player_hit(target,base_damage*(V395_GUARD_REDUCTION if guarding and not guard_break else 1.0)*angle_damage*(V391_HEAVY_DAMAGE_MULTIPLIER if v391_heavy_attack_active else 1.0)*(V393_RIPOSTE_MULTIPLIER if v393_riposte_active else 1.0),maxf(angle_stagger,0.42) if v393_riposte_active else maxf(angle_stagger,0.38) if v391_heavy_attack_active else angle_stagger)
  if hp_before<=float(target.get("hp",0.0)):return
  if not bool(target.get("hostile",false)) or bool(target.get("boss",false)) or not bool(target.get("alive",false)):return
  # Successful hits briefly interrupt ordinary enemies; stronger inherited staggers win.
@@ -275,6 +298,12 @@ func _apply_player_hit(target:Dictionary,base_damage:float,stagger_strength:floa
 func _update_beast_step(beast:Dictionary,delta:float)->void:
  super._update_beast_step(beast,delta)
  if not bool(beast.get("alive",false)) or bool(beast.get("boss",false)):return
+ if bool(beast.get("hostile",false)):
+  var guard_body:CharacterBody3D=beast.get("body") as CharacterBody3D
+  if is_instance_valid(guard_body):
+   var phase:float=fposmod(map_time+float(guard_body.get_instance_id()%5),V395_GUARD_PERIOD)
+   beast["v395_guarding"]=phase<V395_GUARD_WINDOW and map_time>=float(beast.get("stagger_until",0.0))
+
  if map_time>=float(beast.get("v388_knock_until",0.0)):return
  var body:CharacterBody3D=beast.get("body") as CharacterBody3D
  if not is_instance_valid(body):return
@@ -293,6 +322,14 @@ func _attack()->void:
  if heavy_requested and attack_cooldown<=0.0 and not mounted and v387_stamina<V391_HEAVY_STAMINA_COST:
   _show_message("Not enough stamina for a heavy attack.",0.9)
   return
+ # Arrow keys select one of four sword angles; normal attack remains usable without selection.
+ var chosen_direction:int=v394_strike_direction
+ if Input.is_key_pressed(KEY_UP):chosen_direction=0
+ elif Input.is_key_pressed(KEY_RIGHT):chosen_direction=1
+ elif Input.is_key_pressed(KEY_DOWN):chosen_direction=2
+ elif Input.is_key_pressed(KEY_LEFT):chosen_direction=3
+ v394_strike_direction=chosen_direction
+ v394_strike_direction_label=["HIGH","RIGHT","LOW","LEFT"][chosen_direction]
  var cooldown_before:float=attack_cooldown
  v391_heavy_attack_active=heavy_requested and not mounted and attack_cooldown<=0.0
  v393_riposte_active=map_time<=v393_riposte_until and not mounted and attack_cooldown<=0.0
