@@ -827,20 +827,44 @@ func _key_in_use(key: int, except_action: String) -> bool:
 func _render_spell_menu() -> void:
     if spell_menu == null:
         return
-    spell_summary.text = "Mana: %d/%d   |   Left [Z]: %s   |   Right [X]: %s\nBrowse with Up/Down; Z/X equip; M closes; C dual casts matching spells" % [int(mana), int(max_mana), spells[left_spell]["name"], spells[right_spell]["name"]]
+    spell_summary.text = "Mana: %d/%d   |   Left [Z]: %s   |   Right [X]: %s\nClick a spell to select; use LEFT/RIGHT buttons to equip; [M] close" % [int(mana), int(max_mana), spells[left_spell]["name"], spells[right_spell]["name"]]
     for child in spell_list.get_children():
+        spell_list.remove_child(child)
         child.queue_free()
     var descriptions := ["Burn", "Slow", "Arcane burst", "Heal", "Shock", "Poison"]
+    var symbols := ["🔥", "❄", "✦", "✚", "⚡", "☣"]
     for i in range(spells.size()):
-        var button := Button.new()
-        button.text = "%s  %s | %s | Mana %d | Cooldown %.1fs" % [">" if i == spell_cursor else " ", spells[i]["name"], descriptions[i], int(spells[i]["cost"]), float(spells[i]["cooldown"])]
-        button.alignment = HORIZONTAL_ALIGNMENT_LEFT
-        button.custom_minimum_size.y = 48
-        button.pressed.connect(_select_spell_entry.bind(i))
-        spell_list.add_child(button)
+        var line := HBoxContainer.new()
+        spell_list.add_child(line)
+        var select := Button.new()
+        select.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+        select.custom_minimum_size.y = 48
+        var prefix := "▶ " if i == spell_cursor else "  "
+        select.text = "%s%s %s | %s | %d mana | %.1fs" % [prefix, symbols[i], spells[i]["name"], descriptions[i], int(spells[i]["cost"]), float(spells[i]["cooldown"])]
+        select.alignment = HORIZONTAL_ALIGNMENT_LEFT
+        select.pressed.connect(_select_spell_entry.bind(i))
+        line.add_child(select)
+        var left_button := Button.new()
+        left_button.text = "LEFT%s" % (" ✓" if left_spell == i else "")
+        left_button.custom_minimum_size.x = 74
+        left_button.pressed.connect(_equip_spell_hand.bind(i, 0))
+        line.add_child(left_button)
+        var right_button := Button.new()
+        right_button.text = "RIGHT%s" % (" ✓" if right_spell == i else "")
+        right_button.custom_minimum_size.x = 80
+        right_button.pressed.connect(_equip_spell_hand.bind(i, 1))
+        line.add_child(right_button)
 
 func _select_spell_entry(index: int) -> void:
     spell_cursor = index
+    _render_spell_menu()
+
+func _equip_spell_hand(index: int, hand: int) -> void:
+    spell_cursor = index
+    if hand == 0:
+        left_spell = index
+    else:
+        right_spell = index
     _render_spell_menu()
 
 func _cast_hand(hand: int) -> void:
