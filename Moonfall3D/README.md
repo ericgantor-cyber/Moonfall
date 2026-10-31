@@ -219,3 +219,7 @@ WorldEnvironment now uses a dark violet background and purple ambient lighting, 
 ## Dungeon stone surface pass
 
 The ground now has a rough stone-like material finish, while the three existing regions gain low-profile decorative floor seams. The seams are non-colliding geometry and are not a final tiled texture pack. Original Z and Nyra artwork unchanged. Real visual inspection and Windows performance testing remain necessary.
+
+## Procedural stone texture
+
+The dungeon floor now generates one small, deterministic 64×64 stone-texture image at startup, tiled across the floor. It uses noise and dark seams for visual detail while avoiding large external textures or new dependencies. This is a procedural first texture pass, not a finished hand-painted environment texture pack. Original hero artwork and removed WoW action bars are untouched. Godot and visual validation required.
