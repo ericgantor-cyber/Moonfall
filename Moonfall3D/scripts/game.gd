@@ -43,6 +43,9 @@ var room_waypoints: Array[Vector3] = []
 var cached_target: Node3D
 var chests: Array[Node3D] = []
 var gold := 0
+var moon_shards := 0
+var craft_heal_latch := false
+var craft_mana_latch := false
 var dungeon_seed := 0
 var inventory: Array[Dictionary] = []
 var equipped: Dictionary = {}
@@ -372,6 +375,14 @@ func _process(dt: float) -> void:
         selected_item = (selected_item + 1) % inventory.size()
         _equip_item(selected_item)
     equip_latch = equip_key
+    var craft_heal := inventory_open and Input.is_key_pressed(KEY_H)
+    if craft_heal and not craft_heal_latch:
+        _craft_upgrade(false)
+    craft_heal_latch = craft_heal
+    var craft_mana := inventory_open and Input.is_key_pressed(KEY_J)
+    if craft_mana and not craft_mana_latch:
+        _craft_upgrade(true)
+    craft_mana_latch = craft_mana
     # Three traversable regions, divided by walls with central doorways.
     var entered_room := _region_for_z(player.position.z)
     if entered_room != room_index:
@@ -670,6 +681,7 @@ func _defeat_mob(target: Node3D) -> void:
     if was_boss:
         boss_alive = false
     kills += 1
+    moon_shards += 4 if was_boss else (1 if randf() < 0.4 else 0)
     xp += 10 if not was_boss else 100
     while xp >= level * 60:
         xp -= level * 60
@@ -887,7 +899,9 @@ func _refresh_inventory() -> void:
         return
     var lines := PackedStringArray()
     lines.append("INVENTORY  [B] Close  [G] Equip next")
-    lines.append("Armor: %d | Gold: %d | Level: %d" % [int(armor), gold, level])
+    lines.append("Armor: %d | Gold: %d | Shards: %d | Level: %d" % [int(armor), gold, moon_shards, level])
+    lines.append("CRAFT [H] Vitality (+10 max HP): 50 gold + 3 shards")
+    lines.append("CRAFT [J] Focus (+10 max mana): 50 gold + 3 shards")
     if equipped.is_empty():
         lines.append("Equipped: None")
     else:
@@ -1357,3 +1371,19 @@ func _boss_warning(position: Vector3, kind: int) -> void:
     indicator.set_meta("life", 1.1 if kind == 0 else 0.75)
     add_child(indicator)
     active_effects.append(indicator)
+
+func _craft_upgrade(mana_upgrade: bool) -> void:
+    if gold < 50 or moon_shards < 3:
+        _cast_notice("Crafting requires 50 gold and 3 Moon Shards")
+        return
+    gold -= 50
+    moon_shards -= 3
+    if mana_upgrade:
+        max_mana += 10.0
+        mana = minf(max_mana, mana + 10.0)
+        _cast_notice("Crafted Focus: +10 max mana")
+    else:
+        max_hp += 10.0
+        hp = minf(max_hp, hp + 10.0)
+        _cast_notice("Crafted Vitality: +10 max HP")
+    _refresh_inventory()
