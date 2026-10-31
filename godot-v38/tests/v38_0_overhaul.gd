@@ -34,7 +34,7 @@ func _run()->void:
  check(talent_scene!=null and "portrait.set_texture(Z_ART if zone==0 else NYRA_ART)" in talent_scene.source_code,"Z and Nyra boss visuals reuse original unaltered character textures")
  check(talent_scene!=null and "super._spawn_beast(at,kind,zone,variant,boss)" in talent_scene.source_code,"family bosses reuse current guardian encounter system")
  check(talent_scene!=null and "super._refresh_boss_phase(beast)" in talent_scene.source_code,"family bosses retain inherited boss phase mechanics")
- check(talent_scene!=null and "\"bloodline\":\"Eclipse\"" in talent_scene.source_code,"character creator records bloodline")
+ check(talent_scene!=null and "CREATE CUSTOM ADVENTURER" in talent_scene.source_code,"custom adventurer is selected instead of family bosses")
  check(talent_scene!=null and "\"character_identity\":v399_identity.duplicate(true)" in talent_scene.source_code,"character identity is saved with checkpoint")
  check(talent_scene!=null and "resources.get(\"character_identity\",{})" in talent_scene.source_code,"legacy checkpoints can load without character identity")
  check(talent_scene!=null and "v398_ranks.get(\"magic_focus\",0)" in talent_scene.source_code,"magic talent affects spell cost and regeneration")
