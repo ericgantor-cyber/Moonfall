@@ -15,17 +15,17 @@ void AMoonfallCombatHUD::DrawHUD()
  if (!IsValid(Hero)) return;
  DrawText(TEXT("F6: Graphics quality    F7: Window / Fullscreen"), FLinearColor(0.85f,0.78f,1.f), 32.f, 25.f, nullptr, 1.f);
  if (Hero->bOptionsOpen) {
-  DrawRect(FLinearColor(0.04f,0.03f,0.11f,0.94f),Canvas->SizeX*0.5f-280.f,Canvas->SizeY*0.5f-155.f,560.f,310.f);
-  DrawText(TEXT("MOONFALL  |  GRAPHICS OPTIONS"),FLinearColor::White,Canvas->SizeX*0.5f-230.f,Canvas->SizeY*0.5f-120.f,nullptr,1.25f);
+  DrawRect(FLinearColor(0.04f,0.03f,0.11f,0.94f),Canvas->SizeX*0.5f-280.f,Canvas->SizeY*0.5f-190.f,560.f,380.f);
+  DrawText(TEXT("MOONFALL  |  GRAPHICS OPTIONS"),FLinearColor::White,Canvas->SizeX*0.5f-230.f,Canvas->SizeY*0.5f-150.f,nullptr,1.25f);
   UGameUserSettings* Settings = GEngine ? GEngine->GetGameUserSettings() : nullptr;
   if (Settings) {
    float ScalePct = 100.f, ScaleNormalized = 0.f, ScaleMin = 50.f, ScaleMax = 100.f;
    Settings->GetResolutionScaleInformationEx(ScalePct, ScaleNormalized, ScaleMin, ScaleMax);
    const FIntPoint Res = Settings->GetScreenResolution();
-   const FString Rows[] = {FString::Printf(TEXT("Resolution: %d x %d"),Res.X,Res.Y),FString::Printf(TEXT("Render scale: %.0f%%"),ScalePct),FString::Printf(TEXT("Quality preset: %d (0 Low - 3 Epic)"),Settings->GetOverallScalabilityLevel())};
-   for (int32 i=0;i<3;++i) DrawText(Rows[i],i==Hero->OptionsSelection?FLinearColor::Yellow:FLinearColor::White,Canvas->SizeX*0.5f-210.f,Canvas->SizeY*0.5f-60.f+i*53.f,nullptr,1.1f);
+   const FString Rows[] = {FString::Printf(TEXT("Resolution: %d x %d"),Res.X,Res.Y),FString::Printf(TEXT("Render scale: %.0f%%"),ScalePct),FString::Printf(TEXT("Quality preset: %d (0 Low - 3 Epic)"),Settings->GetOverallScalabilityLevel()),FString::Printf(TEXT("Frame Generation: %s (plugin unavailable)"),Hero->FrameGenerationPreference==0?TEXT("Off"):Hero->FrameGenerationPreference==1?TEXT("Auto"):TEXT("On"))};
+   for (int32 i=0;i<4;++i) DrawText(Rows[i],i==Hero->OptionsSelection?FLinearColor::Yellow:FLinearColor::White,Canvas->SizeX*0.5f-210.f,Canvas->SizeY*0.5f-95.f+i*53.f,nullptr,1.1f);
   }
-  DrawText(TEXT("Arrow keys / D-pad: select and adjust    Esc / Start: close"),FLinearColor::White,Canvas->SizeX*0.5f-240.f,Canvas->SizeY*0.5f+120.f,nullptr,0.85f);
+  DrawText(TEXT("Arrow keys / D-pad: select and adjust    Esc / Start: close"),FLinearColor::White,Canvas->SizeX*0.5f-240.f,Canvas->SizeY*0.5f+155.f,nullptr,0.85f);
   return;
  }
  const float X = 32.f, Y = Canvas->SizeY - 90.f, Width = 260.f;

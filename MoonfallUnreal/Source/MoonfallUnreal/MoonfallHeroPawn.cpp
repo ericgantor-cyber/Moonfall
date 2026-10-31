@@ -143,8 +143,8 @@ void AMoonfallHeroPawn::ToggleDisplayMode() {
 }
 
 void AMoonfallHeroPawn::OpenOptions() { bOptionsOpen = !bOptionsOpen; }
-void AMoonfallHeroPawn::OptionsUp() { if (bOptionsOpen) OptionsSelection = (OptionsSelection + 2) % 3; }
-void AMoonfallHeroPawn::OptionsDown() { if (bOptionsOpen) OptionsSelection = (OptionsSelection + 1) % 3; }
+void AMoonfallHeroPawn::OptionsUp() { if (bOptionsOpen) OptionsSelection = (OptionsSelection + 3) % 4; }
+void AMoonfallHeroPawn::OptionsDown() { if (bOptionsOpen) OptionsSelection = (OptionsSelection + 1) % 4; }
 void AMoonfallHeroPawn::OptionsLeft() { AdjustOption(-1); }
 void AMoonfallHeroPawn::OptionsRight() { AdjustOption(1); }
 void AMoonfallHeroPawn::AdjustOption(int32 Direction) {
@@ -161,8 +161,12 @@ void AMoonfallHeroPawn::AdjustOption(int32 Direction) {
   float NormalizedScale = 0.f, MinScale = 50.f, MaxScale = 100.f;
   Settings->GetResolutionScaleInformationEx(CurrentScale, NormalizedScale, MinScale, MaxScale);
   Settings->SetResolutionScaleValueEx(FMath::Clamp(CurrentScale + Direction * 10.f, FMath::Max(50.f, MinScale), FMath::Min(100.f, MaxScale)));
- } else {
+ } else if (OptionsSelection == 2) {
   Settings->SetOverallScalabilityLevel(FMath::Clamp(Settings->GetOverallScalabilityLevel() + Direction, 0, 3));
+ } else {
+  FrameGenerationPreference = FMath::Clamp(FrameGenerationPreference + Direction, 0, 2);
+  // UI preference only. Do not enable FG without a verified vendor plugin and compatible GPU.
+  return;
  }
  Settings->ApplySettings(false);
  Settings->SaveSettings();
