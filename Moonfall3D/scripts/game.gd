@@ -34,6 +34,8 @@ var camera_yaw := 0.0
 var camera_pitch := -0.32
 const CAMERA_SENSITIVITY := 0.006
 var room_index := 0
+var hazard_cooldown := 0.0
+var room_hazards: Array[Vector3] = []
 var room_label: Label
 var combat_flash := 0.0
 var active_effects: Array[Node3D] = []
@@ -355,6 +357,8 @@ func _process(dt: float) -> void:
             look = Vector2.ZERO
     camera_yaw -= look.x * pad_camera_speed * dt
     camera_pitch = clampf(camera_pitch - look.y * pad_camera_speed * dt, -1.25, -0.1)
+    hazard_cooldown = maxf(0.0, hazard_cooldown - dt)
+    _update_room_hazards()
     clock += dt
     mana = minf(max_mana, mana + 7.0 * dt)
     notice_left = maxf(0.0, notice_left - dt)
@@ -738,6 +742,7 @@ func _build_room() -> void:
     var decor := Node3D.new()
     decor.name = "RoomDecor"
     room_waypoints.clear()
+    room_hazards.clear()
     for direction in [Vector3(18, 0, 0), Vector3(-18, 0, 0), Vector3(0, 0, 18), Vector3(0, 0, -18)]:
         room_waypoints.append(direction)
     add_child(decor)
@@ -753,6 +758,23 @@ func _build_room() -> void:
         monument.material_override = mon_mat
         monument.position = Vector3(-9.0 + landmark * 9.0, mon_mesh.size.y * 0.5, -17.0 + room_index * 17.0)
         decor.add_child(monument)
+    # Two readable floor hazards per region; always clear of the central doorway.
+    for i in range(2):
+        var hazard_pos := Vector3(-11.0 if i == 0 else 11.0, 0.0, -17.0 + float(room_index) * 17.0)
+        room_hazards.append(hazard_pos)
+        var tile := MeshInstance3D.new()
+        var tile_mesh := CylinderMesh.new()
+        tile_mesh.top_radius = 2.2
+        tile_mesh.bottom_radius = 2.2
+        tile_mesh.height = 0.08
+        tile.mesh = tile_mesh
+        tile.position = hazard_pos + Vector3.UP * 0.05
+        var tile_mat := StandardMaterial3D.new()
+        tile_mat.albedo_color = Color(0.95, 0.2, 0.1) if room_index == 2 else Color(0.6, 0.2, 0.9)
+        tile_mat.emission_enabled = true
+        tile_mat.emission = tile_mat.albedo_color * 0.35
+        tile.material_override = tile_mat
+        decor.add_child(tile)
     for i in range(12):
         var pillar := MeshInstance3D.new()
         var mesh := CylinderMesh.new()
@@ -1555,3 +1577,16 @@ func _refresh_equipment_menu() -> void:
 func _choose_equipment(index: int) -> void:
     _equip_item(index)
     _refresh_equipment_menu()
+
+func _update_room_hazards() -> void:
+    if hazard_cooldown > 0.0 or invulnerable > 0.0:
+        return
+    for hazard in room_hazards:
+        var offset: Vector3 = player.position - hazard
+        offset.y = 0.0
+        if offset.length_squared() < 4.84 and player.is_on_floor():
+            hp = maxf(0.0, hp - maxf(1.0, 7.0 - armor * 0.25))
+            hazard_cooldown = 1.5
+            _cast_notice("Hazard! Move off the glowing floor")
+            dead = hp <= 0.0
+            break
