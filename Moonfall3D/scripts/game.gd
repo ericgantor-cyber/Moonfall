@@ -59,10 +59,11 @@ var locked_target: Node3D
 var jump_velocity := 0.0
 var jump_latch := false
 var slot_cooldowns := [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-const SLOT_KEYS := [KEY_1, KEY_2, KEY_3, KEY_4, KEY_5, KEY_6, KEY_7, KEY_8, KEY_9, KEY_0, KEY_MINUS, KEY_EQUAL]
+const DEFAULT_SLOT_KEYS := [KEY_1, KEY_2, KEY_3, KEY_4, KEY_5, KEY_6, KEY_7, KEY_8, KEY_9, KEY_0, KEY_MINUS, KEY_EQUAL]
 var action_bar: Label
-var bindings: Dictionary = {"forward": KEY_W, "back": KEY_S, "left": KEY_A, "right": KEY_D, "jump": KEY_SPACE, "dodge": KEY_Q, "attack": KEY_1, "spell": KEY_2, "inventory": KEY_B, "interact": KEY_F, "target": KEY_TAB}
-const BIND_ORDER := ["forward", "back", "left", "right", "jump", "dodge", "attack", "spell", "inventory", "interact", "target"]
+var bindings: Dictionary = {"forward": KEY_W, "back": KEY_S, "left": KEY_A, "right": KEY_D, "jump": KEY_SPACE, "dodge": KEY_Q, "inventory": KEY_B, "interact": KEY_F, "target": KEY_TAB}
+var slot_keys: Array[int] = []
+const BIND_ORDER := ["forward", "back", "left", "right", "jump", "dodge", "inventory", "interact", "target", "slot_1", "slot_2", "slot_3", "slot_4", "slot_5", "slot_6", "slot_7", "slot_8", "slot_9", "slot_10", "slot_11", "slot_12"]
 var selected_item := 0
 var armor := 0.0
 const MAX_INVENTORY := 20
@@ -70,6 +71,8 @@ const RARITIES := ["Common", "Uncommon", "Rare", "Epic", "Legendary"]
 
 func _ready() -> void:
     randomize()
+    for key in DEFAULT_SLOT_KEYS:
+        slot_keys.append(key)
     dungeon_seed = randi()
     var ground := MeshInstance3D.new()
     var plane := PlaneMesh.new()
@@ -79,6 +82,16 @@ func _ready() -> void:
     ground_mat.albedo_color = Color(0.16, 0.10, 0.22)
     ground.material_override = ground_mat
     add_child(ground)
+    var ground_body := StaticBody3D.new()
+    ground_body.collision_layer = 2
+    ground_body.collision_mask = 0
+    var ground_shape := CollisionShape3D.new()
+    var ground_box := BoxShape3D.new()
+    ground_box.size = Vector3(60, 0.4, 60)
+    ground_shape.shape = ground_box
+    ground_shape.position.y = -0.2
+    ground_body.add_child(ground_shape)
+    add_child(ground_body)
     var sun := DirectionalLight3D.new()
     sun.rotation_degrees = Vector3(-55, -35, 0)
     add_child(sun)
@@ -174,8 +187,11 @@ func _unhandled_input(event: InputEvent) -> void:
                 binding_capture = false
             else:
                 var action: String = BIND_ORDER[binding_index]
-                if not bindings.values().has(event.keycode):
-                    bindings[action] = event.keycode
+                if not _key_in_use(event.keycode, action):
+                    if action.begins_with("slot_"):
+                        slot_keys[int(action.trim_prefix("slot_")) - 1] = event.keycode
+                    else:
+                        bindings[action] = event.keycode
                     _save_bindings()
                 binding_capture = false
             _render_binds()
@@ -254,10 +270,13 @@ func _process(dt: float) -> void:
         slot_cooldowns[index] = maxf(0.0, slot_cooldowns[index] - dt)
     _render_action_bar()
     var jump_key := _pressed("jump")
-    if jump_key and not jump_latch and player.position.y <= 0.01:
+    if jump_key and not jump_latch and player.is_on_floor():
         jump_velocity = 9.0
     jump_latch = jump_key
-    jump_velocity -= 25.0 * dt
+    if not player.is_on_floor():
+        jump_velocity -= 25.0 * dt
+    elif jump_velocity < 0.0:
+        jump_velocity = 0.0
     dodge_wait = maxf(0.0, dodge_wait - dt)
     dodge_left = maxf(0.0, dodge_left - dt)
     invulnerable = maxf(0.0, invulnerable - dt)
@@ -285,9 +304,8 @@ func _process(dt: float) -> void:
     placeholder.position.y = 1.1 + (absf(sin(animation_phase)) * 0.12 if velocity.length() > 0.0 else sin(animation_phase) * 0.025)
     player.velocity = velocity + Vector3.UP * jump_velocity
     player.move_and_slide()
-    if player.position.y <= 0.0:
-        player.position.y = 0.0
-        jump_velocity = maxf(0.0, jump_velocity)
+    if player.is_on_floor() and jump_velocity < 0.0:
+        jump_velocity = 0.0
     # Normal movement turns to travel direction, except while right-drag turning.
     if velocity.length() > 0.0 and not Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT):
         player.rotation.y = atan2(velocity.x, velocity.z)
@@ -317,12 +335,8 @@ func _process(dt: float) -> void:
         _open_nearby_chest()
     if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) and attack_wait <= 0.0:
         _attack()
-    for slot in range(SLOT_KEYS.size()):
-        var key_active := Input.is_key_pressed(SLOT_KEYS[slot])
-        if slot == 0:
-            key_active = key_active or _pressed("attack")
-        elif slot == 1:
-            key_active = key_active or _pressed("spell")
+    for slot in range(slot_keys.size()):
+        var key_active := Input.is_key_pressed(slot_keys[slot])
         if key_active and slot_cooldowns[slot] <= 0.0:
             _use_action_slot(slot)
             break
@@ -683,7 +697,8 @@ func _render_binds() -> void:
     for i in range(BIND_ORDER.size()):
         var action: String = BIND_ORDER[i]
         var prefix := "> " if i == binding_index else "  "
-        lines.append("%s%s : %s" % [prefix, action, OS.get_keycode_string(int(bindings[action]))])
+        var key := slot_keys[int(action.trim_prefix("slot_")) - 1] if action.begins_with("slot_") else int(bindings[action])
+        lines.append("%s%s : %s" % [prefix, action, OS.get_keycode_string(key)])
     if binding_capture:
         lines.append("Press a new key, or Esc to cancel")
     binds_panel.text = "\n".join(lines)
@@ -691,7 +706,10 @@ func _render_binds() -> void:
 func _save_bindings() -> void:
     var file := FileAccess.open("user://moonfall_keybinds.json", FileAccess.WRITE)
     if file != null:
-        file.store_string(JSON.stringify(bindings))
+        var saved := bindings.duplicate()
+        for slot in range(slot_keys.size()):
+            saved["slot_%d" % (slot + 1)] = slot_keys[slot]
+        file.store_string(JSON.stringify(saved))
 
 func _load_bindings() -> void:
     if not FileAccess.file_exists("user://moonfall_keybinds.json"):
@@ -703,8 +721,16 @@ func _load_bindings() -> void:
     if not parsed is Dictionary:
         return
     for action in BIND_ORDER:
-        if parsed.has(action) and int(parsed[action]) > 0:
+        if not parsed.has(action) or int(parsed[action]) <= 0:
+            continue
+        if action.begins_with("slot_"):
+            slot_keys[int(action.trim_prefix("slot_")) - 1] = int(parsed[action])
+        else:
             bindings[action] = int(parsed[action])
+    if not parsed.has("slot_1") and parsed.has("attack"):
+        slot_keys[0] = int(parsed["attack"])
+    if not parsed.has("slot_2") and parsed.has("spell"):
+        slot_keys[1] = int(parsed["spell"])
     # Migrate saved profiles: Space was dodge; now Space must jump.
     if not parsed.has("jump") and int(bindings["dodge"]) == KEY_SPACE:
         bindings["jump"] = KEY_SPACE
@@ -738,7 +764,16 @@ func _render_action_bar() -> void:
     if action_bar == null:
         return
     var labels := PackedStringArray()
-    for slot in range(SLOT_KEYS.size()):
-        var key := OS.get_keycode_string(SLOT_KEYS[slot])
+    for slot in range(slot_keys.size()):
+        var key := OS.get_keycode_string(slot_keys[slot])
         labels.append("%s:%s" % [key, "READY" if slot_cooldowns[slot] <= 0.0 else "%.1f" % slot_cooldowns[slot]])
     action_bar.text = "  ".join(labels)
+
+func _key_in_use(key: int, except_action: String) -> bool:
+    for action in bindings:
+        if action != except_action and int(bindings[action]) == key:
+            return true
+    for index in range(slot_keys.size()):
+        if except_action != "slot_%d" % (index + 1) and slot_keys[index] == key:
+            return true
+    return key == KEY_F10 or key == KEY_ESCAPE
