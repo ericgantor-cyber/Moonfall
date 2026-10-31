@@ -13,7 +13,6 @@ void AMoonfallCombatHUD::DrawHUD()
  if (!Canvas) return;
  const AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this,0));
  if (!IsValid(Hero)) return;
- DrawText(TEXT("Mouse L/R: Cast  |  C: Dual spell  |  Q: Dodge  |  Esc: Options  |  F6/F7: Display"), FLinearColor(0.85f,0.78f,1.f), 32.f, 25.f, nullptr, 1.f);
  if (Hero->bOptionsOpen) {
   DrawRect(FLinearColor(0.04f,0.03f,0.11f,0.94f),Canvas->SizeX*0.5f-280.f,Canvas->SizeY*0.5f-190.f,560.f,380.f);
   DrawText(TEXT("MOONFALL  |  GRAPHICS OPTIONS"),FLinearColor::White,Canvas->SizeX*0.5f-230.f,Canvas->SizeY*0.5f-150.f,nullptr,1.25f);
@@ -28,12 +27,29 @@ void AMoonfallCombatHUD::DrawHUD()
   DrawText(TEXT("Arrow keys / D-pad: select and adjust    Esc / Start: close"),FLinearColor::White,Canvas->SizeX*0.5f-240.f,Canvas->SizeY*0.5f+155.f,nullptr,0.85f);
   return;
  }
- const float X = 32.f, Y = Canvas->SizeY - 90.f, Width = 260.f;
- DrawRect(FLinearColor(0.07f,0.05f,0.11f,0.85f),X-6.f,Y-6.f,Width+12.f,68.f);
- DrawRect(FLinearColor(0.25f,0.06f,0.1f),X,Y,Width,22.f);
- DrawRect(FLinearColor(0.88f,0.12f,0.2f),X,Y,Width * FMath::Clamp(Hero->Health/100.f,0.f,1.f),22.f);
- DrawRect(FLinearColor(0.04f,0.13f,0.24f),X,Y+32.f,Width,18.f);
- DrawRect(FLinearColor(0.15f,0.55f,0.97f),X,Y+32.f,Width * FMath::Clamp(Hero->Mana/FMath::Max(1.f,Hero->MaxMana),0.f,1.f),18.f);
+ // Minimal, resolution-aware HUD. Keep the center of the screen clear for combat.
+ const float Margin = 24.f;
+ const float Width = FMath::Clamp(Canvas->SizeX * 0.21f, 190.f, 300.f);
+ const float Height = 104.f;
+ const float X = Margin;
+ const float Y = Canvas->SizeY - Height - Margin;
+ const float HealthFraction = FMath::Clamp(Hero->Health / 100.f, 0.f, 1.f);
+ const float ManaFraction = FMath::Clamp(Hero->Mana / FMath::Max(1.f, Hero->MaxMana), 0.f, 1.f);
+ const FLinearColor TextColor(0.91f, 0.90f, 0.96f);
+ DrawRect(FLinearColor(0.025f, 0.026f, 0.055f, 0.80f), X-10.f, Y-9.f, Width+20.f, Height+12.f);
+ DrawText(TEXT("HEALTH"), TextColor, X, Y, nullptr, 0.83f);
+ DrawText(FString::Printf(TEXT("%.0f / 100"), FMath::Max(0.f, Hero->Health)), TextColor,
+          X + Width - 102.f, Y, nullptr, 0.83f);
+ DrawRect(FLinearColor(0.20f, 0.08f, 0.13f), X, Y+25.f, Width, 15.f);
+ DrawRect(FLinearColor(0.86f, 0.13f, 0.24f), X, Y+25.f, Width*HealthFraction, 15.f);
+ DrawText(TEXT("MANA"), TextColor, X, Y+51.f, nullptr, 0.83f);
+ DrawText(FString::Printf(TEXT("%.0f / %.0f"), FMath::Max(0.f, Hero->Mana), Hero->MaxMana), TextColor,
+          X + Width - 102.f, Y+51.f, nullptr, 0.83f);
+ DrawRect(FLinearColor(0.06f, 0.12f, 0.24f), X, Y+75.f, Width, 15.f);
+ DrawRect(FLinearColor(0.15f, 0.53f, 0.98f), X, Y+75.f, Width*ManaFraction, 15.f);
+ // Only one unobtrusive shortcut hint; detailed graphics controls live in Options.
+ DrawText(TEXT("ESC  OPTIONS"), FLinearColor(0.73f, 0.70f, 0.83f, 0.85f),
+          FMath::Max(16.f, Canvas->SizeX - 142.f), Canvas->SizeY - 37.f, nullptr, 0.82f);
  for (TActorIterator<AMoonfallEnemy> It(GetWorld()); It; ++It) {
   const AMoonfallEnemy* Enemy = *It;
   const float Age = GetWorld()->GetTimeSeconds() - Enemy->LastHitTime;
