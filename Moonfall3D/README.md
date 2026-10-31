@@ -163,3 +163,7 @@ Boss ranged attacks now require an unobstructed line of sight. Enemy groups use 
 ## Phase 2: telegraphed boss attacks
 
 Bosses choose between a larger delayed impact (1.1-second windup, 3.1-unit radius) and a smaller faster impact (0.75-second windup, 1.8-unit radius). A red translucent ground indicator marks the target area before impact, letting the player move or dodge out of it. Damage resolves against the marked spot, checks dodge invulnerability and wall line-of-sight, and obeys the visual-effect cap. This is an experimental first pair of boss attack patterns and does not yet constitute fully distinct bosses or animation rigs. Godot gameplay testing is still required. Original Z/Nyra art and the removal of WoW bars are preserved.
+
+## Phase 2: boss phases and charger enemies
+
+Bosses now transition at 65% and 30% health. Each transition announces the new phase and adds a magic effect; later phases attack more frequently, with quicker warnings, and phase three prioritizes fast strikes. Regular enemies now include a third archetype, a charger that attempts a short line-of-sight-checked dash when its ability triggers. Dashes are constrained to the arena. These are early combat systems, not unique fully rigged bosses or full pathfinding. Source changes require CI and in-game verification. No WoW action bars, and original Z/Nyra art is untouched.

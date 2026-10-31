@@ -510,6 +510,15 @@ func _process(dt: float) -> void:
         var diff: Vector3 = destination - mob.position
         diff.y = 0.0
         var boss: bool = mob.get_meta("boss")
+        var phase: int = int(mob.get_meta("phase", 1))
+        if boss:
+            var health_fraction: float = float(mob.get_meta("hp")) / maxf(1.0, float(mob.get_meta("max_hp")))
+            var new_phase := 3 if health_fraction <= 0.30 else (2 if health_fraction <= 0.65 else 1)
+            if new_phase > phase:
+                phase = new_phase
+                mob.set_meta("phase", phase)
+                _school_effect(mob.position, 4 if phase == 3 else 2)
+                _cast_notice("BOSS PHASE %d!" % phase)
         var reach := 2.8 if boss else 1.7
         if diff.length() > reach:
             var steering: Vector3 = diff.normalized()
@@ -557,10 +566,12 @@ func _process(dt: float) -> void:
                 dead = hp <= 0.0
         if boss and ability_cd <= 0.0 and windup <= 0.0 and actual_distance < 8.0 and actual_distance > reach and _has_clear_path(mob.position + Vector3.UP, player.position + Vector3.UP):
             var kind: int = randi_range(0, 1)
+            if phase >= 3:
+                kind = 1
             mob.set_meta("attack_kind", kind)
             mob.set_meta("attack_position", player.position if kind == 0 else mob.position + (player.position - mob.position).normalized() * 4.0)
-            windup = 1.1 if kind == 0 else 0.75
-            ability_cd = 5.0 if kind == 0 else 3.5
+            windup = (1.1 if kind == 0 else 0.75) * (0.75 if phase >= 3 else (0.9 if phase == 2 else 1.0))
+            ability_cd = (5.0 if kind == 0 else 3.5) * (0.65 if phase >= 3 else (0.82 if phase == 2 else 1.0))
             _boss_warning(mob.get_meta("attack_position"), kind)
         elif not boss and ability_cd <= 0.0 and actual_distance < 7.0 and actual_distance > reach and _has_clear_path(mob.position + Vector3.UP, player.position + Vector3.UP):
             if int(mob.get_meta("kind")) == 1:
@@ -568,6 +579,16 @@ func _process(dt: float) -> void:
                 retreat.y = 0.0
                 if retreat.length_squared() > 0.01:
                     mob.position += retreat.normalized() * minf(2.0, dt * 6.0)
+            elif int(mob.get_meta("kind")) == 2:
+                # Chargers close the gap in a short bounded dash.
+                var rush: Vector3 = player.position - mob.position
+                rush.y = 0.0
+                if rush.length_squared() > 0.1:
+                    var step: Vector3 = rush.normalized() * minf(2.5, rush.length())
+                    if _has_clear_path(mob.position + Vector3.UP, mob.position + step + Vector3.UP):
+                        mob.position += step
+                        mob.position.x = clampf(mob.position.x, -ARENA, ARENA)
+                        mob.position.z = clampf(mob.position.z, -ARENA, ARENA)
             ability_cd = 4.0
         mob.set_meta("windup", windup)
         mob.set_meta("ability_cd", ability_cd)
@@ -613,7 +634,9 @@ func _spawn(boss: bool) -> void:
         mob.position.z += -3.0 if mob.position.z > 0 else 3.0
     mob.set_meta("hp", 600.0 + level * 70.0 if boss else 45.0 + level * 10.0)
     mob.set_meta("boss", boss)
-    mob.set_meta("kind", randi_range(0, 1))
+    mob.set_meta("max_hp", 600.0 + level * 70.0 if boss else 45.0 + level * 10.0)
+    mob.set_meta("phase", 1)
+    mob.set_meta("kind", randi_range(0, 2))
     mob.set_meta("hit_cd", 0.0)
     mob.set_meta("ability_cd", randf_range(3.0, 6.0))
     mob.set_meta("strafe_sign", -1.0 if randf() < 0.5 else 1.0)
