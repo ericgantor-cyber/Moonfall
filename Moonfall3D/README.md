@@ -207,3 +207,7 @@ Each of the three dungeon regions now contains two visible glowing hazard circle
 ## Procedural environment and enemy art pass
 
 Chest meshes now include metal bands and color-coded glowing clasps; dungeon monuments gain arcane crystal caps; boss placeholders gain horns, chargers gain crests, and skirmishers receive halo silhouettes. All these details are lightweight Godot primitive meshes and share the existing region/loot palette. These are integrated visual placeholders, **not final authored character models or animations**. Z and Nyra's original supplied artwork is not modified. No WoW-style bars. Build and visual gameplay validation still needed.
+
+## Arcane atmosphere pass
+
+Added four glowing rune rings to each existing dungeon region, colored to match its palette. Spell impacts now optionally add a contrasting glowing ring, respecting the 65-active-effect budget. These are lightweight built-in Godot meshes, not final authored textures or effects. Z and Nyra's original art remains unchanged. Godot CI and in-game visual/performance validation required.
