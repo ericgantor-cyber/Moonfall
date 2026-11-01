@@ -2,7 +2,8 @@ param(
     [string]$UnrealRoot = $env:UE54_ROOT,
     [string]$OutputDirectory = "",
     [switch]$CompileOnly,
-    [switch]$PreflightOnly
+    [switch]$PreflightOnly,
+    [switch]$LaunchSmokeTest
 )
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
@@ -91,6 +92,9 @@ foreach ($dir in @('Engine','MoonfallUnreal')) {
 }
 if (-not (Get-ChildItem (Join-Path $gameRoot 'MoonfallUnreal') -Recurse -File | Select-Object -First 1)) {
     throw 'Cooked Moonfall game content is empty; refusing incomplete installer.'
+}
+if ($LaunchSmokeTest) {
+    & (Join-Path $PSScriptRoot 'Test-PackagedGame.ps1') -GameExecutable $games[0].FullName
 }
 Write-Host 'Building self-contained Windows launcher...'
 $launcherProject = Join-Path $repoRoot 'MoonfallUnreal\Launcher\MoonfallLauncher.csproj'

@@ -20,7 +20,8 @@ jobs:
           $files = @(
             'MoonfallUnreal/Build/Build-Center.ps1',
             'MoonfallUnreal/Build/Build-Windows.ps1',
-            'MoonfallUnreal/Build/Setup-WindowsPrerequisites.ps1'
+            'MoonfallUnreal/Build/Setup-WindowsPrerequisites.ps1',
+            'MoonfallUnreal/Build/Test-PackagedGame.ps1'
           )
           foreach ($file in $files) {
             $tokens = $null
