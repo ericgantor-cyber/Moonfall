@@ -48,4 +48,9 @@ static func investigate_velocity(hostile:bool,engaged:bool,boss:bool,now:float,u
  offset.y=0.0
  if offset.length_squared()<1.0 or not is_finite(offset.x) or not is_finite(offset.z):
   return Vector3.ZERO
- return offset.normalized()*maxf(0.0,speed)*0.65
+ return offset.normalized()*clampf(speed,0.0,20.0)*0.65 if is_finite(speed) else Vector3.ZERO
+
+static func search_arrived(body_pos:Vector3,last_pos:Vector3)->bool:
+ var offset:Vector3=last_pos-body_pos
+ offset.y=0.0
+ return is_finite(offset.x) and is_finite(offset.z) and offset.length_squared()<1.0
