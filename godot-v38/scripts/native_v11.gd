@@ -1325,12 +1325,24 @@ func _toggle_menu() -> void:
   if is_instance_valid(atlas_first_tab):atlas_first_tab.call_deferred("grab_focus")
  _update_hud()
 
+func _wait_clock_text(clock:float) -> String:
+ var hour:int=int(floor(fposmod(clock,DAY_LENGTH_SECONDS)/DAY_LENGTH_SECONDS*24.0))
+ var minute:int=int(floor(fposmod(clock,DAY_LENGTH_SECONDS)/DAY_LENGTH_SECONDS*1440.0))%60
+ return "%02d:%02d" % [hour,minute]
+
 func _set_wait_display() -> void:
  if is_instance_valid(wait_label):
   wait_label.visible=wait_open
-  wait_label.text="WAIT  •  %d hour(s)\n← / → adjust  •  Enter confirm  •  Esc cancel" % wait_hours
+  if not wait_open:return
+  var future_clock:float=world_clock+float(wait_hours)*DAY_LENGTH_SECONDS/24.0
+  var next_day:int=mini(99999,world_day+int(floor(future_clock/DAY_LENGTH_SECONDS)))
+  var future_phase:String=WORLD_CYCLE.phase(future_clock,DAY_LENGTH_SECONDS)
+  wait_label.text="WAIT • %d in-game hour(s)\nNow: Day %d, %s (%s)\nAfter: Day %d, %s (%s)\n←/→ 1h • ↑/↓ 6h • Enter accept • Esc cancel\nController: D-pad adjust • A accept • B cancel" % [wait_hours,world_day,_wait_clock_text(world_clock),_day_phase(),next_day,_wait_clock_text(future_clock),future_phase]
 
 func _finish_wait(confirm:bool) -> void:
+ if confirm and (not hero_playing or menu_open or _combat_threat()):
+  _show_message("Cannot wait during combat or while the menu is open.",2.5)
+  confirm=false
  if confirm:
   var shifted:float=world_clock+float(wait_hours)*DAY_LENGTH_SECONDS/24.0
   world_day=mini(99999,world_day+int(floor(shifted/DAY_LENGTH_SECONDS)))
@@ -1338,7 +1350,8 @@ func _finish_wait(confirm:bool) -> void:
   living_visual_tick=0.0
   _refresh_world_lighting()
   _update_hud()
-  _show_message("Waited %d hour(s). Day %d, %s." % [wait_hours,world_day,_day_phase()],3.0)
+  _save_game()
+  _show_message("Waited %d hour(s). Day %d, %s (%s)." % [wait_hours,world_day,_day_phase(),_wait_clock_text(world_clock)],3.0)
  wait_open=false
  _set_wait_display()
 
@@ -1346,8 +1359,10 @@ func _unhandled_key_input(event: InputEvent) -> void:
  if not (event is InputEventKey) or not event.pressed or event.echo:return
  if wait_open:
   match event.keycode:
-   KEY_LEFT, KEY_DOWN:wait_hours=maxi(1,wait_hours-1)
-   KEY_RIGHT, KEY_UP:wait_hours=mini(24,wait_hours+1)
+   KEY_LEFT:wait_hours=maxi(1,wait_hours-1)
+   KEY_RIGHT:wait_hours=mini(24,wait_hours+1)
+   KEY_DOWN:wait_hours=maxi(1,wait_hours-6)
+   KEY_UP:wait_hours=mini(24,wait_hours+6)
    KEY_ENTER, KEY_KP_ENTER:_finish_wait(true)
    KEY_ESCAPE, KEY_P:_finish_wait(false)
   _set_wait_display()
@@ -1381,8 +1396,10 @@ func _unhandled_input(event: InputEvent) -> void:
  if wait_open:
   if event is InputEventJoypadButton and event.pressed:
    match event.button_index:
-    JOY_BUTTON_DPAD_LEFT, JOY_BUTTON_DPAD_DOWN:wait_hours=maxi(1,wait_hours-1)
-    JOY_BUTTON_DPAD_RIGHT, JOY_BUTTON_DPAD_UP:wait_hours=mini(24,wait_hours+1)
+    JOY_BUTTON_DPAD_LEFT:wait_hours=maxi(1,wait_hours-1)
+    JOY_BUTTON_DPAD_RIGHT:wait_hours=mini(24,wait_hours+1)
+    JOY_BUTTON_DPAD_DOWN:wait_hours=maxi(1,wait_hours-6)
+    JOY_BUTTON_DPAD_UP:wait_hours=mini(24,wait_hours+6)
     JOY_BUTTON_A:_finish_wait(true)
     JOY_BUTTON_B:_finish_wait(false)
    _set_wait_display()
