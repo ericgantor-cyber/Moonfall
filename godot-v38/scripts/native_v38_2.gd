@@ -63,7 +63,7 @@ func _create_atlas()->void:
  atlas_chart=NAVIGATION_MAP.new()
  atlas_chart.custom_minimum_size=Vector2(300,240)
  layout.add_child(atlas_chart)
- atlas_chart.waypoint_selected.connect(_atlas_select_waypoint)
+ atlas_chart.connect("waypoint_selected",_atlas_select_waypoint)
  atlas_readout=Label.new()
  atlas_readout.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
  layout.add_child(atlas_readout)
