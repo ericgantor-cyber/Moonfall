@@ -94,7 +94,9 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
  // Far-away enemies use a slower think rate. Return to responsive combat
  // polling when the hero approaches, without per-frame work on idle mobs.
  const bool bInCombatArea = Distance < 2200.f;
- const float DesiredTickInterval = bInCombatArea ? 0.1f : 0.4f;
+ const bool bDashing = bBoss && BossSpecialMove == 3 && WindupEndsAt > Now
+   && WindupEndsAt - Now <= 0.25f;
+ const float DesiredTickInterval = bDashing ? 0.03f : (bInCombatArea ? 0.1f : 0.4f);
  if (!FMath::IsNearlyEqual(PrimaryActorTick.TickInterval, DesiredTickInterval)) {
   SetActorTickInterval(DesiredTickInterval);
  }
@@ -112,16 +114,8 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   BossWarningEndTime = -1.f;
   // Heavy elite crushes demand recovery, leaving a counterattack window.
   NextAttackAt = Now + AttackCooldown + ((bElite || bBoss) && CurrentAttackMultiplier > 2.f ? 0.8f : 0.f);
-  // Dash Strike now performs one collision-swept burst after its warning.
-  // Sweep prevents crossing arena walls. No extra tick or movement component.
-  if (bBoss && BossSpecialMove == 3 && Distance > 1.f) {
-   FHitResult DashHit;
-   const FVector DashDirection = Difference.GetSafeNormal2D();
-   const float DashDistance = FMath::Min(240.f, FMath::Max(0.f, Distance - 85.f));
-   AddActorWorldOffset(DashDirection * DashDistance, true, &DashHit);
-   Difference = Hero->GetActorLocation() - GetActorLocation();
-   Difference.Z = 0.f;
-  }
+  // Dash displacement is handled gradually during its final windup.
+  // Attack still resolves after the warning against the hero's live position.
   // Attack resolves against the hero's CURRENT position, so dodging works.
   if (Difference.Size() <= AttackRange * CurrentAttackRangeMultiplier) {
    // Do not damage the hero through solid arena walls or cover.
@@ -154,6 +148,16 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
  // Keep the enemy committed to a telegraphed strike until it resolves. A player
  // stepping outside the basic range should not silently cancel a wider sweep.
  if (WindupEndsAt > 0.f) {
+  if (bBoss && BossSpecialMove == 3 && WindupEndsAt - Now <= 0.25f) {
+   // Sweep a bounded step each AI tick. Stop short of the hero, and stop at walls.
+   const FVector DashVector = (Hero->GetActorLocation() - GetActorLocation()).GetSafeNormal2D();
+   const float Remaining = FMath::Max(0.f, Distance - 85.f);
+   const float Step = FMath::Min(FMath::Min(960.f * FMath::Max(0.f, DeltaSeconds), Remaining), 240.f);
+   if (Step > 0.f) {
+    FHitResult DashHit;
+    AddActorWorldOffset(DashVector * Step, true, &DashHit);
+   }
+  }
   // Boss warnings are intentionally cheap: one short-lived debug ring per AI tick,
   // no spawned particles, persistent actors, dynamic materials or extra tick loops.
   const AMoonfallHeroPawn* Viewer = bBoss ? Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0)) : nullptr;
