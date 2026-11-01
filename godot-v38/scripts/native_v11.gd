@@ -1329,6 +1329,7 @@ func _reset_new_adventure() -> void:
  rifts_completed=0
  world_clock=480.0
  world_day=1
+ wait_transition_active=false
  wait_open=false
  _set_wait_display()
  weather_name="Clear"
@@ -1468,7 +1469,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
  if not hero_playing or menu_open or wait_transition_active:return
  match event.keycode:
   KEY_P:
-   if not _combat_threat():
+   if not wait_transition_active and not _combat_threat():
     wait_hours=1
     wait_open=true
     _set_wait_display()
@@ -1486,6 +1487,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
  get_viewport().set_input_as_handled()
 
 func _unhandled_input(event: InputEvent) -> void:
+ if wait_transition_active:return
  if wait_open:
   if event is InputEventJoypadButton and event.pressed:
    match event.button_index:
