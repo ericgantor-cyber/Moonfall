@@ -48,4 +48,8 @@ jobs:
           Write-Host "NSIS smoke artifact SHA-256: $checksum"
           "NSIS smoke build: test only; does not include playable Unreal assets." >> $env:GITHUB_STEP_SUMMARY
           "Smoke installer size: $($file.Length) bytes" >> $env:GITHUB_STEP_SUMMARY
+          $installRoot = Join-Path $env:RUNNER_TEMP 'MoonfallSmokeInstalled'
+          $process = Start-Process -FilePath $output -ArgumentList @('/S', "/D=$installRoot") -Wait -PassThru
+          if ($process.ExitCode -ne 0) { throw "Silent smoke installation failed: $($process.ExitCode)" }
+          Write-Host 'Silent install of disposable test payload completed.'
           Write-Host 'Installer template compiled with placeholders. No playable build or release artifact generated.'
