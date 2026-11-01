@@ -87,8 +87,8 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
  // Keep the enemy committed to a telegraphed strike until it resolves. A player
  // stepping outside the basic range should not silently cancel a wider sweep.
  if (WindupEndsAt > 0.f) {
-  DrawDebugSphere(GetWorld(), GetActorLocation(), AttackRange * CurrentAttackRangeMultiplier, 16, CurrentAttackMultiplier > 1.5f ? FColor::Orange : FColor::Red, false, 0.12f);
-  DrawDebugString(GetWorld(), GetActorLocation() + FVector(0.f,0.f,160.f), CurrentAttackMultiplier > 1.5f ? TEXT("HEAVY") : (CurrentAttackRangeMultiplier > 1.f ? TEXT("SWEEP") : TEXT("STRIKE")), nullptr, FColor::Red, 0.12f, false);
+  DrawDebugSphere(GetWorld(), GetActorLocation(), AttackRange * CurrentAttackRangeMultiplier, 16, CurrentAttackMultiplier > 2.f ? FColor::Purple : (CurrentAttackMultiplier > 1.5f ? FColor::Orange : FColor::Red), false, 0.12f);
+  DrawDebugString(GetWorld(), GetActorLocation() + FVector(0.f,0.f,160.f), CurrentAttackMultiplier > 2.f ? TEXT("ELITE CRUSH") : (CurrentAttackMultiplier > 1.5f ? TEXT("HEAVY") : (CurrentAttackRangeMultiplier > 1.f ? TEXT("SWEEP") : TEXT("STRIKE"))), nullptr, FColor::Red, 0.12f, false);
   return;
  }
  if (Distance > AttackRange && Distance < 2200.f) {
