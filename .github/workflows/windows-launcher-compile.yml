@@ -26,3 +26,17 @@ jobs:
           $file = 'MoonfallUnreal/Launcher/bin/Release/net8.0-windows/MoonfallLauncher.exe'
           if (-not (Test-Path -LiteralPath $file)) { throw "Launcher executable missing: $file" }
           Write-Host "Launcher compiled: $file"
+
+      - name: Publish self-contained launcher for Windows
+        shell: pwsh
+        run: |
+          dotnet publish ./MoonfallUnreal/Launcher/MoonfallLauncher.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:PublishTrimmed=false -o ./MoonfallLauncherArtifact
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if (-not (Test-Path ./MoonfallLauncherArtifact/MoonfallLauncher.exe)) { throw 'Published launcher executable missing' }
+      - name: Upload launcher artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MoonfallLauncher-win-x64
+          path: MoonfallLauncherArtifact/**
+          if-no-files-found: error
+          retention-days: 14
