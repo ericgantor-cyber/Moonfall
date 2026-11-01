@@ -4,6 +4,7 @@ signal waypoint_selected(world_position:Vector3)
 var player_position:Vector3=Vector3.ZERO
 var waypoint_position:Vector3=Vector3.ZERO
 var has_waypoint:bool=false
+var quest_markers:Array[Vector3]=[]
 var metres_per_half_width:float=120.0
 
 func _draw()->void:
@@ -24,6 +25,12 @@ func _draw()->void:
   var marker:Vector2=centre+delta
   draw_line(centre,marker,Color(1.0,0.77,0.22,0.7),2.0)
   draw_circle(marker,7.0,Color(1.0,0.74,0.19))
+ for quest_position in quest_markers:
+  var quest_delta:Vector2=Vector2(quest_position.x-player_position.x,quest_position.z-player_position.z)*scale_factor
+  if absf(quest_delta.x)>size.x*0.45 or absf(quest_delta.y)>size.y*0.45:
+   continue
+  var quest_screen:Vector2=centre+quest_delta
+  draw_circle(quest_screen,5.0,Color(0.8,0.45,1.0))
  draw_string(ThemeDB.fallback_font,Vector2(size.x*0.5-6.0,20.0),"N",HORIZONTAL_ALIGNMENT_LEFT,-1,16,Color(0.65,0.9,1.0))
 
 func update_navigation(position:Vector3, waypoint:Vector3, enabled:bool)->void:
@@ -40,3 +47,7 @@ func _gui_input(event:InputEvent)->void:
   var location:Vector3=Vector3(player_position.x+offset.x,player_position.y,player_position.z+offset.y)
   waypoint_selected.emit(location)
   accept_event()
+
+func set_quest_markers(markers:Array[Vector3])->void:
+ quest_markers=markers.duplicate()
+ queue_redraw()
