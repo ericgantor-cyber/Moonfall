@@ -393,7 +393,7 @@ func _make_menu(parent: Control, title: String) -> Control:
 	veil.color = Color(0.025, 0.02, 0.06, 0.96)
 	panel.add_child(veil)
 	var heading := _ui_label(panel, Vector2(72, 30), 34, Color("e9c587"))
-	heading.text = "☾  " + title
+	heading.text = "" + title
 	var note := _ui_label(panel, Vector2(72, 78), 15, Color("a1aac7"))
 	note.text = "Native isometric Witchwood vertical slice • Original character art • Godot 4"
 	return panel
