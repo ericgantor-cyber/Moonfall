@@ -81,6 +81,14 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Health = FMath::Min(MaxHealth, Health +", heal)
         self.assertIn("OnHealthChanged(Health, MaxHealth)", heal)
 
+    def test_spell_cast_cost_and_cooldown_contract(self):
+        cast = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split("\n}", 1)[0]
+        self.assertIn("Mana < Costs[School] * Multiplier", cast)
+        self.assertIn("Time - LastCastTime[Hand] < Cooldowns[School]", cast)
+        self.assertIn("Mana -= Costs[School] * Multiplier", cast)
+        self.assertIn("LastCastTime[Hand] = Time", cast)
+        self.assertLess(cast.index("Mana < Costs[School] * Multiplier"), cast.index("Mana -= Costs[School] * Multiplier"))
+
     def test_dodge_and_blocked_hit_checks_retained(self):
         self.assertIn("GetSafeNormal2D()", self.enemy_cpp)
         self.assertIn("LineTraceSingleByChannel", self.enemy_cpp)
