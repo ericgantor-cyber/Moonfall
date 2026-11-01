@@ -19,12 +19,22 @@ AMoonfallEnemy::AMoonfallEnemy() {
   PrimaryActorTick.TickInterval = 0.1f;
 }
 void AMoonfallEnemy::TakeSpellDamage(float Amount) {
+  if (MaxHealthAtSpawn <= 0.f) MaxHealthAtSpawn = FMath::Max(1.f, Health);
   if (Health <= 0.f) return;
   // Elites briefly brace against repeated hits, but the first strike retains
   // full impact and every hit still interrupts their attack windup.
   const float Now = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f;
   const float EffectiveDamage = bElite && Now < HitReactionEndsAt ? Amount * 0.75f : Amount;
   Health = FMath::Max(0.0f, Health - FMath::Max(0.0f, EffectiveDamage));
+  if (bBoss && Health > 0.f) {
+   const float HealthRatio = Health / FMath::Max(1.f, MaxHealthAtSpawn);
+   const int32 NewPhase = HealthRatio <= 0.33f ? 3 : (HealthRatio <= 0.66f ? 2 : 1);
+   if (NewPhase > BossPhase) {
+    BossPhase = NewPhase;
+    WindupEndsAt = -1.f;
+    NextAttackAt = Now + 1.f;
+   }
+  }
   OnHitFeedback(EffectiveDamage, Health);
   // Hit feedback is now tracked by the HUD rather than persistent debug strings.
   LastHitAmount = EffectiveDamage;
@@ -150,6 +160,10 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
    CurrentWindup = Pattern == 0 ? 0.38f : (Pattern == 1 ? 0.85f : (Pattern == 2 ? 0.65f : 1.05f));
    CurrentAttackMultiplier = Pattern == 1 ? 1.8f : (Pattern == 2 ? 0.75f : (Pattern == 3 ? 2.25f : 1.f));
    CurrentAttackRangeMultiplier = Pattern == 2 ? 1.25f : (Pattern == 3 ? 1.4f : 1.f);
+   if (bBoss && BossPhase >= 2) {
+    CurrentWindup *= BossPhase == 3 ? 0.72f : 0.85f;
+    CurrentAttackMultiplier *= BossPhase == 3 ? 1.35f : 1.15f;
+   }
    WindupEndsAt = Now + CurrentWindup;
   }
  }
