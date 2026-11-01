@@ -33,6 +33,8 @@ void AMoonfallEnemy::BeginPlay() {
 }
 
 void AMoonfallEnemy::TakeSpellDamage(float Amount) {
+  // Ignore invalid/no-op hits so they cannot trigger phase changes, feedback, or loot.
+  if (!FMath::IsFinite(Amount) || Amount <= 0.f || Health <= 0.f) return;
   if (MaxHealthAtSpawn <= 0.f) MaxHealthAtSpawn = FMath::Max(1.f, Health);
   if (bBoss) BossMaxHealth = MaxHealthAtSpawn;
   if (Health <= 0.f) return;
