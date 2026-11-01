@@ -1,5 +1,6 @@
 extends "res://scripts/native_v38_4.gd"
 ## Companion attacks use existing beast defeat and loot pipelines; no duplicate loot or modes.
+const REALM_COMBAT_RULES=preload("res://scripts/systems/companion_combat_rules.gd")
 const COMPANION_RANGE:float=10.0
 const COMPANION_STRIKE_RANGE:float=2.8
 const COMPANION_ATTACK_INTERVAL:float=1.35
@@ -31,9 +32,7 @@ func _process(delta:float)->void:
   if float(beast.get("alert_until",0.0))<=map_time:continue
   if not _has_clear_sight(player,body):continue
   # Guard prioritizes enemies closest to the endangered hero, without pulling new groups.
-  var guarding:bool=hero_distance<=COMPANION_GUARD_RADIUS*COMPANION_GUARD_RADIUS
-  var priority:float=hero_distance*2.0+distance if low_health else distance
-  if low_health and guarding:priority-=1000.0
+  var priority:float=REALM_COMBAT_RULES.target_priority(hero_distance,distance,low_health,COMPANION_GUARD_RADIUS)
   if priority>=best_priority:continue
   best_priority=priority
   best_distance=distance
@@ -48,7 +47,7 @@ func _process(delta:float)->void:
   return
  realm_combat_attack_timer=COMPANION_ATTACK_INTERVAL
  var loyalty:int=REALM_ETHICS.companion_loyalty(REALM_ETHICS.normalize(realm_ethics),realm_companion_ethic)
- var damage:float=clampf(6.0+hero_level*0.65+loyalty*0.05,6.0,38.0)
+ var damage:float=REALM_COMBAT_RULES.strike_damage(hero_level,loyalty,bool(chosen.get("boss",false)))
  chosen["hp"]=float(chosen["hp"])-damage
  chosen["alert_until"]=map_time+5.0
  _show_floating_damage(chosen,int(round(damage)),false)
