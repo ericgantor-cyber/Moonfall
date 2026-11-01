@@ -950,6 +950,36 @@ func _build_ui() -> void:
   launch.pressed.connect(_start_game.bind(str(entry["id"])))
   column.add_child(launch)
   if not is_instance_valid(hero_start_button):hero_start_button=launch
+ # Custom hero has an original procedural portrait, never a recolor of Z or Nyra.
+ var custom_column:=VBoxContainer.new()
+ custom_column.custom_minimum_size=Vector2(250,355)
+ choices.add_child(custom_column)
+ var custom_title:=Label.new()
+ custom_title.text="CREATE YOUR HERO"
+ custom_column.add_child(custom_title)
+ var custom_name_edit:=LineEdit.new()
+ custom_name_edit.placeholder_text="Hero name"
+ custom_name_edit.max_length=24
+ custom_name_edit.text="Wanderer"
+ custom_column.add_child(custom_name_edit)
+ var custom_color_picker:=OptionButton.new()
+ for color_name in ["Crimson","Azure","Emerald","Violet","Gold"]:
+  custom_color_picker.add_item(color_name)
+ custom_column.add_child(custom_color_picker)
+ var custom_role_picker:=OptionButton.new()
+ for role_name in ["Warrior","Mage","Ranger"]:
+  custom_role_picker.add_item(role_name)
+ custom_column.add_child(custom_role_picker)
+ var custom_preview:=ColorRect.new()
+ custom_preview.custom_minimum_size=Vector2(190,155)
+ custom_preview.color=Color("962f45")
+ custom_column.add_child(custom_preview)
+ custom_color_picker.item_selected.connect(func(index:int)->void:custom_preview.color=[Color("962f45"),Color("3166a1"),Color("358060"),Color("70449c"),Color("c99c42")][index])
+ var custom_launch:=Button.new()
+ custom_launch.text="CREATE & PLAY"
+ custom_launch.custom_minimum_size=Vector2(230,52)
+ custom_launch.pressed.connect(func()->void:_start_custom_game(custom_name_edit.text,custom_color_picker.selected,custom_role_picker.selected))
+ custom_column.add_child(custom_launch)
  if not _read_save().is_empty():
   var continue_btn:=Button.new()
   continue_btn.position=Vector2(145,530)
@@ -1399,11 +1429,44 @@ func _reset_new_adventure() -> void:
  _update_region_visibility()
  _update_camera(1.0)
 
+var custom_hero_name:String="Wanderer"
+var custom_hero_color:int=0
+var custom_hero_role:int=0
+
+func _custom_hero_texture(index:int) -> Texture2D:
+ var palette:Array=[Color("962f45"),Color("3166a1"),Color("358060"),Color("70449c"),Color("c99c42")]
+ var color:Color=palette[clampi(index,0,palette.size()-1)]
+ var image:=Image.create(64,80,false,Image.FORMAT_RGBA8)
+ image.fill(Color.TRANSPARENT)
+ for y in range(80):
+  for x in range(64):
+   var dx:float=float(x-32)
+   var head:bool=dx*dx+float(y-20)*float(y-20)<144.0
+   var body:bool=y>=35 and y<76 and absf(dx)<(17.0+float(y-35)*0.27)
+   if head or body:
+    image.set_pixel(x,y,color.lightened(0.18) if head else color.darkened(0.2))
+ return ImageTexture.create_from_image(image)
+
+func _apply_custom_hero_visual() -> void:
+ if hero=="custom":
+  hero_sprite.texture=_custom_hero_texture(custom_hero_color)
+  hero_sprite.pixel_size=2.65/80.0
+
+func _start_custom_game(name:String,color_index:int,role_index:int) -> void:
+ _start_game("custom")
+ custom_hero_name=name.strip_edges().substr(0,24)
+ if custom_hero_name.is_empty():custom_hero_name="Wanderer"
+ custom_hero_color=clampi(color_index,0,4)
+ custom_hero_role=clampi(role_index,0,2)
+ _apply_custom_hero_visual()
+ _show_message("Explore as "+custom_hero_name+"! Class is currently cosmetic.",4.0)
+
 func _start_game(selected: String) -> void:
  _reset_new_adventure()
- hero="nyra" if selected=="nyra" else "z"
+ hero=selected if selected in ["z","nyra","custom"] else "z"
  hero_sprite.texture=NYRA_ART if hero=="nyra" else Z_ART
  hero_sprite.pixel_size=2.65/float(hero_sprite.texture.get_height())
+ _apply_custom_hero_visual()
  hero_playing=true
  menu_open=false
  region_index=_region_here()
@@ -2654,6 +2717,7 @@ func _save_game() -> void:
   "contract_zone":contract_zone,"contract_kills":contract_kills,
   "clues":found_clues.duplicate(),"bosses":defeated_boss_ids.duplicate(),"quality":graphics_quality,
   "dormant_wildlife":dormant,"pet_stance":companion_stance,
+  "custom_hero_name":custom_hero_name,"custom_hero_color":custom_hero_color,"custom_hero_role":custom_hero_role,
   "world_clock":world_clock,"world_cycle_seconds":DAY_LENGTH_SECONDS,"world_day":world_day,"weather":weather_name,"weather_remaining":weather_remaining,
   "world_events_completed":events_completed.duplicate(),"world_event_active":active_world_event,"world_event_kills":active_event_kills
  }
@@ -2694,8 +2758,12 @@ func _normalize_saved_world_clock(data:Dictionary) -> float:
 
 func _restore_data(data: Dictionary) -> void:
  hero=str(data.get("hero","z"))
+ custom_hero_name=str(data.get("custom_hero_name","Wanderer")).substr(0,24)
+ custom_hero_color=clampi(int(data.get("custom_hero_color",0)),0,4)
+ custom_hero_role=clampi(int(data.get("custom_hero_role",0)),0,2)
  hero_sprite.texture=NYRA_ART if hero=="nyra" else Z_ART
  hero_sprite.pixel_size=2.65/float(hero_sprite.texture.get_height())
+ _apply_custom_hero_visual()
  var coords:Array=data["at"]
  player.position=Vector3(clampf(float(coords[0]),-WORLD_X,WORLD_X),0.85,clampf(float(coords[1]),-WORLD_Z,WORLD_Z))
  gold=clampi(int(data.get("gold",0)),0,99999999)
