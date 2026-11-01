@@ -56,6 +56,19 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             self.assertLess(body.index("FMath::IsFinite(Amount)"), body.index("Health = FMath::Max"))
         self.assertIn("const float ActualDamage = HealthBeforeHit - Health", enemy)
 
+    def test_boss_is_configured_before_begin_play(self):
+        arena = (ROOT / "MoonfallArena.cpp").read_text(encoding="utf-8")
+        spawn = arena.index("BeginDeferredActorSpawnFromClass")
+        boss = arena.index("Enemy->bBoss = true", spawn)
+        health = arena.index("Enemy->Health *= 4.f", boss)
+        finish = arena.index("FinishSpawningActor(Enemy, SpawnTransform)", health)
+        self.assertLess(spawn, boss)
+        self.assertLess(boss, health)
+        self.assertLess(health, finish)
+        begin_play = self.enemy_cpp.split("void AMoonfallEnemy::BeginPlay()", 1)[1].split("\n}", 1)[0]
+        self.assertIn("MaxHealthAtSpawn = FMath::Max(1.f, Health)", begin_play)
+        self.assertIn("BossMaxHealth = bBoss ? MaxHealthAtSpawn : 0.f", begin_play)
+
     def test_dodge_and_blocked_hit_checks_retained(self):
         self.assertIn("GetSafeNormal2D()", self.enemy_cpp)
         self.assertIn("LineTraceSingleByChannel", self.enemy_cpp)
