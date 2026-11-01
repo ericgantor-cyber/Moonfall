@@ -1,0 +1,28 @@
+name: Moonfall Windows launcher compile
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'MoonfallUnreal/Launcher/**'
+      - '.github/workflows/windows-launcher-compile.yml'
+
+jobs:
+  compile-launcher:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Restore and compile Windows launcher
+        shell: pwsh
+        run: |
+          dotnet build ./MoonfallUnreal/Launcher/MoonfallLauncher.csproj -c Release --nologo -warnaserror
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Check launcher executable
+        shell: pwsh
+        run: |
+          $file = 'MoonfallUnreal/Launcher/bin/Release/net8.0-windows/MoonfallLauncher.exe'
+          if (-not (Test-Path -LiteralPath $file)) { throw "Launcher executable missing: $file" }
+          Write-Host "Launcher compiled: $file"
