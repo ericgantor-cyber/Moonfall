@@ -35,7 +35,8 @@ func _draw()->void:
   if absf(quest_delta.x)>size.x*0.45 or absf(quest_delta.y)>size.y*0.45:
    continue
   var quest_screen:Vector2=centre+quest_delta
-  draw_circle(quest_screen,5.0,Color(0.8,0.45,1.0))
+  draw_circle(quest_screen,7.0,Color(0.8,0.45,1.0))
+  draw_arc(quest_screen,10.0,0.0,TAU,16,Color(1.0,0.8,1.0),1.5)
  draw_string(ThemeDB.fallback_font,Vector2(size.x*0.5-6.0,20.0),"N",HORIZONTAL_ALIGNMENT_LEFT,-1,16,Color(0.65,0.9,1.0))
 
 func update_navigation(position:Vector3, waypoint:Vector3, enabled:bool)->void:
