@@ -1435,7 +1435,7 @@ func _wait_clock_text(clock:float) -> String:
  return "%02d:%02d" % [hour,minute]
 
 func _wait_change_hours(step:int) -> void:
- if not wait_open:return
+ if not wait_open or wait_transition_active:return
  wait_hours=clampi(wait_hours+step,1,24)
  _set_wait_display()
 
