@@ -20,6 +20,7 @@ AMoonfallEnemy::AMoonfallEnemy() {
 }
 void AMoonfallEnemy::TakeSpellDamage(float Amount) {
   if (MaxHealthAtSpawn <= 0.f) MaxHealthAtSpawn = FMath::Max(1.f, Health);
+  if (bBoss) BossMaxHealth = MaxHealthAtSpawn;
   if (Health <= 0.f) return;
   // Elites briefly brace against repeated hits, but the first strike retains
   // full impact and every hit still interrupts their attack windup.
