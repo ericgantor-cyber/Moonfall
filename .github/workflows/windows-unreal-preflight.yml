@@ -2,6 +2,12 @@ name: Windows Unreal build prerequisites
 
 on:
   workflow_dispatch:
+    inputs:
+      compile_on_self_hosted:
+        description: 'Run actual Unreal 5.4 Editor compile on a configured self-hosted Windows runner'
+        type: boolean
+        required: true
+        default: false
   pull_request:
     paths:
       - 'MoonfallUnreal/Build/**'
@@ -35,3 +41,17 @@ jobs:
             if ($errors.Count -gt 0) { throw "PowerShell parse error: $($script.Name)" }
           }
           Write-Host "Parsed $($scripts.Count) build scripts on Windows."
+
+  unreal-editor-compile:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.compile_on_self_hosted }}
+    runs-on: [self-hosted, Windows, X64, unreal-5.4]
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile Moonfall Unreal Editor
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if (-not $env:UE54_ROOT) { throw 'Set UE54_ROOT to the installed Unreal Engine 5.4 directory on this runner.' }
+          & ./MoonfallUnreal/Build/Build-Windows.ps1 -UnrealRoot $env:UE54_ROOT -CompileOnly
+          if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
