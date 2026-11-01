@@ -1,4 +1,5 @@
 extends "res://scripts/main.gd"
+const GUARDIAN_ATTACK_RULES=preload("res://scripts/systems/guardian_attack_rules.gd")
 const V383_COMBAT_RULES:=preload("res://scripts/systems/procedural_variants_v382.gd")
 const V383_FEEDBACK:=preload("res://scripts/systems/combat_feedback_v383.gd")
 const MINI_MAP_SCRIPT := preload("res://scripts/native_minimap.gd")
@@ -2057,14 +2058,13 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
    var pattern:int=int(beast.get("boss_pattern",0))
    # v32.8: two readable patterns in phase one, then +1 per phase.
    # Keep the original windup, damage, dodge and cooldown systems.
-   var pattern_count:int=mini(4,phase+1)
-   pattern=posmod(pattern,pattern_count)
-   beast["boss_pattern"]=(pattern+1)%pattern_count
-   beast["windup"]=maxf(0.75,BOSS_WINDUP_SECONDS-0.25*float(phase-1))
+   pattern=GUARDIAN_ATTACK_RULES.pattern_index(pattern,phase)
+   beast["boss_pattern"]=GUARDIAN_ATTACK_RULES.next_pattern(pattern,phase)
+   beast["windup"]=GUARDIAN_ATTACK_RULES.windup(phase,BOSS_WINDUP_SECONDS)
    # Each pattern uses the existing single warning circle and collision test.
    # Pattern 0: focused player mark; 1: wide boss-centered sweep;
    # 2: compact precision mark; 3: medium delayed player mark.
-   beast["warning_radius"]=2.8 if pattern==0 else 3.8 if pattern==1 else 2.2 if pattern==2 else 3.1
+   beast["warning_radius"]=GUARDIAN_ATTACK_RULES.radius(pattern)
    beast["warning_pos"]=body.global_position if pattern==1 else player.global_position
    _set_boss_telegraph(beast,true)
    _show_message("⚠ GUARDIAN PHASE "+str(phase)+": dodge the glowing circle!",1.6)
