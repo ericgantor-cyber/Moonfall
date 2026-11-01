@@ -131,6 +131,11 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Health = FMath::Max(1.f, Health * HPScale)", begin)
         self.assertIn("AttackDamage = FMath::Max(1.f, AttackDamage * DamageScale)", begin)
 
+    def test_offensive_spell_requires_live_target(self):
+        cast = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split("\n}", 1)[0]
+        self.assertIn("if (!IsValid(Enemy) || Enemy->Health <= 0.f) return false", cast)
+        self.assertLess(cast.index("Enemy->Health <= 0.f"), cast.index("Enemy->TakeSpellDamage"))
+
     def test_dodge_and_blocked_hit_checks_retained(self):
         self.assertIn("GetSafeNormal2D()", self.enemy_cpp)
         self.assertIn("LineTraceSingleByChannel", self.enemy_cpp)
