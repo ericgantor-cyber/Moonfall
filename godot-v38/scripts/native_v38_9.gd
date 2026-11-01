@@ -2,7 +2,7 @@ extends "res://scripts/native_v38_8.gd"
 ## Cycling uses the existing beast list, visibility checks and lock-on state.
 func _unhandled_input(event:InputEvent)->void:
  if hero_playing and not menu_open and not death_active and not wait_open:
-  if event is InputEventKey and event.pressed and not event.echo and event.keycode==KEY_TAB:
+  if event is InputEventKey and event.pressed and not event.echo and event.keycode==KEY_F6:
    _cycle_aim_target()
    get_viewport().set_input_as_handled()
    return
