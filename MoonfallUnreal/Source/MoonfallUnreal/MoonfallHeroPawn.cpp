@@ -266,8 +266,7 @@ void AMoonfallHeroPawn::AwardEquipmentDrop(bool bEliteEnemy, bool bBossEnemy)
  // Bounded deterministic loot, without spawned pickup actors or per-frame work.
  const int32 NewTier = FMath::Clamp(Level / 5 + (bBossEnemy ? 2 : (bEliteEnemy ? 1 : 0)), 1, 25);
  // Rotate awards across equipment categories; higher-tier items replace lower tiers.
- int32* Slot = (EquipmentTier % 3 == 0) ? &WeaponTier
-    : ((EquipmentTier % 3 == 1) ? &ArmorTier : &AccessoryTier);
+ int32* Slot = bBossEnemy ? &AccessoryTier : (bEliteEnemy ? &ArmorTier : &WeaponTier);
  if (NewTier > *Slot) {
   const int32 Previous = *Slot;
   *Slot = NewTier;
