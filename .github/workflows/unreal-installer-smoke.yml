@@ -64,6 +64,10 @@ jobs:
           $uninstallProcess = Start-Process -FilePath $uninstaller -ArgumentList '/S' -Wait -PassThru
           if ($uninstallProcess.ExitCode -ne 0) { throw "Silent smoke uninstall failed: $($uninstallProcess.ExitCode)" }
           Write-Host 'Silent uninstallation of disposable test payload completed.'
+          $uninstallKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\MoonfallUnreal'
+          if (Test-Path -LiteralPath $uninstallKey) { throw 'Smoke uninstall left an application registration behind' }
+          Write-Host 'Test uninstaller removed application registration.'
+
           foreach ($relative in @('MoonfallUnreal.exe', 'MoonfallLauncher.exe', 'Engine/runtime-placeholder.txt', 'MoonfallUnreal/content-placeholder.txt')) {
             if (Test-Path -LiteralPath (Join-Path $installRoot $relative)) { throw "Uninstaller left behind smoke file: $relative" }
           }
