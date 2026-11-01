@@ -247,8 +247,8 @@ void AMoonfallHeroPawn::AdjustOption(int32 Direction) {
 
 void AMoonfallHeroPawn::AwardExperience(int32 Amount)
 {
- if (Amount <= 0 || Health <= 0.f) return;
- Experience += FMath::Clamp(Amount, 0, 100000);
+ if (Amount <= 0 || Health <= 0.f || Level >= 100) return;
+ Experience = FMath::Min(1000000, Experience + FMath::Clamp(Amount, 0, 100000));
  while (Experience >= ExperienceToNextLevel && Level < 100) {
   Experience -= ExperienceToNextLevel;
   ++Level;
@@ -257,7 +257,9 @@ void AMoonfallHeroPawn::AwardExperience(int32 Amount)
   SpellPowerMultiplier = 1.f + 0.025f * FMath::Min(Level - 1, 30) + 0.012f * FMath::Max(0, Level - 31);
   Health = FMath::Min(MaxHealth, Health + 12.f);
   Mana = FMath::Min(MaxMana, Mana + 10.f);
+  OnHealthChanged(Health, MaxHealth);
  }
+ if (Level >= 100) Experience = 0;
 }
 
 void AMoonfallHeroPawn::AwardEquipmentDrop(bool bEliteEnemy, bool bBossEnemy)
