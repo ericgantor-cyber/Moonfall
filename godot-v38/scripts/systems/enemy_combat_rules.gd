@@ -26,6 +26,6 @@ static func should_circle(kind:String,intent:String,distance:float)->bool:
 static func melee_engage_range(_kind:String)->float:
  return 1.7
 static func can_attack(distance:float,ready:bool,has_sight:bool)->bool:
- return ready and has_sight and distance>=0.0 and distance<1.7
+ return ready and has_sight and is_finite(distance) and distance>=0.0 and distance<melee_engage_range("")
 static func orbit_direction(beast_id:int)->float:
  return 1.0 if posmod(beast_id,2)==0 else -1.0
