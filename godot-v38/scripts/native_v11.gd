@@ -2653,7 +2653,7 @@ func _save_game() -> void:
   "contract_zone":contract_zone,"contract_kills":contract_kills,
   "clues":found_clues.duplicate(),"bosses":defeated_boss_ids.duplicate(),"quality":graphics_quality,
   "dormant_wildlife":dormant,"pet_stance":companion_stance,
-  "world_clock":world_clock,"world_day":world_day,"weather":weather_name,"weather_remaining":weather_remaining,
+  "world_clock":world_clock,"world_cycle_seconds":DAY_LENGTH_SECONDS,"world_day":world_day,"weather":weather_name,"weather_remaining":weather_remaining,
   "world_events_completed":events_completed.duplicate(),"world_event_active":active_world_event,"world_event_kills":active_event_kills
  }
  save["optional_resources"]=_checkpoint_extra_data()
