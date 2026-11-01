@@ -844,6 +844,7 @@ func _build_ui() -> void:
  wait_clock_bar.min_value=0.0
  wait_clock_bar.show_percentage=false
  wait_clock_bar.tooltip_text="Projected time of day on the 24-hour celestial clock"
+ wait_clock_bar.mouse_filter=Control.MOUSE_FILTER_PASS
  var track:=StyleBoxFlat.new()
  track.bg_color=Color("34354a")
  track.set_corner_radius_all(8)
