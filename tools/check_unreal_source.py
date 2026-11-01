@@ -154,6 +154,12 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("SpellPowerMultiplier <= 0.f", cast)
         self.assertLess(cast.index("!FMath::IsFinite(Mana)"), cast.index("Mana -= Costs[School] * Multiplier"))
 
+    def test_dual_cast_checks_both_spell_indices(self):
+        dual = self.hero_cpp.split("void AMoonfallHeroPawn::CastBoth()", 1)[1].split("\n}", 1)[0]
+        self.assertIn("LeftSpell < 0 || LeftSpell >= 6", dual)
+        self.assertIn("RightSpell < 0 || RightSpell >= 6", dual)
+        self.assertIn("TryCast(LeftSpell, 0, 2.f)", dual)
+
     def test_dodge_and_blocked_hit_checks_retained(self):
         self.assertIn("GetSafeNormal2D()", self.enemy_cpp)
         self.assertIn("LineTraceSingleByChannel", self.enemy_cpp)
