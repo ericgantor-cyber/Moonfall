@@ -30,6 +30,7 @@ void AMoonfallHeroPawn::BeginPlay() {
  int32 SavedPreference = 0;
  if (GConfig) GConfig->GetInt(TEXT("Moonfall.Graphics"), TEXT("FrameGenerationPreference"), SavedPreference, GGameUserSettingsIni);
  FrameGenerationPreference = FMath::Clamp(SavedPreference, 0, 2);
+ if (GConfig) GConfig->GetBool(TEXT("Moonfall.Accessibility"), TEXT("ReduceMotion"), bReduceMotion, GGameUserSettingsIni);
  // No FG vendor plugin or runtime capability integration has been added.
  bFrameGenerationAvailable = false;
  const TSharedPtr<IPlugin> FSR = IPluginManager::Get().FindPlugin(TEXT("FSR"));
@@ -175,8 +176,8 @@ void AMoonfallHeroPawn::ToggleDisplayMode() {
 }
 
 void AMoonfallHeroPawn::OpenOptions() { bOptionsOpen = !bOptionsOpen; }
-void AMoonfallHeroPawn::OptionsUp() { if (bOptionsOpen) OptionsSelection = (OptionsSelection + 3) % 4; }
-void AMoonfallHeroPawn::OptionsDown() { if (bOptionsOpen) OptionsSelection = (OptionsSelection + 1) % 4; }
+void AMoonfallHeroPawn::OptionsUp() { if (bOptionsOpen) OptionsSelection = (OptionsSelection + 4) % 5; }
+void AMoonfallHeroPawn::OptionsDown() { if (bOptionsOpen) OptionsSelection = (OptionsSelection + 1) % 5; }
 void AMoonfallHeroPawn::OptionsLeft() { AdjustOption(-1); }
 void AMoonfallHeroPawn::OptionsRight() { AdjustOption(1); }
 void AMoonfallHeroPawn::AdjustOption(int32 Direction) {
@@ -195,11 +196,19 @@ void AMoonfallHeroPawn::AdjustOption(int32 Direction) {
   Settings->SetResolutionScaleValueEx(FMath::Clamp(CurrentScale + Direction * 10.f, FMath::Max(50.f, MinScale), FMath::Min(100.f, MaxScale)));
  } else if (OptionsSelection == 2) {
   Settings->SetOverallScalabilityLevel(FMath::Clamp(Settings->GetOverallScalabilityLevel() + Direction, 0, 3));
- } else {
+ } else if (OptionsSelection == 3) {
   FrameGenerationPreference = FMath::Clamp(FrameGenerationPreference + Direction, 0, 2);
   // Store user preference only. The feature remains inactive without vendor integration.
   if (GConfig) {
    GConfig->SetInt(TEXT("Moonfall.Graphics"), TEXT("FrameGenerationPreference"), FrameGenerationPreference, GGameUserSettingsIni);
+   GConfig->Flush(false, GGameUserSettingsIni);
+  }
+  return;
+ } else if (OptionsSelection == 4) {
+  bReduceMotion = Direction > 0;
+  if (bReduceMotion) ImpactCameraOffset = 0.f;
+  if (GConfig) {
+   GConfig->SetBool(TEXT("Moonfall.Accessibility"), TEXT("ReduceMotion"), bReduceMotion, GGameUserSettingsIni);
    GConfig->Flush(false, GGameUserSettingsIni);
   }
   return;
