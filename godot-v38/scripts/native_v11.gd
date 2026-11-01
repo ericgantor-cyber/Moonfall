@@ -1482,7 +1482,7 @@ func _skip_wait_animation() -> void:
 
 func _animate_wait(delta:float) -> void:
  if not wait_transition_active:return
- wait_transition_elapsed=minf(WAIT_TRANSITION_DURATION,wait_transition_elapsed+delta)
+ wait_transition_elapsed=minf(WAIT_TRANSITION_DURATION,wait_transition_elapsed+maxf(delta,0.0))
  var fraction:float=wait_transition_elapsed/WAIT_TRANSITION_DURATION
  var eased:float=fraction*fraction*(3.0-2.0*fraction)
  var absolute_clock:float=lerpf(wait_transition_start,wait_transition_end,eased)
