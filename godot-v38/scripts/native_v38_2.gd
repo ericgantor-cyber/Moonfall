@@ -10,6 +10,7 @@ var atlas_elapsed:float=0.0
 var atlas_open_button:Button
 var atlas_zoom_radius:float=120.0
 var atlas_quest_positions:Array[Vector3]=[]
+var atlas_legend:Label
 var atlas_discovered:Array[Vector3]=[]
 const ATLAS_DISCOVERY_SPACING:float=55.0
 const ATLAS_MAX_DISCOVERED:int=160
@@ -27,6 +28,7 @@ func _start_game(selected_hero:String)->void:
 
 func _checkpoint_extra_data()->Dictionary:
  var data:Dictionary=super._checkpoint_extra_data()
+ data["atlas_quest_positions"]=atlas_quest_positions.map(func(p:Vector3):return [p.x,p.y,p.z])
  data["atlas_discovered"]=atlas_discovered.map(func(p:Vector3):return [p.x,p.z])
  data["atlas_zoom_radius"]=atlas_zoom_radius
  data["atlas_has_waypoint"]=atlas_has_waypoint
@@ -38,6 +40,7 @@ func _restore_data(data:Dictionary)->void:
  var extras:Variant=data.get("optional_resources",{})
  atlas_has_waypoint=false
  atlas_discovered.clear()
+ atlas_quest_positions.clear()
  atlas_zoom_radius=clampf(float(extras.get("atlas_zoom_radius",120.0)),25.0,2000.0) if extras is Dictionary else 120.0
  if not is_finite(atlas_zoom_radius):atlas_zoom_radius=120.0
  if extras is Dictionary:
@@ -48,6 +51,14 @@ func _restore_data(data:Dictionary)->void:
      var dx:float=float(item[0])
      var dz:float=float(item[1])
      if is_finite(dx) and is_finite(dz):atlas_discovered.append(Vector3(dx,0.0,dz))
+  var quests:Variant=extras.get("atlas_quest_positions",[])
+  if quests is Array:
+   for item in quests.slice(0,24):
+    if item is Array and item.size()==3:
+     var qx:float=float(item[0])
+     var qy:float=float(item[1])
+     var qz:float=float(item[2])
+     if is_finite(qx) and is_finite(qy) and is_finite(qz):atlas_quest_positions.append(Vector3(qx,qy,qz))
   var point:Variant=extras.get("atlas_waypoint",[])
   if point is Array and point.size()==3:
    var x:float=float(point[0])
@@ -87,6 +98,10 @@ func _create_atlas()->void:
  atlas_readout=Label.new()
  atlas_readout.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
  layout.add_child(atlas_readout)
+ atlas_legend=Label.new()
+ atlas_legend.text="BLUE: YOU  |  GOLD: WAYPOINT  |  PURPLE: QUEST  |  TEAL: EXPLORED"
+ atlas_legend.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+ layout.add_child(atlas_legend)
  var buttons:HBoxContainer=HBoxContainer.new()
  layout.add_child(buttons)
  var mark:Button=Button.new()
@@ -145,7 +160,7 @@ func _refresh_atlas()->void:
  atlas_chart.call("set_discovered",atlas_discovered)
  atlas_chart.call("set_quest_markers",atlas_quest_positions)
  atlas_chart.call("update_navigation",pos,atlas_waypoint,atlas_has_waypoint)
- atlas_readout.text="X %.0f | Z %.0f | Explored: %d" % [pos.x,pos.z,atlas_discovered.size()]
+ atlas_readout.text="X %.0f | Z %.0f | Explored: %d | Quests: %d" % [pos.x,pos.z,atlas_discovered.size(),atlas_quest_positions.size()]
  if atlas_has_waypoint:
   var horizontal_distance:float=Vector2(pos.x,pos.z).distance_to(Vector2(atlas_waypoint.x,atlas_waypoint.z))
   var offset:Vector2=Vector2(atlas_waypoint.x-pos.x,atlas_waypoint.z-pos.z)
@@ -153,6 +168,15 @@ func _refresh_atlas()->void:
   atlas_readout.text+=" | Marker: %.0f m | Bearing: %.0f°" % [horizontal_distance,bearing]
 
 func _unhandled_key_input(event:InputEvent)->void:
+ if event is InputEventKey and event.pressed and not event.echo and is_instance_valid(atlas_panel) and atlas_panel.visible:
+  if event.keycode==KEY_EQUAL or event.keycode==KEY_KP_ADD:
+   _atlas_zoom(0.75)
+   get_viewport().set_input_as_handled()
+   return
+  if event.keycode==KEY_MINUS or event.keycode==KEY_KP_SUBTRACT:
+   _atlas_zoom(1.333333)
+   get_viewport().set_input_as_handled()
+   return
  if event is InputEventKey and event.pressed and not event.echo and event.keycode==KEY_M:
   if is_instance_valid(atlas_panel) and hero_playing and not menu_open and not death_active:
    _toggle_atlas()
@@ -177,7 +201,7 @@ func _process(delta:float)->void:
 
 ## Quest systems can register exact world-space goals without guessing region positions.
 func atlas_set_quest_destination(world_position:Vector3)->void:
- if not is_finite(world_position.x) or not is_finite(world_position.z):return
+ if not is_finite(world_position.x) or not is_finite(world_position.y) or not is_finite(world_position.z):return
  atlas_quest_positions.clear()
  atlas_quest_positions.append(world_position)
  _refresh_atlas()
