@@ -52,6 +52,19 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
  FVector Difference = Hero->GetActorLocation() - GetActorLocation();
  Difference.Z = 0.f;
  const float Distance = Difference.Size();
+ // Far-away enemies use a slower think rate. Return to responsive combat
+ // polling when the hero approaches, without per-frame work on idle mobs.
+ const bool bInCombatArea = Distance < 2200.f;
+ const float DesiredTickInterval = bInCombatArea ? 0.1f : 0.4f;
+ if (!FMath::IsNearlyEqual(PrimaryActorTick.TickInterval, DesiredTickInterval)) {
+  SetActorTickInterval(DesiredTickInterval);
+ }
+ if (!bInCombatArea) {
+  WindupEndsAt = -1.f;
+  CachedWaypoint = FVector::ZeroVector;
+  NextPathRefreshAt = 0.f;
+  return;
+ }
  if (WindupEndsAt > 0.f && Now >= WindupEndsAt) {
   WindupEndsAt = -1.f;
   NextAttackAt = Now + AttackCooldown;
