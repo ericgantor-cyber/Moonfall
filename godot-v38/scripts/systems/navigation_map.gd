@@ -5,6 +5,7 @@ var player_position:Vector3=Vector3.ZERO
 var waypoint_position:Vector3=Vector3.ZERO
 var has_waypoint:bool=false
 var quest_markers:Array[Vector3]=[]
+var discovered:Array[Vector3]=[]
 var metres_per_half_width:float=120.0
 
 func _draw()->void:
@@ -17,6 +18,10 @@ func _draw()->void:
   var offset:float=float(index)*metres_per_half_width*scale_factor/4.0
   draw_line(Vector2(centre.x+offset,0),Vector2(centre.x+offset,size.y),Color(0.16,0.27,0.34,0.55),1.0)
   draw_line(Vector2(0,centre.y+offset),Vector2(size.x,centre.y+offset),Color(0.16,0.27,0.34,0.55),1.0)
+ for visit in discovered:
+  var visited_offset:Vector2=Vector2(visit.x-player_position.x,visit.z-player_position.z)*scale_factor
+  if absf(visited_offset.x)<=size.x*0.45 and absf(visited_offset.y)<=size.y*0.45:
+   draw_circle(centre+visited_offset,2.5,Color(0.22,0.65,0.58,0.65))
  draw_line(centre,centre+Vector2(0,-26),Color(0.35,0.85,1.0),3.0)
  draw_circle(centre,7.0,Color(0.36,0.85,1.0))
  if has_waypoint:
@@ -50,4 +55,8 @@ func _gui_input(event:InputEvent)->void:
 
 func set_quest_markers(markers:Array[Vector3])->void:
  quest_markers=markers.duplicate()
+ queue_redraw()
+
+func set_discovered(positions:Array[Vector3])->void:
+ discovered=positions.duplicate()
  queue_redraw()
