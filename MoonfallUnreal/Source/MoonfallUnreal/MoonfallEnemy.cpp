@@ -67,7 +67,8 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
  }
  if (WindupEndsAt > 0.f && Now >= WindupEndsAt) {
   WindupEndsAt = -1.f;
-  NextAttackAt = Now + AttackCooldown;
+  // Heavy elite crushes demand recovery, leaving a counterattack window.
+  NextAttackAt = Now + AttackCooldown + (bElite && CurrentAttackMultiplier > 2.f ? 0.8f : 0.f);
   // Attack resolves against the hero's CURRENT position, so dodging works.
   if (Distance <= AttackRange * CurrentAttackRangeMultiplier) {
    // Do not damage the hero through solid arena walls or cover.
@@ -127,6 +128,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   const float Now = GetWorld()->GetTimeSeconds();
   if (WindupEndsAt < 0.f && Now >= NextAttackAt) {
    // Alternate quick strikes, heavy attacks and wider sweeps with distinct warnings.
+   // An elite cannot chain another attack during its recovery window.
    const int32 Pattern = AttackSequence++ % (bElite ? 4 : 3);
    CurrentWindup = Pattern == 0 ? 0.38f : (Pattern == 1 ? 0.85f : (Pattern == 2 ? 0.65f : 1.05f));
    CurrentAttackMultiplier = Pattern == 1 ? 1.8f : (Pattern == 2 ? 0.75f : (Pattern == 3 ? 2.25f : 1.f));
