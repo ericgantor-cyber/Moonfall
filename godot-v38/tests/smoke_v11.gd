@@ -40,7 +40,7 @@ func _run() -> void:
  _check(game.get("events_completed").is_empty(),"Events begin unclaimed")
  _check(game.get("gear_drops").is_empty(),"Fresh world has no leftover loot")
  _check(game.call("_day_phase")=="Day","Adventure begins during daylight")
- game.set("world_clock",400.0)
+ game.set("world_clock",float(game.get("DAY_LENGTH_SECONDS"))*0.85)
  _check(game.call("_day_phase")=="Dusk" or game.call("_day_phase")=="Night","Day/night phase changes")
  game.set("weather_remaining",0.1)
  game.call("_advance_living_world",0.2)
