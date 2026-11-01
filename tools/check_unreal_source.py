@@ -69,6 +69,13 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("MaxHealthAtSpawn = FMath::Max(1.f, Health)", begin_play)
         self.assertIn("BossMaxHealth = bBoss ? MaxHealthAtSpawn : 0.f", begin_play)
 
+    def test_boss_resists_repeated_hit_stagger(self):
+        damage = self.enemy_cpp.split("void AMoonfallEnemy::TakeSpellDamage(float Amount) {", 1)[1].split("\n}", 1)[0]
+        self.assertIn("if (!bBoss) HitReactionEndsAt = LastHitTime + 0.22f", damage)
+        self.assertIn("BossPhaseMessageUntil = Now + 1.5f", damage)
+        self.assertIn("WindupEndsAt = -1.f", damage)
+        self.assertIn("bComboSecondHitPending = false", damage)
+
     def test_dodge_and_blocked_hit_checks_retained(self):
         self.assertIn("GetSafeNormal2D()", self.enemy_cpp)
         self.assertIn("LineTraceSingleByChannel", self.enemy_cpp)
