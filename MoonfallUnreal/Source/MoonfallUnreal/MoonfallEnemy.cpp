@@ -110,7 +110,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
  // stepping outside the basic range should not silently cancel a wider sweep.
  if (WindupEndsAt > 0.f) {
   DrawDebugSphere(GetWorld(), GetActorLocation(), AttackRange * CurrentAttackRangeMultiplier, 16, CurrentAttackMultiplier > 2.f ? FColor::Purple : (CurrentAttackMultiplier > 1.5f ? FColor::Orange : FColor::Red), false, 0.12f);
-  DrawDebugString(GetWorld(), GetActorLocation() + FVector(0.f,0.f,160.f), CurrentAttackMultiplier > 2.f ? TEXT("ELITE CRUSH") : (CurrentAttackMultiplier > 1.5f ? TEXT("HEAVY") : (CurrentAttackRangeMultiplier > 1.f ? TEXT("SWEEP") : TEXT("STRIKE"))), nullptr, FColor::Red, 0.12f, false);
+  DrawDebugString(GetWorld(), GetActorLocation() + FVector(0.f,0.f,160.f), CurrentAttackMultiplier > 2.f ? (bBoss ? TEXT("BOSS CRUSH") : TEXT("ELITE CRUSH")) : (CurrentAttackMultiplier > 1.5f ? TEXT("HEAVY") : (CurrentAttackRangeMultiplier > 1.f ? TEXT("SWEEP") : TEXT("STRIKE"))), nullptr, FColor::Red, 0.12f, false);
   return;
  }
  if (Distance > AttackRange && Distance < 2200.f) {
@@ -163,7 +163,8 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   if (WindupEndsAt < 0.f && Now >= NextAttackAt) {
    // Alternate quick strikes, heavy attacks and wider sweeps with distinct warnings.
    // An elite cannot chain another attack during its recovery window.
-   const int32 Pattern = AttackSequence++ % (bElite ? 4 : 3);
+   // Phase-two bosses unlock a fourth, highly telegraphed crush.
+   const int32 Pattern = AttackSequence++ % ((bElite || (bBoss && BossPhase >= 2)) ? 4 : 3);
    CurrentWindup = Pattern == 0 ? 0.38f : (Pattern == 1 ? 0.85f : (Pattern == 2 ? 0.65f : 1.05f));
    CurrentAttackMultiplier = Pattern == 1 ? 1.8f : (Pattern == 2 ? 0.75f : (Pattern == 3 ? 2.25f : 1.f));
    CurrentAttackRangeMultiplier = Pattern == 2 ? 1.25f : (Pattern == 3 ? 1.4f : 1.f);
