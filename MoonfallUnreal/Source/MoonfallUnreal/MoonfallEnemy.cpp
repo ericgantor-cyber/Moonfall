@@ -124,7 +124,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   WindupEndsAt = -1.f;
   BossWarningEndTime = -1.f;
   // Heavy elite crushes demand recovery, leaving a counterattack window.
-  NextAttackAt = Now + AttackCooldown + ((bElite || bBoss) && CurrentAttackMultiplier > 2.f ? 0.8f : 0.f);
+  NextAttackAt = Now + FMath::Max(0.65f, AttackCooldown) + ((bElite || bBoss) && CurrentAttackMultiplier > 2.f ? 1.0f : 0.f);
   if (bBoss) DrawDebugSphere(GetWorld(), GetActorLocation(), AttackRange * CurrentAttackRangeMultiplier, 16, BossPhase >= 3 ? FColor::Magenta : FColor::Orange, false, 0.18f, 0, 2.f);
   // Dash displacement is handled gradually during its final windup.
   // Attack still resolves after the warning against the hero's live position.
@@ -139,7 +139,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
        && SightHit.GetActor() != Hero;
    if (!bBlocked) {
     if (bBoss) Hero->RewardPerfectDodge();
-    Hero->ApplyMoonfallDamage(AttackDamage * CurrentAttackMultiplier);
+    Hero->ApplyMoonfallDamage(AttackDamage * FMath::Min(2.3f, CurrentAttackMultiplier));
     OnEnemyAttack();
    }
   }
@@ -254,7 +254,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
     // Phase three alternates swift strikes with pronounced heavy tells.
     if (BossPhase == 3 && Pattern == 0) CurrentWindup *= 0.8f;
     else CurrentWindup *= 0.95f;
-    CurrentAttackMultiplier *= BossPhase == 3 ? 1.35f : 1.15f;
+    CurrentAttackMultiplier *= BossPhase == 3 ? 1.2f : 1.1f;
    }
    if (BossSpecialMove == 1) {
     // Moon cleave: a broad deliberate sweeping strike.
@@ -268,7 +268,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
     CurrentAttackRangeMultiplier = 1.3f;
    }
    if (BossSpecialMove == 3) { // Fast dash strike: narrower and readable.
-    CurrentWindup = 0.75f; CurrentAttackMultiplier = 1.2f; CurrentAttackRangeMultiplier = 1.45f;
+    CurrentWindup = 0.85f; CurrentAttackMultiplier = 1.2f; CurrentAttackRangeMultiplier = 1.45f;
    } else if (BossSpecialMove == 4) { // Spinning sweep.
     CurrentWindup = 1.1f; CurrentAttackMultiplier = 1.0f; CurrentAttackRangeMultiplier = 1.8f;
    } else if (BossSpecialMove == 5) { // Aerial-style slam, grounded hit resolution.
