@@ -60,6 +60,27 @@ $diagnostics = New-Button 'OPEN LOGS' 16 130
 $diagnostics.SetBounds(161,140,130,27)
 $diagnostics.Anchor = 'Top,Right'
 $diagnostics.AccessibleName = 'Open saved Moonfall build diagnostic logs'
+$browseEngine = New-Button 'CHOOSE ENGINE' 301 155
+$browseEngine.SetBounds(301,140,155,27)
+$browseEngine.AccessibleName = 'Choose installed Unreal Engine 5.4 folder'
+$browseEngine.Add_Click({
+    $dialog = New-Object Windows.Forms.FolderBrowserDialog
+    $dialog.Description = 'Select the Unreal Engine 5.4 root folder containing Engine'
+    if (Test-Path -LiteralPath $engine.Text -PathType Container) {
+        $dialog.SelectedPath = $engine.Text
+    }
+    if ($dialog.ShowDialog($form) -eq [Windows.Forms.DialogResult]::OK) {
+        $candidate = $dialog.SelectedPath
+        $requiredBuild = Join-Path $candidate 'Engine\Build\BatchFiles\Build.bat'
+        if (Test-Path -LiteralPath $requiredBuild -PathType Leaf) {
+            $engine.Text = $candidate
+            $logs.AppendText("Selected Unreal Engine root: $candidate" + [Environment]::NewLine)
+        } else {
+            [Windows.Forms.MessageBox]::Show('This folder does not contain Engine\Build\BatchFiles\Build.bat. Select the UE_5.4 installation folder.','Invalid engine folder')
+        }
+    }
+    $dialog.Dispose()
+})
 $cancel.Enabled = $false
 $check.AccessibleName = 'Check missing build tools'
 $install.AccessibleName = 'Install missing tools with permission'
@@ -176,7 +197,7 @@ $form.Add_FormClosing({
 })
 if ($SelfTest) {
     # Exercise real WinForms control construction on a hosted Windows runner.
-    $required = @($check, $install, $preflight, $compile, $build, $cancel, $folder, $diagnostics, $logs, $engine)
+    $required = @($check, $install, $browseEngine, $preflight, $compile, $build, $cancel, $folder, $diagnostics, $logs, $engine)
     foreach ($control in $required) {
         if ($null -eq $control -or -not $control.IsHandleCreated) {
             if ($null -eq $control) { throw 'Build Center control was not created.' }
