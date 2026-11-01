@@ -1482,6 +1482,7 @@ func _skip_wait_animation() -> void:
 
 func _animate_wait(delta:float) -> void:
  if not wait_transition_active:return
+ if not is_finite(delta):return
  wait_transition_elapsed=minf(WAIT_TRANSITION_DURATION,wait_transition_elapsed+maxf(delta,0.0))
  var fraction:float=clampf(wait_transition_elapsed/WAIT_TRANSITION_DURATION,0.0,1.0)
  var eased:float=fraction*fraction*(3.0-2.0*fraction)
