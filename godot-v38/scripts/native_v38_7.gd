@@ -60,7 +60,7 @@ func _aim_candidate(radius:float)->Dictionary:
   to_enemy.y=0.0
   var distance:float=to_enemy.length_squared()
   if distance>max_distance or distance<0.001 or not _has_clear_sight(player,body):continue
-  if beasts.find(beast)==aim_locked_id:locked=beast
+  if aim_locked_id>=0 and beasts.find(beast)==aim_locked_id:locked=beast
   var alignment:float=to_enemy.normalized().dot(aim_direction)
   var threshold:float=AIM_ASSIST_DOT if aim_assist_enabled else AIM_CONE_DOT
   if alignment<threshold:continue
@@ -68,6 +68,8 @@ func _aim_candidate(radius:float)->Dictionary:
   if score>best_score:
    best_score=score
    closest=beast
+ # Clear stale locks on death, despawn, region changes or lost visibility.
+ if aim_locked_id>=0 and locked.is_empty():aim_locked_id=-1
  return locked if not locked.is_empty() else closest
 
 func _toggle_aim_lock()->void:
@@ -90,6 +92,7 @@ func _spell(which:String)->void:
  if which!="fire":
   super._spell(which)
   return
+ if not hero_playing or menu_open or death_active or wait_open or wait_transition_active:return
  if mounted or ability_cooldown>0:return
  var target:Dictionary=_aim_candidate(AIM_RANGE)
  if target.is_empty():
