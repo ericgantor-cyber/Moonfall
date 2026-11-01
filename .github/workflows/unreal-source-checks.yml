@@ -76,3 +76,20 @@ jobs:
             if ($errors.Count -gt 0) { throw "PowerShell parse error in $($script.FullName): $($errors -join '; ')" }
             Write-Host "Parsed $($script.Name)"
           }
+
+      - name: Validate Unreal project and module configuration
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          project = json.loads(Path('MoonfallUnreal/MoonfallUnreal.uproject').read_text())
+          assert project['EngineAssociation'] == '5.4'
+          assert any(m['Name'] == 'MoonfallUnreal' and m['Type'] == 'Runtime' for m in project['Modules'])
+          module = Path('MoonfallUnreal/Source/MoonfallUnreal/MoonfallUnreal.Build.cs').read_text()
+          for dependency in ('Core', 'CoreUObject', 'Engine', 'InputCore', 'NavigationSystem'):
+              assert '"'+dependency+'"' in module, dependency
+          targets = list(Path('MoonfallUnreal/Source').glob('*.Target.cs'))
+          assert targets, 'Missing Unreal target definitions'
+          print('Unreal 5.4 project metadata, module dependencies and targets validated.')
+          PY
