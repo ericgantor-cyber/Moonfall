@@ -247,6 +247,7 @@ var wait_label: Label
 var wait_panel: PanelContainer
 var wait_clock_bar: ProgressBar
 var wait_clock_art: Label
+var wait_clock_dial: Control
 var wait_actions_container: HBoxContainer
 var wait_transition_active := false
 var wait_transition_elapsed := 0.0
@@ -822,6 +823,10 @@ func _build_ui() -> void:
  wait_art.add_theme_font_size_override("font_size",24)
  wait_art.add_theme_color_override("font_color",Color("e8c883"))
  wait_column.add_child(wait_art)
+ wait_clock_dial=preload("res://scripts/systems/celestial_wait_clock.gd").new()
+ wait_clock_dial.custom_minimum_size=Vector2(560,128)
+ wait_clock_dial.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+ wait_column.add_child(wait_clock_dial)
  wait_clock_art=Label.new()
  wait_clock_art.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
  wait_clock_art.add_theme_font_size_override("font_size",29)
@@ -1421,6 +1426,7 @@ func _set_wait_display() -> void:
  if is_instance_valid(wait_actions_container):wait_actions_container.visible=wait_open and not wait_transition_active
  if is_instance_valid(wait_label):
   if not wait_open and not wait_transition_active:return
+  if is_instance_valid(wait_clock_dial):wait_clock_dial.hour=fposmod(world_clock if wait_transition_active else world_clock+float(wait_hours)*DAY_LENGTH_SECONDS/24.0,DAY_LENGTH_SECONDS)/DAY_LENGTH_SECONDS*24.0
   if wait_transition_active:
    # The animation is informational; keep buttons hidden while it runs.
    wait_label.text="TIME PASSING...  Day %d  %s  %s\nSpace or Enter: finish transition" % [world_day,_wait_clock_text(world_clock),_day_phase()]
