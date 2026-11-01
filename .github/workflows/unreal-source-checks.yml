@@ -31,6 +31,8 @@ jobs:
           for path in root.rglob('*.cpp'):
               text = path.read_text()
               assert text.count('{') == text.count('}'), path
+          arena = (root/'MoonfallUnreal'/'MoonfallArena.cpp').read_text()
+          assert '450.f*FMath::Sin(Angle),60.f' in arena
           config = Path('MoonfallUnreal/Config/DefaultEngine.ini').read_text()
           assert 'GameDefaultMap=/Engine/Maps/Entry' in config
           assert 'EditorStartupMap=/Engine/Maps/Entry' in config
