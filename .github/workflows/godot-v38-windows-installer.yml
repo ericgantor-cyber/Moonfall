@@ -6,6 +6,7 @@ on:
     paths:
       - "godot-v38/**"
       - ".github/workflows/godot-v38-windows-installer.yml"
+      - ".github/workflows/godot-v38-5-prerelease.yml"
   pull_request:
     paths:
       - "godot-v38/**"
