@@ -131,7 +131,7 @@ void AMoonfallHeroPawn::CastBoth()
  if (LeftSpell != RightSpell || !GetWorld()) return;
  const float Time = GetWorld()->GetTimeSeconds();
  static const float Cooldowns[6] = {0.8f,0.65f,1.2f,2.f,1.f,0.9f};
- if (LeftSpell < 0 || LeftSpell >= 6 || Time - LastCastTime[1] < Cooldowns[LeftSpell]) return;
+ if (LeftSpell < 0 || LeftSpell >= 6 || RightSpell < 0 || RightSpell >= 6 || Time - LastCastTime[1] < Cooldowns[LeftSpell]) return;
  if (TryCast(LeftSpell, 0, 2.f))
  {
   LastCastTime[1] = LastCastTime[0];
