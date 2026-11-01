@@ -14,6 +14,7 @@ public:
  UPROPERTY(EditAnywhere, Category="Combat") float AttackDamage = 8.f;
  UPROPERTY(EditAnywhere, Category="Combat") float AttackRange = 145.f;
  UPROPERTY(EditAnywhere, Category="Combat") float AttackCooldown = 1.3f;
+ UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat") bool bElite = false;
  UFUNCTION(BlueprintImplementableEvent, Category="Combat") void OnHitFeedback(float Damage, float RemainingHealth);
  UFUNCTION(BlueprintImplementableEvent, Category="Combat") void OnEnemyAttack();
 private:

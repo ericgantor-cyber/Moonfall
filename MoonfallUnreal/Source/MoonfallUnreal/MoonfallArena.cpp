@@ -30,6 +30,13 @@ void AMoonfallArena::BeginPlay() {
  for (int32 i=0;i<Count;++i) {
   float Angle = 2.f * PI * i / FMath::Max(1,Count);
   FVector Position = GetActorLocation() + FVector(450.f*FMath::Cos(Angle),450.f*FMath::Sin(Angle),60.f);
-  GetWorld()->SpawnActor<AMoonfallEnemy>(Position,FRotator::ZeroRotator);
+  if (AMoonfallEnemy* Enemy = GetWorld()->SpawnActor<AMoonfallEnemy>(Position,FRotator::ZeroRotator)) {
+   // One durable elite gives early combat a distinct high-threat encounter.
+   if (i == Count - 1 && Count >= 4) {
+    Enemy->bElite = true;
+    Enemy->Health *= 2.f;
+    Enemy->AttackCooldown *= 1.15f;
+   }
+  }
  }
 }
