@@ -826,6 +826,7 @@ func _build_ui() -> void:
  wait_art.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
  wait_art.add_theme_font_size_override("font_size",26)
  wait_art.add_theme_color_override("font_color",Color("e8c883"))
+ wait_art.tooltip_text="Moonfall celestial waiting clock"
  wait_column.add_child(wait_art)
  wait_clock_dial=preload("res://scripts/systems/celestial_wait_clock.gd").new()
  wait_clock_dial.custom_minimum_size=Vector2(560,160)
