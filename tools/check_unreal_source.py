@@ -116,6 +116,11 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("LineTraceSingleByChannel(", self.enemy_cpp)
         self.assertIn("if (!bBlocked)", self.enemy_cpp)
 
+    def test_hero_damage_respects_dodge_immunity(self):
+        damage = self.hero_cpp.split("void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {", 1)[1].split("\n}", 1)[0]
+        self.assertIn("GetWorld()->GetTimeSeconds() < DamageImmunityUntil", damage)
+        self.assertLess(damage.index("DamageImmunityUntil"), damage.index("Health = FMath::Max"))
+
     def test_dodge_and_blocked_hit_checks_retained(self):
         self.assertIn("GetSafeNormal2D()", self.enemy_cpp)
         self.assertIn("LineTraceSingleByChannel", self.enemy_cpp)
