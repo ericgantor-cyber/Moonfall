@@ -13,7 +13,7 @@ func _initialize()->void:
 func _run()->void:
  var base:GDScript=load("res://scripts/native_v38_7.gd") as GDScript
  var ui:GDScript=load("res://scripts/native_v38_8.gd") as GDScript
- check(base!=null and ui!=null,"aim scripts parse and load")
+ check(base!=null and ui!=null and base.reload()==OK and ui.reload()==OK,"aim scripts parse and load")
  if base!=null:
   var source:String=base.source_code
   check("JOY_AXIS_RIGHT_X" in source and "JOY_AXIS_RIGHT_Y" in source,"controller right stick wired")
