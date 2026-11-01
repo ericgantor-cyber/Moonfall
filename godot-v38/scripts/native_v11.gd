@@ -2713,11 +2713,7 @@ func _restore_data(data: Dictionary) -> void:
  combat_combo=0
  combat_combo_until=0.0
  # Optional v11 fields are ignored by v10 saves; older checkpoints remain valid.
- var saved_cycle:float=float(data.get("world_cycle_seconds",960.0))
- if not is_finite(saved_cycle) or saved_cycle<=0.0:saved_cycle=960.0
- var saved_clock:float=float(data.get("world_clock",saved_cycle*0.5))
- if not is_finite(saved_clock):saved_clock=saved_cycle*0.5
- world_clock=fposmod(saved_clock,saved_cycle)/saved_cycle*DAY_LENGTH_SECONDS
+ world_clock=_normalize_saved_world_clock(data)
  world_day=clampi(int(data.get("world_day",1)),1,99999)
  weather_name=str(data.get("weather","Clear"))
  if not (weather_name in WEATHER_TYPES):weather_name="Clear"
