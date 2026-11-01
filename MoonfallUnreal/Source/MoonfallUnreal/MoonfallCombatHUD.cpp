@@ -27,6 +27,28 @@ void AMoonfallCombatHUD::DrawHUD()
   DrawText(TEXT("WASD / Arrows / D-pad: navigate    Esc / Start: close"),FLinearColor::White,Canvas->SizeX*0.5f-240.f,Canvas->SizeY*0.5f+248.f,nullptr,0.85f);
   return;
  }
+ // Nearest living boss, displayed without creating additional widget actors.
+ const AMoonfallEnemy* Boss = nullptr;
+ float BossDistanceSq = TNumericLimits<float>::Max();
+ for (TActorIterator<AMoonfallEnemy> It(GetWorld()); It; ++It) {
+  const AMoonfallEnemy* E = *It;
+  if (!IsValid(E) || !E->bBoss || E->Health <= 0.f) continue;
+  const float DistSq = FVector::DistSquared(E->GetActorLocation(), Hero->GetActorLocation());
+  if (DistSq < BossDistanceSq) { Boss = E; BossDistanceSq = DistSq; }
+ }
+ if (Boss && BossDistanceSq < FMath::Square(3000.f)) {
+  const float Width = FMath::Min(480.f, Canvas->SizeX * 0.68f);
+  const float X = (Canvas->SizeX - Width) * 0.5f;
+  const float Y = 72.f;
+  const float MaxHP = FMath::Max(Boss->Health, Boss->BossMaxHealth);
+  const float Percent = FMath::Clamp(Boss->Health / FMath::Max(1.f, MaxHP), 0.f, 1.f);
+  DrawRect(FLinearColor(0.07f,0.04f,0.10f,0.94f),X-6.f,Y-30.f,Width+12.f,67.f);
+  DrawRect(FLinearColor(0.19f,0.10f,0.16f),X,Y,Width,16.f);
+  DrawRect(Boss->BossPhase >= 3 ? FLinearColor(0.86f,0.18f,0.67f) : FLinearColor(0.84f,0.15f,0.22f),X,Y,Width*Percent,16.f);
+  DrawText(FString::Printf(TEXT("BOSS  |  PHASE %d  |  %.0f / %.0f HP"),Boss->BossPhase,Boss->Health,MaxHP),FLinearColor::White,X,Y-25.f,nullptr,0.95f);
+  if (Boss->BossWarningEndTime > GetWorld()->GetTimeSeconds())
+   DrawText(TEXT("INCOMING ATTACK - DODGE"),FLinearColor(1.f,0.83f,0.24f),X,Y+18.f,nullptr,0.9f);
+ }
  // Compact circular resource HUD at bottom left, with actual gameplay values.
  const float Radius = FMath::Clamp(FMath::Min(Canvas->SizeX, Canvas->SizeY) * 0.092f, 50.f, 80.f);
  const float CX = Radius + 25.f;
