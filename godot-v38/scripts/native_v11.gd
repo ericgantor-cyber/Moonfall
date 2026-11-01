@@ -800,6 +800,7 @@ func _build_ui() -> void:
  # Illustrated fantasy parchment overlay: built from native Godot UI, no external art assets.
  wait_panel=PanelContainer.new()
  wait_panel.name="CelestialWaitPanel"
+ wait_panel.tooltip_text="Wait for up to 24 in-game hours. Waiting is unavailable during combat."
  wait_panel.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
  wait_panel.position=Vector2(-280,-165)
  wait_panel.custom_minimum_size=Vector2(650,350)
