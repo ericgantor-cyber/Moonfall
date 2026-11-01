@@ -974,19 +974,32 @@ func _build_ui() -> void:
  for eye_name in ["Blue","Green","Violet","Amber"]:
   eye_picker.add_item(eye_name)
  custom_column.add_child(eye_picker)
+ var skin_picker:=OptionButton.new()
+ for skin_name in ["Warm","Fair","Bronze","Deep","Rose"]:
+  skin_picker.add_item(skin_name)
+ custom_column.add_child(skin_picker)
+ var face_picker:=OptionButton.new()
+ for face_name in ["Neutral","Smile","Scar"]:
+  face_picker.add_item(face_name)
+ custom_column.add_child(face_picker)
+ var accessory_picker:=OptionButton.new()
+ for accessory_name in ["None","Visor","Shoulder trim"]:
+  accessory_picker.add_item(accessory_name)
+ custom_column.add_child(accessory_picker)
  var custom_preview:=TextureRect.new()
  custom_preview.custom_minimum_size=Vector2(190,155)
  custom_preview.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
  custom_preview.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
  custom_column.add_child(custom_preview)
- _refresh_custom_preview(custom_preview,0,0,0)
- custom_color_picker.item_selected.connect(func(_index:int)->void:_refresh_custom_preview(custom_preview,custom_color_picker.selected,hair_picker.selected,eye_picker.selected))
- hair_picker.item_selected.connect(func(_index:int)->void:_refresh_custom_preview(custom_preview,custom_color_picker.selected,hair_picker.selected,eye_picker.selected))
- eye_picker.item_selected.connect(func(_index:int)->void:_refresh_custom_preview(custom_preview,custom_color_picker.selected,hair_picker.selected,eye_picker.selected))
+ var refresh_preview:=func(_index:int=0)->void:
+  _refresh_custom_preview(custom_preview,custom_color_picker.selected,hair_picker.selected,eye_picker.selected,skin_picker.selected,face_picker.selected,accessory_picker.selected)
+ refresh_preview.call()
+ for picker in [custom_color_picker,hair_picker,eye_picker,skin_picker,face_picker,accessory_picker]:
+  picker.item_selected.connect(refresh_preview)
  var custom_launch:=Button.new()
  custom_launch.text="CREATE & PLAY"
  custom_launch.custom_minimum_size=Vector2(230,52)
- custom_launch.pressed.connect(func()->void:_start_custom_game(custom_name_edit.text,custom_color_picker.selected,hair_picker.selected,eye_picker.selected))
+ custom_launch.pressed.connect(func()->void:_start_custom_game(custom_name_edit.text,custom_color_picker.selected,hair_picker.selected,eye_picker.selected,skin_picker.selected,face_picker.selected,accessory_picker.selected))
  custom_column.add_child(custom_launch)
  if not _read_save().is_empty():
   var continue_btn:=Button.new()
@@ -1441,8 +1454,11 @@ var custom_hero_name:String="Wanderer"
 var custom_hero_color:int=0
 var custom_hero_hair:int=0
 var custom_hero_eyes:int=0
+var custom_hero_skin:int=0
+var custom_hero_face:int=0
+var custom_hero_accessory:int=0
 
-func _custom_hero_texture(index:int,hair:int=0,eyes:int=0) -> Texture2D:
+func _custom_hero_texture(index:int,hair:int=0,eyes:int=0,skin:int=0,face:int=0,accessory:int=0) -> Texture2D:
  var palette:Array=[Color("962f45"),Color("3166a1"),Color("358060"),Color("70449c"),Color("c99c42")]
  var color:Color=palette[clampi(index,0,palette.size()-1)]
  var image:=Image.create(64,80,false,Image.FORMAT_RGBA8)
@@ -1454,6 +1470,11 @@ func _custom_hero_texture(index:int,hair:int=0,eyes:int=0) -> Texture2D:
    var body:bool=y>=35 and y<76 and absf(dx)<(17.0+float(y-35)*0.27)
    if head or body:
     image.set_pixel(x,y,color.lightened(0.18) if head else color.darkened(0.2))
+ var skin_color:Color=[Color("d7ad8d"),Color("f0c7a0"),Color("a46b4c"),Color("71442f"),Color("e3b6a5")][clampi(skin,0,4)]
+ for yy in range(9,34):
+  for xx in range(15,49):
+   var dx:float=float(xx-32)
+   if dx*dx+float(yy-20)*float(yy-20)<144.0:image.set_pixel(xx,yy,skin_color)
  var hair_color:Color=[Color("24202d"),Color("94603b"),Color("e2c87f"),Color("bdb9c5")][clampi(hair,0,3)]
  var eye_color:Color=[Color("8fd5eb"),Color("77bd87"),Color("a780d3"),Color("c99362")][clampi(eyes,0,3)]
  for yy in range(9,17):
@@ -1463,23 +1484,37 @@ func _custom_hero_texture(index:int,hair:int=0,eyes:int=0) -> Texture2D:
  for xx in [27,37]:
   image.set_pixel(xx,23,eye_color)
   image.set_pixel(xx+1,23,eye_color)
+ if face==1:
+  for xx in range(28,37):image.set_pixel(xx,29,Color("623f40"))
+ elif face==2:
+  for xx in range(25,40):
+   if xx%2==0:image.set_pixel(xx,30,Color("81574d"))
+ if accessory==1:
+  for xx in range(23,42):image.set_pixel(xx,22,Color("d3d7dd"))
+ elif accessory==2:
+  for yy in range(37,57):
+   image.set_pixel(15,yy,Color("d8bd7c"))
+   image.set_pixel(48,yy,Color("d8bd7c"))
  return ImageTexture.create_from_image(image)
 
-func _refresh_custom_preview(preview:TextureRect,palette:int,hair:int,eyes:int) -> void:
- preview.texture=_custom_hero_texture(palette,hair,eyes)
+func _refresh_custom_preview(preview:TextureRect,palette:int,hair:int,eyes:int,skin:int,face:int,accessory:int) -> void:
+ preview.texture=_custom_hero_texture(palette,hair,eyes,skin,face,accessory)
 
 func _apply_custom_hero_visual() -> void:
  if hero=="custom":
-  hero_sprite.texture=_custom_hero_texture(custom_hero_color,custom_hero_hair,custom_hero_eyes)
+  hero_sprite.texture=_custom_hero_texture(custom_hero_color,custom_hero_hair,custom_hero_eyes,custom_hero_skin,custom_hero_face,custom_hero_accessory)
   hero_sprite.pixel_size=2.65/80.0
 
-func _start_custom_game(name:String,color_index:int,hair_index:int,eye_index:int) -> void:
+func _start_custom_game(name:String,color_index:int,hair_index:int,eye_index:int,skin_index:int,face_index:int,accessory_index:int) -> void:
  _start_game("custom")
  custom_hero_name=name.strip_edges().substr(0,24)
  if custom_hero_name.is_empty():custom_hero_name="Wanderer"
  custom_hero_color=clampi(color_index,0,4)
  custom_hero_hair=clampi(hair_index,0,3)
  custom_hero_eyes=clampi(eye_index,0,3)
+ custom_hero_skin=clampi(skin_index,0,4)
+ custom_hero_face=clampi(face_index,0,2)
+ custom_hero_accessory=clampi(accessory_index,0,2)
  _apply_custom_hero_visual()
  _show_message("Explore as "+custom_hero_name+"!",4.0)
 
@@ -2739,7 +2774,7 @@ func _save_game() -> void:
   "contract_zone":contract_zone,"contract_kills":contract_kills,
   "clues":found_clues.duplicate(),"bosses":defeated_boss_ids.duplicate(),"quality":graphics_quality,
   "dormant_wildlife":dormant,"pet_stance":companion_stance,
-  "custom_hero_name":custom_hero_name,"custom_hero_color":custom_hero_color,"custom_hero_hair":custom_hero_hair,"custom_hero_eyes":custom_hero_eyes,
+  "custom_hero_name":custom_hero_name,"custom_hero_color":custom_hero_color,"custom_hero_hair":custom_hero_hair,"custom_hero_eyes":custom_hero_eyes,"custom_hero_skin":custom_hero_skin,"custom_hero_face":custom_hero_face,"custom_hero_accessory":custom_hero_accessory,
   "world_clock":world_clock,"world_cycle_seconds":DAY_LENGTH_SECONDS,"world_day":world_day,"weather":weather_name,"weather_remaining":weather_remaining,
   "world_events_completed":events_completed.duplicate(),"world_event_active":active_world_event,"world_event_kills":active_event_kills
  }
@@ -2784,6 +2819,9 @@ func _restore_data(data: Dictionary) -> void:
  custom_hero_color=clampi(int(data.get("custom_hero_color",0)),0,4)
  custom_hero_hair=clampi(int(data.get("custom_hero_hair",0)),0,3)
  custom_hero_eyes=clampi(int(data.get("custom_hero_eyes",0)),0,3)
+ custom_hero_skin=clampi(int(data.get("custom_hero_skin",0)),0,4)
+ custom_hero_face=clampi(int(data.get("custom_hero_face",0)),0,2)
+ custom_hero_accessory=clampi(int(data.get("custom_hero_accessory",0)),0,2)
  hero_sprite.texture=NYRA_ART if hero=="nyra" else Z_ART
  hero_sprite.pixel_size=2.65/float(hero_sprite.texture.get_height())
  _apply_custom_hero_visual()
