@@ -39,14 +39,17 @@ static func remember_target(seen:bool,hostile:bool,boss:bool,now:float,hero_pos:
   return {"position":old_pos,"until":0.0}
  if seen and is_finite(hero_pos.x) and is_finite(hero_pos.y) and is_finite(hero_pos.z):
   return {"position":hero_pos,"until":now+3.0}
- return {"position":old_pos,"until":old_until}
+ # Expired, corrupt or abnormally long memories must not extend a chase.
+ var valid_old:bool=is_finite(old_pos.x) and is_finite(old_pos.y) and is_finite(old_pos.z)
+ var valid_expiry:bool=is_finite(old_until) and old_until>now and old_until<=now+3.0
+ return {"position":old_pos if valid_old else Vector3.ZERO,"until":old_until if valid_old and valid_expiry else 0.0}
 
 static func investigate_velocity(hostile:bool,engaged:bool,boss:bool,now:float,until:float,body_pos:Vector3,last_pos:Vector3,speed:float)->Vector3:
- if not hostile or engaged or boss or not is_finite(now) or now>=until:
+ if not hostile or engaged or boss or not is_finite(now) or not is_finite(until) or now>=until or until>now+3.0:
   return Vector3.ZERO
  var offset:Vector3=last_pos-body_pos
  offset.y=0.0
- if offset.length_squared()<1.0 or not is_finite(offset.x) or not is_finite(offset.z):
+ if not is_finite(offset.x) or not is_finite(offset.z) or offset.length_squared()<1.0:
   return Vector3.ZERO
  # Slow as the search point approaches so actors do not oscillate over it.
  var max_speed:float=minf(clampf(speed,0.0,20.0)*0.65,(sqrt(offset.length_squared())-1.0)*4.0) if is_finite(speed) else 0.0
