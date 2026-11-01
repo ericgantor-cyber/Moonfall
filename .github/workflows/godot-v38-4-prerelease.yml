@@ -44,8 +44,24 @@ jobs:
           mkdir -p windows/installer windows/portable
           gh run download "$RUN_ID" --repo "$GITHUB_REPOSITORY" --name Moonfall-v38_3-PR90-windows-installer --dir windows/installer
           gh run download "$RUN_ID" --repo "$GITHUB_REPOSITORY" --name Moonfall-v38_3-PR90-single-exe --dir windows/portable
-          test -n "$(find windows/installer -type f -print -quit)"
-          test -n "$(find windows/portable -type f -print -quit)"
+          # Fail closed if an artifact is empty, incomplete, or unexpectedly renamed.
+          test "$(find windows/installer -type f -name '*.exe' | wc -l)" -eq 1
+          test "$(find windows/portable -type f -name '*.exe' | wc -l)" -eq 1
+          test -f windows/portable/RELEASE_EVIDENCE.json
+          test -f windows/portable/GODOT_LICENSE.txt
+          python3 - <<'PY'
+          import hashlib, json, pathlib
+          root = pathlib.Path("windows")
+          installer, = (root / "installer").rglob("*.exe")
+          portable, = (root / "portable").rglob("*.exe")
+          evidence = json.loads((root / "portable" / "RELEASE_EVIDENCE.json").read_text())
+          for kind, path, key in (("installer", installer, "installer_sha256"), ("portable", portable, "game_sha256")):
+              expected = evidence.get(key)
+              actual = hashlib.file_digest(path.open("rb"), "sha256").hexdigest()
+              if not expected or actual.lower() != str(expected).lower():
+                  raise SystemExit(f"{kind} checksum does not match Windows build evidence")
+              print(f"VERIFIED {kind}: {path.name} {actual}")
+          PY
           find windows -type f -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS.txt
       - name: Bundle versioned download archives
         shell: bash
