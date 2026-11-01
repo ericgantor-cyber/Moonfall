@@ -1,6 +1,6 @@
 [gd_scene load_steps=2 format=3]
 
-[ext_resource type="Script" path="res://scripts/native_v38_9.gd" id="1_moonfall_current"]
+[ext_resource type="Script" path="res://scripts/native_v38_10.gd" id="1_moonfall_current"]
 
 [node name="MoonfallNative" type="Node3D"]
 script = ExtResource("1_moonfall_current")
