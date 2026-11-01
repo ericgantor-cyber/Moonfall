@@ -10,6 +10,9 @@ var atlas_elapsed:float=0.0
 var atlas_open_button:Button
 var atlas_zoom_radius:float=120.0
 var atlas_quest_positions:Array[Vector3]=[]
+var atlas_discovered:Array[Vector3]=[]
+const ATLAS_DISCOVERY_SPACING:float=55.0
+const ATLAS_MAX_DISCOVERED:int=160
 
 func _ready()->void:
  super._ready()
@@ -19,10 +22,12 @@ func _start_game(selected_hero:String)->void:
  super._start_game(selected_hero)
  atlas_has_waypoint=false
  atlas_zoom_radius=120.0
+ atlas_discovered.clear()
  _refresh_atlas()
 
 func _checkpoint_extra_data()->Dictionary:
  var data:Dictionary=super._checkpoint_extra_data()
+ data["atlas_discovered"]=atlas_discovered.map(func(p:Vector3):return [p.x,p.z])
  data["atlas_zoom_radius"]=atlas_zoom_radius
  data["atlas_has_waypoint"]=atlas_has_waypoint
  data["atlas_waypoint"]=[atlas_waypoint.x,atlas_waypoint.y,atlas_waypoint.z]
@@ -32,9 +37,17 @@ func _restore_data(data:Dictionary)->void:
  super._restore_data(data)
  var extras:Variant=data.get("optional_resources",{})
  atlas_has_waypoint=false
+ atlas_discovered.clear()
  atlas_zoom_radius=clampf(float(extras.get("atlas_zoom_radius",120.0)),25.0,2000.0) if extras is Dictionary else 120.0
  if not is_finite(atlas_zoom_radius):atlas_zoom_radius=120.0
  if extras is Dictionary:
+  var stored:Variant=extras.get("atlas_discovered",[])
+  if stored is Array:
+   for item in stored.slice(0,ATLAS_MAX_DISCOVERED):
+    if item is Array and item.size()==2:
+     var dx:float=float(item[0])
+     var dz:float=float(item[1])
+     if is_finite(dx) and is_finite(dz):atlas_discovered.append(Vector3(dx,0.0,dz))
   var point:Variant=extras.get("atlas_waypoint",[])
   if point is Array and point.size()==3:
    var x:float=float(point[0])
@@ -129,14 +142,15 @@ func _refresh_atlas()->void:
  if not is_instance_valid(atlas_chart) or not is_instance_valid(atlas_readout):return
  var pos:Vector3=player.global_position if is_instance_valid(player) else Vector3.ZERO
  atlas_chart.set("metres_per_half_width",atlas_zoom_radius)
+ atlas_chart.call("set_discovered",atlas_discovered)
  atlas_chart.call("set_quest_markers",atlas_quest_positions)
  atlas_chart.call("update_navigation",pos,atlas_waypoint,atlas_has_waypoint)
- atlas_readout.text="X %.0f | Z %.0f" % [pos.x,pos.z]
+ atlas_readout.text="X %.0f | Z %.0f | Explored: %d" % [pos.x,pos.z,atlas_discovered.size()]
  if atlas_has_waypoint:
   var horizontal_distance:float=Vector2(pos.x,pos.z).distance_to(Vector2(atlas_waypoint.x,atlas_waypoint.z))
   var offset:Vector2=Vector2(atlas_waypoint.x-pos.x,atlas_waypoint.z-pos.z)
- var bearing:float=fposmod(rad_to_deg(atan2(offset.x,-offset.y)),360.0)
- atlas_readout.text+=" | Marker: %.0f m | Bearing: %.0f°" % [horizontal_distance,bearing]
+  var bearing:float=fposmod(rad_to_deg(atan2(offset.x,-offset.y)),360.0)
+  atlas_readout.text+=" | Marker: %.0f m | Bearing: %.0f°" % [horizontal_distance,bearing]
 
 func _unhandled_key_input(event:InputEvent)->void:
  if event is InputEventKey and event.pressed and not event.echo and event.keycode==KEY_M:
@@ -150,6 +164,11 @@ func _process(delta:float)->void:
  if is_instance_valid(atlas_open_button):atlas_open_button.visible=hero_playing and not death_active and not menu_open
  if not hero_playing or death_active or menu_open:
   atlas_panel.visible=false
+ if hero_playing and not death_active and is_instance_valid(player):
+  var here:Vector3=player.global_position
+  if atlas_discovered.is_empty() or atlas_discovered.back().distance_squared_to(Vector3(here.x,0.0,here.z))>=ATLAS_DISCOVERY_SPACING*ATLAS_DISCOVERY_SPACING:
+   atlas_discovered.append(Vector3(here.x,0.0,here.z))
+   if atlas_discovered.size()>ATLAS_MAX_DISCOVERED:atlas_discovered.pop_front()
  if atlas_panel.visible:
   atlas_elapsed+=delta
   if atlas_elapsed>=0.15:
