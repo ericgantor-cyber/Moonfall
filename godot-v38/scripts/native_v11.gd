@@ -872,6 +872,7 @@ func _build_ui() -> void:
   step_button.text=str(entry[0])
   step_button.custom_minimum_size=Vector2(72,44)
   step_button.tooltip_text="Adjust waiting by %d hours" % int(entry[1])
+  step_button.focus_mode=Control.FOCUS_ALL
   step_button.pressed.connect(_wait_change_hours.bind(int(entry[1])))
   wait_actions.add_child(step_button)
  var accept_button:=Button.new()
