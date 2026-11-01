@@ -1569,7 +1569,7 @@ func _start_game(selected: String) -> void:
  menu_panel.visible=false
  if is_instance_valid(quick_actions):quick_actions.visible=true
  if is_instance_valid(minimap):minimap.visible=minimap_visible
- _show_message("Explore all six regions as "+("Nyra" if hero=="nyra" else "Z")+".",4.0)
+ _show_message("Explore all six regions as "+("Nyra" if hero=="nyra" else custom_hero_name if hero=="custom" else "Z")+".",4.0)
  _update_hud()
 
 func _load_from_main_menu() -> void:
@@ -2775,8 +2775,9 @@ func _release_label() -> String:
 
 func _update_hud() -> void:
  if not is_instance_valid(hud):return
- hud.text="MOONFALL NATIVE "+_release_label()+"  •  "+("NYRA" if hero=="nyra" else "Z")+"  ♥ "+str(int(hp))+"/"+str(int(max_hp))+"  ◆ "+_wallet_text()+"  ⚔ "+str(kills_total)+" defeats  ✦ LV "+str(hero_level)+"  XP "+str(hero_xp)+"/"+str(hero_xp_to_next)
- hint.text="📍 "+str(REGIONS[region_index]["name"])+"  • Day "+str(world_day)+" "+_day_phase()+"  • "+weather_name+("  •  MOUNTED" if mounted else "  •  SENSES" if senses_on else "")
+ var display_hero:String="NYRA" if hero=="nyra" else custom_hero_name if hero=="custom" else "Z"
+ hud.text="MOONFALL NATIVE "+_release_label()+"  •  "+display_hero+"  ♥ "+str(int(hp))+"/"+str(int(max_hp))+"  ◆ "+_wallet_text()+"  ⚔ "+str(kills_total)+" defeats  ✦ LV "+str(hero_level)+"  XP "+str(hero_xp)+"/"+str(hero_xp_to_next)
+ hint.text="📍 "+str(REGIONS[region_index]["name"])+"  • Day "+str(world_day)+" "+_wait_clock_text(world_clock)+" "+_day_phase()+"  • "+weather_name+("  •  MOUNTED" if mounted else "  •  SENSES" if senses_on else "")
  status.text=status_message
  world_hud.text="CRITS "+str(critical_hits)+"  | STAGGERS "+str(stagger_events)+"  | COMBO "+str(combat_combo if map_time<=combat_combo_until else 0)+"  | HERO PTS "+str(hero_points)+"  | TAMER PTS "+str(tamer_points)+"  | POWER "+str(_current_power())+"/"+str(_recommended_power(region_index))+"  | PET "+companion_stance+"  | RIFTS "+str(rifts_cleared.size())+"/3  | EVENTS "+str(events_completed.size())+"/6  | LOOT "+str(gear_drops.size())+("  | SKIN "+str(snappedf(skinning_left,0.1))+"s" if skinning_left>0 else "")
 
