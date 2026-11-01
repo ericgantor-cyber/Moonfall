@@ -95,6 +95,12 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
  if (Distance > AttackRange && Distance < 2200.f) {
   FHitResult Hit;
   FVector Target = Hero->GetActorLocation();
+  // Elites approach at an offset, creating a flank instead of simply
+  // piling into the same straight-line pursuit as regular enemies.
+  if (bElite && Distance > AttackRange * 2.f && Distance < 900.f) {
+   const FVector Side(-Difference.Y, Difference.X, 0.f);
+   Target += Side.GetSafeNormal() * 125.f;
+  }
   // Solve paths only when the cache expires. Use the live hero position when
   // navigation is unavailable, and never chase an uninitialized waypoint.
   if (UNavigationSystemV1* Nav = FNavigationSystem::GetCurrent<UNavigationSystemV1>(GetWorld())) {
