@@ -3,8 +3,8 @@ extends RefCounted
 static func role_for(kind:String)->String:
  match kind:
   "panther":return "ambusher"
-  "wolf":return "skirmisher"
-  "serpent":return "controller"
+  "wolf":return "ambusher"
+  "serpent":return "ambusher"
   "boar":return "bruiser"
   _:return "bruiser"
 
@@ -21,3 +21,11 @@ static func attack_timer_after_frame(current:float,delta:float)->float:
 
 static func should_circle(kind:String,intent:String,distance:float)->bool:
  return intent=="strafe" and kind in ["wolf","panther","serpent"] and distance>1.7 and distance<6.0
+
+## Melee-only creatures must not kite as ranged characters.
+static func melee_engage_range(_kind:String)->float:
+ return 1.7
+static func can_attack(distance:float,ready:bool,has_sight:bool)->bool:
+ return ready and has_sight and distance>=0.0 and distance<1.7
+static func orbit_direction(beast_id:int)->float:
+ return 1.0 if posmod(beast_id,2)==0 else -1.0
