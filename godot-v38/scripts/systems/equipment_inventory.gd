@@ -2,12 +2,13 @@ extends RefCounted
 ## Data-driven loot, inventory, crafting and equipment state.
 ## No artwork copies, runtime singleton, or per-frame inventory work.
 const CATALOG = preload("res://scripts/systems/equipment_catalog.gd")
+const RNG = preload("res://scripts/systems/equipment_rng.gd")
 const SLOTS:Array[String] = ["weapon","offhand","helmet","chest","gloves","legs","boots","ring","amulet","cloak"]
 
 static func new_state()->Dictionary:
  var equipped:Dictionary={}
  for slot in SLOTS:equipped[slot]=""
- return {"items":{},"equipped":equipped,"materials":{},"gold":0}
+ return {"items":{},"equipped":equipped,"materials":{},"gold":0,"loot_rolls":[],"loot_pity":0}
 
 static func slot_for(item:Dictionary)->String:
  match str(item.get("category","")):
@@ -58,7 +59,17 @@ static func craft(state:Dictionary,item_id:String,hero_level:int)->bool:
 
 static func loot_enemy(state:Dictionary,hero_level:int,seed:int)->Dictionary:
  var item:Dictionary=CATALOG.loot_for_level(hero_level,seed)
- if not item.is_empty():add_item(state,str(item["id"]))
+ if not item.is_empty():
+  add_item(state,str(item["id"]))
+  var rarity:Dictionary=RNG.roll(item,seed+int(state.get("loot_pity",0))*9973,0,int(state.get("loot_pity",0)))
+  state["loot_pity"]=RNG.next_pity(int(state.get("loot_pity",0)),int(rarity["rarity_index"]))
+  var rolls:Array=state.get("loot_rolls",[])
+  rolls.append(rarity)
+  if rolls.size()>250:rolls.pop_front()
+  state["loot_rolls"]=rolls
+  var drop:Dictionary=item.duplicate(true)
+  drop["roll"]=rarity
+  return drop
  return item
 
 static func totals(state:Dictionary)->Dictionary:
@@ -87,6 +98,12 @@ static func normalize(saved:Dictionary)->Dictionary:
    if str(material)!="" and int(prior_materials[material])>0:
     state["materials"][str(material)]=clampi(int(prior_materials[material]),0,999999)
  state["gold"]=clampi(int(saved.get("gold",0)),0,99999999)
+ state["loot_pity"]=clampi(int(saved.get("loot_pity",0)),0,80)
+ var prior_rolls:Variant=saved.get("loot_rolls",[])
+ if prior_rolls is Array:
+  for entry in prior_rolls.slice(-250):
+   if entry is Dictionary and not CATALOG.get_item(str(entry.get("item_id",""))).is_empty():
+    state["loot_rolls"].append(entry.duplicate(true))
  var prior_slots:Variant=saved.get("equipped",{})
  if prior_slots is Dictionary:
   for slot in SLOTS:
