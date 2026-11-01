@@ -10,11 +10,15 @@ func _set_boss_telegraph(beast:Dictionary,active:bool)->void:
  var warning:Label3D=boss_warning_labels.get(id) as Label3D
  if not active:
   if is_instance_valid(warning):warning.visible=false
+  elif boss_warning_labels.has(id):boss_warning_labels.erase(id)
   return
  var body:CharacterBody3D=beast.get("body") as CharacterBody3D
- if not is_instance_valid(body):return
+ if not is_instance_valid(body):
+  if is_instance_valid(warning):warning.visible=false
+  return
  if is_instance_valid(warning) and warning.get_parent()!=body:
   warning.queue_free()
+  boss_warning_labels.erase(id)
   warning=null
  if not is_instance_valid(warning):
   warning=Label3D.new()
