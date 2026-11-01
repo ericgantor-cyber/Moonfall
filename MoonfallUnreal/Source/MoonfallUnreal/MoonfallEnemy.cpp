@@ -81,17 +81,21 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
  if (Distance > AttackRange && Distance < 2200.f) {
   FHitResult Hit;
   FVector Target = Hero->GetActorLocation();
+  // Solve paths only when the cache expires. Use the live hero position when
+  // navigation is unavailable, and never chase an uninitialized waypoint.
   if (UNavigationSystemV1* Nav = FNavigationSystem::GetCurrent<UNavigationSystemV1>(GetWorld())) {
-   FNavLocation Point;
-   // Cache both nav projection and path solves to avoid repeated work each tick.
    if (Now >= NextPathRefreshAt) {
     NextPathRefreshAt = Now + 0.5f + FMath::FRandRange(0.f, 0.2f);
+    FNavLocation Point;
     if (Nav->ProjectPointToNavigation(Target, Point)) {
      UNavigationPath* Path = Nav->FindPathToLocationSynchronously(GetWorld(), GetActorLocation(), Point.Location, this);
-     CachedWaypoint = (IsValid(Path) && !Path->IsPartial() && Path->PathPoints.Num() > 1) ? Path->PathPoints[1] : Point.Location;
-    } else CachedWaypoint = Target;
+     CachedWaypoint = (IsValid(Path) && !Path->IsPartial() && Path->PathPoints.Num() > 1)
+       ? Path->PathPoints[1] : Point.Location;
+    } else {
+     CachedWaypoint = Target;
+    }
    }
-   Target = CachedWaypoint;
+   if (!CachedWaypoint.IsNearlyZero()) Target = CachedWaypoint;
   }
   FVector Direction = Target - GetActorLocation();
   Direction.Z = 0.f;
