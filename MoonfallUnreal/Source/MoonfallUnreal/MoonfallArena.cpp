@@ -29,7 +29,7 @@ void AMoonfallArena::BeginPlay() {
  const int32 Count = FMath::Clamp(EnemyCount,0,12);
  for (int32 i=0;i<Count;++i) {
   float Angle = 2.f * PI * i / FMath::Max(1,Count);
-  FVector Position = GetActorLocation() + FVector(450.f*FMath::Cos(Angle),450.f*FMath::Sin(Angle),130.f);
+  FVector Position = GetActorLocation() + FVector(450.f*FMath::Cos(Angle),450.f*FMath::Sin(Angle),60.f);
   GetWorld()->SpawnActor<AMoonfallEnemy>(Position,FRotator::ZeroRotator);
  }
 }
