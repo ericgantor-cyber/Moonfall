@@ -832,6 +832,25 @@ func _build_ui() -> void:
  wait_label.add_theme_color_override("font_color",Color("f8e9cb"))
  wait_label.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
  wait_column.add_child(wait_label)
+ var wait_actions:=HBoxContainer.new()
+ wait_actions.add_theme_constant_override("separation",6)
+ wait_column.add_child(wait_actions)
+ for entry in [["−6h",-6],["−1h",-1],["+1h",1],["+6h",6]]:
+  var step_button:=Button.new()
+  step_button.text=str(entry[0])
+  step_button.custom_minimum_size=Vector2(90,38)
+  step_button.pressed.connect(_wait_change_hours.bind(int(entry[1])))
+  wait_actions.add_child(step_button)
+ var accept_button:=Button.new()
+ accept_button.text="WAIT"
+ accept_button.custom_minimum_size=Vector2(75,38)
+ accept_button.pressed.connect(_finish_wait.bind(true))
+ wait_actions.add_child(accept_button)
+ var cancel_button:=Button.new()
+ cancel_button.text="CANCEL"
+ cancel_button.custom_minimum_size=Vector2(90,38)
+ cancel_button.pressed.connect(_finish_wait.bind(false))
+ wait_actions.add_child(cancel_button)
  wait_panel.visible=false
  var controls:=_ui_label(root,Vector2(18,0),15,Color("d4d7e7"))
  controls.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
@@ -1374,6 +1393,11 @@ func _wait_clock_text(clock:float) -> String:
  var hour:int=int(floor(fposmod(clock,DAY_LENGTH_SECONDS)/DAY_LENGTH_SECONDS*24.0))
  var minute:int=int(floor(fposmod(clock,DAY_LENGTH_SECONDS)/DAY_LENGTH_SECONDS*1440.0))%60
  return "%02d:%02d" % [hour,minute]
+
+func _wait_change_hours(step:int) -> void:
+ if not wait_open:return
+ wait_hours=clampi(wait_hours+step,1,24)
+ _set_wait_display()
 
 func _set_wait_display() -> void:
  if is_instance_valid(wait_panel):wait_panel.visible=wait_open
