@@ -166,7 +166,7 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
  const float DamageTaken = PreviousHealth - Health;
  if (!bReduceMotion) ImpactCameraOffset = FMath::Clamp(ImpactCameraOffset + FMath::Min(DamageTaken * 0.5f, 18.f), 0.f, 24.f);
  OnDamageImpact(DamageTaken);
- OnHealthChanged(Health, 100.f);
+ OnHealthChanged(Health, MaxHealth);
 }
 
 
