@@ -100,6 +100,7 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
  if (Mana < Costs[School] * Multiplier || Time - LastCastTime[Hand] < Cooldowns[School]) return false;
  if (School == 3 && Health >= MaxHealth) return false;
  if (School != 3) {
+  if (!IsValid(FollowCamera)) return false;
   FHitResult Hit;
   const FVector Origin = FollowCamera->GetComponentLocation();
   const FVector End = Origin + FollowCamera->GetForwardVector() * 1800.f;
