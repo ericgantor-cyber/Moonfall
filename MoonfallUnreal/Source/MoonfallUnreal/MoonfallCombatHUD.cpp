@@ -131,6 +131,18 @@ void AMoonfallCombatHUD::DrawHUD()
   DrawText(TEXT("LEVEL UP"), FLinearColor(0.91f, 0.73f, 1.f, Alpha),
            CX + Radius + 14.f, CY - 13.f, nullptr, 0.96f * LabelScale);
  }
+ if (!bCompactScreen) {
+  const TCHAR* RarityNames[] = { TEXT("COMMON"), TEXT("UNCOMMON"), TEXT("RARE"), TEXT("EPIC") };
+  const int32 Rarity = FMath::Clamp(Hero->LastLootRarity, 0, 3);
+  DrawText(FString::Printf(TEXT("Gear W:%d A:%d C:%d | Salvage %d | Bag %d/30"),
+   Hero->WeaponTier, Hero->ArmorTier, Hero->AccessoryTier, Hero->Salvage, Hero->InventoryItemCodes.Num()),
+   FLinearColor(0.85f,0.84f,0.95f), 24.f, Canvas->SizeY - 75.f, nullptr, 0.8f);
+  if (Hero->InventoryItemCodes.Num() > 0) {
+   DrawText(FString::Printf(TEXT("Last drop: %s Tier %d (%+d vs equipped)"),
+    RarityNames[Rarity], Hero->LastLootTier, Hero->LastLootUpgrade),
+    FLinearColor(0.95f,0.84f,0.47f), 24.f, Canvas->SizeY - 55.f, nullptr, 0.8f);
+  }
+ }
  if (!bCompactScreen) DrawText(TEXT("ESC  OPTIONS"), FLinearColor(0.73f, 0.70f, 0.83f, 0.85f),
           FMath::Max(16.f, Canvas->SizeX - 142.f), Canvas->SizeY - 37.f, nullptr, 0.82f);
  int32 VisibleDamageNumbers = 0;
