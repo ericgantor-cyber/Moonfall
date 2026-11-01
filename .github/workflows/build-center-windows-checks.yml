@@ -48,3 +48,8 @@ jobs:
           if ($launcher -notmatch 'Build-Center\.ps1') { throw 'Launcher does not start Build Center.' }
           if ($launcher -notmatch '%~dp0') { throw 'Launcher must resolve its own folder.' }
           Write-Host 'Double-click launcher source checks passed.'
+      - name: Execute actual double-click launcher in self-test mode
+        shell: powershell
+        run: |
+          & cmd.exe /d /c 'MoonfallUnreal\Build\Start-Build-Center.cmd -SelfTest'
+          if ($LASTEXITCODE -ne 0) { throw "Build Center launcher failed with exit code $LASTEXITCODE" }
