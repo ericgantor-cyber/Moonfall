@@ -34,8 +34,10 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
     BossPhase = NewPhase;
     WindupEndsAt = -1.f;
     BossWarningEndTime = -1.f;
-    NextAttackAt = Now + 1.f;
+    NextAttackAt = Now + 1.5f;
     BossPhaseMessageUntil = Now + 1.5f;
+    AttackSequence = 0;
+    CachedWaypoint = FVector::ZeroVector;
     OnBossPhaseChanged(BossPhase);
    }
   }
@@ -63,6 +65,12 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   const float Windup = WindupEndsAt > Now ? FMath::Clamp((WindupEndsAt - Now) / FMath::Max(0.1f, CurrentWindup), 0.f, 1.f) : 0.f;
   const float Scale = Staggered ? 0.92f : 1.f + (Windup > 0.f ? (1.f - Windup) * 0.18f : 0.f);
   Body->SetRelativeScale3D(FVector(0.85f * Scale, 0.85f * Scale, 1.4f / Scale));
+ }
+ if (bBoss && Now < BossPhaseMessageUntil) {
+  // A readable phase-change recovery: no movement or attacks during the transition.
+  WindupEndsAt = -1.f;
+  BossWarningEndTime = -1.f;
+  return;
  }
  if (Staggered) {
   // A successful hit interrupts an enemy's windup, rewarding reactive combat.
@@ -93,7 +101,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   WindupEndsAt = -1.f;
   BossWarningEndTime = -1.f;
   // Heavy elite crushes demand recovery, leaving a counterattack window.
-  NextAttackAt = Now + AttackCooldown + (bElite && CurrentAttackMultiplier > 2.f ? 0.8f : 0.f);
+  NextAttackAt = Now + AttackCooldown + ((bElite || bBoss) && CurrentAttackMultiplier > 2.f ? 0.8f : 0.f);
   // Attack resolves against the hero's CURRENT position, so dodging works.
   if (Distance <= AttackRange * CurrentAttackRangeMultiplier) {
    // Do not damage the hero through solid arena walls or cover.
@@ -135,9 +143,11 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   FVector Target = Hero->GetActorLocation();
   // Elites approach at an offset, creating a flank instead of simply
   // piling into the same straight-line pursuit as regular enemies.
-  if (bElite && Distance > AttackRange * 2.f && Distance < 900.f) {
+  if ((bElite || (bBoss && BossPhase >= 2)) && Distance > AttackRange * 2.f && Distance < 900.f) {
    const FVector Side(-Difference.Y, Difference.X, 0.f);
-   Target += Side.GetSafeNormal() * 125.f;
+   // Bosses change flank direction between attacks; normal elites keep the original flank.
+   const float FlankSign = bBoss && AttackSequence % 2 == 0 ? -1.f : 1.f;
+   Target += Side.GetSafeNormal() * (bBoss ? 175.f : 125.f) * FlankSign;
   }
   // Solve paths only when the cache expires. Use the live hero position when
   // navigation is unavailable, and never chase an uninitialized waypoint.
@@ -186,7 +196,9 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
    CurrentAttackMultiplier = Pattern == 1 ? 1.8f : (Pattern == 2 ? 0.75f : (Pattern == 3 ? 2.25f : 1.f));
    CurrentAttackRangeMultiplier = Pattern == 2 ? 1.25f : (Pattern == 3 ? 1.4f : 1.f);
    if (bBoss && BossPhase >= 2) {
-    CurrentWindup *= BossPhase == 3 ? 0.72f : 0.85f;
+    // Phase three alternates swift strikes with pronounced heavy tells.
+    if (BossPhase == 3 && Pattern == 0) CurrentWindup *= 0.8f;
+    else CurrentWindup *= 0.95f;
     CurrentAttackMultiplier *= BossPhase == 3 ? 1.35f : 1.15f;
    }
    WindupEndsAt = Now + CurrentWindup;
