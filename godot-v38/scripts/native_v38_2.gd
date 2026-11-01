@@ -93,7 +93,7 @@ func _create_atlas()->void:
 
 func _atlas_zoom(factor:float)->void:
  if not is_instance_valid(atlas_chart):return
- atlas_chart.metres_per_half_width=clampf(atlas_chart.metres_per_half_width*factor,25.0,2000.0)
+ atlas_chart.set("metres_per_half_width",clampf(float(atlas_chart.get("metres_per_half_width"))*factor,25.0,2000.0))
  _refresh_atlas()
 
 func _toggle_atlas()->void:
@@ -120,7 +120,7 @@ func _atlas_clear()->void:
 func _refresh_atlas()->void:
  if not is_instance_valid(atlas_chart) or not is_instance_valid(atlas_readout):return
  var pos:Vector3=player.global_position if is_instance_valid(player) else Vector3.ZERO
- atlas_chart.update_navigation(pos,atlas_waypoint,atlas_has_waypoint)
+ atlas_chart.call("update_navigation",pos,atlas_waypoint,atlas_has_waypoint)
  atlas_readout.text="X %.0f | Z %.0f" % [pos.x,pos.z]
  if atlas_has_waypoint:
   var horizontal_distance:float=Vector2(pos.x,pos.z).distance_to(Vector2(atlas_waypoint.x,atlas_waypoint.z))
