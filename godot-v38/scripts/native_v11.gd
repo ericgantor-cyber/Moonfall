@@ -241,6 +241,9 @@ const WORLD_EVENT_SITES := [
 ]
 var world_clock := 480.0
 var world_day := 1
+var wait_open := false
+var wait_hours := 1
+var wait_label: Label
 var weather_name := "Clear"
 var weather_remaining := WEATHER_INTERVAL_SECONDS
 var weather_changes := 0
@@ -783,6 +786,8 @@ func _build_ui() -> void:
  hint=_ui_label(root,Vector2(18,43),15,Color("c6dccf"))
  status=_ui_label(root,Vector2(18,75),17,Color("ffd391"))
  world_hud=_ui_label(root,Vector2(18,111),14,Color("bcabec"))
+ wait_label=_ui_label(root,Vector2(18,156),22,Color("ffe4ae"))
+ wait_label.visible=false
  var controls:=_ui_label(root,Vector2(18,0),15,Color("d4d7e7"))
  controls.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
  controls.position=Vector2(18,-68)
@@ -1249,6 +1254,8 @@ func _reset_new_adventure() -> void:
  rifts_completed=0
  world_clock=480.0
  world_day=1
+ wait_open=false
+ _set_wait_display()
  weather_name="Clear"
  weather_remaining=WEATHER_INTERVAL_SECONDS
  living_visual_tick=0.0
@@ -1318,14 +1325,46 @@ func _toggle_menu() -> void:
   if is_instance_valid(atlas_first_tab):atlas_first_tab.call_deferred("grab_focus")
  _update_hud()
 
+func _set_wait_display() -> void:
+ if is_instance_valid(wait_label):
+  wait_label.visible=wait_open
+  wait_label.text="WAIT  •  %d hour(s)\n← / → adjust  •  Enter confirm  •  Esc cancel" % wait_hours
+
+func _finish_wait(confirm:bool) -> void:
+ if confirm:
+  var shifted:float=world_clock+float(wait_hours)*DAY_LENGTH_SECONDS/24.0
+  world_day=mini(99999,world_day+int(floor(shifted/DAY_LENGTH_SECONDS)))
+  world_clock=fposmod(shifted,DAY_LENGTH_SECONDS)
+  living_visual_tick=0.0
+  _refresh_world_lighting()
+  _update_hud()
+  _show_message("Waited %d hour(s). Day %d, %s." % [wait_hours,world_day,_day_phase()],3.0)
+ wait_open=false
+ _set_wait_display()
+
 func _unhandled_key_input(event: InputEvent) -> void:
  if not (event is InputEventKey) or not event.pressed or event.echo:return
+ if wait_open:
+  match event.keycode:
+   KEY_LEFT, KEY_DOWN:wait_hours=maxi(1,wait_hours-1)
+   KEY_RIGHT, KEY_UP:wait_hours=mini(24,wait_hours+1)
+   KEY_ENTER, KEY_KP_ENTER:_finish_wait(true)
+   KEY_ESCAPE, KEY_P:_finish_wait(false)
+  _set_wait_display()
+  get_viewport().set_input_as_handled()
+  return
  if event.keycode in [KEY_ESCAPE,KEY_F10]:
   if hero_playing:_toggle_menu()
   get_viewport().set_input_as_handled()
   return
  if not hero_playing or menu_open:return
  match event.keycode:
+  KEY_P:
+   if not _combat_threat():
+    wait_hours=1
+    wait_open=true
+    _set_wait_display()
+   else:_show_message("Cannot wait while enemies are nearby.",2.0)
   KEY_G:_interact()
   KEY_T:_tame()
   KEY_M:_toggle_mount()
@@ -1358,11 +1397,11 @@ func _unhandled_input(event: InputEvent) -> void:
    JOY_BUTTON_DPAD_RIGHT:_toggle_mount()
   get_viewport().set_input_as_handled()
   return
- if not hero_playing or menu_open:return
+ if not hero_playing or menu_open or wait_open:return
  if event is InputEventMouseButton and event.button_index==MOUSE_BUTTON_LEFT and event.pressed:_attack()
 
 func _physics_process(delta: float) -> void:
- if not hero_playing or menu_open:return
+ if not hero_playing or menu_open or wait_open:return
  attack_cooldown=maxf(0.0,attack_cooldown-delta)
  ability_cooldown=maxf(0.0,ability_cooldown-delta)
  dodge_time=maxf(0.0,dodge_time-delta)
