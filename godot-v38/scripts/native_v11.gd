@@ -228,6 +228,7 @@ var rifts_completed := 0
 # v11 keeps weather, time and regional encounters within the existing world.
 # Slots and markers are built once, never generated per frame.
 const DAY_LENGTH_SECONDS := 7200.0
+# Pre-metadata save files used the 960-second world cycle.
 const WEATHER_INTERVAL_SECONDS := 145.0
 const WEATHER_TYPES := ["Clear", "Mist", "Rain", "Eclipse"]
 const WORLD_EVENT_GOAL := 3
