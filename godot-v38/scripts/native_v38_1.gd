@@ -5,6 +5,7 @@ var realm_ethics:Dictionary = {}
 var realm_panel:PanelContainer
 var realm_status:Label
 var realm_choice_buttons:Array[Button] = []
+var realm_quest_buttons:Array[Button] = []
 
 func _ready() -> void:
  realm_ethics = REALM_ETHICS.new_state()
@@ -37,7 +38,7 @@ func _build_realm_choice_panel() -> void:
  realm_panel.offset_left = -330
  realm_panel.offset_right = -16
  realm_panel.offset_top = 160
- realm_panel.offset_bottom = 365
+ realm_panel.offset_bottom = 460
  layer.add_child(realm_panel)
  var layout:VBoxContainer = VBoxContainer.new()
  realm_panel.add_child(layout)
@@ -54,6 +55,24 @@ func _build_realm_choice_panel() -> void:
   button.pressed.connect(_choose_realm_action.bind(entry))
   layout.add_child(button)
   realm_choice_buttons.append(button)
+ for quest in [
+  {"id":"realm_wardens_oath","text":"QUEST: HELP THE WARDENS","faction":"Wardens","minimum":20,"alignment":"Good","moral":15,"factions":{"Wardens":25,"Villagers":10}},
+  {"id":"realm_outlaw_pact","text":"QUEST: JOIN THE OUTLAWS","faction":"Outlaws","minimum":20,"alignment":"Evil","moral":-15,"factions":{"Outlaws":25,"Wardens":-20}}
+ ]:
+  var quest_button:Button=Button.new()
+  quest_button.text=str(quest["text"])
+  quest_button.pressed.connect(_complete_realm_quest.bind(quest))
+  layout.add_child(quest_button)
+  realm_quest_buttons.append(quest_button)
+ _refresh_realm_choices()
+
+func _complete_realm_quest(quest:Dictionary)->void:
+ if not hero_playing or death_active or menu_open:return
+ var id:String=str(quest["id"])
+ if not REALM_ETHICS.quest_available(realm_ethics,str(quest["faction"]),int(quest["minimum"]),str(quest["alignment"])):return
+ if REALM_ETHICS.normalize(realm_ethics)["choices"].has(id):return
+ realm_ethics=REALM_ETHICS.apply_choice(realm_ethics,id,int(quest["moral"]),quest["factions"])
+ _show_message("Quest completed: "+str(quest["text"]),3.0)
  _refresh_realm_choices()
 
 func _choose_realm_action(entry:Dictionary) -> void:
@@ -71,11 +90,16 @@ func _refresh_realm_choices() -> void:
  if not is_instance_valid(realm_status):
   return
  var state:Dictionary = REALM_ETHICS.normalize(realm_ethics)
- realm_status.text = "REALM CHOICES | " + REALM_ETHICS.alignment(int(state["morality"])) + "\nVillagers: " + REALM_ETHICS.standing(int(state["factions"].get("Villagers",0)))
+ realm_status.text = "REALM CHOICES | " + REALM_ETHICS.alignment(int(state["morality"])) + "\nVillagers: " + REALM_ETHICS.standing(int(state["factions"].get("Villagers",0))) + " | Wardens: " + REALM_ETHICS.standing(int(state["factions"].get("Wardens",0))) + "\nOutlaws: " + REALM_ETHICS.standing(int(state["factions"].get("Outlaws",0)))
  var decided:bool = state["choices"].has("realm_village_aid") or state["choices"].has("realm_village_betray")
  for button in realm_choice_buttons:
   if is_instance_valid(button):
    button.disabled = decided
+ for i in range(realm_quest_buttons.size()):
+  var quest_id:String="realm_wardens_oath" if i==0 else "realm_outlaw_pact"
+  var faction:String="Wardens" if i==0 else "Outlaws"
+  var ethic:String="Good" if i==0 else "Evil"
+  realm_quest_buttons[i].disabled=state["choices"].has(quest_id) or not REALM_ETHICS.quest_available(state,faction,20,ethic)
  realm_panel.visible = hero_playing and not death_active and not menu_open
 
 func _process(delta:float) -> void:
