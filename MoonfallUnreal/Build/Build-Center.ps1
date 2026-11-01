@@ -31,7 +31,7 @@ $logs.ReadOnly = $true
 $logs.BackColor = [Drawing.Color]::FromArgb(12,12,26)
 $logs.ForeColor = [Drawing.Color]::Gainsboro
 $logs.Font = New-Object Drawing.Font('Consolas',9)
-$logs.SetBounds(16,147,790,355)
+$logs.SetBounds(16,179,790,323)
 $logs.Anchor = 'Top,Bottom,Left,Right'
 $logs.AccessibleName = 'Build progress and diagnostic output'
 $form.Controls.Add($logs)
@@ -54,7 +54,8 @@ $build.SetBounds(431,101,155,33)
 $cancel.SetBounds(591,101,100,33)
 $folder.SetBounds(696,101,125,33)
 $folder.Width = 130
-$diagnostics = New-Button 'OPEN LOGS' 736 87
+$diagnostics = New-Button 'OPEN LOGS' 16 130
+$diagnostics.SetBounds(16,140,130,27)
 $diagnostics.Anchor = 'Top,Right'
 $diagnostics.AccessibleName = 'Open saved Moonfall build diagnostic logs'
 $cancel.Enabled = $false
