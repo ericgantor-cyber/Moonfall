@@ -35,3 +35,9 @@ jobs:
             Write-Host "PowerShell syntax OK: $file"
           }
           Write-Host 'Syntax checks passed. GUI and Unreal compilation were not executed.'
+      - name: Instantiate Build Center UI controls
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          & .\MoonfallUnreal\Build\Build-Center.ps1 -SelfTest
+          if ($LASTEXITCODE -ne 0) { throw 'Build Center smoke test failed.' }
