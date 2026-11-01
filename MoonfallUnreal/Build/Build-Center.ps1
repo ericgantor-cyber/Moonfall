@@ -78,15 +78,14 @@ function Begin-Job([string]$scriptName,[bool]$installMissing) {
     $info.CreateNoWindow = $true
     $info.RedirectStandardOutput = $true
     $info.RedirectStandardError = $true
-    # Asynchronous output events avoid a blocked child process on full pipes.
-    $script:process = New-Object Diagnostics.Process
-    $script:process.StartInfo = $info
-    $script:process.EnableRaisingEvents = $true
-    $script:process.add_OutputDataReceived({ if ($null -ne $EventArgs.Data) { [IO.File]::AppendAllText($script:outLog,$EventArgs.Data + [Environment]::NewLine) } })
-    $script:process.add_ErrorDataReceived({ if ($null -ne $EventArgs.Data) { [IO.File]::AppendAllText($script:errLog,$EventArgs.Data + [Environment]::NewLine) } })
-    [void]$script:process.Start()
-    $script:process.BeginOutputReadLine()
-    $script:process.BeginErrorReadLine()
+    # Redirect to separate files so long compiler output never blocks the child.
+    $info.RedirectStandardOutput = $false
+    $info.RedirectStandardError = $false
+    $info.FileName = 'cmd.exe'
+    $quoted = '"' + $tool + '"'
+    $command = 'powershell.exe ' + $arguments + ' 1>"' + $script:outLog + '" 2>"' + $script:errLog + '"'
+    $info.Arguments = '/d /s /c "' + $command + '"'
+    $script:process = [Diagnostics.Process]::Start($info)
     $check.Enabled = $false
     $install.Enabled = $false
     $build.Enabled = $false
@@ -132,7 +131,7 @@ $timer.Add_Tick({
 })
 $form.Add_FormClosing({
     if ($script:process -and -not $script:process.HasExited) {
-        $_.Cancel = $true
+        $args[1].Cancel = $true
         [Windows.Forms.MessageBox]::Show('Cancel the running job first.','Moonfall Build Center')
     }
 })
