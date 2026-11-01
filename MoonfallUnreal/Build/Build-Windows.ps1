@@ -13,31 +13,35 @@ if ([string]::IsNullOrWhiteSpace($UnrealRoot)) {
     throw 'Unreal Engine 5.4 path missing. Supply -UnrealRoot "C:\Program Files\Epic Games\UE_5.4" or set UE54_ROOT.'
 }
 $build = Join-Path $UnrealRoot 'Engine\Build\BatchFiles\Build.bat'
-$uat = Join-Path $UnrealRoot 'Engine\Build\BatchFiles\RunUAT.bat'
-$entryMap = Join-Path $UnrealRoot 'Engine\Content\Maps\Entry.umap'
-foreach ($file in @($project,$build,$uat,$entryMap)) {
-    if (-not (Test-Path $file)) { throw "Required file not found: $file" }
-}
-foreach ($command in @('dotnet','makensis.exe')) {
-    if (-not (Get-Command $command -ErrorAction SilentlyContinue)) { throw "Required tool is not on PATH: $command" }
-}
-$sdks = @(& dotnet --list-sdks)
-if (-not ($sdks | Where-Object { $_ -match '^8\.' })) { throw 'The .NET 8 SDK is required.' }
-$OutputDirectory = [IO.Path]::GetFullPath($OutputDirectory)
-$gameOutput = Join-Path $OutputDirectory 'Game'
-$repoRootFull = [IO.Path]::GetFullPath($repoRoot).TrimEnd([IO.Path]::DirectorySeparatorChar)
-if ($OutputDirectory.TrimEnd([IO.Path]::DirectorySeparatorChar) -eq $repoRootFull) {
-    throw 'OutputDirectory cannot be the repository root. Choose a dedicated build-output folder.'
-}
-New-Item -ItemType Directory -Force -Path $OutputDirectory | Out-Null
-$previousSetup = Join-Path $OutputDirectory 'MoonfallUnreal-Setup.exe'
-foreach ($old in $(if ($CompileOnly) { @() } else { @($previousSetup, "$previousSetup.sha256") })) {
-    if (Test-Path -LiteralPath $old) { Remove-Item -LiteralPath $old -Force }
-}
-# Do not package stale cooked assets from a previous run if the current build fails.
-if (-not $CompileOnly -and (Test-Path -LiteralPath $gameOutput)) {
-    Write-Host "Removing previous packaged game output: $gameOutput"
-    Remove-Item -LiteralPath $gameOutput -Recurse -Force
+if (-not (Test-Path -LiteralPath $project)) { throw "Unreal project file missing: $project" }
+if (-not (Test-Path -LiteralPath $build)) { throw "Unreal Build.bat missing: $build" }
+
+# A compiler smoke test must not depend on packaging tools, cooked maps, or output folders.
+if (-not $CompileOnly) {
+    $uat = Join-Path $UnrealRoot 'Engine\Build\BatchFiles\RunUAT.bat'
+    if (-not (Test-Path -LiteralPath $uat)) { throw "Unreal packaging tool missing: $uat" }
+    foreach ($command in @('dotnet','makensis.exe')) {
+        if (-not (Get-Command $command -ErrorAction SilentlyContinue)) {
+            throw "Packaging prerequisite not on PATH: $command"
+        }
+    }
+    $sdks = @(& dotnet --list-sdks)
+    if (-not ($sdks | Where-Object { $_ -match '^8\.' })) { throw 'The .NET 8 SDK is required to package the launcher.' }
+    $OutputDirectory = [IO.Path]::GetFullPath($OutputDirectory)
+    $gameOutput = Join-Path $OutputDirectory 'Game'
+    $repoRootFull = [IO.Path]::GetFullPath($repoRoot).TrimEnd([IO.Path]::DirectorySeparatorChar)
+    if ($OutputDirectory.TrimEnd([IO.Path]::DirectorySeparatorChar) -eq $repoRootFull) {
+        throw 'OutputDirectory cannot be the repository root. Choose a dedicated build-output folder.'
+    }
+    New-Item -ItemType Directory -Force -Path $OutputDirectory | Out-Null
+    $previousSetup = Join-Path $OutputDirectory 'MoonfallUnreal-Setup.exe'
+    foreach ($old in @($previousSetup, "$previousSetup.sha256")) {
+        if (Test-Path -LiteralPath $old) { Remove-Item -LiteralPath $old -Force }
+    }
+    if (Test-Path -LiteralPath $gameOutput) {
+        Write-Host "Removing previous packaged game output: $gameOutput"
+        Remove-Item -LiteralPath $gameOutput -Recurse -Force
+    }
 }
 
 Write-Host 'Compiling Unreal 5.4 Editor target...'
