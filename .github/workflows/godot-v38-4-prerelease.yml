@@ -1,0 +1,67 @@
+name: Publish Godot Moonfall Windows Prerelease
+on:
+  workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: "Successful Godot Windows build run ID from main"
+        required: true
+        type: string
+      release_tag:
+        description: "New prerelease tag, e.g. v38.4-rc1"
+        required: true
+        default: "v38.4-rc1"
+        type: string
+permissions:
+  actions: read
+  contents: write
+jobs:
+  prerelease:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate successful merged-main Windows build
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ inputs.source_run_id }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$RUN_ID" =~ ^[0-9]+$ ]] || { echo "Run ID must be numeric"; exit 1; }
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+(-rc[0-9]+)$ ]] || { echo "Use a release-candidate tag such as v38.4-rc1"; exit 1; }
+          [[ "$RELEASE_TAG" == v38.4-rc* ]] || { echo "Only v38.4 release candidates allowed here"; exit 1; }
+          test "$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID" --jq .conclusion)" = success
+          test "$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID" --jq .head_branch)" = main
+          test "$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID" --jq .name)" = "Moonfall v38.3 Godot Windows build and installer"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID" --jq .head_sha)" = "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)"
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then echo "Release tag already exists"; exit 1; fi
+      - name: Download artifacts from verified Windows run
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ inputs.source_run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p windows/installer windows/portable
+          gh run download "$RUN_ID" --repo "$GITHUB_REPOSITORY" --name Moonfall-v38_3-PR90-windows-installer --dir windows/installer
+          gh run download "$RUN_ID" --repo "$GITHUB_REPOSITORY" --name Moonfall-v38_3-PR90-single-exe --dir windows/portable
+          test -n "$(find windows/installer -type f -print -quit)"
+          test -n "$(find windows/portable -type f -print -quit)"
+          find windows -type f -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS.txt
+      - name: Bundle versioned download archives
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd windows/installer && zip -r ../../Moonfall-v38.4-rc1-Windows-Installer.zip .)
+          (cd windows/portable && zip -r ../../Moonfall-v38.4-rc1-Windows-Portable.zip .)
+          sha256sum Moonfall-v38.4-rc1-Windows-*.zip > RELEASE_SHA256SUMS.txt
+      - name: Publish as PRERELEASE only
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release create "$RELEASE_TAG" Moonfall-v38.4-rc1-Windows-Installer.zip Moonfall-v38.4-rc1-Windows-Portable.zip RELEASE_SHA256SUMS.txt \
+            --repo "$GITHUB_REPOSITORY" --target main --prerelease \
+            --title "Moonfall v38.4 Windows Release Candidate" \
+            --notes "Godot six-region Moonfall prerelease. Windows workflow build and installer checks passed; human playtesting on Windows 10/11 is outstanding. Z and Nyra's original art preserved. Back up saves before testing."
