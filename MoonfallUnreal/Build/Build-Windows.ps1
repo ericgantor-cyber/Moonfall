@@ -42,23 +42,6 @@ if (-not $CompileOnly) {
     if ($OutputDirectory.TrimEnd([IO.Path]::DirectorySeparatorChar) -eq $repoRootFull) {
         throw 'OutputDirectory cannot be the repository root. Choose a dedicated build-output folder.'
     }
-    # Never recursively delete an arbitrary existing 'Game' folder.
-    # Require a dedicated marker created by this script on an earlier run.
-    $marker = Join-Path $gameOutput '.moonfall-managed-output'
-    if (Test-Path -LiteralPath $gameOutput) {
-        if (-not (Test-Path -LiteralPath $marker -PathType Leaf)) {
-            throw "Refusing to delete unmarked folder: $gameOutput. Choose a new -OutputDirectory, or move this folder aside manually."
-        }
-        Write-Host "Removing previously managed packaged game output: $gameOutput"
-        Remove-Item -LiteralPath $gameOutput -Recurse -Force
-    }
-    New-Item -ItemType Directory -Force -Path $OutputDirectory | Out-Null
-    $previousSetup = Join-Path $OutputDirectory 'MoonfallUnreal-Setup.exe'
-    foreach ($old in @($previousSetup, "$previousSetup.sha256")) {
-        if (Test-Path -LiteralPath $old) { Remove-Item -LiteralPath $old -Force }
-    }
-    New-Item -ItemType Directory -Force -Path $gameOutput | Out-Null
-    Set-Content -LiteralPath $marker -Value 'Managed by Moonfall Build-Windows.ps1. This directory can be replaced by a later build.' -Encoding ascii
 
 }
 
@@ -70,6 +53,25 @@ if ($CompileOnly) {
     Write-Host 'Unreal Editor compilation succeeded. Compile-only mode: skipping packaging, launcher and NSIS.'
     exit 0
 }
+
+# Only clear previous installer and cooked output after Editor compilation succeeds.
+# Never recursively delete an arbitrary existing 'Game' folder.
+# Require a dedicated marker created by this script on an earlier run.
+$marker = Join-Path $gameOutput '.moonfall-managed-output'
+if (Test-Path -LiteralPath $gameOutput) {
+    if (-not (Test-Path -LiteralPath $marker -PathType Leaf)) {
+        throw "Refusing to delete unmarked folder: $gameOutput. Choose a new -OutputDirectory, or move this folder aside manually."
+    }
+    Write-Host "Removing previously managed packaged game output: $gameOutput"
+    Remove-Item -LiteralPath $gameOutput -Recurse -Force
+}
+New-Item -ItemType Directory -Force -Path $OutputDirectory | Out-Null
+$previousSetup = Join-Path $OutputDirectory 'MoonfallUnreal-Setup.exe'
+foreach ($old in @($previousSetup, "$previousSetup.sha256")) {
+    if (Test-Path -LiteralPath $old) { Remove-Item -LiteralPath $old -Force }
+}
+New-Item -ItemType Directory -Force -Path $gameOutput | Out-Null
+Set-Content -LiteralPath $marker -Value 'Managed by Moonfall Build-Windows.ps1. This directory can be replaced by a later build.' -Encoding ascii
 
 Write-Host 'Packaging Unreal Win64 Development game...'
 & $uat BuildCookRun "-project=$project" -noP4 -platform=Win64 -clientconfig=Development -build -cook -stage -pak -prereqs -archive "-archivedirectory=$gameOutput" -utf8output
