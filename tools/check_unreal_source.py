@@ -32,6 +32,21 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             self.assertIn(name, self.hero_cpp)
         self.assertIn("InventoryItemCodes.Num() >= 30", self.hero_cpp)
 
+    def test_damage_hud_uses_current_max_health(self):
+        start = self.hero_cpp.index("void AMoonfallHeroPawn::ApplyMoonfallDamage")
+        end = self.hero_cpp.index("void AMoonfallHeroPawn::", start + 5)
+        damage_code = self.hero_cpp[start:end]
+        self.assertIn("OnHealthChanged(Health, MaxHealth)", damage_code)
+        self.assertNotIn("OnHealthChanged(Health, 100.f)", damage_code)
+
+    def test_dodge_immunity_and_perfect_window_order(self):
+        start = self.hero_cpp.index("void AMoonfallHeroPawn::Dodge()")
+        end = self.hero_cpp.index("void AMoonfallHeroPawn::RewardPerfectDodge()", start)
+        dodge_code = self.hero_cpp[start:end]
+        self.assertIn("DamageImmunityUntil = Now + 0.24f", dodge_code)
+        self.assertIn("PerfectDodgeWindowUntil = Now + 0.14f", dodge_code)
+        self.assertIn("Now < NextDodgeAt", dodge_code)
+
     def test_dodge_and_blocked_hit_checks_retained(self):
         self.assertIn("GetSafeNormal2D()", self.enemy_cpp)
         self.assertIn("LineTraceSingleByChannel", self.enemy_cpp)
