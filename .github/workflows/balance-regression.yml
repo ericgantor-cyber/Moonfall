@@ -1,0 +1,22 @@
+name: Moonfall balance regression
+
+on:
+  push:
+    paths:
+      - 'tools/check_balance.py'
+      - '.github/workflows/balance-regression.yml'
+  pull_request:
+    paths:
+      - 'tools/check_balance.py'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallEnemy.cpp'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallHeroPawn.cpp'
+      - '.github/workflows/balance-regression.yml'
+  workflow_dispatch:
+
+jobs:
+  balance-formulas:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run deterministic balance checks
+        run: python3 tools/check_balance.py
