@@ -56,5 +56,10 @@ jobs:
             if (-not (Test-Path -LiteralPath (Join-Path $installRoot $relative) -PathType Leaf)) { throw "Missing installed smoke payload: $relative" }
           }
           Write-Host 'Installed launcher, game placeholders and uninstall executable verified.'
+          $uninstaller = Join-Path $installRoot 'Uninstall.exe'
+          $uninstallProcess = Start-Process -FilePath $uninstaller -ArgumentList '/S' -Wait -PassThru
+          if ($uninstallProcess.ExitCode -ne 0) { throw "Silent smoke uninstall failed: $($uninstallProcess.ExitCode)" }
+          Write-Host 'Silent uninstallation of disposable test payload completed.'
+
 
           Write-Host 'Installer template compiled with placeholders. No playable build or release artifact generated.'
