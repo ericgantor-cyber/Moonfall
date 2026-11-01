@@ -2048,13 +2048,13 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
    if float(beast["windup"])<=0.0:
     _set_boss_telegraph(beast,false)
     var marked:Vector3=beast.get("warning_pos",body.global_position)
-    var warning_radius:float=float(beast.get("warning_radius",2.8))
-    var near_hit:=Vector2(marked.x-player.global_position.x,marked.z-player.global_position.z).length_squared()<warning_radius*warning_radius
+    var warning_radius:float=GUARDIAN_ATTACK_RULES.safe_radius(float(beast.get("warning_radius",2.8)))
+    var near_hit:bool=GUARDIAN_ATTACK_RULES.warning_hit(marked,player.global_position,warning_radius)
     if near_hit and dodge_time<=0 and _has_clear_sight(body,player):
-     _apply_incoming_damage(19.0+7.0*float(int(beast.get("boss_phase",1))))
+     _apply_incoming_damage(GUARDIAN_ATTACK_RULES.boss_damage(int(beast.get("boss_phase",1))))
     beast["attack"]=COMBAT_RULES.guardian_attack_cooldown(int(beast.get("boss_phase",1)))
   elif engaged and distance<(5.0 if int(beast.get("boss_phase",1))>=2 else 3.3) and float(beast["attack"])<=0.0:
-   var phase:int=int(beast.get("boss_phase",1))
+   var phase:int=GUARDIAN_ATTACK_RULES.safe_phase(int(beast.get("boss_phase",1)))
    var pattern:int=int(beast.get("boss_pattern",0))
    # v32.8: two readable patterns in phase one, then +1 per phase.
    # Keep the original windup, damage, dodge and cooldown systems.
