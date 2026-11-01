@@ -32,6 +32,8 @@ private:
  float WindupEndsAt = -1.f;
  float HitReactionEndsAt = -1.f;
  int32 AttackSequence = 0;
+ bool bComboSecondHitPending = false;
+ bool bComboSecondHitActive = false;
  float CurrentWindup = 0.5f;
  float CurrentAttackMultiplier = 1.f;
  float CurrentAttackRangeMultiplier = 1.f;
