@@ -46,6 +46,7 @@ func _run()->void:
   check(game.call("_day_phase")==CYCLE.phase(float(game.get("world_clock")),960.0),"old day-phase calls still work")
   check(game.has_method("_wait_clock_text"),"Wait system exposes in-game clock formatting")
   check(game.call("_wait_clock_text",480.0)=="12:00","16-minute day midpoint reads noon")
+  check(game.call("_wait_clock_text",240.0)=="06:00","Long day quarter reads dawn")
   check(game.call("_wait_clock_text",960.0)=="00:00","Wait clock wraps cleanly at midnight")
   check(game.has_method("_skip_wait_animation"),"Wait animation is skippable")
   game.queue_free()
