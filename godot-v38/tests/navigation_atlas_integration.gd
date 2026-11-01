@@ -35,6 +35,8 @@ func _run()->void:
   check(data.has("atlas_zoom_radius"),"save persists zoom")
   check(data.has("atlas_waypoint"),"save persists waypoint")
   check(data.has("atlas_discovered"),"save persists discovered locations")
+  check(data.has("atlas_quest_positions"),"quest destinations included in saves")
+  check(game.has_method("atlas_set_quest_destination"),"quests can publish map targets")
   game.queue_free()
  map.queue_free()
  print("MOONFALL ATLAS "+("PASS" if failures==0 else "FAIL"))
