@@ -886,6 +886,7 @@ func _build_ui() -> void:
  cancel_button.text="CANCEL"
  cancel_button.custom_minimum_size=Vector2(90,44)
  cancel_button.tooltip_text="Close Wait without advancing time"
+ cancel_button.focus_mode=Control.FOCUS_ALL
  cancel_button.pressed.connect(_finish_wait.bind(false))
  wait_actions.add_child(cancel_button)
  wait_panel.visible=false
