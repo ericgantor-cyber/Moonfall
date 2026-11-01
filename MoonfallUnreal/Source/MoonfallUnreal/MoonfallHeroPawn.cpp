@@ -160,7 +160,7 @@ void AMoonfallHeroPawn::RewardPerfectDodge() {
 }
 
 void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
- if (Health <= 0.f || Amount <= 0.f || !GetWorld() || GetWorld()->GetTimeSeconds() < DamageImmunityUntil) return;
+ if (Health <= 0.f || !FMath::IsFinite(Amount) || Amount <= 0.f || !GetWorld() || GetWorld()->GetTimeSeconds() < DamageImmunityUntil) return;
  const float PreviousHealth = Health;
  Health = FMath::Max(0.f, Health - Amount * (1.f - FMath::Min(0.28f, ArmorTier * 0.01f)));
  const float DamageTaken = PreviousHealth - Health;
