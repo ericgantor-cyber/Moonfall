@@ -1,7 +1,8 @@
 param(
     [string]$UnrealRoot = $env:UE54_ROOT,
     [string]$OutputDirectory = "",
-    [switch]$CompileOnly
+    [switch]$CompileOnly,
+    [switch]$PreflightOnly
 )
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
@@ -26,7 +27,7 @@ if ($LASTEXITCODE -ne 0 -or -not ($vsInstall | Where-Object { -not [string]::IsN
 Write-Host "Detected Visual Studio C++ toolchain: $($vsInstall | Select-Object -First 1)"
 
 # A compiler smoke test must not depend on packaging tools, cooked maps, or output folders.
-if (-not $CompileOnly) {
+if (-not $CompileOnly -and -not $PreflightOnly) {
     $uat = Join-Path $UnrealRoot 'Engine\Build\BatchFiles\RunUAT.bat'
     if (-not (Test-Path -LiteralPath $uat)) { throw "Unreal packaging tool missing: $uat" }
     foreach ($command in @('dotnet','makensis.exe')) {
@@ -43,6 +44,11 @@ if (-not $CompileOnly) {
         throw 'OutputDirectory cannot be the repository root. Choose a dedicated build-output folder.'
     }
 
+}
+
+if ($PreflightOnly) {
+    Write-Host 'Moonfall build preflight passed. Compilation and packaging were not run.'
+    exit 0
 }
 
 Write-Host 'Compiling Unreal 5.4 Editor target...'
