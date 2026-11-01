@@ -62,7 +62,9 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
   // Hit feedback is now tracked by the HUD rather than persistent debug strings.
   LastHitAmount = EffectiveDamage;
   LastHitTime = GetWorld() ? GetWorld()->GetTimeSeconds() : -10.f;
-  HitReactionEndsAt = LastHitTime + 0.22f;
+  // Bosses absorb ordinary hits without repeated attack interruptions; phase changes still recover safely.
+  // Normal enemies retain brief hit reactions to reward offensive pressure.
+  if (!bBoss) HitReactionEndsAt = LastHitTime + 0.22f;
   if (Health <= 0.0f) {
    if (AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0))) { Hero->AwardExperience(FMath::RoundToInt((bBoss ? 125.f : (bElite ? 50.f : 25.f)) * (1.f + 0.018f * FMath::Min(SpawnBalanceLevel - 1, 40)))); Hero->AwardEquipmentDrop(bElite, bBoss); }
    SetActorHiddenInGame(true); SetActorEnableCollision(false); SetActorTickEnabled(false); SetLifeSpan(1.25f); }
