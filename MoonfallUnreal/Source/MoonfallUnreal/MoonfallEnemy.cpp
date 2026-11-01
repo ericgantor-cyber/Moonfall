@@ -18,6 +18,12 @@ AMoonfallEnemy::AMoonfallEnemy() {
   PrimaryActorTick.bCanEverTick = true;
   PrimaryActorTick.TickInterval = 0.1f;
 }
+void AMoonfallEnemy::BeginPlay() {
+ Super::BeginPlay();
+ MaxHealthAtSpawn = FMath::Max(1.f, Health);
+ BossMaxHealth = bBoss ? MaxHealthAtSpawn : 0.f;
+}
+
 void AMoonfallEnemy::TakeSpellDamage(float Amount) {
   if (MaxHealthAtSpawn <= 0.f) MaxHealthAtSpawn = FMath::Max(1.f, Health);
   if (bBoss) BossMaxHealth = MaxHealthAtSpawn;
