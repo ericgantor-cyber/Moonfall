@@ -125,6 +125,12 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Health = FMath::Max(0.f, Health - Amount", self.hero_cpp)
         self.assertIn("Health = FMath::Max(0.0f, Health -", self.enemy_cpp)
 
+    def test_enemy_level_scaling_is_spawn_only(self):
+        begin = self.enemy_cpp.split("void AMoonfallEnemy::BeginPlay() {", 1)[1].split("\n}", 1)[0]
+        self.assertIn("SpawnBalanceLevel = IsValid(Player)", begin)
+        self.assertIn("Health = FMath::Max(1.f, Health * HPScale)", begin)
+        self.assertIn("AttackDamage = FMath::Max(1.f, AttackDamage * DamageScale)", begin)
+
     def test_dodge_and_blocked_hit_checks_retained(self):
         self.assertIn("GetSafeNormal2D()", self.enemy_cpp)
         self.assertIn("LineTraceSingleByChannel", self.enemy_cpp)
