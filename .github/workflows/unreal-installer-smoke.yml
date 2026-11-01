@@ -1,0 +1,34 @@
+name: Moonfall NSIS installer smoke check
+on:
+  pull_request:
+    paths:
+      - 'MoonfallUnreal/Installer/**'
+      - '.github/workflows/unreal-installer-smoke.yml'
+  workflow_dispatch:
+jobs:
+  compile-installer-template:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install NSIS
+        shell: pwsh
+        run: |
+          choco install nsis --no-progress -y
+          if ($LASTEXITCODE -ne 0) { throw 'NSIS installation failed' }
+      - name: Compile NSIS template with dummy payload
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $src = Join-Path $env:RUNNER_TEMP 'moonfall-installer-smoke'
+          $output = Join-Path $env:RUNNER_TEMP 'Moonfall-NOT-A-GAME-smoke.exe'
+          New-Item -ItemType Directory -Force -Path $src, (Join-Path $src 'Engine'), (Join-Path $src 'MoonfallUnreal') | Out-Null
+          foreach ($name in @('MoonfallUnreal.exe', 'MoonfallLauncher.exe')) {
+            Set-Content -LiteralPath (Join-Path $src $name) -Value 'SMOKE-TEST-PLACEHOLDER'
+          }
+          Set-Content -LiteralPath (Join-Path $src 'Engine/runtime-placeholder.txt') -Value 'test only'
+          Set-Content -LiteralPath (Join-Path $src 'MoonfallUnreal/content-placeholder.txt') -Value 'test only'
+          $makensis = Join-Path ${env:ProgramFiles(x86)} 'NSIS/makensis.exe'
+          if (-not (Test-Path -LiteralPath $makensis)) { throw "Missing NSIS compiler: $makensis" }
+          & $makensis "/DSOURCE_DIR=$src" "/DOUTPUT_EXE=$output" 'MoonfallUnreal/Installer/MoonfallUnreal.nsi'
+          if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $output)) { throw 'Installer script failed to compile' }
+          Write-Host 'Installer template compiled with placeholders. No playable build or release artifact generated.'
