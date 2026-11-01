@@ -136,6 +136,11 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("if (!IsValid(Enemy) || Enemy->Health <= 0.f) return false", cast)
         self.assertLess(cast.index("Enemy->Health <= 0.f"), cast.index("Enemy->TakeSpellDamage"))
 
+    def test_healing_at_full_health_costs_no_mana(self):
+        cast = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split("\n}", 1)[0]
+        self.assertIn("if (School == 3 && Health >= MaxHealth) return false", cast)
+        self.assertLess(cast.index("Health >= MaxHealth"), cast.index("Mana -= Costs[School] * Multiplier"))
+
     def test_dodge_and_blocked_hit_checks_retained(self):
         self.assertIn("GetSafeNormal2D()", self.enemy_cpp)
         self.assertIn("LineTraceSingleByChannel", self.enemy_cpp)
