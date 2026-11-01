@@ -95,6 +95,12 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertGreater(damage.index("Hero->AwardExperience", death), death)
         self.assertGreater(damage.index("Hero->AwardEquipmentDrop", death), death)
 
+    def test_boss_phase_thresholds_are_ordered(self):
+        damage = self.enemy_cpp.split("void AMoonfallEnemy::TakeSpellDamage(float Amount) {", 1)[1].split("\n}", 1)[0]
+        self.assertIn("HealthRatio <= 0.33f ? 3", damage)
+        self.assertIn("HealthRatio <= 0.66f ? 2 : 1", damage)
+        self.assertIn("if (NewPhase > BossPhase)", damage)
+
     def test_dodge_and_blocked_hit_checks_retained(self):
         self.assertIn("GetSafeNormal2D()", self.enemy_cpp)
         self.assertIn("LineTraceSingleByChannel", self.enemy_cpp)
