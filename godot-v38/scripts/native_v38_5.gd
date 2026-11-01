@@ -13,7 +13,7 @@ func _process(delta:float)->void:
  super._process(delta)
  if not hero_playing or death_active or menu_open or not is_instance_valid(player):return
  if not is_instance_valid(realm_follower) or not realm_follower.visible:return
- realm_combat_attack_timer=maxf(0.0,realm_combat_attack_timer-delta)
+ realm_combat_attack_timer=REALM_COMBAT_RULES.cooldown_elapsed(realm_combat_attack_timer,delta)
  if realm_combat_attack_timer>0.0:return
  if region_index<0 or region_index>=zone_beast_lists.size():return
  var chosen:Dictionary={}
@@ -21,16 +21,12 @@ func _process(delta:float)->void:
  var low_health:bool=max_hp>0.0 and hp/max_hp<=COMPANION_LOW_HEALTH
  var best_priority:float=INF
  for beast in zone_beast_lists[region_index]:
-  if not bool(beast.get("alive",false)) or not bool(beast.get("hostile",false)):continue
   var body:CharacterBody3D=beast.get("body") as CharacterBody3D
   if not is_instance_valid(body):continue
   var distance:float=realm_follower.global_position.distance_squared_to(body.global_position)
-  if distance>=COMPANION_RANGE*COMPANION_RANGE:continue
   var hero_distance:float=player.global_position.distance_squared_to(body.global_position)
-  if hero_distance>COMPANION_LEASH_RADIUS*COMPANION_LEASH_RADIUS:continue
-  # Only assist against engaged threats, never initiate attacks on passive wildlife.
-  if float(beast.get("alert_until",0.0))<=map_time:continue
-  if not _has_clear_sight(player,body):continue
+  # Reuse tested guards for alert, visibility, leash and distance.
+  if not REALM_COMBAT_RULES.can_engage(bool(beast.get("alive",false)),bool(beast.get("hostile",false)),float(beast.get("alert_until",0.0)),map_time,hero_distance,distance,COMPANION_LEASH_RADIUS,_has_clear_sight(player,body),COMPANION_RANGE):continue
   # Guard prioritizes enemies closest to the endangered hero, without pulling new groups.
   var priority:float=REALM_COMBAT_RULES.target_priority(hero_distance,distance,low_health,COMPANION_GUARD_RADIUS)
   if priority>=best_priority:continue
@@ -43,7 +39,7 @@ func _process(delta:float)->void:
  # Come closer to an engaged target while keeping movement bounded.
  if best_distance>COMPANION_STRIKE_RANGE*COMPANION_STRIKE_RANGE:
   var destination:Vector3=enemy_body.global_position+Vector3(0.0,1.0,0.0)
-  realm_follower.global_position=realm_follower.global_position.move_toward(destination,FOLLOW_SPEED*minf(delta,0.1))
+  realm_follower.global_position=realm_follower.global_position.move_toward(destination,REALM_COMBAT_RULES.pursuit_step(FOLLOW_SPEED,delta))
   return
  realm_combat_attack_timer=COMPANION_ATTACK_INTERVAL
  var loyalty:int=REALM_ETHICS.companion_loyalty(REALM_ETHICS.normalize(realm_ethics),realm_companion_ethic)
