@@ -45,8 +45,14 @@ function New-Button($label,$x,$width) {
 $check = New-Button 'CHECK TOOLS' 16 135
 $install = New-Button 'INSTALL TOOLS' 156 145
 $build = New-Button 'BUILD MOONFALL' 306 165
+$compile = New-Button 'TEST COMPILE' 306 165
+
 $cancel = New-Button 'CANCEL' 476 120
 $folder = New-Button 'OPEN OUTPUT' 601 205
+$compile.SetBounds(306,101,120,33)
+$build.SetBounds(431,101,155,33)
+$cancel.SetBounds(591,101,100,33)
+$folder.SetBounds(696,101,125,33)
 $folder.Width = 130
 $diagnostics = New-Button 'OPEN LOGS' 736 87
 $diagnostics.Anchor = 'Top,Right'
@@ -55,6 +61,7 @@ $cancel.Enabled = $false
 $check.AccessibleName = 'Check missing build tools'
 $install.AccessibleName = 'Install missing tools with permission'
 $build.AccessibleName = 'Compile Moonfall and create Windows installer'
+$compile.AccessibleName = 'Test Unreal Editor compilation without packaging'
 $cancel.AccessibleName = 'Cancel build and subprocesses'
 $folder.AccessibleName = 'Open Moonfall build output'
 $timer = New-Object Windows.Forms.Timer
@@ -66,7 +73,7 @@ $script:outLog = ''
 $script:errLog = ''
 $script:logDir = Join-Path $env:LOCALAPPDATA 'MoonfallBuildCenter\Logs'
 New-Item -ItemType Directory -Force -Path $script:logDir | Out-Null
-function Begin-Job([string]$scriptName,[bool]$installMissing) {
+function Begin-Job([string]$scriptName,[bool]$installMissing,[bool]$compileOnly = $false) {
     if ($script:process -and -not $script:process.HasExited) { return }
     $script:seenOut = 0
     $script:seenErr = 0
@@ -76,6 +83,7 @@ function Begin-Job([string]$scriptName,[bool]$installMissing) {
     $tool = Join-Path $PSScriptRoot $scriptName
     $arguments = '-NoProfile -ExecutionPolicy Bypass -File "' + $tool + '" -UnrealRoot "' + $engine.Text + '"'
     if ($installMissing) { $arguments += ' -InstallMissing' }
+    if ($compileOnly) { $arguments += ' -CompileOnly' }
     # PowerShell handles argument quoting and redirects output without fragile cmd /c nesting.
     try {
         $script:process = Start-Process -FilePath 'powershell.exe' -ArgumentList $arguments `
@@ -88,6 +96,7 @@ function Begin-Job([string]$scriptName,[bool]$installMissing) {
     $check.Enabled = $false
     $install.Enabled = $false
     $build.Enabled = $false
+    $compile.Enabled = $false
     $cancel.Enabled = $true
     $timer.Start()
 }
@@ -95,6 +104,7 @@ $check.Add_Click({ Begin-Job 'Setup-WindowsPrerequisites.ps1' $false })
 $install.Add_Click({
     if ([Windows.Forms.MessageBox]::Show('Install missing dependencies through winget? Administrator approval may be required.','Confirm tool installation','YesNo','Question') -eq 'Yes') { Begin-Job 'Setup-WindowsPrerequisites.ps1' $true }
 })
+$compile.Add_Click({ Begin-Job 'Build-Windows.ps1' $false $true })
 $build.Add_Click({
     if ([Windows.Forms.MessageBox]::Show('Run Unreal compilation and build installer? Previous output will be overwritten.','Confirm build','YesNo','Question') -eq 'Yes') { Begin-Job 'Build-Windows.ps1' $false }
 })
@@ -125,6 +135,7 @@ $timer.Add_Tick({
         $check.Enabled = $true
         $install.Enabled = $true
         $build.Enabled = $true
+        $compile.Enabled = $true
         $cancel.Enabled = $false
         $exitCode = $script:process.ExitCode
         $logs.AppendText("Process exit code: $exitCode" + [Environment]::NewLine)
