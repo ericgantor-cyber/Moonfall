@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - 'tools/check_balance.py'
+      - 'tools/check_unreal_source.py'
       - '.github/workflows/balance-regression.yml'
   pull_request:
     paths:
@@ -18,5 +19,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Verify Python scripts parse
+        run: python3 -m py_compile tools/check_balance.py tools/check_unreal_source.py
       - name: Run deterministic balance checks
         run: python3 tools/check_balance.py
+      - name: Check cross-file Unreal source integration
+        run: python3 tools/check_unreal_source.py
