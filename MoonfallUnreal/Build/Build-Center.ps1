@@ -47,6 +47,10 @@ $install = New-Button 'INSTALL TOOLS' 156 145
 $build = New-Button 'BUILD MOONFALL' 306 165
 $cancel = New-Button 'CANCEL' 476 120
 $folder = New-Button 'OPEN OUTPUT' 601 205
+$folder.Width = 130
+$diagnostics = New-Button 'OPEN LOGS' 736 87
+$diagnostics.Anchor = 'Top,Right'
+$diagnostics.AccessibleName = 'Open saved Moonfall build diagnostic logs'
 $cancel.Enabled = $false
 $check.AccessibleName = 'Check missing build tools'
 $install.AccessibleName = 'Install missing tools with permission'
@@ -60,12 +64,14 @@ $script:seenOut = 0
 $script:seenErr = 0
 $script:outLog = ''
 $script:errLog = ''
+$script:logDir = Join-Path $env:LOCALAPPDATA 'MoonfallBuildCenter\Logs'
+New-Item -ItemType Directory -Force -Path $script:logDir | Out-Null
 function Begin-Job([string]$scriptName,[bool]$installMissing) {
     if ($script:process -and -not $script:process.HasExited) { return }
     $script:seenOut = 0
     $script:seenErr = 0
     $logs.Clear()
-    $script:outLog = Join-Path $env:TEMP ('moonfall-out-' + [Guid]::NewGuid().ToString('N') + '.log')
+    $script:outLog = Join-Path $script:logDir ('build-' + (Get-Date -Format 'yyyyMMdd-HHmmss') + '-' + [Guid]::NewGuid().ToString('N').Substring(0,8) + '.log')
     $script:errLog = "$script:outLog.err"
     $tool = Join-Path $PSScriptRoot $scriptName
     $arguments = '-NoProfile -ExecutionPolicy Bypass -File "' + $tool + '" -UnrealRoot "' + $engine.Text + '"'
@@ -98,6 +104,7 @@ $cancel.Add_Click({
         $logs.AppendText("Cancellation requested. Child processes will be terminated." + [Environment]::NewLine)
     }
 })
+$diagnostics.Add_Click({ Start-Process explorer.exe -ArgumentList ('"' + $script:logDir + '"') })
 $folder.Add_Click({ New-Item -ItemType Directory -Path $out -Force | Out-Null; Start-Process explorer.exe -ArgumentList ('"' + $out + '"') })
 $timer.Add_Tick({
     foreach ($item in @(@($script:outLog,'seenOut'),@($script:errLog,'seenErr'))) {
@@ -119,7 +126,10 @@ $timer.Add_Tick({
         $install.Enabled = $true
         $build.Enabled = $true
         $cancel.Enabled = $false
-        $logs.AppendText("Process exit code: $($script:process.ExitCode)" + [Environment]::NewLine)
+        $exitCode = $script:process.ExitCode
+        $logs.AppendText("Process exit code: $exitCode" + [Environment]::NewLine)
+        $logs.AppendText("Saved build log: $script:outLog" + [Environment]::NewLine)
+        if ($exitCode -ne 0) { $logs.AppendText("BUILD FAILED: Review the saved log and error log before retrying." + [Environment]::NewLine) }
     }
 })
 $form.Add_FormClosing({
