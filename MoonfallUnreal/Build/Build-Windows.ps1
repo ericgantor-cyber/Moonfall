@@ -31,11 +31,11 @@ if ($OutputDirectory.TrimEnd([IO.Path]::DirectorySeparatorChar) -eq $repoRootFul
 }
 New-Item -ItemType Directory -Force -Path $OutputDirectory | Out-Null
 $previousSetup = Join-Path $OutputDirectory 'MoonfallUnreal-Setup.exe'
-foreach ($old in @($previousSetup, "$previousSetup.sha256")) {
+foreach ($old in $(if ($CompileOnly) { @() } else { @($previousSetup, "$previousSetup.sha256") })) {
     if (Test-Path -LiteralPath $old) { Remove-Item -LiteralPath $old -Force }
 }
 # Do not package stale cooked assets from a previous run if the current build fails.
-if (Test-Path -LiteralPath $gameOutput) {
+if (-not $CompileOnly -and (Test-Path -LiteralPath $gameOutput)) {
     Write-Host "Removing previous packaged game output: $gameOutput"
     Remove-Item -LiteralPath $gameOutput -Recurse -Force
 }
