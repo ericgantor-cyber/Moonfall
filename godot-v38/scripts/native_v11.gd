@@ -874,7 +874,8 @@ func _build_ui() -> void:
  wait_actions.add_child(accept_button)
  var cancel_button:=Button.new()
  cancel_button.text="CANCEL"
- cancel_button.custom_minimum_size=Vector2(80,38)
+ cancel_button.custom_minimum_size=Vector2(90,44)
+ cancel_button.tooltip_text="Close Wait without advancing time"
  cancel_button.pressed.connect(_finish_wait.bind(false))
  wait_actions.add_child(cancel_button)
  wait_panel.visible=false
