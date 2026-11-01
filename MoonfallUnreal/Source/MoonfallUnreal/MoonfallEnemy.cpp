@@ -111,15 +111,17 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
  if (WindupEndsAt > 0.f) {
   // Boss warnings are intentionally cheap: one short-lived debug ring per AI tick,
   // no spawned particles, persistent actors, dynamic materials or extra tick loops.
+  const AMoonfallHeroPawn* Viewer = bBoss ? Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0)) : nullptr;
+  const float WarningScale = IsValid(Viewer) ? Viewer->BossWarningScale : 1.f;
   const bool bBossCrush = bBoss && CurrentAttackMultiplier > 2.f;
   const FColor TellColor = bBossCrush ? (BossPhase >= 3 ? FColor::Magenta : FColor::Purple)
     : (CurrentAttackMultiplier > 2.f ? FColor::Purple
     : (CurrentAttackMultiplier > 1.5f ? FColor::Orange : FColor::Red));
   DrawDebugSphere(GetWorld(), GetActorLocation(), AttackRange * CurrentAttackRangeMultiplier,
-    bBoss ? 24 : 16, TellColor, false, 0.12f);
+    bBoss ? 24 : 16, TellColor, false, 0.12f, 0, bBoss ? 1.f + WarningScale : 1.f);
   // Horizontal radius marker on the ground helps distinguish the dodge zone.
   if (bBoss) DrawDebugCircle(GetWorld(), GetActorLocation() - FVector(0.f,0.f,55.f),
-    AttackRange * CurrentAttackRangeMultiplier, 24, TellColor, false, 0.12f, 0, 3.f,
+    AttackRange * CurrentAttackRangeMultiplier, 24, TellColor, false, 0.12f, 0, 3.f * WarningScale,
     FVector(1.f,0.f,0.f), FVector(0.f,1.f,0.f), false);
   DrawDebugString(GetWorld(), GetActorLocation() + FVector(0.f,0.f,160.f), CurrentAttackMultiplier > 2.f ? (bBoss ? TEXT("BOSS CRUSH") : TEXT("ELITE CRUSH")) : (CurrentAttackMultiplier > 1.5f ? TEXT("HEAVY") : (CurrentAttackRangeMultiplier > 1.f ? TEXT("SWEEP") : TEXT("STRIKE"))), nullptr, FColor::Red, 0.12f, false);
   return;
