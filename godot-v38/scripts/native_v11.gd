@@ -246,6 +246,12 @@ var wait_hours := 1
 var wait_label: Label
 var wait_panel: PanelContainer
 var wait_clock_bar: ProgressBar
+var wait_clock_art: Label
+var wait_transition_active := false
+var wait_transition_elapsed := 0.0
+var wait_transition_start := 0.0
+var wait_transition_end := 0.0
+const WAIT_TRANSITION_DURATION := 2.4
 var weather_name := "Clear"
 var weather_remaining := WEATHER_INTERVAL_SECONDS
 var weather_changes := 0
@@ -814,6 +820,11 @@ func _build_ui() -> void:
  wait_art.add_theme_font_size_override("font_size",24)
  wait_art.add_theme_color_override("font_color",Color("e8c883"))
  wait_column.add_child(wait_art)
+ wait_clock_art=Label.new()
+ wait_clock_art.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+ wait_clock_art.add_theme_font_size_override("font_size",29)
+ wait_clock_art.add_theme_color_override("font_color",Color("f4d69a"))
+ wait_column.add_child(wait_clock_art)
  wait_clock_bar=ProgressBar.new()
  wait_clock_bar.custom_minimum_size=Vector2(490,18)
  wait_clock_bar.max_value=24.0
@@ -1407,6 +1418,7 @@ func _set_wait_display() -> void:
   var future_clock:float=world_clock+float(wait_hours)*DAY_LENGTH_SECONDS/24.0
   var next_day:int=mini(99999,world_day+int(floor(future_clock/DAY_LENGTH_SECONDS)))
   var future_phase:String=WORLD_CYCLE.phase(future_clock,DAY_LENGTH_SECONDS)
+  if is_instance_valid(wait_clock_art):wait_clock_art.text="✦   ☀  ━━━  ◯  ━━━  ☽   ✦" if future_phase=="Day" or future_phase=="Dawn" else "✦   ☾  ━━━  ◯  ━━━  ✧   ✦"
   wait_label.text="WAIT • %d in-game hour(s)\nNow: Day %d, %s (%s)\nAfter: Day %d, %s (%s)\n←/→ 1h • ↑/↓ 6h • Enter accept • Esc cancel\nController: D-pad adjust • A accept • B cancel" % [wait_hours,world_day,_wait_clock_text(world_clock),_day_phase(),next_day,_wait_clock_text(future_clock),future_phase]
 
 func _finish_wait(confirm:bool) -> void:
@@ -1414,16 +1426,27 @@ func _finish_wait(confirm:bool) -> void:
   _show_message("Cannot wait during combat or while the menu is open.",2.5)
   confirm=false
  if confirm:
-  var shifted:float=world_clock+float(wait_hours)*DAY_LENGTH_SECONDS/24.0
-  world_day=mini(99999,world_day+int(floor(shifted/DAY_LENGTH_SECONDS)))
-  world_clock=fposmod(shifted,DAY_LENGTH_SECONDS)
-  living_visual_tick=0.0
-  _refresh_world_lighting()
-  _update_hud()
-  _save_game()
-  _show_message("Waited %d hour(s). Day %d, %s (%s)." % [wait_hours,world_day,_day_phase(),_wait_clock_text(world_clock)],3.0)
+  wait_transition_start=world_clock
+  wait_transition_end=world_clock+float(wait_hours)*DAY_LENGTH_SECONDS/24.0
+  wait_transition_elapsed=0.0
+  wait_transition_active=true
  wait_open=false
  _set_wait_display()
+
+func _animate_wait(delta:float) -> void:
+ if not wait_transition_active:return
+ wait_transition_elapsed=minf(WAIT_TRANSITION_DURATION,wait_transition_elapsed+delta)
+ var fraction:float=wait_transition_elapsed/WAIT_TRANSITION_DURATION
+ var eased:float=fraction*fraction*(3.0-2.0*fraction)
+ var absolute_clock:float=lerpf(wait_transition_start,wait_transition_end,eased)
+ world_clock=fposmod(absolute_clock,DAY_LENGTH_SECONDS)
+ _refresh_world_lighting()
+ _update_hud()
+ if fraction>=1.0:
+  world_day=mini(99999,world_day+int(floor(wait_transition_end/DAY_LENGTH_SECONDS)))
+  wait_transition_active=false
+  _save_game()
+  _show_message("Time passes. Day %d, %s (%s)." % [world_day,_day_phase(),_wait_clock_text(world_clock)],3.0)
 
 func _unhandled_key_input(event: InputEvent) -> void:
  if not (event is InputEventKey) or not event.pressed or event.echo:return
@@ -1442,7 +1465,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
   if hero_playing:_toggle_menu()
   get_viewport().set_input_as_handled()
   return
- if not hero_playing or menu_open:return
+ if not hero_playing or menu_open or wait_transition_active:return
  match event.keycode:
   KEY_P:
    if not _combat_threat():
@@ -1494,11 +1517,11 @@ func _unhandled_input(event: InputEvent) -> void:
    JOY_BUTTON_DPAD_RIGHT:_toggle_mount()
   get_viewport().set_input_as_handled()
   return
- if not hero_playing or menu_open or wait_open:return
+ if not hero_playing or menu_open or wait_open or wait_transition_active:return
  if event is InputEventMouseButton and event.button_index==MOUSE_BUTTON_LEFT and event.pressed:_attack()
 
 func _physics_process(delta: float) -> void:
- if not hero_playing or menu_open or wait_open:return
+ if not hero_playing or menu_open or wait_open or wait_transition_active:return
  attack_cooldown=maxf(0.0,attack_cooldown-delta)
  ability_cooldown=maxf(0.0,ability_cooldown-delta)
  dodge_time=maxf(0.0,dodge_time-delta)
@@ -1560,6 +1583,7 @@ func _physics_process(delta: float) -> void:
   _update_hud()
 
 func _process(delta: float) -> void:
+ _animate_wait(delta)
  if is_instance_valid(camera):_update_camera(delta)
  scenery_light_tick+=delta
  if scenery_light_tick<0.1:return
