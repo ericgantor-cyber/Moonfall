@@ -8,6 +8,7 @@ var atlas_waypoint:Vector3=Vector3.ZERO
 var atlas_has_waypoint:bool=false
 var atlas_elapsed:float=0.0
 var atlas_open_button:Button
+var atlas_zoom_radius:float=120.0
 
 func _ready()->void:
  super._ready()
@@ -16,10 +17,12 @@ func _ready()->void:
 func _start_game(selected_hero:String)->void:
  super._start_game(selected_hero)
  atlas_has_waypoint=false
+ atlas_zoom_radius=120.0
  _refresh_atlas()
 
 func _checkpoint_extra_data()->Dictionary:
  var data:Dictionary=super._checkpoint_extra_data()
+ data["atlas_zoom_radius"]=atlas_zoom_radius
  data["atlas_has_waypoint"]=atlas_has_waypoint
  data["atlas_waypoint"]=[atlas_waypoint.x,atlas_waypoint.y,atlas_waypoint.z]
  return data
@@ -28,6 +31,8 @@ func _restore_data(data:Dictionary)->void:
  super._restore_data(data)
  var extras:Variant=data.get("optional_resources",{})
  atlas_has_waypoint=false
+ atlas_zoom_radius=clampf(float(extras.get("atlas_zoom_radius",120.0)),25.0,2000.0) if extras is Dictionary else 120.0
+ if not is_finite(atlas_zoom_radius):atlas_zoom_radius=120.0
  if extras is Dictionary:
   var point:Variant=extras.get("atlas_waypoint",[])
   if point is Array and point.size()==3:
@@ -62,6 +67,7 @@ func _create_atlas()->void:
  layout.add_child(heading)
  atlas_chart=NAVIGATION_MAP.new()
  atlas_chart.custom_minimum_size=Vector2(300,240)
+ atlas_chart.set("metres_per_half_width",atlas_zoom_radius)
  layout.add_child(atlas_chart)
  atlas_chart.connect("waypoint_selected",_atlas_select_waypoint)
  atlas_readout=Label.new()
@@ -93,7 +99,8 @@ func _create_atlas()->void:
 
 func _atlas_zoom(factor:float)->void:
  if not is_instance_valid(atlas_chart):return
- atlas_chart.set("metres_per_half_width",clampf(float(atlas_chart.get("metres_per_half_width"))*factor,25.0,2000.0))
+ atlas_zoom_radius=clampf(atlas_zoom_radius*factor,25.0,2000.0)
+ atlas_chart.set("metres_per_half_width",atlas_zoom_radius)
  _refresh_atlas()
 
 func _toggle_atlas()->void:
@@ -120,11 +127,14 @@ func _atlas_clear()->void:
 func _refresh_atlas()->void:
  if not is_instance_valid(atlas_chart) or not is_instance_valid(atlas_readout):return
  var pos:Vector3=player.global_position if is_instance_valid(player) else Vector3.ZERO
+ atlas_chart.set("metres_per_half_width",atlas_zoom_radius)
  atlas_chart.call("update_navigation",pos,atlas_waypoint,atlas_has_waypoint)
  atlas_readout.text="X %.0f | Z %.0f" % [pos.x,pos.z]
  if atlas_has_waypoint:
   var horizontal_distance:float=Vector2(pos.x,pos.z).distance_to(Vector2(atlas_waypoint.x,atlas_waypoint.z))
-  atlas_readout.text+=" | Marker: %.0f m" % horizontal_distance
+  var offset:Vector2=Vector2(atlas_waypoint.x-pos.x,atlas_waypoint.z-pos.z)
+ var bearing:float=fposmod(rad_to_deg(atan2(offset.x,-offset.y)),360.0)
+ atlas_readout.text+=" | Marker: %.0f m | Bearing: %.0f°" % [horizontal_distance,bearing]
 
 func _unhandled_key_input(event:InputEvent)->void:
  if event is InputEventKey and event.pressed and not event.echo and event.keycode==KEY_M:
