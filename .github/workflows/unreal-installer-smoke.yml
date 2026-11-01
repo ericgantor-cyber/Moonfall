@@ -35,7 +35,6 @@ jobs:
           if ($file.Length -lt 1024) { throw 'NSIS smoke installer unexpectedly small' }
           Write-Host "Installer smoke output exists ($($file.Length) bytes). Test only, not a playable game."
           $checksum = (Get-FileHash -LiteralPath $output -Algorithm SHA256).Hash
-          if ($checksum -notmatch '^[0-9A-F]{64}
-) { throw 'Invalid NSIS smoke output checksum' }
+          if ($checksum.Length -ne 64 -or $checksum -match '[^0-9A-F]') { throw 'Invalid NSIS smoke output checksum' }
           Write-Host "NSIS smoke artifact SHA-256: $checksum"
           Write-Host 'Installer template compiled with placeholders. No playable build or release artifact generated.'
