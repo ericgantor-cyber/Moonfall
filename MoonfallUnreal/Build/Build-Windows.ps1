@@ -1,6 +1,7 @@
 param(
     [string]$UnrealRoot = $env:UE54_ROOT,
-    [string]$OutputDirectory = ""
+    [string]$OutputDirectory = "",
+    [switch]$CompileOnly
 )
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
@@ -42,6 +43,11 @@ if (Test-Path -LiteralPath $gameOutput) {
 Write-Host 'Compiling Unreal 5.4 Editor target...'
 & $build MoonfallUnrealEditor Win64 Development "-Project=$project" -WaitMutex -NoHotReload
 if ($LASTEXITCODE -ne 0) { throw "Unreal editor compilation failed: $LASTEXITCODE" }
+
+if ($CompileOnly) {
+    Write-Host 'Unreal Editor compilation succeeded. Compile-only mode: skipping packaging, launcher and NSIS.'
+    exit 0
+}
 
 Write-Host 'Packaging Unreal Win64 Development game...'
 & $uat BuildCookRun "-project=$project" -noP4 -platform=Win64 -clientconfig=Development -build -cook -stage -pak -prereqs -archive "-archivedirectory=$gameOutput" -utf8output
