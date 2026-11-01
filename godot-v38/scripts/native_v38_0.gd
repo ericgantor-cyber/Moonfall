@@ -85,7 +85,7 @@ func _build_ui()->void:
  for node in start_screen.find_children("*","Label",true,false):
   var title:Label=node as Label
   if is_instance_valid(title) and "MOONFALL v37.7" in title.text:
-   title.text="☾  MOONFALL v38.0 • THE LIVING REALM"
+   title.text="MOONFALL v38.0 • THE LIVING REALM"
 
 func _v400_apply_adventurer_look()->void:
  # Distinct placeholder adventurer sprite; original Z_ART/NYRA_ART files are untouched.
