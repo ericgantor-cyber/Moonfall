@@ -50,7 +50,7 @@ func _create_atlas()->void:
  layer.add_child(atlas_panel)
  atlas_open_button=Button.new()
  atlas_open_button.name="OpenAtlasButton"
- atlas_open_button.text="MAP (F8)"
+ atlas_open_button.text="MAP (M)"
  atlas_open_button.position=Vector2(18,125)
  atlas_open_button.custom_minimum_size=Vector2(115,42)
  atlas_open_button.pressed.connect(_toggle_atlas)
@@ -120,7 +120,7 @@ func _refresh_atlas()->void:
   atlas_readout.text+=" | Marker: %.0f m" % horizontal_distance
 
 func _unhandled_key_input(event:InputEvent)->void:
- if event is InputEventKey and event.pressed and not event.echo and event.keycode==KEY_F8:
+ if event is InputEventKey and event.pressed and not event.echo and event.keycode==KEY_M:
   if is_instance_valid(atlas_panel) and hero_playing and not menu_open and not death_active:
    _toggle_atlas()
   get_viewport().set_input_as_handled()
