@@ -47,6 +47,15 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("PerfectDodgeWindowUntil = Now + 0.14f", dodge_code)
         self.assertIn("Now < NextDodgeAt", dodge_code)
 
+    def test_invalid_damage_rejected_before_health_changes(self):
+        player = self.hero_cpp.split("void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {", 1)[1].split("\n}", 1)[0]
+        enemy = self.enemy_cpp.split("void AMoonfallEnemy::TakeSpellDamage(float Amount) {", 1)[1].split("\n}", 1)[0]
+        for body in (player, enemy):
+            self.assertIn("FMath::IsFinite(Amount)", body)
+            self.assertIn("Amount <= 0.f", body)
+            self.assertLess(body.index("FMath::IsFinite(Amount)"), body.index("Health = FMath::Max"))
+        self.assertIn("const float ActualDamage = HealthBeforeHit - Health", enemy)
+
     def test_dodge_and_blocked_hit_checks_retained(self):
         self.assertIn("GetSafeNormal2D()", self.enemy_cpp)
         self.assertIn("LineTraceSingleByChannel", self.enemy_cpp)
