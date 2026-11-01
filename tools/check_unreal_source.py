@@ -76,6 +76,11 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("WindupEndsAt = -1.f", damage)
         self.assertIn("bComboSecondHitPending = false", damage)
 
+    def test_healing_is_capped_and_updates_hud(self):
+        heal = self.hero_cpp.split("if (School == 3) {", 2)[-1]
+        self.assertIn("Health = FMath::Min(MaxHealth, Health +", heal)
+        self.assertIn("OnHealthChanged(Health, MaxHealth)", heal)
+
     def test_dodge_and_blocked_hit_checks_retained(self):
         self.assertIn("GetSafeNormal2D()", self.enemy_cpp)
         self.assertIn("LineTraceSingleByChannel", self.enemy_cpp)
