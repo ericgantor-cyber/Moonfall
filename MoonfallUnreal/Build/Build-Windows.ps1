@@ -115,8 +115,33 @@ if ($installerFile.Length -le 0) { throw 'NSIS returned an empty installer' }
 $hash = (Get-FileHash -LiteralPath $setup -Algorithm SHA256).Hash.ToLowerInvariant()
 "$hash  MoonfallUnreal-Setup.exe" | Set-Content -Encoding ascii -Path "$setup.sha256"
 $finalSetup = Join-Path $OutputDirectory 'MoonfallUnreal-Setup.exe'
-Move-Item -LiteralPath $setup -Destination $finalSetup -Force
-Move-Item -LiteralPath "$setup.sha256" -Destination "$finalSetup.sha256" -Force
+$finalChecksum = "$finalSetup.sha256"
+$backupSetup = "$finalSetup.previous"
+$backupChecksum = "$finalChecksum.previous"
+# Fail closed if a previous interrupted promotion left backups to recover.
+if ((Test-Path -LiteralPath $backupSetup) -or (Test-Path -LiteralPath $backupChecksum)) {
+    throw "Previous installer promotion backup exists. Review $backupSetup and $backupChecksum before retrying."
+}
+$hadSetup = Test-Path -LiteralPath $finalSetup
+$hadChecksum = Test-Path -LiteralPath $finalChecksum
+try {
+    if ($hadSetup) { Move-Item -LiteralPath $finalSetup -Destination $backupSetup }
+    if ($hadChecksum) { Move-Item -LiteralPath $finalChecksum -Destination $backupChecksum }
+    Move-Item -LiteralPath $setup -Destination $finalSetup
+    Move-Item -LiteralPath "$setup.sha256" -Destination $finalChecksum
+    $promotedHash = (Get-FileHash -LiteralPath $finalSetup -Algorithm SHA256).Hash.ToLowerInvariant()
+    if ($promotedHash -ne $hash) { throw 'Promoted installer SHA256 mismatch.' }
+    $checksumLine = (Get-Content -LiteralPath $finalChecksum -TotalCount 1).Trim()
+    if ($checksumLine -ne "$hash  MoonfallUnreal-Setup.exe") { throw 'Promoted checksum manifest mismatch.' }
+} catch {
+    Remove-Item -LiteralPath $finalSetup -Force -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath $finalChecksum -Force -ErrorAction SilentlyContinue
+    if (Test-Path -LiteralPath $backupSetup) { Move-Item -LiteralPath $backupSetup -Destination $finalSetup }
+    if (Test-Path -LiteralPath $backupChecksum) { Move-Item -LiteralPath $backupChecksum -Destination $finalChecksum }
+    throw
+}
+if (Test-Path -LiteralPath $backupSetup) { Remove-Item -LiteralPath $backupSetup -Force }
+if (Test-Path -LiteralPath $backupChecksum) { Remove-Item -LiteralPath $backupChecksum -Force }
 Write-Host "Installer generated: $finalSetup"
 Write-Host "Installer size: $($installerFile.Length) bytes"
 Write-Host "Installer SHA-256: $hash"
