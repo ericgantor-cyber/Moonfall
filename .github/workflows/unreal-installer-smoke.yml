@@ -15,6 +15,13 @@ jobs:
         run: |
           choco install nsis --no-progress -y
           if ($LASTEXITCODE -ne 0) { throw 'NSIS installation failed' }
+      - name: Confirm NSIS compiler installation
+        shell: pwsh
+        run: |
+          $compiler = Join-Path ${env:ProgramFiles(x86)} 'NSIS/makensis.exe'
+          if (-not (Test-Path -LiteralPath $compiler)) { throw 'NSIS compiler not installed' }
+          & $compiler /VERSION
+          if ($LASTEXITCODE -ne 0) { throw 'NSIS compiler could not run' }
       - name: Compile NSIS template with dummy payload
         shell: pwsh
         run: |
