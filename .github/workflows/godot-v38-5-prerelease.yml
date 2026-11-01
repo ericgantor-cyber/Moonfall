@@ -42,7 +42,7 @@ jobs:
       - name: Download artifacts from verified Windows run
         env:
           GH_TOKEN: ${{ github.token }}
-          RUN_ID: ${{ inputs.source_run_id }}
+          RUN_ID: ${{ github.event.workflow_run.id || inputs.source_run_id }}
         shell: bash
         run: |
           set -euo pipefail
@@ -75,7 +75,7 @@ jobs:
       - name: Publish as PRERELEASE only
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ inputs.release_tag }}
+          RELEASE_TAG: ${{ inputs.release_tag || 'v38.5-rc1' }}
         shell: bash
         run: |
           set -euo pipefail
