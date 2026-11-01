@@ -144,9 +144,19 @@ void AMoonfallHeroPawn::Dodge()
  if (Now < NextDodgeAt) return;
  NextDodgeAt = Now + DodgeCooldown;
  DamageImmunityUntil = Now + 0.24f;
+ PerfectDodgeWindowUntil = Now + 0.14f;
  const FVector MoveDirection = GetLastMovementInputVector().GetSafeNormal2D();
  const FVector Direction = MoveDirection.IsNearlyZero() ? GetActorForwardVector() : MoveDirection;
  LaunchCharacter(Direction * 650.f, true, false);
+}
+
+void AMoonfallHeroPawn::RewardPerfectDodge() {
+ if (!GetWorld() || Health <= 0.f) return;
+ const float Now = GetWorld()->GetTimeSeconds();
+ if (Now > PerfectDodgeWindowUntil || Now - LastPerfectDodgeRewardAt < 1.f) return;
+ LastPerfectDodgeRewardAt = Now;
+ PerfectDodgeWindowUntil = -1.f;
+ Mana = FMath::Min(MaxMana, Mana + 8.f);
 }
 
 void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
