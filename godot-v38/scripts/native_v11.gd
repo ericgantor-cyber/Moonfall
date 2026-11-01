@@ -890,6 +890,7 @@ func _build_ui() -> void:
  cancel_button.pressed.connect(_finish_wait.bind(false))
  wait_actions.add_child(cancel_button)
  wait_panel.visible=false
+ wait_panel.process_mode=Node.PROCESS_MODE_ALWAYS
  var controls:=_ui_label(root,Vector2(18,0),15,Color("d4d7e7"))
  controls.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
  controls.position=Vector2(18,-68)
