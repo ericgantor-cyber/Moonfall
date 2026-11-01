@@ -2,7 +2,10 @@ extends Control
 ## Native, resolution-independent celestial clock art. No imported character artwork.
 var hour:float=12.0:
  set(value):
-  hour=fposmod(value,24.0)
+  if not is_finite(value):return
+  var next_hour:float=fposmod(value,24.0)
+  if is_equal_approx(hour,next_hour):return
+  hour=next_hour
   queue_redraw()
 
 func _draw()->void:

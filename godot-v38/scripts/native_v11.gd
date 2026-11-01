@@ -227,7 +227,8 @@ var rifts_completed := 0
 
 # v11 keeps weather, time and regional encounters within the existing world.
 # Slots and markers are built once, never generated per frame.
-const DAY_LENGTH_SECONDS := 960.0
+const DAY_LENGTH_SECONDS := 7200.0
+# Pre-metadata save files used the 960-second world cycle.
 const WEATHER_INTERVAL_SECONDS := 145.0
 const WEATHER_TYPES := ["Clear", "Mist", "Rain", "Eclipse"]
 const WORLD_EVENT_GOAL := 3
@@ -239,7 +240,7 @@ const WORLD_EVENT_SITES := [
  {"name":"Shattered Relic Cache","kind":"cache","zone":4,"material":"Moon Sigil"},
  {"name":"Eclipse Citadel Hunt","kind":"hunt","zone":5,"material":"Dusk Cinder"}
 ]
-var world_clock := 480.0
+var world_clock := 3600.0
 var world_day := 1
 var wait_open := false
 var wait_hours := 1
@@ -949,6 +950,91 @@ func _build_ui() -> void:
   launch.pressed.connect(_start_game.bind(str(entry["id"])))
   column.add_child(launch)
   if not is_instance_valid(hero_start_button):hero_start_button=launch
+ # Custom hero has an original procedural portrait, never a recolor of Z or Nyra.
+ var creator_scroll:=ScrollContainer.new()
+ creator_scroll.custom_minimum_size=Vector2(320,390)
+ creator_scroll.size_flags_vertical=Control.SIZE_EXPAND_FILL
+ choices.add_child(creator_scroll)
+ var custom_column:=VBoxContainer.new()
+ custom_column.custom_minimum_size=Vector2(290,0)
+ custom_column.add_theme_constant_override("separation",7)
+ creator_scroll.add_child(custom_column)
+ var custom_title:=Label.new()
+ custom_title.text="CREATE YOUR HERO • SCROLL FOR OPTIONS"
+ custom_column.add_child(custom_title)
+ creator_scroll.tooltip_text="Scroll to reach all appearance options. Keyboard Tab moves between controls."
+ var custom_name_edit:=LineEdit.new()
+ custom_name_edit.placeholder_text="Hero name"
+ custom_name_edit.max_length=24
+ custom_name_edit.text="Wanderer"
+ custom_column.add_child(custom_name_edit)
+ var custom_color_picker:=OptionButton.new()
+ for color_name in ["Crimson","Azure","Emerald","Violet","Gold"]:
+  custom_color_picker.add_item(color_name)
+ custom_column.add_child(custom_color_picker)
+ var hair_picker:=OptionButton.new()
+ for hair_name in ["Short dark","Long brown","Golden","Silver"]:
+  hair_picker.add_item(hair_name)
+ custom_column.add_child(hair_picker)
+ var eye_picker:=OptionButton.new()
+ for eye_name in ["Blue","Green","Violet","Amber"]:
+  eye_picker.add_item(eye_name)
+ custom_column.add_child(eye_picker)
+ var skin_picker:=OptionButton.new()
+ for skin_name in ["Warm","Fair","Bronze","Deep","Rose"]:
+  skin_picker.add_item(skin_name)
+ custom_column.add_child(skin_picker)
+ var face_picker:=OptionButton.new()
+ for face_name in ["Neutral","Smile","Scar"]:
+  face_picker.add_item(face_name)
+ custom_column.add_child(face_picker)
+ var accessory_picker:=OptionButton.new()
+ for accessory_name in ["None","Visor","Shoulder trim"]:
+  accessory_picker.add_item(accessory_name)
+ custom_column.add_child(accessory_picker)
+ var build_picker:=OptionButton.new()
+ for build_name in ["Slender","Balanced","Broad"]:
+  build_picker.add_item(build_name)
+ build_picker.select(1)
+ custom_column.add_child(build_picker)
+ var custom_preview:=TextureRect.new()
+ custom_preview.custom_minimum_size=Vector2(240,220)
+ custom_preview.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
+ custom_preview.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+ custom_column.add_child(custom_preview)
+ var refresh_preview:=func(_index:int=0)->void:
+  _refresh_custom_preview(custom_preview,custom_color_picker.selected,hair_picker.selected,eye_picker.selected,skin_picker.selected,face_picker.selected,accessory_picker.selected,build_picker.selected)
+ refresh_preview.call()
+ for picker in [custom_color_picker,hair_picker,eye_picker,skin_picker,face_picker,accessory_picker,build_picker]:
+  picker.item_selected.connect(refresh_preview)
+ var appearance_actions:=HBoxContainer.new()
+ appearance_actions.add_theme_constant_override("separation",8)
+ custom_column.add_child(appearance_actions)
+ var randomize_button:=Button.new()
+ randomize_button.text="RANDOMIZE LOOK"
+ randomize_button.tooltip_text="Randomize only your custom hero appearance; no class or gameplay changes."
+ randomize_button.custom_minimum_size=Vector2(140,44)
+ appearance_actions.add_child(randomize_button)
+ var reset_button:=Button.new()
+ reset_button.text="RESET LOOK"
+ reset_button.custom_minimum_size=Vector2(115,44)
+ appearance_actions.add_child(reset_button)
+ var appearance_pickers:Array=[custom_color_picker,hair_picker,eye_picker,skin_picker,face_picker,accessory_picker,build_picker]
+ randomize_button.pressed.connect(func()->void:
+  for picker in appearance_pickers:
+   picker.select(randi_range(0,picker.item_count-1))
+  refresh_preview.call()
+ )
+ reset_button.pressed.connect(func()->void:
+  for picker in appearance_pickers:picker.select(0)
+  build_picker.select(1)
+  refresh_preview.call()
+ )
+ var custom_launch:=Button.new()
+ custom_launch.text="CREATE & PLAY"
+ custom_launch.custom_minimum_size=Vector2(230,52)
+ custom_launch.pressed.connect(func()->void:_start_custom_game(custom_name_edit.text,custom_color_picker.selected,hair_picker.selected,eye_picker.selected,skin_picker.selected,face_picker.selected,accessory_picker.selected,build_picker.selected))
+ custom_column.add_child(custom_launch)
  if not _read_save().is_empty():
   var continue_btn:=Button.new()
   continue_btn.position=Vector2(145,530)
@@ -1355,7 +1441,7 @@ func _reset_new_adventure() -> void:
  restored_wildlife=0
  bosses_transformed=0
  rifts_completed=0
- world_clock=480.0
+ world_clock=3600.0
  world_day=1
  wait_transition_active=false
  wait_open=false
@@ -1398,11 +1484,83 @@ func _reset_new_adventure() -> void:
  _update_region_visibility()
  _update_camera(1.0)
 
+var custom_hero_name:String="Wanderer"
+var custom_hero_color:int=0
+var custom_hero_hair:int=0
+var custom_hero_eyes:int=0
+var custom_hero_skin:int=0
+var custom_hero_face:int=0
+var custom_hero_accessory:int=0
+var custom_hero_build:int=1
+
+func _custom_hero_texture(index:int,hair:int=0,eyes:int=0,skin:int=0,face:int=0,accessory:int=0,build:int=1) -> Texture2D:
+ var palette:Array=[Color("962f45"),Color("3166a1"),Color("358060"),Color("70449c"),Color("c99c42")]
+ var color:Color=palette[clampi(index,0,palette.size()-1)]
+ var image:=Image.create(64,80,false,Image.FORMAT_RGBA8)
+ image.fill(Color.TRANSPARENT)
+ for y in range(80):
+  for x in range(64):
+   var dx:float=float(x-32)
+   var head:bool=dx*dx+float(y-20)*float(y-20)<144.0
+   var body_width:float=[0.82,1.0,1.20][clampi(build,0,2)]
+   var body:bool=y>=35 and y<76 and absf(dx)<(17.0+float(y-35)*0.27)*body_width
+   if head or body:
+    image.set_pixel(x,y,color.lightened(0.18) if head else color.darkened(0.2))
+ var skin_color:Color=[Color("d7ad8d"),Color("f0c7a0"),Color("a46b4c"),Color("71442f"),Color("e3b6a5")][clampi(skin,0,4)]
+ for yy in range(9,34):
+  for xx in range(15,49):
+   var dx:float=float(xx-32)
+   if dx*dx+float(yy-20)*float(yy-20)<144.0:image.set_pixel(xx,yy,skin_color)
+ var hair_color:Color=[Color("24202d"),Color("94603b"),Color("e2c87f"),Color("bdb9c5")][clampi(hair,0,3)]
+ var eye_color:Color=[Color("8fd5eb"),Color("77bd87"),Color("a780d3"),Color("c99362")][clampi(eyes,0,3)]
+ for yy in range(9,17):
+  for xx in range(20,44):
+   if (hair%2==0 and yy<13) or (hair%2==1 and (xx<25 or xx>39 or yy<11)):
+    image.set_pixel(xx,yy,hair_color)
+ for xx in [27,37]:
+  image.set_pixel(xx,23,eye_color)
+  image.set_pixel(xx+1,23,eye_color)
+ if face==1:
+  for xx in range(28,37):image.set_pixel(xx,29,Color("623f40"))
+ elif face==2:
+  for xx in range(25,40):
+   if xx%2==0:image.set_pixel(xx,30,Color("81574d"))
+ if accessory==1:
+  for xx in range(23,42):image.set_pixel(xx,22,Color("d3d7dd"))
+ elif accessory==2:
+  for yy in range(37,57):
+   image.set_pixel(15,yy,Color("d8bd7c"))
+   image.set_pixel(48,yy,Color("d8bd7c"))
+ return ImageTexture.create_from_image(image)
+
+func _refresh_custom_preview(preview:TextureRect,palette:int,hair:int,eyes:int,skin:int,face:int,accessory:int,build:int) -> void:
+ preview.texture=_custom_hero_texture(palette,hair,eyes,skin,face,accessory,build)
+
+func _apply_custom_hero_visual() -> void:
+ if hero=="custom":
+  hero_sprite.texture=_custom_hero_texture(custom_hero_color,custom_hero_hair,custom_hero_eyes,custom_hero_skin,custom_hero_face,custom_hero_accessory,custom_hero_build)
+  hero_sprite.pixel_size=2.65/80.0
+
+func _start_custom_game(name:String,color_index:int,hair_index:int,eye_index:int,skin_index:int,face_index:int,accessory_index:int,build_index:int) -> void:
+ _start_game("custom")
+ custom_hero_name=name.strip_edges().substr(0,24)
+ if custom_hero_name.is_empty():custom_hero_name="Wanderer"
+ custom_hero_color=clampi(color_index,0,4)
+ custom_hero_hair=clampi(hair_index,0,3)
+ custom_hero_eyes=clampi(eye_index,0,3)
+ custom_hero_skin=clampi(skin_index,0,4)
+ custom_hero_face=clampi(face_index,0,2)
+ custom_hero_accessory=clampi(accessory_index,0,2)
+ custom_hero_build=clampi(build_index,0,2)
+ _apply_custom_hero_visual()
+ _show_message("Explore as "+custom_hero_name+"!",4.0)
+
 func _start_game(selected: String) -> void:
  _reset_new_adventure()
- hero="nyra" if selected=="nyra" else "z"
+ hero=selected if selected in ["z","nyra","custom"] else "z"
  hero_sprite.texture=NYRA_ART if hero=="nyra" else Z_ART
  hero_sprite.pixel_size=2.65/float(hero_sprite.texture.get_height())
+ _apply_custom_hero_visual()
  hero_playing=true
  menu_open=false
  region_index=_region_here()
@@ -1411,7 +1569,7 @@ func _start_game(selected: String) -> void:
  menu_panel.visible=false
  if is_instance_valid(quick_actions):quick_actions.visible=true
  if is_instance_valid(minimap):minimap.visible=minimap_visible
- _show_message("Explore all six regions as "+("Nyra" if hero=="nyra" else "Z")+".",4.0)
+ _show_message("Explore all six regions as "+("Nyra" if hero=="nyra" else custom_hero_name if hero=="custom" else "Z")+".",4.0)
  _update_hud()
 
 func _load_from_main_menu() -> void:
@@ -1435,7 +1593,7 @@ func _wait_clock_text(clock:float) -> String:
  return "%02d:%02d" % [hour,minute]
 
 func _wait_change_hours(step:int) -> void:
- if not wait_open:return
+ if not wait_open or wait_transition_active:return
  wait_hours=clampi(wait_hours+step,1,24)
  _set_wait_display()
 
@@ -1467,6 +1625,7 @@ func _finish_wait(confirm:bool) -> void:
   _show_message("Cannot wait during combat or while the menu is open.",2.5)
   confirm=false
  if confirm:
+  wait_hours=clampi(wait_hours,1,24)
   wait_transition_start_day=world_day
   wait_transition_start=world_clock
   wait_transition_end=world_clock+float(wait_hours)*DAY_LENGTH_SECONDS/24.0
@@ -1481,8 +1640,9 @@ func _skip_wait_animation() -> void:
 
 func _animate_wait(delta:float) -> void:
  if not wait_transition_active:return
- wait_transition_elapsed=minf(WAIT_TRANSITION_DURATION,wait_transition_elapsed+delta)
- var fraction:float=wait_transition_elapsed/WAIT_TRANSITION_DURATION
+ if not is_finite(delta):return
+ wait_transition_elapsed=minf(WAIT_TRANSITION_DURATION,wait_transition_elapsed+maxf(delta,0.0))
+ var fraction:float=clampf(wait_transition_elapsed/WAIT_TRANSITION_DURATION,0.0,1.0)
  var eased:float=fraction*fraction*(3.0-2.0*fraction)
  var absolute_clock:float=lerpf(wait_transition_start,wait_transition_end,eased)
  world_clock=fposmod(absolute_clock,DAY_LENGTH_SECONDS)
@@ -1495,6 +1655,7 @@ func _animate_wait(delta:float) -> void:
  if fraction>=1.0:
   world_day=mini(99999,wait_transition_start_day+int(floor(wait_transition_end/DAY_LENGTH_SECONDS)))
   wait_transition_active=false
+  wait_transition_elapsed=0.0
   _set_wait_display()
   _save_game()
   _show_message("Time passes. Day %d, %s (%s)." % [world_day,_day_phase(),_wait_clock_text(world_clock)],3.0)
@@ -2614,8 +2775,9 @@ func _release_label() -> String:
 
 func _update_hud() -> void:
  if not is_instance_valid(hud):return
- hud.text="MOONFALL NATIVE "+_release_label()+"  •  "+("NYRA" if hero=="nyra" else "Z")+"  ♥ "+str(int(hp))+"/"+str(int(max_hp))+"  ◆ "+_wallet_text()+"  ⚔ "+str(kills_total)+" defeats  ✦ LV "+str(hero_level)+"  XP "+str(hero_xp)+"/"+str(hero_xp_to_next)
- hint.text="📍 "+str(REGIONS[region_index]["name"])+"  • Day "+str(world_day)+" "+_day_phase()+"  • "+weather_name+("  •  MOUNTED" if mounted else "  •  SENSES" if senses_on else "")
+ var display_hero:String="NYRA" if hero=="nyra" else custom_hero_name if hero=="custom" else "Z"
+ hud.text="MOONFALL NATIVE "+_release_label()+"  •  "+display_hero+"  ♥ "+str(int(hp))+"/"+str(int(max_hp))+"  ◆ "+_wallet_text()+"  ⚔ "+str(kills_total)+" defeats  ✦ LV "+str(hero_level)+"  XP "+str(hero_xp)+"/"+str(hero_xp_to_next)
+ hint.text="📍 "+str(REGIONS[region_index]["name"])+"  • Day "+str(world_day)+" "+_wait_clock_text(world_clock)+" "+_day_phase()+"  • "+weather_name+("  •  MOUNTED" if mounted else "  •  SENSES" if senses_on else "")
  status.text=status_message
  world_hud.text="CRITS "+str(critical_hits)+"  | STAGGERS "+str(stagger_events)+"  | COMBO "+str(combat_combo if map_time<=combat_combo_until else 0)+"  | HERO PTS "+str(hero_points)+"  | TAMER PTS "+str(tamer_points)+"  | POWER "+str(_current_power())+"/"+str(_recommended_power(region_index))+"  | PET "+companion_stance+"  | RIFTS "+str(rifts_cleared.size())+"/3  | EVENTS "+str(events_completed.size())+"/6  | LOOT "+str(gear_drops.size())+("  | SKIN "+str(snappedf(skinning_left,0.1))+"s" if skinning_left>0 else "")
 
@@ -2650,7 +2812,8 @@ func _save_game() -> void:
   "contract_zone":contract_zone,"contract_kills":contract_kills,
   "clues":found_clues.duplicate(),"bosses":defeated_boss_ids.duplicate(),"quality":graphics_quality,
   "dormant_wildlife":dormant,"pet_stance":companion_stance,
-  "world_clock":world_clock,"world_day":world_day,"weather":weather_name,"weather_remaining":weather_remaining,
+  "custom_hero_name":custom_hero_name,"custom_hero_color":custom_hero_color,"custom_hero_hair":custom_hero_hair,"custom_hero_eyes":custom_hero_eyes,"custom_hero_skin":custom_hero_skin,"custom_hero_face":custom_hero_face,"custom_hero_accessory":custom_hero_accessory,"custom_hero_build":custom_hero_build,
+  "world_clock":world_clock,"world_cycle_seconds":DAY_LENGTH_SECONDS,"world_day":world_day,"weather":weather_name,"weather_remaining":weather_remaining,
   "world_events_completed":events_completed.duplicate(),"world_event_active":active_world_event,"world_event_kills":active_event_kills
  }
  save["optional_resources"]=_checkpoint_extra_data()
@@ -2681,10 +2844,26 @@ func _load_game() -> void:
  if not hero_playing or hero!=str(data["hero"]):_start_game(str(data["hero"]))
  _restore_data(data)
 
+func _normalize_saved_world_clock(data:Dictionary) -> float:
+ var saved_cycle:float=float(data.get("world_cycle_seconds",960.0))
+ if not is_finite(saved_cycle) or saved_cycle<=0.0:saved_cycle=960.0
+ var saved_clock:float=float(data.get("world_clock",saved_cycle*0.5))
+ if not is_finite(saved_clock):saved_clock=saved_cycle*0.5
+ return fposmod(saved_clock,saved_cycle)/saved_cycle*DAY_LENGTH_SECONDS
+
 func _restore_data(data: Dictionary) -> void:
  hero=str(data.get("hero","z"))
+ custom_hero_name=str(data.get("custom_hero_name","Wanderer")).substr(0,24)
+ custom_hero_color=clampi(int(data.get("custom_hero_color",0)),0,4)
+ custom_hero_hair=clampi(int(data.get("custom_hero_hair",0)),0,3)
+ custom_hero_eyes=clampi(int(data.get("custom_hero_eyes",0)),0,3)
+ custom_hero_skin=clampi(int(data.get("custom_hero_skin",0)),0,4)
+ custom_hero_face=clampi(int(data.get("custom_hero_face",0)),0,2)
+ custom_hero_accessory=clampi(int(data.get("custom_hero_accessory",0)),0,2)
+ custom_hero_build=clampi(int(data.get("custom_hero_build",1)),0,2)
  hero_sprite.texture=NYRA_ART if hero=="nyra" else Z_ART
  hero_sprite.pixel_size=2.65/float(hero_sprite.texture.get_height())
+ _apply_custom_hero_visual()
  var coords:Array=data["at"]
  player.position=Vector3(clampf(float(coords[0]),-WORLD_X,WORLD_X),0.85,clampf(float(coords[1]),-WORLD_Z,WORLD_Z))
  gold=clampi(int(data.get("gold",0)),0,99999999)
@@ -2709,7 +2888,7 @@ func _restore_data(data: Dictionary) -> void:
  combat_combo=0
  combat_combo_until=0.0
  # Optional v11 fields are ignored by v10 saves; older checkpoints remain valid.
- world_clock=clampf(float(data.get("world_clock",480.0)),0.0,DAY_LENGTH_SECONDS-0.01)
+ world_clock=_normalize_saved_world_clock(data)
  world_day=clampi(int(data.get("world_day",1)),1,99999)
  weather_name=str(data.get("weather","Clear"))
  if not (weather_name in WEATHER_TYPES):weather_name="Clear"
