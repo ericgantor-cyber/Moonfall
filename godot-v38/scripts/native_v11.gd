@@ -801,7 +801,7 @@ func _build_ui() -> void:
  wait_panel.name="CelestialWaitPanel"
  wait_panel.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
  wait_panel.position=Vector2(-280,-165)
- wait_panel.custom_minimum_size=Vector2(560,330)
+ wait_panel.custom_minimum_size=Vector2(650,350)
  wait_panel.mouse_filter=Control.MOUSE_FILTER_STOP
  var wait_frame:=StyleBoxFlat.new()
  wait_frame.bg_color=Color("151b32")
@@ -828,7 +828,7 @@ func _build_ui() -> void:
  wait_clock_art.add_theme_color_override("font_color",Color("f4d69a"))
  wait_column.add_child(wait_clock_art)
  wait_clock_bar=ProgressBar.new()
- wait_clock_bar.custom_minimum_size=Vector2(490,18)
+ wait_clock_bar.custom_minimum_size=Vector2(560,22)
  wait_clock_bar.max_value=24.0
  wait_clock_bar.show_percentage=false
  var track:=StyleBoxFlat.new()
@@ -841,12 +841,14 @@ func _build_ui() -> void:
  wait_clock_bar.add_theme_stylebox_override("fill",fill)
  wait_column.add_child(wait_clock_bar)
  wait_label=Label.new()
- wait_label.add_theme_font_size_override("font_size",19)
+ wait_label.add_theme_font_size_override("font_size",21)
  wait_label.add_theme_color_override("font_color",Color("f8e9cb"))
  wait_label.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
  wait_column.add_child(wait_label)
  wait_actions_container=HBoxContainer.new()
  var wait_actions:=wait_actions_container
+ # Accessible large controls for mouse and touch users.
+ wait_actions.add_theme_constant_override("separation",8)
  wait_actions.add_theme_constant_override("separation",6)
  wait_column.add_child(wait_actions)
  for entry in [["−6h",-6],["−1h",-1],["+1h",1],["+6h",6]]:
