@@ -101,6 +101,12 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("HealthRatio <= 0.66f ? 2 : 1", damage)
         self.assertIn("if (NewPhase > BossPhase)", damage)
 
+    def test_boss_phase_stops_pending_combo(self):
+        damage = self.enemy_cpp.split("void AMoonfallEnemy::TakeSpellDamage(float Amount) {", 1)[1].split("\n}", 1)[0]
+        self.assertIn("NextAttackAt = Now + 1.5f", damage)
+        self.assertIn("bComboSecondHitPending = false", damage)
+        self.assertIn("bComboSecondHitActive = false", damage)
+
     def test_dodge_and_blocked_hit_checks_retained(self):
         self.assertIn("GetSafeNormal2D()", self.enemy_cpp)
         self.assertIn("LineTraceSingleByChannel", self.enemy_cpp)
