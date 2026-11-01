@@ -829,6 +829,7 @@ func _build_ui() -> void:
  wait_clock_dial=preload("res://scripts/systems/celestial_wait_clock.gd").new()
  wait_clock_dial.custom_minimum_size=Vector2(560,160)
  wait_clock_dial.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+ wait_clock_dial.tooltip_text="Animated astronomical clock showing the selected time of day"
  wait_column.add_child(wait_clock_dial)
  wait_clock_art=Label.new()
  wait_clock_art.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
