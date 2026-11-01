@@ -58,6 +58,7 @@ func _run()->void:
   check(game.call("_wait_clock_text",720.0)=="18:00","Long day three-quarter reads evening")
   check(game.call("_wait_clock_text",960.0)=="00:00","Wait clock wraps cleanly at midnight")
   check(game.call("_wait_clock_text",1440.0)=="12:00","Clock format wraps across multiple days")
+  check(game.call("_wait_clock_text",-40.0)=="23:00","Clock wraps negative time safely")
   check(game.has_method("_skip_wait_animation"),"Wait animation is skippable")
   check(game.has_method("_wait_change_hours"),"Wait adjustment helper exists")
   check(game.has_method("_finish_wait"),"Wait confirmation helper exists")
