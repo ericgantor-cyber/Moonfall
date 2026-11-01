@@ -56,7 +56,7 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
   LastHitTime = GetWorld() ? GetWorld()->GetTimeSeconds() : -10.f;
   HitReactionEndsAt = LastHitTime + 0.22f;
   if (Health <= 0.0f) {
-   if (AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0))) Hero->AwardExperience(bBoss ? 125 : (bElite ? 50 : 25));
+   if (AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0))) { Hero->AwardExperience(bBoss ? 125 : (bElite ? 50 : 25)); Hero->AwardEquipmentDrop(bElite, bBoss); }
    SetActorHiddenInGame(true); SetActorEnableCollision(false); SetActorTickEnabled(false); SetLifeSpan(1.25f); }
 }
 
