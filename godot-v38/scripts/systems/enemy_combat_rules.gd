@@ -37,7 +37,7 @@ static func ready_to_strike(timer:float)->bool:
 static func remember_target(seen:bool,hostile:bool,boss:bool,now:float,hero_pos:Vector3,old_pos:Vector3,old_until:float)->Dictionary:
  if not hostile or boss or not is_finite(now):
   return {"position":old_pos,"until":0.0}
- if seen:
+ if seen and is_finite(hero_pos.x) and is_finite(hero_pos.y) and is_finite(hero_pos.z):
   return {"position":hero_pos,"until":now+3.0}
  return {"position":old_pos,"until":old_until}
 
@@ -48,7 +48,9 @@ static func investigate_velocity(hostile:bool,engaged:bool,boss:bool,now:float,u
  offset.y=0.0
  if offset.length_squared()<1.0 or not is_finite(offset.x) or not is_finite(offset.z):
   return Vector3.ZERO
- return offset.normalized()*clampf(speed,0.0,20.0)*0.65 if is_finite(speed) else Vector3.ZERO
+ # Slow as the search point approaches so actors do not oscillate over it.
+ var max_speed:float=minf(clampf(speed,0.0,20.0)*0.65,(sqrt(offset.length_squared())-1.0)*4.0) if is_finite(speed) else 0.0
+ return offset.normalized()*maxf(0.0,max_speed)
 
 static func search_arrived(body_pos:Vector3,last_pos:Vector3)->bool:
  var offset:Vector3=last_pos-body_pos
