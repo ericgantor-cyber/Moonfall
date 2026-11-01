@@ -143,6 +143,37 @@ $cancel.Add_Click({
     }
 })
 $diagnostics.Add_Click({ Start-Process explorer.exe -ArgumentList ('"' + $script:logDir + '"') })
+$exportLog = New-Button 'EXPORT LOG' 461 130
+$exportLog.SetBounds(461,140,125,27)
+$exportLog.AccessibleName = 'Save latest Moonfall diagnostic log to a selected location'
+$exportLog.Add_Click({
+    if (-not $script:outLog -or -not (Test-Path -LiteralPath $script:outLog)) {
+        [Windows.Forms.MessageBox]::Show('Run a build or prerequisite check first.','No log available')
+        return
+    }
+    $dialog = New-Object Windows.Forms.SaveFileDialog
+    $dialog.Title = 'Export Moonfall build diagnostics'
+    $dialog.Filter = 'Text files (*.txt)|*.txt'
+    $dialog.FileName = 'Moonfall-Build-Diagnostics.txt'
+    if ($dialog.ShowDialog($form) -eq [Windows.Forms.DialogResult]::OK) {
+        try {
+            $body = @('Moonfall Build Center diagnostics',
+                      'Generated: ' + (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'),
+                      'Engine: ' + $engine.Text,
+                      '----- Standard output -----',
+                      [IO.File]::ReadAllText($script:outLog),
+                      '----- Standard error -----')
+            if (Test-Path -LiteralPath $script:errLog) {
+                $body += [IO.File]::ReadAllText($script:errLog)
+            }
+            [IO.File]::WriteAllText($dialog.FileName, ($body -join [Environment]::NewLine))
+            $logs.AppendText('Exported diagnostics: ' + $dialog.FileName + [Environment]::NewLine)
+        } catch {
+            [Windows.Forms.MessageBox]::Show($_.Exception.Message,'Export failed')
+        }
+    }
+    $dialog.Dispose()
+})
 $folder.Add_Click({ New-Item -ItemType Directory -Path $out -Force | Out-Null; Start-Process explorer.exe -ArgumentList ('"' + $out + '"') })
 $timer.Add_Tick({
     foreach ($item in @(@($script:outLog,'seenOut'),@($script:errLog,'seenErr'))) {
@@ -197,7 +228,7 @@ $form.Add_FormClosing({
 })
 if ($SelfTest) {
     # Exercise real WinForms control construction on a hosted Windows runner.
-    $required = @($check, $install, $browseEngine, $preflight, $compile, $build, $cancel, $folder, $diagnostics, $logs, $engine)
+    $required = @($check, $install, $exportLog, $browseEngine, $preflight, $compile, $build, $cancel, $folder, $diagnostics, $logs, $engine)
     foreach ($control in $required) {
         if ($null -eq $control -or -not $control.IsHandleCreated) {
             if ($null -eq $control) { throw 'Build Center control was not created.' }
