@@ -95,6 +95,7 @@ func _create_atlas()->void:
  atlas_chart.set("metres_per_half_width",atlas_zoom_radius)
  layout.add_child(atlas_chart)
  atlas_chart.connect("waypoint_selected",_atlas_select_waypoint)
+ atlas_chart.connect("zoom_requested",_atlas_zoom)
  atlas_readout=Label.new()
  atlas_readout.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
  layout.add_child(atlas_readout)
