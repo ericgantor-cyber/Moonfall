@@ -66,8 +66,13 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
  }
  if (IsValid(Body)) {
   const float Windup = WindupEndsAt > Now ? FMath::Clamp((WindupEndsAt - Now) / FMath::Max(0.1f, CurrentWindup), 0.f, 1.f) : 0.f;
+  const bool bBossTelegraph = bBoss && WindupEndsAt > Now;
+  const float Anticipation = bBossTelegraph ? (1.f - Windup) : 0.f;
+  const float Recovery = bBoss && WindupEndsAt < 0.f && NextAttackAt > Now
+    ? FMath::Clamp((NextAttackAt - Now) / FMath::Max(0.2f, AttackCooldown + 0.8f), 0.f, 1.f) : 0.f;
   const float Scale = Staggered ? 0.92f : 1.f + (Windup > 0.f ? (1.f - Windup) * 0.18f : 0.f);
-  Body->SetRelativeScale3D(FVector(0.85f * Scale, 0.85f * Scale, 1.4f / Scale));
+  const float Squash = bBossTelegraph ? 1.f - 0.12f * Anticipation : 1.f - 0.09f * Recovery;
+  Body->SetRelativeScale3D(FVector(0.85f * Scale / FMath::Max(0.75f,Squash), 0.85f * Scale / FMath::Max(0.75f,Squash), 1.4f * Squash / Scale));
  }
  if (bBoss && Now < BossPhaseMessageUntil) {
   // A readable phase-change recovery: no movement or attacks during the transition.
