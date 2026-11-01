@@ -121,6 +121,10 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("GetWorld()->GetTimeSeconds() < DamageImmunityUntil", damage)
         self.assertLess(damage.index("DamageImmunityUntil"), damage.index("Health = FMath::Max"))
 
+    def test_player_and_enemy_health_are_clamped_to_zero(self):
+        self.assertIn("Health = FMath::Max(0.f, Health - Amount", self.hero_cpp)
+        self.assertIn("Health = FMath::Max(0.0f, Health -", self.enemy_cpp)
+
     def test_dodge_and_blocked_hit_checks_retained(self):
         self.assertIn("GetSafeNormal2D()", self.enemy_cpp)
         self.assertIn("LineTraceSingleByChannel", self.enemy_cpp)
