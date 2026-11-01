@@ -111,6 +111,11 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("bInCombatArea ? 0.1f : 0.4f", self.enemy_cpp)
         self.assertIn("SetActorTickInterval(DesiredTickInterval)", self.enemy_cpp)
 
+    def test_enemy_attacks_cannot_go_through_cover(self):
+        self.assertIn("SightParams.AddIgnoredActor(this)", self.enemy_cpp)
+        self.assertIn("LineTraceSingleByChannel(", self.enemy_cpp)
+        self.assertIn("if (!bBlocked)", self.enemy_cpp)
+
     def test_dodge_and_blocked_hit_checks_retained(self):
         self.assertIn("GetSafeNormal2D()", self.enemy_cpp)
         self.assertIn("LineTraceSingleByChannel", self.enemy_cpp)
