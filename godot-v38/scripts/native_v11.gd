@@ -838,17 +838,17 @@ func _build_ui() -> void:
  for entry in [["−6h",-6],["−1h",-1],["+1h",1],["+6h",6]]:
   var step_button:=Button.new()
   step_button.text=str(entry[0])
-  step_button.custom_minimum_size=Vector2(90,38)
+  step_button.custom_minimum_size=Vector2(64,38)
   step_button.pressed.connect(_wait_change_hours.bind(int(entry[1])))
   wait_actions.add_child(step_button)
  var accept_button:=Button.new()
  accept_button.text="WAIT"
- accept_button.custom_minimum_size=Vector2(75,38)
+ accept_button.custom_minimum_size=Vector2(74,38)
  accept_button.pressed.connect(_finish_wait.bind(true))
  wait_actions.add_child(accept_button)
  var cancel_button:=Button.new()
  cancel_button.text="CANCEL"
- cancel_button.custom_minimum_size=Vector2(90,38)
+ cancel_button.custom_minimum_size=Vector2(80,38)
  cancel_button.pressed.connect(_finish_wait.bind(false))
  wait_actions.add_child(cancel_button)
  wait_panel.visible=false
