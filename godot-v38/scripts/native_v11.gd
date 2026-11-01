@@ -821,7 +821,7 @@ func _build_ui() -> void:
  var wait_art:=Label.new()
  wait_art.text="✦   ═════  THE PASSING HOURS  ═════   ✦"
  wait_art.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
- wait_art.add_theme_font_size_override("font_size",24)
+ wait_art.add_theme_font_size_override("font_size",26)
  wait_art.add_theme_color_override("font_color",Color("e8c883"))
  wait_column.add_child(wait_art)
  wait_clock_dial=preload("res://scripts/systems/celestial_wait_clock.gd").new()
