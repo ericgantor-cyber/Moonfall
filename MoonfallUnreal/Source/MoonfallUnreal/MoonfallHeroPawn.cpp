@@ -259,3 +259,18 @@ void AMoonfallHeroPawn::AwardExperience(int32 Amount)
   Mana = FMath::Min(MaxMana, Mana + 15.f);
  }
 }
+
+void AMoonfallHeroPawn::AwardEquipmentDrop(bool bEliteEnemy, bool bBossEnemy)
+{
+ if (Health <= 0.f) return;
+ // Bounded deterministic loot, without spawned pickup actors or per-frame work.
+ const int32 NewTier = FMath::Clamp(Level / 5 + (bBossEnemy ? 2 : (bEliteEnemy ? 1 : 0)), 1, 25);
+ if (NewTier > EquipmentTier) {
+  EquipmentTier = NewTier;
+  MaxHealth += 3.f;
+  Health = FMath::Min(MaxHealth, Health + 3.f);
+  OnHealthChanged(Health, MaxHealth);
+ } else {
+  Salvage = FMath::Min(9999, Salvage + (bBossEnemy ? 5 : (bEliteEnemy ? 2 : 1)));
+ }
+}
