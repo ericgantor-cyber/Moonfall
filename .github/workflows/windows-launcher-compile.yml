@@ -33,6 +33,14 @@ jobs:
           dotnet publish ./MoonfallUnreal/Launcher/MoonfallLauncher.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:PublishTrimmed=false -o ./MoonfallLauncherArtifact
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           if (-not (Test-Path ./MoonfallLauncherArtifact/MoonfallLauncher.exe)) { throw 'Published launcher executable missing' }
+      - name: Write launcher SHA256 verification file
+        shell: pwsh
+        run: |
+          $exe = './MoonfallLauncherArtifact/MoonfallLauncher.exe'
+          if (-not (Test-Path -LiteralPath $exe)) { throw 'Missing published launcher' }
+          $hash = (Get-FileHash -LiteralPath $exe -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  MoonfallLauncher.exe" | Set-Content -Encoding ascii -Path './MoonfallLauncherArtifact/SHA256SUMS.txt'
+          if (-not (Test-Path ./MoonfallLauncherArtifact/SHA256SUMS.txt)) { throw 'Missing checksum manifest' }
       - name: Upload launcher artifact
         uses: actions/upload-artifact@v4
         with:
