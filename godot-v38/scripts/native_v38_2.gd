@@ -58,11 +58,12 @@ func _create_atlas()->void:
  var layout:VBoxContainer=VBoxContainer.new()
  atlas_panel.add_child(layout)
  var heading:Label=Label.new()
- heading.text="MOONFALL ATLAS | N ↑"
+ heading.text="MOONFALL ATLAS | N ↑ | CLICK TO MARK"
  layout.add_child(heading)
  atlas_chart=NAVIGATION_MAP.new()
  atlas_chart.custom_minimum_size=Vector2(300,240)
  layout.add_child(atlas_chart)
+ atlas_chart.waypoint_selected.connect(_atlas_select_waypoint)
  atlas_readout=Label.new()
  atlas_readout.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
  layout.add_child(atlas_readout)
@@ -98,6 +99,12 @@ func _atlas_zoom(factor:float)->void:
 func _toggle_atlas()->void:
  if not hero_playing or menu_open or death_active or not is_instance_valid(atlas_panel):return
  atlas_panel.visible=not atlas_panel.visible
+ _refresh_atlas()
+
+func _atlas_select_waypoint(location:Vector3)->void:
+ if not hero_playing or death_active or menu_open:return
+ atlas_waypoint=location
+ atlas_has_waypoint=true
  _refresh_atlas()
 
 func _atlas_mark_here()->void:
