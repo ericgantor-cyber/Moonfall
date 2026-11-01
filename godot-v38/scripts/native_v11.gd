@@ -1428,6 +1428,9 @@ func _set_wait_display() -> void:
   wait_label.text="WAIT • %d in-game hour(s)\nNow: Day %d, %s (%s)\nAfter: Day %d, %s (%s)\n←/→ 1h • ↑/↓ 6h • Enter accept • Esc cancel\nController: D-pad adjust • A accept • B cancel" % [wait_hours,world_day,_wait_clock_text(world_clock),_day_phase(),next_day,_wait_clock_text(future_clock),future_phase]
 
 func _finish_wait(confirm:bool) -> void:
+ # The visible transition panel must not permit a second wait or cancellation.
+ if wait_transition_active:return
+ if not wait_open:return
  if confirm and (not hero_playing or menu_open or _combat_threat()):
   _show_message("Cannot wait during combat or while the menu is open.",2.5)
   confirm=false
