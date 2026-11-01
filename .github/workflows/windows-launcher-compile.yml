@@ -48,13 +48,7 @@ jobs:
           $checksum = './MoonfallLauncherArtifact/SHA256SUMS.txt'
           if (-not (Test-Path -LiteralPath $exe) -or -not (Test-Path -LiteralPath $checksum)) { throw 'Launcher or checksum missing' }
           $line = (Get-Content -LiteralPath $checksum -TotalCount 1).Trim()
-          if ($line -notmatch '^([0-9a-f]{64})  MoonfallLauncher\.exe        uses: actions/upload-artifact@v4
-        with:
-          name: MoonfallLauncher-win-x64
-          path: MoonfallLauncherArtifact/**
-          if-no-files-found: error
-          retention-days: 14
-) { throw 'Invalid checksum manifest' }
+          if ($line -notmatch '^([0-9a-f]{64})  MoonfallLauncher[.]exe$') { throw 'Invalid checksum manifest' }
           $expected = $Matches[1]
           $actual = (Get-FileHash -LiteralPath $exe -Algorithm SHA256).Hash.ToLowerInvariant()
           if ($actual -ne $expected) { throw 'Published launcher SHA256 mismatch' }
