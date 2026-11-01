@@ -1989,7 +1989,7 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
  elif engaged and ENEMY_COMBAT_RULES.should_circle(kind,v383_intent,distance):
   # Stable per-actor orbit side, no random calls or additional physics bodies.
   var flank:Vector3=Vector3(-diff.z,0.0,diff.x).normalized()
-  var orbit_side:float=1.0 if int(beast["boss_id"])%2==0 else -1.0
+  var orbit_side:float=ENEMY_COMBAT_RULES.orbit_direction(int(beast["boss_id"]))
   body.velocity=(flank*orbit_side+diff.normalized()*0.25).normalized()*move_speed*0.7
  elif engaged and distance>1.7:
   body.velocity=AI_RULES.approach(diff,move_speed,int(beast["boss_id"]),bool(beast.get("boss",false)),int(beast.get("boss_phase",1)),distance)
@@ -2069,7 +2069,7 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
    beast["warning_pos"]=body.global_position if pattern==1 else player.global_position
    _set_boss_telegraph(beast,true)
    _show_message("⚠ GUARDIAN PHASE "+str(phase)+": dodge the glowing circle!",1.6)
- elif engaged and distance<1.7 and float(beast["attack"])<=0.0:
+ elif engaged and ENEMY_COMBAT_RULES.can_attack(distance,float(beast["attack"])<=0.0,_has_clear_sight(body,player)):
   if dodge_time<=0 and _has_clear_sight(body,player):
    _apply_incoming_damage(float(BEASTS[kind]["atk"]))
   # Visual follow-through only; preserve established hit timing and damage.
