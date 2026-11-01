@@ -95,7 +95,17 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
      CachedWaypoint = Target;
     }
    }
-   if (!CachedWaypoint.IsNearlyZero()) Target = CachedWaypoint;
+   if (!CachedWaypoint.IsNearlyZero()) {
+    FVector ToWaypoint = CachedWaypoint - GetActorLocation();
+    ToWaypoint.Z = 0.f;
+    if (ToWaypoint.SizeSquared() < FMath::Square(65.f)) {
+     // Reaching an intermediate waypoint must advance the path, not idle
+     // until a stale waypoint is recomputed on the normal timer.
+     NextPathRefreshAt = 0.f;
+    } else {
+     Target = CachedWaypoint;
+    }
+   }
   }
   FVector Direction = Target - GetActorLocation();
   Direction.Z = 0.f;
