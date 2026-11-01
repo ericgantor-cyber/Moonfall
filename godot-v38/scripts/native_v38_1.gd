@@ -121,3 +121,22 @@ func _process(delta:float) -> void:
  super._process(delta)
  if is_instance_valid(realm_panel):
   realm_panel.visible = hero_playing and not death_active and not menu_open
+
+func _apply_player_hit(target:Dictionary,base_damage:float,stagger_strength:float=0.0)->void:
+ # Evolving weapons use real accomplishments, not clicks or simulated kills.
+ var was_alive:bool=bool(target.get("alive",false))
+ var prior_hp:float=float(target.get("hp",0.0))
+ var evolution:Dictionary=REALM_ETHICS.weapon_evolution(realm_ethics,realm_victories,realm_elemental_kills)
+ var weapon_multiplier:float=1.0+float(evolution["bonus_percent"])/100.0
+ super._apply_player_hit(target,base_damage*weapon_multiplier,stagger_strength)
+ if not was_alive or prior_hp<=0.0 or bool(target.get("alive",false)) or float(target.get("hp",0.0))>0.0:
+  return
+ if bool(target.get("realm_kill_recorded",false)):
+  return
+ target["realm_kill_recorded"]=true
+ realm_victories+=1
+ # Only count kills carrying an explicit elemental classification.
+ var element:String=str(target.get("element","")).to_lower()
+ if element in ["fire","water","air","earth","lightning","ice","arcane"]:
+  realm_elemental_kills+=1
+ _refresh_realm_choices()
