@@ -33,6 +33,8 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
     BossPhase = NewPhase;
     WindupEndsAt = -1.f;
     NextAttackAt = Now + 1.f;
+    BossPhaseMessageUntil = Now + 1.5f;
+    OnBossPhaseChanged(BossPhase);
    }
   }
   OnHitFeedback(EffectiveDamage, Health);
@@ -41,7 +43,7 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
   LastHitTime = GetWorld() ? GetWorld()->GetTimeSeconds() : -10.f;
   HitReactionEndsAt = LastHitTime + 0.22f;
   if (Health <= 0.0f) {
-   if (AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0))) Hero->AwardExperience(25);
+   if (AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0))) Hero->AwardExperience(bBoss ? 125 : (bElite ? 50 : 25));
    SetActorHiddenInGame(true); SetActorEnableCollision(false); SetActorTickEnabled(false); SetLifeSpan(1.25f); }
 }
 
@@ -50,6 +52,11 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
  if (Health <= 0.f || !GetWorld()) return;
  const float Now = GetWorld()->GetTimeSeconds();
  const bool Staggered = Now < HitReactionEndsAt;
+ if (bBoss && Now < BossPhaseMessageUntil) {
+  DrawDebugString(GetWorld(), GetActorLocation() + FVector(0.f, 0.f, 230.f),
+    BossPhase == 3 ? TEXT("BOSS PHASE 3") : TEXT("BOSS PHASE 2"),
+    nullptr, FColor::Purple, 0.12f, false);
+ }
  if (IsValid(Body)) {
   const float Windup = WindupEndsAt > Now ? FMath::Clamp((WindupEndsAt - Now) / FMath::Max(0.1f, CurrentWindup), 0.f, 1.f) : 0.f;
   const float Scale = Staggered ? 0.92f : 1.f + (Windup > 0.f ? (1.f - Windup) * 0.18f : 0.f);
