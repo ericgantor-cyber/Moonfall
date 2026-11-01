@@ -20,6 +20,8 @@ func _run()->void:
  check(map.get("waypoint_position")==Vector3(10,0,-80),"waypoint keeps world coordinates")
  map.set("metres_per_half_width",300.0)
  check(is_equal_approx(float(map.get("metres_per_half_width")),300.0),"zoom controls map range")
+ map.call("set_discovered",[Vector3(10,0,20)])
+ check(map.get("discovered").size()==1,"visited positions render as map markers")
  var scene:PackedScene=load("res://scenes/main.tscn")
  check(scene!=null,"map-enabled main scene loads")
  if scene!=null:
@@ -32,6 +34,7 @@ func _run()->void:
   var data:Dictionary=game.call("_checkpoint_extra_data")
   check(data.has("atlas_zoom_radius"),"save persists zoom")
   check(data.has("atlas_waypoint"),"save persists waypoint")
+  check(data.has("atlas_discovered"),"save persists discovered locations")
   game.queue_free()
  map.queue_free()
  print("MOONFALL ATLAS "+("PASS" if failures==0 else "FAIL"))
