@@ -847,7 +847,7 @@ func _build_ui() -> void:
  wait_clock_bar.add_theme_stylebox_override("fill",fill)
  wait_column.add_child(wait_clock_bar)
  wait_label=Label.new()
- wait_label.add_theme_font_size_override("font_size",21)
+ wait_label.add_theme_font_size_override("font_size",23)
  wait_label.add_theme_color_override("font_color",Color("f8e9cb"))
  wait_label.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
  wait_column.add_child(wait_label)
