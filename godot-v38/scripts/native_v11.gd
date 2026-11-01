@@ -857,6 +857,7 @@ func _build_ui() -> void:
  wait_label=Label.new()
  wait_label.add_theme_font_size_override("font_size",23)
  wait_label.add_theme_color_override("font_color",Color("f8e9cb"))
+ wait_label.tooltip_text="Current and projected day, time and phase"
  wait_label.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
  wait_label.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
  wait_column.add_child(wait_label)
