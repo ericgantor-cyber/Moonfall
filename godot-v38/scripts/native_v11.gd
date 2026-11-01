@@ -838,6 +838,7 @@ func _build_ui() -> void:
  wait_clock_bar.custom_minimum_size=Vector2(560,26)
  wait_clock_bar.max_value=24.0
  wait_clock_bar.show_percentage=false
+ wait_clock_bar.tooltip_text="Projected time of day on the 24-hour celestial clock"
  var track:=StyleBoxFlat.new()
  track.bg_color=Color("34354a")
  track.set_corner_radius_all(8)
