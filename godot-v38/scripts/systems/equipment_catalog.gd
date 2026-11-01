@@ -31,9 +31,21 @@ static func generate_catalog()->Array[Dictionary]:
 static func _item(category:String,family:String,material:String,tier:int)->Dictionary:
  var id:String=(material+"_"+family).to_lower().replace(" ","_")
  var rarity:String=RARITIES[mini(tier,RARITIES.size()-1)]
- var power:int=6+5*tier
- if category=="armor":power=4+4*tier
- if category=="accessory":power=2+2*tier
+ # Predictable progression: gear gains roughly 20-25% per tier, with
+ # family tradeoffs instead of every weapon in a tier having identical stats.
+ var power:int=0
+ if category=="weapon":
+  var base:int=12
+  if family in ["Greatsword","Warhammer","War Axe","Crossbow"]:base=16
+  elif family in ["Daggers","Throwing Knives","Wand"]:base=9
+  elif family in ["Bow","Staff","Spear"]:base=13
+  power=base+3*tier
+ elif category=="armor":
+  var slot:String=family.split(" ")[-1]
+  var base_armor:int=7 if slot=="Chest" else 4 if slot in ["Helmet","Legs"] else 2
+  power=base_armor+maxi(1,base_armor*tier/3)
+ elif category=="offhand":power=4+2*tier
+ else:power=2+tier
  var element:String=ELEMENTS[(tier+family.length())%ELEMENTS.size()] if category=="weapon" else "Physical"
  return {"id":id,"name":material+" "+family,"category":category,"family":family,
   "tier":tier+1,"rarity":rarity,"power":power,"element":element,
@@ -56,7 +68,7 @@ static func loot_for_level(level:int,seed:int)->Dictionary:
 
 static func weapon_damage_multiplier(item:Dictionary)->float:
  if item.get("category","")!="weapon":return 1.0
- return 1.0 + float(item.get("power",0))*0.008
+ return minf(1.5, 1.0 + float(item.get("power",0))*0.008)
 
 static func armor_bonus(item:Dictionary)->int:
  return int(item.get("power",0)) if item.get("category","")=="armor" else 0
