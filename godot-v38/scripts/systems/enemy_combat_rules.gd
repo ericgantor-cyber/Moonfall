@@ -17,10 +17,10 @@ static func attack_cooldown(kind:String)->float:
   _:return 1.5
 
 static func attack_timer_after_frame(current:float,delta:float)->float:
- return maxf(0.0,current-clampf(delta if is_finite(delta) else 0.0,0.0,0.1)) if is_finite(current) else 0.0
+ return maxf(0.0,clampf(current,0.0,30.0)-clampf(delta if is_finite(delta) else 0.0,0.0,0.1)) if is_finite(current) else 0.0
 
 static func should_circle(kind:String,intent:String,distance:float)->bool:
- return intent=="strafe" and kind in ["wolf","panther","serpent"] and distance>1.7 and distance<6.0
+ return is_finite(distance) and intent=="strafe" and kind in ["wolf","panther","serpent"] and distance>1.7 and distance<6.0
 
 ## Melee-only creatures must not kite as ranged characters.
 static func melee_engage_range(_kind:String)->float:
@@ -29,3 +29,6 @@ static func can_attack(distance:float,ready:bool,has_sight:bool)->bool:
  return ready and has_sight and is_finite(distance) and distance>=0.0 and distance<melee_engage_range("")
 static func orbit_direction(beast_id:int)->float:
  return 1.0 if posmod(beast_id,2)==0 else -1.0
+
+static func ready_to_strike(timer:float)->bool:
+ return is_finite(timer) and timer<=0.0
