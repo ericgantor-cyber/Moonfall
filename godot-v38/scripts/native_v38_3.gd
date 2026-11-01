@@ -25,7 +25,7 @@ func _pad_pressed(device:int,button:JoyButton,id:String)->bool:
 func _process(delta:float)->void:
  super._process(delta)
  if not hero_playing or death_active or menu_open:return
- var devices:PackedInt32Array=Input.get_connected_joypads()
+ var devices:Array[int]=Input.get_connected_joypads()
  if devices.is_empty():return
  var device:int=devices[0]
  var toggle:bool=_pad_pressed(device,JOY_BUTTON_BACK,"map")
