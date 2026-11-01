@@ -25,6 +25,7 @@ public:
  UFUNCTION(BlueprintImplementableEvent, Category="Boss") void OnBossPhaseChanged(int32 NewPhase);
 private:
  float MaxHealthAtSpawn = 0.f;
+ int32 SpawnBalanceLevel = 1;
  float BossPhaseMessageUntil = 0.f;
  float NextAttackAt = 0.f;
  float NextPathRefreshAt = 0.f;
