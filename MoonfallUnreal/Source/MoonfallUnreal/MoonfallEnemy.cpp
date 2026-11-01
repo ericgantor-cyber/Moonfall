@@ -33,6 +33,7 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
    if (NewPhase > BossPhase) {
     BossPhase = NewPhase;
     WindupEndsAt = -1.f;
+    BossWarningEndTime = -1.f;
     NextAttackAt = Now + 1.f;
     BossPhaseMessageUntil = Now + 1.5f;
     OnBossPhaseChanged(BossPhase);
@@ -66,6 +67,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
  if (Staggered) {
   // A successful hit interrupts an enemy's windup, rewarding reactive combat.
   WindupEndsAt = -1.f;
+  BossWarningEndTime = -1.f;
   NextAttackAt = FMath::Max(NextAttackAt, Now + 0.35f);
   return;
  }
@@ -89,6 +91,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
  }
  if (WindupEndsAt > 0.f && Now >= WindupEndsAt) {
   WindupEndsAt = -1.f;
+  BossWarningEndTime = -1.f;
   // Heavy elite crushes demand recovery, leaving a counterattack window.
   NextAttackAt = Now + AttackCooldown + (bElite && CurrentAttackMultiplier > 2.f ? 0.8f : 0.f);
   // Attack resolves against the hero's CURRENT position, so dodging works.
@@ -187,6 +190,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
     CurrentAttackMultiplier *= BossPhase == 3 ? 1.35f : 1.15f;
    }
    WindupEndsAt = Now + CurrentWindup;
+   if (bBoss) BossWarningEndTime = WindupEndsAt;
   }
  }
 }
