@@ -6,6 +6,9 @@ var realm_panel:PanelContainer
 var realm_status:Label
 var realm_choice_buttons:Array[Button] = []
 var realm_quest_buttons:Array[Button] = []
+var realm_progress:Label
+var realm_victories:int = 0
+var realm_elemental_kills:int = 0
 
 func _ready() -> void:
  realm_ethics = REALM_ETHICS.new_state()
@@ -15,17 +18,23 @@ func _ready() -> void:
 func _start_game(selected_hero:String) -> void:
  super._start_game(selected_hero)
  realm_ethics = REALM_ETHICS.new_state()
+ realm_victories = 0
+ realm_elemental_kills = 0
  _refresh_realm_choices()
 
 func _checkpoint_extra_data() -> Dictionary:
  var data:Dictionary = super._checkpoint_extra_data()
  data["realm_ethics"] = realm_ethics.duplicate(true)
+ data["realm_victories"] = realm_victories
+ data["realm_elemental_kills"] = realm_elemental_kills
  return data
 
 func _restore_data(data:Dictionary) -> void:
  super._restore_data(data)
  var extra:Variant = data.get("optional_resources", {})
  realm_ethics = REALM_ETHICS.normalize(extra.get("realm_ethics", {}) if extra is Dictionary else {})
+ realm_victories = maxi(0,int(extra.get("realm_victories",0))) if extra is Dictionary else 0
+ realm_elemental_kills = maxi(0,int(extra.get("realm_elemental_kills",0))) if extra is Dictionary else 0
  _refresh_realm_choices()
 
 func _build_realm_choice_panel() -> void:
@@ -38,7 +47,7 @@ func _build_realm_choice_panel() -> void:
  realm_panel.offset_left = -330
  realm_panel.offset_right = -16
  realm_panel.offset_top = 160
- realm_panel.offset_bottom = 460
+ realm_panel.offset_bottom = 520
  layer.add_child(realm_panel)
  var layout:VBoxContainer = VBoxContainer.new()
  realm_panel.add_child(layout)
@@ -46,6 +55,9 @@ func _build_realm_choice_panel() -> void:
  realm_status.name = "RealmEthicsStatus"
  realm_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
  layout.add_child(realm_status)
+ realm_progress=Label.new()
+ realm_progress.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+ layout.add_child(realm_progress)
  for entry in [
   {"id":"realm_village_aid","text":"PROTECT THE VILLAGE","moral":35,"factions":{"Villagers":40,"Wardens":20}},
   {"id":"realm_village_betray","text":"BETRAY THE VILLAGE","moral":-40,"factions":{"Villagers":-45,"Outlaws":30}}
@@ -91,6 +103,9 @@ func _refresh_realm_choices() -> void:
   return
  var state:Dictionary = REALM_ETHICS.normalize(realm_ethics)
  realm_status.text = "REALM CHOICES | " + REALM_ETHICS.alignment(int(state["morality"])) + "\nVillagers: " + REALM_ETHICS.standing(int(state["factions"].get("Villagers",0))) + " | Wardens: " + REALM_ETHICS.standing(int(state["factions"].get("Wardens",0))) + "\nOutlaws: " + REALM_ETHICS.standing(int(state["factions"].get("Outlaws",0)))
+ if is_instance_valid(realm_progress):
+  var evolving:Dictionary=REALM_ETHICS.weapon_evolution(state,realm_victories,realm_elemental_kills)
+  realm_progress.text="WEAPON: "+str(evolving["alignment"])+" • Rank "+str(evolving["rank"])+" • Bonus "+str(evolving["bonus_percent"])+"% | Companion loyalty: "+str(REALM_ETHICS.companion_loyalty(state,"Good"))+" (Good), "+str(REALM_ETHICS.companion_loyalty(state,"Evil"))+" (Evil)"
  var decided:bool = state["choices"].has("realm_village_aid") or state["choices"].has("realm_village_betray")
  for button in realm_choice_buttons:
   if is_instance_valid(button):
