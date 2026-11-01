@@ -70,22 +70,15 @@ function Begin-Job([string]$scriptName,[bool]$installMissing) {
     $tool = Join-Path $PSScriptRoot $scriptName
     $arguments = '-NoProfile -ExecutionPolicy Bypass -File "' + $tool + '" -UnrealRoot "' + $engine.Text + '"'
     if ($installMissing) { $arguments += ' -InstallMissing' }
-    $info = New-Object Diagnostics.ProcessStartInfo
-    $info.FileName = 'powershell.exe'
-    $info.Arguments = $arguments
-    $info.WorkingDirectory = $repo
-    $info.UseShellExecute = $false
-    $info.CreateNoWindow = $true
-    $info.RedirectStandardOutput = $true
-    $info.RedirectStandardError = $true
-    # Redirect to separate files so long compiler output never blocks the child.
-    $info.RedirectStandardOutput = $false
-    $info.RedirectStandardError = $false
-    $info.FileName = 'cmd.exe'
-    $quoted = '"' + $tool + '"'
-    $command = 'powershell.exe ' + $arguments + ' 1>"' + $script:outLog + '" 2>"' + $script:errLog + '"'
-    $info.Arguments = '/d /s /c "' + $command + '"'
-    $script:process = [Diagnostics.Process]::Start($info)
+    # PowerShell handles argument quoting and redirects output without fragile cmd /c nesting.
+    try {
+        $script:process = Start-Process -FilePath 'powershell.exe' -ArgumentList $arguments `
+            -WorkingDirectory $repo -RedirectStandardOutput $script:outLog `
+            -RedirectStandardError $script:errLog -WindowStyle Hidden -PassThru
+    } catch {
+        $logs.AppendText("Unable to start job: $($_.Exception.Message)" + [Environment]::NewLine)
+        return
+    }
     $check.Enabled = $false
     $install.Enabled = $false
     $build.Enabled = $false
@@ -102,7 +95,7 @@ $build.Add_Click({
 $cancel.Add_Click({
     if ($script:process -and -not $script:process.HasExited) {
         & taskkill.exe /PID $script:process.Id /T /F | Out-Null
-        $logs.AppendText("Cancellation requested." + [Environment]::NewLine)
+        $logs.AppendText("Cancellation requested. Child processes will be terminated." + [Environment]::NewLine)
     }
 })
 $folder.Add_Click({ New-Item -ItemType Directory -Path $out -Force | Out-Null; Start-Process explorer.exe -ArgumentList ('"' + $out + '"') })
