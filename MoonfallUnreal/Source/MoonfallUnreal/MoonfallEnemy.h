@@ -20,6 +20,7 @@ public:
 private:
  float NextAttackAt = 0.f;
  float NextPathRefreshAt = 0.f;
+ float NextBlockedRepathAt = 0.f;
  FVector CachedWaypoint = FVector::ZeroVector;
  float WindupEndsAt = -1.f;
  float HitReactionEndsAt = -1.f;
