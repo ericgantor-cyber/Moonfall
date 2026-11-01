@@ -13,6 +13,9 @@ func _set_boss_telegraph(beast:Dictionary,active:bool)->void:
   return
  var body:CharacterBody3D=beast.get("body") as CharacterBody3D
  if not is_instance_valid(body):return
+ if is_instance_valid(warning) and warning.get_parent()!=body:
+  warning.queue_free()
+  warning=null
  if not is_instance_valid(warning):
   warning=Label3D.new()
   warning.name="GuardianAttackWarning"
