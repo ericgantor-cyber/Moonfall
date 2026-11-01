@@ -51,6 +51,7 @@ func _run()->void:
   check(game.call("_wait_clock_text",1440.0)=="12:00","Clock format wraps across multiple days")
   check(game.has_method("_skip_wait_animation"),"Wait animation is skippable")
   check(game.has_method("_wait_change_hours"),"Wait adjustment helper exists")
+  check(game.has_method("_finish_wait"),"Wait confirmation helper exists")
   game.queue_free()
  if errors==0:print("MOONFALL v30.3 WORLD CYCLE PASS")
  quit(0 if errors==0 else 1)
