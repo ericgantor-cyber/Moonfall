@@ -14,6 +14,7 @@ public:
  virtual void BeginPlay() override;
  virtual void Tick(float DeltaSeconds) override;
  UFUNCTION(BlueprintCallable, Category="Moonfall|Combat") void ApplyMoonfallDamage(float Amount);
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Combat") void RewardPerfectDodge();
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Combat") void OnHealthChanged(float NewHealth, float MaxHealth);
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Combat") void OnDamageImpact(float DamageTaken);
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Accessibility") bool bReduceMotion = false;
@@ -40,6 +41,8 @@ private:
  float LastCastTime[2] = {-100.f,-100.f};
  float NextDodgeAt = 0.f;
  float DamageImmunityUntil = 0.f;
+ float PerfectDodgeWindowUntil = -1.f;
+ float LastPerfectDodgeRewardAt = -100.f;
  float ImpactCameraOffset = 0.f;
  UPROPERTY(EditAnywhere, Category="Moonfall|Combat") float ManaRegenPerSecond = 8.f;
  UPROPERTY(EditAnywhere, Category="Moonfall|Combat") float DodgeCooldown = 1.3f;
