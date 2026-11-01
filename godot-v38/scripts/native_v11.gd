@@ -2070,7 +2070,7 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
    _set_boss_telegraph(beast,true)
    _show_message("⚠ GUARDIAN PHASE "+str(phase)+": dodge the glowing circle!",1.6)
  elif engaged and ENEMY_COMBAT_RULES.can_attack(distance,float(beast["attack"])<=0.0,_has_clear_sight(body,player)):
-  if dodge_time<=0 and _has_clear_sight(body,player):
+  if dodge_time<=0:
    _apply_incoming_damage(float(BEASTS[kind]["atk"]))
   # Visual follow-through only; preserve established hit timing and damage.
   beast["attack_swing_until"]=map_time+V383_FEEDBACK.ATTACK_SWING_SECONDS
