@@ -1,0 +1,75 @@
+name: Windows Unreal build prerequisites
+
+on:
+  workflow_dispatch:
+    inputs:
+      compile_on_self_hosted:
+        description: 'Run actual Unreal 5.4 Editor compile on a configured self-hosted Windows runner'
+        type: boolean
+        required: true
+        default: false
+  pull_request:
+    paths:
+      - 'MoonfallUnreal/Build/**'
+      - '.github/workflows/windows-unreal-preflight.yml'
+
+jobs:
+  windows-preflight:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - name: Detect Unreal Engine 5.4 installation
+        shell: pwsh
+        run: |
+          $engine = 'C:\Program Files\Epic Games\UE_5.4'
+          if (Test-Path (Join-Path $engine 'Engine\Build\BatchFiles\Build.bat')) {
+            Write-Host 'Unreal Engine 5.4 is present.'
+            & ./MoonfallUnreal/Build/Build-Windows.ps1 -UnrealRoot $engine -PreflightOnly
+          } else {
+            Write-Host 'Unreal Engine 5.4 is not installed on this hosted runner.'
+            Write-Host 'This job validates PowerShell syntax and prerequisite discovery only.'
+          }
+      - name: Parse Windows scripts on Windows
+        shell: pwsh
+        run: |
+          $scripts = @(Get-ChildItem MoonfallUnreal/Build -Filter '*.ps1' -Recurse -File)
+          if ($scripts.Count -eq 0) { throw 'No build scripts found' }
+          foreach ($script in $scripts) {
+            $tokens = $null
+            $errors = $null
+            [void][System.Management.Automation.Language.Parser]::ParseFile($script.FullName, [ref]$tokens, [ref]$errors)
+            if ($errors.Count -gt 0) { throw "PowerShell parse error: $($script.Name)" }
+          }
+          Write-Host "Parsed $($scripts.Count) build scripts on Windows."
+
+  unreal-editor-compile:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.compile_on_self_hosted }}
+    runs-on: [self-hosted, Windows, X64, unreal-5-4]
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify Unreal compiler prerequisites
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if (-not $env:UE54_ROOT) { throw 'UE54_ROOT is missing on the self-hosted runner.' }
+          $engineBuild = Join-Path $env:UE54_ROOT 'Engine/Build/BatchFiles/Build.bat'
+          if (-not (Test-Path -LiteralPath $engineBuild)) { throw "Missing Unreal 5.4 Build.bat: $engineBuild" }
+          & ./MoonfallUnreal/Build/Build-Windows.ps1 -UnrealRoot $env:UE54_ROOT -PreflightOnly
+          if (-not $?) { throw 'Moonfall build prerequisites failed.' }
+      - name: Compile Moonfall Unreal Editor
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          & ./MoonfallUnreal/Build/Build-Windows.ps1 -UnrealRoot $env:UE54_ROOT -CompileOnly
+          if (-not $?) { throw 'Moonfall Unreal Editor compile failed.' }
+      - name: Save Unreal compilation diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: moonfall-unreal-build-diagnostics
+          if-no-files-found: warn
+          retention-days: 7
+          path: |
+            MoonfallUnreal/Saved/Logs/**
+            MoonfallUnreal/Intermediate/Build/**/*.log

@@ -1,0 +1,87 @@
+name: Moonfall NSIS installer smoke check
+on:
+  pull_request:
+    paths:
+      - 'MoonfallUnreal/Installer/**'
+      - '.github/workflows/unreal-installer-smoke.yml'
+  workflow_dispatch:
+jobs:
+  compile-installer-template:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install NSIS
+        shell: pwsh
+        run: |
+          choco install nsis --no-progress -y
+          if ($LASTEXITCODE -ne 0) { throw 'NSIS installation failed' }
+      - name: Confirm NSIS compiler installation
+        shell: pwsh
+        run: |
+          $compiler = Join-Path ${env:ProgramFiles(x86)} 'NSIS/makensis.exe'
+          if (-not (Test-Path -LiteralPath $compiler)) { throw 'NSIS compiler not installed' }
+          & $compiler /VERSION
+          if ($LASTEXITCODE -ne 0) { throw 'NSIS compiler could not run' }
+      - name: Compile NSIS template with dummy payload
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $src = Join-Path $env:RUNNER_TEMP 'moonfall-installer-smoke'
+          $output = Join-Path $env:RUNNER_TEMP 'Moonfall-NOT-A-GAME-smoke.exe'
+          New-Item -ItemType Directory -Force -Path $src, (Join-Path $src 'Engine'), (Join-Path $src 'MoonfallUnreal') | Out-Null
+          foreach ($name in @('MoonfallUnreal.exe', 'MoonfallLauncher.exe')) {
+            Set-Content -LiteralPath (Join-Path $src $name) -Value 'SMOKE-TEST-PLACEHOLDER'
+          }
+          Set-Content -LiteralPath (Join-Path $src 'Engine/runtime-placeholder.txt') -Value 'test only'
+          Set-Content -LiteralPath (Join-Path $src 'MoonfallUnreal/content-placeholder.txt') -Value 'test only'
+          $makensis = Join-Path ${env:ProgramFiles(x86)} 'NSIS/makensis.exe'
+          if (-not (Test-Path -LiteralPath $makensis)) { throw "Missing NSIS compiler: $makensis" }
+          & $makensis "/DSOURCE_DIR=$src" "/DOUTPUT_EXE=$output" 'MoonfallUnreal/Installer/MoonfallUnreal.nsi'
+          if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $output)) { throw 'Installer script failed to compile' }
+          if (-not (Test-Path -LiteralPath $output -PathType Leaf)) { throw 'NSIS did not produce an installer file' }
+          $file = Get-Item -LiteralPath $output
+          if ($file.Length -lt 1024) { throw 'NSIS smoke installer unexpectedly small' }
+          Write-Host "Installer smoke output exists ($($file.Length) bytes). Test only, not a playable game."
+          if ((Get-Item -LiteralPath $output).Extension -ne '.exe') { throw 'Unexpected installer smoke output extension' }
+          $checksum = (Get-FileHash -LiteralPath $output -Algorithm SHA256).Hash
+          if ($checksum.Length -ne 64 -or $checksum -match '[^0-9A-F]') { throw 'Invalid NSIS smoke output checksum' }
+          Write-Host "NSIS smoke artifact SHA-256: $checksum"
+          "NSIS smoke build: test only; does not include playable Unreal assets." >> $env:GITHUB_STEP_SUMMARY
+          "Smoke installer size: $($file.Length) bytes" >> $env:GITHUB_STEP_SUMMARY
+          $installRoot = Join-Path $env:RUNNER_TEMP 'MoonfallSmokeInstalled'
+          $process = Start-Process -FilePath $output -ArgumentList @('/S', "/D=$installRoot") -Wait -PassThru
+          if ($process.ExitCode -ne 0) { throw "Silent smoke installation failed: $($process.ExitCode)" }
+          Write-Host 'Silent install of disposable test payload completed.'
+          foreach ($relative in @('MoonfallUnreal.exe', 'MoonfallLauncher.exe', 'Engine/runtime-placeholder.txt', 'MoonfallUnreal/content-placeholder.txt', 'Uninstall.exe')) {
+            if (-not (Test-Path -LiteralPath (Join-Path $installRoot $relative) -PathType Leaf)) { throw "Missing installed smoke payload: $relative" }
+          }
+          Write-Host 'Installed launcher, game placeholders and uninstall executable verified.'
+          $expectedContent = Get-Content -LiteralPath (Join-Path $installRoot 'MoonfallLauncher.exe') -Raw
+          if ($expectedContent -notmatch 'SMOKE-TEST-PLACEHOLDER') { throw 'Installed launcher placeholder differs from expected test payload' }
+          Write-Host 'Installed launcher placeholder content verified.'
+
+          $expectedGame = Get-Content -LiteralPath (Join-Path $installRoot 'MoonfallUnreal.exe') -Raw
+          if ($expectedGame -notmatch 'SMOKE-TEST-PLACEHOLDER') { throw 'Test game payload mismatch' }
+          if ((Get-Item -LiteralPath (Join-Path $installRoot 'Uninstall.exe')).Length -lt 1024) { throw 'Installed uninstaller unexpectedly small' }
+          $uninstallKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\MoonfallUnreal'
+          if (-not (Test-Path -LiteralPath $uninstallKey)) { throw 'Test installer did not register an uninstall entry' }
+          $registeredName = (Get-ItemProperty -LiteralPath $uninstallKey).DisplayName
+          if ($registeredName -ne 'Moonfall Unreal') { throw 'Test installer registered unexpected display name' }
+          if (-not (Test-Path -LiteralPath (Join-Path $installRoot 'Engine/runtime-placeholder.txt'))) { throw 'Installed engine fixture missing' }
+          if (-not (Test-Path -LiteralPath (Join-Path $installRoot 'MoonfallUnreal/content-placeholder.txt'))) { throw 'Installed content fixture missing' }
+          $uninstaller = Join-Path $installRoot 'Uninstall.exe'
+          $uninstallProcess = Start-Process -FilePath $uninstaller -ArgumentList '/S' -Wait -PassThru
+          if ($uninstallProcess.ExitCode -ne 0) { throw "Silent smoke uninstall failed: $($uninstallProcess.ExitCode)" }
+          Write-Host 'Silent uninstallation of disposable test payload completed.'
+          $uninstallKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\MoonfallUnreal'
+          if (Test-Path -LiteralPath $uninstallKey) { throw 'Smoke uninstall left an application registration behind' }
+          Write-Host 'Test uninstaller removed application registration.'
+
+          foreach ($relative in @('MoonfallUnreal.exe', 'MoonfallLauncher.exe', 'Engine/runtime-placeholder.txt', 'MoonfallUnreal/content-placeholder.txt')) {
+            if (Test-Path -LiteralPath (Join-Path $installRoot $relative)) { throw "Uninstaller left behind smoke file: $relative" }
+          }
+          "NSIS smoke test: compiled, silently installed, verified payload, and uninstalled test-only files." >> $env:GITHUB_STEP_SUMMARY
+
+
+
+          Write-Host 'Installer template compiled with placeholders. No playable build or release artifact generated.'

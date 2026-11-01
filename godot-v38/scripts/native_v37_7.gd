@@ -13,7 +13,7 @@ func _build_ui()->void:
    var heading:Label=child as Label
    if not is_instance_valid(heading):continue
    if "MOONFALL NATIVE v13" in heading.text:
-    heading.text="☾  MOONFALL v37.7 • THE LIVING REALM"
+    heading.text="MOONFALL v37.7 • THE LIVING REALM"
    elif "Native isometric Witchwood vertical slice" in heading.text:
     heading.text="Connected 3D world • Original Z / Nyra art • Godot 4"
 

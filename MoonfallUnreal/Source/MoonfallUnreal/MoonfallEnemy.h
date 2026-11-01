@@ -10,6 +10,7 @@ class MOONFALLUNREAL_API AMoonfallEnemy : public AActor
 public:
  AMoonfallEnemy();
  virtual void Tick(float DeltaSeconds) override;
+ virtual void BeginPlay() override;
  UPROPERTY(EditAnywhere, Category="Combat") float ChaseSpeed = 180.f;
  UPROPERTY(EditAnywhere, Category="Combat") float AttackDamage = 8.f;
  UPROPERTY(EditAnywhere, Category="Combat") float AttackRange = 145.f;
@@ -17,11 +18,14 @@ public:
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat") bool bElite = false;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat") bool bBoss = false;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Combat") int32 BossPhase = 1;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Boss") float BossMaxHealth = 0.f;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Boss") float BossWarningEndTime = -1.f;
  UFUNCTION(BlueprintImplementableEvent, Category="Combat") void OnHitFeedback(float Damage, float RemainingHealth);
  UFUNCTION(BlueprintImplementableEvent, Category="Combat") void OnEnemyAttack();
  UFUNCTION(BlueprintImplementableEvent, Category="Boss") void OnBossPhaseChanged(int32 NewPhase);
 private:
  float MaxHealthAtSpawn = 0.f;
+ int32 SpawnBalanceLevel = 1;
  float BossPhaseMessageUntil = 0.f;
  float NextAttackAt = 0.f;
  float NextPathRefreshAt = 0.f;
@@ -30,6 +34,9 @@ private:
  float WindupEndsAt = -1.f;
  float HitReactionEndsAt = -1.f;
  int32 AttackSequence = 0;
+ bool bComboSecondHitPending = false;
+ bool bComboSecondHitActive = false;
+ int32 BossSpecialMove = 0;
  float CurrentWindup = 0.5f;
  float CurrentAttackMultiplier = 1.f;
  float CurrentAttackRangeMultiplier = 1.f;

@@ -41,6 +41,8 @@ func _run() -> void:
  _check(game.get("gear_drops").is_empty(),"Fresh world has no leftover loot")
  _check(game.call("_day_phase")=="Day","Adventure begins during daylight")
  game.set("world_clock",400.0)
+ _check(game.call("_day_phase")=="Day","Longer cycle retains daylight at 400 seconds")
+ game.set("world_clock",960.0*0.85)
  _check(game.call("_day_phase")=="Dusk" or game.call("_day_phase")=="Night","Day/night phase changes")
  game.set("weather_remaining",0.1)
  game.call("_advance_living_world",0.2)

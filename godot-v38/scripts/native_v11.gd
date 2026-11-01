@@ -227,7 +227,7 @@ var rifts_completed := 0
 
 # v11 keeps weather, time and regional encounters within the existing world.
 # Slots and markers are built once, never generated per frame.
-const DAY_LENGTH_SECONDS := 480.0
+const DAY_LENGTH_SECONDS := 960.0
 const WEATHER_INTERVAL_SECONDS := 145.0
 const WEATHER_TYPES := ["Clear", "Mist", "Rain", "Eclipse"]
 const WORLD_EVENT_GOAL := 3
@@ -239,8 +239,22 @@ const WORLD_EVENT_SITES := [
  {"name":"Shattered Relic Cache","kind":"cache","zone":4,"material":"Moon Sigil"},
  {"name":"Eclipse Citadel Hunt","kind":"hunt","zone":5,"material":"Dusk Cinder"}
 ]
-var world_clock := 240.0
+var world_clock := 480.0
 var world_day := 1
+var wait_open := false
+var wait_hours := 1
+var wait_label: Label
+var wait_panel: PanelContainer
+var wait_clock_bar: ProgressBar
+var wait_clock_art: Label
+var wait_clock_dial: Control
+var wait_actions_container: HBoxContainer
+var wait_transition_active := false
+var wait_transition_elapsed := 0.0
+var wait_transition_start := 0.0
+var wait_transition_start_day := 1
+var wait_transition_end := 0.0
+const WAIT_TRANSITION_DURATION := 2.4
 var weather_name := "Clear"
 var weather_remaining := WEATHER_INTERVAL_SECONDS
 var weather_changes := 0
@@ -783,10 +797,104 @@ func _build_ui() -> void:
  hint=_ui_label(root,Vector2(18,43),15,Color("c6dccf"))
  status=_ui_label(root,Vector2(18,75),17,Color("ffd391"))
  world_hud=_ui_label(root,Vector2(18,111),14,Color("bcabec"))
+ # Illustrated fantasy parchment overlay: built from native Godot UI, no external art assets.
+ wait_panel=PanelContainer.new()
+ wait_panel.name="CelestialWaitPanel"
+ wait_panel.tooltip_text="Wait for up to 24 in-game hours. Waiting is unavailable during combat."
+ wait_panel.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+ wait_panel.position=Vector2(-325,-175)
+ wait_panel.custom_minimum_size=Vector2(650,350)
+ wait_panel.mouse_filter=Control.MOUSE_FILTER_STOP
+ wait_panel.focus_mode=Control.FOCUS_ALL
+ wait_panel.clip_contents=false
+ var wait_frame:=StyleBoxFlat.new()
+ wait_frame.bg_color=Color("151b32")
+ wait_frame.border_color=Color("d5ac69")
+ wait_frame.set_border_width_all(3)
+ wait_frame.set_corner_radius_all(22)
+ wait_frame.set_content_margin_all(18)
+ wait_frame.shadow_color=Color(0,0,0,0.7)
+ wait_frame.shadow_size=14
+ wait_panel.add_theme_stylebox_override("panel",wait_frame)
+ root.add_child(wait_panel)
+ var wait_column:=VBoxContainer.new()
+ wait_column.add_theme_constant_override("separation",14)
+ wait_panel.add_child(wait_column)
+ var wait_art:=Label.new()
+ wait_art.text="✦   ═════  THE PASSING HOURS  ═════   ✦"
+ wait_art.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+ wait_art.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+ wait_art.add_theme_font_size_override("font_size",26)
+ wait_art.add_theme_color_override("font_color",Color("e8c883"))
+ wait_art.tooltip_text="Moonfall celestial waiting clock"
+ wait_column.add_child(wait_art)
+ wait_clock_dial=preload("res://scripts/systems/celestial_wait_clock.gd").new()
+ wait_clock_dial.custom_minimum_size=Vector2(560,176)
+ wait_clock_dial.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+ wait_clock_dial.tooltip_text="Animated astronomical clock showing the selected time of day"
+ wait_column.add_child(wait_clock_dial)
+ wait_clock_art=Label.new()
+ wait_clock_art.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+ wait_clock_art.add_theme_font_size_override("font_size",29)
+ wait_clock_art.add_theme_color_override("font_color",Color("f4d69a"))
+ wait_column.add_child(wait_clock_art)
+ wait_clock_bar=ProgressBar.new()
+ wait_clock_bar.custom_minimum_size=Vector2(560,26)
+ wait_clock_bar.max_value=24.0
+ wait_clock_bar.min_value=0.0
+ wait_clock_bar.show_percentage=false
+ wait_clock_bar.tooltip_text="Projected time of day on the 24-hour celestial clock"
+ wait_clock_bar.mouse_filter=Control.MOUSE_FILTER_PASS
+ var track:=StyleBoxFlat.new()
+ track.bg_color=Color("34354a")
+ track.set_corner_radius_all(8)
+ wait_clock_bar.add_theme_stylebox_override("background",track)
+ var fill:=StyleBoxFlat.new()
+ fill.bg_color=Color("ddaa61")
+ fill.set_corner_radius_all(8)
+ wait_clock_bar.add_theme_stylebox_override("fill",fill)
+ wait_column.add_child(wait_clock_bar)
+ wait_label=Label.new()
+ wait_label.add_theme_font_size_override("font_size",23)
+ wait_label.add_theme_color_override("font_color",Color("f8e9cb"))
+ wait_label.tooltip_text="Current and projected day, time and phase"
+ wait_label.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+ wait_label.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+ wait_column.add_child(wait_label)
+ wait_actions_container=HBoxContainer.new()
+ var wait_actions:=wait_actions_container
+ # Accessible large controls for mouse and touch users.
+ wait_actions.add_theme_constant_override("separation",8)
+ wait_actions.add_theme_constant_override("separation",6)
+ wait_column.add_child(wait_actions)
+ for entry in [["−6h",-6],["−1h",-1],["+1h",1],["+6h",6]]:
+  var step_button:=Button.new()
+  step_button.text=str(entry[0])
+  step_button.custom_minimum_size=Vector2(72,44)
+  step_button.tooltip_text="Adjust waiting by %d hours" % int(entry[1])
+  step_button.focus_mode=Control.FOCUS_ALL
+  step_button.pressed.connect(_wait_change_hours.bind(int(entry[1])))
+  wait_actions.add_child(step_button)
+ var accept_button:=Button.new()
+ accept_button.text="WAIT"
+ accept_button.custom_minimum_size=Vector2(90,44)
+ accept_button.tooltip_text="Confirm waiting for the chosen number of hours"
+ accept_button.focus_mode=Control.FOCUS_ALL
+ accept_button.pressed.connect(_finish_wait.bind(true))
+ wait_actions.add_child(accept_button)
+ var cancel_button:=Button.new()
+ cancel_button.text="CANCEL"
+ cancel_button.custom_minimum_size=Vector2(90,44)
+ cancel_button.tooltip_text="Close Wait without advancing time"
+ cancel_button.focus_mode=Control.FOCUS_ALL
+ cancel_button.pressed.connect(_finish_wait.bind(false))
+ wait_actions.add_child(cancel_button)
+ wait_panel.visible=false
+ wait_panel.process_mode=Node.PROCESS_MODE_ALWAYS
  var controls:=_ui_label(root,Vector2(18,0),15,Color("d4d7e7"))
  controls.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
  controls.position=Vector2(18,-68)
- controls.text="WASD move • Mouse attack • Space dodge • Q/E/R spells • G interact • T tame • M mount • H pet stance • Tab map • F10/Esc atlas"
+ controls.text="P wait • WASD move • Mouse attack • Space dodge • Q/E/R spells • G interact • T tame • M mount • H pet stance • Tab map • F10/Esc atlas"
  quick_actions=PanelContainer.new()
  quick_actions.name="QuickActions"
  quick_actions.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
@@ -1247,8 +1355,11 @@ func _reset_new_adventure() -> void:
  restored_wildlife=0
  bosses_transformed=0
  rifts_completed=0
- world_clock=240.0
+ world_clock=480.0
  world_day=1
+ wait_transition_active=false
+ wait_open=false
+ _set_wait_display()
  weather_name="Clear"
  weather_remaining=WEATHER_INTERVAL_SECONDS
  living_visual_tick=0.0
@@ -1318,14 +1429,107 @@ func _toggle_menu() -> void:
   if is_instance_valid(atlas_first_tab):atlas_first_tab.call_deferred("grab_focus")
  _update_hud()
 
+func _wait_clock_text(clock:float) -> String:
+ var hour:int=int(floor(fposmod(clock,DAY_LENGTH_SECONDS)/DAY_LENGTH_SECONDS*24.0))
+ var minute:int=int(floor(fposmod(clock,DAY_LENGTH_SECONDS)/DAY_LENGTH_SECONDS*1440.0))%60
+ return "%02d:%02d" % [hour,minute]
+
+func _wait_change_hours(step:int) -> void:
+ if not wait_open:return
+ wait_hours=clampi(wait_hours+step,1,24)
+ _set_wait_display()
+
+func _set_wait_display() -> void:
+ if is_instance_valid(wait_panel):wait_panel.visible=wait_open or wait_transition_active
+ if is_instance_valid(wait_actions_container):wait_actions_container.visible=wait_open and not wait_transition_active
+ if is_instance_valid(wait_label):
+  if not wait_open and not wait_transition_active:return
+  if is_instance_valid(wait_clock_dial):wait_clock_dial.hour=fposmod(world_clock if wait_transition_active else world_clock+float(wait_hours)*DAY_LENGTH_SECONDS/24.0,DAY_LENGTH_SECONDS)/DAY_LENGTH_SECONDS*24.0
+  if wait_transition_active:
+   # The animation is informational; keep buttons hidden while it runs.
+   wait_label.text="TIME PASSING...  Day %d  %s  %s\nSpace / Enter / P / controller A: skip animation" % [world_day,_wait_clock_text(world_clock),_day_phase()]
+   if is_instance_valid(wait_clock_bar):wait_clock_bar.value=fposmod(world_clock,DAY_LENGTH_SECONDS)/DAY_LENGTH_SECONDS*24.0
+   if is_instance_valid(wait_clock_art):
+    wait_clock_art.text="✦   ☀  ━━━  ◯  ━━━  ✧   ✦" if _day_phase()=="Day" or _day_phase()=="Dawn" else "✦   ☾  ━━━  ◯  ━━━  ✧   ✦"
+   return
+  if is_instance_valid(wait_clock_bar):wait_clock_bar.value=fposmod(world_clock+float(wait_hours)*DAY_LENGTH_SECONDS/24.0,DAY_LENGTH_SECONDS)/DAY_LENGTH_SECONDS*24.0
+  var future_clock:float=world_clock+float(wait_hours)*DAY_LENGTH_SECONDS/24.0
+  var next_day:int=mini(99999,world_day+int(floor(future_clock/DAY_LENGTH_SECONDS)))
+  var future_phase:String=WORLD_CYCLE.phase(future_clock,DAY_LENGTH_SECONDS)
+  if is_instance_valid(wait_clock_art):wait_clock_art.text="✦   ☀  ━━━  ◯  ━━━  ☽   ✦" if future_phase=="Day" or future_phase=="Dawn" else "✦   ☾  ━━━  ◯  ━━━  ✧   ✦"
+  wait_label.text="WAIT • %d in-game hour(s)\nNow: Day %d, %s (%s)\nAfter: Day %d, %s (%s)\n←/→ 1h • ↑/↓ 6h • Home/End 1/24h • Enter accept • Esc cancel\nController: D-pad adjust • LB/RB 1/24h • A accept • B cancel" % [wait_hours,world_day,_wait_clock_text(world_clock),_day_phase(),next_day,_wait_clock_text(future_clock),future_phase]
+
+func _finish_wait(confirm:bool) -> void:
+ # The visible transition panel must not permit a second wait or cancellation.
+ if wait_transition_active:return
+ if not wait_open:return
+ if confirm and (not hero_playing or menu_open or _combat_threat()):
+  _show_message("Cannot wait during combat or while the menu is open.",2.5)
+  confirm=false
+ if confirm:
+  wait_transition_start_day=world_day
+  wait_transition_start=world_clock
+  wait_transition_end=world_clock+float(wait_hours)*DAY_LENGTH_SECONDS/24.0
+  wait_transition_elapsed=0.0
+  wait_transition_active=true
+ wait_open=false
+ _set_wait_display()
+
+func _skip_wait_animation() -> void:
+ if not wait_transition_active:return
+ _animate_wait(WAIT_TRANSITION_DURATION)
+
+func _animate_wait(delta:float) -> void:
+ if not wait_transition_active:return
+ wait_transition_elapsed=minf(WAIT_TRANSITION_DURATION,wait_transition_elapsed+delta)
+ var fraction:float=wait_transition_elapsed/WAIT_TRANSITION_DURATION
+ var eased:float=fraction*fraction*(3.0-2.0*fraction)
+ var absolute_clock:float=lerpf(wait_transition_start,wait_transition_end,eased)
+ world_clock=fposmod(absolute_clock,DAY_LENGTH_SECONDS)
+ # Display the correct day as the clock passes midnight during the animation.
+ var passed_days:int=int(floor(absolute_clock/DAY_LENGTH_SECONDS))
+ world_day=mini(99999,wait_transition_start_day+passed_days)
+ _set_wait_display()
+ _refresh_world_lighting()
+ _update_hud()
+ if fraction>=1.0:
+  world_day=mini(99999,wait_transition_start_day+int(floor(wait_transition_end/DAY_LENGTH_SECONDS)))
+  wait_transition_active=false
+  _set_wait_display()
+  _save_game()
+  _show_message("Time passes. Day %d, %s (%s)." % [world_day,_day_phase(),_wait_clock_text(world_clock)],3.0)
+
 func _unhandled_key_input(event: InputEvent) -> void:
  if not (event is InputEventKey) or not event.pressed or event.echo:return
+ if wait_open:
+  match event.keycode:
+   KEY_LEFT:wait_hours=maxi(1,wait_hours-1)
+   KEY_RIGHT:wait_hours=mini(24,wait_hours+1)
+   KEY_DOWN:wait_hours=maxi(1,wait_hours-6)
+   KEY_UP:wait_hours=mini(24,wait_hours+6)
+   KEY_HOME:wait_hours=1
+   KEY_END:wait_hours=24
+   KEY_ENTER, KEY_KP_ENTER:_finish_wait(true)
+   KEY_ESCAPE, KEY_P:_finish_wait(false)
+  _set_wait_display()
+  get_viewport().set_input_as_handled()
+  return
+ if wait_transition_active:
+  if event.keycode in [KEY_SPACE,KEY_ENTER,KEY_KP_ENTER,KEY_P]:_skip_wait_animation()
+  get_viewport().set_input_as_handled()
+  return
  if event.keycode in [KEY_ESCAPE,KEY_F10]:
   if hero_playing:_toggle_menu()
   get_viewport().set_input_as_handled()
   return
- if not hero_playing or menu_open:return
+ if not hero_playing or menu_open or wait_transition_active:return
  match event.keycode:
+  KEY_P:
+   if not wait_transition_active and not _combat_threat():
+    wait_hours=1
+    wait_open=true
+    _set_wait_display()
+   else:_show_message("Cannot wait while enemies are nearby.",2.0)
   KEY_G:_interact()
   KEY_T:_tame()
   KEY_M:_toggle_mount()
@@ -1339,6 +1543,25 @@ func _unhandled_key_input(event: InputEvent) -> void:
  get_viewport().set_input_as_handled()
 
 func _unhandled_input(event: InputEvent) -> void:
+ if wait_transition_active:
+  if event is InputEventJoypadButton and event.pressed and event.button_index==JOY_BUTTON_A:
+   _skip_wait_animation()
+   get_viewport().set_input_as_handled()
+  return
+ if wait_open:
+  if event is InputEventJoypadButton and event.pressed:
+   match event.button_index:
+    JOY_BUTTON_DPAD_LEFT:wait_hours=maxi(1,wait_hours-1)
+    JOY_BUTTON_DPAD_RIGHT:wait_hours=mini(24,wait_hours+1)
+    JOY_BUTTON_DPAD_DOWN:wait_hours=maxi(1,wait_hours-6)
+    JOY_BUTTON_DPAD_UP:wait_hours=mini(24,wait_hours+6)
+    JOY_BUTTON_LEFT_SHOULDER:wait_hours=1
+    JOY_BUTTON_RIGHT_SHOULDER:wait_hours=24
+    JOY_BUTTON_A:_finish_wait(true)
+    JOY_BUTTON_B:_finish_wait(false)
+   _set_wait_display()
+   get_viewport().set_input_as_handled()
+  return
  if event is InputEventJoypadButton and event.pressed:
   if event.button_index==JOY_BUTTON_START:
    if hero_playing:_toggle_menu()
@@ -1358,11 +1581,11 @@ func _unhandled_input(event: InputEvent) -> void:
    JOY_BUTTON_DPAD_RIGHT:_toggle_mount()
   get_viewport().set_input_as_handled()
   return
- if not hero_playing or menu_open:return
+ if not hero_playing or menu_open or wait_open or wait_transition_active:return
  if event is InputEventMouseButton and event.button_index==MOUSE_BUTTON_LEFT and event.pressed:_attack()
 
 func _physics_process(delta: float) -> void:
- if not hero_playing or menu_open:return
+ if not hero_playing or menu_open or wait_open or wait_transition_active:return
  attack_cooldown=maxf(0.0,attack_cooldown-delta)
  ability_cooldown=maxf(0.0,ability_cooldown-delta)
  dodge_time=maxf(0.0,dodge_time-delta)
@@ -1424,6 +1647,7 @@ func _physics_process(delta: float) -> void:
   _update_hud()
 
 func _process(delta: float) -> void:
+ _animate_wait(delta)
  if is_instance_valid(camera):_update_camera(delta)
  scenery_light_tick+=delta
  if scenery_light_tick<0.1:return
@@ -2485,7 +2709,7 @@ func _restore_data(data: Dictionary) -> void:
  combat_combo=0
  combat_combo_until=0.0
  # Optional v11 fields are ignored by v10 saves; older checkpoints remain valid.
- world_clock=clampf(float(data.get("world_clock",240.0)),0.0,DAY_LENGTH_SECONDS-0.01)
+ world_clock=clampf(float(data.get("world_clock",480.0)),0.0,DAY_LENGTH_SECONDS-0.01)
  world_day=clampi(int(data.get("world_day",1)),1,99999)
  weather_name=str(data.get("weather","Clear"))
  if not (weather_name in WEATHER_TYPES):weather_name="Clear"

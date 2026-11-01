@@ -3,6 +3,7 @@
 #include "Components/SceneComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/World.h"
+#include "Kismet/GameplayStatics.h"
 #include "UObject/UObjectGlobals.h"
 AMoonfallArena::AMoonfallArena() {
  PrimaryActorTick.bCanEverTick = false;
@@ -30,14 +31,17 @@ void AMoonfallArena::BeginPlay() {
  for (int32 i=0;i<Count;++i) {
   float Angle = 2.f * PI * i / FMath::Max(1,Count);
   FVector Position = GetActorLocation() + FVector(450.f*FMath::Cos(Angle),450.f*FMath::Sin(Angle),60.f);
-  if (AMoonfallEnemy* Enemy = GetWorld()->SpawnActor<AMoonfallEnemy>(Position,FRotator::ZeroRotator)) {
-   // One durable elite gives early combat a distinct high-threat encounter.
-   if (i == Count - 1 && Count >= 4) {
-    Enemy->bElite = true;
-    Enemy->bBoss = true;
-    Enemy->Health *= 4.f;
-    Enemy->AttackCooldown *= 1.15f;
-   }
+  // Defer BeginPlay until elite/boss properties are configured.
+  const FTransform SpawnTransform(FRotator::ZeroRotator, Position);
+  AMoonfallEnemy* Enemy = Cast<AMoonfallEnemy>(UGameplayStatics::BeginDeferredActorSpawnFromClass(
+    this, AMoonfallEnemy::StaticClass(), SpawnTransform));
+  if (!Enemy) continue;
+  if (i == Count - 1 && Count >= 4) {
+   Enemy->bElite = true;
+   Enemy->bBoss = true;
+   Enemy->Health *= 4.f;
+   Enemy->AttackCooldown *= 1.15f;
   }
+  UGameplayStatics::FinishSpawningActor(Enemy, SpawnTransform);
  }
 }

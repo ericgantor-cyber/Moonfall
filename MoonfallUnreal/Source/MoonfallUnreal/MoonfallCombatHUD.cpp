@@ -14,18 +14,45 @@ void AMoonfallCombatHUD::DrawHUD()
  const AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this,0));
  if (!IsValid(Hero)) return;
  if (Hero->bOptionsOpen) {
-  DrawRect(FLinearColor(0.04f,0.03f,0.11f,0.94f),Canvas->SizeX*0.5f-280.f,Canvas->SizeY*0.5f-190.f,560.f,380.f);
-  DrawText(TEXT("MOONFALL  |  GRAPHICS OPTIONS"),FLinearColor::White,Canvas->SizeX*0.5f-230.f,Canvas->SizeY*0.5f-150.f,nullptr,1.25f);
+  const float MenuWidth = FMath::Min(560.f, FMath::Max(240.f, Canvas->SizeX - 24.f));
+  const float MenuHeight = FMath::Min(550.f, FMath::Max(280.f, Canvas->SizeY - 24.f));
+  const float MenuLeft = Canvas->SizeX * 0.5f - MenuWidth * 0.5f;
+  const float MenuTop = Canvas->SizeY * 0.5f - MenuHeight * 0.5f;
+  const float MenuRowGap = (MenuHeight - 130.f) / 7.f;
+  DrawRect(FLinearColor(0.04f,0.03f,0.11f,0.94f),MenuLeft,MenuTop,MenuWidth,MenuHeight);
+  DrawText(TEXT("MOONFALL  |  GRAPHICS & ACCESSIBILITY"),FLinearColor::White,MenuLeft+18.f,MenuTop+17.f,nullptr,1.25f);
   UGameUserSettings* Settings = GEngine ? GEngine->GetGameUserSettings() : nullptr;
   if (Settings) {
    float ScalePct = 100.f, ScaleNormalized = 0.f, ScaleMin = 50.f, ScaleMax = 100.f;
    Settings->GetResolutionScaleInformationEx(ScalePct, ScaleNormalized, ScaleMin, ScaleMax);
    const FIntPoint Res = Settings->GetScreenResolution();
-   const FString Rows[] = {FString::Printf(TEXT("Resolution: %d x %d"),Res.X,Res.Y),FString::Printf(TEXT("Render scale: %.0f%%"),ScalePct),FString::Printf(TEXT("Quality preset: %d (0 Low - 3 Epic)"),Settings->GetOverallScalabilityLevel()),FString::Printf(TEXT("Frame Generation: %s (%s)"),Hero->FrameGenerationPreference==0?TEXT("Off"):Hero->FrameGenerationPreference==1?TEXT("Auto"):TEXT("On"),Hero->bFrameGenerationPluginDetected?TEXT("plugin detected; inactive"):TEXT("plugin unavailable"))};
-   for (int32 i=0;i<4;++i) DrawText(Rows[i],i==Hero->OptionsSelection?FLinearColor::Yellow:FLinearColor::White,Canvas->SizeX*0.5f-210.f,Canvas->SizeY*0.5f-95.f+i*53.f,nullptr,1.1f);
+   const FString Rows[] = {FString::Printf(TEXT("Resolution: %d x %d"),Res.X,Res.Y),FString::Printf(TEXT("Render scale: %.0f%%"),ScalePct),FString::Printf(TEXT("Quality preset: %d (0 Low - 3 Epic)"),Settings->GetOverallScalabilityLevel()),FString::Printf(TEXT("Frame Generation: %s (%s)"),Hero->FrameGenerationPreference==0?TEXT("Off"):Hero->FrameGenerationPreference==1?TEXT("Auto"):TEXT("On"),Hero->bFrameGenerationPluginDetected?TEXT("plugin detected; inactive"):TEXT("plugin unavailable")),FString::Printf(TEXT("Reduced motion: %s"),Hero->bReduceMotion?TEXT("On"):TEXT("Off")),FString::Printf(TEXT("Combat text size: %.0f%%"),Hero->CombatTextScale * 100.f),FString::Printf(TEXT("Boss warning visibility: %.0f%%"),Hero->BossWarningScale * 100.f)};
+   for (int32 i=0;i<7;++i) DrawText(Rows[i],i==Hero->OptionsSelection?FLinearColor::Yellow:FLinearColor::White,MenuLeft+20.f,MenuTop+75.f+i*MenuRowGap,nullptr,1.1f);
   }
-  DrawText(TEXT("Arrow keys / D-pad: select and adjust    Esc / Start: close"),FLinearColor::White,Canvas->SizeX*0.5f-240.f,Canvas->SizeY*0.5f+155.f,nullptr,0.85f);
+  DrawText(TEXT("WASD / Arrows / D-pad: navigate    Esc / Start: close"),FLinearColor::White,MenuLeft+18.f,MenuTop+MenuHeight-28.f,nullptr,0.85f);
   return;
+ }
+ // Nearest living boss, displayed without creating additional widget actors.
+ const AMoonfallEnemy* Boss = nullptr;
+ float BossDistanceSq = TNumericLimits<float>::Max();
+ for (TActorIterator<AMoonfallEnemy> It(GetWorld()); It; ++It) {
+  const AMoonfallEnemy* E = *It;
+  if (!IsValid(E) || !E->bBoss || E->Health <= 0.f) continue;
+  const float DistSq = FVector::DistSquared(E->GetActorLocation(), Hero->GetActorLocation());
+  if (DistSq < BossDistanceSq) { Boss = E; BossDistanceSq = DistSq; }
+ }
+ if (Boss && BossDistanceSq < FMath::Square(3000.f)) {
+  const float Width = FMath::Min(480.f, Canvas->SizeX * 0.68f);
+  const float X = (Canvas->SizeX - Width) * 0.5f;
+  const float Y = 72.f;
+  const float MaxHP = FMath::Max(Boss->Health, Boss->BossMaxHealth);
+  const float Percent = FMath::Clamp(Boss->Health / FMath::Max(1.f, MaxHP), 0.f, 1.f);
+  DrawRect(FLinearColor(0.07f,0.04f,0.10f,0.94f),X-6.f,Y-30.f,Width+12.f,67.f);
+  DrawRect(FLinearColor(0.19f,0.10f,0.16f),X,Y,Width,16.f);
+  DrawRect(Boss->BossPhase >= 3 ? FLinearColor(0.86f,0.18f,0.67f) : FLinearColor(0.84f,0.15f,0.22f),X,Y,Width*Percent,16.f);
+  DrawText(FString::Printf(TEXT("BOSS  |  PHASE %d  |  %.0f / %.0f HP"),Boss->BossPhase,Boss->Health,MaxHP),FLinearColor::White,X,Y-25.f,nullptr,0.95f);
+  if (Boss->BossWarningEndTime > GetWorld()->GetTimeSeconds())
+   DrawText(TEXT("INCOMING ATTACK - DODGE"),FLinearColor(1.f,0.83f,0.24f),X,Y+18.f,nullptr,0.9f);
  }
  // Compact circular resource HUD at bottom left, with actual gameplay values.
  const float Radius = FMath::Clamp(FMath::Min(Canvas->SizeX, Canvas->SizeY) * 0.092f, 50.f, 80.f);
@@ -33,7 +60,7 @@ void AMoonfallCombatHUD::DrawHUD()
  const float CY = Canvas->SizeY - Radius - 25.f;
  const float LabelScale = FMath::Clamp(Radius / 65.f, 0.78f, 1.16f);
  const bool bCompactScreen = Canvas->SizeX < 760.f || Canvas->SizeY < 480.f;
- const float ActualHealth = FMath::Clamp(Hero->Health / 100.f, 0.f, 1.f);
+ const float ActualHealth = FMath::Clamp(Hero->Health / FMath::Max(1.f, Hero->MaxHealth), 0.f, 1.f);
  const float ActualMana = FMath::Clamp(Hero->Mana / FMath::Max(1.f, Hero->MaxMana), 0.f, 1.f);
  const float ActualXP = FMath::Clamp(static_cast<float>(Hero->Experience) / FMath::Max(1, Hero->ExperienceToNextLevel), 0.f, 1.f);
  const float Delta = GetWorld() ? FMath::Clamp(GetWorld()->GetDeltaSeconds(), 0.f, 0.1f) : 0.f;
@@ -94,7 +121,7 @@ void AMoonfallCombatHUD::DrawHUD()
   DrawArc(Radius * 1.055f, 1.f, FLinearColor(0.f,0.f,0.f,0.f),
           FLinearColor(0.85f, 0.48f, 1.f, Intensity), 2.f);
  }
- DrawText(FString::Printf(TEXT("%.0f HP"), FMath::Max(0.f, Hero->Health)),
+ DrawText(FString::Printf(TEXT("%.0f / %.0f HP"), FMath::Max(0.f, Hero->Health), Hero->MaxHealth),
           bCriticalHealth ? FLinearColor(1.f, 0.95f, 0.95f) : FLinearColor::White,
           CX - Radius * 0.39f, CY - Radius * 0.19f, nullptr, 0.88f * LabelScale);
  DrawText(FString::Printf(TEXT("LV %d"), Hero->Level), FLinearColor(0.91f,0.80f,1.f),
@@ -103,6 +130,18 @@ void AMoonfallCombatHUD::DrawHUD()
   const float Alpha = FMath::Clamp(GlowLeft / 1.25f, 0.f, 1.f);
   DrawText(TEXT("LEVEL UP"), FLinearColor(0.91f, 0.73f, 1.f, Alpha),
            CX + Radius + 14.f, CY - 13.f, nullptr, 0.96f * LabelScale);
+ }
+ if (!bCompactScreen) {
+  const TCHAR* RarityNames[] = { TEXT("COMMON"), TEXT("UNCOMMON"), TEXT("RARE"), TEXT("EPIC") };
+  const int32 Rarity = FMath::Clamp(Hero->LastLootRarity, 0, 3);
+  DrawText(FString::Printf(TEXT("Gear W:%d A:%d C:%d | Salvage %d | Bag %d/30"),
+   Hero->WeaponTier, Hero->ArmorTier, Hero->AccessoryTier, Hero->Salvage, Hero->InventoryItemCodes.Num()),
+   FLinearColor(0.85f,0.84f,0.95f), 24.f, Canvas->SizeY - 75.f, nullptr, 0.8f);
+  if (Hero->InventoryItemCodes.Num() > 0) {
+   DrawText(FString::Printf(TEXT("Last drop: %s Tier %d (%+d vs equipped)"),
+    RarityNames[Rarity], Hero->LastLootTier, Hero->LastLootUpgrade),
+    FLinearColor(0.95f,0.84f,0.47f), 24.f, Canvas->SizeY - 55.f, nullptr, 0.8f);
+  }
  }
  if (!bCompactScreen) DrawText(TEXT("ESC  OPTIONS"), FLinearColor(0.73f, 0.70f, 0.83f, 0.85f),
           FMath::Max(16.f, Canvas->SizeX - 142.f), Canvas->SizeY - 37.f, nullptr, 0.82f);
@@ -115,7 +154,7 @@ void AMoonfallCombatHUD::DrawHUD()
   if (GetOwningPlayerController() && GetOwningPlayerController()->ProjectWorldLocationToScreen(Enemy->GetActorLocation() + FVector(0,0,175.f + Age*65.f), Screen) &&
       Screen.X >= 0.f && Screen.X < Canvas->SizeX && Screen.Y >= 0.f && Screen.Y < Canvas->SizeY) {
    ++VisibleDamageNumbers;
-   DrawText(FString::Printf(TEXT("-%.0f"), Enemy->LastHitAmount), FLinearColor(1.f,0.84f,0.2f,1.f-Age/0.8f), Screen.X, Screen.Y, nullptr, 1.3f);
+   DrawText(FString::Printf(TEXT("-%.0f"), Enemy->LastHitAmount), FLinearColor(1.f,0.84f,0.2f,1.f-Age/0.8f), Screen.X, Screen.Y, nullptr, 1.3f * Hero->CombatTextScale);
   }
  }
 }
