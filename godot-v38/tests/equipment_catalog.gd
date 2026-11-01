@@ -17,6 +17,12 @@ func _run()->void:
   ids[item["id"]]=true
   check(int(item["power"])>0,"positive power")
   check(int(item["upgrade_cap"])<=5,"bounded upgrade cap")
+ var sword:Dictionary=CATALOG.get_item("moonsteel_sword")
+ var greatsword:Dictionary=CATALOG.get_item("moonsteel_greatsword")
+ var daggers:Dictionary=CATALOG.get_item("moonsteel_daggers")
+ check(int(greatsword["power"])>int(sword["power"]) and int(sword["power"])>int(daggers["power"]),"weapon class tradeoffs")
+ check(int(CATALOG.get_item("moonsteel_sentinel_chest")["power"])>int(CATALOG.get_item("moonsteel_sentinel_gloves")["power"]),"chest armor heavier than gloves")
+ check(CATALOG.weapon_damage_multiplier(CATALOG.get_item("dawnfire_greatsword"))<=1.5,"gear damage bonus bounded")
  check(CATALOG.WEAPONS.size()==14,"14 weapon families")
  check(CATALOG.ARMOR_SLOTS.size()==5,"five armor slots")
  check(CATALOG.get_item("moonsteel_sword").get("family")=="Sword","lookup works")
