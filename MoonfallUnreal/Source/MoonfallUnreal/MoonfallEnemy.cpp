@@ -192,6 +192,8 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
    // An elite cannot chain another attack during its recovery window.
    // Phase-two bosses unlock a fourth, highly telegraphed crush.
    const int32 Pattern = AttackSequence++ % ((bElite || (bBoss && BossPhase >= 2)) ? 4 : 3);
+   // Later-phase bosses alternate fast opener and a readable delayed follow-up.
+   const bool bComboFollowUp = bBoss && BossPhase >= 2 && Pattern == 1;
    CurrentWindup = Pattern == 0 ? 0.38f : (Pattern == 1 ? 0.85f : (Pattern == 2 ? 0.65f : 1.05f));
    CurrentAttackMultiplier = Pattern == 1 ? 1.8f : (Pattern == 2 ? 0.75f : (Pattern == 3 ? 2.25f : 1.f));
    CurrentAttackRangeMultiplier = Pattern == 2 ? 1.25f : (Pattern == 3 ? 1.4f : 1.f);
@@ -201,6 +203,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
     else CurrentWindup *= 0.95f;
     CurrentAttackMultiplier *= BossPhase == 3 ? 1.35f : 1.15f;
    }
+   if (bComboFollowUp) CurrentWindup += 0.25f;
    WindupEndsAt = Now + CurrentWindup;
    if (bBoss) BossWarningEndTime = WindupEndsAt;
   }
