@@ -1378,6 +1378,16 @@ func _unhandled_key_input(event: InputEvent) -> void:
  get_viewport().set_input_as_handled()
 
 func _unhandled_input(event: InputEvent) -> void:
+ if wait_open:
+  if event is InputEventJoypadButton and event.pressed:
+   match event.button_index:
+    JOY_BUTTON_DPAD_LEFT, JOY_BUTTON_DPAD_DOWN:wait_hours=maxi(1,wait_hours-1)
+    JOY_BUTTON_DPAD_RIGHT, JOY_BUTTON_DPAD_UP:wait_hours=mini(24,wait_hours+1)
+    JOY_BUTTON_A:_finish_wait(true)
+    JOY_BUTTON_B:_finish_wait(false)
+   _set_wait_display()
+   get_viewport().set_input_as_handled()
+  return
  if event is InputEventJoypadButton and event.pressed:
   if event.button_index==JOY_BUTTON_START:
    if hero_playing:_toggle_menu()
