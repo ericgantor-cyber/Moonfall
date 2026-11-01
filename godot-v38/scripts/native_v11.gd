@@ -804,6 +804,7 @@ func _build_ui() -> void:
  wait_panel.position=Vector2(-280,-165)
  wait_panel.custom_minimum_size=Vector2(650,350)
  wait_panel.mouse_filter=Control.MOUSE_FILTER_STOP
+ wait_panel.focus_mode=Control.FOCUS_ALL
  var wait_frame:=StyleBoxFlat.new()
  wait_frame.bg_color=Color("151b32")
  wait_frame.border_color=Color("d5ac69")
