@@ -1496,6 +1496,7 @@ func _animate_wait(delta:float) -> void:
  if fraction>=1.0:
   world_day=mini(99999,wait_transition_start_day+int(floor(wait_transition_end/DAY_LENGTH_SECONDS)))
   wait_transition_active=false
+  wait_transition_elapsed=0.0
   _set_wait_display()
   _save_game()
   _show_message("Time passes. Day %d, %s (%s)." % [world_day,_day_phase(),_wait_clock_text(world_clock)],3.0)
