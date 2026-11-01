@@ -265,6 +265,16 @@ void AMoonfallHeroPawn::AwardEquipmentDrop(bool bEliteEnemy, bool bBossEnemy)
  if (Health <= 0.f) return;
  // Bounded deterministic loot, without spawned pickup actors or per-frame work.
  const int32 NewTier = FMath::Clamp(Level / 5 + (bBossEnemy ? 2 : (bEliteEnemy ? 1 : 0)), 1, 25);
+ // Rarity: 0 common, 1 uncommon, 2 rare, 3 epic. Boss loot is more valuable.
+ LastLootRarity = bBossEnemy ? 3 : (bEliteEnemy ? 2 : (Level >= 10 ? 1 : 0));
+ LastLootTier = NewTier;
+ LastLootSlot = bBossEnemy ? 2 : (bEliteEnemy ? 1 : 0);
+ const int32 PreviousTier = LastLootSlot == 2 ? AccessoryTier : (LastLootSlot == 1 ? ArmorTier : WeaponTier);
+ LastLootUpgrade = NewTier - PreviousTier;
+ // Compact stable item code: slot, rarity, tier. Maximum 30 entries.
+ const int32 ItemCode = LastLootSlot * 10000 + LastLootRarity * 1000 + NewTier;
+ if (InventoryItemCodes.Num() >= 30) InventoryItemCodes.RemoveAt(0);
+ InventoryItemCodes.Add(ItemCode);
  // Rotate awards across equipment categories; higher-tier items replace lower tiers.
  int32* Slot = bBossEnemy ? &AccessoryTier : (bEliteEnemy ? &ArmorTier : &WeaponTier);
  if (NewTier > *Slot) {
