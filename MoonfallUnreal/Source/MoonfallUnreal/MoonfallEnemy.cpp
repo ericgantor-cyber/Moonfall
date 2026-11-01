@@ -134,6 +134,13 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   FVector Direction = Target - GetActorLocation();
   Direction.Z = 0.f;
   AddActorWorldOffset(Direction.GetSafeNormal() * ChaseSpeed * DeltaSeconds, true, &Hit);
+  // If collision blocks the cached route, request a fresh navigation path.
+  // Rate-limit retries to avoid a synchronous path solve every AI tick.
+  if (Hit.bBlockingHit && Now >= NextBlockedRepathAt) {
+   NextPathRefreshAt = 0.f;
+   NextBlockedRepathAt = Now + 0.5f;
+   CachedWaypoint = FVector::ZeroVector;
+  }
  } else if (Distance <= AttackRange) {
   const float Now = GetWorld()->GetTimeSeconds();
   if (WindupEndsAt < 0.f && Now >= NextAttackAt) {
