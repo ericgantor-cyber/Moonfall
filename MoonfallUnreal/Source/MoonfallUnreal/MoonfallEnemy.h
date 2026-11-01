@@ -10,6 +10,7 @@ class MOONFALLUNREAL_API AMoonfallEnemy : public AActor
 public:
  AMoonfallEnemy();
  virtual void Tick(float DeltaSeconds) override;
+ virtual void BeginPlay() override;
  UPROPERTY(EditAnywhere, Category="Combat") float ChaseSpeed = 180.f;
  UPROPERTY(EditAnywhere, Category="Combat") float AttackDamage = 8.f;
  UPROPERTY(EditAnywhere, Category="Combat") float AttackRange = 145.f;
