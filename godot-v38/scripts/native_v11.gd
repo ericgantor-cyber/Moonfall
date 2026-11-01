@@ -1430,7 +1430,7 @@ func _set_wait_display() -> void:
   if is_instance_valid(wait_clock_dial):wait_clock_dial.hour=fposmod(world_clock if wait_transition_active else world_clock+float(wait_hours)*DAY_LENGTH_SECONDS/24.0,DAY_LENGTH_SECONDS)/DAY_LENGTH_SECONDS*24.0
   if wait_transition_active:
    # The animation is informational; keep buttons hidden while it runs.
-   wait_label.text="TIME PASSING...  Day %d  %s  %s\nSpace / Enter / controller A: skip animation" % [world_day,_wait_clock_text(world_clock),_day_phase()]
+   wait_label.text="TIME PASSING...  Day %d  %s  %s\nSpace / Enter / P / controller A: skip animation" % [world_day,_wait_clock_text(world_clock),_day_phase()]
    if is_instance_valid(wait_clock_bar):wait_clock_bar.value=fposmod(world_clock,DAY_LENGTH_SECONDS)/DAY_LENGTH_SECONDS*24.0
    if is_instance_valid(wait_clock_art):
     wait_clock_art.text="✦   ☀  ━━━  ◯  ━━━  ✧   ✦" if _day_phase()=="Day" or _day_phase()=="Dawn" else "✦   ☾  ━━━  ◯  ━━━  ✧   ✦"
