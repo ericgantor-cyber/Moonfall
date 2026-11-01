@@ -119,6 +119,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   BossWarningEndTime = -1.f;
   // Heavy elite crushes demand recovery, leaving a counterattack window.
   NextAttackAt = Now + AttackCooldown + ((bElite || bBoss) && CurrentAttackMultiplier > 2.f ? 0.8f : 0.f);
+  if (bBoss) DrawDebugSphere(GetWorld(), GetActorLocation(), AttackRange * CurrentAttackRangeMultiplier, 16, BossPhase >= 3 ? FColor::Magenta : FColor::Orange, false, 0.18f, 0, 2.f);
   // Dash displacement is handled gradually during its final windup.
   // Attack still resolves after the warning against the hero's live position.
   // Attack resolves against the hero's CURRENT position, so dodging works.
