@@ -1971,6 +1971,11 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
  var perception:float=AI_RULES.perception(map_time<float(beast.get("alert_until",0.0)),weather_name,_day_phase()=="Night")
  var engaged:=is_hostile and distance<perception and _has_clear_sight(body,player)
  beast["engaged"]=engaged
+ # Investigate the last visible location for three seconds after losing sight.
+ if not bool(beast.get("boss",false)) and is_hostile:
+  var memory:Dictionary=ENEMY_COMBAT_RULES.remember_target(engaged,is_hostile,false,map_time,player.global_position,beast.get("last_seen_position",body.global_position),float(beast.get("last_seen_until",0.0)))
+  beast["last_seen_position"]=memory["position"]
+  beast["last_seen_until"]=memory["until"]
  # v38.3: role-aware low-health retreat for live hostile fauna.
  # Preserve existing boss telegraphs, ecology, attacks and actor pools.
  var v383_intent:String=""
@@ -1993,6 +1998,8 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
   body.velocity=(flank*orbit_side+diff.normalized()*0.25).normalized()*move_speed*0.7
  elif engaged and distance>1.7:
   body.velocity=AI_RULES.approach(diff,move_speed,int(beast["boss_id"]),bool(beast.get("boss",false)),int(beast.get("boss_phase",1)),distance)
+ elif is_hostile and not engaged and not bool(beast.get("boss",false)) and map_time<float(beast.get("last_seen_until",0.0)):
+  body.velocity=ENEMY_COMBAT_RULES.investigate_velocity(is_hostile,engaged,false,map_time,float(beast.get("last_seen_until",0.0)),body.global_position,beast.get("last_seen_position",body.global_position),move_speed)
  elif not is_hostile and (distance<6.0 or map_time<float(beast.get("scared_until",0.0))):
   var escape:= -diff.normalized()
   if distance>8.0:

@@ -32,3 +32,20 @@ static func orbit_direction(beast_id:int)->float:
 
 static func ready_to_strike(timer:float)->bool:
  return is_finite(timer) and timer<=0.0
+
+# Memory is per creature: no scans, pathfinders, or extra nodes per frame.
+static func remember_target(seen:bool,hostile:bool,boss:bool,now:float,hero_pos:Vector3,old_pos:Vector3,old_until:float)->Dictionary:
+ if not hostile or boss or not is_finite(now):
+  return {"position":old_pos,"until":0.0}
+ if seen:
+  return {"position":hero_pos,"until":now+3.0}
+ return {"position":old_pos,"until":old_until}
+
+static func investigate_velocity(hostile:bool,engaged:bool,boss:bool,now:float,until:float,body_pos:Vector3,last_pos:Vector3,speed:float)->Vector3:
+ if not hostile or engaged or boss or not is_finite(now) or now>=until:
+  return Vector3.ZERO
+ var offset:Vector3=last_pos-body_pos
+ offset.y=0.0
+ if offset.length_squared()<1.0 or not is_finite(offset.x) or not is_finite(offset.z):
+  return Vector3.ZERO
+ return offset.normalized()*maxf(0.0,speed)*0.65
