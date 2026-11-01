@@ -1,4 +1,4 @@
-param([string]$UnrealRoot = $env:UE54_ROOT)
+param([string]$UnrealRoot = $env:UE54_ROOT, [switch]$SelfTest)
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
@@ -167,4 +167,22 @@ $form.Add_FormClosing({
         [Windows.Forms.MessageBox]::Show('Cancel the running job first.','Moonfall Build Center')
     }
 })
+if ($SelfTest) {
+    # Exercise real WinForms control construction on a hosted Windows runner.
+    $required = @($check, $install, $compile, $build, $cancel, $folder, $diagnostics, $logs, $engine)
+    foreach ($control in $required) {
+        if ($null -eq $control -or -not $control.IsHandleCreated) {
+            if ($null -eq $control) { throw 'Build Center control was not created.' }
+            [void]$control.Handle
+        }
+        if ([string]::IsNullOrWhiteSpace($control.AccessibleName)) {
+            throw "Missing accessible name for control: $($control.Name)"
+        }
+    }
+    if ($cancel.Enabled) { throw 'Cancel must start disabled.' }
+    if (-not $build.Enabled -or -not $compile.Enabled) { throw 'Build buttons must start enabled.' }
+    Write-Host 'Build Center WinForms controls instantiated successfully. No Unreal compilation was performed.'
+    $form.Dispose()
+    exit 0
+}
 [void]$form.ShowDialog()
