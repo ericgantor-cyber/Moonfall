@@ -1,4 +1,5 @@
 extends "res://scripts/main.gd"
+const ENEMY_COMBAT_RULES=preload("res://scripts/systems/enemy_combat_rules.gd")
 const GUARDIAN_ATTACK_RULES=preload("res://scripts/systems/guardian_attack_rules.gd")
 const V383_COMBAT_RULES:=preload("res://scripts/systems/procedural_variants_v382.gd")
 const V383_FEEDBACK:=preload("res://scripts/systems/combat_feedback_v383.gd")
@@ -1960,7 +1961,7 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
  var diff:=player.global_position-body.global_position
  diff.y=0.0
  var distance:=diff.length()
- beast["attack"]=maxf(0.0,float(beast.get("attack",0.0))-delta)
+ beast["attack"]=ENEMY_COMBAT_RULES.attack_timer_after_frame(float(beast.get("attack",0.0)),delta)
  var kind:=str(beast["kind"])
  var staggered:=map_time<float(beast.get("stagger_until",0.0))
  var elite:=str(beast.get("variant","normal"))!="normal" and not bool(beast.get("boss",false))
@@ -1974,7 +1975,7 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
  # Preserve existing boss telegraphs, ecology, attacks and actor pools.
  var v383_intent:String=""
  if engaged and not bool(beast.get("boss",false)):
-  var v383_role:String="ambusher" if kind=="panther" else "bruiser"
+  var v383_role:String=ENEMY_COMBAT_RULES.role_for(kind)
   var v383_health:float=float(beast.get("hp",1.0))/maxf(1.0,float(beast.get("max",1.0)))
   v383_intent=V383_COMBAT_RULES.combat_intent(v383_role,distance,v383_health,float(beast["attack"])<=0.0,true)
  var activity:Dictionary=beast.get("ecology_target",{})
@@ -1985,7 +1986,7 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
   body.velocity=-diff.normalized()*move_speed*0.9
  elif engaged and v383_intent=="retreat" and distance<8.0:
   body.velocity=-diff.normalized()*move_speed*0.85
- elif engaged and v383_intent=="strafe" and distance>1.7 and distance<6.0:
+ elif engaged and ENEMY_COMBAT_RULES.should_circle(kind,v383_intent,distance):
   # Stable per-actor orbit side, no random calls or additional physics bodies.
   var flank:Vector3=Vector3(-diff.z,0.0,diff.x).normalized()
   var orbit_side:float=1.0 if int(beast["boss_id"])%2==0 else -1.0
@@ -2073,7 +2074,7 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
    _apply_incoming_damage(float(BEASTS[kind]["atk"]))
   # Visual follow-through only; preserve established hit timing and damage.
   beast["attack_swing_until"]=map_time+V383_FEEDBACK.ATTACK_SWING_SECONDS
-  beast["attack"]=1.5
+  beast["attack"]=ENEMY_COMBAT_RULES.attack_cooldown(kind)
 
 func _despawn_native_beast(beast:Dictionary,delay:float) -> void:
  beast["alive"]=false
