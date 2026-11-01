@@ -48,7 +48,7 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
  // Bounded camera impulse, no camera shake object or spawned effects.
  ImpactCameraOffset = FMath::FInterpTo(ImpactCameraOffset, 0.f, FMath::Max(0.f, DeltaSeconds), 12.f);
  if (CameraBoom) CameraBoom->TargetArmLength = 450.f + (bReduceMotion ? 0.f : ImpactCameraOffset);
- if (Health > 0.f && Mana < MaxMana) Mana = FMath::Min(MaxMana, Mana + ManaRegenPerSecond * FMath::Max(0.f, DeltaSeconds));
+ if (Health > 0.f && Mana < MaxMana) Mana = FMath::Min(MaxMana, Mana + ManaRegenPerSecond * (1.f + AccessoryTier * 0.02f) * FMath::Max(0.f, DeltaSeconds));
 }
 void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
 {
@@ -107,7 +107,7 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
   if (!GetWorld()->LineTraceSingleByChannel(Hit, Origin, End, ECC_Visibility, Params)) return false;
   AMoonfallEnemy* Enemy = Cast<AMoonfallEnemy>(Hit.GetActor());
   if (!IsValid(Enemy) || Enemy->Health <= 0.f) return false;
-  Enemy->TakeSpellDamage((18.f + School * 5.f) * Multiplier * SpellPowerMultiplier);
+  Enemy->TakeSpellDamage((18.f + School * 5.f) * Multiplier * SpellPowerMultiplier * (1.f + 0.025f * WeaponTier));
   const FColor SpellColors[6] = {FColor(245, 60, 39), FColor(65, 204, 245), FColor(168, 72, 236), FColor(72, 230, 130), FColor(245, 224, 64), FColor(76, 178, 68)};
   const FColor ImpactColor = SpellColors[School];
   DrawDebugSphere(GetWorld(), Hit.ImpactPoint, 24.f * Multiplier, 12, ImpactColor, false, 0.22f, 0, 2.f);
@@ -162,7 +162,7 @@ void AMoonfallHeroPawn::RewardPerfectDodge() {
 void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
  if (Health <= 0.f || Amount <= 0.f || !GetWorld() || GetWorld()->GetTimeSeconds() < DamageImmunityUntil) return;
  const float PreviousHealth = Health;
- Health = FMath::Max(0.f, Health - Amount);
+ Health = FMath::Max(0.f, Health - Amount * (1.f - FMath::Min(0.35f, ArmorTier * 0.012f)));
  const float DamageTaken = PreviousHealth - Health;
  if (!bReduceMotion) ImpactCameraOffset = FMath::Clamp(ImpactCameraOffset + FMath::Min(DamageTaken * 0.5f, 18.f), 0.f, 24.f);
  OnDamageImpact(DamageTaken);
@@ -265,11 +265,18 @@ void AMoonfallHeroPawn::AwardEquipmentDrop(bool bEliteEnemy, bool bBossEnemy)
  if (Health <= 0.f) return;
  // Bounded deterministic loot, without spawned pickup actors or per-frame work.
  const int32 NewTier = FMath::Clamp(Level / 5 + (bBossEnemy ? 2 : (bEliteEnemy ? 1 : 0)), 1, 25);
- if (NewTier > EquipmentTier) {
-  EquipmentTier = NewTier;
-  MaxHealth += 3.f;
-  Health = FMath::Min(MaxHealth, Health + 3.f);
-  OnHealthChanged(Health, MaxHealth);
+ // Rotate awards across equipment categories; higher-tier items replace lower tiers.
+ int32* Slot = (EquipmentTier % 3 == 0) ? &WeaponTier
+    : ((EquipmentTier % 3 == 1) ? &ArmorTier : &AccessoryTier);
+ if (NewTier > *Slot) {
+  const int32 Previous = *Slot;
+  *Slot = NewTier;
+  EquipmentTier = FMath::Max(WeaponTier, FMath::Max(ArmorTier, AccessoryTier));
+  if (Slot == &ArmorTier) {
+   MaxHealth += 3.f * (NewTier - Previous);
+   Health = FMath::Min(MaxHealth, Health + 3.f * (NewTier - Previous));
+   OnHealthChanged(Health, MaxHealth);
+  }
  } else {
   Salvage = FMath::Min(9999, Salvage + (bBossEnemy ? 5 : (bEliteEnemy ? 2 : 1)));
  }
