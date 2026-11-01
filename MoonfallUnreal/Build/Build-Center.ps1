@@ -129,7 +129,23 @@ $timer.Add_Tick({
         $exitCode = $script:process.ExitCode
         $logs.AppendText("Process exit code: $exitCode" + [Environment]::NewLine)
         $logs.AppendText("Saved build log: $script:outLog" + [Environment]::NewLine)
-        if ($exitCode -ne 0) { $logs.AppendText("BUILD FAILED: Review the saved log and error log before retrying." + [Environment]::NewLine) }
+        if ($exitCode -ne 0) {
+            $logs.AppendText("BUILD FAILED: Review the saved log and error log before retrying." + [Environment]::NewLine)
+            $diagnosticFiles = @($script:outLog, $script:errLog)
+            $matches = @()
+            foreach ($file in $diagnosticFiles) {
+                if (-not (Test-Path -LiteralPath $file)) { continue }
+                $matches += @(Select-String -LiteralPath $file -Pattern 'error C[0-9]+:','fatal error','error CS[0-9]+:','ERROR:','Exception:','BUILD FAILED' -ErrorAction SilentlyContinue | Select-Object -Last 12)
+            }
+            if ($matches.Count -gt 0) {
+                $logs.AppendText("---- Recent error details ----" + [Environment]::NewLine)
+                foreach ($match in ($matches | Select-Object -Last 12)) {
+                    $logs.AppendText(($match.Line.Trim()) + [Environment]::NewLine)
+                }
+            } else {
+                $logs.AppendText("No recognized compiler error line found. Open full logs for details." + [Environment]::NewLine)
+            }
+        }
     }
 })
 $form.Add_FormClosing({
