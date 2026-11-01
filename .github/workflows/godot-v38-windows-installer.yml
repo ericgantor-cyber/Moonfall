@@ -1,6 +1,11 @@
 name: Moonfall v38.3 Godot Windows build and installer
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "godot-v38/**"
+      - ".github/workflows/godot-v38-windows-installer.yml"
   pull_request:
     paths:
       - "godot-v38/**"
