@@ -127,10 +127,10 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   const float Now = GetWorld()->GetTimeSeconds();
   if (WindupEndsAt < 0.f && Now >= NextAttackAt) {
    // Alternate quick strikes, heavy attacks and wider sweeps with distinct warnings.
-   const int32 Pattern = AttackSequence++ % 3;
-   CurrentWindup = Pattern == 0 ? 0.38f : (Pattern == 1 ? 0.85f : 0.65f);
-   CurrentAttackMultiplier = Pattern == 1 ? 1.8f : (Pattern == 2 ? 0.75f : 1.f);
-   CurrentAttackRangeMultiplier = Pattern == 2 ? 1.25f : 1.f;
+   const int32 Pattern = AttackSequence++ % (bElite ? 4 : 3);
+   CurrentWindup = Pattern == 0 ? 0.38f : (Pattern == 1 ? 0.85f : (Pattern == 2 ? 0.65f : 1.05f));
+   CurrentAttackMultiplier = Pattern == 1 ? 1.8f : (Pattern == 2 ? 0.75f : (Pattern == 3 ? 2.25f : 1.f));
+   CurrentAttackRangeMultiplier = Pattern == 2 ? 1.25f : (Pattern == 3 ? 1.4f : 1.f);
    WindupEndsAt = Now + CurrentWindup;
   }
  }
