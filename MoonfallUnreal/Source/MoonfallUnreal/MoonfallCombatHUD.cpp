@@ -60,7 +60,7 @@ void AMoonfallCombatHUD::DrawHUD()
  const float CY = Canvas->SizeY - Radius - 25.f;
  const float LabelScale = FMath::Clamp(Radius / 65.f, 0.78f, 1.16f);
  const bool bCompactScreen = Canvas->SizeX < 760.f || Canvas->SizeY < 480.f;
- const float ActualHealth = FMath::Clamp(Hero->Health / 100.f, 0.f, 1.f);
+ const float ActualHealth = FMath::Clamp(Hero->Health / FMath::Max(1.f, Hero->MaxHealth), 0.f, 1.f);
  const float ActualMana = FMath::Clamp(Hero->Mana / FMath::Max(1.f, Hero->MaxMana), 0.f, 1.f);
  const float ActualXP = FMath::Clamp(static_cast<float>(Hero->Experience) / FMath::Max(1, Hero->ExperienceToNextLevel), 0.f, 1.f);
  const float Delta = GetWorld() ? FMath::Clamp(GetWorld()->GetDeltaSeconds(), 0.f, 0.1f) : 0.f;
@@ -121,7 +121,7 @@ void AMoonfallCombatHUD::DrawHUD()
   DrawArc(Radius * 1.055f, 1.f, FLinearColor(0.f,0.f,0.f,0.f),
           FLinearColor(0.85f, 0.48f, 1.f, Intensity), 2.f);
  }
- DrawText(FString::Printf(TEXT("%.0f HP"), FMath::Max(0.f, Hero->Health)),
+ DrawText(FString::Printf(TEXT("%.0f / %.0f HP"), FMath::Max(0.f, Hero->Health), Hero->MaxHealth),
           bCriticalHealth ? FLinearColor(1.f, 0.95f, 0.95f) : FLinearColor::White,
           CX - Radius * 0.39f, CY - Radius * 0.19f, nullptr, 0.88f * LabelScale);
  DrawText(FString::Printf(TEXT("LV %d"), Hero->Level), FLinearColor(0.91f,0.80f,1.f),
