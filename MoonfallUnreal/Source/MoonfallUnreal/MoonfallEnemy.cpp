@@ -112,8 +112,18 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   BossWarningEndTime = -1.f;
   // Heavy elite crushes demand recovery, leaving a counterattack window.
   NextAttackAt = Now + AttackCooldown + ((bElite || bBoss) && CurrentAttackMultiplier > 2.f ? 0.8f : 0.f);
+  // Dash Strike now performs one collision-swept burst after its warning.
+  // Sweep prevents crossing arena walls. No extra tick or movement component.
+  if (bBoss && BossSpecialMove == 3 && Distance > 1.f) {
+   FHitResult DashHit;
+   const FVector DashDirection = Difference.GetSafeNormal2D();
+   const float DashDistance = FMath::Min(240.f, FMath::Max(0.f, Distance - 85.f));
+   AddActorWorldOffset(DashDirection * DashDistance, true, &DashHit);
+   Difference = Hero->GetActorLocation() - GetActorLocation();
+   Difference.Z = 0.f;
+  }
   // Attack resolves against the hero's CURRENT position, so dodging works.
-  if (Distance <= AttackRange * CurrentAttackRangeMultiplier) {
+  if (Difference.Size() <= AttackRange * CurrentAttackRangeMultiplier) {
    // Do not damage the hero through solid arena walls or cover.
    FCollisionQueryParams SightParams(SCENE_QUERY_STAT(MoonfallMeleeSight), false);
    SightParams.AddIgnoredActor(this);
