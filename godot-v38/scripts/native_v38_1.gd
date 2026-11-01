@@ -7,8 +7,8 @@ var realm_status:Label
 var realm_choice_buttons:Array[Button] = []
 
 func _ready() -> void:
- super._ready()
  realm_ethics = REALM_ETHICS.new_state()
+ super._ready()
  _build_realm_choice_panel()
 
 func _start_game(selected_hero:String) -> void:
@@ -57,7 +57,7 @@ func _build_realm_choice_panel() -> void:
  _refresh_realm_choices()
 
 func _choose_realm_action(entry:Dictionary) -> void:
- if not hero_playing or death_active:
+ if not hero_playing or death_active or menu_open:
   return
  # The two outcomes belong to one decision; a second choice cannot reverse it.
  var choices:Dictionary = REALM_ETHICS.normalize(realm_ethics)["choices"]
@@ -76,7 +76,7 @@ func _refresh_realm_choices() -> void:
  for button in realm_choice_buttons:
   if is_instance_valid(button):
    button.disabled = decided
- realm_panel.visible = hero_playing and not death_active
+ realm_panel.visible = hero_playing and not death_active and not menu_open
 
 func _process(delta:float) -> void:
  super._process(delta)
