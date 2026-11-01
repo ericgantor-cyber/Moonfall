@@ -1,0 +1,37 @@
+name: Moonfall Build Center Windows syntax checks
+on:
+  push:
+    paths:
+      - 'MoonfallUnreal/Build/**'
+      - '.github/workflows/build-center-windows-checks.yml'
+  pull_request:
+    paths:
+      - 'MoonfallUnreal/Build/**'
+      - '.github/workflows/build-center-windows-checks.yml'
+jobs:
+  parse-powershell:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Parse Windows PowerShell scripts
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $files = @(
+            'MoonfallUnreal/Build/Build-Center.ps1',
+            'MoonfallUnreal/Build/Build-Windows.ps1',
+            'MoonfallUnreal/Build/Setup-WindowsPrerequisites.ps1'
+          )
+          foreach ($file in $files) {
+            $tokens = $null
+            $parseErrors = $null
+            [void][System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path $file).Path, [ref]$tokens, [ref]$parseErrors)
+            if ($parseErrors.Count -gt 0) {
+              foreach ($issue in $parseErrors) {
+                Write-Host "::error file=$file,line=$($issue.Extent.StartLineNumber)::$($issue.Message)"
+              }
+              throw "PowerShell syntax errors: $file"
+            }
+            Write-Host "PowerShell syntax OK: $file"
+          }
+          Write-Host 'Syntax checks passed. GUI and Unreal compilation were not executed.'
