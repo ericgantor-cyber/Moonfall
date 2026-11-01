@@ -1,0 +1,84 @@
+extends "res://scripts/native_v38_0.gd"
+## First playable realm-choice integration. All locations stay in the same world.
+const REALM_ETHICS := preload("res://scripts/systems/morality_reputation.gd")
+var realm_ethics:Dictionary = {}
+var realm_panel:PanelContainer
+var realm_status:Label
+var realm_choice_buttons:Array[Button] = []
+
+func _ready() -> void:
+ super._ready()
+ realm_ethics = REALM_ETHICS.new_state()
+ _build_realm_choice_panel()
+
+func _start_game(selected_hero:String) -> void:
+ super._start_game(selected_hero)
+ realm_ethics = REALM_ETHICS.new_state()
+ _refresh_realm_choices()
+
+func _checkpoint_extra_data() -> Dictionary:
+ var data:Dictionary = super._checkpoint_extra_data()
+ data["realm_ethics"] = realm_ethics.duplicate(true)
+ return data
+
+func _restore_data(data:Dictionary) -> void:
+ super._restore_data(data)
+ var extra:Variant = data.get("optional_resources", {})
+ realm_ethics = REALM_ETHICS.normalize(extra.get("realm_ethics", {}) if extra is Dictionary else {})
+ _refresh_realm_choices()
+
+func _build_realm_choice_panel() -> void:
+ var layer:CanvasLayer = get_node_or_null("NativeAtlasUI") as CanvasLayer
+ if not is_instance_valid(layer):
+  return
+ realm_panel = PanelContainer.new()
+ realm_panel.name = "RealmChoicePanel"
+ realm_panel.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+ realm_panel.offset_left = -330
+ realm_panel.offset_right = -16
+ realm_panel.offset_top = 160
+ realm_panel.offset_bottom = 365
+ layer.add_child(realm_panel)
+ var layout:VBoxContainer = VBoxContainer.new()
+ realm_panel.add_child(layout)
+ realm_status = Label.new()
+ realm_status.name = "RealmEthicsStatus"
+ realm_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+ layout.add_child(realm_status)
+ for entry in [
+  {"id":"realm_village_aid","text":"PROTECT THE VILLAGE","moral":35,"factions":{"Villagers":40,"Wardens":20}},
+  {"id":"realm_village_betray","text":"BETRAY THE VILLAGE","moral":-40,"factions":{"Villagers":-45,"Outlaws":30}}
+ ]:
+  var button:Button = Button.new()
+  button.text = str(entry["text"])
+  button.pressed.connect(_choose_realm_action.bind(entry))
+  layout.add_child(button)
+  realm_choice_buttons.append(button)
+ _refresh_realm_choices()
+
+func _choose_realm_action(entry:Dictionary) -> void:
+ if not hero_playing or death_active:
+  return
+ # The two outcomes belong to one decision; a second choice cannot reverse it.
+ var choices:Dictionary = REALM_ETHICS.normalize(realm_ethics)["choices"]
+ if choices.has("realm_village_aid") or choices.has("realm_village_betray"):
+  return
+ realm_ethics = REALM_ETHICS.apply_choice(realm_ethics, str(entry["id"]), int(entry["moral"]), entry["factions"])
+ _show_message("The realm remembers: " + str(entry["text"]), 3.0)
+ _refresh_realm_choices()
+
+func _refresh_realm_choices() -> void:
+ if not is_instance_valid(realm_status):
+  return
+ var state:Dictionary = REALM_ETHICS.normalize(realm_ethics)
+ realm_status.text = "REALM CHOICES | " + REALM_ETHICS.alignment(int(state["morality"])) + "\nVillagers: " + REALM_ETHICS.standing(int(state["factions"].get("Villagers",0)))
+ var decided:bool = state["choices"].has("realm_village_aid") or state["choices"].has("realm_village_betray")
+ for button in realm_choice_buttons:
+  if is_instance_valid(button):
+   button.disabled = decided
+ realm_panel.visible = hero_playing and not death_active
+
+func _process(delta:float) -> void:
+ super._process(delta)
+ if is_instance_valid(realm_panel):
+  realm_panel.visible = hero_playing and not death_active and not menu_open
