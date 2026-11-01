@@ -879,6 +879,7 @@ func _build_ui() -> void:
  accept_button.text="WAIT"
  accept_button.custom_minimum_size=Vector2(90,44)
  accept_button.tooltip_text="Confirm waiting for the chosen number of hours"
+ accept_button.focus_mode=Control.FOCUS_ALL
  accept_button.pressed.connect(_finish_wait.bind(true))
  wait_actions.add_child(accept_button)
  var cancel_button:=Button.new()
