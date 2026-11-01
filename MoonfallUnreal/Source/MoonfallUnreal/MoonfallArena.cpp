@@ -34,7 +34,8 @@ void AMoonfallArena::BeginPlay() {
    // One durable elite gives early combat a distinct high-threat encounter.
    if (i == Count - 1 && Count >= 4) {
     Enemy->bElite = true;
-    Enemy->Health *= 2.f;
+    Enemy->bBoss = true;
+    Enemy->Health *= 4.f;
     Enemy->AttackCooldown *= 1.15f;
    }
   }
