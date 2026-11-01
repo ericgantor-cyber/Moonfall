@@ -9,6 +9,7 @@ var atlas_has_waypoint:bool=false
 var atlas_elapsed:float=0.0
 var atlas_open_button:Button
 var atlas_zoom_radius:float=120.0
+var atlas_quest_positions:Array[Vector3]=[]
 
 func _ready()->void:
  super._ready()
@@ -128,6 +129,7 @@ func _refresh_atlas()->void:
  if not is_instance_valid(atlas_chart) or not is_instance_valid(atlas_readout):return
  var pos:Vector3=player.global_position if is_instance_valid(player) else Vector3.ZERO
  atlas_chart.set("metres_per_half_width",atlas_zoom_radius)
+ atlas_chart.call("set_quest_markers",atlas_quest_positions)
  atlas_chart.call("update_navigation",pos,atlas_waypoint,atlas_has_waypoint)
  atlas_readout.text="X %.0f | Z %.0f" % [pos.x,pos.z]
  if atlas_has_waypoint:
@@ -153,3 +155,14 @@ func _process(delta:float)->void:
   if atlas_elapsed>=0.15:
    atlas_elapsed=0.0
    _refresh_atlas()
+
+## Quest systems can register exact world-space goals without guessing region positions.
+func atlas_set_quest_destination(world_position:Vector3)->void:
+ if not is_finite(world_position.x) or not is_finite(world_position.z):return
+ atlas_quest_positions.clear()
+ atlas_quest_positions.append(world_position)
+ _refresh_atlas()
+
+func atlas_clear_quest_destination()->void:
+ atlas_quest_positions.clear()
+ _refresh_atlas()
