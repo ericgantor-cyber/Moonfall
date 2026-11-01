@@ -40,7 +40,9 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
   // full impact and every hit still interrupts their attack windup.
   const float Now = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f;
   const float EffectiveDamage = bElite && Now < HitReactionEndsAt ? Amount * 0.75f : Amount;
+  const float HealthBeforeHit = Health;
   Health = FMath::Max(0.0f, Health - FMath::Max(0.0f, EffectiveDamage));
+  const float ActualDamage = HealthBeforeHit - Health;
   if (bBoss && Health > 0.f) {
    const float HealthRatio = Health / FMath::Max(1.f, MaxHealthAtSpawn);
    const int32 NewPhase = HealthRatio <= 0.33f ? 3 : (HealthRatio <= 0.66f ? 2 : 1);
@@ -58,9 +60,9 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
     OnBossPhaseChanged(BossPhase);
    }
   }
-  OnHitFeedback(EffectiveDamage, Health);
+  OnHitFeedback(ActualDamage, Health);
   // Hit feedback is now tracked by the HUD rather than persistent debug strings.
-  LastHitAmount = EffectiveDamage;
+  LastHitAmount = ActualDamage;
   LastHitTime = GetWorld() ? GetWorld()->GetTimeSeconds() : -10.f;
   // Bosses absorb ordinary hits without repeated attack interruptions; phase changes still recover safely.
   // Normal enemies retain brief hit reactions to reward offensive pressure.
