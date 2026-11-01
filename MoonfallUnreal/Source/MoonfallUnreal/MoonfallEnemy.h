@@ -34,6 +34,7 @@ private:
  int32 AttackSequence = 0;
  bool bComboSecondHitPending = false;
  bool bComboSecondHitActive = false;
+ int32 BossSpecialMove = 0;
  float CurrentWindup = 0.5f;
  float CurrentAttackMultiplier = 1.f;
  float CurrentAttackRangeMultiplier = 1.f;
