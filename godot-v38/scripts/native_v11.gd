@@ -1498,7 +1498,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
   get_viewport().set_input_as_handled()
   return
  if wait_transition_active:
-  if event.keycode in [KEY_SPACE,KEY_ENTER,KEY_KP_ENTER]:_skip_wait_animation()
+  if event.keycode in [KEY_SPACE,KEY_ENTER,KEY_KP_ENTER,KEY_P]:_skip_wait_animation()
   get_viewport().set_input_as_handled()
   return
  if event.keycode in [KEY_ESCAPE,KEY_F10]:
