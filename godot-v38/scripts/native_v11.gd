@@ -2685,6 +2685,13 @@ func _load_game() -> void:
  if not hero_playing or hero!=str(data["hero"]):_start_game(str(data["hero"]))
  _restore_data(data)
 
+func _normalize_saved_world_clock(data:Dictionary) -> float:
+ var saved_cycle:float=float(data.get("world_cycle_seconds",960.0))
+ if not is_finite(saved_cycle) or saved_cycle<=0.0:saved_cycle=960.0
+ var saved_clock:float=float(data.get("world_clock",saved_cycle*0.5))
+ if not is_finite(saved_clock):saved_clock=saved_cycle*0.5
+ return fposmod(saved_clock,saved_cycle)/saved_cycle*DAY_LENGTH_SECONDS
+
 func _restore_data(data: Dictionary) -> void:
  hero=str(data.get("hero","z"))
  hero_sprite.texture=NYRA_ART if hero=="nyra" else Z_ART
