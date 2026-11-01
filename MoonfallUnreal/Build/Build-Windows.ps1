@@ -15,6 +15,15 @@ if ([string]::IsNullOrWhiteSpace($UnrealRoot)) {
 $build = Join-Path $UnrealRoot 'Engine\Build\BatchFiles\Build.bat'
 if (-not (Test-Path -LiteralPath $project)) { throw "Unreal project file missing: $project" }
 if (-not (Test-Path -LiteralPath $build)) { throw "Unreal Build.bat missing: $build" }
+$vswhere = Join-Path ([Environment]::GetFolderPath('ProgramFilesX86')) 'Microsoft Visual Studio\Installer\vswhere.exe'
+if (-not (Test-Path -LiteralPath $vswhere)) {
+    throw 'Visual Studio 2022 C++ tools not detected. Install Visual Studio Build Tools with Desktop development with C++.'
+}
+$vsInstall = @(& $vswhere -latest -version '[17.0,18.0)' -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath)
+if ($LASTEXITCODE -ne 0 -or -not ($vsInstall | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })) {
+    throw 'Visual Studio 2022 C++ toolchain is missing. Install the Desktop development with C++ workload and Windows SDK.'
+}
+Write-Host "Detected Visual Studio C++ toolchain: $($vsInstall | Select-Object -First 1)"
 
 # A compiler smoke test must not depend on packaging tools, cooked maps, or output folders.
 if (-not $CompileOnly) {
