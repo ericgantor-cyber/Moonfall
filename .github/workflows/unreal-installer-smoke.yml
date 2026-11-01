@@ -38,6 +38,7 @@ jobs:
           if (-not (Test-Path -LiteralPath $makensis)) { throw "Missing NSIS compiler: $makensis" }
           & $makensis "/DSOURCE_DIR=$src" "/DOUTPUT_EXE=$output" 'MoonfallUnreal/Installer/MoonfallUnreal.nsi'
           if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $output)) { throw 'Installer script failed to compile' }
+          if (-not (Test-Path -LiteralPath $output -PathType Leaf)) { throw 'NSIS did not produce an installer file' }
           $file = Get-Item -LiteralPath $output
           if ($file.Length -lt 1024) { throw 'NSIS smoke installer unexpectedly small' }
           Write-Host "Installer smoke output exists ($($file.Length) bytes). Test only, not a playable game."
