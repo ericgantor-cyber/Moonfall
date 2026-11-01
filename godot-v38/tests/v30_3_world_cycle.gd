@@ -31,6 +31,14 @@ func _run()->void:
  CYCLE.apply_lighting(env,light,240.0,480.0,"Rain")
  check(is_equal_approx(env.fog_density,0.012) and is_equal_approx(env.ambient_light_energy,0.35+0.72*0.48),"visual lighting values")
  light.queue_free()
+ var dial:Control=load("res://scripts/systems/celestial_wait_clock.gd").new()
+ dial.hour=26.0
+ check(is_equal_approx(dial.hour,2.0),"celestial dial wraps beyond 24 hours")
+ dial.hour=-1.0
+ check(is_equal_approx(dial.hour,23.0),"celestial dial wraps negative hours")
+ dial.hour=INF
+ check(is_equal_approx(dial.hour,23.0),"celestial dial rejects nonfinite time")
+ dial.queue_free()
  var scene:PackedScene=load("res://scenes/main.tscn")
  check(scene!=null,"game scene loads")
  if scene!=null:
