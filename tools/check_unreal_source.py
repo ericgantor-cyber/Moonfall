@@ -160,6 +160,12 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("RightSpell < 0 || RightSpell >= 6", dual)
         self.assertIn("TryCast(LeftSpell, 0, 2.f)", dual)
 
+    def test_spell_cast_validates_health_state(self):
+        cast = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split("\n}", 1)[0]
+        for guard in ("!FMath::IsFinite(Health)", "!FMath::IsFinite(MaxHealth)", "MaxHealth <= 0.f"):
+            self.assertIn(guard, cast)
+            self.assertLess(cast.index(guard), cast.index("Mana -= Costs[School] * Multiplier"))
+
     def test_dodge_and_blocked_hit_checks_retained(self):
         self.assertIn("GetSafeNormal2D()", self.enemy_cpp)
         self.assertIn("LineTraceSingleByChannel", self.enemy_cpp)
