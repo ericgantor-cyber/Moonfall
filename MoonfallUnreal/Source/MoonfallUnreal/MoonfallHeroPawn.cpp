@@ -31,6 +31,8 @@ void AMoonfallHeroPawn::BeginPlay() {
  if (GConfig) GConfig->GetInt(TEXT("Moonfall.Graphics"), TEXT("FrameGenerationPreference"), SavedPreference, GGameUserSettingsIni);
  FrameGenerationPreference = FMath::Clamp(SavedPreference, 0, 2);
  if (GConfig) GConfig->GetBool(TEXT("Moonfall.Accessibility"), TEXT("ReduceMotion"), bReduceMotion, GGameUserSettingsIni);
+ if (GConfig) GConfig->GetFloat(TEXT("Moonfall.Accessibility"), TEXT("CombatTextScale"), CombatTextScale, GGameUserSettingsIni);
+ CombatTextScale = FMath::Clamp(FMath::RoundToFloat(CombatTextScale * 4.f) / 4.f, 0.75f, 2.f);
  // No FG vendor plugin or runtime capability integration has been added.
  bFrameGenerationAvailable = false;
  const TSharedPtr<IPlugin> FSR = IPluginManager::Get().FindPlugin(TEXT("FSR"));
@@ -176,8 +178,8 @@ void AMoonfallHeroPawn::ToggleDisplayMode() {
 }
 
 void AMoonfallHeroPawn::OpenOptions() { bOptionsOpen = !bOptionsOpen; }
-void AMoonfallHeroPawn::OptionsUp() { if (bOptionsOpen) OptionsSelection = (OptionsSelection + 4) % 5; }
-void AMoonfallHeroPawn::OptionsDown() { if (bOptionsOpen) OptionsSelection = (OptionsSelection + 1) % 5; }
+void AMoonfallHeroPawn::OptionsUp() { if (bOptionsOpen) OptionsSelection = (OptionsSelection + 5) % 6; }
+void AMoonfallHeroPawn::OptionsDown() { if (bOptionsOpen) OptionsSelection = (OptionsSelection + 1) % 6; }
 void AMoonfallHeroPawn::OptionsLeft() { AdjustOption(-1); }
 void AMoonfallHeroPawn::OptionsRight() { AdjustOption(1); }
 void AMoonfallHeroPawn::AdjustOption(int32 Direction) {
@@ -209,6 +211,13 @@ void AMoonfallHeroPawn::AdjustOption(int32 Direction) {
   if (bReduceMotion) ImpactCameraOffset = 0.f;
   if (GConfig) {
    GConfig->SetBool(TEXT("Moonfall.Accessibility"), TEXT("ReduceMotion"), bReduceMotion, GGameUserSettingsIni);
+   GConfig->Flush(false, GGameUserSettingsIni);
+  }
+  return;
+ } else if (OptionsSelection == 5) {
+  CombatTextScale = FMath::Clamp(CombatTextScale + Direction * 0.25f, 0.75f, 2.f);
+  if (GConfig) {
+   GConfig->SetFloat(TEXT("Moonfall.Accessibility"), TEXT("CombatTextScale"), CombatTextScale, GGameUserSettingsIni);
    GConfig->Flush(false, GGameUserSettingsIni);
   }
   return;
