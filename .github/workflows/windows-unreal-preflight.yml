@@ -48,10 +48,28 @@ jobs:
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
+      - name: Verify Unreal compiler prerequisites
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if (-not $env:UE54_ROOT) { throw 'UE54_ROOT is missing on the self-hosted runner.' }
+          $engineBuild = Join-Path $env:UE54_ROOT 'Engine/Build/BatchFiles/Build.bat'
+          if (-not (Test-Path -LiteralPath $engineBuild)) { throw "Missing Unreal 5.4 Build.bat: $engineBuild" }
+          & ./MoonfallUnreal/Build/Build-Windows.ps1 -UnrealRoot $env:UE54_ROOT -PreflightOnly
+          if (-not $?) { throw 'Moonfall build prerequisites failed.' }
       - name: Compile Moonfall Unreal Editor
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          if (-not $env:UE54_ROOT) { throw 'Set UE54_ROOT to the installed Unreal Engine 5.4 directory on this runner.' }
           & ./MoonfallUnreal/Build/Build-Windows.ps1 -UnrealRoot $env:UE54_ROOT -CompileOnly
-          if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if (-not $?) { throw 'Moonfall Unreal Editor compile failed.' }
+      - name: Save Unreal compilation diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: moonfall-unreal-build-diagnostics
+          if-no-files-found: warn
+          retention-days: 7
+          path: |
+            MoonfallUnreal/Saved/Logs/**
+            MoonfallUnreal/Intermediate/Build/**/*.log
