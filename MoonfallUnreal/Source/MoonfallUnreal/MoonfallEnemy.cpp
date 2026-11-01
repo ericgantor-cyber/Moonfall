@@ -20,10 +20,14 @@ AMoonfallEnemy::AMoonfallEnemy() {
 }
 void AMoonfallEnemy::TakeSpellDamage(float Amount) {
   if (Health <= 0.f) return;
-  Health = FMath::Max(0.0f, Health - FMath::Max(0.0f, Amount));
-  OnHitFeedback(Amount, Health);
+  // Elites briefly brace against repeated hits, but the first strike retains
+  // full impact and every hit still interrupts their attack windup.
+  const float Now = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f;
+  const float EffectiveDamage = bElite && Now < HitReactionEndsAt ? Amount * 0.75f : Amount;
+  Health = FMath::Max(0.0f, Health - FMath::Max(0.0f, EffectiveDamage));
+  OnHitFeedback(EffectiveDamage, Health);
   // Hit feedback is now tracked by the HUD rather than persistent debug strings.
-  LastHitAmount = Amount;
+  LastHitAmount = EffectiveDamage;
   LastHitTime = GetWorld() ? GetWorld()->GetTimeSeconds() : -10.f;
   HitReactionEndsAt = LastHitTime + 0.22f;
   if (Health <= 0.0f) {
