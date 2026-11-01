@@ -251,6 +251,7 @@ var wait_actions_container: HBoxContainer
 var wait_transition_active := false
 var wait_transition_elapsed := 0.0
 var wait_transition_start := 0.0
+var wait_transition_start_day := 1
 var wait_transition_end := 0.0
 const WAIT_TRANSITION_DURATION := 2.4
 var weather_name := "Clear"
@@ -1438,6 +1439,7 @@ func _finish_wait(confirm:bool) -> void:
   _show_message("Cannot wait during combat or while the menu is open.",2.5)
   confirm=false
  if confirm:
+  wait_transition_start_day=world_day
   wait_transition_start=world_clock
   wait_transition_end=world_clock+float(wait_hours)*DAY_LENGTH_SECONDS/24.0
   wait_transition_elapsed=0.0
@@ -1452,11 +1454,14 @@ func _animate_wait(delta:float) -> void:
  var eased:float=fraction*fraction*(3.0-2.0*fraction)
  var absolute_clock:float=lerpf(wait_transition_start,wait_transition_end,eased)
  world_clock=fposmod(absolute_clock,DAY_LENGTH_SECONDS)
+ # Display the correct day as the clock passes midnight during the animation.
+ var passed_days:int=int(floor(absolute_clock/DAY_LENGTH_SECONDS))
+ world_day=mini(99999,wait_transition_start_day+passed_days)
  _set_wait_display()
  _refresh_world_lighting()
  _update_hud()
  if fraction>=1.0:
-  world_day=mini(99999,world_day+int(floor(wait_transition_end/DAY_LENGTH_SECONDS)))
+  world_day=mini(99999,wait_transition_start_day+int(floor(wait_transition_end/DAY_LENGTH_SECONDS)))
   wait_transition_active=false
   _set_wait_display()
   _save_game()
