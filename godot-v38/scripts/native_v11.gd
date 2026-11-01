@@ -802,7 +802,7 @@ func _build_ui() -> void:
  wait_panel.name="CelestialWaitPanel"
  wait_panel.tooltip_text="Wait for up to 24 in-game hours. Waiting is unavailable during combat."
  wait_panel.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
- wait_panel.position=Vector2(-280,-165)
+ wait_panel.position=Vector2(-325,-175)
  wait_panel.custom_minimum_size=Vector2(650,350)
  wait_panel.mouse_filter=Control.MOUSE_FILTER_STOP
  wait_panel.focus_mode=Control.FOCUS_ALL
