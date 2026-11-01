@@ -1467,6 +1467,7 @@ func _finish_wait(confirm:bool) -> void:
   _show_message("Cannot wait during combat or while the menu is open.",2.5)
   confirm=false
  if confirm:
+  wait_hours=clampi(wait_hours,1,24)
   wait_transition_start_day=world_day
   wait_transition_start=world_clock
   wait_transition_end=world_clock+float(wait_hours)*DAY_LENGTH_SECONDS/24.0
