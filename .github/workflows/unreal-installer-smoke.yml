@@ -46,4 +46,6 @@ jobs:
           $checksum = (Get-FileHash -LiteralPath $output -Algorithm SHA256).Hash
           if ($checksum.Length -ne 64 -or $checksum -match '[^0-9A-F]') { throw 'Invalid NSIS smoke output checksum' }
           Write-Host "NSIS smoke artifact SHA-256: $checksum"
+          "NSIS smoke build: test only; does not include playable Unreal assets." >> $env:GITHUB_STEP_SUMMARY
+          "Smoke installer size: $($file.Length) bytes" >> $env:GITHUB_STEP_SUMMARY
           Write-Host 'Installer template compiled with placeholders. No playable build or release artifact generated.'
