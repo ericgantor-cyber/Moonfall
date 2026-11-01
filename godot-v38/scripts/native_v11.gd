@@ -227,7 +227,7 @@ var rifts_completed := 0
 
 # v11 keeps weather, time and regional encounters within the existing world.
 # Slots and markers are built once, never generated per frame.
-const DAY_LENGTH_SECONDS := 960.0
+const DAY_LENGTH_SECONDS := 7200.0
 const WEATHER_INTERVAL_SECONDS := 145.0
 const WEATHER_TYPES := ["Clear", "Mist", "Rain", "Eclipse"]
 const WORLD_EVENT_GOAL := 3
@@ -239,7 +239,7 @@ const WORLD_EVENT_SITES := [
  {"name":"Shattered Relic Cache","kind":"cache","zone":4,"material":"Moon Sigil"},
  {"name":"Eclipse Citadel Hunt","kind":"hunt","zone":5,"material":"Dusk Cinder"}
 ]
-var world_clock := 480.0
+var world_clock := 3600.0
 var world_day := 1
 var wait_open := false
 var wait_hours := 1
@@ -1355,7 +1355,7 @@ func _reset_new_adventure() -> void:
  restored_wildlife=0
  bosses_transformed=0
  rifts_completed=0
- world_clock=480.0
+ world_clock=3600.0
  world_day=1
  wait_transition_active=false
  wait_open=false
@@ -2712,7 +2712,7 @@ func _restore_data(data: Dictionary) -> void:
  combat_combo=0
  combat_combo_until=0.0
  # Optional v11 fields are ignored by v10 saves; older checkpoints remain valid.
- world_clock=clampf(float(data.get("world_clock",480.0)),0.0,DAY_LENGTH_SECONDS-0.01)
+ world_clock=clampf(float(data.get("world_clock",3600.0)),0.0,DAY_LENGTH_SECONDS-0.01)
  world_day=clampi(int(data.get("world_day",1)),1,99999)
  weather_name=str(data.get("weather","Clear"))
  if not (weather_name in WEATHER_TYPES):weather_name="Clear"
