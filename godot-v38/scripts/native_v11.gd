@@ -247,6 +247,7 @@ var wait_label: Label
 var wait_panel: PanelContainer
 var wait_clock_bar: ProgressBar
 var wait_clock_art: Label
+var wait_actions_container: HBoxContainer
 var wait_transition_active := false
 var wait_transition_elapsed := 0.0
 var wait_transition_start := 0.0
@@ -843,7 +844,8 @@ func _build_ui() -> void:
  wait_label.add_theme_color_override("font_color",Color("f8e9cb"))
  wait_label.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
  wait_column.add_child(wait_label)
- var wait_actions:=HBoxContainer.new()
+ wait_actions_container=HBoxContainer.new()
+ var wait_actions:=wait_actions_container
  wait_actions.add_theme_constant_override("separation",6)
  wait_column.add_child(wait_actions)
  for entry in [["−6h",-6],["−1h",-1],["+1h",1],["+6h",6]]:
@@ -1413,6 +1415,7 @@ func _wait_change_hours(step:int) -> void:
 
 func _set_wait_display() -> void:
  if is_instance_valid(wait_panel):wait_panel.visible=wait_open or wait_transition_active
+ if is_instance_valid(wait_actions_container):wait_actions_container.visible=wait_open and not wait_transition_active
  if is_instance_valid(wait_label):
   if not wait_open and not wait_transition_active:return
   if wait_transition_active:
