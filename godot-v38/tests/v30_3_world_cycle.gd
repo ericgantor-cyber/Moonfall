@@ -52,6 +52,7 @@ func _run()->void:
   game.call("_advance_living_world",1.2)
   check(game.get("world_day")==3 and game.get("weather_name")!="Clear","existing game wrappers use new module")
   check(game.call("_day_phase")==CYCLE.phase(float(game.get("world_clock")),7200.0),"old day-phase calls still work")
+  check(is_equal_approx(float(game.get("DAY_LENGTH_SECONDS")),7200.0),"full cycle lasts two real hours")
   check(game.has_method("_wait_clock_text"),"Wait system exposes in-game clock formatting")
   check(game.call("_wait_clock_text",3600.0)=="12:00","two-hour cycle midpoint reads noon")
   check(game.call("_wait_clock_text",1800.0)=="06:00","Long day quarter reads dawn")
