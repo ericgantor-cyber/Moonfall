@@ -44,7 +44,7 @@ jobs:
 
   unreal-editor-compile:
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.compile_on_self_hosted }}
-    runs-on: [self-hosted, Windows, X64, unreal-5.4]
+    runs-on: [self-hosted, Windows, X64, unreal-5-4]
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
