@@ -98,7 +98,7 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
  if (Health <= 0.f || bOptionsOpen || !GetWorld() || School < 0 || School >= 6 || Hand < 0 || Hand > 1) return false;
  const float Time = GetWorld()->GetTimeSeconds();
  if (Mana < Costs[School] * Multiplier || Time - LastCastTime[Hand] < Cooldowns[School]) return false;
- if (School == 3 && Health >= 100.f) return false;
+ if (School == 3 && Health >= MaxHealth) return false;
  if (School != 3) {
   FHitResult Hit;
   const FVector Origin = FollowCamera->GetComponentLocation();
@@ -107,7 +107,7 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
   if (!GetWorld()->LineTraceSingleByChannel(Hit, Origin, End, ECC_Visibility, Params)) return false;
   AMoonfallEnemy* Enemy = Cast<AMoonfallEnemy>(Hit.GetActor());
   if (!IsValid(Enemy) || Enemy->Health <= 0.f) return false;
-  Enemy->TakeSpellDamage((18.f + School * 5.f) * Multiplier);
+  Enemy->TakeSpellDamage((18.f + School * 5.f) * Multiplier * SpellPowerMultiplier);
   const FColor SpellColors[6] = {FColor(245, 60, 39), FColor(65, 204, 245), FColor(168, 72, 236), FColor(72, 230, 130), FColor(245, 224, 64), FColor(76, 178, 68)};
   const FColor ImpactColor = SpellColors[School];
   DrawDebugSphere(GetWorld(), Hit.ImpactPoint, 24.f * Multiplier, 12, ImpactColor, false, 0.22f, 0, 2.f);
@@ -116,8 +116,8 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
  Mana -= Costs[School] * Multiplier;
  LastCastTime[Hand] = Time;
  if (School == 3) {
-  Health = FMath::Min(100.f, Health + 24.f * Multiplier);
-  OnHealthChanged(Health, 100.f);
+  Health = FMath::Min(MaxHealth, Health + 24.f * Multiplier * SpellPowerMultiplier);
+  OnHealthChanged(Health, MaxHealth);
  }
  OnSpellCast(School, Hand == 0);
  return true;
@@ -253,7 +253,9 @@ void AMoonfallHeroPawn::AwardExperience(int32 Amount)
   Experience -= ExperienceToNextLevel;
   ++Level;
   ExperienceToNextLevel = 100 + (Level - 1) * 55;
-  Health = FMath::Min(100.f, Health + 15.f);
+  MaxHealth += 5.f;
+  SpellPowerMultiplier = 1.f + (Level - 1) * 0.035f;
+  Health = FMath::Min(MaxHealth, Health + 15.f);
   Mana = FMath::Min(MaxMana, Mana + 15.f);
  }
 }
