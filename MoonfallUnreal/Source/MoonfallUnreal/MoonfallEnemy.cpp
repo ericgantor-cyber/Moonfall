@@ -7,6 +7,7 @@
 #include "NavigationSystem.h"
 #include "NavigationPath.h"
 #include "DrawDebugHelpers.h"
+#include "CollisionQueryParams.h"
 AMoonfallEnemy::AMoonfallEnemy() {
   Body = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Body"));
   SetRootComponent(Body);
@@ -56,8 +57,17 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   NextAttackAt = Now + AttackCooldown;
   // Attack resolves against the hero's CURRENT position, so dodging works.
   if (Distance <= AttackRange * CurrentAttackRangeMultiplier) {
-   Hero->ApplyMoonfallDamage(AttackDamage * CurrentAttackMultiplier);
-   OnEnemyAttack();
+   // Do not damage the hero through solid arena walls or cover.
+   FCollisionQueryParams SightParams(SCENE_QUERY_STAT(MoonfallMeleeSight), false);
+   SightParams.AddIgnoredActor(this);
+   FHitResult SightHit;
+   const bool bBlocked = GetWorld()->LineTraceSingleByChannel(
+       SightHit, GetActorLocation(), Hero->GetActorLocation(), ECC_Visibility, SightParams)
+       && SightHit.GetActor() != Hero;
+   if (!bBlocked) {
+    Hero->ApplyMoonfallDamage(AttackDamage * CurrentAttackMultiplier);
+    OnEnemyAttack();
+   }
   }
   return;
  }
