@@ -52,4 +52,9 @@ jobs:
           $process = Start-Process -FilePath $output -ArgumentList @('/S', "/D=$installRoot") -Wait -PassThru
           if ($process.ExitCode -ne 0) { throw "Silent smoke installation failed: $($process.ExitCode)" }
           Write-Host 'Silent install of disposable test payload completed.'
+          foreach ($relative in @('MoonfallUnreal.exe', 'MoonfallLauncher.exe', 'Engine/runtime-placeholder.txt', 'MoonfallUnreal/content-placeholder.txt', 'Uninstall.exe')) {
+            if (-not (Test-Path -LiteralPath (Join-Path $installRoot $relative) -PathType Leaf)) { throw "Missing installed smoke payload: $relative" }
+          }
+          Write-Host 'Installed launcher, game placeholders and uninstall executable verified.'
+
           Write-Host 'Installer template compiled with placeholders. No playable build or release artifact generated.'
