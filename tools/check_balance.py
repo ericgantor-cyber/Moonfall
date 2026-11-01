@@ -47,11 +47,20 @@ class BalanceRegression(unittest.TestCase):
         for kind in ("normal", "elite", "boss"):
             self.assertEqual(xp_reward(100, kind), xp_reward(41, kind))
 
-    def test_no_midfight_scaling(self):
-        # Stage 328 samples the player's level once on enemy BeginPlay.
-        spawn_level = 10
-        initial_hp = 80 * enemy_hp_scale(spawn_level)
-        self.assertEqual(initial_hp, 80 * enemy_hp_scale(spawn_level))
+    def test_spawn_snapshot_does_not_match_dynamic_relevel(self):
+        # Enemy HP is computed at spawn, and must not be recalculated on level-up.
+        spawn_level, later_level = 10, 30
+        snapshot_hp = 80 * enemy_hp_scale(spawn_level)
+        self.assertGreater(80 * enemy_hp_scale(later_level), snapshot_hp)
+        self.assertAlmostEqual(snapshot_hp, 105.2)
+
+    def test_expected_milestones(self):
+        self.assertAlmostEqual(enemy_hp_scale(1), 1.0)
+        self.assertAlmostEqual(enemy_hp_scale(31), 2.05)
+        self.assertAlmostEqual(enemy_hp_scale(100), 3.292)
+        self.assertAlmostEqual(enemy_damage_scale(31), 1.36)
+        self.assertAlmostEqual(spell_power(31), 1.75)
+        self.assertAlmostEqual(spell_power(100), 2.578)
 
     def test_casts_to_kill_not_explosive(self):
         # A narrow formula-level guard; real TTK requires playtesting.
