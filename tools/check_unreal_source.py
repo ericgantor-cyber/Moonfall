@@ -107,6 +107,10 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("bComboSecondHitPending = false", damage)
         self.assertIn("bComboSecondHitActive = false", damage)
 
+    def test_enemy_ai_uses_distance_based_tick_intervals(self):
+        self.assertIn("bInCombatArea ? 0.1f : 0.4f", self.enemy_cpp)
+        self.assertIn("SetActorTickInterval(DesiredTickInterval)", self.enemy_cpp)
+
     def test_dodge_and_blocked_hit_checks_retained(self):
         self.assertIn("GetSafeNormal2D()", self.enemy_cpp)
         self.assertIn("LineTraceSingleByChannel", self.enemy_cpp)
