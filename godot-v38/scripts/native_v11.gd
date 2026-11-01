@@ -1412,9 +1412,14 @@ func _wait_change_hours(step:int) -> void:
  _set_wait_display()
 
 func _set_wait_display() -> void:
- if is_instance_valid(wait_panel):wait_panel.visible=wait_open
+ if is_instance_valid(wait_panel):wait_panel.visible=wait_open or wait_transition_active
  if is_instance_valid(wait_label):
-  if not wait_open:return
+  if not wait_open and not wait_transition_active:return
+  if wait_transition_active:
+   wait_label.text="TIME PASSING...  Day %d  %s  %s\nPlease wait for the celestial clock." % [world_day,_wait_clock_text(world_clock),_day_phase()]
+   if is_instance_valid(wait_clock_bar):wait_clock_bar.value=fposmod(world_clock,DAY_LENGTH_SECONDS)/DAY_LENGTH_SECONDS*24.0
+   if is_instance_valid(wait_clock_art):wait_clock_art.text="✦   ☀  ━━━  ◯  ━━━  ☽   ✦"
+   return
   if is_instance_valid(wait_clock_bar):wait_clock_bar.value=fposmod(world_clock+float(wait_hours)*DAY_LENGTH_SECONDS/24.0,DAY_LENGTH_SECONDS)/DAY_LENGTH_SECONDS*24.0
   var future_clock:float=world_clock+float(wait_hours)*DAY_LENGTH_SECONDS/24.0
   var next_day:int=mini(99999,world_day+int(floor(future_clock/DAY_LENGTH_SECONDS)))
@@ -1441,11 +1446,13 @@ func _animate_wait(delta:float) -> void:
  var eased:float=fraction*fraction*(3.0-2.0*fraction)
  var absolute_clock:float=lerpf(wait_transition_start,wait_transition_end,eased)
  world_clock=fposmod(absolute_clock,DAY_LENGTH_SECONDS)
+ _set_wait_display()
  _refresh_world_lighting()
  _update_hud()
  if fraction>=1.0:
   world_day=mini(99999,world_day+int(floor(wait_transition_end/DAY_LENGTH_SECONDS)))
   wait_transition_active=false
+  _set_wait_display()
   _save_game()
   _show_message("Time passes. Day %d, %s (%s)." % [world_day,_day_phase(),_wait_clock_text(world_clock)],3.0)
 
@@ -1460,6 +1467,9 @@ func _unhandled_key_input(event: InputEvent) -> void:
    KEY_ENTER, KEY_KP_ENTER:_finish_wait(true)
    KEY_ESCAPE, KEY_P:_finish_wait(false)
   _set_wait_display()
+  get_viewport().set_input_as_handled()
+  return
+ if wait_transition_active:
   get_viewport().set_input_as_handled()
   return
  if event.keycode in [KEY_ESCAPE,KEY_F10]:
