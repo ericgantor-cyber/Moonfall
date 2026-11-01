@@ -158,7 +158,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   if (bBoss) DrawDebugCircle(GetWorld(), GetActorLocation() - FVector(0.f,0.f,55.f),
     AttackRange * CurrentAttackRangeMultiplier, 24, TellColor, false, 0.12f, 0, 3.f * WarningScale,
     FVector(1.f,0.f,0.f), FVector(0.f,1.f,0.f), false);
-  DrawDebugString(GetWorld(), GetActorLocation() + FVector(0.f,0.f,160.f), bComboSecondHitActive ? TEXT("COMBO FOLLOW-UP") : (BossSpecialMove == 2 ? TEXT("ECLIPSE SLAM") : (BossSpecialMove == 1 ? TEXT("MOON CLEAVE") : (CurrentAttackMultiplier > 2.f ? (bBoss ? TEXT("BOSS CRUSH") : TEXT("ELITE CRUSH")) : (CurrentAttackMultiplier > 1.5f ? TEXT("HEAVY") : (CurrentAttackRangeMultiplier > 1.f ? TEXT("SWEEP") : TEXT("STRIKE")))))), nullptr, FColor::Red, 0.12f, false);
+  DrawDebugString(GetWorld(), GetActorLocation() + FVector(0.f,0.f,160.f), BossSpecialMove == 5 ? TEXT("SKYFALL SLAM") : (BossSpecialMove == 4 ? TEXT("SPINNING SWEEP") : (BossSpecialMove == 3 ? TEXT("DASH STRIKE") : (bComboSecondHitActive ? TEXT("COMBO FOLLOW-UP") : (BossSpecialMove == 2 ? TEXT("ECLIPSE SLAM") : (BossSpecialMove == 1 ? TEXT("MOON CLEAVE") : (CurrentAttackMultiplier > 2.f ? (bBoss ? TEXT("BOSS CRUSH") : TEXT("ELITE CRUSH")) : (CurrentAttackMultiplier > 1.5f ? TEXT("HEAVY") : (CurrentAttackRangeMultiplier > 1.f ? TEXT("SWEEP") : TEXT("STRIKE"))))))))), nullptr, FColor::Red, 0.12f, false);
   return;
  }
  if (Distance > AttackRange && Distance < 2200.f) {
@@ -216,6 +216,9 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
    // Phase-two bosses unlock a fourth, highly telegraphed crush.
    const int32 Pattern = AttackSequence++ % ((bElite || (bBoss && BossPhase >= 2)) ? 4 : 3);
    BossSpecialMove = bBoss && BossPhase >= 2 && AttackSequence % 5 == 0 ? (BossPhase >= 3 ? 2 : 1) : 0;
+   if (bBoss && BossPhase >= 2 && AttackSequence % 7 == 0) BossSpecialMove = 3;
+   if (bBoss && BossPhase >= 3 && AttackSequence % 9 == 0) BossSpecialMove = 4;
+   if (bBoss && BossPhase >= 3 && AttackSequence % 11 == 0) BossSpecialMove = 5;
    // Later-phase bosses alternate fast opener and a readable delayed follow-up.
    const bool bComboFollowUp = bBoss && BossPhase >= 2 && Pattern == 1;
    CurrentWindup = Pattern == 0 ? 0.38f : (Pattern == 1 ? 0.85f : (Pattern == 2 ? 0.65f : 1.05f));
@@ -237,6 +240,13 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
     CurrentWindup = 1.4f;
     CurrentAttackMultiplier = 2.5f;
     CurrentAttackRangeMultiplier = 1.3f;
+   }
+   if (BossSpecialMove == 3) { // Fast dash strike: narrower and readable.
+    CurrentWindup = 0.75f; CurrentAttackMultiplier = 1.2f; CurrentAttackRangeMultiplier = 1.45f;
+   } else if (BossSpecialMove == 4) { // Spinning sweep.
+    CurrentWindup = 1.1f; CurrentAttackMultiplier = 1.0f; CurrentAttackRangeMultiplier = 1.8f;
+   } else if (BossSpecialMove == 5) { // Aerial-style slam, grounded hit resolution.
+    CurrentWindup = 1.5f; CurrentAttackMultiplier = 2.2f; CurrentAttackRangeMultiplier = 1.35f;
    }
    if (bComboFollowUp && BossSpecialMove == 0) {
     CurrentWindup += 0.25f;
