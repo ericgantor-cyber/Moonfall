@@ -109,7 +109,18 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
  // Keep the enemy committed to a telegraphed strike until it resolves. A player
  // stepping outside the basic range should not silently cancel a wider sweep.
  if (WindupEndsAt > 0.f) {
-  DrawDebugSphere(GetWorld(), GetActorLocation(), AttackRange * CurrentAttackRangeMultiplier, 16, CurrentAttackMultiplier > 2.f ? FColor::Purple : (CurrentAttackMultiplier > 1.5f ? FColor::Orange : FColor::Red), false, 0.12f);
+  // Boss warnings are intentionally cheap: one short-lived debug ring per AI tick,
+  // no spawned particles, persistent actors, dynamic materials or extra tick loops.
+  const bool bBossCrush = bBoss && CurrentAttackMultiplier > 2.f;
+  const FColor TellColor = bBossCrush ? (BossPhase >= 3 ? FColor::Magenta : FColor::Purple)
+    : (CurrentAttackMultiplier > 2.f ? FColor::Purple
+    : (CurrentAttackMultiplier > 1.5f ? FColor::Orange : FColor::Red));
+  DrawDebugSphere(GetWorld(), GetActorLocation(), AttackRange * CurrentAttackRangeMultiplier,
+    bBoss ? 24 : 16, TellColor, false, 0.12f);
+  // Horizontal radius marker on the ground helps distinguish the dodge zone.
+  if (bBoss) DrawDebugCircle(GetWorld(), GetActorLocation() - FVector(0.f,0.f,55.f),
+    AttackRange * CurrentAttackRangeMultiplier, 24, TellColor, false, 0.12f, 0, 3.f,
+    FVector(1.f,0.f,0.f), FVector(0.f,1.f,0.f), false);
   DrawDebugString(GetWorld(), GetActorLocation() + FVector(0.f,0.f,160.f), CurrentAttackMultiplier > 2.f ? (bBoss ? TEXT("BOSS CRUSH") : TEXT("ELITE CRUSH")) : (CurrentAttackMultiplier > 1.5f ? TEXT("HEAVY") : (CurrentAttackRangeMultiplier > 1.f ? TEXT("SWEEP") : TEXT("STRIKE"))), nullptr, FColor::Red, 0.12f, false);
   return;
  }
