@@ -1,4 +1,5 @@
 extends Control
+signal waypoint_selected(world_position:Vector3)
 ## Simple real-position navigation chart. North = negative world Z.
 var player_position:Vector3=Vector3.ZERO
 var waypoint_position:Vector3=Vector3.ZERO
@@ -30,3 +31,12 @@ func update_navigation(position:Vector3, waypoint:Vector3, enabled:bool)->void:
  waypoint_position=waypoint
  has_waypoint=enabled
  queue_redraw()
+
+func _gui_input(event:InputEvent)->void:
+ if event is InputEventMouseButton and event.pressed and event.button_index==MOUSE_BUTTON_LEFT:
+  if size.x<20.0 or size.y<20.0:return
+  var scale_factor:float=minf(size.x,size.y)*0.45/maxf(20.0,metres_per_half_width)
+  var offset:Vector2=(event.position-size*0.5)/scale_factor
+  var location:Vector3=Vector3(player_position.x+offset.x,player_position.y,player_position.z+offset.y)
+  waypoint_selected.emit(location)
+  accept_event()
