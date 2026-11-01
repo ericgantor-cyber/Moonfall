@@ -825,7 +825,7 @@ func _build_ui() -> void:
  wait_art.add_theme_color_override("font_color",Color("e8c883"))
  wait_column.add_child(wait_art)
  wait_clock_dial=preload("res://scripts/systems/celestial_wait_clock.gd").new()
- wait_clock_dial.custom_minimum_size=Vector2(560,128)
+ wait_clock_dial.custom_minimum_size=Vector2(560,160)
  wait_clock_dial.size_flags_horizontal=Control.SIZE_EXPAND_FILL
  wait_column.add_child(wait_clock_dial)
  wait_clock_art=Label.new()
