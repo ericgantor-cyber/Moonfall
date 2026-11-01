@@ -25,7 +25,7 @@ output from any unsuccessful build and attach the first compiler error and surro
 1. Register a trusted **self-hosted Windows x64** GitHub Actions runner for this repository.
    Follow GitHub's repository Settings > Actions > Runners instructions; do not publish
    access tokens in issues, code, logs, or chat.
-2. Add runner label `unreal-5.4`, and install the same prerequisites as above.
+2. Add runner label `unreal-5-4`, and install the same prerequisites as above.
 3. Set the `UE54_ROOT` environment variable on the runner machine to the engine directory.
 4. The workflow `Windows Unreal build prerequisites` includes a manual input
    `compile_on_self_hosted`. Run the workflow from a branch where the workflow exists
