@@ -834,7 +834,7 @@ func _build_ui() -> void:
  wait_clock_art.add_theme_color_override("font_color",Color("f4d69a"))
  wait_column.add_child(wait_clock_art)
  wait_clock_bar=ProgressBar.new()
- wait_clock_bar.custom_minimum_size=Vector2(560,22)
+ wait_clock_bar.custom_minimum_size=Vector2(560,26)
  wait_clock_bar.max_value=24.0
  wait_clock_bar.show_percentage=false
  var track:=StyleBoxFlat.new()
