@@ -1007,6 +1007,29 @@ func _build_ui() -> void:
  refresh_preview.call()
  for picker in [custom_color_picker,hair_picker,eye_picker,skin_picker,face_picker,accessory_picker,build_picker]:
   picker.item_selected.connect(refresh_preview)
+ var appearance_actions:=HBoxContainer.new()
+ appearance_actions.add_theme_constant_override("separation",8)
+ custom_column.add_child(appearance_actions)
+ var randomize_button:=Button.new()
+ randomize_button.text="RANDOMIZE LOOK"
+ randomize_button.tooltip_text="Randomize only your custom hero appearance; no class or gameplay changes."
+ randomize_button.custom_minimum_size=Vector2(140,44)
+ appearance_actions.add_child(randomize_button)
+ var reset_button:=Button.new()
+ reset_button.text="RESET LOOK"
+ reset_button.custom_minimum_size=Vector2(115,44)
+ appearance_actions.add_child(reset_button)
+ var appearance_pickers:Array=[custom_color_picker,hair_picker,eye_picker,skin_picker,face_picker,accessory_picker,build_picker]
+ randomize_button.pressed.connect(func()->void:
+  for picker in appearance_pickers:
+   picker.select(randi_range(0,picker.item_count-1))
+  refresh_preview.call()
+ )
+ reset_button.pressed.connect(func()->void:
+  for picker in appearance_pickers:picker.select(0)
+  build_picker.select(1)
+  refresh_preview.call()
+ )
  var custom_launch:=Button.new()
  custom_launch.text="CREATE & PLAY"
  custom_launch.custom_minimum_size=Vector2(230,52)
