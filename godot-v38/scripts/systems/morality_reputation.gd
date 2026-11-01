@@ -73,3 +73,24 @@ static func companion_loyalty(raw:Variant, companion_ethic:String) -> int:
 
 static func weapon_affinity(raw:Variant) -> String:
  return alignment(int(normalize(raw)["morality"]))
+
+## Deterministic, save-friendly hooks for the next gameplay integration.
+static func quest_available(raw:Variant, faction:String, minimum_reputation:int = -100, required_alignment:String = "") -> bool:
+ var state:Dictionary = normalize(raw)
+ if int(state["factions"].get(faction, 0)) < minimum_reputation:
+  return false
+ return required_alignment.is_empty() or alignment(int(state["morality"])) == required_alignment
+
+static func weapon_evolution(raw:Variant, victories:int, elemental_kills:int) -> Dictionary:
+ var state:Dictionary = normalize(raw)
+ var rank:int = clampi(int(victories / 25) + int(elemental_kills / 15), 0, 5)
+ return {"rank": rank, "alignment": alignment(int(state["morality"])), "bonus_percent": rank * 3}
+
+static func sanctuary_trophy_unlocked(raw:Variant, choice_id:String) -> bool:
+ var state:Dictionary = normalize(raw)
+ return bool(state["choices"].get(choice_id, false))
+
+static func settlement_status(raw:Variant, faction:String) -> Dictionary:
+ var status:Dictionary = reaction(raw, faction)
+ var score:int = int(normalize(raw)["factions"].get(faction, 0))
+ return {"standing": status["standing"], "guards_hostile": status["hostile"], "citizens_help": score >= 20, "supplies_available": status["will_trade"]}
