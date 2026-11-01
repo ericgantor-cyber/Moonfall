@@ -7,6 +7,7 @@ var atlas_readout:Label
 var atlas_waypoint:Vector3=Vector3.ZERO
 var atlas_has_waypoint:bool=false
 var atlas_elapsed:float=0.0
+var atlas_open_button:Button
 
 func _ready()->void:
  super._ready()
@@ -47,6 +48,13 @@ func _create_atlas()->void:
  atlas_panel.position=Vector2(18,175)
  atlas_panel.custom_minimum_size=Vector2(310,340)
  layer.add_child(atlas_panel)
+ atlas_open_button=Button.new()
+ atlas_open_button.name="OpenAtlasButton"
+ atlas_open_button.text="MAP (F8)"
+ atlas_open_button.position=Vector2(18,125)
+ atlas_open_button.custom_minimum_size=Vector2(115,42)
+ atlas_open_button.pressed.connect(_toggle_atlas)
+ layer.add_child(atlas_open_button)
  var layout:VBoxContainer=VBoxContainer.new()
  atlas_panel.add_child(layout)
  var heading:Label=Label.new()
@@ -68,11 +76,28 @@ func _create_atlas()->void:
  clear.text="CLEAR"
  clear.pressed.connect(_atlas_clear)
  buttons.add_child(clear)
+ var zoom_controls:HBoxContainer=HBoxContainer.new()
+ layout.add_child(zoom_controls)
+ for item in [{"text":"ZOOM +","multiplier":0.75},{"text":"ZOOM -","multiplier":1.333333}]:
+  var zoom:Button=Button.new()
+  zoom.text=str(item["text"])
+  zoom.pressed.connect(_atlas_zoom.bind(float(item["multiplier"])))
+  zoom_controls.add_child(zoom)
  var close:Button=Button.new()
  close.text="CLOSE"
  close.pressed.connect(func():atlas_panel.visible=false)
  buttons.add_child(close)
  atlas_panel.visible=false
+ _refresh_atlas()
+
+func _atlas_zoom(factor:float)->void:
+ if not is_instance_valid(atlas_chart):return
+ atlas_chart.metres_per_half_width=clampf(atlas_chart.metres_per_half_width*factor,25.0,2000.0)
+ _refresh_atlas()
+
+func _toggle_atlas()->void:
+ if not hero_playing or menu_open or death_active or not is_instance_valid(atlas_panel):return
+ atlas_panel.visible=not atlas_panel.visible
  _refresh_atlas()
 
 func _atlas_mark_here()->void:
@@ -97,13 +122,13 @@ func _refresh_atlas()->void:
 func _unhandled_key_input(event:InputEvent)->void:
  if event is InputEventKey and event.pressed and not event.echo and event.keycode==KEY_F8:
   if is_instance_valid(atlas_panel) and hero_playing and not menu_open and not death_active:
-   atlas_panel.visible=not atlas_panel.visible
-   _refresh_atlas()
+   _toggle_atlas()
   get_viewport().set_input_as_handled()
 
 func _process(delta:float)->void:
  super._process(delta)
  if not is_instance_valid(atlas_panel):return
+ if is_instance_valid(atlas_open_button):atlas_open_button.visible=hero_playing and not death_active and not menu_open
  if not hero_playing or death_active or menu_open:
   atlas_panel.visible=false
  if atlas_panel.visible:
