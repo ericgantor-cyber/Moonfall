@@ -89,6 +89,12 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("LastCastTime[Hand] = Time", cast)
         self.assertLess(cast.index("Mana < Costs[School] * Multiplier"), cast.index("Mana -= Costs[School] * Multiplier"))
 
+    def test_xp_and_loot_only_on_enemy_death(self):
+        damage = self.enemy_cpp.split("void AMoonfallEnemy::TakeSpellDamage(float Amount) {", 1)[1].split("\n}", 1)[0]
+        death = damage.index("if (Health <= 0.0f) {")
+        self.assertGreater(damage.index("Hero->AwardExperience", death), death)
+        self.assertGreater(damage.index("Hero->AwardEquipmentDrop", death), death)
+
     def test_dodge_and_blocked_hit_checks_retained(self):
         self.assertIn("GetSafeNormal2D()", self.enemy_cpp)
         self.assertIn("LineTraceSingleByChannel", self.enemy_cpp)
