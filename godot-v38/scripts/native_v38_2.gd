@@ -182,6 +182,8 @@ func _unhandled_key_input(event:InputEvent)->void:
   if is_instance_valid(atlas_panel) and hero_playing and not menu_open and not death_active:
    _toggle_atlas()
   get_viewport().set_input_as_handled()
+  return
+ super._unhandled_key_input(event)
 
 func _process(delta:float)->void:
  super._process(delta)
