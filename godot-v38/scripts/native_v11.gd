@@ -1421,7 +1421,7 @@ func _set_wait_display() -> void:
   if not wait_open and not wait_transition_active:return
   if wait_transition_active:
    # The animation is informational; keep buttons hidden while it runs.
-   wait_label.text="TIME PASSING...  Day %d  %s  %s\nPlease wait for the celestial clock." % [world_day,_wait_clock_text(world_clock),_day_phase()]
+   wait_label.text="TIME PASSING...  Day %d  %s  %s\nSpace or Enter: finish transition" % [world_day,_wait_clock_text(world_clock),_day_phase()]
    if is_instance_valid(wait_clock_bar):wait_clock_bar.value=fposmod(world_clock,DAY_LENGTH_SECONDS)/DAY_LENGTH_SECONDS*24.0
    if is_instance_valid(wait_clock_art):
     wait_clock_art.text="✦   ☀  ━━━  ◯  ━━━  ✧   ✦" if _day_phase()=="Day" or _day_phase()=="Dawn" else "✦   ☾  ━━━  ◯  ━━━  ✧   ✦"
@@ -1448,6 +1448,10 @@ func _finish_wait(confirm:bool) -> void:
   wait_transition_active=true
  wait_open=false
  _set_wait_display()
+
+func _skip_wait_animation() -> void:
+ if not wait_transition_active:return
+ _animate_wait(WAIT_TRANSITION_DURATION)
 
 func _animate_wait(delta:float) -> void:
  if not wait_transition_active:return
@@ -1485,6 +1489,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
   get_viewport().set_input_as_handled()
   return
  if wait_transition_active:
+  if event.keycode in [KEY_SPACE,KEY_ENTER,KEY_KP_ENTER]:_skip_wait_animation()
   get_viewport().set_input_as_handled()
   return
  if event.keycode in [KEY_ESCAPE,KEY_F10]:
