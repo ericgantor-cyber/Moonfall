@@ -1,6 +1,7 @@
 param(
     [string]$UnrealRoot = $env:UE54_ROOT,
-    [string]$OutputDirectory = ""
+    [string]$OutputDirectory = "",
+    [switch]$CompileOnly
 )
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
@@ -30,11 +31,11 @@ if ($OutputDirectory.TrimEnd([IO.Path]::DirectorySeparatorChar) -eq $repoRootFul
 }
 New-Item -ItemType Directory -Force -Path $OutputDirectory | Out-Null
 $previousSetup = Join-Path $OutputDirectory 'MoonfallUnreal-Setup.exe'
-foreach ($old in @($previousSetup, "$previousSetup.sha256")) {
+foreach ($old in $(if ($CompileOnly) { @() } else { @($previousSetup, "$previousSetup.sha256") })) {
     if (Test-Path -LiteralPath $old) { Remove-Item -LiteralPath $old -Force }
 }
 # Do not package stale cooked assets from a previous run if the current build fails.
-if (Test-Path -LiteralPath $gameOutput) {
+if (-not $CompileOnly -and (Test-Path -LiteralPath $gameOutput)) {
     Write-Host "Removing previous packaged game output: $gameOutput"
     Remove-Item -LiteralPath $gameOutput -Recurse -Force
 }
@@ -42,6 +43,11 @@ if (Test-Path -LiteralPath $gameOutput) {
 Write-Host 'Compiling Unreal 5.4 Editor target...'
 & $build MoonfallUnrealEditor Win64 Development "-Project=$project" -WaitMutex -NoHotReload
 if ($LASTEXITCODE -ne 0) { throw "Unreal editor compilation failed: $LASTEXITCODE" }
+
+if ($CompileOnly) {
+    Write-Host 'Unreal Editor compilation succeeded. Compile-only mode: skipping packaging, launcher and NSIS.'
+    exit 0
+}
 
 Write-Host 'Packaging Unreal Win64 Development game...'
 & $uat BuildCookRun "-project=$project" -noP4 -platform=Win64 -clientconfig=Development -build -cook -stage -pak -prereqs -archive "-archivedirectory=$gameOutput" -utf8output
