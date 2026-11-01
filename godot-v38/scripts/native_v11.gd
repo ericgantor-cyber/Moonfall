@@ -951,12 +951,18 @@ func _build_ui() -> void:
   column.add_child(launch)
   if not is_instance_valid(hero_start_button):hero_start_button=launch
  # Custom hero has an original procedural portrait, never a recolor of Z or Nyra.
+ var creator_scroll:=ScrollContainer.new()
+ creator_scroll.custom_minimum_size=Vector2(320,390)
+ creator_scroll.size_flags_vertical=Control.SIZE_EXPAND_FILL
+ choices.add_child(creator_scroll)
  var custom_column:=VBoxContainer.new()
- custom_column.custom_minimum_size=Vector2(290,460)
- choices.add_child(custom_column)
+ custom_column.custom_minimum_size=Vector2(290,0)
+ custom_column.add_theme_constant_override("separation",7)
+ creator_scroll.add_child(custom_column)
  var custom_title:=Label.new()
- custom_title.text="CREATE YOUR HERO"
+ custom_title.text="CREATE YOUR HERO • SCROLL FOR OPTIONS"
  custom_column.add_child(custom_title)
+ creator_scroll.tooltip_text="Scroll to reach all appearance options. Keyboard Tab moves between controls."
  var custom_name_edit:=LineEdit.new()
  custom_name_edit.placeholder_text="Hero name"
  custom_name_edit.max_length=24
