@@ -106,7 +106,7 @@ $check = Start-Process -FilePath $launcher -ArgumentList '--check-install' -Work
 if ($check.ExitCode -ne 0) { throw "Launcher game-file check failed: $($check.ExitCode)" }
 
 Write-Host 'Building NSIS Windows installer...'
-$setup = Join-Path $OutputDirectory 'MoonfallUnreal-Setup.exe'
+$setup = Join-Path $OutputDirectory 'MoonfallUnreal-Setup.pending.exe'
 $script = Join-Path $repoRoot 'MoonfallUnreal\Installer\MoonfallUnreal.nsi'
 & makensis.exe "/DSOURCE_DIR=$gameRoot" "/DOUTPUT_EXE=$setup" $script
 if ($LASTEXITCODE -ne 0 -or -not (Test-Path $setup)) { throw 'NSIS build failed' }
@@ -114,8 +114,11 @@ $installerFile = Get-Item -LiteralPath $setup
 if ($installerFile.Length -le 0) { throw 'NSIS returned an empty installer' }
 $hash = (Get-FileHash -LiteralPath $setup -Algorithm SHA256).Hash.ToLowerInvariant()
 "$hash  MoonfallUnreal-Setup.exe" | Set-Content -Encoding ascii -Path "$setup.sha256"
-Write-Host "Installer generated: $setup"
+$finalSetup = Join-Path $OutputDirectory 'MoonfallUnreal-Setup.exe'
+Move-Item -LiteralPath $setup -Destination $finalSetup -Force
+Move-Item -LiteralPath "$setup.sha256" -Destination "$finalSetup.sha256" -Force
+Write-Host "Installer generated: $finalSetup"
 Write-Host "Installer size: $($installerFile.Length) bytes"
 Write-Host "Installer SHA-256: $hash"
-Write-Host "Checksum file: $setup.sha256"
+Write-Host "Checksum file: $finalSetup.sha256"
 Write-Warning 'A generated installer is NOT proof of working gameplay. Test installation, game launch and uninstall on Windows before sharing.'
