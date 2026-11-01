@@ -41,3 +41,10 @@ jobs:
           $ErrorActionPreference = 'Stop'
           & .\MoonfallUnreal\Build\Build-Center.ps1 -SelfTest
           if ($LASTEXITCODE -ne 0) { throw 'Build Center smoke test failed.' }
+      - name: Verify one-click launcher and instructions
+        shell: powershell
+        run: |
+          $launcher = Get-Content 'MoonfallUnreal/Build/Start-Build-Center.cmd' -Raw
+          if ($launcher -notmatch 'Build-Center\.ps1') { throw 'Launcher does not start Build Center.' }
+          if ($launcher -notmatch '%~dp0') { throw 'Launcher must resolve its own folder.' }
+          Write-Host 'Double-click launcher source checks passed.'
