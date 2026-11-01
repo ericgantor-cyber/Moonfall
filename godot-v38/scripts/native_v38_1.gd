@@ -9,6 +9,8 @@ var realm_quest_buttons:Array[Button] = []
 var realm_progress:Label
 var realm_victories:int = 0
 var realm_elemental_kills:int = 0
+var realm_companion:Label
+var realm_companion_ethic:String = "Good"
 
 func _ready() -> void:
  realm_ethics = REALM_ETHICS.new_state()
@@ -20,6 +22,7 @@ func _start_game(selected_hero:String) -> void:
  realm_ethics = REALM_ETHICS.new_state()
  realm_victories = 0
  realm_elemental_kills = 0
+ realm_companion_ethic = "Good"
  _refresh_realm_choices()
 
 func _checkpoint_extra_data() -> Dictionary:
@@ -27,6 +30,7 @@ func _checkpoint_extra_data() -> Dictionary:
  data["realm_ethics"] = realm_ethics.duplicate(true)
  data["realm_victories"] = realm_victories
  data["realm_elemental_kills"] = realm_elemental_kills
+ data["realm_companion_ethic"] = realm_companion_ethic
  return data
 
 func _restore_data(data:Dictionary) -> void:
@@ -35,6 +39,8 @@ func _restore_data(data:Dictionary) -> void:
  realm_ethics = REALM_ETHICS.normalize(extra.get("realm_ethics", {}) if extra is Dictionary else {})
  realm_victories = maxi(0,int(extra.get("realm_victories",0))) if extra is Dictionary else 0
  realm_elemental_kills = maxi(0,int(extra.get("realm_elemental_kills",0))) if extra is Dictionary else 0
+ realm_companion_ethic = str(extra.get("realm_companion_ethic","Good")) if extra is Dictionary else "Good"
+ if realm_companion_ethic not in ["Good","Evil"]:realm_companion_ethic="Good"
  _refresh_realm_choices()
 
 func _build_realm_choice_panel() -> void:
@@ -47,7 +53,7 @@ func _build_realm_choice_panel() -> void:
  realm_panel.offset_left = -330
  realm_panel.offset_right = -16
  realm_panel.offset_top = 160
- realm_panel.offset_bottom = 520
+ realm_panel.offset_bottom = 585
  layer.add_child(realm_panel)
  var layout:VBoxContainer = VBoxContainer.new()
  realm_panel.add_child(layout)
@@ -58,6 +64,12 @@ func _build_realm_choice_panel() -> void:
  realm_progress=Label.new()
  realm_progress.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
  layout.add_child(realm_progress)
+ realm_companion=Label.new()
+ layout.add_child(realm_companion)
+ var companion_swap:Button=Button.new()
+ companion_swap.text="SWITCH COMPANION ETHIC"
+ companion_swap.pressed.connect(_swap_realm_companion)
+ layout.add_child(companion_swap)
  for entry in [
   {"id":"realm_village_aid","text":"PROTECT THE VILLAGE","moral":35,"factions":{"Villagers":40,"Wardens":20}},
   {"id":"realm_village_betray","text":"BETRAY THE VILLAGE","moral":-40,"factions":{"Villagers":-45,"Outlaws":30}}
@@ -106,6 +118,9 @@ func _refresh_realm_choices() -> void:
  if is_instance_valid(realm_progress):
   var evolving:Dictionary=REALM_ETHICS.weapon_evolution(state,realm_victories,realm_elemental_kills)
   realm_progress.text="WEAPON: "+str(evolving["alignment"])+" • Rank "+str(evolving["rank"])+" • Bonus "+str(evolving["bonus_percent"])+"% | Companion loyalty: "+str(REALM_ETHICS.companion_loyalty(state,"Good"))+" (Good), "+str(REALM_ETHICS.companion_loyalty(state,"Evil"))+" (Evil)"
+ if is_instance_valid(realm_companion):
+  var loyalty:int=REALM_ETHICS.companion_loyalty(state,realm_companion_ethic)
+  realm_companion.text="ACTIVE COMPANION: "+realm_companion_ethic+" | Loyalty "+str(loyalty)+" | "+("Loyal" if loyalty>=55 else "Uncertain")
  var decided:bool = state["choices"].has("realm_village_aid") or state["choices"].has("realm_village_betray")
  for button in realm_choice_buttons:
   if is_instance_valid(button):
@@ -139,4 +154,9 @@ func _apply_player_hit(target:Dictionary,base_damage:float,stagger_strength:floa
  var element:String=str(target.get("element","")).to_lower()
  if element in ["fire","water","air","earth","lightning","ice","arcane"]:
   realm_elemental_kills+=1
+ _refresh_realm_choices()
+
+func _swap_realm_companion()->void:
+ if not hero_playing or death_active or menu_open:return
+ realm_companion_ethic="Evil" if realm_companion_ethic=="Good" else "Good"
  _refresh_realm_choices()
