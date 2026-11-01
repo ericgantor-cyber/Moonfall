@@ -818,7 +818,7 @@ func _build_ui() -> void:
  wait_panel.add_theme_stylebox_override("panel",wait_frame)
  root.add_child(wait_panel)
  var wait_column:=VBoxContainer.new()
- wait_column.add_theme_constant_override("separation",12)
+ wait_column.add_theme_constant_override("separation",14)
  wait_panel.add_child(wait_column)
  var wait_art:=Label.new()
  wait_art.text="✦   ═════  THE PASSING HOURS  ═════   ✦"
