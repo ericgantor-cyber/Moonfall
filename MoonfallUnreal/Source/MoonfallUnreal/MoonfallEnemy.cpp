@@ -37,6 +37,7 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
     NextAttackAt = Now + 1.5f;
     BossPhaseMessageUntil = Now + 1.5f;
     AttackSequence = 0;
+    BossSpecialMove = 0;
     bComboSecondHitPending = false;
     bComboSecondHitActive = false;
     CachedWaypoint = FVector::ZeroVector;
@@ -157,7 +158,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   if (bBoss) DrawDebugCircle(GetWorld(), GetActorLocation() - FVector(0.f,0.f,55.f),
     AttackRange * CurrentAttackRangeMultiplier, 24, TellColor, false, 0.12f, 0, 3.f * WarningScale,
     FVector(1.f,0.f,0.f), FVector(0.f,1.f,0.f), false);
-  DrawDebugString(GetWorld(), GetActorLocation() + FVector(0.f,0.f,160.f), bComboSecondHitActive ? TEXT("COMBO FOLLOW-UP") : (CurrentAttackMultiplier > 2.f ? (bBoss ? TEXT("BOSS CRUSH") : TEXT("ELITE CRUSH")) : (CurrentAttackMultiplier > 1.5f ? TEXT("HEAVY") : (CurrentAttackRangeMultiplier > 1.f ? TEXT("SWEEP") : TEXT("STRIKE")))), nullptr, FColor::Red, 0.12f, false);
+  DrawDebugString(GetWorld(), GetActorLocation() + FVector(0.f,0.f,160.f), bComboSecondHitActive ? TEXT("COMBO FOLLOW-UP") : (BossSpecialMove == 2 ? TEXT("ECLIPSE SLAM") : (BossSpecialMove == 1 ? TEXT("MOON CLEAVE") : (CurrentAttackMultiplier > 2.f ? (bBoss ? TEXT("BOSS CRUSH") : TEXT("ELITE CRUSH")) : (CurrentAttackMultiplier > 1.5f ? TEXT("HEAVY") : (CurrentAttackRangeMultiplier > 1.f ? TEXT("SWEEP") : TEXT("STRIKE")))))), nullptr, FColor::Red, 0.12f, false);
   return;
  }
  if (Distance > AttackRange && Distance < 2200.f) {
@@ -214,6 +215,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
    // An elite cannot chain another attack during its recovery window.
    // Phase-two bosses unlock a fourth, highly telegraphed crush.
    const int32 Pattern = AttackSequence++ % ((bElite || (bBoss && BossPhase >= 2)) ? 4 : 3);
+   BossSpecialMove = bBoss && BossPhase >= 2 && AttackSequence % 5 == 0 ? (BossPhase >= 3 ? 2 : 1) : 0;
    // Later-phase bosses alternate fast opener and a readable delayed follow-up.
    const bool bComboFollowUp = bBoss && BossPhase >= 2 && Pattern == 1;
    CurrentWindup = Pattern == 0 ? 0.38f : (Pattern == 1 ? 0.85f : (Pattern == 2 ? 0.65f : 1.05f));
@@ -225,7 +227,18 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
     else CurrentWindup *= 0.95f;
     CurrentAttackMultiplier *= BossPhase == 3 ? 1.35f : 1.15f;
    }
-   if (bComboFollowUp) {
+   if (BossSpecialMove == 1) {
+    // Moon cleave: a broad deliberate sweeping strike.
+    CurrentWindup = 1.15f;
+    CurrentAttackMultiplier = 1.35f;
+    CurrentAttackRangeMultiplier = 1.65f;
+   } else if (BossSpecialMove == 2) {
+    // Eclipse slam: a slower high-impact strike with pronounced recovery.
+    CurrentWindup = 1.4f;
+    CurrentAttackMultiplier = 2.5f;
+    CurrentAttackRangeMultiplier = 1.3f;
+   }
+   if (bComboFollowUp && BossSpecialMove == 0) {
     CurrentWindup += 0.25f;
     bComboSecondHitPending = true;
    }
