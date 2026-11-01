@@ -123,8 +123,9 @@ $timer.Add_Tick({
     }
 })
 $form.Add_FormClosing({
+    param($sender, $eventArgs)
     if ($script:process -and -not $script:process.HasExited) {
-        $args[1].Cancel = $true
+        $eventArgs.Cancel = $true
         [Windows.Forms.MessageBox]::Show('Cancel the running job first.','Moonfall Build Center')
     }
 })
