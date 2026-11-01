@@ -37,6 +37,8 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
     NextAttackAt = Now + 1.5f;
     BossPhaseMessageUntil = Now + 1.5f;
     AttackSequence = 0;
+    bComboSecondHitPending = false;
+    bComboSecondHitActive = false;
     CachedWaypoint = FVector::ZeroVector;
     OnBossPhaseChanged(BossPhase);
    }
@@ -70,12 +72,16 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   // A readable phase-change recovery: no movement or attacks during the transition.
   WindupEndsAt = -1.f;
   BossWarningEndTime = -1.f;
+  bComboSecondHitPending = false;
+  bComboSecondHitActive = false;
   return;
  }
  if (Staggered) {
   // A successful hit interrupts an enemy's windup, rewarding reactive combat.
   WindupEndsAt = -1.f;
   BossWarningEndTime = -1.f;
+  bComboSecondHitPending = false;
+  bComboSecondHitActive = false;
   NextAttackAt = FMath::Max(NextAttackAt, Now + 0.35f);
   return;
  }
@@ -93,6 +99,9 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
  }
  if (!bInCombatArea) {
   WindupEndsAt = -1.f;
+  bComboSecondHitPending = false;
+  bComboSecondHitActive = false;
+  BossWarningEndTime = -1.f;
   CachedWaypoint = FVector::ZeroVector;
   NextPathRefreshAt = 0.f;
   return;
@@ -117,6 +126,18 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
     OnEnemyAttack();
    }
   }
+  if (bComboSecondHitPending) {
+   // The follow-up has its own tell and can be dodged or interrupted.
+   bComboSecondHitPending = false;
+   bComboSecondHitActive = true;
+   CurrentWindup = BossPhase >= 3 ? 0.5f : 0.7f;
+   CurrentAttackMultiplier = 0.9f;
+   CurrentAttackRangeMultiplier = 1.15f;
+   WindupEndsAt = Now + CurrentWindup;
+   BossWarningEndTime = WindupEndsAt;
+  } else {
+   bComboSecondHitActive = false;
+  }
   return;
  }
  // Keep the enemy committed to a telegraphed strike until it resolves. A player
@@ -136,7 +157,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   if (bBoss) DrawDebugCircle(GetWorld(), GetActorLocation() - FVector(0.f,0.f,55.f),
     AttackRange * CurrentAttackRangeMultiplier, 24, TellColor, false, 0.12f, 0, 3.f * WarningScale,
     FVector(1.f,0.f,0.f), FVector(0.f,1.f,0.f), false);
-  DrawDebugString(GetWorld(), GetActorLocation() + FVector(0.f,0.f,160.f), CurrentAttackMultiplier > 2.f ? (bBoss ? TEXT("BOSS CRUSH") : TEXT("ELITE CRUSH")) : (CurrentAttackMultiplier > 1.5f ? TEXT("HEAVY") : (CurrentAttackRangeMultiplier > 1.f ? TEXT("SWEEP") : TEXT("STRIKE"))), nullptr, FColor::Red, 0.12f, false);
+  DrawDebugString(GetWorld(), GetActorLocation() + FVector(0.f,0.f,160.f), bComboSecondHitActive ? TEXT("COMBO FOLLOW-UP") : (CurrentAttackMultiplier > 2.f ? (bBoss ? TEXT("BOSS CRUSH") : TEXT("ELITE CRUSH")) : (CurrentAttackMultiplier > 1.5f ? TEXT("HEAVY") : (CurrentAttackRangeMultiplier > 1.f ? TEXT("SWEEP") : TEXT("STRIKE")))), nullptr, FColor::Red, 0.12f, false);
   return;
  }
  if (Distance > AttackRange && Distance < 2200.f) {
@@ -204,7 +225,10 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
     else CurrentWindup *= 0.95f;
     CurrentAttackMultiplier *= BossPhase == 3 ? 1.35f : 1.15f;
    }
-   if (bComboFollowUp) CurrentWindup += 0.25f;
+   if (bComboFollowUp) {
+    CurrentWindup += 0.25f;
+    bComboSecondHitPending = true;
+   }
    WindupEndsAt = Now + CurrentWindup;
    if (bBoss) BossWarningEndTime = WindupEndsAt;
   }
