@@ -63,6 +63,8 @@ jobs:
           $expectedGame = Get-Content -LiteralPath (Join-Path $installRoot 'MoonfallUnreal.exe') -Raw
           if ($expectedGame -notmatch 'SMOKE-TEST-PLACEHOLDER') { throw 'Test game payload mismatch' }
           if ((Get-Item -LiteralPath (Join-Path $installRoot 'Uninstall.exe')).Length -lt 1024) { throw 'Installed uninstaller unexpectedly small' }
+          $uninstallKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\MoonfallUnreal'
+          if (-not (Test-Path -LiteralPath $uninstallKey)) { throw 'Test installer did not register an uninstall entry' }
           $uninstaller = Join-Path $installRoot 'Uninstall.exe'
           $uninstallProcess = Start-Process -FilePath $uninstaller -ArgumentList '/S' -Wait -PassThru
           if ($uninstallProcess.ExitCode -ne 0) { throw "Silent smoke uninstall failed: $($uninstallProcess.ExitCode)" }
