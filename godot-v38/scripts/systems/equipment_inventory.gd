@@ -73,7 +73,7 @@ static func loot_enemy(state:Dictionary,hero_level:int,seed:int)->Dictionary:
  return item
 
 static func totals(state:Dictionary)->Dictionary:
- var stats:Dictionary={"weapon_power":0,"armor":0,"magic":0}
+ var stats:Dictionary={"weapon_power":0,"armor":0,"magic":0,"vitality":0,"haste":0,"crit":0,"ward":0,"elemental":0}
  var slots:Dictionary=state.get("equipped",{})
  for slot in SLOTS:
   var item:Dictionary=CATALOG.get_item(str(slots.get(slot,"")))
@@ -83,6 +83,26 @@ static func totals(state:Dictionary)->Dictionary:
    "weapon":stats["weapon_power"]+=power
    "armor":stats["armor"]+=power
    "offhand","accessory":stats["magic"]+=power
+  # Apply only a matching owned item's highest rolled bonus.
+  var best_roll:Dictionary={}
+  for roll in state.get("loot_rolls",[]):
+   if roll is Dictionary and str(roll.get("item_id",""))==str(item["id"]):
+    if int(roll.get("rarity_index",0))>int(best_roll.get("rarity_index",-1)):
+     best_roll=roll
+  var bonus:int=clampi(int(best_roll.get("power_bonus",0)),0,12)
+  if str(item["category"])=="weapon":stats["weapon_power"]+=bonus
+  elif str(item["category"])=="armor":stats["armor"]+=bonus
+  else:stats["magic"]+=bonus
+  for affix in best_roll.get("affixes",[]):
+   if not affix is Dictionary:continue
+   var value:int=clampi(int(affix.get("value",0)),0,30)
+   match str(affix.get("stat","")):
+    "Power":stats["weapon_power"]+=value
+    "Vitality":stats["vitality"]+=value
+    "Haste":stats["haste"]+=value
+    "Crit":stats["crit"]+=value
+    "Ward":stats["ward"]+=value
+    "Elemental":stats["elemental"]+=value
  return stats
 
 static func normalize(saved:Dictionary)->Dictionary:
