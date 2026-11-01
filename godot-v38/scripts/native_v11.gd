@@ -244,6 +244,8 @@ var world_day := 1
 var wait_open := false
 var wait_hours := 1
 var wait_label: Label
+var wait_panel: PanelContainer
+var wait_clock_bar: ProgressBar
 var weather_name := "Clear"
 var weather_remaining := WEATHER_INTERVAL_SECONDS
 var weather_changes := 0
@@ -786,8 +788,51 @@ func _build_ui() -> void:
  hint=_ui_label(root,Vector2(18,43),15,Color("c6dccf"))
  status=_ui_label(root,Vector2(18,75),17,Color("ffd391"))
  world_hud=_ui_label(root,Vector2(18,111),14,Color("bcabec"))
- wait_label=_ui_label(root,Vector2(18,156),22,Color("ffe4ae"))
- wait_label.visible=false
+ # Illustrated fantasy parchment overlay: built from native Godot UI, no external art assets.
+ wait_panel=PanelContainer.new()
+ wait_panel.name="CelestialWaitPanel"
+ wait_panel.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+ wait_panel.position=Vector2(-280,-165)
+ wait_panel.custom_minimum_size=Vector2(560,330)
+ wait_panel.mouse_filter=Control.MOUSE_FILTER_STOP
+ var wait_frame:=StyleBoxFlat.new()
+ wait_frame.bg_color=Color("151b32")
+ wait_frame.border_color=Color("d5ac69")
+ wait_frame.set_border_width_all(3)
+ wait_frame.set_corner_radius_all(22)
+ wait_frame.set_content_margin_all(18)
+ wait_frame.shadow_color=Color(0,0,0,0.7)
+ wait_frame.shadow_size=14
+ wait_panel.add_theme_stylebox_override("panel",wait_frame)
+ root.add_child(wait_panel)
+ var wait_column:=VBoxContainer.new()
+ wait_column.add_theme_constant_override("separation",12)
+ wait_panel.add_child(wait_column)
+ var wait_art:=Label.new()
+ wait_art.text="✦   ═════  THE PASSING HOURS  ═════   ✦"
+ wait_art.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+ wait_art.add_theme_font_size_override("font_size",24)
+ wait_art.add_theme_color_override("font_color",Color("e8c883"))
+ wait_column.add_child(wait_art)
+ wait_clock_bar=ProgressBar.new()
+ wait_clock_bar.custom_minimum_size=Vector2(490,18)
+ wait_clock_bar.max_value=24.0
+ wait_clock_bar.show_percentage=false
+ var track:=StyleBoxFlat.new()
+ track.bg_color=Color("34354a")
+ track.set_corner_radius_all(8)
+ wait_clock_bar.add_theme_stylebox_override("background",track)
+ var fill:=StyleBoxFlat.new()
+ fill.bg_color=Color("ddaa61")
+ fill.set_corner_radius_all(8)
+ wait_clock_bar.add_theme_stylebox_override("fill",fill)
+ wait_column.add_child(wait_clock_bar)
+ wait_label=Label.new()
+ wait_label.add_theme_font_size_override("font_size",19)
+ wait_label.add_theme_color_override("font_color",Color("f8e9cb"))
+ wait_label.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+ wait_column.add_child(wait_label)
+ wait_panel.visible=false
  var controls:=_ui_label(root,Vector2(18,0),15,Color("d4d7e7"))
  controls.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
  controls.position=Vector2(18,-68)
@@ -1331,9 +1376,10 @@ func _wait_clock_text(clock:float) -> String:
  return "%02d:%02d" % [hour,minute]
 
 func _set_wait_display() -> void:
+ if is_instance_valid(wait_panel):wait_panel.visible=wait_open
  if is_instance_valid(wait_label):
-  wait_label.visible=wait_open
   if not wait_open:return
+  if is_instance_valid(wait_clock_bar):wait_clock_bar.value=fposmod(world_clock+float(wait_hours)*DAY_LENGTH_SECONDS/24.0,DAY_LENGTH_SECONDS)/DAY_LENGTH_SECONDS*24.0
   var future_clock:float=world_clock+float(wait_hours)*DAY_LENGTH_SECONDS/24.0
   var next_day:int=mini(99999,world_day+int(floor(future_clock/DAY_LENGTH_SECONDS)))
   var future_phase:String=WORLD_CYCLE.phase(future_clock,DAY_LENGTH_SECONDS)
