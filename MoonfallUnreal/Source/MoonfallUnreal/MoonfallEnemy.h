@@ -19,8 +19,10 @@ public:
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Combat") int32 BossPhase = 1;
  UFUNCTION(BlueprintImplementableEvent, Category="Combat") void OnHitFeedback(float Damage, float RemainingHealth);
  UFUNCTION(BlueprintImplementableEvent, Category="Combat") void OnEnemyAttack();
+ UFUNCTION(BlueprintImplementableEvent, Category="Boss") void OnBossPhaseChanged(int32 NewPhase);
 private:
  float MaxHealthAtSpawn = 0.f;
+ float BossPhaseMessageUntil = 0.f;
  float NextAttackAt = 0.f;
  float NextPathRefreshAt = 0.f;
  float NextBlockedRepathAt = 0.f;
