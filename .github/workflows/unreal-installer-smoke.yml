@@ -56,6 +56,10 @@ jobs:
             if (-not (Test-Path -LiteralPath (Join-Path $installRoot $relative) -PathType Leaf)) { throw "Missing installed smoke payload: $relative" }
           }
           Write-Host 'Installed launcher, game placeholders and uninstall executable verified.'
+          $expectedContent = Get-Content -LiteralPath (Join-Path $installRoot 'MoonfallLauncher.exe') -Raw
+          if ($expectedContent -notmatch 'SMOKE-TEST-PLACEHOLDER') { throw 'Installed launcher placeholder differs from expected test payload' }
+          Write-Host 'Installed launcher placeholder content verified.'
+
           $uninstaller = Join-Path $installRoot 'Uninstall.exe'
           $uninstallProcess = Start-Process -FilePath $uninstaller -ArgumentList '/S' -Wait -PassThru
           if ($uninstallProcess.ExitCode -ne 0) { throw "Silent smoke uninstall failed: $($uninstallProcess.ExitCode)" }
