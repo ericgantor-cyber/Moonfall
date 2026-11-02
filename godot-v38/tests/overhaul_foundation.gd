@@ -27,7 +27,7 @@ func _run()->void:
  check("eligible.sort()" not in target_code,"target cycling keeps canonical order without sorting")
  check("eligible.bsearch(aim_locked_id + 1)" in target_code,"target cycling moves to next higher eligible index")
  check("if beasts.is_empty():" in target_code,"no canonical enemies short circuits targeting")
- check("if not body.visible:continue" in target_code,"hidden enemy bodies excluded from targeting")
+ check("if not body.visible or not body.is_inside_tree():continue" in target_code,"hidden or detached enemy bodies excluded from targeting")
  check("is_instance_valid(body_ref) and body_ref.visible" in target_code,"hidden enemies excluded before regional index allocation")
  check("if zone_ids.is_empty():" in target_code,"invalid regional enemies short circuit global target scan")
  check("zone_beast_lists[region_index].is_empty()" in target_code,"empty regions avoid unnecessary target scans")
