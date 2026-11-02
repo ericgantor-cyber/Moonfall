@@ -108,21 +108,18 @@ func _run() -> void:
   if int(creature.get("dungeon_site",-1))<0 and not bool(creature.get("boss",false)):
    game.call("_despawn_native_beast",creature,100.0)
  game.call("_start_rift",0)
- _check(game.get("active_rift")==0 and int(first_rift["stage"])==1,"Rift starts at its in-world altar")
+ _check(game.get("active_rift")==0 and int(first_rift["stage"])==3,"Continuous rift starts at its in-world altar")
  for slot in first_rift["slots"]:
-  _check(bool(game.get("beasts")[int(slot)]["alive"]),"Wave enemy awakens")
- # Resolve all three waves without actually killing actors or writing a checkpoint.
- for wave in range(1,4):
-  var final_enemy:Dictionary={}
-  for slot in first_rift["slots"]:
-   var unit:Dictionary=game.get("beasts")[int(slot)]
-   game.call("_despawn_native_beast",unit,0.0)
-   final_enemy=unit
-  game.call("_on_rift_enemy_defeated",final_enemy)
-  if wave<3:
-   _check(int(first_rift["stage"])==wave+1,"Rift progresses to wave "+str(wave+1))
-  else:
-   _check(bool(first_rift["cleared"]) and 0 in game.get("rifts_cleared"),"Rift seals and awards progress")
+  _check(bool(game.get("beasts")[int(slot)]["alive"]),"Rift resident awakens once")
+ # The three residents are one encounter, never replenished in waves.
+ var final_enemy:Dictionary={}
+ for slot in first_rift["slots"]:
+  var unit:Dictionary=game.get("beasts")[int(slot)]
+  game.call("_despawn_native_beast",unit,0.0)
+  final_enemy=unit
+ game.call("_on_rift_enemy_defeated",final_enemy)
+ _check(bool(first_rift["cleared"]) and 0 in game.get("rifts_cleared"),"Continuous rift seals and awards progress")
+ _check(game.get("active_rift")==-1,"Rift finishes without restarting enemies")
  var legendary_found:=false
  for drop in game.get("gear_drops"):
   if str(drop["data"].get("rarity",""))=="Legendary" and str(drop["data"].get("affix",""))=="Fury":
