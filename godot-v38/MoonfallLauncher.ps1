@@ -153,6 +153,13 @@ $repair.Add_Click({
   } catch { $report = 'Report unavailable' }
   $message += [Environment]::NewLine + 'Local report: ' + $report
   if ($report -ne 'Report unavailable') {
+    if ([System.Windows.Forms.MessageBox]::Show('Open the saved repair report folder?','Moonfall repair report','YesNo') -eq 'Yes') {
+      try { Start-Process -FilePath explorer.exe -ArgumentList ('"' + $reportsDir + '"') } catch {
+        $status.Text = 'Could not open repair report folder.'
+      }
+    }
+  }
+  if ($report -ne 'Report unavailable') {
     $status.Text = 'Repair report saved locally.'
   } else {
     $status.Text = 'Repair report could not be saved.'
