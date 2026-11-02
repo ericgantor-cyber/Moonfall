@@ -52,6 +52,17 @@ $folder = New-Object System.Windows.Forms.Button
 $folder.Text = 'Open game &folder'
 $folder.SetBounds(208,211,170,31)
 $form.Controls.Add($folder)
+$status = New-Object System.Windows.Forms.Label
+$status.ForeColor = [System.Drawing.Color]::LightGray
+$status.SetBounds(30,246,350,22)
+$form.Controls.Add($status)
+if (Test-Path -LiteralPath $game -PathType Leaf) {
+  $status.Text = 'Ready to play'
+} else {
+  $status.Text = 'Game executable missing. Please reinstall Moonfall.'
+  $play.Enabled = $false
+}
+$form.Add_Shown({ if ($play.Enabled) { $play.Focus() } })
 # Escape closes the launcher without affecting the game or saves.
 $cancel = New-Object System.Windows.Forms.Button
 $cancel.Text = 'Close'
@@ -84,5 +95,9 @@ $updates.Add_Click({
     [System.Windows.Forms.MessageBox]::Show('Cannot open releases page. Visit '+$releasePage,'Update link') | Out-Null
   }
 })
-$folder.Add_Click({ Start-Process explorer.exe -ArgumentList ('"' + $root + '"') })
+$folder.Add_Click({
+  try { Start-Process -FilePath explorer.exe -ArgumentList ('"' + $root + '"') } catch {
+    [System.Windows.Forms.MessageBox]::Show('Could not open the game folder.','Moonfall launcher') | Out-Null
+  }
+})
 [void]$form.ShowDialog()
