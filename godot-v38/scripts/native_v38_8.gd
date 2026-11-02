@@ -31,7 +31,8 @@ func _ready()->void:
   aim_options.position=Vector2(18,80)
   layer.add_child(aim_options)
   aim_toggle=CheckButton.new()
-  aim_toggle.text="AIM ASSIST"
+  aim_toggle.text="AIM ASSIST (ON/OFF)"
+  aim_toggle.tooltip_text="Helps select nearby targets in the direction you aim"
   aim_toggle.button_pressed=aim_assist_enabled
   aim_toggle.toggled.connect(_on_aim_assist_toggled)
   var controls:VBoxContainer=VBoxContainer.new()
@@ -43,10 +44,12 @@ func _ready()->void:
   aim_strength_slider=HSlider.new()
   aim_strength_slider.min_value=0.0
   aim_strength_slider.max_value=1.0
-  aim_strength_slider.step=0.1
+  aim_strength_slider.step=0.05
+  aim_strength_slider.tooltip_text="0% precise aiming, 100% generous target selection"
   aim_strength_slider.custom_minimum_size=Vector2(180,0)
   aim_strength_slider.value=aim_assist_strength
   aim_strength_slider.editable=aim_assist_enabled
+  aim_strength_slider.focus_mode=Control.FOCUS_ALL
   aim_strength_slider.value_changed.connect(_on_aim_strength_changed)
   controls.add_child(aim_strength_slider)
 
