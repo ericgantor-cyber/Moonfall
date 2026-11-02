@@ -133,7 +133,7 @@ $repair.Add_Click({
     '4. Reinstall the game without deleting user data.' + [Environment]::NewLine +
     'This launcher does not automatically replace files.'
   # Offer an explicit copy of the current integrity report for support.
-  $report = Join-Path $env:TEMP 'Moonfall-Integrity-Report.txt'
+  $report = Join-Path $env:TEMP ('Moonfall-Integrity-Report-' + [guid]::NewGuid().ToString('N') + '.txt')
   try {
     $manifestPath = Join-Path $root 'moonfall-integrity.json'
     $expected = 'unavailable'
