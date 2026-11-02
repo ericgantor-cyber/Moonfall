@@ -1,0 +1,18 @@
+"""Source checks for the optional Moonfall Windows launcher."""
+from pathlib import Path
+root=Path(__file__).resolve().parents[1]
+ps=(root/"MoonfallLauncher.ps1").read_text(encoding="utf-8")
+cmd=(root/"MoonfallLauncher.cmd").read_text(encoding="utf-8")
+iss=(root/"Moonfall_Native_v34_4_Setup.iss").read_text(encoding="utf-8")
+checks={
+ "Launcher Play starts shipped game": "MoonfallNative_v34_4.exe" in ps and "Start-Process -FilePath $game" in ps,
+ "Fullscreen option persists": "launcher-settings.json" in ps and "--fullscreen" in ps and "--windowed" in ps,
+ "Update action opens GitHub releases": "https://github.com/ericgantor-cyber/Moonfall/releases" in ps,
+ "Controller support handled by game": "InputEventJoypad" not in ps,
+ "Batch launcher calls PowerShell": "MoonfallLauncher.ps1" in cmd,
+ "Installer includes launcher files": 'Source: "MoonfallLauncher.ps1"' in iss and 'Source: "MoonfallLauncher.cmd"' in iss,
+ "Installer retains direct game shortcut": 'Name: "{autoprograms}\\Moonfall Native"' in iss,
+ "Installer adds launcher shortcut": 'Name: "{autoprograms}\\Moonfall Launcher"' in iss,
+}
+for name,ok in checks.items(): print(("PASS" if ok else "FAIL")+": "+name)
+raise SystemExit(0 if all(checks.values()) else 1)
