@@ -66,18 +66,9 @@ func _set_boss_telegraph(beast:Dictionary,active:bool)->void:
 ## Exploration-first readouts for the existing three-chamber rift.
 ## No extra enemy spawns, rewards, scene nodes, or save fields.
 const RIFT_OBJECTIVES=preload("res://scripts/systems/rift_objective_rules.gd")
-func _v321_update_chambers()->void:
- super._v321_update_chambers()
- if not hero_playing:return
- for chamber in v321_chambers:
-  var site:int=int(chamber.get("site",-1))
-  if site<0 or site>=rifts.size():continue
-  var stage:int=int(chamber.get("stage",0))
-  var entry:Dictionary=rifts[site]
-  var objective:String=RIFT_OBJECTIVES.chamber_prompt(entry,stage)
-  if objective.is_empty():continue
-  var label:Label3D=chamber.get("label") as Label3D
-  if is_instance_valid(label) and label.text!=objective:label.text=objective
+func _v321_chamber_label(entry:Dictionary,stage:int)->String:
+ var prompt:String=RIFT_OBJECTIVES.chamber_prompt(entry,stage)
+ return prompt if not prompt.is_empty() else super._v321_chamber_label(entry,stage)
 
 ## Wave-free rifts: activate each resident only once, across the existing chambers.
 ## Stage 3 is the legacy completion sentinel, not a new timed wave.
