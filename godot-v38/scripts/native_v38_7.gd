@@ -52,15 +52,20 @@ func _aim_candidate(radius:float)->Dictionary:
  var closest:Dictionary={}
  var best_score:float=-INF
  var max_distance:float=radius*radius
+ # Resolve the locked body once, rather than searching the full beast list per candidate.
+ var locked_body:CharacterBody3D=null
+ if aim_locked_id>=0 and aim_locked_id<beasts.size():
+  var lock_entry:Dictionary=beasts[aim_locked_id]
+  locked_body=lock_entry.get("body") as CharacterBody3D
  for beast in zone_beast_lists[region_index]:
   if not bool(beast.get("alive",false)) or not bool(beast.get("hostile",false)):continue
   var body:CharacterBody3D=beast.get("body") as CharacterBody3D
-  if not is_instance_valid(body):continue
+  if not is_instance_valid(body) or not body.is_inside_tree() or not body.visible:continue
   var to_enemy:Vector3=body.global_position-player.global_position
   to_enemy.y=0.0
   var distance:float=to_enemy.length_squared()
   if distance>max_distance or distance<0.001 or not _has_clear_sight(player,body):continue
-  if aim_locked_id>=0 and beasts.find(beast)==aim_locked_id:locked=beast
+  if is_instance_valid(locked_body) and body==locked_body:locked=beast
   var alignment:float=to_enemy.normalized().dot(aim_direction)
   var threshold:float=AIM_ASSIST_DOT if aim_assist_enabled else AIM_CONE_DOT
   if alignment<threshold:continue
