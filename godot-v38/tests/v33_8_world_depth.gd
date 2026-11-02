@@ -12,7 +12,7 @@ func _run()->void:
  root.add_child(game)
  await process_frame
  game.call("_start_game","z")
- check((game.get("depth_corruption") as Array).size()==3,"three corruption sites")
+ check((game.get("depth_corruption") as Array).size()==30,"one corruption site per dungeon")
  check((game.get("depth_glyphs") as Array).size()==9,"three glyphs per rift")
  check((game.get("depth_travelers") as Array).size()==3,"three non-building lore NPCs")
  var rifts:Array=game.get("rifts")
