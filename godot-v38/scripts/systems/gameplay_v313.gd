@@ -30,6 +30,10 @@ static func choose_boss_pattern(phase:int,hero_health:float,hero_max:float,previ
  # Low-health players face the readable focused strike rather than extra area pressure.
  if is_finite(hero_health) and is_finite(hero_max) and hero_max>0.0 and hero_health/hero_max<0.35:
   return 0
+ # A precision specialist follows a missed attack with a delayed strike in
+ # phase three, varying the timing without shortening any dodge window.
+ if phase>=3 and style==1 and not last_landed and posmod(previous,count)==2:
+  return 3
  # Guardian combat styles use the same fair, telegraphed attack set.
  # Style 1 favors precision at medium range; style 2 favors wider sweeps.
  if phase>=3 and style==1 and is_finite(distance) and distance>=2.5 and distance<=5.0 and posmod(previous,count)!=2:
