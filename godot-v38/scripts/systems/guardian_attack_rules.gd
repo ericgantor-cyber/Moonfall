@@ -29,7 +29,8 @@ static func warning_hit(marked:Vector3,hero:Vector3,radius_value:float)->bool:
  var radius_safe:float=safe_radius(radius_value)
  var offset:Vector2=Vector2(marked.x-hero.x,marked.z-hero.z)
  if not is_finite(offset.x) or not is_finite(offset.y):return false
- return offset.length_squared()<radius_safe*radius_safe
+ var distance_sq:float=offset.length_squared()
+ return is_finite(distance_sq) and distance_sq<radius_safe*radius_safe
 
 static func boss_damage(phase:int)->float:
  return 19.0+7.0*float(safe_phase(phase))
