@@ -135,6 +135,45 @@ jobs:
           "$hash  Moonfall-Windows-Portable.zip" | Set-Content -LiteralPath 'build/Moonfall-Windows-Portable.sha256' -Encoding ascii
           if (!(Test-Path 'build/Moonfall-Windows-Portable.sha256')) { throw 'Release checksum file missing' }
           Write-Host "PASS: portable package SHA256 $hash"
+      - name: Independently verify published portable checksum
+        shell: pwsh
+        run: |
+          $line = (Get-Content 'build/Moonfall-Windows-Portable.sha256' -Raw).Trim()
+          if ($line -notmatch '^([a-f0-9]{64})  Moonfall-Windows-Portable[.]zip        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: moonfall-windows-build-results
+          if-no-files-found: warn
+          retention-days: 14
+          path: |
+            godot-v38/build/*.exe
+            godot-v38/build/Moonfall-Windows-Portable.zip
+            godot-v38/build/Moonfall-Windows-Portable.sha256
+            godot-v38/build/moonfall-integrity.json
+            godot-v38/MoonfallLauncher.ps1
+            godot-v38/MoonfallLauncher.cmd
+            godot-v38/build/*.json
+            godot-v38/build/*.txt
+            godot-v38/Release_Windows/*.exe
+            godot-v38/GODOT_*_LOG.txt
+            godot-v38/build/phase2-test-logs/*
+
+      - name: Publish diagnostic logs when validation fails
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: moonfall-windows-failed-build-diagnostics
+          if-no-files-found: warn
+          retention-days: 7
+          path: |
+            godot-v38/GODOT_*_LOG.txt
+            godot-v38/build/phase2-test-logs/*
+            godot-v38/build/*failure*.txt
+) { throw 'Invalid checksum file format' }
+          $expected = $Matches[1]
+          $actual = (Get-FileHash -LiteralPath 'build/Moonfall-Windows-Portable.zip' -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($expected -ne $actual) { throw 'Portable ZIP checksum mismatch' }
+          Write-Host 'PASS: release checksum file matches the packaged portable ZIP'
       - name: Publish verified Windows build evidence and binaries
         if: success()
         uses: actions/upload-artifact@v4
