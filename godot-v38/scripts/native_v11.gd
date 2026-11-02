@@ -1937,6 +1937,7 @@ func _update_beasts(delta: float) -> void:
 func _update_beast_step(beast:Dictionary, delta:float) -> void:
  ai_updates+=1
  if not bool(beast.get("alive",false)):return
+ var is_boss:bool=bool(beast.get("boss",false))
  var body:CharacterBody3D=beast["body"]
  if not is_instance_valid(body):return
  if float(beast.get("hit_flash_until",0.0))>0.0 and map_time>=float(beast.get("hit_flash_until",0.0)):
@@ -1964,7 +1965,7 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
  beast["attack"]=ENEMY_COMBAT_RULES.attack_timer_after_frame(float(beast.get("attack",0.0)),delta)
  var kind:=str(beast["kind"])
  var staggered:=map_time<float(beast.get("stagger_until",0.0))
- var elite:=str(beast.get("variant","normal"))!="normal" and not bool(beast.get("boss",false))
+ var elite:=str(beast.get("variant","normal"))!="normal" and not is_boss
  beast["elite_lunge_cd"]=maxf(0.0,float(beast.get("elite_lunge_cd",0.0))-delta)
  var move_speed:=float(BEASTS[kind]["speed"])
  var is_hostile:=bool(beast["hostile"])
@@ -1973,19 +1974,19 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
  beast["engaged"]=engaged
  if engaged:beast["search_pause_until"]=0.0
  # Investigate the last visible location for three seconds after losing sight.
- if not bool(beast.get("boss",false)) and is_hostile:
+ if not is_boss and is_hostile:
   var memory:Dictionary=ENEMY_COMBAT_RULES.remember_target(engaged,is_hostile,false,map_time,player.global_position,beast.get("last_seen_position",body.global_position),float(beast.get("last_seen_until",0.0)))
   beast["last_seen_position"]=memory["position"]
   beast["last_seen_until"]=memory["until"]
  # v38.3: role-aware low-health retreat for live hostile fauna.
  # Preserve existing boss telegraphs, ecology, attacks and actor pools.
  var v383_intent:String=""
- if engaged and not bool(beast.get("boss",false)):
+ if engaged and not is_boss:
   var v383_role:String=ENEMY_COMBAT_RULES.role_for(kind)
   var v383_health:float=float(beast.get("hp",1.0))/maxf(1.0,float(beast.get("max",1.0)))
   v383_intent=V383_COMBAT_RULES.combat_intent(v383_role,distance,v383_health,float(beast["attack"])<=0.0,true)
  var activity:Dictionary=beast.get("ecology_target",{})
- var pursuing:=not activity.is_empty() and map_time<float(beast.get("hunting_until",0.0)) and not engaged and not bool(beast.get("boss",false))
+ var pursuing:=not activity.is_empty() and map_time<float(beast.get("hunting_until",0.0)) and not engaged and not is_boss
  if staggered:
   body.velocity=Vector3.ZERO
  elif engaged and map_time<float(beast.get("retreat_until",0.0)) and distance<10.0:
@@ -1998,13 +1999,13 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
   var orbit_side:float=ENEMY_COMBAT_RULES.orbit_direction(int(beast["boss_id"]))
   body.velocity=(flank*orbit_side+diff.normalized()*0.25).normalized()*move_speed*0.7
  elif engaged and distance>1.7:
-  body.velocity=AI_RULES.approach(diff,move_speed,int(beast["boss_id"]),bool(beast.get("boss",false)),int(beast.get("boss_phase",1)),distance,ENEMY_COMBAT_RULES.role_for(kind) if bool(beast.get("hostile",false)) else "passive")
- elif is_hostile and not engaged and not bool(beast.get("boss",false)) and map_time<float(beast.get("last_seen_until",0.0)):
+  body.velocity=AI_RULES.approach(diff,move_speed,int(beast["boss_id"]),is_boss,int(beast.get("boss_phase",1)),distance,ENEMY_COMBAT_RULES.role_for(kind) if bool(beast.get("hostile",false)) else "passive")
+ elif is_hostile and not engaged and not is_boss and map_time<float(beast.get("last_seen_until",0.0)):
   body.velocity=ENEMY_COMBAT_RULES.investigate_velocity(is_hostile,engaged,false,map_time,float(beast.get("last_seen_until",0.0)),body.global_position,beast.get("last_seen_position",body.global_position),move_speed)
   if ENEMY_COMBAT_RULES.search_arrived(body.global_position,beast.get("last_seen_position",body.global_position)):
    beast["last_seen_until"]=0.0
    beast["search_pause_until"]=ENEMY_COMBAT_RULES.search_pause_expiry(map_time)
- elif is_hostile and not engaged and not bool(beast.get("boss",false)) and ENEMY_COMBAT_RULES.search_pause_active(engaged,map_time,float(beast.get("search_pause_until",0.0))):
+ elif is_hostile and not engaged and not is_boss and ENEMY_COMBAT_RULES.search_pause_active(engaged,map_time,float(beast.get("search_pause_until",0.0))):
   body.velocity=Vector3.ZERO
  elif not is_hostile and (distance<6.0 or map_time<float(beast.get("scared_until",0.0))):
   var escape:= -diff.normalized()
@@ -2055,7 +2056,7 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
    _show_message("Elite attack incoming! Dodge the marked position.",1.1)
    return
  # Telegraphs resolve after a real warning; no damage from inside walls.
- if bool(beast.get("boss",false)):
+ if is_boss:
   if float(beast.get("windup",0))>0:
    beast["windup"]=maxf(0.0,float(beast["windup"])-delta)
    _set_boss_telegraph(beast,true)
