@@ -9,6 +9,7 @@ checks={
  "Fullscreen option persists": "launcher-settings.json" in ps and "--fullscreen" in ps and "--windowed" in ps,
  "Update action opens GitHub releases": "https://github.com/ericgantor-cyber/Moonfall/releases" in ps,
  "Duplicate game launch guard": "Get-Process -Name" in ps and "already running" in ps,
+ "SHA256 integrity manifest before Play": "moonfall-integrity.json" in ps and "Get-FileHash" in ps and "SHA256" in ps,
  "X64 PE integrity check": "0x00004550" in ps and "0x8664" in ps and "0x3c" in ps,
  "Missing game disables Play": "if (Test-Path -LiteralPath $game -PathType Leaf)" in ps and "$play.Enabled = $false" in ps,
  "Keyboard focus starts on Play": "$form.Add_Shown(" in ps and "$play.Focus()" in ps,
