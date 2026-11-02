@@ -125,6 +125,13 @@ $play.Add_Click({
     [System.Windows.Forms.MessageBox]::Show('Moonfall game file is damaged or unreadable. Reinstall from a verified release. Saves will not be deleted.','Game repair') | Out-Null
     return
   }
+  # Don't allow two simultaneous Moonfall processes from the launcher.
+  $running = Get-Process -Name 'MoonfallNative_v34_4' -ErrorAction SilentlyContinue
+  if ($running) {
+    $status.Text = 'Moonfall is already running.'
+    [System.Windows.Forms.MessageBox]::Show('Moonfall is already running. Switch to the game window instead of opening another copy.','Moonfall launcher') | Out-Null
+    return
+  }
   $arguments = if ($display.Checked) { '--fullscreen' } else { '--windowed' }
   if (!$display.Checked) {
     $parts = ([string]$res.SelectedItem).Split('x')
