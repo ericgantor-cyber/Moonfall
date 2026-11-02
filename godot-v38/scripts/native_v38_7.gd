@@ -6,6 +6,7 @@ const AIM_ASSIST_DOT:float=0.55
 const AIM_STICK_DEADZONE:float=0.25
 var aim_locked_id:int=-1
 var aim_assist_enabled:bool=true
+var aim_assist_strength:float=0.5
 var aim_direction:Vector3=Vector3.FORWARD
 
 func _unhandled_input(event:InputEvent)->void:
@@ -67,7 +68,7 @@ func _aim_candidate(radius:float)->Dictionary:
   if distance>max_distance or distance<0.001 or not _has_clear_sight(player,body):continue
   if is_instance_valid(locked_body) and body==locked_body:locked=beast
   var alignment:float=to_enemy.normalized().dot(aim_direction)
-  var threshold:float=AIM_ASSIST_DOT if aim_assist_enabled else AIM_CONE_DOT
+  var threshold:float=lerpf(AIM_CONE_DOT,0.38,clampf(aim_assist_strength,0.0,1.0)) if aim_assist_enabled else AIM_CONE_DOT
   if alignment<threshold:continue
   var score:float=alignment-distance*0.002
   if score>best_score:
