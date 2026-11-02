@@ -46,6 +46,9 @@ func _run()->void:
  check("func _toggle_aim_lock()->void:\n if not hero_playing or menu_open or death_active or wait_open or wait_transition_active:return" in directional,"manual aim lock respects gameplay state")
  var aim_code:String=FileAccess.get_file_as_string("res://scripts/native_v38_8.gd")
  check("beasts[aim_locked_id]==target" in aim_code and "beasts.find(target)" not in aim_code,"aim feedback avoids per-frame full beast-list lookup")
+ check("aim_strength_slider=HSlider.new()" in aim_code and "aim_assist_strength" in aim_code,"aim assist has adjustable saved strength")
+ check("aim_strength_slider.editable=enabled" in aim_code,"aim strength disabled when aim assist is off")
+ check("lerpf(AIM_CONE_DOT,0.38" in directional,"aim assist strength affects the targeting cone")
  var sample_targets:Array[int]=[1,4,9]
  check(sample_targets[sample_targets.bsearch(4+1)]==9,"target-cycle next higher index")
  var wrap_index:int=sample_targets.bsearch(9+1)
