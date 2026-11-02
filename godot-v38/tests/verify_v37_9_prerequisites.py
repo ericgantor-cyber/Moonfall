@@ -20,7 +20,7 @@ checks={
  'Python Store alias rejected': 'WindowsApps' in boot,
  'Python executables are verified before use': 'Test-MoonfallPythonExe' in boot and 'sys.version_info.major == 3' in boot,
  'Python PATH refreshed for the legacy batch runner': "(Split-Path -Parent $pythonExe) + [IO.Path]::PathSeparator + $env:PATH" in main,
- 'Inno 6 compiler must match major version': '$version.FileMajorPart -eq 6' in boot,
+ 'Inno 6 compiler detection verifies trusted install path or 6.x version': all(s in boot for s in ["$candidate -match 'Inno Setup 6'", '$version.ProductVersion', '$version.FileVersion']),
  'User and machine install locations checked': all(s in boot for s in ['HKCU:', 'HKLM:', 'InstallLocation']),
  'Both installers checked before Godot downloads': main.index('Ensure-MoonfallPython3') < main.index('Ensure-MoonfallInno6') < main.index('Invoke-WebRequest -Uri $url'),
  'Successful normal build requires installer': 'Require-File $iscc' in main and 'Require-File $installer' in main and 'Inno Setup 6 not found' not in main,

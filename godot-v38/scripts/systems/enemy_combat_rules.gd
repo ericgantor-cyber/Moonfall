@@ -16,11 +16,52 @@ static func attack_cooldown(kind:String)->float:
   "boar":return 1.75
   _:return 1.5
 
+# Stable timing offsets reduce synchronized swarm strikes without scanning peers.
+# Bosses retain their independent telegraphed combat cadence.
+static func staggered_cooldown(kind:String,beast_id:int)->float:
+ return attack_cooldown(kind)+float(posmod(beast_id,4))*0.12
+
+# Fixed per-enemy attack slots make a pack less likely to strike at once.
+# This only delays a ready attack; it never skips line-of-sight or dodge checks.
+static func group_attack_ready(now:float,beast_id:int,slots:int=4)->bool:
+ if not is_finite(now) or now<0.0:return false
+ var count:int=clampi(slots,1,8)
+ # Reduce the clock before integer conversion to avoid overflow in long saves.
+ var cycle:float=float(count)*0.25
+ var phase:float=fposmod(now,cycle)
+ var slot:int=mini(count-1,int(floor(phase*4.0)))
+ return slot==posmod(beast_id,count)
+
+# Ambushers wait for their assigned quarter-second turn; bruisers get
+# two slots to keep heavier melee enemies threatening but predictable.
+static func role_attack_ready(kind:String,now:float,beast_id:int)->bool:
+ if group_attack_ready(now,beast_id):return true
+ return role_for(kind)=="bruiser" and group_attack_ready(now,beast_id+1)
+
+static func preferred_spacing(kind:String)->float:
+ return 2.4 if role_for(kind)=="ambusher" else 1.7
+
+static func wants_flank(kind:String,distance:float,has_sight:bool)->bool:
+ return has_sight and is_finite(distance) and distance>preferred_spacing(kind) and distance<7.0 and role_for(kind)=="ambusher"
+
+# Attack turns use the same phase clock for every creature. Adjusting
+# slots by role prevents the heavier bruisers from dominating mixed packs.
+static func attack_window_count(kind:String)->int:
+ return 4 if role_for(kind)=="ambusher" else 6
+
+static func tactical_attack_ready(kind:String,now:float,beast_id:int)->bool:
+ if not is_finite(now) or now<0.0:return false
+ var slots:int=attack_window_count(kind)
+ if group_attack_ready(now,beast_id,slots):return true
+ return role_for(kind)=="bruiser" and group_attack_ready(now,beast_id+1,slots)
+
 static func attack_timer_after_frame(current:float,delta:float)->float:
- return maxf(0.0,clampf(current,0.0,30.0)-clampf(delta if is_finite(delta) else 0.0,0.0,0.1)) if is_finite(current) else 0.0
+ if not is_finite(current):return 0.0
+ var elapsed:float=clampf(delta,0.0,0.1) if is_finite(delta) else 0.0
+ return maxf(0.0,clampf(current,0.0,30.0)-elapsed)
 
 static func should_circle(kind:String,intent:String,distance:float)->bool:
- return is_finite(distance) and intent=="strafe" and kind in ["wolf","panther","serpent"] and distance>1.7 and distance<6.0
+ return intent=="strafe" and wants_flank(kind,distance,true) and distance<6.0
 
 ## Melee-only creatures must not kite as ranged characters.
 static func melee_engage_range(_kind:String)->float:
@@ -65,4 +106,4 @@ static func search_pause_active(engaged:bool, now:float, pause_until:float)->boo
  return not engaged and is_finite(now) and is_finite(pause_until) and pause_until>now and pause_until<=now+0.8
 
 static func search_pause_expiry(now:float)->float:
- return now+0.75 if is_finite(now) else 0.0
+ return now+0.75 if is_finite(now) and now<=1.0e12 else 0.0

@@ -6,10 +6,11 @@ const AIM_ASSIST_DOT:float=0.55
 const AIM_STICK_DEADZONE:float=0.25
 var aim_locked_id:int=-1
 var aim_assist_enabled:bool=true
+var aim_assist_strength:float=0.5
 var aim_direction:Vector3=Vector3.FORWARD
 
 func _unhandled_input(event:InputEvent)->void:
- if hero_playing and not menu_open and not death_active:
+ if hero_playing and not menu_open and not death_active and not wait_open and not wait_transition_active:
   if event is InputEventMouseButton and event.pressed and event.button_index==MOUSE_BUTTON_RIGHT:
    _toggle_aim_lock()
    get_viewport().set_input_as_handled()
@@ -22,7 +23,7 @@ func _unhandled_input(event:InputEvent)->void:
 
 func _process(delta:float)->void:
  super._process(delta)
- if not hero_playing or menu_open or death_active or not is_instance_valid(player):return
+ if not hero_playing or menu_open or death_active or wait_open or wait_transition_active or not is_instance_valid(player):return
  var pads:Array[int]=Input.get_connected_joypads()
  if not pads.is_empty():
   var pad:int=pads[0]
@@ -52,17 +53,22 @@ func _aim_candidate(radius:float)->Dictionary:
  var closest:Dictionary={}
  var best_score:float=-INF
  var max_distance:float=radius*radius
+ # Resolve the locked body once, rather than searching the full beast list per candidate.
+ var locked_body:CharacterBody3D=null
+ if aim_locked_id>=0 and aim_locked_id<beasts.size():
+  var lock_entry:Dictionary=beasts[aim_locked_id]
+  locked_body=lock_entry.get("body") as CharacterBody3D
  for beast in zone_beast_lists[region_index]:
   if not bool(beast.get("alive",false)) or not bool(beast.get("hostile",false)):continue
   var body:CharacterBody3D=beast.get("body") as CharacterBody3D
-  if not is_instance_valid(body):continue
+  if not is_instance_valid(body) or not body.is_inside_tree() or not body.visible:continue
   var to_enemy:Vector3=body.global_position-player.global_position
   to_enemy.y=0.0
   var distance:float=to_enemy.length_squared()
   if distance>max_distance or distance<0.001 or not _has_clear_sight(player,body):continue
-  if aim_locked_id>=0 and beasts.find(beast)==aim_locked_id:locked=beast
+  if is_instance_valid(locked_body) and body==locked_body:locked=beast
   var alignment:float=to_enemy.normalized().dot(aim_direction)
-  var threshold:float=AIM_ASSIST_DOT if aim_assist_enabled else AIM_CONE_DOT
+  var threshold:float=lerpf(AIM_CONE_DOT,0.38,clampf(aim_assist_strength,0.0,1.0)) if aim_assist_enabled else AIM_CONE_DOT
   if alignment<threshold:continue
   var score:float=alignment-distance*0.002
   if score>best_score:
@@ -73,6 +79,7 @@ func _aim_candidate(radius:float)->Dictionary:
  return locked if not locked.is_empty() else closest
 
 func _toggle_aim_lock()->void:
+ if not hero_playing or menu_open or death_active or wait_open or wait_transition_active:return
  if aim_locked_id>=0:
   aim_locked_id=-1
   _show_message("Target unlocked",0.8)

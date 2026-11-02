@@ -1998,7 +1998,7 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
   var orbit_side:float=ENEMY_COMBAT_RULES.orbit_direction(int(beast["boss_id"]))
   body.velocity=(flank*orbit_side+diff.normalized()*0.25).normalized()*move_speed*0.7
  elif engaged and distance>1.7:
-  body.velocity=AI_RULES.approach(diff,move_speed,int(beast["boss_id"]),bool(beast.get("boss",false)),int(beast.get("boss_phase",1)),distance)
+  body.velocity=AI_RULES.approach(diff,move_speed,int(beast["boss_id"]),bool(beast.get("boss",false)),int(beast.get("boss_phase",1)),distance,ENEMY_COMBAT_RULES.role_for(kind) if bool(beast.get("hostile",false)) else "passive")
  elif is_hostile and not engaged and not bool(beast.get("boss",false)) and map_time<float(beast.get("last_seen_until",0.0)):
   body.velocity=ENEMY_COMBAT_RULES.investigate_velocity(is_hostile,engaged,false,map_time,float(beast.get("last_seen_until",0.0)),body.global_position,beast.get("last_seen_position",body.global_position),move_speed)
   if ENEMY_COMBAT_RULES.search_arrived(body.global_position,beast.get("last_seen_position",body.global_position)):
@@ -2064,7 +2064,9 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
     var marked:Vector3=beast.get("warning_pos",body.global_position)
     var warning_radius:float=GUARDIAN_ATTACK_RULES.safe_radius(float(beast.get("warning_radius",2.8)))
     var near_hit:bool=GUARDIAN_ATTACK_RULES.warning_hit(marked,player.global_position,warning_radius)
-    if near_hit and dodge_time<=0 and _has_clear_sight(body,player):
+    var landed:bool=near_hit and dodge_time<=0 and _has_clear_sight(body,player)
+    beast["v313_last_attack_landed"]=landed
+    if landed:
      _apply_incoming_damage(GUARDIAN_ATTACK_RULES.boss_damage(int(beast.get("boss_phase",1))))
     beast["attack"]=COMBAT_RULES.guardian_attack_cooldown(int(beast.get("boss_phase",1)))
   elif engaged and distance<(5.0 if int(beast.get("boss_phase",1))>=2 else 3.3) and float(beast["attack"])<=0.0:
@@ -2082,12 +2084,12 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
    beast["warning_pos"]=body.global_position if pattern==1 else player.global_position
    _set_boss_telegraph(beast,true)
    _show_message("⚠ GUARDIAN PHASE "+str(phase)+": dodge the glowing circle!",1.6)
- elif engaged and ENEMY_COMBAT_RULES.can_attack(distance,ENEMY_COMBAT_RULES.ready_to_strike(float(beast["attack"])),true) and _has_clear_sight(body,player):
+ elif engaged and ENEMY_COMBAT_RULES.can_attack(distance,ENEMY_COMBAT_RULES.ready_to_strike(float(beast["attack"])),true) and ENEMY_COMBAT_RULES.tactical_attack_ready(kind,map_time,int(beast.get("boss_id",0))) and _has_clear_sight(body,player):
   if dodge_time<=0:
    _apply_incoming_damage(float(BEASTS[kind]["atk"]))
   # Visual follow-through only; preserve established hit timing and damage.
   beast["attack_swing_until"]=map_time+V383_FEEDBACK.ATTACK_SWING_SECONDS
-  beast["attack"]=ENEMY_COMBAT_RULES.attack_cooldown(kind)
+  beast["attack"]=ENEMY_COMBAT_RULES.staggered_cooldown(kind,int(beast.get("boss_id",0)))
 
 func _despawn_native_beast(beast:Dictionary,delay:float) -> void:
  beast["alive"]=false
@@ -2330,7 +2332,7 @@ func _apply_player_hit(target:Dictionary, base_damage:float, stagger_strength:fl
   if is_instance_valid(ally_body) and is_instance_valid(target_body) and ally_body.global_position.distance_squared_to(target_body.global_position)<64.0:
    ally["alert_until"]=map_time+5.0
  _refresh_boss_phase(target)
- if AI_RULES.retreat_due(float(target["hp"]),float(target["max"]),bool(target.get("boss",false)),int(target.get("dungeon_site",-1)),map_time,float(target.get("retreat_cooldown",0.0))):
+ if AI_RULES.retreat_due(float(target["hp"]),float(target["max"]),bool(target.get("boss",false)),int(target.get("dungeon_site",-1)),map_time,float(target.get("retreat_cooldown",0.0)),ENEMY_COMBAT_RULES.role_for(str(target.get("kind","")))):
   target["retreat_until"] = map_time + 2.2
   target["retreat_cooldown"] = map_time + 14.0
   enemy_retreats += 1

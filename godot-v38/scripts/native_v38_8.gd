@@ -3,6 +3,9 @@ extends "res://scripts/native_v38_7.gd"
 var aim_marker:Label3D
 var aim_options:PanelContainer
 var aim_toggle:CheckButton
+var aim_strength_slider:HSlider
+var aim_strength_label:Label
+var aim_strength_dragging:bool=false
 var aim_input_source:String="mouse"
 const AIM_PREFS_PATH:String="user://moonfall_aim.cfg"
 var aim_target_id:int=-1
@@ -11,6 +14,7 @@ func _ready()->void:
  var config:ConfigFile=ConfigFile.new()
  if config.load(AIM_PREFS_PATH)==OK:
   aim_assist_enabled=bool(config.get_value("controls","aim_assist",true))
+  aim_assist_strength=clampf(float(config.get_value("controls","aim_assist_strength",0.5)),0.0,1.0)
  super._ready()
  aim_marker=Label3D.new()
  aim_marker.name="AimTargetMarker"
@@ -28,20 +32,90 @@ func _ready()->void:
   aim_options.position=Vector2(18,80)
   layer.add_child(aim_options)
   aim_toggle=CheckButton.new()
-  aim_toggle.text="AIM ASSIST"
+  aim_toggle.text="AIM ASSIST (ON/OFF)"
+  aim_toggle.tooltip_text="Helps select nearby targets in the direction you aim"
   aim_toggle.button_pressed=aim_assist_enabled
   aim_toggle.toggled.connect(_on_aim_assist_toggled)
-  aim_options.add_child(aim_toggle)
+  var controls:VBoxContainer=VBoxContainer.new()
+  aim_options.add_child(controls)
+  controls.add_child(aim_toggle)
+  aim_strength_label=Label.new()
+  aim_strength_label.text="Aim assist strength: "+str(roundi(aim_assist_strength*100.0))+"%"
+  controls.add_child(aim_strength_label)
+  aim_strength_slider=HSlider.new()
+  aim_strength_slider.min_value=0.0
+  aim_strength_slider.max_value=1.0
+  aim_strength_slider.step=0.05
+  aim_strength_slider.tooltip_text="0% precise aiming, 100% generous target selection"
+  aim_strength_slider.custom_minimum_size=Vector2(180,0)
+  aim_strength_slider.value=aim_assist_strength
+  aim_strength_slider.editable=aim_assist_enabled
+  aim_strength_slider.focus_mode=Control.FOCUS_ALL
+  aim_strength_slider.value_changed.connect(_on_aim_strength_changed)
+  aim_strength_slider.drag_started.connect(_on_aim_strength_drag_started)
+  aim_strength_slider.drag_ended.connect(_on_aim_strength_drag_ended)
+  controls.add_child(aim_strength_slider)
+  var preset_row:HBoxContainer=HBoxContainer.new()
+  controls.add_child(preset_row)
+  for preset in [0.0,0.5,1.0]:
+   var preset_button:Button=Button.new()
+   preset_button.text="Precise" if preset==0.0 else ("Balanced" if preset==0.5 else "Strong")
+   preset_button.focus_mode=Control.FOCUS_ALL
+   preset_button.pressed.connect(_set_aim_preset.bind(preset))
+   preset_row.add_child(preset_button)
+  var reset_button:Button=Button.new()
+  reset_button.text="Reset Aim Assist"
+  reset_button.tooltip_text="Restore default aim assist settings"
+  reset_button.focus_mode=Control.FOCUS_ALL
+  reset_button.pressed.connect(_reset_aim_preferences)
+  controls.add_child(reset_button)
+
+
+func _reset_aim_preferences()->void:
+ aim_assist_enabled=true
+ aim_assist_strength=0.5
+ if is_instance_valid(aim_toggle):aim_toggle.set_pressed_no_signal(true)
+ if is_instance_valid(aim_strength_slider):
+  aim_strength_slider.editable=true
+  aim_strength_slider.set_value_no_signal(aim_assist_strength)
+ if is_instance_valid(aim_strength_label):aim_strength_label.text="Aim assist strength: 50%"
+ _save_aim_preferences()
 
 func _on_aim_assist_toggled(enabled:bool)->void:
  aim_assist_enabled=enabled
+ if is_instance_valid(aim_strength_slider):aim_strength_slider.editable=enabled
+ _save_aim_preferences()
+
+func _set_aim_preset(strength:float)->void:
+ if not aim_assist_enabled:return
+ if is_instance_valid(aim_strength_slider):aim_strength_slider.value=strength
+
+func _on_aim_strength_changed(value:float)->void:
+ aim_assist_strength=clampf(value,0.0,1.0)
+ if is_instance_valid(aim_strength_label):
+  aim_strength_label.text="Aim assist strength: "+str(roundi(aim_assist_strength*100.0))+"%"
+ if not aim_strength_dragging:
+  _save_aim_preferences()
+
+func _on_aim_strength_drag_started()->void:
+ aim_strength_dragging=true
+
+func _on_aim_strength_drag_ended(value_changed:bool)->void:
+ aim_strength_dragging=false
+ if value_changed:_save_aim_preferences()
+
+func _save_aim_preferences()->void:
  var config:ConfigFile=ConfigFile.new()
- config.set_value("controls","aim_assist",enabled)
- var result:Error=config.save(AIM_PREFS_PATH)
- if result!=OK:push_warning("Unable to save aim preference: "+str(result))
+ config.load(AIM_PREFS_PATH)
+ config.set_value("controls","aim_assist",aim_assist_enabled)
+ config.set_value("controls","aim_assist_strength",aim_assist_strength)
+ if config.save(AIM_PREFS_PATH)!=OK:push_warning("Unable to save aim preferences")
 
 func _unhandled_input(event:InputEvent)->void:
  # Mouse motion claims aim source even while a controller remains connected.
+ if not hero_playing or menu_open or death_active or wait_open or wait_transition_active:
+  super._unhandled_input(event)
+  return
  if event is InputEventMouseMotion:
   aim_input_source="mouse"
  elif event is InputEventJoypadMotion and (event.axis==JOY_AXIS_RIGHT_X or event.axis==JOY_AXIS_RIGHT_Y) and absf(event.axis_value)>AIM_STICK_DEADZONE:
@@ -51,10 +125,10 @@ func _unhandled_input(event:InputEvent)->void:
 func _process(delta:float)->void:
  # Parent supplies aim direction and combat actions.
  super._process(delta)
- if is_instance_valid(aim_options):aim_options.visible=hero_playing and not menu_open and not death_active
+ if is_instance_valid(aim_options):aim_options.visible=hero_playing and not menu_open and not death_active and not wait_open and not wait_transition_active
  if not is_instance_valid(aim_marker):return
  aim_marker.visible=false
- if not hero_playing or menu_open or death_active or not is_instance_valid(player):return
+ if not hero_playing or menu_open or death_active or wait_open or wait_transition_active or not is_instance_valid(player):return
  # Recover mouse cursor aiming when controller is connected but idle.
  if aim_input_source=="mouse" and is_instance_valid(camera):
   var cursor:Vector2=get_viewport().get_mouse_position()
@@ -73,7 +147,8 @@ func _process(delta:float)->void:
  var body:CharacterBody3D=target.get("body") as CharacterBody3D
  if not is_instance_valid(body):return
  aim_marker.global_position=body.global_position+Vector3(0,2.2,0)
- aim_marker.text="◆ LOCKED" if aim_locked_id>=0 and beasts.find(target)==aim_locked_id else "◎ TARGET"
+ var target_is_locked:bool=aim_locked_id>=0 and aim_locked_id<beasts.size() and beasts[aim_locked_id]==target
+ aim_marker.text="◆ LOCKED" if target_is_locked else "◎ TARGET"
  aim_marker.visible=true
 
 func _start_game(selected_hero:String)->void:

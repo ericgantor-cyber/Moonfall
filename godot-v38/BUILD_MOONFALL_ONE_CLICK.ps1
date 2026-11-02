@@ -90,6 +90,8 @@ try {
   & (Join-Path $project 'VERIFY_WINDOWS_RELEASE.ps1') -GameExe $game -SkipLaunch
   if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) {throw 'Windows executable verification failed.'}
 
+  & (Join-Path $project 'tools\Write-GameIntegrityManifest.ps1') -GameExe $game -Output (Join-Path $project 'build\moonfall-integrity.json')
+  Require-File (Join-Path $project 'build\moonfall-integrity.json') 'release integrity manifest'
   Write-Host '[6/7] Compiling Windows installer and verifying output...' -ForegroundColor Cyan
   if (!$PortableOnly) {
     Require-File $iscc 'Inno Setup 6 compiler'
