@@ -38,8 +38,8 @@ func _v321_build_chambers()->void:
  for site_id in range(rifts.size()):
   var entry:Dictionary=rifts[site_id]
   var zone:int=int(entry["zone"])
+  var color:Color=Color(str(REGIONS[zone]["light"]))
   if not materials_by_zone.has(zone):
-   var color:Color=Color(str(REGIONS[zone]["light"]))
    var floor_mat:=StandardMaterial3D.new()
    floor_mat.albedo_color=color.darkened(0.72)
    floor_mat.roughness=0.95
