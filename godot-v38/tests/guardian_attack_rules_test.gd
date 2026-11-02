@@ -41,5 +41,8 @@ func _run()->void:
  check(not enemy_rules.group_attack_ready(0.0,1),"other enemies wait for their attack slot")
  check(enemy_rules.group_attack_ready(0.25,1),"second enemy receives the next slot")
  check(not enemy_rules.group_attack_ready(INF,1),"invalid time prevents attacks")
+ check(enemy_rules.group_attack_ready(1000000000000.0,0),"attack slots remain valid in long sessions")
+ check(enemy_rules.group_attack_ready(1000000000000.25,1),"next slot remains valid in long sessions")
+ check(enemy_rules.group_attack_ready(0.0,3,1),"single-slot fallback allows all enemies")
  check(load("res://scenes/main.tscn")!=null,"whole Moonfall scene loads")
  quit(1 if failures else 0)
