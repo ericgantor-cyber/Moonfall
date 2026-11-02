@@ -32,6 +32,12 @@ static func group_attack_ready(now:float,beast_id:int,slots:int=4)->bool:
  var slot:int=mini(count-1,int(floor(phase*4.0)))
  return slot==posmod(beast_id,count)
 
+# Ambushers wait for their assigned quarter-second turn; bruisers get
+# two slots to keep heavier melee enemies threatening but predictable.
+static func role_attack_ready(kind:String,now:float,beast_id:int)->bool:
+ if group_attack_ready(now,beast_id):return true
+ return role_for(kind)=="bruiser" and group_attack_ready(now,beast_id+1)
+
 static func attack_timer_after_frame(current:float,delta:float)->float:
  if not is_finite(current):return 0.0
  var elapsed:float=clampf(delta,0.0,0.1) if is_finite(delta) else 0.0
