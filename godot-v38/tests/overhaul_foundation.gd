@@ -65,6 +65,12 @@ func _run()->void:
  var wrap_index:int=sample_targets.bsearch(9+1)
  if wrap_index>=sample_targets.size():wrap_index=0
  check(sample_targets[wrap_index]==1,"target-cycle wraps to first eligible index")
+ var ai_rules=load("res://scripts/systems/ai_rules.gd")
+ check(ai_rules.approach(Vector3(5,0,0),0.0,1,false,1,5.0)==Vector3.ZERO,"zero-speed enemy cannot drift")
+ check(ai_rules.approach(Vector3(INF,0,0),3.0,1,false,1,5.0)==Vector3.ZERO,"invalid pursuit direction fails closed")
+ check(ai_rules.approach(Vector3(1,0,0),NAN,1,false,1,5.0)==Vector3.ZERO,"invalid enemy speed fails closed")
+ check(not ai_rules.retreat_due(1.0,0.0,false,-1,2.0,0.0),"zero max-health does not trigger retreat")
+ check(not ai_rules.retreat_due(NAN,100.0,false,-1,2.0,0.0),"invalid health does not trigger retreat")
  var sprite=game.get("hero_sprite") as Sprite3D
  check(is_instance_valid(sprite) and sprite.texture!=null,"original hero sprite texture present")
  game.queue_free()
