@@ -170,6 +170,27 @@ func _menu_tab(which:String)->void:
 var rift_secret_signs:Array[Dictionary]=[]
 func _v321_build_chambers()->void:
  super._v321_build_chambers()
+ # Six zone-specific landmarks and a ruined gateway at each of 30 dungeon entrances.
+ # Mesh-only decor is built once, non-colliding, with no new lights or animation.
+ var zone_tones:Array[Color]=[Color("536bba"),Color("6ca77a"),Color("cc764f"),Color("88b7c5"),Color("ae547a"),Color("d3b469")]
+ for zone in range(REGIONS.size()):
+  var center:Vector2=REGIONS[zone]["at"]
+  var location:=Vector3(center.x+14.0,0.0,center.y-12.0)
+  var tone:Color=zone_tones[zone%zone_tones.size()]
+  var obelisk:Node3D=_add_box(location+Vector3(0,2.0,0),Vector3(1.6,4.0,1.6),Color("2b293a"),false)
+  obelisk.name="ZoneAncientObelisk"
+  var crest:Node3D=_add_sphere(location+Vector3(0,4.5,0),0.9,tone,false,true)
+  crest.name="ZoneMoonCrest"
+  for side in [-1,1]:
+   var ruin:Node3D=_add_box(location+Vector3(float(side)*3.2,1.0,0),Vector3(0.8,2.0,0.8),tone.darkened(0.45),false)
+   ruin.name="ZoneRuinSentinel"
+ for entry in rifts:
+  var gate:Vector3=entry["anchor"]
+  for side in [-1,1]:
+   var pier:Node3D=_add_box(gate+Vector3(float(side)*2.5,1.7,4.2),Vector3(0.8,3.4,0.8),Color("383044"),false)
+   pier.name="RiftEntrancePier"
+  var beam:Node3D=_add_box(gate+Vector3(0,3.5,4.2),Vector3(6.0,0.55,1.0),Color("784f98"),false)
+  beam.name="RiftEntranceArch"
  # Three reusable procedural accents per dungeon; no lights or per-frame effects.
  # Violet moon, ember-red ruins, and cool blue magic make the three rooms distinct.
  var tones:Array[Color]=[Color("9159eb"),Color("d44b56"),Color("49b6da")]
