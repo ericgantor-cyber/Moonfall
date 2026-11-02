@@ -3,6 +3,8 @@ extends "res://scripts/native_v38_7.gd"
 var aim_marker:Label3D
 var aim_options:PanelContainer
 var aim_toggle:CheckButton
+var aim_strength_slider:HSlider
+var aim_strength_label:Label
 var aim_input_source:String="mouse"
 const AIM_PREFS_PATH:String="user://moonfall_aim.cfg"
 var aim_target_id:int=-1
@@ -11,6 +13,7 @@ func _ready()->void:
  var config:ConfigFile=ConfigFile.new()
  if config.load(AIM_PREFS_PATH)==OK:
   aim_assist_enabled=bool(config.get_value("controls","aim_assist",true))
+  aim_assist_strength=clampf(float(config.get_value("controls","aim_assist_strength",0.5)),0.0,1.0)
  super._ready()
  aim_marker=Label3D.new()
  aim_marker.name="AimTargetMarker"
@@ -31,14 +34,41 @@ func _ready()->void:
   aim_toggle.text="AIM ASSIST"
   aim_toggle.button_pressed=aim_assist_enabled
   aim_toggle.toggled.connect(_on_aim_assist_toggled)
-  aim_options.add_child(aim_toggle)
+  var controls:VBoxContainer=VBoxContainer.new()
+  aim_options.add_child(controls)
+  controls.add_child(aim_toggle)
+  aim_strength_label=Label.new()
+  aim_strength_label.text="Aim assist strength: "+str(roundi(aim_assist_strength*100.0))+"%"
+  controls.add_child(aim_strength_label)
+  aim_strength_slider=HSlider.new()
+  aim_strength_slider.min_value=0.0
+  aim_strength_slider.max_value=1.0
+  aim_strength_slider.step=0.1
+  aim_strength_slider.custom_minimum_size=Vector2(180,0)
+  aim_strength_slider.value=aim_assist_strength
+  aim_strength_slider.editable=aim_assist_enabled
+  aim_strength_slider.value_changed.connect(_on_aim_strength_changed)
+  controls.add_child(aim_strength_slider)
 
 func _on_aim_assist_toggled(enabled:bool)->void:
  aim_assist_enabled=enabled
+ if is_instance_valid(aim_strength_slider):aim_strength_slider.editable=enabled
  var config:ConfigFile=ConfigFile.new()
+ config.load(AIM_PREFS_PATH)
  config.set_value("controls","aim_assist",enabled)
+ config.set_value("controls","aim_assist_strength",aim_assist_strength)
  var result:Error=config.save(AIM_PREFS_PATH)
  if result!=OK:push_warning("Unable to save aim preference: "+str(result))
+
+func _on_aim_strength_changed(value:float)->void:
+ aim_assist_strength=clampf(value,0.0,1.0)
+ if is_instance_valid(aim_strength_label):
+  aim_strength_label.text="Aim assist strength: "+str(roundi(aim_assist_strength*100.0))+"%"
+ var config:ConfigFile=ConfigFile.new()
+ config.load(AIM_PREFS_PATH)
+ config.set_value("controls","aim_assist",aim_assist_enabled)
+ config.set_value("controls","aim_assist_strength",aim_assist_strength)
+ if config.save(AIM_PREFS_PATH)!=OK:push_warning("Unable to save aim strength")
 
 func _unhandled_input(event:InputEvent)->void:
  # Mouse motion claims aim source even while a controller remains connected.
