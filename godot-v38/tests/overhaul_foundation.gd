@@ -41,6 +41,8 @@ func _run()->void:
  var directional:String=FileAccess.get_file_as_string("res://scripts/native_v38_7.gd")
  check("body==locked_body" in directional and "beasts.find(beast)" not in directional,"aim assistance resolves locked target without a per-enemy full scan")
  check("not body.is_inside_tree() or not body.visible" in directional,"aim assistance excludes removed or hidden enemies")
+ check("if hero_playing and not menu_open and not death_active and not wait_open and not wait_transition_active:" in directional,"aim button handlers respect transition lockouts")
+ check("or wait_open or wait_transition_active or not is_instance_valid(player):return" in directional,"aim direction pauses during world transitions")
  check("func _toggle_aim_lock()->void:\n if not hero_playing or menu_open or death_active or wait_open or wait_transition_active:return" in directional,"manual aim lock respects gameplay state")
  var aim_code:String=FileAccess.get_file_as_string("res://scripts/native_v38_8.gd")
  check("beasts[aim_locked_id]==target" in aim_code and "beasts.find(target)" not in aim_code,"aim feedback avoids per-frame full beast-list lookup")
