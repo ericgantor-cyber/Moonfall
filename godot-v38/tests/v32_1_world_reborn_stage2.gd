@@ -25,7 +25,7 @@ func _run()->void:
  await process_frame
  check(CURRENT_RELEASE.matches_project(game),"New Stage 2 version active")
  check((game.get("rifts") as Array).size()==30,"Thirty connected rifts, retaining original site IDs")
- check((game.get("v321_chambers") as Array).size()==9,"Three authored chambers per rift")
+ check((game.get("v321_chambers") as Array).size()==90,"Three authored chambers per each of 30 rifts")
  check((game.get("region_nodes") as Array).size()==6,"Six original world regions")
  check((game.get("v320_wardens") as Array).size()==6,"Existing NPCs preserved")
  game.call("_start_game","z")
@@ -67,7 +67,7 @@ func _run()->void:
  var saved:Dictionary=game.call("_read_save")
  check(int(saved.get("schema",-1))==2 and not (saved.get("rifts",[]) as Array).is_empty() and int((saved.get("rifts",[]) as Array)[0])==0,"Schema-2 saved rift progress unchanged")
  var report:Dictionary=game.call("_perf_report")
- check(str(report.get("version","")).begins_with("v3") and int(report.get("dungeon_chambers",0))==9,"F9 includes chamber metrics")
+ check(str(report.get("version","")).begins_with("v3") and int(report.get("dungeon_chambers",0))==90,"F9 includes all 90 chamber metrics")
  check(int(report.get("dungeon_waves_started",0))==1 and int(report.get("dungeon_champions_spawned",0))==1,"One continuous encounter and one champion recorded")
  game.queue_free()
  print("MOONFALL v32.1 STAGE 2 PASS" if failures==0 else "MOONFALL v32.1 STAGE 2 FAIL")
