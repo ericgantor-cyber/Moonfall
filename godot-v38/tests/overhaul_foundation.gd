@@ -76,6 +76,7 @@ func _run()->void:
  check(guardian_rules.windup(1,1000.0)<=8.0,"very long guardian telegraph stays bounded")
  check(not guardian_rules.warning_hit(Vector3(INF,0,0),Vector3.ZERO,3.0),"invalid attack marker never strikes hero")
  check(not guardian_rules.warning_hit(Vector3.ZERO,Vector3(NAN,0,0),3.0),"invalid hero coordinates cannot trigger a hit")
+ check(not guardian_rules.warning_hit(Vector3(1.0e30,0,0),Vector3(-1.0e30,0,0),3.0),"overflowing guardian offset never causes phantom hit")
  var combat_rules=load("res://scripts/systems/enemy_combat_rules.gd")
  check(is_equal_approx(combat_rules.attack_timer_after_frame(1.5,-1.0),1.5),"negative frame time never accelerates attacks")
  check(is_equal_approx(combat_rules.attack_timer_after_frame(1.5,INF),1.5),"invalid frame time leaves attack cooldown stable")
