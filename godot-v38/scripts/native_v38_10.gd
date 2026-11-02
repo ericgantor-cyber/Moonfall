@@ -79,3 +79,33 @@ func _v321_update_chambers()->void:
   if not is_instance_valid(label):continue
   var objective:String=RIFT_OBJECTIVES.objective(stage,false)
   if label.text!=objective:label.text=objective
+
+## Wave-free rifts: activate each resident only once, across the existing chambers.
+## Stage 3 is the legacy completion sentinel, not a new timed wave.
+func _activate_rift_wave(site_id:int)->void:
+ if site_id<0 or site_id>=rifts.size():return
+ var entry:Dictionary=rifts[site_id]
+ entry["stage"]=3
+ super._activate_rift_wave(site_id)
+ var slots:Array=entry.get("slots",[])
+ for i in range(mini(slots.size(),3)):
+  var id:int=int(slots[i])
+  if id<0 or id>=beasts.size():continue
+  var resident:Dictionary=beasts[id]
+  var home:Vector3=V321_RULES.enemy_position(entry["anchor"],i+1,i)
+  resident["home"]=home
+  var body:CharacterBody3D=resident.get("body") as CharacterBody3D
+  if is_instance_valid(body):body.position=home+Vector3(0,0.62,0)
+  resident["alert_until"]=0.0
+ _set_rift_label(entry)
+ _show_message(str(entry["name"])+" • Explore the sanctum and defeat its guardian.",3.0)
+
+func _set_rift_label(entry:Dictionary)->void:
+ var label:Label3D=entry.get("label") as Label3D
+ if not is_instance_valid(label):return
+ if bool(entry.get("cleared",false)):
+  label.text="✓ "+str(entry.get("name","Rift"))+" SEALED"
+ elif bool(entry.get("active",false)):
+  label.text=str(entry.get("name","Rift"))+" • EXPLORE & DEFEAT GUARDIAN"
+ else:
+  label.text="RIFT • "+str(entry.get("name","Rift"))+"\n(G) Explore"
