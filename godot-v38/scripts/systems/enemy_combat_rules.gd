@@ -16,6 +16,11 @@ static func attack_cooldown(kind:String)->float:
   "boar":return 1.75
   _:return 1.5
 
+# Stable timing offsets reduce synchronized swarm strikes without scanning peers.
+# Bosses retain their independent telegraphed combat cadence.
+static func staggered_cooldown(kind:String,beast_id:int)->float:
+ return attack_cooldown(kind)+float(posmod(beast_id,4))*0.12
+
 static func attack_timer_after_frame(current:float,delta:float)->float:
  if not is_finite(current):return 0.0
  var elapsed:float=clampf(delta,0.0,0.1) if is_finite(delta) else 0.0
