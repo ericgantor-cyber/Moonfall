@@ -6,6 +6,14 @@ static func pattern_index(pattern:int,phase:int)->int:
  return posmod(pattern,pattern_count(phase))
 static func next_pattern(pattern:int,phase:int)->int:
  return (pattern_index(pattern,phase)+1)%pattern_count(phase)
+
+# Phase upgrades can introduce unfamiliar attacks without repeating the previous
+# pattern immediately. Stay deterministic for replay and save compatibility.
+static func next_pattern_after_phase_change(previous_pattern:int,new_phase:int)->int:
+ var count:int=pattern_count(new_phase)
+ var next:int=posmod(previous_pattern+1,count)
+ if next==posmod(previous_pattern,count):next=(next+1)%count
+ return next
 # Phase transitions unlock additional attacks while preserving the existing
 # deterministic rotation and the player's learned dodge timings.
 static func unlocked_patterns(phase:int)->Array[int]:
