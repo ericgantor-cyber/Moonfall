@@ -98,6 +98,11 @@ func _run()->void:
  check("new_phase<=old_phase:return" in boss_controller and "next_pattern_after_phase_change(old_pattern,new_phase)" in boss_controller,"new attack selection runs only when guardian phase increases")
  check("if float(beast.get(\"windup\",0.0))>0.0:return" in boss_controller,"active guardian windup timer prevents attack rotation")
  check(boss_controller.find("_show_message(\"GUARDIAN PHASE")<boss_controller.find("if float(beast.get(\"windup\",0.0))>0.0:return"),"guardian phase warning fires even during active windups")
+ var adaptive=load("res://scripts/systems/gameplay_v313.gd")
+ check(adaptive.choose_boss_pattern(3,100.0,100.0,0,2.0)==1,"close player pressure selects guardian sweep")
+ check(adaptive.choose_boss_pattern(3,100.0,100.0,1,2.0)==2,"guardian does not repeat sweep back-to-back")
+ check(adaptive.choose_boss_pattern(3,20.0,100.0,2,2.0)==0,"low health player gets readable focused attack")
+ check(adaptive.choose_boss_pattern(3,100.0,100.0,2,8.0)==3,"phase three can select fourth guardian pattern")
  var sprite=game.get("hero_sprite") as Sprite3D
  check(is_instance_valid(sprite) and sprite.texture!=null,"original hero sprite texture present")
  game.queue_free()
