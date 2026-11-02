@@ -68,7 +68,13 @@ func _set_boss_telegraph(beast:Dictionary,active:bool)->void:
 const RIFT_OBJECTIVES=preload("res://scripts/systems/rift_objective_rules.gd")
 func _v321_chamber_label(entry:Dictionary,stage:int)->String:
  var prompt:String=RIFT_OBJECTIVES.chamber_prompt(entry,stage)
- return prompt if not prompt.is_empty() else super._v321_chamber_label(entry,stage)
+ if prompt.is_empty():return super._v321_chamber_label(entry,stage)
+ var site:int=rifts.find(entry)
+ if site<0:return prompt
+ var charged:int=_depth_attunement_count(site)
+ var key:String=str(site)+":"+str(stage)
+ var glyph_state:String="ATTUNED" if depth_glyph_charged.has(key) else "UNATTUNED"
+ return prompt+"\nMOON GLYPH • "+glyph_state+"  ("+str(charged)+"/3)"
 
 ## Wave-free rifts: activate each resident only once, across the existing chambers.
 ## Stage 3 is the legacy completion sentinel, not a new timed wave.
