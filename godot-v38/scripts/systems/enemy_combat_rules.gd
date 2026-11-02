@@ -10,16 +10,16 @@ static func role_for(kind:String)->String:
 
 static func attack_cooldown(kind:String)->float:
  match kind:
-  "panther":return 1.25
-  "wolf":return 1.35
-  "serpent":return 1.65
-  "boar":return 1.75
+  "panther":return 1.35
+  "wolf":return 1.45
+  "serpent":return 1.55
+  "boar":return 1.85
   _:return 1.5
 
 # Stable timing offsets reduce synchronized swarm strikes without scanning peers.
 # Bosses retain their independent telegraphed combat cadence.
 static func staggered_cooldown(kind:String,beast_id:int)->float:
- return attack_cooldown(kind)+float(posmod(beast_id,4))*0.12
+ return attack_cooldown(kind)+float(posmod(beast_id,4))*(0.15 if kind=="boar" else 0.12)
 
 # Fixed per-enemy attack slots make a pack less likely to strike at once.
 # This only delays a ready attack; it never skips line-of-sight or dodge checks.
@@ -39,15 +39,15 @@ static func role_attack_ready(kind:String,now:float,beast_id:int)->bool:
  return role_for(kind)=="bruiser" and group_attack_ready(now,beast_id+1)
 
 static func preferred_spacing(kind:String)->float:
- return 2.6 if kind=="panther" else (2.3 if kind=="serpent" else (2.4 if role_for(kind)=="ambusher" else 1.7))
+ return 2.8 if kind=="panther" else (2.2 if kind=="serpent" else (2.5 if kind=="wolf" else (2.4 if role_for(kind)=="ambusher" else 1.7)))
 
 static func wants_flank(kind:String,distance:float,has_sight:bool)->bool:
- return has_sight and is_finite(distance) and distance>preferred_spacing(kind) and distance<7.0 and role_for(kind)=="ambusher"
+ return has_sight and is_finite(distance) and distance>preferred_spacing(kind) and distance<(8.0 if kind=="panther" else 6.5) and role_for(kind)=="ambusher"
 
 # Attack turns use the same phase clock for every creature. Adjusting
 # slots by role prevents the heavier bruisers from dominating mixed packs.
 static func attack_window_count(kind:String)->int:
- return 4 if role_for(kind)=="ambusher" else 6
+ return 5 if kind=="serpent" else (4 if role_for(kind)=="ambusher" else 6)
 
 static func tactical_attack_ready(kind:String,now:float,beast_id:int)->bool:
  if not is_finite(now) or now<0.0 or now>1.0e12:return false
@@ -61,7 +61,7 @@ static func attack_timer_after_frame(current:float,delta:float)->float:
  return maxf(0.0,clampf(current,0.0,30.0)-elapsed)
 
 static func should_circle(kind:String,intent:String,distance:float)->bool:
- return intent=="strafe" and wants_flank(kind,distance,true) and distance<5.5
+ return intent=="strafe" and wants_flank(kind,distance,true) and distance<(6.0 if kind=="panther" else 5.5)
 
 ## Melee-only creatures must not kite as ranged characters.
 static func melee_engage_range(_kind:String)->float:
