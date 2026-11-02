@@ -179,6 +179,14 @@ func _v321_build_chambers()->void:
    var at:Vector3=V321_RULES.room_position(center,chamber)
    var accent:Node3D=_add_sphere(at+Vector3(4.4,0.8,-3.8),0.45,tones[chamber-1],false,true)
    accent.name="RiftMoonEmberAccent"
+   # A compact broken-stone shrine silhouette beside each chamber, assembled once.
+   # Reuse existing primitives and shared scene materials; no additional lights.
+   var stone:Color=Color("373044").lerp(tones[chamber-1],0.18)
+   for side in [-1,1]:
+    var column:Node3D=_add_box(at+Vector3(float(side)*5.8,0.9,3.4),Vector3(0.9,1.8,0.9),stone,false)
+    column.name="RiftBrokenPillar"
+    var crown:Node3D=_add_box(at+Vector3(float(side)*5.8,1.95,3.4),Vector3(1.25,0.25,1.25),tones[chamber-1],false)
+    crown.name="RiftMoonCrown"
  for site in range(rifts.size()):
   var anchor:Vector3=rifts[site]["anchor"]
   var marker:=Label3D.new()
