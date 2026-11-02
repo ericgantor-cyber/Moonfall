@@ -34,8 +34,9 @@ func _run()->void:
   var zone:int=int(rifts_copy[0]["zone"])
   rifts_copy[0]["cleared"]=false
   check(RULES.is_tainted(zone,rifts_copy,-1,[]),"unsealed rift taints its region")
-  rifts_copy[0]["cleared"]=true
-  check(not RULES.is_tainted(zone,rifts_copy,-1,[]),"sealing rift restores its region")
+  for entry in rifts_copy:
+   if int(entry["zone"])==zone:entry["cleared"]=true
+  check(not RULES.is_tainted(zone,rifts_copy,-1,[]),"sealing every rift in a region restores it")
  check(RULES.fish_escape_radius(0.0)>RULES.fish_escape_radius(100.0),"fish react to player approach")
  check(RULES.flora_response(0.0,false)>RULES.flora_response(0.0,true),"corruption suppresses bioluminescence")
  check(is_equal_approx(RULES.ward_damage(100.0,20.0,true),80.0),"ward reduces corruption damage")
