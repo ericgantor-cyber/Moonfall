@@ -38,6 +38,14 @@ jobs:
           if (!$found) { throw 'ISCC.exe missing after installing Inno Setup 6.' }
           if (!(Test-Path -LiteralPath $found -PathType Leaf)) { throw "Missing Inno Setup compiler: $found" }
           Write-Host "Located Inno Setup 6 compiler: $found"
+      - name: Validate launcher PowerShell syntax
+        shell: pwsh
+        run: |
+          $tokens = $null
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile((Join-Path (Get-Location) 'MoonfallLauncher.ps1'), [ref]$tokens, [ref]$errors) | Out-Null
+          if ($errors.Count -gt 0) { $errors | ForEach-Object { Write-Host $_ }; throw 'Launcher PowerShell parse failed' }
+          Write-Host 'PASS: Moonfall launcher PowerShell syntax'
       - name: Build and verify Windows game and installer
         shell: pwsh
         run: |
