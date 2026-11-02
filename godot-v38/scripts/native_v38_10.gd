@@ -74,11 +74,10 @@ func _v321_update_chambers()->void:
   if site<0 or site>=rifts.size():continue
   var stage:int=int(chamber.get("stage",0))
   var entry:Dictionary=rifts[site]
-  if not RIFT_OBJECTIVES.stage_active(entry,stage):continue
+  var objective:String=RIFT_OBJECTIVES.chamber_prompt(entry,stage)
+  if objective.is_empty():continue
   var label:Label3D=chamber.get("label") as Label3D
-  if not is_instance_valid(label):continue
-  var objective:String=RIFT_OBJECTIVES.objective(stage,false)
-  if label.text!=objective:label.text=objective
+  if is_instance_valid(label) and label.text!=objective:label.text=objective
 
 ## Wave-free rifts: activate each resident only once, across the existing chambers.
 ## Stage 3 is the legacy completion sentinel, not a new timed wave.
@@ -144,3 +143,14 @@ func _interact()->void:
    _show_message("GLYPH ATTUNED! Lunar echo ready ("+str(depth_spell_charges)+" charges).",3.0)
    return
  super._interact()
+
+## Replace inherited wave instructions only when the World tab is opened.
+## No new menu state or per-frame UI work is required.
+func _menu_tab(which:String)->void:
+ super._menu_tab(which)
+ if which!="World" or not is_instance_valid(menu_body):return
+ menu_body.text=menu_body.text.replace("clear three escalating waves in the open world.","explore its three chambers without waves.")
+ menu_body.text=menu_body.text.replace("Clear enemies to advance chambers, then defeat the Rift Champion for an additional named legendary.","Explore every chamber freely, attune moon glyphs in any order, and defeat the rift residents to earn a named legendary.")
+ for entry in rifts:
+  if bool(entry.get("active",false)) and not bool(entry.get("cleared",false)):
+   menu_body.text=menu_body.text.replace(str(entry["name"])+"  WAVE "+str(entry["stage"]),str(entry["name"])+"  EXPLORING")
