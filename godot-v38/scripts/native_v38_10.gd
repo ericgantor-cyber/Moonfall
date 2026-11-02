@@ -139,6 +139,17 @@ func _interact()->void:
    depth_spell_charges=mini(3,depth_spell_charges+1)
    _show_message("GLYPH ATTUNED! Lunar echo ready ("+str(depth_spell_charges)+" charges).",3.0)
    return
+  for secret in rift_secret_signs:
+   var marker:Label3D=secret["node"]
+   var site:int=int(secret["site"])
+   if site!=active_rift or bool(rifts[site].get("cleared",false)):continue
+   if player.global_position.distance_squared_to(marker.global_position)>DEPTH_INTERACT_RADIUS_SQ:continue
+   if bool(secret["read"]):
+    _show_message("The inscription has already shared its secret.",2.0)
+   else:
+    secret["read"]=true
+    _show_message("ANCIENT INSCRIPTION: The moon remembers every guardian who stood here.",4.0)
+   return
  super._interact()
 
 ## Replace inherited wave instructions only when the World tab is opened.
