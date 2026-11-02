@@ -135,6 +135,16 @@ jobs:
           $recorded = (Get-Content 'build/Moonfall-Windows-Portable.sha256' -Raw).Trim()
           if ($recorded -ne $hash) { throw 'Portable checksum mismatch' }
           Write-Host 'PASS: portable ZIP checksum verified'
+      - name: Write installer SHA256 for download verification
+        shell: pwsh
+        run: |
+          $installer = 'Release_Windows/Moonfall_Native_v34_4_Windows_Setup.exe'
+          if (!(Test-Path -LiteralPath $installer -PathType Leaf)) { throw 'Installer missing for checksum generation' }
+          $hash = (Get-FileHash -LiteralPath $installer -Algorithm SHA256).Hash.ToLowerInvariant()
+          Set-Content -LiteralPath 'build/Moonfall-Windows-Installer.sha256' -Value $hash -Encoding ascii
+          $recorded = (Get-Content 'build/Moonfall-Windows-Installer.sha256' -Raw).Trim()
+          if ($recorded -ne $hash) { throw 'Installer checksum mismatch' }
+          Write-Host 'PASS: installer SHA256 generated and verified'
       - name: Publish verified Windows build evidence and binaries
         if: success()
         uses: actions/upload-artifact@v4
@@ -146,6 +156,7 @@ jobs:
             godot-v38/build/*.exe
             godot-v38/build/Moonfall-Windows-Portable.zip
             godot-v38/build/Moonfall-Windows-Portable.sha256
+            godot-v38/build/Moonfall-Windows-Installer.sha256
             godot-v38/build/moonfall-integrity.json
             godot-v38/MoonfallLauncher.ps1
             godot-v38/MoonfallLauncher.cmd
