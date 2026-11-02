@@ -103,16 +103,6 @@ $persistSettings = {
 }
 $display.Add_CheckedChanged($persistSettings)
 $res.Add_SelectedIndexChanged($persistSettings)
-<#
-$display.Add_CheckedChanged({
-  try {
-    New-Item -ItemType Directory -Force -Path $settingsDir | Out-Null
-    @{fullscreen=[bool]$display.Checked} | ConvertTo-Json | Set-Content -LiteralPath $settingsFile -Encoding UTF8
-  } catch {
-    [System.Windows.Forms.MessageBox]::Show('Could not save fullscreen preference. You can still play Moonfall.','Launcher settings') | Out-Null
-  }
-})
-#>
 $play.Add_Click({
   if (!(Test-Path -LiteralPath $game -PathType Leaf)) {
     [System.Windows.Forms.MessageBox]::Show('The Moonfall game executable is missing. Reinstall Moonfall.','Moonfall launcher') | Out-Null
@@ -155,8 +145,9 @@ $updates.Add_Click({
     if ([System.Windows.Forms.MessageBox]::Show('Open release page for verified manual update? Saves remain untouched.','Moonfall updates','YesNo') -eq 'Yes') { Start-Process $releasePage }
   } catch {
     $status.Text = 'Update lookup unavailable; opening releases page.'
-    try { Start-Process $releasePage } catch {}
-    [System.Windows.Forms.MessageBox]::Show('Cannot open releases page. Visit '+$releasePage,'Update link') | Out-Null
+    try { Start-Process $releasePage } catch {
+      [System.Windows.Forms.MessageBox]::Show('Visit '+$releasePage+' to check for updates.','Update link') | Out-Null
+    }
   }
 })
 $folder.Add_Click({
