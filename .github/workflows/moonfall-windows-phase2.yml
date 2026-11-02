@@ -104,6 +104,10 @@ jobs:
           $hash = (Get-FileHash 'build/MoonfallNative_v34_4.exe' -Algorithm SHA256).Hash
           if ($manifest.game_sha256 -ine $hash) { throw 'Release game hash mismatch' }
           Write-Host 'PASS: all distributable files present and executable SHA256 matches manifest'
+      - name: Negative-test game integrity verification
+        shell: pwsh
+        run: |
+          ./tools/Test-GameIntegrity.ps1 -GameExe 'build/MoonfallNative_v34_4.exe' -Manifest 'build/moonfall-integrity.json'
       - name: Assemble and verify portable launcher ZIP
         shell: pwsh
         run: |
