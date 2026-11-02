@@ -41,6 +41,10 @@ try {
   $validInfo.schema = 999
   $validInfo | ConvertTo-Json | Set-Content -LiteralPath $info -Encoding UTF8
   if (Test-MoonfallIntegrity $copy $info) { throw 'Unsupported manifest schema was accepted' }
+  $validInfo.schema = 1
+  $validInfo.game_sha256 = 'INVALID'
+  $validInfo | ConvertTo-Json | Set-Content -LiteralPath $info -Encoding UTF8
+  if (Test-MoonfallIntegrity $copy $info) { throw 'Invalid checksum length was accepted' }
   Set-Content -LiteralPath $info -Value '{bad-json' -Encoding UTF8
   if (Test-MoonfallIntegrity $copy $info) { throw 'Malformed manifest was accepted' }
   Remove-Item -LiteralPath $info
