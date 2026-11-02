@@ -104,6 +104,9 @@ jobs:
           retention-days: 14
           path: |
             godot-v38/build/*.exe
+            godot-v38/build/moonfall-integrity.json
+            godot-v38/MoonfallLauncher.ps1
+            godot-v38/MoonfallLauncher.cmd
             godot-v38/build/*.json
             godot-v38/build/*.txt
             godot-v38/Release_Windows/*.exe
