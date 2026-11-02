@@ -24,7 +24,7 @@ func _cycle_aim_target()->void:
   aim_locked_id=-1
   _show_message("No visible target",0.9)
   return
- if region_index>=0 and zone_beast_lists[region_index].is_empty():
+ if zone_beast_lists[region_index].is_empty():
   aim_locked_id=-1
   _show_message("No visible target",0.9)
   return
@@ -34,7 +34,7 @@ func _cycle_aim_target()->void:
  for beast in zone_beast_lists[region_index]:
   if typeof(beast)==TYPE_DICTIONARY and bool(beast.get("alive",false)) and bool(beast.get("hostile",false)):
    var body_ref:CharacterBody3D=beast.get("body") as CharacterBody3D
-   if is_instance_valid(body_ref):zone_ids[body_ref.get_instance_id()]=true
+   if is_instance_valid(body_ref) and body_ref.visible:zone_ids[body_ref.get_instance_id()]=true
  if zone_ids.is_empty():
   aim_locked_id=-1
   _show_message("No visible target",0.9)
