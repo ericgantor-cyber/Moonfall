@@ -219,13 +219,14 @@ func _v321_build_chambers()->void:
  var exploration_material:=StandardMaterial3D.new()
  exploration_material.albedo_color=Color("3d344e")
  exploration_material.roughness=0.95
+ # One shared corridor mesh for all 30 dungeons; do not allocate per site.
+ var corridor_mesh:=BoxMesh.new()
+ corridor_mesh.size=Vector3(2.4,0.12,1.0)
  for site_id in range(rifts.size()):
   var entry:Dictionary=rifts[site_id]
   var count:int=V321_RULES.chamber_count(site_id,int(entry["zone"]))
   # Each chamber connects to its predecessor with a visible, low-poly stone walkway.
   # Retain original authored combat-room positions and avoid any extra enemies.
-  var corridor_mesh:=BoxMesh.new()
-  corridor_mesh.size=Vector3(2.4,0.12,1.0)
   for stage in range(4,count+1):
    var previous:Vector3=V321_RULES.room_position(entry["anchor"],stage-1)
    var destination:Vector3=V321_RULES.room_position(entry["anchor"],stage)
