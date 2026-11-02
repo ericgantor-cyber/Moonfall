@@ -218,7 +218,25 @@ func _v321_build_chambers()->void:
  for site_id in range(rifts.size()):
   var entry:Dictionary=rifts[site_id]
   var count:int=V321_RULES.chamber_count(site_id,int(entry["zone"]))
+  # Each chamber connects to its predecessor with a visible, low-poly stone walkway.
+  # Retain original authored combat-room positions and avoid any extra enemies.
+  var corridor_mesh:=BoxMesh.new()
+  corridor_mesh.size=Vector3(2.4,0.12,1.0)
   for stage in range(4,count+1):
+   var previous:Vector3=V321_RULES.room_position(entry["anchor"],stage-1)
+   var destination:Vector3=V321_RULES.room_position(entry["anchor"],stage)
+   var offset:Vector3=destination-previous
+   var distance:float=offset.length()
+   if distance>0.01:
+    var passage:=MeshInstance3D.new()
+    passage.name="Rift_%d_Passage_%d"%[site_id,stage]
+    passage.mesh=corridor_mesh
+    passage.material_override=exploration_material
+    passage.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+    passage.position=(previous+destination)*0.5+Vector3(0,0.06,0)
+    passage.rotation.y=atan2(offset.x,offset.z)
+    passage.scale=Vector3(1,1,distance)
+    world.add_child(passage)
    var root:=Node3D.new()
    root.name="Rift_%d_Exploration_%d"%[site_id,stage]
    root.position=V321_RULES.room_position(entry["anchor"],stage)
