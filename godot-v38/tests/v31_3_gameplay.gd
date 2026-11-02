@@ -23,8 +23,8 @@ func _run()->void:
  root.add_child(game)
  await process_frame
  check(CURRENT_RELEASE.matches_project(game),"v31.3 scene active")
- check((game.get("v313_traps") as Array).size()==3,"Three reused rift hazards")
- check((game.get("rifts") as Array).size()==3,"Original connected rifts retained")
+ check((game.get("v313_traps") as Array).size()==30,"One reusable hazard per dungeon across 30 rifts")
+ check((game.get("rifts") as Array).size()==30,"All 30 connected rifts retained")
  check((game.get("treasure_chests") as Array).size()==6,"Six treasure caches intact")
  check(game.get("v312_foliage").size()==6,"Existing graphics effects intact")
  game.call("_start_game","z")
