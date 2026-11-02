@@ -205,6 +205,40 @@ func _menu_tab(which:String)->void:
 var rift_secret_signs:Array[Dictionary]=[]
 func _v321_build_chambers()->void:
  super._v321_build_chambers()
+ # Explore 5–14 fixed chambers per dungeon; original 3 combat rooms and save IDs stay intact.
+ # All added rooms are non-colliding and share one floor mesh for bounded draw cost.
+ var exploration_floor:=CylinderMesh.new()
+ exploration_floor.top_radius=4.7
+ exploration_floor.bottom_radius=4.7
+ exploration_floor.height=0.06
+ exploration_floor.radial_segments=12
+ var exploration_material:=StandardMaterial3D.new()
+ exploration_material.albedo_color=Color("3d344e")
+ exploration_material.roughness=0.95
+ for site_id in range(rifts.size()):
+  var entry:Dictionary=rifts[site_id]
+  var count:int=V321_RULES.chamber_count(site_id,int(entry["zone"]))
+  for stage in range(4,count+1):
+   var root:=Node3D.new()
+   root.name="Rift_%d_Exploration_%d"%[site_id,stage]
+   root.position=V321_RULES.room_position(entry["anchor"],stage)
+   world.add_child(root)
+   var floor:=MeshInstance3D.new()
+   floor.name="ExplorationFloor"
+   floor.mesh=exploration_floor
+   floor.material_override=exploration_material
+   floor.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+   root.add_child(floor)
+   var sign:=Label3D.new()
+   sign.name="ExplorationChamberSign"
+   sign.text="CHAMBER %d • %s"%[stage,V321_RULES.chamber_title(stage)]
+   sign.font_size=26
+   sign.pixel_size=0.005
+   sign.position.y=2.2
+   sign.billboard=BaseMaterial3D.BILLBOARD_ENABLED
+   root.add_child(sign)
+   root.visible=false
+   v321_chambers.append({"node":root,"site":site_id,"stage":stage,"label":sign})
  # Six zone-specific landmarks and a ruined gateway at each of 30 dungeon entrances.
  # Mesh-only decor is built once, non-colliding, with no new lights or animation.
  var zone_tones:Array[Color]=[Color("536bba"),Color("6ca77a"),Color("cc764f"),Color("88b7c5"),Color("ae547a"),Color("d3b469")]
