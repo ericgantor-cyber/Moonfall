@@ -24,6 +24,7 @@ func _run()->void:
  var map_code:String=FileAccess.get_file_as_string("res://scripts/native_v38_2.gd")
  check("event.keycode==KEY_TAB" in target_code and "event.keycode==KEY_F6" not in target_code,"Tab replaces F6")
  check("beasts.find(beast)" not in target_code and "eligible.append(index)" in target_code,"target cycling avoids repeated entire-beast scans")
+ check("eligible.sort()" not in target_code,"target cycling keeps canonical order without sorting")
  check("event.keycode==KEY_M" in map_code,"M remains the map key")
  var follower:String=FileAccess.get_file_as_string("res://scripts/native_v38_5.gd")
  check("realm_combat_attack_timer" in follower and "var companion_attack_timer" not in follower,"inherited companion timer collision fixed")
