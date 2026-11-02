@@ -132,6 +132,24 @@ $repair.Add_Click({
     '3. Compare its SHA256 with the matching download checksum.' + [Environment]::NewLine +
     '4. Reinstall the game without deleting user data.' + [Environment]::NewLine +
     'This launcher does not automatically replace files.'
+  # Offer an explicit copy of the current integrity report for support.
+  $report = Join-Path $env:TEMP 'Moonfall-Integrity-Report.txt'
+  try {
+    $manifestPath = Join-Path $root 'moonfall-integrity.json'
+    $expected = 'unavailable'
+    if (Test-Path -LiteralPath $manifestPath -PathType Leaf) {
+      $info = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
+      $expected = [string]$info.game_sha256
+    }
+    $actual = if (Test-Path -LiteralPath $game -PathType Leaf) { (Get-FileHash -LiteralPath $game -Algorithm SHA256).Hash } else { 'missing' }
+    @('Moonfall file verification report',
+      'Executable: ' + [IO.Path]::GetFileName($game),
+      'Expected SHA256: ' + $expected,
+      'Actual SHA256: ' + $actual,
+      'Matches: ' + [string]($expected -ieq $actual)) |
+      Set-Content -LiteralPath $report -Encoding UTF8
+  } catch { $report = 'Report unavailable' }
+  $message += [Environment]::NewLine + 'Local report: ' + $report
   [System.Windows.Forms.MessageBox]::Show($message,'Moonfall safe repair') | Out-Null
   if ([System.Windows.Forms.MessageBox]::Show('Open official Moonfall releases for repair files?','Moonfall safe repair','YesNo') -eq 'Yes') {
     try { Start-Process $releasePage } catch {
