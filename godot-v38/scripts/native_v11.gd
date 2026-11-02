@@ -1971,6 +1971,7 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
  var perception:float=AI_RULES.perception(map_time<float(beast.get("alert_until",0.0)),weather_name,_day_phase()=="Night")
  var engaged:=is_hostile and distance<perception and _has_clear_sight(body,player)
  beast["engaged"]=engaged
+ if engaged:beast["search_pause_until"]=0.0
  # Investigate the last visible location for three seconds after losing sight.
  if not bool(beast.get("boss",false)) and is_hostile:
   var memory:Dictionary=ENEMY_COMBAT_RULES.remember_target(engaged,is_hostile,false,map_time,player.global_position,beast.get("last_seen_position",body.global_position),float(beast.get("last_seen_until",0.0)))
@@ -2002,6 +2003,9 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
   body.velocity=ENEMY_COMBAT_RULES.investigate_velocity(is_hostile,engaged,false,map_time,float(beast.get("last_seen_until",0.0)),body.global_position,beast.get("last_seen_position",body.global_position),move_speed)
   if ENEMY_COMBAT_RULES.search_arrived(body.global_position,beast.get("last_seen_position",body.global_position)):
    beast["last_seen_until"]=0.0
+   beast["search_pause_until"]=ENEMY_COMBAT_RULES.search_pause_expiry(map_time)
+ elif is_hostile and not engaged and not bool(beast.get("boss",false)) and ENEMY_COMBAT_RULES.search_pause_active(engaged,map_time,float(beast.get("search_pause_until",0.0))):
+  body.velocity=Vector3.ZERO
  elif not is_hostile and (distance<6.0 or map_time<float(beast.get("scared_until",0.0))):
   var escape:= -diff.normalized()
   if distance>8.0:
