@@ -45,6 +45,11 @@ try {
   $validInfo.game_sha256 = 'INVALID'
   $validInfo | ConvertTo-Json | Set-Content -LiteralPath $info -Encoding UTF8
   if (Test-MoonfallIntegrity $copy $info) { throw 'Invalid checksum length was accepted' }
+  $validInfo.game_sha256 = (Get-FileHash -LiteralPath $copy -Algorithm SHA256).Hash
+  $validInfo.game_file = [IO.Path]::GetFileName($copy)
+  $validInfo.schema = 1
+  $validInfo | ConvertTo-Json | Set-Content -LiteralPath $info -Encoding UTF8
+  if (!(Test-MoonfallIntegrity $copy $info)) { throw 'Restored valid manifest did not pass' }
   Set-Content -LiteralPath $info -Value '{bad-json' -Encoding UTF8
   if (Test-MoonfallIntegrity $copy $info) { throw 'Malformed manifest was accepted' }
   Remove-Item -LiteralPath $info
