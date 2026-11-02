@@ -8,7 +8,7 @@ func _unhandled_key_input(event:InputEvent)->void:
  super._unhandled_key_input(event)
 
 func _unhandled_input(event:InputEvent)->void:
- if hero_playing and not menu_open and not death_active and not wait_open:
+ if hero_playing and not menu_open and not death_active and not wait_open and not wait_transition_active:
   if event is InputEventJoypadButton and event.pressed and event.button_index==JOY_BUTTON_RIGHT_SHOULDER:
    # Hold right-stick click plus right shoulder to cycle without replacing spell binding.
    if Input.is_joy_button_pressed(event.device,JOY_BUTTON_RIGHT_STICK):
