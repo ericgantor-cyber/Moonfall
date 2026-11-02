@@ -70,6 +70,7 @@ func _set_boss_telegraph(beast:Dictionary,active:bool)->void:
 ## Exploration-first readouts for the existing three-chamber rift.
 ## No extra enemy spawns, rewards, scene nodes, or save fields.
 const RIFT_OBJECTIVES=preload("res://scripts/systems/rift_objective_rules.gd")
+const DIVINE_BOSS_IDENTITY=preload("res://scripts/systems/divine_boss_identity.gd")
 func _v321_chamber_label(entry:Dictionary,stage:int)->String:
  var prompt:String=RIFT_OBJECTIVES.chamber_prompt(entry,stage)
  if prompt.is_empty():return super._v321_chamber_label(entry,stage)
@@ -98,6 +99,27 @@ func _activate_rift_wave(site_id:int)->void:
   if is_instance_valid(body):body.position=home+Vector3(0,0.62,0)
   resident["alert_until"]=0.0
  _set_rift_label(entry)
+ # Existing continuous encounter: give two original sanctuaries their divine bosses.
+ # Never modify Z or Nyra texture bytes or add additional enemy actors.
+ if site_id==0 or site_id==1:
+  var deity_id:String="z" if site_id==0 else "nyra"
+  var deity:Dictionary=DIVINE_BOSS_IDENTITY.boss(deity_id)
+  if slots.size()>0:
+   var boss_slot:int=int(slots[slots.size()-1])
+   if boss_slot>=0 and boss_slot<beasts.size():
+    var boss_unit:Dictionary=beasts[boss_slot]
+    var boss_body:CharacterBody3D=boss_unit.get("body") as CharacterBody3D
+    if is_instance_valid(boss_body) and boss_body.get_node_or_null("DivineBossOriginalArtwork")==null:
+     var portrait:=Sprite3D.new()
+     portrait.name="DivineBossOriginalArtwork"
+     portrait.texture=load(str(deity["art"])) as Texture2D
+     portrait.pixel_size=2.9/float(portrait.texture.get_height())
+     portrait.billboard=BaseMaterial3D.BILLBOARD_ENABLED
+     portrait.position=Vector3(0,1.25,0)
+     boss_body.add_child(portrait)
+     var nameplate:Label3D=boss_unit.get("nameplate") as Label3D
+     if is_instance_valid(nameplate):
+      nameplate.text=str(deity["name"]).to_upper()+" • DIVINE BOSS"
  _show_message(str(entry["name"])+" • Explore the sanctum and defeat its guardian.",3.0)
 
 func _set_rift_label(entry:Dictionary)->void:
