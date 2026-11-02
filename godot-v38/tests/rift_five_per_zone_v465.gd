@@ -10,9 +10,8 @@ func run()->void:
  var game=GAME.new()
  root.add_child(game)
  var sites:Array=game.get("rifts")
- var regions:Array=game.get("REGIONS")
- check(sites.size()==regions.size()*5,"five dungeon sites per zone")
- for zone in range(regions.size()):
+ check(sites.size()==30,"30 dungeon sites across six zones")
+ for zone in range(6):
   var total:int=0
   for site in sites:
    if int(site["zone"])==zone:total+=1
