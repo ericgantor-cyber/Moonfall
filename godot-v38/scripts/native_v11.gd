@@ -1998,7 +1998,7 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
   var orbit_side:float=ENEMY_COMBAT_RULES.orbit_direction(int(beast["boss_id"]))
   body.velocity=(flank*orbit_side+diff.normalized()*0.25).normalized()*move_speed*0.7
  elif engaged and distance>1.7:
-  body.velocity=AI_RULES.approach(diff,move_speed,int(beast["boss_id"]),bool(beast.get("boss",false)),int(beast.get("boss_phase",1)),distance)
+  body.velocity=AI_RULES.approach(diff,move_speed,int(beast["boss_id"]),bool(beast.get("boss",false)),int(beast.get("boss_phase",1)),distance,ENEMY_COMBAT_RULES.role_for(kind) if bool(beast.get("hostile",false)) else "passive")
  elif is_hostile and not engaged and not bool(beast.get("boss",false)) and map_time<float(beast.get("last_seen_until",0.0)):
   body.velocity=ENEMY_COMBAT_RULES.investigate_velocity(is_hostile,engaged,false,map_time,float(beast.get("last_seen_until",0.0)),body.global_position,beast.get("last_seen_position",body.global_position),move_speed)
   if ENEMY_COMBAT_RULES.search_arrived(body.global_position,beast.get("last_seen_position",body.global_position)):
