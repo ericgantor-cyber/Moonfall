@@ -103,6 +103,9 @@ func _run()->void:
  check(adaptive.choose_boss_pattern(3,100.0,100.0,1,2.0)==2,"guardian does not repeat sweep back-to-back")
  check(adaptive.choose_boss_pattern(3,20.0,100.0,2,2.0)==0,"low health player gets readable focused attack")
  check(adaptive.choose_boss_pattern(3,100.0,100.0,2,8.0)==3,"phase three can select fourth guardian pattern")
+ check(adaptive.choose_boss_pattern(3,100.0,100.0,0,2.0,3)==2,"repeated close pressure chooses precision")
+ check(adaptive.choose_boss_pattern(3,100.0,100.0,2,2.0,4)==3,"precision cannot immediately repeat")
+ check(adaptive.choose_boss_pattern(3,20.0,100.0,0,2.0,4)==0,"low health safety overrides pressure")
  var sprite=game.get("hero_sprite") as Sprite3D
  check(is_instance_valid(sprite) and sprite.texture!=null,"original hero sprite texture present")
  game.queue_free()
