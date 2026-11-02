@@ -35,6 +35,10 @@ func _cycle_aim_target()->void:
   if typeof(beast)==TYPE_DICTIONARY and bool(beast.get("alive",false)) and bool(beast.get("hostile",false)):
    var body_ref:CharacterBody3D=beast.get("body") as CharacterBody3D
    if is_instance_valid(body_ref):zone_ids[body_ref.get_instance_id()]=true
+ if zone_ids.is_empty():
+  aim_locked_id=-1
+  _show_message("No visible target",0.9)
+  return
  for index in range(beasts.size()):
   var beast:Dictionary=beasts[index]
   if not bool(beast.get("alive",false)) or not bool(beast.get("hostile",false)):continue
