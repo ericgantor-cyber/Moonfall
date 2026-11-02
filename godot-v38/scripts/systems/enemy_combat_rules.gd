@@ -24,7 +24,7 @@ static func staggered_cooldown(kind:String,beast_id:int)->float:
 # Fixed per-enemy attack slots make a pack less likely to strike at once.
 # This only delays a ready attack; it never skips line-of-sight or dodge checks.
 static func group_attack_ready(now:float,beast_id:int,slots:int=4)->bool:
- if not is_finite(now) or now<0.0:return false
+ if not is_finite(now) or now<0.0 or now>1.0e12:return false
  var count:int=clampi(slots,1,8)
  # Reduce the clock before integer conversion to avoid overflow in long saves.
  var cycle:float=float(count)*0.25
@@ -39,7 +39,7 @@ static func role_attack_ready(kind:String,now:float,beast_id:int)->bool:
  return role_for(kind)=="bruiser" and group_attack_ready(now,beast_id+1)
 
 static func preferred_spacing(kind:String)->float:
- return 2.4 if role_for(kind)=="ambusher" else 1.7
+ return 2.6 if kind=="panther" else (2.3 if kind=="serpent" else (2.4 if role_for(kind)=="ambusher" else 1.7))
 
 static func wants_flank(kind:String,distance:float,has_sight:bool)->bool:
  return has_sight and is_finite(distance) and distance>preferred_spacing(kind) and distance<7.0 and role_for(kind)=="ambusher"
@@ -50,18 +50,18 @@ static func attack_window_count(kind:String)->int:
  return 4 if role_for(kind)=="ambusher" else 6
 
 static func tactical_attack_ready(kind:String,now:float,beast_id:int)->bool:
- if not is_finite(now) or now<0.0:return false
+ if not is_finite(now) or now<0.0 or now>1.0e12:return false
  var slots:int=attack_window_count(kind)
  if group_attack_ready(now,beast_id,slots):return true
  return role_for(kind)=="bruiser" and group_attack_ready(now,beast_id+1,slots)
 
 static func attack_timer_after_frame(current:float,delta:float)->float:
- if not is_finite(current):return 0.0
+ if not is_finite(current):return 0.1
  var elapsed:float=clampf(delta,0.0,0.1) if is_finite(delta) else 0.0
  return maxf(0.0,clampf(current,0.0,30.0)-elapsed)
 
 static func should_circle(kind:String,intent:String,distance:float)->bool:
- return intent=="strafe" and wants_flank(kind,distance,true) and distance<6.0
+ return intent=="strafe" and wants_flank(kind,distance,true) and distance<5.5
 
 ## Melee-only creatures must not kite as ranged characters.
 static func melee_engage_range(_kind:String)->float:
@@ -76,7 +76,7 @@ static func ready_to_strike(timer:float)->bool:
 
 # Memory is per creature: no scans, pathfinders, or extra nodes per frame.
 static func remember_target(seen:bool,hostile:bool,boss:bool,now:float,hero_pos:Vector3,old_pos:Vector3,old_until:float)->Dictionary:
- if not hostile or boss or not is_finite(now):
+ if not hostile or boss or not is_finite(now) or now<0.0 or now>1.0e12:
   return {"position":old_pos,"until":0.0}
  if seen and is_finite(hero_pos.x) and is_finite(hero_pos.y) and is_finite(hero_pos.z):
   return {"position":hero_pos,"until":now+3.0}
@@ -86,24 +86,24 @@ static func remember_target(seen:bool,hostile:bool,boss:bool,now:float,hero_pos:
  return {"position":old_pos if valid_old else Vector3.ZERO,"until":old_until if valid_old and valid_expiry else 0.0}
 
 static func investigate_velocity(hostile:bool,engaged:bool,boss:bool,now:float,until:float,body_pos:Vector3,last_pos:Vector3,speed:float)->Vector3:
- if not hostile or engaged or boss or not is_finite(now) or not is_finite(until) or now>=until or until>now+3.0:
+ if not hostile or engaged or boss or not is_finite(now) or now<0.0 or not is_finite(until) or now>=until or until>now+3.0:
   return Vector3.ZERO
  var offset:Vector3=last_pos-body_pos
  offset.y=0.0
  if not is_finite(offset.x) or not is_finite(offset.z) or offset.length_squared()<1.0:
   return Vector3.ZERO
  # Slow as the search point approaches so actors do not oscillate over it.
- var max_speed:float=minf(clampf(speed,0.0,20.0)*0.65,(sqrt(offset.length_squared())-1.0)*4.0) if is_finite(speed) else 0.0
+ var max_speed:float=minf(clampf(speed,0.0,18.0)*0.65,(sqrt(offset.length_squared())-1.0)*3.5) if is_finite(speed) and speed>0.0 else 0.0
  return offset.normalized()*maxf(0.0,max_speed)
 
 static func search_arrived(body_pos:Vector3,last_pos:Vector3)->bool:
  var offset:Vector3=last_pos-body_pos
  offset.y=0.0
- return is_finite(offset.x) and is_finite(offset.z) and offset.length_squared()<1.0
+ return is_finite(offset.x) and is_finite(offset.z) and offset.length_squared()<=1.0
 
 # Brief look-around at the last known location; sighting a hero cancels it.
 static func search_pause_active(engaged:bool, now:float, pause_until:float)->bool:
- return not engaged and is_finite(now) and is_finite(pause_until) and pause_until>now and pause_until<=now+0.8
+ return not engaged and is_finite(now) and now>=0.0 and is_finite(pause_until) and pause_until>now and pause_until<=now+0.8
 
 static func search_pause_expiry(now:float)->float:
- return now+0.75 if is_finite(now) and now<=1.0e12 else 0.0
+ return now+0.75 if is_finite(now) and now>=0.0 and now<=1.0e12 else 0.0
