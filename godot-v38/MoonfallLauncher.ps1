@@ -176,6 +176,21 @@ $updates.Add_Click({
       $reader = New-Object System.IO.StreamReader($response.GetResponseStream())
       try { $latest = $reader.ReadToEnd() | ConvertFrom-Json } finally { $reader.Dispose() }
     } finally { $response.Dispose() }
+    # Treat release metadata as untrusted text and open only the official project URL.
+    if (!$latest.tag_name -or !$latest.html_url) { throw 'Incomplete release metadata.' }
+    $officialRelease = [uri][string]$latest.html_url
+    if ($officialRelease.Scheme -ne 'https' -or $officialRelease.Host -ne 'github.com' -or
+        !$officialRelease.AbsolutePath.StartsWith('/ericgantor-cyber/Moonfall/releases/tag/', [System.StringComparison]::OrdinalIgnoreCase)) {
+      throw 'Release URL is outside the official Moonfall project.'
+    }
+    $releaseUrl = $officialRelease.AbsoluteUri
+    $notes = ([string]$latest.body).Trim()
+    if ($notes.Length -gt 800) { $notes = $notes.Substring(0,800) + '...' }
+    if (!$notes) { $notes = 'No release notes provided.' }
+    $assetNames = @($latest.assets | ForEach-Object { [string]$_.name } |
+      Where-Object { $_ -match '[.](exe|zip|sha256)$' })
+    $assetSummary = if ($assetNames.Count) { $assetNames -join ', ' } else { 'No installer or ZIP assets listed.' }
+    if ($assetSummary.Length -gt 220) { $assetSummary = $assetSummary.Substring(0,220) + '...' }
     $tag = [string]$latest.tag_name
     $published = if ($latest.published_at) { ([datetime]$latest.published_at).ToString('yyyy-MM-dd') } else { 'date unavailable' }
     # GitHub's target_commitish is often a branch name, not a comparable version.
@@ -196,9 +211,11 @@ $updates.Add_Click({
        'Published: ' + $published + [Environment]::NewLine +
        'Installed build: ' + $version.Text + [Environment]::NewLine +
        $matchText + [Environment]::NewLine +
-       'Use the release page to review changes and verify a download.'),
+       'Available downloads: ' + $assetSummary + [Environment]::NewLine +
+       'Release notes: ' + $notes + [Environment]::NewLine +
+       'Verify SHA256 checksums before installing any update.'),
       'Moonfall update information') | Out-Null
-    if ([System.Windows.Forms.MessageBox]::Show('Open release page for verified manual update? Saves remain untouched.','Moonfall updates','YesNo') -eq 'Yes') { Start-Process $releasePage }
+    if ([System.Windows.Forms.MessageBox]::Show('Open the official Moonfall release details? Downloads and installation remain manual.','Moonfall updates','YesNo') -eq 'Yes') { Start-Process $releaseUrl }
   } catch {
     $status.Text = 'Update lookup unavailable; opening releases page.'
     try { Start-Process $releasePage } catch {
