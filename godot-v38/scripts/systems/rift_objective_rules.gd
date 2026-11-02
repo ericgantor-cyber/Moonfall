@@ -9,5 +9,9 @@ static func objective(stage:int,cleared:bool)->String:
   3:return "GUARDIAN HEART • FACE THE RIFT CHAMPION"
  return "EXPLORE THE RIFT"
 
-static func stage_active(entry:Dictionary,stage:int)->bool:
- return bool(entry.get("active",false)) and not bool(entry.get("cleared",false)) and int(entry.get("stage",0))==stage
+## All physical chambers are explorable together. The legacy stage value
+## remains a completion sentinel and must never gate chamber prompts.
+static func chamber_prompt(entry:Dictionary,chamber_stage:int)->String:
+ if chamber_stage<1 or chamber_stage>3:return ""
+ if not bool(entry.get("active",false)) or bool(entry.get("cleared",false)):return ""
+ return objective(chamber_stage,false)

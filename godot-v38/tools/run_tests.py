@@ -72,6 +72,9 @@ SUITES={
  'v37_7_playability':'MOONFALL v37.7 PLAYABILITY PASS',
  'v38_0_overhaul':'MOONFALL v38.0 OVERHAUL PASS',
  'v38_2_procedural':'MOONFALL v38.2 PROCEDURAL PASS',
+ 'rift_objectives_v458':'MOONFALL RIFT OBJECTIVES PASS',
+ 'rift_continuous_v459':'MOONFALL CONTINUOUS RIFT PASS',
+ 'continuous_rift_glyphs_v460':'MOONFALL RIFT GLYPHS PASS',
 }
 def main():
  selected=sys.argv[1:]

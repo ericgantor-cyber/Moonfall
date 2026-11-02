@@ -66,19 +66,9 @@ func _set_boss_telegraph(beast:Dictionary,active:bool)->void:
 ## Exploration-first readouts for the existing three-chamber rift.
 ## No extra enemy spawns, rewards, scene nodes, or save fields.
 const RIFT_OBJECTIVES=preload("res://scripts/systems/rift_objective_rules.gd")
-func _v321_update_chambers()->void:
- super._v321_update_chambers()
- if not hero_playing:return
- for chamber in v321_chambers:
-  var site:int=int(chamber.get("site",-1))
-  if site<0 or site>=rifts.size():continue
-  var stage:int=int(chamber.get("stage",0))
-  var entry:Dictionary=rifts[site]
-  if not RIFT_OBJECTIVES.stage_active(entry,stage):continue
-  var label:Label3D=chamber.get("label") as Label3D
-  if not is_instance_valid(label):continue
-  var objective:String=RIFT_OBJECTIVES.objective(stage,false)
-  if label.text!=objective:label.text=objective
+func _v321_chamber_label(entry:Dictionary,stage:int)->String:
+ var prompt:String=RIFT_OBJECTIVES.chamber_prompt(entry,stage)
+ return prompt if not prompt.is_empty() else super._v321_chamber_label(entry,stage)
 
 ## Wave-free rifts: activate each resident only once, across the existing chambers.
 ## Stage 3 is the legacy completion sentinel, not a new timed wave.
@@ -109,3 +99,49 @@ func _set_rift_label(entry:Dictionary)->void:
   label.text=str(entry.get("name","Rift"))+" • EXPLORE & DEFEAT GUARDIAN"
  else:
   label.text="RIFT • "+str(entry.get("name","Rift"))+"\n(G) Explore"
+
+## Continuous rifts allow all three physical moon glyphs to be attuned in any
+## order. The older stage index is only a legacy completion sentinel.
+func _depth_tick(delta:float)->void:
+ super._depth_tick(delta)
+ if not hero_playing:return
+ for item in depth_glyphs:
+  var site:int=int(item["site"])
+  if site<0 or site>=rifts.size():continue
+  if active_rift!=site or bool(rifts[site].get("cleared",false)):continue
+  var label:Label3D=item["label"] as Label3D
+  if not is_instance_valid(label):continue
+  var key:String=str(site)+":"+str(int(item["stage"]))
+  label.text="MOON GLYPH • CHARGED" if depth_glyph_charged.has(key) else "MOON GLYPH • G TO ATTUNE"
+
+func _interact()->void:
+ if hero_playing and not death_active and not menu_open and not mounted and is_instance_valid(player):
+  for item in depth_glyphs:
+   var root:Node3D=item["node"] as Node3D
+   if not is_instance_valid(root):continue
+   if player.global_position.distance_squared_to(root.global_position)>DEPTH_INTERACT_RADIUS_SQ:continue
+   var site:int=int(item["site"])
+   if site<0 or site>=rifts.size():return
+   if active_rift!=site or bool(rifts[site].get("cleared",false)):
+    _show_message("Explore this rift to awaken its glyphs.",2.0)
+    return
+   var key:String=str(site)+":"+str(int(item["stage"]))
+   if depth_glyph_charged.has(key):
+    _show_message("This moon glyph is already attuned.",1.5)
+    return
+   depth_glyph_charged[key]=true
+   depth_spell_charges=mini(3,depth_spell_charges+1)
+   _show_message("GLYPH ATTUNED! Lunar echo ready ("+str(depth_spell_charges)+" charges).",3.0)
+   return
+ super._interact()
+
+## Replace inherited wave instructions only when the World tab is opened.
+## No new menu state or per-frame UI work is required.
+func _menu_tab(which:String)->void:
+ super._menu_tab(which)
+ if which!="World" or not is_instance_valid(menu_body):return
+ menu_body.text=menu_body.text.replace("clear three escalating waves in the open world.","explore its three chambers without waves.")
+ menu_body.text=menu_body.text.replace("Clear enemies to advance chambers, then defeat the Rift Champion for an additional named legendary.","Explore every chamber freely, attune moon glyphs in any order, and defeat the rift residents to earn a named legendary.")
+ for entry in rifts:
+  if bool(entry.get("active",false)) and not bool(entry.get("cleared",false)):
+   menu_body.text=menu_body.text.replace(str(entry["name"])+"  WAVE "+str(entry["stage"]),str(entry["name"])+"  EXPLORING")

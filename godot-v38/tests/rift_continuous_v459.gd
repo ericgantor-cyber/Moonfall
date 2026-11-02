@@ -18,4 +18,5 @@ func run()->void:
  ck(not source.contains('label.text="WAVE '),"no wave label added")
  ck(SCRIPT!=null,"live inherited script parses")
  ck(load("res://scenes/main.tscn")!=null,"game scene loads")
+ if failures==0:print("MOONFALL CONTINUOUS RIFT PASS")
  quit(1 if failures else 0)

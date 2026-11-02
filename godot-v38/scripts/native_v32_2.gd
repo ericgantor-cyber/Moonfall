@@ -7,6 +7,15 @@ var v322_skipped_label_writes:int=0
 
 func _release_label()->String:return "v32.2"
 
+## Virtual label selection keeps visibility/caching in one place.
+## Newer gameplay versions can change objectives without rewriting labels twice.
+func _v321_chamber_label(entry:Dictionary,stage:int)->String:
+ if bool(entry.get("cleared",false)):
+  return "✓ "+V321_RULES.chamber_title(stage)+" • SEALED"
+ if bool(entry.get("active",false)):
+  return ("▶ " if int(entry.get("stage",0))==stage else "◦ ")+V321_RULES.chamber_title(stage)
+ return "CHAMBER %d • %s"%[stage,V321_RULES.chamber_title(stage)]
+
 func _v321_update_chambers()->void:
  if not is_instance_valid(player):return
  var here:Vector3=player.global_position
@@ -26,13 +35,7 @@ func _v321_update_chambers()->void:
   var entry:Dictionary=rifts[site]
   var label:Label3D=chamber["label"]
   if not is_instance_valid(label):continue
-  var next_text:String
-  if bool(entry.get("cleared",false)):
-   next_text="✓ "+V321_RULES.chamber_title(stage)+" • SEALED"
-  elif bool(entry.get("active",false)):
-   next_text=("▶ " if int(entry.get("stage",0))==stage else "◦ ")+V321_RULES.chamber_title(stage)
-  else:
-   next_text="CHAMBER %d • %s"%[stage,V321_RULES.chamber_title(stage)]
+  var next_text:String=_v321_chamber_label(entry,stage)
   if label.text!=next_text:
    label.text=next_text
    v322_label_writes+=1
