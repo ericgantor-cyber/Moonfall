@@ -95,8 +95,17 @@ jobs:
           }
           if ($failed.Count -gt 0) { throw ("Phase 2 failures: " + ($failed -join ', ')) }
           Write-Host "PASS: $($suites.Count) Phase 2 gameplay suites"
-      - name: Publish Windows build evidence and binaries
-        if: always()
+      - name: Verify distributable package inputs
+        shell: pwsh
+        run: |
+          $required = @('build/MoonfallNative_v34_4.exe', 'build/moonfall-integrity.json', 'MoonfallLauncher.ps1', 'MoonfallLauncher.cmd', 'Release_Windows/Moonfall_Native_v34_4_Windows_Setup.exe')
+          foreach ($file in $required) { if (!(Test-Path -LiteralPath $file -PathType Leaf)) { throw "Release package missing $file" } }
+          $manifest = Get-Content 'build/moonfall-integrity.json' -Raw | ConvertFrom-Json
+          $hash = (Get-FileHash 'build/MoonfallNative_v34_4.exe' -Algorithm SHA256).Hash
+          if ($manifest.game_sha256 -ine $hash) { throw 'Release game hash mismatch' }
+          Write-Host 'PASS: all distributable files present and executable SHA256 matches manifest'
+      - name: Publish verified Windows build evidence and binaries
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: moonfall-windows-build-results
@@ -112,3 +121,15 @@ jobs:
             godot-v38/Release_Windows/*.exe
             godot-v38/GODOT_*_LOG.txt
             godot-v38/build/phase2-test-logs/*
+
+      - name: Publish diagnostic logs when validation fails
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: moonfall-windows-failed-build-diagnostics
+          if-no-files-found: warn
+          retention-days: 7
+          path: |
+            godot-v38/GODOT_*_LOG.txt
+            godot-v38/build/phase2-test-logs/*
+            godot-v38/build/*failure*.txt
