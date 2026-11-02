@@ -146,7 +146,7 @@ $repair.Add_Click({
       'Executable: ' + [IO.Path]::GetFileName($game),
       'Expected SHA256: ' + $expected,
       'Actual SHA256: ' + $actual,
-      'Matches: ' + [string]($expected -ieq $actual)) |
+      'Matches: ' + [string]($expected -match '^[a-fA-F0-9]{64}$' -and $actual -match '^[a-fA-F0-9]{64}$' -and $expected -ieq $actual)) |
       Set-Content -LiteralPath $report -Encoding UTF8
   } catch { $report = 'Report unavailable' }
   $message += [Environment]::NewLine + 'Local report: ' + $report
