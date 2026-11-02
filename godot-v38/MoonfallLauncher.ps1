@@ -18,7 +18,7 @@ if (Test-Path -LiteralPath $settingsFile) {
 }
 $form = New-Object System.Windows.Forms.Form
 $form.Text = 'Moonfall Launcher'
-$form.ClientSize = New-Object System.Drawing.Size(410,348)
+$form.ClientSize = New-Object System.Drawing.Size(410,375)
 $form.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::Dpi
 $form.StartPosition = 'CenterScreen'
 $form.FormBorderStyle = 'FixedDialog'
@@ -72,7 +72,7 @@ $folder.SetBounds(208,239,170,31)
 $form.Controls.Add($folder)
 $status = New-Object System.Windows.Forms.Label
 $status.ForeColor = [System.Drawing.Color]::LightGray
-$status.SetBounds(30,289,290,26)
+$status.SetBounds(30,321,290,26)
 $form.Controls.Add($status)
 $play.AccessibleName = 'Play Moonfall'
 $display.AccessibleName = 'Start Moonfall in fullscreen'
@@ -96,12 +96,36 @@ try {
 } catch {
   $version.Text = 'Moonfall Windows | Build ID unavailable'
 }
+$verify = New-Object System.Windows.Forms.Button
+$verify.Text = '&Verify game files'
+$verify.SetBounds(30,279,348,30)
+$verify.AccessibleName = 'Verify Moonfall installed game files'
+$form.Controls.Add($verify)
+$verify.Add_Click({
+  try {
+    $manifestPath = Join-Path $root 'moonfall-integrity.json'
+    if (!(Test-Path -LiteralPath $game -PathType Leaf)) { throw 'Game executable missing.' }
+    if (!(Test-Path -LiteralPath $manifestPath -PathType Leaf)) { throw 'Integrity manifest missing.' }
+    $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
+    if ($manifest.schema -ne 1 -or $manifest.game_file -ne [IO.Path]::GetFileName($game)) { throw 'Invalid integrity manifest.' }
+    if ([string]$manifest.game_sha256 -notmatch '^[0-9a-fA-F]{64}$') { throw 'Invalid recorded checksum.' }
+    $status.Text = 'Verifying game executable...'
+    $form.Refresh()
+    $hash = (Get-FileHash -LiteralPath $game -Algorithm SHA256).Hash
+    if ($hash -ine $manifest.game_sha256) { throw 'Game executable checksum does not match.' }
+    $status.Text = 'Game file verified successfully.'
+    [System.Windows.Forms.MessageBox]::Show('Moonfall executable matches the installed integrity manifest. Saved games were not changed.','Moonfall file verification') | Out-Null
+  } catch {
+    $status.Text = 'Game file verification failed.'
+    [System.Windows.Forms.MessageBox]::Show(($_.Exception.Message + [Environment]::NewLine + 'Reinstall from a verified release; do not delete your saves.'),'Moonfall file verification') | Out-Null
+  }
+})
 $form.Add_Shown({ if ($play.Enabled) { $play.Focus() } })
 # Escape closes the launcher without affecting the game or saves.
 $cancel = New-Object System.Windows.Forms.Button
 $cancel.Text = 'Close'
 $cancel.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
-$cancel.SetBounds(330,289,60,26)
+$cancel.SetBounds(330,321,60,26)
 $form.CancelButton = $cancel
 $form.Controls.Add($cancel)
 $persistSettings = {
