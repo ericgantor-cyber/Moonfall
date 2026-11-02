@@ -13,7 +13,7 @@ func _run()->void:
  await process_frame
  check(CURRENT_RELEASE.matches_project(game),"New scene and release label")
  check((game.get("region_nodes") as Array).size()==6,"All six connected regions")
- check((game.get("rifts") as Array).size()==3,"Three existing connected rifts")
+ check((game.get("rifts") as Array).size()==30,"Thirty existing connected rifts")
  check((game.get("v320_decor") as Array).size()==6,"Six instanced scenery batches")
  check((game.get("v320_wardens") as Array).size()==6,"Six regional NPCs")
  check((game.get("v320_impacts") as Array).size()==8,"Reusable combat impact pool")
