@@ -38,6 +38,10 @@ func _run()->void:
  check("event.keycode==KEY_M" in map_code,"M remains the map key")
  var follower:String=FileAccess.get_file_as_string("res://scripts/native_v38_5.gd")
  check("realm_combat_attack_timer" in follower and "var companion_attack_timer" not in follower,"inherited companion timer collision fixed")
+ var directional:String=FileAccess.get_file_as_string("res://scripts/native_v38_7.gd")
+ check("body==locked_body" in directional and "beasts.find(beast)" not in directional,"aim assistance resolves locked target without a per-enemy full scan")
+ check("not body.is_inside_tree() or not body.visible" in directional,"aim assistance excludes removed or hidden enemies")
+ check("func _toggle_aim_lock()->void:\n if not hero_playing or menu_open or death_active or wait_open or wait_transition_active:return" in directional,"manual aim lock respects gameplay state")
  var aim_code:String=FileAccess.get_file_as_string("res://scripts/native_v38_8.gd")
  check("beasts[aim_locked_id]==target" in aim_code and "beasts.find(target)" not in aim_code,"aim feedback avoids per-frame full beast-list lookup")
  var sample_targets:Array[int]=[1,4,9]
