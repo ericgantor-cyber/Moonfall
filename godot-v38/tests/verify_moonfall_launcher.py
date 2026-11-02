@@ -30,36 +30,3 @@ checks={
 }
 for name,ok in checks.items(): print(("PASS" if ok else "FAIL")+": "+name)
 raise SystemExit(0 if all(checks.values()) else 1)
-" in ps and "$actual -match '^[a-fA-F0-9]{64} "Moonfall-Integrity-Report-" in ps and "Expected SHA256:" in ps and "Actual SHA256:" in ps,
- "Safe repair guidance exists": "Show safe Moonfall game repair instructions" in ps and "Back up your saved games." in ps and "does not automatically replace files" in ps,
- "Verify button visible and accessible": "Verify game files" in ps and "Verify Moonfall installed game files" in ps,
- "Verify button checks SHA256": "$verify.Add_Click({" in ps and "$hash -ine $manifest.game_sha256" in ps,
- "Verify button retains saves": "Saved games were not changed." in ps,
- "X64 PE integrity check": "0x00004550" in ps and "0x8664" in ps and "0x3c" in ps,
- "Missing game disables Play": "if (Test-Path -LiteralPath $game -PathType Leaf)" in ps and "$play.Enabled = $false" in ps,
- "Keyboard focus starts on Play": "$form.Add_Shown(" in ps and "$play.Focus()" in ps,
- "Controller support handled by game": "InputEventJoypad" not in ps,
- "Batch launcher calls PowerShell": "MoonfallLauncher.ps1" in cmd,
- "Installer includes launcher files": 'Source: "MoonfallLauncher.ps1"' in iss and 'Source: "MoonfallLauncher.cmd"' in iss,
- "Installer retains direct game shortcut": 'Name: "{autoprograms}\\Moonfall Native"' in iss,
- "Installer adds launcher shortcut": 'Name: "{autoprograms}\\Moonfall Launcher"' in iss,
-}
-for name,ok in checks.items(): print(("PASS" if ok else "FAIL")+": "+name)
-raise SystemExit(0 if all(checks.values()) else 1)
-" in ps,
- "Local repair diagnostics": "Moonfall-Integrity-Report-" in ps and "Expected SHA256:" in ps and "Actual SHA256:" in ps,
- "Safe repair guidance exists": "Show safe Moonfall game repair instructions" in ps and "Back up your saved games." in ps and "does not automatically replace files" in ps,
- "Verify button visible and accessible": "Verify game files" in ps and "Verify Moonfall installed game files" in ps,
- "Verify button checks SHA256": "$verify.Add_Click({" in ps and "$hash -ine $manifest.game_sha256" in ps,
- "Verify button retains saves": "Saved games were not changed." in ps,
- "X64 PE integrity check": "0x00004550" in ps and "0x8664" in ps and "0x3c" in ps,
- "Missing game disables Play": "if (Test-Path -LiteralPath $game -PathType Leaf)" in ps and "$play.Enabled = $false" in ps,
- "Keyboard focus starts on Play": "$form.Add_Shown(" in ps and "$play.Focus()" in ps,
- "Controller support handled by game": "InputEventJoypad" not in ps,
- "Batch launcher calls PowerShell": "MoonfallLauncher.ps1" in cmd,
- "Installer includes launcher files": 'Source: "MoonfallLauncher.ps1"' in iss and 'Source: "MoonfallLauncher.cmd"' in iss,
- "Installer retains direct game shortcut": 'Name: "{autoprograms}\\Moonfall Native"' in iss,
- "Installer adds launcher shortcut": 'Name: "{autoprograms}\\Moonfall Launcher"' in iss,
-}
-for name,ok in checks.items(): print(("PASS" if ok else "FAIL")+": "+name)
-raise SystemExit(0 if all(checks.values()) else 1)
