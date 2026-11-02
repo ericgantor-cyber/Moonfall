@@ -23,4 +23,5 @@ func run()->void:
  ck(O.chamber_prompt({"active":true,"stage":3,"cleared":true},2).is_empty(),"sealed rift keeps inherited sealed label")
  ck(O.chamber_prompt(exploring,0).is_empty() and O.chamber_prompt(exploring,4).is_empty(),"invalid chamber indices ignored")
  ck(load("res://scenes/main.tscn")!=null,"live game scene loads")
+ if failures==0:print("MOONFALL RIFT OBJECTIVES PASS")
  quit(1 if failures else 0)
