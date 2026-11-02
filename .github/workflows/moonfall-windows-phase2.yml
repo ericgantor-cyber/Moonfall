@@ -38,6 +38,13 @@ jobs:
           if (!$found) { throw 'ISCC.exe missing after installing Inno Setup 6.' }
           if (!(Test-Path -LiteralPath $found -PathType Leaf)) { throw "Missing Inno Setup compiler: $found" }
           Write-Host "Located Inno Setup 6 compiler: $found"
+      - name: Compile launcher regression Python before expensive build
+        shell: pwsh
+        run: |
+          python -c "import ast, pathlib; ast.parse(pathlib.Path('tests/verify_moonfall_launcher.py').read_text(encoding='utf-8'))"
+          if ($LASTEXITCODE -ne 0) { throw 'Launcher Python regression script is invalid' }
+          python tests/verify_moonfall_launcher.py
+          if ($LASTEXITCODE -ne 0) { throw 'Launcher source regression failed' }
       - name: Validate launcher PowerShell syntax
         shell: pwsh
         run: |
