@@ -78,6 +78,7 @@ func _aim_candidate(radius:float)->Dictionary:
  return locked if not locked.is_empty() else closest
 
 func _toggle_aim_lock()->void:
+ if not hero_playing or menu_open or death_active or wait_open or wait_transition_active:return
  if aim_locked_id>=0:
   aim_locked_id=-1
   _show_message("Target unlocked",0.8)
