@@ -86,7 +86,7 @@ func _update_beast_step(beast:Dictionary,delta:float)->void:
      target_distance=boss_body.global_position.distance_to(player.global_position)
     var close_pressure:int=V313_RULES.update_close_pressure(int(beast.get("v313_close_pressure",0)),target_distance)
     beast["v313_close_pressure"]=close_pressure
-    beast["boss_pattern"]=V313_RULES.choose_boss_pattern(int(beast.get("boss_phase",1)),hp,max_hp,int(beast.get("boss_pattern",0)),target_distance,close_pressure,bool(beast.get("v313_last_attack_landed",false)))
+    beast["boss_pattern"]=V313_RULES.choose_boss_pattern(int(beast.get("boss_phase",1)),hp,max_hp,int(beast.get("boss_pattern",0)),target_distance,close_pressure,bool(beast.get("v313_last_attack_landed",false)),posmod(int(beast.get("boss_id",0)),3))
   elif V313_RULES.hurt_retreat(float(beast.get("hp",0.0)),float(beast.get("max",1.0)),bool(beast.get("boss",false)),bool(beast.get("engaged",false)),map_time>=float(beast.get("retreat_cooldown",0.0))):
    beast["retreat_until"]=map_time+1.35
    beast["retreat_cooldown"]=map_time+13.0
