@@ -103,6 +103,8 @@ try {
     $installerBuilt = $true
   }
   Write-Host '[7/7] Writing build evidence...' -ForegroundColor Cyan
+  $suiteCount = @(& $pythonExe (Join-Path $project 'tools\run_tests.py') '--list').Count
+  if ($LASTEXITCODE -ne 0 -or $suiteCount -lt 67) {throw 'Engine test suite inventory incomplete.'}
   $evidence = [ordered]@{
     package = 'Moonfall v38.1 release gate (v38.0 gameplay)'
     python_exe = $pythonExe
@@ -110,7 +112,7 @@ try {
     inno_compiler = if ($installerBuilt) {$iscc} else {$null}
     gameplay_source = 'v38.0'
     godot_version = $versionOutput
-    engine_test_suites_registered = 67
+    engine_test_suites_registered = $suiteCount
     game_exe = $game
     game_sha256 = (Get-FileHash -LiteralPath $game -Algorithm SHA256).Hash.ToLowerInvariant()
     installer_built = $installerBuilt
