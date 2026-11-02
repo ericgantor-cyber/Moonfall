@@ -36,19 +36,19 @@ func _run()->void:
  check(chest_count==6,"Original treasure chests preserved")
  game.set("active_rift",0)
  entry["active"]=true
- for stage in range(1,4):
-  entry["stage"]=stage
-  game.call("_activate_rift_wave",0)
-  var slots:Array=entry["slots"]
-  for i in range(slots.size()):
-   var enemy:Dictionary=(game.get("beasts") as Array)[int(slots[i])]
-   var body:CharacterBody3D=enemy["body"]
-   var expected:Vector3=RULES.enemy_position(entry["anchor"],stage,i)+Vector3(0,0.62,0)
-   check(body.position.distance_to(expected)<0.01,"Rift wave %d enemy %d moved to its chamber"%[stage,i])
-  if stage==3:
-   var champion:Dictionary=(game.get("beasts") as Array)[int(slots[2])]
-   check(bool(champion.get("dungeon_champion",false)),"Final room has actual champion")
-   check(float(champion["max"])>float(champion["base_hp"])*2.0,"Champion health increased above normal final wave")
+ # The active game uses one continuous encounter, not three wave resets.
+ entry["stage"]=1
+ game.call("_activate_rift_wave",0)
+ check(int(entry["stage"])==3,"Legacy completion sentinel set without wave progression")
+ var resident_slots:Array=entry["slots"]
+ for i in range(resident_slots.size()):
+  var enemy:Dictionary=(game.get("beasts") as Array)[int(resident_slots[i])]
+  var body:CharacterBody3D=enemy["body"]
+  var expected:Vector3=RULES.enemy_position(entry["anchor"],i+1,i)+Vector3(0,0.62,0)
+  check(body.position.distance_to(expected)<0.01,"Resident %d starts in a distinct chamber"%i)
+ var champion:Dictionary=(game.get("beasts") as Array)[int(resident_slots[2])]
+ check(bool(champion.get("dungeon_champion",false)),"Guardian chamber has actual champion")
+ check(float(champion["max"])>float(champion["base_hp"])*2.0,"Champion health exceeds ordinary resident")
  var before_drops:int=(game.get("gear_drops") as Array).size()
  var slots:Array=entry["slots"]
  for slot in slots:
@@ -68,7 +68,7 @@ func _run()->void:
  check(int(saved.get("schema",-1))==2 and not (saved.get("rifts",[]) as Array).is_empty() and int((saved.get("rifts",[]) as Array)[0])==0,"Schema-2 saved rift progress unchanged")
  var report:Dictionary=game.call("_perf_report")
  check(str(report.get("version","")).begins_with("v3") and int(report.get("dungeon_chambers",0))==9,"F9 includes chamber metrics")
- check(int(report.get("dungeon_waves_started",0))>=3 and int(report.get("dungeon_champions_spawned",0))==1,"F9 includes encounter metrics")
+ check(int(report.get("dungeon_waves_started",0))==1 and int(report.get("dungeon_champions_spawned",0))==1,"One continuous encounter and one champion recorded")
  game.queue_free()
  print("MOONFALL v32.1 STAGE 2 PASS" if failures==0 else "MOONFALL v32.1 STAGE 2 FAIL")
  quit(0 if failures==0 else 1)
