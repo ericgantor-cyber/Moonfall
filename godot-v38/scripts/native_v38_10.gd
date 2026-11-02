@@ -61,6 +61,10 @@ func _set_boss_telegraph(beast:Dictionary,active:bool)->void:
  if warning.text!=new_text:
   warning.text=new_text
   boss_warning_updates+=1
+ # Phase-linked warning colors add immediate visual contrast without spawning effects.
+ var phase_colors:Array[Color]=[Color("f6cd76"),Color("f18d6e"),Color("d96bf0")]
+ var desired:Color=phase_colors[phase-1]
+ if warning.modulate!=desired:warning.modulate=desired
  warning.visible=true
 
 ## Exploration-first readouts for the existing three-chamber rift.
