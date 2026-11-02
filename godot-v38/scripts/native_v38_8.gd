@@ -51,6 +51,7 @@ func _ready()->void:
   aim_strength_slider.editable=aim_assist_enabled
   aim_strength_slider.focus_mode=Control.FOCUS_ALL
   aim_strength_slider.value_changed.connect(_on_aim_strength_changed)
+  aim_strength_slider.drag_ended.connect(_on_aim_strength_drag_ended)
   controls.add_child(aim_strength_slider)
   var preset_row:HBoxContainer=HBoxContainer.new()
   controls.add_child(preset_row)
@@ -65,12 +66,7 @@ func _ready()->void:
 func _on_aim_assist_toggled(enabled:bool)->void:
  aim_assist_enabled=enabled
  if is_instance_valid(aim_strength_slider):aim_strength_slider.editable=enabled
- var config:ConfigFile=ConfigFile.new()
- config.load(AIM_PREFS_PATH)
- config.set_value("controls","aim_assist",enabled)
- config.set_value("controls","aim_assist_strength",aim_assist_strength)
- var result:Error=config.save(AIM_PREFS_PATH)
- if result!=OK:push_warning("Unable to save aim preference: "+str(result))
+ _save_aim_preferences()
 
 func _set_aim_preset(strength:float)->void:
  if not aim_assist_enabled:return
@@ -80,11 +76,18 @@ func _on_aim_strength_changed(value:float)->void:
  aim_assist_strength=clampf(value,0.0,1.0)
  if is_instance_valid(aim_strength_label):
   aim_strength_label.text="Aim assist strength: "+str(roundi(aim_assist_strength*100.0))+"%"
+ if not is_instance_valid(aim_strength_slider) or not aim_strength_slider.is_dragging():
+  _save_aim_preferences()
+
+func _on_aim_strength_drag_ended(_value_changed:bool)->void:
+ _save_aim_preferences()
+
+func _save_aim_preferences()->void:
  var config:ConfigFile=ConfigFile.new()
  config.load(AIM_PREFS_PATH)
  config.set_value("controls","aim_assist",aim_assist_enabled)
  config.set_value("controls","aim_assist_strength",aim_assist_strength)
- if config.save(AIM_PREFS_PATH)!=OK:push_warning("Unable to save aim strength")
+ if config.save(AIM_PREFS_PATH)!=OK:push_warning("Unable to save aim preferences")
 
 func _unhandled_input(event:InputEvent)->void:
  # Mouse motion claims aim source even while a controller remains connected.
