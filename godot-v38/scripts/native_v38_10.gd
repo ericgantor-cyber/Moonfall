@@ -315,30 +315,3 @@ func _build_rift_encounters()->void:
     _despawn_native_beast(creature,0.0)
    _set_rift_label(entry)
 
-## Lightweight hero-specific nameplate: identical original character textures.
-## Reuses one label across menu loads rather than spawning an effect every frame.
-var moonfall_hero_banner:Label3D
-func _start_game(selected:String)->void:
- super._start_game(selected)
- if not is_instance_valid(player):return
- if not is_instance_valid(moonfall_hero_banner):
-  moonfall_hero_banner=Label3D.new()
-  moonfall_hero_banner.name="MoonfallHeroBanner"
-  moonfall_hero_banner.font_size=27
-  moonfall_hero_banner.pixel_size=0.004
-  moonfall_hero_banner.billboard=BaseMaterial3D.BILLBOARD_ENABLED
-  moonfall_hero_banner.position=Vector3(0,2.6,0)
-  player.add_child(moonfall_hero_banner)
- moonfall_hero_banner.text="Z • DRAGONBORN" if hero=="z" else "NYRA • MOONWEAVER"
- moonfall_hero_banner.modulate=Color("f7b968") if hero=="z" else Color("b998f7")
-
-## Readable hero-specific feedback at attack time. Uses the existing message HUD,
-## without changing damage, cooldowns, attacks, or original hero textures.
-func _attack()->void:
- var was_ready:bool=attack_cooldown<=0.0
- super._attack()
- if not was_ready or not hero_playing:return
- if hero=="z":
-  _show_message("Z • DRAGON STRIKE",0.5)
- elif hero=="nyra":
-  _show_message("NYRA • MOON STRIKE",0.5)
