@@ -6,6 +6,17 @@ static func pattern_index(pattern:int,phase:int)->int:
  return posmod(pattern,pattern_count(phase))
 static func next_pattern(pattern:int,phase:int)->int:
  return (pattern_index(pattern,phase)+1)%pattern_count(phase)
+# Phase transitions unlock additional attacks while preserving the existing
+# deterministic rotation and the player's learned dodge timings.
+static func unlocked_patterns(phase:int)->Array[int]:
+ var result:Array[int]=[]
+ for index in range(pattern_count(phase)):
+  result.append(index)
+ return result
+
+static func pattern_unlocked(pattern:int,phase:int)->bool:
+ return pattern>=0 and pattern<pattern_count(phase)
+
 static func radius(pattern:int)->float:
  match posmod(pattern,4):
   0:return 2.8
