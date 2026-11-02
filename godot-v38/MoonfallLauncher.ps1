@@ -112,7 +112,14 @@ $play.Add_Click({
   try {
     $fs = [System.IO.File]::OpenRead($game)
     try {
-      if ($fs.Length -lt 256 -or $fs.ReadByte() -ne 77 -or $fs.ReadByte() -ne 90) { throw 'Invalid Windows executable header.' }
+      if ($fs.Length -lt 512 -or $fs.ReadByte() -ne 77 -or $fs.ReadByte() -ne 90) { throw 'Invalid DOS header.' }
+      $fs.Position = 0x3c
+      $reader = New-Object System.IO.BinaryReader($fs)
+      $peOffset = $reader.ReadInt32()
+      if ($peOffset -lt 64 -or $peOffset -gt ($fs.Length - 24)) { throw 'Invalid PE header offset.' }
+      $fs.Position = $peOffset
+      if ($reader.ReadUInt32() -ne 0x00004550) { throw 'Invalid PE signature.' }
+      if ($reader.ReadUInt16() -ne 0x8664) { throw 'Moonfall requires an x64 game executable.' }
     } finally { $fs.Dispose() }
   } catch {
     [System.Windows.Forms.MessageBox]::Show('Moonfall game file is damaged or unreadable. Reinstall from a verified release. Saves will not be deleted.','Game repair') | Out-Null
