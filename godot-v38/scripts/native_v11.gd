@@ -2332,7 +2332,7 @@ func _apply_player_hit(target:Dictionary, base_damage:float, stagger_strength:fl
   if is_instance_valid(ally_body) and is_instance_valid(target_body) and ally_body.global_position.distance_squared_to(target_body.global_position)<64.0:
    ally["alert_until"]=map_time+5.0
  _refresh_boss_phase(target)
- if AI_RULES.retreat_due(float(target["hp"]),float(target["max"]),bool(target.get("boss",false)),int(target.get("dungeon_site",-1)),map_time,float(target.get("retreat_cooldown",0.0))):
+ if AI_RULES.retreat_due(float(target["hp"]),float(target["max"]),bool(target.get("boss",false)),int(target.get("dungeon_site",-1)),map_time,float(target.get("retreat_cooldown",0.0)),ENEMY_COMBAT_RULES.role_for(str(target.get("kind","")))):
   target["retreat_until"] = map_time + 2.2
   target["retreat_cooldown"] = map_time + 14.0
   enemy_retreats += 1
