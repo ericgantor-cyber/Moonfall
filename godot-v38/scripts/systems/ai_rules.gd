@@ -12,7 +12,9 @@ static func approach(diff:Vector3,speed:float,spawn_id:int,is_boss:bool,boss_pha
  var advance:=diff.normalized()
  if not is_boss and distance<8.0:
   var side:=1.0 if spawn_id%2==0 else -1.0
-  advance=(advance+Vector3(-advance.z,0.0,advance.x)*side*0.42).normalized()
+  # Three stable approach lanes break up crowded packs without path scans.
+  var flank_weight:float=0.25+0.14*float(posmod(spawn_id,3))
+  advance=(advance+Vector3(-advance.z,0.0,advance.x)*side*flank_weight).normalized()
  if is_boss and boss_phase>=2:speed*=1.0+0.15*float(clampi(boss_phase,1,3)-1)
  return advance*speed
 
