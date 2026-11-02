@@ -52,7 +52,7 @@ func _cycle_aim_target()->void:
   aim_locked_id=-1
   _show_message("No visible target",0.9)
   return
- # Indices were collected in ascending canonical order; sorting is unnecessary.
+ # Preserves stable target order and wraps to the first valid target.
  var next_index:int=eligible.bsearch(aim_locked_id + 1)
  if next_index>=eligible.size():next_index=0
  aim_locked_id=eligible[next_index]
