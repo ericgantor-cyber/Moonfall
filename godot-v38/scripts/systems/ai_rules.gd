@@ -22,5 +22,5 @@ static func approach(diff:Vector3,speed:float,spawn_id:int,is_boss:bool,boss_pha
  if is_boss and boss_phase>=2:speed*=1.0+0.15*float(clampi(boss_phase,1,3)-1)
  return advance*minf(speed,20.0)
 
-static func retreat_due(hp:float,max_health:float,is_boss:bool,dungeon_site:int,now:float,cooldown_until:float) -> bool:
- return is_finite(hp) and is_finite(max_health) and max_health>0.0 and is_finite(now) and is_finite(cooldown_until) and hp>0.0 and hp<max_health*0.28 and not is_boss and dungeon_site<0 and now>=cooldown_until
+static func retreat_due(hp:float,max_health:float,is_boss:bool,dungeon_site:int,now:float,cooldown_until:float,role:String="ambusher") -> bool:
+ return is_finite(hp) and is_finite(max_health) and max_health>0.0 and is_finite(now) and is_finite(cooldown_until) and hp>0.0 and hp<max_health*(0.34 if role=="ambusher" else 0.20) and not is_boss and dungeon_site<0 and now>=cooldown_until
