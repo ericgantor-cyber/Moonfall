@@ -50,7 +50,7 @@ static func attack_timer_after_frame(current:float,delta:float)->float:
  return maxf(0.0,clampf(current,0.0,30.0)-elapsed)
 
 static func should_circle(kind:String,intent:String,distance:float)->bool:
- return is_finite(distance) and intent=="strafe" and kind in ["wolf","panther","serpent"] and distance>1.7 and distance<6.0
+ return intent=="strafe" and wants_flank(kind,distance,true) and distance<6.0
 
 ## Melee-only creatures must not kite as ranged characters.
 static func melee_engage_range(_kind:String)->float:
