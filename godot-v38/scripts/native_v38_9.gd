@@ -28,7 +28,7 @@ func _cycle_aim_target()->void:
  # Index the canonical beast list once instead of scanning it for every candidate.
  var zone_ids:Dictionary={}
  for beast in zone_beast_lists[region_index]:
-  if typeof(beast)==TYPE_DICTIONARY:
+  if typeof(beast)==TYPE_DICTIONARY and bool(beast.get("alive",false)) and bool(beast.get("hostile",false)):
    var body_ref:CharacterBody3D=beast.get("body") as CharacterBody3D
    if is_instance_valid(body_ref):zone_ids[body_ref.get_instance_id()]=true
  for index in range(beasts.size()):
