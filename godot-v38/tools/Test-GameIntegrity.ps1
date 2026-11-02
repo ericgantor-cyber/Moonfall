@@ -27,7 +27,19 @@ try {
     $stream.WriteByte([byte]($byte -bxor 1))
   } finally { $stream.Dispose() }
   if (Test-MoonfallIntegrity $copy $info) { throw 'Tampered executable incorrectly passed checksum verification' }
+  # A matching executable must still reject forged, malformed, or wrong-name manifests.
+  Copy-Item -LiteralPath $GameExe -Destination $copy -Force
+  $validInfo = Get-Content -LiteralPath $Manifest -Raw | ConvertFrom-Json
+  $validInfo.game_sha256 = '0' * 64
+  $validInfo | ConvertTo-Json | Set-Content -LiteralPath $info -Encoding UTF8
+  if (Test-MoonfallIntegrity $copy $info) { throw 'Incorrect manifest checksum was accepted' }
+  $validInfo.game_sha256 = (Get-FileHash -LiteralPath $copy -Algorithm SHA256).Hash
+  $validInfo.game_file = 'NotMoonfall.exe'
+  $validInfo | ConvertTo-Json | Set-Content -LiteralPath $info -Encoding UTF8
+  if (Test-MoonfallIntegrity $copy $info) { throw 'Incorrect filename was accepted' }
+  Set-Content -LiteralPath $info -Value '{bad-json' -Encoding UTF8
+  if (Test-MoonfallIntegrity $copy $info) { throw 'Malformed manifest was accepted' }
   Remove-Item -LiteralPath $info
   if (Test-MoonfallIntegrity $copy $info) { throw 'Missing manifest incorrectly passed integrity verification' }
-  Write-Host 'PASS: genuine file accepted, tampered file rejected, missing manifest rejected'
+  Write-Host 'PASS: good file accepted; damaged file, wrong checksum, wrong filename, malformed manifest and missing manifest rejected'
 } finally { Remove-Item -LiteralPath $temp -Recurse -Force -ErrorAction SilentlyContinue }
