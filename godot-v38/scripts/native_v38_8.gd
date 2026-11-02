@@ -5,6 +5,7 @@ var aim_options:PanelContainer
 var aim_toggle:CheckButton
 var aim_strength_slider:HSlider
 var aim_strength_label:Label
+var aim_strength_dragging:bool=false
 var aim_input_source:String="mouse"
 const AIM_PREFS_PATH:String="user://moonfall_aim.cfg"
 var aim_target_id:int=-1
@@ -51,6 +52,7 @@ func _ready()->void:
   aim_strength_slider.editable=aim_assist_enabled
   aim_strength_slider.focus_mode=Control.FOCUS_ALL
   aim_strength_slider.value_changed.connect(_on_aim_strength_changed)
+  aim_strength_slider.drag_started.connect(_on_aim_strength_drag_started)
   aim_strength_slider.drag_ended.connect(_on_aim_strength_drag_ended)
   controls.add_child(aim_strength_slider)
   var preset_row:HBoxContainer=HBoxContainer.new()
@@ -76,11 +78,15 @@ func _on_aim_strength_changed(value:float)->void:
  aim_assist_strength=clampf(value,0.0,1.0)
  if is_instance_valid(aim_strength_label):
   aim_strength_label.text="Aim assist strength: "+str(roundi(aim_assist_strength*100.0))+"%"
- if not is_instance_valid(aim_strength_slider) or not aim_strength_slider.is_dragging():
+ if not aim_strength_dragging:
   _save_aim_preferences()
 
-func _on_aim_strength_drag_ended(_value_changed:bool)->void:
- _save_aim_preferences()
+func _on_aim_strength_drag_started()->void:
+ aim_strength_dragging=true
+
+func _on_aim_strength_drag_ended(value_changed:bool)->void:
+ aim_strength_dragging=false
+ if value_changed:_save_aim_preferences()
 
 func _save_aim_preferences()->void:
  var config:ConfigFile=ConfigFile.new()
