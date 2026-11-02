@@ -358,8 +358,11 @@ func _process(delta:float)->void:
   var marker:Label3D=secret["node"]
   var site:int=int(secret["site"])
   var allowed:bool=site>=0 and site<rifts.size() and active_rift==site and not bool(rifts[site].get("cleared",false))
-  marker.visible=allowed and player.global_position.distance_squared_to(marker.global_position)<20.0*20.0
-  if marker.visible:
+  # Skip unchanged hidden markers; only update scene visibility on transitions.
+  if not allowed and not marker.visible:continue
+  var should_show:bool=allowed and player.global_position.distance_squared_to(marker.global_position)<20.0*20.0
+  if marker.visible!=should_show:marker.visible=should_show
+  if should_show:
    var wanted:String="ANCIENT INSCRIPTION • READ" if bool(secret["read"]) else "ANCIENT INSCRIPTION • G TO READ"
    if bool(secret.get("reward",false)):
     wanted="MOON RELIC • DISCOVERED" if bool(secret["read"]) else "HIDDEN MOON RELIC • G TO DISCOVER"
