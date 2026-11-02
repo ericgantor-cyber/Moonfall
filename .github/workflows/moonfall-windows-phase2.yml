@@ -104,6 +104,14 @@ jobs:
           $hash = (Get-FileHash 'build/MoonfallNative_v34_4.exe' -Algorithm SHA256).Hash
           if ($manifest.game_sha256 -ine $hash) { throw 'Release game hash mismatch' }
           Write-Host 'PASS: all distributable files present and executable SHA256 matches manifest'
+      - name: Validate integrity test PowerShell syntax
+        shell: pwsh
+        run: |
+          $tokens = $null
+          $parseErrors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile((Join-Path (Get-Location) 'tools/Test-GameIntegrity.ps1'), [ref]$tokens, [ref]$parseErrors) | Out-Null
+          if ($parseErrors.Count -gt 0) { $parseErrors | ForEach-Object { Write-Host $_ }; throw 'Integrity test script syntax invalid' }
+          Write-Host 'PASS: integrity test script PowerShell parses cleanly'
       - name: Negative-test game integrity verification
         shell: pwsh
         run: |
