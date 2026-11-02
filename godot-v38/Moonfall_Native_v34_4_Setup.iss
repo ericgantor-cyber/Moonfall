@@ -24,9 +24,12 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "desktopicon"; Description: "Create desktop shortcut"; GroupDescription: "Shortcuts:"; Flags: checkedonce
 [Files]
 Source: "{#BuildDir}\{#ExeName}"; DestDir: "{app}"; Flags: ignoreversion
+Source: "MoonfallLauncher.ps1"; DestDir: "{app}"; Flags: ignoreversion
+Source: "MoonfallLauncher.cmd"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#BuildDir}\GODOT_LICENSE.txt"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
 [Icons]
 Name: "{autoprograms}\Moonfall Native"; Filename: "{app}\{#ExeName}"
+Name: "{autoprograms}\Moonfall Launcher"; Filename: "{app}\MoonfallLauncher.cmd"; IconFilename: "{app}\{#ExeName}"
 Name: "{autodesktop}\Moonfall Native"; Filename: "{app}\{#ExeName}"; Tasks: desktopicon
 [Run]
 Filename: "{app}\{#ExeName}"; Description: "Launch Moonfall Native"; Flags: nowait postinstall skipifsilent
