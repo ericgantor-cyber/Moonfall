@@ -65,7 +65,7 @@ func _run()->void:
  check(enemy_rules.attack_window_count("boar")==6,"bruiser uses six turn slots")
  check(enemy_rules.tactical_attack_ready("wolf",0.0,0),"ambusher attacks on its turn")
  check(not enemy_rules.tactical_attack_ready("wolf",0.25,0),"ambusher waits between turns")
- check(enemy_rules.tactical_attack_ready("boar",1.25,0),"bruiser gets its second opportunity")
+ check(enemy_rules.tactical_attack_ready("boar",0.25,0),"bruiser gets its second opportunity")
  check(not enemy_rules.tactical_attack_ready("boar",INF,0),"invalid time cannot create attack turn")
  check(load("res://scenes/main.tscn")!=null,"whole Moonfall scene loads")
  quit(1 if failures else 0)
