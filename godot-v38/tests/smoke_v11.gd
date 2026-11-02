@@ -34,7 +34,7 @@ func _run() -> void:
   total+=lists[zone].size()
   _check(regions[zone].get_child_count()>10,"Sector "+str(zone)+" scenery grouped")
  _check(total==game.get("beasts").size(),"Each creature mapped to exactly one sector")
- _check(total==74,"48 wildlife, 5 guardians, 9 rift slots, 12 lunar invasion slots (actual="+str(total)+")")
+ _check(total==155,"48 wildlife, 5 guardians, 90 rift slots, 12 lunar invasion slots (actual="+str(total)+")")
  var events:Array=game.get("world_events")
  _check(events.size()==6,"Six regional living-world events")
  _check(game.get("events_completed").is_empty(),"Events begin unclaimed")
@@ -66,7 +66,7 @@ func _run() -> void:
  game.call("_reset_native_beast",retreat_target)
  _check(float(retreat_target.get("retreat_until",1.0))==0.0,"Respawn resets retreat state")
  var sites:Array=game.get("rifts")
- _check(sites.size()==3,"Three open-world rift encounter sites")
+ _check(sites.size()==30,"Five open-world rift dungeons in each of six zones")
  for site in sites:
   _check(site["slots"].size()==3,"Each rift reuses exactly three combat slots")
   for slot in site["slots"]:
