@@ -6,6 +6,17 @@ var boss_warning_labels:Dictionary={}
 const MAX_BOSS_WARNING_LABELS:int=24
 var boss_warning_updates:int=0
 
+func _refresh_boss_phase(beast:Dictionary)->void:
+ var old_phase:int=clampi(int(beast.get("boss_phase",1)),1,3)
+ var old_pattern:int=int(beast.get("boss_pattern",0))
+ super._refresh_boss_phase(beast)
+ var new_phase:int=clampi(int(beast.get("boss_phase",1)),1,3)
+ if new_phase<=old_phase:return
+ # Existing combat uses the pattern counter as the NEXT attack; rotate
+ # deterministically only on a genuine phase upgrade.
+ beast["boss_pattern"]=GUARDIAN_RULES.next_pattern_after_phase_change(old_pattern,new_phase)
+ _show_message("GUARDIAN PHASE "+str(new_phase)+" - NEW ATTACKS!",1.5)
+
 func _prune_boss_warning_labels()->void:
  for key in boss_warning_labels.keys():
   var label:Variant=boss_warning_labels.get(key)
