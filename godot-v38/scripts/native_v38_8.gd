@@ -63,7 +63,23 @@ func _ready()->void:
    preset_button.focus_mode=Control.FOCUS_ALL
    preset_button.pressed.connect(_set_aim_preset.bind(preset))
    preset_row.add_child(preset_button)
+  var reset_button:Button=Button.new()
+  reset_button.text="Reset Aim Assist"
+  reset_button.tooltip_text="Restore default aim assist settings"
+  reset_button.focus_mode=Control.FOCUS_ALL
+  reset_button.pressed.connect(_reset_aim_preferences)
+  controls.add_child(reset_button)
 
+
+func _reset_aim_preferences()->void:
+ aim_assist_enabled=true
+ aim_assist_strength=0.5
+ if is_instance_valid(aim_toggle):aim_toggle.set_pressed_no_signal(true)
+ if is_instance_valid(aim_strength_slider):
+  aim_strength_slider.editable=true
+  aim_strength_slider.set_value_no_signal(aim_assist_strength)
+ if is_instance_valid(aim_strength_label):aim_strength_label.text="Aim assist strength: 50%"
+ _save_aim_preferences()
 
 func _on_aim_assist_toggled(enabled:bool)->void:
  aim_assist_enabled=enabled
