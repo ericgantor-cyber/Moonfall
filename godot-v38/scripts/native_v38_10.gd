@@ -14,7 +14,7 @@ func _refresh_boss_phase(beast:Dictionary)->void:
  if new_phase<=old_phase:return
  # A queued warning describes the attack already committed. Do not swap its
  # pattern mid-telegraph; rotate the next attack only after it resolves.
- if bool(beast.get("boss_windup",false)):return
+ if float(beast.get("windup",0.0))>0.0:return
  # Existing combat uses the pattern counter as the NEXT attack; rotate
  # deterministically only on a genuine phase upgrade.
  beast["boss_pattern"]=GUARDIAN_RULES.next_pattern_after_phase_change(old_pattern,new_phase)
