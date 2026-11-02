@@ -20,14 +20,20 @@ func _unhandled_input(event:InputEvent)->void:
 func _cycle_aim_target()->void:
  if not is_instance_valid(player) or region_index<0 or region_index>=zone_beast_lists.size():return
  var eligible:Array[int]=[]
+ # Index the canonical beast list once instead of scanning it for every candidate.
+ var zone_ids:Dictionary={}
  for beast in zone_beast_lists[region_index]:
+  if typeof(beast)==TYPE_DICTIONARY:
+   var body_ref:CharacterBody3D=beast.get("body") as CharacterBody3D
+   if is_instance_valid(body_ref):zone_ids[body_ref.get_instance_id()]=true
+ for index in range(beasts.size()):
+  var beast:Dictionary=beasts[index]
   if not bool(beast.get("alive",false)) or not bool(beast.get("hostile",false)):continue
   var body:CharacterBody3D=beast.get("body") as CharacterBody3D
-  if not is_instance_valid(body):continue
+  if not is_instance_valid(body) or not zone_ids.has(body.get_instance_id()):continue
   if player.global_position.distance_squared_to(body.global_position)>AIM_RANGE*AIM_RANGE:continue
   if not _has_clear_sight(player,body):continue
-  var index:int=beasts.find(beast)
-  if index>=0:eligible.append(index)
+  eligible.append(index)
  if eligible.is_empty():
   aim_locked_id=-1
   _show_message("No visible target",0.9)
