@@ -76,9 +76,10 @@ jobs:
           foreach ($suite in $suites) {
             $log = Join-Path 'build/phase2-test-logs' ($suite + '.log')
             Write-Host "PHASE 2: $suite"
-            & $engine --headless --path . --script ("res://tests/" + $suite) *> $log
-            $exitCode = $LASTEXITCODE
-            $output = Get-Content -LiteralPath $log -Raw
+            $process = Start-Process -FilePath $engine -ArgumentList @("--headless", "--path", ".", "--script", ("res://tests/" + $suite)) -WorkingDirectory (Get-Location).Path -Wait -PassThru -RedirectStandardOutput $log -RedirectStandardError ($log + ".stderr")
+            $exitCode = $process.ExitCode
+            $output = (Get-Content -LiteralPath $log -Raw) + (Get-Content -LiteralPath ($log + ".stderr") -Raw)
+            Write-Host "Suite $suite exited $exitCode; output bytes: $($output.Length)"
             if ($exitCode -ne 0 -or $output -match 'SCRIPT ERROR|Parse Error|Failed to load script|Assertion failed') {
               Write-Host $output
               $failed += $suite
@@ -99,4 +100,4 @@ jobs:
             godot-v38/build/*.txt
             godot-v38/Release_Windows/*.exe
             godot-v38/GODOT_*_LOG.txt
-            godot-v38/build/phase2-test-logs/*.log
+            godot-v38/build/phase2-test-logs/*
