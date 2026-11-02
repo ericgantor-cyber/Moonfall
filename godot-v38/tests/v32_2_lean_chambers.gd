@@ -14,7 +14,7 @@ func _run()->void:
  check(CURRENT_RELEASE.matches_project(game),"Release script wired")
  check((game.get("v321_chambers") as Array).size()==9,"Original nine chambers")
  check((game.get("region_nodes") as Array).size()==6,"Original six regions")
- check((game.get("rifts") as Array).size()==3,"Original three rifts")
+ check((game.get("rifts") as Array).size()==30,"All thirty connected rifts")
  game.call("_start_game","z")
  await process_frame
  game.call("_v321_update_chambers")
