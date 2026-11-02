@@ -96,6 +96,7 @@ func _run()->void:
  var boss_controller:String=FileAccess.get_file_as_string("res://scripts/native_v38_10.gd")
  check("func _refresh_boss_phase(beast:Dictionary)->void:" in boss_controller and "super._refresh_boss_phase(beast)" in boss_controller,"live guardian phase changes invoke parent behavior")
  check("new_phase<=old_phase:return" in boss_controller and "next_pattern_after_phase_change(old_pattern,new_phase)" in boss_controller,"new attack selection runs only when guardian phase increases")
+ check("boss_windup" in boss_controller and "if bool(beast.get(\"boss_windup\",false)):return" in boss_controller,"active guardian windup is protected from attack rotation")
  var sprite=game.get("hero_sprite") as Sprite3D
  check(is_instance_valid(sprite) and sprite.texture!=null,"original hero sprite texture present")
  game.queue_free()
