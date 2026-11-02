@@ -14,6 +14,8 @@ func _run()->void:
  check(RULES.room_position(anchor,3)==Vector3(10,0,31),"Room 3 stable position")
  check(RULES.enemy_position(anchor,2,0).distance_to(RULES.room_position(anchor,2))<3.0,"Three chamber spawn layout")
  check(RULES.chamber_title(3)=="Guardian Heart","Named final chamber")
+ check(RULES.chamber_count(0,0)>=5 and RULES.chamber_count(0,0)<=14,"Exploration chamber count stays in requested range")
+ check(RULES.room_position(anchor,4)!=RULES.room_position(anchor,3),"Exploration passage connects distinct chamber sites")
  check(RULES.room_visible(2000.0,false) and not RULES.room_visible(9000.0,false),"Chamber LOD culling")
  check(not RULES.room_visible(20.0,true),"Smooth graphics reduces decorative detail")
  check(is_equal_approx(RULES.final_champion_health(100,3,2),165.0),"Final champion health bonus")
