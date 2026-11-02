@@ -17,7 +17,9 @@ static func attack_cooldown(kind:String)->float:
   _:return 1.5
 
 static func attack_timer_after_frame(current:float,delta:float)->float:
- return maxf(0.0,clampf(current,0.0,30.0)-clampf(delta if is_finite(delta) else 0.0,0.0,0.1)) if is_finite(current) else 0.0
+ if not is_finite(current):return 0.0
+ var elapsed:float=clampf(delta,0.0,0.1) if is_finite(delta) else 0.0
+ return maxf(0.0,clampf(current,0.0,30.0)-elapsed)
 
 static func should_circle(kind:String,intent:String,distance:float)->bool:
  return is_finite(distance) and intent=="strafe" and kind in ["wolf","panther","serpent"] and distance>1.7 and distance<6.0
