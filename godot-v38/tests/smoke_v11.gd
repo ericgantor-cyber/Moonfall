@@ -66,7 +66,7 @@ func _run() -> void:
  game.call("_reset_native_beast",retreat_target)
  _check(float(retreat_target.get("retreat_until",1.0))==0.0,"Respawn resets retreat state")
  var sites:Array=game.get("rifts")
- _check(sites.size()==3,"Three open-world rift encounter sites")
+ _check(sites.size()==30,"Five open-world rift dungeons in each of six zones")
  for site in sites:
   _check(site["slots"].size()==3,"Each rift reuses exactly three combat slots")
   for slot in site["slots"]:
