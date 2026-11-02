@@ -105,6 +105,8 @@ var region_refresh_tick := 0.0
 var respawn_refresh_tick := 0.0
 var visible_regions := 0
 var ai_updates := 0
+# Debug-only cumulative visibility-ray counter for profiling AI and combat.
+var debug_visibility_rays:int=0
 var region_shrines: Array[Node3D] = []
 var shrine_lights: Array[OmniLight3D] = []
 var shrine_discovery: Array[int] = []
@@ -1336,7 +1338,7 @@ func _atlas_execute(action: String) -> void:
   var alive:=0
   for b in beasts:
    if bool(b.get("alive",false)):alive+=1
-  menu_body.text="[b]WORLD HEALTH / NATIVE v13[/b]\n\nFPS: "+str(Engine.get_frames_per_second())+"\nAlive creatures: "+str(alive)+" / "+str(beasts.size())+"\nNatural hunts: "+str(hunts_completed)+"\nHerd alarms: "+str(herds_alerted)+"\nBlocked line-of-sight checks: "+str(blocked_hits)+"\nGear picked up: "+str(pickup_count)+"\nGround gear: "+str(gear_drops.size())+" / "+str(MAX_GROUND_DROPS)+"\nSkinnable carcasses: "+str(carcasses.size())+" / "+str(MAX_CARCASSES)+"\nWildlife respawns: "+str(respawns_total)+"\nRestored dormant beasts: "+str(restored_wildlife)+"\nActive scenery regions: "+str(visible_regions)+" / 6\nRegional AI updates: "+str(ai_updates)+"\nCheckpoint health: "+save_health+"\n\nThis is a prototype diagnostic panel, not a separate game mode."
+  menu_body.text="[b]WORLD HEALTH / NATIVE v13[/b]\n\nFPS: "+str(Engine.get_frames_per_second())+"\nAlive creatures: "+str(alive)+" / "+str(beasts.size())+"\nNatural hunts: "+str(hunts_completed)+"\nHerd alarms: "+str(herds_alerted)+"\nBlocked line-of-sight checks: "+str(blocked_hits)+"\nVisibility raycasts (debug only): "+str(debug_visibility_rays)+"\nGear picked up: "+str(pickup_count)+"\nGround gear: "+str(gear_drops.size())+" / "+str(MAX_GROUND_DROPS)+"\nSkinnable carcasses: "+str(carcasses.size())+" / "+str(MAX_CARCASSES)+"\nWildlife respawns: "+str(respawns_total)+"\nRestored dormant beasts: "+str(restored_wildlife)+"\nActive scenery regions: "+str(visible_regions)+" / 6\nRegional AI updates: "+str(ai_updates)+"\nCheckpoint health: "+save_health+"\n\nThis is a prototype diagnostic panel, not a separate game mode."
   return
  if action.begins_with("wallet_"):
   _wallet_action(action)
@@ -1838,6 +1840,7 @@ func _combat_threat() -> bool:
 
 func _has_clear_sight(a:CollisionObject3D,b:CollisionObject3D) -> bool:
  if not is_instance_valid(a) or not is_instance_valid(b):return false
+ if OS.has_feature("debug"):debug_visibility_rays+=1
  var start:=a.global_position+Vector3.UP*0.45
  var end:=b.global_position+Vector3.UP*0.45
  var params:=PhysicsRayQueryParameters3D.create(start,end)
