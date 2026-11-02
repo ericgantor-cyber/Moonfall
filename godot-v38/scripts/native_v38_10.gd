@@ -179,6 +179,12 @@ func _v321_build_chambers()->void:
    var at:Vector3=V321_RULES.room_position(center,chamber)
    var accent:Node3D=_add_sphere(at+Vector3(4.4,0.8,-3.8),0.45,tones[chamber-1],false,true)
    accent.name="RiftMoonEmberAccent"
+   # An unmistakable shrine silhouette: stacked plinth and hovering lunar orb.
+   # Kept off the central route; purely decorative and non-colliding.
+   var plinth:Node3D=_add_box(at+Vector3(-4.2,0.35,-4.0),Vector3(2.0,0.7,2.0),Color("302b43"),false)
+   plinth.name="RiftMoonShrinePlinth"
+   var halo:Node3D=_add_sphere(at+Vector3(-4.2,1.9,-4.0),0.75,tones[chamber-1],false,true)
+   halo.name="RiftMoonShrineOrb"
    # A compact broken-stone shrine silhouette beside each chamber, assembled once.
    # Reuse existing primitives and shared scene materials; no additional lights.
    var stone:Color=Color("373044").lerp(tones[chamber-1],0.18)
