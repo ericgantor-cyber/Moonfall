@@ -1,0 +1,41 @@
+name: Moonfall Windows 10-11 build
+on:
+  push:
+    branches:
+      - moonfall-windows-ci-root-20261101
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 110
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: godot-v38
+    steps:
+      - name: Checkout Moonfall source
+        uses: actions/checkout@v4
+      - name: Verify Windows project layout
+        shell: pwsh
+        run: |
+          if (!(Test-Path 'project.godot')) { throw 'Missing project.godot' }
+          if (!(Test-Path 'BUILD_MOONFALL_ONE_CLICK.ps1')) { throw 'Missing Windows build script' }
+          if (!(Test-Path 'export_presets.cfg')) { throw 'Missing export preset' }
+      - name: Build and verify Windows game and installer
+        shell: pwsh
+        run: |
+          ./BUILD_MOONFALL_ONE_CLICK.ps1
+      - name: Publish Windows build evidence and binaries
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: moonfall-windows-build-results
+          if-no-files-found: warn
+          retention-days: 14
+          path: |
+            godot-v38/build/*.exe
+            godot-v38/build/*.json
+            godot-v38/build/*.txt
+            godot-v38/Release_Windows/*.exe
+            godot-v38/GODOT_*_LOG.txt
