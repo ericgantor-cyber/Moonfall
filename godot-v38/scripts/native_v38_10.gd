@@ -12,13 +12,11 @@ func _refresh_boss_phase(beast:Dictionary)->void:
  super._refresh_boss_phase(beast)
  var new_phase:int=clampi(int(beast.get("boss_phase",1)),1,3)
  if new_phase<=old_phase:return
- # A queued warning describes the attack already committed. Do not swap its
- # pattern mid-telegraph; rotate the next attack only after it resolves.
- if float(beast.get("windup",0.0))>0.0:return
- # Existing combat uses the pattern counter as the NEXT attack; rotate
- # deterministically only on a genuine phase upgrade.
- beast["boss_pattern"]=GUARDIAN_RULES.next_pattern_after_phase_change(old_pattern,new_phase)
  _show_message("GUARDIAN PHASE "+str(new_phase)+" - NEW ATTACKS!",1.5)
+ # Keep the already-telegraphed attack intact when health crosses a
+ # phase threshold during its windup.
+ if float(beast.get("windup",0.0))>0.0:return
+ beast["boss_pattern"]=GUARDIAN_RULES.next_pattern_after_phase_change(old_pattern,new_phase)
 
 func _prune_boss_warning_labels()->void:
  for key in boss_warning_labels.keys():
