@@ -159,6 +159,7 @@ func _menu_tab(which:String)->void:
  super._menu_tab(which)
  if which!="World" or not is_instance_valid(menu_body):return
  menu_body.text=menu_body.text.replace("clear three escalating waves in the open world.","explore its three chambers without waves.")
+ menu_body.text+="\n\n[b]ANCIENT INSCRIPTIONS[/b]  "+str(_rift_discovery_count())+"/"+str(rift_secret_signs.size())+" discovered. Search each Moonbound Passage for a hidden inscription."
  menu_body.text=menu_body.text.replace("Clear enemies to advance chambers, then defeat the Rift Champion for an additional named legendary.","Explore every chamber freely, attune moon glyphs in any order, and defeat the rift residents to earn a named legendary.")
  for entry in rifts:
   if bool(entry.get("active",false)) and not bool(entry.get("cleared",false)):
@@ -194,3 +195,16 @@ func _process(delta:float)->void:
   if marker.visible:
    var wanted:String="ANCIENT INSCRIPTION • READ" if bool(secret["read"]) else "ANCIENT INSCRIPTION • G TO READ"
    if marker.text!=wanted:marker.text=wanted
+
+## Exploration discoveries reset on a new adventure, never on ordinary menu use.
+## Rift lore does not award farmable currency or introduce a save field.
+func _reset_new_adventure()->void:
+ super._reset_new_adventure()
+ for secret in rift_secret_signs:
+  secret["read"]=false
+
+func _rift_discovery_count()->int:
+ var total:int=0
+ for secret in rift_secret_signs:
+  if bool(secret.get("read",false)):total+=1
+ return total
