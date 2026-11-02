@@ -170,6 +170,15 @@ func _menu_tab(which:String)->void:
 var rift_secret_signs:Array[Dictionary]=[]
 func _v321_build_chambers()->void:
  super._v321_build_chambers()
+ # Three reusable procedural accents per dungeon; no lights or per-frame effects.
+ # Violet moon, ember-red ruins, and cool blue magic make the three rooms distinct.
+ var tones:Array[Color]=[Color("9159eb"),Color("d44b56"),Color("49b6da")]
+ for entry in rifts:
+  var center:Vector3=entry["anchor"]
+  for chamber in range(1,4):
+   var at:Vector3=V321_RULES.room_position(center,chamber)
+   var accent:Node3D=_add_sphere(at+Vector3(4.4,0.8,-3.8),0.45,tones[chamber-1],false,true)
+   accent.name="RiftMoonEmberAccent"
  for site in range(rifts.size()):
   var anchor:Vector3=rifts[site]["anchor"]
   var marker:=Label3D.new()
