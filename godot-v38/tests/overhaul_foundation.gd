@@ -110,6 +110,8 @@ func _run()->void:
  check(adaptive.update_close_pressure(4,8.0)==0,"pressure resets when hero retreats")
  check(adaptive.update_close_pressure(4,-1.0)==0,"pressure resets when hero location unavailable")
  check(adaptive.update_close_pressure(4,3.0)==3,"pressure decays outside close range")
+ check(adaptive.choose_boss_pattern(3,100.0,100.0,1,3.0,0,true)==0,"guardian changes follow-up after landing attack")
+ check(adaptive.choose_boss_pattern(3,100.0,100.0,1,3.0,0,false)==2,"missed attack retains regular pattern rotation")
  var sprite=game.get("hero_sprite") as Sprite3D
  check(is_instance_valid(sprite) and sprite.texture!=null,"original hero sprite texture present")
  game.queue_free()
