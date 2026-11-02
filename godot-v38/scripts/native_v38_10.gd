@@ -208,3 +208,42 @@ func _rift_discovery_count()->int:
  for secret in rift_secret_signs:
   if bool(secret.get("read",false)):total+=1
  return total
+
+## Five continuous rift dungeons per zone. The three original sites retain
+## their save indexes; the other 27 are appended for backward compatibility.
+const RIFTS_PER_ZONE:int=5
+func _build_rift_encounters()->void:
+ super._build_rift_encounters()
+ var original_count:int=rifts.size()
+ for zone in range(REGIONS.size()):
+  var existing:int=0
+  for site in range(original_count):
+   if int(rifts[site]["zone"])==zone:existing+=1
+  var region:Dictionary=REGIONS[zone]
+  var mid:Vector2=region["at"]
+  var kind:String=str(region.get("monster","wolf"))
+  if not BEASTS.has(kind):kind="wolf"
+  for index in range(existing,RIFTS_PER_ZONE):
+   var angle:float=TAU*float(index)/float(RIFTS_PER_ZONE)+0.30
+   var radius:float=30.0+float(index%2)*4.0
+   var anchor:=Vector3(mid.x+cos(angle)*radius,0.0,mid.y+sin(angle)*radius)
+   var sigil:=_add_sphere(anchor+Vector3(0,0.65,0),0.64,Color("a457ff"),false,true)
+   sigil.name="PersistentRiftAnchor"
+   var sign:=Label3D.new()
+   sign.text="RIFT • "+str(region.get("name","Unknown"))+" Sanctuary "+str(index+1)+"\n(G) Explore"
+   sign.font_size=28
+   sign.pixel_size=0.006
+   sign.billboard=BaseMaterial3D.BILLBOARD_ENABLED
+   sign.position=Vector3(0,1.8,0)
+   sigil.add_child(sign)
+   var entry:Dictionary={"name":str(region.get("name","Unknown"))+" Sanctuary "+str(index+1),"zone":zone,"anchor":anchor,"marker":sigil,"label":sign,"stage":0,"active":false,"cleared":false,"slots":[]}
+   var site_id:int=rifts.size()
+   rifts.append(entry)
+   for n in range(3):
+    var creature_at:Vector3=anchor+Vector3(cos(float(n)*TAU/3.0)*5.0,0,sin(float(n)*TAU/3.0)*5.0)
+    _spawn_beast(creature_at,kind,zone,"dusk" if n==2 else "moon")
+    var creature:Dictionary=beasts[beasts.size()-1]
+    creature["dungeon_site"]=site_id
+    entry["slots"].append(int(creature["boss_id"]))
+    _despawn_native_beast(creature,0.0)
+   _set_rift_label(entry)
