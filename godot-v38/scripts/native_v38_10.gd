@@ -145,10 +145,11 @@ func _interact()->void:
    if site!=active_rift or bool(rifts[site].get("cleared",false)):continue
    if player.global_position.distance_squared_to(marker.global_position)>DEPTH_INTERACT_RADIUS_SQ:continue
    if bool(secret["read"]):
-    _show_message("The inscription has already shared its secret.",2.0)
+    _show_message("Inscription recorded • revisit this chamber for its history.",2.0)
    else:
     secret["read"]=true
-    _show_message("ANCIENT INSCRIPTION: The moon remembers every guardian who stood here.",4.0)
+    var lore:Array[String]=["The first guardians sealed the crimson moon beneath these stones.","Moonbound travelers followed the three violet glyphs to find sanctuary.","The Guardian Heart remembers those who returned without surrendering."]
+    _show_message("ANCIENT INSCRIPTION: "+lore[site%lore.size()],5.0)
    return
  super._interact()
 
@@ -190,3 +191,6 @@ func _process(delta:float)->void:
   var site:int=int(secret["site"])
   var allowed:bool=site>=0 and site<rifts.size() and active_rift==site and not bool(rifts[site].get("cleared",false))
   marker.visible=allowed and player.global_position.distance_squared_to(marker.global_position)<20.0*20.0
+  if marker.visible:
+   var wanted:String="ANCIENT INSCRIPTION • READ" if bool(secret["read"]) else "ANCIENT INSCRIPTION • G TO READ"
+   if marker.text!=wanted:marker.text=wanted
