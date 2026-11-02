@@ -13,7 +13,8 @@ if (Test-Path -LiteralPath $settingsFile) {
 }
 $form = New-Object System.Windows.Forms.Form
 $form.Text = 'Moonfall Launcher'
-$form.Size = New-Object System.Drawing.Size(430,310)
+$form.ClientSize = New-Object System.Drawing.Size(410,280)
+$form.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::Dpi
 $form.StartPosition = 'CenterScreen'
 $form.FormBorderStyle = 'FixedDialog'
 $form.MaximizeBox = $false
@@ -39,7 +40,7 @@ $play.FlatStyle = 'Flat'
 $form.Controls.Add($play)
 $form.AcceptButton = $play
 $display = New-Object System.Windows.Forms.CheckBox
-$display.Text = 'Start in fullscreen'
+$display.Text = 'Start in &fullscreen'
 $display.ForeColor = [System.Drawing.Color]::White
 $display.Checked = $fullscreen
 $display.SetBounds(32,170,240,30)
@@ -54,8 +55,13 @@ $folder.SetBounds(208,211,170,31)
 $form.Controls.Add($folder)
 $status = New-Object System.Windows.Forms.Label
 $status.ForeColor = [System.Drawing.Color]::LightGray
-$status.SetBounds(30,246,350,22)
+$status.SetBounds(30,246,285,22)
 $form.Controls.Add($status)
+$play.AccessibleName = 'Play Moonfall'
+$display.AccessibleName = 'Start Moonfall in fullscreen'
+$updates.AccessibleName = 'Open Moonfall releases page'
+$folder.AccessibleName = 'Open Moonfall installation folder'
+$status.AccessibleName = 'Moonfall launcher readiness status'
 if (Test-Path -LiteralPath $game -PathType Leaf) {
   $status.Text = 'Ready to play'
 } else {
@@ -67,6 +73,7 @@ $form.Add_Shown({ if ($play.Enabled) { $play.Focus() } })
 $cancel = New-Object System.Windows.Forms.Button
 $cancel.Text = 'Close'
 $cancel.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
+$cancel.SetBounds(330,246,60,26)
 $form.CancelButton = $cancel
 $form.Controls.Add($cancel)
 $display.Add_CheckedChanged({
