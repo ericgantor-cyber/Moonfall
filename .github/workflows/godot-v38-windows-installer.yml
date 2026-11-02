@@ -145,6 +145,11 @@ jobs:
       - name: Install Inno Setup 6
         shell: pwsh
         run: choco install innosetup -y --no-progress
+      - name: Generate game integrity manifest for launcher
+        shell: pwsh
+        run: |
+          ./tools/Write-GameIntegrityManifest.ps1 -GameExe 'build/MoonfallNative_v34_4.exe' -Output 'build/moonfall-integrity.json'
+          if (!(Test-Path 'build/moonfall-integrity.json')) { throw 'Integrity manifest missing' }
       - name: Compile per-user installer with optional desktop shortcut
         shell: pwsh
         run: |
