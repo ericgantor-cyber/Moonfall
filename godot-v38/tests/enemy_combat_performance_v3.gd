@@ -16,6 +16,6 @@ func run()->void:
  ck(R.attack_timer_after_frame(1.0,INF)==1.0,"infinite frame does not corrupt timer")
  ck(R.attack_timer_after_frame(NAN,0.016)==0.0,"NaN saved cooldown resets")
  var source:String=FileAccess.get_file_as_string("res://scripts/native_v11.gd")
- ck("can_attack(distance,float(beast[\"attack\"])<=0.0,true) and _has_clear_sight(body,player)" in source,"melee range and readiness checked before costly sight ray")
+ ck("can_attack(distance,ENEMY_COMBAT_RULES.ready_to_strike(float(beast[\"attack\"])),true) and _has_clear_sight(body,player)" in source,"melee range and readiness checked before costly sight ray")
  ck(load("res://scenes/main.tscn")!=null,"full scene loads")
  quit(1 if fails else 0)
