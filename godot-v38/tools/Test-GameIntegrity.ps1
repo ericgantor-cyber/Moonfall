@@ -10,6 +10,7 @@ function Test-MoonfallIntegrity([string]$File, [string]$InfoFile) {
   } catch { return $false }
 }
 if (!(Test-MoonfallIntegrity $GameExe $Manifest)) { throw 'Valid build failed SHA256 verification' }
+$originalHash = (Get-FileHash -LiteralPath $GameExe -Algorithm SHA256).Hash
 $temp = Join-Path ([IO.Path]::GetTempPath()) ('moonfall-integrity-smoke-' + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $temp | Out-Null
 try {
@@ -55,4 +56,7 @@ try {
   Remove-Item -LiteralPath $info
   if (Test-MoonfallIntegrity $copy $info) { throw 'Missing manifest incorrectly passed integrity verification' }
   Write-Host 'PASS: good file accepted; damaged file, wrong checksum, wrong filename, malformed manifest and missing manifest rejected'
-} finally { Remove-Item -LiteralPath $temp -Recurse -Force -ErrorAction SilentlyContinue }
+} finally {
+  Remove-Item -LiteralPath $temp -Recurse -Force -ErrorAction SilentlyContinue
+  if ((Get-FileHash -LiteralPath $GameExe -Algorithm SHA256).Hash -ne $originalHash) { throw 'Integrity tests modified original game executable' }
+}
