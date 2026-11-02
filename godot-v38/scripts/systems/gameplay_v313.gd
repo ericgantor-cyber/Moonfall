@@ -16,13 +16,17 @@ static func combo_multiplier(chain:int)->float:
 static func hurt_retreat(hp:float,max_hp:float,is_boss:bool,alert:bool,cooldown_ready:bool)->bool:
  return alert and not is_boss and cooldown_ready and max_hp>0.0 and hp/max_hp<0.26
 
-static func choose_boss_pattern(phase:int,hero_health:float,hero_max:float,previous:int,distance:float=-1.0)->int:
+static func choose_boss_pattern(phase:int,hero_health:float,hero_max:float,previous:int,distance:float=-1.0,close_pressure:int=0)->int:
  var count:int=mini(4,clampi(phase,1,3)+1)
  var next:int=posmod(previous+1,count)
  # Decisions happen before the attack telegraph, never while an attack is live.
  # Low-health players face the readable focused strike rather than extra area pressure.
  if is_finite(hero_health) and is_finite(hero_max) and hero_max>0.0 and hero_health/hero_max<0.35:
   return 0
+ # Sustained close-range pressure unlocks a precision response in phase three.
+ # Use a small capped per-guardian counter, not a per-frame search.
+ if phase>=3 and close_pressure>=3 and posmod(previous,count)!=2:
+  return 2
  # Close pressure favors a wide sweep, but don't repeat it back-to-back.
  if phase>=2 and is_finite(distance) and distance>=0.0 and distance<2.5 and posmod(previous,count)!=1:
   return 1
