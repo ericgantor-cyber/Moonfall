@@ -108,6 +108,10 @@ func _activate_rift_wave(site_id:int)->void:
    var boss_slot:int=int(slots[slots.size()-1])
    if boss_slot>=0 and boss_slot<beasts.size():
     var boss_unit:Dictionary=beasts[boss_slot]
+    # Activate inherited boss phases and telegraphs on this existing resident.
+    boss_unit["boss"]=true
+    boss_unit["boss_phase"]=1
+    boss_unit["boss_pattern"]=0 if deity_id=="z" else 1
     var boss_body:CharacterBody3D=boss_unit.get("body") as CharacterBody3D
     if is_instance_valid(boss_body) and boss_body.get_node_or_null("DivineBossOriginalArtwork")==null:
      var portrait:=Sprite3D.new()
