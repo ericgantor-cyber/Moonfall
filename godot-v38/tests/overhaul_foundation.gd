@@ -39,6 +39,11 @@ func _run()->void:
  check("realm_combat_attack_timer" in follower and "var companion_attack_timer" not in follower,"inherited companion timer collision fixed")
  var aim_code:String=FileAccess.get_file_as_string("res://scripts/native_v38_8.gd")
  check("beasts[aim_locked_id]==target" in aim_code and "beasts.find(target)" not in aim_code,"aim feedback avoids per-frame full beast-list lookup")
+ var sample_targets:Array[int]=[1,4,9]
+ check(sample_targets[sample_targets.bsearch(4+1)]==9,"target-cycle next higher index")
+ var wrap_index:int=sample_targets.bsearch(9+1)
+ if wrap_index>=sample_targets.size():wrap_index=0
+ check(sample_targets[wrap_index]==1,"target-cycle wraps to first eligible index")
  var sprite=game.get("hero_sprite") as Sprite3D
  check(is_instance_valid(sprite) and sprite.texture!=null,"original hero sprite texture present")
  game.queue_free()
