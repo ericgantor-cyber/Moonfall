@@ -126,47 +126,15 @@ jobs:
             if (!(Test-Path (Join-Path $extract $name))) { throw "Portable ZIP missing $name" }
           }
           Write-Host 'PASS: portable ZIP unpacked and SHA256 verified'
-      - name: Write and verify portable ZIP SHA256
+      - name: Write portable release checksum
         shell: pwsh
         run: |
           $zip = 'build/Moonfall-Windows-Portable.zip'
-          if (!(Test-Path -LiteralPath $zip -PathType Leaf)) { throw 'Portable ZIP missing' }
           $hash = (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant()
-          "$hash  Moonfall-Windows-Portable.zip" | Set-Content -LiteralPath 'build/Moonfall-Windows-Portable.sha256' -Encoding ascii
-          $line = (Get-Content 'build/Moonfall-Windows-Portable.sha256' -Raw).Trim()
-          if ($line -notmatch '^([a-f0-9]{64})  Moonfall-Windows-Portable[.]zip        if: success()
-        uses: actions/upload-artifact@v4
-        with:
-          name: moonfall-windows-build-results
-          if-no-files-found: warn
-          retention-days: 14
-          path: |
-            godot-v38/build/*.exe
-            godot-v38/build/Moonfall-Windows-Portable.zip
-            godot-v38/build/Moonfall-Windows-Portable.sha256
-            godot-v38/build/moonfall-integrity.json
-            godot-v38/MoonfallLauncher.ps1
-            godot-v38/MoonfallLauncher.cmd
-            godot-v38/build/*.json
-            godot-v38/build/*.txt
-            godot-v38/Release_Windows/*.exe
-            godot-v38/GODOT_*_LOG.txt
-            godot-v38/build/phase2-test-logs/*
-
-      - name: Publish diagnostic logs when validation fails
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: moonfall-windows-failed-build-diagnostics
-          if-no-files-found: warn
-          retention-days: 7
-          path: |
-            godot-v38/GODOT_*_LOG.txt
-            godot-v38/build/phase2-test-logs/*
-            godot-v38/build/*failure*.txt
-) { throw 'Invalid portable checksum format' }
-          if ($Matches[1] -ne (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant()) { throw 'Portable checksum mismatch' }
-          Write-Host 'PASS: portable ZIP checksum generated and verified'
+          Set-Content -LiteralPath 'build/Moonfall-Windows-Portable.sha256' -Value $hash -Encoding ascii
+          $recorded = (Get-Content 'build/Moonfall-Windows-Portable.sha256' -Raw).Trim()
+          if ($recorded -ne $hash) { throw 'Portable checksum mismatch' }
+          Write-Host 'PASS: portable ZIP checksum verified'
       - name: Publish verified Windows build evidence and binaries
         if: success()
         uses: actions/upload-artifact@v4
@@ -177,6 +145,7 @@ jobs:
           path: |
             godot-v38/build/*.exe
             godot-v38/build/Moonfall-Windows-Portable.zip
+            godot-v38/build/Moonfall-Windows-Portable.sha256
             godot-v38/build/moonfall-integrity.json
             godot-v38/MoonfallLauncher.ps1
             godot-v38/MoonfallLauncher.cmd
