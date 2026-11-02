@@ -59,3 +59,10 @@ static func search_arrived(body_pos:Vector3,last_pos:Vector3)->bool:
  var offset:Vector3=last_pos-body_pos
  offset.y=0.0
  return is_finite(offset.x) and is_finite(offset.z) and offset.length_squared()<1.0
+
+# Brief look-around at the last known location; sighting a hero cancels it.
+static func search_pause_active(engaged:bool, now:float, pause_until:float)->bool:
+ return not engaged and is_finite(now) and is_finite(pause_until) and pause_until>now and pause_until<=now+0.8
+
+static func search_pause_expiry(now:float)->float:
+ return now+0.75 if is_finite(now) else 0.0
