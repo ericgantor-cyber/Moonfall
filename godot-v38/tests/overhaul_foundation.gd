@@ -106,6 +106,10 @@ func _run()->void:
  check(adaptive.choose_boss_pattern(3,100.0,100.0,0,2.0,3)==2,"repeated close pressure chooses precision")
  check(adaptive.choose_boss_pattern(3,100.0,100.0,2,2.0,4)==3,"precision cannot immediately repeat")
  check(adaptive.choose_boss_pattern(3,20.0,100.0,0,2.0,4)==0,"low health safety overrides pressure")
+ check(adaptive.update_close_pressure(2,2.0)==3,"pressure rises during repeated close attacks")
+ check(adaptive.update_close_pressure(4,8.0)==0,"pressure resets when hero retreats")
+ check(adaptive.update_close_pressure(4,-1.0)==0,"pressure resets when hero location unavailable")
+ check(adaptive.update_close_pressure(4,3.0)==3,"pressure decays outside close range")
  var sprite=game.get("hero_sprite") as Sprite3D
  check(is_instance_valid(sprite) and sprite.texture!=null,"original hero sprite texture present")
  game.queue_free()
