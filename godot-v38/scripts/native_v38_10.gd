@@ -202,6 +202,14 @@ func _v321_build_chambers()->void:
    pylon.name="GuardianHeartPylon"
    var flame:Node3D=_add_sphere(at+Vector3(0,1.05,0),0.35,Color("d65b8f") if n%2==0 else Color("55b9e6"),false,true)
    flame.name="GuardianHeartArcaneFlame"
+ # Decorative treasure dais hint at dungeon rewards without spawning farmable loot.
+ # Placed beside each guardian room, away from the central fight.
+ for entry in rifts:
+  var heart:Vector3=V321_RULES.room_position(entry["anchor"],3)
+  var dais:Node3D=_add_box(heart+Vector3(-6.2,0.30,5.0),Vector3(1.8,0.6,1.8),Color("423248"),false)
+  dais.name="GuardianTreasureDais"
+  var crystal:Node3D=_add_sphere(heart+Vector3(-6.2,1.25,5.0),0.55,Color("edbd72"),false,true)
+  crystal.name="GuardianTreasureRelic"
  # Three reusable procedural accents per dungeon; no lights or per-frame effects.
  # Violet moon, ember-red ruins, and cool blue magic make the three rooms distinct.
  var tones:Array[Color]=[Color("9159eb"),Color("d44b56"),Color("49b6da")]
