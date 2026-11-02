@@ -109,3 +109,38 @@ func _set_rift_label(entry:Dictionary)->void:
   label.text=str(entry.get("name","Rift"))+" • EXPLORE & DEFEAT GUARDIAN"
  else:
   label.text="RIFT • "+str(entry.get("name","Rift"))+"\n(G) Explore"
+
+## Continuous rifts allow all three physical moon glyphs to be attuned in any
+## order. The older stage index is only a legacy completion sentinel.
+func _depth_tick(delta:float)->void:
+ super._depth_tick(delta)
+ if not hero_playing:return
+ for item in depth_glyphs:
+  var site:int=int(item["site"])
+  if site<0 or site>=rifts.size():continue
+  if active_rift!=site or bool(rifts[site].get("cleared",false)):continue
+  var label:Label3D=item["label"] as Label3D
+  if not is_instance_valid(label):continue
+  var key:String=str(site)+":"+str(int(item["stage"]))
+  label.text="MOON GLYPH • CHARGED" if depth_glyph_charged.has(key) else "MOON GLYPH • G TO ATTUNE"
+
+func _interact()->void:
+ if hero_playing and not death_active and not menu_open and not mounted and is_instance_valid(player):
+  for item in depth_glyphs:
+   var root:Node3D=item["node"] as Node3D
+   if not is_instance_valid(root):continue
+   if player.global_position.distance_squared_to(root.global_position)>DEPTH_INTERACT_RADIUS_SQ:continue
+   var site:int=int(item["site"])
+   if site<0 or site>=rifts.size():return
+   if active_rift!=site or bool(rifts[site].get("cleared",false)):
+    _show_message("Explore this rift to awaken its glyphs.",2.0)
+    return
+   var key:String=str(site)+":"+str(int(item["stage"]))
+   if depth_glyph_charged.has(key):
+    _show_message("This moon glyph is already attuned.",1.5)
+    return
+   depth_glyph_charged[key]=true
+   depth_spell_charges=mini(3,depth_spell_charges+1)
+   _show_message("GLYPH ATTUNED! Lunar echo ready ("+str(depth_spell_charges)+" charges).",3.0)
+   return
+ super._interact()
