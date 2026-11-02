@@ -115,6 +115,7 @@ jobs:
           Copy-Item 'build/moonfall-integrity.json' $stage
           Copy-Item 'MoonfallLauncher.ps1' $stage
           Copy-Item 'MoonfallLauncher.cmd' $stage
+          Copy-Item 'WINDOWS_README.txt' $stage
           if (Test-Path 'build/GODOT_LICENSE.txt') { Copy-Item 'build/GODOT_LICENSE.txt' $stage }
           Compress-Archive -Path "$stage/*" -DestinationPath $zip -Force
           $extract = 'build/portable-package-verify'
@@ -160,6 +161,7 @@ jobs:
             godot-v38/build/moonfall-integrity.json
             godot-v38/MoonfallLauncher.ps1
             godot-v38/MoonfallLauncher.cmd
+            godot-v38/WINDOWS_README.txt
             godot-v38/build/*.json
             godot-v38/build/*.txt
             godot-v38/Release_Windows/*.exe
