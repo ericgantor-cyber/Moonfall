@@ -139,6 +139,17 @@ func _interact()->void:
    depth_spell_charges=mini(3,depth_spell_charges+1)
    _show_message("GLYPH ATTUNED! Lunar echo ready ("+str(depth_spell_charges)+" charges).",3.0)
    return
+  for secret in rift_secret_signs:
+   var marker:Label3D=secret["node"]
+   var site:int=int(secret["site"])
+   if site!=active_rift or bool(rifts[site].get("cleared",false)):continue
+   if player.global_position.distance_squared_to(marker.global_position)>DEPTH_INTERACT_RADIUS_SQ:continue
+   if bool(secret["read"]):
+    _show_message("The inscription has already shared its secret.",2.0)
+   else:
+    secret["read"]=true
+    _show_message("ANCIENT INSCRIPTION: The moon remembers every guardian who stood here.",4.0)
+   return
  super._interact()
 
 ## Replace inherited wave instructions only when the World tab is opened.
@@ -151,3 +162,31 @@ func _menu_tab(which:String)->void:
  for entry in rifts:
   if bool(entry.get("active",false)) and not bool(entry.get("cleared",false)):
    menu_body.text=menu_body.text.replace(str(entry["name"])+"  WAVE "+str(entry["stage"]),str(entry["name"])+"  EXPLORING")
+
+## Optional discoverable lore in the existing world-connected rift rooms.
+## Built once, never spawns enemies or modifies checkpoint/reward state.
+var rift_secret_signs:Array[Dictionary]=[]
+func _v321_build_chambers()->void:
+ super._v321_build_chambers()
+ for site in range(rifts.size()):
+  var anchor:Vector3=rifts[site]["anchor"]
+  var marker:=Label3D.new()
+  marker.name="RiftHiddenInscription"
+  marker.text="ANCIENT INSCRIPTION • G TO READ"
+  marker.position=V321_RULES.room_position(anchor,2)+Vector3(3.3,1.45,-3.1)
+  marker.font_size=24
+  marker.pixel_size=0.005
+  marker.billboard=BaseMaterial3D.BILLBOARD_ENABLED
+  marker.modulate=Color("bb9df2")
+  marker.visible=false
+  world.add_child(marker)
+  rift_secret_signs.append({"site":site,"node":marker,"read":false})
+
+func _process(delta:float)->void:
+ super._process(delta)
+ if not hero_playing or not is_instance_valid(player):return
+ for secret in rift_secret_signs:
+  var marker:Label3D=secret["node"]
+  var site:int=int(secret["site"])
+  var allowed:bool=site>=0 and site<rifts.size() and active_rift==site and not bool(rifts[site].get("cleared",false))
+  marker.visible=allowed and player.global_position.distance_squared_to(marker.global_position)<20.0*20.0
