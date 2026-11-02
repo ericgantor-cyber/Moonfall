@@ -148,13 +148,20 @@ func _v321_update_chambers()->void:
   var entry:Dictionary=rifts[site]
   var root:Node3D=chamber["node"]
   var close:bool=V321_RULES.room_visible(root.global_position.distance_squared_to(here),quality_low)
-  root.visible=hero_playing and close
+  var visible_now:bool=hero_playing and close
+  if root.visible!=visible_now:root.visible=visible_now
+  # Hidden chambers do not need label updates until visible again.
+  if not visible_now:
+   v321_chamber_checks+=1
+   continue
   var label:Label3D=chamber["label"]
+  var title:String=V321_RULES.chamber_title(stage)
+  var wanted:String="CHAMBER %d • %s"%[stage,title]
   if bool(entry.get("cleared",false)):
-   label.text="✓ "+V321_RULES.chamber_title(stage)+" • SEALED"
+   wanted="✓ "+title+" • SEALED"
   elif bool(entry.get("active",false)):
-   label.text=("▶ " if int(entry.get("stage",0))==stage else "◦ ")+V321_RULES.chamber_title(stage)
-  else:label.text="CHAMBER %d • %s"%[stage,V321_RULES.chamber_title(stage)]
+   wanted=("▶ " if int(entry.get("stage",0))==stage else "◦ ")+title
+  if label.text!=wanted:label.text=wanted
   v321_chamber_checks+=1
 
 func _process(delta:float)->void:
