@@ -57,7 +57,7 @@ func _set_boss_telegraph(beast:Dictionary,active:bool)->void:
   boss_warning_labels[id]=warning
  var phase:int=clampi(int(beast.get("boss_phase",1)),1,3)
  var current_pattern:int=GUARDIAN_RULES.pattern_index(int(beast.get("boss_pattern",0))-1,phase)
- var new_text:String=BOSS_READOUT.warning_text(phase,current_pattern)
+ var new_text:String="PHASE "+str(phase)+" • "+BOSS_READOUT.warning_text(phase,current_pattern)
  if warning.text!=new_text:
   warning.text=new_text
   boss_warning_updates+=1
