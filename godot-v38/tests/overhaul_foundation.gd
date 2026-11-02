@@ -91,6 +91,8 @@ func _run()->void:
  check("CLEAR THE AREA" in telegraph.warning_text(2,1),"sweep attack warns of area danger")
  check("SIDESTEP" in telegraph.warning_text(3,2),"precision attack suggests sidestep")
  check("WATCH THE DELAY" in telegraph.warning_text(3,3),"delayed attack warns of timing")
+ check(telegraph.dodge_cue(4)==telegraph.dodge_cue(0),"guardian dodge cues wrap safely with pattern index")
+ check(telegraph.dodge_cue(-1)=="WATCH THE DELAY","legacy negative attack patterns get valid warnings")
  var sprite=game.get("hero_sprite") as Sprite3D
  check(is_instance_valid(sprite) and sprite.texture!=null,"original hero sprite texture present")
  game.queue_free()
