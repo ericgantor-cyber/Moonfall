@@ -173,6 +173,12 @@ jobs:
           $appDir = Join-Path $env:LOCALAPPDATA 'Programs\Moonfall Native'
           $game = Join-Path $appDir 'MoonfallNative_v34_4.exe'
           if (!(Test-Path $game)) { throw 'Installed executable missing' }
+          foreach ($part in @('MoonfallLauncher.cmd','MoonfallLauncher.ps1','moonfall-integrity.json')) {
+            if (!(Test-Path (Join-Path $appDir $part))) { throw "Missing installed launcher component: $part" }
+          }
+          $manifest = Get-Content (Join-Path $appDir 'moonfall-integrity.json') -Raw | ConvertFrom-Json
+          $actual = (Get-FileHash $game -Algorithm SHA256).Hash
+          if ($manifest.game_sha256 -ine $actual) { throw 'Installed game SHA256 does not match manifest' }
           $desktop = Join-Path ([Environment]::GetFolderPath('Desktop')) 'Moonfall Native.lnk'
           $menu = Join-Path ([Environment]::GetFolderPath('Programs')) 'Moonfall Native.lnk'
           if (!(Test-Path $desktop)) { throw 'Desktop shortcut missing' }
