@@ -109,6 +109,8 @@ var ai_updates := 0
 var debug_visibility_rays:int=0
 var debug_visibility_rays_blocked:int=0
 var debug_visibility_usec:int=0
+var debug_movement_usec:int=0
+var debug_movement_samples:int=0
 var region_shrines: Array[Node3D] = []
 var shrine_lights: Array[OmniLight3D] = []
 var shrine_discovery: Array[int] = []
@@ -1340,7 +1342,7 @@ func _atlas_execute(action: String) -> void:
   var alive:=0
   for b in beasts:
    if bool(b.get("alive",false)):alive+=1
-  menu_body.text="[b]WORLD HEALTH / NATIVE v13[/b]\n\nFPS: "+str(Engine.get_frames_per_second())+"\nAlive creatures: "+str(alive)+" / "+str(beasts.size())+"\nNatural hunts: "+str(hunts_completed)+"\nHerd alarms: "+str(herds_alerted)+"\nBlocked line-of-sight checks: "+str(blocked_hits)+"\nVisibility raycasts (debug only): "+str(debug_visibility_rays)+"\nBlocked raycasts (debug only): "+str(debug_visibility_rays_blocked)+"\nAvg raycast cost (µs, debug): "+str(snappedf(float(debug_visibility_usec)/float(maxi(debug_visibility_rays,1)),0.1))+"\nGear picked up: "+str(pickup_count)+"\nGround gear: "+str(gear_drops.size())+" / "+str(MAX_GROUND_DROPS)+"\nSkinnable carcasses: "+str(carcasses.size())+" / "+str(MAX_CARCASSES)+"\nWildlife respawns: "+str(respawns_total)+"\nRestored dormant beasts: "+str(restored_wildlife)+"\nActive scenery regions: "+str(visible_regions)+" / 6\nRegional AI updates: "+str(ai_updates)+"\nCheckpoint health: "+save_health+"\n\nThis is a prototype diagnostic panel, not a separate game mode."
+  menu_body.text="[b]WORLD HEALTH / NATIVE v13[/b]\n\nFPS: "+str(Engine.get_frames_per_second())+"\nAlive creatures: "+str(alive)+" / "+str(beasts.size())+"\nNatural hunts: "+str(hunts_completed)+"\nHerd alarms: "+str(herds_alerted)+"\nBlocked line-of-sight checks: "+str(blocked_hits)+"\nVisibility raycasts (debug only): "+str(debug_visibility_rays)+"\nBlocked raycasts (debug only): "+str(debug_visibility_rays_blocked)+"\nAvg raycast cost (µs, debug): "+str(snappedf(float(debug_visibility_usec)/float(maxi(debug_visibility_rays,1)),0.1))+"\nAvg enemy movement cost (µs, debug): "+str(snappedf(float(debug_movement_usec)/float(maxi(debug_movement_samples,1)),0.1))+"\nGear picked up: "+str(pickup_count)+"\nGround gear: "+str(gear_drops.size())+" / "+str(MAX_GROUND_DROPS)+"\nSkinnable carcasses: "+str(carcasses.size())+" / "+str(MAX_CARCASSES)+"\nWildlife respawns: "+str(respawns_total)+"\nRestored dormant beasts: "+str(restored_wildlife)+"\nActive scenery regions: "+str(visible_regions)+" / 6\nRegional AI updates: "+str(ai_updates)+"\nCheckpoint health: "+save_health+"\n\nThis is a prototype diagnostic panel, not a separate game mode."
   return
  if action.begins_with("wallet_"):
   _wallet_action(action)
@@ -2050,7 +2052,13 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
  else:body.velocity=Vector3.ZERO
  # Single virtual call avoids per-frame reflection and supports future nav implementations.
  body.velocity=_terrain_grid_steer(body,body.velocity)
+ # Measure actual physics movement cost in debug builds, including stalled actors.
+ var movement_profile:bool=OS.has_feature("debug")
+ var movement_started:int=Time.get_ticks_usec() if movement_profile else 0
  body.move_and_slide()
+ if movement_profile:
+  debug_movement_usec+=Time.get_ticks_usec()-movement_started
+  debug_movement_samples+=1
  # v9 stagger cancels regular attacks. Boss windups remain uninterruptible.
  if staggered:return
  # Elite creatures telegraph a longer reach attack with a fixed target point.
