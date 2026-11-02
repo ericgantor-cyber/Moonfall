@@ -331,3 +331,14 @@ func _start_game(selected:String)->void:
   player.add_child(moonfall_hero_banner)
  moonfall_hero_banner.text="Z • DRAGONBORN" if hero=="z" else "NYRA • MOONWEAVER"
  moonfall_hero_banner.modulate=Color("f7b968") if hero=="z" else Color("b998f7")
+
+## Readable hero-specific feedback at attack time. Uses the existing message HUD,
+## without changing damage, cooldowns, attacks, or original hero textures.
+func _attack()->void:
+ var was_ready:bool=attack_cooldown<=0.0
+ super._attack()
+ if not was_ready or not hero_playing:return
+ if hero=="z":
+  _show_message("Z • DRAGON STRIKE",0.5)
+ elif hero=="nyra":
+  _show_message("NYRA • MOON STRIKE",0.5)
