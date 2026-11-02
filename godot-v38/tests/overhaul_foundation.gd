@@ -51,6 +51,8 @@ func _run()->void:
  check("preset_button.pressed.connect(_set_aim_preset.bind(preset))" in aim_code,"aim assist presets are clickable")
  check("if not aim_assist_enabled:return" in aim_code,"presets do not bypass disabled aim assist")
  check("aim_strength_slider.focus_mode=Control.FOCUS_ALL" in aim_code,"aim slider supports keyboard and controller focus")
+ check("aim_strength_slider.drag_ended.connect(_on_aim_strength_drag_ended)" in aim_code,"aim strength saves after drag completes")
+ check("func _save_aim_preferences()->void:" in aim_code and "aim_strength_slider.is_dragging()" in aim_code,"aim preferences share one save path and defer writes during dragging")
  check("aim_options.visible=hero_playing and not menu_open and not death_active and not wait_open and not wait_transition_active" in aim_code,"aim options disappear during transitions")
  check("if not hero_playing or menu_open or death_active or wait_open or wait_transition_active or not is_instance_valid(player):return" in aim_code,"aim marker pauses during transitions")
  check("lerpf(AIM_CONE_DOT,0.38" in directional,"aim assist strength affects the targeting cone")
