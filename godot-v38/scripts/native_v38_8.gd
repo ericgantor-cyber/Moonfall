@@ -52,6 +52,15 @@ func _ready()->void:
   aim_strength_slider.focus_mode=Control.FOCUS_ALL
   aim_strength_slider.value_changed.connect(_on_aim_strength_changed)
   controls.add_child(aim_strength_slider)
+  var preset_row:HBoxContainer=HBoxContainer.new()
+  controls.add_child(preset_row)
+  for preset in [0.0,0.5,1.0]:
+   var preset_button:Button=Button.new()
+   preset_button.text="Precise" if preset==0.0 else ("Balanced" if preset==0.5 else "Strong")
+   preset_button.focus_mode=Control.FOCUS_ALL
+   preset_button.pressed.connect(_set_aim_preset.bind(preset))
+   preset_row.add_child(preset_button)
+
 
 func _on_aim_assist_toggled(enabled:bool)->void:
  aim_assist_enabled=enabled
@@ -62,6 +71,10 @@ func _on_aim_assist_toggled(enabled:bool)->void:
  config.set_value("controls","aim_assist_strength",aim_assist_strength)
  var result:Error=config.save(AIM_PREFS_PATH)
  if result!=OK:push_warning("Unable to save aim preference: "+str(result))
+
+func _set_aim_preset(strength:float)->void:
+ if not aim_assist_enabled:return
+ if is_instance_valid(aim_strength_slider):aim_strength_slider.value=strength
 
 func _on_aim_strength_changed(value:float)->void:
  aim_assist_strength=clampf(value,0.0,1.0)
