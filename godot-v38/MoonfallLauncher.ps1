@@ -18,7 +18,7 @@ if (Test-Path -LiteralPath $settingsFile) {
 }
 $form = New-Object System.Windows.Forms.Form
 $form.Text = 'Moonfall Launcher'
-$form.ClientSize = New-Object System.Drawing.Size(410,375)
+$form.ClientSize = New-Object System.Drawing.Size(410,392)
 $form.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::Dpi
 $form.StartPosition = 'CenterScreen'
 $form.FormBorderStyle = 'FixedDialog'
@@ -72,7 +72,7 @@ $folder.SetBounds(208,239,170,31)
 $form.Controls.Add($folder)
 $status = New-Object System.Windows.Forms.Label
 $status.ForeColor = [System.Drawing.Color]::LightGray
-$status.SetBounds(30,321,290,26)
+$status.SetBounds(30,351,290,26)
 $form.Controls.Add($status)
 $play.AccessibleName = 'Play Moonfall'
 $display.AccessibleName = 'Start Moonfall in fullscreen'
@@ -120,12 +120,31 @@ $verify.Add_Click({
     [System.Windows.Forms.MessageBox]::Show(($_.Exception.Message + [Environment]::NewLine + 'Reinstall from a verified release; do not delete your saves.'),'Moonfall file verification') | Out-Null
   }
 })
+$repair = New-Object System.Windows.Forms.Button
+$repair.Text = 'Repair &instructions'
+$repair.SetBounds(208,313,170,29)
+$repair.AccessibleName = 'Show safe Moonfall game repair instructions'
+$form.Controls.Add($repair)
+$repair.Add_Click({
+  $message = 'To repair Moonfall:' + [Environment]::NewLine +
+    '1. Back up your saved games.' + [Environment]::NewLine +
+    '2. Download a verified installer or portable ZIP from the official releases page.' + [Environment]::NewLine +
+    '3. Compare its SHA256 with the matching download checksum.' + [Environment]::NewLine +
+    '4. Reinstall the game without deleting user data.' + [Environment]::NewLine +
+    'This launcher does not automatically replace files.'
+  [System.Windows.Forms.MessageBox]::Show($message,'Moonfall safe repair') | Out-Null
+  if ([System.Windows.Forms.MessageBox]::Show('Open official Moonfall releases for repair files?','Moonfall safe repair','YesNo') -eq 'Yes') {
+    try { Start-Process $releasePage } catch {
+      $status.Text = 'Cannot open releases; use the official GitHub project page.'
+    }
+  }
+})
 $form.Add_Shown({ if ($play.Enabled) { $play.Focus() } })
 # Escape closes the launcher without affecting the game or saves.
 $cancel = New-Object System.Windows.Forms.Button
 $cancel.Text = 'Close'
 $cancel.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
-$cancel.SetBounds(330,321,60,26)
+$cancel.SetBounds(330,351,60,26)
 $form.CancelButton = $cancel
 $form.Controls.Add($cancel)
 $persistSettings = {
