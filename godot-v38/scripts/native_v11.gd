@@ -1970,8 +1970,11 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
  var move_speed:=float(BEASTS[kind]["speed"])
  var is_hostile:=bool(beast["hostile"])
  var combat_role:String=ENEMY_COMBAT_RULES.role_for(kind) if is_hostile else "passive"
- var perception:float=AI_RULES.perception(map_time<float(beast.get("alert_until",0.0)),weather_name,_day_phase()=="Night")
- var engaged:=is_hostile and distance<perception and _has_clear_sight(body,player)
+ var engaged:bool=false
+ # Passive fauna cannot engage: skip weather/time perception and LOS work entirely.
+ if is_hostile:
+  var perception:float=AI_RULES.perception(map_time<float(beast.get("alert_until",0.0)),weather_name,_day_phase()=="Night")
+  engaged=distance<perception and _has_clear_sight(body,player)
  beast["engaged"]=engaged
  if engaged:beast["search_pause_until"]=0.0
  # Investigate the last visible location for three seconds after losing sight.
