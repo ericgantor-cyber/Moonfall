@@ -64,8 +64,9 @@ function Find-MoonfallInno6 {
     foreach ($candidate in ($candidates | Select-Object -Unique)) {
         if (!(Test-Path -LiteralPath $candidate -PathType Leaf)) { continue }
         try {
+            if ($candidate -match 'Inno Setup 6' -and (Test-Path -LiteralPath $candidate -PathType Leaf)) { return $candidate }
             $version = [System.Diagnostics.FileVersionInfo]::GetVersionInfo($candidate)
-            if ($version.FileMajorPart -eq 6) { return $candidate }
+            if ($version.ProductVersion -match '(^|\\D)6\\.' -or $version.FileVersion -match '(^|\\D)6\\.') { return $candidate }
         } catch { }
     }
     return $null
