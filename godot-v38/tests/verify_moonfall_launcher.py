@@ -13,6 +13,7 @@ checks={
  "Release notes and asset preview": "latest.body" in ps and "latest.assets" in ps,
  "Manual updates only": "Downloads and installation remain manual." in ps,
  "SHA256 integrity manifest before Play": "moonfall-integrity.json" in ps and "Get-FileHash" in ps and "SHA256" in ps,
+ "Safe repair guidance exists": "Show safe Moonfall game repair instructions" in ps and "Back up your saved games." in ps and "does not automatically replace files" in ps,
  "Verify button visible and accessible": "Verify game files" in ps and "Verify Moonfall installed game files" in ps,
  "Verify button checks SHA256": "$verify.Add_Click({" in ps and "$hash -ine $manifest.game_sha256" in ps,
  "Verify button retains saves": "Saved games were not changed." in ps,
