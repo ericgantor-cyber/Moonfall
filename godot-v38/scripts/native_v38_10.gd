@@ -191,6 +191,17 @@ func _v321_build_chambers()->void:
    pier.name="RiftEntrancePier"
   var beam:Node3D=_add_box(gate+Vector3(0,3.5,4.2),Vector3(6.0,0.55,1.0),Color("784f98"),false)
   beam.name="RiftEntranceArch"
+ # Guardian-heart chamber: four crescent-colored relic stones around the arena.
+ # Decorations do not collide with players or trigger combat logic.
+ for entry in rifts:
+  var heart:Vector3=V321_RULES.room_position(entry["anchor"],3)
+  for n in range(4):
+   var angle:float=TAU*float(n)/4.0+0.785
+   var at:Vector3=heart+Vector3(cos(angle)*7.2,0.65,sin(angle)*7.2)
+   var pylon:Node3D=_add_box(at,Vector3(0.75,1.3,0.75),Color("3c2a48"),false)
+   pylon.name="GuardianHeartPylon"
+   var flame:Node3D=_add_sphere(at+Vector3(0,1.05,0),0.35,Color("d65b8f") if n%2==0 else Color("55b9e6"),false,true)
+   flame.name="GuardianHeartArcaneFlame"
  # Three reusable procedural accents per dungeon; no lights or per-frame effects.
  # Violet moon, ember-red ruins, and cool blue magic make the three rooms distinct.
  var tones:Array[Color]=[Color("9159eb"),Color("d44b56"),Color("49b6da")]
