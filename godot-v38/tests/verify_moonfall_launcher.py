@@ -14,6 +14,7 @@ checks={
  "Manual updates only": "Downloads and installation remain manual." in ps,
  "SHA256 integrity manifest before Play": "moonfall-integrity.json" in ps and "Get-FileHash" in ps and "SHA256" in ps,
  "Report rejects invalid hash matches": "Matches: " in ps and "Expected SHA256:" in ps and "Actual SHA256:" in ps,
+ "Open repair report directory": "Open the saved repair report folder?" in ps and "Start-Process -FilePath explorer.exe" in ps,
  "Persistent repair reports": "Join-Path $settingsDir 'Reports'" in ps and "New-Item -ItemType Directory -Force -Path $reportsDir" in ps,
  "Local repair diagnostics": "Moonfall-Integrity-Report-" in ps and "Expected SHA256:" in ps and "Actual SHA256:" in ps,
  "Safe repair guidance exists": "Show safe Moonfall game repair instructions" in ps and "Back up your saved games." in ps and "does not automatically replace files" in ps,
