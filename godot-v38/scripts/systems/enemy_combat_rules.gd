@@ -26,7 +26,11 @@ static func staggered_cooldown(kind:String,beast_id:int)->float:
 static func group_attack_ready(now:float,beast_id:int,slots:int=4)->bool:
  if not is_finite(now) or now<0.0:return false
  var count:int=clampi(slots,1,8)
- return posmod(int(floor(now*4.0)),count)==posmod(beast_id,count)
+ # Reduce the clock before integer conversion to avoid overflow in long saves.
+ var cycle:float=float(count)*0.25
+ var phase:float=fposmod(now,cycle)
+ var slot:int=mini(count-1,int(floor(phase*4.0)))
+ return slot==posmod(beast_id,count)
 
 static func attack_timer_after_frame(current:float,delta:float)->float:
  if not is_finite(current):return 0.0
