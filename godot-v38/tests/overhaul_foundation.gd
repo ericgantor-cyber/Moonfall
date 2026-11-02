@@ -93,6 +93,9 @@ func _run()->void:
  check("WATCH THE DELAY" in telegraph.warning_text(3,3),"delayed attack warns of timing")
  check(telegraph.dodge_cue(4)==telegraph.dodge_cue(0),"guardian dodge cues wrap safely with pattern index")
  check(telegraph.dodge_cue(-1)=="WATCH THE DELAY","legacy negative attack patterns get valid warnings")
+ var boss_controller:String=FileAccess.get_file_as_string("res://scripts/native_v38_10.gd")
+ check("func _refresh_boss_phase(beast:Dictionary)->void:" in boss_controller and "super._refresh_boss_phase(beast)" in boss_controller,"live guardian phase changes invoke parent behavior")
+ check("new_phase<=old_phase:return" in boss_controller and "next_pattern_after_phase_change(old_pattern,new_phase)" in boss_controller,"new attack selection runs only when guardian phase increases")
  var sprite=game.get("hero_sprite") as Sprite3D
  check(is_instance_valid(sprite) and sprite.texture!=null,"original hero sprite texture present")
  game.queue_free()
