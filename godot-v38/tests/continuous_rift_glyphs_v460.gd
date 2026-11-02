@@ -23,4 +23,5 @@ func run()->void:
  check(source.contains("explore its three chambers without waves."),"legacy wave tutorial replaced")
  check(source.contains('str(entry["name"])+"  EXPLORING"'),"active rifts show exploration status")
  check(GAME!=null and load("res://scenes/main.tscn")!=null,"game script and scene parse")
+ if failed==0:print("MOONFALL RIFT GLYPHS PASS")
  quit(1 if failed else 0)
