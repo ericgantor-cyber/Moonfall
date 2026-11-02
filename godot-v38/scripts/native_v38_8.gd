@@ -88,6 +88,9 @@ func _on_aim_strength_changed(value:float)->void:
 
 func _unhandled_input(event:InputEvent)->void:
  # Mouse motion claims aim source even while a controller remains connected.
+ if not hero_playing or menu_open or death_active or wait_open or wait_transition_active:
+  super._unhandled_input(event)
+  return
  if event is InputEventMouseMotion:
   aim_input_source="mouse"
  elif event is InputEventJoypadMotion and (event.axis==JOY_AXIS_RIGHT_X or event.axis==JOY_AXIS_RIGHT_Y) and absf(event.axis_value)>AIM_STICK_DEADZONE:
@@ -97,10 +100,10 @@ func _unhandled_input(event:InputEvent)->void:
 func _process(delta:float)->void:
  # Parent supplies aim direction and combat actions.
  super._process(delta)
- if is_instance_valid(aim_options):aim_options.visible=hero_playing and not menu_open and not death_active
+ if is_instance_valid(aim_options):aim_options.visible=hero_playing and not menu_open and not death_active and not wait_open and not wait_transition_active
  if not is_instance_valid(aim_marker):return
  aim_marker.visible=false
- if not hero_playing or menu_open or death_active or not is_instance_valid(player):return
+ if not hero_playing or menu_open or death_active or wait_open or wait_transition_active or not is_instance_valid(player):return
  # Recover mouse cursor aiming when controller is connected but idle.
  if aim_input_source=="mouse" and is_instance_valid(camera):
   var cursor:Vector2=get_viewport().get_mouse_position()
