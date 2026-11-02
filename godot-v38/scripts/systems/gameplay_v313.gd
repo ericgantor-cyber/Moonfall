@@ -23,7 +23,7 @@ static func update_close_pressure(previous:int,distance:float)->int:
  if distance>=6.0:return 0
  return clampi(previous+(1 if distance<2.5 else -1),0,4)
 
-static func choose_boss_pattern(phase:int,hero_health:float,hero_max:float,previous:int,distance:float=-1.0,close_pressure:int=0)->int:
+static func choose_boss_pattern(phase:int,hero_health:float,hero_max:float,previous:int,distance:float=-1.0,close_pressure:int=0,last_landed:bool=false)->int:
  var count:int=mini(4,clampi(phase,1,3)+1)
  var next:int=posmod(previous+1,count)
  # Decisions happen before the attack telegraph, never while an attack is live.
@@ -34,6 +34,10 @@ static func choose_boss_pattern(phase:int,hero_health:float,hero_max:float,previ
  # Use a small capped per-guardian counter, not a per-frame search.
  if phase>=3 and close_pressure>=3 and posmod(previous,count)!=2:
   return 2
+ # After a successful hit, avoid relentless wide-sweep pressure; favor
+ # a slower-to-read focused follow-up instead of increasing damage.
+ if last_landed and phase>=2 and posmod(previous,count)!=0:
+  return 0
  # Close pressure favors a wide sweep, but don't repeat it back-to-back.
  if phase>=2 and is_finite(distance) and distance>=0.0 and distance<2.5 and posmod(previous,count)!=1:
   return 1
