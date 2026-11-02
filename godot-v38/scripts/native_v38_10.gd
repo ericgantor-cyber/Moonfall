@@ -120,7 +120,12 @@ func _activate_rift_wave(site_id:int)->void:
      var nameplate:Label3D=boss_unit.get("nameplate") as Label3D
      if is_instance_valid(nameplate):
       nameplate.text=str(deity["name"]).to_upper()+" • DIVINE BOSS"
- _show_message(str(entry["name"])+" • Explore the sanctum and defeat its guardian.",3.0)
+ if site_id==0:
+  _show_message("Z • THE VOID REAPER AWAKENS. Watch for the guardian's attack tells!",4.0)
+ elif site_id==1:
+  _show_message("NYRA • THE ECLIPSE QUEEN DESCENDS. Read her attack tells!",4.0)
+ else:
+  _show_message(str(entry["name"])+" • Explore the sanctum and defeat its guardian.",3.0)
 
 func _set_rift_label(entry:Dictionary)->void:
  var label:Label3D=entry.get("label") as Label3D
