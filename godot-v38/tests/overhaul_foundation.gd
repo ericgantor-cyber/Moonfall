@@ -51,6 +51,8 @@ func _run()->void:
  check("preset_button.pressed.connect(_set_aim_preset.bind(preset))" in aim_code,"aim assist presets are clickable")
  check("if not aim_assist_enabled:return" in aim_code,"presets do not bypass disabled aim assist")
  check("aim_strength_slider.focus_mode=Control.FOCUS_ALL" in aim_code,"aim slider supports keyboard and controller focus")
+ check("reset_button.pressed.connect(_reset_aim_preferences)" in aim_code,"aim preferences expose reset to defaults")
+ check("aim_toggle.set_pressed_no_signal(true)" in aim_code and "aim_strength_slider.set_value_no_signal(aim_assist_strength)" in aim_code,"reset updates controls without duplicate callback saves")
  check("aim_strength_slider.drag_ended.connect(_on_aim_strength_drag_ended)" in aim_code,"aim strength saves after drag completes")
  check("aim_strength_slider.drag_started.connect(_on_aim_strength_drag_started)" in aim_code,"slider records the beginning of drag")
  check("if value_changed:_save_aim_preferences()" in aim_code,"unchanged slider drags do not write preferences")
