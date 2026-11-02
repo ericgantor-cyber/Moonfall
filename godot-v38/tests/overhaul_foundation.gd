@@ -48,6 +48,9 @@ func _run()->void:
  check("beasts[aim_locked_id]==target" in aim_code and "beasts.find(target)" not in aim_code,"aim feedback avoids per-frame full beast-list lookup")
  check("aim_strength_slider=HSlider.new()" in aim_code and "aim_assist_strength" in aim_code,"aim assist has adjustable saved strength")
  check("aim_strength_slider.editable=enabled" in aim_code,"aim strength disabled when aim assist is off")
+ check("preset_button.pressed.connect(_set_aim_preset.bind(preset))" in aim_code,"aim assist presets are clickable")
+ check("if not aim_assist_enabled:return" in aim_code,"presets do not bypass disabled aim assist")
+ check("aim_strength_slider.focus_mode=Control.FOCUS_ALL" in aim_code,"aim slider supports keyboard and controller focus")
  check("lerpf(AIM_CONE_DOT,0.38" in directional,"aim assist strength affects the targeting cone")
  var sample_targets:Array[int]=[1,4,9]
  check(sample_targets[sample_targets.bsearch(4+1)]==9,"target-cycle next higher index")
