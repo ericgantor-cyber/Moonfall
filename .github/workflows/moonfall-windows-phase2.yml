@@ -104,6 +104,28 @@ jobs:
           $hash = (Get-FileHash 'build/MoonfallNative_v34_4.exe' -Algorithm SHA256).Hash
           if ($manifest.game_sha256 -ine $hash) { throw 'Release game hash mismatch' }
           Write-Host 'PASS: all distributable files present and executable SHA256 matches manifest'
+      - name: Assemble and verify portable launcher ZIP
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $stage = 'build/portable-package'
+          $zip = 'build/Moonfall-Windows-Portable.zip'
+          New-Item -ItemType Directory -Force -Path $stage | Out-Null
+          Copy-Item 'build/MoonfallNative_v34_4.exe' $stage
+          Copy-Item 'build/moonfall-integrity.json' $stage
+          Copy-Item 'MoonfallLauncher.ps1' $stage
+          Copy-Item 'MoonfallLauncher.cmd' $stage
+          if (Test-Path 'build/GODOT_LICENSE.txt') { Copy-Item 'build/GODOT_LICENSE.txt' $stage }
+          Compress-Archive -Path "$stage/*" -DestinationPath $zip -Force
+          $extract = 'build/portable-package-verify'
+          Expand-Archive -LiteralPath $zip -DestinationPath $extract -Force
+          $manifest = Get-Content (Join-Path $extract 'moonfall-integrity.json') -Raw | ConvertFrom-Json
+          $actual = (Get-FileHash (Join-Path $extract 'MoonfallNative_v34_4.exe') -Algorithm SHA256).Hash
+          if ($actual -ine $manifest.game_sha256) { throw 'Portable ZIP extraction checksum mismatch' }
+          foreach ($name in @('MoonfallLauncher.ps1','MoonfallLauncher.cmd')) {
+            if (!(Test-Path (Join-Path $extract $name))) { throw "Portable ZIP missing $name" }
+          }
+          Write-Host 'PASS: portable ZIP unpacked and SHA256 verified'
       - name: Publish verified Windows build evidence and binaries
         if: success()
         uses: actions/upload-artifact@v4
@@ -113,6 +135,7 @@ jobs:
           retention-days: 14
           path: |
             godot-v38/build/*.exe
+            godot-v38/build/Moonfall-Windows-Portable.zip
             godot-v38/build/moonfall-integrity.json
             godot-v38/MoonfallLauncher.ps1
             godot-v38/MoonfallLauncher.cmd
