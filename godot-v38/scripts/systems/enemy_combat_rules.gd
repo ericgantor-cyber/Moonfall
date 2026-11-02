@@ -65,4 +65,4 @@ static func search_pause_active(engaged:bool, now:float, pause_until:float)->boo
  return not engaged and is_finite(now) and is_finite(pause_until) and pause_until>now and pause_until<=now+0.8
 
 static func search_pause_expiry(now:float)->float:
- return now+0.75 if is_finite(now) else 0.0
+ return now+0.75 if is_finite(now) and now<=1.0e12 else 0.0
