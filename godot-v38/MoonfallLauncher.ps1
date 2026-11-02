@@ -178,11 +178,24 @@ $updates.Add_Click({
     } finally { $response.Dispose() }
     $tag = [string]$latest.tag_name
     $published = if ($latest.published_at) { ([datetime]$latest.published_at).ToString('yyyy-MM-dd') } else { 'date unavailable' }
+    # GitHub's target_commitish is often a branch name, not a comparable version.
+    # Only report an exact build match when both sides expose full commit SHAs.
+    $matchText = 'Version comparison unavailable: release tag and build commit use different identifiers.'
+    $installedSha = [string]$buildInfo.build_commit
+    $releaseSha = [string]$latest.target_commitish
+    if ($installedSha -match '^[0-9a-fA-F]{40}$' -and $releaseSha -match '^[0-9a-fA-F]{40}$') {
+      if ($installedSha -ieq $releaseSha) {
+        $matchText = 'Installed build matches the release target commit.'
+      } else {
+        $matchText = 'Release targets a different commit; newer/older cannot be determined.'
+      }
+    }
     $status.Text = ('Latest release: ' + $tag)
     [System.Windows.Forms.MessageBox]::Show(
       ('Latest published release: ' + $tag + [Environment]::NewLine +
        'Published: ' + $published + [Environment]::NewLine +
        'Installed build: ' + $version.Text + [Environment]::NewLine +
+       $matchText + [Environment]::NewLine +
        'Use the release page to review changes and verify a download.'),
       'Moonfall update information') | Out-Null
     if ([System.Windows.Forms.MessageBox]::Show('Open release page for verified manual update? Saves remain untouched.','Moonfall updates','YesNo') -eq 'Yes') { Start-Process $releasePage }
