@@ -27,6 +27,7 @@ func _run()->void:
  check("eligible.sort()" not in target_code,"target cycling keeps canonical order without sorting")
  check("eligible.bsearch(aim_locked_id + 1)" in target_code,"target cycling moves to next higher eligible index")
  check("zone_beast_lists[region_index].is_empty()" in target_code,"empty regions avoid unnecessary target scans")
+ check(target_code.count("_show_message(\"No visible target\",0.9)")>=2,"empty and obstructed target cycles both give feedback")
  check("bool(beast.get(\"alive\",false)) and bool(beast.get(\"hostile\",false))" in target_code,"dead or peaceful region entries excluded from targeting")
  check("not wait_open and not wait_transition_active:" in target_code,"controller target cycling respects world-transition lockout")
  check("if not hero_playing or menu_open or death_active or wait_open or wait_transition_active:return" in target_code,"target-cycle method independently guards gameplay state")
