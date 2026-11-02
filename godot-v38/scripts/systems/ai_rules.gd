@@ -7,13 +7,14 @@ static func perception(is_alert:bool,weather:String,is_night:bool) -> float:
  return radius
 
 static func approach(diff:Vector3,speed:float,spawn_id:int,is_boss:bool,boss_phase:int,distance:float) -> Vector3:
+ if not is_finite(diff.x) or not is_finite(diff.y) or not is_finite(diff.z) or not is_finite(speed) or speed<=0.0:return Vector3.ZERO
  if diff.length_squared()<0.00001:return Vector3.ZERO
  var advance:=diff.normalized()
  if not is_boss and distance<8.0:
   var side:=1.0 if spawn_id%2==0 else -1.0
   advance=(advance+Vector3(-advance.z,0.0,advance.x)*side*0.42).normalized()
- if is_boss and boss_phase>=2:speed*=1.0+0.15*float(boss_phase-1)
+ if is_boss and boss_phase>=2:speed*=1.0+0.15*float(clampi(boss_phase,1,3)-1)
  return advance*speed
 
 static func retreat_due(hp:float,max_health:float,is_boss:bool,dungeon_site:int,now:float,cooldown_until:float) -> bool:
- return hp>0.0 and hp<max_health*0.28 and not is_boss and dungeon_site<0 and now>=cooldown_until
+ return is_finite(hp) and is_finite(max_health) and max_health>0.0 and is_finite(now) and is_finite(cooldown_until) and hp>0.0 and hp<max_health*0.28 and not is_boss and dungeon_site<0 and now>=cooldown_until
