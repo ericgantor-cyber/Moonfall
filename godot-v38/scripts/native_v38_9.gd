@@ -44,7 +44,7 @@ func _cycle_aim_target()->void:
   if not bool(beast.get("alive",false)) or not bool(beast.get("hostile",false)):continue
   var body:CharacterBody3D=beast.get("body") as CharacterBody3D
   if not is_instance_valid(body) or not zone_ids.has(body.get_instance_id()):continue
-  if not body.visible:continue
+  if not body.visible or not body.is_inside_tree():continue
   if player.global_position.distance_squared_to(body.global_position)>AIM_RANGE*AIM_RANGE:continue
   if not _has_clear_sight(player,body):continue
   eligible.append(index)
