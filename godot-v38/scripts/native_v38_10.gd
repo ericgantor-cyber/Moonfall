@@ -183,6 +183,10 @@ func _interact()->void:
     _show_message("Inscription recorded • revisit this chamber for its history.",2.0)
    else:
     secret["read"]=true
+    if bool(secret.get("reward",false)):
+     depth_spell_charges=mini(3,depth_spell_charges+1)
+     _show_message("HIDDEN MOON RELIC FOUND! One lunar charge restored. ("+str(depth_spell_charges)+"/3)",4.0)
+     return
     var lore:Array[String]=["The first guardians sealed the crimson moon beneath these stones.","Moonbound travelers followed the three violet glyphs to find sanctuary.","The Guardian Heart remembers those who returned without surrendering."]
     _show_message("ANCIENT INSCRIPTION: "+lore[site%lore.size()],5.0)
    return
@@ -257,6 +261,18 @@ func _v321_build_chambers()->void:
    root.add_child(sign)
    root.visible=false
    v321_chambers.append({"node":root,"site":site_id,"stage":stage,"label":sign})
+   if stage==count:
+    var relic:=Label3D.new()
+    relic.name="HiddenMoonRelic"
+    relic.text="HIDDEN MOON RELIC • G TO DISCOVER"
+    relic.font_size=25
+    relic.pixel_size=0.005
+    relic.billboard=BaseMaterial3D.BILLBOARD_ENABLED
+    relic.modulate=Color("ebcc8f")
+    relic.position=root.position+Vector3(2.0,1.5,2.0)
+    relic.visible=false
+    world.add_child(relic)
+    rift_secret_signs.append({"site":site_id,"node":relic,"read":false,"reward":true})
  # Six zone-specific landmarks and a ruined gateway at each of 30 dungeon entrances.
  # Mesh-only decor is built once, non-colliding, with no new lights or animation.
  var zone_tones:Array[Color]=[Color("536bba"),Color("6ca77a"),Color("cc764f"),Color("88b7c5"),Color("ae547a"),Color("d3b469")]
@@ -344,6 +360,8 @@ func _process(delta:float)->void:
   marker.visible=allowed and player.global_position.distance_squared_to(marker.global_position)<20.0*20.0
   if marker.visible:
    var wanted:String="ANCIENT INSCRIPTION • READ" if bool(secret["read"]) else "ANCIENT INSCRIPTION • G TO READ"
+   if bool(secret.get("reward",false)):
+    wanted="MOON RELIC • DISCOVERED" if bool(secret["read"]) else "HIDDEN MOON RELIC • G TO DISCOVER"
    if marker.text!=wanted:marker.text=wanted
 
 ## Exploration discoveries reset on a new adventure, never on ordinary menu use.
