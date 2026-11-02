@@ -2089,7 +2089,7 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
    _apply_incoming_damage(float(BEASTS[kind]["atk"]))
   # Visual follow-through only; preserve established hit timing and damage.
   beast["attack_swing_until"]=map_time+V383_FEEDBACK.ATTACK_SWING_SECONDS
-  beast["attack"]=ENEMY_COMBAT_RULES.attack_cooldown(kind)
+  beast["attack"]=ENEMY_COMBAT_RULES.staggered_cooldown(kind,int(beast.get("boss_id",0)))
 
 func _despawn_native_beast(beast:Dictionary,delay:float) -> void:
  beast["alive"]=false
