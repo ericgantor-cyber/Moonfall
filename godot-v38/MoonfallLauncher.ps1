@@ -150,6 +150,11 @@ $repair.Add_Click({
       Set-Content -LiteralPath $report -Encoding UTF8
   } catch { $report = 'Report unavailable' }
   $message += [Environment]::NewLine + 'Local report: ' + $report
+  if ($report -ne 'Report unavailable') {
+    $status.Text = 'Repair report saved locally.'
+  } else {
+    $status.Text = 'Repair report could not be saved.'
+  }
   [System.Windows.Forms.MessageBox]::Show($message,'Moonfall safe repair') | Out-Null
   if ([System.Windows.Forms.MessageBox]::Show('Open official Moonfall releases for repair files?','Moonfall safe repair','YesNo') -eq 'Yes') {
     try { Start-Process $releasePage } catch {
