@@ -10,10 +10,13 @@ static func approach(diff:Vector3,speed:float,spawn_id:int,is_boss:bool,boss_pha
  if not is_finite(diff.x) or not is_finite(diff.y) or not is_finite(diff.z) or not is_finite(speed) or speed<=0.0:return Vector3.ZERO
  if diff.length_squared()<0.00001:return Vector3.ZERO
  var advance:=diff.normalized()
- if not is_boss and distance<8.0:
+ if not is_boss and is_finite(distance) and distance>=0.0 and distance<8.0:
   var side:=1.0 if spawn_id%2==0 else -1.0
   # Three stable approach lanes break up crowded packs without path scans.
   var flank_weight:float=0.25+0.14*float(posmod(spawn_id,3))
+  # At melee distance the sideways push fades, so wolves still close in
+  # instead of endlessly circling the hero without a chance to strike.
+  flank_weight*=clampf((distance-1.4)/3.0,0.0,1.0)
   advance=(advance+Vector3(-advance.z,0.0,advance.x)*side*flank_weight).normalized()
  if is_boss and boss_phase>=2:speed*=1.0+0.15*float(clampi(boss_phase,1,3)-1)
  return advance*speed
