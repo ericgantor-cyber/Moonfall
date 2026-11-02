@@ -176,7 +176,15 @@ $updates.Add_Click({
       $reader = New-Object System.IO.StreamReader($response.GetResponseStream())
       try { $latest = $reader.ReadToEnd() | ConvertFrom-Json } finally { $reader.Dispose() }
     } finally { $response.Dispose() }
-    $status.Text = ('Latest published release: ' + $latest.tag_name)
+    $tag = [string]$latest.tag_name
+    $published = if ($latest.published_at) { ([datetime]$latest.published_at).ToString('yyyy-MM-dd') } else { 'date unavailable' }
+    $status.Text = ('Latest release: ' + $tag)
+    [System.Windows.Forms.MessageBox]::Show(
+      ('Latest published release: ' + $tag + [Environment]::NewLine +
+       'Published: ' + $published + [Environment]::NewLine +
+       'Installed build: ' + $version.Text + [Environment]::NewLine +
+       'Use the release page to review changes and verify a download.'),
+      'Moonfall update information') | Out-Null
     if ([System.Windows.Forms.MessageBox]::Show('Open release page for verified manual update? Saves remain untouched.','Moonfall updates','YesNo') -eq 'Yes') { Start-Process $releasePage }
   } catch {
     $status.Text = 'Update lookup unavailable; opening releases page.'
