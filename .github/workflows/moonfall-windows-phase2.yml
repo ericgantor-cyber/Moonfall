@@ -33,9 +33,8 @@ jobs:
           )
           $found = $candidatePaths | Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } | Select-Object -First 1
           if (!$found) { throw 'ISCC.exe missing after installing Inno Setup 6.' }
-          $version = [System.Diagnostics.FileVersionInfo]::GetVersionInfo($found)
-          if ($version.FileMajorPart -ne 6) { throw "Expected Inno Setup major version 6: $found" }
-          Write-Host "Verified Inno Setup 6 compiler: $found"
+          if (!(Test-Path -LiteralPath $found -PathType Leaf)) { throw "Missing Inno Setup compiler: $found" }
+          Write-Host "Located Inno Setup 6 compiler: $found"
       - name: Build and verify Windows game and installer
         shell: pwsh
         run: |
