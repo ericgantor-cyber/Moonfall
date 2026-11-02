@@ -62,3 +62,22 @@ func _set_boss_telegraph(beast:Dictionary,active:bool)->void:
   warning.text=new_text
   boss_warning_updates+=1
  warning.visible=true
+
+## In-world objective readouts for the existing three-chamber wave system.
+## No extra enemy spawns, rewards, scene nodes, or save fields.
+const RIFT_OBJECTIVES=preload("res://scripts/systems/rift_objective_rules.gd")
+func _v321_update_chambers()->void:
+ super._v321_update_chambers()
+ if not hero_playing:return
+ for chamber in v321_chambers:
+  var site:int=int(chamber.get("site",-1))
+  if site<0 or site>=rifts.size():continue
+  var stage:int=int(chamber.get("stage",0))
+  var entry:Dictionary=rifts[site]
+  if not RIFT_OBJECTIVES.stage_active(entry,stage):continue
+  var label:Label3D=chamber.get("label") as Label3D
+  if not is_instance_valid(label):continue
+  var slots:Array=entry.get("slots",[])
+  var left:int=RIFT_OBJECTIVES.remaining_enemies(slots,beasts)
+  var objective:String=RIFT_OBJECTIVES.objective(stage,left,false)
+  if label.text!=objective:label.text=objective
