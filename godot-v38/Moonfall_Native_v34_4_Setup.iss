@@ -26,6 +26,7 @@ Name: "desktopicon"; Description: "Create desktop shortcut"; GroupDescription: "
 Source: "{#BuildDir}\{#ExeName}"; DestDir: "{app}"; Flags: ignoreversion
 Source: "MoonfallLauncher.ps1"; DestDir: "{app}"; Flags: ignoreversion
 Source: "MoonfallLauncher.cmd"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#BuildDir}\moonfall-integrity.json"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#BuildDir}\GODOT_LICENSE.txt"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
 [Icons]
 Name: "{autoprograms}\Moonfall Native"; Filename: "{app}\{#ExeName}"
