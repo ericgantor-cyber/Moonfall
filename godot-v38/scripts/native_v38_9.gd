@@ -18,6 +18,7 @@ func _unhandled_input(event:InputEvent)->void:
  super._unhandled_input(event)
 
 func _cycle_aim_target()->void:
+ if not hero_playing or menu_open or death_active or wait_open or wait_transition_active:return
  if not is_instance_valid(player) or region_index<0 or region_index>=zone_beast_lists.size():return
  var eligible:Array[int]=[]
  # Index the canonical beast list once instead of scanning it for every candidate.
