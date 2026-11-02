@@ -24,7 +24,7 @@ func _run()->void:
  root.add_child(game)
  await process_frame
  check(CURRENT_RELEASE.matches_project(game),"New Stage 2 version active")
- check((game.get("rifts") as Array).size()==3,"Exactly three original connected rifts")
+ check((game.get("rifts") as Array).size()==30,"Thirty connected rifts, retaining original site IDs")
  check((game.get("v321_chambers") as Array).size()==9,"Three authored chambers per rift")
  check((game.get("region_nodes") as Array).size()==6,"Six original world regions")
  check((game.get("v320_wardens") as Array).size()==6,"Existing NPCs preserved")
