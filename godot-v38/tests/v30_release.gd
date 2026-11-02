@@ -60,7 +60,8 @@ func _run()->void:
  pad.pressed=true
  pad.button_index=JOY_BUTTON_RIGHT_STICK
  game.call("_unhandled_input",pad)
- check(is_equal_approx(float(game.get("v24_camera_size")),19.0),"controller camera reset action")
+ # The right-stick click was reassigned to target lock in v38; camera zoom must remain unchanged.
+ check(is_equal_approx(float(game.get("v24_camera_size")),24.0),"controller target-lock input does not reset camera zoom")
  game.queue_free()
  if failed==0:print("MOONFALL v30 RELEASE PASS")
  quit(0 if failed==0 else 1)

@@ -1,0 +1,111 @@
+name: Moonfall Windows 10-11 build
+on:
+  push:
+    branches:
+      - moonfall-windows-ci-root-20261101
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 110
+    env:
+      PYTHONUTF8: '1'
+      PYTHONIOENCODING: utf-8
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: godot-v38
+    steps:
+      - name: Checkout Moonfall source
+        uses: actions/checkout@v4
+      - name: Verify Windows project layout
+        shell: pwsh
+        run: |
+          if (!(Test-Path 'project.godot')) { throw 'Missing project.godot' }
+          if (!(Test-Path 'BUILD_MOONFALL_ONE_CLICK.ps1')) { throw 'Missing Windows build script' }
+          if (!(Test-Path 'export_presets.cfg')) { throw 'Missing export preset' }
+      - name: Install and verify Inno Setup 6 on CI
+        shell: pwsh
+        run: |
+          choco install innosetup --yes --no-progress
+          if ($LASTEXITCODE -ne 0) { throw "Chocolatey Inno Setup installation failed ($LASTEXITCODE)" }
+          $candidatePaths = @(
+            "${env:ProgramFiles(x86)}\\Inno Setup 6\\ISCC.exe",
+            "${env:ProgramFiles}\\Inno Setup 6\\ISCC.exe"
+          )
+          $found = $candidatePaths | Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } | Select-Object -First 1
+          if (!$found) { throw 'ISCC.exe missing after installing Inno Setup 6.' }
+          if (!(Test-Path -LiteralPath $found -PathType Leaf)) { throw "Missing Inno Setup compiler: $found" }
+          Write-Host "Located Inno Setup 6 compiler: $found"
+      - name: Validate launcher PowerShell syntax
+        shell: pwsh
+        run: |
+          $tokens = $null
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile((Join-Path (Get-Location) 'MoonfallLauncher.ps1'), [ref]$tokens, [ref]$errors) | Out-Null
+          if ($errors.Count -gt 0) { $errors | ForEach-Object { Write-Host $_ }; throw 'Launcher PowerShell parse failed' }
+          Write-Host 'PASS: Moonfall launcher PowerShell syntax'
+      - name: Build and verify Windows game and installer
+        shell: pwsh
+        run: |
+          ./BUILD_MOONFALL_ONE_CLICK.ps1
+      - name: Run Phase 2 Godot combat and AI regressions
+        shell: pwsh
+        run: |
+          $engine = Join-Path (Get-Location) 'Godot_4.7.2/Godot_v4.7.2-stable_win64.exe'
+          if (!(Test-Path $engine)) { throw "Godot engine missing: $engine" }
+          $suites = @(
+            'guardian_attack_rules_test.gd',
+            'guardian_attack_safety.gd',
+            'companion_combat_phase2.gd',
+            'companion_combat_phase2_hardening.gd',
+            'boss_readout_phase2.gd',
+            'boss_warning_lifecycle.gd',
+            'boss_warning_performance.gd',
+            'boss_warning_invalid_body.gd',
+            'boss_warning_replacement_extended.gd',
+            'enemy_combat_role_correction.gd',
+            'enemy_combat_safety_v2.gd',
+            'enemy_combat_live_integration.gd',
+            'enemy_combat_performance_v3.gd',
+            'enemy_combat_performance_v4.gd',
+            'enemy_ai_phase2_review.gd',
+            'enemy_last_seen_investigation.gd',
+            'enemy_memory_expiry_hardening.gd',
+            'enemy_reacquire_test.gd',
+            'enemy_search_arrival_v2.gd',
+            'enemy_search_braking.gd',
+            'enemy_search_pause.gd',
+            'enemy_search_lifecycle_v448.gd'
+          )
+          New-Item -ItemType Directory -Force -Path 'build/phase2-test-logs' | Out-Null
+          $failed = @()
+          foreach ($suite in $suites) {
+            $log = Join-Path 'build/phase2-test-logs' ($suite + '.log')
+            Write-Host "PHASE 2: $suite"
+            $process = Start-Process -FilePath $engine -ArgumentList @("--headless", "--path", ".", "--script", ("res://tests/" + $suite)) -WorkingDirectory (Get-Location).Path -Wait -PassThru -RedirectStandardOutput $log -RedirectStandardError ($log + ".stderr")
+            $exitCode = $process.ExitCode
+            $output = (Get-Content -LiteralPath $log -Raw) + (Get-Content -LiteralPath ($log + ".stderr") -Raw)
+            Write-Host "Suite $suite exited $exitCode; output bytes: $($output.Length)"
+            if ($exitCode -ne 0 -or $output -match 'SCRIPT ERROR|Parse Error|Failed to load script|Assertion failed') {
+              Write-Host $output
+              $failed += $suite
+            }
+          }
+          if ($failed.Count -gt 0) { throw ("Phase 2 failures: " + ($failed -join ', ')) }
+          Write-Host "PASS: $($suites.Count) Phase 2 gameplay suites"
+      - name: Publish Windows build evidence and binaries
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: moonfall-windows-build-results
+          if-no-files-found: warn
+          retention-days: 14
+          path: |
+            godot-v38/build/*.exe
+            godot-v38/build/*.json
+            godot-v38/build/*.txt
+            godot-v38/Release_Windows/*.exe
+            godot-v38/GODOT_*_LOG.txt
+            godot-v38/build/phase2-test-logs/*
