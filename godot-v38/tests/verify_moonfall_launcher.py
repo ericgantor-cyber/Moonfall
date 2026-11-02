@@ -28,5 +28,8 @@ checks={
  "Installer retains direct game shortcut": 'Name: "{autoprograms}\\Moonfall Native"' in iss,
  "Installer adds launcher shortcut": 'Name: "{autoprograms}\\Moonfall Launcher"' in iss,
 }
+# Fail closed if a merge accidentally appends duplicate test blocks or stray source.
+assert __name__ == "__main__", "Run this regression script directly"
+assert list(checks).count("Local repair diagnostics") == 1
 for name,ok in checks.items(): print(("PASS" if ok else "FAIL")+": "+name)
 raise SystemExit(0 if all(checks.values()) else 1)
