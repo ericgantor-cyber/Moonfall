@@ -9,7 +9,7 @@ var aim_assist_enabled:bool=true
 var aim_direction:Vector3=Vector3.FORWARD
 
 func _unhandled_input(event:InputEvent)->void:
- if hero_playing and not menu_open and not death_active:
+ if hero_playing and not menu_open and not death_active and not wait_open and not wait_transition_active:
   if event is InputEventMouseButton and event.pressed and event.button_index==MOUSE_BUTTON_RIGHT:
    _toggle_aim_lock()
    get_viewport().set_input_as_handled()
@@ -22,7 +22,7 @@ func _unhandled_input(event:InputEvent)->void:
 
 func _process(delta:float)->void:
  super._process(delta)
- if not hero_playing or menu_open or death_active or not is_instance_valid(player):return
+ if not hero_playing or menu_open or death_active or wait_open or wait_transition_active or not is_instance_valid(player):return
  var pads:Array[int]=Input.get_connected_joypads()
  if not pads.is_empty():
   var pad:int=pads[0]
