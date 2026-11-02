@@ -38,6 +38,12 @@ static func role_attack_ready(kind:String,now:float,beast_id:int)->bool:
  if group_attack_ready(now,beast_id):return true
  return role_for(kind)=="bruiser" and group_attack_ready(now,beast_id+1)
 
+static func preferred_spacing(kind:String)->float:
+ return 2.4 if role_for(kind)=="ambusher" else 1.7
+
+static func wants_flank(kind:String,distance:float,has_sight:bool)->bool:
+ return has_sight and is_finite(distance) and distance>preferred_spacing(kind) and distance<7.0 and role_for(kind)=="ambusher"
+
 static func attack_timer_after_frame(current:float,delta:float)->float:
  if not is_finite(current):return 0.0
  var elapsed:float=clampf(delta,0.0,0.1) if is_finite(delta) else 0.0
