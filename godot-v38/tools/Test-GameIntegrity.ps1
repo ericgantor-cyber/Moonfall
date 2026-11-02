@@ -37,6 +37,10 @@ try {
   $validInfo.game_file = 'NotMoonfall.exe'
   $validInfo | ConvertTo-Json | Set-Content -LiteralPath $info -Encoding UTF8
   if (Test-MoonfallIntegrity $copy $info) { throw 'Incorrect filename was accepted' }
+  $validInfo.game_file = [IO.Path]::GetFileName($copy)
+  $validInfo.schema = 999
+  $validInfo | ConvertTo-Json | Set-Content -LiteralPath $info -Encoding UTF8
+  if (Test-MoonfallIntegrity $copy $info) { throw 'Unsupported manifest schema was accepted' }
   Set-Content -LiteralPath $info -Value '{bad-json' -Encoding UTF8
   if (Test-MoonfallIntegrity $copy $info) { throw 'Malformed manifest was accepted' }
   Remove-Item -LiteralPath $info
