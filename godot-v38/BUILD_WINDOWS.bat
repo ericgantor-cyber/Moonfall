@@ -357,6 +357,13 @@ if not errorlevel 1 goto failed
 if errorlevel 1 goto failed
 findstr /c:"MOONFALL v38.2 PROCEDURAL PASS" GODOT_V38_2_PROCEDURAL_LOG.txt >nul
 if errorlevel 1 goto failed
+rem Validate continuous rifts and moon glyphs in the same Windows build gate.
+"%ENGINE%" --headless --path "%CD%" --script res://tests/rift_objectives_v458.gd > GODOT_RIFT_OBJECTIVES_LOG.txt 2>&1
+if errorlevel 1 goto failed
+"%ENGINE%" --headless --path "%CD%" --script res://tests/rift_continuous_v459.gd > GODOT_RIFT_CONTINUOUS_LOG.txt 2>&1
+if errorlevel 1 goto failed
+"%ENGINE%" --headless --path "%CD%" --script res://tests/continuous_rift_glyphs_v460.gd > GODOT_RIFT_GLYPHS_LOG.txt 2>&1
+if errorlevel 1 goto failed
 rem A script may print its PASS banner while Godot also emits ERROR diagnostics.
 rem Inspect all import, gameplay, export and packed startup logs before success.
 python tests\check_godot_logs.py
