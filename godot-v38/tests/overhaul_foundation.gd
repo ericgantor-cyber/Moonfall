@@ -86,6 +86,11 @@ func _run()->void:
  check(combat_rules.attack_timer_after_frame(NAN,0.016)==0.0,"invalid attack timer recovers to safe state")
  check(combat_rules.search_pause_expiry(INF)==0.0,"invalid AI clock cannot create endless search")
  check(combat_rules.search_pause_expiry(1.0e15)==0.0,"extreme AI clock cannot create endless search")
+ var telegraph=load("res://scripts/systems/boss_telegraph_readout.gd")
+ check("DODGE AWAY" in telegraph.warning_text(1,0),"focused attack gives directional dodge cue")
+ check("CLEAR THE AREA" in telegraph.warning_text(2,1),"sweep attack warns of area danger")
+ check("SIDESTEP" in telegraph.warning_text(3,2),"precision attack suggests sidestep")
+ check("WATCH THE DELAY" in telegraph.warning_text(3,3),"delayed attack warns of timing")
  var sprite=game.get("hero_sprite") as Sprite3D
  check(is_instance_valid(sprite) and sprite.texture!=null,"original hero sprite texture present")
  game.queue_free()
