@@ -32,21 +32,30 @@ func _v321_build_chambers()->void:
  var shared_cap:=SphereMesh.new()
  shared_cap.radius=0.28
  shared_cap.height=0.56
+ # Cache visual resources by zone: five rifts share the same palette.
+ # Prevent 90 otherwise identical per-rift material allocations.
+ var materials_by_zone:Dictionary={}
  for site_id in range(rifts.size()):
   var entry:Dictionary=rifts[site_id]
   var zone:int=int(entry["zone"])
-  var color:Color=Color(str(REGIONS[zone]["light"]))
-  var floor_material:=StandardMaterial3D.new()
-  floor_material.albedo_color=color.darkened(0.72)
-  floor_material.roughness=0.95
-  var stone_material:=StandardMaterial3D.new()
-  stone_material.albedo_color=color.darkened(0.63)
-  stone_material.roughness=0.90
-  var glow_material:=StandardMaterial3D.new()
-  glow_material.shading_mode=BaseMaterial3D.SHADING_MODE_UNSHADED
-  glow_material.albedo_color=color
-  glow_material.emission_enabled=true
-  glow_material.emission=color
+  if not materials_by_zone.has(zone):
+   var color:Color=Color(str(REGIONS[zone]["light"]))
+   var floor_mat:=StandardMaterial3D.new()
+   floor_mat.albedo_color=color.darkened(0.72)
+   floor_mat.roughness=0.95
+   var stone_mat:=StandardMaterial3D.new()
+   stone_mat.albedo_color=color.darkened(0.63)
+   stone_mat.roughness=0.90
+   var glow_mat:=StandardMaterial3D.new()
+   glow_mat.shading_mode=BaseMaterial3D.SHADING_MODE_UNSHADED
+   glow_mat.albedo_color=color
+   glow_mat.emission_enabled=true
+   glow_mat.emission=color
+   materials_by_zone[zone]={"floor":floor_mat,"stone":stone_mat,"glow":glow_mat}
+  var palette:Dictionary=materials_by_zone[zone]
+  var floor_material:StandardMaterial3D=palette["floor"]
+  var stone_material:StandardMaterial3D=palette["stone"]
+  var glow_material:StandardMaterial3D=palette["glow"]
   for stage in range(1,4):
    var root:=Node3D.new()
    root.name="V321_Rift_%d_Chamber_%d"%[site_id,stage]
