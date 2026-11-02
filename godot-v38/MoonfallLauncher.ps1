@@ -125,6 +125,72 @@ $play.Add_Click({
     [System.Windows.Forms.MessageBox]::Show('Moonfall game file is damaged or unreadable. Reinstall from a verified release. Saves will not be deleted.','Game repair') | Out-Null
     return
   }
+  # Verify the installed release binary against the manifest written during export.
+  $integrity = Join-Path $root 'moonfall-integrity.json'
+  if (Test-Path -LiteralPath $integrity -PathType Leaf) {
+    try {
+      $info = Get-Content -LiteralPath $integrity -Raw | ConvertFrom-Json
+      if ($info.schema -ne 1 -or $info.game_file -ne [IO.Path]::GetFileName($game) -or
+          [string]$info.game_sha256 -notmatch '^[a-fA-F0-9]{64}
+  $running = Get-Process -Name 'MoonfallNative_v34_4' -ErrorAction SilentlyContinue
+  if ($running) {
+    $status.Text = 'Moonfall is already running.'
+    [System.Windows.Forms.MessageBox]::Show('Moonfall is already running. Switch to the game window instead of opening another copy.','Moonfall launcher') | Out-Null
+    return
+  }
+  $arguments = if ($display.Checked) { '--fullscreen' } else { '--windowed' }
+  if (!$display.Checked) {
+    $parts = ([string]$res.SelectedItem).Split('x')
+    $arguments += ' --resolution ' + $parts[0] + 'x' + $parts[1]
+  }
+  try {
+    Start-Process -FilePath $game -ArgumentList $arguments -WorkingDirectory $root
+    $form.Close()
+  } catch {
+    [System.Windows.Forms.MessageBox]::Show($_.Exception.Message,'Cannot start Moonfall') | Out-Null
+  }
+})
+$updates.Add_Click({
+  try {
+    $status.Text = 'Checking GitHub releases...'
+    $request = [System.Net.HttpWebRequest]::Create('https://api.github.com/repos/ericgantor-cyber/Moonfall/releases/latest')
+    $request.Timeout = 4500
+    $request.UserAgent = 'MoonfallLauncher/1.1'
+    $response = $request.GetResponse()
+    try {
+      $reader = New-Object System.IO.StreamReader($response.GetResponseStream())
+      try { $latest = $reader.ReadToEnd() | ConvertFrom-Json } finally { $reader.Dispose() }
+    } finally { $response.Dispose() }
+    $status.Text = ('Latest published release: ' + $latest.tag_name)
+    if ([System.Windows.Forms.MessageBox]::Show('Open release page for verified manual update? Saves remain untouched.','Moonfall updates','YesNo') -eq 'Yes') { Start-Process $releasePage }
+  } catch {
+    $status.Text = 'Update lookup unavailable; opening releases page.'
+    try { Start-Process $releasePage } catch {
+      [System.Windows.Forms.MessageBox]::Show('Visit '+$releasePage+' to check for updates.','Update link') | Out-Null
+    }
+  }
+})
+$folder.Add_Click({
+  try { Start-Process -FilePath explorer.exe -ArgumentList ('"' + $root + '"') } catch {
+    [System.Windows.Forms.MessageBox]::Show('Could not open the game folder.','Moonfall launcher') | Out-Null
+  }
+})
+[void]$form.ShowDialog()
+) {
+        throw 'Malformed game integrity manifest.'
+      }
+      $actualHash = (Get-FileHash -LiteralPath $game -Algorithm SHA256).Hash
+      if ($actualHash -ine $info.game_sha256) { throw 'Installed game file has changed.' }
+    } catch {
+      $status.Text = 'Game file integrity check failed.'
+      [System.Windows.Forms.MessageBox]::Show('The Moonfall game does not match its installation manifest. Please reinstall the verified build. Your saves will not be deleted.','Moonfall game repair') | Out-Null
+      return
+    }
+  } else {
+    $status.Text = 'Integrity manifest unavailable; game authenticity not verified.'
+    [System.Windows.Forms.MessageBox]::Show('Game integrity manifest is missing. Reinstall Moonfall from a verified release before launching. Saves will not be deleted.','Moonfall game repair') | Out-Null
+    return
+  }
   # Don't allow two simultaneous Moonfall processes from the launcher.
   $running = Get-Process -Name 'MoonfallNative_v34_4' -ErrorAction SilentlyContinue
   if ($running) {
