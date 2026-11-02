@@ -16,6 +16,13 @@ static func combo_multiplier(chain:int)->float:
 static func hurt_retreat(hp:float,max_hp:float,is_boss:bool,alert:bool,cooldown_ready:bool)->bool:
  return alert and not is_boss and cooldown_ready and max_hp>0.0 and hp/max_hp<0.26
 
+# Record proximity only when selecting a new attack; forget pressure if
+# the hero is distant or unavailable. No allocations or per-frame scans.
+static func update_close_pressure(previous:int,distance:float)->int:
+ if not is_finite(distance) or distance<0.0:return 0
+ if distance>=6.0:return 0
+ return clampi(previous+(1 if distance<2.5 else -1),0,4)
+
 static func choose_boss_pattern(phase:int,hero_health:float,hero_max:float,previous:int,distance:float=-1.0,close_pressure:int=0)->int:
  var count:int=mini(4,clampi(phase,1,3)+1)
  var next:int=posmod(previous+1,count)
