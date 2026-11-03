@@ -255,7 +255,7 @@ func _run()->void:
   check("v383_intent==\"retreat\"" in tick and ("body.velocity=-player_direction*" in tick or "body.velocity=-diff.normalized()" in tick),"low-health retreat produces actual movement")
   check("ENEMY_COMBAT_RULES.should_circle(kind,v383_intent,distance)" in tick and "body.velocity=(flank*orbit_side" in tick,"species-filtered flank intent produces actual movement")
   check("if staggered:" in tick and "if staggered:return" in tick,"stagger still prevents attack resolution")
-  check("if not staggered:" in tick and "player_direction=diff/distance" in tick,"staggered actors skip unnecessary direction calculations")
+  check("if not staggered:" in tick and "player_direction=AI_RULES.planar_direction(diff,distance)" in tick,"staggered actors skip unnecessary direction calculations")
   check(("if is_boss:" in tick and "var is_boss:bool=bool(beast.get(\"boss\",false))" in tick) or "if bool(beast.get(\"boss\",false)):" in tick,"boss windup attack path preserved")
  game.queue_free()
  print("MOONFALL v38.0 OVERHAUL PASS" if failures==0 else "MOONFALL v38.0 OVERHAUL FAIL")
