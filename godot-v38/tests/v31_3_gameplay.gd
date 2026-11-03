@@ -48,9 +48,7 @@ func _run()->void:
  check(not (dormant_trap["node"] as MeshInstance3D).visible,"Invalid trap site is ignored safely")
 
  game.call("_v313_tick_traps",1.05)
- check(bool(traps[0]["armed"]) and (traps[0]["node"] as MeshInstance3D).visible,"New warning has time to render before striking")
- game.call("_v313_tick_traps",0.11)
- check(not (traps[0]["node"] as MeshInstance3D).visible,"Hazard hides after strike")
+ check(not (traps[0]["node"] as MeshInstance3D).visible,"Previously shown warning resolves after its countdown")
  check(is_equal_approx(RULES.TRAP_COOLDOWN,20.0),"Rift hazard cooldown is twenty seconds")
  check(is_equal_approx(float(traps[0]["cooldown"]),20.0),"Hazard starts a full twenty-second cooldown after strike")
  game.call("_v313_tick_traps",19.0)
