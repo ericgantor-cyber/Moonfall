@@ -28,6 +28,13 @@ static func planar_direction(diff:Vector3,distance:float) -> Vector3:
  if not is_finite(diff.x) or not is_finite(diff.z):return Vector3.ZERO
  return Vector3(diff.x/distance,0.0,diff.z/distance)
 
+# Retreat uses a pre-normalized horizontal direction from the shared rules.
+# Multipliers 0.90 (timed retreat) and 0.85 (low-health retreat) preserve pacing.
+static func retreat_velocity(player_direction:Vector3,speed:float,multiplier:float) -> Vector3:
+ if not is_finite(speed) or speed<=0.0 or not is_finite(multiplier):return Vector3.ZERO
+ if not is_finite(player_direction.x) or not is_finite(player_direction.z):return Vector3.ZERO
+ return -player_direction*speed*multiplier
+
 # Deterministic combat orbit. The tangent and approach direction are
 # perpendicular unit vectors, so the 1:0.25 blend has fixed length.
 static func orbit_velocity(player_direction:Vector3,speed:float,orbit_side:float) -> Vector3:
