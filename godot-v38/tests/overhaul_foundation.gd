@@ -192,6 +192,18 @@ func _run()->void:
    melee_range_sweep_ok=false
    break
  check(melee_range_sweep_ok,"111 melee range samples preserve species-specific attack reach")
+ var cooldown_sweep_ok:bool=true
+ for sample_index in range(111):
+  var sample_kind:String="boar" if sample_index%4==0 else ("panther" if sample_index%4==1 else ("serpent" if sample_index%4==2 else "wolf"))
+  var delay:float=combat_rules.staggered_cooldown(sample_kind,sample_index)
+  var repeat_delay:float=combat_rules.staggered_cooldown(sample_kind,sample_index+4)
+  var baseline:float=combat_rules.attack_cooldown(sample_kind)
+  var spread:float=0.17 if sample_kind=="boar" else (0.10 if sample_kind=="panther" else 0.12)
+  var expected_delay:float=baseline+float(sample_index%4)*spread
+  if not is_equal_approx(delay,expected_delay) or not is_equal_approx(delay,repeat_delay) or delay<baseline or delay>baseline+3.0*spread:
+   cooldown_sweep_ok=false
+   break
+ check(cooldown_sweep_ok,"111 cooldown samples preserve species pacing and stagger cycle")
  var attack_slots_ok:bool=true
  for sample_index in range(111):
   var moment:float=float(sample_index)*0.25+0.125
