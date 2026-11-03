@@ -76,7 +76,9 @@ static func ready_to_strike(timer:float)->bool:
 
 # Saved elite marks must be finite before collision math or damage resolution.
 static func valid_lunge_target(target:Vector3)->bool:
- return is_finite(target.x) and is_finite(target.y) and is_finite(target.z)
+ if not is_finite(target.x) or not is_finite(target.y) or not is_finite(target.z):return false
+ # Finite components can still overflow squared-distance hit calculations.
+ return is_finite(target.length_squared())
 
 
 # Memory is per creature: no scans, pathfinders, or extra nodes per frame.
