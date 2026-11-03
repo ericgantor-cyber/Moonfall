@@ -21,7 +21,9 @@ static func hurt_retreat(hp:float,max_hp:float,is_boss:bool,alert:bool,cooldown_
 static func update_close_pressure(previous:int,distance:float)->int:
  if not is_finite(distance) or distance<0.0:return 0
  if distance>=6.0:return 0
- return clampi(previous+(1 if distance<2.5 else -1),0,4)
+ # Clamp corrupted saved pressure before arithmetic, avoiding integer overflow.
+ var pressure:int=clampi(previous,0,4)
+ return mini(4,pressure+1) if distance<2.5 else maxi(0,pressure-1)
 
 static func choose_boss_pattern(phase:int,hero_health:float,hero_max:float,previous:int,distance:float=-1.0,close_pressure:int=0,last_landed:bool=false,style:int=0)->int:
  var count:int=mini(4,clampi(phase,1,3)+1)
