@@ -1760,7 +1760,7 @@ func _physics_process(delta: float) -> void:
  if not hero_playing or menu_open or wait_open or wait_transition_active:return
  attack_cooldown=maxf(0.0,attack_cooldown-delta)
  ability_cooldown=maxf(0.0,ability_cooldown-delta)
- dodge_time=maxf(0.0,dodge_time-delta)
+ dodge_time=COMBAT_RULES.dodge_timer_after_frame(dodge_time,delta)
  dodge_cooldown=maxf(0.0,dodge_cooldown-delta)
  hunter_oil_time=maxf(0.0,hunter_oil_time-delta)
  companion_attack_timer=maxf(0.0,companion_attack_timer-delta)
