@@ -66,6 +66,10 @@ func _run()->void:
  if wrap_index>=sample_targets.size():wrap_index=0
  check(sample_targets[wrap_index]==1,"target-cycle wraps to first eligible index")
  var ai_rules=load("res://scripts/systems/ai_rules.gd")
+ check(is_equal_approx(ai_rules.maximum_perception(),16.24),"maximum awareness matches alert night range")
+ check(ai_rules.potentially_visible(16.23),"awareness accepts targets within maximum range")
+ check(not ai_rules.potentially_visible(16.24),"awareness excludes upper bound")
+ check(not ai_rules.potentially_visible(-INF) and not ai_rules.potentially_visible(NAN),"invalid awareness distances fail closed")
  check(ai_rules.approach(Vector3(5,0,0),0.0,1,false,1,5.0)==Vector3.ZERO,"zero-speed enemy cannot drift")
  check(ai_rules.approach(Vector3(INF,0,0),3.0,1,false,1,5.0)==Vector3.ZERO,"invalid pursuit direction fails closed")
  check(ai_rules.approach(Vector3(1,0,0),NAN,1,false,1,5.0)==Vector3.ZERO,"invalid enemy speed fails closed")
