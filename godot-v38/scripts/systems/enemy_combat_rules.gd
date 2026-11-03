@@ -93,7 +93,7 @@ static func valid_lunge_hit_pair(mark:Vector3,player_pos:Vector3)->bool:
 # Memory is per creature: no scans, pathfinders, or extra nodes per frame.
 static func remember_target(seen:bool,hostile:bool,boss:bool,now:float,hero_pos:Vector3,old_pos:Vector3,old_until:float)->Dictionary:
  if not hostile or boss or not is_finite(now) or now<0.0 or now>1.0e12:
-  return {"position":old_pos,"until":0.0}
+  return {"position":Vector3.ZERO,"until":0.0}
  if seen:
   # A new memory must fit entirely inside the supported world clock.
   if now>1.0e12-3.0:return {"position":Vector3.ZERO,"until":0.0}
