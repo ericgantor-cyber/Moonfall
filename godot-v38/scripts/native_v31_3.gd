@@ -124,6 +124,9 @@ func _v313_tick_traps(seconds:float)->void:
   if not bool(trap["armed"]) and float(trap["cooldown"])<=0.0:
    trap["warning"]=V313_RULES.TRAP_WARNING
    trap["armed"]=true
+   # A long frame must not consume a newly shown warning before it renders.
+   rune.visible=true
+   continue
   if bool(trap["armed"]):
    rune.visible=true # warning is visible even at minimum graphics quality
    trap["warning"]=maxf(0.0,float(trap["warning"])-seconds)
