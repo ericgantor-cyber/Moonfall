@@ -84,6 +84,11 @@ static func valid_lunge_target(target:Vector3)->bool:
  # Finite components can still overflow squared-distance hit calculations.
  return is_finite(target.length_squared())
 
+# Two individually valid positions can still overflow when separated.
+static func valid_lunge_hit_pair(mark:Vector3,player_pos:Vector3)->bool:
+ if not valid_lunge_target(mark) or not valid_lunge_target(player_pos):return false
+ return is_finite((player_pos-mark).length_squared())
+
 
 # Memory is per creature: no scans, pathfinders, or extra nodes per frame.
 static func remember_target(seen:bool,hostile:bool,boss:bool,now:float,hero_pos:Vector3,old_pos:Vector3,old_until:float)->Dictionary:
