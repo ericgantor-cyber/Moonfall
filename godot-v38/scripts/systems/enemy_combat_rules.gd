@@ -79,6 +79,8 @@ static func remember_target(seen:bool,hostile:bool,boss:bool,now:float,hero_pos:
  if not hostile or boss or not is_finite(now) or now<0.0 or now>1.0e12:
   return {"position":old_pos,"until":0.0}
  if seen:
+  # A new memory must fit entirely inside the supported world clock.
+  if now>1.0e12-3.0:return {"position":Vector3.ZERO,"until":0.0}
   if is_finite(hero_pos.x) and is_finite(hero_pos.y) and is_finite(hero_pos.z):
    return {"position":hero_pos,"until":now+3.0}
   # Corrupt new sightings must not keep a stale target alive.

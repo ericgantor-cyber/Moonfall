@@ -262,6 +262,19 @@ func _run()->void:
    memory_sweep_ok=false
    break
  check(memory_sweep_ok,"111 target-memory samples keep three-second pursuit and expire on schedule")
+ var memory_horizon_sweep_ok:bool=true
+ for sample_index in range(111):
+  var sample_now:float=1.0e12-5.0+float(sample_index)*0.05
+  var target_pos:Vector3=Vector3(6.0,0.0,2.0)
+  var fresh:Dictionary=combat_rules.remember_target(true,true,false,sample_now,target_pos,Vector3.ZERO,0.0)
+  if sample_now<=1.0e12-3.0:
+   if fresh.get("position",Vector3.ZERO)!=target_pos or not is_equal_approx(float(fresh.get("until",0.0)),sample_now+3.0) or float(fresh.get("until",0.0))>1.0e12:
+    memory_horizon_sweep_ok=false
+    break
+  elif fresh.get("position",target_pos)!=Vector3.ZERO or float(fresh.get("until",-1.0))!=0.0:
+   memory_horizon_sweep_ok=false
+   break
+ check(memory_horizon_sweep_ok,"111 target memory clock-boundary cases remain within supported horizon")
  var invalid_sighting_sweep_ok:bool=true
  for sample_index in range(111):
   var sample_now:float=0.25+float(sample_index)*0.05
