@@ -78,8 +78,11 @@ static func ready_to_strike(timer:float)->bool:
 static func remember_target(seen:bool,hostile:bool,boss:bool,now:float,hero_pos:Vector3,old_pos:Vector3,old_until:float)->Dictionary:
  if not hostile or boss or not is_finite(now) or now<0.0 or now>1.0e12:
   return {"position":old_pos,"until":0.0}
- if seen and is_finite(hero_pos.x) and is_finite(hero_pos.y) and is_finite(hero_pos.z):
-  return {"position":hero_pos,"until":now+3.0}
+ if seen:
+  if is_finite(hero_pos.x) and is_finite(hero_pos.y) and is_finite(hero_pos.z):
+   return {"position":hero_pos,"until":now+3.0}
+  # Corrupt new sightings must not keep a stale target alive.
+  return {"position":Vector3.ZERO,"until":0.0}
  # Expired, corrupt or abnormally long memories must not extend a chase.
  var valid_old:bool=is_finite(old_pos.x) and is_finite(old_pos.y) and is_finite(old_pos.z)
  var valid_expiry:bool=is_finite(old_until) and old_until>now and old_until<=now+3.0
