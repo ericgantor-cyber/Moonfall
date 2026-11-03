@@ -28,6 +28,8 @@ static func planar_direction(diff:Vector3,distance:float) -> Vector3:
  if not is_finite(diff.x) or not is_finite(diff.z):return Vector3.ZERO
  var heading:Vector3=Vector3(diff.x/distance,0.0,diff.z/distance)
  if not is_finite(heading.x) or not is_finite(heading.z):return Vector3.ZERO
+ var heading_sq:float=heading.length_squared()
+ if not is_finite(heading_sq) or heading_sq>1.21:return Vector3.ZERO
  return heading
 
 # Retreat uses a pre-normalized horizontal direction from the shared rules.
@@ -54,6 +56,8 @@ static func orbit_velocity(player_direction:Vector3,speed:float,orbit_side:float
 static func wildlife_escape_velocity(player_direction:Vector3,speed:float,distance:float,now:float,spawn_id:int) -> Vector3:
  if not is_finite(speed) or speed<=0.0 or not is_finite(distance) or distance<0.0 or not is_finite(now) or absf(now)>1.0e12:return Vector3.ZERO
  if not is_finite(player_direction.x) or not is_finite(player_direction.z):return Vector3.ZERO
+ var direction_sq:float=player_direction.length_squared()
+ if not is_finite(direction_sq) or direction_sq>1.21:return Vector3.ZERO
  var escape:Vector3=-player_direction
  if distance>8.0:escape=Vector3(cos(now+float(spawn_id)),0.0,sin(now+float(spawn_id)))
  return escape*speed

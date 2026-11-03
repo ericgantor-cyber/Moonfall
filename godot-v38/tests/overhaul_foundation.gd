@@ -86,6 +86,8 @@ func _run()->void:
  check(ai_rules.planar_direction(Vector3(3,7,4),5.0).distance_to(Vector3(0.6,0,0.8))<0.0001,"planar direction preserves horizontal heading")
  check(ai_rules.planar_direction(Vector3.ZERO,0.0)==Vector3.ZERO,"overlapping creatures have safe zero direction")
  check(ai_rules.planar_direction(Vector3(INF,0,1),2.0)==Vector3.ZERO,"invalid movement vectors fail closed")
+ check(ai_rules.planar_direction(Vector3(100,0,0),1.0)==Vector3.ZERO,"mismatched movement distance cannot create oversized heading")
+ check(ai_rules.wildlife_escape_velocity(Vector3(100,0,0),10.0,5.0,1.0,1)==Vector3.ZERO,"oversized escape direction cannot spike wildlife speed")
  check(ai_rules.retreat_velocity(Vector3(1,0,0),10.0,0.9).distance_to(Vector3(-9,0,0))<0.0001,"timed retreat retains original velocity")
  check(ai_rules.retreat_velocity(Vector3(0,0,1),10.0,0.85).distance_to(Vector3(0,0,-8.5))<0.0001,"low-health retreat retains original velocity")
  check(ai_rules.retreat_velocity(Vector3.ZERO,10.0,0.9)==Vector3.ZERO,"overlapping actors cannot retreat in invalid direction")
@@ -153,6 +155,16 @@ func _run()->void:
    pursuit_sweep_ok=false
    break
  check(pursuit_sweep_ok,"111 deterministic pursuit headings preserve normal and phase-three boss speeds")
+ var heading_sweep_ok:bool=true
+ for sample_index in range(111):
+  var angle:float=TAU*float(sample_index)/111.0
+  var planar_offset:Vector3=Vector3(cos(angle)*5.0,4.0,sin(angle)*5.0)
+  var direction:Vector3=ai_rules.planar_direction(planar_offset,5.0)
+  var escape:Vector3=ai_rules.wildlife_escape_velocity(direction,10.0,5.0,1.0,sample_index)
+  if not is_equal_approx(direction.length(),1.0) or not is_zero_approx(direction.y) or not is_equal_approx(escape.length(),10.0) or escape.dot(direction)>-9.99:
+   heading_sweep_ok=false
+   break
+ check(heading_sweep_ok,"111 headings preserve valid normalized and wildlife escape motion")
  var guardian_rules=load("res://scripts/systems/guardian_attack_rules.gd")
  check(is_equal_approx(guardian_rules.windup(1,INF),0.75),"invalid guardian windup stays bounded")
  check(guardian_rules.windup(1,1000.0)<=8.0,"very long guardian telegraph stays bounded")
