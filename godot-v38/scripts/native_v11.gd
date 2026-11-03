@@ -2073,10 +2073,7 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
    else:body.velocity=to_prey.normalized()*move_speed*0.8
   else:body.velocity=Vector3.ZERO
  elif actor_position.distance_squared_to(beast["home"])>16.0:
-  var toward:Vector3=beast["home"]
-  toward-=actor_position
-  toward.y=0
-  body.velocity=toward.normalized()*move_speed*0.4
+  body.velocity=AI_RULES.return_home_velocity(beast["home"],actor_position,move_speed)
  else:body.velocity=Vector3.ZERO
  # Single virtual call avoids per-frame reflection and supports future nav implementations.
  body.velocity=_terrain_grid_steer(body,body.velocity)
