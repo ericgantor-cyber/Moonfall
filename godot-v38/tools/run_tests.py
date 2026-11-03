@@ -75,6 +75,7 @@ SUITES={
  'rift_objectives_v458':'MOONFALL RIFT OBJECTIVES PASS',
  'rift_continuous_v459':'MOONFALL CONTINUOUS RIFT PASS',
  'continuous_rift_glyphs_v460':'MOONFALL RIFT GLYPHS PASS',
+ 'overhaul_foundation':'MOONFALL AI 111 OVERHAUL PASS',
 }
 def main():
  selected=sys.argv[1:]
