@@ -179,6 +179,19 @@ func _run()->void:
  check(is_equal_approx(combat_rules.attack_timer_after_frame(1.5,0.5),1.4),"large frame hitch uses capped cooldown step")
  check(is_equal_approx(combat_rules.attack_timer_after_frame(NAN,0.016),0.1),"invalid cooldown recovers with short delay")
  check(is_equal_approx(combat_rules.attack_timer_after_frame(-1.0,0.016),0.1),"negative cooldown recovers with short delay")
+ check(not combat_rules.ready_to_strike(-0.01) and not combat_rules.ready_to_strike(NAN),"corrupt attack clocks never grant immediate strikes")
+ check(combat_rules.ready_to_strike(0.0) and not combat_rules.ready_to_strike(0.01),"only a completed cooldown permits a strike")
+ var strike_timer_sweep_ok:bool=true
+ for sample_index in range(111):
+  var starting_timer:float=0.02+float(sample_index)*0.01
+  var frame_delta:float=0.005+float(sample_index%7)*0.015
+  var clipped_delta:float=minf(frame_delta,0.1)
+  var after_frame:float=combat_rules.attack_timer_after_frame(starting_timer,frame_delta)
+  var expected_timer:float=maxf(0.0,starting_timer-clipped_delta)
+  if not is_equal_approx(after_frame,expected_timer) or combat_rules.ready_to_strike(after_frame)!=(expected_timer==0.0):
+   strike_timer_sweep_ok=false
+   break
+ check(strike_timer_sweep_ok,"111 attack countdown samples require a completed safe timer before striking")
  check(combat_rules.can_attack(1.75,true,true,"boar"),"boar uses its existing 1.8 melee range")
  check(not combat_rules.can_attack(1.75,true,true,"wolf"),"wolf retains default 1.7 melee range")
  check(not combat_rules.can_attack(1.0,false,true,"boar") and not combat_rules.can_attack(1.0,true,false,"boar"),"readiness and line-of-sight still gate melee")
