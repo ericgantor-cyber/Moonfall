@@ -45,6 +45,11 @@ func _run()->void:
  check(RULES.room_visible(0.0,false) and RULES.room_visible(5624.0,false) and not RULES.room_visible(5625.0,false),"Valid chamber LOD distance boundary is unchanged")
  check(is_equal_approx(RULES.final_champion_health(100,3,2),165.0),"Final champion health bonus")
  check(is_equal_approx(RULES.final_champion_health(100,2,2),100.0),"Ordinary wave remains balanced")
+ check(RULES.final_champion_health(-10.0,3,2)==0.0 and RULES.final_champion_health(0.0,3,2)==0.0,"Negative and zero champion HP are rejected")
+ check(RULES.final_champion_health(NAN,3,2)==0.0 and RULES.final_champion_health(INF,3,2)==0.0 and RULES.final_champion_health(-INF,2,1)==0.0,"Nonfinite champion HP is rejected")
+ var giant_hp:float=1.0e308
+ check(RULES.final_champion_health(giant_hp,3,2)==giant_hp,"Extreme but finite champion HP cannot overflow")
+ check(is_equal_approx(RULES.final_champion_health(100.0,3,1),100.0) and is_equal_approx(RULES.final_champion_health(100.0,2,2),100.0),"Only final champion receives health multiplier")
  var item:Dictionary=RULES.named_relic(0,0,"Fury")
  check(item["rarity"]=="Legendary" and item["name"].contains("Vow"),"Named guaranteed set-themed relic")
  for zone_id in [0,1,5,16,17,18,1000,-1,-999,2147483647,-2147483648]:
