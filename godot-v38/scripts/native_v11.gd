@@ -2084,8 +2084,12 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
  if movement_profile:
   debug_movement_usec+=Time.get_ticks_usec()-movement_started
   debug_movement_samples+=1
- # v9 stagger cancels regular attacks. Boss windups remain uninterruptible.
- if staggered:return
+ # Stagger cancels pending elite lunges; boss windups remain uninterruptible.
+ if staggered:
+  if elite:
+   beast["elite_lunge_windup"]=0.0
+   beast["elite_lunge_target"]=Vector3.ZERO
+  return
  # Elite creatures telegraph a longer reach attack with a fixed target point.
  if elite:
   var lunge_windup:float=float(beast.get("elite_lunge_windup",0.0))
