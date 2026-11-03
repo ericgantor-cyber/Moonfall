@@ -43,6 +43,18 @@ func _run()->void:
  check(is_equal_approx(COMBAT.outgoing_damage(50.0,true,true,2,0.10,1.0),105.6),"critical execute fury order preserved")
  check(COMBAT.elite_missed(Vector3.ZERO,Vector3(2,0,0),0),"outside marked elite attack range")
  check(COMBAT.elite_missed(Vector3.ZERO,Vector3.ZERO,0.2),"dodge avoids elite strike")
+ check(not COMBAT.elite_missed(Vector3.ZERO,Vector3.ZERO,0.0),"valid close-range attack lands")
+ check(COMBAT.elite_missed(Vector3(NAN,0,0),Vector3.ZERO,0.0),"invalid attack coordinate cannot hit")
+ check(COMBAT.elite_missed(Vector3.ZERO,Vector3(INF,0,0),0.0),"invalid hero coordinate cannot hit")
+ check(COMBAT.elite_missed(Vector3(1.0e30,0,0),Vector3(-1.0e30,0,0),0.0),"overflowing planar separation cannot hit")
+ check(not COMBAT.elite_missed(Vector3.ZERO,Vector3.ZERO,NAN),"NaN dodge timer cannot grant invulnerability")
+ check(not COMBAT.elite_missed(Vector3.ZERO,Vector3.ZERO,INF),"infinite dodge timer cannot grant invulnerability")
+ check(not COMBAT.elite_missed(Vector3.ZERO,Vector3.ZERO,-1.0),"negative dodge timer cannot grant invulnerability")
+ for test_index in range(111):
+  var angle:float=TAU*float(test_index)/111.0
+  var inside:Vector3=Vector3(cos(angle)*1.89,0.0,sin(angle)*1.89)
+  var outside:Vector3=Vector3(cos(angle)*1.91,0.0,sin(angle)*1.91)
+  check(not COMBAT.elite_missed(Vector3.ZERO,inside,0.0) and COMBAT.elite_missed(Vector3.ZERO,outside,0.0),"elite planar strike threshold heading %d"%test_index)
  check(is_equal_approx(COMBAT.guardian_attack_cooldown(3),2.1),"guardian phase attack rate")
  # Reproducible CPU microbenchmark, not a claim about real-world FPS.
  var start:=Time.get_ticks_usec()
