@@ -77,8 +77,21 @@ SUITES={
  'continuous_rift_glyphs_v460':'MOONFALL RIFT GLYPHS PASS',
  'overhaul_foundation':'MOONFALL AI 111 OVERHAUL PASS',
 }
+RELEASE_SMOKE=(
+ 'smoke_v11',
+ 'v24_1_accessibility',
+ 'v29_performance',
+ 'v30_4_inventory_rules',
+ 'v32_2_lean_chambers',
+ 'v33_8_death_resurrection',
+ 'v34_4_fair_fight',
+ 'v37_7_playability',
+ 'v38_0_overhaul',
+ 'overhaul_foundation',
+)
 def main():
  selected=sys.argv[1:]
+ if selected==['--release-smoke']:selected=list(RELEASE_SMOKE)
  stress_suite='combat_stress' if selected in (['--combat-stress'],['--combat-stress-full']) else ('enemy_attack_stress' if selected in (['--enemy-stress'],['--enemy-stress-full']) else ('pursuit_stress' if selected in (['--pursuit-stress'],['--pursuit-stress-full']) else ('target_memory_stress' if selected in (['--memory-stress'],['--memory-stress-full']) else '')))
  stress_mode=bool(stress_suite)
  full_stress=selected in (['--combat-stress-full'],['--enemy-stress-full'],['--pursuit-stress-full'],['--memory-stress-full'])
