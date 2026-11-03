@@ -762,6 +762,18 @@ func _run()->void:
   game.call("_set_boss_telegraph",probe,true)
   check(probe_mesh.visible,"valid warning geometry can recover after bad data")
  game.call("_set_boss_telegraph",probe,false)
+ var idle_probe:Dictionary={"boss_id":987654322,"warning_radius":2.8}
+ game.call("_set_boss_telegraph",idle_probe,false)
+ check(not (game.get("boss_telegraphs") as Dictionary).has(987654322),"inactive uninitialized warning does not allocate a mesh")
+ if is_instance_valid(probe_mesh):
+  probe_mesh.queue_free()
+  await process_frame
+  game.call("_set_boss_telegraph",probe,false)
+  check(not (game.get("boss_telegraphs") as Dictionary).has(987654321),"stale boss warning entry is pruned without recreation")
+  game.call("_set_boss_telegraph",probe,true)
+  var restored_probe:MeshInstance3D=(game.get("boss_telegraphs") as Dictionary).get(987654321) as MeshInstance3D
+  check(is_instance_valid(restored_probe) and restored_probe.visible,"freed boss warning mesh is recreated on next real telegraph")
+  game.call("_set_boss_telegraph",probe,false)
  probe_body.queue_free()
  var sprite=game.get("hero_sprite") as Sprite3D
  check(is_instance_valid(sprite) and sprite.texture!=null,"original hero sprite texture present")

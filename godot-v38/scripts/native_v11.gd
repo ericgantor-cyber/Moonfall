@@ -2235,7 +2235,11 @@ func _remove_ecology_prey(prey:Dictionary) -> void:
 
 func _set_boss_telegraph(beast:Dictionary,active:bool) -> void:
  var id:=int(beast.get("boss_id",-1))
+ # Recreate freed warning nodes, but never allocate for a hide-only call.
+ if boss_telegraphs.has(id) and not is_instance_valid(boss_telegraphs[id]):
+  boss_telegraphs.erase(id)
  if not boss_telegraphs.has(id):
+  if not active:return
   var warning:=MeshInstance3D.new()
   var disk:=CylinderMesh.new()
   var initial_radius:float=GUARDIAN_ATTACK_RULES.safe_radius(float(beast.get("warning_radius",2.8)))
