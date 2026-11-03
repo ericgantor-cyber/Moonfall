@@ -179,6 +179,9 @@ func _run()->void:
  game.set("dodge_cooldown",0.0)
  game.set("v387_stamina",150.0)
  check(not (game.get("v380_status_panel") as PanelContainer).visible,"status HUD hidden at title screen")
+ var hud_label:Label=game.get("v380_status_text") as Label
+ check(is_instance_valid(hud_label) and hud_label.get_theme_font_size("font_size")>=16,"optional HUD uses readable font size")
+ check(is_instance_valid(hud_label) and hud_label.autowrap_mode==TextServer.AUTOWRAP_WORD_SMART,"optional HUD wraps long text")
  var obsolete_title:bool=false
  for label_node in (game.get("start_screen") as Control).find_children("*","Label",true,false):
   if "MOONFALL NATIVE v13" in (label_node as Label).text:obsolete_title=true
@@ -245,7 +248,7 @@ func _run()->void:
  if enemy_script!=null:
   var source:String=enemy_script.source_code
   var tick_start:int=source.find("func _update_beast_step(")
-  var tick_end:int=source.find("\\nfunc ",tick_start+1)
+  var tick_end:int=source.find("\nfunc ",tick_start+1)
   var tick:String=source.substr(tick_start,(tick_end-tick_start) if tick_end>tick_start else -1) if tick_start>=0 else ""
   check(tick_start>=0 and "V383_COMBAT_RULES.combat_intent(" in tick,"combat intent policy invoked in live enemy tick")
   check("v383_intent==\"retreat\"" in tick and "body.velocity=-diff.normalized()" in tick,"low-health retreat produces actual movement")
