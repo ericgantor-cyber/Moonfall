@@ -262,6 +262,17 @@ func _run()->void:
    memory_sweep_ok=false
    break
  check(memory_sweep_ok,"111 target-memory samples keep three-second pursuit and expire on schedule")
+ var invalid_sighting_sweep_ok:bool=true
+ for sample_index in range(111):
+  var sample_now:float=0.25+float(sample_index)*0.05
+  var stale_target:Vector3=Vector3(4.0,0.0,6.0)
+  var invalid_target:Vector3=Vector3(NAN,0.0,0.0) if sample_index%3==0 else (Vector3(INF,0.0,0.0) if sample_index%3==1 else Vector3(0.0,0.0,-INF))
+  var cleared:Dictionary=combat_rules.remember_target(true,true,false,sample_now,invalid_target,stale_target,sample_now+2.0)
+  var retained:Dictionary=combat_rules.remember_target(false,true,false,sample_now,invalid_target,stale_target,sample_now+2.0)
+  if cleared.get("position",stale_target)!=Vector3.ZERO or float(cleared.get("until",-1.0))!=0.0 or retained.get("position",Vector3.ZERO)!=stale_target or not is_equal_approx(float(retained.get("until",0.0)),sample_now+2.0):
+   invalid_sighting_sweep_ok=false
+   break
+ check(invalid_sighting_sweep_ok,"111 corrupt sighting cases discard stale targets but preserve valid unseen memory")
  check(combat_rules.search_pause_expiry(INF)==0.0,"invalid AI clock cannot create endless search")
  check(combat_rules.search_pause_expiry(1.0e15)==0.0,"extreme AI clock cannot create endless search")
  var telegraph=load("res://scripts/systems/boss_telegraph_readout.gd")
