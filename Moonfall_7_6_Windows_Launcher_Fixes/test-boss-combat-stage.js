@@ -1,14 +1,14 @@
 'use strict';
 const assert=require('node:assert/strict'),vm=require('node:vm');
 const transform=require('./boss-combat-stage.js');
-const fixture='let frame=0,stage=2,playing=true,shots=[],enemies=[],player={x:300,y:250},bursts=0;'+
+const fixture='let frame=0,stage=3,playing=true,shots=[],enemies=[],player={x:300,y:250},bursts=0;'+
 'function burst(){bursts++}function mfRoleAttack(e){}function mfEliteAttack(e){}'+
 'function tickBoss(e){mfRoleAttack(e);mfEliteAttack(e);}'+
 'function draw(){paintBackground();}';
 const source=transform.patchJs(fixture);
 new vm.Script(source);
 assert.throws(()=>transform.patchJs('function draw(){}'),/hook mismatch/);
-const ctx={save(){},restore(){},beginPath(){},arc(){},stroke(){}};
+const ctx={save(){},restore(){},beginPath(){},arc(){},moveTo(){},lineTo(){},stroke(){}};
 const env={ctx,paintBackground(){}};vm.createContext(env);vm.runInContext(source,env);
 const run=s=>vm.runInContext(s,env);
 run('var boss={boss:true,hp:100,max:100,x:100,y:100,r:30};enemies.push(boss)');
@@ -16,8 +16,13 @@ run('tickBoss(boss)');
 assert.equal(run('boss.mfNextBossAttack'),190,'each boss gets a delayed first attack');
 run('frame=155;tickBoss(boss)');
 assert.equal(run('boss.mfTellUntil'),190,'tell appears 35 frames before attack');
+const lockedAim=run('boss.mfTellAim');
+assert(Number.isFinite(lockedAim),'aim vector is locked on warning');
+run('player.x=90;player.y=350;frame=175;tickBoss(boss)');
+assert.equal(run('boss.mfTellAim'),lockedAim,'aim does not track after warning');
 run('frame=190;tickBoss(boss)');
 assert.equal(run('shots.length'),5,'phase one fires five projectiles');
+assert.equal(Math.atan2(run('shots[2].vy'),run('shots[2].vx')).toFixed(5),lockedAim.toFixed(5),'middle aimed shot follows directional warning');
 assert.equal(run('boss.mfTellUntil'),0,'telegraph clears on fire');
 run('boss.hp=40;frame=240;tickBoss(boss)');
 assert.equal(run('boss.mfBossPhase'),2);
