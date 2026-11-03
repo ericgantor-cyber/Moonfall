@@ -192,6 +192,17 @@ func _run()->void:
    strike_timer_sweep_ok=false
    break
  check(strike_timer_sweep_ok,"111 attack countdown samples require a completed safe timer before striking")
+ var live_strike_gate_ok:bool=true
+ for sample_index in range(111):
+  var raw_timer:float=0.0 if sample_index%5==0 else (-0.01*float(sample_index+1) if sample_index%5==1 else (NAN if sample_index%5==2 else (INF if sample_index%5==3 else float(sample_index+1)*0.02)))
+  var recovered_timer:float=combat_rules.attack_timer_after_frame(raw_timer,0.016)
+  var expected_ready:bool=sample_index%5==0
+  if not is_finite(recovered_timer) or recovered_timer<0.0 or combat_rules.ready_to_strike(recovered_timer)!=expected_ready:
+   live_strike_gate_ok=false
+   break
+ check(live_strike_gate_ok,"111 live strike-gate inputs reject corrupted and unfinished cooldowns")
+ var live_enemy_script:String=FileAccess.get_file_as_string("res://scripts/native_v11.gd")
+ check("ENEMY_COMBAT_RULES.ready_to_strike(float(beast[\"attack\"]))" in live_enemy_script,"live enemy attacks use validated readiness gate")
  check(combat_rules.can_attack(1.75,true,true,"boar"),"boar uses its existing 1.8 melee range")
  check(not combat_rules.can_attack(1.75,true,true,"wolf"),"wolf retains default 1.7 melee range")
  check(not combat_rules.can_attack(1.0,false,true,"boar") and not combat_rules.can_attack(1.0,true,false,"boar"),"readiness and line-of-sight still gate melee")
