@@ -35,4 +35,6 @@ static func final_champion_health(normal_hp:float,stage:int,slot:int)->float:
 
 static func named_relic(site:int,zone:int,affix:String)->Dictionary:
  var idx:int=clampi(site,0,STAGE_LOOT_NAMES.size()-1)
- return {"name":STAGE_LOOT_NAMES[idx]+" Signet","rarity":"Legendary","power":mini(250,48+zone*12),"affix":affix,"affix_value":0.11+0.015*float(idx)}
+ # Clamp before multiplying to avoid negative power and integer overflow from corrupt zone IDs.
+ var relic_power:int=mini(250,48+clampi(zone,0,17)*12)
+ return {"name":STAGE_LOOT_NAMES[idx]+" Signet","rarity":"Legendary","power":relic_power,"affix":affix,"affix_value":0.11+0.015*float(idx)}
