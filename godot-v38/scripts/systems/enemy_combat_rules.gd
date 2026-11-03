@@ -87,11 +87,11 @@ static func remember_target(seen:bool,hostile:bool,boss:bool,now:float,hero_pos:
   return {"position":Vector3.ZERO,"until":0.0}
  # Expired, corrupt or abnormally long memories must not extend a chase.
  var valid_old:bool=is_finite(old_pos.x) and is_finite(old_pos.y) and is_finite(old_pos.z)
- var valid_expiry:bool=is_finite(old_until) and old_until>now and old_until<=now+3.0
+ var valid_expiry:bool=is_finite(old_until) and old_until>now and old_until<=now+3.0 and old_until<=1.0e12
  return {"position":old_pos if valid_old else Vector3.ZERO,"until":old_until if valid_old and valid_expiry else 0.0}
 
 static func investigate_velocity(hostile:bool,engaged:bool,boss:bool,now:float,until:float,body_pos:Vector3,last_pos:Vector3,speed:float)->Vector3:
- if not hostile or engaged or boss or not is_finite(now) or now<0.0 or now>1.0e12 or not is_finite(until) or now>=until or until>now+3.0:
+ if not hostile or engaged or boss or not is_finite(now) or now<0.0 or now>1.0e12 or not is_finite(until) or now>=until or until>now+3.0 or until>1.0e12:
   return Vector3.ZERO
  var offset:Vector3=last_pos-body_pos
  offset.y=0.0
@@ -110,7 +110,7 @@ static func search_arrived(body_pos:Vector3,last_pos:Vector3)->bool:
 
 # Brief look-around at the last known location; sighting a hero cancels it.
 static func search_pause_active(engaged:bool, now:float, pause_until:float)->bool:
- return not engaged and is_finite(now) and now>=0.0 and now<=1.0e12 and is_finite(pause_until) and pause_until>now and pause_until<=now+0.8
+ return not engaged and is_finite(now) and now>=0.0 and now<=1.0e12 and is_finite(pause_until) and pause_until>now and pause_until<=now+0.8 and pause_until<=1.0e12
 
 static func search_pause_expiry(now:float)->float:
  return now+0.75 if is_finite(now) and now>=0.0 and now<=1.0e12-0.75 else 0.0
