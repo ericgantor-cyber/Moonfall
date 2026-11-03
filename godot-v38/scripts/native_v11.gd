@@ -1992,7 +1992,7 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
  # Idle actors do not need a normalized player direction.
  var player_direction:Vector3=Vector3.ZERO
  beast["attack"]=ENEMY_COMBAT_RULES.attack_timer_after_frame(float(beast.get("attack",0.0)),delta)
- var attack_ready:bool=float(beast["attack"])<=0.0
+ var attack_ready:bool=ENEMY_COMBAT_RULES.ready_to_strike(float(beast["attack"]))
  var kind:=str(beast["kind"])
  var species:Dictionary=BEASTS[kind]
  var staggered:=map_time<float(beast.get("stagger_until",0.0))
