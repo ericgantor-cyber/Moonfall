@@ -2002,8 +2002,8 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
  var is_hostile:=bool(beast["hostile"])
  var engaged:bool=false
  # Visibility is checked only inside the current awareness radius.
- if is_hostile and distance<16.25:
-  # Max possible awareness is 14 (alert) × 1.16 (night) = 16.24.
+ if is_hostile and distance<AI_RULES.maximum_perception():
+  # The upper bound is defined beside the shared awareness rules.
   # Distant enemies need neither a day-phase lookup nor a raycast.
   var perception:float=AI_RULES.perception(map_time<float(beast.get("alert_until",0.0)),weather_name,_day_phase()=="Night")
   if distance<perception:
