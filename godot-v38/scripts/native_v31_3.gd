@@ -94,10 +94,14 @@ func _update_beast_step(beast:Dictionary,delta:float)->void:
  super._update_beast_step(beast,delta)
 
 func _v313_tick_traps(seconds:float)->void:
+ # Corrupt frame clocks and freed visuals must not advance or resolve hazards.
+ if not is_finite(seconds) or seconds<=0.0:return
  for trap in v313_traps:
-  var site:int=int(trap["site"])
+  var site:int=int(trap.get("site",-1))
+  if site<0 or site>=rifts.size():continue
+  var rune:MeshInstance3D=trap.get("node") as MeshInstance3D
+  if not is_instance_valid(rune):continue
   var active:bool=hero_playing and active_rift==site and bool(rifts[site].get("active",false))
-  var rune:MeshInstance3D=trap["node"]
   if not active:
    rune.visible=false
    trap["warning"]=0.0
