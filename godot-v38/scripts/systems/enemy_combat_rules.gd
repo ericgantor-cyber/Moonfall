@@ -36,7 +36,7 @@ static func group_attack_ready(now:float,beast_id:int,slots:int=4)->bool:
 # two slots to keep heavier melee enemies threatening but predictable.
 static func role_attack_ready(kind:String,now:float,beast_id:int)->bool:
  if group_attack_ready(now,beast_id):return true
- return role_for(kind)=="bruiser" and group_attack_ready(now,beast_id+1)
+ return role_for(kind)=="bruiser" and group_attack_ready(now,posmod(beast_id,4)+1)
 
 static func preferred_spacing(kind:String)->float:
  return 2.9 if kind=="panther" else (2.0 if kind=="serpent" else (2.6 if kind=="wolf" else (2.4 if role_for(kind)=="ambusher" else 1.7)))
@@ -53,7 +53,7 @@ static func tactical_attack_ready(kind:String,now:float,beast_id:int)->bool:
  if not is_finite(now) or now<0.0 or now>1.0e12:return false
  var slots:int=attack_window_count(kind)
  if group_attack_ready(now,beast_id,slots):return true
- return role_for(kind)=="bruiser" and group_attack_ready(now,beast_id+1,slots)
+ return role_for(kind)=="bruiser" and group_attack_ready(now,posmod(beast_id,slots)+1,slots)
 
 static func attack_timer_after_frame(current:float,delta:float)->float:
  if not is_finite(current):return 0.1

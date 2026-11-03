@@ -178,6 +178,22 @@ func _run()->void:
  check(is_equal_approx(combat_rules.attack_timer_after_frame(1.5,INF),1.5),"invalid frame time leaves attack cooldown stable")
  check(is_equal_approx(combat_rules.attack_timer_after_frame(1.5,0.5),1.4),"large frame hitch uses capped cooldown step")
  check(combat_rules.attack_timer_after_frame(NAN,0.016)==0.0,"invalid attack timer recovers to safe state")
+ var attack_slots_ok:bool=true
+ for sample_index in range(111):
+  var moment:float=float(sample_index)*0.25+0.125
+  var group_ready_count:int=0
+  for actor_id in range(4):
+   if combat_rules.group_attack_ready(moment,actor_id):group_ready_count+=1
+  var boar_ready_count:int=0
+  for actor_id in range(5):
+   if combat_rules.tactical_attack_ready("boar",moment,actor_id):boar_ready_count+=1
+  if group_ready_count!=1 or boar_ready_count!=2:
+   attack_slots_ok=false
+   break
+ check(attack_slots_ok,"111 quarter-second windows schedule one standard and two boar attack turns")
+ check(combat_rules.role_attack_ready("boar",0.125,-1)==combat_rules.role_attack_ready("boar",0.125,3),"negative beast IDs retain stable attack turn")
+ check(combat_rules.tactical_attack_ready("boar",0.125,-1)==combat_rules.tactical_attack_ready("boar",0.125,4),"negative tactical beast IDs retain stable turn")
+ check(not combat_rules.group_attack_ready(NAN,1) and not combat_rules.tactical_attack_ready("boar",INF,1),"invalid attack clocks cannot trigger attacks")
  check(combat_rules.investigate_velocity(true,false,false,1.0,2.0,Vector3.ZERO,Vector3(1.0e30,0.0,1.0e30),10.0)==Vector3.ZERO,"overflowed investigation offset fails closed")
  check(not combat_rules.search_arrived(Vector3.ZERO,Vector3(1.0e30,0.0,1.0e30)),"overflowed search offset cannot count as arrival")
  var search_sweep_ok:bool=true
