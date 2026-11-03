@@ -38,8 +38,10 @@ static func final_champion_health(normal_hp:float,stage:int,slot:int)->float:
  # Corrupt enemy HP must never become negative, NaN or infinite boss health.
  if not is_finite(normal_hp) or normal_hp<=0.0:return 0.0
  if stage!=3 or slot!=2:return normal_hp
+ # Reject magnitudes that risk overflowing when the 1.65x bonus is applied.
+ # Ordinary gameplay HP remains unmodified; oversized legacy values stay finite.
+ if normal_hp>1.0e307:return normal_hp
  var boosted:float=normal_hp*1.65
- # At extreme magnitudes, keep the finite original rather than overflowing.
  return boosted if is_finite(boosted) else normal_hp
 
 static func named_relic(site:int,zone:int,affix:String)->Dictionary:
