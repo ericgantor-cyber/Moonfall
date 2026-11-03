@@ -250,7 +250,7 @@ func _run()->void:
   check(tick_start>=0 and "V383_COMBAT_RULES.combat_intent(" in tick,"combat intent policy invoked in live enemy tick")
   check("if engaged:combat_role=ENEMY_COMBAT_RULES.role_for(kind)" in tick,"idle enemies skip role policy lookup")
   check("if distance<perception:" in tick and "engaged=_has_clear_sight(body,player)" in tick,"visibility rays remain perception gated")
-  check("if is_hostile and distance<AI_RULES.maximum_perception():" in tick,"distant hostile creatures use shared awareness upper bound")
+  check("if is_hostile and AI_RULES.potentially_visible(distance):" in tick,"distant hostile creatures use stateless awareness gate")
   check("player_direction=diff/distance" in tick and "if (engaged or (not is_hostile" in tick,"idle actors skip player direction normalization")
   check("v383_intent==\"retreat\"" in tick and ("body.velocity=-player_direction*" in tick or "body.velocity=-diff.normalized()" in tick),"low-health retreat produces actual movement")
   check("ENEMY_COMBAT_RULES.should_circle(kind,v383_intent,distance)" in tick and "body.velocity=(flank*orbit_side" in tick,"species-filtered flank intent produces actual movement")
