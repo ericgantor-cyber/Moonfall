@@ -1976,6 +1976,7 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
  diff.y=0.0
  var distance:=diff.length()
  beast["attack"]=ENEMY_COMBAT_RULES.attack_timer_after_frame(float(beast.get("attack",0.0)),delta)
+ var attack_ready:bool=float(beast["attack"])<=0.0
  var kind:=str(beast["kind"])
  var species:Dictionary=BEASTS[kind]
  var staggered:=map_time<float(beast.get("stagger_until",0.0))
@@ -2003,7 +2004,7 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
  var v383_intent:String=""
  if engaged and not is_boss:
   var v383_health:float=float(beast.get("hp",1.0))/maxf(1.0,float(beast.get("max",1.0)))
-  v383_intent=V383_COMBAT_RULES.combat_intent(combat_role,distance,v383_health,float(beast["attack"])<=0.0,true)
+  v383_intent=V383_COMBAT_RULES.combat_intent(combat_role,distance,v383_health,attack_ready,true)
  var activity:Dictionary=beast.get("ecology_target",{})
  var pursuing:=not activity.is_empty() and map_time<float(beast.get("hunting_until",0.0)) and not engaged and not is_boss
  if staggered:
@@ -2095,7 +2096,7 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
     if landed:
      _apply_incoming_damage(GUARDIAN_ATTACK_RULES.boss_damage(int(beast.get("boss_phase",1))))
     beast["attack"]=COMBAT_RULES.guardian_attack_cooldown(int(beast.get("boss_phase",1)))
-  elif engaged and distance<(5.0 if int(beast.get("boss_phase",1))>=2 else 3.3) and float(beast["attack"])<=0.0:
+  elif engaged and distance<(5.0 if int(beast.get("boss_phase",1))>=2 else 3.3) and attack_ready:
    var phase:int=GUARDIAN_ATTACK_RULES.safe_phase(int(beast.get("boss_phase",1)))
    var pattern:int=int(beast.get("boss_pattern",0))
    # v32.8: two readable patterns in phase one, then +1 per phase.
@@ -2110,7 +2111,7 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
    beast["warning_pos"]=body.global_position if pattern==1 else player.global_position
    _set_boss_telegraph(beast,true)
    _show_message("⚠ GUARDIAN PHASE "+str(phase)+": dodge the glowing circle!",1.6)
- elif engaged and ENEMY_COMBAT_RULES.can_attack(distance,ENEMY_COMBAT_RULES.ready_to_strike(float(beast["attack"])),true) and ENEMY_COMBAT_RULES.tactical_attack_ready(kind,map_time,enemy_id) and _has_clear_sight(body,player):
+ elif engaged and ENEMY_COMBAT_RULES.can_attack(distance,attack_ready,true) and ENEMY_COMBAT_RULES.tactical_attack_ready(kind,map_time,enemy_id) and _has_clear_sight(body,player):
   if dodge_time<=0:
    _apply_incoming_damage(float(species["atk"]))
   # Visual follow-through only; preserve established hit timing and damage.
