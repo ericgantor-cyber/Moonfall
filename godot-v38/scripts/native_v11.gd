@@ -2040,12 +2040,9 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
  elif engaged and v383_intent=="retreat" and distance<8.0:
   body.velocity=-player_direction*move_speed*0.85
  elif engaged and ENEMY_COMBAT_RULES.should_circle(kind,v383_intent,distance):
-  # Stable per-actor orbit side, no random calls or additional physics bodies.
-  var flank:Vector3=Vector3(-player_direction.z,0.0,player_direction.x)
+  # Stable per-actor orbit side, delegated to deterministic stateless rules.
   var orbit_side:float=ENEMY_COMBAT_RULES.orbit_direction(enemy_id)
-  # The tangent and player direction are perpendicular unit vectors.
-  # Their 1:0.25 blend has constant length sqrt(1.0625), avoiding a per-actor normalization.
-  body.velocity=(flank*orbit_side+player_direction*0.25)*(move_speed*0.7/sqrt(1.0625))
+  body.velocity=AI_RULES.orbit_velocity(player_direction,move_speed,orbit_side)
  elif engaged and distance>1.7:
   body.velocity=AI_RULES.approach(diff,move_speed,enemy_id,is_boss,int(beast.get("boss_phase",1)),distance,combat_role)
  elif is_hostile and not engaged and not is_boss and map_time<float(beast.get("last_seen_until",0.0)):
