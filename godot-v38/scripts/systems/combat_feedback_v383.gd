@@ -23,7 +23,9 @@ static func boss_telegraph_transparency(elapsed:float,phase:int)->float:
  # Corrupt clocks must not write NaN alpha to the existing warning mesh.
  if not is_finite(elapsed):return 0.17
  var speed:float=2.0+float(clampi(phase,1,3)-1)*0.65
- var wave:float=0.5+0.5*sin(maxf(0.0,elapsed)*TAU*speed)
+ # Reduce to one cycle before multiplication; huge finite save clocks stay safe.
+ var cycle:float=1.0/speed
+ var wave:float=0.5+0.5*sin(fposmod(maxf(0.0,elapsed),cycle)*TAU*speed)
  return 0.05+0.24*wave
 
 ## Avoid forcing Godot to rebuild unchanged CylinderMesh geometry every frame.
