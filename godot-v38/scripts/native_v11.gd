@@ -1984,7 +1984,8 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
   if map_time>=react_until:beast["hit_react_until"]=0.0
   if map_time>=swing_until:beast["attack_swing_until"]=0.0
  var actor_position:Vector3=body.global_position
- var diff:=player.global_position-actor_position
+ var player_position:Vector3=player.global_position
+ var diff:=player_position-actor_position
  diff.y=0.0
  var distance:=diff.length()
  # Reuse the horizontal direction across retreat, orbiting and fleeing branches.
@@ -2011,7 +2012,7 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
  if engaged:beast["search_pause_until"]=0.0
  # Investigate the last visible location for three seconds after losing sight.
  if not is_boss and is_hostile:
-  var memory:Dictionary=ENEMY_COMBAT_RULES.remember_target(engaged,is_hostile,false,map_time,player.global_position,beast.get("last_seen_position",body.global_position),float(beast.get("last_seen_until",0.0)))
+  var memory:Dictionary=ENEMY_COMBAT_RULES.remember_target(engaged,is_hostile,false,map_time,player_position,beast.get("last_seen_position",actor_position),float(beast.get("last_seen_until",0.0)))
   beast["last_seen_position"]=memory["position"]
   beast["last_seen_until"]=memory["until"]
  # v38.3: role-aware low-health retreat for live hostile fauna.
@@ -2050,7 +2051,7 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
  elif pursuing and bool(activity.get("alive",false)):
   var prey_body:CharacterBody3D=activity["body"]
   if is_instance_valid(prey_body):
-   var to_prey:=prey_body.global_position-body.global_position
+   var to_prey:=prey_body.global_position-actor_position
    to_prey.y=0
    if to_prey.length_squared()<1.55*1.55:
     activity["hp"]=float(activity["hp"])-float(species["atk"])*0.65
