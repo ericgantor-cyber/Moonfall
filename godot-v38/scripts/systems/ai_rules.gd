@@ -21,6 +21,13 @@ static func potentially_visible_squared(distance_squared:float) -> bool:
  var max_radius:float=maximum_perception()
  return is_finite(distance_squared) and distance_squared>=0.0 and distance_squared<max_radius*max_radius
 
+# Shared horizontal direction for retreat, orbiting and wildlife escape.
+# Return zero for coincident or invalid positions to avoid invalid velocities.
+static func planar_direction(diff:Vector3,distance:float) -> Vector3:
+ if not is_finite(distance) or distance<=0.00001:return Vector3.ZERO
+ if not is_finite(diff.x) or not is_finite(diff.z):return Vector3.ZERO
+ return Vector3(diff.x/distance,0.0,diff.z/distance)
+
 static func approach(diff:Vector3,speed:float,spawn_id:int,is_boss:bool,boss_phase:int,distance:float,role:String="ambusher") -> Vector3:
  if not is_finite(diff.x) or not is_finite(diff.y) or not is_finite(diff.z) or not is_finite(speed) or speed<=0.0:return Vector3.ZERO
  var planar:Vector3=Vector3(diff.x,0.0,diff.z)
