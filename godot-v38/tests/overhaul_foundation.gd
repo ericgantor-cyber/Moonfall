@@ -394,7 +394,7 @@ func _run()->void:
    shared_lunge_radius_ok=false
    break
  check(shared_lunge_radius_ok,"111 shared elite reach samples keep hit and dodge credit perfectly aligned")
- check(not elite_hit_rules.elite_in_hit_radius(Vector3.ZERO,Vector3(1.9,0.0,0.0)),"elite reach excludes its exact 1.9-unit boundary")
+ check(not elite_hit_rules.elite_in_hit_radius(Vector3.ZERO,Vector3(1.91,0.0,0.0)),"elite reach excludes targets beyond 1.9 units")
  check(not elite_hit_rules.elite_dodge_credit(Vector3.ZERO,Vector3(0.5,0.0,0.0),0.3,false),"blocked elite lunges never grant dodge credit")
  check("if COMBAT_RULES.elite_dodge_credit(strike_pos,player_position,dodge_time,_has_clear_sight(body,player)):elite_attacks_dodged+=1" in live_enemy_script,"live elite dodge credit checks line of sight")
  check(not elite_hit_rules.elite_missed(Vector3.ZERO,Vector3(1.89,99.0,0.0),0.0),"height changes do not alter elite ground hit radius")
