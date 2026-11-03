@@ -57,6 +57,17 @@ func _run()->void:
  check(not bool(traps[0]["armed"]) and not (traps[0]["node"] as MeshInstance3D).visible,"Trap does not rearm before twenty seconds")
  game.call("_v313_tick_traps",0.1)
  check(bool(traps[0]["armed"]) and (traps[0]["node"] as MeshInstance3D).visible,"Trap rearms after the full twenty-second cooldown")
+ # Leaving a rift must not wipe an unfinished cooldown and allow rapid rearming.
+ game.call("_v313_tick_traps",1.2)
+ check(is_equal_approx(float(traps[0]["cooldown"]),20.0),"Rearmed trap begins a fresh twenty-second cooldown after firing")
+ game.set("active_rift",-1)
+ (active[0] as Dictionary)["active"]=false
+ game.call("_v313_tick_traps",0.2)
+ check(is_equal_approx(float(traps[0]["cooldown"]),19.8) and not bool(traps[0]["armed"]),"Leaving a rift preserves the remaining trap cooldown")
+ game.set("active_rift",0)
+ (active[0] as Dictionary)["active"]=true
+ game.call("_v313_tick_traps",0.2)
+ check(is_equal_approx(float(traps[0]["cooldown"]),19.6) and not bool(traps[0]["armed"]) and not (traps[0]["node"] as MeshInstance3D).visible,"Reopening a rift cannot bypass the trap cooldown")
  # A corrupted active trap must disarm without striking or immediately restarting.
  var saved_hits:int=int(game.get("v313_trap_hits"))
  for broken_clock in [NAN,INF,-INF,-1.0]:

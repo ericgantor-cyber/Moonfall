@@ -102,15 +102,16 @@ func _v313_tick_traps(seconds:float)->void:
   var warning_node:Variant=trap.get("node")
   if not is_instance_valid(warning_node) or not (warning_node is MeshInstance3D):continue
   var rune:MeshInstance3D=warning_node as MeshInstance3D
+  var cooldown:float=float(trap.get("cooldown",0.0))
   var active:bool=hero_playing and active_rift==site and bool(rifts[site].get("active",false))
   if not active:
    rune.visible=false
    trap["warning"]=0.0
    trap["armed"]=false
-   trap["cooldown"]=0.0
+   # Closing and reopening a rift cannot bypass its twenty-second cooldown.
+   trap["cooldown"]=V313_RULES.TRAP_COOLDOWN if not is_finite(cooldown) or cooldown<0.0 else maxf(0.0,cooldown-seconds)
    continue
   # Corrupt saved cooldowns or armed warning clocks must not cause instant hits.
-  var cooldown:float=float(trap.get("cooldown",0.0))
   var warning_clock:float=float(trap.get("warning",0.0))
   if not is_finite(cooldown) or cooldown<0.0 or (bool(trap.get("armed",false)) and (not is_finite(warning_clock) or warning_clock<0.0)):
    rune.visible=false
