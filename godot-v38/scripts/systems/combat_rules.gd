@@ -17,8 +17,8 @@ const ELITE_HIT_RADIUS_SQUARED:float=1.9*1.9
 
 # Shared ground-plane reach check for impact and dodge statistics.
 static func elite_in_hit_radius(strike_pos:Vector3,hero_pos:Vector3)->bool:
- if not is_finite(strike_pos.x) or not is_finite(strike_pos.z):return false
- if not is_finite(hero_pos.x) or not is_finite(hero_pos.z):return false
+ if not is_finite(strike_pos.x) or not is_finite(strike_pos.y) or not is_finite(strike_pos.z):return false
+ if not is_finite(hero_pos.x) or not is_finite(hero_pos.y) or not is_finite(hero_pos.z):return false
  var planar_offset:=Vector2(strike_pos.x-hero_pos.x,strike_pos.z-hero_pos.z)
  var distance_sq:float=planar_offset.length_squared()
  return is_finite(distance_sq) and distance_sq<ELITE_HIT_RADIUS_SQUARED
