@@ -16,6 +16,14 @@ func _run()->void:
  check(not RULES.hurt_retreat(20,100,true,true,true),"Bosses do not retreat")
  check(RULES.choose_boss_pattern(3,100,100,0)==1,"Boss tactics rotate")
  check(RULES.surge_zone(350,6)==2,"Surge cycles regions")
+ check(is_equal_approx(RULES.safe_frame_delta(0.15),0.15) and is_equal_approx(RULES.safe_frame_delta(5.0),5.0),"Normal frame time remains unchanged for surge clock")
+ var invalid_delta_safe:bool=true
+ for broken_delta in [NAN,INF,-INF,-1.0,0.0]:
+  if RULES.safe_frame_delta(broken_delta)!=0.0:
+   invalid_delta_safe=false
+   break
+ check(invalid_delta_safe,"Nonfinite or backward frame time cannot poison update clocks")
+
  check(RULES.surge_active(165),"Surge begins at interval")
  check(not RULES.surge_active(195),"Surge expires safely")
  check(RULES.elite_material(2,"moon",false)=="Moon Sigil","Elite rewards")
