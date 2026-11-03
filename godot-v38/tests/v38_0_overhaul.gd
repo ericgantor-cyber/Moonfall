@@ -253,7 +253,7 @@ func _run()->void:
   check("if is_hostile and AI_RULES.potentially_visible_squared(distance_squared):" in tick,"distant hostile creatures use squared-distance awareness gate")
   check("player_direction=AI_RULES.planar_direction(diff,distance)" in tick and "if (engaged or (not is_hostile" in tick,"idle actors skip player direction normalization")
   check("v383_intent==\"retreat\"" in tick and ("body.velocity=-player_direction*" in tick or "body.velocity=-diff.normalized()" in tick),"low-health retreat produces actual movement")
-  check("ENEMY_COMBAT_RULES.should_circle(kind,v383_intent,distance)" in tick and "body.velocity=(flank*orbit_side" in tick,"species-filtered flank intent produces actual movement")
+  check("ENEMY_COMBAT_RULES.should_circle(kind,v383_intent,distance)" in tick and "body.velocity=AI_RULES.orbit_velocity(player_direction,move_speed,orbit_side)" in tick,"species-filtered flank intent produces actual movement")
   check("if staggered:" in tick and "if staggered:return" in tick,"stagger still prevents attack resolution")
   check("if not staggered:" in tick and "player_direction=AI_RULES.planar_direction(diff,distance)" in tick,"staggered actors skip unnecessary direction calculations")
   check(("if is_boss:" in tick and "var is_boss:bool=bool(beast.get(\"boss\",false))" in tick) or "if bool(beast.get(\"boss\",false)):" in tick,"boss windup attack path preserved")
