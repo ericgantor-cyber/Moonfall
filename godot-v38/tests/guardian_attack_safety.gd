@@ -11,6 +11,10 @@ func run()->void:
  check(is_equal_approx(R.safe_radius(NAN),2.8) and is_equal_approx(R.safe_radius(INF),2.8),"nonfinite radius safely reset")
  check(R.warning_hit(Vector3.ZERO,Vector3(1,0,0),2.0),"warning inside hits")
  check(not R.warning_hit(Vector3.ZERO,Vector3(4,0,0),2.0),"warning outside misses")
+ for invalid_radius in [NAN,INF,-INF,0.0,-1.0]:
+  check(not R.warning_hit(Vector3.ZERO,Vector3.ZERO,invalid_radius),"invalid guardian warning radius cannot hit: "+str(invalid_radius))
+ check(R.warning_hit(Vector3.ZERO,Vector3(0.4,0,0),0.5),"small positive guardian warning still hits in range")
+ check(R.warning_hit(Vector3.ZERO,Vector3(3.0,0,0),999.0),"oversized positive guardian warning retains existing safe cap")
  check(R.boss_damage(-5)==26.0 and R.boss_damage(900)==40.0,"boss phase damage bounded")
  var scene:PackedScene=load("res://scenes/main.tscn") as PackedScene
  check(scene!=null,"active game scene loads")
