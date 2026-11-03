@@ -1986,6 +1986,8 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
  var diff:=player.global_position-body.global_position
  diff.y=0.0
  var distance:=diff.length()
+ # Reuse the horizontal direction across retreat, orbiting and fleeing branches.
+ var player_direction:Vector3=diff/distance if distance>0.00001 else Vector3.ZERO
  beast["attack"]=ENEMY_COMBAT_RULES.attack_timer_after_frame(float(beast.get("attack",0.0)),delta)
  var attack_ready:bool=float(beast["attack"])<=0.0
  var kind:=str(beast["kind"])
@@ -2022,14 +2024,14 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
  if staggered:
   body.velocity=Vector3.ZERO
  elif engaged and map_time<float(beast.get("retreat_until",0.0)) and distance<10.0:
-  body.velocity=-diff.normalized()*move_speed*0.9
+  body.velocity=-player_direction*move_speed*0.9
  elif engaged and v383_intent=="retreat" and distance<8.0:
-  body.velocity=-diff.normalized()*move_speed*0.85
+  body.velocity=-player_direction*move_speed*0.85
  elif engaged and ENEMY_COMBAT_RULES.should_circle(kind,v383_intent,distance):
   # Stable per-actor orbit side, no random calls or additional physics bodies.
   var flank:Vector3=Vector3(-diff.z,0.0,diff.x).normalized()
   var orbit_side:float=ENEMY_COMBAT_RULES.orbit_direction(enemy_id)
-  body.velocity=(flank*orbit_side+diff.normalized()*0.25).normalized()*move_speed*0.7
+  body.velocity=(flank*orbit_side+player_direction*0.25).normalized()*move_speed*0.7
  elif engaged and distance>1.7:
   body.velocity=AI_RULES.approach(diff,move_speed,enemy_id,is_boss,int(beast.get("boss_phase",1)),distance,combat_role)
  elif is_hostile and not engaged and not is_boss and map_time<float(beast.get("last_seen_until",0.0)):
@@ -2040,7 +2042,7 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
  elif is_hostile and not engaged and not is_boss and ENEMY_COMBAT_RULES.search_pause_active(engaged,map_time,float(beast.get("search_pause_until",0.0))):
   body.velocity=Vector3.ZERO
  elif not is_hostile and (distance<6.0 or map_time<float(beast.get("scared_until",0.0))):
-  var escape:= -diff.normalized()
+  var escape:= -player_direction
   if distance>8.0:
    escape=Vector3(cos(map_time+float(beast["boss_id"])),0,sin(map_time+float(beast["boss_id"])))
   body.velocity=escape*move_speed
