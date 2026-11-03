@@ -1,6 +1,10 @@
 'use strict';
 const assert=require('node:assert/strict'),vm=require('node:vm');
 const integration=require('./continuous-dungeon-integration.js');
+const navTransform=require('./dungeon-enemy-navigation.js');
+const moved=navTransform.patchJs('function mfRoleMove(e,a,s){e.x+=Math.cos(a)*s;e.y+=Math.sin(a)*s;}');
+assert(moved.includes('mfDungeonNavigateEnemy(e,a,s);'),'role movement wired through dungeon routing');
+assert.throws(()=>navTransform.patchJs('not an enemy script'),/missing or ambiguous/);
 const variants=require('./mob-variants.js');
 const artwork='data:image/png;base64,AAABAA==';
 const fixture='const heroImage="'+artwork+'";'+
@@ -22,6 +26,14 @@ const run=s=>vm.runInContext(s,scope);
 run('beginStage()');
 assert.equal(run('mfDungeonRoom.chamber'),0);
 assert.match(hud.textContent,/Chamber 1\/14/);
+run('player.x=mfDungeonRoom.blockers[0].x+150;player.y=mfDungeonRoom.blockers[0].y+mfDungeonRoom.blockers[0].h/2;');
+run('var routeEnemy={x:mfDungeonRoom.blockers[0].x-55,y:player.y,r:12,mobVariant:{role:"chaser"}};');
+const routeY=run('routeEnemy.y');
+run('for(let step=0;step<48;step++){frame++;const angle=Math.atan2(player.y-routeEnemy.y,player.x-routeEnemy.x);mfDungeonNavigateEnemy(routeEnemy,angle,2.8);}');
+assert.notEqual(run('routeEnemy.y'),routeY,'chaser routes around a blocking pillar');
+assert.equal(run('mfDungeons.circleHitsRect(routeEnemy.x,routeEnemy.y,12,mfDungeonRoom.blockers[0])'),false,'routed enemy remains outside solid pillar');
+run('player.x=480;player.y=270;');
+
 run('enemies[0].hp=61;drops[0].id="coin-untaken"');
 run('player.x=W-43;player.y=H*.5;tick()');
 assert.equal(run('enemies.length'),0,'new chamber does not create waves');
