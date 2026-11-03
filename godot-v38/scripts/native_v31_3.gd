@@ -173,12 +173,15 @@ func _process(delta:float)->void:
  if not hero_playing or menu_open:return
  var started:int=Time.get_ticks_usec() if (v313_profile_frame%10)==0 else 0
  v313_profile_frame+=1
- v313_trap_clock+=minf(maxf(delta,0.0),0.2)
+ var safe_delta:float=V313_RULES.safe_frame_delta(delta)
+ if not is_finite(v313_trap_clock) or v313_trap_clock<0.0:v313_trap_clock=0.0
+ if not is_finite(v313_surge_clock) or v313_surge_clock<0.0:v313_surge_clock=0.0
+ v313_trap_clock+=minf(safe_delta,0.2)
  if v313_trap_clock>=0.10:
   var step:float=v313_trap_clock
   v313_trap_clock=0.0
   _v313_tick_traps(step)
- v313_surge_clock+=delta
+ v313_surge_clock+=safe_delta
  if v313_surge_clock>=0.6:
   v313_surge_clock=0.0
   _v313_tick_surge()
