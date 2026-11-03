@@ -2237,6 +2237,14 @@ func _set_boss_telegraph(beast:Dictionary,active:bool) -> void:
  var id:=int(beast.get("boss_id",-1))
  var raw_radius:float=float(beast.get("warning_radius",2.8))
  var valid_warning:bool=is_finite(raw_radius) and raw_radius>0.0
+ # Validate the boss and marker before allocating a visual for an active warning.
+ if active and valid_warning:
+  var warning_body:CharacterBody3D=beast.get("body") as CharacterBody3D
+  if not is_instance_valid(warning_body):
+   valid_warning=false
+  else:
+   var warning_position:Vector3=beast.get("warning_pos",warning_body.global_position)
+   valid_warning=is_finite(warning_position.x) and is_finite(warning_position.z)
  # Recreate freed warning nodes, but never allocate for hide-only/invalid calls.
  if boss_telegraphs.has(id) and not is_instance_valid(boss_telegraphs[id]):
   boss_telegraphs.erase(id)
