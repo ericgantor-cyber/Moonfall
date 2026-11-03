@@ -254,6 +254,7 @@ func _run()->void:
   check("v383_intent==\"retreat\"" in tick and "body.velocity=-diff.normalized()" in tick,"low-health retreat produces actual movement")
   check("v383_intent==\"strafe\"" in tick and "body.velocity=(flank*orbit_side" in tick,"flank intent produces actual movement")
   check("if staggered:" in tick and "if staggered:return" in tick,"stagger still prevents attack resolution")
+  check('elif bool(beast.get("boss",false)) and float(beast.get("windup",0.0))>0.0:' in tick and "body.velocity=Vector3.ZERO" in tick,"boss holds position during active attack warning")
   check("if bool(beast.get(\"boss\",false)):" in tick,"boss windup attack path preserved")
  game.queue_free()
  print("MOONFALL v38.0 OVERHAUL PASS" if failures==0 else "MOONFALL v38.0 OVERHAUL FAIL")
