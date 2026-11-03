@@ -751,6 +751,36 @@ func _run()->void:
   game.call("_set_boss_telegraph",probe,true)
   check(probe_mesh.visible,"valid warning geometry can recover after bad data")
  game.call("_set_boss_telegraph",probe,false)
+ var idle_probe:Dictionary={"boss_id":987654322,"warning_radius":2.8}
+ game.call("_set_boss_telegraph",idle_probe,false)
+ check(not (game.get("boss_telegraphs") as Dictionary).has(987654322),"inactive uninitialized warning does not allocate a mesh")
+ for bad_radius in [NAN,INF,-INF,0.0,-1.0]:
+  var bad_probe:Dictionary={"boss_id":987654323,"body":probe_body,"warning_radius":bad_radius,"warning_pos":Vector3.ZERO}
+  game.call("_set_boss_telegraph",bad_probe,true)
+  check(not (game.get("boss_telegraphs") as Dictionary).has(987654323),"invalid active warning avoids mesh allocation "+str(bad_radius))
+
+ # Invalid markers or missing actors must not allocate a new mesh either.
+ var malformed_probe:Dictionary={"boss_id":987654324,"body":probe_body,"warning_radius":2.8,"warning_pos":Vector3(NAN,0.0,0.0)}
+ game.call("_set_boss_telegraph",malformed_probe,true)
+ check(not (game.get("boss_telegraphs") as Dictionary).has(987654324),"invalid active warning marker avoids mesh allocation")
+ malformed_probe["warning_pos"]=Vector3.ZERO
+ malformed_probe["body"]=null
+ game.call("_set_boss_telegraph",malformed_probe,true)
+ check(not (game.get("boss_telegraphs") as Dictionary).has(987654324),"active warning with missing boss body avoids mesh allocation")
+ malformed_probe["body"]=probe_body
+ game.call("_set_boss_telegraph",malformed_probe,true)
+ var recovered_warning:MeshInstance3D=(game.get("boss_telegraphs") as Dictionary).get(987654324) as MeshInstance3D
+ check(is_instance_valid(recovered_warning) and recovered_warning.visible,"first valid warning creates a visible mesh after invalid data")
+ game.call("_set_boss_telegraph",malformed_probe,false)
+ if is_instance_valid(probe_mesh):
+  probe_mesh.queue_free()
+  await process_frame
+  game.call("_set_boss_telegraph",probe,false)
+  check(not (game.get("boss_telegraphs") as Dictionary).has(987654321),"stale boss warning entry is pruned without recreation")
+  game.call("_set_boss_telegraph",probe,true)
+  var restored_probe:MeshInstance3D=(game.get("boss_telegraphs") as Dictionary).get(987654321) as MeshInstance3D
+  check(is_instance_valid(restored_probe) and restored_probe.visible,"freed boss warning mesh is recreated on next real telegraph")
+  game.call("_set_boss_telegraph",probe,false)
  probe_body.queue_free()
  var sprite=game.get("hero_sprite") as Sprite3D
  check(is_instance_valid(sprite) and sprite.texture!=null,"original hero sprite texture present")
