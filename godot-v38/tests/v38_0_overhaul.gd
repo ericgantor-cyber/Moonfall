@@ -268,6 +268,8 @@ func _run()->void:
   check(is_equal_approx(feedback.recoil_degrees(0.16,true),14.0),"critical recoil magnitude remains unchanged")
   check(not feedback.warning_radius_changed(2.8,NAN) and not feedback.warning_radius_changed(2.8,INF) and not feedback.warning_radius_changed(2.8,-1.0),"invalid warning radii cannot trigger geometry rebuild")
   check(feedback.warning_radius_changed(NAN,2.8) and not feedback.warning_radius_changed(2.8,2.8),"valid radius repairs corrupt mesh and skips stable geometry")
+  var giant_pulse:float=feedback.boss_telegraph_transparency(1.0e300,3)
+  check(is_finite(giant_pulse) and giant_pulse>=0.05 and giant_pulse<=0.291,"extreme finite boss clocks cannot corrupt warning opacity")
  game.queue_free()
  print("MOONFALL v38.0 OVERHAUL PASS" if failures==0 else "MOONFALL v38.0 OVERHAUL FAIL")
  quit(0 if failures==0 else 1)
