@@ -1983,7 +1983,8 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
    hit_mesh.rotation_degrees=Vector3(0.0,0.0,pose_degrees)
   if map_time>=react_until:beast["hit_react_until"]=0.0
   if map_time>=swing_until:beast["attack_swing_until"]=0.0
- var diff:=player.global_position-body.global_position
+ var actor_position:Vector3=body.global_position
+ var diff:=player.global_position-actor_position
  diff.y=0.0
  var distance:=diff.length()
  # Reuse the horizontal direction across retreat, orbiting and fleeing branches.
@@ -2035,8 +2036,8 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
  elif engaged and distance>1.7:
   body.velocity=AI_RULES.approach(diff,move_speed,enemy_id,is_boss,int(beast.get("boss_phase",1)),distance,combat_role)
  elif is_hostile and not engaged and not is_boss and map_time<float(beast.get("last_seen_until",0.0)):
-  body.velocity=ENEMY_COMBAT_RULES.investigate_velocity(is_hostile,engaged,false,map_time,float(beast.get("last_seen_until",0.0)),body.global_position,beast.get("last_seen_position",body.global_position),move_speed)
-  if ENEMY_COMBAT_RULES.search_arrived(body.global_position,beast.get("last_seen_position",body.global_position)):
+  body.velocity=ENEMY_COMBAT_RULES.investigate_velocity(is_hostile,engaged,false,map_time,float(beast.get("last_seen_until",0.0)),actor_position,beast.get("last_seen_position",actor_position),move_speed)
+  if ENEMY_COMBAT_RULES.search_arrived(actor_position,beast.get("last_seen_position",actor_position)):
    beast["last_seen_until"]=0.0
    beast["search_pause_until"]=ENEMY_COMBAT_RULES.search_pause_expiry(map_time)
  elif is_hostile and not engaged and not is_boss and ENEMY_COMBAT_RULES.search_pause_active(engaged,map_time,float(beast.get("search_pause_until",0.0))):
@@ -2061,9 +2062,9 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
     body.velocity=Vector3.ZERO
    else:body.velocity=to_prey.normalized()*move_speed*0.8
   else:body.velocity=Vector3.ZERO
- elif body.global_position.distance_squared_to(beast["home"])>16.0:
+ elif actor_position.distance_squared_to(beast["home"])>16.0:
   var toward:Vector3=beast["home"]
-  toward-=body.global_position
+  toward-=actor_position
   toward.y=0
   body.velocity=toward.normalized()*move_speed*0.4
  else:body.velocity=Vector3.ZERO
