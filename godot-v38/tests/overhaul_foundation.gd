@@ -140,6 +140,19 @@ func _run()->void:
    combat_sweep_ok=false
    break
  check(combat_sweep_ok,"111 deterministic combat headings preserve retreat and orbit pacing")
+ check(ai_rules.retreat_velocity(Vector3(100,0,0),10.0,0.9)==Vector3.ZERO,"oversized retreat heading cannot produce an AI speed spike")
+ check(ai_rules.orbit_velocity(Vector3(100,0,0),10.0,1.0)==Vector3.ZERO,"oversized orbit heading cannot produce an AI speed spike")
+ check(ai_rules.approach(Vector3(5,0,0),10.0,1,false,1,NAN)==Vector3.ZERO,"invalid pursuit distance fails closed")
+ var pursuit_sweep_ok:bool=true
+ for sample_index in range(111):
+  var angle:float=TAU*float(sample_index)/111.0
+  var offset:Vector3=Vector3(cos(angle)*12.0,0.0,sin(angle)*12.0)
+  var regular:Vector3=ai_rules.approach(offset,10.0,sample_index,false,1,12.0)
+  var boss:Vector3=ai_rules.approach(offset,10.0,sample_index,true,3,12.0)
+  if not is_equal_approx(regular.length(),10.0) or not is_equal_approx(boss.length(),13.0) or not is_zero_approx(regular.y) or not is_zero_approx(boss.y):
+   pursuit_sweep_ok=false
+   break
+ check(pursuit_sweep_ok,"111 deterministic pursuit headings preserve normal and phase-three boss speeds")
  var guardian_rules=load("res://scripts/systems/guardian_attack_rules.gd")
  check(is_equal_approx(guardian_rules.windup(1,INF),0.75),"invalid guardian windup stays bounded")
  check(guardian_rules.windup(1,1000.0)<=8.0,"very long guardian telegraph stays bounded")
