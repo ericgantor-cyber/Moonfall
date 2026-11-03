@@ -257,6 +257,17 @@ func _run()->void:
   check("if staggered:" in tick and "body.velocity=Vector3.ZERO" in tick and "beast[\"elite_lunge_windup\"]=0.0" in tick and "beast[\"elite_lunge_target\"]=Vector3.ZERO" in tick and "  return\n # Elite creatures telegraph" in tick,"stagger halts attacks and cancels queued elite lunges")
   check("if not staggered:" in tick and "player_direction=AI_RULES.planar_direction(diff,distance)" in tick,"staggered actors skip unnecessary direction calculations")
   check(("if is_boss:" in tick and "var is_boss:bool=bool(beast.get(\"boss\",false))" in tick) or "if bool(beast.get(\"boss\",false)):" in tick,"boss windup attack path preserved")
+ var feedback=load("res://scripts/systems/combat_feedback_v383.gd")
+ check(feedback!=null,"combat feedback rules load")
+ if feedback!=null:
+  for invalid in [NAN,INF,-INF]:
+   check(feedback.attack_followthrough_degrees(invalid)==0.0,"nonfinite attack animation timer fails closed")
+   check(feedback.recoil_degrees(invalid,false)==0.0 and feedback.recoil_degrees(invalid,true)==0.0,"nonfinite hit recoil timer fails closed")
+   check(is_equal_approx(feedback.boss_telegraph_transparency(invalid,2),0.17),"nonfinite boss warning time returns finite neutral opacity")
+  check(feedback.attack_followthrough_degrees(0.0)==0.0 and feedback.attack_followthrough_degrees(0.22)==0.0,"normal attack arc retains zero endpoints")
+  check(is_equal_approx(feedback.recoil_degrees(0.16,true),14.0),"critical recoil magnitude remains unchanged")
+  check(not feedback.warning_radius_changed(2.8,NAN) and not feedback.warning_radius_changed(2.8,INF) and not feedback.warning_radius_changed(2.8,-1.0),"invalid warning radii cannot trigger geometry rebuild")
+  check(feedback.warning_radius_changed(NAN,2.8) and not feedback.warning_radius_changed(2.8,2.8),"valid radius repairs corrupt mesh and skips stable geometry")
  game.queue_free()
  print("MOONFALL v38.0 OVERHAUL PASS" if failures==0 else "MOONFALL v38.0 OVERHAUL FAIL")
  quit(0 if failures==0 else 1)
