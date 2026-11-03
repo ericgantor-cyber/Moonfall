@@ -15,6 +15,8 @@ func _unhandled_input(event:InputEvent)->void:
    get_viewport().set_input_as_handled()
    return
   if event is InputEventJoypadButton and event.pressed and event.button_index==JOY_BUTTON_RIGHT_STICK:
+   # Retain the inherited right-stick camera reset while toggling aim lock.
+   _v24_set_zoom(19.0)
    _toggle_aim_lock()
    get_viewport().set_input_as_handled()
    return
