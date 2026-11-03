@@ -1,6 +1,9 @@
 extends "res://scripts/native_v38_0.gd"
 ## First playable realm-choice integration. All locations stay in the same world.
 const REALM_ETHICS := preload("res://scripts/systems/morality_reputation.gd")
+const EQUIPMENT := preload("res://scripts/systems/equipment_inventory.gd")
+var gear_state:Dictionary = {}
+var gear_status:Label
 var realm_ethics:Dictionary = {}
 var realm_panel:PanelContainer
 var realm_status:Label
@@ -14,6 +17,7 @@ var realm_companion_ethic:String = "Good"
 
 func _ready() -> void:
  realm_ethics = REALM_ETHICS.new_state()
+ gear_state = EQUIPMENT.new_state()
  super._ready()
  _build_realm_choice_panel()
 
@@ -23,10 +27,14 @@ func _start_game(selected_hero:String) -> void:
  realm_victories = 0
  realm_elemental_kills = 0
  realm_companion_ethic = "Good"
+ gear_state = EQUIPMENT.new_state()
+ EQUIPMENT.add_item(gear_state,"ashwood_sword")
+ EQUIPMENT.equip(gear_state,"ashwood_sword",1)
  _refresh_realm_choices()
 
 func _checkpoint_extra_data() -> Dictionary:
  var data:Dictionary = super._checkpoint_extra_data()
+ data["gear_state"] = gear_state.duplicate(true)
  data["realm_ethics"] = realm_ethics.duplicate(true)
  data["realm_victories"] = realm_victories
  data["realm_elemental_kills"] = realm_elemental_kills
@@ -36,6 +44,7 @@ func _checkpoint_extra_data() -> Dictionary:
 func _restore_data(data:Dictionary) -> void:
  super._restore_data(data)
  var extra:Variant = data.get("optional_resources", {})
+ gear_state = EQUIPMENT.normalize(extra.get("gear_state",{}) if extra is Dictionary else {})
  realm_ethics = REALM_ETHICS.normalize(extra.get("realm_ethics", {}) if extra is Dictionary else {})
  realm_victories = maxi(0,int(extra.get("realm_victories",0))) if extra is Dictionary else 0
  realm_elemental_kills = maxi(0,int(extra.get("realm_elemental_kills",0))) if extra is Dictionary else 0
@@ -66,6 +75,13 @@ func _build_realm_choice_panel() -> void:
  layout.add_child(realm_progress)
  realm_companion=Label.new()
  layout.add_child(realm_companion)
+ gear_status=Label.new()
+ gear_status.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+ layout.add_child(gear_status)
+ var equip_button:Button=Button.new()
+ equip_button.text="EQUIP BEST OWNED WEAPON"
+ equip_button.pressed.connect(_equip_best_realm_weapon)
+ layout.add_child(equip_button)
  var companion_swap:Button=Button.new()
  companion_swap.text="SWITCH COMPANION ETHIC"
  companion_swap.pressed.connect(_swap_realm_companion)
@@ -121,6 +137,9 @@ func _refresh_realm_choices() -> void:
  if is_instance_valid(realm_companion):
   var loyalty:int=REALM_ETHICS.companion_loyalty(state,realm_companion_ethic)
   realm_companion.text="ACTIVE COMPANION: "+realm_companion_ethic+" | Loyalty "+str(loyalty)+" | "+("Loyal" if loyalty>=55 else "Uncertain")
+ if is_instance_valid(gear_status):
+  var stats:Dictionary=EQUIPMENT.totals(gear_state)
+  gear_status.text="GEAR | Weapon +"+str(stats["weapon_power"])+" • Armor "+str(stats["armor"])+" • Magic "+str(stats["magic"])+" | Owned types "+str(gear_state.get("items",{}).size())
  var decided:bool = state["choices"].has("realm_village_aid") or state["choices"].has("realm_village_betray")
  for button in realm_choice_buttons:
   if is_instance_valid(button):
@@ -142,7 +161,9 @@ func _apply_player_hit(target:Dictionary,base_damage:float,stagger_strength:floa
  var was_alive:bool=bool(target.get("alive",false))
  var prior_hp:float=float(target.get("hp",0.0))
  var evolution:Dictionary=REALM_ETHICS.weapon_evolution(realm_ethics,realm_victories,realm_elemental_kills)
- var weapon_multiplier:float=1.0+float(evolution["bonus_percent"])/100.0
+ var stats:Dictionary=EQUIPMENT.totals(gear_state)
+ var gear_multiplier:float=1.0+minf(0.5,float(stats["weapon_power"])*0.008)
+ var weapon_multiplier:float=(1.0+float(evolution["bonus_percent"])/100.0)*gear_multiplier
  super._apply_player_hit(target,base_damage*weapon_multiplier,stagger_strength)
  if not was_alive or prior_hp<=0.0 or bool(target.get("alive",false)) or float(target.get("hp",0.0))>0.0:
   return
@@ -150,6 +171,10 @@ func _apply_player_hit(target:Dictionary,base_damage:float,stagger_strength:floa
   return
  target["realm_kill_recorded"]=true
  realm_victories+=1
+ # Award one deterministic catalog item for each confirmed player kill.
+ var dropped:Dictionary=EQUIPMENT.loot_enemy(gear_state,maxi(1,realm_victories/6+1),realm_victories*37)
+ if not dropped.is_empty() and realm_victories%5==0:
+  _show_message("Loot found: "+str(dropped["name"]),2.0)
  # Only count kills carrying an explicit elemental classification.
  var element:String=str(target.get("element","")).to_lower()
  if element in ["fire","water","air","earth","lightning","ice","arcane"]:
@@ -159,4 +184,19 @@ func _apply_player_hit(target:Dictionary,base_damage:float,stagger_strength:floa
 func _swap_realm_companion()->void:
  if not hero_playing or death_active or menu_open:return
  realm_companion_ethic="Evil" if realm_companion_ethic=="Good" else "Good"
+ _refresh_realm_choices()
+
+func _equip_best_realm_weapon()->void:
+ if not hero_playing or death_active or menu_open:return
+ var selected_id:String=""
+ var best_power:int=-1
+ for id in gear_state.get("items",{}):
+  var item:Dictionary=EQUIPMENT.CATALOG.get_item(str(id))
+  if str(item.get("category",""))!="weapon":continue
+  if int(item.get("level_required",1))>maxi(1,realm_victories/6+1):continue
+  if int(item.get("power",0))>best_power:
+   best_power=int(item["power"])
+   selected_id=str(id)
+ if selected_id!="" and EQUIPMENT.equip(gear_state,selected_id,maxi(1,realm_victories/6+1)):
+  _show_message("Equipped: "+str(EQUIPMENT.CATALOG.get_item(selected_id).get("name","")),2.0)
  _refresh_realm_choices()
