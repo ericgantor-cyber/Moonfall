@@ -1,6 +1,7 @@
 'use strict';
 const assert=require('node:assert/strict'),vm=require('node:vm');
 const integration=require('./continuous-dungeon-integration.js');
+const variants=require('./mob-variants.js');
 const artwork='data:image/png;base64,AAABAA==';
 const fixture='const heroImage="'+artwork+'";'+
  'let frame=1,W=960,H=540,stage=1,playing=true,paused=false,skillOpen=false,gearOpen=false;'+
@@ -61,6 +62,9 @@ assert.equal(run('shots.length'),0,'fast projectile removed before collision dam
 run('shots.push({x:mfDungeonRoom.blockers[0].x-80,y:mfDungeonRoom.blockers[0].y+mfDungeonRoom.blockers[0].h/2,r:4})');
 run('mfDungeonPreTick();shots[0].x+=150;mfDungeonAfterTick()');
 assert.equal(run('shots.length'),0,'post-tick swept projectile wall check');
+const sampleVariant=variants.variant(7);
+run('enemies[0].mobVariant='+JSON.stringify(sampleVariant)+';enemies[0].mobVariantId=7;');
+run('drops.push({id:"inventory-item",meta:{rarity:"Legendary",mods:{power:44,spell:"eclipse"}},taken:false})');
 run('mfDungeonStore();mfDungeonPersistSnapshots()');
 const savedWorld=run('JSON.stringify(mfWorld)');
 const replaySource=built.replace('let mfWorld={region:"witchwood",flags:{}};', 'let mfWorld='+savedWorld+';');
@@ -70,6 +74,12 @@ const replay=code=>vm.runInContext(code,replayScope);
 replay('beginStage()');
 assert.equal(replay('mfDungeonRoom.id'),run('mfDungeonRoom.id'),'room position survives reload');
 assert.equal(replay('enemies[0].hp'),90,'chamber enemy HP saved through reload');
+assert.equal(replay('enemies[0].mobVariant.stats.speed'),sampleVariant.stats.speed,'variant movement speed restored');
+assert.equal(replay('enemies[0].mobVariant.stats.damage'),sampleVariant.stats.damage,'variant damage restored');
+assert.equal(replay('enemies[0].mobVariant.appearance.hue'),sampleVariant.appearance.hue,'variant appearance restored');
+assert.equal(replay('enemies[0].mobVariant.role'),sampleVariant.role,'variant AI role restored');
+assert.equal(replay('drops[0].meta.mods.power'),44,'nested item metadata restored');
+
 assert.equal(replay('mfDungeonSnapshots.size')>0,true,'chamber snapshots restored');
 assert(replay('JSON.stringify(mfWorld.flags["dungeon:snapshots:v1"]).length')<=100000,'save bounded');
 run('mfDungeonSnapshots.clear()');
