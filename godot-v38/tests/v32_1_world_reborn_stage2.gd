@@ -25,6 +25,12 @@ func _run()->void:
  check(is_equal_approx(RULES.final_champion_health(100,2,2),100.0),"Ordinary wave remains balanced")
  var item:Dictionary=RULES.named_relic(0,0,"Fury")
  check(item["rarity"]=="Legendary" and item["name"].contains("Vow"),"Named guaranteed set-themed relic")
+ for zone_id in [0,1,5,16,17,18,1000,-1,-999,2147483647,-2147483648]:
+  var relic:Dictionary=RULES.named_relic(1,zone_id,"Fury")
+  var bounded_zone:int=clampi(zone_id,0,17)
+  var expected_power:int=mini(250,48+bounded_zone*12)
+  check(int(relic["power"])==expected_power and expected_power>=48 and expected_power<=250,"Relic power remains bounded for zone "+str(zone_id))
+ check(int(RULES.named_relic(0,0,"Fury")["power"])==48 and int(RULES.named_relic(2,5,"Fury")["power"])==108,"Normal dungeon relic power remains unchanged")
  var game:Node3D=load("res://scenes/main.tscn").instantiate()
  root.add_child(game)
  await process_frame
