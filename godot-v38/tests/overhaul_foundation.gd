@@ -228,6 +228,22 @@ func _run()->void:
  check("if not is_finite(lunge_windup) or lunge_windup<0.0 or lunge_windup>0.9:" in live_enemy_script,"invalid elite windups cancel before damage")
  check("beast[\"elite_lunge_windup\"]=ENEMY_COMBAT_RULES.attack_timer_after_frame(lunge_windup,delta)" in live_enemy_script,"live elite warning uses clamped frame delta")
  check(is_equal_approx(combat_rules.attack_timer_after_frame(0.9,0.5),0.8),"frame hitch cannot finish elite windup instantly")
+ var elite_stagger_sweep_ok:bool=true
+ for sample_index in range(111):
+  var pending_windup:float=0.05+float(sample_index%17)*0.05
+  var frame_delta:float=0.016+float(sample_index%4)*0.01
+  var interrupted:bool=sample_index%3!=0
+  var resulting_windup:float=0.0 if interrupted else combat_rules.attack_timer_after_frame(pending_windup,frame_delta)
+  if interrupted and resulting_windup!=0.0:
+   elite_stagger_sweep_ok=false
+   break
+  if not interrupted and (resulting_windup<0.0 or resulting_windup>pending_windup):
+   elite_stagger_sweep_ok=false
+   break
+ check(elite_stagger_sweep_ok,"111 elite lunge timing cases preserve progress or cancel on stagger")
+ var stagger_guard:int=live_enemy_script.find("if staggered:\n  if elite:\n   beast[\"elite_lunge_windup\"]=0.0\n   beast[\"elite_lunge_target\"]=Vector3.ZERO\n  return")
+ var windup_handler:int=live_enemy_script.find("if elite:\n  var lunge_windup:float=")
+ check(stagger_guard>=0 and windup_handler>stagger_guard,"stagger clears elite lunge and target before any windup strike")
  check(combat_rules.can_attack(1.75,true,true,"boar"),"boar uses its existing 1.8 melee range")
  check(not combat_rules.can_attack(1.75,true,true,"wolf"),"wolf retains default 1.7 melee range")
  check(not combat_rules.can_attack(1.0,false,true,"boar") and not combat_rules.can_attack(1.0,true,false,"boar"),"readiness and line-of-sight still gate melee")
