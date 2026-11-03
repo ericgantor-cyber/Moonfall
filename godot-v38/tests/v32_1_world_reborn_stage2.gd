@@ -15,6 +15,25 @@ func _run()->void:
  check(RULES.enemy_position(anchor,2,0).distance_to(RULES.room_position(anchor,2))<3.0,"Three chamber spawn layout")
  check(RULES.chamber_title(3)=="Guardian Heart","Named final chamber")
  check(RULES.chamber_count(0,0)>=5 and RULES.chamber_count(0,0)<=14,"Exploration chamber count stays in requested range")
+ # Preserve existing layouts while preventing overflow from extreme save IDs.
+ var legacy_counts_stable:bool=true
+ for site_id in range(30):
+  for zone_id in range(6):
+   if RULES.chamber_count(site_id,zone_id)!=5+posmod(site_id*7+zone_id*3,10):
+    legacy_counts_stable=false
+    break
+  if not legacy_counts_stable:break
+ check(legacy_counts_stable,"All 180 standard chamber counts remain unchanged")
+ var extreme_counts_stable:bool=true
+ for site_id in [2147483647,-2147483648,1000000000000,-1000000000000]:
+  for zone_id in [2147483647,-2147483648,1000000000000,-1000000000000]:
+   var reduced:int=RULES.chamber_count(posmod(site_id,10),posmod(zone_id,10))
+   var count:int=RULES.chamber_count(site_id,zone_id)
+   if count!=reduced or count<5 or count>14:
+    extreme_counts_stable=false
+    break
+  if not extreme_counts_stable:break
+ check(extreme_counts_stable,"Extreme chamber IDs stay bounded without overflow")
  check(RULES.room_position(anchor,4)!=RULES.room_position(anchor,3),"Exploration passage connects distinct chamber sites")
  check(RULES.room_visible(2000.0,false) and not RULES.room_visible(9000.0,false),"Chamber LOD culling")
  check(not RULES.room_visible(20.0,true),"Smooth graphics reduces decorative detail")
