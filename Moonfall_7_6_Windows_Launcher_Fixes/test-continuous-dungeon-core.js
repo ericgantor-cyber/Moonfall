@@ -40,4 +40,22 @@ function coreNavigationProof(){
  return point;
 }
 assert(Number.isFinite(nav.x)&&Number.isFinite(nav.y),'bounded navigation returns finite waypoint');
+const stressWall={x:160,y:80,w:48,h:92};
+const stressStart=Date.now();
+let stressRouted=0;
+for(let enemy=0;enemy<160;enemy++){
+ let pos={x:50+(enemy%8)*6,y:96+(enemy%20)*5};
+ for(let tick=0;tick<48;tick++){
+  const goal={x:280,y:100+(tick%13)*7};
+  const step=require('./continuous-dungeon-core.js').chooseWaypoint(pos,goal,[stressWall],12);
+  assert(Number.isFinite(step.x)&&Number.isFinite(step.y),'large crowd routing stays finite');
+  const heading=Math.atan2(step.y-pos.y,step.x-pos.x);
+  pos=require('./continuous-dungeon-core.js').resolveMotion(pos,{x:pos.x+Math.cos(heading)*2,y:pos.y+Math.sin(heading)*2},12,[stressWall]);
+  assert(!circleHitsRect(pos.x,pos.y,12,stressWall),'stress crowd cannot clip wall');
+  stressRouted++;
+ }
+}
+assert.equal(stressRouted,7680,'160 enemy x 48 tick stress cases completed');
+console.log('Dungeon navigation stress: '+stressRouted+' agent-frames in '+(Date.now()-stressStart)+'ms (diagnostic, not a fixed CI timing threshold)');
+
 console.log('PASS: continuous 5x14 dungeon topology per region, deterministic geometry, no wave code, swept collision and projectile occlusion');

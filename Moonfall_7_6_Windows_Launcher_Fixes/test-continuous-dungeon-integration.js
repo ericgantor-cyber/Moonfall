@@ -32,6 +32,16 @@ const routeY=run('routeEnemy.y');
 run('for(let step=0;step<48;step++){frame++;const angle=Math.atan2(player.y-routeEnemy.y,player.x-routeEnemy.x);mfDungeonNavigateEnemy(routeEnemy,angle,2.8);}');
 assert.notEqual(run('routeEnemy.y'),routeY,'chaser routes around a blocking pillar');
 assert.equal(run('mfDungeons.circleHitsRect(routeEnemy.x,routeEnemy.y,12,mfDungeonRoom.blockers[0])'),false,'routed enemy remains outside solid pillar');
+const routedRoom=run('routeEnemy.mfDungeonWaypointRoom');
+assert.equal(routedRoom,'witchwood:0:0','waypoint cache tracks chamber identity');
+run('mfDungeonEnter(0,1);player.x=mfDungeonRoom.blockers[0].x+150;player.y=mfDungeonRoom.blockers[0].y+mfDungeonRoom.blockers[0].h/2;');
+run('routeEnemy.x=mfDungeonRoom.blockers[0].x-55;routeEnemy.y=player.y;frame+=1;mfDungeonNavigateEnemy(routeEnemy,0,2.8);');
+assert.equal(run('routeEnemy.mfDungeonWaypointRoom'),'witchwood:0:1','entering another chamber invalidates old route cache');
+const targetBefore=run('routeEnemy.mfDungeonRouteGoalX');
+run('player.x+=70;frame++;mfDungeonNavigateEnemy(routeEnemy,0,2.8);');
+assert.notEqual(run('routeEnemy.mfDungeonRouteGoalX'),targetBefore,'large player relocation refreshes route immediately');
+run('mfDungeonEnter(0,0);player.x=480;player.y=270;');
+
 run('player.x=480;player.y=270;');
 
 run('enemies[0].hp=61;drops[0].id="coin-untaken"');
