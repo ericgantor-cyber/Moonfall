@@ -187,11 +187,9 @@ func _run()->void:
   var boar_ready_count:int=0
   for actor_id in range(5):
    if combat_rules.tactical_attack_ready("boar",moment,actor_id):boar_ready_count+=1
-  if group_ready_count!=1 or boar_ready_count!=2 or not combat_rules.group_attack_ready(moment,sample_index%4+4*(sample_index/4)):
-   # The sample actor id only qualifies when its own turn is active, so verify slot parity separately.
-   if group_ready_count!=1 or boar_ready_count!=2:
-    attack_slots_ok=false
-    break
+  if group_ready_count!=1 or boar_ready_count!=2:
+   attack_slots_ok=false
+   break
  check(attack_slots_ok,"111 quarter-second windows schedule one standard and two boar attack turns")
  check(combat_rules.role_attack_ready("boar",0.125,-1)==combat_rules.role_attack_ready("boar",0.125,3),"negative beast IDs retain stable attack turn")
  check(combat_rules.tactical_attack_ready("boar",0.125,-1)==combat_rules.tactical_attack_ready("boar",0.125,4),"negative tactical beast IDs retain stable turn")
