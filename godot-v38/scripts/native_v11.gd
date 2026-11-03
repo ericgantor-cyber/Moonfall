@@ -2253,9 +2253,12 @@ func _set_boss_telegraph(beast:Dictionary,active:bool) -> void:
  var valid_warning:bool=is_finite(raw_radius) and raw_radius>0.0
  node.visible=active and valid_warning
  # Warn at the true hit radius; subtle faster opacity pulses in later phases.
- node.transparency=V383_FEEDBACK.boss_telegraph_transparency(map_time,int(beast.get("boss_phase",1))) if active else 0.0
+ node.transparency=V383_FEEDBACK.boss_telegraph_transparency(map_time,int(beast.get("boss_phase",1))) if active and valid_warning else 0.0
  if active and valid_warning:
   var body:CharacterBody3D=beast.get("body") as CharacterBody3D
+  if not is_instance_valid(body):
+   node.visible=false
+   return
   if is_instance_valid(body):
    var area:Vector3=beast.get("warning_pos",body.global_position)
    if not is_finite(area.x) or not is_finite(area.z):
