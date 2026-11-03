@@ -54,6 +54,12 @@ func _run()->void:
  (active[0] as Dictionary)["active"]=false
  game.call("_v313_tick_traps",0.2)
  check(not (traps[0]["node"] as MeshInstance3D).visible,"Rift closing disables hazards")
+ var expired_rune:MeshInstance3D=traps[1]["node"] as MeshInstance3D
+ expired_rune.queue_free()
+ await process_frame
+ game.call("_v313_tick_traps",0.2)
+ check(not is_instance_valid(traps[1]["node"]),"Freed trap visual is skipped without interrupting other hazards")
+
  game.set("map_time",166.0)
  game.call("_v313_tick_surge")
  check(int(game.get("v313_surge_zone"))>=0,"Moon surge becomes active")
