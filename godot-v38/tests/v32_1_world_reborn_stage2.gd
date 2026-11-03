@@ -15,6 +15,28 @@ func _run()->void:
  check(RULES.enemy_position(anchor,2,0).distance_to(RULES.room_position(anchor,2))<3.0,"Three chamber spawn layout")
  check(RULES.chamber_title(3)=="Guardian Heart","Named final chamber")
  check(RULES.chamber_count(0,0)>=5 and RULES.chamber_count(0,0)<=14,"Exploration chamber count stays in requested range")
+ # Existing site/zone combinations must keep their exact save-stable chamber counts.
+ var legacy_counts_stable:bool=true
+ for site_id in range(30):
+  for zone_id in range(6):
+   var expected_count:int=5+posmod(site_id*7+zone_id*3,10)
+   if RULES.chamber_count(site_id,zone_id)!=expected_count:
+    legacy_counts_stable=false
+    break
+  if not legacy_counts_stable:break
+ check(legacy_counts_stable,"All 180 standard site/zone chamber counts remain unchanged")
+ # Modulo-equivalent large identifiers cannot overflow the count calculation.
+ var extreme_counts_stable:bool=true
+ for site_id in [2147483647,-2147483648,1000000000000,-1000000000000]:
+  for zone_id in [2147483647,-2147483648,1000000000000,-1000000000000]:
+   var count:int=RULES.chamber_count(site_id,zone_id)
+   var reduced_count:int=RULES.chamber_count(posmod(site_id,10),posmod(zone_id,10))
+   if count!=reduced_count or count<5 or count>14:
+    extreme_counts_stable=false
+    break
+  if not extreme_counts_stable:break
+ check(extreme_counts_stable,"Extreme dungeon IDs stay bounded and agree with their small modulo equivalents")
+
  check(RULES.room_position(anchor,4)!=RULES.room_position(anchor,3),"Exploration passage connects distinct chamber sites")
  check(RULES.room_visible(2000.0,false) and not RULES.room_visible(9000.0,false),"Chamber LOD culling")
  check(not RULES.room_visible(20.0,true),"Smooth graphics reduces decorative detail")
