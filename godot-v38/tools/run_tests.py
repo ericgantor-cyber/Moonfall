@@ -79,13 +79,14 @@ SUITES={
 }
 def main():
  selected=sys.argv[1:]
- stress_mode=selected in (['--combat-stress'],['--combat-stress-full'])
- full_stress=selected==['--combat-stress-full']
- if stress_mode:selected=['combat_stress']
+ stress_suite='combat_stress' if selected in (['--combat-stress'],['--combat-stress-full']) else ('enemy_attack_stress' if selected in (['--enemy-stress'],['--enemy-stress-full']) else '')
+ stress_mode=bool(stress_suite)
+ full_stress=selected in (['--combat-stress-full'],['--enemy-stress-full'])
+ if stress_mode:selected=[stress_suite]
  if selected==['--list']:
   print('\n'.join(SUITES));return 0
  if selected==['--all']: selected=[]
- unknown=[name for name in selected if name not in SUITES and (name!='combat_stress' or not stress_mode)]
+ unknown=[name for name in selected if name not in SUITES and (not stress_mode or name!=stress_suite)]
  if unknown:
   print('Unknown suites: '+', '.join(unknown),file=sys.stderr);return 2
  if not ENGINE:
@@ -115,8 +116,8 @@ def main():
   print('Using Godot:',ENGINE)
   if not run(['--editor','--import','--quit']):print('FAIL import');return 1
   failures=[]
-  for name,expected in [*SUITES.items(),('combat_stress','MOONFALL COMBAT STRESS PASS')]:
-   if name=='combat_stress' and not stress_mode:continue
+  for name,expected in [*SUITES.items(),('combat_stress','MOONFALL COMBAT STRESS PASS'),('enemy_attack_stress','MOONFALL ENEMY ATTACK STRESS PASS')]:
+   if name in ('combat_stress','enemy_attack_stress') and name!=stress_suite:continue
    if selected and name not in selected:continue
    ok=run(['--script',f'res://tests/{name}.gd'],expected)
    print(('PASS' if ok else 'FAIL'),name,flush=True)
