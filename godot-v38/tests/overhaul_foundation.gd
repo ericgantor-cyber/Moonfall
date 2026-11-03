@@ -273,6 +273,17 @@ func _run()->void:
    invalid_sighting_sweep_ok=false
    break
  check(invalid_sighting_sweep_ok,"111 corrupt sighting cases discard stale targets but preserve valid unseen memory")
+ check(not combat_rules.search_pause_active(false,1.0e12+1.0,1.0e12+1.5),"out-of-range clock cannot prolong enemy search pause")
+ check(not combat_rules.search_pause_active(false,NAN,1.0),"nonfinite search clock cannot activate pause")
+ var pause_sweep_ok:bool=true
+ for sample_index in range(111):
+  var sample_now:float=0.5+float(sample_index)*0.125
+  var expires:float=combat_rules.search_pause_expiry(sample_now)
+  var halfway:float=sample_now+0.375
+  if not is_equal_approx(expires,sample_now+0.75) or not combat_rules.search_pause_active(false,sample_now,expires) or not combat_rules.search_pause_active(false,halfway,expires) or combat_rules.search_pause_active(false,expires,expires) or combat_rules.search_pause_active(true,sample_now,expires):
+   pause_sweep_ok=false
+   break
+ check(pause_sweep_ok,"111 enemy search pauses last 0.75 seconds and cancel on engagement")
  check(combat_rules.search_pause_expiry(INF)==0.0,"invalid AI clock cannot create endless search")
  check(combat_rules.search_pause_expiry(1.0e15)==0.0,"extreme AI clock cannot create endless search")
  var telegraph=load("res://scripts/systems/boss_telegraph_readout.gd")
