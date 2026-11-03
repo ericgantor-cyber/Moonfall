@@ -22,4 +22,5 @@ func _run()->void:
  check(is_instance_valid(marker) and not marker.visible,"aim marker hidden before gameplay")
  check(is_instance_valid(options) and not options.visible,"aim options hidden before gameplay")
  game.queue_free()
+ if failures==0:print("MOONFALL AIM SCENE RUNTIME PASS")
  quit(1 if failures>0 else 0)
