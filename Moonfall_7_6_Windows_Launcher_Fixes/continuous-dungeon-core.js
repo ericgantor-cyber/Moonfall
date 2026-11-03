@@ -82,4 +82,26 @@ function resolveMotion(from,to,r,blockers){
  }
  return {x,y};
 }
-module.exports={DUNGEONS_PER_REGION,CHAMBERS_PER_DUNGEON,REGIONS,roomAt,neighbor,circleHitsRect,segmentHitsRect,blockedSegment,resolveMotion};
+// Bounded visibility-graph search: at most four corners per blocking pillar.
+function chooseWaypoint(from,goal,blockers,r=12){
+ if(!from||!goal||![from.x,from.y,goal.x,goal.y,r].every(Number.isFinite))return goal;
+ const walls=blockers||[];
+ const blocker=walls.find(w=>segmentHitsRect(from,goal,w,Math.max(0,r)));
+ if(!blocker)return goal;
+ const pad=Math.max(4,r+8);
+ const points=[
+  {x:blocker.x-pad,y:blocker.y-pad},
+  {x:blocker.x+blocker.w+pad,y:blocker.y-pad},
+  {x:blocker.x-pad,y:blocker.y+blocker.h+pad},
+  {x:blocker.x+blocker.w+pad,y:blocker.y+blocker.h+pad}
+ ];
+ let best=null,score=Infinity;
+ for(const candidate of points){
+  if(blockedSegment(from,candidate,Math.max(0,r),walls))continue;
+  const onward=blockedSegment(candidate,goal,Math.max(0,r),walls);
+  const d=Math.hypot(candidate.x-from.x,candidate.y-from.y)+Math.hypot(candidate.x-goal.x,candidate.y-goal.y)+(onward?10000:0);
+  if(d<score){score=d;best=candidate;}
+ }
+ return best||goal;
+}
+module.exports={DUNGEONS_PER_REGION,CHAMBERS_PER_DUNGEON,REGIONS,roomAt,neighbor,circleHitsRect,segmentHitsRect,blockedSegment,resolveMotion,chooseWaypoint};
