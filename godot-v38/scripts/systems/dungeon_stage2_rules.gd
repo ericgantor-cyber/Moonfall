@@ -28,7 +28,7 @@ static func chamber_title(stage:int)->String:
  return EXPLORATION_NAMES[posmod(stage-4,EXPLORATION_NAMES.size())]
 
 static func room_visible(distance_squared:float,graphics_low:bool)->bool:
- return not graphics_low and distance_squared<75.0*75.0
+ return not graphics_low and is_finite(distance_squared) and distance_squared>=0.0 and distance_squared<75.0*75.0
 
 static func final_champion_health(normal_hp:float,stage:int,slot:int)->float:
  return normal_hp*1.65 if stage==3 and slot==2 else normal_hp
