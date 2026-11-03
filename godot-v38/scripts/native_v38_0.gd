@@ -225,6 +225,35 @@ func _spawn_beast(at:Vector3,kind:String,zone:int,variant:String="normal",boss:b
    portrait.billboard=BaseMaterial3D.BILLBOARD_ENABLED
    portrait.position=Vector3(0.0,0.4,0.0)
    boss_body.add_child(portrait)
+   # Ground warning meshes are independent of original Z and Nyra portrait art.
+   var warning_zone:MeshInstance3D=MeshInstance3D.new()
+   warning_zone.name="BossGroundAttackWarning"
+   if zone==0:
+    var sector:SurfaceTool=SurfaceTool.new()
+    sector.begin(Mesh.PRIMITIVE_TRIANGLES)
+    for segment in range(24):
+     var start_angle:float=deg_to_rad(-60.0+float(segment)*5.0)
+     var end_angle:float=deg_to_rad(-60.0+float(segment+1)*5.0)
+     sector.add_vertex(Vector3.ZERO)
+     sector.add_vertex(Vector3(sin(start_angle)*4.0,0.0,-cos(start_angle)*4.0))
+     sector.add_vertex(Vector3(sin(end_angle)*4.0,0.0,-cos(end_angle)*4.0))
+    warning_zone.mesh=sector.commit()
+   else:
+    var disc:CylinderMesh=CylinderMesh.new()
+    disc.top_radius=7.0
+    disc.bottom_radius=7.0
+    disc.height=0.025
+    warning_zone.mesh=disc
+   var warning_material:StandardMaterial3D=StandardMaterial3D.new()
+   warning_material.albedo_color=Color(1.0,0.15,0.14,0.32) if zone==0 else Color(0.6,0.18,1.0,0.32)
+   warning_material.transparency=BaseMaterial3D.TRANSPARENCY_ALPHA
+   warning_material.shading_mode=BaseMaterial3D.SHADING_MODE_UNSHADED
+   warning_material.cull_mode=BaseMaterial3D.CULL_DISABLED
+   warning_zone.material_override=warning_material
+   warning_zone.position.y=0.08
+   warning_zone.visible=false
+   boss_body.add_child(warning_zone)
+   creature["v406_warning_zone"]=warning_zone
    var aura:OmniLight3D=OmniLight3D.new()
    aura.name="EclipsePhaseAura"
    aura.light_color=Color(0.85,0.1,0.24) if zone==0 else Color(0.42,0.15,0.9)
@@ -597,7 +626,7 @@ func _update_beast_step(beast:Dictionary,delta:float)->void:
       var aim:Vector3=player.global_position-origin.global_position
       aim.y=0.0
       if aim.length_squared()>0.01:beast["v405_cleave_facing"]=aim.normalized()
-    beast["v404_tell_next"]=map_time+7.0
+    beast["v404_tell_next"]=map_time+maxf(4.0,8.0-float(clampi(int(beast.get("boss_phase",1)),1,3)))
    if bool(beast.get("v404_attack_pending",false)) and map_time>=float(beast.get("v404_tell_until",0.0)):
     beast["v404_attack_pending"]=false
     var boss_body:Node3D=beast.get("body") as Node3D
@@ -611,6 +640,12 @@ func _update_beast_step(beast:Dictionary,delta:float)->void:
       in_arc=forward.dot(offset.normalized())>=0.5
      if offset.length()<=hit_radius and in_arc:
       _apply_incoming_damage((13.0 if boss_name.begins_with("Z ") else 9.0)*float(clampi(int(beast.get("boss_phase",1)),1,3)))
+   var attack_zone:MeshInstance3D=beast.get("v406_warning_zone") as MeshInstance3D
+   if is_instance_valid(attack_zone):
+    attack_zone.visible=bool(beast.get("v404_attack_pending",false)) and map_time<float(beast.get("v404_tell_until",0.0))
+    if attack_zone.visible and boss_name.begins_with("Z "):
+     var strike_direction:Vector3=beast.get("v405_cleave_facing",Vector3.FORWARD)
+     attack_zone.rotation.y=atan2(strike_direction.x,-strike_direction.z)
    if is_instance_valid(boss_plate):
     if map_time<float(beast.get("v404_tell_until",0.0)):
      var warning:String="⚔ ECLIPSE CLEAVE" if boss_name.begins_with("Z ") else "✦ VOID SURGE"
