@@ -11,6 +11,17 @@ const TRAP_COOLDOWN:float=20.0
 static func safe_frame_delta(delta:float)->float:
  return delta if is_finite(delta) and delta>0.0 else 0.0
 
+# Do not resolve dungeon hazard hits from broken coordinates or dodge clocks.
+static func trap_hit(player_pos:Vector3,hazard_pos:Vector3,radius_sq:float,dodge_seconds:float)->bool:
+ if not is_finite(dodge_seconds) or dodge_seconds>0.0:return false
+ if not is_finite(radius_sq) or radius_sq<=0.0:return false
+ if not is_finite(player_pos.x) or not is_finite(player_pos.y) or not is_finite(player_pos.z):return false
+ if not is_finite(hazard_pos.x) or not is_finite(hazard_pos.y) or not is_finite(hazard_pos.z):return false
+ var offset:Vector3=player_pos-hazard_pos
+ if not is_finite(offset.x) or not is_finite(offset.y) or not is_finite(offset.z):return false
+ var distance_sq:float=offset.length_squared()
+ return is_finite(distance_sq) and distance_sq<=radius_sq
+
 static func next_combo(now:float,expires:float,chain:int)->int:
  # Invalid clocks cannot extend a combo; clamp old save counts before adding.
  if not is_finite(now) or not is_finite(expires) or now<0.0:return 1
