@@ -56,7 +56,7 @@ static func tactical_attack_ready(kind:String,now:float,beast_id:int)->bool:
  return role_for(kind)=="bruiser" and group_attack_ready(now,posmod(beast_id,slots)+1,slots)
 
 static func attack_timer_after_frame(current:float,delta:float)->float:
- if not is_finite(current):return 0.1
+ if not is_finite(current) or current<0.0:return 0.1
  var elapsed:float=clampf(delta,0.0,0.1) if is_finite(delta) else 0.0
  return maxf(0.0,clampf(current,0.0,30.0)-elapsed)
 
