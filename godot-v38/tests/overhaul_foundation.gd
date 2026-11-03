@@ -706,7 +706,57 @@ func _run()->void:
  check("if float(beast.get(\"windup\",0.0))>0.0:return" in boss_controller,"active guardian windup timer prevents attack rotation")
  check(boss_controller.find("_show_message(\"GUARDIAN PHASE")<boss_controller.find("if float(beast.get(\"windup\",0.0))>0.0:return"),"guardian phase warning fires even during active windups")
  var adaptive=load("res://scripts/systems/gameplay_v313.gd")
+ # Wounded retreats still follow the original 26% threshold for valid actors.
+ check(adaptive.hurt_retreat(25.0,100.0,false,true,true) and not adaptive.hurt_retreat(26.0,100.0,false,true,true),"normal wounded retreat threshold remains 26 percent")
+ check(not adaptive.hurt_retreat(25.0,100.0,true,true,true) and not adaptive.hurt_retreat(25.0,100.0,false,false,true) and not adaptive.hurt_retreat(25.0,100.0,false,true,false),"bosses and unready or peaceful creatures never retreat")
+ var invalid_retreat_health_safe:bool=true
+ for invalid_hp in [NAN,INF,-INF,-10.0,0.0]:
+  if adaptive.hurt_retreat(invalid_hp,100.0,false,true,true):
+   invalid_retreat_health_safe=false
+   break
+ for invalid_max in [NAN,INF,-INF,-10.0,0.0]:
+  if adaptive.hurt_retreat(10.0,invalid_max,false,true,true):
+   invalid_retreat_health_safe=false
+   break
+ check(invalid_retreat_health_safe,"invalid or dead enemy health cannot initiate a retreat")
+ check(adaptive.hurt_retreat(1.0e36,1.0e38,false,true,true),"very large finite wounded health retains retreat ratio")
+
+ # Timed world surges must reject corrupt clocks before int conversion.
+ check(adaptive.surge_zone(0.0,6)==0 and adaptive.surge_zone(165.0,6)==1 and adaptive.surge_zone(330.0,6)==2 and adaptive.surge_zone(990.0,6)==0,"world surge zone rotation remains deterministic")
+ check(not adaptive.surge_active(164.99) and adaptive.surge_active(165.0) and adaptive.surge_active(192.99) and not adaptive.surge_active(193.0),"world surge retains its 28-second activity window")
+ var corrupt_surge_safe:bool=true
+ for bad_time in [NAN,INF,-INF,-1.0,1.0e20,1.0e308]:
+  if adaptive.surge_zone(bad_time,6)!=-1 or adaptive.surge_active(bad_time):
+   corrupt_surge_safe=false
+   break
+ check(corrupt_surge_safe,"invalid or extreme world clocks cannot start surges")
+ check(adaptive.surge_zone(165.0,0)==-1 and adaptive.surge_zone(165.0,-1)==-1,"surge zone requires a positive region count")
+
+ # Combo counters from corrupted saves cannot overflow into abnormal damage.
+ check(adaptive.next_combo(1.0,1.2,0)==1 and adaptive.next_combo(1.0,1.2,1)==2 and adaptive.next_combo(1.0,1.2,2)==3 and adaptive.next_combo(1.0,1.2,3)==3,"ordinary melee combo progression and cap remain unchanged")
+ check(adaptive.next_combo(2.0,1.0,2)==1,"expired melee combo resets to first strike")
+ var combo_counter_safe:bool=true
+ for saved_chain in [-9223372036854775807,-10,-1,0,1,2,3,4,9223372036854775807]:
+  var expected_chain:int=mini(3,clampi(saved_chain,0,3)+1)
+  if adaptive.next_combo(1.0,1.5,saved_chain)!=expected_chain:
+   combo_counter_safe=false
+   break
+ check(combo_counter_safe,"extreme saved combo counters are bounded before increment")
+ check(adaptive.next_combo(NAN,1.0,2)==1 and adaptive.next_combo(INF,1.0,2)==1 and adaptive.next_combo(1.0,NAN,2)==1 and adaptive.next_combo(1.0,INF,2)==1 and adaptive.next_combo(-1.0,1.0,2)==1,"invalid combat combo clocks reset safely")
+ check(is_equal_approx(adaptive.combo_multiplier(3),1.16) and is_equal_approx(adaptive.combo_multiplier(9223372036854775807),1.16),"damage bonus retains the existing three-hit cap")
  check(adaptive.choose_boss_pattern(3,100.0,100.0,0,2.0)==1,"close player pressure selects guardian sweep")
+ # Extreme saved attack IDs must normalize before advancing, with no overflow.
+ var adaptive_rotation_safe:bool=true
+ for phase_value in [1,2,3]:
+  var phase_count:int=mini(4,clampi(phase_value,1,3)+1)
+  for previous_id in [-9223372036854775807,-1,0,1,3,9223372036854775807]:
+   var prior_slot:int=posmod(previous_id,phase_count)
+   var chosen:int=adaptive.choose_boss_pattern(phase_value,100.0,100.0,previous_id)
+   if chosen!=(prior_slot+1)%phase_count or chosen==prior_slot:
+    adaptive_rotation_safe=false
+    break
+  if not adaptive_rotation_safe:break
+ check(adaptive_rotation_safe,"adaptive guardian rotation handles extreme saved IDs without overflow")
  check(adaptive.choose_boss_pattern(3,100.0,100.0,1,2.0)==2,"guardian does not repeat sweep back-to-back")
  check(adaptive.choose_boss_pattern(3,20.0,100.0,2,2.0)==0,"low health player gets readable focused attack")
  check(adaptive.choose_boss_pattern(3,100.0,100.0,2,8.0)==3,"phase three can select fourth guardian pattern")
@@ -722,6 +772,21 @@ func _run()->void:
  check(adaptive.update_close_pressure(4,8.0)==0,"pressure resets when hero retreats")
  check(adaptive.update_close_pressure(4,-1.0)==0,"pressure resets when hero location unavailable")
  check(adaptive.update_close_pressure(4,3.0)==3,"pressure decays outside close range")
+ # Corrupted saved counters must behave like their clamped equivalents.
+ var close_pressure_safe:bool=true
+ for previous_pressure in [-9223372036854775807,-1,0,1,2,3,4,5,9223372036854775807]:
+  var bounded_pressure:int=clampi(previous_pressure,0,4)
+  if adaptive.update_close_pressure(previous_pressure,2.0)!=mini(4,bounded_pressure+1):
+   close_pressure_safe=false
+   break
+  if adaptive.update_close_pressure(previous_pressure,3.0)!=maxi(0,bounded_pressure-1):
+   close_pressure_safe=false
+   break
+  if adaptive.update_close_pressure(previous_pressure,8.0)!=0:
+   close_pressure_safe=false
+   break
+ check(close_pressure_safe,"guardian close-pressure stays bounded for extreme save counters")
+ check(adaptive.update_close_pressure(4,NAN)==0 and adaptive.update_close_pressure(4,INF)==0 and adaptive.update_close_pressure(4,-1.0)==0,"invalid pressure distances reset state")
  check(adaptive.choose_boss_pattern(3,100.0,100.0,1,3.0,0,true)==0,"guardian changes follow-up after landing attack")
  check(adaptive.choose_boss_pattern(3,100.0,100.0,1,3.0,0,false)==2,"missed attack retains regular pattern rotation")
  check(adaptive.choose_boss_pattern(3,100.0,100.0,0,3.0,0,false,1)==2,"precision guardian chooses precision at medium range")
