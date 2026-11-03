@@ -86,7 +86,7 @@ static func remember_target(seen:bool,hostile:bool,boss:bool,now:float,hero_pos:
  return {"position":old_pos if valid_old else Vector3.ZERO,"until":old_until if valid_old and valid_expiry else 0.0}
 
 static func investigate_velocity(hostile:bool,engaged:bool,boss:bool,now:float,until:float,body_pos:Vector3,last_pos:Vector3,speed:float)->Vector3:
- if not hostile or engaged or boss or not is_finite(now) or now<0.0 or not is_finite(until) or now>=until or until>now+3.0:
+ if not hostile or engaged or boss or not is_finite(now) or now<0.0 or now>1.0e12 or not is_finite(until) or now>=until or until>now+3.0:
   return Vector3.ZERO
  var offset:Vector3=last_pos-body_pos
  offset.y=0.0

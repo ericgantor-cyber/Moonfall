@@ -249,6 +249,19 @@ func _run()->void:
    search_sweep_ok=false
    break
  check(search_sweep_ok,"111 investigation headings preserve search speed, direction, and arrival detection")
+ check(combat_rules.investigate_velocity(true,false,false,1.0e12+1.0,1.0e12+2.0,Vector3.ZERO,Vector3(6,0,0),10.0)==Vector3.ZERO,"future AI clocks cannot resume stale investigations")
+ var memory_sweep_ok:bool=true
+ for sample_index in range(111):
+  var sample_now:float=0.1+float(sample_index)*0.02
+  var known_position:Vector3=Vector3(float(sample_index%7)+3.0,0.0,6.0)
+  var memory:Dictionary=combat_rules.remember_target(true,true,false,sample_now,known_position,Vector3.ZERO,0.0)
+  var expiry:float=float(memory.get("until",0.0))
+  var investigation:Vector3=combat_rules.investigate_velocity(true,false,false,sample_now,expiry,Vector3.ZERO,known_position,10.0)
+  var after_expiry:Vector3=combat_rules.investigate_velocity(true,false,false,expiry,expiry,Vector3.ZERO,known_position,10.0)
+  if memory.get("position",Vector3.ZERO)!=known_position or not is_equal_approx(expiry,sample_now+3.0) or investigation.length()<=0.0 or after_expiry!=Vector3.ZERO:
+   memory_sweep_ok=false
+   break
+ check(memory_sweep_ok,"111 target-memory samples keep three-second pursuit and expire on schedule")
  check(combat_rules.search_pause_expiry(INF)==0.0,"invalid AI clock cannot create endless search")
  check(combat_rules.search_pause_expiry(1.0e15)==0.0,"extreme AI clock cannot create endless search")
  var telegraph=load("res://scripts/systems/boss_telegraph_readout.gd")
