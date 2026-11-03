@@ -134,7 +134,7 @@ func _v313_tick_traps(seconds:float)->void:
     trap["armed"]=false
     trap["cooldown"]=V313_RULES.TRAP_COOLDOWN
     rune.visible=false
-    if is_instance_valid(player) and player.global_position.distance_squared_to(rune.global_position)<=V313_TRAP_RADIUS_SQ and dodge_time<=0.0:
+    if is_instance_valid(player) and V313_RULES.trap_hit(player.global_position,rune.global_position,V313_TRAP_RADIUS_SQ,dodge_time):
      v313_trap_hits+=1
      _apply_incoming_damage(9.0) # intentionally below ordinary enemy strike
   else:rune.visible=false
