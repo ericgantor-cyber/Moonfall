@@ -248,10 +248,10 @@ func _run()->void:
   var tick_end:int=source.find("\\nfunc ",tick_start+1)
   var tick:String=source.substr(tick_start,(tick_end-tick_start) if tick_end>tick_start else -1) if tick_start>=0 else ""
   check(tick_start>=0 and "V383_COMBAT_RULES.combat_intent(" in tick,"combat intent policy invoked in live enemy tick")
-  check("v383_intent==\"retreat\"" in tick and "body.velocity=-diff.normalized()" in tick,"low-health retreat produces actual movement")
+  check("v383_intent==\"retreat\"" in tick and ("body.velocity=-player_direction*" in tick or "body.velocity=-diff.normalized()" in tick),"low-health retreat produces actual movement")
   check("ENEMY_COMBAT_RULES.should_circle(kind,v383_intent,distance)" in tick and "body.velocity=(flank*orbit_side" in tick,"species-filtered flank intent produces actual movement")
   check("if staggered:" in tick and "if staggered:return" in tick,"stagger still prevents attack resolution")
-  check("if bool(beast.get(\"boss\",false)):" in tick,"boss windup attack path preserved")
+  check(("if is_boss:" in tick and "var is_boss:bool=bool(beast.get(\"boss\",false))" in tick) or "if bool(beast.get(\"boss\",false)):" in tick,"boss windup attack path preserved")
  game.queue_free()
  print("MOONFALL v38.0 OVERHAUL PASS" if failures==0 else "MOONFALL v38.0 OVERHAUL FAIL")
  quit(0 if failures==0 else 1)
