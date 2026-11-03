@@ -45,6 +45,8 @@ static func safe_radius(value:float)->float:
  return clampf(value,0.5,4.0)
 
 static func warning_hit(marked:Vector3,hero:Vector3,radius_value:float)->bool:
+ # Invalid or nonpositive warning geometry must never deal phantom damage.
+ if not is_finite(radius_value) or radius_value<=0.0:return false
  if not is_finite(marked.x) or not is_finite(marked.z) or not is_finite(hero.x) or not is_finite(hero.z):return false
  var radius_safe:float=safe_radius(radius_value)
  var offset:Vector2=Vector2(marked.x-hero.x,marked.z-hero.z)
