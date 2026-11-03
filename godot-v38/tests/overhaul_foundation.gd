@@ -113,6 +113,18 @@ func _run()->void:
  check(ai_rules.approach(Vector3(1,0,0),NAN,1,false,1,5.0)==Vector3.ZERO,"invalid enemy speed fails closed")
  check(not ai_rules.retreat_due(1.0,0.0,false,-1,2.0,0.0),"zero max-health does not trigger retreat")
  check(not ai_rules.retreat_due(NAN,100.0,false,-1,2.0,0.0),"invalid health does not trigger retreat")
+ # Sweep 111 deterministic headings without spawning additional game entities.
+ # Verify consistent chase/home speed and exclusively planar movement.
+ var movement_sweep_ok:bool=true
+ for sample_index in range(111):
+  var angle:float=TAU*float(sample_index)/111.0
+  var offset:Vector3=Vector3(cos(angle)*7.0,3.0,sin(angle)*7.0)
+  var chase:Vector3=ai_rules.prey_chase_velocity(offset,10.0)
+  var homing:Vector3=ai_rules.return_home_velocity(offset,10.0)
+  if not is_equal_approx(chase.length(),8.0) or not is_equal_approx(homing.length(),4.0) or not is_zero_approx(chase.y) or not is_zero_approx(homing.y):
+   movement_sweep_ok=false
+   break
+ check(movement_sweep_ok,"111 deterministic wildlife movement headings preserve speeds and planar direction")
  var guardian_rules=load("res://scripts/systems/guardian_attack_rules.gd")
  check(is_equal_approx(guardian_rules.windup(1,INF),0.75),"invalid guardian windup stays bounded")
  check(guardian_rules.windup(1,1000.0)<=8.0,"very long guardian telegraph stays bounded")
@@ -160,4 +172,5 @@ func _run()->void:
  var sprite=game.get("hero_sprite") as Sprite3D
  check(is_instance_valid(sprite) and sprite.texture!=null,"original hero sprite texture present")
  game.queue_free()
+ if failed==0:print("MOONFALL AI 111 OVERHAUL PASS")
  quit(1 if failed>0 else 0)
