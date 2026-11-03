@@ -2029,7 +2029,7 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
   body.velocity=-player_direction*move_speed*0.85
  elif engaged and ENEMY_COMBAT_RULES.should_circle(kind,v383_intent,distance):
   # Stable per-actor orbit side, no random calls or additional physics bodies.
-  var flank:Vector3=Vector3(-diff.z,0.0,diff.x).normalized()
+  var flank:Vector3=Vector3(-player_direction.z,0.0,player_direction.x)
   var orbit_side:float=ENEMY_COMBAT_RULES.orbit_direction(enemy_id)
   body.velocity=(flank*orbit_side+player_direction*0.25).normalized()*move_speed*0.7
  elif engaged and distance>1.7:
