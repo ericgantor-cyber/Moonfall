@@ -346,6 +346,24 @@ func _run()->void:
    elite_radius_sweep_ok=false
    break
  check(elite_radius_sweep_ok,"111 elite lunge headings preserve planar 1.9-unit hit radius")
+ var elite_dodge_credit_sweep_ok:bool=true
+ for sample_index in range(111):
+  var credit_case:int=sample_index%7
+  var strike_mark:Vector3=Vector3(2.0+float(sample_index)*0.02,0.0,-1.0)
+  var hero_position:Vector3=strike_mark+Vector3(0.5,0.0,0.5)
+  var dodge_remaining:float=0.25
+  if credit_case==1 or credit_case==4:hero_position=strike_mark+Vector3(3.0,0.0,0.0)
+  if credit_case==2 or credit_case==4:dodge_remaining=0.0
+  elif credit_case==3:dodge_remaining=NAN
+  elif credit_case==5:dodge_remaining=-0.2
+  elif credit_case==6:dodge_remaining=INF
+  var credit_expected:bool=credit_case==0
+  var actual_credit:bool=elite_hit_rules.elite_dodge_credit(strike_mark,hero_position,dodge_remaining)
+  if actual_credit!=credit_expected or (actual_credit and not elite_hit_rules.elite_missed(strike_mark,hero_position,dodge_remaining)):
+   elite_dodge_credit_sweep_ok=false
+   break
+ check(elite_dodge_credit_sweep_ok,"111 elite dodge-credit cases distinguish timed dodges from ordinary misses and corrupt clocks")
+ check("if COMBAT_RULES.elite_dodge_credit(strike_pos,player_position,dodge_time):elite_attacks_dodged+=1" in live_enemy_script,"live elite dodge counter counts only a qualifying timed dodge")
  check(not elite_hit_rules.elite_missed(Vector3.ZERO,Vector3(1.89,99.0,0.0),0.0),"height changes do not alter elite ground hit radius")
  check(elite_hit_rules.elite_missed(Vector3.ZERO,Vector3(1.91,0.0,0.0),0.0),"elite impact outside radius misses")
  check(combat_rules.valid_lunge_target(Vector3(1.0e19,0.0,0.0)) and combat_rules.valid_lunge_target(Vector3(-1.0e19,0.0,0.0)) and not combat_rules.valid_lunge_hit_pair(Vector3(1.0e19,0.0,0.0),Vector3(-1.0e19,0.0,0.0)),"individually valid far points cannot overflow lunge hit distance")
