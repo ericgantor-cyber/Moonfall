@@ -2108,7 +2108,7 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
     elif _has_clear_sight(body,player):_apply_incoming_damage(float(species["atk"])*1.6)
     beast["attack"]=2.0
    return
-  if engaged and distance>=1.8 and distance<ELITE_LUNGE_RANGE and elite_lunge_ready:
+  if engaged and distance>=1.8 and distance<ELITE_LUNGE_RANGE and elite_lunge_ready and ENEMY_COMBAT_RULES.valid_lunge_target(player_position):
    beast["elite_lunge_windup"]=0.9
    beast["elite_lunge_target"]=player_position
    beast["elite_lunge_cd"]=5.0
