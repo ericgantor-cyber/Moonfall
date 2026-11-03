@@ -217,6 +217,24 @@ func _run()->void:
    attack_slots_ok=false
    break
  check(attack_slots_ok,"111 quarter-second windows schedule one standard and two boar attack turns")
+ check(not combat_rules.group_attack_ready(0.125,0,0) and not combat_rules.group_attack_ready(0.125,0,9),"invalid attack slot counts never trigger a strike")
+ var slot_boundary_sweep_ok:bool=true
+ for sample_index in range(111):
+  var slot_count:int=1+sample_index%8
+  var tick_index:int=sample_index/8
+  var window_time:float=float(tick_index)*0.25+0.125
+  var expected_slot:int=tick_index%slot_count
+  var allowed_count:int=0
+  for actor_id in range(slot_count):
+   var ready:bool=combat_rules.group_attack_ready(window_time,actor_id,slot_count)
+   if ready:allowed_count+=1
+   if ready!=(actor_id==expected_slot):
+    slot_boundary_sweep_ok=false
+    break
+  if not slot_boundary_sweep_ok or allowed_count!=1:
+   slot_boundary_sweep_ok=false
+   break
+ check(slot_boundary_sweep_ok,"111 variable-size attack windows allow exactly one assigned fighter")
  check(combat_rules.role_attack_ready("boar",0.125,-1)==combat_rules.role_attack_ready("boar",0.125,3),"negative beast IDs retain stable attack turn")
  check(combat_rules.tactical_attack_ready("boar",0.125,-1)==combat_rules.tactical_attack_ready("boar",0.125,4),"negative tactical beast IDs retain stable turn")
  check(not combat_rules.group_attack_ready(NAN,1) and not combat_rules.tactical_attack_ready("boar",INF,1),"invalid attack clocks cannot trigger attacks")
