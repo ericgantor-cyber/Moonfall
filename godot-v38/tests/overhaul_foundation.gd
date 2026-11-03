@@ -166,6 +166,17 @@ func _run()->void:
    break
  check(heading_sweep_ok,"111 headings preserve valid normalized and wildlife escape motion")
  var guardian_rules=load("res://scripts/systems/guardian_attack_rules.gd")
+ var phase_rotation_safe:bool=true
+ for phase_value in [1,2,3]:
+  var unlocked_count:int=guardian_rules.pattern_count(phase_value)
+  for saved_pattern in [-9223372036854775807,-1,0,1,9223372036854775807]:
+   var prior_index:int=posmod(saved_pattern,unlocked_count)
+   var selected:int=guardian_rules.next_pattern_after_phase_change(saved_pattern,phase_value)
+   if selected!=(prior_index+1)%unlocked_count or selected==prior_index:
+    phase_rotation_safe=false
+    break
+  if not phase_rotation_safe:break
+ check(phase_rotation_safe,"Guardian phase changes cannot overflow extreme save pattern IDs")
  check(is_equal_approx(guardian_rules.windup(1,INF),0.75),"invalid guardian windup stays bounded")
  check(guardian_rules.windup(1,1000.0)<=8.0,"very long guardian telegraph stays bounded")
  check(not guardian_rules.warning_hit(Vector3(INF,0,0),Vector3.ZERO,3.0),"invalid attack marker never strikes hero")
