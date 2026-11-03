@@ -85,7 +85,7 @@ def main():
  if selected==['--list']:
   print('\n'.join(SUITES));return 0
  if selected==['--all']: selected=[]
- unknown=[name for name in selected if name not in SUITES and name!='combat_stress']
+ unknown=[name for name in selected if name not in SUITES and (name!='combat_stress' or not stress_mode)]
  if unknown:
   print('Unknown suites: '+', '.join(unknown),file=sys.stderr);return 2
  if not ENGINE:
