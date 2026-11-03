@@ -2235,11 +2235,13 @@ func _remove_ecology_prey(prey:Dictionary) -> void:
 
 func _set_boss_telegraph(beast:Dictionary,active:bool) -> void:
  var id:=int(beast.get("boss_id",-1))
- # Recreate freed warning nodes, but never allocate for a hide-only call.
+ var raw_radius:float=float(beast.get("warning_radius",2.8))
+ var valid_warning:bool=is_finite(raw_radius) and raw_radius>0.0
+ # Recreate freed warning nodes, but never allocate for hide-only/invalid calls.
  if boss_telegraphs.has(id) and not is_instance_valid(boss_telegraphs[id]):
   boss_telegraphs.erase(id)
  if not boss_telegraphs.has(id):
-  if not active:return
+  if not active or not valid_warning:return
   var warning:=MeshInstance3D.new()
   var disk:=CylinderMesh.new()
   var initial_radius:float=GUARDIAN_ATTACK_RULES.safe_radius(float(beast.get("warning_radius",2.8)))
@@ -2253,8 +2255,6 @@ func _set_boss_telegraph(beast:Dictionary,active:bool) -> void:
   boss_telegraphs[id]=warning
  var node:MeshInstance3D=boss_telegraphs[id]
  if not is_instance_valid(node):return
- var raw_radius:float=float(beast.get("warning_radius",2.8))
- var valid_warning:bool=is_finite(raw_radius) and raw_radius>0.0
  node.visible=active and valid_warning
  # Warn at the true hit radius; subtle faster opacity pulses in later phases.
  node.transparency=V383_FEEDBACK.boss_telegraph_transparency(map_time,int(beast.get("boss_phase",1))) if active and valid_warning else 0.0

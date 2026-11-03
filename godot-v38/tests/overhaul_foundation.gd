@@ -765,6 +765,11 @@ func _run()->void:
  var idle_probe:Dictionary={"boss_id":987654322,"warning_radius":2.8}
  game.call("_set_boss_telegraph",idle_probe,false)
  check(not (game.get("boss_telegraphs") as Dictionary).has(987654322),"inactive uninitialized warning does not allocate a mesh")
+ for bad_radius in [NAN,INF,-INF,0.0,-1.0]:
+  var bad_probe:Dictionary={"boss_id":987654323,"body":probe_body,"warning_radius":bad_radius,"warning_pos":Vector3.ZERO}
+  game.call("_set_boss_telegraph",bad_probe,true)
+  check(not (game.get("boss_telegraphs") as Dictionary).has(987654323),"invalid active warning avoids mesh allocation "+str(bad_radius))
+
  if is_instance_valid(probe_mesh):
   probe_mesh.queue_free()
   await process_frame
