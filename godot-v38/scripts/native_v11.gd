@@ -2133,7 +2133,7 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
    beast["warning_pos"]=body.global_position if pattern==1 else player_position
    _set_boss_telegraph(beast,true)
    _show_message("⚠ GUARDIAN PHASE "+str(phase)+": dodge the glowing circle!",1.6)
- elif engaged and ENEMY_COMBAT_RULES.can_attack(distance,attack_ready,true) and ENEMY_COMBAT_RULES.tactical_attack_ready(kind,map_time,enemy_id) and _has_clear_sight(body,player):
+ elif engaged and ENEMY_COMBAT_RULES.can_attack(distance,attack_ready,true,kind) and ENEMY_COMBAT_RULES.tactical_attack_ready(kind,map_time,enemy_id) and _has_clear_sight(body,player):
   if dodge_time<=0:
    _apply_incoming_damage(float(species["atk"]))
   # Visual follow-through only; preserve established hit timing and damage.

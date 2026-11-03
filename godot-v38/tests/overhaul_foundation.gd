@@ -178,6 +178,19 @@ func _run()->void:
  check(is_equal_approx(combat_rules.attack_timer_after_frame(1.5,INF),1.5),"invalid frame time leaves attack cooldown stable")
  check(is_equal_approx(combat_rules.attack_timer_after_frame(1.5,0.5),1.4),"large frame hitch uses capped cooldown step")
  check(combat_rules.attack_timer_after_frame(NAN,0.016)==0.0,"invalid attack timer recovers to safe state")
+ check(combat_rules.can_attack(1.75,true,true,"boar"),"boar uses its existing 1.8 melee range")
+ check(not combat_rules.can_attack(1.75,true,true,"wolf"),"wolf retains default 1.7 melee range")
+ check(not combat_rules.can_attack(1.0,false,true,"boar") and not combat_rules.can_attack(1.0,true,false,"boar"),"readiness and line-of-sight still gate melee")
+ check(not combat_rules.can_attack(NAN,true,true,"boar") and not combat_rules.can_attack(-1.0,true,true,"boar"),"invalid melee distances fail closed")
+ var melee_range_sweep_ok:bool=true
+ for sample_index in range(111):
+  var sample_distance:float=float(sample_index)*0.02
+  var boar_expected:bool=sample_distance<1.8
+  var wolf_expected:bool=sample_distance<1.7
+  if combat_rules.can_attack(sample_distance,true,true,"boar")!=boar_expected or combat_rules.can_attack(sample_distance,true,true,"wolf")!=wolf_expected:
+   melee_range_sweep_ok=false
+   break
+ check(melee_range_sweep_ok,"111 melee range samples preserve species-specific attack reach")
  var attack_slots_ok:bool=true
  for sample_index in range(111):
   var moment:float=float(sample_index)*0.25+0.125
