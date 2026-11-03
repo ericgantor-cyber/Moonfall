@@ -91,6 +91,8 @@ func _run()->void:
  check(ai_rules.retreat_velocity(Vector3.ZERO,10.0,0.9)==Vector3.ZERO,"overlapping actors cannot retreat in invalid direction")
  check(ai_rules.retreat_velocity(Vector3(1,0,0),NAN,0.9)==Vector3.ZERO,"invalid retreat speed fails closed")
  check(ai_rules.retreat_velocity(Vector3(1,0,0),10.0,NAN)==Vector3.ZERO,"invalid retreat scale fails closed")
+ check(ai_rules.retreat_velocity(Vector3(1,0,0),10.0,-0.9)==Vector3.ZERO,"negative retreat multiplier cannot reverse retreat toward hero")
+ check(ai_rules.retreat_velocity(Vector3(1,0,0),10.0,2.0)==Vector3.ZERO,"oversized retreat multiplier cannot cause movement spike")
  check(ai_rules.wildlife_escape_velocity(Vector3(1,0,0),10.0,5.0,1.0,1)==Vector3(-10,0,0),"nearby passive wildlife flees from player")
  check(ai_rules.wildlife_escape_velocity(Vector3.ZERO,10.0,9.0,0.0,0).distance_to(Vector3(10,0,0))<0.0001,"scared wildlife retains timed wandering escape")
  check(ai_rules.wildlife_escape_velocity(Vector3.ZERO,NAN,9.0,0.0,0)==Vector3.ZERO,"invalid wildlife speed fails closed")
@@ -108,6 +110,8 @@ func _run()->void:
  check(ai_rules.orbit_velocity(Vector3.ZERO,10.0,1.0)==Vector3.ZERO,"overlapping actors do not orbit")
  check(ai_rules.orbit_velocity(Vector3(1,0,0),0.0,1.0)==Vector3.ZERO,"zero-speed actors cannot orbit")
  check(ai_rules.orbit_velocity(Vector3(1,0,0),NAN,1.0)==Vector3.ZERO,"invalid orbit speeds fail closed")
+ check(ai_rules.orbit_velocity(Vector3(1,0,0),10.0,0.0)==Vector3.ZERO,"invalid zero orbit side fails closed")
+ check(ai_rules.orbit_velocity(Vector3(1,0,0),10.0,100.0)==Vector3.ZERO,"invalid orbit side cannot produce excessive velocity")
  check(ai_rules.approach(Vector3(5,0,0),0.0,1,false,1,5.0)==Vector3.ZERO,"zero-speed enemy cannot drift")
  check(ai_rules.approach(Vector3(INF,0,0),3.0,1,false,1,5.0)==Vector3.ZERO,"invalid pursuit direction fails closed")
  check(ai_rules.approach(Vector3(1,0,0),NAN,1,false,1,5.0)==Vector3.ZERO,"invalid enemy speed fails closed")
@@ -125,6 +129,17 @@ func _run()->void:
    movement_sweep_ok=false
    break
  check(movement_sweep_ok,"111 deterministic wildlife movement headings preserve speeds and planar direction")
+ var combat_sweep_ok:bool=true
+ for sample_index in range(111):
+  var angle:float=TAU*float(sample_index)/111.0
+  var heading:Vector3=Vector3(cos(angle),0.0,sin(angle))
+  var backward:Vector3=ai_rules.retreat_velocity(heading,10.0,0.9)
+  var clockwise:Vector3=ai_rules.orbit_velocity(heading,10.0,1.0)
+  var counterclockwise:Vector3=ai_rules.orbit_velocity(heading,10.0,-1.0)
+  if not is_equal_approx(backward.length(),9.0) or backward.dot(heading)>-8.99 or not is_equal_approx(clockwise.length(),7.0) or not is_equal_approx(counterclockwise.length(),7.0):
+   combat_sweep_ok=false
+   break
+ check(combat_sweep_ok,"111 deterministic combat headings preserve retreat and orbit pacing")
  var guardian_rules=load("res://scripts/systems/guardian_attack_rules.gd")
  check(is_equal_approx(guardian_rules.windup(1,INF),0.75),"invalid guardian windup stays bounded")
  check(guardian_rules.windup(1,1000.0)<=8.0,"very long guardian telegraph stays bounded")
