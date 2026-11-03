@@ -1,0 +1,97 @@
+'use strict';
+const assert=require('node:assert/strict'),vm=require('node:vm');
+const integration=require('./continuous-dungeon-integration.js');
+const variants=require('./mob-variants.js');
+const artwork='data:image/png;base64,AAABAA==';
+const fixture='const heroImage="'+artwork+'";'+
+ 'let frame=1,W=960,H=540,stage=1,playing=true,paused=false,skillOpen=false,gearOpen=false;'+
+ 'let player={x:480,y:270,r:16},enemies=[{id:"initial",hp:100}],shots=[],drops=[{id:"coin"}];'+
+ 'let mfWorld={region:"witchwood",flags:{}};function mfWorldSave(){saved++}function receiveDamage(n){damage+=n;}'+
+ 'function tick(){frame++;} function reset(){} function beginStage(){} '+
+ 'function draw(){paintBackground();}function loop(){pollController();tick();draw();requestAnimationFrame(loop)}';
+const built=integration.patchJs(fixture);
+new vm.Script(built);
+assert(built.includes(artwork),'original character art preserved');
+assert.throws(()=>integration.patchJs('function tick(){}'),/hook missing/);
+assert.match(integration.patchHtml('<b id="mfWorldHud">World</b>'),/mfDungeonHud/);
+const hud={textContent:''};
+const ctx={save(){},restore(){},fillRect(){},strokeRect(){},fillText(){}};
+const scope={saved:0,damage:0,ctx,document:{getElementById:id=>id==='mfDungeonHud'?hud:null},paintBackground(){}};
+vm.createContext(scope);vm.runInContext(built,scope);
+const run=s=>vm.runInContext(s,scope);
+run('beginStage()');
+assert.equal(run('mfDungeonRoom.chamber'),0);
+assert.match(hud.textContent,/Chamber 1\/14/);
+run('enemies[0].hp=61;drops[0].id="coin-untaken"');
+run('player.x=W-43;player.y=H*.5;tick()');
+assert.equal(run('enemies.length'),0,'new chamber does not create waves');
+assert.equal(run('drops.length'),0,'new chamber starts without duplicated loot');
+run('enemies.push({id:"resident",hp:73});drops.push({id:"treasure"});');
+
+assert.equal(run('mfDungeonRoom.chamber'),1,'advance to next chamber');
+assert.equal(run('player.x'),90,'arrive from left');
+run('mfDungeonDoorCooldown=0;player.x=43;player.y=H*.5;tick()');
+assert.equal(run('mfDungeonRoom.chamber'),0,'return to previous chamber');
+assert.equal(run('enemies[0].hp'),61,'enemy state preserved when returning');
+assert.equal(run('drops[0].id'),'coin-untaken','loot state preserved when returning');
+run('mfDungeonDoorCooldown=0;player.x=W-43;player.y=H*.5;tick()');
+assert.equal(run('enemies[0].id'),'resident','second chamber enemy restored without respawn');
+assert.equal(run('drops[0].id'),'treasure','second chamber loot restored');
+
+run('mfDungeonEnter(0,13);mfDungeonDoorCooldown=0;player.x=W-43;player.y=H*.5;tick()');
+assert.equal(run('mfDungeonRoom.dungeon'),1,'cross to next dungeon');
+assert.equal(run('mfDungeonRoom.chamber'),0);
+assert.equal(run('mfWorld.flags["dungeon:visited:witchwood:1:0"]'),true);
+run('mfWorld.region="foundry";player.x=480;player.y=270;tick()');
+assert.equal(run('mfDungeonRoom.region'),'foundry');
+run('mfWorld.region="witchwood";tick()');
+assert.equal(run('mfDungeonRoom.dungeon'),1,'resume visited dungeon for region');
+run('mfDungeonEnter(0,2);player.x=mfDungeonRoom.hazards[0].x+10;player.y=mfDungeonRoom.hazards[0].y+10;frame=200;tick()');
+assert.equal(scope.damage,8,'hazard damages player on contact');
+run('tick()');
+assert.equal(scope.damage,8,'hazard cooldown avoids repeated instant damage');
+run('frame=276;tick()');
+assert.equal(scope.damage,16,'hazard repeats after cooldown');
+run('mfDungeonEnter(0,0);player.x=480;player.y=270;enemies.length=0;');
+run('enemies.push({id:"walker",x:mfDungeonRoom.blockers[0].x-40,y:mfDungeonRoom.blockers[0].y+mfDungeonRoom.blockers[0].h/2,r:12,hp:90});');
+run('mfDungeonPreTick();enemies[0].x+=150;mfDungeonAfterTick()');
+assert.equal(run('enemies[0].x'),run('mfDungeonRoom.blockers[0].x-12'),'enemy movement cannot tunnel through pillar');
+run('shots.push({x:mfDungeonRoom.blockers[0].x-75,y:mfDungeonRoom.blockers[0].y+mfDungeonRoom.blockers[0].h/2,vx:160,vy:0,r:4})');
+run('mfDungeonPreTick()');
+assert.equal(run('shots.length'),0,'fast projectile removed before collision damage tick');
+run('shots.push({x:mfDungeonRoom.blockers[0].x-80,y:mfDungeonRoom.blockers[0].y+mfDungeonRoom.blockers[0].h/2,r:4})');
+run('mfDungeonPreTick();shots[0].x+=150;mfDungeonAfterTick()');
+assert.equal(run('shots.length'),0,'post-tick swept projectile wall check');
+const sampleVariant=variants.variant(7);
+run('enemies[0].mobVariant='+JSON.stringify(sampleVariant)+';enemies[0].mobVariantId=7;');
+run('drops.push({id:"inventory-item",meta:{rarity:"Legendary",mods:{power:44,spell:"eclipse"}},taken:false})');
+run('mfDungeonStore();mfDungeonPersistSnapshots()');
+const savedWorld=run('JSON.stringify(mfWorld)');
+const replaySource=built.replace('let mfWorld={region:"witchwood",flags:{}};', 'let mfWorld='+savedWorld+';');
+const replayScope={saved:0,damage:0,ctx,document:{getElementById:id=>id==='mfDungeonHud'?hud:null},paintBackground(){}};
+vm.createContext(replayScope);vm.runInContext(replaySource,replayScope);
+const replay=code=>vm.runInContext(code,replayScope);
+replay('beginStage()');
+assert.equal(replay('mfDungeonRoom.id'),run('mfDungeonRoom.id'),'room position survives reload');
+assert.equal(replay('enemies[0].hp'),90,'chamber enemy HP saved through reload');
+assert.equal(replay('enemies[0].mobVariant.stats.speed'),sampleVariant.stats.speed,'variant movement speed restored');
+assert.equal(replay('enemies[0].mobVariant.stats.damage'),sampleVariant.stats.damage,'variant damage restored');
+assert.equal(replay('enemies[0].mobVariant.appearance.hue'),sampleVariant.appearance.hue,'variant appearance restored');
+assert.equal(replay('enemies[0].mobVariant.role'),sampleVariant.role,'variant AI role restored');
+assert.equal(replay('drops.find(item=>item.id==="inventory-item").meta.mods.power'),44,'nested item metadata restored');
+
+assert.equal(replay('mfDungeonSnapshots.size')>0,true,'chamber snapshots restored');
+assert(replay('JSON.stringify(mfWorld.flags["dungeon:snapshots:v1"]).length')<=100000,'save bounded');
+run('mfDungeonSnapshots.clear()');
+run('for(let i=0;i<16;i++){const id="witchwood:0:"+i;const enemies=Array.from({length:48},(_,n)=>({id:"mob"+n,hp:100,x:n,y:n,r:20,description:"x".repeat(160),label:"y".repeat(160),note:"z".repeat(160)}));mfDungeonSnapshots.set(id,{enemies,shots:[],drops:[]});}');
+run('mfDungeonPersistSnapshots()');
+assert(run('JSON.stringify(mfWorld.flags["dungeon:snapshots:v1"]).length')<=100000,'oversize snapshots are trimmed under the save budget');
+assert(run('mfWorld.flags["dungeon:snapshots:v1"].entries.length')>0,'large saves retain most recent chamber rather than abandoning save');
+assert.equal(run('mfWorld.flags["dungeon:snapshots:v1"].entries.at(-1)[0]'),'witchwood:0:13','newest valid room survives eviction');
+run('reset()');
+assert.equal(run('mfDungeonRoom'),null);
+assert.equal(run('mfDungeonSnapshots.size'),0,'new run drops old chamber snapshots');
+assert.equal(run('mfWorld.flags["dungeon:snapshots:v1"]'),undefined,'reset removes stored chamber state');
+assert.equal(run('Object.keys(mfWorld.flags).filter(k=>k.startsWith("dungeon:")).length'),0);
+assert(scope.saved>0);
+console.log('PASS: 5x14 traversal, chamber-state, hazard cooldown, swept enemy collision and reset');
