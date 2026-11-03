@@ -13,23 +13,24 @@ static func outgoing_damage(base:float,critical:bool,wounded:bool,execute_rank:i
  damage*=safe_power
  return minf(damage,1000000000.0)
 
+const ELITE_HIT_RADIUS_SQUARED:float=1.9*1.9
+
+# Shared ground-plane reach check for impact and dodge statistics.
+static func elite_in_hit_radius(strike_pos:Vector3,hero_pos:Vector3)->bool:
+ if not is_finite(strike_pos.x) or not is_finite(strike_pos.z):return false
+ if not is_finite(hero_pos.x) or not is_finite(hero_pos.z):return false
+ var planar_offset:=Vector2(strike_pos.x-hero_pos.x,strike_pos.z-hero_pos.z)
+ var distance_sq:float=planar_offset.length_squared()
+ return is_finite(distance_sq) and distance_sq<ELITE_HIT_RADIUS_SQUARED
+
 static func elite_missed(strike_pos:Vector3,hero_pos:Vector3,dodge_remaining:float) -> bool:
- if not is_finite(strike_pos.x) or not is_finite(strike_pos.z):return true
- if not is_finite(hero_pos.x) or not is_finite(hero_pos.z):return true
  # Corrupt dodge clocks must never be interpreted as permission to hit.
  if not is_finite(dodge_remaining) or dodge_remaining>0.0:return true
- # Compare squared planar distance: same reach, no per-hit square root.
- var planar_offset:=Vector2(strike_pos.x-hero_pos.x,strike_pos.z-hero_pos.z)
- return planar_offset.length_squared()>=1.9*1.9
-
+ return not elite_in_hit_radius(strike_pos,hero_pos)
 
 # Only credit a timed dodge when the attack would otherwise land.
 static func elite_dodge_credit(strike_pos:Vector3,hero_pos:Vector3,dodge_remaining:float,clear_sight:bool=true)->bool:
- if not clear_sight or not is_finite(dodge_remaining) or dodge_remaining<=0.0:return false
- if not is_finite(strike_pos.x) or not is_finite(strike_pos.z) or not is_finite(hero_pos.x) or not is_finite(hero_pos.z):return false
- var offset:=Vector2(strike_pos.x-hero_pos.x,strike_pos.z-hero_pos.z)
- var distance_sq:float=offset.length_squared()
- return is_finite(distance_sq) and distance_sq<1.9*1.9
+ return clear_sight and is_finite(dodge_remaining) and dodge_remaining>0.0 and elite_in_hit_radius(strike_pos,hero_pos)
 
 static func guardian_attack_cooldown(phase:int) -> float:
  return maxf(1.6,3.0-0.45*float(clampi(phase,1,10)-1))

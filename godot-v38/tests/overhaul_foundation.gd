@@ -376,6 +376,25 @@ func _run()->void:
    sight_dodge_sweep_ok=false
    break
  check(sight_dodge_sweep_ok,"111 elite dodge line-of-sight cases only credit threatened visible hits")
+ var shared_lunge_radius_ok:bool=true
+ for sample_index in range(111):
+  var sample_case:int=sample_index%6
+  var strike_mark:Vector3=Vector3(float(sample_index)*0.03,0.0,2.0)
+  var hero_position:Vector3=strike_mark+Vector3(1.85,0.0,0.0)
+  if sample_case==1:hero_position=strike_mark+Vector3(1.95,0.0,0.0)
+  elif sample_case==2:hero_position=strike_mark+Vector3(0.0,37.0,1.2)
+  elif sample_case==3:hero_position.x=NAN
+  elif sample_case==4:hero_position.z=INF
+  elif sample_case==5:
+   strike_mark=Vector3(1.0e19,0.0,0.0)
+   hero_position=Vector3(-1.0e19,0.0,0.0)
+  var expected_in_range:bool=sample_case==0 or sample_case==2
+  var in_range:bool=elite_hit_rules.elite_in_hit_radius(strike_mark,hero_position)
+  if in_range!=expected_in_range or elite_hit_rules.elite_missed(strike_mark,hero_position,0.0)==in_range or elite_hit_rules.elite_dodge_credit(strike_mark,hero_position,0.2,true)!=in_range:
+   shared_lunge_radius_ok=false
+   break
+ check(shared_lunge_radius_ok,"111 shared elite reach samples keep hit and dodge credit perfectly aligned")
+ check(not elite_hit_rules.elite_in_hit_radius(Vector3.ZERO,Vector3(1.91,0.0,0.0)),"elite reach excludes targets beyond 1.9 units")
  check(not elite_hit_rules.elite_dodge_credit(Vector3.ZERO,Vector3(0.5,0.0,0.0),0.3,false),"blocked elite lunges never grant dodge credit")
  check("if COMBAT_RULES.elite_dodge_credit(strike_pos,player_position,dodge_time,_has_clear_sight(body,player)):elite_attacks_dodged+=1" in live_enemy_script,"live elite dodge credit checks line of sight")
  check(not elite_hit_rules.elite_missed(Vector3.ZERO,Vector3(1.89,99.0,0.0),0.0),"height changes do not alter elite ground hit radius")
