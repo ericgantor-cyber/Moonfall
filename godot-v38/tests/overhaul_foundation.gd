@@ -214,6 +214,20 @@ func _run()->void:
    break
  check(elite_lunge_sweep_ok,"111 elite lunge cooldown cases prevent early attacks and clamp frame hitches")
  check("beast[\"elite_lunge_cd\"]=ENEMY_COMBAT_RULES.attack_timer_after_frame" in live_enemy_script and "ENEMY_COMBAT_RULES.ready_to_strike(float(beast[\"elite_lunge_cd\"]))" in live_enemy_script,"live elite lunge uses validated cooldown and readiness")
+ var windup_sweep_ok:bool=true
+ for sample_index in range(111):
+  var windup_start:float=0.05+float(sample_index%17)*0.05
+  var windup_delta:float=0.5 if sample_index%3==0 else (0.016 if sample_index%3==1 else -0.02)
+  var windup_after:float=combat_rules.attack_timer_after_frame(windup_start,windup_delta)
+  var elapsed:float=clampf(windup_delta,0.0,0.1)
+  var windup_expected:float=maxf(0.0,windup_start-elapsed)
+  if not is_equal_approx(windup_after,windup_expected) or windup_after<0.0 or windup_after>windup_start:
+   windup_sweep_ok=false
+   break
+ check(windup_sweep_ok,"111 elite windup samples honor capped frame progression")
+ check("if not is_finite(lunge_windup) or lunge_windup<0.0 or lunge_windup>0.9:" in live_enemy_script,"invalid elite windups cancel before damage")
+ check("beast[\"elite_lunge_windup\"]=ENEMY_COMBAT_RULES.attack_timer_after_frame(lunge_windup,delta)" in live_enemy_script,"live elite warning uses clamped frame delta")
+ check(is_equal_approx(combat_rules.attack_timer_after_frame(0.9,0.5),0.8),"frame hitch cannot finish elite windup instantly")
  check(combat_rules.can_attack(1.75,true,true,"boar"),"boar uses its existing 1.8 melee range")
  check(not combat_rules.can_attack(1.75,true,true,"wolf"),"wolf retains default 1.7 melee range")
  check(not combat_rules.can_attack(1.0,false,true,"boar") and not combat_rules.can_attack(1.0,true,false,"boar"),"readiness and line-of-sight still gate melee")
