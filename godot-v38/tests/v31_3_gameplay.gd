@@ -116,6 +116,28 @@ func _run()->void:
   game.call("_v313_tick_traps",0.1)
   check(not bool(traps[0]["armed"]) and not (traps[0]["node"] as MeshInstance3D).visible and is_equal_approx(float(traps[0]["cooldown"]),RULES.TRAP_COOLDOWN),"Invalid armed trap warning disarms safely "+str(broken_clock))
  check(int(game.get("v313_trap_hits"))==saved_hits,"Invalid trap clocks cannot inflict damage")
+ # Huge but finite saved clocks must not freeze a rift trap indefinitely.
+ for oversized_clock in [RULES.TRAP_COOLDOWN+1.0,1.0e9,1.0e308]:
+  traps[0]["cooldown"]=oversized_clock
+  traps[0]["armed"]=false
+  game.call("_v313_tick_traps",0.1)
+  check(not bool(traps[0]["armed"]) and not (traps[0]["node"] as MeshInstance3D).visible and is_equal_approx(float(traps[0]["cooldown"]),RULES.TRAP_COOLDOWN),"Oversized trap cooldown resets safely "+str(oversized_clock))
+ for oversized_warning in [RULES.TRAP_WARNING+1.0,1.0e9,1.0e308]:
+  traps[0]["cooldown"]=0.0
+  traps[0]["warning"]=oversized_warning
+  traps[0]["armed"]=true
+  game.call("_v313_tick_traps",0.1)
+  check(not bool(traps[0]["armed"]) and not (traps[0]["node"] as MeshInstance3D).visible and is_equal_approx(float(traps[0]["cooldown"]),RULES.TRAP_COOLDOWN),"Oversized armed warning disarms safely "+str(oversized_warning))
+ check(int(game.get("v313_trap_hits"))==saved_hits,"Oversized trap clocks cannot inflict damage")
+ # An inactive rift must recover invalid oversized cooldowns too.
+ game.set("active_rift",-1)
+ (active[0] as Dictionary)["active"]=false
+ traps[0]["cooldown"]=1.0e9
+ game.call("_v313_tick_traps",0.2)
+ check(is_equal_approx(float(traps[0]["cooldown"]),RULES.TRAP_COOLDOWN),"Inactive rift repairs oversized cooldown")
+ game.set("active_rift",0)
+ (active[0] as Dictionary)["active"]=true
+
 
  game.set("active_rift",-1)
  (active[0] as Dictionary)["active"]=false
