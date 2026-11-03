@@ -317,6 +317,24 @@ func _run()->void:
    lunge_hit_pair_sweep_ok=false
    break
  check(lunge_hit_pair_sweep_ok,"111 elite impact pairs reject corrupt positions and subtraction overflow")
+ var elite_hit_rules=load("res://scripts/systems/combat_rules.gd")
+ var dodge_clock_sweep_ok:bool=true
+ for sample_index in range(111):
+  var clock_case:int=sample_index%7
+  var dodge_clock:float=0.0
+  if clock_case==1:dodge_clock=0.25
+  elif clock_case==2:dodge_clock=NAN
+  elif clock_case==3:dodge_clock=INF
+  elif clock_case==4:dodge_clock=-INF
+  elif clock_case==5:dodge_clock=-0.1
+  var mark:Vector3=Vector3(float(sample_index)*0.03,0.0,0.0)
+  var hero:Vector3=mark+Vector3(0.5,0.0,0.5)
+  if clock_case==6:hero=mark+Vector3(3.0,0.0,0.0)
+  var expected_miss:bool=clock_case!=0 and clock_case!=5
+  if elite_hit_rules.elite_missed(mark,hero,dodge_clock)!=expected_miss:
+   dodge_clock_sweep_ok=false
+   break
+ check(dodge_clock_sweep_ok,"111 elite hit cases reject invalid dodge timers and preserve normal miss radius")
  check(combat_rules.valid_lunge_target(Vector3(1.0e19,0.0,0.0)) and combat_rules.valid_lunge_target(Vector3(-1.0e19,0.0,0.0)) and not combat_rules.valid_lunge_hit_pair(Vector3(1.0e19,0.0,0.0),Vector3(-1.0e19,0.0,0.0)),"individually valid far points cannot overflow lunge hit distance")
  check("beast[\"elite_lunge_target\"]=Vector3.ZERO" in live_enemy_script,"live combat clears resolved elite target")
  check(combat_rules.can_attack(1.75,true,true,"boar"),"boar uses its existing 1.8 melee range")
