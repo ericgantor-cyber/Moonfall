@@ -106,10 +106,11 @@ func _v313_tick_traps(seconds:float)->void:
   var active:bool=hero_playing and active_rift==site and bool(rifts[site].get("active",false))
   if not active:
    rune.visible=false
+   # Cancelling an active warning starts a fresh cooldown, not a free retry.
+   var was_armed:bool=bool(trap.get("armed",false))
    trap["warning"]=0.0
    trap["armed"]=false
-   # Closing and reopening a rift cannot bypass its twenty-second cooldown.
-   trap["cooldown"]=V313_RULES.TRAP_COOLDOWN if not is_finite(cooldown) or cooldown<0.0 else maxf(0.0,cooldown-seconds)
+   trap["cooldown"]=V313_RULES.TRAP_COOLDOWN if was_armed or not is_finite(cooldown) or cooldown<0.0 else maxf(0.0,cooldown-seconds)
    continue
   # Corrupt saved cooldowns or armed warning clocks must not cause instant hits.
   var warning_clock:float=float(trap.get("warning",0.0))

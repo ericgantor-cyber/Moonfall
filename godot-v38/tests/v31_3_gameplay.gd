@@ -68,6 +68,22 @@ func _run()->void:
  (active[0] as Dictionary)["active"]=true
  game.call("_v313_tick_traps",0.2)
  check(is_equal_approx(float(traps[0]["cooldown"]),19.6) and not bool(traps[0]["armed"]) and not (traps[0]["node"] as MeshInstance3D).visible,"Reopening a rift cannot bypass the trap cooldown")
+ # Interrupting an armed warning must start a fresh twenty-second recovery.
+ traps[0]["cooldown"]=0.0
+ traps[0]["warning"]=RULES.TRAP_WARNING
+ traps[0]["armed"]=true
+ (traps[0]["node"] as MeshInstance3D).visible=true
+ var hits_before_cancel:int=int(game.get("v313_trap_hits"))
+ game.set("active_rift",-1)
+ (active[0] as Dictionary)["active"]=false
+ game.call("_v313_tick_traps",0.2)
+ check(not bool(traps[0]["armed"]) and not (traps[0]["node"] as MeshInstance3D).visible and is_equal_approx(float(traps[0]["cooldown"]),20.0),"Interrupting armed rift warning starts twenty-second cooldown")
+ game.set("active_rift",0)
+ (active[0] as Dictionary)["active"]=true
+ game.call("_v313_tick_traps",0.2)
+ check(not bool(traps[0]["armed"]) and is_equal_approx(float(traps[0]["cooldown"]),19.8),"Reentering after warning cancellation cannot instantly rearm")
+ check(int(game.get("v313_trap_hits"))==hits_before_cancel,"Cancelled trap warning causes no damage")
+
  # A corrupted active trap must disarm without striking or immediately restarting.
  var saved_hits:int=int(game.get("v313_trap_hits"))
  for broken_clock in [NAN,INF,-INF,-1.0]:
