@@ -72,7 +72,7 @@ static func orbit_direction(beast_id:int)->float:
  return 1.0 if posmod(beast_id,2)==0 else -1.0
 
 static func ready_to_strike(timer:float)->bool:
- return is_finite(timer) and timer<=0.0
+ return is_finite(timer) and timer==0.0
 
 # Memory is per creature: no scans, pathfinders, or extra nodes per frame.
 static func remember_target(seen:bool,hostile:bool,boss:bool,now:float,hero_pos:Vector3,old_pos:Vector3,old_until:float)->Dictionary:
