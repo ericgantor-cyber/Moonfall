@@ -30,7 +30,8 @@ static func elite_missed(strike_pos:Vector3,hero_pos:Vector3,dodge_remaining:flo
 
 # Only credit a timed dodge when the attack would otherwise land.
 static func elite_dodge_credit(strike_pos:Vector3,hero_pos:Vector3,dodge_remaining:float,clear_sight:bool=false)->bool:
- return clear_sight and is_finite(dodge_remaining) and dodge_remaining>0.0 and elite_in_hit_radius(strike_pos,hero_pos)
+ # Live dodge actions last at most 0.55 seconds; corrupt long clocks earn no credit.
+ return clear_sight and is_finite(dodge_remaining) and dodge_remaining>0.0 and dodge_remaining<=0.55 and elite_in_hit_radius(strike_pos,hero_pos)
 
 static func guardian_attack_cooldown(phase:int) -> float:
  return maxf(1.6,3.0-0.45*float(clampi(phase,1,10)-1))
