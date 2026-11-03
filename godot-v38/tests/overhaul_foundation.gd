@@ -738,6 +738,31 @@ func _run()->void:
  check(adaptive.choose_boss_pattern(3,100.0,100.0,0,3.0,0,false,1)==2,"precision guardian chooses precision at medium range")
  check(adaptive.choose_boss_pattern(3,100.0,100.0,0,3.0,0,false,2)==1,"sweeper guardian chooses sweep at medium range")
  check(adaptive.choose_boss_pattern(3,20.0,100.0,0,3.0,0,false,2)==0,"low-health fairness overrides fighting style")
+ # Runtime boss telegraph safety: the existing warning disk must never use corrupt geometry.
+ var probe_body:=CharacterBody3D.new()
+ game.add_child(probe_body)
+ var probe_label:=Label3D.new()
+ probe_label.text="GUARDIAN PROBE"
+ probe_body.add_child(probe_label)
+ var probe:Dictionary={"boss_id":987654321,"body":probe_body,"nameplate":probe_label,"boss_phase":2,"boss_pattern":1,"warning_radius":2.8,"warning_pos":Vector3.ZERO}
+ game.call("_set_boss_telegraph",probe,true)
+ var probe_mesh:MeshInstance3D=(game.get("boss_telegraphs") as Dictionary).get(987654321) as MeshInstance3D
+ check(is_instance_valid(probe_mesh) and probe_mesh.visible,"valid boss warning mesh remains visible")
+ if is_instance_valid(probe_mesh):
+  for invalid_radius in [NAN,INF,-INF,0.0,-1.0]:
+   probe["warning_radius"]=invalid_radius
+   game.call("_set_boss_telegraph",probe,true)
+   var disk:CylinderMesh=probe_mesh.mesh as CylinderMesh
+   check(not probe_mesh.visible and is_instance_valid(disk) and is_finite(disk.top_radius) and disk.top_radius>0.0,"invalid warning radius hides finite boss mesh "+str(invalid_radius))
+  probe["warning_radius"]=2.8
+  probe["warning_pos"]=Vector3(NAN,0.0,0.0)
+  game.call("_set_boss_telegraph",probe,true)
+  check(not probe_mesh.visible,"invalid boss warning position hides the disk")
+  probe["warning_pos"]=Vector3.ZERO
+  game.call("_set_boss_telegraph",probe,true)
+  check(probe_mesh.visible,"valid warning geometry can recover after bad data")
+ game.call("_set_boss_telegraph",probe,false)
+ probe_body.queue_free()
  var sprite=game.get("hero_sprite") as Sprite3D
  check(is_instance_valid(sprite) and sprite.texture!=null,"original hero sprite texture present")
  game.queue_free()

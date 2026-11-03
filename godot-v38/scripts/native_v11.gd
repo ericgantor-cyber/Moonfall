@@ -2238,8 +2238,9 @@ func _set_boss_telegraph(beast:Dictionary,active:bool) -> void:
  if not boss_telegraphs.has(id):
   var warning:=MeshInstance3D.new()
   var disk:=CylinderMesh.new()
-  disk.bottom_radius=float(beast.get("warning_radius",2.8))
-  disk.top_radius=float(beast.get("warning_radius",2.8))
+  var initial_radius:float=GUARDIAN_ATTACK_RULES.safe_radius(float(beast.get("warning_radius",2.8)))
+  disk.bottom_radius=initial_radius
+  disk.top_radius=initial_radius
   disk.height=0.025
   disk.radial_segments=36
   warning.mesh=disk
@@ -2248,16 +2249,24 @@ func _set_boss_telegraph(beast:Dictionary,active:bool) -> void:
   boss_telegraphs[id]=warning
  var node:MeshInstance3D=boss_telegraphs[id]
  if not is_instance_valid(node):return
- node.visible=active
+ var raw_radius:float=float(beast.get("warning_radius",2.8))
+ var valid_warning:bool=is_finite(raw_radius) and raw_radius>0.0
+ node.visible=active and valid_warning
  # Warn at the true hit radius; subtle faster opacity pulses in later phases.
- node.transparency=V383_FEEDBACK.boss_telegraph_transparency(map_time,int(beast.get("boss_phase",1))) if active else 0.0
- if active:
-  var body:CharacterBody3D=beast["body"]
+ node.transparency=V383_FEEDBACK.boss_telegraph_transparency(map_time,int(beast.get("boss_phase",1))) if active and valid_warning else 0.0
+ if active and valid_warning:
+  var body:CharacterBody3D=beast.get("body") as CharacterBody3D
+  if not is_instance_valid(body):
+   node.visible=false
+   return
   if is_instance_valid(body):
    var area:Vector3=beast.get("warning_pos",body.global_position)
+   if not is_finite(area.x) or not is_finite(area.z):
+    node.visible=false
+    return
    var disk: CylinderMesh=node.mesh as CylinderMesh
    if is_instance_valid(disk):
-    var desired_radius:float=float(beast.get("warning_radius",2.8))
+    var desired_radius:float=GUARDIAN_ATTACK_RULES.safe_radius(raw_radius)
     if V383_FEEDBACK.warning_radius_changed(disk.bottom_radius,desired_radius):
      disk.bottom_radius=desired_radius
     if V383_FEEDBACK.warning_radius_changed(disk.top_radius,desired_radius):
