@@ -42,7 +42,7 @@ jobs:
       - name: Download artifacts from verified Windows run
         env:
           GH_TOKEN: ${{ github.token }}
-          RUN_ID: ${{ inputs.source_run_id }}
+          RUN_ID: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.id || inputs.source_run_id }}
         shell: bash
         run: |
           set -euo pipefail
@@ -66,20 +66,22 @@ jobs:
           PY
           find windows -type f -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS.txt
       - name: Bundle versioned download archives
+        env:
+          RELEASE_TAG: ${{ github.event_name == 'workflow_run' && 'v38.5-rc1' || inputs.release_tag }}
         shell: bash
         run: |
           set -euo pipefail
-          (cd windows/installer && zip -r ../../Moonfall-v38.5-rc1-Windows-Installer.zip .)
-          (cd windows/portable && zip -r ../../Moonfall-v38.5-rc1-Windows-Portable.zip .)
-          sha256sum Moonfall-v38.5-rc1-Windows-*.zip > RELEASE_SHA256SUMS.txt
+          (cd windows/installer && zip -r "../../Moonfall-${RELEASE_TAG}-Windows-Installer.zip" .)
+          (cd windows/portable && zip -r "../../Moonfall-${RELEASE_TAG}-Windows-Portable.zip" .)
+          sha256sum "Moonfall-${RELEASE_TAG}-Windows-"*.zip > RELEASE_SHA256SUMS.txt
       - name: Publish as PRERELEASE only
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ inputs.release_tag }}
+          RELEASE_TAG: ${{ github.event_name == 'workflow_run' && 'v38.5-rc1' || inputs.release_tag }}
         shell: bash
         run: |
           set -euo pipefail
-          gh release create "$RELEASE_TAG" Moonfall-v38.5-rc1-Windows-Installer.zip Moonfall-v38.5-rc1-Windows-Portable.zip RELEASE_SHA256SUMS.txt \
+          gh release create "$RELEASE_TAG" "Moonfall-${RELEASE_TAG}-Windows-Installer.zip" "Moonfall-${RELEASE_TAG}-Windows-Portable.zip" RELEASE_SHA256SUMS.txt \
             --repo "$GITHUB_REPOSITORY" --target main --prerelease \
             --title "Moonfall v38.5 Windows Release Candidate" \
             --notes "Godot six-region Moonfall prerelease. Windows workflow build and installer checks passed; human playtesting on Windows 10/11 is outstanding. Z and Nyra's original art preserved. Back up saves before testing."
