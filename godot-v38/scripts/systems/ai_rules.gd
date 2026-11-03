@@ -28,6 +28,14 @@ static func planar_direction(diff:Vector3,distance:float) -> Vector3:
  if not is_finite(diff.x) or not is_finite(diff.z):return Vector3.ZERO
  return Vector3(diff.x/distance,0.0,diff.z/distance)
 
+# Deterministic combat orbit. The tangent and approach direction are
+# perpendicular unit vectors, so the 1:0.25 blend has fixed length.
+static func orbit_velocity(player_direction:Vector3,speed:float,orbit_side:float) -> Vector3:
+ if not is_finite(speed) or speed<=0.0 or not is_finite(orbit_side):return Vector3.ZERO
+ if not is_finite(player_direction.x) or not is_finite(player_direction.z):return Vector3.ZERO
+ var flank:Vector3=Vector3(-player_direction.z,0.0,player_direction.x)
+ return (flank*orbit_side+player_direction*0.25)*(speed*0.7/sqrt(1.0625))
+
 static func approach(diff:Vector3,speed:float,spawn_id:int,is_boss:bool,boss_phase:int,distance:float,role:String="ambusher") -> Vector3:
  if not is_finite(diff.x) or not is_finite(diff.y) or not is_finite(diff.z) or not is_finite(speed) or speed<=0.0:return Vector3.ZERO
  var planar:Vector3=Vector3(diff.x,0.0,diff.z)
