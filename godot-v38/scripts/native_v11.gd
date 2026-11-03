@@ -2106,7 +2106,8 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
     if not ENEMY_COMBAT_RULES.valid_lunge_hit_pair(strike_pos,player_position):
      beast["attack"]=2.0
      return
-    if COMBAT_RULES.elite_missed(strike_pos,player_position,dodge_time):elite_attacks_dodged+=1
+    if COMBAT_RULES.elite_missed(strike_pos,player_position,dodge_time):
+     if COMBAT_RULES.elite_dodge_credit(strike_pos,player_position,dodge_time):elite_attacks_dodged+=1
     elif _has_clear_sight(body,player):_apply_incoming_damage(float(species["atk"])*1.6)
     beast["attack"]=2.0
    return
