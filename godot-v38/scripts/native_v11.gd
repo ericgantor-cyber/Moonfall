@@ -1987,7 +1987,8 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
  var player_position:Vector3=player.global_position
  var diff:=player_position-actor_position
  diff.y=0.0
- var distance:=diff.length()
+ var distance_squared:float=diff.length_squared()
+ var distance:=sqrt(distance_squared)
  # Idle actors do not need a normalized player direction.
  var player_direction:Vector3=Vector3.ZERO
  beast["attack"]=ENEMY_COMBAT_RULES.attack_timer_after_frame(float(beast.get("attack",0.0)),delta)
@@ -2002,7 +2003,7 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
  var is_hostile:=bool(beast["hostile"])
  var engaged:bool=false
  # Visibility is checked only inside the current awareness radius.
- if is_hostile and AI_RULES.potentially_visible(distance):
+ if is_hostile and AI_RULES.potentially_visible_squared(distance_squared):
   # The upper bound is defined beside the shared awareness rules.
   # Distant enemies need neither a day-phase lookup nor a raycast.
   var perception:float=AI_RULES.perception(map_time<float(beast.get("alert_until",0.0)),weather_name,_day_phase()=="Night")
