@@ -5,7 +5,7 @@ const artwork='data:image/png;base64,AAABAA==';
 const fixture='const heroImage="'+artwork+'";'+
  'let frame=1,W=960,H=540,stage=1,playing=true,paused=false,skillOpen=false,gearOpen=false;'+
  'let player={x:480,y:270,r:16},enemies=[{id:"initial",hp:100}],shots=[],drops=[{id:"coin"}];'+
- 'let mfWorld={region:"witchwood",flags:{}};function mfWorldSave(){saved++}'+
+ 'let mfWorld={region:"witchwood",flags:{}};function mfWorldSave(){saved++}function receiveDamage(n){damage+=n;}'+
  'function tick(){frame++;} function reset(){} function beginStage(){} '+
  'function draw(){paintBackground();}function loop(){pollController();tick();draw();requestAnimationFrame(loop)}';
 const built=integration.patchJs(fixture);
@@ -15,7 +15,7 @@ assert.throws(()=>integration.patchJs('function tick(){}'),/hook missing/);
 assert.match(integration.patchHtml('<b id="mfWorldHud">World</b>'),/mfDungeonHud/);
 const hud={textContent:''};
 const ctx={save(){},restore(){},fillRect(){},strokeRect(){},fillText(){}};
-const scope={saved:0,ctx,document:{getElementById:id=>id==='mfDungeonHud'?hud:null},paintBackground(){}};
+const scope={saved:0,damage:0,ctx,document:{getElementById:id=>id==='mfDungeonHud'?hud:null},paintBackground(){}};
 vm.createContext(scope);vm.runInContext(built,scope);
 const run=s=>vm.runInContext(s,scope);
 run('beginStage()');
@@ -45,9 +45,19 @@ run('mfWorld.region="foundry";player.x=480;player.y=270;tick()');
 assert.equal(run('mfDungeonRoom.region'),'foundry');
 run('mfWorld.region="witchwood";tick()');
 assert.equal(run('mfDungeonRoom.dungeon'),1,'resume visited dungeon for region');
+run('mfDungeonEnter(0,2);player.x=mfDungeonRoom.hazards[0].x+10;player.y=mfDungeonRoom.hazards[0].y+10;frame=200;tick()');
+assert.equal(scope.damage,8,'hazard damages player on contact');
+run('tick()');
+assert.equal(scope.damage,8,'hazard cooldown avoids repeated instant damage');
+run('frame=276;tick()');
+assert.equal(scope.damage,16,'hazard repeats after cooldown');
+run('mfDungeonEnter(0,0);player.x=480;player.y=270;enemies.length=0;');
+run('enemies.push({id:"walker",x:mfDungeonRoom.blockers[0].x-40,y:mfDungeonRoom.blockers[0].y+mfDungeonRoom.blockers[0].h/2,r:12,hp:90});');
+run('mfDungeonPreTick();enemies[0].x+=150;mfDungeonAfterTick()');
+assert.equal(run('enemies[0].x'),run('mfDungeonRoom.blockers[0].x-12'),'enemy movement cannot tunnel through pillar');
 run('reset()');
 assert.equal(run('mfDungeonRoom'),null);
 assert.equal(run('mfDungeonSnapshots.size'),0,'new run drops old chamber snapshots');
 assert.equal(run('Object.keys(mfWorld.flags).filter(k=>k.startsWith("dungeon:")).length'),0);
 assert(scope.saved>0);
-console.log('PASS: 5x14 traversal, chamber-local enemies and loot, backwards travel, region recall and reset');
+console.log('PASS: 5x14 traversal, chamber-state, hazard cooldown, swept enemy collision and reset');
