@@ -2000,17 +2000,17 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
  var elite_lunge_ready:bool=float(beast["elite_lunge_cd"])<=0.0
  var move_speed:=float(species["speed"])
  var is_hostile:=bool(beast["hostile"])
- # Passive actors never need the hostile combat-role lookup.
- var combat_role:String="passive"
- if is_hostile:combat_role=ENEMY_COMBAT_RULES.role_for(kind)
  var engaged:bool=false
- # Avoid computing the day phase and perception for enemies that are outside
- # even the maximum possible awareness radius. Keep the final LOS gate intact.
+ # Visibility is checked only inside the current awareness radius.
  if is_hostile:
   var perception:float=AI_RULES.perception(map_time<float(beast.get("alert_until",0.0)),weather_name,_day_phase()=="Night")
   if distance<perception:
    engaged=_has_clear_sight(body,player)
  beast["engaged"]=engaged
+ # Combat roles are only consumed by engaged AI movement/intent.
+ # Do not look up roles for idle hostile creatures or passive wildlife.
+ var combat_role:String="passive"
+ if engaged:combat_role=ENEMY_COMBAT_RULES.role_for(kind)
  # Only combatants and fleeing wildlife need this direction. Keep the existing
  # near-zero guard so overlapping actors never create invalid velocities.
  if (engaged or (not is_hostile and (distance<6.0 or map_time<float(beast.get("scared_until",0.0))))) and distance>0.00001:
