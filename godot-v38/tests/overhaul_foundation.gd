@@ -300,9 +300,24 @@ func _run()->void:
  var lunge_start_guard:int=live_enemy_script.find("and elite_lunge_ready and ENEMY_COMBAT_RULES.valid_lunge_target(player_position):")
  var lunge_target_write:int=live_enemy_script.find("beast[\"elite_lunge_target\"]=player_position")
  check(lunge_start_guard>=0 and lunge_target_write>lunge_start_guard,"live elite lunge validates position before saving mark or starting warning")
- var mark_guard:int=live_enemy_script.find("if not ENEMY_COMBAT_RULES.valid_lunge_target(strike_pos):")
+ var mark_guard:int=live_enemy_script.find("if not ENEMY_COMBAT_RULES.valid_lunge_hit_pair(strike_pos,player_position):")
  var elite_damage:int=live_enemy_script.find("COMBAT_RULES.elite_missed(strike_pos,player_position,dodge_time)")
  check(mark_guard>=0 and elite_damage>mark_guard,"elite mark validation precedes miss and damage calculations")
+ var lunge_hit_pair_sweep_ok:bool=true
+ for sample_index in range(111):
+  var pair_case:int=sample_index%4
+  var mark:Vector3=Vector3(float(sample_index)*0.1,0.0,1.0)
+  var impact_player:Vector3=mark+Vector3(0.5,0.0,0.5)
+  if pair_case==1:impact_player.x=NAN
+  elif pair_case==2:impact_player.z=INF
+  elif pair_case==3:
+   mark=Vector3(1.0e19,0.0,0.0)
+   impact_player=Vector3(-1.0e19,0.0,0.0)
+  if combat_rules.valid_lunge_hit_pair(mark,impact_player)!=(pair_case==0):
+   lunge_hit_pair_sweep_ok=false
+   break
+ check(lunge_hit_pair_sweep_ok,"111 elite impact pairs reject corrupt positions and subtraction overflow")
+ check(combat_rules.valid_lunge_target(Vector3(1.0e19,0.0,0.0)) and combat_rules.valid_lunge_target(Vector3(-1.0e19,0.0,0.0)) and not combat_rules.valid_lunge_hit_pair(Vector3(1.0e19,0.0,0.0),Vector3(-1.0e19,0.0,0.0)),"individually valid far points cannot overflow lunge hit distance")
  check("beast[\"elite_lunge_target\"]=Vector3.ZERO" in live_enemy_script,"live combat clears resolved elite target")
  check(combat_rules.can_attack(1.75,true,true,"boar"),"boar uses its existing 1.8 melee range")
  check(not combat_rules.can_attack(1.75,true,true,"wolf"),"wolf retains default 1.7 melee range")
