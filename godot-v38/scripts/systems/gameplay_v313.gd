@@ -5,7 +5,7 @@ const MAX_COMBO:int=3
 const SURGE_SECONDS:float=28.0
 const SURGE_INTERVAL:float=165.0
 const TRAP_WARNING:float=1.15
-const TRAP_COOLDOWN:float=6.0
+const TRAP_COOLDOWN:float=20.0
 
 static func next_combo(now:float,expires:float,chain:int)->int:
  # Invalid clocks cannot extend a combo; clamp old save counts before adding.
