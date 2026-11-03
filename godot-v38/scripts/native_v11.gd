@@ -2036,9 +2036,9 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
  if staggered:
   body.velocity=Vector3.ZERO
  elif engaged and map_time<float(beast.get("retreat_until",0.0)) and distance<10.0:
-  body.velocity=-player_direction*move_speed*0.9
+  body.velocity=AI_RULES.retreat_velocity(player_direction,move_speed,0.9)
  elif engaged and v383_intent=="retreat" and distance<8.0:
-  body.velocity=-player_direction*move_speed*0.85
+  body.velocity=AI_RULES.retreat_velocity(player_direction,move_speed,0.85)
  elif engaged and ENEMY_COMBAT_RULES.should_circle(kind,v383_intent,distance):
   # Stable per-actor orbit side, delegated to deterministic stateless rules.
   var orbit_side:float=ENEMY_COMBAT_RULES.orbit_direction(enemy_id)
