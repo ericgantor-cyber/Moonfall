@@ -99,10 +99,9 @@ func _v313_tick_traps(seconds:float)->void:
  for trap in v313_traps:
   var site:int=int(trap.get("site",-1))
   if site<0 or site>=rifts.size():continue
-  var rune_ref:Variant=trap.get("node")
-  if not is_instance_valid(rune_ref):continue
-  var rune:MeshInstance3D=rune_ref as MeshInstance3D
-  if rune==null:continue
+  var warning_node:Variant=trap.get("node")
+  if not is_instance_valid(warning_node) or not (warning_node is MeshInstance3D):continue
+  var rune:MeshInstance3D=warning_node as MeshInstance3D
   var active:bool=hero_playing and active_rift==site and bool(rifts[site].get("active",false))
   if not active:
    rune.visible=false
@@ -110,7 +109,16 @@ func _v313_tick_traps(seconds:float)->void:
    trap["armed"]=false
    trap["cooldown"]=0.0
    continue
-  trap["cooldown"]=maxf(0.0,float(trap["cooldown"])-seconds)
+  # Corrupt saved cooldowns or armed warning clocks must not cause instant hits.
+  var cooldown:float=float(trap.get("cooldown",0.0))
+  var warning_clock:float=float(trap.get("warning",0.0))
+  if not is_finite(cooldown) or cooldown<0.0 or (bool(trap.get("armed",false)) and (not is_finite(warning_clock) or warning_clock<0.0)):
+   rune.visible=false
+   trap["warning"]=0.0
+   trap["armed"]=false
+   trap["cooldown"]=V313_RULES.TRAP_COOLDOWN
+   continue
+  trap["cooldown"]=maxf(0.0,cooldown-seconds)
   if not bool(trap["armed"]) and float(trap["cooldown"])<=0.0:
    trap["warning"]=V313_RULES.TRAP_WARNING
    trap["armed"]=true
@@ -201,10 +209,9 @@ func _reset_new_adventure()->void:
  v313_elite_bonus=0
  v313_tactical_retreats=0
  for trap in v313_traps:
-  var rune_ref:Variant=trap.get("node")
-  if is_instance_valid(rune_ref):
-   var rune:MeshInstance3D=rune_ref as MeshInstance3D
-   if rune!=null:rune.visible=false
+  var warning_node:Variant=trap.get("node")
+  if is_instance_valid(warning_node) and warning_node is MeshInstance3D:
+   (warning_node as MeshInstance3D).visible=false
   trap["warning"]=0.0
   trap["cooldown"]=0.0
   trap["armed"]=false
