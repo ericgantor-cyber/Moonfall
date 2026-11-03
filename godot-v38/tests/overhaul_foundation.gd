@@ -363,7 +363,21 @@ func _run()->void:
    elite_dodge_credit_sweep_ok=false
    break
  check(elite_dodge_credit_sweep_ok,"111 elite dodge-credit cases distinguish timed dodges from ordinary misses and corrupt clocks")
- check("if COMBAT_RULES.elite_dodge_credit(strike_pos,player_position,dodge_time):elite_attacks_dodged+=1" in live_enemy_script,"live elite dodge counter counts only a qualifying timed dodge")
+ var sight_dodge_sweep_ok:bool=true
+ for sample_index in range(111):
+  var sample_case:int=sample_index%6
+  var visible:bool=sample_case!=1 and sample_case!=4
+  var dodge_left:float=0.3 if sample_case<4 else 0.0
+  var strike_pos:Vector3=Vector3(float(sample_index)*0.01,0.0,1.0)
+  var hero_pos:Vector3=strike_pos+Vector3(0.6,0.0,0.6)
+  if sample_case==2 or sample_case==4:hero_pos=strike_pos+Vector3(3.0,0.0,0.0)
+  var should_credit:bool=visible and dodge_left>0.0 and (sample_case!=2)
+  if elite_hit_rules.elite_dodge_credit(strike_pos,hero_pos,dodge_left,visible)!=should_credit:
+   sight_dodge_sweep_ok=false
+   break
+ check(sight_dodge_sweep_ok,"111 elite dodge line-of-sight cases only credit threatened visible hits")
+ check(not elite_hit_rules.elite_dodge_credit(Vector3.ZERO,Vector3(0.5,0.0,0.0),0.3,false),"blocked elite lunges never grant dodge credit")
+ check("if COMBAT_RULES.elite_dodge_credit(strike_pos,player_position,dodge_time,_has_clear_sight(body,player)):elite_attacks_dodged+=1" in live_enemy_script,"live elite dodge credit checks line of sight")
  check(not elite_hit_rules.elite_missed(Vector3.ZERO,Vector3(1.89,99.0,0.0),0.0),"height changes do not alter elite ground hit radius")
  check(elite_hit_rules.elite_missed(Vector3.ZERO,Vector3(1.91,0.0,0.0),0.0),"elite impact outside radius misses")
  check(combat_rules.valid_lunge_target(Vector3(1.0e19,0.0,0.0)) and combat_rules.valid_lunge_target(Vector3(-1.0e19,0.0,0.0)) and not combat_rules.valid_lunge_hit_pair(Vector3(1.0e19,0.0,0.0),Vector3(-1.0e19,0.0,0.0)),"individually valid far points cannot overflow lunge hit distance")
