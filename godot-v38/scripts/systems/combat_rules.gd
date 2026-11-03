@@ -18,7 +18,9 @@ static func elite_missed(strike_pos:Vector3,hero_pos:Vector3,dodge_remaining:flo
  if not is_finite(hero_pos.x) or not is_finite(hero_pos.z):return true
  # Corrupt dodge clocks must never be interpreted as permission to hit.
  if not is_finite(dodge_remaining) or dodge_remaining>0.0:return true
- return Vector2(strike_pos.x-hero_pos.x,strike_pos.z-hero_pos.z).length()>=1.9
+ # Compare squared planar distance: same reach, no per-hit square root.
+ var planar_offset:=Vector2(strike_pos.x-hero_pos.x,strike_pos.z-hero_pos.z)
+ return planar_offset.length_squared()>=1.9*1.9
 
 static func guardian_attack_cooldown(phase:int) -> float:
  return maxf(1.6,3.0-0.45*float(clampi(phase,1,10)-1))
