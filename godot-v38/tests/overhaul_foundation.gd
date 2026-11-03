@@ -225,9 +225,26 @@ func _run()->void:
    windup_sweep_ok=false
    break
  check(windup_sweep_ok,"111 elite windup samples honor capped frame progression")
- check("if not is_finite(lunge_windup) or lunge_windup<0.0 or lunge_windup>0.9:" in live_enemy_script,"invalid elite windups cancel before damage")
+ check("if not ENEMY_COMBAT_RULES.valid_lunge_windup(lunge_windup):" in live_enemy_script,"invalid elite windups use validated guard before damage")
  check("beast[\"elite_lunge_windup\"]=ENEMY_COMBAT_RULES.attack_timer_after_frame(lunge_windup,delta)" in live_enemy_script,"live elite warning uses clamped frame delta")
  check(is_equal_approx(combat_rules.attack_timer_after_frame(0.9,0.5),0.8),"frame hitch cannot finish elite windup instantly")
+ var corrupt_windup_sweep_ok:bool=true
+ for sample_index in range(111):
+  var category:int=sample_index%6
+  var candidate:float=float(sample_index%18)*0.05
+  if category==1:candidate=-0.01*float(sample_index+1)
+  elif category==2:candidate=0.91+float(sample_index)*0.01
+  elif category==3:candidate=NAN
+  elif category==4:candidate=INF
+  elif category==5:candidate=-INF
+  var expected_valid:bool=category==0
+  if combat_rules.valid_lunge_windup(candidate)!=expected_valid:
+   corrupt_windup_sweep_ok=false
+   break
+ check(corrupt_windup_sweep_ok,"111 elite windup values reject invalid duration states")
+ var windup_recovery:int=live_enemy_script.find("if not ENEMY_COMBAT_RULES.valid_lunge_windup(lunge_windup):\n   beast[\"elite_lunge_windup\"]=0.0\n   beast[\"elite_lunge_target\"]=Vector3.ZERO\n   beast[\"elite_lunge_cd\"]=1.0\n   return")
+ var live_windup_strike:int=live_enemy_script.find("COMBAT_RULES.elite_missed(strike_pos,player_position,dodge_time)")
+ check(windup_recovery>=0 and live_windup_strike>windup_recovery,"corrupt elite windup clears mark and applies recovery before strike handling")
  var elite_stagger_sweep_ok:bool=true
  for sample_index in range(111):
   var pending_windup:float=0.05+float(sample_index%17)*0.05
