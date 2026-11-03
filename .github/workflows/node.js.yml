@@ -103,6 +103,8 @@ jobs:
           test ! -e modular/assets/art-999.webp || { echo "::error::Stale generated art wasn't removed"; exit 1; }
           test -f modular/assets/readme.txt || { echo "::error::Unrelated asset was removed"; exit 1; }
           rm modular/assets/readme.txt
+      - name: Test explorable dungeon chambers and hazard collisions
+        run: node test-phase8-dungeon.js
       - name: Test connected-world core and stage integration
         run: |
           node test-phase6-world-core.js
