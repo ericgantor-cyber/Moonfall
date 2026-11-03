@@ -256,6 +256,18 @@ func _run()->void:
    elite_mark_sweep_ok=false
    break
  check(elite_mark_sweep_ok,"111 elite lunge target cases reject corrupted saved coordinates")
+ var elite_overflow_sweep_ok:bool=true
+ for sample_index in range(111):
+  var mark:Vector3=Vector3(float(sample_index)*0.2,1.0,-float(sample_index)*0.1)
+  var overflow_axis:int=sample_index%4
+  if overflow_axis==1:mark.x=1.0e200
+  elif overflow_axis==2:mark.y=-1.0e200
+  elif overflow_axis==3:mark.z=1.0e200
+  if combat_rules.valid_lunge_target(mark)!=(overflow_axis==0):
+   elite_overflow_sweep_ok=false
+   break
+ check(elite_overflow_sweep_ok,"111 elite marks reject squared-distance overflow on every coordinate axis")
+ check(combat_rules.valid_lunge_target(Vector3.ZERO),"valid origin target remains allowed")
  var mark_guard:int=live_enemy_script.find("if not ENEMY_COMBAT_RULES.valid_lunge_target(strike_pos):")
  var elite_damage:int=live_enemy_script.find("COMBAT_RULES.elite_missed(strike_pos,player_position,dodge_time)")
  check(mark_guard>=0 and elite_damage>mark_guard,"elite mark validation precedes miss and damage calculations")
