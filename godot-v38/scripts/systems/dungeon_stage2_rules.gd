@@ -9,8 +9,11 @@ const MAX_CHAMBERS:int=14
 const EXPLORATION_NAMES:Array[String]=["Echo Gallery","Sundered Vault","Moonwell","Fallen Observatory","Raven Passage","Crystal Reliquary","Ash Library","Silent Grotto","Starfall Court","Forgotten Altar","Veiled Crossing"]
 
 static func chamber_count(site:int,zone:int)->int:
- # Deterministic for existing save IDs. No new encounter stages or save fields.
- return MIN_CHAMBERS+posmod(site*7+zone*3,MAX_CHAMBERS-MIN_CHAMBERS+1)
+ # Normalize IDs before multiplication so extreme saved values cannot overflow.
+ var range_size:int=MAX_CHAMBERS-MIN_CHAMBERS+1
+ var site_step:int=posmod(site,range_size)*7
+ var zone_step:int=posmod(zone,range_size)*3
+ return MIN_CHAMBERS+posmod(site_step+zone_step,range_size)
 
 static func room_position(anchor:Vector3,stage:int)->Vector3:
  if stage<=3:return anchor+ROOM_OFFSETS[clampi(stage,1,3)-1]
