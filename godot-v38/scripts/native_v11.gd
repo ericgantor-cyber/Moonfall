@@ -2126,7 +2126,7 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
    if float(beast["windup"])<=0.0:
     _set_boss_telegraph(beast,false)
     var marked:Vector3=beast.get("warning_pos",body.global_position)
-    var warning_radius:float=GUARDIAN_ATTACK_RULES.safe_radius(float(beast.get("warning_radius",2.8)))
+    var warning_radius:float=float(beast.get("warning_radius",2.8))
     var near_hit:bool=GUARDIAN_ATTACK_RULES.warning_hit(marked,player_position,warning_radius)
     var landed:bool=near_hit and dodge_time<=0 and _has_clear_sight(body,player)
     beast["v313_last_attack_landed"]=landed
