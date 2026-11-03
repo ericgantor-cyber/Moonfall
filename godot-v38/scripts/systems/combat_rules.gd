@@ -16,7 +16,8 @@ static func outgoing_damage(base:float,critical:bool,wounded:bool,execute_rank:i
 static func elite_missed(strike_pos:Vector3,hero_pos:Vector3,dodge_remaining:float) -> bool:
  if not is_finite(strike_pos.x) or not is_finite(strike_pos.z):return true
  if not is_finite(hero_pos.x) or not is_finite(hero_pos.z):return true
- if is_finite(dodge_remaining) and dodge_remaining>0.0:return true
+ # Corrupt dodge clocks must never be interpreted as permission to hit.
+ if not is_finite(dodge_remaining) or dodge_remaining>0.0:return true
  return Vector2(strike_pos.x-hero_pos.x,strike_pos.z-hero_pos.z).length()>=1.9
 
 static func guardian_attack_cooldown(phase:int) -> float:
