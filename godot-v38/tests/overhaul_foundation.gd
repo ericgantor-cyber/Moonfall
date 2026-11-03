@@ -708,6 +708,11 @@ func _run()->void:
  check(adaptive.choose_boss_pattern(3,100.0,100.0,2,8.0)==3,"phase three can select fourth guardian pattern")
  check(adaptive.choose_boss_pattern(3,100.0,100.0,0,2.0,3)==2,"repeated close pressure chooses precision")
  check(adaptive.choose_boss_pattern(3,100.0,100.0,2,2.0,4)==3,"precision cannot immediately repeat")
+ # Pressure cannot override the normal fourth pattern just after precision.
+ for pressure in range(3,12):
+  check(adaptive.choose_boss_pattern(3,100.0,100.0,2,2.0,pressure)==3,"high-pressure precision advances to fourth pattern "+str(pressure))
+ check(adaptive.choose_boss_pattern(3,100.0,100.0,2,2.0,2)==1,"ordinary low-pressure close sweep remains unchanged")
+ check(adaptive.choose_boss_pattern(3,100.0,100.0,2,2.0,4, true)==3,"high-pressure precision rotation remains stable after hit")
  check(adaptive.choose_boss_pattern(3,20.0,100.0,0,2.0,4)==0,"low health safety overrides pressure")
  check(adaptive.update_close_pressure(2,2.0)==3,"pressure rises during repeated close attacks")
  check(adaptive.update_close_pressure(4,8.0)==0,"pressure resets when hero retreats")
