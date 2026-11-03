@@ -770,6 +770,19 @@ func _run()->void:
   game.call("_set_boss_telegraph",bad_probe,true)
   check(not (game.get("boss_telegraphs") as Dictionary).has(987654323),"invalid active warning avoids mesh allocation "+str(bad_radius))
 
+ # Invalid markers or missing actors must not allocate a new mesh either.
+ var malformed_probe:Dictionary={"boss_id":987654324,"body":probe_body,"warning_radius":2.8,"warning_pos":Vector3(NAN,0.0,0.0)}
+ game.call("_set_boss_telegraph",malformed_probe,true)
+ check(not (game.get("boss_telegraphs") as Dictionary).has(987654324),"invalid active warning marker avoids mesh allocation")
+ malformed_probe["warning_pos"]=Vector3.ZERO
+ malformed_probe["body"]=null
+ game.call("_set_boss_telegraph",malformed_probe,true)
+ check(not (game.get("boss_telegraphs") as Dictionary).has(987654324),"active warning with missing boss body avoids mesh allocation")
+ malformed_probe["body"]=probe_body
+ game.call("_set_boss_telegraph",malformed_probe,true)
+ var recovered_warning:MeshInstance3D=(game.get("boss_telegraphs") as Dictionary).get(987654324) as MeshInstance3D
+ check(is_instance_valid(recovered_warning) and recovered_warning.visible,"first valid warning creates a visible mesh after invalid data")
+ game.call("_set_boss_telegraph",malformed_probe,false)
  if is_instance_valid(probe_mesh):
   probe_mesh.queue_free()
   await process_frame
