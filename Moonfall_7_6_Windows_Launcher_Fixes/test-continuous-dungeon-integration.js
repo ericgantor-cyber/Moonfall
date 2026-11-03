@@ -78,7 +78,7 @@ assert.equal(replay('enemies[0].mobVariant.stats.speed'),sampleVariant.stats.spe
 assert.equal(replay('enemies[0].mobVariant.stats.damage'),sampleVariant.stats.damage,'variant damage restored');
 assert.equal(replay('enemies[0].mobVariant.appearance.hue'),sampleVariant.appearance.hue,'variant appearance restored');
 assert.equal(replay('enemies[0].mobVariant.role'),sampleVariant.role,'variant AI role restored');
-assert.equal(replay('drops[0].meta.mods.power'),44,'nested item metadata restored');
+assert.equal(replay('drops.find(item=>item.id==="inventory-item").meta.mods.power'),44,'nested item metadata restored');
 
 assert.equal(replay('mfDungeonSnapshots.size')>0,true,'chamber snapshots restored');
 assert(replay('JSON.stringify(mfWorld.flags["dungeon:snapshots:v1"]).length')<=100000,'save bounded');
