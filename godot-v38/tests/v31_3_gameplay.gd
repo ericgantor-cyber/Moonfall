@@ -50,6 +50,21 @@ func _run()->void:
  game.call("_v313_tick_traps",1.05)
  check(not (traps[0]["node"] as MeshInstance3D).visible,"Hazard hides after strike")
  check(float(traps[0]["cooldown"])>5.0,"Hazard cooldown prevents spam")
+ # A corrupted active trap must disarm without striking or immediately restarting.
+ var saved_hits:int=int(game.get("v313_trap_hits"))
+ for broken_clock in [NAN,INF,-INF,-1.0]:
+  traps[0]["cooldown"]=broken_clock
+  traps[0]["armed"]=false
+  game.call("_v313_tick_traps",0.1)
+  check(not bool(traps[0]["armed"]) and not (traps[0]["node"] as MeshInstance3D).visible and is_equal_approx(float(traps[0]["cooldown"]),RULES.TRAP_COOLDOWN),"Invalid trap cooldown resets safely "+str(broken_clock))
+ for broken_clock in [NAN,INF,-INF,-1.0]:
+  traps[0]["cooldown"]=0.0
+  traps[0]["warning"]=broken_clock
+  traps[0]["armed"]=true
+  game.call("_v313_tick_traps",0.1)
+  check(not bool(traps[0]["armed"]) and not (traps[0]["node"] as MeshInstance3D).visible and is_equal_approx(float(traps[0]["cooldown"]),RULES.TRAP_COOLDOWN),"Invalid armed trap warning disarms safely "+str(broken_clock))
+ check(int(game.get("v313_trap_hits"))==saved_hits,"Invalid trap clocks cannot inflict damage")
+
  game.set("active_rift",-1)
  (active[0] as Dictionary)["active"]=false
  game.call("_v313_tick_traps",0.2)
