@@ -35,6 +35,8 @@ static func planar_direction(diff:Vector3,distance:float) -> Vector3:
 static func retreat_velocity(player_direction:Vector3,speed:float,multiplier:float) -> Vector3:
  if not is_finite(speed) or speed<=0.0 or not is_finite(multiplier) or multiplier<=0.0 or multiplier>1.0:return Vector3.ZERO
  if not is_finite(player_direction.x) or not is_finite(player_direction.z):return Vector3.ZERO
+ var direction_sq:float=player_direction.length_squared()
+ if not is_finite(direction_sq) or direction_sq>1.21:return Vector3.ZERO
  return -player_direction*speed*multiplier
 
 # Deterministic combat orbit. The tangent and approach direction are
@@ -42,6 +44,8 @@ static func retreat_velocity(player_direction:Vector3,speed:float,multiplier:flo
 static func orbit_velocity(player_direction:Vector3,speed:float,orbit_side:float) -> Vector3:
  if not is_finite(speed) or speed<=0.0 or not is_finite(orbit_side) or absf(orbit_side)!=1.0:return Vector3.ZERO
  if not is_finite(player_direction.x) or not is_finite(player_direction.z):return Vector3.ZERO
+ var direction_sq:float=player_direction.length_squared()
+ if not is_finite(direction_sq) or direction_sq>1.21:return Vector3.ZERO
  var flank:Vector3=Vector3(-player_direction.z,0.0,player_direction.x)
  return (flank*orbit_side+player_direction*0.25)*(speed*0.7/sqrt(1.0625))
 
@@ -70,7 +74,7 @@ static func return_home_velocity(offset:Vector3,speed:float) -> Vector3:
  return planar.normalized()*speed*0.4
 
 static func approach(diff:Vector3,speed:float,spawn_id:int,is_boss:bool,boss_phase:int,distance:float,role:String="ambusher") -> Vector3:
- if not is_finite(diff.x) or not is_finite(diff.y) or not is_finite(diff.z) or not is_finite(speed) or speed<=0.0:return Vector3.ZERO
+ if not is_finite(diff.x) or not is_finite(diff.y) or not is_finite(diff.z) or not is_finite(speed) or speed<=0.0 or not is_finite(distance):return Vector3.ZERO
  var planar:Vector3=Vector3(diff.x,0.0,diff.z)
  var length_sq:float=planar.length_squared()
  if not is_finite(length_sq) or length_sq<0.00001:return Vector3.ZERO
