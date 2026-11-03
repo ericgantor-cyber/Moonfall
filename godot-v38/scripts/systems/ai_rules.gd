@@ -46,7 +46,7 @@ static func orbit_velocity(player_direction:Vector3,speed:float,orbit_side:float
 # Wildlife movement remains purely planar. Frightened animals can wander away
 # after the hero exits immediate fleeing range, using their stable spawn ID.
 static func wildlife_escape_velocity(player_direction:Vector3,speed:float,distance:float,now:float,spawn_id:int) -> Vector3:
- if not is_finite(speed) or speed<=0.0 or not is_finite(distance) or not is_finite(now):return Vector3.ZERO
+ if not is_finite(speed) or speed<=0.0 or not is_finite(distance) or distance<0.0 or not is_finite(now) or absf(now)>1.0e12:return Vector3.ZERO
  if not is_finite(player_direction.x) or not is_finite(player_direction.z):return Vector3.ZERO
  var escape:Vector3=-player_direction
  if distance>8.0:escape=Vector3(cos(now+float(spawn_id)),0.0,sin(now+float(spawn_id)))
@@ -56,13 +56,15 @@ static func wildlife_escape_velocity(player_direction:Vector3,speed:float,distan
 static func prey_chase_velocity(offset:Vector3,speed:float) -> Vector3:
  if not is_finite(speed) or speed<=0.0 or not is_finite(offset.x) or not is_finite(offset.z):return Vector3.ZERO
  var planar:Vector3=Vector3(offset.x,0.0,offset.z)
- if planar.length_squared()<0.00001:return Vector3.ZERO
+ var length_sq:float=planar.length_squared()
+ if not is_finite(length_sq) or length_sq<0.00001:return Vector3.ZERO
  return planar.normalized()*speed*0.8
 
 static func return_home_velocity(offset:Vector3,speed:float) -> Vector3:
  if not is_finite(speed) or speed<=0.0 or not is_finite(offset.x) or not is_finite(offset.z):return Vector3.ZERO
  var planar:Vector3=Vector3(offset.x,0.0,offset.z)
- if planar.length_squared()<0.00001:return Vector3.ZERO
+ var length_sq:float=planar.length_squared()
+ if not is_finite(length_sq) or length_sq<0.00001:return Vector3.ZERO
  return planar.normalized()*speed*0.4
 
 static func approach(diff:Vector3,speed:float,spawn_id:int,is_boss:bool,boss_phase:int,distance:float,role:String="ambusher") -> Vector3:
