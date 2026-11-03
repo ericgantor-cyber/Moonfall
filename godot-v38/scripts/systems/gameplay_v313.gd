@@ -8,7 +8,10 @@ const TRAP_WARNING:float=1.15
 const TRAP_COOLDOWN:float=6.0
 
 static func next_combo(now:float,expires:float,chain:int)->int:
- return mini(MAX_COMBO,chain+1) if now<=expires else 1
+ # Invalid clocks cannot extend a combo; clamp old save counts before adding.
+ if not is_finite(now) or not is_finite(expires) or now<0.0:return 1
+ if now>expires:return 1
+ return mini(MAX_COMBO,clampi(chain,0,MAX_COMBO)+1)
 
 static func combo_multiplier(chain:int)->float:
  return 1.0+0.08*float(clampi(chain,1,MAX_COMBO)-1)
