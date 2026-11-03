@@ -3,14 +3,14 @@ extends "res://scripts/native_v38_4.gd"
 const COMPANION_RANGE:float=10.0
 const COMPANION_STRIKE_RANGE:float=2.8
 const COMPANION_ATTACK_INTERVAL:float=1.35
-var companion_attack_timer:float=0.0
+var realm_companion_attack_timer:float=0.0
 
 func _process(delta:float)->void:
  super._process(delta)
  if not hero_playing or death_active or menu_open or not is_instance_valid(player):return
  if not is_instance_valid(realm_follower) or not realm_follower.visible:return
- companion_attack_timer=maxf(0.0,companion_attack_timer-delta)
- if companion_attack_timer>0.0:return
+ realm_companion_attack_timer=maxf(0.0,realm_companion_attack_timer-delta)
+ if realm_companion_attack_timer>0.0:return
  if region_index<0 or region_index>=zone_beast_lists.size():return
  var chosen:Dictionary={}
  var best_distance:float=COMPANION_RANGE*COMPANION_RANGE
@@ -33,7 +33,7 @@ func _process(delta:float)->void:
   var destination:Vector3=enemy_body.global_position+Vector3(0.0,1.0,0.0)
   realm_follower.global_position=realm_follower.global_position.move_toward(destination,FOLLOW_SPEED*minf(delta,0.1))
   return
- companion_attack_timer=COMPANION_ATTACK_INTERVAL
+ realm_companion_attack_timer=COMPANION_ATTACK_INTERVAL
  var loyalty:int=REALM_ETHICS.companion_loyalty(REALM_ETHICS.normalize(realm_ethics),realm_companion_ethic)
  var damage:float=clampf(6.0+hero_level*0.65+loyalty*0.05,6.0,38.0)
  chosen["hp"]=float(chosen["hp"])-damage
