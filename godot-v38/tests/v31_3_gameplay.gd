@@ -48,7 +48,7 @@ func _run()->void:
  check(not (dormant_trap["node"] as MeshInstance3D).visible,"Invalid trap site is ignored safely")
 
  game.call("_v313_tick_traps",1.05)
- check(not (traps[0]["node"] as MeshInstance3D).visible,"Hazard hides after strike")
+ check(not (traps[0]["node"] as MeshInstance3D).visible,"Previously shown warning resolves after its countdown")
  check(is_equal_approx(RULES.TRAP_COOLDOWN,20.0),"Rift hazard cooldown is twenty seconds")
  check(is_equal_approx(float(traps[0]["cooldown"]),20.0),"Hazard starts a full twenty-second cooldown after strike")
  game.call("_v313_tick_traps",19.0)
@@ -83,6 +83,16 @@ func _run()->void:
  game.call("_v313_tick_traps",0.2)
  check(not bool(traps[0]["armed"]) and is_equal_approx(float(traps[0]["cooldown"]),19.8),"Reentering after warning cancellation cannot instantly rearm")
  check(int(game.get("v313_trap_hits"))==hits_before_cancel,"Cancelled trap warning causes no damage")
+
+ # Even a very long frame must show the full warning before any damage.
+ traps[0]["cooldown"]=0.0
+ traps[0]["armed"]=false
+ var hits_before_long_frame:int=int(game.get("v313_trap_hits"))
+ game.call("_v313_tick_traps",5.0)
+ check(bool(traps[0]["armed"]) and (traps[0]["node"] as MeshInstance3D).visible and is_equal_approx(float(traps[0]["warning"]),RULES.TRAP_WARNING),"Long frame arms visible trap with full warning time")
+ check(int(game.get("v313_trap_hits"))==hits_before_long_frame,"Long frame cannot deal an instant untelegraphed trap hit")
+ game.call("_v313_tick_traps",RULES.TRAP_WARNING)
+ check(not bool(traps[0]["armed"]) and is_equal_approx(float(traps[0]["cooldown"]),RULES.TRAP_COOLDOWN),"Trap resolves only on a later warning countdown")
 
  # A corrupted active trap must disarm without striking or immediately restarting.
  var saved_hits:int=int(game.get("v313_trap_hits"))
