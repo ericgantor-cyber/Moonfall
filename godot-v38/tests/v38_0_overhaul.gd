@@ -245,12 +245,12 @@ func _run()->void:
  if enemy_script!=null:
   var source:String=enemy_script.source_code
   var tick_start:int=source.find("func _update_beast_step(")
-  var tick_end:int=source.find("\\nfunc ",tick_start+1)
+  var tick_end:int=source.find("\nfunc ",tick_start+1)
   var tick:String=source.substr(tick_start,(tick_end-tick_start) if tick_end>tick_start else -1) if tick_start>=0 else ""
   check(tick_start>=0 and "V383_COMBAT_RULES.combat_intent(" in tick,"combat intent policy invoked in live enemy tick")
   check("v383_intent==\"retreat\"" in tick and "body.velocity=-diff.normalized()" in tick,"low-health retreat produces actual movement")
   check("v383_intent==\"strafe\"" in tick and "body.velocity=(flank*orbit_side" in tick,"flank intent produces actual movement")
-  check("if staggered:" in tick and "if staggered:return" in tick,"stagger still prevents attack resolution")
+  check("if staggered:" in tick and "body.velocity=Vector3.ZERO" in tick and "beast[\"elite_lunge_windup\"]=0.0" in tick and "beast[\"elite_lunge_target\"]=Vector3.ZERO" in tick and "  return\n # Elite creatures telegraph" in tick,"stagger halts attacks and cancels queued elite lunges")
   check('elif bool(beast.get("boss",false)) and float(beast.get("windup",0.0))>0.0:' in tick and "body.velocity=Vector3.ZERO" in tick,"boss holds position during active attack warning")
   check("if bool(beast.get(\"boss\",false)):" in tick,"boss windup attack path preserved")
  game.queue_free()
