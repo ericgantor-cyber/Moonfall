@@ -26,6 +26,8 @@ func _ready()->void:
   aim_options=PanelContainer.new()
   aim_options.name="AimOptions"
   aim_options.position=Vector2(18,80)
+  # Never flash aim controls on title/menu frames before _process runs.
+  aim_options.visible=false
   layer.add_child(aim_options)
   aim_toggle=CheckButton.new()
   aim_toggle.text="AIM ASSIST"
