@@ -31,6 +31,11 @@ Write-Host "Detected Visual Studio C++ toolchain: $($vsInstall | Select-Object -
 if (-not $CompileOnly -and -not $PreflightOnly) {
     $uat = Join-Path $UnrealRoot 'Engine\Build\BatchFiles\RunUAT.bat'
     if (-not (Test-Path -LiteralPath $uat)) { throw "Unreal packaging tool missing: $uat" }
+    # The packaged game uses /Engine/Maps/Entry; fail before compiling or deleting previous output if unavailable.
+    $entryMap = Join-Path $UnrealRoot 'Engine\Content\Maps\Entry.umap'
+    if (-not (Test-Path -LiteralPath $entryMap -PathType Leaf)) {
+        throw "Configured Unreal startup map /Engine/Maps/Entry is missing: $entryMap"
+    }
     foreach ($command in @('dotnet','makensis.exe')) {
         if (-not (Get-Command $command -ErrorAction SilentlyContinue)) {
             throw "Packaging prerequisite not on PATH: $command"
