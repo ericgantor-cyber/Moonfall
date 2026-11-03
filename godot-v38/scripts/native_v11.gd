@@ -2018,7 +2018,7 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
  # near-zero guard so overlapping actors never create invalid velocities.
  if not staggered:
   if (engaged or (not is_hostile and (distance<6.0 or map_time<float(beast.get("scared_until",0.0))))) and distance>0.00001:
-   player_direction=diff/distance
+   player_direction=AI_RULES.planar_direction(diff,distance)
  if engaged:beast["search_pause_until"]=0.0
  # Investigate the last visible location for three seconds after losing sight.
  if not is_boss and is_hostile:
