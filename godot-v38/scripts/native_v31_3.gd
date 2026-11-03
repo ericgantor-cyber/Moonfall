@@ -199,7 +199,8 @@ func _reset_new_adventure()->void:
  v313_elite_bonus=0
  v313_tactical_retreats=0
  for trap in v313_traps:
-  (trap["node"] as MeshInstance3D).visible=false
+  var rune:MeshInstance3D=trap.get("node") as MeshInstance3D
+  if is_instance_valid(rune):rune.visible=false
   trap["warning"]=0.0
   trap["cooldown"]=0.0
   trap["armed"]=false
