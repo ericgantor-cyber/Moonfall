@@ -275,6 +275,27 @@ func _run()->void:
    memory_horizon_sweep_ok=false
    break
  check(memory_horizon_sweep_ok,"111 target memory clock-boundary cases remain within supported horizon")
+ var old_memory_horizon_ok:bool=true
+ for sample_index in range(111):
+  var sample_now:float=1.0e12-5.0+float(sample_index)*0.05
+  var old_expiry:float=sample_now+2.5
+  var old_position:Vector3=Vector3(6.0,0.0,3.0)
+  var retained:Dictionary=combat_rules.remember_target(false,true,false,sample_now,Vector3.ZERO,old_position,old_expiry)
+  var expected_valid:bool=old_expiry<=1.0e12
+  var retained_expiry:float=float(retained.get("until",0.0))
+  var moving:Vector3=combat_rules.investigate_velocity(true,false,false,sample_now,old_expiry,Vector3.ZERO,old_position,10.0)
+  var pause_active:bool=combat_rules.search_pause_active(false,sample_now,sample_now+0.5)
+  if expected_valid:
+   if not is_equal_approx(retained_expiry,old_expiry) or moving.length()<=0.0:
+    old_memory_horizon_ok=false
+    break
+  elif retained_expiry!=0.0 or moving!=Vector3.ZERO:
+   old_memory_horizon_ok=false
+   break
+  if pause_active!=(sample_now+0.5<=1.0e12):
+   old_memory_horizon_ok=false
+   break
+ check(old_memory_horizon_ok,"111 stale-memory horizon samples reject invalid expiry across all AI search paths")
  var invalid_sighting_sweep_ok:bool=true
  for sample_index in range(111):
   var sample_now:float=0.25+float(sample_index)*0.05
