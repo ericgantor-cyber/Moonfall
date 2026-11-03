@@ -286,6 +286,21 @@ func _run()->void:
  check(pause_sweep_ok,"111 enemy search pauses last 0.75 seconds and cancel on engagement")
  check(combat_rules.search_pause_expiry(INF)==0.0,"invalid AI clock cannot create endless search")
  check(combat_rules.search_pause_expiry(1.0e15)==0.0,"extreme AI clock cannot create endless search")
+ check(combat_rules.search_pause_expiry(1.0e12)==0.0,"maximum AI clock cannot schedule an unusable pause")
+ check(is_equal_approx(combat_rules.search_pause_expiry(1.0e12-0.75),1.0e12),"latest valid pause expiry stays within clock horizon")
+ var horizon_sweep_ok:bool=true
+ for sample_index in range(111):
+  var boundary_now:float=1.0e12-2.0+float(sample_index)*0.025
+  var expiry_time:float=combat_rules.search_pause_expiry(boundary_now)
+  var in_horizon:bool=boundary_now<=1.0e12-0.75
+  if in_horizon:
+   if not is_equal_approx(expiry_time,boundary_now+0.75) or not combat_rules.search_pause_active(false,boundary_now,expiry_time) or combat_rules.search_pause_active(false,expiry_time,expiry_time):
+    horizon_sweep_ok=false
+    break
+  elif expiry_time!=0.0:
+   horizon_sweep_ok=false
+   break
+ check(horizon_sweep_ok,"111 search pause clock-boundary samples never schedule unusable expiry")
  var telegraph=load("res://scripts/systems/boss_telegraph_readout.gd")
  check("DODGE AWAY" in telegraph.warning_text(1,0),"focused attack gives directional dodge cue")
  check("CLEAR THE AREA" in telegraph.warning_text(2,1),"sweep attack warns of area danger")
