@@ -244,6 +244,22 @@ func _run()->void:
  var stagger_guard:int=live_enemy_script.find("if staggered:\n  if elite:\n   beast[\"elite_lunge_windup\"]=0.0\n   beast[\"elite_lunge_target\"]=Vector3.ZERO\n  return")
  var windup_handler:int=live_enemy_script.find("if elite:\n  var lunge_windup:float=")
  check(stagger_guard>=0 and windup_handler>stagger_guard,"stagger clears elite lunge and target before any windup strike")
+ var elite_mark_sweep_ok:bool=true
+ for sample_index in range(111):
+  var mark:Vector3=Vector3(float(sample_index)*0.25,1.0,-float(sample_index)*0.125)
+  var corrupted:bool=sample_index%4!=0
+  if corrupted:
+   if sample_index%4==1:mark.x=NAN
+   elif sample_index%4==2:mark.y=INF
+   else:mark.z=-INF
+  if combat_rules.valid_lunge_target(mark)==corrupted:
+   elite_mark_sweep_ok=false
+   break
+ check(elite_mark_sweep_ok,"111 elite lunge target cases reject corrupted saved coordinates")
+ var mark_guard:int=live_enemy_script.find("if not ENEMY_COMBAT_RULES.valid_lunge_target(strike_pos):")
+ var elite_damage:int=live_enemy_script.find("COMBAT_RULES.elite_missed(strike_pos,player_position,dodge_time)")
+ check(mark_guard>=0 and elite_damage>mark_guard,"elite mark validation precedes miss and damage calculations")
+ check("beast[\"elite_lunge_target\"]=Vector3.ZERO" in live_enemy_script,"live combat clears resolved elite target")
  check(combat_rules.can_attack(1.75,true,true,"boar"),"boar uses its existing 1.8 melee range")
  check(not combat_rules.can_attack(1.75,true,true,"wolf"),"wolf retains default 1.7 melee range")
  check(not combat_rules.can_attack(1.0,false,true,"boar") and not combat_rules.can_attack(1.0,true,false,"boar"),"readiness and line-of-sight still gate melee")
