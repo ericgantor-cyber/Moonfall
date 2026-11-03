@@ -16,6 +16,12 @@ func _run()->void:
  check("CRITICAL AIR" in R.threat_status(5.0,true,true,10.0,100.0),"oxygen emergency prioritized")
  check("COMBAT" in R.threat_status(100.0,false,true,90.0,100.0),"combat warning")
  check("LOW HEALTH" in R.threat_status(100.0,false,false,25.0,100.0),"low health warning")
+ var jump_script:GDScript=load("res://scripts/native_v11.gd") as GDScript
+ check(jump_script!=null and "KEY_SPACE:_jump()" in jump_script.source_code and "KEY_CTRL:_dodge()" in jump_script.source_code,"keyboard jump and dodge bindings")
+ check(jump_script!=null and "JOY_BUTTON_A:_dodge()" in jump_script.source_code and "MOUSE_BUTTON_LEFT and event.pressed:_attack()" in jump_script.source_code,"controller dodge and mouse attack preserved")
+ check(jump_script!=null and "jump_coyote_remaining>0.0" in jump_script.source_code and "jump_buffer_remaining" in jump_script.source_code,"buffered jump and ledge grace")
+ check(jump_script!=null and "vertical_speed-=22.0*delta" in jump_script.source_code and "player.velocity=Vector3(dir.x*speed,vertical_speed,dir.z*speed)" in jump_script.source_code,"gravity and horizontal movement integrated")
+ check(jump_script!=null and "wait_open or wait_transition_active or mounted" in jump_script.source_code,"jump disabled in menus, wait transitions and on mounts")
  var talent_scene:GDScript=load("res://scripts/native_v38_0.gd") as GDScript
  check(talent_scene!=null and "func _v398_build_tree()" in talent_scene.source_code and "func _v398_unlock(id:String)" in talent_scene.source_code,"celestial talent screen and button unlocking wired")
  check(talent_scene!=null and "event.keycode==KEY_K" in talent_scene.source_code,"K opens tree without replacing T tame control")
