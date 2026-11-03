@@ -18,10 +18,10 @@ func _run()->void:
  var chests:Array=game.get("v313_art_chests")
  var traps:Array=game.get("v313_art_traps")
  check(chests.size()==6,"Six chest emblems created")
- check(traps.size()==3,"Three rift warning images installed")
+ check(traps.size()==30,"Thirty rift warning images installed")
  check(is_instance_valid(game.get("v313_art_surge")),"Moon surge HUD emblem created")
  check(game.get("v312_foliage").size()==6,"Six world regions preserved")
- check((game.get("v313_art_dungeon") as Array).size()==3,"Three dungeon seal signs")
+ check((game.get("v313_art_dungeon") as Array).size()==30,"Thirty dungeon seal signs")
  check(is_instance_valid(game.get("v313_art_forge")),"Hearthstone forge sign")
  var entry:Dictionary=(game.get("treasure_chests") as Array)[0]
  (game.get("opened_treasure_chests") as Array).append(0)

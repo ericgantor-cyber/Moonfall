@@ -53,7 +53,7 @@ func _run()->void:
  var report:Dictionary=game.call("_perf_report")
  check(str(report.get("version","")).begins_with("v3") and report.has("v316_ai_broadcasts_deferred"),"F9 profiler reports AI budget")
  check(int(report.get("v316_articulated_limb_nodes",0))>0,"Articulated 3D limbs counted")
- check((game.get("region_nodes") as Array).size()==6 and (game.get("rifts") as Array).size()==3,"Single connected world preserved")
+ check((game.get("region_nodes") as Array).size()==6 and (game.get("rifts") as Array).size()==30,"Single connected world preserved")
  game.queue_free()
  print("MOONFALL v31.6 ANATOMY AND AI PASS" if failures==0 else "MOONFALL v31.6 ANATOMY AND AI FAIL")
  quit(0 if failures==0 else 1)

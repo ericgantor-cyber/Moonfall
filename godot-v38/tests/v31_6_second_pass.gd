@@ -46,7 +46,7 @@ func _run()->void:
  game.call("_update_beast_step",actor,0.016)
  verify(is_equal_approx(float(actor.get("v315_next_signal",-999.0)),original),"Deferred pack alert retains original eligibility")
  verify(int(game.get("v316_ai_deferred"))>0,"Deferred alert recorded")
- verify((game.get("region_nodes") as Array).size()==6 and (game.get("rifts") as Array).size()==3,"Connected world unchanged")
+ verify((game.get("region_nodes") as Array).size()==6 and (game.get("rifts") as Array).size()==30,"Connected world unchanged")
  game.queue_free()
  print("MOONFALL v31.6 SECOND PASS PASS" if failures==0 else "MOONFALL v31.6 SECOND PASS FAIL")
  quit(0 if failures==0 else 1)

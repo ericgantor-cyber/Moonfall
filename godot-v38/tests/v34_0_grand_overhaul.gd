@@ -42,7 +42,7 @@ func _run()->void:
  player.global_position=rifts[0]["anchor"]+Vector3(0,0.7,0)
  game.call("_v34_update_purification")
  var markers:Array=game.get("v34_purified_markers")
- check(markers.size()==3,"one purification marker per existing rift")
+ check(markers.size()==30,"one purification marker per each of thirty rifts")
  check((markers[0]["node"] as Node3D).visible,"purified rift marker visible after sealing")
  check(is_equal_approx(float(game.call("_hero_damage_multiplier"))/float(rules.damage_boon(1)),float(game.call("_hero_damage_multiplier"))/1.025),"saved rift boon is bounded")
  game.queue_free()

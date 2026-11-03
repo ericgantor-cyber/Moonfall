@@ -15,7 +15,7 @@ func _release_label()->String:
 
 func _unhandled_key_input(event:InputEvent)->void:
  if hero_playing and not menu_open and event is InputEventKey:
-  if event.pressed and not event.echo and event.keycode==KEY_F9:
+  if OS.has_feature("debug") and event.pressed and not event.echo and event.keycode==KEY_F9:
    if perf_active:_perf_stop(true)
    else:_perf_start()
    get_viewport().set_input_as_handled()

@@ -108,6 +108,10 @@ func _activate_rift_wave(site_id:int)->void:
    var boss_slot:int=int(slots[slots.size()-1])
    if boss_slot>=0 and boss_slot<beasts.size():
     var boss_unit:Dictionary=beasts[boss_slot]
+    # Activate inherited boss phases and telegraphs on this existing resident.
+    boss_unit["boss"]=true
+    boss_unit["boss_phase"]=1
+    boss_unit["boss_pattern"]=0 if deity_id=="z" else 1
     var boss_body:CharacterBody3D=boss_unit.get("body") as CharacterBody3D
     if is_instance_valid(boss_body) and boss_body.get_node_or_null("DivineBossOriginalArtwork")==null:
      var portrait:=Sprite3D.new()
@@ -179,6 +183,10 @@ func _interact()->void:
     _show_message("Inscription recorded • revisit this chamber for its history.",2.0)
    else:
     secret["read"]=true
+    if bool(secret.get("reward",false)):
+     depth_spell_charges=mini(3,depth_spell_charges+1)
+     _show_message("HIDDEN MOON RELIC FOUND! One lunar charge restored. ("+str(depth_spell_charges)+"/3)",4.0)
+     return
     var lore:Array[String]=["The first guardians sealed the crimson moon beneath these stones.","Moonbound travelers followed the three violet glyphs to find sanctuary.","The Guardian Heart remembers those who returned without surrendering."]
     _show_message("ANCIENT INSCRIPTION: "+lore[site%lore.size()],5.0)
    return
@@ -201,6 +209,71 @@ func _menu_tab(which:String)->void:
 var rift_secret_signs:Array[Dictionary]=[]
 func _v321_build_chambers()->void:
  super._v321_build_chambers()
+ # Explore 5–14 fixed chambers per dungeon; original 3 combat rooms and save IDs stay intact.
+ # All added rooms are non-colliding and share one floor mesh for bounded draw cost.
+ var exploration_floor:=CylinderMesh.new()
+ exploration_floor.top_radius=4.7
+ exploration_floor.bottom_radius=4.7
+ exploration_floor.height=0.06
+ exploration_floor.radial_segments=12
+ var exploration_material:=StandardMaterial3D.new()
+ exploration_material.albedo_color=Color("3d344e")
+ exploration_material.roughness=0.95
+ # One shared corridor mesh for all 30 dungeons; do not allocate per site.
+ var corridor_mesh:=BoxMesh.new()
+ corridor_mesh.size=Vector3(2.4,0.12,1.0)
+ for site_id in range(rifts.size()):
+  var entry:Dictionary=rifts[site_id]
+  var count:int=V321_RULES.chamber_count(site_id,int(entry["zone"]))
+  # Each chamber connects to its predecessor with a visible, low-poly stone walkway.
+  # Retain original authored combat-room positions and avoid any extra enemies.
+  for stage in range(4,count+1):
+   var previous:Vector3=V321_RULES.room_position(entry["anchor"],stage-1)
+   var destination:Vector3=V321_RULES.room_position(entry["anchor"],stage)
+   var offset:Vector3=destination-previous
+   var distance:float=offset.length()
+   if distance>0.01:
+    var passage:=MeshInstance3D.new()
+    passage.name="Rift_%d_Passage_%d"%[site_id,stage]
+    passage.mesh=corridor_mesh
+    passage.material_override=exploration_material
+    passage.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+    passage.position=(previous+destination)*0.5+Vector3(0,0.06,0)
+    passage.rotation.y=atan2(offset.x,offset.z)
+    passage.scale=Vector3(1,1,distance)
+    world.add_child(passage)
+   var root:=Node3D.new()
+   root.name="Rift_%d_Exploration_%d"%[site_id,stage]
+   root.position=V321_RULES.room_position(entry["anchor"],stage)
+   world.add_child(root)
+   var floor:=MeshInstance3D.new()
+   floor.name="ExplorationFloor"
+   floor.mesh=exploration_floor
+   floor.material_override=exploration_material
+   floor.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+   root.add_child(floor)
+   var sign:=Label3D.new()
+   sign.name="ExplorationChamberSign"
+   sign.text="CHAMBER %d • %s"%[stage,V321_RULES.chamber_title(stage)]
+   sign.font_size=26
+   sign.pixel_size=0.005
+   sign.position.y=2.2
+   sign.billboard=BaseMaterial3D.BILLBOARD_ENABLED
+   root.add_child(sign)
+   root.visible=false
+   v321_chambers.append({"node":root,"site":site_id,"stage":stage,"label":sign})
+   if stage==count:
+    var relic:=Label3D.new()
+    relic.name="HiddenMoonRelic"
+    relic.text="HIDDEN MOON RELIC • G TO DISCOVER"
+    relic.font_size=25
+    relic.pixel_size=0.005
+    relic.billboard=BaseMaterial3D.BILLBOARD_ENABLED
+    relic.modulate=Color("ebcc8f")
+    relic.position=root.position+Vector3(2.0,1.5,2.0)
+    relic.visible=false
+    world.add_child(relic)
+    rift_secret_signs.append({"site":site_id,"node":relic,"read":false,"reward":true})
  # Six zone-specific landmarks and a ruined gateway at each of 30 dungeon entrances.
  # Mesh-only decor is built once, non-colliding, with no new lights or animation.
  var zone_tones:Array[Color]=[Color("536bba"),Color("6ca77a"),Color("cc764f"),Color("88b7c5"),Color("ae547a"),Color("d3b469")]
@@ -285,9 +358,14 @@ func _process(delta:float)->void:
   var marker:Label3D=secret["node"]
   var site:int=int(secret["site"])
   var allowed:bool=site>=0 and site<rifts.size() and active_rift==site and not bool(rifts[site].get("cleared",false))
-  marker.visible=allowed and player.global_position.distance_squared_to(marker.global_position)<20.0*20.0
-  if marker.visible:
+  # Skip unchanged hidden markers; only update scene visibility on transitions.
+  if not allowed and not marker.visible:continue
+  var should_show:bool=allowed and player.global_position.distance_squared_to(marker.global_position)<20.0*20.0
+  if marker.visible!=should_show:marker.visible=should_show
+  if should_show:
    var wanted:String="ANCIENT INSCRIPTION • READ" if bool(secret["read"]) else "ANCIENT INSCRIPTION • G TO READ"
+   if bool(secret.get("reward",false)):
+    wanted="MOON RELIC • DISCOVERED" if bool(secret["read"]) else "HIDDEN MOON RELIC • G TO DISCOVER"
    if marker.text!=wanted:marker.text=wanted
 
 ## Exploration discoveries reset on a new adventure, never on ordinary menu use.

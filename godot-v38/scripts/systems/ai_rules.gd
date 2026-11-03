@@ -6,6 +6,52 @@ static func perception(is_alert:bool,weather:String,is_night:bool) -> float:
  if is_night:radius*=1.16
  return radius
 
+# Conservative upper bound for every weather/day/alert combination.
+# Use the same coefficients as perception() to prevent awareness drift.
+static func maximum_perception() -> float:
+ return perception(true,"Clear",true)
+
+# Cheap distance gate before any time-of-day or line-of-sight work.
+static func potentially_visible(distance:float) -> bool:
+ return is_finite(distance) and distance>=0.0 and distance<maximum_perception()
+
+# Squared-distance variant for callers that already have a displacement vector.
+# Avoids a square root when deciding whether to evaluate weather or line of sight.
+static func potentially_visible_squared(distance_squared:float) -> bool:
+ var max_radius:float=maximum_perception()
+ return is_finite(distance_squared) and distance_squared>=0.0 and distance_squared<max_radius*max_radius
+
+# Shared horizontal direction for retreat, orbiting and wildlife escape.
+# Return zero for coincident or invalid positions to avoid invalid velocities.
+static func planar_direction(diff:Vector3,distance:float) -> Vector3:
+ if not is_finite(distance) or distance<=0.00001:return Vector3.ZERO
+ if not is_finite(diff.x) or not is_finite(diff.z):return Vector3.ZERO
+ return Vector3(diff.x/distance,0.0,diff.z/distance)
+
+# Retreat uses a pre-normalized horizontal direction from the shared rules.
+# Multipliers 0.90 (timed retreat) and 0.85 (low-health retreat) preserve pacing.
+static func retreat_velocity(player_direction:Vector3,speed:float,multiplier:float) -> Vector3:
+ if not is_finite(speed) or speed<=0.0 or not is_finite(multiplier):return Vector3.ZERO
+ if not is_finite(player_direction.x) or not is_finite(player_direction.z):return Vector3.ZERO
+ return -player_direction*speed*multiplier
+
+# Preserve the legacy homeward movement: horizontal direction at 40% speed.
+# Caller retains the existing distance-from-home activation threshold.
+static func return_home_velocity(home:Vector3,actor_position:Vector3,speed:float) -> Vector3:
+ if not is_finite(speed) or speed<=0.0:return Vector3.ZERO
+ if not is_finite(home.x) or not is_finite(home.z) or not is_finite(actor_position.x) or not is_finite(actor_position.z):return Vector3.ZERO
+ var toward:Vector3=home-actor_position
+ toward.y=0.0
+ return toward.normalized()*speed*0.4
+
+# Deterministic combat orbit. The tangent and approach direction are
+# perpendicular unit vectors, so the 1:0.25 blend has fixed length.
+static func orbit_velocity(player_direction:Vector3,speed:float,orbit_side:float) -> Vector3:
+ if not is_finite(speed) or speed<=0.0 or not is_finite(orbit_side):return Vector3.ZERO
+ if not is_finite(player_direction.x) or not is_finite(player_direction.z):return Vector3.ZERO
+ var flank:Vector3=Vector3(-player_direction.z,0.0,player_direction.x)
+ return (flank*orbit_side+player_direction*0.25)*(speed*0.7/sqrt(1.0625))
+
 static func approach(diff:Vector3,speed:float,spawn_id:int,is_boss:bool,boss_phase:int,distance:float,role:String="ambusher") -> Vector3:
  if not is_finite(diff.x) or not is_finite(diff.y) or not is_finite(diff.z) or not is_finite(speed) or speed<=0.0:return Vector3.ZERO
  var planar:Vector3=Vector3(diff.x,0.0,diff.z)

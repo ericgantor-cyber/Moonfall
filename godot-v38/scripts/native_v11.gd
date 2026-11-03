@@ -105,6 +105,15 @@ var region_refresh_tick := 0.0
 var respawn_refresh_tick := 0.0
 var visible_regions := 0
 var ai_updates := 0
+# Debug-only cumulative visibility-ray counter for profiling AI and combat.
+var debug_visibility_rays:int=0
+var debug_visibility_rays_blocked:int=0
+var debug_visibility_usec:int=0
+var debug_movement_usec:int=0
+var debug_movement_samples:int=0
+var debug_ai_batch_usec:int=0
+var debug_ai_batch_samples:int=0
+var debug_ecology_usec:int=0
 var region_shrines: Array[Node3D] = []
 var shrine_lights: Array[OmniLight3D] = []
 var shrine_discovery: Array[int] = []
@@ -1336,7 +1345,7 @@ func _atlas_execute(action: String) -> void:
   var alive:=0
   for b in beasts:
    if bool(b.get("alive",false)):alive+=1
-  menu_body.text="[b]WORLD HEALTH / NATIVE v13[/b]\n\nFPS: "+str(Engine.get_frames_per_second())+"\nAlive creatures: "+str(alive)+" / "+str(beasts.size())+"\nNatural hunts: "+str(hunts_completed)+"\nHerd alarms: "+str(herds_alerted)+"\nBlocked line-of-sight checks: "+str(blocked_hits)+"\nGear picked up: "+str(pickup_count)+"\nGround gear: "+str(gear_drops.size())+" / "+str(MAX_GROUND_DROPS)+"\nSkinnable carcasses: "+str(carcasses.size())+" / "+str(MAX_CARCASSES)+"\nWildlife respawns: "+str(respawns_total)+"\nRestored dormant beasts: "+str(restored_wildlife)+"\nActive scenery regions: "+str(visible_regions)+" / 6\nRegional AI updates: "+str(ai_updates)+"\nCheckpoint health: "+save_health+"\n\nThis is a prototype diagnostic panel, not a separate game mode."
+  menu_body.text="[b]WORLD HEALTH / NATIVE v13[/b]\n\nFPS: "+str(Engine.get_frames_per_second())+"\nAlive creatures: "+str(alive)+" / "+str(beasts.size())+"\nNatural hunts: "+str(hunts_completed)+"\nHerd alarms: "+str(herds_alerted)+"\nBlocked line-of-sight checks: "+str(blocked_hits)+"\nVisibility raycasts (debug only): "+str(debug_visibility_rays)+"\nBlocked raycasts (debug only): "+str(debug_visibility_rays_blocked)+"\nAvg raycast cost (µs, debug): "+str(snappedf(float(debug_visibility_usec)/float(maxi(debug_visibility_rays,1)),0.1))+"\nAverage ecology + AI batch (µs, debug): "+str(snappedf(float(debug_ai_batch_usec)/float(maxi(debug_ai_batch_samples,1)),0.1))+"\nAverage ecology time (µs, debug): "+str(snappedf(float(debug_ecology_usec)/float(maxi(debug_ai_batch_samples,1)),0.1))+"\nAverage enemy AI time (µs, debug): "+str(snappedf(float(debug_ai_batch_usec-debug_ecology_usec)/float(maxi(debug_ai_batch_samples,1)),0.1))+"\nEnemy movement samples (debug): "+str(debug_movement_samples)+"\nAvg enemy movement cost (µs, debug): "+str(snappedf(float(debug_movement_usec)/float(maxi(debug_movement_samples,1)),0.1))+"\nGear picked up: "+str(pickup_count)+"\nGround gear: "+str(gear_drops.size())+" / "+str(MAX_GROUND_DROPS)+"\nSkinnable carcasses: "+str(carcasses.size())+" / "+str(MAX_CARCASSES)+"\nWildlife respawns: "+str(respawns_total)+"\nRestored dormant beasts: "+str(restored_wildlife)+"\nActive scenery regions: "+str(visible_regions)+" / 6\nRegional AI updates: "+str(ai_updates)+"\nCheckpoint health: "+save_health+"\n\nThis is a prototype diagnostic panel, not a separate game mode."
   return
  if action.begins_with("wallet_"):
   _wallet_action(action)
@@ -1838,13 +1847,19 @@ func _combat_threat() -> bool:
 
 func _has_clear_sight(a:CollisionObject3D,b:CollisionObject3D) -> bool:
  if not is_instance_valid(a) or not is_instance_valid(b):return false
+ var profiling:bool=OS.has_feature("debug")
+ var started_usec:int=Time.get_ticks_usec() if profiling else 0
+ if profiling:debug_visibility_rays+=1
  var start:=a.global_position+Vector3.UP*0.45
  var end:=b.global_position+Vector3.UP*0.45
  var params:=PhysicsRayQueryParameters3D.create(start,end)
  params.collision_mask=1
  params.exclude=[a.get_rid(),b.get_rid()]
  var hit:=get_world_3d().direct_space_state.intersect_ray(params)
- if not hit.is_empty():blocked_hits+=1
+ if not hit.is_empty():
+  blocked_hits+=1
+  if profiling:debug_visibility_rays_blocked+=1
+ if profiling:debug_visibility_usec+=Time.get_ticks_usec()-started_usec
  return hit.is_empty()
 
 func _nearest_prey(hunter:Dictionary,range_limit:float) -> Dictionary:
@@ -1930,13 +1945,23 @@ func _terrain_grid_steer(_body:CharacterBody3D, desired:Vector3) -> Vector3:
  return desired # v18 overrides this hook; the original game remains unchanged.
 
 func _update_beasts(delta: float) -> void:
+ # Profile the whole ecology + AI batch, not just the physics/raycast subset.
+ var profile_batch:bool=OS.has_feature("debug")
+ var batch_started:int=Time.get_ticks_usec() if profile_batch else 0
  _ecology_update(delta)
+ var ecology_ended:int=Time.get_ticks_usec() if profile_batch else 0
  for beast in zone_beast_lists[region_index]:
   _update_beast_step(beast,delta)
+ if profile_batch:
+  debug_ecology_usec+=ecology_ended-batch_started
+  debug_ai_batch_usec+=Time.get_ticks_usec()-batch_started
+  debug_ai_batch_samples+=1
 
 func _update_beast_step(beast:Dictionary, delta:float) -> void:
  ai_updates+=1
  if not bool(beast.get("alive",false)):return
+ var enemy_id:int=int(beast.get("boss_id",0))
+ var is_boss:bool=bool(beast.get("boss",false))
  var body:CharacterBody3D=beast["body"]
  if not is_instance_valid(body):return
  if float(beast.get("hit_flash_until",0.0))>0.0 and map_time>=float(beast.get("hit_flash_until",0.0)):
@@ -1953,71 +1978,92 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
    if map_time<react_until:
     pose_degrees+=V383_FEEDBACK.recoil_degrees(react_until-map_time,bool(beast.get("hit_react_critical",false)))
    elif map_time<swing_until:
-    var swing_side:float=1.0 if int(beast["boss_id"])%2==0 else -1.0
+    var swing_side:float=1.0 if enemy_id%2==0 else -1.0
     pose_degrees+=swing_side*V383_FEEDBACK.attack_followthrough_degrees(swing_until-map_time)
    hit_mesh.rotation_degrees=Vector3(0.0,0.0,pose_degrees)
   if map_time>=react_until:beast["hit_react_until"]=0.0
   if map_time>=swing_until:beast["attack_swing_until"]=0.0
- var diff:=player.global_position-body.global_position
+ var actor_position:Vector3=body.global_position
+ var player_position:Vector3=player.global_position
+ var diff:=player_position-actor_position
  diff.y=0.0
- var distance:=diff.length()
+ var distance_squared:float=diff.length_squared()
+ var distance:=sqrt(distance_squared)
+ # Idle actors do not need a normalized player direction.
+ var player_direction:Vector3=Vector3.ZERO
  beast["attack"]=ENEMY_COMBAT_RULES.attack_timer_after_frame(float(beast.get("attack",0.0)),delta)
+ var attack_ready:bool=float(beast["attack"])<=0.0
  var kind:=str(beast["kind"])
+ var species:Dictionary=BEASTS[kind]
  var staggered:=map_time<float(beast.get("stagger_until",0.0))
- var elite:=str(beast.get("variant","normal"))!="normal" and not bool(beast.get("boss",false))
+ var elite:=str(beast.get("variant","normal"))!="normal" and not is_boss
  beast["elite_lunge_cd"]=maxf(0.0,float(beast.get("elite_lunge_cd",0.0))-delta)
- var move_speed:=float(BEASTS[kind]["speed"])
+ var elite_lunge_ready:bool=float(beast["elite_lunge_cd"])<=0.0
+ var move_speed:=float(species["speed"])
  var is_hostile:=bool(beast["hostile"])
- var perception:float=AI_RULES.perception(map_time<float(beast.get("alert_until",0.0)),weather_name,_day_phase()=="Night")
- var engaged:=is_hostile and distance<perception and _has_clear_sight(body,player)
+ var engaged:bool=false
+ # Visibility is checked only inside the current awareness radius.
+ if is_hostile and AI_RULES.potentially_visible_squared(distance_squared):
+  # The upper bound is defined beside the shared awareness rules.
+  # Distant enemies need neither a day-phase lookup nor a raycast.
+  var perception:float=AI_RULES.perception(map_time<float(beast.get("alert_until",0.0)),weather_name,_day_phase()=="Night")
+  if distance<perception:
+   engaged=_has_clear_sight(body,player)
  beast["engaged"]=engaged
+ # Combat roles are only consumed by engaged AI movement/intent.
+ # Do not look up roles for idle hostile creatures or passive wildlife.
+ var combat_role:String="passive"
+ if engaged:combat_role=ENEMY_COMBAT_RULES.role_for(kind)
+ # Only combatants and fleeing wildlife need this direction. Keep the existing
+ # near-zero guard so overlapping actors never create invalid velocities.
+ if not staggered:
+  if (engaged or (not is_hostile and (distance<6.0 or map_time<float(beast.get("scared_until",0.0))))) and distance>0.00001:
+   player_direction=AI_RULES.planar_direction(diff,distance)
  if engaged:beast["search_pause_until"]=0.0
  # Investigate the last visible location for three seconds after losing sight.
- if not bool(beast.get("boss",false)) and is_hostile:
-  var memory:Dictionary=ENEMY_COMBAT_RULES.remember_target(engaged,is_hostile,false,map_time,player.global_position,beast.get("last_seen_position",body.global_position),float(beast.get("last_seen_until",0.0)))
+ if not is_boss and is_hostile:
+  var memory:Dictionary=ENEMY_COMBAT_RULES.remember_target(engaged,is_hostile,false,map_time,player_position,beast.get("last_seen_position",actor_position),float(beast.get("last_seen_until",0.0)))
   beast["last_seen_position"]=memory["position"]
   beast["last_seen_until"]=memory["until"]
  # v38.3: role-aware low-health retreat for live hostile fauna.
  # Preserve existing boss telegraphs, ecology, attacks and actor pools.
  var v383_intent:String=""
- if engaged and not bool(beast.get("boss",false)):
-  var v383_role:String=ENEMY_COMBAT_RULES.role_for(kind)
+ if engaged and not is_boss:
   var v383_health:float=float(beast.get("hp",1.0))/maxf(1.0,float(beast.get("max",1.0)))
-  v383_intent=V383_COMBAT_RULES.combat_intent(v383_role,distance,v383_health,float(beast["attack"])<=0.0,true)
+  v383_intent=V383_COMBAT_RULES.combat_intent(combat_role,distance,v383_health,attack_ready,true)
  var activity:Dictionary=beast.get("ecology_target",{})
- var pursuing:=not activity.is_empty() and map_time<float(beast.get("hunting_until",0.0)) and not engaged and not bool(beast.get("boss",false))
+ var pursuing:=not activity.is_empty() and map_time<float(beast.get("hunting_until",0.0)) and not engaged and not is_boss
  if staggered:
   body.velocity=Vector3.ZERO
  elif engaged and map_time<float(beast.get("retreat_until",0.0)) and distance<10.0:
-  body.velocity=-diff.normalized()*move_speed*0.9
+  body.velocity=AI_RULES.retreat_velocity(player_direction,move_speed,0.9)
  elif engaged and v383_intent=="retreat" and distance<8.0:
-  body.velocity=-diff.normalized()*move_speed*0.85
+  body.velocity=AI_RULES.retreat_velocity(player_direction,move_speed,0.85)
  elif engaged and ENEMY_COMBAT_RULES.should_circle(kind,v383_intent,distance):
-  # Stable per-actor orbit side, no random calls or additional physics bodies.
-  var flank:Vector3=Vector3(-diff.z,0.0,diff.x).normalized()
-  var orbit_side:float=ENEMY_COMBAT_RULES.orbit_direction(int(beast["boss_id"]))
-  body.velocity=(flank*orbit_side+diff.normalized()*0.25).normalized()*move_speed*0.7
+  # Stable per-actor orbit side, delegated to deterministic stateless rules.
+  var orbit_side:float=ENEMY_COMBAT_RULES.orbit_direction(enemy_id)
+  body.velocity=AI_RULES.orbit_velocity(player_direction,move_speed,orbit_side)
  elif engaged and distance>1.7:
-  body.velocity=AI_RULES.approach(diff,move_speed,int(beast["boss_id"]),bool(beast.get("boss",false)),int(beast.get("boss_phase",1)),distance,ENEMY_COMBAT_RULES.role_for(kind) if bool(beast.get("hostile",false)) else "passive")
- elif is_hostile and not engaged and not bool(beast.get("boss",false)) and map_time<float(beast.get("last_seen_until",0.0)):
-  body.velocity=ENEMY_COMBAT_RULES.investigate_velocity(is_hostile,engaged,false,map_time,float(beast.get("last_seen_until",0.0)),body.global_position,beast.get("last_seen_position",body.global_position),move_speed)
-  if ENEMY_COMBAT_RULES.search_arrived(body.global_position,beast.get("last_seen_position",body.global_position)):
+  body.velocity=AI_RULES.approach(diff,move_speed,enemy_id,is_boss,int(beast.get("boss_phase",1)),distance,combat_role)
+ elif is_hostile and not engaged and not is_boss and map_time<float(beast.get("last_seen_until",0.0)):
+  body.velocity=ENEMY_COMBAT_RULES.investigate_velocity(is_hostile,engaged,false,map_time,float(beast.get("last_seen_until",0.0)),actor_position,beast.get("last_seen_position",actor_position),move_speed)
+  if ENEMY_COMBAT_RULES.search_arrived(actor_position,beast.get("last_seen_position",actor_position)):
    beast["last_seen_until"]=0.0
    beast["search_pause_until"]=ENEMY_COMBAT_RULES.search_pause_expiry(map_time)
- elif is_hostile and not engaged and not bool(beast.get("boss",false)) and ENEMY_COMBAT_RULES.search_pause_active(engaged,map_time,float(beast.get("search_pause_until",0.0))):
+ elif is_hostile and not engaged and not is_boss and ENEMY_COMBAT_RULES.search_pause_active(engaged,map_time,float(beast.get("search_pause_until",0.0))):
   body.velocity=Vector3.ZERO
  elif not is_hostile and (distance<6.0 or map_time<float(beast.get("scared_until",0.0))):
-  var escape:= -diff.normalized()
+  var escape:= -player_direction
   if distance>8.0:
    escape=Vector3(cos(map_time+float(beast["boss_id"])),0,sin(map_time+float(beast["boss_id"])))
   body.velocity=escape*move_speed
  elif pursuing and bool(activity.get("alive",false)):
   var prey_body:CharacterBody3D=activity["body"]
   if is_instance_valid(prey_body):
-   var to_prey:=prey_body.global_position-body.global_position
+   var to_prey:=prey_body.global_position-actor_position
    to_prey.y=0
    if to_prey.length_squared()<1.55*1.55:
-    activity["hp"]=float(activity["hp"])-float(BEASTS[kind]["atk"])*0.65
+    activity["hp"]=float(activity["hp"])-float(species["atk"])*0.65
     beast["fed_until"]=map_time+7.0
     beast["hunting_until"]=0.0
     if float(activity["hp"])<=0.0:
@@ -2026,15 +2072,18 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
     body.velocity=Vector3.ZERO
    else:body.velocity=to_prey.normalized()*move_speed*0.8
   else:body.velocity=Vector3.ZERO
- elif body.global_position.distance_squared_to(beast["home"])>16.0:
-  var toward:Vector3=beast["home"]
-  toward-=body.global_position
-  toward.y=0
-  body.velocity=toward.normalized()*move_speed*0.4
+ elif actor_position.distance_squared_to(beast["home"])>16.0:
+  body.velocity=AI_RULES.return_home_velocity(beast["home"],actor_position,move_speed)
  else:body.velocity=Vector3.ZERO
  # Single virtual call avoids per-frame reflection and supports future nav implementations.
  body.velocity=_terrain_grid_steer(body,body.velocity)
+ # Measure actual physics movement cost in debug builds, including stalled actors.
+ var movement_profile:bool=OS.has_feature("debug")
+ var movement_started:int=Time.get_ticks_usec() if movement_profile else 0
  body.move_and_slide()
+ if movement_profile:
+  debug_movement_usec+=Time.get_ticks_usec()-movement_started
+  debug_movement_samples+=1
  # v9 stagger cancels regular attacks. Boss windups remain uninterruptible.
  if staggered:return
  # Elite creatures telegraph a longer reach attack with a fixed target point.
@@ -2043,19 +2092,19 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
    beast["elite_lunge_windup"]=maxf(0.0,float(beast["elite_lunge_windup"])-delta)
    if float(beast["elite_lunge_windup"])<=0.0:
     var strike_pos:Vector3=beast["elite_lunge_target"]
-    if COMBAT_RULES.elite_missed(strike_pos,player.global_position,dodge_time):elite_attacks_dodged+=1
-    elif _has_clear_sight(body,player):_apply_incoming_damage(float(BEASTS[kind]["atk"])*1.6)
+    if COMBAT_RULES.elite_missed(strike_pos,player_position,dodge_time):elite_attacks_dodged+=1
+    elif _has_clear_sight(body,player):_apply_incoming_damage(float(species["atk"])*1.6)
     beast["attack"]=2.0
    return
-  if engaged and distance>=1.8 and distance<ELITE_LUNGE_RANGE and float(beast["elite_lunge_cd"])<=0.0:
+  if engaged and distance>=1.8 and distance<ELITE_LUNGE_RANGE and elite_lunge_ready:
    beast["elite_lunge_windup"]=0.9
-   beast["elite_lunge_target"]=player.global_position
+   beast["elite_lunge_target"]=player_position
    beast["elite_lunge_cd"]=5.0
    body.velocity=Vector3.ZERO
    _show_message("Elite attack incoming! Dodge the marked position.",1.1)
    return
  # Telegraphs resolve after a real warning; no damage from inside walls.
- if bool(beast.get("boss",false)):
+ if is_boss:
   if float(beast.get("windup",0))>0:
    beast["windup"]=maxf(0.0,float(beast["windup"])-delta)
    _set_boss_telegraph(beast,true)
@@ -2063,13 +2112,13 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
     _set_boss_telegraph(beast,false)
     var marked:Vector3=beast.get("warning_pos",body.global_position)
     var warning_radius:float=GUARDIAN_ATTACK_RULES.safe_radius(float(beast.get("warning_radius",2.8)))
-    var near_hit:bool=GUARDIAN_ATTACK_RULES.warning_hit(marked,player.global_position,warning_radius)
+    var near_hit:bool=GUARDIAN_ATTACK_RULES.warning_hit(marked,player_position,warning_radius)
     var landed:bool=near_hit and dodge_time<=0 and _has_clear_sight(body,player)
     beast["v313_last_attack_landed"]=landed
     if landed:
      _apply_incoming_damage(GUARDIAN_ATTACK_RULES.boss_damage(int(beast.get("boss_phase",1))))
     beast["attack"]=COMBAT_RULES.guardian_attack_cooldown(int(beast.get("boss_phase",1)))
-  elif engaged and distance<(5.0 if int(beast.get("boss_phase",1))>=2 else 3.3) and float(beast["attack"])<=0.0:
+  elif engaged and distance<(5.0 if int(beast.get("boss_phase",1))>=2 else 3.3) and attack_ready:
    var phase:int=GUARDIAN_ATTACK_RULES.safe_phase(int(beast.get("boss_phase",1)))
    var pattern:int=int(beast.get("boss_pattern",0))
    # v32.8: two readable patterns in phase one, then +1 per phase.
@@ -2081,15 +2130,15 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
    # Pattern 0: focused player mark; 1: wide boss-centered sweep;
    # 2: compact precision mark; 3: medium delayed player mark.
    beast["warning_radius"]=GUARDIAN_ATTACK_RULES.radius(pattern)
-   beast["warning_pos"]=body.global_position if pattern==1 else player.global_position
+   beast["warning_pos"]=body.global_position if pattern==1 else player_position
    _set_boss_telegraph(beast,true)
    _show_message("⚠ GUARDIAN PHASE "+str(phase)+": dodge the glowing circle!",1.6)
- elif engaged and ENEMY_COMBAT_RULES.can_attack(distance,ENEMY_COMBAT_RULES.ready_to_strike(float(beast["attack"])),true) and ENEMY_COMBAT_RULES.tactical_attack_ready(kind,map_time,int(beast.get("boss_id",0))) and _has_clear_sight(body,player):
+ elif engaged and ENEMY_COMBAT_RULES.can_attack(distance,attack_ready,true) and ENEMY_COMBAT_RULES.tactical_attack_ready(kind,map_time,enemy_id) and _has_clear_sight(body,player):
   if dodge_time<=0:
-   _apply_incoming_damage(float(BEASTS[kind]["atk"]))
+   _apply_incoming_damage(float(species["atk"]))
   # Visual follow-through only; preserve established hit timing and damage.
   beast["attack_swing_until"]=map_time+V383_FEEDBACK.ATTACK_SWING_SECONDS
-  beast["attack"]=ENEMY_COMBAT_RULES.staggered_cooldown(kind,int(beast.get("boss_id",0)))
+  beast["attack"]=ENEMY_COMBAT_RULES.staggered_cooldown(kind,enemy_id)
 
 func _despawn_native_beast(beast:Dictionary,delay:float) -> void:
  beast["alive"]=false

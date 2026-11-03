@@ -14,7 +14,7 @@ func _run()->void:
  game.call("_start_game","z")
  var rifts:Array=game.get("rifts")
  var hazards:Array=game.get("depth_surge_nodes")
- check(hazards.size()==3,"one noncolliding telegraph per rift")
+ check(hazards.size()==30,"one noncolliding telegraph per each of thirty rifts")
  var player:CharacterBody3D=game.get("player")
  var hazard:Node3D=hazards[0]["node"]
  player.global_position=hazard.global_position+Vector3(0.0,0.7,0.0)
