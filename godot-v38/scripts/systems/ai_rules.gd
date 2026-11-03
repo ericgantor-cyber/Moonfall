@@ -11,6 +11,10 @@ static func perception(is_alert:bool,weather:String,is_night:bool) -> float:
 static func maximum_perception() -> float:
  return perception(true,"Clear",true)
 
+# Cheap distance gate before any time-of-day or line-of-sight work.
+static func potentially_visible(distance:float) -> bool:
+ return is_finite(distance) and distance<maximum_perception()
+
 static func approach(diff:Vector3,speed:float,spawn_id:int,is_boss:bool,boss_phase:int,distance:float,role:String="ambusher") -> Vector3:
  if not is_finite(diff.x) or not is_finite(diff.y) or not is_finite(diff.z) or not is_finite(speed) or speed<=0.0:return Vector3.ZERO
  var planar:Vector3=Vector3(diff.x,0.0,diff.z)
