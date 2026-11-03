@@ -49,7 +49,14 @@ func _run()->void:
 
  game.call("_v313_tick_traps",1.05)
  check(not (traps[0]["node"] as MeshInstance3D).visible,"Hazard hides after strike")
- check(float(traps[0]["cooldown"])>5.0,"Hazard cooldown prevents spam")
+ check(is_equal_approx(RULES.TRAP_COOLDOWN,20.0),"Rift hazard cooldown is twenty seconds")
+ check(is_equal_approx(float(traps[0]["cooldown"]),20.0),"Hazard starts a full twenty-second cooldown after strike")
+ game.call("_v313_tick_traps",19.0)
+ check(not bool(traps[0]["armed"]) and is_equal_approx(float(traps[0]["cooldown"]),1.0),"Trap stays disarmed until its twenty-second cooldown expires")
+ game.call("_v313_tick_traps",0.9)
+ check(not bool(traps[0]["armed"]) and not (traps[0]["node"] as MeshInstance3D).visible,"Trap does not rearm before twenty seconds")
+ game.call("_v313_tick_traps",0.1)
+ check(bool(traps[0]["armed"]) and (traps[0]["node"] as MeshInstance3D).visible,"Trap rearms after the full twenty-second cooldown")
  # A corrupted active trap must disarm without striking or immediately restarting.
  var saved_hits:int=int(game.get("v313_trap_hits"))
  for broken_clock in [NAN,INF,-INF,-1.0]:
