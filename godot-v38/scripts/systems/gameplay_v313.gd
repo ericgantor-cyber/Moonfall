@@ -64,10 +64,12 @@ static func choose_boss_pattern(phase:int,hero_health:float,hero_max:float,previ
  return next
 
 static func surge_zone(elapsed:float,zones:int)->int:
- if zones<=0 or elapsed<0.0:return -1
+ # Saved clocks outside the supported gameplay horizon must not overflow int conversion.
+ if zones<=0 or not is_finite(elapsed) or elapsed<0.0 or elapsed>1.0e12:return -1
  return int(floor(elapsed/SURGE_INTERVAL))%zones
 
 static func surge_active(elapsed:float)->bool:
+ if not is_finite(elapsed) or elapsed<0.0 or elapsed>1.0e12:return false
  return elapsed>=SURGE_INTERVAL and fposmod(elapsed,SURGE_INTERVAL)<SURGE_SECONDS
 
 static func elite_material(zone:int,variant:String,is_boss:bool)->String:
