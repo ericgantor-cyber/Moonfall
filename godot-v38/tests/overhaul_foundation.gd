@@ -717,6 +717,17 @@ func _run()->void:
  check("if float(beast.get(\"windup\",0.0))>0.0:return" in boss_controller,"active guardian windup timer prevents attack rotation")
  check(boss_controller.find("_show_message(\"GUARDIAN PHASE")<boss_controller.find("if float(beast.get(\"windup\",0.0))>0.0:return"),"guardian phase warning fires even during active windups")
  var adaptive=load("res://scripts/systems/gameplay_v313.gd")
+ # Timed world surges must reject corrupt clocks before int conversion.
+ check(adaptive.surge_zone(0.0,6)==0 and adaptive.surge_zone(165.0,6)==1 and adaptive.surge_zone(330.0,6)==2 and adaptive.surge_zone(990.0,6)==0,"world surge zone rotation remains deterministic")
+ check(not adaptive.surge_active(164.99) and adaptive.surge_active(165.0) and adaptive.surge_active(192.99) and not adaptive.surge_active(193.0),"world surge retains its 28-second activity window")
+ var corrupt_surge_safe:bool=true
+ for bad_time in [NAN,INF,-INF,-1.0,1.0e20,1.0e308]:
+  if adaptive.surge_zone(bad_time,6)!=-1 or adaptive.surge_active(bad_time):
+   corrupt_surge_safe=false
+   break
+ check(corrupt_surge_safe,"invalid or extreme world clocks cannot start surges")
+ check(adaptive.surge_zone(165.0,0)==-1 and adaptive.surge_zone(165.0,-1)==-1,"surge zone requires a positive region count")
+
  # Combo counters from corrupted saves cannot overflow into abnormal damage.
  check(adaptive.next_combo(1.0,1.2,0)==1 and adaptive.next_combo(1.0,1.2,1)==2 and adaptive.next_combo(1.0,1.2,2)==3 and adaptive.next_combo(1.0,1.2,3)==3,"ordinary melee combo progression and cap remain unchanged")
  check(adaptive.next_combo(2.0,1.0,2)==1,"expired melee combo resets to first strike")
