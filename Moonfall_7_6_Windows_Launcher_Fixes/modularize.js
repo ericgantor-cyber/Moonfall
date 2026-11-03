@@ -20,6 +20,7 @@ const transforms = [
   require('./phase6-world-integration.js'),
   require('./continuous-dungeon-integration.js'),
   require('./stage-one-expansion.js'),
+  require('./dungeon-enemy-navigation.js'),
   require('./boss-combat-stage.js'),
   require('./sanctuary-upgrades.js'),
   require('./weapon-evolutions.js'),
