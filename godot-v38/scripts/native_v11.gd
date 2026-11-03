@@ -1983,7 +1983,9 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
  beast["elite_lunge_cd"]=maxf(0.0,float(beast.get("elite_lunge_cd",0.0))-delta)
  var move_speed:=float(species["speed"])
  var is_hostile:=bool(beast["hostile"])
- var combat_role:String=ENEMY_COMBAT_RULES.role_for(kind) if is_hostile else "passive"
+ # Passive actors never need the hostile combat-role lookup.
+ var combat_role:String="passive"
+ if is_hostile:combat_role=ENEMY_COMBAT_RULES.role_for(kind)
  var engaged:bool=false
  # Passive fauna cannot engage: skip weather/time perception and LOS work entirely.
  if is_hostile:
