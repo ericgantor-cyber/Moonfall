@@ -5,7 +5,7 @@ const logic=[
 'function mfBossExtra(e){',
 ' if(!e.boss||e.hp<=0||!playing||!Number.isFinite(e.max)||e.max<=0)return;',
 ' const ratio=Math.max(0,e.hp/e.max);',
-' const phase=ratio<=.25?3:ratio<=.5?2:1;',
+' const phase=Math.max(Number.isFinite(e.mfBossPhase)?e.mfBossPhase:1,ratio<=.25?3:ratio<=.5?2:1);',
 ' if(!Number.isFinite(e.mfBossPhase))e.mfBossPhase=1;',
 ' if(phase>e.mfBossPhase){e.mfBossPhase=phase;burst(e.x,e.y,phase===3?"#ff669c":"#e59aff",24);}',
 ' const interval=phase===3?105:phase===2?145:190;',
