@@ -11,8 +11,9 @@ static func next_pattern(pattern:int,phase:int)->int:
 # pattern immediately. Stay deterministic for replay and save compatibility.
 static func next_pattern_after_phase_change(previous_pattern:int,new_phase:int)->int:
  var count:int=pattern_count(new_phase)
- var next:int=posmod(previous_pattern+1,count)
- if next==posmod(previous_pattern,count):next=(next+1)%count
+ # Normalize before addition: old/corrupt save values may be at integer limits.
+ var previous_slot:int=posmod(previous_pattern,count)
+ var next:int=(previous_slot+1)%count
  return next
 # Phase transitions unlock additional attacks while preserving the existing
 # deterministic rotation and the player's learned dodge timings.
@@ -44,6 +45,8 @@ static func safe_radius(value:float)->float:
  return clampf(value,0.5,4.0)
 
 static func warning_hit(marked:Vector3,hero:Vector3,radius_value:float)->bool:
+ # Invalid or nonpositive warning geometry must never deal phantom damage.
+ if not is_finite(radius_value) or radius_value<=0.0:return false
  if not is_finite(marked.x) or not is_finite(marked.z) or not is_finite(hero.x) or not is_finite(hero.z):return false
  var radius_safe:float=safe_radius(radius_value)
  var offset:Vector2=Vector2(marked.x-hero.x,marked.z-hero.z)
