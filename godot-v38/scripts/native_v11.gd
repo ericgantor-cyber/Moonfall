@@ -1982,6 +1982,7 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
  var staggered:=map_time<float(beast.get("stagger_until",0.0))
  var elite:=str(beast.get("variant","normal"))!="normal" and not is_boss
  beast["elite_lunge_cd"]=maxf(0.0,float(beast.get("elite_lunge_cd",0.0))-delta)
+ var elite_lunge_ready:bool=float(beast["elite_lunge_cd"])<=0.0
  var move_speed:=float(species["speed"])
  var is_hostile:=bool(beast["hostile"])
  # Passive actors never need the hostile combat-role lookup.
@@ -2074,7 +2075,7 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
     elif _has_clear_sight(body,player):_apply_incoming_damage(float(species["atk"])*1.6)
     beast["attack"]=2.0
    return
-  if engaged and distance>=1.8 and distance<ELITE_LUNGE_RANGE and float(beast["elite_lunge_cd"])<=0.0:
+  if engaged and distance>=1.8 and distance<ELITE_LUNGE_RANGE and elite_lunge_ready:
    beast["elite_lunge_windup"]=0.9
    beast["elite_lunge_target"]=player.global_position
    beast["elite_lunge_cd"]=5.0
