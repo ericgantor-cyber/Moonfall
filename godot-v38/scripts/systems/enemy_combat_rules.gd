@@ -75,6 +75,10 @@ static func ready_to_strike(timer:float)->bool:
  return is_finite(timer) and timer==0.0
 
 # Saved elite marks must be finite before collision math or damage resolution.
+# Reject corrupt or impossible pending elite windup durations.
+static func valid_lunge_windup(duration:float)->bool:
+ return is_finite(duration) and duration>=0.0 and duration<=0.9
+
 static func valid_lunge_target(target:Vector3)->bool:
  if not is_finite(target.x) or not is_finite(target.y) or not is_finite(target.z):return false
  # Finite components can still overflow squared-distance hit calculations.
