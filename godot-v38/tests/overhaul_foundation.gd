@@ -178,6 +178,17 @@ func _run()->void:
  check(is_equal_approx(combat_rules.attack_timer_after_frame(1.5,INF),1.5),"invalid frame time leaves attack cooldown stable")
  check(is_equal_approx(combat_rules.attack_timer_after_frame(1.5,0.5),1.4),"large frame hitch uses capped cooldown step")
  check(combat_rules.attack_timer_after_frame(NAN,0.016)==0.0,"invalid attack timer recovers to safe state")
+ check(combat_rules.investigate_velocity(true,false,false,1.0,2.0,Vector3.ZERO,Vector3(1.0e30,0.0,1.0e30),10.0)==Vector3.ZERO,"overflowed investigation offset fails closed")
+ check(not combat_rules.search_arrived(Vector3.ZERO,Vector3(1.0e30,0.0,1.0e30)),"overflowed search offset cannot count as arrival")
+ var search_sweep_ok:bool=true
+ for sample_index in range(111):
+  var angle:float=TAU*float(sample_index)/111.0
+  var destination:Vector3=Vector3(cos(angle)*6.0,0.0,sin(angle)*6.0)
+  var velocity:Vector3=combat_rules.investigate_velocity(true,false,false,1.0,2.0,Vector3.ZERO,destination,10.0)
+  if not is_equal_approx(velocity.length(),6.5) or not is_zero_approx(velocity.y) or velocity.dot(destination)<=0.0 or combat_rules.search_arrived(Vector3.ZERO,destination):
+   search_sweep_ok=false
+   break
+ check(search_sweep_ok,"111 investigation headings preserve search speed, direction, and arrival detection")
  check(combat_rules.search_pause_expiry(INF)==0.0,"invalid AI clock cannot create endless search")
  check(combat_rules.search_pause_expiry(1.0e15)==0.0,"extreme AI clock cannot create endless search")
  var telegraph=load("res://scripts/systems/boss_telegraph_readout.gd")

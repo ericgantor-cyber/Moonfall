@@ -90,16 +90,18 @@ static func investigate_velocity(hostile:bool,engaged:bool,boss:bool,now:float,u
   return Vector3.ZERO
  var offset:Vector3=last_pos-body_pos
  offset.y=0.0
- if not is_finite(offset.x) or not is_finite(offset.z) or offset.length_squared()<1.0:
+ var distance_sq:float=offset.length_squared()
+ if not is_finite(offset.x) or not is_finite(offset.z) or not is_finite(distance_sq) or distance_sq<1.0:
   return Vector3.ZERO
  # Slow as the search point approaches so actors do not oscillate over it.
- var max_speed:float=minf(clampf(speed,0.0,18.0)*0.65,(sqrt(offset.length_squared())-1.0)*3.5) if is_finite(speed) and speed>0.0 else 0.0
+ var max_speed:float=minf(clampf(speed,0.0,18.0)*0.65,(sqrt(distance_sq)-1.0)*3.5) if is_finite(speed) and speed>0.0 else 0.0
  return offset.normalized()*maxf(0.0,max_speed)
 
 static func search_arrived(body_pos:Vector3,last_pos:Vector3)->bool:
  var offset:Vector3=last_pos-body_pos
  offset.y=0.0
- return is_finite(offset.x) and is_finite(offset.z) and offset.length_squared()<=1.0
+ var distance_sq:float=offset.length_squared()
+ return is_finite(offset.x) and is_finite(offset.z) and is_finite(distance_sq) and distance_sq<=1.0
 
 # Brief look-around at the last known location; sighting a hero cancels it.
 static func search_pause_active(engaged:bool, now:float, pause_until:float)->bool:
