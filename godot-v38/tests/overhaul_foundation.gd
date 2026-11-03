@@ -268,6 +268,21 @@ func _run()->void:
    break
  check(elite_overflow_sweep_ok,"111 elite marks reject squared-distance overflow on every coordinate axis")
  check(combat_rules.valid_lunge_target(Vector3.ZERO),"valid origin target remains allowed")
+ var elite_start_sweep_ok:bool=true
+ for sample_index in range(111):
+  var sample_target:Vector3=Vector3(3.0+float(sample_index%5),0.0,float(sample_index%7)*0.1)
+  var coordinate_case:int=sample_index%4
+  if coordinate_case==1:sample_target.x=NAN
+  elif coordinate_case==2:sample_target.y=INF
+  elif coordinate_case==3:sample_target.z=1.0e200
+  var can_start:bool=combat_rules.valid_lunge_target(sample_target)
+  if can_start!=(coordinate_case==0):
+   elite_start_sweep_ok=false
+   break
+ check(elite_start_sweep_ok,"111 elite lunge starts reject nonfinite and overflowed target coordinates")
+ var lunge_start_guard:int=live_enemy_script.find("and elite_lunge_ready and ENEMY_COMBAT_RULES.valid_lunge_target(player_position):")
+ var lunge_target_write:int=live_enemy_script.find("beast[\"elite_lunge_target\"]=player_position")
+ check(lunge_start_guard>=0 and lunge_target_write>lunge_start_guard,"live elite lunge validates position before saving mark or starting warning")
  var mark_guard:int=live_enemy_script.find("if not ENEMY_COMBAT_RULES.valid_lunge_target(strike_pos):")
  var elite_damage:int=live_enemy_script.find("COMBAT_RULES.elite_missed(strike_pos,player_position,dodge_time)")
  check(mark_guard>=0 and elite_damage>mark_guard,"elite mark validation precedes miss and damage calculations")
