@@ -249,6 +249,17 @@ func _run()->void:
    search_sweep_ok=false
    break
  check(search_sweep_ok,"111 investigation headings preserve search speed, direction, and arrival detection")
+ var braking_sweep_ok:bool=true
+ for sample_index in range(111):
+  var search_distance:float=1.05+float(sample_index)*0.07
+  var destination:Vector3=Vector3(search_distance,0.0,0.0)
+  var search_speed:Vector3=combat_rules.investigate_velocity(true,false,false,1.0,2.0,Vector3.ZERO,destination,10.0)
+  var expected_speed:float=minf(6.5,(search_distance-1.0)*3.5)
+  if absf(search_speed.length()-expected_speed)>0.002 or search_speed.x<=0.0 or not is_zero_approx(search_speed.y) or not is_zero_approx(search_speed.z) or combat_rules.search_arrived(Vector3.ZERO,destination):
+   braking_sweep_ok=false
+   break
+ check(braking_sweep_ok,"111 investigation distances brake smoothly without movement spikes")
+ check(combat_rules.investigate_velocity(true,false,false,1.0,2.0,Vector3.ZERO,Vector3(1.0,0.0,0.0),10.0)==Vector3.ZERO,"search reaches rest exactly at one unit")
  check(combat_rules.investigate_velocity(true,false,false,1.0e12+1.0,1.0e12+2.0,Vector3.ZERO,Vector3(6,0,0),10.0)==Vector3.ZERO,"future AI clocks cannot resume stale investigations")
  var memory_sweep_ok:bool=true
  for sample_index in range(111):
