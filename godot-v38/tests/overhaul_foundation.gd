@@ -358,7 +358,7 @@ func _run()->void:
   elif credit_case==5:dodge_remaining=-0.2
   elif credit_case==6:dodge_remaining=INF
   var credit_expected:bool=credit_case==0
-  var actual_credit:bool=elite_hit_rules.elite_dodge_credit(strike_mark,hero_position,dodge_remaining)
+  var actual_credit:bool=elite_hit_rules.elite_dodge_credit(strike_mark,hero_position,dodge_remaining,true)
   if actual_credit!=credit_expected or (actual_credit and not elite_hit_rules.elite_missed(strike_mark,hero_position,dodge_remaining)):
    elite_dodge_credit_sweep_ok=false
    break
@@ -427,6 +427,33 @@ func _run()->void:
    elite_full_coordinate_sweep_ok=false
    break
  check(elite_full_coordinate_sweep_ok,"1111 elite hit and dodge combinations reject corrupt heights and preserve planar parity")
+ var explicit_sight_sweep_ok:bool=true
+ for sample_index in range(1111):
+  var scenario:int=sample_index%12
+  var strike_point:Vector3=Vector3(float(sample_index)*0.012,0.0,2.0)
+  var hero_point:Vector3=strike_point+Vector3(0.4,0.0,0.3)
+  var dodge_timer:float=0.2
+  var has_clear_sight:bool=scenario!=1 and scenario!=7
+  if scenario==2 or scenario==8:hero_point=strike_point+Vector3(2.5,0.0,0.0)
+  elif scenario==3:hero_point.y=INF
+  elif scenario==4:strike_point.y=NAN
+  elif scenario==5:hero_point.x=NAN
+  elif scenario==6:
+   strike_point=Vector3(1.0e19,0.0,0.0)
+   hero_point=Vector3(-1.0e19,0.0,0.0)
+  elif scenario==11:hero_point.y=35.0
+  if scenario==7:dodge_timer=0.0
+  elif scenario==8:dodge_timer=-0.5
+  elif scenario==9:dodge_timer=NAN
+  elif scenario==10:dodge_timer=INF
+  var expected_credit:bool=scenario==0 or scenario==11
+  var explicit_credit:bool=elite_hit_rules.elite_dodge_credit(strike_point,hero_point,dodge_timer,has_clear_sight)
+  var implicit_credit:bool=elite_hit_rules.elite_dodge_credit(strike_point,hero_point,dodge_timer)
+  if explicit_credit!=expected_credit or implicit_credit or (explicit_credit and not elite_hit_rules.elite_missed(strike_point,hero_point,dodge_timer)):
+   explicit_sight_sweep_ok=false
+   break
+ check(explicit_sight_sweep_ok,"1111 elite dodge scenarios require explicit clear sight and reject invalid input")
+ check(not elite_hit_rules.elite_dodge_credit(Vector3.ZERO,Vector3.ZERO,0.3),"omitted line-of-sight can never award dodge credit")
  check(not elite_hit_rules.elite_in_hit_radius(Vector3.ZERO,Vector3(1.91,0.0,0.0)),"elite reach excludes targets beyond 1.9 units")
  check(not elite_hit_rules.elite_dodge_credit(Vector3.ZERO,Vector3(0.5,0.0,0.0),0.3,false),"blocked elite lunges never grant dodge credit")
  check("if COMBAT_RULES.elite_dodge_credit(strike_pos,player_position,dodge_time,_has_clear_sight(body,player)):elite_attacks_dodged+=1" in live_enemy_script,"live elite dodge credit checks line of sight")
