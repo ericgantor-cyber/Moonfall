@@ -718,6 +718,18 @@ func _run()->void:
  check(boss_controller.find("_show_message(\"GUARDIAN PHASE")<boss_controller.find("if float(beast.get(\"windup\",0.0))>0.0:return"),"guardian phase warning fires even during active windups")
  var adaptive=load("res://scripts/systems/gameplay_v313.gd")
  check(adaptive.choose_boss_pattern(3,100.0,100.0,0,2.0)==1,"close player pressure selects guardian sweep")
+ # Extreme saved attack IDs must normalize before advancing, with no overflow.
+ var adaptive_rotation_safe:bool=true
+ for phase_value in [1,2,3]:
+  var phase_count:int=mini(4,clampi(phase_value,1,3)+1)
+  for previous_id in [-9223372036854775807,-1,0,1,3,9223372036854775807]:
+   var prior_slot:int=posmod(previous_id,phase_count)
+   var chosen:int=adaptive.choose_boss_pattern(phase_value,100.0,100.0,previous_id)
+   if chosen!=(prior_slot+1)%phase_count or chosen==prior_slot:
+    adaptive_rotation_safe=false
+    break
+  if not adaptive_rotation_safe:break
+ check(adaptive_rotation_safe,"adaptive guardian rotation handles extreme saved IDs without overflow")
  check(adaptive.choose_boss_pattern(3,100.0,100.0,1,2.0)==2,"guardian does not repeat sweep back-to-back")
  check(adaptive.choose_boss_pattern(3,20.0,100.0,2,2.0)==0,"low health player gets readable focused attack")
  check(adaptive.choose_boss_pattern(3,100.0,100.0,2,8.0)==3,"phase three can select fourth guardian pattern")
