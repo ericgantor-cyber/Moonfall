@@ -6,6 +6,11 @@ static func perception(is_alert:bool,weather:String,is_night:bool) -> float:
  if is_night:radius*=1.16
  return radius
 
+# Conservative upper bound for every weather/day/alert combination.
+# Use the same coefficients as perception() to prevent awareness drift.
+static func maximum_perception() -> float:
+ return perception(true,"Clear",true)
+
 static func approach(diff:Vector3,speed:float,spawn_id:int,is_boss:bool,boss_phase:int,distance:float,role:String="ambusher") -> Vector3:
  if not is_finite(diff.x) or not is_finite(diff.y) or not is_finite(diff.z) or not is_finite(speed) or speed<=0.0:return Vector3.ZERO
  var planar:Vector3=Vector3(diff.x,0.0,diff.z)
