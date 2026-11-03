@@ -42,7 +42,9 @@ static func choose_boss_pattern(phase:int,hero_health:float,hero_max:float,previ
   return 1
  # Sustained close-range pressure unlocks a precision response in phase three.
  # Use a small capped per-guardian counter, not a per-frame search.
- if phase>=3 and close_pressure>=3 and posmod(previous,count)!=2:
+ if phase>=3 and close_pressure>=3:
+  # Do not repeat the precision pattern under sustained close pressure.
+  if posmod(previous,count)==2:return next
   return 2
  # After a successful hit, avoid relentless wide-sweep pressure; favor
  # a slower-to-read focused follow-up instead of increasing damage.
