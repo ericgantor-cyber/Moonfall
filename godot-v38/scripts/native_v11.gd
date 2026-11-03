@@ -2053,10 +2053,7 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
  elif is_hostile and not engaged and not is_boss and ENEMY_COMBAT_RULES.search_pause_active(engaged,map_time,float(beast.get("search_pause_until",0.0))):
   body.velocity=Vector3.ZERO
  elif not is_hostile and (distance<6.0 or map_time<float(beast.get("scared_until",0.0))):
-  var escape:= -player_direction
-  if distance>8.0:
-   escape=Vector3(cos(map_time+float(beast["boss_id"])),0,sin(map_time+float(beast["boss_id"])))
-  body.velocity=escape*move_speed
+  body.velocity=AI_RULES.wildlife_escape_velocity(player_direction,move_speed,distance,map_time,int(beast["boss_id"]))
  elif pursuing and bool(activity.get("alive",false)):
   var prey_body:CharacterBody3D=activity["body"]
   if is_instance_valid(prey_body):
@@ -2070,13 +2067,13 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
      _remove_ecology_prey(activity)
      hunts_completed+=1
     body.velocity=Vector3.ZERO
-   else:body.velocity=to_prey.normalized()*move_speed*0.8
+   else:body.velocity=AI_RULES.prey_chase_velocity(to_prey,move_speed)
   else:body.velocity=Vector3.ZERO
  elif actor_position.distance_squared_to(beast["home"])>16.0:
   var toward:Vector3=beast["home"]
   toward-=actor_position
   toward.y=0
-  body.velocity=toward.normalized()*move_speed*0.4
+  body.velocity=AI_RULES.return_home_velocity(toward,move_speed)
  else:body.velocity=Vector3.ZERO
  # Single virtual call avoids per-frame reflection and supports future nav implementations.
  body.velocity=_terrain_grid_steer(body,body.velocity)
