@@ -480,6 +480,39 @@ func _run()->void:
    dodge_window_limit_sweep_ok=false
    break
  check(dodge_window_limit_sweep_ok,"1111 dodge duration samples award credit only within the genuine 0.55-second window")
+ var dodge_countdown_11111_ok:bool=true
+ for sample_index in range(11111):
+  var scenario:int=sample_index%19
+  var clock_before:float=0.5
+  var frame_step:float=0.016+float(sample_index%9)*0.005
+  if scenario==1:clock_before=0.55
+  elif scenario==2:clock_before=0.0
+  elif scenario==3:clock_before=0.001
+  elif scenario==4:clock_before=0.25
+  elif scenario==5:clock_before=-0.1
+  elif scenario==6:clock_before=0.551
+  elif scenario==7:clock_before=NAN
+  elif scenario==8:clock_before=INF
+  elif scenario==9:clock_before=-INF
+  elif scenario==10:frame_step=-0.1
+  elif scenario==11:frame_step=0.0
+  elif scenario==12:frame_step=NAN
+  elif scenario==13:frame_step=INF
+  elif scenario==14:frame_step=-INF
+  elif scenario==15:frame_step=1.0
+  elif scenario==16:frame_step=0.55
+  elif scenario==17:clock_before=0.55;frame_step=0.549
+  elif scenario==18:clock_before=0.2;frame_step=0.25
+  var expected_dodge:float=0.0
+  if is_finite(clock_before) and clock_before>=0.0 and clock_before<=0.55:
+   expected_dodge=clock_before
+   if is_finite(frame_step) and frame_step>0.0:expected_dodge=maxf(0.0,clock_before-frame_step)
+  var actual_dodge:float=elite_hit_rules.dodge_timer_after_frame(clock_before,frame_step)
+  if not is_finite(actual_dodge) or actual_dodge<0.0 or actual_dodge>0.55 or not is_equal_approx(actual_dodge,expected_dodge):
+   dodge_countdown_11111_ok=false
+   break
+ check(dodge_countdown_11111_ok,"11111 dodge countdown cases preserve valid duration and reject invalid state or delta")
+ check("dodge_time=COMBAT_RULES.dodge_timer_after_frame(dodge_time,delta)" in live_enemy_script,"live dodge clock uses validated per-frame countdown")
  check(not elite_hit_rules.elite_dodge_credit(Vector3.ZERO,Vector3.ZERO,1.0,true) and elite_hit_rules.elite_missed(Vector3.ZERO,Vector3.ZERO,1.0),"oversized dodge time prevents damage but cannot inflate dodge statistics")
  check(not elite_hit_rules.elite_dodge_credit(Vector3.ZERO,Vector3.ZERO,0.3),"omitted line-of-sight can never award dodge credit")
  check(not elite_hit_rules.elite_in_hit_radius(Vector3.ZERO,Vector3(1.91,0.0,0.0)),"elite reach excludes targets beyond 1.9 units")

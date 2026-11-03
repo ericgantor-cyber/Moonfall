@@ -13,6 +13,12 @@ static func outgoing_damage(base:float,critical:bool,wounded:bool,execute_rank:i
  damage*=safe_power
  return minf(damage,1000000000.0)
 
+# Live dodge windows are 0.5 or 0.55 seconds. Invalid state cannot extend immunity.
+static func dodge_timer_after_frame(current:float,delta:float)->float:
+ if not is_finite(current) or current<0.0 or current>0.55:return 0.0
+ if not is_finite(delta) or delta<=0.0:return current
+ return maxf(0.0,current-delta)
+
 const ELITE_HIT_RADIUS_SQUARED:float=1.9*1.9
 
 # Shared ground-plane reach check for impact and dodge statistics.
