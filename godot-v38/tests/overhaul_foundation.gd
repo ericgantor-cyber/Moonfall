@@ -394,6 +394,39 @@ func _run()->void:
    shared_lunge_radius_ok=false
    break
  check(shared_lunge_radius_ok,"111 shared elite reach samples keep hit and dodge credit perfectly aligned")
+ var elite_full_coordinate_sweep_ok:bool=true
+ for sample_index in range(1111):
+  var case_id:int=sample_index%19
+  var angle:float=TAU*float(sample_index)/1111.0
+  var radius:float=1.2
+  if case_id==1 or case_id==11 or case_id==18:radius=1.91
+  elif case_id==17:radius=1.89
+  elif case_id==16:radius=0.0
+  var strike_mark:Vector3=Vector3(5.0+float(sample_index)*0.01,0.0,-2.0)
+  var hero_position:Vector3=strike_mark+Vector3(cos(angle)*radius,0.0,sin(angle)*radius)
+  var dodge_clock:float=0.0
+  var clear_sight:bool=case_id!=3
+  if case_id==2 or case_id==3 or case_id==11 or case_id==16:dodge_clock=0.2
+  elif case_id==4:dodge_clock=NAN
+  elif case_id==5:dodge_clock=-0.1
+  elif case_id==14:dodge_clock=INF
+  elif case_id==15:dodge_clock=-INF
+  if case_id==6:hero_position.y=NAN
+  elif case_id==7:strike_mark.y=INF
+  elif case_id==8:hero_position.x=NAN
+  elif case_id==9:strike_mark.z=-INF
+  elif case_id==10:
+   strike_mark=Vector3(1.0e19,0.0,0.0)
+   hero_position=Vector3(-1.0e19,0.0,0.0)
+  elif case_id==12:hero_position.y=50.0
+  elif case_id==13:strike_mark.y=-50.0
+  var expected_reach:bool=case_id in [0,2,3,4,5,12,13,14,15,16,17]
+  var expected_miss:bool=not expected_reach or case_id in [2,3,4,11,14,15,16]
+  var expected_credit:bool=case_id==2 or case_id==16
+  if elite_hit_rules.elite_in_hit_radius(strike_mark,hero_position)!=expected_reach or elite_hit_rules.elite_missed(strike_mark,hero_position,dodge_clock)!=expected_miss or elite_hit_rules.elite_dodge_credit(strike_mark,hero_position,dodge_clock,clear_sight)!=expected_credit:
+   elite_full_coordinate_sweep_ok=false
+   break
+ check(elite_full_coordinate_sweep_ok,"1111 elite hit and dodge combinations reject corrupt heights and preserve planar parity")
  check(not elite_hit_rules.elite_in_hit_radius(Vector3.ZERO,Vector3(1.91,0.0,0.0)),"elite reach excludes targets beyond 1.9 units")
  check(not elite_hit_rules.elite_dodge_credit(Vector3.ZERO,Vector3(0.5,0.0,0.0),0.3,false),"blocked elite lunges never grant dodge credit")
  check("if COMBAT_RULES.elite_dodge_credit(strike_pos,player_position,dodge_time,_has_clear_sight(body,player)):elite_attacks_dodged+=1" in live_enemy_script,"live elite dodge credit checks line of sight")
