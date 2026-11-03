@@ -2088,8 +2088,12 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
  if staggered:return
  # Elite creatures telegraph a longer reach attack with a fixed target point.
  if elite:
-  if float(beast.get("elite_lunge_windup",0.0))>0.0:
-   beast["elite_lunge_windup"]=maxf(0.0,float(beast["elite_lunge_windup"])-delta)
+  var lunge_windup:float=float(beast.get("elite_lunge_windup",0.0))
+  if not is_finite(lunge_windup) or lunge_windup<0.0 or lunge_windup>0.9:
+   beast["elite_lunge_windup"]=0.0
+   return
+  if lunge_windup>0.0:
+   beast["elite_lunge_windup"]=ENEMY_COMBAT_RULES.attack_timer_after_frame(lunge_windup,delta)
    if float(beast["elite_lunge_windup"])<=0.0:
     var strike_pos:Vector3=beast["elite_lunge_target"]
     if COMBAT_RULES.elite_missed(strike_pos,player_position,dodge_time):elite_attacks_dodged+=1
