@@ -453,6 +453,34 @@ func _run()->void:
    explicit_sight_sweep_ok=false
    break
  check(explicit_sight_sweep_ok,"1111 elite dodge scenarios require explicit clear sight and reject invalid input")
+ var dodge_window_limit_sweep_ok:bool=true
+ for sample_index in range(1111):
+  var scenario:int=sample_index%13
+  var mark:Vector3=Vector3(float(sample_index)*0.015,0.0,1.0)
+  var hero:Vector3=mark+Vector3(0.5,0.0,0.5)
+  var dodge_remaining:float=0.25
+  var visible:bool=true
+  if scenario==1:dodge_remaining=0.55
+  elif scenario==2:dodge_remaining=0.551
+  elif scenario==3:dodge_remaining=2.0
+  elif scenario==4:dodge_remaining=1.0e9
+  elif scenario==5:dodge_remaining=0.0
+  elif scenario==6:dodge_remaining=-0.1
+  elif scenario==7:dodge_remaining=NAN
+  elif scenario==8:dodge_remaining=INF
+  elif scenario==9:dodge_remaining=-INF
+  elif scenario==10:visible=false
+  elif scenario==11:hero=mark+Vector3(3.0,0.0,0.0)
+  elif scenario==12:hero.y=75.0
+  var expected_credit:bool=scenario==0 or scenario==1 or scenario==12
+  var actual_credit:bool=elite_hit_rules.elite_dodge_credit(mark,hero,dodge_remaining,visible)
+  var actual_miss:bool=elite_hit_rules.elite_missed(mark,hero,dodge_remaining)
+  var expected_miss:bool=scenario!=5 and scenario!=6
+  if actual_credit!=expected_credit or actual_miss!=expected_miss:
+   dodge_window_limit_sweep_ok=false
+   break
+ check(dodge_window_limit_sweep_ok,"1111 dodge duration samples award credit only within the genuine 0.55-second window")
+ check(not elite_hit_rules.elite_dodge_credit(Vector3.ZERO,Vector3.ZERO,1.0,true) and elite_hit_rules.elite_missed(Vector3.ZERO,Vector3.ZERO,1.0),"oversized dodge time prevents damage but cannot inflate dodge statistics")
  check(not elite_hit_rules.elite_dodge_credit(Vector3.ZERO,Vector3.ZERO,0.3),"omitted line-of-sight can never award dodge credit")
  check(not elite_hit_rules.elite_in_hit_radius(Vector3.ZERO,Vector3(1.91,0.0,0.0)),"elite reach excludes targets beyond 1.9 units")
  check(not elite_hit_rules.elite_dodge_credit(Vector3.ZERO,Vector3(0.5,0.0,0.0),0.3,false),"blocked elite lunges never grant dodge credit")
