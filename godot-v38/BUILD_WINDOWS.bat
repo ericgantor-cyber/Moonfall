@@ -364,6 +364,11 @@ if errorlevel 1 goto failed
 if errorlevel 1 goto failed
 "%ENGINE%" --headless --path "%CD%" --script res://tests/continuous_rift_glyphs_v460.gd > GODOT_RIFT_GLYPHS_LOG.txt 2>&1
 if errorlevel 1 goto failed
+rem Exercise the full AI/aiming/boss regression foundation and 111-heading sweep.
+"%ENGINE%" --headless --path "%CD%" --script res://tests/overhaul_foundation.gd > GODOT_AI_111_OVERHAUL_LOG.txt 2>&1
+if errorlevel 1 goto failed
+findstr /c:"MOONFALL AI 111 OVERHAUL PASS" GODOT_AI_111_OVERHAUL_LOG.txt >nul
+if errorlevel 1 goto failed
 rem A script may print its PASS banner while Godot also emits ERROR diagnostics.
 rem Inspect all import, gameplay, export and packed startup logs before success.
 python tests\check_godot_logs.py
