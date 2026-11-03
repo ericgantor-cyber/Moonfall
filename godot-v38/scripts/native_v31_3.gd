@@ -108,7 +108,16 @@ func _v313_tick_traps(seconds:float)->void:
    trap["armed"]=false
    trap["cooldown"]=0.0
    continue
-  trap["cooldown"]=maxf(0.0,float(trap["cooldown"])-seconds)
+  # Corrupt saved cooldowns or armed warning clocks must not cause instant hits.
+  var cooldown:float=float(trap.get("cooldown",0.0))
+  var warning_clock:float=float(trap.get("warning",0.0))
+  if not is_finite(cooldown) or cooldown<0.0 or (bool(trap.get("armed",false)) and (not is_finite(warning_clock) or warning_clock<0.0)):
+   rune.visible=false
+   trap["warning"]=0.0
+   trap["armed"]=false
+   trap["cooldown"]=V313_RULES.TRAP_COOLDOWN
+   continue
+  trap["cooldown"]=maxf(0.0,cooldown-seconds)
   if not bool(trap["armed"]) and float(trap["cooldown"])<=0.0:
    trap["warning"]=V313_RULES.TRAP_WARNING
    trap["armed"]=true
