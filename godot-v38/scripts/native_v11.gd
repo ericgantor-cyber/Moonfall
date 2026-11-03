@@ -2103,7 +2103,7 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
    if float(beast["elite_lunge_windup"])<=0.0:
     var strike_pos:Vector3=beast.get("elite_lunge_target",Vector3.ZERO)
     beast["elite_lunge_target"]=Vector3.ZERO
-    if not ENEMY_COMBAT_RULES.valid_lunge_target(strike_pos):
+    if not ENEMY_COMBAT_RULES.valid_lunge_hit_pair(strike_pos,player_position):
      beast["attack"]=2.0
      return
     if COMBAT_RULES.elite_missed(strike_pos,player_position,dodge_time):elite_attacks_dodged+=1
