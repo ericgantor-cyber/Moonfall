@@ -1988,8 +1988,8 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
  var diff:=player_position-actor_position
  diff.y=0.0
  var distance:=diff.length()
- # Reuse the horizontal direction across retreat, orbiting and fleeing branches.
- var player_direction:Vector3=diff/distance if distance>0.00001 else Vector3.ZERO
+ # Idle actors do not need a normalized player direction.
+ var player_direction:Vector3=Vector3.ZERO
  beast["attack"]=ENEMY_COMBAT_RULES.attack_timer_after_frame(float(beast.get("attack",0.0)),delta)
  var attack_ready:bool=float(beast["attack"])<=0.0
  var kind:=str(beast["kind"])
@@ -2009,6 +2009,10 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
   var perception:float=AI_RULES.perception(map_time<float(beast.get("alert_until",0.0)),weather_name,_day_phase()=="Night")
   engaged=distance<perception and _has_clear_sight(body,player)
  beast["engaged"]=engaged
+ # Only combatants and fleeing wildlife need this direction. Keep the existing
+ # near-zero guard so overlapping actors never create invalid velocities.
+ if (engaged or (not is_hostile and (distance<6.0 or map_time<float(beast.get("scared_until",0.0))))) and distance>0.00001:
+  player_direction=diff/distance
  if engaged:beast["search_pause_until"]=0.0
  # Investigate the last visible location for three seconds after losing sight.
  if not is_boss and is_hostile:
