@@ -72,6 +72,12 @@ assert.equal(replay('mfDungeonRoom.id'),run('mfDungeonRoom.id'),'room position s
 assert.equal(replay('enemies[0].hp'),90,'chamber enemy HP saved through reload');
 assert.equal(replay('mfDungeonSnapshots.size')>0,true,'chamber snapshots restored');
 assert(replay('JSON.stringify(mfWorld.flags["dungeon:snapshots:v1"]).length')<=100000,'save bounded');
+run('mfDungeonSnapshots.clear()');
+run('for(let i=0;i<16;i++){const id="witchwood:0:"+i;const enemies=Array.from({length:48},(_,n)=>({id:"mob"+n,hp:100,x:n,y:n,r:20,description:"x".repeat(160),label:"y".repeat(160),note:"z".repeat(160)}));mfDungeonSnapshots.set(id,{enemies,shots:[],drops:[]});}');
+run('mfDungeonPersistSnapshots()');
+assert(run('JSON.stringify(mfWorld.flags["dungeon:snapshots:v1"]).length')<=100000,'oversize snapshots are trimmed under the save budget');
+assert(run('mfWorld.flags["dungeon:snapshots:v1"].entries.length')>0,'large saves retain most recent chamber rather than abandoning save');
+assert.equal(run('mfWorld.flags["dungeon:snapshots:v1"].entries.at(-1)[0]'),'witchwood:0:13','newest valid room survives eviction');
 run('reset()');
 assert.equal(run('mfDungeonRoom'),null);
 assert.equal(run('mfDungeonSnapshots.size'),0,'new run drops old chamber snapshots');
