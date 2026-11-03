@@ -717,6 +717,19 @@ func _run()->void:
  check("if float(beast.get(\"windup\",0.0))>0.0:return" in boss_controller,"active guardian windup timer prevents attack rotation")
  check(boss_controller.find("_show_message(\"GUARDIAN PHASE")<boss_controller.find("if float(beast.get(\"windup\",0.0))>0.0:return"),"guardian phase warning fires even during active windups")
  var adaptive=load("res://scripts/systems/gameplay_v313.gd")
+ # Combo counters from corrupted saves cannot overflow into abnormal damage.
+ check(adaptive.next_combo(1.0,1.2,0)==1 and adaptive.next_combo(1.0,1.2,1)==2 and adaptive.next_combo(1.0,1.2,2)==3 and adaptive.next_combo(1.0,1.2,3)==3,"ordinary melee combo progression and cap remain unchanged")
+ check(adaptive.next_combo(2.0,1.0,2)==1,"expired melee combo resets to first strike")
+ var combo_counter_safe:bool=true
+ for saved_chain in [-9223372036854775807,-10,-1,0,1,2,3,4,9223372036854775807]:
+  var expected_chain:int=mini(3,clampi(saved_chain,0,3)+1)
+  if adaptive.next_combo(1.0,1.5,saved_chain)!=expected_chain:
+   combo_counter_safe=false
+   break
+ check(combo_counter_safe,"extreme saved combo counters are bounded before increment")
+ check(adaptive.next_combo(NAN,1.0,2)==1 and adaptive.next_combo(INF,1.0,2)==1 and adaptive.next_combo(1.0,NAN,2)==1 and adaptive.next_combo(1.0,INF,2)==1 and adaptive.next_combo(-1.0,1.0,2)==1,"invalid combat combo clocks reset safely")
+ check(is_equal_approx(adaptive.combo_multiplier(3),1.16) and is_equal_approx(adaptive.combo_multiplier(9223372036854775807),1.16),"damage bonus retains the existing three-hit cap")
+
  check(adaptive.choose_boss_pattern(3,100.0,100.0,0,2.0)==1,"close player pressure selects guardian sweep")
  # Extreme saved attack IDs must normalize before advancing, with no overflow.
  var adaptive_rotation_safe:bool=true
