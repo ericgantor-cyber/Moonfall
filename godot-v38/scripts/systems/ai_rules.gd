@@ -35,6 +35,15 @@ static func retreat_velocity(player_direction:Vector3,speed:float,multiplier:flo
  if not is_finite(player_direction.x) or not is_finite(player_direction.z):return Vector3.ZERO
  return -player_direction*speed*multiplier
 
+# Preserve the legacy homeward movement: horizontal direction at 40% speed.
+# Caller retains the existing distance-from-home activation threshold.
+static func return_home_velocity(home:Vector3,actor_position:Vector3,speed:float) -> Vector3:
+ if not is_finite(speed) or speed<=0.0:return Vector3.ZERO
+ if not is_finite(home.x) or not is_finite(home.z) or not is_finite(actor_position.x) or not is_finite(actor_position.z):return Vector3.ZERO
+ var toward:Vector3=home-actor_position
+ toward.y=0.0
+ return toward.normalized()*speed*0.4
+
 # Deterministic combat orbit. The tangent and approach direction are
 # perpendicular unit vectors, so the 1:0.25 blend has fixed length.
 static func orbit_velocity(player_direction:Vector3,speed:float,orbit_side:float) -> Vector3:
