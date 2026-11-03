@@ -8,24 +8,30 @@ const TRAP_WARNING:float=1.15
 const TRAP_COOLDOWN:float=6.0
 
 static func next_combo(now:float,expires:float,chain:int)->int:
- return mini(MAX_COMBO,chain+1) if now<=expires else 1
+ if not is_finite(now) or not is_finite(expires) or now<0.0:return 1
+ if now>expires:return 1
+ return mini(MAX_COMBO,clampi(chain,0,MAX_COMBO)+1)
 
 static func combo_multiplier(chain:int)->float:
  return 1.0+0.08*float(clampi(chain,1,MAX_COMBO)-1)
 
 static func hurt_retreat(hp:float,max_hp:float,is_boss:bool,alert:bool,cooldown_ready:bool)->bool:
- return alert and not is_boss and cooldown_ready and max_hp>0.0 and hp/max_hp<0.26
+ if not alert or is_boss or not cooldown_ready:return false
+ if not is_finite(hp) or not is_finite(max_hp) or hp<=0.0 or max_hp<=0.0:return false
+ return hp/max_hp<0.26
 
 # Record proximity only when selecting a new attack; forget pressure if
 # the hero is distant or unavailable. No allocations or per-frame scans.
 static func update_close_pressure(previous:int,distance:float)->int:
  if not is_finite(distance) or distance<0.0:return 0
  if distance>=6.0:return 0
- return clampi(previous+(1 if distance<2.5 else -1),0,4)
+ var pressure:int=clampi(previous,0,4)
+ return mini(4,pressure+1) if distance<2.5 else maxi(0,pressure-1)
 
 static func choose_boss_pattern(phase:int,hero_health:float,hero_max:float,previous:int,distance:float=-1.0,close_pressure:int=0,last_landed:bool=false,style:int=0)->int:
  var count:int=mini(4,clampi(phase,1,3)+1)
- var next:int=posmod(previous+1,count)
+ var previous_slot:int=posmod(previous,count)
+ var next:int=(previous_slot+1)%count
  # Decisions happen before the attack telegraph, never while an attack is live.
  # Low-health players face the readable focused strike rather than extra area pressure.
  if is_finite(hero_health) and is_finite(hero_max) and hero_max>0.0 and hero_health/hero_max<0.35:
@@ -56,10 +62,11 @@ static func choose_boss_pattern(phase:int,hero_health:float,hero_max:float,previ
  return next
 
 static func surge_zone(elapsed:float,zones:int)->int:
- if zones<=0 or elapsed<0.0:return -1
+ if zones<=0 or not is_finite(elapsed) or elapsed<0.0 or elapsed>1.0e12:return -1
  return int(floor(elapsed/SURGE_INTERVAL))%zones
 
 static func surge_active(elapsed:float)->bool:
+ if not is_finite(elapsed) or elapsed<0.0 or elapsed>1.0e12:return false
  return elapsed>=SURGE_INTERVAL and fposmod(elapsed,SURGE_INTERVAL)<SURGE_SECONDS
 
 static func elite_material(zone:int,variant:String,is_boss:bool)->String:
