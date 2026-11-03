@@ -105,6 +105,8 @@ jobs:
           rm modular/assets/readme.txt
       - name: Test continuous dungeon topology and collision rules
         run: node test-continuous-dungeon-core.js
+      - name: Test browser dungeon traversal and persistent region discovery
+        run: node test-continuous-dungeon-integration.js
       - name: Test connected-world core and stage integration
         run: |
           node test-phase6-world-core.js
