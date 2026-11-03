@@ -717,6 +717,21 @@ func _run()->void:
  check("if float(beast.get(\"windup\",0.0))>0.0:return" in boss_controller,"active guardian windup timer prevents attack rotation")
  check(boss_controller.find("_show_message(\"GUARDIAN PHASE")<boss_controller.find("if float(beast.get(\"windup\",0.0))>0.0:return"),"guardian phase warning fires even during active windups")
  var adaptive=load("res://scripts/systems/gameplay_v313.gd")
+ # Wounded retreats still follow the original 26% threshold for valid actors.
+ check(adaptive.hurt_retreat(25.0,100.0,false,true,true) and not adaptive.hurt_retreat(26.0,100.0,false,true,true),"normal wounded retreat threshold remains 26 percent")
+ check(not adaptive.hurt_retreat(25.0,100.0,true,true,true) and not adaptive.hurt_retreat(25.0,100.0,false,false,true) and not adaptive.hurt_retreat(25.0,100.0,false,true,false),"bosses and unready or peaceful creatures never retreat")
+ var invalid_retreat_health_safe:bool=true
+ for invalid_hp in [NAN,INF,-INF,-10.0,0.0]:
+  if adaptive.hurt_retreat(invalid_hp,100.0,false,true,true):
+   invalid_retreat_health_safe=false
+   break
+ for invalid_max in [NAN,INF,-INF,-10.0,0.0]:
+  if adaptive.hurt_retreat(10.0,invalid_max,false,true,true):
+   invalid_retreat_health_safe=false
+   break
+ check(invalid_retreat_health_safe,"invalid or dead enemy health cannot initiate a retreat")
+ check(adaptive.hurt_retreat(1.0e36,1.0e38,false,true,true),"very large finite wounded health retains retreat ratio")
+
  # Timed world surges must reject corrupt clocks before int conversion.
  check(adaptive.surge_zone(0.0,6)==0 and adaptive.surge_zone(165.0,6)==1 and adaptive.surge_zone(330.0,6)==2 and adaptive.surge_zone(990.0,6)==0,"world surge zone rotation remains deterministic")
  check(not adaptive.surge_active(164.99) and adaptive.surge_active(165.0) and adaptive.surge_active(192.99) and not adaptive.surge_active(193.0),"world surge retains its 28-second activity window")

@@ -17,7 +17,10 @@ static func combo_multiplier(chain:int)->float:
  return 1.0+0.08*float(clampi(chain,1,MAX_COMBO)-1)
 
 static func hurt_retreat(hp:float,max_hp:float,is_boss:bool,alert:bool,cooldown_ready:bool)->bool:
- return alert and not is_boss and cooldown_ready and max_hp>0.0 and hp/max_hp<0.26
+ if not alert or is_boss or not cooldown_ready:return false
+ # Only living creatures with finite health can initiate a retreat.
+ if not is_finite(hp) or not is_finite(max_hp) or hp<=0.0 or max_hp<=0.0:return false
+ return hp/max_hp<0.26
 
 # Record proximity only when selecting a new attack; forget pressure if
 # the hero is distant or unavailable. No allocations or per-frame scans.

@@ -36,6 +36,17 @@ func _run()->void:
  game.set("active_rift",0)
  game.call("_v313_tick_traps",0.2)
  check((traps[0]["node"] as MeshInstance3D).visible,"Warning visible before hazard")
+ var stable_warning:float=float(traps[0]["warning"])
+ for broken_seconds in [NAN,INF,-INF,-1.0,0.0]:
+  game.call("_v313_tick_traps",broken_seconds)
+ check(is_equal_approx(float(traps[0]["warning"]),stable_warning),"Invalid hazard clocks cannot advance trap warnings")
+ var dormant_trap:Dictionary=traps[1]
+ var old_site:int=int(dormant_trap["site"])
+ dormant_trap["site"]=-1
+ game.call("_v313_tick_traps",0.1)
+ dormant_trap["site"]=old_site
+ check(not (dormant_trap["node"] as MeshInstance3D).visible,"Invalid trap site is ignored safely")
+
  game.call("_v313_tick_traps",1.05)
  check(not (traps[0]["node"] as MeshInstance3D).visible,"Hazard hides after strike")
  check(float(traps[0]["cooldown"])>5.0,"Hazard cooldown prevents spam")
@@ -43,6 +54,12 @@ func _run()->void:
  (active[0] as Dictionary)["active"]=false
  game.call("_v313_tick_traps",0.2)
  check(not (traps[0]["node"] as MeshInstance3D).visible,"Rift closing disables hazards")
+ var expired_rune:MeshInstance3D=traps[1]["node"] as MeshInstance3D
+ expired_rune.queue_free()
+ await process_frame
+ game.call("_v313_tick_traps",0.2)
+ check(not is_instance_valid(traps[1]["node"]),"Freed trap visual is skipped without interrupting other hazards")
+
  game.set("map_time",166.0)
  game.call("_v313_tick_surge")
  check(int(game.get("v313_surge_zone"))>=0,"Moon surge becomes active")
