@@ -4,9 +4,13 @@ var aim_marker:Label3D
 var aim_options:PanelContainer
 var aim_toggle:CheckButton
 var aim_input_source:String="mouse"
+const AIM_PREFS_PATH:String="user://moonfall_aim.cfg"
 var aim_target_id:int=-1
 
 func _ready()->void:
+ var config:ConfigFile=ConfigFile.new()
+ if config.load(AIM_PREFS_PATH)==OK:
+  aim_assist_enabled=bool(config.get_value("controls","aim_assist",true))
  super._ready()
  aim_marker=Label3D.new()
  aim_marker.name="AimTargetMarker"
@@ -31,6 +35,10 @@ func _ready()->void:
 
 func _on_aim_assist_toggled(enabled:bool)->void:
  aim_assist_enabled=enabled
+ var config:ConfigFile=ConfigFile.new()
+ config.set_value("controls","aim_assist",enabled)
+ var result:Error=config.save(AIM_PREFS_PATH)
+ if result!=OK:push_warning("Unable to save aim preference: "+str(result))
 
 func _unhandled_input(event:InputEvent)->void:
  # Mouse motion claims aim source even while a controller remains connected.
@@ -43,6 +51,7 @@ func _unhandled_input(event:InputEvent)->void:
 func _process(delta:float)->void:
  # Parent supplies aim direction and combat actions.
  super._process(delta)
+ if is_instance_valid(aim_options):aim_options.visible=hero_playing and not menu_open and not death_active
  if not is_instance_valid(aim_marker):return
  aim_marker.visible=false
  if not hero_playing or menu_open or death_active or not is_instance_valid(player):return
@@ -64,7 +73,7 @@ func _process(delta:float)->void:
  var body:CharacterBody3D=target.get("body") as CharacterBody3D
  if not is_instance_valid(body):return
  aim_marker.global_position=body.global_position+Vector3(0,2.2,0)
- aim_marker.text="◆ LOCKED" if aim_locked_id>=0 else "◎ TARGET"
+ aim_marker.text="◆ LOCKED" if aim_locked_id>=0 and beasts.find(target)==aim_locked_id else "◎ TARGET"
  aim_marker.visible=true
 
 func _start_game(selected_hero:String)->void:
