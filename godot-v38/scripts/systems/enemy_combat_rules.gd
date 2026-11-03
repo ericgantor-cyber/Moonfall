@@ -24,8 +24,8 @@ static func staggered_cooldown(kind:String,beast_id:int)->float:
 # Fixed per-enemy attack slots make a pack less likely to strike at once.
 # This only delays a ready attack; it never skips line-of-sight or dodge checks.
 static func group_attack_ready(now:float,beast_id:int,slots:int=4)->bool:
- if not is_finite(now) or now<0.0 or now>1.0e12:return false
- var count:int=clampi(slots,1,8)
+ if not is_finite(now) or now<0.0 or now>1.0e12 or slots<1 or slots>8:return false
+ var count:int=slots
  # Reduce the clock before integer conversion to avoid overflow in long saves.
  var cycle:float=float(count)*0.25
  var phase:float=fposmod(now,cycle)
