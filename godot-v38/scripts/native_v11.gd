@@ -2004,10 +2004,12 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
  var combat_role:String="passive"
  if is_hostile:combat_role=ENEMY_COMBAT_RULES.role_for(kind)
  var engaged:bool=false
- # Passive fauna cannot engage: skip weather/time perception and LOS work entirely.
+ # Avoid computing the day phase and perception for enemies that are outside
+ # even the maximum possible awareness radius. Keep the final LOS gate intact.
  if is_hostile:
   var perception:float=AI_RULES.perception(map_time<float(beast.get("alert_until",0.0)),weather_name,_day_phase()=="Night")
-  engaged=distance<perception and _has_clear_sight(body,player)
+  if distance<perception:
+   engaged=_has_clear_sight(body,player)
  beast["engaged"]=engaged
  # Only combatants and fleeing wildlife need this direction. Keep the existing
  # near-zero guard so overlapping actors never create invalid velocities.
