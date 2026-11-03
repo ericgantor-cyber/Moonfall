@@ -203,6 +203,17 @@ func _run()->void:
  check(live_strike_gate_ok,"111 live strike-gate inputs reject corrupted and unfinished cooldowns")
  var live_enemy_script:String=FileAccess.get_file_as_string("res://scripts/native_v11.gd")
  check("ENEMY_COMBAT_RULES.ready_to_strike(float(beast[\"attack\"]))" in live_enemy_script,"live enemy attacks use validated readiness gate")
+ var elite_lunge_sweep_ok:bool=true
+ for sample_index in range(111):
+  var sample_timer:float=5.0 if sample_index%5==0 else (0.0 if sample_index%5==1 else (-1.0 if sample_index%5==2 else (NAN if sample_index%5==3 else float(sample_index)*0.01)))
+  var sample_delta:float=0.5 if sample_index%3==0 else (0.016 if sample_index%3==1 else -0.02)
+  var after_lunge:float=combat_rules.attack_timer_after_frame(sample_timer,sample_delta)
+  var expected_lunge:float=0.1 if not is_finite(sample_timer) or sample_timer<0.0 else maxf(0.0,sample_timer-clampf(sample_delta,0.0,0.1))
+  if not is_equal_approx(after_lunge,expected_lunge) or combat_rules.ready_to_strike(after_lunge)!=(expected_lunge==0.0):
+   elite_lunge_sweep_ok=false
+   break
+ check(elite_lunge_sweep_ok,"111 elite lunge cooldown cases prevent early attacks and clamp frame hitches")
+ check("beast[\"elite_lunge_cd\"]=ENEMY_COMBAT_RULES.attack_timer_after_frame" in live_enemy_script and "ENEMY_COMBAT_RULES.ready_to_strike(float(beast[\"elite_lunge_cd\"]))" in live_enemy_script,"live elite lunge uses validated cooldown and readiness")
  check(combat_rules.can_attack(1.75,true,true,"boar"),"boar uses its existing 1.8 melee range")
  check(not combat_rules.can_attack(1.75,true,true,"wolf"),"wolf retains default 1.7 melee range")
  check(not combat_rules.can_attack(1.0,false,true,"boar") and not combat_rules.can_attack(1.0,true,false,"boar"),"readiness and line-of-sight still gate melee")
