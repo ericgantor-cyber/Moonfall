@@ -2086,13 +2086,13 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
    beast["elite_lunge_windup"]=maxf(0.0,float(beast["elite_lunge_windup"])-delta)
    if float(beast["elite_lunge_windup"])<=0.0:
     var strike_pos:Vector3=beast["elite_lunge_target"]
-    if COMBAT_RULES.elite_missed(strike_pos,player.global_position,dodge_time):elite_attacks_dodged+=1
+    if COMBAT_RULES.elite_missed(strike_pos,player_position,dodge_time):elite_attacks_dodged+=1
     elif _has_clear_sight(body,player):_apply_incoming_damage(float(species["atk"])*1.6)
     beast["attack"]=2.0
    return
   if engaged and distance>=1.8 and distance<ELITE_LUNGE_RANGE and elite_lunge_ready:
    beast["elite_lunge_windup"]=0.9
-   beast["elite_lunge_target"]=player.global_position
+   beast["elite_lunge_target"]=player_position
    beast["elite_lunge_cd"]=5.0
    body.velocity=Vector3.ZERO
    _show_message("Elite attack incoming! Dodge the marked position.",1.1)
@@ -2106,7 +2106,7 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
     _set_boss_telegraph(beast,false)
     var marked:Vector3=beast.get("warning_pos",body.global_position)
     var warning_radius:float=GUARDIAN_ATTACK_RULES.safe_radius(float(beast.get("warning_radius",2.8)))
-    var near_hit:bool=GUARDIAN_ATTACK_RULES.warning_hit(marked,player.global_position,warning_radius)
+    var near_hit:bool=GUARDIAN_ATTACK_RULES.warning_hit(marked,player_position,warning_radius)
     var landed:bool=near_hit and dodge_time<=0 and _has_clear_sight(body,player)
     beast["v313_last_attack_landed"]=landed
     if landed:
@@ -2124,7 +2124,7 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
    # Pattern 0: focused player mark; 1: wide boss-centered sweep;
    # 2: compact precision mark; 3: medium delayed player mark.
    beast["warning_radius"]=GUARDIAN_ATTACK_RULES.radius(pattern)
-   beast["warning_pos"]=body.global_position if pattern==1 else player.global_position
+   beast["warning_pos"]=body.global_position if pattern==1 else player_position
    _set_boss_telegraph(beast,true)
    _show_message("⚠ GUARDIAN PHASE "+str(phase)+": dodge the glowing circle!",1.6)
  elif engaged and ENEMY_COMBAT_RULES.can_attack(distance,attack_ready,true) and ENEMY_COMBAT_RULES.tactical_attack_ready(kind,map_time,enemy_id) and _has_clear_sight(body,player):
