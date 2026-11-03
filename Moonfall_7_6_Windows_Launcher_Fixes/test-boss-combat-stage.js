@@ -51,9 +51,9 @@ run('shots.length=0;boss.hp=100;boss.mfTellUntil=frame+20;');
 let tellStrokes=0;
 env.ctx.stroke=()=>{tellStrokes++};
 run('draw()');
-assert.equal(tellStrokes,1,'living boss tell still visible');
+assert.equal(tellStrokes,2,'living boss shows ring and directional line');
 run('boss.hp=0;draw()');
-assert.equal(tellStrokes,1,'defeated boss never leaves an orphan warning');
+assert.equal(tellStrokes,2,'defeated boss never leaves an orphan warning');
 // Three overlapping bosses over a long deterministic session, including changing HP phases.
 // This is a logic stress test, not a real render or measured frame-rate benchmark.
 run('enemies.length=0;shots.length=0;frame=0;');
