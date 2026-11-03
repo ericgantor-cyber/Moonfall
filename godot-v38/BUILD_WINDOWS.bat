@@ -362,6 +362,10 @@ rem Exercise active aiming scene, not only script source checks.
 if errorlevel 1 goto failed
 findstr /c:"MOONFALL AIM SCENE RUNTIME PASS" GODOT_AIM_SCENE_LOG.txt >nul
 if errorlevel 1 goto failed
+"%ENGINE%" --headless --path "%CD%" --script res://tests/aim_target_simulation.gd > GODOT_AIM_TARGET_LOG.txt 2>&1
+if errorlevel 1 goto failed
+findstr /c:"MOONFALL AIM TARGET SIMULATION PASS" GODOT_AIM_TARGET_LOG.txt >nul
+if errorlevel 1 goto failed
 rem A script may print its PASS banner while Godot also emits ERROR diagnostics.
 rem Inspect all import, gameplay, export and packed startup logs before success.
 python tests\check_godot_logs.py
