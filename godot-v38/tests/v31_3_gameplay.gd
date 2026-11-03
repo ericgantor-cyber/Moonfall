@@ -12,6 +12,25 @@ func _run()->void:
  check(RULES.next_combo(3.0,4.0,2)==3,"Timed 3-hit combo")
  check(RULES.next_combo(6.0,4.0,2)==1,"Combo expiration")
  check(is_equal_approx(RULES.combo_multiplier(3),1.16),"Capped combo damage")
+ # Rift hazard hits must retain range and dodge behavior while rejecting broken coords.
+ var hit_radius_sq:float=2.1*2.1
+ check(RULES.trap_hit(Vector3.ZERO,Vector3.ZERO,hit_radius_sq,0.0),"Standing inside undodged rift trap takes damage")
+ check(RULES.trap_hit(Vector3(2.1,0.0,0.0),Vector3.ZERO,hit_radius_sq,0.0),"Trap retains inclusive radius boundary")
+ check(not RULES.trap_hit(Vector3(2.2,0.0,0.0),Vector3.ZERO,hit_radius_sq,0.0),"Outside trap hit radius remains safe")
+ check(not RULES.trap_hit(Vector3.ZERO,Vector3.ZERO,hit_radius_sq,0.1),"Dodging still avoids rift trap damage")
+ var invalid_hit_safe:bool=true
+ for bad_value in [NAN,INF,-INF]:
+  if RULES.trap_hit(Vector3(bad_value,0.0,0.0),Vector3.ZERO,hit_radius_sq,0.0):
+   invalid_hit_safe=false
+  if RULES.trap_hit(Vector3.ZERO,Vector3(0.0,bad_value,0.0),hit_radius_sq,0.0):
+   invalid_hit_safe=false
+  if RULES.trap_hit(Vector3.ZERO,Vector3.ZERO,hit_radius_sq,bad_value):
+   invalid_hit_safe=false
+  if RULES.trap_hit(Vector3.ZERO,Vector3.ZERO,bad_value,0.0):
+   invalid_hit_safe=false
+ check(invalid_hit_safe,"Invalid hazard coordinates, dodge clocks and radii never hit")
+ check(not RULES.trap_hit(Vector3(1.0e308,0.0,0.0),Vector3(-1.0e308,0.0,0.0),hit_radius_sq,0.0),"Extreme finite positions cannot overflow trap collision math")
+ check(not RULES.trap_hit(Vector3.ZERO,Vector3.ZERO,0.0,0.0),"Zero radius cannot create a phantom trap hit")
  check(RULES.hurt_retreat(20,100,false,true,true),"Wounded creature retreats")
  check(not RULES.hurt_retreat(20,100,true,true,true),"Bosses do not retreat")
  check(RULES.choose_boss_pattern(3,100,100,0)==1,"Boss tactics rotate")
