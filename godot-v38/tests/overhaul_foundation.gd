@@ -78,6 +78,11 @@ func _run()->void:
  check(ai_rules.potentially_visible_squared(awareness_limit*awareness_limit-0.01),"squared awareness accepts inside boundary")
  check(not ai_rules.potentially_visible_squared(awareness_limit*awareness_limit),"squared awareness excludes upper boundary")
  check(not ai_rules.potentially_visible_squared(-1.0) and not ai_rules.potentially_visible_squared(NAN) and not ai_rules.potentially_visible_squared(INF),"invalid squared awareness values fail closed")
+ # Equivalence across ordinary combat distances protects the optimized path.
+ for sample_distance in [0.0,0.1,1.0,6.0,10.0,14.0,16.0,16.23,16.25,24.0,80.0]:
+  var scalar_visible:bool=ai_rules.potentially_visible(sample_distance)
+  var squared_visible:bool=ai_rules.potentially_visible_squared(sample_distance*sample_distance)
+  check(scalar_visible==squared_visible,"squared awareness agrees with scalar gate at "+str(sample_distance))
  check(ai_rules.approach(Vector3(5,0,0),0.0,1,false,1,5.0)==Vector3.ZERO,"zero-speed enemy cannot drift")
  check(ai_rules.approach(Vector3(INF,0,0),3.0,1,false,1,5.0)==Vector3.ZERO,"invalid pursuit direction fails closed")
  check(ai_rules.approach(Vector3(1,0,0),NAN,1,false,1,5.0)==Vector3.ZERO,"invalid enemy speed fails closed")
