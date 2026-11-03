@@ -93,7 +93,7 @@ func _run()->void:
    hero.y=120.0
    expected_position=hero
   var result:Dictionary=RULES.remember_target(seen,hostile,boss,now,hero,old,old_until)
-  var actual_pos:Vector3=result.get("position",Vector3.INF)
+  var actual_pos:Vector3=result.get("position",Vector3.ZERO)
   var actual_until:float=float(result.get("until",-1.0))
   if actual_pos!=expected_position or not is_finite(actual_until) or absf(actual_until-expected_until)>0.00001:
    failed_case=sample_index
