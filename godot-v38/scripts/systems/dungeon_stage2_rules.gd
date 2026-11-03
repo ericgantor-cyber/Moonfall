@@ -35,7 +35,12 @@ static func room_visible(distance_squared:float,graphics_low:bool)->bool:
  return not graphics_low and is_finite(distance_squared) and distance_squared>=0.0 and distance_squared<75.0*75.0
 
 static func final_champion_health(normal_hp:float,stage:int,slot:int)->float:
- return normal_hp*1.65 if stage==3 and slot==2 else normal_hp
+ # Corrupt enemy HP must never become negative, NaN or infinite boss health.
+ if not is_finite(normal_hp) or normal_hp<=0.0:return 0.0
+ if stage!=3 or slot!=2:return normal_hp
+ var boosted:float=normal_hp*1.65
+ # At extreme magnitudes, keep the finite original rather than overflowing.
+ return boosted if is_finite(boosted) else normal_hp
 
 static func named_relic(site:int,zone:int,affix:String)->Dictionary:
  var idx:int=clampi(site,0,STAGE_LOOT_NAMES.size()-1)
