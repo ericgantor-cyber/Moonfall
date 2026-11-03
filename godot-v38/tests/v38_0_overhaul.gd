@@ -252,7 +252,9 @@ func _run()->void:
   var tick:String=source.substr(tick_start,(tick_end-tick_start) if tick_end>tick_start else -1) if tick_start>=0 else ""
   check(tick_start>=0 and "V383_COMBAT_RULES.combat_intent(" in tick,"combat intent policy invoked in live enemy tick")
   check("v383_intent==\"retreat\"" in tick and "body.velocity=-diff.normalized()" in tick,"low-health retreat produces actual movement")
+  check('elif engaged and v383_intent=="retreat":' in tick and "distance<8.0 else Vector3.ZERO" in tick,"retreat AI keeps safe spacing instead of advancing again")
   check("v383_intent==\"strafe\"" in tick and "body.velocity=(flank*orbit_side" in tick,"flank intent produces actual movement")
+  check('elif engaged and v383_intent=="guard" and distance<=2.5:' in tick and "body.velocity=Vector3.ZERO" in tick,"guard intent holds nearby melee position during cooldown")
   check("if staggered:" in tick and "if staggered:return" in tick,"stagger still prevents attack resolution")
   check('elif bool(beast.get("boss",false)) and float(beast.get("windup",0.0))>0.0:' in tick and "body.velocity=Vector3.ZERO" in tick,"boss holds position during active attack warning")
   check("if bool(beast.get(\"boss\",false)):" in tick,"boss windup attack path preserved")
