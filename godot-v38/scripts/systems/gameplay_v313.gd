@@ -25,7 +25,9 @@ static func update_close_pressure(previous:int,distance:float)->int:
 
 static func choose_boss_pattern(phase:int,hero_health:float,hero_max:float,previous:int,distance:float=-1.0,close_pressure:int=0,last_landed:bool=false,style:int=0)->int:
  var count:int=mini(4,clampi(phase,1,3)+1)
- var next:int=posmod(previous+1,count)
+ # Normalize before incrementing to avoid overflowing extreme saved IDs.
+ var previous_slot:int=posmod(previous,count)
+ var next:int=(previous_slot+1)%count
  # Decisions happen before the attack telegraph, never while an attack is live.
  # Low-health players face the readable focused strike rather than extra area pressure.
  if is_finite(hero_health) and is_finite(hero_max) and hero_max>0.0 and hero_health/hero_max<0.35:
