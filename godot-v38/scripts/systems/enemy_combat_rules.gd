@@ -74,6 +74,11 @@ static func orbit_direction(beast_id:int)->float:
 static func ready_to_strike(timer:float)->bool:
  return is_finite(timer) and timer==0.0
 
+# Saved elite marks must be finite before collision math or damage resolution.
+static func valid_lunge_target(target:Vector3)->bool:
+ return is_finite(target.x) and is_finite(target.y) and is_finite(target.z)
+
+
 # Memory is per creature: no scans, pathfinders, or extra nodes per frame.
 static func remember_target(seen:bool,hostile:bool,boss:bool,now:float,hero_pos:Vector3,old_pos:Vector3,old_until:float)->Dictionary:
  if not hostile or boss or not is_finite(now) or now<0.0 or now>1.0e12:
