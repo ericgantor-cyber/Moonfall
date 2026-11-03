@@ -72,6 +72,7 @@ SUITES={
  'v37_7_playability':'MOONFALL v37.7 PLAYABILITY PASS',
  'v38_0_overhaul':'MOONFALL v38.0 OVERHAUL PASS',
  'v38_2_procedural':'MOONFALL v38.2 PROCEDURAL PASS',
+ 'aim_scene_runtime':'MOONFALL AIM SCENE RUNTIME PASS',
 }
 def main():
  selected=sys.argv[1:]
