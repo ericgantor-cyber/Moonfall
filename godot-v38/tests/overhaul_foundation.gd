@@ -177,7 +177,8 @@ func _run()->void:
  check(is_equal_approx(combat_rules.attack_timer_after_frame(1.5,-1.0),1.5),"negative frame time never accelerates attacks")
  check(is_equal_approx(combat_rules.attack_timer_after_frame(1.5,INF),1.5),"invalid frame time leaves attack cooldown stable")
  check(is_equal_approx(combat_rules.attack_timer_after_frame(1.5,0.5),1.4),"large frame hitch uses capped cooldown step")
- check(combat_rules.attack_timer_after_frame(NAN,0.016)==0.0,"invalid attack timer recovers to safe state")
+ check(is_equal_approx(combat_rules.attack_timer_after_frame(NAN,0.016),0.1),"invalid cooldown recovers with short delay")
+ check(is_equal_approx(combat_rules.attack_timer_after_frame(-1.0,0.016),0.1),"negative cooldown recovers with short delay")
  check(combat_rules.can_attack(1.75,true,true,"boar"),"boar uses its existing 1.8 melee range")
  check(not combat_rules.can_attack(1.75,true,true,"wolf"),"wolf retains default 1.7 melee range")
  check(not combat_rules.can_attack(1.0,false,true,"boar") and not combat_rules.can_attack(1.0,true,false,"boar"),"readiness and line-of-sight still gate melee")
@@ -191,6 +192,18 @@ func _run()->void:
    melee_range_sweep_ok=false
    break
  check(melee_range_sweep_ok,"111 melee range samples preserve species-specific attack reach")
+ var cooldown_sweep_ok:bool=true
+ for sample_index in range(111):
+  var sample_kind:String="boar" if sample_index%4==0 else ("panther" if sample_index%4==1 else ("serpent" if sample_index%4==2 else "wolf"))
+  var delay:float=combat_rules.staggered_cooldown(sample_kind,sample_index)
+  var repeat_delay:float=combat_rules.staggered_cooldown(sample_kind,sample_index+4)
+  var baseline:float=combat_rules.attack_cooldown(sample_kind)
+  var spread:float=0.17 if sample_kind=="boar" else (0.10 if sample_kind=="panther" else 0.12)
+  var expected_delay:float=baseline+float(sample_index%4)*spread
+  if not is_equal_approx(delay,expected_delay) or not is_equal_approx(delay,repeat_delay) or delay<baseline or delay>baseline+3.0*spread:
+   cooldown_sweep_ok=false
+   break
+ check(cooldown_sweep_ok,"111 cooldown samples preserve species pacing and stagger cycle")
  var attack_slots_ok:bool=true
  for sample_index in range(111):
   var moment:float=float(sample_index)*0.25+0.125
