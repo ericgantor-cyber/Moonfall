@@ -109,6 +109,7 @@ static func remember_target(seen:bool,hostile:bool,boss:bool,now:float,hero_pos:
 static func investigate_velocity(hostile:bool,engaged:bool,boss:bool,now:float,until:float,body_pos:Vector3,last_pos:Vector3,speed:float)->Vector3:
  if not hostile or engaged or boss or not is_finite(now) or now<0.0 or now>1.0e12 or not is_finite(until) or now>=until or until>now+3.0 or until>1.0e12:
   return Vector3.ZERO
+ if not is_finite(body_pos.x) or not is_finite(body_pos.y) or not is_finite(body_pos.z) or not is_finite(last_pos.x) or not is_finite(last_pos.y) or not is_finite(last_pos.z):return Vector3.ZERO
  var offset:Vector3=last_pos-body_pos
  offset.y=0.0
  var distance_sq:float=offset.length_squared()
@@ -120,6 +121,7 @@ static func investigate_velocity(hostile:bool,engaged:bool,boss:bool,now:float,u
  return (offset/distance)*maxf(0.0,max_speed)
 
 static func search_arrived(body_pos:Vector3,last_pos:Vector3)->bool:
+ if not is_finite(body_pos.x) or not is_finite(body_pos.y) or not is_finite(body_pos.z) or not is_finite(last_pos.x) or not is_finite(last_pos.y) or not is_finite(last_pos.z):return false
  var offset:Vector3=last_pos-body_pos
  offset.y=0.0
  var distance_sq:float=offset.length_squared()
