@@ -166,6 +166,17 @@ func _run()->void:
    break
  check(heading_sweep_ok,"111 headings preserve valid normalized and wildlife escape motion")
  var guardian_rules=load("res://scripts/systems/guardian_attack_rules.gd")
+ var phase_rotation_safe:bool=true
+ for phase_value in [1,2,3]:
+  var unlocked_count:int=guardian_rules.pattern_count(phase_value)
+  for saved_pattern in [-9223372036854775807,-1,0,1,9223372036854775807]:
+   var prior_index:int=posmod(saved_pattern,unlocked_count)
+   var selected:int=guardian_rules.next_pattern_after_phase_change(saved_pattern,phase_value)
+   if selected!=(prior_index+1)%unlocked_count or selected==prior_index:
+    phase_rotation_safe=false
+    break
+  if not phase_rotation_safe:break
+ check(phase_rotation_safe,"Guardian phase changes cannot overflow extreme save pattern IDs")
  check(is_equal_approx(guardian_rules.windup(1,INF),0.75),"invalid guardian windup stays bounded")
  check(guardian_rules.windup(1,1000.0)<=8.0,"very long guardian telegraph stays bounded")
  check(not guardian_rules.warning_hit(Vector3(INF,0,0),Vector3.ZERO,3.0),"invalid attack marker never strikes hero")
@@ -173,6 +184,10 @@ func _run()->void:
  check(not guardian_rules.warning_hit(Vector3(1.0e30,0,0),Vector3(-1.0e30,0,0),3.0),"overflowing guardian offset never causes phantom hit")
  check(not guardian_rules.warning_hit(Vector3(1.0e25,0,0),Vector3.ZERO,3.0),"squared-distance overflow cannot count as a guardian hit")
  check(guardian_rules.warning_hit(Vector3.ZERO,Vector3(1,0,1),2.8),"valid guardian radius still lands attacks")
+ check(not guardian_rules.warning_hit(Vector3.ZERO,Vector3.ZERO,NAN) and not guardian_rules.warning_hit(Vector3.ZERO,Vector3.ZERO,INF) and not guardian_rules.warning_hit(Vector3.ZERO,Vector3.ZERO,-INF),"nonfinite guardian warning radii cannot damage player")
+ check(not guardian_rules.warning_hit(Vector3.ZERO,Vector3.ZERO,0.0) and not guardian_rules.warning_hit(Vector3.ZERO,Vector3.ZERO,-2.0),"zero and negative guardian warning radii cannot damage player")
+ var enemy_runtime:String=FileAccess.get_file_as_string("res://scripts/native_v11.gd")
+ check("var warning_radius:float=float(beast.get(\"warning_radius\",2.8))" in enemy_runtime,"boss hit checks raw warning radius before clamping")
  var combat_rules=load("res://scripts/systems/enemy_combat_rules.gd")
  check(is_equal_approx(combat_rules.attack_timer_after_frame(1.5,-1.0),1.5),"negative frame time never accelerates attacks")
  check(is_equal_approx(combat_rules.attack_timer_after_frame(1.5,INF),1.5),"invalid frame time leaves attack cooldown stable")
@@ -723,6 +738,31 @@ func _run()->void:
  check(adaptive.choose_boss_pattern(3,100.0,100.0,0,3.0,0,false,1)==2,"precision guardian chooses precision at medium range")
  check(adaptive.choose_boss_pattern(3,100.0,100.0,0,3.0,0,false,2)==1,"sweeper guardian chooses sweep at medium range")
  check(adaptive.choose_boss_pattern(3,20.0,100.0,0,3.0,0,false,2)==0,"low-health fairness overrides fighting style")
+ # Runtime boss telegraph safety: the existing warning disk must never use corrupt geometry.
+ var probe_body:=CharacterBody3D.new()
+ game.add_child(probe_body)
+ var probe_label:=Label3D.new()
+ probe_label.text="GUARDIAN PROBE"
+ probe_body.add_child(probe_label)
+ var probe:Dictionary={"boss_id":987654321,"body":probe_body,"nameplate":probe_label,"boss_phase":2,"boss_pattern":1,"warning_radius":2.8,"warning_pos":Vector3.ZERO}
+ game.call("_set_boss_telegraph",probe,true)
+ var probe_mesh:MeshInstance3D=(game.get("boss_telegraphs") as Dictionary).get(987654321) as MeshInstance3D
+ check(is_instance_valid(probe_mesh) and probe_mesh.visible,"valid boss warning mesh remains visible")
+ if is_instance_valid(probe_mesh):
+  for invalid_radius in [NAN,INF,-INF,0.0,-1.0]:
+   probe["warning_radius"]=invalid_radius
+   game.call("_set_boss_telegraph",probe,true)
+   var disk:CylinderMesh=probe_mesh.mesh as CylinderMesh
+   check(not probe_mesh.visible and is_instance_valid(disk) and is_finite(disk.top_radius) and disk.top_radius>0.0,"invalid warning radius hides finite boss mesh "+str(invalid_radius))
+  probe["warning_radius"]=2.8
+  probe["warning_pos"]=Vector3(NAN,0.0,0.0)
+  game.call("_set_boss_telegraph",probe,true)
+  check(not probe_mesh.visible,"invalid boss warning position hides the disk")
+  probe["warning_pos"]=Vector3.ZERO
+  game.call("_set_boss_telegraph",probe,true)
+  check(probe_mesh.visible,"valid warning geometry can recover after bad data")
+ game.call("_set_boss_telegraph",probe,false)
+ probe_body.queue_free()
  var sprite=game.get("hero_sprite") as Sprite3D
  check(is_instance_valid(sprite) and sprite.texture!=null,"original hero sprite texture present")
  game.queue_free()

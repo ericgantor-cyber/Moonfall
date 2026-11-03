@@ -13,6 +13,19 @@ func _run()->void:
  check(R.next_pattern_after_phase_change(1,2)==2,"phase two introduces precision after sweep")
  check(R.next_pattern_after_phase_change(2,3)==3,"phase three introduces delayed strike after precision")
  check(R.next_pattern_after_phase_change(3,3)==0,"phase transition selection wraps safely")
+ # Extreme save IDs must never overflow while rotating into an unlocked move.
+ var phase_rotation_safe:bool=true
+ for next_phase in [1,2,3]:
+  var count:int=R.pattern_count(next_phase)
+  for previous_id in [0,1,2,3,4,-1,-4,9223372036854775807,-9223372036854775807]:
+   var prior_slot:int=posmod(previous_id,count)
+   var expected:int=(prior_slot+1)%count
+   var actual:int=R.next_pattern_after_phase_change(previous_id,next_phase)
+   if actual!=expected or actual==prior_slot or not R.pattern_unlocked(actual,next_phase):
+    phase_rotation_safe=false
+    break
+  if not phase_rotation_safe:break
+ check(phase_rotation_safe,"Guardian phase changes rotate safely for extreme saved pattern IDs")
  check(R.unlocked_patterns(1)==[0,1],"phase one starts with focused and sweep patterns")
  check(R.unlocked_patterns(2)==[0,1,2],"phase two unlocks precision pattern")
  check(R.unlocked_patterns(3)==[0,1,2,3],"phase three unlocks delayed strike")

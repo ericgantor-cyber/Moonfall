@@ -9,8 +9,12 @@ const MAX_CHAMBERS:int=14
 const EXPLORATION_NAMES:Array[String]=["Echo Gallery","Sundered Vault","Moonwell","Fallen Observatory","Raven Passage","Crystal Reliquary","Ash Library","Silent Grotto","Starfall Court","Forgotten Altar","Veiled Crossing"]
 
 static func chamber_count(site:int,zone:int)->int:
- # Deterministic for existing save IDs. No new encounter stages or save fields.
- return MIN_CHAMBERS+posmod(site*7+zone*3,MAX_CHAMBERS-MIN_CHAMBERS+1)
+ # Reduce IDs before multiplying so corrupt/extreme save IDs cannot overflow.
+ # Modular arithmetic keeps all existing chamber counts and save IDs identical.
+ var range_size:int=MAX_CHAMBERS-MIN_CHAMBERS+1
+ var site_step:int=posmod(site,range_size)*7
+ var zone_step:int=posmod(zone,range_size)*3
+ return MIN_CHAMBERS+posmod(site_step+zone_step,range_size)
 
 static func room_position(anchor:Vector3,stage:int)->Vector3:
  if stage<=3:return anchor+ROOM_OFFSETS[clampi(stage,1,3)-1]
@@ -31,7 +35,14 @@ static func room_visible(distance_squared:float,graphics_low:bool)->bool:
  return not graphics_low and is_finite(distance_squared) and distance_squared>=0.0 and distance_squared<75.0*75.0
 
 static func final_champion_health(normal_hp:float,stage:int,slot:int)->float:
- return normal_hp*1.65 if stage==3 and slot==2 else normal_hp
+ # Corrupt enemy HP must never become negative, NaN or infinite boss health.
+ if not is_finite(normal_hp) or normal_hp<=0.0:return 0.0
+ if stage!=3 or slot!=2:return normal_hp
+ # Reject magnitudes that risk overflowing when the 1.65x bonus is applied.
+ # Ordinary gameplay HP remains unmodified; oversized legacy values stay finite.
+ if normal_hp>1.0e307:return normal_hp
+ var boosted:float=normal_hp*1.65
+ return boosted if is_finite(boosted) else normal_hp
 
 static func named_relic(site:int,zone:int,affix:String)->Dictionary:
  var idx:int=clampi(site,0,STAGE_LOOT_NAMES.size()-1)

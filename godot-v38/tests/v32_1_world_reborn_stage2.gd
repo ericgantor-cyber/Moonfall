@@ -15,6 +15,28 @@ func _run()->void:
  check(RULES.enemy_position(anchor,2,0).distance_to(RULES.room_position(anchor,2))<3.0,"Three chamber spawn layout")
  check(RULES.chamber_title(3)=="Guardian Heart","Named final chamber")
  check(RULES.chamber_count(0,0)>=5 and RULES.chamber_count(0,0)<=14,"Exploration chamber count stays in requested range")
+ # Existing site/zone combinations must keep their exact save-stable chamber counts.
+ var legacy_counts_stable:bool=true
+ for site_id in range(30):
+  for zone_id in range(6):
+   var expected_count:int=5+posmod(site_id*7+zone_id*3,10)
+   if RULES.chamber_count(site_id,zone_id)!=expected_count:
+    legacy_counts_stable=false
+    break
+  if not legacy_counts_stable:break
+ check(legacy_counts_stable,"All 180 standard site/zone chamber counts remain unchanged")
+ # Modulo-equivalent large identifiers cannot overflow the count calculation.
+ var extreme_counts_stable:bool=true
+ for site_id in [2147483647,-2147483648,1000000000000,-1000000000000]:
+  for zone_id in [2147483647,-2147483648,1000000000000,-1000000000000]:
+   var count:int=RULES.chamber_count(site_id,zone_id)
+   var reduced_count:int=RULES.chamber_count(posmod(site_id,10),posmod(zone_id,10))
+   if count!=reduced_count or count<5 or count>14:
+    extreme_counts_stable=false
+    break
+  if not extreme_counts_stable:break
+ check(extreme_counts_stable,"Extreme dungeon IDs stay bounded and agree with their small modulo equivalents")
+
  check(RULES.room_position(anchor,4)!=RULES.room_position(anchor,3),"Exploration passage connects distinct chamber sites")
  check(RULES.room_visible(2000.0,false) and not RULES.room_visible(9000.0,false),"Chamber LOD culling")
  check(not RULES.room_visible(20.0,true),"Smooth graphics reduces decorative detail")
@@ -23,6 +45,11 @@ func _run()->void:
  check(RULES.room_visible(0.0,false) and RULES.room_visible(5624.0,false) and not RULES.room_visible(5625.0,false),"Valid chamber LOD distance boundary is unchanged")
  check(is_equal_approx(RULES.final_champion_health(100,3,2),165.0),"Final champion health bonus")
  check(is_equal_approx(RULES.final_champion_health(100,2,2),100.0),"Ordinary wave remains balanced")
+ check(RULES.final_champion_health(-10.0,3,2)==0.0 and RULES.final_champion_health(0.0,3,2)==0.0,"Negative and zero champion HP are rejected")
+ check(RULES.final_champion_health(NAN,3,2)==0.0 and RULES.final_champion_health(INF,3,2)==0.0 and RULES.final_champion_health(-INF,2,1)==0.0,"Nonfinite champion HP is rejected")
+ var giant_hp:float=1.0e308
+ check(RULES.final_champion_health(giant_hp,3,2)==giant_hp,"Extreme but finite champion HP cannot overflow")
+ check(is_equal_approx(RULES.final_champion_health(100.0,3,1),100.0) and is_equal_approx(RULES.final_champion_health(100.0,2,2),100.0),"Only final champion receives health multiplier")
  var item:Dictionary=RULES.named_relic(0,0,"Fury")
  check(item["rarity"]=="Legendary" and item["name"].contains("Vow"),"Named guaranteed set-themed relic")
  for zone_id in [0,1,5,16,17,18,1000,-1,-999,2147483647,-2147483648]:
