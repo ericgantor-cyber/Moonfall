@@ -22,5 +22,14 @@ static func elite_missed(strike_pos:Vector3,hero_pos:Vector3,dodge_remaining:flo
  var planar_offset:=Vector2(strike_pos.x-hero_pos.x,strike_pos.z-hero_pos.z)
  return planar_offset.length_squared()>=1.9*1.9
 
+
+# Only credit a timed dodge when the attack would otherwise land.
+static func elite_dodge_credit(strike_pos:Vector3,hero_pos:Vector3,dodge_remaining:float)->bool:
+ if not is_finite(dodge_remaining) or dodge_remaining<=0.0:return false
+ if not is_finite(strike_pos.x) or not is_finite(strike_pos.z) or not is_finite(hero_pos.x) or not is_finite(hero_pos.z):return false
+ var offset:=Vector2(strike_pos.x-hero_pos.x,strike_pos.z-hero_pos.z)
+ var distance_sq:float=offset.length_squared()
+ return is_finite(distance_sq) and distance_sq<1.9*1.9
+
 static func guardian_attack_cooldown(phase:int) -> float:
  return maxf(1.6,3.0-0.45*float(clampi(phase,1,10)-1))
