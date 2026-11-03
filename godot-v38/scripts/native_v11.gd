@@ -1997,8 +1997,8 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
  var species:Dictionary=BEASTS[kind]
  var staggered:=map_time<float(beast.get("stagger_until",0.0))
  var elite:=str(beast.get("variant","normal"))!="normal" and not is_boss
- beast["elite_lunge_cd"]=maxf(0.0,float(beast.get("elite_lunge_cd",0.0))-delta)
- var elite_lunge_ready:bool=float(beast["elite_lunge_cd"])<=0.0
+ beast["elite_lunge_cd"]=ENEMY_COMBAT_RULES.attack_timer_after_frame(float(beast.get("elite_lunge_cd",0.0)),delta)
+ var elite_lunge_ready:bool=ENEMY_COMBAT_RULES.ready_to_strike(float(beast["elite_lunge_cd"]))
  var move_speed:=float(species["speed"])
  var is_hostile:=bool(beast["hostile"])
  var engaged:bool=false
