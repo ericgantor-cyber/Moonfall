@@ -99,8 +99,9 @@ func _v313_tick_traps(seconds:float)->void:
  for trap in v313_traps:
   var site:int=int(trap.get("site",-1))
   if site<0 or site>=rifts.size():continue
-  var rune:MeshInstance3D=trap.get("node") as MeshInstance3D
-  if not is_instance_valid(rune):continue
+  var warning_node:Variant=trap.get("node")
+  if not is_instance_valid(warning_node) or not (warning_node is MeshInstance3D):continue
+  var rune:MeshInstance3D=warning_node as MeshInstance3D
   var active:bool=hero_playing and active_rift==site and bool(rifts[site].get("active",false))
   if not active:
    rune.visible=false
@@ -208,8 +209,9 @@ func _reset_new_adventure()->void:
  v313_elite_bonus=0
  v313_tactical_retreats=0
  for trap in v313_traps:
-  var rune:MeshInstance3D=trap.get("node") as MeshInstance3D
-  if is_instance_valid(rune):rune.visible=false
+  var warning_node:Variant=trap.get("node")
+  if is_instance_valid(warning_node) and warning_node is MeshInstance3D:
+   (warning_node as MeshInstance3D).visible=false
   trap["warning"]=0.0
   trap["cooldown"]=0.0
   trap["armed"]=false
