@@ -4,6 +4,14 @@ const ROOM_OFFSETS:Array[Vector3]=[Vector3(-11.0,0,-3.0),Vector3(11.0,0,-3.0),Ve
 const CHAMBER_FLOOR_RADIUS:float=6.2
 const CHAMBER_WALL_RADIUS:float=6.48
 const CHAMBER_WALL_SEGMENTS:int=20
+# Physical exploration annexes, stages 4–14, branch from the existing Guardian Heart.
+# Each step is 14m, exceeding the 12.4m diameter of enlarged floors.
+const EXPLORATION_OFFSETS:Array[Vector3]=[
+ Vector3(0,0,25),Vector3(-14,0,25),Vector3(-28,0,25),
+ Vector3(-28,0,39),Vector3(-14,0,39),Vector3(0,0,39),
+ Vector3(14,0,39),Vector3(28,0,39),Vector3(28,0,53),
+ Vector3(14,0,53),Vector3(0,0,53)
+]
 const ROOM_NAMES:Array[String]=["Outer Sanctum","Moonbound Passage","Guardian Heart"]
 const STAGE_LOOT_NAMES:Array[String]=["Ravenwood Vow","Ashen Moon Vow","Bloodmoon Vow"]
 
@@ -21,6 +29,14 @@ static func wall_segment_open(stage:int,angle:float)->bool:
   var doorway_angle:float=atan2(offset.z,offset.x)
   if absf(wrapf(angle-doorway_angle,-PI,PI))<0.70:return true
  return false
+
+static func exploration_position(anchor:Vector3,stage:int)->Vector3:
+ if stage<4 or stage>14:return anchor
+ return anchor+EXPLORATION_OFFSETS[stage-4]
+
+static func exploration_previous(anchor:Vector3,stage:int)->Vector3:
+ if stage<=4:return room_position(anchor,3)
+ return exploration_position(anchor,stage-1)
 
 static func enemy_position(anchor:Vector3,stage:int,slot:int)->Vector3:
  var center:Vector3=room_position(anchor,stage)

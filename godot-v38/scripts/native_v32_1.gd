@@ -6,6 +6,8 @@ const V321_RULES:=preload("res://scripts/systems/dungeon_stage2_rules.gd")
 const V321_VISUAL_INTERVAL:float=0.50
 var v321_chambers:Array[Dictionary]=[]
 var v321_passages:Array[Dictionary]=[]
+var v321_annexes:Array[Dictionary]=[]
+var v321_annex_passages:Array[Dictionary]=[]
 var v321_chamber_clock:float=0.0
 var v321_wave_starts:int=0
 var v321_champion_spawns:int=0
@@ -141,6 +143,7 @@ func _v321_build_chambers()->void:
    root.visible=false
    v321_chambers.append({"node":root,"site":site_id,"stage":stage,"label":sign})
  _v321_build_passages()
+ _v321_build_exploration_annexes()
 
 ## Physical, always-world-connected links between the authored chambers.
 ## No teleport, scene swap, new wave or inaccessible separate map.
@@ -209,6 +212,82 @@ func _v321_build_passages()->void:
    lintel.position=Vector3(0,3.3,0)
    bridge.add_child(lintel)
    v321_passages.append({"node":bridge,"site":site_id,"start":start,"end":finish,"width":3.6})
+
+# Stages 4–14 are real exploration space with no new wave / stage triggers.
+# They reuse shared meshes and preserve all original 1–3 story chambers.
+func _v321_build_exploration_annexes()->void:
+ var floor_mesh:=CylinderMesh.new()
+ floor_mesh.top_radius=V321_RULES.CHAMBER_FLOOR_RADIUS
+ floor_mesh.bottom_radius=V321_RULES.CHAMBER_FLOOR_RADIUS
+ floor_mesh.height=0.16
+ floor_mesh.radial_segments=20
+ var floor_shape:=CylinderShape3D.new()
+ floor_shape.radius=V321_RULES.CHAMBER_FLOOR_RADIUS
+ floor_shape.height=0.16
+ var passage_mesh:=BoxMesh.new()
+ var passage_shape:=BoxShape3D.new()
+ var floor_material:=StandardMaterial3D.new()
+ floor_material.albedo_color=Color(0.17,0.18,0.24)
+ floor_material.roughness=0.93
+ var path_material:=StandardMaterial3D.new()
+ path_material.albedo_color=Color(0.27,0.28,0.35)
+ path_material.roughness=0.95
+ for site_id in range(rifts.size()):
+  var anchor:Vector3=rifts[site_id]["anchor"]
+  for stage in range(4,15):
+   var position:Vector3=V321_RULES.exploration_position(anchor,stage)
+   var room:=Node3D.new()
+   room.name="RiftAnnex_%d_%d"%[site_id,stage]
+   room.position=position
+   world.add_child(room)
+   var surface:=MeshInstance3D.new()
+   surface.name="RiftAnnexFloor"
+   surface.mesh=floor_mesh
+   surface.material_override=floor_material
+   surface.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+   room.add_child(surface)
+   var solid:=StaticBody3D.new()
+   solid.name="RiftAnnexCollision"
+   room.add_child(solid)
+   var shape:=CollisionShape3D.new()
+   shape.shape=floor_shape
+   solid.add_child(shape)
+   var sign:=Label3D.new()
+   sign.name="RiftAnnexLabel"
+   sign.text="EXPLORATION CHAMBER %d / 14"%stage
+   sign.font_size=25
+   sign.pixel_size=0.005
+   sign.billboard=BaseMaterial3D.BILLBOARD_ENABLED
+   sign.position.y=2.6
+   room.add_child(sign)
+   room.visible=false
+   v321_annexes.append({"node":room,"site":site_id,"stage":stage})
+   var previous:Vector3=V321_RULES.exploration_previous(anchor,stage)
+   var delta:Vector3=position-previous
+   var length:float=Vector2(delta.x,delta.z).length()
+   if length<=0.0:continue
+   var passage:=Node3D.new()
+   passage.name="RiftAnnexBridge_%d_%d"%[site_id,stage]
+   passage.position=(position+previous)*0.5+Vector3(0,0.02,0)
+   passage.rotation.y=-atan2(delta.z,delta.x)
+   world.add_child(passage)
+   var bridge_mesh:=MeshInstance3D.new()
+   bridge_mesh.name="RiftAnnexBridgeFloor"
+   var bridge_geometry:=passage_mesh.duplicate() as BoxMesh
+   bridge_geometry.size=Vector3(length+3.0,0.16,3.6)
+   bridge_mesh.mesh=bridge_geometry
+   bridge_mesh.material_override=path_material
+   passage.add_child(bridge_mesh)
+   var bridge_body:=StaticBody3D.new()
+   bridge_body.name="RiftAnnexBridgeCollision"
+   passage.add_child(bridge_body)
+   var bridge_collision:=CollisionShape3D.new()
+   var collision_geometry:=passage_shape.duplicate() as BoxShape3D
+   collision_geometry.size=bridge_geometry.size
+   bridge_collision.shape=collision_geometry
+   bridge_body.add_child(bridge_collision)
+   passage.visible=false
+   v321_annex_passages.append({"node":passage,"site":site_id,"stage":stage,"start":previous,"end":position,"width":3.6})
 
 func _activate_rift_wave(site_id:int)->void:
  super._activate_rift_wave(site_id)
