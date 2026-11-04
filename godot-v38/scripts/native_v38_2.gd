@@ -51,6 +51,7 @@ var ai_art_next_model_load_ms:int=0
 var ai_art_model_load_attempts:int=0
 var ai_art_anim_clock:float=0.0
 var ai_art_anim_tick_count:int=0
+var ai_art_anim_poll_cycle:int=0
 var american_wildlife_visual_ticks:int=0
 var american_wildlife_visual_clock:float=0.0
 var atlas_heading:Label
@@ -141,10 +142,16 @@ func _ai_art_update_animations(delta:float)->void:
  if ai_art_anim_clock<0.08:return
  ai_art_anim_clock=fmod(ai_art_anim_clock,0.08)
  if not hero_playing or death_active or menu_open or not is_instance_valid(player):return
+ ai_art_anim_poll_cycle+=1
  for animal in ai_art_live_animal_models:
   var animated:Dictionary=animal.get("ai_art_animation_binding",{})
   if animated.is_empty():continue
-  AI_ART_ANIMATION.apply_state(animated,AI_ART_ANIMATION.state_for_actor(animal,map_time))
+  var animal_body:CharacterBody3D=animal.get("body") as CharacterBody3D
+  if not is_instance_valid(animal_body) or not animal_body.visible:continue
+  var requested:String=AI_ART_ANIMATION.state_for_actor(animal,map_time)
+  var distance_sq:float=animal_body.global_position.distance_squared_to(player.global_position)
+  if not AI_ART_AUTO_QUALITY.should_poll_animation(ai_art_quality_tier,distance_sq,ai_art_anim_poll_cycle,animal_body.get_instance_id(),requested,str(animated.get("state",""))):continue
+  AI_ART_ANIMATION.apply_state(animated,requested)
   ai_art_anim_tick_count+=1
  for guardian in atlas_regional_guardian_actors.values():
   if not bool(guardian.get("alive",false)):continue
@@ -152,8 +159,11 @@ func _ai_art_update_animations(delta:float)->void:
   if animated.is_empty():continue
   var guard_body:CharacterBody3D=guardian.get("body") as CharacterBody3D
   if not is_instance_valid(guard_body) or not guard_body.visible:continue
-  if guard_body.global_position.distance_squared_to(player.global_position)>45.0*45.0:continue
-  AI_ART_ANIMATION.apply_state(animated,AI_ART_ANIMATION.state_for_actor(guardian,map_time))
+  var distance_sq:float=guard_body.global_position.distance_squared_to(player.global_position)
+  if distance_sq>45.0*45.0:continue
+  var requested:String=AI_ART_ANIMATION.state_for_actor(guardian,map_time)
+  if not AI_ART_AUTO_QUALITY.should_poll_animation(ai_art_quality_tier,distance_sq,ai_art_anim_poll_cycle,guard_body.get_instance_id(),requested,str(animated.get("state",""))):continue
+  AI_ART_ANIMATION.apply_state(animated,requested)
   ai_art_anim_tick_count+=1
 
 func _ai_art_track_frame_performance(delta:float)->void:
