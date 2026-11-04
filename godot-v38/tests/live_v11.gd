@@ -37,6 +37,31 @@ func _run() -> void:
  check(game.get("hero_playing"), "Hero remains active in live simulation")
  check(game.get("visible_regions") >= 1, "Region visibility remains valid")
  check(game.get("beasts").size() == 76, "74 legacy actor IDs plus two divine boss actors remain stable")
+ # The pack coordinator must not scan neighbors when downstream steering
+ # cannot flank. Verify counters, then verify moving foes still coordinate.
+ var pack_actor:Dictionary={}
+ for candidate in game.get("zone_beast_lists")[0]:
+  if bool(candidate.get("alive",false)) and bool(candidate.get("hostile",false)) and not bool(candidate.get("boss",false)):
+   pack_actor=candidate
+   break
+ check(not pack_actor.is_empty(),"Hostile pack member available for navigation regression")
+ if not pack_actor.is_empty():
+  var pack_body:CharacterBody3D=pack_actor["body"]
+  var previous_engaged:bool=bool(pack_actor.get("engaged",false))
+  pack_actor["engaged"]=true
+  pack_actor["v329_refresh_at"]=0.0
+  var before_scans:int=int(game.get("v329_neighbor_checks"))
+  var before_refresh:int=int(game.get("v329_side_refreshes"))
+  game.call("_terrain_grid_steer",pack_body,Vector3.ZERO)
+  check(int(game.get("v329_neighbor_checks"))==before_scans and int(game.get("v329_side_refreshes"))==before_refresh,"Idle pack actor skips neighbor scan")
+  pack_actor["elite_lunge_windup"]=0.5
+  game.call("_terrain_grid_steer",pack_body,Vector3(3,0,0))
+  check(int(game.get("v329_neighbor_checks"))==before_scans and int(game.get("v329_side_refreshes"))==before_refresh,"Telegraphing elite skips pack coordination")
+  pack_actor["elite_lunge_windup"]=0.0
+  game.call("_terrain_grid_steer",pack_body,Vector3(3,0,0))
+  check(int(game.get("v329_side_refreshes"))==before_refresh+1,"Moving pack actor continues coordination")
+  pack_actor["engaged"]=previous_engaged
+
  # Passive wildlife still flees but must never acquire hostile engagement;
  # nearby hostile fauna retains its existing sight and threat behavior.
  var passive_actor:Dictionary={}
