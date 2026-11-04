@@ -21,10 +21,10 @@ func _build_scene()->void:
 
 func _v321_build_chambers()->void:
  var shared_floor:=CylinderMesh.new()
- shared_floor.top_radius=4.1
- shared_floor.bottom_radius=4.1
+ shared_floor.top_radius=V321_RULES.CHAMBER_FLOOR_RADIUS
+ shared_floor.bottom_radius=V321_RULES.CHAMBER_FLOOR_RADIUS
  shared_floor.height=0.055
- shared_floor.radial_segments=18
+ shared_floor.radial_segments=24
  var shared_pillar:=CylinderMesh.new()
  shared_pillar.top_radius=0.24
  shared_pillar.bottom_radius=0.38
@@ -35,7 +35,7 @@ func _v321_build_chambers()->void:
  shared_cap.height=0.56
  # Lightweight shared collision and ruined-wall meshes, reused for every site.
  var chamber_collision_floor:=CylinderShape3D.new()
- chamber_collision_floor.radius=4.1
+ chamber_collision_floor.radius=V321_RULES.CHAMBER_FLOOR_RADIUS
  chamber_collision_floor.height=0.16
  var chamber_wall_mesh:=BoxMesh.new()
  chamber_wall_mesh.size=Vector3(2.0,2.3,0.42)
@@ -79,11 +79,11 @@ func _v321_build_chambers()->void:
    floor_collision.position.y=0.04
    interior_body.add_child(floor_collision)
    # Broken perimeter with genuine open doors facing both connected bridges.
-   # Keep the combat core unobstructed: walls sit outside the 4.1m floor rim.
-   for segment in range(16):
-    var wall_angle:float=TAU*float(segment)/16.0
+   # Keep the combat core open: solid walls sit beyond the expanded floor rim.
+   for segment in range(V321_RULES.CHAMBER_WALL_SEGMENTS):
+    var wall_angle:float=TAU*float(segment)/float(V321_RULES.CHAMBER_WALL_SEGMENTS)
     if V321_RULES.wall_segment_open(stage,wall_angle):continue
-    var wall_position:=Vector3(cos(wall_angle)*4.3,1.14,sin(wall_angle)*4.3)
+    var wall_position:=Vector3(cos(wall_angle)*V321_RULES.CHAMBER_WALL_RADIUS,1.14,sin(wall_angle)*V321_RULES.CHAMBER_WALL_RADIUS)
     var wall_rotation:float=-wall_angle-PI*0.5
     var wall:=MeshInstance3D.new()
     wall.name="RiftInteriorWall_%d"%segment
@@ -99,6 +99,20 @@ func _v321_build_chambers()->void:
     wall_collision.position=wall_position
     wall_collision.rotation.y=wall_rotation
     interior_body.add_child(wall_collision)
+   # Low, nonblocking stage-specific floor sigils differentiate each sanctum.
+   # Geometry is purely visual; it cannot obstruct heroes, enemies or bridges.
+   var stage_ring:=MeshInstance3D.new()
+   stage_ring.name="RiftInteriorStageRing"
+   var ring:=TorusMesh.new()
+   ring.inner_radius=1.65+float(stage)*0.30
+   ring.outer_radius=1.79+float(stage)*0.30
+   ring.rings=12
+   ring.ring_segments=24
+   stage_ring.mesh=ring
+   stage_ring.material_override=glow_material
+   stage_ring.position.y=0.115
+   stage_ring.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+   root.add_child(stage_ring)
    for p in range(3):
     var angle:float=TAU*float(p)/3.0
     var pos:=Vector3(cos(angle)*4.0,1.10,sin(angle)*4.0)
