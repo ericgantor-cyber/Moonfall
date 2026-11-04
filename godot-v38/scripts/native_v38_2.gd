@@ -1,6 +1,7 @@
 extends "res://scripts/native_v38_1.gd"
 ## Coordinate-accurate atlas overlay; existing connected world geometry unchanged.
 const NAVIGATION_MAP=preload("res://scripts/systems/navigation_map.gd")
+const AMERICAS_WILDLIFE=preload("res://scripts/systems/americas_wildlife_catalog.gd")
 var atlas_panel:PanelContainer
 var atlas_chart:Control
 var atlas_readout:Label
@@ -28,6 +29,8 @@ var atlas_fast_travel_select:OptionButton
 var atlas_fast_travel_button:Button
 var atlas_fast_travel_status:Label
 var atlas_fast_travel_unlocked_cache:Array[int]=[]
+var american_wildlife_rolls:Array[int]=[]
+var american_wildlife_eligible:int=0
 var atlas_heading:Label
 const ATLAS_DISCOVERY_SPACING:float=55.0
 const ATLAS_MAX_DISCOVERED:int=2048
@@ -56,6 +59,38 @@ func _atlas_regional_rooms()->Array[Dictionary]:
  for entry in v321_region_rooms:
   if int(entry.get("zone",-1))==zone and int(entry.get("dungeon",-1))==dungeon_id:result.append(entry)
  return result
+
+# Reuse native wildlife actors. Only original non-boss, non-rift wildlife can
+# receive a geographical identity: no extra AI, physics bodies or spawn waves.
+func _build_scene()->void:
+ super._build_scene()
+ american_wildlife_eligible=0
+ for animal in beasts:
+  if bool(animal.get("boss",false)) or int(animal.get("dungeon_site",-1))>=0:continue
+  animal["americas_wildlife_eligible"]=true
+  american_wildlife_eligible+=1
+
+func _americas_roll_profiles()->void:
+ american_wildlife_rolls.clear()
+ for zone in range(REGIONS.size()):american_wildlife_rolls.append(rng.randi_range(0,1000000))
+
+func _americas_apply_wildlife_profiles()->void:
+ if american_wildlife_rolls.size()!=REGIONS.size():return
+ for zone in range(REGIONS.size()):
+  var slot_by_kind:Dictionary={}
+  for animal in zone_beast_lists[zone]:
+   if not bool(animal.get("americas_wildlife_eligible",false)) or bool(animal.get("boss",false)):continue
+   var archetype:String=str(animal.get("kind",""))
+   var slot:int=int(slot_by_kind.get(archetype,0))
+   slot_by_kind[archetype]=slot+1
+   var picked:Dictionary=AMERICAS_WILDLIFE.select_for_archetype(zone,archetype,american_wildlife_rolls[zone]+slot)
+   if picked.is_empty():continue
+   animal["americas_species"]=str(picked["name"])
+   animal["americas_taxon"]=str(picked["taxon"])
+   var nameplate:Label3D=animal.get("nameplate") as Label3D
+   if is_instance_valid(nameplate) and bool(animal.get("alive",false)) and not bool(animal.get("tamed",false)):
+    nameplate.text=str(picked["name"])
+  # Original wildlife still uses its native skeleton, AI, combat and loot.
 
 func _ready()->void:
  super._ready()
@@ -86,6 +121,8 @@ func _start_game(selected_hero:String)->void:
  atlas_regional_guardians_cleared.clear()
  atlas_regional_guardian_actors.clear()
  _atlas_roll_regional_guardians()
+ _americas_roll_profiles()
+ _americas_apply_wildlife_profiles()
  atlas_fast_travel_unlocked_cache.clear()
  atlas_regional_dungeon=-1
  atlas_dungeon_paths.clear()
@@ -103,6 +140,7 @@ func _checkpoint_extra_data()->Dictionary:
  data["atlas_regional_relics_claimed"]=atlas_regional_relics_claimed.duplicate()
  data["atlas_regional_guardians_cleared"]=atlas_regional_guardians_cleared.duplicate()
  data["atlas_regional_guardian_rolls"]=atlas_regional_guardian_rolls.duplicate()
+ data["americas_wildlife_rolls"]=american_wildlife_rolls.duplicate()
  var saved_paths:Dictionary={}
  for site_key in atlas_dungeon_paths.keys():
   var points:Array[Vector3]=atlas_dungeon_paths[site_key]
@@ -124,6 +162,7 @@ func _restore_data(data:Dictionary)->void:
  atlas_regional_guardians_cleared.clear()
  atlas_regional_guardian_actors.clear()
  atlas_regional_guardian_rolls.clear()
+ american_wildlife_rolls.clear()
  atlas_fast_travel_unlocked_cache.clear()
  atlas_dungeon_paths.clear()
  atlas_quest_positions.clear()
@@ -148,6 +187,15 @@ func _restore_data(data:Dictionary)->void:
      break
    if valid_rolls:
     for choice in saved_guardians:atlas_regional_guardian_rolls.append(int(choice))
+  var saved_american_rolls:Variant=extras.get("americas_wildlife_rolls",[])
+  if saved_american_rolls is Array and saved_american_rolls.size()==REGIONS.size():
+   var valid_wildlife:bool=true
+   for offset in saved_american_rolls:
+    if not (offset is int) or int(offset)<0 or int(offset)>1000000:
+     valid_wildlife=false
+     break
+   if valid_wildlife:
+    for offset in saved_american_rolls:american_wildlife_rolls.append(int(offset))
   var loaded_paths:Variant=extras.get("atlas_dungeon_paths",{})
   if loaded_paths is Dictionary:
    for site_id in range(mini(rifts.size()+REGIONS.size()*V321_RULES.REGIONAL_DUNGEON_COUNT,64)):
@@ -172,6 +220,8 @@ func _restore_data(data:Dictionary)->void:
     atlas_has_waypoint=bool(extras.get("atlas_has_waypoint",false))
  if atlas_regional_guardian_rolls.size()!=REGIONS.size()*V321_RULES.REGIONAL_DUNGEON_COUNT:
   _atlas_roll_regional_guardians()
+ if american_wildlife_rolls.size()!=REGIONS.size():_americas_roll_profiles()
+ _americas_apply_wildlife_profiles()
  _refresh_atlas()
 
 func _create_atlas()->void:
@@ -674,6 +724,20 @@ func atlas_set_quest_destination(world_position:Vector3)->void:
  atlas_quest_positions.clear()
  atlas_quest_positions.append(world_position)
  _refresh_atlas()
+
+
+# Browse the entire curated roster without creating another gameplay mode.
+func _menu_tab(which:String)->void:
+ super._menu_tab(which)
+ if which!="Bestiary" or not is_instance_valid(menu_body):return
+ menu_body.text+="\n\n[b]WILDLIFE OF THE AMERICAS[/b] • %d habitat profiles • %d distinct species.\n" % [AMERICAS_WILDLIFE.total_profiles(),AMERICAS_WILDLIFE.distinct_species_count()]
+ menu_body.text+="Native wolf, stag, boar, fox, serpent, panther, elk and owl models serve as visual stand-ins until individual species art is added. The existing ecosystem and combat rules remain intact.\n"
+ for zone in range(REGIONS.size()):
+  var species:Array[Dictionary]=AMERICAS_WILDLIFE.species_for_region(zone)
+  menu_body.text+="\n[b]"+str(REGIONS[zone]["name"])+" | "+str(species.size())+" profiles[/b]\n"
+  for animal in species:
+   var taxon:String=AMERICAS_WILDLIFE.TAXON_LABELS.get(str(animal["taxon"]),"Wildlife")
+   menu_body.text+=" • "+str(animal["name"])+" ("+taxon+")\n"
 
 func atlas_clear_quest_destination()->void:
  atlas_quest_positions.clear()
