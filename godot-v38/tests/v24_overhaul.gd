@@ -18,6 +18,15 @@ func _run() -> void:
  check(game.get("grid_regions").size()==2400,"invisible terrain grid retained")
  check(game.get("v21_landmarks").size()==6,"all region monuments retained")
  game.call("_start_game","z")
+ # The living-world ecology interval must retain leftover frame time rather
+ # than drifting with the display/physics frame rate.
+ game.set("ecology_step",0.50)
+ game.call("_ecology_update",0.0)
+ check(is_equal_approx(float(game.get("ecology_step")),0.18),"Ecology update preserves fractional elapsed time")
+ game.set("ecology_step",0.31)
+ game.call("_ecology_update",0.0)
+ check(is_equal_approx(float(game.get("ecology_step")),0.31),"Ecology update waits below its interval")
+ game.set("ecology_step",0.0)
  game.call("_v24_set_zoom",2.0)
  check(is_equal_approx(game.get("v24_camera_size"),12.0) and game.get("camera").projection==Camera3D.PROJECTION_PERSPECTIVE,"3D perspective zoom clamps at minimum")
  game.call("_v24_set_zoom",100.0)
