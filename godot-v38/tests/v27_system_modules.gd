@@ -30,6 +30,19 @@ func _run()->void:
  check(expected_count==47 and guardian_count==5,"47 native population slots with five guardians")
  check(game.get("beasts").size()>=expected_count,"existing ecology extra actors retained")
  check(is_equal_approx(SPAWNS.health_scale(3,"elder",true),6.912),"guardian HP scale unchanged")
+ check(is_equal_approx(SPAWNS.health_scale(-2147483647,"normal",false),1.0),"invalid negative enemy tier uses base health")
+ check(is_equal_approx(SPAWNS.health_scale(0,"elder",true),4.32),"zero tier preserves boss health floor")
+ check(is_equal_approx(SPAWNS.health_scale(2147483647,"elder",true),SPAWNS.health_scale(256,"elder",true)),"corrupted huge tier is bounded")
+ var health_scale_sweep_ok:bool=true
+ for sample_index in range(111):
+  var tier:int=1+sample_index
+  var variant:String="elder" if sample_index%2==0 else "normal"
+  var is_guardian:bool=sample_index%3==0
+  var expected:float=(1.0+float(tier-1)*0.3)*(1.35 if variant!="normal" else 1.0)*(3.2 if is_guardian else 1.0)
+  if not is_equal_approx(SPAWNS.health_scale(tier,variant,is_guardian),expected):
+   health_scale_sweep_ok=false
+   break
+ check(health_scale_sweep_ok,"111 valid tier rarity and boss scaling combinations remain unchanged")
  check(is_equal_approx(AI.perception(false,"Clear",false),10.0),"base perception unchanged")
  check(is_equal_approx(AI.perception(true,"Mist",true),14.0*0.78*1.16),"weather night alert perception")
  var heading:Vector3=AI.approach(Vector3(5,0,0),2.5,1,false,1,5.0)
