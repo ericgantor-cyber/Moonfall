@@ -14,6 +14,7 @@ var atlas_quest_positions:Array[Vector3]=[]
 var atlas_legend:Label
 var atlas_discovered:Array[Vector3]=[]
 var atlas_chambers_seen:Array[int]=[]
+var atlas_dungeon_paths:Dictionary={}
 var atlas_dungeon_site:int=-1
 var atlas_dungeon_zoom_radius:float=35.0
 var atlas_heading:Label
@@ -30,6 +31,7 @@ func _start_game(selected_hero:String)->void:
  atlas_zoom_radius=120.0
  atlas_discovered.clear()
  atlas_chambers_seen.clear()
+ atlas_dungeon_paths.clear()
  atlas_chamber_scan_elapsed=0.0
  atlas_dungeon_site=-1
  atlas_dungeon_zoom_radius=NAVIGATION_MAP.DUNGEON_DEFAULT_ZOOM
@@ -40,6 +42,11 @@ func _checkpoint_extra_data()->Dictionary:
  data["atlas_quest_positions"]=atlas_quest_positions.map(func(p:Vector3):return [p.x,p.y,p.z])
  data["atlas_discovered"]=NAVIGATION_MAP.encode_history(atlas_discovered)
  data["atlas_chambers_seen"]=atlas_chambers_seen.duplicate()
+ var saved_paths:Dictionary={}
+ for site_key in atlas_dungeon_paths.keys():
+  var points:Array[Vector3]=atlas_dungeon_paths[site_key]
+  saved_paths[str(site_key)]=NAVIGATION_MAP.encode_history(points)
+ data["atlas_dungeon_paths"]=saved_paths
  data["atlas_zoom_radius"]=atlas_zoom_radius
  data["atlas_has_waypoint"]=atlas_has_waypoint
  data["atlas_waypoint"]=[atlas_waypoint.x,atlas_waypoint.y,atlas_waypoint.z]
@@ -51,6 +58,7 @@ func _restore_data(data:Dictionary)->void:
  atlas_has_waypoint=false
  atlas_discovered.clear()
  atlas_chambers_seen.clear()
+ atlas_dungeon_paths.clear()
  atlas_quest_positions.clear()
  atlas_dungeon_site=-1
  atlas_dungeon_zoom_radius=NAVIGATION_MAP.DUNGEON_DEFAULT_ZOOM
@@ -59,6 +67,12 @@ func _restore_data(data:Dictionary)->void:
  if extras is Dictionary:
   atlas_discovered=NAVIGATION_MAP.decode_history(extras.get("atlas_discovered",[]))
   atlas_chambers_seen=NAVIGATION_MAP.decode_chambers(extras.get("atlas_chambers_seen",[]),v321_chambers.size())
+  var loaded_paths:Variant=extras.get("atlas_dungeon_paths",{})
+  if loaded_paths is Dictionary:
+   for site_id in range(mini(rifts.size(),16)):
+    var points:Array[Vector3]=NAVIGATION_MAP.decode_history(loaded_paths.get(str(site_id),[]))
+    while points.size()>NAVIGATION_MAP.MAX_DUNGEON_TRAIL_POINTS:points.pop_front()
+    if not points.is_empty():atlas_dungeon_paths[site_id]=points
   var quests:Variant=extras.get("atlas_quest_positions",[])
   if quests is Array:
    for item in quests.slice(0,24):
@@ -248,6 +262,9 @@ func _refresh_atlas()->void:
  atlas_chart.call("set_discovered",atlas_discovered)
  atlas_chart.call("set_chamber_markers",_atlas_chamber_marker_positions())
  atlas_chart.call("set_dungeon_pillars",_atlas_discovered_dungeon_pillars())
+ var local_trace:Array[Vector3]=[]
+ if atlas_dungeon_site>=0 and atlas_dungeon_paths.has(atlas_dungeon_site):local_trace=atlas_dungeon_paths[atlas_dungeon_site]
+ atlas_chart.call("set_dungeon_trace",local_trace)
  atlas_chart.call("set_quest_markers",atlas_quest_positions)
  atlas_chart.call("update_navigation",pos,atlas_waypoint,atlas_has_waypoint)
  if is_instance_valid(player):atlas_chart.call("update_player_facing",-player.global_transform.basis.z)
@@ -296,6 +313,12 @@ func _process(delta:float)->void:
    atlas_chamber_scan_elapsed=0.0
    _atlas_record_nearby_chambers(here)
    _atlas_update_dungeon_context(here)
+   if atlas_dungeon_site>=0 and NAVIGATION_MAP._valid_world_point(here):
+    if not atlas_dungeon_paths.has(atlas_dungeon_site):
+     var empty_path:Array[Vector3]=[]
+     atlas_dungeon_paths[atlas_dungeon_site]=empty_path
+    var path:Array[Vector3]=atlas_dungeon_paths[atlas_dungeon_site]
+    NAVIGATION_MAP.append_dungeon_sample(path,here)
   if NAVIGATION_MAP._valid_world_point(here):
    if atlas_discovered.is_empty() or atlas_discovered.back().distance_squared_to(Vector3(here.x,0.0,here.z))>=ATLAS_DISCOVERY_SPACING*ATLAS_DISCOVERY_SPACING:
     atlas_discovered.append(Vector3(here.x,0.0,here.z))
