@@ -171,6 +171,21 @@ class TestMoonfallArtAutoAudit(unittest.TestCase):
                 self.assertEqual(report["errors"], [])
                 self.assertTrue((root / "approved" / "guardians" / "guardian_00.png").exists())
 
+    def test_windows_installer_and_github_ci_run_offline_art_audit(self):
+        root = Path(__file__).resolve().parents[2]
+        windows = (root / ".github" / "workflows" /
+                   "godot-v38-windows-installer.yml").read_text(encoding="utf-8")
+        studio_ci = (root / ".github" / "workflows" /
+                     "ai-art-studio-tests.yml").read_text(encoding="utf-8")
+        self.assertIn("Auto-audit whole-game AI art before Windows packaging", windows)
+        self.assertIn("python tools/ai_art_auto_audit.py --strict", windows)
+        self.assertIn("Moonfall-Windows-AI-Art-Preflight", windows)
+        self.assertIn("MESHY_API_KEY: ''", windows)
+        self.assertIn("python tools/ai_art_auto_audit.py --strict", studio_ci)
+        self.assertIn("Moonfall-AI-Art-Audit", studio_ci)
+        self.assertIn("schedule:", studio_ci)
+        self.assertIn("workflow_dispatch:", studio_ci)
+
     def test_html_escapes_user_supplied_names_and_reports(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
