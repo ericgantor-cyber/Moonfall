@@ -56,8 +56,13 @@ class DivineBossIntegrationTests(unittest.TestCase):
         self.assertIn('func _refresh_boss_phase(beast:Dictionary)->void:', LIVE)
         self.assertIn('func _update_hud()->void:', LIVE)
         self.assertIn('func _update_region_visibility()->void:', LIVE)
-        self.assertIn('actor["divine_warn_until"]=0.0', LIVE)
+        self.assertIn('func _clear_divine_warning(actor:Dictionary)->void:', LIVE)
+        self.assertIn('func _clear_all_divine_warnings()->void:', LIVE)
+        self.assertIn('if divine_last_visible_zone==region_index:return', LIVE)
+        self.assertIn('for id in divine_boss_ids.values():', LIVE)
         self.assertIn('if is_instance_valid(disk):disk.hide()', LIVE)
+        self.assertIn('if not divine.is_empty():_clear_divine_warning(beast)', LIVE)
+        self.assertIn('_clear_all_divine_warnings()\\n _update_hud()', LIVE)
 
     def test_existing_save_ids_are_stable_and_no_new_waves(self):
         self.assertIn('var prior:int=beasts.size()', LIVE)
