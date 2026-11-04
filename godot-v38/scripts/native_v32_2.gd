@@ -64,20 +64,13 @@ func _v321_update_chambers()->void:
    link.visible=should_show
    v322_visibility_switches+=1
 
- # Culling is visual-only: collidable entrances and links remain walkable.
+ # Only dungeon entrance decorations are culled; physics remains active.
  for dungeon in v321_region_dungeons:
   var entrance:Node3D=dungeon.get("node") as Node3D
   if not is_instance_valid(entrance):continue
   var show_entrance:bool=hero_playing and entrance.global_position.distance_squared_to(here)<100.0*100.0
   if entrance.visible!=show_entrance:
    entrance.visible=show_entrance
-   v322_visibility_switches+=1
- for path in v321_region_dungeon_links:
-  var corridor:Node3D=path.get("node") as Node3D
-  if not is_instance_valid(corridor):continue
-  var show_path:bool=hero_playing and corridor.global_position.distance_squared_to(here)<115.0*115.0
-  if corridor.visible!=show_path:
-   corridor.visible=show_path
    v322_visibility_switches+=1
 
 func _perf_report()->Dictionary:
@@ -89,5 +82,4 @@ func _perf_report()->Dictionary:
  report["dungeon_connected_passages"]=v321_passages.size()+v321_annex_passages.size()
  report["dungeon_exploration_annexes"]=v321_annexes.size()
  report["regional_dungeon_entrances"]=v321_region_dungeons.size()
- report["regional_dungeon_connections"]=v321_region_dungeon_links.size()
  return report
