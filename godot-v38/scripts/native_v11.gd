@@ -2448,7 +2448,11 @@ func _defeat_beast(beast: Dictionary,pet_kill: bool) -> void:
  var loot_chance:=0.42 if variant=="normal" else 1.0
  if rng.randf()<loot_chance:_create_gear_drop(at,kind,variant,zone)
  _make_carcass(at,kind,variant,zone)
+ # Record the pre-kill rift count so a newly completed chamber can force a
+ # checkpoint even when routine kill autosave is on cooldown.
+ var previously_cleared_rifts:int=rifts_cleared.size()
  if int(beast.get("dungeon_site",-1))>=0:_on_rift_enemy_defeated(beast)
+ var rift_completed_on_kill:bool=rifts_cleared.size()>previously_cleared_rifts
  if bool(beast.get("boss",false)):
   var boss_id:=int(beast.get("boss_id",-1))
   if not (boss_id in defeated_boss_ids):
@@ -2472,7 +2476,7 @@ func _defeat_beast(beast: Dictionary,pet_kill: bool) -> void:
    _show_message("MONSTER CONTRACT COMPLETE! Bonus gold, gear and reagents.",3)
   else:_show_message("Contract kill: "+str(contract_kills)+"/3",2)
  else:_show_message(("Companion" if pet_kill else "You")+" defeated a "+variant+" "+kind+". Loot + carcass!",2)
- if auto_save_cooldown<=0.0 or event_completed_on_kill:
+ if auto_save_cooldown<=0.0 or event_completed_on_kill or rift_completed_on_kill:
   auto_save_cooldown=8.0
   suppress_autosave_message=true
   _save_game()
