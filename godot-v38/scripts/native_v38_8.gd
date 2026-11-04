@@ -86,6 +86,7 @@ func _start_game(selected_hero:String)->void:
 # combat, telegraphs, phases, reward tracking and v2 checkpoint IDs.
 # Spawned after all legacy beasts to preserve historical boss IDs.
 var divine_boss_ids:Dictionary={}
+var divine_last_visible_zone:int=-1
 const DIVINE_ENCOUNTERS:Array[Dictionary]=[
  {"id":"z","title":"Z • VOID REAPER","zone":4,"position":Vector3(11.0,0.0,44.0),"kind":"wolf"},
  {"id":"nyra","title":"NYRA • ECLIPSE QUEEN","zone":5,"position":Vector3(73.0,0.0,43.0),"kind":"panther"}
@@ -157,11 +158,9 @@ func _reset_native_beast(beast:Dictionary)->void:
  if not beast.has("divine_id"):return
  var label:Label3D=beast.get("nameplate") as Label3D
  if is_instance_valid(label):label.text=str(beast.get("divine_title","DIVINE BOSS"))
- beast["divine_warn_until"]=0.0
+ _clear_divine_warning(beast)
  beast["divine_next_at"]=map_time+6.0
  beast["divine_pattern_seq"]=0
- var warning:MeshInstance3D=beast.get("divine_disk") as MeshInstance3D
- if is_instance_valid(warning):warning.hide()
 
 # Earned divine blessings use existing permanent boss defeat IDs. This avoids
 # adding fragile fields to schema-2 checkpoints or the old hero identity.
@@ -191,6 +190,9 @@ func _restore_data(data:Dictionary)->void:
  if _divine_blessing_earned("nyra"):
   max_hp+=NYRA_ECLIPSE_MAX_HP_BONUS
   hp=clampf(float(data.get("hp",hp)),1.0,max_hp)
+ # Pending signature strikes are transient, never saved. A load must not
+ # replay an old warning against the restored player.
+ _clear_all_divine_warnings()
  _update_hud()
 
 func _defeat_beast(beast:Dictionary,pet_kill:bool)->void:
@@ -203,10 +205,7 @@ func _defeat_beast(beast:Dictionary,pet_kill:bool)->void:
   max_hp+=NYRA_ECLIPSE_MAX_HP_BONUS
   hp=minf(max_hp,hp+NYRA_ECLIPSE_MAX_HP_BONUS)
  super._defeat_beast(beast,pet_kill)
- if not divine.is_empty():
-  var disk:MeshInstance3D=beast.get("divine_disk") as MeshInstance3D
-  if is_instance_valid(disk):disk.hide()
-  beast["divine_warn_until"]=0.0
+ if not divine.is_empty():_clear_divine_warning(beast)
  if first_clear:
   var reward:String="+15% damage and +3 HP on kills, permanently" if divine=="z" else "+30 max HP and 8% damage reduction, permanently"
   _show_message(str(beast.get("divine_title",divine))+" DEFEATED! "+reward+".",5.0)
@@ -270,22 +269,36 @@ func _refresh_boss_phase(beast:Dictionary)->void:
  if not beast.has("divine_id") or not bool(beast.get("alive",false)):return
  var phase:int=int(beast.get("boss_phase",1))
  var label:Label3D=beast.get("nameplate") as Label3D
- if is_instance_valid(label):
-  label.text=str(beast.get("divine_title","DIVINE BOSS"))+" • PHASE "+str(phase)
  if phase>previous:
+  if is_instance_valid(label):
+   label.text=str(beast.get("divine_title","DIVINE BOSS"))+" • PHASE "+str(phase)
   beast["divine_next_at"]=map_time+2.0
   _show_message(str(beast.get("divine_title","DIVINE BOSS"))+" AWAKENS • PHASE "+str(phase),2.5)
 
 # The warning disks live outside region scenery so their positions remain
 # fixed. Clear off-region warnings when travel switches AI simulation zones.
+func _clear_divine_warning(actor:Dictionary)->void:
+ actor["divine_warn_until"]=0.0
+ var disk:MeshInstance3D=actor.get("divine_disk") as MeshInstance3D
+ if is_instance_valid(disk):disk.hide()
+
+func _clear_all_divine_warnings()->void:
+ for id in divine_boss_ids.values():
+  var slot:int=int(id)
+  if slot>=0 and slot<beasts.size():_clear_divine_warning(beasts[slot])
+
 func _update_region_visibility()->void:
  super._update_region_visibility()
- for actor in beasts:
-  if not actor.has("divine_id"):continue
-  if int(actor.get("zone",-1))==region_index and bool(actor.get("alive",false)):continue
-  var disk:MeshInstance3D=actor.get("divine_disk") as MeshInstance3D
-  if is_instance_valid(disk):disk.hide()
-  actor["divine_warn_until"]=0.0
+ # Region refresh runs several times per second. Avoid repeatedly traversing
+ # every actor and keep on-zone warnings active until their normal resolution.
+ if divine_last_visible_zone==region_index:return
+ divine_last_visible_zone=region_index
+ for id in divine_boss_ids.values():
+  var slot:int=int(id)
+  if slot<0 or slot>=beasts.size():continue
+  var actor:Dictionary=beasts[slot]
+  if int(actor.get("zone",-1))!=region_index or not bool(actor.get("alive",false)):
+   _clear_divine_warning(actor)
 
 func _update_hud()->void:
  super._update_hud()
