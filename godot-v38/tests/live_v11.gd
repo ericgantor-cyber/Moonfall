@@ -37,6 +37,20 @@ func _run() -> void:
  check(game.get("hero_playing"), "Hero remains active in live simulation")
  check(game.get("visible_regions") >= 1, "Region visibility remains valid")
  check(game.get("beasts").size() == 76, "74 legacy actor IDs plus two divine boss actors remain stable")
+ # Divine signature attacks must not leak through a boss transformation.
+ var first_z_id:int=int(game.get("divine_boss_ids").get("z",-1))
+ if first_z_id>=0:
+  var z_in_combat:Dictionary=game.get("beasts")[first_z_id]
+  var z_marker:MeshInstance3D=z_in_combat.get("divine_disk") as MeshInstance3D
+  z_in_combat["divine_warn_until"]=float(game.get("map_time"))+10.0
+  if is_instance_valid(z_marker):z_marker.show()
+  z_in_combat["hp"]=float(z_in_combat["max"])*0.60
+  game.call("_refresh_boss_phase",z_in_combat)
+  check(int(z_in_combat.get("boss_phase",1))==2, "Z transitions into phase two")
+  check(is_zero_approx(float(z_in_combat.get("divine_warn_until",1.0))), "Phase change cancels pending divine strike")
+  check(is_instance_valid(z_marker) and not z_marker.visible, "Phase change hides the old warning disk")
+  game.call("_reset_native_beast",z_in_combat)
+
  for i in range(6):
   game.call("_award_experience", i % 6, "elder", false)
  check(game.get("hero_level") >= 2, "Experience grants level-up and talent points")
