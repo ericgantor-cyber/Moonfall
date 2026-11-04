@@ -81,7 +81,10 @@ static func consume_one(materials:Dictionary,name:String)->bool:
 static func craft_issue(recipe:Dictionary,materials:Dictionary,bag_count:int,capacity:int=BAG_START_CAPACITY)->String:
  var costs:Dictionary=recipe.get("cost",{})
  for key in costs.keys():
-  if int(materials.get(str(key),0))<int(costs[key]):return "Missing "+str(key)+" for "+str(recipe.get("name","recipe"))
+  var needed:int=int(costs[key])
+  # Reject malformed recipe amounts before any inventory changes.
+  if needed<=0 or needed>MATERIAL_LIMIT:return "Invalid recipe cost."
+  if int(materials.get(str(key),0))<needed:return "Missing "+str(key)+" for "+str(recipe.get("name","recipe"))
  if int(recipe.get("power",0))>0 and not can_store_gear(bag_count,capacity):return "Bag full."
  return ""
 

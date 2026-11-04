@@ -25,6 +25,12 @@ func _run()->void:
  check(STOCK.craft_issue(recipe,short_supplies,0).begins_with("Missing Leather"),"missing ingredients reported")
  check(short_supplies==before,"failed crafting does not spend materials")
  check(STOCK.craft_issue(recipe,supplies,100)=="Bag full.","full bag blocks equipment crafting")
+ var supplies_before_invalid:Dictionary=supplies.duplicate(true)
+ for wrong_cost in [-1,0,100000]:
+  var wrong_recipe:Dictionary={"name":"Broken recipe","cost":{"Leather":wrong_cost},"result":"Broken","power":1}
+  check(STOCK.craft_issue(wrong_recipe,supplies,0)=="Invalid recipe cost.","Malformed recipe cost is rejected")
+ check(supplies==supplies_before_invalid,"Invalid crafting requests never modify materials")
+
  var crafted:Dictionary=STOCK.craft_commit(recipe,supplies)
  check(crafted["gear"]["rarity"]=="Crafted" and crafted["gear"]["power"]==10,"crafted equipment remains compatible")
  check(supplies["Leather"]==0 and supplies["fang"]==0,"crafting consumes exact recipe costs")
