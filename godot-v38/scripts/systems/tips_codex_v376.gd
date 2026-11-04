@@ -3,7 +3,7 @@ extends RefCounted
 const PAGE_SIZE:int=8
 const CATEGORIES:Array[String]=["All","Getting Started","Combat","Heroes & Upgrades","Bosses & Invasions","World & Exploration","Water & Diving","Professions & Crafting","Gear & Economy","Creatures & Companions","Death & Recovery","Controls & Accessibility","Performance & Saves"]
 const ENTRIES:Array[Dictionary]=[
- {"category":"Getting Started","title":"Choose your hero","tip":"Z specializes in aggressive void attacks; Nyra uses distinct eclipse magic. Pick the hero whose abilities suit you."},
+ {"category":"Getting Started","title":"Create your hero","tip":"Create a Wanderer to explore Moonfall. Z and Nyra are gods and future boss encounters, not new-game playable avatars. Older checkpoints remain readable."},
  {"category":"Getting Started","title":"Learn the controls","tip":"WASD or arrows move. Left click attacks. Space dodges. Q, E, and R cast spells. G interacts."},
  {"category":"Getting Started","title":"Controller basics","tip":"Left stick moves. Right stick moves the camera. X attacks, A dodges, B interacts, and Start opens the Atlas."},
  {"category":"Getting Started","title":"Open your Atlas","tip":"Esc or F10 opens the Raven Atlas. F1 opens this searchable Tips Codex directly during play."},

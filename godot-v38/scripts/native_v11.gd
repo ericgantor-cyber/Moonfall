@@ -938,22 +938,21 @@ func _build_ui() -> void:
  choices.position=Vector2(58,108)
  choices.add_theme_constant_override("separation",22)
  start_screen.add_child(choices)
- for entry in [{"id":"z","name":"Z • Void Reaper","art":Z_ART},{"id":"nyra","name":"Nyra • Eclipse Queen","art":NYRA_ART}]:
-  var column:=VBoxContainer.new()
-  column.custom_minimum_size=Vector2(335,355)
-  choices.add_child(column)
-  var portrait:=TextureRect.new()
-  portrait.texture=entry["art"]
-  portrait.custom_minimum_size=Vector2(310,260)
-  portrait.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
-  portrait.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-  column.add_child(portrait)
-  var launch:=Button.new()
-  launch.text="NEW GAME AS "+str(entry["name"])
-  launch.custom_minimum_size=Vector2(310,56)
-  launch.pressed.connect(_start_game.bind(str(entry["id"])))
-  column.add_child(launch)
-  if not is_instance_valid(hero_start_button):hero_start_button=launch
+ # Z and Nyra are gods/bosses, not new-game playable avatars.
+ # Legacy z/nyra checkpoint identifiers remain readable until the dedicated
+ # save-migration and real boss encounter stages are implemented.
+ var divine_lore:=VBoxContainer.new()
+ divine_lore.custom_minimum_size=Vector2(335,180)
+ choices.add_child(divine_lore)
+ var divine_heading:=Label.new()
+ divine_heading.text="Z & NYRA • GODS OF MOONFALL"
+ divine_heading.add_theme_font_size_override("font_size",20)
+ divine_lore.add_child(divine_heading)
+ var divine_note:=Label.new()
+ divine_note.text="Your journey begins with your own hero. Z and Nyra are world powers, not playable characters."
+ divine_note.custom_minimum_size=Vector2(330,90)
+ divine_note.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+ divine_lore.add_child(divine_note)
  # Custom hero has an original procedural portrait, never a recolor of Z or Nyra.
  var creator_scroll:=ScrollContainer.new()
  creator_scroll.custom_minimum_size=Vector2(320,390)
@@ -1036,6 +1035,8 @@ func _build_ui() -> void:
  )
  var custom_launch:=Button.new()
  custom_launch.text="CREATE & PLAY"
+ # Keyboard/controller focus must target the remaining new-game button.
+ hero_start_button=custom_launch
  custom_launch.custom_minimum_size=Vector2(230,52)
  custom_launch.pressed.connect(func()->void:_start_custom_game(custom_name_edit.text,custom_color_picker.selected,hair_picker.selected,eye_picker.selected,skin_picker.selected,face_picker.selected,accessory_picker.selected,build_picker.selected))
  custom_column.add_child(custom_launch)
