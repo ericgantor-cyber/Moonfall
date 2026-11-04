@@ -1,0 +1,87 @@
+"""Moonfall's deterministic visual direction for AI-generated fantasy creature sprites.
+
+This module is deliberately offline. Same subject ID always yields a stable,
+specific art brief, so separate assets share a coherent camera/style language.
+"""
+STYLE_VERSION = "moonfall-2_5d-v2"
+
+FAMILY_DIRECTIONS = {
+    "Moonfang": ("violet moonlight and silver", "crescent fangs and lunar rune fur"),
+    "Ashen Crown": ("charcoal and ember orange", "cinder mane and broken crown"),
+    "Venomveil": ("jade green and smoky black", "translucent poison markings and thorn scales"),
+    "Duskthorn": ("wine red and dusky gold", "bramble horns and dusk-rose armor"),
+    "Frostbound": ("icy blue and pale ivory", "glacial antlers and frost mist"),
+    "Sunscorch": ("burnished gold and hot crimson", "solar sigils and scorched armor"),
+    "Stormcaller": ("electric blue and slate", "wind-swept fur and lightning-veined features"),
+    "Ironhide": ("gunmetal and copper", "natural plated hide and ancient rivets"),
+    "Hollowroot": ("moss green and weathered brown", "ancient bark growth and root-like limbs"),
+    "Bloodmoon": ("deep ruby and dark violet", "eclipse runes and bloody-moon glow"),
+    "Starfall": ("midnight indigo and starlight silver", "comet markings and celestial fragments"),
+}
+RANK_FEATURES = {
+    "Sentinel": "lean vigilant scout, simple natural markings, compact silhouette",
+    "Reaver": "aggressive athletic build, heavier claws, battle-worn hide",
+    "Warden": "sturdy defensive body, layered natural armor, broad protective stance",
+    "Champion": "heroic boss-scale anatomy, luminous details, unmistakable power",
+    "Sovereign": "grand apex-boss scale, elaborate natural crown, signature silhouette",
+}
+TRAIT_EFFECTS = {
+    "Moonbound": "lunar halo and cool violet warning runes",
+    "Emberborn": "burning-orange ember energy and flamelike markings",
+    "Venomheart": "emerald venom energy with precise serpentine patterning",
+    "Eclipsed": "contrasting shadow-and-magenta eclipse sigils",
+}
+HABITAT_DIRECTIONS = {
+    "Grasslands and tundra": "temperate prairie or arctic adaptations, natural hide or plumage",
+    "Temperate and cloud forests": "forest adaptations, leaf-touched shading without a scenery background",
+    "Wetlands rivers and coasts": "water and marsh adaptations, realistic aquatic anatomy",
+    "Mountains and alpine tundra": "mountain-adapted proportions, dense fur or suitable feathering",
+    "Deserts and scrublands": "arid-habitat adaptations, sandy muted tones and sun-tolerant skin",
+    "Tropical rainforests": "lush Neotropical adaptations and species-appropriate natural coloration",
+}
+TAXON_INSTRUCTIONS = {
+    "M": "Correct mammalian limbs, ears, tail, fur and hooves/paws for this exact species",
+    "B": "Correct beak shape, wing placement, tail feathers, feet and feather pattern for this exact bird",
+    "R": "Correct scaly skin, tail, body profile and limbs for this exact reptile",
+    "A": "Correct amphibian skin, limbs and face for this exact frog, salamander or toad",
+}
+
+
+def art_direction(item: dict) -> str:
+    """Return a specific, stable brief without an image service or external files."""
+    if item["category"] == "guardians":
+        family, _, rank = item["subject"].rpartition(" ")
+        palette, details = FAMILY_DIRECTIONS.get(family, ("muted purple and silver", "lunar sigils"))
+        return (
+            f"Original named boss: {item['subject']}. "
+            f"Native creature anatomy: clearly a {item['species']}, never a human. "
+            f"Palette: {palette}. Distinctive design: {details}. "
+            f"Rank: {RANK_FEATURES.get(rank, 'readable mid-tier creature')}. "
+            f"Combat signature: {TRAIT_EFFECTS.get(item['trait'], item['trait'])}. "
+            "Complexity must remain legible at a small in-game sprite size."
+        )
+    habitat = item.get("habitat", "Americas natural habitat")
+    taxon = item.get("taxon", "M")
+    return (
+        f"Scientifically recognizable wild {item['subject']} from the Americas. "
+        f"{TAXON_INSTRUCTIONS.get(taxon, TAXON_INSTRUCTIONS['M'])}. "
+        f"{HABITAT_DIRECTIONS.get(habitat, 'Authentic natural history colors and anatomy')}. "
+        "Fantasy-grade painterly rendering without changing the animal's natural identifying features."
+    )
+
+
+def make_prompt(item: dict) -> str:
+    return (
+        "Produce ONE original full-body transparent-background PNG concept sprite for Moonfall, "
+        "a dark-fantasy 2.5D isometric action RPG. "
+        "Fixed camera: three-quarter elevated view, facing lower-left at 30 degrees. "
+        "Keep the entire single subject, limbs, horns, tail, feathers and effects within "
+        "an 8 percent transparent margin on all sides; centered and grounded without a floor plane. "
+        "At 128 px tall it must still be identifiable. "
+        + art_direction(item)
+        + " Matching art bible: elegant painterly edges, tactile material shading, controlled contrast, "
+        "soft moonlit rim light, intentional negative space, one clear focal point and highly readable silhouette. "
+        "Transparent background means real alpha, no checkerboard, environmental scene or contact shadow. "
+        "No words, captions, logos, UI, border, bases, ground props, additional subjects or weapons detached from body. "
+        "Do not imitate, modify, or depict Moonfall's original heroes Z or Nyra."
+    )
