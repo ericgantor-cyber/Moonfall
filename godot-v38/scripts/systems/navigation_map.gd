@@ -40,6 +40,19 @@ static func decode_history(raw:Variant)->Array[Vector3]:
  history.reverse()
  return history
 
+# Existing world has three rifts with three authored chambers each.
+# Keep checkpoint IDs validated and deduplicated; no extra scene nodes are created.
+static func decode_chambers(raw:Variant,room_count:int)->Array[int]:
+ var seen:Array[int]=[]
+ if not (raw is Array):return seen
+ for item in raw:
+  if not (item is int):continue
+  var chamber_id:int=item
+  if chamber_id<0 or chamber_id>=room_count or chamber_id in seen:continue
+  seen.append(chamber_id)
+  if seen.size()>=room_count:break
+ return seen
+
 static func _valid_world_point(point:Vector3)->bool:
  return is_finite(point.x) and is_finite(point.y) and is_finite(point.z) and absf(point.x)<=MAX_WORLD_COORD and absf(point.y)<=MAX_WORLD_COORD and absf(point.z)<=MAX_WORLD_COORD
 
