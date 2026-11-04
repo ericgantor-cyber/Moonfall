@@ -94,6 +94,15 @@ class TestArtIntake(unittest.TestCase):
                 self.assertFalse((base / "meshapproved").exists())
                 self.assertEqual({p["status"] for p in intake.stage_all(inbox)}, {"skipped_existing"})
                 self.assertFalse(json.loads((base / "meshstage" / "guardians" / "guardian_00.json").read_text())["reviewed"])
+                # A staged GLB must appear as such in the art review board,
+                # even if no corresponding 2D PNG was supplied.
+                card = intake.review.review_status(studio.guardian_profile(0))
+                self.assertEqual(card["state"], "missing")
+                self.assertEqual(card["model_state"], "staged")
+                self.assertEqual(card["display_state"], "staged")
+                self.assertTrue(card["model_valid"])
+                self.assertEqual(card["model_geometry"]["triangles"], 1)
+                self.assertFalse(card["model_geometry"]["has_4k_texture"])
 
     def test_unknown_ids_and_symlinked_files_never_enter_staging(self):
         with tempfile.TemporaryDirectory() as dirname:
