@@ -54,6 +54,21 @@ func _run()->void:
  check(AI.retreat_due(27.0,100.0,false,-1,20.0,19.0),"wounded normal beast retreat")
  check(not AI.retreat_due(27.0,100.0,true,-1,20.0,19.0),"guardian retreat excluded")
  check(not AI.retreat_due(27.0,100.0,false,0,20.0,19.0),"rift beasts do not retreat")
+ check(not AI.retreat_due(15.0,INF,false,-1,20.0,19.0),"infinite maximum health never triggers retreat")
+ check(not AI.retreat_due(INF,100.0,false,-1,20.0,19.0),"infinite health never triggers retreat")
+ check(not AI.retreat_due(15.0,0.0,false,-1,20.0,19.0),"zero maximum health never triggers retreat")
+ check(not AI.retreat_due(15.0,100.0,false,-1,INF,19.0),"infinite clock never triggers retreat")
+ check(not AI.retreat_due(15.0,100.0,false,-1,20.0,NAN),"NaN cooldown never triggers retreat")
+ check(not AI.retreat_due(15.0,100.0,false,-1,-1.0,0.0),"negative clock never triggers retreat")
+ check(not AI.retreat_due(150.0,100.0,false,-1,20.0,19.0),"corrupt over-max health never triggers retreat")
+ var retreat_sweep_ok:bool=true
+ for sample_index in range(111):
+  var hp:float=float(sample_index)+0.5
+  var should_retreat:bool=hp<28.0 and hp<=100.0
+  if AI.retreat_due(hp,100.0,false,-1,20.0,19.0)!=should_retreat:
+   retreat_sweep_ok=false
+   break
+ check(retreat_sweep_ok,"111 health samples preserve normal retreat threshold")
  check(is_equal_approx(COMBAT.outgoing_damage(50.0,false,false,0,0.0,1.0),50.0),"base player damage unchanged")
  check(is_equal_approx(COMBAT.outgoing_damage(50.0,true,true,2,0.10,1.0),105.6),"critical execute fury order preserved")
  check(COMBAT.outgoing_damage(NAN,false,false,0,0.0,1.0)==0.0,"NaN damage input is rejected")
