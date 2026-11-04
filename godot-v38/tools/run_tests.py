@@ -77,6 +77,15 @@ SUITES={
 }
 def main():
  selected=sys.argv[1:]
+ # Windows BUILD_WINDOWS.bat uses a single, time-bounded script invocation.
+ # Each engine subprocess has a 90-second timeout, rather than hanging the
+ # entire Windows installer workflow on one runaway integration test.
+ if len(selected)==2 and selected[0]=='--script':
+  script=selected[1]
+  prefix='res://tests/'
+  if not script.startswith(prefix) or not script.endswith('.gd'):
+   print('Invalid Godot script path',file=sys.stderr);return 2
+  selected=[script[len(prefix):-3]]
  if selected==['--list']:
   print('\n'.join(SUITES));return 0
  if selected==['--all']: selected=[]
