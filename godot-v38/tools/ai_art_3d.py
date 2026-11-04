@@ -275,6 +275,8 @@ def approved_2d(item: dict) -> bytes:
 
 def mesh_request(image: bytes) -> dict:
     studio.validate_png(image)
+    if len(image) > 20 * 1024 * 1024:
+        raise ValueError("Meshy accepts a maximum 20 MiB reference image. Use a smaller PNG for conversion.")
     return {
         "image_url": "data:image/png;base64," + base64.b64encode(image).decode("ascii"),
         "model_type": "standard",
