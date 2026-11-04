@@ -18,6 +18,29 @@ static func regional_dungeon_position(centre:Vector2,index:int)->Vector3:
 # Native hostile species supported by inherited boss/AI/art pipelines.
 # Guardian species are rolled per adventure and stored in its checkpoint.
 const REGIONAL_GUARDIAN_SPECIES:Array[String]=["wolf","boar","serpent","panther"]
+# Native traits alter boss durability and presentation, not the combat scheduler.
+const REGIONAL_GUARDIAN_TRAITS:Array[String]=["Moonbound","Emberborn","Venomheart","Eclipsed"]
+const REGIONAL_GUARDIAN_TRAIT_COLORS:Array[Color]=[
+ Color("b9a2ff"),Color("ffad73"),Color("8ae0a8"),Color("f184b1")
+]
+static func regional_guardian_trait(zone:int,dungeon_id:int,species_index:int)->int:
+ if zone<0 or dungeon_id<0 or dungeon_id>=REGIONAL_DUNGEON_COUNT:return -1
+ return posmod(species_index+zone*3+dungeon_id,REGIONAL_GUARDIAN_TRAITS.size())
+
+static func regional_guardian_health_multiplier(trait_id:int)->float:
+ match trait_id:
+  0:return 1.08
+  1:return 1.16
+  2:return 1.24
+  3:return 1.32
+  _:return 1.0
+
+static func regional_guardian_relic(zone:int,dungeon_id:int,trait_id:int,affix:String)->Dictionary:
+ var trait_name:String=REGIONAL_GUARDIAN_TRAITS[clampi(trait_id,0,REGIONAL_GUARDIAN_TRAITS.size()-1)]
+ return {"name":trait_name+" Guardian Crest • Region %d, Dungeon %d" % [zone+1,dungeon_id+1],
+  "rarity":"Legendary","power":mini(250,55+zone*12+dungeon_id*3),
+  "affix":affix,"affix_value":0.13+0.01*float(clampi(trait_id,0,3))}
+
 const REGIONAL_CHAMBERS_PER_DUNGEON:int=14
 const REGIONAL_ROOM_OFFSETS:Array[Vector2]=[
  Vector2(0,0),Vector2(-11,14),Vector2(11,14),Vector2(0,28),
