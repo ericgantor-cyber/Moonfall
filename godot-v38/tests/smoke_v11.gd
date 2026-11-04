@@ -34,7 +34,15 @@ func _run() -> void:
   total+=lists[zone].size()
   _check(regions[zone].get_child_count()>10,"Sector "+str(zone)+" scenery grouped")
  _check(total==game.get("beasts").size(),"Each creature mapped to exactly one sector")
- _check(total==74,"48 wildlife, 5 guardians, 9 rift slots, 12 lunar invasion slots (actual="+str(total)+")")
+ _check(total==76,"48 wildlife, 5 guardians, 9 rift slots, 12 lunar invasion slots, 2 divine bosses (actual="+str(total)+")")
+ var divine_bosses:Array=[]
+ for creature in game.get("beasts"):
+  if not str(creature.get("divine_id","")).is_empty():divine_bosses.append(creature)
+ _check(divine_bosses.size()==2,"Both divine boss actors exist in the live continuous world")
+ if divine_bosses.size()==2:
+  _check(str(divine_bosses[0].get("divine_id",""))=="z" and str(divine_bosses[1].get("divine_id",""))=="nyra","Divine boss identity and stable append order")
+  _check(bool(divine_bosses[0].get("boss",false)) and bool(divine_bosses[1].get("boss",false)),"Both divinities use native boss AI and battle systems")
+  _check(is_instance_valid(divine_bosses[0].get("divine_visual") as Sprite3D) and is_instance_valid(divine_bosses[1].get("divine_visual") as Sprite3D),"Original divine art billboards exist on both bosses")
  var events:Array=game.get("world_events")
  _check(events.size()==6,"Six regional living-world events")
  _check(game.get("events_completed").is_empty(),"Events begin unclaimed")
