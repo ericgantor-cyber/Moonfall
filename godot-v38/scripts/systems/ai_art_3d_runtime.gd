@@ -5,7 +5,9 @@ const GAME_ART=preload("res://scripts/systems/ai_art_whole_game.gd")
 const WILDLIFE_ART=preload("res://scripts/systems/ai_art_overrides.gd")
 const MODEL_ROOT:String="res://assets/ai_generated/models/"
 const MAX_VISIBLE_MESHES:int=160
+const MAX_CACHED_MODEL_SCENES:int=12
 static var _models:Dictionary={}
+static var _cache_keys:Array[String]=[]
 
 static func approved_model_path(category:String,asset_id:String)->String:
  if asset_id.length()<4 or asset_id.length()>90:return ""
@@ -32,11 +34,18 @@ static func approved_model_path(category:String,asset_id:String)->String:
 static func _approved_scene(category:String,asset_id:String)->PackedScene:
  var path:String=approved_model_path(category,asset_id)
  if path.is_empty():return null
- if _models.has(path):return _models[path] as PackedScene
+ if _models.has(path):
+  _cache_keys.erase(path)
+  _cache_keys.append(path)
+  return _models[path] as PackedScene
  if not ResourceLoader.exists(path):return null
  var asset:Resource=load(path)
  if not asset is PackedScene:return null
  _models[path]=asset
+ _cache_keys.append(path)
+ while _cache_keys.size()>MAX_CACHED_MODEL_SCENES:
+  var old_key:String=_cache_keys.pop_front()
+  _models.erase(old_key)
  return asset as PackedScene
 
 static func _mesh_height_and_count(root:Node3D)->Vector2:
