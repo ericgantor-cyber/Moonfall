@@ -44,7 +44,7 @@ their intended glow and spell markings. America's wildlife uses each species'
 actual habitat and animal class to ask for recognizable anatomy.
 
 The camera, perspective, canvas margins and painted 2.5D finish are consistent
-across all 289 planned images. The prompts preserve the original hero artwork,
+across all 350 planned images. The prompts preserve the original hero artwork,
 and each species still needs human art review rather than relying on prompts alone.
 
 ## Review and approve
@@ -62,9 +62,38 @@ The existing Godot wildlife instance checks for an approved image with the match
 
 These are 2D transparent creature cutouts in the isometric 3D world, NOT automatically generated 3D skeletal models or animations. Game rendering does not contact the image API.
 
+## Whole-game AI art: 350 approved artwork slots
+
+The studio is not limited to creatures. Its offline plan includes **350 approved-art slots**: 55 named guardian types, 234 distinct Americas animal species, and 61 additional slots covering **6 region murals, 14 dungeon chamber murals, 9 existing glyphs including the HP/mana/XP globe HUD, 10 spell/action icons, 12 gear categories, and 10 world scenery props**.
+
+Preview any specific game asset without calling an API:
+
+    python tools/ai_art_studio.py --list-game-art
+    python tools/ai_art_studio.py --game-art regions:00
+    python tools/ai_art_studio.py --game-art chambers:14
+    python tools/ai_art_studio.py --game-art glyphs:orb_hud
+    python tools/ai_art_studio.py --game-art glyphs:rift_warning
+    python tools/ai_art_studio.py --game-art spells:nova
+    python tools/ai_art_studio.py --game-art gear:boots
+    python tools/ai_art_studio.py --game-art scenery:shrine
+
+All these categories support --import-file, --generate and --approve with the same explicit review workflow. Approved PNGs live only under `assets/ai_generated/<category>/`; existing hero artwork cannot be targeted.
+
+To see the full review board, run:
+
+    python tools/ai_art_review.py --category all --gallery
+    python tools/ai_art_review.py --category glyphs --gallery
+    python tools/ai_art_review.py --category chambers --gallery
+
+The offline HTML gallery can search and filter every entry. It does not generate files or incur API usage.
+
+**Actual game integration:** Existing rift-warning, treasure-cache, treasure-carrier, forge, dungeon-seal, boss-phase, loot and moon-surge glyphs, plus the original globe HUD ornament, can be replaced by reviewed matching PNGs without new controls or extra hitboxes. Three native Q/E/R spell icons show only when their approved images are available. Real equipment drops can display approved charm, band, cowl, boots, mantle, crest, relic or weapon cutouts. Six existing shrine sites can show a regional mural, and the existing 420 regional dungeon chambers can show their approved themed chamber mural. The dungeon renderer still controls room visibility and camera culling. Approved PNGs are 2D visual elements inside Godot, not new 3D terrain or procedural geometry.
+
+**Performance/scope:** No approved PNG means no new decorations or physics bodies; native art remains. The maximum optional chamber art budget is one noncolliding billboard per existing chamber, up to 420 only if all corresponding artwork is approved. Extra scenery/gear/spell production-plan entries are not all automatically placed as objects; they are usable art slots ready for appropriate existing game hooks. There is no autonomous, paid, on-the-fly AI generation inside a Windows game build.
+
 ## Full artwork plan and review gallery
 
-The offline planning board covers **55 named guardians and 234 distinct Americas animals (289 planned images)**. Generating the plan or gallery never contacts the image API, changes gameplay assets or charges anything.
+The offline planning board covers **55 named guardians, 234 Americas animals, and 61 additional UI, item, scenery, region and dungeon art slots (350 planned images)**. Generating the plan or gallery never contacts the image API, changes gameplay assets or charges anything.
 
 From the godot-v38 directory:
 
