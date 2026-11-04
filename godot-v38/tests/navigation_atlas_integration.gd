@@ -1,5 +1,6 @@
 extends SceneTree
 const NAV=preload("res://scripts/systems/navigation_map.gd")
+const GUARDIAN_ATTACKS=preload("res://scripts/systems/guardian_trait_attacks.gd")
 var failures:int=0
 
 func check(ok:bool,description:String)->void:
@@ -285,6 +286,23 @@ func _run()->void:
  check("atlas_regional_relics_claimed.has(reward_id)" in source and "_combat_threat()" in source,"already claimed relics and in-combat interactions cannot duplicate rewards")
  check("V321_RULES.regional_cache_reward(zone,dungeon_id,stage," in source and "_create_gear_drop(spawn_at," in source,"reward comes from existing real equipment drop system")
  check(stage_rules.REGIONAL_CACHE_STAGES==[7,14],"relic caches sit mid-dungeon and at the final fourteenth chamber")
+ check(GUARDIAN_ATTACKS.ATTACK_NAMES.size()==4 and GUARDIAN_ATTACKS.COUNTER_HINTS.size()==4 and GUARDIAN_ATTACKS.WARNING_COLORS.size()==4,"all four guardian traits have individual named attacks, instructions, and warning colors")
+ var boss_point:=Vector3.ZERO
+ var marked_point:=Vector3(3,0,3)
+ check(GUARDIAN_ATTACKS.hit(0,boss_point,marked_point,Vector3(3,0,0),Vector2.RIGHT),"Moonbound ring hits its announced donut footprint")
+ check(not GUARDIAN_ATTACKS.hit(0,boss_point,marked_point,Vector3(1,0,0),Vector2.RIGHT) and not GUARDIAN_ATTACKS.hit(0,boss_point,marked_point,Vector3(7,0,0),Vector2.RIGHT),"Moonbound offers inner and outer safe zones")
+ check(GUARDIAN_ATTACKS.hit(1,boss_point,marked_point,Vector3(4,0,0.2),Vector2.RIGHT),"Ember telegraphed lane hits along its facing")
+ check(not GUARDIAN_ATTACKS.hit(1,boss_point,marked_point,Vector3(4,0,2.0),Vector2.RIGHT) and not GUARDIAN_ATTACKS.hit(1,boss_point,marked_point,Vector3(-2,0,0),Vector2.RIGHT),"Ember can be sidestepped or avoided behind the boss")
+ check(GUARDIAN_ATTACKS.hit(2,boss_point,marked_point,marked_point,Vector2.RIGHT) and not GUARDIAN_ATTACKS.hit(2,boss_point,marked_point,Vector3(7,0,7),Vector2.RIGHT),"Venom locks an escapeable pool to its original marked location")
+ check(GUARDIAN_ATTACKS.hit(3,boss_point,marked_point,Vector3(0.2,0,4.0),Vector2.RIGHT) and not GUARDIAN_ATTACKS.hit(3,boss_point,marked_point,Vector3(3,0,3),Vector2.RIGHT),"Eclipse crosses two lanes with diagonal safe gaps")
+ check(not GUARDIAN_ATTACKS.hit(-1,boss_point,marked_point,Vector3.ZERO,Vector2.RIGHT),"invalid boss traits never deal extra damage")
+ for trait_id in range(4):
+  check(GUARDIAN_ATTACKS.cooldown(trait_id,3)>=4.5 and GUARDIAN_ATTACKS.damage(trait_id,3)<30.0,"trait-specific cooldowns and damage remain bounded")
+ check("func _guardian_update_trait_attacks(delta:float)" in source and "_guardian_update_trait_attacks(delta)" in source,"trait attacks run through the existing world tick instead of new wave logic")
+ check("func _guardian_create_trait_warning(trait_id:int,guardian_id:int)" in source and "MeshInstance3D.new()" in source,"all four traits create noncolliding visible warning geometry")
+ check("GUARDIAN_TRAIT_ATTACKS.hit(trait_id,warning_origin,target,here,facing)" in source and "dodge_time<=0.0" in source,"warning hitboxes match real damage and the dodge counter")
+ check("_show_message(GUARDIAN_TRAIT_ATTACKS.ATTACK_NAMES[trait_id]" in source and "GUARDIAN_TRAIT_ATTACKS.COUNTER_HINTS[trait_id]" in source,"player receives named telegraph and actionable counterplay")
+ check("if is_instance_valid(warning_root):warning_root.visible=false" in source,"defeated guardian leaves no lingering attack indicator")
  check("func _atlas_update_dungeon_guardians(position:Vector3)" in source and "DUNGEON_GUARDIAN_TRIGGER_RADIUS_SQ" in source,"dungeon guardians appear on final-room approach without waves or manual stage triggers")
  check("_spawn_beast(room_position,monster,zone,\"elder\",true)" in source and "V321_RULES.REGIONAL_GUARDIAN_SPECIES[rolled_index]" in source,"random dungeon guardians reuse four existing native hostile boss AI species and real combat")
  check("atlas_regional_guardian_actors.has(guardian_id)" in source and "atlas_regional_guardians_cleared.has(guardian_id)" in source,"guardian per dungeon can spawn at most once in an active adventure")
