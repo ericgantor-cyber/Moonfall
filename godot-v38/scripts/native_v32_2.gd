@@ -73,6 +73,23 @@ func _v321_update_chambers()->void:
    entrance.visible=show_entrance
    v322_visibility_switches+=1
 
+ # Cull only visual room and corridor nodes. Static bodies remain present.
+ # This avoids processing visual batches across all 30 dungeons every frame.
+ for dungeon_room in v321_region_rooms:
+  var chamber:Node3D=dungeon_room.get("node") as Node3D
+  if not is_instance_valid(chamber):continue
+  var showing:bool=hero_playing and chamber.global_position.distance_squared_to(here)<95.0*95.0
+  if chamber.visible!=showing:
+   chamber.visible=showing
+   v322_visibility_switches+=1
+ for dungeon_passage in v321_region_room_passages:
+  var hallway:Node3D=dungeon_passage.get("node") as Node3D
+  if not is_instance_valid(hallway):continue
+  var showing:bool=hero_playing and hallway.global_position.distance_squared_to(here)<105.0*105.0
+  if hallway.visible!=showing:
+   hallway.visible=showing
+   v322_visibility_switches+=1
+
 func _perf_report()->Dictionary:
  var report:Dictionary=super._perf_report()
  report["version"]="v32.2"
@@ -82,4 +99,6 @@ func _perf_report()->Dictionary:
  report["dungeon_connected_passages"]=v321_passages.size()+v321_annex_passages.size()
  report["dungeon_exploration_annexes"]=v321_annexes.size()
  report["regional_dungeon_entrances"]=v321_region_dungeons.size()
+ report["regional_dungeon_physical_rooms"]=v321_region_rooms.size()
+ report["regional_dungeon_internal_passages"]=v321_region_room_passages.size()
  return report
