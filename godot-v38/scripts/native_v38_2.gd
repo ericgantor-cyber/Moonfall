@@ -101,7 +101,7 @@ func _create_atlas()->void:
  atlas_readout.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
  layout.add_child(atlas_readout)
  atlas_legend=Label.new()
- atlas_legend.text="BLUE: YOU  |  GOLD: WAYPOINT  |  PURPLE: QUEST  |  TEAL: EXPLORED"
+ atlas_legend.text="BLUE: YOU  |  GOLD: WAYPOINT / VISITED CHAMBER  |  PURPLE: QUEST  |  TEAL: EXPLORED TRAIL"
  atlas_legend.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
  layout.add_child(atlas_legend)
  var buttons:HBoxContainer=HBoxContainer.new()
@@ -168,14 +168,27 @@ func _atlas_record_nearby_chambers(position:Vector3)->void:
   var offset:Vector2=Vector2(node.global_position.x-position.x,node.global_position.z-position.z)
   if offset.length_squared()<=12.0*12.0:atlas_chambers_seen.append(chamber_id)
 
+func _atlas_chamber_marker_positions()->Array[Vector3]:
+ var markers:Array[Vector3]=[]
+ for chamber in v321_chambers:
+  var site_id:int=int(chamber.get("site",-1))
+  var stage:int=int(chamber.get("stage",0))
+  if site_id<0 or site_id>=rifts.size() or stage<1 or stage>3:continue
+  if not (site_id*3+stage-1 in atlas_chambers_seen):continue
+  var chamber_node:Node3D=chamber.get("node") as Node3D
+  if not is_instance_valid(chamber_node):continue
+  if NAVIGATION_MAP._valid_world_point(chamber_node.global_position):markers.append(chamber_node.global_position)
+ return markers
+
 func _refresh_atlas()->void:
  if not is_instance_valid(atlas_chart) or not is_instance_valid(atlas_readout):return
  var pos:Vector3=player.global_position if is_instance_valid(player) else Vector3.ZERO
  atlas_chart.set("metres_per_half_width",atlas_zoom_radius)
  atlas_chart.call("set_discovered",atlas_discovered)
+ atlas_chart.call("set_chamber_markers",_atlas_chamber_marker_positions())
  atlas_chart.call("set_quest_markers",atlas_quest_positions)
  atlas_chart.call("update_navigation",pos,atlas_waypoint,atlas_has_waypoint)
- atlas_readout.text="X %.0f | Z %.0f | Explored: %d | Chambers: %d/%d | Rifts: %d/%d | Quests: %d" % [pos.x,pos.z,atlas_discovered.size(),atlas_chambers_seen.size(),v321_chambers.size(),rifts_cleared.size(),rifts.size(),atlas_quest_positions.size()]
+ atlas_readout.text="X %.0f | Z %.0f | Trail: %d/%d | Chambers: %d/%d | Rifts: %d/%d | Quests: %d" % [pos.x,pos.z,atlas_discovered.size(),ATLAS_MAX_DISCOVERED,atlas_chambers_seen.size(),v321_chambers.size(),rifts_cleared.size(),rifts.size(),atlas_quest_positions.size()]
  if atlas_has_waypoint:
   var horizontal_distance:float=Vector2(pos.x,pos.z).distance_to(Vector2(atlas_waypoint.x,atlas_waypoint.z))
   var offset:Vector2=Vector2(atlas_waypoint.x-pos.x,atlas_waypoint.z-pos.z)
