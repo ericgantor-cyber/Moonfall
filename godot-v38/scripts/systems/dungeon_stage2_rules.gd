@@ -12,6 +12,31 @@ const REGIONAL_DUNGEON_RING_RADIUS:float=43.0
 static func regional_dungeon_position(centre:Vector2,index:int)->Vector3:
  var angle:float=-PI*0.5+TAU*float(posmod(index,REGIONAL_DUNGEON_COUNT))/float(REGIONAL_DUNGEON_COUNT)
  return Vector3(centre.x+cos(angle)*REGIONAL_DUNGEON_RING_RADIUS,0.0,centre.y+sin(angle)*REGIONAL_DUNGEON_RING_RADIUS)
+# Region dungeons are distinct from original story rifts. Each dungeon has
+# fourteen physical chambers, extending radially outward from its own entrance.
+# No dungeon-to-dungeon doorway, corridor or direct passage is generated.
+const REGIONAL_CHAMBERS_PER_DUNGEON:int=14
+const REGIONAL_ROOM_OFFSETS:Array[Vector2]=[
+ Vector2(0,0),Vector2(-11,14),Vector2(11,14),Vector2(0,28),
+ Vector2(-14,28),Vector2(-28,28),Vector2(-28,42),
+ Vector2(-14,42),Vector2(0,42),Vector2(14,42),
+ Vector2(28,42),Vector2(28,56),Vector2(14,56),Vector2(0,56)
+]
+static func regional_chamber_position(centre:Vector2,dungeon_id:int,stage:int)->Vector3:
+ var entrance:Vector3=regional_dungeon_position(centre,dungeon_id)
+ if stage<1 or stage>REGIONAL_CHAMBERS_PER_DUNGEON:return entrance
+ var outward:Vector2=Vector2(entrance.x-centre.x,entrance.z-centre.y).normalized()
+ var across:Vector2=Vector2(outward.y,-outward.x)
+ var local:Vector2=REGIONAL_ROOM_OFFSETS[stage-1]
+ return entrance+Vector3(across.x*local.x+outward.x*local.y,0,across.y*local.x+outward.y*local.y)
+
+static func regional_chamber_title(stage:int)->String:
+ if stage==1:return "Dungeon Threshold"
+ if stage==2:return "Outer Sanctum"
+ if stage==3:return "Guardian Crossing"
+ if stage>=4 and stage<=14:return annex_title(stage)
+ return "Unknown Chamber"
+
 # Physical exploration annexes, stages 4–14, branch from the existing Guardian Heart.
 # Each step is 14m, exceeding the 12.4m diameter of enlarged floors.
 const EXPLORATION_OFFSETS:Array[Vector3]=[
