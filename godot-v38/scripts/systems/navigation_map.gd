@@ -143,6 +143,15 @@ static func dungeon_room_index_at(point:Vector3,rooms:Array[Vector3],radius_metr
    nearest=i
  return nearest
 
+# Reject off-screen corridor geometry before allocating polygons or draw commands.
+# The expanded segment bounds include the actual passage width.
+static func passage_near_chart(start:Vector3,finish:Vector3,width:float,centre_position:Vector3,half_extent:Vector2)->bool:
+ if not _valid_world_point(start) or not _valid_world_point(finish) or not _valid_world_point(centre_position):return false
+ if not is_finite(width) or width<=0.0 or width>20.0:return false
+ if not is_finite(half_extent.x) or not is_finite(half_extent.y) or half_extent.x<=0.0 or half_extent.y<=0.0:return false
+ var margin:float=width*0.5
+ return maxf(start.x,finish.x)+margin>=centre_position.x-half_extent.x and minf(start.x,finish.x)-margin<=centre_position.x+half_extent.x and maxf(start.z,finish.z)+margin>=centre_position.z-half_extent.y and minf(start.z,finish.z)-margin<=centre_position.z+half_extent.y
+
 func _draw()->void:
  var rect:Rect2=Rect2(Vector2.ZERO,size)
  draw_rect(rect,Color(0.025,0.04,0.075,0.94),true)
@@ -172,6 +181,7 @@ func _draw()->void:
    var start:Vector3=passage["start"]
    var finish:Vector3=passage["end"]
    var width:float=passage["width"]
+   if not passage_near_chart(start,finish,width,player_position,Vector2(size.x,size.y)*0.5/scale_factor):continue
    var path:Vector2=Vector2(finish.x-start.x,finish.z-start.z)
    if path.length_squared()<0.0001:continue
    var normal:Vector2=Vector2(-path.y,path.x).normalized()*width*0.5*scale_factor
