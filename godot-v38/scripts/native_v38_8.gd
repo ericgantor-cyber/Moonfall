@@ -107,6 +107,13 @@ func _spawn_divine_encounter(spec:Dictionary)->void:
  var actor:Dictionary=beasts[-1]
  actor["divine_id"]=str(spec["id"])
  actor["divine_title"]=str(spec["title"])
+ var factor:float=2.4 if str(spec["id"])=="z" else 2.7
+ actor["max"]=float(actor["max"])*factor
+ actor["base_hp"]=float(actor["max"])
+ actor["hp"]=float(actor["max"])
+ actor["divine_next_at"]=6.0
+ actor["divine_warn_until"]=0.0
+ actor["divine_warning_pos"]=location
  var native_body:CharacterBody3D=actor.get("body") as CharacterBody3D
  if not is_instance_valid(native_body):return
  native_body.name="DivineBoss_"+str(spec["id"])
@@ -128,17 +135,36 @@ func _spawn_divine_encounter(spec:Dictionary)->void:
   label.text=str(spec["title"])
   label.position=Vector3(0,3.4,0)
  actor["divine_visual"]=portrait
+ var warning:=MeshInstance3D.new()
+ warning.name="DivineSignatureAttackWarning"
+ var disk:=CylinderMesh.new()
+ disk.bottom_radius=3.0
+ disk.top_radius=3.0
+ disk.height=0.035
+ disk.radial_segments=32
+ warning.mesh=disk
+ warning.material_override=_material(Color("e04467") if str(spec["id"])=="z" else Color("9261ed"),0.75,true)
+ warning.transparency=0.45
+ warning.visible=false
+ world.add_child(warning)
+ actor["divine_disk"]=warning
 
 func _reset_native_beast(beast:Dictionary)->void:
  super._reset_native_beast(beast)
  if not beast.has("divine_id"):return
  var label:Label3D=beast.get("nameplate") as Label3D
  if is_instance_valid(label):label.text=str(beast.get("divine_title","DIVINE BOSS"))
+ beast["divine_warn_until"]=0.0
+ beast["divine_next_at"]=map_time+6.0
+ var warning:MeshInstance3D=beast.get("divine_disk") as MeshInstance3D
+ if is_instance_valid(warning):warning.hide()
 
 # Earned divine blessings use existing permanent boss defeat IDs. This avoids
 # adding fragile fields to schema-2 checkpoints or the old hero identity.
-const Z_VOID_DAMAGE_BONUS:float=0.10
-const NYRA_ECLIPSE_MAX_HP_BONUS:float=20.0
+const Z_VOID_DAMAGE_BONUS:float=0.15
+const Z_VOID_ON_KILL_HEAL:float=3.0
+const NYRA_ECLIPSE_MAX_HP_BONUS:float=30.0
+const NYRA_ECLIPSE_REDUCTION:float=0.08
 
 func _divine_blessing_earned(divine_id:String)->bool:
  for actor in beasts:
@@ -150,6 +176,10 @@ func _apply_player_hit(target:Dictionary,base_damage:float,stagger_strength:floa
  # Shared melee, spell and projectile hits pass through this damage function.
  var boosted:float=base_damage*(1.0+Z_VOID_DAMAGE_BONUS) if _divine_blessing_earned("z") else base_damage
  super._apply_player_hit(target,boosted,stagger_strength)
+
+func _apply_incoming_damage(raw:float)->void:
+ var mitigated:float=raw*(1.0-NYRA_ECLIPSE_REDUCTION) if _divine_blessing_earned("nyra") else raw
+ super._apply_incoming_damage(mitigated)
 
 func _restore_data(data:Dictionary)->void:
  super._restore_data(data)
@@ -163,13 +193,15 @@ func _restore_data(data:Dictionary)->void:
 func _defeat_beast(beast:Dictionary,pet_kill:bool)->void:
  var divine:String=str(beast.get("divine_id",""))
  var first_clear:bool=not divine.is_empty() and bool(beast.get("alive",false)) and not defeated_boss_ids.has(int(beast.get("boss_id",-1)))
+ if _divine_blessing_earned("z") and bool(beast.get("alive",false)):
+  hp=minf(max_hp,hp+Z_VOID_ON_KILL_HEAL)
  if first_clear and divine=="nyra":
   # Apply before parent victory autosave so max health and current HP persist.
   max_hp+=NYRA_ECLIPSE_MAX_HP_BONUS
   hp=minf(max_hp,hp+NYRA_ECLIPSE_MAX_HP_BONUS)
  super._defeat_beast(beast,pet_kill)
  if first_clear:
-  var reward:String="+10% permanent attack damage" if divine=="z" else "+20 permanent maximum HP"
+  var reward:String="+15% damage and +3 HP on kills, permanently" if divine=="z" else "+30 max HP and 8% damage reduction, permanently"
   _show_message(str(beast.get("divine_title",divine))+" DEFEATED! "+reward+".",5.0)
   _update_hud()
   # Parent autosave is cooldown-limited; divine milestones always persist.
