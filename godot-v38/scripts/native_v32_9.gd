@@ -16,6 +16,10 @@ func _terrain_grid_steer(body:CharacterBody3D,desired:Vector3)->Vector3:
  var creature:Dictionary=body.get_meta("v325_creature")
  if not hero_playing or not bool(creature.get("alive",false)) or not bool(creature.get("hostile",false)) or bool(creature.get("boss",false)) or not bool(creature.get("engaged",false)):
   return super._terrain_grid_steer(body,desired)
+ # Parent flanking steering skips idle, staggered, warned and retreating
+ # creatures. Do not scan neighboring pack members when no flank is possible.
+ if desired.length_squared()<0.04 or map_time<float(creature.get("stagger_until",0.0)) or float(creature.get("windup",0.0))>0.0 or float(creature.get("elite_lunge_windup",0.0))>0.0 or map_time<float(creature.get("retreat_until",0.0)):
+  return super._terrain_grid_steer(body,desired)
  if map_time>=float(creature.get("v329_refresh_at",0.0)):
   creature["v329_refresh_at"]=map_time+V329_SIDE_REFRESH
   var base_side:int=1 if int(creature.get("boss_id",0))%2==0 else -1
