@@ -7,6 +7,9 @@ on:
     paths:
       - 'godot-v38/tools/ai_art_studio.py'
       - 'godot-v38/tools/ai_art_auto_audit.py'
+      - 'godot-v38/tools/ai_art_budget.py'
+      - 'godot-v38/tests/test_ai_art_budget.py'
+      - 'godot-v38/docs/AI_ART_PERFORMANCE_BUDGET.md'
       - 'godot-v38/tests/test_ai_art_auto_audit.py'
       - 'godot-v38/tools/Audit-Moonfall-Art.cmd'
       - 'godot-v38/tools/Import-Moonfall-Art.cmd'
@@ -76,12 +79,18 @@ jobs:
           OPENAI_API_KEY: ''
           MESHY_API_KEY: ''
         run: python tools/ai_art_auto_audit.py --strict --output-dir ai_art_staging/review
+      - name: Build offline art performance budget report
+        working-directory: godot-v38
+        run: python tools/ai_art_budget.py
       - name: Publish AI Art audit summary to GitHub job
         if: always()
         shell: bash
         run: |
           if test -f godot-v38/ai_art_staging/review/auto_audit.md; then
             cat godot-v38/ai_art_staging/review/auto_audit.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if test -f godot-v38/ai_art_staging/review/art_budget.md; then
+            cat godot-v38/ai_art_staging/review/art_budget.md >> "$GITHUB_STEP_SUMMARY"
           fi
       - name: Upload searchable local art audit dashboard and JSON report
         if: always()
@@ -92,5 +101,8 @@ jobs:
             godot-v38/ai_art_staging/review/auto_audit.html
             godot-v38/ai_art_staging/review/auto_audit.json
             godot-v38/ai_art_staging/review/auto_audit.md
+            godot-v38/ai_art_staging/review/art_budget.csv
+            godot-v38/ai_art_staging/review/art_budget.json
+            godot-v38/ai_art_staging/review/art_budget.md
           if-no-files-found: ignore
           retention-days: 14
