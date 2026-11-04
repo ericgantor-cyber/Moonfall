@@ -21,6 +21,7 @@ var atlas_regional_seen:Array[int]=[]
 var atlas_regional_relics_claimed:Array[int]=[]
 var atlas_regional_guardians_cleared:Array[int]=[]
 var atlas_regional_guardian_actors:Dictionary={}
+var atlas_regional_guardian_rolls:Array[int]=[]
 const DUNGEON_GUARDIAN_TRIGGER_RADIUS_SQ:float=16.0*16.0
 var atlas_dungeon_zoom_radius:float=35.0
 var atlas_fast_travel_select:OptionButton
@@ -60,6 +61,20 @@ func _ready()->void:
  super._ready()
  _create_atlas()
 
+# Roll each guardian once per adventure. Saving the rolled species prevents
+# checkpoint reloads from re-randomizing an unfinished boss encounter.
+func _atlas_roll_regional_guardians()->void:
+ atlas_regional_guardian_rolls.clear()
+ var pool_size:int=V321_RULES.REGIONAL_GUARDIAN_SPECIES.size()
+ if pool_size==0:return
+ for zone in range(REGIONS.size()):
+  var last_roll:int=-1
+  for dungeon_id in range(V321_RULES.REGIONAL_DUNGEON_COUNT):
+   var choice:int=rng.randi_range(0,pool_size-1)
+   if choice==last_roll:choice=(choice+1+rng.randi_range(0,pool_size-2))%pool_size
+   atlas_regional_guardian_rolls.append(choice)
+   last_roll=choice
+
 func _start_game(selected_hero:String)->void:
  super._start_game(selected_hero)
  atlas_has_waypoint=false
@@ -70,6 +85,7 @@ func _start_game(selected_hero:String)->void:
  atlas_regional_relics_claimed.clear()
  atlas_regional_guardians_cleared.clear()
  atlas_regional_guardian_actors.clear()
+ _atlas_roll_regional_guardians()
  atlas_fast_travel_unlocked_cache.clear()
  atlas_regional_dungeon=-1
  atlas_dungeon_paths.clear()
@@ -86,6 +102,7 @@ func _checkpoint_extra_data()->Dictionary:
  data["atlas_regional_seen"]=atlas_regional_seen.duplicate()
  data["atlas_regional_relics_claimed"]=atlas_regional_relics_claimed.duplicate()
  data["atlas_regional_guardians_cleared"]=atlas_regional_guardians_cleared.duplicate()
+ data["atlas_regional_guardian_rolls"]=atlas_regional_guardian_rolls.duplicate()
  var saved_paths:Dictionary={}
  for site_key in atlas_dungeon_paths.keys():
   var points:Array[Vector3]=atlas_dungeon_paths[site_key]
@@ -106,6 +123,7 @@ func _restore_data(data:Dictionary)->void:
  atlas_regional_relics_claimed.clear()
  atlas_regional_guardians_cleared.clear()
  atlas_regional_guardian_actors.clear()
+ atlas_regional_guardian_rolls.clear()
  atlas_fast_travel_unlocked_cache.clear()
  atlas_dungeon_paths.clear()
  atlas_quest_positions.clear()
@@ -120,6 +138,16 @@ func _restore_data(data:Dictionary)->void:
   atlas_regional_seen=NAVIGATION_MAP.decode_chambers(extras.get("atlas_regional_seen",[]),REGIONS.size()*V321_RULES.REGIONAL_DUNGEON_COUNT*V321_RULES.REGIONAL_CHAMBERS_PER_DUNGEON)
   atlas_regional_relics_claimed=NAVIGATION_MAP.decode_chambers(extras.get("atlas_regional_relics_claimed",[]),REGIONS.size()*V321_RULES.REGIONAL_DUNGEON_COUNT*V321_RULES.REGIONAL_CACHE_STAGES.size())
   atlas_regional_guardians_cleared=NAVIGATION_MAP.decode_chambers(extras.get("atlas_regional_guardians_cleared",[]),REGIONS.size()*V321_RULES.REGIONAL_DUNGEON_COUNT)
+  var saved_guardians:Variant=extras.get("atlas_regional_guardian_rolls",[])
+  var expected_rolls:int=REGIONS.size()*V321_RULES.REGIONAL_DUNGEON_COUNT
+  if saved_guardians is Array and saved_guardians.size()==expected_rolls:
+   var valid_rolls:bool=true
+   for choice in saved_guardians:
+    if not (choice is int) or int(choice)<0 or int(choice)>=V321_RULES.REGIONAL_GUARDIAN_SPECIES.size():
+     valid_rolls=false
+     break
+   if valid_rolls:
+    for choice in saved_guardians:atlas_regional_guardian_rolls.append(int(choice))
   var loaded_paths:Variant=extras.get("atlas_dungeon_paths",{})
   if loaded_paths is Dictionary:
    for site_id in range(mini(rifts.size()+REGIONS.size()*V321_RULES.REGIONAL_DUNGEON_COUNT,64)):
@@ -142,6 +170,8 @@ func _restore_data(data:Dictionary)->void:
    if is_finite(x) and is_finite(y) and is_finite(z):
     atlas_waypoint=Vector3(x,y,z)
     atlas_has_waypoint=bool(extras.get("atlas_has_waypoint",false))
+ if atlas_regional_guardian_rolls.size()!=REGIONS.size()*V321_RULES.REGIONAL_DUNGEON_COUNT:
+  _atlas_roll_regional_guardians()
  _refresh_atlas()
 
 func _create_atlas()->void:
@@ -358,7 +388,10 @@ func _atlas_update_dungeon_guardians(position:Vector3)->void:
    var horizontal:Vector2=Vector2(position.x-room_position.x,position.z-room_position.z)
    if horizontal.length_squared()>DUNGEON_GUARDIAN_TRIGGER_RADIUS_SQ:continue
    var before:int=beasts.size()
-   var monster:String=str(REGIONS[zone]["monster"])
+   if guardian_id>=atlas_regional_guardian_rolls.size():continue
+   var rolled_index:int=atlas_regional_guardian_rolls[guardian_id]
+   if rolled_index<0 or rolled_index>=V321_RULES.REGIONAL_GUARDIAN_SPECIES.size():continue
+   var monster:String=V321_RULES.REGIONAL_GUARDIAN_SPECIES[rolled_index]
    if not BEASTS.has(monster):continue
    _spawn_beast(room_position,monster,zone,"elder",true)
    if beasts.size()<=before:continue
@@ -367,7 +400,7 @@ func _atlas_update_dungeon_guardians(position:Vector3)->void:
    guardian["home"]=room_position
    var title:Label3D=guardian.get("nameplate") as Label3D
    if is_instance_valid(title):
-    title.text="ECLIPSE DUNGEON GUARDIAN • %d / 5" % (dungeon_id+1)
+    title.text="ECLIPSE %s GUARDIAN • %d / 5" % [monster.to_upper(),dungeon_id+1]
     title.modulate=Color("ffd28d")
    atlas_regional_guardian_actors[guardian_id]=guardian
    _show_message("A dungeon guardian defends the Eclipse Threshold!",3.0)

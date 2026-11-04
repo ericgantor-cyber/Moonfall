@@ -15,6 +15,9 @@ static func regional_dungeon_position(centre:Vector2,index:int)->Vector3:
 # Region dungeons are distinct from original story rifts. Each dungeon has
 # fourteen physical chambers, extending radially outward from its own entrance.
 # No dungeon-to-dungeon doorway, corridor or direct passage is generated.
+# Native hostile species supported by inherited boss/AI/art pipelines.
+# Guardian species are rolled per adventure and stored in its checkpoint.
+const REGIONAL_GUARDIAN_SPECIES:Array[String]=["wolf","boar","serpent","panther"]
 const REGIONAL_CHAMBERS_PER_DUNGEON:int=14
 const REGIONAL_ROOM_OFFSETS:Array[Vector2]=[
  Vector2(0,0),Vector2(-11,14),Vector2(11,14),Vector2(0,28),
