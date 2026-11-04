@@ -81,3 +81,216 @@ func _process(delta:float)->void:
 func _start_game(selected_hero:String)->void:
  super._start_game(selected_hero)
  aim_target_id=-1
+
+# Issue #477 stage 2: two actual divine world bosses reuse native boss
+# combat, telegraphs, phases, reward tracking and v2 checkpoint IDs.
+# Spawned after all legacy beasts to preserve historical boss IDs.
+var divine_boss_ids:Dictionary={}
+const DIVINE_ENCOUNTERS:Array[Dictionary]=[
+ {"id":"z","title":"Z • VOID REAPER","zone":4,"position":Vector3(11.0,0.0,44.0),"kind":"wolf"},
+ {"id":"nyra","title":"NYRA • ECLIPSE QUEEN","zone":5,"position":Vector3(73.0,0.0,43.0),"kind":"panther"}
+]
+
+func _build_scene()->void:
+ super._build_scene()
+ for spec in DIVINE_ENCOUNTERS:
+  _spawn_divine_encounter(spec)
+
+func _spawn_divine_encounter(spec:Dictionary)->void:
+ var zone:int=int(spec["zone"])
+ var kind:String=str(spec["kind"])
+ var location:Vector3=spec["position"]
+ var prior:int=beasts.size()
+ # The game's current boss AI already handles attack telegraphs, phases,
+ # boss HP display, defeat rewards and persistent boss IDs.
+ _spawn_beast(location,kind,zone,"elder",true)
+ if beasts.size()!=prior+1:return
+ var actor:Dictionary=beasts[-1]
+ actor["divine_id"]=str(spec["id"])
+ divine_boss_ids[str(spec["id"])]=int(actor.get("boss_id",-1))
+ actor["divine_title"]=str(spec["title"])
+ var factor:float=2.4 if str(spec["id"])=="z" else 2.7
+ actor["max"]=float(actor["max"])*factor
+ actor["base_hp"]=float(actor["max"])
+ actor["hp"]=float(actor["max"])
+ actor["divine_next_at"]=6.0
+ actor["divine_warn_until"]=0.0
+ actor["divine_warning_pos"]=location
+ actor["divine_pattern_seq"]=0
+ var native_body:CharacterBody3D=actor.get("body") as CharacterBody3D
+ if not is_instance_valid(native_body):return
+ native_body.name="DivineBoss_"+str(spec["id"])
+ # Original image bytes are reused, never recolored or modified.
+ var texture:Texture2D=Z_ART if str(spec["id"])=="z" else NYRA_ART
+ for child in native_body.get_children():
+  if child is MeshInstance3D:
+   child.hide()
+ var portrait:=Sprite3D.new()
+ portrait.name="OriginalDivineBossArt"
+ portrait.texture=texture
+ portrait.billboard=BaseMaterial3D.BILLBOARD_ENABLED
+ portrait.pixel_size=3.6/float(texture.get_height())
+ portrait.position=Vector3(0,1.1,0)
+ portrait.alpha_cut=SpriteBase3D.ALPHA_CUT_OPAQUE_PREPASS
+ native_body.add_child(portrait)
+ var label:Label3D=actor.get("nameplate") as Label3D
+ if is_instance_valid(label):
+  label.text=str(spec["title"])
+  label.position=Vector3(0,3.4,0)
+ actor["divine_visual"]=portrait
+ var warning:=MeshInstance3D.new()
+ warning.name="DivineSignatureAttackWarning"
+ var disk:=CylinderMesh.new()
+ disk.bottom_radius=3.0
+ disk.top_radius=3.0
+ disk.height=0.035
+ disk.radial_segments=32
+ warning.mesh=disk
+ warning.material_override=_material(Color("e04467") if str(spec["id"])=="z" else Color("9261ed"),0.75,true)
+ warning.transparency=0.45
+ warning.visible=false
+ world.add_child(warning)
+ actor["divine_disk"]=warning
+
+func _reset_native_beast(beast:Dictionary)->void:
+ super._reset_native_beast(beast)
+ if not beast.has("divine_id"):return
+ var label:Label3D=beast.get("nameplate") as Label3D
+ if is_instance_valid(label):label.text=str(beast.get("divine_title","DIVINE BOSS"))
+ beast["divine_warn_until"]=0.0
+ beast["divine_next_at"]=map_time+6.0
+ beast["divine_pattern_seq"]=0
+ var warning:MeshInstance3D=beast.get("divine_disk") as MeshInstance3D
+ if is_instance_valid(warning):warning.hide()
+
+# Earned divine blessings use existing permanent boss defeat IDs. This avoids
+# adding fragile fields to schema-2 checkpoints or the old hero identity.
+const Z_VOID_DAMAGE_BONUS:float=0.15
+const Z_VOID_ON_KILL_HEAL:float=3.0
+const NYRA_ECLIPSE_MAX_HP_BONUS:float=30.0
+const NYRA_ECLIPSE_REDUCTION:float=0.08
+
+func _divine_blessing_earned(divine_id:String)->bool:
+ # Two stable IDs are registered at spawn; avoid scanning every actor on hits.
+ if not divine_boss_ids.has(divine_id):return false
+ return defeated_boss_ids.has(int(divine_boss_ids[divine_id]))
+
+func _apply_player_hit(target:Dictionary,base_damage:float,stagger_strength:float=0.0)->void:
+ # Shared melee, spell and projectile hits pass through this damage function.
+ var boosted:float=base_damage*(1.0+Z_VOID_DAMAGE_BONUS) if _divine_blessing_earned("z") else base_damage
+ super._apply_player_hit(target,boosted,stagger_strength)
+
+func _apply_incoming_damage(raw:float)->void:
+ var mitigated:float=raw*(1.0-NYRA_ECLIPSE_REDUCTION) if _divine_blessing_earned("nyra") else raw
+ super._apply_incoming_damage(mitigated)
+
+func _restore_data(data:Dictionary)->void:
+ super._restore_data(data)
+ # Parent restores ordinary vigor HP first; do not allow its old cap to
+ # silently erase health saved after the permanent Nyra blessing.
+ if _divine_blessing_earned("nyra"):
+  max_hp+=NYRA_ECLIPSE_MAX_HP_BONUS
+  hp=clampf(float(data.get("hp",hp)),1.0,max_hp)
+ _update_hud()
+
+func _defeat_beast(beast:Dictionary,pet_kill:bool)->void:
+ var divine:String=str(beast.get("divine_id",""))
+ var first_clear:bool=not divine.is_empty() and bool(beast.get("alive",false)) and not defeated_boss_ids.has(int(beast.get("boss_id",-1)))
+ if _divine_blessing_earned("z") and bool(beast.get("alive",false)):
+  hp=minf(max_hp,hp+Z_VOID_ON_KILL_HEAL)
+ if first_clear and divine=="nyra":
+  # Apply before parent victory autosave so max health and current HP persist.
+  max_hp+=NYRA_ECLIPSE_MAX_HP_BONUS
+  hp=minf(max_hp,hp+NYRA_ECLIPSE_MAX_HP_BONUS)
+ super._defeat_beast(beast,pet_kill)
+ if not divine.is_empty():
+  var disk:MeshInstance3D=beast.get("divine_disk") as MeshInstance3D
+  if is_instance_valid(disk):disk.hide()
+  beast["divine_warn_until"]=0.0
+ if first_clear:
+  var reward:String="+15% damage and +3 HP on kills, permanently" if divine=="z" else "+30 max HP and 8% damage reduction, permanently"
+  _show_message(str(beast.get("divine_title",divine))+" DEFEATED! "+reward+".",5.0)
+  _update_hud()
+  # Parent autosave is cooldown-limited; divine milestones always persist.
+  suppress_autosave_message=true
+  _save_game()
+  suppress_autosave_message=false
+
+# Signature divine attacks are additional to existing boss patterns. Each
+# warning is one reusable mesh; the existing dodge and armor pipeline applies.
+func _update_beast_step(beast:Dictionary,delta:float)->void:
+ super._update_beast_step(beast,delta)
+ if not bool(beast.get("alive",false)) or not beast.has("divine_id"):return
+ if not is_instance_valid(player) or not hero_playing or menu_open or death_active:return
+ var body:CharacterBody3D=beast.get("body") as CharacterBody3D
+ var warning:MeshInstance3D=beast.get("divine_disk") as MeshInstance3D
+ if not is_instance_valid(body) or not is_instance_valid(warning):return
+ var remaining:float=float(beast.get("divine_warn_until",0.0))
+ if remaining>0.0:
+  if map_time<remaining:
+   warning.visible=true
+   warning.transparency=0.30+0.18*absf(sin(map_time*8.0))
+   return
+  warning.hide()
+  beast["divine_warn_until"]=0.0
+  var strike:Vector3=beast.get("divine_warning_pos",body.global_position)
+  var radius:float=float(beast.get("divine_attack_radius",3.0 if str(beast["divine_id"])=="z" else 4.1))
+  var dist_sq:float=Vector2(player.global_position.x-strike.x,player.global_position.z-strike.z).length_squared()
+  if dist_sq<radius*radius and dodge_time<=0.0 and _has_clear_sight(body,player):
+   _apply_incoming_damage(15.0+float(int(beast.get("boss_phase",1)))*8.0)
+   _show_message("Divine strike! Leave the glowing mark or dodge.",1.5)
+  return
+ if body.global_position.distance_squared_to(player.global_position)>12.0*12.0:return
+ if map_time<float(beast.get("divine_next_at",0.0)):return
+ var phase:int=clampi(int(beast.get("boss_phase",1)),1,3)
+ var divine:String=str(beast["divine_id"])
+ var cycle:int=int(beast.get("divine_pattern_seq",0))
+ beast["divine_pattern_seq"]=cycle+1
+ # Phase-three boss signatures alternate between aimed and radial attacks.
+ # The warning remains stationary during its full windup for fair counterplay.
+ var aimed:bool=divine=="z"
+ if phase==3 and cycle%2==1:aimed=not aimed
+ var strike_pos:Vector3=player.global_position if aimed else body.global_position
+ var radius:float=(3.0 if divine=="z" else 4.1)+(0.7 if phase==3 and cycle%2==1 else 0.0)
+ beast["divine_attack_radius"]=radius
+ beast["divine_warning_pos"]=strike_pos
+ beast["divine_warn_until"]=map_time+maxf(0.9,1.7-0.25*float(phase-1))
+ beast["divine_next_at"]=map_time+maxf(4.8,8.0-1.0*float(phase-1))
+ var cylinder:CylinderMesh=warning.mesh as CylinderMesh
+ if is_instance_valid(cylinder):
+  cylinder.bottom_radius=radius
+  cylinder.top_radius=radius
+ warning.global_position=Vector3(strike_pos.x,0.07,strike_pos.z)
+ warning.visible=true
+ _show_message(("VOID JUDGMENT: MOVE!" if aimed else "VOID COLLAPSE: GET CLEAR!") if divine=="z" else ("ECLIPSE MARK: MOVE!" if aimed else "ECLIPSE PULSE: GET CLEAR!"),1.9)
+
+func _refresh_boss_phase(beast:Dictionary)->void:
+ var previous:int=int(beast.get("boss_phase",1))
+ super._refresh_boss_phase(beast)
+ if not beast.has("divine_id") or not bool(beast.get("alive",false)):return
+ var phase:int=int(beast.get("boss_phase",1))
+ var label:Label3D=beast.get("nameplate") as Label3D
+ if is_instance_valid(label):
+  label.text=str(beast.get("divine_title","DIVINE BOSS"))+" • PHASE "+str(phase)
+ if phase>previous:
+  beast["divine_next_at"]=map_time+2.0
+  _show_message(str(beast.get("divine_title","DIVINE BOSS"))+" AWAKENS • PHASE "+str(phase),2.5)
+
+# The warning disks live outside region scenery so their positions remain
+# fixed. Clear off-region warnings when travel switches AI simulation zones.
+func _update_region_visibility()->void:
+ super._update_region_visibility()
+ for actor in beasts:
+  if not actor.has("divine_id"):continue
+  if int(actor.get("zone",-1))==region_index and bool(actor.get("alive",false)):continue
+  var disk:MeshInstance3D=actor.get("divine_disk") as MeshInstance3D
+  if is_instance_valid(disk):disk.hide()
+  actor["divine_warn_until"]=0.0
+
+func _update_hud()->void:
+ super._update_hud()
+ if not is_instance_valid(world_hud):return
+ var buffs:String=""
+ if _divine_blessing_earned("z"):buffs+="  | Z: +15% DMG / +3 KILL HP"
+ if _divine_blessing_earned("nyra"):buffs+="  | NYRA: +30 HP / 8% GUARD"
+ if not buffs.is_empty():world_hud.text+=buffs

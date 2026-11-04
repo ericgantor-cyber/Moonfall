@@ -36,7 +36,7 @@ func _run() -> void:
  check(game.get("map_time") > t + 0.5, "Player simulation advances 120 physics frames")
  check(game.get("hero_playing"), "Hero remains active in live simulation")
  check(game.get("visible_regions") >= 1, "Region visibility remains valid")
- check(game.get("beasts").size() == 74, "Wildlife and invasion actor pools remain stable")
+ check(game.get("beasts").size() == 76, "74 legacy actor IDs plus two divine boss actors remain stable")
  for i in range(6):
   game.call("_award_experience", i % 6, "elder", false)
  check(game.get("hero_level") >= 2, "Experience grants level-up and talent points")
@@ -61,6 +61,30 @@ func _run() -> void:
  for frame in range(60):
   await physics_frame
  check(game.get("hero_playing"), "Loaded hero runs for 60 more physics frames")
+ # Exercise divine save/load on the sandbox profile, not on real user files.
+ var divine_ids:Dictionary=game.get("divine_boss_ids")
+ check(divine_ids.has("z") and divine_ids.has("nyra"), "Stable divine boss IDs registered in live scene")
+ if divine_ids.has("z") and divine_ids.has("nyra"):
+  var defeats:Array=game.get("defeated_boss_ids")
+  defeats.append(int(divine_ids["z"]))
+  defeats.append(int(divine_ids["nyra"]))
+  var expected_max:float=float(game.get("max_hp"))+30.0
+  game.set("max_hp",expected_max)
+  game.set("hp",expected_max)
+  game.call("_save_game")
+  check(game.get("save_health")=="OK", "Divine blessing checkpoint writes successfully")
+  var divine_saved:Dictionary=game.call("_read_save")
+  var parsed_boss_ids:Array[int]=[]
+  for raw_id in divine_saved.get("bosses",[]):
+   parsed_boss_ids.append(int(raw_id))
+  check(parsed_boss_ids.has(int(divine_ids["z"])) and parsed_boss_ids.has(int(divine_ids["nyra"])), "Both divine victory IDs survive JSON encoding")
+  game.call("_start_game","nyra")
+  check(not game.call("_divine_blessing_earned","z") and not game.call("_divine_blessing_earned","nyra"), "New adventure clears permanent blessings")
+  game.call("_load_game")
+  check(game.call("_divine_blessing_earned","z") and game.call("_divine_blessing_earned","nyra"), "Both blessings restore from checkpoint")
+  check(is_equal_approx(float(game.get("max_hp")),expected_max), "Nyra max HP restores exactly once")
+  check(is_equal_approx(float(game.get("hp")),expected_max), "Nyra bonus HP is not lost on load")
+
  if failures == 0: print("MOONFALL NATIVE v11 LIVE PASS")
  else: push_error("MOONFALL NATIVE v11 LIVE FAILED " + str(failures) + " checks")
  game.queue_free()
