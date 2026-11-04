@@ -2,6 +2,7 @@ extends SceneTree
 const NAV=preload("res://scripts/systems/navigation_map.gd")
 const AMERICAS=preload("res://scripts/systems/americas_wildlife_catalog.gd")
 const WILDLIFE_VISUALS=preload("res://scripts/systems/americas_wildlife_visuals.gd")
+const APPROVED_ART=preload("res://scripts/systems/ai_art_overrides.gd")
 var failures:int=0
 
 func check(ok:bool,description:String)->void:
@@ -60,6 +61,18 @@ func _run()->void:
  check((map.get("discovered") as Array)[0]==Vector3(2744,0,2744%29) and (map.get("discovered") as Array).back()==Vector3(2999,0,2999%29),"render budget displays most recently discovered landmarks")
  # Habitat catalog validation does not allocate extra enemy physics actors.
  check(AMERICAS.HABITATS.size()==6,"Americas roster covers all six existing world regions")
+ check(APPROVED_ART.animal_path("American bison")=="res://assets/ai_generated/animals/animal_american_bison.png","AI art name normalization matches the offline generator")
+ check(APPROVED_ART.guardian_path(54)=="res://assets/ai_generated/guardians/guardian_54.png" and APPROVED_ART.guardian_path(55)=="","55 guardian art slots have safe bounds")
+ var art_body:=CharacterBody3D.new()
+ root.add_child(art_body)
+ var generic_mesh:=MeshInstance3D.new()
+ art_body.add_child(generic_mesh)
+ generic_mesh.visible=false
+ APPROVED_ART.clear_approved(art_body)
+ check(generic_mesh.visible,"removing approved art restores the original animal mesh")
+ check(not APPROVED_ART.attach_approved(art_body,"res://assets/ai_generated/animals/missing_test.png") and generic_mesh.visible,"missing approved image retains native wildlife and physics")
+ check(art_body.get_children().size()==1 and art_body.get_child(0)==generic_mesh,"failed art lookup does not create extra gameplay actors or collision")
+ art_body.queue_free()
  var fake_body:=CharacterBody3D.new()
  root.add_child(fake_body)
  for taxon in ["M","B","R","A"]:
@@ -95,6 +108,8 @@ func _run()->void:
  check('AMERICAS_WILDLIFE=preload("res://scripts/systems/americas_wildlife_catalog.gd")' in source,"native game loads the Americas catalog")
  check("func _americas_apply_wildlife_profiles()" in source and "animal[\"americas_species\"]" in source,"existing wildlife actors receive species identity without additional AI bodies")
  check("AMERICAS_VISUALS.attach(native_body" in source and "_americas_update_wildlife_visuals(delta)" in source,"native wildlife receives taxon silhouettes and live visual movement")
+ check('APPROVED_AI_ART.attach_approved(native_body' in source and source.find("AMERICAS_VISUALS.attach(native_body")<source.find("APPROVED_AI_ART.attach_approved(native_body"),"approved wildlife art replaces rather than doubles up the generic procedural silhouette")
+ check('not visual.visible:continue' in source,"hidden placeholders skip animation when approved creature art is present")
  check("if updates>=20:break" in source and "0.28" in source and "45.0*45.0" in source,"visual motion limits scene updates to twenty nearby visible animals at a throttled cadence")
  check("body.global_position.distance_squared_to(player.global_position)" in source and "not body.visible" in source,"visual embellishments are culled with existing native animal visibility")
  check("american_wildlife_visual_ticks+=updates" in source,"wildlife animation performance samples can be inspected")
