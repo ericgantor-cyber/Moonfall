@@ -8,3 +8,6 @@ GODOT_*_LOG.txt
 Godot_4.7.2/
 godot-win.zip
 *.tpz
+
+# Unreviewed paid-model output stays local and is never committed.
+ai_art_staging/
