@@ -62,3 +62,25 @@ combat, input, screen-reader/accessibility and art-fidelity verification.
 Source regression test: `python -m unittest tests.test_divine_boss_encounters`.
 Real frame pacing and visible on-screen boss placement still require gameplay
 verification and are not asserted by this source test.
+
+## Permanent divine blessings (issue #477)
+
+Defeating each god for the **first time in the current adventure** grants a
+separate permanent benefit:
+
+- **Z, Void Reaper:** +10% outgoing attack damage, applied through the shared
+  combat hit handler (including attacks and damaging spells).
+- **Nyra, Eclipse Queen:** +20 maximum health and an immediate +20 health heal
+  (capped at the new maximum).
+
+Blessings do not expire on death, reload, leaving the zone or changing gear.
+They derive from the pre-existing `defeated_boss_ids` checkpoint list; no
+new save schema or artwork is required. Divine victories force an immediate
+checkpoint save even if standard autosave is on cooldown. New adventures
+start with neither blessing; historical checkpoints without divine defeat
+records receive neither. The Nyra restore path reapplies the maximum health
+increase after the parent system restores vigor and health.
+
+The bonuses are deliberately bounded and non-stacking. Actual boss rewards,
+damage and checkpoint round-trip still require the Godot/Windows CI plus
+interactive verification before this can be considered released.
