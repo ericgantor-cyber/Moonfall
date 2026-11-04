@@ -2,6 +2,7 @@ extends "res://scripts/native_v38_1.gd"
 ## Coordinate-accurate atlas overlay; existing connected world geometry unchanged.
 const NAVIGATION_MAP=preload("res://scripts/systems/navigation_map.gd")
 const AMERICAS_WILDLIFE=preload("res://scripts/systems/americas_wildlife_catalog.gd")
+const APPROVED_AI_ART=preload("res://scripts/systems/ai_art_overrides.gd")
 const AMERICAS_VISUALS=preload("res://scripts/systems/americas_wildlife_visuals.gd")
 var atlas_panel:PanelContainer
 var atlas_chart:Control
@@ -90,6 +91,8 @@ func _americas_apply_wildlife_profiles()->void:
    if picked.is_empty():continue
    animal["americas_species"]=str(picked["name"])
    animal["americas_taxon"]=str(picked["taxon"])
+   var art_body:CharacterBody3D=animal.get("body") as CharacterBody3D
+   if is_instance_valid(art_body):APPROVED_AI_ART.attach_approved(art_body,APPROVED_AI_ART.animal_path(str(picked["name"])))
    var native_body:CharacterBody3D=animal.get("body") as CharacterBody3D
    if is_instance_valid(native_body):
     animal["americas_visual_root"]=AMERICAS_VISUALS.attach(native_body,str(picked["taxon"]),str(picked["name"]))
@@ -490,6 +493,11 @@ func _atlas_update_dungeon_guardians(position:Vector3)->void:
    if is_instance_valid(title):
     title.text="%s %s GUARDIAN • %d / 5" % [V321_RULES.REGIONAL_GUARDIAN_TRAITS[trait_id].to_upper(),monster.to_upper(),dungeon_id+1]
     title.modulate=V321_RULES.REGIONAL_GUARDIAN_TRAIT_COLORS[trait_id]
+   # Later 55-profile guardian types can use approved custom images automatically.
+   var approved_profile:int=int(guardian.get("regional_guardian_profile",-1))
+   var guardian_art_body:CharacterBody3D=guardian.get("body") as CharacterBody3D
+   if approved_profile>=0 and is_instance_valid(guardian_art_body):
+    APPROVED_AI_ART.attach_approved(guardian_art_body,APPROVED_AI_ART.guardian_path(approved_profile))
    atlas_regional_guardian_actors[guardian_id]=guardian
    _show_message("A dungeon guardian defends the Eclipse Threshold!",3.0)
    return
