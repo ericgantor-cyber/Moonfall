@@ -68,6 +68,12 @@ func _run()->void:
  check("atlas_chamber_scan_elapsed+=maxf(0.0,delta)" in source and "_atlas_record_nearby_chambers(here)" in source,"closed-map chamber scanning runs in the world update")
  check("func _atlas_record_nearby_chambers(" in source and "chamber_id in atlas_chambers_seen" in source,"nearby chambers discovered once")
  check("atlas_chambers_seen" in source and "NAVIGATION_MAP.decode_chambers(" in source,"checkpoint saves and restores chamber progress")
+ check("_atlas_room_id(site_id,stage)" in source and "v321_annexes.size()" in source,"checkpoint retains original chamber IDs and saves annex discoveries")
+ check("This dungeon: %d/14" in source and "range(1,15)" in source,"atlas tracks fourteen rooms within each active rift")
+ check("all_passages.append_array(v321_annex_passages)" in source and "start_known and end_known" in source,"atlas displays real annex bridges with exploration fog")
+ check("RiftAnnexFloor" in source and "_atlas_all_site_chambers()" in source,"atlas reads actual fourteen-room geometry")
+ check("nearest_distance" in source,"atlas stays in dungeon view around distant annex rooms")
+ check(NAV.decode_chambers([0,8,9,19,41,42,-1],42)==[0,8,9,19,41],"checkpoint filters new and old chamber IDs safely")
  check(NAV.decode_chambers([0,3,3,8,-1,9,"7",NAN],9)==[0,3,8],"chamber checkpoint filters duplicates and invalid IDs")
  check(NAV.decode_chambers([],9).is_empty(),"legacy saves without chamber discoveries still load")
  var chamber_marks:Array[Vector3]=[]
