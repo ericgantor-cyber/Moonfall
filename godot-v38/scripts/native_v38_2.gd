@@ -49,6 +49,7 @@ var ai_art_slow_seconds:float=0.0
 var ai_art_fast_seconds:float=0.0
 var ai_art_next_model_load_ms:int=0
 var ai_art_model_load_attempts:int=0
+var ai_art_failed_model_loads:Dictionary={}
 var ai_art_anim_clock:float=0.0
 var ai_art_anim_tick_count:int=0
 var ai_art_anim_poll_cycle:int=0
@@ -186,9 +187,24 @@ func _ai_art_track_frame_performance(delta:float)->void:
   ai_art_slow_seconds=0.0
   ai_art_fast_seconds=0.0
 
-# Streaming only reserves the nearest 0,1 or 3 approved animal meshes
-# (depending on adaptive frame budget), and at most one dungeon monument.
-# Hysteresis prevents model flicker and one load/900ms prevents GPU spikes.
+# Failed optional GLBs keep native art, with bounded retry delays.
+func _ai_art_can_retry_model(asset_key:String,now_ms:int)->bool:
+ var failure:Dictionary=ai_art_failed_model_loads.get(asset_key,{})
+ return AI_ART_AUTO_QUALITY.can_retry_failed_load(now_ms,int(failure.get("retry_at",0)))
+
+func _ai_art_note_model_load(asset_key:String,success:bool,now_ms:int)->void:
+ if success:
+  ai_art_failed_model_loads.erase(asset_key)
+  return
+ var old:Dictionary=ai_art_failed_model_loads.get(asset_key,{})
+ var failures:int=mini(6,int(old.get("failures",0))+1)
+ ai_art_failed_model_loads[asset_key]={
+  "failures":failures,
+  "retry_at":now_ms+AI_ART_AUTO_QUALITY.failed_load_retry_ms(failures)
+ }
+
+# Stream eligible nearby creature and chamber models progressively.
+# Hysteresis and one load/900ms prevent repeated GPU spikes.
 func _ai_art_refresh_nearby_models()->void:
  if not is_instance_valid(player):return
  var here:Vector3=player.global_position
@@ -222,12 +238,14 @@ func _ai_art_refresh_nearby_models()->void:
   var key:int=body.get_instance_id()
   selected[key]=true
   var current:Node3D=actor.get("americas_3d_node") as Node3D
-  if not is_instance_valid(current) and not loaded_this_tick and now_ms>=ai_art_next_model_load_ms:
+  var identifier:String=str(actor["americas_3d_asset_id"])
+  var asset_key:String="animals/"+identifier
+  if not is_instance_valid(current) and not loaded_this_tick and now_ms>=ai_art_next_model_load_ms and _ai_art_can_retry_model(asset_key,now_ms):
    ai_art_model_load_attempts+=1
    ai_art_next_model_load_ms=now_ms+AI_ART_AUTO_QUALITY.MIN_LOAD_INTERVAL_MS
    loaded_this_tick=true
-   var identifier:String=str(actor["americas_3d_asset_id"])
    current=AI_APPROVED_3D.add_approved_model(body,"animals",identifier,Vector3.ZERO,2.0,true)
+   _ai_art_note_model_load(asset_key,is_instance_valid(current),now_ms)
    if is_instance_valid(current):
     actor["americas_3d_node"]=current
     actor["ai_art_animation_binding"]=AI_ART_ANIMATION.bind_imported(current)
@@ -266,12 +284,14 @@ func _ai_art_refresh_nearby_models()->void:
   var existing:Node3D=entry.get("model") as Node3D
   var banner:Sprite3D=entry.get("banner") as Sprite3D
   if selected_rooms.has(node.get_instance_id()):
-   if not is_instance_valid(existing) and not loaded_this_tick and now_ms>=ai_art_next_model_load_ms:
+   var stage:int=int(entry["stage"])
+   var asset_key:String="chambers/chamber_%02d"%stage
+   if not is_instance_valid(existing) and not loaded_this_tick and now_ms>=ai_art_next_model_load_ms and _ai_art_can_retry_model(asset_key,now_ms):
     ai_art_model_load_attempts+=1
     ai_art_next_model_load_ms=now_ms+AI_ART_AUTO_QUALITY.MIN_LOAD_INTERVAL_MS
     loaded_this_tick=true
-    var stage:int=int(entry["stage"])
     existing=AI_APPROVED_3D.add_approved_model(node,"chambers","chamber_%02d"%stage,Vector3.ZERO,2.3)
+    _ai_art_note_model_load(asset_key,is_instance_valid(existing),now_ms)
     if is_instance_valid(existing):entry["model"]=existing
    if is_instance_valid(existing) and is_instance_valid(banner):banner.visible=false
   else:
