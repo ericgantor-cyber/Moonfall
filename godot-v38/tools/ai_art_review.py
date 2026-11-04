@@ -10,6 +10,8 @@ import sys
 from urllib.parse import quote
 
 import ai_art_studio as studio
+import ai_art_3d as model
+import hashlib
 from ai_art_game_catalog import all_game_items, SLOTS
 
 
@@ -42,11 +44,42 @@ def review_status(item: dict) -> dict:
                 issue = "Metadata or checksum does not match PNG"
         except (ValueError, OSError, json.JSONDecodeError) as exc:
             issue = str(exc)
+    model_state = "not_applicable"
+    model_valid = False
+    model_issue = ""
+    model_details = {}
+    model_file = ""
+    if item["category"] in model.ALLOWED_MODEL_CATEGORIES:
+        model_staged, model_approved, _ = model.paths(item)
+        selected = model_approved if model_approved.exists() else model_staged
+        model_state = ("approved" if model_approved.exists()
+                       else "staged" if model_staged.exists() else "missing")
+        if model_state != "missing":
+            model_file = str(selected)
+            try:
+                payload = selected.read_bytes()
+                model_details = model.glb_info(payload)
+                record = json.loads(selected.with_suffix(".json").read_text(encoding="utf-8"))
+                model_valid = (
+                    record.get("asset_id") == item["asset_id"]
+                    and record.get("reviewed") is (model_state == "approved")
+                    and record.get("sha256") == hashlib.sha256(payload).hexdigest()
+                )
+                if not model_valid:
+                    model_issue = "Model review manifest/checksum mismatch"
+            except (ValueError, OSError, json.JSONDecodeError) as error:
+                model_issue = str(error)
+    display_state = ("approved" if state == "approved" or model_state == "approved"
+                     else "staged" if state == "staged" or model_state == "staged"
+                     else "missing")
     return {
         "id": item["asset_id"], "subject": item["subject"],
         "category": item["category"], "state": state, "valid": valid,
         "issue": issue, "prompt": prompt,
         "image_path": str(chosen) if state != "missing" else "",
+        "display_state": display_state, "model_state": model_state,
+        "model_valid": model_valid, "model_issue": model_issue,
+        "model_geometry": model_details, "model_path": model_file,
     }
 
 
@@ -71,7 +104,9 @@ def make_gallery(rows: list[dict], destination: Path) -> None:
     cards = []
     for row in rows:
         title = escape(row["subject"])
-        state = escape(row["state"])
+        state = escape(row.get("display_state", row["state"]))
+        png_state = escape(row["state"])
+        glb_state = escape(row.get("model_state", "not_applicable"))
         category = escape(row["category"])
         aid = escape(row["id"])
         image = ""
@@ -83,14 +118,30 @@ def make_gallery(rows: list[dict], destination: Path) -> None:
         else:
             image = '<span class="placeholder" aria-hidden="true">◌</span>'
         issue = f'<p class="issue">{escape(row["issue"])}</p>' if row["issue"] else ""
+        model_issue = row.get("model_issue", "")
+        if model_issue:
+            issue += f'<p class="issue">3D: {escape(model_issue)}</p>'
+        geometry = row.get("model_geometry", {})
+        model_summary = ""
+        if row.get("model_state") != "not_applicable":
+            maps = geometry.get("max_texture_size", 0)
+            pbr = geometry.get("pbr_material_count", 0)
+            faces = geometry.get("triangles", 0)
+            texture = ("Embedded 4K+ maps" if geometry.get("has_4k_texture", False)
+                       else f"Max embedded map: {maps}px" if maps else "No measured texture maps")
+            model_summary = (
+                f'<p>PNG: {png_state} | 3D: <strong>{glb_state}</strong></p>'
+                f'<p>{faces:,} triangles · {escape(texture)} · {pbr} PBR materials</p>'
+                if geometry else f'<p>PNG: {png_state} | 3D: <strong>{glb_state}</strong></p>'
+            )
         cards.append(
             f'<article class="card" data-category="{category}" data-status="{state}"><div class="image">{image}</div>'
             f'<h2>{title}</h2><p>{category} / {aid}</p>'
-            f'<p>Status: <strong>{state}</strong></p>{issue}'
+            f'<p>Status: <strong>{state}</strong></p>{model_summary}{issue}'
             f'<details><summary>Generation prompt</summary>'
             f'<p class="prompt">{escape(row["prompt"])}</p></details></article>'
         )
-    counts = Counter(x["state"] for x in rows)
+    counts = Counter(x.get("display_state", x["state"]) for x in rows)
     summary = " · ".join(f"{count} {name}" for name, count in sorted(counts.items()))
     controls = """<section class="filters" aria-label="Artwork filters">
 <label for="art-search">Search creatures <input id="art-search" type="search" placeholder="Guardian or wildlife name"></label>
@@ -166,8 +217,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--audit", action="store_true", help="Return failure if any present artwork is invalid")
     args = parser.parse_args(argv)
     rows = plan_rows(args.category)
-    counts = Counter(row["state"] for row in rows)
-    invalid = [row for row in rows if row["state"] != "missing" and not row["valid"]]
+    counts = Counter(row.get("display_state", row["state"]) for row in rows)
+    invalid = [row for row in rows if (row["state"] != "missing" and not row["valid"])
+               or (row.get("model_state") not in ("missing", "not_applicable") and not row.get("model_valid"))]
     print(f"Moonfall art plan: {len(rows)} entries, {counts['approved']} approved, "
           f"{counts['staged']} staged, {counts['missing']} missing, {len(invalid)} invalid")
     if args.gallery:
@@ -177,7 +229,7 @@ def main(argv: list[str] | None = None) -> int:
         make_gallery(rows, directory / "index.html")
         print(f"Review gallery: {directory / 'index.html'}")
     for row in invalid:
-        print(f"INVALID {row['id']}: {row['issue']}", file=sys.stderr)
+        print(f"INVALID {row['id']}: {row['issue'] or row.get('model_issue', '')}", file=sys.stderr)
     return 1 if args.audit and invalid else 0
 
 
