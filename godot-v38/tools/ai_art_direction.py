@@ -72,7 +72,7 @@ def art_direction(item: dict) -> str:
 
 def make_prompt(item: dict) -> str:
     return (
-        "Produce ONE original full-body transparent-background PNG concept sprite for Moonfall, "
+        "Produce ONE original full-body PNG concept sprite with a transparent background for Moonfall, "
         "a dark-fantasy 2.5D isometric action RPG. "
         "Fixed camera: three-quarter elevated view, facing lower-left at 30 degrees. "
         "Keep the entire single subject, limbs, horns, tail, feathers and effects within "
