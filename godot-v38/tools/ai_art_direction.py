@@ -37,7 +37,7 @@ HABITAT_DIRECTIONS = {
     "Wetlands rivers and coasts": "water and marsh adaptations, realistic aquatic anatomy",
     "Mountains and alpine tundra": "mountain-adapted proportions, dense fur or suitable feathering",
     "Deserts and scrublands": "arid-habitat adaptations, sandy muted tones and sun-tolerant skin",
-    "Tropical rainforests": "lush Neotropical adaptations and species-appropriate natural coloration",
+    "Tropical rainforests": "humid tropical rainforest adaptations and species-appropriate natural coloration",
 }
 TAXON_INSTRUCTIONS = {
     "M": "Correct mammalian limbs, ears, tail, fur and hooves/paws for this exact species",
