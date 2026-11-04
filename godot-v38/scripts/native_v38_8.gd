@@ -200,6 +200,10 @@ func _defeat_beast(beast:Dictionary,pet_kill:bool)->void:
   max_hp+=NYRA_ECLIPSE_MAX_HP_BONUS
   hp=minf(max_hp,hp+NYRA_ECLIPSE_MAX_HP_BONUS)
  super._defeat_beast(beast,pet_kill)
+ if not divine.is_empty():
+  var disk:MeshInstance3D=beast.get("divine_disk") as MeshInstance3D
+  if is_instance_valid(disk):disk.hide()
+  beast["divine_warn_until"]=0.0
  if first_clear:
   var reward:String="+15% damage and +3 HP on kills, permanently" if divine=="z" else "+30 max HP and 8% damage reduction, permanently"
   _show_message(str(beast.get("divine_title",divine))+" DEFEATED! "+reward+".",5.0)
