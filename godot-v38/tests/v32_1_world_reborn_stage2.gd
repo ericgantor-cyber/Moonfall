@@ -61,7 +61,9 @@ func _run()->void:
  game.call("_defeat_beast",defeated,false)
  check(game.get("save_health")=="OK","Completed rift checkpoint writes despite active autosave cooldown")
  var completed_checkpoint:Dictionary=game.call("_read_save")
- check((completed_checkpoint.get("rifts",[]) as Array).has(0),"Automatic completion checkpoint includes the sealed rift")
+ var saved_rift_ids:Array[int]=[]
+ for saved_id in completed_checkpoint.get("rifts",[]):saved_rift_ids.append(int(saved_id))
+ check(saved_rift_ids.has(0),"Automatic completion checkpoint includes the sealed rift")
  check(bool(entry["cleared"]),"Rift seals after final room")
  check((game.get("rifts_cleared") as Array).has(0),"Seal recorded in existing save-compatible progress")
  check(int(game.get("v321_bonus_relics"))==1,"Exactly one bonus legendary granted")
