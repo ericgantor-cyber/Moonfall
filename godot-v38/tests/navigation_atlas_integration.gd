@@ -143,6 +143,21 @@ func _run()->void:
  check("func _atlas_update_dungeon_context(" in source and "_atlas_update_dungeon_context(here)" in source,"automatic context updates while walking with map closed")
  check("atlas_dungeon_zoom_radius" in source and "atlas_zoom_radius" in source,"world and dungeon retain separate zoom settings")
  check("DUNGEON FLOOR PLAN:" in source and "MOONFALL WORLD ATLAS" in source,"atlas header identifies current map context")
+ var walkways:Array[Dictionary]=[
+  {"start":Vector3(-11,0,-3),"end":Vector3(11,0,-3),"width":3.6},
+  {"start":Vector3(NAN,0,0),"end":Vector3(1,0,0),"width":3.6},
+  {"start":Vector3(0,0,0),"end":Vector3(1,0,0),"width":-5.0},
+  {"start":Vector3(11,0,-3),"end":Vector3(0,0,11),"width":3.6}
+ ]
+ map.call("set_dungeon_passages",walkways)
+ check((map.get("dungeon_passages") as Array).size()==2,"atlas accepts only real finite positive-width passage geometry")
+ check((map.get("dungeon_passages") as Array)[0]["start"]==Vector3(-11,0,-3),"dungeon walkway map preserves exact authored positions")
+ var passage_source:String=FileAccess.get_file_as_string("res://scripts/native_v32_1.gd")
+ check("func _v321_build_passages(" in passage_source and "RiftPassageCollision" in passage_source and "StaticBody3D.new()" in passage_source,"connected rift walkways have physical collision")
+ check("RiftPassageArch" in passage_source and "RiftPassageFloor" in passage_source,"dungeon passages include geometry and arch thresholds")
+ check("v321_passages" in passage_source and "func _atlas_dungeon_passages(" in source and "set_dungeon_passages" in source,"world-connected walkways are projected into real atlas floor plan")
+ var cull_source:String=FileAccess.get_file_as_string("res://scripts/native_v32_2.gd")
+ check("for passage in v321_passages" in cull_source,"passage visuals are culled without removing collision")
  map.queue_free()
  print("MOONFALL ATLAS "+("PASS" if failures==0 else "FAIL"))
  quit(0 if failures==0 else 1)
