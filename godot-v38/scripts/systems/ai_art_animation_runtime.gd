@@ -3,7 +3,6 @@ extends RefCounted
 ## No root-motion, no animation-triggered combat, no changes to Z or Nyra.
 const STATE_NAMES:Array[String]=["idle","move","attack","hurt","death","spawn","telegraph","special_1","special_2","victory"]
 const BLEND_SECONDS:float=0.12
-const MAX_SEARCH_NODES:int=240
 
 static func canonical_clip(raw_name:String)->String:
  var clean:String=raw_name.to_lower().strip_edges()
@@ -27,13 +26,10 @@ static func canonical_clip(raw_name:String)->String:
 static func bind_imported(model:Node3D)->Dictionary:
  if not is_instance_valid(model):return {}
  var stack:Array[Node]=[model]
- var scanned:int=0
  var animation_player:AnimationPlayer=null
  var skeleton_found:bool=false
  while not stack.is_empty():
   var node:Node=stack.pop_back()
-  scanned+=1
-  if scanned>MAX_SEARCH_NODES:return {}
   if node is Skeleton3D:
    skeleton_found=true
   elif node is AnimationPlayer and animation_player==null:
