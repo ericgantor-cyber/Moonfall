@@ -42,6 +42,17 @@ static func regional_landmark_name(dungeon_id:int,stage:int)->String:
 
 # Two hand-discovered caches per dungeon: stage 7 and its stage-14 end.
 # No timed waves or forced room transitions.
+# Deterministic resident encounters, with no timed waves or room-clear gates.
+# One enemy per selected chamber, a bounded total of 120 across the world.
+const REGIONAL_ENCOUNTER_STAGES:Array[int]=[3,5,9,12]
+static func regional_encounter_index(zone:int,dungeon_id:int,stage:int)->int:
+ var stage_slot:int=REGIONAL_ENCOUNTER_STAGES.find(stage)
+ if zone<0 or dungeon_id<0 or dungeon_id>=REGIONAL_DUNGEON_COUNT or stage_slot<0:return -1
+ return (zone*REGIONAL_DUNGEON_COUNT+dungeon_id)*REGIONAL_ENCOUNTER_STAGES.size()+stage_slot
+
+static func regional_encounter_variant(stage:int)->String:
+ return "elder" if stage==12 else ("dusk" if stage==9 else "normal")
+
 const REGIONAL_CACHE_STAGES:Array[int]=[7,14]
 static func regional_cache_index(zone:int,dungeon_id:int,stage:int)->int:
  if stage!=7 and stage!=14:return -1
