@@ -27,8 +27,8 @@ class DivineBossIntegrationTests(unittest.TestCase):
         self.assertIn('data.get("bosses",[])', BASE)
 
     def test_permanent_divine_blessings_use_boss_victory_ids(self):
-        self.assertIn('const Z_VOID_DAMAGE_BONUS:float=0.10', LIVE)
-        self.assertIn('const NYRA_ECLIPSE_MAX_HP_BONUS:float=20.0', LIVE)
+        self.assertIn('const Z_VOID_DAMAGE_BONUS:float=0.15', LIVE)
+        self.assertIn('const NYRA_ECLIPSE_MAX_HP_BONUS:float=30.0', LIVE)
         self.assertIn('func _divine_blessing_earned(divine_id:String)->bool:', LIVE)
         self.assertIn('return defeated_boss_ids.has(int(actor.get("boss_id",-1)))', LIVE)
         self.assertIn('if _divine_blessing_earned("z") else base_damage', LIVE)
@@ -37,6 +37,19 @@ class DivineBossIntegrationTests(unittest.TestCase):
         self.assertIn('if first_clear and divine=="nyra":', LIVE)
         self.assertIn('suppress_autosave_message=true\\n  _save_game()', LIVE)
         self.assertIn('super._defeat_beast(beast,pet_kill)', LIVE)
+        self.assertIn('const Z_VOID_ON_KILL_HEAL:float=3.0', LIVE)
+        self.assertIn('const NYRA_ECLIPSE_REDUCTION:float=0.08', LIVE)
+        self.assertIn('super._apply_incoming_damage(mitigated)', LIVE)
+
+    def test_signature_attacks_are_visible_dodgeable_and_bounded(self):
+        self.assertIn('warning.name="DivineSignatureAttackWarning"', LIVE)
+        self.assertIn('actor["divine_disk"]=warning', LIVE)
+        self.assertIn('func _update_beast_step(beast:Dictionary,delta:float)->void:', LIVE)
+        self.assertIn('super._update_beast_step(beast,delta)', LIVE)
+        self.assertIn('dodge_time<=0.0 and _has_clear_sight(body,player)', LIVE)
+        self.assertIn('var radius:float=3.0 if divine=="z" else 4.1', LIVE)
+        self.assertIn('func _refresh_boss_phase(beast:Dictionary)->void:', LIVE)
+        self.assertIn('func _update_hud()->void:', LIVE)
 
     def test_existing_save_ids_are_stable_and_no_new_waves(self):
         self.assertIn('var prior:int=beasts.size()', LIVE)
