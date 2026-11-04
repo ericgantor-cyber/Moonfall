@@ -12,6 +12,7 @@ var atlas_zoom_radius:float=120.0
 var atlas_quest_positions:Array[Vector3]=[]
 var atlas_legend:Label
 var atlas_discovered:Array[Vector3]=[]
+var atlas_chambers_seen:Array[int]=[]
 const ATLAS_DISCOVERY_SPACING:float=55.0
 const ATLAS_MAX_DISCOVERED:int=2048
 
@@ -24,12 +25,14 @@ func _start_game(selected_hero:String)->void:
  atlas_has_waypoint=false
  atlas_zoom_radius=120.0
  atlas_discovered.clear()
+ atlas_chambers_seen.clear()
  _refresh_atlas()
 
 func _checkpoint_extra_data()->Dictionary:
  var data:Dictionary=super._checkpoint_extra_data()
  data["atlas_quest_positions"]=atlas_quest_positions.map(func(p:Vector3):return [p.x,p.y,p.z])
  data["atlas_discovered"]=NAVIGATION_MAP.encode_history(atlas_discovered)
+ data["atlas_chambers_seen"]=atlas_chambers_seen.duplicate()
  data["atlas_zoom_radius"]=atlas_zoom_radius
  data["atlas_has_waypoint"]=atlas_has_waypoint
  data["atlas_waypoint"]=[atlas_waypoint.x,atlas_waypoint.y,atlas_waypoint.z]
@@ -40,11 +43,13 @@ func _restore_data(data:Dictionary)->void:
  var extras:Variant=data.get("optional_resources",{})
  atlas_has_waypoint=false
  atlas_discovered.clear()
+ atlas_chambers_seen.clear()
  atlas_quest_positions.clear()
  atlas_zoom_radius=clampf(float(extras.get("atlas_zoom_radius",120.0)),25.0,2000.0) if extras is Dictionary else 120.0
  if not is_finite(atlas_zoom_radius):atlas_zoom_radius=120.0
  if extras is Dictionary:
   atlas_discovered=NAVIGATION_MAP.decode_history(extras.get("atlas_discovered",[]))
+  atlas_chambers_seen=NAVIGATION_MAP.decode_chambers(extras.get("atlas_chambers_seen",[]),v321_chambers.size())
   var quests:Variant=extras.get("atlas_quest_positions",[])
   if quests is Array:
    for item in quests.slice(0,24):
@@ -148,14 +153,28 @@ func _atlas_clear()->void:
  atlas_has_waypoint=false
  _refresh_atlas()
 
+func _atlas_record_nearby_chambers(position:Vector3)->void:
+ if not NAVIGATION_MAP._valid_world_point(position):return
+ for chamber in v321_chambers:
+  var site_id:int=int(chamber.get("site",-1))
+  var stage:int=int(chamber.get("stage",0))
+  if site_id<0 or site_id>=rifts.size() or stage<1 or stage>3:continue
+  var chamber_id:int=site_id*3+stage-1
+  if chamber_id in atlas_chambers_seen:continue
+  var node:Node3D=chamber.get("node") as Node3D
+  if not is_instance_valid(node):continue
+  var offset:Vector2=Vector2(node.global_position.x-position.x,node.global_position.z-position.z)
+  if offset.length_squared()<=12.0*12.0:atlas_chambers_seen.append(chamber_id)
+
 func _refresh_atlas()->void:
  if not is_instance_valid(atlas_chart) or not is_instance_valid(atlas_readout):return
  var pos:Vector3=player.global_position if is_instance_valid(player) else Vector3.ZERO
+ if hero_playing:_atlas_record_nearby_chambers(pos)
  atlas_chart.set("metres_per_half_width",atlas_zoom_radius)
  atlas_chart.call("set_discovered",atlas_discovered)
  atlas_chart.call("set_quest_markers",atlas_quest_positions)
  atlas_chart.call("update_navigation",pos,atlas_waypoint,atlas_has_waypoint)
- atlas_readout.text="X %.0f | Z %.0f | Explored: %d | Quests: %d" % [pos.x,pos.z,atlas_discovered.size(),atlas_quest_positions.size()]
+  atlas_readout.text="X %.0f | Z %.0f | Explored: %d | Chambers: %d/%d | Rifts: %d/%d | Quests: %d" % [pos.x,pos.z,atlas_discovered.size(),atlas_chambers_seen.size(),v321_chambers.size(),rifts_cleared.size(),rifts.size(),atlas_quest_positions.size()]
  if atlas_has_waypoint:
   var horizontal_distance:float=Vector2(pos.x,pos.z).distance_to(Vector2(atlas_waypoint.x,atlas_waypoint.z))
   var offset:Vector2=Vector2(atlas_waypoint.x-pos.x,atlas_waypoint.z-pos.z)
