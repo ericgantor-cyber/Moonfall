@@ -99,6 +99,20 @@ func _validated_markers(points:Array[Vector3],limit:int,recent_first:bool=false)
    if accepted.size()>=limit:break
  return accepted
 
+# Convert map clicks near numbered dungeon rooms into exact room waypoints.
+static func dungeon_room_index_at(point:Vector3,rooms:Array[Vector3],radius_metres:float)->int:
+ if not _valid_world_point(point) or not is_finite(radius_metres) or radius_metres<=0.0:return -1
+ var best:float=radius_metres*radius_metres
+ var nearest:int=-1
+ for i in range(mini(rooms.size(),MAX_CHAMBER_MARKERS)):
+  var chamber:Vector3=rooms[i]
+  if not _valid_world_point(chamber):continue
+  var distance:float=Vector2(point.x-chamber.x,point.z-chamber.z).length_squared()
+  if distance<best:
+   best=distance
+   nearest=i
+ return nearest
+
 func _draw()->void:
  var rect:Rect2=Rect2(Vector2.ZERO,size)
  draw_rect(rect,Color(0.025,0.04,0.075,0.94),true)
@@ -173,6 +187,9 @@ func _gui_input(event:InputEvent)->void:
   var offset:Vector2=(event.position-size*0.5)/scale_factor
   var location:Vector3=Vector3(player_position.x+offset.x,player_position.y,player_position.z+offset.y)
   if not _valid_world_point(location):return
+  if dungeon_active:
+   var nearest_room:int=dungeon_room_index_at(location,dungeon_rooms,14.0/scale_factor)
+   if nearest_room>=0:location=dungeon_rooms[nearest_room]
   waypoint_selected.emit(location)
   accept_event()
 
