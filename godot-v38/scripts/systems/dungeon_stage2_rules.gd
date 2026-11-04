@@ -7,8 +7,8 @@ const CHAMBER_WALL_SEGMENTS:int=20
 const REGIONAL_DUNGEON_COUNT:int=5
 const REGIONAL_DUNGEON_RING_RADIUS:float=43.0
 
-# Five distinct physical entrances per region, in a closed, walkable loop.
-# The existing continuous-world region centre connects to entrance zero.
+# Five separate dungeon entry positions in each region, reachable from open terrain.
+# Positioning alone does not add links between independent dungeons.
 static func regional_dungeon_position(centre:Vector2,index:int)->Vector3:
  var angle:float=-PI*0.5+TAU*float(posmod(index,REGIONAL_DUNGEON_COUNT))/float(REGIONAL_DUNGEON_COUNT)
  return Vector3(centre.x+cos(angle)*REGIONAL_DUNGEON_RING_RADIUS,0.0,centre.y+sin(angle)*REGIONAL_DUNGEON_RING_RADIUS)
