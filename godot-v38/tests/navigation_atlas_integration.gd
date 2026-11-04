@@ -197,6 +197,12 @@ func _run()->void:
  check(is_equal_approx(stage_rules.CHAMBER_FLOOR_RADIUS,6.2) and stage_rules.CHAMBER_WALL_RADIUS>stage_rules.CHAMBER_FLOOR_RADIUS,"sanctum floor radius expands to 6.2 metres with outside perimeter walls")
  check(stage_rules.CHAMBER_WALL_SEGMENTS==20,"expanded chambers have bounded wall segment count")
  check(stage_rules.REGIONAL_DUNGEON_COUNT==5,"every region has exactly five dungeon entrance positions")
+ check(stage_rules.REGIONAL_LANDMARK_NAMES.size()==4,"four themed low-poly landmarks differentiate dungeon rooms")
+ for dungeon_id in range(stage_rules.REGIONAL_DUNGEON_COUNT):
+  check(stage_rules.regional_landmark_type(dungeon_id,1)==-1,"entrance remains a clear unobstructed public threshold")
+  for stage_id in range(2,15):
+   var landmark_id:int=stage_rules.regional_landmark_type(dungeon_id,stage_id)
+   check(landmark_id>=0 and landmark_id<4 and stage_rules.regional_landmark_name(dungeon_id,stage_id).length()>3,"every internal dungeon room has a valid recognizable landmark")
  check(stage_rules.REGIONAL_CHAMBERS_PER_DUNGEON==14 and stage_rules.REGIONAL_ROOM_OFFSETS.size()==14,"each independent regional dungeon defines fourteen actual room coordinates")
  var regional_rooms_checked:Array[Dictionary]=[]
  var regional_centre_test:Vector2=Vector2(700.0,-300.0)
@@ -257,6 +263,7 @@ func _run()->void:
  check("chamber_collision_floor.radius=V321_RULES.CHAMBER_FLOOR_RADIUS" in passage_source and "shared_floor.top_radius=V321_RULES.CHAMBER_FLOOR_RADIUS" in passage_source,"expanded visual floor and physical collision share the same radius")
  check("RiftInteriorStageRing" in passage_source and "TorusMesh.new()" in passage_source,"each chamber has its own nonblocking ritual floor ring")
  check("func _v321_build_region_dungeon_entrances()" in passage_source and "RegionDungeonEntranceCollision" in passage_source,"each independent regional dungeon entrance has real floor collision")
+ check("RegionDungeonLandmark" in passage_source and "landmark_meshes[marker_type]" in passage_source,"independent dungeon interiors use shared nonblocking visual landmarks")
  check("func _v321_build_region_dungeon_interiors()" in passage_source and "RegionDungeonRoomCollision" in passage_source and "RegionDungeonInternalCollision" in passage_source,"all interior regional dungeon chambers and their corridors have real solid floors")
  check("for stage in range(2,V321_RULES.REGIONAL_CHAMBERS_PER_DUNGEON+1)" in passage_source and "v321_region_rooms.append" in passage_source and "v321_region_room_passages.append" in passage_source,"all fourteen chambers are created within each individual dungeon")
  check("for dungeon_room in v321_region_rooms" in cull_source and "for dungeon_passage in v321_region_room_passages" in cull_source,"internal room and corridor visuals cull independently from physical collision")

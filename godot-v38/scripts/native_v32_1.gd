@@ -393,6 +393,25 @@ func _v321_build_region_dungeon_interiors()->void:
  chamber_shape.height=0.16
  var link_mesh:=BoxMesh.new()
  var link_shape:=BoxShape3D.new()
+ # Reuse one set of lightweight ceremonial landmark resources for all rooms.
+ var seal_mesh:=TorusMesh.new()
+ seal_mesh.inner_radius=1.7
+ seal_mesh.outer_radius=1.9
+ seal_mesh.rings=8
+ seal_mesh.ring_segments=18
+ var archive_mesh:=BoxMesh.new()
+ archive_mesh.size=Vector3(1.7,0.24,0.8)
+ var altar_mesh:=CylinderMesh.new()
+ altar_mesh.top_radius=0.8
+ altar_mesh.bottom_radius=1.1
+ altar_mesh.height=0.30
+ altar_mesh.radial_segments=8
+ var beacon_mesh:=SphereMesh.new()
+ beacon_mesh.radius=0.65
+ beacon_mesh.height=1.3
+ beacon_mesh.radial_segments=8
+ beacon_mesh.rings=4
+ var landmark_meshes:Array[Mesh]=[seal_mesh,archive_mesh,altar_mesh,beacon_mesh]
  for zone in range(REGIONS.size()):
   var centre:Vector2=REGIONS[zone]["at"]
   var color:Color=Color(str(REGIONS[zone]["light"]))
@@ -402,6 +421,11 @@ func _v321_build_region_dungeon_interiors()->void:
   var corridor_material:=StandardMaterial3D.new()
   corridor_material.albedo_color=color.darkened(0.84)
   corridor_material.roughness=0.97
+  var landmark_material:=StandardMaterial3D.new()
+  landmark_material.albedo_color=color.lightened(0.18)
+  landmark_material.emission_enabled=true
+  landmark_material.emission=color*0.24
+  landmark_material.roughness=0.8
   for dungeon_id in range(V321_RULES.REGIONAL_DUNGEON_COUNT):
    for stage in range(2,V321_RULES.REGIONAL_CHAMBERS_PER_DUNGEON+1):
     var at:Vector3=V321_RULES.regional_chamber_position(centre,dungeon_id,stage)
@@ -430,6 +454,16 @@ func _v321_build_region_dungeon_interiors()->void:
     nameplate.position.y=2.35
     nameplate.modulate=color
     room.add_child(nameplate)
+    var marker_type:int=V321_RULES.regional_landmark_type(dungeon_id,stage)
+    if marker_type>=0:
+     var landmark:=MeshInstance3D.new()
+     landmark.name="RegionDungeonLandmark"
+     landmark.mesh=landmark_meshes[marker_type]
+     landmark.material_override=landmark_material
+     landmark.position=Vector3(0.0,0.25 if marker_type!=3 else 1.1,0.0)
+     landmark.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+     room.add_child(landmark)
+     nameplate.text+="  |  "+V321_RULES.regional_landmark_name(dungeon_id,stage)
     room.visible=false
     v321_region_rooms.append({"node":room,"zone":zone,"dungeon":dungeon_id,"stage":stage})
     var previous:Vector3=V321_RULES.regional_chamber_position(centre,dungeon_id,stage-1)
