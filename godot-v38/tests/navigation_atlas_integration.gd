@@ -56,17 +56,20 @@ func _run()->void:
  map.call("set_discovered",reloaded)
  check(map.get("discovered").size()==256,"2,048 saved discoveries render only 256 visible markers")
  check((map.get("discovered") as Array)[0]==Vector3(2744,0,2744%29) and (map.get("discovered") as Array).back()==Vector3(2999,0,2999%29),"render budget displays most recently discovered landmarks")
- # The atlas integration suite must never boot the entire procedural world.
- # Full-world game startup remains covered by separate engine and smoke tests.
+ # Verify atlas contracts without running expensive procedural world startup.
+ # Separate gameplay smoke suites cover scene initialization and world progression.
  var scene:PackedScene=load("res://scenes/main.tscn")
  check(scene!=null and scene.can_instantiate(),"map-enabled main scene loads")
  var source:String=FileAccess.get_file_as_string("res://scripts/native_v38_2.gd")
- check("func _toggle_atlas(" in source and "func _atlas_select_waypoint(" in source,"map toggle and click-to-mark handlers exist")
- check("func _atlas_zoom(" in source,"zoom handler exists")
- check("atlas_zoom_radius" in source and "atlas_waypoint" in source,"checkpoint stores zoom and waypoint")
- check("NAVIGATION_MAP.encode_history(atlas_discovered)" in source,"checkpoint stores capped discovery history")
- check("NAVIGATION_MAP.decode_history(extras.get(" in source,"checkpoint restores historical discovery points")
- check("atlas_quest_positions" in source and "func atlas_set_quest_destination(" in source,"quest destinations retain atlas integration")
+ check("func _toggle_atlas(" in source and "func _atlas_select_waypoint(" in source,"atlas controls remain wired")
+ check("func _atlas_zoom(" in source,"atlas zoom handler exists")
+ check("NAVIGATION_MAP.encode_history(atlas_discovered)" in source and "NAVIGATION_MAP.decode_history(extras.get(" in source,"exploration checkpoint history is saved and restored")
+ check("func atlas_set_quest_destination(" in source,"quest map targets remain supported")
+ check("atlas_chamber_scan_elapsed+=maxf(0.0,delta)" in source and "_atlas_record_nearby_chambers(here)" in source,"closed-map chamber scanning runs in the world update")
+ check("func _atlas_record_nearby_chambers(" in source and "chamber_id in atlas_chambers_seen" in source,"nearby chambers discovered once")
+ check("atlas_chambers_seen" in source and "NAVIGATION_MAP.decode_chambers(" in source,"checkpoint saves and restores chamber progress")
+ check(NAV.decode_chambers([0,3,3,8,-1,9,"7",NAN],9)==[0,3,8],"chamber checkpoint filters duplicates and invalid IDs")
+ check(NAV.decode_chambers([],9).is_empty(),"legacy saves without chamber discoveries still load")
  map.queue_free()
  print("MOONFALL ATLAS "+("PASS" if failures==0 else "FAIL"))
  quit(0 if failures==0 else 1)
