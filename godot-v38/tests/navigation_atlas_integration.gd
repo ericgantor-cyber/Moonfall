@@ -4,6 +4,7 @@ const AMERICAS=preload("res://scripts/systems/americas_wildlife_catalog.gd")
 const WILDLIFE_VISUALS=preload("res://scripts/systems/americas_wildlife_visuals.gd")
 const APPROVED_ART=preload("res://scripts/systems/ai_art_overrides.gd")
 const WHOLE_GAME_ART=preload("res://scripts/systems/ai_art_whole_game.gd")
+const AUTO_ART_QUALITY=preload("res://scripts/systems/ai_art_auto_quality.gd")
 var failures:int=0
 
 func check(ok:bool,description:String)->void:
@@ -62,6 +63,12 @@ func _run()->void:
  check((map.get("discovered") as Array)[0]==Vector3(2744,0,2744%29) and (map.get("discovered") as Array).back()==Vector3(2999,0,2999%29),"render budget displays most recently discovered landmarks")
  # Habitat catalog validation does not allocate extra enemy physics actors.
  check(AMERICAS.HABITATS.size()==6,"Americas roster covers all six existing world regions")
+ check(AUTO_ART_QUALITY.animal_limit(0)==0 and AUTO_ART_QUALITY.animal_limit(1)==1 and AUTO_ART_QUALITY.animal_limit(2)==3,"AI art auto tiers budget zero, one or three near wildlife GLBs")
+ check(AUTO_ART_QUALITY.chamber_limit(0)==0 and AUTO_ART_QUALITY.chamber_limit(1)==0 and AUTO_ART_QUALITY.chamber_limit(2)==1,"only High tier enables the optional dungeon monument GLB")
+ check(AUTO_ART_QUALITY.next_tier(2,3.1,0.0)==1 and AUTO_ART_QUALITY.next_tier(1,3.1,0.0)==0,"sustained slow frames downgrade high-detail art progressively")
+ check(AUTO_ART_QUALITY.next_tier(0,0.0,16.1)==1 and AUTO_ART_QUALITY.next_tier(1,0.0,16.1)==2,"sustained stable frames restore high-detail art gradually")
+ check(AUTO_ART_QUALITY.next_tier(1,1.5,9.0)==1 and AUTO_ART_QUALITY.quality_name(0)=="Eco","short frame-time spikes never trigger model thrashing")
+ check(AUTO_ART_QUALITY.ANIMAL_EXIT_RADIUS_SQ>AUTO_ART_QUALITY.ANIMAL_ENTER_RADIUS_SQ,"AI art streamer uses hysteresis to prevent jittering 4K creature models")
  check(WHOLE_GAME_ART.image_path("regions","00")=="res://assets/ai_generated/regions/region_00.png","biome art paths match offline generation pipeline")
  check(WHOLE_GAME_ART.image_path("chambers","14")=="res://assets/ai_generated/chambers/chamber_14.png","room-14 mural image is available to each regional dungeon")
  check(WHOLE_GAME_ART.image_path("glyphs","orb_hud")=="res://assets/ai_generated/glyphs/glyph_orb_hud.png","original four-color orb HUD art can be optionally customized")
@@ -130,6 +137,10 @@ func _run()->void:
  check('APPROVED_AI_ART.attach_approved(native_body' in source and source.find("AMERICAS_VISUALS.attach(native_body")<source.find("APPROVED_AI_ART.attach_approved(native_body"),"approved wildlife art replaces rather than doubles up the generic procedural silhouette")
  check('not visual.visible:continue' in source,"hidden placeholders skip animation when approved creature art is present")
  check("if updates>=20:break" in source and "0.28" in source and "45.0*45.0" in source,"visual motion limits scene updates to twenty nearby visible animals at a throttled cadence")
+ check("func _ai_art_track_frame_performance(delta:float)" in source and "_ai_art_track_frame_performance(delta)" in source,"native world automatically adjusts imported 3D art budgets from rolling frame time")
+ check("AI_ART_AUTO_QUALITY.animal_limit(ai_art_quality_tier)" in source and "AI_ART_AUTO_QUALITY.chamber_limit(ai_art_quality_tier)" in source,"both wildlife and dungeon 3D detail obey the auto-quality governor")
+ check("MIN_LOAD_INTERVAL_MS" in source and "loaded_this_tick" in source and "ai_art_next_model_load_ms" in source,"one-time-sliced 3D asset loading avoids sudden GPU spikes")
+ check("ANIMAL_EXIT_RADIUS_SQ" in source and "ROOM_EXIT_RADIUS_SQ" in source,"art LOD retains nearby active actors beyond initial spawn radius")
  check("body.global_position.distance_squared_to(player.global_position)" in source and "not body.visible" in source,"visual embellishments are culled with existing native animal visibility")
  check("american_wildlife_visual_ticks+=updates" in source,"wildlife animation performance samples can be inspected")
  check("americas_wildlife_eligible" in source and "if bool(animal.get(\"boss\",false))" in source,"native bosses are not overwritten by new wildlife identity")

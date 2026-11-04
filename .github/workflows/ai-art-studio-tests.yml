@@ -12,6 +12,11 @@ on:
       - 'godot-v38/tools/ai_art_intake.py'
       - 'godot-v38/tests/test_ai_art_approve_selected.py'
       - 'godot-v38/tools/ai_art_approve_selected.py'
+      - 'godot-v38/tools/ai_art_release_audit.py'
+      - 'godot-v38/tests/test_ai_art_release_audit.py'
+      - 'godot-v38/scripts/systems/ai_art_auto_quality.gd'
+      - 'godot-v38/scripts/native_v38_2.gd'
+      - 'godot-v38/assets/ai_generated/**'
       - 'godot-v38/tools/ai_art_direction.py'
       - 'godot-v38/scripts/systems/ai_art_whole_game.gd'
       - 'godot-v38/tests/test_ai_art_studio.py'
@@ -21,17 +26,18 @@ on:
   push:
     branches: [main]
     paths:
-      - 'godot-v38/tools/ai_art_studio.py'
-      - 'godot-v38/tests/test_ai_art_studio.py'
-      - 'godot-v38/tests/test_ai_art_review.py'
-      - 'godot-v38/scripts/systems/americas_wildlife_catalog.gd'
+      - 'godot-v38/tools/ai_art_*.py'
+      - 'godot-v38/tests/test_ai_art_*.py'
+      - 'godot-v38/scripts/systems/ai_art_*.gd'
+      - 'godot-v38/scripts/native_v38_2.gd'
+      - 'godot-v38/assets/ai_generated/**'
       - '.github/workflows/ai-art-studio-tests.yml'
 permissions:
   contents: read
 jobs:
   offline-art-tests:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -42,3 +48,9 @@ jobs:
         env:
           OPENAI_API_KEY: ''
         run: python -m unittest discover -s tests -p 'test_ai_art_*.py' -v
+      - name: Verify every approved sprite and 3D model before release
+        working-directory: godot-v38
+        env:
+          OPENAI_API_KEY: ''
+          MESHY_API_KEY: ''
+        run: python tools/ai_art_release_audit.py --strict
