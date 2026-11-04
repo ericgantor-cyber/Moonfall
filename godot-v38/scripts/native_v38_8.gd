@@ -81,3 +81,63 @@ func _process(delta:float)->void:
 func _start_game(selected_hero:String)->void:
  super._start_game(selected_hero)
  aim_target_id=-1
+
+# Issue #477 stage 2: two actual divine world bosses reuse native boss
+# combat, telegraphs, phases, reward tracking and v2 checkpoint IDs.
+# Spawned after all legacy beasts to preserve historical boss IDs.
+const DIVINE_ENCOUNTERS:Array[Dictionary]=[
+ {"id":"z","title":"Z • VOID REAPER","zone":4,"position":Vector3(11.0,0.0,44.0),"kind":"wolf"},
+ {"id":"nyra","title":"NYRA • ECLIPSE QUEEN","zone":5,"position":Vector3(73.0,0.0,43.0),"kind":"panther"}
+]
+
+func _build_scene()->void:
+ super._build_scene()
+ for spec in DIVINE_ENCOUNTERS:
+  _spawn_divine_encounter(spec)
+
+func _spawn_divine_encounter(spec:Dictionary)->void:
+ var zone:int=int(spec["zone"])
+ var kind:String=str(spec["kind"])
+ var location:Vector3=spec["position"]
+ var prior:int=beasts.size()
+ # The game's current boss AI already handles attack telegraphs, phases,
+ # boss HP display, defeat rewards and persistent boss IDs.
+ _spawn_beast(location,kind,zone,"elder",true)
+ if beasts.size()!=prior+1:return
+ var actor:Dictionary=beasts[-1]
+ actor["divine_id"]=str(spec["id"])
+ actor["divine_title"]=str(spec["title"])
+ var native_body:CharacterBody3D=actor.get("body") as CharacterBody3D
+ if not is_instance_valid(native_body):return
+ native_body.name="DivineBoss_"+str(spec["id"])
+ # Original image bytes are reused, never recolored or modified.
+ var texture:Texture2D=Z_ART if str(spec["id"])=="z" else NYRA_ART
+ for child in native_body.get_children():
+  if child is MeshInstance3D:
+   child.hide()
+ var portrait:=Sprite3D.new()
+ portrait.name="OriginalDivineBossArt"
+ portrait.texture=texture
+ portrait.billboard=BaseMaterial3D.BILLBOARD_ENABLED
+ portrait.pixel_size=3.6/float(texture.get_height())
+ portrait.position=Vector3(0,1.1,0)
+ portrait.alpha_cut=SpriteBase3D.ALPHA_CUT_OPAQUE_PREPASS
+ native_body.add_child(portrait)
+ var label:Label3D=actor.get("nameplate") as Label3D
+ if is_instance_valid(label):
+  label.text=str(spec["title"])
+  label.position=Vector3(0,3.4,0)
+ actor["divine_visual"]=portrait
+
+func _reset_native_beast(beast:Dictionary)->void:
+ super._reset_native_beast(beast)
+ if not beast.has("divine_id"):return
+ var label:Label3D=beast.get("nameplate") as Label3D
+ if is_instance_valid(label):label.text=str(beast.get("divine_title","DIVINE BOSS"))
+
+func _defeat_beast(beast:Dictionary,pet_kill:bool)->void:
+ var divine:String=str(beast.get("divine_id",""))
+ var first_clear:bool=not divine.is_empty() and bool(beast.get("alive",false)) and not defeated_boss_ids.has(int(beast.get("boss_id",-1)))
+ super._defeat_beast(beast,pet_kill)
+ if first_clear:
+  _show_message(str(beast.get("divine_title",divine))+" DEFEATED! Divine seal claimed.",4.0)
