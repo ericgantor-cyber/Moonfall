@@ -40,3 +40,25 @@ not the inherited character semantics or other game distributions.
 `python -m unittest tests.test_divine_roles_menu_stage1` from
 `godot-v38` checks menu and checkpoint compatibility. It is a source-level
 regression, not proof of a successful interactive playthrough.
+
+## Stage 2 (PR for real world encounters)
+
+The live `native_v38_8.gd` scene adds two actual god/boss actors,
+Z in Shattered Ruins and Nyra in Eclipse Citadel. Both use the exact original
+images as spatial billboards; native boss collision, targeted attacks, warning
+telegraphs, existing boss health display, phase behavior, rewards and persistent
+`boss_id` records are reused. The encounters are preallocated once at the
+end of the beast catalog, not spawned as waves and not attached to the hero
+character. Resetting a new adventure reactivates them; reloading defeated
+boss IDs despawns them without changing legacy checkpoint keys.
+
+These are first playable encounters using existing phase patterns, not yet
+customized Z/Nyra-specific spells, arena staging, or dedicated cinematic
+boss animations. Names and original portraits are distinct from player art.
+Historical `z`/`nyra` playable saves remain legacy-compatible on purpose.
+Issue #477 stays open until full class/save migration and real Windows
+combat, input, screen-reader/accessibility and art-fidelity verification.
+
+Source regression test: `python -m unittest tests.test_divine_boss_encounters`.
+Real frame pacing and visible on-screen boss placement still require gameplay
+verification and are not asserted by this source test.
