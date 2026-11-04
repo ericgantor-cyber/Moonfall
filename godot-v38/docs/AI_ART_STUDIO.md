@@ -103,6 +103,61 @@ a partial batch.
 Never approve artwork you haven't visually checked. Bulk approval is a tool
 for speeding up a deliberate review, not an automatic aesthetic judgment.
 
+## Adaptive 3D art quality and verified release builds
+
+Moonfall now treats approved 4K PBR art as an **optional visual upgrade**,
+not an excuse to overload Windows GPUs or change the actual game.
+
+The game starts at High detail, allowing up to 3 nearby wildlife meshes
+and 1 nearby room-7/14 monument mesh. A lightweight frame-time governor
+automatically steps down quality after **3 sustained seconds** of slow frames
+(around 27 ms average) and only steps up after **16 sustained seconds** of
+comfortable frames (around 17.5 ms average). It uses three purely visual
+detail tiers:
+
+- **Eco:** 0 wildlife meshes / 0 dungeon monument meshes; approved PNGs
+  and original native creatures remain visible.
+- **Balanced:** 1 wildlife mesh / 0 monument meshes.
+- **High:** 3 wildlife meshes / 1 monument mesh.
+
+A creature's high-detail model remains in place slightly beyond its initial
+loading distance to avoid visual popping. New high-detail GLBs are admitted
+at most once every 900 ms, avoiding a burst of GPU memory allocations when
+entering a busy area. The existing 12-model scene-reference cache remains
+bounded. These settings never alter creature AI, combat difficulty, dungeon
+geometry or the original Z and Nyra artwork.
+
+These are *conservative automatic limits*, not a measured hardware benchmark:
+frame time includes CPU work, and texture memory use depends on the graphics
+driver, Godot import options and the model itself. True fps, render latency,
+VRAM usage and smooth transitions still need on-device Windows gameplay tests.
+
+### Release audit: don't ship damaged or unexpectedly heavy artwork
+
+From `godot-v38`:
+
+    python tools/ai_art_release_audit.py
+    python tools/ai_art_release_audit.py --strict
+    python tools/ai_art_release_audit.py --strict --report "ai_art_staging/review/release_audit.json"
+
+The audit only reads approved assets. It checks PNG/GLB structural validity,
+the approved review record, SHA-256 integrity, model triangle counts,
+embedded texture dimensions, and detected PBR materials. It shows estimated
+uncompressed RGBA8 texture memory **including mipmaps** and warns about
+large meshes, excessive total source size, duplicate artwork, missing
+4K maps and absent PBR material maps. These estimates are not actual
+GPU-resident VRAM, and PNG header size alone is not proof of image quality.
+
+**Strict mode fails on damaged, altered or unreviewed approved artwork**.
+Missing artwork is allowed because the game deliberately retains its built-in
+visuals. Quality warnings remain warnings, not errors, so original assets,
+low-memory devices, and intentionally lower-resolution artwork are supported.
+No image-generation provider is contacted and no API keys are required.
+
+The dedicated Moonfall AI Art Studio GitHub workflow now runs this audit
+whenever art code or approved assets change, in addition to the offline
+tests. This helps prevent corrupt approved files from entering a release.
+
 ## Automatic artwork intake and actual 4K verification
 
 For Windows users, double-click `tools/Import-Moonfall-Art.cmd`. This creates
