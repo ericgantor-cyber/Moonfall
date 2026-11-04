@@ -41,6 +41,21 @@ func _run()->void:
  check((map.get("discovered") as Array)[0]==Vector3(855,0,0) and (map.get("discovered") as Array)[255]==Vector3(1110,0,0),"atlas retains most recent 256 visited locations in chronological order")
  check((map.get("quest_markers") as Array)[0]==Vector3.ZERO and (map.get("quest_markers") as Array)[127]==Vector3(127,0,0),"atlas retains highest-priority quest marker ordering")
 
+ # Storage can retain a longer validated exploration trail than the 256 UI dots.
+ var exploration:Array[Vector3]=[]
+ for history_index in range(3000):
+  exploration.append(Vector3(float(history_index),0.0,float(history_index%29)))
+ exploration.append(Vector3(NAN,0.0,0.0))
+ var serialized:Array=NAV.encode_history(exploration)
+ check(serialized.size()==2048,"checkpoints retain 2,048 valid discoveries without saving corrupt points")
+ check(serialized[0]==[952.0,float(952%29)] and serialized.back()==[2999.0,float(2999%29)],"stored exploration retains the newest chronological discoveries")
+ var reloaded:Array[Vector3]=NAV.decode_history(serialized)
+ check(reloaded.size()==2048 and reloaded.front()==Vector3(952,0,952%29) and reloaded.back()==Vector3(2999,0,2999%29),"atlas history round-trips through save-shaped arrays")
+ var bad_history:Array=[[NAN,2],["bad",0],[INF,1],[1.0e30,0],[7,8]]
+ check(NAV.decode_history(bad_history)==[Vector3(7,0,8)],"malformed and nonfinite checkpoint locations cannot poison restored history")
+ map.call("set_discovered",reloaded)
+ check(map.get("discovered").size()==256,"2,048 saved discoveries render only 256 visible markers")
+ check((map.get("discovered") as Array)[0]==Vector3(2744,0,2744%29) and (map.get("discovered") as Array).back()==Vector3(2999,0,2999%29),"render budget displays most recently discovered landmarks")
  var scene:PackedScene=load("res://scenes/main.tscn")
  check(scene!=null,"map-enabled main scene loads")
  if scene!=null:
@@ -54,6 +69,11 @@ func _run()->void:
   check(data.has("atlas_zoom_radius"),"save persists zoom")
   check(data.has("atlas_waypoint"),"save persists waypoint")
   check(data.has("atlas_discovered"),"save persists discovered locations")
+  game.set("atlas_discovered",reloaded)
+  var exploration_save:Dictionary=game.call("_checkpoint_extra_data")
+  check((exploration_save.get("atlas_discovered",[]) as Array).size()==2048,"game checkpoint includes all retained exploration history")
+  check(NAV.decode_history(exploration_save.get("atlas_discovered",[])).back()==Vector3(2999,0,2999%29),"game checkpoint restores latest discovery coordinates")
+
   check(data.has("atlas_quest_positions"),"quest destinations included in saves")
   check(game.has_method("atlas_set_quest_destination"),"quests can publish map targets")
   game.queue_free()
