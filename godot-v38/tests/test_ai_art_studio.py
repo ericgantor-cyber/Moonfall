@@ -34,6 +34,24 @@ PNG = example_png()
 
 
 class TestMoonfallAIArt(unittest.TestCase):
+    def test_true_4k_rgba_input_can_be_staged_and_validated(self):
+        width = height = 4096
+        ihdr = struct.pack(">IIBBBBB", width, height, 8, 6, 0, 0, 0)
+        row = b"\x00" + (b"\x00" * (width * 4))
+        compressor = zlib.compressobj(level=1)
+        pieces = [compressor.compress(row) for _ in range(height)]
+        pieces.append(compressor.flush())
+        image = (studio.PNG_HEADER + png_chunk(b"IHDR", ihdr)
+                 + png_chunk(b"IDAT", b"".join(pieces))
+                 + png_chunk(b"IEND", b""))
+        self.assertLess(len(image), studio.MAX_IMAGE_BYTES)
+        self.assertEqual(studio.MAX_DIMENSION, 4096)
+        studio.validate_png(image)
+        bad_header = struct.pack(">IIBBBBB", 4097, 4096, 8, 6, 0, 0, 0)
+        invalid = studio.PNG_HEADER + png_chunk(b"IHDR", bad_header) + png_chunk(b"IDAT", b"".join(pieces)) + png_chunk(b"IEND", b"")
+        with self.assertRaises(ValueError):
+            studio.validate_png(invalid)
+
     def test_all_fifty_five_guardian_profiles(self):
         identities = [studio.guardian_profile(i) for i in range(55)]
         self.assertEqual(len({d["asset_id"] for d in identities}), 55)

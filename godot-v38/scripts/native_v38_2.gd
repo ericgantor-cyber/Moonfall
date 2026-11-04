@@ -37,6 +37,12 @@ var american_wildlife_rolls:Array[int]=[]
 var american_wildlife_eligible:int=0
 var ai_art_game_decorations:int=0
 var ai_art_game_glyphs:int=0
+const AI_ART_NEAR_ANIMAL_LIMIT:int=3
+const AI_ART_NEAR_CHAMBER_LIMIT:int=1
+const AI_ART_ANIMAL_DISTANCE_SQ:float=22.0*22.0
+const AI_ART_CHAMBER_DISTANCE_SQ:float=30.0*30.0
+var ai_art_live_animal_models:Array[Dictionary]=[]
+var ai_art_chamber_models:Array[Dictionary]=[]
 var american_wildlife_visual_ticks:int=0
 var american_wildlife_visual_clock:float=0.0
 var atlas_heading:Label
@@ -84,6 +90,8 @@ func _americas_roll_profiles()->void:
 
 func _americas_apply_wildlife_profiles()->void:
  if american_wildlife_rolls.size()!=REGIONS.size():return
+ for actor in ai_art_live_animal_models:_ai_art_release_animal_model(actor)
+ ai_art_live_animal_models.clear()
  for zone in range(REGIONS.size()):
   var slot_by_kind:Dictionary={}
   for animal in zone_beast_lists[zone]:
@@ -98,15 +106,89 @@ func _americas_apply_wildlife_profiles()->void:
    var native_body:CharacterBody3D=animal.get("body") as CharacterBody3D
    if is_instance_valid(native_body):
     animal["americas_visual_root"]=AMERICAS_VISUALS.attach(native_body,str(picked["taxon"]),str(picked["name"]))
-    # Approved real GLB geometry takes priority over approved 2D cutouts.
-    var animal_id:String="animal_"+APPROVED_AI_ART.slugify(str(picked["name"]))
-    var model:Node3D=AI_APPROVED_3D.add_approved_model(native_body,"animals",animal_id,Vector3(0,0,0),2.0,true)
-    if not is_instance_valid(model):
-     APPROVED_AI_ART.attach_approved(native_body,APPROVED_AI_ART.animal_path(str(picked["name"])))
+    # Start with the approved 2D sprite or native silhouette.
+    # Only creatures near the player receive their actual 4K GLB later.
+    animal["americas_3d_asset_id"]="animal_"+APPROVED_AI_ART.slugify(str(picked["name"]))
+    APPROVED_AI_ART.attach_approved(native_body,APPROVED_AI_ART.animal_path(str(picked["name"])))
    var nameplate:Label3D=animal.get("nameplate") as Label3D
    if is_instance_valid(nameplate) and bool(animal.get("alive",false)) and not bool(animal.get("tamed",false)):
     nameplate.text=str(picked["name"])
   # Original wildlife still uses its native skeleton, AI, combat and loot.
+
+func _ai_art_release_animal_model(actor:Dictionary)->void:
+ var current:Node3D=actor.get("americas_3d_node") as Node3D
+ if is_instance_valid(current):current.queue_free()
+ actor.erase("americas_3d_node")
+ var body:CharacterBody3D=actor.get("body") as CharacterBody3D
+ if is_instance_valid(body):
+  APPROVED_AI_ART.attach_approved(body,APPROVED_AI_ART.animal_path(str(actor.get("americas_species",""))))
+
+# Bounded high-detail selection: only the three nearest wild animals and
+# one nearby dungeon monument may use 4K PBR meshes at the same time.
+# All others retain cheap 2D sprites, native silhouettes and original collision.
+func _ai_art_refresh_nearby_models()->void:
+ if not is_instance_valid(player):return
+ var here:Vector3=player.global_position
+ var candidates:Array[Dictionary]=[]
+ for animal in zone_beast_lists[region_index]:
+  if not bool(animal.get("alive",false)) or not bool(animal.get("americas_wildlife_eligible",false)):continue
+  var body:CharacterBody3D=animal.get("body") as CharacterBody3D
+  if not is_instance_valid(body) or not body.visible:continue
+  var distance:float=body.global_position.distance_squared_to(here)
+  if distance>AI_ART_ANIMAL_DISTANCE_SQ:continue
+  var identifier:String=str(animal.get("americas_3d_asset_id",""))
+  if identifier.is_empty():continue
+  var path:String=AI_APPROVED_3D.approved_model_path("animals",identifier)
+  if path.is_empty() or not ResourceLoader.exists(path):continue
+  candidates.append({"actor":animal,"distance":distance})
+ candidates.sort_custom(func(a:Dictionary,b:Dictionary)->bool:return float(a["distance"])<float(b["distance"]))
+ var selected:Dictionary={}
+ for i in range(mini(AI_ART_NEAR_ANIMAL_LIMIT,candidates.size())):
+  var actor:Dictionary=candidates[i]["actor"]
+  var body:CharacterBody3D=actor.get("body") as CharacterBody3D
+  if not is_instance_valid(body):continue
+  var key:int=body.get_instance_id()
+  selected[key]=true
+  var current:Node3D=actor.get("americas_3d_node") as Node3D
+  if not is_instance_valid(current):
+   var identifier:String=str(actor["americas_3d_asset_id"])
+   current=AI_APPROVED_3D.add_approved_model(body,"animals",identifier,Vector3.ZERO,2.0,true)
+   if is_instance_valid(current):actor["americas_3d_node"]=current
+ for actor in ai_art_live_animal_models:
+  var body:CharacterBody3D=actor.get("body") as CharacterBody3D
+  if not is_instance_valid(body) or not selected.has(body.get_instance_id()):
+   _ai_art_release_animal_model(actor)
+ ai_art_live_animal_models.clear()
+ for entry in candidates:
+  var actor:Dictionary=entry["actor"]
+  var body:CharacterBody3D=actor.get("body") as CharacterBody3D
+  if is_instance_valid(body) and selected.has(body.get_instance_id()) and is_instance_valid(actor.get("americas_3d_node") as Node3D):
+   ai_art_live_animal_models.append(actor)
+ # Large room meshes are even more tightly limited to one per active area.
+ var nearest:Dictionary={}
+ var best:float=AI_ART_CHAMBER_DISTANCE_SQ
+ for entry in ai_art_chamber_models:
+  var node:Node3D=entry.get("node") as Node3D
+  if not is_instance_valid(node):continue
+  var d:float=node.global_position.distance_squared_to(here)
+  if d<best and node.visible:
+   nearest=entry
+   best=d
+ for entry in ai_art_chamber_models:
+  var node:Node3D=entry.get("node") as Node3D
+  if not is_instance_valid(node):continue
+  var existing:Node3D=entry.get("model") as Node3D
+  var banner:Sprite3D=entry.get("banner") as Sprite3D
+  if entry==nearest and not nearest.is_empty():
+   if not is_instance_valid(existing):
+    var stage:int=int(entry["stage"])
+    existing=AI_APPROVED_3D.add_approved_model(node,"chambers","chamber_%02d"%stage,Vector3.ZERO,2.3)
+    if is_instance_valid(existing):entry["model"]=existing
+   if is_instance_valid(existing) and is_instance_valid(banner):banner.visible=false
+  else:
+   if is_instance_valid(existing):existing.queue_free()
+   entry.erase("model")
+   if is_instance_valid(banner):banner.visible=true
 
 # Animate only the visible nearby animals at a low cadence.
 # No movement is applied to CharacterBody3D, so collision and native AI remain intact.
@@ -115,6 +197,7 @@ func _americas_update_wildlife_visuals(delta:float)->void:
  if american_wildlife_visual_clock<0.28:return
  american_wildlife_visual_clock=fmod(american_wildlife_visual_clock,0.28)
  if not hero_playing or not is_instance_valid(player):return
+ _ai_art_refresh_nearby_models()
  var now:float=float(Time.get_ticks_msec())/1000.0
  var updates:int=0
  for animal in zone_beast_lists[region_index]:
@@ -161,16 +244,13 @@ func _ai_art_decorate_regions_and_chambers()->void:
   var stage:int=int(chamber.get("stage",0))
   if stage<1 or stage>14:continue
   var room_node:Node3D=chamber.get("node") as Node3D
-  # Limit high-resolution mesh props to two of fourteen rooms per dungeon.
-  # Other rooms retain the original lightweight approved 2D murals.
-  var model:Node3D=null
+  # 4K GLB props are loaded only when the player approaches this room.
+  var banner:Sprite3D=AI_WHOLE_GAME_ART.add_billboard(room_node,"chambers","%02d"%stage,Vector3(0,1.8,0),1.4)
+  if is_instance_valid(banner):ai_art_game_decorations+=1
   if stage in [7,14]:
-   model=AI_APPROVED_3D.add_approved_model(room_node,"chambers","chamber_%02d"%stage,Vector3(0,0.0,0),2.3)
-  if is_instance_valid(model):
-   ai_art_game_decorations+=1
-  else:
-   var banner:Sprite3D=AI_WHOLE_GAME_ART.add_billboard(room_node,"chambers","%02d"%stage,Vector3(0,1.8,0),1.4)
-   if is_instance_valid(banner):ai_art_game_decorations+=1
+   var path:String=AI_APPROVED_3D.approved_model_path("chambers","chamber_%02d"%stage)
+   if not path.is_empty() and ResourceLoader.exists(path):
+    ai_art_chamber_models.append({"node":room_node,"stage":stage,"banner":banner})
 
 func _ai_art_build_spell_icons()->void:
  # Only real native Q/E/R spells, and only if the player provided PNG icons.

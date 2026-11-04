@@ -11,3 +11,6 @@ godot-win.zip
 
 # Unreviewed paid-model output stays local and is never committed.
 ai_art_staging/
+
+# Locally dropped artwork is unreviewed until explicitly approved.
+ai_art_inbox/

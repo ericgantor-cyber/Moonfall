@@ -62,6 +62,63 @@ The existing Godot wildlife instance checks for an approved image with the match
 
 These are 2D transparent creature cutouts in the isometric 3D world, NOT automatically generated 3D skeletal models or animations. Game rendering does not contact the image API.
 
+## Automatic artwork intake and actual 4K verification
+
+For Windows users, double-click `tools/Import-Moonfall-Art.cmd`. This creates
+`ai_art_inbox` folders for guardians, animals, regions, chambers, glyphs,
+spells, gear and scenery. Put existing approved-to-review images and models in
+those folders using the stable names from `--list-game-art`, the 55 guardian
+IDs, or the Americas wildlife IDs.
+
+For example:
+
+    ai_art_inbox/guardians/guardian_00.glb
+    ai_art_inbox/animals/animal_jaguar.png
+    ai_art_inbox/chambers/chamber_14.glb
+    ai_art_inbox/glyphs/glyph_orb_hud.png
+
+4K reference art is supported: reviewed PNG files can be up to
+**4096×4096 pixels** and 32 MiB, with real RGBA transparency. Meshy's
+separate image-to-3D upload limit is **20 MiB**, so larger 4K PNGs may need
+to be recompressed for an AI conversion request. Importing an existing
+GLB offline doesn't use that upload limit.
+
+The Windows launcher stages matching files and opens a local searchable review
+gallery. To run the same workflow directly:
+
+    python tools/ai_art_intake.py --inbox ai_art_inbox
+    python tools/ai_art_intake.py --inbox ai_art_inbox --stage
+    python tools/ai_art_review.py --gallery
+
+Only valid, exact names from the **350 registered slots** are accepted.
+No symlinks, unexpected file types, oversized folders or hero artwork names
+are accepted. It never contacts a paid API, never overwrites existing approved
+art and **never silently approves new art**. Check the staged images and models
+before approving a specific PNG or GLB using the appropriate studio command.
+Godot imports the resulting reviewed asset on the next editor import/game
+build. Existing compiled Windows installers don't gain new art until rebuilt.
+
+If a provider claims a model has 4K textures, verify the **actual GLB**:
+
+    python tools/ai_art_3d.py --guardian 0 --audit
+    python tools/ai_art_3d.py --animal "Jaguar" --audit
+
+This offline audit reports triangle count, mesh count, embedded texture image
+dimensions, maximum texture size, and whether the GLB references 4096-by-4096
+or larger texture maps with material PBR assignments. It does *not* infer 4K
+quality merely from the generation request. As with any format metadata audit,
+it checks declared embedded image dimensions and material links, not whether
+textures are aesthetically sharp or correctly rigged.
+
+### Keep high-resolution assets playable
+
+The native 3D display now limits loaded live detail to at most **three nearby
+wildlife models and one nearby chamber model**, using the original 2D/native
+visuals farther away. The 3D PackedScene reference cache is limited to twelve
+recent model scenes. Combat collisions, enemies, room geometry and Z/Nyra art
+are unchanged. High-quality 4K PBR material maps remain optional and can use
+substantial GPU memory: monitor actual game performance and exported builds.
+
 ## Optional automatic 3D and native 4K PBR textures
 
 This new workflow can turn **already approved 2D creature art into real 3D meshes**, or import a GLB model you already made in Blender, Meshy, or another service. There is **no 3D generation during gameplay**, no key in the Windows installer, and no requirement to buy a third-party service.
@@ -130,6 +187,12 @@ Preview any specific game asset without calling an API:
     python tools/ai_art_studio.py --game-art scenery:shrine
 
 All these categories support --import-file, --generate and --approve with the same explicit review workflow. Approved PNGs live only under `assets/ai_generated/<category>/`; existing hero artwork cannot be targeted.
+
+The review gallery now displays **both PNG and GLB** states. Staged
+GLBs show actual triangle counts, maximum embedded texture dimensions
+and measured PBR material links even when no 2D PNG exists. Its audit
+mode also rejects invalid GLBs, so imported models cannot hide behind a
+valid 2D image.
 
 To see the full review board, run:
 

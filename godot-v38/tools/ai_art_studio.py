@@ -104,8 +104,8 @@ def dest_paths(item: dict) -> tuple[Path, Path]:
     return STAGING / item["category"] / filename, ROOT / item["category"] / filename
 
 
-MAX_IMAGE_BYTES = 12 * 1024 * 1024
-MAX_DIMENSION = 2048
+MAX_IMAGE_BYTES = 32 * 1024 * 1024
+MAX_DIMENSION = 4096
 
 
 def validate_png(payload: bytes) -> None:
@@ -116,7 +116,7 @@ def validate_png(payload: bytes) -> None:
     an image can enter the game-art folder.
     """
     if not payload.startswith(PNG_HEADER) or not 64 <= len(payload) <= MAX_IMAGE_BYTES:
-        raise ValueError("Expected a complete PNG under 12 MiB.")
+        raise ValueError("Expected a complete PNG under 32 MiB.")
     index = len(PNG_HEADER)
     seen_ihdr = False
     seen_idat = False

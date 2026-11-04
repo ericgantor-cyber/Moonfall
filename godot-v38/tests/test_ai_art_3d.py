@@ -50,6 +50,17 @@ class TestMoonfall3DArt(unittest.TestCase):
         self.assertTrue(request["enable_pbr"])
         self.assertTrue(request["image_url"].startswith("data:image/png;base64,"))
 
+    def test_hyphenated_wildlife_matches_png_and_godot_3d_model_path(self):
+        item = {"category": "animals", "asset_id": "animal_red-tailed_hawk"}
+        staged, approved, task = mesh3d.paths(item)
+        self.assertTrue(str(staged).endswith("animals/animal_red-tailed_hawk.glb"))
+        self.assertTrue(str(approved).endswith("animals/animal_red-tailed_hawk.glb"))
+        self.assertTrue(str(task).endswith("animal_red-tailed_hawk.json"))
+        godot = (Path(__file__).resolve().parents[1] / "scripts" / "systems" / "ai_art_3d_runtime.gd").read_text()
+        self.assertIn('or c=="-"', godot)
+        with self.assertRaises(ValueError):
+            mesh3d.paths({"category": "animals", "asset_id": "animal_../../hero"})
+
     def test_approved_slots_reject_ui_and_original_hero_art(self):
         for id in [0, 54]:
             item = studio.guardian_profile(id)
@@ -163,7 +174,7 @@ class TestMoonfall3DArt(unittest.TestCase):
         self.assertIn("add_approved_model", script)
         self.assertIn("CollisionShape3D", script)
         self.assertIn("body", native)
-        self.assertIn('add_approved_model(native_body,"animals"', native)
+        self.assertIn('add_approved_model(body,"animals"', native)
         self.assertIn('add_approved_model(guardian_art_body,"guardians"', native)
         self.assertIn('stage in [7,14]', native)
         self.assertIn('add_approved_model(node,"gear"', native)
