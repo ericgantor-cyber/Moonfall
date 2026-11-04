@@ -83,7 +83,7 @@ def make_gallery(rows: list[dict], destination: Path) -> None:
             image = '<span class="placeholder" aria-hidden="true">◌</span>'
         issue = f'<p class="issue">{escape(row["issue"])}</p>' if row["issue"] else ""
         cards.append(
-            f'<article class="card"><div class="image">{image}</div>'
+            f'<article class="card" data-category="{category}" data-status="{state}"><div class="image">{image}</div>'
             f'<h2>{title}</h2><p>{category} / {aid}</p>'
             f'<p>Status: <strong>{state}</strong></p>{issue}'
             f'<details><summary>Generation prompt</summary>'
@@ -91,6 +91,40 @@ def make_gallery(rows: list[dict], destination: Path) -> None:
         )
     counts = Counter(x["state"] for x in rows)
     summary = " · ".join(f"{count} {name}" for name, count in sorted(counts.items()))
+    controls = """<section class="filters" aria-label="Artwork filters">
+<label for="art-search">Search creatures <input id="art-search" type="search" placeholder="Guardian or wildlife name"></label>
+<label for="art-status">Status <select id="art-status"><option value="all">All</option>
+<option value="missing">Missing</option><option value="staged">Ready to review</option>
+<option value="approved">Approved</option></select></label>
+<label for="art-category">Category <select id="art-category"><option value="all">All</option>
+<option value="guardians">Guardians</option><option value="animals">Wildlife</option></select></label>
+<output id="art-count" aria-live="polite"></output></section>"""
+    filter_script = """<script>
+(() => {
+  const search = document.getElementById('art-search');
+  const status = document.getElementById('art-status');
+  const category = document.getElementById('art-category');
+  const count = document.getElementById('art-count');
+  const cards = Array.from(document.querySelectorAll('.card'));
+  function update() {
+    const query = search.value.trim().toLowerCase();
+    let shown = 0;
+    for (const card of cards) {
+      const match = (status.value === 'all' || card.dataset.status === status.value)
+        && (category.value === 'all' || card.dataset.category === category.value)
+        && card.textContent.toLowerCase().includes(query);
+      card.hidden = !match;
+      if (match) shown++;
+    }
+    count.textContent = shown + ' of ' + cards.length + ' artworks shown';
+  }
+  for (const field of [search, status, category]) {
+    field.addEventListener('input', update);
+    field.addEventListener('change', update);
+  }
+  update();
+})();
+</script>"""
     document = f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -103,6 +137,12 @@ header {{margin-bottom:2rem}} .grid {{display:grid;grid-template-columns:repeat(
 .image {{height:190px;display:grid;place-items:center;background:#343047;border-radius:8px}}
 .image img {{max-height:100%;max-width:100%;object-fit:contain}}
 .placeholder {{font-size:4rem;color:#b6a4c8}} .invalid,.issue {{color:#ffb5aa}}
+.filters {{display:flex;align-items:end;gap:.8rem;flex-wrap:wrap;margin:1.5rem 0}}
+.filters label {{display:flex;flex-direction:column;gap:.35rem;font-weight:600}}
+.filters input,.filters select {{font:inherit;background:#312b40;color:#fff;border:1px solid #76668e;padding:.55rem;border-radius:6px}}
+.filters output {{font-size:.88rem;color:#d5c2ef}}
+.card[hidden] {{display:none}}
+:focus-visible {{outline:3px solid #f0ca96;outline-offset:3px}}
 h2 {{font-size:1rem;margin:.65rem 0}} .card p {{font-size:.83rem;margin:.4rem 0}}
 details {{font-size:.85rem;cursor:pointer}} .prompt {{white-space:pre-wrap}}
 </style></head><body><header><h1>Moonfall AI Art Review Board</h1>
@@ -110,7 +150,8 @@ details {{font-size:.85rem;cursor:pointer}} .prompt {{white-space:pre-wrap}}
 <p>Offline preview only. No images are generated or approved by this page.
 Review staged images, then approve each image separately using the command line.
 Original Z and Nyra artwork is never used.</p></header>
-<main class="grid">{''.join(cards)}</main></body></html>"""
+{controls}
+<main class="grid">{''.join(cards)}</main>{filter_script}</body></html>"""
     destination.write_text(document, encoding="utf-8")
 
 
