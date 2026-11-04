@@ -109,7 +109,8 @@ func _run()->void:
  var already_seen:Array[int]=[0,2]
  check(NAV.next_unvisited_room(0,already_seen)==1,"next room shortcut selects first unvisited chamber")
  check(NAV.next_unvisited_room(1,already_seen)==0,"next room shortcut uses only the current dungeon")
- check(NAV.next_unvisited_room(0,[0,1,2])==-1,"fully explored dungeon has no next chamber target")
+ var completed_rooms:Array[int]=[0,1,2]
+ check(NAV.next_unvisited_room(0,completed_rooms)==-1,"fully explored dungeon has no next chamber target")
  check(NAV.next_unvisited_room(-1,already_seen)==-1,"outside dungeon shortcut is disabled")
  map.call("update_dungeon_room",Vector3(-11,0,-3))
  map.call("set_dungeon_context",true,room_locations)
