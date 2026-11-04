@@ -182,7 +182,8 @@ func set_quest_markers(markers:Array[Vector3])->void:
 
 func set_dungeon_context(active:bool,rooms:Array[Vector3])->void:
  dungeon_active=active
- dungeon_rooms=_validated_markers(rooms,MAX_CHAMBER_MARKERS) if active else []
+ dungeon_rooms.clear()
+ if active:dungeon_rooms=_validated_markers(rooms,MAX_CHAMBER_MARKERS)
  queue_redraw()
 
 func set_chamber_markers(positions:Array[Vector3])->void:
