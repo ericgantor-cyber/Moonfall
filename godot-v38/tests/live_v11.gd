@@ -74,7 +74,10 @@ func _run() -> void:
   game.call("_save_game")
   check(game.get("save_health")=="OK", "Divine blessing checkpoint writes successfully")
   var divine_saved:Dictionary=game.call("_read_save")
-  check(divine_saved.get("bosses",[]).has(int(divine_ids["z"])) and divine_saved.get("bosses",[]).has(int(divine_ids["nyra"])), "Both divine victories persist as boss IDs")
+  var parsed_boss_ids:Array[int]=[]
+  for raw_id in divine_saved.get("bosses",[]):
+   parsed_boss_ids.append(int(raw_id))
+  check(parsed_boss_ids.has(int(divine_ids["z"])) and parsed_boss_ids.has(int(divine_ids["nyra"])), "Both divine victory IDs survive JSON encoding")
   game.call("_start_game","nyra")
   check(not game.call("_divine_blessing_earned","z") and not game.call("_divine_blessing_earned","nyra"), "New adventure clears permanent blessings")
   game.call("_load_game")
