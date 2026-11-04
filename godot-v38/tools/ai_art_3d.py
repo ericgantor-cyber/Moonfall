@@ -100,6 +100,8 @@ def _embedded_texture_report(gltf: dict, binary: bytes) -> dict:
     images = gltf.get("images", [])
     buffer_views = gltf.get("bufferViews", [])
     textures = gltf.get("textures", [])
+    if not isinstance(buffer_views, list) or not isinstance(textures, list):
+        raise ValueError("GLB buffer views and texture references must be arrays.")
     dimensions: list[tuple[int, int] | None] = []
     if not isinstance(images, list) or len(images) > 96:
         raise ValueError("GLB has too many texture resources.")
@@ -141,7 +143,9 @@ def _embedded_texture_report(gltf: dict, binary: bytes) -> dict:
     for material in gltf.get("materials", []):
         if not isinstance(material, dict):
             continue
-        pbr = material.get("pbrMetallicRoughness", {})
+        pbr = material.get("pbrMetallicRoughness") or {}
+        if not isinstance(pbr, dict):
+            raise ValueError("Invalid GLB PBR material.")
         mappings = [pbr.get("baseColorTexture"), pbr.get("metallicRoughnessTexture"),
                     material.get("normalTexture"), material.get("occlusionTexture")]
         for mapping in mappings:
@@ -151,6 +155,8 @@ def _embedded_texture_report(gltf: dict, binary: bytes) -> dict:
             if not isinstance(texture_id, int) or texture_id < 0 or texture_id >= len(textures):
                 raise ValueError("GLB material texture index is invalid.")
             tex = textures[texture_id]
+            if not isinstance(tex, dict):
+                raise ValueError("Invalid GLB texture resource.")
             source = tex.get("source")
             if source is not None:
                 if not isinstance(source, int) or source < 0 or source >= len(images):
@@ -212,6 +218,13 @@ def glb_info(payload: bytes) -> dict:
         raise ValueError("Model has no meshes or exceeds the native scene node budget.")
     if not document.get("scenes"):
         raise ValueError("GLB has no scene to instantiate.")
+    buffers = document.get("buffers", [])
+    if not isinstance(buffers, list) or len(buffers) > 4:
+        raise ValueError("GLB buffers exceed supported limits.")
+    if binary and buffers:
+        declared = buffers[0].get("byteLength", -1)
+        if not isinstance(declared, int) or declared < 0 or declared > len(binary):
+            raise ValueError("GLB binary data is shorter than the declared buffer.")
     for collection_name in ("buffers", "images"):
         for entry in document.get(collection_name, []):
             uri = entry.get("uri")
@@ -222,7 +235,11 @@ def glb_info(payload: bytes) -> dict:
         raise ValueError("Excessive GLB accessor count.")
     triangles = 0
     for mesh in meshes:
+        if not isinstance(mesh, dict):
+            raise ValueError("Invalid GLB mesh entry.")
         for primitive in mesh.get("primitives", []):
+            if not isinstance(primitive, dict):
+                raise ValueError("Invalid GLB mesh primitive.")
             if primitive.get("mode", 4) != 4:
                 raise ValueError("Gameplay 3D art must use triangle primitives.")
             index = primitive.get("indices", primitive.get("attributes", {}).get("POSITION", -1))
