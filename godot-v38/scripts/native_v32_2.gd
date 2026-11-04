@@ -38,6 +38,15 @@ func _v321_update_chambers()->void:
    v322_label_writes+=1
   else:v322_skipped_label_writes+=1
   v321_chamber_checks+=1
+ # Each rift's three real walkways are culled separately from chamber decorations.
+ # The gameplay collision remains active even when the platform mesh is offscreen.
+ for passage in v321_passages:
+  var bridge:Node3D=passage.get("node") as Node3D
+  if not is_instance_valid(bridge):continue
+  var visible_now:bool=hero_playing and bridge.global_position.distance_squared_to(here)<95.0*95.0
+  if bridge.visible!=visible_now:
+   bridge.visible=visible_now
+   v322_visibility_switches+=1
 
 func _perf_report()->Dictionary:
  var report:Dictionary=super._perf_report()
@@ -45,4 +54,5 @@ func _perf_report()->Dictionary:
  report["dungeon_label_writes"]=v322_label_writes
  report["dungeon_label_writes_skipped"]=v322_skipped_label_writes
  report["dungeon_visibility_switches"]=v322_visibility_switches
+ report["dungeon_connected_passages"]=v321_passages.size()
  return report
