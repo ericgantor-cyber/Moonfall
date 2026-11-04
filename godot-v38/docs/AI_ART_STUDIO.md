@@ -149,8 +149,14 @@ summary inside the workflow job, and blocks green status for corrupt
 approved or staged assets. Scheduled GitHub Actions run on the default
 branch only after the change is merged.
 
+The regular **Windows installer CI** also runs the same strict audit
+**before downloading Godot or building the game**, so a green installer
+run requires verified artwork provenance. That workflow uploads a separate
+`Moonfall-Windows-AI-Art-Preflight` artifact containing its HTML, JSON and
+Markdown reports. These checks do not perform runtime GPU benchmarks.
+
 The Windows importer and approval launcher also print the audit status
-and dashboard location. **Approval is still always a separate deliberate
+and automatically open its offline dashboard. **Approval is still always a separate deliberate
 action**. Existing built Windows game releases do not acquire new artwork
 until the next regular Godot/Windows build, and animation quality/performance
 should still be tested in actual gameplay.
