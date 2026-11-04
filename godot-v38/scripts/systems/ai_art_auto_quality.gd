@@ -69,3 +69,16 @@ static func should_poll_animation(tier:int,distance_sq:float,tick:int,phase:int,
  if requested in ["attack","hurt","death","telegraph","spawn","special_1","special_2"]:return true
  var stride:int=animation_poll_stride(tier,distance_sq)
  return posmod(tick+phase,stride)==0
+
+# Back off repeated failed imports so malformed approved GLBs cannot cause
+# a synchronous resource-load attempt every 900 ms indefinitely.
+# Only optional visuals are affected; native game art stays available.
+const RETRY_BASE_MS:int=1800
+const RETRY_MAX_MS:int=30000
+
+static func failed_load_retry_ms(failures:int)->int:
+ var capped:int=clampi(failures,1,6)
+ return mini(RETRY_MAX_MS,RETRY_BASE_MS*(1 << (capped-1)))
+
+static func can_retry_failed_load(now_ms:int,eligible_at_ms:int)->bool:
+ return now_ms>=eligible_at_ms
