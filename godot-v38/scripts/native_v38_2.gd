@@ -68,12 +68,18 @@ func _atlas_roll_regional_guardians()->void:
  var pool_size:int=V321_RULES.REGIONAL_GUARDIAN_SPECIES.size()
  if pool_size==0:return
  for zone in range(REGIONS.size()):
-  var last_roll:int=-1
+  # Shuffle the four distinct species in a zone, then choose one wildcard.
+  # Guarantee all native guardian types appear per region, without adjacency repeats.
+  var available:Array[int]=[]
+  for species_id in range(pool_size):available.append(species_id)
   for dungeon_id in range(V321_RULES.REGIONAL_DUNGEON_COUNT):
-   var choice:int=rng.randi_range(0,pool_size-1)
-   if choice==last_roll:choice=(choice+1+rng.randi_range(0,pool_size-2))%pool_size
-   atlas_regional_guardian_rolls.append(choice)
-   last_roll=choice
+   if available.is_empty():
+    for species_id in range(pool_size):available.append(species_id)
+   var pick:int=rng.randi_range(0,available.size()-1)
+   if dungeon_id>0 and available.size()>1 and available[pick]==atlas_regional_guardian_rolls.back():
+    pick=(pick+1)%available.size()
+   atlas_regional_guardian_rolls.append(available[pick])
+   available.remove_at(pick)
 
 func _start_game(selected_hero:String)->void:
  super._start_game(selected_hero)
@@ -398,10 +404,16 @@ func _atlas_update_dungeon_guardians(position:Vector3)->void:
    var guardian:Dictionary=beasts[-1]
    guardian["regional_guardian_id"]=guardian_id
    guardian["home"]=room_position
+   var trait_id:int=V321_RULES.regional_guardian_trait(zone,dungeon_id,rolled_index)
+   guardian["regional_guardian_trait"]=trait_id
+   var health_scale:float=V321_RULES.regional_guardian_health_multiplier(trait_id)
+   guardian["max"]=float(guardian["max"])*health_scale
+   guardian["hp"]=guardian["max"]
+   guardian["base_hp"]=float(guardian["base_hp"])*health_scale
    var title:Label3D=guardian.get("nameplate") as Label3D
    if is_instance_valid(title):
-    title.text="ECLIPSE %s GUARDIAN • %d / 5" % [monster.to_upper(),dungeon_id+1]
-    title.modulate=Color("ffd28d")
+    title.text="%s %s GUARDIAN • %d / 5" % [V321_RULES.REGIONAL_GUARDIAN_TRAITS[trait_id].to_upper(),monster.to_upper(),dungeon_id+1]
+    title.modulate=V321_RULES.REGIONAL_GUARDIAN_TRAIT_COLORS[trait_id]
    atlas_regional_guardian_actors[guardian_id]=guardian
    _show_message("A dungeon guardian defends the Eclipse Threshold!",3.0)
    return
@@ -414,6 +426,14 @@ func _defeat_beast(beast:Dictionary,pet_kill:bool)->void:
  if first_clear:
   # Native animals normally respawn. Dungeon bosses remain defeated.
   beast["respawn_at"]=1.0e30
+  var zone:int=int(beast.get("zone",-1))
+  var dungeon_id:int=guardian_id%V321_RULES.REGIONAL_DUNGEON_COUNT
+  var trait_id:int=int(beast.get("regional_guardian_trait",-1))
+  if zone>=0 and zone<REGIONS.size() and trait_id>=0 and trait_id<V321_RULES.REGIONAL_GUARDIAN_TRAITS.size():
+   var native_body:CharacterBody3D=beast.get("body") as CharacterBody3D
+   if is_instance_valid(native_body):
+    var relic:Dictionary=V321_RULES.regional_guardian_relic(zone,dungeon_id,trait_id,AFFIXES[guardian_id%AFFIXES.size()])
+    _create_gear_drop(native_body.global_position,"Dungeon Guardian Crest","elder",zone,relic)
   _show_message("DUNGEON GUARDIAN DEFEATED! The final chamber is secured.",3.0)
 
 func _atlas_mark_here()->void:
