@@ -208,7 +208,7 @@ func _run()->void:
   var title:String=stage_rules.annex_title(named_stage)
   unique_titles[title]=true
   var tint:Color=stage_rules.annex_tint(named_stage)
-  check(title.length()>3 and tint.is_finite(),"annex %d has a valid readable identity and finite accent color" % named_stage)
+  check(title.length()>3 and is_finite(tint.r) and is_finite(tint.g) and is_finite(tint.b) and is_finite(tint.a),"annex %d has a valid readable identity and finite accent color" % named_stage)
  check(unique_titles.size()==11,"annex names are unique instead of repeated generic chambers")
  check(stage_rules.annex_title(3)=="Unknown Chamber" and stage_rules.annex_sigil(15)=="","unknown annex stages return safe identity values")
  check(stage_rule_count==11,"eleven exploration annexes extend each three-chamber rift to fourteen physical rooms")
