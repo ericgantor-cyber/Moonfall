@@ -165,9 +165,28 @@ func _run()->void:
  check(NAV.passage_near_chart(Vector3(16,0,0),Vector3(20,0,0),3.6,Vector3.ZERO,Vector2(15,15)),"wide passage touching chart edge remains visible")
  check(not NAV.passage_near_chart(Vector3(NAN,0,0),Vector3.ZERO,3.6,Vector3.ZERO,Vector2(15,15)),"invalid passage bounds are rejected")
  check(not NAV.passage_near_chart(Vector3.ZERO,Vector3.ONE,INF,Vector3.ZERO,Vector2(15,15)),"nonfinite passage width cannot enter rendering")
+ # Structural interior collision is built from shared shapes, preserving open
+ # approaches to the real chamber connectors in every stage.
+ var stage_rules=load("res://scripts/systems/dungeon_stage2_rules.gd")
+ for room_stage in range(1,4):
+  var wall_count:int=0
+  var open_count:int=0
+  for segment in range(16):
+   var wall_angle:float=TAU*float(segment)/16.0
+   if stage_rules.wall_segment_open(room_stage,wall_angle):open_count+=1
+   else:wall_count+=1
+  check(wall_count>=3 and open_count>=4,"chamber %d has real walls and open passage thresholds" % room_stage)
+  for other_stage in range(1,4):
+   if other_stage==room_stage:continue
+   var destination:Vector3=stage_rules.ROOM_OFFSETS[other_stage-1]-stage_rules.ROOM_OFFSETS[room_stage-1]
+   check(stage_rules.wall_segment_open(room_stage,atan2(destination.z,destination.x)),"chamber %d keeps real bridge entrance to chamber %d clear" % [room_stage,other_stage])
+ check(stage_rules.wall_segment_open(0,0.0) and stage_rules.wall_segment_open(1,NAN),"invalid wall placement input fails open, not blocking traversal")
  var passage_source:String=FileAccess.get_file_as_string("res://scripts/native_v32_1.gd")
  check("func _v321_build_passages(" in passage_source and "RiftPassageCollision" in passage_source and "StaticBody3D.new()" in passage_source,"connected rift walkways have physical collision")
  check("RiftPassageArch" in passage_source and "RiftPassageFloor" in passage_source,"dungeon passages include geometry and arch thresholds")
+ check("RiftInteriorCollision" in passage_source and "RiftInteriorFloorCollision" in passage_source,"all chambers have solid floor collision independent of visual culling")
+ check("RiftInteriorWallCollision_" in passage_source and "V321_RULES.wall_segment_open(stage,wall_angle)" in passage_source,"real solid chamber perimeter respects connected doorway openings")
+ check("var chamber_wall_mesh:=BoxMesh.new()" in passage_source and "var chamber_wall_shape:=BoxShape3D.new()" in passage_source,"interior wall meshes and shapes are shared to limit bloat")
  check("v321_passages" in passage_source and "func _atlas_dungeon_passages(" in source and "set_dungeon_passages" in source,"world-connected walkways are projected into real atlas floor plan")
  var cull_source:String=FileAccess.get_file_as_string("res://scripts/native_v32_2.gd")
  check("for passage in v321_passages" in cull_source,"passage visuals are culled without removing collision")

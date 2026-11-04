@@ -33,6 +33,14 @@ func _v321_build_chambers()->void:
  var shared_cap:=SphereMesh.new()
  shared_cap.radius=0.28
  shared_cap.height=0.56
+ # Lightweight shared collision and ruined-wall meshes, reused for every site.
+ var chamber_collision_floor:=CylinderShape3D.new()
+ chamber_collision_floor.radius=4.1
+ chamber_collision_floor.height=0.16
+ var chamber_wall_mesh:=BoxMesh.new()
+ chamber_wall_mesh.size=Vector3(2.0,2.3,0.42)
+ var chamber_wall_shape:=BoxShape3D.new()
+ chamber_wall_shape.size=chamber_wall_mesh.size
  for site_id in range(rifts.size()):
   var entry:Dictionary=rifts[site_id]
   var zone:int=int(entry["zone"])
@@ -60,6 +68,37 @@ func _v321_build_chambers()->void:
    floor_mesh.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
    floor_mesh.position.y=0.04
    root.add_child(floor_mesh)
+   # One static body per chamber supports floor and solid ruin walls.
+   # Collision stays active while distant visual meshes are culled.
+   var interior_body:=StaticBody3D.new()
+   interior_body.name="RiftInteriorCollision"
+   root.add_child(interior_body)
+   var floor_collision:=CollisionShape3D.new()
+   floor_collision.name="RiftInteriorFloorCollision"
+   floor_collision.shape=chamber_collision_floor
+   floor_collision.position.y=0.04
+   interior_body.add_child(floor_collision)
+   # Broken perimeter with genuine open doors facing both connected bridges.
+   # Keep the combat core unobstructed: walls sit outside the 4.1m floor rim.
+   for segment in range(16):
+    var wall_angle:float=TAU*float(segment)/16.0
+    if V321_RULES.wall_segment_open(stage,wall_angle):continue
+    var wall_position:=Vector3(cos(wall_angle)*4.3,1.14,sin(wall_angle)*4.3)
+    var wall_rotation:float=-wall_angle-PI*0.5
+    var wall:=MeshInstance3D.new()
+    wall.name="RiftInteriorWall_%d"%segment
+    wall.mesh=chamber_wall_mesh
+    wall.material_override=stone_material
+    wall.position=wall_position
+    wall.rotation.y=wall_rotation
+    wall.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+    root.add_child(wall)
+    var wall_collision:=CollisionShape3D.new()
+    wall_collision.name="RiftInteriorWallCollision_%d"%segment
+    wall_collision.shape=chamber_wall_shape
+    wall_collision.position=wall_position
+    wall_collision.rotation.y=wall_rotation
+    interior_body.add_child(wall_collision)
    for p in range(3):
     var angle:float=TAU*float(p)/3.0
     var pos:=Vector3(cos(angle)*4.0,1.10,sin(angle)*4.0)
