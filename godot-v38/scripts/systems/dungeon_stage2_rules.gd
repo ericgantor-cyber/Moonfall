@@ -1,6 +1,9 @@
 extends RefCounted
 ## Stage 2 rift layout and reward rules. No save-format change.
 const ROOM_OFFSETS:Array[Vector3]=[Vector3(-11.0,0,-3.0),Vector3(11.0,0,-3.0),Vector3(0,0,11.0)]
+const CHAMBER_FLOOR_RADIUS:float=6.2
+const CHAMBER_WALL_RADIUS:float=6.48
+const CHAMBER_WALL_SEGMENTS:int=20
 const ROOM_NAMES:Array[String]=["Outer Sanctum","Moonbound Passage","Guardian Heart"]
 const STAGE_LOOT_NAMES:Array[String]=["Ravenwood Vow","Ashen Moon Vow","Bloodmoon Vow"]
 
