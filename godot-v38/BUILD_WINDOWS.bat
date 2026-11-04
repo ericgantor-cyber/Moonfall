@@ -362,6 +362,11 @@ rem Exercise active aiming scene, not only script source checks.
 if errorlevel 1 goto failed
 findstr /c:"MOONFALL AIM SCENE RUNTIME PASS" GODOT_AIM_SCENE_LOG.txt >nul
 if errorlevel 1 goto failed
+rem Verify navigation map remains safe with malformed saves and many discovered locations.
+"%ENGINE%" --headless --path "%CD%" --script res://tests/navigation_atlas_integration.gd > GODOT_ATLAS_INTEGRATION_LOG.txt 2>&1
+if errorlevel 1 goto failed
+findstr /c:"MOONFALL ATLAS PASS" GODOT_ATLAS_INTEGRATION_LOG.txt >nul
+if errorlevel 1 goto failed
 rem A script may print its PASS banner while Godot also emits ERROR diagnostics.
 rem Inspect all import, gameplay, export and packed startup logs before success.
 python tests\check_godot_logs.py
