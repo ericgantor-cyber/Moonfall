@@ -190,6 +190,25 @@ func _run()->void:
  check(is_equal_approx(stage_rules.CHAMBER_FLOOR_RADIUS,6.2) and stage_rules.CHAMBER_WALL_RADIUS>stage_rules.CHAMBER_FLOOR_RADIUS,"sanctum floor radius expands to 6.2 metres with outside perimeter walls")
  check(stage_rules.CHAMBER_WALL_SEGMENTS==20,"expanded chambers have bounded wall segment count")
  check(stage_rules.REGIONAL_DUNGEON_COUNT==5,"every region has exactly five dungeon entrance positions")
+ check(stage_rules.REGIONAL_CHAMBERS_PER_DUNGEON==14 and stage_rules.REGIONAL_ROOM_OFFSETS.size()==14,"each independent regional dungeon defines fourteen actual room coordinates")
+ var regional_rooms_checked:Array[Dictionary]=[]
+ var regional_centre_test:Vector2=Vector2(700.0,-300.0)
+ for dungeon_id in range(stage_rules.REGIONAL_DUNGEON_COUNT):
+  for stage_id in range(1,stage_rules.REGIONAL_CHAMBERS_PER_DUNGEON+1):
+   var room_at:Vector3=stage_rules.regional_chamber_position(regional_centre_test,dungeon_id,stage_id)
+   check(NAV._valid_world_point(room_at),"regional dungeon %d chamber %d has finite world coordinates" % [dungeon_id,stage_id])
+   if stage_id==1:
+    check(room_at.distance_to(stage_rules.regional_dungeon_position(regional_centre_test,dungeon_id))<0.01,"dungeon %d entrance is its first physical chamber" % dungeon_id)
+   else:
+    var previous:Vector3=stage_rules.regional_chamber_position(regional_centre_test,dungeon_id,stage_id-1)
+    var step_length:float=previous.distance_to(room_at)
+    check(step_length>=13.9 and step_length<=23.0,"regional chamber %d has a reachable bounded internal walkway" % stage_id)
+   for prior_room in regional_rooms_checked:
+    if int(prior_room["dungeon"])!=dungeon_id:
+     check(room_at.distance_to(prior_room["position"])>13.0,"separate dungeon chambers cannot overlap across entrances")
+   regional_rooms_checked.append({"dungeon":dungeon_id,"position":room_at})
+ check(regional_rooms_checked.size()==70,"five separate dungeon layouts total seventy chambers per region")
+ check(stage_rules.regional_chamber_title(14)!="Unknown Chamber" and stage_rules.regional_chamber_title(1)=="Dungeon Threshold","regional dungeon chamber names cover stages one through fourteen")
  var regional_centre:Vector2=Vector2(700.0,-300.0)
  var regional_positions:Array[Vector3]=[]
  for dungeon_index in range(stage_rules.REGIONAL_DUNGEON_COUNT):
@@ -231,6 +250,10 @@ func _run()->void:
  check("chamber_collision_floor.radius=V321_RULES.CHAMBER_FLOOR_RADIUS" in passage_source and "shared_floor.top_radius=V321_RULES.CHAMBER_FLOOR_RADIUS" in passage_source,"expanded visual floor and physical collision share the same radius")
  check("RiftInteriorStageRing" in passage_source and "TorusMesh.new()" in passage_source,"each chamber has its own nonblocking ritual floor ring")
  check("func _v321_build_region_dungeon_entrances()" in passage_source and "RegionDungeonEntranceCollision" in passage_source,"each independent regional dungeon entrance has real floor collision")
+ check("func _v321_build_region_dungeon_interiors()" in passage_source and "RegionDungeonRoomCollision" in passage_source and "RegionDungeonInternalCollision" in passage_source,"all interior regional dungeon chambers and their corridors have real solid floors")
+ check("for stage in range(2,V321_RULES.REGIONAL_CHAMBERS_PER_DUNGEON+1)" in passage_source and "v321_region_rooms.append" in passage_source and "v321_region_room_passages.append" in passage_source,"all fourteen chambers are created within each individual dungeon")
+ check("for dungeon_room in v321_region_rooms" in cull_source and "for dungeon_passage in v321_region_room_passages" in cull_source,"internal room and corridor visuals cull independently from physical collision")
+ check("regional_dungeon_physical_rooms" in cull_source and "regional_dungeon_internal_passages" in cull_source,"regional dungeon scene counts appear in performance reports")
  check("for zone in range(REGIONS.size())" in passage_source and "v321_region_dungeons.append" in passage_source,"each authored world region receives five separate dungeon entrance hubs")
  check(not ("RegionDungeonConnectionCollision" in passage_source or "v321_region_dungeon_links" in passage_source or "v321_region_dungeon_links" in cull_source),"five independent dungeons have no physical links or ring joining them")
  check("for dungeon in v321_region_dungeons" in cull_source,"independent dungeon entrance visuals are culled without disabling physics")
