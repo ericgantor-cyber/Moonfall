@@ -190,6 +190,15 @@ func _run()->void:
  check(is_equal_approx(stage_rules.CHAMBER_FLOOR_RADIUS,6.2) and stage_rules.CHAMBER_WALL_RADIUS>stage_rules.CHAMBER_FLOOR_RADIUS,"sanctum floor radius expands to 6.2 metres with outside perimeter walls")
  check(stage_rules.CHAMBER_WALL_SEGMENTS==20,"expanded chambers have bounded wall segment count")
  var stage_rule_count:int=stage_rules.EXPLORATION_OFFSETS.size()
+ check(stage_rules.ANNEX_TITLES.size()==11 and stage_rules.ANNEX_SIGILS.size()==11,"eleven annexes have named, distinct thematic identities")
+ var unique_titles:Dictionary={}
+ for named_stage in range(4,15):
+  var title:String=stage_rules.annex_title(named_stage)
+  unique_titles[title]=true
+  var tint:Color=stage_rules.annex_tint(named_stage)
+  check(title.length()>3 and is_finite(tint.r) and is_finite(tint.g) and is_finite(tint.b) and is_finite(tint.a),"annex %d has a valid readable identity and finite accent color" % named_stage)
+ check(unique_titles.size()==11,"annex names are unique instead of repeated generic chambers")
+ check(stage_rules.annex_title(3)=="Unknown Chamber" and stage_rules.annex_sigil(15)=="","unknown annex stages return safe identity values")
  check(stage_rule_count==11,"eleven exploration annexes extend each three-chamber rift to fourteen physical rooms")
  var first_annex:Vector3=stage_rules.exploration_position(Vector3.ZERO,4)
  check(first_annex.distance_to(stage_rules.room_position(Vector3.ZERO,3))>=13.0,"first annex connects without overlapping Guardian Heart")
@@ -211,6 +220,9 @@ func _run()->void:
  check("RiftInteriorStageRing" in passage_source and "TorusMesh.new()" in passage_source,"each chamber has its own nonblocking ritual floor ring")
  check("func _v321_build_exploration_annexes()" in passage_source and "RiftAnnexCollision" in passage_source and "RiftAnnexBridgeCollision" in passage_source,"annex rooms and connecting corridors have real collision")
  check("for stage in range(4,15)" in passage_source and "v321_annexes.append" in passage_source,"fourteen-room layout is built without extending story wave triggers")
+ check("RiftAnnexSigil" in passage_source and "RiftAnnexRune_" in passage_source,"named annexes have low-poly nonblocking ritual markings")
+ check("sigil_ring:=TorusMesh.new()" in passage_source and "annex_palette" in passage_source,"annex visual meshes and stage palettes are shared across sites")
+ check("V321_RULES.annex_title(stage)" in passage_source,"annex signs show their actual named chamber identity")
  check("for annex in v321_annexes" in cull_source and "for annex_link in v321_annex_passages" in cull_source,"annex visuals are independently distance-culled")
  check("v321_passages" in passage_source and "func _atlas_dungeon_passages(" in source and "set_dungeon_passages" in source,"world-connected walkways are projected into real atlas floor plan")
  check("for passage in v321_passages" in cull_source,"passage visuals are culled without removing collision")

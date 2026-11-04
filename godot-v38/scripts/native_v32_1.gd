@@ -232,6 +232,22 @@ func _v321_build_exploration_annexes()->void:
  var path_material:=StandardMaterial3D.new()
  path_material.albedo_color=Color(0.27,0.28,0.35)
  path_material.roughness=0.95
+ # Shared low-poly decorative pieces avoid per-room unique mesh allocations.
+ var sigil_ring:=TorusMesh.new()
+ sigil_ring.inner_radius=2.1
+ sigil_ring.outer_radius=2.26
+ sigil_ring.rings=8
+ sigil_ring.ring_segments=20
+ var sigil_marker:=BoxMesh.new()
+ sigil_marker.size=Vector3(0.48,0.16,0.48)
+ var annex_palette:Array[StandardMaterial3D]=[]
+ for annex_stage in range(4,15):
+  var tint:=StandardMaterial3D.new()
+  tint.albedo_color=V321_RULES.annex_tint(annex_stage)
+  tint.emission_enabled=true
+  tint.emission=tint.albedo_color*0.28
+  tint.roughness=0.72
+  annex_palette.append(tint)
  for site_id in range(rifts.size()):
   var anchor:Vector3=rifts[site_id]["anchor"]
   for stage in range(4,15):
@@ -252,13 +268,33 @@ func _v321_build_exploration_annexes()->void:
    var shape:=CollisionShape3D.new()
    shape.shape=floor_shape
    solid.add_child(shape)
+   # Stage identity is decorative, not a new objective or collision obstacle.
+   var tint_material:StandardMaterial3D=annex_palette[stage-4]
+   var decoration:=MeshInstance3D.new()
+   decoration.name="RiftAnnexSigil"
+   decoration.mesh=sigil_ring
+   decoration.material_override=tint_material
+   decoration.position.y=0.13
+   decoration.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+   room.add_child(decoration)
+   for marker_id in range(3):
+    var angle:float=TAU*float(marker_id)/3.0+float(stage)*0.22
+    var rune:=MeshInstance3D.new()
+    rune.name="RiftAnnexRune_%d"%marker_id
+    rune.mesh=sigil_marker
+    rune.material_override=tint_material
+    rune.position=Vector3(cos(angle)*3.2,0.17,sin(angle)*3.2)
+    rune.rotation.y=angle
+    rune.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+    room.add_child(rune)
    var sign:=Label3D.new()
    sign.name="RiftAnnexLabel"
-   sign.text="EXPLORATION CHAMBER %d / 14"%stage
+   sign.text="CHAMBER %d / 14 • %s" % [stage,V321_RULES.annex_title(stage)]
    sign.font_size=25
    sign.pixel_size=0.005
    sign.billboard=BaseMaterial3D.BILLBOARD_ENABLED
    sign.position.y=2.6
+   sign.modulate=V321_RULES.annex_tint(stage)
    room.add_child(sign)
    room.visible=false
    v321_annexes.append({"node":room,"site":site_id,"stage":stage})
