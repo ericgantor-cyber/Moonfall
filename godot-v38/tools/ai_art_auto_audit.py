@@ -31,7 +31,8 @@ def check_file(item: dict, fmt: str, path: Path, state: str, variant: str = "com
         "path": release.relative_asset(path), "valid": False, "bytes": 0,
         "sha256": "", "triangles": None, "bones": None, "clips": None,
         "texture_max": None, "verified_4k": None, "pbr_materials": None,
-        "dimensions": None, "errors": [], "warnings": [],
+        "dimensions": None, "estimated_uncompressed_mipmap_bytes": 0,
+        "errors": [], "warnings": [],
     }
     try:
         if path.is_symlink() or not path.is_file():
@@ -51,6 +52,8 @@ def check_file(item: dict, fmt: str, path: Path, state: str, variant: str = "com
         if fmt == "png":
             studio.validate_png(raw)
             record["dimensions"] = list(struct.unpack_from(">II", raw, 16))
+            width, height = record["dimensions"]
+            record["estimated_uncompressed_mipmap_bytes"] = width * height * 4 * 4 // 3
         else:
             mesh = mesh3d.glb_info(raw)
             animation = rig.rig_report(raw, require_rig=(fmt == "rigged"))
@@ -60,6 +63,11 @@ def check_file(item: dict, fmt: str, path: Path, state: str, variant: str = "com
                 "verified_4k": mesh["has_4k_texture"],
                 "pbr_materials": mesh["pbr_material_count"],
             })
+            record["estimated_uncompressed_mipmap_bytes"] = sum(
+                width * height * 4 * 4 // 3
+                for size in mesh.get("texture_dimensions", []) if size
+                for width, height in [size]
+            )
             if fmt == "rigged" and (not animation["rigged"] or not animation["mapped_clips"]):
                 raise ValueError("Animated GLB requires an actual bound skeleton and named clips.")
             if animation["rigged"]:
@@ -171,6 +179,16 @@ def audit(include_inbox: bool = False, inbox_path: Path | None = None) -> dict:
     warnings = [{"asset_id": r["asset_id"], "path": r["path"], "message": msg}
                 for r in records for msg in r["warnings"]]
     approved = [r for r in records if r["state"] == "approved" and r["valid"]]
+    # Duplicate approved artworks are legal, but unnecessary duplicates
+    # often inflate the installer and hide accidental asset reuse.
+    hashes: dict[str, list[str]] = {}
+    for item in approved:
+        hashes.setdefault(item["sha256"], []).append(item["asset_id"] + "." + item["format"])
+    for ids in hashes.values():
+        if len(ids) > 1:
+            warnings.append({"asset_id": ids[0], "path": "",
+                             "message": "Identical bytes used in " + str(len(ids)) +
+                             " approved slots. Check intentional reuse."})
     staged = [r for r in records if r["state"] == "staged" and r["valid"]]
     counts = Counter((r["state"], r["format"]) for r in records)
     return {
@@ -184,6 +202,8 @@ def audit(include_inbox: bool = False, inbox_path: Path | None = None) -> dict:
         "verified_4k_glbs": sum(r["verified_4k"] is True for r in approved),
         "animated_rigs": sum(r["format"] == "rigged" and bool(r["clips"]) for r in approved),
         "approved_source_bytes": sum(r["bytes"] for r in approved),
+        "estimated_uncompressed_mipmap_bytes": sum(
+            r["estimated_uncompressed_mipmap_bytes"] for r in approved),
         "format_counts": {f"{a}_{b}": n for (a, b), n in counts.items()},
         "assets": records, "inbox": inbox, "errors": errors, "warnings": warnings,
         "summary": "FAIL" if errors else "REVIEW WARNINGS" if warnings else "PASS",
@@ -237,6 +257,8 @@ tbody tr:nth-child(even){background:#211b2a} :focus-visible{outline:3px solid #f
                    ("Staged art", report["staged_files"]),
                    ("4K-verified GLBs", report["verified_4k_glbs"]),
                    ("Animated rigs", report["animated_rigs"]),
+                   ("Raw source MiB", round(report["approved_source_bytes"] / 1048576, 1)),
+                   ("Texture estimate MiB", round(report["estimated_uncompressed_mipmap_bytes"] / 1048576, 1)),
                    ("Integrity errors", len(report["errors"])),
                    ("Quality warnings", len(report["warnings"])),
                ]) + """</div>
@@ -285,6 +307,8 @@ def markdown_summary(report: dict) -> str:
              "**" + report["summary"] + "** | " + str(report["approved_files"]) +
              " approved | " + str(report["staged_files"]) + " staged | " +
              str(len(report["errors"])) + " errors | " + str(len(report["warnings"])) + " warnings",
+             "Raw RGBA mip estimate (not actual GPU VRAM): " +
+             str(round(report["estimated_uncompressed_mipmap_bytes"] / 1048576, 1)) + " MiB",
              "Verified 4K models: " + str(report["verified_4k_glbs"]) +
              " | animated rigs: " + str(report["animated_rigs"]),
              "Offline and read-only; no paid requests."]
