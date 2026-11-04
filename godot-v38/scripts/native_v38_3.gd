@@ -15,20 +15,27 @@ func _ready()->void:
   var body:Control=atlas_panel.get_child(0) as Control
   if is_instance_valid(body):body.add_child(pad_atlas_legend)
 
-func _pad_pressed(device:int,button:JoyButton,id:String)->bool:
- var down:bool=Input.is_joy_button_pressed(device,button)
+func _pad_edge(device:int,id:String,down:bool)->bool:
  var key:String=str(device)+":"+id
  var was_down:bool=bool(pad_atlas_previous.get(key,false))
  pad_atlas_previous[key]=down
  return down and not was_down
 
+func _pad_pressed(device:int,button:JoyButton,id:String)->bool:
+ return _pad_edge(device,id,Input.is_joy_button_pressed(device,button))
+
 func _process(delta:float)->void:
  super._process(delta)
- if not hero_playing or death_active or menu_open:return
  var devices:Array[int]=Input.get_connected_joypads()
- if devices.is_empty():return
+ if devices.is_empty():
+  # A disconnected controller must not retain pressed-button edges.
+  pad_atlas_previous.clear()
+  return
  var device:int=devices[0]
+ # Update BACK's held/released state even while menus or death UI are up.
+ # A stale pressed state otherwise loses the first press after resuming.
  var toggle:bool=_pad_pressed(device,JOY_BUTTON_BACK,"map")
+ if not hero_playing or death_active or menu_open:return
  if toggle:
   _toggle_atlas()
  if not is_instance_valid(atlas_panel) or not atlas_panel.visible:
