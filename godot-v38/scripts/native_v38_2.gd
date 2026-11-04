@@ -221,12 +221,15 @@ func _refresh_atlas()->void:
  atlas_chart.call("set_chamber_markers",_atlas_chamber_marker_positions())
  atlas_chart.call("set_quest_markers",atlas_quest_positions)
  atlas_chart.call("update_navigation",pos,atlas_waypoint,atlas_has_waypoint)
+ atlas_chart.call("update_dungeon_room",pos)
  atlas_readout.text="X %.0f | Z %.0f | Trail: %d/%d | Chambers: %d/%d | Rifts: %d/%d | Quests: %d" % [pos.x,pos.z,atlas_discovered.size(),ATLAS_MAX_DISCOVERED,atlas_chambers_seen.size(),v321_chambers.size(),rifts_cleared.size(),rifts.size(),atlas_quest_positions.size()]
  if atlas_dungeon_site>=0:
   var local_seen:int=0
   for stage in range(3):
    if atlas_chambers_seen.has(atlas_dungeon_site*3+stage):local_seen+=1
   atlas_readout.text+=" | This dungeon: %d/3" % local_seen
+  var current_room:int=atlas_chart.get("dungeon_current_room")
+  atlas_readout.text+=(" | CURRENT ROOM: %d" % (current_room+1)) if current_room>=0 else " | Between chambers"
  if atlas_has_waypoint:
   var horizontal_distance:float=Vector2(pos.x,pos.z).distance_to(Vector2(atlas_waypoint.x,atlas_waypoint.z))
   var offset:Vector2=Vector2(atlas_waypoint.x-pos.x,atlas_waypoint.z-pos.z)
