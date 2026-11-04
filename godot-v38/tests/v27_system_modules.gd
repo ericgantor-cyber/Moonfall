@@ -56,6 +56,30 @@ func _run()->void:
  check(not AI.retreat_due(27.0,100.0,false,0,20.0,19.0),"rift beasts do not retreat")
  check(is_equal_approx(COMBAT.outgoing_damage(50.0,false,false,0,0.0,1.0),50.0),"base player damage unchanged")
  check(is_equal_approx(COMBAT.outgoing_damage(50.0,true,true,2,0.10,1.0),105.6),"critical execute fury order preserved")
+ check(COMBAT.outgoing_damage(NAN,false,false,0,0.0,1.0)==0.0,"NaN damage input is rejected")
+ check(COMBAT.outgoing_damage(INF,false,false,0,0.0,1.0)==0.0,"infinite base damage is rejected")
+ check(COMBAT.outgoing_damage(-5.0,false,false,0,0.0,1.0)==0.0,"negative damage is rejected")
+ check(COMBAT.outgoing_damage(25.0,false,false,0,NAN,1.0)==0.0,"NaN fury is rejected")
+ check(COMBAT.outgoing_damage(25.0,false,false,0,0.0,INF)==0.0,"infinite power multiplier is rejected")
+ check(COMBAT.outgoing_damage(25.0,false,true,-10,0.0,1.0)==0.0,"negative execution rank is rejected")
+ check(COMBAT.outgoing_damage(25.0,false,false,0,0.0,-1.0)==0.0,"negative power cannot heal targets")
+ check(COMBAT.outgoing_damage(25.0,false,true,99999999,0.0,1.0)==0.0,"corrupted execution rank is rejected")
+ var damage_sweep_ok:bool=true
+ for sample_index in range(111):
+  var base_damage:float=10.0+float(sample_index)*0.5
+  var critical_hit:bool=sample_index%3==0
+  var wounded_hit:bool=sample_index%2==0
+  var rank:int=sample_index%6
+  var fury_factor:float=float(sample_index%4)*0.05
+  var power_factor:float=0.75+float(sample_index%7)*0.1
+  var expected_damage:float=base_damage*(1.6 if critical_hit else 1.0)
+  if wounded_hit:expected_damage*=1.0+0.1*float(rank)
+  expected_damage*=1.0+fury_factor
+  expected_damage*=power_factor
+  if not is_equal_approx(COMBAT.outgoing_damage(base_damage,critical_hit,wounded_hit,rank,fury_factor,power_factor),expected_damage):
+   damage_sweep_ok=false
+   break
+ check(damage_sweep_ok,"111 valid outgoing damage combinations preserve existing balance")
  check(COMBAT.elite_missed(Vector3.ZERO,Vector3(2,0,0),0),"outside marked elite attack range")
  check(COMBAT.elite_missed(Vector3.ZERO,Vector3.ZERO,0.2),"dodge avoids elite strike")
  check(not COMBAT.elite_missed(Vector3.ZERO,Vector3.ZERO,0.0),"valid close-range attack lands")
