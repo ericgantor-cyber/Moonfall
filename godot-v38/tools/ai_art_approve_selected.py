@@ -19,14 +19,13 @@ import ai_art_autorig as autorig
 from ai_art_rig import rig_report
 
 
-MAX_SELECTION_BYTES = 128 * 1024
-MAX_SELECTION_ENTRIES = 700
+MAX_SELECTION_BYTES = 2 * 1024 * 1024  # Prevent corrupted/oversized JSON; not an artwork count cap.
 SHA256_RE = re.compile(r"^[a-f0-9]{64}$")
 
 
 def read_selection(path: Path) -> list[dict]:
     if not path.is_file() or path.is_symlink() or path.stat().st_size > MAX_SELECTION_BYTES:
-        raise ValueError("Provide a normal JSON approval file under 128 KiB.")
+        raise ValueError("Provide a normal JSON approval file under 2 MiB.")
     try:
         selection = json.loads(path.read_text(encoding="utf-8"))
     except (UnicodeError, json.JSONDecodeError) as error:
@@ -34,10 +33,12 @@ def read_selection(path: Path) -> list[dict]:
     if not isinstance(selection, dict) or selection.get("version") != 1:
         raise ValueError("Approval selection must be a version-1 manifest.")
     entries = selection.get("approved_assets")
-    if not isinstance(entries, list) or not 1 <= len(entries) <= MAX_SELECTION_ENTRIES:
-        raise ValueError("Select between 1 and 700 known art files in the gallery.")
+    if not isinstance(entries, list) or not entries:
+        raise ValueError("Select at least one known artwork file in the gallery.")
     seen: set[tuple[str, str]] = set()
     available = {item["asset_id"]: item for item in review.all_items()}
+    if len(entries) > 3 * len(available):
+        raise ValueError("Approval manifest contains more entries than possible known PNG/GLB/rigged assets.")
     result = []
     for raw in entries:
         if not isinstance(raw, dict) or set(raw) != {"asset_id", "format", "sha256"}:
