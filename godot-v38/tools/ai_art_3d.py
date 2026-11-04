@@ -363,6 +363,8 @@ def download_glb(url: str) -> bytes:
 
 def stage_model(item: dict, payload: bytes, origin: str, extra: dict | None = None) -> Path:
     analysis = glb_info(payload)
+    from ai_art_rig import rig_report
+    rig_data = rig_report(payload)
     staged, approved, _ = paths(item)
     if staged.exists() or approved.exists():
         raise FileExistsError("An existing staged or approved 3D model must not be overwritten.")
@@ -370,7 +372,7 @@ def stage_model(item: dict, payload: bytes, origin: str, extra: dict | None = No
     staged.write_bytes(payload)
     record = {"asset_id": item["asset_id"], "category": item["category"],
               "subject": item["subject"], "sha256": hashlib.sha256(payload).hexdigest(),
-              "origin": origin, "reviewed": False, "geometry": analysis}
+              "origin": origin, "reviewed": False, "geometry": analysis, "rig": rig_data}
     if extra:
         record["generation"] = extra
     staged.with_suffix(".json").write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
@@ -412,6 +414,8 @@ def approve_model(item: dict) -> Path:
         raise FileExistsError("An approved 3D model is already present.")
     data = staged.read_bytes()
     details = glb_info(data)
+    from ai_art_rig import rig_report
+    rig_data = rig_report(data)
     record = json.loads(record_path.read_text(encoding="utf-8"))
     previous_geometry = record.get("geometry", {})
     if (record.get("asset_id") != item["asset_id"]
@@ -421,7 +425,11 @@ def approve_model(item: dict) -> Path:
         raise ValueError("Model doesn't match its review manifest.")
     # Upgrade older staged manifests with the new actual texture report,
     # without requiring a re-import or silently approving altered bytes.
+    existing_rig = record.get("rig")
+    if existing_rig is not None and existing_rig != rig_data:
+        raise ValueError("Rig and animation tracks changed since staging.")
     record["geometry"] = details
+    record["rig"] = rig_data
     approved.parent.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(staged, approved)
     record["reviewed"] = True
@@ -441,7 +449,8 @@ def main(argv: list[str] | None = None) -> int:
     action.add_argument("--fetch", action="store_true", help="Fetch completed GLB to review staging")
     action.add_argument("--import-model", metavar="GLB", type=Path, help="Import your own existing GLB without API billing")
     action.add_argument("--approve", action="store_true", help="Approve a reviewed staged 3D model for automatic Godot import")
-    action.add_argument("--audit", action="store_true", help="Check actual triangles, embedded 4K map dimensions and PBR materials")
+    action.add_argument("--audit", action="store_true", help="Check actual GLB geometry, textures, bones and animation clips")
+    action.add_argument("--require-rig", action="store_true", help="Read-only: reject models missing a usable skinned animation rig")
     args = parser.parse_args(argv)
     try:
         item = choose_item(args)
@@ -459,13 +468,17 @@ def main(argv: list[str] | None = None) -> int:
             print("3D candidate staged for visual review:", import_local(item, args.import_model))
         elif args.approve:
             print("3D model approved; Godot imports it by name:", approve_model(item))
-        elif args.audit:
+        elif args.audit or args.require_rig:
             model_path = approved if approved.is_file() else staged
             if not model_path.is_file():
                 raise FileNotFoundError("No approved or staged GLB to audit.")
+            payload = model_path.read_bytes()
+            from ai_art_rig import rig_report
+            rig_data = rig_report(payload, require_rig=args.require_rig)
             print(json.dumps({
-                "file": str(model_path), **glb_info(model_path.read_bytes()),
-                "note": "4K refers to *observed embedded maps*, not provider request settings.",
+                "file": str(model_path), **glb_info(payload),
+                "rig": rig_data,
+                "note": "4K and animation readiness reflect actual GLB data, not AI promises.",
             }, indent=2))
         else:
             print(json.dumps({
