@@ -36,6 +36,21 @@ func _run()->void:
  check(heading.z<0.0 and is_equal_approx(heading.length(),2.5),"flank steering and speed preserved")
  check(is_equal_approx(AI.approach(Vector3(5,0,0),2.5,1,true,3,5.0).length(),3.25),"guardian phase acceleration")
  check(AI.approach(Vector3.ZERO,2.0,0,false,1,0.0)==Vector3.ZERO,"zero-length pursuit avoids NaNs")
+ check(AI.approach(Vector3(NAN,0,0),2.0,0,false,1,5.0)==Vector3.ZERO,"NaN chase heading fails safely")
+ check(AI.approach(Vector3(INF,0,0),2.0,0,false,1,5.0)==Vector3.ZERO,"infinite chase heading fails safely")
+ check(AI.approach(Vector3(1.0e30,0,0),2.0,0,false,1,5.0)==Vector3.ZERO,"overflowing chase heading fails safely")
+ check(AI.approach(Vector3(5,0,0),NAN,0,false,1,5.0)==Vector3.ZERO,"NaN chase speed fails safely")
+ check(AI.approach(Vector3(5,0,0),INF,0,false,1,5.0)==Vector3.ZERO,"infinite chase speed fails safely")
+ check(AI.approach(Vector3(5,0,0),2.0,0,false,1,-1.0)==Vector3.ZERO,"negative chase distance fails safely")
+ check(AI.approach(Vector3(5,0,0),2.0,0,true,1000000,5.0).length()<=14.0,"corrupt boss phase does not create unlimited speed")
+ var heading_sweep_safe:bool=true
+ for sample_index in range(111):
+  var angle:float=TAU*float(sample_index)/111.0
+  var heading_sample:Vector3=AI.approach(Vector3(cos(angle)*5.0,0.0,sin(angle)*5.0),2.5,0,false,1,5.0)
+  if not is_finite(heading_sample.x) or not is_finite(heading_sample.z) or not is_equal_approx(heading_sample.length(),2.5):
+   heading_sweep_safe=false
+   break
+ check(heading_sweep_safe,"111 pursuit headings preserve finite movement speed")
  check(AI.retreat_due(27.0,100.0,false,-1,20.0,19.0),"wounded normal beast retreat")
  check(not AI.retreat_due(27.0,100.0,true,-1,20.0,19.0),"guardian retreat excluded")
  check(not AI.retreat_due(27.0,100.0,false,0,20.0,19.0),"rift beasts do not retreat")
