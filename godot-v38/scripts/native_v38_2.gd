@@ -440,6 +440,17 @@ func _guardian_create_trait_warning(trait_id:int,guardian_id:int)->Node3D:
    crossing.material_override=material
    crossing.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
    root.add_child(crossing)
+ # Text plus color makes the cue readable when color distinction is poor.
+ var cue:=Label3D.new()
+ cue.name="TraitAttackCaption"
+ cue.font_size=38
+ cue.pixel_size=0.005
+ cue.billboard=BaseMaterial3D.BILLBOARD_ENABLED
+ cue.modulate=Color.WHITE
+ cue.outline_size=12
+ cue.position=Vector3(0.0,1.5,0.0)
+ cue.text=GUARDIAN_TRAIT_ATTACKS.ATTACK_NAMES[trait_id].to_upper()
+ root.add_child(cue)
  root.visible=false
  world.add_child(root)
  return root
@@ -467,12 +478,22 @@ func _guardian_update_trait_attacks(delta:float)->void:
  guardian_trait_attack_clock+=clampf(delta,0.0,0.2)
  if guardian_trait_attack_clock<0.10:return
  guardian_trait_attack_clock=fmod(guardian_trait_attack_clock,0.10)
- if not hero_playing or death_active or menu_open or not is_instance_valid(player):return
+ if not hero_playing or death_active or menu_open or not is_instance_valid(player):
+  for guardian_id in atlas_regional_guardian_actors.keys():
+   var guardian:Dictionary=atlas_regional_guardian_actors[guardian_id]
+   guardian["trait_warning_until"]=0.0
+   var old_warning:Node3D=guardian.get("trait_warning_root") as Node3D
+   if is_instance_valid(old_warning):old_warning.visible=false
+  return
  var here:Vector3=player.global_position
  for guardian_id in atlas_regional_guardian_actors.keys():
   var guardian:Dictionary=atlas_regional_guardian_actors[guardian_id]
   if not bool(guardian.get("alive",false)):continue
-  if int(guardian.get("zone",-1))!=region_index:continue
+  if int(guardian.get("zone",-1))!=region_index:
+   guardian["trait_warning_until"]=0.0
+   var far_warning:Node3D=guardian.get("trait_warning_root") as Node3D
+   if is_instance_valid(far_warning):far_warning.visible=false
+   continue
   var body:CharacterBody3D=guardian.get("body") as CharacterBody3D
   if not is_instance_valid(body):continue
   var trait_id:int=int(guardian.get("regional_guardian_trait",-1))
@@ -481,7 +502,20 @@ func _guardian_update_trait_attacks(delta:float)->void:
   var horizontal:Vector2=Vector2(here.x-origin.x,here.z-origin.z)
   var warning_until:float=float(guardian.get("trait_warning_until",0.0))
   if warning_until>0.0:
-   if map_time<warning_until:continue
+   var warning_root:Node3D=guardian.get("trait_warning_root") as Node3D
+   # Clear stale cues when the hero leaves the encounter. No delayed hit can
+   # follow the player across an open-world fast-travel destination.
+   if horizontal.length_squared()>18.0*18.0:
+    guardian["trait_warning_until"]=0.0
+    guardian["trait_next_at"]=map_time+2.0
+    if is_instance_valid(warning_root):warning_root.visible=false
+    continue
+   if map_time<warning_until:
+    if is_instance_valid(warning_root):
+     var cue:Label3D=warning_root.get_node_or_null("TraitAttackCaption") as Label3D
+     if is_instance_valid(cue):
+      cue.text="%s • %.1fs" % [GUARDIAN_TRAIT_ATTACKS.ATTACK_NAMES[trait_id].to_upper(),maxf(0.0,warning_until-map_time)]
+    continue
    guardian["trait_warning_until"]=0.0
    var root:Node3D=guardian.get("trait_warning_root") as Node3D
    if is_instance_valid(root):root.visible=false
