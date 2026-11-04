@@ -23,4 +23,6 @@ static func elite_missed(strike_pos:Vector3,hero_pos:Vector3,dodge_remaining:flo
  return d_sq>=1.9*1.9 or (is_finite(dodge_remaining) and dodge_remaining>0.0)
 
 static func guardian_attack_cooldown(phase:int) -> float:
- return maxf(1.6,3.0-0.45*float(phase-1))
+ # Preserve existing phases 1-6 while preventing corrupt negative phases from stalling bosses.
+ var bounded_phase:int=clampi(phase,1,6)
+ return maxf(1.6,3.0-0.45*float(bounded_phase-1))
