@@ -42,7 +42,7 @@ func _atlas_regional_trail_key(regional_id:int)->int:
 func _atlas_regional_rooms()->Array[Dictionary]:
  var result:Array[Dictionary]=[]
  if atlas_regional_dungeon<0:return result
- var zone:int=atlas_regional_dungeon / V321_RULES.REGIONAL_DUNGEON_COUNT
+ var zone:int=int(atlas_regional_dungeon / V321_RULES.REGIONAL_DUNGEON_COUNT)
  var dungeon_id:int=atlas_regional_dungeon % V321_RULES.REGIONAL_DUNGEON_COUNT
  for entry in v321_region_rooms:
   if int(entry.get("zone",-1))==zone and int(entry.get("dungeon",-1))==dungeon_id:result.append(entry)
@@ -238,12 +238,30 @@ func _atlas_chamber_marker_positions()->Array[Vector3]:
   if NAVIGATION_MAP._valid_world_point(chamber_node.global_position):markers.append(chamber_node.global_position)
  return markers
 
+func _atlas_record_regional_chambers(position:Vector3)->void:
+ if not NAVIGATION_MAP._valid_world_point(position):return
+ for entry in v321_region_rooms:
+  var node:Node3D=entry.get("node") as Node3D
+  if not is_instance_valid(node):continue
+  if Vector2(position.x-node.global_position.x,position.z-node.global_position.z).length_squared()>12.0*12.0:continue
+  var room_id:int=_atlas_regional_room_id(int(entry["zone"]),int(entry["dungeon"]),int(entry["stage"]))
+  if not atlas_regional_seen.has(room_id):atlas_regional_seen.append(room_id)
+
 func _atlas_update_dungeon_context(position:Vector3)->void:
  var anchors:Array[Vector3]=[]
  for entry in rifts:
   var anchor:Vector3=entry.get("anchor",Vector3.ZERO)
   anchors.append(anchor)
  var next_site:int=NAVIGATION_MAP.dungeon_site_at(position,anchors,atlas_dungeon_site)
+ var next_regional:int=-1
+ var regional_distance:float=13.0*13.0
+ for entry in v321_region_rooms:
+  var node:Node3D=entry.get("node") as Node3D
+  if not is_instance_valid(node):continue
+  var distance:float=Vector2(position.x-node.global_position.x,position.z-node.global_position.z).length_squared()
+  if distance<regional_distance:
+   regional_distance=distance
+   next_regional=int(entry["zone"])*V321_RULES.REGIONAL_DUNGEON_COUNT+int(entry["dungeon"])
  var nearest_distance:float=14.0*14.0
  for chamber in _atlas_all_site_chambers():
   var node:Node3D=chamber.get("node") as Node3D
@@ -252,12 +270,19 @@ func _atlas_update_dungeon_context(position:Vector3)->void:
   if distance<nearest_distance:
    nearest_distance=distance
    next_site=int(chamber.get("site",-1))
- if next_site==atlas_dungeon_site:return
+ if next_regional>=0:next_site=-1
+ if next_site==atlas_dungeon_site and next_regional==atlas_regional_dungeon:return
+ atlas_regional_dungeon=next_regional
  atlas_dungeon_site=next_site
  if is_instance_valid(atlas_panel) and atlas_panel.visible:_refresh_atlas()
 
 func _atlas_dungeon_rooms()->Array[Vector3]:
  var rooms:Array[Vector3]=[]
+ if atlas_regional_dungeon>=0:
+  for entry in _atlas_regional_rooms():
+   var node:Node3D=entry.get("node") as Node3D
+   if is_instance_valid(node) and NAVIGATION_MAP._valid_world_point(node.global_position):rooms.append(node.global_position)
+  return rooms
  if atlas_dungeon_site<0:return rooms
  for chamber in _atlas_all_site_chambers():
   if int(chamber.get("site",-1))!=atlas_dungeon_site:continue
@@ -267,6 +292,21 @@ func _atlas_dungeon_rooms()->Array[Vector3]:
 
 func _atlas_dungeon_passages()->Array[Dictionary]:
  var links:Array[Dictionary]=[]
+ if atlas_regional_dungeon>=0:
+  var zone:int=int(atlas_regional_dungeon / V321_RULES.REGIONAL_DUNGEON_COUNT)
+  var dungeon_id:int=atlas_regional_dungeon%V321_RULES.REGIONAL_DUNGEON_COUNT
+  for passage in v321_region_room_passages:
+   if int(passage["zone"])!=zone or int(passage["dungeon"])!=dungeon_id:continue
+   var start_known:bool=false
+   var end_known:bool=false
+   for entry in _atlas_regional_rooms():
+    var node:Node3D=entry.get("node") as Node3D
+    if not is_instance_valid(node):continue
+    var discovered:bool=atlas_regional_seen.has(_atlas_regional_room_id(zone,dungeon_id,int(entry["stage"])))
+    if node.global_position.distance_squared_to(passage["start"])<1.0:start_known=discovered
+    if node.global_position.distance_squared_to(passage["end"])<1.0:end_known=discovered
+   links.append({"start":passage["start"],"end":passage["end"],"width":passage["width"],"explored":start_known and end_known})
+  return links
  if atlas_dungeon_site<0:return links
  var all_passages:Array[Dictionary]=[]
  all_passages.append_array(v321_passages)
@@ -288,6 +328,9 @@ func _atlas_dungeon_passages()->Array[Dictionary]:
 
 func _atlas_dungeon_floor_radii()->Array[float]:
  var radii:Array[float]=[]
+ if atlas_regional_dungeon>=0:
+  for entry in _atlas_regional_rooms():radii.append(6.0)
+  return radii
  if atlas_dungeon_site<0:return radii
  for chamber in _atlas_all_site_chambers():
   if int(chamber.get("site",-1))!=atlas_dungeon_site:continue
@@ -301,6 +344,7 @@ func _atlas_dungeon_floor_radii()->Array[float]:
 
 func _atlas_discovered_dungeon_pillars()->Array[Vector3]:
  var pillars:Array[Vector3]=[]
+ if atlas_regional_dungeon>=0:return pillars
  if atlas_dungeon_site<0:return pillars
  for chamber in v321_chambers:
   var site_id:int=int(chamber.get("site",-1))
