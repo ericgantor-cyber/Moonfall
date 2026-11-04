@@ -1,5 +1,6 @@
 extends SceneTree
 const NAV=preload("res://scripts/systems/navigation_map.gd")
+const AMERICAS=preload("res://scripts/systems/americas_wildlife_catalog.gd")
 var failures:int=0
 
 func check(ok:bool,description:String)->void:
@@ -56,12 +57,36 @@ func _run()->void:
  map.call("set_discovered",reloaded)
  check(map.get("discovered").size()==256,"2,048 saved discoveries render only 256 visible markers")
  check((map.get("discovered") as Array)[0]==Vector3(2744,0,2744%29) and (map.get("discovered") as Array).back()==Vector3(2999,0,2999%29),"render budget displays most recently discovered landmarks")
+ # Habitat catalog validation does not allocate extra enemy physics actors.
+ check(AMERICAS.HABITATS.size()==6,"Americas roster covers all six existing world regions")
+ check(AMERICAS.total_profiles()>=280 and AMERICAS.distinct_species_count()>=230,"Americas catalog includes hundreds of distinct real-world wildlife names")
+ var archetypes:Dictionary={"wolf":true,"stag":true,"boar":true,"fox":true,"serpent":true,"panther":true,"elk":true,"owl":true}
+ var taxa:Dictionary={"M":true,"B":true,"R":true,"A":true}
+ for zone in range(AMERICAS.HABITATS.size()):
+  var regional_profiles:Array[Dictionary]=AMERICAS.species_for_region(zone)
+  check(regional_profiles.size()>=35,"each region contains many different animal profiles")
+  var names_seen:Dictionary={}
+  for animal in regional_profiles:
+   var name:String=str(animal.get("name",""))
+   check(name.length()>=3 and archetypes.has(str(animal.get("archetype",""))) and taxa.has(str(animal.get("taxon",""))),"every listed animal uses a supported native wildlife archetype")
+   check(not names_seen.has(name),"animals are not duplicated within one regional habitat")
+   names_seen[name]=true
+ check(AMERICAS.species_for_region(-1).is_empty() and AMERICAS.species_for_region(6).is_empty(),"invalid regions cannot access wildlife tables")
+ check(AMERICAS.select_for_archetype(0,"unknown",12).is_empty(),"unavailable archetypes do not fabricate animals")
+ var picked:Dictionary=AMERICAS.select_for_archetype(5,"panther",17)
+ check(str(picked.get("archetype",""))=="panther" and str(picked.get("name","")).length()>3,"habitat choices reuse appropriate native creature families")
  # Verify atlas contracts without running expensive procedural world startup.
  # Separate gameplay smoke suites cover scene initialization and world progression.
  var scene:PackedScene=load("res://scenes/main.tscn")
  check(scene!=null and scene.can_instantiate(),"map-enabled main scene loads")
  var source:String=FileAccess.get_file_as_string("res://scripts/native_v38_2.gd")
  check("func _toggle_atlas(" in source and "func _atlas_select_waypoint(" in source,"atlas controls remain wired")
+ check('AMERICAS_WILDLIFE=preload("res://scripts/systems/americas_wildlife_catalog.gd")' in source,"native game loads the Americas catalog")
+ check("func _americas_apply_wildlife_profiles()" in source and "animal[\"americas_species\"]" in source,"existing wildlife actors receive species identity without additional AI bodies")
+ check("americas_wildlife_eligible" in source and "if bool(animal.get(\"boss\",false))" in source,"native bosses are not overwritten by new wildlife identity")
+ check('data["americas_wildlife_rolls"]' in source and 'extras.get("americas_wildlife_rolls",[])' in source,"wildlife identities persist across saved adventures")
+ check("saved_american_rolls.size()==REGIONS.size()" in source and "valid_wildlife=false" in source,"corrupt wildlife offsets cannot poison checkpoint loads")
+ check("which!=\"Bestiary\"" in source and "AMERICAS_WILDLIFE.distinct_species_count()" in source,"all curated wildlife profiles are browsable within existing Bestiary menu")
  check("func _atlas_zoom(" in source,"atlas zoom handler exists")
  check("NAVIGATION_MAP.encode_history(atlas_discovered)" in source and "NAVIGATION_MAP.decode_history(extras.get(" in source,"exploration checkpoint history is saved and restored")
  check("func atlas_set_quest_destination(" in source,"quest map targets remain supported")
