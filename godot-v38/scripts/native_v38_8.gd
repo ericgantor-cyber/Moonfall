@@ -135,9 +135,44 @@ func _reset_native_beast(beast:Dictionary)->void:
  var label:Label3D=beast.get("nameplate") as Label3D
  if is_instance_valid(label):label.text=str(beast.get("divine_title","DIVINE BOSS"))
 
+# Earned divine blessings use existing permanent boss defeat IDs. This avoids
+# adding fragile fields to schema-2 checkpoints or the old hero identity.
+const Z_VOID_DAMAGE_BONUS:float=0.10
+const NYRA_ECLIPSE_MAX_HP_BONUS:float=20.0
+
+func _divine_blessing_earned(divine_id:String)->bool:
+ for actor in beasts:
+  if str(actor.get("divine_id",""))==divine_id:
+   return defeated_boss_ids.has(int(actor.get("boss_id",-1)))
+ return false
+
+func _apply_player_hit(target:Dictionary,base_damage:float,stagger_strength:float=0.0)->void:
+ # Shared melee, spell and projectile hits pass through this damage function.
+ var boosted:float=base_damage*(1.0+Z_VOID_DAMAGE_BONUS) if _divine_blessing_earned("z") else base_damage
+ super._apply_player_hit(target,boosted,stagger_strength)
+
+func _restore_data(data:Dictionary)->void:
+ super._restore_data(data)
+ # Parent restores ordinary vigor HP first; do not allow its old cap to
+ # silently erase health saved after the permanent Nyra blessing.
+ if _divine_blessing_earned("nyra"):
+  max_hp+=NYRA_ECLIPSE_MAX_HP_BONUS
+  hp=clampf(float(data.get("hp",hp)),1.0,max_hp)
+ _update_hud()
+
 func _defeat_beast(beast:Dictionary,pet_kill:bool)->void:
  var divine:String=str(beast.get("divine_id",""))
  var first_clear:bool=not divine.is_empty() and bool(beast.get("alive",false)) and not defeated_boss_ids.has(int(beast.get("boss_id",-1)))
+ if first_clear and divine=="nyra":
+  # Apply before parent victory autosave so max health and current HP persist.
+  max_hp+=NYRA_ECLIPSE_MAX_HP_BONUS
+  hp=minf(max_hp,hp+NYRA_ECLIPSE_MAX_HP_BONUS)
  super._defeat_beast(beast,pet_kill)
  if first_clear:
-  _show_message(str(beast.get("divine_title",divine))+" DEFEATED! Divine seal claimed.",4.0)
+  var reward:String="+10% permanent attack damage" if divine=="z" else "+20 permanent maximum HP"
+  _show_message(str(beast.get("divine_title",divine))+" DEFEATED! "+reward+".",5.0)
+  _update_hud()
+  # Parent autosave is cooldown-limited; divine milestones always persist.
+  suppress_autosave_message=true
+  _save_game()
+  suppress_autosave_message=false
