@@ -208,3 +208,64 @@ func _defeat_beast(beast:Dictionary,pet_kill:bool)->void:
   suppress_autosave_message=true
   _save_game()
   suppress_autosave_message=false
+
+# Signature divine attacks are additional to existing boss patterns. Each
+# warning is one reusable mesh; the existing dodge and armor pipeline applies.
+func _update_beast_step(beast:Dictionary,delta:float)->void:
+ super._update_beast_step(beast,delta)
+ if not bool(beast.get("alive",false)) or not beast.has("divine_id"):return
+ if not is_instance_valid(player) or not hero_playing or menu_open or death_active:return
+ var body:CharacterBody3D=beast.get("body") as CharacterBody3D
+ var warning:MeshInstance3D=beast.get("divine_disk") as MeshInstance3D
+ if not is_instance_valid(body) or not is_instance_valid(warning):return
+ var remaining:float=float(beast.get("divine_warn_until",0.0))
+ if remaining>0.0:
+  if map_time<remaining:
+   warning.visible=true
+   warning.transparency=0.30+0.18*absf(sin(map_time*8.0))
+   return
+  warning.hide()
+  beast["divine_warn_until"]=0.0
+  var strike:Vector3=beast.get("divine_warning_pos",body.global_position)
+  var radius:float=3.0 if str(beast["divine_id"])=="z" else 4.1
+  var dist_sq:float=Vector2(player.global_position.x-strike.x,player.global_position.z-strike.z).length_squared()
+  if dist_sq<radius*radius and dodge_time<=0.0 and _has_clear_sight(body,player):
+   _apply_incoming_damage(15.0+float(int(beast.get("boss_phase",1)))*8.0)
+   _show_message("Divine strike! Leave the glowing mark or dodge.",1.5)
+  return
+ if body.global_position.distance_squared_to(player.global_position)>12.0*12.0:return
+ if map_time<float(beast.get("divine_next_at",0.0)):return
+ var phase:int=clampi(int(beast.get("boss_phase",1)),1,3)
+ var divine:String=str(beast["divine_id"])
+ var strike_pos:Vector3=player.global_position if divine=="z" else body.global_position
+ var radius:float=3.0 if divine=="z" else 4.1
+ beast["divine_warning_pos"]=strike_pos
+ beast["divine_warn_until"]=map_time+maxf(0.9,1.7-0.25*float(phase-1))
+ beast["divine_next_at"]=map_time+maxf(4.8,8.0-1.0*float(phase-1))
+ var cylinder:CylinderMesh=warning.mesh as CylinderMesh
+ if is_instance_valid(cylinder):
+  cylinder.bottom_radius=radius
+  cylinder.top_radius=radius
+ warning.global_position=Vector3(strike_pos.x,0.07,strike_pos.z)
+ warning.visible=true
+ _show_message("VOID JUDGMENT: MOVE!" if divine=="z" else "ECLIPSE PULSE: GET CLEAR!",1.9)
+
+func _refresh_boss_phase(beast:Dictionary)->void:
+ var previous:int=int(beast.get("boss_phase",1))
+ super._refresh_boss_phase(beast)
+ if not beast.has("divine_id") or not bool(beast.get("alive",false)):return
+ var phase:int=int(beast.get("boss_phase",1))
+ var label:Label3D=beast.get("nameplate") as Label3D
+ if is_instance_valid(label):
+  label.text=str(beast.get("divine_title","DIVINE BOSS"))+" • PHASE "+str(phase)
+ if phase>previous:
+  beast["divine_next_at"]=map_time+2.0
+  _show_message(str(beast.get("divine_title","DIVINE BOSS"))+" AWAKENS • PHASE "+str(phase),2.5)
+
+func _update_hud()->void:
+ super._update_hud()
+ if not is_instance_valid(world_hud):return
+ var buffs:String=""
+ if _divine_blessing_earned("z"):buffs+="  | Z: +15% DMG / +3 KILL HP"
+ if _divine_blessing_earned("nyra"):buffs+="  | NYRA: +30 HP / 8% GUARD"
+ if not buffs.is_empty():world_hud.text+=buffs
