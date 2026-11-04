@@ -229,7 +229,18 @@ func _atlas_dungeon_passages()->Array[Dictionary]:
  if atlas_dungeon_site<0:return links
  for passage in v321_passages:
   if int(passage.get("site",-1))!=atlas_dungeon_site:continue
-  links.append({"start":passage["start"],"end":passage["end"],"width":passage["width"]})
+  # Illuminate corridors only after both connected chambers were explored.
+  var start_known:bool=false
+  var end_known:bool=false
+  for chamber in v321_chambers:
+   if int(chamber.get("site",-1))!=atlas_dungeon_site:continue
+   var stage:int=int(chamber.get("stage",0))
+   if stage<1 or stage>3 or not atlas_chambers_seen.has(atlas_dungeon_site*3+stage-1):continue
+   var room:Node3D=chamber.get("node") as Node3D
+   if not is_instance_valid(room):continue
+   if room.global_position.distance_squared_to(passage["start"])<1.0:start_known=true
+   if room.global_position.distance_squared_to(passage["end"])<1.0:end_known=true
+  links.append({"start":passage["start"],"end":passage["end"],"width":passage["width"],"explored":start_known and end_known})
  return links
 
 func _atlas_dungeon_floor_radii()->Array[float]:
