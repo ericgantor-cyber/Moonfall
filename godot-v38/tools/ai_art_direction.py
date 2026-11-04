@@ -47,8 +47,29 @@ TAXON_INSTRUCTIONS = {
 }
 
 
+GAME_ROLE_BRIEFS = {
+    "regions": "A majestic, readable location mural for a shrine marker in the open-world region, with layered landscape and distinct landmarks. No characters.",
+    "chambers": "A compact relief mural for a dungeon chamber. Gothic stone architecture, a unique recognizable stage motif, no doors or barriers that imply actual collision.",
+    "glyphs": "A sharp, legible fantasy UI glyph with a genuinely transparent backdrop, bold shape and limited palette. It must remain readable at 32 pixels.",
+    "spells": "A clear magic or action icon on transparent alpha for a small in-game skill HUD. Use a distinctive one-colour key symbol with painterly energy.",
+    "gear": "One isolated RPG loot or equipment icon, no characters or scene, clear in a small inventory tile. Show a single recognizable object.",
+    "scenery": "One isolated environmental prop ornament for Godot 3D placement, no ground plane or opaque sky, clean 2.5D perspective and readable mass.",
+}
+
+
 def art_direction(item: dict) -> str:
     """Return a specific, stable brief without an image service or external files."""
+    if item["category"] in GAME_ROLE_BRIEFS:
+        role = item["category"]
+        title = item["subject"]
+        specifics = GAME_ROLE_BRIEFS[role]
+        special = (
+            " Preserving the existing HUD layout is mandatory: red HP, blue mana, purple XP "
+            "arcing around a circular globe; use ornament only, never replace dynamic meters."
+            if role == "glyphs" and item.get("slot_key") == "orb_hud"
+            else ""
+        )
+        return f"Moonfall {role} artwork: {title}. {specifics}{special} "
     if item["category"] == "guardians":
         family, _, rank = item["subject"].rpartition(" ")
         palette, details = FAMILY_DIRECTIONS.get(family, ("muted purple and silver", "lunar sigils"))
@@ -71,6 +92,18 @@ def art_direction(item: dict) -> str:
 
 
 def make_prompt(item: dict) -> str:
+    if item["category"] in GAME_ROLE_BRIEFS:
+        return (
+            "Create exactly one original game-ready transparent RGBA PNG for the Moonfall 2.5D "
+            "isometric action RPG. Keep the whole art element within the canvas and leave a "
+            "minimum 8 percent clear alpha margin on every side. " + art_direction(item)
+            + " Consistent art bible: dark fantasy, subtly eerie yet beautiful, painterly "
+            "shading, luminous accents, tactile surfaces, precise silhouette and readable "
+            "iconography; high contrast at 64 pixels. Transparent means real alpha, not a "
+            "checkerboard or fake alpha. No words, captions, menu text, lettering, logos, "
+            "watermarks or UI backgrounds. No copyrighted references. "
+            "Do not modify, depict, or restyle Moonfall's existing hero artwork of Z or Nyra."
+        )
     return (
         "Produce ONE original full-body PNG concept sprite with a transparent background for Moonfall, "
         "a dark-fantasy 2.5D isometric action RPG. "
