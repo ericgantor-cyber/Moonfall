@@ -9,6 +9,8 @@ import zlib
 from unittest.mock import patch
 
 FILE = Path(__file__).resolve().parents[1] / "tools" / "ai_art_studio.py"
+import sys
+sys.path.insert(0, str(FILE.parent))
 spec = importlib.util.spec_from_file_location("moonfall_ai_art_studio", FILE)
 studio = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(studio)
@@ -42,6 +44,47 @@ class TestMoonfallAIArt(unittest.TestCase):
         for value in [-1, 55]:
             with self.assertRaises(ValueError):
                 studio.guardian_profile(value)
+
+    def test_distinct_family_rank_and_habitat_art_direction(self):
+        sentinel = studio.guardian_profile(0)
+        sovereign = studio.guardian_profile(54)
+        first = studio.prompt_for(sentinel)
+        last = studio.prompt_for(sovereign)
+        self.assertNotEqual(first, last)
+        self.assertIn("crescent fangs", first)
+        self.assertIn("grand apex-boss", last)
+        jaguar = studio.animal_profile("Jaguar")
+        self.assertEqual(jaguar["taxon"], "M")
+        self.assertEqual(jaguar["habitat"], "Tropical rainforests")
+        self.assertIn("rainforest", studio.prompt_for(jaguar).lower())
+        self.assertIn("Moonfall", first)
+        self.assertIn("8 percent transparent margin", first)
+
+    def test_local_file_import_without_api_or_billing(self):
+        with tempfile.TemporaryDirectory() as folder:
+            with patch.object(studio, "STAGING", Path(folder) / "staging"), patch.object(
+                studio, "ROOT", Path(folder) / "approved"
+            ), patch.object(studio, "generate", side_effect=AssertionError("Paid API called")):
+                incoming = Path(folder) / "offline_creature.png"
+                incoming.write_bytes(PNG)
+                item = studio.guardian_profile(2)
+                staged = studio.import_local_image(item, studio.prompt_for(item), incoming)
+                self.assertTrue(staged.exists())
+                self.assertEqual(json.loads(staged.with_suffix(".json").read_text())["model"], "local-import")
+                self.assertTrue(studio.approve(item).exists())
+                with self.assertRaises(FileExistsError):
+                    studio.import_local_image(item, "new brief", incoming)
+
+    def test_reject_original_hero_as_art_source(self):
+        with tempfile.TemporaryDirectory() as folder:
+            project = Path(folder)
+            art = project / "assets" / "heroes"
+            art.mkdir(parents=True)
+            hero = art / "Z_Original.png"
+            hero.write_bytes(PNG)
+            with patch.object(studio, "PROJECT", project):
+                with self.assertRaises(ValueError):
+                    studio.import_local_image(studio.guardian_profile(0), "no", hero)
 
     def test_wildlife_catalog_and_paths(self):
         names = studio.available_animals()
