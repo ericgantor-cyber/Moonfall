@@ -10,6 +10,7 @@ var discovered:Array[Vector3]=[]
 var discovered_chambers:Array[Vector3]=[]
 var dungeon_rooms:Array[Vector3]=[]
 var dungeon_active:bool=false
+var dungeon_current_room:int=-1
 var metres_per_half_width:float=120.0
 const MAX_DISCOVERED_MARKERS:int=256
 const MAX_QUEST_MARKERS:int=128
@@ -38,6 +39,10 @@ static func dungeon_site_at(position:Vector3,anchors:Array[Vector3],previous_sit
    best_distance=distance
    closest=i
  return closest
+
+# Identify the room the hero is physically approaching, not merely the closest distant dot.
+static func dungeon_current_room_at(position:Vector3,rooms:Array[Vector3])->int:
+ return dungeon_room_index_at(position,rooms,12.0)
 
 # Save history separately from the small, viewport-friendly marker collection.
 # Read newest valid positions first so malformed entries cannot evict discoveries.
@@ -136,14 +141,21 @@ func _draw()->void:
    draw_circle(centre+offset,2.5,Color(0.22,0.65,0.58,0.65))
   previous=offset
   previous_valid=visible
- # Dungeon context displays all three authored chamber positions, including unexplored rooms.
+ # These connections show the authored chamber sequence, not walkable corridors.
  if dungeon_active:
+  for segment in range(1,dungeon_rooms.size()):
+   var start_room:Vector3=dungeon_rooms[segment-1]
+   var end_room:Vector3=dungeon_rooms[segment]
+   var start_offset:Vector2=Vector2(start_room.x-player_position.x,start_room.z-player_position.z)*scale_factor
+   var end_offset:Vector2=Vector2(end_room.x-player_position.x,end_room.z-player_position.z)*scale_factor
+   if absf(start_offset.x)<=size.x*0.45 and absf(start_offset.y)<=size.y*0.45 and absf(end_offset.x)<=size.x*0.45 and absf(end_offset.y)<=size.y*0.45:
+    draw_dashed_line(centre+start_offset,centre+end_offset,Color(0.50,0.58,0.70,0.52),1.5,5.0)
   for room_index in range(dungeon_rooms.size()):
    var room_position:Vector3=dungeon_rooms[room_index]
    var room_offset:Vector2=Vector2(room_position.x-player_position.x,room_position.z-player_position.z)*scale_factor
    if absf(room_offset.x)>size.x*0.45 or absf(room_offset.y)>size.y*0.45:continue
    var room_screen:Vector2=centre+room_offset
-   draw_arc(room_screen,11.0,0.0,TAU,20,Color(0.47,0.55,0.66,0.85),1.5)
+   draw_arc(room_screen,14.0 if room_index==dungeon_current_room else 11.0,0.0,TAU,20,Color(0.40,0.92,1.0) if room_index==dungeon_current_room else Color(0.47,0.55,0.66,0.85),2.5 if room_index==dungeon_current_room else 1.5)
    draw_string(ThemeDB.fallback_font,room_screen+Vector2(-4.0,5.0),str(room_index+1),HORIZONTAL_ALIGNMENT_LEFT,-1,14,Color(0.80,0.88,0.98))
  # Visited authored chambers are gold-ring landmarks independent of quests.
  for chamber_position in discovered_chambers:
@@ -200,8 +212,15 @@ func set_quest_markers(markers:Array[Vector3])->void:
 func set_dungeon_context(active:bool,rooms:Array[Vector3])->void:
  dungeon_active=active
  dungeon_rooms.clear()
+ dungeon_current_room=-1
  if active:dungeon_rooms=_validated_markers(rooms,MAX_CHAMBER_MARKERS)
  queue_redraw()
+
+func update_dungeon_room(position:Vector3)->void:
+ var next_room:int=dungeon_current_room_at(position,dungeon_rooms) if dungeon_active else -1
+ if next_room!=dungeon_current_room:
+  dungeon_current_room=next_room
+  queue_redraw()
 
 func set_chamber_markers(positions:Array[Vector3])->void:
  discovered_chambers=_validated_markers(positions,MAX_CHAMBER_MARKERS)
