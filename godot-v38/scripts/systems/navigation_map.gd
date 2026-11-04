@@ -11,6 +11,7 @@ var discovered_chambers:Array[Vector3]=[]
 var dungeon_rooms:Array[Vector3]=[]
 var dungeon_floor_radii:Array[float]=[]
 var dungeon_pillars:Array[Vector3]=[]
+var dungeon_trace:Array[Vector3]=[]
 var player_facing:Vector2=Vector2.UP
 var dungeon_active:bool=false
 var dungeon_current_room:int=-1
@@ -26,6 +27,17 @@ const DUNGEON_LEAVE_RADIUS:float=35.0
 const DUNGEON_DEFAULT_ZOOM:float=35.0
 const DUNGEON_MAX_FLOOR_RADIUS:float=50.0
 const MAX_DUNGEON_PILLARS:int=192
+const MAX_DUNGEON_TRAIL_POINTS:int=384
+const DUNGEON_TRAIL_SPACING:float=2.5
+const DUNGEON_TRAIL_CONNECT:float=9.0
+
+# Sample local paths densely, without crossing teleports or changing global exploration.
+static func append_dungeon_sample(points:Array[Vector3],position:Vector3)->void:
+ if not _valid_world_point(position):return
+ var flat:Vector3=Vector3(position.x,0.0,position.z)
+ if not points.is_empty() and points.back().distance_squared_to(flat)<DUNGEON_TRAIL_SPACING*DUNGEON_TRAIL_SPACING:return
+ points.append(flat)
+ if points.size()>MAX_DUNGEON_TRAIL_POINTS:points.pop_front()
 
 # Godot forward is -Z; chart north is -Z, so up is forward.
 static func chart_facing(forward:Vector3)->Vector2:
@@ -152,6 +164,19 @@ func _draw()->void:
    draw_circle(centre+offset,2.5,Color(0.22,0.65,0.58,0.65))
   previous=offset
   previous_valid=visible
+ # Local breadcrumbs reflect real sampled hero movement, not inferred corridors.
+ if dungeon_active:
+  var last_offset:Vector2=Vector2.ZERO
+  var last_visible:bool=false
+  for sample in dungeon_trace:
+   var offset:Vector2=Vector2(sample.x-player_position.x,sample.z-player_position.z)*scale_factor
+   var visible:bool=absf(offset.x)<=size.x*0.45 and absf(offset.y)<=size.y*0.45
+   if visible:
+    if last_visible and last_offset.distance_squared_to(offset)<=DUNGEON_TRAIL_CONNECT*DUNGEON_TRAIL_CONNECT*scale_factor*scale_factor:
+     draw_line(centre+last_offset,centre+offset,Color(0.24,0.84,0.75,0.74),1.8)
+    draw_circle(centre+offset,1.6,Color(0.24,0.84,0.75,0.74))
+   last_offset=offset
+   last_visible=visible
  # Draw only authored floor meshes as a local top-down plan. No invented corridors.
  if dungeon_active:
   for room_index in range(dungeon_rooms.size()):
@@ -208,6 +233,12 @@ func update_player_facing(forward:Vector3)->void:
  if next_heading!=player_facing:
   player_facing=next_heading
   queue_redraw()
+
+func set_dungeon_trace(points:Array[Vector3])->void:
+ var valid:Array[Vector3]=_validated_markers(points,MAX_DUNGEON_TRAIL_POINTS,true)
+ if dungeon_trace==valid:return
+ dungeon_trace=valid
+ queue_redraw()
 
 func set_dungeon_pillars(points:Array[Vector3])->void:
  var valid:Array[Vector3]=_validated_markers(points,MAX_DUNGEON_PILLARS)
