@@ -10,12 +10,13 @@ import sys
 from urllib.parse import quote
 
 import ai_art_studio as studio
+from ai_art_game_catalog import all_game_items, SLOTS
 
 
 def all_items() -> list[dict]:
     guardians = [studio.guardian_profile(i) for i in range(55)]
     animals = [studio.animal_profile(name) for name in sorted(studio.available_animals())]
-    return guardians + animals
+    return guardians + animals + all_game_items()
 
 
 def review_status(item: dict) -> dict:
@@ -97,7 +98,10 @@ def make_gallery(rows: list[dict], destination: Path) -> None:
 <option value="missing">Missing</option><option value="staged">Ready to review</option>
 <option value="approved">Approved</option></select></label>
 <label for="art-category">Category <select id="art-category"><option value="all">All</option>
-<option value="guardians">Guardians</option><option value="animals">Wildlife</option></select></label>
+<option value="guardians">Guardians</option><option value="animals">Wildlife</option>
+<option value="regions">Regions</option><option value="chambers">Dungeon chambers</option>
+<option value="glyphs">HUD & glyphs</option><option value="spells">Spells</option>
+<option value="gear">Gear</option><option value="scenery">Scenery</option></select></label>
 <output id="art-count" aria-live="polite"></output></section>"""
     filter_script = """<script>
 (() => {
@@ -157,7 +161,7 @@ Original Z and Nyra artwork is never used.</p></header>
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--category", choices=("all", "guardians", "animals"), default="all")
+    parser.add_argument("--category", choices=("all", "guardians", "animals", *SLOTS), default="all")
     parser.add_argument("--gallery", action="store_true", help="Create offline review HTML and JSON plan")
     parser.add_argument("--audit", action="store_true", help="Return failure if any present artwork is invalid")
     args = parser.parse_args(argv)
