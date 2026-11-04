@@ -222,6 +222,22 @@ func _atlas_dungeon_floor_radii()->Array[float]:
   radii.append(floor.top_radius if floor!=null else 0.0)
  return radii
 
+func _atlas_discovered_dungeon_pillars()->Array[Vector3]:
+ var pillars:Array[Vector3]=[]
+ if atlas_dungeon_site<0:return pillars
+ for chamber in v321_chambers:
+  var site_id:int=int(chamber.get("site",-1))
+  var stage:int=int(chamber.get("stage",0))
+  if site_id!=atlas_dungeon_site or stage<1 or stage>3:continue
+  if not atlas_chambers_seen.has(site_id*3+stage-1):continue
+  var room_node:Node3D=chamber.get("node") as Node3D
+  if not is_instance_valid(room_node):continue
+  for pillar_index in range(3):
+   var post:Node3D=room_node.get_node_or_null("RiftPillar_%d" % pillar_index) as Node3D
+   if is_instance_valid(post) and NAVIGATION_MAP._valid_world_point(post.global_position):
+    pillars.append(post.global_position)
+ return pillars
+
 func _refresh_atlas()->void:
  if not is_instance_valid(atlas_chart) or not is_instance_valid(atlas_readout):return
  var pos:Vector3=player.global_position if is_instance_valid(player) else Vector3.ZERO
@@ -231,8 +247,10 @@ func _refresh_atlas()->void:
   atlas_heading.text=("DUNGEON FLOOR PLAN: "+str(rifts[atlas_dungeon_site].get("name","Rift"))) if atlas_dungeon_site>=0 and atlas_dungeon_site<rifts.size() else "MOONFALL WORLD ATLAS | N ↑ | CLICK TO MARK"
  atlas_chart.call("set_discovered",atlas_discovered)
  atlas_chart.call("set_chamber_markers",_atlas_chamber_marker_positions())
+ atlas_chart.call("set_dungeon_pillars",_atlas_discovered_dungeon_pillars())
  atlas_chart.call("set_quest_markers",atlas_quest_positions)
  atlas_chart.call("update_navigation",pos,atlas_waypoint,atlas_has_waypoint)
+ if is_instance_valid(player):atlas_chart.call("update_player_facing",-player.global_transform.basis.z)
  atlas_chart.call("update_dungeon_room",pos)
  atlas_readout.text="X %.0f | Z %.0f | Trail: %d/%d | Chambers: %d/%d | Rifts: %d/%d | Quests: %d" % [pos.x,pos.z,atlas_discovered.size(),ATLAS_MAX_DISCOVERED,atlas_chambers_seen.size(),v321_chambers.size(),rifts_cleared.size(),rifts.size(),atlas_quest_positions.size()]
  if atlas_dungeon_site>=0:
