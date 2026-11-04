@@ -9,6 +9,8 @@ var v321_passages:Array[Dictionary]=[]
 var v321_annexes:Array[Dictionary]=[]
 var v321_annex_passages:Array[Dictionary]=[]
 var v321_region_dungeons:Array[Dictionary]=[]
+var v321_region_rooms:Array[Dictionary]=[]
+var v321_region_room_passages:Array[Dictionary]=[]
 var v321_chamber_clock:float=0.0
 var v321_wave_starts:int=0
 var v321_champion_spawns:int=0
@@ -22,6 +24,7 @@ func _build_scene()->void:
  super._build_scene()
  _v321_build_chambers()
  _v321_build_region_dungeon_entrances()
+ _v321_build_region_dungeon_interiors()
 
 func _v321_build_chambers()->void:
  var shared_floor:=CylinderMesh.new()
@@ -373,6 +376,89 @@ func _v321_build_region_dungeon_entrances()->void:
    hub.add_child(sign)
    hub.visible=false
    v321_region_dungeons.append({"node":hub,"zone":zone,"dungeon":dungeon_id})
+   v321_region_rooms.append({"node":hub,"zone":zone,"dungeon":dungeon_id,"stage":1})
+
+
+# Build 13 more chambers behind each of the five independent entrance hubs.
+# Original entrance plazas count as chamber 1. All 14 are physical and walkable.
+# There is no inter-dungeon connection and no new wave trigger or scene swap.
+func _v321_build_region_dungeon_interiors()->void:
+ var chamber_mesh:=CylinderMesh.new()
+ chamber_mesh.top_radius=6.0
+ chamber_mesh.bottom_radius=6.0
+ chamber_mesh.height=0.16
+ chamber_mesh.radial_segments=18
+ var chamber_shape:=CylinderShape3D.new()
+ chamber_shape.radius=6.0
+ chamber_shape.height=0.16
+ var link_mesh:=BoxMesh.new()
+ var link_shape:=BoxShape3D.new()
+ for zone in range(REGIONS.size()):
+  var centre:Vector2=REGIONS[zone]["at"]
+  var color:Color=Color(str(REGIONS[zone]["light"]))
+  var chamber_material:=StandardMaterial3D.new()
+  chamber_material.albedo_color=color.darkened(0.78)
+  chamber_material.roughness=0.94
+  var corridor_material:=StandardMaterial3D.new()
+  corridor_material.albedo_color=color.darkened(0.84)
+  corridor_material.roughness=0.97
+  for dungeon_id in range(V321_RULES.REGIONAL_DUNGEON_COUNT):
+   for stage in range(2,V321_RULES.REGIONAL_CHAMBERS_PER_DUNGEON+1):
+    var at:Vector3=V321_RULES.regional_chamber_position(centre,dungeon_id,stage)
+    var room:=Node3D.new()
+    room.name="RegionDungeonRoom_%d_%d_%d" % [zone,dungeon_id,stage]
+    room.position=at
+    world.add_child(room)
+    var floor:=MeshInstance3D.new()
+    floor.name="RegionDungeonRoomFloor"
+    floor.mesh=chamber_mesh
+    floor.material_override=chamber_material
+    floor.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+    room.add_child(floor)
+    var body:=StaticBody3D.new()
+    body.name="RegionDungeonRoomCollision"
+    room.add_child(body)
+    var collision:=CollisionShape3D.new()
+    collision.shape=chamber_shape
+    body.add_child(collision)
+    var nameplate:=Label3D.new()
+    nameplate.name="RegionDungeonChamberLabel"
+    nameplate.text="DUNGEON %d / 5  |  %d / 14  •  %s" % [dungeon_id+1,stage,V321_RULES.regional_chamber_title(stage)]
+    nameplate.font_size=24
+    nameplate.pixel_size=0.005
+    nameplate.billboard=BaseMaterial3D.BILLBOARD_ENABLED
+    nameplate.position.y=2.35
+    nameplate.modulate=color
+    room.add_child(nameplate)
+    room.visible=false
+    v321_region_rooms.append({"node":room,"zone":zone,"dungeon":dungeon_id,"stage":stage})
+    var previous:Vector3=V321_RULES.regional_chamber_position(centre,dungeon_id,stage-1)
+    var delta:Vector3=at-previous
+    var corridor_length:float=Vector2(delta.x,delta.z).length()
+    if corridor_length<=0.0:continue
+    var bridge:=Node3D.new()
+    bridge.name="RegionDungeonInternalPassage_%d_%d_%d" % [zone,dungeon_id,stage]
+    bridge.position=(previous+at)*0.5+Vector3(0,0.02,0)
+    bridge.rotation.y=-atan2(delta.z,delta.x)
+    world.add_child(bridge)
+    var walkway:=MeshInstance3D.new()
+    walkway.name="RegionDungeonInternalFloor"
+    var tile:=link_mesh.duplicate() as BoxMesh
+    tile.size=Vector3(corridor_length+2.0,0.16,3.6)
+    walkway.mesh=tile
+    walkway.material_override=corridor_material
+    walkway.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+    bridge.add_child(walkway)
+    var bridge_body:=StaticBody3D.new()
+    bridge_body.name="RegionDungeonInternalCollision"
+    bridge.add_child(bridge_body)
+    var bridge_shape:=CollisionShape3D.new()
+    var footprint:=link_shape.duplicate() as BoxShape3D
+    footprint.size=tile.size
+    bridge_shape.shape=footprint
+    bridge_body.add_child(bridge_shape)
+    bridge.visible=false
+    v321_region_room_passages.append({"node":bridge,"zone":zone,"dungeon":dungeon_id,"start":previous,"end":at,"width":3.6})
 
 func _activate_rift_wave(site_id:int)->void:
  super._activate_rift_wave(site_id)
