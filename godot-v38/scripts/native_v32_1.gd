@@ -5,6 +5,7 @@ extends "res://scripts/native_v32_0.gd"
 const V321_RULES:=preload("res://scripts/systems/dungeon_stage2_rules.gd")
 const V321_VISUAL_INTERVAL:float=0.50
 var v321_chambers:Array[Dictionary]=[]
+var v321_passages:Array[Dictionary]=[]
 var v321_chamber_clock:float=0.0
 var v321_wave_starts:int=0
 var v321_champion_spawns:int=0
@@ -86,6 +87,75 @@ func _v321_build_chambers()->void:
    root.add_child(sign)
    root.visible=false
    v321_chambers.append({"node":root,"site":site_id,"stage":stage,"label":sign})
+ _v321_build_passages()
+
+## Physical, always-world-connected links between the authored chambers.
+## No teleport, scene swap, new wave or inaccessible separate map.
+func _v321_build_passages()->void:
+ var walkway_mesh:=BoxMesh.new()
+ var walkway_material:=StandardMaterial3D.new()
+ walkway_material.albedo_color=Color(0.23,0.24,0.31)
+ walkway_material.roughness=0.94
+ var edge_mesh:=BoxMesh.new()
+ var edge_material:=StandardMaterial3D.new()
+ edge_material.albedo_color=Color(0.35,0.33,0.41)
+ edge_material.roughness=0.91
+ for site_id in range(rifts.size()):
+  var anchor:Vector3=rifts[site_id]["anchor"]
+  for pair in [[1,2],[2,3],[3,1]]:
+   var start:Vector3=V321_RULES.room_position(anchor,int(pair[0]))
+   var finish:Vector3=V321_RULES.room_position(anchor,int(pair[1]))
+   var delta:Vector3=finish-start
+   var length:float=Vector2(delta.x,delta.z).length()
+   if length<=0.0:continue
+   var bridge:=Node3D.new()
+   bridge.name="RiftPassage_%d_%d_%d" % [site_id,int(pair[0]),int(pair[1])]
+   bridge.position=(start+finish)*0.5+Vector3(0,0.03,0)
+   bridge.rotation.y=-atan2(delta.z,delta.x)
+   world.add_child(bridge)
+   var floor:=MeshInstance3D.new()
+   floor.name="RiftPassageFloor"
+   var platform:=walkway_mesh.duplicate() as BoxMesh
+   platform.size=Vector3(length+1.0,0.16,3.6)
+   floor.mesh=platform
+   floor.material_override=walkway_material
+   bridge.add_child(floor)
+   var body:=StaticBody3D.new()
+   body.name="RiftPassageCollision"
+   bridge.add_child(body)
+   var collision:=CollisionShape3D.new()
+   var footprint:=BoxShape3D.new()
+   footprint.size=platform.size
+   collision.shape=footprint
+   body.add_child(collision)
+   for side in [-1.0,1.0]:
+    var curb:=MeshInstance3D.new()
+    curb.name="RiftPassageEdge"
+    var edge:=edge_mesh.duplicate() as BoxMesh
+    edge.size=Vector3(length+1.0,0.35,0.28)
+    curb.mesh=edge
+    curb.material_override=edge_material
+    curb.position=Vector3(0,0.19,side*1.85)
+    bridge.add_child(curb)
+   # A simple stone arch provides a readable threshold without blocking the walkway.
+   for side in [-1.0,1.0]:
+    var arch_post:=MeshInstance3D.new()
+    arch_post.name="RiftPassageArchPost"
+    var pillar_shape:=BoxMesh.new()
+    pillar_shape.size=Vector3(0.55,3.3,0.55)
+    arch_post.mesh=pillar_shape
+    arch_post.material_override=edge_material
+    arch_post.position=Vector3(0,1.55,side*2.1)
+    bridge.add_child(arch_post)
+   var lintel:=MeshInstance3D.new()
+   lintel.name="RiftPassageArch"
+   var lintel_shape:=BoxMesh.new()
+   lintel_shape.size=Vector3(0.65,0.55,4.8)
+   lintel.mesh=lintel_shape
+   lintel.material_override=edge_material
+   lintel.position=Vector3(0,3.3,0)
+   bridge.add_child(lintel)
+   v321_passages.append({"node":bridge,"site":site_id,"start":start,"end":finish,"width":3.6})
 
 func _activate_rift_wave(site_id:int)->void:
  super._activate_rift_wave(site_id)

@@ -10,6 +10,7 @@ var discovered:Array[Vector3]=[]
 var discovered_chambers:Array[Vector3]=[]
 var dungeon_rooms:Array[Vector3]=[]
 var dungeon_floor_radii:Array[float]=[]
+var dungeon_passages:Array[Dictionary]=[]
 var dungeon_pillars:Array[Vector3]=[]
 var dungeon_trace:Array[Vector3]=[]
 var player_facing:Vector2=Vector2.UP
@@ -26,6 +27,7 @@ const DUNGEON_ENTER_RADIUS:float=24.0
 const DUNGEON_LEAVE_RADIUS:float=35.0
 const DUNGEON_DEFAULT_ZOOM:float=35.0
 const DUNGEON_MAX_FLOOR_RADIUS:float=50.0
+const MAX_DUNGEON_PASSAGES:int=48
 const MAX_DUNGEON_PILLARS:int=192
 const MAX_DUNGEON_TRAIL_POINTS:int=384
 const DUNGEON_TRAIL_SPACING:float=2.5
@@ -141,6 +143,15 @@ static func dungeon_room_index_at(point:Vector3,rooms:Array[Vector3],radius_metr
    nearest=i
  return nearest
 
+# Reject off-screen corridor geometry before allocating polygons or draw commands.
+# The expanded segment bounds include the actual passage width.
+static func passage_near_chart(start:Vector3,finish:Vector3,width:float,centre_position:Vector3,half_extent:Vector2)->bool:
+ if not _valid_world_point(start) or not _valid_world_point(finish) or not _valid_world_point(centre_position):return false
+ if not is_finite(width) or width<=0.0 or width>20.0:return false
+ if not is_finite(half_extent.x) or not is_finite(half_extent.y) or half_extent.x<=0.0 or half_extent.y<=0.0:return false
+ var margin:float=width*0.5
+ return maxf(start.x,finish.x)+margin>=centre_position.x-half_extent.x and minf(start.x,finish.x)-margin<=centre_position.x+half_extent.x and maxf(start.z,finish.z)+margin>=centre_position.z-half_extent.y and minf(start.z,finish.z)-margin<=centre_position.z+half_extent.y
+
 func _draw()->void:
  var rect:Rect2=Rect2(Vector2.ZERO,size)
  draw_rect(rect,Color(0.025,0.04,0.075,0.94),true)
@@ -164,6 +175,22 @@ func _draw()->void:
    draw_circle(centre+offset,2.5,Color(0.22,0.65,0.58,0.65))
   previous=offset
   previous_valid=visible
+ # These solid walkways exist as StaticBody3D platforms in the connected world.
+ if dungeon_active:
+  for passage in dungeon_passages:
+   var start:Vector3=passage["start"]
+   var finish:Vector3=passage["end"]
+   var width:float=passage["width"]
+   if not passage_near_chart(start,finish,width,player_position,Vector2(size.x,size.y)*0.5/scale_factor):continue
+   var path:Vector2=Vector2(finish.x-start.x,finish.z-start.z)
+   if path.length_squared()<0.0001:continue
+   var normal:Vector2=Vector2(-path.y,path.x).normalized()*width*0.5*scale_factor
+   var from_point:Vector2=centre+Vector2(start.x-player_position.x,start.z-player_position.z)*scale_factor
+   var to_point:Vector2=centre+Vector2(finish.x-player_position.x,finish.z-player_position.z)*scale_factor
+   var corners:=PackedVector2Array([from_point+normal,to_point+normal,to_point-normal,from_point-normal])
+   draw_colored_polygon(corners,Color(0.34,0.37,0.44,0.82))
+   draw_line(from_point+normal,to_point+normal,Color(0.72,0.76,0.83,0.88),1.5)
+   draw_line(from_point-normal,to_point-normal,Color(0.72,0.76,0.83,0.88),1.5)
  # Draw only authored floor meshes as a local top-down plan. No invented corridors.
  if dungeon_active:
   for room_index in range(dungeon_rooms.size()):
@@ -233,6 +260,23 @@ func update_player_facing(forward:Vector3)->void:
  if next_heading!=player_facing:
   player_facing=next_heading
   queue_redraw()
+
+func set_dungeon_passages(passages:Array[Dictionary])->void:
+ var accepted:Array[Dictionary]=[]
+ for passage in passages:
+  if accepted.size()>=MAX_DUNGEON_PASSAGES:break
+  var start:Variant=passage.get("start")
+  var finish:Variant=passage.get("end")
+  var width:Variant=passage.get("width")
+  if not (start is Vector3) or not (finish is Vector3) or not (width is float or width is int):continue
+  var beginning:Vector3=start
+  var ending:Vector3=finish
+  var metres:float=float(width)
+  if not _valid_world_point(beginning) or not _valid_world_point(ending) or not is_finite(metres) or metres<=0.0 or metres>20.0:continue
+  accepted.append({"start":beginning,"end":ending,"width":metres})
+ if dungeon_passages==accepted:return
+ dungeon_passages=accepted
+ queue_redraw()
 
 func set_dungeon_trace(points:Array[Vector3])->void:
  var valid:Array[Vector3]=_validated_markers(points,MAX_DUNGEON_TRAIL_POINTS,true)

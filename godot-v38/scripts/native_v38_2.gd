@@ -224,6 +224,14 @@ func _atlas_dungeon_rooms()->Array[Vector3]:
   if is_instance_valid(room_node) and NAVIGATION_MAP._valid_world_point(room_node.global_position):rooms.append(room_node.global_position)
  return rooms
 
+func _atlas_dungeon_passages()->Array[Dictionary]:
+ var links:Array[Dictionary]=[]
+ if atlas_dungeon_site<0:return links
+ for passage in v321_passages:
+  if int(passage.get("site",-1))!=atlas_dungeon_site:continue
+  links.append({"start":passage["start"],"end":passage["end"],"width":passage["width"]})
+ return links
+
 func _atlas_dungeon_floor_radii()->Array[float]:
  var radii:Array[float]=[]
  if atlas_dungeon_site<0:return radii
@@ -257,6 +265,7 @@ func _refresh_atlas()->void:
  var pos:Vector3=player.global_position if is_instance_valid(player) else Vector3.ZERO
  atlas_chart.set("metres_per_half_width",atlas_dungeon_zoom_radius if atlas_dungeon_site>=0 else atlas_zoom_radius)
  atlas_chart.call("set_dungeon_context",atlas_dungeon_site>=0,_atlas_dungeon_rooms(),_atlas_dungeon_floor_radii())
+ atlas_chart.call("set_dungeon_passages",_atlas_dungeon_passages())
  if is_instance_valid(atlas_heading):
   atlas_heading.text=("DUNGEON FLOOR PLAN: "+str(rifts[atlas_dungeon_site].get("name","Rift"))) if atlas_dungeon_site>=0 and atlas_dungeon_site<rifts.size() else "MOONFALL WORLD ATLAS | N ↑ | CLICK TO MARK"
  atlas_chart.call("set_discovered",atlas_discovered)
