@@ -17,7 +17,10 @@ static func region_encounters(zone:int, region:Dictionary) -> Array[Dictionary]:
  return result
 
 static func health_scale(tier:int,variant:String,boss:bool) -> float:
- var scale:=1.0+float(tier-1)*0.3
+ # Defensive clamp for malformed or overflowing saved encounter tier values.
+ # All live zone tiers and standard boss multipliers keep their original values.
+ var safe_tier:int=clampi(tier,1,256)
+ var scale:float=1.0+float(safe_tier-1)*0.3
  if variant!="normal":scale*=1.35
  if boss:scale*=3.2
  return scale
