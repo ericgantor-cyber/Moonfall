@@ -15,12 +15,21 @@ const MAX_WORLD_COORD:float=1000000.0
 static func _valid_world_point(point:Vector3)->bool:
  return is_finite(point.x) and is_finite(point.y) and is_finite(point.z) and absf(point.x)<=MAX_WORLD_COORD and absf(point.y)<=MAX_WORLD_COORD and absf(point.z)<=MAX_WORLD_COORD
 
-func _validated_markers(points:Array[Vector3],limit:int)->Array[Vector3]:
+func _validated_markers(points:Array[Vector3],limit:int,recent_first:bool=false)->Array[Vector3]:
  var accepted:Array[Vector3]=[]
- for point in points:
-  if not _valid_world_point(point):continue
-  if accepted.size()>=limit:break
-  accepted.append(point)
+ # The newest discoveries are closest to the current exploration area.
+ if recent_first:
+  for index in range(points.size()-1,-1,-1):
+   if not _valid_world_point(points[index]):continue
+   accepted.append(points[index])
+   if accepted.size()>=limit:break
+  accepted.reverse()
+ else:
+  # Quest order is meaningful; preserve the earliest priority objectives.
+  for point in points:
+   if not _valid_world_point(point):continue
+   accepted.append(point)
+   if accepted.size()>=limit:break
  return accepted
 
 func _draw()->void:
@@ -80,5 +89,5 @@ func set_quest_markers(markers:Array[Vector3])->void:
  queue_redraw()
 
 func set_discovered(positions:Array[Vector3])->void:
- discovered=_validated_markers(positions,MAX_DISCOVERED_MARKERS)
+ discovered=_validated_markers(positions,MAX_DISCOVERED_MARKERS,true)
  queue_redraw()
