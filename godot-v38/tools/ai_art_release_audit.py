@@ -16,6 +16,8 @@ import sys
 
 import ai_art_studio as png
 import ai_art_3d as glb
+import ai_art_rig as rig
+import ai_art_autorig as autorig
 import ai_art_review as review
 
 
@@ -55,9 +57,16 @@ def verify_asset(item: dict, fmt: str, destination: Path) -> dict:
         result["height"] = height
         # Estimate raw, uncompressed RGBA8 with all mip levels (4/3 pixels).
         result["estimated_rgba_mipmap_bytes"] = int(width * height * 4 * 4 / 3)
-    elif fmt == "glb":
+    elif fmt in ("glb","rigged"):
         info = glb.glb_info(payload)
         result["mesh"] = info
+        rig_data = rig.rig_report(payload, require_rig=fmt=="rigged")
+        result["rig"] = rig_data
+        if item["category"] in ("guardians", "animals"):
+            if not rig_data["rigged"]:
+                result["warnings"].append("Static creature mesh: no bound skeleton; animation uses native fallback.")
+            else:
+                result["warnings"].extend(rig_data["warnings"])
         for dims in info.get("texture_dimensions", []):
             if not dims or len(dims) != 2:
                 continue
@@ -94,6 +103,10 @@ def audit() -> dict:
             model = glb.paths(item)[1]
             if model.exists() or model.is_symlink():
                 present.append(("glb", model))
+        if item["category"] in ("guardians","animals"):
+            rigged = autorig.paths(item)[1]
+            if rigged.exists() or rigged.is_symlink():
+                present.append(("rigged", rigged))
         if present:
             selected_assets.add(item["asset_id"])
         for fmt, target in present:
@@ -144,6 +157,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--json", action="store_true", help="Print complete machine-readable report")
     parser.add_argument("--strict", action="store_true", help="Fail if any present approved file is corrupt or unreviewed")
+    parser.add_argument("--require-animated-creatures", action="store_true", help="Opt-in gate: fail if approved creature GLBs lack a usable skinned animation rig")
     parser.add_argument("--report", type=Path, help="Optional path for a JSON report (never edits actual art)")
     args = parser.parse_args(argv)
     report = audit()
@@ -166,6 +180,21 @@ def main(argv: list[str] | None = None) -> int:
         for error in report["errors"]:
             print(f"INVALID: {error['asset_id']}.{error['format']}: {error['error']}",
                   file=sys.stderr)
+    if args.require_animated_creatures:
+        # A valid separately approved rig satisfies the corresponding static
+        # creature's readiness without forcing deletion of the original art.
+        rigged_ids = {asset["asset_id"] for asset in report["assets"]
+                      if asset["format"] == "rigged"}
+        for asset in report["assets"]:
+            if asset["category"] not in ("animals","guardians") or asset["format"] == "png":
+                continue
+            if asset["format"] == "glb" and asset["asset_id"] in rigged_ids:
+                continue
+            animated = asset.get("rig", {})
+            if (not animated.get("rigged") or not animated.get("mapped_clips")
+                    or animated.get("missing_preferred")):
+                print("MISSING RIG:", asset["asset_id"], file=sys.stderr)
+                return 1
     return 1 if args.strict and report["errors"] else 0
 
 

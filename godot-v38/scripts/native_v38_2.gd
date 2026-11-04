@@ -6,6 +6,7 @@ const APPROVED_AI_ART=preload("res://scripts/systems/ai_art_overrides.gd")
 const AI_WHOLE_GAME_ART=preload("res://scripts/systems/ai_art_whole_game.gd")
 const AI_APPROVED_3D=preload("res://scripts/systems/ai_art_3d_runtime.gd")
 const AI_ART_AUTO_QUALITY=preload("res://scripts/systems/ai_art_auto_quality.gd")
+const AI_ART_ANIMATION=preload("res://scripts/systems/ai_art_animation_runtime.gd")
 const AMERICAS_VISUALS=preload("res://scripts/systems/americas_wildlife_visuals.gd")
 var atlas_panel:PanelContainer
 var atlas_chart:Control
@@ -50,6 +51,8 @@ var ai_art_slow_seconds:float=0.0
 var ai_art_fast_seconds:float=0.0
 var ai_art_next_model_load_ms:int=0
 var ai_art_model_load_attempts:int=0
+var ai_art_anim_clock:float=0.0
+var ai_art_anim_tick_count:int=0
 var american_wildlife_visual_ticks:int=0
 var american_wildlife_visual_clock:float=0.0
 var atlas_heading:Label
@@ -123,6 +126,7 @@ func _americas_apply_wildlife_profiles()->void:
   # Original wildlife still uses its native skeleton, AI, combat and loot.
 
 func _ai_art_release_animal_model(actor:Dictionary)->void:
+ actor.erase("ai_art_animation_binding")
  var current:Node3D=actor.get("americas_3d_node") as Node3D
  if is_instance_valid(current):current.queue_free()
  actor.erase("americas_3d_node")
@@ -132,6 +136,28 @@ func _ai_art_release_animal_model(actor:Dictionary)->void:
 
 # Art detail changes only after sustained poor or good frame times.
 # 3s poor degrades by one tier; 16s stable recovers by one tier.
+# Imported GLB animations are visual. Native AI decides all actions and hits.
+# Only the bounded active creature GLBs and any loaded dungeon guardians tick.
+func _ai_art_update_animations(delta:float)->void:
+ ai_art_anim_clock+=clampf(delta,0.0,0.2)
+ if ai_art_anim_clock<0.08:return
+ ai_art_anim_clock=fmod(ai_art_anim_clock,0.08)
+ if not hero_playing or death_active or menu_open or not is_instance_valid(player):return
+ for animal in ai_art_live_animal_models:
+  var animated:Dictionary=animal.get("ai_art_animation_binding",{})
+  if animated.is_empty():continue
+  AI_ART_ANIMATION.apply_state(animated,AI_ART_ANIMATION.state_for_actor(animal,map_time))
+  ai_art_anim_tick_count+=1
+ for guardian in atlas_regional_guardian_actors.values():
+  if not bool(guardian.get("alive",false)):continue
+  var animated:Dictionary=guardian.get("ai_art_animation_binding",{})
+  if animated.is_empty():continue
+  var guard_body:CharacterBody3D=guardian.get("body") as CharacterBody3D
+  if not is_instance_valid(guard_body) or not guard_body.visible:continue
+  if guard_body.global_position.distance_squared_to(player.global_position)>45.0*45.0:continue
+  AI_ART_ANIMATION.apply_state(animated,AI_ART_ANIMATION.state_for_actor(guardian,map_time))
+  ai_art_anim_tick_count+=1
+
 func _ai_art_track_frame_performance(delta:float)->void:
  if not hero_playing or death_active or not is_finite(delta) or delta<=0.0:return
  var sample:float=clampf(delta*1000.0,0.0,160.0)
@@ -194,7 +220,9 @@ func _ai_art_refresh_nearby_models()->void:
    loaded_this_tick=true
    var identifier:String=str(actor["americas_3d_asset_id"])
    current=AI_APPROVED_3D.add_approved_model(body,"animals",identifier,Vector3.ZERO,2.0,true)
-   if is_instance_valid(current):actor["americas_3d_node"]=current
+   if is_instance_valid(current):
+    actor["americas_3d_node"]=current
+    actor["ai_art_animation_binding"]=AI_ART_ANIMATION.bind_imported(current)
  for actor in ai_art_live_animal_models:
   var body:CharacterBody3D=actor.get("body") as CharacterBody3D
   if not is_instance_valid(body) or not selected.has(body.get_instance_id()):
@@ -708,7 +736,9 @@ func _atlas_update_dungeon_guardians(position:Vector3)->void:
    if approved_profile>=0 and is_instance_valid(guardian_art_body):
     var profile_id:String="guardian_%02d"%approved_profile
     var guardian_model:Node3D=AI_APPROVED_3D.add_approved_model(guardian_art_body,"guardians",profile_id,Vector3.ZERO,3.6,true)
-    if not is_instance_valid(guardian_model):
+    if is_instance_valid(guardian_model):
+     guardian["ai_art_animation_binding"]=AI_ART_ANIMATION.bind_imported(guardian_model)
+    else:
      APPROVED_AI_ART.attach_approved(guardian_art_body,APPROVED_AI_ART.guardian_path(approved_profile))
    atlas_regional_guardian_actors[guardian_id]=guardian
    _show_message("A dungeon guardian defends the Eclipse Threshold!",3.0)
@@ -994,6 +1024,7 @@ func _unhandled_key_input(event:InputEvent)->void:
 func _process(delta:float)->void:
  super._process(delta)
  _ai_art_track_frame_performance(delta)
+ _ai_art_update_animations(delta)
  _americas_update_wildlife_visuals(delta)
  if not is_instance_valid(atlas_panel):return
  if is_instance_valid(atlas_open_button):atlas_open_button.visible=hero_playing and not death_active and not menu_open

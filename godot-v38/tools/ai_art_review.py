@@ -11,6 +11,8 @@ from urllib.parse import quote
 
 import ai_art_studio as studio
 import ai_art_3d as model
+import ai_art_rig as rig
+import ai_art_autorig as autorig
 import hashlib
 from ai_art_game_catalog import all_game_items, SLOTS
 
@@ -53,6 +55,7 @@ def review_status(item: dict) -> dict:
     model_issue = ""
     model_checksum = ""
     model_details = {}
+    model_rig = {}
     model_file = ""
     if item["category"] in model.ALLOWED_MODEL_CATEGORIES:
         model_staged, model_approved, _ = model.paths(item)
@@ -64,6 +67,7 @@ def review_status(item: dict) -> dict:
             try:
                 payload = selected.read_bytes()
                 model_details = model.glb_info(payload)
+                model_rig = rig.rig_report(payload)
                 record = json.loads(selected.with_suffix(".json").read_text(encoding="utf-8"))
                 if not isinstance(record, dict):
                     raise ValueError("3D review manifest must be a JSON object.")
@@ -81,8 +85,37 @@ def review_status(item: dict) -> dict:
     # A model awaiting review matters more than a sibling format already
     # approved: keep mixed PNG-approved/GLB-staged cards visible in the
     # gallery's Ready to review filter.
-    display_state = ("staged" if state == "staged" or model_state == "staged"
-                     else "approved" if state == "approved" or model_state == "approved"
+    rigged_state = "not_applicable"
+    rigged_valid = False
+    rigged_checksum = ""
+    rigged_issue = ""
+    rigged_rig = {}
+    rigged_file = ""
+    if item["category"] in ("animals", "guardians"):
+        rig_staged, rig_approved, _ = autorig.paths(item)
+        rig_target = rig_approved if rig_approved.exists() else rig_staged
+        rigged_state = ("approved" if rig_approved.exists()
+                        else "staged" if rig_staged.exists() else "missing")
+        if rigged_state != "missing":
+            rigged_file = str(rig_target)
+            try:
+                blob = rig_target.read_bytes()
+                rigged_rig = rig.rig_report(blob, require_rig=True)
+                manifest = json.loads(rig_target.with_suffix(".json").read_text(encoding="utf-8"))
+                rigged_valid = (
+                    isinstance(manifest, dict)
+                    and manifest.get("asset_id") == item["asset_id"]
+                    and manifest.get("reviewed") is (rigged_state == "approved")
+                    and manifest.get("sha256") == hashlib.sha256(blob).hexdigest()
+                )
+                if rigged_valid:
+                    rigged_checksum = manifest["sha256"]
+                else:
+                    rigged_issue = "Rigged model provenance or SHA-256 mismatch"
+            except (ValueError, OSError, json.JSONDecodeError) as error:
+                rigged_issue = str(error)
+    display_state = ("staged" if state == "staged" or model_state == "staged" or rigged_state == "staged"
+                     else "approved" if state == "approved" or model_state == "approved" or rigged_state == "approved"
                      else "missing")
     return {
         "id": item["asset_id"], "subject": item["subject"],
@@ -93,7 +126,11 @@ def review_status(item: dict) -> dict:
         "model_checksum": model_checksum,
         "display_state": display_state, "model_state": model_state,
         "model_valid": model_valid, "model_issue": model_issue,
-        "model_geometry": model_details, "model_path": model_file,
+        "model_geometry": model_details, "model_rig": model_rig,
+        "model_path": model_file,
+        "rigged_state": rigged_state, "rigged_valid": rigged_valid,
+        "rigged_checksum": rigged_checksum, "rigged_issue": rigged_issue,
+        "rigged_rig": rigged_rig, "rigged_path": rigged_file,
     }
 
 
@@ -136,6 +173,8 @@ def make_gallery(rows: list[dict], destination: Path) -> None:
         if model_issue:
             issue += f'<p class="issue">3D: {escape(model_issue)}</p>'
         geometry = row.get("model_geometry", {})
+        rig_data = row.get("model_rig", {})
+        rigged_data = row.get("rigged_rig", {})
         model_summary = ""
         if row.get("model_state") != "not_applicable":
             maps = geometry.get("max_texture_size", 0)
@@ -148,6 +187,32 @@ def make_gallery(rows: list[dict], destination: Path) -> None:
                 f'<p>{faces:,} triangles · {escape(texture)} · {pbr} PBR materials</p>'
                 if geometry else f'<p>PNG: {png_state} | 3D: <strong>{glb_state}</strong></p>'
             )
+        if rig_data:
+            rigged = bool(rig_data.get("rigged", False))
+            clip_names = [clip.get("name", "") for clip in rig_data.get("clips", [])]
+            missing = rig_data.get("missing_preferred", [])
+            rig_phrase = (f'{rig_data.get("bone_count", 0)} bones, '
+                          f'{rig_data.get("skinned_meshes", 0)} skinned meshes'
+                          if rigged else "Not rigged (static art)")
+            model_summary += (
+                f'<p>Rig: <strong>{escape(rig_phrase)}</strong> · '
+                f'{int(rig_data.get("animation_count", 0))} animation clips</p>'
+            )
+            if clip_names:
+                model_summary += '<p>Animations: ' + escape(", ".join(clip_names[:24])) + '</p>'
+            if rigged and missing:
+                model_summary += '<p>Missing preferred: ' + escape(", ".join(missing)) + '</p>'
+        if rigged_data:
+            names = [str(entry.get("name", "")) for entry in rigged_data.get("clips", [])]
+            model_summary += (f'<p>Animated rig: <strong>{int(rigged_data.get("bone_count", 0))} bones</strong>'
+                              f' · {len(names)} clips · {escape(str(row.get("rigged_state", "")))}</p>')
+            if names:
+                model_summary += '<p>Rig clips: ' + escape(", ".join(names[:24])) + '</p>'
+            missing_rig = rigged_data.get("missing_preferred", [])
+            if missing_rig:
+                model_summary += '<p>Missing animation actions: ' + escape(", ".join(missing_rig)) + '</p>'
+        if row.get("rigged_issue"):
+            model_summary += '<p class="issue">Rigging: ' + escape(str(row["rigged_issue"])) + '</p>'
         choices = ""
         if row["state"] == "staged" and row["valid"] and row.get("image_checksum"):
             choices += (
@@ -161,6 +226,15 @@ def make_gallery(rows: list[dict], destination: Path) -> None:
                 f'data-id="{aid}" data-format="glb" data-sha256="{escape(row["model_checksum"])}">'
                 f'Approve reviewed 3D model</label>'
             )
+        if row.get("rigged_state") == "staged" and row.get("rigged_valid") and row.get("rigged_checksum"):
+            choices += (
+                f'<label class="review-choice"><input class="approval-select" type="checkbox" '
+                f'data-id="{aid}" data-format="rigged" data-sha256="{escape(row["rigged_checksum"])}">'
+                f'Approve reviewed animated rig</label>'
+            )
+        if row.get("rigged_path") and row.get("rigged_valid"):
+            url = escape(local_image_src(row["rigged_path"], destination.parent), quote=True)
+            choices += f'<a href="{url}">Inspect animated rig GLB in external viewer</a>'
         if row.get("model_path") and row.get("model_valid"):
             url = escape(local_image_src(row["model_path"], destination.parent), quote=True)
             choices += f'<a href="{url}">Open 3D GLB in an external model viewer</a>'
@@ -291,7 +365,8 @@ def main(argv: list[str] | None = None) -> int:
     rows = plan_rows(args.category)
     counts = Counter(row.get("display_state", row["state"]) for row in rows)
     invalid = [row for row in rows if (row["state"] != "missing" and not row["valid"])
-               or (row.get("model_state") not in ("missing", "not_applicable") and not row.get("model_valid"))]
+               or (row.get("model_state") not in ("missing", "not_applicable") and not row.get("model_valid"))
+               or (row.get("rigged_state") not in ("missing", "not_applicable") and not row.get("rigged_valid"))]
     print(f"Moonfall art plan: {len(rows)} entries, {counts['approved']} approved, "
           f"{counts['staged']} staged, {counts['missing']} missing, {len(invalid)} invalid")
     if args.gallery:

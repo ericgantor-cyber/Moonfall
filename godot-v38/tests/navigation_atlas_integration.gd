@@ -5,6 +5,7 @@ const WILDLIFE_VISUALS=preload("res://scripts/systems/americas_wildlife_visuals.
 const APPROVED_ART=preload("res://scripts/systems/ai_art_overrides.gd")
 const WHOLE_GAME_ART=preload("res://scripts/systems/ai_art_whole_game.gd")
 const AUTO_ART_QUALITY=preload("res://scripts/systems/ai_art_auto_quality.gd")
+const AI_RIG_ANIMATION=preload("res://scripts/systems/ai_art_animation_runtime.gd")
 var failures:int=0
 
 func check(ok:bool,description:String)->void:
@@ -64,6 +65,29 @@ func _run()->void:
  # Habitat catalog validation does not allocate extra enemy physics actors.
  check(AMERICAS.HABITATS.size()==6,"Americas roster covers all six existing world regions")
  check(AUTO_ART_QUALITY.animal_limit(0)==0 and AUTO_ART_QUALITY.animal_limit(1)==1 and AUTO_ART_QUALITY.animal_limit(2)==3,"AI art auto tiers budget zero, one or three near wildlife GLBs")
+ check(AI_RIG_ANIMATION.canonical_clip("Armature|Walking_001")=="move","GLB AnimationPlayer walking aliases map to native movement")
+ check(AI_RIG_ANIMATION.canonical_clip("Dragon/Attack_002")=="attack","imported skeletal attack aliases map to native combat visuals")
+ check(AI_RIG_ANIMATION.canonical_clip("Take001").is_empty(),"unknown imported clips are ignored instead of driving gameplay")
+ var fake_rig:=Node3D.new()
+ root.add_child(fake_rig)
+ var player_anim:=AnimationPlayer.new()
+ fake_rig.add_child(player_anim)
+ check(AI_RIG_ANIMATION.bind_imported(fake_rig).is_empty(),"unrigged imported scenes fall back safely")
+ fake_rig.add_child(Skeleton3D.new())
+ var animations:=AnimationLibrary.new()
+ var idle_clip:=Animation.new()
+ idle_clip.length=1.0
+ animations.add_animation("Idle",idle_clip)
+ player_anim.add_animation_library("",animations)
+ var rig_binding:Dictionary=AI_RIG_ANIMATION.bind_imported(fake_rig)
+ check(rig_binding.has("clips") and (rig_binding.get("clips",{}) as Dictionary).has("idle"),"real imported Skeleton3D plus AnimationPlayer is recognized")
+ var fake_actor:Dictionary={"alive":true,"body":fake_rig,"attack_swing_until":3.0,"hit_react_until":0.0,"windup":0.0}
+ check(AI_RIG_ANIMATION.state_for_actor(fake_actor,2.9)=="attack","original enemy attack feedback controls visual attack clip selection")
+ fake_actor["hit_react_until"]=3.0
+ check(AI_RIG_ANIMATION.state_for_actor(fake_actor,2.9)=="hurt","native hit reaction overrides animation attack pose")
+ fake_actor["alive"]=false
+ check(AI_RIG_ANIMATION.state_for_actor(fake_actor,2.9)=="death","defeated native enemies request the imported death clip")
+ fake_rig.queue_free()
  check(AUTO_ART_QUALITY.chamber_limit(0)==0 and AUTO_ART_QUALITY.chamber_limit(1)==0 and AUTO_ART_QUALITY.chamber_limit(2)==1,"only High tier enables the optional dungeon monument GLB")
  check(AUTO_ART_QUALITY.next_tier(2,3.1,0.0)==1 and AUTO_ART_QUALITY.next_tier(1,3.1,0.0)==0,"sustained slow frames downgrade high-detail art progressively")
  check(AUTO_ART_QUALITY.next_tier(0,0.0,16.1)==1 and AUTO_ART_QUALITY.next_tier(1,0.0,16.1)==2,"sustained stable frames restore high-detail art gradually")
@@ -140,6 +164,8 @@ func _run()->void:
  check("func _ai_art_track_frame_performance(delta:float)" in source and "_ai_art_track_frame_performance(delta)" in source,"native world automatically adjusts imported 3D art budgets from rolling frame time")
  check("AI_ART_AUTO_QUALITY.animal_limit(ai_art_quality_tier)" in source and "AI_ART_AUTO_QUALITY.chamber_limit(ai_art_quality_tier)" in source,"both wildlife and dungeon 3D detail obey the auto-quality governor")
  check("MIN_LOAD_INTERVAL_MS" in source and "loaded_this_tick" in source and "ai_art_next_model_load_ms" in source,"one-time-sliced 3D asset loading avoids sudden GPU spikes")
+ check("AI_ART_ANIMATION.bind_imported(current)" in source and "AI_ART_ANIMATION.apply_state" in source,"nearby animals use imported rig animations without changing native movement or damage")
+ check('guardian["ai_art_animation_binding"]' in source,"approved guardian GLB rigs can play the same native combat states")
  check("ANIMAL_EXIT_RADIUS_SQ" in source and "ROOM_EXIT_RADIUS_SQ" in source,"art LOD retains nearby active actors beyond initial spawn radius")
  check("body.global_position.distance_squared_to(player.global_position)" in source and "not body.visible" in source,"visual embellishments are culled with existing native animal visibility")
  check("american_wildlife_visual_ticks+=updates" in source,"wildlife animation performance samples can be inspected")
