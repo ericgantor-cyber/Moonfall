@@ -137,6 +137,24 @@ func _v321_build_passages()->void:
     curb.material_override=edge_material
     curb.position=Vector3(0,0.19,side*1.85)
     bridge.add_child(curb)
+   # A simple stone arch provides a readable threshold without blocking the walkway.
+   for side in [-1.0,1.0]:
+    var arch_post:=MeshInstance3D.new()
+    arch_post.name="RiftPassageArchPost"
+    var pillar_shape:=BoxMesh.new()
+    pillar_shape.size=Vector3(0.55,3.3,0.55)
+    arch_post.mesh=pillar_shape
+    arch_post.material_override=edge_material
+    arch_post.position=Vector3(0,1.55,side*2.1)
+    bridge.add_child(arch_post)
+   var lintel:=MeshInstance3D.new()
+   lintel.name="RiftPassageArch"
+   var lintel_shape:=BoxMesh.new()
+   lintel_shape.size=Vector3(0.65,0.55,4.8)
+   lintel.mesh=lintel_shape
+   lintel.material_override=edge_material
+   lintel.position=Vector3(0,3.3,0)
+   bridge.add_child(lintel)
    v321_passages.append({"node":bridge,"site":site_id,"start":start,"end":finish,"width":3.6})
 
 func _activate_rift_wave(site_id:int)->void:
