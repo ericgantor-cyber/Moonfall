@@ -26,6 +26,18 @@ class DivineBossIntegrationTests(unittest.TestCase):
         self.assertIn('defeated_boss_ids.append(boss_id)', BASE)
         self.assertIn('data.get("bosses",[])', BASE)
 
+    def test_permanent_divine_blessings_use_boss_victory_ids(self):
+        self.assertIn('const Z_VOID_DAMAGE_BONUS:float=0.10', LIVE)
+        self.assertIn('const NYRA_ECLIPSE_MAX_HP_BONUS:float=20.0', LIVE)
+        self.assertIn('func _divine_blessing_earned(divine_id:String)->bool:', LIVE)
+        self.assertIn('return defeated_boss_ids.has(int(actor.get("boss_id",-1)))', LIVE)
+        self.assertIn('if _divine_blessing_earned("z") else base_damage', LIVE)
+        self.assertIn('if _divine_blessing_earned("nyra"):', LIVE)
+        self.assertIn('hp=clampf(float(data.get("hp",hp)),1.0,max_hp)', LIVE)
+        self.assertIn('if first_clear and divine=="nyra":', LIVE)
+        self.assertIn('suppress_autosave_message=true\\n  _save_game()', LIVE)
+        self.assertIn('super._defeat_beast(beast,pet_kill)', LIVE)
+
     def test_existing_save_ids_are_stable_and_no_new_waves(self):
         self.assertIn('var prior:int=beasts.size()', LIVE)
         self.assertIn('if beasts.size()!=prior+1:return', LIVE)
