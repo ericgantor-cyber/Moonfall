@@ -2,6 +2,7 @@ extends "res://scripts/native_v38_1.gd"
 ## Coordinate-accurate atlas overlay; existing connected world geometry unchanged.
 const NAVIGATION_MAP=preload("res://scripts/systems/navigation_map.gd")
 const AMERICAS_WILDLIFE=preload("res://scripts/systems/americas_wildlife_catalog.gd")
+const APPROVED_AI_ART=preload("res://scripts/systems/ai_art_overrides.gd")
 const AMERICAS_VISUALS=preload("res://scripts/systems/americas_wildlife_visuals.gd")
 var atlas_panel:PanelContainer
 var atlas_chart:Control
@@ -90,6 +91,8 @@ func _americas_apply_wildlife_profiles()->void:
    if picked.is_empty():continue
    animal["americas_species"]=str(picked["name"])
    animal["americas_taxon"]=str(picked["taxon"])
+   var art_body:CharacterBody3D=animal.get("body") as CharacterBody3D
+   if is_instance_valid(art_body):APPROVED_AI_ART.attach_approved(art_body,APPROVED_AI_ART.animal_path(str(picked["name"])))
    var native_body:CharacterBody3D=animal.get("body") as CharacterBody3D
    if is_instance_valid(native_body):
     animal["americas_visual_root"]=AMERICAS_VISUALS.attach(native_body,str(picked["taxon"]),str(picked["name"]))
