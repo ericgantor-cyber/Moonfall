@@ -16,8 +16,7 @@ static func decode(path: String) -> Dictionary:
  if typeof(parsed)!=TYPE_DICTIONARY:return {}
  var data:Dictionary=parsed
  if int(data.get("schema",-1))!=2:return {}
- # Custom heroes are selectable and must remain valid across checkpoints.
- if not (str(data.get("hero","")) in ["z","nyra","custom"]):return {}
+ if not (str(data.get("hero","")) in ["z","nyra"]):return {}
  var coords:Variant=data.get("at",[])
  if not (coords is Array) or coords.size()!=2:return {}
  if not (coords[0] is float or coords[0] is int) or not (coords[1] is float or coords[1] is int):return {}
