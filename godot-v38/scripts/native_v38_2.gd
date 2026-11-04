@@ -39,8 +39,6 @@ var american_wildlife_rolls:Array[int]=[]
 var american_wildlife_eligible:int=0
 var ai_art_game_decorations:int=0
 var ai_art_game_glyphs:int=0
-const AI_ART_NEAR_ANIMAL_LIMIT:int=3
-const AI_ART_NEAR_CHAMBER_LIMIT:int=1
 const AI_ART_ANIMAL_DISTANCE_SQ:float=22.0*22.0
 const AI_ART_CHAMBER_DISTANCE_SQ:float=30.0*30.0
 var ai_art_live_animal_models:Array[Dictionary]=[]
@@ -185,9 +183,8 @@ func _ai_art_refresh_nearby_models()->void:
  if not is_instance_valid(player):return
  var here:Vector3=player.global_position
  var now_ms:int=Time.get_ticks_msec()
- var limit:int=mini(AI_ART_NEAR_ANIMAL_LIMIT,AI_ART_AUTO_QUALITY.animal_limit(ai_art_quality_tier))
  var candidates:Array[Dictionary]=[]
- if limit>0:
+ if ai_art_quality_tier>AI_ART_AUTO_QUALITY.ECONOMY:
   for animal in zone_beast_lists[region_index]:
    if not bool(animal.get("alive",false)) or not bool(animal.get("americas_wildlife_eligible",false)):continue
    var body:CharacterBody3D=animal.get("body") as CharacterBody3D
@@ -205,6 +202,7 @@ func _ai_art_refresh_nearby_models()->void:
    var rank:float=distance-(AI_ART_AUTO_QUALITY.ANIMAL_ENTER_RADIUS_SQ if active else 0.0)
    candidates.append({"actor":animal,"rank":rank})
  candidates.sort_custom(func(a:Dictionary,b:Dictionary)->bool:return float(a["rank"])<float(b["rank"]))
+ var limit:int=AI_ART_AUTO_QUALITY.animal_limit(ai_art_quality_tier,candidates.size())
  var selected:Dictionary={}
  var loaded_this_tick:bool=false
  for i in range(mini(limit,candidates.size())):
@@ -233,25 +231,31 @@ func _ai_art_refresh_nearby_models()->void:
   var body:CharacterBody3D=actor.get("body") as CharacterBody3D
   if is_instance_valid(body) and selected.has(body.get_instance_id()) and is_instance_valid(actor.get("americas_3d_node") as Node3D):
    ai_art_live_animal_models.append(actor)
- # The room model budget shares the same 900ms load throttle.
- var nearest:Dictionary={}
- var best:float=INF
- if AI_ART_AUTO_QUALITY.chamber_limit(ai_art_quality_tier)>0:
+ # Nearby 3D dungeon art is dynamically budgeted, not restricted to one.
+ # A single new mesh may load per cooldown, regardless of candidate count.
+ var rooms:Array[Dictionary]=[]
+ if ai_art_quality_tier>AI_ART_AUTO_QUALITY.ECONOMY:
   for entry in ai_art_chamber_models:
    var node:Node3D=entry.get("node") as Node3D
    if not is_instance_valid(node) or not node.visible:continue
    var existing:Node3D=entry.get("model") as Node3D
    var allowed:float=AI_ART_AUTO_QUALITY.ROOM_EXIT_RADIUS_SQ if is_instance_valid(existing) else AI_ART_CHAMBER_DISTANCE_SQ
    var distance:float=node.global_position.distance_squared_to(here)
-   if distance<allowed and distance<best:
-    nearest=entry
-    best=distance
+   if distance>=allowed:continue
+   rooms.append({"entry":entry,"rank":distance-(AI_ART_CHAMBER_DISTANCE_SQ if is_instance_valid(existing) else 0.0)})
+ rooms.sort_custom(func(a:Dictionary,b:Dictionary)->bool:return float(a["rank"])<float(b["rank"]))
+ var room_budget:int=AI_ART_AUTO_QUALITY.chamber_limit(ai_art_quality_tier,rooms.size())
+ var selected_rooms:Dictionary={}
+ for i in range(mini(room_budget,rooms.size())):
+  var chosen:Dictionary=rooms[i]["entry"]
+  var node:Node3D=chosen.get("node") as Node3D
+  if is_instance_valid(node):selected_rooms[node.get_instance_id()]=true
  for entry in ai_art_chamber_models:
   var node:Node3D=entry.get("node") as Node3D
   if not is_instance_valid(node):continue
   var existing:Node3D=entry.get("model") as Node3D
   var banner:Sprite3D=entry.get("banner") as Sprite3D
-  if entry==nearest and not nearest.is_empty():
+  if selected_rooms.has(node.get_instance_id()):
    if not is_instance_valid(existing) and not loaded_this_tick and now_ms>=ai_art_next_model_load_ms:
     ai_art_model_load_attempts+=1
     ai_art_next_model_load_ms=now_ms+AI_ART_AUTO_QUALITY.MIN_LOAD_INTERVAL_MS
