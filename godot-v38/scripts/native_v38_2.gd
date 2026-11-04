@@ -19,6 +19,9 @@ var atlas_dungeon_site:int=-1
 var atlas_regional_dungeon:int=-1
 var atlas_regional_seen:Array[int]=[]
 var atlas_regional_relics_claimed:Array[int]=[]
+var atlas_regional_guardians_cleared:Array[int]=[]
+var atlas_regional_guardian_actors:Dictionary={}
+const DUNGEON_GUARDIAN_TRIGGER_RADIUS_SQ:float=16.0*16.0
 var atlas_dungeon_zoom_radius:float=35.0
 var atlas_fast_travel_select:OptionButton
 var atlas_fast_travel_button:Button
@@ -65,6 +68,8 @@ func _start_game(selected_hero:String)->void:
  atlas_chambers_seen.clear()
  atlas_regional_seen.clear()
  atlas_regional_relics_claimed.clear()
+ atlas_regional_guardians_cleared.clear()
+ atlas_regional_guardian_actors.clear()
  atlas_fast_travel_unlocked_cache.clear()
  atlas_regional_dungeon=-1
  atlas_dungeon_paths.clear()
@@ -80,6 +85,7 @@ func _checkpoint_extra_data()->Dictionary:
  data["atlas_chambers_seen"]=atlas_chambers_seen.duplicate()
  data["atlas_regional_seen"]=atlas_regional_seen.duplicate()
  data["atlas_regional_relics_claimed"]=atlas_regional_relics_claimed.duplicate()
+ data["atlas_regional_guardians_cleared"]=atlas_regional_guardians_cleared.duplicate()
  var saved_paths:Dictionary={}
  for site_key in atlas_dungeon_paths.keys():
   var points:Array[Vector3]=atlas_dungeon_paths[site_key]
@@ -98,6 +104,8 @@ func _restore_data(data:Dictionary)->void:
  atlas_chambers_seen.clear()
  atlas_regional_seen.clear()
  atlas_regional_relics_claimed.clear()
+ atlas_regional_guardians_cleared.clear()
+ atlas_regional_guardian_actors.clear()
  atlas_fast_travel_unlocked_cache.clear()
  atlas_dungeon_paths.clear()
  atlas_quest_positions.clear()
@@ -111,6 +119,7 @@ func _restore_data(data:Dictionary)->void:
   atlas_chambers_seen=NAVIGATION_MAP.decode_chambers(extras.get("atlas_chambers_seen",[]),v321_chambers.size()+v321_annexes.size())
   atlas_regional_seen=NAVIGATION_MAP.decode_chambers(extras.get("atlas_regional_seen",[]),REGIONS.size()*V321_RULES.REGIONAL_DUNGEON_COUNT*V321_RULES.REGIONAL_CHAMBERS_PER_DUNGEON)
   atlas_regional_relics_claimed=NAVIGATION_MAP.decode_chambers(extras.get("atlas_regional_relics_claimed",[]),REGIONS.size()*V321_RULES.REGIONAL_DUNGEON_COUNT*V321_RULES.REGIONAL_CACHE_STAGES.size())
+  atlas_regional_guardians_cleared=NAVIGATION_MAP.decode_chambers(extras.get("atlas_regional_guardians_cleared",[]),REGIONS.size()*V321_RULES.REGIONAL_DUNGEON_COUNT)
   var loaded_paths:Variant=extras.get("atlas_dungeon_paths",{})
   if loaded_paths is Dictionary:
    for site_id in range(mini(rifts.size()+REGIONS.size()*V321_RULES.REGIONAL_DUNGEON_COUNT,64)):
@@ -334,6 +343,45 @@ func _interact()->void:
    _show_message("Dungeon relic discovered: "+str(reward["name"]),3.0)
    return
  super._interact()
+
+# Final-chamber guardians inhabit the existing open world, not a wave mode.
+# One native boss is created lazily per visited dungeon, instead of spawning
+# thirty extra bosses during scene setup.
+func _atlas_update_dungeon_guardians(position:Vector3)->void:
+ if not hero_playing or death_active or not NAVIGATION_MAP._valid_world_point(position):return
+ for zone in range(REGIONS.size()):
+  var centre:Vector2=REGIONS[zone]["at"]
+  for dungeon_id in range(V321_RULES.REGIONAL_DUNGEON_COUNT):
+   var guardian_id:int=zone*V321_RULES.REGIONAL_DUNGEON_COUNT+dungeon_id
+   if atlas_regional_guardians_cleared.has(guardian_id) or atlas_regional_guardian_actors.has(guardian_id):continue
+   var room_position:Vector3=V321_RULES.regional_chamber_position(centre,dungeon_id,14)
+   var horizontal:Vector2=Vector2(position.x-room_position.x,position.z-room_position.z)
+   if horizontal.length_squared()>DUNGEON_GUARDIAN_TRIGGER_RADIUS_SQ:continue
+   var before:int=beasts.size()
+   var monster:String=str(REGIONS[zone]["monster"])
+   if not BEASTS.has(monster):continue
+   _spawn_beast(room_position,monster,zone,"elder",true)
+   if beasts.size()<=before:continue
+   var guardian:Dictionary=beasts[-1]
+   guardian["regional_guardian_id"]=guardian_id
+   guardian["home"]=room_position
+   var title:Label3D=guardian.get("nameplate") as Label3D
+   if is_instance_valid(title):
+    title.text="ECLIPSE DUNGEON GUARDIAN • %d / 5" % (dungeon_id+1)
+    title.modulate=Color("ffd28d")
+   atlas_regional_guardian_actors[guardian_id]=guardian
+   _show_message("A dungeon guardian defends the Eclipse Threshold!",3.0)
+   return
+
+func _defeat_beast(beast:Dictionary,pet_kill:bool)->void:
+ var guardian_id:int=int(beast.get("regional_guardian_id",-1))
+ var first_clear:bool=bool(beast.get("alive",false)) and guardian_id>=0 and guardian_id<REGIONS.size()*V321_RULES.REGIONAL_DUNGEON_COUNT and not atlas_regional_guardians_cleared.has(guardian_id)
+ if first_clear:atlas_regional_guardians_cleared.append(guardian_id)
+ super._defeat_beast(beast,pet_kill)
+ if first_clear:
+  # Native animals normally respawn. Dungeon bosses remain defeated.
+  beast["respawn_at"]=1.0e30
+  _show_message("DUNGEON GUARDIAN DEFEATED! The final chamber is secured.",3.0)
 
 func _atlas_mark_here()->void:
  if not hero_playing or not is_instance_valid(player):return
@@ -569,6 +617,7 @@ func _process(delta:float)->void:
    _atlas_record_nearby_chambers(here)
    _atlas_record_regional_chambers(here)
    _atlas_update_dungeon_context(here)
+   _atlas_update_dungeon_guardians(here)
    if (atlas_dungeon_site>=0 or atlas_regional_dungeon>=0) and NAVIGATION_MAP._valid_world_point(here):
     var active_key:int=_atlas_regional_trail_key(atlas_regional_dungeon) if atlas_regional_dungeon>=0 else atlas_dungeon_site
     if not atlas_dungeon_paths.has(active_key):
