@@ -9,6 +9,7 @@ var quest_markers:Array[Vector3]=[]
 var discovered:Array[Vector3]=[]
 var discovered_chambers:Array[Vector3]=[]
 var dungeon_rooms:Array[Vector3]=[]
+var dungeon_floor_radii:Array[float]=[]
 var dungeon_active:bool=false
 var dungeon_current_room:int=-1
 var metres_per_half_width:float=120.0
@@ -21,6 +22,7 @@ const MAX_TRAIL_SEGMENT_METRES:float=160.0
 const DUNGEON_ENTER_RADIUS:float=24.0
 const DUNGEON_LEAVE_RADIUS:float=35.0
 const DUNGEON_DEFAULT_ZOOM:float=35.0
+const DUNGEON_MAX_FLOOR_RADIUS:float=50.0
 
 # Hysteresis prevents the map flickering at a dungeon boundary.
 static func dungeon_site_at(position:Vector3,anchors:Array[Vector3],previous_site:int)->int:
@@ -141,22 +143,24 @@ func _draw()->void:
    draw_circle(centre+offset,2.5,Color(0.22,0.65,0.58,0.65))
   previous=offset
   previous_valid=visible
- # These connections show the authored chamber sequence, not walkable corridors.
+ # Draw only authored floor meshes as a local top-down plan. No invented corridors.
  if dungeon_active:
-  for segment in range(1,dungeon_rooms.size()):
-   var start_room:Vector3=dungeon_rooms[segment-1]
-   var end_room:Vector3=dungeon_rooms[segment]
-   var start_offset:Vector2=Vector2(start_room.x-player_position.x,start_room.z-player_position.z)*scale_factor
-   var end_offset:Vector2=Vector2(end_room.x-player_position.x,end_room.z-player_position.z)*scale_factor
-   if absf(start_offset.x)<=size.x*0.45 and absf(start_offset.y)<=size.y*0.45 and absf(end_offset.x)<=size.x*0.45 and absf(end_offset.y)<=size.y*0.45:
-    draw_dashed_line(centre+start_offset,centre+end_offset,Color(0.50,0.58,0.70,0.52),1.5,5.0)
   for room_index in range(dungeon_rooms.size()):
    var room_position:Vector3=dungeon_rooms[room_index]
    var room_offset:Vector2=Vector2(room_position.x-player_position.x,room_position.z-player_position.z)*scale_factor
-   if absf(room_offset.x)>size.x*0.45 or absf(room_offset.y)>size.y*0.45:continue
+   var floor_radius:float=dungeon_floor_radii[room_index]*scale_factor if room_index<dungeon_floor_radii.size() else 0.0
+   if floor_radius<=0.0 or absf(room_offset.x)>size.x*0.5+floor_radius or absf(room_offset.y)>size.y*0.5+floor_radius:continue
    var room_screen:Vector2=centre+room_offset
-   draw_arc(room_screen,14.0 if room_index==dungeon_current_room else 11.0,0.0,TAU,20,Color(0.40,0.92,1.0) if room_index==dungeon_current_room else Color(0.47,0.55,0.66,0.85),2.5 if room_index==dungeon_current_room else 1.5)
-   draw_string(ThemeDB.fallback_font,room_screen+Vector2(-4.0,5.0),str(room_index+1),HORIZONTAL_ALIGNMENT_LEFT,-1,14,Color(0.80,0.88,0.98))
+   var visited:bool=false
+   for visited_position in discovered_chambers:
+    if Vector2(visited_position.x-room_position.x,visited_position.z-room_position.z).length_squared()<1.0:
+     visited=true
+     break
+   draw_circle(room_screen,floor_radius,Color(0.29,0.33,0.39,0.77) if visited else Color(0.08,0.10,0.15,0.88))
+   draw_arc(room_screen,floor_radius,0.0,TAU,24,Color(0.93,0.76,0.48) if visited else Color(0.35,0.42,0.52,0.65),2.0)
+   if room_index==dungeon_current_room:
+    draw_arc(room_screen,floor_radius+4.0,0.0,TAU,24,Color(0.38,0.90,1.0),2.5)
+   draw_string(ThemeDB.fallback_font,room_screen+Vector2(-4.0,5.0),str(room_index+1),HORIZONTAL_ALIGNMENT_LEFT,-1,14,Color(0.95,0.96,0.99) if visited else Color(0.58,0.63,0.71))
  # Visited authored chambers are gold-ring landmarks independent of quests.
  for chamber_position in discovered_chambers:
   var chamber_offset:Vector2=Vector2(chamber_position.x-player_position.x,chamber_position.z-player_position.z)*scale_factor
@@ -209,12 +213,17 @@ func set_quest_markers(markers:Array[Vector3])->void:
  quest_markers=_validated_markers(markers,MAX_QUEST_MARKERS)
  queue_redraw()
 
-func set_dungeon_context(active:bool,rooms:Array[Vector3])->void:
- if dungeon_active==active and (not active or dungeon_rooms==rooms):return
+func set_dungeon_context(active:bool,rooms:Array[Vector3],radii:Array[float]=[])->void:
+ var accepted_rooms:Array[Vector3]=_validated_markers(rooms,MAX_CHAMBER_MARKERS) if active else _validated_markers([],0)
+ var accepted_radii:Array[float]=[]
+ for i in range(accepted_rooms.size()):
+  var radius:float=radii[i] if i<radii.size() else 0.0
+  accepted_radii.append(clampf(radius,0.0,DUNGEON_MAX_FLOOR_RADIUS) if is_finite(radius) else 0.0)
+ if dungeon_active==active and dungeon_rooms==accepted_rooms and dungeon_floor_radii==accepted_radii:return
  dungeon_active=active
- dungeon_rooms.clear()
+ dungeon_rooms=accepted_rooms
+ dungeon_floor_radii=accepted_radii
  dungeon_current_room=-1
- if active:dungeon_rooms=_validated_markers(rooms,MAX_CHAMBER_MARKERS)
  queue_redraw()
 
 func update_dungeon_room(position:Vector3)->void:
