@@ -84,6 +84,14 @@ func _run() -> void:
   check(game.call("_divine_blessing_earned","z") and game.call("_divine_blessing_earned","nyra"), "Both blessings restore from checkpoint")
   check(is_equal_approx(float(game.get("max_hp")),expected_max), "Nyra max HP restores exactly once")
   check(is_equal_approx(float(game.get("hp")),expected_max), "Nyra bonus HP is not lost on load")
+  # A suspended warning must never survive a checkpoint reload.
+  var z_actor:Dictionary=game.get("beasts")[int(divine_ids["z"])]
+  var disk:MeshInstance3D=z_actor.get("divine_disk") as MeshInstance3D
+  z_actor["divine_warn_until"]=float(game.get("map_time"))+20.0
+  if is_instance_valid(disk):disk.show()
+  game.call("_load_game")
+  check(is_equal_approx(float(z_actor.get("divine_warn_until",1.0)),0.0), "Reload cancels pending divine strikes")
+  check(is_instance_valid(disk) and not disk.visible, "Reload hides stale divine telegraphs")
 
  if failures == 0: print("MOONFALL NATIVE v11 LIVE PASS")
  else: push_error("MOONFALL NATIVE v11 LIVE FAILED " + str(failures) + " checks")
