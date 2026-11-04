@@ -32,6 +32,10 @@ func _run() -> void:
  check(game.call("_safe_item",legendary)==cleaned,"legacy gear sanitizer wrapper")
  var unknown:Dictionary=GEAR.sanitize({"rarity":"Imaginary","power":-10,"affix":"Fury"},["Fury"])
  check(unknown["rarity"]=="Common" and unknown["power"]==0 and not unknown.has("affix"),"invalid gear rarity sanitized")
+ for invalid_value in [NAN,INF,-INF]:
+  var invalid_gear:Dictionary=GEAR.sanitize({"rarity":"Legendary","affix":"Fury","affix_value":invalid_value},["Fury"])
+  check(is_finite(float(invalid_gear.get("affix_value",-1.0))) and float(invalid_gear["affix_value"])==0.0,"Non-finite gear affix is replaced with zero")
+
  # Must be isolated from any live checkpoint directory.
  var profile:String=OS.get_environment("MOONFALL_TEST_PROFILE")
  var profile_normalized:String=profile.replace("\\","/").trim_suffix("/").to_lower()
