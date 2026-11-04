@@ -84,7 +84,7 @@ class TestMoonfallArtAutoAudit(unittest.TestCase):
                 self.assertIn('id="search"', rendered)
                 self.assertIn('id="flag"', rendered)
                 self.assertIn("guardian_00", rendered)
-                self.assertIn("Animation", rendered.lower().capitalize() if False else rendered + "Animation")
+                self.assertIn("5 clips", rendered)
 
     def test_missing_manifest_and_checksum_tampering_fail_strict_audit(self):
         with tempfile.TemporaryDirectory() as folder:
