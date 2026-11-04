@@ -68,9 +68,9 @@ verification and are not asserted by this source test.
 Defeating each god for the **first time in the current adventure** grants a
 separate permanent benefit:
 
-- **Z, Void Reaper:** +10% outgoing attack damage, applied through the shared
+- **Z, Void Reaper:** +15% outgoing attack damage, applied through the shared
   combat hit handler (including attacks and damaging spells).
-- **Nyra, Eclipse Queen:** +20 maximum health and an immediate +20 health heal
+- **Nyra, Eclipse Queen:** +30 maximum health and an immediate +30 health heal
   (capped at the new maximum).
 
 Blessings do not expire on death, reload, leaving the zone or changing gear.
@@ -84,3 +84,29 @@ increase after the parent system restores vigor and health.
 The bonuses are deliberately bounded and non-stacking. Actual boss rewards,
 damage and checkpoint round-trip still require the Godot/Windows CI plus
 interactive verification before this can be considered released.
+
+## Enhanced divine encounter tuning
+
+- **Z:** 2.4x the original inherited guardian health, three normal boss
+  phases, plus **Void Judgment**, a marked 3m player-position blast
+  with a visible 1.7s-to-1.2s windup. Move away from the marked
+  position or dodge to avoid damage.
+- **Nyra:** 2.7x the inherited guardian health, three normal phases,
+  plus **Eclipse Pulse**, a 4.1m ring around Nyra's position with
+  the same readable windup and standard dodge mitigation.
+- Both signature attacks start with a longer gap, accelerate moderately
+  in later phases, use a single persistent warning mesh per boss,
+  and pass through the standard incoming damage pipeline. There are
+  no additional encounter modes, procedural spawn waves or art edits.
+- **Permanent Z blessing:** +15% outgoing damage and +3 HP on enemy
+  kills, non-stacking for the adventure.
+- **Permanent Nyra blessing:** +30 max HP and 8% multiplicative incoming
+  damage mitigation, non-stacking for the adventure. The killing blow
+  also gives +30 immediate healing.
+- HUD summarizes earned blessings, and existing checkpoint boss IDs
+  are authoritative after reloading. Boss deaths immediately persist
+  their rewards.
+
+This is still an incremental integration. No live Windows player-input,
+framerate, accessibility, or multi-hour checkpoint soak test has been
+completed merely by committing this code.
