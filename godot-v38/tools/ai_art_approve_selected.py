@@ -120,7 +120,15 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Approved {len(output)} reviewed files for Godot's next asset import.")
         for destination in output:
             print(destination)
-        return 0
+        # Always audit the final approved state. A bad unrelated existing
+        # asset is reported, never silently repaired or approved.
+        import ai_art_auto_audit as automatic
+        report = automatic.audit()
+        reports = automatic.save_reports(report)
+        print(f"Automatic post-approval art audit: {report['summary']} "
+              f"({len(report['errors'])} integrity errors)")
+        print("Review the dashboard:", reports["html"])
+        return 1 if report["errors"] else 0
     except (ValueError, OSError, FileNotFoundError, FileExistsError) as error:
         print(f"Moonfall art approval rejected: {error}", file=sys.stderr)
         return 1
