@@ -421,6 +421,8 @@ func _atlas_update_dungeon_guardians(position:Vector3)->void:
 func _defeat_beast(beast:Dictionary,pet_kill:bool)->void:
  var guardian_id:int=int(beast.get("regional_guardian_id",-1))
  var first_clear:bool=bool(beast.get("alive",false)) and guardian_id>=0 and guardian_id<REGIONS.size()*V321_RULES.REGIONAL_DUNGEON_COUNT and not atlas_regional_guardians_cleared.has(guardian_id)
+ var guardian_body:CharacterBody3D=beast.get("body") as CharacterBody3D
+ var guardian_drop_at:Vector3=guardian_body.global_position if first_clear and is_instance_valid(guardian_body) else Vector3.ZERO
  if first_clear:atlas_regional_guardians_cleared.append(guardian_id)
  super._defeat_beast(beast,pet_kill)
  if first_clear:
@@ -430,10 +432,9 @@ func _defeat_beast(beast:Dictionary,pet_kill:bool)->void:
   var dungeon_id:int=guardian_id%V321_RULES.REGIONAL_DUNGEON_COUNT
   var trait_id:int=int(beast.get("regional_guardian_trait",-1))
   if zone>=0 and zone<REGIONS.size() and trait_id>=0 and trait_id<V321_RULES.REGIONAL_GUARDIAN_TRAITS.size():
-   var native_body:CharacterBody3D=beast.get("body") as CharacterBody3D
-   if is_instance_valid(native_body):
+   if is_instance_valid(guardian_body) and NAVIGATION_MAP._valid_world_point(guardian_drop_at):
     var relic:Dictionary=V321_RULES.regional_guardian_relic(zone,dungeon_id,trait_id,AFFIXES[guardian_id%AFFIXES.size()])
-    _create_gear_drop(native_body.global_position,"Dungeon Guardian Crest","elder",zone,relic)
+    _create_gear_drop(guardian_drop_at,"Dungeon Guardian Crest","elder",zone,relic)
   _show_message("DUNGEON GUARDIAN DEFEATED! The final chamber is secured.",3.0)
 
 func _atlas_mark_here()->void:
