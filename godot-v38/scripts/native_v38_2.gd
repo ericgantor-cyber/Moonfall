@@ -185,11 +185,11 @@ func _create_atlas()->void:
 
 func _atlas_zoom(factor:float)->void:
  if not is_instance_valid(atlas_chart):return
- if atlas_dungeon_site>=0:
+ if atlas_dungeon_site>=0 or atlas_regional_dungeon>=0:
   atlas_dungeon_zoom_radius=clampf(atlas_dungeon_zoom_radius*factor,25.0,90.0)
  else:
   atlas_zoom_radius=clampf(atlas_zoom_radius*factor,25.0,2000.0)
- atlas_chart.set("metres_per_half_width",atlas_dungeon_zoom_radius if atlas_dungeon_site>=0 else atlas_zoom_radius)
+ atlas_chart.set("metres_per_half_width",atlas_dungeon_zoom_radius if atlas_dungeon_site>=0 or atlas_regional_dungeon>=0 else atlas_zoom_radius)
  _refresh_atlas()
 
 func _toggle_atlas()->void:
@@ -362,22 +362,34 @@ func _atlas_discovered_dungeon_pillars()->Array[Vector3]:
 func _refresh_atlas()->void:
  if not is_instance_valid(atlas_chart) or not is_instance_valid(atlas_readout):return
  var pos:Vector3=player.global_position if is_instance_valid(player) else Vector3.ZERO
- atlas_chart.set("metres_per_half_width",atlas_dungeon_zoom_radius if atlas_dungeon_site>=0 else atlas_zoom_radius)
- atlas_chart.call("set_dungeon_context",atlas_dungeon_site>=0,_atlas_dungeon_rooms(),_atlas_dungeon_floor_radii())
+ atlas_chart.set("metres_per_half_width",atlas_dungeon_zoom_radius if atlas_dungeon_site>=0 or atlas_regional_dungeon>=0 else atlas_zoom_radius)
+ atlas_chart.call("set_dungeon_context",atlas_dungeon_site>=0 or atlas_regional_dungeon>=0,_atlas_dungeon_rooms(),_atlas_dungeon_floor_radii())
  atlas_chart.call("set_dungeon_passages",_atlas_dungeon_passages())
  if is_instance_valid(atlas_heading):
-  atlas_heading.text=("DUNGEON FLOOR PLAN: "+str(rifts[atlas_dungeon_site].get("name","Rift"))) if atlas_dungeon_site>=0 and atlas_dungeon_site<rifts.size() else "MOONFALL WORLD ATLAS | N ↑ | CLICK TO MARK"
+  atlas_heading.text=("REGION %d | DUNGEON %d / 5 | 14 ROOMS" % [int(atlas_regional_dungeon / V321_RULES.REGIONAL_DUNGEON_COUNT)+1,atlas_regional_dungeon%V321_RULES.REGIONAL_DUNGEON_COUNT+1]) if atlas_regional_dungeon>=0 else (("DUNGEON FLOOR PLAN: "+str(rifts[atlas_dungeon_site].get("name","Rift"))) if atlas_dungeon_site>=0 and atlas_dungeon_site<rifts.size() else "MOONFALL WORLD ATLAS | N ↑ | CLICK TO MARK")
  atlas_chart.call("set_discovered",atlas_discovered)
- atlas_chart.call("set_chamber_markers",_atlas_chamber_marker_positions())
+ var regional_markers:Array[Vector3]=[]
+ if atlas_regional_dungeon>=0:
+  for room in _atlas_regional_rooms():
+   if not atlas_regional_seen.has(_atlas_regional_room_id(int(room["zone"]),int(room["dungeon"]),int(room["stage"]))):continue
+   var node:Node3D=room.get("node") as Node3D
+   if is_instance_valid(node):regional_markers.append(node.global_position)
+ atlas_chart.call("set_chamber_markers",regional_markers if atlas_regional_dungeon>=0 else _atlas_chamber_marker_positions())
  atlas_chart.call("set_dungeon_pillars",_atlas_discovered_dungeon_pillars())
  var local_trace:Array[Vector3]=[]
- if atlas_dungeon_site>=0 and atlas_dungeon_paths.has(atlas_dungeon_site):local_trace=atlas_dungeon_paths[atlas_dungeon_site]
+ var path_key:int=_atlas_regional_trail_key(atlas_regional_dungeon) if atlas_regional_dungeon>=0 else atlas_dungeon_site
+ if path_key>=0 and atlas_dungeon_paths.has(path_key):local_trace=atlas_dungeon_paths[path_key]
  atlas_chart.call("set_dungeon_trace",local_trace)
  atlas_chart.call("set_quest_markers",atlas_quest_positions)
  atlas_chart.call("update_navigation",pos,atlas_waypoint,atlas_has_waypoint)
  if is_instance_valid(player):atlas_chart.call("update_player_facing",-player.global_transform.basis.z)
  atlas_chart.call("update_dungeon_room",pos)
  atlas_readout.text="X %.0f | Z %.0f | Trail: %d/%d | Chambers: %d/%d | Rifts: %d/%d | Quests: %d" % [pos.x,pos.z,atlas_discovered.size(),ATLAS_MAX_DISCOVERED,atlas_chambers_seen.size(),v321_chambers.size()+v321_annexes.size(),rifts_cleared.size(),rifts.size(),atlas_quest_positions.size()]
+ if atlas_regional_dungeon>=0:
+  var seen_count:int=0
+  for room in _atlas_regional_rooms():
+   if atlas_regional_seen.has(_atlas_regional_room_id(int(room["zone"]),int(room["dungeon"]),int(room["stage"]))):seen_count+=1
+  atlas_readout.text+=" | This dungeon: %d/14" % seen_count
  if atlas_dungeon_site>=0:
   var local_seen:int=0
   for stage in range(1,15):
@@ -420,12 +432,14 @@ func _process(delta:float)->void:
   if atlas_chamber_scan_elapsed>=0.25:
    atlas_chamber_scan_elapsed=0.0
    _atlas_record_nearby_chambers(here)
+   _atlas_record_regional_chambers(here)
    _atlas_update_dungeon_context(here)
-   if atlas_dungeon_site>=0 and NAVIGATION_MAP._valid_world_point(here):
-    if not atlas_dungeon_paths.has(atlas_dungeon_site):
+   if (atlas_dungeon_site>=0 or atlas_regional_dungeon>=0) and NAVIGATION_MAP._valid_world_point(here):
+    var active_key:int=_atlas_regional_trail_key(atlas_regional_dungeon) if atlas_regional_dungeon>=0 else atlas_dungeon_site
+    if not atlas_dungeon_paths.has(active_key):
      var empty_path:Array[Vector3]=[]
-     atlas_dungeon_paths[atlas_dungeon_site]=empty_path
-    var path:Array[Vector3]=atlas_dungeon_paths[atlas_dungeon_site]
+     atlas_dungeon_paths[active_key]=empty_path
+    var path:Array[Vector3]=atlas_dungeon_paths[active_key]
     NAVIGATION_MAP.append_dungeon_sample(path,here)
   if NAVIGATION_MAP._valid_world_point(here):
    if atlas_discovered.is_empty() or atlas_discovered.back().distance_squared_to(Vector3(here.x,0.0,here.z))>=ATLAS_DISCOVERY_SPACING*ATLAS_DISCOVERY_SPACING:
