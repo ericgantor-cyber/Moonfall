@@ -121,6 +121,18 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         result = stage_all(args.inbox) if args.stage else plan(args.inbox)
+        # After each actual import, validate ALL staged/approved art and the
+        # untouched inbox. Read-only audit, no provider/API calls or approval.
+        audit_errors = False
+        if args.stage:
+            import ai_art_auto_audit as automatic
+            report = automatic.audit(include_inbox=True, inbox_path=args.inbox)
+            output = automatic.save_reports(report)
+            audit_errors = bool(report["errors"])
+            if not args.json:
+                print(f"Automatic art audit: {report['summary']}, "
+                      f"{len(report['errors'])} errors, {len(report['warnings'])} warnings")
+                print("Open the report:", output["html"])
         if args.json:
             print(json.dumps(result, indent=2))
         else:
@@ -129,7 +141,7 @@ def main(argv: list[str] | None = None) -> int:
                   ", ".join(f"{count} {kind}" for kind, count in sorted(counts.items())))
             if args.stage:
                 print("Validated art is staged. Inspect the images/models in the review folder before approving.")
-        return 1 if any(x["status"] == "rejected" for x in result) else 0
+        return 1 if audit_errors or any(x["status"] == "rejected" for x in result) else 0
     except (ValueError, FileNotFoundError, OSError) as error:
         print("Moonfall art inbox:", error, file=sys.stderr)
         return 1
