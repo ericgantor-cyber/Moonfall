@@ -5,6 +5,7 @@ const AMERICAS_WILDLIFE=preload("res://scripts/systems/americas_wildlife_catalog
 const APPROVED_AI_ART=preload("res://scripts/systems/ai_art_overrides.gd")
 const AI_WHOLE_GAME_ART=preload("res://scripts/systems/ai_art_whole_game.gd")
 const AI_APPROVED_3D=preload("res://scripts/systems/ai_art_3d_runtime.gd")
+const AI_ART_AUTO_QUALITY=preload("res://scripts/systems/ai_art_auto_quality.gd")
 const AMERICAS_VISUALS=preload("res://scripts/systems/americas_wildlife_visuals.gd")
 var atlas_panel:PanelContainer
 var atlas_chart:Control
@@ -43,6 +44,12 @@ const AI_ART_ANIMAL_DISTANCE_SQ:float=22.0*22.0
 const AI_ART_CHAMBER_DISTANCE_SQ:float=30.0*30.0
 var ai_art_live_animal_models:Array[Dictionary]=[]
 var ai_art_chamber_models:Array[Dictionary]=[]
+var ai_art_quality_tier:int=AI_ART_AUTO_QUALITY.HIGH
+var ai_art_frame_average_ms:float=16.7
+var ai_art_slow_seconds:float=0.0
+var ai_art_fast_seconds:float=0.0
+var ai_art_next_model_load_ms:int=0
+var ai_art_model_load_attempts:int=0
 var american_wildlife_visual_ticks:int=0
 var american_wildlife_visual_clock:float=0.0
 var atlas_heading:Label
@@ -123,34 +130,68 @@ func _ai_art_release_animal_model(actor:Dictionary)->void:
  if is_instance_valid(body):
   APPROVED_AI_ART.attach_approved(body,APPROVED_AI_ART.animal_path(str(actor.get("americas_species",""))))
 
-# Bounded high-detail selection: only the three nearest wild animals and
-# one nearby dungeon monument may use 4K PBR meshes at the same time.
-# All others retain cheap 2D sprites, native silhouettes and original collision.
+# Art detail changes only after sustained poor or good frame times.
+# 3s poor degrades by one tier; 16s stable recovers by one tier.
+func _ai_art_track_frame_performance(delta:float)->void:
+ if not hero_playing or death_active or not is_finite(delta) or delta<=0.0:return
+ var sample:float=clampf(delta*1000.0,0.0,160.0)
+ ai_art_frame_average_ms=lerpf(ai_art_frame_average_ms,sample,0.045)
+ var frame_seconds:float=minf(delta,0.15)
+ if AI_ART_AUTO_QUALITY.should_degrade(ai_art_frame_average_ms):
+  ai_art_slow_seconds+=frame_seconds
+  ai_art_fast_seconds=0.0
+ elif AI_ART_AUTO_QUALITY.should_upgrade(ai_art_frame_average_ms):
+  ai_art_fast_seconds+=frame_seconds
+  ai_art_slow_seconds=0.0
+ else:
+  ai_art_slow_seconds=maxf(0.0,ai_art_slow_seconds-frame_seconds)
+  ai_art_fast_seconds=0.0
+ var new_tier:int=AI_ART_AUTO_QUALITY.next_tier(ai_art_quality_tier,ai_art_slow_seconds,ai_art_fast_seconds)
+ if new_tier!=ai_art_quality_tier:
+  ai_art_quality_tier=new_tier
+  ai_art_slow_seconds=0.0
+  ai_art_fast_seconds=0.0
+
+# Streaming only reserves the nearest 0,1 or 3 approved animal meshes
+# (depending on adaptive frame budget), and at most one dungeon monument.
+# Hysteresis prevents model flicker and one load/900ms prevents GPU spikes.
 func _ai_art_refresh_nearby_models()->void:
  if not is_instance_valid(player):return
  var here:Vector3=player.global_position
+ var now_ms:int=Time.get_ticks_msec()
+ var limit:int=mini(AI_ART_NEAR_ANIMAL_LIMIT,AI_ART_AUTO_QUALITY.animal_limit(ai_art_quality_tier))
  var candidates:Array[Dictionary]=[]
- for animal in zone_beast_lists[region_index]:
-  if not bool(animal.get("alive",false)) or not bool(animal.get("americas_wildlife_eligible",false)):continue
-  var body:CharacterBody3D=animal.get("body") as CharacterBody3D
-  if not is_instance_valid(body) or not body.visible:continue
-  var distance:float=body.global_position.distance_squared_to(here)
-  if distance>AI_ART_ANIMAL_DISTANCE_SQ:continue
-  var identifier:String=str(animal.get("americas_3d_asset_id",""))
-  if identifier.is_empty():continue
-  var path:String=AI_APPROVED_3D.approved_model_path("animals",identifier)
-  if path.is_empty() or not ResourceLoader.exists(path):continue
-  candidates.append({"actor":animal,"distance":distance})
- candidates.sort_custom(func(a:Dictionary,b:Dictionary)->bool:return float(a["distance"])<float(b["distance"]))
+ if limit>0:
+  for animal in zone_beast_lists[region_index]:
+   if not bool(animal.get("alive",false)) or not bool(animal.get("americas_wildlife_eligible",false)):continue
+   var body:CharacterBody3D=animal.get("body") as CharacterBody3D
+   if not is_instance_valid(body) or not body.visible:continue
+   var current:Node3D=animal.get("americas_3d_node") as Node3D
+   var active:bool=is_instance_valid(current)
+   var distance:float=body.global_position.distance_squared_to(here)
+   var max_range:float=AI_ART_AUTO_QUALITY.ANIMAL_EXIT_RADIUS_SQ if active else AI_ART_ANIMAL_DISTANCE_SQ
+   if distance>max_range:continue
+   var identifier:String=str(animal.get("americas_3d_asset_id",""))
+   if identifier.is_empty():continue
+   var path:String=AI_APPROVED_3D.approved_model_path("animals",identifier)
+   if path.is_empty() or not ResourceLoader.exists(path):continue
+   # Slight active-model priority prevents visible swapping at equal distances.
+   var rank:float=distance-(AI_ART_AUTO_QUALITY.ANIMAL_ENTER_RADIUS_SQ if active else 0.0)
+   candidates.append({"actor":animal,"rank":rank})
+ candidates.sort_custom(func(a:Dictionary,b:Dictionary)->bool:return float(a["rank"])<float(b["rank"]))
  var selected:Dictionary={}
- for i in range(mini(AI_ART_NEAR_ANIMAL_LIMIT,candidates.size())):
+ var loaded_this_tick:bool=false
+ for i in range(mini(limit,candidates.size())):
   var actor:Dictionary=candidates[i]["actor"]
   var body:CharacterBody3D=actor.get("body") as CharacterBody3D
   if not is_instance_valid(body):continue
   var key:int=body.get_instance_id()
   selected[key]=true
   var current:Node3D=actor.get("americas_3d_node") as Node3D
-  if not is_instance_valid(current):
+  if not is_instance_valid(current) and not loaded_this_tick and now_ms>=ai_art_next_model_load_ms:
+   ai_art_model_load_attempts+=1
+   ai_art_next_model_load_ms=now_ms+AI_ART_AUTO_QUALITY.MIN_LOAD_INTERVAL_MS
+   loaded_this_tick=true
    var identifier:String=str(actor["americas_3d_asset_id"])
    current=AI_APPROVED_3D.add_approved_model(body,"animals",identifier,Vector3.ZERO,2.0,true)
    if is_instance_valid(current):actor["americas_3d_node"]=current
@@ -164,23 +205,29 @@ func _ai_art_refresh_nearby_models()->void:
   var body:CharacterBody3D=actor.get("body") as CharacterBody3D
   if is_instance_valid(body) and selected.has(body.get_instance_id()) and is_instance_valid(actor.get("americas_3d_node") as Node3D):
    ai_art_live_animal_models.append(actor)
- # Large room meshes are even more tightly limited to one per active area.
+ # The room model budget shares the same 900ms load throttle.
  var nearest:Dictionary={}
- var best:float=AI_ART_CHAMBER_DISTANCE_SQ
- for entry in ai_art_chamber_models:
-  var node:Node3D=entry.get("node") as Node3D
-  if not is_instance_valid(node):continue
-  var d:float=node.global_position.distance_squared_to(here)
-  if d<best and node.visible:
-   nearest=entry
-   best=d
+ var best:float=INF
+ if AI_ART_AUTO_QUALITY.chamber_limit(ai_art_quality_tier)>0:
+  for entry in ai_art_chamber_models:
+   var node:Node3D=entry.get("node") as Node3D
+   if not is_instance_valid(node) or not node.visible:continue
+   var existing:Node3D=entry.get("model") as Node3D
+   var allowed:float=AI_ART_AUTO_QUALITY.ROOM_EXIT_RADIUS_SQ if is_instance_valid(existing) else AI_ART_CHAMBER_DISTANCE_SQ
+   var distance:float=node.global_position.distance_squared_to(here)
+   if distance<allowed and distance<best:
+    nearest=entry
+    best=distance
  for entry in ai_art_chamber_models:
   var node:Node3D=entry.get("node") as Node3D
   if not is_instance_valid(node):continue
   var existing:Node3D=entry.get("model") as Node3D
   var banner:Sprite3D=entry.get("banner") as Sprite3D
   if entry==nearest and not nearest.is_empty():
-   if not is_instance_valid(existing):
+   if not is_instance_valid(existing) and not loaded_this_tick and now_ms>=ai_art_next_model_load_ms:
+    ai_art_model_load_attempts+=1
+    ai_art_next_model_load_ms=now_ms+AI_ART_AUTO_QUALITY.MIN_LOAD_INTERVAL_MS
+    loaded_this_tick=true
     var stage:int=int(entry["stage"])
     existing=AI_APPROVED_3D.add_approved_model(node,"chambers","chamber_%02d"%stage,Vector3.ZERO,2.3)
     if is_instance_valid(existing):entry["model"]=existing
@@ -946,6 +993,7 @@ func _unhandled_key_input(event:InputEvent)->void:
 
 func _process(delta:float)->void:
  super._process(delta)
+ _ai_art_track_frame_performance(delta)
  _americas_update_wildlife_visuals(delta)
  if not is_instance_valid(atlas_panel):return
  if is_instance_valid(atlas_open_button):atlas_open_button.visible=hero_playing and not death_active and not menu_open
