@@ -210,13 +210,25 @@ func _atlas_dungeon_rooms()->Array[Vector3]:
   if is_instance_valid(room_node) and NAVIGATION_MAP._valid_world_point(room_node.global_position):rooms.append(room_node.global_position)
  return rooms
 
+func _atlas_dungeon_floor_radii()->Array[float]:
+ var radii:Array[float]=[]
+ if atlas_dungeon_site<0:return radii
+ for chamber in v321_chambers:
+  if int(chamber.get("site",-1))!=atlas_dungeon_site:continue
+  var room_node:Node3D=chamber.get("node") as Node3D
+  if not is_instance_valid(room_node):continue
+  var floor_mesh:MeshInstance3D=room_node.get_node_or_null("RiftChamberFloor") as MeshInstance3D
+  var floor:CylinderMesh=floor_mesh.mesh as CylinderMesh if is_instance_valid(floor_mesh) else null
+  radii.append(floor.top_radius if floor!=null else 0.0)
+ return radii
+
 func _refresh_atlas()->void:
  if not is_instance_valid(atlas_chart) or not is_instance_valid(atlas_readout):return
  var pos:Vector3=player.global_position if is_instance_valid(player) else Vector3.ZERO
  atlas_chart.set("metres_per_half_width",atlas_dungeon_zoom_radius if atlas_dungeon_site>=0 else atlas_zoom_radius)
- atlas_chart.call("set_dungeon_context",atlas_dungeon_site>=0,_atlas_dungeon_rooms())
+ atlas_chart.call("set_dungeon_context",atlas_dungeon_site>=0,_atlas_dungeon_rooms(),_atlas_dungeon_floor_radii())
  if is_instance_valid(atlas_heading):
-  atlas_heading.text=("DUNGEON MAP: "+str(rifts[atlas_dungeon_site].get("name","Rift"))+" | ROOMS 1-3") if atlas_dungeon_site>=0 and atlas_dungeon_site<rifts.size() else "MOONFALL WORLD ATLAS | N ↑ | CLICK TO MARK"
+  atlas_heading.text=("DUNGEON FLOOR PLAN: "+str(rifts[atlas_dungeon_site].get("name","Rift"))) if atlas_dungeon_site>=0 and atlas_dungeon_site<rifts.size() else "MOONFALL WORLD ATLAS | N ↑ | CLICK TO MARK"
  atlas_chart.call("set_discovered",atlas_discovered)
  atlas_chart.call("set_chamber_markers",_atlas_chamber_marker_positions())
  atlas_chart.call("set_quest_markers",atlas_quest_positions)
