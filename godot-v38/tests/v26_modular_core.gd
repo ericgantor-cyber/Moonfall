@@ -54,7 +54,15 @@ func _run() -> void:
  check(STORE.commit_checkpoint(save2,pending,primary,backup,7,"z")=="OK","updated primary commits")
  check(int(STORE.decode(primary)["gold"])==99 and int(STORE.decode(backup)["gold"])==5,"previous checkpoint backed up")
  check(STORE.commit_checkpoint(save2,pending,primary,backup,999,"z")=="INVALID STAGING","staging identity mismatch rejected")
- check(int(STORE.decode(primary)["gold"])==99,"failed staging preserves primary checkpoint")
+ var custom_save:Dictionary=save.duplicate(true)
+ custom_save["hero"]="custom"
+ custom_save["custom_hero_name"]="Moonfall Wanderer"
+ check(STORE.commit_checkpoint(custom_save,pending,primary,backup,7,"custom")=="OK","custom adventurer checkpoint commits")
+ check(str(STORE.decode(primary).get("hero",""))=="custom" and str(STORE.decode(primary).get("custom_hero_name",""))=="Moonfall Wanderer","custom hero identity survives checkpoint")
+ check(int(STORE.decode(backup).get("gold",-1))==99,"custom hero commit retains prior checkpoint backup")
+ check(STORE.commit_checkpoint(custom_save,pending,primary,backup,7,"unrecognized")=="INVALID STAGING","wrong expected hero identity rejected")
+
+ check(str(STORE.decode(primary).get("hero",""))=="custom","failed staging preserves latest valid checkpoint")
  var f:=FileAccess.open("user://v26_corrupt.json",FileAccess.WRITE)
  if f!=null:
   f.store_string('{"schema":2,"hero":"z","at":[0,0],"hp":"invalid"}')
