@@ -22,7 +22,7 @@ def png_chunk(kind: bytes, data: bytes) -> bytes:
 
 def example_png() -> bytes:
     ihdr = struct.pack(">IIBBBBB", 64, 64, 8, 6, 0, 0, 0)
-    raw = (b"\\x00" + b"\\x88\\x55\\xff\\x00" * 64) * 64
+    raw = (b"\x00" + b"\x88\x55\xff\x00" * 64) * 64
     return studio.PNG_HEADER + png_chunk(b"IHDR", ihdr) + png_chunk(
         b"IDAT", zlib.compress(raw)
     ) + png_chunk(b"IEND", b"")
@@ -87,7 +87,7 @@ class TestMoonfallAIArt(unittest.TestCase):
         with self.assertRaises(ValueError):
             studio.validate_png(b"not an image")
         for broken in [PNG[:33], PNG[:-8], PNG + b"trailing bytes",
-                       studio.PNG_HEADER + b"\\x00" * 72]:
+                       studio.PNG_HEADER + b"\x00" * 72]:
             with self.assertRaises(ValueError):
                 studio.validate_png(broken)
         opaque = PNG.replace(struct.pack(">IIBBBBB", 64, 64, 8, 6, 0, 0, 0),
