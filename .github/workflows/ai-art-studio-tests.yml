@@ -1,0 +1,31 @@
+name: Moonfall AI Art Studio offline tests
+on:
+  pull_request:
+    paths:
+      - 'godot-v38/tools/ai_art_studio.py'
+      - 'godot-v38/tests/test_ai_art_studio.py'
+      - 'godot-v38/scripts/systems/americas_wildlife_catalog.gd'
+      - '.github/workflows/ai-art-studio-tests.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'godot-v38/tools/ai_art_studio.py'
+      - 'godot-v38/tests/test_ai_art_studio.py'
+      - 'godot-v38/scripts/systems/americas_wildlife_catalog.gd'
+      - '.github/workflows/ai-art-studio-tests.yml'
+permissions:
+  contents: read
+jobs:
+  offline-art-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run no-network/no-billing art pipeline tests
+        working-directory: godot-v38
+        env:
+          OPENAI_API_KEY: ''
+        run: python -m unittest discover -s tests -p 'test_ai_art_studio.py' -v
