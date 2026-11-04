@@ -12,6 +12,12 @@ const EXPLORATION_OFFSETS:Array[Vector3]=[
  Vector3(14,0,39),Vector3(28,0,39),Vector3(28,0,53),
  Vector3(14,0,53),Vector3(0,0,53)
 ]
+const ANNEX_TITLES:Array[String]=[
+ "Moonlit Archive","Cinder Reliquary","Raven Watch","Lost Observatory",
+ "Whispering Vault","Twilight Garden","Ember Crucible","Fallen Library",
+ "Astral Gallery","Hollow Shrine","Eclipse Threshold"
+]
+const ANNEX_SIGILS:Array[String]=["archive","embers","watch","stars","echo","garden","forge","scroll","astral","shrine","eclipse"]
 const ROOM_NAMES:Array[String]=["Outer Sanctum","Moonbound Passage","Guardian Heart"]
 const STAGE_LOOT_NAMES:Array[String]=["Ravenwood Vow","Ashen Moon Vow","Bloodmoon Vow"]
 
@@ -33,6 +39,19 @@ static func wall_segment_open(stage:int,angle:float)->bool:
 static func exploration_position(anchor:Vector3,stage:int)->Vector3:
  if stage<4 or stage>14:return anchor
  return anchor+EXPLORATION_OFFSETS[stage-4]
+
+static func annex_title(stage:int)->String:
+ if stage<4 or stage>14:return "Unknown Chamber"
+ return ANNEX_TITLES[stage-4]
+
+static func annex_sigil(stage:int)->String:
+ if stage<4 or stage>14:return ""
+ return ANNEX_SIGILS[stage-4]
+
+static func annex_tint(stage:int)->Color:
+ if stage<4 or stage>14:return Color(0.5,0.5,0.6)
+ var hue:float=fmod(float(stage-4)*0.137,1.0)
+ return Color.from_hsv(hue,0.38,0.85)
 
 static func exploration_previous(anchor:Vector3,stage:int)->Vector3:
  if stage<=4:return room_position(anchor,3)
