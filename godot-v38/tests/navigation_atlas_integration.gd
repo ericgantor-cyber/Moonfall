@@ -70,6 +70,19 @@ func _run()->void:
  check("atlas_chambers_seen" in source and "NAVIGATION_MAP.decode_chambers(" in source,"checkpoint saves and restores chamber progress")
  check(NAV.decode_chambers([0,3,3,8,-1,9,"7",NAN],9)==[0,3,8],"chamber checkpoint filters duplicates and invalid IDs")
  check(NAV.decode_chambers([],9).is_empty(),"legacy saves without chamber discoveries still load")
+ var chamber_marks:Array[Vector3]=[]
+ for chamber_index in range(120):
+  chamber_marks.append(Vector3(float(chamber_index),0.0,0.0))
+ chamber_marks[5]=Vector3(NAN,0.0,0.0)
+ map.call("set_chamber_markers",chamber_marks)
+ check((map.get("discovered_chambers") as Array).size()==64,"authored chamber markers have a bounded render budget")
+ check((map.get("discovered_chambers") as Array)[5]==Vector3(6,0,0),"invalid chamber map coordinates are discarded")
+ var trail_source:String=FileAccess.get_file_as_string("res://scripts/systems/navigation_map.gd")
+ check("MAX_TRAIL_SEGMENT_METRES" in trail_source and "draw_line(centre+previous" in trail_source,"exploration markers connect into bounded route trail")
+ check("discovered_chambers" in trail_source and "draw_arc(chamber_screen" in trail_source,"discovered chambers have distinct map icons")
+ check("set_chamber_markers" in source and "_atlas_chamber_marker_positions()" in source,"game publishes discovered authored chamber positions to atlas")
+ check("TEAL: EXPLORED TRAIL" in source,"map legend explains trails and chambers")
+
  map.queue_free()
  print("MOONFALL ATLAS "+("PASS" if failures==0 else "FAIL"))
  quit(0 if failures==0 else 1)

@@ -7,11 +7,14 @@ var waypoint_position:Vector3=Vector3.ZERO
 var has_waypoint:bool=false
 var quest_markers:Array[Vector3]=[]
 var discovered:Array[Vector3]=[]
+var discovered_chambers:Array[Vector3]=[]
 var metres_per_half_width:float=120.0
 const MAX_DISCOVERED_MARKERS:int=256
 const MAX_QUEST_MARKERS:int=128
 const MAX_WORLD_COORD:float=1000000.0
 const MAX_HISTORY_POINTS:int=2048
+const MAX_CHAMBER_MARKERS:int=64
+const MAX_TRAIL_SEGMENT_METRES:float=160.0
 
 # Save history separately from the small, viewport-friendly marker collection.
 # Read newest valid positions first so malformed entries cannot evict discoveries.
@@ -83,10 +86,26 @@ func _draw()->void:
   var offset:float=float(index)*metres_per_half_width*scale_factor/4.0
   draw_line(Vector2(centre.x+offset,0),Vector2(centre.x+offset,size.y),Color(0.16,0.27,0.34,0.55),1.0)
   draw_line(Vector2(0,centre.y+offset),Vector2(size.x,centre.y+offset),Color(0.16,0.27,0.34,0.55),1.0)
+ # Connect nearby samples into a route trail, but never draw across teleports
+ # or spend draw calls on segments entirely outside the chart viewport.
+ var previous:Vector2=Vector2.ZERO
+ var previous_valid:bool=false
  for visit in discovered:
-  var visited_offset:Vector2=Vector2(visit.x-player_position.x,visit.z-player_position.z)*scale_factor
-  if absf(visited_offset.x)<=size.x*0.45 and absf(visited_offset.y)<=size.y*0.45:
-   draw_circle(centre+visited_offset,2.5,Color(0.22,0.65,0.58,0.65))
+  var offset:Vector2=Vector2(visit.x-player_position.x,visit.z-player_position.z)*scale_factor
+  var visible:bool=absf(offset.x)<=size.x*0.45 and absf(offset.y)<=size.y*0.45
+  if visible:
+   if previous_valid and previous.distance_to(offset)<=MAX_TRAIL_SEGMENT_METRES*scale_factor:
+    draw_line(centre+previous,centre+offset,Color(0.19,0.65,0.58,0.50),2.0)
+   draw_circle(centre+offset,2.5,Color(0.22,0.65,0.58,0.65))
+  previous=offset
+  previous_valid=visible
+ # Visited authored chambers are gold-ring landmarks independent of quests.
+ for chamber_position in discovered_chambers:
+  var chamber_offset:Vector2=Vector2(chamber_position.x-player_position.x,chamber_position.z-player_position.z)*scale_factor
+  if absf(chamber_offset.x)>size.x*0.45 or absf(chamber_offset.y)>size.y*0.45:continue
+  var chamber_screen:Vector2=centre+chamber_offset
+  draw_circle(chamber_screen,4.0,Color(1.0,0.68,0.24))
+  draw_arc(chamber_screen,7.0,0.0,TAU,12,Color(1.0,0.81,0.44),1.5)
  draw_line(centre,centre+Vector2(0,-26),Color(0.35,0.85,1.0),3.0)
  draw_circle(centre,7.0,Color(0.36,0.85,1.0))
  if has_waypoint:
@@ -127,6 +146,10 @@ func _gui_input(event:InputEvent)->void:
 
 func set_quest_markers(markers:Array[Vector3])->void:
  quest_markers=_validated_markers(markers,MAX_QUEST_MARKERS)
+ queue_redraw()
+
+func set_chamber_markers(positions:Array[Vector3])->void:
+ discovered_chambers=_validated_markers(positions,MAX_CHAMBER_MARKERS)
  queue_redraw()
 
 func set_discovered(positions:Array[Vector3])->void:
