@@ -20,7 +20,9 @@ if errorlevel 1 goto failed
 %PYTHON% tools\ai_art_review.py --category all --gallery
 if errorlevel 1 goto failed
 echo.
-echo Review the gallery and approve individual artworks before they enter the game.
+echo Review the gallery, check specific PNG/GLB art, and export your selection.
+echo Then drag the downloaded moonfall_art_approval.json file onto
+echo tools\Approve-Reviewed-Moonfall-Art.cmd to approve reviewed art.
 start "" "ai_art_staging\review\index.html"
 pause
 exit /b 0
