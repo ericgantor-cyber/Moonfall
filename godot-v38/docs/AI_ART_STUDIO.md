@@ -62,6 +62,47 @@ The existing Godot wildlife instance checks for an approved image with the match
 
 These are 2D transparent creature cutouts in the isometric 3D world, NOT automatically generated 3D skeletal models or animations. Game rendering does not contact the image API.
 
+## One-click reviewed-art approval for the entire game
+
+The local HTML art gallery now lets you choose which **staged PNG and 3D GLB**
+files are good enough to put in Moonfall. You can review all 350 catalog slots
+and check only the files you've actually inspected. Approved files are never
+overwritten, and no generated asset can replace the original Z or Nyra art.
+
+1. Run `tools/Import-Moonfall-Art.cmd` on Windows. It stages recognized art
+   and opens the local review gallery.
+2. Inspect each staged PNG and open any GLB in your preferred 3D viewer.
+   Check **Approve reviewed PNG** or **Approve reviewed 3D model** on individual
+   cards only when their appearance and gameplay suitability are acceptable.
+3. Choose **Export checked artwork for approval**. The browser downloads
+   `moonfall_art_approval.json`, containing only stable asset IDs, type and
+   SHA-256 content hashes. It does not add anything to the game on its own.
+4. Drag that downloaded JSON onto `tools/Approve-Reviewed-Moonfall-Art.cmd`,
+   or move it to `ai_art_staging/review/moonfall_art_approval.json` and
+   double-click the same Windows script. The script first checks *every*
+   selected asset, then requests an explicit Y/N confirmation.
+5. The approved files are placed in `assets/ai_generated`; open the Godot
+   editor or run the normal Windows build to import the newly approved assets.
+   Previously released installers don't acquire new art without a rebuild.
+
+The equivalent commands, useful for automation and accessibility tooling:
+
+    python tools/ai_art_approve_selected.py --manifest "C:\\Users\\You\\Downloads\\moonfall_art_approval.json"
+    python tools/ai_art_approve_selected.py --manifest "C:\\Users\\You\\Downloads\\moonfall_art_approval.json" --apply
+
+The first command is a read-only preview. The second is an explicit approval.
+Both are **fully offline** with no generation credits, network requests or
+provider account. The validator confirms the catalog IDs, image or model
+structure, provenance JSON, SHA-256 digest, review state, and absence of
+already-approved files. It rejects unknown IDs, unsafe 3D categories, duplicate
+entries, altered artwork, corrupted metadata and invalid files **before**
+approving any file. If a disk write later fails, previously approved files
+may remain, but the preflight prevents known invalid selections from producing
+a partial batch.
+
+Never approve artwork you haven't visually checked. Bulk approval is a tool
+for speeding up a deliberate review, not an automatic aesthetic judgment.
+
 ## Automatic artwork intake and actual 4K verification
 
 For Windows users, double-click `tools/Import-Moonfall-Art.cmd`. This creates

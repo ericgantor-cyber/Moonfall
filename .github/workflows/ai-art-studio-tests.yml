@@ -10,6 +10,8 @@ on:
       - 'godot-v38/tools/ai_art_3d.py'
       - 'godot-v38/tests/test_ai_art_intake.py'
       - 'godot-v38/tools/ai_art_intake.py'
+      - 'godot-v38/tests/test_ai_art_approve_selected.py'
+      - 'godot-v38/tools/ai_art_approve_selected.py'
       - 'godot-v38/tools/ai_art_direction.py'
       - 'godot-v38/scripts/systems/ai_art_whole_game.gd'
       - 'godot-v38/tests/test_ai_art_studio.py'

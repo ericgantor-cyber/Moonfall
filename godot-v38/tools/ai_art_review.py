@@ -28,24 +28,30 @@ def review_status(item: dict) -> dict:
     state = "approved" if approved.exists() else "staged" if staged.exists() else "missing"
     valid = False
     issue = ""
+    image_checksum = ""
     if state != "missing":
         try:
             payload = chosen.read_bytes()
             studio.validate_png(payload)
             record = chosen.with_suffix(".json")
             meta = json.loads(record.read_text(encoding="utf-8"))
+            if not isinstance(meta, dict):
+                raise ValueError("PNG review manifest must be a JSON object.")
             valid = (
                 meta.get("asset_id") == item["asset_id"] and
                 meta.get("sha256") == hashlib.sha256(payload).hexdigest() and
                 meta.get("reviewed") is (state == "approved")
             )
-            if not valid:
+            if valid:
+                image_checksum = meta["sha256"]
+            else:
                 issue = "Metadata or checksum does not match PNG"
         except (ValueError, OSError, json.JSONDecodeError) as exc:
             issue = str(exc)
     model_state = "not_applicable"
     model_valid = False
     model_issue = ""
+    model_checksum = ""
     model_details = {}
     model_file = ""
     if item["category"] in model.ALLOWED_MODEL_CATEGORIES:
@@ -59,23 +65,32 @@ def review_status(item: dict) -> dict:
                 payload = selected.read_bytes()
                 model_details = model.glb_info(payload)
                 record = json.loads(selected.with_suffix(".json").read_text(encoding="utf-8"))
+                if not isinstance(record, dict):
+                    raise ValueError("3D review manifest must be a JSON object.")
                 model_valid = (
                     record.get("asset_id") == item["asset_id"]
                     and record.get("reviewed") is (model_state == "approved")
                     and record.get("sha256") == hashlib.sha256(payload).hexdigest()
                 )
-                if not model_valid:
+                if model_valid:
+                    model_checksum = record["sha256"]
+                else:
                     model_issue = "Model review manifest/checksum mismatch"
             except (ValueError, OSError, json.JSONDecodeError) as error:
                 model_issue = str(error)
-    display_state = ("approved" if state == "approved" or model_state == "approved"
-                     else "staged" if state == "staged" or model_state == "staged"
+    # A model awaiting review matters more than a sibling format already
+    # approved: keep mixed PNG-approved/GLB-staged cards visible in the
+    # gallery's Ready to review filter.
+    display_state = ("staged" if state == "staged" or model_state == "staged"
+                     else "approved" if state == "approved" or model_state == "approved"
                      else "missing")
     return {
         "id": item["asset_id"], "subject": item["subject"],
         "category": item["category"], "state": state, "valid": valid,
         "issue": issue, "prompt": prompt,
         "image_path": str(chosen) if state != "missing" else "",
+        "image_checksum": image_checksum,
+        "model_checksum": model_checksum,
         "display_state": display_state, "model_state": model_state,
         "model_valid": model_valid, "model_issue": model_issue,
         "model_geometry": model_details, "model_path": model_file,
@@ -133,10 +148,26 @@ def make_gallery(rows: list[dict], destination: Path) -> None:
                 f'<p>{faces:,} triangles · {escape(texture)} · {pbr} PBR materials</p>'
                 if geometry else f'<p>PNG: {png_state} | 3D: <strong>{glb_state}</strong></p>'
             )
+        choices = ""
+        if row["state"] == "staged" and row["valid"] and row.get("image_checksum"):
+            choices += (
+                f'<label class="review-choice"><input class="approval-select" type="checkbox" '
+                f'data-id="{aid}" data-format="png" data-sha256="{escape(row["image_checksum"])}">'
+                f'Approve reviewed PNG</label>'
+            )
+        if row.get("model_state") == "staged" and row.get("model_valid") and row.get("model_checksum"):
+            choices += (
+                f'<label class="review-choice"><input class="approval-select" type="checkbox" '
+                f'data-id="{aid}" data-format="glb" data-sha256="{escape(row["model_checksum"])}">'
+                f'Approve reviewed 3D model</label>'
+            )
+        if row.get("model_path") and row.get("model_valid"):
+            url = escape(local_image_src(row["model_path"], destination.parent), quote=True)
+            choices += f'<a href="{url}">Open 3D GLB in an external model viewer</a>'
         cards.append(
             f'<article class="card" data-category="{category}" data-status="{state}"><div class="image">{image}</div>'
             f'<h2>{title}</h2><p>{category} / {aid}</p>'
-            f'<p>Status: <strong>{state}</strong></p>{model_summary}{issue}'
+            f'<p>Status: <strong>{state}</strong></p>{model_summary}{issue}{choices}'
             f'<details><summary>Generation prompt</summary>'
             f'<p class="prompt">{escape(row["prompt"])}</p></details></article>'
         )
@@ -152,7 +183,12 @@ def make_gallery(rows: list[dict], destination: Path) -> None:
 <option value="regions">Regions</option><option value="chambers">Dungeon chambers</option>
 <option value="glyphs">HUD & glyphs</option><option value="spells">Spells</option>
 <option value="gear">Gear</option><option value="scenery">Scenery</option></select></label>
-<output id="art-count" aria-live="polite"></output></section>"""
+<output id="art-count" aria-live="polite"></output></section>
+<section class="approve-toolbar" aria-label="Review approvals">
+<button type="button" id="export-art-selection">Export checked artwork for approval</button>
+<output id="selected-art-count" aria-live="polite">0 files selected</output>
+<p>Only select art after reviewing the image or 3D model. Export downloads a JSON selection for the separate offline approval command. No artwork is approved by the gallery.</p>
+</section>"""
     filter_script = """<script>
 (() => {
   const search = document.getElementById('art-search');
@@ -160,6 +196,34 @@ def make_gallery(rows: list[dict], destination: Path) -> None:
   const category = document.getElementById('art-category');
   const count = document.getElementById('art-count');
   const cards = Array.from(document.querySelectorAll('.card'));
+  const approvals = Array.from(document.querySelectorAll('.approval-select'));
+  const selectedCount = document.getElementById('selected-art-count');
+  function selected() {
+    return approvals.filter(input => input.checked).map(input => ({
+      asset_id: input.dataset.id, format: input.dataset.format, sha256: input.dataset.sha256
+    }));
+  }
+  function selectionChanged() {
+    selectedCount.textContent = selected().length + ' reviewed files selected';
+  }
+  approvals.forEach(input => input.addEventListener('change', selectionChanged));
+  document.getElementById('export-art-selection').addEventListener('click', () => {
+    const choices = selected();
+    if (!choices.length) {
+      selectedCount.textContent = 'Select at least one reviewed file first.';
+      return;
+    }
+    const payload = JSON.stringify({version: 1, approved_assets: choices}, null, 2);
+    const blob = new Blob([payload], {type: 'application/json'});
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'moonfall_art_approval.json';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  });
   function update() {
     const query = search.value.trim().toLowerCase();
     let shown = 0;
@@ -195,14 +259,23 @@ header {{margin-bottom:2rem}} .grid {{display:grid;grid-template-columns:repeat(
 .filters label {{display:flex;flex-direction:column;gap:.35rem;font-weight:600}}
 .filters input,.filters select {{font:inherit;background:#312b40;color:#fff;border:1px solid #76668e;padding:.55rem;border-radius:6px}}
 .filters output {{font-size:.88rem;color:#d5c2ef}}
-.card[hidden] {{display:none}}
+ .card[hidden] {{display:none}}
+.review-choice {{display:flex;align-items:center;gap:.4rem;padding:.4rem 0;cursor:pointer;font-weight:600}}
+.review-choice input {{width:1.15rem;height:1.15rem;accent-color:#c4abff}}
+.approve-toolbar {{padding:1rem;margin-bottom:1.5rem;border:1px solid #76668e;border-radius:12px}}
+.approve-toolbar button {{font:inherit;background:#a48ed6;color:#1e152b;border:0;border-radius:8px;padding:.65rem 1rem;font-weight:700;cursor:pointer}}
+.approve-toolbar p {{font-size:.85rem;color:#e2d6f0}}
+.approve-toolbar output {{margin-left:.7rem}}
+.card a {{font-size:.85rem;color:#d5b8ff;display:block;margin:.3rem 0}}
 :focus-visible {{outline:3px solid #f0ca96;outline-offset:3px}}
 h2 {{font-size:1rem;margin:.65rem 0}} .card p {{font-size:.83rem;margin:.4rem 0}}
 details {{font-size:.85rem;cursor:pointer}} .prompt {{white-space:pre-wrap}}
 </style></head><body><header><h1>Moonfall AI Art Review Board</h1>
 <p>{escape(summary)} · {len(rows)} planned creature artworks</p>
 <p>Offline preview only. No images are generated or approved by this page.
-Review staged images, then approve each image separately using the command line.
+Review each staged PNG or GLB, check only the art you accept, and export its
+checksum-protected approval selection. Then explicitly approve it with the
+offline command-line tool. This gallery never approves art or makes API calls.
 Original Z and Nyra artwork is never used.</p></header>
 {controls}
 <main class="grid">{''.join(cards)}</main>{filter_script}</body></html>"""
