@@ -103,6 +103,122 @@ a partial batch.
 Never approve artwork you haven't visually checked. Bulk approval is a tool
 for speeding up a deliberate review, not an automatic aesthetic judgment.
 
+## Rigged and animated AI artwork (new)
+
+Approved 3D creature art now supports **real glTF skeletons** (skinned meshes
+with bone joints) and animation clips imported into Godot as **Skeleton3D**
+and **AnimationPlayer**. This is a visual layer over existing native
+CharacterBody3D controls, AI, attack timing, hit detection, loot and health.
+No new modes, AI actors or collision shapes are added. Original Z and Nyra
+artwork remains completely unchanged.
+
+### Rigged GLB import: no service or credits needed
+
+For wolves, quadrupeds, birds, hydras, serpents and other non-humanoids,
+prepare a compatible rig and animation in Blender or another animation tool
+and export a **single skinned GLB** containing named clips. Standard Moonfall
+clip names are `idle`, `move`, `attack`, `hurt`, `death`; optional
+`spawn`, `telegraph`, `special_1`, `special_2`, `victory`.
+Common `Walk`, `Run`, `Bite`, `Slash`, `Hit`, `Die`, and namespaced
+Blender-style names are mapped to their closest state automatically.
+
+From `godot-v38`:
+
+    python tools/ai_art_autorig.py --guardian 0 --import-rig "C:\\MyModels\\rigged_boss.glb"
+    python tools/ai_art_autorig.py --guardian 0 --approve
+    python tools/ai_art_autorig.py --animal "Jaguar" --import-rig "C:\\MyModels\\rigged_jaguar.glb"
+    python tools/ai_art_autorig.py --animal "Jaguar" --approve
+
+A new rig is staged until reviewed. Its GLB is validated for actual bone
+joints, skin-to-mesh binding, animation sampler indices, node references,
+clip durations, keyframe budgets and names. **A static mesh is not claimed
+to be animated.** Approval is explicit, separately stored under
+`assets/ai_generated/rigged/<category>/<asset_id>.glb`, and does not
+overwrite your existing approved 3D model or 2D sprite. Godot prefers the
+new reviewed animated rig when it exists. If it does not, static approved
+models and old native visuals remain available as fallbacks.
+
+Alternatively, you can check a staged or approved normal GLB with:
+
+    python tools/ai_art_3d.py --guardian 0 --audit
+    python tools/ai_art_3d.py --guardian 0 --require-rig
+
+The audit reports real skeleton bone counts, skinned meshes, animation
+tracks, canonical action names, missing preferred clips, triangles and
+embedded 4K material maps. A static non-animated GLB remains a valid
+ordinary item if `--require-rig` is not set.
+
+The offline review gallery includes rig metrics, imported clip names,
+missing animations and a dedicated **Approve reviewed animated rig**
+checkbox for valid combined clips. Export the approved selection and use
+the existing `Approve-Reviewed-Moonfall-Art.cmd` Windows flow.
+The read-only release auditor includes all approved rig overlays and
+supports optional `--require-animated-creatures` to demand the complete
+five-clip contract during specialized testing. The default strict release
+audit allows old static art, so current Windows releases still build.
+
+### Paid AI humanoid rigging and preset animation (optional)
+
+Meshy's current automatic rigging endpoint works reliably only on
+**clearly humanoid bipeds**. It does **not** promise to rig Moonfall's
+wolves, dragons, hydras, jaguars, serpents or other four-legged creatures.
+Use the free Blender rigged-GLB import above for non-humanoids.
+
+If a model is an actual humanoid, first approve its textured, unrigged GLB
+using the existing Moonfall art tools. With your own **MESHY_API_KEY**
+environment variable set locally (never committed), intentionally submit
+**one potentially paid job**:
+
+    python tools/ai_art_autorig.py --guardian 0 --submit --confirm-humanoid
+    python tools/ai_art_autorig.py --guardian 0 --status
+    python tools/ai_art_autorig.py --guardian 0 --fetch --variant walking
+    python tools/ai_art_autorig.py --guardian 0 --approve --variant walking
+
+The example `guardian 0` is just a slot. **Do not submit an animal-shaped
+guardian to Meshy**: humanoid confirmation is required, and the service
+may fail or consume credits on non-humanoid inputs. The tool sends an
+approved self-contained GLB as an in-memory data URI, checks source
+provenance, refuses duplicate tasks, and keeps the response staged for
+visual review. It never automatically pays, polls or approves.
+
+To add several *actual* AI motion clips to a completed Meshy humanoid rig,
+look up official action IDs and choose your own suitable moves:
+
+    python tools/ai_art_autorig.py --guardian 0 --list-actions
+    python tools/ai_art_autorig.py --guardian 0 --animate --action-ids "17,92"
+    python tools/ai_art_autorig.py --guardian 0 --animation-status
+    python tools/ai_art_autorig.py --guardian 0 --animation-fetch
+    python tools/ai_art_autorig.py --guardian 0 --approve
+
+The numeric IDs above demonstrate command syntax only. **Verify selected
+IDs from the current Animation Library**; their meanings may change.
+A task requests a merged GLB with the chosen motion clips. Only a valid
+downloaded rig with recognizable action names will pass Moonfall review.
+These are separate explicit paid requests, not a background batch.
+
+Reference documents:
+- https://docs.meshy.ai/en/api/rigging
+- https://docs.meshy.ai/en/api/animation
+- https://docs.godotengine.org/en/stable/tutorials/animation/animation_tree.html
+
+### In-game animation and performance
+
+Only the **nearby, already-loaded** 3D wildlife models and approved guardian
+rigs update their animations. Every 80 ms, the visual wrapper reads the
+native actor's velocity, existing melee-attack swing timing, hit-reaction
+timing, boss windup and defeat state and selects a matching imported clip.
+Existing AI and damage logic remain authoritative. Idle/movement clips can
+repeat while one-shot hurt/attack/death clips are not restarted each tick.
+
+If the imported GLB is missing a skeleton, AnimationPlayer or usable clips,
+the game retains the original visuals and gameplay. Unlike a properly
+authored game-specific death animation, the current native despawn hides
+defeated actors immediately, so an imported death clip may not be visible
+without an additional dedicated death-presentation upgrade. Automatic AI
+rigging cannot create missing attack, hurt or death animations on its own.
+Run the scene on Windows to check clipping, orientation, animation transitions,
+GPU memory, and camera scale before shipping large animated model packs.
+
 ## Adaptive 3D art quality and verified release builds
 
 Moonfall now treats approved 4K PBR art as an **optional visual upgrade**,
