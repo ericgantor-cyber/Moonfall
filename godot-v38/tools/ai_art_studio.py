@@ -63,9 +63,12 @@ def wildlife_records() -> dict[str, dict]:
         ):
             archetype, taxon, names = family.groups()
             for name in names.split("|"):
-                records.setdefault(name.strip(), {
+                # A species may occur in several biomes. Prefer its latest
+                # curated habitat entry (e.g. jaguars in the rainforest),
+                # rather than locking its brief to the first occurrence.
+                records[name.strip()] = {
                     "habitat": habitat, "taxon": taxon, "archetype": archetype
-                })
+                }
     return records
 
 
