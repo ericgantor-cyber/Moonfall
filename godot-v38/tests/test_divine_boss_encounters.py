@@ -54,6 +54,8 @@ class DivineBossIntegrationTests(unittest.TestCase):
         self.assertIn('var strike_pos:Vector3=player.global_position if aimed else body.global_position', LIVE)
         self.assertIn('beast["divine_pattern_seq"]=cycle+1', LIVE)
         self.assertIn('func _refresh_boss_phase(beast:Dictionary)->void:', LIVE)
+        self.assertIn('if phase>previous:\\n  # A telegraphed strike', LIVE)
+        self.assertIn('_clear_divine_warning(beast)\\n  if is_instance_valid(label):', LIVE)
         self.assertIn('func _update_hud()->void:', LIVE)
         self.assertIn('func _update_region_visibility()->void:', LIVE)
         self.assertIn('func _clear_divine_warning(actor:Dictionary)->void:', LIVE)
