@@ -12,9 +12,11 @@ import os
 from pathlib import Path
 import re
 import shutil
+import struct
 import sys
 import urllib.error
 import urllib.request
+import zlib
 
 PROJECT = Path(__file__).resolve().parents[1]
 ROOT = PROJECT / "assets" / "ai_generated"
@@ -102,9 +104,72 @@ def dest_paths(item: dict) -> tuple[Path, Path]:
     return STAGING / item["category"] / filename, ROOT / item["category"] / filename
 
 
+MAX_IMAGE_BYTES = 12 * 1024 * 1024
+MAX_DIMENSION = 2048
+
+
 def validate_png(payload: bytes) -> None:
-    if not payload.startswith(PNG_HEADER) or len(payload) < 64:
-        raise ValueError("Generated file was not a valid-looking PNG.")
+    """Validate the image container, real 2D dimensions and alpha capability.
+
+    Never trust the filename or first eight bytes alone. A bounded PNG parser
+    rejects truncated chunks, missing IDAT/IEND and non-RGBA downloads before
+    an image can enter the game-art folder.
+    """
+    if not payload.startswith(PNG_HEADER) or not 64 <= len(payload) <= MAX_IMAGE_BYTES:
+        raise ValueError("Expected a complete PNG under 12 MiB.")
+    index = len(PNG_HEADER)
+    seen_ihdr = False
+    seen_idat = False
+    seen_iend = False
+    idat_segments = []
+    expected_bytes = 0
+    while index < len(payload):
+        if index + 12 > len(payload):
+            raise ValueError("Truncated PNG chunk.")
+        length = struct.unpack_from(">I", payload, index)[0]
+        chunk_type = payload[index + 4:index + 8]
+        end = index + 12 + length
+        if length > MAX_IMAGE_BYTES or end > len(payload):
+            raise ValueError("PNG chunk length is invalid.")
+        data = payload[index + 8:index + 8 + length]
+        claimed_crc = struct.unpack_from(">I", payload, index + 8 + length)[0]
+        actual_crc = zlib.crc32(chunk_type + data) & 0xFFFFFFFF
+        if actual_crc != claimed_crc:
+            raise ValueError("PNG chunk checksum failed.")
+        if chunk_type == b"IHDR":
+            if seen_ihdr or index != len(PNG_HEADER) or length != 13:
+                raise ValueError("Invalid PNG header.")
+            width, height, bit_depth, color_type, compression, filtering, interlace = struct.unpack(">IIBBBBB", data)
+            if not (64 <= width <= MAX_DIMENSION and 64 <= height <= MAX_DIMENSION):
+                raise ValueError("Unreasonable PNG dimensions.")
+            if (bit_depth, color_type, compression, filtering, interlace) != (8, 6, 0, 0, 0):
+                raise ValueError("Approved artwork must be an 8-bit RGBA non-interlaced PNG.")
+            seen_ihdr = True
+            expected_bytes = height * (width * 4 + 1)
+        elif not seen_ihdr:
+            raise ValueError("PNG image header must come first.")
+        elif chunk_type == b"IDAT":
+            seen_idat = True
+            idat_segments.append(data)
+        elif chunk_type == b"IEND":
+            if length != 0 or not seen_idat or end != len(payload):
+                raise ValueError("Missing image data or invalid PNG end marker.")
+            seen_iend = True
+        index = end
+        if seen_iend:
+            break
+    if not seen_ihdr or not seen_idat or not seen_iend:
+        raise ValueError("PNG missing required header, image data or end.")
+    # Decompression is capped by the dimensions in the PNG header, preventing
+    # compressed data bombs and rejecting truncated pixel streams.
+    decoder = zlib.decompressobj()
+    try:
+        decoded = decoder.decompress(b"".join(idat_segments), expected_bytes + 1)
+        decoded += decoder.flush(expected_bytes + 1 - len(decoded))
+    except zlib.error as err:
+        raise ValueError("PNG pixel stream is invalid.") from err
+    if len(decoded) != expected_bytes or not decoder.eof:
+        raise ValueError("PNG pixel data is truncated or exceeds declared dimensions.")
 
 
 def generate(prompt: str, model: str) -> bytes:

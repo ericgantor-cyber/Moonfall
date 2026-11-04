@@ -36,9 +36,24 @@ The existing Godot wildlife instance checks for an approved image with the match
 
 These are 2D transparent creature cutouts in the isometric 3D world, NOT automatically generated 3D skeletal models or animations. Game rendering does not contact the image API.
 
+## Full artwork plan and review gallery
+
+The offline planning board covers **55 named guardians and 234 distinct Americas animals (289 planned images)**. Generating the plan or gallery never contacts the image API, changes gameplay assets or charges anything.
+
+From the godot-v38 directory:
+
+    python tools/ai_art_review.py
+    python tools/ai_art_review.py --category guardians --gallery
+    python tools/ai_art_review.py --category all --gallery
+    python tools/ai_art_review.py --audit
+
+Open `ai_art_staging/review/index.html` in a browser to see image previews, counts of missing/staged/approved artworks, validation issues and individual generation prompts. The machine-readable companion `ai_art_staging/review/art_plan.json` contains all planned image prompts and statuses. Both live in the gitignored staging folder. This is a **review page**, not a paid batch-generation button. Generating assets still requires a separate explicit one-image command, and approving art still requires visual inspection and a separate command.
+
+The studio validates each approved PNG's real header, bounded RGBA dimensions, per-chunk CRC, decompressed image length, manifest checksum and asset ID. Invalid/truncated/opaque-RGB payloads do not enter approved art. None of these checks guarantees aesthetic quality: inspect anatomy, silhouette, style and transparency manually.
+
 ## Offline tests
 
-    python -m unittest discover -s tests -p "test_ai_art_studio.py" -v
+    python -m unittest discover -s tests -p "test_ai_art_*.py" -v
 
 Tests check 55 unique guardian prompts, the wildlife catalog, image staging, no-overwrite, checksums, and that preview is offline and paid generation requires a key.
 
