@@ -30,6 +30,16 @@ static func regional_chamber_position(centre:Vector2,dungeon_id:int,stage:int)->
  var local:Vector2=REGIONAL_ROOM_OFFSETS[stage-1]
  return entrance+Vector3(across.x*local.x+outward.x*local.y,0,across.y*local.x+outward.y*local.y)
 
+# Four readable, low-poly exploration landmarks; no collidable obstructions.
+const REGIONAL_LANDMARK_NAMES:Array[String]=["Moon Seal","Stone Archive","Eclipse Altar","Raven Beacon"]
+static func regional_landmark_type(dungeon_id:int,stage:int)->int:
+ if stage<2 or stage>REGIONAL_CHAMBERS_PER_DUNGEON:return -1
+ return posmod(dungeon_id*3+stage,REGIONAL_LANDMARK_NAMES.size())
+
+static func regional_landmark_name(dungeon_id:int,stage:int)->String:
+ var marker_type:int=regional_landmark_type(dungeon_id,stage)
+ return REGIONAL_LANDMARK_NAMES[marker_type] if marker_type>=0 else ""
+
 static func regional_chamber_title(stage:int)->String:
  if stage==1:return "Dungeon Threshold"
  if stage==2:return "Outer Sanctum"
