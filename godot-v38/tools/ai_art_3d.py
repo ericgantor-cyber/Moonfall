@@ -47,7 +47,7 @@ def paths(item: dict) -> tuple[Path, Path, Path]:
     if item["category"] not in ALLOWED_MODEL_CATEGORIES:
         raise ValueError("This category is not a supported 3D model.")
     identifier = item["asset_id"]
-    if not re.fullmatch(r"[a-z0-9_]{3,90}", identifier):
+    if not re.fullmatch(r"[a-z0-9_-]{3,90}", identifier):
         raise ValueError("Invalid model asset ID.")
     staged = STAGING_3D / item["category"] / f"{identifier}.glb"
     approved = APPROVED_3D / item["category"] / f"{identifier}.glb"
