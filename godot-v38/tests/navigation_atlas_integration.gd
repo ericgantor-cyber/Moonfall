@@ -41,18 +41,32 @@ func _run()->void:
  check((map.get("discovered") as Array)[0]==Vector3(855,0,0) and (map.get("discovered") as Array)[255]==Vector3(1110,0,0),"atlas retains most recent 256 visited locations in chronological order")
  check((map.get("quest_markers") as Array)[0]==Vector3.ZERO and (map.get("quest_markers") as Array)[127]==Vector3(127,0,0),"atlas retains highest-priority quest marker ordering")
 
- # Scene instantiation triggers expensive world generation; the complete game is
- # already booted by the other Windows gameplay and installed-game smoke suites.
- # Keep atlas integration focused on its controls and checkpoint wiring.
+ # Storage can retain a longer validated exploration trail than the 256 UI dots.
+ var exploration:Array[Vector3]=[]
+ for history_index in range(3000):
+  exploration.append(Vector3(float(history_index),0.0,float(history_index%29)))
+ exploration.append(Vector3(NAN,0.0,0.0))
+ var serialized:Array=NAV.encode_history(exploration)
+ check(serialized.size()==2048,"checkpoints retain 2,048 valid discoveries without saving corrupt points")
+ check(serialized[0]==[952.0,float(952%29)] and serialized.back()==[2999.0,float(2999%29)],"stored exploration retains the newest chronological discoveries")
+ var reloaded:Array[Vector3]=NAV.decode_history(serialized)
+ check(reloaded.size()==2048 and reloaded.front()==Vector3(952,0,952%29) and reloaded.back()==Vector3(2999,0,2999%29),"atlas history round-trips through save-shaped arrays")
+ var bad_history:Array=[[NAN,2],["bad",0],[INF,1],[1.0e30,0],[7,8]]
+ check(NAV.decode_history(bad_history)==[Vector3(7,0,8)],"malformed and nonfinite checkpoint locations cannot poison restored history")
+ map.call("set_discovered",reloaded)
+ check(map.get("discovered").size()==256,"2,048 saved discoveries render only 256 visible markers")
+ check((map.get("discovered") as Array)[0]==Vector3(2744,0,2744%29) and (map.get("discovered") as Array).back()==Vector3(2999,0,2999%29),"render budget displays most recently discovered landmarks")
+ # The atlas integration suite must never boot the entire procedural world.
+ # Full-world game startup remains covered by separate engine and smoke tests.
  var scene:PackedScene=load("res://scenes/main.tscn")
  check(scene!=null and scene.can_instantiate(),"map-enabled main scene loads")
- var native_source:String=FileAccess.get_file_as_string("res://scripts/native_v38_2.gd")
- check("func _toggle_atlas(" in native_source,"map toggle exists")
- check("func _atlas_select_waypoint(" in native_source,"click-to-mark handler exists")
- check("func _atlas_zoom(" in native_source,"zoom handler exists")
- check("atlas_zoom_radius" in native_source and "atlas_waypoint" in native_source,"save wires zoom and waypoint")
- check("atlas_discovered" in native_source and "atlas_quest_positions" in native_source,"save wires exploration and quest locations")
- check("func atlas_set_quest_destination(" in native_source,"quests can publish map targets")
+ var source:String=FileAccess.get_file_as_string("res://scripts/native_v38_2.gd")
+ check("func _toggle_atlas(" in source and "func _atlas_select_waypoint(" in source,"map toggle and click-to-mark handlers exist")
+ check("func _atlas_zoom(" in source,"zoom handler exists")
+ check("atlas_zoom_radius" in source and "atlas_waypoint" in source,"checkpoint stores zoom and waypoint")
+ check("NAVIGATION_MAP.encode_history(atlas_discovered)" in source,"checkpoint stores capped discovery history")
+ check("NAVIGATION_MAP.decode_history(extras.get(" in source,"checkpoint restores historical discovery points")
+ check("atlas_quest_positions" in source and "func atlas_set_quest_destination(" in source,"quest destinations retain atlas integration")
  map.queue_free()
  print("MOONFALL ATLAS "+("PASS" if failures==0 else "FAIL"))
  quit(0 if failures==0 else 1)
