@@ -1,0 +1,90 @@
+"""Offline regressions for the optional AI Art Studio. No requests or fees."""
+import importlib.util
+import json
+from pathlib import Path
+import tempfile
+import unittest
+from unittest.mock import patch
+
+FILE = Path(__file__).resolve().parents[1] / "tools" / "ai_art_studio.py"
+spec = importlib.util.spec_from_file_location("moonfall_ai_art_studio", FILE)
+studio = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(studio)
+
+# Minimal PNG bytes for signature-based import checks.
+PNG = studio.PNG_HEADER + b"\x00" * 72
+
+
+class TestMoonfallAIArt(unittest.TestCase):
+    def test_all_fifty_five_guardian_profiles(self):
+        identities = [studio.guardian_profile(i) for i in range(55)]
+        self.assertEqual(len({d["asset_id"] for d in identities}), 55)
+        self.assertEqual(len({d["subject"] for d in identities}), 55)
+        self.assertEqual(identities[0]["subject"], "Moonfang Sentinel")
+        self.assertEqual(identities[54]["subject"], "Starfall Sovereign")
+        self.assertTrue(all(d["category"] == "guardians" for d in identities))
+        for value in [-1, 55]:
+            with self.assertRaises(ValueError):
+                studio.guardian_profile(value)
+
+    def test_wildlife_catalog_and_paths(self):
+        names = studio.available_animals()
+        self.assertGreaterEqual(len(names), 230)
+        self.assertIn("Jaguar", names)
+        self.assertIn("American bison", names)
+        animal = studio.animal_profile("Jaguar")
+        self.assertEqual(animal["asset_id"], "animal_jaguar")
+        with self.assertRaises(ValueError):
+            studio.animal_profile("Z_Original")
+
+    def test_prompts_protect_artwork(self):
+        for item in (studio.guardian_profile(3), studio.animal_profile("Jaguar")):
+            prompt = studio.prompt_for(item)
+            self.assertIn(item["subject"], prompt)
+            self.assertIn("transparent background", prompt)
+            self.assertIn("Z or Nyra", prompt)
+            self.assertIn("No words", prompt)
+
+    def test_preview_is_offline(self):
+        with patch.object(studio, "generate", side_effect=AssertionError("Unexpected API call")):
+            self.assertEqual(studio.main(["--guardian", "7"]), 0)
+
+    def test_stage_review_and_no_overwrite(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with patch.object(studio, "STAGING", Path(directory) / "staging"), patch.object(
+                studio, "ROOT", Path(directory) / "approved"
+            ):
+                item = studio.guardian_profile(0)
+                staged = studio.stage(item, studio.prompt_for(item), studio.MODEL, PNG)
+                self.assertTrue(staged.exists())
+                self.assertEqual(json.loads(staged.with_suffix(".json").read_text())["reviewed"], False)
+                dest = studio.approve(item)
+                self.assertTrue(dest.exists())
+                self.assertEqual(dest.read_bytes(), PNG)
+                self.assertTrue(json.loads(dest.with_suffix(".json").read_text())["reviewed"])
+                with self.assertRaises(FileExistsError):
+                    studio.approve(item)
+                with self.assertRaises(FileExistsError):
+                    studio.stage(item, "new prompt", studio.MODEL, PNG)
+
+    def test_tampering_and_invalid_images_are_rejected(self):
+        with self.assertRaises(ValueError):
+            studio.validate_png(b"not an image")
+        with tempfile.TemporaryDirectory() as directory:
+            with patch.object(studio, "STAGING", Path(directory) / "staging"), patch.object(
+                studio, "ROOT", Path(directory) / "approved"
+            ):
+                item = studio.guardian_profile(4)
+                staged = studio.stage(item, "test", studio.MODEL, PNG)
+                staged.write_bytes(PNG + b"x")
+                with self.assertRaises(ValueError):
+                    studio.approve(item)
+
+    def test_generation_requires_explicit_api_key(self):
+        with patch.dict("os.environ", {"OPENAI_API_KEY": ""}):
+            with self.assertRaises(ValueError):
+                studio.generate("test", studio.MODEL)
+
+
+if __name__ == "__main__":
+    unittest.main()
