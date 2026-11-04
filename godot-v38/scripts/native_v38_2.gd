@@ -14,6 +14,9 @@ var atlas_quest_positions:Array[Vector3]=[]
 var atlas_legend:Label
 var atlas_discovered:Array[Vector3]=[]
 var atlas_chambers_seen:Array[int]=[]
+var atlas_dungeon_site:int=-1
+var atlas_dungeon_zoom_radius:float=35.0
+var atlas_heading:Label
 const ATLAS_DISCOVERY_SPACING:float=55.0
 const ATLAS_MAX_DISCOVERED:int=2048
 
@@ -28,6 +31,8 @@ func _start_game(selected_hero:String)->void:
  atlas_discovered.clear()
  atlas_chambers_seen.clear()
  atlas_chamber_scan_elapsed=0.0
+ atlas_dungeon_site=-1
+ atlas_dungeon_zoom_radius=NAVIGATION_MAP.DUNGEON_DEFAULT_ZOOM
  _refresh_atlas()
 
 func _checkpoint_extra_data()->Dictionary:
@@ -47,6 +52,8 @@ func _restore_data(data:Dictionary)->void:
  atlas_discovered.clear()
  atlas_chambers_seen.clear()
  atlas_quest_positions.clear()
+ atlas_dungeon_site=-1
+ atlas_dungeon_zoom_radius=NAVIGATION_MAP.DUNGEON_DEFAULT_ZOOM
  atlas_zoom_radius=clampf(float(extras.get("atlas_zoom_radius",120.0)),25.0,2000.0) if extras is Dictionary else 120.0
  if not is_finite(atlas_zoom_radius):atlas_zoom_radius=120.0
  if extras is Dictionary:
@@ -90,6 +97,7 @@ func _create_atlas()->void:
  atlas_panel.add_child(layout)
  var heading:Label=Label.new()
  heading.text="MOONFALL ATLAS | N ↑ | CLICK TO MARK"
+ atlas_heading=heading
  layout.add_child(heading)
  atlas_chart=NAVIGATION_MAP.new()
  atlas_chart.custom_minimum_size=Vector2(300,240)
@@ -130,8 +138,11 @@ func _create_atlas()->void:
 
 func _atlas_zoom(factor:float)->void:
  if not is_instance_valid(atlas_chart):return
- atlas_zoom_radius=clampf(atlas_zoom_radius*factor,25.0,2000.0)
- atlas_chart.set("metres_per_half_width",atlas_zoom_radius)
+ if atlas_dungeon_site>=0:
+  atlas_dungeon_zoom_radius=clampf(atlas_dungeon_zoom_radius*factor,25.0,90.0)
+ else:
+  atlas_zoom_radius=clampf(atlas_zoom_radius*factor,25.0,2000.0)
+ atlas_chart.set("metres_per_half_width",atlas_dungeon_zoom_radius if atlas_dungeon_site>=0 else atlas_zoom_radius)
  _refresh_atlas()
 
 func _toggle_atlas()->void:
@@ -180,15 +191,42 @@ func _atlas_chamber_marker_positions()->Array[Vector3]:
   if NAVIGATION_MAP._valid_world_point(chamber_node.global_position):markers.append(chamber_node.global_position)
  return markers
 
+func _atlas_update_dungeon_context(position:Vector3)->void:
+ var anchors:Array[Vector3]=[]
+ for entry in rifts:
+  var anchor:Vector3=entry.get("anchor",Vector3.ZERO)
+  anchors.append(anchor)
+ var next_site:int=NAVIGATION_MAP.dungeon_site_at(position,anchors,atlas_dungeon_site)
+ if next_site==atlas_dungeon_site:return
+ atlas_dungeon_site=next_site
+ if is_instance_valid(atlas_panel) and atlas_panel.visible:_refresh_atlas()
+
+func _atlas_dungeon_rooms()->Array[Vector3]:
+ var rooms:Array[Vector3]=[]
+ if atlas_dungeon_site<0:return rooms
+ for chamber in v321_chambers:
+  if int(chamber.get("site",-1))!=atlas_dungeon_site:continue
+  var room_node:Node3D=chamber.get("node") as Node3D
+  if is_instance_valid(room_node) and NAVIGATION_MAP._valid_world_point(room_node.global_position):rooms.append(room_node.global_position)
+ return rooms
+
 func _refresh_atlas()->void:
  if not is_instance_valid(atlas_chart) or not is_instance_valid(atlas_readout):return
  var pos:Vector3=player.global_position if is_instance_valid(player) else Vector3.ZERO
- atlas_chart.set("metres_per_half_width",atlas_zoom_radius)
+ atlas_chart.set("metres_per_half_width",atlas_dungeon_zoom_radius if atlas_dungeon_site>=0 else atlas_zoom_radius)
+ atlas_chart.call("set_dungeon_context",atlas_dungeon_site>=0,_atlas_dungeon_rooms())
+ if is_instance_valid(atlas_heading):
+  atlas_heading.text=("DUNGEON MAP: "+str(rifts[atlas_dungeon_site].get("name","Rift"))+" | ROOMS 1-3") if atlas_dungeon_site>=0 and atlas_dungeon_site<rifts.size() else "MOONFALL WORLD ATLAS | N ↑ | CLICK TO MARK"
  atlas_chart.call("set_discovered",atlas_discovered)
  atlas_chart.call("set_chamber_markers",_atlas_chamber_marker_positions())
  atlas_chart.call("set_quest_markers",atlas_quest_positions)
  atlas_chart.call("update_navigation",pos,atlas_waypoint,atlas_has_waypoint)
  atlas_readout.text="X %.0f | Z %.0f | Trail: %d/%d | Chambers: %d/%d | Rifts: %d/%d | Quests: %d" % [pos.x,pos.z,atlas_discovered.size(),ATLAS_MAX_DISCOVERED,atlas_chambers_seen.size(),v321_chambers.size(),rifts_cleared.size(),rifts.size(),atlas_quest_positions.size()]
+ if atlas_dungeon_site>=0:
+  var local_seen:int=0
+  for stage in range(3):
+   if atlas_chambers_seen.has(atlas_dungeon_site*3+stage):local_seen+=1
+  atlas_readout.text+=" | This dungeon: %d/3" % local_seen
  if atlas_has_waypoint:
   var horizontal_distance:float=Vector2(pos.x,pos.z).distance_to(Vector2(atlas_waypoint.x,atlas_waypoint.z))
   var offset:Vector2=Vector2(atlas_waypoint.x-pos.x,atlas_waypoint.z-pos.z)
@@ -224,6 +262,7 @@ func _process(delta:float)->void:
   if atlas_chamber_scan_elapsed>=0.25:
    atlas_chamber_scan_elapsed=0.0
    _atlas_record_nearby_chambers(here)
+   _atlas_update_dungeon_context(here)
   if NAVIGATION_MAP._valid_world_point(here):
    if atlas_discovered.is_empty() or atlas_discovered.back().distance_squared_to(Vector3(here.x,0.0,here.z))>=ATLAS_DISCOVERY_SPACING*ATLAS_DISCOVERY_SPACING:
     atlas_discovered.append(Vector3(here.x,0.0,here.z))

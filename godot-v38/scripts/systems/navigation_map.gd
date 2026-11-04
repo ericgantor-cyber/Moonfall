@@ -8,6 +8,8 @@ var has_waypoint:bool=false
 var quest_markers:Array[Vector3]=[]
 var discovered:Array[Vector3]=[]
 var discovered_chambers:Array[Vector3]=[]
+var dungeon_rooms:Array[Vector3]=[]
+var dungeon_active:bool=false
 var metres_per_half_width:float=120.0
 const MAX_DISCOVERED_MARKERS:int=256
 const MAX_QUEST_MARKERS:int=128
@@ -15,6 +17,27 @@ const MAX_WORLD_COORD:float=1000000.0
 const MAX_HISTORY_POINTS:int=2048
 const MAX_CHAMBER_MARKERS:int=64
 const MAX_TRAIL_SEGMENT_METRES:float=160.0
+const DUNGEON_ENTER_RADIUS:float=24.0
+const DUNGEON_LEAVE_RADIUS:float=35.0
+const DUNGEON_DEFAULT_ZOOM:float=35.0
+
+# Hysteresis prevents the map flickering at a dungeon boundary.
+static func dungeon_site_at(position:Vector3,anchors:Array[Vector3],previous_site:int)->int:
+ if not _valid_world_point(position):return -1
+ if previous_site>=0 and previous_site<anchors.size():
+  if _valid_world_point(anchors[previous_site]):
+   var prior:Vector3=anchors[previous_site]
+   if Vector2(position.x-prior.x,position.z-prior.z).length_squared()<=DUNGEON_LEAVE_RADIUS*DUNGEON_LEAVE_RADIUS:return previous_site
+ var closest:int=-1
+ var best_distance:float=DUNGEON_ENTER_RADIUS*DUNGEON_ENTER_RADIUS
+ for i in range(anchors.size()):
+  var anchor:Vector3=anchors[i]
+  if not _valid_world_point(anchor):continue
+  var distance:float=Vector2(position.x-anchor.x,position.z-anchor.z).length_squared()
+  if distance<best_distance:
+   best_distance=distance
+   closest=i
+ return closest
 
 # Save history separately from the small, viewport-friendly marker collection.
 # Read newest valid positions first so malformed entries cannot evict discoveries.
@@ -76,6 +99,20 @@ func _validated_markers(points:Array[Vector3],limit:int,recent_first:bool=false)
    if accepted.size()>=limit:break
  return accepted
 
+# Convert map clicks near numbered dungeon rooms into exact room waypoints.
+static func dungeon_room_index_at(point:Vector3,rooms:Array[Vector3],radius_metres:float)->int:
+ if not _valid_world_point(point) or not is_finite(radius_metres) or radius_metres<=0.0:return -1
+ var best:float=radius_metres*radius_metres
+ var nearest:int=-1
+ for i in range(mini(rooms.size(),MAX_CHAMBER_MARKERS)):
+  var chamber:Vector3=rooms[i]
+  if not _valid_world_point(chamber):continue
+  var distance:float=Vector2(point.x-chamber.x,point.z-chamber.z).length_squared()
+  if distance<best:
+   best=distance
+   nearest=i
+ return nearest
+
 func _draw()->void:
  var rect:Rect2=Rect2(Vector2.ZERO,size)
  draw_rect(rect,Color(0.025,0.04,0.075,0.94),true)
@@ -99,6 +136,15 @@ func _draw()->void:
    draw_circle(centre+offset,2.5,Color(0.22,0.65,0.58,0.65))
   previous=offset
   previous_valid=visible
+ # Dungeon context displays all three authored chamber positions, including unexplored rooms.
+ if dungeon_active:
+  for room_index in range(dungeon_rooms.size()):
+   var room_position:Vector3=dungeon_rooms[room_index]
+   var room_offset:Vector2=Vector2(room_position.x-player_position.x,room_position.z-player_position.z)*scale_factor
+   if absf(room_offset.x)>size.x*0.45 or absf(room_offset.y)>size.y*0.45:continue
+   var room_screen:Vector2=centre+room_offset
+   draw_arc(room_screen,11.0,0.0,TAU,20,Color(0.47,0.55,0.66,0.85),1.5)
+   draw_string(ThemeDB.fallback_font,room_screen+Vector2(-4.0,5.0),str(room_index+1),HORIZONTAL_ALIGNMENT_LEFT,-1,14,Color(0.80,0.88,0.98))
  # Visited authored chambers are gold-ring landmarks independent of quests.
  for chamber_position in discovered_chambers:
   var chamber_offset:Vector2=Vector2(chamber_position.x-player_position.x,chamber_position.z-player_position.z)*scale_factor
@@ -141,11 +187,20 @@ func _gui_input(event:InputEvent)->void:
   var offset:Vector2=(event.position-size*0.5)/scale_factor
   var location:Vector3=Vector3(player_position.x+offset.x,player_position.y,player_position.z+offset.y)
   if not _valid_world_point(location):return
+  if dungeon_active:
+   var nearest_room:int=dungeon_room_index_at(location,dungeon_rooms,14.0/scale_factor)
+   if nearest_room>=0:location=dungeon_rooms[nearest_room]
   waypoint_selected.emit(location)
   accept_event()
 
 func set_quest_markers(markers:Array[Vector3])->void:
  quest_markers=_validated_markers(markers,MAX_QUEST_MARKERS)
+ queue_redraw()
+
+func set_dungeon_context(active:bool,rooms:Array[Vector3])->void:
+ dungeon_active=active
+ dungeon_rooms.clear()
+ if active:dungeon_rooms=_validated_markers(rooms,MAX_CHAMBER_MARKERS)
  queue_redraw()
 
 func set_chamber_markers(positions:Array[Vector3])->void:
