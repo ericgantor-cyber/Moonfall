@@ -113,6 +113,8 @@ def _embedded_texture_report(gltf: dict, binary: bytes) -> dict:
             if not isinstance(view_id, int) or view_id < 0 or view_id >= len(buffer_views):
                 raise ValueError("GLB image buffer view is invalid.")
             view = buffer_views[view_id]
+            if not isinstance(view, dict) or view.get("buffer", 0) != 0:
+                raise ValueError("Embedded GLB image must reference the internal binary buffer.")
             start = view.get("byteOffset", 0)
             length = view.get("byteLength", 0)
             if (not isinstance(start, int) or not isinstance(length, int)
@@ -392,10 +394,15 @@ def approve_model(item: dict) -> Path:
     data = staged.read_bytes()
     details = glb_info(data)
     record = json.loads(record_path.read_text(encoding="utf-8"))
+    previous_geometry = record.get("geometry", {})
     if (record.get("asset_id") != item["asset_id"]
             or record.get("sha256") != hashlib.sha256(data).hexdigest()
-            or record.get("geometry") != details):
+            or not isinstance(previous_geometry, dict)
+            or any(details.get(key) != value for key, value in previous_geometry.items())):
         raise ValueError("Model doesn't match its review manifest.")
+    # Upgrade older staged manifests with the new actual texture report,
+    # without requiring a re-import or silently approving altered bytes.
+    record["geometry"] = details
     approved.parent.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(staged, approved)
     record["reviewed"] = True
