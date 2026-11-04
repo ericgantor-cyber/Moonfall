@@ -110,6 +110,18 @@ func _run()->void:
   var outside:Vector3=Vector3(cos(angle)*1.91,0.0,sin(angle)*1.91)
   check(not COMBAT.elite_missed(Vector3.ZERO,inside,0.0) and COMBAT.elite_missed(Vector3.ZERO,outside,0.0),"elite planar strike threshold heading %d"%test_index)
  check(is_equal_approx(COMBAT.guardian_attack_cooldown(3),2.1),"guardian phase attack rate")
+ check(is_equal_approx(COMBAT.guardian_attack_cooldown(-2147483647),3.0),"corrupt negative boss phase cannot stall attacks")
+ check(is_equal_approx(COMBAT.guardian_attack_cooldown(0),3.0),"zero phase safely falls back to initial cooldown")
+ check(is_equal_approx(COMBAT.guardian_attack_cooldown(2147483647),1.6),"corrupt high boss phase respects fast attack floor")
+ var guardian_phase_sweep_ok:bool=true
+ for sample_index in range(111):
+  var phase:int=sample_index-30
+  var expected:float=maxf(1.6,3.0-0.45*float(maxi(1,phase)-1))
+  var actual:float=COMBAT.guardian_attack_cooldown(phase)
+  if not is_finite(actual) or actual<1.6 or actual>3.0 or not is_equal_approx(actual,expected):
+   guardian_phase_sweep_ok=false
+   break
+ check(guardian_phase_sweep_ok,"111 guardian cooldown phases stay inside 1.6-3.0 seconds")
  # Reproducible CPU microbenchmark, not a claim about real-world FPS.
  var start:=Time.get_ticks_usec()
  var sum:float=0.0
