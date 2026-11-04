@@ -37,6 +37,19 @@ func _run() -> void:
  check(game.get("hero_playing"), "Hero remains active in live simulation")
  check(game.get("visible_regions") >= 1, "Region visibility remains valid")
  check(game.get("beasts").size() == 76, "74 legacy actor IDs plus two divine boss actors remain stable")
+ # Passive wildlife still flees but must never acquire hostile engagement;
+ # nearby hostile fauna retains its existing sight and threat behavior.
+ var passive_actor:Dictionary={}
+ var hostile_actor:Dictionary={}
+ for actor in game.get("zone_beast_lists")[0]:
+  if not bool(actor.get("alive",false)):continue
+  if not bool(actor.get("hostile",false)) and passive_actor.is_empty():passive_actor=actor
+  if bool(actor.get("hostile",false)) and hostile_actor.is_empty():hostile_actor=actor
+ check(not passive_actor.is_empty() and not hostile_actor.is_empty(),"Passive and hostile regional wildlife exist")
+ if not passive_actor.is_empty():
+  game.call("_update_beast_step",passive_actor,0.0)
+  check(not bool(passive_actor.get("engaged",true)),"Passive fauna never enters hostile engagement")
+
  # Elite windups lock the attacker while the marked impact position remains
  # fixed. Test during real physics frames, not only static source inspection.
  var test_elite:Dictionary={}

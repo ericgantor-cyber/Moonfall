@@ -1989,8 +1989,12 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
  beast["elite_lunge_cd"]=maxf(0.0,float(beast.get("elite_lunge_cd",0.0))-delta)
  var move_speed:=float(BEASTS[kind]["speed"])
  var is_hostile:=bool(beast["hostile"])
- var perception:float=AI_RULES.perception(map_time<float(beast.get("alert_until",0.0)),weather_name,_day_phase()=="Night")
- var engaged:=is_hostile and distance<perception and _has_clear_sight(body,player)
+ # Passive wildlife never attacks; skip perception/day-phase work for it.
+ # Preserve hostile sight checks, weather scaling and alert ranges.
+ var engaged:bool=false
+ if is_hostile:
+  var perception:float=AI_RULES.perception(map_time<float(beast.get("alert_until",0.0)),weather_name,_day_phase()=="Night")
+  engaged=distance<perception and _has_clear_sight(body,player)
  beast["engaged"]=engaged
  # v38.3: role-aware low-health retreat for live hostile fauna.
  # Preserve existing boss telegraphs, ecology, attacks and actor pools.
