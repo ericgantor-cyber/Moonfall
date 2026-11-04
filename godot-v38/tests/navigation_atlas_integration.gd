@@ -65,6 +65,12 @@ func _run()->void:
  # Habitat catalog validation does not allocate extra enemy physics actors.
  check(AMERICAS.HABITATS.size()==6,"Americas roster covers all six existing world regions")
  check(AUTO_ART_QUALITY.animal_limit(0,100)==0 and AUTO_ART_QUALITY.animal_limit(1,100)==50 and AUTO_ART_QUALITY.animal_limit(2,100)==100,"AI art quality scales to all nearby valid 3D models instead of three creatures")
+ check(AUTO_ART_QUALITY.animation_poll_stride(2,100.0)==1 and AUTO_ART_QUALITY.animation_poll_stride(2,40.0*40.0)==2,"nearby rigs poll at full rate and far rigs reduce idle polling")
+ check(AUTO_ART_QUALITY.animation_poll_stride(1,40.0*40.0)==3 and AUTO_ART_QUALITY.animation_poll_stride(0,40.0*40.0)==4,"adaptive low-quality tiers reduce distant animation work")
+ check(AUTO_ART_QUALITY.should_poll_animation(0,1600.0,1,0,"attack","idle"),"combat attack transitions bypass the distant animation throttle")
+ check(AUTO_ART_QUALITY.should_poll_animation(0,1600.0,1,0,"hurt","hurt"),"ongoing combat reactions retain their visual checks")
+ check(not AUTO_ART_QUALITY.should_poll_animation(0,1600.0,1,0,"idle","idle") and AUTO_ART_QUALITY.should_poll_animation(0,1600.0,4,0,"idle","idle"),"unchanged distant idle clips are polled on scheduled ticks")
+ check(AUTO_ART_QUALITY.should_poll_animation(0,1600.0,1,0,"death","move"),"death pose never waits for distant idle budget")
  check(AI_RIG_ANIMATION.canonical_clip("Armature|Walking_001")=="move","GLB AnimationPlayer walking aliases map to native movement")
  check(AI_RIG_ANIMATION.canonical_clip("Dragon/Attack_002")=="attack","imported skeletal attack aliases map to native combat visuals")
  check(AI_RIG_ANIMATION.canonical_clip("Take001").is_empty(),"unknown imported clips are ignored instead of driving gameplay")
