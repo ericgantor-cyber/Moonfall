@@ -55,8 +55,120 @@ def paths(item: dict) -> tuple[Path, Path, Path]:
     return staged, approved, task
 
 
+def embedded_image_size(data: bytes, mime: str) -> tuple[int, int] | None:
+    """Read PNG/JPEG header dimensions without decoding potentially huge textures."""
+    if mime == "image/png" or data.startswith(b"\x89PNG\r\n\x1a\n"):
+        if len(data) < 24 or not data.startswith(b"\x89PNG\r\n\x1a\n"):
+            return None
+        width, height = struct.unpack_from(">II", data, 16)
+        return (width, height) if 0 < width <= 16384 and 0 < height <= 16384 else None
+    if mime != "image/jpeg" and not data.startswith(b"\xff\xd8"):
+        return None
+    if not data.startswith(b"\xff\xd8"):
+        return None
+    index = 2
+    while index < len(data) - 10:
+        if data[index] != 0xFF:
+            return None
+        while index < len(data) and data[index] == 0xFF:
+            index += 1
+        if index >= len(data):
+            return None
+        marker = data[index]
+        index += 1
+        if marker in (0xD8, 0xD9) or 0xD0 <= marker <= 0xD7:
+            continue
+        if index + 2 > len(data):
+            return None
+        length = struct.unpack_from(">H", data, index)[0]
+        if length < 2 or index + length > len(data):
+            return None
+        if marker in (0xC0, 0xC1, 0xC2, 0xC3, 0xC5, 0xC6, 0xC7,
+                      0xC9, 0xCA, 0xCB, 0xCD, 0xCE, 0xCF):
+            if length < 7:
+                return None
+            height, width = struct.unpack_from(">HH", data, index + 3)
+            return (width, height) if 0 < width <= 16384 and 0 < height <= 16384 else None
+        if marker == 0xDA:
+            break
+        index += length
+    return None
+
+
+def _embedded_texture_report(gltf: dict, binary: bytes) -> dict:
+    """Record actual embedded texture dimensions, not just a provider's request."""
+    images = gltf.get("images", [])
+    buffer_views = gltf.get("bufferViews", [])
+    textures = gltf.get("textures", [])
+    dimensions: list[tuple[int, int] | None] = []
+    if not isinstance(images, list) or len(images) > 96:
+        raise ValueError("GLB has too many texture resources.")
+    for image in images:
+        if not isinstance(image, dict):
+            raise ValueError("Invalid GLB image record.")
+        blob = b""
+        mime = str(image.get("mimeType", ""))
+        if "bufferView" in image:
+            view_id = image["bufferView"]
+            if not isinstance(view_id, int) or view_id < 0 or view_id >= len(buffer_views):
+                raise ValueError("GLB image buffer view is invalid.")
+            view = buffer_views[view_id]
+            start = view.get("byteOffset", 0)
+            length = view.get("byteLength", 0)
+            if (not isinstance(start, int) or not isinstance(length, int)
+                    or start < 0 or length < 0 or length > 48 * 1024 * 1024
+                    or start + length > len(binary)):
+                raise ValueError("GLB contains an invalid or oversized embedded texture.")
+            blob = binary[start:start + length]
+        elif "uri" in image:
+            uri = image["uri"]
+            if not isinstance(uri, str) or not uri.startswith("data:") or "," not in uri:
+                raise ValueError("External texture image references are forbidden.")
+            import base64
+            header, encoded = uri.split(",", 1)
+            if ";base64" not in header or len(encoded) > 64 * 1024 * 1024:
+                raise ValueError("GLB image data URI is invalid or too large.")
+            try:
+                blob = base64.b64decode(encoded, validate=True)
+            except (ValueError, base64.binascii.Error) as error:
+                raise ValueError("Invalid inline image encoding.") from error
+            mime = header.removeprefix("data:").split(";", 1)[0]
+        dimensions.append(embedded_image_size(blob, mime))
+    referenced: set[int] = set()
+    pbr_maps = 0
+    for material in gltf.get("materials", []):
+        if not isinstance(material, dict):
+            continue
+        pbr = material.get("pbrMetallicRoughness", {})
+        mappings = [pbr.get("baseColorTexture"), pbr.get("metallicRoughnessTexture"),
+                    material.get("normalTexture"), material.get("occlusionTexture")]
+        for mapping in mappings:
+            if not isinstance(mapping, dict):
+                continue
+            texture_id = mapping.get("index")
+            if not isinstance(texture_id, int) or texture_id < 0 or texture_id >= len(textures):
+                raise ValueError("GLB material texture index is invalid.")
+            tex = textures[texture_id]
+            source = tex.get("source")
+            if source is not None:
+                if not isinstance(source, int) or source < 0 or source >= len(images):
+                    raise ValueError("GLB texture references an invalid image.")
+                referenced.add(source)
+        if pbr.get("metallicRoughnessTexture") and material.get("normalTexture"):
+            pbr_maps += 1
+    reported = [dimensions[i] for i in sorted(referenced)] if referenced else dimensions
+    known = [v for v in reported if v]
+    return {
+        "texture_images": len(images),
+        "texture_dimensions": [[w, h] if w and h else None for val in reported for w, h in [val or (0, 0)]],
+        "max_texture_size": max((max(w, h) for w, h in known), default=0),
+        "has_4k_texture": any(w >= 4096 and h >= 4096 for w, h in known),
+        "pbr_material_count": pbr_maps,
+    }
+
+
 def glb_info(payload: bytes) -> dict:
-    """Check a self-contained, scene-bearing GLB and cap game mesh complexity."""
+    """Check self-contained GLB geometry and report *actual* texture/PBR details."""
     if len(payload) < 32 or len(payload) > MAX_GLB_BYTES:
         raise ValueError("Model must be a real GLB smaller than 96 MiB.")
     magic, version, length = struct.unpack_from("<4sII", payload, 0)
@@ -65,6 +177,7 @@ def glb_info(payload: bytes) -> dict:
     cursor = 12
     first = True
     document = None
+    binary = b""
     binary_chunks = 0
     while cursor < len(payload):
         if cursor + 8 > len(payload):
@@ -73,7 +186,7 @@ def glb_info(payload: bytes) -> dict:
         cursor += 8
         if size > MAX_GLB_BYTES or cursor + size > len(payload):
             raise ValueError("Invalid GLB chunk length.")
-        if first and kind != 0x4E4F534A:  # JSON
+        if first and kind != 0x4E4F534A:
             raise ValueError("GLB must start with JSON.")
         if kind == 0x4E4F534A:
             if document is not None:
@@ -84,10 +197,13 @@ def glb_info(payload: bytes) -> dict:
                 raise ValueError("GLB JSON is malformed.") from error
         elif kind == 0x004E4942:
             binary_chunks += 1
+            if binary_chunks > 1:
+                raise ValueError("Multiple GLB binary chunks are unsupported.")
+            binary = payload[cursor:cursor + size]
         cursor += size
         first = False
-    if document is None or cursor != len(payload) or document.get("asset", {}).get("version") != "2.0":
-        raise ValueError("GLB lacks a valid glTF 2.0 scene.")
+    if not isinstance(document, dict) or cursor != len(payload) or document.get("asset", {}).get("version") != "2.0":
+        raise ValueError("GLB lacks valid glTF 2.0 scene metadata.")
     meshes = document.get("meshes", [])
     nodes = document.get("nodes", [])
     if not isinstance(meshes, list) or not 1 <= len(meshes) <= 120 or not isinstance(nodes, list) or len(nodes) > 800:
@@ -98,20 +214,16 @@ def glb_info(payload: bytes) -> dict:
         for entry in document.get(collection_name, []):
             uri = entry.get("uri")
             if uri is not None and not (isinstance(uri, str) and uri.startswith("data:")):
-                raise ValueError("GLB external file and network references are not permitted.")
+                raise ValueError("GLB external file/network references are forbidden.")
     accessors = document.get("accessors", [])
     if not isinstance(accessors, list) or len(accessors) > 3500:
         raise ValueError("Excessive GLB accessor count.")
     triangles = 0
     for mesh in meshes:
         for primitive in mesh.get("primitives", []):
-            mode = primitive.get("mode", 4)
-            if mode != 4:
+            if primitive.get("mode", 4) != 4:
                 raise ValueError("Gameplay 3D art must use triangle primitives.")
-            if "indices" in primitive:
-                index = primitive["indices"]
-            else:
-                index = primitive.get("attributes", {}).get("POSITION", -1)
+            index = primitive.get("indices", primitive.get("attributes", {}).get("POSITION", -1))
             if not isinstance(index, int) or not 0 <= index < len(accessors):
                 raise ValueError("GLB primitive references an invalid accessor.")
             count = accessors[index].get("count", 0)
@@ -122,9 +234,10 @@ def glb_info(payload: bytes) -> dict:
                 raise ValueError("3D model exceeds 100,000 triangles. Remesh for Windows performance.")
     if not 1 <= triangles <= MAX_MODEL_TRIANGLES:
         raise ValueError("Model must contain real triangle geometry.")
-    return {"triangles": triangles, "mesh_count": len(meshes),
-            "nodes": len(nodes), "bytes": len(payload), "has_binary_chunk": binary_chunks > 0}
-
+    result = {"triangles": triangles, "mesh_count": len(meshes),
+              "nodes": len(nodes), "bytes": len(payload), "has_binary_chunk": binary_chunks > 0}
+    result.update(_embedded_texture_report(document, binary))
+    return result
 
 def approved_2d(item: dict) -> bytes:
     _, source = studio.dest_paths(item)
@@ -302,6 +415,7 @@ def main(argv: list[str] | None = None) -> int:
     action.add_argument("--fetch", action="store_true", help="Fetch completed GLB to review staging")
     action.add_argument("--import-model", metavar="GLB", type=Path, help="Import your own existing GLB without API billing")
     action.add_argument("--approve", action="store_true", help="Approve a reviewed staged 3D model for automatic Godot import")
+    action.add_argument("--audit", action="store_true", help="Check actual triangles, embedded 4K map dimensions and PBR materials")
     args = parser.parse_args(argv)
     try:
         item = choose_item(args)
@@ -319,6 +433,14 @@ def main(argv: list[str] | None = None) -> int:
             print("3D candidate staged for visual review:", import_local(item, args.import_model))
         elif args.approve:
             print("3D model approved; Godot imports it by name:", approve_model(item))
+        elif args.audit:
+            model_path = approved if approved.is_file() else staged
+            if not model_path.is_file():
+                raise FileNotFoundError("No approved or staged GLB to audit.")
+            print(json.dumps({
+                "file": str(model_path), **glb_info(model_path.read_bytes()),
+                "note": "4K refers to *observed embedded maps*, not provider request settings.",
+            }, indent=2))
         else:
             print(json.dumps({
                 "subject": item["subject"], "category": item["category"],
