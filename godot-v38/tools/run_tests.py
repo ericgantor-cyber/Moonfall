@@ -103,7 +103,13 @@ def main():
   try:
    p=subprocess.run([ENGINE,'--headless','--path',str(ROOT),*args],cwd=ROOT,env=env,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True,errors='replace',timeout=90)
   except subprocess.TimeoutExpired as exc:
-   print('FAIL timeout (90s):', ' '.join(args), file=sys.stderr)
+   print('FAIL timeout (90s):', ' '.join(args), file=sys.stderr,flush=True)
+   if exc.stdout:
+    partial=exc.stdout.decode('utf-8',errors='replace') if isinstance(exc.stdout,bytes) else exc.stdout
+    print('Godot partial output before timeout:\\n'+partial[-10000:],flush=True)
+   if exc.stderr:
+    partial=exc.stderr.decode('utf-8',errors='replace') if isinstance(exc.stderr,bytes) else exc.stderr
+    print('Godot partial stderr before timeout:\\n'+partial[-3000:],flush=True)
    return False
   log=p.stdout
   markers=('SCRIPT ERROR','Parse Error','ERROR:','FAIL v','FAILED:')
