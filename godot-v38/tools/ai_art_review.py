@@ -34,7 +34,6 @@ def review_status(item: dict) -> dict:
             studio.validate_png(payload)
             record = chosen.with_suffix(".json")
             meta = json.loads(record.read_text(encoding="utf-8"))
-            import hashlib
             valid = (
                 meta.get("asset_id") == item["asset_id"] and
                 meta.get("sha256") == hashlib.sha256(payload).hexdigest() and
