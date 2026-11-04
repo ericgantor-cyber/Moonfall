@@ -3,6 +3,7 @@ extends "res://scripts/native_v38_1.gd"
 const NAVIGATION_MAP=preload("res://scripts/systems/navigation_map.gd")
 const AMERICAS_WILDLIFE=preload("res://scripts/systems/americas_wildlife_catalog.gd")
 const APPROVED_AI_ART=preload("res://scripts/systems/ai_art_overrides.gd")
+const AI_WHOLE_GAME_ART=preload("res://scripts/systems/ai_art_whole_game.gd")
 const AMERICAS_VISUALS=preload("res://scripts/systems/americas_wildlife_visuals.gd")
 var atlas_panel:PanelContainer
 var atlas_chart:Control
@@ -33,6 +34,8 @@ var atlas_fast_travel_status:Label
 var atlas_fast_travel_unlocked_cache:Array[int]=[]
 var american_wildlife_rolls:Array[int]=[]
 var american_wildlife_eligible:int=0
+var ai_art_game_decorations:int=0
+var ai_art_game_glyphs:int=0
 var american_wildlife_visual_ticks:int=0
 var american_wildlife_visual_clock:float=0.0
 var atlas_heading:Label
@@ -121,9 +124,72 @@ func _americas_update_wildlife_visuals(delta:float)->void:
   updates+=1
  american_wildlife_visual_ticks+=updates
 
+# Existing v31.3 glyphs and original HUD can display approved artwork,
+# with no new widgets when an optional PNG has not been supplied.
+func _ai_art_upgrade_existing_glyphs()->void:
+ for icon in v313_art_chests:
+  if AI_WHOLE_GAME_ART.override_sprite(icon,"glyphs","treasure_cache"):ai_art_game_glyphs+=1
+ for icon in v313_art_traps:
+  if AI_WHOLE_GAME_ART.override_sprite(icon,"glyphs","rift_warning"):ai_art_game_glyphs+=1
+ for icon in v313_art_dungeon:
+  if AI_WHOLE_GAME_ART.override_sprite(icon,"glyphs","dungeon_seal"):ai_art_game_glyphs+=1
+ if AI_WHOLE_GAME_ART.override_sprite(v313_art_forge,"glyphs","forge"):ai_art_game_glyphs+=1
+ if AI_WHOLE_GAME_ART.override_rect(v313_art_surge,"glyphs","moon_surge"):ai_art_game_glyphs+=1
+ if AI_WHOLE_GAME_ART.override_rect(v386_orb_image,"glyphs","orb_hud"):ai_art_game_glyphs+=1
+
+# Optional scenery attaches to existing shrine nodes, and 14 chamber art
+# templates attach to the rooms themselves. Visibility inherits room culling;
+# NO extra collision shapes or new actual room/chamber geometry.
+func _ai_art_decorate_regions_and_chambers()->void:
+ for zone in range(mini(region_shrines.size(),REGIONS.size())):
+  var shrine:Node3D=region_shrines[zone] as Node3D
+  if is_instance_valid(AI_WHOLE_GAME_ART.add_billboard(shrine,"regions","%02d"%zone,Vector3(0,4.5,0),2.6)):
+   ai_art_game_decorations+=1
+  if zone==0 and is_instance_valid(AI_WHOLE_GAME_ART.add_billboard(shrine,"scenery","shrine",Vector3(2.2,2.2,0),1.3)):
+   ai_art_game_decorations+=1
+ # Every room is already independently culled by the native dungeon renderer.
+ # A maximum of 420 optional sprites, but zero when chamber art is absent.
+ for chamber in v321_region_rooms:
+  var stage:int=int(chamber.get("stage",0))
+  if stage<1 or stage>14:continue
+  var room_node:Node3D=chamber.get("node") as Node3D
+  var banner:Sprite3D=AI_WHOLE_GAME_ART.add_billboard(room_node,"chambers","%02d"%stage,Vector3(0,1.8,0),1.4)
+  if is_instance_valid(banner):ai_art_game_decorations+=1
+
+func _ai_art_build_spell_icons()->void:
+ # Only real native Q/E/R spells, and only if the player provided PNG icons.
+ if not is_instance_valid(v386_orb_image):return
+ var anchor:Control=v386_orb_image.get_parent() as Control
+ if not is_instance_valid(anchor):return
+ var strip:=HBoxContainer.new()
+ strip.name="AIArt_ApprovedSpellIcons"
+ strip.position=Vector2(290.0,238.0)
+ strip.add_theme_constant_override("separation",3)
+ strip.mouse_filter=Control.MOUSE_FILTER_IGNORE
+ var count:int=0
+ for spell in ["nova","dash","fire"]:
+  var art:Texture2D=AI_WHOLE_GAME_ART.optional_texture("spells",spell)
+  if art==null:continue
+  var icon:=TextureRect.new()
+  icon.texture=art
+  icon.custom_minimum_size=Vector2(35,35)
+  icon.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+  icon.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
+  icon.mouse_filter=Control.MOUSE_FILTER_IGNORE
+  icon.tooltip_text=spell.capitalize()
+  strip.add_child(icon)
+  count+=1
+ if count>0:
+  anchor.add_child(strip)
+  ai_art_game_glyphs+=count
+ else:strip.queue_free()
+
 func _ready()->void:
  super._ready()
  _create_atlas()
+ _ai_art_upgrade_existing_glyphs()
+ _ai_art_decorate_regions_and_chambers()
+ _ai_art_build_spell_icons()
 
 # Roll each guardian once per adventure. Saving the rolled species prevents
 # checkpoint reloads from re-randomizing an unfinished boss encounter.
@@ -501,6 +567,40 @@ func _atlas_update_dungeon_guardians(position:Vector3)->void:
    atlas_regional_guardian_actors[guardian_id]=guardian
    _show_message("A dungeon guardian defends the Eclipse Threshold!",3.0)
    return
+
+# Dynamic pickups and newly spawned bosses also reuse their existing
+# v31 art glyphs. Approved gear art is cosmetic, never equipment logic.
+func _spawn_beast(at:Vector3,kind:String,zone:int,variant:String="normal",boss:bool=false)->void:
+ var before:int=beasts.size()
+ super._spawn_beast(at,kind,zone,variant,boss)
+ if beasts.size()<=before:return
+ var body:CharacterBody3D=beasts[-1].get("body") as CharacterBody3D
+ if not is_instance_valid(body):return
+ var phase_crest:Sprite3D=body.get_node_or_null("Art_BossPhaseCrest") as Sprite3D
+ var carrier_crest:Sprite3D=body.get_node_or_null("Art_TreasureBearerCrest") as Sprite3D
+ if AI_WHOLE_GAME_ART.override_sprite(phase_crest,"glyphs","boss_phase"):ai_art_game_glyphs+=1
+ if AI_WHOLE_GAME_ART.override_sprite(carrier_crest,"glyphs","treasure_bearer"):ai_art_game_glyphs+=1
+
+func _create_gear_drop(at:Vector3,kind:String,variant:String,zone:int,existing:Dictionary={})->void:
+ var before:int=gear_drops.size()
+ super._create_gear_drop(at,kind,variant,zone,existing)
+ if gear_drops.size()<=before:return
+ var drop:Dictionary=gear_drops[-1]
+ var node:Node3D=drop.get("node") as Node3D
+ if not is_instance_valid(node):return
+ var glyph:Sprite3D=node.get_node_or_null("Art_RareLootGlyph") as Sprite3D
+ if AI_WHOLE_GAME_ART.override_sprite(glyph,"glyphs","rare_loot"):ai_art_game_glyphs+=1
+ var gear:Dictionary=drop.get("data",{})
+ var name:String=str(gear.get("name","")).to_lower()
+ var art_kind:String=""
+ for suffix in ["charm","band","cowl","boots","mantle","crest","relic","weapon"]:
+  if name.contains(suffix):art_kind=suffix;break
+ if art_kind.is_empty():return
+ var image:Sprite3D=AI_WHOLE_GAME_ART.add_billboard(node,"gear",art_kind,Vector3(0,0.78,0),0.85)
+ if not is_instance_valid(image):return
+ ai_art_game_decorations+=1
+ # No duplicate floating icons for the same pickup.
+ if is_instance_valid(glyph):glyph.visible=false
 
 func _defeat_beast(beast:Dictionary,pet_kill:bool)->void:
  var guardian_id:int=int(beast.get("regional_guardian_id",-1))
