@@ -49,3 +49,23 @@ static func should_degrade(average_ms:float)->bool:
 
 static func should_upgrade(average_ms:float)->bool:
  return is_finite(average_ms) and average_ms<=FAST_FRAME_MS
+
+# Throttle state POLLING on distant imported rigs, never the AnimationPlayer itself.
+# Combat-critical state changes are always applied on the next 80-ms update.
+# Phase spreads costly distant actors across ticks without arbitrary actor limits.
+static func animation_poll_stride(tier:int,distance_sq:float)->int:
+ if not is_finite(distance_sq) or distance_sq<0.0:return 1
+ if distance_sq<=16.0*16.0:return 1
+ var far:bool=distance_sq>32.0*32.0
+ match clampi(tier,MIN_QUALITY,MAX_QUALITY):
+  ECONOMY:return 4 if far else 2
+  BALANCED:return 3 if far else 2
+ return 2 if far else 1
+
+static func should_poll_animation(tier:int,distance_sq:float,tick:int,phase:int,requested:String,previous:String)->bool:
+ # Always deliver the first bind and EVERY state change immediately. Otherwise,
+ # unchanged distant idle/move loops may be polled less frequently.
+ if requested!=previous:return true
+ if requested in ["attack","hurt","death","telegraph","spawn","special_1","special_2"]:return true
+ var stride:int=animation_poll_stride(tier,distance_sq)
+ return posmod(tick+phase,stride)==0
