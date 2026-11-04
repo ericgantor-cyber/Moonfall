@@ -48,11 +48,28 @@ func _v321_update_chambers()->void:
    bridge.visible=visible_now
    v322_visibility_switches+=1
 
+ # Annexes use independent distance culling; their StaticBody3D collisions never deactivate.
+ for annex in v321_annexes:
+  var room:Node3D=annex.get("node") as Node3D
+  if not is_instance_valid(room):continue
+  var should_show:bool=hero_playing and room.global_position.distance_squared_to(here)<90.0*90.0
+  if room.visible!=should_show:
+   room.visible=should_show
+   v322_visibility_switches+=1
+ for annex_link in v321_annex_passages:
+  var link:Node3D=annex_link.get("node") as Node3D
+  if not is_instance_valid(link):continue
+  var should_show:bool=hero_playing and link.global_position.distance_squared_to(here)<95.0*95.0
+  if link.visible!=should_show:
+   link.visible=should_show
+   v322_visibility_switches+=1
+
 func _perf_report()->Dictionary:
  var report:Dictionary=super._perf_report()
  report["version"]="v32.2"
  report["dungeon_label_writes"]=v322_label_writes
  report["dungeon_label_writes_skipped"]=v322_skipped_label_writes
  report["dungeon_visibility_switches"]=v322_visibility_switches
- report["dungeon_connected_passages"]=v321_passages.size()
+ report["dungeon_connected_passages"]=v321_passages.size()+v321_annex_passages.size()
+ report["dungeon_exploration_annexes"]=v321_annexes.size()
  return report
