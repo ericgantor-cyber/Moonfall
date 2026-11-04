@@ -62,6 +62,58 @@ The existing Godot wildlife instance checks for an approved image with the match
 
 These are 2D transparent creature cutouts in the isometric 3D world, NOT automatically generated 3D skeletal models or animations. Game rendering does not contact the image API.
 
+## Optional automatic 3D and native 4K PBR textures
+
+This new workflow can turn **already approved 2D creature art into real 3D meshes**, or import a GLB model you already made in Blender, Meshy, or another service. There is **no 3D generation during gameplay**, no key in the Windows installer, and no requirement to buy a third-party service.
+
+### Free offline import: existing 3D model
+
+From the godot-v38 directory:
+
+    python tools/ai_art_3d.py --guardian 0 --import-model "C:\\MyModels\\moonfang.glb"
+    python tools/ai_art_3d.py --guardian 0 --approve
+
+Other examples:
+
+    python tools/ai_art_3d.py --animal "Jaguar" --import-model "C:\\MyModels\\jaguar.glb"
+    python tools/ai_art_3d.py --game-art scenery:shrine --import-model "C:\\MyModels\\shrine.glb"
+    python tools/ai_art_3d.py --game-art gear:boots --import-model "C:\\MyModels\\boots.glb"
+    python tools/ai_art_3d.py --game-art chambers:14 --import-model "C:\\MyModels\\bossroom.glb"
+
+Each command validates a real, self-contained GLB 2.0 mesh with triangle geometry and bounded scene complexity. The model is **staged first**, not approved automatically. Visually inspect its appearance, mesh topology, materials, scale, orientation and polycount before --approve. Approved GLBs are copied to `assets/ai_generated/models/<category>/<asset_id>.glb`, where Godot auto-imports and uses them without changing source code for each new model.
+
+### Optional paid image-to-3D with Meshy
+
+Meshy's documented Image to 3D API accepts approved images, creates genuine 3D models, and offers 4K (4096×4096) texture maps. Its documented model/texture combination uses **meshy-7.1** for geometry and **meshy-7** for 4K PBR texturing. See https://docs.meshy.ai/en/api/image-to-3d for current compatibility and pricing.
+
+Supply your **own MESHY_API_KEY as a local environment variable**. API calls may consume credits and require third-party account access. Explicitly submit exactly one conversion:
+
+    python tools/ai_art_3d.py --guardian 0 --submit
+
+This requires an already-approved transparent PNG for guardian_00. The code requests one 3D model, asks for a 12,000-triangle remeshed geometry budget and 4K PBR base-color/metallic/roughness/normal textures, and records a task identifier **without storing the key**.
+
+Use these separate commands to check and fetch a result:
+
+    python tools/ai_art_3d.py --guardian 0 --status
+    python tools/ai_art_3d.py --guardian 0 --fetch
+    python tools/ai_art_3d.py --guardian 0 --approve
+
+No continuous polling occurs, and nothing spends credits unless you deliberately run --submit. --fetch stages the model for inspection; --approve adds a reviewed model to the actual Godot project. Generating 350 models automatically in a paid batch would be expensive and is **not** turned on. A provider request for 4K textures does not guarantee the service delivered the full detail; visually inspect the downloaded GLB.
+
+### How true 3D loads inside the game
+
+Godot prioritizes a validated, approved **GLB 3D model** over an approved 2D PNG sprite, and a reviewed PNG over the native old placeholder. No approved asset means unchanged art and unchanged gameplay.
+
+- Existing wild animals and any guardian with a valid profile ID can display **real 3D geometry**, while native CharacterBody3D movement, attacks, collision, XP, loot, health, and save mechanics remain unchanged.
+- A reviewed 3D shrine or equipment piece can appear directly in existing world and equipment-drop locations.
+- Dungeon rooms 7 and 14 can show a true 3D themed room ornament. The other 12 rooms retain lightweight artwork. This protects Windows FPS and avoids loading 420 high-poly 4K meshes into the world.
+- HUD, UI glyphs, and spell icons remain **2D**, because UI doesn't need 3D geometry.
+- The loader dynamically scales mesh models to game-world size and rejects missing/invalid model assets. A default mesh or sprite remains available as a fallback.
+
+4K describes source texture resolution, **not** 4K monitor output or a 4K polygon count. High-resolution source textures can consume a lot of VRAM; use Godot import texture compression, mipmaps, reasonable LODs and performance tests before shipping many 4K models. Meshy output is neither automatically rigged nor guaranteed to include unique walk/attack animation; that is a separate task.
+
+**Z and Nyra are completely excluded.** Original player art is neither generated, replaced, converted, nor remixed.
+
 ## Whole-game AI art: 350 approved artwork slots
 
 The studio is not limited to creatures. Its offline plan includes **350 approved-art slots**: 55 named guardian types, 234 distinct Americas animal species, and 61 additional slots covering **6 region murals, 14 dungeon chamber murals, 9 existing glyphs including the HP/mana/XP globe HUD, 10 spell/action icons, 12 gear categories, and 10 world scenery props**.
