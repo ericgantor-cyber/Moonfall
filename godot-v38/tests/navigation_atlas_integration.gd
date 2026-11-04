@@ -289,7 +289,7 @@ func _run()->void:
  check("_spawn_beast(room_position,monster,zone,\"elder\",true)" in source and "V321_RULES.REGIONAL_GUARDIAN_SPECIES[rolled_index]" in source,"random dungeon guardians reuse four existing native hostile boss AI species and real combat")
  check("atlas_regional_guardian_actors.has(guardian_id)" in source and "atlas_regional_guardians_cleared.has(guardian_id)" in source,"guardian per dungeon can spawn at most once in an active adventure")
  check(stage_rules.REGIONAL_GUARDIAN_SPECIES==["wolf","boar","serpent","panther"],"guardian pool includes four existing hostile boss species with original artwork")
- check("func _atlas_roll_regional_guardians()" in source and "rng.randi_range(0,pool_size-1)" in source,"guardian species selection is genuinely randomized for each new adventure")
+ check("func _atlas_roll_regional_guardians()" in source and "rng.randi_range(0,available.size()-1)" in source,"guardian species selection shuffles species randomly for each new adventure")
  check("available.remove_at(pick)" in source and "atlas_regional_guardian_rolls.back()" in source,"guardian shuffle avoids adjacent duplicates and uses each type in the first four dungeons")
  check('data["atlas_regional_guardian_rolls"]' in source and 'extras.get("atlas_regional_guardian_rolls",[])' in source,"guardian assignment is saved so checkpoint reload does not reroll unfinished bosses")
  check("saved_guardians.size()==expected_rolls" in source and "valid_rolls=false" in source,"corrupt guardian species indices and lengths are validated before restore")
