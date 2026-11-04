@@ -4,6 +4,7 @@ const NAVIGATION_MAP=preload("res://scripts/systems/navigation_map.gd")
 const AMERICAS_WILDLIFE=preload("res://scripts/systems/americas_wildlife_catalog.gd")
 const APPROVED_AI_ART=preload("res://scripts/systems/ai_art_overrides.gd")
 const AI_WHOLE_GAME_ART=preload("res://scripts/systems/ai_art_whole_game.gd")
+const AI_APPROVED_3D=preload("res://scripts/systems/ai_art_3d_runtime.gd")
 const AMERICAS_VISUALS=preload("res://scripts/systems/americas_wildlife_visuals.gd")
 var atlas_panel:PanelContainer
 var atlas_chart:Control
@@ -97,8 +98,11 @@ func _americas_apply_wildlife_profiles()->void:
    var native_body:CharacterBody3D=animal.get("body") as CharacterBody3D
    if is_instance_valid(native_body):
     animal["americas_visual_root"]=AMERICAS_VISUALS.attach(native_body,str(picked["taxon"]),str(picked["name"]))
-    # Approved cutouts replace these visible stand-ins, never collision/AI.
-    APPROVED_AI_ART.attach_approved(native_body,APPROVED_AI_ART.animal_path(str(picked["name"])))
+    # Approved real GLB geometry takes priority over approved 2D cutouts.
+    var animal_id:String="animal_"+APPROVED_AI_ART.slugify(str(picked["name"]))
+    var model:Node3D=AI_APPROVED_3D.add_approved_model(native_body,"animals",animal_id,Vector3(0,0,0),2.0,true)
+    if not is_instance_valid(model):
+     APPROVED_AI_ART.attach_approved(native_body,APPROVED_AI_ART.animal_path(str(picked["name"])))
    var nameplate:Label3D=animal.get("nameplate") as Label3D
    if is_instance_valid(nameplate) and bool(animal.get("alive",false)) and not bool(animal.get("tamed",false)):
     nameplate.text=str(picked["name"])
@@ -145,16 +149,28 @@ func _ai_art_decorate_regions_and_chambers()->void:
   var shrine:Node3D=region_shrines[zone] as Node3D
   if is_instance_valid(AI_WHOLE_GAME_ART.add_billboard(shrine,"regions","%02d"%zone,Vector3(0,4.5,0),2.6)):
    ai_art_game_decorations+=1
-  if zone==0 and is_instance_valid(AI_WHOLE_GAME_ART.add_billboard(shrine,"scenery","shrine",Vector3(2.2,2.2,0),1.3)):
-   ai_art_game_decorations+=1
+  if zone==0:
+   var scene_model:Node3D=AI_APPROVED_3D.add_approved_model(shrine,"scenery","scenery_shrine",Vector3(2.2,0,0),2.8)
+   if is_instance_valid(scene_model):
+    ai_art_game_decorations+=1
+   elif is_instance_valid(AI_WHOLE_GAME_ART.add_billboard(shrine,"scenery","shrine",Vector3(2.2,2.2,0),1.3)):
+    ai_art_game_decorations+=1
  # Every room is already independently culled by the native dungeon renderer.
  # A maximum of 420 optional sprites, but zero when chamber art is absent.
  for chamber in v321_region_rooms:
   var stage:int=int(chamber.get("stage",0))
   if stage<1 or stage>14:continue
   var room_node:Node3D=chamber.get("node") as Node3D
-  var banner:Sprite3D=AI_WHOLE_GAME_ART.add_billboard(room_node,"chambers","%02d"%stage,Vector3(0,1.8,0),1.4)
-  if is_instance_valid(banner):ai_art_game_decorations+=1
+  # Limit high-resolution mesh props to two of fourteen rooms per dungeon.
+  # Other rooms retain the original lightweight approved 2D murals.
+  var model:Node3D=null
+  if stage in [7,14]:
+   model=AI_APPROVED_3D.add_approved_model(room_node,"chambers","chamber_%02d"%stage,Vector3(0,0.0,0),2.3)
+  if is_instance_valid(model):
+   ai_art_game_decorations+=1
+  else:
+   var banner:Sprite3D=AI_WHOLE_GAME_ART.add_billboard(room_node,"chambers","%02d"%stage,Vector3(0,1.8,0),1.4)
+   if is_instance_valid(banner):ai_art_game_decorations+=1
 
 func _ai_art_build_spell_icons()->void:
  # Only real native Q/E/R spells, and only if the player provided PNG icons.
@@ -563,7 +579,10 @@ func _atlas_update_dungeon_guardians(position:Vector3)->void:
    var approved_profile:int=int(guardian.get("regional_guardian_profile",-1))
    var guardian_art_body:CharacterBody3D=guardian.get("body") as CharacterBody3D
    if approved_profile>=0 and is_instance_valid(guardian_art_body):
-    APPROVED_AI_ART.attach_approved(guardian_art_body,APPROVED_AI_ART.guardian_path(approved_profile))
+    var profile_id:String="guardian_%02d"%approved_profile
+    var guardian_model:Node3D=AI_APPROVED_3D.add_approved_model(guardian_art_body,"guardians",profile_id,Vector3.ZERO,3.6,true)
+    if not is_instance_valid(guardian_model):
+     APPROVED_AI_ART.attach_approved(guardian_art_body,APPROVED_AI_ART.guardian_path(approved_profile))
    atlas_regional_guardian_actors[guardian_id]=guardian
    _show_message("A dungeon guardian defends the Eclipse Threshold!",3.0)
    return
@@ -596,10 +615,14 @@ func _create_gear_drop(at:Vector3,kind:String,variant:String,zone:int,existing:D
  for suffix in ["charm","band","cowl","boots","mantle","crest","relic","weapon"]:
   if name.contains(suffix):art_kind=suffix;break
  if art_kind.is_empty():return
+ var model:Node3D=AI_APPROVED_3D.add_approved_model(node,"gear","gear_"+art_kind,Vector3(0,0.6,0),0.75)
+ if is_instance_valid(model):
+  ai_art_game_decorations+=1
+  if is_instance_valid(glyph):glyph.visible=false
+  return
  var image:Sprite3D=AI_WHOLE_GAME_ART.add_billboard(node,"gear",art_kind,Vector3(0,0.78,0),0.85)
  if not is_instance_valid(image):return
  ai_art_game_decorations+=1
- # No duplicate floating icons for the same pickup.
  if is_instance_valid(glyph):glyph.visible=false
 
 func _defeat_beast(beast:Dictionary,pet_kill:bool)->void:
