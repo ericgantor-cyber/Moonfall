@@ -189,6 +189,18 @@ func _run()->void:
  check(stage_rules.wall_segment_open(0,0.0) and stage_rules.wall_segment_open(1,NAN),"invalid wall placement input fails open, not blocking traversal")
  check(is_equal_approx(stage_rules.CHAMBER_FLOOR_RADIUS,6.2) and stage_rules.CHAMBER_WALL_RADIUS>stage_rules.CHAMBER_FLOOR_RADIUS,"sanctum floor radius expands to 6.2 metres with outside perimeter walls")
  check(stage_rules.CHAMBER_WALL_SEGMENTS==20,"expanded chambers have bounded wall segment count")
+ check(stage_rules.REGIONAL_DUNGEON_COUNT==5,"every region has exactly five dungeon entrance positions")
+ var regional_centre:Vector2=Vector2(700.0,-300.0)
+ var regional_positions:Array[Vector3]=[]
+ for dungeon_index in range(stage_rules.REGIONAL_DUNGEON_COUNT):
+  var hub:Vector3=stage_rules.regional_dungeon_position(regional_centre,dungeon_index)
+  check(is_finite(hub.x) and is_finite(hub.z),"regional dungeon entrance coordinates remain finite")
+  check(not regional_positions.has(hub),"five connected dungeon entrances occupy unique positions")
+  check(is_equal_approx(Vector2(hub.x-regional_centre.x,hub.z-regional_centre.y).length(),stage_rules.REGIONAL_DUNGEON_RING_RADIUS),"each regional hub uses the measured entrance ring")
+  regional_positions.append(hub)
+ for entrance_index in range(stage_rules.REGIONAL_DUNGEON_COUNT):
+  var adjacent:Vector3=regional_positions[(entrance_index+1)%stage_rules.REGIONAL_DUNGEON_COUNT]
+  check(regional_positions[entrance_index].distance_to(adjacent)>12.0,"five entrance floors do not overlap adjacent ring hubs")
  var stage_rule_count:int=stage_rules.EXPLORATION_OFFSETS.size()
  check(stage_rules.ANNEX_TITLES.size()==11 and stage_rules.ANNEX_SIGILS.size()==11,"eleven annexes have named, distinct thematic identities")
  var unique_titles:Dictionary={}
@@ -218,6 +230,10 @@ func _run()->void:
  check("var chamber_wall_mesh:=BoxMesh.new()" in passage_source and "var chamber_wall_shape:=BoxShape3D.new()" in passage_source,"interior wall meshes and shapes are shared to limit bloat")
  check("chamber_collision_floor.radius=V321_RULES.CHAMBER_FLOOR_RADIUS" in passage_source and "shared_floor.top_radius=V321_RULES.CHAMBER_FLOOR_RADIUS" in passage_source,"expanded visual floor and physical collision share the same radius")
  check("RiftInteriorStageRing" in passage_source and "TorusMesh.new()" in passage_source,"each chamber has its own nonblocking ritual floor ring")
+ check("func _v321_build_region_dungeon_entrances()" in passage_source and "RegionDungeonEntranceCollision" in passage_source and "RegionDungeonConnectionCollision" in passage_source,"all regional dungeon entrances and connecting paths have real physics collision")
+ check("for zone in range(REGIONS.size())" in passage_source and "v321_region_dungeons.append" in passage_source,"each authored world region receives five connected dungeon entrance hubs")
+ check("range(V321_RULES.REGIONAL_DUNGEON_COUNT+1)" in passage_source and "v321_region_dungeon_links.append" in passage_source,"each set of five entrances forms a physical loop with a region-centre access path")
+ check("for dungeon in v321_region_dungeons" in cull_source and "for path in v321_region_dungeon_links" in cull_source,"new entrances and corridors are visually culled while physics remains active")
  check("func _v321_build_exploration_annexes()" in passage_source and "RiftAnnexCollision" in passage_source and "RiftAnnexBridgeCollision" in passage_source,"annex rooms and connecting corridors have real collision")
  check("for stage in range(4,15)" in passage_source and "v321_annexes.append" in passage_source,"fourteen-room layout is built without extending story wave triggers")
  check("RiftAnnexSigil" in passage_source and "RiftAnnexRune_" in passage_source,"named annexes have low-poly nonblocking ritual markings")
