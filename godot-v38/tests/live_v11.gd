@@ -37,6 +37,28 @@ func _run() -> void:
  check(game.get("hero_playing"), "Hero remains active in live simulation")
  check(game.get("visible_regions") >= 1, "Region visibility remains valid")
  check(game.get("beasts").size() == 76, "74 legacy actor IDs plus two divine boss actors remain stable")
+ # Elite windups lock the attacker while the marked impact position remains
+ # fixed. Test during real physics frames, not only static source inspection.
+ var test_elite:Dictionary={}
+ for actor in game.get("zone_beast_lists")[0]:
+  if str(actor.get("variant","normal"))!="normal" and not bool(actor.get("boss",false)) and bool(actor.get("alive",false)):
+   test_elite=actor
+   break
+ check(not test_elite.is_empty(),"Regional elite available for windup stability test")
+ if not test_elite.is_empty():
+  var elite_body:CharacterBody3D=test_elite["body"]
+  var hero_body:CharacterBody3D=game.get("player")
+  var old_hero_pos:Vector3=hero_body.global_position
+  var starting_elite_pos:Vector3=elite_body.global_position
+  hero_body.global_position=starting_elite_pos+Vector3(4.0,0.0,0.0)
+  test_elite["elite_lunge_windup"]=0.8
+  test_elite["elite_lunge_target"]=hero_body.global_position
+  for tick in range(5):await physics_frame
+  check(elite_body.global_position.distance_squared_to(starting_elite_pos)<0.01,"Elite remains stationary during fixed-target lunge warning")
+  check(float(test_elite.get("elite_lunge_windup",0.0))>0.0,"Elite attack still winds up after five physics frames")
+  test_elite["elite_lunge_windup"]=0.0
+  hero_body.global_position=old_hero_pos
+
  # Divine signature attacks must not leak through a boss transformation.
  var first_z_id:int=int(game.get("divine_boss_ids").get("z",-1))
  if first_z_id>=0:
