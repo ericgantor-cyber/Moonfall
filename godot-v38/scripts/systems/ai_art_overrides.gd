@@ -60,6 +60,8 @@ static func attach_approved(body:CharacterBody3D,resource_path:String)->bool:
  var texture:Texture2D=image as Texture2D
  var guardian:bool=resource_path.begins_with(GUARDIAN_FOLDER)
  sprite.texture=texture
+ sprite.visible=true
+ # Restore approved cutouts after nearby high-detail 3D models unload.
  # Keep original world scale when the concept is a large square PNG.
  # A guardian is intentionally larger; wildlife remains near original height.
  sprite.pixel_size=(3.0 if guardian else 1.9)/float(maxi(texture.get_width(),texture.get_height()))
