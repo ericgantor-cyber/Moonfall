@@ -188,9 +188,11 @@ func _draw()->void:
    var from_point:Vector2=centre+Vector2(start.x-player_position.x,start.z-player_position.z)*scale_factor
    var to_point:Vector2=centre+Vector2(finish.x-player_position.x,finish.z-player_position.z)*scale_factor
    var corners:=PackedVector2Array([from_point+normal,to_point+normal,to_point-normal,from_point-normal])
-   draw_colored_polygon(corners,Color(0.34,0.37,0.44,0.82))
-   draw_line(from_point+normal,to_point+normal,Color(0.72,0.76,0.83,0.88),1.5)
-   draw_line(from_point-normal,to_point-normal,Color(0.72,0.76,0.83,0.88),1.5)
+   var explored:bool=bool(passage.get("explored",false))
+   draw_colored_polygon(corners,Color(0.34,0.37,0.44,0.82) if explored else Color(0.075,0.095,0.13,0.88))
+   var edge_color:Color=Color(0.72,0.76,0.83,0.88) if explored else Color(0.25,0.30,0.39,0.65)
+   draw_line(from_point+normal,to_point+normal,edge_color,1.5)
+   draw_line(from_point-normal,to_point-normal,edge_color,1.5)
  # Draw only authored floor meshes as a local top-down plan. No invented corridors.
  if dungeon_active:
   for room_index in range(dungeon_rooms.size()):
@@ -273,7 +275,8 @@ func set_dungeon_passages(passages:Array[Dictionary])->void:
   var ending:Vector3=finish
   var metres:float=float(width)
   if not _valid_world_point(beginning) or not _valid_world_point(ending) or not is_finite(metres) or metres<=0.0 or metres>20.0:continue
-  accepted.append({"start":beginning,"end":ending,"width":metres})
+  if beginning.distance_squared_to(ending)<0.01:continue
+  accepted.append({"start":beginning,"end":ending,"width":metres,"explored":bool(passage.get("explored",false))})
  if dungeon_passages==accepted:return
  dungeon_passages=accepted
  queue_redraw()
