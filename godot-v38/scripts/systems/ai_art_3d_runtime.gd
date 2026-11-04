@@ -13,7 +13,7 @@ static func approved_model_path(category:String,asset_id:String)->String:
  if asset_id.length()<4 or asset_id.length()>90:return ""
  for i in range(asset_id.length()):
   var c:String=asset_id[i]
-  if not ((c>="a" and c<="z") or (c>="0" and c<="9") or c=="_"):return ""
+  if not ((c>="a" and c<="z") or (c>="0" and c<="9") or c=="_" or c=="-"):return ""
  match category:
   "animals":
    if not asset_id.begins_with("animal_"):return ""
