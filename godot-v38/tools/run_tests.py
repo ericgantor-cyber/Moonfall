@@ -73,9 +73,19 @@ SUITES={
  'v38_0_overhaul':'MOONFALL v38.0 OVERHAUL PASS',
  'v38_2_procedural':'MOONFALL v38.2 PROCEDURAL PASS',
  'aim_scene_runtime':'MOONFALL AIM SCENE RUNTIME PASS',
+ 'navigation_atlas_integration':'MOONFALL ATLAS PASS',
 }
 def main():
  selected=sys.argv[1:]
+ # Windows BUILD_WINDOWS.bat uses a single, time-bounded script invocation.
+ # Each engine subprocess has a 90-second timeout, rather than hanging the
+ # entire Windows installer workflow on one runaway integration test.
+ if len(selected)==2 and selected[0]=='--script':
+  script=selected[1]
+  prefix='res://tests/'
+  if not script.startswith(prefix) or not script.endswith('.gd'):
+   print('Invalid Godot script path',file=sys.stderr);return 2
+  selected=[script[len(prefix):-3]]
  if selected==['--list']:
   print('\n'.join(SUITES));return 0
  if selected==['--all']: selected=[]
@@ -93,7 +103,13 @@ def main():
   try:
    p=subprocess.run([ENGINE,'--headless','--path',str(ROOT),*args],cwd=ROOT,env=env,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True,errors='replace',timeout=90)
   except subprocess.TimeoutExpired as exc:
-   print('FAIL timeout (90s):', ' '.join(args), file=sys.stderr)
+   print('FAIL timeout (90s):', ' '.join(args), file=sys.stderr,flush=True)
+   if exc.stdout:
+    partial=exc.stdout.decode('utf-8',errors='replace') if isinstance(exc.stdout,bytes) else exc.stdout
+    print('Godot partial output before timeout:\\n'+partial[-10000:],flush=True)
+   if exc.stderr:
+    partial=exc.stderr.decode('utf-8',errors='replace') if isinstance(exc.stderr,bytes) else exc.stderr
+    print('Godot partial stderr before timeout:\\n'+partial[-3000:],flush=True)
    return False
   log=p.stdout
   markers=('SCRIPT ERROR','Parse Error','ERROR:','FAIL v','FAILED:')
