@@ -20,14 +20,14 @@ func _run() -> void:
  var coats:Dictionary=game.get("pelt_textures")
  var coronas:Dictionary=game.get("guardian_coronas")
  var wisps:Array=game.get("regional_wisps")
- check(tracks.size()==beasts.size() and tracks.size()==74,"All 74 living actors get bounded motion tracks")
+ check(tracks.size()==beasts.size() and tracks.size()==76,"74 native actors and two divine bosses have bounded motion tracks")
  check(coats.size()>=8,"Procedural coat textures generated for all eight species")
  var boss_count:int=0
  for beast in beasts:
   if bool(beast.get("boss",false)):
    boss_count+=1
    check(coronas.has(int(beast["boss_id"])),"Boss "+str(beast["boss_id"])+" has a phase corona")
- check(boss_count==8 and coronas.size()==boss_count,"Five guardians and three invasion commanders have phase coronas")
+ check(boss_count==10 and coronas.size()==boss_count,"Five guardians, three invasion commanders and two divine bosses have phase coronas")
  check(wisps.size()==30,"Five ambient wisps per region, six regions")
  var unique_patterns:=true
  for entry in tracks:
