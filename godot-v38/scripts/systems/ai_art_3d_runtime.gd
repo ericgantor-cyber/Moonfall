@@ -5,7 +5,6 @@ const GAME_ART=preload("res://scripts/systems/ai_art_whole_game.gd")
 const WILDLIFE_ART=preload("res://scripts/systems/ai_art_overrides.gd")
 const MODEL_ROOT:String="res://assets/ai_generated/models/"
 const RIGGED_ROOT:String="res://assets/ai_generated/rigged/"
-const MAX_VISIBLE_MESHES:int=160
 const MAX_CACHED_MODEL_SCENES:int=12
 static var _models:Dictionary={}
 static var _cache_keys:Array[String]=[]
@@ -66,7 +65,6 @@ static func _mesh_height_and_count(root:Node3D)->Vector2:
    var mesh:MeshInstance3D=node as MeshInstance3D
    if mesh.mesh!=null:
     visible_meshes+=1
-    if visible_meshes>MAX_VISIBLE_MESHES:return Vector2(0,visible_meshes)
     var aabb:AABB=mesh.get_aabb()
     for x in [0,1]:
      for y in [0,1]:
@@ -94,7 +92,7 @@ static func add_approved_model(parent:Node3D,category:String,asset_id:String,at:
  parent.add_child(root)
  root.position=at
  var info:Vector2=_mesh_height_and_count(root)
- if info.y<1.0 or info.y>float(MAX_VISIBLE_MESHES) or info.x<0.001 or not is_finite(info.x):
+ if info.y<1.0 or info.x<0.001 or not is_finite(info.x):
   root.queue_free()
   return null
  var factor:float=height/info.x
