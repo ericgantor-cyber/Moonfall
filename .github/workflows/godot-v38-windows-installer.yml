@@ -92,6 +92,25 @@ jobs:
         run: |
           $required = @('project.godot', 'scenes/main.tscn', 'scripts/native_v34_4.gd', 'assets/heroes', 'docs/ART_SHA256_V30_1_BASELINE.txt', 'BUILD_WINDOWS.bat', 'Moonfall_Native_v34_4_Setup.iss')
           foreach ($path in $required) { if (!(Test-Path $path)) { throw "Missing native Godot project file: $path" } }
+      - name: Auto-audit whole-game AI art before Windows packaging
+        shell: pwsh
+        env:
+          OPENAI_API_KEY: ''
+          MESHY_API_KEY: ''
+        run: |
+          python tools/ai_art_auto_audit.py --strict --output-dir ai_art_staging/review
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Attach Windows AI Art audit dashboard and integrity evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Moonfall-Windows-AI-Art-Preflight
+          path: |
+            godot-v38/ai_art_staging/review/auto_audit.json
+            godot-v38/ai_art_staging/review/auto_audit.html
+            godot-v38/ai_art_staging/review/auto_audit.md
+          if-no-files-found: ignore
+          retention-days: 14
       - name: Download and verify Godot v4.7.2 Windows engine
         shell: pwsh
         run: |
