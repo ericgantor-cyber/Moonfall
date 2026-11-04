@@ -290,8 +290,8 @@ def main(argv: list[str] | None = None) -> int:
         else:
             print(json.dumps({
                 **metadata(item, prompt, args.model),
-                "staging": str(staged.relative_to(PROJECT)),
-                "approved_output": str(dest.relative_to(PROJECT)),
+                "staging": os.path.relpath(staged, PROJECT),
+                "approved_output": os.path.relpath(dest, PROJECT),
                 "note": "Preview only. No API request or file change.",
             }, indent=2))
         return 0
