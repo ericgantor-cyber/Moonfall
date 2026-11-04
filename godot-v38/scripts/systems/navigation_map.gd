@@ -40,14 +40,6 @@ static func dungeon_site_at(position:Vector3,anchors:Array[Vector3],previous_sit
    closest=i
  return closest
 
-# Return the earliest authored chamber not yet recorded in this dungeon.
-# -1 means no valid chamber remains; nothing about dungeon completion is fabricated.
-static func next_unvisited_room(site:int,visited:Array[int],room_count:int=3)->int:
- if site<0 or room_count<=0 or room_count>MAX_CHAMBER_MARKERS:return -1
- for room_index in range(room_count):
-  if not visited.has(site*room_count+room_index):return room_index
- return -1
-
 # Identify the room the hero is physically approaching, not merely the closest distant dot.
 static func dungeon_current_room_at(position:Vector3,rooms:Array[Vector3])->int:
  return dungeon_room_index_at(position,rooms,12.0)
