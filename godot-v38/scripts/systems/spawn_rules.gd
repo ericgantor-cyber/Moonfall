@@ -2,7 +2,15 @@ extends RefCounted
 ## Deterministic encounter layouts. Does not create Nodes or touch save data.
 static func region_encounters(zone:int, region:Dictionary) -> Array[Dictionary]:
  var result:Array[Dictionary]=[]
- var center:Vector2=region["at"]
+ # A corrupt region should not abort world construction or generate non-finite spawns.
+ if zone<0:return result
+ var center_value:Variant=region.get("at",null)
+ var monster_value:Variant=region.get("monster",null)
+ if not (center_value is Vector2) or not (monster_value is String):return result
+ var center:Vector2=center_value
+ if not is_finite(center.x) or not is_finite(center.y):return result
+ if absf(center.x)>1.0e9 or absf(center.y)>1.0e9:return result
+ if str(monster_value).strip_edges().is_empty():return result
  for j in range(7):
   var theta:=float(j)*TAU/7.0
   var at:=Vector3(center.x+cos(theta)*float(10+j%3*3),0.0,center.y+sin(theta)*float(10+j%3*3))
