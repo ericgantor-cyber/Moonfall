@@ -270,6 +270,9 @@ func _refresh_boss_phase(beast:Dictionary)->void:
  var phase:int=int(beast.get("boss_phase",1))
  var label:Label3D=beast.get("nameplate") as Label3D
  if phase>previous:
+  # A telegraphed strike from the previous phase must never resolve during
+  # the transformation. This keeps boss phase changes readable and fair.
+  _clear_divine_warning(beast)
   if is_instance_valid(label):
    label.text=str(beast.get("divine_title","DIVINE BOSS"))+" • PHASE "+str(phase)
   beast["divine_next_at"]=map_time+2.0
