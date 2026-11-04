@@ -14,7 +14,7 @@ func _run()->void:
  root.add_child(game)
  await process_frame
  var sigils:Dictionary=game.get("v20_guardian_sigils")
- check(sigils.size()==8,"Five guardians and three invasion commanders have spellwheels (actual="+str(sigils.size())+")")
+ check(sigils.size()==10,"Five guardians, three invasion commanders, and both divine bosses have spellwheels (actual="+str(sigils.size())+")")
  check(game.get("v19_scenery_count")==54,"Biome scenery preserved")
  check(game.get("grid_regions").size()==2400,"Invisible terrain grid preserved")
  game.call("_start_game","z")
