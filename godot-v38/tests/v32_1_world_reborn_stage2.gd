@@ -52,10 +52,16 @@ func _run()->void:
  var before_drops:int=(game.get("gear_drops") as Array).size()
  var slots:Array=entry["slots"]
  for slot in slots:
+  if int(slot)==int(slots[2]):continue
   var enemy:Dictionary=(game.get("beasts") as Array)[int(slot)]
   game.call("_despawn_native_beast",enemy,0.0)
  var defeated:Dictionary=(game.get("beasts") as Array)[int(slots[2])]
- game.call("_on_rift_enemy_defeated",defeated)
+ # Exercise the actual kill path with an active autosave cooldown.
+ game.set("auto_save_cooldown",7.0)
+ game.call("_defeat_beast",defeated,false)
+ check(game.get("save_health")=="OK","Completed rift checkpoint writes despite active autosave cooldown")
+ var completed_checkpoint:Dictionary=game.call("_read_save")
+ check((completed_checkpoint.get("rifts",[]) as Array).has(0),"Automatic completion checkpoint includes the sealed rift")
  check(bool(entry["cleared"]),"Rift seals after final room")
  check((game.get("rifts_cleared") as Array).has(0),"Seal recorded in existing save-compatible progress")
  check(int(game.get("v321_bonus_relics"))==1,"Exactly one bonus legendary granted")
