@@ -12,6 +12,7 @@ import os
 from pathlib import Path
 import re
 import shutil
+import struct
 import sys
 import urllib.error
 import urllib.request
@@ -102,9 +103,54 @@ def dest_paths(item: dict) -> tuple[Path, Path]:
     return STAGING / item["category"] / filename, ROOT / item["category"] / filename
 
 
+MAX_IMAGE_BYTES = 12 * 1024 * 1024
+MAX_DIMENSION = 2048
+
+
 def validate_png(payload: bytes) -> None:
-    if not payload.startswith(PNG_HEADER) or len(payload) < 64:
-        raise ValueError("Generated file was not a valid-looking PNG.")
+    """Validate the image container, real 2D dimensions and alpha capability.
+
+    Never trust the filename or first eight bytes alone. A bounded PNG parser
+    rejects truncated chunks, missing IDAT/IEND and non-RGBA downloads before
+    an image can enter the game-art folder.
+    """
+    if not payload.startswith(PNG_HEADER) or not 64 <= len(payload) <= MAX_IMAGE_BYTES:
+        raise ValueError("Expected a complete PNG under 12 MiB.")
+    index = len(PNG_HEADER)
+    seen_ihdr = False
+    seen_idat = False
+    seen_iend = False
+    while index < len(payload):
+        if index + 12 > len(payload):
+            raise ValueError("Truncated PNG chunk.")
+        length = struct.unpack_from(">I", payload, index)[0]
+        chunk_type = payload[index + 4:index + 8]
+        end = index + 12 + length
+        if length > MAX_IMAGE_BYTES or end > len(payload):
+            raise ValueError("PNG chunk length is invalid.")
+        data = payload[index + 8:index + 8 + length]
+        if chunk_type == b"IHDR":
+            if seen_ihdr or index != len(PNG_HEADER) or length != 13:
+                raise ValueError("Invalid PNG header.")
+            width, height, bit_depth, color_type, compression, filtering, interlace = struct.unpack(">IIBBBBB", data)
+            if not (64 <= width <= MAX_DIMENSION and 64 <= height <= MAX_DIMENSION):
+                raise ValueError("Unreasonable PNG dimensions.")
+            if (bit_depth, color_type, compression, filtering, interlace) != (8, 6, 0, 0, 0):
+                raise ValueError("Approved artwork must be an 8-bit RGBA non-interlaced PNG.")
+            seen_ihdr = True
+        elif not seen_ihdr:
+            raise ValueError("PNG image header must come first.")
+        elif chunk_type == b"IDAT":
+            seen_idat = True
+        elif chunk_type == b"IEND":
+            if length != 0 or not seen_idat or end != len(payload):
+                raise ValueError("Missing image data or invalid PNG end marker.")
+            seen_iend = True
+        index = end
+        if seen_iend:
+            break
+    if not seen_ihdr or not seen_idat or not seen_iend:
+        raise ValueError("PNG missing required header, image data or end.")
 
 
 def generate(prompt: str, model: str) -> bytes:
