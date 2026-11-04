@@ -8,6 +8,8 @@ var v321_chambers:Array[Dictionary]=[]
 var v321_passages:Array[Dictionary]=[]
 var v321_annexes:Array[Dictionary]=[]
 var v321_annex_passages:Array[Dictionary]=[]
+var v321_region_dungeons:Array[Dictionary]=[]
+var v321_region_dungeon_links:Array[Dictionary]=[]
 var v321_chamber_clock:float=0.0
 var v321_wave_starts:int=0
 var v321_champion_spawns:int=0
@@ -20,6 +22,7 @@ func _release_label()->String:return "v32.1"
 func _build_scene()->void:
  super._build_scene()
  _v321_build_chambers()
+ _v321_build_region_dungeon_entrances()
 
 func _v321_build_chambers()->void:
  var shared_floor:=CylinderMesh.new()
@@ -324,6 +327,88 @@ func _v321_build_exploration_annexes()->void:
    bridge_body.add_child(bridge_collision)
    passage.visible=false
    v321_annex_passages.append({"node":passage,"site":site_id,"stage":stage,"start":previous,"end":position,"width":3.6})
+
+# Five walkable regional dungeon entrance hubs, joined by real collidable routes.
+# These are exterior entrances, not yet fourteen-room interior instances.
+func _v321_build_region_dungeon_entrances()->void:
+ var shared_floor:=CylinderMesh.new()
+ shared_floor.top_radius=6.0
+ shared_floor.bottom_radius=6.0
+ shared_floor.height=0.16
+ shared_floor.radial_segments=18
+ var shared_shape:=CylinderShape3D.new()
+ shared_shape.radius=6.0
+ shared_shape.height=0.16
+ var route_mesh:=BoxMesh.new()
+ var route_shape:=BoxShape3D.new()
+ for zone in range(REGIONS.size()):
+  var region_centre:Vector2=REGIONS[zone]["at"]
+  var zone_tint:Color=Color(str(REGIONS[zone]["light"]))
+  var ground_material:=StandardMaterial3D.new()
+  ground_material.albedo_color=zone_tint.darkened(0.72)
+  ground_material.roughness=0.95
+  var route_material:=StandardMaterial3D.new()
+  route_material.albedo_color=zone_tint.darkened(0.80)
+  route_material.roughness=0.98
+  for dungeon_id in range(V321_RULES.REGIONAL_DUNGEON_COUNT):
+   var position:Vector3=V321_RULES.regional_dungeon_position(region_centre,dungeon_id)
+   var hub:=Node3D.new()
+   hub.name="RegionDungeonEntrance_%d_%d" % [zone,dungeon_id]
+   hub.position=position
+   world.add_child(hub)
+   var surface:=MeshInstance3D.new()
+   surface.name="RegionDungeonEntranceFloor"
+   surface.mesh=shared_floor
+   surface.material_override=ground_material
+   surface.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+   hub.add_child(surface)
+   var body:=StaticBody3D.new()
+   body.name="RegionDungeonEntranceCollision"
+   hub.add_child(body)
+   var shape:=CollisionShape3D.new()
+   shape.shape=shared_shape
+   body.add_child(shape)
+   var sign:=Label3D.new()
+   sign.name="RegionDungeonEntranceLabel"
+   sign.text="DUNGEON %d / 5" % (dungeon_id+1)
+   sign.font_size=30
+   sign.pixel_size=0.006
+   sign.position.y=2.2
+   sign.billboard=BaseMaterial3D.BILLBOARD_ENABLED
+   sign.modulate=zone_tint
+   hub.add_child(sign)
+   hub.visible=false
+   v321_region_dungeons.append({"node":hub,"zone":zone,"dungeon":dungeon_id})
+  # A ring of five passageways connects all five entrances without teleports.
+  # The sixth path joins the centre of the region to the first entrance.
+  for path_id in range(V321_RULES.REGIONAL_DUNGEON_COUNT+1):
+   var start:Vector3=Vector3(region_centre.x,0.0,region_centre.y) if path_id==V321_RULES.REGIONAL_DUNGEON_COUNT else V321_RULES.regional_dungeon_position(region_centre,path_id)
+   var finish:Vector3=V321_RULES.regional_dungeon_position(region_centre,0 if path_id==V321_RULES.REGIONAL_DUNGEON_COUNT else path_id+1)
+   var delta:Vector3=finish-start
+   var length:float=Vector2(delta.x,delta.z).length()
+   if length<=0.0:continue
+   var route:=Node3D.new()
+   route.name="RegionDungeonConnection_%d_%d" % [zone,path_id]
+   route.position=(start+finish)*0.5+Vector3(0,0.02,0)
+   route.rotation.y=-atan2(delta.z,delta.x)
+   world.add_child(route)
+   var walkway:=MeshInstance3D.new()
+   walkway.name="RegionDungeonConnectionFloor"
+   var tile:=route_mesh.duplicate() as BoxMesh
+   tile.size=Vector3(length+4.0,0.16,3.8)
+   walkway.mesh=tile
+   walkway.material_override=route_material
+   route.add_child(walkway)
+   var route_body:=StaticBody3D.new()
+   route_body.name="RegionDungeonConnectionCollision"
+   route.add_child(route_body)
+   var collision:=CollisionShape3D.new()
+   var platform:=route_shape.duplicate() as BoxShape3D
+   platform.size=tile.size
+   collision.shape=platform
+   route_body.add_child(collision)
+   route.visible=false
+   v321_region_dungeon_links.append({"node":route,"zone":zone,"start":start,"end":finish,"width":3.8})
 
 func _activate_rift_wave(site_id:int)->void:
  super._activate_rift_wave(site_id)
