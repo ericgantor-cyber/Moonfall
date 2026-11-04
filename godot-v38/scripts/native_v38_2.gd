@@ -19,6 +19,8 @@ var atlas_dungeon_site:int=-1
 var atlas_regional_dungeon:int=-1
 var atlas_regional_seen:Array[int]=[]
 var atlas_dungeon_zoom_radius:float=35.0
+var atlas_fast_travel_select:OptionButton
+var atlas_fast_travel_button:Button
 var atlas_heading:Label
 const ATLAS_DISCOVERY_SPACING:float=55.0
 const ATLAS_MAX_DISCOVERED:int=2048
@@ -169,6 +171,20 @@ func _create_atlas()->void:
  clear.text="CLEAR"
  clear.pressed.connect(_atlas_clear)
  buttons.add_child(clear)
+ # Fast travel is enabled only for previously visited dungeon entrances.
+ var travel_row:=HBoxContainer.new()
+ layout.add_child(travel_row)
+ atlas_fast_travel_select=OptionButton.new()
+ atlas_fast_travel_select.name="DiscoveredDungeonDestinations"
+ atlas_fast_travel_select.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+ atlas_fast_travel_select.tooltip_text="Visit a dungeon entrance to unlock it for fast travel."
+ travel_row.add_child(atlas_fast_travel_select)
+ atlas_fast_travel_button=Button.new()
+ atlas_fast_travel_button.name="DiscoveredDungeonFastTravel"
+ atlas_fast_travel_button.text="TRAVEL"
+ atlas_fast_travel_button.tooltip_text="Return to a discovered dungeon entrance when out of combat."
+ atlas_fast_travel_button.pressed.connect(_atlas_fast_travel_to_selected)
+ travel_row.add_child(atlas_fast_travel_button)
  var zoom_controls:HBoxContainer=HBoxContainer.new()
  layout.add_child(zoom_controls)
  for item in [{"text":"ZOOM +","multiplier":0.75},{"text":"ZOOM -","multiplier":1.333333}]:
@@ -202,6 +218,52 @@ func _atlas_select_waypoint(location:Vector3)->void:
  atlas_waypoint=location
  atlas_has_waypoint=true
  _refresh_atlas()
+
+# Stage 1 is the entrance. Discovering later rooms does not silently unlock
+# another dungeon, and progress is already saved via atlas_regional_seen.
+func _atlas_refresh_fast_travel()->void:
+ if not is_instance_valid(atlas_fast_travel_select) or not is_instance_valid(atlas_fast_travel_button):return
+ var previous_id:int=atlas_fast_travel_select.get_selected_id()
+ atlas_fast_travel_select.clear()
+ for zone in range(REGIONS.size()):
+  for dungeon_id in range(V321_RULES.REGIONAL_DUNGEON_COUNT):
+   var room_id:int=_atlas_regional_room_id(zone,dungeon_id,1)
+   if not atlas_regional_seen.has(room_id):continue
+   atlas_fast_travel_select.add_item("Region %d • Dungeon %d" % [zone+1,dungeon_id+1],zone*V321_RULES.REGIONAL_DUNGEON_COUNT+dungeon_id)
+ var keep:int=atlas_fast_travel_select.get_item_index(previous_id)
+ if keep>=0:atlas_fast_travel_select.select(keep)
+ elif atlas_fast_travel_select.item_count>0:atlas_fast_travel_select.select(0)
+ var safe:bool=hero_playing and not death_active and not menu_open and not mounted and is_instance_valid(player) and not _combat_threat()
+ atlas_fast_travel_button.disabled=atlas_fast_travel_select.item_count==0 or not safe
+ atlas_fast_travel_select.disabled=atlas_fast_travel_select.item_count==0
+ if atlas_fast_travel_select.item_count==0:atlas_fast_travel_button.tooltip_text="Discover a dungeon entrance to unlock fast travel."
+ elif not safe:atlas_fast_travel_button.tooltip_text="Fast travel requires being alive, unmounted and out of combat."
+ else:atlas_fast_travel_button.tooltip_text="Travel to the selected explored dungeon entrance."
+
+func _atlas_fast_travel_to_selected()->void:
+ if not hero_playing or death_active or menu_open or mounted or not is_instance_valid(player):return
+ if _combat_threat():
+  _show_message("Fast travel is unavailable during combat.",2.0)
+  return
+ if not is_instance_valid(atlas_fast_travel_select) or atlas_fast_travel_select.selected<0:return
+ var destination_id:int=atlas_fast_travel_select.get_selected_id()
+ if destination_id<0 or destination_id>=REGIONS.size()*V321_RULES.REGIONAL_DUNGEON_COUNT:return
+ var zone:int=int(destination_id/V321_RULES.REGIONAL_DUNGEON_COUNT)
+ var dungeon_id:int=destination_id%V321_RULES.REGIONAL_DUNGEON_COUNT
+ if not atlas_regional_seen.has(_atlas_regional_room_id(zone,dungeon_id,1)):
+  _show_message("Discover that dungeon entrance first.",2.0)
+  return
+ var centre:Vector2=REGIONS[zone]["at"]
+ var entrance:Vector3=V321_RULES.regional_dungeon_position(centre,dungeon_id)
+ if not NAVIGATION_MAP._valid_world_point(entrance):return
+ # Place the player above the known solid entrance floor, never inside a room
+ # or at a remote unverified waypoint. The player body settles via physics.
+ player.global_position=entrance+Vector3(0,1.25,0)
+ if player is CharacterBody3D:(player as CharacterBody3D).velocity=Vector3.ZERO
+ atlas_regional_dungeon=destination_id
+ atlas_dungeon_site=-1
+ atlas_panel.visible=false
+ _show_message("Fast traveled to Region %d, Dungeon %d." % [zone+1,dungeon_id+1],2.5)
 
 func _atlas_mark_here()->void:
  if not hero_playing or not is_instance_valid(player):return
@@ -384,6 +446,7 @@ func _refresh_atlas()->void:
  atlas_chart.call("update_navigation",pos,atlas_waypoint,atlas_has_waypoint)
  if is_instance_valid(player):atlas_chart.call("update_player_facing",-player.global_transform.basis.z)
  atlas_chart.call("update_dungeon_room",pos)
+ _atlas_refresh_fast_travel()
  atlas_readout.text="X %.0f | Z %.0f | Trail: %d/%d | Chambers: %d/%d | Rifts: %d/%d | Quests: %d" % [pos.x,pos.z,atlas_discovered.size(),ATLAS_MAX_DISCOVERED,atlas_chambers_seen.size(),v321_chambers.size()+v321_annexes.size(),rifts_cleared.size(),rifts.size(),atlas_quest_positions.size()]
  if atlas_regional_dungeon>=0:
   var seen_count:int=0
