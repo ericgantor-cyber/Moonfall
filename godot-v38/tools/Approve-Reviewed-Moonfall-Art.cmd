@@ -26,7 +26,9 @@ echo Only approve artwork you have personally inspected in the gallery.
 choice /C YN /N /M "Approve these selected PNG and GLB files into Moonfall? [Y/N] "
 if errorlevel 2 exit /b 0
 %PYTHON% tools\ai_art_approve_selected.py --manifest "%MANIFEST%" --apply
-if errorlevel 1 goto failed
+set "AUDIT_RESULT=%ERRORLEVEL%"
+if exist "ai_art_staging\review\auto_audit.html" start "" "ai_art_staging\review\auto_audit.html"
+if not "%AUDIT_RESULT%"=="0" goto failed
 echo.
 echo Approved! Re-import your Godot project and rebuild the Windows game.
 pause

@@ -1,8 +1,17 @@
 name: Moonfall AI Art Studio offline tests
 on:
+  workflow_dispatch:
+  schedule:
+    - cron: '23 9 * * 1'
   pull_request:
     paths:
       - 'godot-v38/tools/ai_art_studio.py'
+      - 'godot-v38/tools/ai_art_auto_audit.py'
+      - 'godot-v38/tests/test_ai_art_auto_audit.py'
+      - 'godot-v38/tools/Audit-Moonfall-Art.cmd'
+      - 'godot-v38/tools/Import-Moonfall-Art.cmd'
+      - 'godot-v38/tools/Approve-Reviewed-Moonfall-Art.cmd'
+      - 'godot-v38/docs/AI_ART_STUDIO.md'
       - 'godot-v38/tools/ai_art_review.py'
       - 'godot-v38/tools/ai_art_game_catalog.py'
       - 'godot-v38/tests/test_ai_art_3d.py'
@@ -32,6 +41,8 @@ on:
     branches: [main]
     paths:
       - 'godot-v38/tools/ai_art_*.py'
+      - 'godot-v38/tools/*Moonfall-Art.cmd'
+      - 'godot-v38/docs/AI_ART_STUDIO.md'
       - 'godot-v38/tests/test_ai_art_*.py'
       - 'godot-v38/scripts/systems/ai_art_*.gd'
       - 'godot-v38/scripts/native_v38_2.gd'
@@ -59,3 +70,27 @@ jobs:
           OPENAI_API_KEY: ''
           MESHY_API_KEY: ''
         run: python tools/ai_art_release_audit.py --strict
+      - name: Auto-audit approved, staged, rigging, PBR, 4K and unknown art
+        working-directory: godot-v38
+        env:
+          OPENAI_API_KEY: ''
+          MESHY_API_KEY: ''
+        run: python tools/ai_art_auto_audit.py --strict --output-dir ai_art_staging/review
+      - name: Publish AI Art audit summary to GitHub job
+        if: always()
+        shell: bash
+        run: |
+          if test -f godot-v38/ai_art_staging/review/auto_audit.md; then
+            cat godot-v38/ai_art_staging/review/auto_audit.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Upload searchable local art audit dashboard and JSON report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Moonfall-AI-Art-Audit
+          path: |
+            godot-v38/ai_art_staging/review/auto_audit.html
+            godot-v38/ai_art_staging/review/auto_audit.json
+            godot-v38/ai_art_staging/review/auto_audit.md
+          if-no-files-found: ignore
+          retention-days: 14

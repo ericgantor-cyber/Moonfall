@@ -103,6 +103,64 @@ a partial batch.
 Never approve artwork you haven't visually checked. Bulk approval is a tool
 for speeding up a deliberate review, not an automatic aesthetic judgment.
 
+## Automatic whole-game art audit (offline and included in CI)
+
+Moonfall's AI Art Studio now performs a **read-only audit automatically**
+after each one-click artwork import and after you explicitly approve a set
+of PNG/GLB/animated-rig files. The audit never generates or remixes images,
+calls an image provider, spends credits or approves any artwork on its own.
+
+The audit checks:
+- Every registered **approved and staged PNG/GLB/animated creature rig** for
+  correct file structure, SHA-256 checksum and approval provenance.
+- Real mesh geometry, embedded **4096-pixel texture** dimensions, PBR
+  material mappings, skeleton bindings, total bone counts and animation clips.
+- Missing optional clips, very high triangle counts and large uncompressed
+  raw-RGBA texture estimates as **warnings**, not hard restrictions.
+- Unknown/unregistered PNG/GLB assets found in the approved or staging
+  directories, corrupted files and bad manifests as **integrity errors**.
+- Optionally, incoming art still in the `ai_art_inbox` folders, including
+  unapproved rigged GLBs. Bad incoming files are not imported.
+- Duplicate approved asset bytes and approximate aggregate texture and
+  installer-source footprint. A raw RGBA+mipmap estimate is **not measured
+  GPU memory**, and a 4K image header does not prove visual quality.
+
+Double-click **`tools/Audit-Moonfall-Art.cmd`** on Windows to run the full
+offline audit and open its local searchable dashboard. Or from `godot-v38`:
+
+    python tools/ai_art_auto_audit.py --strict --inbox
+    python tools/ai_art_auto_audit.py --output-dir ai_art_staging/review
+
+Reports appear in:
+- `ai_art_staging/review/auto_audit.html` — keyboard-searchable, filterable
+  local dashboard showing art states and quality findings.
+- `ai_art_staging/review/auto_audit.json` — complete machine-readable report.
+- `ai_art_staging/review/auto_audit.md` — concise summary suitable for CI.
+
+**Strict mode fails on integrity problems only**. Incomplete artwork coverage
+doesn't fail: original Godot and Z/Nyra visuals remain. High-polygon assets,
+absent 4K maps, and missing optional animations are advisory warnings so
+creative freedom remains intact.
+
+The art GitHub Actions workflow runs on relevant pull requests, pushes to
+main, manual dispatch, and a scheduled weekly check (Monday 09:23 UTC).
+It automatically uploads JSON/HTML/Markdown audit artifacts, posts an audit
+summary inside the workflow job, and blocks green status for corrupt
+approved or staged assets. Scheduled GitHub Actions run on the default
+branch only after the change is merged.
+
+The regular **Windows installer CI** also runs the same strict audit
+**before downloading Godot or building the game**, so a green installer
+run requires verified artwork provenance. That workflow uploads a separate
+`Moonfall-Windows-AI-Art-Preflight` artifact containing its HTML, JSON and
+Markdown reports. These checks do not perform runtime GPU benchmarks.
+
+The Windows importer and approval launcher also print the audit status
+and automatically open its offline dashboard. **Approval is still always a separate deliberate
+action**. Existing built Windows game releases do not acquire new artwork
+until the next regular Godot/Windows build, and animation quality/performance
+should still be tested in actual gameplay.
+
 ## Creative limits removed: large rigs, animation libraries and art batches
 
 Moonfall's **offline** import and review workflows no longer impose hard

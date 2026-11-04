@@ -24,6 +24,7 @@ echo Review the gallery, check specific PNG/GLB art, and export your selection.
 echo Then drag the downloaded moonfall_art_approval.json file onto
 echo tools\Approve-Reviewed-Moonfall-Art.cmd to approve reviewed art.
 start "" "ai_art_staging\review\index.html"
+if exist "ai_art_staging\review\auto_audit.html" start "" "ai_art_staging\review\auto_audit.html"
 pause
 exit /b 0
 :failed
