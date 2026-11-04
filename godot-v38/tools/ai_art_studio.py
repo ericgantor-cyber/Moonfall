@@ -18,6 +18,7 @@ import urllib.error
 import urllib.request
 
 from ai_art_direction import make_prompt, STYLE_VERSION
+from ai_art_game_catalog import parse_slot, SLOTS
 import zlib
 
 PROJECT = Path(__file__).resolve().parents[1]
@@ -262,6 +263,8 @@ def main(argv: list[str] | None = None) -> int:
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("--guardian", type=int, metavar="ID", help="Named guardian 0-54")
     group.add_argument("--animal", metavar="SPECIES", help="Exact name from Americas wildlife catalog")
+    group.add_argument("--game-art", metavar="CATEGORY:KEY", help="Game-wide art slot, e.g. glyphs:orb_hud")
+    group.add_argument("--list-game-art", action="store_true", help="Print all available non-creature art slots")
     action = parser.add_mutually_exclusive_group()
     action.add_argument("--generate", action="store_true", help="Explicit opt-in paid image API request")
     action.add_argument("--approve", action="store_true", help="Copy reviewed staged PNG into game assets")
@@ -269,7 +272,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--model", default=MODEL, choices=[MODEL, "gpt-image-2.5-sunburst", "gpt-image-1.5"])
     args = parser.parse_args(argv)
     try:
-        item = guardian_profile(args.guardian) if args.guardian is not None else animal_profile(args.animal)
+        if args.list_game_art:
+            print(json.dumps({category: list(slots) for category, slots in SLOTS.items()}, indent=2))
+            return 0
+        item = (guardian_profile(args.guardian) if args.guardian is not None
+                else animal_profile(args.animal) if args.animal is not None
+                else parse_slot(args.game_art))
         prompt = prompt_for(item)
         staged, dest = dest_paths(item)
         if args.generate:
