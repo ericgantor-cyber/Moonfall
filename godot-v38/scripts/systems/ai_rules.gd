@@ -22,4 +22,8 @@ static func approach(diff:Vector3,speed:float,spawn_id:int,is_boss:bool,boss_pha
  return advance*speed
 
 static func retreat_due(hp:float,max_health:float,is_boss:bool,dungeon_site:int,now:float,cooldown_until:float) -> bool:
- return hp>0.0 and hp<max_health*0.28 and not is_boss and dungeon_site<0 and now>=cooldown_until
+ # Invalid health or world clocks must never trigger corrupted retreat behavior.
+ if not is_finite(hp) or not is_finite(max_health) or not is_finite(now) or not is_finite(cooldown_until):return false
+ if max_health<=0.0 or hp<=0.0 or hp>max_health:return false
+ if now<0.0 or cooldown_until<0.0:return false
+ return hp<max_health*0.28 and not is_boss and dungeon_site<0 and now>=cooldown_until
