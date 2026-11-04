@@ -27,7 +27,6 @@ TASKS_3D = studio.STAGING / "3d_tasks"
 APPROVED_3D = studio.ROOT / "models"
 MESHY_ENDPOINT = "https://api.meshy.ai/openapi/v1/image-to-3d"
 MAX_GLB_BYTES = 96 * 1024 * 1024
-MAX_MODEL_TRIANGLES = 100_000
 ALLOWED_MODEL_CATEGORIES = frozenset(("guardians", "animals", "scenery", "gear", "chambers"))
 TASK_ID_RE = re.compile(r"^[a-zA-Z0-9_-]{8,90}$")
 
@@ -214,8 +213,8 @@ def glb_info(payload: bytes) -> dict:
         raise ValueError("GLB lacks valid glTF 2.0 scene metadata.")
     meshes = document.get("meshes", [])
     nodes = document.get("nodes", [])
-    if not isinstance(meshes, list) or not 1 <= len(meshes) <= 120 or not isinstance(nodes, list) or len(nodes) > 800:
-        raise ValueError("Model has no meshes or exceeds the native scene node budget.")
+    if not isinstance(meshes, list) or not meshes or not isinstance(nodes, list):
+        raise ValueError("Model must contain real meshes and a valid scene node list.")
     if not document.get("scenes"):
         raise ValueError("GLB has no scene to instantiate.")
     buffers = document.get("buffers", [])
@@ -231,8 +230,8 @@ def glb_info(payload: bytes) -> dict:
             if uri is not None and not (isinstance(uri, str) and uri.startswith("data:")):
                 raise ValueError("GLB external file/network references are forbidden.")
     accessors = document.get("accessors", [])
-    if not isinstance(accessors, list) or len(accessors) > 3500:
-        raise ValueError("Excessive GLB accessor count.")
+    if not isinstance(accessors, list):
+        raise ValueError("Invalid GLB accessor list.")
     triangles = 0
     for mesh in meshes:
         if not isinstance(mesh, dict):
@@ -246,12 +245,14 @@ def glb_info(payload: bytes) -> dict:
             if not isinstance(index, int) or not 0 <= index < len(accessors):
                 raise ValueError("GLB primitive references an invalid accessor.")
             count = accessors[index].get("count", 0)
-            if not isinstance(count, int) or count < 3:
+            if not isinstance(count, int) or isinstance(count, bool) or count < 3:
                 raise ValueError("GLB mesh accessor has no triangles.")
+            # No arbitrary polygon count cap. Reject forged massive accessor
+            # declarations that cannot fit in the source GLB file at all.
+            if count > len(payload):
+                raise ValueError("GLB triangle accessor declares more elements than source bytes.")
             triangles += count // 3
-            if triangles > MAX_MODEL_TRIANGLES:
-                raise ValueError("3D model exceeds 100,000 triangles. Remesh for Windows performance.")
-    if not 1 <= triangles <= MAX_MODEL_TRIANGLES:
+    if triangles < 1:
         raise ValueError("Model must contain real triangle geometry.")
     result = {"triangles": triangles, "mesh_count": len(meshes),
               "nodes": len(nodes), "bytes": len(payload), "has_binary_chunk": binary_chunks > 0}
