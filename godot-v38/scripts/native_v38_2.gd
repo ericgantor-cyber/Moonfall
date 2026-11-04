@@ -204,10 +204,10 @@ func _atlas_record_nearby_chambers(position:Vector3)->void:
 
 func _atlas_chamber_marker_positions()->Array[Vector3]:
  var markers:Array[Vector3]=[]
- for chamber in v321_chambers:
+ for chamber in _atlas_all_site_chambers():
   var site_id:int=int(chamber.get("site",-1))
   var stage:int=int(chamber.get("stage",0))
-  if site_id<0 or site_id>=rifts.size() or stage<1 or stage>3:continue
+  if site_id<0 or site_id>=rifts.size() or stage<1 or stage>14:continue
   if not (_atlas_room_id(site_id,stage) in atlas_chambers_seen):continue
   var chamber_node:Node3D=chamber.get("node") as Node3D
   if not is_instance_valid(chamber_node):continue
@@ -312,9 +312,9 @@ func _refresh_atlas()->void:
  atlas_readout.text="X %.0f | Z %.0f | Trail: %d/%d | Chambers: %d/%d | Rifts: %d/%d | Quests: %d" % [pos.x,pos.z,atlas_discovered.size(),ATLAS_MAX_DISCOVERED,atlas_chambers_seen.size(),v321_chambers.size()+v321_annexes.size(),rifts_cleared.size(),rifts.size(),atlas_quest_positions.size()]
  if atlas_dungeon_site>=0:
   var local_seen:int=0
-  for stage in range(3):
-   if atlas_chambers_seen.has(atlas_dungeon_site*3+stage):local_seen+=1
-  atlas_readout.text+=" | This dungeon: %d/3" % local_seen
+  for stage in range(1,15):
+   if atlas_chambers_seen.has(_atlas_room_id(atlas_dungeon_site,stage)):local_seen+=1
+  atlas_readout.text+=" | This dungeon: %d/14" % local_seen
   var current_room:int=atlas_chart.get("dungeon_current_room")
   atlas_readout.text+=(" | CURRENT ROOM: %d" % (current_room+1)) if current_room>=0 else " | Between chambers"
  if atlas_has_waypoint:
