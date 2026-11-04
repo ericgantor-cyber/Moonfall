@@ -1,11 +1,16 @@
 extends RefCounted
 ## Isolated combat arithmetic; callers still own RNG, health, effects and rewards.
 static func outgoing_damage(base:float,critical:bool,wounded:bool,execute_rank:int,fury:float,power_modifier:float) -> float:
- var damage:=base*(1.6 if critical else 1.0)
+ # Invalid saved buffs must not inject NaN, Infinity or negative damage into combat.
+ if not is_finite(base) or base<=0.0 or not is_finite(fury) or not is_finite(power_modifier):return 0.0
+ if fury<0.0 or power_modifier<=0.0 or execute_rank<0:return 0.0
+ # Bound unreasonable corrupted modifiers without changing normal attack calculations.
+ if base>1.0e8 or fury>100.0 or power_modifier>100.0 or execute_rank>1000:return 0.0
+ var damage:float=base*(1.6 if critical else 1.0)
  if wounded:damage*=1.0+0.1*float(execute_rank)
  damage*=1.0+fury
  damage*=power_modifier
- return damage
+ return damage if is_finite(damage) and damage>=0.0 else 0.0
 
 static func elite_missed(strike_pos:Vector3,hero_pos:Vector3,dodge_remaining:float) -> bool:
  # Invalid strike coordinates cannot legitimately hit; corrupt dodge timers cannot grant immunity.
