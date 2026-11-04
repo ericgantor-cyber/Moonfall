@@ -92,6 +92,10 @@ func _run()->void:
  var room_locations:Array[Vector3]=[Vector3(-11,0,-3),Vector3(11,0,-3),Vector3(0,0,11)]
  map.call("set_dungeon_context",true,room_locations)
  check(bool(map.get("dungeon_active")) and (map.get("dungeon_rooms") as Array).size()==3,"dungeon displays its existing three numbered chambers")
+ check(NAV.dungeon_room_index_at(Vector3(-10,0,-2),room_locations,3.0)==0,"click near first dungeon room selects chamber waypoint")
+ check(NAV.dungeon_room_index_at(Vector3(11,0,-3),room_locations,3.0)==1,"click exactly on second chamber selects it")
+ check(NAV.dungeon_room_index_at(Vector3(40,0,40),room_locations,3.0)==-1,"distant click leaves freeform waypoint positioning")
+ check(NAV.dungeon_room_index_at(Vector3(NAN,0,0),room_locations,3.0)==-1,"corrupt dungeon map click rejected")
  map.call("set_dungeon_context",false,room_locations)
  check(not bool(map.get("dungeon_active")) and (map.get("dungeon_rooms") as Array).is_empty(),"world view clears dungeon-only room overlay")
  check("func _atlas_update_dungeon_context(" in source and "_atlas_update_dungeon_context(here)" in source,"automatic context updates while walking with map closed")
