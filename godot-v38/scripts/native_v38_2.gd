@@ -1,6 +1,7 @@
 extends "res://scripts/native_v38_1.gd"
 ## Coordinate-accurate atlas overlay; existing connected world geometry unchanged.
 const NAVIGATION_MAP=preload("res://scripts/systems/navigation_map.gd")
+const GUARDIAN_TRAIT_ATTACKS=preload("res://scripts/systems/guardian_trait_attacks.gd")
 var atlas_panel:PanelContainer
 var atlas_chart:Control
 var atlas_readout:Label
@@ -21,6 +22,10 @@ var atlas_regional_seen:Array[int]=[]
 var atlas_regional_relics_claimed:Array[int]=[]
 var atlas_regional_guardians_cleared:Array[int]=[]
 var atlas_regional_guardian_actors:Dictionary={}
+var guardian_trait_attack_clock:float=0.0
+var guardian_trait_warns:int=0
+var guardian_trait_hits:int=0
+var guardian_trait_counters:int=0
 var atlas_regional_guardian_rolls:Array[int]=[]
 const DUNGEON_GUARDIAN_TRIGGER_RADIUS_SQ:float=16.0*16.0
 var atlas_dungeon_zoom_radius:float=35.0
@@ -91,6 +96,10 @@ func _start_game(selected_hero:String)->void:
  atlas_regional_relics_claimed.clear()
  atlas_regional_guardians_cleared.clear()
  atlas_regional_guardian_actors.clear()
+ guardian_trait_attack_clock=0.0
+ guardian_trait_warns=0
+ guardian_trait_hits=0
+ guardian_trait_counters=0
  _atlas_roll_regional_guardians()
  atlas_fast_travel_unlocked_cache.clear()
  atlas_regional_dungeon=-1
@@ -383,6 +392,156 @@ func _interact()->void:
 # Final-chamber guardians inhabit the existing open world, not a wave mode.
 # One native boss is created lazily per visited dungeon, instead of spawning
 # thirty extra bosses during scene setup.
+# A native guardian gets one visual-only footprint; no extra physics actors.
+# Shape dimensions intentionally match the pure rules hitboxes.
+func _guardian_create_trait_warning(trait_id:int,guardian_id:int)->Node3D:
+ var root:=Node3D.new()
+ root.name="GuardianTraitWarning_%d" % guardian_id
+ var tint:Color=GUARDIAN_TRAIT_ATTACKS.WARNING_COLORS[trait_id]
+ var material:=StandardMaterial3D.new()
+ material.shading_mode=BaseMaterial3D.SHADING_MODE_UNSHADED
+ material.transparency=BaseMaterial3D.TRANSPARENCY_ALPHA
+ material.albedo_color=tint
+ material.no_depth_test=false
+ if trait_id==0:
+  var ring:=TorusMesh.new()
+  ring.inner_radius=2.1
+  ring.outer_radius=5.2
+  ring.rings=8
+  ring.ring_segments=32
+  var surface:=MeshInstance3D.new()
+  surface.mesh=ring
+  surface.material_override=material
+  surface.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+  root.add_child(surface)
+ elif trait_id==2:
+  var pool:=CylinderMesh.new()
+  pool.top_radius=2.8
+  pool.bottom_radius=2.8
+  pool.height=0.035
+  pool.radial_segments=28
+  var surface:=MeshInstance3D.new()
+  surface.mesh=pool
+  surface.material_override=material
+  surface.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+  root.add_child(surface)
+ else:
+  var lane_mesh:=BoxMesh.new()
+  lane_mesh.size=Vector3(7.0 if trait_id==1 else 14.0,0.04,2.4 if trait_id==1 else 1.8)
+  var lane:=MeshInstance3D.new()
+  lane.mesh=lane_mesh
+  lane.material_override=material
+  lane.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+  root.add_child(lane)
+  if trait_id==3:
+   var crossing:=MeshInstance3D.new()
+   crossing.mesh=lane_mesh
+   crossing.rotation.y=PI*0.5
+   crossing.material_override=material
+   crossing.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+   root.add_child(crossing)
+ # Text plus color makes the cue readable when color distinction is poor.
+ var cue:=Label3D.new()
+ cue.name="TraitAttackCaption"
+ cue.font_size=38
+ cue.pixel_size=0.005
+ cue.billboard=BaseMaterial3D.BILLBOARD_ENABLED
+ cue.modulate=Color.WHITE
+ cue.outline_size=12
+ cue.position=Vector3(0.0,1.5,0.0)
+ cue.text=GUARDIAN_TRAIT_ATTACKS.ATTACK_NAMES[trait_id].to_upper()
+ root.add_child(cue)
+ root.visible=false
+ world.add_child(root)
+ return root
+
+func _guardian_place_trait_warning(guardian:Dictionary)->void:
+ var root:Node3D=guardian.get("trait_warning_root") as Node3D
+ var body:CharacterBody3D=guardian.get("body") as CharacterBody3D
+ if not is_instance_valid(root) or not is_instance_valid(body):return
+ var trait_id:int=int(guardian.get("regional_guardian_trait",-1))
+ if not GUARDIAN_TRAIT_ATTACKS.valid_trait(trait_id):return
+ var origin:Vector3=guardian.get("trait_origin",body.global_position)
+ var target:Vector3=guardian.get("trait_target",origin)
+ root.position=Vector3(origin.x,0.09,origin.z)
+ root.rotation.y=0.0
+ if trait_id==1:
+  var facing:Vector2=guardian.get("trait_facing",Vector2.RIGHT)
+  root.position+=Vector3(facing.x*3.5,0,facing.y*3.5)
+  root.rotation.y=-atan2(facing.y,facing.x)
+ elif trait_id==2:root.position=Vector3(target.x,0.09,target.z)
+ root.visible=true
+
+# Four explicit moves: Moonbound donut, Ember line, Venom target pool,
+# Eclipse crossing lanes. Each has a 1.35s visual warning and safe escape.
+func _guardian_update_trait_attacks(delta:float)->void:
+ guardian_trait_attack_clock+=clampf(delta,0.0,0.2)
+ if guardian_trait_attack_clock<0.10:return
+ guardian_trait_attack_clock=fmod(guardian_trait_attack_clock,0.10)
+ if not hero_playing or death_active or menu_open or not is_instance_valid(player):
+  for guardian_id in atlas_regional_guardian_actors.keys():
+   var guardian:Dictionary=atlas_regional_guardian_actors[guardian_id]
+   guardian["trait_warning_until"]=0.0
+   var old_warning:Node3D=guardian.get("trait_warning_root") as Node3D
+   if is_instance_valid(old_warning):old_warning.visible=false
+  return
+ var here:Vector3=player.global_position
+ for guardian_id in atlas_regional_guardian_actors.keys():
+  var guardian:Dictionary=atlas_regional_guardian_actors[guardian_id]
+  if not bool(guardian.get("alive",false)):continue
+  if int(guardian.get("zone",-1))!=region_index:
+   guardian["trait_warning_until"]=0.0
+   var far_warning:Node3D=guardian.get("trait_warning_root") as Node3D
+   if is_instance_valid(far_warning):far_warning.visible=false
+   continue
+  var body:CharacterBody3D=guardian.get("body") as CharacterBody3D
+  if not is_instance_valid(body):continue
+  var trait_id:int=int(guardian.get("regional_guardian_trait",-1))
+  if not GUARDIAN_TRAIT_ATTACKS.valid_trait(trait_id):continue
+  var origin:Vector3=body.global_position
+  var horizontal:Vector2=Vector2(here.x-origin.x,here.z-origin.z)
+  var warning_until:float=float(guardian.get("trait_warning_until",0.0))
+  if warning_until>0.0:
+   var warning_root:Node3D=guardian.get("trait_warning_root") as Node3D
+   # Clear stale cues when the hero leaves the encounter. No delayed hit can
+   # follow the player across an open-world fast-travel destination.
+   if horizontal.length_squared()>18.0*18.0:
+    guardian["trait_warning_until"]=0.0
+    guardian["trait_next_at"]=map_time+2.0
+    if is_instance_valid(warning_root):warning_root.visible=false
+    continue
+   if map_time<warning_until:
+    if is_instance_valid(warning_root):
+     var cue:Label3D=warning_root.get_node_or_null("TraitAttackCaption") as Label3D
+     if is_instance_valid(cue):
+      cue.text="%s • %.1fs" % [GUARDIAN_TRAIT_ATTACKS.ATTACK_NAMES[trait_id].to_upper(),maxf(0.0,warning_until-map_time)]
+    continue
+   guardian["trait_warning_until"]=0.0
+   var root:Node3D=guardian.get("trait_warning_root") as Node3D
+   if is_instance_valid(root):root.visible=false
+   var warning_origin:Vector3=guardian.get("trait_origin",origin)
+   var target:Vector3=guardian.get("trait_target",warning_origin)
+   var facing:Vector2=guardian.get("trait_facing",Vector2.RIGHT)
+   var hit:bool=GUARDIAN_TRAIT_ATTACKS.hit(trait_id,warning_origin,target,here,facing)
+   if hit and dodge_time<=0.0 and not mounted:
+    _apply_incoming_damage(GUARDIAN_TRAIT_ATTACKS.damage(trait_id,int(guardian.get("boss_phase",1))))
+    guardian_trait_hits+=1
+   else:
+    guardian_trait_counters+=1
+    _show_message("COUNTERED: "+GUARDIAN_TRAIT_ATTACKS.ATTACK_NAMES[trait_id],1.2)
+   guardian["trait_next_at"]=map_time+GUARDIAN_TRAIT_ATTACKS.cooldown(trait_id,int(guardian.get("boss_phase",1)))
+   continue
+  if map_time<float(guardian.get("trait_next_at",0.0)) or mounted:continue
+  if horizontal.length_squared()>GUARDIAN_TRAIT_ATTACKS.ENGAGE_RANGE_SQ or horizontal.length_squared()<0.01:continue
+  if not _has_clear_sight(body,player):continue
+  guardian["trait_origin"]=origin
+  guardian["trait_target"]=here
+  guardian["trait_facing"]=horizontal.normalized()
+  guardian["trait_warning_until"]=map_time+GUARDIAN_TRAIT_ATTACKS.WARNING_SECONDS
+  _guardian_place_trait_warning(guardian)
+  guardian_trait_warns+=1
+  _show_message(GUARDIAN_TRAIT_ATTACKS.ATTACK_NAMES[trait_id]+"! "+GUARDIAN_TRAIT_ATTACKS.COUNTER_HINTS[trait_id],GUARDIAN_TRAIT_ATTACKS.WARNING_SECONDS)
+
 func _atlas_update_dungeon_guardians(position:Vector3)->void:
  if not hero_playing or death_active or not NAVIGATION_MAP._valid_world_point(position):return
  for zone in range(REGIONS.size()):
@@ -414,6 +573,9 @@ func _atlas_update_dungeon_guardians(position:Vector3)->void:
    if is_instance_valid(title):
     title.text="%s %s GUARDIAN • %d / 5" % [V321_RULES.REGIONAL_GUARDIAN_TRAITS[trait_id].to_upper(),monster.to_upper(),dungeon_id+1]
     title.modulate=V321_RULES.REGIONAL_GUARDIAN_TRAIT_COLORS[trait_id]
+   guardian["trait_next_at"]=map_time+3.0
+   guardian["trait_warning_until"]=0.0
+   guardian["trait_warning_root"]=_guardian_create_trait_warning(trait_id,guardian_id)
    atlas_regional_guardian_actors[guardian_id]=guardian
    _show_message("A dungeon guardian defends the Eclipse Threshold!",3.0)
    return
@@ -426,6 +588,8 @@ func _defeat_beast(beast:Dictionary,pet_kill:bool)->void:
  if first_clear:atlas_regional_guardians_cleared.append(guardian_id)
  super._defeat_beast(beast,pet_kill)
  if first_clear:
+  var warning_root:Node3D=beast.get("trait_warning_root") as Node3D
+  if is_instance_valid(warning_root):warning_root.visible=false
   # Native animals normally respawn. Dungeon bosses remain defeated.
   beast["respawn_at"]=1.0e30
   var zone:int=int(beast.get("zone",-1))
@@ -659,6 +823,7 @@ func _unhandled_key_input(event:InputEvent)->void:
 
 func _process(delta:float)->void:
  super._process(delta)
+ _guardian_update_trait_attacks(delta)
  if not is_instance_valid(atlas_panel):return
  if is_instance_valid(atlas_open_button):atlas_open_button.visible=hero_playing and not death_active and not menu_open
  if not hero_playing or death_active or menu_open:
