@@ -8,6 +8,7 @@ var v321_chambers:Array[Dictionary]=[]
 var v321_passages:Array[Dictionary]=[]
 var v321_annexes:Array[Dictionary]=[]
 var v321_annex_passages:Array[Dictionary]=[]
+var v321_region_dungeons:Array[Dictionary]=[]
 var v321_chamber_clock:float=0.0
 var v321_wave_starts:int=0
 var v321_champion_spawns:int=0
@@ -20,6 +21,7 @@ func _release_label()->String:return "v32.1"
 func _build_scene()->void:
  super._build_scene()
  _v321_build_chambers()
+ _v321_build_region_dungeon_entrances()
 
 func _v321_build_chambers()->void:
  var shared_floor:=CylinderMesh.new()
@@ -324,6 +326,53 @@ func _v321_build_exploration_annexes()->void:
    bridge_body.add_child(bridge_collision)
    passage.visible=false
    v321_annex_passages.append({"node":passage,"site":site_id,"stage":stage,"start":previous,"end":position,"width":3.6})
+
+# Five separate regional dungeon entrances, each reachable from the open world.
+# No corridors join one dungeon to another; interiors remain separate work.
+func _v321_build_region_dungeon_entrances()->void:
+ var shared_floor:=CylinderMesh.new()
+ shared_floor.top_radius=6.0
+ shared_floor.bottom_radius=6.0
+ shared_floor.height=0.16
+ shared_floor.radial_segments=18
+ var shared_shape:=CylinderShape3D.new()
+ shared_shape.radius=6.0
+ shared_shape.height=0.16
+ for zone in range(REGIONS.size()):
+  var region_centre:Vector2=REGIONS[zone]["at"]
+  var zone_tint:Color=Color(str(REGIONS[zone]["light"]))
+  var ground_material:=StandardMaterial3D.new()
+  ground_material.albedo_color=zone_tint.darkened(0.72)
+  ground_material.roughness=0.95
+  for dungeon_id in range(V321_RULES.REGIONAL_DUNGEON_COUNT):
+   var position:Vector3=V321_RULES.regional_dungeon_position(region_centre,dungeon_id)
+   var hub:=Node3D.new()
+   hub.name="RegionDungeonEntrance_%d_%d" % [zone,dungeon_id]
+   hub.position=position
+   world.add_child(hub)
+   var surface:=MeshInstance3D.new()
+   surface.name="RegionDungeonEntranceFloor"
+   surface.mesh=shared_floor
+   surface.material_override=ground_material
+   surface.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+   hub.add_child(surface)
+   var body:=StaticBody3D.new()
+   body.name="RegionDungeonEntranceCollision"
+   hub.add_child(body)
+   var shape:=CollisionShape3D.new()
+   shape.shape=shared_shape
+   body.add_child(shape)
+   var sign:=Label3D.new()
+   sign.name="RegionDungeonEntranceLabel"
+   sign.text="DUNGEON %d / 5" % (dungeon_id+1)
+   sign.font_size=30
+   sign.pixel_size=0.006
+   sign.position.y=2.2
+   sign.billboard=BaseMaterial3D.BILLBOARD_ENABLED
+   sign.modulate=zone_tint
+   hub.add_child(sign)
+   hub.visible=false
+   v321_region_dungeons.append({"node":hub,"zone":zone,"dungeon":dungeon_id})
 
 func _activate_rift_wave(site_id:int)->void:
  super._activate_rift_wave(site_id)
