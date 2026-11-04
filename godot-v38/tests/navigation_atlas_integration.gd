@@ -162,7 +162,7 @@ func _run()->void:
  check('not visual.visible:continue' in source,"hidden placeholders skip animation when approved creature art is present")
  check("if updates>=20:break" in source and "0.28" in source and "45.0*45.0" in source,"visual motion limits scene updates to twenty nearby visible animals at a throttled cadence")
  check("func _ai_art_track_frame_performance(delta:float)" in source and "_ai_art_track_frame_performance(delta)" in source,"native world automatically adjusts imported 3D art budgets from rolling frame time")
- check("AI_ART_AUTO_QUALITY.animal_limit(ai_art_quality_tier)" in source and "AI_ART_AUTO_QUALITY.chamber_limit(ai_art_quality_tier)" in source,"both wildlife and dungeon 3D detail obey the auto-quality governor")
+ check("AI_ART_AUTO_QUALITY.animal_limit(ai_art_quality_tier,candidates.size())" in source and "AI_ART_AUTO_QUALITY.chamber_limit(ai_art_quality_tier,rooms.size())" in source,"both wildlife and dungeon 3D detail obey scalable auto-quality budgets")
  check("MIN_LOAD_INTERVAL_MS" in source and "loaded_this_tick" in source and "ai_art_next_model_load_ms" in source,"one-time-sliced 3D asset loading avoids sudden GPU spikes")
  check("AI_ART_ANIMATION.bind_imported(current)" in source and "AI_ART_ANIMATION.apply_state" in source,"nearby animals use imported rig animations without changing native movement or damage")
  check('guardian["ai_art_animation_binding"]' in source,"approved guardian GLB rigs can play the same native combat states")
