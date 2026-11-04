@@ -38,7 +38,8 @@ func _run()->void:
  map.call("set_discovered",many_discoveries)
  map.call("set_quest_markers",many_quests)
  check(map.get("discovered").size()==256 and map.get("quest_markers").size()==128,"atlas marker collections remain bounded on long sessions")
- check((map.get("discovered") as Array)[0]==Vector3.ZERO and (map.get("discovered") as Array)[255]==Vector3(255,0,0),"atlas preserves the order of valid exploration markers")
+ check((map.get("discovered") as Array)[0]==Vector3(855,0,0) and (map.get("discovered") as Array)[255]==Vector3(1110,0,0),"atlas retains most recent 256 visited locations in chronological order")
+ check((map.get("quest_markers") as Array)[0]==Vector3.ZERO and (map.get("quest_markers") as Array)[127]==Vector3(127,0,0),"atlas retains highest-priority quest marker ordering")
 
  var scene:PackedScene=load("res://scenes/main.tscn")
  check(scene!=null,"map-enabled main scene loads")
