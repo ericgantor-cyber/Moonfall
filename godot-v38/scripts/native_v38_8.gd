@@ -85,6 +85,7 @@ func _start_game(selected_hero:String)->void:
 # Issue #477 stage 2: two actual divine world bosses reuse native boss
 # combat, telegraphs, phases, reward tracking and v2 checkpoint IDs.
 # Spawned after all legacy beasts to preserve historical boss IDs.
+var divine_boss_ids:Dictionary={}
 const DIVINE_ENCOUNTERS:Array[Dictionary]=[
  {"id":"z","title":"Z • VOID REAPER","zone":4,"position":Vector3(11.0,0.0,44.0),"kind":"wolf"},
  {"id":"nyra","title":"NYRA • ECLIPSE QUEEN","zone":5,"position":Vector3(73.0,0.0,43.0),"kind":"panther"}
@@ -106,6 +107,7 @@ func _spawn_divine_encounter(spec:Dictionary)->void:
  if beasts.size()!=prior+1:return
  var actor:Dictionary=beasts[-1]
  actor["divine_id"]=str(spec["id"])
+ divine_boss_ids[str(spec["id"])]=int(actor.get("boss_id",-1))
  actor["divine_title"]=str(spec["title"])
  var factor:float=2.4 if str(spec["id"])=="z" else 2.7
  actor["max"]=float(actor["max"])*factor
@@ -169,10 +171,9 @@ const NYRA_ECLIPSE_MAX_HP_BONUS:float=30.0
 const NYRA_ECLIPSE_REDUCTION:float=0.08
 
 func _divine_blessing_earned(divine_id:String)->bool:
- for actor in beasts:
-  if str(actor.get("divine_id",""))==divine_id:
-   return defeated_boss_ids.has(int(actor.get("boss_id",-1)))
- return false
+ # Two stable IDs are registered at spawn; avoid scanning every actor on hits.
+ if not divine_boss_ids.has(divine_id):return false
+ return defeated_boss_ids.has(int(divine_boss_ids[divine_id]))
 
 func _apply_player_hit(target:Dictionary,base_damage:float,stagger_strength:float=0.0)->void:
  # Shared melee, spell and projectile hits pass through this damage function.
