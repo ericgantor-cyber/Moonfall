@@ -18,6 +18,7 @@ var atlas_dungeon_paths:Dictionary={}
 var atlas_dungeon_site:int=-1
 var atlas_regional_dungeon:int=-1
 var atlas_regional_seen:Array[int]=[]
+var atlas_regional_relics_claimed:Array[int]=[]
 var atlas_dungeon_zoom_radius:float=35.0
 var atlas_fast_travel_select:OptionButton
 var atlas_fast_travel_button:Button
@@ -63,6 +64,7 @@ func _start_game(selected_hero:String)->void:
  atlas_discovered.clear()
  atlas_chambers_seen.clear()
  atlas_regional_seen.clear()
+ atlas_regional_relics_claimed.clear()
  atlas_fast_travel_unlocked_cache.clear()
  atlas_regional_dungeon=-1
  atlas_dungeon_paths.clear()
@@ -77,6 +79,7 @@ func _checkpoint_extra_data()->Dictionary:
  data["atlas_discovered"]=NAVIGATION_MAP.encode_history(atlas_discovered)
  data["atlas_chambers_seen"]=atlas_chambers_seen.duplicate()
  data["atlas_regional_seen"]=atlas_regional_seen.duplicate()
+ data["atlas_regional_relics_claimed"]=atlas_regional_relics_claimed.duplicate()
  var saved_paths:Dictionary={}
  for site_key in atlas_dungeon_paths.keys():
   var points:Array[Vector3]=atlas_dungeon_paths[site_key]
@@ -94,6 +97,7 @@ func _restore_data(data:Dictionary)->void:
  atlas_discovered.clear()
  atlas_chambers_seen.clear()
  atlas_regional_seen.clear()
+ atlas_regional_relics_claimed.clear()
  atlas_fast_travel_unlocked_cache.clear()
  atlas_dungeon_paths.clear()
  atlas_quest_positions.clear()
@@ -106,6 +110,7 @@ func _restore_data(data:Dictionary)->void:
   atlas_discovered=NAVIGATION_MAP.decode_history(extras.get("atlas_discovered",[]))
   atlas_chambers_seen=NAVIGATION_MAP.decode_chambers(extras.get("atlas_chambers_seen",[]),v321_chambers.size()+v321_annexes.size())
   atlas_regional_seen=NAVIGATION_MAP.decode_chambers(extras.get("atlas_regional_seen",[]),REGIONS.size()*V321_RULES.REGIONAL_DUNGEON_COUNT*V321_RULES.REGIONAL_CHAMBERS_PER_DUNGEON)
+  atlas_regional_relics_claimed=NAVIGATION_MAP.decode_chambers(extras.get("atlas_regional_relics_claimed",[]),REGIONS.size()*V321_RULES.REGIONAL_DUNGEON_COUNT*V321_RULES.REGIONAL_CACHE_STAGES.size())
   var loaded_paths:Variant=extras.get("atlas_dungeon_paths",{})
   if loaded_paths is Dictionary:
    for site_id in range(mini(rifts.size()+REGIONS.size()*V321_RULES.REGIONAL_DUNGEON_COUNT,64)):
@@ -293,6 +298,42 @@ func _atlas_fast_travel_to_selected()->void:
  atlas_dungeon_site=-1
  atlas_panel.visible=false
  _show_message("Fast traveled to Region %d, Dungeon %d." % [zone+1,dungeon_id+1],2.5)
+
+# The normal interact key can claim a nearby reward without opening a
+# separate mode or requiring waves, and old world interactions still work.
+func _interact()->void:
+ if hero_playing and not death_active and not menu_open and not mounted and is_instance_valid(player):
+  var nearby_cache:Dictionary={}
+  var closest_sq:float=4.0*4.0
+  for chamber in v321_region_rooms:
+   var stage:int=int(chamber.get("stage",0))
+   if not (stage in V321_RULES.REGIONAL_CACHE_STAGES):continue
+   var node:Node3D=chamber.get("node") as Node3D
+   if not is_instance_valid(node):continue
+   var interact_at:Vector3=node.global_position+Vector3(2.7,0,0)
+   var dist_sq:float=Vector2(player.global_position.x-interact_at.x,player.global_position.z-interact_at.z).length_squared()
+   if dist_sq<closest_sq:
+    nearby_cache=chamber
+    closest_sq=dist_sq
+  if not nearby_cache.is_empty():
+   if _combat_threat():
+    _show_message("Relics cannot be claimed during combat.",2.0)
+    return
+   var zone:int=int(nearby_cache["zone"])
+   var dungeon_id:int=int(nearby_cache["dungeon"])
+   var stage:int=int(nearby_cache["stage"])
+   var reward_id:int=V321_RULES.regional_cache_index(zone,dungeon_id,stage)
+   if reward_id<0:return
+   if atlas_regional_relics_claimed.has(reward_id):
+    _show_message("This dungeon relic has already been claimed.",2.0)
+    return
+   atlas_regional_relics_claimed.append(reward_id)
+   var reward:Dictionary=V321_RULES.regional_cache_reward(zone,dungeon_id,stage,AFFIXES[(zone*5+dungeon_id)%AFFIXES.size()])
+   var spawn_at:Vector3=(nearby_cache["node"] as Node3D).global_position+Vector3(2.7,0,1.0)
+   _create_gear_drop(spawn_at,"Dungeon Relic Cache","elder" if stage==14 else "rare",zone,reward)
+   _show_message("Dungeon relic discovered: "+str(reward["name"]),3.0)
+   return
+ super._interact()
 
 func _atlas_mark_here()->void:
  if not hero_playing or not is_instance_valid(player):return

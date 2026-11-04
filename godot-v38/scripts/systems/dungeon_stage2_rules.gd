@@ -40,6 +40,24 @@ static func regional_landmark_name(dungeon_id:int,stage:int)->String:
  var marker_type:int=regional_landmark_type(dungeon_id,stage)
  return REGIONAL_LANDMARK_NAMES[marker_type] if marker_type>=0 else ""
 
+# Two hand-discovered caches per dungeon: stage 7 and its stage-14 end.
+# No timed waves or forced room transitions.
+const REGIONAL_CACHE_STAGES:Array[int]=[7,14]
+static func regional_cache_index(zone:int,dungeon_id:int,stage:int)->int:
+ if stage!=7 and stage!=14:return -1
+ if zone<0 or dungeon_id<0 or dungeon_id>=REGIONAL_DUNGEON_COUNT:return -1
+ return (zone*REGIONAL_DUNGEON_COUNT+dungeon_id)*2+(1 if stage==14 else 0)
+
+static func regional_cache_reward(zone:int,dungeon_id:int,stage:int,affix:String)->Dictionary:
+ var is_final:bool=stage==14
+ return {
+  "name":("Eclipse Heart" if is_final else "Lost Sanctum Relic")+" • Region %d, Dungeon %d" % [zone+1,dungeon_id+1],
+  "rarity":"Legendary" if is_final else "Epic",
+  "power":mini(250,46+zone*13+dungeon_id*2+(26 if is_final else 9)),
+  "affix":affix,
+  "affix_value":0.17 if is_final else 0.11
+ }
+
 static func regional_chamber_title(stage:int)->String:
  if stage==1:return "Dungeon Threshold"
  if stage==2:return "Outer Sanctum"

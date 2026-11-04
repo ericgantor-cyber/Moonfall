@@ -464,6 +464,16 @@ func _v321_build_region_dungeon_interiors()->void:
      landmark.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
      room.add_child(landmark)
      nameplate.text+="  |  "+V321_RULES.regional_landmark_name(dungeon_id,stage)
+    if stage in V321_RULES.REGIONAL_CACHE_STAGES:
+     var cache_sign:=Label3D.new()
+     cache_sign.name="RegionalRelicCacheSign"
+     cache_sign.text="RELIC CACHE • INTERACT" if stage==7 else "ECLIPSE TREASURE • INTERACT"
+     cache_sign.position=Vector3(2.7,1.45,0.0)
+     cache_sign.font_size=24
+     cache_sign.pixel_size=0.005
+     cache_sign.billboard=BaseMaterial3D.BILLBOARD_ENABLED
+     cache_sign.modulate=Color("ffd783")
+     room.add_child(cache_sign)
     room.visible=false
     v321_region_rooms.append({"node":room,"zone":zone,"dungeon":dungeon_id,"stage":stage})
     var previous:Vector3=V321_RULES.regional_chamber_position(centre,dungeon_id,stage-1)
