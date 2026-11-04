@@ -76,6 +76,22 @@ func _run()->void:
 
   check(data.has("atlas_quest_positions"),"quest destinations included in saves")
   check(game.has_method("atlas_set_quest_destination"),"quests can publish map targets")
+  check(NAV.decode_chambers([0,3,3,8,-1,9,"7",NAN],9)==[0,3,8],"chamber save IDs reject duplicates and invalid entries")
+  check(NAV.decode_chambers([],9).is_empty(),"older saves without chamber memory stay compatible")
+  var chambers:Array=game.get("v321_chambers")
+  check(chambers.size()==9,"existing authored chambers remain unchanged")
+  for chamber in chambers:
+   var chamber_node:Node3D=chamber["node"]
+   game.call("_atlas_record_nearby_chambers",chamber_node.global_position)
+  var remembered:Array=game.get("atlas_chambers_seen")
+  check(remembered.size()==9,"walking near each existing chamber records it once")
+  var first_chamber_node:Node3D=chambers[0]["node"]
+  game.call("_atlas_record_nearby_chambers",first_chamber_node.global_position)
+  check((game.get("atlas_chambers_seen") as Array).size()==9,"revisits never duplicate chamber discoveries")
+  var progress_save:Dictionary=game.call("_checkpoint_extra_data")
+  check((progress_save.get("atlas_chambers_seen",[]) as Array).size()==9,"all visited chambers persist in existing checkpoint extras")
+  check(NAV.decode_chambers(progress_save.get("atlas_chambers_seen",[]),9).size()==9,"checkpoint chamber progress safely round-trips")
+
   game.queue_free()
  map.queue_free()
  print("MOONFALL ATLAS "+("PASS" if failures==0 else "FAIL"))
