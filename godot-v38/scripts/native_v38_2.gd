@@ -91,11 +91,11 @@ func _americas_apply_wildlife_profiles()->void:
    if picked.is_empty():continue
    animal["americas_species"]=str(picked["name"])
    animal["americas_taxon"]=str(picked["taxon"])
-   var art_body:CharacterBody3D=animal.get("body") as CharacterBody3D
-   if is_instance_valid(art_body):APPROVED_AI_ART.attach_approved(art_body,APPROVED_AI_ART.animal_path(str(picked["name"])))
    var native_body:CharacterBody3D=animal.get("body") as CharacterBody3D
    if is_instance_valid(native_body):
     animal["americas_visual_root"]=AMERICAS_VISUALS.attach(native_body,str(picked["taxon"]),str(picked["name"]))
+    # Approved cutouts replace these visible stand-ins, never collision/AI.
+    APPROVED_AI_ART.attach_approved(native_body,APPROVED_AI_ART.animal_path(str(picked["name"])))
    var nameplate:Label3D=animal.get("nameplate") as Label3D
    if is_instance_valid(nameplate) and bool(animal.get("alive",false)) and not bool(animal.get("tamed",false)):
     nameplate.text=str(picked["name"])
@@ -115,7 +115,7 @@ func _americas_update_wildlife_visuals(delta:float)->void:
   if not bool(animal.get("alive",false)) or not bool(animal.get("americas_wildlife_eligible",false)):continue
   var body:CharacterBody3D=animal.get("body") as CharacterBody3D
   var visual:Node3D=animal.get("americas_visual_root") as Node3D
-  if not is_instance_valid(body) or not is_instance_valid(visual) or not body.visible:continue
+  if not is_instance_valid(body) or not is_instance_valid(visual) or not body.visible or not visual.visible:continue
   if body.global_position.distance_squared_to(player.global_position)>45.0*45.0:continue
   AMERICAS_VISUALS.animate(visual,str(animal.get("americas_taxon","M")),now,float(animal.get("boss_id",0))*0.47)
   updates+=1
