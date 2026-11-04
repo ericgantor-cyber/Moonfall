@@ -114,6 +114,7 @@ func _spawn_divine_encounter(spec:Dictionary)->void:
  actor["divine_next_at"]=6.0
  actor["divine_warn_until"]=0.0
  actor["divine_warning_pos"]=location
+ actor["divine_pattern_seq"]=0
  var native_body:CharacterBody3D=actor.get("body") as CharacterBody3D
  if not is_instance_valid(native_body):return
  native_body.name="DivineBoss_"+str(spec["id"])
@@ -156,6 +157,7 @@ func _reset_native_beast(beast:Dictionary)->void:
  if is_instance_valid(label):label.text=str(beast.get("divine_title","DIVINE BOSS"))
  beast["divine_warn_until"]=0.0
  beast["divine_next_at"]=map_time+6.0
+ beast["divine_pattern_seq"]=0
  var warning:MeshInstance3D=beast.get("divine_disk") as MeshInstance3D
  if is_instance_valid(warning):warning.hide()
 
@@ -231,7 +233,7 @@ func _update_beast_step(beast:Dictionary,delta:float)->void:
   warning.hide()
   beast["divine_warn_until"]=0.0
   var strike:Vector3=beast.get("divine_warning_pos",body.global_position)
-  var radius:float=3.0 if str(beast["divine_id"])=="z" else 4.1
+  var radius:float=float(beast.get("divine_attack_radius",3.0 if str(beast["divine_id"])=="z" else 4.1))
   var dist_sq:float=Vector2(player.global_position.x-strike.x,player.global_position.z-strike.z).length_squared()
   if dist_sq<radius*radius and dodge_time<=0.0 and _has_clear_sight(body,player):
    _apply_incoming_damage(15.0+float(int(beast.get("boss_phase",1)))*8.0)
@@ -241,8 +243,15 @@ func _update_beast_step(beast:Dictionary,delta:float)->void:
  if map_time<float(beast.get("divine_next_at",0.0)):return
  var phase:int=clampi(int(beast.get("boss_phase",1)),1,3)
  var divine:String=str(beast["divine_id"])
- var strike_pos:Vector3=player.global_position if divine=="z" else body.global_position
- var radius:float=3.0 if divine=="z" else 4.1
+ var cycle:int=int(beast.get("divine_pattern_seq",0))
+ beast["divine_pattern_seq"]=cycle+1
+ # Phase-three boss signatures alternate between aimed and radial attacks.
+ # The warning remains stationary during its full windup for fair counterplay.
+ var aimed:bool=divine=="z"
+ if phase==3 and cycle%2==1:aimed=not aimed
+ var strike_pos:Vector3=player.global_position if aimed else body.global_position
+ var radius:float=(3.0 if divine=="z" else 4.1)+(0.7 if phase==3 and cycle%2==1 else 0.0)
+ beast["divine_attack_radius"]=radius
  beast["divine_warning_pos"]=strike_pos
  beast["divine_warn_until"]=map_time+maxf(0.9,1.7-0.25*float(phase-1))
  beast["divine_next_at"]=map_time+maxf(4.8,8.0-1.0*float(phase-1))
@@ -252,7 +261,7 @@ func _update_beast_step(beast:Dictionary,delta:float)->void:
   cylinder.top_radius=radius
  warning.global_position=Vector3(strike_pos.x,0.07,strike_pos.z)
  warning.visible=true
- _show_message("VOID JUDGMENT: MOVE!" if divine=="z" else "ECLIPSE PULSE: GET CLEAR!",1.9)
+ _show_message(("VOID JUDGMENT: MOVE!" if aimed else "VOID COLLAPSE: GET CLEAR!") if divine=="z" else ("ECLIPSE MARK: MOVE!" if aimed else "ECLIPSE PULSE: GET CLEAR!"),1.9)
 
 func _refresh_boss_phase(beast:Dictionary)->void:
  var previous:int=int(beast.get("boss_phase",1))
