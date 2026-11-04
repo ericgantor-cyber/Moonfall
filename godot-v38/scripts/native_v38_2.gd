@@ -2,6 +2,7 @@ extends "res://scripts/native_v38_1.gd"
 ## Coordinate-accurate atlas overlay; existing connected world geometry unchanged.
 const NAVIGATION_MAP=preload("res://scripts/systems/navigation_map.gd")
 const AMERICAS_WILDLIFE=preload("res://scripts/systems/americas_wildlife_catalog.gd")
+const AMERICAS_VISUALS=preload("res://scripts/systems/americas_wildlife_visuals.gd")
 var atlas_panel:PanelContainer
 var atlas_chart:Control
 var atlas_readout:Label
@@ -31,6 +32,8 @@ var atlas_fast_travel_status:Label
 var atlas_fast_travel_unlocked_cache:Array[int]=[]
 var american_wildlife_rolls:Array[int]=[]
 var american_wildlife_eligible:int=0
+var american_wildlife_visual_ticks:int=0
+var american_wildlife_visual_clock:float=0.0
 var atlas_heading:Label
 const ATLAS_DISCOVERY_SPACING:float=55.0
 const ATLAS_MAX_DISCOVERED:int=2048
@@ -87,10 +90,33 @@ func _americas_apply_wildlife_profiles()->void:
    if picked.is_empty():continue
    animal["americas_species"]=str(picked["name"])
    animal["americas_taxon"]=str(picked["taxon"])
+   var native_body:CharacterBody3D=animal.get("body") as CharacterBody3D
+   if is_instance_valid(native_body):
+    animal["americas_visual_root"]=AMERICAS_VISUALS.attach(native_body,str(picked["taxon"]),str(picked["name"]))
    var nameplate:Label3D=animal.get("nameplate") as Label3D
    if is_instance_valid(nameplate) and bool(animal.get("alive",false)) and not bool(animal.get("tamed",false)):
     nameplate.text=str(picked["name"])
   # Original wildlife still uses its native skeleton, AI, combat and loot.
+
+# Animate only the visible nearby animals at a low cadence.
+# No movement is applied to CharacterBody3D, so collision and native AI remain intact.
+func _americas_update_wildlife_visuals(delta:float)->void:
+ american_wildlife_visual_clock+=clampf(delta,0.0,0.2)
+ if american_wildlife_visual_clock<0.28:return
+ american_wildlife_visual_clock=fmod(american_wildlife_visual_clock,0.28)
+ if not hero_playing or not is_instance_valid(player):return
+ var now:float=float(Time.get_ticks_msec())/1000.0
+ var updates:int=0
+ for animal in zone_beast_lists[region_index]:
+  if updates>=20:break
+  if not bool(animal.get("alive",false)) or not bool(animal.get("americas_wildlife_eligible",false)):continue
+  var body:CharacterBody3D=animal.get("body") as CharacterBody3D
+  var visual:Node3D=animal.get("americas_visual_root") as Node3D
+  if not is_instance_valid(body) or not is_instance_valid(visual) or not body.visible:continue
+  if body.global_position.distance_squared_to(player.global_position)>45.0*45.0:continue
+  AMERICAS_VISUALS.animate(visual,str(animal.get("americas_taxon","M")),now,float(animal.get("boss_id",0))*0.47)
+  updates+=1
+ american_wildlife_visual_ticks+=updates
 
 func _ready()->void:
  super._ready()
@@ -688,6 +714,7 @@ func _unhandled_key_input(event:InputEvent)->void:
 
 func _process(delta:float)->void:
  super._process(delta)
+ _americas_update_wildlife_visuals(delta)
  if not is_instance_valid(atlas_panel):return
  if is_instance_valid(atlas_open_button):atlas_open_button.visible=hero_playing and not death_active and not menu_open
  if not hero_playing or death_active or menu_open:
