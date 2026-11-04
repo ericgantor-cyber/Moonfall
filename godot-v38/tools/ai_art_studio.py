@@ -16,6 +16,8 @@ import struct
 import sys
 import urllib.error
 import urllib.request
+
+from ai_art_direction import make_prompt, STYLE_VERSION
 import zlib
 
 PROJECT = Path(__file__).resolve().parents[1]
@@ -47,18 +49,33 @@ def guardian_profile(guardian_id: int) -> dict:
     }
 
 
-def available_animals() -> set[str]:
+def wildlife_records() -> dict[str, dict]:
+    """Index animals by actual habitat and taxon from the in-game GDScript catalog."""
     if not CATALOG.is_file():
-        return set()
-    text = CATALOG.read_text(encoding="utf-8")
-    names = set()
-    for group in re.findall(r'"names":"([^"]+)"', text):
-        names.update(name.strip() for name in group.split("|"))
-    return names
+        return {}
+    content = CATALOG.read_text(encoding="utf-8")
+    records = {}
+    for section in content.split('{"habitat":"')[1:]:
+        habitat = section.split('"', 1)[0]
+        for family in re.finditer(
+            r'{"archetype":"([^"]+)","taxon":"([^"]+)","names":"([^"]+)"}',
+            section.split('{"habitat":"', 1)[0],
+        ):
+            archetype, taxon, names = family.groups()
+            for name in names.split("|"):
+                records.setdefault(name.strip(), {
+                    "habitat": habitat, "taxon": taxon, "archetype": archetype
+                })
+    return records
+
+
+def available_animals() -> set[str]:
+    return set(wildlife_records())
 
 
 def animal_profile(name: str) -> dict:
-    if name not in available_animals():
+    records = wildlife_records()
+    if name not in records:
         raise ValueError("Unknown Americas species. Choose a name from the game's wildlife catalog.")
     return {
         "subject": name,
@@ -66,6 +83,7 @@ def animal_profile(name: str) -> dict:
         "trait": "natural habitat",
         "asset_id": "animal_" + slugify(name),
         "category": "animals",
+        **records[name],
     }
 
 
@@ -74,29 +92,7 @@ def slugify(name: str) -> str:
 
 
 def prompt_for(item: dict) -> str:
-    subject = item["subject"]
-    if item["category"] == "guardians":
-        subject_detail = (
-            f"An original fantasy dungeon guardian called {subject}, "
-            f"recognizably based on a {item['species']}, "
-            f"with {item['trait']} arcane motifs; powerful four-legged or serpentine anatomy "
-            "appropriate to that animal, distinct readable shape, fierce expression."
-        )
-    else:
-        subject_detail = (
-            f"A visually identifiable {subject}, anatomically grounded wildlife of the Americas, "
-            "with credible animal proportions and a distinctive species silhouette."
-        )
-    return (
-        "One original full-body game creature concept sprite, isolated subject, three-quarter isometric "
-        "view facing toward lower-left, transparent background, all limbs/tail fully within canvas. "
-        + subject_detail
-        + " Moonfall visual direction: beautiful dark fantasy with detailed painterly shading, "
-        "rich moonlit rim light, slightly creepy but not grotesque, sophisticated saturated accents, "
-        "clean recognizable silhouette, cohesive stylized 2.5D RPG art. "
-        "No words, captions, logo, UI, border, ground, other creatures, or scenery. "
-        "Do not imitate, modify, or depict Moonfall's existing heroes Z or Nyra."
-    )
+    return make_prompt(item)
 
 
 def dest_paths(item: dict) -> tuple[Path, Path]:
@@ -204,7 +200,7 @@ def metadata(item: dict, prompt: str, model: str, image: bytes | None = None) ->
     result = {
         "asset_id": item["asset_id"], "category": item["category"],
         "subject": item["subject"], "prompt": prompt, "model": model,
-        "reviewed": False,
+        "style_version": STYLE_VERSION, "reviewed": False,
     }
     if image is not None:
         result["sha256"] = hashlib.sha256(image).hexdigest()
@@ -223,6 +219,19 @@ def stage(item: dict, prompt: str, model: str, payload: bytes) -> Path:
         encoding="utf-8",
     )
     return staged
+
+
+def import_local_image(item: dict, prompt: str, source: Path) -> Path:
+    """Stage a user-supplied AI-generated PNG, with no API request or billing."""
+    source = source.expanduser().resolve(strict=True)
+    if not source.is_file() or source.suffix.lower() != ".png":
+        raise ValueError("Import a PNG file, not a directory or other format.")
+    hero_dir = (PROJECT / "assets" / "heroes").resolve()
+    if source.is_relative_to(hero_dir):
+        raise ValueError("Original Z and Nyra artwork cannot be used as generated creature art.")
+    if source.stat().st_size > MAX_IMAGE_BYTES:
+        raise ValueError("Image is larger than the 12 MiB artwork limit.")
+    return stage(item, prompt, "local-import", source.read_bytes())
 
 
 def approve(item: dict) -> Path:
@@ -250,12 +259,12 @@ def main(argv: list[str] | None = None) -> int:
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("--guardian", type=int, metavar="ID", help="Named guardian 0-54")
     group.add_argument("--animal", metavar="SPECIES", help="Exact name from Americas wildlife catalog")
-    parser.add_argument("--generate", action="store_true", help="Explicit opt-in paid image API request")
-    parser.add_argument("--approve", action="store_true", help="Copy reviewed staged PNG into game assets")
+    action = parser.add_mutually_exclusive_group()
+    action.add_argument("--generate", action="store_true", help="Explicit opt-in paid image API request")
+    action.add_argument("--approve", action="store_true", help="Copy reviewed staged PNG into game assets")
+    action.add_argument("--import-file", type=Path, metavar="PNG", help="Stage a local PNG for review, without an API key or fee")
     parser.add_argument("--model", default=MODEL, choices=[MODEL, "gpt-image-2.5-sunburst", "gpt-image-1.5"])
     args = parser.parse_args(argv)
-    if args.generate and args.approve:
-        parser.error("Generate and approve in separate commands so artwork can be reviewed.")
     try:
         item = guardian_profile(args.guardian) if args.guardian is not None else animal_profile(args.animal)
         prompt = prompt_for(item)
@@ -265,6 +274,8 @@ def main(argv: list[str] | None = None) -> int:
             print(f"Generated candidate for visual review: {path}")
         elif args.approve:
             print(f"Approved game asset: {approve(item)}")
+        elif args.import_file is not None:
+            print(f"Imported candidate for review: {import_local_image(item, prompt, args.import_file)}")
         else:
             print(json.dumps({
                 **metadata(item, prompt, args.model),
