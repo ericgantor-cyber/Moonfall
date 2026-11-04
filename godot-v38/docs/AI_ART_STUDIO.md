@@ -77,6 +77,12 @@ For example:
     ai_art_inbox/chambers/chamber_14.glb
     ai_art_inbox/glyphs/glyph_orb_hud.png
 
+4K reference art is supported: reviewed PNG files can be up to
+**4096×4096 pixels** and 32 MiB, with real RGBA transparency. Meshy's
+separate image-to-3D upload limit is **20 MiB**, so larger 4K PNGs may need
+to be recompressed for an AI conversion request. Importing an existing
+GLB offline doesn't use that upload limit.
+
 The Windows launcher stages matching files and opens a local searchable review
 gallery. To run the same workflow directly:
 
@@ -181,6 +187,12 @@ Preview any specific game asset without calling an API:
     python tools/ai_art_studio.py --game-art scenery:shrine
 
 All these categories support --import-file, --generate and --approve with the same explicit review workflow. Approved PNGs live only under `assets/ai_generated/<category>/`; existing hero artwork cannot be targeted.
+
+The review gallery now displays **both PNG and GLB** states. Staged
+GLBs show actual triangle counts, maximum embedded texture dimensions
+and measured PBR material links even when no 2D PNG exists. Its audit
+mode also rejects invalid GLBs, so imported models cannot hide behind a
+valid 2D image.
 
 To see the full review board, run:
 
