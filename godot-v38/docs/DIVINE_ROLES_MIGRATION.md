@@ -110,3 +110,15 @@ interactive verification before this can be considered released.
 This is still an incremental integration. No live Windows player-input,
 framerate, accessibility, or multi-hour checkpoint soak test has been
 completed merely by committing this code.
+
+## Phase-three finale: alternating attack geometry
+
+Both divine bosses now switch signature geometry every second cast in
+phase three. Z alternates player-position Void Judgment with a larger
+boss-centered Void Collapse; Nyra alternates boss-centered Eclipse Pulse
+with a larger player-position Eclipse Mark. Each uses a fixed ground
+marker, visible full windup and existing dodge/incoming damage rules.
+The pattern counter resets on a fresh adventure or encounter reset;
+phase-three attacks remain bounded with no minions, waves or per-frame
+mesh allocations. These combat upgrades require Windows gameplay
+verification before release.
