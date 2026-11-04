@@ -18,6 +18,7 @@ var atlas_dungeon_site:int=-1
 var atlas_dungeon_zoom_radius:float=35.0
 var atlas_heading:Label
 var atlas_next_room_button:Button
+var atlas_room_buttons:Array[Button]=[]
 const ATLAS_DISCOVERY_SPACING:float=55.0
 const ATLAS_MAX_DISCOVERED:int=2048
 
@@ -134,6 +135,15 @@ func _create_atlas()->void:
  atlas_next_room_button.text="NEXT UNVISITED CHAMBER"
  atlas_next_room_button.pressed.connect(_atlas_mark_next_room)
  layout.add_child(atlas_next_room_button)
+ var room_buttons:HBoxContainer=HBoxContainer.new()
+ layout.add_child(room_buttons)
+ for stage in range(1,4):
+  var room_button:Button=Button.new()
+  room_button.custom_minimum_size=Vector2(88,42)
+  room_button.text="ROOM %d" % stage
+  room_button.pressed.connect(_atlas_mark_chamber.bind(stage))
+  room_buttons.add_child(room_button)
+  atlas_room_buttons.append(room_button)
  var close:Button=Button.new()
  close.text="CLOSE"
  close.pressed.connect(func():atlas_panel.visible=false)
@@ -167,16 +177,19 @@ func _atlas_mark_here()->void:
  atlas_has_waypoint=true
  _refresh_atlas()
 
-func _atlas_mark_next_room()->void:
- if not hero_playing or death_active or menu_open or atlas_dungeon_site<0:return
- var room_index:int=NAVIGATION_MAP.next_unvisited_room(atlas_dungeon_site,atlas_chambers_seen)
- if room_index<0:return
+func _atlas_mark_chamber(stage:int)->void:
+ if not hero_playing or death_active or menu_open or atlas_dungeon_site<0 or stage<1 or stage>3:return
  for chamber in v321_chambers:
-  if int(chamber.get("site",-1))!=atlas_dungeon_site or int(chamber.get("stage",0))!=room_index+1:continue
+  if int(chamber.get("site",-1))!=atlas_dungeon_site or int(chamber.get("stage",0))!=stage:continue
   var room_node:Node3D=chamber.get("node") as Node3D
   if is_instance_valid(room_node) and NAVIGATION_MAP._valid_world_point(room_node.global_position):
    _atlas_select_waypoint(room_node.global_position)
    return
+
+func _atlas_mark_next_room()->void:
+ if not hero_playing or death_active or menu_open or atlas_dungeon_site<0:return
+ var room_index:int=NAVIGATION_MAP.next_unvisited_room(atlas_dungeon_site,atlas_chambers_seen)
+ if room_index>=0:_atlas_mark_chamber(room_index+1)
 
 func _atlas_clear()->void:
  atlas_has_waypoint=false
@@ -241,6 +254,14 @@ func _refresh_atlas()->void:
  if is_instance_valid(atlas_next_room_button):
   atlas_next_room_button.visible=atlas_dungeon_site>=0
   atlas_next_room_button.disabled=atlas_dungeon_site<0 or NAVIGATION_MAP.next_unvisited_room(atlas_dungeon_site,atlas_chambers_seen)<0
+ for room_index in range(atlas_room_buttons.size()):
+  var room_button:Button=atlas_room_buttons[room_index]
+  if not is_instance_valid(room_button):continue
+  room_button.visible=atlas_dungeon_site>=0
+  room_button.disabled=atlas_dungeon_site<0
+  if atlas_dungeon_site>=0:
+   var visited:bool=atlas_chambers_seen.has(atlas_dungeon_site*3+room_index)
+   room_button.text="ROOM %d %s" % [room_index+1,"✓" if visited else "?"]
  atlas_readout.text="X %.0f | Z %.0f | Trail: %d/%d | Chambers: %d/%d | Rifts: %d/%d | Quests: %d" % [pos.x,pos.z,atlas_discovered.size(),ATLAS_MAX_DISCOVERED,atlas_chambers_seen.size(),v321_chambers.size(),rifts_cleared.size(),rifts.size(),atlas_quest_positions.size()]
  if atlas_dungeon_site>=0:
   var local_seen:int=0
