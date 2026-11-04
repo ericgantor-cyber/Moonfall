@@ -163,7 +163,7 @@ class TestMoonfall3DArt(unittest.TestCase):
         self.assertIn("add_approved_model", script)
         self.assertIn("CollisionShape3D", script)
         self.assertIn("body", native)
-        self.assertIn('add_approved_model(native_body,"animals"', native)
+        self.assertIn('add_approved_model(body,"animals"', native)
         self.assertIn('add_approved_model(guardian_art_body,"guardians"', native)
         self.assertIn('stage in [7,14]', native)
         self.assertIn('add_approved_model(node,"gear"', native)
