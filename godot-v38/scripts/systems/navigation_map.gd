@@ -11,6 +11,34 @@ var metres_per_half_width:float=120.0
 const MAX_DISCOVERED_MARKERS:int=256
 const MAX_QUEST_MARKERS:int=128
 const MAX_WORLD_COORD:float=1000000.0
+const MAX_HISTORY_POINTS:int=2048
+
+# Save history separately from the small, viewport-friendly marker collection.
+# Read newest valid positions first so malformed entries cannot evict discoveries.
+static func encode_history(points:Array[Vector3])->Array:
+ var encoded:Array=[]
+ for index in range(points.size()-1,-1,-1):
+  var point:Vector3=points[index]
+  if not _valid_world_point(point):continue
+  encoded.append([point.x,point.z])
+  if encoded.size()>=MAX_HISTORY_POINTS:break
+ encoded.reverse()
+ return encoded
+
+static func decode_history(raw:Variant)->Array[Vector3]:
+ var history:Array[Vector3]=[]
+ if not (raw is Array):return history
+ var entries:Array=raw
+ for index in range(entries.size()-1,-1,-1):
+  var item:Variant=entries[index]
+  if not (item is Array) or item.size()!=2:continue
+  if not (item[0] is float or item[0] is int) or not (item[1] is float or item[1] is int):continue
+  var point:Vector3=Vector3(float(item[0]),0.0,float(item[1]))
+  if not _valid_world_point(point):continue
+  history.append(point)
+  if history.size()>=MAX_HISTORY_POINTS:break
+ history.reverse()
+ return history
 
 static func _valid_world_point(point:Vector3)->bool:
  return is_finite(point.x) and is_finite(point.y) and is_finite(point.z) and absf(point.x)<=MAX_WORLD_COORD and absf(point.y)<=MAX_WORLD_COORD and absf(point.z)<=MAX_WORLD_COORD
