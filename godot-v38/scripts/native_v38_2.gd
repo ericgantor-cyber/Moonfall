@@ -493,6 +493,11 @@ func _atlas_update_dungeon_guardians(position:Vector3)->void:
    if is_instance_valid(title):
     title.text="%s %s GUARDIAN • %d / 5" % [V321_RULES.REGIONAL_GUARDIAN_TRAITS[trait_id].to_upper(),monster.to_upper(),dungeon_id+1]
     title.modulate=V321_RULES.REGIONAL_GUARDIAN_TRAIT_COLORS[trait_id]
+   # Later 55-profile guardian types can use approved custom images automatically.
+   var approved_profile:int=int(guardian.get("regional_guardian_profile",-1))
+   var guardian_art_body:CharacterBody3D=guardian.get("body") as CharacterBody3D
+   if approved_profile>=0 and is_instance_valid(guardian_art_body):
+    APPROVED_AI_ART.attach_approved(guardian_art_body,APPROVED_AI_ART.guardian_path(approved_profile))
    atlas_regional_guardian_actors[guardian_id]=guardian
    _show_message("A dungeon guardian defends the Eclipse Threshold!",3.0)
    return
