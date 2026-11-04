@@ -1,6 +1,7 @@
 extends SceneTree
 const NAV=preload("res://scripts/systems/navigation_map.gd")
 const AMERICAS=preload("res://scripts/systems/americas_wildlife_catalog.gd")
+const WILDLIFE_VISUALS=preload("res://scripts/systems/americas_wildlife_visuals.gd")
 var failures:int=0
 
 func check(ok:bool,description:String)->void:
@@ -59,6 +60,16 @@ func _run()->void:
  check((map.get("discovered") as Array)[0]==Vector3(2744,0,2744%29) and (map.get("discovered") as Array).back()==Vector3(2999,0,2999%29),"render budget displays most recently discovered landmarks")
  # Habitat catalog validation does not allocate extra enemy physics actors.
  check(AMERICAS.HABITATS.size()==6,"Americas roster covers all six existing world regions")
+ var fake_body:=CharacterBody3D.new()
+ root.add_child(fake_body)
+ for taxon in ["M","B","R","A"]:
+  var silhouette:Node3D=WILDLIFE_VISUALS.attach(fake_body,taxon,"American bison" if taxon=="M" else "Wildlife")
+  check(is_instance_valid(silhouette) and silhouette.get_child_count()>=2,"all four American wildlife taxa generate visible lightweight silhouettes")
+  check(fake_body.get_child_count()==1,"new animal art adds no extra collision shapes or duplicate root nodes")
+  WILDLIFE_VISUALS.animate(silhouette,taxon,1.0,0.2)
+  for child in silhouette.get_children():
+   check(child is MeshInstance3D,"wildlife embellishments are visual-only noncolliding geometry")
+ fake_body.queue_free()
  check(AMERICAS.total_profiles()>=280 and AMERICAS.distinct_species_count()>=230,"Americas catalog includes hundreds of distinct real-world wildlife names")
  var archetypes:Dictionary={"wolf":true,"stag":true,"boar":true,"fox":true,"serpent":true,"panther":true,"elk":true,"owl":true}
  var taxa:Dictionary={"M":true,"B":true,"R":true,"A":true}
@@ -83,6 +94,10 @@ func _run()->void:
  check("func _toggle_atlas(" in source and "func _atlas_select_waypoint(" in source,"atlas controls remain wired")
  check('AMERICAS_WILDLIFE=preload("res://scripts/systems/americas_wildlife_catalog.gd")' in source,"native game loads the Americas catalog")
  check("func _americas_apply_wildlife_profiles()" in source and "animal[\"americas_species\"]" in source,"existing wildlife actors receive species identity without additional AI bodies")
+ check("AMERICAS_VISUALS.attach(native_body" in source and "_americas_update_wildlife_visuals(delta)" in source,"native wildlife receives taxon silhouettes and live visual movement")
+ check("if updates>=20:break" in source and "0.28" in source and "45.0*45.0" in source,"visual motion limits scene updates to twenty nearby visible animals at a throttled cadence")
+ check("body.global_position.distance_squared_to(player.global_position)" in source and "not body.visible" in source,"visual embellishments are culled with existing native animal visibility")
+ check("american_wildlife_visual_ticks+=updates" in source,"wildlife animation performance samples can be inspected")
  check("americas_wildlife_eligible" in source and "if bool(animal.get(\"boss\",false))" in source,"native bosses are not overwritten by new wildlife identity")
  check('data["americas_wildlife_rolls"]' in source and 'extras.get("americas_wildlife_rolls",[])' in source,"wildlife identities persist across saved adventures")
  check("saved_american_rolls.size()==REGIONS.size()" in source and "valid_wildlife=false" in source,"corrupt wildlife offsets cannot poison checkpoint loads")
