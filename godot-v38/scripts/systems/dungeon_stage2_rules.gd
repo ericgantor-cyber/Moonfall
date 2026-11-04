@@ -7,6 +7,18 @@ const STAGE_LOOT_NAMES:Array[String]=["Ravenwood Vow","Ashen Moon Vow","Bloodmoo
 static func room_position(anchor:Vector3,stage:int)->Vector3:
  return anchor+ROOM_OFFSETS[clampi(stage,1,3)-1]
 
+# Keep the actual walkway approaches open when placing solid chamber walls.
+# Each room has two connected neighbours; no new phantom exits.
+static func wall_segment_open(stage:int,angle:float)->bool:
+ if stage<1 or stage>3 or not is_finite(angle):return true
+ var here:Vector3=ROOM_OFFSETS[stage-1]
+ for other_stage in range(1,4):
+  if other_stage==stage:continue
+  var offset:Vector3=ROOM_OFFSETS[other_stage-1]-here
+  var doorway_angle:float=atan2(offset.z,offset.x)
+  if absf(wrapf(angle-doorway_angle,-PI,PI))<0.70:return true
+ return false
+
 static func enemy_position(anchor:Vector3,stage:int,slot:int)->Vector3:
  var center:Vector3=room_position(anchor,stage)
  var angle:float=float(posmod(slot,3))*TAU/3.0
