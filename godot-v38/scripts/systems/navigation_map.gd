@@ -8,6 +8,20 @@ var has_waypoint:bool=false
 var quest_markers:Array[Vector3]=[]
 var discovered:Array[Vector3]=[]
 var metres_per_half_width:float=120.0
+const MAX_DISCOVERED_MARKERS:int=256
+const MAX_QUEST_MARKERS:int=128
+const MAX_WORLD_COORD:float=1000000.0
+
+static func _valid_world_point(point:Vector3)->bool:
+ return is_finite(point.x) and is_finite(point.y) and is_finite(point.z) and absf(point.x)<=MAX_WORLD_COORD and absf(point.y)<=MAX_WORLD_COORD and absf(point.z)<=MAX_WORLD_COORD
+
+func _validated_markers(points:Array[Vector3],limit:int)->Array[Vector3]:
+ var accepted:Array[Vector3]=[]
+ for point in points:
+  if not _valid_world_point(point):continue
+  if accepted.size()>=limit:break
+  accepted.append(point)
+ return accepted
 
 func _draw()->void:
  var rect:Rect2=Rect2(Vector2.ZERO,size)
@@ -41,9 +55,9 @@ func _draw()->void:
  draw_string(ThemeDB.fallback_font,Vector2(size.x*0.5-6.0,20.0),"N",HORIZONTAL_ALIGNMENT_LEFT,-1,16,Color(0.65,0.9,1.0))
 
 func update_navigation(position:Vector3, waypoint:Vector3, enabled:bool)->void:
- player_position=position
- waypoint_position=waypoint
- has_waypoint=enabled
+ if _valid_world_point(position):player_position=position
+ has_waypoint=enabled and _valid_world_point(waypoint)
+ if has_waypoint:waypoint_position=waypoint
  queue_redraw()
 
 func _gui_input(event:InputEvent)->void:
@@ -57,13 +71,14 @@ func _gui_input(event:InputEvent)->void:
   var scale_factor:float=minf(size.x,size.y)*0.45/maxf(20.0,metres_per_half_width)
   var offset:Vector2=(event.position-size*0.5)/scale_factor
   var location:Vector3=Vector3(player_position.x+offset.x,player_position.y,player_position.z+offset.y)
+  if not _valid_world_point(location):return
   waypoint_selected.emit(location)
   accept_event()
 
 func set_quest_markers(markers:Array[Vector3])->void:
- quest_markers=markers.duplicate()
+ quest_markers=_validated_markers(markers,MAX_QUEST_MARKERS)
  queue_redraw()
 
 func set_discovered(positions:Array[Vector3])->void:
- discovered=positions.duplicate()
+ discovered=_validated_markers(positions,MAX_DISCOVERED_MARKERS)
  queue_redraw()
