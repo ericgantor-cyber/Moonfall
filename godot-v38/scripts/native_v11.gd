@@ -480,8 +480,10 @@ func _update_region_visibility() -> void:
   for creature in zone_beast_lists[zone]:
    var body:CharacterBody3D=creature["body"]
    if is_instance_valid(body) and bool(creature.get("alive",false)):
-    body.visible=visible
-    if not visible:body.velocity=Vector3.ZERO
+    # Region refresh is frequent; avoid redundant scene-tree visibility writes
+    # and unnecessary velocity assignments for idle, offscreen creatures.
+    if body.visible!=visible:body.visible=visible
+    if not visible and body.velocity!=Vector3.ZERO:body.velocity=Vector3.ZERO
 
 func _make_shrine(i: int) -> void:
  var center: Vector2=REGIONS[i]["at"]
