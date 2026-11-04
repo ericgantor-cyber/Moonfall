@@ -2003,6 +2003,10 @@ func _update_beast_step(beast:Dictionary, delta:float) -> void:
  var pursuing:=not activity.is_empty() and map_time<float(beast.get("hunting_until",0.0)) and not engaged and not bool(beast.get("boss",false))
  if staggered:
   body.velocity=Vector3.ZERO
+ elif elite and float(beast.get("elite_lunge_windup",0.0))>0.0:
+  # Lock the elite in place while its fixed-target attack warning counts down.
+  # Otherwise AI movement can slide the attacker through its own telegraph.
+  body.velocity=Vector3.ZERO
  elif bool(beast.get("boss",false)) and float(beast.get("windup",0.0))>0.0:
   # Hold position while the existing boss warning disk resolves.
   body.velocity=Vector3.ZERO
