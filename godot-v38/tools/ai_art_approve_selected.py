@@ -15,6 +15,8 @@ import sys
 import ai_art_review as review
 import ai_art_studio as png
 import ai_art_3d as glb
+import ai_art_autorig as autorig
+from ai_art_rig import rig_report
 
 
 MAX_SELECTION_BYTES = 128 * 1024
@@ -43,8 +45,10 @@ def read_selection(path: Path) -> list[dict]:
         asset_id, fmt, digest = raw["asset_id"], raw["format"], raw["sha256"]
         if not isinstance(asset_id, str) or asset_id not in available:
             raise ValueError("Unknown or forbidden art asset. Hero artwork is never eligible.")
-        if fmt not in ("png", "glb") or not isinstance(digest, str) or not SHA256_RE.fullmatch(digest):
+        if fmt not in ("png", "glb", "rigged") or not isinstance(digest, str) or not SHA256_RE.fullmatch(digest):
             raise ValueError("Invalid art format or checksum.")
+        if fmt == "rigged" and available[asset_id]["category"] not in ("animals", "guardians"):
+            raise ValueError("Animated rig overlays are supported only for approved creature categories.")
         if fmt == "glb" and available[asset_id]["category"] not in glb.ALLOWED_MODEL_CATEGORIES:
             raise ValueError("UI, spell and region art cannot be approved as 3D meshes.")
         key = (asset_id, fmt)
@@ -59,7 +63,8 @@ def verify_all(entries: list[dict]) -> list[dict]:
     """Preflight every file before a single item is approved."""
     for entry in entries:
         item, fmt = entry["item"], entry["format"]
-        staged, approved = (png.dest_paths(item) if fmt == "png" else glb.paths(item)[:2])
+        staged, approved = (png.dest_paths(item) if fmt == "png" else
+                            autorig.paths(item)[:2] if fmt == "rigged" else glb.paths(item)[:2])
         if approved.exists() or approved.is_symlink():
             raise FileExistsError(f"Reviewed art already approved: {item['asset_id']}.{fmt}")
         if not staged.is_file() or staged.is_symlink():
@@ -69,6 +74,7 @@ def verify_all(entries: list[dict]) -> list[dict]:
             png.validate_png(payload)
         else:
             glb.glb_info(payload)
+            if fmt == "rigged":rig_report(payload, require_rig=True)
         actual_sha = hashlib.sha256(payload).hexdigest()
         if actual_sha != entry["sha256"]:
             raise ValueError(f"Artwork changed after gallery review: {item['asset_id']}.{fmt}")
@@ -91,6 +97,8 @@ def apply(entries: list[dict]) -> list[Path]:
         item = entry["item"]
         if entry["format"] == "png":
             destinations.append(png.approve(item))
+        elif entry["format"] == "rigged":
+            destinations.append(autorig.approve(item, "combined"))
         else:
             destinations.append(glb.approve_model(item))
     return destinations
