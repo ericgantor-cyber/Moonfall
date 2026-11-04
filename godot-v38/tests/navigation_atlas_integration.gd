@@ -300,7 +300,7 @@ func _run()->void:
   var trait_id:int=stage_rules.regional_guardian_trait(2,3,species_id)
   check(trait_id>=0 and trait_id<4 and stage_rules.regional_guardian_health_multiplier(trait_id)>=1.0 and stage_rules.regional_guardian_health_multiplier(trait_id)<=1.35,"boss theme uses bounded HP scaling")
  check("guardian[\"max\"]=float(guardian[\"max\"])*health_scale" in source and "guardian[\"base_hp\"]=float(guardian[\"base_hp\"])*health_scale" in source,"guardian health and native respawn baseline scale together")
- check("regional_guardian_relic(zone,dungeon_id,trait_id" in source and "_create_gear_drop(native_body.global_position" in source,"each first guardian victory awards one native bonus named relic")
+ check("regional_guardian_relic(zone,dungeon_id,trait_id" in source and "_create_gear_drop(guardian_drop_at" in source and "var guardian_drop_at:Vector3=" in source,"each first guardian victory awards one native bonus relic at the pre-despawn location")
  var example_relic:Dictionary=stage_rules.regional_guardian_relic(2,3,1,"Fury")
  check(example_relic.get("rarity")=="Legendary" and str(example_relic.get("name","")).contains("Emberborn") and float(example_relic.get("affix_value",0))>0.0,"themed crests are valid real legendary equipment")
  check("func _defeat_beast(beast:Dictionary,pet_kill:bool)" in source and "super._defeat_beast(beast,pet_kill)" in source,"native guardian deaths retain original XP, gold, loot, boss defeat and reward handling")
