@@ -13,7 +13,7 @@ var atlas_quest_positions:Array[Vector3]=[]
 var atlas_legend:Label
 var atlas_discovered:Array[Vector3]=[]
 const ATLAS_DISCOVERY_SPACING:float=55.0
-const ATLAS_MAX_DISCOVERED:int=160
+const ATLAS_MAX_DISCOVERED:int=2048
 
 func _ready()->void:
  super._ready()
@@ -29,7 +29,7 @@ func _start_game(selected_hero:String)->void:
 func _checkpoint_extra_data()->Dictionary:
  var data:Dictionary=super._checkpoint_extra_data()
  data["atlas_quest_positions"]=atlas_quest_positions.map(func(p:Vector3):return [p.x,p.y,p.z])
- data["atlas_discovered"]=atlas_discovered.map(func(p:Vector3):return [p.x,p.z])
+ data["atlas_discovered"]=NAVIGATION_MAP.encode_history(atlas_discovered)
  data["atlas_zoom_radius"]=atlas_zoom_radius
  data["atlas_has_waypoint"]=atlas_has_waypoint
  data["atlas_waypoint"]=[atlas_waypoint.x,atlas_waypoint.y,atlas_waypoint.z]
@@ -44,13 +44,7 @@ func _restore_data(data:Dictionary)->void:
  atlas_zoom_radius=clampf(float(extras.get("atlas_zoom_radius",120.0)),25.0,2000.0) if extras is Dictionary else 120.0
  if not is_finite(atlas_zoom_radius):atlas_zoom_radius=120.0
  if extras is Dictionary:
-  var stored:Variant=extras.get("atlas_discovered",[])
-  if stored is Array:
-   for item in stored.slice(0,ATLAS_MAX_DISCOVERED):
-    if item is Array and item.size()==2:
-     var dx:float=float(item[0])
-     var dz:float=float(item[1])
-     if is_finite(dx) and is_finite(dz):atlas_discovered.append(Vector3(dx,0.0,dz))
+  atlas_discovered=NAVIGATION_MAP.decode_history(extras.get("atlas_discovered",[]))
   var quests:Variant=extras.get("atlas_quest_positions",[])
   if quests is Array:
    for item in quests.slice(0,24):
@@ -193,9 +187,10 @@ func _process(delta:float)->void:
   atlas_panel.visible=false
  if hero_playing and not death_active and is_instance_valid(player):
   var here:Vector3=player.global_position
-  if atlas_discovered.is_empty() or atlas_discovered.back().distance_squared_to(Vector3(here.x,0.0,here.z))>=ATLAS_DISCOVERY_SPACING*ATLAS_DISCOVERY_SPACING:
-   atlas_discovered.append(Vector3(here.x,0.0,here.z))
-   if atlas_discovered.size()>ATLAS_MAX_DISCOVERED:atlas_discovered.pop_front()
+  if NAVIGATION_MAP._valid_world_point(here):
+   if atlas_discovered.is_empty() or atlas_discovered.back().distance_squared_to(Vector3(here.x,0.0,here.z))>=ATLAS_DISCOVERY_SPACING*ATLAS_DISCOVERY_SPACING:
+    atlas_discovered.append(Vector3(here.x,0.0,here.z))
+    if atlas_discovered.size()>ATLAS_MAX_DISCOVERED:atlas_discovered.pop_front()
  if atlas_panel.visible:
   atlas_elapsed+=delta
   if atlas_elapsed>=0.15:
