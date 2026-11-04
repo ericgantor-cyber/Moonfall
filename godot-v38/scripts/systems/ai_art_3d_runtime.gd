@@ -4,6 +4,7 @@ extends RefCounted
 const GAME_ART=preload("res://scripts/systems/ai_art_whole_game.gd")
 const WILDLIFE_ART=preload("res://scripts/systems/ai_art_overrides.gd")
 const MODEL_ROOT:String="res://assets/ai_generated/models/"
+const RIGGED_ROOT:String="res://assets/ai_generated/rigged/"
 const MAX_VISIBLE_MESHES:int=160
 const MAX_CACHED_MODEL_SCENES:int=12
 static var _models:Dictionary={}
@@ -29,6 +30,11 @@ static func approved_model_path(category:String,asset_id:String)->String:
    var suffix:String=asset_id.trim_prefix("chamber_")
    if not asset_id.begins_with("chamber_") or suffix!=("%02d"%int(suffix)) or not suffix.is_valid_int() or int(suffix)<1 or int(suffix)>14:return ""
   _:return ""
+ # A separately approved animated rig takes priority. The original reviewed
+ # static mesh is retained, so failed/absent rig imports can still fall back.
+ if category in ["animals","guardians"]:
+  var rigged_path:String=RIGGED_ROOT+category+"/"+asset_id+".glb"
+  if ResourceLoader.exists(rigged_path):return rigged_path
  return MODEL_ROOT+category+"/"+asset_id+".glb"
 
 static func _approved_scene(category:String,asset_id:String)->PackedScene:
