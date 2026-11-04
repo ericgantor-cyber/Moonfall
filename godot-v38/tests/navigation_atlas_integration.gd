@@ -99,6 +99,10 @@ func _run()->void:
  check(AUTO_ART_QUALITY.next_tier(0,0.0,16.1)==1 and AUTO_ART_QUALITY.next_tier(1,0.0,16.1)==2,"sustained stable frames restore high-detail art gradually")
  check(AUTO_ART_QUALITY.next_tier(1,1.5,9.0)==1 and AUTO_ART_QUALITY.quality_name(0)=="Eco","short frame-time spikes never trigger model thrashing")
  check(AUTO_ART_QUALITY.ANIMAL_EXIT_RADIUS_SQ>AUTO_ART_QUALITY.ANIMAL_ENTER_RADIUS_SQ,"AI art streamer uses hysteresis to prevent jittering 4K creature models")
+ check(AUTO_ART_QUALITY.failed_load_retry_ms(1)==1800 and AUTO_ART_QUALITY.failed_load_retry_ms(2)==3600,"failed optional GLB imports back off instead of retrying each streaming tick")
+ check(AUTO_ART_QUALITY.failed_load_retry_ms(6)==30000 and AUTO_ART_QUALITY.failed_load_retry_ms(100)==30000,"optional model failure retries are capped to 30 seconds")
+ check(not AUTO_ART_QUALITY.can_retry_failed_load(4999,5000) and AUTO_ART_QUALITY.can_retry_failed_load(5000,5000),"failed GLB retry time honors the exact cooldown boundary")
+
  check(WHOLE_GAME_ART.image_path("regions","00")=="res://assets/ai_generated/regions/region_00.png","biome art paths match offline generation pipeline")
  check(WHOLE_GAME_ART.image_path("chambers","14")=="res://assets/ai_generated/chambers/chamber_14.png","room-14 mural image is available to each regional dungeon")
  check(WHOLE_GAME_ART.image_path("glyphs","orb_hud")=="res://assets/ai_generated/glyphs/glyph_orb_hud.png","original four-color orb HUD art can be optionally customized")
