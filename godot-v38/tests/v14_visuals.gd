@@ -18,12 +18,13 @@ func _run() -> void:
  var fauna:Array=game.get("beasts")
  var rigs:Array=game.get("visual_rigs")
  var zones:Array=game.get("decorative_groups")
- check(fauna.size()==74 and rigs.size()==fauna.size(),"All 74 actors have procedural rigs")
+ check(fauna.size()==76 and rigs.size()==fauna.size(),"74 legacy actors and two divine bosses have registered visual rigs")
  check(zones.size()==6,"All six zones have visual art-direction roots")
  for z in range(zones.size()):
   check(zones[z].get_child_count()>=10,"Zone "+str(z)+" has landmarks and glowing motifs")
  var kinds:Dictionary={}
  var boss_rigs:=0
+ var divine_boss_rigs:=0
  for i in range(fauna.size()):
   var beast:Dictionary=fauna[i]
   var kind:String=beast["kind"]
@@ -39,9 +40,12 @@ func _run() -> void:
   # Additional v32 boss warning meshes may be visible; only legacy placeholders must stay hidden.
   if existing_meshes<2 or hidden_meshes<2:
    check(false,"Old placeholder capsules are hidden")
-  if bool(beast.get("boss",false)) and int(beast.get("invasion_site",-1))<0 and bool(rigs[i].get_meta("boss_ornamented",false)):boss_rigs+=1
+  if bool(beast.get("boss",false)) and int(beast.get("invasion_site",-1))<0 and bool(rigs[i].get_meta("boss_ornamented",false)):
+   if str(beast.get("divine_id","")).is_empty():boss_rigs+=1
+   else:divine_boss_rigs+=1
  check(kinds.size()==8,"Eight unique species silhouettes")
  check(boss_rigs==5,"All five roaming guardians have ornate rigs (actual="+str(boss_rigs)+")")
+ check(divine_boss_rigs==2,"Both divine bosses have ornate rig roots alongside original art (actual="+str(divine_boss_rigs)+")")
  var all_colliders_ok:=true
  for beast in fauna:
   var collider_found:=false
