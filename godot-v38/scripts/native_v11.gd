@@ -1803,11 +1803,11 @@ func _physics_process(delta: float) -> void:
  ecology_step+=delta
  region_refresh_tick+=delta
  if region_refresh_tick>=REGION_REFRESH_SECONDS:
-  region_refresh_tick=0.0
+  region_refresh_tick=fmod(region_refresh_tick,REGION_REFRESH_SECONDS)
   _update_region_visibility()
  respawn_refresh_tick+=delta
  if respawn_refresh_tick>=RESPAWN_REFRESH_SECONDS:
-  respawn_refresh_tick=0.0
+  respawn_refresh_tick=fmod(respawn_refresh_tick,RESPAWN_REFRESH_SECONDS)
   _update_respawns()
  _update_beasts(delta)
  _update_coin_drops(delta)
@@ -1885,7 +1885,8 @@ func _ecology_update(delta:float) -> void:
  # Scan up to the small native population. Avoid spawning and new timers per beast.
  # Squared-distance thresholds avoid repeated square roots in herd/predator loops.
  if ecology_step<0.32:return
- ecology_step=0.0
+ # Keep fractional elapsed time without unbounded catch-up loops.
+ ecology_step=fmod(ecology_step,0.32)
  for creature in zone_beast_lists[region_index]:
   if not bool(creature.get("alive",false)):continue
   var body:CharacterBody3D=creature["body"]
