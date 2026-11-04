@@ -28,6 +28,29 @@ func _run()->void:
    check(int(enc["zone"])==zone,"encounter zone %d"%zone)
    if bool(enc["boss"]):guardian_count+=1
  check(expected_count==47 and guardian_count==5,"47 native population slots with five guardians")
+ check(SPAWNS.region_encounters(-1,{"at":Vector2.ZERO,"monster":"wolf"}).is_empty(),"negative region index never generates spawns")
+ check(SPAWNS.region_encounters(0,{}).is_empty(),"missing encounter metadata is safely rejected")
+ check(SPAWNS.region_encounters(0,{"at":Vector2.ZERO}).is_empty(),"missing monster type does not crash encounter loading")
+ check(SPAWNS.region_encounters(0,{"at":Vector2(NAN,0),"monster":"wolf"}).is_empty(),"NaN region coordinate does not spawn actors")
+ check(SPAWNS.region_encounters(0,{"at":Vector2(INF,0),"monster":"wolf"}).is_empty(),"infinite region coordinate does not spawn actors")
+ check(SPAWNS.region_encounters(0,{"at":Vector2(1.0e30,0),"monster":"wolf"}).is_empty(),"overflowing region coordinate does not spawn actors")
+ check(SPAWNS.region_encounters(0,{"at":"bad","monster":"wolf"}).is_empty(),"malformed position type is rejected")
+ check(SPAWNS.region_encounters(0,{"at":Vector2.ZERO,"monster":""}).is_empty(),"blank encounter archetype is rejected")
+ var spawn_geometry_ok:bool=true
+ for sample_index in range(111):
+  var theta:float=TAU*float(sample_index)/111.0
+  var center_sample:Vector2=Vector2(cos(theta)*120.0,sin(theta)*120.0)
+  var layouts:Array[Dictionary]=SPAWNS.region_encounters(1,{"at":center_sample,"monster":"wolf"})
+  if layouts.size()!=8:
+   spawn_geometry_ok=false
+   break
+  for encounter in layouts:
+   var where:Vector3=encounter["at"]
+   if not is_finite(where.x) or not is_finite(where.z) or where.distance_to(Vector3(center_sample.x,0.0,center_sample.y))>33.0:
+    spawn_geometry_ok=false
+    break
+  if not spawn_geometry_ok:break
+ check(spawn_geometry_ok,"111 encounter centers produce bounded finite spawn geometry")
  check(game.get("beasts").size()>=expected_count,"existing ecology extra actors retained")
  check(is_equal_approx(SPAWNS.health_scale(3,"elder",true),6.912),"guardian HP scale unchanged")
  check(is_equal_approx(SPAWNS.health_scale(-2147483647,"normal",false),1.0),"invalid negative enemy tier uses base health")
