@@ -276,6 +276,17 @@ func _refresh_boss_phase(beast:Dictionary)->void:
   beast["divine_next_at"]=map_time+2.0
   _show_message(str(beast.get("divine_title","DIVINE BOSS"))+" AWAKENS • PHASE "+str(phase),2.5)
 
+# The warning disks live outside region scenery so their positions remain
+# fixed. Clear off-region warnings when travel switches AI simulation zones.
+func _update_region_visibility()->void:
+ super._update_region_visibility()
+ for actor in beasts:
+  if not actor.has("divine_id"):continue
+  if int(actor.get("zone",-1))==region_index and bool(actor.get("alive",false)):continue
+  var disk:MeshInstance3D=actor.get("divine_disk") as MeshInstance3D
+  if is_instance_valid(disk):disk.hide()
+  actor["divine_warn_until"]=0.0
+
 func _update_hud()->void:
  super._update_hud()
  if not is_instance_valid(world_hud):return
