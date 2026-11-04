@@ -55,7 +55,7 @@ static func _part(parent:Node3D,name:String,mesh:Mesh,position:Vector3,scale:Vec
 static func attach(body:CharacterBody3D,taxon:String,species_name:String)->Node3D:
  if not is_instance_valid(body):return null
  var prior:Node3D=body.get_node_or_null("AmericasWildlifeSilhouette") as Node3D
- if is_instance_valid(prior):prior.queue_free()
+ if is_instance_valid(prior):prior.free()
  var root:=Node3D.new()
  root.name="AmericasWildlifeSilhouette"
  body.add_child(root)
