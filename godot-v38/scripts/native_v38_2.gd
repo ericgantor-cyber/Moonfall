@@ -7,6 +7,7 @@ var atlas_readout:Label
 var atlas_waypoint:Vector3=Vector3.ZERO
 var atlas_has_waypoint:bool=false
 var atlas_elapsed:float=0.0
+var atlas_chamber_scan_elapsed:float=0.0
 var atlas_open_button:Button
 var atlas_zoom_radius:float=120.0
 var atlas_quest_positions:Array[Vector3]=[]
@@ -26,6 +27,7 @@ func _start_game(selected_hero:String)->void:
  atlas_zoom_radius=120.0
  atlas_discovered.clear()
  atlas_chambers_seen.clear()
+ atlas_chamber_scan_elapsed=0.0
  _refresh_atlas()
 
 func _checkpoint_extra_data()->Dictionary:
@@ -169,7 +171,6 @@ func _atlas_record_nearby_chambers(position:Vector3)->void:
 func _refresh_atlas()->void:
  if not is_instance_valid(atlas_chart) or not is_instance_valid(atlas_readout):return
  var pos:Vector3=player.global_position if is_instance_valid(player) else Vector3.ZERO
- if hero_playing:_atlas_record_nearby_chambers(pos)
  atlas_chart.set("metres_per_half_width",atlas_zoom_radius)
  atlas_chart.call("set_discovered",atlas_discovered)
  atlas_chart.call("set_quest_markers",atlas_quest_positions)
@@ -206,6 +207,10 @@ func _process(delta:float)->void:
   atlas_panel.visible=false
  if hero_playing and not death_active and is_instance_valid(player):
   var here:Vector3=player.global_position
+  atlas_chamber_scan_elapsed+=maxf(0.0,delta)
+  if atlas_chamber_scan_elapsed>=0.25:
+   atlas_chamber_scan_elapsed=0.0
+   _atlas_record_nearby_chambers(here)
   if NAVIGATION_MAP._valid_world_point(here):
    if atlas_discovered.is_empty() or atlas_discovered.back().distance_squared_to(Vector3(here.x,0.0,here.z))>=ATLAS_DISCOVERY_SPACING*ATLAS_DISCOVERY_SPACING:
     atlas_discovered.append(Vector3(here.x,0.0,here.z))
