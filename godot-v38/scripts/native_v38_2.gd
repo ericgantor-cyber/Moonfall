@@ -2,6 +2,7 @@ extends "res://scripts/native_v38_1.gd"
 ## Coordinate-accurate atlas overlay; existing connected world geometry unchanged.
 const NAVIGATION_MAP=preload("res://scripts/systems/navigation_map.gd")
 const GUARDIAN_TRAIT_ATTACKS=preload("res://scripts/systems/guardian_trait_attacks.gd")
+const GUARDIAN_55=preload("res://scripts/systems/guardian_55_profiles.gd")
 var atlas_panel:PanelContainer
 var atlas_chart:Control
 var atlas_readout:Label
@@ -27,6 +28,7 @@ var guardian_trait_warns:int=0
 var guardian_trait_hits:int=0
 var guardian_trait_counters:int=0
 var atlas_regional_guardian_rolls:Array[int]=[]
+var atlas_regional_guardian_profiles:Array[int]=[]
 const DUNGEON_GUARDIAN_TRIGGER_RADIUS_SQ:float=16.0*16.0
 var atlas_dungeon_zoom_radius:float=35.0
 var atlas_fast_travel_select:OptionButton
@@ -86,6 +88,20 @@ func _atlas_roll_regional_guardians()->void:
    atlas_regional_guardian_rolls.append(available[pick])
    available.remove_at(pick)
 
+# Pick thirty unique named types from 55, compatible with the existing
+# guarantee that a region includes each of the four native guardian species.
+func _atlas_roll_guardian_profiles()->void:
+ atlas_regional_guardian_profiles.clear()
+ var used:Dictionary={}
+ for species_id in atlas_regional_guardian_rolls:
+  var available:Array[int]=[]
+  for profile_id in GUARDIAN_55.suitable_profiles(species_id):
+   if not used.has(profile_id):available.append(profile_id)
+  if available.is_empty():return
+  var choice:int=available[rng.randi_range(0,available.size()-1)]
+  atlas_regional_guardian_profiles.append(choice)
+  used[choice]=true
+
 func _start_game(selected_hero:String)->void:
  super._start_game(selected_hero)
  atlas_has_waypoint=false
@@ -101,6 +117,7 @@ func _start_game(selected_hero:String)->void:
  guardian_trait_hits=0
  guardian_trait_counters=0
  _atlas_roll_regional_guardians()
+ _atlas_roll_guardian_profiles()
  atlas_fast_travel_unlocked_cache.clear()
  atlas_regional_dungeon=-1
  atlas_dungeon_paths.clear()
@@ -118,6 +135,7 @@ func _checkpoint_extra_data()->Dictionary:
  data["atlas_regional_relics_claimed"]=atlas_regional_relics_claimed.duplicate()
  data["atlas_regional_guardians_cleared"]=atlas_regional_guardians_cleared.duplicate()
  data["atlas_regional_guardian_rolls"]=atlas_regional_guardian_rolls.duplicate()
+ data["atlas_regional_guardian_profiles"]=atlas_regional_guardian_profiles.duplicate()
  var saved_paths:Dictionary={}
  for site_key in atlas_dungeon_paths.keys():
   var points:Array[Vector3]=atlas_dungeon_paths[site_key]
@@ -139,6 +157,7 @@ func _restore_data(data:Dictionary)->void:
  atlas_regional_guardians_cleared.clear()
  atlas_regional_guardian_actors.clear()
  atlas_regional_guardian_rolls.clear()
+ atlas_regional_guardian_profiles.clear()
  atlas_fast_travel_unlocked_cache.clear()
  atlas_dungeon_paths.clear()
  atlas_quest_positions.clear()
@@ -163,6 +182,21 @@ func _restore_data(data:Dictionary)->void:
      break
    if valid_rolls:
     for choice in saved_guardians:atlas_regional_guardian_rolls.append(int(choice))
+  var saved_profiles:Variant=extras.get("atlas_regional_guardian_profiles",[])
+  if saved_profiles is Array and saved_profiles.size()==expected_rolls and atlas_regional_guardian_rolls.size()==expected_rolls:
+   var valid_profiles:bool=true
+   var unique_profiles:Dictionary={}
+   for i in range(expected_rolls):
+    var profile_id:Variant=saved_profiles[i]
+    if not (profile_id is int) or not GUARDIAN_55.valid_profile(int(profile_id)) or unique_profiles.has(profile_id):
+     valid_profiles=false
+     break
+    if int(GUARDIAN_55.profile(int(profile_id))["species"])!=atlas_regional_guardian_rolls[i]:
+     valid_profiles=false
+     break
+    unique_profiles[profile_id]=true
+   if valid_profiles:
+    for profile_id in saved_profiles:atlas_regional_guardian_profiles.append(int(profile_id))
   var loaded_paths:Variant=extras.get("atlas_dungeon_paths",{})
   if loaded_paths is Dictionary:
    for site_id in range(mini(rifts.size()+REGIONS.size()*V321_RULES.REGIONAL_DUNGEON_COUNT,64)):
@@ -187,6 +221,8 @@ func _restore_data(data:Dictionary)->void:
     atlas_has_waypoint=bool(extras.get("atlas_has_waypoint",false))
  if atlas_regional_guardian_rolls.size()!=REGIONS.size()*V321_RULES.REGIONAL_DUNGEON_COUNT:
   _atlas_roll_regional_guardians()
+ if atlas_regional_guardian_profiles.size()!=atlas_regional_guardian_rolls.size():
+  _atlas_roll_guardian_profiles()
  _refresh_atlas()
 
 func _create_atlas()->void:
@@ -524,12 +560,12 @@ func _guardian_update_trait_attacks(delta:float)->void:
    var facing:Vector2=guardian.get("trait_facing",Vector2.RIGHT)
    var hit:bool=GUARDIAN_TRAIT_ATTACKS.hit(trait_id,warning_origin,target,here,facing)
    if hit and dodge_time<=0.0 and not mounted:
-    _apply_incoming_damage(GUARDIAN_TRAIT_ATTACKS.damage(trait_id,int(guardian.get("boss_phase",1))))
+    _apply_incoming_damage(GUARDIAN_TRAIT_ATTACKS.damage(trait_id,int(guardian.get("boss_phase",1)))*float(guardian.get("regional_guardian_attack_scale",1.0)))
     guardian_trait_hits+=1
    else:
     guardian_trait_counters+=1
     _show_message("COUNTERED: "+GUARDIAN_TRAIT_ATTACKS.ATTACK_NAMES[trait_id],1.2)
-   guardian["trait_next_at"]=map_time+GUARDIAN_TRAIT_ATTACKS.cooldown(trait_id,int(guardian.get("boss_phase",1)))
+   guardian["trait_next_at"]=map_time+GUARDIAN_TRAIT_ATTACKS.cooldown(trait_id,int(guardian.get("boss_phase",1)))*float(guardian.get("regional_guardian_cooldown_scale",1.0))
    continue
   if map_time<float(guardian.get("trait_next_at",0.0)) or mounted:continue
   if horizontal.length_squared()>GUARDIAN_TRAIT_ATTACKS.ENGAGE_RANGE_SQ or horizontal.length_squared()<0.01:continue
@@ -556,6 +592,10 @@ func _atlas_update_dungeon_guardians(position:Vector3)->void:
    if guardian_id>=atlas_regional_guardian_rolls.size():continue
    var rolled_index:int=atlas_regional_guardian_rolls[guardian_id]
    if rolled_index<0 or rolled_index>=V321_RULES.REGIONAL_GUARDIAN_SPECIES.size():continue
+   if guardian_id>=atlas_regional_guardian_profiles.size():continue
+   var profile_id:int=atlas_regional_guardian_profiles[guardian_id]
+   var profile:Dictionary=GUARDIAN_55.profile(profile_id)
+   if profile.is_empty() or int(profile["species"])!=rolled_index:continue
    var monster:String=V321_RULES.REGIONAL_GUARDIAN_SPECIES[rolled_index]
    if not BEASTS.has(monster):continue
    _spawn_beast(room_position,monster,zone,"elder",true)
@@ -563,15 +603,18 @@ func _atlas_update_dungeon_guardians(position:Vector3)->void:
    var guardian:Dictionary=beasts[-1]
    guardian["regional_guardian_id"]=guardian_id
    guardian["home"]=room_position
-   var trait_id:int=V321_RULES.regional_guardian_trait(zone,dungeon_id,rolled_index)
+   var trait_id:int=int(profile["trait"])
    guardian["regional_guardian_trait"]=trait_id
-   var health_scale:float=V321_RULES.regional_guardian_health_multiplier(trait_id)
+   guardian["regional_guardian_profile"]=profile_id
+   guardian["regional_guardian_attack_scale"]=float(profile["attack_scale"])
+   guardian["regional_guardian_cooldown_scale"]=float(profile["cooldown_scale"])
+   var health_scale:float=V321_RULES.regional_guardian_health_multiplier(trait_id)*float(profile["health_scale"])
    guardian["max"]=float(guardian["max"])*health_scale
    guardian["hp"]=guardian["max"]
    guardian["base_hp"]=float(guardian["base_hp"])*health_scale
    var title:Label3D=guardian.get("nameplate") as Label3D
    if is_instance_valid(title):
-    title.text="%s %s GUARDIAN • %d / 5" % [V321_RULES.REGIONAL_GUARDIAN_TRAITS[trait_id].to_upper(),monster.to_upper(),dungeon_id+1]
+    title.text="%s • %s GUARDIAN • %d / 5" % [str(profile["name"]).to_upper(),monster.to_upper(),dungeon_id+1]
     title.modulate=V321_RULES.REGIONAL_GUARDIAN_TRAIT_COLORS[trait_id]
    guardian["trait_next_at"]=map_time+3.0
    guardian["trait_warning_until"]=0.0
@@ -597,7 +640,8 @@ func _defeat_beast(beast:Dictionary,pet_kill:bool)->void:
   var trait_id:int=int(beast.get("regional_guardian_trait",-1))
   if zone>=0 and zone<REGIONS.size() and trait_id>=0 and trait_id<V321_RULES.REGIONAL_GUARDIAN_TRAITS.size():
    if is_instance_valid(guardian_body) and NAVIGATION_MAP._valid_world_point(guardian_drop_at):
-    var relic:Dictionary=V321_RULES.regional_guardian_relic(zone,dungeon_id,trait_id,AFFIXES[guardian_id%AFFIXES.size()])
+    var relic:Dictionary=GUARDIAN_55.guardian_relic(int(beast.get("regional_guardian_profile",-1)),zone,dungeon_id,AFFIXES[guardian_id%AFFIXES.size()])
+    if relic.is_empty():relic=V321_RULES.regional_guardian_relic(zone,dungeon_id,trait_id,AFFIXES[guardian_id%AFFIXES.size()])
     _create_gear_drop(guardian_drop_at,"Dungeon Guardian Crest","elder",zone,relic)
   _show_message("DUNGEON GUARDIAN DEFEATED! The final chamber is secured.",3.0)
 
