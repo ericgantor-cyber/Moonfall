@@ -214,7 +214,8 @@ func set_quest_markers(markers:Array[Vector3])->void:
  queue_redraw()
 
 func set_dungeon_context(active:bool,rooms:Array[Vector3],radii:Array[float]=[])->void:
- var accepted_rooms:Array[Vector3]=_validated_markers(rooms,MAX_CHAMBER_MARKERS) if active else _validated_markers([],0)
+ var accepted_rooms:Array[Vector3]=[]
+ if active:accepted_rooms=_validated_markers(rooms,MAX_CHAMBER_MARKERS)
  var accepted_radii:Array[float]=[]
  for i in range(accepted_rooms.size()):
   var radius:float=radii[i] if i<radii.size() else 0.0
