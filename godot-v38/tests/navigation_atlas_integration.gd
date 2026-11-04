@@ -1,6 +1,7 @@
 extends SceneTree
 const NAV=preload("res://scripts/systems/navigation_map.gd")
 const GUARDIAN_ATTACKS=preload("res://scripts/systems/guardian_trait_attacks.gd")
+const GUARDIAN_55=preload("res://scripts/systems/guardian_55_profiles.gd")
 var failures:int=0
 
 func check(ok:bool,description:String)->void:
@@ -309,6 +310,23 @@ func _run()->void:
  check('far_warning.visible=false' in source and "guardian.get(\"zone\",-1)" in source,"changing world regions clears warnings without moving boss attacks across zones")
  check("if is_instance_valid(warning_root):warning_root.visible=false" in source,"defeated guardian leaves no lingering attack indicator")
  check("func _atlas_update_dungeon_guardians(position:Vector3)" in source and "DUNGEON_GUARDIAN_TRIGGER_RADIUS_SQ" in source,"dungeon guardians appear on final-room approach without waves or manual stage triggers")
+ check(GUARDIAN_55.PROFILE_COUNT==55 and GUARDIAN_55.FAMILIES.size()==11 and GUARDIAN_55.RANKS.size()==5,"55 boss types are eleven families with five ranks")
+ var profile_names:Dictionary={}
+ for id in range(GUARDIAN_55.PROFILE_COUNT):
+  var entry:Dictionary=GUARDIAN_55.profile(id)
+  var name:String=str(entry.get("name",""))
+  check(not profile_names.has(name) and name.length()>7,"all fifty-five guardians have distinct names")
+  profile_names[name]=true
+  check(int(entry["species"])>=0 and int(entry["species"])<4 and int(entry["trait"])>=0 and int(entry["trait"])<4,"guardian type inherits native enemy model and telegraphed attack shape")
+  check(float(entry["health_scale"])>=1.0 and float(entry["health_scale"])<=1.25 and float(entry["attack_scale"])>=1.0 and float(entry["attack_scale"])<=1.30 and float(entry["cooldown_scale"])>=0.85,"profile health and offensive scaling remains bounded")
+ check(GUARDIAN_55.profile(-1).is_empty() and GUARDIAN_55.profile(55).is_empty(),"out-of-range types cannot spawn")
+ check(GUARDIAN_55.suitable_profiles(0).size()>=12 and GUARDIAN_55.suitable_profiles(3).size()>=12,"enough profiles exist for thirty nonduplicated guardian assignments")
+ var special_crest:Dictionary=GUARDIAN_55.guardian_relic(54,5,4,"Fury")
+ check(special_crest.get("rarity")=="Legendary" and str(special_crest.get("name","")).contains("Sovereign"),"the final guardian type grants real legendary equipment")
+ check("func _atlas_roll_guardian_profiles()" in source and "used[choice]=true" in source,"thirty dungeon bosses are randomized without repeating a guardian type")
+ check('data["atlas_regional_guardian_profiles"]' in source and 'extras.get("atlas_regional_guardian_profiles",[])' in source,"guardian type rolls are saved across checkpoint reloads")
+ check("GUARDIAN_55.profile(int(profile_id))" in source and "unique_profiles.has(profile_id)" in source,"invalid profile IDs, duplicate IDs and species mismatches are rejected")
+ check("regional_guardian_attack_scale" in source and "regional_guardian_cooldown_scale" in source,"profiles adjust real guardian attack cadence and damage")
  check("_spawn_beast(room_position,monster,zone,\"elder\",true)" in source and "V321_RULES.REGIONAL_GUARDIAN_SPECIES[rolled_index]" in source,"random dungeon guardians reuse four existing native hostile boss AI species and real combat")
  check("atlas_regional_guardian_actors.has(guardian_id)" in source and "atlas_regional_guardians_cleared.has(guardian_id)" in source,"guardian per dungeon can spawn at most once in an active adventure")
  check(stage_rules.REGIONAL_GUARDIAN_SPECIES==["wolf","boar","serpent","panther"],"guardian pool includes four existing hostile boss species with original artwork")
@@ -317,13 +335,13 @@ func _run()->void:
  check('data["atlas_regional_guardian_rolls"]' in source and 'extras.get("atlas_regional_guardian_rolls",[])' in source,"guardian assignment is saved so checkpoint reload does not reroll unfinished bosses")
  check("saved_guardians.size()==expected_rolls" in source and "valid_rolls=false" in source,"corrupt guardian species indices and lengths are validated before restore")
  check("if atlas_regional_guardian_rolls.size()!=REGIONS.size()*V321_RULES.REGIONAL_DUNGEON_COUNT" in source,"legacy saves without assignments get a safe new randomized layout")
- check("GUARDIAN • %d / 5" in source and "regional_guardian_trait(zone,dungeon_id,rolled_index)" in source,"guardian nameplates display native species and a distinct thematic trait")
+ check("GUARDIAN • %d / 5" in source and 'var trait_id:int=int(profile["trait"])' in source,"guardian nameplates display the rolled boss type and its distinct combat trait")
  check(stage_rules.REGIONAL_GUARDIAN_TRAITS.size()==4 and stage_rules.REGIONAL_GUARDIAN_TRAIT_COLORS.size()==4,"four complete themed boss profiles have readable visual identities")
  for species_id in range(4):
   var trait_id:int=stage_rules.regional_guardian_trait(2,3,species_id)
   check(trait_id>=0 and trait_id<4 and stage_rules.regional_guardian_health_multiplier(trait_id)>=1.0 and stage_rules.regional_guardian_health_multiplier(trait_id)<=1.35,"boss theme uses bounded HP scaling")
  check("guardian[\"max\"]=float(guardian[\"max\"])*health_scale" in source and "guardian[\"base_hp\"]=float(guardian[\"base_hp\"])*health_scale" in source,"guardian health and native respawn baseline scale together")
- check("regional_guardian_relic(zone,dungeon_id,trait_id" in source and "_create_gear_drop(guardian_drop_at" in source and "var guardian_drop_at:Vector3=" in source,"each first guardian victory awards one native bonus relic at the pre-despawn location")
+ check("GUARDIAN_55.guardian_relic(" in source and "_create_gear_drop(guardian_drop_at" in source and "var guardian_drop_at:Vector3=" in source,"first guardian victory awards its individual crest at the pre-despawn location")
  var example_relic:Dictionary=stage_rules.regional_guardian_relic(2,3,1,"Fury")
  check(example_relic.get("rarity")=="Legendary" and str(example_relic.get("name","")).contains("Emberborn") and float(example_relic.get("affix_value",0))>0.0,"themed crests are valid real legendary equipment")
  check("func _defeat_beast(beast:Dictionary,pet_kill:bool)" in source and "super._defeat_beast(beast,pet_kill)" in source,"native guardian deaths retain original XP, gold, loot, boss defeat and reward handling")
