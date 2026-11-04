@@ -103,6 +103,44 @@ a partial batch.
 Never approve artwork you haven't visually checked. Bulk approval is a tool
 for speeding up a deliberate review, not an automatic aesthetic judgment.
 
+## Creative limits removed: large rigs, animation libraries and art batches
+
+Moonfall's **offline** import and review workflows no longer impose hard
+caps of 128 bones per skin, 24 animation clips, 160 channels per clip,
+6,000 keyframes per channel, or 45 seconds per clip. Rig data still has to
+contain real skin joints, valid mesh bindings, correctly referenced animation
+tracks, and plausible file-backed keyframe counts. The asset validator also
+no longer imposes the old arbitrary 100,000-polygon, 120-mesh, 800-node
+or 3,500-accessor caps on valid GLB geometry. Actual byte sizes, data
+references, scene complexity and available hardware still matter.
+
+The art inbox no longer refuses a batch after 900 entries or 512 MiB
+aggregate data. Artwork is checked and staged **one file at a time**.
+The selection-approval command no longer stops at 700 files. Its batch
+content is restricted to actual registered core art slots and valid, reviewed
+formats, which avoids approving unknown assets or original hero art.
+
+You can now copy an already-rigged and animated creature model to:
+
+    ai_art_inbox/rigged/guardian_00.glb
+    ai_art_inbox/rigged/animal_jaguar.glb
+
+Then run `tools/Import-Moonfall-Art.cmd`, inspect the rigging and actual
+animation clips in the gallery, and approve selected rigged files through
+`tools/Approve-Reviewed-Moonfall-Art.cmd`.
+
+**What remains deliberately protected:** each individual file must still
+pass GLB/PNG container and reference integrity checks, no arbitrary
+external paths or unreviewed art can be imported, and the Windows game
+automatically reduces detail when actual frame time deteriorates. The
+350-slot roster describes current *integrated game asset locations*, not
+a limit on animation clips, bone count or how many separate source files
+you can review. Additional distinct gameplay asset locations still need
+registration and Godot integration. 4K texture-service resolutions,
+Meshy's per-request maximum 10 animation action IDs, and provider prices
+are external service limits; this code cannot waive them. **Nothing
+automatically triggers paid generation.**
+
 ## Rigged and animated AI artwork (new)
 
 Approved 3D creature art now supports **real glTF skeletons** (skinned meshes
@@ -224,17 +262,19 @@ GPU memory, and camera scale before shipping large animated model packs.
 Moonfall now treats approved 4K PBR art as an **optional visual upgrade**,
 not an excuse to overload Windows GPUs or change the actual game.
 
-The game starts at High detail, allowing up to 3 nearby wildlife meshes
-and 1 nearby room-7/14 monument mesh. A lightweight frame-time governor
+The game starts at High detail, now allowing **all eligible nearby approved
+wildlife and selected dungeon monument meshes** instead of rigid counts.
+A lightweight frame-time governor
 automatically steps down quality after **3 sustained seconds** of slow frames
 (around 27 ms average) and only steps up after **16 sustained seconds** of
 comfortable frames (around 17.5 ms average). It uses three purely visual
 detail tiers:
 
-- **Eco:** 0 wildlife meshes / 0 dungeon monument meshes; approved PNGs
-  and original native creatures remain visible.
-- **Balanced:** 1 wildlife mesh / 0 monument meshes.
-- **High:** 3 wildlife meshes / 1 monument mesh.
+- **Eco:** Use approved PNGs and original native creatures.
+- **Balanced:** Display half of the eligible nearby 3D creature and monument models.
+- **High:** Display **all** eligible nearby approved 3D creature and monument models.
+No hard three-creature or one-room quota applies. New models are still admitted
+gradually rather than all spawning in one frame.
 
 A creature's high-detail model remains in place slightly beyond its initial
 loading distance to avoid visual popping. New high-detail GLBs are admitted
@@ -324,11 +364,12 @@ textures are aesthetically sharp or correctly rigged.
 
 ### Keep high-resolution assets playable
 
-The native 3D display now limits loaded live detail to at most **three nearby
-wildlife models and one nearby chamber model**, using the original 2D/native
-visuals farther away. The 3D PackedScene reference cache is limited to twelve
-recent model scenes. Combat collisions, enemies, room geometry and Z/Nyra art
-are unchanged. High-quality 4K PBR material maps remain optional and can use
+The native 3D display uses performance-adaptive selection instead of the
+old fixed three-wildlife / one-chamber quotas. At High detail all eligible
+nearby models may be rendered, while faraway actors use original 2D/native
+visuals. The resource cache retains only twelve recent scene references to
+avoid unnecessary memory growth; this is a cache policy, not a creative limit.
+Combat collisions, enemies, room geometry and Z/Nyra art are unchanged. High-quality 4K PBR material maps remain optional and can use
 substantial GPU memory: monitor actual game performance and exported builds.
 
 ## Optional automatic 3D and native 4K PBR textures

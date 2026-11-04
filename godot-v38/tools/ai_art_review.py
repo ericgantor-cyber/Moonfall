@@ -199,7 +199,7 @@ def make_gallery(rows: list[dict], destination: Path) -> None:
                 f'{int(rig_data.get("animation_count", 0))} animation clips</p>'
             )
             if clip_names:
-                model_summary += '<p>Animations: ' + escape(", ".join(clip_names[:24])) + '</p>'
+                model_summary += '<p>Animations: ' + escape(", ".join(clip_names)) + '</p>'
             if rigged and missing:
                 model_summary += '<p>Missing preferred: ' + escape(", ".join(missing)) + '</p>'
         if rigged_data:
@@ -207,7 +207,7 @@ def make_gallery(rows: list[dict], destination: Path) -> None:
             model_summary += (f'<p>Animated rig: <strong>{int(rigged_data.get("bone_count", 0))} bones</strong>'
                               f' · {len(names)} clips · {escape(str(row.get("rigged_state", "")))}</p>')
             if names:
-                model_summary += '<p>Rig clips: ' + escape(", ".join(names[:24])) + '</p>'
+                model_summary += '<p>Rig clips: ' + escape(", ".join(names)) + '</p>'
             missing_rig = rigged_data.get("missing_preferred", [])
             if missing_rig:
                 model_summary += '<p>Missing animation actions: ' + escape(", ".join(missing_rig)) + '</p>'

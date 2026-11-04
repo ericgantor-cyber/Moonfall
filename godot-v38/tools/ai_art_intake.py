@@ -11,14 +11,15 @@ from pathlib import Path
 import sys
 
 import ai_art_3d as model
+import ai_art_autorig as autorig
 import ai_art_review as review
 import ai_art_studio as png
 
 
-MAX_INBOX_FILES = 900
-MAX_INBOX_BYTES = 512 * 1024 * 1024
+# File counts are no longer capped. Each file is still checked by the actual
+# PNG/GLB validator, and staging processes one file at a time.
 CATEGORIES = frozenset(("guardians", "animals", "regions", "chambers",
-                        "glyphs", "spells", "gear", "scenery"))
+                        "glyphs", "spells", "gear", "scenery", "rigged"))
 
 
 def candidate_index() -> dict[tuple[str, str], dict]:
@@ -33,8 +34,6 @@ def list_inbox(inbox: Path) -> list[tuple[Path, dict, str]]:
         raise ValueError("Inbox must be a real directory, not a symlink.")
     index = candidate_index()
     result = []
-    total_bytes = 0
-    file_count = 0
     for folder in sorted(inbox.iterdir()):
         if folder.is_symlink():
             raise ValueError(f"Symlinked inbox category is forbidden: {folder.name}")
@@ -48,16 +47,19 @@ def list_inbox(inbox: Path) -> list[tuple[Path, dict, str]]:
                 raise ValueError(f"Symlinked input file forbidden: {path.name}")
             if not path.is_file():
                 continue
-            file_count += 1
-            if file_count > MAX_INBOX_FILES:
-                raise ValueError("Too many art files in inbox.")
-            size = path.stat().st_size
-            total_bytes += size
-            if total_bytes > MAX_INBOX_BYTES:
-                raise ValueError("Artwork inbox exceeds the 512 MiB intake limit.")
+            # No arbitrary 900-file or 512-MiB batch ceilings; the import
+            # itself is sequential and per-file format limits are retained.
             ext = path.suffix.lower()
             if ext not in {".png", ".glb"}:
                 raise ValueError(f"Unsupported file in art inbox: {path.name}")
+            if folder.name == "rigged":
+                if ext != ".glb":
+                    raise ValueError("A rigged model must be an animated GLB.")
+                item = index.get(("guardians", path.stem)) or index.get(("animals", path.stem))
+                if item is None:
+                    raise ValueError(f"Unknown animated creature slot: {path.name}")
+                result.append((path, item, ".rigged"))
+                continue
             key = (folder.name, path.stem)
             if key not in index:
                 raise ValueError(f"Unknown or malformed game-art ID: {folder.name}/{path.name}")
@@ -71,10 +73,10 @@ def list_inbox(inbox: Path) -> list[tuple[Path, dict, str]]:
 def plan(inbox: Path) -> list[dict]:
     results = []
     for path, item, ext in list_inbox(inbox):
-        staged = (model.paths(item)[0] if ext == ".glb"
-                  else png.dest_paths(item)[0])
-        approved = (model.paths(item)[1] if ext == ".glb"
-                    else png.dest_paths(item)[1])
+        staged = (autorig.paths(item)[0] if ext == ".rigged" else
+                  model.paths(item)[0] if ext == ".glb" else png.dest_paths(item)[0])
+        approved = (autorig.paths(item)[1] if ext == ".rigged" else
+                    model.paths(item)[1] if ext == ".glb" else png.dest_paths(item)[1])
         state = "approved" if approved.exists() else "staged" if staged.exists() else "ready"
         results.append({"file": str(path), "asset_id": item["asset_id"],
                         "category": item["category"], "format": ext[1:], "status": state})
@@ -84,17 +86,19 @@ def plan(inbox: Path) -> list[dict]:
 def stage_all(inbox: Path) -> list[dict]:
     result = []
     for path, item, ext in list_inbox(inbox):
-        staged = (model.paths(item)[0] if ext == ".glb"
-                  else png.dest_paths(item)[0])
-        approved = (model.paths(item)[1] if ext == ".glb"
-                    else png.dest_paths(item)[1])
+        staged = (autorig.paths(item)[0] if ext == ".rigged" else
+                  model.paths(item)[0] if ext == ".glb" else png.dest_paths(item)[0])
+        approved = (autorig.paths(item)[1] if ext == ".rigged" else
+                    model.paths(item)[1] if ext == ".glb" else png.dest_paths(item)[1])
         if approved.exists() or staged.exists():
             result.append({"asset_id": item["asset_id"], "format": ext[1:], "status": "skipped_existing"})
             continue
         # This validates structural PNG / self-contained GLB and produces a
         # review manifest, but NEVER approves or converts the file.
         try:
-            if ext == ".glb":
+            if ext == ".rigged":
+                target = autorig.import_local(item, path)
+            elif ext == ".glb":
                 target = model.import_local(item, path)
             else:
                 target = png.import_local_image(item, png.prompt_for(item), path)

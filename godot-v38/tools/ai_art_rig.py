@@ -12,12 +12,8 @@ import struct
 
 from ai_art_3d import glb_info
 
-MAX_BONES = 128
-MAX_SKINS = 4
-MAX_CLIPS = 24
-MAX_CHANNELS_PER_CLIP = 160
-MAX_KEYS_PER_CHANNEL = 6000
-MAX_CLIP_SECONDS = 45.0
+# No arbitrary creative caps on bones, skins, clips, channels, keys or duration.
+# GLB bytes and referenced structures are still validated against the input.
 PREFERRED_CLIPS = ("idle", "move", "attack", "hurt", "death")
 OPTIONAL_CLIPS = ("spawn", "telegraph", "special_1", "special_2", "victory")
 ALL_CLIPS = set(PREFERRED_CLIPS + OPTIONAL_CLIPS)
@@ -80,23 +76,22 @@ def rig_report(payload: bytes, require_rig: bool = False) -> dict:
     animations, accessors = doc.get("animations", []), doc.get("accessors", [])
     if not all(isinstance(items, list) for items in (skins, nodes, animations, accessors)):
         raise ValueError("Rig/animation records must be arrays.")
-    if len(skins) > MAX_SKINS or len(animations) > MAX_CLIPS:
-        raise ValueError("Model has too many skins or animation clips.")
+    # The container-size and glTF index checks bound memory without limiting
+    # the number of animations a creator may author.
     total_bones = 0
     bound_meshes = 0
     for skin in skins:
         if not isinstance(skin, dict):
             raise ValueError("Malformed skeleton skin.")
         joints = skin.get("joints")
-        if not isinstance(joints, list) or not 1 <= len(joints) <= MAX_BONES:
-            raise ValueError(f"Skeleton requires 1 to {MAX_BONES} valid joints.")
+        if not isinstance(joints, list) or not joints:
+            raise ValueError("A skeleton must contain valid joints.")
         if len(set(map(str, joints))) != len(joints):
             raise ValueError("Duplicate bone joints in a skin.")
         for joint in joints:
             _reference(joint, nodes, "skeleton joint")
         total_bones += len(joints)
-        if total_bones > MAX_BONES * MAX_SKINS:
-            raise ValueError("Too many bones in rigged model.")
+        # No independent bone-count cap: only valid scene-node refs pass.
         if "skeleton" in skin:
             _reference(skin["skeleton"], nodes, "skeleton root")
         if "inverseBindMatrices" in skin:
@@ -123,9 +118,8 @@ def rig_report(payload: bytes, require_rig: bool = False) -> dict:
             raise ValueError("Malformed animation clip.")
         name = str(animation.get("name", f"Animation_{index + 1}"))
         samplers, channels = animation.get("samplers", []), animation.get("channels", [])
-        if (not isinstance(samplers, list) or not isinstance(channels, list)
-                or not 1 <= len(channels) <= MAX_CHANNELS_PER_CLIP):
-            raise ValueError("Animation has no channels or exceeds per-clip limits.")
+        if not isinstance(samplers, list) or not isinstance(channels, list) or not channels:
+            raise ValueError("Animation must contain valid keyed channels.")
         used = set()
         duration = 0.0
         for channel in channels:
@@ -148,17 +142,21 @@ def rig_report(payload: bytes, require_rig: bool = False) -> dict:
             times = _reference(accessor_id, accessors, "keyframe input")
             _reference(sampler.get("output"), accessors, "keyframe output")
             count = times.get("count")
-            if (not isinstance(count, int) or isinstance(count, bool)
-                    or not 1 <= count <= MAX_KEYS_PER_CHANNEL):
-                raise ValueError("Animation channel exceeds keyframe budget.")
+            if not isinstance(count, int) or isinstance(count, bool) or count < 1:
+                raise ValueError("Animation channel requires positive keyframe counts.")
+            # Protect against malformed accessors claiming billions of keyframes
+            # without real file data. This is a file-integrity constraint,
+            # not an animation-authoring limit.
+            if count > len(payload):
+                raise ValueError("Keyframe count cannot exceed source file bytes.")
             # glTF min/max are optional; validate them if present.
             lo, hi = times.get("min"), times.get("max")
             if isinstance(lo, list) and isinstance(hi, list) and lo and hi:
                 start, finish = lo[0], hi[0]
                 if (not isinstance(start, (int, float)) or not isinstance(finish, (int, float))
                         or not math.isfinite(start) or not math.isfinite(finish)
-                        or start < 0 or finish < start or finish - start > MAX_CLIP_SECONDS):
-                    raise ValueError("Animation duration is invalid or too long.")
+                        or start < 0 or finish < start):
+                    raise ValueError("Animation duration is invalid.")
                 duration = max(duration, float(finish - start))
             used.add(sampler_id)
         clip = {"name": name, "channels": len(channels),

@@ -22,14 +22,21 @@ static func quality_name(tier:int)->String:
   BALANCED:return "Balanced"
  return "High"
 
-static func animal_limit(tier:int)->int:
+# Detail budgets scale with the number of visible, eligible models.
+# High has NO fixed 3-creature / 1-room ceiling; performance adapts over time.
+# Eco remains available automatically if the system cannot sustain High.
+static func detail_budget(tier:int,eligible_count:int)->int:
+ var count:int=maxi(0,eligible_count)
  match clampi(tier,MIN_QUALITY,MAX_QUALITY):
   ECONOMY:return 0
-  BALANCED:return 1
- return 3
+  BALANCED:return ceili(float(count)*0.5)
+ return count
 
-static func chamber_limit(tier:int)->int:
- return 1 if tier>=HIGH else 0
+static func animal_limit(tier:int,eligible_count:int=0)->int:
+ return detail_budget(tier,eligible_count)
+
+static func chamber_limit(tier:int,eligible_count:int=0)->int:
+ return detail_budget(tier,eligible_count)
 
 static func next_tier(tier:int,slow_seconds:float,fast_seconds:float)->int:
  var bounded:int=clampi(tier,MIN_QUALITY,MAX_QUALITY)

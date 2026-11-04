@@ -3,7 +3,7 @@ setlocal
 cd /d "%~dp0.."
 title Moonfall AI Art Importer - Offline
 if not exist "ai_art_inbox" mkdir "ai_art_inbox"
-for %%G in (guardians animals regions chambers glyphs spells gear scenery) do (
+for %%G in (guardians animals regions chambers glyphs spells gear scenery rigged) do (
  if not exist "ai_art_inbox\%%G" mkdir "ai_art_inbox\%%G"
 )
 where py >nul 2>nul

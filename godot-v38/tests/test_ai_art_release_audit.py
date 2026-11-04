@@ -96,7 +96,7 @@ class TestApprovedArtReleaseAudit(unittest.TestCase):
         self.assertIn("const SLOW_HOLD_SECONDS:float=3.0", quality)
         self.assertIn("const FAST_HOLD_SECONDS:float=16.0", quality)
         self.assertIn("func _ai_art_track_frame_performance(delta:float)", native)
-        self.assertIn("AI_ART_AUTO_QUALITY.animal_limit(ai_art_quality_tier)", native)
+        self.assertIn("AI_ART_AUTO_QUALITY.animal_limit(ai_art_quality_tier,candidates.size())", native)
         self.assertIn("ai_art_next_model_load_ms", native)
         self.assertIn("MAX_CACHED_MODEL_SCENES:int=12", runtime)
 

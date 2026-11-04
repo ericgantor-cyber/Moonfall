@@ -131,8 +131,8 @@ class TestArtIntake(unittest.TestCase):
     def test_native_scene_streams_3d_with_low_gpu_budget(self):
         path = Path(__file__).resolve().parents[1] / "scripts" / "native_v38_2.gd"
         source = path.read_text(encoding="utf-8")
-        self.assertIn("AI_ART_NEAR_ANIMAL_LIMIT:int=3", source)
-        self.assertIn("AI_ART_NEAR_CHAMBER_LIMIT:int=1", source)
+        self.assertNotIn("AI_ART_NEAR_ANIMAL_LIMIT:int=3", source)
+        self.assertNotIn("AI_ART_NEAR_CHAMBER_LIMIT:int=1", source)
         self.assertIn("func _ai_art_refresh_nearby_models()", source)
         self.assertIn("ResourceLoader.exists(path)", source)
         self.assertIn("_ai_art_release_animal_model(actor)", source)

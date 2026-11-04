@@ -170,7 +170,7 @@ class TestMoonfall3DArt(unittest.TestCase):
         script = (Path(__file__).resolve().parents[1] / "scripts" / "systems" / "ai_art_3d_runtime.gd").read_text()
         native = (Path(__file__).resolve().parents[1] / "scripts" / "native_v38_2.gd").read_text()
         self.assertIn("PackedScene", script)
-        self.assertIn("MAX_VISIBLE_MESHES", script)
+        self.assertIn("visible_meshes+=1", script)
         self.assertIn("add_approved_model", script)
         self.assertIn("CollisionShape3D", script)
         self.assertIn("body", native)
