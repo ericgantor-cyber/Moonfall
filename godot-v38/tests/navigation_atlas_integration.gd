@@ -76,6 +76,8 @@ func _run()->void:
 
   check(data.has("atlas_quest_positions"),"quest destinations included in saves")
   check(game.has_method("atlas_set_quest_destination"),"quests can publish map targets")
+  var atlas_source:String=FileAccess.get_file_as_string("res://scripts/native_v38_2.gd")
+  check("atlas_chamber_scan_elapsed+=maxf(0.0,delta)" in atlas_source and "_atlas_record_nearby_chambers(here)" in atlas_source,"closed-atlas exploration scanning stays wired to world update")
   check(NAV.decode_chambers([0,3,3,8,-1,9,"7",NAN],9)==[0,3,8],"chamber save IDs reject duplicates and invalid entries")
   check(NAV.decode_chambers([],9).is_empty(),"older saves without chamber memory stay compatible")
   var chambers:Array=game.get("v321_chambers")
