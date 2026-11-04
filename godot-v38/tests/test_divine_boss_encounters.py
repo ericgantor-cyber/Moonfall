@@ -47,7 +47,10 @@ class DivineBossIntegrationTests(unittest.TestCase):
         self.assertIn('func _update_beast_step(beast:Dictionary,delta:float)->void:', LIVE)
         self.assertIn('super._update_beast_step(beast,delta)', LIVE)
         self.assertIn('dodge_time<=0.0 and _has_clear_sight(body,player)', LIVE)
-        self.assertIn('var radius:float=3.0 if divine=="z" else 4.1', LIVE)
+        self.assertIn('beast["divine_attack_radius"]=radius', LIVE)
+        self.assertIn('if phase==3 and cycle%2==1:aimed=not aimed', LIVE)
+        self.assertIn('var strike_pos:Vector3=player.global_position if aimed else body.global_position', LIVE)
+        self.assertIn('beast["divine_pattern_seq"]=cycle+1', LIVE)
         self.assertIn('func _refresh_boss_phase(beast:Dictionary)->void:', LIVE)
         self.assertIn('func _update_hud()->void:', LIVE)
 
