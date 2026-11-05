@@ -116,6 +116,21 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("Progress->HeroLevel = Progression.Level;", self.cpp)
         self.assertIn("Progress->HeroXP = Progression.Experience;", self.cpp)
 
+    def test_live_rpg_orbs_and_minimap_are_on_screen(self):
+        unity = self.unity
+        unreal_hud = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.cpp").read_text()
+        game_mode = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallGameMode.cpp").read_text()
+        self.assertIn("DrawRpgHud();", unity)
+        self.assertIn("PROTOTYPE MINIMAP", unity)
+        self.assertIn("progression.ExperienceToNext", unity)
+        self.assertIn("new Color(1f, .22f, .30f)", unity)
+        self.assertIn("new Color(.18f, .48f, 1f)", unity)
+        self.assertIn("new Color(.70f, .40f, 1f)", unity)
+        self.assertIn("PROTOTYPE MINIMAP", unreal_hud)
+        self.assertIn("GetHudXpRatio()", unreal_hud)
+        self.assertIn("GetHeroMapPosition()", unreal_hud)
+        self.assertIn("HUDClass = AMoonfallHud::StaticClass();", game_mode)
+
     def test_no_artwork_or_production_changes(self):
         self.assertFalse(list(ROOT.rglob("*.png")))
         self.assertFalse(list(ROOT.rglob("*.jpg")))
