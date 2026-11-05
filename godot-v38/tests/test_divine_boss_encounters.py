@@ -66,6 +66,19 @@ class DivineBossIntegrationTests(unittest.TestCase):
         self.assertIn('if not divine.is_empty():_clear_divine_warning(beast)', LIVE)
         self.assertIn('_clear_all_divine_warnings()\\n _update_hud()', LIVE)
 
+    def test_phase_three_chained_strikes_are_fair_and_bounded(self):
+        self.assertIn('actor["divine_chain_pending"]=false', LIVE)
+        self.assertIn('beast["divine_chain_pending"]=false', LIVE)
+        self.assertIn('var chained:bool=bool(beast.get("divine_chain_pending",false))', LIVE)
+        self.assertIn('if not chained and int(beast.get("boss_phase",1))==3', LIVE)
+        self.assertIn('beast["divine_warn_until"]=map_time+1.15', LIVE)
+        self.assertIn('beast["divine_chain_pending"]=true', LIVE)
+        self.assertIn('beast["divine_warning_pos"]=follow_pos', LIVE)
+        self.assertIn('warning.visible=true\n   _show_message("SECOND STRIKE!', LIVE)
+        self.assertIn('actor["divine_chain_pending"]=false\n var disk:', LIVE)
+        self.assertEqual(LIVE.count('warning:=MeshInstance3D.new()'), 1)
+        self.assertNotIn('for actor in beasts:', LIVE.split('# Signature divine attacks', 1)[1])
+
     def test_existing_save_ids_are_stable_and_no_new_waves(self):
         self.assertIn('var prior:int=beasts.size()', LIVE)
         self.assertIn('if beasts.size()!=prior+1:return', LIVE)
