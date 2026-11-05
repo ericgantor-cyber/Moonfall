@@ -479,6 +479,7 @@ void AMoonfallPawn::Dodge()
         DodgeTimer = 0.32f;
         DodgeCooldown = 1.2f;
         Stamina -= 45.f;
+        StaminaRegenDelay = 0.6f;
     }
 }
 int32 AMoonfallPawn::GuardianBlessingCount() const
@@ -622,7 +623,11 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
     const float ReactionDt = FMath::Min(Dt, 0.05f);
     DodgeTimer = FMath::Max(0.f, DodgeTimer - ReactionDt);
     DodgeCooldown = FMath::Max(0.f, DodgeCooldown - Dt);
-    Stamina = FMath::Min(150.f, Stamina + 30.f * Dt);
+    // Dodging temporarily stops passive stamina gain. A rewarded perfect
+    // dodge can still restore its explicit 10 stamina immediately.
+    StaminaRegenDelay = FMath::Max(0.f, StaminaRegenDelay - Dt);
+    if (StaminaRegenDelay <= 0.f)
+        Stamina = FMath::Min(GetHudMaxStamina(), Stamina + 30.f * Dt);
     Mana = FMath::Min(180.f, Mana + 8.f * Dt);
     BoltCooldown = FMath::Max(0.f, BoltCooldown - Dt);
     HealCooldown = FMath::Max(0.f, HealCooldown - Dt);
