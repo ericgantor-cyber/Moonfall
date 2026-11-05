@@ -366,6 +366,19 @@ class PrototypeContracts(unittest.TestCase):
         self.assertNotIn("SpawnWave(", self.cpp)
         self.assertNotIn("SpawnWave(", self.unity)
 
+    def test_new_ai_environment_art_hooks_without_replacing_heroes(self):
+        self.assertIn('MoonfallGeneratedArt/" + resource', self.unity)
+        self.assertIn('PlaceAilandmark("moonfall_ai_waterfall_ruins"', self.unity)
+        self.assertIn('PlaceAilandmark("moonfall_ai_moonlit_gate"', self.unity)
+        self.assertIn('if (art == null) return;', self.unity)
+        self.assertIn("MoonfallGeneratedArt/moonfall_ai_waterfall_ruins", self.cpp)
+        self.assertIn("MoonfallGeneratedArt/moonfall_ai_moonlit_gate", self.cpp)
+        self.assertIn("AddWorldArtwork(Root,", self.cpp)
+        self.assertIn("Z_Original.Z_Original", self.cpp)
+        self.assertIn("Nyra_Original.Nyra_Original", self.cpp)
+        self.assertNotIn("hp + 20f * levelsGained", self.unity)
+        self.assertNotIn("Health + 20.f * LevelsGained", self.cpp)
+
     def test_original_art_import_is_checksum_guarded(self):
         import_tool = (ROOT / "tools/import_godot_art.py").read_text()
         verify_tool = (ROOT / "tools/verify_art_import.py").read_text()
