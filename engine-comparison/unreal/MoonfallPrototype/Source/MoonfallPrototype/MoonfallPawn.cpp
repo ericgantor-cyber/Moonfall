@@ -302,23 +302,33 @@ void AMoonfallPawn::BuildWorld()
 
 void AMoonfallPawn::UpdateWorldEnemies(float Dt)
 {
-    // Bounded proximity pursuit, without waves, pathfinding allocations or map-wide aggro.
+    // Bounded, allocation-free local AI. Inactive enemies return home instead of
+    // freezing on their leash boundary. Squared distances avoid per-enemy sqrt calls.
     const FVector HeroPosition = HeroMesh->GetRelativeLocation();
+    const float MoveDt = FMath::Clamp(Dt, 0.f, 0.05f);
     for (FWorldEnemy& Enemy : Enemies)
     {
         if (!Enemy.Mesh) continue;
         const FVector From = Enemy.Mesh->GetRelativeLocation();
-        FVector Direction = HeroPosition - From;
-        Direction.Z = 0.f;
-        FVector OffsetHome = From - Enemy.Home;
-        OffsetHome.Z = 0.f;
+        FVector ToHero = HeroPosition - From;
+        ToHero.Z = 0.f;
+        FVector FromHome = From - Enemy.Home;
+        FromHome.Z = 0.f;
         const float Leash = Enemy.bGuardian ? 600.f : 900.f;
-        const float Distance = Direction.Size();
-        if (Distance > 160.f && Distance < 800.f && OffsetHome.Size() < Leash)
+        const float HeroDistSq = ToHero.SizeSquared();
+        const bool bAggro = HeroDistSq > FMath::Square(160.f) &&
+            HeroDistSq < FMath::Square(800.f) &&
+            FromHome.SizeSquared() < FMath::Square(Leash);
+        if (bAggro)
         {
-            const float Step = FMath::Min((Enemy.bGuardian ? 280.f : 200.f) * Dt,
-                FMath::Max(0.f, Leash - OffsetHome.Size()));
-            Enemy.Mesh->SetRelativeLocation(From + Direction.GetSafeNormal() * Step);
+            const float Remaining = FMath::Max(0.f, Leash - FromHome.Size());
+            const float Step = FMath::Min((Enemy.bGuardian ? 280.f : 200.f) * MoveDt, Remaining);
+            Enemy.Mesh->SetRelativeLocation(From + ToHero.GetSafeNormal() * Step);
+        }
+        else if (FromHome.SizeSquared() > FMath::Square(30.f))
+        {
+            const float ReturnStep = FMath::Min(180.f * MoveDt, FromHome.Size());
+            Enemy.Mesh->SetRelativeLocation(From - FromHome.GetSafeNormal() * ReturnStep);
         }
     }
 }
@@ -436,7 +446,8 @@ void AMoonfallPawn::Zoom(float Value)
 }
 void AMoonfallPawn::Dodge()
 {
-    if (Health > 0.f && DodgeCooldown <= 0.f && Stamina >= 45.f)
+    if (Health > 0.f && DodgeCooldown <= 0.f && Stamina >= 45.f &&
+        FVector2D(Forward, Right).SizeSquared() > 0.01f)
     {
         DodgeTimer = 0.32f;
         DodgeCooldown = 1.2f;
@@ -548,7 +559,10 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
     {
         FVector Direction(Forward, Right, 0.f);
         Direction = Direction.GetClampedToMaxSize(1.f);
-        FVector Position = HeroMesh->GetRelativeLocation() + Direction * (DodgeTimer > 0.f ? 1200.f : 600.f) * Dt;
+        // A frame hitch must not teleport the hero through a boss warning or chamber.
+        const float MovementDt = FMath::Min(Dt, 0.05f);
+        FVector Position = HeroMesh->GetRelativeLocation() +
+            Direction * (DodgeTimer > 0.f ? 1200.f : 600.f) * MovementDt;
         Position.X = FMath::Clamp(Position.X, -1600.f, 17600.f);
         Position.Y = FMath::Clamp(Position.Y, -3200.f, 3200.f);
         HeroMesh->SetRelativeLocation(Position);
