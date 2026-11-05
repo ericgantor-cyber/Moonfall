@@ -674,12 +674,11 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
     Super::Tick(DeltaSeconds);
     const float Dt = FMath::Max(0.f, DeltaSeconds);
     AttackCooldown = FMath::Max(0.f, AttackCooldown - Dt);
-    // Combo timing expires naturally if the player pauses between attacks.
-    MeleeComboTimer = FMath::Max(0.f, MeleeComboTimer - Dt);
-    if (MeleeComboTimer <= 0.f) MeleeComboCount = 0;
-    // Match the boss telegraph hitch cap: a stalled frame must not erase the
-    // active dodge window before the player can respond.
+    // Preserve combat reaction windows across a rare long render stall.
+    // Ordinary frame intervals still advance the timers in real time.
     const float ReactionDt = FMath::Min(Dt, 0.05f);
+    MeleeComboTimer = FMath::Max(0.f, MeleeComboTimer - ReactionDt);
+    if (MeleeComboTimer <= 0.f) MeleeComboCount = 0;
     // Snapshot dodge protection before advancing timers. The same active
     // frame controls travel, enemy contact and boss impact.
     const bool bDodgeActiveThisFrame = DodgeTimer > 0.f;
