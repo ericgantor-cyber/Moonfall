@@ -346,6 +346,26 @@ class PrototypeContracts(unittest.TestCase):
         self.assertNotIn("enemy.guardian ? 16f : 8f", self.unity)
         self.assertNotIn("bGuardian ? 16.f : 8.f", self.cpp)
 
+    def test_original_world_art_is_connected_without_changing_source(self):
+        manifest = (ROOT / "ART_IMPORT_MANIFEST.json").read_text(encoding="utf-8")
+        for art in ("v31_4_bestiary/region_0.png",
+                    "v31_4_bestiary/region_5.png",
+                    "v31_3_art/treasure_cache.png"):
+            self.assertIn(art, manifest)
+        self.assertIn('MoonfallArt/v31_4_bestiary/region_', self.unity)
+        self.assertIn('MoonfallArt/v31_3_art/treasure_cache', self.unity)
+        self.assertIn("regionArt.Add(art)", self.unity)
+        self.assertIn("regionArt.Add(cachePortrait)", self.unity)
+        self.assertIn("if (landmark != null) landmark.rotation = view.transform.rotation;", self.unity)
+        self.assertIn("UBillboardComponent* AMoonfallPawn::AddWorldArtwork(", self.cpp)
+        self.assertIn("if (!Art || !Parent) return nullptr;", self.cpp)
+        self.assertIn("region_%d.region_%d", self.cpp)
+        self.assertIn("treasure_cache.treasure_cache", self.cpp)
+        self.assertIn("if (Cache.Artwork) Cache.Artwork->DestroyComponent();", self.cpp)
+        self.assertIn("if (Reward.Artwork) Cache->SetHiddenInGame(true);", self.cpp)
+        self.assertNotIn("SpawnWave(", self.cpp)
+        self.assertNotIn("SpawnWave(", self.unity)
+
     def test_original_art_import_is_checksum_guarded(self):
         import_tool = (ROOT / "tools/import_godot_art.py").read_text()
         verify_tool = (ROOT / "tools/verify_art_import.py").read_text()
