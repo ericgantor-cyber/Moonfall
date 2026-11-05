@@ -103,6 +103,19 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("bossInventory.Add(bossLoot)", self.unity)
         self.assertIn("PlayerPrefs.Save()", self.unity)
 
+    def test_godot_rpg_character_progression_integrated(self):
+        unity = (ROOT / "unity/Assets/Scripts/MoonfallProgression.cs").read_text()
+        unreal = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallProgression.h").read_text()
+        for src in (unity, unreal):
+            for token in ("75 + (Level - 1) * 40", "15 +", "HeroPoints", "TamerPoints",
+                          "Combo", "Experience", "AwardDefeat("):
+                self.assertIn(token, src)
+        self.assertIn("progression.AwardDefeat(0, true, true, Time.time)", self.unity)
+        self.assertIn("Progression.AwardDefeat(0, true, true,", self.cpp)
+        self.assertIn("moonfall_experiment_level", self.unity)
+        self.assertIn("Progress->HeroLevel = Progression.Level;", self.cpp)
+        self.assertIn("Progress->HeroXP = Progression.Experience;", self.cpp)
+
     def test_no_artwork_or_production_changes(self):
         self.assertFalse(list(ROOT.rglob("*.png")))
         self.assertFalse(list(ROOT.rglob("*.jpg")))
