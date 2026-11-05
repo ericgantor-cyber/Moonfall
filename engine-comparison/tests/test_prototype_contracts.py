@@ -136,6 +136,19 @@ class PrototypeContracts(unittest.TestCase):
         self.assertNotIn("DrawText(", unreal_hud)
         self.assertNotIn("AddOnScreenDebugMessage", self.cpp)
 
+    def test_optional_transparent_orb_skin_without_extra_hud(self):
+        unreal_hud = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.cpp").read_text()
+        self.assertIn('Resources.Load<Texture2D>("MoonfallOrbs")', self.unity)
+        self.assertIn('ornateOrbs != null', self.unity)
+        self.assertIn('DrawRpgHud();', self.unity)
+        self.assertIn('MoonfallOrbs.MoonfallOrbs', unreal_hud)
+        self.assertIn('if (OrnateOrbs)', unreal_hud)
+        self.assertIn('DrawTexture(OrnateOrbs,', unreal_hud)
+        self.assertIn('DrawRing(OrbCenter', unreal_hud)
+        self.assertNotIn("GUI.Box(new Rect(10,10", self.unity)
+        self.assertNotIn("GUI.Label(", self.unity)
+        self.assertNotIn("DrawText(", unreal_hud)
+
     def test_no_artwork_or_production_changes(self):
         self.assertFalse(list(ROOT.rglob("*.png")))
         self.assertFalse(list(ROOT.rglob("*.jpg")))
