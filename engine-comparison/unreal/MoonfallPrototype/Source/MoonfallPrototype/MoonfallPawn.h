@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Pawn.h"
+#include "MoonfallProgression.h"
 #include "MoonfallPawn.generated.h"
 
 class USceneComponent;
@@ -32,6 +33,7 @@ private:
     int32 Victories = 0;
     FString BossLoot = TEXT("No boss loot yet");
     TArray<FString> BossInventory;
+    FMoonfallProgression Progression;
     bool bCasting = false, bWon = false;
     FVector TargetWorld = FVector::ZeroVector;
     void MoveForward(float Value);
