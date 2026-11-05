@@ -328,6 +328,14 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("FVector2D(Forward, Right).SizeSquared() > 0.01f", self.cpp)
         self.assertNotIn("SpawnWave(", self.cpp)
 
+    def test_unreal_melee_aggro_and_boss_warning_pulse(self):
+        self.assertIn("const bool bAggro = HeroDistSq < FMath::Square(800.f)", self.cpp)
+        self.assertIn("if (HeroDistSq > FMath::Square(160.f))", self.cpp)
+        self.assertIn("ToCandidateHome.GetClampedToMaxSize2D(Leash)", self.cpp)
+        self.assertIn("BossWarningRadius / 50.f * Pulse", self.cpp)
+        self.assertIn("BossAttackPhase == 3 ? 17.f : 11.f", self.cpp)
+        self.assertIn("WarningMesh->SetVisibility(false);", self.cpp)
+
     def test_hero_class_combat_without_passive_kill_healing(self):
         self.assertIn("float BasicAttackDamage()", self.unity)
         self.assertIn("float ArcaneBoltDamage()", self.unity)
