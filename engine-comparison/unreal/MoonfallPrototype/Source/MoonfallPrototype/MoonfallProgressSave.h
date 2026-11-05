@@ -29,4 +29,7 @@ public:
     // Exactly 18 fixed, single-clear enemies across six connected regions.
     UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category="Prototype")
     int32 DefeatedEnemyMask = 0;
+
+    UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category="Prototype")
+    int32 ClaimedChamberMask = 0;
 };
