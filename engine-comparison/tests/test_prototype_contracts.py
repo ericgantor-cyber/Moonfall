@@ -84,6 +84,16 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("a.CompareTo(b)", unity)
         self.assertIn("A < B", unreal)
 
+    def test_unreal_enemy_leash_has_return_hysteresis(self):
+        self.assertIn("bool bReturningHome = false;", self.header)
+        ai = self.cpp.split("void AMoonfallPawn::UpdateWorldEnemies(float Dt)", 1)[1].split(
+            "int32 AMoonfallPawn::NearestEnemyIndex", 1)[0]
+        self.assertIn("Enemy.bReturningHome = true;", ai)
+        self.assertIn("Enemy.bReturningHome = false;", ai)
+        self.assertIn("FMath::Square(Leash - 140.f)", ai)
+        self.assertIn("!Enemy.bReturningHome && FromHome.SizeSquared()", ai)
+        self.assertIn("Enemy.Mesh->SetRelativeLocation(From - FromHome.GetSafeNormal() * ReturnStep);", ai)
+
     def test_unreal_riposte_window_survives_frame_stall(self):
         tick = self.cpp.split("void AMoonfallPawn::Tick(", 1)[1]
         self.assertIn("const float ReactionDt = FMath::Min(Dt, 0.05f);", tick)
