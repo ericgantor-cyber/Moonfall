@@ -83,7 +83,7 @@ func _run()->void:
   check(absf(follow_camera.fov-66.0)<0.01,"vertical FOV is configured")
  check(is_instance_valid(game.get("hero_sprite")),"original hero billboard preserved")
  # Radial deadzone is continuous and bounded for accessible slow walking.
- var deadzone:float=float(game.get("GAMEPAD_DEADZONE"))
+ var deadzone:float=0.22 # Match the source's controller deadzone constant.
  var quiet:Vector2=game.call("_gamepad_radial_input",Vector2(deadzone*0.8,0.0))
  var edge:Vector2=game.call("_gamepad_radial_input",Vector2(deadzone,0.0))
  var gentle:Vector2=game.call("_gamepad_radial_input",Vector2(deadzone+0.01,0.0))
