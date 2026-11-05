@@ -69,6 +69,8 @@ private:
     int32 DefeatedGuardianMask = 0;
     int32 DefeatedEnemyMask = 0;
     float EnemyDamageCooldown = 0.f;
+    float CheckpointTimer = 0.f;
+    static constexpr float CheckpointInterval = 8.f;
     UPROPERTY() UBillboardComponent* HeroPortrait;
     UPROPERTY() UBillboardComponent* BossPortrait;
     UPROPERTY() UTexture2D* ZArtwork;
