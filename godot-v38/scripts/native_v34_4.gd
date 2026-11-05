@@ -105,10 +105,11 @@ func _unhandled_input(event:InputEvent)->void:
    return
  if event is InputEventMouseButton and event.button_index==MOUSE_BUTTON_RIGHT:
   if not event.pressed:
+   # Always release the orbit state, including when Alt is released first.
    v36_dragging=false
-  elif hero_playing and not menu_open and not death_active:
+  elif event.alt_pressed and hero_playing and not menu_open and not death_active:
+   # Plain right-click must reach inherited guard/parry input.
    v36_dragging=true
-  if hero_playing and not menu_open:
    get_viewport().set_input_as_handled()
    return
  if event is InputEventMouseMotion and v36_dragging and hero_playing and not menu_open and not death_active:
