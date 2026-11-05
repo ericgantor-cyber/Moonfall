@@ -16,7 +16,7 @@ checks={
  'Vertical inversion': 'KEY_F7' in g and 'v36_invert_y=not v36_invert_y' in g,
  'Horizontal inversion': 'KEY_F8' in g and 'v36_invert_x=not v36_invert_x' in g,
  'Camera recenter': 'KEY_F9' in g and '_v36_recenter_camera()' in g,
- 'Wide FOV presets': 'KEY_F11' in g and 'V36_FOVS' in g,
+ 'Alt-wheel FOV control': 'event.alt_pressed' in g and 'v36_fov=clampf(v36_fov+fov_step,58.0,76.0)' in g and 'config.save(V36_CAMERA_PREFS)' in g,
  'Keyboard camera zoom': 'KEY_PAGEUP' in g and 'KEY_PAGEDOWN' in g,
  'Precise and fast wheel zoom': 'event.shift_pressed' in g and 'event.ctrl_pressed' in g,
  'Mouse and controller share sensitivity': g.count('v36_orbit_sensitivity*(-1.0')>=4,
