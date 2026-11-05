@@ -56,6 +56,7 @@ private:
         int32 Region = 0;
         int32 Id = 0;
         bool bGuardian = false;
+        bool bReturningHome = false; // Leash hysteresis prevents edge-of-range jitter.
         FVector Home = FVector::ZeroVector;
     };
     TArray<FWorldEnemy> Enemies;
