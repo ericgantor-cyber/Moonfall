@@ -276,10 +276,8 @@ void AMoonfallPawn::DamageWorldEnemy(int32 Index, float Damage)
     if (Enemy.Portrait) Enemy.Portrait->DestroyComponent();
     Enemy.Mesh->DestroyComponent();
     Enemies.RemoveAt(Index);
-    const int32 LevelsGained = Progression.AwardDefeat(Region, bGuardian, false, GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f);
-    // Heal on each defeated enemy, even without level-up.
-    Health = FMath::Min(100.f + 5.f * Victories,
-        Health + 20.f * LevelsGained + (bGuardian ? 16.f : 8.f));
+    // Combat victories grant XP, not an automatic health refill.
+    Progression.AwardDefeat(Region, bGuardian, false, GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f);
     SaveProgress();
 }
 
@@ -305,9 +303,8 @@ void AMoonfallPawn::CollectNearbyChambers()
         Cache.Mesh->DestroyComponent();
         ChamberCaches.RemoveAt(I);
         const int32 Region = Id / MoonfallWorldRules::ChambersPerRegion;
-        const int32 LevelsGained = Progression.AwardDefeat(
+        Progression.AwardDefeat(
             Region, false, false, GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f);
-        Health = FMath::Min(100.f + 5.f * Victories, Health + 20.f * LevelsGained);
         Mana = FMath::Min(180.f, Mana + 25.f);
         SaveProgress();
     }
@@ -420,11 +417,9 @@ void AMoonfallPawn::Victory()
     WarningMesh->SetVisibility(false);
     BossMesh->SetVisibility(false);
     BossPortrait->SetHiddenInGame(true);
-    const int32 Previous = Victories;
     Victories = FMath::Min(100, Victories + 1);
-    Health += 5.f * (Victories - Previous);
-    const int32 LevelsGained = Progression.AwardDefeat(0, true, true, GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f);
-    Health = FMath::Min(100.f + 5.f * Victories, Health + 20.f * LevelsGained);
+    // Permanent boss bonus raises max HP only; the kill does not heal the hero.
+    Progression.AwardDefeat(0, true, true, GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f);
     // Prototype drop uses matching rarity thresholds, not a Godot-compatible RNG seed.
     const int32 Rank = MoonfallLootRules::RarityIndex(FMath::RandRange(0, 999), 0, 0);
     BossLoot = FString(MoonfallLootRules::Rarities[Rank]) + TEXT(" boss relic (prototype)");
