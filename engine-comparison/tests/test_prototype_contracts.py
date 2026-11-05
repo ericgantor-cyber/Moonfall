@@ -168,6 +168,27 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("if (OrnateOrbs)", unreal_hud)
         self.assertNotIn("AddOnScreenDebugMessage", self.cpp)
 
+    def test_mana_spells_and_healing_are_real_and_bounded(self):
+        config = INPUT.read_text(encoding="utf-8")
+        self.assertIn('ActionName="ArcaneBolt",Key=Q', config)
+        self.assertIn('ActionName="ArcaneHeal",Key=E', config)
+        self.assertIn('ActionName="Attack",Key=LeftMouseButton', config)
+        self.assertIn("Input.GetKeyDown(KeyCode.Q)", self.unity)
+        self.assertIn("Input.GetKeyDown(KeyCode.E)", self.unity)
+        self.assertIn("mana >= 30f", self.unity)
+        self.assertIn("mana >= 40f", self.unity)
+        self.assertIn("mana -= 30f;", self.unity)
+        self.assertIn("mana -= 40f;", self.unity)
+        self.assertIn("mana = Mathf.Min(MaxMana, mana + 8f * dt)", self.unity)
+        self.assertIn("Ring(new Vector2(90f, Screen.height - 108f), 34f, mana / MaxMana", self.unity)
+        self.assertIn("AMoonfallPawn::CastBolt()", self.cpp)
+        self.assertIn("AMoonfallPawn::CastHeal()", self.cpp)
+        self.assertIn("Mana < 30.f", self.cpp)
+        self.assertIn("Mana < 40.f", self.cpp)
+        self.assertIn("Mana = FMath::Min(180.f, Mana + 8.f * Dt)", self.cpp)
+        self.assertNotIn("AddOnScreenDebugMessage", self.cpp)
+        self.assertNotIn("GUI.Box(new Rect(10,10", self.unity)
+
     def test_no_artwork_or_production_changes(self):
         self.assertFalse(list(ROOT.rglob("*.png")))
         self.assertFalse(list(ROOT.rglob("*.jpg")))
