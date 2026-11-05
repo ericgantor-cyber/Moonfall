@@ -395,7 +395,8 @@ class PrototypeContracts(unittest.TestCase):
             self.assertIn("const bool bRiposte = CounterWindow > 0.f;", source)
             self.assertIn("if (bRiposte && bCasting && BossHealth > 0.f)", source)
             self.assertIn("WarningMesh->SetVisibility(false);", source)
-            self.assertIn("CastCooldown = FMath::Max(CastCooldown, 2.f);", source)
+            self.assertIn("CastCooldown = 2.f; // Start a fresh, exact interrupt recovery window.", source)
+            self.assertNotIn("CastCooldown = FMath::Max(CastCooldown, 2.f);", source)
             self.assertLess(source.index("BossHealth = FMath::Max(0.f, BossHealth - Damage);"),
                             source.index("if (bRiposte && bCasting && BossHealth > 0.f)"))
             self.assertIn("if (BossHealth <= 0.f) Victory();", source)
