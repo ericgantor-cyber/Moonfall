@@ -123,6 +123,23 @@ func _run()->void:
  check(game.call("_gamepad_radial_input",Vector2(2.0,0.0)).length()<=1.001,"out-of-range controller axis is bounded")
  var moved:Vector3=game.call("_map_movement_to_camera",Vector3(0.0,0.0,-1.0))
  check(moved.z<0.0 and moved.x<0.0,"forward input follows camera yaw")
+ # Camera customization is testable independently from hardware buttons.
+ var sensitivity_values:Array[float]=[0.65,1.0,1.45]
+ check(absf(float(game.call("_v36_cycle_camera_setting",sensitivity_values,0.65))-1.0)<0.001,"camera sensitivity moves from slow to normal")
+ check(absf(float(game.call("_v36_cycle_camera_setting",sensitivity_values,1.0))-1.45)<0.001,"camera sensitivity moves from normal to fast")
+ check(absf(float(game.call("_v36_cycle_camera_setting",sensitivity_values,1.45))-0.65)<0.001,"camera sensitivity wraps to slow")
+ var fov_values:Array[float]=[58.0,66.0,76.0]
+ check(absf(float(game.call("_v36_cycle_camera_setting",fov_values,76.0))-58.0)<0.001,"accessible field-of-view presets wrap safely")
+ game.set("v36_yaw",2.5)
+ game.set("v36_pitch",1.0)
+ game.call("_v36_recenter_camera")
+ check(absf(float(game.get("v36_yaw"))-RULES.DEFAULT_YAW)<0.001 and absf(float(game.get("v36_pitch"))-RULES.DEFAULT_PITCH)<0.001,"camera reset returns to readable original angle")
+ var camera_source:String=(load("res://scripts/native_v34_4.gd") as GDScript).source_code
+ check("KEY_F6" in camera_source and "KEY_F7" in camera_source and "KEY_F8" in camera_source,"camera access hotkeys registered")
+ check("KEY_F9" in camera_source and "KEY_F10" in camera_source,"camera recenter and FOV controls registered")
+ check("KEY_PAGEUP" in camera_source and "KEY_PAGEDOWN" in camera_source,"keyboard wheel zoom alternative available")
+ check("event.shift_pressed" in camera_source and "event.ctrl_pressed" in camera_source,"wheel fine and fast zoom supported")
+ check("config.save(V36_CAMERA_PREFS)" in camera_source and "config.load(V36_CAMERA_PREFS)" in camera_source,"camera settings persist across sessions")
  var before:float=game.get("v36_distance")
  game.call("_v24_set_zoom",17.5)
  check(float(game.get("v36_distance"))<before,"legacy zoom keys map to third-person distance")
