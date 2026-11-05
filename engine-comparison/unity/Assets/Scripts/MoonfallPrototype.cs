@@ -247,6 +247,9 @@ public sealed class MoonfallPrototype : MonoBehaviour
             PlayerPrefs.SetFloat("moonfall_experiment_checkpoint_mana", mana);
             PlayerPrefs.SetFloat("moonfall_experiment_checkpoint_stamina", stamina);
             PlayerPrefs.SetInt("moonfall_experiment_checkpoint_resources_active", 1);
+            // Keep unfinished boss damage when resuming a living checkpoint.
+            PlayerPrefs.SetFloat("moonfall_experiment_checkpoint_boss_hp", won ? 0f : bossHp);
+            PlayerPrefs.SetInt("moonfall_experiment_checkpoint_boss_active", 1);
             PlayerPrefs.SetInt("moonfall_experiment_checkpoint_active", 1);
         }
         PlayerPrefs.Save();
@@ -348,6 +351,15 @@ public sealed class MoonfallPrototype : MonoBehaviour
                         stamina = Mathf.Clamp(savedStamina, 0f, MaxStamina);
                 }
             }
+        }
+        // Older saves have no boss checkpoint, so the fight starts at full HP.
+        // Won bosses remain defeated and cannot resurrect after loading.
+        if (!won && PlayerPrefs.GetInt("moonfall_experiment_checkpoint_active", 0) == 1 &&
+            PlayerPrefs.GetInt("moonfall_experiment_checkpoint_boss_active", 0) == 1)
+        {
+            float savedBossHp = PlayerPrefs.GetFloat("moonfall_experiment_checkpoint_boss_hp", 100f);
+            if (!float.IsNaN(savedBossHp) && !float.IsInfinity(savedBossHp))
+                bossHp = Mathf.Clamp(savedBossHp, 1f, 100f);
         }
         boss = Make("Boss placeholder", PrimitiveType.Capsule, new Vector3(MoonfallWorldRules.BossX,1,6), new Vector3(2,2,2), Color.red);
         zPortrait = Resources.Load<Texture2D>("MoonfallArt/heroes/Z_Original");
