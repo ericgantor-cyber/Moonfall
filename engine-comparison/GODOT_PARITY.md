@@ -36,3 +36,6 @@ Canonical implementation: `godot-v38/` on `main`. Never alter Godot saves, scene
 
 ## Loot rule portability (new)
 Godot `scripts/systems/equipment_rng.gd` supplies five rarity thresholds, clamped luck 0–40, pity guarantees at 30 and 80, at most three distinct affixes, and pity reset after Rare or better. `MoonfallLootRules.cs` and `MoonfallLootRules.h` implement deterministic **roll-value-to-rarity** and pity logic plus an affix-selection helper. They do NOT implement Godot's exact seed-to-roll random stream, affix value/tier calculations, full item catalog or loot integration. `tests/test_loot_parity_vectors.py` checks reference math vectors and source markers only. It does not compile or execute the Unity/Unreal implementations.
+
+## Boss victory loot integration
+Both experimental boss handlers now award **one session-only placeholder boss relic** on first victory, selecting its rarity using the ported Godot thresholds and an engine-native random integer in [0, 999]. This connects real combat events to the loot rules but is NOT a full Godot loot port. Loot is not added to an inventory, does not persist, and does not yet use item tiers, affix values, luck/pity progression, or Godot's seeded RNG. The +5 HP boss victory reward remains separate and saved by each experimental engine's own system. Engine compilation and visual gameplay testing remain pending.
