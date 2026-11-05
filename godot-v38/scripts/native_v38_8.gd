@@ -223,10 +223,19 @@ func _defeat_beast(beast:Dictionary,pet_kill:bool)->void:
 func _update_beast_step(beast:Dictionary,delta:float)->void:
  super._update_beast_step(beast,delta)
  if not bool(beast.get("alive",false)) or not beast.has("divine_id"):return
- if not is_instance_valid(player) or not hero_playing or menu_open or death_active:return
+ if not is_instance_valid(player) or not hero_playing or menu_open or death_active or wait_open or wait_transition_active:
+  _clear_divine_warning(beast)
+  return
+ # A distant/hidden boss must never resolve a stale marked attack after travel.
+ if int(beast.get("zone",-1))!=region_index:
+  _clear_divine_warning(beast)
+  return
  var body:CharacterBody3D=beast.get("body") as CharacterBody3D
  var warning:MeshInstance3D=beast.get("divine_disk") as MeshInstance3D
  if not is_instance_valid(body) or not is_instance_valid(warning):return
+ if body.global_position.distance_squared_to(player.global_position)>25.0*25.0:
+  _clear_divine_warning(beast)
+  return
  var remaining:float=float(beast.get("divine_warn_until",0.0))
  if remaining>0.0:
   if map_time<remaining:
@@ -242,9 +251,14 @@ func _update_beast_step(beast:Dictionary,delta:float)->void:
   var strike:Vector3=beast.get("divine_warning_pos",body.global_position)
   var radius:float=float(beast.get("divine_attack_radius",3.0 if str(beast["divine_id"])=="z" else 4.1))
   var dist_sq:float=Vector2(player.global_position.x-strike.x,player.global_position.z-strike.z).length_squared()
-  if dist_sq<radius*radius and dodge_time<=0.0 and _has_clear_sight(body,player):
-   _apply_incoming_damage(15.0+float(int(beast.get("boss_phase",1)))*8.0)
-   _show_message("Divine strike! Leave the glowing mark or dodge.",1.5)
+  if dist_sq<radius*radius and _has_clear_sight(body,player):
+   if dodge_time>0.0:
+    # A timed dodge through the danger area earns a small, bounded stamina return.
+    v387_stamina=minf(V387_MAX_STAMINA,v387_stamina+5.0)
+    _show_message("PERFECT EVADE! +5 stamina",0.9)
+   else:
+    _apply_incoming_damage(15.0+float(int(beast.get("boss_phase",1)))*8.0)
+    _show_message("Divine strike! Leave the glowing mark or dodge.",1.5)
   # A phase-three opening strike earns exactly one marked follow-up.
   # Reuse the single disk and give players a fresh 1.15s escape window.
   if not chained and int(beast.get("boss_phase",1))==3 and bool(beast.get("alive",false)):
@@ -262,7 +276,7 @@ func _update_beast_step(beast:Dictionary,delta:float)->void:
     follow_disk.top_radius=follow_radius
    warning.global_position=Vector3(follow_pos.x,0.07,follow_pos.z)
    warning.visible=true
-   _show_message("SECOND STRIKE! DODGE THE NEW MARK!",1.15)
+   _show_message(("VOID REBOUND!" if str(beast["divine_id"])=="z" else "ECLIPSE REBOUND!")+" DODGE THE NEW MARK!",1.15)
   return
  if body.global_position.distance_squared_to(player.global_position)>12.0*12.0:return
  if map_time<float(beast.get("divine_next_at",0.0)):return
@@ -285,7 +299,8 @@ func _update_beast_step(beast:Dictionary,delta:float)->void:
  if is_instance_valid(cylinder):
   cylinder.bottom_radius=radius
   cylinder.top_radius=radius
- warning.global_position=Vector3(strike_pos.x,0.07,strike_pos.z)
+ # Position the telegraph consistently on its local ground plane.
+ warning.global_position=Vector3(strike_pos.x,body.global_position.y+0.07,strike_pos.z)
  warning.visible=true
  _show_message(("VOID JUDGMENT: MOVE!" if aimed else "VOID COLLAPSE: GET CLEAR!") if divine=="z" else ("ECLIPSE MARK: MOVE!" if aimed else "ECLIPSE PULSE: GET CLEAR!"),1.9)
 
