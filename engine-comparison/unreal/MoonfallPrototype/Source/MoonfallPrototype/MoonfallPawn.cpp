@@ -1,4 +1,5 @@
 #include "MoonfallPawn.h"
+#include "MoonfallProgressSave.h"
 #include "Camera/CameraComponent.h"
 #include "Components/InputComponent.h"
 #include "Components/SceneComponent.h"
@@ -55,8 +56,13 @@ AMoonfallPawn::AMoonfallPawn()
 void AMoonfallPawn::BeginPlay()
 {
     Super::BeginPlay();
-    // The prototype uses session-only victories until a validated SaveGame is implemented.
-    Health = 100.f;
+    // Separate prototype save slot. Never touches production Godot saves.
+    if (USaveGame* Loaded = UGameplayStatics::LoadGameFromSlot(TEXT("MoonfallPrototypeBossRewards"), 0))
+    {
+        if (const UMoonfallProgressSave* Progress = Cast<UMoonfallProgressSave>(Loaded))
+            Victories = FMath::Clamp(Progress->PermanentBossVictories, 0, 100);
+    }
+    Health = 100.f + 5.f * Victories;
     if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 6.f, FColor::Cyan, TEXT("Moonfall Unreal experiment: WASD, click attack, Shift dodge, wheel zoom"));
 }
 
@@ -87,9 +93,22 @@ void AMoonfallPawn::Victory()
     bCasting = false;
     WarningMesh->SetVisibility(false);
     BossMesh->SetVisibility(false);
+    const int32 Previous = Victories;
     Victories = FMath::Min(100, Victories + 1);
-    Health += 5.f;
-    if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 15.f, FColor::Green, TEXT("Victory! +5 HP (SESSION ONLY, persistence TODO)"));
+    Health += 5.f * (Victories - Previous);
+    UMoonfallProgressSave* Progress = Cast<UMoonfallProgressSave>(
+        UGameplayStatics::CreateSaveGameObject(UMoonfallProgressSave::StaticClass()));
+    bool bSaved = false;
+    if (Progress)
+    {
+        Progress->PermanentBossVictories = Victories;
+        bSaved = UGameplayStatics::SaveGameToSlot(Progress, TEXT("MoonfallPrototypeBossRewards"), 0);
+    }
+    if (GEngine)
+    {
+        GEngine->AddOnScreenDebugMessage(-1, 15.f, bSaved ? FColor::Green : FColor::Yellow,
+            bSaved ? TEXT("Victory! Permanent boss reward saved.") : TEXT("Victory! WARNING: prototype reward save failed."));
+    }
 }
 void AMoonfallPawn::SetupPlayerInputComponent(UInputComponent* Input)
 {
