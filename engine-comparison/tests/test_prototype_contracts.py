@@ -84,6 +84,16 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("a.CompareTo(b)", unity)
         self.assertIn("A < B", unreal)
 
+    def test_unreal_retreating_enemies_cannot_damage_or_trigger_riposte(self):
+        tick = self.cpp.split("void AMoonfallPawn::Tick(", 1)[1]
+        self.assertIn("const bool bEngaged = !Contact.bReturningHome &&", tick)
+        self.assertIn("HomeOffset.SizeSquared2D() < FMath::Square(Leash);", tick)
+        self.assertIn("if (bEngaged)", tick)
+        combat = tick.split("if (bEngaged)", 1)[1].split("EnemyDamageCooldown = 1.2f;", 1)[0]
+        self.assertIn("if (DodgeTimer > 0.f) CounterWindow = CounterDuration;", combat)
+        self.assertIn("Health = FMath::Max(0.f, Health - ContactDamage);", combat)
+        self.assertIn("Contact.bEnraged ? 4.f : 0.f", combat)
+
     def test_unreal_guardian_frenzy_phase_at_low_health(self):
         self.assertIn("bool bEnraged = false;", self.header)
         ai = self.cpp.split("void AMoonfallPawn::UpdateWorldEnemies(float Dt)", 1)[1].split(
