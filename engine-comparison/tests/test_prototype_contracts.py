@@ -57,6 +57,19 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("SaveGameToSlot", self.cpp)
         self.assertIn("PlayerPrefs.Save()", self.unity)
 
+    def test_godot_inventory_ports_include_guardrails(self):
+        unity = (ROOT / "unity/Assets/Scripts/MoonfallInventoryRules.cs").read_text(encoding="utf-8")
+        unreal = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallInventoryRules.h").read_text(encoding="utf-8")
+        for src in (unity, unreal):
+            self.assertIn("BagStartCapacity = 100", src)
+            self.assertIn("BagMaxCapacity = 500", src)
+            self.assertIn("MaterialStackSize = 999", src)
+            self.assertIn("MaterialLimit = 99999", src)
+            self.assertIn("CraftIssue", src)
+            self.assertIn("TryCraft", src)
+            self.assertIn("Bag full.", src)
+            self.assertIn("Invalid recipe cost.", src)
+
     def test_no_artwork_or_production_changes(self):
         self.assertFalse(list(ROOT.rglob("*.png")))
         self.assertFalse(list(ROOT.rglob("*.jpg")))
