@@ -63,6 +63,10 @@ void AMoonfallPawn::BeginPlay()
         if (const UMoonfallProgressSave* Progress = Cast<UMoonfallProgressSave>(Loaded))
         {
             Victories = FMath::Clamp(Progress->PermanentBossVictories, 0, 100);
+            Progression.Level = FMath::Clamp(Progress->HeroLevel, 1, 100);
+            Progression.Experience = FMath::Clamp(Progress->HeroXP, 0, Progression.ExperienceToNext() - 1);
+            Progression.HeroPoints = FMath::Clamp(Progress->HeroPoints, 0, 100);
+            Progression.TamerPoints = FMath::Clamp(Progress->TamerPoints, 0, 100);
             for (const FString& Relic : Progress->BossRelics)
             {
                 if (BossInventory.Num() >= 100) break;
@@ -108,6 +112,8 @@ void AMoonfallPawn::Victory()
     const int32 Previous = Victories;
     Victories = FMath::Min(100, Victories + 1);
     Health += 5.f * (Victories - Previous);
+    const int32 LevelsGained = Progression.AwardDefeat(0, true, true, GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f);
+    Health = FMath::Min(100.f + 5.f * Victories, Health + 20.f * LevelsGained);
     // Prototype drop uses matching rarity thresholds, not a Godot-compatible RNG seed.
     const int32 Rank = MoonfallLootRules::RarityIndex(FMath::RandRange(0, 999), 0, 0);
     BossLoot = FString(MoonfallLootRules::Rarities[Rank]) + TEXT(" boss relic (prototype)");
@@ -119,6 +125,10 @@ void AMoonfallPawn::Victory()
     {
         Progress->PermanentBossVictories = Victories;
         Progress->BossRelics = BossInventory;
+        Progress->HeroLevel = Progression.Level;
+        Progress->HeroXP = Progression.Experience;
+        Progress->HeroPoints = Progression.HeroPoints;
+        Progress->TamerPoints = Progression.TamerPoints;
         bSaved = UGameplayStatics::SaveGameToSlot(Progress, TEXT("MoonfallPrototypeBossRewards"), 0);
     }
     if (GEngine)
@@ -181,6 +191,6 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
     }
     if (GEngine)
     {
-        GEngine->AddOnScreenDebugMessage(10, 0.f, FColor::Red, FString::Printf(TEXT("HP: %.0f | Boss: %.0f | Wins: %d"), Health, BossHealth, Victories));
+        GEngine->AddOnScreenDebugMessage(10, 0.f, FColor::Red, FString::Printf(TEXT("HP: %.0f | Boss: %.0f | LV %d XP %d/%d | Hero/Tamer %d/%d"), Health, BossHealth, Progression.Level, Progression.Experience, Progression.ExperienceToNext(), Progression.HeroPoints, Progression.TamerPoints));
     }
 }
