@@ -67,6 +67,17 @@ AMoonfallPawn::AMoonfallPawn()
     Camera->SetupAttachment(CameraBoom);
 }
 
+void AMoonfallPawn::EndPlay(const EEndPlayReason::Type Reason)
+{
+    // Save on real game exit/level travel, not arbitrary editor/actor destruction.
+    // If the hero died, SaveProgress retains the last living checkpoint.
+    if (Reason == EEndPlayReason::Quit || Reason == EEndPlayReason::LevelTransition)
+    {
+        if (HeroMesh && GetWorld()) SaveProgress();
+    }
+    Super::EndPlay(Reason);
+}
+
 void AMoonfallPawn::BeginPlay()
 {
     Super::BeginPlay();
