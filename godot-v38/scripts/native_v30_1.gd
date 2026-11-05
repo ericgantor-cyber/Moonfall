@@ -60,7 +60,7 @@ func _perf_report()->Dictionary:
  var worst_ms:float=float(ordered[n-1]) if n>0 else 0.0
  # The 1% low is FPS derived from the mean slowest 1% of frame times,
  # not a percentile of instantaneous FPS.
- var tail_count:int=maxi(1,ceili(float(n)*0.01))
+ var tail_count:int=mini(n,maxi(1,ceili(float(n)*0.01)))
  var tail_sum_ms:float=0.0
  for i in range(n-tail_count,n):
   tail_sum_ms+=float(ordered[i])
