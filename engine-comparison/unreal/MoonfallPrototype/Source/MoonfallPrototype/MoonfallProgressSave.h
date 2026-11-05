@@ -34,5 +34,8 @@ public:
     int32 ClaimedChamberMask = 0;
 
     UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category="Prototype")
+    int32 DefeatedGuardianMask = 0;
+
+    UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category="Prototype")
     bool bBossDefeated = false;
 };
