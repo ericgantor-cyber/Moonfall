@@ -1,11 +1,14 @@
 extends "res://scripts/native_v30.gd"
 ## v30.1: bounded automatic frame-based performance capture. Gameplay and art unchanged.
-## Automatically samples gameplay in 60s windows, overwriting one user:// JSON report.
+## Automatically samples gameplay in 60s windows and persists partial reports every 15s.
+## Overwrites one user:// JSON report instead of accumulating logs.
 ## F9 saves early; the next active gameplay frame resumes automatic capture.
 const PERF_SECONDS:float=60.0
+const PERF_SNAPSHOT_SECONDS:float=15.0
 const PERF_REPORT:String="user://moonfall_v30_1_performance.json"
 var perf_active:bool=false
 var perf_elapsed:float=0.0
+var perf_next_snapshot:float=PERF_SNAPSHOT_SECONDS
 var perf_frame_ms:Array[float]=[]
 var perf_region:String=""
 var perf_quality:String=""
@@ -33,6 +36,7 @@ func _perf_start(automatic:bool=false)->void:
  if not hero_playing or menu_open:return
  perf_active=true
  perf_elapsed=0.0
+ perf_next_snapshot=PERF_SNAPSHOT_SECONDS
  perf_frame_ms.clear()
  perf_region=str(REGIONS[region_index]["name"])
  perf_quality=graphics_quality
@@ -44,7 +48,13 @@ func _perf_sample(delta:float)->void:
  # No per-frame disk writes; minimal overhead while capturing.
  perf_elapsed+=delta
  perf_frame_ms.append(delta*1000.0)
- if perf_elapsed>=PERF_SECONDS:_perf_stop(true,true)
+ if perf_elapsed>=PERF_SECONDS:
+  _perf_stop(true,true)
+ elif perf_elapsed>=perf_next_snapshot:
+  # Persist a partial report before a crash can erase the full minute.
+  # At most four writes per minute; no per-frame disk activity.
+  _perf_save_report(true)
+  perf_next_snapshot+=PERF_SNAPSHOT_SECONDS
 
 func _perf_report()->Dictionary:
  var ordered:Array=perf_frame_ms.duplicate()
@@ -86,20 +96,29 @@ func _perf_stop(save_report:bool,automatic:bool=false)->void:
   return
  perf_last_report=_perf_report()
  if not save_report:return
+ _perf_write_json(perf_last_report,automatic)
+
+func _perf_save_report(automatic:bool=true)->void:
+ if perf_frame_ms.is_empty():return
+ perf_last_report=_perf_report()
+ _perf_write_json(perf_last_report,automatic)
+
+func _perf_write_json(report:Dictionary,automatic:bool)->void:
  var file:FileAccess=FileAccess.open(PERF_REPORT,FileAccess.WRITE)
  if file==null:
-  _show_message("Benchmark finished, but the report could not be saved.",3.0)
+  if not automatic:_show_message("Benchmark finished, but the report could not be saved.",3.0)
   push_warning("Moonfall benchmark: cannot write report to "+ProjectSettings.globalize_path(PERF_REPORT))
   return
- file.store_string(JSON.stringify(perf_last_report,"  "))
+ file.store_string(JSON.stringify(report,"  "))
  file.close()
- var loc:String=ProjectSettings.globalize_path(PERF_REPORT)
- print("MOONFALL PERFORMANCE REPORT: "+loc)
- if not automatic:_show_message("Benchmark saved: "+str(roundi(float(perf_last_report["average_fps"])))+" average FPS. Find the JSON in Moonfall's user data folder.",5.0)
+ if not automatic:
+  print("MOONFALL PERFORMANCE REPORT: "+ProjectSettings.globalize_path(PERF_REPORT))
+  _show_message("Benchmark saved: "+str(roundi(float(report["average_fps"])))+" average FPS. Find the JSON in Moonfall's user data folder.",5.0)
 
 func _reset_new_adventure()->void:
  if perf_active:_perf_stop(false)
  super._reset_new_adventure()
  perf_active=false
  perf_elapsed=0.0
+ perf_next_snapshot=PERF_SNAPSHOT_SECONDS
  perf_frame_ms.clear()
