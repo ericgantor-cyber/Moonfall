@@ -142,18 +142,27 @@ func _process(delta:float) -> void:
   hero_sprite.position=Vector3(0,0.85+bob,0)
   hero_sprite.rotation.z=tilt
   hero_sprite.scale=Vector3(squash,2.0-squash,1.0)
- for entry in combat_cues.duplicate():
-  var node:Node3D=entry["node"]
-  if not is_instance_valid(node):
-   combat_cues.erase(entry)
+ _v16_tick_combat_cues(step)
+ cosmetic_updates+=1
+
+func _v16_tick_combat_cues(step:float)->void:
+ # Walk backward so removing expired cues never shifts unvisited indices.
+ # Avoid making a temporary Array copy on every rendered frame.
+ for i in range(combat_cues.size()-1,-1,-1):
+  var entry:Dictionary=combat_cues[i]
+  # Keep the reference untyped until validity has been checked:
+  # an already-freed Object cannot be assigned to a typed Node3D.
+  var candidate:Variant=entry.get("node")
+  if not is_instance_valid(candidate):
+   combat_cues.remove_at(i)
    continue
+  var node:Node3D=candidate as Node3D
   entry["age"]=float(entry["age"])+step
-  var fraction:=float(entry["age"])/float(entry["life"])
+  var fraction:float=float(entry["age"])/float(entry["life"])
   if fraction>=1.0:
-   combat_cues.erase(entry)
+   combat_cues.remove_at(i)
    node.queue_free()
   else:
-   var amount:=1.0+fraction*(1.3 if entry["kind"]=="attack" else 1.7)
+   var amount:float=1.0+fraction*(1.3 if entry["kind"]=="attack" else 1.7)
    node.scale=Vector3.ONE*amount
    node.rotation.y+=step*3.5
- cosmetic_updates+=1
