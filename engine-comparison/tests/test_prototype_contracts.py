@@ -328,6 +328,14 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("FVector2D(Forward, Right).SizeSquared() > 0.01f", self.cpp)
         self.assertNotIn("SpawnWave(", self.cpp)
 
+    def test_unreal_boss_dodge_stamina_and_death_cleanup(self):
+        self.assertIn("if (bWon || Health <= 0.f)", self.cpp)
+        self.assertIn("bCasting = false;\n        WarningMesh->SetVisibility(false);\n        return;", self.cpp)
+        self.assertIn("Stamina = FMath::Min(GetHudMaxStamina(), Stamina + 10.f);", self.cpp)
+        self.assertIn("CounterWindow = CounterDuration;", self.cpp)
+        self.assertIn("BossAttackPhase == 3 ? 28.f", self.cpp)
+        self.assertNotIn("Health = FMath::Min(GetHudMaxHealth(), Health + 10.f)", self.cpp)
+
     def test_unreal_melee_aggro_and_boss_warning_pulse(self):
         self.assertIn("const bool bAggro = HeroDistSq < FMath::Square(800.f)", self.cpp)
         self.assertIn("if (HeroDistSq > FMath::Square(160.f))", self.cpp)
