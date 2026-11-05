@@ -62,10 +62,4 @@ public:
     UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category="Prototype")
     float SavedStamina = 150.f;
 
-    // Optional unfinished boss state; old saves remain compatible.
-    UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category="Prototype")
-    bool bHasBossHealthCheckpoint = false;
-
-    UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category="Prototype")
-    float SavedBossHealth = 100.f;
 };
