@@ -532,6 +532,27 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn('if (HeroMesh && Health > 0.f)', self.cpp)
         self.assertIn('if (hero != null && hp > 0f)', self.unity)
 
+    def test_unfinished_boss_health_survives_valid_checkpoints(self):
+        save = SAVES.read_text(encoding="utf-8")
+        self.assertIn("bool bHasBossHealthCheckpoint = false;", save)
+        self.assertIn("float SavedBossHealth = 100.f;", save)
+        self.assertIn('PlayerPrefs.SetFloat("moonfall_experiment_checkpoint_boss_hp", won ? 0f : bossHp)', self.unity)
+        self.assertIn('PlayerPrefs.SetInt("moonfall_experiment_checkpoint_boss_active", 1)', self.unity)
+        self.assertIn('PlayerPrefs.GetInt("moonfall_experiment_checkpoint_boss_active", 0) == 1', self.unity)
+        self.assertIn('if (!won && PlayerPrefs.GetInt("moonfall_experiment_checkpoint_active", 0) == 1', self.unity)
+        self.assertIn('bossHp = Mathf.Clamp(savedBossHp, 1f, 100f);', self.unity)
+        self.assertIn('!float.IsNaN(savedBossHp) && !float.IsInfinity(savedBossHp)', self.unity)
+        self.assertIn('if (!bWon && Progress->bHasCheckpoint &&', self.cpp)
+        self.assertIn('Progress->bHasBossHealthCheckpoint &&', self.cpp)
+        self.assertIn('FMath::IsFinite(Progress->SavedBossHealth)', self.cpp)
+        self.assertIn('BossHealth = FMath::Clamp(Progress->SavedBossHealth, 1.f, 100.f);', self.cpp)
+        self.assertIn('Progress->bHasBossHealthCheckpoint = true;', self.cpp)
+        self.assertIn('Progress->SavedBossHealth = bWon ? 0.f : BossHealth;', self.cpp)
+        self.assertIn('if (HeroMesh && Health > 0.f)', self.cpp)
+        self.assertIn('if (hero != null && hp > 0f)', self.unity)
+        self.assertIn('if (won) { bossHp = 0f; boss.gameObject.SetActive(false); }', self.unity)
+        self.assertIn('if (bWon)', self.cpp)
+
     def test_original_art_import_is_checksum_guarded(self):
         import_tool = (ROOT / "tools/import_godot_art.py").read_text()
         verify_tool = (ROOT / "tools/verify_art_import.py").read_text()
