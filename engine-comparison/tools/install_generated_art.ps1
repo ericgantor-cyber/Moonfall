@@ -24,8 +24,38 @@ try {
     try { $checks = ($reader.ReadToEnd() | ConvertFrom-Json) }
     finally { $reader.Dispose() }
     foreach ($name in $names) {
-        $expect = $checks.$name
-        if (-not $expect) { throw "Missing checksum for $name" }
+        $item = @($checks.generated_art | Where-Object { $_.filename -eq $name })
+        if ($item.Count -ne 1) { throw "Missing or duplicated checksum for $name" }
+        $expect = [string]$item[0].sha256
+        if ($expect -notmatch '^[a-fA-F0-9]{64}
+        foreach ($relative in $targets) {
+            $archiveName = "$relative/$name"
+            $entry = $archive.GetEntry($archiveName)
+            if ($null -eq $entry) { throw "Missing asset entry: $archiveName" }
+            # Stage and validate BEFORE replacing files in the project.
+            $temp = [IO.Path]::GetTempFileName()
+            try {
+                $inputStream = $entry.Open()
+                $outputStream = [IO.File]::Create($temp)
+                try { $inputStream.CopyTo($outputStream) }
+                finally { $outputStream.Dispose(); $inputStream.Dispose() }
+                $digest = (Get-FileHash -LiteralPath $temp -Algorithm SHA256).Hash.ToLowerInvariant()
+                if ($digest -ne ([string]$expect).ToLowerInvariant()) {
+                    throw "Checksum mismatch: $archiveName"
+                }
+                $destinationDir = Join-Path $root $relative
+                New-Item -ItemType Directory -Path $destinationDir -Force | Out-Null
+                $destination = Join-Path $destinationDir $name
+                Copy-Item -LiteralPath $temp -Destination $destination -Force
+                Write-Host "Installed and verified $archiveName"
+            }
+            finally { Remove-Item -LiteralPath $temp -ErrorAction SilentlyContinue }
+        }
+    }
+}
+finally { $archive.Dispose() }
+Write-Host "Done. Unity Resources is ready. Unreal Editor still needs its Python art import."
+) { throw "Invalid SHA-256 for $name" }
         foreach ($relative in $targets) {
             $archiveName = "$relative/$name"
             $entry = $archive.GetEntry($archiveName)
