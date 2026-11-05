@@ -113,6 +113,24 @@ void AMoonfallPawn::BeginPlay()
 
 }
 
+UBillboardComponent* AMoonfallPawn::AddWorldArtwork(
+    USceneComponent* Parent, const FString& AssetPath,
+    const FVector& LocalPosition, float Scale)
+{
+    // Missing Unreal Editor imports leave safe geometric placeholders in place.
+    UTexture2D* Art = LoadObject<UTexture2D>(nullptr, *AssetPath);
+    if (!Art || !Parent) return nullptr;
+    UBillboardComponent* Billboard = NewObject<UBillboardComponent>(this);
+    Billboard->SetupAttachment(Parent);
+    Billboard->SetSprite(Art);
+    Billboard->SetRelativeLocation(LocalPosition);
+    Billboard->SetRelativeScale3D(FVector(Scale));
+    Billboard->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+    AddInstanceComponent(Billboard);
+    Billboard->RegisterComponent();
+    return Billboard;
+}
+
 void AMoonfallPawn::BuildWorld()
 {
     // One contiguous strip of six 34 m cells, overlapping 2 m; no waves.
@@ -131,6 +149,11 @@ void AMoonfallPawn::BuildWorld()
             AddInstanceComponent(Ground);
             Ground->RegisterComponent();
         }
+        // Original imported region illustration as a non-colliding world landmark.
+        const FString RegionArtPath = FString::Printf(
+            TEXT("/Game/MoonfallArt/v31_4_bestiary/region_%d.region_%d"), Region, Region);
+        AddWorldArtwork(Root, RegionArtPath,
+            FVector(MoonfallWorldRules::RegionCenter(Region), 1300.f, 300.f), 7.f);
         // Five side chambers directly overlap each region's edge, with no portals.
         for (int32 Chamber = 0; Chamber < MoonfallWorldRules::ChambersPerRegion; ++Chamber)
         {
@@ -155,6 +178,10 @@ void AMoonfallPawn::BuildWorld()
             Cache->RegisterComponent();
             FChamberCache Reward;
             Reward.Mesh = Cache;
+            Reward.Artwork = AddWorldArtwork(Cache,
+                TEXT("/Game/MoonfallArt/v31_3_art/treasure_cache.treasure_cache"),
+                FVector::ZeroVector, 2.f);
+            if (Reward.Artwork) Cache->SetHiddenInGame(true);
             Reward.Id = ChamberId;
             ChamberCaches.Add(Reward);
             if ((DefeatedGuardianMask & (1 << ChamberId)) == 0)
@@ -300,6 +327,7 @@ void AMoonfallPawn::CollectNearbyChambers()
         const int32 Id = Cache.Id;
         if ((DefeatedGuardianMask & (1 << Id)) == 0) continue; // No loot before guardian defeat.
         ClaimedChamberMask |= 1 << Id;
+        if (Cache.Artwork) Cache.Artwork->DestroyComponent();
         Cache.Mesh->DestroyComponent();
         ChamberCaches.RemoveAt(I);
         const int32 Region = Id / MoonfallWorldRules::ChambersPerRegion;
