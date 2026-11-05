@@ -80,12 +80,11 @@ public sealed class MoonfallPrototype : MonoBehaviour
     {
         if (index < 0 || index > 1) return;
         Texture2D selected = index == 0 ? zPortrait : nyraPortrait;
-        if (selected == null) return;
-        selectedHero = index;
+        selectedHero = index; // Combat identity also works before artwork import.
         if (heroPortrait != null) Destroy(heroPortrait.gameObject);
         var mesh = hero.GetComponent<Renderer>();
         if (mesh != null) mesh.enabled = true;
-        heroPortrait = AttachPortrait(hero, selected, 2.4f);
+        heroPortrait = selected != null ? AttachPortrait(hero, selected, 2.4f) : null;
         PlayerPrefs.SetInt("moonfall_experiment_hero_art", selectedHero);
         PlayerPrefs.Save();
     }
