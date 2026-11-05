@@ -100,6 +100,9 @@ private:
     void BuildWorld();
     int32 NearestEnemyIndex(float Radius) const;
     void DamageWorldEnemy(int32 Index, float Damage);
+    float BasicAttackDamage() const;
+    float ArcaneBoltDamage() const;
+    float HealingSpellAmount() const;
     void SaveProgress();
     void CollectNearbyChambers();
     void UpdateWorldEnemies(float Dt);
