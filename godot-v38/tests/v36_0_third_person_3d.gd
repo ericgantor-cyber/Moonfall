@@ -136,13 +136,13 @@ func _run()->void:
  check(absf(float(game.get("v36_yaw"))-RULES.DEFAULT_YAW)<0.001 and absf(float(game.get("v36_pitch"))-RULES.DEFAULT_PITCH)<0.001,"camera reset returns to readable original angle")
  var camera_source:String=(load("res://scripts/native_v34_4.gd") as GDScript).source_code
  check("KEY_F6" in camera_source and "KEY_F7" in camera_source and "KEY_F8" in camera_source,"camera access hotkeys registered")
- check("KEY_F9" in camera_source and "KEY_F11" not in camera_source and "if event.alt_pressed:" in camera_source,"Alt+wheel controls FOV instead of F11")
+ check("KEY_F9" in camera_source and "KEY_F11" not in camera_source,"camera recenter remains while FOV shortcuts are removed")
  check("KEY_F10" not in camera_source,"F10 remains reserved for Atlas/menu rather than camera FOV")
  check("KEY_F10" in (load("res://scripts/native_v11.gd") as GDScript).source_code,"inherited F10 Atlas shortcut preserved")
  check("KEY_PAGEUP" in camera_source and "KEY_PAGEDOWN" in camera_source,"keyboard wheel zoom alternative available")
  check("event.shift_pressed" in camera_source and "event.ctrl_pressed" in camera_source,"wheel fine and fast zoom supported")
  check("config.save(V36_CAMERA_PREFS)" in camera_source and "config.load(V36_CAMERA_PREFS)" in camera_source,"camera settings persist across sessions")
- # Alt+wheel adjusts FOV in two-degree steps while ordinary wheel zooms.
+ # All wheel events keep zooming, even when Alt is held.
  game.call("_start_game","z")
  var alt_wheel:=InputEventMouseButton.new()
  alt_wheel.pressed=true
@@ -151,15 +151,22 @@ func _run()->void:
  var before_fov:float=float(game.get("v36_fov"))
  var before_zoom:float=float(game.get("v36_distance"))
  game.call("_unhandled_input",alt_wheel)
- check(is_equal_approx(float(game.get("v36_fov")),minf(76.0,before_fov+2.0)),"Alt+wheel up widens field of view")
- check(is_equal_approx(float(game.get("v36_distance")),before_zoom),"Alt+wheel does not change ordinary camera distance")
- alt_wheel.button_index=MOUSE_BUTTON_WHEEL_DOWN
- game.call("_unhandled_input",alt_wheel)
- check(is_equal_approx(float(game.get("v36_fov")),before_fov) or is_equal_approx(before_fov,76.0),"Alt+wheel down narrows field of view")
- alt_wheel.alt_pressed=false
- alt_wheel.button_index=MOUSE_BUTTON_WHEEL_UP
- game.call("_unhandled_input",alt_wheel)
- check(float(game.get("v36_distance"))<before_zoom,"ordinary wheel still zooms after FOV adjustment")
+ check(is_equal_approx(float(game.get("v36_fov")),before_fov),"Alt+wheel cannot modify FOV outside Settings")
+ check(float(game.get("v36_distance"))<before_zoom,"Alt+wheel keeps normal zoom behavior")
+ # Atlas camera options are focusable and use the same persisted preferences.
+ game.call("_menu_tab","System")
+ var camera_game:GDScript=load("res://scripts/native_v38_8.gd") as GDScript
+ check(camera_game!=null and "func _v36_show_camera_settings()->void:" in camera_game.source_code,"camera settings menu is implemented")
+ game.call("_atlas_execute","camera_settings_open")
+ check("CAMERA SETTINGS" in str(game.get("menu_body").text),"camera settings panel opens in Atlas")
+ game.call("_atlas_execute","camera_fov_up")
+ check(is_equal_approx(float(game.get("v36_fov")),minf(76.0,before_fov+2.0)),"Settings widens FOV two degrees")
+ game.call("_atlas_execute","camera_fov_down")
+ check(is_equal_approx(float(game.get("v36_fov")),before_fov),"Settings narrows FOV two degrees")
+ game.call("_atlas_execute","camera_fov_reset")
+ check(is_equal_approx(float(game.get("v36_fov")),66.0),"Settings resets FOV")
+ game.call("_atlas_execute","camera_settings_back")
+ check(str(game.get("current_tab"))=="System","Settings returns to System")
  var before:float=game.get("v36_distance")
  game.call("_v24_set_zoom",17.5)
  check(float(game.get("v36_distance"))<before,"legacy zoom keys map to third-person distance")
