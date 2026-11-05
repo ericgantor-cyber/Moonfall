@@ -25,7 +25,7 @@ Canonical implementation: `godot-v38/` on `main`. Never alter Godot saves, scene
 - Material stack split into chunks of at most 999; clamp total to 99999.
 - Reject any malformed material cost (zero, negative, over 99999); refuse new gear if bag full; do not consume materials on failed craft.
 - Preserve deep-copy semantics if transferring mutable items; original Godot gear structures must not be aliased.
-- Remaining ports: gear transfer, power/name/rarity searches and stable sorting, matching discard behavior, equipment copy, reward distribution, save schemas and UI.
+- Source ports added for gear transfer, power/name/rarity searches and stable sorting, and matching discard behavior. Still pending: engine compilation and runtime testing, richer gear data/deep-copy contracts, equipment copy, reward distribution, save schemas and UI.
 
 ## Next gates
 1. Run equivalent Unity and Unreal inventory/crafting tests with shared test vectors, and connect these rules to the experimental gameplay UI.
