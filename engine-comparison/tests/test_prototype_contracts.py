@@ -549,6 +549,24 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn('bWon = Progress->bBossDefeated;', self.cpp)
         self.assertIn('if (bWon)', self.cpp)
 
+    def test_inconsistent_chamber_claims_cannot_skip_nyra_guardian(self):
+        # A claimed flag is valid only if the matching guardian was defeated.
+        # Applies to all 30 chambers, including the Nyra encounter at ID 29.
+        self.assertIn("claimedChamberMask &= defeatedGuardianMask;", self.unity)
+        self.assertIn("ClaimedChamberMask &= DefeatedGuardianMask;", self.cpp)
+        self.assertIn("if ((claimedChamberMask & (1 << chamberId)) != 0) continue;", self.unity)
+        self.assertIn("if ((ClaimedChamberMask & (1 << ChamberId)) != 0) continue;", self.cpp)
+        self.assertIn("if ((defeatedGuardianMask & (1 << id)) == 0) continue;", self.unity)
+        self.assertIn("if ((DefeatedGuardianMask & (1 << Id)) == 0) continue;", self.cpp)
+        self.assertIn("chamberId == MoonfallWorldRules.TotalChambers - 1", self.unity)
+        self.assertIn("ChamberId == MoonfallWorldRules::TotalChambers - 1", self.cpp)
+        for old_claims, defeated in [(0, 0), (1 << 29, 0), ((1 << 30) - 1, 1 << 29),
+                                     (1 << 29, 1 << 29)]:
+            valid_claims = old_claims & defeated
+            self.assertEqual(valid_claims & ~defeated, 0)
+            if not defeated & (1 << 29):
+                self.assertFalse(valid_claims & (1 << 29))
+
     def test_original_art_import_is_checksum_guarded(self):
         import_tool = (ROOT / "tools/import_godot_art.py").read_text()
         verify_tool = (ROOT / "tools/verify_art_import.py").read_text()
