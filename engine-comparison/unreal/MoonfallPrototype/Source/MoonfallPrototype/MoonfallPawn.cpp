@@ -154,6 +154,15 @@ void AMoonfallPawn::BuildWorld()
             TEXT("/Game/MoonfallArt/v31_4_bestiary/region_%d.region_%d"), Region, Region);
         AddWorldArtwork(Root, RegionArtPath,
             FVector(MoonfallWorldRules::RegionCenter(Region), 1300.f, 300.f), 7.f);
+        // New AI-generated environment crops, optional after Unreal Editor import.
+        if (Region == 0)
+            AddWorldArtwork(Root,
+                TEXT("/Game/MoonfallGeneratedArt/moonfall_ai_waterfall_ruins.moonfall_ai_waterfall_ruins"),
+                FVector(MoonfallWorldRules::RegionCenter(Region) - 1200.f, 1300.f, 400.f), 8.f);
+        if (Region == 4)
+            AddWorldArtwork(Root,
+                TEXT("/Game/MoonfallGeneratedArt/moonfall_ai_moonlit_gate.moonfall_ai_moonlit_gate"),
+                FVector(MoonfallWorldRules::RegionCenter(Region) + 1000.f, 1300.f, 400.f), 9.f);
         // Five side chambers directly overlap each region's edge, with no portals.
         for (int32 Chamber = 0; Chamber < MoonfallWorldRules::ChambersPerRegion; ++Chamber)
         {
