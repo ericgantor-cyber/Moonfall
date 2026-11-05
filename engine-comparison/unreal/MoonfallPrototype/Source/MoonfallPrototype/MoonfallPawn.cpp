@@ -550,6 +550,11 @@ void AMoonfallPawn::Attack()
     // A miss has brief recovery, while a landed attack uses its full cadence.
     // Neither a miss nor an invalid click consumes a saved perfect-dodge riposte.
     AttackCooldown = (EnemyIndex != INDEX_NONE || bBossInRange) ? 0.35f : 0.12f;
+    if (EnemyIndex == INDEX_NONE && !bBossInRange)
+    {
+        MeleeComboCount = 0;
+        MeleeComboTimer = 0.f;
+    }
     if (EnemyIndex != INDEX_NONE || bBossInRange)
     {
         // Resolve the nearest valid target, not always the first world enemy.
@@ -558,7 +563,14 @@ void AMoonfallPawn::Attack()
                             Enemies[EnemyIndex].Mesh->GetRelativeLocation());
         const bool bHitBoss = bBossInRange && BossDistance < EnemyDistance;
         const bool bRiposte = CounterWindow > 0.f;
-        const float Damage = BasicAttackDamage() * (bRiposte ? CounterMultiplier : 1.f);
+        // Every third landed click becomes a finisher. Misses or pauses reset it.
+        MeleeComboCount = MeleeComboTimer > 0.f ? MeleeComboCount + 1 : 1;
+        const bool bComboFinisher = MeleeComboCount >= 3;
+        if (bComboFinisher) MeleeComboCount = 0;
+        MeleeComboTimer = 1.1f;
+        const float ComboMultiplier = bComboFinisher ? 1.5f : 1.f;
+        const float Damage = BasicAttackDamage() * ComboMultiplier *
+            (bRiposte ? CounterMultiplier : 1.f);
         CounterWindow = 0.f; // The riposte is spent only on a successful in-range attack.
         if (!bHitBoss) DamageWorldEnemy(EnemyIndex, Damage, bRiposte);
         else
@@ -651,6 +663,9 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
     Super::Tick(DeltaSeconds);
     const float Dt = FMath::Max(0.f, DeltaSeconds);
     AttackCooldown = FMath::Max(0.f, AttackCooldown - Dt);
+    // Combo timing expires naturally if the player pauses between attacks.
+    MeleeComboTimer = FMath::Max(0.f, MeleeComboTimer - Dt);
+    if (MeleeComboTimer <= 0.f) MeleeComboCount = 0;
     // Match the boss telegraph hitch cap: a stalled frame must not erase the
     // active dodge window before the player can respond.
     const float ReactionDt = FMath::Min(Dt, 0.05f);
