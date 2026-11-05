@@ -13,6 +13,21 @@ func _run()->void:
  check(RULES.zoom_from_legacy(17.5)<RULES.DEFAULT_DISTANCE,"wheel zooms closer")
  check(RULES.zoom_from_legacy(20.5)>RULES.DEFAULT_DISTANCE,"wheel zooms farther")
  check(RULES.safe_distance(10.0)<10.0,"collision avoids scenery")
+ # Blocking scenery must not leave the camera outside the physics clearance
+ # while smoothing. Open-space follow still eases rather than popping outward.
+ var focus:=Vector3.ZERO
+ var far_camera:=Vector3(0.0,0.0,12.0)
+ var near_camera:=Vector3(0.0,0.0,3.0)
+ var blocked_position:Vector3=RULES.collision_constrained_position(far_camera,near_camera,focus,3.0,true,0.1)
+ check(blocked_position==near_camera,"camera retracts immediately inside detected obstacle clearance")
+ var clear_position:Vector3=RULES.collision_constrained_position(near_camera,far_camera,focus,12.0,false,0.1)
+ check(clear_position.z>3.0 and clear_position.z<12.0,"camera extends smoothly after wall clears")
+ var ordinary_follow:Vector3=RULES.collision_constrained_position(far_camera,near_camera,focus,3.0,false,0.1)
+ check(ordinary_follow.z>3.0 and ordinary_follow.z<12.0,"unblocked camera follow retains interpolation")
+ var already_safe:Vector3=RULES.collision_constrained_position(near_camera,Vector3(0.0,0.0,2.7),focus,3.0,true,0.1)
+ check(already_safe.z<3.0 and already_safe.z>2.7,"blocked camera can smoothly follow while already safe")
+ var clamped_blend:Vector3=RULES.collision_constrained_position(near_camera,far_camera,focus,12.0,false,2.0)
+ check(clamped_blend==far_camera,"camera follow blending remains bounded")
  # Forty-four additional camera safety cases: 11 each for zoom, orbit, pitch and collision.
  var zoom_inputs:=[-100.0,-10.0,0.0,12.0,15.0,17.5,19.0,20.5,25.0,31.0,100.0]
  var last_zoom:float=RULES.MIN_DISTANCE

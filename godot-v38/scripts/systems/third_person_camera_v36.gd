@@ -27,3 +27,12 @@ static func zoom_from_legacy(value:float)->float:
 
 static func safe_distance(hit_distance:float)->float:
  return maxf(2.4,hit_distance-0.55)
+
+static func collision_constrained_position(current:Vector3,desired:Vector3,focus:Vector3,safe_radius:float,blocked:bool,blend:float)->Vector3:
+ # A wall requires immediate retraction; easing from the old long distance
+ # would leave the camera beyond the detected obstacle for several frames.
+ # When the path is clear, preserve the usual smooth outward camera follow.
+ var next_position:Vector3=current.lerp(desired,clampf(blend,0.0,1.0))
+ if blocked and next_position.distance_to(focus)>safe_radius:
+  return desired
+ return next_position
