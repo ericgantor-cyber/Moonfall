@@ -4,6 +4,7 @@
 #include "GameFramework/Pawn.h"
 #include "Components/StaticMeshComponent.h"
 #include "MoonfallProgression.h"
+#include "MoonfallWorldRules.h"
 #include "MoonfallPawn.generated.h"
 
 class USceneComponent;
@@ -36,12 +37,25 @@ public:
     FVector GetHeroMapPosition() const { return HeroMesh ? HeroMesh->GetRelativeLocation() : FVector::ZeroVector; }
     FVector GetBossMapPosition() const { return BossMesh ? BossMesh->GetRelativeLocation() : FVector::ZeroVector; }
     bool IsBossDefeated() const { return bWon; }
+    TArray<FVector> GetEnemyMapPositions() const;
 private:
     UPROPERTY() USceneComponent* Root;
     UPROPERTY() UStaticMeshComponent* HeroMesh;
     UPROPERTY() UStaticMeshComponent* BossMesh;
     UPROPERTY() UStaticMeshComponent* WarningMesh;
     UPROPERTY() UStaticMeshComponent* FloorMesh;
+    UPROPERTY() UStaticMesh* RegionShape = nullptr;
+    UPROPERTY() UStaticMesh* EnemyShape = nullptr;
+    struct FWorldEnemy
+    {
+        UStaticMeshComponent* Mesh = nullptr;
+        float Health = 0.f;
+        int32 Region = 0;
+        int32 Id = 0;
+    };
+    TArray<FWorldEnemy> Enemies;
+    int32 DefeatedEnemyMask = 0;
+    float EnemyDamageCooldown = 0.f;
     UPROPERTY() UBillboardComponent* HeroPortrait;
     UPROPERTY() UBillboardComponent* BossPortrait;
     UPROPERTY() UTexture2D* ZArtwork;
@@ -71,4 +85,8 @@ private:
     void ChooseNyra();
     void ApplyHeroArtwork(int32 Index);
     void Victory();
+    void BuildWorld();
+    int32 NearestEnemyIndex(float Radius) const;
+    void DamageWorldEnemy(int32 Index, float Damage);
+    void SaveProgress();
 };
