@@ -289,6 +289,19 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn('Progress->DefeatedGuardianMask &', self.cpp)
         self.assertIn('Progression.AwardDefeat(Region, bGuardian, false', self.cpp)
 
+    def test_leashed_enemy_ai_does_not_spawn_waves_or_cross_regions(self):
+        self.assertIn("void UpdateEnemies(float dt)", self.unity)
+        self.assertIn("UpdateEnemies(dt);", self.unity)
+        self.assertIn("enemy.guardian ? 6f : 9f", self.unity)
+        self.assertIn("enemy.body.position += offset.normalized * step;", self.unity)
+        self.assertIn("void AMoonfallPawn::UpdateWorldEnemies(float Dt)", self.cpp)
+        self.assertIn("UpdateWorldEnemies(Dt);", self.cpp)
+        self.assertIn("Enemy.bGuardian ? 600.f : 900.f", self.cpp)
+        self.assertIn("Enemy.Home = Body->GetRelativeLocation();", self.cpp)
+        self.assertIn("Guardian.Home = GuardianBody->GetRelativeLocation();", self.cpp)
+        self.assertNotIn("SpawnWave(", self.unity)
+        self.assertNotIn("SpawnWave(", self.cpp)
+
     def test_original_art_import_is_checksum_guarded(self):
         import_tool = (ROOT / "tools/import_godot_art.py").read_text()
         verify_tool = (ROOT / "tools/verify_art_import.py").read_text()
