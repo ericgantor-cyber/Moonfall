@@ -96,7 +96,8 @@ void AMoonfallPawn::BeginPlay()
                         FMath::Clamp(Saved.X, -1600.f, 17600.f),
                         FMath::Clamp(Saved.Y, -3200.f, 3200.f), 100.f));
                     Health = FMath::Clamp(Progress->SavedHealth, 1.f,
-                        100.f + 5.f * FMath::Clamp(Progress->PermanentBossVictories, 0, 100));
+                        100.f + 5.f * FMath::Clamp(Progress->PermanentBossVictories, 0, 100) +
+                        2.f * (FMath::Clamp(Progress->HeroLevel, 1, 100) - 1));
                     if (Progress->bHasResourceCheckpoint)
                     {
                         if (FMath::IsFinite(Progress->SavedMana))
@@ -127,7 +128,7 @@ void AMoonfallPawn::BeginPlay()
         }
     }
     if (!bLoadedCheckpoint)
-        Health = 100.f + 5.f * Victories; // Backward compatible with older saves.
+        Health = GetHudMaxHealth(); // Full health at a new start, never from kills.
     // Load original boss art before world generation so Nyra's guardian can use it.
     // Missing imports retain the regular prototype mesh.
     ZArtwork = LoadObject<UTexture2D>(nullptr, TEXT("/Game/MoonfallArt/heroes/Z_Original.Z_Original"));
@@ -541,7 +542,7 @@ void AMoonfallPawn::CastBolt()
 
 void AMoonfallPawn::CastHeal()
 {
-    const float MaxHealth = 100.f + 5.f * Victories;
+    const float MaxHealth = GetHudMaxHealth();
     if (Health <= 0.f || HealCooldown > 0.f || Mana < 40.f || Health >= MaxHealth) return;
     Mana -= 40.f;
     HealCooldown = 5.f;
