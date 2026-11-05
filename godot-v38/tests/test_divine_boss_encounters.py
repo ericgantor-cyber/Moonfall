@@ -48,7 +48,8 @@ class DivineBossIntegrationTests(unittest.TestCase):
         self.assertIn('actor["divine_disk"]=warning', LIVE)
         self.assertIn('func _update_beast_step(beast:Dictionary,delta:float)->void:', LIVE)
         self.assertIn('super._update_beast_step(beast,delta)', LIVE)
-        self.assertIn('dodge_time<=0.0 and _has_clear_sight(body,player)', LIVE)
+        self.assertIn('if dist_sq<radius*radius and _has_clear_sight(body,player):', LIVE)
+        self.assertIn('if dodge_time>0.0:', LIVE)
         self.assertIn('beast["divine_attack_radius"]=radius', LIVE)
         self.assertIn('if phase>=2 and cycle%2==1:aimed=not aimed', LIVE)
         self.assertIn('var strike_pos:Vector3=player.global_position if aimed else body.global_position', LIVE)
@@ -82,6 +83,22 @@ class DivineBossIntegrationTests(unittest.TestCase):
         self.assertIn('actor["divine_chain_pending"]=false\n var disk:', LIVE)
         self.assertEqual(LIVE.count('warning:=MeshInstance3D.new()'), 1)
         self.assertNotIn('for actor in beasts:', LIVE.split('# Signature divine attacks', 1)[1])
+
+    def test_boss_encounter_safety_and_dodge_counterplay(self):
+        # Five gameplay improvements: rest/travel safety, regional cancellation,
+        # distance cancellation, skillful dodge reward, boss-specific rebound cues.
+        self.assertIn('or wait_open or wait_transition_active:', LIVE)
+        self.assertIn('if int(beast.get("zone",-1))!=region_index:', LIVE)
+        self.assertIn('if body.global_position.distance_squared_to(player.global_position)>25.0*25.0:', LIVE)
+        self.assertIn('if dodge_time>0.0:', LIVE)
+        self.assertIn('v387_stamina=minf(V387_MAX_STAMINA,v387_stamina+5.0)', LIVE)
+        self.assertIn('PERFECT EVADE! +5 stamina', LIVE)
+        self.assertIn('VOID REBOUND!', LIVE)
+        self.assertIn('ECLIPSE REBOUND!', LIVE)
+        self.assertIn('body.global_position.y+0.07', LIVE)
+        self.assertIn('_clear_divine_warning(beast)\\n  return', LIVE)
+        # No save migration or extra meshes required for either encounter.
+        self.assertEqual(LIVE.count('warning:=MeshInstance3D.new()'), 1)
 
     def test_existing_save_ids_are_stable_and_no_new_waves(self):
         self.assertIn('var prior:int=beasts.size()', LIVE)
