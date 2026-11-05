@@ -391,7 +391,7 @@ TArray<FVector> AMoonfallPawn::GetEnemyMapPositions() const
     return Result;
 }
 
-void AMoonfallPawn::DamageWorldEnemy(int32 Index, float Damage, bool bRiposte)
+void AMoonfallPawn::DamageWorldEnemy(int32 Index, float Damage, bool bRiposte, bool bComboFinisher)
 {
     if (!Enemies.IsValidIndex(Index)) return;
     FWorldEnemy& Enemy = Enemies[Index];
@@ -400,9 +400,11 @@ void AMoonfallPawn::DamageWorldEnemy(int32 Index, float Damage, bool bRiposte)
     {
         // The reward requires a real hit on a living guardian; defeated foes
         // need no stun state and ordinary hits cannot lock down bosses.
-        if (bRiposte && Enemy.bGuardian)
+        if ((bRiposte && Enemy.bGuardian) || (bComboFinisher && !Enemy.bGuardian))
         {
-            Enemy.StaggerTimer = 0.8f;
+            // Third-hit finishers briefly stagger normal enemies; earned
+            // ripostes retain the longer guardian-specific stagger.
+            Enemy.StaggerTimer = Enemy.bGuardian ? 0.8f : 0.4f;
             // Give a landed riposte physical space without pushing guardians
             // outside their chamber leash or introducing a physics actor.
             if (Enemy.Mesh && HeroMesh)
@@ -412,10 +414,11 @@ void AMoonfallPawn::DamageWorldEnemy(int32 Index, float Damage, bool bRiposte)
                 Away.Z = 0.f;
                 if (!Away.IsNearlyZero())
                 {
-                    const FVector Candidate = From + Away.GetSafeNormal() * 120.f;
+                    const FVector Candidate = From + Away.GetSafeNormal() *
+                        (Enemy.bGuardian ? 120.f : 90.f);
                     const FVector LeashDelta = Candidate - Enemy.Home;
                     const FVector Bounded = Enemy.Home +
-                        LeashDelta.GetClampedToMaxSize2D(600.f);
+                        LeashDelta.GetClampedToMaxSize2D(Enemy.bGuardian ? 600.f : 900.f);
                     Enemy.Mesh->SetRelativeLocation(Bounded);
                 }
             }
@@ -572,7 +575,7 @@ void AMoonfallPawn::Attack()
         const float Damage = BasicAttackDamage() * ComboMultiplier *
             (bRiposte ? CounterMultiplier : 1.f);
         CounterWindow = 0.f; // The riposte is spent only on a successful in-range attack.
-        if (!bHitBoss) DamageWorldEnemy(EnemyIndex, Damage, bRiposte);
+        if (!bHitBoss) DamageWorldEnemy(EnemyIndex, Damage, bRiposte, bComboFinisher);
         else
         {
             BossHealth = FMath::Max(0.f, BossHealth - Damage);
