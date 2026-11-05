@@ -75,7 +75,7 @@ void AMoonfallPawn::BeginPlay()
         }
     }
     Health = 100.f + 5.f * Victories;
-    if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 6.f, FColor::Cyan, TEXT("Moonfall Unreal experiment: WASD, click attack, Shift dodge, wheel zoom"));
+
 }
 
 void AMoonfallPawn::MoveForward(float Value) { Forward = Value; }
@@ -131,12 +131,7 @@ void AMoonfallPawn::Victory()
         Progress->TamerPoints = Progression.TamerPoints;
         bSaved = UGameplayStatics::SaveGameToSlot(Progress, TEXT("MoonfallPrototypeBossRewards"), 0);
     }
-    if (GEngine)
-    {
-        GEngine->AddOnScreenDebugMessage(-1, 15.f, FColor::Cyan, TEXT("Loot: ") + BossLoot + FString::Printf(TEXT(" | Inventory: %d/100"), BossInventory.Num()));
-        GEngine->AddOnScreenDebugMessage(-1, 15.f, bSaved ? FColor::Green : FColor::Yellow,
-            bSaved ? TEXT("Victory! Permanent boss reward saved.") : TEXT("Victory! WARNING: prototype reward save failed."));
-    }
+    if (!bSaved) UE_LOG(LogTemp, Warning, TEXT("Moonfall prototype: reward save failed."));
 }
 void AMoonfallPawn::SetupPlayerInputComponent(UInputComponent* Input)
 {
@@ -189,8 +184,5 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
                 Health = FMath::Max(0.f, Health - 20.f);
         }
     }
-    if (GEngine)
-    {
-        GEngine->AddOnScreenDebugMessage(10, 0.f, FColor::Red, FString::Printf(TEXT("HP: %.0f | Boss: %.0f | LV %d XP %d/%d | Hero/Tamer %d/%d"), Health, BossHealth, Progression.Level, Progression.Experience, Progression.ExperienceToNext(), Progression.HeroPoints, Progression.TamerPoints));
-    }
+
 }
