@@ -25,8 +25,10 @@ Name: "desktopicon"; Description: "Create desktop shortcut"; GroupDescription: "
 [Files]
 Source: "{#BuildDir}\{#ExeName}"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#BuildDir}\GODOT_LICENSE.txt"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
+Source: "launcher\MoonfallLauncher.ps1"; DestDir: "{app}\launcher"; Flags: ignoreversion
 [Icons]
-Name: "{autoprograms}\Moonfall Native"; Filename: "{app}\{#ExeName}"
-Name: "{autodesktop}\Moonfall Native"; Filename: "{app}\{#ExeName}"; Tasks: desktopicon
+Name: "{autoprograms}\Moonfall Launcher"; Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\launcher\MoonfallLauncher.ps1"""; WorkingDir: "{app}"; IconFilename: "{app}\{#ExeName}"
+Name: "{autoprograms}\Moonfall Native (Direct Play)"; Filename: "{app}\{#ExeName}"
+Name: "{autodesktop}\Moonfall Launcher"; Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\launcher\MoonfallLauncher.ps1"""; WorkingDir: "{app}"; IconFilename: "{app}\{#ExeName}"; Tasks: desktopicon
 [Run]
-Filename: "{app}\{#ExeName}"; Description: "Launch Moonfall Native"; Flags: nowait postinstall skipifsilent
+Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\launcher\MoonfallLauncher.ps1"""; WorkingDir: "{app}"; Description: "Open Moonfall Launcher"; Flags: nowait postinstall skipifsilent
