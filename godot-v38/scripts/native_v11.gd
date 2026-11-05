@@ -332,8 +332,17 @@ func _gamepad_direction() -> Vector3:
  if pads.is_empty():return Vector3.ZERO
  var id:int = pads[0]
  var stick:=Vector2(Input.get_joy_axis(id,JOY_AXIS_LEFT_X),Input.get_joy_axis(id,JOY_AXIS_LEFT_Y))
- if stick.length() < GAMEPAD_DEADZONE:return Vector3.ZERO
- return Vector3(stick.x, 0.0, stick.y).limit_length(1.0)
+ var input_direction:Vector2=_gamepad_radial_input(stick)
+ return Vector3(input_direction.x,0.0,input_direction.y)
+
+func _gamepad_radial_input(stick:Vector2)->Vector2:
+ # Deadzone must start at zero speed, not jump to 22% movement as the
+ # stick crosses the threshold. Preserve direction and full analog range.
+ if not stick.is_finite():return Vector2.ZERO
+ var magnitude:float=stick.length()
+ if magnitude<=GAMEPAD_DEADZONE:return Vector2.ZERO
+ var strength:float=clampf((minf(magnitude,1.0)-GAMEPAD_DEADZONE)/(1.0-GAMEPAD_DEADZONE),0.0,1.0)
+ return stick.normalized()*strength
 
 ## Camera mode hook. Legacy versions keep world-axis movement; 3D uses view-relative movement.
 func _map_movement_to_camera(raw_direction:Vector3)->Vector3:
