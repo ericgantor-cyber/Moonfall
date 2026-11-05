@@ -92,6 +92,28 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("Stamina + 30.f * StaminaRegenDt", tick)
         self.assertNotIn("Stamina + 30.f * Dt", tick)
 
+    def test_unreal_three_hit_melee_combo_finisher_and_reset(self):
+        self.assertIn("int32 MeleeComboCount = 0;", self.header)
+        self.assertIn("float MeleeComboTimer = 0.f;", self.header)
+        tick = self.cpp.split("void AMoonfallPawn::Tick(", 1)[1]
+        self.assertIn("MeleeComboTimer = FMath::Max(0.f, MeleeComboTimer - Dt);", tick)
+        self.assertIn("if (MeleeComboTimer <= 0.f) MeleeComboCount = 0;", tick)
+        melee = self.cpp.split("void AMoonfallPawn::Attack()", 1)[1].split(
+            "void AMoonfallPawn::CastBolt()", 1)[0]
+        self.assertIn("if (EnemyIndex == INDEX_NONE && !bBossInRange)", melee)
+        self.assertIn("MeleeComboCount = 0;", melee)
+        self.assertIn("MeleeComboTimer = 0.f;", melee)
+        self.assertIn("MeleeComboCount = MeleeComboTimer > 0.f ? MeleeComboCount + 1 : 1;", melee)
+        self.assertIn("const bool bComboFinisher = MeleeComboCount >= 3;", melee)
+        self.assertIn("if (bComboFinisher) MeleeComboCount = 0;", melee)
+        self.assertIn("MeleeComboTimer = 1.1f;", melee)
+        self.assertIn("const float ComboMultiplier = bComboFinisher ? 1.5f : 1.f;", melee)
+        self.assertIn("BasicAttackDamage() * ComboMultiplier *", melee)
+        self.assertIn("(bRiposte ? CounterMultiplier : 1.f)", melee)
+        bolt = self.cpp.split("void AMoonfallPawn::CastBolt()", 1)[1].split(
+            "void AMoonfallPawn::CastHeal()", 1)[0]
+        self.assertNotIn("MeleeComboCount", bolt)
+
     def test_unreal_final_stagger_frame_blocks_movement_and_contact(self):
         self.assertIn("bool bStaggeredThisFrame = false;", self.header)
         ai = self.cpp.split("void AMoonfallPawn::UpdateWorldEnemies(float Dt)", 1)[1].split(
