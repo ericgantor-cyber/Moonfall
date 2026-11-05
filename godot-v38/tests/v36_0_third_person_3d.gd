@@ -137,6 +137,8 @@ func _run()->void:
  var camera_source:String=(load("res://scripts/native_v34_4.gd") as GDScript).source_code
  check("KEY_F6" in camera_source and "KEY_F7" in camera_source and "KEY_F8" in camera_source,"camera access hotkeys registered")
  check("KEY_F9" in camera_source and "KEY_F11" in camera_source,"camera recenter and FOV controls registered")
+ check("KEY_F10" not in camera_source,"F10 remains reserved for Atlas/menu rather than camera FOV")
+ check("KEY_F10" in (load("res://scripts/native_v11.gd") as GDScript).source_code,"inherited F10 Atlas shortcut preserved")
  check("KEY_PAGEUP" in camera_source and "KEY_PAGEDOWN" in camera_source,"keyboard wheel zoom alternative available")
  check("event.shift_pressed" in camera_source and "event.ctrl_pressed" in camera_source,"wheel fine and fast zoom supported")
  check("config.save(V36_CAMERA_PREFS)" in camera_source and "config.load(V36_CAMERA_PREFS)" in camera_source,"camera settings persist across sessions")
