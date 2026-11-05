@@ -118,14 +118,25 @@ func _menu_tab(which:String)->void:
  if which=="System" and is_instance_valid(menu_body):
   _atlas_action("CAMERA SETTINGS • FOV, ORBIT & ACCESSIBILITY","camera_settings_open","Adjust field of view using focused buttons; mouse wheel always zooms during gameplay.")
 
+func _v36_set_fov(value:float)->void:
+ # FOV only changes through Atlas Settings; never from gameplay mouse input.
+ v36_fov=clampf(value,58.0,76.0)
+ if is_instance_valid(camera):camera.fov=v36_fov
+ _v36_save_camera_preferences()
+
 func _v36_show_camera_settings()->void:
  if not is_instance_valid(menu_body) or not is_instance_valid(menu_buttons):return
  current_tab="System"
  for child in menu_buttons.get_children():child.queue_free()
- menu_body.text="[b]CAMERA SETTINGS[/b]\nAdjust your view without gameplay shortcuts. Changes are saved automatically.\n\n[b]FIELD OF VIEW[/b]: "+str(roundi(v36_fov))+"°  (58° to 76°)\nA wider view shows more of the world; a narrower view brings distant objects closer.\n\n[b]ORBIT SENSITIVITY[/b]: "+str(v36_orbit_sensitivity)+"\n[b]INVERT HORIZONTAL[/b]: "+("ON" if v36_invert_x else "OFF")+"\n[b]INVERT VERTICAL[/b]: "+("ON" if v36_invert_y else "OFF")+"\n\nMouse wheel always zooms. Alt+right-drag orbits; right-click guards."
- _atlas_action("FIELD OF VIEW  − 2°","camera_fov_down","Narrow the view")
- _atlas_action("FIELD OF VIEW  + 2°","camera_fov_up","Widen the view")
- _atlas_action("RESET FIELD OF VIEW TO 66°","camera_fov_reset")
+ var view_label:String="WIDE" if v36_fov>=72.0 else "FOCUSED" if v36_fov<=62.0 else "BALANCED"
+ menu_body.text="[b]CAMERA SETTINGS[/b]\nAll camera preferences save automatically. Use buttons with mouse, keyboard focus, or controller.\n\n[b]FIELD OF VIEW[/b]: "+str(roundi(v36_fov))+"°  • "+view_label+"\nFocused 58°: larger distant objects | Balanced 66°: default | Wide 76°: more surroundings.\nCamera zoom is independent: gameplay mouse wheel always moves the camera closer or farther.\n\n[b]ORBIT SENSITIVITY[/b]: "+str(v36_orbit_sensitivity)+"\n[b]INVERT HORIZONTAL[/b]: "+("ON" if v36_invert_x else "OFF")+"\n[b]INVERT VERTICAL[/b]: "+("ON" if v36_invert_y else "OFF")+"\n\nAlt+right-drag orbits; right-click guards."
+ _atlas_action("FOV − 1° • FINE","camera_fov_fine_down","Narrow the view by one degree")
+ _atlas_action("FOV + 1° • FINE","camera_fov_fine_up","Widen the view by one degree")
+ _atlas_action("FOV − 5° • QUICK","camera_fov_down","Narrow the view quickly")
+ _atlas_action("FOV + 5° • QUICK","camera_fov_up","Widen the view quickly")
+ _atlas_action("FOCUSED VIEW • 58°","camera_fov_focused","Larger distant targets")
+ _atlas_action("BALANCED VIEW • 66°","camera_fov_reset","Original view")
+ _atlas_action("WIDE VIEW • 76°","camera_fov_wide","See more of the surrounding world")
  _atlas_action("CYCLE ORBIT SENSITIVITY","camera_sensitivity")
  _atlas_action("TOGGLE HORIZONTAL INVERSION","camera_invert_x")
  _atlas_action("TOGGLE VERTICAL INVERSION","camera_invert_y")
@@ -141,14 +152,17 @@ func _atlas_execute(action:String)->void:
    _menu_tab("System")
    return
   match action:
-   "camera_fov_down":v36_fov=clampf(v36_fov-2.0,58.0,76.0)
-   "camera_fov_up":v36_fov=clampf(v36_fov+2.0,58.0,76.0)
-   "camera_fov_reset":v36_fov=66.0
+   "camera_fov_fine_down":_v36_set_fov(v36_fov-1.0)
+   "camera_fov_fine_up":_v36_set_fov(v36_fov+1.0)
+   "camera_fov_down":_v36_set_fov(v36_fov-5.0)
+   "camera_fov_up":_v36_set_fov(v36_fov+5.0)
+   "camera_fov_focused":_v36_set_fov(58.0)
+   "camera_fov_reset":_v36_set_fov(66.0)
+   "camera_fov_wide":_v36_set_fov(76.0)
    "camera_sensitivity":v36_orbit_sensitivity=_v36_cycle_camera_setting(V36_SENSITIVITIES,v36_orbit_sensitivity)
    "camera_invert_x":v36_invert_x=not v36_invert_x
    "camera_invert_y":v36_invert_y=not v36_invert_y
    "camera_recenter":_v36_recenter_camera()
-  if is_instance_valid(camera):camera.fov=v36_fov
   _v36_save_camera_preferences()
   _v36_show_camera_settings()
   return
