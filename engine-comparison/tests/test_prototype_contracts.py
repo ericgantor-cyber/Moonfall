@@ -262,6 +262,18 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("GetChamberMapPositions()", unreal_hud)
         self.assertIn("foreach (Transform cache in chamberRewards)", self.unity)
 
+    def test_boss_stays_dead_and_only_attacks_nearby(self):
+        save = SAVES.read_text(encoding="utf-8")
+        self.assertIn("bBossDefeated = false", save)
+        self.assertIn("Progress->bBossDefeated = bWon;", self.cpp)
+        self.assertIn("bWon = Progress->bBossDefeated;", self.cpp)
+        self.assertIn("moonfall_experiment_boss_defeated", self.unity)
+        self.assertIn('won = PlayerPrefs.GetInt("moonfall_experiment_boss_defeated", 0) == 1;', self.unity)
+        self.assertIn("Distance(hero.position, boss.position) > 16f", self.unity)
+        self.assertIn("Dist2D(HeroMesh->GetRelativeLocation(), BossMesh->GetRelativeLocation()) > 1600.f", self.cpp)
+        self.assertIn("warning.gameObject.SetActive(false)", self.unity)
+        self.assertIn("WarningMesh->SetVisibility(false)", self.cpp)
+
     def test_original_art_import_is_checksum_guarded(self):
         import_tool = (ROOT / "tools/import_godot_art.py").read_text()
         verify_tool = (ROOT / "tools/verify_art_import.py").read_text()
