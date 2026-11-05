@@ -34,10 +34,12 @@ AMoonfallPawn::AMoonfallPawn()
     HeroPortrait->SetupAttachment(HeroMesh);
     HeroPortrait->SetRelativeLocation(FVector(0.f, 0.f, 70.f));
     HeroPortrait->SetRelativeScale3D(FVector(2.5f));
+    HeroPortrait->SetHiddenInGame(true);
     BossPortrait = CreateDefaultSubobject<UBillboardComponent>(TEXT("OriginalBossArtwork"));
     BossPortrait->SetupAttachment(BossMesh);
     BossPortrait->SetRelativeLocation(FVector(0.f, 0.f, 30.f));
     BossPortrait->SetRelativeScale3D(FVector(2.5f));
+    BossPortrait->SetHiddenInGame(true);
     static ConstructorHelpers::FObjectFinder<UStaticMesh> Cube(TEXT("/Engine/BasicShapes/Cube.Cube"));
     static ConstructorHelpers::FObjectFinder<UStaticMesh> Sphere(TEXT("/Engine/BasicShapes/Sphere.Sphere"));
     static ConstructorHelpers::FObjectFinder<UStaticMesh> Cylinder(TEXT("/Engine/BasicShapes/Cylinder.Cylinder"));
@@ -94,7 +96,7 @@ void AMoonfallPawn::BeginPlay()
     BossPortrait->SetSprite(BossArtwork);
     BossPortrait->SetHiddenInGame(BossArtwork == nullptr);
     if (BossArtwork) BossMesh->SetHiddenInGame(true);
-    ApplyHeroArtwork(0);
+    ApplyHeroArtwork(ZArtwork ? 0 : 1);
 
 }
 
@@ -161,6 +163,7 @@ void AMoonfallPawn::Victory()
     bCasting = false;
     WarningMesh->SetVisibility(false);
     BossMesh->SetVisibility(false);
+    BossPortrait->SetHiddenInGame(true);
     const int32 Previous = Victories;
     Victories = FMath::Min(100, Victories + 1);
     Health += 5.f * (Victories - Previous);
