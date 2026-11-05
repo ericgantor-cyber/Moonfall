@@ -672,7 +672,10 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
                 (BossAttackPhase == 3 ? 17.f : 11.f)));
         WarningMesh->SetRelativeScale3D(FVector(
             BossWarningRadius / 50.f * Pulse, BossWarningRadius / 50.f * Pulse, 0.01f));
-        CastTimer -= Dt;
+        // Preserve a readable reaction window during long render hitches.
+        // A delayed frame cannot instantly consume the entire cast warning.
+        const float TelegraphDt = FMath::Min(Dt, 0.05f);
+        CastTimer -= TelegraphDt;
         if (CastTimer <= 0.f)
         {
             bCasting = false;
