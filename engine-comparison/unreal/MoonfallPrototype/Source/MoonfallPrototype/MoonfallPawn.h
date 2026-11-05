@@ -72,11 +72,9 @@ private:
     float EnemyDamageCooldown = 0.f;
     float CheckpointTimer = 0.f;
     static constexpr float CheckpointInterval = 8.f;
-    UPROPERTY() UBillboardComponent* HeroPortrait;
     UPROPERTY() UBillboardComponent* BossPortrait;
     UPROPERTY() UTexture2D* ZArtwork;
     UPROPERTY() UTexture2D* NyraArtwork;
-    int32 HeroArtIndex = 0;
     UPROPERTY() USpringArmComponent* CameraBoom;
     UPROPERTY() UCameraComponent* Camera;
     float Forward = 0.f, Right = 0.f, Health = 100.f, BossHealth = 100.f;
@@ -97,9 +95,6 @@ private:
     void Dodge();
     void CastBolt();
     void CastHeal();
-    void ChooseZ();
-    void ChooseNyra();
-    void ApplyHeroArtwork(int32 Index);
     void Victory();
     void BuildWorld();
     UBillboardComponent* AddWorldArtwork(USceneComponent* Parent, const FString& AssetPath,
