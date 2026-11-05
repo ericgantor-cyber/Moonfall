@@ -38,4 +38,7 @@ public:
 
     UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category="Prototype")
     bool bBossDefeated = false;
+
+    UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category="Prototype")
+    int32 SelectedHeroIndex = 0;
 };
