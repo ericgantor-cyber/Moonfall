@@ -246,7 +246,9 @@ void AMoonfallPawn::Attack()
 {
     if (Health <= 0.f || bWon || AttackCooldown > 0.f) return;
     AttackCooldown = 0.35f;
-    if (FVector::Dist2D(HeroMesh->GetRelativeLocation(), BossMesh->GetRelativeLocation()) <= 400.f)
+    const int32 EnemyIndex = NearestEnemyIndex(400.f);
+    if (EnemyIndex != INDEX_NONE) DamageWorldEnemy(EnemyIndex, 15.f);
+    else if (FVector::Dist2D(HeroMesh->GetRelativeLocation(), BossMesh->GetRelativeLocation()) <= 400.f)
     {
         BossHealth = FMath::Max(0.f, BossHealth - 15.f);
         if (BossHealth <= 0.f) Victory();
@@ -255,11 +257,17 @@ void AMoonfallPawn::Attack()
 void AMoonfallPawn::CastBolt()
 {
     if (Health <= 0.f || bWon || BoltCooldown > 0.f || Mana < 30.f) return;
-    if (FVector::Dist2D(HeroMesh->GetRelativeLocation(), BossMesh->GetRelativeLocation()) > 1000.f) return;
+    const int32 EnemyIndex = NearestEnemyIndex(1000.f);
+    if (EnemyIndex == INDEX_NONE &&
+        FVector::Dist2D(HeroMesh->GetRelativeLocation(), BossMesh->GetRelativeLocation()) > 1000.f) return;
     Mana -= 30.f;
     BoltCooldown = 1.1f;
-    BossHealth = FMath::Max(0.f, BossHealth - (25.f + 2.f * Progression.Level));
-    if (BossHealth <= 0.f) Victory();
+    if (EnemyIndex != INDEX_NONE) DamageWorldEnemy(EnemyIndex, 25.f + 2.f * Progression.Level);
+    else
+    {
+        BossHealth = FMath::Max(0.f, BossHealth - (25.f + 2.f * Progression.Level));
+        if (BossHealth <= 0.f) Victory();
+    }
 }
 
 void AMoonfallPawn::CastHeal()
@@ -287,20 +295,7 @@ void AMoonfallPawn::Victory()
     const int32 Rank = MoonfallLootRules::RarityIndex(FMath::RandRange(0, 999), 0, 0);
     BossLoot = FString(MoonfallLootRules::Rarities[Rank]) + TEXT(" boss relic (prototype)");
     if (BossInventory.Num() < 100) BossInventory.Add(BossLoot);
-    UMoonfallProgressSave* Progress = Cast<UMoonfallProgressSave>(
-        UGameplayStatics::CreateSaveGameObject(UMoonfallProgressSave::StaticClass()));
-    bool bSaved = false;
-    if (Progress)
-    {
-        Progress->PermanentBossVictories = Victories;
-        Progress->BossRelics = BossInventory;
-        Progress->HeroLevel = Progression.Level;
-        Progress->HeroXP = Progression.Experience;
-        Progress->HeroPoints = Progression.HeroPoints;
-        Progress->TamerPoints = Progression.TamerPoints;
-        bSaved = UGameplayStatics::SaveGameToSlot(Progress, TEXT("MoonfallPrototypeBossRewards"), 0);
-    }
-    if (!bSaved) UE_LOG(LogTemp, Warning, TEXT("Moonfall prototype: reward save failed."));
+    SaveProgress();
 }
 void AMoonfallPawn::SetupPlayerInputComponent(UInputComponent* Input)
 {
@@ -326,15 +321,23 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
     Mana = FMath::Min(180.f, Mana + 8.f * Dt);
     BoltCooldown = FMath::Max(0.f, BoltCooldown - Dt);
     HealCooldown = FMath::Max(0.f, HealCooldown - Dt);
+    EnemyDamageCooldown = FMath::Max(0.f, EnemyDamageCooldown - Dt);
     if (Health > 0.f)
     {
         FVector Direction(Forward, Right, 0.f);
         Direction = Direction.GetClampedToMaxSize(1.f);
         FVector Position = HeroMesh->GetRelativeLocation() + Direction * (DodgeTimer > 0.f ? 1200.f : 600.f) * Dt;
-        Position.X = FMath::Clamp(Position.X, -1600.f, 1600.f);
+        Position.X = FMath::Clamp(Position.X, -1600.f, 17600.f);
         Position.Y = FMath::Clamp(Position.Y, -1600.f, 1600.f);
         HeroMesh->SetRelativeLocation(Position);
         CameraBoom->SetRelativeLocation(FVector(Position.X, Position.Y, 0.f));
+        if (Health > 0.f && DodgeTimer <= 0.f && EnemyDamageCooldown <= 0.f &&
+            NearestEnemyIndex(175.f) != INDEX_NONE)
+        {
+            const FWorldEnemy& Nearby = Enemies[NearestEnemyIndex(175.f)];
+            Health = FMath::Max(0.f, Health - (5.f + 2.f * Nearby.Region));
+            EnemyDamageCooldown = 1.2f;
+        }
     }
     if (bWon || Health <= 0.f) return;
     if (!bCasting)
