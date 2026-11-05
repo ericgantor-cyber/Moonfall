@@ -56,6 +56,7 @@ private:
         int32 Region = 0;
         int32 Id = 0;
         bool bGuardian = false;
+        bool bEnraged = false; // Final 35% guardian combat phase.
         bool bReturningHome = false; // Leash hysteresis prevents edge-of-range jitter.
         FVector Home = FVector::ZeroVector;
     };
