@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import subprocess
 from pathlib import Path
 import zipfile
 
@@ -20,7 +21,7 @@ DESTINATIONS = (
     "engine-comparison/unreal/MoonfallPrototype/SourceArt/MoonfallGeneratedArt",
 )
 
-def install(zip_path: Path, repo_root: Path) -> None:
+def install(zip_path: Path, repo_root: Path) -> list[Path]:
     if not (repo_root / "engine-comparison").is_dir():
         raise ValueError("Expected Moonfall repository root with engine-comparison directory")
     staged: list[tuple[Path, bytes]] = []
@@ -51,11 +52,59 @@ def install(zip_path: Path, repo_root: Path) -> None:
         target.write_bytes(data)
         print(f"Installed {target.relative_to(repo_root)}")
     print("All 4 AI environment image copies verified. Unreal Editor import is still required.")
+    return [target for target, _ in staged]
+
+def commit_and_push(repo_root: Path, targets: list[Path]) -> None:
+    """Push only the four new artwork files to the existing isolated PR branch.
+
+    This action is never automatic: it requires the --commit-and-push flag.
+    Uses the user's configured Git credentials and aborts on branch mismatch.
+    """
+    branch = "prototype/unreal-unity-comparison-20261104"
+
+    def git(*args: str) -> str:
+        return subprocess.check_output(
+            ["git", "-C", str(repo_root), *args], text=True).strip()
+
+    current_branch = git("branch", "--show-current")
+    if current_branch != branch:
+        raise RuntimeError(
+            f"Expected experimental branch {branch!r}, found {current_branch!r}")
+    # No writes to the original Godot tree or any other tracked files.
+    relative = [str(p.relative_to(repo_root)).replace("\\", "/") for p in targets]
+    preexisting = git("status", "--porcelain", "--", *relative)
+    if preexisting:
+        print("Only the four target art files will be staged and committed.")
+    subprocess.run(["git", "-C", str(repo_root), "add", "--", *relative],
+                   check=True)
+    # --only prevents previously staged changes elsewhere from entering the commit.
+    subprocess.run([
+        "git", "-C", str(repo_root), "commit", "--only",
+        "-m", "Add two new AI-generated Moonfall environment art assets",
+        "--", *relative
+    ], check=True)
+    subprocess.run([
+        "git", "-C", str(repo_root), "push", "origin", f"HEAD:{branch}"
+    ], check=True)
+    print("Pushed all 4 generated art files to the experimental Moonfall PR branch.")
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("zip_path", type=Path)
     parser.add_argument("--repo-root", type=Path,
                         default=Path(__file__).resolve().parents[2])
+    parser.add_argument("--commit-and-push", action="store_true",
+                        help="Explicitly commit the 4 JPGs and push to the existing experimental branch")
     args = parser.parse_args()
-    install(args.zip_path.resolve(), args.repo_root.resolve())
+    root = args.repo_root.resolve()
+    # Validate destination branch before writing when a GitHub push is requested.
+    if args.commit_and_push:
+        branch = subprocess.check_output(
+            ["git", "-C", str(root), "branch", "--show-current"],
+            text=True).strip()
+        if branch != "prototype/unreal-unity-comparison-20261104":
+            parser.error("Checkout the experimental Moonfall PR branch before publishing")
+    installed = install(args.zip_path.resolve(), root)
+    if args.commit_and_push:
+        commit_and_push(root, installed)
