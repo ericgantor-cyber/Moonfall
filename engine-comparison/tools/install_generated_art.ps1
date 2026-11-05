@@ -1,85 +1,87 @@
-# Install Moonfall's two new AI-generated scene images from its verified ZIP.
-# Run from repository root or supply -RepositoryRoot. Does not touch production Godot.
+# Moonfall generated AI environment art installer. Windows PowerShell 5.1+.
+# Install only the four new scene images, never original Godot or Z/Nyra files.
 [CmdletBinding()]
 param(
-    [string]$ZipPath = (Join-Path (Get-Location).Path "Moonfall_AI_Art_Ready_To_Import.zip"),
+    [string]$ZipPath = (Join-Path (Get-Location).Path 'Moonfall_AI_Art_Ready_To_Import.zip'),
     [string]$RepositoryRoot = (Get-Location).Path
 )
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 $root = [IO.Path]::GetFullPath($RepositoryRoot)
 $zip = [IO.Path]::GetFullPath($ZipPath)
-if (-not (Test-Path -LiteralPath (Join-Path $root "engine-comparison"))) { throw "Repository root is not a Moonfall checkout: $root" }
-if (-not (Test-Path -LiteralPath $zip -PathType Leaf)) { throw "Missing art ZIP: $zip" }
+$pinnedPath = Join-Path $root 'engine-comparison/GENERATED_ART_SHA256.json'
+if (-not (Test-Path -LiteralPath $pinnedPath -PathType Leaf)) {
+    throw "Not a Moonfall experimental checkout: $root"
+}
+if (-not (Test-Path -LiteralPath $zip -PathType Leaf)) {
+    throw "Missing generated AI art ZIP: $zip"
+}
+$pinned = Get-Content -LiteralPath $pinnedPath -Raw | ConvertFrom-Json
 $names = @('moonfall_ai_moonlit_gate.jpg', 'moonfall_ai_waterfall_ruins.jpg')
-$targets = @(
+$folders = @(
     'engine-comparison/unity/Assets/Resources/MoonfallGeneratedArt',
     'engine-comparison/unreal/MoonfallPrototype/SourceArt/MoonfallGeneratedArt'
 )
+$stage = New-Object System.Collections.ArrayList
 $archive = [IO.Compression.ZipFile]::OpenRead($zip)
 try {
-    $manifest = $archive.GetEntry('AI_ART_SHA256.json')
-    if ($null -eq $manifest) { throw 'Archive has no SHA-256 manifest' }
-    $reader = New-Object IO.StreamReader($manifest.Open())
-    try { $checks = ($reader.ReadToEnd() | ConvertFrom-Json) }
+    $manifestEntry = $archive.GetEntry('AI_ART_SHA256.json')
+    if ($null -eq $manifestEntry) { throw 'Art ZIP missing checksum manifest' }
+    $reader = New-Object IO.StreamReader($manifestEntry.Open())
+    try { $checks = $reader.ReadToEnd() | ConvertFrom-Json }
     finally { $reader.Dispose() }
+    if (@($checks.generated_art).Count -ne 2 -or @($pinned.generated_art).Count -ne 2) {
+        throw 'Art ZIP or pinned manifest does not describe exactly two images'
+    }
     foreach ($name in $names) {
-        $item = @($checks.generated_art | Where-Object { $_.filename -eq $name })
-        if ($item.Count -ne 1) { throw "Missing or duplicated checksum for $name" }
-        $expect = [string]$item[0].sha256
-        if ($expect -notmatch '^[a-fA-F0-9]{64}
-        foreach ($relative in $targets) {
-            $archiveName = "$relative/$name"
+        $entryChecks = @($checks.generated_art | Where-Object { $_.filename -eq $name })
+        $entryPinned = @($pinned.generated_art | Where-Object { $_.filename -eq $name })
+        if ($entryChecks.Count -ne 1 -or $entryPinned.Count -ne 1) {
+            throw "Missing or duplicate manifest record: $name"
+        }
+        $expect = [string]$entryPinned[0].sha256
+        if ($expect -cnotmatch '^[a-f0-9]{64}$') { throw "Invalid SHA256: $name" }
+        if ([string]$entryChecks[0].sha256 -cne $expect -or
+            [long]$entryChecks[0].bytes -ne [long]$entryPinned[0].bytes) {
+            throw "Art ZIP differs from pinned manifest: $name"
+        }
+        foreach ($folder in $folders) {
+            $archiveName = "$folder/$name"
             $entry = $archive.GetEntry($archiveName)
-            if ($null -eq $entry) { throw "Missing asset entry: $archiveName" }
-            # Stage and validate BEFORE replacing files in the project.
-            $temp = [IO.Path]::GetTempFileName()
-            try {
-                $inputStream = $entry.Open()
-                $outputStream = [IO.File]::Create($temp)
-                try { $inputStream.CopyTo($outputStream) }
-                finally { $outputStream.Dispose(); $inputStream.Dispose() }
-                $digest = (Get-FileHash -LiteralPath $temp -Algorithm SHA256).Hash.ToLowerInvariant()
-                if ($digest -ne ([string]$expect).ToLowerInvariant()) {
-                    throw "Checksum mismatch: $archiveName"
-                }
-                $destinationDir = Join-Path $root $relative
-                New-Item -ItemType Directory -Path $destinationDir -Force | Out-Null
-                $destination = Join-Path $destinationDir $name
-                Copy-Item -LiteralPath $temp -Destination $destination -Force
-                Write-Host "Installed and verified $archiveName"
+            if ($null -eq $entry) { throw "Art ZIP missing $archiveName" }
+            $inputStream = $entry.Open()
+            $buffer = New-Object IO.MemoryStream
+            try { $inputStream.CopyTo($buffer); $data = $buffer.ToArray() }
+            finally { $buffer.Dispose(); $inputStream.Dispose() }
+            if ($data.Length -ne [long]$entryPinned[0].bytes) {
+                throw "Wrong file size: $archiveName"
             }
-            finally { Remove-Item -LiteralPath $temp -ErrorAction SilentlyContinue }
+            if ($data.Length -lt 3 -or $data[0] -ne 255 -or
+                $data[1] -ne 216 -or $data[2] -ne 255) {
+                throw "Invalid JPG signature: $archiveName"
+            }
+            $sha = [Security.Cryptography.SHA256]::Create()
+            try {
+                $actualHash = ([BitConverter]::ToString($sha.ComputeHash($data))).Replace('-', '').ToLowerInvariant()
+            }
+            finally { $sha.Dispose() }
+            if ($actualHash -cne $expect) { throw "Checksum mismatch: $archiveName" }
+            [void]$stage.Add(@{
+                RelativePath = $archiveName
+                Bytes = $data
+            })
         }
     }
 }
 finally { $archive.Dispose() }
-Write-Host "Done. Unity Resources is ready. Unreal Editor still needs its Python art import."
-) { throw "Invalid SHA-256 for $name" }
-        foreach ($relative in $targets) {
-            $archiveName = "$relative/$name"
-            $entry = $archive.GetEntry($archiveName)
-            if ($null -eq $entry) { throw "Missing asset entry: $archiveName" }
-            # Stage and validate BEFORE replacing files in the project.
-            $temp = [IO.Path]::GetTempFileName()
-            try {
-                $inputStream = $entry.Open()
-                $outputStream = [IO.File]::Create($temp)
-                try { $inputStream.CopyTo($outputStream) }
-                finally { $outputStream.Dispose(); $inputStream.Dispose() }
-                $digest = (Get-FileHash -LiteralPath $temp -Algorithm SHA256).Hash.ToLowerInvariant()
-                if ($digest -ne ([string]$expect).ToLowerInvariant()) {
-                    throw "Checksum mismatch: $archiveName"
-                }
-                $destinationDir = Join-Path $root $relative
-                New-Item -ItemType Directory -Path $destinationDir -Force | Out-Null
-                $destination = Join-Path $destinationDir $name
-                Copy-Item -LiteralPath $temp -Destination $destination -Force
-                Write-Host "Installed and verified $archiveName"
-            }
-            finally { Remove-Item -LiteralPath $temp -ErrorAction SilentlyContinue }
-        }
+# Do not write anything until every image in the ZIP passes validation.
+foreach ($asset in $stage) {
+    $dest = Join-Path $root ([string]$asset.RelativePath)
+    $destDir = Split-Path -Parent $dest
+    if (-not (Test-Path -LiteralPath $destDir)) {
+        New-Item -ItemType Directory -Path $destDir -Force | Out-Null
     }
+    [IO.File]::WriteAllBytes($dest, [byte[]]$asset.Bytes)
+    Write-Host "Installed verified $($asset.RelativePath)"
 }
-finally { $archive.Dispose() }
-Write-Host "Done. Unity Resources is ready. Unreal Editor still needs its Python art import."
+Write-Host 'All four images installed; Unreal Editor Content import is still required.'
