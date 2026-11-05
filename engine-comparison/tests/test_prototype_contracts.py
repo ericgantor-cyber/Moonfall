@@ -379,6 +379,19 @@ class PrototypeContracts(unittest.TestCase):
         self.assertNotIn("hp + 20f * levelsGained", self.unity)
         self.assertNotIn("Health + 20.f * LevelsGained", self.cpp)
 
+    def test_ai_art_pack_engine_import_paths(self):
+        importer = (ROOT / "unreal/MoonfallPrototype/Content/Python/import_moonfall_art.py").read_text(encoding="utf-8")
+        instructions = (ROOT / "GENERATED_ART_INSTALL.md").read_text(encoding="utf-8")
+        self.assertIn('NEW_SOURCE = PROJECT / "SourceArt" / "MoonfallGeneratedArt"', importer)
+        self.assertIn('NEW_ROOT = "/Game/MoonfallGeneratedArt"', importer)
+        self.assertIn('moonfall_ai_moonlit_gate.jpg', importer)
+        self.assertIn('moonfall_ai_waterfall_ruins.jpg', importer)
+        self.assertIn('if not path.is_file():', importer)
+        self.assertIn('import_task(tools, path, NEW_ROOT)', importer)
+        self.assertIn('engine-comparison/unity/Assets/Resources/MoonfallGeneratedArt/', instructions)
+        self.assertIn('engine-comparison/unreal/MoonfallPrototype/SourceArt/MoonfallGeneratedArt/', instructions)
+        self.assertIn('AI_ART_SHA256.json', instructions)
+
     def test_original_art_import_is_checksum_guarded(self):
         import_tool = (ROOT / "tools/import_godot_art.py").read_text()
         verify_tool = (ROOT / "tools/verify_art_import.py").read_text()
