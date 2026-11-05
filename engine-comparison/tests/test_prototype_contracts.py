@@ -251,7 +251,7 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("if (Input.GetMouseButtonDown(0) && attackCd<=0)", self.unity)
         self.assertIn("bool bossInRange = !won && Vector3.Distance(hero.position,boss.position)<4f;", self.unity)
         self.assertIn("if (Health <= 0.f || AttackCooldown > 0.f) return;", self.cpp)
-        self.assertIn("const bool bBossInRange = !bWon &&", self.cpp)
+        self.assertIn("const bool bBossInRange = BossDistance <= 400.f;", self.cpp)
         self.assertNotIn("if (Health <= 0.f || bWon || AttackCooldown > 0.f)", self.cpp)
 
     def test_thirty_connected_chambers_and_persistent_loot(self):
@@ -328,15 +328,28 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("FVector2D(Forward, Right).SizeSquared() > 0.01f", self.cpp)
         self.assertNotIn("SpawnWave(", self.cpp)
 
+    def test_unreal_attacks_prioritize_nearest_valid_target(self):
+        attack = self.cpp.split("void AMoonfallPawn::Attack()", 1)[1].split(
+            "void AMoonfallPawn::CastBolt()", 1)[0]
+        bolt = self.cpp.split("void AMoonfallPawn::CastBolt()", 1)[1].split(
+            "void AMoonfallPawn::CastHeal()", 1)[0]
+        for combat in (attack, bolt):
+            self.assertIn("const float EnemyDistance =", combat)
+            self.assertIn("const bool bHitBoss = bBossInRange && BossDistance < EnemyDistance;", combat)
+            self.assertIn("if (!bHitBoss) DamageWorldEnemy(EnemyIndex, Damage);", combat)
+            self.assertIn("BossHealth = FMath::Max(0.f, BossHealth - Damage);", combat)
+        self.assertIn("const bool bBossInRange = BossDistance <= 400.f;", attack)
+        self.assertIn("const bool bBossInRange = BossDistance <= 1000.f;", bolt)
+
     def test_unreal_spell_riposte_uses_successful_target_only(self):
         start = self.cpp.index("void AMoonfallPawn::CastBolt()")
         end = self.cpp.index("void AMoonfallPawn::CastHeal()", start)
         bolt = self.cpp[start:end]
         self.assertIn("if (Health <= 0.f || BoltCooldown > 0.f || Mana < 30.f) return;", bolt)
-        self.assertIn("if (EnemyIndex == INDEX_NONE && (bWon ||", bolt)
+        self.assertIn("if (EnemyIndex == INDEX_NONE && !bBossInRange) return;", bolt)
         self.assertLess(bolt.index("if (EnemyIndex == INDEX_NONE"), bolt.index("CounterWindow = 0.f;"))
         self.assertIn("(CounterWindow > 0.f ? CounterMultiplier : 1.f)", bolt)
-        self.assertIn("DamageWorldEnemy(EnemyIndex, Damage)", bolt)
+        self.assertIn("if (!bHitBoss) DamageWorldEnemy(EnemyIndex, Damage);", bolt)
         self.assertIn("BossHealth - Damage", bolt)
         self.assertIn("Mana -= 30.f;", bolt)
         self.assertIn("BoltCooldown = 1.1f;", bolt)
@@ -370,8 +383,8 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("float AMoonfallPawn::ArcaneBoltDamage() const", self.cpp)
         self.assertIn("float AMoonfallPawn::HealingSpellAmount() const", self.cpp)
         self.assertIn("return 18.f + Progression.Level;", self.cpp)
-        self.assertIn("DamageWorldEnemy(EnemyIndex, Damage)", self.cpp)
-        self.assertIn("DamageWorldEnemy(EnemyIndex, Damage)", self.cpp)
+        self.assertIn("if (!bHitBoss) DamageWorldEnemy(EnemyIndex, Damage);", self.cpp)
+        self.assertIn("if (!bHitBoss) DamageWorldEnemy(EnemyIndex, Damage);", self.cpp)
         self.assertIn("Health + HealingSpellAmount()", self.cpp)
 
     def test_legacy_hero_selection_is_ignored_without_deleting_saves(self):
