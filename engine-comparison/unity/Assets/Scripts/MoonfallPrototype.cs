@@ -7,9 +7,10 @@ public sealed class MoonfallPrototype : MonoBehaviour
     Camera view;
     Texture2D ornateOrbs; // Optional transparent art imported to Resources/MoonfallOrbs
     float hp, bossHp = 100, attackCd, dodge, dodgeCooldown, castCd = 3, castTimer, zoom = 16;
-    const float MaxMana = 180f; // Spells not yet ported; mana stays full.
+    const float MaxMana = 180f;
     const float MaxStamina = 150f;
     float mana = MaxMana, stamina = MaxStamina;
+    float boltCooldown, healCooldown;
     GUIStyle orbDigits;
     bool casting, won;
     Vector3 target;
@@ -64,6 +65,9 @@ public sealed class MoonfallPrototype : MonoBehaviour
         dodge = Mathf.Max(0, dodge-dt);
         dodgeCooldown = Mathf.Max(0, dodgeCooldown-dt);
         stamina = Mathf.Min(MaxStamina, stamina + 30f * dt);
+        mana = Mathf.Min(MaxMana, mana + 8f * dt);
+        boltCooldown = Mathf.Max(0f, boltCooldown - dt);
+        healCooldown = Mathf.Max(0f, healCooldown - dt);
         if (hp > 0)
         {
             Vector3 direction = new Vector3(Input.GetAxisRaw("Horizontal"),0,Input.GetAxisRaw("Vertical")).normalized;
@@ -72,6 +76,22 @@ public sealed class MoonfallPrototype : MonoBehaviour
                 dodge=.32f;
                 dodgeCooldown=1.2f;
                 stamina -= 45f;
+            }
+            // Magic uses keys, keeping the left mouse button exclusively for attacks.
+            if (!won && Input.GetKeyDown(KeyCode.Q) && boltCooldown <= 0f && mana >= 30f
+                && Vector3.Distance(hero.position, boss.position) <= 10f)
+            {
+                mana -= 30f;
+                boltCooldown = 1.1f;
+                bossHp = Mathf.Max(0f, bossHp - (25f + progression.Level * 2f));
+                if (bossHp <= 0f) Victory();
+            }
+            if (Input.GetKeyDown(KeyCode.E) && healCooldown <= 0f && mana >= 40f
+                && hp < 100f + 5f * wins)
+            {
+                mana -= 40f;
+                healCooldown = 5f;
+                hp = Mathf.Min(100f + 5f * wins, hp + 30f + progression.Level);
             }
             hero.position += direction * (dodge>0 ? 12 : 6) * dt;
             hero.position = new Vector3(Mathf.Clamp(hero.position.x,-16,16),1,Mathf.Clamp(hero.position.z,-16,16));
@@ -207,7 +227,7 @@ public sealed class MoonfallPrototype : MonoBehaviour
         {
         Ring(new Vector2(90f, Screen.height - 108f), 44f, hp / Mathf.Max(1f, maxHp),
             new Color(1f, .22f, .30f));
-        Ring(new Vector2(90f, Screen.height - 108f), 34f, 1f, new Color(.18f, .48f, 1f));
+        Ring(new Vector2(90f, Screen.height - 108f), 34f, mana / MaxMana, new Color(.18f, .48f, 1f));
         Ring(new Vector2(90f, Screen.height - 108f), 25f,
             (float)progression.Experience / Mathf.Max(1, progression.ExperienceToNext),
             new Color(.70f, .40f, 1f));
