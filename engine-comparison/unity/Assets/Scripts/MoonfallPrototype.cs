@@ -202,6 +202,7 @@ public sealed class MoonfallPrototype : MonoBehaviour
     {
         ornateOrbs = Resources.Load<Texture2D>("MoonfallOrbs");
         wins = Mathf.Clamp(PlayerPrefs.GetInt("moonfall_experiment_wins", 0), 0, 100);
+        won = PlayerPrefs.GetInt("moonfall_experiment_boss_defeated", 0) == 1;
         hp = 100 + 5 * wins;
         progression.Level = Mathf.Clamp(PlayerPrefs.GetInt("moonfall_experiment_level", 1), 1, 100);
         progression.Experience = Mathf.Clamp(PlayerPrefs.GetInt("moonfall_experiment_xp", 0), 0, progression.ExperienceToNext - 1);
@@ -223,6 +224,7 @@ public sealed class MoonfallPrototype : MonoBehaviour
         // Use imported original boss bestiary art as its visible stand-in.
         Texture2D bossArt = Resources.Load<Texture2D>("MoonfallArt/v31_4_bestiary/boss_0");
         bossPortrait = AttachPortrait(boss, bossArt, 3.6f);
+        if (won) { bossHp = 0f; boss.gameObject.SetActive(false); }
         SelectHero(Mathf.Clamp(PlayerPrefs.GetInt("moonfall_experiment_hero_art", 0), 0, 1));
         warning = Make("Attack telegraph", PrimitiveType.Cylinder, Vector3.zero, new Vector3(5,.015f,5), new Color(1,.4f,.1f));
         warning.gameObject.SetActive(false);
@@ -298,6 +300,14 @@ public sealed class MoonfallPrototype : MonoBehaviour
         view.transform.position=Vector3.Lerp(view.transform.position,hero.position+new Vector3(0,zoom,-zoom),Mathf.Clamp01(dt*8));
         view.transform.LookAt(hero.position);
         if (won || hp<=0) return;
+        if (Vector3.Distance(hero.position, boss.position) > 16f)
+        {
+            // World exploration stays safe from a boss in another region.
+            casting = false;
+            warning.gameObject.SetActive(false);
+            castCd = Mathf.Max(1f, castCd);
+            return;
+        }
         if (!casting)
         {
             castCd-=dt;
@@ -322,6 +332,7 @@ public sealed class MoonfallPrototype : MonoBehaviour
     void Victory()
     {
         won=true;
+        PlayerPrefs.SetInt("moonfall_experiment_boss_defeated", 1);
         warning.gameObject.SetActive(false);
         boss.gameObject.SetActive(false);
         int previousWins = wins;
