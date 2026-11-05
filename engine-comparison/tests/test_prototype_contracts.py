@@ -84,6 +84,13 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("a.CompareTo(b)", unity)
         self.assertIn("A < B", unreal)
 
+    def test_unreal_riposte_window_survives_frame_stall(self):
+        tick = self.cpp.split("void AMoonfallPawn::Tick(", 1)[1]
+        self.assertIn("const float ReactionDt = FMath::Min(Dt, 0.05f);", tick)
+        self.assertIn("CounterWindow = FMath::Max(0.f, CounterWindow - ReactionDt);", tick)
+        self.assertNotIn("CounterWindow = FMath::Max(0.f, CounterWindow - Dt);", tick)
+        self.assertIn("CounterWindow = CounterDuration;", tick)
+
     def test_unreal_dodge_window_matches_hitch_safe_boss_telegraph(self):
         tick = self.cpp.split("void AMoonfallPawn::Tick(", 1)[1]
         self.assertIn("const float ReactionDt = FMath::Min(Dt, 0.05f);", tick)
@@ -704,7 +711,8 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("static constexpr float CounterDuration = 1.5f;", self.header)
         self.assertIn("static constexpr float CounterMultiplier = 1.75f;", self.header)
         self.assertIn("counterWindow = Mathf.Max(0f, counterWindow - dt);", self.unity)
-        self.assertIn("CounterWindow = FMath::Max(0.f, CounterWindow - Dt);", self.cpp)
+        self.assertIn("CounterWindow = FMath::Max(0.f, CounterWindow - ReactionDt);", self.cpp)
+        self.assertNotIn("CounterWindow = FMath::Max(0.f, CounterWindow - Dt);", self.cpp)
         self.assertIn("if (dodge > 0f) counterWindow = CounterDuration;", self.unity)
         self.assertIn("if (DodgeTimer > 0.f) CounterWindow = CounterDuration;", self.cpp)
         self.assertIn("if (foe != null || bossInRange)", self.unity)
