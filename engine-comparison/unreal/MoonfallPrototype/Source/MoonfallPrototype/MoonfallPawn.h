@@ -53,6 +53,7 @@ private:
         UStaticMeshComponent* Mesh = nullptr;
         UBillboardComponent* Portrait = nullptr;
         float Health = 0.f;
+        float StaggerTimer = 0.f; // Surviving guardians are stunned by dodge ripostes.
         int32 Region = 0;
         int32 Id = 0;
         bool bGuardian = false;
@@ -109,7 +110,7 @@ private:
     UBillboardComponent* AddWorldArtwork(USceneComponent* Parent, const FString& AssetPath,
         const FVector& LocalPosition, float Scale);
     int32 NearestEnemyIndex(float Radius) const;
-    void DamageWorldEnemy(int32 Index, float Damage);
+    void DamageWorldEnemy(int32 Index, float Damage, bool bRiposte = false);
     int32 GuardianBlessingCount() const;
     float BasicAttackDamage() const;
     float ArcaneBoltDamage() const;
