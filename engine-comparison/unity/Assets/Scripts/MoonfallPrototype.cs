@@ -106,6 +106,10 @@ public sealed class MoonfallPrototype : MonoBehaviour
         defeatedEnemyMask = PlayerPrefs.GetInt("moonfall_experiment_defeated_mobs", 0) & ((1 << MoonfallWorldRules.TotalEnemies) - 1);
         claimedChamberMask = PlayerPrefs.GetInt("moonfall_experiment_chambers", 0) & ((1 << MoonfallWorldRules.TotalChambers) - 1);
         defeatedGuardianMask = PlayerPrefs.GetInt("moonfall_experiment_guardians", 0) & ((1 << MoonfallWorldRules.TotalChambers) - 1);
+        // A chamber cannot be claimed before its guardian (including Nyra) falls.
+        // Old or interrupted saves may contain a claimed bit without a defeat bit.
+        // Reopen only those inconsistent chambers rather than skipping encounters.
+        claimedChamberMask &= defeatedGuardianMask;
         for (int region = 0; region < MoonfallWorldRules.RegionCount; region++)
         {
             float center = MoonfallWorldRules.RegionCenter(region);
