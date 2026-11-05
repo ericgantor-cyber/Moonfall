@@ -42,9 +42,10 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("dodgeCooldown = Mathf.Max", self.unity)
 
     def test_boss_timing_parity(self):
-        self.assertIn("CastTimer = 1.15f;", self.cpp)
+        # Unity still has the single-phase comparison baseline; Unreal now has three tiers.
+        self.assertIn("BossAttackPhase == 2 ? 1.05f : 1.15f", self.cpp)
+        self.assertIn("BossAttackPhase == 2 ? 2.9f : 3.5f", self.cpp)
         self.assertIn("castTimer=1.15f;", self.unity)
-        self.assertIn("CastCooldown = 3.5f;", self.cpp)
         self.assertIn("castCd=3.5f;", self.unity)
         self.assertIn("BossHealth - Damage", self.cpp)
         self.assertIn("bossHp-damage", self.unity)
@@ -82,6 +83,17 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("Source.RemoveAt(Index)", unreal)
         self.assertIn("a.CompareTo(b)", unity)
         self.assertIn("A < B", unreal)
+
+    def test_unreal_three_phase_boss_telegraph_and_dodge(self):
+        self.assertIn("BossHealth <= 30.f ? 3 : (BossHealth <= 65.f ? 2 : 1)", self.cpp)
+        self.assertIn("BossAttackCount % 2 == 0", self.cpp)
+        self.assertIn("BossWarningRadius / 50.f", self.cpp)
+        self.assertIn("BossAttackPhase == 3 ? 0.95f", self.cpp)
+        self.assertIn("BossAttackPhase == 3 ? 2.25f", self.cpp)
+        self.assertIn("BossAttackPhase == 3 ? 28.f", self.cpp)
+        self.assertIn("FVector::Dist2D(HeroMesh->GetRelativeLocation(), TargetWorld) < BossWarningRadius", self.cpp)
+        self.assertIn("if (DodgeTimer > 0.f) CounterWindow = CounterDuration;", self.cpp)
+        self.assertIn("float BossWarningRadius = 250.f;", self.header)
 
     def test_boss_victory_loot_is_wired_into_both_prototypes(self):
         self.assertIn("MoonfallLootRules.RarityIndex(Random.Range(0, 1000), 0, 0)", self.unity)
