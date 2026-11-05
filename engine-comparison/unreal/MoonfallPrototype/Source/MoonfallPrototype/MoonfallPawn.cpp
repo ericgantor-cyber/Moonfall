@@ -70,6 +70,7 @@ AMoonfallPawn::AMoonfallPawn()
 void AMoonfallPawn::BeginPlay()
 {
     Super::BeginPlay();
+    bool bLoadedCheckpoint = false;
     // Separate prototype save slot. Never touches production Godot saves.
     if (USaveGame* Loaded = UGameplayStatics::LoadGameFromSlot(TEXT("MoonfallPrototypeBossRewards"), 0))
     {
@@ -90,6 +91,7 @@ void AMoonfallPawn::BeginPlay()
                         FMath::Clamp(Saved.Y, -3200.f, 3200.f), 100.f));
                     Health = FMath::Clamp(Progress->SavedHealth, 1.f,
                         100.f + 5.f * FMath::Clamp(Progress->PermanentBossVictories, 0, 100));
+                    bLoadedCheckpoint = true;
                 }
             }
             HeroArtIndex = FMath::Clamp(Progress->SelectedHeroIndex, 0, 1);
@@ -107,8 +109,8 @@ void AMoonfallPawn::BeginPlay()
             }
         }
     }
-    if (Health <= 0.f || Health > 100.f + 5.f * Victories)
-        Health = 100.f + 5.f * Victories;
+    if (!bLoadedCheckpoint)
+        Health = 100.f + 5.f * Victories; // Backward compatible with older saves.
     BuildWorld();
     // These paths exist only after running the Unreal Editor art importer.
     // Missing imports keep the geometric placeholders visible.
