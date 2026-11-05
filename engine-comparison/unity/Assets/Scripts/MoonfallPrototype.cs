@@ -131,8 +131,63 @@ public sealed class MoonfallPrototype : MonoBehaviour
             PlayerPrefs.Save();
         }
     }
+    // Lightweight immediate-mode prototype HUD. Replace with optimized UI Toolkit/UGUI
+    // only after this engine is selected; no asset duplication or per-frame textures.
+    static void FillRect(Rect rect, Color tint)
+    {
+        Color previous = GUI.color;
+        GUI.color = tint;
+        GUI.DrawTexture(rect, Texture2D.whiteTexture);
+        GUI.color = previous;
+    }
+
+    static void Ring(Vector2 center, float radius, float fraction, Color tint)
+    {
+        fraction = Mathf.Clamp01(fraction);
+        const int segments = 48;
+        for (int i = 0; i < segments; i++)
+        {
+            float angle = i * Mathf.PI * 2f / segments - Mathf.PI * .5f;
+            float angleEnd = (i + 1) * Mathf.PI * 2f / segments - Mathf.PI * .5f;
+            Vector2 a = center + new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * radius;
+            Vector2 b = center + new Vector2(Mathf.Cos(angleEnd), Mathf.Sin(angleEnd)) * radius;
+            Vector2 delta = b - a;
+            Matrix4x4 previous = GUI.matrix;
+            GUIUtility.RotateAroundPivot(Mathf.Atan2(delta.y, delta.x) * Mathf.Rad2Deg, a);
+            FillRect(new Rect(a.x, a.y - 3f, delta.magnitude + 1f, 6f),
+                i < Mathf.RoundToInt(fraction * segments) ? tint : new Color(.18f, .18f, .24f, .9f));
+            GUI.matrix = previous;
+        }
+    }
+
+    void DrawRpgHud()
+    {
+        float maxHp = 100f + 5f * wins;
+        Ring(new Vector2(90f, Screen.height - 108f), 44f, hp / Mathf.Max(1f, maxHp),
+            new Color(1f, .22f, .30f));
+        Ring(new Vector2(90f, Screen.height - 108f), 34f, 1f, new Color(.18f, .48f, 1f));
+        Ring(new Vector2(90f, Screen.height - 108f), 25f,
+            (float)progression.Experience / Mathf.Max(1, progression.ExperienceToNext),
+            new Color(.70f, .40f, 1f));
+        GUI.Label(new Rect(54f, Screen.height - 120f, 75f, 25f),
+            "LV " + progression.Level + " HP " + Mathf.CeilToInt(hp));
+
+        // Radar of the small prototype arena ONLY: not the six-region Raven Atlas.
+        float x = Screen.width - 178f;
+        FillRect(new Rect(x, 18f, 160f, 160f), new Color(.04f, .05f, .09f, .9f));
+        FillRect(new Rect(x + 8f, 26f, 144f, 144f), new Color(.13f, .17f, .22f, .9f));
+        float heroX = x + 80f + Mathf.Clamp(hero.position.x / 17f, -1f, 1f) * 68f;
+        float heroY = 98f - Mathf.Clamp(hero.position.z / 17f, -1f, 1f) * 68f;
+        float bossX = x + 80f + Mathf.Clamp(boss.position.x / 17f, -1f, 1f) * 68f;
+        float bossY = 98f - Mathf.Clamp(boss.position.z / 17f, -1f, 1f) * 68f;
+        FillRect(new Rect(heroX - 5f, heroY - 5f, 10f, 10f), Color.cyan);
+        if (!won) FillRect(new Rect(bossX - 5f, bossY - 5f, 10f, 10f), Color.red);
+        GUI.Label(new Rect(x + 12f, 180f, 160f, 24f), "PROTOTYPE MINIMAP");
+    }
+
     void OnGUI()
     {
+        DrawRpgHud();
         GUI.Box(new Rect(10,10,410,155),"Moonfall Unity RPG Experiment");
         GUI.Label(new Rect(20,35,330,22),"HP: "+Mathf.CeilToInt(hp)+" | Mana: 100 | XP: 0");
         GUI.Label(new Rect(20,60,390,22),"Boss HP: "+Mathf.CeilToInt(bossHp)+" | Permanent wins: "+wins);
