@@ -647,15 +647,24 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
             const int32 NearbyIndex = NearestEnemyIndex(175.f);
             if (NearbyIndex != INDEX_NONE)
             {
-                if (DodgeTimer > 0.f) CounterWindow = CounterDuration;
-                else
+                const FWorldEnemy& Contact = Enemies[NearbyIndex];
+                // A leashed enemy is disengaging, not attacking the player.
+                // Keep contact and dodge rewards restricted to active combat.
+                const FVector HomeOffset = Contact.Mesh->GetRelativeLocation() - Contact.Home;
+                const float Leash = Contact.bGuardian ? 600.f : 900.f;
+                const bool bEngaged = !Contact.bReturningHome &&
+                    HomeOffset.SizeSquared2D() < FMath::Square(Leash);
+                if (bEngaged)
                 {
-                    const FWorldEnemy& Contact = Enemies[NearbyIndex];
-                    const float ContactDamage = 5.f + 2.f * Contact.Region +
-                        (Contact.bEnraged ? 4.f : 0.f);
-                    Health = FMath::Max(0.f, Health - ContactDamage);
+                    if (DodgeTimer > 0.f) CounterWindow = CounterDuration;
+                    else
+                    {
+                        const float ContactDamage = 5.f + 2.f * Contact.Region +
+                            (Contact.bEnraged ? 4.f : 0.f);
+                        Health = FMath::Max(0.f, Health - ContactDamage);
+                    }
+                    EnemyDamageCooldown = 1.2f;
                 }
-                EnemyDamageCooldown = 1.2f;
             }
         }
     }
