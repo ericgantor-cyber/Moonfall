@@ -483,7 +483,7 @@ class PrototypeContracts(unittest.TestCase):
         # SaveProgress must load/reuse a prior SaveGame, rather than always
         # replacing it with default bHasCheckpoint=false when Health is zero.
         start = self.cpp.index("void AMoonfallPawn::SaveProgress()")
-        end = self.cpp.index("void AMoonfallPawn::ApplyHeroArtwork(", start)
+        end = self.cpp.index("void AMoonfallPawn::MoveForward(", start)
         save_code = self.cpp[start:end]
         self.assertIn('LoadGameFromSlot(TEXT("MoonfallPrototypeBossRewards"), 0)', save_code)
         self.assertIn("if (!Progress)", save_code)
