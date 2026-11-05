@@ -119,6 +119,7 @@ func _spawn_divine_encounter(spec:Dictionary)->void:
  actor["divine_warning_pos"]=location
  actor["divine_pattern_seq"]=0
  actor["divine_chain_pending"]=false
+ actor["divine_last_aimed"]=false
  var native_body:CharacterBody3D=actor.get("body") as CharacterBody3D
  if not is_instance_valid(native_body):return
  native_body.name="DivineBoss_"+str(spec["id"])
@@ -230,7 +231,9 @@ func _update_beast_step(beast:Dictionary,delta:float)->void:
  if remaining>0.0:
   if map_time<remaining:
    warning.visible=true
-   warning.transparency=0.30+0.18*absf(sin(map_time*8.0))
+   # Faster pulses as the tell expires communicate imminent impact.
+   var urgency:float=clampf(1.0-(remaining-map_time)/1.7,0.0,1.0)
+   warning.transparency=0.30+0.18*absf(sin(map_time*(6.0+urgency*8.0)))
    return
   warning.hide()
   beast["divine_warn_until"]=0.0
@@ -245,7 +248,9 @@ func _update_beast_step(beast:Dictionary,delta:float)->void:
   # A phase-three opening strike earns exactly one marked follow-up.
   # Reuse the single disk and give players a fresh 1.15s escape window.
   if not chained and int(beast.get("boss_phase",1))==3 and bool(beast.get("alive",false)):
-   var follow_pos:Vector3=player.global_position
+   # Reverse the opening pattern: first aimed -> follow-up centered on
+   # the boss; first radial -> follow-up tracks the hero's current position.
+   var follow_pos:Vector3=body.global_position if bool(beast.get("divine_last_aimed",false)) else player.global_position
    var follow_radius:float=2.8 if str(beast["divine_id"])=="z" else 3.5
    beast["divine_chain_pending"]=true
    beast["divine_warning_pos"]=follow_pos
@@ -265,10 +270,11 @@ func _update_beast_step(beast:Dictionary,delta:float)->void:
  var divine:String=str(beast["divine_id"])
  var cycle:int=int(beast.get("divine_pattern_seq",0))
  beast["divine_pattern_seq"]=cycle+1
- # Phase-three boss signatures alternate between aimed and radial attacks.
+ # Phase two adds pattern variety; phase three retains alternating signatures.
  # The warning remains stationary during its full windup for fair counterplay.
  var aimed:bool=divine=="z"
- if phase==3 and cycle%2==1:aimed=not aimed
+ if phase>=2 and cycle%2==1:aimed=not aimed
+ beast["divine_last_aimed"]=aimed
  var strike_pos:Vector3=player.global_position if aimed else body.global_position
  var radius:float=(3.0 if divine=="z" else 4.1)+(0.7 if phase==3 and cycle%2==1 else 0.0)
  beast["divine_attack_radius"]=radius
