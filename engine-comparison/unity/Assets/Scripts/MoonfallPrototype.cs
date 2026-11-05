@@ -1,4 +1,5 @@
 using UnityEngine;
+using System.Collections.Generic;
 // Experimental primitive-only Moonfall combat slice, separate from production Godot.
 public sealed class MoonfallPrototype : MonoBehaviour
 {
@@ -9,6 +10,7 @@ public sealed class MoonfallPrototype : MonoBehaviour
     Vector3 target;
     int wins;
     string bossLoot = "No boss loot yet";
+    readonly List<string> bossInventory = new List<string>();
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     static void Boot()
     {
@@ -28,6 +30,14 @@ public sealed class MoonfallPrototype : MonoBehaviour
     {
         wins = Mathf.Clamp(PlayerPrefs.GetInt("moonfall_experiment_wins", 0), 0, 100);
         hp = 100 + 5 * wins;
+        // Prototype-only collectible slots, separate from production save data.
+        int relicCount = Mathf.Clamp(PlayerPrefs.GetInt("moonfall_experiment_relic_count", 0), 0, 100);
+        for (int i = 0; i < relicCount; i++)
+        {
+            int rank = PlayerPrefs.GetInt("moonfall_experiment_relic_" + i, -1);
+            if (rank >= 0 && rank < MoonfallLootRules.Rarities.Length)
+                bossInventory.Add(MoonfallLootRules.Rarities[rank] + " boss relic (prototype)");
+        }
         Make("Floor", PrimitiveType.Cube, new Vector3(0,-.3f,0), new Vector3(34,.5f,34), Color.gray);
         hero = Make("Hero placeholder", PrimitiveType.Capsule, new Vector3(0,1,-5), Vector3.one, Color.cyan);
         boss = Make("Boss placeholder", PrimitiveType.Capsule, new Vector3(0,1,6), new Vector3(2,2,2), Color.red);
@@ -101,6 +111,13 @@ public sealed class MoonfallPrototype : MonoBehaviour
         // Uses Godot-derived rarity thresholds but not Godot's exact seeded RNG.
         int rank = MoonfallLootRules.RarityIndex(Random.Range(0, 1000), 0, 0);
         bossLoot = MoonfallLootRules.Rarities[rank] + " boss relic (prototype)";
+        if (bossInventory.Count < 100)
+        {
+            PlayerPrefs.SetInt("moonfall_experiment_relic_" + bossInventory.Count, rank);
+            bossInventory.Add(bossLoot);
+            PlayerPrefs.SetInt("moonfall_experiment_relic_count", bossInventory.Count);
+            PlayerPrefs.Save();
+        }
     }
     void OnGUI()
     {
@@ -108,7 +125,7 @@ public sealed class MoonfallPrototype : MonoBehaviour
         GUI.Label(new Rect(20,35,330,22),"HP: "+Mathf.CeilToInt(hp)+" | Mana: 100 | XP: 0");
         GUI.Label(new Rect(20,60,330,22),"Boss HP: "+Mathf.CeilToInt(bossHp)+" | Permanent wins: "+wins);
         GUI.Label(new Rect(20,85,330,22),"WASD move | Click attack | Shift dodge | Wheel zoom");
-        if (won) GUI.Label(new Rect(20,110,330,22),"Victory! Loot: " + bossLoot);
+        if (won) GUI.Label(new Rect(20,110,330,22),"Victory! Loot: " + bossLoot + " | Bag: " + bossInventory.Count + "/100");
         else if (hp<=0) GUI.Label(new Rect(20,110,330,22),"Defeated. Restart Play to retry.");
     }
 }
