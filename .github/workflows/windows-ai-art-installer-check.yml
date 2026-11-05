@@ -1,0 +1,36 @@
+name: Moonfall Windows art installer syntax
+
+on:
+  pull_request:
+    paths:
+      - 'engine-comparison/tools/install_generated_art.ps1'
+      - '.github/workflows/windows-ai-art-installer-check.yml'
+  push:
+    branches:
+      - prototype/unreal-unity-comparison-20261104
+    paths:
+      - 'engine-comparison/tools/install_generated_art.ps1'
+      - '.github/workflows/windows-ai-art-installer-check.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-powershell:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Parse PowerShell installer on Windows
+        shell: powershell
+        run: |
+          $script = "engine-comparison/tools/install_generated_art.ps1"
+          $tokens = $null
+          $parseErrors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile(
+              (Resolve-Path $script).Path, [ref]$tokens, [ref]$parseErrors) | Out-Null
+          if ($parseErrors.Count -gt 0) {
+              $parseErrors | ForEach-Object { Write-Error $_.Message }
+              exit 1
+          }
+          Write-Host "Windows PowerShell installer syntax valid"
