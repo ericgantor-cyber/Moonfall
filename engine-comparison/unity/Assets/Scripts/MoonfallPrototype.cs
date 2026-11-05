@@ -8,6 +8,7 @@ public sealed class MoonfallPrototype : MonoBehaviour
     bool casting, won;
     Vector3 target;
     int wins;
+    string bossLoot = "No boss loot yet";
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     static void Boot()
     {
@@ -96,6 +97,10 @@ public sealed class MoonfallPrototype : MonoBehaviour
         PlayerPrefs.SetInt("moonfall_experiment_wins", wins);
         PlayerPrefs.Save();
         hp += 5 * (wins - previousWins);
+        // One provisional boss loot roll, separate from permanent HP bonuses.
+        // Uses Godot-derived rarity thresholds but not Godot's exact seeded RNG.
+        int rank = MoonfallLootRules.RarityIndex(Random.Range(0, 1000), 0, 0);
+        bossLoot = MoonfallLootRules.Rarities[rank] + " boss relic (prototype)";
     }
     void OnGUI()
     {
@@ -103,7 +108,7 @@ public sealed class MoonfallPrototype : MonoBehaviour
         GUI.Label(new Rect(20,35,330,22),"HP: "+Mathf.CeilToInt(hp)+" | Mana: 100 | XP: 0");
         GUI.Label(new Rect(20,60,330,22),"Boss HP: "+Mathf.CeilToInt(bossHp)+" | Permanent wins: "+wins);
         GUI.Label(new Rect(20,85,330,22),"WASD move | Click attack | Shift dodge | Wheel zoom");
-        if (won) GUI.Label(new Rect(20,110,330,22),"Victory: permanent boss reward recorded (cap 100)!");
+        if (won) GUI.Label(new Rect(20,110,330,22),"Victory! Loot: " + bossLoot);
         else if (hp<=0) GUI.Label(new Rect(20,110,330,22),"Defeated. Restart Play to retry.");
     }
 }
