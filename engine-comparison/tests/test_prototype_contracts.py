@@ -493,6 +493,22 @@ class PrototypeContracts(unittest.TestCase):
         self.assertNotIn("Progress->bHasCheckpoint = false;", save_code)
         self.assertIn("Progress->SavedHealth = Health;", save_code)
 
+    def test_clean_exit_and_suspend_persist_checkpoint_progress(self):
+        self.assertIn("void OnApplicationPause(bool paused)", self.unity)
+        self.assertIn("if (paused && hero != null) SaveProgress();", self.unity)
+        self.assertIn("void OnApplicationQuit()", self.unity)
+        self.assertIn("if (hero != null) SaveProgress();", self.unity)
+        self.assertIn("EndPlay(const EEndPlayReason::Type EndPlayReason) override", self.header)
+        start = self.cpp.index("void AMoonfallPawn::EndPlay(")
+        end = self.cpp.index("void AMoonfallPawn::BeginPlay()", start)
+        code = self.cpp[start:end]
+        self.assertIn("EEndPlayReason::Quit", code)
+        self.assertIn("EEndPlayReason::LevelTransition", code)
+        self.assertIn("if (HeroMesh && GetWorld()) SaveProgress();", code)
+        self.assertIn("Super::EndPlay(Reason);", code)
+        self.assertNotIn("EEndPlayReason::EndPlayInEditor", code)
+        self.assertIn("if (HeroMesh && Health > 0.f)", self.cpp)
+
     def test_original_art_import_is_checksum_guarded(self):
         import_tool = (ROOT / "tools/import_godot_art.py").read_text()
         verify_tool = (ROOT / "tools/verify_art_import.py").read_text()
