@@ -163,7 +163,7 @@ class PrototypeContracts(unittest.TestCase):
         tick = self.cpp.split("void AMoonfallPawn::Tick(", 1)[1]
         selection = tick.split("// Find the nearest *engaged* contact.", 1)[1].split(
             "if (ContactIndex != INDEX_NONE)", 1)[0]
-        self.assertIn("if (!Candidate.Mesh || Candidate.bReturningHome || Candidate.StaggerTimer > 0.f) continue;", selection)
+        self.assertIn("if (!Candidate.Mesh || Candidate.bReturningHome || Candidate.bStaggeredThisFrame) continue;", selection)
         self.assertIn("HomeOffset.SizeSquared2D() >= FMath::Square(Leash)", selection)
         self.assertIn("if (DistanceSq < ContactDistanceSq)", selection)
         self.assertIn("ContactIndex = I;", selection)
