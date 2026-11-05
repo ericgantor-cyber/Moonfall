@@ -171,6 +171,7 @@ void AMoonfallPawn::BuildWorld()
                 Guardian.Health = MoonfallWorldRules::EnemyMaxHealth(Region) * 1.8f;
                 Guardian.Region = Region;
                 Guardian.Id = ChamberId;
+                Guardian.Home = GuardianBody->GetRelativeLocation();
                 Guardian.bGuardian = true;
                 Enemies.Add(Guardian);
             }
@@ -209,7 +210,31 @@ void AMoonfallPawn::BuildWorld()
             Enemy.Health = MoonfallWorldRules::EnemyMaxHealth(Region);
             Enemy.Region = Region;
             Enemy.Id = Id;
+            Enemy.Home = Body->GetRelativeLocation();
             Enemies.Add(Enemy);
+        }
+    }
+}
+
+void AMoonfallPawn::UpdateWorldEnemies(float Dt)
+{
+    // Bounded proximity pursuit, without waves, pathfinding allocations or map-wide aggro.
+    const FVector HeroPosition = HeroMesh->GetRelativeLocation();
+    for (FWorldEnemy& Enemy : Enemies)
+    {
+        if (!Enemy.Mesh) continue;
+        const FVector From = Enemy.Mesh->GetRelativeLocation();
+        FVector Direction = HeroPosition - From;
+        Direction.Z = 0.f;
+        FVector OffsetHome = From - Enemy.Home;
+        OffsetHome.Z = 0.f;
+        const float Leash = Enemy.bGuardian ? 600.f : 900.f;
+        const float Distance = Direction.Size();
+        if (Distance > 160.f && Distance < 800.f && OffsetHome.Size() < Leash)
+        {
+            const float Step = FMath::Min((Enemy.bGuardian ? 280.f : 200.f) * Dt,
+                FMath::Max(0.f, Leash - OffsetHome.Size()));
+            Enemy.Mesh->SetRelativeLocation(From + Direction.GetSafeNormal() * Step);
         }
     }
 }
@@ -421,6 +446,7 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
         Position.Y = FMath::Clamp(Position.Y, -3200.f, 3200.f);
         HeroMesh->SetRelativeLocation(Position);
         CollectNearbyChambers();
+        UpdateWorldEnemies(Dt);
         CameraBoom->SetRelativeLocation(FVector(Position.X, Position.Y, 0.f));
         if (Health > 0.f && DodgeTimer <= 0.f && EnemyDamageCooldown <= 0.f &&
             NearestEnemyIndex(175.f) != INDEX_NONE)
