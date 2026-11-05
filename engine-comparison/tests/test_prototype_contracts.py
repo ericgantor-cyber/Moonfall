@@ -328,6 +328,17 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("FVector2D(Forward, Right).SizeSquared() > 0.01f", self.cpp)
         self.assertNotIn("SpawnWave(", self.cpp)
 
+    def test_unreal_unique_guardian_blessings_persist_without_extra_save_fields(self):
+        self.assertIn("int32 AMoonfallPawn::GuardianBlessingCount() const", self.cpp)
+        self.assertIn("Id < MoonfallWorldRules::TotalChambers", self.cpp)
+        self.assertIn("(DefeatedGuardianMask & (1 << Id)) != 0", self.cpp)
+        self.assertIn("0.5f * GuardianBlessingCount()", self.cpp)
+        self.assertIn("1.f * GuardianBlessingCount()", self.cpp)
+        self.assertIn("if (Enemy.bGuardian) DefeatedGuardianMask |= 1 << Enemy.Id;", self.cpp)
+        self.assertIn("Progress->DefeatedGuardianMask = DefeatedGuardianMask;", self.cpp)
+        self.assertIn("DefeatedGuardianMask = Progress->DefeatedGuardianMask &", self.cpp)
+        self.assertNotIn("Health += GuardianBlessingCount()", self.cpp)
+
     def test_unreal_attacks_prioritize_nearest_valid_target(self):
         attack = self.cpp.split("void AMoonfallPawn::Attack()", 1)[1].split(
             "void AMoonfallPawn::CastBolt()", 1)[0]
@@ -382,7 +393,7 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("float AMoonfallPawn::BasicAttackDamage() const", self.cpp)
         self.assertIn("float AMoonfallPawn::ArcaneBoltDamage() const", self.cpp)
         self.assertIn("float AMoonfallPawn::HealingSpellAmount() const", self.cpp)
-        self.assertIn("return 18.f + Progression.Level;", self.cpp)
+        self.assertIn("return 18.f + Progression.Level + 0.5f * GuardianBlessingCount();", self.cpp)
         self.assertIn("if (!bHitBoss) DamageWorldEnemy(EnemyIndex, Damage);", self.cpp)
         self.assertIn("if (!bHitBoss) DamageWorldEnemy(EnemyIndex, Damage);", self.cpp)
         self.assertIn("Health + HealingSpellAmount()", self.cpp)
