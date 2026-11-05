@@ -429,6 +429,25 @@ class PrototypeContracts(unittest.TestCase):
         self.assertNotIn("git push --force", installer)
         self.assertNotIn("godot-v38", installer)
 
+    def test_pinned_generated_art_hashes_and_ci_validation(self):
+        import json
+        import subprocess
+        import sys
+        manifest = json.loads((ROOT / "GENERATED_ART_SHA256.json").read_text())
+        self.assertEqual(len(manifest["generated_art"]), 2)
+        self.assertEqual({x["filename"] for x in manifest["generated_art"]},
+                         {"moonfall_ai_moonlit_gate.jpg", "moonfall_ai_waterfall_ruins.jpg"})
+        for record in manifest["generated_art"]:
+            self.assertEqual(len(record["sha256"]), 64)
+            self.assertGreater(record["bytes"], 10000)
+        installer = (ROOT / "tools/install_generated_art.py").read_text()
+        self.assertIn("if record != pinned:", installer)
+        verifier = ROOT / "tools/verify_generated_art.py"
+        self.assertIn("if not all(present):", verifier.read_text())
+        result = subprocess.run([sys.executable, str(verifier)],
+                                capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
     def test_original_art_import_is_checksum_guarded(self):
         import_tool = (ROOT / "tools/import_godot_art.py").read_text()
         verify_tool = (ROOT / "tools/verify_art_import.py").read_text()
