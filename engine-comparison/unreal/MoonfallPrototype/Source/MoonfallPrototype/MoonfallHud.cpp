@@ -74,6 +74,13 @@ void AMoonfallHud::DrawHUD()
     const FVector H = Hero->GetHeroMapPosition();
     const FVector B = Hero->GetBossMapPosition();
     // Local radar follows the hero across six continuous world regions.
+    for (const FVector& Chamber : Hero->GetChamberMapPositions())
+    {
+        const FVector Offset = Chamber - H;
+        if (FMath::Abs(Offset.X) <= 1700.f && FMath::Abs(Offset.Y) <= 1700.f)
+            DrawMarker(Left + 80.f + Offset.X * .04f, 98.f - Offset.Y * .04f,
+                FLinearColor(.20f, .85f, .35f));
+    }
     for (const FVector& Enemy : Hero->GetEnemyMapPositions())
     {
         const FVector Offset = Enemy - H;
