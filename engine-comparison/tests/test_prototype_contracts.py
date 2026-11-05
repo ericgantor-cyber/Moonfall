@@ -379,6 +379,21 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("const bool bBossInRange = BossDistance <= 400.f;", attack)
         self.assertIn("const bool bBossInRange = BossDistance <= 1000.f;", bolt)
 
+    def test_unreal_perfect_dodge_interrupts_boss_for_both_attack_types(self):
+        attack = self.cpp.split("void AMoonfallPawn::Attack()", 1)[1].split(
+            "void AMoonfallPawn::CastBolt()", 1)[0]
+        bolt = self.cpp.split("void AMoonfallPawn::CastBolt()", 1)[1].split(
+            "void AMoonfallPawn::CastHeal()", 1)[0]
+        for source in (attack, bolt):
+            self.assertIn("const bool bRiposte = CounterWindow > 0.f;", source)
+            self.assertIn("if (bRiposte && bCasting && BossHealth > 0.f)", source)
+            self.assertIn("WarningMesh->SetVisibility(false);", source)
+            self.assertIn("CastCooldown = FMath::Max(CastCooldown, 2.f);", source)
+            self.assertLess(source.index("BossHealth = FMath::Max(0.f, BossHealth - Damage);"),
+                            source.index("if (bRiposte && bCasting && BossHealth > 0.f)"))
+            self.assertIn("if (BossHealth <= 0.f) Victory();", source)
+            self.assertIn("if (!bHitBoss) DamageWorldEnemy(EnemyIndex, Damage);", source)
+
     def test_unreal_spell_riposte_uses_successful_target_only(self):
         start = self.cpp.index("void AMoonfallPawn::CastBolt()")
         end = self.cpp.index("void AMoonfallPawn::CastHeal()", start)
@@ -386,7 +401,7 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("if (Health <= 0.f || BoltCooldown > 0.f || Mana < 30.f) return;", bolt)
         self.assertIn("if (EnemyIndex == INDEX_NONE && !bBossInRange) return;", bolt)
         self.assertLess(bolt.index("if (EnemyIndex == INDEX_NONE"), bolt.index("CounterWindow = 0.f;"))
-        self.assertIn("(CounterWindow > 0.f ? CounterMultiplier : 1.f)", bolt)
+        self.assertIn("(bRiposte ? CounterMultiplier : 1.f)", bolt)
         self.assertIn("if (!bHitBoss) DamageWorldEnemy(EnemyIndex, Damage);", bolt)
         self.assertIn("BossHealth - Damage", bolt)
         self.assertIn("Mana -= 30.f;", bolt)
