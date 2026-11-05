@@ -233,6 +233,15 @@ class PrototypeContracts(unittest.TestCase):
         self.assertNotIn("SpawnWave(", self.unity)
         self.assertNotIn("SpawnWave(", self.cpp)
 
+    def test_post_boss_exploration_and_minor_enemy_level_up(self):
+        self.assertIn("if (Input.GetMouseButtonDown(0) && attackCd<=0)", self.unity)
+        self.assertIn("else if (!won && Vector3.Distance(hero.position,boss.position)<4f)", self.unity)
+        self.assertIn("hp = Mathf.Min(100f + 5f * wins, hp + 20f * levelsGained)", self.unity)
+        self.assertIn("if (Health <= 0.f || AttackCooldown > 0.f) return;", self.cpp)
+        self.assertIn("else if (!bWon && FVector::Dist2D", self.cpp)
+        self.assertIn("Health = FMath::Min(100.f + 5.f * Victories, Health + 20.f * LevelsGained)", self.cpp)
+        self.assertNotIn("if (Health <= 0.f || bWon || AttackCooldown > 0.f)", self.cpp)
+
     def test_original_art_import_is_checksum_guarded(self):
         import_tool = (ROOT / "tools/import_godot_art.py").read_text()
         verify_tool = (ROOT / "tools/verify_art_import.py").read_text()
