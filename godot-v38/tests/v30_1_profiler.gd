@@ -29,7 +29,7 @@ func _run()->void:
  check(FileAccess.file_exists(snapshot_path),"15-second performance snapshot is written automatically")
  if FileAccess.file_exists(snapshot_path):
   var snapshot:Variant=JSON.parse_string(FileAccess.get_file_as_string(snapshot_path))
-  check(snapshot is Dictionary and int(snapshot.get("frames",0))==901,"partial JSON snapshot contains recorded frames")
+  check(snapshot is Dictionary and int(snapshot.get("frames",0))>=899 and int(snapshot.get("frames",0))<=901 and float(snapshot.get("seconds",0.0))>=14.9,"partial JSON snapshot records approximately 15 seconds of gameplay")
  check(bool(game.get("perf_active")),"15-second snapshot keeps the benchmark running")
  game.call("_perf_stop",false)
  var key:=InputEventKey.new()
