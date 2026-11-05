@@ -405,6 +405,19 @@ class PrototypeContracts(unittest.TestCase):
         self.assertNotIn("godot-v38", installer)
         self.assertNotIn("Start-Process", installer)
 
+    def test_python_ai_art_installer_verifies_four_jpgs_before_writing(self):
+        installer = (ROOT / "tools/install_generated_art.py").read_text(encoding="utf-8")
+        self.assertIn("Moonfall_AI_Art_Ready_To_Import.zip", installer)
+        self.assertIn("AI_ART_SHA256.json", installer)
+        self.assertIn("hashlib.sha256(data).hexdigest() != sha", installer)
+        self.assertIn("if len(data) != expected_size:", installer)
+        self.assertIn("if data[:3] != b", installer)
+        self.assertIn("staged.append(", installer)
+        self.assertIn("for target, data in staged:", installer)
+        self.assertIn("engine-comparison/unity/Assets/Resources/MoonfallGeneratedArt", installer)
+        self.assertIn("engine-comparison/unreal/MoonfallPrototype/SourceArt/MoonfallGeneratedArt", installer)
+        self.assertNotIn("godot-v38", installer)
+
     def test_original_art_import_is_checksum_guarded(self):
         import_tool = (ROOT / "tools/import_godot_art.py").read_text()
         verify_tool = (ROOT / "tools/verify_art_import.py").read_text()
