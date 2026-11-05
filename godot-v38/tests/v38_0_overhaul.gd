@@ -110,7 +110,7 @@ func _run()->void:
  check("overlay.custom_minimum_size=Vector2(420,280)" in orb_source,"four-resource artwork retains landscape ratio")
  check("v386_orb_values.offset_top=284.0" in orb_source and "v387_stamina_bar.offset_top=330.0" in orb_source,"live numeric values and stamina bar sit below artwork")
  check("if not hero_playing or menu_open or death_active or wait_open or wait_transition_active:return" in orb_source,"spell and dodge cannot spend resources while resting or transitioning")
- var attack_code:String=orb_source.substr(orb_source.find("func _attack()->void:"),orb_source.find("func _spell(which:String)")->void:")-orb_source.find("func _attack()->void:"))
+ var attack_code:String=orb_source.substr(orb_source.find("func _attack()->void:"),orb_source.find("func _spell(which:String)->void:")-orb_source.find("func _attack()->void:"))
  check("if not hero_playing or menu_open or death_active or wait_open or wait_transition_active:" in attack_code,"attack rejects rest and transition states before its inherited combo logic")
  var spell_code:String=orb_source.substr(orb_source.find("func _spell(which:String)->void:"),orb_source.find("func _dodge()->void:")-orb_source.find("func _spell(which:String)->void:"))
  check(spell_code.find("if not hero_playing or menu_open or death_active or wait_open or wait_transition_active:return")>=0 and spell_code.find("if not hero_playing or menu_open or death_active or wait_open or wait_transition_active:return")<spell_code.find("v385_mana-=cost"),"spell cannot deduct mana during rest or travel transitions")
