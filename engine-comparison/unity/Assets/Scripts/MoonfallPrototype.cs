@@ -243,6 +243,10 @@ public sealed class MoonfallPrototype : MonoBehaviour
             PlayerPrefs.SetFloat("moonfall_experiment_checkpoint_x", hero.position.x);
             PlayerPrefs.SetFloat("moonfall_experiment_checkpoint_z", hero.position.z);
             PlayerPrefs.SetFloat("moonfall_experiment_checkpoint_hp", hp);
+            // Restore spent mana and stamina exactly, not free resource refills.
+            PlayerPrefs.SetFloat("moonfall_experiment_checkpoint_mana", mana);
+            PlayerPrefs.SetFloat("moonfall_experiment_checkpoint_stamina", stamina);
+            PlayerPrefs.SetInt("moonfall_experiment_checkpoint_resources_active", 1);
             PlayerPrefs.SetInt("moonfall_experiment_checkpoint_active", 1);
         }
         PlayerPrefs.Save();
@@ -333,6 +337,16 @@ public sealed class MoonfallPrototype : MonoBehaviour
                 hero.position = new Vector3(Mathf.Clamp(savedX, -16f, 176f), 1f,
                     Mathf.Clamp(savedZ, -32f, 32f));
                 hp = Mathf.Clamp(savedHp, 1f, 100f + 5f * wins);
+                // Old saves have no resource checkpoint and keep default bars.
+                if (PlayerPrefs.GetInt("moonfall_experiment_checkpoint_resources_active", 0) == 1)
+                {
+                    float savedMana = PlayerPrefs.GetFloat("moonfall_experiment_checkpoint_mana", MaxMana);
+                    float savedStamina = PlayerPrefs.GetFloat("moonfall_experiment_checkpoint_stamina", MaxStamina);
+                    if (!float.IsNaN(savedMana) && !float.IsInfinity(savedMana))
+                        mana = Mathf.Clamp(savedMana, 0f, MaxMana);
+                    if (!float.IsNaN(savedStamina) && !float.IsInfinity(savedStamina))
+                        stamina = Mathf.Clamp(savedStamina, 0f, MaxStamina);
+                }
             }
         }
         boss = Make("Boss placeholder", PrimitiveType.Capsule, new Vector3(MoonfallWorldRules.BossX,1,6), new Vector3(2,2,2), Color.red);
