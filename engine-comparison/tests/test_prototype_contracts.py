@@ -207,6 +207,32 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn('ActionName="SelectZArt",Key=One', config)
         self.assertIn('ActionName="SelectNyraArt",Key=Two', config)
 
+    def test_continuous_rpg_regions_fixed_enemies_no_waves(self):
+        unity_world = (ROOT / "unity/Assets/Scripts/MoonfallWorldRules.cs").read_text()
+        unreal_world = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallWorldRules.h").read_text()
+        save = SAVES.read_text()
+        unreal_hud = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.cpp").read_text()
+        for world in (unity_world, unreal_world):
+            self.assertIn("RegionCount = 6", world)
+            self.assertIn("EnemiesPerRegion = 3", world)
+            self.assertIn("TotalEnemies = RegionCount * EnemiesPerRegion", world)
+            self.assertIn("EnemyPosition(", world)
+            self.assertIn("RegionCenter(", world)
+        self.assertIn("BuildWorld();", self.unity)
+        self.assertIn("BuildWorld();", self.cpp)
+        self.assertIn("MoonfallWorldRules.EnemyPosition", self.unity)
+        self.assertIn("MoonfallWorldRules::EnemyPosition", self.cpp)
+        self.assertIn("moonfall_experiment_defeated_mobs", self.unity)
+        self.assertIn("DefeatedEnemyMask", save)
+        self.assertIn("DefeatedEnemyMask |= 1 << Enemy.Id;", self.cpp)
+        self.assertIn("defeatedEnemyMask |= 1 << enemy.id;", self.unity)
+        self.assertIn("NearestEnemy(4f)", self.unity)
+        self.assertIn("NearestEnemyIndex(400.f)", self.cpp)
+        self.assertIn("GetEnemyMapPositions()", unreal_hud)
+        self.assertIn("foreach (WorldEnemy enemy in enemies)", self.unity)
+        self.assertNotIn("SpawnWave(", self.unity)
+        self.assertNotIn("SpawnWave(", self.cpp)
+
     def test_original_art_import_is_checksum_guarded(self):
         import_tool = (ROOT / "tools/import_godot_art.py").read_text()
         verify_tool = (ROOT / "tools/verify_art_import.py").read_text()
