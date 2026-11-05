@@ -25,4 +25,8 @@ public:
     int32 HeroPoints = 0;
     UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category="Prototype")
     int32 TamerPoints = 0;
+
+    // Exactly 18 fixed, single-clear enemies across six connected regions.
+    UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category="Prototype")
+    int32 DefeatedEnemyMask = 0;
 };
