@@ -136,7 +136,7 @@ func _run()->void:
  check(absf(float(game.get("v36_yaw"))-RULES.DEFAULT_YAW)<0.001 and absf(float(game.get("v36_pitch"))-RULES.DEFAULT_PITCH)<0.001,"camera reset returns to readable original angle")
  var camera_source:String=(load("res://scripts/native_v34_4.gd") as GDScript).source_code
  check("KEY_F6" in camera_source and "KEY_F7" in camera_source and "KEY_F8" in camera_source,"camera access hotkeys registered")
- check("KEY_F9" in camera_source and "KEY_F11" in camera_source,"camera recenter and FOV controls registered")
+ check("KEY_F9" in camera_source and "KEY_F11" not in camera_source and "if event.alt_pressed:" in camera_source,"Alt+wheel controls FOV instead of F11")
  check("KEY_F10" not in camera_source,"F10 remains reserved for Atlas/menu rather than camera FOV")
  check("KEY_F10" in (load("res://scripts/native_v11.gd") as GDScript).source_code,"inherited F10 Atlas shortcut preserved")
  check("KEY_PAGEUP" in camera_source and "KEY_PAGEDOWN" in camera_source,"keyboard wheel zoom alternative available")
