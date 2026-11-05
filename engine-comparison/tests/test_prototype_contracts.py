@@ -84,6 +84,17 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("a.CompareTo(b)", unity)
         self.assertIn("A < B", unreal)
 
+    def test_unreal_guardian_frenzy_phase_at_low_health(self):
+        self.assertIn("bool bEnraged = false;", self.header)
+        ai = self.cpp.split("void AMoonfallPawn::UpdateWorldEnemies(float Dt)", 1)[1].split(
+            "int32 AMoonfallPawn::NearestEnemyIndex", 1)[0]
+        self.assertIn("Enemy.bEnraged = Enemy.bGuardian &&", ai)
+        self.assertIn("Enemy.Health <= 0.35f * 1.8f * MoonfallWorldRules::EnemyMaxHealth(Enemy.Region)", ai)
+        self.assertIn("Enemy.bEnraged ? 360.f : (Enemy.bGuardian ? 280.f : 200.f)", ai)
+        self.assertIn("(Contact.bEnraged ? 4.f : 0.f)", self.cpp)
+        self.assertIn("if (DodgeTimer > 0.f) CounterWindow = CounterDuration;", self.cpp)
+        self.assertNotIn("Health += 4.f;", self.cpp)
+
     def test_unreal_enemy_leash_has_return_hysteresis(self):
         self.assertIn("bool bReturningHome = false;", self.header)
         ai = self.cpp.split("void AMoonfallPawn::UpdateWorldEnemies(float Dt)", 1)[1].split(
