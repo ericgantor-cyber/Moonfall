@@ -39,6 +39,11 @@ func _run()->void:
  check(str(report.get("graphics_quality_at_start",""))!="","report records quality")
  game.call("_perf_stop",false)
  check(not bool(game.get("perf_active")),"recording stops safely")
+ # Profiling should resume itself while gameplay continues without F9.
+ # SceneTree emits process_frame before game nodes receive _process.
+ await process_frame
+ await process_frame
+ check(bool(game.get("perf_active")),"gameplay automatically resumes performance capture")
  game.call("_perf_start")
  game.call("_perf_sample",1.0/60.0)
  game.call("_reset_new_adventure")
