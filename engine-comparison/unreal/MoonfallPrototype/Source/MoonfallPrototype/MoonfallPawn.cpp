@@ -463,11 +463,18 @@ void AMoonfallPawn::Attack()
     if (Health <= 0.f || AttackCooldown > 0.f) return;
     AttackCooldown = 0.35f;
     const int32 EnemyIndex = NearestEnemyIndex(400.f);
-    if (EnemyIndex != INDEX_NONE) DamageWorldEnemy(EnemyIndex, BasicAttackDamage());
-    else if (!bWon && FVector::Dist2D(HeroMesh->GetRelativeLocation(), BossMesh->GetRelativeLocation()) <= 400.f)
+    const bool bBossInRange = !bWon &&
+        FVector::Dist2D(HeroMesh->GetRelativeLocation(), BossMesh->GetRelativeLocation()) <= 400.f;
+    if (EnemyIndex != INDEX_NONE || bBossInRange)
     {
-        BossHealth = FMath::Max(0.f, BossHealth - BasicAttackDamage());
-        if (BossHealth <= 0.f) Victory();
+        const float Damage = BasicAttackDamage() * (CounterWindow > 0.f ? CounterMultiplier : 1.f);
+        CounterWindow = 0.f; // The riposte is spent only on a successful in-range attack.
+        if (EnemyIndex != INDEX_NONE) DamageWorldEnemy(EnemyIndex, Damage);
+        else
+        {
+            BossHealth = FMath::Max(0.f, BossHealth - Damage);
+            if (BossHealth <= 0.f) Victory();
+        }
     }
 }
 void AMoonfallPawn::CastBolt()
@@ -534,6 +541,7 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
     BoltCooldown = FMath::Max(0.f, BoltCooldown - Dt);
     HealCooldown = FMath::Max(0.f, HealCooldown - Dt);
     EnemyDamageCooldown = FMath::Max(0.f, EnemyDamageCooldown - Dt);
+    CounterWindow = FMath::Max(0.f, CounterWindow - Dt);
     CheckpointTimer += Dt;
     if (Health > 0.f)
     {
@@ -551,12 +559,15 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
         CollectNearbyChambers();
         UpdateWorldEnemies(Dt);
         CameraBoom->SetRelativeLocation(FVector(Position.X, Position.Y, 0.f));
-        if (Health > 0.f && DodgeTimer <= 0.f && EnemyDamageCooldown <= 0.f &&
-            NearestEnemyIndex(175.f) != INDEX_NONE)
+        if (Health > 0.f && EnemyDamageCooldown <= 0.f)
         {
-            const FWorldEnemy& Nearby = Enemies[NearestEnemyIndex(175.f)];
-            Health = FMath::Max(0.f, Health - (5.f + 2.f * Nearby.Region));
-            EnemyDamageCooldown = 1.2f;
+            const int32 NearbyIndex = NearestEnemyIndex(175.f);
+            if (NearbyIndex != INDEX_NONE)
+            {
+                if (DodgeTimer > 0.f) CounterWindow = CounterDuration;
+                else Health = FMath::Max(0.f, Health - (5.f + 2.f * Enemies[NearbyIndex].Region));
+                EnemyDamageCooldown = 1.2f;
+            }
         }
     }
     if (bWon || Health <= 0.f) return;
@@ -588,8 +599,11 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
             bCasting = false;
             WarningMesh->SetVisibility(false);
             CastCooldown = 3.5f;
-            if (DodgeTimer <= 0.f && FVector::Dist2D(HeroMesh->GetRelativeLocation(), TargetWorld) < 250.f)
-                Health = FMath::Max(0.f, Health - 20.f);
+            if (FVector::Dist2D(HeroMesh->GetRelativeLocation(), TargetWorld) < 250.f)
+            {
+                if (DodgeTimer > 0.f) CounterWindow = CounterDuration;
+                else Health = FMath::Max(0.f, Health - 20.f);
+            }
         }
     }
 
