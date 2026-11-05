@@ -11,7 +11,7 @@ Canonical implementation: `godot-v38/` on `main`. Never alter Godot saves, scene
 ## Port status
 | System | Existing Godot | Unity 6 experiment | Unreal 5 experiment |
 |---|---|---|---|
-| Continuous six-region world, traversal and dungeons | Source exists, extent requires audit | Not ported | Not ported |
+| Continuous six-region world, traversal and dungeons | Source exists, extent requires audit | Six adjacent connected test regions with 18 persistent enemies; actual Godot dungeons not ported | Six adjacent connected test regions with 18 persistent enemies; actual Godot dungeons not ported |
 | Combat and boss warnings | Source exists | Primitive test encounter only | Primitive test encounter only |
 | Permanent progress and save migrations | Existing Godot format | Experimental PlayerPrefs for HP victories and relic inventory, not compatible | Isolated SaveGame for HP victories and relic inventory, not compatible |
 | Inventory/crafting capacity & cost rules | `inventory_rules.gd` | `MoonfallInventoryRules.cs` source parity port added | `MoonfallInventoryRules.h` source parity port added |
@@ -60,3 +60,6 @@ The Unity and Unreal experimental combat slices now implement a **Q arcane bolt*
 
 ## Original artwork hookups
 Unity now loads the original imported Z and Nyra hero images as camera-facing sprite visuals (keys 1 and 2), and the imported boss_0 art for the experimental boss. Missing assets retain the old placeholders. Unreal now uses original hero and boss textures as billboards once the separately staged artwork is imported in Unreal Editor. This connects art to prototype entities without changing the source pixels. Neither version has animated 3D character meshes or a complete character-select system yet. Editor compilation and visual tests are pending.
+
+## Connected-world combat foundation (2026-11-05)
+Both prototypes now build **one contiguous six-region test strip** at startup with slightly overlapping ground sections, **three fixed beast enemies per region (18 total)**, and a boss stationed at the far end. There are no wave spawns, region selection modes, or scene transitions. Fixed monsters have region-scaled health and contact damage, accept left-click and Q spell attacks, award zone-based XP once killed, and persist a saved 18-bit defeated-enemy mask in their isolated prototype saves. The compact minimap follows the hero and marks nearby beasts and the boss. Original bestiary artwork is used where engine import permits, with safe geometric fallbacks. This demonstrates a single-world RPG system but **does not reproduce the original Godot region maps, five dungeons per zone, quests, terrain artistry, navigable obstacles, loot tables or world streaming**. Real engine compilation, stability, performance and Windows installs are unverified. No production Godot assets, hero appearances or save files were modified.
