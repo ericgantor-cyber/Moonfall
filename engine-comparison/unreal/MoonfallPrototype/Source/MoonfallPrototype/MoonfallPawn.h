@@ -21,6 +21,7 @@ class MOONFALLPROTOTYPE_API AMoonfallPawn : public APawn
 public:
     AMoonfallPawn();
     virtual void BeginPlay() override;
+    virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
     virtual void Tick(float DeltaSeconds) override;
     virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
     float GetHudHealth() const { return Health; }
