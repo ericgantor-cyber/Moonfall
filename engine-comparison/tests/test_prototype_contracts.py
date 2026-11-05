@@ -84,6 +84,18 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("a.CompareTo(b)", unity)
         self.assertIn("A < B", unreal)
 
+    def test_unreal_mob_and_boss_strikes_share_damage_recovery(self):
+        tick = self.cpp.split("void AMoonfallPawn::Tick(", 1)[1]
+        self.assertIn("if (Health > 0.f && EnemyDamageCooldown <= 0.f)", tick)
+        self.assertIn("if (ContactIndex != INDEX_NONE)", tick)
+        boss = tick.split("if (CastTimer <= 0.f)", 1)[1]
+        self.assertIn("if (DodgeTimer > 0.f)", boss)
+        self.assertIn("else if (EnemyDamageCooldown <= 0.f)", boss)
+        self.assertIn("EnemyDamageCooldown = 1.2f;", boss)
+        self.assertLess(boss.index("else if (EnemyDamageCooldown <= 0.f)"),
+                        boss.index("Health = FMath::Max(0.f, Health -"))
+        self.assertIn("EnemyDamageCooldown = FMath::Max(0.f, EnemyDamageCooldown - Dt);", tick)
+
     def test_unreal_targeting_ignores_missing_meshes_and_avoids_sqrt(self):
         nearest = self.cpp.split("int32 AMoonfallPawn::NearestEnemyIndex(float Radius) const", 1)[1].split(
             "TArray<FVector> AMoonfallPawn::GetEnemyMapPositions()", 1)[0]
