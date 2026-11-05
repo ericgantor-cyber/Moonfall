@@ -43,15 +43,16 @@ AMoonfallPawn::AMoonfallPawn()
     static ConstructorHelpers::FObjectFinder<UStaticMesh> Cube(TEXT("/Engine/BasicShapes/Cube.Cube"));
     static ConstructorHelpers::FObjectFinder<UStaticMesh> Sphere(TEXT("/Engine/BasicShapes/Sphere.Sphere"));
     static ConstructorHelpers::FObjectFinder<UStaticMesh> Cylinder(TEXT("/Engine/BasicShapes/Cylinder.Cylinder"));
-    if (Cube.Succeeded()) FloorMesh->SetStaticMesh(Cube.Object);
+    if (Cube.Succeeded()) { FloorMesh->SetStaticMesh(Cube.Object); RegionShape = Cube.Object; }
     if (Sphere.Succeeded())
     {
+        EnemyShape = Sphere.Object;
         HeroMesh->SetStaticMesh(Sphere.Object);
         BossMesh->SetStaticMesh(Sphere.Object);
     }
     if (Cylinder.Succeeded()) WarningMesh->SetStaticMesh(Cylinder.Object);
     HeroMesh->SetRelativeLocation(FVector(0.f, -500.f, 100.f));
-    BossMesh->SetRelativeLocation(FVector(0.f, 600.f, 100.f));
+    BossMesh->SetRelativeLocation(FVector(MoonfallWorldRules::BossX, 600.f, 100.f));
     BossMesh->SetRelativeScale3D(FVector(2.f));
     WarningMesh->SetRelativeScale3D(FVector(5.f, 5.f, 0.01f));
     WarningMesh->SetVisibility(false);
@@ -75,6 +76,7 @@ void AMoonfallPawn::BeginPlay()
         if (const UMoonfallProgressSave* Progress = Cast<UMoonfallProgressSave>(Loaded))
         {
             Victories = FMath::Clamp(Progress->PermanentBossVictories, 0, 100);
+            DefeatedEnemyMask = Progress->DefeatedEnemyMask & ((1 << MoonfallWorldRules::TotalEnemies) - 1);
             Progression.Level = FMath::Clamp(Progress->HeroLevel, 1, 100);
             Progression.Experience = FMath::Clamp(Progress->HeroXP, 0, Progression.ExperienceToNext() - 1);
             Progression.HeroPoints = FMath::Clamp(Progress->HeroPoints, 0, 100);
@@ -87,6 +89,7 @@ void AMoonfallPawn::BeginPlay()
         }
     }
     Health = 100.f + 5.f * Victories;
+    BuildWorld();
     // These paths exist only after running the Unreal Editor art importer.
     // Missing imports keep the geometric placeholders visible.
     ZArtwork = LoadObject<UTexture2D>(nullptr, TEXT("/Game/MoonfallArt/heroes/Z_Original.Z_Original"));
@@ -98,6 +101,117 @@ void AMoonfallPawn::BeginPlay()
     if (BossArtwork) BossMesh->SetHiddenInGame(true);
     ApplyHeroArtwork(ZArtwork ? 0 : 1);
 
+}
+
+void AMoonfallPawn::BuildWorld()
+{
+    // One contiguous strip of six 34 m cells, overlapping 2 m; no waves.
+    static const TCHAR* BeastNames[MoonfallWorldRules::RegionCount] =
+        { TEXT("wolf"), TEXT("fox"), TEXT("boar"), TEXT("elk"), TEXT("panther"), TEXT("serpent") };
+    for (int32 Region = 0; Region < MoonfallWorldRules::RegionCount; ++Region)
+    {
+        if (Region > 0 && RegionShape)
+        {
+            UStaticMeshComponent* Ground = NewObject<UStaticMeshComponent>(this);
+            Ground->SetupAttachment(Root);
+            Ground->SetStaticMesh(RegionShape);
+            Ground->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+            Ground->SetRelativeLocation(FVector(MoonfallWorldRules::RegionCenter(Region), 0.f, -30.f));
+            Ground->SetRelativeScale3D(FVector(34.f, 34.f, .5f));
+            AddInstanceComponent(Ground);
+            Ground->RegisterComponent();
+        }
+        const FString Name = BeastNames[Region];
+        UTexture2D* OriginalArt = LoadObject<UTexture2D>(nullptr,
+            *FString::Printf(TEXT("/Game/MoonfallArt/v31_4_bestiary/%s.%s"), *Name, *Name));
+        for (int32 Slot = 0; Slot < MoonfallWorldRules::EnemiesPerRegion; ++Slot)
+        {
+            const int32 Id = Region * MoonfallWorldRules::EnemiesPerRegion + Slot;
+            if ((DefeatedEnemyMask & (1 << Id)) != 0) continue;
+            UStaticMeshComponent* Body = NewObject<UStaticMeshComponent>(this);
+            Body->SetupAttachment(Root);
+            Body->SetStaticMesh(EnemyShape);
+            Body->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+            Body->SetRelativeLocation(MoonfallWorldRules::EnemyPosition(Region, Slot));
+            Body->SetRelativeScale3D(FVector(1.1f));
+            AddInstanceComponent(Body);
+            Body->RegisterComponent();
+
+            UBillboardComponent* Portrait = nullptr;
+            if (OriginalArt)
+            {
+                Portrait = NewObject<UBillboardComponent>(this);
+                Portrait->SetupAttachment(Body);
+                Portrait->SetSprite(OriginalArt);
+                Portrait->SetRelativeScale3D(FVector(2.f));
+                AddInstanceComponent(Portrait);
+                Portrait->RegisterComponent();
+                Body->SetHiddenInGame(true);
+            }
+
+            FWorldEnemy Enemy;
+            Enemy.Mesh = Body;
+            Enemy.Portrait = Portrait;
+            Enemy.Health = MoonfallWorldRules::EnemyMaxHealth(Region);
+            Enemy.Region = Region;
+            Enemy.Id = Id;
+            Enemies.Add(Enemy);
+        }
+    }
+}
+
+int32 AMoonfallPawn::NearestEnemyIndex(float Radius) const
+{
+    int32 Best = INDEX_NONE;
+    float Distance = Radius;
+    const FVector HeroPosition = HeroMesh->GetRelativeLocation();
+    for (int32 I = 0; I < Enemies.Num(); ++I)
+    {
+        const FWorldEnemy& Enemy = Enemies[I];
+        const float Current = FVector::Dist2D(Enemy.Mesh->GetRelativeLocation(), HeroPosition);
+        if (Current < Distance) { Distance = Current; Best = I; }
+    }
+    return Best;
+}
+
+TArray<FVector> AMoonfallPawn::GetEnemyMapPositions() const
+{
+    TArray<FVector> Result;
+    Result.Reserve(Enemies.Num());
+    for (const FWorldEnemy& Enemy : Enemies)
+        if (Enemy.Mesh) Result.Add(Enemy.Mesh->GetRelativeLocation());
+    return Result;
+}
+
+void AMoonfallPawn::DamageWorldEnemy(int32 Index, float Damage)
+{
+    if (!Enemies.IsValidIndex(Index)) return;
+    FWorldEnemy& Enemy = Enemies[Index];
+    Enemy.Health = FMath::Max(0.f, Enemy.Health - Damage);
+    if (Enemy.Health > 0.f) return;
+    const int32 Region = Enemy.Region;
+    DefeatedEnemyMask |= 1 << Enemy.Id;
+    if (Enemy.Portrait) Enemy.Portrait->DestroyComponent();
+    Enemy.Mesh->DestroyComponent();
+    Enemies.RemoveAt(Index);
+    Progression.AwardDefeat(Region, false, false, GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f);
+    SaveProgress();
+}
+
+void AMoonfallPawn::SaveProgress()
+{
+    UMoonfallProgressSave* Progress = Cast<UMoonfallProgressSave>(
+        UGameplayStatics::CreateSaveGameObject(UMoonfallProgressSave::StaticClass()));
+    if (!Progress) { UE_LOG(LogTemp, Warning, TEXT("Moonfall: could not create SaveGame.")); return; }
+    Progress->PermanentBossVictories = Victories;
+    Progress->BossRelics = BossInventory;
+    Progress->HeroLevel = Progression.Level;
+    Progress->HeroXP = Progression.Experience;
+    Progress->HeroPoints = Progression.HeroPoints;
+    Progress->TamerPoints = Progression.TamerPoints;
+    Progress->DefeatedEnemyMask = DefeatedEnemyMask;
+    if (!UGameplayStatics::SaveGameToSlot(Progress, TEXT("MoonfallPrototypeBossRewards"), 0))
+        UE_LOG(LogTemp, Warning, TEXT("Moonfall prototype: reward save failed."));
 }
 
 void AMoonfallPawn::ApplyHeroArtwork(int32 Index)
