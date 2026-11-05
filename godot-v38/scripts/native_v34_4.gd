@@ -151,10 +151,6 @@ func _unhandled_input(event:InputEvent)->void:
      _show_message("Invert horizontal camera: "+("ON" if v36_invert_x else "OFF"),1.2)
     KEY_F9:
      _v36_recenter_camera()
-    KEY_F10:
-     v36_fov=_v36_cycle_camera_setting(V36_FOVS,v36_fov)
-     if is_instance_valid(camera):camera.fov=v36_fov
-     _show_message("Camera field of view "+str(roundi(v36_fov)),1.2)
     KEY_PAGEUP:
      _v24_set_zoom(v24_camera_size-1.5)
     KEY_PAGEDOWN:
@@ -167,8 +163,9 @@ func _unhandled_input(event:InputEvent)->void:
     return
  # WoW-style third-person zoom: wheel up approaches, wheel down retreats.
  # Only active during gameplay; UI scroll and menus remain unaffected.
- if event is InputEventMouseButton and event.pressed and hero_playing and not menu_open and not death_active:
+ if event is InputEventMouseButton and event.pressed and hero_playing and not menu_open and not death_active and not wait_open and not wait_transition_active:
   if event.button_index==MOUSE_BUTTON_WHEEL_UP or event.button_index==MOUSE_BUTTON_WHEEL_DOWN:
+   # Every wheel movement controls zoom; FOV is exclusive to Settings.
    # Shift makes precise half-steps; Ctrl gives larger quick-travel zoom.
    var step:float=3.0 if event.ctrl_pressed else 0.75 if event.shift_pressed else 1.5
    var direction:float=-step if event.button_index==MOUSE_BUTTON_WHEEL_UP else step

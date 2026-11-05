@@ -42,13 +42,131 @@ func _on_aim_assist_toggled(enabled:bool)->void:
  var result:Error=config.save(AIM_PREFS_PATH)
  if result!=OK:push_warning("Unable to save aim preference: "+str(result))
 
+# Optional WoW-inspired modifier layer. Unmodified controller buttons and
+# existing mouse/keyboard bindings remain inherited and fully functional.
+# Two trigger layers share the same four face buttons: no extra game mode.
+func _wow_combo_action(button:int,left:bool,right:bool)->String:
+ if left==right:return ""
+ if left:
+  match button:
+   JOY_BUTTON_X:return "dash"
+   JOY_BUTTON_Y:return "nova"
+   JOY_BUTTON_B:return "fire"
+   JOY_BUTTON_A:return "jump"
+ else:
+  match button:
+   JOY_BUTTON_X:return "senses"
+   JOY_BUTTON_Y:return "companion"
+   JOY_BUTTON_B:return "mount"
+   JOY_BUTTON_A:return "interact"
+ return ""
+
+func _wow_keyboard_action(key:int)->String:
+ match key:
+  KEY_1:return "dash"
+  KEY_2:return "nova"
+  KEY_3:return "fire"
+  KEY_4:return "senses"
+  KEY_5:return "companion"
+  KEY_6:return "mount"
+ return ""
+
+func _wow_perform_action(action:String)->void:
+ match action:
+  "dash":_spell("dash")
+  "nova":_spell("nova")
+  "fire":_spell("fire")
+  "jump":_jump()
+  "senses":_toggle_senses()
+  "companion":_cycle_companion_stance()
+  "mount":_toggle_mount()
+  "interact":_interact()
+
+func _unhandled_key_input(event:InputEvent)->void:
+ # Godot dispatches unhandled keyboard input before generic unhandled input.
+ # This must run before the inherited handler marks all keys consumed.
+ if event is InputEventKey and event.pressed and not event.echo and event.alt_pressed and not event.ctrl_pressed and hero_playing and not menu_open and not death_active and not wait_open and not wait_transition_active:
+  var action:String=_wow_keyboard_action(event.keycode)
+  if not action.is_empty():
+   _wow_perform_action(action)
+   get_viewport().set_input_as_handled()
+   return
+ super._unhandled_key_input(event)
+
 func _unhandled_input(event:InputEvent)->void:
+ # Intercept only explicit modifiers while playing, never menus or rest.
+ if hero_playing and not menu_open and not death_active and not wait_open and not wait_transition_active:
+  if event is InputEventJoypadButton and event.pressed:
+   var left:bool=Input.get_joy_axis(event.device,JOY_AXIS_TRIGGER_LEFT)>0.6
+   var right:bool=Input.get_joy_axis(event.device,JOY_AXIS_TRIGGER_RIGHT)>0.6
+   var action:String=_wow_combo_action(event.button_index,left,right)
+   if not action.is_empty():
+    _wow_perform_action(action)
+    get_viewport().set_input_as_handled()
+    return
  # Mouse motion claims aim source even while a controller remains connected.
  if event is InputEventMouseMotion:
   aim_input_source="mouse"
  elif event is InputEventJoypadMotion and (event.axis==JOY_AXIS_RIGHT_X or event.axis==JOY_AXIS_RIGHT_Y) and absf(event.axis_value)>AIM_STICK_DEADZONE:
   aim_input_source="pad"
  super._unhandled_input(event)
+
+# Camera preferences are only adjusted through the Atlas > System > Camera
+# Settings panel. The two FOV controls are focusable buttons, not gameplay keys.
+func _menu_tab(which:String)->void:
+ super._menu_tab(which)
+ if which=="System" and is_instance_valid(menu_body):
+  _atlas_action("CAMERA SETTINGS • FOV, ORBIT & ACCESSIBILITY","camera_settings_open","Adjust field of view using focused buttons; mouse wheel always zooms during gameplay.")
+
+func _v36_set_fov(value:float)->void:
+ # FOV only changes through Atlas Settings; never from gameplay mouse input.
+ v36_fov=clampf(value,58.0,76.0)
+ if is_instance_valid(camera):camera.fov=v36_fov
+ _v36_save_camera_preferences()
+
+func _v36_show_camera_settings()->void:
+ if not is_instance_valid(menu_body) or not is_instance_valid(menu_buttons):return
+ current_tab="System"
+ for child in menu_buttons.get_children():child.queue_free()
+ var view_label:String="WIDE" if v36_fov>=72.0 else "FOCUSED" if v36_fov<=62.0 else "BALANCED"
+ menu_body.text="[b]CAMERA SETTINGS[/b]\nAll camera preferences save automatically. Use buttons with mouse, keyboard focus, or controller.\n\n[b]FIELD OF VIEW[/b]: "+str(roundi(v36_fov))+"°  • "+view_label+"\nFocused 58°: larger distant objects | Balanced 66°: default | Wide 76°: more surroundings.\nCamera zoom is independent: gameplay mouse wheel always moves the camera closer or farther.\n\n[b]ORBIT SENSITIVITY[/b]: "+str(v36_orbit_sensitivity)+"\n[b]INVERT HORIZONTAL[/b]: "+("ON" if v36_invert_x else "OFF")+"\n[b]INVERT VERTICAL[/b]: "+("ON" if v36_invert_y else "OFF")+"\n\nAlt+right-drag orbits; right-click guards."
+ _atlas_action("FOV − 1° • FINE","camera_fov_fine_down","Narrow the view by one degree")
+ _atlas_action("FOV + 1° • FINE","camera_fov_fine_up","Widen the view by one degree")
+ _atlas_action("FOV − 5° • QUICK","camera_fov_down","Narrow the view quickly")
+ _atlas_action("FOV + 5° • QUICK","camera_fov_up","Widen the view quickly")
+ _atlas_action("FOCUSED VIEW • 58°","camera_fov_focused","Larger distant targets")
+ _atlas_action("BALANCED VIEW • 66°","camera_fov_reset","Original view")
+ _atlas_action("WIDE VIEW • 76°","camera_fov_wide","See more of the surrounding world")
+ _atlas_action("CYCLE ORBIT SENSITIVITY","camera_sensitivity")
+ _atlas_action("TOGGLE HORIZONTAL INVERSION","camera_invert_x")
+ _atlas_action("TOGGLE VERTICAL INVERSION","camera_invert_y")
+ _atlas_action("RECENTER CAMERA","camera_recenter")
+ _atlas_action("BACK TO SYSTEM","camera_settings_back")
+
+func _atlas_execute(action:String)->void:
+ if action.begins_with("camera_"):
+  if action=="camera_settings_open":
+   _v36_show_camera_settings()
+   return
+  if action=="camera_settings_back":
+   _menu_tab("System")
+   return
+  match action:
+   "camera_fov_fine_down":_v36_set_fov(v36_fov-1.0)
+   "camera_fov_fine_up":_v36_set_fov(v36_fov+1.0)
+   "camera_fov_down":_v36_set_fov(v36_fov-5.0)
+   "camera_fov_up":_v36_set_fov(v36_fov+5.0)
+   "camera_fov_focused":_v36_set_fov(58.0)
+   "camera_fov_reset":_v36_set_fov(66.0)
+   "camera_fov_wide":_v36_set_fov(76.0)
+   "camera_sensitivity":v36_orbit_sensitivity=_v36_cycle_camera_setting(V36_SENSITIVITIES,v36_orbit_sensitivity)
+   "camera_invert_x":v36_invert_x=not v36_invert_x
+   "camera_invert_y":v36_invert_y=not v36_invert_y
+   "camera_recenter":_v36_recenter_camera()
+  _v36_save_camera_preferences()
+  _v36_show_camera_settings()
+  return
+ super._atlas_execute(action)
 
 func _process(delta:float)->void:
  # Parent supplies aim direction and combat actions.

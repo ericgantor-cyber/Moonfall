@@ -100,6 +100,34 @@ class DivineBossIntegrationTests(unittest.TestCase):
         # No save migration or extra meshes required for either encounter.
         self.assertEqual(LIVE.count('warning:=MeshInstance3D.new()'), 1)
 
+    def test_wow_style_keyboard_and_controller_layers_preserve_base_controls(self):
+        self.assertIn('func _wow_combo_action(button:int,left:bool,right:bool)->String:', LIVE)
+        self.assertIn('if left==right:return ""', LIVE)
+        for action in ('dash', 'nova', 'fire', 'jump', 'senses', 'companion', 'mount', 'interact'):
+            self.assertIn('return "' + action + '"', LIVE)
+        self.assertIn('JOY_AXIS_TRIGGER_LEFT', LIVE)
+        self.assertIn('JOY_AXIS_TRIGGER_RIGHT', LIVE)
+        self.assertIn('func _unhandled_key_input(event:InputEvent)->void:', LIVE)
+        self.assertIn('super._unhandled_key_input(event)', LIVE)
+        self.assertIn('super._unhandled_input(event)', LIVE)
+        self.assertIn('event.alt_pressed and not event.ctrl_pressed', LIVE)
+        self.assertIn('not wait_open and not wait_transition_active', LIVE)
+        self.assertNotIn('KEY_SPACE:return "attack"', LIVE)
+
+    def test_fov_settings_exclusive_and_accessible(self):
+        camera = (ROOT / "scripts/native_v34_4.gd").read_text(encoding="utf-8")
+        self.assertIn('func _v36_set_fov(value:float)->void:', LIVE)
+        self.assertIn('v36_fov=clampf(value,58.0,76.0)', LIVE)
+        for control in ('camera_fov_fine_down', 'camera_fov_fine_up',
+                        'camera_fov_down', 'camera_fov_up',
+                        'camera_fov_focused', 'camera_fov_reset', 'camera_fov_wide'):
+            self.assertIn(control, LIVE)
+        self.assertIn('if is_instance_valid(camera):camera.fov=v36_fov', LIVE)
+        self.assertIn('_v36_save_camera_preferences()', LIVE)
+        self.assertIn('if action=="camera_settings_open":', LIVE)
+        self.assertNotIn('KEY_F11', camera)
+        self.assertNotIn('v36_fov=clampf(v36_fov+fov_step', camera)
+
     def test_existing_save_ids_are_stable_and_no_new_waves(self):
         self.assertIn('var prior:int=beasts.size()', LIVE)
         self.assertIn('if beasts.size()!=prior+1:return', LIVE)
