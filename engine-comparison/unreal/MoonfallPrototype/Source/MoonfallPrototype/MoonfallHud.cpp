@@ -44,8 +44,20 @@ void AMoonfallHud::DrawHUD()
     {
         const float Width = FMath::Min(300.f, Canvas->ClipX * .34f);
         const float Height = Width * static_cast<float>(OrnateOrbs->GetSizeY()) / FMath::Max(1, OrnateOrbs->GetSizeX());
-        DrawTexture(OrnateOrbs, 12.f, Canvas->ClipY - Height - 12.f, Width, Height,
+        const float Left = 12.f, Top = Canvas->ClipY - Height - 12.f;
+        DrawTexture(OrnateOrbs, Left, Top, Width, Height,
             0.f, 0.f, 1.f, 1.f, FLinearColor::White);
+        // Numeric state lives INSIDE the existing orbs, with no extra HUD widgets.
+        const float X = Width / 680.f, Y = Height / 424.f;
+        const float TextScale = FMath::Clamp(Width / 680.f * 1.8f, .65f, 1.f);
+        DrawText(FString::Printf(TEXT("%.0f/%.0f"), Hero->GetHudHealth(), Hero->GetHudMaxHealth()),
+            FLinearColor::White, Left + 240.f*X, Top + 158.f*Y, nullptr, TextScale);
+        DrawText(FString::Printf(TEXT("%.0f/%.0f"), Hero->GetHudMana(), Hero->GetHudMaxMana()),
+            FLinearColor::White, Left + 46.f*X, Top + 235.f*Y, nullptr, TextScale);
+        DrawText(FString::Printf(TEXT("%d/%d"), Hero->GetHudExperience(), Hero->GetHudExperienceToNext()),
+            FLinearColor::White, Left + 496.f*X, Top + 235.f*Y, nullptr, TextScale);
+        DrawText(FString::Printf(TEXT("%.0f/%.0f"), Hero->GetHudStamina(), Hero->GetHudMaxStamina()),
+            FLinearColor::White, Left + 280.f*X, Top + 348.f*Y, nullptr, TextScale);
     }
     else
     {
