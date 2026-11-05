@@ -12,4 +12,8 @@ class MOONFALLPROTOTYPE_API UMoonfallProgressSave : public USaveGame
 public:
     UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category="Prototype")
     int32 PermanentBossVictories = 0;
+
+    // Prototype-only collectible list; maximum one per victory, 100 entries.
+    UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category="Prototype")
+    TArray<FString> BossRelics;
 };
