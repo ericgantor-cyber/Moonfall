@@ -355,14 +355,21 @@ void AMoonfallPawn::UpdateWorldEnemies(float Dt)
 
 int32 AMoonfallPawn::NearestEnemyIndex(float Radius) const
 {
+    if (!HeroMesh || Radius <= 0.f) return INDEX_NONE;
     int32 Best = INDEX_NONE;
-    float Distance = Radius;
+    float BestDistanceSq = FMath::Square(Radius);
     const FVector HeroPosition = HeroMesh->GetRelativeLocation();
     for (int32 I = 0; I < Enemies.Num(); ++I)
     {
         const FWorldEnemy& Enemy = Enemies[I];
-        const float Current = FVector::Dist2D(Enemy.Mesh->GetRelativeLocation(), HeroPosition);
-        if (Current < Distance) { Distance = Current; Best = I; }
+        if (!Enemy.Mesh) continue; // An unspawned or destroyed mesh is not targetable.
+        const FVector Delta = Enemy.Mesh->GetRelativeLocation() - HeroPosition;
+        const float DistanceSq = Delta.SizeSquared2D();
+        if (DistanceSq < BestDistanceSq)
+        {
+            BestDistanceSq = DistanceSq;
+            Best = I;
+        }
     }
     return Best;
 }
