@@ -609,7 +609,8 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
     BoltCooldown = FMath::Max(0.f, BoltCooldown - Dt);
     HealCooldown = FMath::Max(0.f, HealCooldown - Dt);
     EnemyDamageCooldown = FMath::Max(0.f, EnemyDamageCooldown - Dt);
-    CounterWindow = FMath::Max(0.f, CounterWindow - Dt);
+    // Preserve earned ripostes during a render stall, matching dodge and telegraph timing.
+    CounterWindow = FMath::Max(0.f, CounterWindow - ReactionDt);
     CheckpointTimer += Dt;
     if (Health > 0.f)
     {
