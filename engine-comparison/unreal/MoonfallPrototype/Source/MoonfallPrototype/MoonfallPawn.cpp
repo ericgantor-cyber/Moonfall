@@ -61,7 +61,14 @@ void AMoonfallPawn::BeginPlay()
     if (USaveGame* Loaded = UGameplayStatics::LoadGameFromSlot(TEXT("MoonfallPrototypeBossRewards"), 0))
     {
         if (const UMoonfallProgressSave* Progress = Cast<UMoonfallProgressSave>(Loaded))
+        {
             Victories = FMath::Clamp(Progress->PermanentBossVictories, 0, 100);
+            for (const FString& Relic : Progress->BossRelics)
+            {
+                if (BossInventory.Num() >= 100) break;
+                if (!Relic.IsEmpty() && Relic.Len() <= 100) BossInventory.Add(Relic);
+            }
+        }
     }
     Health = 100.f + 5.f * Victories;
     if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 6.f, FColor::Cyan, TEXT("Moonfall Unreal experiment: WASD, click attack, Shift dodge, wheel zoom"));
@@ -104,17 +111,19 @@ void AMoonfallPawn::Victory()
     // Prototype drop uses matching rarity thresholds, not a Godot-compatible RNG seed.
     const int32 Rank = MoonfallLootRules::RarityIndex(FMath::RandRange(0, 999), 0, 0);
     BossLoot = FString(MoonfallLootRules::Rarities[Rank]) + TEXT(" boss relic (prototype)");
+    if (BossInventory.Num() < 100) BossInventory.Add(BossLoot);
     UMoonfallProgressSave* Progress = Cast<UMoonfallProgressSave>(
         UGameplayStatics::CreateSaveGameObject(UMoonfallProgressSave::StaticClass()));
     bool bSaved = false;
     if (Progress)
     {
         Progress->PermanentBossVictories = Victories;
+        Progress->BossRelics = BossInventory;
         bSaved = UGameplayStatics::SaveGameToSlot(Progress, TEXT("MoonfallPrototypeBossRewards"), 0);
     }
     if (GEngine)
     {
-        GEngine->AddOnScreenDebugMessage(-1, 15.f, FColor::Cyan, TEXT("Loot: ") + BossLoot);
+        GEngine->AddOnScreenDebugMessage(-1, 15.f, FColor::Cyan, TEXT("Loot: ") + BossLoot + FString::Printf(TEXT(" | Inventory: %d/100"), BossInventory.Num()));
         GEngine->AddOnScreenDebugMessage(-1, 15.f, bSaved ? FColor::Green : FColor::Yellow,
             bSaved ? TEXT("Victory! Permanent boss reward saved.") : TEXT("Victory! WARNING: prototype reward save failed."));
     }
