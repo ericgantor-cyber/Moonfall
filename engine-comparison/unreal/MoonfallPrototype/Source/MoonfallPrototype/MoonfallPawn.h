@@ -10,6 +10,8 @@ class USceneComponent;
 class UStaticMeshComponent;
 class USpringArmComponent;
 class UCameraComponent;
+class UBillboardComponent;
+class UTexture2D;
 
 UCLASS()
 class MOONFALLPROTOTYPE_API AMoonfallPawn : public APawn
@@ -40,6 +42,11 @@ private:
     UPROPERTY() UStaticMeshComponent* BossMesh;
     UPROPERTY() UStaticMeshComponent* WarningMesh;
     UPROPERTY() UStaticMeshComponent* FloorMesh;
+    UPROPERTY() UBillboardComponent* HeroPortrait;
+    UPROPERTY() UBillboardComponent* BossPortrait;
+    UPROPERTY() UTexture2D* ZArtwork;
+    UPROPERTY() UTexture2D* NyraArtwork;
+    int32 HeroArtIndex = 0;
     UPROPERTY() USpringArmComponent* CameraBoom;
     UPROPERTY() UCameraComponent* Camera;
     float Forward = 0.f, Right = 0.f, Health = 100.f, BossHealth = 100.f;
@@ -60,5 +67,8 @@ private:
     void Dodge();
     void CastBolt();
     void CastHeal();
+    void ChooseZ();
+    void ChooseNyra();
+    void ApplyHeroArtwork(int32 Index);
     void Victory();
 };
