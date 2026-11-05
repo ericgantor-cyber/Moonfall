@@ -25,7 +25,7 @@ public:
     virtual void Tick(float DeltaSeconds) override;
     virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
     float GetHudHealth() const { return Health; }
-    float GetHudMaxHealth() const { return 100.f + 5.f * Victories; }
+    float GetHudMaxHealth() const { return 100.f + 5.f * Victories + 2.f * (Progression.Level - 1); }
     float GetHudMana() const { return Mana; }
     float GetHudMaxMana() const { return 180.f; } // Spell mana spending not yet ported.
     float GetHudManaRatio() const { return Mana / GetHudMaxMana(); }
