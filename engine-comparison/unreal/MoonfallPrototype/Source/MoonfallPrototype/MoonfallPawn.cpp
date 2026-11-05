@@ -310,9 +310,10 @@ void AMoonfallPawn::UpdateWorldEnemies(float Dt)
     for (FWorldEnemy& Enemy : Enemies)
     {
         if (!Enemy.Mesh) continue;
-        // Short stagger from an earned riposte cancels movement and contact.
-        // The timer is capped like dodge/telegraph reaction time during stalls.
-        if (Enemy.StaggerTimer > 0.f)
+        // Snapshot stagger before advancing timers so the final active frame
+        // blocks both movement and contact damage.
+        Enemy.bStaggeredThisFrame = Enemy.StaggerTimer > 0.f;
+        if (Enemy.bStaggeredThisFrame)
         {
             Enemy.StaggerTimer = FMath::Max(0.f, Enemy.StaggerTimer - MoveDt);
             continue;
@@ -702,7 +703,7 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
             for (int32 I = 0; I < Enemies.Num(); ++I)
             {
                 const FWorldEnemy& Candidate = Enemies[I];
-                if (!Candidate.Mesh || Candidate.bReturningHome || Candidate.StaggerTimer > 0.f) continue;
+                if (!Candidate.Mesh || Candidate.bReturningHome || Candidate.bStaggeredThisFrame) continue;
                 const FVector HomeOffset = Candidate.Mesh->GetRelativeLocation() - Candidate.Home;
                 const float Leash = Candidate.bGuardian ? 600.f : 900.f;
                 if (HomeOffset.SizeSquared2D() >= FMath::Square(Leash)) continue;
