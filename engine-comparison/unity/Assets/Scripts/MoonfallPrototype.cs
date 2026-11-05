@@ -102,6 +102,18 @@ public sealed class MoonfallPrototype : MonoBehaviour
             if (landmark != null) landmark.rotation = view.transform.rotation;
     }
 
+    // These two new AI-generated landscape crops contain no hero artwork or UI.
+    // The imported files are optional. Missing images never interrupt exploration.
+    void PlaceAilandmark(string resource, string name, Vector3 position, float height)
+    {
+        Texture2D art = Resources.Load<Texture2D>("MoonfallGeneratedArt/" + resource);
+        if (art == null) return;
+        var anchor = new GameObject(name);
+        anchor.transform.position = position;
+        Transform picture = AttachPortrait(anchor.transform, art, height);
+        if (picture != null) regionArt.Add(picture);
+    }
+
     void BuildWorld()
     {
         defeatedEnemyMask = PlayerPrefs.GetInt("moonfall_experiment_defeated_mobs", 0) & ((1 << MoonfallWorldRules.TotalEnemies) - 1);
@@ -124,6 +136,12 @@ public sealed class MoonfallPrototype : MonoBehaviour
                 Transform art = AttachPortrait(landmark.transform, vista, 7f);
                 if (art != null) regionArt.Add(art);
             }
+            if (region == 0)
+                PlaceAilandmark("moonfall_ai_waterfall_ruins",
+                    "New AI art waterfall ruins", new Vector3(center - 12f, 4f, 13f), 8f);
+            if (region == 4)
+                PlaceAilandmark("moonfall_ai_moonlit_gate",
+                    "New AI art moonlit dungeon gate", new Vector3(center + 10f, 4f, 13f), 9f);
             // Five side chambers per region overlap its floor edge, so players
             // walk straight into them without teleporting or changing game modes.
             for (int chamber = 0; chamber < MoonfallWorldRules.ChambersPerRegion; chamber++)
