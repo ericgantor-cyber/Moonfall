@@ -189,9 +189,22 @@ class PrototypeContracts(unittest.TestCase):
         self.assertNotIn("AddOnScreenDebugMessage", self.cpp)
         self.assertNotIn("GUI.Box(new Rect(10,10", self.unity)
 
-    def test_no_artwork_or_production_changes(self):
-        self.assertFalse(list(ROOT.rglob("*.png")))
-        self.assertFalse(list(ROOT.rglob("*.jpg")))
+    def test_original_art_import_is_checksum_guarded(self):
+        import_tool = (ROOT / "tools/import_godot_art.py").read_text()
+        verify_tool = (ROOT / "tools/verify_art_import.py").read_text()
+        self.assertIn("shutil.copyfile(src, destination)", import_tool)
+        self.assertIn("source_sha256", import_tool)
+        self.assertIn("Original Z and Nyra hero art not included", verify_tool)
+        self.assertIn("Original source SHA mismatch", verify_tool)
+        manifest = ROOT / "ART_IMPORT_MANIFEST.json"
+        if manifest.is_file():
+            import subprocess
+            import sys
+            result = subprocess.run([sys.executable, str(ROOT / "tools/verify_art_import.py")],
+                                    cwd=str(ROOT.parent), capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_original_godot_project_not_copied_into_engine_source(self):
         self.assertFalse(list(ROOT.rglob("*.godot")))
         self.assertFalse(list(ROOT.rglob("*.tscn")))
 
