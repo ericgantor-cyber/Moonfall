@@ -51,4 +51,14 @@ public:
 
     UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category="Prototype")
     float SavedHealth = 100.f;
+
+    // Separate version flag keeps older saves' default full resource bars.
+    UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category="Prototype")
+    bool bHasResourceCheckpoint = false;
+
+    UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category="Prototype")
+    float SavedMana = 180.f;
+
+    UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category="Prototype")
+    float SavedStamina = 150.f;
 };
