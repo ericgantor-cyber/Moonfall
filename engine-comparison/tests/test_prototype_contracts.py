@@ -477,6 +477,22 @@ class PrototypeContracts(unittest.TestCase):
         self.assertNotIn("Health + 20.f * LevelsGained", self.cpp)
         self.assertNotIn("hp + 20f * levelsGained", self.unity)
 
+    def test_unreal_death_save_does_not_wipe_last_living_checkpoint(self):
+        # SaveProgress must load/reuse a prior SaveGame, rather than always
+        # replacing it with default bHasCheckpoint=false when Health is zero.
+        start = self.cpp.index("void AMoonfallPawn::SaveProgress()")
+        end = self.cpp.index("void AMoonfallPawn::ApplyHeroArtwork(", start)
+        save_code = self.cpp[start:end]
+        self.assertIn('LoadGameFromSlot(TEXT("MoonfallPrototypeBossRewards"), 0)', save_code)
+        self.assertIn("if (!Progress)", save_code)
+        self.assertIn("CreateSaveGameObject(", save_code)
+        self.assertLess(save_code.index("LoadGameFromSlot("),
+                        save_code.index("CreateSaveGameObject("))
+        self.assertIn("if (HeroMesh && Health > 0.f)", save_code)
+        self.assertIn("Progress->bHasCheckpoint = true;", save_code)
+        self.assertNotIn("Progress->bHasCheckpoint = false;", save_code)
+        self.assertIn("Progress->SavedHealth = Health;", save_code)
+
     def test_original_art_import_is_checksum_guarded(self):
         import_tool = (ROOT / "tools/import_godot_art.py").read_text()
         verify_tool = (ROOT / "tools/verify_art_import.py").read_text()
