@@ -41,4 +41,14 @@ public:
 
     UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category="Prototype")
     int32 SelectedHeroIndex = 0;
+
+    // Isolated exploration checkpoint; older saves default to no checkpoint.
+    UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category="Prototype")
+    bool bHasCheckpoint = false;
+
+    UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category="Prototype")
+    FVector SavedHeroPosition = FVector::ZeroVector;
+
+    UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category="Prototype")
+    float SavedHealth = 100.f;
 };
