@@ -418,6 +418,17 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("engine-comparison/unreal/MoonfallPrototype/SourceArt/MoonfallGeneratedArt", installer)
         self.assertNotIn("godot-v38", installer)
 
+    def test_optional_art_publish_is_isolated_to_experimental_pr(self):
+        installer = (ROOT / "tools/install_generated_art.py").read_text(encoding="utf-8")
+        self.assertIn("--commit-and-push", installer)
+        self.assertIn('branch = "prototype/unreal-unity-comparison-20261104"', installer)
+        self.assertIn('current_branch = git("branch", "--show-current")', installer)
+        self.assertIn('"commit", "--only"', installer)
+        self.assertIn('"push", "origin", f"HEAD:{branch}"', installer)
+        self.assertIn('if args.commit_and_push:', installer)
+        self.assertNotIn("git push --force", installer)
+        self.assertNotIn("godot-v38", installer)
+
     def test_original_art_import_is_checksum_guarded(self):
         import_tool = (ROOT / "tools/import_godot_art.py").read_text()
         verify_tool = (ROOT / "tools/verify_art_import.py").read_text()
