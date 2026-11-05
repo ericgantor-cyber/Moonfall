@@ -54,6 +54,7 @@ private:
         float Health = 0.f;
         int32 Region = 0;
         int32 Id = 0;
+        bool bGuardian = false;
     };
     TArray<FWorldEnemy> Enemies;
     struct FChamberCache
@@ -63,6 +64,7 @@ private:
     };
     TArray<FChamberCache> ChamberCaches;
     int32 ClaimedChamberMask = 0;
+    int32 DefeatedGuardianMask = 0;
     int32 DefeatedEnemyMask = 0;
     float EnemyDamageCooldown = 0.f;
     UPROPERTY() UBillboardComponent* HeroPortrait;
