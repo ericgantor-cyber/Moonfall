@@ -92,6 +92,16 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("Stamina + 30.f * StaminaRegenDt", tick)
         self.assertNotIn("Stamina + 30.f * Dt", tick)
 
+    def test_unreal_final_stagger_frame_blocks_movement_and_contact(self):
+        self.assertIn("bool bStaggeredThisFrame = false;", self.header)
+        ai = self.cpp.split("void AMoonfallPawn::UpdateWorldEnemies(float Dt)", 1)[1].split(
+            "int32 AMoonfallPawn::NearestEnemyIndex", 1)[0]
+        self.assertIn("Enemy.bStaggeredThisFrame = Enemy.StaggerTimer > 0.f;", ai)
+        self.assertIn("if (Enemy.bStaggeredThisFrame)", ai)
+        self.assertLess(ai.index("Enemy.bStaggeredThisFrame = Enemy.StaggerTimer > 0.f;"),
+                        ai.index("Enemy.StaggerTimer = FMath::Max(0.f, Enemy.StaggerTimer - MoveDt);"))
+        self.assertIn("if (!Candidate.Mesh || Candidate.bReturningHome || Candidate.bStaggeredThisFrame) continue;", self.cpp)
+
     def test_unreal_guardian_riposte_knockback_stays_in_chamber(self):
         damage = self.cpp.split("void AMoonfallPawn::DamageWorldEnemy(", 1)[1].split(
             "TArray<FVector> AMoonfallPawn::GetChamberMapPositions()", 1)[0]
@@ -111,7 +121,7 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("if (bRiposte && Enemy.bGuardian)", self.cpp)
         self.assertIn("Enemy.StaggerTimer = 0.8f;", self.cpp)
         self.assertIn("Enemy.StaggerTimer = FMath::Max(0.f, Enemy.StaggerTimer - MoveDt);", self.cpp)
-        self.assertIn("if (!Candidate.Mesh || Candidate.bReturningHome || Candidate.StaggerTimer > 0.f) continue;", self.cpp)
+        self.assertIn("if (!Candidate.Mesh || Candidate.bReturningHome || Candidate.bStaggeredThisFrame) continue;", self.cpp)
         self.assertEqual(self.cpp.count("if (!bHitBoss) DamageWorldEnemy(EnemyIndex, Damage, bRiposte);"), 2)
 
     def test_unreal_dodge_stamina_regen_delay_keeps_perfect_dodge_reward(self):
