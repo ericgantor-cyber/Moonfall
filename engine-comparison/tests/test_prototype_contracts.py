@@ -84,6 +84,13 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("a.CompareTo(b)", unity)
         self.assertIn("A < B", unreal)
 
+    def test_unreal_dodge_window_matches_hitch_safe_boss_telegraph(self):
+        tick = self.cpp.split("void AMoonfallPawn::Tick(", 1)[1]
+        self.assertIn("const float ReactionDt = FMath::Min(Dt, 0.05f);", tick)
+        self.assertIn("DodgeTimer = FMath::Max(0.f, DodgeTimer - ReactionDt);", tick)
+        self.assertNotIn("DodgeTimer = FMath::Max(0.f, DodgeTimer - Dt);", tick)
+        self.assertIn("const float TelegraphDt = FMath::Min(Dt, 0.05f);", tick)
+
     def test_unreal_boss_telegraph_survives_frame_hitch(self):
         start = self.cpp.index("if (!bCasting)", self.cpp.index("void AMoonfallPawn::Tick("))
         boss = self.cpp[start:]
