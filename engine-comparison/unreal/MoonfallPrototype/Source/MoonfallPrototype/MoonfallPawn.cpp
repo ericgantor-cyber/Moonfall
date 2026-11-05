@@ -3,6 +3,8 @@
 #include "MoonfallLootRules.h"
 #include "Camera/CameraComponent.h"
 #include "Components/InputComponent.h"
+#include "Components/BillboardComponent.h"
+#include "Engine/Texture2D.h"
 #include "Components/SceneComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/Engine.h"
@@ -28,6 +30,14 @@ AMoonfallPawn::AMoonfallPawn()
     FloorMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Floor"));
     FloorMesh->SetupAttachment(Root);
     FloorMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+    HeroPortrait = CreateDefaultSubobject<UBillboardComponent>(TEXT("OriginalHeroArtwork"));
+    HeroPortrait->SetupAttachment(HeroMesh);
+    HeroPortrait->SetRelativeLocation(FVector(0.f, 0.f, 70.f));
+    HeroPortrait->SetRelativeScale3D(FVector(2.5f));
+    BossPortrait = CreateDefaultSubobject<UBillboardComponent>(TEXT("OriginalBossArtwork"));
+    BossPortrait->SetupAttachment(BossMesh);
+    BossPortrait->SetRelativeLocation(FVector(0.f, 0.f, 30.f));
+    BossPortrait->SetRelativeScale3D(FVector(2.5f));
     static ConstructorHelpers::FObjectFinder<UStaticMesh> Cube(TEXT("/Engine/BasicShapes/Cube.Cube"));
     static ConstructorHelpers::FObjectFinder<UStaticMesh> Sphere(TEXT("/Engine/BasicShapes/Sphere.Sphere"));
     static ConstructorHelpers::FObjectFinder<UStaticMesh> Cylinder(TEXT("/Engine/BasicShapes/Cylinder.Cylinder"));
@@ -75,8 +85,30 @@ void AMoonfallPawn::BeginPlay()
         }
     }
     Health = 100.f + 5.f * Victories;
+    // These paths exist only after running the Unreal Editor art importer.
+    // Missing imports keep the geometric placeholders visible.
+    ZArtwork = LoadObject<UTexture2D>(nullptr, TEXT("/Game/MoonfallArt/heroes/Z_Original.Z_Original"));
+    NyraArtwork = LoadObject<UTexture2D>(nullptr, TEXT("/Game/MoonfallArt/heroes/Nyra_Original.Nyra_Original"));
+    UTexture2D* BossArtwork = LoadObject<UTexture2D>(nullptr,
+        TEXT("/Game/MoonfallArt/v31_4_bestiary/boss_0.boss_0"));
+    BossPortrait->SetSprite(BossArtwork);
+    BossPortrait->SetHiddenInGame(BossArtwork == nullptr);
+    if (BossArtwork) BossMesh->SetHiddenInGame(true);
+    ApplyHeroArtwork(0);
 
 }
+
+void AMoonfallPawn::ApplyHeroArtwork(int32 Index)
+{
+    UTexture2D* Chosen = Index == 1 ? NyraArtwork : ZArtwork;
+    if (!Chosen) return; // Never replace artwork with a fabricated portrait.
+    HeroArtIndex = Index;
+    HeroPortrait->SetSprite(Chosen);
+    HeroPortrait->SetHiddenInGame(false);
+    HeroMesh->SetHiddenInGame(true);
+}
+void AMoonfallPawn::ChooseZ() { ApplyHeroArtwork(0); }
+void AMoonfallPawn::ChooseNyra() { ApplyHeroArtwork(1); }
 
 void AMoonfallPawn::MoveForward(float Value) { Forward = Value; }
 void AMoonfallPawn::MoveRight(float Value) { Right = Value; }
@@ -163,6 +195,8 @@ void AMoonfallPawn::SetupPlayerInputComponent(UInputComponent* Input)
     Input->BindAction(TEXT("Dodge"), IE_Pressed, this, &AMoonfallPawn::Dodge);
     Input->BindAction(TEXT("ArcaneBolt"), IE_Pressed, this, &AMoonfallPawn::CastBolt);
     Input->BindAction(TEXT("ArcaneHeal"), IE_Pressed, this, &AMoonfallPawn::CastHeal);
+    Input->BindAction(TEXT("SelectZArt"), IE_Pressed, this, &AMoonfallPawn::ChooseZ);
+    Input->BindAction(TEXT("SelectNyraArt"), IE_Pressed, this, &AMoonfallPawn::ChooseNyra);
 }
 void AMoonfallPawn::Tick(float DeltaSeconds)
 {
