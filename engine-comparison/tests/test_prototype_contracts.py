@@ -189,6 +189,24 @@ class PrototypeContracts(unittest.TestCase):
         self.assertNotIn("AddOnScreenDebugMessage", self.cpp)
         self.assertNotIn("GUI.Box(new Rect(10,10", self.unity)
 
+    def test_original_character_and_boss_art_are_connected(self):
+        config = INPUT.read_text(encoding="utf-8")
+        self.assertIn('Resources.Load<Texture2D>("MoonfallArt/heroes/Z_Original")', self.unity)
+        self.assertIn('Resources.Load<Texture2D>("MoonfallArt/heroes/Nyra_Original")', self.unity)
+        self.assertIn('Resources.Load<Texture2D>("MoonfallArt/v31_4_bestiary/boss_0")', self.unity)
+        self.assertIn("Sprite.Create(original", self.unity)
+        self.assertIn("SelectHero(", self.unity)
+        self.assertIn("Input.GetKeyDown(KeyCode.Alpha1)", self.unity)
+        self.assertIn("Input.GetKeyDown(KeyCode.Alpha2)", self.unity)
+        self.assertIn("HeroPortrait->SetSprite(Chosen)", self.cpp)
+        self.assertIn("BossPortrait->SetSprite(BossArtwork)", self.cpp)
+        self.assertIn("Z_Original.Z_Original", self.cpp)
+        self.assertIn("Nyra_Original.Nyra_Original", self.cpp)
+        self.assertIn("boss_0.boss_0", self.cpp)
+        self.assertIn("HeroPortrait->SetHiddenInGame(true)", self.cpp)
+        self.assertIn('ActionName="SelectZArt",Key=One', config)
+        self.assertIn('ActionName="SelectNyraArt",Key=Two', config)
+
     def test_original_art_import_is_checksum_guarded(self):
         import_tool = (ROOT / "tools/import_godot_art.py").read_text()
         verify_tool = (ROOT / "tools/verify_art_import.py").read_text()
