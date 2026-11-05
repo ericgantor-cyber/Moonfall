@@ -55,6 +55,7 @@ private:
         int32 Region = 0;
         int32 Id = 0;
         bool bGuardian = false;
+        FVector Home = FVector::ZeroVector;
     };
     TArray<FWorldEnemy> Enemies;
     struct FChamberCache
@@ -101,4 +102,5 @@ private:
     void DamageWorldEnemy(int32 Index, float Damage);
     void SaveProgress();
     void CollectNearbyChambers();
+    void UpdateWorldEnemies(float Dt);
 };
