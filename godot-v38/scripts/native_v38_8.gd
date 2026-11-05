@@ -82,6 +82,17 @@ func _wow_perform_action(action:String)->void:
   "mount":_toggle_mount()
   "interact":_interact()
 
+func _unhandled_key_input(event:InputEvent)->void:
+ # Godot dispatches unhandled keyboard input before generic unhandled input.
+ # This must run before the inherited handler marks all keys consumed.
+ if event is InputEventKey and event.pressed and not event.echo and event.alt_pressed and not event.ctrl_pressed and hero_playing and not menu_open and not death_active and not wait_open and not wait_transition_active:
+  var action:String=_wow_keyboard_action(event.keycode)
+  if not action.is_empty():
+   _wow_perform_action(action)
+   get_viewport().set_input_as_handled()
+   return
+ super._unhandled_key_input(event)
+
 func _unhandled_input(event:InputEvent)->void:
  # Intercept only explicit modifiers while playing, never menus or rest.
  if hero_playing and not menu_open and not death_active and not wait_open and not wait_transition_active:
@@ -89,12 +100,6 @@ func _unhandled_input(event:InputEvent)->void:
    var left:bool=Input.get_joy_axis(event.device,JOY_AXIS_TRIGGER_LEFT)>0.6
    var right:bool=Input.get_joy_axis(event.device,JOY_AXIS_TRIGGER_RIGHT)>0.6
    var action:String=_wow_combo_action(event.button_index,left,right)
-   if not action.is_empty():
-    _wow_perform_action(action)
-    get_viewport().set_input_as_handled()
-    return
-  if event is InputEventKey and event.pressed and not event.echo and event.alt_pressed and not event.ctrl_pressed:
-   var action:String=_wow_keyboard_action(event.keycode)
    if not action.is_empty():
     _wow_perform_action(action)
     get_viewport().set_input_as_handled()
