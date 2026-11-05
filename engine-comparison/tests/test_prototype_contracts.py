@@ -121,15 +121,20 @@ class PrototypeContracts(unittest.TestCase):
         unreal_hud = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.cpp").read_text()
         game_mode = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallGameMode.cpp").read_text()
         self.assertIn("DrawRpgHud();", unity)
-        self.assertIn("PROTOTYPE MINIMAP", unity)
+        self.assertIn("void DrawRpgHud()", unity)
         self.assertIn("progression.ExperienceToNext", unity)
         self.assertIn("new Color(1f, .22f, .30f)", unity)
         self.assertIn("new Color(.18f, .48f, 1f)", unity)
         self.assertIn("new Color(.70f, .40f, 1f)", unity)
-        self.assertIn("PROTOTYPE MINIMAP", unreal_hud)
+        self.assertIn("void AMoonfallHud::DrawHUD()", unreal_hud)
         self.assertIn("GetHudXpRatio()", unreal_hud)
         self.assertIn("GetHeroMapPosition()", unreal_hud)
         self.assertIn("HUDClass = AMoonfallHud::StaticClass();", game_mode)
+        # Gameplay UI contains only the map and orbs; no debug or number panels.
+        self.assertNotIn("GUI.Box(new Rect(10,10", unity)
+        self.assertNotIn("GUI.Label(", unity)
+        self.assertNotIn("DrawText(", unreal_hud)
+        self.assertNotIn("AddOnScreenDebugMessage", self.cpp)
 
     def test_no_artwork_or_production_changes(self):
         self.assertFalse(list(ROOT.rglob("*.png")))
