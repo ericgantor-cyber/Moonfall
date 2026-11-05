@@ -22,6 +22,16 @@ func _run()->void:
  check(int(empty_report.get("frames",-1))==0,"empty performance capture has zero frames")
  check(float(empty_report.get("one_percent_low_fps",-1.0))==0.0,"empty performance capture safely reports zero one-percent-low FPS")
  game.call("_perf_stop",false)
+ # A partial report must survive before the 60-second benchmark completes.
+ game.call("_perf_start",true)
+ for i in range(900):game.call("_perf_sample",1.0/60.0)
+ var snapshot_path:String=str(game.get("PERF_REPORT"))
+ check(FileAccess.file_exists(snapshot_path),"15-second performance snapshot is written automatically")
+ if FileAccess.file_exists(snapshot_path):
+  var snapshot:Variant=JSON.parse_string(FileAccess.get_file_as_string(snapshot_path))
+  check(snapshot is Dictionary and int(snapshot.get("frames",0))==900,"partial JSON snapshot contains recorded frames")
+ check(bool(game.get("perf_active")),"15-second snapshot keeps the benchmark running")
+ game.call("_perf_stop",false)
  var key:=InputEventKey.new()
  key.keycode=KEY_F9
  key.pressed=true
