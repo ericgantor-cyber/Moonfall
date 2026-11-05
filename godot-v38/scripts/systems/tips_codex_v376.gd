@@ -93,7 +93,7 @@ const ENTRIES:Array[Dictionary]=[
  {"category":"Death & Recovery","title":"Plan ahead","tip":"Bring healing items and unlock shrines before heading into dangerous regions."},
  {"category":"Death & Recovery","title":"Recover after defeat","tip":"Review gear, professions and recent combat choices before trying the encounter again."},
  {"category":"Controls & Accessibility","title":"Keyboard movement","tip":"WASD or arrow keys steer your hero; movement responds to the third-person camera."},
- {"category":"Controls & Accessibility","title":"Mouse camera","tip":"Hold right mouse and drag to orbit the third-person camera."},
+ {"category":"Controls & Accessibility","title":"Mouse camera","tip":"Hold Alt and right-drag to orbit the camera; plain right-click guards and parries. Mouse wheel zooms; middle-click locks aim."},
  {"category":"Controls & Accessibility","title":"Camera zoom","tip":"Mouse wheel or configured zoom inputs change your viewing distance."},
  {"category":"Controls & Accessibility","title":"Gamepad support","tip":"Move with left stick, orbit camera with right stick and open the menu with Start."},
  {"category":"Controls & Accessibility","title":"Menu by controller","tip":"Raven Atlas buttons are focusable; navigate and activate them using standard UI focus controls."},
