@@ -504,10 +504,15 @@ void AMoonfallPawn::CastBolt()
         FVector::Dist2D(HeroMesh->GetRelativeLocation(), BossMesh->GetRelativeLocation()) > 1000.f)) return;
     Mana -= 30.f;
     BoltCooldown = 1.1f;
-    if (EnemyIndex != INDEX_NONE) DamageWorldEnemy(EnemyIndex, ArcaneBoltDamage());
+    // A warned perfect dodge also empowers the next successful bolt, matching
+    // the melee riposte. Invalid/out-of-range casts never consume the window.
+    const float Damage = ArcaneBoltDamage() *
+        (CounterWindow > 0.f ? CounterMultiplier : 1.f);
+    CounterWindow = 0.f;
+    if (EnemyIndex != INDEX_NONE) DamageWorldEnemy(EnemyIndex, Damage);
     else
     {
-        BossHealth = FMath::Max(0.f, BossHealth - ArcaneBoltDamage());
+        BossHealth = FMath::Max(0.f, BossHealth - Damage);
         if (BossHealth <= 0.f) Victory();
     }
 }
