@@ -400,7 +400,25 @@ void AMoonfallPawn::DamageWorldEnemy(int32 Index, float Damage, bool bRiposte)
         // The reward requires a real hit on a living guardian; defeated foes
         // need no stun state and ordinary hits cannot lock down bosses.
         if (bRiposte && Enemy.bGuardian)
+        {
             Enemy.StaggerTimer = 0.8f;
+            // Give a landed riposte physical space without pushing guardians
+            // outside their chamber leash or introducing a physics actor.
+            if (Enemy.Mesh && HeroMesh)
+            {
+                const FVector From = Enemy.Mesh->GetRelativeLocation();
+                FVector Away = From - HeroMesh->GetRelativeLocation();
+                Away.Z = 0.f;
+                if (!Away.IsNearlyZero())
+                {
+                    const FVector Candidate = From + Away.GetSafeNormal() * 120.f;
+                    const FVector LeashDelta = Candidate - Enemy.Home;
+                    const FVector Bounded = Enemy.Home +
+                        LeashDelta.GetClampedToMaxSize2D(600.f);
+                    Enemy.Mesh->SetRelativeLocation(Bounded);
+                }
+            }
+        }
         return;
     }
     const int32 Region = Enemy.Region;
