@@ -316,14 +316,22 @@ void AMoonfallPawn::UpdateWorldEnemies(float Dt)
         FromHome.Z = 0.f;
         const float Leash = Enemy.bGuardian ? 600.f : 900.f;
         const float HeroDistSq = ToHero.SizeSquared();
-        const bool bAggro = HeroDistSq > FMath::Square(160.f) &&
-            HeroDistSq < FMath::Square(800.f) &&
+        // Keep combat contact while close. Previously crossing 160 cm
+        // incorrectly switched to return-home, making melee enemies retreat.
+        const bool bAggro = HeroDistSq < FMath::Square(800.f) &&
             FromHome.SizeSquared() < FMath::Square(Leash);
         if (bAggro)
         {
-            const float Remaining = FMath::Max(0.f, Leash - FromHome.Size());
-            const float Step = FMath::Min((Enemy.bGuardian ? 280.f : 200.f) * MoveDt, Remaining);
-            Enemy.Mesh->SetRelativeLocation(From + ToHero.GetSafeNormal() * Step);
+            if (HeroDistSq > FMath::Square(160.f))
+            {
+                const float Remaining = FMath::Max(0.f, Leash - FromHome.Size());
+                const float Step = FMath::Min((Enemy.bGuardian ? 280.f : 200.f) * MoveDt, Remaining);
+                const FVector Candidate = From + ToHero.GetSafeNormal() * Step;
+                const FVector ToCandidateHome = Candidate - Enemy.Home;
+                // Prevent oblique pursuit from leaking outside the home radius.
+                const FVector Clamped = Enemy.Home + ToCandidateHome.GetClampedToMaxSize2D(Leash);
+                Enemy.Mesh->SetRelativeLocation(Clamped);
+            }
         }
         else if (FromHome.SizeSquared() > FMath::Square(30.f))
         {
@@ -621,6 +629,13 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
     }
     else
     {
+        // Pulse the existing warning mesh rather than allocating a new VFX actor.
+        // Pulse never understates the actual hazard radius.
+        const float Pulse = 1.f + 0.06f * (0.5f + 0.5f *
+            FMath::Sin((GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f) *
+                (BossAttackPhase == 3 ? 17.f : 11.f)));
+        WarningMesh->SetRelativeScale3D(FVector(
+            BossWarningRadius / 50.f * Pulse, BossWarningRadius / 50.f * Pulse, 0.01f));
         CastTimer -= Dt;
         if (CastTimer <= 0.f)
         {
