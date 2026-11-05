@@ -506,6 +506,7 @@ void AMoonfallPawn::Victory()
 {
     bWon = true;
     bCasting = false;
+    BossAttackCount = 0;
     WarningMesh->SetVisibility(false);
     BossMesh->SetVisibility(false);
     BossPortrait->SetHiddenInGame(true);
@@ -584,10 +585,23 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
         CastCooldown -= Dt;
         if (CastCooldown <= 0.f)
         {
-            TargetWorld = HeroMesh->GetRelativeLocation();
-            WarningMesh->SetRelativeLocation(FVector(TargetWorld.X, TargetWorld.Y, 0.f));
+            // Phase thresholds are sampled at cast start; the warning remains stable
+            // even if the hero damages the boss during the windup.
+            BossAttackPhase = BossHealth <= 30.f ? 3 : (BossHealth <= 65.f ? 2 : 1);
+            ++BossAttackCount;
+            const bool bRadial = BossAttackPhase >= 2 && BossAttackCount % 2 == 0;
+            const FVector Center = bRadial ? BossMesh->GetRelativeLocation()
+                                           : HeroMesh->GetRelativeLocation();
+            TargetWorld = FVector(Center.X, Center.Y, 0.f);
+            BossWarningRadius = BossAttackPhase == 3 ? 350.f :
+                                (BossAttackPhase == 2 ? 300.f : 250.f);
+            // Cylinder mesh is 100 cm wide, so scale XY = radius / 50.
+            WarningMesh->SetRelativeScale3D(FVector(
+                BossWarningRadius / 50.f, BossWarningRadius / 50.f, 0.01f));
+            WarningMesh->SetRelativeLocation(TargetWorld);
             WarningMesh->SetVisibility(true);
-            CastTimer = 1.15f;
+            CastTimer = BossAttackPhase == 3 ? 0.95f :
+                        (BossAttackPhase == 2 ? 1.05f : 1.15f);
             bCasting = true;
         }
     }
@@ -598,11 +612,13 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
         {
             bCasting = false;
             WarningMesh->SetVisibility(false);
-            CastCooldown = 3.5f;
-            if (FVector::Dist2D(HeroMesh->GetRelativeLocation(), TargetWorld) < 250.f)
+            CastCooldown = BossAttackPhase == 3 ? 2.25f :
+                           (BossAttackPhase == 2 ? 2.9f : 3.5f);
+            if (FVector::Dist2D(HeroMesh->GetRelativeLocation(), TargetWorld) < BossWarningRadius)
             {
                 if (DodgeTimer > 0.f) CounterWindow = CounterDuration;
-                else Health = FMath::Max(0.f, Health - 20.f);
+                else Health = FMath::Max(0.f, Health -
+                    (BossAttackPhase == 3 ? 28.f : (BossAttackPhase == 2 ? 24.f : 20.f)));
             }
         }
     }
