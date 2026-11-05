@@ -42,8 +42,9 @@ func _run() -> void:
  check(not bool(game.call("_pad_edge",0,"map",true)),"Held atlas button does not toggle repeatedly")
  check(not bool(game.call("_pad_edge",0,"map",false)),"Atlas button release is not an activation")
  check(bool(game.call("_pad_edge",0,"map",true)),"Atlas button re-press registers after release")
- # Headless CI has no real joypad. Its normal physics frame must clear the
- # stored disconnected-device state instead of retaining a stale press.
+ # Headless CI has no real joypad. The SceneTree process_frame signal
+ # fires BEFORE node _process, so allow the next node tick to finish.
+ await process_frame
  await process_frame
  if Input.get_connected_joypads().is_empty():
   check((game.get("pad_atlas_previous") as Dictionary).is_empty(),"Disconnected controller button history is cleared")
