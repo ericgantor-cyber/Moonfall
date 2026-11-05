@@ -1,0 +1,35 @@
+# Godot-to-Unity/Unreal parity ledger (experimental, not a merge into Godot)
+
+Canonical implementation: `godot-v38/` on `main`. Never alter Godot saves, scenes, Z/Nyra original artwork, or production launcher for this comparison. This ledger records actual source-level migration boundaries; a design checklist is not a playable port.
+
+## Verified Godot sources inspected
+- `godot-v38/project.godot`: native Forward+ 3D rendering, D3D12 with Vulkan/OpenGL fallbacks, 1280×800 default window, `res://scenes/main.tscn`.
+- `godot-v38/scripts/systems/inventory_rules.gd`: bounded bag capacity (100–500; upgrades by 50), 1000 vault cap, 999 materials per stack, 99999 total per material, equipment power clamp (0–250), craft validation before consumption, and rarity-aware sorting.
+- `godot-v38/README.md`: continuous world and in-game Raven Atlas, oxygen/status info, original artwork and save-protection requirements.
+- `godot-v38/MAJOR_OVERHAUL_ROADMAP.md`: planned features are **not automatically implemented**. Distinguish them from actual production source.
+
+## Port status
+| System | Existing Godot | Unity 6 experiment | Unreal 5 experiment |
+|---|---|---|---|
+| Continuous six-region world, traversal and dungeons | Source exists, extent requires audit | Not ported | Not ported |
+| Combat and boss warnings | Source exists | Primitive test encounter only | Primitive test encounter only |
+| Permanent progress and save migrations | Existing Godot format | Experimental PlayerPrefs only, not compatible | Isolated SaveGame slot, not compatible |
+| Inventory/crafting capacity & cost rules | `inventory_rules.gd` | `MoonfallInventoryRules.cs` source parity port added | Pending native C++ parity port |
+| Items, rarity, loot and equipment | Existing subsystem | Not ported | Not ported |
+| Atlas, quests, progression, professions | Existing features vary | Not ported | Not ported |
+| Windows packaging, controller, accessibility | Godot source / CI | Untested | Untested |
+| Z and Nyra original art | Preserve byte-identically | No import | No import |
+
+## Inventory behavior contract
+- Default 100 slots, max 500, upgrades of 50; upgrade price 100, 250, 400, 550, 700, 850, 1000, 1150; at max capacity cost 0.
+- Material stack split into chunks of at most 999; clamp total to 99999.
+- Reject any malformed material cost (zero, negative, over 99999); refuse new gear if bag full; do not consume materials on failed craft.
+- Preserve deep-copy semantics if transferring mutable items; original Godot gear structures must not be aliased.
+- Remaining ports: gear transfer, power/name/rarity searches and stable sorting, matching discard behavior, equipment copy, reward distribution, save schemas and UI.
+
+## Next gates
+1. Implement corresponding pure Unreal inventory/crafting rules, with shared test vectors.
+2. Source-parity tests for invalid recipe costs, overflowing materials, full bags and capacity upgrades.
+3. Audit actual Godot world/quest/loot/spell paths before expanding game content. Do not infer implementation from wishlists.
+4. Build both engines in real editors on Windows; verify original art import byte identity and replay critical gameplay.
+5. Only consider a migration after measured perf, graphics, input and save compatibility testing.
