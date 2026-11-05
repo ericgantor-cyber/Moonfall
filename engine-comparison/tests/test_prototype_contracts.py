@@ -132,8 +132,11 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("HUDClass = AMoonfallHud::StaticClass();", game_mode)
         # Gameplay UI contains only the map and orbs; no debug or number panels.
         self.assertNotIn("GUI.Box(new Rect(10,10", unity)
-        self.assertNotIn("GUI.Label(", unity)
-        self.assertNotIn("DrawText(", unreal_hud)
+        self.assertIn("void DrawOrbValue(", unity)
+        self.assertIn("DrawOrbValue(new Rect(", unity)
+        self.assertIn("GetHudStamina()", unreal_hud)
+        self.assertIn("GetHudExperienceToNext()", unreal_hud)
+        self.assertNotIn("GUI.Box(new Rect(10,10", unity)
         self.assertNotIn("AddOnScreenDebugMessage", self.cpp)
 
     def test_optional_transparent_orb_skin_without_extra_hud(self):
@@ -146,8 +149,24 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn('DrawTexture(OrnateOrbs,', unreal_hud)
         self.assertIn('DrawRing(OrbCenter', unreal_hud)
         self.assertNotIn("GUI.Box(new Rect(10,10", self.unity)
-        self.assertNotIn("GUI.Label(", self.unity)
-        self.assertNotIn("DrawText(", unreal_hud)
+        self.assertIn("DrawOrbValue(", self.unity)
+        self.assertIn("DrawText(FString::Printf(", unreal_hud)
+        self.assertNotIn("GUI.Box(new Rect(10,10", self.unity)
+
+    def test_stamina_is_live_and_orb_values_are_bounded(self):
+        unreal_header = HEADER.read_text(encoding="utf-8")
+        unreal_hud = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.cpp").read_text()
+        self.assertIn("stamina = Mathf.Min(MaxStamina, stamina + 30f * dt)", self.unity)
+        self.assertIn("stamina -= 45f", self.unity)
+        self.assertIn("Stamina = FMath::Min(150.f, Stamina + 30.f * Dt)", self.cpp)
+        self.assertIn("Stamina -= 45.f", self.cpp)
+        self.assertIn("GetHudStamina()", unreal_header)
+        self.assertIn("GetHudMana()", unreal_header)
+        self.assertIn("GetHudExperience()", unreal_header)
+        self.assertIn("DrawText(FString::Printf(", unreal_hud)
+        # Numbers are drawn only within the ornate-asset branch.
+        self.assertIn("if (OrnateOrbs)", unreal_hud)
+        self.assertNotIn("AddOnScreenDebugMessage", self.cpp)
 
     def test_no_artwork_or_production_changes(self):
         self.assertFalse(list(ROOT.rglob("*.png")))
