@@ -29,6 +29,7 @@ public sealed class MoonfallPrototype : MonoBehaviour
         public int region;
         public int id;
         public bool guardian;
+        public Vector3 home;
     }
     readonly List<WorldEnemy> enemies = new List<WorldEnemy>();
     int defeatedEnemyMask;
@@ -135,7 +136,7 @@ public sealed class MoonfallPrototype : MonoBehaviour
                         body = guardian,
                         portrait = AttachPortrait(guardian,
                             Resources.Load<Texture2D>("MoonfallArt/v31_4_bestiary/boss_" + (chamber % 4)), 2.4f),
-                        region = region, id = chamberId, guardian = true,
+                        region = region, id = chamberId, guardian = true, home = guardPosition,
                         hp = MoonfallWorldRules.EnemyMaxHealth(region) * 1.8f
                     });
                 }
@@ -152,8 +153,29 @@ public sealed class MoonfallPrototype : MonoBehaviour
                 enemies.Add(new WorldEnemy
                 {
                     body = mob, portrait = AttachPortrait(mob, beastArt, 2f),
-                    region = region, id = id, hp = MoonfallWorldRules.EnemyMaxHealth(region)
+                    region = region, id = id, home = mob.position,
+                    hp = MoonfallWorldRules.EnemyMaxHealth(region)
                 });
+            }
+        }
+    }
+
+    void UpdateEnemies(float dt)
+    {
+        // Lightweight proximity AI, no spawn waves, navigation allocations or global aggro.
+        foreach (WorldEnemy enemy in enemies)
+        {
+            Vector3 offset = hero.position - enemy.body.position;
+            offset.y = 0f;
+            float distance = offset.magnitude;
+            float leash = enemy.guardian ? 6f : 9f;
+            Vector3 fromHome = enemy.body.position - enemy.home;
+            fromHome.y = 0f;
+            if (distance > 1.6f && distance < 8f && fromHome.magnitude < leash)
+            {
+                float step = Mathf.Min((enemy.guardian ? 2.8f : 2f) * dt,
+                    Mathf.Max(0f, leash - fromHome.magnitude));
+                enemy.body.position += offset.normalized * step;
             }
         }
     }
@@ -297,6 +319,7 @@ public sealed class MoonfallPrototype : MonoBehaviour
             hero.position += direction * (dodge>0 ? 12 : 6) * dt;
             hero.position = new Vector3(Mathf.Clamp(hero.position.x,-16,176),1,Mathf.Clamp(hero.position.z,-32,32));
             CollectNearbyChambers();
+            UpdateEnemies(dt);
             WorldEnemy nearby = NearestEnemy(1.75f);
             if (nearby != null && enemyDamageCooldown <= 0f && dodge <= 0f)
             {
