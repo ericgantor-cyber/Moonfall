@@ -136,7 +136,7 @@ func _run()->void:
  check(absf(float(game.get("v36_yaw"))-RULES.DEFAULT_YAW)<0.001 and absf(float(game.get("v36_pitch"))-RULES.DEFAULT_PITCH)<0.001,"camera reset returns to readable original angle")
  var camera_source:String=(load("res://scripts/native_v34_4.gd") as GDScript).source_code
  check("KEY_F6" in camera_source and "KEY_F7" in camera_source and "KEY_F8" in camera_source,"camera access hotkeys registered")
- check("KEY_F9" in camera_source and "KEY_F10" in camera_source,"camera recenter and FOV controls registered")
+ check("KEY_F9" in camera_source and "KEY_F11" in camera_source,"camera recenter and FOV controls registered")
  check("KEY_PAGEUP" in camera_source and "KEY_PAGEDOWN" in camera_source,"keyboard wheel zoom alternative available")
  check("event.shift_pressed" in camera_source and "event.ctrl_pressed" in camera_source,"wheel fine and fast zoom supported")
  check("config.save(V36_CAMERA_PREFS)" in camera_source and "config.load(V36_CAMERA_PREFS)" in camera_source,"camera settings persist across sessions")
