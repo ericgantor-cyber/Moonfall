@@ -462,14 +462,24 @@ void AMoonfallPawn::Dodge()
         Stamina -= 45.f;
     }
 }
+int32 AMoonfallPawn::GuardianBlessingCount() const
+{
+    // The existing 30-bit saved guardian mask is the only authority.
+    // Each unique guardian victory grants one permanent stack, no farming.
+    int32 Count = 0;
+    for (int32 Id = 0; Id < MoonfallWorldRules::TotalChambers; ++Id)
+        if ((DefeatedGuardianMask & (1 << Id)) != 0) ++Count;
+    return Count;
+}
+
 float AMoonfallPawn::BasicAttackDamage() const
 {
-    return 18.f + Progression.Level;
+    return 18.f + Progression.Level + 0.5f * GuardianBlessingCount();
 }
 
 float AMoonfallPawn::ArcaneBoltDamage() const
 {
-    return 28.f + 2.f * Progression.Level;
+    return 28.f + 2.f * Progression.Level + 1.f * GuardianBlessingCount();
 }
 
 float AMoonfallPawn::HealingSpellAmount() const
