@@ -4,6 +4,9 @@ using System.Collections.Generic;
 public sealed class MoonfallPrototype : MonoBehaviour
 {
     Transform hero, boss, warning;
+    Transform heroPortrait, bossPortrait;
+    Texture2D zPortrait, nyraPortrait;
+    int selectedHero; // 0 = Z, 1 = Nyra
     Camera view;
     Texture2D ornateOrbs; // Optional transparent art imported to Resources/MoonfallOrbs
     float hp, bossHp = 100, attackCd, dodge, dodgeCooldown, castCd = 3, castTimer, zoom = 16;
@@ -33,6 +36,48 @@ public sealed class MoonfallPrototype : MonoBehaviour
         obj.GetComponent<Renderer>().material.color = color;
         return obj.transform;
     }
+    // Preserve the original portrait pixels. A camera-facing sprite displays the
+    // imported art without redrawing or replacing the underlying source.
+    static Transform AttachPortrait(Transform anchor, Texture2D original, float unitsHigh)
+    {
+        if (original == null) return null;
+        var obj = new GameObject("Original artwork billboard");
+        obj.transform.SetParent(anchor, false);
+        obj.transform.localPosition = Vector3.zero;
+        var renderer = obj.AddComponent<SpriteRenderer>();
+        var sprite = Sprite.Create(original,
+            new Rect(0f, 0f, original.width, original.height),
+            new Vector2(.5f, .08f), original.height / unitsHigh,
+            0, SpriteMeshType.FullRect);
+        renderer.sprite = sprite;
+        renderer.sortingOrder = 8;
+        var mesh = anchor.GetComponent<Renderer>();
+        if (mesh != null) mesh.enabled = false; // Placeholder hidden only if real art loaded.
+        return obj.transform;
+    }
+
+    void SelectHero(int index)
+    {
+        if (index < 0 || index > 1) return;
+        Texture2D selected = index == 0 ? zPortrait : nyraPortrait;
+        if (selected == null) return;
+        selectedHero = index;
+        if (heroPortrait != null) Destroy(heroPortrait.gameObject);
+        var mesh = hero.GetComponent<Renderer>();
+        if (mesh != null) mesh.enabled = true;
+        heroPortrait = AttachPortrait(hero, selected, 2.4f);
+        PlayerPrefs.SetInt("moonfall_experiment_hero_art", selectedHero);
+        PlayerPrefs.Save();
+    }
+
+    void LateUpdate()
+    {
+        // SpriteRenderer local +Z faces camera; only billboard transforms rotate.
+        if (view == null) return;
+        if (heroPortrait != null) heroPortrait.rotation = view.transform.rotation;
+        if (bossPortrait != null) bossPortrait.rotation = view.transform.rotation;
+    }
+
     void Start()
     {
         ornateOrbs = Resources.Load<Texture2D>("MoonfallOrbs");
@@ -53,6 +98,12 @@ public sealed class MoonfallPrototype : MonoBehaviour
         Make("Floor", PrimitiveType.Cube, new Vector3(0,-.3f,0), new Vector3(34,.5f,34), Color.gray);
         hero = Make("Hero placeholder", PrimitiveType.Capsule, new Vector3(0,1,-5), Vector3.one, Color.cyan);
         boss = Make("Boss placeholder", PrimitiveType.Capsule, new Vector3(0,1,6), new Vector3(2,2,2), Color.red);
+        zPortrait = Resources.Load<Texture2D>("MoonfallArt/heroes/Z_Original");
+        nyraPortrait = Resources.Load<Texture2D>("MoonfallArt/heroes/Nyra_Original");
+        // Use imported original boss bestiary art as its visible stand-in.
+        Texture2D bossArt = Resources.Load<Texture2D>("MoonfallArt/v31_4_bestiary/boss_0");
+        bossPortrait = AttachPortrait(boss, bossArt, 3.6f);
+        SelectHero(Mathf.Clamp(PlayerPrefs.GetInt("moonfall_experiment_hero_art", 0), 0, 1));
         warning = Make("Attack telegraph", PrimitiveType.Cylinder, Vector3.zero, new Vector3(5,.015f,5), new Color(1,.4f,.1f));
         warning.gameObject.SetActive(false);
         view = Camera.main;
@@ -70,6 +121,9 @@ public sealed class MoonfallPrototype : MonoBehaviour
         healCooldown = Mathf.Max(0f, healCooldown - dt);
         if (hp > 0)
         {
+            // 1/2 switches the portrait only; no changes to Z or Nyra artwork.
+            if (Input.GetKeyDown(KeyCode.Alpha1)) SelectHero(0);
+            if (Input.GetKeyDown(KeyCode.Alpha2)) SelectHero(1);
             Vector3 direction = new Vector3(Input.GetAxisRaw("Horizontal"),0,Input.GetAxisRaw("Vertical")).normalized;
             if (Input.GetKeyDown(KeyCode.LeftShift) && dodgeCooldown<=0 && stamina >= 45f)
             {
