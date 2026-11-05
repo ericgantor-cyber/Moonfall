@@ -24,3 +24,13 @@ After reviewing the result in-engine, commit the newly added JPGs on this experi
 **Preservation:** Do not overwrite Z_Original.webp, Nyra_Original.png or production Godot art. These are standalone environmental images. There is no passive HP healing on kills, and there are no waves.
 
 **Unverified:** Real editor builds and Windows playtests are outstanding. Adding art loader code does not establish that images have been committed to GitHub.
+
+## One-command installation (Windows, macOS, Linux)
+
+From your Moonfall repository root, place the downloaded ZIP next to this file or pass its full path, then run:
+
+```bash
+python engine-comparison/tools/install_generated_art.py Moonfall_AI_Art_Ready_To_Import.zip
+```
+
+The cross-platform installer checks the SHA-256 and JPEG signature for **both images in both engine destinations before writing any files**. It changes only the four generated environment images, not Godot or original hero assets. For Windows PowerShell, `engine-comparison/tools/install_generated_art.ps1` offers equivalent installation. This installation has to be run on a checkout with the downloaded ZIP; the binary images have not yet been pushed to GitHub.
