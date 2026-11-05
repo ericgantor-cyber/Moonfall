@@ -142,6 +142,24 @@ func _run()->void:
  check("KEY_PAGEUP" in camera_source and "KEY_PAGEDOWN" in camera_source,"keyboard wheel zoom alternative available")
  check("event.shift_pressed" in camera_source and "event.ctrl_pressed" in camera_source,"wheel fine and fast zoom supported")
  check("config.save(V36_CAMERA_PREFS)" in camera_source and "config.load(V36_CAMERA_PREFS)" in camera_source,"camera settings persist across sessions")
+ # Alt+wheel adjusts FOV in two-degree steps while ordinary wheel zooms.
+ game.call("_start_game","z")
+ var alt_wheel:=InputEventMouseButton.new()
+ alt_wheel.pressed=true
+ alt_wheel.alt_pressed=true
+ alt_wheel.button_index=MOUSE_BUTTON_WHEEL_UP
+ var before_fov:float=float(game.get("v36_fov"))
+ var before_zoom:float=float(game.get("v36_distance"))
+ game.call("_unhandled_input",alt_wheel)
+ check(is_equal_approx(float(game.get("v36_fov")),minf(76.0,before_fov+2.0)),"Alt+wheel up widens field of view")
+ check(is_equal_approx(float(game.get("v36_distance")),before_zoom),"Alt+wheel does not change ordinary camera distance")
+ alt_wheel.button_index=MOUSE_BUTTON_WHEEL_DOWN
+ game.call("_unhandled_input",alt_wheel)
+ check(is_equal_approx(float(game.get("v36_fov")),before_fov) or is_equal_approx(before_fov,76.0),"Alt+wheel down narrows field of view")
+ alt_wheel.alt_pressed=false
+ alt_wheel.button_index=MOUSE_BUTTON_WHEEL_UP
+ game.call("_unhandled_input",alt_wheel)
+ check(float(game.get("v36_distance"))<before_zoom,"ordinary wheel still zooms after FOV adjustment")
  var before:float=game.get("v36_distance")
  game.call("_v24_set_zoom",17.5)
  check(float(game.get("v36_distance"))<before,"legacy zoom keys map to third-person distance")
