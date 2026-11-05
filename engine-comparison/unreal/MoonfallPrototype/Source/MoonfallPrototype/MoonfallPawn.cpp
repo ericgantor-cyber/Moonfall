@@ -1,5 +1,6 @@
 #include "MoonfallPawn.h"
 #include "MoonfallProgressSave.h"
+#include "MoonfallLootRules.h"
 #include "Camera/CameraComponent.h"
 #include "Components/InputComponent.h"
 #include "Components/SceneComponent.h"
@@ -100,6 +101,9 @@ void AMoonfallPawn::Victory()
     const int32 Previous = Victories;
     Victories = FMath::Min(100, Victories + 1);
     Health += 5.f * (Victories - Previous);
+    // Prototype drop uses matching rarity thresholds, not a Godot-compatible RNG seed.
+    const int32 Rank = MoonfallLootRules::RarityIndex(FMath::RandRange(0, 999), 0, 0);
+    BossLoot = FString(MoonfallLootRules::Rarities[Rank]) + TEXT(" boss relic (prototype)");
     UMoonfallProgressSave* Progress = Cast<UMoonfallProgressSave>(
         UGameplayStatics::CreateSaveGameObject(UMoonfallProgressSave::StaticClass()));
     bool bSaved = false;
@@ -110,6 +114,7 @@ void AMoonfallPawn::Victory()
     }
     if (GEngine)
     {
+        GEngine->AddOnScreenDebugMessage(-1, 15.f, FColor::Cyan, TEXT("Loot: ") + BossLoot);
         GEngine->AddOnScreenDebugMessage(-1, 15.f, bSaved ? FColor::Green : FColor::Yellow,
             bSaved ? TEXT("Victory! Permanent boss reward saved.") : TEXT("Victory! WARNING: prototype reward save failed."));
     }
