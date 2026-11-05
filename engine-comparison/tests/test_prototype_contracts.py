@@ -83,6 +83,14 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("a.CompareTo(b)", unity)
         self.assertIn("A < B", unreal)
 
+    def test_boss_victory_loot_is_wired_into_both_prototypes(self):
+        self.assertIn("MoonfallLootRules.RarityIndex(Random.Range(0, 1000), 0, 0)", self.unity)
+        self.assertIn("bossLoot = MoonfallLootRules.Rarities[rank]", self.unity)
+        self.assertIn("MoonfallLootRules::RarityIndex(FMath::RandRange(0, 999), 0, 0)", self.cpp)
+        self.assertIn("BossLoot = FString(MoonfallLootRules::Rarities[Rank])", self.cpp)
+        self.assertIn("bWon = true;", self.cpp)
+        self.assertIn("won=true;", self.unity)
+
     def test_no_artwork_or_production_changes(self):
         self.assertFalse(list(ROOT.rglob("*.png")))
         self.assertFalse(list(ROOT.rglob("*.jpg")))
