@@ -38,6 +38,7 @@ public:
     FVector GetBossMapPosition() const { return BossMesh ? BossMesh->GetRelativeLocation() : FVector::ZeroVector; }
     bool IsBossDefeated() const { return bWon; }
     TArray<FVector> GetEnemyMapPositions() const;
+    TArray<FVector> GetChamberMapPositions() const;
 private:
     UPROPERTY() USceneComponent* Root;
     UPROPERTY() UStaticMeshComponent* HeroMesh;
@@ -55,6 +56,13 @@ private:
         int32 Id = 0;
     };
     TArray<FWorldEnemy> Enemies;
+    struct FChamberCache
+    {
+        UStaticMeshComponent* Mesh = nullptr;
+        int32 Id = 0;
+    };
+    TArray<FChamberCache> ChamberCaches;
+    int32 ClaimedChamberMask = 0;
     int32 DefeatedEnemyMask = 0;
     float EnemyDamageCooldown = 0.f;
     UPROPERTY() UBillboardComponent* HeroPortrait;
@@ -90,4 +98,5 @@ private:
     int32 NearestEnemyIndex(float Radius) const;
     void DamageWorldEnemy(int32 Index, float Damage);
     void SaveProgress();
+    void CollectNearbyChambers();
 };
