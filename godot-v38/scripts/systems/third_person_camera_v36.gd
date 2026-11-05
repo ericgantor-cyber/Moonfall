@@ -8,6 +8,19 @@ const DEFAULT_DISTANCE:float=12.0
 const DEFAULT_PITCH:float=0.56
 const DEFAULT_YAW:float=0.78539816339
 
+
+static func orbit_stick_input(raw:Vector2,deadzone:float=0.18)->Vector2:
+ # Radial noise suppression with continuous analog response near the center.
+ if not raw.is_finite():return Vector2.ZERO
+ var magnitude:float=raw.length()
+ if magnitude<=deadzone:return Vector2.ZERO
+ var strength:float=clampf((minf(magnitude,1.0)-deadzone)/(1.0-deadzone),0.0,1.0)
+ return raw.normalized()*strength
+
+static func orbit_frame_step(delta:float)->float:
+ # Long rendering hitches should not spin the camera abruptly on recovery.
+ return clampf(delta,0.0,0.08)
+
 static func camera_offset(yaw:float,pitch:float,distance:float)->Vector3:
  var flat:float=cos(clampf(pitch,MIN_PITCH,MAX_PITCH))*clampf(distance,MIN_DISTANCE,MAX_DISTANCE)
  return Vector3(sin(yaw)*flat,sin(clampf(pitch,MIN_PITCH,MAX_PITCH))*clampf(distance,MIN_DISTANCE,MAX_DISTANCE),cos(yaw)*flat)
