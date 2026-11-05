@@ -349,6 +349,15 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("DefeatedGuardianMask = Progress->DefeatedGuardianMask &", self.cpp)
         self.assertNotIn("Health += GuardianBlessingCount()", self.cpp)
 
+    def test_unreal_click_attack_miss_recovers_without_spending_riposte(self):
+        attack = self.cpp.split("void AMoonfallPawn::Attack()", 1)[1].split(
+            "void AMoonfallPawn::CastBolt()", 1)[0]
+        self.assertIn("AttackCooldown = (EnemyIndex != INDEX_NONE || bBossInRange) ? 0.35f : 0.12f;", attack)
+        self.assertIn("if (EnemyIndex != INDEX_NONE || bBossInRange)", attack)
+        self.assertIn("CounterWindow = 0.f;", attack)
+        self.assertLess(attack.index("if (EnemyIndex != INDEX_NONE || bBossInRange)"), attack.index("CounterWindow = 0.f;"))
+        self.assertNotIn("AttackCooldown = 0.35f;", attack)
+
     def test_unreal_attacks_prioritize_nearest_valid_target(self):
         attack = self.cpp.split("void AMoonfallPawn::Attack()", 1)[1].split(
             "void AMoonfallPawn::CastBolt()", 1)[0]
