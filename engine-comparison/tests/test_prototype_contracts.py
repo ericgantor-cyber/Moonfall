@@ -84,6 +84,14 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("a.CompareTo(b)", unity)
         self.assertIn("A < B", unreal)
 
+    def test_unreal_boss_telegraph_survives_frame_hitch(self):
+        start = self.cpp.index("if (!bCasting)", self.cpp.index("void AMoonfallPawn::Tick("))
+        boss = self.cpp[start:]
+        self.assertIn("const float TelegraphDt = FMath::Min(Dt, 0.05f);", boss)
+        self.assertIn("CastTimer -= TelegraphDt;", boss)
+        self.assertNotIn("CastTimer -= Dt;", boss)
+        self.assertIn("WarningMesh->SetVisibility(false);", boss)
+
     def test_unreal_three_phase_boss_telegraph_and_dodge(self):
         self.assertIn("BossHealth <= 30.f ? 3 : (BossHealth <= 65.f ? 2 : 1)", self.cpp)
         self.assertIn("BossAttackCount % 2 == 0", self.cpp)
