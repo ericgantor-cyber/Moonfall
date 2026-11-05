@@ -192,7 +192,7 @@ func _process(delta:float) -> void:
      if bool(creature.get("alive",false)) and bool(creature.get("engaged",false)):danger+=1
     var state: String="CLEAR" if danger==0 else "THREAT %d" % danger
     if hp/maxf(1.0,max_hp)<=0.25:state="LOW HEALTH | "+state
-    v24_status_label.text=state+"  •  "+str(Engine.get_frames_per_second())+" FPS\nAlt+right-drag: orbit | Right-click: guard | Wheel/PgUp/PgDn: zoom | F6-F9/F11: camera"
+    v24_status_label.text=state+"  •  "+str(Engine.get_frames_per_second())+" FPS\nAlt+right-drag: orbit | Right-click: guard | Wheel/PgUp/PgDn: zoom | Alt+wheel: FOV | F6-F9: camera"
 
 func _apply_graphics_quality(mode:String) -> void:
  super._apply_graphics_quality(mode)
