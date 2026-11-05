@@ -452,6 +452,31 @@ class PrototypeContracts(unittest.TestCase):
                                 capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
+    def test_exploration_checkpoints_keep_position_and_real_hp(self):
+        save = SAVES.read_text(encoding="utf-8")
+        self.assertIn("bHasCheckpoint = false", save)
+        self.assertIn("FVector SavedHeroPosition", save)
+        self.assertIn("float SavedHealth", save)
+        self.assertIn("CheckpointInterval = 8f", self.unity)
+        self.assertIn("CheckpointInterval = 8.f", self.header)
+        self.assertIn('PlayerPrefs.SetFloat("moonfall_experiment_checkpoint_x"', self.unity)
+        self.assertIn('PlayerPrefs.SetFloat("moonfall_experiment_checkpoint_z"', self.unity)
+        self.assertIn('PlayerPrefs.SetFloat("moonfall_experiment_checkpoint_hp"', self.unity)
+        self.assertIn("if (hero != null && hp > 0f)", self.unity)
+        self.assertIn('PlayerPrefs.GetInt("moonfall_experiment_checkpoint_active", 0) == 1', self.unity)
+        self.assertIn("!float.IsNaN(savedHp) && !float.IsInfinity(savedHp)", self.unity)
+        self.assertIn("hp = Mathf.Clamp(savedHp, 1f, 100f + 5f * wins)", self.unity)
+        self.assertIn("if (checkpointTimer >= CheckpointInterval)", self.unity)
+        self.assertIn("if (Progress->bHasCheckpoint && FMath::IsFinite(Progress->SavedHealth)", self.cpp)
+        self.assertIn("Progress->SavedHeroPosition.ContainsNaN()", self.cpp)
+        self.assertIn("Progress->SavedHealth = Health;", self.cpp)
+        self.assertIn("Progress->SavedHeroPosition = HeroMesh->GetRelativeLocation();", self.cpp)
+        self.assertIn("if (!bLoadedCheckpoint)", self.cpp)
+        self.assertIn("if (CheckpointTimer >= CheckpointInterval)", self.cpp)
+        # No combat kill path should restore HP.
+        self.assertNotIn("Health + 20.f * LevelsGained", self.cpp)
+        self.assertNotIn("hp + 20f * levelsGained", self.unity)
+
     def test_original_art_import_is_checksum_guarded(self):
         import_tool = (ROOT / "tools/import_godot_art.py").read_text()
         verify_tool = (ROOT / "tools/verify_art_import.py").read_text()
