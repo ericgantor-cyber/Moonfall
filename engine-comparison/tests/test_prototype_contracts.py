@@ -509,6 +509,29 @@ class PrototypeContracts(unittest.TestCase):
         self.assertNotIn("EEndPlayReason::EndPlayInEditor", code)
         self.assertIn("if (HeroMesh && Health > 0.f)", self.cpp)
 
+    def test_checkpoint_resource_bars_preserve_mana_and_stamina(self):
+        save = SAVES.read_text(encoding="utf-8")
+        self.assertIn('bool bHasResourceCheckpoint = false;', save)
+        self.assertIn('float SavedMana = 180.f;', save)
+        self.assertIn('float SavedStamina = 150.f;', save)
+        for token in ('moonfall_experiment_checkpoint_mana',
+                      'moonfall_experiment_checkpoint_stamina',
+                      'moonfall_experiment_checkpoint_resources_active'):
+            self.assertIn(token, self.unity)
+        self.assertIn('if (PlayerPrefs.GetInt("moonfall_experiment_checkpoint_resources_active", 0) == 1)', self.unity)
+        self.assertIn('mana = Mathf.Clamp(savedMana, 0f, MaxMana)', self.unity)
+        self.assertIn('stamina = Mathf.Clamp(savedStamina, 0f, MaxStamina)', self.unity)
+        self.assertIn('!float.IsInfinity(savedMana)', self.unity)
+        self.assertIn('!float.IsInfinity(savedStamina)', self.unity)
+        self.assertIn('if (Progress->bHasResourceCheckpoint)', self.cpp)
+        self.assertIn('FMath::IsFinite(Progress->SavedMana)', self.cpp)
+        self.assertIn('FMath::IsFinite(Progress->SavedStamina)', self.cpp)
+        self.assertIn('Progress->SavedMana = Mana;', self.cpp)
+        self.assertIn('Progress->SavedStamina = Stamina;', self.cpp)
+        self.assertIn('Progress->bHasResourceCheckpoint = true;', self.cpp)
+        self.assertIn('if (HeroMesh && Health > 0.f)', self.cpp)
+        self.assertIn('if (hero != null && hp > 0f)', self.unity)
+
     def test_original_art_import_is_checksum_guarded(self):
         import_tool = (ROOT / "tools/import_godot_art.py").read_text()
         verify_tool = (ROOT / "tools/verify_art_import.py").read_text()
