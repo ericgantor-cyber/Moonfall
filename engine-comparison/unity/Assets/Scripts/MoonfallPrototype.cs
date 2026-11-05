@@ -28,11 +28,13 @@ public sealed class MoonfallPrototype : MonoBehaviour
         public float hp;
         public int region;
         public int id;
+        public bool guardian;
     }
     readonly List<WorldEnemy> enemies = new List<WorldEnemy>();
     int defeatedEnemyMask;
     float enemyDamageCooldown;
     int claimedChamberMask;
+    int defeatedGuardianMask;
     readonly List<Transform> chamberRewards = new List<Transform>();
     readonly List<int> chamberIds = new List<int>();
     static readonly string[] BeastPortraits =
@@ -101,6 +103,7 @@ public sealed class MoonfallPrototype : MonoBehaviour
     {
         defeatedEnemyMask = PlayerPrefs.GetInt("moonfall_experiment_defeated_mobs", 0) & ((1 << MoonfallWorldRules.TotalEnemies) - 1);
         claimedChamberMask = PlayerPrefs.GetInt("moonfall_experiment_chambers", 0) & ((1 << MoonfallWorldRules.TotalChambers) - 1);
+        defeatedGuardianMask = PlayerPrefs.GetInt("moonfall_experiment_guardians", 0) & ((1 << MoonfallWorldRules.TotalChambers) - 1);
         for (int region = 0; region < MoonfallWorldRules.RegionCount; region++)
         {
             float center = MoonfallWorldRules.RegionCenter(region);
@@ -123,6 +126,19 @@ public sealed class MoonfallPrototype : MonoBehaviour
                     new Vector3(1.6f, .5f, 1.6f), new Color(.9f, .6f, .18f));
                 chamberRewards.Add(cache);
                 chamberIds.Add(chamberId);
+                if ((defeatedGuardianMask & (1 << chamberId)) == 0)
+                {
+                    Vector3 guardPosition = MoonfallWorldRules.ChamberReward(region, chamber) + new Vector3(0f, 0f, 4f);
+                    Transform guardian = Make("Chamber guardian " + chamberId, PrimitiveType.Capsule,
+                        guardPosition, new Vector3(1.3f, 1.3f, 1.3f), new Color(.65f, .12f, .8f));
+                    enemies.Add(new WorldEnemy {
+                        body = guardian,
+                        portrait = AttachPortrait(guardian,
+                            Resources.Load<Texture2D>("MoonfallArt/v31_4_bestiary/boss_" + (chamber % 4)), 2.4f),
+                        region = region, id = chamberId, guardian = true,
+                        hp = MoonfallWorldRules.EnemyMaxHealth(region) * 1.8f
+                    });
+                }
             }
             Texture2D beastArt = Resources.Load<Texture2D>(
                 "MoonfallArt/v31_4_bestiary/" + BeastPortraits[region]);
@@ -162,6 +178,7 @@ public sealed class MoonfallPrototype : MonoBehaviour
         PlayerPrefs.SetInt("moonfall_experiment_tamer_points", progression.TamerPoints);
         PlayerPrefs.SetInt("moonfall_experiment_defeated_mobs", defeatedEnemyMask);
         PlayerPrefs.SetInt("moonfall_experiment_chambers", claimedChamberMask);
+        PlayerPrefs.SetInt("moonfall_experiment_guardians", defeatedGuardianMask);
         PlayerPrefs.Save();
     }
 
@@ -172,6 +189,7 @@ public sealed class MoonfallPrototype : MonoBehaviour
         {
             if (Vector3.Distance(hero.position, chamberRewards[i].position) > 2.5f) continue;
             int id = chamberIds[i];
+            if ((defeatedGuardianMask & (1 << id)) == 0) continue; // Guardian must fall first.
             claimedChamberMask |= 1 << id;
             // Permanent exploration reward without extra boss-only HP stacking.
             int levelsGained = progression.AwardDefeat(id / MoonfallWorldRules.ChambersPerRegion,
@@ -190,8 +208,9 @@ public sealed class MoonfallPrototype : MonoBehaviour
         if (enemy == null) return;
         enemy.hp = Mathf.Max(0f, enemy.hp - damage);
         if (enemy.hp > 0f) return;
-        defeatedEnemyMask |= 1 << enemy.id;
-        int levelsGained = progression.AwardDefeat(enemy.region, false, false, Time.time);
+        if (enemy.guardian) defeatedGuardianMask |= 1 << enemy.id;
+        else defeatedEnemyMask |= 1 << enemy.id;
+        int levelsGained = progression.AwardDefeat(enemy.region, enemy.guardian, false, Time.time);
         hp = Mathf.Min(100f + 5f * wins, hp + 20f * levelsGained);
         enemies.Remove(enemy);
         Destroy(enemy.body.gameObject);
