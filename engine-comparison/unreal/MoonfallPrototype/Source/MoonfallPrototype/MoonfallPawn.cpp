@@ -77,6 +77,7 @@ void AMoonfallPawn::BeginPlay()
         {
             Victories = FMath::Clamp(Progress->PermanentBossVictories, 0, 100);
             DefeatedEnemyMask = Progress->DefeatedEnemyMask & ((1 << MoonfallWorldRules::TotalEnemies) - 1);
+            ClaimedChamberMask = Progress->ClaimedChamberMask & ((1 << MoonfallWorldRules::TotalChambers) - 1);
             Progression.Level = FMath::Clamp(Progress->HeroLevel, 1, 100);
             Progression.Experience = FMath::Clamp(Progress->HeroXP, 0, Progression.ExperienceToNext() - 1);
             Progression.HeroPoints = FMath::Clamp(Progress->HeroPoints, 0, 100);
@@ -120,6 +121,33 @@ void AMoonfallPawn::BuildWorld()
             Ground->SetRelativeScale3D(FVector(34.f, 34.f, .5f));
             AddInstanceComponent(Ground);
             Ground->RegisterComponent();
+        }
+        // Five side chambers directly overlap each region's edge, with no portals.
+        for (int32 Chamber = 0; Chamber < MoonfallWorldRules::ChambersPerRegion; ++Chamber)
+        {
+            const FVector Center = MoonfallWorldRules::ChamberCenter(Region, Chamber);
+            UStaticMeshComponent* Floor = NewObject<UStaticMeshComponent>(this);
+            Floor->SetupAttachment(Root);
+            Floor->SetStaticMesh(RegionShape);
+            Floor->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+            Floor->SetRelativeLocation(FVector(Center.X, Center.Y, -30.f));
+            Floor->SetRelativeScale3D(FVector(16.f, 16.f, .5f));
+            AddInstanceComponent(Floor);
+            Floor->RegisterComponent();
+            const int32 ChamberId = Region * MoonfallWorldRules::ChambersPerRegion + Chamber;
+            if ((ClaimedChamberMask & (1 << ChamberId)) != 0) continue;
+            UStaticMeshComponent* Cache = NewObject<UStaticMeshComponent>(this);
+            Cache->SetupAttachment(Root);
+            Cache->SetStaticMesh(EnemyShape);
+            Cache->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+            Cache->SetRelativeLocation(MoonfallWorldRules::ChamberReward(Region, Chamber));
+            Cache->SetRelativeScale3D(FVector(.55f));
+            AddInstanceComponent(Cache);
+            Cache->RegisterComponent();
+            FChamberCache Reward;
+            Reward.Mesh = Cache;
+            Reward.Id = ChamberId;
+            ChamberCaches.Add(Reward);
         }
         const FString Name = BeastNames[Region];
         UTexture2D* OriginalArt = LoadObject<UTexture2D>(nullptr,
@@ -199,6 +227,35 @@ void AMoonfallPawn::DamageWorldEnemy(int32 Index, float Damage)
     SaveProgress();
 }
 
+TArray<FVector> AMoonfallPawn::GetChamberMapPositions() const
+{
+    TArray<FVector> Positions;
+    Positions.Reserve(ChamberCaches.Num());
+    for (const FChamberCache& Cache : ChamberCaches)
+        if (Cache.Mesh) Positions.Add(Cache.Mesh->GetRelativeLocation());
+    return Positions;
+}
+
+void AMoonfallPawn::CollectNearbyChambers()
+{
+    const FVector HeroPosition = HeroMesh->GetRelativeLocation();
+    for (int32 I = ChamberCaches.Num() - 1; I >= 0; --I)
+    {
+        const FChamberCache& Cache = ChamberCaches[I];
+        if (!Cache.Mesh || FVector::Dist2D(HeroPosition, Cache.Mesh->GetRelativeLocation()) > 250.f) continue;
+        const int32 Id = Cache.Id;
+        ClaimedChamberMask |= 1 << Id;
+        Cache.Mesh->DestroyComponent();
+        ChamberCaches.RemoveAt(I);
+        const int32 Region = Id / MoonfallWorldRules::ChambersPerRegion;
+        const int32 LevelsGained = Progression.AwardDefeat(
+            Region, false, false, GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f);
+        Health = FMath::Min(100.f + 5.f * Victories, Health + 20.f * LevelsGained);
+        Mana = FMath::Min(180.f, Mana + 25.f);
+        SaveProgress();
+    }
+}
+
 void AMoonfallPawn::SaveProgress()
 {
     UMoonfallProgressSave* Progress = Cast<UMoonfallProgressSave>(
@@ -211,6 +268,7 @@ void AMoonfallPawn::SaveProgress()
     Progress->HeroPoints = Progression.HeroPoints;
     Progress->TamerPoints = Progression.TamerPoints;
     Progress->DefeatedEnemyMask = DefeatedEnemyMask;
+    Progress->ClaimedChamberMask = ClaimedChamberMask;
     if (!UGameplayStatics::SaveGameToSlot(Progress, TEXT("MoonfallPrototypeBossRewards"), 0))
         UE_LOG(LogTemp, Warning, TEXT("Moonfall prototype: reward save failed."));
 }
@@ -329,8 +387,9 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
         Direction = Direction.GetClampedToMaxSize(1.f);
         FVector Position = HeroMesh->GetRelativeLocation() + Direction * (DodgeTimer > 0.f ? 1200.f : 600.f) * Dt;
         Position.X = FMath::Clamp(Position.X, -1600.f, 17600.f);
-        Position.Y = FMath::Clamp(Position.Y, -1600.f, 1600.f);
+        Position.Y = FMath::Clamp(Position.Y, -3200.f, 3200.f);
         HeroMesh->SetRelativeLocation(Position);
+        CollectNearbyChambers();
         CameraBoom->SetRelativeLocation(FVector(Position.X, Position.Y, 0.f));
         if (Health > 0.f && DodgeTimer <= 0.f && EnemyDamageCooldown <= 0.f &&
             NearestEnemyIndex(175.f) != INDEX_NONE)
