@@ -22,7 +22,11 @@ public:
     virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
     float GetHudHealth() const { return Health; }
     float GetHudMaxHealth() const { return 100.f + 5.f * Victories; }
-    float GetHudManaRatio() const { return 1.f; } // Placeholder: spell mana not ported yet.
+    float GetHudMana() const { return Mana; }
+    float GetHudMaxMana() const { return 180.f; } // Spell mana spending not yet ported.
+    float GetHudManaRatio() const { return Mana / GetHudMaxMana(); }
+    float GetHudStamina() const { return Stamina; }
+    float GetHudMaxStamina() const { return 150.f; }
     int32 GetHudLevel() const { return Progression.Level; }
     float GetHudXpRatio() const { return static_cast<float>(Progression.Experience) / FMath::Max(1, Progression.ExperienceToNext()); }
     FVector GetHeroMapPosition() const { return HeroMesh ? HeroMesh->GetRelativeLocation() : FVector::ZeroVector; }
@@ -37,6 +41,7 @@ private:
     UPROPERTY() USpringArmComponent* CameraBoom;
     UPROPERTY() UCameraComponent* Camera;
     float Forward = 0.f, Right = 0.f, Health = 100.f, BossHealth = 100.f;
+    float Mana = 180.f, Stamina = 150.f;
     float AttackCooldown = 0.f, DodgeTimer = 0.f, DodgeCooldown = 0.f, CastCooldown = 3.f, CastTimer = 0.f;
     float ZoomDistance = 1600.f;
     int32 Victories = 0;
