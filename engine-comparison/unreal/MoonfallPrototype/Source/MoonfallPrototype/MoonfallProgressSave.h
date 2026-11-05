@@ -16,4 +16,13 @@ public:
     // Prototype-only collectible list; maximum one per victory, 100 entries.
     UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category="Prototype")
     TArray<FString> BossRelics;
+
+    UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category="Prototype")
+    int32 HeroLevel = 1;
+    UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category="Prototype")
+    int32 HeroXP = 0;
+    UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category="Prototype")
+    int32 HeroPoints = 0;
+    UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category="Prototype")
+    int32 TamerPoints = 0;
 };
