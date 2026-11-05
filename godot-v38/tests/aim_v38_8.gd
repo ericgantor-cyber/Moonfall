@@ -19,6 +19,10 @@ func _run()->void:
   check("JOY_AXIS_RIGHT_X" in source and "JOY_AXIS_RIGHT_Y" in source,"controller right stick wired")
   check("project_ray_origin" in source and "project_ray_normal" in source,"mouse targeting uses camera ray")
   check("aim_locked_id" in source and "_toggle_aim_lock" in source,"target lock toggle exists")
+  check("event.button_index==MOUSE_BUTTON_MIDDLE" in source,"mouse aim lock uses middle-click")
+  check(not ("event.button_index==MOUSE_BUTTON_RIGHT" in source),"aim lock does not capture right-click guard")
+  var guard:GDScript=load("res://scripts/native_v38_0.gd") as GDScript
+  check(guard!=null and "event.button_index==MOUSE_BUTTON_RIGHT" in guard.source_code and "v392_guard_started=map_time" in guard.source_code,"right-click remains bound to inherited parry window")
   check("if aim_locked_id>=0 and locked.is_empty():aim_locked_id=-1" in source,"invalid lock-on targets are released")
   check("if not hero_playing or menu_open or death_active or wait_open or wait_transition_active:return" in source,"aimed flame blocked during non-gameplay states")
   check("if which!=\"fire\":" in source and "super._spell(which)" in source,"other spells retain inherited behavior")
