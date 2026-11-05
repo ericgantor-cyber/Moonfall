@@ -87,6 +87,7 @@ private:
     UPROPERTY() UCameraComponent* Camera;
     float Forward = 0.f, Right = 0.f, Health = 100.f, BossHealth = 100.f;
     float Mana = 180.f, Stamina = 150.f;
+    float StaminaRegenDelay = 0.f; // Prevent instant recovery after committing to a dodge.
     float AttackCooldown = 0.f, DodgeTimer = 0.f, DodgeCooldown = 0.f, CastCooldown = 3.f, CastTimer = 0.f;
     float BoltCooldown = 0.f, HealCooldown = 0.f;
     float ZoomDistance = 1600.f;
