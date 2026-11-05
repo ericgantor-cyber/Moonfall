@@ -32,6 +32,9 @@ public sealed class MoonfallPrototype : MonoBehaviour
     readonly List<WorldEnemy> enemies = new List<WorldEnemy>();
     int defeatedEnemyMask;
     float enemyDamageCooldown;
+    int claimedChamberMask;
+    readonly List<Transform> chamberRewards = new List<Transform>();
+    readonly List<int> chamberIds = new List<int>();
     static readonly string[] BeastPortraits =
         { "wolf", "fox", "boar", "elk", "panther", "serpent" };
 
@@ -97,6 +100,7 @@ public sealed class MoonfallPrototype : MonoBehaviour
     void BuildWorld()
     {
         defeatedEnemyMask = PlayerPrefs.GetInt("moonfall_experiment_defeated_mobs", 0) & ((1 << MoonfallWorldRules.TotalEnemies) - 1);
+        claimedChamberMask = PlayerPrefs.GetInt("moonfall_experiment_chambers", 0) & ((1 << MoonfallWorldRules.TotalChambers) - 1);
         for (int region = 0; region < MoonfallWorldRules.RegionCount; region++)
         {
             float center = MoonfallWorldRules.RegionCenter(region);
@@ -104,6 +108,22 @@ public sealed class MoonfallPrototype : MonoBehaviour
                 new Color(.30f, .12f, .16f), region / 5f);
             Make("Connected region " + region, PrimitiveType.Cube,
                 new Vector3(center, -.3f, 0f), new Vector3(34f, .5f, 34f), ground);
+            // Five side chambers per region overlap its floor edge, so players
+            // walk straight into them without teleporting or changing game modes.
+            for (int chamber = 0; chamber < MoonfallWorldRules.ChambersPerRegion; chamber++)
+            {
+                Vector3 centerRoom = MoonfallWorldRules.ChamberCenter(region, chamber);
+                Make("Region " + region + " chamber " + chamber, PrimitiveType.Cube,
+                    new Vector3(centerRoom.x, -.3f, centerRoom.z),
+                    new Vector3(16f, .5f, 16f), ground * .8f);
+                int chamberId = region * MoonfallWorldRules.ChambersPerRegion + chamber;
+                if ((claimedChamberMask & (1 << chamberId)) != 0) continue;
+                Transform cache = Make("Dungeon cache " + chamberId, PrimitiveType.Cylinder,
+                    MoonfallWorldRules.ChamberReward(region, chamber),
+                    new Vector3(1.6f, .5f, 1.6f), new Color(.9f, .6f, .18f));
+                chamberRewards.Add(cache);
+                chamberIds.Add(chamberId);
+            }
             Texture2D beastArt = Resources.Load<Texture2D>(
                 "MoonfallArt/v31_4_bestiary/" + BeastPortraits[region]);
             for (int slot = 0; slot < MoonfallWorldRules.EnemiesPerRegion; slot++)
@@ -141,7 +161,28 @@ public sealed class MoonfallPrototype : MonoBehaviour
         PlayerPrefs.SetInt("moonfall_experiment_hero_points", progression.HeroPoints);
         PlayerPrefs.SetInt("moonfall_experiment_tamer_points", progression.TamerPoints);
         PlayerPrefs.SetInt("moonfall_experiment_defeated_mobs", defeatedEnemyMask);
+        PlayerPrefs.SetInt("moonfall_experiment_chambers", claimedChamberMask);
         PlayerPrefs.Save();
+    }
+
+    void CollectNearbyChambers()
+    {
+        // Accessible proximity collection: no extra HUD button or prompt.
+        for (int i = chamberRewards.Count - 1; i >= 0; i--)
+        {
+            if (Vector3.Distance(hero.position, chamberRewards[i].position) > 2.5f) continue;
+            int id = chamberIds[i];
+            claimedChamberMask |= 1 << id;
+            // Permanent exploration reward without extra boss-only HP stacking.
+            int levelsGained = progression.AwardDefeat(id / MoonfallWorldRules.ChambersPerRegion,
+                false, false, Time.time);
+            hp = Mathf.Min(100f + 5f * wins, hp + 20f * levelsGained);
+            mana = Mathf.Min(MaxMana, mana + 25f);
+            Destroy(chamberRewards[i].gameObject);
+            chamberRewards.RemoveAt(i);
+            chamberIds.RemoveAt(i);
+            SaveProgress();
+        }
     }
 
     void DamageEnemy(WorldEnemy enemy, float damage)
@@ -233,7 +274,8 @@ public sealed class MoonfallPrototype : MonoBehaviour
                 hp = Mathf.Min(100f + 5f * wins, hp + 30f + progression.Level);
             }
             hero.position += direction * (dodge>0 ? 12 : 6) * dt;
-            hero.position = new Vector3(Mathf.Clamp(hero.position.x,-16,176),1,Mathf.Clamp(hero.position.z,-16,16));
+            hero.position = new Vector3(Mathf.Clamp(hero.position.x,-16,176),1,Mathf.Clamp(hero.position.z,-32,32));
+            CollectNearbyChambers();
             WorldEnemy nearby = NearestEnemy(1.75f);
             if (nearby != null && enemyDamageCooldown <= 0f && dodge <= 0f)
             {
@@ -382,6 +424,12 @@ public sealed class MoonfallPrototype : MonoBehaviour
         FillRect(new Rect(x, 18f, 160f, 160f), new Color(.04f, .05f, .09f, .9f));
         FillRect(new Rect(x + 8f, 26f, 144f, 144f), new Color(.13f, .17f, .22f, .9f));
         // Local radar follows the hero across the whole connected world.
+        foreach (Transform cache in chamberRewards)
+        {
+            Vector3 d = cache.position - hero.position;
+            if (Mathf.Abs(d.x) <= 17f && Mathf.Abs(d.z) <= 17f)
+                FillRect(new Rect(x + 80f + d.x * 4f - 2f, 98f - d.z * 4f - 2f, 4f, 4f), Color.green);
+        }
         foreach (WorldEnemy enemy in enemies)
         {
             Vector3 d = enemy.body.position - hero.position;
