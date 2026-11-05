@@ -44,4 +44,13 @@ func _run()->void:
   check("aim_input_source==\"mouse\"" in source,"mouse aiming restored with connected controller")
   check("beasts.find(target)==aim_locked_id" in source,"locked marker matches actual target")
   check("aim_options.visible=hero_playing and not menu_open and not death_active" in source,"aim controls hidden outside gameplay")
+ # Divine final-phase attack telegraphs have a bounded, visible second strike.
+ var divine:GDScript=load("res://scripts/native_v38_8.gd") as GDScript
+ if divine!=null:
+  var source:String=divine.source_code
+  check("beast[\"divine_chain_pending\"]=true" in source,"phase-three divine attack schedules a follow-up")
+  check("if not chained and int(beast.get(\"boss_phase\",1))==3" in source,"divine follow-up occurs once only in phase three")
+  check("beast[\"divine_warn_until\"]=map_time+1.15" in source,"second divine strike has a visible dodge window")
+  check("actor[\"divine_chain_pending\"]=false" in source,"divine chain cancels when warning is cleared")
+  check("warning.visible=true" in source,"follow-up reuses visible warning mesh")
  quit(1 if failures>0 else 0)
