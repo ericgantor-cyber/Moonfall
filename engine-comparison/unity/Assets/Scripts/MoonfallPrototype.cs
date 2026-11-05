@@ -4,7 +4,7 @@ public sealed class MoonfallPrototype : MonoBehaviour
 {
     Transform hero, boss, warning;
     Camera view;
-    float hp, bossHp = 100, attackCd, dodge, castCd = 3, castTimer, zoom = 16;
+    float hp, bossHp = 100, attackCd, dodge, dodgeCooldown, castCd = 3, castTimer, zoom = 16;
     bool casting, won;
     Vector3 target;
     int wins;
@@ -37,13 +37,18 @@ public sealed class MoonfallPrototype : MonoBehaviour
     }
     void Update()
     {
-        float dt = Mathf.Min(.05f, Time.deltaTime);
+        float dt = Mathf.Max(0, Time.deltaTime);
         attackCd = Mathf.Max(0, attackCd-dt);
         dodge = Mathf.Max(0, dodge-dt);
+        dodgeCooldown = Mathf.Max(0, dodgeCooldown-dt);
         if (hp > 0)
         {
             Vector3 direction = new Vector3(Input.GetAxisRaw("Horizontal"),0,Input.GetAxisRaw("Vertical")).normalized;
-            if (Input.GetKeyDown(KeyCode.LeftShift) && dodge<=0) dodge=.32f;
+            if (Input.GetKeyDown(KeyCode.LeftShift) && dodgeCooldown<=0)
+            {
+                dodge=.32f;
+                dodgeCooldown=1.2f;
+            }
             hero.position += direction * (dodge>0 ? 12 : 6) * dt;
             hero.position = new Vector3(Mathf.Clamp(hero.position.x,-16,16),1,Mathf.Clamp(hero.position.z,-16,16));
             if (!won && Input.GetMouseButtonDown(0) && attackCd<=0)
