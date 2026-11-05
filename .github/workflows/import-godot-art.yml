@@ -6,6 +6,7 @@ on:
       - prototype/unreal-unity-comparison-20261104
     paths:
       - 'engine-comparison/tools/import_godot_art.py'
+      - 'engine-comparison/tools/verify_art_import.py'
       - '.github/workflows/import-godot-art.yml'
   workflow_dispatch:
 
