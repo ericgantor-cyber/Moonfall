@@ -86,10 +86,11 @@ public sealed class MoonfallPrototype : MonoBehaviour
         won=true;
         warning.gameObject.SetActive(false);
         boss.gameObject.SetActive(false);
-        wins=Mathf.Min(100,wins+1);
-        PlayerPrefs.SetInt("moonfall_experiment_wins",wins);
+        int previousWins = wins;
+        wins = Mathf.Min(100, wins + 1);
+        PlayerPrefs.SetInt("moonfall_experiment_wins", wins);
         PlayerPrefs.Save();
-        hp+=5;
+        hp += 5 * (wins - previousWins);
     }
     void OnGUI()
     {
@@ -97,7 +98,7 @@ public sealed class MoonfallPrototype : MonoBehaviour
         GUI.Label(new Rect(20,35,330,22),"HP: "+Mathf.CeilToInt(hp)+" | Mana: 100 | XP: 0");
         GUI.Label(new Rect(20,60,330,22),"Boss HP: "+Mathf.CeilToInt(bossHp)+" | Permanent wins: "+wins);
         GUI.Label(new Rect(20,85,330,22),"WASD move | Click attack | Shift dodge | Wheel zoom");
-        if (won) GUI.Label(new Rect(20,110,330,22),"Victory: +5 permanent max HP saved!");
+        if (won) GUI.Label(new Rect(20,110,330,22),"Victory: permanent boss reward recorded (cap 100)!");
         else if (hp<=0) GUI.Label(new Rect(20,110,330,22),"Defeated. Restart Play to retry.");
     }
 }
