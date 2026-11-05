@@ -19,6 +19,14 @@ public:
     virtual void BeginPlay() override;
     virtual void Tick(float DeltaSeconds) override;
     virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
+    float GetHudHealth() const { return Health; }
+    float GetHudMaxHealth() const { return 100.f + 5.f * Victories; }
+    float GetHudManaRatio() const { return 1.f; } // Placeholder: spell mana not ported yet.
+    int32 GetHudLevel() const { return Progression.Level; }
+    float GetHudXpRatio() const { return static_cast<float>(Progression.Experience) / FMath::Max(1, Progression.ExperienceToNext()); }
+    FVector GetHeroMapPosition() const { return HeroMesh ? HeroMesh->GetRelativeLocation() : FVector::ZeroVector; }
+    FVector GetBossMapPosition() const { return BossMesh ? BossMesh->GetRelativeLocation() : FVector::ZeroVector; }
+    bool IsBossDefeated() const { return bWon; }
 private:
     UPROPERTY() USceneComponent* Root;
     UPROPERTY() UStaticMeshComponent* HeroMesh;
