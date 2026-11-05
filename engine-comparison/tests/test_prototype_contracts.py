@@ -84,6 +84,18 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("a.CompareTo(b)", unity)
         self.assertIn("A < B", unreal)
 
+    def test_unreal_dodge_stamina_regen_delay_keeps_perfect_dodge_reward(self):
+        dodge = self.cpp.split("void AMoonfallPawn::Dodge()", 1)[1].split(
+            "int32 AMoonfallPawn::GuardianBlessingCount()", 1)[0]
+        tick = self.cpp.split("void AMoonfallPawn::Tick(", 1)[1]
+        self.assertIn("float StaminaRegenDelay = 0.f;", self.header)
+        self.assertIn("StaminaRegenDelay = 0.6f;", dodge)
+        self.assertIn("Stamina -= 45.f;", dodge)
+        self.assertIn("StaminaRegenDelay = FMath::Max(0.f, StaminaRegenDelay - Dt);", tick)
+        self.assertIn("if (StaminaRegenDelay <= 0.f)", tick)
+        self.assertIn("Stamina = FMath::Min(GetHudMaxStamina(), Stamina + 30.f * Dt);", tick)
+        self.assertIn("Stamina = FMath::Min(GetHudMaxStamina(), Stamina + 10.f);", tick)
+
     def test_unreal_mob_and_boss_strikes_share_damage_recovery(self):
         tick = self.cpp.split("void AMoonfallPawn::Tick(", 1)[1]
         self.assertIn("if (Health > 0.f && EnemyDamageCooldown <= 0.f)", tick)
