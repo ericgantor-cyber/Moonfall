@@ -13,7 +13,8 @@ static func orbit_stick_input(raw:Vector2,deadzone:float=0.18)->Vector2:
  # Radial noise suppression with continuous analog response near the center.
  if not raw.is_finite():return Vector2.ZERO
  var magnitude:float=raw.length()
- if magnitude<=deadzone:return Vector2.ZERO
+ # Vector2 components use single precision; tolerate rounding at the edge.
+ if magnitude<=deadzone+0.00001:return Vector2.ZERO
  var strength:float=clampf((minf(magnitude,1.0)-deadzone)/(1.0-deadzone),0.0,1.0)
  return raw.normalized()*strength
 
