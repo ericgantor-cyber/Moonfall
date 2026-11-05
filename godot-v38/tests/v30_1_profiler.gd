@@ -15,6 +15,13 @@ func _run()->void:
  await process_frame
  check(str(game.call("_release_label")).begins_with("v3"),"new profiler script active")
  game.call("_start_game","z")
+ # A diagnostic request before the first captured frame must never index
+ # a negative sample position or produce a fake low-FPS value.
+ game.call("_perf_start",true)
+ var empty_report:Dictionary=game.call("_perf_report")
+ check(int(empty_report.get("frames",-1))==0,"empty performance capture has zero frames")
+ check(float(empty_report.get("one_percent_low_fps",-1.0))==0.0,"empty performance capture safely reports zero one-percent-low FPS")
+ game.call("_perf_stop",false)
  var key:=InputEventKey.new()
  key.keycode=KEY_F9
  key.pressed=true
