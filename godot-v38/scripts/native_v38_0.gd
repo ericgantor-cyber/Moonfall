@@ -561,7 +561,10 @@ func _unhandled_input(event:InputEvent)->void:
  super._unhandled_input(event)
 
 func _apply_incoming_damage(raw:float)->void:
- if not hero_playing or menu_open or death_active or mounted or not Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT):
+ # Alt + right-drag orbits the camera, not a defensive guard.
+ # The camera handler marks that state when orbit begins, even after Alt is
+ # released while the right button is still held.
+ if not hero_playing or menu_open or death_active or mounted or v36_dragging or not Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT):
   super._apply_incoming_damage(raw)
   return
  var parry:bool=map_time-v392_guard_started<=V392_PARRY_WINDOW+0.035*float(v398_ranks.get("defense_guard",0))

@@ -24,6 +24,8 @@ func _run()->void:
   var guard:GDScript=load("res://scripts/native_v38_0.gd") as GDScript
   check(guard!=null and "event.button_index==MOUSE_BUTTON_RIGHT" in guard.source_code and "v392_guard_started=map_time" in guard.source_code,"right-click remains bound to inherited parry window")
   check(guard!=null and "not event.alt_pressed" in guard.source_code,"Alt-right camera orbit does not activate guard/parry")
+  check(guard!=null and "or v36_dragging or not Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT)" in guard.source_code,"camera orbit cannot block incoming damage as held guard")
+  check(guard!=null and "super._apply_incoming_damage(raw)" in guard.source_code,"camera-orbit hit follows inherited damage path")
   var camera_script:GDScript=load("res://scripts/native_v34_4.gd") as GDScript
   check(camera_script!=null,"third-person camera script loads")
   if camera_script!=null:
