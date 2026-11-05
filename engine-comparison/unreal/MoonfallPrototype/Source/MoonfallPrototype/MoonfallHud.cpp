@@ -73,13 +73,17 @@ void AMoonfallHud::DrawHUD()
         FLinearColor(.2f, .3f, .4f, .8f));
     const FVector H = Hero->GetHeroMapPosition();
     const FVector B = Hero->GetBossMapPosition();
-    const float HeroX = Left + 80.f + FMath::Clamp(H.X / 1600.f, -1.f, 1.f) * 68.f;
-    const float HeroY = 98.f - FMath::Clamp(H.Y / 1600.f, -1.f, 1.f) * 68.f;
-    DrawMarker(HeroX, HeroY, FLinearColor(.2f, .9f, 1.f));
-    if (!Hero->IsBossDefeated())
+    // Local radar follows the hero across six continuous world regions.
+    for (const FVector& Enemy : Hero->GetEnemyMapPositions())
     {
-        const float BossX = Left + 80.f + FMath::Clamp(B.X / 1600.f, -1.f, 1.f) * 68.f;
-        const float BossY = 98.f - FMath::Clamp(B.Y / 1600.f, -1.f, 1.f) * 68.f;
-        DrawMarker(BossX, BossY, FLinearColor::Red);
+        const FVector Offset = Enemy - H;
+        if (FMath::Abs(Offset.X) <= 1700.f && FMath::Abs(Offset.Y) <= 1700.f)
+            DrawMarker(Left + 80.f + Offset.X * .04f, 98.f - Offset.Y * .04f, FLinearColor::Yellow);
     }
+    const FVector BossOffset = B - H;
+    if (!Hero->IsBossDefeated() &&
+        FMath::Abs(BossOffset.X) <= 1700.f && FMath::Abs(BossOffset.Y) <= 1700.f)
+        DrawMarker(Left + 80.f + BossOffset.X * .04f,
+            98.f - BossOffset.Y * .04f, FLinearColor::Red);
+    DrawMarker(Left + 80.f, 98.f, FLinearColor(.2f, .9f, 1.f));
 }
