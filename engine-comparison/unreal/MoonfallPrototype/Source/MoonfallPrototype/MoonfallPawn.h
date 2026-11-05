@@ -31,6 +31,7 @@ private:
     float ZoomDistance = 1600.f;
     int32 Victories = 0;
     FString BossLoot = TEXT("No boss loot yet");
+    TArray<FString> BossInventory;
     bool bCasting = false, bWon = false;
     FVector TargetWorld = FVector::ZeroVector;
     void MoveForward(float Value);
