@@ -4,9 +4,8 @@ using System.Collections.Generic;
 public sealed class MoonfallPrototype : MonoBehaviour
 {
     Transform hero, boss, warning;
-    Transform heroPortrait, bossPortrait;
-    Texture2D zPortrait, nyraPortrait;
-    int selectedHero; // 0 = Z, 1 = Nyra
+    Transform bossPortrait;
+    Texture2D zPortrait, nyraPortrait; // Original art belongs to gods/bosses, not the playable avatar.
     Camera view;
     Texture2D ornateOrbs; // Optional transparent art imported to Resources/MoonfallOrbs
     float hp, bossHp = 100, attackCd, dodge, dodgeCooldown, castCd = 3, castTimer, zoom = 16;
@@ -79,24 +78,10 @@ public sealed class MoonfallPrototype : MonoBehaviour
         return obj.transform;
     }
 
-    void SelectHero(int index)
-    {
-        if (index < 0 || index > 1) return;
-        Texture2D selected = index == 0 ? zPortrait : nyraPortrait;
-        selectedHero = index; // Combat identity also works before artwork import.
-        if (heroPortrait != null) Destroy(heroPortrait.gameObject);
-        var mesh = hero.GetComponent<Renderer>();
-        if (mesh != null) mesh.enabled = true;
-        heroPortrait = selected != null ? AttachPortrait(hero, selected, 2.4f) : null;
-        PlayerPrefs.SetInt("moonfall_experiment_hero_art", selectedHero);
-        PlayerPrefs.Save();
-    }
-
     void LateUpdate()
     {
         // SpriteRenderer local +Z faces camera; only billboard transforms rotate.
         if (view == null) return;
-        if (heroPortrait != null) heroPortrait.rotation = view.transform.rotation;
         if (bossPortrait != null) bossPortrait.rotation = view.transform.rotation;
         foreach (WorldEnemy enemy in enemies)
             if (enemy.portrait != null) enemy.portrait.rotation = view.transform.rotation;
@@ -166,12 +151,15 @@ public sealed class MoonfallPrototype : MonoBehaviour
                 if ((defeatedGuardianMask & (1 << chamberId)) == 0)
                 {
                     Vector3 guardPosition = MoonfallWorldRules.ChamberReward(region, chamber) + new Vector3(0f, 0f, 4f);
-                    Transform guardian = Make("Chamber guardian " + chamberId, PrimitiveType.Capsule,
-                        guardPosition, new Vector3(1.3f, 1.3f, 1.3f), new Color(.65f, .12f, .8f));
+                    bool isNyraEncounter = chamberId == MoonfallWorldRules.TotalChambers - 1;
+                    Transform guardian = Make(isNyraEncounter ? "Nyra god guardian" : "Chamber guardian " + chamberId,
+                        PrimitiveType.Capsule, guardPosition, new Vector3(1.3f, 1.3f, 1.3f),
+                        new Color(.65f, .12f, .8f));
+                    Texture2D guardianArt = isNyraEncounter ? nyraPortrait :
+                        Resources.Load<Texture2D>("MoonfallArt/v31_4_bestiary/boss_" + (chamber % 4));
                     enemies.Add(new WorldEnemy {
                         body = guardian,
-                        portrait = AttachPortrait(guardian,
-                            Resources.Load<Texture2D>("MoonfallArt/v31_4_bestiary/boss_" + (chamber % 4)), 2.4f),
+                        portrait = AttachPortrait(guardian, guardianArt, 2.4f),
                         region = region, id = chamberId, guardian = true, home = guardPosition,
                         hp = MoonfallWorldRules.EnemyMaxHealth(region) * 1.8f
                     });
@@ -286,10 +274,10 @@ public sealed class MoonfallPrototype : MonoBehaviour
     }
 
     // Lightweight class identity. No changes to Z or Nyra's original artwork.
-    float BasicAttackDamage() { return (selectedHero == 0 ? 20f : 14f) + progression.Level; }
-    float ArcaneBoltDamage() { return selectedHero == 1
-        ? 34f + 3f * progression.Level : 22f + 2f * progression.Level; }
-    float HealingSpellAmount() { return (selectedHero == 1 ? 40f : 25f) + progression.Level; }
+    // Neutral adventurer uses one consistent combat profile, not a god's identity.
+    float BasicAttackDamage() { return 18f + progression.Level; }
+    float ArcaneBoltDamage() { return 28f + 2f * progression.Level; }
+    float HealingSpellAmount() { return 30f + progression.Level; }
 
     void DamageEnemy(WorldEnemy enemy, float damage)
     {
@@ -323,6 +311,8 @@ public sealed class MoonfallPrototype : MonoBehaviour
             if (rank >= 0 && rank < MoonfallLootRules.Rarities.Length)
                 bossInventory.Add(MoonfallLootRules.Rarities[rank] + " boss relic (prototype)");
         }
+        zPortrait = Resources.Load<Texture2D>("MoonfallArt/heroes/Z_Original");
+        nyraPortrait = Resources.Load<Texture2D>("MoonfallArt/heroes/Nyra_Original");
         BuildWorld();
         hero = Make("Hero placeholder", PrimitiveType.Capsule, new Vector3(0,1,-5), Vector3.one, Color.cyan);
         if (PlayerPrefs.GetInt("moonfall_experiment_checkpoint_active", 0) == 1)
@@ -350,13 +340,9 @@ public sealed class MoonfallPrototype : MonoBehaviour
             }
         }
         boss = Make("Boss placeholder", PrimitiveType.Capsule, new Vector3(MoonfallWorldRules.BossX,1,6), new Vector3(2,2,2), Color.red);
-        zPortrait = Resources.Load<Texture2D>("MoonfallArt/heroes/Z_Original");
-        nyraPortrait = Resources.Load<Texture2D>("MoonfallArt/heroes/Nyra_Original");
-        // Use imported original boss bestiary art as its visible stand-in.
-        Texture2D bossArt = Resources.Load<Texture2D>("MoonfallArt/v31_4_bestiary/boss_0");
-        bossPortrait = AttachPortrait(boss, bossArt, 3.6f);
+        // Z is the main boss. His original pixels are never used as a player skin.
+        bossPortrait = AttachPortrait(boss, zPortrait, 3.6f);
         if (won) { bossHp = 0f; boss.gameObject.SetActive(false); }
-        SelectHero(Mathf.Clamp(PlayerPrefs.GetInt("moonfall_experiment_hero_art", 0), 0, 1));
         warning = Make("Attack telegraph", PrimitiveType.Cylinder, Vector3.zero, new Vector3(5,.015f,5), new Color(1,.4f,.1f));
         warning.gameObject.SetActive(false);
         view = Camera.main;
@@ -376,9 +362,6 @@ public sealed class MoonfallPrototype : MonoBehaviour
         checkpointTimer += dt;
         if (hp > 0)
         {
-            // 1/2 switches the portrait only; no changes to Z or Nyra artwork.
-            if (Input.GetKeyDown(KeyCode.Alpha1)) SelectHero(0);
-            if (Input.GetKeyDown(KeyCode.Alpha2)) SelectHero(1);
             Vector3 direction = new Vector3(Input.GetAxisRaw("Horizontal"),0,Input.GetAxisRaw("Vertical")).normalized;
             if (Input.GetKeyDown(KeyCode.LeftShift) && dodgeCooldown<=0 && stamina >= 45f)
             {
