@@ -107,6 +107,7 @@ private:
         const FVector& LocalPosition, float Scale);
     int32 NearestEnemyIndex(float Radius) const;
     void DamageWorldEnemy(int32 Index, float Damage);
+    int32 GuardianBlessingCount() const;
     float BasicAttackDamage() const;
     float ArcaneBoltDamage() const;
     float HealingSpellAmount() const;
