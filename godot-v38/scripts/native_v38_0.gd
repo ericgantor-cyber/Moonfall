@@ -564,7 +564,7 @@ func _apply_incoming_damage(raw:float)->void:
  # Alt + right-drag orbits the camera, not a defensive guard.
  # The camera handler marks that state when orbit begins, even after Alt is
  # released while the right button is still held.
- if not hero_playing or menu_open or death_active or mounted or v36_dragging or not Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT):
+ if not hero_playing or menu_open or death_active or wait_open or wait_transition_active or mounted or v36_dragging or not Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT):
   super._apply_incoming_damage(raw)
   return
  var parry:bool=map_time-v392_guard_started<=V392_PARRY_WINDOW+0.035*float(v398_ranks.get("defense_guard",0))
@@ -698,7 +698,7 @@ func _update_beast_step(beast:Dictionary,delta:float)->void:
  body.move_and_collide(direction*1.8*minf(maxf(delta,0.0),0.05))
 
 func _attack()->void:
- if not hero_playing or menu_open or death_active:
+ if not hero_playing or menu_open or death_active or wait_open or wait_transition_active:
   v390_blocked_attacks+=1
   return
  # Hold Shift while attacking for a slower, harder-hitting melee strike.
@@ -732,7 +732,7 @@ func _attack()->void:
 
 func _spell(which:String)->void:
  # Rejected combat inputs must never consume mana while menus or death screens are active.
- if not hero_playing or menu_open or death_active:return
+ if not hero_playing or menu_open or death_active or wait_open or wait_transition_active:return
  if mounted or ability_cooldown>0.0:
   super._spell(which)
   return
@@ -746,7 +746,7 @@ func _spell(which:String)->void:
 
 func _dodge()->void:
  # Inactive gameplay must not trigger dodge actions or resource warnings.
- if not hero_playing or menu_open or death_active:return
+ if not hero_playing or menu_open or death_active or wait_open or wait_transition_active:return
  if mounted or dodge_cooldown>0.0:
   super._dodge()
   return
