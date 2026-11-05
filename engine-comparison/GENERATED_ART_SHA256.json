@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "generated_art": [
+    {
+      "filename": "moonfall_ai_moonlit_gate.jpg",
+      "sha256": "054db26b9553628ade9e5f8d391789d42c40f8a93ef59aff1d035f914d6e6356",
+      "bytes": 118209
+    },
+    {
+      "filename": "moonfall_ai_waterfall_ruins.jpg",
+      "sha256": "8e3c86371f22d9c5254faf324d258b8443e63cefabf4a279e652901881c3a45c",
+      "bytes": 87919
+    }
+  ]
+}
