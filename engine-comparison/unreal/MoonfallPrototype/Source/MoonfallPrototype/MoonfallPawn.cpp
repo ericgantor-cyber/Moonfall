@@ -75,7 +75,11 @@ void AMoonfallPawn::Zoom(float Value)
 }
 void AMoonfallPawn::Dodge()
 {
-    if (Health > 0.f && DodgeTimer <= 0.f) DodgeTimer = 0.32f;
+    if (Health > 0.f && DodgeCooldown <= 0.f)
+    {
+        DodgeTimer = 0.32f;
+        DodgeCooldown = 1.2f;
+    }
 }
 void AMoonfallPawn::Attack()
 {
@@ -122,9 +126,10 @@ void AMoonfallPawn::SetupPlayerInputComponent(UInputComponent* Input)
 void AMoonfallPawn::Tick(float DeltaSeconds)
 {
     Super::Tick(DeltaSeconds);
-    const float Dt = FMath::Min(DeltaSeconds, 0.05f);
+    const float Dt = FMath::Max(0.f, DeltaSeconds);
     AttackCooldown = FMath::Max(0.f, AttackCooldown - Dt);
     DodgeTimer = FMath::Max(0.f, DodgeTimer - Dt);
+    DodgeCooldown = FMath::Max(0.f, DodgeCooldown - Dt);
     if (Health > 0.f)
     {
         FVector Direction(Forward, Right, 0.f);
