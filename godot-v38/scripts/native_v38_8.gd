@@ -42,7 +42,63 @@ func _on_aim_assist_toggled(enabled:bool)->void:
  var result:Error=config.save(AIM_PREFS_PATH)
  if result!=OK:push_warning("Unable to save aim preference: "+str(result))
 
+# Optional WoW-inspired modifier layer. Unmodified controller buttons and
+# existing mouse/keyboard bindings remain inherited and fully functional.
+# Two trigger layers share the same four face buttons: no extra game mode.
+func _wow_combo_action(button:int,left:bool,right:bool)->String:
+ if left==right:return ""
+ if left:
+  match button:
+   JOY_BUTTON_X:return "dash"
+   JOY_BUTTON_Y:return "nova"
+   JOY_BUTTON_B:return "fire"
+   JOY_BUTTON_A:return "jump"
+ else:
+  match button:
+   JOY_BUTTON_X:return "senses"
+   JOY_BUTTON_Y:return "companion"
+   JOY_BUTTON_B:return "mount"
+   JOY_BUTTON_A:return "interact"
+ return ""
+
+func _wow_keyboard_action(key:int)->String:
+ match key:
+  KEY_1:return "dash"
+  KEY_2:return "nova"
+  KEY_3:return "fire"
+  KEY_4:return "senses"
+  KEY_5:return "companion"
+  KEY_6:return "mount"
+ return ""
+
+func _wow_perform_action(action:String)->void:
+ match action:
+  "dash":_spell("dash")
+  "nova":_spell("nova")
+  "fire":_spell("fire")
+  "jump":_jump()
+  "senses":_toggle_senses()
+  "companion":_cycle_companion_stance()
+  "mount":_toggle_mount()
+  "interact":_interact()
+
 func _unhandled_input(event:InputEvent)->void:
+ # Intercept only explicit modifiers while playing, never menus or rest.
+ if hero_playing and not menu_open and not death_active and not wait_open and not wait_transition_active:
+  if event is InputEventJoypadButton and event.pressed:
+   var left:bool=Input.get_joy_axis(event.device,JOY_AXIS_TRIGGER_LEFT)>0.6
+   var right:bool=Input.get_joy_axis(event.device,JOY_AXIS_TRIGGER_RIGHT)>0.6
+   var action:String=_wow_combo_action(event.button_index,left,right)
+   if not action.is_empty():
+    _wow_perform_action(action)
+    get_viewport().set_input_as_handled()
+    return
+  if event is InputEventKey and event.pressed and not event.echo and event.alt_pressed and not event.ctrl_pressed:
+   var action:String=_wow_keyboard_action(event.keycode)
+   if not action.is_empty():
+    _wow_perform_action(action)
+    get_viewport().set_input_as_handled()
+    return
  # Mouse motion claims aim source even while a controller remains connected.
  if event is InputEventMouseMotion:
   aim_input_source="mouse"
