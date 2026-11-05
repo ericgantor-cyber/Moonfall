@@ -753,8 +753,14 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
                     CounterWindow = CounterDuration;
                     Stamina = FMath::Min(GetHudMaxStamina(), Stamina + 10.f);
                 }
-                else Health = FMath::Max(0.f, Health -
-                    (BossAttackPhase == 3 ? 28.f : (BossAttackPhase == 2 ? 24.f : 20.f)));
+                else if (EnemyDamageCooldown <= 0.f)
+                {
+                    // Boss and mob strikes share a brief damage recovery window:
+                    // overlapping attacks must not instantly double-hit the hero.
+                    Health = FMath::Max(0.f, Health -
+                        (BossAttackPhase == 3 ? 28.f : (BossAttackPhase == 2 ? 24.f : 20.f)));
+                    EnemyDamageCooldown = 1.2f;
+                }
             }
         }
     }
