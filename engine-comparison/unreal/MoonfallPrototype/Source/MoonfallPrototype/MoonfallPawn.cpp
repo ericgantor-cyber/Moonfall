@@ -77,6 +77,7 @@ void AMoonfallPawn::BeginPlay()
         {
             Victories = FMath::Clamp(Progress->PermanentBossVictories, 0, 100);
             bWon = Progress->bBossDefeated;
+            HeroArtIndex = FMath::Clamp(Progress->SelectedHeroIndex, 0, 1);
             DefeatedEnemyMask = Progress->DefeatedEnemyMask & ((1 << MoonfallWorldRules::TotalEnemies) - 1);
             ClaimedChamberMask = Progress->ClaimedChamberMask & ((1 << MoonfallWorldRules::TotalChambers) - 1);
             DefeatedGuardianMask = Progress->DefeatedGuardianMask & ((1 << MoonfallWorldRules::TotalChambers) - 1);
@@ -102,7 +103,7 @@ void AMoonfallPawn::BeginPlay()
     BossPortrait->SetSprite(BossArtwork);
     BossPortrait->SetHiddenInGame(BossArtwork == nullptr);
     if (BossArtwork) BossMesh->SetHiddenInGame(true);
-    ApplyHeroArtwork(ZArtwork ? 0 : 1);
+    ApplyHeroArtwork(HeroArtIndex);
     if (bWon)
     {
         BossHealth = 0.f;
@@ -327,21 +328,22 @@ void AMoonfallPawn::SaveProgress()
     Progress->ClaimedChamberMask = ClaimedChamberMask;
     Progress->DefeatedGuardianMask = DefeatedGuardianMask;
     Progress->bBossDefeated = bWon;
+    Progress->SelectedHeroIndex = HeroArtIndex;
     if (!UGameplayStatics::SaveGameToSlot(Progress, TEXT("MoonfallPrototypeBossRewards"), 0))
         UE_LOG(LogTemp, Warning, TEXT("Moonfall prototype: reward save failed."));
 }
 
 void AMoonfallPawn::ApplyHeroArtwork(int32 Index)
 {
-    UTexture2D* Chosen = Index == 1 ? NyraArtwork : ZArtwork;
-    if (!Chosen) return; // Never replace artwork with a fabricated portrait.
-    HeroArtIndex = Index;
+    // Character identity works even if the Unreal Editor art import is pending.
+    HeroArtIndex = FMath::Clamp(Index, 0, 1);
+    UTexture2D* Chosen = HeroArtIndex == 1 ? NyraArtwork : ZArtwork;
     HeroPortrait->SetSprite(Chosen);
-    HeroPortrait->SetHiddenInGame(false);
-    HeroMesh->SetHiddenInGame(true);
+    HeroPortrait->SetHiddenInGame(Chosen == nullptr);
+    HeroMesh->SetHiddenInGame(Chosen != nullptr);
 }
-void AMoonfallPawn::ChooseZ() { ApplyHeroArtwork(0); }
-void AMoonfallPawn::ChooseNyra() { ApplyHeroArtwork(1); }
+void AMoonfallPawn::ChooseZ() { ApplyHeroArtwork(0); SaveProgress(); }
+void AMoonfallPawn::ChooseNyra() { ApplyHeroArtwork(1); SaveProgress(); }
 
 void AMoonfallPawn::MoveForward(float Value) { Forward = Value; }
 void AMoonfallPawn::MoveRight(float Value) { Right = Value; }
