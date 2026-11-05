@@ -21,6 +21,20 @@ public sealed class MoonfallPrototype : MonoBehaviour
     readonly MoonfallProgression progression = new MoonfallProgression();
     string bossLoot = "No boss loot yet";
     readonly List<string> bossInventory = new List<string>();
+    sealed class WorldEnemy
+    {
+        public Transform body;
+        public Transform portrait;
+        public float hp;
+        public int region;
+        public int id;
+    }
+    readonly List<WorldEnemy> enemies = new List<WorldEnemy>();
+    int defeatedEnemyMask;
+    float enemyDamageCooldown;
+    static readonly string[] BeastPortraits =
+        { "wolf", "fox", "boar", "elk", "panther", "serpent" };
+
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     static void Boot()
     {
@@ -76,6 +90,70 @@ public sealed class MoonfallPrototype : MonoBehaviour
         if (view == null) return;
         if (heroPortrait != null) heroPortrait.rotation = view.transform.rotation;
         if (bossPortrait != null) bossPortrait.rotation = view.transform.rotation;
+        foreach (WorldEnemy enemy in enemies)
+            if (enemy.portrait != null) enemy.portrait.rotation = view.transform.rotation;
+    }
+
+    void BuildWorld()
+    {
+        defeatedEnemyMask = PlayerPrefs.GetInt("moonfall_experiment_defeated_mobs", 0) & ((1 << MoonfallWorldRules.TotalEnemies) - 1);
+        for (int region = 0; region < MoonfallWorldRules.RegionCount; region++)
+        {
+            float center = MoonfallWorldRules.RegionCenter(region);
+            Color ground = Color.Lerp(new Color(.17f, .21f, .25f),
+                new Color(.30f, .12f, .16f), region / 5f);
+            Make("Connected region " + region, PrimitiveType.Cube,
+                new Vector3(center, -.3f, 0f), new Vector3(34f, .5f, 34f), ground);
+            Texture2D beastArt = Resources.Load<Texture2D>(
+                "MoonfallArt/v31_4_bestiary/" + BeastPortraits[region]);
+            for (int slot = 0; slot < MoonfallWorldRules.EnemiesPerRegion; slot++)
+            {
+                int id = region * MoonfallWorldRules.EnemiesPerRegion + slot;
+                if ((defeatedEnemyMask & (1 << id)) != 0) continue;
+                Transform mob = Make("Region " + region + " beast " + slot,
+                    PrimitiveType.Capsule, MoonfallWorldRules.EnemyPosition(region, slot),
+                    Vector3.one, new Color(.56f, .26f, .30f));
+                enemies.Add(new WorldEnemy
+                {
+                    body = mob, portrait = AttachPortrait(mob, beastArt, 2f),
+                    region = region, id = id, hp = MoonfallWorldRules.EnemyMaxHealth(region)
+                });
+            }
+        }
+    }
+
+    WorldEnemy NearestEnemy(float radius)
+    {
+        WorldEnemy closest = null;
+        float distance = radius;
+        foreach (WorldEnemy enemy in enemies)
+        {
+            float candidate = Vector3.Distance(hero.position, enemy.body.position);
+            if (candidate < distance) { distance = candidate; closest = enemy; }
+        }
+        return closest;
+    }
+
+    void SaveProgress()
+    {
+        PlayerPrefs.SetInt("moonfall_experiment_level", progression.Level);
+        PlayerPrefs.SetInt("moonfall_experiment_xp", progression.Experience);
+        PlayerPrefs.SetInt("moonfall_experiment_hero_points", progression.HeroPoints);
+        PlayerPrefs.SetInt("moonfall_experiment_tamer_points", progression.TamerPoints);
+        PlayerPrefs.SetInt("moonfall_experiment_defeated_mobs", defeatedEnemyMask);
+        PlayerPrefs.Save();
+    }
+
+    void DamageEnemy(WorldEnemy enemy, float damage)
+    {
+        if (enemy == null) return;
+        enemy.hp = Mathf.Max(0f, enemy.hp - damage);
+        if (enemy.hp > 0f) return;
+        defeatedEnemyMask |= 1 << enemy.id;
+        progression.AwardDefeat(enemy.region, false, false, Time.time);
+        enemies.Remove(enemy);
+        Destroy(enemy.body.gameObject);
+        SaveProgress();
     }
 
     void Start()
@@ -95,9 +173,9 @@ public sealed class MoonfallPrototype : MonoBehaviour
             if (rank >= 0 && rank < MoonfallLootRules.Rarities.Length)
                 bossInventory.Add(MoonfallLootRules.Rarities[rank] + " boss relic (prototype)");
         }
-        Make("Floor", PrimitiveType.Cube, new Vector3(0,-.3f,0), new Vector3(34,.5f,34), Color.gray);
+        BuildWorld();
         hero = Make("Hero placeholder", PrimitiveType.Capsule, new Vector3(0,1,-5), Vector3.one, Color.cyan);
-        boss = Make("Boss placeholder", PrimitiveType.Capsule, new Vector3(0,1,6), new Vector3(2,2,2), Color.red);
+        boss = Make("Boss placeholder", PrimitiveType.Capsule, new Vector3(MoonfallWorldRules.BossX,1,6), new Vector3(2,2,2), Color.red);
         zPortrait = Resources.Load<Texture2D>("MoonfallArt/heroes/Z_Original");
         nyraPortrait = Resources.Load<Texture2D>("MoonfallArt/heroes/Nyra_Original");
         // Use imported original boss bestiary art as its visible stand-in.
@@ -119,6 +197,7 @@ public sealed class MoonfallPrototype : MonoBehaviour
         mana = Mathf.Min(MaxMana, mana + 8f * dt);
         boltCooldown = Mathf.Max(0f, boltCooldown - dt);
         healCooldown = Mathf.Max(0f, healCooldown - dt);
+        enemyDamageCooldown = Mathf.Max(0f, enemyDamageCooldown - dt);
         if (hp > 0)
         {
             // 1/2 switches the portrait only; no changes to Z or Nyra artwork.
@@ -133,12 +212,17 @@ public sealed class MoonfallPrototype : MonoBehaviour
             }
             // Magic uses keys, keeping the left mouse button exclusively for attacks.
             if (!won && Input.GetKeyDown(KeyCode.Q) && boltCooldown <= 0f && mana >= 30f
-                && Vector3.Distance(hero.position, boss.position) <= 10f)
+                && (NearestEnemy(10f) != null || Vector3.Distance(hero.position, boss.position) <= 10f))
             {
                 mana -= 30f;
                 boltCooldown = 1.1f;
-                bossHp = Mathf.Max(0f, bossHp - (25f + progression.Level * 2f));
-                if (bossHp <= 0f) Victory();
+                WorldEnemy foe = NearestEnemy(10f);
+                if (foe != null) DamageEnemy(foe, 25f + progression.Level * 2f);
+                else
+                {
+                    bossHp = Mathf.Max(0f, bossHp - (25f + progression.Level * 2f));
+                    if (bossHp <= 0f) Victory();
+                }
             }
             if (Input.GetKeyDown(KeyCode.E) && healCooldown <= 0f && mana >= 40f
                 && hp < 100f + 5f * wins)
@@ -148,11 +232,19 @@ public sealed class MoonfallPrototype : MonoBehaviour
                 hp = Mathf.Min(100f + 5f * wins, hp + 30f + progression.Level);
             }
             hero.position += direction * (dodge>0 ? 12 : 6) * dt;
-            hero.position = new Vector3(Mathf.Clamp(hero.position.x,-16,16),1,Mathf.Clamp(hero.position.z,-16,16));
+            hero.position = new Vector3(Mathf.Clamp(hero.position.x,-16,176),1,Mathf.Clamp(hero.position.z,-16,16));
+            WorldEnemy nearby = NearestEnemy(1.75f);
+            if (nearby != null && enemyDamageCooldown <= 0f && dodge <= 0f)
+            {
+                hp = Mathf.Max(0f, hp - (5f + 2f * nearby.region));
+                enemyDamageCooldown = 1.2f;
+            }
             if (!won && Input.GetMouseButtonDown(0) && attackCd<=0)
             {
                 attackCd=.35f;
-                if (Vector3.Distance(hero.position,boss.position)<4)
+                WorldEnemy foe = NearestEnemy(4f);
+                if (foe != null) DamageEnemy(foe, 15f);
+                else if (Vector3.Distance(hero.position,boss.position)<4f)
                 {
                     bossHp=Mathf.Max(0,bossHp-15);
                     if (bossHp<=0) Victory();
@@ -196,11 +288,7 @@ public sealed class MoonfallPrototype : MonoBehaviour
         hp += 5 * (wins - previousWins);
         int levelsGained = progression.AwardDefeat(0, true, true, Time.time);
         hp = Mathf.Min(100 + 5 * wins, hp + 20 * levelsGained);
-        PlayerPrefs.SetInt("moonfall_experiment_level", progression.Level);
-        PlayerPrefs.SetInt("moonfall_experiment_xp", progression.Experience);
-        PlayerPrefs.SetInt("moonfall_experiment_hero_points", progression.HeroPoints);
-        PlayerPrefs.SetInt("moonfall_experiment_tamer_points", progression.TamerPoints);
-        PlayerPrefs.Save();
+        SaveProgress();
         // One provisional boss loot roll, separate from permanent HP bonuses.
         // Uses Godot-derived rarity thresholds but not Godot's exact seeded RNG.
         int rank = MoonfallLootRules.RarityIndex(Random.Range(0, 1000), 0, 0);
@@ -292,12 +380,17 @@ public sealed class MoonfallPrototype : MonoBehaviour
         float x = Screen.width - 178f;
         FillRect(new Rect(x, 18f, 160f, 160f), new Color(.04f, .05f, .09f, .9f));
         FillRect(new Rect(x + 8f, 26f, 144f, 144f), new Color(.13f, .17f, .22f, .9f));
-        float heroX = x + 80f + Mathf.Clamp(hero.position.x / 17f, -1f, 1f) * 68f;
-        float heroY = 98f - Mathf.Clamp(hero.position.z / 17f, -1f, 1f) * 68f;
-        float bossX = x + 80f + Mathf.Clamp(boss.position.x / 17f, -1f, 1f) * 68f;
-        float bossY = 98f - Mathf.Clamp(boss.position.z / 17f, -1f, 1f) * 68f;
-        FillRect(new Rect(heroX - 5f, heroY - 5f, 10f, 10f), Color.cyan);
-        if (!won) FillRect(new Rect(bossX - 5f, bossY - 5f, 10f, 10f), Color.red);
+        // Local radar follows the hero across the whole connected world.
+        foreach (WorldEnemy enemy in enemies)
+        {
+            Vector3 d = enemy.body.position - hero.position;
+            if (Mathf.Abs(d.x) <= 17f && Mathf.Abs(d.z) <= 17f)
+                FillRect(new Rect(x + 80f + d.x * 4f - 3f, 98f - d.z * 4f - 3f, 6f, 6f), Color.yellow);
+        }
+        Vector3 bossDelta = boss.position - hero.position;
+        if (!won && Mathf.Abs(bossDelta.x) <= 17f && Mathf.Abs(bossDelta.z) <= 17f)
+            FillRect(new Rect(x + 80f + bossDelta.x * 4f - 5f, 98f - bossDelta.z * 4f - 5f, 10f, 10f), Color.red);
+        FillRect(new Rect(x + 75f, 93f, 10f, 10f), Color.cyan);
     }
 
     // Only the minimap and three resource orbs appear during gameplay.
