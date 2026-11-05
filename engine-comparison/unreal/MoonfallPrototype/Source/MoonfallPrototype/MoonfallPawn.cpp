@@ -599,7 +599,10 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
     Super::Tick(DeltaSeconds);
     const float Dt = FMath::Max(0.f, DeltaSeconds);
     AttackCooldown = FMath::Max(0.f, AttackCooldown - Dt);
-    DodgeTimer = FMath::Max(0.f, DodgeTimer - Dt);
+    // Match the boss telegraph hitch cap: a stalled frame must not erase the
+    // active dodge window before the player can respond.
+    const float ReactionDt = FMath::Min(Dt, 0.05f);
+    DodgeTimer = FMath::Max(0.f, DodgeTimer - ReactionDt);
     DodgeCooldown = FMath::Max(0.f, DodgeCooldown - Dt);
     Stamina = FMath::Min(150.f, Stamina + 30.f * Dt);
     Mana = FMath::Min(180.f, Mana + 8.f * Dt);
