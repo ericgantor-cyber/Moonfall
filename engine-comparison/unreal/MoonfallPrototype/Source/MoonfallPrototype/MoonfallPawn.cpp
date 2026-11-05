@@ -517,7 +517,7 @@ void AMoonfallPawn::Attack()
             {
                 bCasting = false;
                 WarningMesh->SetVisibility(false);
-                CastCooldown = FMath::Max(CastCooldown, 2.f);
+                CastCooldown = 2.f; // Start a fresh, exact interrupt recovery window.
             }
             if (BossHealth <= 0.f) Victory();
         }
@@ -551,7 +551,7 @@ void AMoonfallPawn::CastBolt()
         {
             bCasting = false;
             WarningMesh->SetVisibility(false);
-            CastCooldown = FMath::Max(CastCooldown, 2.f);
+            CastCooldown = 2.f; // Start a fresh, exact interrupt recovery window.
         }
         if (BossHealth <= 0.f) Victory();
     }
