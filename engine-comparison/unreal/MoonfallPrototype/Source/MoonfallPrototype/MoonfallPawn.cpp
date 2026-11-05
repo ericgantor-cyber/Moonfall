@@ -276,7 +276,9 @@ void AMoonfallPawn::DamageWorldEnemy(int32 Index, float Damage)
     Enemy.Mesh->DestroyComponent();
     Enemies.RemoveAt(Index);
     const int32 LevelsGained = Progression.AwardDefeat(Region, bGuardian, false, GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f);
-    Health = FMath::Min(100.f + 5.f * Victories, Health + 20.f * LevelsGained);
+    // Heal on each defeated enemy, even without level-up.
+    Health = FMath::Min(100.f + 5.f * Victories,
+        Health + 20.f * LevelsGained + (bGuardian ? 16.f : 8.f));
     SaveProgress();
 }
 
@@ -357,15 +359,30 @@ void AMoonfallPawn::Dodge()
         Stamina -= 45.f;
     }
 }
+float AMoonfallPawn::BasicAttackDamage() const
+{
+    return (HeroArtIndex == 0 ? 20.f : 14.f) + Progression.Level;
+}
+
+float AMoonfallPawn::ArcaneBoltDamage() const
+{
+    return HeroArtIndex == 1 ? 34.f + 3.f * Progression.Level : 22.f + 2.f * Progression.Level;
+}
+
+float AMoonfallPawn::HealingSpellAmount() const
+{
+    return (HeroArtIndex == 1 ? 40.f : 25.f) + Progression.Level;
+}
+
 void AMoonfallPawn::Attack()
 {
     if (Health <= 0.f || AttackCooldown > 0.f) return;
     AttackCooldown = 0.35f;
     const int32 EnemyIndex = NearestEnemyIndex(400.f);
-    if (EnemyIndex != INDEX_NONE) DamageWorldEnemy(EnemyIndex, 15.f);
+    if (EnemyIndex != INDEX_NONE) DamageWorldEnemy(EnemyIndex, BasicAttackDamage());
     else if (!bWon && FVector::Dist2D(HeroMesh->GetRelativeLocation(), BossMesh->GetRelativeLocation()) <= 400.f)
     {
-        BossHealth = FMath::Max(0.f, BossHealth - 15.f);
+        BossHealth = FMath::Max(0.f, BossHealth - BasicAttackDamage());
         if (BossHealth <= 0.f) Victory();
     }
 }
@@ -377,10 +394,10 @@ void AMoonfallPawn::CastBolt()
         FVector::Dist2D(HeroMesh->GetRelativeLocation(), BossMesh->GetRelativeLocation()) > 1000.f)) return;
     Mana -= 30.f;
     BoltCooldown = 1.1f;
-    if (EnemyIndex != INDEX_NONE) DamageWorldEnemy(EnemyIndex, 25.f + 2.f * Progression.Level);
+    if (EnemyIndex != INDEX_NONE) DamageWorldEnemy(EnemyIndex, ArcaneBoltDamage());
     else
     {
-        BossHealth = FMath::Max(0.f, BossHealth - (25.f + 2.f * Progression.Level));
+        BossHealth = FMath::Max(0.f, BossHealth - ArcaneBoltDamage());
         if (BossHealth <= 0.f) Victory();
     }
 }
@@ -391,7 +408,7 @@ void AMoonfallPawn::CastHeal()
     if (Health <= 0.f || HealCooldown > 0.f || Mana < 40.f || Health >= MaxHealth) return;
     Mana -= 40.f;
     HealCooldown = 5.f;
-    Health = FMath::Min(MaxHealth, Health + 30.f + Progression.Level);
+    Health = FMath::Min(MaxHealth, Health + HealingSpellAmount());
 }
 
 void AMoonfallPawn::Victory()
