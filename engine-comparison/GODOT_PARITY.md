@@ -16,7 +16,7 @@ Canonical implementation: `godot-v38/` on `main`. Never alter Godot saves, scene
 | Permanent progress and save migrations | Existing Godot format | Experimental PlayerPrefs for HP victories and relic inventory, not compatible | Isolated SaveGame for HP victories and relic inventory, not compatible |
 | Inventory/crafting capacity & cost rules | `inventory_rules.gd` | `MoonfallInventoryRules.cs` source parity port added | `MoonfallInventoryRules.h` source parity port added |
 | Items, rarity, loot and equipment | Existing subsystem | Rarity/pity and gear rule source ports only | Rarity/pity and gear rule source ports only |
-| Atlas, quests, progression, professions | Existing features vary | Not ported | Not ported |
+| Atlas, quests, progression, professions | Existing features vary | Godot XP/level/Hero/Tamer point rules wired to prototype boss; Atlas/quests/professions pending | Godot XP/level/Hero/Tamer point rules wired to prototype boss; Atlas/quests/professions pending |
 | Windows packaging, controller, accessibility | Godot source / CI | Untested | Untested |
 | Z and Nyra original art | Preserve byte-identically | No import | No import |
 
@@ -42,3 +42,8 @@ Both experimental boss handlers now award **one session-only placeholder boss re
 
 ## Inventory integration scope
 The boss-victory handler now adds a single rarity-labeled relic to a 100-entry experimental bag, saved between sessions. Unity uses bounded indexed PlayerPrefs keys, Unreal adds a bounded FString array to its isolated SaveGame. Both restore these relics when starting, without touching Godot's original saves. These are NOT the full 100-500 slot Godot equipment bags, crafting UI or complete item models; no platform compilation or restart test has occurred yet.
+
+## RPG progression added
+From `godot-v38/scripts/native_v11.gd::_award_experience`, both experiments now port the actual XP gain rules: 15 base + 8 per zone + 12 for special variant + 100 for boss, up to +20 for kill combos within 7 seconds, and XP threshold `75 + (level-1)*40`. Level cap 100; level-up grants one Hero and one Tamer point and a bounded 20 HP heal. The single experimental boss is treated as a special variant in zone 0 and awards XP once on victory. Level, XP and points persist only in separate engine-specific prototype save formats. This is **not** yet the full Godot RPG: quest and dialogue systems, the six connected regions, companion AI, class-specific spell trees, player customization, gear equip bonuses and actual skill spending remain unported. No engine compilation or gameplay test has been completed.
+
+Note: Godot also already has a separate `MoonfallUnreal/` codebase on main. It should be audited for reuse before recreating its character, spells, settings and combat work. Do not conflate that older project with this isolated comparison prototype.
