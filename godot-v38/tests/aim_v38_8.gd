@@ -58,4 +58,24 @@ func _run()->void:
   check("distance_squared_to(player.global_position)>25.0*25.0" in source,"out-of-range telegraphs cancel before damage")
   check("v387_stamina=minf(V387_MAX_STAMINA,v387_stamina+5.0)" in source,"timed dodges earn bounded stamina")
   check("VOID REBOUND!" in source and "ECLIPSE REBOUND!" in source,"boss follow-up alerts identify attack type")
+ # WoW-inspired optional action layers: eight gamepad combos, six keyboard
+ # shortcuts, and no interference with inherited unmodified controls.
+ if ui!=null:
+  var combo_game:Node3D=load("res://scenes/main.tscn").instantiate()
+  root.add_child(combo_game)
+  await process_frame
+  var left_buttons:Array[int]=[JOY_BUTTON_X,JOY_BUTTON_Y,JOY_BUTTON_B,JOY_BUTTON_A]
+  var left_actions:Array[String]=["dash","nova","fire","jump"]
+  var right_actions:Array[String]=["senses","companion","mount","interact"]
+  for i in range(left_buttons.size()):
+   check(str(combo_game.call("_wow_combo_action",left_buttons[i],true,false))==left_actions[i],"LT modifier routes face button "+str(i))
+   check(str(combo_game.call("_wow_combo_action",left_buttons[i],false,true))==right_actions[i],"RT modifier routes face button "+str(i))
+   check(str(combo_game.call("_wow_combo_action",left_buttons[i],false,false)).is_empty(),"unmodified face button "+str(i)+" untouched")
+   check(str(combo_game.call("_wow_combo_action",left_buttons[i],true,true)).is_empty(),"simultaneous triggers do not double-fire")
+  var keys:Array[int]=[KEY_1,KEY_2,KEY_3,KEY_4,KEY_5,KEY_6]
+  var key_actions:Array[String]=["dash","nova","fire","senses","companion","mount"]
+  for i in range(keys.size()):
+   check(str(combo_game.call("_wow_keyboard_action",keys[i]))==key_actions[i],"Alt+number shortcut "+str(i+1))
+  check(str(combo_game.call("_wow_keyboard_action",KEY_SPACE)).is_empty(),"spacebar is not remapped as an attack")
+  combo_game.queue_free()
  quit(1 if failures>0 else 0)
