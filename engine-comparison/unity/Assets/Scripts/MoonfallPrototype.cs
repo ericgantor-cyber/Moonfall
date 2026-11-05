@@ -213,9 +213,8 @@ public sealed class MoonfallPrototype : MonoBehaviour
             if ((defeatedGuardianMask & (1 << id)) == 0) continue; // Guardian must fall first.
             claimedChamberMask |= 1 << id;
             // Permanent exploration reward without extra boss-only HP stacking.
-            int levelsGained = progression.AwardDefeat(id / MoonfallWorldRules.ChambersPerRegion,
+            progression.AwardDefeat(id / MoonfallWorldRules.ChambersPerRegion,
                 false, false, Time.time);
-            hp = Mathf.Min(100f + 5f * wins, hp + 20f * levelsGained);
             mana = Mathf.Min(MaxMana, mana + 25f);
             Destroy(chamberRewards[i].gameObject);
             chamberRewards.RemoveAt(i);
@@ -237,9 +236,8 @@ public sealed class MoonfallPrototype : MonoBehaviour
         if (enemy.hp > 0f) return;
         if (enemy.guardian) defeatedGuardianMask |= 1 << enemy.id;
         else defeatedEnemyMask |= 1 << enemy.id;
-        int levelsGained = progression.AwardDefeat(enemy.region, enemy.guardian, false, Time.time);
-        // Every defeat gives a small capped heal, even without a level-up.
-        hp = Mathf.Min(100f + 5f * wins, hp + 20f * levelsGained + (enemy.guardian ? 16f : 8f));
+        // Kills award XP and loot progression, never automatic HP healing.
+        progression.AwardDefeat(enemy.region, enemy.guardian, false, Time.time);
         enemies.Remove(enemy);
         Destroy(enemy.body.gameObject);
         SaveProgress();
@@ -383,13 +381,11 @@ public sealed class MoonfallPrototype : MonoBehaviour
         PlayerPrefs.SetInt("moonfall_experiment_boss_defeated", 1);
         warning.gameObject.SetActive(false);
         boss.gameObject.SetActive(false);
-        int previousWins = wins;
         wins = Mathf.Min(100, wins + 1);
         PlayerPrefs.SetInt("moonfall_experiment_wins", wins);
         PlayerPrefs.Save();
-        hp += 5 * (wins - previousWins);
-        int levelsGained = progression.AwardDefeat(0, true, true, Time.time);
-        hp = Mathf.Min(100 + 5 * wins, hp + 20 * levelsGained);
+        // Permanent victory increases max HP capacity, not current HP.
+        progression.AwardDefeat(0, true, true, Time.time);
         SaveProgress();
         // One provisional boss loot roll, separate from permanent HP bonuses.
         // Uses Godot-derived rarity thresholds but not Godot's exact seeded RNG.
