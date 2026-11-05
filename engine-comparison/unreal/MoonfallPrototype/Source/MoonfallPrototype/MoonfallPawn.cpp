@@ -505,12 +505,20 @@ void AMoonfallPawn::Attack()
             FVector::Dist2D(HeroMesh->GetRelativeLocation(),
                             Enemies[EnemyIndex].Mesh->GetRelativeLocation());
         const bool bHitBoss = bBossInRange && BossDistance < EnemyDistance;
-        const float Damage = BasicAttackDamage() * (CounterWindow > 0.f ? CounterMultiplier : 1.f);
+        const bool bRiposte = CounterWindow > 0.f;
+        const float Damage = BasicAttackDamage() * (bRiposte ? CounterMultiplier : 1.f);
         CounterWindow = 0.f; // The riposte is spent only on a successful in-range attack.
         if (!bHitBoss) DamageWorldEnemy(EnemyIndex, Damage);
         else
         {
             BossHealth = FMath::Max(0.f, BossHealth - Damage);
+            // Perfect-dodge ripostes can interrupt a live telegraphed boss cast.
+            if (bRiposte && bCasting && BossHealth > 0.f)
+            {
+                bCasting = false;
+                WarningMesh->SetVisibility(false);
+                CastCooldown = FMath::Max(CastCooldown, 2.f);
+            }
             if (BossHealth <= 0.f) Victory();
         }
     }
@@ -531,13 +539,20 @@ void AMoonfallPawn::CastBolt()
     BoltCooldown = 1.1f;
     // A warned perfect dodge also empowers the next successful bolt, matching
     // the melee riposte. Invalid/out-of-range casts never consume the window.
+    const bool bRiposte = CounterWindow > 0.f;
     const float Damage = ArcaneBoltDamage() *
-        (CounterWindow > 0.f ? CounterMultiplier : 1.f);
+        (bRiposte ? CounterMultiplier : 1.f);
     CounterWindow = 0.f;
     if (!bHitBoss) DamageWorldEnemy(EnemyIndex, Damage);
     else
     {
         BossHealth = FMath::Max(0.f, BossHealth - Damage);
+        if (bRiposte && bCasting && BossHealth > 0.f)
+        {
+            bCasting = false;
+            WarningMesh->SetVisibility(false);
+            CastCooldown = FMath::Max(CastCooldown, 2.f);
+        }
         if (BossHealth <= 0.f) Victory();
     }
 }
