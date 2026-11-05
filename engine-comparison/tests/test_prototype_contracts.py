@@ -91,6 +91,18 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("bWon = true;", self.cpp)
         self.assertIn("won=true;", self.unity)
 
+    def test_boss_relic_inventory_save_restore(self):
+        save = SAVES.read_text(encoding="utf-8")
+        self.assertIn("TArray<FString> BossRelics", save)
+        self.assertIn("Progress->BossRelics = BossInventory;", self.cpp)
+        self.assertIn("Progress->BossRelics", self.cpp)
+        self.assertIn("BossInventory.Num() < 100", self.cpp)
+        self.assertIn("moonfall_experiment_relic_count", self.unity)
+        self.assertIn("moonfall_experiment_relic_", self.unity)
+        self.assertIn("bossInventory.Count < 100", self.unity)
+        self.assertIn("bossInventory.Add(bossLoot)", self.unity)
+        self.assertIn("PlayerPrefs.Save()", self.unity)
+
     def test_no_artwork_or_production_changes(self):
         self.assertFalse(list(ROOT.rglob("*.png")))
         self.assertFalse(list(ROOT.rglob("*.jpg")))
