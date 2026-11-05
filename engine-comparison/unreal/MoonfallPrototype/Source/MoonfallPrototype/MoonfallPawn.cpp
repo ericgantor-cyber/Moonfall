@@ -104,6 +104,25 @@ void AMoonfallPawn::Attack()
         if (BossHealth <= 0.f) Victory();
     }
 }
+void AMoonfallPawn::CastBolt()
+{
+    if (Health <= 0.f || bWon || BoltCooldown > 0.f || Mana < 30.f) return;
+    if (FVector::Dist2D(HeroMesh->GetRelativeLocation(), BossMesh->GetRelativeLocation()) > 1000.f) return;
+    Mana -= 30.f;
+    BoltCooldown = 1.1f;
+    BossHealth = FMath::Max(0.f, BossHealth - (25.f + 2.f * Progression.Level));
+    if (BossHealth <= 0.f) Victory();
+}
+
+void AMoonfallPawn::CastHeal()
+{
+    const float MaxHealth = 100.f + 5.f * Victories;
+    if (Health <= 0.f || HealCooldown > 0.f || Mana < 40.f || Health >= MaxHealth) return;
+    Mana -= 40.f;
+    HealCooldown = 5.f;
+    Health = FMath::Min(MaxHealth, Health + 30.f + Progression.Level);
+}
+
 void AMoonfallPawn::Victory()
 {
     bWon = true;
@@ -142,6 +161,8 @@ void AMoonfallPawn::SetupPlayerInputComponent(UInputComponent* Input)
     Input->BindAxis(TEXT("Zoom"), this, &AMoonfallPawn::Zoom);
     Input->BindAction(TEXT("Attack"), IE_Pressed, this, &AMoonfallPawn::Attack);
     Input->BindAction(TEXT("Dodge"), IE_Pressed, this, &AMoonfallPawn::Dodge);
+    Input->BindAction(TEXT("ArcaneBolt"), IE_Pressed, this, &AMoonfallPawn::CastBolt);
+    Input->BindAction(TEXT("ArcaneHeal"), IE_Pressed, this, &AMoonfallPawn::CastHeal);
 }
 void AMoonfallPawn::Tick(float DeltaSeconds)
 {
@@ -151,6 +172,9 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
     DodgeTimer = FMath::Max(0.f, DodgeTimer - Dt);
     DodgeCooldown = FMath::Max(0.f, DodgeCooldown - Dt);
     Stamina = FMath::Min(150.f, Stamina + 30.f * Dt);
+    Mana = FMath::Min(180.f, Mana + 8.f * Dt);
+    BoltCooldown = FMath::Max(0.f, BoltCooldown - Dt);
+    HealCooldown = FMath::Max(0.f, HealCooldown - Dt);
     if (Health > 0.f)
     {
         FVector Direction(Forward, Right, 0.f);
