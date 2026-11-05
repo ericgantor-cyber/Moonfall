@@ -102,6 +102,13 @@ void AMoonfallPawn::BeginPlay()
                         FMath::Clamp(Saved.Y, -3200.f, 3200.f), 100.f));
                     Health = FMath::Clamp(Progress->SavedHealth, 1.f,
                         100.f + 5.f * FMath::Clamp(Progress->PermanentBossVictories, 0, 100));
+                    if (Progress->bHasResourceCheckpoint)
+                    {
+                        if (FMath::IsFinite(Progress->SavedMana))
+                            Mana = FMath::Clamp(Progress->SavedMana, 0.f, 180.f);
+                        if (FMath::IsFinite(Progress->SavedStamina))
+                            Stamina = FMath::Clamp(Progress->SavedStamina, 0.f, 150.f);
+                    }
                     bLoadedCheckpoint = true;
                 }
             }
@@ -401,6 +408,9 @@ void AMoonfallPawn::SaveProgress()
         Progress->bHasCheckpoint = true;
         Progress->SavedHeroPosition = HeroMesh->GetRelativeLocation();
         Progress->SavedHealth = Health;
+        Progress->bHasResourceCheckpoint = true;
+        Progress->SavedMana = Mana;
+        Progress->SavedStamina = Stamina;
     }
     if (!UGameplayStatics::SaveGameToSlot(Progress, TEXT("MoonfallPrototypeBossRewards"), 0))
         UE_LOG(LogTemp, Warning, TEXT("Moonfall prototype: reward save failed."));
