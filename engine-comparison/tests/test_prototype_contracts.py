@@ -70,6 +70,19 @@ class PrototypeContracts(unittest.TestCase):
             self.assertIn("Bag full.", src)
             self.assertIn("Invalid recipe cost.", src)
 
+    def test_gear_transfer_sort_and_discard_ports(self):
+        unity = (ROOT / "unity/Assets/Scripts/MoonfallGearRules.cs").read_text(encoding="utf-8")
+        unreal = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallGearRules.h").read_text(encoding="utf-8")
+        for src in (unity, unreal):
+            for token in ("Transfer(", "MatchingIndices(", "FirstDiscardableDrop(",
+                          "Common", "Uncommon", "Legendary", "Mythic",
+                          "Power", "Rarity", "Name"):
+                self.assertIn(token, src)
+        self.assertIn("source.RemoveAt(index)", unity)
+        self.assertIn("Source.RemoveAt(Index)", unreal)
+        self.assertIn("a.CompareTo(b)", unity)
+        self.assertIn("A < B", unreal)
+
     def test_no_artwork_or_production_changes(self):
         self.assertFalse(list(ROOT.rglob("*.png")))
         self.assertFalse(list(ROOT.rglob("*.jpg")))
