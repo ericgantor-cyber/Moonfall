@@ -10,7 +10,17 @@ h=(r/'scripts/systems/third_person_camera_v36.gd').read_text()
 runner=(r/'tools/run_tests.py').read_text()
 bat=(r/'BUILD_WINDOWS.bat').read_text()
 checks={
- 'Perspective camera': 'Camera3D.PROJECTION_PERSPECTIVE' in g and 'camera.fov=66.0' in g,
+ 'Perspective camera': 'Camera3D.PROJECTION_PERSPECTIVE' in g and 'camera.fov=v36_fov' in g,
+ 'Camera preferences persist': 'V36_CAMERA_PREFS' in g and 'config.save(V36_CAMERA_PREFS)' in g and 'config.load(V36_CAMERA_PREFS)' in g,
+ 'Camera sensitivity presets': 'KEY_F6' in g and 'V36_SENSITIVITIES' in g,
+ 'Vertical inversion': 'KEY_F7' in g and 'v36_invert_y=not v36_invert_y' in g,
+ 'Horizontal inversion': 'KEY_F8' in g and 'v36_invert_x=not v36_invert_x' in g,
+ 'Camera recenter': 'KEY_F9' in g and '_v36_recenter_camera()' in g,
+ 'Wide FOV presets': 'KEY_F10' in g and 'V36_FOVS' in g,
+ 'Keyboard camera zoom': 'KEY_PAGEUP' in g and 'KEY_PAGEDOWN' in g,
+ 'Precise and fast wheel zoom': 'event.shift_pressed' in g and 'event.ctrl_pressed' in g,
+ 'Mouse and controller share sensitivity': g.count('v36_orbit_sensitivity*(-1.0')>=4,
+ 'Camera input unavailable while resting': 'not wait_open and not wait_transition_active' in g,
  'Camera movement hook': '_map_movement_to_camera((dir+_gamepad_direction())' in b and 'func _map_movement_to_camera(raw_direction:Vector3)' in g,
  'Right-drag and controller look': 'MOUSE_BUTTON_RIGHT' in g and 'JOY_AXIS_RIGHT_X' in g,
  'Wall avoidance and follow damping': 'intersect_ray(ray)' in g and 'exp(-9.0' in g,

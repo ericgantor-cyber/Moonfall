@@ -72,13 +72,53 @@ var v36_distance:float=V36_CAMERA_RULES.DEFAULT_DISTANCE
 var v36_dragging:bool=false
 var v36_camera_clipped:bool=false
 var v36_safe_follow_distance:float=V36_CAMERA_RULES.DEFAULT_DISTANCE
+const V36_CAMERA_PREFS:String="user://moonfall_camera.cfg"
+var v36_orbit_sensitivity:float=1.0
+var v36_invert_x:bool=false
+var v36_invert_y:bool=false
+var v36_fov:float=66.0
+const V36_SENSITIVITIES:Array[float]=[0.65,1.0,1.45]
+const V36_FOVS:Array[float]=[58.0,66.0,76.0]
+
+func _v36_load_camera_preferences()->void:
+ var config:=ConfigFile.new()
+ if config.load(V36_CAMERA_PREFS)!=OK:return
+ v36_orbit_sensitivity=clampf(float(config.get_value("camera","sensitivity",1.0)),0.5,1.5)
+ v36_invert_x=bool(config.get_value("camera","invert_x",false))
+ v36_invert_y=bool(config.get_value("camera","invert_y",false))
+ v36_fov=clampf(float(config.get_value("camera","fov",66.0)),58.0,76.0)
+
+func _v36_save_camera_preferences()->void:
+ var config:=ConfigFile.new()
+ config.set_value("camera","sensitivity",v36_orbit_sensitivity)
+ config.set_value("camera","invert_x",v36_invert_x)
+ config.set_value("camera","invert_y",v36_invert_y)
+ config.set_value("camera","fov",v36_fov)
+ var result:Error=config.save(V36_CAMERA_PREFS)
+ if result!=OK:push_warning("Camera preferences could not be saved: "+str(result))
+
+func _v36_cycle_camera_setting(values:Array[float],current:float)->float:
+ var position:int=0
+ var smallest:float=INF
+ for index in range(values.size()):
+  var distance:float=absf(values[index]-current)
+  if distance<smallest:
+   position=index
+   smallest=distance
+ return values[(position+1)%values.size()]
+
+func _v36_recenter_camera()->void:
+ v36_yaw=V36_CAMERA_RULES.DEFAULT_YAW
+ v36_pitch=V36_CAMERA_RULES.DEFAULT_PITCH
+ v36_dragging=false
+ _show_message("Camera recentered",1.2)
 
 func _build_scene()->void:
  super._build_scene()
  if not is_instance_valid(camera):return
  camera.name="MoonfallThirdPersonPerspective"
  camera.projection=Camera3D.PROJECTION_PERSPECTIVE
- camera.fov=66.0
+ camera.fov=v36_fov
  camera.near=0.08
  camera.current=true
  _update_camera(1.0)
@@ -95,11 +135,43 @@ func _v24_set_zoom(target:float)->void:
  v24_zoom_events+=1
 
 func _unhandled_input(event:InputEvent)->void:
+ # Camera adjustments do not intercept chat, menu, rest or travel controls.
+ if hero_playing and not menu_open and not death_active and not wait_open and not wait_transition_active:
+  if event is InputEventKey and event.pressed and not event.echo:
+   var camera_changed:bool=true
+   match event.keycode:
+    KEY_F6:
+     v36_orbit_sensitivity=_v36_cycle_camera_setting(V36_SENSITIVITIES,v36_orbit_sensitivity)
+     _show_message("Camera sensitivity "+str(v36_orbit_sensitivity),1.2)
+    KEY_F7:
+     v36_invert_y=not v36_invert_y
+     _show_message("Invert vertical camera: "+("ON" if v36_invert_y else "OFF"),1.2)
+    KEY_F8:
+     v36_invert_x=not v36_invert_x
+     _show_message("Invert horizontal camera: "+("ON" if v36_invert_x else "OFF"),1.2)
+    KEY_F9:
+     _v36_recenter_camera()
+    KEY_F10:
+     v36_fov=_v36_cycle_camera_setting(V36_FOVS,v36_fov)
+     if is_instance_valid(camera):camera.fov=v36_fov
+     _show_message("Camera field of view "+str(roundi(v36_fov)),1.2)
+    KEY_PAGEUP:
+     _v24_set_zoom(v24_camera_size-1.5)
+    KEY_PAGEDOWN:
+     _v24_set_zoom(v24_camera_size+1.5)
+    _:
+     camera_changed=false
+   if camera_changed:
+    _v36_save_camera_preferences()
+    get_viewport().set_input_as_handled()
+    return
  # WoW-style third-person zoom: wheel up approaches, wheel down retreats.
  # Only active during gameplay; UI scroll and menus remain unaffected.
  if event is InputEventMouseButton and event.pressed and hero_playing and not menu_open and not death_active:
   if event.button_index==MOUSE_BUTTON_WHEEL_UP or event.button_index==MOUSE_BUTTON_WHEEL_DOWN:
-   var direction:float=-1.5 if event.button_index==MOUSE_BUTTON_WHEEL_UP else 1.5
+   # Shift makes precise half-steps; Ctrl gives larger quick-travel zoom.
+   var step:float=3.0 if event.ctrl_pressed else 0.75 if event.shift_pressed else 1.5
+   var direction:float=-step if event.button_index==MOUSE_BUTTON_WHEEL_UP else step
    _v24_set_zoom(v24_camera_size+direction)
    get_viewport().set_input_as_handled()
    return
@@ -107,14 +179,14 @@ func _unhandled_input(event:InputEvent)->void:
   if not event.pressed:
    # Always release the orbit state, including when Alt is released first.
    v36_dragging=false
-  elif event.alt_pressed and hero_playing and not menu_open and not death_active:
+  elif event.alt_pressed and hero_playing and not menu_open and not death_active and not wait_open and not wait_transition_active:
    # Plain right-click must reach inherited guard/parry input.
    v36_dragging=true
    get_viewport().set_input_as_handled()
    return
- if event is InputEventMouseMotion and v36_dragging and hero_playing and not menu_open and not death_active:
-  v36_yaw-=event.relative.x*0.006
-  v36_pitch=V36_CAMERA_RULES.orbit_pitch(v36_pitch,event.relative.y*0.005)
+ if event is InputEventMouseMotion and v36_dragging and hero_playing and not menu_open and not death_active and not wait_open and not wait_transition_active:
+  v36_yaw-=event.relative.x*0.006*v36_orbit_sensitivity*(-1.0 if v36_invert_x else 1.0)
+  v36_pitch=V36_CAMERA_RULES.orbit_pitch(v36_pitch,event.relative.y*0.005*v36_orbit_sensitivity*(-1.0 if v36_invert_y else 1.0))
   get_viewport().set_input_as_handled()
   return
  super._unhandled_input(event)
@@ -126,13 +198,13 @@ func _update_camera(delta:float)->void:
   return
  # Right stick moves the camera, left stick moves the hero relative to it.
  # No forced cursor capture: the original click-to-attack and UI still work.
- if hero_playing and not menu_open and not death_active and delta<0.5:
+ if hero_playing and not menu_open and not death_active and not wait_open and not wait_transition_active and delta<0.5:
   var pads:Array[int]=Input.get_connected_joypads()
   if not pads.is_empty():
    var stick:Vector2=V36_CAMERA_RULES.orbit_stick_input(Vector2(Input.get_joy_axis(pads[0],JOY_AXIS_RIGHT_X),Input.get_joy_axis(pads[0],JOY_AXIS_RIGHT_Y)))
    var orbit_dt:float=V36_CAMERA_RULES.orbit_frame_step(delta)
-   v36_yaw-=stick.x*orbit_dt*2.1
-   v36_pitch=V36_CAMERA_RULES.orbit_pitch(v36_pitch,stick.y*orbit_dt*1.65)
+   v36_yaw-=stick.x*orbit_dt*2.1*v36_orbit_sensitivity*(-1.0 if v36_invert_x else 1.0)
+   v36_pitch=V36_CAMERA_RULES.orbit_pitch(v36_pitch,stick.y*orbit_dt*1.65*v36_orbit_sensitivity*(-1.0 if v36_invert_y else 1.0))
  var focus:Vector3=player.global_position+Vector3(0.0,1.35,0.0)
  var offset:Vector3=V36_CAMERA_RULES.camera_offset(v36_yaw,v36_pitch,v36_distance)
  var desired:Vector3=focus+offset
@@ -189,6 +261,7 @@ var v361_column_mesh:CylinderMesh
 var v361_orb_mesh:SphereMesh
 
 func _ready()->void:
+ _v36_load_camera_preferences()
  super._ready()
  _v361_build_world_art()
  _v362_build_water_and_resources()
