@@ -151,7 +151,7 @@ func _unhandled_input(event:InputEvent)->void:
      _show_message("Invert horizontal camera: "+("ON" if v36_invert_x else "OFF"),1.2)
     KEY_F9:
      _v36_recenter_camera()
-    KEY_F10:
+    KEY_F11:
      v36_fov=_v36_cycle_camera_setting(V36_FOVS,v36_fov)
      if is_instance_valid(camera):camera.fov=v36_fov
      _show_message("Camera field of view "+str(roundi(v36_fov)),1.2)
