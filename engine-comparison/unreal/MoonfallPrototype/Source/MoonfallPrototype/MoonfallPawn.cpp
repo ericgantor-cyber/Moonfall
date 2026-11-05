@@ -644,27 +644,37 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
         CameraBoom->SetRelativeLocation(FVector(Position.X, Position.Y, 0.f));
         if (Health > 0.f && EnemyDamageCooldown <= 0.f)
         {
-            const int32 NearbyIndex = NearestEnemyIndex(175.f);
-            if (NearbyIndex != INDEX_NONE)
+            // Find the nearest *engaged* contact. A retreating enemy cannot
+            // shield another active enemy just because it is slightly closer.
+            int32 ContactIndex = INDEX_NONE;
+            float ContactDistanceSq = FMath::Square(175.f);
+            const FVector HeroPosition = HeroMesh->GetRelativeLocation();
+            for (int32 I = 0; I < Enemies.Num(); ++I)
             {
-                const FWorldEnemy& Contact = Enemies[NearbyIndex];
-                // A leashed enemy is disengaging, not attacking the player.
-                // Keep contact and dodge rewards restricted to active combat.
-                const FVector HomeOffset = Contact.Mesh->GetRelativeLocation() - Contact.Home;
-                const float Leash = Contact.bGuardian ? 600.f : 900.f;
-                const bool bEngaged = !Contact.bReturningHome &&
-                    HomeOffset.SizeSquared2D() < FMath::Square(Leash);
-                if (bEngaged)
+                const FWorldEnemy& Candidate = Enemies[I];
+                if (!Candidate.Mesh || Candidate.bReturningHome) continue;
+                const FVector HomeOffset = Candidate.Mesh->GetRelativeLocation() - Candidate.Home;
+                const float Leash = Candidate.bGuardian ? 600.f : 900.f;
+                if (HomeOffset.SizeSquared2D() >= FMath::Square(Leash)) continue;
+                const FVector ToHero = Candidate.Mesh->GetRelativeLocation() - HeroPosition;
+                const float DistanceSq = ToHero.SizeSquared2D();
+                if (DistanceSq < ContactDistanceSq)
                 {
-                    if (DodgeTimer > 0.f) CounterWindow = CounterDuration;
-                    else
-                    {
-                        const float ContactDamage = 5.f + 2.f * Contact.Region +
-                            (Contact.bEnraged ? 4.f : 0.f);
-                        Health = FMath::Max(0.f, Health - ContactDamage);
-                    }
-                    EnemyDamageCooldown = 1.2f;
+                    ContactDistanceSq = DistanceSq;
+                    ContactIndex = I;
                 }
+            }
+            if (ContactIndex != INDEX_NONE)
+            {
+                const FWorldEnemy& Contact = Enemies[ContactIndex];
+                if (DodgeTimer > 0.f) CounterWindow = CounterDuration;
+                else
+                {
+                    const float ContactDamage = 5.f + 2.f * Contact.Region +
+                        (Contact.bEnraged ? 4.f : 0.f);
+                    Health = FMath::Max(0.f, Health - ContactDamage);
+                }
+                EnemyDamageCooldown = 1.2f;
             }
         }
     }
