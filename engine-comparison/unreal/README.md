@@ -1,7 +1,21 @@
-# Moonfall Unreal Engine 5 experiment
+# Moonfall Unreal Engine 5 isolated combat experiment
 
-Tracks #685. This is an implementation specification, NOT a runnable Unreal project.
+Tracks #685. Source project skeleton now exists in `MoonfallPrototype/` (UE 5.6 association). It contains a native C++ pawn and game mode with primitive floor, hero and boss; the boss has an area warning followed by damage. **Uncompiled and untested:** no Unreal editor, Windows executable or gameplay benchmark has been run.
 
-Create a blank UE5 third-person C++ project and pin an exact engine version. Build an isometric camera with mouse wheel zoom, WASD movement, left-click attack, Shift dodge. Build a single boss with 100 HP and aim-locked 2.5 m radius orange telegraph, warning for 1.15 s then dealing 20 HP damage. Hero has 100 HP, 15 damage within 4 m, 0.35 s attack cooldown, 0.32 s dodge immunity. Victory grants a persistent, capped +5 maximum HP using Unreal SaveGame. No new game modes or waves. UI: red HP, blue mana, purple XP.
+## Open and test
+1. Install a compatible Unreal Engine 5.6 editor with C++ build tools and Windows SDK.
+2. Open `MoonfallPrototype/MoonfallPrototype.uproject` and generate/build its C++ modules.
+3. Open an empty level and press Play; the experimental game mode should spawn `AMoonfallPawn`. If the world uses a different game mode, select MoonfallGameMode in World Settings.
+4. Verify WASD (X/Y plane), left-click attacks within 400 cm, Shift dodge, mouse wheel zoom.
+5. Boss locks a 250 cm radius ground warning to player position for 1.15 s, then deals 20 HP; dodging protects from damage. Boss HP starts at 100; each attack deals 15 HP on hit.
+6. **Known limitations:** victory +5 HP is session-only, not yet saved; basic colored materials and a polished HUD are not implemented; game has placeholder geometry only; keyboard input setup uses legacy axis mappings; map packaging and camera/audio/UI polish require further work.
 
-Document packaged Windows build results including controls, physics, telegraph hit correctness, save persistence, GPU frame-time and scene load measurements. Use placeholders only: never modify original Z/Nyra artwork. Benchmark against the matching Unity scene, not editor frame rate.
+## Acceptance criteria before marking prototype playable
+- Unreal C++ compiles cleanly in editor and Windows packaged build.
+- All inputs register without focus loss; boss telegraph and hitbox alignment verified.
+- SaveGame-based permanent bonus and red/blue/purple HUD implemented.
+- One continuous traversable level, no wave mode.
+- Reproducible Windows 10/11 FPS, frame-time, memory and load time measurements.
+- Original Z and Nyra artwork never modified or included in comparison files.
+
+Do not merge into the existing Godot game until independent validation and side-by-side comparison are complete.
