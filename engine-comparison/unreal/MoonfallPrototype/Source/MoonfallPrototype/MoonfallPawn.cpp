@@ -79,6 +79,7 @@ void AMoonfallPawn::BeginPlay()
             bWon = Progress->bBossDefeated;
             DefeatedEnemyMask = Progress->DefeatedEnemyMask & ((1 << MoonfallWorldRules::TotalEnemies) - 1);
             ClaimedChamberMask = Progress->ClaimedChamberMask & ((1 << MoonfallWorldRules::TotalChambers) - 1);
+            DefeatedGuardianMask = Progress->DefeatedGuardianMask & ((1 << MoonfallWorldRules::TotalChambers) - 1);
             Progression.Level = FMath::Clamp(Progress->HeroLevel, 1, 100);
             Progression.Experience = FMath::Clamp(Progress->HeroXP, 0, Progression.ExperienceToNext() - 1);
             Progression.HeroPoints = FMath::Clamp(Progress->HeroPoints, 0, 100);
@@ -155,6 +156,24 @@ void AMoonfallPawn::BuildWorld()
             Reward.Mesh = Cache;
             Reward.Id = ChamberId;
             ChamberCaches.Add(Reward);
+            if ((DefeatedGuardianMask & (1 << ChamberId)) == 0)
+            {
+                UStaticMeshComponent* GuardianBody = NewObject<UStaticMeshComponent>(this);
+                GuardianBody->SetupAttachment(Root);
+                GuardianBody->SetStaticMesh(EnemyShape);
+                GuardianBody->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+                GuardianBody->SetRelativeLocation(MoonfallWorldRules::ChamberReward(Region, Chamber) + FVector(0.f, 400.f, 0.f));
+                GuardianBody->SetRelativeScale3D(FVector(1.3f));
+                AddInstanceComponent(GuardianBody);
+                GuardianBody->RegisterComponent();
+                FWorldEnemy Guardian;
+                Guardian.Mesh = GuardianBody;
+                Guardian.Health = MoonfallWorldRules::EnemyMaxHealth(Region) * 1.8f;
+                Guardian.Region = Region;
+                Guardian.Id = ChamberId;
+                Guardian.bGuardian = true;
+                Enemies.Add(Guardian);
+            }
         }
         const FString Name = BeastNames[Region];
         UTexture2D* OriginalArt = LoadObject<UTexture2D>(nullptr,
@@ -225,11 +244,13 @@ void AMoonfallPawn::DamageWorldEnemy(int32 Index, float Damage)
     Enemy.Health = FMath::Max(0.f, Enemy.Health - Damage);
     if (Enemy.Health > 0.f) return;
     const int32 Region = Enemy.Region;
-    DefeatedEnemyMask |= 1 << Enemy.Id;
+    if (Enemy.bGuardian) DefeatedGuardianMask |= 1 << Enemy.Id;
+    else DefeatedEnemyMask |= 1 << Enemy.Id;
+    const bool bGuardian = Enemy.bGuardian;
     if (Enemy.Portrait) Enemy.Portrait->DestroyComponent();
     Enemy.Mesh->DestroyComponent();
     Enemies.RemoveAt(Index);
-    const int32 LevelsGained = Progression.AwardDefeat(Region, false, false, GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f);
+    const int32 LevelsGained = Progression.AwardDefeat(Region, bGuardian, false, GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f);
     Health = FMath::Min(100.f + 5.f * Victories, Health + 20.f * LevelsGained);
     SaveProgress();
 }
@@ -251,6 +272,7 @@ void AMoonfallPawn::CollectNearbyChambers()
         const FChamberCache& Cache = ChamberCaches[I];
         if (!Cache.Mesh || FVector::Dist2D(HeroPosition, Cache.Mesh->GetRelativeLocation()) > 250.f) continue;
         const int32 Id = Cache.Id;
+        if ((DefeatedGuardianMask & (1 << Id)) == 0) continue; // No loot before guardian defeat.
         ClaimedChamberMask |= 1 << Id;
         Cache.Mesh->DestroyComponent();
         ChamberCaches.RemoveAt(I);
@@ -276,6 +298,7 @@ void AMoonfallPawn::SaveProgress()
     Progress->TamerPoints = Progression.TamerPoints;
     Progress->DefeatedEnemyMask = DefeatedEnemyMask;
     Progress->ClaimedChamberMask = ClaimedChamberMask;
+    Progress->DefeatedGuardianMask = DefeatedGuardianMask;
     Progress->bBossDefeated = bWon;
     if (!UGameplayStatics::SaveGameToSlot(Progress, TEXT("MoonfallPrototypeBossRewards"), 0))
         UE_LOG(LogTemp, Warning, TEXT("Moonfall prototype: reward save failed."));
