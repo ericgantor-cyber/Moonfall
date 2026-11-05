@@ -90,3 +90,6 @@ Both isolated engine experiments now periodically save the hero's position and a
 
 ### Checkpoint recovery bug fix (2026-11-05)
 Unreal `SaveProgress` now attempts to load and reuse the existing experimental save object before creating a new one. Previously, a save triggered while HP was zero could write a brand-new object with `bHasCheckpoint=false`, erasing the last living checkpoint. The new code preserves the previous location and HP on death-time saves and updates it only while alive. Added source-level regression coverage; actual editor save/reload testing remains required.
+
+### Clean exit and suspend persistence (2026-11-05)
+Unity now saves experimental progression and the current living checkpoint when the application pauses or quits. Unreal now saves when the game exits or changes levels, but intentionally avoids autosaving during normal editor shutdown or arbitrary actor removal. Both keep the eight-second checkpoint timer, all existing rewards, and the no-passive-healing-on-kills rule. If the hero is dead, the previous living checkpoint is preserved. These hooks are covered by source tests but still require actual Unity/Unreal shutdown and reload playtesting, including force-quit scenarios.
