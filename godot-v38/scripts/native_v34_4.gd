@@ -129,10 +129,10 @@ func _update_camera(delta:float)->void:
  if hero_playing and not menu_open and not death_active and delta<0.5:
   var pads:Array[int]=Input.get_connected_joypads()
   if not pads.is_empty():
-   var right_x:float=Input.get_joy_axis(pads[0],JOY_AXIS_RIGHT_X)
-   var right_y:float=Input.get_joy_axis(pads[0],JOY_AXIS_RIGHT_Y)
-   if absf(right_x)>0.18:v36_yaw-=right_x*delta*2.1
-   if absf(right_y)>0.18:v36_pitch=V36_CAMERA_RULES.orbit_pitch(v36_pitch,right_y*delta*1.65)
+   var stick:Vector2=V36_CAMERA_RULES.orbit_stick_input(Vector2(Input.get_joy_axis(pads[0],JOY_AXIS_RIGHT_X),Input.get_joy_axis(pads[0],JOY_AXIS_RIGHT_Y)))
+   var orbit_dt:float=V36_CAMERA_RULES.orbit_frame_step(delta)
+   v36_yaw-=stick.x*orbit_dt*2.1
+   v36_pitch=V36_CAMERA_RULES.orbit_pitch(v36_pitch,stick.y*orbit_dt*1.65)
  var focus:Vector3=player.global_position+Vector3(0.0,1.35,0.0)
  var offset:Vector3=V36_CAMERA_RULES.camera_offset(v36_yaw,v36_pitch,v36_distance)
  var desired:Vector3=focus+offset
