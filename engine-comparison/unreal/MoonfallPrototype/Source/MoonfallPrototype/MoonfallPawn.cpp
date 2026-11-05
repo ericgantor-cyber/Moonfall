@@ -310,6 +310,13 @@ void AMoonfallPawn::UpdateWorldEnemies(float Dt)
     for (FWorldEnemy& Enemy : Enemies)
     {
         if (!Enemy.Mesh) continue;
+        // Short stagger from an earned riposte cancels movement and contact.
+        // The timer is capped like dodge/telegraph reaction time during stalls.
+        if (Enemy.StaggerTimer > 0.f)
+        {
+            Enemy.StaggerTimer = FMath::Max(0.f, Enemy.StaggerTimer - MoveDt);
+            continue;
+        }
         // Guardians enter their final phase once below 35% of their starting HP.
         // Derive this each update from existing health: no extra save state.
         Enemy.bEnraged = Enemy.bGuardian &&
@@ -383,12 +390,19 @@ TArray<FVector> AMoonfallPawn::GetEnemyMapPositions() const
     return Result;
 }
 
-void AMoonfallPawn::DamageWorldEnemy(int32 Index, float Damage)
+void AMoonfallPawn::DamageWorldEnemy(int32 Index, float Damage, bool bRiposte)
 {
     if (!Enemies.IsValidIndex(Index)) return;
     FWorldEnemy& Enemy = Enemies[Index];
     Enemy.Health = FMath::Max(0.f, Enemy.Health - Damage);
-    if (Enemy.Health > 0.f) return;
+    if (Enemy.Health > 0.f)
+    {
+        // The reward requires a real hit on a living guardian; defeated foes
+        // need no stun state and ordinary hits cannot lock down bosses.
+        if (bRiposte && Enemy.bGuardian)
+            Enemy.StaggerTimer = 0.8f;
+        return;
+    }
     const int32 Region = Enemy.Region;
     if (Enemy.bGuardian) DefeatedGuardianMask |= 1 << Enemy.Id;
     else DefeatedEnemyMask |= 1 << Enemy.Id;
@@ -527,7 +541,7 @@ void AMoonfallPawn::Attack()
         const bool bRiposte = CounterWindow > 0.f;
         const float Damage = BasicAttackDamage() * (bRiposte ? CounterMultiplier : 1.f);
         CounterWindow = 0.f; // The riposte is spent only on a successful in-range attack.
-        if (!bHitBoss) DamageWorldEnemy(EnemyIndex, Damage);
+        if (!bHitBoss) DamageWorldEnemy(EnemyIndex, Damage, bRiposte);
         else
         {
             BossHealth = FMath::Max(0.f, BossHealth - Damage);
@@ -562,7 +576,7 @@ void AMoonfallPawn::CastBolt()
     const float Damage = ArcaneBoltDamage() *
         (bRiposte ? CounterMultiplier : 1.f);
     CounterWindow = 0.f;
-    if (!bHitBoss) DamageWorldEnemy(EnemyIndex, Damage);
+    if (!bHitBoss) DamageWorldEnemy(EnemyIndex, Damage, bRiposte);
     else
     {
         BossHealth = FMath::Max(0.f, BossHealth - Damage);
@@ -664,7 +678,7 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
             for (int32 I = 0; I < Enemies.Num(); ++I)
             {
                 const FWorldEnemy& Candidate = Enemies[I];
-                if (!Candidate.Mesh || Candidate.bReturningHome) continue;
+                if (!Candidate.Mesh || Candidate.bReturningHome || Candidate.StaggerTimer > 0.f) continue;
                 const FVector HomeOffset = Candidate.Mesh->GetRelativeLocation() - Candidate.Home;
                 const float Leash = Candidate.bGuardian ? 600.f : 900.f;
                 if (HomeOffset.SizeSquared2D() >= FMath::Square(Leash)) continue;
