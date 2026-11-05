@@ -119,7 +119,7 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("if (Health > 0.f && EnemyDamageCooldown <= 0.f)", tick)
         self.assertIn("if (ContactIndex != INDEX_NONE)", tick)
         boss = tick.split("if (CastTimer <= 0.f)", 1)[1]
-        self.assertIn("if (DodgeTimer > 0.f)", boss)
+        self.assertIn("if (bDodgeActiveThisFrame)", boss)
         self.assertIn("else if (EnemyDamageCooldown <= 0.f)", boss)
         self.assertIn("EnemyDamageCooldown = 1.2f;", boss)
         self.assertLess(boss.index("else if (EnemyDamageCooldown <= 0.f)"),
@@ -147,7 +147,7 @@ class PrototypeContracts(unittest.TestCase):
         self.assertNotIn("NearestEnemyIndex(175.f)", selection)
         combat = tick.split("if (ContactIndex != INDEX_NONE)", 1)[1].split(
             "EnemyDamageCooldown = 1.2f;", 1)[0]
-        self.assertIn("if (DodgeTimer > 0.f) CounterWindow = CounterDuration;", combat)
+        self.assertIn("if (bDodgeActiveThisFrame) CounterWindow = CounterDuration;", combat)
         self.assertIn("Health = FMath::Max(0.f, Health - ContactDamage);", combat)
         self.assertIn("Contact.bEnraged ? 4.f : 0.f", combat)
 
@@ -159,7 +159,7 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("Enemy.Health <= 0.35f * 1.8f * MoonfallWorldRules::EnemyMaxHealth(Enemy.Region)", ai)
         self.assertIn("Enemy.bEnraged ? 360.f : (Enemy.bGuardian ? 280.f : 200.f)", ai)
         self.assertIn("(Contact.bEnraged ? 4.f : 0.f)", self.cpp)
-        self.assertIn("if (DodgeTimer > 0.f) CounterWindow = CounterDuration;", self.cpp)
+        self.assertIn("if (bDodgeActiveThisFrame) CounterWindow = CounterDuration;", self.cpp)
         self.assertNotIn("Health += 4.f;", self.cpp)
 
     def test_unreal_enemy_leash_has_return_hysteresis(self):
@@ -178,6 +178,15 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("CounterWindow = FMath::Max(0.f, CounterWindow - ReactionDt);", tick)
         self.assertNotIn("CounterWindow = FMath::Max(0.f, CounterWindow - Dt);", tick)
         self.assertIn("CounterWindow = CounterDuration;", tick)
+
+    def test_unreal_active_dodge_snapshot_survives_final_frame(self):
+        tick = self.cpp.split("void AMoonfallPawn::Tick(", 1)[1]
+        self.assertIn("const bool bDodgeActiveThisFrame = DodgeTimer > 0.f;", tick)
+        self.assertLess(tick.index("const bool bDodgeActiveThisFrame = DodgeTimer > 0.f;"),
+                        tick.index("DodgeTimer = FMath::Max(0.f, DodgeTimer - ReactionDt);"))
+        self.assertIn("Direction * (bDodgeActiveThisFrame ? 1200.f : 600.f) * MovementDt", tick)
+        self.assertEqual(tick.count("if (bDodgeActiveThisFrame)"), 2)
+        self.assertEqual(tick.count("DodgeTimer > 0.f"), 1)
 
     def test_unreal_dodge_window_matches_hitch_safe_boss_telegraph(self):
         tick = self.cpp.split("void AMoonfallPawn::Tick(", 1)[1]
@@ -202,7 +211,7 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("BossAttackPhase == 3 ? 2.25f", self.cpp)
         self.assertIn("BossAttackPhase == 3 ? 28.f", self.cpp)
         self.assertIn("FVector::Dist2D(HeroMesh->GetRelativeLocation(), TargetWorld) < BossWarningRadius", self.cpp)
-        self.assertIn("if (DodgeTimer > 0.f) CounterWindow = CounterDuration;", self.cpp)
+        self.assertIn("if (bDodgeActiveThisFrame) CounterWindow = CounterDuration;", self.cpp)
         self.assertIn("float BossWarningRadius = 250.f;", self.header)
 
     def test_boss_victory_loot_is_wired_into_both_prototypes(self):
@@ -433,7 +442,7 @@ class PrototypeContracts(unittest.TestCase):
         # Large frame delays must not cause giant positional jumps.
         self.assertIn("const float MoveDt = FMath::Clamp(Dt, 0.f, 0.05f);", self.cpp)
         self.assertIn("const float MovementDt = FMath::Min(Dt, 0.05f);", self.cpp)
-        self.assertIn("Direction * (DodgeTimer > 0.f ? 1200.f : 600.f) * MovementDt", self.cpp)
+        self.assertIn("Direction * (bDodgeActiveThisFrame ? 1200.f : 600.f) * MovementDt", self.cpp)
         # A stationary player cannot spend dodge stamina for no displacement.
         self.assertIn("FVector2D(Forward, Right).SizeSquared() > 0.01f", self.cpp)
         self.assertNotIn("SpawnWave(", self.cpp)
@@ -802,7 +811,7 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("CounterWindow = FMath::Max(0.f, CounterWindow - ReactionDt);", self.cpp)
         self.assertNotIn("CounterWindow = FMath::Max(0.f, CounterWindow - Dt);", self.cpp)
         self.assertIn("if (dodge > 0f) counterWindow = CounterDuration;", self.unity)
-        self.assertIn("if (DodgeTimer > 0.f) CounterWindow = CounterDuration;", self.cpp)
+        self.assertIn("if (bDodgeActiveThisFrame) CounterWindow = CounterDuration;", self.cpp)
         self.assertIn("if (foe != null || bossInRange)", self.unity)
         self.assertIn("if (EnemyIndex != INDEX_NONE || bBossInRange)", self.cpp)
         self.assertIn("counterWindow = 0f; // One counter per successful evasion.", self.unity)
