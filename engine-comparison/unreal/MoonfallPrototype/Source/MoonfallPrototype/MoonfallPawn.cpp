@@ -491,11 +491,13 @@ float AMoonfallPawn::HealingSpellAmount() const
 void AMoonfallPawn::Attack()
 {
     if (Health <= 0.f || AttackCooldown > 0.f) return;
-    AttackCooldown = 0.35f;
     const int32 EnemyIndex = NearestEnemyIndex(400.f);
     const float BossDistance = bWon ? TNumericLimits<float>::Max() :
         FVector::Dist2D(HeroMesh->GetRelativeLocation(), BossMesh->GetRelativeLocation());
     const bool bBossInRange = BossDistance <= 400.f;
+    // A miss has brief recovery, while a landed attack uses its full cadence.
+    // Neither a miss nor an invalid click consumes a saved perfect-dodge riposte.
+    AttackCooldown = (EnemyIndex != INDEX_NONE || bBossInRange) ? 0.35f : 0.12f;
     if (EnemyIndex != INDEX_NONE || bBossInRange)
     {
         // Resolve the nearest valid target, not always the first world enemy.
