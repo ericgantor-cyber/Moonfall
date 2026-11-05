@@ -314,6 +314,20 @@ class PrototypeContracts(unittest.TestCase):
         self.assertNotIn("SpawnWave(", self.unity)
         self.assertNotIn("SpawnWave(", self.cpp)
 
+    def test_unreal_ai_home_return_and_hitch_safety(self):
+        # Local enemies must go home when the hero leaves, not stick at leash range.
+        self.assertIn("const bool bAggro = HeroDistSq", self.cpp)
+        self.assertIn("FromHome.SizeSquared() < FMath::Square(Leash)", self.cpp)
+        self.assertIn("FromHome.SizeSquared() > FMath::Square(30.f)", self.cpp)
+        self.assertIn("Enemy.Mesh->SetRelativeLocation(From - FromHome.GetSafeNormal() * ReturnStep);", self.cpp)
+        # Large frame delays must not cause giant positional jumps.
+        self.assertIn("const float MoveDt = FMath::Clamp(Dt, 0.f, 0.05f);", self.cpp)
+        self.assertIn("const float MovementDt = FMath::Min(Dt, 0.05f);", self.cpp)
+        self.assertIn("Direction * (DodgeTimer > 0.f ? 1200.f : 600.f) * MovementDt", self.cpp)
+        # A stationary player cannot spend dodge stamina for no displacement.
+        self.assertIn("FVector2D(Forward, Right).SizeSquared() > 0.01f", self.cpp)
+        self.assertNotIn("SpawnWave(", self.cpp)
+
     def test_hero_class_combat_without_passive_kill_healing(self):
         self.assertIn("float BasicAttackDamage()", self.unity)
         self.assertIn("float ArcaneBoltDamage()", self.unity)
