@@ -89,13 +89,6 @@ void AMoonfallPawn::BeginPlay()
         {
             Victories = FMath::Clamp(Progress->PermanentBossVictories, 0, 100);
             bWon = Progress->bBossDefeated;
-            // Never resurrect an already-defeated boss; validate unfinished HP.
-            if (!bWon && Progress->bHasCheckpoint &&
-                Progress->bHasBossHealthCheckpoint &&
-                FMath::IsFinite(Progress->SavedBossHealth))
-            {
-                BossHealth = FMath::Clamp(Progress->SavedBossHealth, 1.f, 100.f);
-            }
             // Checkpoint is restored before the world is constructed.
             if (Progress->bHasCheckpoint && FMath::IsFinite(Progress->SavedHealth) &&
                 Progress->SavedHealth > 0.f &&
@@ -418,8 +411,6 @@ void AMoonfallPawn::SaveProgress()
         Progress->bHasResourceCheckpoint = true;
         Progress->SavedMana = Mana;
         Progress->SavedStamina = Stamina;
-        Progress->bHasBossHealthCheckpoint = true;
-        Progress->SavedBossHealth = bWon ? 0.f : BossHealth;
     }
     if (!UGameplayStatics::SaveGameToSlot(Progress, TEXT("MoonfallPrototypeBossRewards"), 0))
         UE_LOG(LogTemp, Warning, TEXT("Moonfall prototype: reward save failed."));
