@@ -9,6 +9,7 @@ public sealed class MoonfallPrototype : MonoBehaviour
     bool casting, won;
     Vector3 target;
     int wins;
+    readonly MoonfallProgression progression = new MoonfallProgression();
     string bossLoot = "No boss loot yet";
     readonly List<string> bossInventory = new List<string>();
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
@@ -30,6 +31,10 @@ public sealed class MoonfallPrototype : MonoBehaviour
     {
         wins = Mathf.Clamp(PlayerPrefs.GetInt("moonfall_experiment_wins", 0), 0, 100);
         hp = 100 + 5 * wins;
+        progression.Level = Mathf.Clamp(PlayerPrefs.GetInt("moonfall_experiment_level", 1), 1, 100);
+        progression.Experience = Mathf.Clamp(PlayerPrefs.GetInt("moonfall_experiment_xp", 0), 0, progression.ExperienceToNext - 1);
+        progression.HeroPoints = Mathf.Clamp(PlayerPrefs.GetInt("moonfall_experiment_hero_points", 0), 0, 100);
+        progression.TamerPoints = Mathf.Clamp(PlayerPrefs.GetInt("moonfall_experiment_tamer_points", 0), 0, 100);
         // Prototype-only collectible slots, separate from production save data.
         int relicCount = Mathf.Clamp(PlayerPrefs.GetInt("moonfall_experiment_relic_count", 0), 0, 100);
         for (int i = 0; i < relicCount; i++)
@@ -107,6 +112,13 @@ public sealed class MoonfallPrototype : MonoBehaviour
         PlayerPrefs.SetInt("moonfall_experiment_wins", wins);
         PlayerPrefs.Save();
         hp += 5 * (wins - previousWins);
+        int levelsGained = progression.AwardDefeat(0, true, true, Time.time);
+        hp = Mathf.Min(100 + 5 * wins, hp + 20 * levelsGained);
+        PlayerPrefs.SetInt("moonfall_experiment_level", progression.Level);
+        PlayerPrefs.SetInt("moonfall_experiment_xp", progression.Experience);
+        PlayerPrefs.SetInt("moonfall_experiment_hero_points", progression.HeroPoints);
+        PlayerPrefs.SetInt("moonfall_experiment_tamer_points", progression.TamerPoints);
+        PlayerPrefs.Save();
         // One provisional boss loot roll, separate from permanent HP bonuses.
         // Uses Godot-derived rarity thresholds but not Godot's exact seeded RNG.
         int rank = MoonfallLootRules.RarityIndex(Random.Range(0, 1000), 0, 0);
@@ -121,11 +133,12 @@ public sealed class MoonfallPrototype : MonoBehaviour
     }
     void OnGUI()
     {
-        GUI.Box(new Rect(10,10,350,130),"Moonfall Unity Experimental Slice");
+        GUI.Box(new Rect(10,10,410,155),"Moonfall Unity RPG Experiment");
         GUI.Label(new Rect(20,35,330,22),"HP: "+Mathf.CeilToInt(hp)+" | Mana: 100 | XP: 0");
-        GUI.Label(new Rect(20,60,330,22),"Boss HP: "+Mathf.CeilToInt(bossHp)+" | Permanent wins: "+wins);
-        GUI.Label(new Rect(20,85,330,22),"WASD move | Click attack | Shift dodge | Wheel zoom");
-        if (won) GUI.Label(new Rect(20,110,330,22),"Victory! Loot: " + bossLoot + " | Bag: " + bossInventory.Count + "/100");
+        GUI.Label(new Rect(20,60,390,22),"Boss HP: "+Mathf.CeilToInt(bossHp)+" | Permanent wins: "+wins);
+        GUI.Label(new Rect(20,85,390,22),"LV "+progression.Level+" XP "+progression.Experience+"/"+progression.ExperienceToNext+" | Hero/Tamer "+progression.HeroPoints+"/"+progression.TamerPoints);
+        GUI.Label(new Rect(20,110,390,22),"WASD move | Click attack | Shift dodge | Wheel zoom");
+        if (won) GUI.Label(new Rect(20,135,390,22),"Victory! Loot: " + bossLoot + " | Bag: " + bossInventory.Count + "/100");
         else if (hp<=0) GUI.Label(new Rect(20,110,330,22),"Defeated. Restart Play to retry.");
     }
 }
