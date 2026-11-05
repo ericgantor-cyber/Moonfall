@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Pawn.h"
+#include "Components/StaticMeshComponent.h"
 #include "MoonfallProgression.h"
 #include "MoonfallPawn.generated.h"
 
