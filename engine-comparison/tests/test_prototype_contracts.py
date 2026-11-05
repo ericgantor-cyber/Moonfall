@@ -46,8 +46,8 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("castTimer=1.15f;", self.unity)
         self.assertIn("CastCooldown = 3.5f;", self.cpp)
         self.assertIn("castCd=3.5f;", self.unity)
-        self.assertIn("BossHealth - BasicAttackDamage()", self.cpp)
-        self.assertIn("bossHp-BasicAttackDamage()", self.unity)
+        self.assertIn("BossHealth - Damage", self.cpp)
+        self.assertIn("bossHp-damage", self.unity)
 
     def test_progression_cap_and_save_isolation(self):
         self.assertIn("FMath::Min(100, Victories + 1)", self.cpp)
