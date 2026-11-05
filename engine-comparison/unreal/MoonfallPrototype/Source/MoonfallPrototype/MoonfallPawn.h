@@ -71,6 +71,9 @@ private:
     int32 DefeatedEnemyMask = 0;
     float EnemyDamageCooldown = 0.f;
     float CounterWindow = 0.f;
+    int32 BossAttackCount = 0;
+    int32 BossAttackPhase = 1;
+    float BossWarningRadius = 250.f;
     static constexpr float CounterDuration = 1.5f;
     static constexpr float CounterMultiplier = 1.75f;
     float CheckpointTimer = 0.f;
