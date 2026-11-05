@@ -274,6 +274,21 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("warning.gameObject.SetActive(false)", self.unity)
         self.assertIn("WarningMesh->SetVisibility(false)", self.cpp)
 
+    def test_thirty_guardians_gate_chamber_rewards_and_save(self):
+        save = SAVES.read_text(encoding="utf-8")
+        self.assertIn('moonfall_experiment_guardians', self.unity)
+        self.assertIn('defeatedGuardianMask |= 1 << enemy.id;', self.unity)
+        self.assertIn('if ((defeatedGuardianMask & (1 << id)) == 0) continue;', self.unity)
+        self.assertIn('guardian = true', self.unity)
+        self.assertIn('MoonfallWorldRules.ChamberReward(region, chamber)', self.unity)
+        self.assertIn('DefeatedGuardianMask = 0', save)
+        self.assertIn('Guardian.bGuardian = true;', self.cpp)
+        self.assertIn('if (Enemy.bGuardian) DefeatedGuardianMask |= 1 << Enemy.Id;', self.cpp)
+        self.assertIn('if ((DefeatedGuardianMask & (1 << Id)) == 0) continue;', self.cpp)
+        self.assertIn('Progress->DefeatedGuardianMask = DefeatedGuardianMask;', self.cpp)
+        self.assertIn('Progress->DefeatedGuardianMask &', self.cpp)
+        self.assertIn('Progression.AwardDefeat(Region, bGuardian, false', self.cpp)
+
     def test_original_art_import_is_checksum_guarded(self):
         import_tool = (ROOT / "tools/import_godot_art.py").read_text()
         verify_tool = (ROOT / "tools/verify_art_import.py").read_text()
