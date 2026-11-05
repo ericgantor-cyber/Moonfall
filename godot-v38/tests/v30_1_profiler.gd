@@ -15,6 +15,24 @@ func _run()->void:
  await process_frame
  check(str(game.call("_release_label")).begins_with("v3"),"new profiler script active")
  game.call("_start_game","z")
+ # Combat feedback cleanup uses the live game scene and must retain active
+ # effects while reclaiming expired and already-freed ones without a copy.
+ var active_cue:=Node3D.new()
+ var expired_cue:=Node3D.new()
+ var freed_cue:=Node3D.new()
+ game.add_child(active_cue)
+ game.add_child(expired_cue)
+ freed_cue.free()
+ var effects:Array=game.get("combat_cues")
+ var initial_fx_count:int=effects.size()
+ effects.append({"node":active_cue,"age":0.0,"life":1.0,"kind":"attack"})
+ effects.append({"node":expired_cue,"age":0.99,"life":1.0,"kind":"spell"})
+ effects.append({"node":freed_cue,"age":0.0,"life":1.0,"kind":"dodge"})
+ game.call("_v16_tick_combat_cues",0.05)
+ check(effects.size()==initial_fx_count+1,"combat FX removes expired and invalid cues in place")
+ check(is_instance_valid(active_cue) and absf(float(effects[effects.size()-1]["age"])-0.05)<0.001,"combat FX preserves and advances active cue")
+ game.call("_v16_tick_combat_cues",1.0)
+ check(effects.size()==initial_fx_count,"combat FX drains completed cues")
  # A diagnostic request before the first captured frame must never index
  # a negative sample position or produce a fake low-FPS value.
  game.call("_perf_start",true)
