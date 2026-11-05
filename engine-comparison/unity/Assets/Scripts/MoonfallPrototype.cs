@@ -5,6 +5,7 @@ public sealed class MoonfallPrototype : MonoBehaviour
 {
     Transform hero, boss, warning;
     Camera view;
+    Texture2D ornateOrbs; // Optional transparent art imported to Resources/MoonfallOrbs
     float hp, bossHp = 100, attackCd, dodge, dodgeCooldown, castCd = 3, castTimer, zoom = 16;
     bool casting, won;
     Vector3 target;
@@ -29,6 +30,7 @@ public sealed class MoonfallPrototype : MonoBehaviour
     }
     void Start()
     {
+        ornateOrbs = Resources.Load<Texture2D>("MoonfallOrbs");
         wins = Mathf.Clamp(PlayerPrefs.GetInt("moonfall_experiment_wins", 0), 0, 100);
         hp = 100 + 5 * wins;
         progression.Level = Mathf.Clamp(PlayerPrefs.GetInt("moonfall_experiment_level", 1), 1, 100);
@@ -163,12 +165,23 @@ public sealed class MoonfallPrototype : MonoBehaviour
     void DrawRpgHud()
     {
         float maxHp = 100f + 5f * wins;
+        if (ornateOrbs != null)
+        {
+            // Compact transparent graphic: no panel, no opaque backdrop.
+            float width = Mathf.Min(300f, Screen.width * .34f);
+            float height = width * ornateOrbs.height / ornateOrbs.width;
+            GUI.DrawTexture(new Rect(12f, Screen.height - height - 12f, width, height), ornateOrbs, ScaleMode.StretchToFill, true);
+        }
+        else
+        {
         Ring(new Vector2(90f, Screen.height - 108f), 44f, hp / Mathf.Max(1f, maxHp),
             new Color(1f, .22f, .30f));
         Ring(new Vector2(90f, Screen.height - 108f), 34f, 1f, new Color(.18f, .48f, 1f));
         Ring(new Vector2(90f, Screen.height - 108f), 25f,
             (float)progression.Experience / Mathf.Max(1, progression.ExperienceToNext),
             new Color(.70f, .40f, 1f));
+
+        }
 
         // Radar of the small prototype arena ONLY: not the six-region Raven Atlas.
         float x = Screen.width - 178f;
