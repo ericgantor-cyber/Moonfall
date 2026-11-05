@@ -262,7 +262,7 @@ class PrototypeContracts(unittest.TestCase):
         unreal_hud = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.cpp").read_text()
         self.assertIn("stamina = Mathf.Min(MaxStamina, stamina + 30f * dt)", self.unity)
         self.assertIn("stamina -= 45f", self.unity)
-        self.assertIn("Stamina = FMath::Min(150.f, Stamina + 30.f * Dt)", self.cpp)
+        self.assertIn("Stamina = FMath::Min(GetHudMaxStamina(), Stamina + 30.f * Dt)", self.cpp)
         self.assertIn("Stamina -= 45.f", self.cpp)
         self.assertIn("GetHudStamina()", unreal_header)
         self.assertIn("GetHudMana()", unreal_header)
