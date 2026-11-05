@@ -567,6 +567,26 @@ class PrototypeContracts(unittest.TestCase):
             if not defeated & (1 << 29):
                 self.assertFalse(valid_claims & (1 << 29))
 
+    def test_successful_dodge_grants_one_timed_riposte(self):
+        # A real avoided hit grants a single stronger click attack.
+        # Neither a missed attack nor simply pressing dodge should grant it.
+        self.assertIn("const float CounterDuration = 1.5f;", self.unity)
+        self.assertIn("const float CounterMultiplier = 1.75f;", self.unity)
+        self.assertIn("static constexpr float CounterDuration = 1.5f;", self.header)
+        self.assertIn("static constexpr float CounterMultiplier = 1.75f;", self.header)
+        self.assertIn("counterWindow = Mathf.Max(0f, counterWindow - dt);", self.unity)
+        self.assertIn("CounterWindow = FMath::Max(0.f, CounterWindow - Dt);", self.cpp)
+        self.assertIn("if (dodge > 0f) counterWindow = CounterDuration;", self.unity)
+        self.assertIn("if (DodgeTimer > 0.f) CounterWindow = CounterDuration;", self.cpp)
+        self.assertIn("if (foe != null || bossInRange)", self.unity)
+        self.assertIn("if (EnemyIndex != INDEX_NONE || bBossInRange)", self.cpp)
+        self.assertIn("counterWindow = 0f; // One counter per successful evasion.", self.unity)
+        self.assertIn("CounterWindow = 0.f; // The riposte is spent only on a successful in-range attack.", self.cpp)
+        self.assertIn("Input.GetMouseButtonDown(0)", self.unity)
+        self.assertIn('Input->BindAction(TEXT("Attack"), IE_Pressed', self.cpp)
+        self.assertNotIn("Health += Damage", self.cpp)
+        self.assertNotIn("hp += damage", self.unity)
+
     def test_original_art_import_is_checksum_guarded(self):
         import_tool = (ROOT / "tools/import_godot_art.py").read_text()
         verify_tool = (ROOT / "tools/verify_art_import.py").read_text()
