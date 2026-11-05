@@ -392,6 +392,19 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn('engine-comparison/unreal/MoonfallPrototype/SourceArt/MoonfallGeneratedArt/', instructions)
         self.assertIn('AI_ART_SHA256.json', instructions)
 
+    def test_windows_ai_art_installer_has_hash_checks_and_safe_destinations(self):
+        installer = (ROOT / "tools/install_generated_art.ps1").read_text(encoding="utf-8")
+        self.assertIn("AI_ART_SHA256.json", installer)
+        self.assertIn("$checks.generated_art", installer)
+        self.assertIn("Get-FileHash", installer)
+        self.assertIn("Checksum mismatch:", installer)
+        self.assertIn("Moonfall_AI_Art_Ready_To_Import.zip", installer)
+        self.assertIn("MoonfallGeneratedArt", installer)
+        self.assertIn("engine-comparison/unity/Assets/Resources/", installer)
+        self.assertIn("engine-comparison/unreal/MoonfallPrototype/SourceArt/", installer)
+        self.assertNotIn("godot-v38", installer)
+        self.assertNotIn("Start-Process", installer)
+
     def test_original_art_import_is_checksum_guarded(self):
         import_tool = (ROOT / "tools/import_godot_art.py").read_text()
         verify_tool = (ROOT / "tools/verify_art_import.py").read_text()
