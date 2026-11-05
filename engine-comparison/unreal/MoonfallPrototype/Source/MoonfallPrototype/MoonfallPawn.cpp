@@ -319,8 +319,15 @@ void AMoonfallPawn::UpdateWorldEnemies(float Dt)
         const float HeroDistSq = ToHero.SizeSquared();
         // Keep combat contact while close. Previously crossing 160 cm
         // incorrectly switched to return-home, making melee enemies retreat.
+        // Once leash is reached, return far enough inward before reacquiring.
+        // This avoids a one-frame chase/retreat loop along the leash boundary.
+        if (FromHome.SizeSquared() >= FMath::Square(Leash))
+            Enemy.bReturningHome = true;
+        if (Enemy.bReturningHome &&
+            FromHome.SizeSquared() <= FMath::Square(Leash - 140.f))
+            Enemy.bReturningHome = false;
         const bool bAggro = HeroDistSq < FMath::Square(800.f) &&
-            FromHome.SizeSquared() < FMath::Square(Leash);
+            !Enemy.bReturningHome && FromHome.SizeSquared() < FMath::Square(Leash);
         if (bAggro)
         {
             if (HeroDistSq > FMath::Square(160.f))
