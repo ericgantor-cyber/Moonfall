@@ -169,8 +169,6 @@ public sealed class MoonfallPrototype : MonoBehaviour
         Ring(new Vector2(90f, Screen.height - 108f), 25f,
             (float)progression.Experience / Mathf.Max(1, progression.ExperienceToNext),
             new Color(.70f, .40f, 1f));
-        GUI.Label(new Rect(54f, Screen.height - 120f, 75f, 25f),
-            "LV " + progression.Level + " HP " + Mathf.CeilToInt(hp));
 
         // Radar of the small prototype arena ONLY: not the six-region Raven Atlas.
         float x = Screen.width - 178f;
@@ -182,18 +180,11 @@ public sealed class MoonfallPrototype : MonoBehaviour
         float bossY = 98f - Mathf.Clamp(boss.position.z / 17f, -1f, 1f) * 68f;
         FillRect(new Rect(heroX - 5f, heroY - 5f, 10f, 10f), Color.cyan);
         if (!won) FillRect(new Rect(bossX - 5f, bossY - 5f, 10f, 10f), Color.red);
-        GUI.Label(new Rect(x + 12f, 180f, 160f, 24f), "PROTOTYPE MINIMAP");
     }
 
+    // Only the minimap and three resource orbs appear during gameplay.
     void OnGUI()
     {
-        DrawRpgHud();
-        GUI.Box(new Rect(10,10,410,155),"Moonfall Unity RPG Experiment");
-        GUI.Label(new Rect(20,35,330,22),"HP: "+Mathf.CeilToInt(hp)+" | Mana: 100 | XP: 0");
-        GUI.Label(new Rect(20,60,390,22),"Boss HP: "+Mathf.CeilToInt(bossHp)+" | Permanent wins: "+wins);
-        GUI.Label(new Rect(20,85,390,22),"LV "+progression.Level+" XP "+progression.Experience+"/"+progression.ExperienceToNext+" | Hero/Tamer "+progression.HeroPoints+"/"+progression.TamerPoints);
-        GUI.Label(new Rect(20,110,390,22),"WASD move | Click attack | Shift dodge | Wheel zoom");
-        if (won) GUI.Label(new Rect(20,135,390,22),"Victory! Loot: " + bossLoot + " | Bag: " + bossInventory.Count + "/100");
-        else if (hp<=0) GUI.Label(new Rect(20,110,330,22),"Defeated. Restart Play to retry.");
+        if (hero != null && boss != null) DrawRpgHud();
     }
 }
