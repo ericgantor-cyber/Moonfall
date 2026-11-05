@@ -635,6 +635,9 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
     // Match the boss telegraph hitch cap: a stalled frame must not erase the
     // active dodge window before the player can respond.
     const float ReactionDt = FMath::Min(Dt, 0.05f);
+    // Snapshot dodge protection before advancing timers. The same active
+    // frame controls travel, enemy contact and boss impact.
+    const bool bDodgeActiveThisFrame = DodgeTimer > 0.f;
     DodgeTimer = FMath::Max(0.f, DodgeTimer - ReactionDt);
     DodgeCooldown = FMath::Max(0.f, DodgeCooldown - Dt);
     // Dodging temporarily stops passive stamina gain. A rewarded perfect
@@ -659,7 +662,7 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
         // A frame hitch must not teleport the hero through a boss warning or chamber.
         const float MovementDt = FMath::Min(Dt, 0.05f);
         FVector Position = HeroMesh->GetRelativeLocation() +
-            Direction * (DodgeTimer > 0.f ? 1200.f : 600.f) * MovementDt;
+            Direction * (bDodgeActiveThisFrame ? 1200.f : 600.f) * MovementDt;
         Position.X = FMath::Clamp(Position.X, -1600.f, 17600.f);
         Position.Y = FMath::Clamp(Position.Y, -3200.f, 3200.f);
         HeroMesh->SetRelativeLocation(Position);
@@ -696,7 +699,7 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
             if (ContactIndex != INDEX_NONE)
             {
                 const FWorldEnemy& Contact = Enemies[ContactIndex];
-                if (DodgeTimer > 0.f) CounterWindow = CounterDuration;
+                if (bDodgeActiveThisFrame) CounterWindow = CounterDuration;
                 else
                 {
                     const float ContactDamage = 5.f + 2.f * Contact.Region +
@@ -768,7 +771,7 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
                            (BossAttackPhase == 2 ? 2.9f : 3.5f);
             if (FVector::Dist2D(HeroMesh->GetRelativeLocation(), TargetWorld) < BossWarningRadius)
             {
-                if (DodgeTimer > 0.f)
+                if (bDodgeActiveThisFrame)
                 {
                     // A successful warned dodge rewards timing, not passive kill healing.
                     // Each strike resolves only once, limiting the stamina refund.
