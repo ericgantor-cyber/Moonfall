@@ -23,6 +23,16 @@ func _run()->void:
   check(not ("event.button_index==MOUSE_BUTTON_RIGHT" in source),"aim lock does not capture right-click guard")
   var guard:GDScript=load("res://scripts/native_v38_0.gd") as GDScript
   check(guard!=null and "event.button_index==MOUSE_BUTTON_RIGHT" in guard.source_code and "v392_guard_started=map_time" in guard.source_code,"right-click remains bound to inherited parry window")
+  check(guard!=null and "not event.alt_pressed" in guard.source_code,"Alt-right camera orbit does not activate guard/parry")
+  var camera_script:GDScript=load("res://scripts/native_v34_4.gd") as GDScript
+  check(camera_script!=null,"third-person camera script loads")
+  if camera_script!=null:
+   var camera_source:String=camera_script.source_code
+   check("elif event.alt_pressed and hero_playing" in camera_source,"camera orbit requires Alt-right-drag")
+   check("v36_dragging=false" in camera_source,"releasing right mouse ends camera drag")
+   check("get_viewport().set_input_as_handled()" in camera_source,"camera drag consumes its own orbit input")
+  var tips:GDScript=load("res://scripts/systems/tips_codex_v376.gd") as GDScript
+  check(tips!=null and "Alt and right-drag" in tips.source_code,"in-game controls describe separate orbit and guard inputs")
   check("if aim_locked_id>=0 and locked.is_empty():aim_locked_id=-1" in source,"invalid lock-on targets are released")
   check("if not hero_playing or menu_open or death_active or wait_open or wait_transition_active:return" in source,"aimed flame blocked during non-gameplay states")
   check("if which!=\"fire\":" in source and "super._spell(which)" in source,"other spells retain inherited behavior")
