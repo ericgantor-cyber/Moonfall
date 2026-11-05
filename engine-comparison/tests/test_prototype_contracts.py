@@ -84,6 +84,14 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("a.CompareTo(b)", unity)
         self.assertIn("A < B", unreal)
 
+    def test_unreal_regen_only_credits_post_delay_frame_time(self):
+        tick = self.cpp.split("void AMoonfallPawn::Tick(", 1)[1]
+        self.assertIn("const float StaminaRegenDt = FMath::Max(0.f, Dt - StaminaRegenDelay);", tick)
+        self.assertLess(tick.index("const float StaminaRegenDt ="),
+                        tick.index("StaminaRegenDelay = FMath::Max(0.f, StaminaRegenDelay - Dt);"))
+        self.assertIn("Stamina + 30.f * StaminaRegenDt", tick)
+        self.assertNotIn("Stamina + 30.f * Dt", tick)
+
     def test_unreal_riposte_staggers_guardians_and_blocks_contact(self):
         self.assertIn("float StaggerTimer = 0.f;", self.header)
         self.assertIn("void AMoonfallPawn::DamageWorldEnemy(int32 Index, float Damage, bool bRiposte)", self.cpp)
@@ -101,8 +109,9 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("StaminaRegenDelay = 0.6f;", dodge)
         self.assertIn("Stamina -= 45.f;", dodge)
         self.assertIn("StaminaRegenDelay = FMath::Max(0.f, StaminaRegenDelay - Dt);", tick)
-        self.assertIn("if (StaminaRegenDelay <= 0.f)", tick)
-        self.assertIn("Stamina = FMath::Min(GetHudMaxStamina(), Stamina + 30.f * Dt);", tick)
+        self.assertIn("const float StaminaRegenDt = FMath::Max(0.f, Dt - StaminaRegenDelay);", tick)
+        self.assertIn("if (StaminaRegenDt > 0.f)", tick)
+        self.assertIn("Stamina = FMath::Min(GetHudMaxStamina(), Stamina + 30.f * StaminaRegenDt);", tick)
         self.assertIn("Stamina = FMath::Min(GetHudMaxStamina(), Stamina + 10.f);", tick)
 
     def test_unreal_mob_and_boss_strikes_share_damage_recovery(self):
@@ -271,7 +280,7 @@ class PrototypeContracts(unittest.TestCase):
         unreal_hud = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.cpp").read_text()
         self.assertIn("stamina = Mathf.Min(MaxStamina, stamina + 30f * dt)", self.unity)
         self.assertIn("stamina -= 45f", self.unity)
-        self.assertIn("Stamina = FMath::Min(GetHudMaxStamina(), Stamina + 30.f * Dt)", self.cpp)
+        self.assertIn("Stamina = FMath::Min(GetHudMaxStamina(), Stamina + 30.f * StaminaRegenDt)", self.cpp)
         self.assertIn("Stamina -= 45.f", self.cpp)
         self.assertIn("GetHudStamina()", unreal_header)
         self.assertIn("GetHudMana()", unreal_header)
