@@ -10,7 +10,9 @@ var aim_direction:Vector3=Vector3.FORWARD
 
 func _unhandled_input(event:InputEvent)->void:
  if hero_playing and not menu_open and not death_active:
-  if event is InputEventMouseButton and event.pressed and event.button_index==MOUSE_BUTTON_RIGHT:
+  # Right-click belongs to the inherited guard/parry handler.
+  # Use middle-click for mouse lock-on so defending is never intercepted.
+  if event is InputEventMouseButton and event.pressed and event.button_index==MOUSE_BUTTON_MIDDLE:
    _toggle_aim_lock()
    get_viewport().set_input_as_handled()
    return
