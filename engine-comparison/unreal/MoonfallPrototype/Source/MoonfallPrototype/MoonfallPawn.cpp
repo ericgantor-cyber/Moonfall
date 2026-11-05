@@ -76,6 +76,7 @@ void AMoonfallPawn::BeginPlay()
         if (const UMoonfallProgressSave* Progress = Cast<UMoonfallProgressSave>(Loaded))
         {
             Victories = FMath::Clamp(Progress->PermanentBossVictories, 0, 100);
+            bWon = Progress->bBossDefeated;
             DefeatedEnemyMask = Progress->DefeatedEnemyMask & ((1 << MoonfallWorldRules::TotalEnemies) - 1);
             ClaimedChamberMask = Progress->ClaimedChamberMask & ((1 << MoonfallWorldRules::TotalChambers) - 1);
             Progression.Level = FMath::Clamp(Progress->HeroLevel, 1, 100);
@@ -101,6 +102,12 @@ void AMoonfallPawn::BeginPlay()
     BossPortrait->SetHiddenInGame(BossArtwork == nullptr);
     if (BossArtwork) BossMesh->SetHiddenInGame(true);
     ApplyHeroArtwork(ZArtwork ? 0 : 1);
+    if (bWon)
+    {
+        BossHealth = 0.f;
+        BossMesh->SetVisibility(false);
+        BossPortrait->SetHiddenInGame(true);
+    }
 
 }
 
@@ -269,6 +276,7 @@ void AMoonfallPawn::SaveProgress()
     Progress->TamerPoints = Progression.TamerPoints;
     Progress->DefeatedEnemyMask = DefeatedEnemyMask;
     Progress->ClaimedChamberMask = ClaimedChamberMask;
+    Progress->bBossDefeated = bWon;
     if (!UGameplayStatics::SaveGameToSlot(Progress, TEXT("MoonfallPrototypeBossRewards"), 0))
         UE_LOG(LogTemp, Warning, TEXT("Moonfall prototype: reward save failed."));
 }
@@ -400,6 +408,14 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
         }
     }
     if (bWon || Health <= 0.f) return;
+    if (FVector::Dist2D(HeroMesh->GetRelativeLocation(), BossMesh->GetRelativeLocation()) > 1600.f)
+    {
+        // Boss has a local aggro radius, not global map-wide attacks.
+        bCasting = false;
+        WarningMesh->SetVisibility(false);
+        CastCooldown = FMath::Max(1.f, CastCooldown);
+        return;
+    }
     if (!bCasting)
     {
         CastCooldown -= Dt;
