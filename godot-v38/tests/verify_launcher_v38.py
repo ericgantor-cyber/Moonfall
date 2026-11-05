@@ -20,7 +20,7 @@ checks = {
     "No elevated permissions, account or download loop": all(word not in launcher for word in ("Start-Process -Verb RunAs", "Invoke-WebRequest", "Invoke-RestMethod", "winget ")),
     "Installer bundles launcher": 'Source: "launcher\\MoonfallLauncher.ps1"' in installer,
     "Start menu keeps direct game entry": "Moonfall Native (Direct Play)" in installer,
-    "Desktop shortcut opens launcher": 'Name: "{autodesktop}\\Moonfall Launcher"' in installer,
+    "Desktop shortcut opens launcher": 'Name: "{autodesktop}\\Moonfall Native"' in installer,
     "Installer runs launcher after install": 'Description: "Open Moonfall Launcher"' in installer,
     "Installer remains per-user": "PrivilegesRequired=lowest" in installer,
     "Installer game payload remains unchanged": 'Source: "{#BuildDir}\\{#ExeName}"' in installer,
