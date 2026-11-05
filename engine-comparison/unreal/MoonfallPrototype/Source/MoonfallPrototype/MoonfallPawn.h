@@ -54,6 +54,7 @@ private:
         UBillboardComponent* Portrait = nullptr;
         float Health = 0.f;
         float StaggerTimer = 0.f; // Surviving guardians are stunned by dodge ripostes.
+        bool bStaggeredThisFrame = false; // Keep contact disabled on the final stagger frame.
         int32 Region = 0;
         int32 Id = 0;
         bool bGuardian = false;
