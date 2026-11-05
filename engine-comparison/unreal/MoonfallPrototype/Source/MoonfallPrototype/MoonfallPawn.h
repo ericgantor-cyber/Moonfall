@@ -30,6 +30,7 @@ private:
     float AttackCooldown = 0.f, DodgeTimer = 0.f, DodgeCooldown = 0.f, CastCooldown = 3.f, CastTimer = 0.f;
     float ZoomDistance = 1600.f;
     int32 Victories = 0;
+    FString BossLoot = TEXT("No boss loot yet");
     bool bCasting = false, bWon = false;
     FVector TargetWorld = FVector::ZeroVector;
     void MoveForward(float Value);
