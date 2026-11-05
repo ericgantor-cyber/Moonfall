@@ -33,6 +33,10 @@ public sealed class MoonfallPrototype : MonoBehaviour
     readonly List<WorldEnemy> enemies = new List<WorldEnemy>();
     int defeatedEnemyMask;
     float enemyDamageCooldown;
+    // A correctly timed dodge earns one stronger click attack; no new controls.
+    float counterWindow;
+    const float CounterDuration = 1.5f;
+    const float CounterMultiplier = 1.75f;
     float checkpointTimer;
     const float CheckpointInterval = 8f;
     int claimedChamberMask;
@@ -363,6 +367,7 @@ public sealed class MoonfallPrototype : MonoBehaviour
         boltCooldown = Mathf.Max(0f, boltCooldown - dt);
         healCooldown = Mathf.Max(0f, healCooldown - dt);
         enemyDamageCooldown = Mathf.Max(0f, enemyDamageCooldown - dt);
+        counterWindow = Mathf.Max(0f, counterWindow - dt);
         checkpointTimer += dt;
         if (hp > 0)
         {
@@ -405,20 +410,34 @@ public sealed class MoonfallPrototype : MonoBehaviour
             CollectNearbyChambers();
             UpdateEnemies(dt);
             WorldEnemy nearby = NearestEnemy(1.75f);
-            if (nearby != null && enemyDamageCooldown <= 0f && dodge <= 0f)
+            if (nearby != null && enemyDamageCooldown <= 0f)
             {
-                hp = Mathf.Max(0f, hp - (5f + 2f * nearby.region));
+                if (dodge > 0f)
+                {
+                    // Evading a genuine close-range strike awards a brief riposte.
+                    counterWindow = CounterDuration;
+                }
+                else
+                {
+                    hp = Mathf.Max(0f, hp - (5f + 2f * nearby.region));
+                }
                 enemyDamageCooldown = 1.2f;
             }
             if (Input.GetMouseButtonDown(0) && attackCd<=0)
             {
                 attackCd=.35f;
                 WorldEnemy foe = NearestEnemy(4f);
-                if (foe != null) DamageEnemy(foe, BasicAttackDamage());
-                else if (!won && Vector3.Distance(hero.position,boss.position)<4f)
+                bool bossInRange = !won && Vector3.Distance(hero.position,boss.position)<4f;
+                if (foe != null || bossInRange)
                 {
-                    bossHp=Mathf.Max(0,bossHp-BasicAttackDamage());
-                    if (bossHp<=0) Victory();
+                    float damage = BasicAttackDamage() * (counterWindow > 0f ? CounterMultiplier : 1f);
+                    counterWindow = 0f; // One counter per successful evasion.
+                    if (foe != null) DamageEnemy(foe, damage);
+                    else
+                    {
+                        bossHp=Mathf.Max(0,bossHp-damage);
+                        if (bossHp<=0) Victory();
+                    }
                 }
             }
         }
@@ -451,8 +470,11 @@ public sealed class MoonfallPrototype : MonoBehaviour
             casting=false;
             warning.gameObject.SetActive(false);
             castCd=3.5f;
-            if (dodge<=0 && Vector2.Distance(new Vector2(hero.position.x,hero.position.z),new Vector2(target.x,target.z))<2.5f)
-                hp=Mathf.Max(0,hp-20);
+            if (Vector2.Distance(new Vector2(hero.position.x,hero.position.z),new Vector2(target.x,target.z))<2.5f)
+            {
+                if (dodge > 0f) counterWindow = CounterDuration;
+                else hp=Mathf.Max(0,hp-20);
+            }
         }
     }
     void Victory()
