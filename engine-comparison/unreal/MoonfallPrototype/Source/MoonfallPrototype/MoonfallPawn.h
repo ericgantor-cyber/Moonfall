@@ -61,6 +61,7 @@ private:
     struct FChamberCache
     {
         UStaticMeshComponent* Mesh = nullptr;
+        UBillboardComponent* Artwork = nullptr;
         int32 Id = 0;
     };
     TArray<FChamberCache> ChamberCaches;
@@ -98,6 +99,8 @@ private:
     void ApplyHeroArtwork(int32 Index);
     void Victory();
     void BuildWorld();
+    UBillboardComponent* AddWorldArtwork(USceneComponent* Parent, const FString& AssetPath,
+        const FVector& LocalPosition, float Scale);
     int32 NearestEnemyIndex(float Radius) const;
     void DamageWorldEnemy(int32 Index, float Damage);
     float BasicAttackDamage() const;
