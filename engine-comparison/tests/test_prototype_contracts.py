@@ -114,6 +114,19 @@ class PrototypeContracts(unittest.TestCase):
             "void AMoonfallPawn::CastHeal()", 1)[0]
         self.assertNotIn("MeleeComboCount", bolt)
 
+    def test_unreal_melee_finisher_interrupts_boss_without_nerfing_riposte(self):
+        melee = self.cpp.split("void AMoonfallPawn::Attack()", 1)[1].split(
+            "void AMoonfallPawn::CastBolt()", 1)[0]
+        bolt = self.cpp.split("void AMoonfallPawn::CastBolt()", 1)[1].split(
+            "void AMoonfallPawn::CastHeal()", 1)[0]
+        self.assertIn("if (bRiposte && bCasting && BossHealth > 0.f)", melee)
+        self.assertIn("CastCooldown = 2.f;", melee)
+        self.assertIn("else if (bComboFinisher && bCasting && BossHealth > 0.f)", melee)
+        self.assertIn("CastCooldown = 1.5f;", melee)
+        self.assertEqual(melee.count("WarningMesh->SetVisibility(false);"), 2)
+        self.assertNotIn("bComboFinisher", bolt)
+        self.assertIn("if (BossHealth <= 0.f) Victory();", melee)
+
     def test_unreal_melee_finisher_staggers_only_regular_enemies(self):
         melee = self.cpp.split("void AMoonfallPawn::Attack()", 1)[1].split(
             "void AMoonfallPawn::CastBolt()", 1)[0]
