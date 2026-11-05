@@ -181,6 +181,9 @@ func _run()->void:
  check("FIELD OF VIEW" in str(game.get("menu_body").text),"FOV choices have clear in-game description")
  game.call("_atlas_execute","camera_settings_back")
  check(str(game.get("current_tab"))=="System","Settings returns to System")
+ # Start zoom comparison from a known farther distance; the earlier
+ # Alt-wheel check may have already placed us at the requested target.
+ game.call("_v24_set_zoom",22.0)
  var before:float=game.get("v36_distance")
  game.call("_v24_set_zoom",17.5)
  check(float(game.get("v36_distance"))<before,"legacy zoom keys map to third-person distance")
