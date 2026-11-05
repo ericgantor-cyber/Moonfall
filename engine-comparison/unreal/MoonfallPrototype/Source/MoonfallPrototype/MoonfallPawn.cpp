@@ -482,13 +482,19 @@ void AMoonfallPawn::Attack()
     if (Health <= 0.f || AttackCooldown > 0.f) return;
     AttackCooldown = 0.35f;
     const int32 EnemyIndex = NearestEnemyIndex(400.f);
-    const bool bBossInRange = !bWon &&
-        FVector::Dist2D(HeroMesh->GetRelativeLocation(), BossMesh->GetRelativeLocation()) <= 400.f;
+    const float BossDistance = bWon ? TNumericLimits<float>::Max() :
+        FVector::Dist2D(HeroMesh->GetRelativeLocation(), BossMesh->GetRelativeLocation());
+    const bool bBossInRange = BossDistance <= 400.f;
     if (EnemyIndex != INDEX_NONE || bBossInRange)
     {
+        // Resolve the nearest valid target, not always the first world enemy.
+        const float EnemyDistance = EnemyIndex == INDEX_NONE ? TNumericLimits<float>::Max() :
+            FVector::Dist2D(HeroMesh->GetRelativeLocation(),
+                            Enemies[EnemyIndex].Mesh->GetRelativeLocation());
+        const bool bHitBoss = bBossInRange && BossDistance < EnemyDistance;
         const float Damage = BasicAttackDamage() * (CounterWindow > 0.f ? CounterMultiplier : 1.f);
         CounterWindow = 0.f; // The riposte is spent only on a successful in-range attack.
-        if (EnemyIndex != INDEX_NONE) DamageWorldEnemy(EnemyIndex, Damage);
+        if (!bHitBoss) DamageWorldEnemy(EnemyIndex, Damage);
         else
         {
             BossHealth = FMath::Max(0.f, BossHealth - Damage);
@@ -500,8 +506,14 @@ void AMoonfallPawn::CastBolt()
 {
     if (Health <= 0.f || BoltCooldown > 0.f || Mana < 30.f) return;
     const int32 EnemyIndex = NearestEnemyIndex(1000.f);
-    if (EnemyIndex == INDEX_NONE && (bWon ||
-        FVector::Dist2D(HeroMesh->GetRelativeLocation(), BossMesh->GetRelativeLocation()) > 1000.f)) return;
+    const float BossDistance = bWon ? TNumericLimits<float>::Max() :
+        FVector::Dist2D(HeroMesh->GetRelativeLocation(), BossMesh->GetRelativeLocation());
+    const bool bBossInRange = BossDistance <= 1000.f;
+    if (EnemyIndex == INDEX_NONE && !bBossInRange) return;
+    const float EnemyDistance = EnemyIndex == INDEX_NONE ? TNumericLimits<float>::Max() :
+        FVector::Dist2D(HeroMesh->GetRelativeLocation(),
+                        Enemies[EnemyIndex].Mesh->GetRelativeLocation());
+    const bool bHitBoss = bBossInRange && BossDistance < EnemyDistance;
     Mana -= 30.f;
     BoltCooldown = 1.1f;
     // A warned perfect dodge also empowers the next successful bolt, matching
@@ -509,7 +521,7 @@ void AMoonfallPawn::CastBolt()
     const float Damage = ArcaneBoltDamage() *
         (CounterWindow > 0.f ? CounterMultiplier : 1.f);
     CounterWindow = 0.f;
-    if (EnemyIndex != INDEX_NONE) DamageWorldEnemy(EnemyIndex, Damage);
+    if (!bHitBoss) DamageWorldEnemy(EnemyIndex, Damage);
     else
     {
         BossHealth = FMath::Max(0.f, BossHealth - Damage);
