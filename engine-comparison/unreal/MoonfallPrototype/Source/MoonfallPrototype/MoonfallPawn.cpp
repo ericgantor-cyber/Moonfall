@@ -639,9 +639,12 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
     DodgeCooldown = FMath::Max(0.f, DodgeCooldown - Dt);
     // Dodging temporarily stops passive stamina gain. A rewarded perfect
     // dodge can still restore its explicit 10 stamina immediately.
+    // Only regenerate for the portion of this frame after the delay ends.
+    // Otherwise a frame that crosses the boundary grants free early stamina.
+    const float StaminaRegenDt = FMath::Max(0.f, Dt - StaminaRegenDelay);
     StaminaRegenDelay = FMath::Max(0.f, StaminaRegenDelay - Dt);
-    if (StaminaRegenDelay <= 0.f)
-        Stamina = FMath::Min(GetHudMaxStamina(), Stamina + 30.f * Dt);
+    if (StaminaRegenDt > 0.f)
+        Stamina = FMath::Min(GetHudMaxStamina(), Stamina + 30.f * StaminaRegenDt);
     Mana = FMath::Min(180.f, Mana + 8.f * Dt);
     BoltCooldown = FMath::Max(0.f, BoltCooldown - Dt);
     HealCooldown = FMath::Max(0.f, HealCooldown - Dt);
