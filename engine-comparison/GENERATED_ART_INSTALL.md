@@ -34,3 +34,13 @@ python engine-comparison/tools/install_generated_art.py Moonfall_AI_Art_Ready_To
 ```
 
 The cross-platform installer checks the SHA-256 and JPEG signature for **both images in both engine destinations before writing any files**. It changes only the four generated environment images, not Godot or original hero assets. For Windows PowerShell, `engine-comparison/tools/install_generated_art.ps1` offers equivalent installation. This installation has to be run on a checkout with the downloaded ZIP; the binary images have not yet been pushed to GitHub.
+
+## Publish the four image files to the experimental GitHub PR
+
+If you have Git configured to push to your Moonfall repository, the installer now supports an explicit one-command upload. First check out `prototype/unreal-unity-comparison-20261104` in the Moonfall repository, place the art ZIP in its root, and run:
+
+```bash
+python engine-comparison/tools/install_generated_art.py Moonfall_AI_Art_Ready_To_Import.zip --commit-and-push
+```
+
+This verifies all four images, writes them to the two engine folders, creates a commit containing **only those four JPG paths**, and pushes it to the existing experimental branch. It aborts on a branch mismatch, does not force-push or merge, and uses your normal Git credentials. You must run the command yourself on a Git-enabled checkout; the GitHub app connector cannot transfer locally generated image bytes to the remote repository directly. This flag is optional and has **not been executed**.
