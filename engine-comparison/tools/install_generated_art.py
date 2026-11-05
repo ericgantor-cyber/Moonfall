@@ -27,6 +27,10 @@ def install(zip_path: Path, repo_root: Path) -> list[Path]:
     staged: list[tuple[Path, bytes]] = []
     with zipfile.ZipFile(zip_path) as archive:
         record = json.loads(archive.read("AI_ART_SHA256.json").decode("utf-8"))
+        pinned = json.loads((repo_root / "engine-comparison/GENERATED_ART_SHA256.json")
+                            .read_text(encoding="utf-8"))
+        if record != pinned:
+            raise ValueError("ZIP hashes do not match Moonfall's pinned generated-art manifest")
         entries = record.get("generated_art", [])
         by_name = {item["filename"]: item for item in entries}
         if len(entries) != len(NAMES) or set(by_name) != set(NAMES):
