@@ -248,6 +248,19 @@ public sealed class MoonfallPrototype : MonoBehaviour
         PlayerPrefs.Save();
     }
 
+    // A suspend or clean exit should preserve recent exploration progress instead
+    // of relying solely on the eight-second checkpoint tick.
+    // SaveProgress preserves the previous living checkpoint when HP is zero.
+    void OnApplicationPause(bool paused)
+    {
+        if (paused && hero != null) SaveProgress();
+    }
+
+    void OnApplicationQuit()
+    {
+        if (hero != null) SaveProgress();
+    }
+
     void CollectNearbyChambers()
     {
         // Accessible proximity collection: no extra HUD button or prompt.
