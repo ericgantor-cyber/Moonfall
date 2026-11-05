@@ -7,6 +7,10 @@ public sealed class MoonfallPrototype : MonoBehaviour
     Camera view;
     Texture2D ornateOrbs; // Optional transparent art imported to Resources/MoonfallOrbs
     float hp, bossHp = 100, attackCd, dodge, dodgeCooldown, castCd = 3, castTimer, zoom = 16;
+    const float MaxMana = 180f; // Spells not yet ported; mana stays full.
+    const float MaxStamina = 150f;
+    float mana = MaxMana, stamina = MaxStamina;
+    GUIStyle orbDigits;
     bool casting, won;
     Vector3 target;
     int wins;
@@ -59,13 +63,15 @@ public sealed class MoonfallPrototype : MonoBehaviour
         attackCd = Mathf.Max(0, attackCd-dt);
         dodge = Mathf.Max(0, dodge-dt);
         dodgeCooldown = Mathf.Max(0, dodgeCooldown-dt);
+        stamina = Mathf.Min(MaxStamina, stamina + 30f * dt);
         if (hp > 0)
         {
             Vector3 direction = new Vector3(Input.GetAxisRaw("Horizontal"),0,Input.GetAxisRaw("Vertical")).normalized;
-            if (Input.GetKeyDown(KeyCode.LeftShift) && dodgeCooldown<=0)
+            if (Input.GetKeyDown(KeyCode.LeftShift) && dodgeCooldown<=0 && stamina >= 45f)
             {
                 dodge=.32f;
                 dodgeCooldown=1.2f;
+                stamina -= 45f;
             }
             hero.position += direction * (dodge>0 ? 12 : 6) * dt;
             hero.position = new Vector3(Mathf.Clamp(hero.position.x,-16,16),1,Mathf.Clamp(hero.position.z,-16,16));
@@ -162,6 +168,20 @@ public sealed class MoonfallPrototype : MonoBehaviour
         }
     }
 
+    // Values are drawn only inside the existing transparent orb art.
+    void DrawOrbValue(Rect bounds, string amount, float fontScale)
+    {
+        if (orbDigits == null)
+        {
+            orbDigits = new GUIStyle(GUI.skin.label);
+            orbDigits.alignment = TextAnchor.MiddleCenter;
+            orbDigits.fontStyle = FontStyle.Bold;
+            orbDigits.normal.textColor = Color.white;
+        }
+        orbDigits.fontSize = Mathf.Max(11, Mathf.RoundToInt(fontScale));
+        GUI.Label(bounds, amount, orbDigits);
+    }
+
     void DrawRpgHud()
     {
         float maxHp = 100f + 5f * wins;
@@ -170,7 +190,18 @@ public sealed class MoonfallPrototype : MonoBehaviour
             // Compact transparent graphic: no panel, no opaque backdrop.
             float width = Mathf.Min(300f, Screen.width * .34f);
             float height = width * ornateOrbs.height / ornateOrbs.width;
-            GUI.DrawTexture(new Rect(12f, Screen.height - height - 12f, width, height), ornateOrbs, ScaleMode.StretchToFill, true);
+            float left = 12f, top = Screen.height - height - 12f;
+            GUI.DrawTexture(new Rect(left, top, width, height), ornateOrbs, ScaleMode.StretchToFill, true);
+            float sx = width / 680f, sy = height / 424f;
+            // Coordinates are relative to the transparent 680×424 orb art.
+            DrawOrbValue(new Rect(left + 240*sx, top + 150*sy, 200*sx, 80*sy),
+                Mathf.CeilToInt(hp) + "/" + Mathf.CeilToInt(maxHp), 29f * sx);
+            DrawOrbValue(new Rect(left + 45*sx, top + 222*sy, 150*sx, 54*sy),
+                Mathf.CeilToInt(mana) + "/" + Mathf.CeilToInt(MaxMana), 27f * sx);
+            DrawOrbValue(new Rect(left + 495*sx, top + 222*sy, 150*sx, 54*sy),
+                progression.Experience + "/" + progression.ExperienceToNext, 24f * sx);
+            DrawOrbValue(new Rect(left + 270*sx, top + 340*sy, 140*sx, 44*sy),
+                Mathf.CeilToInt(stamina) + "/" + Mathf.CeilToInt(MaxStamina), 22f * sx);
         }
         else
         {
