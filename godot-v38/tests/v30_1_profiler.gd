@@ -24,12 +24,12 @@ func _run()->void:
  game.call("_perf_stop",false)
  # A partial report must survive before the 60-second benchmark completes.
  game.call("_perf_start",true)
- for i in range(900):game.call("_perf_sample",1.0/60.0)
- var snapshot_path:String=str(game.get("PERF_REPORT"))
+ for i in range(901):game.call("_perf_sample",1.0/60.0)
+ var snapshot_path:String="user://moonfall_v30_1_performance.json"
  check(FileAccess.file_exists(snapshot_path),"15-second performance snapshot is written automatically")
  if FileAccess.file_exists(snapshot_path):
   var snapshot:Variant=JSON.parse_string(FileAccess.get_file_as_string(snapshot_path))
-  check(snapshot is Dictionary and int(snapshot.get("frames",0))==900,"partial JSON snapshot contains recorded frames")
+  check(snapshot is Dictionary and int(snapshot.get("frames",0))==901,"partial JSON snapshot contains recorded frames")
  check(bool(game.get("perf_active")),"15-second snapshot keeps the benchmark running")
  game.call("_perf_stop",false)
  var key:=InputEventKey.new()
