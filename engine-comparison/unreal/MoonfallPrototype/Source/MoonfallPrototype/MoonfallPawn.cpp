@@ -30,11 +30,6 @@ AMoonfallPawn::AMoonfallPawn()
     FloorMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Floor"));
     FloorMesh->SetupAttachment(Root);
     FloorMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-    HeroPortrait = CreateDefaultSubobject<UBillboardComponent>(TEXT("OriginalHeroArtwork"));
-    HeroPortrait->SetupAttachment(HeroMesh);
-    HeroPortrait->SetRelativeLocation(FVector(0.f, 0.f, 70.f));
-    HeroPortrait->SetRelativeScale3D(FVector(2.5f));
-    HeroPortrait->SetHiddenInGame(true);
     BossPortrait = CreateDefaultSubobject<UBillboardComponent>(TEXT("OriginalBossArtwork"));
     BossPortrait->SetupAttachment(BossMesh);
     BossPortrait->SetRelativeLocation(FVector(0.f, 0.f, 30.f));
@@ -112,7 +107,8 @@ void AMoonfallPawn::BeginPlay()
                     bLoadedCheckpoint = true;
                 }
             }
-            HeroArtIndex = FMath::Clamp(Progress->SelectedHeroIndex, 0, 1);
+            // Legacy SelectedHeroIndex is retained in old save objects but ignored:
+            // Z and Nyra are encounter bosses, not player avatar choices.
             DefeatedEnemyMask = Progress->DefeatedEnemyMask & ((1 << MoonfallWorldRules::TotalEnemies) - 1);
             ClaimedChamberMask = Progress->ClaimedChamberMask & ((1 << MoonfallWorldRules::TotalChambers) - 1);
             DefeatedGuardianMask = Progress->DefeatedGuardianMask & ((1 << MoonfallWorldRules::TotalChambers) - 1);
@@ -129,17 +125,15 @@ void AMoonfallPawn::BeginPlay()
     }
     if (!bLoadedCheckpoint)
         Health = 100.f + 5.f * Victories; // Backward compatible with older saves.
-    BuildWorld();
-    // These paths exist only after running the Unreal Editor art importer.
-    // Missing imports keep the geometric placeholders visible.
+    // Load original boss art before world generation so Nyra's guardian can use it.
+    // Missing imports retain the regular prototype mesh.
     ZArtwork = LoadObject<UTexture2D>(nullptr, TEXT("/Game/MoonfallArt/heroes/Z_Original.Z_Original"));
     NyraArtwork = LoadObject<UTexture2D>(nullptr, TEXT("/Game/MoonfallArt/heroes/Nyra_Original.Nyra_Original"));
-    UTexture2D* BossArtwork = LoadObject<UTexture2D>(nullptr,
-        TEXT("/Game/MoonfallArt/v31_4_bestiary/boss_0.boss_0"));
-    BossPortrait->SetSprite(BossArtwork);
-    BossPortrait->SetHiddenInGame(BossArtwork == nullptr);
-    if (BossArtwork) BossMesh->SetHiddenInGame(true);
-    ApplyHeroArtwork(HeroArtIndex);
+    BuildWorld();
+    // Z is the main god/boss; never assign original character art to HeroMesh.
+    BossPortrait->SetSprite(ZArtwork);
+    BossPortrait->SetHiddenInGame(ZArtwork == nullptr);
+    if (ZArtwork) BossMesh->SetHiddenInGame(true);
     if (bWon)
     {
         BossHealth = 0.f;
@@ -246,6 +240,20 @@ void AMoonfallPawn::BuildWorld()
                 Guardian.Id = ChamberId;
                 Guardian.Home = GuardianBody->GetRelativeLocation();
                 Guardian.bGuardian = true;
+                // Nyra guards the last connected chamber as a real, defeatable
+                // encounter using the existing guardian HP, attacks, XP and save mask.
+                if (ChamberId == MoonfallWorldRules::TotalChambers - 1 && NyraArtwork)
+                {
+                    // NyraArtwork loads in BeginPlay before BuildWorld (see below).
+                    UBillboardComponent* NyraBillboard = NewObject<UBillboardComponent>(this);
+                    NyraBillboard->SetupAttachment(GuardianBody);
+                    NyraBillboard->SetSprite(NyraArtwork);
+                    NyraBillboard->SetRelativeScale3D(FVector(2.5f));
+                    AddInstanceComponent(NyraBillboard);
+                    NyraBillboard->RegisterComponent();
+                    GuardianBody->SetHiddenInGame(true);
+                    Guardian.Portrait = NyraBillboard;
+                }
                 Enemies.Add(Guardian);
             }
         }
@@ -402,7 +410,7 @@ void AMoonfallPawn::SaveProgress()
     Progress->ClaimedChamberMask = ClaimedChamberMask;
     Progress->DefeatedGuardianMask = DefeatedGuardianMask;
     Progress->bBossDefeated = bWon;
-    Progress->SelectedHeroIndex = HeroArtIndex;
+    // Preserve legacy SelectedHeroIndex from the loaded save; never reassign it.
     if (HeroMesh && Health > 0.f)
     {
         Progress->bHasCheckpoint = true;
@@ -415,18 +423,6 @@ void AMoonfallPawn::SaveProgress()
     if (!UGameplayStatics::SaveGameToSlot(Progress, TEXT("MoonfallPrototypeBossRewards"), 0))
         UE_LOG(LogTemp, Warning, TEXT("Moonfall prototype: reward save failed."));
 }
-
-void AMoonfallPawn::ApplyHeroArtwork(int32 Index)
-{
-    // Character identity works even if the Unreal Editor art import is pending.
-    HeroArtIndex = FMath::Clamp(Index, 0, 1);
-    UTexture2D* Chosen = HeroArtIndex == 1 ? NyraArtwork : ZArtwork;
-    HeroPortrait->SetSprite(Chosen);
-    HeroPortrait->SetHiddenInGame(Chosen == nullptr);
-    HeroMesh->SetHiddenInGame(Chosen != nullptr);
-}
-void AMoonfallPawn::ChooseZ() { ApplyHeroArtwork(0); SaveProgress(); }
-void AMoonfallPawn::ChooseNyra() { ApplyHeroArtwork(1); SaveProgress(); }
 
 void AMoonfallPawn::MoveForward(float Value) { Forward = Value; }
 void AMoonfallPawn::MoveRight(float Value) { Right = Value; }
@@ -446,17 +442,17 @@ void AMoonfallPawn::Dodge()
 }
 float AMoonfallPawn::BasicAttackDamage() const
 {
-    return (HeroArtIndex == 0 ? 20.f : 14.f) + Progression.Level;
+    return 18.f + Progression.Level;
 }
 
 float AMoonfallPawn::ArcaneBoltDamage() const
 {
-    return HeroArtIndex == 1 ? 34.f + 3.f * Progression.Level : 22.f + 2.f * Progression.Level;
+    return 28.f + 2.f * Progression.Level;
 }
 
 float AMoonfallPawn::HealingSpellAmount() const
 {
-    return (HeroArtIndex == 1 ? 40.f : 25.f) + Progression.Level;
+    return 30.f + Progression.Level;
 }
 
 void AMoonfallPawn::Attack()
@@ -522,8 +518,6 @@ void AMoonfallPawn::SetupPlayerInputComponent(UInputComponent* Input)
     Input->BindAction(TEXT("Dodge"), IE_Pressed, this, &AMoonfallPawn::Dodge);
     Input->BindAction(TEXT("ArcaneBolt"), IE_Pressed, this, &AMoonfallPawn::CastBolt);
     Input->BindAction(TEXT("ArcaneHeal"), IE_Pressed, this, &AMoonfallPawn::CastHeal);
-    Input->BindAction(TEXT("SelectZArt"), IE_Pressed, this, &AMoonfallPawn::ChooseZ);
-    Input->BindAction(TEXT("SelectNyraArt"), IE_Pressed, this, &AMoonfallPawn::ChooseNyra);
 }
 void AMoonfallPawn::Tick(float DeltaSeconds)
 {
