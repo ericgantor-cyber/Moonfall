@@ -1,7 +1,15 @@
 #include "MoonfallHud.h"
 #include "MoonfallPawn.h"
 #include "Engine/Canvas.h"
+#include "Engine/Texture2D.h"
 #include "GameFramework/PlayerController.h"
+
+void AMoonfallHud::BeginPlay()
+{
+    Super::BeginPlay();
+    // Import transparent PNG as /Game/UI/MoonfallOrbs in the Unreal editor.
+    OrnateOrbs = LoadObject<UTexture2D>(nullptr, TEXT("/Game/UI/MoonfallOrbs.MoonfallOrbs"));
+}
 
 void AMoonfallHud::DrawRing(FVector2D Center, float Radius, float Ratio, const FLinearColor& Color)
 {
@@ -32,10 +40,20 @@ void AMoonfallHud::DrawHUD()
     if (!Hero) return;
 
     const FVector2D OrbCenter(90.f, Canvas->ClipY - 108.f);
-    DrawRing(OrbCenter, 44.f, Hero->GetHudHealth() / FMath::Max(1.f, Hero->GetHudMaxHealth()),
-        FLinearColor(1.f, .22f, .30f));
-    DrawRing(OrbCenter, 34.f, Hero->GetHudManaRatio(), FLinearColor(.18f, .48f, 1.f));
-    DrawRing(OrbCenter, 25.f, Hero->GetHudXpRatio(), FLinearColor(.70f, .40f, 1.f));
+    if (OrnateOrbs)
+    {
+        const float Width = FMath::Min(300.f, Canvas->ClipX * .34f);
+        const float Height = Width * static_cast<float>(OrnateOrbs->GetSizeY()) / FMath::Max(1, OrnateOrbs->GetSizeX());
+        DrawTexture(OrnateOrbs, 12.f, Canvas->ClipY - Height - 12.f, Width, Height,
+            0.f, 0.f, 1.f, 1.f, FLinearColor::White);
+    }
+    else
+    {
+        DrawRing(OrbCenter, 44.f, Hero->GetHudHealth() / FMath::Max(1.f, Hero->GetHudMaxHealth()),
+            FLinearColor(1.f, .22f, .30f));
+        DrawRing(OrbCenter, 34.f, Hero->GetHudManaRatio(), FLinearColor(.18f, .48f, 1.f));
+        DrawRing(OrbCenter, 25.f, Hero->GetHudXpRatio(), FLinearColor(.70f, .40f, 1.f));
+    }
 
     // Prototype arena radar, not the production six-region Raven Atlas.
     const float Left = Canvas->ClipX - 178.f;
