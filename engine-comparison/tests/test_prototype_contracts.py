@@ -46,8 +46,8 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("castTimer=1.15f;", self.unity)
         self.assertIn("CastCooldown = 3.5f;", self.cpp)
         self.assertIn("castCd=3.5f;", self.unity)
-        self.assertIn("BossHealth - 15.f", self.cpp)
-        self.assertIn("bossHp-15", self.unity)
+        self.assertIn("BossHealth - BasicAttackDamage()", self.cpp)
+        self.assertIn("bossHp-BasicAttackDamage()", self.unity)
 
     def test_progression_cap_and_save_isolation(self):
         self.assertIn("FMath::Min(100, Victories + 1)", self.cpp)
@@ -301,6 +301,25 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("Guardian.Home = GuardianBody->GetRelativeLocation();", self.cpp)
         self.assertNotIn("SpawnWave(", self.unity)
         self.assertNotIn("SpawnWave(", self.cpp)
+
+    def test_hero_class_combat_and_heal_per_kill(self):
+        self.assertIn("float BasicAttackDamage()", self.unity)
+        self.assertIn("float ArcaneBoltDamage()", self.unity)
+        self.assertIn("float HealingSpellAmount()", self.unity)
+        self.assertIn("selectedHero == 0 ? 20f : 14f", self.unity)
+        self.assertIn("selectedHero == 1", self.unity)
+        self.assertIn("(enemy.guardian ? 16f : 8f)", self.unity)
+        self.assertIn("DamageEnemy(foe, BasicAttackDamage())", self.unity)
+        self.assertIn("DamageEnemy(foe, ArcaneBoltDamage())", self.unity)
+        self.assertIn("hp + HealingSpellAmount()", self.unity)
+        self.assertIn("float AMoonfallPawn::BasicAttackDamage() const", self.cpp)
+        self.assertIn("float AMoonfallPawn::ArcaneBoltDamage() const", self.cpp)
+        self.assertIn("float AMoonfallPawn::HealingSpellAmount() const", self.cpp)
+        self.assertIn("HeroArtIndex == 0 ? 20.f : 14.f", self.cpp)
+        self.assertIn("(bGuardian ? 16.f : 8.f)", self.cpp)
+        self.assertIn("DamageWorldEnemy(EnemyIndex, BasicAttackDamage())", self.cpp)
+        self.assertIn("DamageWorldEnemy(EnemyIndex, ArcaneBoltDamage())", self.cpp)
+        self.assertIn("Health + HealingSpellAmount()", self.cpp)
 
     def test_original_art_import_is_checksum_guarded(self):
         import_tool = (ROOT / "tools/import_godot_art.py").read_text()
