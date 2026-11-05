@@ -38,6 +38,7 @@ public sealed class MoonfallPrototype : MonoBehaviour
     int defeatedGuardianMask;
     readonly List<Transform> chamberRewards = new List<Transform>();
     readonly List<int> chamberIds = new List<int>();
+    readonly List<Transform> regionArt = new List<Transform>();
     static readonly string[] BeastPortraits =
         { "wolf", "fox", "boar", "elk", "panther", "serpent" };
 
@@ -97,6 +98,8 @@ public sealed class MoonfallPrototype : MonoBehaviour
         if (bossPortrait != null) bossPortrait.rotation = view.transform.rotation;
         foreach (WorldEnemy enemy in enemies)
             if (enemy.portrait != null) enemy.portrait.rotation = view.transform.rotation;
+        foreach (Transform landmark in regionArt)
+            if (landmark != null) landmark.rotation = view.transform.rotation;
     }
 
     void BuildWorld()
@@ -111,6 +114,16 @@ public sealed class MoonfallPrototype : MonoBehaviour
                 new Color(.30f, .12f, .16f), region / 5f);
             Make("Connected region " + region, PrimitiveType.Cube,
                 new Vector3(center, -.3f, 0f), new Vector3(34f, .5f, 34f), ground);
+            // Imported scene artwork as a landmark, without replacing the floor collision.
+            Texture2D vista = Resources.Load<Texture2D>(
+                "MoonfallArt/v31_4_bestiary/region_" + region);
+            if (vista != null)
+            {
+                var landmark = new GameObject("Region " + region + " original art landmark");
+                landmark.transform.position = new Vector3(center, 3f, 13f);
+                Transform art = AttachPortrait(landmark.transform, vista, 7f);
+                if (art != null) regionArt.Add(art);
+            }
             // Five side chambers per region overlap its floor edge, so players
             // walk straight into them without teleporting or changing game modes.
             for (int chamber = 0; chamber < MoonfallWorldRules.ChambersPerRegion; chamber++)
@@ -124,6 +137,10 @@ public sealed class MoonfallPrototype : MonoBehaviour
                 Transform cache = Make("Dungeon cache " + chamberId, PrimitiveType.Cylinder,
                     MoonfallWorldRules.ChamberReward(region, chamber),
                     new Vector3(1.6f, .5f, 1.6f), new Color(.9f, .6f, .18f));
+                Texture2D cacheArt = Resources.Load<Texture2D>(
+                    "MoonfallArt/v31_3_art/treasure_cache");
+                Transform cachePortrait = AttachPortrait(cache, cacheArt, 2f);
+                if (cachePortrait != null) regionArt.Add(cachePortrait);
                 chamberRewards.Add(cache);
                 chamberIds.Add(chamberId);
                 if ((defeatedGuardianMask & (1 << chamberId)) == 0)
@@ -497,7 +514,7 @@ public sealed class MoonfallPrototype : MonoBehaviour
         FillRect(new Rect(x + 75f, 93f, 10f, 10f), Color.cyan);
     }
 
-    // Only the minimap and three resource orbs appear during gameplay.
+    // Only the minimap and resource orbs appear during gameplay.
     void OnGUI()
     {
         if (hero != null && boss != null) DrawRpgHud();
