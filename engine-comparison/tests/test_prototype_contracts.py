@@ -242,6 +242,26 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("Health = FMath::Min(100.f + 5.f * Victories, Health + 20.f * LevelsGained)", self.cpp)
         self.assertNotIn("if (Health <= 0.f || bWon || AttackCooldown > 0.f)", self.cpp)
 
+    def test_thirty_connected_chambers_and_persistent_loot(self):
+        unity_world = (ROOT / "unity/Assets/Scripts/MoonfallWorldRules.cs").read_text()
+        unreal_world = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallWorldRules.h").read_text()
+        saved = SAVES.read_text()
+        unreal_hud = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.cpp").read_text()
+        for world in (unity_world, unreal_world):
+            self.assertIn("ChambersPerRegion = 5", world)
+            self.assertIn("TotalChambers = RegionCount * ChambersPerRegion", world)
+            self.assertIn("ChamberCenter(", world)
+            self.assertIn("ChamberReward(", world)
+        self.assertIn("CollectNearbyChambers();", self.unity)
+        self.assertIn("CollectNearbyChambers();", self.cpp)
+        self.assertIn("moonfall_experiment_chambers", self.unity)
+        self.assertIn("ClaimedChamberMask", saved)
+        self.assertIn("Progress->ClaimedChamberMask = ClaimedChamberMask", self.cpp)
+        self.assertIn("claimedChamberMask |= 1 << id", self.unity)
+        self.assertIn("ClaimedChamberMask |= 1 << Id", self.cpp)
+        self.assertIn("GetChamberMapPositions()", unreal_hud)
+        self.assertIn("foreach (Transform cache in chamberRewards)", self.unity)
+
     def test_original_art_import_is_checksum_guarded(self):
         import_tool = (ROOT / "tools/import_godot_art.py").read_text()
         verify_tool = (ROOT / "tools/verify_art_import.py").read_text()
