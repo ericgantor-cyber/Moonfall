@@ -34,6 +34,8 @@ public sealed class MoonfallPrototype : MonoBehaviour
     readonly List<WorldEnemy> enemies = new List<WorldEnemy>();
     int defeatedEnemyMask;
     float enemyDamageCooldown;
+    float checkpointTimer;
+    const float CheckpointInterval = 8f;
     int claimedChamberMask;
     int defeatedGuardianMask;
     readonly List<Transform> chamberRewards = new List<Transform>();
@@ -235,6 +237,14 @@ public sealed class MoonfallPrototype : MonoBehaviour
         PlayerPrefs.SetInt("moonfall_experiment_defeated_mobs", defeatedEnemyMask);
         PlayerPrefs.SetInt("moonfall_experiment_chambers", claimedChamberMask);
         PlayerPrefs.SetInt("moonfall_experiment_guardians", defeatedGuardianMask);
+        // Save current HP and position together, only when the hero is alive.
+        if (hero != null && hp > 0f)
+        {
+            PlayerPrefs.SetFloat("moonfall_experiment_checkpoint_x", hero.position.x);
+            PlayerPrefs.SetFloat("moonfall_experiment_checkpoint_z", hero.position.z);
+            PlayerPrefs.SetFloat("moonfall_experiment_checkpoint_hp", hp);
+            PlayerPrefs.SetInt("moonfall_experiment_checkpoint_active", 1);
+        }
         PlayerPrefs.Save();
     }
 
@@ -298,6 +308,20 @@ public sealed class MoonfallPrototype : MonoBehaviour
         }
         BuildWorld();
         hero = Make("Hero placeholder", PrimitiveType.Capsule, new Vector3(0,1,-5), Vector3.one, Color.cyan);
+        if (PlayerPrefs.GetInt("moonfall_experiment_checkpoint_active", 0) == 1)
+        {
+            float savedX = PlayerPrefs.GetFloat("moonfall_experiment_checkpoint_x", 0f);
+            float savedZ = PlayerPrefs.GetFloat("moonfall_experiment_checkpoint_z", -5f);
+            float savedHp = PlayerPrefs.GetFloat("moonfall_experiment_checkpoint_hp", hp);
+            if (!float.IsNaN(savedX) && !float.IsInfinity(savedX) &&
+                !float.IsNaN(savedZ) && !float.IsInfinity(savedZ) &&
+                !float.IsNaN(savedHp) && !float.IsInfinity(savedHp) && savedHp > 0f)
+            {
+                hero.position = new Vector3(Mathf.Clamp(savedX, -16f, 176f), 1f,
+                    Mathf.Clamp(savedZ, -32f, 32f));
+                hp = Mathf.Clamp(savedHp, 1f, 100f + 5f * wins);
+            }
+        }
         boss = Make("Boss placeholder", PrimitiveType.Capsule, new Vector3(MoonfallWorldRules.BossX,1,6), new Vector3(2,2,2), Color.red);
         zPortrait = Resources.Load<Texture2D>("MoonfallArt/heroes/Z_Original");
         nyraPortrait = Resources.Load<Texture2D>("MoonfallArt/heroes/Nyra_Original");
@@ -322,6 +346,7 @@ public sealed class MoonfallPrototype : MonoBehaviour
         boltCooldown = Mathf.Max(0f, boltCooldown - dt);
         healCooldown = Mathf.Max(0f, healCooldown - dt);
         enemyDamageCooldown = Mathf.Max(0f, enemyDamageCooldown - dt);
+        checkpointTimer += dt;
         if (hp > 0)
         {
             // 1/2 switches the portrait only; no changes to Z or Nyra artwork.
@@ -357,6 +382,12 @@ public sealed class MoonfallPrototype : MonoBehaviour
             }
             hero.position += direction * (dodge>0 ? 12 : 6) * dt;
             hero.position = new Vector3(Mathf.Clamp(hero.position.x,-16,176),1,Mathf.Clamp(hero.position.z,-32,32));
+            // Throttled checkpoints save travel and actual remaining HP, never healing.
+            if (checkpointTimer >= CheckpointInterval)
+            {
+                checkpointTimer = 0f;
+                SaveProgress();
+            }
             CollectNearbyChambers();
             UpdateEnemies(dt);
             WorldEnemy nearby = NearestEnemy(1.75f);
