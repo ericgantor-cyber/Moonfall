@@ -92,6 +92,19 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("Stamina + 30.f * StaminaRegenDt", tick)
         self.assertNotIn("Stamina + 30.f * Dt", tick)
 
+    def test_unreal_guardian_riposte_knockback_stays_in_chamber(self):
+        damage = self.cpp.split("void AMoonfallPawn::DamageWorldEnemy(", 1)[1].split(
+            "TArray<FVector> AMoonfallPawn::GetChamberMapPositions()", 1)[0]
+        self.assertIn("if (bRiposte && Enemy.bGuardian)", damage)
+        self.assertIn("Enemy.StaggerTimer = 0.8f;", damage)
+        self.assertIn("if (Enemy.Mesh && HeroMesh)", damage)
+        self.assertIn("Away.Z = 0.f;", damage)
+        self.assertIn("if (!Away.IsNearlyZero())", damage)
+        self.assertIn("Away.GetSafeNormal() * 120.f", damage)
+        self.assertIn("LeashDelta.GetClampedToMaxSize2D(600.f)", damage)
+        self.assertIn("Enemy.Mesh->SetRelativeLocation(Bounded);", damage)
+        self.assertLess(damage.index("if (Enemy.Health > 0.f)"), damage.index("if (bRiposte && Enemy.bGuardian)"))
+
     def test_unreal_riposte_staggers_guardians_and_blocks_contact(self):
         self.assertIn("float StaggerTimer = 0.f;", self.header)
         self.assertIn("void AMoonfallPawn::DamageWorldEnemy(int32 Index, float Damage, bool bRiposte)", self.cpp)
