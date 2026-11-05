@@ -49,6 +49,7 @@ private:
     struct FWorldEnemy
     {
         UStaticMeshComponent* Mesh = nullptr;
+        UBillboardComponent* Portrait = nullptr;
         float Health = 0.f;
         int32 Region = 0;
         int32 Id = 0;
