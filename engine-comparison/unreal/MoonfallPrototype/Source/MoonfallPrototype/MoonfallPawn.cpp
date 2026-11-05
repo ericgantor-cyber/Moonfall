@@ -310,6 +310,10 @@ void AMoonfallPawn::UpdateWorldEnemies(float Dt)
     for (FWorldEnemy& Enemy : Enemies)
     {
         if (!Enemy.Mesh) continue;
+        // Guardians enter their final phase once below 35% of their starting HP.
+        // Derive this each update from existing health: no extra save state.
+        Enemy.bEnraged = Enemy.bGuardian &&
+            Enemy.Health <= 0.35f * 1.8f * MoonfallWorldRules::EnemyMaxHealth(Enemy.Region);
         const FVector From = Enemy.Mesh->GetRelativeLocation();
         FVector ToHero = HeroPosition - From;
         ToHero.Z = 0.f;
@@ -333,7 +337,7 @@ void AMoonfallPawn::UpdateWorldEnemies(float Dt)
             if (HeroDistSq > FMath::Square(160.f))
             {
                 const float Remaining = FMath::Max(0.f, Leash - FromHome.Size());
-                const float Step = FMath::Min((Enemy.bGuardian ? 280.f : 200.f) * MoveDt, Remaining);
+                const float Step = FMath::Min((Enemy.bEnraged ? 360.f : (Enemy.bGuardian ? 280.f : 200.f)) * MoveDt, Remaining);
                 const FVector Candidate = From + ToHero.GetSafeNormal() * Step;
                 const FVector ToCandidateHome = Candidate - Enemy.Home;
                 // Prevent oblique pursuit from leaking outside the home radius.
@@ -644,7 +648,13 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
             if (NearbyIndex != INDEX_NONE)
             {
                 if (DodgeTimer > 0.f) CounterWindow = CounterDuration;
-                else Health = FMath::Max(0.f, Health - (5.f + 2.f * Enemies[NearbyIndex].Region));
+                else
+                {
+                    const FWorldEnemy& Contact = Enemies[NearbyIndex];
+                    const float ContactDamage = 5.f + 2.f * Contact.Region +
+                        (Contact.bEnraged ? 4.f : 0.f);
+                    Health = FMath::Max(0.f, Health - ContactDamage);
+                }
                 EnemyDamageCooldown = 1.2f;
             }
         }
