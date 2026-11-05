@@ -96,7 +96,7 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("int32 MeleeComboCount = 0;", self.header)
         self.assertIn("float MeleeComboTimer = 0.f;", self.header)
         tick = self.cpp.split("void AMoonfallPawn::Tick(", 1)[1]
-        self.assertIn("MeleeComboTimer = FMath::Max(0.f, MeleeComboTimer - Dt);", tick)
+        self.assertIn("MeleeComboTimer = FMath::Max(0.f, MeleeComboTimer - ReactionDt);", tick)
         self.assertIn("if (MeleeComboTimer <= 0.f) MeleeComboCount = 0;", tick)
         melee = self.cpp.split("void AMoonfallPawn::Attack()", 1)[1].split(
             "void AMoonfallPawn::CastBolt()", 1)[0]
@@ -113,6 +113,15 @@ class PrototypeContracts(unittest.TestCase):
         bolt = self.cpp.split("void AMoonfallPawn::CastBolt()", 1)[1].split(
             "void AMoonfallPawn::CastHeal()", 1)[0]
         self.assertNotIn("MeleeComboCount", bolt)
+
+    def test_unreal_combo_timeout_uses_hitch_safe_reaction_dt(self):
+        tick = self.cpp.split("void AMoonfallPawn::Tick(", 1)[1]
+        self.assertIn("const float ReactionDt = FMath::Min(Dt, 0.05f);", tick)
+        self.assertIn("MeleeComboTimer = FMath::Max(0.f, MeleeComboTimer - ReactionDt);", tick)
+        self.assertLess(tick.index("const float ReactionDt = FMath::Min(Dt, 0.05f);"),
+                        tick.index("MeleeComboTimer = FMath::Max(0.f, MeleeComboTimer - ReactionDt);"))
+        self.assertNotIn("MeleeComboTimer - Dt", tick)
+        self.assertIn("if (MeleeComboTimer <= 0.f) MeleeComboCount = 0;", tick)
 
     def test_unreal_melee_finisher_interrupts_boss_without_nerfing_riposte(self):
         melee = self.cpp.split("void AMoonfallPawn::Attack()", 1)[1].split(
