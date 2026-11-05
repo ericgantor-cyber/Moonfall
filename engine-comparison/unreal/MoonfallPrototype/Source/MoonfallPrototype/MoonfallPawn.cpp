@@ -367,8 +367,12 @@ void AMoonfallPawn::CollectNearbyChambers()
 
 void AMoonfallPawn::SaveProgress()
 {
+    // Reuse the prior save so a death-time write cannot erase the last living checkpoint.
     UMoonfallProgressSave* Progress = Cast<UMoonfallProgressSave>(
-        UGameplayStatics::CreateSaveGameObject(UMoonfallProgressSave::StaticClass()));
+        UGameplayStatics::LoadGameFromSlot(TEXT("MoonfallPrototypeBossRewards"), 0));
+    if (!Progress)
+        Progress = Cast<UMoonfallProgressSave>(
+            UGameplayStatics::CreateSaveGameObject(UMoonfallProgressSave::StaticClass()));
     if (!Progress) { UE_LOG(LogTemp, Warning, TEXT("Moonfall: could not create SaveGame.")); return; }
     Progress->PermanentBossVictories = Victories;
     Progress->BossRelics = BossInventory;
