@@ -6,7 +6,7 @@ param(
     [string]$RepositoryRoot = (Get-Location).Path
 )
 $ErrorActionPreference = 'Stop'
-Add-Type -AssemblyName System.IO.Compression
+Add-Type -AssemblyName System.IO.Compression.FileSystem
 $root = [IO.Path]::GetFullPath($RepositoryRoot)
 $zip = [IO.Path]::GetFullPath($ZipPath)
 if (-not (Test-Path -LiteralPath (Join-Path $root "engine-comparison"))) { throw "Repository root is not a Moonfall checkout: $root" }
