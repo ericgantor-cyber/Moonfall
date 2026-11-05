@@ -84,6 +84,16 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("a.CompareTo(b)", unity)
         self.assertIn("A < B", unreal)
 
+    def test_unreal_targeting_ignores_missing_meshes_and_avoids_sqrt(self):
+        nearest = self.cpp.split("int32 AMoonfallPawn::NearestEnemyIndex(float Radius) const", 1)[1].split(
+            "TArray<FVector> AMoonfallPawn::GetEnemyMapPositions()", 1)[0]
+        self.assertIn("if (!HeroMesh || Radius <= 0.f) return INDEX_NONE;", nearest)
+        self.assertIn("if (!Enemy.Mesh) continue;", nearest)
+        self.assertIn("float BestDistanceSq = FMath::Square(Radius);", nearest)
+        self.assertIn("const float DistanceSq = Delta.SizeSquared2D();", nearest)
+        self.assertIn("if (DistanceSq < BestDistanceSq)", nearest)
+        self.assertNotIn("FVector::Dist2D", nearest)
+
     def test_unreal_retreating_enemies_cannot_mask_engaged_contact(self):
         tick = self.cpp.split("void AMoonfallPawn::Tick(", 1)[1]
         selection = tick.split("// Find the nearest *engaged* contact.", 1)[1].split(
