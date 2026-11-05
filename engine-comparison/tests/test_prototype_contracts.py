@@ -84,6 +84,15 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("a.CompareTo(b)", unity)
         self.assertIn("A < B", unreal)
 
+    def test_unreal_riposte_staggers_guardians_and_blocks_contact(self):
+        self.assertIn("float StaggerTimer = 0.f;", self.header)
+        self.assertIn("void AMoonfallPawn::DamageWorldEnemy(int32 Index, float Damage, bool bRiposte)", self.cpp)
+        self.assertIn("if (bRiposte && Enemy.bGuardian)", self.cpp)
+        self.assertIn("Enemy.StaggerTimer = 0.8f;", self.cpp)
+        self.assertIn("Enemy.StaggerTimer = FMath::Max(0.f, Enemy.StaggerTimer - MoveDt);", self.cpp)
+        self.assertIn("if (!Candidate.Mesh || Candidate.bReturningHome || Candidate.StaggerTimer > 0.f) continue;", self.cpp)
+        self.assertEqual(self.cpp.count("if (!bHitBoss) DamageWorldEnemy(EnemyIndex, Damage, bRiposte);"), 2)
+
     def test_unreal_dodge_stamina_regen_delay_keeps_perfect_dodge_reward(self):
         dodge = self.cpp.split("void AMoonfallPawn::Dodge()", 1)[1].split(
             "int32 AMoonfallPawn::GuardianBlessingCount()", 1)[0]
@@ -122,7 +131,7 @@ class PrototypeContracts(unittest.TestCase):
         tick = self.cpp.split("void AMoonfallPawn::Tick(", 1)[1]
         selection = tick.split("// Find the nearest *engaged* contact.", 1)[1].split(
             "if (ContactIndex != INDEX_NONE)", 1)[0]
-        self.assertIn("if (!Candidate.Mesh || Candidate.bReturningHome) continue;", selection)
+        self.assertIn("if (!Candidate.Mesh || Candidate.bReturningHome || Candidate.StaggerTimer > 0.f) continue;", selection)
         self.assertIn("HomeOffset.SizeSquared2D() >= FMath::Square(Leash)", selection)
         self.assertIn("if (DistanceSq < ContactDistanceSq)", selection)
         self.assertIn("ContactIndex = I;", selection)
@@ -458,7 +467,7 @@ class PrototypeContracts(unittest.TestCase):
         for combat in (attack, bolt):
             self.assertIn("const float EnemyDistance =", combat)
             self.assertIn("const bool bHitBoss = bBossInRange && BossDistance < EnemyDistance;", combat)
-            self.assertIn("if (!bHitBoss) DamageWorldEnemy(EnemyIndex, Damage);", combat)
+            self.assertIn("if (!bHitBoss) DamageWorldEnemy(EnemyIndex, Damage, bRiposte);", combat)
             self.assertIn("BossHealth = FMath::Max(0.f, BossHealth - Damage);", combat)
         self.assertIn("const bool bBossInRange = BossDistance <= 400.f;", attack)
         self.assertIn("const bool bBossInRange = BossDistance <= 1000.f;", bolt)
@@ -477,7 +486,7 @@ class PrototypeContracts(unittest.TestCase):
             self.assertLess(source.index("BossHealth = FMath::Max(0.f, BossHealth - Damage);"),
                             source.index("if (bRiposte && bCasting && BossHealth > 0.f)"))
             self.assertIn("if (BossHealth <= 0.f) Victory();", source)
-            self.assertIn("if (!bHitBoss) DamageWorldEnemy(EnemyIndex, Damage);", source)
+            self.assertIn("if (!bHitBoss) DamageWorldEnemy(EnemyIndex, Damage, bRiposte);", source)
 
     def test_unreal_spell_riposte_uses_successful_target_only(self):
         start = self.cpp.index("void AMoonfallPawn::CastBolt()")
@@ -487,7 +496,7 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("if (EnemyIndex == INDEX_NONE && !bBossInRange) return;", bolt)
         self.assertLess(bolt.index("if (EnemyIndex == INDEX_NONE"), bolt.index("CounterWindow = 0.f;"))
         self.assertIn("(bRiposte ? CounterMultiplier : 1.f)", bolt)
-        self.assertIn("if (!bHitBoss) DamageWorldEnemy(EnemyIndex, Damage);", bolt)
+        self.assertIn("if (!bHitBoss) DamageWorldEnemy(EnemyIndex, Damage, bRiposte);", bolt)
         self.assertIn("BossHealth - Damage", bolt)
         self.assertIn("Mana -= 30.f;", bolt)
         self.assertIn("BoltCooldown = 1.1f;", bolt)
@@ -521,8 +530,8 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("float AMoonfallPawn::ArcaneBoltDamage() const", self.cpp)
         self.assertIn("float AMoonfallPawn::HealingSpellAmount() const", self.cpp)
         self.assertIn("return 18.f + Progression.Level + 0.5f * GuardianBlessingCount();", self.cpp)
-        self.assertIn("if (!bHitBoss) DamageWorldEnemy(EnemyIndex, Damage);", self.cpp)
-        self.assertIn("if (!bHitBoss) DamageWorldEnemy(EnemyIndex, Damage);", self.cpp)
+        self.assertIn("if (!bHitBoss) DamageWorldEnemy(EnemyIndex, Damage, bRiposte);", self.cpp)
+        self.assertIn("if (!bHitBoss) DamageWorldEnemy(EnemyIndex, Damage, bRiposte);", self.cpp)
         self.assertIn("Health + HealingSpellAmount()", self.cpp)
 
     def test_legacy_hero_selection_is_ignored_without_deleting_saves(self):
