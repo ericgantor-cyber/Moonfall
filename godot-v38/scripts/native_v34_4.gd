@@ -140,7 +140,7 @@ func _update_camera(delta:float)->void:
  # This avoids querying a potentially locked physics space during _process().
  desired=focus+offset.normalized()*minf(v36_safe_follow_distance,offset.length())
  var blend:float=1.0 if delta>=1.0 else 1.0-exp(-9.0*maxf(0.0,delta))
- camera.global_position=camera.global_position.lerp(desired,blend)
+ camera.global_position=V36_CAMERA_RULES.collision_constrained_position(camera.global_position,desired,focus,v36_safe_follow_distance,v36_camera_clipped,blend)
  camera.look_at(focus,Vector3.UP)
 
 func _physics_process(delta:float)->void:
