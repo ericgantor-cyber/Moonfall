@@ -28,6 +28,8 @@ public:
     float GetHudStamina() const { return Stamina; }
     float GetHudMaxStamina() const { return 150.f; }
     int32 GetHudLevel() const { return Progression.Level; }
+    int32 GetHudExperience() const { return Progression.Experience; }
+    int32 GetHudExperienceToNext() const { return Progression.ExperienceToNext(); }
     float GetHudXpRatio() const { return static_cast<float>(Progression.Experience) / FMath::Max(1, Progression.ExperienceToNext()); }
     FVector GetHeroMapPosition() const { return HeroMesh ? HeroMesh->GetRelativeLocation() : FVector::ZeroVector; }
     FVector GetBossMapPosition() const { return BossMesh ? BossMesh->GetRelativeLocation() : FVector::ZeroVector; }
