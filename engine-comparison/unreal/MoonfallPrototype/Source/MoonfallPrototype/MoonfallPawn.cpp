@@ -593,7 +593,13 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
             }
         }
     }
-    if (bWon || Health <= 0.f) return;
+    if (bWon || Health <= 0.f)
+    {
+        // No danger decals may linger over the world when the hero has died.
+        bCasting = false;
+        WarningMesh->SetVisibility(false);
+        return;
+    }
     if (FVector::Dist2D(HeroMesh->GetRelativeLocation(), BossMesh->GetRelativeLocation()) > 1600.f)
     {
         // Boss has a local aggro radius, not global map-wide attacks.
@@ -645,7 +651,13 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
                            (BossAttackPhase == 2 ? 2.9f : 3.5f);
             if (FVector::Dist2D(HeroMesh->GetRelativeLocation(), TargetWorld) < BossWarningRadius)
             {
-                if (DodgeTimer > 0.f) CounterWindow = CounterDuration;
+                if (DodgeTimer > 0.f)
+                {
+                    // A successful warned dodge rewards timing, not passive kill healing.
+                    // Each strike resolves only once, limiting the stamina refund.
+                    CounterWindow = CounterDuration;
+                    Stamina = FMath::Min(GetHudMaxStamina(), Stamina + 10.f);
+                }
                 else Health = FMath::Max(0.f, Health -
                     (BossAttackPhase == 3 ? 28.f : (BossAttackPhase == 2 ? 24.f : 20.f)));
             }
