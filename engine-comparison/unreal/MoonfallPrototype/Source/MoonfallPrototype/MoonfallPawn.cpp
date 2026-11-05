@@ -77,6 +77,21 @@ void AMoonfallPawn::BeginPlay()
         {
             Victories = FMath::Clamp(Progress->PermanentBossVictories, 0, 100);
             bWon = Progress->bBossDefeated;
+            // Checkpoint is restored after the world is constructed.
+            if (Progress->bHasCheckpoint && FMath::IsFinite(Progress->SavedHealth) &&
+                Progress->SavedHealth > 0.f &&
+                !Progress->SavedHeroPosition.ContainsNaN())
+            {
+                const FVector Saved = Progress->SavedHeroPosition;
+                if (FMath::IsFinite(Saved.X) && FMath::IsFinite(Saved.Y))
+                {
+                    HeroMesh->SetRelativeLocation(FVector(
+                        FMath::Clamp(Saved.X, -1600.f, 17600.f),
+                        FMath::Clamp(Saved.Y, -3200.f, 3200.f), 100.f));
+                    Health = FMath::Clamp(Progress->SavedHealth, 1.f,
+                        100.f + 5.f * FMath::Clamp(Progress->PermanentBossVictories, 0, 100));
+                }
+            }
             HeroArtIndex = FMath::Clamp(Progress->SelectedHeroIndex, 0, 1);
             DefeatedEnemyMask = Progress->DefeatedEnemyMask & ((1 << MoonfallWorldRules::TotalEnemies) - 1);
             ClaimedChamberMask = Progress->ClaimedChamberMask & ((1 << MoonfallWorldRules::TotalChambers) - 1);
@@ -92,7 +107,8 @@ void AMoonfallPawn::BeginPlay()
             }
         }
     }
-    Health = 100.f + 5.f * Victories;
+    if (Health <= 0.f || Health > 100.f + 5.f * Victories)
+        Health = 100.f + 5.f * Victories;
     BuildWorld();
     // These paths exist only after running the Unreal Editor art importer.
     // Missing imports keep the geometric placeholders visible.
@@ -363,6 +379,12 @@ void AMoonfallPawn::SaveProgress()
     Progress->DefeatedGuardianMask = DefeatedGuardianMask;
     Progress->bBossDefeated = bWon;
     Progress->SelectedHeroIndex = HeroArtIndex;
+    if (HeroMesh && Health > 0.f)
+    {
+        Progress->bHasCheckpoint = true;
+        Progress->SavedHeroPosition = HeroMesh->GetRelativeLocation();
+        Progress->SavedHealth = Health;
+    }
     if (!UGameplayStatics::SaveGameToSlot(Progress, TEXT("MoonfallPrototypeBossRewards"), 0))
         UE_LOG(LogTemp, Warning, TEXT("Moonfall prototype: reward save failed."));
 }
@@ -488,6 +510,7 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
     BoltCooldown = FMath::Max(0.f, BoltCooldown - Dt);
     HealCooldown = FMath::Max(0.f, HealCooldown - Dt);
     EnemyDamageCooldown = FMath::Max(0.f, EnemyDamageCooldown - Dt);
+    CheckpointTimer += Dt;
     if (Health > 0.f)
     {
         FVector Direction(Forward, Right, 0.f);
@@ -496,6 +519,11 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
         Position.X = FMath::Clamp(Position.X, -1600.f, 17600.f);
         Position.Y = FMath::Clamp(Position.Y, -3200.f, 3200.f);
         HeroMesh->SetRelativeLocation(Position);
+        if (CheckpointTimer >= CheckpointInterval)
+        {
+            CheckpointTimer = 0.f;
+            SaveProgress();
+        }
         CollectNearbyChambers();
         UpdateWorldEnemies(Dt);
         CameraBoom->SetRelativeLocation(FVector(Position.X, Position.Y, 0.f));
