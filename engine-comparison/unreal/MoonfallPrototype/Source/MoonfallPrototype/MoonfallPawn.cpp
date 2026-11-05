@@ -586,6 +586,14 @@ void AMoonfallPawn::Attack()
                 WarningMesh->SetVisibility(false);
                 CastCooldown = 2.f; // Start a fresh, exact interrupt recovery window.
             }
+            else if (bComboFinisher && bCasting && BossHealth > 0.f)
+            {
+                // A landed third strike can break a boss windup, but the boss
+                // recovers sooner than from a Perfect Dodge riposte.
+                bCasting = false;
+                WarningMesh->SetVisibility(false);
+                CastCooldown = 1.5f;
+            }
             if (BossHealth <= 0.f) Victory();
         }
     }
