@@ -17,6 +17,7 @@ Canonical implementation: `godot-v38/` on `main`. Never alter Godot saves, scene
 | Inventory/crafting capacity & cost rules | `inventory_rules.gd` | `MoonfallInventoryRules.cs` source parity port added | `MoonfallInventoryRules.h` source parity port added |
 | Items, rarity, loot and equipment | Existing subsystem | Rarity/pity and gear rule source ports only | Rarity/pity and gear rule source ports only |
 | Atlas, quests, progression, professions | Existing features vary | Godot XP/level/Hero/Tamer point rules wired to prototype boss; Atlas/quests/professions pending | Godot XP/level/Hero/Tamer point rules wired to prototype boss; Atlas/quests/professions pending |
+| Prototype minimap and HP/mana/XP orb HUD | Godot has Atlas and existing HUD | Prototype arena radar + red HP/blue placeholder mana/purple XP rings in OnGUI | Prototype arena radar + red HP/blue placeholder mana/purple XP rings in AHUD |
 | Windows packaging, controller, accessibility | Godot source / CI | Untested | Untested |
 | Z and Nyra original art | Preserve byte-identically | No import | No import |
 
@@ -47,3 +48,6 @@ The boss-victory handler now adds a single rarity-labeled relic to a 100-entry e
 From `godot-v38/scripts/native_v11.gd::_award_experience`, both experiments now port the actual XP gain rules: 15 base + 8 per zone + 12 for special variant + 100 for boss, up to +20 for kill combos within 7 seconds, and XP threshold `75 + (level-1)*40`. Level cap 100; level-up grants one Hero and one Tamer point and a bounded 20 HP heal. The single experimental boss is treated as a special variant in zone 0 and awards XP once on victory. Level, XP and points persist only in separate engine-specific prototype save formats. This is **not** yet the full Godot RPG: quest and dialogue systems, the six connected regions, companion AI, class-specific spell trees, player customization, gear equip bonuses and actual skill spending remain unported. No engine compilation or gameplay test has been completed.
 
 Note: Godot also already has a separate `MoonfallUnreal/` codebase on main. It should be audited for reuse before recreating its character, spells, settings and combat work. Do not conflate that older project with this isolated comparison prototype.
+
+## In-game minimap and orbs
+The experimental **gameplay screen**, not just a menu, now draws a small arena minimap at the upper-right (hero and boss markers) and concentric red HP, blue mana and purple XP rings at the lower-left. XP and HP reflect gameplay state; mana remains a **full-value placeholder** because mana/spells are not integrated in these combat slices yet. This small arena radar does not contain the complete six-region Godot Raven Atlas and does not replace it. Unreal attaches its AHUD to the game mode; Unity draws in OnGUI. Visual layout, accessibility scaling, Windows compatibility and engine compilation are unverified.
