@@ -150,7 +150,8 @@ public sealed class MoonfallPrototype : MonoBehaviour
         enemy.hp = Mathf.Max(0f, enemy.hp - damage);
         if (enemy.hp > 0f) return;
         defeatedEnemyMask |= 1 << enemy.id;
-        progression.AwardDefeat(enemy.region, false, false, Time.time);
+        int levelsGained = progression.AwardDefeat(enemy.region, false, false, Time.time);
+        hp = Mathf.Min(100f + 5f * wins, hp + 20f * levelsGained);
         enemies.Remove(enemy);
         Destroy(enemy.body.gameObject);
         SaveProgress();
@@ -211,8 +212,8 @@ public sealed class MoonfallPrototype : MonoBehaviour
                 stamina -= 45f;
             }
             // Magic uses keys, keeping the left mouse button exclusively for attacks.
-            if (!won && Input.GetKeyDown(KeyCode.Q) && boltCooldown <= 0f && mana >= 30f
-                && (NearestEnemy(10f) != null || Vector3.Distance(hero.position, boss.position) <= 10f))
+            if (Input.GetKeyDown(KeyCode.Q) && boltCooldown <= 0f && mana >= 30f
+                && (NearestEnemy(10f) != null || (!won && Vector3.Distance(hero.position, boss.position) <= 10f)))
             {
                 mana -= 30f;
                 boltCooldown = 1.1f;
@@ -239,12 +240,12 @@ public sealed class MoonfallPrototype : MonoBehaviour
                 hp = Mathf.Max(0f, hp - (5f + 2f * nearby.region));
                 enemyDamageCooldown = 1.2f;
             }
-            if (!won && Input.GetMouseButtonDown(0) && attackCd<=0)
+            if (Input.GetMouseButtonDown(0) && attackCd<=0)
             {
                 attackCd=.35f;
                 WorldEnemy foe = NearestEnemy(4f);
                 if (foe != null) DamageEnemy(foe, 15f);
-                else if (Vector3.Distance(hero.position,boss.position)<4f)
+                else if (!won && Vector3.Distance(hero.position,boss.position)<4f)
                 {
                     bossHp=Mathf.Max(0,bossHp-15);
                     if (bossHp<=0) Victory();
