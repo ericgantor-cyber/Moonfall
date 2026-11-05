@@ -84,12 +84,17 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("a.CompareTo(b)", unity)
         self.assertIn("A < B", unreal)
 
-    def test_unreal_retreating_enemies_cannot_damage_or_trigger_riposte(self):
+    def test_unreal_retreating_enemies_cannot_mask_engaged_contact(self):
         tick = self.cpp.split("void AMoonfallPawn::Tick(", 1)[1]
-        self.assertIn("const bool bEngaged = !Contact.bReturningHome &&", tick)
-        self.assertIn("HomeOffset.SizeSquared2D() < FMath::Square(Leash);", tick)
-        self.assertIn("if (bEngaged)", tick)
-        combat = tick.split("if (bEngaged)", 1)[1].split("EnemyDamageCooldown = 1.2f;", 1)[0]
+        selection = tick.split("// Find the nearest *engaged* contact.", 1)[1].split(
+            "if (ContactIndex != INDEX_NONE)", 1)[0]
+        self.assertIn("if (!Candidate.Mesh || Candidate.bReturningHome) continue;", selection)
+        self.assertIn("HomeOffset.SizeSquared2D() >= FMath::Square(Leash)", selection)
+        self.assertIn("if (DistanceSq < ContactDistanceSq)", selection)
+        self.assertIn("ContactIndex = I;", selection)
+        self.assertNotIn("NearestEnemyIndex(175.f)", selection)
+        combat = tick.split("if (ContactIndex != INDEX_NONE)", 1)[1].split(
+            "EnemyDamageCooldown = 1.2f;", 1)[0]
         self.assertIn("if (DodgeTimer > 0.f) CounterWindow = CounterDuration;", combat)
         self.assertIn("Health = FMath::Max(0.f, Health - ContactDamage);", combat)
         self.assertIn("Contact.bEnraged ? 4.f : 0.f", combat)
