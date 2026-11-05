@@ -150,10 +150,13 @@ func _v16_tick_combat_cues(step:float)->void:
  # Avoid making a temporary Array copy on every rendered frame.
  for i in range(combat_cues.size()-1,-1,-1):
   var entry:Dictionary=combat_cues[i]
-  var node:Node3D=entry["node"]
-  if not is_instance_valid(node):
+  # Keep the reference untyped until validity has been checked:
+  # an already-freed Object cannot be assigned to a typed Node3D.
+  var candidate:Variant=entry.get("node")
+  if not is_instance_valid(candidate):
    combat_cues.remove_at(i)
    continue
+  var node:Node3D=candidate as Node3D
   entry["age"]=float(entry["age"])+step
   var fraction:float=float(entry["age"])/float(entry["life"])
   if fraction>=1.0:
