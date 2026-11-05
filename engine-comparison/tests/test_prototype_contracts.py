@@ -321,6 +321,19 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("DamageWorldEnemy(EnemyIndex, ArcaneBoltDamage())", self.cpp)
         self.assertIn("Health + HealingSpellAmount()", self.cpp)
 
+    def test_hero_selection_survives_missing_assets_and_restarts(self):
+        save = SAVES.read_text(encoding="utf-8")
+        self.assertIn("SelectedHeroIndex = 0;", save)
+        self.assertIn("Progress->SelectedHeroIndex = HeroArtIndex;", self.cpp)
+        self.assertIn("HeroArtIndex = FMath::Clamp(Progress->SelectedHeroIndex, 0, 1);", self.cpp)
+        self.assertIn("ApplyHeroArtwork(HeroArtIndex);", self.cpp)
+        self.assertIn("HeroPortrait->SetHiddenInGame(Chosen == nullptr);", self.cpp)
+        self.assertIn("HeroMesh->SetHiddenInGame(Chosen != nullptr);", self.cpp)
+        self.assertIn("ChooseNyra() { ApplyHeroArtwork(1); SaveProgress(); }", self.cpp)
+        self.assertIn("selectedHero = index;", self.unity)
+        self.assertIn("heroPortrait = selected != null ? AttachPortrait", self.unity)
+        self.assertIn('PlayerPrefs.SetInt("moonfall_experiment_hero_art", selectedHero);', self.unity)
+
     def test_original_art_import_is_checksum_guarded(self):
         import_tool = (ROOT / "tools/import_godot_art.py").read_text()
         verify_tool = (ROOT / "tools/verify_art_import.py").read_text()
