@@ -25,6 +25,16 @@ func _run()->void:
  check(int(report.get("frames",0))==120,"records every measured frame")
  check(absf(float(report.get("average_fps",0.0))-60.0)<0.02,"average FPS computed from elapsed time")
  check(absf(float(report.get("p99_frame_ms",0.0))-16.6667)<0.1,"p99 frame time computed")
+ check(absf(float(report.get("p50_frame_ms",0.0))-16.6667)<0.1,"median frame time computed")
+ check(absf(float(report.get("p95_frame_ms",0.0))-16.6667)<0.1,"p95 frame time computed")
+ check(absf(float(report.get("one_percent_low_fps",0.0))-60.0)<0.02,"one-percent-low FPS computed")
+ # A single 100ms frame must lower the tail metric while preserving the
+ # regular median, making occasional hitching visible in performance reports.
+ game.call("_perf_sample",0.1)
+ var stutter_report:Dictionary=game.call("_perf_report")
+ check(absf(float(stutter_report.get("p50_frame_ms",0.0))-16.6667)<0.1,"single hitch does not distort median")
+ check(float(stutter_report.get("p99_frame_ms",0.0))<100.0 and absf(float(stutter_report.get("worst_frame_ms",0.0))-100.0)<0.1,"p99 and worst metrics distinguish isolated hitch")
+ check(float(stutter_report.get("one_percent_low_fps",0.0))<25.0,"one-percent-low FPS detects isolated long frame")
  check(str(report.get("region_at_start",""))!="","report records region")
  check(str(report.get("graphics_quality_at_start",""))!="","report records quality")
  game.call("_perf_stop",false)
