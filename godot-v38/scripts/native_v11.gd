@@ -910,7 +910,7 @@ func _build_ui() -> void:
  var controls:=_ui_label(root,Vector2(18,0),15,Color("d4d7e7"))
  controls.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
  controls.position=Vector2(18,-68)
- controls.text="P wait • WASD move • Mouse attack • Space dodge • Q/E/R spells • G interact • T tame • M mount • H pet stance • Tab map • F10/Esc atlas"
+ controls.text="P wait • WASD move • Mouse attack • Space dodge • Q/E/R spells • G interact • T tame • M mount • H pet stance • Tab map • Esc atlas"
  quick_actions=PanelContainer.new()
  quick_actions.name="QuickActions"
  quick_actions.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
@@ -1306,7 +1306,7 @@ func _menu_tab(which: String) -> void:
    menu_body.text=text
    for k in PORTRAITS.keys():_atlas_action(str(k).replace("_"," ").capitalize(),"portrait:"+str(k))
   "System":
-   menu_body.text="[b]MOONFALL NATIVE v13 OPTIONS[/b]\nGodot 4.7.2 native Windows build uses Direct3D 12 where supported, with rendering fallbacks.\nNative Godot project: no browser or WebGL dependency.\n\nSimple controls:\nWASD / arrows move, left click attack, Space dodge, Q/E/R spells, G loot/events/shrine, T tame, M mount, F senses, H pet stance, Tab map, F10 or Esc menu.\nController: left stick move, X attack, A dodge, B interact, Y tame, shoulders spells, D-pad up pet stance, D-pad down minimap, Start menu.\n\nNative save schema 2 is separate from browser v104."
+   menu_body.text="[b]MOONFALL NATIVE v13 OPTIONS[/b]\nGodot 4.7.2 native Windows build uses Direct3D 12 where supported, with rendering fallbacks.\nNative Godot project: no browser or WebGL dependency.\n\nSimple controls:\nWASD / arrows move, left click attack, Space dodge, Q/E/R spells, G loot/events/shrine, T tame, M mount, F senses, H pet stance, Tab map, Esc menu.\nController: left stick move, X attack, A dodge, B interact, Y tame, shoulders spells, D-pad up pet stance, D-pad down minimap, Start menu.\n\nNative save schema 2 is separate from browser v104."
    _atlas_action("SAVE NATIVE CHECKPOINT","save")
    _atlas_action("LOAD NATIVE CHECKPOINT","load")
    _atlas_action("SHOW WORLD DIAGNOSTICS","diagnostics")
@@ -1695,7 +1695,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
   if event.keycode in [KEY_SPACE,KEY_ENTER,KEY_KP_ENTER,KEY_P]:_skip_wait_animation()
   get_viewport().set_input_as_handled()
   return
- if event.keycode in [KEY_ESCAPE,KEY_F10]:
+ if event.keycode==KEY_ESCAPE:
   if hero_playing:_toggle_menu()
   get_viewport().set_input_as_handled()
   return
