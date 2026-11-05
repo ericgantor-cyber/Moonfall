@@ -36,8 +36,6 @@ void AMoonfallHud::DrawHUD()
         FLinearColor(1.f, .22f, .30f));
     DrawRing(OrbCenter, 34.f, Hero->GetHudManaRatio(), FLinearColor(.18f, .48f, 1.f));
     DrawRing(OrbCenter, 25.f, Hero->GetHudXpRatio(), FLinearColor(.70f, .40f, 1.f));
-    DrawText(FString::Printf(TEXT("LV %d | HP %.0f"), Hero->GetHudLevel(), Hero->GetHudHealth()),
-        FLinearColor::White, 50.f, Canvas->ClipY - 118.f);
 
     // Prototype arena radar, not the production six-region Raven Atlas.
     const float Left = Canvas->ClipX - 178.f;
@@ -54,5 +52,4 @@ void AMoonfallHud::DrawHUD()
         const float BossY = 98.f - FMath::Clamp(B.Y / 1600.f, -1.f, 1.f) * 68.f;
         DrawMarker(BossX, BossY, FLinearColor::Red);
     }
-    DrawText(TEXT("PROTOTYPE MINIMAP"), FLinearColor::White, Left + 8.f, 181.f);
 }
