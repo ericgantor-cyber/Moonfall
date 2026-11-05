@@ -225,6 +225,12 @@ public sealed class MoonfallPrototype : MonoBehaviour
         }
     }
 
+    // Lightweight class identity. No changes to Z or Nyra's original artwork.
+    float BasicAttackDamage() { return (selectedHero == 0 ? 20f : 14f) + progression.Level; }
+    float ArcaneBoltDamage() { return selectedHero == 1
+        ? 34f + 3f * progression.Level : 22f + 2f * progression.Level; }
+    float HealingSpellAmount() { return (selectedHero == 1 ? 40f : 25f) + progression.Level; }
+
     void DamageEnemy(WorldEnemy enemy, float damage)
     {
         if (enemy == null) return;
@@ -233,7 +239,8 @@ public sealed class MoonfallPrototype : MonoBehaviour
         if (enemy.guardian) defeatedGuardianMask |= 1 << enemy.id;
         else defeatedEnemyMask |= 1 << enemy.id;
         int levelsGained = progression.AwardDefeat(enemy.region, enemy.guardian, false, Time.time);
-        hp = Mathf.Min(100f + 5f * wins, hp + 20f * levelsGained);
+        // Every defeat gives a small capped heal, even without a level-up.
+        hp = Mathf.Min(100f + 5f * wins, hp + 20f * levelsGained + (enemy.guardian ? 16f : 8f));
         enemies.Remove(enemy);
         Destroy(enemy.body.gameObject);
         SaveProgress();
@@ -302,10 +309,10 @@ public sealed class MoonfallPrototype : MonoBehaviour
                 mana -= 30f;
                 boltCooldown = 1.1f;
                 WorldEnemy foe = NearestEnemy(10f);
-                if (foe != null) DamageEnemy(foe, 25f + progression.Level * 2f);
+                if (foe != null) DamageEnemy(foe, ArcaneBoltDamage());
                 else
                 {
-                    bossHp = Mathf.Max(0f, bossHp - (25f + progression.Level * 2f));
+                    bossHp = Mathf.Max(0f, bossHp - ArcaneBoltDamage());
                     if (bossHp <= 0f) Victory();
                 }
             }
@@ -314,7 +321,7 @@ public sealed class MoonfallPrototype : MonoBehaviour
             {
                 mana -= 40f;
                 healCooldown = 5f;
-                hp = Mathf.Min(100f + 5f * wins, hp + 30f + progression.Level);
+                hp = Mathf.Min(100f + 5f * wins, hp + HealingSpellAmount());
             }
             hero.position += direction * (dodge>0 ? 12 : 6) * dt;
             hero.position = new Vector3(Mathf.Clamp(hero.position.x,-16,176),1,Mathf.Clamp(hero.position.z,-32,32));
@@ -330,10 +337,10 @@ public sealed class MoonfallPrototype : MonoBehaviour
             {
                 attackCd=.35f;
                 WorldEnemy foe = NearestEnemy(4f);
-                if (foe != null) DamageEnemy(foe, 15f);
+                if (foe != null) DamageEnemy(foe, BasicAttackDamage());
                 else if (!won && Vector3.Distance(hero.position,boss.position)<4f)
                 {
-                    bossHp=Mathf.Max(0,bossHp-15);
+                    bossHp=Mathf.Max(0,bossHp-BasicAttackDamage());
                     if (bossHp<=0) Victory();
                 }
             }
