@@ -553,7 +553,8 @@ func _unhandled_input(event:InputEvent)->void:
    _show_message("Sword angle: "+v394_strike_direction_label,0.55)
    get_viewport().set_input_as_handled()
    return
- if event is InputEventMouseButton and event.button_index==MOUSE_BUTTON_RIGHT and event.pressed and hero_playing and not menu_open and not death_active:
+ if event is InputEventMouseButton and event.button_index==MOUSE_BUTTON_RIGHT and event.pressed and hero_playing and not menu_open and not death_active and not event.alt_pressed:
+  # Plain right-click starts parry; Alt+right-click is reserved for camera orbit.
   v392_guard_started=map_time
   get_viewport().set_input_as_handled()
   return
