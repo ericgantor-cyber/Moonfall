@@ -15,7 +15,7 @@ Canonical implementation: `godot-v38/` on `main`. Never alter Godot saves, scene
 | Combat and boss warnings | Source exists | Primitive test encounter only | Primitive test encounter only |
 | Permanent progress and save migrations | Existing Godot format | Experimental PlayerPrefs only, not compatible | Isolated SaveGame slot, not compatible |
 | Inventory/crafting capacity & cost rules | `inventory_rules.gd` | `MoonfallInventoryRules.cs` source parity port added | `MoonfallInventoryRules.h` source parity port added |
-| Items, rarity, loot and equipment | Existing subsystem | Not ported | Not ported |
+| Items, rarity, loot and equipment | Existing subsystem | Rarity/pity and gear rule source ports only | Rarity/pity and gear rule source ports only |
 | Atlas, quests, progression, professions | Existing features vary | Not ported | Not ported |
 | Windows packaging, controller, accessibility | Godot source / CI | Untested | Untested |
 | Z and Nyra original art | Preserve byte-identically | No import | No import |
@@ -33,3 +33,6 @@ Canonical implementation: `godot-v38/` on `main`. Never alter Godot saves, scene
 3. Audit actual Godot world/quest/loot/spell paths before expanding game content. Do not infer implementation from wishlists.
 4. Build both engines in real editors on Windows; verify original art import byte identity and replay critical gameplay.
 5. Only consider a migration after measured perf, graphics, input and save compatibility testing.
+
+## Loot rule portability (new)
+Godot `scripts/systems/equipment_rng.gd` supplies five rarity thresholds, clamped luck 0–40, pity guarantees at 30 and 80, at most three distinct affixes, and pity reset after Rare or better. `MoonfallLootRules.cs` and `MoonfallLootRules.h` implement deterministic **roll-value-to-rarity** and pity logic plus an affix-selection helper. They do NOT implement Godot's exact seed-to-roll random stream, affix value/tier calculations, full item catalog or loot integration. `tests/test_loot_parity_vectors.py` checks reference math vectors and source markers only. It does not compile or execute the Unity/Unreal implementations.
