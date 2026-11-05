@@ -112,6 +112,9 @@ void AMoonfallPawn::BeginPlay()
             DefeatedEnemyMask = Progress->DefeatedEnemyMask & ((1 << MoonfallWorldRules::TotalEnemies) - 1);
             ClaimedChamberMask = Progress->ClaimedChamberMask & ((1 << MoonfallWorldRules::TotalChambers) - 1);
             DefeatedGuardianMask = Progress->DefeatedGuardianMask & ((1 << MoonfallWorldRules::TotalChambers) - 1);
+            // Never allow saved chamber claims without a defeated guardian.
+            // Restores Nyra's final-chamber encounter if flags are inconsistent.
+            ClaimedChamberMask &= DefeatedGuardianMask;
             Progression.Level = FMath::Clamp(Progress->HeroLevel, 1, 100);
             Progression.Experience = FMath::Clamp(Progress->HeroXP, 0, Progression.ExperienceToNext() - 1);
             Progression.HeroPoints = FMath::Clamp(Progress->HeroPoints, 0, 100);
