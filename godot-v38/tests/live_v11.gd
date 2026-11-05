@@ -36,6 +36,19 @@ func _run() -> void:
  check(game.get("map_time") > t + 0.5, "Player simulation advances 120 physics frames")
  check(game.get("hero_playing"), "Hero remains active in live simulation")
  check(game.get("visible_regions") >= 1, "Region visibility remains valid")
+ # Edge detection must recognize the first press after release and must
+ # never fire repeatedly for a held controller button.
+ check(bool(game.call("_pad_edge",0,"map",true)),"Atlas button first press is registered")
+ check(not bool(game.call("_pad_edge",0,"map",true)),"Held atlas button does not toggle repeatedly")
+ check(not bool(game.call("_pad_edge",0,"map",false)),"Atlas button release is not an activation")
+ check(bool(game.call("_pad_edge",0,"map",true)),"Atlas button re-press registers after release")
+ # Headless CI has no real joypad. The SceneTree process_frame signal
+ # fires BEFORE node _process, so allow the next node tick to finish.
+ await process_frame
+ await process_frame
+ if Input.get_connected_joypads().is_empty():
+  check((game.get("pad_atlas_previous") as Dictionary).is_empty(),"Disconnected controller button history is cleared")
+
  check(game.get("beasts").size() == 76, "74 legacy actor IDs plus two divine boss actors remain stable")
  # The pack coordinator must not scan neighbors when downstream steering
  # cannot flank. Verify counters, then verify moving foes still coordinate.
