@@ -233,13 +233,11 @@ class PrototypeContracts(unittest.TestCase):
         self.assertNotIn("SpawnWave(", self.unity)
         self.assertNotIn("SpawnWave(", self.cpp)
 
-    def test_post_boss_exploration_and_minor_enemy_level_up(self):
+    def test_post_boss_exploration_and_xp_awards(self):
         self.assertIn("if (Input.GetMouseButtonDown(0) && attackCd<=0)", self.unity)
         self.assertIn("else if (!won && Vector3.Distance(hero.position,boss.position)<4f)", self.unity)
-        self.assertIn("hp = Mathf.Min(100f + 5f * wins, hp + 20f * levelsGained)", self.unity)
         self.assertIn("if (Health <= 0.f || AttackCooldown > 0.f) return;", self.cpp)
         self.assertIn("else if (!bWon && FVector::Dist2D", self.cpp)
-        self.assertIn("Health = FMath::Min(100.f + 5.f * Victories, Health + 20.f * LevelsGained)", self.cpp)
         self.assertNotIn("if (Health <= 0.f || bWon || AttackCooldown > 0.f)", self.cpp)
 
     def test_thirty_connected_chambers_and_persistent_loot(self):
@@ -302,13 +300,12 @@ class PrototypeContracts(unittest.TestCase):
         self.assertNotIn("SpawnWave(", self.unity)
         self.assertNotIn("SpawnWave(", self.cpp)
 
-    def test_hero_class_combat_and_heal_per_kill(self):
+    def test_hero_class_combat_without_passive_kill_healing(self):
         self.assertIn("float BasicAttackDamage()", self.unity)
         self.assertIn("float ArcaneBoltDamage()", self.unity)
         self.assertIn("float HealingSpellAmount()", self.unity)
         self.assertIn("selectedHero == 0 ? 20f : 14f", self.unity)
         self.assertIn("selectedHero == 1", self.unity)
-        self.assertIn("(enemy.guardian ? 16f : 8f)", self.unity)
         self.assertIn("DamageEnemy(foe, BasicAttackDamage())", self.unity)
         self.assertIn("DamageEnemy(foe, ArcaneBoltDamage())", self.unity)
         self.assertIn("hp + HealingSpellAmount()", self.unity)
@@ -316,7 +313,6 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("float AMoonfallPawn::ArcaneBoltDamage() const", self.cpp)
         self.assertIn("float AMoonfallPawn::HealingSpellAmount() const", self.cpp)
         self.assertIn("HeroArtIndex == 0 ? 20.f : 14.f", self.cpp)
-        self.assertIn("(bGuardian ? 16.f : 8.f)", self.cpp)
         self.assertIn("DamageWorldEnemy(EnemyIndex, BasicAttackDamage())", self.cpp)
         self.assertIn("DamageWorldEnemy(EnemyIndex, ArcaneBoltDamage())", self.cpp)
         self.assertIn("Health + HealingSpellAmount()", self.cpp)
@@ -333,6 +329,22 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("selectedHero = index;", self.unity)
         self.assertIn("heroPortrait = selected != null ? AttachPortrait", self.unity)
         self.assertIn('PlayerPrefs.SetInt("moonfall_experiment_hero_art", selectedHero);', self.unity)
+
+    def test_kills_and_level_ups_never_automatically_heal(self):
+        # Manual E spell healing remains; XP/loot and permanent max-HP bonuses remain.
+        self.assertIn("hp + HealingSpellAmount()", self.unity)
+        self.assertIn("Health + HealingSpellAmount()", self.cpp)
+        self.assertIn("progression.AwardDefeat(enemy.region, enemy.guardian, false, Time.time);", self.unity)
+        self.assertIn("Progression.AwardDefeat(Region, bGuardian, false", self.cpp)
+        self.assertIn("progression.AwardDefeat(0, true, true, Time.time);", self.unity)
+        self.assertIn("Progression.AwardDefeat(0, true, true", self.cpp)
+        self.assertNotIn("hp + 20f * levelsGained", self.unity)
+        self.assertNotIn("hp + 20 * levelsGained", self.unity)
+        self.assertNotIn("hp += 5 * (wins - previousWins)", self.unity)
+        self.assertNotIn("Health + 20.f * LevelsGained", self.cpp)
+        self.assertNotIn("Health += 5.f * (Victories - Previous)", self.cpp)
+        self.assertNotIn("enemy.guardian ? 16f : 8f", self.unity)
+        self.assertNotIn("bGuardian ? 16.f : 8.f", self.cpp)
 
     def test_original_art_import_is_checksum_guarded(self):
         import_tool = (ROOT / "tools/import_godot_art.py").read_text()
