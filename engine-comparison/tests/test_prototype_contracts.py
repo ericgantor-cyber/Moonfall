@@ -328,6 +328,16 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("FVector2D(Forward, Right).SizeSquared() > 0.01f", self.cpp)
         self.assertNotIn("SpawnWave(", self.cpp)
 
+    def test_unreal_level_max_hp_respects_existing_saves_without_kill_healing(self):
+        self.assertIn("100.f + 5.f * Victories + 2.f * (Progression.Level - 1)", self.header)
+        self.assertIn("2.f * (FMath::Clamp(Progress->HeroLevel, 1, 100) - 1)", self.cpp)
+        self.assertIn("Health = GetHudMaxHealth();", self.cpp)
+        self.assertIn("const float MaxHealth = GetHudMaxHealth();", self.cpp)
+        self.assertIn("Health = FMath::Min(MaxHealth, Health + HealingSpellAmount());", self.cpp)
+        self.assertIn("Progress->SavedHealth = Health;", self.cpp)
+        self.assertNotIn("Health += 2.f;", self.cpp)
+        self.assertNotIn("Health += GuardianBlessingCount()", self.cpp)
+
     def test_unreal_unique_guardian_blessings_persist_without_extra_save_fields(self):
         self.assertIn("int32 AMoonfallPawn::GuardianBlessingCount() const", self.cpp)
         self.assertIn("Id < MoonfallWorldRules::TotalChambers", self.cpp)
