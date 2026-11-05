@@ -14,7 +14,7 @@ Canonical implementation: `godot-v38/` on `main`. Never alter Godot saves, scene
 | Continuous six-region world, traversal and dungeons | Source exists, extent requires audit | Not ported | Not ported |
 | Combat and boss warnings | Source exists | Primitive test encounter only | Primitive test encounter only |
 | Permanent progress and save migrations | Existing Godot format | Experimental PlayerPrefs only, not compatible | Isolated SaveGame slot, not compatible |
-| Inventory/crafting capacity & cost rules | `inventory_rules.gd` | `MoonfallInventoryRules.cs` source parity port added | Pending native C++ parity port |
+| Inventory/crafting capacity & cost rules | `inventory_rules.gd` | `MoonfallInventoryRules.cs` source parity port added | `MoonfallInventoryRules.h` source parity port added |
 | Items, rarity, loot and equipment | Existing subsystem | Not ported | Not ported |
 | Atlas, quests, progression, professions | Existing features vary | Not ported | Not ported |
 | Windows packaging, controller, accessibility | Godot source / CI | Untested | Untested |
@@ -28,7 +28,7 @@ Canonical implementation: `godot-v38/` on `main`. Never alter Godot saves, scene
 - Remaining ports: gear transfer, power/name/rarity searches and stable sorting, matching discard behavior, equipment copy, reward distribution, save schemas and UI.
 
 ## Next gates
-1. Implement corresponding pure Unreal inventory/crafting rules, with shared test vectors.
+1. Run equivalent Unity and Unreal inventory/crafting tests with shared test vectors, and connect these rules to the experimental gameplay UI.
 2. Source-parity tests for invalid recipe costs, overflowing materials, full bags and capacity upgrades.
 3. Audit actual Godot world/quest/loot/spell paths before expanding game content. Do not infer implementation from wishlists.
 4. Build both engines in real editors on Windows; verify original art import byte identity and replay critical gameplay.
