@@ -51,3 +51,6 @@ Note: Godot also already has a separate `MoonfallUnreal/` codebase on main. It s
 
 ## In-game minimap and orbs
 The experimental **gameplay screen**, not just a menu, now draws a small arena minimap at the upper-right (hero and boss markers) and concentric red HP, blue mana and purple XP rings at the lower-left. XP and HP reflect gameplay state; mana remains a **full-value placeholder** because mana/spells are not integrated in these combat slices yet. This small arena radar does not contain the complete six-region Godot Raven Atlas and does not replace it. Unreal attaches its AHUD to the game mode; Unity draws in OnGUI. Visual layout, accessibility scaling, Windows compatibility and engine compilation are unverified.
+
+## Minimal gameplay HUD requirement
+User-approved gameplay overlay is strictly the upper-right minimap and lower-left red HP, blue mana, purple XP orbs. No experience counters, boss bars, loot text, level number, control legend, diagnostic text or floating status panels. Game mechanics, loot and progression continue underneath without extra permanent HUD widgets. Unreal on-screen debug messages have been removed; save errors still log via UE_LOG. The blue mana ring remains a placeholder until spells are implemented. Visual testing in actual engines is pending.
