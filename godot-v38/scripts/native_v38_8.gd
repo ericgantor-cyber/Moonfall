@@ -118,6 +118,7 @@ func _spawn_divine_encounter(spec:Dictionary)->void:
  actor["divine_warn_until"]=0.0
  actor["divine_warning_pos"]=location
  actor["divine_pattern_seq"]=0
+ actor["divine_chain_pending"]=false
  var native_body:CharacterBody3D=actor.get("body") as CharacterBody3D
  if not is_instance_valid(native_body):return
  native_body.name="DivineBoss_"+str(spec["id"])
@@ -161,6 +162,7 @@ func _reset_native_beast(beast:Dictionary)->void:
  _clear_divine_warning(beast)
  beast["divine_next_at"]=map_time+6.0
  beast["divine_pattern_seq"]=0
+ beast["divine_chain_pending"]=false
 
 # Earned divine blessings use existing permanent boss defeat IDs. This avoids
 # adding fragile fields to schema-2 checkpoints or the old hero identity.
@@ -232,12 +234,30 @@ func _update_beast_step(beast:Dictionary,delta:float)->void:
    return
   warning.hide()
   beast["divine_warn_until"]=0.0
+  var chained:bool=bool(beast.get("divine_chain_pending",false))
+  beast["divine_chain_pending"]=false
   var strike:Vector3=beast.get("divine_warning_pos",body.global_position)
   var radius:float=float(beast.get("divine_attack_radius",3.0 if str(beast["divine_id"])=="z" else 4.1))
   var dist_sq:float=Vector2(player.global_position.x-strike.x,player.global_position.z-strike.z).length_squared()
   if dist_sq<radius*radius and dodge_time<=0.0 and _has_clear_sight(body,player):
    _apply_incoming_damage(15.0+float(int(beast.get("boss_phase",1)))*8.0)
    _show_message("Divine strike! Leave the glowing mark or dodge.",1.5)
+  # A phase-three opening strike earns exactly one marked follow-up.
+  # Reuse the single disk and give players a fresh 1.15s escape window.
+  if not chained and int(beast.get("boss_phase",1))==3 and bool(beast.get("alive",false)):
+   var follow_pos:Vector3=player.global_position
+   var follow_radius:float=2.8 if str(beast["divine_id"])=="z" else 3.5
+   beast["divine_chain_pending"]=true
+   beast["divine_warning_pos"]=follow_pos
+   beast["divine_attack_radius"]=follow_radius
+   beast["divine_warn_until"]=map_time+1.15
+   var follow_disk:CylinderMesh=warning.mesh as CylinderMesh
+   if is_instance_valid(follow_disk):
+    follow_disk.bottom_radius=follow_radius
+    follow_disk.top_radius=follow_radius
+   warning.global_position=Vector3(follow_pos.x,0.07,follow_pos.z)
+   warning.visible=true
+   _show_message("SECOND STRIKE! DODGE THE NEW MARK!",1.15)
   return
  if body.global_position.distance_squared_to(player.global_position)>12.0*12.0:return
  if map_time<float(beast.get("divine_next_at",0.0)):return
@@ -282,6 +302,7 @@ func _refresh_boss_phase(beast:Dictionary)->void:
 # fixed. Clear off-region warnings when travel switches AI simulation zones.
 func _clear_divine_warning(actor:Dictionary)->void:
  actor["divine_warn_until"]=0.0
+ actor["divine_chain_pending"]=false
  var disk:MeshInstance3D=actor.get("divine_disk") as MeshInstance3D
  if is_instance_valid(disk):disk.hide()
 
