@@ -13,6 +13,17 @@ func _run()->void:
  check(RULES.zoom_from_legacy(17.5)<RULES.DEFAULT_DISTANCE,"wheel zooms closer")
  check(RULES.zoom_from_legacy(20.5)>RULES.DEFAULT_DISTANCE,"wheel zooms farther")
  check(RULES.safe_distance(10.0)<10.0,"collision avoids scenery")
+ # Right-stick analog orbit starts without jumping to 18% speed.
+ var stick_quiet:Vector2=RULES.orbit_stick_input(Vector2(0.15,0.0))
+ var stick_edge:Vector2=RULES.orbit_stick_input(Vector2(0.18,0.0))
+ var stick_small:Vector2=RULES.orbit_stick_input(Vector2(0.19,0.0))
+ var stick_half:Vector2=RULES.orbit_stick_input(Vector2(0.5,0.0))
+ var stick_full:Vector2=RULES.orbit_stick_input(Vector2(1.0,0.0))
+ var stick_diagonal:Vector2=RULES.orbit_stick_input(Vector2(0.5,0.5))
+ check(stick_quiet==Vector2.ZERO and stick_edge==Vector2.ZERO,"right-stick deadzone suppresses noise without movement")
+ check(stick_small.x>0.0 and stick_small.x<0.03 and stick_half.x>stick_small.x and stick_half.x<1.0,"right-stick camera orbit grows smoothly past deadzone")
+ check(absf(stick_full.x-1.0)<0.001 and stick_diagonal.length()<=1.001 and absf(stick_diagonal.x-stick_diagonal.y)<0.001,"right-stick preserves full and diagonal analog response")
+ check(RULES.orbit_frame_step(-1.0)==0.0 and absf(RULES.orbit_frame_step(0.4)-0.08)<0.001 and absf(RULES.orbit_frame_step(0.016)-0.016)<0.001,"camera orbit frame time clamps hitches but preserves normal updates")
  # Blocking scenery must not leave the camera outside the physics clearance
  # while smoothing. Open-space follow still eases rather than popping outward.
  var focus:=Vector3.ZERO
