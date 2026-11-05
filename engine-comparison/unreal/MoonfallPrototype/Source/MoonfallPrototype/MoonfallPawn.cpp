@@ -194,7 +194,8 @@ void AMoonfallPawn::DamageWorldEnemy(int32 Index, float Damage)
     if (Enemy.Portrait) Enemy.Portrait->DestroyComponent();
     Enemy.Mesh->DestroyComponent();
     Enemies.RemoveAt(Index);
-    Progression.AwardDefeat(Region, false, false, GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f);
+    const int32 LevelsGained = Progression.AwardDefeat(Region, false, false, GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f);
+    Health = FMath::Min(100.f + 5.f * Victories, Health + 20.f * LevelsGained);
     SaveProgress();
 }
 
@@ -244,11 +245,11 @@ void AMoonfallPawn::Dodge()
 }
 void AMoonfallPawn::Attack()
 {
-    if (Health <= 0.f || bWon || AttackCooldown > 0.f) return;
+    if (Health <= 0.f || AttackCooldown > 0.f) return;
     AttackCooldown = 0.35f;
     const int32 EnemyIndex = NearestEnemyIndex(400.f);
     if (EnemyIndex != INDEX_NONE) DamageWorldEnemy(EnemyIndex, 15.f);
-    else if (FVector::Dist2D(HeroMesh->GetRelativeLocation(), BossMesh->GetRelativeLocation()) <= 400.f)
+    else if (!bWon && FVector::Dist2D(HeroMesh->GetRelativeLocation(), BossMesh->GetRelativeLocation()) <= 400.f)
     {
         BossHealth = FMath::Max(0.f, BossHealth - 15.f);
         if (BossHealth <= 0.f) Victory();
@@ -256,10 +257,10 @@ void AMoonfallPawn::Attack()
 }
 void AMoonfallPawn::CastBolt()
 {
-    if (Health <= 0.f || bWon || BoltCooldown > 0.f || Mana < 30.f) return;
+    if (Health <= 0.f || BoltCooldown > 0.f || Mana < 30.f) return;
     const int32 EnemyIndex = NearestEnemyIndex(1000.f);
-    if (EnemyIndex == INDEX_NONE &&
-        FVector::Dist2D(HeroMesh->GetRelativeLocation(), BossMesh->GetRelativeLocation()) > 1000.f) return;
+    if (EnemyIndex == INDEX_NONE && (bWon ||
+        FVector::Dist2D(HeroMesh->GetRelativeLocation(), BossMesh->GetRelativeLocation()) > 1000.f)) return;
     Mana -= 30.f;
     BoltCooldown = 1.1f;
     if (EnemyIndex != INDEX_NONE) DamageWorldEnemy(EnemyIndex, 25.f + 2.f * Progression.Level);
