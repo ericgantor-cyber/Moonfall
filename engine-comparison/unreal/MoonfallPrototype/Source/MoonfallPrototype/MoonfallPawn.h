@@ -25,6 +25,8 @@ public:
     virtual void Tick(float DeltaSeconds) override;
     virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
     bool IsDefeated() const { return Health <= 0.f; }
+    bool IsGuarding() const { return bGuardHeld && Health > 0.f && DodgeTimer <= 0.f && Stamina > 0.f; }
+    bool IsParryWindowActive() const { return IsGuarding() && GuardParryTimer > 0.f; }
     float GetHudHealth() const { return Health; }
     float GetHudMaxHealth() const { return 100.f + 5.f * Victories + 2.f * (Progression.Level - 1); }
     float GetHudMana() const { return Mana; }
@@ -50,6 +52,9 @@ public:
         bool bMagic = false;
         bool bIncoming = false;
         bool bDodged = false;
+        bool bBlocked = false;
+        bool bParried = false;
+        bool bGuardBroken = false;
     };
     const TArray<FDamageNumber>& GetDamageNumbers() const { return DamageNumbers; }
     static constexpr float DamageNumberLifetime = 1.25f;
@@ -91,6 +96,10 @@ private:
     TArray<FDamageNumber> DamageNumbers; // Bounded, temporary combat feedback only.
     void RecordDamageNumber(const FVector& LocalPosition, float Amount, bool bHeavy, bool bMagic);
     void RecordHeroHit(float Amount, bool bDodged);
+    void RecordGuardEvent(bool bParried, bool bBroken);
+    float ResolveGuardHit(const FVector& AttackOrigin, float Damage, bool bUnblockable, bool& bParried);
+    void BeginGuard();
+    void EndGuard();
     struct FChamberCache
     {
         UStaticMeshComponent* Mesh = nullptr;
@@ -104,6 +113,13 @@ private:
     float RespawnGraceTimer = 0.f; // Short safety window on restored living checkpoints.
     static constexpr float RespawnGraceDuration = 2.f;
     float EnemyDamageCooldown = 0.f;
+    bool bGuardHeld = false;
+    bool bBossRadialAttack = false; // Radial boss attacks are dodge-only.
+    FVector GuardDirection = FVector::ForwardVector;
+    float GuardParryTimer = 0.f;
+    float GuardBreakTimer = 0.f;
+    static constexpr float ParryWindow = 0.22f;
+    static constexpr float GuardBreakDuration = 1.1f;
     float CounterWindow = 0.f;
     int32 BossAttackCount = 0;
     int32 BossAttackPhase = 1;
