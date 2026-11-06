@@ -228,6 +228,8 @@ func _draw()->void:
  # World-space structural pillars are visible only in discovered dungeon rooms.
  if dungeon_active:
   for pillar in dungeon_pillars:
+   var pillar_offset:Vector2=Vector2(pillar.x-player_position.x,pillar.z-player_position.z)*scale_factor
+   if absf(pillar_offset.x)>size.x*0.5 or absf(pillar_offset.y)>size.y*0.5:continue
    var pillar_discovered:bool=false
    for room_index in range(dungeon_rooms.size()):
     if room_index>=dungeon_floor_radii.size():continue
@@ -240,8 +242,6 @@ func _draw()->void:
       break
     if pillar_discovered:break
    if not pillar_discovered:continue
-   var pillar_offset:Vector2=Vector2(pillar.x-player_position.x,pillar.z-player_position.z)*scale_factor
-   if absf(pillar_offset.x)>size.x*0.5 or absf(pillar_offset.y)>size.y*0.5:continue
    var mapped:Vector2=centre+pillar_offset
    draw_rect(Rect2(mapped-Vector2(2,2),Vector2(4,4)),Color(0.75,0.80,0.89,0.9),true)
  # Visited authored chambers are gold-ring landmarks independent of quests.
