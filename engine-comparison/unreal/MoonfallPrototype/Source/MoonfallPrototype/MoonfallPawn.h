@@ -40,6 +40,16 @@ public:
     bool IsBossDefeated() const { return bWon; }
     TArray<FVector> GetEnemyMapPositions() const;
     TArray<FVector> GetChamberMapPositions() const;
+    struct FDamageNumber
+    {
+        FVector LocalPosition = FVector::ZeroVector;
+        float Amount = 0.f;
+        float Age = 0.f;
+        bool bHeavy = false;
+        bool bMagic = false;
+    };
+    const TArray<FDamageNumber>& GetDamageNumbers() const { return DamageNumbers; }
+    static constexpr float DamageNumberLifetime = 1.25f;
 private:
     UPROPERTY() USceneComponent* Root;
     UPROPERTY() UStaticMeshComponent* HeroMesh;
@@ -66,6 +76,8 @@ private:
         FVector Home = FVector::ZeroVector;
     };
     TArray<FWorldEnemy> Enemies;
+    TArray<FDamageNumber> DamageNumbers; // Bounded, temporary combat feedback only.
+    void RecordDamageNumber(const FVector& LocalPosition, float Amount, bool bHeavy, bool bMagic);
     struct FChamberCache
     {
         UStaticMeshComponent* Mesh = nullptr;
