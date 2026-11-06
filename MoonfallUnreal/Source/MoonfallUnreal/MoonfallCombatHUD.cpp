@@ -168,11 +168,19 @@ void AMoonfallCombatHUD::DrawHUD()
   const float MapRadius = FMath::Clamp(FMath::Min(Canvas->SizeX, Canvas->SizeY) * 0.09f, 52.f, 84.f);
   const FVector2D MapCenter(Canvas->SizeX - MapRadius - 24.f, MapRadius + 28.f);
   const float MapRange = FMath::Clamp(Hero->MinimapRange, 1200.f, 4800.f); // Unreal centimetres
+  // Tiles are charted as filled discovered ground, not isolated 4px dots.
+  // Clamp footprint and keep the edge of the circular minimap clear.
+  const float MiniScale = MapRadius * 0.86f / MapRange;
+  const float MiniTilePixels = FMath::Clamp(CellSize * MiniScale, 2.f, 16.f);
   for (const FIntPoint& Cell : ExploredMapCells) {
-   const FVector2D CellOffset((Cell.X + 0.5f) * CellSize - HeroPosition.X, (Cell.Y + 0.5f) * CellSize - HeroPosition.Y);
-   if (CellOffset.SizeSquared() > FMath::Square(MapRange)) continue;
-   const FVector2D DiscoveredScreen = MapCenter + FVector2D(CellOffset.X, -CellOffset.Y) * (MapRadius * 0.86f / MapRange);
-   DrawRect(FLinearColor(0.2f,0.32f,0.42f,0.55f),DiscoveredScreen.X-2.f,DiscoveredScreen.Y-2.f,4.f,4.f);
+   const FVector2D CellOffset((Cell.X + 0.5f) * CellSize - HeroPosition.X,
+                              (Cell.Y + 0.5f) * CellSize - HeroPosition.Y);
+   const FVector2D DiscoveredScreen = MapCenter + FVector2D(CellOffset.X, -CellOffset.Y) * MiniScale;
+   if ((DiscoveredScreen - MapCenter).SizeSquared() >
+       FMath::Square(MapRadius * 0.86f - MiniTilePixels * 0.5f)) continue;
+   DrawRect(FLinearColor(0.2f,0.32f,0.42f,0.55f),
+            DiscoveredScreen.X-MiniTilePixels*0.5f,
+            DiscoveredScreen.Y-MiniTilePixels*0.5f,MiniTilePixels,MiniTilePixels);
   }
   const int32 RingSegments = 48;
   for (int32 Segment = 0; Segment < RingSegments; ++Segment) {
@@ -348,11 +356,17 @@ void AMoonfallCombatHUD::DrawExplorationAtlas(const AMoonfallHeroPawn* Hero)
  for (const FIntPoint& Cell : ExploredMapCells) {
   const FVector2D Offset((Cell.X+0.5f)*ExplorationCellSizeCm-Player.X-Pan.X,
                          (Cell.Y+0.5f)*ExplorationCellSizeCm-Player.Y-Pan.Y);
-  if (FMath::Abs(Offset.X)>HalfWorldRange || FMath::Abs(Offset.Y)>HalfWorldRange) continue;
+  if (FMath::Abs(Offset.X)>HalfWorldRange+ExplorationCellSizeCm ||
+      FMath::Abs(Offset.Y)>HalfWorldRange+ExplorationCellSizeCm) continue;
   const FVector2D Spot = Centre+FVector2D(Offset.X,-Offset.Y)*Scale;
-  if (Spot.X<TopLeft.X+12.f || Spot.X>TopLeft.X+Width-12.f ||
-      Spot.Y<TopLeft.Y+64.f || Spot.Y>TopLeft.Y+Height-12.f) continue;
-  DrawRect(FLinearColor(0.22f,0.36f,0.49f,0.85f),Spot.X-2.f,Spot.Y-2.f,4.f,4.f);
+  // Clip explored tile area to the atlas interior so tiles never cover the UI.
+  const float TilePixels = FMath::Max(2.f,ExplorationCellSizeCm*Scale);
+  const float Left = FMath::Max(Spot.X-TilePixels*0.5f,TopLeft.X+12.f);
+  const float Right = FMath::Min(Spot.X+TilePixels*0.5f,TopLeft.X+Width-12.f);
+  const float Top = FMath::Max(Spot.Y-TilePixels*0.5f,TopLeft.Y+64.f);
+  const float Bottom = FMath::Min(Spot.Y+TilePixels*0.5f,TopLeft.Y+Height-12.f);
+  if (Right <= Left || Bottom <= Top) continue;
+  DrawRect(FLinearColor(0.22f,0.36f,0.49f,0.85f),Left,Top,Right-Left,Bottom-Top);
  }
  if (Hero->bQuestTargetActive) {
   const FVector Delta = Hero->QuestTarget - Player;
