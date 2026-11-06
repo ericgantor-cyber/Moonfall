@@ -328,10 +328,13 @@ func _gui_input(event:InputEvent)->void:
    var nearest_room:int=dungeon_room_index_at(location,dungeon_rooms,14.0/scale_factor)
    if nearest_room>=0:
     var candidate:Vector3=dungeon_rooms[nearest_room]
+    var room_discovered:bool=false
     for visited_position in discovered_chambers:
      if Vector2(visited_position.x-candidate.x,visited_position.z-candidate.z).length_squared()<1.0:
-      location=candidate
+      room_discovered=true
       break
+    if not room_discovered:return # Do not place waypoints inside hidden chambers.
+    location=candidate
   waypoint_selected.emit(location)
   accept_event()
 
