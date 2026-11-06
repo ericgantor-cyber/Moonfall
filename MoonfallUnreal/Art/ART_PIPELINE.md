@@ -40,3 +40,17 @@ This document is an integration contract, not evidence that finished 3D art was 
 The native starter arena now uses a **single instanced static-mesh component** called `RuinPieces` for monoliths, fallen supports, and bounded ground rubble. This reduces component and draw-call overhead versus the old one-component-per-prop approach. `RuinStoneMaterial` can be set on an `AMoonfallArena` Blueprint; `RubbleCount` defaults to 24 and is clamped between 0 and 48. The distribution is deterministic and prop collision/shadows remain disabled, so enemies and the player do not snag on scenic rubble.
 
 Production-art follow-up: replace the cube mesh with authored fractured stones and architecture using the Blueprint component/mesh settings; verify instancing materials, mesh scale, GPU cost and hero readability in Unreal Editor. These are **geometry defaults and art slots**, not imported hero/monster/biome textures. Do not overwrite or restyle Z and Nyra.
+
+## Art-pass expansion: independent floor, walls and enemy family slots
+
+The starter arena now has four additional configurable art references in `AMoonfallArena`:
+- `GroundMeshArt` and `GroundMaterial`: the walkable floor.
+- `BoundaryMeshArt` and `BoundaryMaterial`: the four enclosing walls.
+
+The `CreateBlock` helper distinguishes ground from boundaries, preserving their original gameplay collision and sizes. The environment already has independent `RuinMeshArt` and `RuinStoneMaterial`, so decorative ruins can be replaced without affecting floor/walls.
+
+The `AMoonfallEnemy` class now also exposes `RegularEnemyArt`, `RegularEnemyMaterial`, `BossEnemyArt`, and `BossEnemyMaterial`, applied only when the enemy is **not** a corrupted crow. Crow-specific overrides and attack behavior remain independent.
+
+**Import checklist:** For each chosen original Moonfall model, verify authoring scale (Unreal centimetres), correct world-up and facing direction, collision response to spells, floor contact, materials, shadow and LOD cost. These properties are editable in an Unreal Blueprint subclass. Hero assets Z and Nyra must remain exactly as supplied. No original source artwork has been modified.
+
+This adds reliable hooks for production meshes and materials, not actual finished materials, models or animation assets. No Unreal runtime compile or Windows packaged test has yet confirmed the overrides.
