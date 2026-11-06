@@ -115,6 +115,7 @@ private:
     TArray<FString> BossInventory;
     FMoonfallProgression Progression;
     bool bCasting = false, bWon = false;
+    bool bRespawnRequested = false; // Ignore repeated clicks while the level reloads.
     FVector TargetWorld = FVector::ZeroVector;
     void MoveForward(float Value);
     void MoveRight(float Value);
