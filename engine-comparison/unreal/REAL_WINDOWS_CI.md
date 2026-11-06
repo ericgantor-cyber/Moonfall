@@ -15,6 +15,10 @@ An optional `unreal-win64-real-build` job is available in `.github/workflows/eng
 
 The job calls the real `verify-windows-build.ps1` with `-CreateMap -Package`. It requires actual Unreal editor and game compilation, a saved startup map, a newly created package archive, a valid Win64 PE executable and nonempty cooked content. Only if all checks succeed does it upload a 7-day downloadable GitHub Actions artifact named `Moonfall-Unreal56-Win64-Development`.
 
+## Compiler failure diagnostics
+
+If the real-engine job fails, it attempts to upload `Moonfall-Unreal56-Failure-Logs` with project Unreal logs, available crash records, and intermediate Win64 build logs for seven days. Open the failed Actions run, inspect the first compiler error in the job console, then download the diagnostic artifact if it exists. Some failures occur before Unreal creates any project log, in which case the Actions console is the primary diagnostic source. A diagnostic upload is never evidence that the game compiled.
+
 ## What this does not prove
 
 A green real-engine job proves compiler and packaging checks passed on that build machine. It **does not** by itself validate runtime combat, controller inputs, imported Z and Nyra artwork, frame time, checkpoint persistence, or installation on Windows 10 and 11. Test those separately before publishing a release. Do not merge the experimental Unreal project into production Godot solely on the basis of CI.
