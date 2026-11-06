@@ -9,4 +9,5 @@ class MOONFALLUNREAL_API AMoonfallUnrealGameMode : public AGameModeBase
 public:
  AMoonfallUnrealGameMode();
  virtual void BeginPlay() override;
+ UPROPERTY(EditDefaultsOnly, Category="Moonfall|World Art") TSubclassOf<class AMoonfallArena> ArenaClass;
 };
