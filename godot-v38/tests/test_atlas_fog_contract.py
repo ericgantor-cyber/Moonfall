@@ -30,5 +30,14 @@ class AtlasFogContract(unittest.TestCase):
         self.assertLess(room.index("if not visited:continue"), room.index("draw_string(ThemeDB.fallback_font"))
 
 
+    def test_hidden_rooms_do_not_snap_waypoints(self):
+        start = SOURCE.index("if dungeon_active:", SOURCE.index("func _gui_input("))
+        end = SOURCE.index("waypoint_selected.emit(location)", start)
+        click = SOURCE[start:end]
+        self.assertIn("for visited_position in discovered_chambers:", click)
+        self.assertLess(click.index("for visited_position in discovered_chambers:"), click.index("location=candidate"))
+        self.assertNotIn("if nearest_room>=0:location=dungeon_rooms[nearest_room]", click)
+
+
 if __name__ == "__main__":
     unittest.main()
