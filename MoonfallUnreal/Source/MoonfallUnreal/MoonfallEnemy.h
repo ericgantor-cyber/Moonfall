@@ -5,6 +5,7 @@
 class UStaticMeshComponent;
 class UStaticMesh;
 class UMaterialInterface;
+class UPointLightComponent;
 UCLASS()
 class MOONFALLUNREAL_API AMoonfallEnemy : public AActor
 {
@@ -44,6 +45,7 @@ private:
  UPROPERTY(VisibleAnywhere) UStaticMeshComponent* CrowRightTalon;
  UPROPERTY(VisibleAnywhere) UStaticMeshComponent* CrowLeftEye;
  UPROPERTY(VisibleAnywhere) UStaticMeshComponent* CrowRightEye;
+ UPROPERTY(VisibleAnywhere) UPointLightComponent* CrowWarningGlow;
  float CrowRecoverUntil = 0.f;
  bool bCrowDiving = false;
  void TickCorruptedCrow(float DeltaSeconds);
