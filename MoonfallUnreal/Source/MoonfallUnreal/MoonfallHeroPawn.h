@@ -57,12 +57,15 @@ private:
  float PerfectDodgeWindowUntil = -1.f;
  float LastPerfectDodgeRewardAt = -100.f;
  float ImpactCameraOffset = 0.f;
+ UPROPERTY(EditAnywhere, Category="Moonfall|Camera", meta=(ClampMin="250.0", ClampMax="850.0")) float CameraDistance = 450.f;
  UPROPERTY(EditAnywhere, Category="Moonfall|Combat") float ManaRegenPerSecond = 8.f;
  UPROPERTY(EditAnywhere, Category="Moonfall|Combat") float DodgeCooldown = 1.3f;
  void MoveForward(float Amount);
  void MoveRight(float Amount);
  void Turn(float Amount);
  void LookUp(float Amount);
+ void ZoomCameraIn();
+ void ZoomCameraOut();
  void CastLeft();
  void CastRight();
  void CastBoth();
