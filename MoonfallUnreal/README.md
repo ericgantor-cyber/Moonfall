@@ -87,3 +87,9 @@ The local minimap now remembers a bounded set of **384 visited 2-metre world cel
 ## Independent minimap range controls
 
 Press **+ / =** to zoom the combat minimap in, or **-** to zoom out. This changes the visible local-world radius in 4-metre steps, bounded between 12 and 48 metres; it does not alter the third-person camera's mouse-wheel zoom. The map displays its current radius below the chart. The controls are disabled while Options is open. Existing visited-cell trail and enemy markers retain their clipping to the selected range. Source tests are included, but the Unreal Editor compile and Windows runtime remain unverified.
+
+## Unreal exploration persistence and quest target hooks
+
+The local minimap now loads up to **384 visited two-metre cells** from `GGameUserSettingsIni` on HUD BeginPlay and saves changes using Unreal's config system at most once every 15 seconds, plus a final save on EndPlay. Corrupt or out-of-range saved coordinates are skipped. The trail is recorded even if the screen is too small to display the minimap. This is bounded local exploration data, not a complete terrain atlas or an unlimited permanent map.
+
+Unreal gameplay/Blueprint code can call `SetQuestTarget(WorldLocation)` and `ClearQuestTarget()` on the hero. An explicitly assigned objective appears in gold on the minimap, clamped to its edge with a direction line when distant. No quest is fabricated and no undiscovered cave geometry is rendered. Actual quest assignment/completion logic and full-world atlas still need migration. **UE 5.4 C++ compilation and Windows runtime testing remain unverified.**
