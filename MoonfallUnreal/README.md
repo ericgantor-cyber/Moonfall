@@ -127,3 +127,7 @@ In the open world atlas, pan the map until the desired location is at its centre
 ## Personal waypoint persistence
 
 The T/LB personal pin survives a normal restart via `Moonfall.Map` in `GGameUserSettingsIni`. The Backspace/RB clear action also writes the inactive state, preventing a deleted marker from returning on next start. Stored X/Y/Z are validated as finite and within bounded world coordinates before activation. This is local per-configuration persistence, not cloud saves or character-slot-specific progress. Source CI covers the persistence code; a UE 5.4 compilation and a live Windows restart test remain unverified.
+
+## Mouse click placement on the exploration atlas
+
+Open the large atlas with **M** or controller View, then **left-click inside the map** to place or move the saved green personal waypoint at that world location. The pointer is shown while the map is open and hidden again when it closes or Options opens. Header, footer and outside-map clicks are ignored; the screen-to-world conversion matches the existing panned, zoomed, north-up map projection. Left-click while the map is closed retains its existing attack mapping. **T/LB** still places a pin at the panned map centre and **Backspace/RB** clears it. The quest marker remains independent. Unreal Editor compilation, mouse capture behavior and Windows gameplay testing are unverified.
