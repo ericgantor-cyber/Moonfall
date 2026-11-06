@@ -254,6 +254,23 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("FMath::Square(1200.f)", posture)
         self.assertIn("if (Visible.Num() >= MaxPostureIndicators) break;", posture)
 
+    def test_terrain_map_readability_and_safe_combat_overlay(self):
+        hud = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8")
+        minimap = hud.split("// Compact WoW-style circular minimap", 1)[1]
+        ui = self.cpp.split("bool AMoonfallPawn::TryHandleMinimapZoomClick()", 1)[1].split(
+            "void AMoonfallPawn::EndGuard()", 1)[0]
+        self.assertIn("if (bWorldMapVisible) return true;", ui)
+        self.assertLess(ui.index("if (bWorldMapVisible) return true;"),
+                        ui.index("GetMousePosition(MouseX, MouseY)"))
+        self.assertIn("RadiusAtY", minimap)
+        self.assertIn("FLinearColor(.045f, .055f, .085f, .88f)", minimap)
+        self.assertIn("DrawRect(FLinearColor(.035f, .045f, .075f, .93f)", minimap)
+        self.assertIn("Region == MoonfallWorldRules::RegionAt(H.X)", minimap)
+        self.assertIn('TEXT("REGION %d / %d")', minimap)
+        self.assertIn('TEXT("GREEN: CHAMBER   RED: BOSS   CYAN: YOU")', minimap)
+        self.assertNotIn("Hero->GetEnemyMapPositions()", minimap)
+        self.assertNotIn("NearestChamberDirection", minimap)
+
     def test_minimap_and_world_map_render_actual_region_floor_footprints(self):
         controls = INPUT.read_text(encoding="utf-8")
         hud = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8")
