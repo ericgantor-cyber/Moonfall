@@ -32,6 +32,7 @@ public:
  UFUNCTION(BlueprintCallable, Category="Moonfall|Map") void ClearQuestTarget();
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Quest") bool bArenaBossQuestActive = false;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Quest") bool bArenaBossQuestComplete = false;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Quest") float ArenaBossQuestCompletedAt = -1.f;
  UFUNCTION(BlueprintCallable, Category="Moonfall|Quest") void BeginArenaBossQuest(FVector BossLocation);
  UFUNCTION(BlueprintCallable, Category="Moonfall|Quest") void CompleteArenaBossQuest();
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Combat") float Mana = 100.f;
