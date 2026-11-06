@@ -1022,11 +1022,16 @@ class PrototypeContracts(unittest.TestCase):
         self.assertEqual(self.cpp.count("RecordHeroHit(0.f, true);"), 2)
         self.assertIn("RecordHeroHit(FMath::Min(Health, ContactDamage), false);", self.cpp)
         self.assertIn("RecordHeroHit(FMath::Min(Health, BossDamage), false);", self.cpp)
-        self.assertIn('TEXT("DODGE")', hud)
+        self.assertNotIn('TEXT("DODGE")', hud)
+        self.assertIn("constexpr float EvadeFlashSeconds = 0.48f;", hud)
+        self.assertIn("constexpr int32 ArcSegments = 12;", hud)
+        self.assertIn("Canvas->K2_DrawLine(Start, End, 3.f * Fade + .5f, Moonlight);", hud)
+        self.assertIn("Canvas->K2_DrawLine(Start, End, 2.f * Fade + .5f, BloodEmber);", hud)
         self.assertIn("Hit.bIncoming", hud)
         self.assertIn("Hit.bDodged", hud)
         self.assertIn("FLinearColor(1.f, .2f, .25f, 1.f - T)", hud)
-        self.assertIn("FLinearColor(.35f, 1.f, .8f, 1.f - T)", hud)
+        self.assertIn("FLinearColor Moonlight(.86f, .88f, 1.f, Fade * .9f)", hud)
+        self.assertIn("FLinearColor BloodEmber(.76f, .13f, .27f, Fade * .55f)", hud)
         self.assertNotIn("NewObject<", hud)
 
     def test_original_art_import_is_checksum_guarded(self):
