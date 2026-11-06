@@ -128,8 +128,8 @@ void AMoonfallHeroPawn::MoveRight(float Value)
 }
 void AMoonfallHeroPawn::Turn(float Value) { if (!bOptionsOpen && !bWorldMapOpen) AddControllerYawInput(Value); }
 void AMoonfallHeroPawn::LookUp(float Value) { if (!bOptionsOpen && !bWorldMapOpen) AddControllerPitchInput(Value); }
-void AMoonfallHeroPawn::ZoomCameraIn() { if (!bOptionsOpen) CameraDistance = FMath::Clamp(CameraDistance - 50.f, 250.f, 850.f); }
-void AMoonfallHeroPawn::ZoomCameraOut() { if (!bOptionsOpen) CameraDistance = FMath::Clamp(CameraDistance + 50.f, 250.f, 850.f); }
+void AMoonfallHeroPawn::ZoomCameraIn() { if (!bOptionsOpen && !bWorldMapOpen) CameraDistance = FMath::Clamp(CameraDistance - 50.f, 250.f, 850.f); }
+void AMoonfallHeroPawn::ZoomCameraOut() { if (!bOptionsOpen && !bWorldMapOpen) CameraDistance = FMath::Clamp(CameraDistance + 50.f, 250.f, 850.f); }
 void AMoonfallHeroPawn::ZoomMinimapIn()
 {
  if (bOptionsOpen) return;
