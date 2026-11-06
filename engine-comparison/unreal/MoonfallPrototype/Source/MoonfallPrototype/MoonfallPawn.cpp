@@ -445,6 +445,7 @@ TArray<AMoonfallPawn::FAttackWarning> AMoonfallPawn::GetAttackWarnings() const
             (BossAttackPhase == 2 ? 1.05f : 1.15f);
         Warning.Urgency = FMath::Clamp(1.f - CastTimer / BossWindup, 0.f, 1.f);
         Warning.bBoss = true;
+        Warning.bUnblockable = bBossRadialAttack; // The radial boss pattern cannot be guarded.
         Warnings.Add(Warning);
     }
     return Warnings;
