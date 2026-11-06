@@ -1087,7 +1087,9 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
                         Contact.Mesh->GetRelativeLocation(), ContactDamage, false, bParried);
                     if (bParried)
                     {
-                        Contact.StaggerTimer = Contact.bGuardian ? 0.9f : 0.6f;
+                        // Parrying cannot shorten a longer posture-break stun.
+                        Contact.StaggerTimer = FMath::Max(
+                            Contact.StaggerTimer, Contact.bGuardian ? 0.9f : 0.6f);
                         Contact.AttackWindup = 0.f;
                         Contact.AttackRecovery = FMath::Max(Contact.AttackRecovery, 0.8f);
                     }
