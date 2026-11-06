@@ -54,6 +54,38 @@ void AMoonfallCombatHUD::DrawHUD()
   if (Boss->BossWarningEndTime > GetWorld()->GetTimeSeconds())
    DrawText(TEXT("INCOMING ATTACK - DODGE"),FLinearColor(1.f,0.83f,0.24f),X,Y+18.f,nullptr,0.9f);
  }
+ // North-up local minimap: bounded nearby enemy markers, without duplicating the HUD.
+ // World +X points east on the chart, +Y points north; no undiscovered terrain is revealed.
+ if (Canvas->SizeX >= 700.f && Canvas->SizeY >= 460.f) {
+  const float MapRadius = FMath::Clamp(FMath::Min(Canvas->SizeX, Canvas->SizeY) * 0.09f, 52.f, 84.f);
+  const FVector2D MapCenter(Canvas->SizeX - MapRadius - 24.f, MapRadius + 28.f);
+  const float MapRange = 2200.f; // Unreal centimetres
+  const int32 RingSegments = 48;
+  for (int32 Segment = 0; Segment < RingSegments; ++Segment) {
+   const float A0 = 2.f * PI * Segment / RingSegments;
+   const float A1 = 2.f * PI * (Segment + 1) / RingSegments;
+   Canvas->K2_DrawLine(MapCenter + FVector2D(FMath::Cos(A0),FMath::Sin(A0)) * MapRadius,
+                       MapCenter + FVector2D(FMath::Cos(A1),FMath::Sin(A1)) * MapRadius,
+                       2.f,FLinearColor(0.53f,0.67f,0.85f,0.85f));
+  }
+  Canvas->K2_DrawLine(MapCenter + FVector2D(-MapRadius,0.f),MapCenter + FVector2D(MapRadius,0.f),1.f,FLinearColor(0.3f,0.4f,0.55f,0.5f));
+  Canvas->K2_DrawLine(MapCenter + FVector2D(0.f,-MapRadius),MapCenter + FVector2D(0.f,MapRadius),1.f,FLinearColor(0.3f,0.4f,0.55f,0.5f));
+  int32 DrawnEnemies = 0;
+  for (TActorIterator<AMoonfallEnemy> MapIt(GetWorld()); MapIt && DrawnEnemies < 32; ++MapIt) {
+   const AMoonfallEnemy* MapEnemy = *MapIt;
+   if (!IsValid(MapEnemy) || MapEnemy->Health <= 0.f) continue;
+   const FVector Offset = MapEnemy->GetActorLocation() - Hero->GetActorLocation();
+   const FVector2D Delta(Offset.X, Offset.Y);
+   if (Delta.SizeSquared() > FMath::Square(MapRange)) continue;
+   const FVector2D Dot = MapCenter + FVector2D(Delta.X,-Delta.Y) * (MapRadius * 0.86f / MapRange);
+   const float DotSize = MapEnemy->bBoss ? 6.f : MapEnemy->bElite ? 4.5f : 3.f;
+   const FLinearColor DotColor = MapEnemy->bBoss ? FLinearColor(1.f,0.16f,0.28f) : MapEnemy->bElite ? FLinearColor(1.f,0.64f,0.15f) : FLinearColor(0.75f,0.37f,0.85f);
+   DrawRect(DotColor,Dot.X - DotSize*0.5f,Dot.Y - DotSize*0.5f,DotSize,DotSize);
+   ++DrawnEnemies;
+  }
+  DrawRect(FLinearColor(0.27f,0.88f,1.f),MapCenter.X-3.f,MapCenter.Y-3.f,6.f,6.f);
+  DrawText(TEXT("N"),FLinearColor(0.75f,0.88f,1.f),MapCenter.X-4.f,MapCenter.Y-MapRadius-17.f,nullptr,0.82f);
+ }
  // Compact circular resource HUD at bottom left, with actual gameplay values.
  const float Radius = FMath::Clamp(FMath::Min(Canvas->SizeX, Canvas->SizeY) * 0.092f, 50.f, 80.f);
  const float CX = Radius + 25.f;
