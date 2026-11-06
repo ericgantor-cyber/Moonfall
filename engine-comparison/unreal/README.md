@@ -1,21 +1,34 @@
-# Moonfall Unreal Engine 5 isolated combat experiment
+# Moonfall Unreal Engine 5.6 isolated RPG experiment
 
-Tracks #685. Source project skeleton now exists in `MoonfallPrototype/` (UE 5.6 association). It contains a native C++ pawn and game mode with primitive floor, hero and boss; the boss has an area warning followed by damage. **Uncompiled and untested:** no Unreal editor, Windows executable or gameplay benchmark has been run.
+This source prototype was merged into the repository for comparison, not promoted to the production Godot game. It includes native C++ combat, continuous regions and chambers, an experimental minimap, boss phases, progression, and preserved imported art references. **No Unreal editor compilation, Windows packaged build, or gameplay benchmark has been verified.** The original Z and Nyra files must not be modified.
 
-## Open and test
-1. Install a compatible Unreal Engine 5.6 editor with C++ build tools and Windows SDK.
-2. Open `MoonfallPrototype/MoonfallPrototype.uproject` and generate/build its C++ modules.
-3. Open an empty level and press Play; the experimental game mode should spawn `AMoonfallPawn`. If the world uses a different game mode, select MoonfallGameMode in World Settings.
-4. Verify WASD (X/Y plane), left-click attacks within 400 cm, Shift dodge, mouse wheel zoom.
-5. Boss locks a 250 cm radius ground warning to player position for 1.15 s, then deals 20 HP; dodging protects from damage. Boss HP starts at 100; each attack deals 15 HP on hit.
-6. **Known limitations:** SaveGame-based victory progression is implemented in source but not validated in a packaged Unreal build; basic colored materials and a polished HUD are not implemented; game has placeholder geometry only; keyboard input setup uses legacy axis mappings; map packaging and camera/audio/UI polish require further work.
+## Verify Win64 compilation (on a Windows development PC)
 
-## Acceptance criteria before marking prototype playable
-- Unreal C++ compiles cleanly in editor and Windows packaged build.
-- All inputs register without focus loss; boss telegraph and hitbox alignment verified.
-- SaveGame-based permanent bonus verified through game restart and red/blue/purple HUD implemented.
-- One continuous traversable level, no wave mode.
-- Reproducible Windows 10/11 FPS, frame-time, memory and load time measurements.
-- Original Z and Nyra artwork never modified or included in comparison files.
+Prerequisites: a compatible Unreal Engine 5.6 installation, Visual Studio C++ workload and Windows SDK. In PowerShell from the repository root:
 
-Do not merge into the existing Godot game until independent validation and side-by-side comparison are complete.
+```powershell
+& ".\engine-comparison\unreal\verify-windows-build.ps1" -EngineRoot "C:\Program Files\Epic Games\UE_5.6"
+```
+
+The script invokes Unreal's `Build.bat` to compile the `MoonfallPrototypeEditor` and `MoonfallPrototype` Win64 Development targets, checks exit codes, and requires the generated game executable to exist. A missing engine or failed compile returns an error. **The script has not been run with Unreal in this environment.** A passing source-only CI job does not mean the C++ target compiled.
+
+## Packaging blocker
+
+The repository currently has **no committed `.umap` level**, so there is no verified playable starting map. Create and save a level in `MoonfallPrototype/Content`, configure the startup game map in `Config/DefaultEngine.ini`, and confirm that `MoonfallGameMode` actually spawns the intended pawn. Only then request an optional package verification:
+
+```powershell
+& ".\engine-comparison\unreal\verify-windows-build.ps1" -EngineRoot "C:\Program Files\Epic Games\UE_5.6" -Package
+```
+
+Packaging uses Unreal's `RunUAT.bat BuildCookRun` for Win64 Development, cooking, staging, and archiving. If no `.umap` exists, the script **fails explicitly** instead of claiming a playable build. A successful package still needs a manual Windows 10/11 launch and gameplay check.
+
+## Manual acceptance checklist
+
+- Compile editor and game C++ targets on Windows with UE 5.6 and record exact errors, warnings, and versions.
+- Confirm a saved startup map, the custom game mode, continuous navigation, and player spawn.
+- Test left-click attack, three-hit combos, arcane bolt/heal, Shift dodge, boss telegraphs, chase/leash/stagger and mouse-wheel zoom.
+- Inspect the red HP, blue mana, purple XP HUD and minimap for readability, accessibility, and artwork fidelity.
+- Save, quit, relaunch, and verify XP, checkpoint, guardian rewards, and boss progression.
+- Package a Win64 build, launch on Windows 10/11, and record three repeatable frame-time/FPS/memory/load-time runs. Do not count editor preview results as shipping benchmarks.
+
+The Godot game and original artwork remain the source of truth. Unreal gameplay verification remains pending until all steps above pass.
