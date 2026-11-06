@@ -69,6 +69,10 @@ public:
     UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category="Prototype")
     int32 SavedMinimapZoomLevel = 0;
 
+    // The pinned quest journal selection is independent of character checkpoints.
+    UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category="Prototype")
+    int32 SavedTrackedQuestId = 2;
+
     // Empty in older saves: their maps begin hidden until revisited.
     UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category="Prototype")
     TArray<uint8> ExploredMapCells;
