@@ -165,3 +165,7 @@ The native Unreal starter arena now has an optional cool moonlight directional c
 ## Ritual boss-circle art upgrade
 
 A fixed **24-piece ceremonial stone ring** now surrounds the boss combat area. It is a single non-colliding, shadow-free instanced-mesh group positioned just above the ground, with the center left clear for attacks and warning visuals. Blueprint authors can hide it with `bShowRitualCircle` or replace its prototype tiles through `SigilTileMeshArt` and `SigilTileMaterial`. A real runic texture, emissive material, dynamic ritual effect, UE 5.4 compilation and Windows playtesting are not yet complete. The ring is decorative only; it does not alter combat balance.
+
+## Crow warning and scene-placement fixes
+
+Crow dive, talon-sweep, and feint telegraphs now also appear through the normal gameplay HUD, so the warning does not depend solely on Unreal debug drawing in a packaged build. Only the nearest actively warning crow within 16 metres is shown, using the existing boss-warning scale preference. The decorative fallback dead-tree trunks are aligned to the ground using their actual primitive height instead of floating above the floor. Arena collision blocks now finish mesh/material setup before component registration. These are code-level fixes: UE 5.4 compilation, packaging, screen readability, and Windows playtesting still need to be verified.
