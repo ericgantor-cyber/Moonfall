@@ -24,6 +24,16 @@ class UnrealWindowsBuildScriptTests(unittest.TestCase):
         self.assertIn("if: ${{ success() }}", upload.split("      - name:", 1)[0])
         self.assertIn("if-no-files-found: error", upload)
 
+    def test_real_runner_runs_preflight_before_any_unreal_compile(self):
+        workflow = (SCRIPT.parents[2] / ".github" / "workflows" /
+                    "engine-comparison-static.yml").read_text(encoding="utf-8")
+        real_job = workflow.split("  unreal-win64-real-build:", 1)[1]
+        self.assertIn("check-runner-prerequisites.ps1 -EngineRoot $env:UE_56_ROOT", real_job)
+        self.assertLess(real_job.index("check-runner-prerequisites.ps1"),
+                        real_job.index("verify-windows-build.ps1"))
+        self.assertIn("if (-not $?) { throw 'Unreal 5.6 runner prerequisite check failed.' }",
+                      real_job)
+
     def test_runner_preflight_checks_local_prerequisites_without_secrets(self):
         check = (SCRIPT.parent / "check-runner-prerequisites.ps1").read_text(encoding="utf-8")
         doc = (SCRIPT.parent / "REAL_WINDOWS_CI.md").read_text(encoding="utf-8")
