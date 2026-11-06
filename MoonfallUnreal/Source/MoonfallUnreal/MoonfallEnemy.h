@@ -26,8 +26,6 @@ public:
  UFUNCTION(BlueprintImplementableEvent, Category="Boss") void OnBossPhaseChanged(int32 NewPhase);
 private:
  float CrowAttackEndsAt = -1.f;
- float CrowWarnStartedAt = -1.f;
- float CrowRecoverStartAt = 0.f;
  int32 CrowAttackSequence = 0;
  int32 CrowAttackKind = 0; // 0 diving peck, 1 sweeping talon, 2 feint then dive
  bool bCrowHasHit = false;
@@ -36,7 +34,6 @@ private:
  UPROPERTY(VisibleAnywhere) UStaticMeshComponent* CrowBeak;
  float CrowRecoverUntil = 0.f;
  bool bCrowDiving = false;
- FVector CrowHome = FVector::ZeroVector;
  void TickCorruptedCrow(float DeltaSeconds);
  void UpdateCrowAppearance(float TimeSeconds);
  float MaxHealthAtSpawn = 0.f;
