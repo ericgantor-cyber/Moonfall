@@ -30,6 +30,10 @@ public:
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Map") FVector QuestTarget = FVector::ZeroVector;
  UFUNCTION(BlueprintCallable, Category="Moonfall|Map") void SetQuestTarget(FVector WorldLocation);
  UFUNCTION(BlueprintCallable, Category="Moonfall|Map") void ClearQuestTarget();
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Quest") bool bArenaBossQuestActive = false;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Quest") bool bArenaBossQuestComplete = false;
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Quest") void BeginArenaBossQuest(FVector BossLocation);
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Quest") void CompleteArenaBossQuest();
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Combat") float Mana = 100.f;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Combat") float MaxMana = 100.f;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Combat") float Health = 100.f;
