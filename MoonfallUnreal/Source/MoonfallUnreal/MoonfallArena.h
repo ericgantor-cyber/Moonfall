@@ -20,9 +20,18 @@ public:
  UPROPERTY(EditDefaultsOnly, Category="Moonfall|Art") UMaterialInterface* BoundaryMaterial = nullptr;
  UPROPERTY(EditDefaultsOnly, Category="Moonfall|Art") UMaterialInterface* RuinStoneMaterial = nullptr;
  UPROPERTY(EditAnywhere, Category="Moonfall|Art", meta=(ClampMin="0",ClampMax="48")) int32 RubbleCount = 24;
+ UPROPERTY(EditDefaultsOnly, Category="Moonfall|Art") UStaticMesh* DeadTreeMeshArt = nullptr;
+ UPROPERTY(EditDefaultsOnly, Category="Moonfall|Art") UMaterialInterface* DeadTreeMaterial = nullptr;
+ UPROPERTY(EditAnywhere, Category="Moonfall|Art", meta=(ClampMin="0",ClampMax="16")) int32 DeadTreeCount = 10;
+ UPROPERTY(EditDefaultsOnly, Category="Moonfall|Art") UStaticMesh* RitualStoneMeshArt = nullptr;
+ UPROPERTY(EditDefaultsOnly, Category="Moonfall|Art") UMaterialInterface* RitualStoneMaterial = nullptr;
 private:
  UPROPERTY(VisibleAnywhere) UInstancedStaticMeshComponent* RuinPieces;
+ UPROPERTY(VisibleAnywhere) UInstancedStaticMeshComponent* DeadTrees;
+ UPROPERTY(VisibleAnywhere) UInstancedStaticMeshComponent* RitualStones;
  void CreateBlock(FVector Position, FVector Scale, bool bGround);
  void CreateDecoration(FVector Position, FVector Scale);
+ void AddFoliage(FVector Position, FVector Scale, FRotator Rotation);
+ void AddRitualStone(FVector Position, FVector Scale, FRotator Rotation);
  void CreateAtmosphereLight(FVector Position, FLinearColor Color, float Intensity);
 };
