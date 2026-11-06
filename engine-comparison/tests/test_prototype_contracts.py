@@ -270,6 +270,17 @@ class PrototypeContracts(unittest.TestCase):
         self.assertNotIn("else if (!Local.IsNearlyZero())", minimap)
         self.assertNotIn("const float Left = Canvas->ClipX - 178.f;", minimap)
 
+    def test_chamber_minimap_only_collects_nearby_unclaimed_markers(self):
+        chambers = self.cpp.split("TArray<FVector> AMoonfallPawn::GetChamberMapPositions() const", 1)[1].split(
+            "void AMoonfallPawn::CollectNearbyChambers()", 1)[0]
+        self.assertIn("if (!HeroMesh) return Positions;", chambers)
+        self.assertIn("constexpr float MinimapWorldRadius = 1700.f;", chambers)
+        self.assertIn("Positions.Reserve(FMath::Min(ChamberCaches.Num(), 12));", chambers)
+        self.assertIn("FVector::DistSquared2D(Position, HeroPosition)", chambers)
+        self.assertIn("FMath::Square(MinimapWorldRadius)", chambers)
+        self.assertIn("Positions.Add(Position);", chambers)
+        self.assertNotIn("GetEnemyMapPositions()", chambers)
+
     def test_enemy_marker_collection_is_removed_with_clean_minimap(self):
         self.assertNotIn("AMoonfallPawn::GetEnemyMapPositions()", self.cpp)
         self.assertNotIn("GetEnemyMapPositions() const;", self.header)
