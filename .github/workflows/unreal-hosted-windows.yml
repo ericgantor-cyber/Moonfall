@@ -1,0 +1,113 @@
+name: Moonfall Unreal GitHub-hosted Windows feasibility and compile
+
+# Explicit opt-in only. Hosted Windows machines do NOT include Unreal 5.4.
+on:
+  workflow_dispatch:
+    inputs:
+      attempt_compile:
+        description: "Compile using an authorized UE 5.4 installed-build archive (requires secrets and enough disk space)"
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  windows-preflight:
+    runs-on: windows-2022
+    timeout-minutes: 15
+    outputs:
+      available_gb: ${{ steps.storage.outputs.available_gb }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Check Windows toolchain and disk capacity
+        id: storage
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $drive = (Get-Item $env:RUNNER_TEMP).PSDrive
+          $disk = Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='$($drive.Root.TrimEnd('\'))'"
+          if (-not $disk) { throw 'Could not determine runner free disk space.' }
+          $available = [math]::Round($disk.FreeSpace / 1GB, 1)
+          "available_gb=$available" >> $env:GITHUB_OUTPUT
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+          if (-not (Test-Path $vswhere)) { throw 'Visual Studio installer not found on GitHub-hosted Windows runner.' }
+          $vs = @(& $vswhere -latest -version '[17.0,18.0)' -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath)
+          if ($LASTEXITCODE -ne 0 -or -not ($vs | Where-Object { $_ })) {
+            throw 'Visual Studio 2022 C++ toolchain missing on hosted runner.'
+          }
+          "Windows runner free disk: $available GB" >> $env:GITHUB_STEP_SUMMARY
+          "Visual Studio 2022 C++ tools: detected" >> $env:GITHUB_STEP_SUMMARY
+          "Unreal Engine is NOT preinstalled; no compilation was attempted during preflight." >> $env:GITHUB_STEP_SUMMARY
+      - name: Note engine provisioning requirement
+        shell: pwsh
+        run: |
+          "For real compilation, a separately licensed UE 5.4 installed build must be securely provided. Standard hosted Windows runners may not have enough disk." >> $env:GITHUB_STEP_SUMMARY
+          "If a larger runner is required, configure one or use the existing trusted self-hosted workflow." >> $env:GITHUB_STEP_SUMMARY
+
+  compile-with-provided-engine:
+    if: ${{ inputs.attempt_compile }}
+    needs: windows-preflight
+    runs-on: windows-2022
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Download and validate private UE 5.4 installed-build archive
+        shell: pwsh
+        env:
+          MOONFALL_UE54_ARCHIVE_URL: ${{ secrets.MOONFALL_UE54_ARCHIVE_URL }}
+          MOONFALL_UE54_ARCHIVE_SHA256: ${{ secrets.MOONFALL_UE54_ARCHIVE_SHA256 }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if (-not $env:MOONFALL_UE54_ARCHIVE_URL -or -not $env:MOONFALL_UE54_ARCHIVE_SHA256) {
+            throw 'Configure private MOONFALL_UE54_ARCHIVE_URL and MOONFALL_UE54_ARCHIVE_SHA256 secrets before enabling compilation.'
+          }
+          if ($env:MOONFALL_UE54_ARCHIVE_SHA256 -notmatch '^[0-9a-fA-F]{64}$') {
+            throw 'UE archive SHA-256 secret must be a 64-character hexadecimal digest.'
+          }
+          $disk = Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='C:'"
+          if ($disk.FreeSpace -lt 35GB) {
+            throw 'Hosted runner has less than 35 GB free. UE 5.4 needs a larger provisioned runner; refusing large archive download.'
+          }
+          $archive = Join-Path $env:RUNNER_TEMP 'ue54-installed.zip'
+          $destination = Join-Path $env:RUNNER_TEMP 'ue54-installed'
+          # Archive URL must be an HTTPS, access-controlled download from a trusted provider.
+          if (-not $env:MOONFALL_UE54_ARCHIVE_URL.StartsWith('https://')) {
+            throw 'Installed engine archive URL must use HTTPS.'
+          }
+          Invoke-WebRequest -Uri $env:MOONFALL_UE54_ARCHIVE_URL -OutFile $archive -MaximumRedirection 3
+          $actual = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash
+          if ($actual -ine $env:MOONFALL_UE54_ARCHIVE_SHA256) {
+            throw 'Unreal engine archive checksum mismatch; refusing to extract.'
+          }
+          New-Item -ItemType Directory -Force -Path $destination | Out-Null
+          Expand-Archive -LiteralPath $archive -DestinationPath $destination -Force
+          Remove-Item -LiteralPath $archive -Force
+          $build = Join-Path $destination 'Engine\Build\BatchFiles\Build.bat'
+          if (-not (Test-Path -LiteralPath $build -PathType Leaf)) {
+            throw 'UE archive must have Engine/Build/BatchFiles/Build.bat at its root.'
+          }
+          "UE54_ROOT=$destination" >> $env:GITHUB_ENV
+      - name: Compile MoonfallUnrealEditor with actual Unreal 5.4
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          & .\MoonfallUnreal\Build\Build-Windows.ps1 -UnrealRoot $env:UE54_ROOT -CompileOnly
+          if ($LASTEXITCODE -ne 0) { throw "Unreal compiler failed with exit code $LASTEXITCODE" }
+          "Real Unreal Editor C++ compilation succeeded for ${{ github.sha }}." >> $env:GITHUB_STEP_SUMMARY
+      - name: Upload Unreal diagnostics on failure
+        if: failure()
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: Moonfall-Hosted-Windows-UE-Compile-Logs
+          path: |
+            MoonfallUnreal/Saved/Logs/
+            MoonfallUnreal/Intermediate/Build/Win64/*.log
+          if-no-files-found: warn
+          retention-days: 7
