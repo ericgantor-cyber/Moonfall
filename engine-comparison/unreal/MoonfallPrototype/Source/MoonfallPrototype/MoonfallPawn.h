@@ -54,6 +54,9 @@ private:
         UBillboardComponent* Portrait = nullptr;
         float Health = 0.f;
         float StaggerTimer = 0.f; // Surviving guardians are stunned by dodge ripostes.
+        float AttackWindup = 0.f; // Telegraph before an ordinary enemy can strike.
+        float AttackRecovery = 0.f; // No instant repeated contact hits.
+        bool bAttackReadyThisFrame = false;
         bool bStaggeredThisFrame = false; // Keep contact disabled on the final stagger frame.
         int32 Region = 0;
         int32 Id = 0;
