@@ -12,6 +12,7 @@ func check(ok:bool,description:String)->void:
  if ok:print("PASS atlas: "+description)
  else:
   failures+=1
+  print("FAIL atlas: "+description)
   push_error("FAIL atlas: "+description)
 
 func _initialize()->void:
