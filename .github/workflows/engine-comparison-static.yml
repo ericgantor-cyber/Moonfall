@@ -120,7 +120,7 @@ jobs:
     # Requires a separately provisioned Windows x64 self-hosted runner with
     # UE 5.6 and VS C++ installed. Never runs on GitHub's stock Windows VM.
     # Enable by setting repo variable MOONFALL_UNREAL_RUNNER_ENABLED=true.
-    if: ${{ github.event_name == 'workflow_dispatch' && vars.MOONFALL_UNREAL_RUNNER_ENABLED == 'true' }}
+    if: ${{ github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && vars.MOONFALL_UNREAL_RUNNER_ENABLED == 'true' }}
     runs-on: [self-hosted, Windows, X64, unreal-5.6]
     timeout-minutes: 180
     steps:
