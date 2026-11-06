@@ -3,6 +3,7 @@
 #include "MoonfallHeroPawn.h"
 #include "Components/SceneComponent.h"
 #include "Components/StaticMeshComponent.h"
+#include "Components/PointLightComponent.h"
 #include "Engine/World.h"
 #include "Kismet/GameplayStatics.h"
 #include "UObject/UObjectGlobals.h"
@@ -20,6 +21,27 @@ void AMoonfallArena::CreateBlock(FVector Position, FVector Scale) {
  UStaticMesh* Cube = LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Cube.Cube"));
  if (Cube) Block->SetStaticMesh(Cube);
 }
+void AMoonfallArena::CreateDecoration(FVector Position, FVector Scale) {
+ UStaticMeshComponent* Shape = NewObject<UStaticMeshComponent>(this);
+ Shape->SetupAttachment(GetRootComponent());
+ Shape->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+ Shape->SetCastShadow(false);
+ UStaticMesh* Cube = LoadObject<UStaticMesh>(nullptr,TEXT("/Engine/BasicShapes/Cube.Cube"));
+ if (Cube) Shape->SetStaticMesh(Cube);
+ Shape->SetRelativeLocation(Position);
+ Shape->SetRelativeScale3D(Scale);
+ Shape->RegisterComponent();
+}
+void AMoonfallArena::CreateAtmosphereLight(FVector Position, FLinearColor Color, float Intensity) {
+ UPointLightComponent* Light = NewObject<UPointLightComponent>(this);
+ Light->SetupAttachment(GetRootComponent());
+ Light->SetRelativeLocation(Position);
+ Light->SetIntensity(Intensity);
+ Light->SetLightColor(Color);
+ Light->SetAttenuationRadius(1250.f);
+ Light->SetCastShadows(false);
+ Light->RegisterComponent();
+}
 void AMoonfallArena::BeginPlay() {
  Super::BeginPlay();
  CreateBlock(FVector(0,0,-60),FVector(30,30,1));
@@ -27,6 +49,15 @@ void AMoonfallArena::BeginPlay() {
  CreateBlock(FVector(-1500,0,200),FVector(1,30,5));
  CreateBlock(FVector(0,1500,200),FVector(30,1,5));
  CreateBlock(FVector(0,-1500,200),FVector(30,1,5));
+ // Sparse non-colliding ruined monoliths and cool/warm light pools, no extra ticking actors.
+ for (int32 i=0; i<6; ++i) {
+  const float Angle = i*(2.f*PI/6.f);
+  const FVector P(1050.f*FMath::Cos(Angle),1050.f*FMath::Sin(Angle),155.f);
+  CreateDecoration(P,FVector(0.7f,0.55f,3.5f));
+  CreateDecoration(P+FVector(0.f,0.f,220.f),FVector(1.1f,0.85f,0.35f));
+ }
+ CreateAtmosphereLight(FVector(-950.f,350.f,420.f),FLinearColor(0.17f,0.31f,0.85f),2700.f);
+ CreateAtmosphereLight(FVector(950.f,-350.f,420.f),FLinearColor(0.88f,0.18f,0.09f),2100.f);
  if (!GetWorld()) return;
  // Corrupted crow enemies use the normal enemy damage, XP and loot pipeline.
  for (int32 BirdIndex=0; BirdIndex<2; ++BirdIndex) {
