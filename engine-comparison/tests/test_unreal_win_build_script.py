@@ -143,6 +143,10 @@ class UnrealWindowsBuildScriptTests(unittest.TestCase):
         self.assertIn('$RunArchiveDirectory = Join-Path $ArchiveDirectory ("run-" + [guid]::NewGuid().ToString("N"))', self.script)
         self.assertIn("if (Test-Path -LiteralPath $RunArchiveDirectory)", self.script)
         self.assertIn('"-archivedirectory=$RunArchiveDirectory"', self.script)
+        self.assertIn('"-map=/Game/$($ConfiguredMap.Groups[1].Value)"', self.script)
+        self.assertLess(self.script.index("if (-not $ConfiguredMap.Success)"),
+                        self.script.index('"-map=/Game/$($ConfiguredMap.Groups[1].Value)"'))
+
         self.assertIn("Test-Path -LiteralPath $RunArchiveDirectory -PathType Container", self.script)
         self.assertIn('Get-ChildItem -LiteralPath $RunArchiveDirectory -File -Recurse -Filter "MoonfallPrototype.exe"', self.script)
         self.assertIn("Test-WindowsExecutable -Path $_.FullName", self.script)
