@@ -574,6 +574,10 @@ void AMoonfallPawn::Attack()
         const float ComboMultiplier = bComboFinisher ? 1.5f : 1.f;
         const float Damage = BasicAttackDamage() * ComboMultiplier *
             (bRiposte ? CounterMultiplier : 1.f);
+        // Aggressive play helps sustain dodges. Only a landed third strike
+        // restores stamina; whiffs and arcane bolts never trigger the reward.
+        if (bComboFinisher)
+            Stamina = FMath::Min(GetHudMaxStamina(), Stamina + 8.f);
         CounterWindow = 0.f; // The riposte is spent only on a successful in-range attack.
         if (!bHitBoss) DamageWorldEnemy(EnemyIndex, Damage, bRiposte, bComboFinisher);
         else
