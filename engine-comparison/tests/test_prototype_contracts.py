@@ -254,34 +254,21 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("FMath::Square(1200.f)", posture)
         self.assertIn("if (Visible.Num() >= MaxPostureIndicators) break;", posture)
 
-    def test_moonfall_circular_minimap_has_clipped_markers_and_north(self):
+    def test_moonfall_circular_minimap_is_clean_without_arrows_or_enemies(self):
         hud = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8")
         minimap = hud.split("// Compact WoW-style circular minimap", 1)[1]
         self.assertIn("constexpr int32 RadarSegments = 48;", minimap)
         self.assertIn("const FVector2D RadarCenter(", minimap)
         self.assertIn("const FVector2D North(0.f, -1.f);", minimap)
         self.assertIn("Hero->GetChamberMapPositions()", minimap)
-        self.assertIn("Hero->GetEnemyMapPositions()", minimap)
         self.assertIn("Hero->IsBossDefeated()", minimap)
-        self.assertIn("if (DistanceSq > FMath::Square(RadarRadius - 10.f)) continue;", minimap)
-        self.assertIn("Local.SizeSquared() > FMath::Square(RadarRadius - 9.f)", minimap)
+        self.assertIn("Local.SizeSquared() > FMath::Square(RadarRadius - 10.f)", minimap)
         self.assertIn("Local.SizeSquared() <= FMath::Square(RadarRadius - 10.f)", minimap)
+        self.assertIn("Canvas->K2_DrawBox(RadarCenter - FVector2D(4.f, 4.f)", minimap)
+        self.assertNotIn("Hero->GetEnemyMapPositions()", minimap)
+        self.assertNotIn("NearestChamberDirection", minimap)
+        self.assertNotIn("else if (!Local.IsNearlyZero())", minimap)
         self.assertNotIn("const float Left = Canvas->ClipX - 178.f;", minimap)
-        self.assertNotIn("FVector2D(160.f, 160.f)", minimap)
-
-    def test_minimap_objective_and_boss_edge_arrows(self):
-        hud = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8")
-        minimap = hud.split("// Compact WoW-style circular minimap", 1)[1]
-        self.assertIn("float NearestChamberDistanceSq = TNumericLimits<float>::Max();", minimap)
-        self.assertIn("NearestChamberDirection = Local.GetSafeNormal();", minimap)
-        self.assertIn("if (bNearestChamberOffscreen && !NearestChamberDirection.IsNearlyZero())", minimap)
-        self.assertIn("else if (!Local.IsNearlyZero())", minimap)
-        self.assertIn("const FVector2D Tip = RadarCenter + Direction * (RadarRadius - 5.f);", minimap)
-        self.assertIn("const FVector2D Tip = RadarCenter + NearestChamberDirection * (RadarRadius - 6.f);", minimap)
-        self.assertLess(minimap.index("for (const FVector& Chamber"),
-                        minimap.index("if (bNearestChamberOffscreen"))
-        self.assertLess(minimap.index("if (bNearestChamberOffscreen"),
-                        minimap.index("for (const FVector& Enemy"))
 
     def test_minimap_collects_only_nearby_bounded_enemy_markers(self):
         minimap = self.cpp.split(
