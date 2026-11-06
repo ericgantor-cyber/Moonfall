@@ -114,6 +114,17 @@ class PrototypeContracts(unittest.TestCase):
             "void AMoonfallPawn::CastHeal()", 1)[0]
         self.assertNotIn("MeleeComboCount", bolt)
 
+    def test_unreal_melee_finisher_restores_stamina_only_on_hit(self):
+        melee = self.cpp.split("void AMoonfallPawn::Attack()", 1)[1].split(
+            "void AMoonfallPawn::CastBolt()", 1)[0]
+        bolt = self.cpp.split("void AMoonfallPawn::CastBolt()", 1)[1].split(
+            "void AMoonfallPawn::CastHeal()", 1)[0]
+        self.assertIn("if (bComboFinisher)\n            Stamina = FMath::Min(GetHudMaxStamina(), Stamina + 8.f);", melee)
+        self.assertLess(melee.index("if (EnemyIndex != INDEX_NONE || bBossInRange)"),
+                        melee.index("Stamina = FMath::Min(GetHudMaxStamina(), Stamina + 8.f);"))
+        self.assertNotIn("Stamina + 8.f", bolt)
+        self.assertNotIn("Health + 8.f", melee)
+
     def test_unreal_combo_timeout_uses_hitch_safe_reaction_dt(self):
         tick = self.cpp.split("void AMoonfallPawn::Tick(", 1)[1]
         self.assertIn("const float ReactionDt = FMath::Min(Dt, 0.05f);", tick)
