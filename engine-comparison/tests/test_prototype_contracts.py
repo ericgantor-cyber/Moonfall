@@ -456,7 +456,8 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn('TEXT("CAVES")', minimap)
         self.assertIn('TEXT("BOSS")', minimap)
         self.assertIn("if (bTrackChambers)", minimap)
-        self.assertIn("if (bTrackBoss && !Hero->IsBossDefeated())", minimap)
+        self.assertIn("if (bTrackBoss && !Hero->IsBossDefeated() &&", minimap)
+        self.assertIn("Hero->IsMapExplored(FVector2D(B.X, B.Y))", minimap)
         self.assertNotIn("Hero->GetEnemyMapPositions()", minimap)
         self.assertNotIn("NearestChamberDirection", minimap)
 
