@@ -14,4 +14,6 @@ private:
  float DisplayXP = -1.f;
  int32 LastShownLevel = -1;
  float LevelGlowUntil = 0.f;
+ // Remember only visited 2-metre cells; bounded for long play sessions.
+ TArray<FIntPoint> ExploredMapCells;
 };
