@@ -9,6 +9,7 @@ public:
  AMoonfallArena();
  virtual void BeginPlay() override;
  UPROPERTY(EditAnywhere, Category="Dungeon") int32 EnemyCount = 5;
+ UPROPERTY(EditDefaultsOnly, Category="Moonfall|Art") TSubclassOf<class AMoonfallEnemy> CrowEnemyClass;
 private:
  void CreateBlock(FVector Position, FVector Scale);
  void CreateDecoration(FVector Position, FVector Scale);
