@@ -130,6 +130,7 @@ void AMoonfallPawn::BeginPlay()
     if (!bLoadedCheckpoint)
         Health = GetHudMaxHealth(); // Full health at a new start, never from kills.
     LastCheckpointRegion = MoonfallWorldRules::RegionAt(HeroMesh->GetRelativeLocation().X);
+    RespawnGraceTimer = bLoadedCheckpoint ? RespawnGraceDuration : 0.f;
     // Load original boss art before world generation so Nyra's guardian can use it.
     // Missing imports retain the regular prototype mesh.
     ZArtwork = LoadObject<UTexture2D>(nullptr, TEXT("/Game/MoonfallArt/heroes/Z_Original.Z_Original"));
@@ -754,6 +755,7 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
     // Preserve combat reaction windows across a rare long render stall.
     // Ordinary frame intervals still advance the timers in real time.
     const float ReactionDt = FMath::Min(Dt, 0.05f);
+    RespawnGraceTimer = FMath::Max(0.f, RespawnGraceTimer - ReactionDt);
     MeleeComboTimer = FMath::Max(0.f, MeleeComboTimer - ReactionDt);
     if (MeleeComboTimer <= 0.f) MeleeComboCount = 0;
     // Snapshot dodge protection before advancing timers. The same active
@@ -797,7 +799,7 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
         CollectNearbyChambers();
         UpdateWorldEnemies(Dt);
         CameraBoom->SetRelativeLocation(FVector(Position.X, Position.Y, 0.f));
-        if (Health > 0.f && EnemyDamageCooldown <= 0.f)
+        if (Health > 0.f && EnemyDamageCooldown <= 0.f && RespawnGraceTimer <= 0.f)
         {
             // Find the nearest *engaged* contact. A retreating enemy cannot
             // shield another active enemy just because it is slightly closer.
@@ -902,7 +904,7 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
                     CounterWindow = CounterDuration;
                     Stamina = FMath::Min(GetHudMaxStamina(), Stamina + 10.f);
                 }
-                else if (EnemyDamageCooldown <= 0.f)
+                else if (EnemyDamageCooldown <= 0.f && RespawnGraceTimer <= 0.f)
                 {
                     // Boss and mob strikes share a brief damage recovery window:
                     // overlapping attacks must not instantly double-hit the hero.
