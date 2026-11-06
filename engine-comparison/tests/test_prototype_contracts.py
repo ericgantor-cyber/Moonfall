@@ -194,6 +194,22 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("if (!bHitBoss) DamageWorldEnemy(EnemyIndex, Damage, bRiposte, bComboFinisher);", self.cpp)
         self.assertIn("if (!bHitBoss) DamageWorldEnemy(EnemyIndex, Damage, bRiposte, false, true);", self.cpp)
 
+    def test_precision_parry_melee_counter_is_earned_and_single_use(self):
+        self.assertIn("bool bPrecisionRiposteReady = false;", self.header)
+        parry = self.cpp.split("float AMoonfallPawn::ResolveGuardHit(", 1)[1].split(
+            "void AMoonfallPawn::Dodge()", 1)[0]
+        self.assertIn("bPrecisionRiposteReady = true;", parry)
+        attack = self.cpp.split("void AMoonfallPawn::Attack()", 1)[1].split(
+            "void AMoonfallPawn::CastBolt()", 1)[0]
+        self.assertIn("const bool bPrecisionCounter = bRiposte && bPrecisionRiposteReady;", attack)
+        self.assertIn("(bPrecisionCounter ? 1.2f : 1.f)", attack)
+        self.assertIn("if (bPrecisionCounter) AttackCooldown = 0.22f;", attack)
+        self.assertIn("bPrecisionRiposteReady = false;", attack)
+        bolt = self.cpp.split("void AMoonfallPawn::CastBolt()", 1)[1].split(
+            "void AMoonfallPawn::CastHeal()", 1)[0]
+        self.assertIn("bPrecisionRiposteReady = false;", bolt)
+        self.assertIn("if (CounterWindow <= 0.f) bPrecisionRiposteReady = false;", self.cpp)
+
     def test_unreal_dodge_stamina_regen_delay_keeps_perfect_dodge_reward(self):
         dodge = self.cpp.split("void AMoonfallPawn::Dodge()", 1)[1].split(
             "int32 AMoonfallPawn::GuardianBlessingCount()", 1)[0]
