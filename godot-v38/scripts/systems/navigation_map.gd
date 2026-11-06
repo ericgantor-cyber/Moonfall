@@ -294,9 +294,9 @@ func _draw()->void:
   var quest_delta:Vector2=Vector2(quest_position.x-player_position.x,quest_position.z-player_position.z)*scale_factor
   if absf(quest_delta.x)>size.x*0.45 or absf(quest_delta.y)>size.y*0.45:
    var direction:Vector2=quest_delta.normalized()
-   var side:Vector2=Vector2(-direction.y,direction.x)
+   var quest_side:Vector2=Vector2(-direction.y,direction.x)
    var edge:Vector2=centre+quest_chart_edge_offset(quest_delta,size*0.40)
-   draw_colored_polygon(PackedVector2Array([edge+direction*5.0,edge-direction*7.0+side*4.0,edge-direction*7.0-side*4.0]),quest_color)
+   draw_colored_polygon(PackedVector2Array([edge+direction*5.0,edge-direction*7.0+quest_side*4.0,edge-direction*7.0-quest_side*4.0]),quest_color)
    continue
   var quest_screen:Vector2=centre+quest_delta
   draw_circle(quest_screen,8.0 if primary else 7.0,quest_color)
