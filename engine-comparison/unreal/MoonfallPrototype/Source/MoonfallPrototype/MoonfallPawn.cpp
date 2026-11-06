@@ -364,7 +364,7 @@ void AMoonfallPawn::UpdateWorldEnemies(float Dt)
         // No new textures or permanent scene components needed.
         const float WarningScale = Enemy.AttackWindup > 0.f ? 1.25f : 1.f;
         if (Enemy.Portrait) Enemy.Portrait->SetRelativeScale3D(FVector(2.f * WarningScale));
-        else Enemy.Mesh->SetRelativeScale3D(FVector((Enemy.bGuardian ? 1.3f : 1.f) * WarningScale));
+        else Enemy.Mesh->SetRelativeScale3D(FVector((Enemy.bGuardian ? 1.3f : 1.1f) * WarningScale));
         if (bAggro && Enemy.AttackWindup <= 0.f)
         {
             if (HeroDistSq > FMath::Square(160.f))
@@ -432,6 +432,8 @@ void AMoonfallPawn::DamageWorldEnemy(int32 Index, float Damage, bool bRiposte, b
             Enemy.StaggerTimer = Enemy.bGuardian ? 0.8f : 0.4f;
             Enemy.AttackWindup = 0.f; // A successful interrupt cancels the warning.
             Enemy.AttackRecovery = FMath::Max(Enemy.AttackRecovery, 0.5f);
+            if (Enemy.Portrait) Enemy.Portrait->SetRelativeScale3D(FVector(2.f));
+            else Enemy.Mesh->SetRelativeScale3D(FVector(Enemy.bGuardian ? 1.3f : 1.1f));
             // Give a landed riposte physical space without pushing guardians
             // outside their chamber leash or introducing a physics actor.
             if (Enemy.Mesh && HeroMesh)
