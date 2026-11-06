@@ -96,6 +96,15 @@ jobs:
           assert 'ClearQuestTarget()' in hero
           assert 'if (Hero->bQuestTargetActive)' in hud
           assert 'FMath::Min(QuestDistance, MapRange)' in hud
+          assert 'bArenaBossQuestActive' in hud and 'QUEST: Defeat the Arena Boss' in hud
+          assert 'QUEST COMPLETE: Arena Boss' in hud
+          assert 'BeginArenaBossQuest(FVector BossLocation)' in hero
+          assert 'CompleteArenaBossQuest()' in hero
+          assert 'if (!bArenaBossQuestActive || bArenaBossQuestComplete) return' in hero
+          assert 'bArenaBossQuestComplete = true' in hero
+          assert 'ClearQuestTarget();' in hero
+          assert 'Hero->BeginArenaBossQuest(Enemy->GetActorLocation())' in arena
+          assert 'if (bBoss) Hero->CompleteArenaBossQuest()' in enemy
           assert 'const FIntPoint CurrentCell' in hud and hud.index('const FIntPoint CurrentCell') < hud.index('if (Canvas->SizeX >= 700.f')
           assert 'CellOffset.SizeSquared() > FMath::Square(MapRange - CellSize)' in hud
           print('Input mapping and combat source checks passed. Unreal compilation NOT performed.')
