@@ -864,8 +864,43 @@ void AMoonfallPawn::CycleMinimapTracking()
 
 bool AMoonfallPawn::TryHandleMinimapZoomClick()
 {
-    // The world map remains non-combat even if the pointer leaves the viewport.
-    if (bWorldMapVisible) return true;
+    // Opening the map blocks combat. Click a journal quest to pin it;
+    // clicks outside the journal still never attack or cast.
+    if (bWorldMapVisible)
+    {
+        const APlayerController* MapController = Cast<APlayerController>(GetController());
+        if (MapController)
+        {
+            int32 ViewX = 0, ViewY = 0;
+            float MouseX = 0.f, MouseY = 0.f;
+            MapController->GetViewportSize(ViewX, ViewY);
+            if (ViewX > 0 && ViewY > 0 && MapController->GetMousePosition(MouseX, MouseY))
+            {
+                const float MapWidth = FMath::Max(200.f, FMath::Min(760.f, ViewX - 32.f));
+                const float MapHeight = FMath::Max(120.f, FMath::Min(290.f, ViewY - 100.f));
+                if (MapWidth >= 620.f && MapHeight >= 230.f)
+                {
+                    const float JournalX = (ViewX - MapWidth) * .5f + 12.f;
+                    const float JournalY = (ViewY - MapHeight) * .5f + 51.f;
+                    for (int32 QuestId = 0; QuestId < 3; ++QuestId)
+                    {
+                        const float RowY = JournalY + 28.f + QuestId * 29.f;
+                        if (MouseX >= JournalX + 5.f && MouseX <= JournalX + 223.f &&
+                            MouseY >= RowY && MouseY < RowY + 26.f)
+                        {
+                            if (TrackedQuestId != QuestId)
+                            {
+                                TrackedQuestId = QuestId;
+                                SaveMapPreferences();
+                            }
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        return true;
+    }
     const APlayerController* Controller = Cast<APlayerController>(GetController());
     if (!Controller) return false;
 
