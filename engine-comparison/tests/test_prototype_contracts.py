@@ -240,7 +240,7 @@ class PrototypeContracts(unittest.TestCase):
         self.assertNotIn("NearestEnemyIndex(175.f)", selection)
         combat = tick.split("if (ContactIndex != INDEX_NONE)", 1)[1].split(
             "EnemyDamageCooldown = 1.2f;", 1)[0]
-        self.assertIn("if (bDodgeActiveThisFrame) CounterWindow = CounterDuration;", combat)
+        self.assertIn("if (bDodgeActiveThisFrame)\n                {\n                    CounterWindow = CounterDuration;", combat)
         self.assertIn("Health = FMath::Max(0.f, Health - ContactDamage);", combat)
         self.assertIn("Contact.bEnraged ? 4.f : 0.f", combat)
 
@@ -252,7 +252,7 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("Enemy.Health <= 0.35f * 1.8f * MoonfallWorldRules::EnemyMaxHealth(Enemy.Region)", ai)
         self.assertIn("Enemy.bEnraged ? 360.f : (Enemy.bGuardian ? 280.f : 200.f)", ai)
         self.assertIn("(Contact.bEnraged ? 4.f : 0.f)", self.cpp)
-        self.assertIn("if (bDodgeActiveThisFrame) CounterWindow = CounterDuration;", self.cpp)
+        self.assertIn("if (bDodgeActiveThisFrame)\n                {\n                    CounterWindow = CounterDuration;", self.cpp)
         self.assertNotIn("Health += 4.f;", self.cpp)
 
     def test_unreal_enemy_leash_has_return_hysteresis(self):
@@ -304,7 +304,7 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("BossAttackPhase == 3 ? 2.25f", self.cpp)
         self.assertIn("BossAttackPhase == 3 ? 28.f", self.cpp)
         self.assertIn("FVector::Dist2D(HeroMesh->GetRelativeLocation(), TargetWorld) < BossWarningRadius", self.cpp)
-        self.assertIn("if (bDodgeActiveThisFrame) CounterWindow = CounterDuration;", self.cpp)
+        self.assertIn("if (bDodgeActiveThisFrame)\n                {\n                    CounterWindow = CounterDuration;", self.cpp)
         self.assertIn("float BossWarningRadius = 250.f;", self.header)
 
     def test_boss_victory_loot_is_wired_into_both_prototypes(self):
@@ -904,7 +904,7 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("CounterWindow = FMath::Max(0.f, CounterWindow - ReactionDt);", self.cpp)
         self.assertNotIn("CounterWindow = FMath::Max(0.f, CounterWindow - Dt);", self.cpp)
         self.assertIn("if (dodge > 0f) counterWindow = CounterDuration;", self.unity)
-        self.assertIn("if (bDodgeActiveThisFrame) CounterWindow = CounterDuration;", self.cpp)
+        self.assertIn("if (bDodgeActiveThisFrame)\n                {\n                    CounterWindow = CounterDuration;", self.cpp)
         self.assertIn("if (foe != null || bossInRange)", self.unity)
         self.assertIn("if (EnemyIndex != INDEX_NONE || bBossInRange)", self.cpp)
         self.assertIn("counterWindow = 0f; // One counter per successful evasion.", self.unity)
