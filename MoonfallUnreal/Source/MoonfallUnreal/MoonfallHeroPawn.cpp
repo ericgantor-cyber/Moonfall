@@ -89,6 +89,20 @@ void AMoonfallHeroPawn::ClearQuestTarget()
 {
  bQuestTargetActive = false;
 }
+void AMoonfallHeroPawn::BeginArenaBossQuest(FVector BossLocation)
+{
+ if (bArenaBossQuestComplete || bArenaBossQuestActive || bQuestTargetActive ||
+     BossLocation.ContainsNaN() || BossLocation.GetAbsMax() > 100000000.f) return;
+ SetQuestTarget(BossLocation);
+ bArenaBossQuestActive = true;
+}
+void AMoonfallHeroPawn::CompleteArenaBossQuest()
+{
+ if (!bArenaBossQuestActive || bArenaBossQuestComplete) return;
+ bArenaBossQuestActive = false;
+ bArenaBossQuestComplete = true;
+ ClearQuestTarget();
+}
 void AMoonfallHeroPawn::MoveForward(float Value)
 {
  if (bOptionsOpen) return;
