@@ -41,11 +41,22 @@ function Test-WindowsExecutable {
     param([string]$Path)
     if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { return $false }
     $stream = [System.IO.File]::OpenRead($Path)
+    $reader = [System.IO.BinaryReader]::new($stream)
     try {
-        # Windows PE executables begin with the DOS 'MZ' signature.
-        return $stream.Length -ge 2 -and $stream.ReadByte() -eq 77 -and $stream.ReadByte() -eq 90
+        # Validate the PE header as well as DOS 'MZ'; two magic bytes alone
+        # do not establish a real Win64 executable.
+        if ($stream.Length -lt 90) { return $false }
+        if ($reader.ReadUInt16() -ne 0x5A4D) { return $false }
+        $stream.Position = 0x3C
+        $peOffset = [long]$reader.ReadInt32()
+        if ($peOffset -lt 64 -or $peOffset -gt $stream.Length - 26) { return $false }
+        $stream.Position = $peOffset
+        if ($reader.ReadUInt32() -ne 0x00004550) { return $false }
+        if ($reader.ReadUInt16() -ne 0x8664) { return $false } # AMD64
+        $stream.Position = $peOffset + 24
+        return $reader.ReadUInt16() -eq 0x20B # PE32+ (64-bit)
     } finally {
-        $stream.Dispose()
+        $reader.Dispose()
     }
 }
 
