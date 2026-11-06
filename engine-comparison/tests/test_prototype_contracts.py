@@ -290,8 +290,10 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("if (bWorldMapVisible)", ui)
         self.assertIn("TrackedQuestId = QuestId;", ui)
         self.assertIn("return true;", ui)
-        self.assertLess(ui.index("if (bWorldMapVisible) return true;"),
-                        ui.index("GetMousePosition(MouseX, MouseY)"))
+        self.assertLess(ui.index("if (bWorldMapVisible)"),
+                        ui.index("MapController->GetMousePosition(MouseX, MouseY)"))
+        self.assertLess(ui.index("TrackedQuestId = QuestId;"),
+                        ui.index("const APlayerController* Controller ="))
         self.assertIn("RadiusAtY", minimap)
         self.assertIn("FLinearColor(.045f, .055f, .085f, .88f)", minimap)
         self.assertIn("DrawRect(FLinearColor(.035f, .045f, .075f, .93f)", minimap)
