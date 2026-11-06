@@ -800,7 +800,7 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("Progress->SavedHealth = Health;", self.cpp)
         self.assertIn("Progress->SavedHeroPosition = HeroMesh->GetRelativeLocation();", self.cpp)
         self.assertIn("if (!bLoadedCheckpoint)", self.cpp)
-        self.assertIn("if (CheckpointTimer >= CheckpointInterval)", self.cpp)
+        self.assertIn("CurrentRegion != LastCheckpointRegion || CheckpointTimer >= CheckpointInterval", self.cpp)
         # No combat kill path should restore HP.
         self.assertNotIn("Health + 20.f * LevelsGained", self.cpp)
         self.assertNotIn("hp + 20f * levelsGained", self.unity)
