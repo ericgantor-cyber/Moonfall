@@ -156,6 +156,30 @@ void AMoonfallHud::DrawHUD()
             HitColor, Screen.X - 12.f, Screen.Y, nullptr, Scale);
     }
 
+    // A temporary boss posture bar appears above the boss only when pressured.
+    if (Hero->IsBossPostureActive() || Hero->IsBossStaggered())
+    {
+        FVector2D Screen;
+        const FVector BossWorld = Hero->GetActorTransform().TransformPosition(
+            Hero->GetBossMapPosition() + FVector(0.f, 0.f, 310.f));
+        if (PlayerOwner->ProjectWorldLocationToScreen(BossWorld, Screen, false))
+        {
+            constexpr float Width = 100.f;
+            const float Fill = Width * Hero->GetBossPostureRatio();
+            const FLinearColor Color = Hero->IsBossStaggered()
+                ? FLinearColor(1.f, .95f, 1.f, .95f)
+                : FLinearColor(.72f, .38f, 1.f, .95f);
+            Canvas->K2_DrawBox(Screen + FVector2D(-Width * .5f, 0.f),
+                FVector2D(Width, 6.f), 1.f, FLinearColor(.18f, .16f, .22f, .75f));
+            if (Hero->IsBossStaggered())
+                Canvas->K2_DrawBox(Screen + FVector2D(-Width * .5f, 0.f),
+                    FVector2D(Width, 6.f), 2.f, Color);
+            else
+                Canvas->K2_DrawBox(Screen + FVector2D(-Width * .5f, 0.f),
+                    FVector2D(Fill, 6.f), 2.f, Color);
+        }
+    }
+
     // Short posture bars appear only after combat contact, near damaged foes.
     // No permanent meter panels, character portraits or new world actors.
     for (const AMoonfallPawn::FEnemyPosture& Posture : Hero->GetEnemyPostures())
