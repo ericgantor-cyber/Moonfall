@@ -189,6 +189,7 @@ func _draw()->void:
    var to_point:Vector2=centre+Vector2(finish.x-player_position.x,finish.z-player_position.z)*scale_factor
    var corners:=PackedVector2Array([from_point+normal,to_point+normal,to_point-normal,from_point-normal])
    var explored:bool=bool(passage.get("explored",false))
+   if not explored:continue # Fog of war: never reveal unvisited corridors.
    draw_colored_polygon(corners,Color(0.34,0.37,0.44,0.82) if explored else Color(0.075,0.095,0.13,0.88))
    var edge_color:Color=Color(0.72,0.76,0.83,0.88) if explored else Color(0.25,0.30,0.39,0.65)
    draw_line(from_point+normal,to_point+normal,edge_color,1.5)
@@ -206,7 +207,8 @@ func _draw()->void:
     if Vector2(visited_position.x-room_position.x,visited_position.z-room_position.z).length_squared()<1.0:
      visited=true
      break
-   draw_circle(room_screen,floor_radius,Color(0.29,0.33,0.39,0.77) if visited else Color(0.08,0.10,0.15,0.88))
+   if not visited:continue # Hide unvisited chamber geometry and labels.
+   draw_circle(room_screen,floor_radius,Color(0.29,0.33,0.39,0.77))
    draw_arc(room_screen,floor_radius,0.0,TAU,24,Color(0.93,0.76,0.48) if visited else Color(0.35,0.42,0.52,0.65),2.0)
    if room_index==dungeon_current_room:
     draw_arc(room_screen,floor_radius+4.0,0.0,TAU,24,Color(0.38,0.90,1.0),2.5)
