@@ -1143,6 +1143,25 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("FLinearColor(1.f, .12f, .23f", hud)
         self.assertNotIn("NewObject<", hud)
 
+    def test_boss_posture_staggers_and_cancels_current_cast(self):
+        hud = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8")
+        self.assertIn("static constexpr float BossPostureThreshold = 180.f;", self.header)
+        self.assertIn("float BossStaggerTimer = 0.f;", self.header)
+        self.assertIn("bool IsBossPostureActive() const", self.header)
+        self.assertIn("bool IsBossStaggered() const", self.header)
+        self.assertIn("void AMoonfallPawn::ApplyBossPosture(", self.cpp)
+        self.assertIn("BossPosture = FMath::Min(BossPostureThreshold, BossPosture + Impact);", self.cpp)
+        self.assertIn("BossStaggerTimer = 1.6f;", self.cpp)
+        self.assertIn("BossPostureIdleTimer = 3.f;", self.cpp)
+        self.assertIn("BossPosture = FMath::Max(0.f, BossPosture - 16.f * ReactionDt);", self.cpp)
+        self.assertIn("if (BossStaggerTimer > 0.f) return;", self.cpp)
+        self.assertIn("ApplyBossPosture(FMath::Min(Damage, BossHealth + Damage), bRiposte, bComboFinisher, false);", self.cpp)
+        self.assertIn("ApplyBossPosture(FMath::Min(Damage, BossHealth + Damage), bRiposte, false, true);", self.cpp)
+        self.assertIn("Hero->IsBossPostureActive() || Hero->IsBossStaggered()", hud)
+        self.assertIn("Hero->GetBossPostureRatio()", hud)
+        self.assertIn("BossPosture = 0.f;", self.cpp)
+        self.assertNotIn("NewObject<", hud)
+
     def test_original_art_import_is_checksum_guarded(self):
         import_tool = (ROOT / "tools/import_godot_art.py").read_text()
         verify_tool = (ROOT / "tools/verify_art_import.py").read_text()
