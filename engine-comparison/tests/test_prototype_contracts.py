@@ -169,7 +169,7 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("if (Enemy.bStaggeredThisFrame)", ai)
         self.assertLess(ai.index("Enemy.bStaggeredThisFrame = Enemy.StaggerTimer > 0.f;"),
                         ai.index("Enemy.StaggerTimer = FMath::Max(0.f, Enemy.StaggerTimer - MoveDt);"))
-        self.assertIn("if (!Candidate.Mesh || Candidate.bReturningHome || Candidate.bStaggeredThisFrame) continue;", self.cpp)
+        self.assertIn("if (!Candidate.Mesh || Candidate.bReturningHome ||\n                    Candidate.bStaggeredThisFrame || !Candidate.bAttackReadyThisFrame) continue;", self.cpp)
 
     def test_unreal_guardian_riposte_knockback_stays_in_chamber(self):
         damage = self.cpp.split("void AMoonfallPawn::DamageWorldEnemy(", 1)[1].split(
@@ -190,7 +190,7 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("if ((bRiposte && Enemy.bGuardian) || (bComboFinisher && !Enemy.bGuardian))", self.cpp)
         self.assertIn("Enemy.StaggerTimer = Enemy.bGuardian ? 0.8f : 0.4f;", self.cpp)
         self.assertIn("Enemy.StaggerTimer = FMath::Max(0.f, Enemy.StaggerTimer - MoveDt);", self.cpp)
-        self.assertIn("if (!Candidate.Mesh || Candidate.bReturningHome || Candidate.bStaggeredThisFrame) continue;", self.cpp)
+        self.assertIn("if (!Candidate.Mesh || Candidate.bReturningHome ||\n                    Candidate.bStaggeredThisFrame || !Candidate.bAttackReadyThisFrame) continue;", self.cpp)
         self.assertIn("if (!bHitBoss) DamageWorldEnemy(EnemyIndex, Damage, bRiposte, bComboFinisher);", self.cpp)
         self.assertIn("if (!bHitBoss) DamageWorldEnemy(EnemyIndex, Damage, bRiposte);", self.cpp)
 
@@ -233,7 +233,7 @@ class PrototypeContracts(unittest.TestCase):
         tick = self.cpp.split("void AMoonfallPawn::Tick(", 1)[1]
         selection = tick.split("// Find the nearest *engaged* contact.", 1)[1].split(
             "if (ContactIndex != INDEX_NONE)", 1)[0]
-        self.assertIn("if (!Candidate.Mesh || Candidate.bReturningHome || Candidate.bStaggeredThisFrame) continue;", selection)
+        self.assertIn("if (!Candidate.Mesh || Candidate.bReturningHome ||\n                    Candidate.bStaggeredThisFrame || !Candidate.bAttackReadyThisFrame) continue;", selection)
         self.assertIn("HomeOffset.SizeSquared2D() >= FMath::Square(Leash)", selection)
         self.assertIn("if (DistanceSq < ContactDistanceSq)", selection)
         self.assertIn("ContactIndex = I;", selection)
