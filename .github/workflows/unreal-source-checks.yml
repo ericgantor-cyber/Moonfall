@@ -187,6 +187,27 @@ jobs:
           assert 'Hero->bOptionsOpen || Hero->bWorldMapOpen' in enemy
           assert 'bCorruptedCrow = true' in arena
           assert 'BirdIndex<2' in arena
+          # Art upgrade: visible crow silhouette, low-overhead warning light, optional imported art.
+          assert 'CrowTail' in enemy_header and 'CrowLeftTalon' in enemy_header
+          assert 'CrowRightTalon' in enemy_header and 'CrowLeftEye' in enemy_header
+          assert 'CrowRightEye' in enemy_header and 'CrowWarningGlow' in enemy_header
+          assert 'CrowBodyArt' in enemy_header and 'CrowWingArt' in enemy_header
+          assert 'CrowFeatherMaterial' in enemy_header and 'CrowAccentMaterial' in enemy_header
+          assert 'CrowLeftWing->SetHiddenInGame(false)' in enemy
+          assert 'CrowTail->SetHiddenInGame(false)' in enemy
+          assert 'CrowWarningGlow->SetVisibility(CrowAttackEndsAt >= 0.f || bCrowDiving)' in enemy
+          assert 'CrowWarningGlow->SetCastShadows(false)' in enemy
+          assert 'CrowWingArt' in enemy and 'CrowBodyArt' in enemy
+          assert 'if (CrowFeatherMaterial)' in enemy and 'if (CrowAccentMaterial)' in enemy
+          assert 'void AMoonfallArena::CreateDecoration' in arena
+          assert 'void AMoonfallArena::CreateAtmosphereLight' in arena
+          assert 'SetCollisionEnabled(ECollisionEnabled::NoCollision)' in arena
+          assert arena.count('CreateAtmosphereLight(FVector(') == 2
+          assert 'CrowSpawnClass = CrowEnemyClass ? CrowEnemyClass.Get()' in arena
+          game_mode = (root/'MoonfallUnreal'/'MoonfallUnrealGameMode.cpp').read_text()
+          game_mode_header = (root/'MoonfallUnreal'/'MoonfallUnrealGameMode.h').read_text()
+          assert 'ArenaClass ? ArenaClass.Get() : AMoonfallArena::StaticClass()' in game_mode
+          assert 'TSubclassOf<class AMoonfallArena> ArenaClass' in game_mode_header
           assert 'SpawnActor<AMoonfallBirdFlock>' not in arena
           assert 'FMath::Min(Distance,MapRange)' in hud
           assert 'ActionName="MapClickWaypoint",Key=LeftMouseButton' in inputs
