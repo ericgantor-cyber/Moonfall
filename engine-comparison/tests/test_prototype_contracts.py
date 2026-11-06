@@ -462,7 +462,7 @@ class PrototypeContracts(unittest.TestCase):
     def test_post_boss_exploration_and_xp_awards(self):
         self.assertIn("if (Input.GetMouseButtonDown(0) && attackCd<=0)", self.unity)
         self.assertIn("bool bossInRange = !won && Vector3.Distance(hero.position,boss.position)<4f;", self.unity)
-        self.assertIn("if (Health <= 0.f || AttackCooldown > 0.f) return;", self.cpp)
+        self.assertIn("if (AttackCooldown > 0.f) return;", self.cpp)
         self.assertIn("const bool bBossInRange = BossDistance <= 400.f;", self.cpp)
         self.assertNotIn("if (Health <= 0.f || bWon || AttackCooldown > 0.f)", self.cpp)
 
@@ -949,6 +949,25 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("Hit.bMagic", hud)
         self.assertIn("1.f - T", hud)
         self.assertNotIn("NewObject<", hud)
+
+    def test_death_click_reloads_living_checkpoint_without_new_mode(self):
+        # The same mouse click used for normal attacks is available after defeat.
+        attack = self.cpp.split("void AMoonfallPawn::Attack()", 1)[1].split(
+            "void AMoonfallPawn::CastBolt()", 1)[0]
+        self.assertIn("if (Health <= 0.f)", attack)
+        self.assertIn("if (!bRespawnRequested && GetWorld())", attack)
+        self.assertIn("UGameplayStatics::GetCurrentLevelName(GetWorld())", attack)
+        self.assertIn("UGameplayStatics::OpenLevel(GetWorld(), FName(*LevelName))", attack)
+        self.assertIn("bRespawnRequested = true;", attack)
+        self.assertLess(attack.index("if (Health <= 0.f)"),
+                        attack.index("if (AttackCooldown > 0.f) return;"))
+        self.assertIn("bool bRespawnRequested = false;", self.header)
+        # Saving on level transition must not overwrite the living checkpoint.
+        self.assertIn("if (HeroMesh && Health > 0.f)", self.cpp)
+        self.assertIn("Progress->SavedHealth = Health;", self.cpp)
+        self.assertIn("if (!bLoadedCheckpoint)", self.cpp)
+        self.assertIn("Health = GetHudMaxHealth();", self.cpp)
+        self.assertNotIn('ActionName="Respawn"', INPUT.read_text(encoding="utf-8"))
 
     def test_original_art_import_is_checksum_guarded(self):
         import_tool = (ROOT / "tools/import_godot_art.py").read_text()
