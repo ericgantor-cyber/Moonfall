@@ -774,6 +774,21 @@ void AMoonfallPawn::ToggleWorldMap()
     bWorldMapVisible = !bWorldMapVisible;
 }
 
+void AMoonfallPawn::SaveExplorationOnly()
+{
+    // Preserve the last living checkpoint and all progression after defeat.
+    // Discovery is informational; it is safe to retain after respawning.
+    UMoonfallProgressSave* Progress = Cast<UMoonfallProgressSave>(
+        UGameplayStatics::LoadGameFromSlot(TEXT("MoonfallPrototypeBossRewards"), 0));
+    if (!Progress)
+        Progress = Cast<UMoonfallProgressSave>(
+            UGameplayStatics::CreateSaveGameObject(UMoonfallProgressSave::StaticClass()));
+    if (!Progress) return;
+    Progress->ExploredMapCells = ExploredMapCells;
+    if (!UGameplayStatics::SaveGameToSlot(Progress, TEXT("MoonfallPrototypeBossRewards"), 0))
+        UE_LOG(LogTemp, Warning, TEXT("Moonfall: fog exploration save failed."));
+}
+
 void AMoonfallPawn::SaveMapPreferences()
 {
     // Map UI changes must not create or move a living combat checkpoint.
@@ -953,6 +968,7 @@ void AMoonfallPawn::Attack()
             const FString LevelName = UGameplayStatics::GetCurrentLevelName(GetWorld());
             if (!LevelName.IsEmpty())
             {
+                SaveExplorationOnly(); // Keep discovered terrain, not the defeated combat state.
                 bRespawnRequested = true;
                 UGameplayStatics::OpenLevel(GetWorld(), FName(*LevelName));
             }
