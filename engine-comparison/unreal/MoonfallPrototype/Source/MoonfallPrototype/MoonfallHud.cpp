@@ -280,7 +280,7 @@ void AMoonfallHud::DrawHUD()
     // Compact WoW-style circular minimap, using Moonfall's own shapes and colors.
     // No textures, extra HUD panels or spawned objects. North stays at the top.
     constexpr float RadarRadius = 72.f;
-    constexpr float WorldRadius = 1700.f;
+    const float WorldRadius = Hero->GetMinimapWorldRadius();
     constexpr int32 RadarSegments = 48;
     const FVector2D RadarCenter(Canvas->ClipX - 94.f, 94.f);
     const float RadarScale = (RadarRadius - 9.f) / WorldRadius;
@@ -305,10 +305,11 @@ void AMoonfallHud::DrawHUD()
     // Visible compass letter, fixed north-up to match world XY coordinates.
     DrawText(TEXT("N"), FLinearColor(.95f, .84f, .44f),
         RadarCenter.X - 5.f, RadarCenter.Y - RadarRadius - 25.f, nullptr, .9f);
-    // Tiny filter readout beside the existing map, not a new HUD panel.
+    // One unobtrusive line controls both filters and range, without new HUD panels.
     const TCHAR* TrackingLabels[] = { TEXT("ALL"), TEXT("CHAMBERS"), TEXT("BOSS"), TEXT("OFF") };
-    DrawText(FString::Printf(TEXT("T: %s"), TrackingLabels[FMath::Clamp(TrackingMode, 0, 3)]),
-        FLinearColor(.8f, .85f, .95f), RadarCenter.X - 50.f,
+    DrawText(FString::Printf(TEXT("T: %s   M: %.0fm"),
+        TrackingLabels[FMath::Clamp(TrackingMode, 0, 3)], WorldRadius / 100.f),
+        FLinearColor(.8f, .85f, .95f), RadarCenter.X - 72.f,
         RadarCenter.Y + RadarRadius + 5.f, nullptr, .75f);
     for (int32 Axis = 0; Axis < 4; ++Axis)
     {
