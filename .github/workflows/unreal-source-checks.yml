@@ -325,6 +325,13 @@ jobs:
           assert 'SavePersonalWaypoint();' in hero
           assert 'if (Hero->bQuestTargetActive)' in hud
           assert 'for (const FIntPoint& Cell : ExploredMapCells)' in hud
+          assert 'const float MiniTilePixels = FMath::Clamp(CellSize * MiniScale, 2.f, 16.f)' in hud
+          assert 'FMath::Square(MapRadius * 0.86f - MiniTilePixels * 0.5f)' in hud
+          assert 'const float TilePixels = FMath::Max(2.f,ExplorationCellSizeCm*Scale)' in hud
+          assert 'const float Left = FMath::Max(Spot.X-TilePixels*0.5f,TopLeft.X+12.f)' in hud
+          assert 'const float Right = FMath::Min(Spot.X+TilePixels*0.5f,TopLeft.X+Width-12.f)' in hud
+          assert 'if (Right <= Left || Bottom <= Top) continue' in hud
+          assert 'DrawRect(FLinearColor(0.22f,0.36f,0.49f,0.85f),Left,Top,Right-Left,Bottom-Top)' in hud
           assert hud.index('const FIntPoint CurrentCell') < hud.index('if (Hero->bOptionsOpen)')
           assert hud.count('const FIntPoint CurrentCell') == 1
           print('Input mapping and combat source checks passed. Unreal compilation NOT performed.')
