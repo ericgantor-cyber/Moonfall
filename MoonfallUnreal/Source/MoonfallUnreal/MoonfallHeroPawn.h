@@ -31,6 +31,8 @@ public:
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Map") bool bWorldMapOpen = false;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Map") bool bQuestTargetActive = false;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Map") FVector QuestTarget = FVector::ZeroVector;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Map") bool bPersonalWaypointActive = false;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Map") FVector PersonalWaypoint = FVector::ZeroVector;
  UFUNCTION(BlueprintCallable, Category="Moonfall|Map") void SetQuestTarget(FVector WorldLocation);
  UFUNCTION(BlueprintCallable, Category="Moonfall|Map") void ClearQuestTarget();
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Quest") bool bArenaBossQuestActive = false;
@@ -83,6 +85,8 @@ private:
  void ZoomMinimapOut();
  void ToggleWorldMap();
  void RecenterWorldMap();
+ void PlacePersonalWaypoint();
+ void ClearPersonalWaypoint();
  void CastLeft();
  void CastRight();
  void CastBoth();
