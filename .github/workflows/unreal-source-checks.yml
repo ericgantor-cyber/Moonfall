@@ -97,6 +97,12 @@ jobs:
           assert 'if (Hero->bQuestTargetActive)' in hud
           assert 'FMath::Min(QuestDistance, MapRange)' in hud
           assert 'bArenaBossQuestActive' in hud and 'QUEST: Defeat the Arena Boss' in hud
+          assert 'FVector::Dist2D(Hero->GetActorLocation(), Hero->QuestTarget) / 100.f' in hud
+          assert 'Boss->Health / FMath::Max(1.f, Boss->BossMaxHealth)' in hud
+          assert 'TrackerWidth*Progress' in hud
+          assert 'ArenaBossQuestCompletedAt < 5.f' not in hud
+          assert 'GetWorld()->GetTimeSeconds() - Hero->ArenaBossQuestCompletedAt < 5.f' in hud
+          assert 'ArenaBossQuestCompletedAt = GetWorld()' in hero
           assert 'QUEST COMPLETE: Arena Boss' in hud
           assert 'BeginArenaBossQuest(FVector BossLocation)' in hero
           assert 'CompleteArenaBossQuest()' in hero
