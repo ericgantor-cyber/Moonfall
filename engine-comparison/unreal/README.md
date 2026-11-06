@@ -80,7 +80,7 @@ Combining the general combat ideas discussed from *Phantom Blade Zero* (the supp
 
 ## Boss posture and punish window (source implemented, Unreal runtime unverified)
 
-The main boss now accumulates temporary posture pressure from melee, combo finishers, ripostes and magic. It takes a greater threshold than regular enemies (180 posture), loses pressure after three seconds of inactivity, and briefly staggers for 1.6 seconds when the threshold is filled. A posture break cancels the current boss telegraph, creates a safe opportunity to attack, and then combat resumes on its normal cadence. A compact purple bar appears above the boss only during posture pressure, flashing white while staggered; no extra permanent HUD widgets, new game modes or replacement art. Boss posture never restores health or persists in the save slot. Unreal Engine 5.6 compilation, actual combat, projection and balance remain unverified.
+The main boss now accumulates temporary posture pressure from melee, combo finishers, ripostes and magic. It takes a short 30-point posture threshold tuned for the prototype's 100 HP boss, loses pressure after three seconds of inactivity, and briefly staggers for 1.6 seconds when the threshold is filled. A posture break cancels the current boss telegraph, creates a safe opportunity to attack, and then combat resumes on its normal cadence. A compact purple bar appears above the boss only during posture pressure, flashing white while staggered; no extra permanent HUD widgets, new game modes or replacement art. Boss posture never restores health or persists in the save slot. Unreal Engine 5.6 compilation, actual combat, projection and balance remain unverified.
 
 ## Manual acceptance checklist
 
