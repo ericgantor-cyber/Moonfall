@@ -59,7 +59,7 @@ void AMoonfallCombatHUD::DrawHUD()
  if (Canvas->SizeX >= 700.f && Canvas->SizeY >= 460.f) {
   const float MapRadius = FMath::Clamp(FMath::Min(Canvas->SizeX, Canvas->SizeY) * 0.09f, 52.f, 84.f);
   const FVector2D MapCenter(Canvas->SizeX - MapRadius - 24.f, MapRadius + 28.f);
-  const float MapRange = 2200.f; // Unreal centimetres
+  const float MapRange = FMath::Clamp(Hero->MinimapRange, 1200.f, 4800.f); // Unreal centimetres
   // Remember a bounded trail of 2m cells visited by the player, never entire unseen terrain.
   const float CellSize = 200.f; // Unreal centimetres
   const FVector HeroPosition = Hero->GetActorLocation();
@@ -99,6 +99,7 @@ void AMoonfallCombatHUD::DrawHUD()
   }
   DrawRect(FLinearColor(0.27f,0.88f,1.f),MapCenter.X-3.f,MapCenter.Y-3.f,6.f,6.f);
   DrawText(TEXT("N"),FLinearColor(0.75f,0.88f,1.f),MapCenter.X-4.f,MapCenter.Y-MapRadius-17.f,nullptr,0.82f);
+  DrawText(FString::Printf(TEXT("+ / -  %.0f m"),MapRange/100.f),FLinearColor(0.75f,0.88f,1.f),MapCenter.X-MapRadius,MapCenter.Y+MapRadius+5.f,nullptr,0.72f);
  }
  // Compact circular resource HUD at bottom left, with actual gameplay values.
  const float Radius = FMath::Clamp(FMath::Min(Canvas->SizeX, Canvas->SizeY) * 0.092f, 50.f, 80.f);
