@@ -5,6 +5,8 @@
 #include "Components/StaticMeshComponent.h"
 #include "Components/InstancedStaticMeshComponent.h"
 #include "Components/PointLightComponent.h"
+#include "Components/DirectionalLightComponent.h"
+#include "Components/ExponentialHeightFogComponent.h"
 #include "Engine/World.h"
 #include "Kismet/GameplayStatics.h"
 #include "UObject/UObjectGlobals.h"
@@ -29,6 +31,17 @@ AMoonfallArena::AMoonfallArena() {
  RitualStones->SetCollisionEnabled(ECollisionEnabled::NoCollision);
  RitualStones->SetCastShadow(false);
  if (RuinCube.Succeeded()) RitualStones->SetStaticMesh(RuinCube.Object);
+ Moonlight = CreateDefaultSubobject<UDirectionalLightComponent>(TEXT("Moonlight"));
+ Moonlight->SetupAttachment(GetRootComponent());
+ Moonlight->SetRelativeRotation(FRotator(-48.f,135.f,0.f));
+ Moonlight->SetIntensity(1.4f);
+ Moonlight->SetLightColor(FLinearColor(0.46f,0.57f,0.95f));
+ Moonlight->SetCastShadows(false);
+ GroundFog = CreateDefaultSubobject<UExponentialHeightFogComponent>(TEXT("GroundFog"));
+ GroundFog->SetupAttachment(GetRootComponent());
+ GroundFog->SetFogInscatteringColor(FLinearColor(0.055f,0.075f,0.16f));
+ GroundFog->SetFogHeightFalloff(0.34f);
+ GroundFog->SetFogDensity(0.012f);
 }
 void AMoonfallArena::CreateBlock(FVector Position, FVector Scale, bool bGround) {
  UStaticMeshComponent* Block = NewObject<UStaticMeshComponent>(this);
@@ -68,6 +81,10 @@ void AMoonfallArena::CreateAtmosphereLight(FVector Position, FLinearColor Color,
 }
 void AMoonfallArena::BeginPlay() {
  Super::BeginPlay();
+ // Atmospheric visibility is independent of map/quest overlays and never spawns ticking actors.
+ Moonlight->SetVisibility(bEnableMoonlight);
+ GroundFog->SetVisibility(bEnableLowFog);
+ GroundFog->SetFogDensity(FMath::Clamp(GroundFogDensity,0.f,0.025f));
  CreateBlock(FVector(0,0,-60),FVector(30,30,1),true);
  CreateBlock(FVector(1500,0,200),FVector(1,30,5),false);
  CreateBlock(FVector(-1500,0,200),FVector(1,30,5),false);
