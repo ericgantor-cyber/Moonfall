@@ -549,7 +549,7 @@ void AMoonfallPawn::DamageWorldEnemy(int32 Index, float Damage, bool bRiposte, b
         {
             // Third-hit finishers briefly stagger normal enemies; earned
             // ripostes retain the longer guardian-specific stagger.
-            Enemy.StaggerTimer = Enemy.bGuardian ? 0.8f : 0.4f;
+            Enemy.StaggerTimer = FMath::Max(Enemy.StaggerTimer, Enemy.bGuardian ? 0.8f : 0.4f);
             Enemy.AttackWindup = 0.f; // A successful interrupt cancels the warning.
             Enemy.AttackRecovery = FMath::Max(Enemy.AttackRecovery, 0.5f);
             if (Enemy.Portrait) Enemy.Portrait->SetRelativeScale3D(FVector(2.f));
