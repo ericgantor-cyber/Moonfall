@@ -292,7 +292,11 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("if (!HeroMesh) return Result;", minimap)
         self.assertIn("FMath::Abs(Position.X - HeroPosition.X) > 1700.f", minimap)
         self.assertIn("FMath::Abs(Position.Y - HeroPosition.Y) > 1700.f", minimap)
-        self.assertIn("if (Result.Num() >= MaxMinimapEnemies) break;", minimap)
+        self.assertIn("if (Result.Num() < MaxMinimapEnemies)", minimap)
+        self.assertIn("int32 FarthestIndex = INDEX_NONE;", minimap)
+        self.assertIn("FVector::DistSquared2D(Result[I], HeroPosition)", minimap)
+        self.assertIn("Result[FarthestIndex] = Position;", minimap)
+        self.assertNotIn("if (Result.Num() >= MaxMinimapEnemies) break;", minimap)
 
     def test_attack_warning_hud_is_bounded_and_keeps_boss_slot(self):
         warnings = self.cpp.split("AMoonfallPawn::GetAttackWarnings() const", 1)[1].split(
