@@ -619,6 +619,16 @@ TArray<FVector> AMoonfallPawn::GetChamberMapPositions() const
     return Positions;
 }
 
+TArray<FVector> AMoonfallPawn::GetWorldMapChamberPositions() const
+{
+    // Full map shows every unclaimed cache, not just nearby minimap markers.
+    TArray<FVector> Positions;
+    Positions.Reserve(ChamberCaches.Num());
+    for (const FChamberCache& Cache : ChamberCaches)
+        if (Cache.Mesh) Positions.Add(Cache.Mesh->GetRelativeLocation());
+    return Positions;
+}
+
 void AMoonfallPawn::CollectNearbyChambers()
 {
     const FVector HeroPosition = HeroMesh->GetRelativeLocation();
