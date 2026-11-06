@@ -17,6 +17,7 @@ public:
  UPROPERTY(EditAnywhere, Category="Combat") float AttackCooldown = 1.3f;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat") bool bElite = false;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat") bool bBoss = false;
+ UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat") bool bCorruptedCrow = false;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Combat") int32 BossPhase = 1;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Boss") float BossMaxHealth = 0.f;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Boss") float BossWarningEndTime = -1.f;
@@ -24,6 +25,11 @@ public:
  UFUNCTION(BlueprintImplementableEvent, Category="Combat") void OnEnemyAttack();
  UFUNCTION(BlueprintImplementableEvent, Category="Boss") void OnBossPhaseChanged(int32 NewPhase);
 private:
+ float CrowAttackEndsAt = -1.f;
+ float CrowRecoverUntil = 0.f;
+ bool bCrowDiving = false;
+ FVector CrowHome = FVector::ZeroVector;
+ void TickCorruptedCrow(float DeltaSeconds);
  float MaxHealthAtSpawn = 0.f;
  int32 SpawnBalanceLevel = 1;
  float BossPhaseMessageUntil = 0.f;
