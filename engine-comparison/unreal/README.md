@@ -34,6 +34,10 @@ Packaging uses Unreal's `RunUAT.bat BuildCookRun` for Win64 Development, cooking
 
 Ordinary enemies no longer deal untelegraphed proximity damage. An engaged enemy must first begin a visible warning (0.6 seconds for ordinary enemies, 0.85 seconds for guardians), then finish its windup while the hero remains in strike range. A pulse on the existing mesh or portrait indicates danger without replacing imported Z/Nyra artwork or adding VFX actors. Attacks have recovery (1.3 seconds for ordinary enemies, 1.7 seconds for guardians). A landed finisher or riposte interrupts the windup, and a correctly timed dodge can award the existing counterattack window. These behaviors are covered by source-contract tests, **not yet tested in a running Unreal build**.
 
+## Floating combat feedback (source implemented, gameplay unverified)
+
+Melee, arcane bolt and boss hits now emit temporary damage numbers anchored to the target's position. Heavy finisher/riposte hits are larger and gold; magic hits are blue; ordinary strikes are white. Numbers drift upward and fade over 1.25 seconds, with a strict cap of 24 active entries to avoid allocations growing during long battles. The existing orb HUD, minimap and original Z/Nyra art are untouched. Rendering and timing are covered by source tests, but **visual clarity, frame pacing and actual packaged gameplay still require Unreal Editor testing**.
+
 ## Manual acceptance checklist
 
 - Compile editor and game C++ targets on Windows with UE 5.6 and record exact errors, warnings, and versions.
