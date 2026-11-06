@@ -203,7 +203,7 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("Stamina -= 45.f;", dodge)
         self.assertIn("StaminaRegenDelay = FMath::Max(0.f, StaminaRegenDelay - Dt);", tick)
         self.assertIn("const float StaminaRegenDt = FMath::Max(0.f, Dt - StaminaRegenDelay);", tick)
-        self.assertIn("if (StaminaRegenDt > 0.f)", tick)
+        self.assertIn("if (StaminaRegenDt > 0.f && !IsGuarding())", tick)
         self.assertIn("Stamina = FMath::Min(GetHudMaxStamina(), Stamina + 30.f * StaminaRegenDt);", tick)
         self.assertIn("Stamina = FMath::Min(GetHudMaxStamina(), Stamina + 10.f);", tick)
 
@@ -241,7 +241,7 @@ class PrototypeContracts(unittest.TestCase):
         combat = tick.split("if (ContactIndex != INDEX_NONE)", 1)[1].split(
             "EnemyDamageCooldown = 1.2f;", 1)[0]
         self.assertIn("if (bDodgeActiveThisFrame)\n                {\n                    CounterWindow = CounterDuration;", combat)
-        self.assertIn("Health = FMath::Max(0.f, Health - ContactDamage);", combat)
+        self.assertIn("Health = FMath::Max(0.f, Health - Taken);", combat)
         self.assertIn("Contact.bEnraged ? 4.f : 0.f", combat)
 
     def test_unreal_guardian_frenzy_phase_at_low_health(self):
@@ -277,7 +277,7 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("const bool bDodgeActiveThisFrame = DodgeTimer > 0.f;", tick)
         self.assertLess(tick.index("const bool bDodgeActiveThisFrame = DodgeTimer > 0.f;"),
                         tick.index("DodgeTimer = FMath::Max(0.f, DodgeTimer - ReactionDt);"))
-        self.assertIn("Direction * (bDodgeActiveThisFrame ? 1200.f : 600.f) * MovementDt", tick)
+        self.assertIn("Direction * (bDodgeActiveThisFrame ? 1200.f : (IsGuarding() ? 340.f : 600.f)) * MovementDt", tick)
         self.assertEqual(tick.count("if (bDodgeActiveThisFrame)"), 2)
         self.assertEqual(tick.count("DodgeTimer > 0.f"), 1)
 
@@ -535,7 +535,7 @@ class PrototypeContracts(unittest.TestCase):
         # Large frame delays must not cause giant positional jumps.
         self.assertIn("const float MoveDt = FMath::Clamp(Dt, 0.f, 0.05f);", self.cpp)
         self.assertIn("const float MovementDt = FMath::Min(Dt, 0.05f);", self.cpp)
-        self.assertIn("Direction * (bDodgeActiveThisFrame ? 1200.f : 600.f) * MovementDt", self.cpp)
+        self.assertIn("Direction * (bDodgeActiveThisFrame ? 1200.f : (IsGuarding() ? 340.f : 600.f)) * MovementDt", self.cpp)
         # A stationary player cannot spend dodge stamina for no displacement.
         self.assertIn("FVector2D(Forward, Right).SizeSquared() > 0.01f", self.cpp)
         self.assertNotIn("SpawnWave(", self.cpp)
@@ -1020,8 +1020,8 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("Number.bIncoming = !bDodged;", self.cpp)
         self.assertIn("Number.bDodged = bDodged;", self.cpp)
         self.assertEqual(self.cpp.count("RecordHeroHit(0.f, true);"), 2)
-        self.assertIn("RecordHeroHit(FMath::Min(Health, ContactDamage), false);", self.cpp)
-        self.assertIn("RecordHeroHit(FMath::Min(Health, BossDamage), false);", self.cpp)
+        self.assertIn("RecordHeroHit(FMath::Min(Health, Taken), false);", self.cpp)
+        self.assertIn("RecordHeroHit(FMath::Min(Health, Taken), false);", self.cpp)
         self.assertNotIn('TEXT("DODGE")', hud)
         self.assertIn("constexpr float EvadeFlashSeconds = 0.48f;", hud)
         self.assertIn("constexpr int32 ArcSegments = 12;", hud)
