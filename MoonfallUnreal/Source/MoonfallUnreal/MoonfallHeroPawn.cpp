@@ -101,6 +101,7 @@ void AMoonfallHeroPawn::CompleteArenaBossQuest()
  if (!bArenaBossQuestActive || bArenaBossQuestComplete) return;
  bArenaBossQuestActive = false;
  bArenaBossQuestComplete = true;
+ ArenaBossQuestCompletedAt = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f;
  ClearQuestTarget();
 }
 void AMoonfallHeroPawn::MoveForward(float Value)
