@@ -228,8 +228,21 @@ void AMoonfallCombatHUD::DrawHUD()
     DrawRect(FLinearColor(0.3f,1.f,0.5f),Marker.X-3.f,Marker.Y-3.f,6.f,6.f);
    }
   }
-  DrawRect(FLinearColor(0.27f,0.88f,1.f),MapCenter.X-3.f,MapCenter.Y-3.f,6.f,6.f);
+  // North-up map, but the hero arrow rotates with their actual facing direction.
+  const FVector Facing3D = Hero->GetActorForwardVector();
+  const FVector2D Facing = FVector2D(Facing3D.X,-Facing3D.Y).GetSafeNormal();
+  const FVector2D ArrowTip = MapCenter + Facing*11.f;
+  const FVector2D ArrowBase = MapCenter - Facing*5.f;
+  const FVector2D ArrowWing(-Facing.Y,Facing.X);
+  Canvas->K2_DrawLine(ArrowTip,ArrowBase+ArrowWing*5.f,2.5f,FLinearColor(0.27f,0.88f,1.f));
+  Canvas->K2_DrawLine(ArrowTip,ArrowBase-ArrowWing*5.f,2.5f,FLinearColor(0.27f,0.88f,1.f));
+  Canvas->K2_DrawLine(ArrowBase+ArrowWing*5.f,ArrowBase-ArrowWing*5.f,2.f,FLinearColor(0.27f,0.88f,1.f));
+  DrawRect(FLinearColor(0.27f,0.88f,1.f),MapCenter.X-1.5f,MapCenter.Y-1.5f,3.f,3.f);
+  // Cardinal bearings stay fixed while the arrow turns, preventing a misleading rotating map.
   DrawText(TEXT("N"),FLinearColor(0.75f,0.88f,1.f),MapCenter.X-4.f,MapCenter.Y-MapRadius-17.f,nullptr,0.82f);
+  DrawText(TEXT("E"),FLinearColor(0.75f,0.88f,1.f),MapCenter.X+MapRadius+5.f,MapCenter.Y-5.f,nullptr,0.72f);
+  DrawText(TEXT("W"),FLinearColor(0.75f,0.88f,1.f),MapCenter.X-MapRadius-16.f,MapCenter.Y-5.f,nullptr,0.72f);
+  DrawText(TEXT("S"),FLinearColor(0.75f,0.88f,1.f),MapCenter.X-4.f,MapCenter.Y+MapRadius+4.f,nullptr,0.72f);
   DrawText(FString::Printf(TEXT("+ / -  %.0f m"),MapRange/100.f),FLinearColor(0.75f,0.88f,1.f),MapCenter.X-MapRadius,MapCenter.Y+MapRadius+5.f,nullptr,0.72f);
  }
  // Compact circular resource HUD at bottom left, with actual gameplay values.
