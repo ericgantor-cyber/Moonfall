@@ -203,6 +203,8 @@ jobs:
           arena_header = (root/'MoonfallUnreal'/'MoonfallArena.h').read_text()
           assert 'UInstancedStaticMeshComponent* RuinPieces' in arena_header
           assert 'UMaterialInterface* RuinStoneMaterial' in arena_header
+          assert 'UStaticMesh* RuinMeshArt' in arena_header
+          assert 'if (RuinMeshArt) RuinPieces->SetStaticMesh(RuinMeshArt)' in arena
           assert 'int32 RubbleCount = 24' in arena_header
           assert 'CreateDefaultSubobject<UInstancedStaticMeshComponent>' in arena
           assert 'RuinPieces->AddInstance(FTransform' in arena
