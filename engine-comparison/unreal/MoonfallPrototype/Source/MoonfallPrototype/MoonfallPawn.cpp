@@ -467,7 +467,10 @@ TArray<AMoonfallPawn::FEnemyPosture> AMoonfallPawn::GetEnemyPostures() const
 {
     TArray<FEnemyPosture> Visible;
     if (!HeroMesh || Health <= 0.f) return Visible;
-    Visible.Reserve(Enemies.Num());
+    // The HUD only displays nearby posture bars; do not reserve or draw
+    // one entry per enemy in the entire continuous world.
+    constexpr int32 MaxPostureIndicators = 32;
+    Visible.Reserve(FMath::Min(Enemies.Num(), MaxPostureIndicators));
     const FVector HeroPosition = HeroMesh->GetRelativeLocation();
     for (const FWorldEnemy& Enemy : Enemies)
     {
@@ -479,6 +482,7 @@ TArray<AMoonfallPawn::FEnemyPosture> AMoonfallPawn::GetEnemyPostures() const
         Value.Ratio = FMath::Clamp(Enemy.Posture / PostureThreshold(Enemy), 0.f, 1.f);
         Value.bGuardian = Enemy.bGuardian;
         Visible.Add(Value);
+        if (Visible.Num() >= MaxPostureIndicators) break;
     }
     return Visible;
 }
