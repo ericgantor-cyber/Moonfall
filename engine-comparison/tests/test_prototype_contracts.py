@@ -293,11 +293,27 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("RadiusAtY", minimap)
         self.assertIn("FLinearColor(.045f, .055f, .085f, .88f)", minimap)
         self.assertIn("DrawRect(FLinearColor(.035f, .045f, .075f, .93f)", minimap)
-        self.assertIn("if (!Hero->IsMapExplored(FVector2D(WorldX, WorldY))) continue;", minimap)
+        self.assertIn("if (Hero->IsMapExplored(FVector2D(WorldX, WorldY)))", minimap)
         self.assertIn('TEXT("REGION %d / %d")', minimap)
         self.assertIn('TEXT("FOG: UNEXPLORED BLANK   GREEN: CAVE   RED: BOSS")', minimap)
         self.assertNotIn("Hero->GetEnemyMapPositions()", minimap)
         self.assertNotIn("NearestChamberDirection", minimap)
+
+    def test_world_map_fog_boss_secrecy_and_terrain_run_batching(self):
+        hud = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8")
+        minimap = hud.split("// Compact WoW-style circular minimap", 1)[1]
+        # The full map and minimap must independently gate the boss on discovery.
+        guard = ("if (bTrackBoss && !Hero->IsBossDefeated() &&"
+                 "\n            Hero->IsMapExplored(FVector2D(B.X, B.Y)))")
+        self.assertIn(guard, minimap)
+        self.assertIn("Row-run batching:", minimap)
+        self.assertIn("int32 DiscoveredGroundCells = 0;", minimap)
+        self.assertIn("if (Hero->IsMapExplored(FVector2D(WorldX, WorldY)))", minimap)
+        self.assertIn("if (Region == ActiveRegion) continue;", minimap)
+        self.assertIn("(X - RunStartX) * AMoonfallPawn::FogCellSize * MapScaleX", minimap)
+        self.assertIn('TEXT("DISCOVERED: %d TILES")', minimap)
+        self.assertNotIn("DrawRect(TerrainTint(Region), TopLeft.X", minimap)
+        self.assertNotIn("Hero->GetEnemyMapPositions()", minimap)
 
     def test_fog_of_war_hides_unknown_world_terrain_and_markers(self):
         saved = SAVES.read_text(encoding="utf-8")
@@ -315,7 +331,7 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("Hero->IsMapExplored(WorldSample)", minimap)
         self.assertIn("if (!Hero->IsMapExplored(FVector2D(Chamber.X, Chamber.Y))) continue;", minimap)
         self.assertIn("Hero->IsMapExplored(FVector2D(B.X, B.Y))", minimap)
-        self.assertIn("if (!Hero->IsMapExplored(FVector2D(WorldX, WorldY))) continue;", minimap)
+        self.assertIn("if (Hero->IsMapExplored(FVector2D(WorldX, WorldY)))", minimap)
         self.assertIn("if (!Hero->IsMapExplored(FVector2D(X, 0.f))) continue;", minimap)
         self.assertNotIn("MoonfallWorldRules::RegionCenter(Region) + 1700.f", minimap)
         self.assertNotIn("Hero->GetEnemyMapPositions()", minimap)
