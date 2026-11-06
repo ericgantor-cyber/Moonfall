@@ -6,7 +6,7 @@ param([Parameter(Mandatory = $true)][string]$EngineRoot)
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 
-if (-not $IsWindows -and $PSVersionTable.PSEdition -eq 'Core') {
+if ($PSVersionTable.PSEdition -eq 'Core' -and -not $IsWindows) {
     throw "This check requires Windows x64."
 }
 if (-not [Environment]::Is64BitOperatingSystem) {
