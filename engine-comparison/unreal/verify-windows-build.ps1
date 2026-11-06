@@ -20,6 +20,20 @@ if (-not (Test-Path -LiteralPath $Project -PathType Leaf)) {
 if (-not (Test-Path -LiteralPath $BuildBat -PathType Leaf)) {
     throw "Unreal Build.bat not found. Pass the actual UE 5.6 installation root: $EngineRoot"
 }
+# EngineAssociation in the .uproject is 5.6. Fail before compiling with
+# a different installed engine, whose generated files can be incompatible.
+$VersionFile = Join-Path $EngineRoot "Engine\Build\Build.version"
+if (-not (Test-Path -LiteralPath $VersionFile -PathType Leaf)) {
+    throw "Unreal Build.version is missing: $VersionFile"
+}
+try {
+    $EngineVersion = Get-Content -LiteralPath $VersionFile -Raw | ConvertFrom-Json
+} catch {
+    throw "Unreal Build.version could not be parsed: $VersionFile"
+}
+if ($EngineVersion.MajorVersion -ne 5 -or $EngineVersion.MinorVersion -ne 6) {
+    throw "Moonfall prototype requires Unreal 5.6; selected engine is $($EngineVersion.MajorVersion).$($EngineVersion.MinorVersion)."
+}
 $Project = (Resolve-Path -LiteralPath $Project).Path
 $BuildBat = (Resolve-Path -LiteralPath $BuildBat).Path
 
