@@ -7,6 +7,43 @@
 #include "Engine/Canvas.h"
 #include "Engine/Engine.h"
 #include "GameFramework/GameUserSettings.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Misc/DefaultValueHelper.h"
+void AMoonfallCombatHUD::BeginPlay()
+{
+ Super::BeginPlay();
+ if (!GConfig) return;
+ TArray<FString> SavedCells;
+ GConfig->GetArray(TEXT("Moonfall.Exploration"), TEXT("VisitedCells"), SavedCells, GGameUserSettingsIni);
+ for (const FString& Encoded : SavedCells) {
+  if (ExploredMapCells.Num() >= 384) break;
+  FString XText, YText;
+  int32 X = 0, Y = 0;
+  if (!Encoded.Split(TEXT(","), &XText, &YText) ||
+      !FDefaultValueHelper::ParseInt(XText, X) ||
+      !FDefaultValueHelper::ParseInt(YText, Y) ||
+      FMath::Abs(static_cast<int64>(X)) > 50000 ||
+      FMath::Abs(static_cast<int64>(Y)) > 50000) continue;
+  const FIntPoint Cell(X,Y);
+  if (!ExploredMapCells.Contains(Cell)) ExploredMapCells.Add(Cell);
+ }
+}
+void AMoonfallCombatHUD::SaveExploration()
+{
+ if (!bExplorationDirty || !GConfig) return;
+ TArray<FString> EncodedCells;
+ EncodedCells.Reserve(ExploredMapCells.Num());
+ for (const FIntPoint& Cell : ExploredMapCells)
+  EncodedCells.Add(FString::Printf(TEXT("%d,%d"), Cell.X, Cell.Y));
+ GConfig->SetArray(TEXT("Moonfall.Exploration"), TEXT("VisitedCells"), EncodedCells, GGameUserSettingsIni);
+ GConfig->Flush(false, GGameUserSettingsIni);
+ bExplorationDirty = false;
+}
+void AMoonfallCombatHUD::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+ SaveExploration();
+ Super::EndPlay(EndPlayReason);
+}
 void AMoonfallCombatHUD::DrawHUD()
 {
  Super::DrawHUD();
@@ -67,6 +104,12 @@ void AMoonfallCombatHUD::DrawHUD()
   if (!ExploredMapCells.Contains(CurrentCell)) {
    if (ExploredMapCells.Num() >= 384) ExploredMapCells.RemoveAt(0, 1, EAllowShrinking::No);
    ExploredMapCells.Add(CurrentCell);
+   bExplorationDirty = true;
+  }
+  const float Now = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f;
+  if (bExplorationDirty && Now >= NextExplorationSaveAt) {
+   SaveExploration();
+   NextExplorationSaveAt = Now + 15.f;
   }
   for (const FIntPoint& Cell : ExploredMapCells) {
    const FVector2D CellOffset((Cell.X + 0.5f) * CellSize - HeroPosition.X, (Cell.Y + 0.5f) * CellSize - HeroPosition.Y);
