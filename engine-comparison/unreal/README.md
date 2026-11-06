@@ -50,6 +50,10 @@ In addition to the regular sixteen-second living checkpoint cycle, moving into a
 
 Loading a valid living checkpoint now grants a short two-second protection window against both enemy and boss damage. The timer expires normally, so no permanent invulnerability is possible. The hero keeps the checkpoint's actual health and resources, with no healing or free perfect-dodge counterattack. Fresh runs without a restored checkpoint receive no protection. This prevents immediate repeat deaths when an old checkpoint is near an active guardian; its timing and behavior still require an Unreal 5.6 gameplay test.
 
+## Enemy telegraph stability (source implemented, gameplay unverified)
+
+Enemy strike warnings now hold the enemy at its current location rather than letting the return-home logic slide it away during a windup. Escaping the enemy's aggro/leash range cancels the warning and adds a short half-second recovery, preventing instant warning restarts on reentry. This also applies to guardian encounters, with no additional visual assets, wave spawns, or game modes. Real Unreal gameplay testing remains outstanding.
+
 ## Manual acceptance checklist
 
 - Compile editor and game C++ targets on Windows with UE 5.6 and record exact errors, warnings, and versions.
