@@ -77,6 +77,15 @@ void AMoonfallPawn::EndPlay(const EEndPlayReason::Type Reason)
 void AMoonfallPawn::BeginPlay()
 {
     Super::BeginPlay();
+    // Click-to-attack and on-map zoom need a visible, usable mouse cursor.
+    // Keep game input active while the pointer interacts with the HUD.
+    if (APlayerController* Controller = Cast<APlayerController>(GetController()))
+    {
+        Controller->bShowMouseCursor = true;
+        FInputModeGameAndUI InputMode;
+        InputMode.SetHideCursorDuringCapture(false);
+        Controller->SetInputMode(InputMode);
+    }
     bool bLoadedCheckpoint = false;
     // Separate prototype save slot. Never touches production Godot saves.
     if (USaveGame* Loaded = UGameplayStatics::LoadGameFromSlot(TEXT("MoonfallPrototypeBossRewards"), 0))
@@ -732,8 +741,14 @@ bool AMoonfallPawn::TryHandleMinimapZoomClick()
 
     // Positions match the two clickable squares painted by MoonfallHud.
     const float ButtonX = static_cast<float>(ViewportX) - 36.f;
-    constexpr float ButtonHalfSize = 13.f;
-    if (FMath::Abs(MouseX - ButtonX) > ButtonHalfSize) return false;
+    constexpr float ButtonHalfSize = 15.f; // 30x30 selectable controls.
+    if (FMath::Abs(MouseX - ButtonX) > ButtonHalfSize)
+    {
+        // Treat clicks anywhere inside the circular minimap as UI, not attacks.
+        const FVector2D RadarCenter(static_cast<float>(ViewportX) - 94.f, 94.f);
+        const FVector2D MouseDelta(MouseX - RadarCenter.X, MouseY - RadarCenter.Y);
+        return MouseDelta.SizeSquared() <= FMath::Square(72.f);
+    }
     if (FMath::Abs(MouseY - 67.f) <= ButtonHalfSize)
     {
         MinimapZoomLevel = FMath::Min(MinimapZoomLevel + 1, 2);
@@ -744,7 +759,10 @@ bool AMoonfallPawn::TryHandleMinimapZoomClick()
         MinimapZoomLevel = FMath::Max(MinimapZoomLevel - 1, 0);
         return true;
     }
-    return false;
+    // The button column and map are UI even between the zoom buttons.
+    const FVector2D RadarCenter(static_cast<float>(ViewportX) - 94.f, 94.f);
+    const FVector2D MouseDelta(MouseX - RadarCenter.X, MouseY - RadarCenter.Y);
+    return MouseDelta.SizeSquared() <= FMath::Square(72.f);
 }
 
 void AMoonfallPawn::EndGuard()
