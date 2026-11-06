@@ -914,6 +914,23 @@ class PrototypeContracts(unittest.TestCase):
         self.assertNotIn("Health += Damage", self.cpp)
         self.assertNotIn("hp += damage", self.unity)
 
+    def test_unreal_enemy_strikes_require_visible_windups(self):
+        # Contact alone must not deal damage: the foe must finish its warning.
+        self.assertIn("float AttackWindup = 0.f;", self.header)
+        self.assertIn("float AttackRecovery = 0.f;", self.header)
+        self.assertIn("bool bAttackReadyThisFrame = false;", self.header)
+        self.assertIn("Enemy.bAttackReadyThisFrame = false;", self.cpp)
+        self.assertIn("Enemy.AttackWindup = Enemy.bGuardian ? 0.85f : 0.6f;", self.cpp)
+        self.assertIn("Enemy.AttackRecovery = Enemy.bGuardian ? 1.7f : 1.3f;", self.cpp)
+        self.assertIn("Enemy.bAttackReadyThisFrame = bAggro &&", self.cpp)
+        self.assertIn("!Candidate.bAttackReadyThisFrame", self.cpp)
+        self.assertIn("Enemy.AttackWindup = 0.f; // A successful interrupt cancels the warning.", self.cpp)
+        self.assertIn("Enemy.Portrait->SetRelativeScale3D(FVector(2.f * WarningScale))", self.cpp)
+        self.assertIn("Enemy.bGuardian ? 1.3f : 1.1f", self.cpp)
+        self.assertLess(self.cpp.index("UpdateWorldEnemies(Dt);"),
+                        self.cpp.index("!Candidate.bAttackReadyThisFrame"))
+        self.assertNotIn("Health = FMath::Min(GetHudMaxHealth(), Health + ContactDamage)", self.cpp)
+
     def test_original_art_import_is_checksum_guarded(self):
         import_tool = (ROOT / "tools/import_godot_art.py").read_text()
         verify_tool = (ROOT / "tools/verify_art_import.py").read_text()
