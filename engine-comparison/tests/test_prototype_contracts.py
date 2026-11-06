@@ -315,6 +315,24 @@ class PrototypeContracts(unittest.TestCase):
         self.assertNotIn("DrawRect(TerrainTint(Region), TopLeft.X", minimap)
         self.assertNotIn("Hero->GetEnemyMapPositions()", minimap)
 
+    def test_defeat_preserves_exploration_without_overwriting_checkpoint(self):
+        saved = self.cpp.split("void AMoonfallPawn::SaveExplorationOnly()", 1)[1].split(
+            "void AMoonfallPawn::SaveMapPreferences()", 1)[0]
+        self.assertIn("void SaveExplorationOnly();", self.header)
+        self.assertIn("LoadGameFromSlot", saved)
+        self.assertIn("CreateSaveGameObject", saved)
+        self.assertIn("Progress->ExploredMapCells = ExploredMapCells;", saved)
+        self.assertIn("SaveGameToSlot", saved)
+        for forbidden in ("SavedHeroPosition =", "SavedHealth =", "SavedMana =",
+                          "SavedStamina =", "bHasCheckpoint =", "SaveProgress();"):
+            self.assertNotIn(forbidden, saved)
+        attack = self.cpp.split("void AMoonfallPawn::Attack()", 1)[1].split(
+            "if (AttackCooldown > 0.f", 1)[0]
+        self.assertIn("SaveExplorationOnly();", attack)
+        self.assertLess(attack.index("SaveExplorationOnly();"),
+                        attack.index("UGameplayStatics::OpenLevel("))
+        self.assertIn("if (Health <= 0.f)", attack)
+
     def test_map_preferences_save_immediately_without_moving_checkpoint(self):
         body = self.cpp.split("void AMoonfallPawn::SaveMapPreferences()", 1)[1].split(
             "void AMoonfallPawn::CycleMinimapTracking()", 1)[0]
