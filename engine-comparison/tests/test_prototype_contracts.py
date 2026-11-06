@@ -240,6 +240,14 @@ class PrototypeContracts(unittest.TestCase):
                         boss.index("Health = FMath::Max(0.f, Health -"))
         self.assertIn("EnemyDamageCooldown = FMath::Max(0.f, EnemyDamageCooldown - Dt);", tick)
 
+    def test_parry_never_shortens_existing_posture_stagger(self):
+        tick = self.cpp.split("void AMoonfallPawn::Tick(", 1)[1]
+        self.assertIn(
+            "Contact.StaggerTimer = FMath::Max(\\n"
+            "                            Contact.StaggerTimer, Contact.bGuardian ? 0.9f : 0.6f);",
+            tick)
+        self.assertNotIn("Contact.StaggerTimer = Contact.bGuardian ? 0.9f : 0.6f;", tick)
+
     def test_checkpoint_grace_cannot_grant_boss_perfect_dodge_counter(self):
         boss = self.cpp.split("if (CastTimer <= 0.f)", 1)[1]
         self.assertIn("if (bDodgeActiveThisFrame && RespawnGraceTimer <= 0.f)", boss)
