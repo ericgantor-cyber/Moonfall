@@ -35,3 +35,54 @@ jobs:
           }
       - name: Report exact validation scope
         run: echo "Static source checks only; Unity/Unreal engine compilation and gameplay remain unverified."
+
+  windows-build-entrypoint:
+    # No Unreal SDK is installed on this runner. Test the actual Windows
+    # PowerShell parser and failure paths, never claim engine compilation.
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Parse Unreal build script on Windows
+        shell: pwsh
+        run: |
+          $scriptPath = (Resolve-Path 'engine-comparison/unreal/verify-windows-build.ps1').Path
+          $tokens = $null
+          $parseErrors = $null
+          [void][System.Management.Automation.Language.Parser]::ParseFile($scriptPath, [ref]$tokens, [ref]$parseErrors)
+          if ($parseErrors.Count -gt 0) {
+            $parseErrors | ForEach-Object { Write-Host $_.ToString() }
+            throw "Windows PowerShell parser rejected the Unreal build script."
+          }
+      - name: Reject a nonexistent Unreal installation
+        shell: pwsh
+        run: |
+          $scriptPath = (Resolve-Path 'engine-comparison/unreal/verify-windows-build.ps1').Path
+          $missingEngine = Join-Path $env:RUNNER_TEMP 'MoonfallMissingUnrealEngine'
+          if (Test-Path -LiteralPath $missingEngine) { throw "Test precondition failed: fake engine path exists." }
+          try {
+            & $scriptPath -EngineRoot $missingEngine
+            throw "Build verifier unexpectedly accepted a missing Unreal installation."
+          } catch {
+            if ($_.Exception.Message -notlike 'Unreal Build.bat not found*') { throw }
+            Write-Host "Expected missing-engine failure verified."
+          }
+      - name: Reject an incompatible Unreal engine version
+        shell: pwsh
+        run: |
+          $scriptPath = (Resolve-Path 'engine-comparison/unreal/verify-windows-build.ps1').Path
+          $fakeRoot = Join-Path $env:RUNNER_TEMP 'MoonfallFakeUnrealEngine'
+          $batchDir = Join-Path $fakeRoot 'Engine\Build\BatchFiles'
+          $versionDir = Join-Path $fakeRoot 'Engine\Build'
+          New-Item -ItemType Directory -Force -Path $batchDir | Out-Null
+          Set-Content -LiteralPath (Join-Path $batchDir 'Build.bat') -Value '@echo off'
+          Set-Content -LiteralPath (Join-Path $versionDir 'Build.version') -Value '{"MajorVersion":5,"MinorVersion":5}'
+          try {
+            & $scriptPath -EngineRoot $fakeRoot
+            throw "Build verifier unexpectedly accepted Unreal 5.5."
+          } catch {
+            if ($_.Exception.Message -notlike 'Moonfall prototype requires Unreal 5.6*') { throw }
+            Write-Host "Expected engine-version failure verified."
+          }
+      - name: State verification scope
+        shell: pwsh
+        run: Write-Host 'Windows script parser and failure-path checks only; no Unreal compilation, packaging, or gameplay verification.'
