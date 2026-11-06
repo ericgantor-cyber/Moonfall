@@ -144,7 +144,7 @@ private:
     float BossPosture = 0.f;
     float BossPostureIdleTimer = 0.f;
     float BossStaggerTimer = 0.f;
-    static constexpr float BossPostureThreshold = 180.f;
+    static constexpr float BossPostureThreshold = 30.f;
     void ApplyBossPosture(float Damage, bool bRiposte, bool bFinisher, bool bMagic);
     static constexpr float CounterDuration = 1.5f;
     static constexpr float CounterMultiplier = 1.75f;
