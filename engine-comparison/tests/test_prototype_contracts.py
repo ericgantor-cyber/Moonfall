@@ -931,6 +931,25 @@ class PrototypeContracts(unittest.TestCase):
                         self.cpp.index("!Candidate.bAttackReadyThisFrame"))
         self.assertNotIn("Health = FMath::Min(GetHudMaxHealth(), Health + ContactDamage)", self.cpp)
 
+    def test_unreal_transient_damage_numbers_are_bounded_and_world_anchored(self):
+        hud = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8")
+        self.assertIn("struct FDamageNumber", self.header)
+        self.assertIn("TArray<FDamageNumber> DamageNumbers", self.header)
+        self.assertIn("GetDamageNumbers() const", self.header)
+        self.assertIn("DamageNumberLifetime = 1.25f", self.header)
+        self.assertIn("if (DamageNumbers.Num() >= 24) DamageNumbers.RemoveAt(0);", self.cpp)
+        self.assertIn("DamageNumbers[I].Age += Dt;", self.cpp)
+        self.assertIn("DamageNumbers.RemoveAtSwap(I, 1, EAllowShrinking::No);", self.cpp)
+        self.assertIn("RecordDamageNumber(Enemy.Mesh->GetRelativeLocation()", self.cpp)
+        self.assertEqual(self.cpp.count("RecordDamageNumber(BossMesh->GetRelativeLocation()"), 2)
+        self.assertIn("DamageWorldEnemy(EnemyIndex, Damage, bRiposte, false, true)", self.cpp)
+        self.assertIn("Hero->GetDamageNumbers()", hud)
+        self.assertIn("ProjectWorldLocationToScreen(World, Screen, false)", hud)
+        self.assertIn("Hit.bHeavy", hud)
+        self.assertIn("Hit.bMagic", hud)
+        self.assertIn("1.f - T", hud)
+        self.assertNotIn("NewObject<", hud)
+
     def test_original_art_import_is_checksum_guarded(self):
         import_tool = (ROOT / "tools/import_godot_art.py").read_text()
         verify_tool = (ROOT / "tools/verify_art_import.py").read_text()
