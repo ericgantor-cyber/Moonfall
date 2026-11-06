@@ -91,26 +91,26 @@ void AMoonfallCombatHUD::DrawHUD()
   if (Boss->BossWarningEndTime > GetWorld()->GetTimeSeconds())
    DrawText(TEXT("INCOMING ATTACK - DODGE"),FLinearColor(1.f,0.83f,0.24f),X,Y+18.f,nullptr,0.9f);
  }
+ // Track exploration independently of HUD visibility, including compact or Options screens.
+ const float CellSize = 200.f; // Unreal centimetres
+ const FVector HeroPosition = Hero->GetActorLocation();
+ const FIntPoint CurrentCell(FMath::FloorToInt(HeroPosition.X / CellSize), FMath::FloorToInt(HeroPosition.Y / CellSize));
+ if (!ExploredMapCells.Contains(CurrentCell)) {
+  if (ExploredMapCells.Num() >= 384) ExploredMapCells.RemoveAt(0, 1, EAllowShrinking::No);
+  ExploredMapCells.Add(CurrentCell);
+  bExplorationDirty = true;
+ }
+ const float Now = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f;
+ if (bExplorationDirty && Now >= NextExplorationSaveAt) {
+  SaveExploration();
+  NextExplorationSaveAt = Now + 15.f;
+ }
  // North-up local minimap: bounded nearby enemy markers, without duplicating the HUD.
  // World +X points east on the chart, +Y points north; no undiscovered terrain is revealed.
  if (Canvas->SizeX >= 700.f && Canvas->SizeY >= 460.f) {
   const float MapRadius = FMath::Clamp(FMath::Min(Canvas->SizeX, Canvas->SizeY) * 0.09f, 52.f, 84.f);
   const FVector2D MapCenter(Canvas->SizeX - MapRadius - 24.f, MapRadius + 28.f);
   const float MapRange = FMath::Clamp(Hero->MinimapRange, 1200.f, 4800.f); // Unreal centimetres
-  // Remember a bounded trail of 2m cells visited by the player, never entire unseen terrain.
-  const float CellSize = 200.f; // Unreal centimetres
-  const FVector HeroPosition = Hero->GetActorLocation();
-  const FIntPoint CurrentCell(FMath::FloorToInt(HeroPosition.X / CellSize), FMath::FloorToInt(HeroPosition.Y / CellSize));
-  if (!ExploredMapCells.Contains(CurrentCell)) {
-   if (ExploredMapCells.Num() >= 384) ExploredMapCells.RemoveAt(0, 1, EAllowShrinking::No);
-   ExploredMapCells.Add(CurrentCell);
-   bExplorationDirty = true;
-  }
-  const float Now = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f;
-  if (bExplorationDirty && Now >= NextExplorationSaveAt) {
-   SaveExploration();
-   NextExplorationSaveAt = Now + 15.f;
-  }
   for (const FIntPoint& Cell : ExploredMapCells) {
    const FVector2D CellOffset((Cell.X + 0.5f) * CellSize - HeroPosition.X, (Cell.Y + 0.5f) * CellSize - HeroPosition.Y);
    if (CellOffset.SizeSquared() > FMath::Square(MapRange - CellSize)) continue;
