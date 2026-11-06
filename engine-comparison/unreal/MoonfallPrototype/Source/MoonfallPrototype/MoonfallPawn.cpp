@@ -430,14 +430,14 @@ void AMoonfallPawn::RecordDamageNumber(const FVector& LocalPosition,
     DamageNumbers.Add(Number);
 }
 
-void AMoonfallPawn::DamageWorldEnemy(int32 Index, float Damage, bool bRiposte, bool bComboFinisher)
+void AMoonfallPawn::DamageWorldEnemy(int32 Index, float Damage, bool bRiposte, bool bComboFinisher, bool bMagic)
 {
     if (!Enemies.IsValidIndex(Index)) return;
     FWorldEnemy& Enemy = Enemies[Index];
     const float ActualDamage = FMath::Min(Enemy.Health, FMath::Max(0.f, Damage));
     if (Enemy.Mesh)
         RecordDamageNumber(Enemy.Mesh->GetRelativeLocation(), ActualDamage,
-            bComboFinisher || bRiposte, false);
+            bComboFinisher || bRiposte, bMagic);
     Enemy.Health = FMath::Max(0.f, Enemy.Health - Damage);
     if (Enemy.Health > 0.f)
     {
@@ -671,7 +671,7 @@ void AMoonfallPawn::CastBolt()
     const float Damage = ArcaneBoltDamage() *
         (bRiposte ? CounterMultiplier : 1.f);
     CounterWindow = 0.f;
-    if (!bHitBoss) DamageWorldEnemy(EnemyIndex, Damage, bRiposte);
+    if (!bHitBoss) DamageWorldEnemy(EnemyIndex, Damage, bRiposte, false, true);
     else
     {
         RecordDamageNumber(BossMesh->GetRelativeLocation(),
