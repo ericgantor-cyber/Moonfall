@@ -246,6 +246,13 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("Contact.StaggerTimer, Contact.bGuardian ? 0.9f : 0.6f);", tick)
         self.assertNotIn("Contact.StaggerTimer = Contact.bGuardian ? 0.9f : 0.6f;", tick)
 
+    def test_boss_perfect_parry_creates_real_punish_window(self):
+        boss = self.cpp.split("else if (EnemyDamageCooldown <= 0.f && RespawnGraceTimer <= 0.f)", 1)[1]
+        self.assertIn("if (bParried)", boss)
+        self.assertIn("BossStaggerTimer = FMath::Max(BossStaggerTimer, 0.65f);", boss)
+        self.assertIn("CastCooldown = FMath::Max(CastCooldown, 3.5f);", boss)
+        self.assertNotIn("CastCooldown = FMath::Max(CastCooldown, 1.5f);", boss)
+
     def test_checkpoint_grace_cannot_grant_boss_perfect_dodge_counter(self):
         boss = self.cpp.split("if (CastTimer <= 0.f)", 1)[1]
         self.assertIn("if (bDodgeActiveThisFrame && RespawnGraceTimer <= 0.f)", boss)
