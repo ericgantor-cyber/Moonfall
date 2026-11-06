@@ -299,6 +299,22 @@ class PrototypeContracts(unittest.TestCase):
         self.assertNotIn("Hero->GetEnemyMapPositions()", minimap)
         self.assertNotIn("NearestChamberDirection", minimap)
 
+    def test_nearest_unclaimed_cave_is_highlighted_without_direction_arrows(self):
+        hud = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8")
+        header = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.h").read_text(encoding="utf-8")
+        minimap = hud.split("// Compact WoW-style circular minimap", 1)[1]
+        self.assertIn("void DrawMapFocusRing(FVector2D Center, float Radius);", header)
+        self.assertIn("void AMoonfallHud::DrawMapFocusRing(", hud)
+        self.assertIn("NearestVisibleCaveSq", minimap)
+        self.assertIn("if (bHasVisibleCave) DrawMapFocusRing(NearestVisibleCavePoint, 10.f);", minimap)
+        self.assertIn("const float DistanceSq = Offset.SizeSquared2D();", minimap)
+        self.assertIn("FVector::DistSquared2D(Chamber, H)", minimap)
+        self.assertIn("if (bHasWorldCave)", minimap)
+        self.assertIn("DrawMapFocusRing(NearestWorldCavePoint, 8.f);", minimap)
+        self.assertIn('TEXT("NEAREST CAVE: %.0fm")', minimap)
+        self.assertNotIn("Hero->GetEnemyMapPositions()", minimap)
+        self.assertNotIn("NearestChamberDirection", minimap)
+
     def test_original_fantasy_map_icons_are_shared_and_direction_free(self):
         hud = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8")
         header = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.h").read_text(encoding="utf-8")
