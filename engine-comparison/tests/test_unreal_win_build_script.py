@@ -40,6 +40,11 @@ class UnrealWindowsBuildScriptTests(unittest.TestCase):
         self.assertIn("throw \"UnrealBuildTool failed", self.script)
         self.assertIn("MoonfallPrototype.exe", self.script)
         self.assertIn("Build command returned success but", self.script)
+        self.assertIn("function Test-WindowsExecutable {", self.script)
+        self.assertIn("$stream.ReadByte() -eq 77", self.script)
+        self.assertIn("$stream.ReadByte() -eq 90", self.script)
+        self.assertIn("if (-not (Test-WindowsExecutable -Path $GameExe))", self.script)
+        self.assertIn("not a Windows PE file", self.script)
 
     def test_editor_map_creator_uses_unreal_api_without_overwriting_assets(self):
         import json
@@ -85,7 +90,7 @@ class UnrealWindowsBuildScriptTests(unittest.TestCase):
         self.assertIn("$PackageStartedUtc = [DateTime]::UtcNow", self.script)
         self.assertIn("Test-Path -LiteralPath $ArchiveDirectory -PathType Container", self.script)
         self.assertIn('Get-ChildItem -LiteralPath $ArchiveDirectory -File -Recurse -Filter "MoonfallPrototype.exe"', self.script)
-        self.assertIn("$_.Length -gt 0", self.script)
+        self.assertIn("Test-WindowsExecutable -Path $_.FullName", self.script)
         self.assertIn("$_.LastWriteTimeUtc -ge $PackageStartedUtc.AddSeconds(-2)", self.script)
         self.assertIn("if ($PackagedExecutables.Count -eq 0)", self.script)
         self.assertLess(self.script.index("    & $RunUAT BuildCookRun "),
