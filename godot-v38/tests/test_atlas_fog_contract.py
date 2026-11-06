@@ -20,6 +20,7 @@ class AtlasFogContract(unittest.TestCase):
         start = SOURCE.index("for pillar in dungeon_pillars:", SOURCE.index("func _draw()"))
         end = SOURCE.index("# Visited authored chambers", start)
         pillar = SOURCE[start:end]
+        self.assertLess(pillar.index("if absf(pillar_offset.x)>"), pillar.index("for room_index in range(dungeon_rooms.size()):"))
         self.assertLess(pillar.index("if not pillar_discovered:continue"), pillar.index("draw_rect("))
         self.assertIn("for visited_position in discovered_chambers:", pillar)
 
