@@ -233,12 +233,18 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("if (Health > 0.f && EnemyDamageCooldown <= 0.f && RespawnGraceTimer <= 0.f)", tick)
         self.assertIn("if (ContactIndex != INDEX_NONE)", tick)
         boss = tick.split("if (CastTimer <= 0.f)", 1)[1]
-        self.assertIn("if (bDodgeActiveThisFrame)", boss)
+        self.assertIn("if (bDodgeActiveThisFrame && RespawnGraceTimer <= 0.f)", boss)
         self.assertIn("else if (EnemyDamageCooldown <= 0.f && RespawnGraceTimer <= 0.f)", boss)
         self.assertIn("EnemyDamageCooldown = 1.2f;", boss)
         self.assertLess(boss.index("else if (EnemyDamageCooldown <= 0.f && RespawnGraceTimer <= 0.f)"),
                         boss.index("Health = FMath::Max(0.f, Health -"))
         self.assertIn("EnemyDamageCooldown = FMath::Max(0.f, EnemyDamageCooldown - Dt);", tick)
+
+    def test_checkpoint_grace_cannot_grant_boss_perfect_dodge_counter(self):
+        boss = self.cpp.split("if (CastTimer <= 0.f)", 1)[1]
+        self.assertIn("if (bDodgeActiveThisFrame && RespawnGraceTimer <= 0.f)", boss)
+        self.assertIn("else if (EnemyDamageCooldown <= 0.f && RespawnGraceTimer <= 0.f)", boss)
+        self.assertNotIn("if (RespawnGraceTimer > 0.f) return;", boss)
 
     def test_unreal_targeting_ignores_missing_meshes_and_avoids_sqrt(self):
         nearest = self.cpp.split("int32 AMoonfallPawn::NearestEnemyIndex(float Radius) const", 1)[1].split(
@@ -273,7 +279,8 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("Enemy.Health <= 0.35f * 1.8f * MoonfallWorldRules::EnemyMaxHealth(Enemy.Region)", ai)
         self.assertIn("Enemy.bEnraged ? 360.f : (Enemy.bGuardian ? 280.f : 200.f)", ai)
         self.assertIn("(Contact.bEnraged ? 4.f : 0.f)", self.cpp)
-        self.assertIn("if (bDodgeActiveThisFrame)\n                {\n                    CounterWindow = CounterDuration;", self.cpp)
+        self.assertIn("if (bDodgeActiveThisFrame && RespawnGraceTimer <= 0.f)", self.cpp)
+        self.assertIn("CounterWindow = CounterDuration;", self.cpp)
         self.assertNotIn("Health += 4.f;", self.cpp)
 
     def test_unreal_enemy_leash_has_return_hysteresis(self):
@@ -299,7 +306,8 @@ class PrototypeContracts(unittest.TestCase):
         self.assertLess(tick.index("const bool bDodgeActiveThisFrame = DodgeTimer > 0.f;"),
                         tick.index("DodgeTimer = FMath::Max(0.f, DodgeTimer - ReactionDt);"))
         self.assertIn("Direction * (bDodgeActiveThisFrame ? 1200.f : (IsGuarding() ? 340.f : 600.f)) * MovementDt", tick)
-        self.assertEqual(tick.count("if (bDodgeActiveThisFrame)"), 2)
+        self.assertEqual(tick.count("if (bDodgeActiveThisFrame)"), 1)
+        self.assertEqual(tick.count("if (bDodgeActiveThisFrame && RespawnGraceTimer <= 0.f)"), 1)
         self.assertEqual(tick.count("DodgeTimer > 0.f"), 1)
 
     def test_unreal_dodge_window_matches_hitch_safe_boss_telegraph(self):
