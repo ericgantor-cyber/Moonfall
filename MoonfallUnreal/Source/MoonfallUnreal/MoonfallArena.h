@@ -30,15 +30,20 @@ public:
  UPROPERTY(EditAnywhere, Category="Moonfall|Atmosphere", meta=(ClampMin="0.0",ClampMax="0.025")) float GroundFogDensity = 0.012f;
  UPROPERTY(EditDefaultsOnly, Category="Moonfall|Art") UStaticMesh* RitualStoneMeshArt = nullptr;
  UPROPERTY(EditDefaultsOnly, Category="Moonfall|Art") UMaterialInterface* RitualStoneMaterial = nullptr;
+ UPROPERTY(EditDefaultsOnly, Category="Moonfall|Ritual Art") UStaticMesh* SigilTileMeshArt = nullptr;
+ UPROPERTY(EditDefaultsOnly, Category="Moonfall|Ritual Art") UMaterialInterface* SigilTileMaterial = nullptr;
+ UPROPERTY(EditAnywhere, Category="Moonfall|Ritual Art") bool bShowRitualCircle = true;
 private:
  UPROPERTY(VisibleAnywhere) UInstancedStaticMeshComponent* RuinPieces;
  UPROPERTY(VisibleAnywhere) UInstancedStaticMeshComponent* DeadTrees;
  UPROPERTY(VisibleAnywhere) UInstancedStaticMeshComponent* RitualStones;
+ UPROPERTY(VisibleAnywhere) UInstancedStaticMeshComponent* RitualSigil;
  UPROPERTY(VisibleAnywhere) UDirectionalLightComponent* Moonlight;
  UPROPERTY(VisibleAnywhere) UExponentialHeightFogComponent* GroundFog;
  void CreateBlock(FVector Position, FVector Scale, bool bGround);
  void CreateDecoration(FVector Position, FVector Scale);
  void AddFoliage(FVector Position, FVector Scale, FRotator Rotation);
  void AddRitualStone(FVector Position, FVector Scale, FRotator Rotation);
+ void AddSigilTile(FVector Position, FVector Scale, FRotator Rotation);
  void CreateAtmosphereLight(FVector Position, FLinearColor Color, float Intensity);
 };
