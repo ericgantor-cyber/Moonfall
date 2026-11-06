@@ -23,7 +23,7 @@ This local check verifies the UE 5.6 engine version, build/editor/packaging comm
    - `MOONFALL_UNREAL_RUNNER_ENABLED`: `true` when the trusted runner is ready, or unset/false to keep the costly job skipped.
 4. After the workflow is merged into the repository's default branch, manually start **Moonfall dual-engine prototype static checks** from GitHub Actions using **Run workflow** with the **main** branch selected. The real-engine job only runs for a manual `workflow_dispatch` on `refs/heads/main`; PRs and other branches cannot claim the self-hosted Unreal runner. Review changes before merging to main, and restrict permission to enable the build variable or dispatch workflows.
 
-The job calls the real `verify-windows-build.ps1` with `-CreateMap -Package`. It requires actual Unreal editor and game compilation, a saved startup map, a newly created package archive, a valid Win64 PE executable and nonempty cooked content. Only if all checks succeed does it upload a 7-day downloadable GitHub Actions artifact named `Moonfall-Unreal56-Win64-Development`.
+The real-build job now runs `check-runner-prerequisites.ps1` first and stops before compilation if the UE 5.6 installation, VS C++ x64 toolchain, or Windows SDK is missing. It then calls `verify-windows-build.ps1` with `-CreateMap -Package`. It requires actual Unreal editor and game compilation, a saved startup map, a newly created package archive, a valid Win64 PE executable and nonempty cooked content. Only if all checks succeed does it upload a 7-day downloadable GitHub Actions artifact named `Moonfall-Unreal56-Win64-Development`.
 
 ## Compiler failure diagnostics
 
