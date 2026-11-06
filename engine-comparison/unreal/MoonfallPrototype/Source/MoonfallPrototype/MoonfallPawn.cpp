@@ -774,9 +774,27 @@ void AMoonfallPawn::ToggleWorldMap()
     bWorldMapVisible = !bWorldMapVisible;
 }
 
+void AMoonfallPawn::SaveMapPreferences()
+{
+    // Map UI changes must not create or move a living combat checkpoint.
+    // Preserve all previously saved progression and explored terrain.
+    UMoonfallProgressSave* Progress = Cast<UMoonfallProgressSave>(
+        UGameplayStatics::LoadGameFromSlot(TEXT("MoonfallPrototypeBossRewards"), 0));
+    if (!Progress)
+        Progress = Cast<UMoonfallProgressSave>(
+            UGameplayStatics::CreateSaveGameObject(UMoonfallProgressSave::StaticClass()));
+    if (!Progress) return;
+
+    Progress->SavedMinimapTrackingMode = MinimapTrackingMode;
+    Progress->SavedMinimapZoomLevel = MinimapZoomLevel;
+    if (!UGameplayStatics::SaveGameToSlot(Progress, TEXT("MoonfallPrototypeBossRewards"), 0))
+        UE_LOG(LogTemp, Warning, TEXT("Moonfall: map preferences save failed."));
+}
+
 void AMoonfallPawn::CycleMinimapTracking()
 {
     MinimapTrackingMode = (MinimapTrackingMode + 1) % 4;
+    SaveMapPreferences();
 }
 
 bool AMoonfallPawn::TryHandleMinimapZoomClick()
@@ -804,12 +822,20 @@ bool AMoonfallPawn::TryHandleMinimapZoomClick()
     }
     if (FMath::Abs(MouseY - 67.f) <= ButtonHalfSize)
     {
-        MinimapZoomLevel = FMath::Min(MinimapZoomLevel + 1, 2);
+        if (MinimapZoomLevel < 2)
+        {
+            ++MinimapZoomLevel;
+            SaveMapPreferences();
+        }
         return true;
     }
     if (FMath::Abs(MouseY - 99.f) <= ButtonHalfSize)
     {
-        MinimapZoomLevel = FMath::Max(MinimapZoomLevel - 1, 0);
+        if (MinimapZoomLevel > 0)
+        {
+            --MinimapZoomLevel;
+            SaveMapPreferences();
+        }
         return true;
     }
     // The button column and map are UI even between the zoom buttons.
