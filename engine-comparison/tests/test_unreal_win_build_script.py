@@ -37,8 +37,11 @@ class UnrealWindowsBuildScriptTests(unittest.TestCase):
         import json
         project = json.loads((PROJECT / "MoonfallPrototype.uproject").read_text(encoding="utf-8"))
         self.assertIn({"Name": "PythonScriptPlugin", "Enabled": True}, project["Plugins"])
+        self.assertIn({"Name": "EditorScriptingUtilities", "Enabled": True}, project["Plugins"])
         ini = (PROJECT / "Config" / "DefaultEngine.ini").read_text(encoding="utf-8")
         self.assertIn("GameDefaultMap=/Game/Maps/MoonfallPrototype", ini)
+        self.assertIn("EditorStartupMap=/Engine/Maps/Entry", ini)
+        self.assertNotIn("EditorStartupMap=/Game/Maps/MoonfallPrototype", ini)
         creator = (PROJECT / "Content" / "Python" / "create_startup_map.py").read_text(encoding="utf-8")
         self.assertIn("import unreal", creator)
         self.assertIn('LEVEL_PATH = "/Game/Maps/MoonfallPrototype"', creator)
