@@ -26,6 +26,10 @@ public:
  UPROPERTY(BlueprintReadOnly, Category="Moonfall|Options") bool bFrameGenerationAvailable = false;
  UPROPERTY(BlueprintReadOnly, Category="Moonfall|Options") bool bFrameGenerationPluginDetected = false;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Map") float MinimapRange = 2200.f;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Map") bool bQuestTargetActive = false;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Map") FVector QuestTarget = FVector::ZeroVector;
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Map") void SetQuestTarget(FVector WorldLocation);
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Map") void ClearQuestTarget();
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Combat") float Mana = 100.f;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Combat") float MaxMana = 100.f;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Combat") float Health = 100.f;
