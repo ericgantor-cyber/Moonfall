@@ -4,6 +4,16 @@ Moonfall's ordinary source and PowerShell checks run on hosted GitHub runners, *
 
 An optional `unreal-win64-real-build` job is available in `.github/workflows/engine-comparison-static.yml`. It is disabled by default and does not affect the existing Godot release.
 
+## Check the Windows machine before connecting it
+
+From PowerShell on the Windows machine, in the checked-out repository:
+
+```powershell
+./engine-comparison/unreal/check-runner-prerequisites.ps1 -EngineRoot 'C:\\Program Files\\Epic Games\\UE_5.6'
+```
+
+This local check verifies the UE 5.6 engine version, build/editor/packaging commands, Visual Studio C++ x64 tools, and Windows SDK headers. It does **not** install Unreal, create a GitHub runner, need an access token, or prove that Moonfall compiles. The machine's administrator must register the official GitHub Actions self-hosted runner from the repository's **Settings > Actions > Runners > New self-hosted runner** page, following GitHub's machine-specific download and registration commands. Use the `unreal-5.6` custom label and restrict access to the runner. Never paste a runner registration token in chat or commit it.
+
 ## Set up a trusted Windows build machine
 
 1. Install licensed Unreal Engine **5.6**, Visual Studio C++ build tools and a Windows SDK on a Windows x64 machine with enough disk space for a full engine build.
