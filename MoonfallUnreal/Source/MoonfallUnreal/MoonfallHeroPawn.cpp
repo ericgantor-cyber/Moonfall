@@ -4,6 +4,7 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Components/InputComponent.h"
 #include "Engine/World.h"
+#include "GameFramework/PlayerController.h"
 #include "DrawDebugHelpers.h"
 #include "Engine/Engine.h"
 #include "GameFramework/GameUserSettings.h"
@@ -85,6 +86,7 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("WorldMap"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleWorldMap);
  Input->BindAction(TEXT("WorldMapRecenter"), IE_Pressed, this, &AMoonfallHeroPawn::RecenterWorldMap);
  Input->BindAction(TEXT("PlaceWaypoint"), IE_Pressed, this, &AMoonfallHeroPawn::PlacePersonalWaypoint);
+ Input->BindAction(TEXT("MapClickWaypoint"), IE_Pressed, this, &AMoonfallHeroPawn::PlacePersonalWaypointAtCursor);
  Input->BindAction(TEXT("ClearWaypoint"), IE_Pressed, this, &AMoonfallHeroPawn::ClearPersonalWaypoint);
  Input->BindAction(TEXT("Jump"), IE_Pressed, this, &ACharacter::Jump);
  Input->BindAction(TEXT("Jump"), IE_Released, this, &ACharacter::StopJumping);
@@ -100,7 +102,12 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("OptionsLeft"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsLeft);
  Input->BindAction(TEXT("OptionsRight"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsRight);
 }
-void AMoonfallHeroPawn::ToggleWorldMap() { if (!bOptionsOpen) bWorldMapOpen = !bWorldMapOpen; }
+void AMoonfallHeroPawn::ToggleWorldMap()
+{
+ if (bOptionsOpen) return;
+ bWorldMapOpen = !bWorldMapOpen;
+ if (APlayerController* PC = Cast<APlayerController>(GetController())) PC->bShowMouseCursor = bWorldMapOpen;
+}
 void AMoonfallHeroPawn::RecenterWorldMap() { if (bWorldMapOpen && !bOptionsOpen) WorldMapPan = FVector2D::ZeroVector; }
 void AMoonfallHeroPawn::PlacePersonalWaypoint()
 {
@@ -108,6 +115,32 @@ void AMoonfallHeroPawn::PlacePersonalWaypoint()
  const FVector Origin = GetActorLocation();
  // The atlas is player-relative and panned in world X/Y, so its centre is the placement target.
  PersonalWaypoint = FVector(Origin.X + WorldMapPan.X, Origin.Y + WorldMapPan.Y, Origin.Z);
+ bPersonalWaypointActive = true;
+ SavePersonalWaypoint();
+}
+void AMoonfallHeroPawn::PlacePersonalWaypointAtCursor()
+{
+ if (!bWorldMapOpen || bOptionsOpen) return;
+ APlayerController* PC = Cast<APlayerController>(GetController());
+ if (!PC) return;
+ int32 ViewX = 0, ViewY = 0;
+ PC->GetViewportSize(ViewX,ViewY);
+ float MouseX = 0.f, MouseY = 0.f;
+ if (ViewX <= 0 || ViewY <= 0 || !PC->GetMousePosition(MouseX,MouseY)) return;
+ const float Width = FMath::Max(200.f, static_cast<float>(ViewX) - 60.f);
+ const float Height = FMath::Max(180.f, static_cast<float>(ViewY) - 90.f);
+ const float Left = (ViewX - Width) * 0.5f;
+ const float Top = (ViewY - Height) * 0.5f;
+ // Match DrawExplorationAtlas bounds and scale. Ignore title, footer and outside clicks.
+ if (MouseX < Left+12.f || MouseX > Left+Width-12.f ||
+     MouseY < Top+70.f || MouseY > Top+Height-16.f) return;
+ const float Range = FMath::Clamp(WorldMapRange, 5000.f, 50000.f);
+ const float Scale = FMath::Min(Width-40.f,Height-75.f)*0.5f/Range;
+ if (Scale <= KINDA_SMALL_NUMBER) return;
+ const FVector Origin = GetActorLocation();
+ PersonalWaypoint = FVector(
+  Origin.X+WorldMapPan.X+(MouseX-ViewX*0.5f)/Scale,
+  Origin.Y+WorldMapPan.Y-(MouseY-ViewY*0.5f)/Scale,Origin.Z);
  bPersonalWaypointActive = true;
  SavePersonalWaypoint();
 }
@@ -287,7 +320,14 @@ void AMoonfallHeroPawn::ToggleDisplayMode() {
  Settings->SaveSettings();
 }
 
-void AMoonfallHeroPawn::OpenOptions() { bOptionsOpen = !bOptionsOpen; if (bOptionsOpen) bWorldMapOpen = false; }
+void AMoonfallHeroPawn::OpenOptions()
+{
+ bOptionsOpen = !bOptionsOpen;
+ if (bOptionsOpen) {
+  bWorldMapOpen = false;
+  if (APlayerController* PC = Cast<APlayerController>(GetController())) PC->bShowMouseCursor = false;
+ }
+}
 void AMoonfallHeroPawn::OptionsUp() { if (bWorldMapOpen) WorldMapPan.Y = FMath::Clamp(WorldMapPan.Y + 2000.f, -50000.f, 50000.f); else if (bOptionsOpen) OptionsSelection = (OptionsSelection + 6) % 7; }
 void AMoonfallHeroPawn::OptionsDown() { if (bWorldMapOpen) WorldMapPan.Y = FMath::Clamp(WorldMapPan.Y - 2000.f, -50000.f, 50000.f); else if (bOptionsOpen) OptionsSelection = (OptionsSelection + 1) % 7; }
 void AMoonfallHeroPawn::OptionsLeft() { if (bWorldMapOpen) WorldMapPan.X = FMath::Clamp(WorldMapPan.X - 2000.f, -50000.f, 50000.f); else AdjustOption(-1); }
