@@ -106,9 +106,21 @@ if ($Package) {
         $ArchiveDirectory = Join-Path $PSScriptRoot "MoonfallPrototype\Saved\Win64Verification"
     }
     $ArchiveDirectory = [System.IO.Path]::GetFullPath($ArchiveDirectory)
+    $PackageStartedUtc = [DateTime]::UtcNow
     & $RunUAT BuildCookRun "-project=$Project" -noP4 -platform=Win64 -clientconfig=Development -build -cook -stage -pak -archive "-archivedirectory=$ArchiveDirectory"
     if ($LASTEXITCODE -ne 0) {
         throw "Unreal BuildCookRun failed (exit $LASTEXITCODE). No valid package was verified."
     }
+    if (-not (Test-Path -LiteralPath $ArchiveDirectory -PathType Container)) {
+        throw "BuildCookRun returned success but the archive directory does not exist: $ArchiveDirectory"
+    }
+    # Prevent a stale build from being mistaken for the output of this run.
+    # Allow two seconds of timestamp granularity for Windows filesystems.
+    $PackagedExecutables = @(Get-ChildItem -LiteralPath $ArchiveDirectory -File -Recurse -Filter "MoonfallPrototype.exe" |
+        Where-Object { $_.Length -gt 0 -and $_.LastWriteTimeUtc -ge $PackageStartedUtc.AddSeconds(-2) })
+    if ($PackagedExecutables.Count -eq 0) {
+        throw "BuildCookRun returned success but no fresh, nonempty packaged MoonfallPrototype.exe was found in $ArchiveDirectory"
+    }
+    Write-Host "Verified fresh Win64 package executable: $($PackagedExecutables[0].FullName)"
     Write-Host "BuildCookRun completed. Manually launch and test the staged game on Windows 10 and 11."
 }
