@@ -295,9 +295,19 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("DrawRect(FLinearColor(.035f, .045f, .075f, .93f)", minimap)
         self.assertIn("Region == MoonfallWorldRules::RegionAt(H.X)", minimap)
         self.assertIn('TEXT("REGION %d / %d")', minimap)
-        self.assertIn('TEXT("GREEN: CHAMBER   RED: BOSS   CYAN: YOU")', minimap)
+        self.assertIn('TEXT("GREEN: CAVE   RED: BOSS   CYAN: YOU")', minimap)
         self.assertNotIn("Hero->GetEnemyMapPositions()", minimap)
         self.assertNotIn("NearestChamberDirection", minimap)
+
+    def test_caves_have_distinct_map_labels_and_entrance_icons(self):
+        hud = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8")
+        minimap = hud.split("// Compact WoW-style circular minimap", 1)[1]
+        self.assertIn('TEXT("CAVES")', minimap)
+        self.assertIn('TEXT("GREEN: CAVE   RED: BOSS   CYAN: YOU")', minimap)
+        self.assertIn("Cave mouth icon: an arch and dark entrance", minimap)
+        self.assertNotIn('TEXT("CHAMBERS")', minimap)
+        self.assertIn("MoonfallWorldRules::ChamberCenter(Region, Chamber)", hud)
+        self.assertNotIn("Hero->GetEnemyMapPositions()", minimap)
 
     def test_minimap_and_world_map_render_actual_region_floor_footprints(self):
         controls = INPUT.read_text(encoding="utf-8")
@@ -373,7 +383,7 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn('DrawText(TEXT("N")', minimap)
         self.assertIn("RadarCenter.Y - RadarRadius - 15.f", minimap)
         self.assertNotIn("RadarCenter.Y - RadarRadius - 25.f", minimap)
-        self.assertIn('TEXT("CHAMBERS")', minimap)
+        self.assertIn('TEXT("CAVES")', minimap)
         self.assertIn('TEXT("BOSS")', minimap)
         self.assertIn("if (bTrackChambers)", minimap)
         self.assertIn("if (bTrackBoss && !Hero->IsBossDefeated())", minimap)
