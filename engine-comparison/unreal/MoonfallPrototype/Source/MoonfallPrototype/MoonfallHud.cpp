@@ -1,5 +1,45 @@
 #include "MoonfallHud.h"
 #include "MoonfallPawn.h"
+#include "MoonfallWorldRules.h"
+
+// Map terrain is computed from the exact floor footprints used by BuildWorld.
+// These are schematic ground regions, not generated or imported terrain textures.
+namespace
+{
+int32 TerrainRegionAt(const FVector2D& World)
+{
+    for (int32 Region = 0; Region < MoonfallWorldRules::RegionCount; ++Region)
+    {
+        const float CenterX = MoonfallWorldRules::RegionCenter(Region);
+        if (FMath::Abs(World.X - CenterX) <= MoonfallWorldRules::HalfRegion &&
+            FMath::Abs(World.Y) <= MoonfallWorldRules::HalfRegion)
+            return Region;
+        for (int32 Chamber = 0; Chamber < MoonfallWorldRules::ChambersPerRegion; ++Chamber)
+        {
+            const FVector Center = MoonfallWorldRules::ChamberCenter(Region, Chamber);
+            if (FMath::Abs(World.X - Center.X) <= 800.f &&
+                FMath::Abs(World.Y - Center.Y) <= 800.f)
+                return Region;
+        }
+    }
+    return INDEX_NONE;
+}
+
+FLinearColor TerrainTint(int32 Region)
+{
+    // Quiet terrain shades leave the original green chamber and red boss icons clear.
+    static const FLinearColor Colors[] = {
+        FLinearColor(.18f, .30f, .25f, .75f),
+        FLinearColor(.22f, .30f, .36f, .75f),
+        FLinearColor(.34f, .27f, .20f, .75f),
+        FLinearColor(.26f, .23f, .34f, .75f),
+        FLinearColor(.35f, .22f, .28f, .75f),
+        FLinearColor(.31f, .27f, .37f, .75f)
+    };
+    return Colors[FMath::Clamp(Region, 0, MoonfallWorldRules::RegionCount - 1)];
+}
+}
+
 #include "Engine/Canvas.h"
 #include "Engine/Texture2D.h"
 #include "GameFramework/PlayerController.h"
@@ -289,6 +329,37 @@ void AMoonfallHud::DrawHUD()
     const int32 TrackingMode = Hero->GetMinimapTrackingMode();
     const bool bTrackChambers = TrackingMode == 0 || TrackingMode == 1;
     const bool bTrackBoss = TrackingMode == 0 || TrackingMode == 2;
+    // Low-cost north-up terrain raster. Runs of matching ground are merged,
+    // and every sample is clipped inside the circular minimap's inner radius.
+    const FVector H = Hero->GetHeroMapPosition();
+    constexpr float GroundLimit = 61.f;
+    constexpr float GroundStep = 7.f;
+    for (float Y = -GroundLimit; Y <= GroundLimit; Y += GroundStep)
+    {
+        const float RowRadius = FMath::Sqrt(FMath::Max(0.f,
+            FMath::Square(GroundLimit) - FMath::Square(Y)));
+        int32 ActiveRegion = INDEX_NONE;
+        float RunStart = 0.f;
+        float RunEnd = 0.f;
+        for (float X = -GroundLimit; X <= GroundLimit + GroundStep; X += GroundStep)
+        {
+            const bool bInside = X <= GroundLimit &&
+                FMath::Abs(X) + GroundStep * .5f <= RowRadius;
+            const int32 Region = bInside ? TerrainRegionAt(FVector2D(
+                H.X + X / RadarScale, H.Y - Y / RadarScale)) : INDEX_NONE;
+            if (Region != ActiveRegion)
+            {
+                if (ActiveRegion != INDEX_NONE)
+                    Canvas->K2_DrawLine(RadarCenter + FVector2D(RunStart, Y),
+                        RadarCenter + FVector2D(RunEnd, Y),
+                        GroundStep, TerrainTint(ActiveRegion));
+                ActiveRegion = Region;
+                RunStart = X;
+            }
+            RunEnd = X;
+        }
+    }
+
     for (int32 Segment = 0; Segment < RadarSegments; ++Segment)
     {
         const float A = Segment * 2.f * PI / RadarSegments;
@@ -338,7 +409,6 @@ void AMoonfallHud::DrawHUD()
             RadarCenter + Direction * (RadarRadius - 9.f), 1.f,
             FLinearColor(.31f, .31f, .47f, .42f));
     }
-    const FVector H = Hero->GetHeroMapPosition();
     const FVector B = Hero->GetBossMapPosition();
     // All markers must remain inside the circular frame, not its bounding box.
     if (bTrackChambers)
@@ -378,4 +448,69 @@ void AMoonfallHud::DrawHUD()
     // Minimal centered player dot; no directional arrows or enemy markers.
     Canvas->K2_DrawBox(RadarCenter - FVector2D(4.f, 4.f),
         FVector2D(8.f, 8.f), 2.f, FLinearColor(.27f, .91f, 1.f));
+    // Tab opens a wider terrain map of the same continuous six-region world.
+    // Draw the exact 34 m ground cells and 16 m side-chamber floor footprints.
+    if (Hero->IsWorldMapVisible())
+    {
+        const float MapWidth = FMath::Max(200.f, FMath::Min(760.f, Canvas->ClipX - 32.f));
+        const float MapHeight = FMath::Max(120.f, FMath::Min(290.f, Canvas->ClipY - 100.f));
+        const FVector2D MapOrigin((Canvas->ClipX - MapWidth) * .5f,
+            (Canvas->ClipY - MapHeight) * .5f);
+        Canvas->K2_DrawBox(MapOrigin, FVector2D(MapWidth, MapHeight), 3.f,
+            FLinearColor(.75f, .68f, .86f));
+        // Map world extents cover every floor and the final boss, with margins.
+        constexpr float WorldMinX = -1850.f, WorldMaxX = 17850.f;
+        constexpr float WorldHalfY = 3400.f;
+        const float MapScaleX = (MapWidth - 24.f) / (WorldMaxX - WorldMinX);
+        const float MapScaleY = (MapHeight - 44.f) / (2.f * WorldHalfY);
+        const FVector2D MapMiddle(MapOrigin.X + 12.f, MapOrigin.Y + MapHeight * .5f);
+        const auto ToMap = [&](float X, float Y) -> FVector2D
+        {
+            return FVector2D(MapMiddle.X + (X - WorldMinX) * MapScaleX,
+                MapMiddle.Y - Y * MapScaleY);
+        };
+        for (int32 Region = 0; Region < MoonfallWorldRules::RegionCount; ++Region)
+        {
+            const float X = MoonfallWorldRules::RegionCenter(Region);
+            // A thick horizontal line paints each region's existing square floor.
+            Canvas->K2_DrawLine(ToMap(X - 1700.f, 0.f),
+                ToMap(X + 1700.f, 0.f), 3400.f * MapScaleY,
+                TerrainTint(Region));
+            for (int32 Chamber = 0; Chamber < MoonfallWorldRules::ChambersPerRegion; ++Chamber)
+            {
+                const FVector Center = MoonfallWorldRules::ChamberCenter(Region, Chamber);
+                Canvas->K2_DrawLine(ToMap(Center.X - 800.f, Center.Y),
+                    ToMap(Center.X + 800.f, Center.Y), 1600.f * MapScaleY,
+                    TerrainTint(Region));
+            }
+            const FVector2D TitlePoint = ToMap(X, -1200.f);
+            DrawText(FString::Printf(TEXT("%d"), Region + 1),
+                FLinearColor(.90f, .86f, .96f), TitlePoint.X - 4.f,
+                TitlePoint.Y, nullptr, .8f);
+        }
+        // Tracking filters only affect the icons, never the terrain.
+        if (bTrackChambers)
+        {
+            for (const FVector& Chamber : Hero->GetChamberMapPositions())
+            {
+                const FVector2D P = ToMap(Chamber.X, Chamber.Y);
+                Canvas->K2_DrawBox(P - FVector2D(2.f, 2.f),
+                    FVector2D(4.f, 4.f), 1.5f, FLinearColor(.30f, .95f, .48f));
+            }
+        }
+        if (bTrackBoss && !Hero->IsBossDefeated())
+        {
+            const FVector2D BossPoint = ToMap(B.X, B.Y);
+            Canvas->K2_DrawBox(BossPoint - FVector2D(4.f, 4.f),
+                FVector2D(8.f, 8.f), 2.f, FLinearColor(1.f, .20f, .28f));
+        }
+        const FVector2D You = ToMap(H.X, H.Y);
+        Canvas->K2_DrawBox(You - FVector2D(4.f, 4.f),
+            FVector2D(8.f, 8.f), 2.f, FLinearColor(.27f, .91f, 1.f));
+        DrawText(TEXT("N"), FLinearColor(.95f, .84f, .44f),
+            MapOrigin.X + MapWidth * .5f, MapOrigin.Y + 4.f, nullptr, 1.f);
+        DrawText(TEXT("TAB: CLOSE MAP"), FLinearColor(.9f, .86f, .96f),
+            MapOrigin.X + 10.f, MapOrigin.Y + MapHeight - 19.f, nullptr, .75f);
+    }
 }
+
