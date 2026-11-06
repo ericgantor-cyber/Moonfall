@@ -305,12 +305,30 @@ void AMoonfallHud::DrawHUD()
     // Visible compass letter, fixed north-up to match world XY coordinates.
     DrawText(TEXT("N"), FLinearColor(.95f, .84f, .44f),
         RadarCenter.X - 5.f, RadarCenter.Y - RadarRadius - 15.f, nullptr, .9f);
-    // One unobtrusive line controls both filters and range, without new HUD panels.
+    // Tracking readout and range indicator stay below the circular minimap.
     const TCHAR* TrackingLabels[] = { TEXT("ALL"), TEXT("CHAMBERS"), TEXT("BOSS"), TEXT("OFF") };
-    DrawText(FString::Printf(TEXT("T: %s   M: %.0fm"),
+    DrawText(FString::Printf(TEXT("T: %s  %.1fm"),
         TrackingLabels[FMath::Clamp(TrackingMode, 0, 3)], WorldRadius / 100.f),
         FLinearColor(.8f, .85f, .95f), RadarCenter.X - 72.f,
         RadarCenter.Y + RadarRadius + 5.f, nullptr, .75f);
+    // Actual clickable HUD controls. Hit regions match Pawn::TryHandleMinimapZoomClick.
+    // Draw distinct enabled/disabled states at the minimum and maximum range.
+    const FVector2D ZoomPlus(RadarCenter.X + 58.f, 67.f);
+    const FVector2D ZoomMinus(RadarCenter.X + 58.f, 99.f);
+    Canvas->K2_DrawBox(ZoomPlus - FVector2D(13.f, 13.f),
+        FVector2D(26.f, 26.f), 2.f, FLinearColor(.65f, .57f, .82f));
+    Canvas->K2_DrawBox(ZoomMinus - FVector2D(13.f, 13.f),
+        FVector2D(26.f, 26.f), 2.f, FLinearColor(.65f, .57f, .82f));
+    const FLinearColor PlusColor = Hero->GetMinimapZoomLevel() < 2
+        ? FLinearColor::White : FLinearColor(.42f, .42f, .48f);
+    const FLinearColor MinusColor = Hero->GetMinimapZoomLevel() > 0
+        ? FLinearColor::White : FLinearColor(.42f, .42f, .48f);
+    Canvas->K2_DrawLine(ZoomPlus + FVector2D(-6.f, 0.f),
+        ZoomPlus + FVector2D(6.f, 0.f), 2.5f, PlusColor);
+    Canvas->K2_DrawLine(ZoomPlus + FVector2D(0.f, -6.f),
+        ZoomPlus + FVector2D(0.f, 6.f), 2.5f, PlusColor);
+    Canvas->K2_DrawLine(ZoomMinus + FVector2D(-6.f, 0.f),
+        ZoomMinus + FVector2D(6.f, 0.f), 2.5f, MinusColor);
     for (int32 Axis = 0; Axis < 4; ++Axis)
     {
         const float A = Axis * HALF_PI;
