@@ -79,6 +79,16 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("OptionsLeft"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsLeft);
  Input->BindAction(TEXT("OptionsRight"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsRight);
 }
+void AMoonfallHeroPawn::SetQuestTarget(FVector WorldLocation)
+{
+ if (WorldLocation.ContainsNaN() || WorldLocation.GetAbsMax() > 100000000.f) return;
+ QuestTarget = WorldLocation;
+ bQuestTargetActive = true;
+}
+void AMoonfallHeroPawn::ClearQuestTarget()
+{
+ bQuestTargetActive = false;
+}
 void AMoonfallHeroPawn::MoveForward(float Value)
 {
  if (bOptionsOpen) return;
