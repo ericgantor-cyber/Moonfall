@@ -1034,6 +1034,26 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("FLinearColor BloodEmber(.76f, .13f, .27f, Fade * .55f)", hud)
         self.assertNotIn("NewObject<", hud)
 
+    def test_unified_directional_enemy_and_boss_attack_warnings(self):
+        hud = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8")
+        self.assertIn("struct FAttackWarning", self.header)
+        self.assertIn("TArray<FAttackWarning> GetAttackWarnings() const;", self.header)
+        self.assertIn("AMoonfallPawn::GetAttackWarnings() const", self.cpp)
+        self.assertIn("Warnings.Reserve(Enemies.Num() + 1);", self.cpp)
+        self.assertIn("Enemy.AttackWindup <= 0.f", self.cpp)
+        self.assertIn("(HeroPosition - Warning.LocalPosition).GetSafeNormal2D()", self.cpp)
+        self.assertIn("1.f - Enemy.AttackWindup / WindupDuration", self.cpp)
+        self.assertIn("Warning.bGuardian = Enemy.bGuardian;", self.cpp)
+        self.assertIn("if (bCasting && !bWon && BossMesh)", self.cpp)
+        self.assertIn("1.f - CastTimer / BossWindup", self.cpp)
+        self.assertIn("Warning.bBoss = true;", self.cpp)
+        self.assertIn("Hero->GetAttackWarnings()", hud)
+        self.assertIn("const FVector2D Direction = (DirectionScreen - Screen).GetSafeNormal();", hud)
+        self.assertIn("const FLinearColor Color = Urgency >= .72f", hud)
+        self.assertIn("Canvas->K2_DrawLine(Base + Perpendicular * 9.f, Tip, Thickness, Color);", hud)
+        self.assertIn("Canvas->K2_DrawLine(Base - Perpendicular * 9.f, Tip, Thickness, Color);", hud)
+        self.assertNotIn("NewObject<", hud)
+
     def test_original_art_import_is_checksum_guarded(self):
         import_tool = (ROOT / "tools/import_godot_art.py").read_text()
         verify_tool = (ROOT / "tools/verify_art_import.py").read_text()
