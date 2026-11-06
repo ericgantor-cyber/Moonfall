@@ -173,3 +173,7 @@ Crow dive, talon-sweep, and feint telegraphs now also appear through the normal 
 ## Exploration retention and old-save migration fix
 
 The Unreal fog-of-war atlas now tracks visited **10-metre tiles (1,000 Unreal cm)** with room for **4,096 tiles**, replacing the previous 384-cell limit at 2 metres per cell. Retained coverage is larger and map position lookups use a set alongside the ordered save list. Both the minimap and world atlas now use the same tile size. When loading exploration saved before this change, legacy 2-metre coordinates are converted to the new tile grid, including correct floor rounding for negative X/Y coordinates. The next normal autosave records `Moonfall.Exploration/CellSizeCm=1000` so migration is not repeated. Older discoveries can be combined into coarser tiles, and history still has a bounded capacity; this is not an unlimited exploration database. In-game save migration, Unreal compilation and Windows gameplay testing remain unverified.
+
+## Filled fog-of-war tile rendering
+
+Visited ten-metre exploration tiles now draw as connected filled areas on both the minimap and the large atlas, rather than isolated four-pixel dots. Minimap fills are restricted to its circular interior; the atlas clips each rectangle to the map content region so it cannot overlap headers, map controls or footer text. Existing discovery persistence, saved-cell migration, waypoint/quest pins, and hidden unexplored areas are preserved. These source-level visuals still need an Unreal Engine 5.4 compile and real screen-size/Windows testing.
