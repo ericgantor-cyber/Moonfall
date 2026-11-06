@@ -137,6 +137,8 @@ private:
     static constexpr float ParryWindow = 0.22f;
     static constexpr float ParryRecovery = 0.45f;
     static constexpr float GuardBreakDuration = 1.1f;
+    // A precision parry empowers one landed melee counter; never persists in saves.
+    bool bPrecisionRiposteReady = false;
     float CounterWindow = 0.f;
     int32 BossAttackCount = 0;
     int32 BossAttackPhase = 1;
