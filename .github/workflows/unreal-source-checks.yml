@@ -40,8 +40,8 @@ jobs:
           hero = (root/'MoonfallUnreal'/'MoonfallHeroPawn.cpp').read_text()
           assert 'NextPathRefreshAt' in enemy and 'CachedWaypoint' in enemy
           assert 'SetLifeSpan(1.25f)' in enemy
-          assert 'if (!bOptionsOpen) AddControllerYawInput' in hero
-          assert 'if (!bOptionsOpen) AddControllerPitchInput' in hero
+          assert 'if (!bOptionsOpen && !bWorldMapOpen) AddControllerYawInput' in hero
+          assert 'if (!bOptionsOpen && !bWorldMapOpen) AddControllerPitchInput' in hero
           assert 'ManaRegenPerSecond' in hero and 'Tick(float DeltaSeconds)' in hero
           assert 'DamageImmunityUntil' in hero and 'NextDodgeAt' in hero
           assert 'GetLastMovementInputVector' in hero
@@ -118,6 +118,10 @@ jobs:
           assert 'ActionName="WorldMap",Key=Gamepad_Special_Left' in inputs
           assert 'BindAction(TEXT("WorldMap")' in hero
           assert 'ToggleWorldMap()' in hero
+          assert 'if (bOptionsOpen || bWorldMapOpen) return' in hero
+          assert 'bOptionsOpen || bWorldMapOpen || !GetWorld()' in hero
+          assert 'if (bOptionsOpen) bWorldMapOpen = false' in hero
+          assert 'Hero->bOptionsOpen || Hero->bWorldMapOpen' in enemy
           assert 'DrawExplorationAtlas(Hero)' in hud
           assert 'const float HalfWorldRange = 15000.f' in hud
           assert 'if (Hero->bQuestTargetActive)' in hud
