@@ -254,6 +254,17 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("FMath::Square(1200.f)", posture)
         self.assertIn("if (Visible.Num() >= MaxPostureIndicators) break;", posture)
 
+    def test_minimap_collects_only_nearby_bounded_enemy_markers(self):
+        minimap = self.cpp.split(
+            "TArray<FVector> AMoonfallPawn::GetEnemyMapPositions() const", 1)[1].split(
+            "void AMoonfallPawn::RecordDamageNumber(", 1)[0]
+        self.assertIn("constexpr int32 MaxMinimapEnemies = 48;", minimap)
+        self.assertIn("Result.Reserve(FMath::Min(Enemies.Num(), MaxMinimapEnemies));", minimap)
+        self.assertIn("if (!HeroMesh) return Result;", minimap)
+        self.assertIn("FMath::Abs(Position.X - HeroPosition.X) > 1700.f", minimap)
+        self.assertIn("FMath::Abs(Position.Y - HeroPosition.Y) > 1700.f", minimap)
+        self.assertIn("if (Result.Num() >= MaxMinimapEnemies) break;", minimap)
+
     def test_attack_warning_hud_is_bounded_and_keeps_boss_slot(self):
         warnings = self.cpp.split("AMoonfallPawn::GetAttackWarnings() const", 1)[1].split(
             "AMoonfallPawn::GetEnemyPostures() const", 1)[0]
