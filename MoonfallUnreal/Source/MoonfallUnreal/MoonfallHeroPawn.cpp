@@ -47,7 +47,11 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
  Super::Tick(DeltaSeconds);
  // Bounded camera impulse, no camera shake object or spawned effects.
  ImpactCameraOffset = FMath::FInterpTo(ImpactCameraOffset, 0.f, FMath::Max(0.f, DeltaSeconds), 12.f);
- if (CameraBoom) CameraBoom->TargetArmLength = FMath::Clamp(CameraDistance + (bReduceMotion ? 0.f : ImpactCameraOffset), 250.f, 850.f);
+ if (CameraBoom)
+ {
+  const float TargetDistance = FMath::Clamp(CameraDistance + (bReduceMotion ? 0.f : ImpactCameraOffset), 250.f, 850.f);
+  CameraBoom->TargetArmLength = FMath::FInterpTo(CameraBoom->TargetArmLength, TargetDistance, FMath::Max(0.f, DeltaSeconds), 10.f);
+ }
  if (Health > 0.f && Mana < MaxMana) Mana = FMath::Min(MaxMana, Mana + ManaRegenPerSecond * (1.f + FMath::Min(0.25f, AccessoryTier * 0.012f)) * FMath::Max(0.f, DeltaSeconds));
 }
 void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
