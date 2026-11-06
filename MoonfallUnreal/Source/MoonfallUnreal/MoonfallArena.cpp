@@ -1,7 +1,6 @@
 #include "MoonfallArena.h"
 #include "MoonfallEnemy.h"
 #include "MoonfallHeroPawn.h"
-#include "MoonfallBirdFlock.h"
 #include "Components/SceneComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/World.h"
@@ -29,8 +28,18 @@ void AMoonfallArena::BeginPlay() {
  CreateBlock(FVector(0,1500,200),FVector(30,1,5));
  CreateBlock(FVector(0,-1500,200),FVector(30,1,5));
  if (!GetWorld()) return;
- // One ambient aerial flock for the starter area, with no collision or enemy AI.
- GetWorld()->SpawnActor<AMoonfallBirdFlock>(GetActorLocation(), FRotator::ZeroRotator);
+ // Corrupted crow enemies use the normal enemy damage, XP and loot pipeline.
+ for (int32 BirdIndex=0; BirdIndex<2; ++BirdIndex) {
+  const FVector BirdPosition = GetActorLocation() + FVector(BirdIndex==0 ? -380.f : 380.f,0.f,520.f);
+  const FTransform BirdSpawn(FRotator::ZeroRotator,BirdPosition);
+  AMoonfallEnemy* Crow = Cast<AMoonfallEnemy>(UGameplayStatics::BeginDeferredActorSpawnFromClass(
+   this,AMoonfallEnemy::StaticClass(),BirdSpawn));
+  if (!Crow) continue;
+  Crow->bCorruptedCrow = true;
+  Crow->Health = 52.f;
+  Crow->AttackDamage = 7.f;
+  UGameplayStatics::FinishSpawningActor(Crow,BirdSpawn);
+ }
  const int32 Count = FMath::Clamp(EnemyCount,0,12);
  for (int32 i=0;i<Count;++i) {
   float Angle = 2.f * PI * i / FMath::Max(1,Count);
