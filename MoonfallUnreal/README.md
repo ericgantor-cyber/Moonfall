@@ -139,3 +139,9 @@ The starter arena now spawns **two hostile airborne corrupted crow enemies**, in
 ### Corrupted crow combat tuning
 
 The two starter crows use a deterministic three-move sequence, a maximum 20 Hz nearby AI update, reduced distant update rate, and no new spawned combat actors. Telegraphs draw a short-lived warning ring at the targeted ground area. The swoop resolves at most one hit and explicitly permits contact with the player actor while rejecting occluded hits through walls. Standard combat XP and equipment rewards remain intact. Crow wings and beak are composed from built-in primitive meshes as prototype geometry; their final mesh, feathers, animation, dodge tuning, gameplay balance, engine compilation and Windows runtime validation remain outstanding.
+
+## Crow and arena art foundation upgrade
+
+The hostile corrupted crow prototype now has an articulated primitive silhouette with wings, tail, claws, beak and eyes, plus a short-range, non-shadow-casting red warning glow only during its attack. Original mesh and material assets can be plugged into `CrowBodyArt`, `CrowWingArt`, `CrowFeatherMaterial` and `CrowAccentMaterial` through an enemy Blueprint. A configurable `CrowEnemyClass` in the arena and `ArenaClass` in the GameMode let Unreal spawn those art-ready Blueprint subclasses without discarding the native fallback. The starter arena also has six non-colliding ruined stone pillars and two inexpensive colored lights.
+
+See [Art integration guide](Art/ART_PIPELINE.md) for the detailed original hero-art preservation requirements, import workflow, missing art inventory, performance budgets and UE compilation test plan. **This source upgrade does not mean all Moonfall art is finished or imported; hero 3D models, polished crow rigging, world terrain and most other production assets are still pending.** Unreal Engine compilation and Windows runtime playtests have not been performed.
