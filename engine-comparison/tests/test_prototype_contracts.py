@@ -299,6 +299,23 @@ class PrototypeContracts(unittest.TestCase):
         self.assertNotIn("Hero->GetEnemyMapPositions()", minimap)
         self.assertNotIn("NearestChamberDirection", minimap)
 
+    def test_original_fantasy_map_icons_are_shared_and_direction_free(self):
+        hud = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8")
+        header = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.h").read_text(encoding="utf-8")
+        minimap = hud.split("// Compact WoW-style circular minimap", 1)[1]
+        self.assertIn("void DrawMapIcon(FVector2D Center, float Scale, int32 IconKind);", header)
+        self.assertIn("void AMoonfallHud::DrawMapIcon(", hud)
+        self.assertIn("Cave: arch outline and dark mouth", hud)
+        self.assertIn("Boss: small spiked crown", hud)
+        self.assertIn("Player: simple circular locator, never a directional arrow", hud)
+        for icon in ("DrawMapIcon(P, 1.f, 0);", "DrawMapIcon(P, 1.f, 1);",
+                     "DrawMapIcon(RadarCenter, 1.f, 2);",
+                     "DrawMapIcon(P, .60f, 0);", "DrawMapIcon(BossPoint, .9f, 1);",
+                     "DrawMapIcon(You, 1.f, 2);"):
+            self.assertIn(icon, minimap)
+        self.assertNotIn("Hero->GetEnemyMapPositions()", minimap)
+        self.assertNotIn("NearestChamberDirection", minimap)
+
     def test_caves_have_distinct_map_labels_and_entrance_icons(self):
         hud = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8")
         minimap = hud.split("// Compact WoW-style circular minimap", 1)[1]
@@ -400,7 +417,7 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("Hero->IsBossDefeated()", minimap)
         self.assertIn("Local.SizeSquared() > FMath::Square(RadarRadius - 10.f)", minimap)
         self.assertIn("Local.SizeSquared() <= FMath::Square(RadarRadius - 10.f)", minimap)
-        self.assertIn("Canvas->K2_DrawBox(RadarCenter - FVector2D(4.f, 4.f)", minimap)
+        self.assertIn("DrawMapIcon(RadarCenter, 1.f, 2);", minimap)
         self.assertNotIn("Hero->GetEnemyMapPositions()", minimap)
         self.assertNotIn("NearestChamberDirection", minimap)
         self.assertNotIn("else if (!Local.IsNearlyZero())", minimap)
