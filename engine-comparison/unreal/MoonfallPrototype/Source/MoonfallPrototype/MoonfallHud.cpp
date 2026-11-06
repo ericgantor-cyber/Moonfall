@@ -193,10 +193,13 @@ void AMoonfallHud::DrawHUD()
         const float Urgency = FMath::Clamp(Warning.Urgency, 0.f, 1.f);
         const float Radius = (Warning.bBoss ? 34.f : 22.f) + 4.f * Urgency;
         const float Thickness = Warning.bBoss ? 4.f : 2.5f;
-        // Warm amber anticipation switches to a crimson strike warning near impact.
-        const FLinearColor Color = Urgency >= .72f
-            ? FLinearColor(1.f, .12f, .23f, .95f)
-            : FLinearColor(1.f, .64f, .19f, .85f);
+        // Blue/silver warns that an attack can be parried; red means dodge-only.
+        // Intensity increases near impact, keeping the distinction readable.
+        const FLinearColor Color = Warning.bUnblockable
+            ? FLinearColor(1.f, .12f, .23f, .75f + .25f * Urgency)
+            : (Urgency >= .72f
+                ? FLinearColor(.75f, .91f, 1.f, 1.f)
+                : FLinearColor(.2f, .66f, 1.f, .75f + .2f * Urgency));
         constexpr int32 Edges = 4;
         for (int32 Edge = 0; Edge < Edges; ++Edge)
         {
