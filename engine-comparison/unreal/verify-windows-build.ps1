@@ -55,18 +55,7 @@ if ($Package) {
         throw "Cannot package without Config/DefaultEngine.ini and a GameDefaultMap."
     }
     $ConfigText = Get-Content -LiteralPath $ConfigPath -Raw
-    $ConfiguredMap = [regex]::Match($ConfigText, '(?m)^\s*GameDefaultMap\s*=\s*/Game/([A-Za-z0-9_/]+)\s*
-    if ([string]::IsNullOrWhiteSpace($ArchiveDirectory)) {
-        $ArchiveDirectory = Join-Path $PSScriptRoot "MoonfallPrototype\Saved\Win64Verification"
-    }
-    $ArchiveDirectory = [System.IO.Path]::GetFullPath($ArchiveDirectory)
-    & $RunUAT BuildCookRun "-project=$Project" -noP4 -platform=Win64 -clientconfig=Development -build -cook -stage -pak -archive "-archivedirectory=$ArchiveDirectory"
-    if ($LASTEXITCODE -ne 0) {
-        throw "Unreal BuildCookRun failed (exit $LASTEXITCODE). No valid package was verified."
-    }
-    Write-Host "BuildCookRun completed. Manually launch and test the staged game on Windows 10 and 11."
-}
-)
+    $ConfiguredMap = [regex]::Match($ConfigText, '(?m)^\s*GameDefaultMap\s*=\s*/Game/([A-Za-z0-9_/]+)\s*$')
     if (-not $ConfiguredMap.Success) {
         throw "Cannot verify a playable package: configure GameDefaultMap=/Game/Maps/YourLevel in DefaultEngine.ini."
     }
