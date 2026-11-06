@@ -334,6 +334,16 @@ void AMoonfallHud::DrawHUD()
     const FVector H = Hero->GetHeroMapPosition();
     constexpr float GroundLimit = 61.f;
     constexpr float GroundStep = 7.f;
+    // Fill the round map with a subdued background first, separating
+    // traversable ground from empty space and busy combat scenery.
+    for (float Y = -GroundLimit; Y <= GroundLimit; Y += GroundStep)
+    {
+        const float RadiusAtY = FMath::Sqrt(FMath::Max(0.f,
+            FMath::Square(GroundLimit) - FMath::Square(Y)));
+        Canvas->K2_DrawLine(RadarCenter + FVector2D(-RadiusAtY, Y),
+            RadarCenter + FVector2D(RadiusAtY, Y), GroundStep,
+            FLinearColor(.045f, .055f, .085f, .88f));
+    }
     for (float Y = -GroundLimit; Y <= GroundLimit; Y += GroundStep)
     {
         const float RowRadius = FMath::Sqrt(FMath::Max(0.f,
@@ -456,6 +466,9 @@ void AMoonfallHud::DrawHUD()
         const float MapHeight = FMath::Max(120.f, FMath::Min(290.f, Canvas->ClipY - 100.f));
         const FVector2D MapOrigin((Canvas->ClipX - MapWidth) * .5f,
             (Canvas->ClipY - MapHeight) * .5f);
+        // Opaque-ish slate backing makes the terrain legible above live combat.
+        DrawRect(FLinearColor(.035f, .045f, .075f, .93f),
+            MapOrigin.X, MapOrigin.Y, MapWidth, MapHeight);
         Canvas->K2_DrawBox(MapOrigin, FVector2D(MapWidth, MapHeight), 3.f,
             FLinearColor(.75f, .68f, .86f));
         // Map world extents cover every floor and the final boss, with margins.
@@ -483,6 +496,21 @@ void AMoonfallHud::DrawHUD()
                     ToMap(Center.X + 800.f, Center.Y), 1600.f * MapScaleY,
                     TerrainTint(Region));
             }
+            // The active area gets a bright outline, with no directional arrow.
+            if (Region == MoonfallWorldRules::RegionAt(H.X))
+            {
+                const FVector2D ActiveMin = ToMap(X - 1700.f, 1700.f);
+                const FVector2D ActiveMax = ToMap(X + 1700.f, -1700.f);
+                const FLinearColor ActiveColor(.94f, .80f, .45f, .95f);
+                Canvas->K2_DrawLine(ActiveMin, FVector2D(ActiveMax.X, ActiveMin.Y),
+                    2.f, ActiveColor);
+                Canvas->K2_DrawLine(FVector2D(ActiveMax.X, ActiveMin.Y), ActiveMax,
+                    2.f, ActiveColor);
+                Canvas->K2_DrawLine(ActiveMax, FVector2D(ActiveMin.X, ActiveMax.Y),
+                    2.f, ActiveColor);
+                Canvas->K2_DrawLine(FVector2D(ActiveMin.X, ActiveMax.Y), ActiveMin,
+                    2.f, ActiveColor);
+            }
             const FVector2D TitlePoint = ToMap(X, -1200.f);
             DrawText(FString::Printf(TEXT("%d"), Region + 1),
                 FLinearColor(.90f, .86f, .96f), TitlePoint.X - 4.f,
@@ -509,6 +537,13 @@ void AMoonfallHud::DrawHUD()
             FVector2D(8.f, 8.f), 2.f, FLinearColor(.27f, .91f, 1.f));
         DrawText(TEXT("N"), FLinearColor(.95f, .84f, .44f),
             MapOrigin.X + MapWidth * .5f, MapOrigin.Y + 4.f, nullptr, 1.f);
+        DrawText(FString::Printf(TEXT("REGION %d / %d"),
+            MoonfallWorldRules::RegionAt(H.X) + 1, MoonfallWorldRules::RegionCount),
+            FLinearColor(.95f, .84f, .55f),
+            MapOrigin.X + 10.f, MapOrigin.Y + 6.f, nullptr, .95f);
+        DrawText(TEXT("GREEN: CHAMBER   RED: BOSS   CYAN: YOU"),
+            FLinearColor(.86f, .86f, .91f),
+            MapOrigin.X + 10.f, MapOrigin.Y + MapHeight - 37.f, nullptr, .70f);
         DrawText(TEXT("TAB: CLOSE MAP"), FLinearColor(.9f, .86f, .96f),
             MapOrigin.X + 10.f, MapOrigin.Y + MapHeight - 19.f, nullptr, .75f);
     }
