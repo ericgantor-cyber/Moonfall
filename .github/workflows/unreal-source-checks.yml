@@ -130,6 +130,17 @@ jobs:
           assert 'float WorldMapRange = 15000.f' in hero_header
           assert 'FMath::Clamp(RawTarget.Y,TopLeft.Y+70.f,TopLeft.Y+Height-16.f)' in hud
           assert 'HalfWorldRange/100.f' in hud
+          assert 'FVector2D WorldMapPan = FVector2D::ZeroVector' in hero_header
+          assert 'ActionName="WorldMapRecenter",Key=R' in inputs
+          assert 'ActionName="WorldMapRecenter",Key=Gamepad_FaceButton_Top' in inputs
+          assert 'BindAction(TEXT("WorldMapRecenter")' in hero
+          assert 'WorldMapPan = FVector2D::ZeroVector' in hero
+          assert 'WorldMapPan.Y + 2000.f' in hero and 'WorldMapPan.Y - 2000.f' in hero
+          assert 'WorldMapPan.X + 2000.f' in hero and 'WorldMapPan.X - 2000.f' in hero
+          assert 'const FVector2D Pan = Hero->WorldMapPan' in hud
+          assert 'Player.X-Pan.X' in hud and 'Player.Y-Pan.Y' in hud
+          assert 'const FVector2D RawPlayer = Centre + FVector2D(-Pan.X, Pan.Y) * Scale' in hud
+          assert 'if (!bOptionsOpen && !bWorldMapOpen) CameraDistance' in hero
           assert 'if (Hero->bQuestTargetActive)' in hud
           assert 'for (const FIntPoint& Cell : ExploredMapCells)' in hud
           assert hud.index('const FIntPoint CurrentCell') < hud.index('if (Hero->bOptionsOpen)')
