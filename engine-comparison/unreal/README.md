@@ -54,6 +54,10 @@ Loading a valid living checkpoint now grants a short two-second protection windo
 
 Enemy strike warnings now hold the enemy at its current location rather than letting the return-home logic slide it away during a windup. Escaping the enemy's aggro/leash range cancels the warning and adds a short half-second recovery, preventing instant warning restarts on reentry. This also applies to guardian encounters, with no additional visual assets, wave spawns, or game modes. Real Unreal gameplay testing remains outstanding.
 
+## Incoming damage and dodge feedback (source implemented, gameplay unverified)
+
+The same bounded, temporary floating-number system now reports hero damage taken in red and successful timed dodges as cyan `DODGE` labels. This covers both local enemy strikes and the three-phase boss's hits, without adding screen-filling HUD widgets or new game actors. It records only damage actually taken and actual successful dodge evasions; restored-checkpoint protection does not display a false hit. The previous gold critical / blue magic hit labels and the sixteen-second autosave are unchanged. Actual visual readability, projection and frame pacing still need Unreal 5.6 testing.
+
 ## Manual acceptance checklist
 
 - Compile editor and game C++ targets on Windows with UE 5.6 and record exact errors, warnings, and versions.
