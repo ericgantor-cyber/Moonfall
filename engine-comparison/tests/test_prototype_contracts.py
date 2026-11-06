@@ -295,7 +295,7 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("DrawRect(FLinearColor(.035f, .045f, .075f, .93f)", minimap)
         self.assertIn("if (Hero->IsMapExplored(FVector2D(WorldX, WorldY)))", minimap)
         self.assertIn('TEXT("REGION %d / %d")', minimap)
-        self.assertIn('TEXT("FOG: UNEXPLORED BLANK   GREEN: CAVE   RED: BOSS")', minimap)
+        self.assertIn('TEXT("GREEN: CAVE   GREY: CLEARED   RED: BOSS")', minimap)
         self.assertNotIn("Hero->GetEnemyMapPositions()", minimap)
         self.assertNotIn("NearestChamberDirection", minimap)
 
@@ -313,6 +313,22 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("(X - RunStartX) * AMoonfallPawn::FogCellSize * MapScaleX", minimap)
         self.assertIn('TEXT("DISCOVERED: %d TILES")', minimap)
         self.assertNotIn("DrawRect(TerrainTint(Region), TopLeft.X", minimap)
+        self.assertNotIn("Hero->GetEnemyMapPositions()", minimap)
+
+    def test_cleared_caves_persist_as_discovered_grey_landmarks(self):
+        hud = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8")
+        minimap = hud.split("// Compact WoW-style circular minimap", 1)[1]
+        self.assertIn("bool IsCaveCleared(int32 Region, int32 Cave) const", self.header)
+        self.assertIn("return (ClaimedChamberMask & (1 << Id)) != 0;", self.header)
+        self.assertIn("if (IconKind == 0 || IconKind == 3)", hud)
+        self.assertIn("FLinearColor(.52f, .56f, .63f)", hud)
+        self.assertIn("if (!Hero->IsCaveCleared(Region, Cave)) continue;", minimap)
+        self.assertIn("MoonfallWorldRules::ChamberReward(Region, Cave)", minimap)
+        self.assertIn("if (!Hero->IsMapExplored(FVector2D(Position.X, Position.Y))) continue;", minimap)
+        self.assertIn("DrawMapIcon(RadarCenter + Local, 1.f, 3);", minimap)
+        self.assertIn("DrawMapIcon(ToMap(Position.X, Position.Y), .60f, 3);", minimap)
+        self.assertIn('TEXT("GREEN: CAVE   GREY: CLEARED   RED: BOSS")', minimap)
+        self.assertIn("DrawMapFocusRing(NearestWorldCavePoint, 8.f);", minimap)
         self.assertNotIn("Hero->GetEnemyMapPositions()", minimap)
 
     def test_fog_of_war_hides_unknown_world_terrain_and_markers(self):
@@ -373,7 +389,7 @@ class PrototypeContracts(unittest.TestCase):
         hud = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8")
         minimap = hud.split("// Compact WoW-style circular minimap", 1)[1]
         self.assertIn('TEXT("CAVES")', minimap)
-        self.assertIn('TEXT("FOG: UNEXPLORED BLANK   GREEN: CAVE   RED: BOSS")', minimap)
+        self.assertIn('TEXT("GREEN: CAVE   GREY: CLEARED   RED: BOSS")', minimap)
         self.assertIn("Cave mouth icon: an arch and dark entrance", minimap)
         self.assertNotIn('TEXT("CHAMBERS")', minimap)
         self.assertIn("MoonfallWorldRules::ChamberCenter(Region, Chamber)", hud)
