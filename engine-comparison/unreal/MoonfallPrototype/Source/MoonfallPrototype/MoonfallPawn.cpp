@@ -314,6 +314,9 @@ void AMoonfallPawn::UpdateWorldEnemies(float Dt)
         if (!Enemy.Mesh) continue;
         Enemy.bAttackReadyThisFrame = false;
         Enemy.AttackRecovery = FMath::Max(0.f, Enemy.AttackRecovery - MoveDt);
+        Enemy.PostureIdleTimer = FMath::Max(0.f, Enemy.PostureIdleTimer - MoveDt);
+        if (Enemy.PostureIdleTimer <= 0.f)
+            Enemy.Posture = FMath::Max(0.f, Enemy.Posture - 18.f * MoveDt);
         // Snapshot stagger before advancing timers so the final active frame
         // blocks both movement and contact damage.
         Enemy.bStaggeredThisFrame = Enemy.StaggerTimer > 0.f;
@@ -454,6 +457,26 @@ TArray<AMoonfallPawn::FAttackWarning> AMoonfallPawn::GetAttackWarnings() const
     return Warnings;
 }
 
+TArray<AMoonfallPawn::FEnemyPosture> AMoonfallPawn::GetEnemyPostures() const
+{
+    TArray<FEnemyPosture> Visible;
+    if (!HeroMesh || Health <= 0.f) return Visible;
+    Visible.Reserve(Enemies.Num());
+    const FVector HeroPosition = HeroMesh->GetRelativeLocation();
+    for (const FWorldEnemy& Enemy : Enemies)
+    {
+        if (!Enemy.Mesh || Enemy.Posture <= 0.f ||
+            FVector::DistSquared2D(Enemy.Mesh->GetRelativeLocation(), HeroPosition) >
+                FMath::Square(1200.f)) continue;
+        FEnemyPosture Value;
+        Value.LocalPosition = Enemy.Mesh->GetRelativeLocation();
+        Value.Ratio = FMath::Clamp(Enemy.Posture / PostureThreshold(Enemy), 0.f, 1.f);
+        Value.bGuardian = Enemy.bGuardian;
+        Visible.Add(Value);
+    }
+    return Visible;
+}
+
 TArray<FVector> AMoonfallPawn::GetEnemyMapPositions() const
 {
     TArray<FVector> Result;
@@ -489,6 +512,21 @@ void AMoonfallPawn::RecordHeroHit(float Amount, bool bDodged)
     DamageNumbers.Add(Number);
 }
 
+void AMoonfallPawn::ApplyPostureDamage(FWorldEnemy& Enemy, float Amount)
+{
+    if (Amount <= 0.f || Enemy.Health <= 0.f) return;
+    Enemy.PostureIdleTimer = 2.4f; // Repeated hits build pressure; disengaging sheds it.
+    Enemy.Posture = FMath::Min(PostureThreshold(Enemy), Enemy.Posture + Amount);
+    if (Enemy.Posture < PostureThreshold(Enemy)) return;
+    Enemy.Posture = 0.f;
+    Enemy.PostureIdleTimer = 0.f;
+    Enemy.StaggerTimer = FMath::Max(Enemy.StaggerTimer, Enemy.bGuardian ? 1.2f : 1.f);
+    Enemy.AttackWindup = 0.f;
+    Enemy.AttackRecovery = FMath::Max(Enemy.AttackRecovery, 1.2f);
+    if (Enemy.Portrait) Enemy.Portrait->SetRelativeScale3D(FVector(2.f));
+    else Enemy.Mesh->SetRelativeScale3D(FVector(Enemy.bGuardian ? 1.3f : 1.1f));
+}
+
 void AMoonfallPawn::DamageWorldEnemy(int32 Index, float Damage, bool bRiposte, bool bComboFinisher, bool bMagic)
 {
     if (!Enemies.IsValidIndex(Index)) return;
@@ -500,6 +538,11 @@ void AMoonfallPawn::DamageWorldEnemy(int32 Index, float Damage, bool bRiposte, b
     Enemy.Health = FMath::Max(0.f, Enemy.Health - Damage);
     if (Enemy.Health > 0.f)
     {
+        // Posture creates openings through sustained attacks; ripostes/finishers
+        // inflict extra pressure without requiring a new combat mode.
+        const float PostureImpact = FMath::Min(ActualDamage, 60.f) *
+            (bRiposte ? 1.25f : (bComboFinisher ? 0.95f : (bMagic ? 0.35f : 0.5f)));
+        ApplyPostureDamage(Enemy, PostureImpact);
         // The reward requires a real hit on a living guardian; defeated foes
         // need no stun state and ordinary hits cannot lock down bosses.
         if ((bRiposte && Enemy.bGuardian) || (bComboFinisher && !Enemy.bGuardian))
@@ -687,6 +730,9 @@ float AMoonfallPawn::ResolveGuardHit(
         GuardParryTimer = 0.f;
         bParryActiveThisFrame = false;
         CounterWindow = CounterDuration;
+        // Parry chains into a fast follow-up without resetting earned combo flow.
+        AttackCooldown = FMath::Min(AttackCooldown, 0.12f);
+        MeleeComboTimer = FMath::Max(MeleeComboTimer, 1.1f);
         Stamina = FMath::Min(GetHudMaxStamina(), Stamina + 8.f);
         RecordGuardEvent(true, false);
         return 0.f;
