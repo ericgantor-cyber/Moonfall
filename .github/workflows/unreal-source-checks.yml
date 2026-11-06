@@ -78,6 +78,13 @@ jobs:
           assert 'ExploredMapCells.Num() >= 384' in hud
           assert 'ExploredMapCells.Contains(CurrentCell)' in hud
           assert 'const float CellSize = 200.f' in hud
+          assert 'FMath::Clamp(Hero->MinimapRange, 1200.f, 4800.f)' in hud
+          assert 'MapRange/100.f' in hud
+          assert 'ActionName="MinimapZoomIn",Key=Equals' in inputs
+          assert 'ActionName="MinimapZoomOut",Key=Hyphen' in inputs
+          assert 'BindAction(TEXT("MinimapZoomIn")' in hero and 'BindAction(TEXT("MinimapZoomOut")' in hero
+          assert 'MinimapRange - 400.f, 1200.f, 4800.f' in hero
+          assert 'MinimapRange + 400.f, 1200.f, 4800.f' in hero
           assert 'CellOffset.SizeSquared() > FMath::Square(MapRange - CellSize)' in hud
           print('Input mapping and combat source checks passed. Unreal compilation NOT performed.')
           PY
