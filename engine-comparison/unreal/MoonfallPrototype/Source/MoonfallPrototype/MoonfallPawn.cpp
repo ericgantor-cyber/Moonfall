@@ -138,6 +138,7 @@ void AMoonfallPawn::BeginPlay()
             Victories = FMath::Clamp(Progress->PermanentBossVictories, 0, 100);
             MinimapTrackingMode = FMath::Clamp(Progress->SavedMinimapTrackingMode, 0, 3);
             MinimapZoomLevel = FMath::Clamp(Progress->SavedMinimapZoomLevel, 0, 2);
+            TrackedQuestId = FMath::Clamp(Progress->SavedTrackedQuestId, 0, 2);
             if (Progress->ExploredMapCells.Num() == FogWidth * FogHeight)
                 ExploredMapCells = Progress->ExploredMapCells;
             bWon = Progress->bBossDefeated;
@@ -717,6 +718,7 @@ void AMoonfallPawn::SaveProgress()
     Progress->bBossDefeated = bWon;
     Progress->SavedMinimapTrackingMode = MinimapTrackingMode;
     Progress->SavedMinimapZoomLevel = MinimapZoomLevel;
+    Progress->SavedTrackedQuestId = TrackedQuestId;
     Progress->ExploredMapCells = ExploredMapCells;
     // Preserve legacy SelectedHeroIndex from the loaded save; never reassign it.
     if (HeroMesh && Health > 0.f)
@@ -800,6 +802,42 @@ void AMoonfallPawn::SaveExplorationOnly()
         UE_LOG(LogTemp, Warning, TEXT("Moonfall: fog exploration save failed."));
 }
 
+int32 AMoonfallPawn::GetQuestGoal(int32 QuestId) const
+{
+    if (QuestId == 0) return 1; // Main story: defeat the existing Z boss.
+    if (QuestId == 1) return MoonfallWorldRules::EnemiesPerRegion;
+    if (QuestId == 2) return MoonfallWorldRules::ChambersPerRegion;
+    return 0;
+}
+
+int32 AMoonfallPawn::GetQuestProgress(int32 QuestId, int32 Region) const
+{
+    if (QuestId == 0) return bWon ? 1 : 0;
+    if (Region < 0 || Region >= MoonfallWorldRules::RegionCount) return 0;
+    int32 Count = 0;
+    if (QuestId == 1)
+    {
+        for (int32 Slot = 0; Slot < MoonfallWorldRules::EnemiesPerRegion; ++Slot)
+        {
+            const int32 Id = Region * MoonfallWorldRules::EnemiesPerRegion + Slot;
+            if ((DefeatedEnemyMask & (1 << Id)) != 0) ++Count;
+        }
+    }
+    else if (QuestId == 2)
+    {
+        for (int32 Cave = 0; Cave < MoonfallWorldRules::ChambersPerRegion; ++Cave)
+            if (IsCaveCleared(Region, Cave)) ++Count;
+    }
+    return Count;
+}
+
+void AMoonfallPawn::CycleTrackedQuest()
+{
+    if (!bWorldMapVisible) return;
+    TrackedQuestId = (TrackedQuestId + 1) % 3;
+    SaveMapPreferences();
+}
+
 void AMoonfallPawn::SaveMapPreferences()
 {
     // Map UI changes must not create or move a living combat checkpoint.
@@ -813,6 +851,7 @@ void AMoonfallPawn::SaveMapPreferences()
 
     Progress->SavedMinimapTrackingMode = MinimapTrackingMode;
     Progress->SavedMinimapZoomLevel = MinimapZoomLevel;
+    Progress->SavedTrackedQuestId = TrackedQuestId;
     if (!UGameplayStatics::SaveGameToSlot(Progress, TEXT("MoonfallPrototypeBossRewards"), 0))
         UE_LOG(LogTemp, Warning, TEXT("Moonfall: map preferences save failed."));
 }
@@ -1150,6 +1189,7 @@ void AMoonfallPawn::SetupPlayerInputComponent(UInputComponent* Input)
     Input->BindAction(TEXT("Guard"), IE_Released, this, &AMoonfallPawn::EndGuard);
     Input->BindAction(TEXT("MinimapTracking"), IE_Pressed, this, &AMoonfallPawn::CycleMinimapTracking);
     Input->BindAction(TEXT("WorldMap"), IE_Pressed, this, &AMoonfallPawn::ToggleWorldMap);
+    Input->BindAction(TEXT("CycleTrackedQuest"), IE_Pressed, this, &AMoonfallPawn::CycleTrackedQuest);
     Input->BindAction(TEXT("ArcaneBolt"), IE_Pressed, this, &AMoonfallPawn::CastBolt);
     Input->BindAction(TEXT("ArcaneHeal"), IE_Pressed, this, &AMoonfallPawn::CastHeal);
 }
