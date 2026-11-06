@@ -327,7 +327,12 @@ func _gui_input(event:InputEvent)->void:
   if not _valid_world_point(location):return
   if dungeon_active:
    var nearest_room:int=dungeon_room_index_at(location,dungeon_rooms,14.0/scale_factor)
-   if nearest_room>=0:location=dungeon_rooms[nearest_room]
+   if nearest_room>=0:
+    var candidate:Vector3=dungeon_rooms[nearest_room]
+    for visited_position in discovered_chambers:
+     if Vector2(visited_position.x-candidate.x,visited_position.z-candidate.z).length_squared()<1.0:
+      location=candidate
+      break
   waypoint_selected.emit(location)
   accept_event()
 
