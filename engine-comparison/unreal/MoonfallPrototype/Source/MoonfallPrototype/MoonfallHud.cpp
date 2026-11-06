@@ -640,8 +640,12 @@ void AMoonfallHud::DrawHUD()
         }
         // Cave discovery statistics use the same fog checks as map icons.
         // Never count a cave as found merely because its location exists in world data.
+        const int32 ActiveRegionIndex = FMath::Clamp(
+            MoonfallWorldRules::RegionAt(H.X), 0, MoonfallWorldRules::RegionCount - 1);
         int32 DiscoveredCaves = 0;
         int32 ClearedCaves = 0;
+        int32 RegionDiscoveredCaves = 0;
+        int32 RegionClearedCaves = 0;
         for (int32 Region = 0; Region < MoonfallWorldRules::RegionCount; ++Region)
         {
             for (int32 Cave = 0; Cave < MoonfallWorldRules::ChambersPerRegion; ++Cave)
@@ -650,7 +654,13 @@ void AMoonfallHud::DrawHUD()
                 if (!Hero->IsMapExplored(FVector2D(CavePosition.X, CavePosition.Y)))
                     continue;
                 ++DiscoveredCaves;
-                if (Hero->IsCaveCleared(Region, Cave)) ++ClearedCaves;
+                const bool bCleared = Hero->IsCaveCleared(Region, Cave);
+                if (bCleared) ++ClearedCaves;
+                if (Region == ActiveRegionIndex)
+                {
+                    ++RegionDiscoveredCaves;
+                    if (bCleared) ++RegionClearedCaves;
+                }
             }
         }
         // Tracking filters only affect the icons, never the terrain.
@@ -720,10 +730,12 @@ void AMoonfallHud::DrawHUD()
             DiscoveredCaves, MoonfallWorldRules::TotalChambers, ClearedCaves),
             FLinearColor(.86f, .92f, .82f), MapOrigin.X + 10.f,
             MapOrigin.Y + MapHeight - 57.f, nullptr, .70f);
+        DrawText(FString::Printf(TEXT("THIS REGION: %d/%d CAVES FOUND   %d CLEARED"),
+            RegionDiscoveredCaves, MoonfallWorldRules::ChambersPerRegion, RegionClearedCaves),
+            FLinearColor(.78f, .89f, .78f), MapOrigin.X + 10.f,
+            MapOrigin.Y + MapHeight - 75.f, nullptr, .70f);
         // Percentages use discovered walkable floors, never the empty fog grid.
         // No hidden cave coordinates or boss locations are exposed by totals.
-        const int32 ActiveRegionIndex = FMath::Clamp(
-            MoonfallWorldRules::RegionAt(H.X), 0, MoonfallWorldRules::RegionCount - 1);
         const int32 WorldPercent = TotalWalkableCells > 0
             ? FMath::Clamp(FMath::RoundToInt(
                 100.f * DiscoveredGroundCells / TotalWalkableCells), 0, 100) : 0;
@@ -739,6 +751,22 @@ void AMoonfallHud::DrawHUD()
             DrawText(FString::Printf(TEXT("WORLD %d%%   REGION %d%%"),
                 WorldPercent, RegionPercent), FLinearColor(.95f, .84f, .55f),
                 MapOrigin.X + MapWidth - 207.f, MapOrigin.Y + 27.f, nullptr, .75f);
+            // Two compact progress tracks, confined to the optional full map.
+            constexpr float BarWidth = 144.f;
+            constexpr float BarHeight = 5.f;
+            const float BarX = MapOrigin.X + MapWidth - 174.f;
+            const float WorldBarY = MapOrigin.Y + 44.f;
+            const float RegionBarY = MapOrigin.Y + 57.f;
+            DrawRect(FLinearColor(.13f, .15f, .21f, .95f),
+                BarX, WorldBarY, BarWidth, BarHeight);
+            DrawRect(FLinearColor(.13f, .15f, .21f, .95f),
+                BarX, RegionBarY, BarWidth, BarHeight);
+            if (WorldPercent > 0)
+                DrawRect(FLinearColor(.68f, .56f, .92f),
+                    BarX, WorldBarY, BarWidth * WorldPercent / 100.f, BarHeight);
+            if (RegionPercent > 0)
+                DrawRect(FLinearColor(.91f, .76f, .41f),
+                    BarX, RegionBarY, BarWidth * RegionPercent / 100.f, BarHeight);
         }
         DrawText(TEXT("TAB: CLOSE MAP"), FLinearColor(.9f, .86f, .96f),
             MapOrigin.X + 10.f, MapOrigin.Y + MapHeight - 19.f, nullptr, .75f);
