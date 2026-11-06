@@ -56,7 +56,7 @@ Enemy strike warnings now hold the enemy at its current location rather than let
 
 ## Incoming damage and dodge feedback (source implemented, gameplay unverified)
 
-The same bounded, temporary floating-number system now reports hero damage taken in red and successful timed dodges as cyan `DODGE` labels. This covers both local enemy strikes and the three-phase boss's hits, without adding screen-filling HUD widgets or new game actors. It records only damage actually taken and actual successful dodge evasions; restored-checkpoint protection does not display a false hit. The previous gold critical / blue magic hit labels and the sixteen-second autosave are unchanged. Actual visual readability, projection and frame pacing still need Unreal 5.6 testing.
+The same bounded, temporary floating-number system now reports hero damage taken in red and successful timed dodges as a brief moonlit crescent with drifting blood-red streaks (an original, lightweight cinematic effect informed by Wukong's evasive afterimages and Dawnwalker's grounded duels). This covers both local enemy strikes and the three-phase boss's hits, without adding screen-filling HUD widgets or new game actors. It records only damage actually taken and actual successful dodge evasions; restored-checkpoint protection does not display a false hit. The previous gold critical / blue magic hit labels and the sixteen-second autosave are unchanged. Actual visual readability, projection and frame pacing still need Unreal 5.6 testing.
 
 ## Manual acceptance checklist
 
