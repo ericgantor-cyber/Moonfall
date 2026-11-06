@@ -730,6 +730,7 @@ float AMoonfallPawn::ResolveGuardHit(
         GuardParryTimer = 0.f;
         bParryActiveThisFrame = false;
         CounterWindow = CounterDuration;
+        bPrecisionRiposteReady = true;
         // Parry chains into a fast follow-up without resetting earned combo flow.
         AttackCooldown = FMath::Min(AttackCooldown, 0.12f);
         MeleeComboTimer = FMath::Max(MeleeComboTimer, 1.1f);
@@ -830,19 +831,23 @@ void AMoonfallPawn::Attack()
                             Enemies[EnemyIndex].Mesh->GetRelativeLocation());
         const bool bHitBoss = bBossInRange && BossDistance < EnemyDistance;
         const bool bRiposte = CounterWindow > 0.f;
+        const bool bPrecisionCounter = bRiposte && bPrecisionRiposteReady;
         // Every third landed click becomes a finisher. Misses or pauses reset it.
         MeleeComboCount = MeleeComboTimer > 0.f ? MeleeComboCount + 1 : 1;
         const bool bComboFinisher = MeleeComboCount >= 3;
         if (bComboFinisher) MeleeComboCount = 0;
         MeleeComboTimer = 1.1f;
         const float ComboMultiplier = bComboFinisher ? 1.5f : 1.f;
+        // A landed precision parry grants one stronger, quicker melee counter.
         const float Damage = BasicAttackDamage() * ComboMultiplier *
-            (bRiposte ? CounterMultiplier : 1.f);
+            (bRiposte ? CounterMultiplier : 1.f) * (bPrecisionCounter ? 1.2f : 1.f);
+        if (bPrecisionCounter) AttackCooldown = 0.22f;
         // Aggressive play helps sustain dodges. Only a landed third strike
         // restores stamina; whiffs and arcane bolts never trigger the reward.
         if (bComboFinisher)
             Stamina = FMath::Min(GetHudMaxStamina(), Stamina + 8.f);
         CounterWindow = 0.f; // The riposte is spent only on a successful in-range attack.
+        bPrecisionRiposteReady = false;
         if (!bHitBoss) DamageWorldEnemy(EnemyIndex, Damage, bRiposte, bComboFinisher);
         else
         {
@@ -890,6 +895,7 @@ void AMoonfallPawn::CastBolt()
     const float Damage = ArcaneBoltDamage() *
         (bRiposte ? CounterMultiplier : 1.f);
     CounterWindow = 0.f;
+    bPrecisionRiposteReady = false; // Casting consumes the counter, without the melee bonus.
     if (!bHitBoss) DamageWorldEnemy(EnemyIndex, Damage, bRiposte, false, true);
     else
     {
@@ -1011,6 +1017,7 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
     EnemyDamageCooldown = FMath::Max(0.f, EnemyDamageCooldown - Dt);
     // Preserve earned ripostes during a render stall, matching dodge and telegraph timing.
     CounterWindow = FMath::Max(0.f, CounterWindow - ReactionDt);
+    if (CounterWindow <= 0.f) bPrecisionRiposteReady = false;
     BossStaggerTimer = FMath::Max(0.f, BossStaggerTimer - ReactionDt);
     BossPostureIdleTimer = FMath::Max(0.f, BossPostureIdleTimer - ReactionDt);
     if (BossPostureIdleTimer <= 0.f)
