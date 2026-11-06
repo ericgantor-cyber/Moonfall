@@ -254,6 +254,28 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("FMath::Square(1200.f)", posture)
         self.assertIn("if (Visible.Num() >= MaxPostureIndicators) break;", posture)
 
+    def test_minimap_zoom_cycles_and_preferences_survive_checkpoint(self):
+        controls = INPUT.read_text(encoding="utf-8")
+        saved = SAVES.read_text(encoding="utf-8")
+        hud = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8")
+        minimap = hud.split("// Compact WoW-style circular minimap", 1)[1]
+        self.assertIn('ActionName="MinimapZoom",Key=M', controls)
+        self.assertIn('BindAction(TEXT("MinimapZoom"), IE_Pressed', self.cpp)
+        self.assertIn("MinimapZoomLevel = (MinimapZoomLevel + 1) % 3;", self.cpp)
+        self.assertIn("GetMinimapWorldRadius() const", self.header)
+        self.assertIn("850.f", self.header)
+        self.assertIn("1200.f", self.header)
+        self.assertIn("1700.f", self.header)
+        self.assertIn("const float WorldRadius = Hero->GetMinimapWorldRadius();", minimap)
+        self.assertIn('TEXT("T: %s   M: %.0fm")', minimap)
+        for field in ("SavedMinimapTrackingMode", "SavedMinimapZoomLevel"):
+            self.assertIn(field + " = 0;", saved)
+            self.assertIn("Progress->" + field, self.cpp)
+        self.assertIn("FMath::Clamp(Progress->SavedMinimapTrackingMode, 0, 3)", self.cpp)
+        self.assertIn("FMath::Clamp(Progress->SavedMinimapZoomLevel, 0, 2)", self.cpp)
+        self.assertNotIn("Hero->GetEnemyMapPositions()", minimap)
+        self.assertNotIn("NearestChamberDirection", minimap)
+
     def test_minimap_tracking_key_and_north_compass_label(self):
         hud = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8")
         controls = INPUT.read_text(encoding="utf-8")
