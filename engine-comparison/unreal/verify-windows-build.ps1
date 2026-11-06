@@ -143,22 +143,24 @@ if ($Package) {
         $ArchiveDirectory = Join-Path $PSScriptRoot "MoonfallPrototype\Saved\Win64Verification"
     }
     $ArchiveDirectory = [System.IO.Path]::GetFullPath($ArchiveDirectory)
-    $PackageStartedUtc = [DateTime]::UtcNow
-    & $RunUAT BuildCookRun "-project=$Project" -noP4 -platform=Win64 -clientconfig=Development -build -cook -stage -pak -archive "-archivedirectory=$ArchiveDirectory"
+    # Isolate every verification run: Unreal may preserve original file timestamps
+    # when copying, so mtime alone cannot establish whether a package is new.
+    $RunArchiveDirectory = Join-Path $ArchiveDirectory ("run-" + [guid]::NewGuid().ToString("N"))
+    if (Test-Path -LiteralPath $RunArchiveDirectory) {
+        throw "Expected a new, empty archive directory: $RunArchiveDirectory"
+    }
+    & $RunUAT BuildCookRun "-project=$Project" -noP4 -platform=Win64 -clientconfig=Development -build -cook -stage -pak -archive "-archivedirectory=$RunArchiveDirectory"
     if ($LASTEXITCODE -ne 0) {
         throw "Unreal BuildCookRun failed (exit $LASTEXITCODE). No valid package was verified."
     }
-    if (-not (Test-Path -LiteralPath $ArchiveDirectory -PathType Container)) {
-        throw "BuildCookRun returned success but the archive directory does not exist: $ArchiveDirectory"
+    if (-not (Test-Path -LiteralPath $RunArchiveDirectory -PathType Container)) {
+        throw "BuildCookRun returned success but the isolated archive directory does not exist: $RunArchiveDirectory"
     }
-    # Prevent a stale build from being mistaken for the output of this run.
-    # Allow two seconds of timestamp granularity for Windows filesystems.
-    $PackagedExecutables = @(Get-ChildItem -LiteralPath $ArchiveDirectory -File -Recurse -Filter "MoonfallPrototype.exe" |
-        Where-Object { $_.LastWriteTimeUtc -ge $PackageStartedUtc.AddSeconds(-2) -and
-            (Test-WindowsExecutable -Path $_.FullName) })
+    $PackagedExecutables = @(Get-ChildItem -LiteralPath $RunArchiveDirectory -File -Recurse -Filter "MoonfallPrototype.exe" |
+        Where-Object { Test-WindowsExecutable -Path $_.FullName })
     if ($PackagedExecutables.Count -eq 0) {
-        throw "BuildCookRun returned success but no fresh, nonempty packaged MoonfallPrototype.exe was found in $ArchiveDirectory"
+        throw "BuildCookRun returned success but no valid packaged MoonfallPrototype.exe was found in $RunArchiveDirectory"
     }
-    Write-Host "Verified fresh Win64 package executable: $($PackagedExecutables[0].FullName)"
+    Write-Host "Verified isolated Win64 package executable: $($PackagedExecutables[0].FullName)"
     Write-Host "BuildCookRun completed. Manually launch and test the staged game on Windows 10 and 11."
 }
