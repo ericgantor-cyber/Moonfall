@@ -315,10 +315,11 @@ void AMoonfallHud::DrawHUD()
     // Draw distinct enabled/disabled states at the minimum and maximum range.
     const FVector2D ZoomPlus(RadarCenter.X + 58.f, 67.f);
     const FVector2D ZoomMinus(RadarCenter.X + 58.f, 99.f);
-    Canvas->K2_DrawBox(ZoomPlus - FVector2D(13.f, 13.f),
-        FVector2D(26.f, 26.f), 2.f, FLinearColor(.65f, .57f, .82f));
-    Canvas->K2_DrawBox(ZoomMinus - FVector2D(13.f, 13.f),
-        FVector2D(26.f, 26.f), 2.f, FLinearColor(.65f, .57f, .82f));
+    // Large 30x30 clickable squares match the controller hit tests.
+    Canvas->K2_DrawBox(ZoomPlus - FVector2D(15.f, 15.f),
+        FVector2D(30.f, 30.f), 2.f, FLinearColor(.65f, .57f, .82f));
+    Canvas->K2_DrawBox(ZoomMinus - FVector2D(15.f, 15.f),
+        FVector2D(30.f, 30.f), 2.f, FLinearColor(.65f, .57f, .82f));
     const FLinearColor PlusColor = Hero->GetMinimapZoomLevel() < 2
         ? FLinearColor::White : FLinearColor(.42f, .42f, .48f);
     const FLinearColor MinusColor = Hero->GetMinimapZoomLevel() > 0
