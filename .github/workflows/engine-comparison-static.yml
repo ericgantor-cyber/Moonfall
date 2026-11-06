@@ -96,7 +96,11 @@ jobs:
           New-Item -ItemType Directory -Force -Path (Split-Path $output -Parent) | Out-Null
           if (Test-Path -LiteralPath $output) { throw "Test precondition failed: build output already exists." }
           try {
-            Set-Content -LiteralPath $output -Value 'NOT-A-WINDOWS-EXECUTABLE' -Encoding ascii
+            # Deliberately has an MZ prefix, but lacks a valid PE/AMD64 header.
+            $fakeExe = [byte[]]::new(128)
+            $fakeExe[0] = 77
+            $fakeExe[1] = 90
+            [System.IO.File]::WriteAllBytes($output, $fakeExe)
             try {
               & $scriptPath -EngineRoot $fakeRoot
               throw "Build verifier accepted a fake Win64 executable."
