@@ -254,6 +254,21 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("FMath::Square(1200.f)", posture)
         self.assertIn("if (Visible.Num() >= MaxPostureIndicators) break;", posture)
 
+    def test_moonfall_circular_minimap_has_clipped_markers_and_north(self):
+        hud = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8")
+        minimap = hud.split("// Compact WoW-style circular minimap", 1)[1]
+        self.assertIn("constexpr int32 RadarSegments = 48;", minimap)
+        self.assertIn("const FVector2D RadarCenter(", minimap)
+        self.assertIn("const FVector2D North(0.f, -1.f);", minimap)
+        self.assertIn("Hero->GetChamberMapPositions()", minimap)
+        self.assertIn("Hero->GetEnemyMapPositions()", minimap)
+        self.assertIn("Hero->IsBossDefeated()", minimap)
+        self.assertIn("Local.SizeSquared() > FMath::Square(RadarRadius - 10.f)", minimap)
+        self.assertIn("Local.SizeSquared() > FMath::Square(RadarRadius - 9.f)", minimap)
+        self.assertIn("Local.SizeSquared() <= FMath::Square(RadarRadius - 10.f)", minimap)
+        self.assertNotIn("const float Left = Canvas->ClipX - 178.f;", minimap)
+        self.assertNotIn("FVector2D(160.f, 160.f)", minimap)
+
     def test_minimap_collects_only_nearby_bounded_enemy_markers(self):
         minimap = self.cpp.split(
             "TArray<FVector> AMoonfallPawn::GetEnemyMapPositions() const", 1)[1].split(
