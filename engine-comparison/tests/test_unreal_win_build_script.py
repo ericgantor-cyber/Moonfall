@@ -50,6 +50,17 @@ class UnrealWindowsBuildScriptTests(unittest.TestCase):
         self.assertIn("if (-not (Test-WindowsExecutable -Path $GameExe))", self.script)
         self.assertIn("not a Windows PE file", self.script)
 
+    def test_game_executable_must_match_latest_source_and_config(self):
+        self.assertIn('Get-ChildItem -LiteralPath $SourceRoot -Recurse -File', self.script)
+        self.assertIn('$_.Extension -in @(".cpp", ".h", ".cs")', self.script)
+        self.assertIn('Get-Item -LiteralPath $Project', self.script)
+        self.assertIn('Config\\DefaultEngine.ini', self.script)
+        self.assertIn('Sort-Object LastWriteTimeUtc -Descending', self.script)
+        self.assertIn('$LatestInputUtc.AddSeconds(-2)', self.script)
+        self.assertIn('Win64 game executable is older than project sources or config', self.script)
+        self.assertLess(self.script.index('if (-not (Test-WindowsExecutable -Path $GameExe))'),
+                        self.script.index('if ((Get-Item -LiteralPath $GameExe).LastWriteTimeUtc'))
+
     def test_editor_map_creator_uses_unreal_api_without_overwriting_assets(self):
         import json
         project = json.loads((PROJECT / "MoonfallPrototype.uproject").read_text(encoding="utf-8"))
