@@ -107,3 +107,7 @@ The arena-boss quest tracker now displays the player's **distance to the assigne
 Press **M** or the controller **View/Back** button to open/close a larger north-up world chart in the existing HUD. It draws only previously visited two-metre cells within a 150-metre player-centred view, a player marker and a deliberately assigned gold quest destination. Unknown space stays empty, **not** fabricated terrain. Explored cells remain bounded to the existing 384-cell config save; this is **not yet** Skyrim-style continuous terrain, caves, geometry scanning, or a complete WoW quest journal.
 
 Exploration tracking now runs before the Options early return, so briefly viewing Options no longer interrupts visited-cell registration. The atlas is a HUD overlay rather than another gameplay mode. Existing camera zoom, combat HUD and original Z/Nyra art are unchanged. **UE 5.4 compilation, packaged Windows builds and runtime input behavior remain unverified.**
+
+## World atlas input safety fix
+
+While the M/View world atlas is open, player movement, camera-look inputs, spellcasting, dodge and nearby enemy AI are blocked to prevent combat underneath the map overlay. Closing the atlas resumes those actions. Opening Options closes the atlas first to prevent overlapping overlays; the atlas itself does not create a separate game mode. This is source-level behavior, not a verified pause of every game timer or physics simulation. Unreal Editor build and Windows gameplay validation remain outstanding.
