@@ -304,7 +304,7 @@ void AMoonfallHud::DrawHUD()
         RadarCenter + North * (RadarRadius + 5.f), 3.f, FLinearColor(.95f, .84f, .44f));
     // Visible compass letter, fixed north-up to match world XY coordinates.
     DrawText(TEXT("N"), FLinearColor(.95f, .84f, .44f),
-        RadarCenter.X - 5.f, RadarCenter.Y - RadarRadius - 25.f, nullptr, .9f);
+        RadarCenter.X - 5.f, RadarCenter.Y - RadarRadius - 15.f, nullptr, .9f);
     // One unobtrusive line controls both filters and range, without new HUD panels.
     const TCHAR* TrackingLabels[] = { TEXT("ALL"), TEXT("CHAMBERS"), TEXT("BOSS"), TEXT("OFF") };
     DrawText(FString::Printf(TEXT("T: %s   M: %.0fm"),
