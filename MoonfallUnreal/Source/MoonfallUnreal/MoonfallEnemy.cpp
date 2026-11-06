@@ -389,7 +389,11 @@ void AMoonfallEnemy::TickCorruptedCrow(float DeltaSeconds)
 {
  if (!GetWorld() || Health <= 0.f) return;
  AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this,0));
- if (!IsValid(Hero) || Hero->Health <= 0.f || Hero->bOptionsOpen || Hero->bWorldMapOpen) return;
+ if (!IsValid(Hero) || Hero->Health <= 0.f || Hero->bOptionsOpen || Hero->bWorldMapOpen) {
+  // The danger light must not remain visible while combat is suppressed.
+  if (CrowWarningGlow) CrowWarningGlow->SetVisibility(false);
+  return;
+ }
  const float Now = GetWorld()->GetTimeSeconds();
  const FVector HeroPosition = Hero->GetActorLocation();
  const FVector Current = GetActorLocation();
