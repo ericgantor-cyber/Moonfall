@@ -156,6 +156,24 @@ void AMoonfallHud::DrawHUD()
             HitColor, Screen.X - 12.f, Screen.Y, nullptr, Scale);
     }
 
+    // Short posture bars appear only after combat contact, near damaged foes.
+    // No permanent meter panels, character portraits or new world actors.
+    for (const AMoonfallPawn::FEnemyPosture& Posture : Hero->GetEnemyPostures())
+    {
+        FVector2D Screen;
+        const FVector World = Hero->GetActorTransform().TransformPosition(
+            Posture.LocalPosition + FVector(0.f, 0.f, 205.f));
+        if (!PlayerOwner->ProjectWorldLocationToScreen(World, Screen, false)) continue;
+        const float Width = Posture.bGuardian ? 65.f : 48.f;
+        const float Fill = Width * FMath::Clamp(Posture.Ratio, 0.f, 1.f);
+        Canvas->K2_DrawBox(Screen + FVector2D(-Width * .5f, 0.f),
+            FVector2D(Width, 4.f), 1.f, FLinearColor(.18f, .16f, .22f, .75f));
+        Canvas->K2_DrawBox(Screen + FVector2D(-Width * .5f, 0.f),
+            FVector2D(Fill, 4.f), 2.f, Posture.bGuardian
+                ? FLinearColor(.84f, .42f, 1.f, .95f)
+                : FLinearColor(1.f, .76f, .28f, .95f));
+    }
+
     // Directional danger readout combines a visible windup with a late red
     // impact cue. It lives beside the enemy, never in a permanent HUD panel.
     for (const AMoonfallPawn::FAttackWarning& Warning : Hero->GetAttackWarnings())
