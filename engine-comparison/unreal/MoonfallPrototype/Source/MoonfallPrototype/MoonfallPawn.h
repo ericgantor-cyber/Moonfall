@@ -42,6 +42,11 @@ public:
     FVector GetHeroMapPosition() const { return HeroMesh ? HeroMesh->GetRelativeLocation() : FVector::ZeroVector; }
     FVector GetBossMapPosition() const { return BossMesh ? BossMesh->GetRelativeLocation() : FVector::ZeroVector; }
     bool IsBossDefeated() const { return bWon; }
+    // A compact quest journal built from real saved objectives, not invented rewards.
+    // 0: defeat Z (main), 1: defeat patrols in active region, 2: clear caves.
+    int32 GetTrackedQuestId() const { return TrackedQuestId; }
+    int32 GetQuestGoal(int32 QuestId) const;
+    int32 GetQuestProgress(int32 QuestId, int32 Region) const;
     // T cycles ALL -> CHAMBERS -> BOSS -> OFF, no enemy tracking.
     int32 GetMinimapTrackingMode() const { return MinimapTrackingMode; }
     int32 GetMinimapZoomLevel() const { return MinimapZoomLevel; }
@@ -135,6 +140,8 @@ private:
     void BeginGuard();
     void EndGuard();
     void CycleMinimapTracking();
+    void CycleTrackedQuest(); // J cycles the pinned quest only while world map is open.
+    int32 TrackedQuestId = 2; // Default to region cave objectives on old saves.
     void SaveMapPreferences(); // Never changes the living combat checkpoint.
     void SaveExplorationOnly(); // Keep discovered fog after defeat without moving checkpoint.
     void ToggleWorldMap();
