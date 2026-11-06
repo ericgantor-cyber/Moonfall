@@ -72,6 +72,13 @@ void AMoonfallEnemy::BeginPlay() {
  AttackDamage = FMath::Max(1.f, AttackDamage * DamageScale);
  MaxHealthAtSpawn = FMath::Max(1.f, Health);
  BossMaxHealth = bBoss ? MaxHealthAtSpawn : 0.f;
+ // Imported art is optional; authored assets retain the original collision and combat logic.
+ if (!bCorruptedCrow && Body) {
+  UStaticMesh* SelectedMesh = bBoss ? BossEnemyArt : RegularEnemyArt;
+  UMaterialInterface* SelectedMaterial = bBoss ? BossEnemyMaterial : RegularEnemyMaterial;
+  if (SelectedMesh) Body->SetStaticMesh(SelectedMesh);
+  if (SelectedMaterial) Body->SetMaterial(0,SelectedMaterial);
+ }
  if (bCorruptedCrow) {
   AttackCooldown = FMath::Max(1.7f,AttackCooldown);
   if (Body) Body->SetRelativeScale3D(FVector(0.65f,0.65f,0.5f));
