@@ -285,6 +285,8 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("MinimapTrackingMode = (MinimapTrackingMode + 1) % 4;", self.cpp)
         self.assertIn("GetMinimapTrackingMode() const", self.header)
         self.assertIn('DrawText(TEXT("N")', minimap)
+        self.assertIn("RadarCenter.Y - RadarRadius - 15.f", minimap)
+        self.assertNotIn("RadarCenter.Y - RadarRadius - 25.f", minimap)
         self.assertIn('TEXT("CHAMBERS")', minimap)
         self.assertIn('TEXT("BOSS")', minimap)
         self.assertIn("if (bTrackChambers)", minimap)
