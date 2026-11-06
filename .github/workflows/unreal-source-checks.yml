@@ -141,6 +141,19 @@ jobs:
           assert 'Player.X-Pan.X' in hud and 'Player.Y-Pan.Y' in hud
           assert 'const FVector2D RawPlayer = Centre + FVector2D(-Pan.X, Pan.Y) * Scale' in hud
           assert 'if (!bOptionsOpen && !bWorldMapOpen) CameraDistance' in hero
+          assert 'bPersonalWaypointActive = false' in hero_header
+          assert 'FVector PersonalWaypoint = FVector::ZeroVector' in hero_header
+          assert 'ActionName="PlaceWaypoint",Key=T' in inputs
+          assert 'ActionName="ClearWaypoint",Key=BackSpace' in inputs
+          assert 'ActionName="PlaceWaypoint",Key=Gamepad_LeftShoulder' in inputs
+          assert 'ActionName="ClearWaypoint",Key=Gamepad_RightShoulder' in inputs
+          assert 'BindAction(TEXT("PlaceWaypoint")' in hero
+          assert 'BindAction(TEXT("ClearWaypoint")' in hero
+          assert 'Origin.X + WorldMapPan.X' in hero and 'Origin.Y + WorldMapPan.Y' in hero
+          assert 'if (!bWorldMapOpen || bOptionsOpen) return' in hero
+          assert 'if (Hero->bPersonalWaypointActive)' in hud
+          assert 'const FVector WaypointOffset = Hero->PersonalWaypoint - Player' in hud
+          assert 'FMath::Min(Distance,MapRange)' in hud
           assert 'if (Hero->bQuestTargetActive)' in hud
           assert 'for (const FIntPoint& Cell : ExploredMapCells)' in hud
           assert hud.index('const FIntPoint CurrentCell') < hud.index('if (Hero->bOptionsOpen)')
