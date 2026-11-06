@@ -24,6 +24,10 @@ public:
     virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
     virtual void Tick(float DeltaSeconds) override;
     virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
+    bool IsDefeated() const { return Health <= 0.f; }
+    bool IsGuarding() const { return bGuardHeld && Health > 0.f && DodgeTimer <= 0.f && Stamina > 0.f; }
+    bool IsParryWindowActive() const { return IsGuarding() && GuardParryTimer > 0.f; }
+    FVector GetGuardDirection() const { return GuardDirection; }
     float GetHudHealth() const { return Health; }
     float GetHudMaxHealth() const { return 100.f + 5.f * Victories + 2.f * (Progression.Level - 1); }
     float GetHudMana() const { return Mana; }
@@ -38,8 +42,68 @@ public:
     FVector GetHeroMapPosition() const { return HeroMesh ? HeroMesh->GetRelativeLocation() : FVector::ZeroVector; }
     FVector GetBossMapPosition() const { return BossMesh ? BossMesh->GetRelativeLocation() : FVector::ZeroVector; }
     bool IsBossDefeated() const { return bWon; }
-    TArray<FVector> GetEnemyMapPositions() const;
+    // A compact quest journal built from real saved objectives, not invented rewards.
+    // 0: defeat Z (main), 1: defeat patrols in active region, 2: clear caves.
+    int32 GetTrackedQuestId() const { return TrackedQuestId; }
+    int32 GetQuestGoal(int32 QuestId) const;
+    int32 GetQuestProgress(int32 QuestId, int32 Region) const;
+    // T cycles ALL -> CHAMBERS -> BOSS -> OFF, no enemy tracking.
+    int32 GetMinimapTrackingMode() const { return MinimapTrackingMode; }
+    int32 GetMinimapZoomLevel() const { return MinimapZoomLevel; }
+    bool IsWorldMapVisible() const { return bWorldMapVisible; }
+    // Persisted 2 m discovery cells across the continuous world.
+    static constexpr float FogMinX = -2000.f;
+    static constexpr float FogMinY = -3600.f;
+    static constexpr float FogCellSize = 200.f;
+    static constexpr int32 FogWidth = 100;
+    static constexpr int32 FogHeight = 36;
+    bool IsMapExplored(const FVector2D& WorldPosition) const;
+    float GetMinimapWorldRadius() const { return MinimapZoomLevel == 2 ? 850.f : (MinimapZoomLevel == 1 ? 1200.f : 1700.f); }
+    float GetBossPostureRatio() const { return FMath::Clamp(BossPosture / BossPostureThreshold, 0.f, 1.f); }
+    bool IsBossPostureActive() const { return !bWon && BossPosture > 0.f; }
+    bool IsBossStaggered() const { return !bWon && BossStaggerTimer > 0.f; }
     TArray<FVector> GetChamberMapPositions() const;
+    TArray<FVector> GetWorldMapChamberPositions() const;
+    // Cleared cave landmarks remain discoverable after their reward cache vanishes.
+    bool IsCaveCleared(int32 Region, int32 Cave) const
+    {
+        if (Region < 0 || Region >= MoonfallWorldRules::RegionCount ||
+            Cave < 0 || Cave >= MoonfallWorldRules::ChambersPerRegion) return false;
+        const int32 Id = Region * MoonfallWorldRules::ChambersPerRegion + Cave;
+        return (ClaimedChamberMask & (1 << Id)) != 0;
+    }
+    struct FDamageNumber
+    {
+        FVector LocalPosition = FVector::ZeroVector;
+        float Amount = 0.f;
+        float Age = 0.f;
+        bool bHeavy = false;
+        bool bMagic = false;
+        bool bIncoming = false;
+        bool bDodged = false;
+        bool bBlocked = false;
+        bool bParried = false;
+        bool bGuardBroken = false;
+    };
+    const TArray<FDamageNumber>& GetDamageNumbers() const { return DamageNumbers; }
+    static constexpr float DamageNumberLifetime = 1.25f;
+    struct FAttackWarning
+    {
+        FVector LocalPosition = FVector::ZeroVector;
+        FVector DirectionToHero = FVector::ForwardVector;
+        float Urgency = 0.f;
+        bool bGuardian = false;
+        bool bBoss = false;
+        bool bUnblockable = false;
+    };
+    TArray<FAttackWarning> GetAttackWarnings() const;
+    struct FEnemyPosture
+    {
+        FVector LocalPosition = FVector::ZeroVector;
+        float Ratio = 0.f;
+        bool bGuardian = false;
+    };
+    TArray<FEnemyPosture> GetEnemyPostures() const;
 private:
     UPROPERTY() USceneComponent* Root;
     UPROPERTY() UStaticMeshComponent* HeroMesh;
@@ -54,6 +118,11 @@ private:
         UBillboardComponent* Portrait = nullptr;
         float Health = 0.f;
         float StaggerTimer = 0.f; // Surviving guardians are stunned by dodge ripostes.
+        float AttackWindup = 0.f; // Telegraph before an ordinary enemy can strike.
+        float AttackRecovery = 0.f; // No instant repeated contact hits.
+        float Posture = 0.f; // Temporary defense pressure, not persistent character stats.
+        float PostureIdleTimer = 0.f;
+        bool bAttackReadyThisFrame = false;
         bool bStaggeredThisFrame = false; // Keep contact disabled on the final stagger frame.
         int32 Region = 0;
         int32 Id = 0;
@@ -63,6 +132,27 @@ private:
         FVector Home = FVector::ZeroVector;
     };
     TArray<FWorldEnemy> Enemies;
+    TArray<FDamageNumber> DamageNumbers; // Bounded, temporary combat feedback only.
+    void RecordDamageNumber(const FVector& LocalPosition, float Amount, bool bHeavy, bool bMagic);
+    void RecordHeroHit(float Amount, bool bDodged);
+    void RecordGuardEvent(bool bParried, bool bBroken);
+    float ResolveGuardHit(const FVector& AttackOrigin, float Damage, bool bUnblockable, bool& bParried);
+    void BeginGuard();
+    void EndGuard();
+    void CycleMinimapTracking();
+    void CycleTrackedQuest(); // J cycles the pinned quest only while world map is open.
+    int32 TrackedQuestId = 2; // Default to region cave objectives on old saves.
+    void SaveMapPreferences(); // Never changes the living combat checkpoint.
+    void SaveExplorationOnly(); // Keep discovered fog after defeat without moving checkpoint.
+    void ToggleWorldMap();
+    bool bWorldMapVisible = false; // Temporary full terrain map, closed by default.
+    TArray<uint8> ExploredMapCells; // 3,600 saved byte flags; older saves start undiscovered.
+    void RevealMapAround(const FVector& WorldPosition);
+    void RevealMapAlongPath(const FVector& From, const FVector& To);
+    int32 MinimapTrackingMode = 0; // 0 all, 1 chambers, 2 boss, 3 off.
+    // UI clicks are handled before combat, so zoom buttons never trigger attacks.
+    bool TryHandleMinimapZoomClick();
+    int32 MinimapZoomLevel = 0; // 0 wide, 1 medium, 2 close.
     struct FChamberCache
     {
         UStaticMeshComponent* Mesh = nullptr;
@@ -73,15 +163,35 @@ private:
     int32 ClaimedChamberMask = 0;
     int32 DefeatedGuardianMask = 0;
     int32 DefeatedEnemyMask = 0;
+    float RespawnGraceTimer = 0.f; // Short safety window on restored living checkpoints.
+    static constexpr float RespawnGraceDuration = 2.f;
     float EnemyDamageCooldown = 0.f;
+    bool bGuardHeld = false;
+    bool bBossRadialAttack = false; // Radial boss attacks are dodge-only.
+    FVector GuardDirection = FVector::ForwardVector;
+    float GuardParryTimer = 0.f;
+    float GuardParryRecovery = 0.f; // Stops repeated taps from refreshing the parry.
+    float GuardBreakTimer = 0.f;
+    bool bParryActiveThisFrame = false; // Preserve the last valid parry frame.
+    static constexpr float ParryWindow = 0.22f;
+    static constexpr float ParryRecovery = 0.45f;
+    static constexpr float GuardBreakDuration = 1.1f;
+    // A precision parry empowers one landed melee counter; never persists in saves.
+    bool bPrecisionRiposteReady = false;
     float CounterWindow = 0.f;
     int32 BossAttackCount = 0;
     int32 BossAttackPhase = 1;
     float BossWarningRadius = 250.f;
+    float BossPosture = 0.f;
+    float BossPostureIdleTimer = 0.f;
+    float BossStaggerTimer = 0.f;
+    static constexpr float BossPostureThreshold = 30.f;
+    void ApplyBossPosture(float Damage, bool bRiposte, bool bFinisher, bool bMagic);
     static constexpr float CounterDuration = 1.5f;
     static constexpr float CounterMultiplier = 1.75f;
+    int32 LastCheckpointRegion = 0; // Commit living progress on entering a new region.
     float CheckpointTimer = 0.f;
-    static constexpr float CheckpointInterval = 8.f;
+    static constexpr float CheckpointInterval = 16.f;
     UPROPERTY() UBillboardComponent* BossPortrait;
     UPROPERTY() UTexture2D* ZArtwork;
     UPROPERTY() UTexture2D* NyraArtwork;
@@ -100,6 +210,7 @@ private:
     TArray<FString> BossInventory;
     FMoonfallProgression Progression;
     bool bCasting = false, bWon = false;
+    bool bRespawnRequested = false; // Ignore repeated clicks while the level reloads.
     FVector TargetWorld = FVector::ZeroVector;
     void MoveForward(float Value);
     void MoveRight(float Value);
@@ -113,7 +224,9 @@ private:
     UBillboardComponent* AddWorldArtwork(USceneComponent* Parent, const FString& AssetPath,
         const FVector& LocalPosition, float Scale);
     int32 NearestEnemyIndex(float Radius) const;
-    void DamageWorldEnemy(int32 Index, float Damage, bool bRiposte = false, bool bComboFinisher = false);
+    void DamageWorldEnemy(int32 Index, float Damage, bool bRiposte = false, bool bComboFinisher = false, bool bMagic = false);
+    void ApplyPostureDamage(FWorldEnemy& Enemy, float Amount);
+    static float PostureThreshold(const FWorldEnemy& Enemy) { return Enemy.bGuardian ? 95.f : 60.f; }
     int32 GuardianBlessingCount() const;
     float BasicAttackDamage() const;
     float ArcaneBoltDamage() const;

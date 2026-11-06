@@ -155,7 +155,7 @@ class PrototypeContracts(unittest.TestCase):
         damage = self.cpp.split("void AMoonfallPawn::DamageWorldEnemy(", 1)[1].split(
             "TArray<FVector> AMoonfallPawn::GetChamberMapPositions()", 1)[0]
         self.assertIn("DamageWorldEnemy(EnemyIndex, Damage, bRiposte, bComboFinisher);", melee)
-        self.assertIn("DamageWorldEnemy(EnemyIndex, Damage, bRiposte);", bolt)
+        self.assertIn("DamageWorldEnemy(EnemyIndex, Damage, bRiposte, false, true);", bolt)
         self.assertIn("bComboFinisher && !Enemy.bGuardian", damage)
         self.assertIn("Enemy.bGuardian ? 0.8f : 0.4f", damage)
         self.assertIn("Enemy.bGuardian ? 120.f : 90.f", damage)
@@ -169,13 +169,13 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("if (Enemy.bStaggeredThisFrame)", ai)
         self.assertLess(ai.index("Enemy.bStaggeredThisFrame = Enemy.StaggerTimer > 0.f;"),
                         ai.index("Enemy.StaggerTimer = FMath::Max(0.f, Enemy.StaggerTimer - MoveDt);"))
-        self.assertIn("if (!Candidate.Mesh || Candidate.bReturningHome || Candidate.bStaggeredThisFrame) continue;", self.cpp)
+        self.assertIn("if (!Candidate.Mesh || Candidate.bReturningHome ||\n                    Candidate.bStaggeredThisFrame || !Candidate.bAttackReadyThisFrame) continue;", self.cpp)
 
     def test_unreal_guardian_riposte_knockback_stays_in_chamber(self):
         damage = self.cpp.split("void AMoonfallPawn::DamageWorldEnemy(", 1)[1].split(
             "TArray<FVector> AMoonfallPawn::GetChamberMapPositions()", 1)[0]
         self.assertIn("if ((bRiposte && Enemy.bGuardian) || (bComboFinisher && !Enemy.bGuardian))", damage)
-        self.assertIn("Enemy.StaggerTimer = Enemy.bGuardian ? 0.8f : 0.4f;", damage)
+        self.assertIn("Enemy.StaggerTimer = FMath::Max(Enemy.StaggerTimer, Enemy.bGuardian ? 0.8f : 0.4f);", damage)
         self.assertIn("if (Enemy.Mesh && HeroMesh)", damage)
         self.assertIn("Away.Z = 0.f;", damage)
         self.assertIn("if (!Away.IsNearlyZero())", damage)
@@ -186,13 +186,34 @@ class PrototypeContracts(unittest.TestCase):
 
     def test_unreal_riposte_staggers_guardians_and_blocks_contact(self):
         self.assertIn("float StaggerTimer = 0.f;", self.header)
-        self.assertIn("void AMoonfallPawn::DamageWorldEnemy(int32 Index, float Damage, bool bRiposte, bool bComboFinisher)", self.cpp)
+        self.assertIn("void AMoonfallPawn::DamageWorldEnemy(int32 Index, float Damage, bool bRiposte, bool bComboFinisher, bool bMagic)", self.cpp)
         self.assertIn("if ((bRiposte && Enemy.bGuardian) || (bComboFinisher && !Enemy.bGuardian))", self.cpp)
-        self.assertIn("Enemy.StaggerTimer = Enemy.bGuardian ? 0.8f : 0.4f;", self.cpp)
+        self.assertIn("Enemy.StaggerTimer = FMath::Max(Enemy.StaggerTimer, Enemy.bGuardian ? 0.8f : 0.4f);", self.cpp)
         self.assertIn("Enemy.StaggerTimer = FMath::Max(0.f, Enemy.StaggerTimer - MoveDt);", self.cpp)
-        self.assertIn("if (!Candidate.Mesh || Candidate.bReturningHome || Candidate.bStaggeredThisFrame) continue;", self.cpp)
+        self.assertIn("if (!Candidate.Mesh || Candidate.bReturningHome ||\n                    Candidate.bStaggeredThisFrame || !Candidate.bAttackReadyThisFrame) continue;", self.cpp)
         self.assertIn("if (!bHitBoss) DamageWorldEnemy(EnemyIndex, Damage, bRiposte, bComboFinisher);", self.cpp)
-        self.assertIn("if (!bHitBoss) DamageWorldEnemy(EnemyIndex, Damage, bRiposte);", self.cpp)
+        self.assertIn("if (!bHitBoss) DamageWorldEnemy(EnemyIndex, Damage, bRiposte, false, true);", self.cpp)
+
+    def test_precision_parry_melee_counter_is_earned_and_single_use(self):
+        self.assertIn("bool bPrecisionRiposteReady = false;", self.header)
+        parry = self.cpp.split("float AMoonfallPawn::ResolveGuardHit(", 1)[1].split(
+            "void AMoonfallPawn::Dodge()", 1)[0]
+        self.assertIn("bPrecisionRiposteReady = true;", parry)
+        attack = self.cpp.split("void AMoonfallPawn::Attack()", 1)[1].split(
+            "void AMoonfallPawn::CastBolt()", 1)[0]
+        self.assertIn("const bool bPrecisionCounter = bRiposte && bPrecisionRiposteReady;", attack)
+        self.assertIn("(bPrecisionCounter ? 1.2f : 1.f)", attack)
+        self.assertIn("if (bPrecisionCounter) AttackCooldown = 0.22f;", attack)
+        self.assertIn("bPrecisionRiposteReady = false;", attack)
+        bolt = self.cpp.split("void AMoonfallPawn::CastBolt()", 1)[1].split(
+            "void AMoonfallPawn::CastHeal()", 1)[0]
+        self.assertIn("bPrecisionRiposteReady = false;", bolt)
+        self.assertIn("if (CounterWindow <= 0.f) bPrecisionRiposteReady = false;", self.cpp)
+        dodge = self.cpp.split("void AMoonfallPawn::Dodge()", 1)[1].split(
+            "int32 AMoonfallPawn::GuardianBlessingCount()", 1)[0]
+        self.assertIn("bPrecisionRiposteReady = false;", dodge)
+        self.assertLess(dodge.index("EndGuard();"), dodge.index("bPrecisionRiposteReady = false;"))
+        self.assertLess(dodge.index("bPrecisionRiposteReady = false;"), dodge.index("DodgeTimer = 0.32f;"))
 
     def test_unreal_dodge_stamina_regen_delay_keeps_perfect_dodge_reward(self):
         dodge = self.cpp.split("void AMoonfallPawn::Dodge()", 1)[1].split(
@@ -203,25 +224,507 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("Stamina -= 45.f;", dodge)
         self.assertIn("StaminaRegenDelay = FMath::Max(0.f, StaminaRegenDelay - Dt);", tick)
         self.assertIn("const float StaminaRegenDt = FMath::Max(0.f, Dt - StaminaRegenDelay);", tick)
-        self.assertIn("if (StaminaRegenDt > 0.f)", tick)
+        self.assertIn("if (StaminaRegenDt > 0.f && !IsGuarding())", tick)
         self.assertIn("Stamina = FMath::Min(GetHudMaxStamina(), Stamina + 30.f * StaminaRegenDt);", tick)
         self.assertIn("Stamina = FMath::Min(GetHudMaxStamina(), Stamina + 10.f);", tick)
 
     def test_unreal_mob_and_boss_strikes_share_damage_recovery(self):
         tick = self.cpp.split("void AMoonfallPawn::Tick(", 1)[1]
-        self.assertIn("if (Health > 0.f && EnemyDamageCooldown <= 0.f)", tick)
+        self.assertIn("if (Health > 0.f && EnemyDamageCooldown <= 0.f && RespawnGraceTimer <= 0.f)", tick)
         self.assertIn("if (ContactIndex != INDEX_NONE)", tick)
         boss = tick.split("if (CastTimer <= 0.f)", 1)[1]
-        self.assertIn("if (bDodgeActiveThisFrame)", boss)
-        self.assertIn("else if (EnemyDamageCooldown <= 0.f)", boss)
+        self.assertIn("if (bDodgeActiveThisFrame && RespawnGraceTimer <= 0.f)", boss)
+        self.assertIn("else if (EnemyDamageCooldown <= 0.f && RespawnGraceTimer <= 0.f)", boss)
         self.assertIn("EnemyDamageCooldown = 1.2f;", boss)
-        self.assertLess(boss.index("else if (EnemyDamageCooldown <= 0.f)"),
+        self.assertLess(boss.index("else if (EnemyDamageCooldown <= 0.f && RespawnGraceTimer <= 0.f)"),
                         boss.index("Health = FMath::Max(0.f, Health -"))
         self.assertIn("EnemyDamageCooldown = FMath::Max(0.f, EnemyDamageCooldown - Dt);", tick)
 
+    def test_parry_never_shortens_existing_posture_stagger(self):
+        tick = self.cpp.split("void AMoonfallPawn::Tick(", 1)[1]
+        self.assertIn("Contact.StaggerTimer = FMath::Max(", tick)
+        self.assertIn("Contact.StaggerTimer, Contact.bGuardian ? 0.9f : 0.6f);", tick)
+        self.assertNotIn("Contact.StaggerTimer = Contact.bGuardian ? 0.9f : 0.6f;", tick)
+
+    def test_world_posture_hud_is_bounded_to_nearby_enemies(self):
+        posture = self.cpp.split("AMoonfallPawn::GetEnemyPostures() const", 1)[1].split(
+            "void AMoonfallPawn::ApplyPostureDamage(", 1)[0]
+        self.assertIn("constexpr int32 MaxPostureIndicators = 32;", posture)
+        self.assertIn("Visible.Reserve(FMath::Min(Enemies.Num(), MaxPostureIndicators));", posture)
+        self.assertIn("FMath::Square(1200.f)", posture)
+        self.assertIn("if (Visible.Num() >= MaxPostureIndicators) break;", posture)
+
+    def test_minimap_terrain_neighbor_search_matches_all_regions(self):
+        # Static contract plus an exhaustive coordinate grid for the world
+        # footprint. Side floors reach 2,000 cm from their region center.
+        import math
+        hud = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8")
+        self.assertIn("const int32 NearestRegion = FMath::RoundToInt(", hud)
+        self.assertIn("const int32 FirstRegion = FMath::Max(0, NearestRegion - 1);", hud)
+        self.assertIn("for (int32 Region = FirstRegion; Region <= LastRegion; ++Region)", hud)
+
+        def contains(region, x, y):
+            center = region * 3200
+            if abs(x - center) <= 1700 and abs(y) <= 1700:
+                return True
+            for chamber in range(5):
+                cx = center + (chamber - 2) * 600
+                cy = 2400 if chamber % 2 == 0 else -2400
+                if abs(x - cx) <= 800 and abs(y - cy) <= 800:
+                    return True
+            return False
+
+        for x in range(-3500, 19601, 175):
+            nearest = math.floor(x / 3200 + .5)
+            subset = range(max(0, nearest - 1), min(5, nearest + 1) + 1)
+            for y in range(-3500, 3501, 350):
+                expected = next((r for r in range(6) if contains(r, x, y)), -1)
+                actual = next((r for r in subset if contains(r, x, y)), -1)
+                self.assertEqual(actual, expected, (x, y))
+
+    def test_terrain_map_readability_and_safe_combat_overlay(self):
+        hud = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8")
+        minimap = hud.split("// Compact WoW-style circular minimap", 1)[1]
+        ui = self.cpp.split("bool AMoonfallPawn::TryHandleMinimapZoomClick()", 1)[1].split(
+            "void AMoonfallPawn::EndGuard()", 1)[0]
+        self.assertIn("if (bWorldMapVisible)", ui)
+        self.assertIn("TrackedQuestId = QuestId;", ui)
+        self.assertIn("return true;", ui)
+        self.assertLess(ui.index("if (bWorldMapVisible)"),
+                        ui.index("MapController->GetMousePosition(MouseX, MouseY)"))
+        self.assertLess(ui.index("TrackedQuestId = QuestId;"),
+                        ui.index("const APlayerController* Controller ="))
+        self.assertIn("RadiusAtY", minimap)
+        self.assertIn("FLinearColor(.045f, .055f, .085f, .88f)", minimap)
+        self.assertIn("DrawRect(FLinearColor(.035f, .045f, .075f, .93f)", minimap)
+        self.assertIn("if (Hero->IsMapExplored(WorldCell))", minimap)
+        self.assertIn('TEXT("REGION %d / %d")', minimap)
+        self.assertIn('TEXT("GREEN: CAVE   GREY: CLEARED   RED: BOSS")', minimap)
+        self.assertNotIn("Hero->GetEnemyMapPositions()", minimap)
+        self.assertNotIn("NearestChamberDirection", minimap)
+
+    def test_world_map_fog_boss_secrecy_and_terrain_run_batching(self):
+        hud = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8")
+        minimap = hud.split("// Compact WoW-style circular minimap", 1)[1]
+        # The full map and minimap must independently gate the boss on discovery.
+        guard = ("if (bTrackBoss && !Hero->IsBossDefeated() &&"
+                 "\n            Hero->IsMapExplored(FVector2D(B.X, B.Y)))")
+        self.assertIn(guard, minimap)
+        self.assertIn("Row-run batching:", minimap)
+        self.assertIn("int32 DiscoveredGroundCells = 0;", minimap)
+        self.assertIn("if (Hero->IsMapExplored(WorldCell))", minimap)
+        self.assertIn("if (Region == ActiveRegion) continue;", minimap)
+        self.assertIn("(X - RunStartX) * AMoonfallPawn::FogCellSize * MapScaleX", minimap)
+        self.assertIn('TEXT("DISCOVERED: %d TILES")', minimap)
+        self.assertNotIn("DrawRect(TerrainTint(Region), TopLeft.X", minimap)
+        self.assertNotIn("Hero->GetEnemyMapPositions()", minimap)
+
+    def test_fog_reveals_movement_trails_without_gaps(self):
+        self.assertIn("void RevealMapAlongPath(const FVector& From, const FVector& To);", self.header)
+        path = self.cpp.split("void AMoonfallPawn::RevealMapAlongPath(", 1)[1].split(
+            "void AMoonfallPawn::BeginPlay()", 1)[0]
+        self.assertIn("FVector::Dist2D(From, To)", path)
+        self.assertIn("FogCellSize * .5f", path)
+        self.assertIn("1, 16", path)
+        self.assertIn("for (int32 I = 0; I <= Steps; ++I)", path)
+        self.assertIn("RevealMapAround(FMath::Lerp(From, To", path)
+        self.assertIn("const FVector PreviousPosition = HeroMesh->GetRelativeLocation();", self.cpp)
+        self.assertIn("RevealMapAlongPath(PreviousPosition, Position);", self.cpp)
+        self.assertIn("RevealMapAround(HeroMesh->GetRelativeLocation());", self.cpp)
+        self.assertIn("Progress->ExploredMapCells = ExploredMapCells;", self.cpp)
+
+    def test_defeat_preserves_exploration_without_overwriting_checkpoint(self):
+        saved = self.cpp.split("void AMoonfallPawn::SaveExplorationOnly()", 1)[1].split(
+            "void AMoonfallPawn::SaveMapPreferences()", 1)[0]
+        self.assertIn("void SaveExplorationOnly();", self.header)
+        self.assertIn("LoadGameFromSlot", saved)
+        self.assertIn("CreateSaveGameObject", saved)
+        self.assertIn("Progress->ExploredMapCells = ExploredMapCells;", saved)
+        self.assertIn("SaveGameToSlot", saved)
+        for forbidden in ("SavedHeroPosition =", "SavedHealth =", "SavedMana =",
+                          "SavedStamina =", "bHasCheckpoint =", "SaveProgress();"):
+            self.assertNotIn(forbidden, saved)
+        attack = self.cpp.split("void AMoonfallPawn::Attack()", 1)[1].split(
+            "if (AttackCooldown > 0.f", 1)[0]
+        self.assertIn("SaveExplorationOnly();", attack)
+        self.assertLess(attack.index("SaveExplorationOnly();"),
+                        attack.index("UGameplayStatics::OpenLevel("))
+        self.assertIn("if (Health <= 0.f)", attack)
+
+    def test_map_preferences_save_immediately_without_moving_checkpoint(self):
+        body = self.cpp.split("void AMoonfallPawn::SaveMapPreferences()", 1)[1].split(
+            "void AMoonfallPawn::CycleMinimapTracking()", 1)[0]
+        self.assertIn("void SaveMapPreferences();", self.header)
+        self.assertIn("LoadGameFromSlot", body)
+        self.assertIn("CreateSaveGameObject", body)
+        self.assertIn("Progress->SavedMinimapTrackingMode = MinimapTrackingMode;", body)
+        self.assertIn("Progress->SavedMinimapZoomLevel = MinimapZoomLevel;", body)
+        self.assertIn("SaveGameToSlot", body)
+        for forbidden in ("SavedHeroPosition =", "SavedHealth =",
+                          "SavedStamina =", "SavedMana =", "bHasCheckpoint =",
+                          "SaveProgress();", "Progress->ExploredMapCells ="):
+            self.assertNotIn(forbidden, body)
+        tracking = self.cpp.split("void AMoonfallPawn::CycleMinimapTracking()", 1)[1].split(
+            "bool AMoonfallPawn::TryHandleMinimapZoomClick()", 1)[0]
+        self.assertIn("SaveMapPreferences();", tracking)
+        zoom = self.cpp.split("bool AMoonfallPawn::TryHandleMinimapZoomClick()", 1)[1].split(
+            "void AMoonfallPawn::EndGuard()", 1)[0]
+        self.assertIn("if (MinimapZoomLevel < 2)", zoom)
+        self.assertIn("if (MinimapZoomLevel > 0)", zoom)
+        self.assertEqual(zoom.count("SaveMapPreferences();"), 3)
+        self.assertNotIn('ActionName="MinimapZoom",Key=M',
+                         INPUT.read_text(encoding="utf-8"))
+
+    def test_exploration_percent_counts_only_revealed_walkable_terrain(self):
+        hud = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8")
+        map_code = hud.split("// Row-run batching:", 1)[1]
+        self.assertIn("int32 TotalWalkableCells = 0;", map_code)
+        self.assertIn("int32 RevealedByRegion[MoonfallWorldRules::RegionCount] = {};", map_code)
+        self.assertIn("int32 TotalByRegion[MoonfallWorldRules::RegionCount] = {};", map_code)
+        self.assertIn("const int32 TerrainRegion = TerrainRegionAt(WorldCell);", map_code)
+        self.assertIn("if (TerrainRegion != INDEX_NONE)", map_code)
+        self.assertIn("++TotalWalkableCells;", map_code)
+        self.assertIn("++TotalByRegion[TerrainRegion];", map_code)
+        self.assertIn("if (Hero->IsMapExplored(WorldCell))", map_code)
+        self.assertIn("++RevealedByRegion[TerrainRegion];", map_code)
+        self.assertIn("TotalWalkableCells > 0", map_code)
+        self.assertIn("TotalByRegion[ActiveRegionIndex] > 0", map_code)
+        self.assertIn('TEXT("WORLD  %d%%  %s")', map_code)
+        self.assertIn("MapWidth >= 520.f", map_code)
+        self.assertNotIn("Hero->GetEnemyMapPositions()", map_code)
+
+    def test_three_progress_tracks_share_completion_style_and_bounds(self):
+        hud = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8")
+        mini, world = hud.split("if (Hero->IsWorldMapVisible())", 1)
+        self.assertIn("if (MapWidth >= 520.f && MapHeight >= 190.f)", world)
+        self.assertIn("const bool bWorldComplete = TotalWalkableCells > 0", world)
+        self.assertIn("const bool bRegionComplete = TotalByRegion[ActiveRegionIndex] > 0", world)
+        self.assertIn("const bool bQuestComplete = QuestGoal > 0 && QuestCompleted >= QuestGoal;", world)
+        self.assertIn("FMath::Clamp(Ratio, 0.f, 1.f)", world)
+        self.assertIn("for (int32 Mark = 1; Mark <= 3; ++Mark)", world)
+        self.assertIn("DrawTrack(WorldBarY, WorldPercent / 100.f", world)
+        self.assertIn("DrawTrack(RegionBarY, RegionPercent / 100.f", world)
+        self.assertIn("DrawTrack(QuestBarY, QuestProgress", world)
+        self.assertIn('TEXT("COMPLETE")', world)
+        self.assertIn('TEXT("DONE")', world)
+        self.assertNotIn("DrawTrack(", mini)
+
+    def test_quest_journal_click_to_track_and_disclosed_objectives(self):
+        hud = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8")
+        mini, world = hud.split("if (Hero->IsWorldMapVisible())", 1)
+        click = self.cpp.split("bool AMoonfallPawn::TryHandleMinimapZoomClick()", 1)[1].split(
+            "void AMoonfallPawn::EndGuard()", 1)[0]
+        self.assertIn("if (bWorldMapVisible)", click)
+        self.assertIn("MapController->GetViewportSize(ViewX, ViewY)", click)
+        self.assertIn("MapController->GetMousePosition(MouseX, MouseY)", click)
+        self.assertIn("MapWidth >= 620.f && MapHeight >= 230.f", click)
+        self.assertIn("JournalY + 28.f + QuestId * 29.f", click)
+        self.assertIn("TrackedQuestId = QuestId;", click)
+        self.assertIn("SaveMapPreferences();", click)
+        self.assertIn("return true;", click)
+        self.assertIn("QUESTS  |  CLICK OR J TO TRACK", world)
+        self.assertIn("TRACKED OBJECTIVE", world)
+        self.assertIn("Defeat Z, the Fallen God", world)
+        self.assertIn("Defeat all regional patrol enemies", world)
+        self.assertIn("Defeat cave guardians and claim rewards", world)
+        self.assertIn("Hero->GetQuestProgress(Tracked, ActiveRegionIndex)", world)
+        self.assertNotIn("TRACKED OBJECTIVE", mini)
+
+    def test_original_quest_journal_tracks_real_saved_objectives(self):
+        hud = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8")
+        mini, world = hud.split("if (Hero->IsWorldMapVisible())", 1)
+        saved = SAVES.read_text(encoding="utf-8")
+        config = INPUT.read_text(encoding="utf-8")
+        self.assertIn("int32 GetQuestGoal(int32 QuestId) const;", self.header)
+        self.assertIn("int32 GetQuestProgress(int32 QuestId, int32 Region) const;", self.header)
+        self.assertIn("int32 AMoonfallPawn::GetQuestGoal(", self.cpp)
+        self.assertIn("int32 AMoonfallPawn::GetQuestProgress(", self.cpp)
+        self.assertIn("if (QuestId == 0) return bWon ? 1 : 0;", self.cpp)
+        self.assertIn("DefeatedEnemyMask & (1 << Id)", self.cpp)
+        self.assertIn("IsCaveCleared(Region, Cave)", self.cpp)
+        self.assertIn("MoonfallWorldRules::EnemiesPerRegion", self.cpp)
+        self.assertIn("MoonfallWorldRules::ChambersPerRegion", self.cpp)
+        self.assertIn("SavedTrackedQuestId = 2;", saved)
+        self.assertIn("TrackedQuestId = FMath::Clamp(Progress->SavedTrackedQuestId, 0, 2);", self.cpp)
+        self.assertEqual(self.cpp.count("Progress->SavedTrackedQuestId = TrackedQuestId;"), 2)
+        self.assertIn("if (!bWorldMapVisible) return;", self.cpp)
+        self.assertIn("TrackedQuestId = (TrackedQuestId + 1) % 3;", self.cpp)
+        self.assertIn("SaveMapPreferences();", self.cpp)
+        self.assertIn('ActionName="CycleTrackedQuest",Key=J', config)
+        self.assertIn('BindAction(TEXT("CycleTrackedQuest"), IE_Pressed', self.cpp)
+        self.assertIn("QUESTS  |  CLICK OR J TO TRACK", world)
+        self.assertIn("MAIN: THE FALLEN GOD", world)
+        self.assertIn("REGION: CLEAR PATROLS", world)
+        self.assertIn("REGION: CLEAR CAVES", world)
+        self.assertIn("Hero->GetQuestProgress(TrackedQuest, ActiveRegionIndex)", world)
+        self.assertIn("DrawTrack(QuestBarY, QuestProgress", world)
+        self.assertNotIn("QUEST JOURNAL", mini)
+        self.assertNotIn("Hero->GetEnemyMapPositions()", world)
+
+    def test_active_region_cave_quest_progress_bar(self):
+        hud = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8")
+        minimap, world = hud.split("if (Hero->IsWorldMapVisible())", 1)
+        self.assertIn("const int32 QuestGoal = Hero->GetQuestGoal(TrackedQuest);", world)
+        self.assertIn("Hero->GetQuestProgress(TrackedQuest, ActiveRegionIndex)", world)
+        self.assertIn("static_cast<float>(QuestCompleted) / QuestGoal", world)
+        self.assertIn('TEXT("QUEST: %s %d/%d  %s")', world)
+        self.assertIn("DrawTrack(QuestBarY, QuestProgress", world)
+        self.assertIn("QuestCompleted >= QuestGoal", world)
+        self.assertIn("if (bCleared) ++RegionClearedCaves;", world)
+        self.assertNotIn('TEXT("QUEST: %s %d/%d', minimap)
+        self.assertNotIn("Hero->GetEnemyMapPositions()", world)
+
+    def test_region_cave_progress_and_bars_respect_discovery(self):
+        hud = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8")
+        map_code = hud.split("// Cave discovery statistics", 1)[1]
+        self.assertIn("int32 RegionDiscoveredCaves = 0;", map_code)
+        self.assertIn("int32 RegionClearedCaves = 0;", map_code)
+        self.assertIn("if (!Hero->IsMapExplored(FVector2D(CavePosition.X, CavePosition.Y)))", map_code)
+        self.assertLess(map_code.index("if (!Hero->IsMapExplored(FVector2D(CavePosition.X, CavePosition.Y)))"),
+                        map_code.index("++RegionDiscoveredCaves;"))
+        self.assertIn("if (Region == ActiveRegionIndex)", map_code)
+        self.assertIn("if (bCleared) ++RegionClearedCaves;", map_code)
+        self.assertIn('TEXT("THIS REGION: %d/%d CAVES FOUND   %d CLEARED")', map_code)
+        self.assertIn("RegionDiscoveredCaves, MoonfallWorldRules::ChambersPerRegion, RegionClearedCaves", map_code)
+        self.assertIn("DrawTrack(WorldBarY, WorldPercent / 100.f", map_code)
+        self.assertIn("DrawTrack(RegionBarY, RegionPercent / 100.f", map_code)
+        self.assertIn("if (MapWidth >= 520.f && MapHeight >= 190.f)", map_code)
+        self.assertNotIn("Hero->GetEnemyMapPositions()", map_code)
+
+    def test_full_map_discovery_counts_only_revealed_caves(self):
+        hud = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8")
+        minimap = hud.split("// Compact WoW-style circular minimap", 1)[1]
+        self.assertIn("int32 DiscoveredCaves = 0;", minimap)
+        self.assertIn("int32 ClearedCaves = 0;", minimap)
+        self.assertIn("MoonfallWorldRules::ChamberReward(Region, Cave)", minimap)
+        self.assertIn("if (!Hero->IsMapExplored(FVector2D(CavePosition.X, CavePosition.Y)))", minimap)
+        self.assertIn("++DiscoveredCaves;", minimap)
+        self.assertIn("if (bCleared) ++ClearedCaves;", minimap)
+        self.assertIn('TEXT("CAVES FOUND: %d/%d   CLEARED: %d")', minimap)
+        self.assertIn("MoonfallWorldRules::TotalChambers, ClearedCaves", minimap)
+        self.assertNotIn("Hero->GetEnemyMapPositions()", minimap)
+
+    def test_cleared_caves_persist_as_discovered_grey_landmarks(self):
+        hud = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8")
+        minimap = hud.split("// Compact WoW-style circular minimap", 1)[1]
+        self.assertIn("bool IsCaveCleared(int32 Region, int32 Cave) const", self.header)
+        self.assertIn("return (ClaimedChamberMask & (1 << Id)) != 0;", self.header)
+        self.assertIn("if (IconKind == 0 || IconKind == 3)", hud)
+        self.assertIn("FLinearColor(.52f, .56f, .63f)", hud)
+        self.assertIn("if (!Hero->IsCaveCleared(Region, Cave)) continue;", minimap)
+        self.assertIn("MoonfallWorldRules::ChamberReward(Region, Cave)", minimap)
+        self.assertIn("if (!Hero->IsMapExplored(FVector2D(Position.X, Position.Y))) continue;", minimap)
+        self.assertIn("DrawMapIcon(RadarCenter + Local, 1.f, 3);", minimap)
+        self.assertIn("DrawMapIcon(ToMap(Position.X, Position.Y), .60f, 3);", minimap)
+        self.assertIn('TEXT("GREEN: CAVE   GREY: CLEARED   RED: BOSS")', minimap)
+        self.assertIn("DrawMapFocusRing(NearestWorldCavePoint, 8.f);", minimap)
+        self.assertNotIn("Hero->GetEnemyMapPositions()", minimap)
+
+    def test_fog_of_war_hides_unknown_world_terrain_and_markers(self):
+        saved = SAVES.read_text(encoding="utf-8")
+        hud = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8")
+        minimap = hud.split("// Compact WoW-style circular minimap", 1)[1]
+        self.assertIn("TArray<uint8> ExploredMapCells;", saved)
+        self.assertIn("static constexpr int32 FogWidth = 100;", self.header)
+        self.assertIn("static constexpr int32 FogHeight = 36;", self.header)
+        self.assertIn("void AMoonfallPawn::RevealMapAround(const FVector& WorldPosition)", self.cpp)
+        self.assertIn("ExploredMapCells.Init(0, FogWidth * FogHeight);", self.cpp)
+        self.assertIn("RevealMapAround(HeroMesh->GetRelativeLocation());", self.cpp)
+        self.assertIn("RevealMapAlongPath(PreviousPosition, Position);", self.cpp)
+        self.assertIn("Progress->ExploredMapCells = ExploredMapCells;", self.cpp)
+        self.assertIn("ExploredMapCells = Progress->ExploredMapCells;", self.cpp)
+        self.assertIn("Hero->IsMapExplored(WorldSample)", minimap)
+        self.assertIn("if (!Hero->IsMapExplored(FVector2D(Chamber.X, Chamber.Y))) continue;", minimap)
+        self.assertIn("Hero->IsMapExplored(FVector2D(B.X, B.Y))", minimap)
+        self.assertIn("if (Hero->IsMapExplored(WorldCell))", minimap)
+        self.assertIn("if (!Hero->IsMapExplored(FVector2D(X, 0.f))) continue;", minimap)
+        self.assertNotIn("MoonfallWorldRules::RegionCenter(Region) + 1700.f", minimap)
+        self.assertNotIn("Hero->GetEnemyMapPositions()", minimap)
+
+    def test_nearest_unclaimed_cave_is_highlighted_without_direction_arrows(self):
+        hud = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8")
+        header = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.h").read_text(encoding="utf-8")
+        minimap = hud.split("// Compact WoW-style circular minimap", 1)[1]
+        self.assertIn("void DrawMapFocusRing(FVector2D Center, float Radius);", header)
+        self.assertIn("void AMoonfallHud::DrawMapFocusRing(", hud)
+        self.assertIn("NearestVisibleCaveSq", minimap)
+        self.assertIn("if (bHasVisibleCave) DrawMapFocusRing(NearestVisibleCavePoint, 10.f);", minimap)
+        self.assertIn("const float DistanceSq = Offset.SizeSquared2D();", minimap)
+        self.assertIn("FVector::DistSquared2D(Chamber, H)", minimap)
+        self.assertIn("if (bHasWorldCave)", minimap)
+        self.assertIn("DrawMapFocusRing(NearestWorldCavePoint, 8.f);", minimap)
+        self.assertIn('TEXT("NEAREST CAVE: %.0fm")', minimap)
+        self.assertNotIn("Hero->GetEnemyMapPositions()", minimap)
+        self.assertNotIn("NearestChamberDirection", minimap)
+
+    def test_original_fantasy_map_icons_are_shared_and_direction_free(self):
+        hud = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8")
+        header = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.h").read_text(encoding="utf-8")
+        minimap = hud.split("// Compact WoW-style circular minimap", 1)[1]
+        self.assertIn("void DrawMapIcon(FVector2D Center, float Scale, int32 IconKind);", header)
+        self.assertIn("void AMoonfallHud::DrawMapIcon(", hud)
+        self.assertIn("Cave: arch outline and dark mouth", hud)
+        self.assertIn("Boss: small spiked crown", hud)
+        self.assertIn("Player: simple circular locator, never a directional arrow", hud)
+        for icon in ("DrawMapIcon(P, 1.f, 0);", "DrawMapIcon(P, 1.f, 1);",
+                     "DrawMapIcon(RadarCenter, 1.f, 2);",
+                     "DrawMapIcon(P, .60f, 0);", "DrawMapIcon(BossPoint, .9f, 1);",
+                     "DrawMapIcon(You, 1.f, 2);"):
+            self.assertIn(icon, minimap)
+        self.assertNotIn("Hero->GetEnemyMapPositions()", minimap)
+        self.assertNotIn("NearestChamberDirection", minimap)
+
+    def test_caves_have_distinct_map_labels_and_entrance_icons(self):
+        hud = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8")
+        minimap = hud.split("// Compact WoW-style circular minimap", 1)[1]
+        self.assertIn('TEXT("CAVES")', minimap)
+        self.assertIn('TEXT("GREEN: CAVE   GREY: CLEARED   RED: BOSS")', minimap)
+        self.assertIn("Cave mouth icon: an arch and dark entrance", minimap)
+        self.assertNotIn('TEXT("CHAMBERS")', minimap)
+        self.assertIn("MoonfallWorldRules::ChamberCenter(Region, Chamber)", hud)
+        self.assertNotIn("Hero->GetEnemyMapPositions()", minimap)
+
+    def test_minimap_and_world_map_render_actual_region_floor_footprints(self):
+        controls = INPUT.read_text(encoding="utf-8")
+        hud = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8")
+        world = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallWorldRules.h").read_text(encoding="utf-8")
+        terrain = hud.split("// Map terrain is computed from the exact floor footprints", 1)[1]
+        minimap = hud.split("// Compact WoW-style circular minimap", 1)[1]
+        self.assertIn('ActionName="WorldMap",Key=Tab', controls)
+        self.assertIn('BindAction(TEXT("WorldMap"), IE_Pressed', self.cpp)
+        self.assertIn("bWorldMapVisible = !bWorldMapVisible;", self.cpp)
+        self.assertIn("bool IsWorldMapVisible() const", self.header)
+        self.assertIn("int32 TerrainRegionAt(const FVector2D& World)", terrain)
+        self.assertIn("MoonfallWorldRules::RegionCenter(Region)", terrain)
+        self.assertIn("MoonfallWorldRules::ChamberCenter(Region, Chamber)", terrain)
+        self.assertIn("MoonfallWorldRules::HalfRegion", terrain)
+        self.assertIn("FMath::Abs(World.Y) <= MoonfallWorldRules::HalfRegion", terrain)
+        self.assertIn("FMath::Abs(World.Y - Center.Y) <= 800.f", terrain)
+        self.assertIn("FMath::Square(GroundLimit) - FMath::Square(Y)", minimap)
+        self.assertIn("TerrainRegionAt(WorldCell)", minimap)
+        self.assertIn("TerrainTint(ActiveRegion)", minimap)
+        self.assertIn("if (Hero->IsWorldMapVisible())", minimap)
+        self.assertIn('TEXT("TAB: CLOSE MAP")', minimap)
+        self.assertIn("GetWorldMapChamberPositions()", minimap)
+        self.assertIn("TArray<FVector> AMoonfallPawn::GetWorldMapChamberPositions() const", self.cpp)
+        self.assertIn("for (const FChamberCache& Cache : ChamberCaches)", self.cpp)
+        self.assertIn("HalfRegion = 1700.f", world)
+        self.assertIn("ChambersPerRegion = 5", world)
+        self.assertNotIn("Hero->GetEnemyMapPositions()", minimap)
+        self.assertNotIn("NearestChamberDirection", minimap)
+
+    def test_minimap_clickable_zoom_and_preferences_survive_checkpoint(self):
+        controls = INPUT.read_text(encoding="utf-8")
+        saved = SAVES.read_text(encoding="utf-8")
+        hud = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8")
+        minimap = hud.split("// Compact WoW-style circular minimap", 1)[1]
+        self.assertNotIn('ActionName="MinimapZoom",Key=M', controls)
+        self.assertNotIn('BindAction(TEXT("MinimapZoom")', self.cpp)
+        self.assertIn("if (TryHandleMinimapZoomClick()) return;", self.cpp)
+        self.assertIn("bool AMoonfallPawn::TryHandleMinimapZoomClick()", self.cpp)
+        self.assertIn("Controller->GetMousePosition(MouseX, MouseY)", self.cpp)
+        self.assertIn("Controller->GetViewportSize(ViewportX, ViewportY)", self.cpp)
+        self.assertIn("Controller->bShowMouseCursor = true;", self.cpp)
+        self.assertIn("FInputModeGameAndUI InputMode;", self.cpp)
+        self.assertIn("InputMode.SetHideCursorDuringCapture(false);", self.cpp)
+        self.assertIn("Controller->SetInputMode(InputMode);", self.cpp)
+        self.assertIn("constexpr float ButtonHalfSize = 15.f;", self.cpp)
+        self.assertIn("MouseDelta.SizeSquared() <= FMath::Square(72.f)", self.cpp)
+        self.assertIn("FVector2D(30.f, 30.f)", minimap)
+        self.assertIn("if (MinimapZoomLevel < 2)", self.cpp)
+        self.assertIn("++MinimapZoomLevel;", self.cpp)
+        self.assertIn("if (MinimapZoomLevel > 0)", self.cpp)
+        self.assertIn("--MinimapZoomLevel;", self.cpp)
+        self.assertIn("const FVector2D ZoomPlus(RadarCenter.X + 58.f, 67.f);", minimap)
+        self.assertIn("const FVector2D ZoomMinus(RadarCenter.X + 58.f, 99.f);", minimap)
+        self.assertIn("GetMinimapWorldRadius() const", self.header)
+        self.assertIn("const float WorldRadius = Hero->GetMinimapWorldRadius();", minimap)
+        self.assertIn('TEXT("T: %s  %.1fm")', minimap)
+        self.assertNotIn('M: %.0fm', minimap)
+        for field in ("SavedMinimapTrackingMode", "SavedMinimapZoomLevel"):
+            self.assertIn(field + " = 0;", saved)
+            self.assertIn("Progress->" + field, self.cpp)
+        self.assertIn("FMath::Clamp(Progress->SavedMinimapTrackingMode, 0, 3)", self.cpp)
+        self.assertIn("FMath::Clamp(Progress->SavedMinimapZoomLevel, 0, 2)", self.cpp)
+        self.assertNotIn("Hero->GetEnemyMapPositions()", minimap)
+        self.assertNotIn("NearestChamberDirection", minimap)
+
+    def test_minimap_tracking_key_and_north_compass_label(self):
+        hud = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8")
+        controls = INPUT.read_text(encoding="utf-8")
+        minimap = hud.split("// Compact WoW-style circular minimap", 1)[1]
+        self.assertIn('ActionName="MinimapTracking",Key=T', controls)
+        self.assertIn('BindAction(TEXT("MinimapTracking"), IE_Pressed', self.cpp)
+        self.assertIn("MinimapTrackingMode = (MinimapTrackingMode + 1) % 4;", self.cpp)
+        self.assertIn("GetMinimapTrackingMode() const", self.header)
+        self.assertIn('DrawText(TEXT("N")', minimap)
+        self.assertIn("RadarCenter.Y - RadarRadius - 15.f", minimap)
+        self.assertNotIn("RadarCenter.Y - RadarRadius - 25.f", minimap)
+        self.assertIn('TEXT("CAVES")', minimap)
+        self.assertIn('TEXT("BOSS")', minimap)
+        self.assertIn("if (bTrackChambers)", minimap)
+        self.assertIn("if (bTrackBoss && !Hero->IsBossDefeated() &&", minimap)
+        self.assertIn("Hero->IsMapExplored(FVector2D(B.X, B.Y))", minimap)
+        self.assertNotIn("Hero->GetEnemyMapPositions()", minimap)
+        self.assertNotIn("NearestChamberDirection", minimap)
+
+    def test_moonfall_circular_minimap_is_clean_without_arrows_or_enemies(self):
+        hud = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8")
+        minimap = hud.split("// Compact WoW-style circular minimap", 1)[1]
+        self.assertIn("constexpr int32 RadarSegments = 48;", minimap)
+        self.assertIn("const FVector2D RadarCenter(", minimap)
+        self.assertIn("const FVector2D North(0.f, -1.f);", minimap)
+        self.assertIn("Hero->GetChamberMapPositions()", minimap)
+        self.assertIn("Hero->IsBossDefeated()", minimap)
+        self.assertIn("Local.SizeSquared() > FMath::Square(RadarRadius - 10.f)", minimap)
+        self.assertIn("Local.SizeSquared() <= FMath::Square(RadarRadius - 10.f)", minimap)
+        self.assertIn("DrawMapIcon(RadarCenter, 1.f, 2);", minimap)
+        self.assertNotIn("Hero->GetEnemyMapPositions()", minimap)
+        self.assertNotIn("NearestChamberDirection", minimap)
+        self.assertNotIn("else if (!Local.IsNearlyZero())", minimap)
+        self.assertNotIn("const float Left = Canvas->ClipX - 178.f;", minimap)
+
+    def test_chamber_minimap_only_collects_nearby_unclaimed_markers(self):
+        chambers = self.cpp.split("TArray<FVector> AMoonfallPawn::GetChamberMapPositions() const", 1)[1].split(
+            "void AMoonfallPawn::CollectNearbyChambers()", 1)[0]
+        self.assertIn("if (!HeroMesh) return Positions;", chambers)
+        self.assertIn("constexpr float MinimapWorldRadius = 1700.f;", chambers)
+        self.assertIn("Positions.Reserve(FMath::Min(ChamberCaches.Num(), 12));", chambers)
+        self.assertIn("FVector::DistSquared2D(Position, HeroPosition)", chambers)
+        self.assertIn("FMath::Square(MinimapWorldRadius)", chambers)
+        self.assertIn("Positions.Add(Position);", chambers)
+        self.assertNotIn("GetEnemyMapPositions()", chambers)
+
+    def test_enemy_marker_collection_is_removed_with_clean_minimap(self):
+        self.assertNotIn("AMoonfallPawn::GetEnemyMapPositions()", self.cpp)
+        self.assertNotIn("GetEnemyMapPositions() const;", self.header)
+
+    def test_attack_warning_hud_is_bounded_and_keeps_boss_slot(self):
+        warnings = self.cpp.split("AMoonfallPawn::GetAttackWarnings() const", 1)[1].split(
+            "AMoonfallPawn::GetEnemyPostures() const", 1)[0]
+        self.assertIn("constexpr int32 MaxEnemyWarnings = 24;", warnings)
+        self.assertIn("FMath::Square(1400.f)", warnings)
+        self.assertIn("if (Warnings.Num() >= MaxEnemyWarnings) break;", warnings)
+        self.assertLess(warnings.index("if (Warnings.Num() >= MaxEnemyWarnings) break;"),
+                        warnings.index("if (bCasting && !bWon && BossMesh)"))
+        self.assertIn("Warnings.Add(Warning);", warnings)
+
+    def test_boss_perfect_parry_creates_real_punish_window(self):
+        boss = self.cpp.split("else if (EnemyDamageCooldown <= 0.f && RespawnGraceTimer <= 0.f)", 1)[1]
+        self.assertIn("if (bParried)", boss)
+        self.assertIn("BossStaggerTimer = FMath::Max(BossStaggerTimer, 0.65f);", boss)
+        self.assertIn("CastCooldown = FMath::Max(CastCooldown, 3.5f);", boss)
+        self.assertNotIn("CastCooldown = FMath::Max(CastCooldown, 1.5f);", boss)
+
+    def test_checkpoint_grace_cannot_grant_boss_perfect_dodge_counter(self):
+        boss = self.cpp.split("if (CastTimer <= 0.f)", 1)[1]
+        self.assertIn("if (bDodgeActiveThisFrame && RespawnGraceTimer <= 0.f)", boss)
+        self.assertIn("else if (EnemyDamageCooldown <= 0.f && RespawnGraceTimer <= 0.f)", boss)
+        self.assertNotIn("if (RespawnGraceTimer > 0.f) return;", boss)
+
     def test_unreal_targeting_ignores_missing_meshes_and_avoids_sqrt(self):
         nearest = self.cpp.split("int32 AMoonfallPawn::NearestEnemyIndex(float Radius) const", 1)[1].split(
-            "TArray<FVector> AMoonfallPawn::GetEnemyMapPositions()", 1)[0]
+            "TArray<AMoonfallPawn::FAttackWarning> AMoonfallPawn::GetAttackWarnings()", 1)[0]
         self.assertIn("if (!HeroMesh || Radius <= 0.f) return INDEX_NONE;", nearest)
         self.assertIn("if (!Enemy.Mesh) continue;", nearest)
         self.assertIn("float BestDistanceSq = FMath::Square(Radius);", nearest)
@@ -233,15 +736,15 @@ class PrototypeContracts(unittest.TestCase):
         tick = self.cpp.split("void AMoonfallPawn::Tick(", 1)[1]
         selection = tick.split("// Find the nearest *engaged* contact.", 1)[1].split(
             "if (ContactIndex != INDEX_NONE)", 1)[0]
-        self.assertIn("if (!Candidate.Mesh || Candidate.bReturningHome || Candidate.bStaggeredThisFrame) continue;", selection)
+        self.assertIn("if (!Candidate.Mesh || Candidate.bReturningHome ||\n                    Candidate.bStaggeredThisFrame || !Candidate.bAttackReadyThisFrame) continue;", selection)
         self.assertIn("HomeOffset.SizeSquared2D() >= FMath::Square(Leash)", selection)
         self.assertIn("if (DistanceSq < ContactDistanceSq)", selection)
         self.assertIn("ContactIndex = I;", selection)
         self.assertNotIn("NearestEnemyIndex(175.f)", selection)
         combat = tick.split("if (ContactIndex != INDEX_NONE)", 1)[1].split(
             "EnemyDamageCooldown = 1.2f;", 1)[0]
-        self.assertIn("if (bDodgeActiveThisFrame) CounterWindow = CounterDuration;", combat)
-        self.assertIn("Health = FMath::Max(0.f, Health - ContactDamage);", combat)
+        self.assertIn("if (bDodgeActiveThisFrame)\n                {\n                    CounterWindow = CounterDuration;", combat)
+        self.assertIn("Health = FMath::Max(0.f, Health - Taken);", combat)
         self.assertIn("Contact.bEnraged ? 4.f : 0.f", combat)
 
     def test_unreal_guardian_frenzy_phase_at_low_health(self):
@@ -252,7 +755,8 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("Enemy.Health <= 0.35f * 1.8f * MoonfallWorldRules::EnemyMaxHealth(Enemy.Region)", ai)
         self.assertIn("Enemy.bEnraged ? 360.f : (Enemy.bGuardian ? 280.f : 200.f)", ai)
         self.assertIn("(Contact.bEnraged ? 4.f : 0.f)", self.cpp)
-        self.assertIn("if (bDodgeActiveThisFrame) CounterWindow = CounterDuration;", self.cpp)
+        self.assertIn("if (bDodgeActiveThisFrame && RespawnGraceTimer <= 0.f)", self.cpp)
+        self.assertIn("CounterWindow = CounterDuration;", self.cpp)
         self.assertNotIn("Health += 4.f;", self.cpp)
 
     def test_unreal_enemy_leash_has_return_hysteresis(self):
@@ -277,8 +781,9 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("const bool bDodgeActiveThisFrame = DodgeTimer > 0.f;", tick)
         self.assertLess(tick.index("const bool bDodgeActiveThisFrame = DodgeTimer > 0.f;"),
                         tick.index("DodgeTimer = FMath::Max(0.f, DodgeTimer - ReactionDt);"))
-        self.assertIn("Direction * (bDodgeActiveThisFrame ? 1200.f : 600.f) * MovementDt", tick)
-        self.assertEqual(tick.count("if (bDodgeActiveThisFrame)"), 2)
+        self.assertIn("Direction * (bDodgeActiveThisFrame ? 1200.f : (IsGuarding() ? 340.f : 600.f)) * MovementDt", tick)
+        self.assertEqual(tick.count("if (bDodgeActiveThisFrame)"), 1)
+        self.assertEqual(tick.count("if (bDodgeActiveThisFrame && RespawnGraceTimer <= 0.f)"), 1)
         self.assertEqual(tick.count("DodgeTimer > 0.f"), 1)
 
     def test_unreal_dodge_window_matches_hitch_safe_boss_telegraph(self):
@@ -304,7 +809,7 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("BossAttackPhase == 3 ? 2.25f", self.cpp)
         self.assertIn("BossAttackPhase == 3 ? 28.f", self.cpp)
         self.assertIn("FVector::Dist2D(HeroMesh->GetRelativeLocation(), TargetWorld) < BossWarningRadius", self.cpp)
-        self.assertIn("if (bDodgeActiveThisFrame) CounterWindow = CounterDuration;", self.cpp)
+        self.assertIn("if (bDodgeActiveThisFrame)\n                {\n                    CounterWindow = CounterDuration;", self.cpp)
         self.assertIn("float BossWarningRadius = 250.f;", self.header)
 
     def test_boss_victory_loot_is_wired_into_both_prototypes(self):
@@ -454,7 +959,7 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("defeatedEnemyMask |= 1 << enemy.id;", self.unity)
         self.assertIn("NearestEnemy(4f)", self.unity)
         self.assertIn("NearestEnemyIndex(400.f)", self.cpp)
-        self.assertIn("GetEnemyMapPositions()", unreal_hud)
+        self.assertNotIn("GetEnemyMapPositions()", unreal_hud)
         self.assertIn("foreach (WorldEnemy enemy in enemies)", self.unity)
         self.assertNotIn("SpawnWave(", self.unity)
         self.assertNotIn("SpawnWave(", self.cpp)
@@ -462,7 +967,7 @@ class PrototypeContracts(unittest.TestCase):
     def test_post_boss_exploration_and_xp_awards(self):
         self.assertIn("if (Input.GetMouseButtonDown(0) && attackCd<=0)", self.unity)
         self.assertIn("bool bossInRange = !won && Vector3.Distance(hero.position,boss.position)<4f;", self.unity)
-        self.assertIn("if (Health <= 0.f || AttackCooldown > 0.f) return;", self.cpp)
+        self.assertIn("if (AttackCooldown > 0.f || GuardBreakTimer > 0.f) return;", self.cpp)
         self.assertIn("const bool bBossInRange = BossDistance <= 400.f;", self.cpp)
         self.assertNotIn("if (Health <= 0.f || bWon || AttackCooldown > 0.f)", self.cpp)
 
@@ -535,7 +1040,7 @@ class PrototypeContracts(unittest.TestCase):
         # Large frame delays must not cause giant positional jumps.
         self.assertIn("const float MoveDt = FMath::Clamp(Dt, 0.f, 0.05f);", self.cpp)
         self.assertIn("const float MovementDt = FMath::Min(Dt, 0.05f);", self.cpp)
-        self.assertIn("Direction * (bDodgeActiveThisFrame ? 1200.f : 600.f) * MovementDt", self.cpp)
+        self.assertIn("Direction * (bDodgeActiveThisFrame ? 1200.f : (IsGuarding() ? 340.f : 600.f)) * MovementDt", self.cpp)
         # A stationary player cannot spend dodge stamina for no displacement.
         self.assertIn("FVector2D(Forward, Right).SizeSquared() > 0.01f", self.cpp)
         self.assertNotIn("SpawnWave(", self.cpp)
@@ -603,11 +1108,11 @@ class PrototypeContracts(unittest.TestCase):
         start = self.cpp.index("void AMoonfallPawn::CastBolt()")
         end = self.cpp.index("void AMoonfallPawn::CastHeal()", start)
         bolt = self.cpp[start:end]
-        self.assertIn("if (Health <= 0.f || BoltCooldown > 0.f || Mana < 30.f) return;", bolt)
+        self.assertIn("if (Health <= 0.f || GuardBreakTimer > 0.f || BoltCooldown > 0.f || Mana < 30.f) return;", bolt)
         self.assertIn("if (EnemyIndex == INDEX_NONE && !bBossInRange) return;", bolt)
         self.assertLess(bolt.index("if (EnemyIndex == INDEX_NONE"), bolt.index("CounterWindow = 0.f;"))
         self.assertIn("(bRiposte ? CounterMultiplier : 1.f)", bolt)
-        self.assertIn("if (!bHitBoss) DamageWorldEnemy(EnemyIndex, Damage, bRiposte);", bolt)
+        self.assertIn("if (!bHitBoss) DamageWorldEnemy(EnemyIndex, Damage, bRiposte, false, true);", bolt)
         self.assertIn("BossHealth - Damage", bolt)
         self.assertIn("Mana -= 30.f;", bolt)
         self.assertIn("BoltCooldown = 1.1f;", bolt)
@@ -642,7 +1147,7 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("float AMoonfallPawn::HealingSpellAmount() const", self.cpp)
         self.assertIn("return 18.f + Progression.Level + 0.5f * GuardianBlessingCount();", self.cpp)
         self.assertIn("if (!bHitBoss) DamageWorldEnemy(EnemyIndex, Damage, bRiposte, bComboFinisher);", self.cpp)
-        self.assertIn("if (!bHitBoss) DamageWorldEnemy(EnemyIndex, Damage, bRiposte);", self.cpp)
+        self.assertIn("if (!bHitBoss) DamageWorldEnemy(EnemyIndex, Damage, bRiposte, false, true);", self.cpp)
         self.assertIn("Health + HealingSpellAmount()", self.cpp)
 
     def test_legacy_hero_selection_is_ignored_without_deleting_saves(self):
@@ -786,7 +1291,7 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("FVector SavedHeroPosition", save)
         self.assertIn("float SavedHealth", save)
         self.assertIn("CheckpointInterval = 8f", self.unity)
-        self.assertIn("CheckpointInterval = 8.f", self.header)
+        self.assertIn("CheckpointInterval = 16.f", self.header)
         self.assertIn('PlayerPrefs.SetFloat("moonfall_experiment_checkpoint_x"', self.unity)
         self.assertIn('PlayerPrefs.SetFloat("moonfall_experiment_checkpoint_z"', self.unity)
         self.assertIn('PlayerPrefs.SetFloat("moonfall_experiment_checkpoint_hp"', self.unity)
@@ -800,7 +1305,7 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("Progress->SavedHealth = Health;", self.cpp)
         self.assertIn("Progress->SavedHeroPosition = HeroMesh->GetRelativeLocation();", self.cpp)
         self.assertIn("if (!bLoadedCheckpoint)", self.cpp)
-        self.assertIn("if (CheckpointTimer >= CheckpointInterval)", self.cpp)
+        self.assertIn("CurrentRegion != LastCheckpointRegion || CheckpointTimer >= CheckpointInterval", self.cpp)
         # No combat kill path should restore HP.
         self.assertNotIn("Health + 20.f * LevelsGained", self.cpp)
         self.assertNotIn("hp + 20f * levelsGained", self.unity)
@@ -904,7 +1409,7 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("CounterWindow = FMath::Max(0.f, CounterWindow - ReactionDt);", self.cpp)
         self.assertNotIn("CounterWindow = FMath::Max(0.f, CounterWindow - Dt);", self.cpp)
         self.assertIn("if (dodge > 0f) counterWindow = CounterDuration;", self.unity)
-        self.assertIn("if (bDodgeActiveThisFrame) CounterWindow = CounterDuration;", self.cpp)
+        self.assertIn("if (bDodgeActiveThisFrame)\n                {\n                    CounterWindow = CounterDuration;", self.cpp)
         self.assertIn("if (foe != null || bossInRange)", self.unity)
         self.assertIn("if (EnemyIndex != INDEX_NONE || bBossInRange)", self.cpp)
         self.assertIn("counterWindow = 0f; // One counter per successful evasion.", self.unity)
@@ -913,6 +1418,255 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn('Input->BindAction(TEXT("Attack"), IE_Pressed', self.cpp)
         self.assertNotIn("Health += Damage", self.cpp)
         self.assertNotIn("hp += damage", self.unity)
+
+    def test_unreal_enemy_strikes_require_visible_windups(self):
+        # Contact alone must not deal damage: the foe must finish its warning.
+        self.assertIn("float AttackWindup = 0.f;", self.header)
+        self.assertIn("float AttackRecovery = 0.f;", self.header)
+        self.assertIn("bool bAttackReadyThisFrame = false;", self.header)
+        self.assertIn("Enemy.bAttackReadyThisFrame = false;", self.cpp)
+        self.assertIn("Enemy.AttackWindup = Enemy.bGuardian ? 0.85f : 0.6f;", self.cpp)
+        self.assertIn("Enemy.AttackRecovery = Enemy.bGuardian ? 1.7f : 1.3f;", self.cpp)
+        self.assertIn("Enemy.bAttackReadyThisFrame = bAggro &&", self.cpp)
+        self.assertIn("!Candidate.bAttackReadyThisFrame", self.cpp)
+        self.assertIn("Enemy.AttackWindup = 0.f; // A successful interrupt cancels the warning.", self.cpp)
+        self.assertIn("Enemy.Portrait->SetRelativeScale3D(FVector(2.f * WarningScale))", self.cpp)
+        self.assertIn("Enemy.bGuardian ? 1.3f : 1.1f", self.cpp)
+        self.assertLess(self.cpp.index("UpdateWorldEnemies(Dt);"),
+                        self.cpp.index("!Candidate.bAttackReadyThisFrame"))
+        self.assertNotIn("Health = FMath::Min(GetHudMaxHealth(), Health + ContactDamage)", self.cpp)
+
+    def test_unreal_transient_damage_numbers_are_bounded_and_world_anchored(self):
+        hud = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8")
+        self.assertIn("struct FDamageNumber", self.header)
+        self.assertIn("TArray<FDamageNumber> DamageNumbers", self.header)
+        self.assertIn("GetDamageNumbers() const", self.header)
+        self.assertIn("DamageNumberLifetime = 1.25f", self.header)
+        self.assertIn("if (DamageNumbers.Num() >= 24) DamageNumbers.RemoveAt(0);", self.cpp)
+        self.assertIn("DamageNumbers[I].Age += Dt;", self.cpp)
+        self.assertIn("DamageNumbers.RemoveAtSwap(I, 1, EAllowShrinking::No);", self.cpp)
+        self.assertIn("RecordDamageNumber(Enemy.Mesh->GetRelativeLocation()", self.cpp)
+        self.assertEqual(self.cpp.count("RecordDamageNumber(BossMesh->GetRelativeLocation()"), 2)
+        self.assertIn("DamageWorldEnemy(EnemyIndex, Damage, bRiposte, false, true)", self.cpp)
+        self.assertIn("Hero->GetDamageNumbers()", hud)
+        self.assertIn("ProjectWorldLocationToScreen(World, Screen, false)", hud)
+        self.assertIn("Hit.bHeavy", hud)
+        self.assertIn("Hit.bMagic", hud)
+        self.assertIn("1.f - T", hud)
+        self.assertNotIn("NewObject<", hud)
+
+    def test_death_click_reloads_living_checkpoint_without_new_mode(self):
+        # The same mouse click used for normal attacks is available after defeat.
+        attack = self.cpp.split("void AMoonfallPawn::Attack()", 1)[1].split(
+            "void AMoonfallPawn::CastBolt()", 1)[0]
+        self.assertIn("if (Health <= 0.f)", attack)
+        self.assertIn("if (!bRespawnRequested && GetWorld())", attack)
+        self.assertIn("UGameplayStatics::GetCurrentLevelName(GetWorld())", attack)
+        self.assertIn("UGameplayStatics::OpenLevel(GetWorld(), FName(*LevelName))", attack)
+        self.assertIn("bRespawnRequested = true;", attack)
+        self.assertLess(attack.index("if (Health <= 0.f)"),
+                        attack.index("if (AttackCooldown > 0.f || GuardBreakTimer > 0.f) return;"))
+        self.assertIn("bool bRespawnRequested = false;", self.header)
+        # Saving on level transition must not overwrite the living checkpoint.
+        self.assertIn("if (HeroMesh && Health > 0.f)", self.cpp)
+        self.assertIn("Progress->SavedHealth = Health;", self.cpp)
+        self.assertIn("if (!bLoadedCheckpoint)", self.cpp)
+        self.assertIn("Health = GetHudMaxHealth();", self.cpp)
+        self.assertNotIn('ActionName="Respawn"', INPUT.read_text(encoding="utf-8"))
+
+    def test_region_entry_creates_immediate_living_checkpoint(self):
+        self.assertIn("int32 LastCheckpointRegion = 0;", self.header)
+        self.assertIn("LastCheckpointRegion = MoonfallWorldRules::RegionAt(HeroMesh->GetRelativeLocation().X);", self.cpp)
+        self.assertIn("const int32 CurrentRegion = MoonfallWorldRules::RegionAt(Position.X);", self.cpp)
+        self.assertIn("CurrentRegion != LastCheckpointRegion || CheckpointTimer >= CheckpointInterval", self.cpp)
+        self.assertIn("LastCheckpointRegion = CurrentRegion;", self.cpp)
+        self.assertIn("SaveProgress(); // Saves living state only, never heals after enemy kills.", self.cpp)
+        self.assertIn("if (Health > 0.f)", self.cpp)
+
+    def test_defeat_recovery_prompt_shows_only_when_dead(self):
+        hud = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8")
+        self.assertIn("bool IsDefeated() const { return Health <= 0.f; }", self.header)
+        self.assertIn("if (Hero->IsDefeated())", hud)
+        self.assertIn('TEXT("DEFEATED")', hud)
+        self.assertIn('TEXT("Left-click to return to your last checkpoint")', hud)
+        self.assertNotIn('ActionName="Respawn"', INPUT.read_text(encoding="utf-8"))
+        self.assertIn("if (!bRespawnRequested && GetWorld())", self.cpp)
+
+    def test_restored_checkpoint_has_short_safety_window_not_healing(self):
+        self.assertIn("static constexpr float RespawnGraceDuration = 2.f;", self.header)
+        self.assertIn("float RespawnGraceTimer = 0.f;", self.header)
+        self.assertIn("RespawnGraceTimer = bLoadedCheckpoint ? RespawnGraceDuration : 0.f;", self.cpp)
+        self.assertIn("RespawnGraceTimer = FMath::Max(0.f, RespawnGraceTimer - ReactionDt);", self.cpp)
+        self.assertIn("Health > 0.f && EnemyDamageCooldown <= 0.f && RespawnGraceTimer <= 0.f", self.cpp)
+        self.assertIn("else if (EnemyDamageCooldown <= 0.f && RespawnGraceTimer <= 0.f)", self.cpp)
+        self.assertIn("Health = FMath::Clamp(Progress->SavedHealth", self.cpp)
+        self.assertNotIn("Health += RespawnGraceTimer", self.cpp)
+        self.assertNotIn("CounterWindow = RespawnGraceTimer", self.cpp)
+
+    def test_enemy_attack_warning_holds_position_and_cancels_on_escape(self):
+        ai = self.cpp.split("void AMoonfallPawn::UpdateWorldEnemies(float Dt)", 1)[1].split(
+            "int32 AMoonfallPawn::NearestEnemyIndex", 1)[0]
+        self.assertIn("if (!bAggro && Enemy.AttackWindup > 0.f)", ai)
+        self.assertIn("Enemy.AttackRecovery = FMath::Max(Enemy.AttackRecovery, 0.5f);", ai)
+        self.assertIn("if (bAggro && Enemy.AttackWindup <= 0.f)", ai)
+        self.assertIn("else if (!bAggro && FromHome.SizeSquared() > FMath::Square(30.f))", ai)
+        self.assertIn("Enemy.bAttackReadyThisFrame = bAggro &&", ai)
+        self.assertIn("if (Enemy.bStaggeredThisFrame)", ai)
+        self.assertLess(ai.index("if (!bAggro && Enemy.AttackWindup > 0.f)"),
+                        ai.index("if (Enemy.AttackWindup > 0.f)"))
+
+    def test_incoming_damage_and_successful_dodge_feedback(self):
+        hud = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8")
+        self.assertIn("bool bIncoming = false;", self.header)
+        self.assertIn("bool bDodged = false;", self.header)
+        self.assertIn("void RecordHeroHit(float Amount, bool bDodged);", self.header)
+        self.assertIn("void AMoonfallPawn::RecordHeroHit(float Amount, bool bDodged)", self.cpp)
+        self.assertIn("if (DamageNumbers.Num() >= 24) DamageNumbers.RemoveAt(0);", self.cpp)
+        self.assertIn("Number.bIncoming = !bDodged;", self.cpp)
+        self.assertIn("Number.bDodged = bDodged;", self.cpp)
+        self.assertEqual(self.cpp.count("RecordHeroHit(0.f, true);"), 2)
+        self.assertIn("RecordHeroHit(FMath::Min(Health, Taken), false);", self.cpp)
+        self.assertIn("RecordHeroHit(FMath::Min(Health, Taken), false);", self.cpp)
+        self.assertNotIn('TEXT("DODGE")', hud)
+        self.assertIn("constexpr float EvadeFlashSeconds = 0.48f;", hud)
+        self.assertIn("constexpr int32 ArcSegments = 12;", hud)
+        self.assertIn("Canvas->K2_DrawLine(Start, End, 3.f * Fade + .5f, Moonlight);", hud)
+        self.assertIn("Canvas->K2_DrawLine(Start, End, 2.f * Fade + .5f, BloodEmber);", hud)
+        self.assertIn("Hit.bIncoming", hud)
+        self.assertIn("Hit.bDodged", hud)
+        self.assertIn("FLinearColor(1.f, .2f, .25f, 1.f - T)", hud)
+        self.assertIn("FLinearColor Moonlight(.86f, .88f, 1.f, Fade * .9f)", hud)
+        self.assertIn("FLinearColor BloodEmber(.76f, .13f, .27f, Fade * .55f)", hud)
+        self.assertNotIn("NewObject<", hud)
+
+    def test_unified_directional_enemy_and_boss_attack_warnings(self):
+        hud = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8")
+        self.assertIn("struct FAttackWarning", self.header)
+        self.assertIn("TArray<FAttackWarning> GetAttackWarnings() const;", self.header)
+        self.assertIn("AMoonfallPawn::GetAttackWarnings() const", self.cpp)
+        self.assertIn("Warnings.Reserve(FMath::Min(Enemies.Num(), MaxEnemyWarnings) + 1);", self.cpp)
+        self.assertIn("Enemy.AttackWindup <= 0.f", self.cpp)
+        self.assertIn("(HeroPosition - Warning.LocalPosition).GetSafeNormal2D()", self.cpp)
+        self.assertIn("1.f - Enemy.AttackWindup / WindupDuration", self.cpp)
+        self.assertIn("Warning.bGuardian = Enemy.bGuardian;", self.cpp)
+        self.assertIn("if (bCasting && !bWon && BossMesh)", self.cpp)
+        self.assertIn("1.f - CastTimer / BossWindup", self.cpp)
+        self.assertIn("Warning.bBoss = true;", self.cpp)
+        self.assertIn("Hero->GetAttackWarnings()", hud)
+        self.assertIn("const FVector2D Direction = (DirectionScreen - Screen).GetSafeNormal();", hud)
+        self.assertIn("const FLinearColor Color = Warning.bUnblockable", hud)
+        self.assertIn("Canvas->K2_DrawLine(Base + Perpendicular * 9.f, Tip, Thickness, Color);", hud)
+        self.assertIn("Canvas->K2_DrawLine(Base - Perpendicular * 9.f, Tip, Thickness, Color);", hud)
+        self.assertNotIn("NewObject<", hud)
+
+    def test_directional_guard_parry_and_dodge_are_distinct(self):
+        hud = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8")
+        controls = INPUT.read_text(encoding="utf-8")
+        self.assertIn('ActionName="Guard",Key=RightMouseButton', controls)
+        self.assertIn('ActionName="Dodge",Key=LeftShift', controls)
+        self.assertIn('ActionName="Attack",Key=LeftMouseButton', controls)
+        self.assertIn('BindAction(TEXT("Guard"), IE_Pressed', self.cpp)
+        self.assertIn('BindAction(TEXT("Guard"), IE_Released', self.cpp)
+        self.assertIn("void AMoonfallPawn::BeginGuard()", self.cpp)
+        self.assertIn("void AMoonfallPawn::EndGuard()", self.cpp)
+        self.assertIn("static constexpr float ParryWindow = 0.22f;", self.header)
+        self.assertIn("GuardParryTimer = FMath::Max(0.f, GuardParryTimer - ReactionDt);", self.cpp)
+        self.assertIn("FVector::DotProduct(GuardDirection, ToAttacker) < 0.5f", self.cpp)
+        self.assertIn("const float GuardCost = FMath::Max(12.f, Damage * 1.3f);", self.cpp)
+        self.assertIn("return Damage * 0.25f;", self.cpp)
+        self.assertIn("GuardBreakTimer = GuardBreakDuration;", self.cpp)
+        self.assertIn("if (bParryActiveThisFrame)", self.cpp)
+        self.assertIn("CounterWindow = CounterDuration;", self.cpp)
+        self.assertIn("EndGuard();", self.cpp)
+        self.assertIn("bBossRadialAttack = bRadial;", self.cpp)
+        self.assertIn("BossMesh->GetRelativeLocation(), BossDamage, bBossRadialAttack, bParried", self.cpp)
+        self.assertIn("Contact.StaggerTimer = FMath::Max(", self.cpp)
+        self.assertIn("Contact.StaggerTimer, Contact.bGuardian ? 0.9f : 0.6f);", self.cpp)
+        self.assertIn("if (StaminaRegenDt > 0.f && !IsGuarding())", self.cpp)
+        self.assertIn("bool bBlocked = false;", self.header)
+        self.assertIn("bool bParried = false;", self.header)
+        self.assertIn("bool bGuardBroken = false;", self.header)
+        self.assertIn("Hit.bBlocked || Hit.bParried || Hit.bGuardBroken", hud)
+        self.assertIn("Hit.bGuardBroken", hud)
+        self.assertNotIn("NewObject<", hud)
+
+    def test_guard_direction_and_parry_spam_fix(self):
+        hud = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8")
+        self.assertIn("static constexpr float ParryRecovery = 0.45f;", self.header)
+        self.assertIn("bool bParryActiveThisFrame = false;", self.header)
+        self.assertIn("if (GuardParryRecovery <= 0.f)", self.cpp)
+        self.assertIn("GuardParryRecovery = ParryRecovery;", self.cpp)
+        self.assertIn("GuardParryRecovery = FMath::Max(0.f, GuardParryRecovery - ReactionDt);", self.cpp)
+        self.assertIn("bParryActiveThisFrame = IsParryWindowActive();", self.cpp)
+        self.assertIn("if (bParryActiveThisFrame)", self.cpp)
+        self.assertIn("bParryActiveThisFrame = false;", self.cpp)
+        self.assertIn("const int32 EnemyIndex = NearestEnemyIndex(900.f);", self.cpp)
+        self.assertIn("if (!bWon && BossMesh && bCasting)", self.cpp)
+        self.assertIn("GuardDirection = Closest.GetSafeNormal2D();", self.cpp)
+        self.assertIn("bool bUnblockable = false;", self.header)
+        self.assertIn("Warning.bUnblockable = bBossRadialAttack;", self.cpp)
+        self.assertIn("if (Warning.bUnblockable)", hud)
+        self.assertIn("if (Hero->IsGuarding())", hud)
+        self.assertIn("Hero->GetGuardDirection()", hud)
+        self.assertIn("Hero->IsParryWindowActive()", hud)
+        self.assertNotIn('TEXT("BLOCK")', hud)
+
+    def test_guard_break_recovery_prevents_offense_and_dodge_exploits(self):
+        source = self.cpp
+        self.assertIn("if (Health > 0.f && GuardBreakTimer <= 0.f && DodgeCooldown <= 0.f", source)
+        self.assertIn("if (AttackCooldown > 0.f || GuardBreakTimer > 0.f) return;", source)
+        self.assertIn("if (Health <= 0.f || GuardBreakTimer > 0.f || BoltCooldown > 0.f", source)
+        self.assertIn("if (Health <= 0.f || GuardBreakTimer > 0.f || HealCooldown > 0.f", source)
+        self.assertIn("GuardBreakTimer = GuardBreakDuration;", source)
+        self.assertIn("GuardBreakTimer = FMath::Max(0.f, GuardBreakTimer - ReactionDt);", source)
+        self.assertIn("EndGuard(); // Casting commits to offense instead of stacking a held block.", source)
+        self.assertIn("EndGuard();\n    Mana -= 40.f;", source)
+        self.assertIn("// A committed strike lowers the guard; parry-earned ripostes remain valid.", source)
+        self.assertIn("if (Enemy.Portrait) Enemy.Portrait->SetRelativeScale3D(FVector(2.f));", source)
+        self.assertIn("else Enemy.Mesh->SetRelativeScale3D(FVector(Enemy.bGuardian ? 1.3f : 1.1f));", source)
+
+    def test_enemy_posture_breaks_with_riposte_and_warning_colors(self):
+        hud = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8")
+        self.assertIn("float Posture = 0.f;", self.header)
+        self.assertIn("float PostureIdleTimer = 0.f;", self.header)
+        self.assertIn("FEnemyPosture", self.header)
+        self.assertIn("TArray<FEnemyPosture> GetEnemyPostures() const;", self.header)
+        self.assertIn("AMoonfallPawn::GetEnemyPostures() const", self.cpp)
+        self.assertIn("if (!Enemy.Mesh || Enemy.Posture <= 0.f", self.cpp)
+        self.assertIn("Visible.Reserve(FMath::Min(Enemies.Num(), MaxPostureIndicators));", self.cpp)
+        self.assertIn("void AMoonfallPawn::ApplyPostureDamage(FWorldEnemy& Enemy, float Amount)", self.cpp)
+        self.assertIn("Enemy.PostureIdleTimer = 2.4f;", self.cpp)
+        self.assertIn("Enemy.Posture < PostureThreshold(Enemy)", self.cpp)
+        self.assertIn("Enemy.StaggerTimer = FMath::Max(Enemy.StaggerTimer, Enemy.bGuardian ? 1.2f : 1.f);", self.cpp)
+        self.assertIn("Enemy.Posture = FMath::Max(0.f, Enemy.Posture - 18.f * MoveDt);", self.cpp)
+        self.assertIn("ApplyPostureDamage(Enemy, PostureImpact);", self.cpp)
+        self.assertIn("Enemy.StaggerTimer = FMath::Max(Enemy.StaggerTimer, Enemy.bGuardian ? 0.8f : 0.4f);", self.cpp)
+        self.assertIn("AttackCooldown = FMath::Min(AttackCooldown, 0.12f);", self.cpp)
+        self.assertIn("MeleeComboTimer = FMath::Max(MeleeComboTimer, 1.1f);", self.cpp)
+        self.assertIn("Hero->GetEnemyPostures()", hud)
+        self.assertIn("const FLinearColor Color = Warning.bUnblockable", hud)
+        self.assertIn("FLinearColor(.2f, .66f, 1.f", hud)
+        self.assertIn("FLinearColor(1.f, .12f, .23f", hud)
+        self.assertNotIn("NewObject<", hud)
+
+    def test_boss_posture_staggers_and_cancels_current_cast(self):
+        hud = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8")
+        self.assertIn("static constexpr float BossPostureThreshold = 30.f;", self.header)
+        self.assertIn("float BossStaggerTimer = 0.f;", self.header)
+        self.assertIn("bool IsBossPostureActive() const", self.header)
+        self.assertIn("bool IsBossStaggered() const", self.header)
+        self.assertIn("void AMoonfallPawn::ApplyBossPosture(", self.cpp)
+        self.assertIn("BossPosture = FMath::Min(BossPostureThreshold, BossPosture + Impact);", self.cpp)
+        self.assertIn("BossStaggerTimer = 1.6f;", self.cpp)
+        self.assertIn("BossPostureIdleTimer = 3.f;", self.cpp)
+        self.assertIn("BossPosture = FMath::Max(0.f, BossPosture - 16.f * ReactionDt);", self.cpp)
+        self.assertIn("if (BossStaggerTimer > 0.f) return;", self.cpp)
+        self.assertIn("ApplyBossPosture(FMath::Min(Damage, BossHealth + Damage), bRiposte, bComboFinisher, false);", self.cpp)
+        self.assertIn("ApplyBossPosture(FMath::Min(Damage, BossHealth + Damage), bRiposte, false, true);", self.cpp)
+        self.assertIn("Hero->IsBossPostureActive() || Hero->IsBossStaggered()", hud)
+        self.assertIn("Hero->GetBossPostureRatio()", hud)
+        self.assertIn("BossPosture = 0.f;", self.cpp)
+        self.assertNotIn("NewObject<", hud)
 
     def test_original_art_import_is_checksum_guarded(self):
         import_tool = (ROOT / "tools/import_godot_art.py").read_text()

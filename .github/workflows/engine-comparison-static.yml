@@ -1,6 +1,7 @@
 name: Moonfall dual-engine prototype static checks
 
 on:
+  workflow_dispatch:
   pull_request:
     paths:
       - 'engine-comparison/**'
@@ -22,5 +23,143 @@ jobs:
           python-version: '3.12'
       - name: Check experimental Unity and Unreal source contracts
         run: python -m unittest discover -s engine-comparison/tests -p 'test_*.py' -v
+      - name: Parse Unreal Windows build script using PowerShell
+        shell: pwsh
+        run: |
+          $scriptPath = (Resolve-Path 'engine-comparison/unreal/verify-windows-build.ps1').Path
+          $tokens = $null
+          $parseErrors = $null
+          [void][System.Management.Automation.Language.Parser]::ParseFile($scriptPath, [ref]$tokens, [ref]$parseErrors)
+          if ($parseErrors.Count -gt 0) {
+            $parseErrors | ForEach-Object { Write-Host $_.ToString() }
+            throw "Unreal Windows build script contains PowerShell syntax errors."
+          }
       - name: Report exact validation scope
         run: echo "Static source checks only; Unity/Unreal engine compilation and gameplay remain unverified."
+
+  windows-build-entrypoint:
+    # No Unreal SDK is installed on this runner. Test the actual Windows
+    # PowerShell parser and failure paths, never claim engine compilation.
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Parse Unreal build script on Windows
+        shell: pwsh
+        run: |
+          $scriptPath = (Resolve-Path 'engine-comparison/unreal/verify-windows-build.ps1').Path
+          $tokens = $null
+          $parseErrors = $null
+          [void][System.Management.Automation.Language.Parser]::ParseFile($scriptPath, [ref]$tokens, [ref]$parseErrors)
+          if ($parseErrors.Count -gt 0) {
+            $parseErrors | ForEach-Object { Write-Host $_.ToString() }
+            throw "Windows PowerShell parser rejected the Unreal build script."
+          }
+      - name: Reject a nonexistent Unreal installation
+        shell: pwsh
+        run: |
+          $scriptPath = (Resolve-Path 'engine-comparison/unreal/verify-windows-build.ps1').Path
+          $missingEngine = Join-Path $env:RUNNER_TEMP 'MoonfallMissingUnrealEngine'
+          if (Test-Path -LiteralPath $missingEngine) { throw "Test precondition failed: fake engine path exists." }
+          try {
+            & $scriptPath -EngineRoot $missingEngine
+            throw "Build verifier unexpectedly accepted a missing Unreal installation."
+          } catch {
+            if ($_.Exception.Message -notlike 'Unreal Build.bat not found*') { throw }
+            Write-Host "Expected missing-engine failure verified."
+          }
+      - name: Reject an incompatible Unreal engine version
+        shell: pwsh
+        run: |
+          $scriptPath = (Resolve-Path 'engine-comparison/unreal/verify-windows-build.ps1').Path
+          $fakeRoot = Join-Path $env:RUNNER_TEMP 'MoonfallFakeUnrealEngine'
+          $batchDir = Join-Path $fakeRoot 'Engine\Build\BatchFiles'
+          $versionDir = Join-Path $fakeRoot 'Engine\Build'
+          New-Item -ItemType Directory -Force -Path $batchDir | Out-Null
+          Set-Content -LiteralPath (Join-Path $batchDir 'Build.bat') -Value '@echo off'
+          Set-Content -LiteralPath (Join-Path $versionDir 'Build.version') -Value '{"MajorVersion":5,"MinorVersion":5}'
+          try {
+            & $scriptPath -EngineRoot $fakeRoot
+            throw "Build verifier unexpectedly accepted Unreal 5.5."
+          } catch {
+            if ($_.Exception.Message -notlike 'Moonfall prototype requires Unreal 5.6*') { throw }
+            Write-Host "Expected engine-version failure verified."
+          }
+      - name: Reject successful mock builds with invalid game executable
+        shell: pwsh
+        run: |
+          $scriptPath = (Resolve-Path 'engine-comparison/unreal/verify-windows-build.ps1').Path
+          $fakeRoot = Join-Path $env:RUNNER_TEMP 'MoonfallMockUnreal56'
+          $batchDir = Join-Path $fakeRoot 'Engine\Build\BatchFiles'
+          New-Item -ItemType Directory -Force -Path $batchDir | Out-Null
+          Set-Content -LiteralPath (Join-Path $batchDir 'Build.bat') -Value '@echo off'
+          Set-Content -LiteralPath (Join-Path $fakeRoot 'Engine\Build\Build.version') -Value '{"MajorVersion":5,"MinorVersion":6}'
+          $output = Join-Path (Get-Location).Path 'engine-comparison\unreal\MoonfallPrototype\Binaries\Win64\MoonfallPrototype.exe'
+          New-Item -ItemType Directory -Force -Path (Split-Path $output -Parent) | Out-Null
+          if (Test-Path -LiteralPath $output) { throw "Test precondition failed: build output already exists." }
+          try {
+            # Deliberately has an MZ prefix, but lacks a valid PE/AMD64 header.
+            $fakeExe = [byte[]]::new(128)
+            $fakeExe[0] = 77
+            $fakeExe[1] = 90
+            [System.IO.File]::WriteAllBytes($output, $fakeExe)
+            try {
+              & $scriptPath -EngineRoot $fakeRoot
+              throw "Build verifier accepted a fake Win64 executable."
+            } catch {
+              if ($_.Exception.Message -notlike '*not a Windows PE file*') { throw }
+              Write-Host "Expected invalid-executable failure verified."
+            }
+          } finally {
+            Remove-Item -LiteralPath $output -Force -ErrorAction SilentlyContinue
+          }
+      - name: State verification scope
+        shell: pwsh
+        run: Write-Host 'Windows script parser and mocked failure paths only; no Unreal compilation, packaging, or gameplay verification.'
+
+  unreal-win64-real-build:
+    # Requires a separately provisioned Windows x64 self-hosted runner with
+    # UE 5.6 and VS C++ installed. Never runs on GitHub's stock Windows VM.
+    # Enable by setting repo variable MOONFALL_UNREAL_RUNNER_ENABLED=true.
+    if: ${{ github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && vars.MOONFALL_UNREAL_RUNNER_ENABLED == 'true' }}
+    runs-on: [self-hosted, Windows, X64, unreal-5.6]
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify Unreal runner prerequisites before compiling
+        shell: pwsh
+        env:
+          UE_56_ROOT: ${{ vars.MOONFALL_UE56_ROOT }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:UE_56_ROOT)) {
+            throw 'Set repository variable MOONFALL_UE56_ROOT to the installed Unreal Engine 5.6 directory.'
+          }
+          & ./engine-comparison/unreal/check-runner-prerequisites.ps1 -EngineRoot $env:UE_56_ROOT
+          if (-not $?) { throw 'Unreal 5.6 runner prerequisite check failed.' }
+      - name: Compile, create startup level, and package with real UE 5.6
+        shell: pwsh
+        env:
+          UE_56_ROOT: ${{ vars.MOONFALL_UE56_ROOT }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:UE_56_ROOT)) {
+            throw 'Set repository variable MOONFALL_UE56_ROOT to the installed Unreal Engine 5.6 directory.'
+          }
+          & ./engine-comparison/unreal/verify-windows-build.ps1 -EngineRoot $env:UE_56_ROOT -CreateMap -Package -ArchiveDirectory (Join-Path $env:RUNNER_TEMP 'MoonfallUE56Package')
+      - name: Upload Unreal diagnostics when compilation or packaging fails
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: Moonfall-Unreal56-Failure-Logs
+          path: |
+            engine-comparison/unreal/MoonfallPrototype/Saved/Logs/*.log
+            engine-comparison/unreal/MoonfallPrototype/Saved/Crashes/**/*
+            engine-comparison/unreal/MoonfallPrototype/Intermediate/Build/Win64/**/*.log
+          if-no-files-found: warn
+          retention-days: 7
+      - name: Upload successfully verified Win64 package
+        if: ${{ success() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: Moonfall-Unreal56-Win64-Development
+          path: ${{ runner.temp }}/MoonfallUE56Package/run-*/
+          if-no-files-found: error
+          retention-days: 7

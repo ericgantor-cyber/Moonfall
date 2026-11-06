@@ -15,4 +15,6 @@ private:
     UPROPERTY() TObjectPtr<class UTexture2D> OrnateOrbs = nullptr;
     void DrawRing(FVector2D Center, float Radius, float Ratio, const FLinearColor& Color);
     void DrawMarker(float X, float Y, const FLinearColor& Color);
+    void DrawMapIcon(FVector2D Center, float Scale, int32 IconKind);
+    void DrawMapFocusRing(FVector2D Center, float Radius);
 };

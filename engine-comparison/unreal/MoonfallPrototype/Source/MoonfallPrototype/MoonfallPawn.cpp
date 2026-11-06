@@ -9,6 +9,7 @@
 #include "Components/StaticMeshComponent.h"
 #include "Engine/Engine.h"
 #include "GameFramework/SpringArmComponent.h"
+#include "GameFramework/PlayerController.h"
 #include "Kismet/GameplayStatics.h"
 #include "UObject/ConstructorHelpers.h"
 
@@ -73,9 +74,61 @@ void AMoonfallPawn::EndPlay(const EEndPlayReason::Type Reason)
     Super::EndPlay(Reason);
 }
 
+bool AMoonfallPawn::IsMapExplored(const FVector2D& WorldPosition) const
+{
+    const int32 X = FMath::FloorToInt((WorldPosition.X - FogMinX) / FogCellSize);
+    const int32 Y = FMath::FloorToInt((WorldPosition.Y - FogMinY) / FogCellSize);
+    if (X < 0 || X >= FogWidth || Y < 0 || Y >= FogHeight) return false;
+    const int32 Index = Y * FogWidth + X;
+    return ExploredMapCells.IsValidIndex(Index) && ExploredMapCells[Index] != 0;
+}
+
+void AMoonfallPawn::RevealMapAround(const FVector& WorldPosition)
+{
+    if (ExploredMapCells.Num() != FogWidth * FogHeight)
+        ExploredMapCells.Init(0, FogWidth * FogHeight);
+
+    const int32 CX = FMath::FloorToInt((WorldPosition.X - FogMinX) / FogCellSize);
+    const int32 CY = FMath::FloorToInt((WorldPosition.Y - FogMinY) / FogCellSize);
+    // Reveal a 5 m view around the traveler, without exposing distant caves.
+    constexpr int32 RadiusCells = 2;
+    for (int32 DY = -RadiusCells; DY <= RadiusCells; ++DY)
+    {
+        const int32 Y = CY + DY;
+        if (Y < 0 || Y >= FogHeight) continue;
+        for (int32 DX = -RadiusCells; DX <= RadiusCells; ++DX)
+        {
+            const int32 X = CX + DX;
+            if (X < 0 || X >= FogWidth || DX * DX + DY * DY > RadiusCells * RadiusCells)
+                continue;
+            ExploredMapCells[Y * FogWidth + X] = 1;
+        }
+    }
+}
+
+void AMoonfallPawn::RevealMapAlongPath(const FVector& From, const FVector& To)
+{
+    // Sample the traveled segment rather than only its endpoint. A dodge or
+    // future movement upgrade cannot leave an undiscovered strip behind.
+    const float Distance = FVector::Dist2D(From, To);
+    const int32 Steps = FMath::Clamp(
+        FMath::CeilToInt(Distance / (FogCellSize * .5f)), 1, 16);
+    for (int32 I = 0; I <= Steps; ++I)
+        RevealMapAround(FMath::Lerp(From, To, static_cast<float>(I) / Steps));
+}
+
 void AMoonfallPawn::BeginPlay()
 {
     Super::BeginPlay();
+    // Click-to-attack and on-map zoom need a visible, usable mouse cursor.
+    // Keep game input active while the pointer interacts with the HUD.
+    if (APlayerController* Controller = Cast<APlayerController>(GetController()))
+    {
+        Controller->bShowMouseCursor = true;
+        FInputModeGameAndUI InputMode;
+        InputMode.SetHideCursorDuringCapture(false);
+        Controller->SetInputMode(InputMode);
+    }
     bool bLoadedCheckpoint = false;
     // Separate prototype save slot. Never touches production Godot saves.
     if (USaveGame* Loaded = UGameplayStatics::LoadGameFromSlot(TEXT("MoonfallPrototypeBossRewards"), 0))
@@ -83,6 +136,11 @@ void AMoonfallPawn::BeginPlay()
         if (const UMoonfallProgressSave* Progress = Cast<UMoonfallProgressSave>(Loaded))
         {
             Victories = FMath::Clamp(Progress->PermanentBossVictories, 0, 100);
+            MinimapTrackingMode = FMath::Clamp(Progress->SavedMinimapTrackingMode, 0, 3);
+            MinimapZoomLevel = FMath::Clamp(Progress->SavedMinimapZoomLevel, 0, 2);
+            TrackedQuestId = FMath::Clamp(Progress->SavedTrackedQuestId, 0, 2);
+            if (Progress->ExploredMapCells.Num() == FogWidth * FogHeight)
+                ExploredMapCells = Progress->ExploredMapCells;
             bWon = Progress->bBossDefeated;
             // Checkpoint is restored before the world is constructed.
             if (Progress->bHasCheckpoint && FMath::IsFinite(Progress->SavedHealth) &&
@@ -129,6 +187,9 @@ void AMoonfallPawn::BeginPlay()
     }
     if (!bLoadedCheckpoint)
         Health = GetHudMaxHealth(); // Full health at a new start, never from kills.
+    RevealMapAround(HeroMesh->GetRelativeLocation());
+    LastCheckpointRegion = MoonfallWorldRules::RegionAt(HeroMesh->GetRelativeLocation().X);
+    RespawnGraceTimer = bLoadedCheckpoint ? RespawnGraceDuration : 0.f;
     // Load original boss art before world generation so Nyra's guardian can use it.
     // Missing imports retain the regular prototype mesh.
     ZArtwork = LoadObject<UTexture2D>(nullptr, TEXT("/Game/MoonfallArt/heroes/Z_Original.Z_Original"));
@@ -310,12 +371,21 @@ void AMoonfallPawn::UpdateWorldEnemies(float Dt)
     for (FWorldEnemy& Enemy : Enemies)
     {
         if (!Enemy.Mesh) continue;
+        Enemy.bAttackReadyThisFrame = false;
+        Enemy.AttackRecovery = FMath::Max(0.f, Enemy.AttackRecovery - MoveDt);
+        Enemy.PostureIdleTimer = FMath::Max(0.f, Enemy.PostureIdleTimer - MoveDt);
+        if (Enemy.PostureIdleTimer <= 0.f)
+            Enemy.Posture = FMath::Max(0.f, Enemy.Posture - 18.f * MoveDt);
         // Snapshot stagger before advancing timers so the final active frame
         // blocks both movement and contact damage.
         Enemy.bStaggeredThisFrame = Enemy.StaggerTimer > 0.f;
         if (Enemy.bStaggeredThisFrame)
         {
             Enemy.StaggerTimer = FMath::Max(0.f, Enemy.StaggerTimer - MoveDt);
+            Enemy.AttackWindup = 0.f;
+            // Cancel any lingering warning pulse immediately on stagger.
+            if (Enemy.Portrait) Enemy.Portrait->SetRelativeScale3D(FVector(2.f));
+            else Enemy.Mesh->SetRelativeScale3D(FVector(Enemy.bGuardian ? 1.3f : 1.1f));
             continue;
         }
         // Guardians enter their final phase once below 35% of their starting HP.
@@ -340,7 +410,35 @@ void AMoonfallPawn::UpdateWorldEnemies(float Dt)
             Enemy.bReturningHome = false;
         const bool bAggro = HeroDistSq < FMath::Square(800.f) &&
             !Enemy.bReturningHome && FromHome.SizeSquared() < FMath::Square(Leash);
-        if (bAggro)
+        // Telegraph contact attacks. An enemy must hold its ground while
+        // warning; it must not glide back toward home during the strike.
+        // Disengaging (or forcing a leash return) cancels the warning.
+        if (!bAggro && Enemy.AttackWindup > 0.f)
+        {
+            Enemy.AttackWindup = 0.f;
+            Enemy.AttackRecovery = FMath::Max(Enemy.AttackRecovery, 0.5f);
+        }
+        if (Enemy.AttackWindup > 0.f)
+        {
+            Enemy.AttackWindup = FMath::Max(0.f, Enemy.AttackWindup - MoveDt);
+            if (Enemy.AttackWindup <= 0.f)
+            {
+                Enemy.bAttackReadyThisFrame = bAggro &&
+                    HeroDistSq <= FMath::Square(210.f);
+                Enemy.AttackRecovery = Enemy.bGuardian ? 1.7f : 1.3f;
+            }
+        }
+        else if (bAggro && HeroDistSq <= FMath::Square(210.f) &&
+                 Enemy.AttackRecovery <= 0.f)
+        {
+            Enemy.AttackWindup = Enemy.bGuardian ? 0.85f : 0.6f;
+        }
+        // Pulse the existing placeholder/portrait during a warning.
+        // No new textures or permanent scene components needed.
+        const float WarningScale = Enemy.AttackWindup > 0.f ? 1.25f : 1.f;
+        if (Enemy.Portrait) Enemy.Portrait->SetRelativeScale3D(FVector(2.f * WarningScale));
+        else Enemy.Mesh->SetRelativeScale3D(FVector((Enemy.bGuardian ? 1.3f : 1.1f) * WarningScale));
+        if (bAggro && Enemy.AttackWindup <= 0.f)
         {
             if (HeroDistSq > FMath::Square(160.f))
             {
@@ -353,7 +451,7 @@ void AMoonfallPawn::UpdateWorldEnemies(float Dt)
                 Enemy.Mesh->SetRelativeLocation(Clamped);
             }
         }
-        else if (FromHome.SizeSquared() > FMath::Square(30.f))
+        else if (!bAggro && FromHome.SizeSquared() > FMath::Square(30.f))
         {
             const float ReturnStep = FMath::Min(180.f * MoveDt, FromHome.Size());
             Enemy.Mesh->SetRelativeLocation(From - FromHome.GetSafeNormal() * ReturnStep);
@@ -382,29 +480,140 @@ int32 AMoonfallPawn::NearestEnemyIndex(float Radius) const
     return Best;
 }
 
-TArray<FVector> AMoonfallPawn::GetEnemyMapPositions() const
+TArray<AMoonfallPawn::FAttackWarning> AMoonfallPawn::GetAttackWarnings() const
 {
-    TArray<FVector> Result;
-    Result.Reserve(Enemies.Num());
+    TArray<FAttackWarning> Warnings;
+    if (!HeroMesh || Health <= 0.f) return Warnings;
+    // Limit per-frame HUD allocations and avoid warnings for off-screen regions.
+    // Keep one final slot reserved for the boss telegraph.
+    constexpr int32 MaxEnemyWarnings = 24;
+    Warnings.Reserve(FMath::Min(Enemies.Num(), MaxEnemyWarnings) + 1);
+    const FVector HeroPosition = HeroMesh->GetRelativeLocation();
     for (const FWorldEnemy& Enemy : Enemies)
-        if (Enemy.Mesh) Result.Add(Enemy.Mesh->GetRelativeLocation());
-    return Result;
+    {
+        if (!Enemy.Mesh || Enemy.AttackWindup <= 0.f ||
+            Enemy.bReturningHome || Enemy.StaggerTimer > 0.f ||
+            FVector::DistSquared2D(Enemy.Mesh->GetRelativeLocation(), HeroPosition) >
+                FMath::Square(1400.f)) continue;
+        FAttackWarning Warning;
+        Warning.LocalPosition = Enemy.Mesh->GetRelativeLocation();
+        Warning.DirectionToHero =
+            (HeroPosition - Warning.LocalPosition).GetSafeNormal2D();
+        const float WindupDuration = Enemy.bGuardian ? 0.85f : 0.6f;
+        Warning.Urgency = FMath::Clamp(
+            1.f - Enemy.AttackWindup / WindupDuration, 0.f, 1.f);
+        Warning.bGuardian = Enemy.bGuardian;
+        Warnings.Add(Warning);
+        if (Warnings.Num() >= MaxEnemyWarnings) break;
+    }
+    if (bCasting && !bWon && BossMesh)
+    {
+        FAttackWarning Warning;
+        Warning.LocalPosition = BossMesh->GetRelativeLocation();
+        Warning.DirectionToHero =
+            (TargetWorld - Warning.LocalPosition).GetSafeNormal2D();
+        const float BossWindup = BossAttackPhase == 3 ? 0.95f :
+            (BossAttackPhase == 2 ? 1.05f : 1.15f);
+        Warning.Urgency = FMath::Clamp(1.f - CastTimer / BossWindup, 0.f, 1.f);
+        Warning.bBoss = true;
+        Warning.bUnblockable = bBossRadialAttack; // The radial boss pattern cannot be guarded.
+        Warnings.Add(Warning);
+    }
+    return Warnings;
 }
 
-void AMoonfallPawn::DamageWorldEnemy(int32 Index, float Damage, bool bRiposte, bool bComboFinisher)
+TArray<AMoonfallPawn::FEnemyPosture> AMoonfallPawn::GetEnemyPostures() const
+{
+    TArray<FEnemyPosture> Visible;
+    if (!HeroMesh || Health <= 0.f) return Visible;
+    // The HUD only displays nearby posture bars; do not reserve or draw
+    // one entry per enemy in the entire continuous world.
+    constexpr int32 MaxPostureIndicators = 32;
+    Visible.Reserve(FMath::Min(Enemies.Num(), MaxPostureIndicators));
+    const FVector HeroPosition = HeroMesh->GetRelativeLocation();
+    for (const FWorldEnemy& Enemy : Enemies)
+    {
+        if (!Enemy.Mesh || Enemy.Posture <= 0.f ||
+            FVector::DistSquared2D(Enemy.Mesh->GetRelativeLocation(), HeroPosition) >
+                FMath::Square(1200.f)) continue;
+        FEnemyPosture Value;
+        Value.LocalPosition = Enemy.Mesh->GetRelativeLocation();
+        Value.Ratio = FMath::Clamp(Enemy.Posture / PostureThreshold(Enemy), 0.f, 1.f);
+        Value.bGuardian = Enemy.bGuardian;
+        Visible.Add(Value);
+        if (Visible.Num() >= MaxPostureIndicators) break;
+    }
+    return Visible;
+}
+
+void AMoonfallPawn::RecordDamageNumber(const FVector& LocalPosition,
+    float Amount, bool bHeavy, bool bMagic)
+{
+    if (!FMath::IsFinite(Amount) || Amount <= 0.f) return;
+    // A bounded list prevents growth in long battles.
+    if (DamageNumbers.Num() >= 24) DamageNumbers.RemoveAt(0);
+    FDamageNumber Number;
+    Number.LocalPosition = LocalPosition + FVector(0.f, 0.f, 130.f);
+    Number.Amount = Amount;
+    Number.bHeavy = bHeavy;
+    Number.bMagic = bMagic;
+    DamageNumbers.Add(Number);
+}
+
+void AMoonfallPawn::RecordHeroHit(float Amount, bool bDodged)
+{
+    if (!HeroMesh || (!bDodged && (!FMath::IsFinite(Amount) || Amount <= 0.f))) return;
+    if (DamageNumbers.Num() >= 24) DamageNumbers.RemoveAt(0);
+    FDamageNumber Number;
+    Number.LocalPosition = HeroMesh->GetRelativeLocation() + FVector(0.f, 0.f, 130.f);
+    Number.Amount = Amount;
+    Number.bIncoming = !bDodged;
+    Number.bDodged = bDodged;
+    DamageNumbers.Add(Number);
+}
+
+void AMoonfallPawn::ApplyPostureDamage(FWorldEnemy& Enemy, float Amount)
+{
+    if (Amount <= 0.f || Enemy.Health <= 0.f) return;
+    Enemy.PostureIdleTimer = 2.4f; // Repeated hits build pressure; disengaging sheds it.
+    Enemy.Posture = FMath::Min(PostureThreshold(Enemy), Enemy.Posture + Amount);
+    if (Enemy.Posture < PostureThreshold(Enemy)) return;
+    Enemy.Posture = 0.f;
+    Enemy.PostureIdleTimer = 0.f;
+    Enemy.StaggerTimer = FMath::Max(Enemy.StaggerTimer, Enemy.bGuardian ? 1.2f : 1.f);
+    Enemy.AttackWindup = 0.f;
+    Enemy.AttackRecovery = FMath::Max(Enemy.AttackRecovery, 1.2f);
+    if (Enemy.Portrait) Enemy.Portrait->SetRelativeScale3D(FVector(2.f));
+    else Enemy.Mesh->SetRelativeScale3D(FVector(Enemy.bGuardian ? 1.3f : 1.1f));
+}
+
+void AMoonfallPawn::DamageWorldEnemy(int32 Index, float Damage, bool bRiposte, bool bComboFinisher, bool bMagic)
 {
     if (!Enemies.IsValidIndex(Index)) return;
     FWorldEnemy& Enemy = Enemies[Index];
+    const float ActualDamage = FMath::Min(Enemy.Health, FMath::Max(0.f, Damage));
+    if (Enemy.Mesh)
+        RecordDamageNumber(Enemy.Mesh->GetRelativeLocation(), ActualDamage,
+            bComboFinisher || bRiposte, bMagic);
     Enemy.Health = FMath::Max(0.f, Enemy.Health - Damage);
     if (Enemy.Health > 0.f)
     {
+        // Posture creates openings through sustained attacks; ripostes/finishers
+        // inflict extra pressure without requiring a new combat mode.
+        const float PostureImpact = FMath::Min(ActualDamage, 60.f) *
+            (bRiposte ? 1.25f : (bComboFinisher ? 0.95f : (bMagic ? 0.35f : 0.5f)));
+        ApplyPostureDamage(Enemy, PostureImpact);
         // The reward requires a real hit on a living guardian; defeated foes
         // need no stun state and ordinary hits cannot lock down bosses.
         if ((bRiposte && Enemy.bGuardian) || (bComboFinisher && !Enemy.bGuardian))
         {
             // Third-hit finishers briefly stagger normal enemies; earned
             // ripostes retain the longer guardian-specific stagger.
-            Enemy.StaggerTimer = Enemy.bGuardian ? 0.8f : 0.4f;
+            Enemy.StaggerTimer = FMath::Max(Enemy.StaggerTimer, Enemy.bGuardian ? 0.8f : 0.4f);
+            Enemy.AttackWindup = 0.f; // A successful interrupt cancels the warning.
+            Enemy.AttackRecovery = FMath::Max(Enemy.AttackRecovery, 0.5f);
+            if (Enemy.Portrait) Enemy.Portrait->SetRelativeScale3D(FVector(2.f));
+            else Enemy.Mesh->SetRelativeScale3D(FVector(Enemy.bGuardian ? 1.3f : 1.1f));
             // Give a landed riposte physical space without pushing guardians
             // outside their chamber leash or introducing a physics actor.
             if (Enemy.Mesh && HeroMesh)
@@ -439,6 +648,27 @@ void AMoonfallPawn::DamageWorldEnemy(int32 Index, float Damage, bool bRiposte, b
 
 TArray<FVector> AMoonfallPawn::GetChamberMapPositions() const
 {
+    TArray<FVector> Positions;
+    if (!HeroMesh) return Positions;
+    // The circular HUD has a 1700 cm local range. Avoid copying chamber
+    // coordinates from distant regions when the world gets larger.
+    constexpr float MinimapWorldRadius = 1700.f;
+    const FVector HeroPosition = HeroMesh->GetRelativeLocation();
+    Positions.Reserve(FMath::Min(ChamberCaches.Num(), 12));
+    for (const FChamberCache& Cache : ChamberCaches)
+    {
+        if (!Cache.Mesh) continue;
+        const FVector Position = Cache.Mesh->GetRelativeLocation();
+        if (FVector::DistSquared2D(Position, HeroPosition) >
+            FMath::Square(MinimapWorldRadius)) continue;
+        Positions.Add(Position);
+    }
+    return Positions;
+}
+
+TArray<FVector> AMoonfallPawn::GetWorldMapChamberPositions() const
+{
+    // Full map shows every unclaimed cache, not just nearby minimap markers.
     TArray<FVector> Positions;
     Positions.Reserve(ChamberCaches.Num());
     for (const FChamberCache& Cache : ChamberCaches)
@@ -486,6 +716,10 @@ void AMoonfallPawn::SaveProgress()
     Progress->ClaimedChamberMask = ClaimedChamberMask;
     Progress->DefeatedGuardianMask = DefeatedGuardianMask;
     Progress->bBossDefeated = bWon;
+    Progress->SavedMinimapTrackingMode = MinimapTrackingMode;
+    Progress->SavedMinimapZoomLevel = MinimapZoomLevel;
+    Progress->SavedTrackedQuestId = TrackedQuestId;
+    Progress->ExploredMapCells = ExploredMapCells;
     // Preserve legacy SelectedHeroIndex from the loaded save; never reassign it.
     if (HeroMesh && Health > 0.f)
     {
@@ -507,11 +741,275 @@ void AMoonfallPawn::Zoom(float Value)
     ZoomDistance = FMath::Clamp(ZoomDistance - Value * 125.f, 900.f, 2500.f);
     CameraBoom->TargetArmLength = ZoomDistance;
 }
+void AMoonfallPawn::BeginGuard()
+{
+    if (Health <= 0.f || DodgeTimer > 0.f || GuardBreakTimer > 0.f ||
+        Stamina < 12.f) return;
+    bGuardHeld = true;
+    const FVector Move(Forward, Right, 0.f);
+    if (Move.SizeSquared2D() > 0.01f)
+    {
+        GuardDirection = Move.GetSafeNormal2D();
+    }
+    else if (HeroMesh)
+    {
+        // When standing still, face the closest active threat on first guard
+        // press rather than arbitrarily defaulting to the positive X axis.
+        const FVector HeroPosition = HeroMesh->GetRelativeLocation();
+        FVector Closest = FVector::ZeroVector;
+        float ClosestDistanceSq = FMath::Square(900.f);
+        const int32 EnemyIndex = NearestEnemyIndex(900.f);
+        if (EnemyIndex != INDEX_NONE && Enemies[EnemyIndex].Mesh)
+        {
+            Closest = Enemies[EnemyIndex].Mesh->GetRelativeLocation() - HeroPosition;
+            ClosestDistanceSq = Closest.SizeSquared2D();
+        }
+        if (!bWon && BossMesh && bCasting)
+        {
+            const FVector BossDelta = BossMesh->GetRelativeLocation() - HeroPosition;
+            if (BossDelta.SizeSquared2D() < ClosestDistanceSq)
+                Closest = BossDelta;
+        }
+        if (Closest.SizeSquared2D() > 0.01f)
+            GuardDirection = Closest.GetSafeNormal2D();
+    }
+    // Release/repress may continue the block, but cannot spam perfect parries.
+    if (GuardParryRecovery <= 0.f)
+    {
+        GuardParryTimer = ParryWindow;
+        GuardParryRecovery = ParryRecovery;
+        bParryActiveThisFrame = true;
+    }
+}
+
+void AMoonfallPawn::ToggleWorldMap()
+{
+    bWorldMapVisible = !bWorldMapVisible;
+}
+
+void AMoonfallPawn::SaveExplorationOnly()
+{
+    // Preserve the last living checkpoint and all progression after defeat.
+    // Discovery is informational; it is safe to retain after respawning.
+    UMoonfallProgressSave* Progress = Cast<UMoonfallProgressSave>(
+        UGameplayStatics::LoadGameFromSlot(TEXT("MoonfallPrototypeBossRewards"), 0));
+    if (!Progress)
+        Progress = Cast<UMoonfallProgressSave>(
+            UGameplayStatics::CreateSaveGameObject(UMoonfallProgressSave::StaticClass()));
+    if (!Progress) return;
+    Progress->ExploredMapCells = ExploredMapCells;
+    if (!UGameplayStatics::SaveGameToSlot(Progress, TEXT("MoonfallPrototypeBossRewards"), 0))
+        UE_LOG(LogTemp, Warning, TEXT("Moonfall: fog exploration save failed."));
+}
+
+int32 AMoonfallPawn::GetQuestGoal(int32 QuestId) const
+{
+    if (QuestId == 0) return 1; // Main story: defeat the existing Z boss.
+    if (QuestId == 1) return MoonfallWorldRules::EnemiesPerRegion;
+    if (QuestId == 2) return MoonfallWorldRules::ChambersPerRegion;
+    return 0;
+}
+
+int32 AMoonfallPawn::GetQuestProgress(int32 QuestId, int32 Region) const
+{
+    if (QuestId == 0) return bWon ? 1 : 0;
+    if (Region < 0 || Region >= MoonfallWorldRules::RegionCount) return 0;
+    int32 Count = 0;
+    if (QuestId == 1)
+    {
+        for (int32 Slot = 0; Slot < MoonfallWorldRules::EnemiesPerRegion; ++Slot)
+        {
+            const int32 Id = Region * MoonfallWorldRules::EnemiesPerRegion + Slot;
+            if ((DefeatedEnemyMask & (1 << Id)) != 0) ++Count;
+        }
+    }
+    else if (QuestId == 2)
+    {
+        for (int32 Cave = 0; Cave < MoonfallWorldRules::ChambersPerRegion; ++Cave)
+            if (IsCaveCleared(Region, Cave)) ++Count;
+    }
+    return Count;
+}
+
+void AMoonfallPawn::CycleTrackedQuest()
+{
+    if (!bWorldMapVisible) return;
+    TrackedQuestId = (TrackedQuestId + 1) % 3;
+    SaveMapPreferences();
+}
+
+void AMoonfallPawn::SaveMapPreferences()
+{
+    // Map UI changes must not create or move a living combat checkpoint.
+    // Preserve all previously saved progression and explored terrain.
+    UMoonfallProgressSave* Progress = Cast<UMoonfallProgressSave>(
+        UGameplayStatics::LoadGameFromSlot(TEXT("MoonfallPrototypeBossRewards"), 0));
+    if (!Progress)
+        Progress = Cast<UMoonfallProgressSave>(
+            UGameplayStatics::CreateSaveGameObject(UMoonfallProgressSave::StaticClass()));
+    if (!Progress) return;
+
+    Progress->SavedMinimapTrackingMode = MinimapTrackingMode;
+    Progress->SavedMinimapZoomLevel = MinimapZoomLevel;
+    Progress->SavedTrackedQuestId = TrackedQuestId;
+    if (!UGameplayStatics::SaveGameToSlot(Progress, TEXT("MoonfallPrototypeBossRewards"), 0))
+        UE_LOG(LogTemp, Warning, TEXT("Moonfall: map preferences save failed."));
+}
+
+void AMoonfallPawn::CycleMinimapTracking()
+{
+    MinimapTrackingMode = (MinimapTrackingMode + 1) % 4;
+    SaveMapPreferences();
+}
+
+bool AMoonfallPawn::TryHandleMinimapZoomClick()
+{
+    // Opening the map blocks combat. Click a journal quest to pin it;
+    // clicks outside the journal still never attack or cast.
+    if (bWorldMapVisible)
+    {
+        const APlayerController* MapController = Cast<APlayerController>(GetController());
+        if (MapController)
+        {
+            int32 ViewX = 0, ViewY = 0;
+            float MouseX = 0.f, MouseY = 0.f;
+            MapController->GetViewportSize(ViewX, ViewY);
+            if (ViewX > 0 && ViewY > 0 && MapController->GetMousePosition(MouseX, MouseY))
+            {
+                const float MapWidth = FMath::Max(200.f, FMath::Min(760.f, ViewX - 32.f));
+                const float MapHeight = FMath::Max(120.f, FMath::Min(290.f, ViewY - 100.f));
+                if (MapWidth >= 620.f && MapHeight >= 230.f)
+                {
+                    const float JournalX = (ViewX - MapWidth) * .5f + 12.f;
+                    const float JournalY = (ViewY - MapHeight) * .5f + 51.f;
+                    for (int32 QuestId = 0; QuestId < 3; ++QuestId)
+                    {
+                        const float RowY = JournalY + 28.f + QuestId * 29.f;
+                        if (MouseX >= JournalX + 5.f && MouseX <= JournalX + 223.f &&
+                            MouseY >= RowY && MouseY < RowY + 26.f)
+                        {
+                            if (TrackedQuestId != QuestId)
+                            {
+                                TrackedQuestId = QuestId;
+                                SaveMapPreferences();
+                            }
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        return true;
+    }
+    const APlayerController* Controller = Cast<APlayerController>(GetController());
+    if (!Controller) return false;
+
+    float MouseX = 0.f, MouseY = 0.f;
+    int32 ViewportX = 0, ViewportY = 0;
+    if (!Controller->GetMousePosition(MouseX, MouseY)) return false;
+    Controller->GetViewportSize(ViewportX, ViewportY);
+    if (ViewportX <= 0 || ViewportY <= 0) return false;
+
+    // Positions match the two clickable squares painted by MoonfallHud.
+    const float ButtonX = static_cast<float>(ViewportX) - 36.f;
+    constexpr float ButtonHalfSize = 15.f; // 30x30 selectable controls.
+    if (FMath::Abs(MouseX - ButtonX) > ButtonHalfSize)
+    {
+        // Treat clicks anywhere inside the circular minimap as UI, not attacks.
+        const FVector2D RadarCenter(static_cast<float>(ViewportX) - 94.f, 94.f);
+        const FVector2D MouseDelta(MouseX - RadarCenter.X, MouseY - RadarCenter.Y);
+        return MouseDelta.SizeSquared() <= FMath::Square(72.f);
+    }
+    if (FMath::Abs(MouseY - 67.f) <= ButtonHalfSize)
+    {
+        if (MinimapZoomLevel < 2)
+        {
+            ++MinimapZoomLevel;
+            SaveMapPreferences();
+        }
+        return true;
+    }
+    if (FMath::Abs(MouseY - 99.f) <= ButtonHalfSize)
+    {
+        if (MinimapZoomLevel > 0)
+        {
+            --MinimapZoomLevel;
+            SaveMapPreferences();
+        }
+        return true;
+    }
+    // The button column and map are UI even between the zoom buttons.
+    const FVector2D RadarCenter(static_cast<float>(ViewportX) - 94.f, 94.f);
+    const FVector2D MouseDelta(MouseX - RadarCenter.X, MouseY - RadarCenter.Y);
+    return MouseDelta.SizeSquared() <= FMath::Square(72.f);
+}
+
+void AMoonfallPawn::EndGuard()
+{
+    bGuardHeld = false;
+    GuardParryTimer = 0.f;
+    bParryActiveThisFrame = false;
+}
+
+void AMoonfallPawn::RecordGuardEvent(bool bParried, bool bBroken)
+{
+    if (!HeroMesh) return;
+    if (DamageNumbers.Num() >= 24) DamageNumbers.RemoveAt(0);
+    FDamageNumber Number;
+    Number.LocalPosition = HeroMesh->GetRelativeLocation() + FVector(0.f, 0.f, 130.f);
+    Number.bParried = bParried;
+    Number.bGuardBroken = bBroken;
+    Number.bBlocked = !bParried && !bBroken;
+    DamageNumbers.Add(Number);
+}
+
+float AMoonfallPawn::ResolveGuardHit(
+    const FVector& AttackOrigin, float Damage, bool bUnblockable, bool& bParried)
+{
+    bParried = false;
+    if (!IsGuarding() || GuardBreakTimer > 0.f || bUnblockable) return Damage;
+    const FVector ToAttacker = (AttackOrigin - HeroMesh->GetRelativeLocation()).GetSafeNormal2D();
+    // A guard defends the forward 120-degree arc only.
+    if (FVector::DotProduct(GuardDirection, ToAttacker) < 0.5f) return Damage;
+    if (bParryActiveThisFrame)
+    {
+        bParried = true;
+        GuardParryTimer = 0.f;
+        bParryActiveThisFrame = false;
+        CounterWindow = CounterDuration;
+        bPrecisionRiposteReady = true;
+        // Parry chains into a fast follow-up without resetting earned combo flow.
+        AttackCooldown = FMath::Min(AttackCooldown, 0.12f);
+        MeleeComboTimer = FMath::Max(MeleeComboTimer, 1.1f);
+        Stamina = FMath::Min(GetHudMaxStamina(), Stamina + 8.f);
+        RecordGuardEvent(true, false);
+        return 0.f;
+    }
+    const float GuardCost = FMath::Max(12.f, Damage * 1.3f);
+    if (Stamina < GuardCost)
+    {
+        Stamina = 0.f;
+        bGuardHeld = false;
+        GuardBreakTimer = GuardBreakDuration;
+        RecordGuardEvent(false, true);
+        return Damage; // Exhausted guards never grant invulnerability.
+    }
+    Stamina -= GuardCost;
+    StaminaRegenDelay = 0.8f;
+    RecordGuardEvent(false, false);
+    return Damage * 0.25f; // A maintained directional block reduces damage by 75%.
+}
+
 void AMoonfallPawn::Dodge()
 {
-    if (Health > 0.f && DodgeCooldown <= 0.f && Stamina >= 45.f &&
+    if (Health > 0.f && GuardBreakTimer <= 0.f && DodgeCooldown <= 0.f && Stamina >= 45.f &&
         FVector2D(Forward, Right).SizeSquared() > 0.01f)
     {
+        // Dodge takes priority and cancels a held guard, never stacks protection.
+        EndGuard();
+        // Dodging abandons any previous precision-parry stance. The dodge can
+        // still earn its own normal counter on a genuinely evaded strike.
+        bPrecisionRiposteReady = false;
         DodgeTimer = 0.32f;
         DodgeCooldown = 1.2f;
         Stamina -= 45.f;
@@ -545,7 +1043,24 @@ float AMoonfallPawn::HealingSpellAmount() const
 
 void AMoonfallPawn::Attack()
 {
-    if (Health <= 0.f || AttackCooldown > 0.f) return;
+    if (TryHandleMinimapZoomClick()) return; // UI clicks cannot cause a melee strike.
+    if (Health <= 0.f)
+    {
+        // The existing click-to-attack also resumes the last living checkpoint
+        // after defeat; no new game mode, key, or on-screen attack button.
+        if (!bRespawnRequested && GetWorld())
+        {
+            const FString LevelName = UGameplayStatics::GetCurrentLevelName(GetWorld());
+            if (!LevelName.IsEmpty())
+            {
+                SaveExplorationOnly(); // Keep discovered terrain, not the defeated combat state.
+                bRespawnRequested = true;
+                UGameplayStatics::OpenLevel(GetWorld(), FName(*LevelName));
+            }
+        }
+        return;
+    }
+    if (AttackCooldown > 0.f || GuardBreakTimer > 0.f) return;
     const int32 EnemyIndex = NearestEnemyIndex(400.f);
     const float BossDistance = bWon ? TNumericLimits<float>::Max() :
         FVector::Dist2D(HeroMesh->GetRelativeLocation(), BossMesh->GetRelativeLocation());
@@ -560,29 +1075,38 @@ void AMoonfallPawn::Attack()
     }
     if (EnemyIndex != INDEX_NONE || bBossInRange)
     {
+        // A committed strike lowers the guard; parry-earned ripostes remain valid.
+        EndGuard();
         // Resolve the nearest valid target, not always the first world enemy.
         const float EnemyDistance = EnemyIndex == INDEX_NONE ? TNumericLimits<float>::Max() :
             FVector::Dist2D(HeroMesh->GetRelativeLocation(),
                             Enemies[EnemyIndex].Mesh->GetRelativeLocation());
         const bool bHitBoss = bBossInRange && BossDistance < EnemyDistance;
         const bool bRiposte = CounterWindow > 0.f;
+        const bool bPrecisionCounter = bRiposte && bPrecisionRiposteReady;
         // Every third landed click becomes a finisher. Misses or pauses reset it.
         MeleeComboCount = MeleeComboTimer > 0.f ? MeleeComboCount + 1 : 1;
         const bool bComboFinisher = MeleeComboCount >= 3;
         if (bComboFinisher) MeleeComboCount = 0;
         MeleeComboTimer = 1.1f;
         const float ComboMultiplier = bComboFinisher ? 1.5f : 1.f;
+        // A landed precision parry grants one stronger, quicker melee counter.
         const float Damage = BasicAttackDamage() * ComboMultiplier *
-            (bRiposte ? CounterMultiplier : 1.f);
+            (bRiposte ? CounterMultiplier : 1.f) * (bPrecisionCounter ? 1.2f : 1.f);
+        if (bPrecisionCounter) AttackCooldown = 0.22f;
         // Aggressive play helps sustain dodges. Only a landed third strike
         // restores stamina; whiffs and arcane bolts never trigger the reward.
         if (bComboFinisher)
             Stamina = FMath::Min(GetHudMaxStamina(), Stamina + 8.f);
         CounterWindow = 0.f; // The riposte is spent only on a successful in-range attack.
+        bPrecisionRiposteReady = false;
         if (!bHitBoss) DamageWorldEnemy(EnemyIndex, Damage, bRiposte, bComboFinisher);
         else
         {
+            RecordDamageNumber(BossMesh->GetRelativeLocation(),
+                FMath::Min(BossHealth, Damage), bComboFinisher || bRiposte, false);
             BossHealth = FMath::Max(0.f, BossHealth - Damage);
+            ApplyBossPosture(FMath::Min(Damage, BossHealth + Damage), bRiposte, bComboFinisher, false);
             // Perfect-dodge ripostes can interrupt a live telegraphed boss cast.
             if (bRiposte && bCasting && BossHealth > 0.f)
             {
@@ -604,7 +1128,7 @@ void AMoonfallPawn::Attack()
 }
 void AMoonfallPawn::CastBolt()
 {
-    if (Health <= 0.f || BoltCooldown > 0.f || Mana < 30.f) return;
+    if (Health <= 0.f || GuardBreakTimer > 0.f || BoltCooldown > 0.f || Mana < 30.f) return;
     const int32 EnemyIndex = NearestEnemyIndex(1000.f);
     const float BossDistance = bWon ? TNumericLimits<float>::Max() :
         FVector::Dist2D(HeroMesh->GetRelativeLocation(), BossMesh->GetRelativeLocation());
@@ -614,6 +1138,7 @@ void AMoonfallPawn::CastBolt()
         FVector::Dist2D(HeroMesh->GetRelativeLocation(),
                         Enemies[EnemyIndex].Mesh->GetRelativeLocation());
     const bool bHitBoss = bBossInRange && BossDistance < EnemyDistance;
+    EndGuard(); // Casting commits to offense instead of stacking a held block.
     Mana -= 30.f;
     BoltCooldown = 1.1f;
     // A warned perfect dodge also empowers the next successful bolt, matching
@@ -622,10 +1147,14 @@ void AMoonfallPawn::CastBolt()
     const float Damage = ArcaneBoltDamage() *
         (bRiposte ? CounterMultiplier : 1.f);
     CounterWindow = 0.f;
-    if (!bHitBoss) DamageWorldEnemy(EnemyIndex, Damage, bRiposte);
+    bPrecisionRiposteReady = false; // Casting consumes the counter, without the melee bonus.
+    if (!bHitBoss) DamageWorldEnemy(EnemyIndex, Damage, bRiposte, false, true);
     else
     {
+        RecordDamageNumber(BossMesh->GetRelativeLocation(),
+            FMath::Min(BossHealth, Damage), bRiposte, true);
         BossHealth = FMath::Max(0.f, BossHealth - Damage);
+        ApplyBossPosture(FMath::Min(Damage, BossHealth + Damage), bRiposte, false, true);
         if (bRiposte && bCasting && BossHealth > 0.f)
         {
             bCasting = false;
@@ -639,15 +1168,36 @@ void AMoonfallPawn::CastBolt()
 void AMoonfallPawn::CastHeal()
 {
     const float MaxHealth = GetHudMaxHealth();
-    if (Health <= 0.f || HealCooldown > 0.f || Mana < 40.f || Health >= MaxHealth) return;
+    if (Health <= 0.f || GuardBreakTimer > 0.f || HealCooldown > 0.f || Mana < 40.f || Health >= MaxHealth) return;
+    EndGuard();
     Mana -= 40.f;
     HealCooldown = 5.f;
     Health = FMath::Min(MaxHealth, Health + HealingSpellAmount());
 }
 
+void AMoonfallPawn::ApplyBossPosture(float Damage, bool bRiposte, bool bFinisher, bool bMagic)
+{
+    if (bWon || BossHealth <= 0.f || Damage <= 0.f) return;
+    // Bosses resist posture loss more than ordinary enemies; only real hits count.
+    const float Impact = FMath::Min(Damage, 65.f) *
+        (bRiposte ? 0.85f : (bFinisher ? 0.7f : (bMagic ? 0.25f : 0.35f)));
+    BossPosture = FMath::Min(BossPostureThreshold, BossPosture + Impact);
+    BossPostureIdleTimer = 3.f;
+    if (BossPosture < BossPostureThreshold || BossStaggerTimer > 0.f) return;
+    BossPosture = 0.f;
+    BossPostureIdleTimer = 0.f;
+    BossStaggerTimer = 1.6f;
+    // Posture break interrupts only the current cast, not the entire boss fight.
+    bCasting = false;
+    WarningMesh->SetVisibility(false);
+    CastCooldown = FMath::Max(CastCooldown, 1.8f);
+}
+
 void AMoonfallPawn::Victory()
 {
     bWon = true;
+    BossPosture = 0.f;
+    BossStaggerTimer = 0.f;
     bCasting = false;
     BossAttackCount = 0;
     WarningMesh->SetVisibility(false);
@@ -670,6 +1220,11 @@ void AMoonfallPawn::SetupPlayerInputComponent(UInputComponent* Input)
     Input->BindAxis(TEXT("Zoom"), this, &AMoonfallPawn::Zoom);
     Input->BindAction(TEXT("Attack"), IE_Pressed, this, &AMoonfallPawn::Attack);
     Input->BindAction(TEXT("Dodge"), IE_Pressed, this, &AMoonfallPawn::Dodge);
+    Input->BindAction(TEXT("Guard"), IE_Pressed, this, &AMoonfallPawn::BeginGuard);
+    Input->BindAction(TEXT("Guard"), IE_Released, this, &AMoonfallPawn::EndGuard);
+    Input->BindAction(TEXT("MinimapTracking"), IE_Pressed, this, &AMoonfallPawn::CycleMinimapTracking);
+    Input->BindAction(TEXT("WorldMap"), IE_Pressed, this, &AMoonfallPawn::ToggleWorldMap);
+    Input->BindAction(TEXT("CycleTrackedQuest"), IE_Pressed, this, &AMoonfallPawn::CycleTrackedQuest);
     Input->BindAction(TEXT("ArcaneBolt"), IE_Pressed, this, &AMoonfallPawn::CastBolt);
     Input->BindAction(TEXT("ArcaneHeal"), IE_Pressed, this, &AMoonfallPawn::CastHeal);
 }
@@ -677,10 +1232,17 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
 {
     Super::Tick(DeltaSeconds);
     const float Dt = FMath::Max(0.f, DeltaSeconds);
+    for (int32 I = DamageNumbers.Num() - 1; I >= 0; --I)
+    {
+        DamageNumbers[I].Age += Dt;
+        if (DamageNumbers[I].Age >= DamageNumberLifetime)
+            DamageNumbers.RemoveAtSwap(I, 1, EAllowShrinking::No);
+    }
     AttackCooldown = FMath::Max(0.f, AttackCooldown - Dt);
     // Preserve combat reaction windows across a rare long render stall.
     // Ordinary frame intervals still advance the timers in real time.
     const float ReactionDt = FMath::Min(Dt, 0.05f);
+    RespawnGraceTimer = FMath::Max(0.f, RespawnGraceTimer - ReactionDt);
     MeleeComboTimer = FMath::Max(0.f, MeleeComboTimer - ReactionDt);
     if (MeleeComboTimer <= 0.f) MeleeComboCount = 0;
     // Snapshot dodge protection before advancing timers. The same active
@@ -688,13 +1250,21 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
     const bool bDodgeActiveThisFrame = DodgeTimer > 0.f;
     DodgeTimer = FMath::Max(0.f, DodgeTimer - ReactionDt);
     DodgeCooldown = FMath::Max(0.f, DodgeCooldown - Dt);
+    GuardBreakTimer = FMath::Max(0.f, GuardBreakTimer - ReactionDt);
+    GuardParryRecovery = FMath::Max(0.f, GuardParryRecovery - ReactionDt);
+    // Snapshot the parry before timer decay; a strike on the final frame counts.
+    bParryActiveThisFrame = IsParryWindowActive();
+    GuardParryTimer = FMath::Max(0.f, GuardParryTimer - ReactionDt);
+    const FVector GuardInput(Forward, Right, 0.f);
+    if (bGuardHeld && GuardInput.SizeSquared2D() > 0.01f)
+        GuardDirection = GuardInput.GetSafeNormal2D();
     // Dodging temporarily stops passive stamina gain. A rewarded perfect
     // dodge can still restore its explicit 10 stamina immediately.
     // Only regenerate for the portion of this frame after the delay ends.
     // Otherwise a frame that crosses the boundary grants free early stamina.
     const float StaminaRegenDt = FMath::Max(0.f, Dt - StaminaRegenDelay);
     StaminaRegenDelay = FMath::Max(0.f, StaminaRegenDelay - Dt);
-    if (StaminaRegenDt > 0.f)
+    if (StaminaRegenDt > 0.f && !IsGuarding())
         Stamina = FMath::Min(GetHudMaxStamina(), Stamina + 30.f * StaminaRegenDt);
     Mana = FMath::Min(180.f, Mana + 8.f * Dt);
     BoltCooldown = FMath::Max(0.f, BoltCooldown - Dt);
@@ -702,6 +1272,11 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
     EnemyDamageCooldown = FMath::Max(0.f, EnemyDamageCooldown - Dt);
     // Preserve earned ripostes during a render stall, matching dodge and telegraph timing.
     CounterWindow = FMath::Max(0.f, CounterWindow - ReactionDt);
+    if (CounterWindow <= 0.f) bPrecisionRiposteReady = false;
+    BossStaggerTimer = FMath::Max(0.f, BossStaggerTimer - ReactionDt);
+    BossPostureIdleTimer = FMath::Max(0.f, BossPostureIdleTimer - ReactionDt);
+    if (BossPostureIdleTimer <= 0.f)
+        BossPosture = FMath::Max(0.f, BossPosture - 16.f * ReactionDt);
     CheckpointTimer += Dt;
     if (Health > 0.f)
     {
@@ -709,20 +1284,24 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
         Direction = Direction.GetClampedToMaxSize(1.f);
         // A frame hitch must not teleport the hero through a boss warning or chamber.
         const float MovementDt = FMath::Min(Dt, 0.05f);
-        FVector Position = HeroMesh->GetRelativeLocation() +
-            Direction * (bDodgeActiveThisFrame ? 1200.f : 600.f) * MovementDt;
+        const FVector PreviousPosition = HeroMesh->GetRelativeLocation();
+        FVector Position = PreviousPosition +
+            Direction * (bDodgeActiveThisFrame ? 1200.f : (IsGuarding() ? 340.f : 600.f)) * MovementDt;
         Position.X = FMath::Clamp(Position.X, -1600.f, 17600.f);
         Position.Y = FMath::Clamp(Position.Y, -3200.f, 3200.f);
         HeroMesh->SetRelativeLocation(Position);
-        if (CheckpointTimer >= CheckpointInterval)
+        RevealMapAlongPath(PreviousPosition, Position);
+        const int32 CurrentRegion = MoonfallWorldRules::RegionAt(Position.X);
+        if (CurrentRegion != LastCheckpointRegion || CheckpointTimer >= CheckpointInterval)
         {
+            LastCheckpointRegion = CurrentRegion;
             CheckpointTimer = 0.f;
-            SaveProgress();
+            SaveProgress(); // Saves living state only, never heals after enemy kills.
         }
         CollectNearbyChambers();
         UpdateWorldEnemies(Dt);
         CameraBoom->SetRelativeLocation(FVector(Position.X, Position.Y, 0.f));
-        if (Health > 0.f && EnemyDamageCooldown <= 0.f)
+        if (Health > 0.f && EnemyDamageCooldown <= 0.f && RespawnGraceTimer <= 0.f)
         {
             // Find the nearest *engaged* contact. A retreating enemy cannot
             // shield another active enemy just because it is slightly closer.
@@ -732,7 +1311,8 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
             for (int32 I = 0; I < Enemies.Num(); ++I)
             {
                 const FWorldEnemy& Candidate = Enemies[I];
-                if (!Candidate.Mesh || Candidate.bReturningHome || Candidate.bStaggeredThisFrame) continue;
+                if (!Candidate.Mesh || Candidate.bReturningHome ||
+                    Candidate.bStaggeredThisFrame || !Candidate.bAttackReadyThisFrame) continue;
                 const FVector HomeOffset = Candidate.Mesh->GetRelativeLocation() - Candidate.Home;
                 const float Leash = Candidate.bGuardian ? 600.f : 900.f;
                 if (HomeOffset.SizeSquared2D() >= FMath::Square(Leash)) continue;
@@ -746,13 +1326,32 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
             }
             if (ContactIndex != INDEX_NONE)
             {
-                const FWorldEnemy& Contact = Enemies[ContactIndex];
-                if (bDodgeActiveThisFrame) CounterWindow = CounterDuration;
+                FWorldEnemy& Contact = Enemies[ContactIndex];
+                if (bDodgeActiveThisFrame)
+                {
+                    CounterWindow = CounterDuration;
+                    RecordHeroHit(0.f, true);
+                }
                 else
                 {
                     const float ContactDamage = 5.f + 2.f * Contact.Region +
                         (Contact.bEnraged ? 4.f : 0.f);
-                    Health = FMath::Max(0.f, Health - ContactDamage);
+                    bool bParried = false;
+                    const float Taken = ResolveGuardHit(
+                        Contact.Mesh->GetRelativeLocation(), ContactDamage, false, bParried);
+                    if (bParried)
+                    {
+                        // Parrying cannot shorten a longer posture-break stun.
+                        Contact.StaggerTimer = FMath::Max(
+                            Contact.StaggerTimer, Contact.bGuardian ? 0.9f : 0.6f);
+                        Contact.AttackWindup = 0.f;
+                        Contact.AttackRecovery = FMath::Max(Contact.AttackRecovery, 0.8f);
+                    }
+                    if (Taken > 0.f)
+                    {
+                        RecordHeroHit(FMath::Min(Health, Taken), false);
+                        Health = FMath::Max(0.f, Health - Taken);
+                    }
                 }
                 EnemyDamageCooldown = 1.2f;
             }
@@ -776,6 +1375,7 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
     if (!bCasting)
     {
         CastCooldown -= Dt;
+        if (BossStaggerTimer > 0.f) return;
         if (CastCooldown <= 0.f)
         {
             // Phase thresholds are sampled at cast start; the warning remains stable
@@ -783,6 +1383,7 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
             BossAttackPhase = BossHealth <= 30.f ? 3 : (BossHealth <= 65.f ? 2 : 1);
             ++BossAttackCount;
             const bool bRadial = BossAttackPhase >= 2 && BossAttackCount % 2 == 0;
+            bBossRadialAttack = bRadial;
             const FVector Center = bRadial ? BossMesh->GetRelativeLocation()
                                            : HeroMesh->GetRelativeLocation();
             TargetWorld = FVector(Center.X, Center.Y, 0.f);
@@ -819,19 +1420,38 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
                            (BossAttackPhase == 2 ? 2.9f : 3.5f);
             if (FVector::Dist2D(HeroMesh->GetRelativeLocation(), TargetWorld) < BossWarningRadius)
             {
-                if (bDodgeActiveThisFrame)
+                // Checkpoint invulnerability protects the hero but does not
+                // award a perfect-dodge counter for a harmless boss strike.
+                if (bDodgeActiveThisFrame && RespawnGraceTimer <= 0.f)
                 {
                     // A successful warned dodge rewards timing, not passive kill healing.
                     // Each strike resolves only once, limiting the stamina refund.
                     CounterWindow = CounterDuration;
                     Stamina = FMath::Min(GetHudMaxStamina(), Stamina + 10.f);
+                    RecordHeroHit(0.f, true);
                 }
-                else if (EnemyDamageCooldown <= 0.f)
+                else if (EnemyDamageCooldown <= 0.f && RespawnGraceTimer <= 0.f)
                 {
                     // Boss and mob strikes share a brief damage recovery window:
                     // overlapping attacks must not instantly double-hit the hero.
-                    Health = FMath::Max(0.f, Health -
-                        (BossAttackPhase == 3 ? 28.f : (BossAttackPhase == 2 ? 24.f : 20.f)));
+                    const float BossDamage = BossAttackPhase == 3 ? 28.f :
+                        (BossAttackPhase == 2 ? 24.f : 20.f);
+                    bool bParried = false;
+                    const float Taken = ResolveGuardHit(
+                        BossMesh->GetRelativeLocation(), BossDamage, bBossRadialAttack, bParried);
+                    if (bParried)
+                    {
+                        // A clean directional parry creates an actual punish window.
+                        // Preserve longer existing boss staggers and prevent an
+                        // immediate follow-up cast, without granting free damage.
+                        BossStaggerTimer = FMath::Max(BossStaggerTimer, 0.65f);
+                        CastCooldown = FMath::Max(CastCooldown, 3.5f);
+                    }
+                    if (Taken > 0.f)
+                    {
+                        RecordHeroHit(FMath::Min(Health, Taken), false);
+                        Health = FMath::Max(0.f, Health - Taken);
+                    }
                     EnemyDamageCooldown = 1.2f;
                 }
             }
