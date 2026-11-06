@@ -325,7 +325,8 @@ func _gui_input(event:InputEvent)->void:
   var location:Vector3=Vector3(player_position.x+offset.x,player_position.y,player_position.z+offset.y)
   if not _valid_world_point(location):return
   if dungeon_active:
-   var nearest_room:int=dungeon_room_index_at(location,dungeon_rooms,14.0/scale_factor)
+   var click_radius:float=minf(14.0/scale_factor,14.0) # Cap hit testing in world metres at wide zoom.
+   var nearest_room:int=dungeon_room_index_at(location,dungeon_rooms,click_radius)
    if nearest_room>=0:
     var candidate:Vector3=dungeon_rooms[nearest_room]
     var room_discovered:bool=false
