@@ -78,6 +78,20 @@ if (-not (Test-Path -LiteralPath $GameExe -PathType Leaf)) {
 if (-not (Test-WindowsExecutable -Path $GameExe)) {
     throw "Unreal build returned success but the game executable is empty or not a Windows PE file: $GameExe"
 }
+# Incremental builds may reuse a previous executable, but that executable
+# must not be older than any tracked source or project/build configuration.
+$ProjectRoot = Join-Path $PSScriptRoot "MoonfallPrototype"
+$SourceRoot = Join-Path $ProjectRoot "Source"
+$SourceFiles = @(Get-ChildItem -LiteralPath $SourceRoot -Recurse -File |
+    Where-Object { $_.Extension -in @(".cpp", ".h", ".cs") })
+$BuildInputs = @($SourceFiles) + @(
+    Get-Item -LiteralPath $Project
+    Get-Item -LiteralPath (Join-Path $ProjectRoot "Config\DefaultEngine.ini")
+)
+$LatestInputUtc = ($BuildInputs | Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 1).LastWriteTimeUtc
+if ((Get-Item -LiteralPath $GameExe).LastWriteTimeUtc -lt $LatestInputUtc.AddSeconds(-2)) {
+    throw "Win64 game executable is older than project sources or config. Rebuild MoonfallPrototype: $GameExe"
+}
 Write-Host "Unreal Editor and Win64 Development game compilation succeeded."
 Write-Host "Compilation alone does not prove packaged gameplay or save/load behavior."
 
