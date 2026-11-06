@@ -263,7 +263,7 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("Hero->GetChamberMapPositions()", minimap)
         self.assertIn("Hero->GetEnemyMapPositions()", minimap)
         self.assertIn("Hero->IsBossDefeated()", minimap)
-        self.assertIn("Local.SizeSquared() > FMath::Square(RadarRadius - 10.f)", minimap)
+        self.assertIn("if (DistanceSq > FMath::Square(RadarRadius - 10.f)) continue;", minimap)
         self.assertIn("Local.SizeSquared() > FMath::Square(RadarRadius - 9.f)", minimap)
         self.assertIn("Local.SizeSquared() <= FMath::Square(RadarRadius - 10.f)", minimap)
         self.assertNotIn("const float Left = Canvas->ClipX - 178.f;", minimap)
