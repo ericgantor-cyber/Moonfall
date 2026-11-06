@@ -161,3 +161,7 @@ To make the native starter scene more evocative without making it heavier, the a
 ## Moonlight and low fog atmosphere
 
 The native Unreal starter arena now has an optional cool moonlight directional component and low blue-black exponential fog. They complement the ruined architecture, dead trees, ritual stones and existing colored lights without adding new actors or tick work. Disable them via `bEnableMoonlight` and `bEnableLowFog`; `GroundFogDensity` defaults to 0.012 and is clamped to 0–0.025. Moonlight shadows are disabled by default. Fog visibility, attack telegraph contrast, accessibility, Unreal 5.4 compilation and Windows performance **must still be tested** before production use. The original Z/Nyra art and Godot game have not been modified.
+
+## Ritual boss-circle art upgrade
+
+A fixed **24-piece ceremonial stone ring** now surrounds the boss combat area. It is a single non-colliding, shadow-free instanced-mesh group positioned just above the ground, with the center left clear for attacks and warning visuals. Blueprint authors can hide it with `bShowRitualCircle` or replace its prototype tiles through `SigilTileMeshArt` and `SigilTileMaterial`. A real runic texture, emissive material, dynamic ritual effect, UE 5.4 compilation and Windows playtesting are not yet complete. The ring is decorative only; it does not alter combat balance.
