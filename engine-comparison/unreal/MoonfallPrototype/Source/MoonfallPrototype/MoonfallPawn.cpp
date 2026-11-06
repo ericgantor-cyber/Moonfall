@@ -849,6 +849,7 @@ void AMoonfallPawn::Attack()
             RecordDamageNumber(BossMesh->GetRelativeLocation(),
                 FMath::Min(BossHealth, Damage), bComboFinisher || bRiposte, false);
             BossHealth = FMath::Max(0.f, BossHealth - Damage);
+            ApplyBossPosture(FMath::Min(Damage, BossHealth + Damage), bRiposte, bComboFinisher, false);
             // Perfect-dodge ripostes can interrupt a live telegraphed boss cast.
             if (bRiposte && bCasting && BossHealth > 0.f)
             {
@@ -895,6 +896,7 @@ void AMoonfallPawn::CastBolt()
         RecordDamageNumber(BossMesh->GetRelativeLocation(),
             FMath::Min(BossHealth, Damage), bRiposte, true);
         BossHealth = FMath::Max(0.f, BossHealth - Damage);
+        ApplyBossPosture(FMath::Min(Damage, BossHealth + Damage), bRiposte, false, true);
         if (bRiposte && bCasting && BossHealth > 0.f)
         {
             bCasting = false;
@@ -915,9 +917,29 @@ void AMoonfallPawn::CastHeal()
     Health = FMath::Min(MaxHealth, Health + HealingSpellAmount());
 }
 
+void AMoonfallPawn::ApplyBossPosture(float Damage, bool bRiposte, bool bFinisher, bool bMagic)
+{
+    if (bWon || BossHealth <= 0.f || Damage <= 0.f) return;
+    // Bosses resist posture loss more than ordinary enemies; only real hits count.
+    const float Impact = FMath::Min(Damage, 65.f) *
+        (bRiposte ? 0.85f : (bFinisher ? 0.7f : (bMagic ? 0.25f : 0.35f)));
+    BossPosture = FMath::Min(BossPostureThreshold, BossPosture + Impact);
+    BossPostureIdleTimer = 3.f;
+    if (BossPosture < BossPostureThreshold || BossStaggerTimer > 0.f) return;
+    BossPosture = 0.f;
+    BossPostureIdleTimer = 0.f;
+    BossStaggerTimer = 1.6f;
+    // Posture break interrupts only the current cast, not the entire boss fight.
+    bCasting = false;
+    WarningMesh->SetVisibility(false);
+    CastCooldown = FMath::Max(CastCooldown, 1.8f);
+}
+
 void AMoonfallPawn::Victory()
 {
     bWon = true;
+    BossPosture = 0.f;
+    BossStaggerTimer = 0.f;
     bCasting = false;
     BossAttackCount = 0;
     WarningMesh->SetVisibility(false);
@@ -989,6 +1011,10 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
     EnemyDamageCooldown = FMath::Max(0.f, EnemyDamageCooldown - Dt);
     // Preserve earned ripostes during a render stall, matching dodge and telegraph timing.
     CounterWindow = FMath::Max(0.f, CounterWindow - ReactionDt);
+    BossStaggerTimer = FMath::Max(0.f, BossStaggerTimer - ReactionDt);
+    BossPostureIdleTimer = FMath::Max(0.f, BossPostureIdleTimer - ReactionDt);
+    if (BossPostureIdleTimer <= 0.f)
+        BossPosture = FMath::Max(0.f, BossPosture - 16.f * ReactionDt);
     CheckpointTimer += Dt;
     if (Health > 0.f)
     {
@@ -1083,6 +1109,7 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
     if (!bCasting)
     {
         CastCooldown -= Dt;
+        if (BossStaggerTimer > 0.f) return;
         if (CastCooldown <= 0.f)
         {
             // Phase thresholds are sampled at cast start; the warning remains stable
