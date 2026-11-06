@@ -32,6 +32,13 @@ class AtlasFogContract(unittest.TestCase):
         self.assertLess(room.index("if not visited:continue"), room.index("draw_string(ThemeDB.fallback_font"))
 
 
+    def test_zoomed_out_waypoint_hit_radius_is_bounded(self):
+        start = SOURCE.index("if dungeon_active:", SOURCE.index("func _gui_input("))
+        end = SOURCE.index("waypoint_selected.emit(location)", start)
+        click = SOURCE[start:end]
+        self.assertIn("minf(14.0/scale_factor,14.0)", click)
+        self.assertIn("dungeon_room_index_at(location,dungeon_rooms,click_radius)", click)
+
     def test_hidden_rooms_do_not_snap_waypoints(self):
         start = SOURCE.index("if dungeon_active:", SOURCE.index("func _gui_input("))
         end = SOURCE.index("waypoint_selected.emit(location)", start)
