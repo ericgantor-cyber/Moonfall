@@ -491,7 +491,7 @@ void AMoonfallHud::DrawHUD()
         // Tracking filters only affect the icons, never the terrain.
         if (bTrackChambers)
         {
-            for (const FVector& Chamber : Hero->GetChamberMapPositions())
+            for (const FVector& Chamber : Hero->GetWorldMapChamberPositions())
             {
                 const FVector2D P = ToMap(Chamber.X, Chamber.Y);
                 Canvas->K2_DrawBox(P - FVector2D(2.f, 2.f),
