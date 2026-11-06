@@ -218,6 +218,17 @@ jobs:
           assert 'Moonlight->SetVisibility(bEnableMoonlight)' in arena
           assert 'FMath::Clamp(GroundFogDensity,0.f,0.025f)' in arena
           assert 'UInstancedStaticMeshComponent* RitualStones' in arena_header
+          assert 'UInstancedStaticMeshComponent* RitualSigil' in arena_header
+          assert 'UStaticMesh* SigilTileMeshArt' in arena_header
+          assert 'UMaterialInterface* SigilTileMaterial' in arena_header
+          assert 'bool bShowRitualCircle = true' in arena_header
+          assert 'CreateDefaultSubobject<UInstancedStaticMeshComponent>(TEXT("RitualSigil"))' in arena
+          assert 'RitualSigil->SetCollisionEnabled(ECollisionEnabled::NoCollision)' in arena
+          assert 'RitualSigil->SetCastShadow(false)' in arena
+          assert 'RitualSigil->AddInstance(FTransform' in arena
+          assert 'if (bShowRitualCircle)' in arena and 'constexpr int32 RingTiles = 24' in arena
+          assert 'if (SigilTileMeshArt) RitualSigil->SetStaticMesh(SigilTileMeshArt)' in arena
+          assert 'if (SigilTileMaterial) RitualSigil->SetMaterial(0,SigilTileMaterial)' in arena
           assert 'int32 DeadTreeCount = 10' in arena_header
           assert 'UStaticMesh* DeadTreeMeshArt' in arena_header
           assert 'UMaterialInterface* DeadTreeMaterial' in arena_header
