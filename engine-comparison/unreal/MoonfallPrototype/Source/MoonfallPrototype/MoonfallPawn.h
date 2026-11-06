@@ -100,7 +100,7 @@ private:
     static constexpr float CounterMultiplier = 1.75f;
     int32 LastCheckpointRegion = 0; // Commit living progress on entering a new region.
     float CheckpointTimer = 0.f;
-    static constexpr float CheckpointInterval = 8.f;
+    static constexpr float CheckpointInterval = 16.f;
     UPROPERTY() UBillboardComponent* BossPortrait;
     UPROPERTY() UTexture2D* ZArtwork;
     UPROPERTY() UTexture2D* NyraArtwork;
