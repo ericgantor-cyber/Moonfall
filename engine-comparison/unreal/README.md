@@ -42,6 +42,10 @@ Melee, arcane bolt and boss hits now emit temporary damage numbers anchored to t
 
 When health reaches zero, the existing left-click attack input reloads the current Unreal level. The existing isolated save slot restores the most recent **living** checkpoint, including location, health, mana, stamina, XP and previously saved exploration progress. A guard prevents repeated reload requests. No new keyboard shortcut, on-screen attack button, game mode, passive kill healing, or changes to Godot are introduced. This needs actual Unreal Editor testing to confirm a map reload and checkpoint restoration.
 
+## Upgraded checkpoint recovery (source implemented, gameplay unverified)
+
+In addition to the existing eight-second living checkpoint cycle, moving into a new connected world region now triggers an immediate checkpoint save. Reloading a checkpoint starts tracking from the restored region rather than saving repeatedly on the first frame. On defeat, the HUD temporarily shows a "Left-click to return to your last checkpoint" prompt and the existing click input reloads the level; it adds no permanent HUD controls. Saves preserve the hero's living checkpoint even when level transitions follow defeat. Actual disk write success, level reload and save restoration still need UE 5.6 gameplay testing.
+
 ## Manual acceptance checklist
 
 - Compile editor and game C++ targets on Windows with UE 5.6 and record exact errors, warnings, and versions.
