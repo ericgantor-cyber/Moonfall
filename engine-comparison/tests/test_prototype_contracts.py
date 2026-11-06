@@ -254,6 +254,35 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("FMath::Square(1200.f)", posture)
         self.assertIn("if (Visible.Num() >= MaxPostureIndicators) break;", posture)
 
+    def test_minimap_and_world_map_render_actual_region_floor_footprints(self):
+        controls = INPUT.read_text(encoding="utf-8")
+        hud = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8")
+        world = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallWorldRules.h").read_text(encoding="utf-8")
+        terrain = hud.split("// Map terrain is computed from the exact floor footprints", 1)[1]
+        minimap = hud.split("// Compact WoW-style circular minimap", 1)[1]
+        self.assertIn('ActionName="WorldMap",Key=Tab', controls)
+        self.assertIn('BindAction(TEXT("WorldMap"), IE_Pressed', self.cpp)
+        self.assertIn("bWorldMapVisible = !bWorldMapVisible;", self.cpp)
+        self.assertIn("bool IsWorldMapVisible() const", self.header)
+        self.assertIn("int32 TerrainRegionAt(const FVector2D& World)", terrain)
+        self.assertIn("MoonfallWorldRules::RegionCenter(Region)", terrain)
+        self.assertIn("MoonfallWorldRules::ChamberCenter(Region, Chamber)", terrain)
+        self.assertIn("MoonfallWorldRules::HalfRegion", terrain)
+        self.assertIn("FMath::Abs(World.Y) <= MoonfallWorldRules::HalfRegion", terrain)
+        self.assertIn("FMath::Abs(World.Y - Center.Y) <= 800.f", terrain)
+        self.assertIn("FMath::Square(GroundLimit) - FMath::Square(Y)", minimap)
+        self.assertIn("TerrainRegionAt(FVector2D(", minimap)
+        self.assertIn("TerrainTint(ActiveRegion)", minimap)
+        self.assertIn("if (Hero->IsWorldMapVisible())", minimap)
+        self.assertIn('TEXT("TAB: CLOSE MAP")', minimap)
+        self.assertIn("GetWorldMapChamberPositions()", minimap)
+        self.assertIn("TArray<FVector> AMoonfallPawn::GetWorldMapChamberPositions() const", self.cpp)
+        self.assertIn("for (const FChamberCache& Cache : ChamberCaches)", self.cpp)
+        self.assertIn("HalfRegion = 1700.f", world)
+        self.assertIn("ChambersPerRegion = 5", world)
+        self.assertNotIn("Hero->GetEnemyMapPositions()", minimap)
+        self.assertNotIn("NearestChamberDirection", minimap)
+
     def test_minimap_clickable_zoom_and_preferences_survive_checkpoint(self):
         controls = INPUT.read_text(encoding="utf-8")
         saved = SAVES.read_text(encoding="utf-8")
