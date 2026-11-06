@@ -70,7 +70,7 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
   // Normal enemies retain brief hit reactions to reward offensive pressure.
   if (!bBoss) HitReactionEndsAt = LastHitTime + 0.22f;
   if (Health <= 0.0f) {
-   if (AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0))) { Hero->AwardExperience(FMath::RoundToInt((bBoss ? 125.f : (bElite ? 50.f : 25.f)) * (1.f + 0.018f * FMath::Min(SpawnBalanceLevel - 1, 40)))); Hero->AwardEquipmentDrop(bElite, bBoss); }
+   if (AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0))) { Hero->AwardExperience(FMath::RoundToInt((bBoss ? 125.f : (bElite ? 50.f : 25.f)) * (1.f + 0.018f * FMath::Min(SpawnBalanceLevel - 1, 40)))); Hero->AwardEquipmentDrop(bElite, bBoss); if (bBoss) Hero->CompleteArenaBossQuest(); }
    SetActorHiddenInGame(true); SetActorEnableCollision(false); SetActorTickEnabled(false); SetLifeSpan(1.25f); }
 }
 
