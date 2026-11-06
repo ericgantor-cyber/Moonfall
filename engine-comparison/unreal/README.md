@@ -28,7 +28,7 @@ This launches Unreal Editor to create `Content/Maps/MoonfallPrototype.umap` if a
 & ".\engine-comparison\unreal\verify-windows-build.ps1" -EngineRoot "C:\Program Files\Epic Games\UE_5.6" -Package
 ```
 
-Packaging uses Unreal's `RunUAT.bat BuildCookRun` for Win64 Development, cooking, staging, and archiving. Every invocation writes into its own uniquely named `run-*` archive subfolder to prevent older packages from being mistaken for fresh outputs, even when Unreal preserves file modification times. If no `.umap` exists, the script **fails explicitly** instead of claiming a playable build. A successful package still needs a manual Windows 10/11 launch and gameplay check.
+Packaging uses Unreal's `RunUAT.bat BuildCookRun` for Win64 Development, cooking, staging, and archiving. Every invocation writes into its own uniquely named `run-*` archive subfolder to prevent older packages from being mistaken for fresh outputs, even when Unreal preserves file modification times. The verifier also requires both a valid Win64 PE executable and nonempty cooked Unreal content (`.pak` or IoStore `.ucas`) in that isolated archive; this still does not replace launch testing. If no `.umap` exists, the script **fails explicitly** instead of claiming a playable build. A successful package still needs a manual Windows 10/11 launch and gameplay check.
 
 ## Manual acceptance checklist
 
