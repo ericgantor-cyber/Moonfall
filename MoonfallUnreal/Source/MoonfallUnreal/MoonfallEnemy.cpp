@@ -18,8 +18,14 @@ AMoonfallEnemy::AMoonfallEnemy() {
   CrowLeftWing = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("CrowLeftWing"));
   CrowRightWing = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("CrowRightWing"));
   CrowBeak = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("CrowBeak"));
+  CrowTail = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("CrowTail"));
+  CrowLeftTalon = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("CrowLeftTalon"));
+  CrowRightTalon = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("CrowRightTalon"));
+  CrowLeftEye = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("CrowLeftEye"));
+  CrowRightEye = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("CrowRightEye"));
   static ConstructorHelpers::FObjectFinder<UStaticMesh> Cube(TEXT("/Engine/BasicShapes/Cube.Cube"));
-  for (UStaticMeshComponent* Part : {CrowLeftWing,CrowRightWing,CrowBeak}) {
+  for (UStaticMeshComponent* Part : {CrowLeftWing,CrowRightWing,CrowBeak,CrowTail,
+                                      CrowLeftTalon,CrowRightTalon,CrowLeftEye,CrowRightEye}) {
    Part->SetupAttachment(Body);
    Part->SetCollisionEnabled(ECollisionEnabled::NoCollision);
    Part->SetCastShadow(false);
@@ -32,6 +38,16 @@ AMoonfallEnemy::AMoonfallEnemy() {
   CrowRightWing->SetRelativeScale3D(FVector(0.5f,1.75f,0.065f));
   CrowBeak->SetRelativeLocation(FVector(100.f,0.f,-20.f));
   CrowBeak->SetRelativeScale3D(FVector(0.55f,0.14f,0.13f));
+  CrowTail->SetRelativeLocation(FVector(-105.f,0.f,2.f));
+  CrowTail->SetRelativeScale3D(FVector(0.76f,0.54f,0.075f));
+  CrowLeftTalon->SetRelativeLocation(FVector(5.f,-46.f,-48.f));
+  CrowRightTalon->SetRelativeLocation(FVector(5.f,46.f,-48.f));
+  CrowLeftTalon->SetRelativeScale3D(FVector(0.38f,0.09f,0.26f));
+  CrowRightTalon->SetRelativeScale3D(FVector(0.38f,0.09f,0.26f));
+  CrowLeftEye->SetRelativeLocation(FVector(68.f,-37.f,24.f));
+  CrowRightEye->SetRelativeLocation(FVector(68.f,37.f,24.f));
+  CrowLeftEye->SetRelativeScale3D(FVector(0.08f,0.06f,0.08f));
+  CrowRightEye->SetRelativeScale3D(FVector(0.08f,0.06f,0.08f));
   PrimaryActorTick.bCanEverTick = true;
   PrimaryActorTick.TickInterval = 0.1f;
 }
@@ -53,6 +69,24 @@ void AMoonfallEnemy::BeginPlay() {
   CrowLeftWing->SetHiddenInGame(false);
   CrowRightWing->SetHiddenInGame(false);
   CrowBeak->SetHiddenInGame(false);
+  CrowTail->SetHiddenInGame(false);
+  CrowLeftTalon->SetHiddenInGame(false);
+  CrowRightTalon->SetHiddenInGame(false);
+  CrowLeftEye->SetHiddenInGame(false);
+  CrowRightEye->SetHiddenInGame(false);
+  if (CrowBodyArt) Body->SetStaticMesh(CrowBodyArt);
+  if (CrowWingArt) {
+   CrowLeftWing->SetStaticMesh(CrowWingArt);
+   CrowRightWing->SetStaticMesh(CrowWingArt);
+  }
+  if (CrowFeatherMaterial) {
+   for (UStaticMeshComponent* Part : {Body,CrowLeftWing,CrowRightWing,CrowTail})
+    Part->SetMaterial(0,CrowFeatherMaterial);
+  }
+  if (CrowAccentMaterial) {
+   for (UStaticMeshComponent* Part : {CrowBeak,CrowLeftTalon,CrowRightTalon,CrowLeftEye,CrowRightEye})
+    Part->SetMaterial(0,CrowAccentMaterial);
+  }
   CrowRecoverUntil = GetWorld() ? GetWorld()->GetTimeSeconds() + 1.0f : 1.f;
   SetActorTickInterval(0.05f);
  }
@@ -336,6 +370,9 @@ void AMoonfallEnemy::UpdateCrowAppearance(float TimeSeconds)
  const float WingBeat = FMath::Sin(TimeSeconds*(bCrowDiving ? 11.f : 6.8f) + GetUniqueID()*0.13f);
  if (CrowLeftWing) CrowLeftWing->SetRelativeRotation(FRotator(0.f,0.f,25.f+WingBeat*26.f));
  if (CrowRightWing) CrowRightWing->SetRelativeRotation(FRotator(0.f,0.f,-25.f-WingBeat*26.f));
+ if (CrowTail) CrowTail->SetRelativeRotation(FRotator(0.f,0.f,4.f*FMath::Sin(TimeSeconds*3.1f)));
+ if (CrowLeftTalon) CrowLeftTalon->SetRelativeRotation(FRotator(0.f,0.f,bCrowDiving ? -25.f : -6.f));
+ if (CrowRightTalon) CrowRightTalon->SetRelativeRotation(FRotator(0.f,0.f,bCrowDiving ? 25.f : 6.f));
 }
 void AMoonfallEnemy::TickCorruptedCrow(float DeltaSeconds)
 {
