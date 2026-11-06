@@ -119,7 +119,8 @@ private:
     void EndGuard();
     void CycleMinimapTracking();
     int32 MinimapTrackingMode = 0; // 0 all, 1 chambers, 2 boss, 3 off.
-    void CycleMinimapZoom();
+    // UI clicks are handled before combat, so zoom buttons never trigger attacks.
+    bool TryHandleMinimapZoomClick();
     int32 MinimapZoomLevel = 0; // 0 wide, 1 medium, 2 close.
     struct FChamberCache
     {
