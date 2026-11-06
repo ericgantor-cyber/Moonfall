@@ -254,20 +254,25 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("FMath::Square(1200.f)", posture)
         self.assertIn("if (Visible.Num() >= MaxPostureIndicators) break;", posture)
 
-    def test_minimap_zoom_cycles_and_preferences_survive_checkpoint(self):
+    def test_minimap_clickable_zoom_and_preferences_survive_checkpoint(self):
         controls = INPUT.read_text(encoding="utf-8")
         saved = SAVES.read_text(encoding="utf-8")
         hud = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8")
         minimap = hud.split("// Compact WoW-style circular minimap", 1)[1]
-        self.assertIn('ActionName="MinimapZoom",Key=M', controls)
-        self.assertIn('BindAction(TEXT("MinimapZoom"), IE_Pressed', self.cpp)
-        self.assertIn("MinimapZoomLevel = (MinimapZoomLevel + 1) % 3;", self.cpp)
+        self.assertNotIn('ActionName="MinimapZoom",Key=M', controls)
+        self.assertNotIn('BindAction(TEXT("MinimapZoom")', self.cpp)
+        self.assertIn("if (TryHandleMinimapZoomClick()) return;", self.cpp)
+        self.assertIn("bool AMoonfallPawn::TryHandleMinimapZoomClick()", self.cpp)
+        self.assertIn("Controller->GetMousePosition(MouseX, MouseY)", self.cpp)
+        self.assertIn("Controller->GetViewportSize(ViewportX, ViewportY)", self.cpp)
+        self.assertIn("MinimapZoomLevel = FMath::Min(MinimapZoomLevel + 1, 2);", self.cpp)
+        self.assertIn("MinimapZoomLevel = FMath::Max(MinimapZoomLevel - 1, 0);", self.cpp)
+        self.assertIn("const FVector2D ZoomPlus(RadarCenter.X + 58.f, 67.f);", minimap)
+        self.assertIn("const FVector2D ZoomMinus(RadarCenter.X + 58.f, 99.f);", minimap)
         self.assertIn("GetMinimapWorldRadius() const", self.header)
-        self.assertIn("850.f", self.header)
-        self.assertIn("1200.f", self.header)
-        self.assertIn("1700.f", self.header)
         self.assertIn("const float WorldRadius = Hero->GetMinimapWorldRadius();", minimap)
-        self.assertIn('TEXT("T: %s   M: %.0fm")', minimap)
+        self.assertIn('TEXT("T: %s  %.1fm")', minimap)
+        self.assertNotIn('M: %.0fm', minimap)
         for field in ("SavedMinimapTrackingMode", "SavedMinimapZoomLevel"):
             self.assertIn(field + " = 0;", saved)
             self.assertIn("Progress->" + field, self.cpp)
