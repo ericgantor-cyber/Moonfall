@@ -254,6 +254,22 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("FMath::Square(1200.f)", posture)
         self.assertIn("if (Visible.Num() >= MaxPostureIndicators) break;", posture)
 
+    def test_minimap_tracking_key_and_north_compass_label(self):
+        hud = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8")
+        controls = INPUT.read_text(encoding="utf-8")
+        minimap = hud.split("// Compact WoW-style circular minimap", 1)[1]
+        self.assertIn('ActionName="MinimapTracking",Key=T', controls)
+        self.assertIn('BindAction(TEXT("MinimapTracking"), IE_Pressed', self.cpp)
+        self.assertIn("MinimapTrackingMode = (MinimapTrackingMode + 1) % 4;", self.cpp)
+        self.assertIn("GetMinimapTrackingMode() const", self.header)
+        self.assertIn('DrawText(TEXT("N")', minimap)
+        self.assertIn('TEXT("CHAMBERS")', minimap)
+        self.assertIn('TEXT("BOSS")', minimap)
+        self.assertIn("if (bTrackChambers)", minimap)
+        self.assertIn("if (bTrackBoss && !Hero->IsBossDefeated())", minimap)
+        self.assertNotIn("Hero->GetEnemyMapPositions()", minimap)
+        self.assertNotIn("NearestChamberDirection", minimap)
+
     def test_moonfall_circular_minimap_is_clean_without_arrows_or_enemies(self):
         hud = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8")
         minimap = hud.split("// Compact WoW-style circular minimap", 1)[1]
