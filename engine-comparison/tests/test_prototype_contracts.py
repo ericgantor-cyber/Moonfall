@@ -242,10 +242,8 @@ class PrototypeContracts(unittest.TestCase):
 
     def test_parry_never_shortens_existing_posture_stagger(self):
         tick = self.cpp.split("void AMoonfallPawn::Tick(", 1)[1]
-        self.assertIn(
-            "Contact.StaggerTimer = FMath::Max(\\n"
-            "                            Contact.StaggerTimer, Contact.bGuardian ? 0.9f : 0.6f);",
-            tick)
+        self.assertIn("Contact.StaggerTimer = FMath::Max(", tick)
+        self.assertIn("Contact.StaggerTimer, Contact.bGuardian ? 0.9f : 0.6f);", tick)
         self.assertNotIn("Contact.StaggerTimer = Contact.bGuardian ? 0.9f : 0.6f;", tick)
 
     def test_checkpoint_grace_cannot_grant_boss_perfect_dodge_counter(self):
