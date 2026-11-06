@@ -126,6 +126,45 @@ void AMoonfallHud::DrawHUD()
             HitColor, Screen.X - 12.f, Screen.Y, nullptr, Scale);
     }
 
+    // Directional danger readout combines a visible windup with a late red
+    // impact cue. It lives beside the enemy, never in a permanent HUD panel.
+    for (const AMoonfallPawn::FAttackWarning& Warning : Hero->GetAttackWarnings())
+    {
+        FVector2D Screen;
+        const FVector World = Hero->GetActorTransform().TransformPosition(
+            Warning.LocalPosition + FVector(0.f, 0.f, Warning.bBoss ? 260.f : 170.f));
+        if (!PlayerOwner->ProjectWorldLocationToScreen(World, Screen, false)) continue;
+        FVector2D DirectionScreen;
+        const FVector DirectionWorld = Hero->GetActorTransform().TransformPosition(
+            Warning.LocalPosition + Warning.DirectionToHero * 150.f +
+            FVector(0.f, 0.f, Warning.bBoss ? 260.f : 170.f));
+        if (!PlayerOwner->ProjectWorldLocationToScreen(DirectionWorld, DirectionScreen, false)) continue;
+        const FVector2D Direction = (DirectionScreen - Screen).GetSafeNormal();
+        if (Direction.IsNearlyZero()) continue;
+        const FVector2D Perpendicular(-Direction.Y, Direction.X);
+        const float Urgency = FMath::Clamp(Warning.Urgency, 0.f, 1.f);
+        const float Radius = (Warning.bBoss ? 34.f : 22.f) + 4.f * Urgency;
+        const float Thickness = Warning.bBoss ? 4.f : 2.5f;
+        // Warm amber anticipation switches to a crimson strike warning near impact.
+        const FLinearColor Color = Urgency >= .72f
+            ? FLinearColor(1.f, .12f, .23f, .95f)
+            : FLinearColor(1.f, .64f, .19f, .85f);
+        constexpr int32 Edges = 4;
+        for (int32 Edge = 0; Edge < Edges; ++Edge)
+        {
+            const float A = (Edge * 2.f * PI / Edges) - HALF_PI;
+            const float B = ((Edge + 1) * 2.f * PI / Edges) - HALF_PI;
+            const FVector2D Start = Screen + FVector2D(FMath::Cos(A), FMath::Sin(A)) * Radius;
+            const FVector2D End = Screen + FVector2D(FMath::Cos(B), FMath::Sin(B)) * Radius;
+            Canvas->K2_DrawLine(Start, End, Thickness, Color);
+        }
+        // Chevron points along the actual incoming attack direction.
+        const FVector2D Tip = Screen + Direction * (Radius + 16.f);
+        const FVector2D Base = Screen + Direction * (Radius + 2.f);
+        Canvas->K2_DrawLine(Base + Perpendicular * 9.f, Tip, Thickness, Color);
+        Canvas->K2_DrawLine(Base - Perpendicular * 9.f, Tip, Thickness, Color);
+    }
+
     // Prototype arena radar, not the production six-region Raven Atlas.
     const float Left = Canvas->ClipX - 178.f;
     Canvas->K2_DrawBox(FVector2D(Left, 18.f), FVector2D(160.f, 160.f), 2.f,
