@@ -35,3 +35,8 @@
 - Before merging: compile in UE 5.4, test player and bird collision, animation/pivot orientation, all three attacks and interrupts, camera visibility, Windows 10/11 performance, save/restart, and packaged build.
 
 This document is an integration contract, not evidence that finished 3D art was generated or imported.
+
+## Instanced ruins and future environment replacement
+The native starter arena now uses a **single instanced static-mesh component** called `RuinPieces` for monoliths, fallen supports, and bounded ground rubble. This reduces component and draw-call overhead versus the old one-component-per-prop approach. `RuinStoneMaterial` can be set on an `AMoonfallArena` Blueprint; `RubbleCount` defaults to 24 and is clamped between 0 and 48. The distribution is deterministic and prop collision/shadows remain disabled, so enemies and the player do not snag on scenic rubble.
+
+Production-art follow-up: replace the cube mesh with authored fractured stones and architecture using the Blueprint component/mesh settings; verify instancing materials, mesh scale, GPU cost and hero readability in Unreal Editor. These are **geometry defaults and art slots**, not imported hero/monster/biome textures. Do not overwrite or restyle Z and Nyra.
