@@ -8,6 +8,7 @@
 #include "Engine/World.h"
 #include "Kismet/GameplayStatics.h"
 #include "UObject/UObjectGlobals.h"
+#include "UObject/ConstructorHelpers.h"
 AMoonfallArena::AMoonfallArena() {
  PrimaryActorTick.bCanEverTick = false;
  SetRootComponent(CreateDefaultSubobject<USceneComponent>(TEXT("Root")));
