@@ -83,6 +83,30 @@ jobs:
             if ($_.Exception.Message -notlike 'Moonfall prototype requires Unreal 5.6*') { throw }
             Write-Host "Expected engine-version failure verified."
           }
+      - name: Reject successful mock builds with invalid game executable
+        shell: pwsh
+        run: |
+          $scriptPath = (Resolve-Path 'engine-comparison/unreal/verify-windows-build.ps1').Path
+          $fakeRoot = Join-Path $env:RUNNER_TEMP 'MoonfallMockUnreal56'
+          $batchDir = Join-Path $fakeRoot 'Engine\Build\BatchFiles'
+          New-Item -ItemType Directory -Force -Path $batchDir | Out-Null
+          Set-Content -LiteralPath (Join-Path $batchDir 'Build.bat') -Value '@echo off'
+          Set-Content -LiteralPath (Join-Path $fakeRoot 'Engine\Build\Build.version') -Value '{"MajorVersion":5,"MinorVersion":6}'
+          $output = Join-Path (Get-Location).Path 'engine-comparison\unreal\MoonfallPrototype\Binaries\Win64\MoonfallPrototype.exe'
+          New-Item -ItemType Directory -Force -Path (Split-Path $output -Parent) | Out-Null
+          if (Test-Path -LiteralPath $output) { throw "Test precondition failed: build output already exists." }
+          try {
+            Set-Content -LiteralPath $output -Value 'NOT-A-WINDOWS-EXECUTABLE' -Encoding ascii
+            try {
+              & $scriptPath -EngineRoot $fakeRoot
+              throw "Build verifier accepted a fake Win64 executable."
+            } catch {
+              if ($_.Exception.Message -notlike '*not a Windows PE file*') { throw }
+              Write-Host "Expected invalid-executable failure verified."
+            }
+          } finally {
+            Remove-Item -LiteralPath $output -Force -ErrorAction SilentlyContinue
+          }
       - name: State verification scope
         shell: pwsh
-        run: Write-Host 'Windows script parser and failure-path checks only; no Unreal compilation, packaging, or gameplay verification.'
+        run: Write-Host 'Windows script parser and mocked failure paths only; no Unreal compilation, packaging, or gameplay verification.'
