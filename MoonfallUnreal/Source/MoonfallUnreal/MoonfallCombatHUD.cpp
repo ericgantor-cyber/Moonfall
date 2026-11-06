@@ -69,13 +69,6 @@ void AMoonfallCombatHUD::DrawHUD()
   DrawText(TEXT("WASD / Arrows / D-pad: navigate    Esc / Start: close"),FLinearColor::White,MenuLeft+18.f,MenuTop+MenuHeight-28.f,nullptr,0.85f);
   return;
  }
- // The active arena quest shares the same minimap target, no new UI screen.
- if (Hero->bArenaBossQuestActive || Hero->bArenaBossQuestComplete) {
-  const bool bComplete = Hero->bArenaBossQuestComplete;
-  DrawText(bComplete ? TEXT("QUEST COMPLETE: Arena Boss") : TEXT("QUEST: Defeat the Arena Boss"),
-           bComplete ? FLinearColor(0.42f,1.f,0.57f) : FLinearColor(1.f,0.78f,0.21f),
-           FMath::Max(20.f,Canvas->SizeX*0.5f-160.f),24.f,nullptr,0.92f);
- }
  // Nearest living boss, displayed without creating additional widget actors.
  const AMoonfallEnemy* Boss = nullptr;
  float BossDistanceSq = TNumericLimits<float>::Max();
@@ -84,6 +77,23 @@ void AMoonfallCombatHUD::DrawHUD()
   if (!IsValid(E) || !E->bBoss || E->Health <= 0.f) continue;
   const float DistSq = FVector::DistSquared(E->GetActorLocation(), Hero->GetActorLocation());
   if (DistSq < BossDistanceSq) { Boss = E; BossDistanceSq = DistSq; }
+ }
+ // Compact quest tracker uses the live boss and explicit waypoint; no extra actor queries.
+ if (Hero->bArenaBossQuestActive && Hero->bQuestTargetActive) {
+  const float DistanceMetres = FVector::Dist2D(Hero->GetActorLocation(), Hero->QuestTarget) / 100.f;
+  const float Progress = IsValid(Boss)
+   ? 1.f - FMath::Clamp(Boss->Health / FMath::Max(1.f, Boss->BossMaxHealth), 0.f, 1.f) : 0.f;
+  const float TrackerWidth = FMath::Clamp(Canvas->SizeX * 0.22f, 180.f, 260.f);
+  const float TrackerX = 22.f;
+  const float TrackerY = 26.f;
+  DrawText(TEXT("QUEST: Defeat the Arena Boss"),FLinearColor(1.f,0.78f,0.21f),TrackerX,TrackerY,nullptr,0.9f);
+  DrawText(FString::Printf(TEXT("Boss %d%%  |  %.0f m"),FMath::RoundToInt(Progress * 100.f),DistanceMetres),
+           FLinearColor(0.85f,0.89f,1.f),TrackerX,TrackerY+22.f,nullptr,0.8f);
+  DrawRect(FLinearColor(0.12f,0.13f,0.2f),TrackerX,TrackerY+44.f,TrackerWidth,7.f);
+  DrawRect(FLinearColor(1.f,0.68f,0.18f),TrackerX,TrackerY+44.f,TrackerWidth*Progress,7.f);
+ } else if (Hero->bArenaBossQuestComplete && Hero->ArenaBossQuestCompletedAt >= 0.f &&
+            GetWorld()->GetTimeSeconds() - Hero->ArenaBossQuestCompletedAt < 5.f) {
+  DrawText(TEXT("QUEST COMPLETE: Arena Boss"),FLinearColor(0.42f,1.f,0.57f),22.f,26.f,nullptr,0.95f);
  }
  if (Boss && BossDistanceSq < FMath::Square(3000.f)) {
   const float Width = FMath::Min(480.f, Canvas->SizeX * 0.68f);
