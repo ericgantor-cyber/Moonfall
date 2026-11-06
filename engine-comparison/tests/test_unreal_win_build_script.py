@@ -87,6 +87,8 @@ class UnrealWindowsBuildScriptTests(unittest.TestCase):
         self.assertIn("-ExecutePythonScript=$MapScript", self.script)
         self.assertIn("if ($LASTEXITCODE -ne 0)", self.script)
         self.assertIn("Unreal Editor exited without creating the required .umap", self.script)
+        self.assertIn('(Get-Item -LiteralPath $MapAsset).Length -eq 0', self.script)
+        self.assertIn("Unreal Editor startup map is empty", self.script)
         self.assertLess(self.script.index("if ($CreateMap) {"), self.script.index("if ($Package) {"))
 
     def test_packaging_requires_level_and_reports_unverified_gameplay(self):
@@ -99,6 +101,8 @@ class UnrealWindowsBuildScriptTests(unittest.TestCase):
         self.assertIn("if (-not $ConfiguredMap.Success)", self.script)
         self.assertIn("$ConfiguredMap.Groups[1].Value", self.script)
         self.assertIn("if (-not (Test-Path -LiteralPath $StartupMap -PathType Leaf))", self.script)
+        self.assertIn('(Get-Item -LiteralPath $StartupMap).Length -eq 0', self.script)
+        self.assertIn("Configured startup map is empty", self.script)
         self.assertLess(self.script.index("if (-not (Test-Path -LiteralPath $StartupMap -PathType Leaf))"),
                         self.script.index("    & $RunUAT BuildCookRun "))
         self.assertEqual(self.script.count("& $RunUAT BuildCookRun"), 1)
