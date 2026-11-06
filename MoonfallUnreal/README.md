@@ -101,3 +101,9 @@ The existing Unreal arena boss now starts a **Defeat the Arena Boss** objective 
 ## Boss quest progress in the Unreal HUD
 
 The arena-boss quest tracker now displays the player's **distance to the assigned boss waypoint (metres)** and a **boss-health progress bar** while the objective is active. The readout uses the living boss already found by the combat HUD, avoiding another enemy scan. When the tracked boss is defeated, the quest completes and its green completion message disappears after 5 seconds rather than remaining over gameplay forever. Quest rewards, a general-purpose journal, and an Unreal world atlas are not implemented by this update. The latest changes require Unreal Editor compilation and actual Windows gameplay verification.
+
+## Explored-world atlas overlay (Unreal migration)
+
+Press **M** or the controller **View/Back** button to open/close a larger north-up world chart in the existing HUD. It draws only previously visited two-metre cells within a 150-metre player-centred view, a player marker and a deliberately assigned gold quest destination. Unknown space stays empty, **not** fabricated terrain. Explored cells remain bounded to the existing 384-cell config save; this is **not yet** Skyrim-style continuous terrain, caves, geometry scanning, or a complete WoW quest journal.
+
+Exploration tracking now runs before the Options early return, so briefly viewing Options no longer interrupts visited-cell registration. The atlas is a HUD overlay rather than another gameplay mode. Existing camera zoom, combat HUD and original Z/Nyra art are unchanged. **UE 5.4 compilation, packaged Windows builds and runtime input behavior remain unverified.**
