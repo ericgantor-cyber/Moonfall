@@ -270,20 +270,9 @@ class PrototypeContracts(unittest.TestCase):
         self.assertNotIn("else if (!Local.IsNearlyZero())", minimap)
         self.assertNotIn("const float Left = Canvas->ClipX - 178.f;", minimap)
 
-    def test_minimap_collects_only_nearby_bounded_enemy_markers(self):
-        minimap = self.cpp.split(
-            "TArray<FVector> AMoonfallPawn::GetEnemyMapPositions() const", 1)[1].split(
-            "void AMoonfallPawn::RecordDamageNumber(", 1)[0]
-        self.assertIn("constexpr int32 MaxMinimapEnemies = 48;", minimap)
-        self.assertIn("Result.Reserve(FMath::Min(Enemies.Num(), MaxMinimapEnemies));", minimap)
-        self.assertIn("if (!HeroMesh) return Result;", minimap)
-        self.assertIn("FMath::Abs(Position.X - HeroPosition.X) > 1700.f", minimap)
-        self.assertIn("FMath::Abs(Position.Y - HeroPosition.Y) > 1700.f", minimap)
-        self.assertIn("if (Result.Num() < MaxMinimapEnemies)", minimap)
-        self.assertIn("int32 FarthestIndex = INDEX_NONE;", minimap)
-        self.assertIn("FVector::DistSquared2D(Result[I], HeroPosition)", minimap)
-        self.assertIn("Result[FarthestIndex] = Position;", minimap)
-        self.assertNotIn("if (Result.Num() >= MaxMinimapEnemies) break;", minimap)
+    def test_enemy_marker_collection_is_removed_with_clean_minimap(self):
+        self.assertNotIn("AMoonfallPawn::GetEnemyMapPositions()", self.cpp)
+        self.assertNotIn("GetEnemyMapPositions() const;", self.header)
 
     def test_attack_warning_hud_is_bounded_and_keeps_boss_slot(self):
         warnings = self.cpp.split("AMoonfallPawn::GetAttackWarnings() const", 1)[1].split(
@@ -310,7 +299,7 @@ class PrototypeContracts(unittest.TestCase):
 
     def test_unreal_targeting_ignores_missing_meshes_and_avoids_sqrt(self):
         nearest = self.cpp.split("int32 AMoonfallPawn::NearestEnemyIndex(float Radius) const", 1)[1].split(
-            "TArray<FVector> AMoonfallPawn::GetEnemyMapPositions()", 1)[0]
+            "TArray<AMoonfallPawn::FAttackWarning> AMoonfallPawn::GetAttackWarnings()", 1)[0]
         self.assertIn("if (!HeroMesh || Radius <= 0.f) return INDEX_NONE;", nearest)
         self.assertIn("if (!Enemy.Mesh) continue;", nearest)
         self.assertIn("float BestDistanceSq = FMath::Square(Radius);", nearest)
