@@ -41,6 +41,17 @@ jobs:
           assert 'if ($LASTEXITCODE -ne 0)' in build_script
           assert 'Upload compiler diagnostics on failure' in compile_workflow
           assert 'Unreal C++ compile passed' in compile_workflow
+          runner_check = Path('MoonfallUnreal/Build/Check-CompileRunner.ps1').read_text()
+          assert "Set-StrictMode -Version Latest" in runner_check
+          assert "Engine\\Build\\BatchFiles\\Build.bat" in runner_check
+          assert "Microsoft.VisualStudio.Component.VC.Tools.x86.x64" in runner_check
+          assert "unreal-5-4" in runner_check
+          assert "UE54_ROOT=" in runner_check
+          assert "settings/actions/runners" in runner_check
+          assert "-CompileOnly" in runner_check
+          assert "if ($RunCompile)" in runner_check
+          assert "No compilation has run" in runner_check
+          assert "never downloads a runner" in runner_check
           assert 'CANCEL' in center and 'OPEN OUTPUT' in center
           root = Path('MoonfallUnreal/Source')
           for path in root.rglob('*.cpp'):
