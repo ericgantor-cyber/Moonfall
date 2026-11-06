@@ -44,10 +44,38 @@ if ($Package) {
     if (-not (Test-Path -LiteralPath $RunUAT -PathType Leaf)) {
         throw "RunUAT.bat not found: $RunUAT"
     }
-    $Maps = @(Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot "MoonfallPrototype\Content") -Recurse -File -Filter "*.umap")
+    $ProjectRoot = Join-Path $PSScriptRoot "MoonfallPrototype"
+    $ContentRoot = Join-Path $ProjectRoot "Content"
+    $ConfigPath = Join-Path $ProjectRoot "Config\DefaultEngine.ini"
+    $Maps = @(Get-ChildItem -LiteralPath $ContentRoot -Recurse -File -Filter "*.umap")
     if ($Maps.Count -eq 0) {
         throw "Cannot verify a playable package: no .umap level is committed. Create and configure a startup map before packaging."
     }
+    if (-not (Test-Path -LiteralPath $ConfigPath -PathType Leaf)) {
+        throw "Cannot package without Config/DefaultEngine.ini and a GameDefaultMap."
+    }
+    $ConfigText = Get-Content -LiteralPath $ConfigPath -Raw
+    $ConfiguredMap = [regex]::Match($ConfigText, '(?m)^\s*GameDefaultMap\s*=\s*/Game/([A-Za-z0-9_/]+)\s*
+    if ([string]::IsNullOrWhiteSpace($ArchiveDirectory)) {
+        $ArchiveDirectory = Join-Path $PSScriptRoot "MoonfallPrototype\Saved\Win64Verification"
+    }
+    $ArchiveDirectory = [System.IO.Path]::GetFullPath($ArchiveDirectory)
+    & $RunUAT BuildCookRun "-project=$Project" -noP4 -platform=Win64 -clientconfig=Development -build -cook -stage -pak -archive "-archivedirectory=$ArchiveDirectory"
+    if ($LASTEXITCODE -ne 0) {
+        throw "Unreal BuildCookRun failed (exit $LASTEXITCODE). No valid package was verified."
+    }
+    Write-Host "BuildCookRun completed. Manually launch and test the staged game on Windows 10 and 11."
+}
+)
+    if (-not $ConfiguredMap.Success) {
+        throw "Cannot verify a playable package: configure GameDefaultMap=/Game/Maps/YourLevel in DefaultEngine.ini."
+    }
+    $RelativeMap = $ConfiguredMap.Groups[1].Value.Replace('/', [System.IO.Path]::DirectorySeparatorChar)
+    $StartupMap = Join-Path $ContentRoot ($RelativeMap + ".umap")
+    if (-not (Test-Path -LiteralPath $StartupMap -PathType Leaf)) {
+        throw "Configured startup map does not exist: $StartupMap"
+    }
+    Write-Host "Verified configured startup map: $StartupMap"
     if ([string]::IsNullOrWhiteSpace($ArchiveDirectory)) {
         $ArchiveDirectory = Join-Path $PSScriptRoot "MoonfallPrototype\Saved\Win64Verification"
     }
