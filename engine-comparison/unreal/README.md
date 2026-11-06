@@ -14,7 +14,15 @@ The script invokes Unreal's `Build.bat` to compile the `MoonfallPrototypeEditor`
 
 ## Packaging blocker
 
-The repository currently has **no committed `.umap` level**, so there is no verified playable starting map. Create and save a level in `MoonfallPrototype/Content`, configure the startup game map in `Config/DefaultEngine.ini`, and confirm that `MoonfallGameMode` actually spawns the intended pawn. Only then request an optional package verification:
+The repository currently has **no committed `.umap` level**, so there is no verified playable starting map. Unreal Editor 5.6's Python API can create a blank startup level with the project's PythonScriptPlugin enabled. The experimental game mode constructs the runtime prototype world.
+
+On a Windows PC with Unreal Engine 5.6 installed, run the optional bootstrap once:
+
+```powershell
+& ".\\engine-comparison\\unreal\\verify-windows-build.ps1" -EngineRoot "C:\\Program Files\\Epic Games\\UE_5.6" -CreateMap
+```
+
+This launches Unreal Editor to create `Content/Maps/MoonfallPrototype.umap` if absent, then checks it exists. It never overwrites an existing level. The startup map path is now configured in `Config/DefaultEngine.ini`. **The map-creation command has not yet been run or validated in an actual Unreal Editor.** Before release, manually verify `MoonfallGameMode` spawns the intended pawn and save the resulting `.umap` level. Only then request an optional package verification:
 
 ```powershell
 & ".\engine-comparison\unreal\verify-windows-build.ps1" -EngineRoot "C:\Program Files\Epic Games\UE_5.6" -Package
