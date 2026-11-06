@@ -18,6 +18,11 @@ public:
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat") bool bElite = false;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat") bool bBoss = false;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat") bool bCorruptedCrow = false;
+ // Optional imported art overrides; default primitive silhouette remains a safe fallback.
+ UPROPERTY(EditDefaultsOnly, Category="Moonfall|Crow Art") UStaticMesh* CrowBodyArt = nullptr;
+ UPROPERTY(EditDefaultsOnly, Category="Moonfall|Crow Art") UStaticMesh* CrowWingArt = nullptr;
+ UPROPERTY(EditDefaultsOnly, Category="Moonfall|Crow Art") UMaterialInterface* CrowFeatherMaterial = nullptr;
+ UPROPERTY(EditDefaultsOnly, Category="Moonfall|Crow Art") UMaterialInterface* CrowAccentMaterial = nullptr;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Combat") int32 BossPhase = 1;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Boss") float BossMaxHealth = 0.f;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Boss") float BossWarningEndTime = -1.f;
@@ -32,6 +37,11 @@ private:
  UPROPERTY(VisibleAnywhere) UStaticMeshComponent* CrowLeftWing;
  UPROPERTY(VisibleAnywhere) UStaticMeshComponent* CrowRightWing;
  UPROPERTY(VisibleAnywhere) UStaticMeshComponent* CrowBeak;
+ UPROPERTY(VisibleAnywhere) UStaticMeshComponent* CrowTail;
+ UPROPERTY(VisibleAnywhere) UStaticMeshComponent* CrowLeftTalon;
+ UPROPERTY(VisibleAnywhere) UStaticMeshComponent* CrowRightTalon;
+ UPROPERTY(VisibleAnywhere) UStaticMeshComponent* CrowLeftEye;
+ UPROPERTY(VisibleAnywhere) UStaticMeshComponent* CrowRightEye;
  float CrowRecoverUntil = 0.f;
  bool bCrowDiving = false;
  void TickCorruptedCrow(float DeltaSeconds);
