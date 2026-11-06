@@ -132,7 +132,7 @@ jobs:
           assert 'Hero->BeginArenaBossQuest(Enemy->GetActorLocation())' in arena
           assert 'if (bBoss) Hero->CompleteArenaBossQuest()' in enemy
           assert 'const FIntPoint CurrentCell' in hud and hud.index('const FIntPoint CurrentCell') < hud.index('if (Canvas->SizeX >= 700.f')
-          assert 'CellOffset.SizeSquared() > FMath::Square(MapRange)' in hud
+          assert '(DiscoveredScreen - MapCenter).SizeSquared() >' in hud
           hero_header = (root/'MoonfallUnreal'/'MoonfallHeroPawn.h').read_text()
           assert 'bool bWorldMapOpen = false' in hero_header
           assert 'ActionName="WorldMap",Key=M' in inputs
