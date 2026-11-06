@@ -33,6 +33,29 @@ class UnrealWindowsBuildScriptTests(unittest.TestCase):
         self.assertIn("MoonfallPrototype.exe", self.script)
         self.assertIn("Build command returned success but", self.script)
 
+    def test_editor_map_creator_uses_unreal_api_without_overwriting_assets(self):
+        import json
+        project = json.loads((PROJECT / "MoonfallPrototype.uproject").read_text(encoding="utf-8"))
+        self.assertIn({"Name": "PythonScriptPlugin", "Enabled": True}, project["Plugins"])
+        ini = (PROJECT / "Config" / "DefaultEngine.ini").read_text(encoding="utf-8")
+        self.assertIn("GameDefaultMap=/Game/Maps/MoonfallPrototype", ini)
+        creator = (PROJECT / "Content" / "Python" / "create_startup_map.py").read_text(encoding="utf-8")
+        self.assertIn("import unreal", creator)
+        self.assertIn('LEVEL_PATH = "/Game/Maps/MoonfallPrototype"', creator)
+        self.assertIn("if assets.does_asset_exist(LEVEL_PATH):", creator)
+        self.assertIn("unreal.get_editor_subsystem(unreal.LevelEditorSubsystem)", creator)
+        self.assertIn("levels.new_level(LEVEL_PATH, is_partitioned_world=False)", creator)
+        self.assertIn("if not assets.does_asset_exist(LEVEL_PATH)", creator)
+
+    def test_create_map_opt_in_propagates_errors_and_checks_map(self):
+        self.assertIn("[switch]$CreateMap", self.script)
+        self.assertIn("UnrealEditor-Cmd.exe", self.script)
+        self.assertIn("create_startup_map.py", self.script)
+        self.assertIn("-ExecutePythonScript=$MapScript", self.script)
+        self.assertIn("if ($LASTEXITCODE -ne 0)", self.script)
+        self.assertIn("Unreal Editor exited without creating the required .umap", self.script)
+        self.assertLess(self.script.index("if ($CreateMap) {"), self.script.index("if ($Package) {"))
+
     def test_packaging_requires_level_and_reports_unverified_gameplay(self):
         self.assertIn("[switch]$Package", self.script)
         self.assertIn('-Filter "*.umap"', self.script)
