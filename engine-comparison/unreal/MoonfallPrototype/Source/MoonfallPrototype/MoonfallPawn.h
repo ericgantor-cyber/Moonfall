@@ -89,6 +89,8 @@ private:
     int32 ClaimedChamberMask = 0;
     int32 DefeatedGuardianMask = 0;
     int32 DefeatedEnemyMask = 0;
+    float RespawnGraceTimer = 0.f; // Short safety window on restored living checkpoints.
+    static constexpr float RespawnGraceDuration = 2.f;
     float EnemyDamageCooldown = 0.f;
     float CounterWindow = 0.f;
     int32 BossAttackCount = 0;
