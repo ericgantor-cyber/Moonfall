@@ -141,6 +141,7 @@ private:
     bool bWorldMapVisible = false; // Temporary full terrain map, closed by default.
     TArray<uint8> ExploredMapCells; // 3,600 saved byte flags; older saves start undiscovered.
     void RevealMapAround(const FVector& WorldPosition);
+    void RevealMapAlongPath(const FVector& From, const FVector& To);
     int32 MinimapTrackingMode = 0; // 0 all, 1 chambers, 2 boss, 3 off.
     // UI clicks are handled before combat, so zoom buttons never trigger attacks.
     bool TryHandleMinimapZoomClick();
