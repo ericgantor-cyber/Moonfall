@@ -76,6 +76,8 @@ class UnrealWindowsBuildScriptTests(unittest.TestCase):
         self.assertIn("if assets.does_asset_exist(LEVEL_PATH):", creator)
         self.assertIn("unreal.get_editor_subsystem(unreal.LevelEditorSubsystem)", creator)
         self.assertIn("levels.new_level(LEVEL_PATH, is_partitioned_world=False)", creator)
+        self.assertIn("if not levels.save_current_level():", creator)
+        self.assertLess(creator.index("levels.new_level("), creator.index("levels.save_current_level()"))
         self.assertIn("if not assets.does_asset_exist(LEVEL_PATH)", creator)
 
     def test_create_map_opt_in_propagates_errors_and_checks_map(self):
