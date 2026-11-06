@@ -1,5 +1,6 @@
 #include "MoonfallEnemy.h"
 #include "Components/StaticMeshComponent.h"
+#include "Components/PointLightComponent.h"
 #include "UObject/ConstructorHelpers.h"
 #include "MoonfallHeroPawn.h"
 #include "Kismet/GameplayStatics.h"
@@ -23,6 +24,14 @@ AMoonfallEnemy::AMoonfallEnemy() {
   CrowRightTalon = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("CrowRightTalon"));
   CrowLeftEye = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("CrowLeftEye"));
   CrowRightEye = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("CrowRightEye"));
+  CrowWarningGlow = CreateDefaultSubobject<UPointLightComponent>(TEXT("CrowWarningGlow"));
+  CrowWarningGlow->SetupAttachment(Body);
+  CrowWarningGlow->SetRelativeLocation(FVector(40.f,0.f,-10.f));
+  CrowWarningGlow->SetIntensity(850.f);
+  CrowWarningGlow->SetAttenuationRadius(220.f);
+  CrowWarningGlow->SetLightColor(FLinearColor(0.95f,0.12f,0.08f));
+  CrowWarningGlow->SetCastShadows(false);
+  CrowWarningGlow->SetVisibility(false);
   static ConstructorHelpers::FObjectFinder<UStaticMesh> Cube(TEXT("/Engine/BasicShapes/Cube.Cube"));
   for (UStaticMeshComponent* Part : {CrowLeftWing,CrowRightWing,CrowBeak,CrowTail,
                                       CrowLeftTalon,CrowRightTalon,CrowLeftEye,CrowRightEye}) {
@@ -74,6 +83,7 @@ void AMoonfallEnemy::BeginPlay() {
   CrowRightTalon->SetHiddenInGame(false);
   CrowLeftEye->SetHiddenInGame(false);
   CrowRightEye->SetHiddenInGame(false);
+  CrowWarningGlow->SetVisibility(false);
   if (CrowBodyArt) Body->SetStaticMesh(CrowBodyArt);
   if (CrowWingArt) {
    CrowLeftWing->SetStaticMesh(CrowWingArt);
@@ -132,6 +142,7 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
   // Striking a crow during its telegraph interrupts the dive and opens a recovery window.
   if (bCorruptedCrow && Health > 0.f && CrowAttackEndsAt >= 0.f && !bCrowDiving) {
    CrowAttackEndsAt = -1.f;
+   CrowWarningGlow->SetVisibility(false);
    CrowRecoverUntil = Now + 0.9f;
   }
   if (Health <= 0.0f) {
@@ -386,10 +397,12 @@ void AMoonfallEnemy::TickCorruptedCrow(float DeltaSeconds)
  // Do not run high-frequency bird animation when outside combat visibility.
  if (PlanarDistance > 2300.f && !bCrowDiving) {
   SetActorTickInterval(0.4f);
+  CrowWarningGlow->SetVisibility(false);
   CrowAttackEndsAt = -1.f;
   return;
  }
  SetActorTickInterval(0.05f);
+ CrowWarningGlow->SetVisibility(CrowAttackEndsAt >= 0.f || bCrowDiving);
  UpdateCrowAppearance(Now);
  if (bCrowDiving) {
   const float AttackSpeed = CrowAttackKind == 1 ? 1450.f : 1250.f;
