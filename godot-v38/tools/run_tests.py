@@ -112,9 +112,16 @@ def main():
     print('Godot partial stderr before timeout:\\n'+partial[-3000:],flush=True)
    return False
   log=p.stdout
-  markers=('SCRIPT ERROR','Parse Error','ERROR:','FAIL v','FAILED:')
+  markers=('SCRIPT ERROR','Parse Error','ERROR:','FAIL v','FAILED:','FAIL atlas:','MOONFALL ATLAS FAIL')
   good=p.returncode==0 and all(m not in log for m in markers) and (expect is None or expect in log)
-  if not good:print(log[-8000:])
+  if not good:
+   # Preserve earlier assertion failures even when thousands of later PASS lines
+   # push them out of the final 8,000 characters of Godot's output.
+   failure_lines=[line for line in log.splitlines() if any(marker in line for marker in ('FAIL atlas:','MOONFALL ATLAS FAIL','SCRIPT ERROR','Parse Error','ERROR:','FAILED:'))]
+   print(f'Godot exit code: {p.returncode}; diagnostic lines: {len(failure_lines)}',flush=True)
+   for line in failure_lines[:40]:print(line,flush=True)
+   if len(failure_lines)>40:print(f'... {len(failure_lines)-40} additional diagnostic lines omitted',flush=True)
+   print('Godot output tail:\n'+log[-8000:],flush=True)
   return good
  with tempfile.TemporaryDirectory(prefix='moonfall-tests-') as temporary_profile:
   global TEST_PROFILE
