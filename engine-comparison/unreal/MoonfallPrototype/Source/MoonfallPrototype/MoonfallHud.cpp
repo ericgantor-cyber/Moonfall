@@ -745,7 +745,7 @@ void AMoonfallHud::DrawHUD()
                 JournalX, JournalY, 228.f, 124.f);
             Canvas->K2_DrawBox(FVector2D(JournalX, JournalY),
                 FVector2D(228.f, 124.f), 1.f, FLinearColor(.52f, .49f, .67f));
-            DrawText(TEXT("QUEST JOURNAL  |  J: TRACK"),
+            DrawText(TEXT("QUESTS  |  CLICK OR J TO TRACK"),
                 FLinearColor(.95f, .83f, .55f),
                 JournalX + 9.f, JournalY + 6.f, nullptr, .72f);
             const TCHAR* JournalNames[] = {
@@ -775,6 +775,22 @@ void AMoonfallHud::DrawHUD()
                     : FLinearColor(.76f, .78f, .84f),
                     JournalX + 121.f, LineY + 13.f, nullptr, .60f);
             }
+            // The pinned quest has an actual gameplay objective and visible state.
+            // Descriptions never divulge the position of unvisited bosses or caves.
+            const int32 Tracked = FMath::Clamp(Hero->GetTrackedQuestId(), 0, 2);
+            const int32 TrackedGoal = Hero->GetQuestGoal(Tracked);
+            const int32 TrackedProgress = Hero->GetQuestProgress(Tracked, ActiveRegionIndex);
+            const TCHAR* Objectives[] = {
+                TEXT("Defeat Z, the Fallen God"),
+                TEXT("Defeat all regional patrol enemies"),
+                TEXT("Defeat cave guardians and claim rewards") };
+            DrawText(TEXT("TRACKED OBJECTIVE"),
+                FLinearColor(.95f, .83f, .55f),
+                JournalX + 8.f, JournalY + 129.f, nullptr, .65f);
+            DrawText(FString::Printf(TEXT("%s  (%d/%d)"),
+                Objectives[Tracked], TrackedProgress, TrackedGoal),
+                FLinearColor(.88f, .88f, .95f),
+                JournalX + 8.f, JournalY + 143.f, nullptr, .64f);
         }
         // Percentages use discovered walkable floors, never the empty fog grid.
         // No hidden cave coordinates or boss locations are exposed by totals.
