@@ -545,7 +545,7 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("defeatedEnemyMask |= 1 << enemy.id;", self.unity)
         self.assertIn("NearestEnemy(4f)", self.unity)
         self.assertIn("NearestEnemyIndex(400.f)", self.cpp)
-        self.assertIn("GetEnemyMapPositions()", unreal_hud)
+        self.assertNotIn("GetEnemyMapPositions()", unreal_hud)
         self.assertIn("foreach (WorldEnemy enemy in enemies)", self.unity)
         self.assertNotIn("SpawnWave(", self.unity)
         self.assertNotIn("SpawnWave(", self.cpp)
