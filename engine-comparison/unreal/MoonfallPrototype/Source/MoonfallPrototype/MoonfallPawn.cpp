@@ -502,8 +502,27 @@ TArray<FVector> AMoonfallPawn::GetEnemyMapPositions() const
         const FVector Position = Enemy.Mesh->GetRelativeLocation();
         if (FMath::Abs(Position.X - HeroPosition.X) > 1700.f ||
             FMath::Abs(Position.Y - HeroPosition.Y) > 1700.f) continue;
-        Result.Add(Position);
-        if (Result.Num() >= MaxMinimapEnemies) break;
+        if (Result.Num() < MaxMinimapEnemies)
+        {
+            Result.Add(Position);
+            continue;
+        }
+        // Keep the closest visible threats instead of the first 48 spawned.
+        // This stays bounded, without sorting or allocating extra arrays.
+        int32 FarthestIndex = INDEX_NONE;
+        float FarthestDistanceSq = -1.f;
+        for (int32 I = 0; I < Result.Num(); ++I)
+        {
+            const float DistanceSq = FVector::DistSquared2D(Result[I], HeroPosition);
+            if (DistanceSq > FarthestDistanceSq)
+            {
+                FarthestDistanceSq = DistanceSq;
+                FarthestIndex = I;
+            }
+        }
+        if (FarthestIndex != INDEX_NONE &&
+            FVector::DistSquared2D(Position, HeroPosition) < FarthestDistanceSq)
+            Result[FarthestIndex] = Position;
     }
     return Result;
 }
