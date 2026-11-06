@@ -14,6 +14,16 @@ class UnrealWindowsBuildScriptTests(unittest.TestCase):
     def setUpClass(cls):
         cls.script = SCRIPT.read_text(encoding="utf-8")
 
+    def test_real_build_artifact_requires_success(self):
+        workflow = (SCRIPT.parents[2] / ".github" / "workflows" /
+                    "engine-comparison-static.yml").read_text(encoding="utf-8")
+        real_job = workflow.split("  unreal-win64-real-build:", 1)[1]
+        self.assertIn("github.ref == 'refs/heads/main'", real_job)
+        self.assertIn("name: Moonfall-Unreal56-Failure-Logs", real_job)
+        upload = real_job.split("      - name: Upload successfully verified Win64 package", 1)[1]
+        self.assertIn("if: ${{ success() }}", upload.split("      - name:", 1)[0])
+        self.assertIn("if-no-files-found: error", upload)
+
     def test_project_and_targets_exist(self):
         self.assertTrue((PROJECT / "MoonfallPrototype.uproject").is_file())
         self.assertTrue((PROJECT / "Source" / "MoonfallPrototype.Target.cs").is_file())
