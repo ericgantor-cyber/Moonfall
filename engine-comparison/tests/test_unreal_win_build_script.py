@@ -27,6 +27,14 @@ class UnrealWindowsBuildScriptTests(unittest.TestCase):
         self.assertIn("Test-Path -LiteralPath $BuildBat -PathType Leaf", self.script)
         self.assertIn("Unreal Build.bat not found", self.script)
 
+    def test_build_requires_exact_unreal_56_engine(self):
+        self.assertIn('Engine\\Build\\Build.version', self.script)
+        self.assertIn("Get-Content -LiteralPath $VersionFile -Raw | ConvertFrom-Json", self.script)
+        self.assertIn("$EngineVersion.MajorVersion -ne 5 -or $EngineVersion.MinorVersion -ne 6", self.script)
+        self.assertIn("Moonfall prototype requires Unreal 5.6", self.script)
+        self.assertLess(self.script.index("if ($EngineVersion.MajorVersion"),
+                        self.script.index('Invoke-UnrealBuild "MoonfallPrototypeEditor"'))
+
     def test_exit_codes_and_output_are_checked(self):
         self.assertIn("if ($LASTEXITCODE -ne 0)", self.script)
         self.assertIn("throw \"UnrealBuildTool failed", self.script)
