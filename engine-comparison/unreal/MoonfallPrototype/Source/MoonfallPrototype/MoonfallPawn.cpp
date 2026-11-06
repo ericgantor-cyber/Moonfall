@@ -760,6 +760,9 @@ void AMoonfallPawn::Dodge()
     {
         // Dodge takes priority and cancels a held guard, never stacks protection.
         EndGuard();
+        // Dodging abandons any previous precision-parry stance. The dodge can
+        // still earn its own normal counter on a genuinely evaded strike.
+        bPrecisionRiposteReady = false;
         DodgeTimer = 0.32f;
         DodgeCooldown = 1.2f;
         Stamina -= 45.f;
