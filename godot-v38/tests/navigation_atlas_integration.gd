@@ -306,7 +306,7 @@ func _run()->void:
  map.call("set_dungeon_passages",known_walkway)
  check(bool((map.get("dungeon_passages") as Array)[0]["explored"]),"discovered passages illuminate after both endpoints are explored")
  check("start_known and end_known" in source and "atlas_chambers_seen.has" in source,"passage discovery uses saved chamber exploration")
- check("var explored:bool" in room_map_source and "edge_color" in room_map_source,"unknown passages render darker until discovered")
+ check('if not bool(passage.get("explored",false)):continue' in room_map_source and "edge_color" in room_map_source,"undiscovered passages stay hidden while discovered passage edges render")
  map.call("set_dungeon_passages",walkways)
  check((map.get("dungeon_passages") as Array)[0]["start"]==Vector3(-11,0,-3),"dungeon walkway map preserves exact authored positions")
  check(NAV.passage_near_chart(Vector3(-11,0,-3),Vector3(11,0,-3),3.6,Vector3.ZERO,Vector2(15,15)),"visible connected passage intersects atlas viewport")
