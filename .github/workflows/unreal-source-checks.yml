@@ -153,6 +153,16 @@ jobs:
           assert 'if (!bWorldMapOpen || bOptionsOpen) return' in hero
           assert 'if (Hero->bPersonalWaypointActive)' in hud
           assert 'const FVector WaypointOffset = Hero->PersonalWaypoint - Player' in hud
+          assert 'SavePersonalWaypoint();' in hero
+          assert 'GConfig->GetBool(TEXT("Moonfall.Map"), TEXT("PersonalWaypointActive")' in hero
+          assert 'GConfig->GetFloat(TEXT("Moonfall.Map"), TEXT("WaypointX")' in hero
+          assert 'GConfig->GetFloat(TEXT("Moonfall.Map"), TEXT("WaypointY")' in hero
+          assert 'GConfig->GetFloat(TEXT("Moonfall.Map"), TEXT("WaypointZ")' in hero
+          assert 'FMath::IsFinite(X) && FMath::IsFinite(Y) && FMath::IsFinite(Z)' in hero
+          assert 'GConfig->SetBool(TEXT("Moonfall.Map"), TEXT("PersonalWaypointActive")' in hero
+          assert 'GConfig->SetFloat(TEXT("Moonfall.Map"), TEXT("WaypointX")' in hero
+          assert 'GConfig->Flush(false, GGameUserSettingsIni)' in hero
+          assert 'if (bWorldMapOpen && !bOptionsOpen && bPersonalWaypointActive)' in hero
           assert 'FMath::Min(Distance,MapRange)' in hud
           assert 'if (Hero->bQuestTargetActive)' in hud
           assert 'for (const FIntPoint& Cell : ExploredMapCells)' in hud
