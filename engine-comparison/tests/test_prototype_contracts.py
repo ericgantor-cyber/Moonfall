@@ -411,7 +411,7 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("const int32 QuestGoal = MoonfallWorldRules::ChambersPerRegion;", world)
         self.assertIn("const int32 QuestCompleted = FMath::Clamp(RegionClearedCaves, 0, QuestGoal);", world)
         self.assertIn("static_cast<float>(QuestCompleted) / QuestGoal", world)
-        self.assertIn('TEXT("QUEST: CLEAR CAVES %d/%d")', world)
+        self.assertIn('TEXT("QUEST: CLEAR CAVES %d/%d  %s")', world)
         self.assertIn("DrawTrack(QuestBarY, QuestProgress", world)
         self.assertIn("QuestCompleted >= QuestGoal", world)
         self.assertIn("if (bCleared) ++RegionClearedCaves;", world)
