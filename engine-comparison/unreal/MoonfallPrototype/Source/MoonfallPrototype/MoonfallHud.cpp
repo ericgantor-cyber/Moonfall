@@ -67,6 +67,24 @@ void AMoonfallHud::DrawHUD()
         DrawRing(OrbCenter, 25.f, Hero->GetHudXpRatio(), FLinearColor(.70f, .40f, 1.f));
     }
 
+    // Temporary combat feedback lives in screen space, not permanent HUD widgets.
+    // World-space projection keeps the number attached to the actual hit target.
+    for (const AMoonfallPawn::FDamageNumber& Hit : Hero->GetDamageNumbers())
+    {
+        FVector2D Screen;
+        const float T = FMath::Clamp(Hit.Age / AMoonfallPawn::DamageNumberLifetime, 0.f, 1.f);
+        const FVector World = Hero->GetActorTransform().TransformPosition(
+            Hit.LocalPosition + FVector(0.f, 0.f, 105.f * T));
+        if (!PlayerOwner->ProjectWorldLocationToScreen(World, Screen, false)) continue;
+        const FLinearColor HitColor = Hit.bHeavy
+            ? FLinearColor(1.f, .8f, .18f, 1.f - T)
+            : (Hit.bMagic ? FLinearColor(.3f, .65f, 1.f, 1.f - T)
+                          : FLinearColor(1.f, 1.f, 1.f, 1.f - T));
+        const float Scale = Hit.bHeavy ? 1.6f : 1.1f;
+        DrawText(FString::FromInt(FMath::RoundToInt(Hit.Amount)), HitColor,
+            Screen.X - 12.f, Screen.Y, nullptr, Scale);
+    }
+
     // Prototype arena radar, not the production six-region Raven Atlas.
     const float Left = Canvas->ClipX - 178.f;
     Canvas->K2_DrawBox(FVector2D(Left, 18.f), FVector2D(160.f, 160.f), 2.f,
