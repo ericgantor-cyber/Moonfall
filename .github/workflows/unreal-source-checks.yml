@@ -58,6 +58,11 @@ jobs:
           assert 'ActionName="CastLeft",Key=LeftMouseButton' in inputs
           assert 'ActionName="CastRight",Key=RightMouseButton' in inputs
           assert 'ActionName="DualCast",Key=Gamepad_LeftTrigger' in inputs
+          assert 'ActionName="ZoomIn",Key=MouseScrollUp' in inputs
+          assert 'ActionName="ZoomOut",Key=MouseScrollDown' in inputs
+          assert 'BindAction(TEXT("ZoomIn")' in hero and 'BindAction(TEXT("ZoomOut")' in hero
+          assert 'CameraDistance - 50.f' in hero and 'CameraDistance + 50.f' in hero
+          assert 'FMath::Clamp(CameraDistance + (bReduceMotion ? 0.f : ImpactCameraOffset), 250.f, 850.f)' in hero
           assert 'DrawArc(Radius * 0.85f' in hud and 'DrawArc(Radius * 0.97f' in hud
           assert 'DisplayHealth = FMath::FInterpTo' in hud and 'LevelGlowUntil' in hud
           print('Input mapping and combat source checks passed. Unreal compilation NOT performed.')
