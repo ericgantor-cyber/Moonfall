@@ -416,10 +416,28 @@ TArray<FVector> AMoonfallPawn::GetEnemyMapPositions() const
     return Result;
 }
 
+void AMoonfallPawn::RecordDamageNumber(const FVector& LocalPosition,
+    float Amount, bool bHeavy, bool bMagic)
+{
+    if (!FMath::IsFinite(Amount) || Amount <= 0.f) return;
+    // A bounded list prevents growth in long battles.
+    if (DamageNumbers.Num() >= 24) DamageNumbers.RemoveAt(0);
+    FDamageNumber Number;
+    Number.LocalPosition = LocalPosition + FVector(0.f, 0.f, 130.f);
+    Number.Amount = Amount;
+    Number.bHeavy = bHeavy;
+    Number.bMagic = bMagic;
+    DamageNumbers.Add(Number);
+}
+
 void AMoonfallPawn::DamageWorldEnemy(int32 Index, float Damage, bool bRiposte, bool bComboFinisher)
 {
     if (!Enemies.IsValidIndex(Index)) return;
     FWorldEnemy& Enemy = Enemies[Index];
+    const float ActualDamage = FMath::Min(Enemy.Health, FMath::Max(0.f, Damage));
+    if (Enemy.Mesh)
+        RecordDamageNumber(Enemy.Mesh->GetRelativeLocation(), ActualDamage,
+            bComboFinisher || bRiposte, false);
     Enemy.Health = FMath::Max(0.f, Enemy.Health - Damage);
     if (Enemy.Health > 0.f)
     {
@@ -611,6 +629,8 @@ void AMoonfallPawn::Attack()
         if (!bHitBoss) DamageWorldEnemy(EnemyIndex, Damage, bRiposte, bComboFinisher);
         else
         {
+            RecordDamageNumber(BossMesh->GetRelativeLocation(),
+                FMath::Min(BossHealth, Damage), bComboFinisher || bRiposte, false);
             BossHealth = FMath::Max(0.f, BossHealth - Damage);
             // Perfect-dodge ripostes can interrupt a live telegraphed boss cast.
             if (bRiposte && bCasting && BossHealth > 0.f)
@@ -654,6 +674,8 @@ void AMoonfallPawn::CastBolt()
     if (!bHitBoss) DamageWorldEnemy(EnemyIndex, Damage, bRiposte);
     else
     {
+        RecordDamageNumber(BossMesh->GetRelativeLocation(),
+            FMath::Min(BossHealth, Damage), bRiposte, true);
         BossHealth = FMath::Max(0.f, BossHealth - Damage);
         if (bRiposte && bCasting && BossHealth > 0.f)
         {
@@ -706,6 +728,12 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
 {
     Super::Tick(DeltaSeconds);
     const float Dt = FMath::Max(0.f, DeltaSeconds);
+    for (int32 I = DamageNumbers.Num() - 1; I >= 0; --I)
+    {
+        DamageNumbers[I].Age += Dt;
+        if (DamageNumbers[I].Age >= DamageNumberLifetime)
+            DamageNumbers.RemoveAtSwap(I, 1, EAllowShrinking::No);
+    }
     AttackCooldown = FMath::Max(0.f, AttackCooldown - Dt);
     // Preserve combat reaction windows across a rare long render stall.
     // Ordinary frame intervals still advance the timers in real time.
