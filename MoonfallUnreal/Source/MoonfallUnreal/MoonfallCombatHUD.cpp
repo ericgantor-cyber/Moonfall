@@ -122,6 +122,27 @@ void AMoonfallCombatHUD::DrawHUD()
   if (Boss->BossWarningEndTime > GetWorld()->GetTimeSeconds())
    DrawText(TEXT("INCOMING ATTACK - DODGE"),FLinearColor(1.f,0.83f,0.24f),X,Y+18.f,nullptr,0.9f);
  }
+ if (!Hero->bWorldMapOpen) {
+  // Shipping-safe crow warning: debug circles/strings are not dependable in packaged builds.
+  int32 NearestCrowPattern = -1;
+  float NearestWarningDistSq = FMath::Square(1600.f);
+  for (TActorIterator<AMoonfallEnemy> CrowIt(GetWorld()); CrowIt; ++CrowIt) {
+   const AMoonfallEnemy* Crow = *CrowIt;
+   if (!IsValid(Crow) || !Crow->IsCrowAttackWarningActive()) continue;
+   const float DistSq = FVector::DistSquared2D(Crow->GetActorLocation(),HeroPosition);
+   if (DistSq >= NearestWarningDistSq) continue;
+   NearestWarningDistSq = DistSq;
+   NearestCrowPattern = Crow->GetCrowAttackPattern();
+  }
+  if (NearestCrowPattern >= 0) {
+   const TCHAR* Warning = NearestCrowPattern == 1 ? TEXT("CROW TALON SWEEP - DODGE")
+    : NearestCrowPattern == 2 ? TEXT("CROW FEINT - WAIT FOR DIVE") : TEXT("CROW DIVE - DODGE");
+   const float LabelX = FMath::Max(18.f,Canvas->SizeX*0.5f-155.f);
+   const float LabelY = FMath::Max(140.f,Canvas->SizeY*0.15f);
+   DrawText(Warning,FLinearColor(1.f,0.8f,0.19f),LabelX,LabelY,nullptr,
+            FMath::Clamp(Hero->BossWarningScale,1.f,2.f));
+  }
+ }
  if (Hero->bWorldMapOpen) { DrawExplorationAtlas(Hero); return; }
  // North-up local minimap: bounded nearby enemy markers, without duplicating the HUD.
  // World +X points east on the chart, +Y points north; no undiscovered terrain is revealed.
