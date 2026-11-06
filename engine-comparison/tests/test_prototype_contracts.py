@@ -1010,6 +1010,25 @@ class PrototypeContracts(unittest.TestCase):
         self.assertLess(ai.index("if (!bAggro && Enemy.AttackWindup > 0.f)"),
                         ai.index("if (Enemy.AttackWindup > 0.f)"))
 
+    def test_incoming_damage_and_successful_dodge_feedback(self):
+        hud = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8")
+        self.assertIn("bool bIncoming = false;", self.header)
+        self.assertIn("bool bDodged = false;", self.header)
+        self.assertIn("void RecordHeroHit(float Amount, bool bDodged);", self.header)
+        self.assertIn("void AMoonfallPawn::RecordHeroHit(float Amount, bool bDodged)", self.cpp)
+        self.assertIn("if (DamageNumbers.Num() >= 24) DamageNumbers.RemoveAt(0);", self.cpp)
+        self.assertIn("Number.bIncoming = !bDodged;", self.cpp)
+        self.assertIn("Number.bDodged = bDodged;", self.cpp)
+        self.assertEqual(self.cpp.count("RecordHeroHit(0.f, true);"), 2)
+        self.assertIn("RecordHeroHit(FMath::Min(Health, ContactDamage), false);", self.cpp)
+        self.assertIn("RecordHeroHit(FMath::Min(Health, BossDamage), false);", self.cpp)
+        self.assertIn('TEXT("DODGE")', hud)
+        self.assertIn("Hit.bIncoming", hud)
+        self.assertIn("Hit.bDodged", hud)
+        self.assertIn("FLinearColor(1.f, .2f, .25f, 1.f - T)", hud)
+        self.assertIn("FLinearColor(.35f, 1.f, .8f, 1.f - T)", hud)
+        self.assertNotIn("NewObject<", hud)
+
     def test_original_art_import_is_checksum_guarded(self):
         import_tool = (ROOT / "tools/import_godot_art.py").read_text()
         verify_tool = (ROOT / "tools/verify_art_import.py").read_text()
