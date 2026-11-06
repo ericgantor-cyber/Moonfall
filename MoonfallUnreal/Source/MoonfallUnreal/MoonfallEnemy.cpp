@@ -48,7 +48,6 @@ void AMoonfallEnemy::BeginPlay() {
  MaxHealthAtSpawn = FMath::Max(1.f, Health);
  BossMaxHealth = bBoss ? MaxHealthAtSpawn : 0.f;
  if (bCorruptedCrow) {
-  CrowHome = GetActorLocation();
   AttackCooldown = FMath::Max(1.7f,AttackCooldown);
   if (Body) Body->SetRelativeScale3D(FVector(0.65f,0.65f,0.5f));
   CrowLeftWing->SetHiddenInGame(false);
@@ -96,6 +95,11 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
   // Bosses absorb ordinary hits without repeated attack interruptions; phase changes still recover safely.
   // Normal enemies retain brief hit reactions to reward offensive pressure.
   if (!bBoss) HitReactionEndsAt = LastHitTime + 0.22f;
+  // Striking a crow during its telegraph interrupts the dive and opens a recovery window.
+  if (bCorruptedCrow && Health > 0.f && CrowAttackEndsAt >= 0.f && !bCrowDiving) {
+   CrowAttackEndsAt = -1.f;
+   CrowRecoverUntil = Now + 0.9f;
+  }
   if (Health <= 0.0f) {
    if (AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0))) { Hero->AwardExperience(FMath::RoundToInt((bBoss ? 125.f : (bElite ? 50.f : 25.f)) * (1.f + 0.018f * FMath::Min(SpawnBalanceLevel - 1, 40)))); Hero->AwardEquipmentDrop(bElite, bBoss); if (bBoss) Hero->CompleteArenaBossQuest(); }
    SetActorHiddenInGame(true); SetActorEnableCollision(false); SetActorTickEnabled(false); SetLifeSpan(1.25f); }
@@ -346,7 +350,6 @@ void AMoonfallEnemy::TickCorruptedCrow(float DeltaSeconds)
  if (PlanarDistance > 2300.f && !bCrowDiving) {
   SetActorTickInterval(0.4f);
   CrowAttackEndsAt = -1.f;
-  CrowWarnStartedAt = -1.f;
   return;
  }
  SetActorTickInterval(0.05f);
@@ -375,14 +378,11 @@ void AMoonfallEnemy::TickCorruptedCrow(float DeltaSeconds)
   if (bContact || Reach < 115.f || Now >= CrowAttackEndsAt || Hit.bBlockingHit) {
    bCrowDiving = false;
    CrowAttackEndsAt = -1.f;
-   CrowWarnStartedAt = -1.f;
-   CrowRecoverStartAt = Now;
-   CrowRecoverUntil = Now+FMath::Max(1.7f,AttackCooldown);
+    CrowRecoverUntil = Now+FMath::Max(1.7f,AttackCooldown);
   }
   return;
  }
  if (CrowAttackEndsAt >= 0.f) {
-  const float TellDuration = CrowAttackKind == 2 ? 1.0f : CrowAttackKind == 1 ? 0.9f : 0.7f;
   const FVector WarningPosition(HeroPosition.X,HeroPosition.Y,HeroPosition.Z+45.f);
   DrawDebugCircle(GetWorld(),WarningPosition,CrowAttackKind == 1 ? 155.f : 115.f,
                   16,CrowAttackKind == 1 ? FColor::Red : FColor::Orange,
@@ -412,7 +412,6 @@ void AMoonfallEnemy::TickCorruptedCrow(float DeltaSeconds)
  if (Now >= CrowRecoverUntil && PlanarDistance < 1250.f) {
   // Deterministic variation avoids random repeated attack patterns.
   CrowAttackKind = CrowAttackSequence++ % 3;
-  CrowWarnStartedAt = Now;
   CrowAttackEndsAt = Now + (CrowAttackKind == 2 ? 1.0f : CrowAttackKind == 1 ? 0.9f : 0.7f);
  }
 }
