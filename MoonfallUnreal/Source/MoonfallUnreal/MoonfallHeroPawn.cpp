@@ -16,7 +16,7 @@ AMoonfallHeroPawn::AMoonfallHeroPawn()
  PrimaryActorTick.bCanEverTick = true;
  CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
  CameraBoom->SetupAttachment(GetRootComponent());
- CameraBoom->TargetArmLength = 450.f;
+ CameraBoom->TargetArmLength = CameraDistance;
  CameraBoom->bUsePawnControlRotation = true;
  FollowCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("FollowCamera"));
  FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName);
@@ -47,7 +47,7 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
  Super::Tick(DeltaSeconds);
  // Bounded camera impulse, no camera shake object or spawned effects.
  ImpactCameraOffset = FMath::FInterpTo(ImpactCameraOffset, 0.f, FMath::Max(0.f, DeltaSeconds), 12.f);
- if (CameraBoom) CameraBoom->TargetArmLength = 450.f + (bReduceMotion ? 0.f : ImpactCameraOffset);
+ if (CameraBoom) CameraBoom->TargetArmLength = FMath::Clamp(CameraDistance + (bReduceMotion ? 0.f : ImpactCameraOffset), 250.f, 850.f);
  if (Health > 0.f && Mana < MaxMana) Mana = FMath::Min(MaxMana, Mana + ManaRegenPerSecond * (1.f + FMath::Min(0.25f, AccessoryTier * 0.012f)) * FMath::Max(0.f, DeltaSeconds));
 }
 void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
@@ -57,6 +57,8 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAxis(TEXT("MoveRight"), this, &AMoonfallHeroPawn::MoveRight);
  Input->BindAxis(TEXT("Turn"), this, &AMoonfallHeroPawn::Turn);
  Input->BindAxis(TEXT("LookUp"), this, &AMoonfallHeroPawn::LookUp);
+ Input->BindAction(TEXT("ZoomIn"), IE_Pressed, this, &AMoonfallHeroPawn::ZoomCameraIn);
+ Input->BindAction(TEXT("ZoomOut"), IE_Pressed, this, &AMoonfallHeroPawn::ZoomCameraOut);
  Input->BindAction(TEXT("Jump"), IE_Pressed, this, &ACharacter::Jump);
  Input->BindAction(TEXT("Jump"), IE_Released, this, &ACharacter::StopJumping);
  Input->BindAction(TEXT("CastLeft"), IE_Pressed, this, &AMoonfallHeroPawn::CastLeft);
@@ -91,6 +93,8 @@ void AMoonfallHeroPawn::MoveRight(float Value)
 }
 void AMoonfallHeroPawn::Turn(float Value) { if (!bOptionsOpen) AddControllerYawInput(Value); }
 void AMoonfallHeroPawn::LookUp(float Value) { if (!bOptionsOpen) AddControllerPitchInput(Value); }
+void AMoonfallHeroPawn::ZoomCameraIn() { if (!bOptionsOpen) CameraDistance = FMath::Clamp(CameraDistance - 50.f, 250.f, 850.f); }
+void AMoonfallHeroPawn::ZoomCameraOut() { if (!bOptionsOpen) CameraDistance = FMath::Clamp(CameraDistance + 50.f, 250.f, 850.f); }
 bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
 {
  static const float Costs[6] = {16.f,13.f,22.f,25.f,18.f,14.f};
