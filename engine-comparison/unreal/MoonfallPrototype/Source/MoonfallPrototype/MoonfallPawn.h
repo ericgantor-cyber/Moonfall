@@ -45,6 +45,7 @@ public:
     // T cycles ALL -> CHAMBERS -> BOSS -> OFF, no enemy tracking.
     int32 GetMinimapTrackingMode() const { return MinimapTrackingMode; }
     int32 GetMinimapZoomLevel() const { return MinimapZoomLevel; }
+    bool IsWorldMapVisible() const { return bWorldMapVisible; }
     float GetMinimapWorldRadius() const { return MinimapZoomLevel == 2 ? 850.f : (MinimapZoomLevel == 1 ? 1200.f : 1700.f); }
     float GetBossPostureRatio() const { return FMath::Clamp(BossPosture / BossPostureThreshold, 0.f, 1.f); }
     bool IsBossPostureActive() const { return !bWon && BossPosture > 0.f; }
@@ -118,6 +119,8 @@ private:
     void BeginGuard();
     void EndGuard();
     void CycleMinimapTracking();
+    void ToggleWorldMap();
+    bool bWorldMapVisible = false; // Temporary full terrain map, closed by default.
     int32 MinimapTrackingMode = 0; // 0 all, 1 chambers, 2 boss, 3 off.
     // UI clicks are handled before combat, so zoom buttons never trigger attacks.
     bool TryHandleMinimapZoomClick();
