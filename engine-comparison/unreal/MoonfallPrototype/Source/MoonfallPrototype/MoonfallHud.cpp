@@ -308,12 +308,24 @@ void AMoonfallHud::DrawHUD()
     }
     const FVector H = Hero->GetHeroMapPosition();
     const FVector B = Hero->GetBossMapPosition();
+    // Track the closest unclaimed chamber for an edge-of-map objective cue.
+    // Only one directional cue is drawn even when many chambers are distant.
+    FVector2D NearestChamberDirection = FVector2D::ZeroVector;
+    float NearestChamberDistanceSq = TNumericLimits<float>::Max();
+    bool bNearestChamberOffscreen = false;
     // All markers must remain inside the circular frame, not its bounding box.
     for (const FVector& Chamber : Hero->GetChamberMapPositions())
     {
         const FVector Offset = Chamber - H;
         const FVector2D Local(Offset.X * RadarScale, -Offset.Y * RadarScale);
-        if (Local.SizeSquared() > FMath::Square(RadarRadius - 10.f)) continue;
+        const float DistanceSq = Local.SizeSquared();
+        if (DistanceSq < NearestChamberDistanceSq)
+        {
+            NearestChamberDistanceSq = DistanceSq;
+            NearestChamberDirection = Local.GetSafeNormal();
+            bNearestChamberOffscreen = DistanceSq > FMath::Square(RadarRadius - 10.f);
+        }
+        if (DistanceSq > FMath::Square(RadarRadius - 10.f)) continue;
         const FVector2D P = RadarCenter + Local;
         Canvas->K2_DrawLine(P + FVector2D(0.f, -6.f), P + FVector2D(6.f, 0.f),
             2.f, FLinearColor(.30f, .95f, .48f));
@@ -323,6 +335,16 @@ void AMoonfallHud::DrawHUD()
             2.f, FLinearColor(.30f, .95f, .48f));
         Canvas->K2_DrawLine(P + FVector2D(-6.f, 0.f), P + FVector2D(0.f, -6.f),
             2.f, FLinearColor(.30f, .95f, .48f));
+    }
+    // A distant objective stays discoverable without adding a quest tracker.
+    if (bNearestChamberOffscreen && !NearestChamberDirection.IsNearlyZero())
+    {
+        const FVector2D Tip = RadarCenter + NearestChamberDirection * (RadarRadius - 6.f);
+        const FVector2D Side(-NearestChamberDirection.Y, NearestChamberDirection.X);
+        const FVector2D Base = Tip - NearestChamberDirection * 11.f;
+        const FLinearColor ObjectiveColor(.30f, .95f, .48f);
+        Canvas->K2_DrawLine(Base + Side * 5.f, Tip, 2.5f, ObjectiveColor);
+        Canvas->K2_DrawLine(Base - Side * 5.f, Tip, 2.5f, ObjectiveColor);
     }
     for (const FVector& Enemy : Hero->GetEnemyMapPositions())
     {
@@ -348,6 +370,17 @@ void AMoonfallHud::DrawHUD()
                 3.f, FLinearColor(1.f, .20f, .28f));
             Canvas->K2_DrawLine(P + FVector2D(-7.f, 0.f), P + FVector2D(0.f, -7.f),
                 3.f, FLinearColor(1.f, .20f, .28f));
+        }
+        else if (!Local.IsNearlyZero())
+        {
+            // Red edge arrow points toward the final boss even when off-map.
+            const FVector2D Direction = Local.GetSafeNormal();
+            const FVector2D Side(-Direction.Y, Direction.X);
+            const FVector2D Tip = RadarCenter + Direction * (RadarRadius - 5.f);
+            const FVector2D Base = Tip - Direction * 13.f;
+            const FLinearColor BossColor(1.f, .20f, .28f);
+            Canvas->K2_DrawLine(Base + Side * 6.f, Tip, 3.f, BossColor);
+            Canvas->K2_DrawLine(Base - Side * 6.f, Tip, 3.f, BossColor);
         }
     }
     // The player is always centered and visually distinct from enemy dots.
