@@ -26,6 +26,21 @@ jobs:
           assert 'BUILD MOONFALL' in center
           assert 'Setup-WindowsPrerequisites.ps1' in center
           assert 'Build-Windows.ps1' in center
+          # Validate the *manual* real compiler recipe as text, without pretending CI compiled Unreal.
+          compile_workflow = Path('.github/workflows/unreal-compile-windows.yml').read_text()
+          build_script = Path('MoonfallUnreal/Build/Build-Windows.ps1').read_text()
+          assert 'workflow_dispatch:' in compile_workflow
+          assert 'pull_request:' not in compile_workflow
+          assert 'runs-on: [self-hosted, Windows, X64, unreal-5-4]' in compile_workflow
+          assert 'persist-credentials: false' in compile_workflow
+          assert 'permissions:' in compile_workflow and 'contents: read' in compile_workflow
+          assert 'MoonfallUnreal\\Build\\Build-Windows.ps1 -UnrealRoot $env:UE54_ROOT -CompileOnly' in compile_workflow
+          assert 'if (-not $env:UE54_ROOT)' in compile_workflow
+          assert 'MoonfallUnrealEditor Win64 Development' in build_script
+          assert 'if ($CompileOnly)' in build_script
+          assert 'if ($LASTEXITCODE -ne 0)' in build_script
+          assert 'Upload compiler diagnostics on failure' in compile_workflow
+          assert 'Unreal C++ compile passed' in compile_workflow
           assert 'CANCEL' in center and 'OPEN OUTPUT' in center
           root = Path('MoonfallUnreal/Source')
           for path in root.rglob('*.cpp'):
