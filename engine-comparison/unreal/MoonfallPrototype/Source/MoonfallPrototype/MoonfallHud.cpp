@@ -8,7 +8,15 @@ namespace
 {
 int32 TerrainRegionAt(const FVector2D& World)
 {
-    for (int32 Region = 0; Region < MoonfallWorldRules::RegionCount; ++Region)
+    // A floor or side chamber extends at most 2,000 cm from its region
+    // center. Only the nearest region and its two neighbors can contain it.
+    // This avoids searching all six regions for every minimap terrain sample.
+    const int32 NearestRegion = FMath::RoundToInt(
+        World.X / MoonfallWorldRules::RegionSpacing);
+    const int32 FirstRegion = FMath::Max(0, NearestRegion - 1);
+    const int32 LastRegion = FMath::Min(
+        MoonfallWorldRules::RegionCount - 1, NearestRegion + 1);
+    for (int32 Region = FirstRegion; Region <= LastRegion; ++Region)
     {
         const float CenterX = MoonfallWorldRules::RegionCenter(Region);
         if (FMath::Abs(World.X - CenterX) <= MoonfallWorldRules::HalfRegion &&
