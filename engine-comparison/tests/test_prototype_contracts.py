@@ -246,6 +246,16 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("Contact.StaggerTimer, Contact.bGuardian ? 0.9f : 0.6f);", tick)
         self.assertNotIn("Contact.StaggerTimer = Contact.bGuardian ? 0.9f : 0.6f;", tick)
 
+    def test_attack_warning_hud_is_bounded_and_keeps_boss_slot(self):
+        warnings = self.cpp.split("AMoonfallPawn::GetAttackWarnings() const", 1)[1].split(
+            "AMoonfallPawn::GetEnemyPostures() const", 1)[0]
+        self.assertIn("constexpr int32 MaxEnemyWarnings = 24;", warnings)
+        self.assertIn("FMath::Square(1400.f)", warnings)
+        self.assertIn("if (Warnings.Num() >= MaxEnemyWarnings) break;", warnings)
+        self.assertLess(warnings.index("if (Warnings.Num() >= MaxEnemyWarnings) break;"),
+                        warnings.index("if (bCasting && !bWon && BossMesh)"))
+        self.assertIn("Warnings.Add(Warning);", warnings)
+
     def test_boss_perfect_parry_creates_real_punish_window(self):
         boss = self.cpp.split("else if (EnemyDamageCooldown <= 0.f && RespawnGraceTimer <= 0.f)", 1)[1]
         self.assertIn("if (bParried)", boss)
@@ -1081,7 +1091,7 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("struct FAttackWarning", self.header)
         self.assertIn("TArray<FAttackWarning> GetAttackWarnings() const;", self.header)
         self.assertIn("AMoonfallPawn::GetAttackWarnings() const", self.cpp)
-        self.assertIn("Warnings.Reserve(Enemies.Num() + 1);", self.cpp)
+        self.assertIn("Warnings.Reserve(FMath::Min(Enemies.Num(), MaxEnemyWarnings) + 1);", self.cpp)
         self.assertIn("Enemy.AttackWindup <= 0.f", self.cpp)
         self.assertIn("(HeroPosition - Warning.LocalPosition).GetSafeNormal2D()", self.cpp)
         self.assertIn("1.f - Enemy.AttackWindup / WindupDuration", self.cpp)
