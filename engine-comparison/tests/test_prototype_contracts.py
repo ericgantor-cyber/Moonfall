@@ -287,7 +287,9 @@ class PrototypeContracts(unittest.TestCase):
         minimap = hud.split("// Compact WoW-style circular minimap", 1)[1]
         ui = self.cpp.split("bool AMoonfallPawn::TryHandleMinimapZoomClick()", 1)[1].split(
             "void AMoonfallPawn::EndGuard()", 1)[0]
-        self.assertIn("if (bWorldMapVisible) return true;", ui)
+        self.assertIn("if (bWorldMapVisible)", ui)
+        self.assertIn("TrackedQuestId = QuestId;", ui)
+        self.assertIn("return true;", ui)
         self.assertLess(ui.index("if (bWorldMapVisible) return true;"),
                         ui.index("GetMousePosition(MouseX, MouseY)"))
         self.assertIn("RadiusAtY", minimap)
@@ -367,7 +369,7 @@ class PrototypeContracts(unittest.TestCase):
             "void AMoonfallPawn::EndGuard()", 1)[0]
         self.assertIn("if (MinimapZoomLevel < 2)", zoom)
         self.assertIn("if (MinimapZoomLevel > 0)", zoom)
-        self.assertEqual(zoom.count("SaveMapPreferences();"), 2)
+        self.assertEqual(zoom.count("SaveMapPreferences();"), 3)
         self.assertNotIn('ActionName="MinimapZoom",Key=M',
                          INPUT.read_text(encoding="utf-8"))
 
