@@ -405,6 +405,27 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn('TEXT("DONE")', world)
         self.assertNotIn("DrawTrack(", mini)
 
+    def test_quest_journal_click_to_track_and_disclosed_objectives(self):
+        hud = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8")
+        mini, world = hud.split("if (Hero->IsWorldMapVisible())", 1)
+        click = self.cpp.split("bool AMoonfallPawn::TryHandleMinimapZoomClick()", 1)[1].split(
+            "void AMoonfallPawn::EndGuard()", 1)[0]
+        self.assertIn("if (bWorldMapVisible)", click)
+        self.assertIn("MapController->GetViewportSize(ViewX, ViewY)", click)
+        self.assertIn("MapController->GetMousePosition(MouseX, MouseY)", click)
+        self.assertIn("MapWidth >= 620.f && MapHeight >= 230.f", click)
+        self.assertIn("JournalY + 28.f + QuestId * 29.f", click)
+        self.assertIn("TrackedQuestId = QuestId;", click)
+        self.assertIn("SaveMapPreferences();", click)
+        self.assertIn("return true;", click)
+        self.assertIn("QUESTS  |  CLICK OR J TO TRACK", world)
+        self.assertIn("TRACKED OBJECTIVE", world)
+        self.assertIn("Defeat Z, the Fallen God", world)
+        self.assertIn("Defeat all regional patrol enemies", world)
+        self.assertIn("Defeat cave guardians and claim rewards", world)
+        self.assertIn("Hero->GetQuestProgress(Tracked, ActiveRegionIndex)", world)
+        self.assertNotIn("TRACKED OBJECTIVE", mini)
+
     def test_original_quest_journal_tracks_real_saved_objectives(self):
         hud = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8")
         mini, world = hud.split("if (Hero->IsWorldMapVisible())", 1)
@@ -427,7 +448,7 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("SaveMapPreferences();", self.cpp)
         self.assertIn('ActionName="CycleTrackedQuest",Key=J', config)
         self.assertIn('BindAction(TEXT("CycleTrackedQuest"), IE_Pressed', self.cpp)
-        self.assertIn("QUEST JOURNAL  |  J: TRACK", world)
+        self.assertIn("QUESTS  |  CLICK OR J TO TRACK", world)
         self.assertIn("MAIN: THE FALLEN GOD", world)
         self.assertIn("REGION: CLEAR PATROLS", world)
         self.assertIn("REGION: CLEAR CAVES", world)
