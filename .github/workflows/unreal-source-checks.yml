@@ -200,6 +200,17 @@ jobs:
           assert 'CrowWingArt' in enemy and 'CrowBodyArt' in enemy
           assert 'if (CrowFeatherMaterial)' in enemy and 'if (CrowAccentMaterial)' in enemy
           assert 'void AMoonfallArena::CreateDecoration' in arena
+          arena_header = (root/'MoonfallUnreal'/'MoonfallArena.h').read_text()
+          assert 'UInstancedStaticMeshComponent* RuinPieces' in arena_header
+          assert 'UMaterialInterface* RuinStoneMaterial' in arena_header
+          assert 'int32 RubbleCount = 24' in arena_header
+          assert 'CreateDefaultSubobject<UInstancedStaticMeshComponent>' in arena
+          assert 'RuinPieces->AddInstance(FTransform' in arena
+          assert 'FMath::Clamp(RubbleCount,0,48)' in arena
+          assert 'const float Angle = i*2.399963f' in arena
+          assert 'if (RuinStoneMaterial) RuinPieces->SetMaterial(0,RuinStoneMaterial)' in arena
+          assert 'RuinPieces->SetCollisionEnabled(ECollisionEnabled::NoCollision)' in arena
+          assert 'if (CrowWarningGlow) CrowWarningGlow->SetVisibility(false)' in enemy
           assert 'void AMoonfallArena::CreateAtmosphereLight' in arena
           assert 'SetCollisionEnabled(ECollisionEnabled::NoCollision)' in arena
           assert arena.count('CreateAtmosphereLight(FVector(') == 2
