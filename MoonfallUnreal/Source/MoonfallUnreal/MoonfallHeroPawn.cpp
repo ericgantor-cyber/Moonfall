@@ -108,7 +108,7 @@ void AMoonfallHeroPawn::CompleteArenaBossQuest()
 }
 void AMoonfallHeroPawn::MoveForward(float Value)
 {
- if (bOptionsOpen) return;
+ if (bOptionsOpen || bWorldMapOpen) return;
  if (Controller && !FMath::IsNearlyZero(Value))
  {
   const FRotator Yaw(0.f, Controller->GetControlRotation().Yaw, 0.f);
@@ -117,15 +117,15 @@ void AMoonfallHeroPawn::MoveForward(float Value)
 }
 void AMoonfallHeroPawn::MoveRight(float Value)
 {
- if (bOptionsOpen) return;
+ if (bOptionsOpen || bWorldMapOpen) return;
  if (Controller && !FMath::IsNearlyZero(Value))
  {
   const FRotator Yaw(0.f, Controller->GetControlRotation().Yaw, 0.f);
   AddMovementInput(FRotationMatrix(Yaw).GetUnitAxis(EAxis::Y), Value);
  }
 }
-void AMoonfallHeroPawn::Turn(float Value) { if (!bOptionsOpen) AddControllerYawInput(Value); }
-void AMoonfallHeroPawn::LookUp(float Value) { if (!bOptionsOpen) AddControllerPitchInput(Value); }
+void AMoonfallHeroPawn::Turn(float Value) { if (!bOptionsOpen && !bWorldMapOpen) AddControllerYawInput(Value); }
+void AMoonfallHeroPawn::LookUp(float Value) { if (!bOptionsOpen && !bWorldMapOpen) AddControllerPitchInput(Value); }
 void AMoonfallHeroPawn::ZoomCameraIn() { if (!bOptionsOpen) CameraDistance = FMath::Clamp(CameraDistance - 50.f, 250.f, 850.f); }
 void AMoonfallHeroPawn::ZoomCameraOut() { if (!bOptionsOpen) CameraDistance = FMath::Clamp(CameraDistance + 50.f, 250.f, 850.f); }
 void AMoonfallHeroPawn::ZoomMinimapIn() { if (!bOptionsOpen) MinimapRange = FMath::Clamp(MinimapRange - 400.f, 1200.f, 4800.f); }
@@ -134,7 +134,7 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
 {
  static const float Costs[6] = {16.f,13.f,22.f,25.f,18.f,14.f};
  static const float Cooldowns[6] = {0.8f,0.65f,1.2f,2.f,1.f,0.9f};
- if (Health <= 0.f || bOptionsOpen || !GetWorld() || School < 0 || School >= 6 || Hand < 0 || Hand > 1 || !FMath::IsFinite(Multiplier) || Multiplier <= 0.f || Multiplier > 2.f) return false;
+ if (Health <= 0.f || bOptionsOpen || bWorldMapOpen || !GetWorld() || School < 0 || School >= 6 || Hand < 0 || Hand > 1 || !FMath::IsFinite(Multiplier) || Multiplier <= 0.f || Multiplier > 2.f) return false;
  const float Time = GetWorld()->GetTimeSeconds();
  if (!FMath::IsFinite(Health) || !FMath::IsFinite(MaxHealth) || MaxHealth <= 0.f || Health > MaxHealth || !FMath::IsFinite(MaxMana) || MaxMana <= 0.f || !FMath::IsFinite(Mana) || !FMath::IsFinite(SpellPowerMultiplier) || SpellPowerMultiplier <= 0.f || Mana < Costs[School] * Multiplier || Time - LastCastTime[Hand] < Cooldowns[School]) return false;
  if (School == 3 && Health >= MaxHealth) return false;
@@ -162,11 +162,11 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
  OnSpellCast(School, Hand == 0);
  return true;
 }
-void AMoonfallHeroPawn::CastLeft() { if (bOptionsOpen) return; TryCast(LeftSpell, 0, 1.f); }
-void AMoonfallHeroPawn::CastRight() { if (bOptionsOpen) return; TryCast(RightSpell, 1, 1.f); }
+void AMoonfallHeroPawn::CastLeft() { if (bOptionsOpen || bWorldMapOpen) return; TryCast(LeftSpell, 0, 1.f); }
+void AMoonfallHeroPawn::CastRight() { if (bOptionsOpen || bWorldMapOpen) return; TryCast(RightSpell, 1, 1.f); }
 void AMoonfallHeroPawn::CastBoth()
 {
- if (bOptionsOpen) return;
+ if (bOptionsOpen || bWorldMapOpen) return;
  if (LeftSpell != RightSpell || !GetWorld()) return;
  const float Time = GetWorld()->GetTimeSeconds();
  static const float Cooldowns[6] = {0.8f,0.65f,1.2f,2.f,1.f,0.9f};
@@ -179,7 +179,7 @@ void AMoonfallHeroPawn::CastBoth()
 }
 void AMoonfallHeroPawn::Dodge()
 {
- if (bOptionsOpen || Health <= 0.f || !GetWorld()) return;
+ if (bOptionsOpen || bWorldMapOpen || Health <= 0.f || !GetWorld()) return;
  const float Now = GetWorld()->GetTimeSeconds();
  if (Now < NextDodgeAt) return;
  NextDodgeAt = Now + DodgeCooldown;
@@ -229,7 +229,7 @@ void AMoonfallHeroPawn::ToggleDisplayMode() {
  Settings->SaveSettings();
 }
 
-void AMoonfallHeroPawn::OpenOptions() { bOptionsOpen = !bOptionsOpen; }
+void AMoonfallHeroPawn::OpenOptions() { bOptionsOpen = !bOptionsOpen; if (bOptionsOpen) bWorldMapOpen = false; }
 void AMoonfallHeroPawn::OptionsUp() { if (bOptionsOpen) OptionsSelection = (OptionsSelection + 6) % 7; }
 void AMoonfallHeroPawn::OptionsDown() { if (bOptionsOpen) OptionsSelection = (OptionsSelection + 1) % 7; }
 void AMoonfallHeroPawn::OptionsLeft() { AdjustOption(-1); }
