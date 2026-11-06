@@ -68,3 +68,7 @@ The arena now owns a cool `UDirectionalLightComponent` called `Moonlight` and a 
 The Blueprint-editable `bEnableMoonlight`, `bEnableLowFog`, and `GroundFogDensity` settings control the look and performance. Fog is bounded to 0–0.025, starting at 0.012. Fog and light must be validated with actual Unreal 5.4 gameplay at dark/bright monitors, ensuring critical crow warning rings, hero silhouettes, loot and quest markers remain readable. Dial fog down or disable it when accessibility or GPU constraints require.
 
 These are native lighting/fog adjustments. Production sky, volumetric clouds, atmosphere textures, PBR materials, finished 3D assets, day/night cycles, and GPU profiling are still not delivered.
+
+## Ritual boss-ring art layer
+
+The starter arena now includes a `RitualSigil` instanced mesh group: **24 slim radial tiles** arranged around the central boss area. It casts no shadows, has no collision, uses no tick, and leaves the boss telegraph/player center unobstructed. In an `AMoonfallArena` Blueprint, `bShowRitualCircle` hides/shows the ring, and `SigilTileMeshArt` / `SigilTileMaterial` can substitute original runic tiles or emissive glyphs. This is an original primitive-ring fallback, not imported runic art, particle VFX or a spell mechanic. Confirm visibility and floor height using a real Unreal level and test contrast against telegraph colors.
