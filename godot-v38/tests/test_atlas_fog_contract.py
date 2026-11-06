@@ -37,6 +37,8 @@ class AtlasFogContract(unittest.TestCase):
         click = SOURCE[start:end]
         self.assertIn("for visited_position in discovered_chambers:", click)
         self.assertLess(click.index("for visited_position in discovered_chambers:"), click.index("location=candidate"))
+        self.assertLess(click.index("if not room_discovered:return"), click.index("location=candidate"))
+        self.assertIn("room_discovered=true", click)
         self.assertNotIn("if nearest_room>=0:location=dungeon_rooms[nearest_room]", click)
 
 
