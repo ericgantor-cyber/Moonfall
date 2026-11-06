@@ -114,3 +114,29 @@ jobs:
       - name: State verification scope
         shell: pwsh
         run: Write-Host 'Windows script parser and mocked failure paths only; no Unreal compilation, packaging, or gameplay verification.'
+
+  unreal-win64-real-build:
+    # Requires a separately provisioned Windows x64 self-hosted runner with
+    # UE 5.6 and VS C++ installed. Never runs on GitHub's stock Windows VM.
+    # Enable by setting repo variable MOONFALL_UNREAL_RUNNER_ENABLED=true.
+    if: ${{ vars.MOONFALL_UNREAL_RUNNER_ENABLED == 'true' }}
+    runs-on: [self-hosted, Windows, X64, unreal-5.6]
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile, create startup level, and package with real UE 5.6
+        shell: pwsh
+        env:
+          UE_56_ROOT: ${{ vars.MOONFALL_UE56_ROOT }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:UE_56_ROOT)) {
+            throw 'Set repository variable MOONFALL_UE56_ROOT to the installed Unreal Engine 5.6 directory.'
+          }
+          & ./engine-comparison/unreal/verify-windows-build.ps1 -EngineRoot $env:UE_56_ROOT -CreateMap -Package -ArchiveDirectory (Join-Path $env:RUNNER_TEMP 'MoonfallUE56Package')
+      - name: Upload successfully verified Win64 package
+        uses: actions/upload-artifact@v4
+        with:
+          name: Moonfall-Unreal56-Win64-Development
+          path: ${{ runner.temp }}/MoonfallUE56Package/run-*/
+          if-no-files-found: error
+          retention-days: 7
