@@ -51,7 +51,6 @@ AMoonfallArena::AMoonfallArena() {
 void AMoonfallArena::CreateBlock(FVector Position, FVector Scale, bool bGround) {
  UStaticMeshComponent* Block = NewObject<UStaticMeshComponent>(this);
  Block->SetupAttachment(GetRootComponent());
- Block->RegisterComponent();
  Block->SetRelativeLocation(Position);
  Block->SetRelativeScale3D(Scale);
  Block->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
@@ -60,6 +59,7 @@ void AMoonfallArena::CreateBlock(FVector Position, FVector Scale, bool bGround) 
  if (SelectedMesh || DefaultCube) Block->SetStaticMesh(SelectedMesh ? SelectedMesh : DefaultCube);
  UMaterialInterface* SelectedMaterial = bGround ? GroundMaterial : BoundaryMaterial;
  if (SelectedMaterial) Block->SetMaterial(0,SelectedMaterial);
+ Block->RegisterComponent();
 }
 void AMoonfallArena::CreateDecoration(FVector Position, FVector Scale) {
  // All non-interactive ruins share one instanced mesh component; no per-prop actors or ticks.
@@ -134,8 +134,11 @@ void AMoonfallArena::BeginPlay() {
  for (int32 i=0;i<TreeBudget;++i) {
   const float A = i*2.399963f;
   const float Distance = 1250.f + static_cast<float>(i%3)*55.f;
-  const FVector Base(FMath::Cos(A)*Distance,FMath::Sin(A)*Distance,155.f);
   const float Height = 2.0f + 0.25f*static_cast<float>(i%4);
+  // The fallback cube pivot is centered. Place its bottom at floor height (-10 cm).
+  // Imported meshes may have authored root pivots and keep their adjustable art offset.
+  const float BaseZ = DeadTreeMeshArt ? 155.f : -10.f + Height*50.f;
+  const FVector Base(FMath::Cos(A)*Distance,FMath::Sin(A)*Distance,BaseZ);
   AddFoliage(Base,FVector(0.20f,0.25f,Height),FRotator(0.f,0.f,6.f*FMath::Sin(A)));
   if (!DeadTreeMeshArt) {
    // Default cube fallback gets two sculptural branches, but imported trees stay one mesh.
