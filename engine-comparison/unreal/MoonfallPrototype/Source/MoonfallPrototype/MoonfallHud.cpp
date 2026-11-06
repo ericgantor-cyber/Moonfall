@@ -561,26 +561,42 @@ void AMoonfallHud::DrawHUD()
             return FVector2D(MapMiddle.X + (X - WorldMinX) * MapScaleX,
                 MapMiddle.Y - Y * MapScaleY);
         };
-        // Draw ONLY visited floor tiles. Undiscovered terrain stays truly blank,
-        // including entire regions and caves never approached by the player.
-        // The sampled cells use the same 2 m fog grid as the saved progression.
+        // Row-run batching: draw each contiguous explored terrain shade as
+        // one rectangle instead of thousands of individual 2 m tiles.
+        // This preserves blank unexplored cells and scales better on full maps.
+        int32 DiscoveredGroundCells = 0;
         for (int32 Y = 0; Y < AMoonfallPawn::FogHeight; ++Y)
         {
             const float WorldY = AMoonfallPawn::FogMinY +
                 (Y + .5f) * AMoonfallPawn::FogCellSize;
-            for (int32 X = 0; X < AMoonfallPawn::FogWidth; ++X)
+            int32 ActiveRegion = INDEX_NONE;
+            int32 RunStartX = 0;
+            for (int32 X = 0; X <= AMoonfallPawn::FogWidth; ++X)
             {
-                const float WorldX = AMoonfallPawn::FogMinX +
-                    (X + .5f) * AMoonfallPawn::FogCellSize;
-                if (!Hero->IsMapExplored(FVector2D(WorldX, WorldY))) continue;
-                const int32 Region = TerrainRegionAt(FVector2D(WorldX, WorldY));
-                if (Region == INDEX_NONE) continue;
-                const FVector2D TopLeft = ToMap(
-                    WorldX - AMoonfallPawn::FogCellSize * .5f,
-                    WorldY + AMoonfallPawn::FogCellSize * .5f);
-                DrawRect(TerrainTint(Region), TopLeft.X, TopLeft.Y,
-                    AMoonfallPawn::FogCellSize * MapScaleX + 1.f,
-                    AMoonfallPawn::FogCellSize * MapScaleY + 1.f);
+                int32 Region = INDEX_NONE;
+                if (X < AMoonfallPawn::FogWidth)
+                {
+                    const float WorldX = AMoonfallPawn::FogMinX +
+                        (X + .5f) * AMoonfallPawn::FogCellSize;
+                    if (Hero->IsMapExplored(FVector2D(WorldX, WorldY)))
+                    {
+                        Region = TerrainRegionAt(FVector2D(WorldX, WorldY));
+                        if (Region != INDEX_NONE) ++DiscoveredGroundCells;
+                    }
+                }
+                if (Region == ActiveRegion) continue;
+                if (ActiveRegion != INDEX_NONE)
+                {
+                    const float StartWorldX = AMoonfallPawn::FogMinX +
+                        RunStartX * AMoonfallPawn::FogCellSize;
+                    const FVector2D TopLeft = ToMap(StartWorldX,
+                        WorldY + AMoonfallPawn::FogCellSize * .5f);
+                    DrawRect(TerrainTint(ActiveRegion), TopLeft.X, TopLeft.Y,
+                        (X - RunStartX) * AMoonfallPawn::FogCellSize * MapScaleX,
+                        AMoonfallPawn::FogCellSize * MapScaleY);
+                }
+                ActiveRegion = Region;
+                RunStartX = X;
             }
         }
         // Labels only appear once the center of a region has been discovered.
@@ -640,6 +656,11 @@ void AMoonfallHud::DrawHUD()
         DrawText(TEXT("FOG: UNEXPLORED BLANK   GREEN: CAVE   RED: BOSS"),
             FLinearColor(.86f, .86f, .91f),
             MapOrigin.X + 10.f, MapOrigin.Y + MapHeight - 37.f, nullptr, .70f);
+        // This counts revealed walkable terrain only, not hidden map cells.
+        if (MapWidth >= 520.f)
+            DrawText(FString::Printf(TEXT("DISCOVERED: %d TILES"), DiscoveredGroundCells),
+                FLinearColor(.83f, .85f, .91f), MapOrigin.X + MapWidth - 190.f,
+                MapOrigin.Y + 6.f, nullptr, .75f);
         DrawText(TEXT("TAB: CLOSE MAP"), FLinearColor(.9f, .86f, .96f),
             MapOrigin.X + 10.f, MapOrigin.Y + MapHeight - 19.f, nullptr, .75f);
     }
