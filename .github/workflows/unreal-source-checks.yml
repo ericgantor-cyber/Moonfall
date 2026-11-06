@@ -100,7 +100,6 @@ jobs:
           assert 'FVector::Dist2D(Hero->GetActorLocation(), Hero->QuestTarget) / 100.f' in hud
           assert 'Boss->Health / FMath::Max(1.f, Boss->BossMaxHealth)' in hud
           assert 'TrackerWidth*Progress' in hud
-          assert 'ArenaBossQuestCompletedAt < 5.f' not in hud
           assert 'GetWorld()->GetTimeSeconds() - Hero->ArenaBossQuestCompletedAt < 5.f' in hud
           assert 'ArenaBossQuestCompletedAt = GetWorld()' in hero
           assert 'QUEST COMPLETE: Arena Boss' in hud
