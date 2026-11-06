@@ -193,6 +193,43 @@ void AMoonfallHud::DrawHUD()
         const FVector2D Base = Screen + Direction * (Radius + 2.f);
         Canvas->K2_DrawLine(Base + Perpendicular * 9.f, Tip, Thickness, Color);
         Canvas->K2_DrawLine(Base - Perpendicular * 9.f, Tip, Thickness, Color);
+        if (Warning.bUnblockable)
+        {
+            // Crossed boss indicator: this strike is dodge-only, not guardable.
+            const float XSize = Radius * .65f;
+            Canvas->K2_DrawLine(Screen + FVector2D(-XSize, -XSize),
+                Screen + FVector2D(XSize, XSize), Thickness, Color);
+            Canvas->K2_DrawLine(Screen + FVector2D(-XSize, XSize),
+                Screen + FVector2D(XSize, -XSize), Thickness, Color);
+        }
+    }
+
+    // Only visible while right mouse is held: an aimable defensive chevron.
+    if (Hero->IsGuarding())
+    {
+        const FVector Origin = Hero->GetHeroMapPosition();
+        const FVector Direction = Hero->GetGuardDirection();
+        const FVector BaseWorld = Hero->GetActorTransform().TransformPosition(
+            Origin + FVector(0.f, 0.f, 150.f));
+        const FVector TipWorld = Hero->GetActorTransform().TransformPosition(
+            Origin + Direction * 170.f + FVector(0.f, 0.f, 150.f));
+        FVector2D BaseScreen, TipScreen;
+        if (PlayerOwner->ProjectWorldLocationToScreen(BaseWorld, BaseScreen, false) &&
+            PlayerOwner->ProjectWorldLocationToScreen(TipWorld, TipScreen, false))
+        {
+            const FVector2D Aim = (TipScreen - BaseScreen).GetSafeNormal();
+            if (!Aim.IsNearlyZero())
+            {
+                const FVector2D Side(-Aim.Y, Aim.X);
+                const FLinearColor GuardColor = Hero->IsParryWindowActive()
+                    ? FLinearColor(.95f, .95f, 1.f, .95f)
+                    : FLinearColor(.25f, .75f, 1.f, .8f);
+                Canvas->K2_DrawLine(TipScreen, TipScreen - Aim * 18.f + Side * 11.f,
+                    3.f, GuardColor);
+                Canvas->K2_DrawLine(TipScreen, TipScreen - Aim * 18.f - Side * 11.f,
+                    3.f, GuardColor);
+            }
+        }
     }
 
     // Prototype arena radar, not the production six-region Raven Atlas.
