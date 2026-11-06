@@ -85,6 +85,18 @@ jobs:
           assert 'BindAction(TEXT("MinimapZoomIn")' in hero and 'BindAction(TEXT("MinimapZoomOut")' in hero
           assert 'MinimapRange - 400.f, 1200.f, 4800.f' in hero
           assert 'MinimapRange + 400.f, 1200.f, 4800.f' in hero
+          assert 'virtual void BeginPlay() override' in hud_header
+          assert 'virtual void EndPlay(' in hud_header
+          assert 'GConfig->GetArray(TEXT("Moonfall.Exploration")' in hud
+          assert 'GConfig->SetArray(TEXT("Moonfall.Exploration")' in hud
+          assert 'GConfig->Flush(false, GGameUserSettingsIni)' in hud
+          assert 'NextExplorationSaveAt = Now + 15.f' in hud
+          assert 'FDefaultValueHelper::ParseInt(' in hud
+          assert 'bQuestTargetActive' in hero and 'SetQuestTarget(FVector WorldLocation)' in hero
+          assert 'ClearQuestTarget()' in hero
+          assert 'if (Hero->bQuestTargetActive)' in hud
+          assert 'FMath::Min(QuestDistance, MapRange)' in hud
+          assert 'const FIntPoint CurrentCell' in hud and hud.index('const FIntPoint CurrentCell') < hud.index('if (Canvas->SizeX >= 700.f')
           assert 'CellOffset.SizeSquared() > FMath::Square(MapRange - CellSize)' in hud
           print('Input mapping and combat source checks passed. Unreal compilation NOT performed.')
           PY
