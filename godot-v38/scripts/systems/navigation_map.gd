@@ -229,6 +229,18 @@ func _draw()->void:
  # World-space structural pillars are visible only in discovered dungeon rooms.
  if dungeon_active:
   for pillar in dungeon_pillars:
+   var pillar_discovered:bool=false
+   for room_index in range(dungeon_rooms.size()):
+    if room_index>=dungeon_floor_radii.size():continue
+    var room_position:Vector3=dungeon_rooms[room_index]
+    var radius:float=dungeon_floor_radii[room_index]
+    if Vector2(pillar.x-room_position.x,pillar.z-room_position.z).length_squared()>radius*radius:continue
+    for visited_position in discovered_chambers:
+     if Vector2(visited_position.x-room_position.x,visited_position.z-room_position.z).length_squared()<1.0:
+      pillar_discovered=true
+      break
+    if pillar_discovered:break
+   if not pillar_discovered:continue
    var pillar_offset:Vector2=Vector2(pillar.x-player_position.x,pillar.z-player_position.z)*scale_factor
    if absf(pillar_offset.x)>size.x*0.5 or absf(pillar_offset.y)>size.y*0.5:continue
    var mapped:Vector2=centre+pillar_offset
