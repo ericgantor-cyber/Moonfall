@@ -438,6 +438,18 @@ void AMoonfallPawn::RecordDamageNumber(const FVector& LocalPosition,
     DamageNumbers.Add(Number);
 }
 
+void AMoonfallPawn::RecordHeroHit(float Amount, bool bDodged)
+{
+    if (!HeroMesh || (!bDodged && (!FMath::IsFinite(Amount) || Amount <= 0.f))) return;
+    if (DamageNumbers.Num() >= 24) DamageNumbers.RemoveAt(0);
+    FDamageNumber Number;
+    Number.LocalPosition = HeroMesh->GetRelativeLocation() + FVector(0.f, 0.f, 130.f);
+    Number.Amount = Amount;
+    Number.bIncoming = !bDodged;
+    Number.bDodged = bDodged;
+    DamageNumbers.Add(Number);
+}
+
 void AMoonfallPawn::DamageWorldEnemy(int32 Index, float Damage, bool bRiposte, bool bComboFinisher, bool bMagic)
 {
     if (!Enemies.IsValidIndex(Index)) return;
@@ -831,11 +843,16 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
             if (ContactIndex != INDEX_NONE)
             {
                 const FWorldEnemy& Contact = Enemies[ContactIndex];
-                if (bDodgeActiveThisFrame) CounterWindow = CounterDuration;
+                if (bDodgeActiveThisFrame)
+                {
+                    CounterWindow = CounterDuration;
+                    RecordHeroHit(0.f, true);
+                }
                 else
                 {
                     const float ContactDamage = 5.f + 2.f * Contact.Region +
                         (Contact.bEnraged ? 4.f : 0.f);
+                    RecordHeroHit(FMath::Min(Health, ContactDamage), false);
                     Health = FMath::Max(0.f, Health - ContactDamage);
                 }
                 EnemyDamageCooldown = 1.2f;
@@ -909,13 +926,16 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
                     // Each strike resolves only once, limiting the stamina refund.
                     CounterWindow = CounterDuration;
                     Stamina = FMath::Min(GetHudMaxStamina(), Stamina + 10.f);
+                    RecordHeroHit(0.f, true);
                 }
                 else if (EnemyDamageCooldown <= 0.f && RespawnGraceTimer <= 0.f)
                 {
                     // Boss and mob strikes share a brief damage recovery window:
                     // overlapping attacks must not instantly double-hit the hero.
-                    Health = FMath::Max(0.f, Health -
-                        (BossAttackPhase == 3 ? 28.f : (BossAttackPhase == 2 ? 24.f : 20.f)));
+                    const float BossDamage = BossAttackPhase == 3 ? 28.f :
+                        (BossAttackPhase == 2 ? 24.f : 20.f);
+                    RecordHeroHit(FMath::Min(Health, BossDamage), false);
+                    Health = FMath::Max(0.f, Health - BossDamage);
                     EnemyDamageCooldown = 1.2f;
                 }
             }
