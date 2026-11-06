@@ -60,3 +60,11 @@ This adds reliable hooks for production meshes and materials, not actual finishe
 The Unreal starter arena now renders a bounded border of stylized dead-tree silhouettes and seven ritual stones, each category in its own `UInstancedStaticMeshComponent` and all **without collision or shadows**. The forest defaults to ten trees (maximum sixteen); native cube placeholders get crooked branches, while an authored `DeadTreeMeshArt` draws one mesh per tree to avoid repeating placeholder branches. Independent `DeadTreeMaterial`, `RitualStoneMeshArt`, and `RitualStoneMaterial` asset references let artists replace these independently of ruins, ground, walls, enemies, and crows. The center is deliberately left clear for readable boss attacks and quest markers.
 
 This remains source-level prototype set dressing rather than imported biome assets or real foliage wind animation. Check pivots, LODs, bounding volumes, and GPU costs in Unreal before adding any heavier art. Z and Nyra art stays identical.
+
+## Moonlit atmosphere layer
+
+The arena now owns a cool `UDirectionalLightComponent` called `Moonlight` and a blue-black `UExponentialHeightFogComponent` called `GroundFog`. These give the original forest-and-ruins prototype an atmospheric backdrop, independent of the two low-cost colored point lights and red crow attack warning glow. They are **scene components, not ticking AI actors**. Moonlight casts no dynamic shadows by default.
+
+The Blueprint-editable `bEnableMoonlight`, `bEnableLowFog`, and `GroundFogDensity` settings control the look and performance. Fog is bounded to 0–0.025, starting at 0.012. Fog and light must be validated with actual Unreal 5.4 gameplay at dark/bright monitors, ensuring critical crow warning rings, hero silhouettes, loot and quest markers remain readable. Dial fog down or disable it when accessibility or GPU constraints require.
+
+These are native lighting/fog adjustments. Production sky, volumetric clouds, atmosphere textures, PBR materials, finished 3D assets, day/night cycles, and GPU profiling are still not delivered.
