@@ -9,6 +9,7 @@
 #include "Components/StaticMeshComponent.h"
 #include "Engine/Engine.h"
 #include "GameFramework/SpringArmComponent.h"
+#include "GameFramework/PlayerController.h"
 #include "Kismet/GameplayStatics.h"
 #include "UObject/ConstructorHelpers.h"
 
@@ -718,9 +719,32 @@ void AMoonfallPawn::CycleMinimapTracking()
     MinimapTrackingMode = (MinimapTrackingMode + 1) % 4;
 }
 
-void AMoonfallPawn::CycleMinimapZoom()
+bool AMoonfallPawn::TryHandleMinimapZoomClick()
 {
-    MinimapZoomLevel = (MinimapZoomLevel + 1) % 3;
+    const APlayerController* Controller = Cast<APlayerController>(GetController());
+    if (!Controller) return false;
+
+    float MouseX = 0.f, MouseY = 0.f;
+    int32 ViewportX = 0, ViewportY = 0;
+    if (!Controller->GetMousePosition(MouseX, MouseY)) return false;
+    Controller->GetViewportSize(ViewportX, ViewportY);
+    if (ViewportX <= 0 || ViewportY <= 0) return false;
+
+    // Positions match the two clickable squares painted by MoonfallHud.
+    const float ButtonX = static_cast<float>(ViewportX) - 36.f;
+    constexpr float ButtonHalfSize = 13.f;
+    if (FMath::Abs(MouseX - ButtonX) > ButtonHalfSize) return false;
+    if (FMath::Abs(MouseY - 67.f) <= ButtonHalfSize)
+    {
+        MinimapZoomLevel = FMath::Min(MinimapZoomLevel + 1, 2);
+        return true;
+    }
+    if (FMath::Abs(MouseY - 99.f) <= ButtonHalfSize)
+    {
+        MinimapZoomLevel = FMath::Max(MinimapZoomLevel - 1, 0);
+        return true;
+    }
+    return false;
 }
 
 void AMoonfallPawn::EndGuard()
@@ -822,6 +846,7 @@ float AMoonfallPawn::HealingSpellAmount() const
 
 void AMoonfallPawn::Attack()
 {
+    if (TryHandleMinimapZoomClick()) return; // UI clicks cannot cause a melee strike.
     if (Health <= 0.f)
     {
         // The existing click-to-attack also resumes the last living checkpoint
@@ -1000,7 +1025,6 @@ void AMoonfallPawn::SetupPlayerInputComponent(UInputComponent* Input)
     Input->BindAction(TEXT("Guard"), IE_Pressed, this, &AMoonfallPawn::BeginGuard);
     Input->BindAction(TEXT("Guard"), IE_Released, this, &AMoonfallPawn::EndGuard);
     Input->BindAction(TEXT("MinimapTracking"), IE_Pressed, this, &AMoonfallPawn::CycleMinimapTracking);
-    Input->BindAction(TEXT("MinimapZoom"), IE_Pressed, this, &AMoonfallPawn::CycleMinimapZoom);
     Input->BindAction(TEXT("ArcaneBolt"), IE_Pressed, this, &AMoonfallPawn::CastBolt);
     Input->BindAction(TEXT("ArcaneHeal"), IE_Pressed, this, &AMoonfallPawn::CastHeal);
 }
