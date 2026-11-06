@@ -315,6 +315,19 @@ class PrototypeContracts(unittest.TestCase):
         self.assertNotIn("DrawRect(TerrainTint(Region), TopLeft.X", minimap)
         self.assertNotIn("Hero->GetEnemyMapPositions()", minimap)
 
+    def test_full_map_discovery_counts_only_revealed_caves(self):
+        hud = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8")
+        minimap = hud.split("// Compact WoW-style circular minimap", 1)[1]
+        self.assertIn("int32 DiscoveredCaves = 0;", minimap)
+        self.assertIn("int32 ClearedCaves = 0;", minimap)
+        self.assertIn("MoonfallWorldRules::ChamberReward(Region, Cave)", minimap)
+        self.assertIn("if (!Hero->IsMapExplored(FVector2D(CavePosition.X, CavePosition.Y)))", minimap)
+        self.assertIn("++DiscoveredCaves;", minimap)
+        self.assertIn("if (Hero->IsCaveCleared(Region, Cave)) ++ClearedCaves;", minimap)
+        self.assertIn('TEXT("CAVES FOUND: %d/%d   CLEARED: %d")', minimap)
+        self.assertIn("MoonfallWorldRules::TotalChambers, ClearedCaves", minimap)
+        self.assertNotIn("Hero->GetEnemyMapPositions()", minimap)
+
     def test_cleared_caves_persist_as_discovered_grey_landmarks(self):
         hud = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8")
         minimap = hud.split("// Compact WoW-style circular minimap", 1)[1]
