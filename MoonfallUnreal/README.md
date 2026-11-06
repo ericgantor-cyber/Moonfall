@@ -191,3 +191,13 @@ The workflow is intentionally **manual only** (`workflow_dispatch`), requires a 
 **To activate:** On a dedicated Windows PC with Unreal and C++ tools installed, open the repository's **Settings > Actions > Runners** and follow GitHub's instructions to register the machine, assign the label `unreal-5-4`, and set `UE54_ROOT` in its runner environment. Avoid registering a sensitive personal workstation or running untrusted pull request code; dedicated isolated runners are preferable. Once the workflow file is on the default branch, open **Actions > Moonfall Unreal C++ compile (trusted Windows runner) > Run workflow** and select the reviewed branch. Until a suitable runner is online, jobs cannot actually compile.
 
 Use the existing separate `Moonfall Unreal Windows build (self-hosted)` manual workflow for full cooking, launcher, and NSIS installer. The compile-only workflow does **not** produce an executable installer, nor verify Windows gameplay. Nothing in this documentation claims a UE compile has already succeeded.
+
+## One-command Windows compile runner readiness check
+
+From PowerShell in the checked-out Moonfall repository on a trusted Windows PC, run:
+
+```powershell
+.\MoonfallUnreal\Build\Check-CompileRunner.ps1
+```
+
+This read-only readiness check verifies the project exists, checks the Unreal 5.4 build tool (using `UE54_ROOT` or the standard engine install path), checks for the Visual Studio 2022 C++ toolchain, and prints the GitHub runner-registration instructions. It **does not register a GitHub runner**, download software, upload secrets, or compile anything by default. To attempt a **local** Unreal editor compilation on a properly equipped Windows PC, use `Check-CompileRunner.ps1 -RunCompile`. The real CI build is still manual-only and needs a dedicated registered Windows runner labeled `unreal-5-4`. Never paste GitHub registration tokens into chat. This helper and its syntax have only source-level GitHub checks until executed on Windows.
