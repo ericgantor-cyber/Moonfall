@@ -490,9 +490,21 @@ TArray<AMoonfallPawn::FEnemyPosture> AMoonfallPawn::GetEnemyPostures() const
 TArray<FVector> AMoonfallPawn::GetEnemyMapPositions() const
 {
     TArray<FVector> Result;
-    Result.Reserve(Enemies.Num());
+    // The minimap displays only a 1700 cm neighborhood; collecting every
+    // distant enemy each draw wastes memory and HUD work in larger worlds.
+    constexpr int32 MaxMinimapEnemies = 48;
+    Result.Reserve(FMath::Min(Enemies.Num(), MaxMinimapEnemies));
+    if (!HeroMesh) return Result;
+    const FVector HeroPosition = HeroMesh->GetRelativeLocation();
     for (const FWorldEnemy& Enemy : Enemies)
-        if (Enemy.Mesh) Result.Add(Enemy.Mesh->GetRelativeLocation());
+    {
+        if (!Enemy.Mesh) continue;
+        const FVector Position = Enemy.Mesh->GetRelativeLocation();
+        if (FMath::Abs(Position.X - HeroPosition.X) > 1700.f ||
+            FMath::Abs(Position.Y - HeroPosition.Y) > 1700.f) continue;
+        Result.Add(Position);
+        if (Result.Num() >= MaxMinimapEnemies) break;
+    }
     return Result;
 }
 
