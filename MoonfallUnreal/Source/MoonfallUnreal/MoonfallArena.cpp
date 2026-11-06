@@ -1,5 +1,6 @@
 #include "MoonfallArena.h"
 #include "MoonfallEnemy.h"
+#include "MoonfallHeroPawn.h"
 #include "Components/SceneComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/World.h"
@@ -43,5 +44,9 @@ void AMoonfallArena::BeginPlay() {
    Enemy->AttackCooldown *= 1.15f;
   }
   UGameplayStatics::FinishSpawningActor(Enemy, SpawnTransform);
+  if (Enemy->bBoss) {
+   if (AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0)))
+    Hero->BeginArenaBossQuest(Enemy->GetActorLocation());
+  }
  }
 }
