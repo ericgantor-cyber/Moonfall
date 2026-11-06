@@ -37,6 +37,18 @@ if ($EngineVersion.MajorVersion -ne 5 -or $EngineVersion.MinorVersion -ne 6) {
 $Project = (Resolve-Path -LiteralPath $Project).Path
 $BuildBat = (Resolve-Path -LiteralPath $BuildBat).Path
 
+function Test-WindowsExecutable {
+    param([string]$Path)
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { return $false }
+    $stream = [System.IO.File]::OpenRead($Path)
+    try {
+        # Windows PE executables begin with the DOS 'MZ' signature.
+        return $stream.Length -ge 2 -and $stream.ReadByte() -eq 77 -and $stream.ReadByte() -eq 90
+    } finally {
+        $stream.Dispose()
+    }
+}
+
 function Invoke-UnrealBuild {
     param([string]$Target, [string]$Configuration)
     Write-Host "Building $Target Win64 $Configuration..."
@@ -51,6 +63,9 @@ Invoke-UnrealBuild "MoonfallPrototype" "Development"
 $GameExe = Join-Path $PSScriptRoot "MoonfallPrototype\Binaries\Win64\MoonfallPrototype.exe"
 if (-not (Test-Path -LiteralPath $GameExe -PathType Leaf)) {
     throw "Build command returned success but the Win64 game executable was not found: $GameExe"
+}
+if (-not (Test-WindowsExecutable -Path $GameExe)) {
+    throw "Unreal build returned success but the game executable is empty or not a Windows PE file: $GameExe"
 }
 Write-Host "Unreal Editor and Win64 Development game compilation succeeded."
 Write-Host "Compilation alone does not prove packaged gameplay or save/load behavior."
@@ -117,7 +132,8 @@ if ($Package) {
     # Prevent a stale build from being mistaken for the output of this run.
     # Allow two seconds of timestamp granularity for Windows filesystems.
     $PackagedExecutables = @(Get-ChildItem -LiteralPath $ArchiveDirectory -File -Recurse -Filter "MoonfallPrototype.exe" |
-        Where-Object { $_.Length -gt 0 -and $_.LastWriteTimeUtc -ge $PackageStartedUtc.AddSeconds(-2) })
+        Where-Object { $_.LastWriteTimeUtc -ge $PackageStartedUtc.AddSeconds(-2) -and
+            (Test-WindowsExecutable -Path $_.FullName) })
     if ($PackagedExecutables.Count -eq 0) {
         throw "BuildCookRun returned success but no fresh, nonempty packaged MoonfallPrototype.exe was found in $ArchiveDirectory"
     }
