@@ -202,6 +202,23 @@ jobs:
           assert 'void AMoonfallArena::CreateDecoration' in arena
           arena_header = (root/'MoonfallUnreal'/'MoonfallArena.h').read_text()
           assert 'UInstancedStaticMeshComponent* RuinPieces' in arena_header
+          assert 'UInstancedStaticMeshComponent* DeadTrees' in arena_header
+          assert 'UInstancedStaticMeshComponent* RitualStones' in arena_header
+          assert 'int32 DeadTreeCount = 10' in arena_header
+          assert 'UStaticMesh* DeadTreeMeshArt' in arena_header
+          assert 'UMaterialInterface* DeadTreeMaterial' in arena_header
+          assert 'UStaticMesh* RitualStoneMeshArt' in arena_header
+          assert 'UMaterialInterface* RitualStoneMaterial' in arena_header
+          assert 'CreateDefaultSubobject<UInstancedStaticMeshComponent>(TEXT("DeadTrees"))' in arena
+          assert 'CreateDefaultSubobject<UInstancedStaticMeshComponent>(TEXT("RitualStones"))' in arena
+          assert 'DeadTrees->SetCollisionEnabled(ECollisionEnabled::NoCollision)' in arena
+          assert 'RitualStones->SetCollisionEnabled(ECollisionEnabled::NoCollision)' in arena
+          assert 'FMath::Clamp(DeadTreeCount,0,16)' in arena
+          assert 'for (int32 i=0;i<7;++i)' in arena
+          assert 'AddFoliage(Base' in arena and 'AddRitualStone(FVector' in arena
+          assert 'if (!DeadTreeMeshArt)' in arena
+          assert 'if (DeadTreeMeshArt) DeadTrees->SetStaticMesh(DeadTreeMeshArt)' in arena
+          assert 'if (RitualStoneMeshArt) RitualStones->SetStaticMesh(RitualStoneMeshArt)' in arena
           assert 'UMaterialInterface* RuinStoneMaterial' in arena_header
           assert 'UStaticMesh* RuinMeshArt' in arena_header
           assert 'if (RuinMeshArt) RuinPieces->SetStaticMesh(RuinMeshArt)' in arena
