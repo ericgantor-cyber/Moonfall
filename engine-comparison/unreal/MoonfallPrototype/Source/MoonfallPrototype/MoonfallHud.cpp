@@ -333,7 +333,7 @@ void AMoonfallHud::DrawHUD()
     const FVector2D RadarCenter(Canvas->ClipX - 94.f, 94.f);
     const float RadarScale = (RadarRadius - 9.f) / WorldRadius;
     const FLinearColor RadarRim(.64f, .57f, .82f, .92f);
-    // Track only chambers, only boss, both or neither. No enemy tracking.
+    // Track cave rewards, the boss, both or neither. No enemy tracking.
     const int32 TrackingMode = Hero->GetMinimapTrackingMode();
     const bool bTrackChambers = TrackingMode == 0 || TrackingMode == 1;
     const bool bTrackBoss = TrackingMode == 0 || TrackingMode == 2;
@@ -395,7 +395,7 @@ void AMoonfallHud::DrawHUD()
     DrawText(TEXT("N"), FLinearColor(.95f, .84f, .44f),
         RadarCenter.X - 5.f, RadarCenter.Y - RadarRadius - 15.f, nullptr, .9f);
     // Tracking readout and range indicator stay below the circular minimap.
-    const TCHAR* TrackingLabels[] = { TEXT("ALL"), TEXT("CHAMBERS"), TEXT("BOSS"), TEXT("OFF") };
+    const TCHAR* TrackingLabels[] = { TEXT("ALL"), TEXT("CAVES"), TEXT("BOSS"), TEXT("OFF") };
     DrawText(FString::Printf(TEXT("T: %s  %.1fm"),
         TrackingLabels[FMath::Clamp(TrackingMode, 0, 3)], WorldRadius / 100.f),
         FLinearColor(.8f, .85f, .95f), RadarCenter.X - 72.f,
@@ -436,14 +436,14 @@ void AMoonfallHud::DrawHUD()
         const FVector2D Local(Offset.X * RadarScale, -Offset.Y * RadarScale);
         if (Local.SizeSquared() > FMath::Square(RadarRadius - 10.f)) continue;
         const FVector2D P = RadarCenter + Local;
-        Canvas->K2_DrawLine(P + FVector2D(0.f, -6.f), P + FVector2D(6.f, 0.f),
-            2.f, FLinearColor(.30f, .95f, .48f));
-        Canvas->K2_DrawLine(P + FVector2D(6.f, 0.f), P + FVector2D(0.f, 6.f),
-            2.f, FLinearColor(.30f, .95f, .48f));
-        Canvas->K2_DrawLine(P + FVector2D(0.f, 6.f), P + FVector2D(-6.f, 0.f),
-            2.f, FLinearColor(.30f, .95f, .48f));
-        Canvas->K2_DrawLine(P + FVector2D(-6.f, 0.f), P + FVector2D(0.f, -6.f),
-            2.f, FLinearColor(.30f, .95f, .48f));
+        // Cave mouth icon: an arch and dark entrance instead of a loot diamond.
+        const FLinearColor CaveGreen(.30f, .95f, .48f);
+        Canvas->K2_DrawLine(P + FVector2D(-6.f, 5.f), P + FVector2D(-6.f, -1.f), 2.f, CaveGreen);
+        Canvas->K2_DrawLine(P + FVector2D(-6.f, -1.f), P + FVector2D(-3.f, -6.f), 2.f, CaveGreen);
+        Canvas->K2_DrawLine(P + FVector2D(-3.f, -6.f), P + FVector2D(3.f, -6.f), 2.f, CaveGreen);
+        Canvas->K2_DrawLine(P + FVector2D(3.f, -6.f), P + FVector2D(6.f, -1.f), 2.f, CaveGreen);
+        Canvas->K2_DrawLine(P + FVector2D(6.f, -1.f), P + FVector2D(6.f, 5.f), 2.f, CaveGreen);
+        Canvas->K2_DrawLine(P + FVector2D(-6.f, 5.f), P + FVector2D(6.f, 5.f), 2.f, CaveGreen);
     }
     if (bTrackBoss && !Hero->IsBossDefeated())
     {
@@ -467,7 +467,7 @@ void AMoonfallHud::DrawHUD()
     Canvas->K2_DrawBox(RadarCenter - FVector2D(4.f, 4.f),
         FVector2D(8.f, 8.f), 2.f, FLinearColor(.27f, .91f, 1.f));
     // Tab opens a wider terrain map of the same continuous six-region world.
-    // Draw the exact 34 m ground cells and 16 m side-chamber floor footprints.
+    // Draw the exact 34 m region floors and 16 m connected cave floor footprints.
     if (Hero->IsWorldMapVisible())
     {
         const float MapWidth = FMath::Max(200.f, FMath::Min(760.f, Canvas->ClipX - 32.f));
@@ -549,7 +549,7 @@ void AMoonfallHud::DrawHUD()
             MoonfallWorldRules::RegionAt(H.X) + 1, MoonfallWorldRules::RegionCount),
             FLinearColor(.95f, .84f, .55f),
             MapOrigin.X + 10.f, MapOrigin.Y + 6.f, nullptr, .95f);
-        DrawText(TEXT("GREEN: CHAMBER   RED: BOSS   CYAN: YOU"),
+        DrawText(TEXT("GREEN: CAVE   RED: BOSS   CYAN: YOU"),
             FLinearColor(.86f, .86f, .91f),
             MapOrigin.X + 10.f, MapOrigin.Y + MapHeight - 37.f, nullptr, .70f);
         DrawText(TEXT("TAB: CLOSE MAP"), FLinearColor(.9f, .86f, .96f),
