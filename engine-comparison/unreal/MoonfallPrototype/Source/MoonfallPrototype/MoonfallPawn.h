@@ -42,6 +42,8 @@ public:
     FVector GetHeroMapPosition() const { return HeroMesh ? HeroMesh->GetRelativeLocation() : FVector::ZeroVector; }
     FVector GetBossMapPosition() const { return BossMesh ? BossMesh->GetRelativeLocation() : FVector::ZeroVector; }
     bool IsBossDefeated() const { return bWon; }
+    // T cycles ALL -> CHAMBERS -> BOSS -> OFF, no enemy tracking.
+    int32 GetMinimapTrackingMode() const { return MinimapTrackingMode; }
     float GetBossPostureRatio() const { return FMath::Clamp(BossPosture / BossPostureThreshold, 0.f, 1.f); }
     bool IsBossPostureActive() const { return !bWon && BossPosture > 0.f; }
     bool IsBossStaggered() const { return !bWon && BossStaggerTimer > 0.f; }
@@ -113,6 +115,8 @@ private:
     float ResolveGuardHit(const FVector& AttackOrigin, float Damage, bool bUnblockable, bool& bParried);
     void BeginGuard();
     void EndGuard();
+    void CycleMinimapTracking();
+    int32 MinimapTrackingMode = 0; // 0 all, 1 chambers, 2 boss, 3 off.
     struct FChamberCache
     {
         UStaticMeshComponent* Mesh = nullptr;
