@@ -205,6 +205,22 @@ jobs:
           assert 'UMaterialInterface* RuinStoneMaterial' in arena_header
           assert 'UStaticMesh* RuinMeshArt' in arena_header
           assert 'if (RuinMeshArt) RuinPieces->SetStaticMesh(RuinMeshArt)' in arena
+          assert 'UStaticMesh* GroundMeshArt' in arena_header
+          assert 'UMaterialInterface* GroundMaterial' in arena_header
+          assert 'UStaticMesh* BoundaryMeshArt' in arena_header
+          assert 'UMaterialInterface* BoundaryMaterial' in arena_header
+          assert 'void AMoonfallArena::CreateBlock(FVector Position, FVector Scale, bool bGround)' in arena
+          assert 'bGround ? GroundMeshArt : BoundaryMeshArt' in arena
+          assert 'bGround ? GroundMaterial : BoundaryMaterial' in arena
+          assert 'CreateBlock(FVector(0,0,-60),FVector(30,30,1),true)' in arena
+          assert arena.count('),false);') >= 4
+          assert 'UStaticMesh* RegularEnemyArt' in enemy_header
+          assert 'UMaterialInterface* RegularEnemyMaterial' in enemy_header
+          assert 'UStaticMesh* BossEnemyArt' in enemy_header
+          assert 'UMaterialInterface* BossEnemyMaterial' in enemy_header
+          assert 'if (!bCorruptedCrow && Body)' in enemy
+          assert 'bBoss ? BossEnemyArt : RegularEnemyArt' in enemy
+          assert 'bBoss ? BossEnemyMaterial : RegularEnemyMaterial' in enemy
           assert 'int32 RubbleCount = 24' in arena_header
           assert 'CreateDefaultSubobject<UInstancedStaticMeshComponent>' in arena
           assert 'RuinPieces->AddInstance(FTransform' in arena
