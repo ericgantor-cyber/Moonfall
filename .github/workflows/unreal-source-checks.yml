@@ -167,7 +167,18 @@ jobs:
           assert 'bool bCorruptedCrow = false' in enemy_header
           assert 'void TickCorruptedCrow(float DeltaSeconds)' in enemy_header
           assert 'if (bCorruptedCrow) { TickCorruptedCrow(DeltaSeconds); return; }' in enemy
-          assert 'CrowAttackEndsAt = Now+0.7f' in enemy
+          assert 'CrowAttackKind = CrowAttackSequence++ % 3' in enemy
+          assert 'CROW TALON SWEEP - DODGE' in enemy
+          assert 'CROW FEINT - WAIT FOR DIVE' in enemy
+          assert 'CROW DIVE - DODGE' in enemy
+          assert 'void AMoonfallEnemy::UpdateCrowAppearance(float TimeSeconds)' in enemy
+          assert 'CrowLeftWing->SetRelativeRotation' in enemy
+          assert 'CrowRightWing->SetRelativeRotation' in enemy
+          assert 'ECollisionEnabled::NoCollision' in enemy
+          assert 'const bool bContact = Hit.bBlockingHit && Hit.GetActor() == Hero' in enemy
+          assert 'if (!bCrowHasHit && (bContact || Reach < 115.f))' in enemy
+          assert 'const bool bBlocked = GetWorld()->LineTraceSingleByChannel' in enemy
+          assert 'CrowRecoverUntil = Now+FMath::Max(1.7f,AttackCooldown)' in enemy
           assert 'bCrowDiving = true' in enemy
           assert 'FMath::Max(1.7f,AttackCooldown)' in enemy
           assert 'AddActorWorldOffset((DiveTarget-Current).GetClampedToMaxSize' in enemy
