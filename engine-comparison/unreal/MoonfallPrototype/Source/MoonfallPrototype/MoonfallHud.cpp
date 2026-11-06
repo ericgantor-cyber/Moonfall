@@ -743,49 +743,69 @@ void AMoonfallHud::DrawHUD()
             ? FMath::Clamp(FMath::RoundToInt(
                 100.f * RevealedByRegion[ActiveRegionIndex] /
                 TotalByRegion[ActiveRegionIndex]), 0, 100) : 0;
-        if (MapWidth >= 520.f)
+        // Three readable progress tracks, shown only when there is room for them.
+        // All use their actual saved gameplay/exploration data, never fake values.
+        if (MapWidth >= 520.f && MapHeight >= 190.f)
         {
-            DrawText(FString::Printf(TEXT("DISCOVERED: %d TILES"), DiscoveredGroundCells),
-                FLinearColor(.83f, .85f, .91f), MapOrigin.X + MapWidth - 190.f,
-                MapOrigin.Y + 6.f, nullptr, .75f);
-            DrawText(FString::Printf(TEXT("WORLD %d%%   REGION %d%%"),
-                WorldPercent, RegionPercent), FLinearColor(.95f, .84f, .55f),
-                MapOrigin.X + MapWidth - 207.f, MapOrigin.Y + 27.f, nullptr, .75f);
-            // Two compact progress tracks, confined to the optional full map.
-            constexpr float BarWidth = 144.f;
-            constexpr float BarHeight = 5.f;
-            const float BarX = MapOrigin.X + MapWidth - 174.f;
-            const float WorldBarY = MapOrigin.Y + 44.f;
-            const float RegionBarY = MapOrigin.Y + 57.f;
-            DrawRect(FLinearColor(.13f, .15f, .21f, .95f),
-                BarX, WorldBarY, BarWidth, BarHeight);
-            DrawRect(FLinearColor(.13f, .15f, .21f, .95f),
-                BarX, RegionBarY, BarWidth, BarHeight);
-            if (WorldPercent > 0)
-                DrawRect(FLinearColor(.68f, .56f, .92f),
-                    BarX, WorldBarY, BarWidth * WorldPercent / 100.f, BarHeight);
-            if (RegionPercent > 0)
-                DrawRect(FLinearColor(.91f, .76f, .41f),
-                    BarX, RegionBarY, BarWidth * RegionPercent / 100.f, BarHeight);
-            // Active quest: clear the five existing cave reward objectives in
-            // this region. The persisted claimed mask drives real progress.
+            constexpr float BarWidth = 174.f;
+            constexpr float BarHeight = 8.f;
+            const float BarX = MapOrigin.X + MapWidth - 203.f;
+            const float WorldBarY = MapOrigin.Y + 49.f;
+            const float RegionBarY = MapOrigin.Y + 77.f;
+            const float QuestBarY = MapOrigin.Y + 105.f;
             const int32 QuestGoal = MoonfallWorldRules::ChambersPerRegion;
             const int32 QuestCompleted = FMath::Clamp(RegionClearedCaves, 0, QuestGoal);
             const float QuestProgress = QuestGoal > 0
                 ? static_cast<float>(QuestCompleted) / QuestGoal : 0.f;
-            const float QuestLabelY = MapOrigin.Y + 71.f;
-            const float QuestBarY = MapOrigin.Y + 89.f;
-            DrawText(FString::Printf(TEXT("QUEST: CLEAR CAVES %d/%d"),
-                QuestCompleted, QuestGoal),
-                QuestCompleted == QuestGoal
-                    ? FLinearColor(.60f, .95f, .69f)
-                    : FLinearColor(.91f, .85f, .98f),
-                BarX - 37.f, QuestLabelY, nullptr, .75f);
-            DrawRect(FLinearColor(.13f, .15f, .21f, .95f),
-                BarX, QuestBarY, BarWidth, BarHeight);
-            if (QuestProgress > 0.f)
-                DrawRect(FLinearColor(.52f, .86f, .68f),
-                    BarX, QuestBarY, BarWidth * QuestProgress, BarHeight);
+            const bool bWorldComplete = TotalWalkableCells > 0 &&
+                DiscoveredGroundCells >= TotalWalkableCells;
+            const bool bRegionComplete = TotalByRegion[ActiveRegionIndex] > 0 &&
+                RevealedByRegion[ActiveRegionIndex] >= TotalByRegion[ActiveRegionIndex];
+            const bool bQuestComplete = QuestGoal > 0 && QuestCompleted >= QuestGoal;
+
+            DrawText(FString::Printf(TEXT("DISCOVERED: %d TILES"), DiscoveredGroundCells),
+                FLinearColor(.83f, .85f, .91f), BarX, MapOrigin.Y + 6.f, nullptr, .75f);
+            DrawText(FString::Printf(TEXT("WORLD  %d%%  %s"),
+                WorldPercent, bWorldComplete ? TEXT("COMPLETE") : TEXT("EXPLORED")),
+                bWorldComplete ? FLinearColor(.62f, .97f, .72f) :
+                FLinearColor(.81f, .72f, .99f),
+                BarX, MapOrigin.Y + 32.f, nullptr, .75f);
+            DrawText(FString::Printf(TEXT("REGION %d  %d%%  %s"),
+                ActiveRegionIndex + 1, RegionPercent,
+                bRegionComplete ? TEXT("COMPLETE") : TEXT("EXPLORED")),
+                bRegionComplete ? FLinearColor(.62f, .97f, .72f) :
+                FLinearColor(.98f, .84f, .54f),
+                BarX, MapOrigin.Y + 60.f, nullptr, .75f);
+            DrawText(FString::Printf(TEXT("QUEST: CLEAR CAVES %d/%d  %s"),
+                QuestCompleted, QuestGoal, bQuestComplete ? TEXT("DONE") : TEXT("ACTIVE")),
+                bQuestComplete ? FLinearColor(.62f, .97f, .72f) :
+                FLinearColor(.90f, .86f, .98f),
+                BarX, MapOrigin.Y + 88.f, nullptr, .75f);
+
+            const auto DrawTrack = [&](float Y, float Ratio, const FLinearColor& Tint,
+                bool bComplete)
+            {
+                const FLinearColor Track(.12f, .15f, .22f, .96f);
+                DrawRect(Track, BarX, Y, BarWidth, BarHeight);
+                const float SafeRatio = FMath::Clamp(Ratio, 0.f, 1.f);
+                if (SafeRatio > 0.f)
+                    DrawRect(bComplete ? FLinearColor(.56f, .95f, .66f) : Tint,
+                        BarX, Y, BarWidth * SafeRatio, BarHeight);
+                // Quarter marks give all three bars the same readable scale.
+                for (int32 Mark = 1; Mark <= 3; ++Mark)
+                    DrawRect(FLinearColor(.035f, .045f, .07f, .68f),
+                        BarX + BarWidth * Mark / 4.f, Y, 1.f, BarHeight);
+                Canvas->K2_DrawBox(FVector2D(BarX, Y),
+                    FVector2D(BarWidth, BarHeight), 1.f,
+                    bComplete ? FLinearColor(.58f, .94f, .65f) :
+                        FLinearColor(.53f, .53f, .66f));
+            };
+            DrawTrack(WorldBarY, WorldPercent / 100.f,
+                FLinearColor(.68f, .56f, .92f), bWorldComplete);
+            DrawTrack(RegionBarY, RegionPercent / 100.f,
+                FLinearColor(.91f, .76f, .41f), bRegionComplete);
+            DrawTrack(QuestBarY, QuestProgress,
+                FLinearColor(.52f, .86f, .68f), bQuestComplete);
         }
         DrawText(TEXT("TAB: CLOSE MAP"), FLinearColor(.9f, .86f, .96f),
             MapOrigin.X + 10.f, MapOrigin.Y + MapHeight - 19.f, nullptr, .75f);
