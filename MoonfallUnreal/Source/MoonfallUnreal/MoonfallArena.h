@@ -4,6 +4,8 @@
 class UInstancedStaticMeshComponent;
 class UMaterialInterface;
 class UStaticMesh;
+class UDirectionalLightComponent;
+class UExponentialHeightFogComponent;
 #include "MoonfallArena.generated.h"
 UCLASS()
 class MOONFALLUNREAL_API AMoonfallArena : public AActor {
@@ -23,12 +25,17 @@ public:
  UPROPERTY(EditDefaultsOnly, Category="Moonfall|Art") UStaticMesh* DeadTreeMeshArt = nullptr;
  UPROPERTY(EditDefaultsOnly, Category="Moonfall|Art") UMaterialInterface* DeadTreeMaterial = nullptr;
  UPROPERTY(EditAnywhere, Category="Moonfall|Art", meta=(ClampMin="0",ClampMax="16")) int32 DeadTreeCount = 10;
+ UPROPERTY(EditAnywhere, Category="Moonfall|Atmosphere") bool bEnableMoonlight = true;
+ UPROPERTY(EditAnywhere, Category="Moonfall|Atmosphere") bool bEnableLowFog = true;
+ UPROPERTY(EditAnywhere, Category="Moonfall|Atmosphere", meta=(ClampMin="0.0",ClampMax="0.025")) float GroundFogDensity = 0.012f;
  UPROPERTY(EditDefaultsOnly, Category="Moonfall|Art") UStaticMesh* RitualStoneMeshArt = nullptr;
  UPROPERTY(EditDefaultsOnly, Category="Moonfall|Art") UMaterialInterface* RitualStoneMaterial = nullptr;
 private:
  UPROPERTY(VisibleAnywhere) UInstancedStaticMeshComponent* RuinPieces;
  UPROPERTY(VisibleAnywhere) UInstancedStaticMeshComponent* DeadTrees;
  UPROPERTY(VisibleAnywhere) UInstancedStaticMeshComponent* RitualStones;
+ UPROPERTY(VisibleAnywhere) UDirectionalLightComponent* Moonlight;
+ UPROPERTY(VisibleAnywhere) UExponentialHeightFogComponent* GroundFog;
  void CreateBlock(FVector Position, FVector Scale, bool bGround);
  void CreateDecoration(FVector Position, FVector Scale);
  void AddFoliage(FVector Position, FVector Scale, FRotator Rotation);
