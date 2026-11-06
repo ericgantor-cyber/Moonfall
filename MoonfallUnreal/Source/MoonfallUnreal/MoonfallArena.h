@@ -11,4 +11,6 @@ public:
  UPROPERTY(EditAnywhere, Category="Dungeon") int32 EnemyCount = 5;
 private:
  void CreateBlock(FVector Position, FVector Scale);
+ void CreateDecoration(FVector Position, FVector Scale);
+ void CreateAtmosphereLight(FVector Position, FLinearColor Color, float Intensity);
 };
