@@ -70,6 +70,10 @@ Combat now supports three complementary defensive choices in the isolated Unreal
 
 Guard now faces the nearest available enemy when starting from a standstill; moving with WASD continues to steer the facing direction. A new 0.45-second parry recovery prevents repeated right-click taps from refreshing the 0.22-second perfect-parry window, while held right mouse still blocks normally. Parry timing is sampled before frame decay to protect the final valid input frame during frame spikes. The HUD now shows a small direction arrow only while guarding, with a brief silver emphasis during the live parry window. Boss radial attacks that cannot be blocked have a clearly crossed warning marker so players can choose to dodge instead. The 16-second autosave and both original character artworks remain unchanged. Source tests do not substitute for actual Unreal 5.6 compilation and gameplay validation.
 
+## Guard-break combat lockout and stagger pulse fix (source implemented, gameplay unverified)
+
+A broken guard now really imposes its short recovery: the hero cannot immediately attack, cast, heal or dodge until the guard-break timer expires. Guarding and offense no longer overlap: committing to a valid melee hit or spell lowers the guard. A successful parry still earns a separate riposte window, which can be used after lowering the guard. Staggering a warning enemy immediately resets its warning pulse instead of leaving an enlarged portrait on screen. Timings, controls, sixteen-second autosaves and original artwork are unchanged. Unreal gameplay/compile tests remain outstanding.
+
 ## Manual acceptance checklist
 
 - Compile editor and game C++ targets on Windows with UE 5.6 and record exact errors, warnings, and versions.
