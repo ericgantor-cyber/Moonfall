@@ -24,6 +24,7 @@ public:
     virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
     virtual void Tick(float DeltaSeconds) override;
     virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
+    bool IsDefeated() const { return Health <= 0.f; }
     float GetHudHealth() const { return Health; }
     float GetHudMaxHealth() const { return 100.f + 5.f * Victories + 2.f * (Progression.Level - 1); }
     float GetHudMana() const { return Mana; }
@@ -95,6 +96,7 @@ private:
     float BossWarningRadius = 250.f;
     static constexpr float CounterDuration = 1.5f;
     static constexpr float CounterMultiplier = 1.75f;
+    int32 LastCheckpointRegion = 0; // Commit living progress on entering a new region.
     float CheckpointTimer = 0.f;
     static constexpr float CheckpointInterval = 8.f;
     UPROPERTY() UBillboardComponent* BossPortrait;
