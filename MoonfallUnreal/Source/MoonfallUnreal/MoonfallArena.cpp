@@ -20,15 +20,18 @@ AMoonfallArena::AMoonfallArena() {
  static ConstructorHelpers::FObjectFinder<UStaticMesh> RuinCube(TEXT("/Engine/BasicShapes/Cube.Cube"));
  if (RuinCube.Succeeded()) RuinPieces->SetStaticMesh(RuinCube.Object);
 }
-void AMoonfallArena::CreateBlock(FVector Position, FVector Scale) {
+void AMoonfallArena::CreateBlock(FVector Position, FVector Scale, bool bGround) {
  UStaticMeshComponent* Block = NewObject<UStaticMeshComponent>(this);
  Block->SetupAttachment(GetRootComponent());
  Block->RegisterComponent();
  Block->SetRelativeLocation(Position);
  Block->SetRelativeScale3D(Scale);
  Block->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
- UStaticMesh* Cube = LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Cube.Cube"));
- if (Cube) Block->SetStaticMesh(Cube);
+ UStaticMesh* DefaultCube = LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Cube.Cube"));
+ UStaticMesh* SelectedMesh = bGround ? GroundMeshArt : BoundaryMeshArt;
+ if (SelectedMesh || DefaultCube) Block->SetStaticMesh(SelectedMesh ? SelectedMesh : DefaultCube);
+ UMaterialInterface* SelectedMaterial = bGround ? GroundMaterial : BoundaryMaterial;
+ if (SelectedMaterial) Block->SetMaterial(0,SelectedMaterial);
 }
 void AMoonfallArena::CreateDecoration(FVector Position, FVector Scale) {
  // All non-interactive ruins share one instanced mesh component; no per-prop actors or ticks.
@@ -47,11 +50,11 @@ void AMoonfallArena::CreateAtmosphereLight(FVector Position, FLinearColor Color,
 }
 void AMoonfallArena::BeginPlay() {
  Super::BeginPlay();
- CreateBlock(FVector(0,0,-60),FVector(30,30,1));
- CreateBlock(FVector(1500,0,200),FVector(1,30,5));
- CreateBlock(FVector(-1500,0,200),FVector(1,30,5));
- CreateBlock(FVector(0,1500,200),FVector(30,1,5));
- CreateBlock(FVector(0,-1500,200),FVector(30,1,5));
+ CreateBlock(FVector(0,0,-60),FVector(30,30,1),true);
+ CreateBlock(FVector(1500,0,200),FVector(1,30,5),false);
+ CreateBlock(FVector(-1500,0,200),FVector(1,30,5),false);
+ CreateBlock(FVector(0,1500,200),FVector(30,1,5),false);
+ CreateBlock(FVector(0,-1500,200),FVector(30,1,5),false);
  if (RuinMeshArt) RuinPieces->SetStaticMesh(RuinMeshArt);
  if (RuinStoneMaterial) RuinPieces->SetMaterial(0,RuinStoneMaterial);
  // Original deterministic ruined architecture and ground debris, all non-colliding.
