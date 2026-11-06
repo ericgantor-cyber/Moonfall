@@ -120,7 +120,7 @@ jobs:
           assert 'ToggleWorldMap()' in hero
           assert 'if (bOptionsOpen || bWorldMapOpen) return' in hero
           assert 'bOptionsOpen || bWorldMapOpen || !GetWorld()' in hero
-          assert 'if (bOptionsOpen) bWorldMapOpen = false' in hero
+          assert 'bWorldMapOpen = false;' in hero and 'PC->bShowMouseCursor = false' in hero
           assert 'Hero->bOptionsOpen || Hero->bWorldMapOpen' in enemy
           assert 'DrawExplorationAtlas(Hero)' in hud
           assert 'const float HalfWorldRange = FMath::Clamp(Hero->WorldMapRange, 5000.f, 50000.f)' in hud
@@ -164,6 +164,17 @@ jobs:
           assert 'GConfig->Flush(false, GGameUserSettingsIni)' in hero
           assert 'if (bWorldMapOpen && !bOptionsOpen && bPersonalWaypointActive)' in hero
           assert 'FMath::Min(Distance,MapRange)' in hud
+          assert 'ActionName="MapClickWaypoint",Key=LeftMouseButton' in inputs
+          assert 'BindAction(TEXT("MapClickWaypoint")' in hero
+          assert 'void AMoonfallHeroPawn::PlacePersonalWaypointAtCursor()' in hero
+          assert 'PC->GetViewportSize(ViewX,ViewY)' in hero
+          assert 'PC->GetMousePosition(MouseX,MouseY)' in hero
+          assert 'MouseY < Top+70.f || MouseY > Top+Height-16.f' in hero
+          assert 'Origin.X+WorldMapPan.X+(MouseX-ViewX*0.5f)/Scale' in hero
+          assert 'Origin.Y+WorldMapPan.Y-(MouseY-ViewY*0.5f)/Scale' in hero
+          assert 'PC->bShowMouseCursor = bWorldMapOpen' in hero
+          assert 'PC->bShowMouseCursor = false' in hero
+          assert 'SavePersonalWaypoint();' in hero
           assert 'if (Hero->bQuestTargetActive)' in hud
           assert 'for (const FIntPoint& Cell : ExploredMapCells)' in hud
           assert hud.index('const FIntPoint CurrentCell') < hud.index('if (Hero->bOptionsOpen)')
