@@ -1145,7 +1145,7 @@ class PrototypeContracts(unittest.TestCase):
 
     def test_boss_posture_staggers_and_cancels_current_cast(self):
         hud = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8")
-        self.assertIn("static constexpr float BossPostureThreshold = 180.f;", self.header)
+        self.assertIn("static constexpr float BossPostureThreshold = 30.f;", self.header)
         self.assertIn("float BossStaggerTimer = 0.f;", self.header)
         self.assertIn("bool IsBossPostureActive() const", self.header)
         self.assertIn("bool IsBossStaggered() const", self.header)
