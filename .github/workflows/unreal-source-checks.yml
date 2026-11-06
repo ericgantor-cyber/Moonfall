@@ -203,6 +203,20 @@ jobs:
           arena_header = (root/'MoonfallUnreal'/'MoonfallArena.h').read_text()
           assert 'UInstancedStaticMeshComponent* RuinPieces' in arena_header
           assert 'UInstancedStaticMeshComponent* DeadTrees' in arena_header
+          assert 'UDirectionalLightComponent* Moonlight' in arena_header
+          assert 'UExponentialHeightFogComponent* GroundFog' in arena_header
+          assert 'bool bEnableMoonlight = true' in arena_header
+          assert 'bool bEnableLowFog = true' in arena_header
+          assert 'float GroundFogDensity = 0.012f' in arena_header
+          assert '#include "Components/DirectionalLightComponent.h"' in arena
+          assert '#include "Components/ExponentialHeightFogComponent.h"' in arena
+          assert 'CreateDefaultSubobject<UDirectionalLightComponent>(TEXT("Moonlight"))' in arena
+          assert 'CreateDefaultSubobject<UExponentialHeightFogComponent>(TEXT("GroundFog"))' in arena
+          assert 'Moonlight->SetCastShadows(false)' in arena
+          assert 'GroundFog->SetFogHeightFalloff(0.34f)' in arena
+          assert 'GroundFog->SetVisibility(bEnableLowFog)' in arena
+          assert 'Moonlight->SetVisibility(bEnableMoonlight)' in arena
+          assert 'FMath::Clamp(GroundFogDensity,0.f,0.025f)' in arena
           assert 'UInstancedStaticMeshComponent* RitualStones' in arena_header
           assert 'int32 DeadTreeCount = 10' in arena_header
           assert 'UStaticMesh* DeadTreeMeshArt' in arena_header
