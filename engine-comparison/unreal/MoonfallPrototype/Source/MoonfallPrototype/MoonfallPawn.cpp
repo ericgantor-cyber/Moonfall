@@ -1187,8 +1187,11 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
                         BossMesh->GetRelativeLocation(), BossDamage, bBossRadialAttack, bParried);
                     if (bParried)
                     {
-                        // A precise directional parry interrupts the boss's next cadence.
-                        CastCooldown = FMath::Max(CastCooldown, 1.5f);
+                        // A clean directional parry creates an actual punish window.
+                        // Preserve longer existing boss staggers and prevent an
+                        // immediate follow-up cast, without granting free damage.
+                        BossStaggerTimer = FMath::Max(BossStaggerTimer, 0.65f);
+                        CastCooldown = FMath::Max(CastCooldown, 3.5f);
                     }
                     if (Taken > 0.f)
                     {
