@@ -288,15 +288,16 @@ void AMoonfallCombatHUD::DrawExplorationAtlas(const AMoonfallHeroPawn* Hero)
  const FVector2D TopLeft((Canvas->SizeX - Width)*0.5f,(Canvas->SizeY - Height)*0.5f);
  const FVector2D Centre(Canvas->SizeX*0.5f, Canvas->SizeY*0.5f);
  const FVector Player = Hero->GetActorLocation();
+ const FVector2D Pan = Hero->WorldMapPan;
  const float HalfWorldRange = FMath::Clamp(Hero->WorldMapRange, 5000.f, 50000.f); // Unreal centimetres
  const float Scale = FMath::Min((Width - 40.f),(Height - 75.f)) * 0.5f / HalfWorldRange;
  DrawRect(FLinearColor(0.025f,0.03f,0.07f,0.96f),TopLeft.X,TopLeft.Y,Width,Height);
  DrawText(TEXT("MOONFALL  |  EXPLORED WORLD"),FLinearColor(0.85f,0.87f,1.f),TopLeft.X+20.f,TopLeft.Y+12.f,nullptr,1.f);
- DrawText(TEXT("M / VIEW: CLOSE  |  +/-: ZOOM  |  UNEXPLORED IS BLANK"),FLinearColor(0.67f,0.73f,0.85f),
+ DrawText(TEXT("M: CLOSE  |  WASD/DPAD: PAN  |  +/-: ZOOM  |  R/Y: CENTER"),FLinearColor(0.67f,0.73f,0.85f),
           TopLeft.X+20.f,TopLeft.Y+35.f,nullptr,0.8f);
  // Only cells the player has actually visited are charted, never speculative terrain.
  for (const FIntPoint& Cell : ExploredMapCells) {
-  const FVector2D Offset((Cell.X+0.5f)*200.f-Player.X,(Cell.Y+0.5f)*200.f-Player.Y);
+  const FVector2D Offset((Cell.X+0.5f)*200.f-Player.X-Pan.X,(Cell.Y+0.5f)*200.f-Player.Y-Pan.Y);
   if (FMath::Abs(Offset.X)>HalfWorldRange || FMath::Abs(Offset.Y)>HalfWorldRange) continue;
   const FVector2D Spot = Centre+FVector2D(Offset.X,-Offset.Y)*Scale;
   if (Spot.X<TopLeft.X+12.f || Spot.X>TopLeft.X+Width-12.f ||
@@ -305,7 +306,7 @@ void AMoonfallCombatHUD::DrawExplorationAtlas(const AMoonfallHeroPawn* Hero)
  }
  if (Hero->bQuestTargetActive) {
   const FVector Delta = Hero->QuestTarget - Player;
-  const FVector2D Raw(Delta.X,-Delta.Y);
+  const FVector2D Raw(Delta.X-Pan.X,-Delta.Y+Pan.Y);
   const FVector2D Bound(FMath::Clamp(Raw.X,-HalfWorldRange,HalfWorldRange),
                         FMath::Clamp(Raw.Y,-HalfWorldRange,HalfWorldRange));
   const FVector2D RawTarget = Centre + Bound*Scale;
@@ -313,8 +314,11 @@ void AMoonfallCombatHUD::DrawExplorationAtlas(const AMoonfallHeroPawn* Hero)
                          FMath::Clamp(RawTarget.Y,TopLeft.Y+70.f,TopLeft.Y+Height-16.f));
   DrawRect(FLinearColor(1.f,0.78f,0.22f),Target.X-5.f,Target.Y-5.f,10.f,10.f);
  }
- DrawRect(FLinearColor(0.26f,0.91f,1.f),Centre.X-5.f,Centre.Y-5.f,10.f,10.f);
+ const FVector2D RawPlayer = Centre + FVector2D(-Pan.X, Pan.Y) * Scale;
+ if (RawPlayer.X>=TopLeft.X+12.f && RawPlayer.X<=TopLeft.X+Width-12.f &&
+     RawPlayer.Y>=TopLeft.Y+64.f && RawPlayer.Y<=TopLeft.Y+Height-12.f)
+  DrawRect(FLinearColor(0.26f,0.91f,1.f),RawPlayer.X-5.f,RawPlayer.Y-5.f,10.f,10.f);
  DrawText(TEXT("N"),FLinearColor(0.85f,0.9f,1.f),Centre.X-5.f,TopLeft.Y+65.f,nullptr,0.86f);
- DrawText(FString::Printf(TEXT("DISCOVERED: %d CELLS  |  VIEW RADIUS: %.0f m"),ExploredMapCells.Num(),HalfWorldRange/100.f),
+ DrawText(FString::Printf(TEXT("DISCOVERED: %d CELLS  |  VIEW: %.0f m  |  PAN: %.0f, %.0f m"),ExploredMapCells.Num(),HalfWorldRange/100.f,Pan.X/100.f,Pan.Y/100.f),
           FLinearColor(0.78f,0.86f,0.95f),TopLeft.X+20.f,TopLeft.Y+Height-29.f,nullptr,0.85f);
 }
