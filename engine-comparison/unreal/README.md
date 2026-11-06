@@ -46,6 +46,10 @@ When health reaches zero, the existing left-click attack input reloads the curre
 
 In addition to the existing eight-second living checkpoint cycle, moving into a new connected world region now triggers an immediate checkpoint save. Reloading a checkpoint starts tracking from the restored region rather than saving repeatedly on the first frame. On defeat, the HUD temporarily shows a "Left-click to return to your last checkpoint" prompt and the existing click input reloads the level; it adds no permanent HUD controls. Saves preserve the hero's living checkpoint even when level transitions follow defeat. Actual disk write success, level reload and save restoration still need UE 5.6 gameplay testing.
 
+## Checkpoint restore protection (source implemented, gameplay unverified)
+
+Loading a valid living checkpoint now grants a short two-second protection window against both enemy and boss damage. The timer expires normally, so no permanent invulnerability is possible. The hero keeps the checkpoint's actual health and resources, with no healing or free perfect-dodge counterattack. Fresh runs without a restored checkpoint receive no protection. This prevents immediate repeat deaths when an old checkpoint is near an active guardian; its timing and behavior still require an Unreal 5.6 gameplay test.
+
 ## Manual acceptance checklist
 
 - Compile editor and game C++ targets on Windows with UE 5.6 and record exact errors, warnings, and versions.
