@@ -425,12 +425,17 @@ TArray<AMoonfallPawn::FAttackWarning> AMoonfallPawn::GetAttackWarnings() const
 {
     TArray<FAttackWarning> Warnings;
     if (!HeroMesh || Health <= 0.f) return Warnings;
-    Warnings.Reserve(Enemies.Num() + 1);
+    // Limit per-frame HUD allocations and avoid warnings for off-screen regions.
+    // Keep one final slot reserved for the boss telegraph.
+    constexpr int32 MaxEnemyWarnings = 24;
+    Warnings.Reserve(FMath::Min(Enemies.Num(), MaxEnemyWarnings) + 1);
     const FVector HeroPosition = HeroMesh->GetRelativeLocation();
     for (const FWorldEnemy& Enemy : Enemies)
     {
         if (!Enemy.Mesh || Enemy.AttackWindup <= 0.f ||
-            Enemy.bReturningHome || Enemy.StaggerTimer > 0.f) continue;
+            Enemy.bReturningHome || Enemy.StaggerTimer > 0.f ||
+            FVector::DistSquared2D(Enemy.Mesh->GetRelativeLocation(), HeroPosition) >
+                FMath::Square(1400.f)) continue;
         FAttackWarning Warning;
         Warning.LocalPosition = Enemy.Mesh->GetRelativeLocation();
         Warning.DirectionToHero =
@@ -440,6 +445,7 @@ TArray<AMoonfallPawn::FAttackWarning> AMoonfallPawn::GetAttackWarnings() const
             1.f - Enemy.AttackWindup / WindupDuration, 0.f, 1.f);
         Warning.bGuardian = Enemy.bGuardian;
         Warnings.Add(Warning);
+        if (Warnings.Num() >= MaxEnemyWarnings) break;
     }
     if (bCasting && !bWon && BossMesh)
     {
