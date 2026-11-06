@@ -22,5 +22,16 @@ jobs:
           python-version: '3.12'
       - name: Check experimental Unity and Unreal source contracts
         run: python -m unittest discover -s engine-comparison/tests -p 'test_*.py' -v
+      - name: Parse Unreal Windows build script using PowerShell
+        shell: pwsh
+        run: |
+          $scriptPath = (Resolve-Path 'engine-comparison/unreal/verify-windows-build.ps1').Path
+          $tokens = $null
+          $parseErrors = $null
+          [void][System.Management.Automation.Language.Parser]::ParseFile($scriptPath, [ref]$tokens, [ref]$parseErrors)
+          if ($parseErrors.Count -gt 0) {
+            $parseErrors | ForEach-Object { Write-Host $_.ToString() }
+            throw "Unreal Windows build script contains PowerShell syntax errors."
+          }
       - name: Report exact validation scope
         run: echo "Static source checks only; Unity/Unreal engine compilation and gameplay remain unverified."
