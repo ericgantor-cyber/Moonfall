@@ -592,7 +592,22 @@ float AMoonfallPawn::HealingSpellAmount() const
 
 void AMoonfallPawn::Attack()
 {
-    if (Health <= 0.f || AttackCooldown > 0.f) return;
+    if (Health <= 0.f)
+    {
+        // The existing click-to-attack also resumes the last living checkpoint
+        // after defeat; no new game mode, key, or on-screen attack button.
+        if (!bRespawnRequested && GetWorld())
+        {
+            const FString LevelName = UGameplayStatics::GetCurrentLevelName(GetWorld());
+            if (!LevelName.IsEmpty())
+            {
+                bRespawnRequested = true;
+                UGameplayStatics::OpenLevel(GetWorld(), FName(*LevelName));
+            }
+        }
+        return;
+    }
+    if (AttackCooldown > 0.f) return;
     const int32 EnemyIndex = NearestEnemyIndex(400.f);
     const float BossDistance = bWon ? TNumericLimits<float>::Max() :
         FVector::Dist2D(HeroMesh->GetRelativeLocation(), BossMesh->GetRelativeLocation());
