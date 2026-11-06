@@ -111,6 +111,9 @@ if ($CreateMap) {
     if (-not (Test-Path -LiteralPath $MapAsset -PathType Leaf)) {
         throw "Unreal Editor exited without creating the required .umap: $MapAsset"
     }
+    if ((Get-Item -LiteralPath $MapAsset).Length -eq 0) {
+        throw "Unreal Editor startup map is empty: $MapAsset"
+    }
     Write-Host "Startup map is ready: $MapAsset"
 }
 
@@ -137,6 +140,9 @@ if ($Package) {
     $StartupMap = Join-Path $ContentRoot ($RelativeMap + ".umap")
     if (-not (Test-Path -LiteralPath $StartupMap -PathType Leaf)) {
         throw "Configured startup map does not exist: $StartupMap"
+    }
+    if ((Get-Item -LiteralPath $StartupMap).Length -eq 0) {
+        throw "Configured startup map is empty: $StartupMap"
     }
     Write-Host "Verified configured startup map: $StartupMap"
     if ([string]::IsNullOrWhiteSpace($ArchiveDirectory)) {
