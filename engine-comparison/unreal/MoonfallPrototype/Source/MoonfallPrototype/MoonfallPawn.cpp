@@ -83,6 +83,8 @@ void AMoonfallPawn::BeginPlay()
         if (const UMoonfallProgressSave* Progress = Cast<UMoonfallProgressSave>(Loaded))
         {
             Victories = FMath::Clamp(Progress->PermanentBossVictories, 0, 100);
+            MinimapTrackingMode = FMath::Clamp(Progress->SavedMinimapTrackingMode, 0, 3);
+            MinimapZoomLevel = FMath::Clamp(Progress->SavedMinimapZoomLevel, 0, 2);
             bWon = Progress->bBossDefeated;
             // Checkpoint is restored before the world is constructed.
             if (Progress->bHasCheckpoint && FMath::IsFinite(Progress->SavedHealth) &&
@@ -647,6 +649,8 @@ void AMoonfallPawn::SaveProgress()
     Progress->ClaimedChamberMask = ClaimedChamberMask;
     Progress->DefeatedGuardianMask = DefeatedGuardianMask;
     Progress->bBossDefeated = bWon;
+    Progress->SavedMinimapTrackingMode = MinimapTrackingMode;
+    Progress->SavedMinimapZoomLevel = MinimapZoomLevel;
     // Preserve legacy SelectedHeroIndex from the loaded save; never reassign it.
     if (HeroMesh && Health > 0.f)
     {
@@ -712,6 +716,11 @@ void AMoonfallPawn::BeginGuard()
 void AMoonfallPawn::CycleMinimapTracking()
 {
     MinimapTrackingMode = (MinimapTrackingMode + 1) % 4;
+}
+
+void AMoonfallPawn::CycleMinimapZoom()
+{
+    MinimapZoomLevel = (MinimapZoomLevel + 1) % 3;
 }
 
 void AMoonfallPawn::EndGuard()
@@ -991,6 +1000,7 @@ void AMoonfallPawn::SetupPlayerInputComponent(UInputComponent* Input)
     Input->BindAction(TEXT("Guard"), IE_Pressed, this, &AMoonfallPawn::BeginGuard);
     Input->BindAction(TEXT("Guard"), IE_Released, this, &AMoonfallPawn::EndGuard);
     Input->BindAction(TEXT("MinimapTracking"), IE_Pressed, this, &AMoonfallPawn::CycleMinimapTracking);
+    Input->BindAction(TEXT("MinimapZoom"), IE_Pressed, this, &AMoonfallPawn::CycleMinimapZoom);
     Input->BindAction(TEXT("ArcaneBolt"), IE_Pressed, this, &AMoonfallPawn::CastBolt);
     Input->BindAction(TEXT("ArcaneHeal"), IE_Pressed, this, &AMoonfallPawn::CastHeal);
 }
