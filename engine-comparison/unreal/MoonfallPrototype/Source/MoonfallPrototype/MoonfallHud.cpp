@@ -89,14 +89,16 @@ void AMoonfallHud::DrawMapIcon(FVector2D Center, float Scale, int32 IconKind)
     const FLinearColor Color = IconKind == 0
         ? FLinearColor(.48f, .92f, .62f)
         : (IconKind == 1 ? FLinearColor(.99f, .56f, .38f)
-                         : FLinearColor(.43f, .87f, 1.f));
+        : (IconKind == 3 ? FLinearColor(.52f, .56f, .63f)
+                         : FLinearColor(.43f, .87f, 1.f)));
     const auto P = [Center, Scale](float X, float Y)
     {
         return Center + FVector2D(X * Scale, Y * Scale);
     };
-    if (IconKind == 0)
+    if (IconKind == 0 || IconKind == 3)
     {
         // Cave: arch outline and dark mouth, no copyrighted asset.
+        // Kind 3 uses a grey silhouette once the cave reward is claimed.
         Canvas->K2_DrawBox(P(-3.f, -1.f), FVector2D(6.f, 6.f) * Scale,
             1.f, Outline);
         Canvas->K2_DrawLine(P(-6.f, 5.f), P(-6.f, -1.f), 2.f, Color);
@@ -522,6 +524,20 @@ void AMoonfallHud::DrawHUD()
         }
     }
     if (bHasVisibleCave) DrawMapFocusRing(NearestVisibleCavePoint, 10.f);
+    // Grey cleared caves remain as discovered landmarks, not active objectives.
+    for (int32 Region = 0; Region < MoonfallWorldRules::RegionCount; ++Region)
+    {
+        for (int32 Cave = 0; Cave < MoonfallWorldRules::ChambersPerRegion; ++Cave)
+        {
+            if (!Hero->IsCaveCleared(Region, Cave)) continue;
+            const FVector Position = MoonfallWorldRules::ChamberReward(Region, Cave);
+            if (!Hero->IsMapExplored(FVector2D(Position.X, Position.Y))) continue;
+            const FVector Offset = Position - H;
+            const FVector2D Local(Offset.X * RadarScale, -Offset.Y * RadarScale);
+            if (Local.SizeSquared() > FMath::Square(RadarRadius - 10.f)) continue;
+            DrawMapIcon(RadarCenter + Local, 1.f, 3);
+        }
+    }
     }
     if (bTrackBoss && !Hero->IsBossDefeated() &&
         Hero->IsMapExplored(FVector2D(B.X, B.Y)))
@@ -637,6 +653,21 @@ void AMoonfallHud::DrawHUD()
                     MapOrigin.Y + 25.f, nullptr, .8f);
             }
         }
+        // Grey cave landmarks remain visible only after both discovery and clearing.
+        // Claimed rewards are never treated as the nearest available cave.
+        if (bTrackChambers)
+        {
+            for (int32 Region = 0; Region < MoonfallWorldRules::RegionCount; ++Region)
+            {
+                for (int32 Cave = 0; Cave < MoonfallWorldRules::ChambersPerRegion; ++Cave)
+                {
+                    if (!Hero->IsCaveCleared(Region, Cave)) continue;
+                    const FVector Position = MoonfallWorldRules::ChamberReward(Region, Cave);
+                    if (!Hero->IsMapExplored(FVector2D(Position.X, Position.Y))) continue;
+                    DrawMapIcon(ToMap(Position.X, Position.Y), .60f, 3);
+                }
+            }
+        }
         // The world map obeys the same fog gate as the circular minimap.
         // Tracking a boss must never reveal its location before discovery.
         if (bTrackBoss && !Hero->IsBossDefeated() &&
@@ -653,7 +684,7 @@ void AMoonfallHud::DrawHUD()
             MoonfallWorldRules::RegionAt(H.X) + 1, MoonfallWorldRules::RegionCount),
             FLinearColor(.95f, .84f, .55f),
             MapOrigin.X + 10.f, MapOrigin.Y + 6.f, nullptr, .95f);
-        DrawText(TEXT("FOG: UNEXPLORED BLANK   GREEN: CAVE   RED: BOSS"),
+        DrawText(TEXT("GREEN: CAVE   GREY: CLEARED   RED: BOSS"),
             FLinearColor(.86f, .86f, .91f),
             MapOrigin.X + 10.f, MapOrigin.Y + MapHeight - 37.f, nullptr, .70f);
         // This counts revealed walkable terrain only, not hidden map cells.
