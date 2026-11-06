@@ -52,6 +52,7 @@ void AMoonfallArena::BeginPlay() {
  CreateBlock(FVector(-1500,0,200),FVector(1,30,5));
  CreateBlock(FVector(0,1500,200),FVector(30,1,5));
  CreateBlock(FVector(0,-1500,200),FVector(30,1,5));
+ if (RuinMeshArt) RuinPieces->SetStaticMesh(RuinMeshArt);
  if (RuinStoneMaterial) RuinPieces->SetMaterial(0,RuinStoneMaterial);
  // Original deterministic ruined architecture and ground debris, all non-colliding.
  for (int32 i=0; i<6; ++i) {
