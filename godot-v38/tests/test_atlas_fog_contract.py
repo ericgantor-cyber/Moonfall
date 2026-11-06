@@ -13,7 +13,8 @@ class AtlasFogContract(unittest.TestCase):
         start = SOURCE.index("for passage in dungeon_passages:", SOURCE.index("func _draw()"))
         end = SOURCE.index("# Draw only authored floor meshes", start)
         passage = SOURCE[start:end]
-        self.assertLess(passage.index("if not explored:continue"), passage.index("draw_colored_polygon"))
+        self.assertLess(passage.index('if not bool(passage.get("explored",false)):continue'), passage.index("passage_near_chart"))
+        self.assertLess(passage.index('if not bool(passage.get("explored",false)):continue'), passage.index("draw_colored_polygon"))
 
     def test_undiscovered_pillars_hidden_before_draw(self):
         start = SOURCE.index("for pillar in dungeon_pillars:", SOURCE.index("func _draw()"))
