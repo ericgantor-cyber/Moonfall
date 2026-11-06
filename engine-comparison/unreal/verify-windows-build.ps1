@@ -155,7 +155,7 @@ if ($Package) {
     if (Test-Path -LiteralPath $RunArchiveDirectory) {
         throw "Expected a new, empty archive directory: $RunArchiveDirectory"
     }
-    & $RunUAT BuildCookRun "-project=$Project" -noP4 -platform=Win64 -clientconfig=Development -build -cook -stage -pak -archive "-archivedirectory=$RunArchiveDirectory"
+    & $RunUAT BuildCookRun "-project=$Project" "-map=/Game/$($ConfiguredMap.Groups[1].Value)" -noP4 -platform=Win64 -clientconfig=Development -build -cook -stage -pak -archive "-archivedirectory=$RunArchiveDirectory"
     if ($LASTEXITCODE -ne 0) {
         throw "Unreal BuildCookRun failed (exit $LASTEXITCODE). No valid package was verified."
     }
