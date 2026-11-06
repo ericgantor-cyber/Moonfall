@@ -209,6 +209,11 @@ class PrototypeContracts(unittest.TestCase):
             "void AMoonfallPawn::CastHeal()", 1)[0]
         self.assertIn("bPrecisionRiposteReady = false;", bolt)
         self.assertIn("if (CounterWindow <= 0.f) bPrecisionRiposteReady = false;", self.cpp)
+        dodge = self.cpp.split("void AMoonfallPawn::Dodge()", 1)[1].split(
+            "int32 AMoonfallPawn::GuardianBlessingCount()", 1)[0]
+        self.assertIn("bPrecisionRiposteReady = false;", dodge)
+        self.assertLess(dodge.index("EndGuard();"), dodge.index("bPrecisionRiposteReady = false;"))
+        self.assertLess(dodge.index("bPrecisionRiposteReady = false;"), dodge.index("DodgeTimer = 0.32f;"))
 
     def test_unreal_dodge_stamina_regen_delay_keeps_perfect_dodge_reward(self):
         dodge = self.cpp.split("void AMoonfallPawn::Dodge()", 1)[1].split(
