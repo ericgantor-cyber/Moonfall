@@ -87,6 +87,7 @@ private:
  void RecenterWorldMap();
  void PlacePersonalWaypoint();
  void ClearPersonalWaypoint();
+ void SavePersonalWaypoint();
  void CastLeft();
  void CastRight();
  void CastBoth();
