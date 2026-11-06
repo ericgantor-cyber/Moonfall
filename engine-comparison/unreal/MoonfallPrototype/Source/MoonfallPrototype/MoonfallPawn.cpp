@@ -129,6 +129,7 @@ void AMoonfallPawn::BeginPlay()
     }
     if (!bLoadedCheckpoint)
         Health = GetHudMaxHealth(); // Full health at a new start, never from kills.
+    LastCheckpointRegion = MoonfallWorldRules::RegionAt(HeroMesh->GetRelativeLocation().X);
     // Load original boss art before world generation so Nyra's guardian can use it.
     // Missing imports retain the regular prototype mesh.
     ZArtwork = LoadObject<UTexture2D>(nullptr, TEXT("/Game/MoonfallArt/heroes/Z_Original.Z_Original"));
@@ -786,10 +787,12 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
         Position.X = FMath::Clamp(Position.X, -1600.f, 17600.f);
         Position.Y = FMath::Clamp(Position.Y, -3200.f, 3200.f);
         HeroMesh->SetRelativeLocation(Position);
-        if (CheckpointTimer >= CheckpointInterval)
+        const int32 CurrentRegion = MoonfallWorldRules::RegionAt(Position.X);
+        if (CurrentRegion != LastCheckpointRegion || CheckpointTimer >= CheckpointInterval)
         {
+            LastCheckpointRegion = CurrentRegion;
             CheckpointTimer = 0.f;
-            SaveProgress();
+            SaveProgress(); // Saves living state only, never heals after enemy kills.
         }
         CollectNearbyChambers();
         UpdateWorldEnemies(Dt);
