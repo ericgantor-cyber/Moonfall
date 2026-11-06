@@ -27,6 +27,7 @@ public:
     bool IsDefeated() const { return Health <= 0.f; }
     bool IsGuarding() const { return bGuardHeld && Health > 0.f && DodgeTimer <= 0.f && Stamina > 0.f; }
     bool IsParryWindowActive() const { return IsGuarding() && GuardParryTimer > 0.f; }
+    FVector GetGuardDirection() const { return GuardDirection; }
     float GetHudHealth() const { return Health; }
     float GetHudMaxHealth() const { return 100.f + 5.f * Victories + 2.f * (Progression.Level - 1); }
     float GetHudMana() const { return Mana; }
@@ -65,6 +66,7 @@ public:
         float Urgency = 0.f;
         bool bGuardian = false;
         bool bBoss = false;
+        bool bUnblockable = false;
     };
     TArray<FAttackWarning> GetAttackWarnings() const;
 private:
