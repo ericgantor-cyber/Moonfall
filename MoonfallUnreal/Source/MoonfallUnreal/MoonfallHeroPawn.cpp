@@ -67,6 +67,8 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("MinimapZoomOut"), IE_Pressed, this, &AMoonfallHeroPawn::ZoomMinimapOut);
  Input->BindAction(TEXT("WorldMap"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleWorldMap);
  Input->BindAction(TEXT("WorldMapRecenter"), IE_Pressed, this, &AMoonfallHeroPawn::RecenterWorldMap);
+ Input->BindAction(TEXT("PlaceWaypoint"), IE_Pressed, this, &AMoonfallHeroPawn::PlacePersonalWaypoint);
+ Input->BindAction(TEXT("ClearWaypoint"), IE_Pressed, this, &AMoonfallHeroPawn::ClearPersonalWaypoint);
  Input->BindAction(TEXT("Jump"), IE_Pressed, this, &ACharacter::Jump);
  Input->BindAction(TEXT("Jump"), IE_Released, this, &ACharacter::StopJumping);
  Input->BindAction(TEXT("CastLeft"), IE_Pressed, this, &AMoonfallHeroPawn::CastLeft);
@@ -83,6 +85,18 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
 }
 void AMoonfallHeroPawn::ToggleWorldMap() { if (!bOptionsOpen) bWorldMapOpen = !bWorldMapOpen; }
 void AMoonfallHeroPawn::RecenterWorldMap() { if (bWorldMapOpen && !bOptionsOpen) WorldMapPan = FVector2D::ZeroVector; }
+void AMoonfallHeroPawn::PlacePersonalWaypoint()
+{
+ if (!bWorldMapOpen || bOptionsOpen) return;
+ const FVector Origin = GetActorLocation();
+ // The atlas is player-relative and panned in world X/Y, so its centre is the placement target.
+ PersonalWaypoint = FVector(Origin.X + WorldMapPan.X, Origin.Y + WorldMapPan.Y, Origin.Z);
+ bPersonalWaypointActive = true;
+}
+void AMoonfallHeroPawn::ClearPersonalWaypoint()
+{
+ if (bWorldMapOpen && !bOptionsOpen) bPersonalWaypointActive = false;
+}
 void AMoonfallHeroPawn::SetQuestTarget(FVector WorldLocation)
 {
  if (WorldLocation.ContainsNaN() || WorldLocation.GetAbsMax() > 100000000.f) return;
