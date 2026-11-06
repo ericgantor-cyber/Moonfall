@@ -80,7 +80,7 @@ jobs:
           assert 'DrawText(TEXT("W")' in hud and 'DrawText(TEXT("S")' in hud
           assert 'Delta.SizeSquared() > FMath::Square(MapRange)' in hud
           assert 'MapEnemy->bBoss ? FLinearColor' in hud
-          assert 'MapCenter.X-3.f' in hud and 'MapCenter.Y-3.f' in hud
+          assert 'DrawRect(FLinearColor(0.27f,0.88f,1.f),MapCenter.X-1.5f,MapCenter.Y-1.5f,3.f,3.f)' in hud
           hud_header = (root/'MoonfallUnreal'/'MoonfallCombatHUD.h').read_text()
           assert 'TArray<FIntPoint> ExploredMapCells' in hud_header
           assert 'ExploredMapCells.Num() >= MaxExplorationCells' in hud
