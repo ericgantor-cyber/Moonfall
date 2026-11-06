@@ -625,6 +625,21 @@ void AMoonfallHud::DrawHUD()
                 FLinearColor(.90f, .86f, .96f), TitlePoint.X - 4.f,
                 TitlePoint.Y, nullptr, .8f);
         }
+        // Cave discovery statistics use the same fog checks as map icons.
+        // Never count a cave as found merely because its location exists in world data.
+        int32 DiscoveredCaves = 0;
+        int32 ClearedCaves = 0;
+        for (int32 Region = 0; Region < MoonfallWorldRules::RegionCount; ++Region)
+        {
+            for (int32 Cave = 0; Cave < MoonfallWorldRules::ChambersPerRegion; ++Cave)
+            {
+                const FVector CavePosition = MoonfallWorldRules::ChamberReward(Region, Cave);
+                if (!Hero->IsMapExplored(FVector2D(CavePosition.X, CavePosition.Y)))
+                    continue;
+                ++DiscoveredCaves;
+                if (Hero->IsCaveCleared(Region, Cave)) ++ClearedCaves;
+            }
+        }
         // Tracking filters only affect the icons, never the terrain.
         if (bTrackChambers)
         {
@@ -687,6 +702,11 @@ void AMoonfallHud::DrawHUD()
         DrawText(TEXT("GREEN: CAVE   GREY: CLEARED   RED: BOSS"),
             FLinearColor(.86f, .86f, .91f),
             MapOrigin.X + 10.f, MapOrigin.Y + MapHeight - 37.f, nullptr, .70f);
+        // Compact exploration statistics; these never expose unexplored locations.
+        DrawText(FString::Printf(TEXT("CAVES FOUND: %d/%d   CLEARED: %d"),
+            DiscoveredCaves, MoonfallWorldRules::TotalChambers, ClearedCaves),
+            FLinearColor(.86f, .92f, .82f), MapOrigin.X + 10.f,
+            MapOrigin.Y + MapHeight - 57.f, nullptr, .70f);
         // This counts revealed walkable terrain only, not hidden map cells.
         if (MapWidth >= 520.f)
             DrawText(FString::Printf(TEXT("DISCOVERED: %d TILES"), DiscoveredGroundCells),
