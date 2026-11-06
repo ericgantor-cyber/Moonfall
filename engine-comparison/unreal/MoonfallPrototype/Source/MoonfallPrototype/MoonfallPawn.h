@@ -69,6 +69,13 @@ public:
         bool bUnblockable = false;
     };
     TArray<FAttackWarning> GetAttackWarnings() const;
+    struct FEnemyPosture
+    {
+        FVector LocalPosition = FVector::ZeroVector;
+        float Ratio = 0.f;
+        bool bGuardian = false;
+    };
+    TArray<FEnemyPosture> GetEnemyPostures() const;
 private:
     UPROPERTY() USceneComponent* Root;
     UPROPERTY() UStaticMeshComponent* HeroMesh;
@@ -85,6 +92,8 @@ private:
         float StaggerTimer = 0.f; // Surviving guardians are stunned by dodge ripostes.
         float AttackWindup = 0.f; // Telegraph before an ordinary enemy can strike.
         float AttackRecovery = 0.f; // No instant repeated contact hits.
+        float Posture = 0.f; // Temporary defense pressure, not persistent character stats.
+        float PostureIdleTimer = 0.f;
         bool bAttackReadyThisFrame = false;
         bool bStaggeredThisFrame = false; // Keep contact disabled on the final stagger frame.
         int32 Region = 0;
@@ -167,6 +176,8 @@ private:
         const FVector& LocalPosition, float Scale);
     int32 NearestEnemyIndex(float Radius) const;
     void DamageWorldEnemy(int32 Index, float Damage, bool bRiposte = false, bool bComboFinisher = false, bool bMagic = false);
+    void ApplyPostureDamage(FWorldEnemy& Enemy, float Amount);
+    static float PostureThreshold(const FWorldEnemy& Enemy) { return Enemy.bGuardian ? 95.f : 60.f; }
     int32 GuardianBlessingCount() const;
     float BasicAttackDamage() const;
     float ArcaneBoltDamage() const;
