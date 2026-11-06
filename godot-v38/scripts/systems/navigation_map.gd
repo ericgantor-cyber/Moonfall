@@ -152,6 +152,22 @@ static func passage_near_chart(start:Vector3,finish:Vector3,width:float,centre_p
  var margin:float=width*0.5
  return maxf(start.x,finish.x)+margin>=centre_position.x-half_extent.x and minf(start.x,finish.x)-margin<=centre_position.x+half_extent.x and maxf(start.z,finish.z)+margin>=centre_position.z-half_extent.y and minf(start.z,finish.z)-margin<=centre_position.z+half_extent.y
 
+# World objectives remain visible; only quest markers inside an undiscovered
+# physical dungeon chamber are hidden by that chamber's fog of war.
+static func dungeon_quest_marker_visible(marker:Vector3,rooms:Array[Vector3],radii:Array[float],known:Array[Vector3])->bool:
+ if not _valid_world_point(marker):return false
+ for i in range(mini(rooms.size(),MAX_CHAMBER_MARKERS)):
+  if i>=radii.size():continue
+  var radius:float=radii[i]
+  if not is_finite(radius) or radius<=0.0:continue
+  var chamber:Vector3=rooms[i]
+  if not _valid_world_point(chamber):continue
+  if Vector2(marker.x-chamber.x,marker.z-chamber.z).length_squared()>radius*radius:continue
+  for visited_position in known:
+   if Vector2(visited_position.x-chamber.x,visited_position.z-chamber.z).length_squared()<1.0:return true
+  return false
+ return true
+
 func _draw()->void:
  var rect:Rect2=Rect2(Vector2.ZERO,size)
  draw_rect(rect,Color(0.025,0.04,0.075,0.94),true)
@@ -262,6 +278,7 @@ func _draw()->void:
   draw_line(centre,marker,Color(1.0,0.77,0.22,0.7),2.0)
   draw_circle(marker,7.0,Color(1.0,0.74,0.19))
  for quest_position in quest_markers:
+  if dungeon_active and not dungeon_quest_marker_visible(quest_position,dungeon_rooms,dungeon_floor_radii,discovered_chambers):continue
   var quest_delta:Vector2=Vector2(quest_position.x-player_position.x,quest_position.z-player_position.z)*scale_factor
   if absf(quest_delta.x)>size.x*0.45 or absf(quest_delta.y)>size.y*0.45:
    continue
