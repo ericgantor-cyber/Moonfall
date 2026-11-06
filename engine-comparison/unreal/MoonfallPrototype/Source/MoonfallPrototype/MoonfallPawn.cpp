@@ -345,8 +345,14 @@ void AMoonfallPawn::UpdateWorldEnemies(float Dt)
             Enemy.bReturningHome = false;
         const bool bAggro = HeroDistSq < FMath::Square(800.f) &&
             !Enemy.bReturningHome && FromHome.SizeSquared() < FMath::Square(Leash);
-        // Telegraph contact attacks. Starting a windup is separate from
-        // delivering damage, giving players time to move or dodge.
+        // Telegraph contact attacks. An enemy must hold its ground while
+        // warning; it must not glide back toward home during the strike.
+        // Disengaging (or forcing a leash return) cancels the warning.
+        if (!bAggro && Enemy.AttackWindup > 0.f)
+        {
+            Enemy.AttackWindup = 0.f;
+            Enemy.AttackRecovery = FMath::Max(Enemy.AttackRecovery, 0.5f);
+        }
         if (Enemy.AttackWindup > 0.f)
         {
             Enemy.AttackWindup = FMath::Max(0.f, Enemy.AttackWindup - MoveDt);
@@ -380,7 +386,7 @@ void AMoonfallPawn::UpdateWorldEnemies(float Dt)
                 Enemy.Mesh->SetRelativeLocation(Clamped);
             }
         }
-        else if (FromHome.SizeSquared() > FMath::Square(30.f))
+        else if (!bAggro && FromHome.SizeSquared() > FMath::Square(30.f))
         {
             const float ReturnStep = FMath::Min(180.f * MoveDt, FromHome.Size());
             Enemy.Mesh->SetRelativeLocation(From - FromHome.GetSafeNormal() * ReturnStep);
