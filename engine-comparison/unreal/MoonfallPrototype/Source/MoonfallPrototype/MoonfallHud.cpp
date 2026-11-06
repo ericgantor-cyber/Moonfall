@@ -88,6 +88,36 @@ void AMoonfallHud::DrawHUD()
         const FVector World = Hero->GetActorTransform().TransformPosition(
             Hit.LocalPosition + FVector(0.f, 0.f, 105.f * T));
         if (!PlayerOwner->ProjectWorldLocationToScreen(World, Screen, false)) continue;
+        if (Hit.bBlocked || Hit.bParried || Hit.bGuardBroken)
+        {
+            // Distinct nonverbal guard feedback: teal shield, silver parry burst,
+            // or fractured crimson guard. No permanent UI or imported VFX assets.
+            constexpr float GuardFlashSeconds = .5f;
+            if (Hit.Age >= GuardFlashSeconds) continue;
+            const float Fade = 1.f - Hit.Age / GuardFlashSeconds;
+            const FLinearColor CueColor = Hit.bParried
+                ? FLinearColor(.95f, .95f, 1.f, Fade)
+                : (Hit.bGuardBroken ? FLinearColor(1.f, .12f, .2f, Fade)
+                                   : FLinearColor(.22f, .75f, .9f, Fade));
+            const float HalfWidth = Hit.bParried ? 28.f : 19.f;
+            const FVector2D A = Screen + FVector2D(-HalfWidth, -18.f);
+            const FVector2D B = Screen + FVector2D( HalfWidth, -18.f);
+            const FVector2D C = Screen + FVector2D(0.f, 20.f);
+            Canvas->K2_DrawLine(A, B, 3.f * Fade + .5f, CueColor);
+            Canvas->K2_DrawLine(B, C, 3.f * Fade + .5f, CueColor);
+            Canvas->K2_DrawLine(C, A, 3.f * Fade + .5f, CueColor);
+            if (Hit.bParried)
+            {
+                Canvas->K2_DrawLine(Screen + FVector2D(-35.f, 0.f),
+                    Screen + FVector2D(35.f, 0.f), 2.f * Fade + .5f, CueColor);
+            }
+            else if (Hit.bGuardBroken)
+            {
+                Canvas->K2_DrawLine(Screen + FVector2D(-8.f, -25.f),
+                    Screen + FVector2D(7.f, 27.f), 3.f * Fade + .5f, CueColor);
+            }
+            continue;
+        }
         if (Hit.bDodged)
         {
             // Moonfall's original perfect-evade cue: a brief moonlit crescent
