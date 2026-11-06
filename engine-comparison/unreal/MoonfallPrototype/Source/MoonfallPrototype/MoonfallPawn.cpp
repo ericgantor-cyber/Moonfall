@@ -74,6 +74,38 @@ void AMoonfallPawn::EndPlay(const EEndPlayReason::Type Reason)
     Super::EndPlay(Reason);
 }
 
+bool AMoonfallPawn::IsMapExplored(const FVector2D& WorldPosition) const
+{
+    const int32 X = FMath::FloorToInt((WorldPosition.X - FogMinX) / FogCellSize);
+    const int32 Y = FMath::FloorToInt((WorldPosition.Y - FogMinY) / FogCellSize);
+    if (X < 0 || X >= FogWidth || Y < 0 || Y >= FogHeight) return false;
+    const int32 Index = Y * FogWidth + X;
+    return ExploredMapCells.IsValidIndex(Index) && ExploredMapCells[Index] != 0;
+}
+
+void AMoonfallPawn::RevealMapAround(const FVector& WorldPosition)
+{
+    if (ExploredMapCells.Num() != FogWidth * FogHeight)
+        ExploredMapCells.Init(0, FogWidth * FogHeight);
+
+    const int32 CX = FMath::FloorToInt((WorldPosition.X - FogMinX) / FogCellSize);
+    const int32 CY = FMath::FloorToInt((WorldPosition.Y - FogMinY) / FogCellSize);
+    // Reveal a 5 m view around the traveler, without exposing distant caves.
+    constexpr int32 RadiusCells = 2;
+    for (int32 DY = -RadiusCells; DY <= RadiusCells; ++DY)
+    {
+        const int32 Y = CY + DY;
+        if (Y < 0 || Y >= FogHeight) continue;
+        for (int32 DX = -RadiusCells; DX <= RadiusCells; ++DX)
+        {
+            const int32 X = CX + DX;
+            if (X < 0 || X >= FogWidth || DX * DX + DY * DY > RadiusCells * RadiusCells)
+                continue;
+            ExploredMapCells[Y * FogWidth + X] = 1;
+        }
+    }
+}
+
 void AMoonfallPawn::BeginPlay()
 {
     Super::BeginPlay();
@@ -95,6 +127,8 @@ void AMoonfallPawn::BeginPlay()
             Victories = FMath::Clamp(Progress->PermanentBossVictories, 0, 100);
             MinimapTrackingMode = FMath::Clamp(Progress->SavedMinimapTrackingMode, 0, 3);
             MinimapZoomLevel = FMath::Clamp(Progress->SavedMinimapZoomLevel, 0, 2);
+            if (Progress->ExploredMapCells.Num() == FogWidth * FogHeight)
+                ExploredMapCells = Progress->ExploredMapCells;
             bWon = Progress->bBossDefeated;
             // Checkpoint is restored before the world is constructed.
             if (Progress->bHasCheckpoint && FMath::IsFinite(Progress->SavedHealth) &&
@@ -141,6 +175,7 @@ void AMoonfallPawn::BeginPlay()
     }
     if (!bLoadedCheckpoint)
         Health = GetHudMaxHealth(); // Full health at a new start, never from kills.
+    RevealMapAround(HeroMesh->GetRelativeLocation());
     LastCheckpointRegion = MoonfallWorldRules::RegionAt(HeroMesh->GetRelativeLocation().X);
     RespawnGraceTimer = bLoadedCheckpoint ? RespawnGraceDuration : 0.f;
     // Load original boss art before world generation so Nyra's guardian can use it.
@@ -671,6 +706,7 @@ void AMoonfallPawn::SaveProgress()
     Progress->bBossDefeated = bWon;
     Progress->SavedMinimapTrackingMode = MinimapTrackingMode;
     Progress->SavedMinimapZoomLevel = MinimapZoomLevel;
+    Progress->ExploredMapCells = ExploredMapCells;
     // Preserve legacy SelectedHeroIndex from the loaded save; never reassign it.
     if (HeroMesh && Health > 0.f)
     {
@@ -1125,6 +1161,7 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
         Position.X = FMath::Clamp(Position.X, -1600.f, 17600.f);
         Position.Y = FMath::Clamp(Position.Y, -3200.f, 3200.f);
         HeroMesh->SetRelativeLocation(Position);
+        RevealMapAround(Position);
         const int32 CurrentRegion = MoonfallWorldRules::RegionAt(Position.X);
         if (CurrentRegion != LastCheckpointRegion || CheckpointTimer >= CheckpointInterval)
         {
