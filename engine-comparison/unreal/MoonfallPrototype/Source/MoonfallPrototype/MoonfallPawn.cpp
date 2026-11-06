@@ -745,6 +745,8 @@ void AMoonfallPawn::CycleMinimapTracking()
 
 bool AMoonfallPawn::TryHandleMinimapZoomClick()
 {
+    // The world map remains non-combat even if the pointer leaves the viewport.
+    if (bWorldMapVisible) return true;
     const APlayerController* Controller = Cast<APlayerController>(GetController());
     if (!Controller) return false;
 
@@ -753,9 +755,6 @@ bool AMoonfallPawn::TryHandleMinimapZoomClick()
     if (!Controller->GetMousePosition(MouseX, MouseY)) return false;
     Controller->GetViewportSize(ViewportX, ViewportY);
     if (ViewportX <= 0 || ViewportY <= 0) return false;
-    // An open world map is a non-combat interface: never attack through it.
-    // The Tab control closes the map without reassigning mouse attack.
-    if (bWorldMapVisible) return true;
 
     // Positions match the two clickable squares painted by MoonfallHud.
     const float ButtonX = static_cast<float>(ViewportX) - 36.f;
