@@ -1164,11 +1164,10 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
                            (BossAttackPhase == 2 ? 2.9f : 3.5f);
             if (FVector::Dist2D(HeroMesh->GetRelativeLocation(), TargetWorld) < BossWarningRadius)
             {
-                if (bDodgeActiveThisFrame)
+                // Checkpoint invulnerability protects the hero but does not
+                // award a perfect-dodge counter for a harmless boss strike.
+                if (bDodgeActiveThisFrame && RespawnGraceTimer <= 0.f)
                 {
-                    // Checkpoint invulnerability protects the hero but must not
-                    // generate a free perfect-dodge counter against the boss.
-                    if (RespawnGraceTimer > 0.f) return;
                     // A successful warned dodge rewards timing, not passive kill healing.
                     // Each strike resolves only once, limiting the stamina refund.
                     CounterWindow = CounterDuration;
