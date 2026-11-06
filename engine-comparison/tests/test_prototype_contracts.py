@@ -269,6 +269,20 @@ class PrototypeContracts(unittest.TestCase):
         self.assertNotIn("const float Left = Canvas->ClipX - 178.f;", minimap)
         self.assertNotIn("FVector2D(160.f, 160.f)", minimap)
 
+    def test_minimap_objective_and_boss_edge_arrows(self):
+        hud = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8")
+        minimap = hud.split("// Compact WoW-style circular minimap", 1)[1]
+        self.assertIn("float NearestChamberDistanceSq = TNumericLimits<float>::Max();", minimap)
+        self.assertIn("NearestChamberDirection = Local.GetSafeNormal();", minimap)
+        self.assertIn("if (bNearestChamberOffscreen && !NearestChamberDirection.IsNearlyZero())", minimap)
+        self.assertIn("else if (!Local.IsNearlyZero())", minimap)
+        self.assertIn("const FVector2D Tip = RadarCenter + Direction * (RadarRadius - 5.f);", minimap)
+        self.assertIn("const FVector2D Tip = RadarCenter + NearestChamberDirection * (RadarRadius - 6.f);", minimap)
+        self.assertLess(minimap.index("for (const FVector& Chamber"),
+                        minimap.index("if (bNearestChamberOffscreen"))
+        self.assertLess(minimap.index("if (bNearestChamberOffscreen"),
+                        minimap.index("for (const FVector& Enemy"))
+
     def test_minimap_collects_only_nearby_bounded_enemy_markers(self):
         minimap = self.cpp.split(
             "TArray<FVector> AMoonfallPawn::GetEnemyMapPositions() const", 1)[1].split(
