@@ -40,7 +40,6 @@ void AMoonfallCombatHUD::BeginPlay()
  }
  // The next autosave upgrades older cell coordinates without discarding discoveries.
  if (bLegacyCells && SavedCells.Num() > 0) bExplorationDirty = true;
- }
 }
 void AMoonfallCombatHUD::SaveExploration()
 {
