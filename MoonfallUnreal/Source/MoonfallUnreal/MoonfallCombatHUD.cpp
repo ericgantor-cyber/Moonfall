@@ -69,6 +69,13 @@ void AMoonfallCombatHUD::DrawHUD()
   DrawText(TEXT("WASD / Arrows / D-pad: navigate    Esc / Start: close"),FLinearColor::White,MenuLeft+18.f,MenuTop+MenuHeight-28.f,nullptr,0.85f);
   return;
  }
+ // The active arena quest shares the same minimap target, no new UI screen.
+ if (Hero->bArenaBossQuestActive || Hero->bArenaBossQuestComplete) {
+  const bool bComplete = Hero->bArenaBossQuestComplete;
+  DrawText(bComplete ? TEXT("QUEST COMPLETE: Arena Boss") : TEXT("QUEST: Defeat the Arena Boss"),
+           bComplete ? FLinearColor(0.42f,1.f,0.57f) : FLinearColor(1.f,0.78f,0.21f),
+           FMath::Max(20.f,Canvas->SizeX*0.5f-160.f),24.f,nullptr,0.92f);
+ }
  // Nearest living boss, displayed without creating additional widget actors.
  const AMoonfallEnemy* Boss = nullptr;
  float BossDistanceSq = TNumericLimits<float>::Max();
