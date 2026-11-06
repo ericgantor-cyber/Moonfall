@@ -111,3 +111,7 @@ Exploration tracking now runs before the Options early return, so briefly viewin
 ## World atlas input safety fix
 
 While the M/View world atlas is open, player movement, camera-look inputs, spellcasting, dodge and nearby enemy AI are blocked to prevent combat underneath the map overlay. Closing the atlas resumes those actions. Opening Options closes the atlas first to prevent overlapping overlays; the atlas itself does not create a separate game mode. This is source-level behavior, not a verified pause of every game timer or physics simulation. Unreal Editor build and Windows gameplay validation remain outstanding.
+
+## Large world-atlas zoom and quest-marker clipping
+
+With the large world atlas open, **+ / =** zooms in and **-** zooms out in 25-metre steps, with a 50–500-metre player-centred viewing radius. With the atlas closed, the same keys retain the separate **12–48-metre minimap** zoom. Distant quest markers are constrained to the visible chart area rather than overlapping the title or escaping the panel. This is still a discovered-cell chart with bounded memory, **not** a rendered terrain map or fully ported quest journal. Unreal compilation and actual gameplay input tests remain unverified.
