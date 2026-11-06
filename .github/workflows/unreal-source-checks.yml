@@ -239,6 +239,16 @@ jobs:
           assert 'DeadTrees->SetCollisionEnabled(ECollisionEnabled::NoCollision)' in arena
           assert 'RitualStones->SetCollisionEnabled(ECollisionEnabled::NoCollision)' in arena
           assert 'FMath::Clamp(DeadTreeCount,0,16)' in arena
+          assert 'const float BaseZ = DeadTreeMeshArt ? 155.f : -10.f + Height*50.f' in arena
+          assert arena.index('Block->SetStaticMesh(') < arena.index('Block->RegisterComponent();')
+          assert 'bool IsCrowAttackWarningActive() const' in enemy_header
+          assert 'int32 GetCrowAttackPattern() const' in enemy_header
+          assert 'bool AMoonfallEnemy::IsCrowAttackWarningActive() const' in enemy
+          assert 'CrowAttackEndsAt > GetWorld()->GetTimeSeconds()' in enemy
+          assert 'Crow->IsCrowAttackWarningActive()' in hud
+          assert 'Crow->GetCrowAttackPattern()' in hud
+          assert 'DrawText(Warning,FLinearColor(1.f,0.8f,0.19f)' in hud
+          assert 'FMath::Clamp(Hero->BossWarningScale,1.f,2.f)' in hud
           assert 'for (int32 i=0;i<7;++i)' in arena
           assert 'AddFoliage(Base' in arena and 'AddRitualStone(FVector' in arena
           assert 'if (!DeadTreeMeshArt)' in arena
