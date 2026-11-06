@@ -133,6 +133,21 @@ void AMoonfallHud::DrawMapIcon(FVector2D Center, float Scale, int32 IconKind)
     }
 }
 
+void AMoonfallHud::DrawMapFocusRing(FVector2D Center, float Radius)
+{
+    // Quiet gold outline highlights the nearest unclaimed cave without arrows.
+    if (!Canvas) return;
+    constexpr int32 Segments = 16;
+    for (int32 I = 0; I < Segments; ++I)
+    {
+        const float A = I * (2.f * PI / Segments);
+        const float B = (I + 1) * (2.f * PI / Segments);
+        Canvas->K2_DrawLine(Center + FVector2D(FMath::Cos(A), FMath::Sin(A)) * Radius,
+            Center + FVector2D(FMath::Cos(B), FMath::Sin(B)) * Radius,
+            1.5f, FLinearColor(.98f, .79f, .36f));
+    }
+}
+
 void AMoonfallHud::DrawHUD()
 {
     Super::DrawHUD();
@@ -483,6 +498,10 @@ void AMoonfallHud::DrawHUD()
     const FVector B = Hero->GetBossMapPosition();
     // All markers must remain inside the circular frame, not its bounding box.
     if (bTrackChambers)
+    {
+    float NearestVisibleCaveSq = TNumericLimits<float>::Max();
+    FVector2D NearestVisibleCavePoint = RadarCenter;
+    bool bHasVisibleCave = false;
     for (const FVector& Chamber : Hero->GetChamberMapPositions())
     {
         const FVector Offset = Chamber - H;
@@ -491,6 +510,15 @@ void AMoonfallHud::DrawHUD()
         const FVector2D P = RadarCenter + Local;
         // Cave mouth icon: an arch and dark entrance instead of a loot diamond.
         DrawMapIcon(P, 1.f, 0);
+        const float DistanceSq = Offset.SizeSquared2D();
+        if (DistanceSq < NearestVisibleCaveSq)
+        {
+            NearestVisibleCaveSq = DistanceSq;
+            NearestVisibleCavePoint = P;
+            bHasVisibleCave = true;
+        }
+    }
+    if (bHasVisibleCave) DrawMapFocusRing(NearestVisibleCavePoint, 10.f);
     }
     if (bTrackBoss && !Hero->IsBossDefeated())
     {
@@ -566,10 +594,28 @@ void AMoonfallHud::DrawHUD()
         // Tracking filters only affect the icons, never the terrain.
         if (bTrackChambers)
         {
+            float NearestWorldCaveSq = TNumericLimits<float>::Max();
+            FVector2D NearestWorldCavePoint = MapOrigin;
+            bool bHasWorldCave = false;
             for (const FVector& Chamber : Hero->GetWorldMapChamberPositions())
             {
                 const FVector2D P = ToMap(Chamber.X, Chamber.Y);
                 DrawMapIcon(P, .60f, 0);
+                const float DistanceSq = FVector::DistSquared2D(Chamber, H);
+                if (DistanceSq < NearestWorldCaveSq)
+                {
+                    NearestWorldCaveSq = DistanceSq;
+                    NearestWorldCavePoint = P;
+                    bHasWorldCave = true;
+                }
+            }
+            if (bHasWorldCave)
+            {
+                DrawMapFocusRing(NearestWorldCavePoint, 8.f);
+                DrawText(FString::Printf(TEXT("NEAREST CAVE: %.0fm"),
+                    FMath::Sqrt(NearestWorldCaveSq) / 100.f),
+                    FLinearColor(.98f, .79f, .36f), MapOrigin.X + 10.f,
+                    MapOrigin.Y + 25.f, nullptr, .8f);
             }
         }
         if (bTrackBoss && !Hero->IsBossDefeated())
