@@ -284,18 +284,23 @@ func _draw()->void:
   var marker:Vector2=centre+delta
   draw_line(centre,marker,Color(1.0,0.77,0.22,0.7),2.0)
   draw_circle(marker,7.0,Color(1.0,0.74,0.19))
+ # The first visible priority objective gets a gold marker; other quests stay purple.
+ var primary_quest_drawn:bool=false
  for quest_position in quest_markers:
   if dungeon_active and not dungeon_quest_marker_visible(quest_position,dungeon_rooms,dungeon_floor_radii,discovered_chambers):continue
+  var primary:bool=not primary_quest_drawn
+  primary_quest_drawn=true
+  var quest_color:Color=Color(1.0,0.78,0.24) if primary else Color(0.8,0.45,1.0)
   var quest_delta:Vector2=Vector2(quest_position.x-player_position.x,quest_position.z-player_position.z)*scale_factor
   if absf(quest_delta.x)>size.x*0.45 or absf(quest_delta.y)>size.y*0.45:
    var direction:Vector2=quest_delta.normalized()
    var side:Vector2=Vector2(-direction.y,direction.x)
    var edge:Vector2=centre+quest_chart_edge_offset(quest_delta,size*0.40)
-   draw_colored_polygon(PackedVector2Array([edge+direction*5.0,edge-direction*7.0+side*4.0,edge-direction*7.0-side*4.0]),Color(0.8,0.45,1.0))
+   draw_colored_polygon(PackedVector2Array([edge+direction*5.0,edge-direction*7.0+side*4.0,edge-direction*7.0-side*4.0]),quest_color)
    continue
   var quest_screen:Vector2=centre+quest_delta
-  draw_circle(quest_screen,7.0,Color(0.8,0.45,1.0))
-  draw_arc(quest_screen,10.0,0.0,TAU,16,Color(1.0,0.8,1.0),1.5)
+  draw_circle(quest_screen,8.0 if primary else 7.0,quest_color)
+  draw_arc(quest_screen,12.0 if primary else 10.0,0.0,TAU,16,Color(1.0,0.93,0.65) if primary else Color(1.0,0.8,1.0),1.5)
  draw_string(ThemeDB.fallback_font,Vector2(size.x*0.5-6.0,20.0),"N",HORIZONTAL_ALIGNMENT_LEFT,-1,16,Color(0.65,0.9,1.0))
 
 func update_player_facing(forward:Vector3)->void:
