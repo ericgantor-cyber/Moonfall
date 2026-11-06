@@ -69,3 +69,7 @@ powershell -ExecutionPolicy Bypass -File .\MoonfallUnreal\Build\Build-Windows.ps
 ```
 
 The script fails early if prerequisites are absent, compiles the editor target, runs Unreal Windows packaging with prerequisites, builds the self-contained launcher, runs the launcher file check, and creates `MoonfallUnrealLocalBuild\MoonfallUnreal-Setup.exe`. **No Windows Unreal compile has been run here.** This does not remove the need for UE 5.4 on the build machine, nor replace manual game/installer tests. The finished installer is intended for end users without Unreal Editor.
+
+## Unreal mouse-wheel camera zoom
+
+Mouse wheel up/down now moves the third-person boom in 50-unit steps, clamped between 250 and 850 Unreal units. It stays disabled while Options is open. Camera impact offset remains additive and is clamped within the same safe bounds; Reduce Motion still suppresses the impact impulse. The existing mouse-click spell controls, controller inputs and hero artwork are unchanged. Source-regression checks are wired into Unreal CI; **this has not yet been compiled or tested inside Unreal Engine**.
