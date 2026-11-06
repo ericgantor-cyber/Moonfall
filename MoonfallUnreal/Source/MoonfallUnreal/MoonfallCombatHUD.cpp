@@ -60,6 +60,20 @@ void AMoonfallCombatHUD::DrawHUD()
   const float MapRadius = FMath::Clamp(FMath::Min(Canvas->SizeX, Canvas->SizeY) * 0.09f, 52.f, 84.f);
   const FVector2D MapCenter(Canvas->SizeX - MapRadius - 24.f, MapRadius + 28.f);
   const float MapRange = 2200.f; // Unreal centimetres
+  // Remember a bounded trail of 2m cells visited by the player, never entire unseen terrain.
+  const float CellSize = 200.f; // Unreal centimetres
+  const FVector HeroPosition = Hero->GetActorLocation();
+  const FIntPoint CurrentCell(FMath::FloorToInt(HeroPosition.X / CellSize), FMath::FloorToInt(HeroPosition.Y / CellSize));
+  if (!ExploredMapCells.Contains(CurrentCell)) {
+   if (ExploredMapCells.Num() >= 384) ExploredMapCells.RemoveAt(0, 1, EAllowShrinking::No);
+   ExploredMapCells.Add(CurrentCell);
+  }
+  for (const FIntPoint& Cell : ExploredMapCells) {
+   const FVector2D CellOffset((Cell.X + 0.5f) * CellSize - HeroPosition.X, (Cell.Y + 0.5f) * CellSize - HeroPosition.Y);
+   if (CellOffset.SizeSquared() > FMath::Square(MapRange - CellSize)) continue;
+   const FVector2D DiscoveredScreen = MapCenter + FVector2D(CellOffset.X, -CellOffset.Y) * (MapRadius * 0.86f / MapRange);
+   DrawRect(FLinearColor(0.2f,0.32f,0.42f,0.55f),DiscoveredScreen.X-2.f,DiscoveredScreen.Y-2.f,4.f,4.f);
+  }
   const int32 RingSegments = 48;
   for (int32 Segment = 0; Segment < RingSegments; ++Segment) {
    const float A0 = 2.f * PI * Segment / RingSegments;
