@@ -54,3 +54,9 @@ The `AMoonfallEnemy` class now also exposes `RegularEnemyArt`, `RegularEnemyMate
 **Import checklist:** For each chosen original Moonfall model, verify authoring scale (Unreal centimetres), correct world-up and facing direction, collision response to spells, floor contact, materials, shadow and LOD cost. These properties are editable in an Unreal Blueprint subclass. Hero assets Z and Nyra must remain exactly as supplied. No original source artwork has been modified.
 
 This adds reliable hooks for production meshes and materials, not actual finished materials, models or animation assets. No Unreal runtime compile or Windows packaged test has yet confirmed the overrides.
+
+## Dead-forest and ritual-site art layer
+
+The Unreal starter arena now renders a bounded border of stylized dead-tree silhouettes and seven ritual stones, each category in its own `UInstancedStaticMeshComponent` and all **without collision or shadows**. The forest defaults to ten trees (maximum sixteen); native cube placeholders get crooked branches, while an authored `DeadTreeMeshArt` draws one mesh per tree to avoid repeating placeholder branches. Independent `DeadTreeMaterial`, `RitualStoneMeshArt`, and `RitualStoneMaterial` asset references let artists replace these independently of ruins, ground, walls, enemies, and crows. The center is deliberately left clear for readable boss attacks and quest markers.
+
+This remains source-level prototype set dressing rather than imported biome assets or real foliage wind animation. Check pivots, LODs, bounding volumes, and GPU costs in Unreal before adding any heavier art. Z and Nyra art stays identical.
