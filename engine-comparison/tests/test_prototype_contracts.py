@@ -209,13 +209,13 @@ class PrototypeContracts(unittest.TestCase):
 
     def test_unreal_mob_and_boss_strikes_share_damage_recovery(self):
         tick = self.cpp.split("void AMoonfallPawn::Tick(", 1)[1]
-        self.assertIn("if (Health > 0.f && EnemyDamageCooldown <= 0.f)", tick)
+        self.assertIn("if (Health > 0.f && EnemyDamageCooldown <= 0.f && RespawnGraceTimer <= 0.f)", tick)
         self.assertIn("if (ContactIndex != INDEX_NONE)", tick)
         boss = tick.split("if (CastTimer <= 0.f)", 1)[1]
         self.assertIn("if (bDodgeActiveThisFrame)", boss)
-        self.assertIn("else if (EnemyDamageCooldown <= 0.f)", boss)
+        self.assertIn("else if (EnemyDamageCooldown <= 0.f && RespawnGraceTimer <= 0.f)", boss)
         self.assertIn("EnemyDamageCooldown = 1.2f;", boss)
-        self.assertLess(boss.index("else if (EnemyDamageCooldown <= 0.f)"),
+        self.assertLess(boss.index("else if (EnemyDamageCooldown <= 0.f && RespawnGraceTimer <= 0.f)"),
                         boss.index("Health = FMath::Max(0.f, Health -"))
         self.assertIn("EnemyDamageCooldown = FMath::Max(0.f, EnemyDamageCooldown - Dt);", tick)
 
@@ -986,6 +986,17 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn('TEXT("Left-click to return to your last checkpoint")', hud)
         self.assertNotIn('ActionName="Respawn"', INPUT.read_text(encoding="utf-8"))
         self.assertIn("if (!bRespawnRequested && GetWorld())", self.cpp)
+
+    def test_restored_checkpoint_has_short_safety_window_not_healing(self):
+        self.assertIn("static constexpr float RespawnGraceDuration = 2.f;", self.header)
+        self.assertIn("float RespawnGraceTimer = 0.f;", self.header)
+        self.assertIn("RespawnGraceTimer = bLoadedCheckpoint ? RespawnGraceDuration : 0.f;", self.cpp)
+        self.assertIn("RespawnGraceTimer = FMath::Max(0.f, RespawnGraceTimer - ReactionDt);", self.cpp)
+        self.assertIn("Health > 0.f && EnemyDamageCooldown <= 0.f && RespawnGraceTimer <= 0.f", self.cpp)
+        self.assertIn("else if (EnemyDamageCooldown <= 0.f && RespawnGraceTimer <= 0.f)", self.cpp)
+        self.assertIn("Health = FMath::Clamp(Progress->SavedHealth", self.cpp)
+        self.assertNotIn("Health += RespawnGraceTimer", self.cpp)
+        self.assertNotIn("CounterWindow = RespawnGraceTimer", self.cpp)
 
     def test_original_art_import_is_checksum_guarded(self):
         import_tool = (ROOT / "tools/import_godot_art.py").read_text()
