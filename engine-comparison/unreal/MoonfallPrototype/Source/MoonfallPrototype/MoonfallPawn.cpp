@@ -709,6 +709,11 @@ void AMoonfallPawn::BeginGuard()
     }
 }
 
+void AMoonfallPawn::CycleMinimapTracking()
+{
+    MinimapTrackingMode = (MinimapTrackingMode + 1) % 4;
+}
+
 void AMoonfallPawn::EndGuard()
 {
     bGuardHeld = false;
@@ -985,6 +990,7 @@ void AMoonfallPawn::SetupPlayerInputComponent(UInputComponent* Input)
     Input->BindAction(TEXT("Dodge"), IE_Pressed, this, &AMoonfallPawn::Dodge);
     Input->BindAction(TEXT("Guard"), IE_Pressed, this, &AMoonfallPawn::BeginGuard);
     Input->BindAction(TEXT("Guard"), IE_Released, this, &AMoonfallPawn::EndGuard);
+    Input->BindAction(TEXT("MinimapTracking"), IE_Pressed, this, &AMoonfallPawn::CycleMinimapTracking);
     Input->BindAction(TEXT("ArcaneBolt"), IE_Pressed, this, &AMoonfallPawn::CastBolt);
     Input->BindAction(TEXT("ArcaneHeal"), IE_Pressed, this, &AMoonfallPawn::CastHeal);
 }
