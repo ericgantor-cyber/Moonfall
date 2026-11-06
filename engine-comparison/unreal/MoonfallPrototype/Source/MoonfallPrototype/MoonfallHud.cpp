@@ -340,17 +340,7 @@ void AMoonfallHud::DrawHUD()
             Canvas->K2_DrawLine(P + FVector2D(-7.f, 0.f), P + FVector2D(0.f, -7.f),
                 3.f, FLinearColor(1.f, .20f, .28f));
         }
-        else if (!Local.IsNearlyZero())
-        {
-            // Red edge arrow points toward the final boss even when off-map.
-            const FVector2D Direction = Local.GetSafeNormal();
-            const FVector2D Side(-Direction.Y, Direction.X);
-            const FVector2D Tip = RadarCenter + Direction * (RadarRadius - 5.f);
-            const FVector2D Base = Tip - Direction * 13.f;
-            const FLinearColor BossColor(1.f, .20f, .28f);
-            Canvas->K2_DrawLine(Base + Side * 6.f, Tip, 3.f, BossColor);
-            Canvas->K2_DrawLine(Base - Side * 6.f, Tip, 3.f, BossColor);
-        }
+
     }
     // Minimal centered player dot; no directional arrows or enemy markers.
     Canvas->K2_DrawBox(RadarCenter - FVector2D(4.f, 4.f),
