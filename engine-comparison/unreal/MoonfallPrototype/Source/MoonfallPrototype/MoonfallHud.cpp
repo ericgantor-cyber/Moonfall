@@ -39,6 +39,18 @@ void AMoonfallHud::DrawHUD()
     const AMoonfallPawn* Hero = Cast<AMoonfallPawn>(PlayerOwner->GetPawn());
     if (!Hero) return;
 
+    if (Hero->IsDefeated())
+    {
+        // Only show the recovery prompt after defeat, never as permanent HUD clutter.
+        const FString DefeatTitle = TEXT("DEFEATED");
+        const FString DefeatPrompt = TEXT("Left-click to return to your last checkpoint");
+        DrawText(DefeatTitle, FLinearColor(.95f, .2f, .24f),
+            Canvas->ClipX * .5f - 75.f, Canvas->ClipY * .38f, nullptr, 1.8f);
+        DrawText(DefeatPrompt, FLinearColor::White,
+            FMath::Max(12.f, Canvas->ClipX * .5f - 210.f),
+            Canvas->ClipY * .46f, nullptr, 1.f);
+    }
+
     const FVector2D OrbCenter(90.f, Canvas->ClipY - 108.f);
     if (OrnateOrbs)
     {
