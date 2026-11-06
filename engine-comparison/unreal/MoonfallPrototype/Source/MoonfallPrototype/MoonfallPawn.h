@@ -128,7 +128,7 @@ private:
     UBillboardComponent* AddWorldArtwork(USceneComponent* Parent, const FString& AssetPath,
         const FVector& LocalPosition, float Scale);
     int32 NearestEnemyIndex(float Radius) const;
-    void DamageWorldEnemy(int32 Index, float Damage, bool bRiposte = false, bool bComboFinisher = false);
+    void DamageWorldEnemy(int32 Index, float Damage, bool bRiposte = false, bool bComboFinisher = false, bool bMagic = false);
     int32 GuardianBlessingCount() const;
     float BasicAttackDamage() const;
     float ArcaneBoltDamage() const;
