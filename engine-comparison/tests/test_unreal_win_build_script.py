@@ -41,7 +41,7 @@ class UnrealWindowsBuildScriptTests(unittest.TestCase):
                          "Microsoft.VisualStudio.Component.VC.Tools.x86.x64",
                          "Windows Kits", "Windows.h"):
             self.assertIn(required, check)
-        self.assertIn("Hostx64\\x64\\cl.exe", check)
+        self.assertIn(r"Hostx64\\x64\\cl.exe", check)
         self.assertIn("$compilerPaths.Count -eq 0", check)
         self.assertIn("Visual Studio C++ x64 compiler cl.exe is missing", check)
         self.assertIn("check-runner-prerequisites.ps1", doc)
