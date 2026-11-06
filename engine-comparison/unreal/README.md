@@ -74,6 +74,10 @@ Guard now faces the nearest available enemy when starting from a standstill; mov
 
 A broken guard now really imposes its short recovery: the hero cannot immediately attack, cast, heal or dodge until the guard-break timer expires. Guarding and offense no longer overlap: committing to a valid melee hit or spell lowers the guard. A successful parry still earns a separate riposte window, which can be used after lowering the guard. Staggering a warning enemy immediately resets its warning pulse instead of leaving an enlarged portrait on screen. Timings, controls, sixteen-second autosaves and original artwork are unchanged. Unreal gameplay/compile tests remain outstanding.
 
+## Phantom Blade-inspired defensive pressure (source implemented, gameplay unverified)
+
+Combining the general combat ideas discussed from *Phantom Blade Zero* (the supplied Medal clip itself was not playable here), ordinary enemies and chamber guardians now accumulate temporary posture pressure from landed strikes. Successful ripostes build pressure fastest, followed by combo finishers, ordinary melee, then magic. A full posture bar interrupts the current warning and creates a brief stagger (1.0 seconds ordinary enemies, 1.2 seconds guardians), with no health restoration or additional wave modes. Pressure begins decaying after 2.4 seconds without a hit, and the small meter only appears above nearby enemies who have accumulated pressure. A perfect parry speeds the next attack recovery to at most 0.12 seconds while maintaining the combo opportunity. Windup indicators are now blue/silver for attacks that can be parried, and consistently crimson with a crossed marker for dodge-only boss radial attacks. These are original Moonfall mechanics, not copied assets or footage. Actual Unreal 5.6 compilation and visual/gameplay verification remain pending.
+
 ## Manual acceptance checklist
 
 - Compile editor and game C++ targets on Windows with UE 5.6 and record exact errors, warnings, and versions.
