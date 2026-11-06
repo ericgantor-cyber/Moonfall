@@ -31,6 +31,11 @@ AMoonfallArena::AMoonfallArena() {
  RitualStones->SetCollisionEnabled(ECollisionEnabled::NoCollision);
  RitualStones->SetCastShadow(false);
  if (RuinCube.Succeeded()) RitualStones->SetStaticMesh(RuinCube.Object);
+ RitualSigil = CreateDefaultSubobject<UInstancedStaticMeshComponent>(TEXT("RitualSigil"));
+ RitualSigil->SetupAttachment(GetRootComponent());
+ RitualSigil->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+ RitualSigil->SetCastShadow(false);
+ if (RuinCube.Succeeded()) RitualSigil->SetStaticMesh(RuinCube.Object);
  Moonlight = CreateDefaultSubobject<UDirectionalLightComponent>(TEXT("Moonlight"));
  Moonlight->SetupAttachment(GetRootComponent());
  Moonlight->SetRelativeRotation(FRotator(-48.f,135.f,0.f));
@@ -69,6 +74,10 @@ void AMoonfallArena::AddRitualStone(FVector Position, FVector Scale, FRotator Ro
  if (RitualStones && RitualStones->GetStaticMesh())
   RitualStones->AddInstance(FTransform(Rotation,Position,Scale));
 }
+void AMoonfallArena::AddSigilTile(FVector Position, FVector Scale, FRotator Rotation) {
+ if (RitualSigil && RitualSigil->GetStaticMesh())
+  RitualSigil->AddInstance(FTransform(Rotation, Position, Scale));
+}
 void AMoonfallArena::CreateAtmosphereLight(FVector Position, FLinearColor Color, float Intensity) {
  UPointLightComponent* Light = NewObject<UPointLightComponent>(this);
  Light->SetupAttachment(GetRootComponent());
@@ -96,6 +105,8 @@ void AMoonfallArena::BeginPlay() {
  if (DeadTreeMaterial) DeadTrees->SetMaterial(0,DeadTreeMaterial);
  if (RitualStoneMeshArt) RitualStones->SetStaticMesh(RitualStoneMeshArt);
  if (RitualStoneMaterial) RitualStones->SetMaterial(0,RitualStoneMaterial);
+ if (SigilTileMeshArt) RitualSigil->SetStaticMesh(SigilTileMeshArt);
+ if (SigilTileMaterial) RitualSigil->SetMaterial(0,SigilTileMaterial);
  // Original deterministic ruined architecture and ground debris, all non-colliding.
  for (int32 i=0; i<6; ++i) {
   const float Angle = i*(2.f*PI/6.f);
@@ -137,6 +148,18 @@ void AMoonfallArena::BeginPlay() {
   const float A = i*2.f*PI/7.f;
   AddRitualStone(FVector(FMath::Cos(A)*780.f,FMath::Sin(A)*780.f,4.f),
                  FVector(0.55f,0.17f,0.12f),FRotator(0.f,FMath::RadiansToDegrees(A),0.f));
+ }
+ // A low-lying ritual ring of 24 tiles, below the combat plane; no gameplay collision.
+ // Keep the center empty for boss telegraphs and the player's silhouette.
+ if (bShowRitualCircle) {
+  constexpr int32 RingTiles = 24;
+  for (int32 i=0;i<RingTiles;++i) {
+   const float A = (2.f*PI*i)/static_cast<float>(RingTiles);
+   const float RadialDistance = i%2 == 0 ? 630.f : 660.f;
+   AddSigilTile(FVector(FMath::Cos(A)*RadialDistance,FMath::Sin(A)*RadialDistance,-8.f),
+                FVector(0.52f,0.075f,0.03f),
+                FRotator(0.f,FMath::RadiansToDegrees(A)+90.f,0.f));
+  }
  }
  CreateAtmosphereLight(FVector(-950.f,350.f,420.f),FLinearColor(0.17f,0.31f,0.85f),2700.f);
  CreateAtmosphereLight(FVector(950.f,-350.f,420.f),FLinearColor(0.88f,0.18f,0.09f),2100.f);
