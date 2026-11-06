@@ -106,6 +106,17 @@ void AMoonfallPawn::RevealMapAround(const FVector& WorldPosition)
     }
 }
 
+void AMoonfallPawn::RevealMapAlongPath(const FVector& From, const FVector& To)
+{
+    // Sample the traveled segment rather than only its endpoint. A dodge or
+    // future movement upgrade cannot leave an undiscovered strip behind.
+    const float Distance = FVector::Dist2D(From, To);
+    const int32 Steps = FMath::Clamp(
+        FMath::CeilToInt(Distance / (FogCellSize * .5f)), 1, 16);
+    for (int32 I = 0; I <= Steps; ++I)
+        RevealMapAround(FMath::Lerp(From, To, static_cast<float>(I) / Steps));
+}
+
 void AMoonfallPawn::BeginPlay()
 {
     Super::BeginPlay();
@@ -1198,12 +1209,13 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
         Direction = Direction.GetClampedToMaxSize(1.f);
         // A frame hitch must not teleport the hero through a boss warning or chamber.
         const float MovementDt = FMath::Min(Dt, 0.05f);
-        FVector Position = HeroMesh->GetRelativeLocation() +
+        const FVector PreviousPosition = HeroMesh->GetRelativeLocation();
+        FVector Position = PreviousPosition +
             Direction * (bDodgeActiveThisFrame ? 1200.f : (IsGuarding() ? 340.f : 600.f)) * MovementDt;
         Position.X = FMath::Clamp(Position.X, -1600.f, 17600.f);
         Position.Y = FMath::Clamp(Position.Y, -3200.f, 3200.f);
         HeroMesh->SetRelativeLocation(Position);
-        RevealMapAround(Position);
+        RevealMapAlongPath(PreviousPosition, Position);
         const int32 CurrentRegion = MoonfallWorldRules::RegionAt(Position.X);
         if (CurrentRegion != LastCheckpointRegion || CheckpointTimer >= CheckpointInterval)
         {
