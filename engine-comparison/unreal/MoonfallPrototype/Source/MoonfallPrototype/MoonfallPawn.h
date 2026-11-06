@@ -117,8 +117,11 @@ private:
     bool bBossRadialAttack = false; // Radial boss attacks are dodge-only.
     FVector GuardDirection = FVector::ForwardVector;
     float GuardParryTimer = 0.f;
+    float GuardParryRecovery = 0.f; // Stops repeated taps from refreshing the parry.
     float GuardBreakTimer = 0.f;
+    bool bParryActiveThisFrame = false; // Preserve the last valid parry frame.
     static constexpr float ParryWindow = 0.22f;
+    static constexpr float ParryRecovery = 0.45f;
     static constexpr float GuardBreakDuration = 1.1f;
     float CounterWindow = 0.f;
     int32 BossAttackCount = 0;
