@@ -389,6 +389,19 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("MapWidth >= 520.f", map_code)
         self.assertNotIn("Hero->GetEnemyMapPositions()", map_code)
 
+    def test_active_region_cave_quest_progress_bar(self):
+        hud = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8")
+        minimap, world = hud.split("if (Hero->IsWorldMapVisible())", 1)
+        self.assertIn("const int32 QuestGoal = MoonfallWorldRules::ChambersPerRegion;", world)
+        self.assertIn("const int32 QuestCompleted = FMath::Clamp(RegionClearedCaves, 0, QuestGoal);", world)
+        self.assertIn("static_cast<float>(QuestCompleted) / QuestGoal", world)
+        self.assertIn('TEXT("QUEST: CLEAR CAVES %d/%d")', world)
+        self.assertIn("BarWidth * QuestProgress", world)
+        self.assertIn("QuestCompleted == QuestGoal", world)
+        self.assertIn("if (bCleared) ++RegionClearedCaves;", world)
+        self.assertNotIn('TEXT("QUEST: CLEAR CAVES', minimap)
+        self.assertNotIn("Hero->GetEnemyMapPositions()", world)
+
     def test_region_cave_progress_and_bars_respect_discovery(self):
         hud = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8")
         map_code = hud.split("// Cave discovery statistics", 1)[1]
