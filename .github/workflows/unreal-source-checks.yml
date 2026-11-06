@@ -68,6 +68,11 @@ jobs:
           assert 'ActionName="ZoomOut",Key=Gamepad_DPad_Down' in inputs
           assert 'DrawArc(Radius * 0.85f' in hud and 'DrawArc(Radius * 0.97f' in hud
           assert 'DisplayHealth = FMath::FInterpTo' in hud and 'LevelGlowUntil' in hud
+          assert 'const float MapRange = 2200.f' in hud
+          assert 'DrawnEnemies < 32' in hud
+          assert 'Delta.SizeSquared() > FMath::Square(MapRange)' in hud
+          assert 'MapEnemy->bBoss ? FLinearColor' in hud
+          assert 'MapCenter.X-3.f' in hud and 'MapCenter.Y-3.f' in hud
           print('Input mapping and combat source checks passed. Unreal compilation NOT performed.')
           PY
 
