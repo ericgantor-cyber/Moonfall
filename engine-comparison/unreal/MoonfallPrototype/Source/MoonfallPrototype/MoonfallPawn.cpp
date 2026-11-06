@@ -616,14 +616,45 @@ void AMoonfallPawn::BeginGuard()
     bGuardHeld = true;
     const FVector Move(Forward, Right, 0.f);
     if (Move.SizeSquared2D() > 0.01f)
+    {
         GuardDirection = Move.GetSafeNormal2D();
-    GuardParryTimer = ParryWindow; // Only a fresh press offers the brief parry.
+    }
+    else if (HeroMesh)
+    {
+        // When standing still, face the closest active threat on first guard
+        // press rather than arbitrarily defaulting to the positive X axis.
+        const FVector HeroPosition = HeroMesh->GetRelativeLocation();
+        FVector Closest = FVector::ZeroVector;
+        float ClosestDistanceSq = FMath::Square(900.f);
+        const int32 EnemyIndex = NearestEnemyIndex(900.f);
+        if (EnemyIndex != INDEX_NONE && Enemies[EnemyIndex].Mesh)
+        {
+            Closest = Enemies[EnemyIndex].Mesh->GetRelativeLocation() - HeroPosition;
+            ClosestDistanceSq = Closest.SizeSquared2D();
+        }
+        if (!bWon && BossMesh && bCasting)
+        {
+            const FVector BossDelta = BossMesh->GetRelativeLocation() - HeroPosition;
+            if (BossDelta.SizeSquared2D() < ClosestDistanceSq)
+                Closest = BossDelta;
+        }
+        if (Closest.SizeSquared2D() > 0.01f)
+            GuardDirection = Closest.GetSafeNormal2D();
+    }
+    // Release/repress may continue the block, but cannot spam perfect parries.
+    if (GuardParryRecovery <= 0.f)
+    {
+        GuardParryTimer = ParryWindow;
+        GuardParryRecovery = ParryRecovery;
+        bParryActiveThisFrame = true;
+    }
 }
 
 void AMoonfallPawn::EndGuard()
 {
     bGuardHeld = false;
     GuardParryTimer = 0.f;
+    bParryActiveThisFrame = false;
 }
 
 void AMoonfallPawn::RecordGuardEvent(bool bParried, bool bBroken)
@@ -646,10 +677,11 @@ float AMoonfallPawn::ResolveGuardHit(
     const FVector ToAttacker = (AttackOrigin - HeroMesh->GetRelativeLocation()).GetSafeNormal2D();
     // A guard defends the forward 120-degree arc only.
     if (FVector::DotProduct(GuardDirection, ToAttacker) < 0.5f) return Damage;
-    if (GuardParryTimer > 0.f)
+    if (bParryActiveThisFrame)
     {
         bParried = true;
         GuardParryTimer = 0.f;
+        bParryActiveThisFrame = false;
         CounterWindow = CounterDuration;
         Stamina = FMath::Min(GetHudMaxStamina(), Stamina + 8.f);
         RecordGuardEvent(true, false);
@@ -882,6 +914,9 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
     DodgeTimer = FMath::Max(0.f, DodgeTimer - ReactionDt);
     DodgeCooldown = FMath::Max(0.f, DodgeCooldown - Dt);
     GuardBreakTimer = FMath::Max(0.f, GuardBreakTimer - ReactionDt);
+    GuardParryRecovery = FMath::Max(0.f, GuardParryRecovery - ReactionDt);
+    // Snapshot the parry before timer decay; a strike on the final frame counts.
+    bParryActiveThisFrame = IsParryWindowActive();
     GuardParryTimer = FMath::Max(0.f, GuardParryTimer - ReactionDt);
     const FVector GuardInput(Forward, Right, 0.f);
     if (bGuardHeld && GuardInput.SizeSquared2D() > 0.01f)
