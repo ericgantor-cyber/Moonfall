@@ -15,6 +15,23 @@ AMoonfallEnemy::AMoonfallEnemy() {
   if (Sphere.Succeeded()) Body->SetStaticMesh(Sphere.Object);
   Body->SetCollisionProfileName(TEXT("BlockAll"));
   Body->SetRelativeScale3D(FVector(0.85f,0.85f,1.4f));
+  CrowLeftWing = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("CrowLeftWing"));
+  CrowRightWing = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("CrowRightWing"));
+  CrowBeak = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("CrowBeak"));
+  static ConstructorHelpers::FObjectFinder<UStaticMesh> Cube(TEXT("/Engine/BasicShapes/Cube.Cube"));
+  for (UStaticMeshComponent* Part : {CrowLeftWing,CrowRightWing,CrowBeak}) {
+   Part->SetupAttachment(Body);
+   Part->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+   Part->SetCastShadow(false);
+   Part->SetHiddenInGame(true);
+   if (Cube.Succeeded()) Part->SetStaticMesh(Cube.Object);
+  }
+  CrowLeftWing->SetRelativeLocation(FVector(0.f,-95.f,0.f));
+  CrowRightWing->SetRelativeLocation(FVector(0.f,95.f,0.f));
+  CrowLeftWing->SetRelativeScale3D(FVector(0.5f,1.75f,0.065f));
+  CrowRightWing->SetRelativeScale3D(FVector(0.5f,1.75f,0.065f));
+  CrowBeak->SetRelativeLocation(FVector(100.f,0.f,-20.f));
+  CrowBeak->SetRelativeScale3D(FVector(0.55f,0.14f,0.13f));
   PrimaryActorTick.bCanEverTick = true;
   PrimaryActorTick.TickInterval = 0.1f;
 }
@@ -33,7 +50,11 @@ void AMoonfallEnemy::BeginPlay() {
  if (bCorruptedCrow) {
   CrowHome = GetActorLocation();
   AttackCooldown = FMath::Max(1.7f,AttackCooldown);
-  if (Body) Body->SetRelativeScale3D(FVector(0.65f,1.15f,0.3f));
+  if (Body) Body->SetRelativeScale3D(FVector(0.65f,0.65f,0.5f));
+  CrowLeftWing->SetHiddenInGame(false);
+  CrowRightWing->SetHiddenInGame(false);
+  CrowBeak->SetHiddenInGame(false);
+  CrowRecoverUntil = GetWorld() ? GetWorld()->GetTimeSeconds() + 1.0f : 1.f;
   SetActorTickInterval(0.05f);
  }
 }
