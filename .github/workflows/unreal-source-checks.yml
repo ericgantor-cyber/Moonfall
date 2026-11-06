@@ -182,7 +182,8 @@ jobs:
           assert 'bCrowDiving = true' in enemy
           assert 'FMath::Max(1.7f,AttackCooldown)' in enemy
           assert 'AddActorWorldOffset((DiveTarget-Current).GetClampedToMaxSize' in enemy
-          assert 'Hero->ApplyMoonfallDamage(AttackDamage*0.75f)' in enemy
+          assert 'Hero->ApplyMoonfallDamage(AttackDamage*DamageFactor)' in enemy
+          assert 'if (bCorruptedCrow && Health > 0.f && CrowAttackEndsAt >= 0.f && !bCrowDiving)' in enemy
           assert 'Hero->bOptionsOpen || Hero->bWorldMapOpen' in enemy
           assert 'bCorruptedCrow = true' in arena
           assert 'BirdIndex<2' in arena
