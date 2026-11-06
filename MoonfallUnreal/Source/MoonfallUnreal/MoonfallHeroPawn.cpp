@@ -128,8 +128,18 @@ void AMoonfallHeroPawn::Turn(float Value) { if (!bOptionsOpen && !bWorldMapOpen)
 void AMoonfallHeroPawn::LookUp(float Value) { if (!bOptionsOpen && !bWorldMapOpen) AddControllerPitchInput(Value); }
 void AMoonfallHeroPawn::ZoomCameraIn() { if (!bOptionsOpen) CameraDistance = FMath::Clamp(CameraDistance - 50.f, 250.f, 850.f); }
 void AMoonfallHeroPawn::ZoomCameraOut() { if (!bOptionsOpen) CameraDistance = FMath::Clamp(CameraDistance + 50.f, 250.f, 850.f); }
-void AMoonfallHeroPawn::ZoomMinimapIn() { if (!bOptionsOpen) MinimapRange = FMath::Clamp(MinimapRange - 400.f, 1200.f, 4800.f); }
-void AMoonfallHeroPawn::ZoomMinimapOut() { if (!bOptionsOpen) MinimapRange = FMath::Clamp(MinimapRange + 400.f, 1200.f, 4800.f); }
+void AMoonfallHeroPawn::ZoomMinimapIn()
+{
+ if (bOptionsOpen) return;
+ if (bWorldMapOpen) WorldMapRange = FMath::Clamp(WorldMapRange - 2500.f, 5000.f, 50000.f);
+ else MinimapRange = FMath::Clamp(MinimapRange - 400.f, 1200.f, 4800.f);
+}
+void AMoonfallHeroPawn::ZoomMinimapOut()
+{
+ if (bOptionsOpen) return;
+ if (bWorldMapOpen) WorldMapRange = FMath::Clamp(WorldMapRange + 2500.f, 5000.f, 50000.f);
+ else MinimapRange = FMath::Clamp(MinimapRange + 400.f, 1200.f, 4800.f);
+}
 bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
 {
  static const float Costs[6] = {16.f,13.f,22.f,25.f,18.f,14.f};
