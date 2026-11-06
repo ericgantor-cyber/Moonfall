@@ -30,6 +30,12 @@ void AMoonfallEnemy::BeginPlay() {
  AttackDamage = FMath::Max(1.f, AttackDamage * DamageScale);
  MaxHealthAtSpawn = FMath::Max(1.f, Health);
  BossMaxHealth = bBoss ? MaxHealthAtSpawn : 0.f;
+ if (bCorruptedCrow) {
+  CrowHome = GetActorLocation();
+  AttackCooldown = FMath::Max(1.7f,AttackCooldown);
+  if (Body) Body->SetRelativeScale3D(FVector(0.65f,1.15f,0.3f));
+  SetActorTickInterval(0.05f);
+ }
 }
 
 void AMoonfallEnemy::TakeSpellDamage(float Amount) {
@@ -77,6 +83,7 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
 void AMoonfallEnemy::Tick(float DeltaSeconds) {
  Super::Tick(DeltaSeconds);
  if (Health <= 0.f || !GetWorld()) return;
+ if (bCorruptedCrow) { TickCorruptedCrow(DeltaSeconds); return; }
  const float Now = GetWorld()->GetTimeSeconds();
  const bool Staggered = Now < HitReactionEndsAt;
  if (bBoss && Now < BossPhaseMessageUntil) {
@@ -294,6 +301,61 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
    }
    WindupEndsAt = Now + CurrentWindup;
    if (bBoss) BossWarningEndTime = WindupEndsAt;
+  }
+ }
+}
+
+void AMoonfallEnemy::TickCorruptedCrow(float DeltaSeconds)
+{
+ if (!GetWorld() || Health <= 0.f) return;
+ AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this,0));
+ if (!IsValid(Hero) || Hero->Health <= 0.f || Hero->bOptionsOpen || Hero->bWorldMapOpen) return;
+ const float Now = GetWorld()->GetTimeSeconds();
+ const FVector HeroPosition = Hero->GetActorLocation();
+ const FVector Current = GetActorLocation();
+ const float PlanarDistance = FVector::Dist2D(Current,HeroPosition);
+ // Far-off birds sleep and do not pathfind, keeping the ambient enemy inexpensive.
+ if (PlanarDistance > 2300.f) { SetActorTickInterval(0.4f); return; }
+ SetActorTickInterval(0.05f);
+ const FVector HighTarget(HeroPosition.X,HeroPosition.Y,HeroPosition.Z+360.f);
+ if (!bCrowDiving && CrowAttackEndsAt < 0.f) {
+  // Orbit well above melee range until a readable strike is scheduled.
+  const float Angle = Now*0.8f + GetUniqueID()*0.17f;
+  const FVector OrbitTarget = HighTarget + FVector(FMath::Cos(Angle)*360.f,FMath::Sin(Angle)*360.f,85.f);
+  AddActorWorldOffset((OrbitTarget-Current).GetClampedToMaxSize(250.f*DeltaSeconds),true);
+  if (Now >= CrowRecoverUntil && PlanarDistance < 1250.f) {
+   CrowAttackEndsAt = Now+0.7f; // visible warning before the lunge
+   DrawDebugString(GetWorld(), Current+FVector(0.f,0.f,90.f),TEXT("CROW DIVE - DODGE"),
+                   nullptr,FColor::Orange,0.75f,false);
+  }
+  return;
+ }
+ if (!bCrowDiving && CrowAttackEndsAt >= 0.f) {
+  if (Now < CrowAttackEndsAt) {
+   DrawDebugSphere(GetWorld(), Current, 80.f, 8, FColor::Orange, false,0.08f,0,1.f);
+   return;
+  }
+  bCrowDiving = true;
+  CrowAttackEndsAt = Now+0.55f;
+ }
+ if (bCrowDiving) {
+  // A capped swept move that can be blocked by level geometry.
+  const FVector DiveTarget = HeroPosition + FVector(0.f,0.f,35.f);
+  FHitResult Hit;
+  AddActorWorldOffset((DiveTarget-Current).GetClampedToMaxSize(1250.f*DeltaSeconds),true,&Hit);
+  const float Reach = FVector::Dist(GetActorLocation(),DiveTarget);
+  if (Reach < 115.f || Now >= CrowAttackEndsAt || Hit.bBlockingHit) {
+   if (Reach < 115.f && !Hit.bBlockingHit) {
+    FHitResult Sight;
+    FCollisionQueryParams Params(SCENE_QUERY_STAT(MoonfallCrowSight),false);
+    Params.AddIgnoredActor(this);
+    const bool bBlocked = GetWorld()->LineTraceSingleByChannel(
+     Sight,GetActorLocation(),HeroPosition,ECC_Visibility,Params) && Sight.GetActor()!=Hero;
+    if (!bBlocked) { Hero->ApplyMoonfallDamage(AttackDamage*0.75f); OnEnemyAttack(); }
+   }
+   bCrowDiving = false;
+   CrowAttackEndsAt = -1.f;
+   CrowRecoverUntil = Now+FMath::Max(1.7f,AttackCooldown);
   }
  }
 }
