@@ -140,6 +140,19 @@ void AMoonfallCombatHUD::DrawHUD()
    DrawRect(DotColor,Dot.X - DotSize*0.5f,Dot.Y - DotSize*0.5f,DotSize,DotSize);
    ++DrawnEnemies;
   }
+  // Only explicit gameplay quest targets are displayed, including an edge direction for distant objectives.
+  if (Hero->bQuestTargetActive) {
+   const FVector TargetOffset = Hero->QuestTarget - HeroPosition;
+   const FVector2D QuestDelta(TargetOffset.X, -TargetOffset.Y);
+   const float QuestDistance = QuestDelta.Size();
+   if (FMath::IsFinite(QuestDistance)) {
+    const FVector2D QuestScreen = MapCenter + QuestDelta.GetSafeNormal() *
+     (FMath::Min(QuestDistance, MapRange) * MapRadius * 0.86f / MapRange);
+    DrawRect(FLinearColor(1.f,0.78f,0.21f), QuestScreen.X-4.f, QuestScreen.Y-4.f,8.f,8.f);
+    if (QuestDistance > MapRange)
+     Canvas->K2_DrawLine(QuestScreen - QuestDelta.GetSafeNormal()*8.f,QuestScreen,2.f,FLinearColor(1.f,0.78f,0.21f));
+   }
+  }
   DrawRect(FLinearColor(0.27f,0.88f,1.f),MapCenter.X-3.f,MapCenter.Y-3.f,6.f,6.f);
   DrawText(TEXT("N"),FLinearColor(0.75f,0.88f,1.f),MapCenter.X-4.f,MapCenter.Y-MapRadius-17.f,nullptr,0.82f);
   DrawText(FString::Printf(TEXT("+ / -  %.0f m"),MapRange/100.f),FLinearColor(0.75f,0.88f,1.f),MapCenter.X-MapRadius,MapCenter.Y+MapRadius+5.f,nullptr,0.72f);
