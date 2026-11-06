@@ -30,6 +30,10 @@ This launches Unreal Editor to create `Content/Maps/MoonfallPrototype.umap` if a
 
 Packaging uses Unreal's `RunUAT.bat BuildCookRun` for Win64 Development, cooking, staging, and archiving. Every invocation writes into its own uniquely named `run-*` archive subfolder to prevent older packages from being mistaken for fresh outputs, even when Unreal preserves file modification times. The verifier also requires both a valid Win64 PE executable and nonempty cooked Unreal content (`.pak` or IoStore `.ucas`) in that isolated archive; this still does not replace launch testing. If no `.umap` exists, the script **fails explicitly** instead of claiming a playable build. A successful package still needs a manual Windows 10/11 launch and gameplay check.
 
+## Enemy combat overhaul (source implemented, gameplay unverified)
+
+Ordinary enemies no longer deal untelegraphed proximity damage. An engaged enemy must first begin a visible warning (0.6 seconds for ordinary enemies, 0.85 seconds for guardians), then finish its windup while the hero remains in strike range. A pulse on the existing mesh or portrait indicates danger without replacing imported Z/Nyra artwork or adding VFX actors. Attacks have recovery (1.3 seconds for ordinary enemies, 1.7 seconds for guardians). A landed finisher or riposte interrupts the windup, and a correctly timed dodge can award the existing counterattack window. These behaviors are covered by source-contract tests, **not yet tested in a running Unreal build**.
+
 ## Manual acceptance checklist
 
 - Compile editor and game C++ targets on Windows with UE 5.6 and record exact errors, warnings, and versions.
