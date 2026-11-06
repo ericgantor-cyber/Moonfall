@@ -59,6 +59,14 @@ public:
     bool IsBossStaggered() const { return !bWon && BossStaggerTimer > 0.f; }
     TArray<FVector> GetChamberMapPositions() const;
     TArray<FVector> GetWorldMapChamberPositions() const;
+    // Cleared cave landmarks remain discoverable after their reward cache vanishes.
+    bool IsCaveCleared(int32 Region, int32 Cave) const
+    {
+        if (Region < 0 || Region >= MoonfallWorldRules::RegionCount ||
+            Cave < 0 || Cave >= MoonfallWorldRules::ChambersPerRegion) return false;
+        const int32 Id = Region * MoonfallWorldRules::ChambersPerRegion + Cave;
+        return (ClaimedChamberMask & (1 << Id)) != 0;
+    }
     struct FDamageNumber
     {
         FVector LocalPosition = FVector::ZeroVector;
