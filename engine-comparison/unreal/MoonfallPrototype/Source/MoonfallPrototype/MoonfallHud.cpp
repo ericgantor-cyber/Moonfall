@@ -431,8 +431,10 @@ void AMoonfallHud::DrawHUD()
         {
             const bool bInside = X <= GroundLimit &&
                 FMath::Abs(X) + GroundStep * .5f <= RowRadius;
-            const int32 Region = bInside ? TerrainRegionAt(FVector2D(
-                H.X + X / RadarScale, H.Y - Y / RadarScale)) : INDEX_NONE;
+            const FVector2D WorldSample(H.X + X / RadarScale,
+                H.Y - Y / RadarScale);
+            const int32 Region = bInside && Hero->IsMapExplored(WorldSample)
+                ? TerrainRegionAt(WorldSample) : INDEX_NONE;
             if (Region != ActiveRegion)
             {
                 if (ActiveRegion != INDEX_NONE)
@@ -506,6 +508,7 @@ void AMoonfallHud::DrawHUD()
     {
         const FVector Offset = Chamber - H;
         const FVector2D Local(Offset.X * RadarScale, -Offset.Y * RadarScale);
+        if (!Hero->IsMapExplored(FVector2D(Chamber.X, Chamber.Y))) continue;
         if (Local.SizeSquared() > FMath::Square(RadarRadius - 10.f)) continue;
         const FVector2D P = RadarCenter + Local;
         // Cave mouth icon: an arch and dark entrance instead of a loot diamond.
@@ -520,7 +523,8 @@ void AMoonfallHud::DrawHUD()
     }
     if (bHasVisibleCave) DrawMapFocusRing(NearestVisibleCavePoint, 10.f);
     }
-    if (bTrackBoss && !Hero->IsBossDefeated())
+    if (bTrackBoss && !Hero->IsBossDefeated() &&
+        Hero->IsMapExplored(FVector2D(B.X, B.Y)))
     {
         const FVector BossOffset = B - H;
         const FVector2D Local(BossOffset.X * RadarScale, -BossOffset.Y * RadarScale);
@@ -557,35 +561,33 @@ void AMoonfallHud::DrawHUD()
             return FVector2D(MapMiddle.X + (X - WorldMinX) * MapScaleX,
                 MapMiddle.Y - Y * MapScaleY);
         };
+        // Draw ONLY visited floor tiles. Undiscovered terrain stays truly blank,
+        // including entire regions and caves never approached by the player.
+        // The sampled cells use the same 2 m fog grid as the saved progression.
+        for (int32 Y = 0; Y < AMoonfallPawn::FogHeight; ++Y)
+        {
+            const float WorldY = AMoonfallPawn::FogMinY +
+                (Y + .5f) * AMoonfallPawn::FogCellSize;
+            for (int32 X = 0; X < AMoonfallPawn::FogWidth; ++X)
+            {
+                const float WorldX = AMoonfallPawn::FogMinX +
+                    (X + .5f) * AMoonfallPawn::FogCellSize;
+                if (!Hero->IsMapExplored(FVector2D(WorldX, WorldY))) continue;
+                const int32 Region = TerrainRegionAt(FVector2D(WorldX, WorldY));
+                if (Region == INDEX_NONE) continue;
+                const FVector2D TopLeft = ToMap(
+                    WorldX - AMoonfallPawn::FogCellSize * .5f,
+                    WorldY + AMoonfallPawn::FogCellSize * .5f);
+                DrawRect(TerrainTint(Region), TopLeft.X, TopLeft.Y,
+                    AMoonfallPawn::FogCellSize * MapScaleX + 1.f,
+                    AMoonfallPawn::FogCellSize * MapScaleY + 1.f);
+            }
+        }
+        // Labels only appear once the center of a region has been discovered.
         for (int32 Region = 0; Region < MoonfallWorldRules::RegionCount; ++Region)
         {
             const float X = MoonfallWorldRules::RegionCenter(Region);
-            // A thick horizontal line paints each region's existing square floor.
-            Canvas->K2_DrawLine(ToMap(X - 1700.f, 0.f),
-                ToMap(X + 1700.f, 0.f), 3400.f * MapScaleY,
-                TerrainTint(Region));
-            for (int32 Chamber = 0; Chamber < MoonfallWorldRules::ChambersPerRegion; ++Chamber)
-            {
-                const FVector Center = MoonfallWorldRules::ChamberCenter(Region, Chamber);
-                Canvas->K2_DrawLine(ToMap(Center.X - 800.f, Center.Y),
-                    ToMap(Center.X + 800.f, Center.Y), 1600.f * MapScaleY,
-                    TerrainTint(Region));
-            }
-            // The active area gets a bright outline, with no directional arrow.
-            if (Region == MoonfallWorldRules::RegionAt(H.X))
-            {
-                const FVector2D ActiveMin = ToMap(X - 1700.f, 1700.f);
-                const FVector2D ActiveMax = ToMap(X + 1700.f, -1700.f);
-                const FLinearColor ActiveColor(.94f, .80f, .45f, .95f);
-                Canvas->K2_DrawLine(ActiveMin, FVector2D(ActiveMax.X, ActiveMin.Y),
-                    2.f, ActiveColor);
-                Canvas->K2_DrawLine(FVector2D(ActiveMax.X, ActiveMin.Y), ActiveMax,
-                    2.f, ActiveColor);
-                Canvas->K2_DrawLine(ActiveMax, FVector2D(ActiveMin.X, ActiveMax.Y),
-                    2.f, ActiveColor);
-                Canvas->K2_DrawLine(FVector2D(ActiveMin.X, ActiveMax.Y), ActiveMin,
-                    2.f, ActiveColor);
-            }
+            if (!Hero->IsMapExplored(FVector2D(X, 0.f))) continue;
             const FVector2D TitlePoint = ToMap(X, -1200.f);
             DrawText(FString::Printf(TEXT("%d"), Region + 1),
                 FLinearColor(.90f, .86f, .96f), TitlePoint.X - 4.f,
@@ -599,6 +601,7 @@ void AMoonfallHud::DrawHUD()
             bool bHasWorldCave = false;
             for (const FVector& Chamber : Hero->GetWorldMapChamberPositions())
             {
+                if (!Hero->IsMapExplored(FVector2D(Chamber.X, Chamber.Y))) continue;
                 const FVector2D P = ToMap(Chamber.X, Chamber.Y);
                 DrawMapIcon(P, .60f, 0);
                 const float DistanceSq = FVector::DistSquared2D(Chamber, H);
@@ -631,7 +634,7 @@ void AMoonfallHud::DrawHUD()
             MoonfallWorldRules::RegionAt(H.X) + 1, MoonfallWorldRules::RegionCount),
             FLinearColor(.95f, .84f, .55f),
             MapOrigin.X + 10.f, MapOrigin.Y + 6.f, nullptr, .95f);
-        DrawText(TEXT("GREEN: CAVE   RED: BOSS   CYAN: YOU"),
+        DrawText(TEXT("FOG: UNEXPLORED BLANK   GREEN: CAVE   RED: BOSS"),
             FLinearColor(.86f, .86f, .91f),
             MapOrigin.X + 10.f, MapOrigin.Y + MapHeight - 37.f, nullptr, .70f);
         DrawText(TEXT("TAB: CLOSE MAP"), FLinearColor(.9f, .86f, .96f),
