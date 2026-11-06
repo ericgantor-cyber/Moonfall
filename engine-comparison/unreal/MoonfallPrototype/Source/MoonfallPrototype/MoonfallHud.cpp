@@ -88,16 +88,42 @@ void AMoonfallHud::DrawHUD()
         const FVector World = Hero->GetActorTransform().TransformPosition(
             Hit.LocalPosition + FVector(0.f, 0.f, 105.f * T));
         if (!PlayerOwner->ProjectWorldLocationToScreen(World, Screen, false)) continue;
-        const FLinearColor HitColor = Hit.bDodged
-            ? FLinearColor(.35f, 1.f, .8f, 1.f - T)
-            : (Hit.bIncoming ? FLinearColor(1.f, .2f, .25f, 1.f - T)
+        if (Hit.bDodged)
+        {
+            // Moonfall's original perfect-evade cue: a brief moonlit crescent
+            // and drifting ember trails. No large text, textures, or spawned actors.
+            constexpr float EvadeFlashSeconds = 0.48f;
+            if (Hit.Age >= EvadeFlashSeconds) continue;
+            const float Fade = 1.f - Hit.Age / EvadeFlashSeconds;
+            const float Radius = 22.f + 27.f * (1.f - Fade);
+            const FLinearColor Moonlight(.86f, .88f, 1.f, Fade * .9f);
+            const FLinearColor BloodEmber(.76f, .13f, .27f, Fade * .55f);
+            constexpr int32 ArcSegments = 12;
+            for (int32 Segment = 0; Segment < ArcSegments; ++Segment)
+            {
+                const float A = -2.1f + Segment * 3.4f / ArcSegments;
+                const float B = -2.1f + (Segment + 1) * 3.4f / ArcSegments;
+                const FVector2D Start = Screen + FVector2D(FMath::Cos(A), FMath::Sin(A)) * Radius;
+                const FVector2D End = Screen + FVector2D(FMath::Cos(B), FMath::Sin(B)) * Radius;
+                Canvas->K2_DrawLine(Start, End, 3.f * Fade + .5f, Moonlight);
+            }
+            for (int32 Trail = 0; Trail < 3; ++Trail)
+            {
+                const float Offset = static_cast<float>(Trail) * 8.f;
+                const FVector2D Start = Screen + FVector2D(-10.f - Offset, 12.f + Offset);
+                const FVector2D End = Start + FVector2D(-16.f * Fade, 8.f * Fade);
+                Canvas->K2_DrawLine(Start, End, 2.f * Fade + .5f, BloodEmber);
+            }
+            continue;
+        }
+        const FLinearColor HitColor = Hit.bIncoming
+            ? FLinearColor(1.f, .2f, .25f, 1.f - T)
             : (Hit.bHeavy ? FLinearColor(1.f, .8f, .18f, 1.f - T)
             : (Hit.bMagic ? FLinearColor(.3f, .65f, 1.f, 1.f - T)
-                          : FLinearColor(1.f, 1.f, 1.f, 1.f - T))));
-        const float Scale = Hit.bDodged ? 1.2f : (Hit.bHeavy ? 1.6f : 1.1f);
-        const FString Label = Hit.bDodged
-            ? TEXT("DODGE") : FString::FromInt(FMath::RoundToInt(Hit.Amount));
-        DrawText(Label, HitColor, Screen.X - 12.f, Screen.Y, nullptr, Scale);
+                          : FLinearColor(1.f, 1.f, 1.f, 1.f - T)));
+        const float Scale = Hit.bHeavy ? 1.6f : 1.1f;
+        DrawText(FString::FromInt(FMath::RoundToInt(Hit.Amount)),
+            HitColor, Screen.X - 12.f, Screen.Y, nullptr, Scale);
     }
 
     // Prototype arena radar, not the production six-region Raven Atlas.
