@@ -70,6 +70,14 @@ jobs:
           assert 'DisplayHealth = FMath::FInterpTo' in hud and 'LevelGlowUntil' in hud
           assert 'const float MapRange = FMath::Clamp(Hero->MinimapRange, 1200.f, 4800.f)' in hud
           assert 'DrawnEnemies < 32' in hud
+          assert 'Hero->GetActorForwardVector()' in hud
+          assert 'FVector2D(Facing3D.X,-Facing3D.Y).GetSafeNormal()' in hud
+          assert 'const FVector2D ArrowTip = MapCenter + Facing*11.f' in hud
+          assert 'const FVector2D ArrowWing(-Facing.Y,Facing.X)' in hud
+          assert 'Canvas->K2_DrawLine(ArrowTip,ArrowBase+ArrowWing*5.f' in hud
+          assert 'Canvas->K2_DrawLine(ArrowTip,ArrowBase-ArrowWing*5.f' in hud
+          assert 'DrawText(TEXT("N")' in hud and 'DrawText(TEXT("E")' in hud
+          assert 'DrawText(TEXT("W")' in hud and 'DrawText(TEXT("S")' in hud
           assert 'Delta.SizeSquared() > FMath::Square(MapRange)' in hud
           assert 'MapEnemy->bBoss ? FLinearColor' in hud
           assert 'MapCenter.X-3.f' in hud and 'MapCenter.Y-3.f' in hud
