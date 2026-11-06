@@ -786,7 +786,7 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("FVector SavedHeroPosition", save)
         self.assertIn("float SavedHealth", save)
         self.assertIn("CheckpointInterval = 8f", self.unity)
-        self.assertIn("CheckpointInterval = 8.f", self.header)
+        self.assertIn("CheckpointInterval = 16.f", self.header)
         self.assertIn('PlayerPrefs.SetFloat("moonfall_experiment_checkpoint_x"', self.unity)
         self.assertIn('PlayerPrefs.SetFloat("moonfall_experiment_checkpoint_z"', self.unity)
         self.assertIn('PlayerPrefs.SetFloat("moonfall_experiment_checkpoint_hp"', self.unity)
