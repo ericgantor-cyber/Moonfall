@@ -80,6 +80,59 @@ void AMoonfallHud::DrawMarker(float X, float Y, const FLinearColor& Color)
     if (Canvas) Canvas->K2_DrawBox(FVector2D(X - 5.f, Y - 5.f), FVector2D(10.f, 10.f), 2.f, Color);
 }
 
+// Original low-detail silhouettes inspired by classic fantasy exploration maps.
+// One painter keeps world-map and minimap icons visually consistent.
+void AMoonfallHud::DrawMapIcon(FVector2D Center, float Scale, int32 IconKind)
+{
+    if (!Canvas) return;
+    const FLinearColor Outline(.10f, .11f, .17f, 1.f);
+    const FLinearColor Color = IconKind == 0
+        ? FLinearColor(.48f, .92f, .62f)
+        : (IconKind == 1 ? FLinearColor(.99f, .56f, .38f)
+                         : FLinearColor(.43f, .87f, 1.f));
+    const auto P = [Center, Scale](float X, float Y)
+    {
+        return Center + FVector2D(X * Scale, Y * Scale);
+    };
+    if (IconKind == 0)
+    {
+        // Cave: arch outline and dark mouth, no copyrighted asset.
+        Canvas->K2_DrawBox(P(-3.f, -1.f), FVector2D(6.f, 6.f) * Scale,
+            1.f, Outline);
+        Canvas->K2_DrawLine(P(-6.f, 5.f), P(-6.f, -1.f), 2.f, Color);
+        Canvas->K2_DrawLine(P(-6.f, -1.f), P(-3.f, -6.f), 2.f, Color);
+        Canvas->K2_DrawLine(P(-3.f, -6.f), P(3.f, -6.f), 2.f, Color);
+        Canvas->K2_DrawLine(P(3.f, -6.f), P(6.f, -1.f), 2.f, Color);
+        Canvas->K2_DrawLine(P(6.f, -1.f), P(6.f, 5.f), 2.f, Color);
+        Canvas->K2_DrawLine(P(-6.f, 5.f), P(6.f, 5.f), 2.f, Color);
+    }
+    else if (IconKind == 1)
+    {
+        // Boss: small spiked crown, distinct from cave entrances.
+        Canvas->K2_DrawLine(P(-6.f, -4.f), P(-4.f, 5.f), 2.f, Color);
+        Canvas->K2_DrawLine(P(-6.f, -4.f), P(0.f, 0.f), 2.f, Color);
+        Canvas->K2_DrawLine(P(0.f, 0.f), P(0.f, -7.f), 2.f, Color);
+        Canvas->K2_DrawLine(P(0.f, -7.f), P(4.f, 0.f), 2.f, Color);
+        Canvas->K2_DrawLine(P(4.f, 0.f), P(6.f, -4.f), 2.f, Color);
+        Canvas->K2_DrawLine(P(6.f, -4.f), P(4.f, 5.f), 2.f, Color);
+        Canvas->K2_DrawLine(P(-4.f, 5.f), P(4.f, 5.f), 2.f, Color);
+    }
+    else
+    {
+        // Player: simple circular locator, never a directional arrow.
+        constexpr int32 Segments = 12;
+        for (int32 I = 0; I < Segments; ++I)
+        {
+            const float A = 2.f * PI * I / Segments;
+            const float B = 2.f * PI * (I + 1) / Segments;
+            Canvas->K2_DrawLine(P(FMath::Cos(A) * 5.f, FMath::Sin(A) * 5.f),
+                P(FMath::Cos(B) * 5.f, FMath::Sin(B) * 5.f), 1.5f, Color);
+        }
+        Canvas->K2_DrawBox(P(-2.f, -2.f), FVector2D(4.f, 4.f) * Scale,
+            1.f, Color);
+    }
+}
+
 void AMoonfallHud::DrawHUD()
 {
     Super::DrawHUD();
@@ -437,13 +490,7 @@ void AMoonfallHud::DrawHUD()
         if (Local.SizeSquared() > FMath::Square(RadarRadius - 10.f)) continue;
         const FVector2D P = RadarCenter + Local;
         // Cave mouth icon: an arch and dark entrance instead of a loot diamond.
-        const FLinearColor CaveGreen(.30f, .95f, .48f);
-        Canvas->K2_DrawLine(P + FVector2D(-6.f, 5.f), P + FVector2D(-6.f, -1.f), 2.f, CaveGreen);
-        Canvas->K2_DrawLine(P + FVector2D(-6.f, -1.f), P + FVector2D(-3.f, -6.f), 2.f, CaveGreen);
-        Canvas->K2_DrawLine(P + FVector2D(-3.f, -6.f), P + FVector2D(3.f, -6.f), 2.f, CaveGreen);
-        Canvas->K2_DrawLine(P + FVector2D(3.f, -6.f), P + FVector2D(6.f, -1.f), 2.f, CaveGreen);
-        Canvas->K2_DrawLine(P + FVector2D(6.f, -1.f), P + FVector2D(6.f, 5.f), 2.f, CaveGreen);
-        Canvas->K2_DrawLine(P + FVector2D(-6.f, 5.f), P + FVector2D(6.f, 5.f), 2.f, CaveGreen);
+        DrawMapIcon(P, 1.f, 0);
     }
     if (bTrackBoss && !Hero->IsBossDefeated())
     {
@@ -452,20 +499,12 @@ void AMoonfallHud::DrawHUD()
         if (Local.SizeSquared() <= FMath::Square(RadarRadius - 10.f))
         {
             const FVector2D P = RadarCenter + Local;
-            Canvas->K2_DrawLine(P + FVector2D(0.f, -7.f), P + FVector2D(7.f, 0.f),
-                3.f, FLinearColor(1.f, .20f, .28f));
-            Canvas->K2_DrawLine(P + FVector2D(7.f, 0.f), P + FVector2D(0.f, 7.f),
-                3.f, FLinearColor(1.f, .20f, .28f));
-            Canvas->K2_DrawLine(P + FVector2D(0.f, 7.f), P + FVector2D(-7.f, 0.f),
-                3.f, FLinearColor(1.f, .20f, .28f));
-            Canvas->K2_DrawLine(P + FVector2D(-7.f, 0.f), P + FVector2D(0.f, -7.f),
-                3.f, FLinearColor(1.f, .20f, .28f));
+            DrawMapIcon(P, 1.f, 1);
         }
 
     }
     // Minimal centered player dot; no directional arrows or enemy markers.
-    Canvas->K2_DrawBox(RadarCenter - FVector2D(4.f, 4.f),
-        FVector2D(8.f, 8.f), 2.f, FLinearColor(.27f, .91f, 1.f));
+    DrawMapIcon(RadarCenter, 1.f, 2);
     // Tab opens a wider terrain map of the same continuous six-region world.
     // Draw the exact 34 m region floors and 16 m connected cave floor footprints.
     if (Hero->IsWorldMapVisible())
@@ -530,19 +569,16 @@ void AMoonfallHud::DrawHUD()
             for (const FVector& Chamber : Hero->GetWorldMapChamberPositions())
             {
                 const FVector2D P = ToMap(Chamber.X, Chamber.Y);
-                Canvas->K2_DrawBox(P - FVector2D(2.f, 2.f),
-                    FVector2D(4.f, 4.f), 1.5f, FLinearColor(.30f, .95f, .48f));
+                DrawMapIcon(P, .60f, 0);
             }
         }
         if (bTrackBoss && !Hero->IsBossDefeated())
         {
             const FVector2D BossPoint = ToMap(B.X, B.Y);
-            Canvas->K2_DrawBox(BossPoint - FVector2D(4.f, 4.f),
-                FVector2D(8.f, 8.f), 2.f, FLinearColor(1.f, .20f, .28f));
+            DrawMapIcon(BossPoint, .9f, 1);
         }
         const FVector2D You = ToMap(H.X, H.Y);
-        Canvas->K2_DrawBox(You - FVector2D(4.f, 4.f),
-            FVector2D(8.f, 8.f), 2.f, FLinearColor(.27f, .91f, 1.f));
+        DrawMapIcon(You, 1.f, 2);
         DrawText(TEXT("N"), FLinearColor(.95f, .84f, .44f),
             MapOrigin.X + MapWidth * .5f, MapOrigin.Y + 4.f, nullptr, 1.f);
         DrawText(FString::Printf(TEXT("REGION %d / %d"),
