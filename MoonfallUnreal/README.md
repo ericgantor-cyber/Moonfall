@@ -79,3 +79,7 @@ Camera distance transitions now interpolate smoothly instead of jumping instantl
 ## Unreal local minimap scaffold
 
 The existing combat HUD now draws a small north-up chart in its upper-right area on screens at least 700×460 pixels. It shows the player at the centre and up to 32 nearby living enemy dots within 22 metres, using different colors/sizes for regular enemies, elites, and bosses. The map is **local combat awareness only**, not a discovered-world map, quest atlas, cave map, or fog-of-war implementation. It adds no actors, new modes, assets, or periodic pathfinding. **Unreal compilation and live gameplay testing remain unverified.**
+
+## Visited-area minimap trail (Unreal prototype)
+
+The local minimap now remembers a bounded set of **384 visited 2-metre world cells** and draws their centers when near the player. Unvisited positions are not filled in as terrain, so unexplored areas remain visually empty. This is temporary HUD-session memory and intentionally does **not** pretend to be a saved exploration atlas or actual cave geometry; exploration persistence, room discovery and quest icons still need to be ported from the existing Godot game. Only the existing Unreal combat HUD changes; hero art and the Godot project remain untouched. UE 5.4 compilation and packaged Windows playtesting are still unverified.
