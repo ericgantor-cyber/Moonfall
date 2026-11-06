@@ -315,6 +315,20 @@ class PrototypeContracts(unittest.TestCase):
         self.assertNotIn("DrawRect(TerrainTint(Region), TopLeft.X", minimap)
         self.assertNotIn("Hero->GetEnemyMapPositions()", minimap)
 
+    def test_fog_reveals_movement_trails_without_gaps(self):
+        self.assertIn("void RevealMapAlongPath(const FVector& From, const FVector& To);", self.header)
+        path = self.cpp.split("void AMoonfallPawn::RevealMapAlongPath(", 1)[1].split(
+            "void AMoonfallPawn::BeginPlay()", 1)[0]
+        self.assertIn("FVector::Dist2D(From, To)", path)
+        self.assertIn("FogCellSize * .5f", path)
+        self.assertIn("1, 16", path)
+        self.assertIn("for (int32 I = 0; I <= Steps; ++I)", path)
+        self.assertIn("RevealMapAround(FMath::Lerp(From, To", path)
+        self.assertIn("const FVector PreviousPosition = HeroMesh->GetRelativeLocation();", self.cpp)
+        self.assertIn("RevealMapAlongPath(PreviousPosition, Position);", self.cpp)
+        self.assertIn("RevealMapAround(HeroMesh->GetRelativeLocation());", self.cpp)
+        self.assertIn("Progress->ExploredMapCells = ExploredMapCells;", self.cpp)
+
     def test_defeat_preserves_exploration_without_overwriting_checkpoint(self):
         saved = self.cpp.split("void AMoonfallPawn::SaveExplorationOnly()", 1)[1].split(
             "void AMoonfallPawn::SaveMapPreferences()", 1)[0]
@@ -396,7 +410,7 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("void AMoonfallPawn::RevealMapAround(const FVector& WorldPosition)", self.cpp)
         self.assertIn("ExploredMapCells.Init(0, FogWidth * FogHeight);", self.cpp)
         self.assertIn("RevealMapAround(HeroMesh->GetRelativeLocation());", self.cpp)
-        self.assertIn("RevealMapAround(Position);", self.cpp)
+        self.assertIn("RevealMapAlongPath(PreviousPosition, Position);", self.cpp)
         self.assertIn("Progress->ExploredMapCells = ExploredMapCells;", self.cpp)
         self.assertIn("ExploredMapCells = Progress->ExploredMapCells;", self.cpp)
         self.assertIn("Hero->IsMapExplored(WorldSample)", minimap)
