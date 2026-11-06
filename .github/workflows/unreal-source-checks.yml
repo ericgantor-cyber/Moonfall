@@ -73,6 +73,12 @@ jobs:
           assert 'Delta.SizeSquared() > FMath::Square(MapRange)' in hud
           assert 'MapEnemy->bBoss ? FLinearColor' in hud
           assert 'MapCenter.X-3.f' in hud and 'MapCenter.Y-3.f' in hud
+          hud_header = (root/'MoonfallUnreal'/'MoonfallCombatHUD.h').read_text()
+          assert 'TArray<FIntPoint> ExploredMapCells' in hud_header
+          assert 'ExploredMapCells.Num() >= 384' in hud
+          assert 'ExploredMapCells.Contains(CurrentCell)' in hud
+          assert 'const float CellSize = 200.f' in hud
+          assert 'CellOffset.SizeSquared() > FMath::Square(MapRange - CellSize)' in hud
           print('Input mapping and combat source checks passed. Unreal compilation NOT performed.')
           PY
 
