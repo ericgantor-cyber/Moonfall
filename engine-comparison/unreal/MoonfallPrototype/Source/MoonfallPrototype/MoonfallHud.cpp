@@ -621,7 +621,10 @@ void AMoonfallHud::DrawHUD()
                     MapOrigin.Y + 25.f, nullptr, .8f);
             }
         }
-        if (bTrackBoss && !Hero->IsBossDefeated())
+        // The world map obeys the same fog gate as the circular minimap.
+        // Tracking a boss must never reveal its location before discovery.
+        if (bTrackBoss && !Hero->IsBossDefeated() &&
+            Hero->IsMapExplored(FVector2D(B.X, B.Y)))
         {
             const FVector2D BossPoint = ToMap(B.X, B.Y);
             DrawMapIcon(BossPoint, .9f, 1);
