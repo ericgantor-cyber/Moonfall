@@ -371,6 +371,24 @@ class PrototypeContracts(unittest.TestCase):
         self.assertNotIn('ActionName="MinimapZoom",Key=M',
                          INPUT.read_text(encoding="utf-8"))
 
+    def test_exploration_percent_counts_only_revealed_walkable_terrain(self):
+        hud = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8")
+        map_code = hud.split("// Row-run batching:", 1)[1]
+        self.assertIn("int32 TotalWalkableCells = 0;", map_code)
+        self.assertIn("int32 RevealedByRegion[MoonfallWorldRules::RegionCount] = {};", map_code)
+        self.assertIn("int32 TotalByRegion[MoonfallWorldRules::RegionCount] = {};", map_code)
+        self.assertIn("const int32 TerrainRegion = TerrainRegionAt(WorldCell);", map_code)
+        self.assertIn("if (TerrainRegion != INDEX_NONE)", map_code)
+        self.assertIn("++TotalWalkableCells;", map_code)
+        self.assertIn("++TotalByRegion[TerrainRegion];", map_code)
+        self.assertIn("if (Hero->IsMapExplored(WorldCell))", map_code)
+        self.assertIn("++RevealedByRegion[TerrainRegion];", map_code)
+        self.assertIn("TotalWalkableCells > 0", map_code)
+        self.assertIn("TotalByRegion[ActiveRegionIndex] > 0", map_code)
+        self.assertIn('TEXT("WORLD %d%%   REGION %d%%")', map_code)
+        self.assertIn("MapWidth >= 520.f", map_code)
+        self.assertNotIn("Hero->GetEnemyMapPositions()", map_code)
+
     def test_full_map_discovery_counts_only_revealed_caves(self):
         hud = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8")
         minimap = hud.split("// Compact WoW-style circular minimap", 1)[1]
