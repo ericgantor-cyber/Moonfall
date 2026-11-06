@@ -175,7 +175,7 @@ class PrototypeContracts(unittest.TestCase):
         damage = self.cpp.split("void AMoonfallPawn::DamageWorldEnemy(", 1)[1].split(
             "TArray<FVector> AMoonfallPawn::GetChamberMapPositions()", 1)[0]
         self.assertIn("if ((bRiposte && Enemy.bGuardian) || (bComboFinisher && !Enemy.bGuardian))", damage)
-        self.assertIn("Enemy.StaggerTimer = Enemy.bGuardian ? 0.8f : 0.4f;", damage)
+        self.assertIn("Enemy.StaggerTimer = FMath::Max(Enemy.StaggerTimer, Enemy.bGuardian ? 0.8f : 0.4f);", damage)
         self.assertIn("if (Enemy.Mesh && HeroMesh)", damage)
         self.assertIn("Away.Z = 0.f;", damage)
         self.assertIn("if (!Away.IsNearlyZero())", damage)
@@ -188,7 +188,7 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("float StaggerTimer = 0.f;", self.header)
         self.assertIn("void AMoonfallPawn::DamageWorldEnemy(int32 Index, float Damage, bool bRiposte, bool bComboFinisher, bool bMagic)", self.cpp)
         self.assertIn("if ((bRiposte && Enemy.bGuardian) || (bComboFinisher && !Enemy.bGuardian))", self.cpp)
-        self.assertIn("Enemy.StaggerTimer = Enemy.bGuardian ? 0.8f : 0.4f;", self.cpp)
+        self.assertIn("Enemy.StaggerTimer = FMath::Max(Enemy.StaggerTimer, Enemy.bGuardian ? 0.8f : 0.4f);", self.cpp)
         self.assertIn("Enemy.StaggerTimer = FMath::Max(0.f, Enemy.StaggerTimer - MoveDt);", self.cpp)
         self.assertIn("if (!Candidate.Mesh || Candidate.bReturningHome ||\n                    Candidate.bStaggeredThisFrame || !Candidate.bAttackReadyThisFrame) continue;", self.cpp)
         self.assertIn("if (!bHitBoss) DamageWorldEnemy(EnemyIndex, Damage, bRiposte, bComboFinisher);", self.cpp)
