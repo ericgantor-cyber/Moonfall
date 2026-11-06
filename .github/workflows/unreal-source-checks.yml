@@ -97,7 +97,7 @@ jobs:
           assert legacy_cell_to_new_cell(0) == 0
           assert legacy_cell_to_new_cell(4) == 0
           assert legacy_cell_to_new_cell(5) == 1
-          assert 'ExploredMapCells.Contains(CurrentCell)' in hud
+          assert 'ExploredMapIndex.Contains(CurrentCell)' in hud
           assert 'const float CellSize = ExplorationCellSizeCm' in hud
           assert 'FMath::Clamp(Hero->MinimapRange, 1200.f, 4800.f)' in hud
           assert 'MapRange/100.f' in hud
