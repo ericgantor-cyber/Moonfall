@@ -285,6 +285,10 @@ void AMoonfallHud::DrawHUD()
     const FVector2D RadarCenter(Canvas->ClipX - 94.f, 94.f);
     const float RadarScale = (RadarRadius - 9.f) / WorldRadius;
     const FLinearColor RadarRim(.64f, .57f, .82f, .92f);
+    // Track only chambers, only boss, both or neither. No enemy tracking.
+    const int32 TrackingMode = Hero->GetMinimapTrackingMode();
+    const bool bTrackChambers = TrackingMode == 0 || TrackingMode == 1;
+    const bool bTrackBoss = TrackingMode == 0 || TrackingMode == 2;
     for (int32 Segment = 0; Segment < RadarSegments; ++Segment)
     {
         const float A = Segment * 2.f * PI / RadarSegments;
@@ -298,6 +302,14 @@ void AMoonfallHud::DrawHUD()
     const FVector2D North(0.f, -1.f);
     Canvas->K2_DrawLine(RadarCenter + North * (RadarRadius - 11.f),
         RadarCenter + North * (RadarRadius + 5.f), 3.f, FLinearColor(.95f, .84f, .44f));
+    // Visible compass letter, fixed north-up to match world XY coordinates.
+    DrawText(TEXT("N"), FLinearColor(.95f, .84f, .44f),
+        RadarCenter.X - 5.f, RadarCenter.Y - RadarRadius - 25.f, nullptr, .9f);
+    // Tiny filter readout beside the existing map, not a new HUD panel.
+    const TCHAR* TrackingLabels[] = { TEXT("ALL"), TEXT("CHAMBERS"), TEXT("BOSS"), TEXT("OFF") };
+    DrawText(FString::Printf(TEXT("T: %s"), TrackingLabels[FMath::Clamp(TrackingMode, 0, 3)]),
+        FLinearColor(.8f, .85f, .95f), RadarCenter.X - 50.f,
+        RadarCenter.Y + RadarRadius + 5.f, nullptr, .75f);
     for (int32 Axis = 0; Axis < 4; ++Axis)
     {
         const float A = Axis * HALF_PI;
@@ -309,6 +321,7 @@ void AMoonfallHud::DrawHUD()
     const FVector H = Hero->GetHeroMapPosition();
     const FVector B = Hero->GetBossMapPosition();
     // All markers must remain inside the circular frame, not its bounding box.
+    if (bTrackChambers)
     for (const FVector& Chamber : Hero->GetChamberMapPositions())
     {
         const FVector Offset = Chamber - H;
@@ -324,7 +337,7 @@ void AMoonfallHud::DrawHUD()
         Canvas->K2_DrawLine(P + FVector2D(-6.f, 0.f), P + FVector2D(0.f, -6.f),
             2.f, FLinearColor(.30f, .95f, .48f));
     }
-    if (!Hero->IsBossDefeated())
+    if (bTrackBoss && !Hero->IsBossDefeated())
     {
         const FVector BossOffset = B - H;
         const FVector2D Local(BossOffset.X * RadarScale, -BossOffset.Y * RadarScale);
