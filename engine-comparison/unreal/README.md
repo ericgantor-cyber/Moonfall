@@ -38,6 +38,10 @@ Ordinary enemies no longer deal untelegraphed proximity damage. An engaged enemy
 
 Melee, arcane bolt and boss hits now emit temporary damage numbers anchored to the target's position. Heavy finisher/riposte hits are larger and gold; magic hits are blue; ordinary strikes are white. Numbers drift upward and fade over 1.25 seconds, with a strict cap of 24 active entries to avoid allocations growing during long battles. The existing orb HUD, minimap and original Z/Nyra art are untouched. Rendering and timing are covered by source tests, but **visual clarity, frame pacing and actual packaged gameplay still require Unreal Editor testing**.
 
+## Click-to-resume after defeat (source implemented, gameplay unverified)
+
+When health reaches zero, the existing left-click attack input reloads the current Unreal level. The existing isolated save slot restores the most recent **living** checkpoint, including location, health, mana, stamina, XP and previously saved exploration progress. A guard prevents repeated reload requests. No new keyboard shortcut, on-screen attack button, game mode, passive kill healing, or changes to Godot are introduced. This needs actual Unreal Editor testing to confirm a map reload and checkpoint restoration.
+
 ## Manual acceptance checklist
 
 - Compile editor and game C++ targets on Windows with UE 5.6 and record exact errors, warnings, and versions.
