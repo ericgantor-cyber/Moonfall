@@ -63,6 +63,9 @@ jobs:
           assert 'BindAction(TEXT("ZoomIn")' in hero and 'BindAction(TEXT("ZoomOut")' in hero
           assert 'CameraDistance - 50.f' in hero and 'CameraDistance + 50.f' in hero
           assert 'FMath::Clamp(CameraDistance + (bReduceMotion ? 0.f : ImpactCameraOffset), 250.f, 850.f)' in hero
+          assert 'FMath::FInterpTo(CameraBoom->TargetArmLength, TargetDistance' in hero
+          assert 'ActionName="ZoomIn",Key=Gamepad_DPad_Up' in inputs
+          assert 'ActionName="ZoomOut",Key=Gamepad_DPad_Down' in inputs
           assert 'DrawArc(Radius * 0.85f' in hud and 'DrawArc(Radius * 0.97f' in hud
           assert 'DisplayHealth = FMath::FInterpTo' in hud and 'LevelGlowUntil' in hud
           print('Input mapping and combat source checks passed. Unreal compilation NOT performed.')
