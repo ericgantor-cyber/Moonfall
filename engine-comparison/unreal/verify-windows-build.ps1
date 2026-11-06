@@ -161,6 +161,14 @@ if ($Package) {
     if ($PackagedExecutables.Count -eq 0) {
         throw "BuildCookRun returned success but no valid packaged MoonfallPrototype.exe was found in $RunArchiveDirectory"
     }
+    # A valid launcher alone is not a game. Confirm that the freshly archived
+    # build also contains nonempty cooked content (.pak or IoStore .ucas).
+    $PackagedContent = @(Get-ChildItem -LiteralPath $RunArchiveDirectory -File -Recurse |
+        Where-Object { $_.Extension -in @(".pak", ".ucas") -and $_.Length -gt 0 })
+    if ($PackagedContent.Count -eq 0) {
+        throw "BuildCookRun returned success but the Win64 archive has no nonempty cooked content (.pak or .ucas): $RunArchiveDirectory"
+    }
     Write-Host "Verified isolated Win64 package executable: $($PackagedExecutables[0].FullName)"
+    Write-Host "Verified cooked content files: $($PackagedContent.Count)"
     Write-Host "BuildCookRun completed. Manually launch and test the staged game on Windows 10 and 11."
 }
