@@ -78,6 +78,10 @@ A broken guard now really imposes its short recovery: the hero cannot immediatel
 
 Combining the general combat ideas discussed from *Phantom Blade Zero* (the supplied Medal clip itself was not playable here), ordinary enemies and chamber guardians now accumulate temporary posture pressure from landed strikes. Successful ripostes build pressure fastest, followed by combo finishers, ordinary melee, then magic. A full posture bar interrupts the current warning and creates a brief stagger (1.0 seconds ordinary enemies, 1.2 seconds guardians), with no health restoration or additional wave modes. Pressure begins decaying after 2.4 seconds without a hit, and the small meter only appears above nearby enemies who have accumulated pressure. A perfect parry speeds the next attack recovery to at most 0.12 seconds while maintaining the combo opportunity. Windup indicators are now blue/silver for attacks that can be parried, and consistently crimson with a crossed marker for dodge-only boss radial attacks. These are original Moonfall mechanics, not copied assets or footage. Actual Unreal 5.6 compilation and visual/gameplay verification remain pending.
 
+## Boss posture and punish window (source implemented, Unreal runtime unverified)
+
+The main boss now accumulates temporary posture pressure from melee, combo finishers, ripostes and magic. It takes a greater threshold than regular enemies (180 posture), loses pressure after three seconds of inactivity, and briefly staggers for 1.6 seconds when the threshold is filled. A posture break cancels the current boss telegraph, creates a safe opportunity to attack, and then combat resumes on its normal cadence. A compact purple bar appears above the boss only during posture pressure, flashing white while staggered; no extra permanent HUD widgets, new game modes or replacement art. Boss posture never restores health or persists in the save slot. Unreal Engine 5.6 compilation, actual combat, projection and balance remain unverified.
+
 ## Manual acceptance checklist
 
 - Compile editor and game C++ targets on Windows with UE 5.6 and record exact errors, warnings, and versions.
