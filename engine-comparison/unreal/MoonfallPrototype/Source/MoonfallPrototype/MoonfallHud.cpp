@@ -734,6 +734,48 @@ void AMoonfallHud::DrawHUD()
             RegionDiscoveredCaves, MoonfallWorldRules::ChambersPerRegion, RegionClearedCaves),
             FLinearColor(.78f, .89f, .78f), MapOrigin.X + 10.f,
             MapOrigin.Y + MapHeight - 75.f, nullptr, .70f);
+        // Original RPG quest journal, inspired by objective tracking rather than
+        // reproducing any other game's UI. Uses persistent boss, enemy and cave flags.
+        // No quest grants rewards here: existing combat and cave rewards remain authoritative.
+        if (MapWidth >= 620.f && MapHeight >= 230.f)
+        {
+            const float JournalX = MapOrigin.X + 12.f;
+            const float JournalY = MapOrigin.Y + 51.f;
+            DrawRect(FLinearColor(.035f, .045f, .075f, .92f),
+                JournalX, JournalY, 228.f, 124.f);
+            Canvas->K2_DrawBox(FVector2D(JournalX, JournalY),
+                FVector2D(228.f, 124.f), 1.f, FLinearColor(.52f, .49f, .67f));
+            DrawText(TEXT("QUEST JOURNAL  |  J: TRACK"),
+                FLinearColor(.95f, .83f, .55f),
+                JournalX + 9.f, JournalY + 6.f, nullptr, .72f);
+            const TCHAR* JournalNames[] = {
+                TEXT("MAIN: THE FALLEN GOD"),
+                TEXT("REGION: CLEAR PATROLS"),
+                TEXT("REGION: CLEAR CAVES") };
+            for (int32 QuestId = 0; QuestId < 3; ++QuestId)
+            {
+                const int32 Goal = Hero->GetQuestGoal(QuestId);
+                const int32 Progress = FMath::Clamp(
+                    Hero->GetQuestProgress(QuestId, ActiveRegionIndex), 0, Goal);
+                const bool bComplete = Goal > 0 && Progress >= Goal;
+                const bool bTracked = Hero->GetTrackedQuestId() == QuestId;
+                const float LineY = JournalY + 31.f + QuestId * 29.f;
+                if (bTracked)
+                    DrawRect(FLinearColor(.23f, .21f, .36f, .85f),
+                        JournalX + 5.f, LineY - 3.f, 218.f, 26.f);
+                DrawText(FString::Printf(TEXT("%s %s"),
+                    bTracked ? TEXT(">") : TEXT(" "), JournalNames[QuestId]),
+                    bComplete ? FLinearColor(.59f, .92f, .68f)
+                    : (bTracked ? FLinearColor(.98f, .86f, .53f)
+                                : FLinearColor(.83f, .83f, .91f)),
+                    JournalX + 9.f, LineY, nullptr, .66f);
+                DrawText(FString::Printf(TEXT("%d/%d  %s"), Progress, Goal,
+                    bComplete ? TEXT("DONE") : TEXT("ACTIVE")),
+                    bComplete ? FLinearColor(.59f, .92f, .68f)
+                    : FLinearColor(.76f, .78f, .84f),
+                    JournalX + 121.f, LineY + 13.f, nullptr, .60f);
+            }
+        }
         // Percentages use discovered walkable floors, never the empty fog grid.
         // No hidden cave coordinates or boss locations are exposed by totals.
         const int32 WorldPercent = TotalWalkableCells > 0
@@ -753,8 +795,10 @@ void AMoonfallHud::DrawHUD()
             const float WorldBarY = MapOrigin.Y + 49.f;
             const float RegionBarY = MapOrigin.Y + 77.f;
             const float QuestBarY = MapOrigin.Y + 105.f;
-            const int32 QuestGoal = MoonfallWorldRules::ChambersPerRegion;
-            const int32 QuestCompleted = FMath::Clamp(RegionClearedCaves, 0, QuestGoal);
+            const int32 TrackedQuest = FMath::Clamp(Hero->GetTrackedQuestId(), 0, 2);
+            const int32 QuestGoal = Hero->GetQuestGoal(TrackedQuest);
+            const int32 QuestCompleted = FMath::Clamp(
+                Hero->GetQuestProgress(TrackedQuest, ActiveRegionIndex), 0, QuestGoal);
             const float QuestProgress = QuestGoal > 0
                 ? static_cast<float>(QuestCompleted) / QuestGoal : 0.f;
             const bool bWorldComplete = TotalWalkableCells > 0 &&
@@ -776,8 +820,11 @@ void AMoonfallHud::DrawHUD()
                 bRegionComplete ? FLinearColor(.62f, .97f, .72f) :
                 FLinearColor(.98f, .84f, .54f),
                 BarX, MapOrigin.Y + 60.f, nullptr, .75f);
-            DrawText(FString::Printf(TEXT("QUEST: CLEAR CAVES %d/%d  %s"),
-                QuestCompleted, QuestGoal, bQuestComplete ? TEXT("DONE") : TEXT("ACTIVE")),
+            const TCHAR* QuestShortNames[] = {
+                TEXT("THE FALLEN GOD"), TEXT("CLEAR PATROLS"), TEXT("CLEAR CAVES") };
+            DrawText(FString::Printf(TEXT("QUEST: %s %d/%d  %s"),
+                QuestShortNames[TrackedQuest], QuestCompleted, QuestGoal,
+                bQuestComplete ? TEXT("DONE") : TEXT("ACTIVE")),
                 bQuestComplete ? FLinearColor(.62f, .97f, .72f) :
                 FLinearColor(.90f, .86f, .98f),
                 BarX, MapOrigin.Y + 88.f, nullptr, .75f);
