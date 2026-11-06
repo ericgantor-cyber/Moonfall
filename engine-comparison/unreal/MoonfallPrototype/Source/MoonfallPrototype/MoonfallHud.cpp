@@ -277,30 +277,85 @@ void AMoonfallHud::DrawHUD()
         }
     }
 
-    // Prototype arena radar, not the production six-region Raven Atlas.
-    const float Left = Canvas->ClipX - 178.f;
-    Canvas->K2_DrawBox(FVector2D(Left, 18.f), FVector2D(160.f, 160.f), 2.f,
-        FLinearColor(.2f, .3f, .4f, .8f));
+    // Compact WoW-style circular minimap, using Moonfall's own shapes and colors.
+    // No textures, extra HUD panels or spawned objects. North stays at the top.
+    constexpr float RadarRadius = 72.f;
+    constexpr float WorldRadius = 1700.f;
+    constexpr int32 RadarSegments = 48;
+    const FVector2D RadarCenter(Canvas->ClipX - 94.f, 94.f);
+    const float RadarScale = (RadarRadius - 9.f) / WorldRadius;
+    const FLinearColor RadarRim(.64f, .57f, .82f, .92f);
+    for (int32 Segment = 0; Segment < RadarSegments; ++Segment)
+    {
+        const float A = Segment * 2.f * PI / RadarSegments;
+        const float B = (Segment + 1) * 2.f * PI / RadarSegments;
+        Canvas->K2_DrawLine(
+            RadarCenter + FVector2D(FMath::Cos(A), FMath::Sin(A)) * RadarRadius,
+            RadarCenter + FVector2D(FMath::Cos(B), FMath::Sin(B)) * RadarRadius,
+            2.f, RadarRim);
+    }
+    // A fixed north tick and four faint range spokes aid orientation.
+    const FVector2D North(0.f, -1.f);
+    Canvas->K2_DrawLine(RadarCenter + North * (RadarRadius - 11.f),
+        RadarCenter + North * (RadarRadius + 5.f), 3.f, FLinearColor(.95f, .84f, .44f));
+    for (int32 Axis = 0; Axis < 4; ++Axis)
+    {
+        const float A = Axis * HALF_PI;
+        const FVector2D Direction(FMath::Cos(A), FMath::Sin(A));
+        Canvas->K2_DrawLine(RadarCenter + Direction * 10.f,
+            RadarCenter + Direction * (RadarRadius - 9.f), 1.f,
+            FLinearColor(.31f, .31f, .47f, .42f));
+    }
     const FVector H = Hero->GetHeroMapPosition();
     const FVector B = Hero->GetBossMapPosition();
-    // Local radar follows the hero across six continuous world regions.
+    // All markers must remain inside the circular frame, not its bounding box.
     for (const FVector& Chamber : Hero->GetChamberMapPositions())
     {
         const FVector Offset = Chamber - H;
-        if (FMath::Abs(Offset.X) <= 1700.f && FMath::Abs(Offset.Y) <= 1700.f)
-            DrawMarker(Left + 80.f + Offset.X * .04f, 98.f - Offset.Y * .04f,
-                FLinearColor(.20f, .85f, .35f));
+        const FVector2D Local(Offset.X * RadarScale, -Offset.Y * RadarScale);
+        if (Local.SizeSquared() > FMath::Square(RadarRadius - 10.f)) continue;
+        const FVector2D P = RadarCenter + Local;
+        Canvas->K2_DrawLine(P + FVector2D(0.f, -6.f), P + FVector2D(6.f, 0.f),
+            2.f, FLinearColor(.30f, .95f, .48f));
+        Canvas->K2_DrawLine(P + FVector2D(6.f, 0.f), P + FVector2D(0.f, 6.f),
+            2.f, FLinearColor(.30f, .95f, .48f));
+        Canvas->K2_DrawLine(P + FVector2D(0.f, 6.f), P + FVector2D(-6.f, 0.f),
+            2.f, FLinearColor(.30f, .95f, .48f));
+        Canvas->K2_DrawLine(P + FVector2D(-6.f, 0.f), P + FVector2D(0.f, -6.f),
+            2.f, FLinearColor(.30f, .95f, .48f));
     }
     for (const FVector& Enemy : Hero->GetEnemyMapPositions())
     {
         const FVector Offset = Enemy - H;
-        if (FMath::Abs(Offset.X) <= 1700.f && FMath::Abs(Offset.Y) <= 1700.f)
-            DrawMarker(Left + 80.f + Offset.X * .04f, 98.f - Offset.Y * .04f, FLinearColor::Yellow);
+        const FVector2D Local(Offset.X * RadarScale, -Offset.Y * RadarScale);
+        if (Local.SizeSquared() > FMath::Square(RadarRadius - 9.f)) continue;
+        const FVector2D P = RadarCenter + Local;
+        Canvas->K2_DrawBox(P - FVector2D(2.5f, 2.5f), FVector2D(5.f, 5.f),
+            1.5f, FLinearColor(.96f, .72f, .22f));
     }
-    const FVector BossOffset = B - H;
-    if (!Hero->IsBossDefeated() &&
-        FMath::Abs(BossOffset.X) <= 1700.f && FMath::Abs(BossOffset.Y) <= 1700.f)
-        DrawMarker(Left + 80.f + BossOffset.X * .04f,
-            98.f - BossOffset.Y * .04f, FLinearColor::Red);
-    DrawMarker(Left + 80.f, 98.f, FLinearColor(.2f, .9f, 1.f));
+    if (!Hero->IsBossDefeated())
+    {
+        const FVector BossOffset = B - H;
+        const FVector2D Local(BossOffset.X * RadarScale, -BossOffset.Y * RadarScale);
+        if (Local.SizeSquared() <= FMath::Square(RadarRadius - 10.f))
+        {
+            const FVector2D P = RadarCenter + Local;
+            Canvas->K2_DrawLine(P + FVector2D(0.f, -7.f), P + FVector2D(7.f, 0.f),
+                3.f, FLinearColor(1.f, .20f, .28f));
+            Canvas->K2_DrawLine(P + FVector2D(7.f, 0.f), P + FVector2D(0.f, 7.f),
+                3.f, FLinearColor(1.f, .20f, .28f));
+            Canvas->K2_DrawLine(P + FVector2D(0.f, 7.f), P + FVector2D(-7.f, 0.f),
+                3.f, FLinearColor(1.f, .20f, .28f));
+            Canvas->K2_DrawLine(P + FVector2D(-7.f, 0.f), P + FVector2D(0.f, -7.f),
+                3.f, FLinearColor(1.f, .20f, .28f));
+        }
+    }
+    // The player is always centered and visually distinct from enemy dots.
+    const FLinearColor PlayerColor(.27f, .91f, 1.f);
+    Canvas->K2_DrawLine(RadarCenter + FVector2D(0.f, -9.f),
+        RadarCenter + FVector2D(-6.f, 6.f), 3.f, PlayerColor);
+    Canvas->K2_DrawLine(RadarCenter + FVector2D(-6.f, 6.f),
+        RadarCenter + FVector2D(6.f, 6.f), 3.f, PlayerColor);
+    Canvas->K2_DrawLine(RadarCenter + FVector2D(6.f, 6.f),
+        RadarCenter + FVector2D(0.f, -9.f), 3.f, PlayerColor);
 }
