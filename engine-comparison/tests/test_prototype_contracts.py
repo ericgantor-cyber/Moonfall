@@ -246,6 +246,14 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("Contact.StaggerTimer, Contact.bGuardian ? 0.9f : 0.6f);", tick)
         self.assertNotIn("Contact.StaggerTimer = Contact.bGuardian ? 0.9f : 0.6f;", tick)
 
+    def test_world_posture_hud_is_bounded_to_nearby_enemies(self):
+        posture = self.cpp.split("AMoonfallPawn::GetEnemyPostures() const", 1)[1].split(
+            "void AMoonfallPawn::ApplyPostureDamage(", 1)[0]
+        self.assertIn("constexpr int32 MaxPostureIndicators = 32;", posture)
+        self.assertIn("Visible.Reserve(FMath::Min(Enemies.Num(), MaxPostureIndicators));", posture)
+        self.assertIn("FMath::Square(1200.f)", posture)
+        self.assertIn("if (Visible.Num() >= MaxPostureIndicators) break;", posture)
+
     def test_attack_warning_hud_is_bounded_and_keeps_boss_slot(self):
         warnings = self.cpp.split("AMoonfallPawn::GetAttackWarnings() const", 1)[1].split(
             "AMoonfallPawn::GetEnemyPostures() const", 1)[0]
@@ -1180,7 +1188,7 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("TArray<FEnemyPosture> GetEnemyPostures() const;", self.header)
         self.assertIn("AMoonfallPawn::GetEnemyPostures() const", self.cpp)
         self.assertIn("if (!Enemy.Mesh || Enemy.Posture <= 0.f", self.cpp)
-        self.assertIn("Visible.Reserve(Enemies.Num());", self.cpp)
+        self.assertIn("Visible.Reserve(FMath::Min(Enemies.Num(), MaxPostureIndicators));", self.cpp)
         self.assertIn("void AMoonfallPawn::ApplyPostureDamage(FWorldEnemy& Enemy, float Amount)", self.cpp)
         self.assertIn("Enemy.PostureIdleTimer = 2.4f;", self.cpp)
         self.assertIn("Enemy.Posture < PostureThreshold(Enemy)", self.cpp)
