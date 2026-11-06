@@ -415,6 +415,41 @@ int32 AMoonfallPawn::NearestEnemyIndex(float Radius) const
     return Best;
 }
 
+TArray<AMoonfallPawn::FAttackWarning> AMoonfallPawn::GetAttackWarnings() const
+{
+    TArray<FAttackWarning> Warnings;
+    if (!HeroMesh || Health <= 0.f) return Warnings;
+    Warnings.Reserve(Enemies.Num() + 1);
+    const FVector HeroPosition = HeroMesh->GetRelativeLocation();
+    for (const FWorldEnemy& Enemy : Enemies)
+    {
+        if (!Enemy.Mesh || Enemy.AttackWindup <= 0.f ||
+            Enemy.bReturningHome || Enemy.StaggerTimer > 0.f) continue;
+        FAttackWarning Warning;
+        Warning.LocalPosition = Enemy.Mesh->GetRelativeLocation();
+        Warning.DirectionToHero =
+            (HeroPosition - Warning.LocalPosition).GetSafeNormal2D();
+        const float WindupDuration = Enemy.bGuardian ? 0.85f : 0.6f;
+        Warning.Urgency = FMath::Clamp(
+            1.f - Enemy.AttackWindup / WindupDuration, 0.f, 1.f);
+        Warning.bGuardian = Enemy.bGuardian;
+        Warnings.Add(Warning);
+    }
+    if (bCasting && !bWon && BossMesh)
+    {
+        FAttackWarning Warning;
+        Warning.LocalPosition = BossMesh->GetRelativeLocation();
+        Warning.DirectionToHero =
+            (TargetWorld - Warning.LocalPosition).GetSafeNormal2D();
+        const float BossWindup = BossAttackPhase == 3 ? 0.95f :
+            (BossAttackPhase == 2 ? 1.05f : 1.15f);
+        Warning.Urgency = FMath::Clamp(1.f - CastTimer / BossWindup, 0.f, 1.f);
+        Warning.bBoss = true;
+        Warnings.Add(Warning);
+    }
+    return Warnings;
+}
+
 TArray<FVector> AMoonfallPawn::GetEnemyMapPositions() const
 {
     TArray<FVector> Result;
