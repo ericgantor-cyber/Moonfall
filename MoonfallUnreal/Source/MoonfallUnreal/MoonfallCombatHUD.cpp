@@ -171,6 +171,16 @@ void AMoonfallCombatHUD::DrawHUD()
      Canvas->K2_DrawLine(QuestScreen - QuestDelta.GetSafeNormal()*8.f,QuestScreen,2.f,FLinearColor(1.f,0.78f,0.21f));
    }
   }
+  if (Hero->bPersonalWaypointActive) {
+   const FVector Delta = Hero->PersonalWaypoint - HeroPosition;
+   const FVector2D Raw(Delta.X,-Delta.Y);
+   const float Distance = Raw.Size();
+   if (FMath::IsFinite(Distance)) {
+    const FVector2D Marker = MapCenter + Raw.GetSafeNormal() *
+     (FMath::Min(Distance,MapRange) * MapRadius * 0.86f / MapRange);
+    DrawRect(FLinearColor(0.3f,1.f,0.5f),Marker.X-3.f,Marker.Y-3.f,6.f,6.f);
+   }
+  }
   DrawRect(FLinearColor(0.27f,0.88f,1.f),MapCenter.X-3.f,MapCenter.Y-3.f,6.f,6.f);
   DrawText(TEXT("N"),FLinearColor(0.75f,0.88f,1.f),MapCenter.X-4.f,MapCenter.Y-MapRadius-17.f,nullptr,0.82f);
   DrawText(FString::Printf(TEXT("+ / -  %.0f m"),MapRange/100.f),FLinearColor(0.75f,0.88f,1.f),MapCenter.X-MapRadius,MapCenter.Y+MapRadius+5.f,nullptr,0.72f);
@@ -293,7 +303,7 @@ void AMoonfallCombatHUD::DrawExplorationAtlas(const AMoonfallHeroPawn* Hero)
  const float Scale = FMath::Min((Width - 40.f),(Height - 75.f)) * 0.5f / HalfWorldRange;
  DrawRect(FLinearColor(0.025f,0.03f,0.07f,0.96f),TopLeft.X,TopLeft.Y,Width,Height);
  DrawText(TEXT("MOONFALL  |  EXPLORED WORLD"),FLinearColor(0.85f,0.87f,1.f),TopLeft.X+20.f,TopLeft.Y+12.f,nullptr,1.f);
- DrawText(TEXT("M: CLOSE  |  WASD/DPAD: PAN  |  +/-: ZOOM  |  R/Y: CENTER"),FLinearColor(0.67f,0.73f,0.85f),
+ DrawText(TEXT("M: CLOSE | WASD: PAN | +/-: ZOOM | R: CENTER | T/LB: PIN | BKSP/RB: CLEAR"),FLinearColor(0.67f,0.73f,0.85f),
           TopLeft.X+20.f,TopLeft.Y+35.f,nullptr,0.8f);
  // Only cells the player has actually visited are charted, never speculative terrain.
  for (const FIntPoint& Cell : ExploredMapCells) {
@@ -313,6 +323,16 @@ void AMoonfallCombatHUD::DrawExplorationAtlas(const AMoonfallHeroPawn* Hero)
   const FVector2D Target(FMath::Clamp(RawTarget.X,TopLeft.X+16.f,TopLeft.X+Width-16.f),
                          FMath::Clamp(RawTarget.Y,TopLeft.Y+70.f,TopLeft.Y+Height-16.f));
   DrawRect(FLinearColor(1.f,0.78f,0.22f),Target.X-5.f,Target.Y-5.f,10.f,10.f);
+ }
+ if (Hero->bPersonalWaypointActive) {
+  const FVector WaypointOffset = Hero->PersonalWaypoint - Player;
+  const FVector2D Raw(WaypointOffset.X-Pan.X,-WaypointOffset.Y+Pan.Y);
+  const FVector2D Bound(FMath::Clamp(Raw.X,-HalfWorldRange,HalfWorldRange),
+                        FMath::Clamp(Raw.Y,-HalfWorldRange,HalfWorldRange));
+  const FVector2D MarkerRaw = Centre + Bound*Scale;
+  const FVector2D Marker(FMath::Clamp(MarkerRaw.X,TopLeft.X+16.f,TopLeft.X+Width-16.f),
+                         FMath::Clamp(MarkerRaw.Y,TopLeft.Y+70.f,TopLeft.Y+Height-16.f));
+  DrawRect(FLinearColor(0.3f,1.f,0.5f),Marker.X-4.f,Marker.Y-4.f,8.f,8.f);
  }
  const FVector2D RawPlayer = Centre + FVector2D(-Pan.X, Pan.Y) * Scale;
  if (RawPlayer.X>=TopLeft.X+12.f && RawPlayer.X<=TopLeft.X+Width-12.f &&
