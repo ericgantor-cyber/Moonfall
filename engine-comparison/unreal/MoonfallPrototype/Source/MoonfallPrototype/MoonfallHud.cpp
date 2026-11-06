@@ -767,6 +767,25 @@ void AMoonfallHud::DrawHUD()
             if (RegionPercent > 0)
                 DrawRect(FLinearColor(.91f, .76f, .41f),
                     BarX, RegionBarY, BarWidth * RegionPercent / 100.f, BarHeight);
+            // Active quest: clear the five existing cave reward objectives in
+            // this region. The persisted claimed mask drives real progress.
+            const int32 QuestGoal = MoonfallWorldRules::ChambersPerRegion;
+            const int32 QuestCompleted = FMath::Clamp(RegionClearedCaves, 0, QuestGoal);
+            const float QuestProgress = QuestGoal > 0
+                ? static_cast<float>(QuestCompleted) / QuestGoal : 0.f;
+            const float QuestLabelY = MapOrigin.Y + 71.f;
+            const float QuestBarY = MapOrigin.Y + 89.f;
+            DrawText(FString::Printf(TEXT("QUEST: CLEAR CAVES %d/%d"),
+                QuestCompleted, QuestGoal),
+                QuestCompleted == QuestGoal
+                    ? FLinearColor(.60f, .95f, .69f)
+                    : FLinearColor(.91f, .85f, .98f),
+                BarX - 37.f, QuestLabelY, nullptr, .75f);
+            DrawRect(FLinearColor(.13f, .15f, .21f, .95f),
+                BarX, QuestBarY, BarWidth, BarHeight);
+            if (QuestProgress > 0.f)
+                DrawRect(FLinearColor(.52f, .86f, .68f),
+                    BarX, QuestBarY, BarWidth * QuestProgress, BarHeight);
         }
         DrawText(TEXT("TAB: CLOSE MAP"), FLinearColor(.9f, .86f, .96f),
             MapOrigin.X + 10.f, MapOrigin.Y + MapHeight - 19.f, nullptr, .75f);
