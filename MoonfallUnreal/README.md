@@ -75,3 +75,7 @@ The script fails early if prerequisites are absent, compiles the editor target, 
 Mouse wheel up/down now moves the third-person boom in 50-unit steps, clamped between 250 and 850 Unreal units. It stays disabled while Options is open. Camera impact offset remains additive and is clamped within the same safe bounds; Reduce Motion still suppresses the impact impulse. The existing mouse-click spell controls, controller inputs and hero artwork are unchanged. Source-regression checks are wired into Unreal CI; **this has not yet been compiled or tested inside Unreal Engine**.
 
 Camera distance transitions now interpolate smoothly instead of jumping instantly between zoom steps. Controller D-pad Up/Down also zooms during gameplay; when Options is open, those same buttons retain menu navigation because zoom handlers ignore input while the menu is open. Actual Unreal engine compilation and playtesting remain pending.
+
+## Unreal local minimap scaffold
+
+The existing combat HUD now draws a small north-up chart in its upper-right area on screens at least 700×460 pixels. It shows the player at the centre and up to 32 nearby living enemy dots within 22 metres, using different colors/sizes for regular enemies, elites, and bosses. The map is **local combat awareness only**, not a discovered-world map, quest atlas, cave map, or fog-of-war implementation. It adds no actors, new modes, assets, or periodic pathfinding. **Unreal compilation and live gameplay testing remain unverified.**
