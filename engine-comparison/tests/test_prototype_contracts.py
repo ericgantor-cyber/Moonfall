@@ -998,6 +998,18 @@ class PrototypeContracts(unittest.TestCase):
         self.assertNotIn("Health += RespawnGraceTimer", self.cpp)
         self.assertNotIn("CounterWindow = RespawnGraceTimer", self.cpp)
 
+    def test_enemy_attack_warning_holds_position_and_cancels_on_escape(self):
+        ai = self.cpp.split("void AMoonfallPawn::UpdateWorldEnemies(float Dt)", 1)[1].split(
+            "int32 AMoonfallPawn::NearestEnemyIndex", 1)[0]
+        self.assertIn("if (!bAggro && Enemy.AttackWindup > 0.f)", ai)
+        self.assertIn("Enemy.AttackRecovery = FMath::Max(Enemy.AttackRecovery, 0.5f);", ai)
+        self.assertIn("if (bAggro && Enemy.AttackWindup <= 0.f)", ai)
+        self.assertIn("else if (!bAggro && FromHome.SizeSquared() > FMath::Square(30.f))", ai)
+        self.assertIn("Enemy.bAttackReadyThisFrame = bAggro &&", ai)
+        self.assertIn("if (Enemy.bStaggeredThisFrame)", ai)
+        self.assertLess(ai.index("if (!bAggro && Enemy.AttackWindup > 0.f)"),
+                        ai.index("if (Enemy.AttackWindup > 0.f)"))
+
     def test_original_art_import_is_checksum_guarded(self):
         import_tool = (ROOT / "tools/import_godot_art.py").read_text()
         verify_tool = (ROOT / "tools/verify_art_import.py").read_text()
