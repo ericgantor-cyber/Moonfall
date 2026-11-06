@@ -63,9 +63,12 @@ void AMoonfallBirdFlock::UpdateFlock(float TimeSeconds)
   const bool bDirty = (i == BirdCount-1);
   Bodies->SetInstanceTransform(i,FTransform(FRotator(0.f,Heading,0.f),Location,FVector(0.44f,0.17f,0.095f)),
                                false,bDirty,true);
-  LeftWings->SetInstanceTransform(i,FTransform(FRotator(Flap,Heading+14.f,0.f),
-                                Location+FVector(0.f,0.f,6.f),FVector(0.28f,0.52f,0.035f)),false,bDirty,true);
-  RightWings->SetInstanceTransform(i,FTransform(FRotator(-Flap,Heading-14.f,0.f),
-                                 Location+FVector(0.f,0.f,-6.f),FVector(0.28f,0.52f,0.035f)),false,bDirty,true);
+  const FRotator Facing(0.f,Heading,0.f);
+  // Split wings to opposite sides of the body; roll them against each other to flap.
+  const FVector Side = Facing.RotateVector(FVector(0.f,1.f,0.f));
+  LeftWings->SetInstanceTransform(i,FTransform(Facing + FRotator(0.f,0.f,Flap),
+                                Location-Side*34.f,FVector(0.28f,0.52f,0.035f)),false,bDirty,true);
+  RightWings->SetInstanceTransform(i,FTransform(Facing + FRotator(0.f,0.f,-Flap),
+                                 Location+Side*34.f,FVector(0.28f,0.52f,0.035f)),false,bDirty,true);
  }
 }
