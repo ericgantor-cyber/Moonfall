@@ -26,6 +26,7 @@ public:
  UPROPERTY(BlueprintReadOnly, Category="Moonfall|Options") bool bFrameGenerationAvailable = false;
  UPROPERTY(BlueprintReadOnly, Category="Moonfall|Options") bool bFrameGenerationPluginDetected = false;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Map") float MinimapRange = 2200.f;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Map") bool bWorldMapOpen = false;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Map") bool bQuestTargetActive = false;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Map") FVector QuestTarget = FVector::ZeroVector;
  UFUNCTION(BlueprintCallable, Category="Moonfall|Map") void SetQuestTarget(FVector WorldLocation);
@@ -78,6 +79,7 @@ private:
  void ZoomCameraOut();
  void ZoomMinimapIn();
  void ZoomMinimapOut();
+ void ToggleWorldMap();
  void CastLeft();
  void CastRight();
  void CastBoth();
