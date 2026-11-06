@@ -45,7 +45,6 @@ public:
     float GetBossPostureRatio() const { return FMath::Clamp(BossPosture / BossPostureThreshold, 0.f, 1.f); }
     bool IsBossPostureActive() const { return !bWon && BossPosture > 0.f; }
     bool IsBossStaggered() const { return !bWon && BossStaggerTimer > 0.f; }
-    TArray<FVector> GetEnemyMapPositions() const;
     TArray<FVector> GetChamberMapPositions() const;
     struct FDamageNumber
     {
