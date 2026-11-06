@@ -11,7 +11,7 @@ An optional `unreal-win64-real-build` job is available in `.github/workflows/eng
 3. Set repository Actions variables:
    - `MOONFALL_UE56_ROOT`: absolute install directory, such as `C:\Program Files\Epic Games\UE_5.6`.
    - `MOONFALL_UNREAL_RUNNER_ENABLED`: `true` when the trusted runner is ready, or unset/false to keep the costly job skipped.
-4. After the workflow is merged into the repository's default branch, manually start **Moonfall dual-engine prototype static checks** from GitHub Actions using **Run workflow** on a reviewed branch. The real-engine job is deliberately restricted to `workflow_dispatch`; ordinary pull-request updates never send PR code to your self-hosted runner. Review the selected branch and any changes to the workflow before dispatching it.
+4. After the workflow is merged into the repository's default branch, manually start **Moonfall dual-engine prototype static checks** from GitHub Actions using **Run workflow** with the **main** branch selected. The real-engine job only runs for a manual `workflow_dispatch` on `refs/heads/main`; PRs and other branches cannot claim the self-hosted Unreal runner. Review changes before merging to main, and restrict permission to enable the build variable or dispatch workflows.
 
 The job calls the real `verify-windows-build.ps1` with `-CreateMap -Package`. It requires actual Unreal editor and game compilation, a saved startup map, a newly created package archive, a valid Win64 PE executable and nonempty cooked content. Only if all checks succeed does it upload a 7-day downloadable GitHub Actions artifact named `Moonfall-Unreal56-Win64-Development`.
 
