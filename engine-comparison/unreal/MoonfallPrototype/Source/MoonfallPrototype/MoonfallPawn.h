@@ -135,6 +135,7 @@ private:
     void BeginGuard();
     void EndGuard();
     void CycleMinimapTracking();
+    void SaveMapPreferences(); // Never changes the living combat checkpoint.
     void ToggleWorldMap();
     bool bWorldMapVisible = false; // Temporary full terrain map, closed by default.
     TArray<uint8> ExploredMapCells; // 3,600 saved byte flags; older saves start undiscovered.
