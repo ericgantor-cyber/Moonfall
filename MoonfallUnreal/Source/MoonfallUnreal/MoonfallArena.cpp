@@ -19,6 +19,16 @@ AMoonfallArena::AMoonfallArena() {
  RuinPieces->SetMobility(EComponentMobility::Static);
  static ConstructorHelpers::FObjectFinder<UStaticMesh> RuinCube(TEXT("/Engine/BasicShapes/Cube.Cube"));
  if (RuinCube.Succeeded()) RuinPieces->SetStaticMesh(RuinCube.Object);
+ DeadTrees = CreateDefaultSubobject<UInstancedStaticMeshComponent>(TEXT("DeadTrees"));
+ DeadTrees->SetupAttachment(GetRootComponent());
+ DeadTrees->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+ DeadTrees->SetCastShadow(false);
+ if (RuinCube.Succeeded()) DeadTrees->SetStaticMesh(RuinCube.Object);
+ RitualStones = CreateDefaultSubobject<UInstancedStaticMeshComponent>(TEXT("RitualStones"));
+ RitualStones->SetupAttachment(GetRootComponent());
+ RitualStones->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+ RitualStones->SetCastShadow(false);
+ if (RuinCube.Succeeded()) RitualStones->SetStaticMesh(RuinCube.Object);
 }
 void AMoonfallArena::CreateBlock(FVector Position, FVector Scale, bool bGround) {
  UStaticMeshComponent* Block = NewObject<UStaticMeshComponent>(this);
@@ -37,6 +47,14 @@ void AMoonfallArena::CreateDecoration(FVector Position, FVector Scale) {
  // All non-interactive ruins share one instanced mesh component; no per-prop actors or ticks.
  if (RuinPieces && RuinPieces->GetStaticMesh())
   RuinPieces->AddInstance(FTransform(FRotator::ZeroRotator,Position,Scale));
+}
+void AMoonfallArena::AddFoliage(FVector Position, FVector Scale, FRotator Rotation) {
+ if (DeadTrees && DeadTrees->GetStaticMesh())
+  DeadTrees->AddInstance(FTransform(Rotation,Position,Scale));
+}
+void AMoonfallArena::AddRitualStone(FVector Position, FVector Scale, FRotator Rotation) {
+ if (RitualStones && RitualStones->GetStaticMesh())
+  RitualStones->AddInstance(FTransform(Rotation,Position,Scale));
 }
 void AMoonfallArena::CreateAtmosphereLight(FVector Position, FLinearColor Color, float Intensity) {
  UPointLightComponent* Light = NewObject<UPointLightComponent>(this);
@@ -57,6 +75,10 @@ void AMoonfallArena::BeginPlay() {
  CreateBlock(FVector(0,-1500,200),FVector(30,1,5),false);
  if (RuinMeshArt) RuinPieces->SetStaticMesh(RuinMeshArt);
  if (RuinStoneMaterial) RuinPieces->SetMaterial(0,RuinStoneMaterial);
+ if (DeadTreeMeshArt) DeadTrees->SetStaticMesh(DeadTreeMeshArt);
+ if (DeadTreeMaterial) DeadTrees->SetMaterial(0,DeadTreeMaterial);
+ if (RitualStoneMeshArt) RitualStones->SetStaticMesh(RitualStoneMeshArt);
+ if (RitualStoneMaterial) RitualStones->SetMaterial(0,RitualStoneMaterial);
  // Original deterministic ruined architecture and ground debris, all non-colliding.
  for (int32 i=0; i<6; ++i) {
   const float Angle = i*(2.f*PI/6.f);
@@ -77,6 +99,27 @@ void AMoonfallArena::BeginPlay() {
   const float StoneSize = 0.2f+static_cast<float>(i%4)*0.09f;
   CreateDecoration(FVector(FMath::Cos(Angle)*Radius,FMath::Sin(Angle)*Radius,-10.f),
                    FVector(StoneSize*2.2f,StoneSize*1.5f,StoneSize*0.45f));
+ }
+ // Bounded eerie forest border: one non-colliding instance per trunk plus two crooked branches.
+ // Keep the center clear for combat, quests, and hit warnings.
+ const int32 TreeBudget = FMath::Clamp(DeadTreeCount,0,16);
+ for (int32 i=0;i<TreeBudget;++i) {
+  const float A = i*2.399963f;
+  const float Distance = 1250.f + static_cast<float>(i%3)*55.f;
+  const FVector Base(FMath::Cos(A)*Distance,FMath::Sin(A)*Distance,155.f);
+  const float Height = 2.0f + 0.25f*static_cast<float>(i%4);
+  AddFoliage(Base,FVector(0.20f,0.25f,Height),FRotator(0.f,0.f,6.f*FMath::Sin(A)));
+  if (!DeadTreeMeshArt) {
+   // Default cube fallback gets two sculptural branches, but imported trees stay one mesh.
+   AddFoliage(Base+FVector(25.f,0.f,105.f),FVector(0.12f,0.12f,1.0f),FRotator(0.f,35.f,45.f));
+   AddFoliage(Base+FVector(-35.f,0.f,145.f),FVector(0.12f,0.12f,0.8f),FRotator(0.f,-20.f,-48.f));
+  }
+ }
+ // Seven weathered ritual stones frame the boss combat space without hiding the player.
+ for (int32 i=0;i<7;++i) {
+  const float A = i*2.f*PI/7.f;
+  AddRitualStone(FVector(FMath::Cos(A)*780.f,FMath::Sin(A)*780.f,4.f),
+                 FVector(0.55f,0.17f,0.12f),FRotator(0.f,FMath::RadiansToDegrees(A),0.f));
  }
  CreateAtmosphereLight(FVector(-950.f,350.f,420.f),FLinearColor(0.17f,0.31f,0.85f),2700.f);
  CreateAtmosphereLight(FVector(950.f,-350.f,420.f),FLinearColor(0.88f,0.18f,0.09f),2100.f);
