@@ -3,6 +3,7 @@
 #include "GameFramework/Actor.h"
 class UInstancedStaticMeshComponent;
 class UMaterialInterface;
+class UStaticMesh;
 #include "MoonfallArena.generated.h"
 UCLASS()
 class MOONFALLUNREAL_API AMoonfallArena : public AActor {
