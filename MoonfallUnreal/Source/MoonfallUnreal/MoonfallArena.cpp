@@ -63,8 +63,9 @@ void AMoonfallArena::BeginPlay() {
  for (int32 BirdIndex=0; BirdIndex<2; ++BirdIndex) {
   const FVector BirdPosition = GetActorLocation() + FVector(BirdIndex==0 ? -380.f : 380.f,0.f,520.f);
   const FTransform BirdSpawn(FRotator::ZeroRotator,BirdPosition);
+  UClass* CrowSpawnClass = CrowEnemyClass ? CrowEnemyClass.Get() : AMoonfallEnemy::StaticClass();
   AMoonfallEnemy* Crow = Cast<AMoonfallEnemy>(UGameplayStatics::BeginDeferredActorSpawnFromClass(
-   this,AMoonfallEnemy::StaticClass(),BirdSpawn));
+   this,CrowSpawnClass,BirdSpawn));
   if (!Crow) continue;
   Crow->bCorruptedCrow = true;
   Crow->Health = 52.f;
