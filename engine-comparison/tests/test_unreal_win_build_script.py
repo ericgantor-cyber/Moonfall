@@ -45,6 +45,8 @@ class UnrealWindowsBuildScriptTests(unittest.TestCase):
         self.assertIn("if (-not (Test-Path -LiteralPath $StartupMap -PathType Leaf))", self.script)
         self.assertLess(self.script.index("if (-not (Test-Path -LiteralPath $StartupMap -PathType Leaf))"),
                         self.script.index("    & $RunUAT BuildCookRun "))
+        self.assertEqual(self.script.count("& $RunUAT BuildCookRun"), 1)
+        self.assertEqual(self.script.count("$ConfiguredMap = [regex]::Match"), 1)
         self.assertIn("BuildCookRun", self.script)
         self.assertIn("Manually launch and test", self.script)
 
