@@ -53,6 +53,15 @@ public:
     };
     const TArray<FDamageNumber>& GetDamageNumbers() const { return DamageNumbers; }
     static constexpr float DamageNumberLifetime = 1.25f;
+    struct FAttackWarning
+    {
+        FVector LocalPosition = FVector::ZeroVector;
+        FVector DirectionToHero = FVector::ForwardVector;
+        float Urgency = 0.f;
+        bool bGuardian = false;
+        bool bBoss = false;
+    };
+    TArray<FAttackWarning> GetAttackWarnings() const;
 private:
     UPROPERTY() USceneComponent* Root;
     UPROPERTY() UStaticMeshComponent* HeroMesh;
