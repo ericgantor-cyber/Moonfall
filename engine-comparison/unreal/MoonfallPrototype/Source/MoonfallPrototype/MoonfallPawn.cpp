@@ -590,9 +590,20 @@ void AMoonfallPawn::DamageWorldEnemy(int32 Index, float Damage, bool bRiposte, b
 TArray<FVector> AMoonfallPawn::GetChamberMapPositions() const
 {
     TArray<FVector> Positions;
-    Positions.Reserve(ChamberCaches.Num());
+    if (!HeroMesh) return Positions;
+    // The circular HUD has a 1700 cm local range. Avoid copying chamber
+    // coordinates from distant regions when the world gets larger.
+    constexpr float MinimapWorldRadius = 1700.f;
+    const FVector HeroPosition = HeroMesh->GetRelativeLocation();
+    Positions.Reserve(FMath::Min(ChamberCaches.Num(), 12));
     for (const FChamberCache& Cache : ChamberCaches)
-        if (Cache.Mesh) Positions.Add(Cache.Mesh->GetRelativeLocation());
+    {
+        if (!Cache.Mesh) continue;
+        const FVector Position = Cache.Mesh->GetRelativeLocation();
+        if (FVector::DistSquared2D(Position, HeroPosition) >
+            FMath::Square(MinimapWorldRadius)) continue;
+        Positions.Add(Position);
+    }
     return Positions;
 }
 
