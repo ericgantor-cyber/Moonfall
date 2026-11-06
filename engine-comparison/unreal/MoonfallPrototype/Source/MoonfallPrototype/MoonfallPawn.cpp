@@ -321,6 +321,9 @@ void AMoonfallPawn::UpdateWorldEnemies(float Dt)
         {
             Enemy.StaggerTimer = FMath::Max(0.f, Enemy.StaggerTimer - MoveDt);
             Enemy.AttackWindup = 0.f;
+            // Cancel any lingering warning pulse immediately on stagger.
+            if (Enemy.Portrait) Enemy.Portrait->SetRelativeScale3D(FVector(2.f));
+            else Enemy.Mesh->SetRelativeScale3D(FVector(Enemy.bGuardian ? 1.3f : 1.1f));
             continue;
         }
         // Guardians enter their final phase once below 35% of their starting HP.
@@ -705,7 +708,7 @@ float AMoonfallPawn::ResolveGuardHit(
 
 void AMoonfallPawn::Dodge()
 {
-    if (Health > 0.f && DodgeCooldown <= 0.f && Stamina >= 45.f &&
+    if (Health > 0.f && GuardBreakTimer <= 0.f && DodgeCooldown <= 0.f && Stamina >= 45.f &&
         FVector2D(Forward, Right).SizeSquared() > 0.01f)
     {
         // Dodge takes priority and cancels a held guard, never stacks protection.
@@ -758,7 +761,7 @@ void AMoonfallPawn::Attack()
         }
         return;
     }
-    if (AttackCooldown > 0.f) return;
+    if (AttackCooldown > 0.f || GuardBreakTimer > 0.f) return;
     const int32 EnemyIndex = NearestEnemyIndex(400.f);
     const float BossDistance = bWon ? TNumericLimits<float>::Max() :
         FVector::Dist2D(HeroMesh->GetRelativeLocation(), BossMesh->GetRelativeLocation());
@@ -773,6 +776,8 @@ void AMoonfallPawn::Attack()
     }
     if (EnemyIndex != INDEX_NONE || bBossInRange)
     {
+        // A committed strike lowers the guard; parry-earned ripostes remain valid.
+        EndGuard();
         // Resolve the nearest valid target, not always the first world enemy.
         const float EnemyDistance = EnemyIndex == INDEX_NONE ? TNumericLimits<float>::Max() :
             FVector::Dist2D(HeroMesh->GetRelativeLocation(),
@@ -819,7 +824,7 @@ void AMoonfallPawn::Attack()
 }
 void AMoonfallPawn::CastBolt()
 {
-    if (Health <= 0.f || BoltCooldown > 0.f || Mana < 30.f) return;
+    if (Health <= 0.f || GuardBreakTimer > 0.f || BoltCooldown > 0.f || Mana < 30.f) return;
     const int32 EnemyIndex = NearestEnemyIndex(1000.f);
     const float BossDistance = bWon ? TNumericLimits<float>::Max() :
         FVector::Dist2D(HeroMesh->GetRelativeLocation(), BossMesh->GetRelativeLocation());
@@ -829,6 +834,7 @@ void AMoonfallPawn::CastBolt()
         FVector::Dist2D(HeroMesh->GetRelativeLocation(),
                         Enemies[EnemyIndex].Mesh->GetRelativeLocation());
     const bool bHitBoss = bBossInRange && BossDistance < EnemyDistance;
+    EndGuard(); // Casting commits to offense instead of stacking a held block.
     Mana -= 30.f;
     BoltCooldown = 1.1f;
     // A warned perfect dodge also empowers the next successful bolt, matching
@@ -856,7 +862,8 @@ void AMoonfallPawn::CastBolt()
 void AMoonfallPawn::CastHeal()
 {
     const float MaxHealth = GetHudMaxHealth();
-    if (Health <= 0.f || HealCooldown > 0.f || Mana < 40.f || Health >= MaxHealth) return;
+    if (Health <= 0.f || GuardBreakTimer > 0.f || HealCooldown > 0.f || Mana < 40.f || Health >= MaxHealth) return;
+    EndGuard();
     Mana -= 40.f;
     HealCooldown = 5.f;
     Health = FMath::Min(MaxHealth, Health + HealingSpellAmount());
