@@ -66,6 +66,7 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("MinimapZoomIn"), IE_Pressed, this, &AMoonfallHeroPawn::ZoomMinimapIn);
  Input->BindAction(TEXT("MinimapZoomOut"), IE_Pressed, this, &AMoonfallHeroPawn::ZoomMinimapOut);
  Input->BindAction(TEXT("WorldMap"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleWorldMap);
+ Input->BindAction(TEXT("WorldMapRecenter"), IE_Pressed, this, &AMoonfallHeroPawn::RecenterWorldMap);
  Input->BindAction(TEXT("Jump"), IE_Pressed, this, &ACharacter::Jump);
  Input->BindAction(TEXT("Jump"), IE_Released, this, &ACharacter::StopJumping);
  Input->BindAction(TEXT("CastLeft"), IE_Pressed, this, &AMoonfallHeroPawn::CastLeft);
@@ -81,6 +82,7 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("OptionsRight"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsRight);
 }
 void AMoonfallHeroPawn::ToggleWorldMap() { if (!bOptionsOpen) bWorldMapOpen = !bWorldMapOpen; }
+void AMoonfallHeroPawn::RecenterWorldMap() { if (bWorldMapOpen && !bOptionsOpen) WorldMapPan = FVector2D::ZeroVector; }
 void AMoonfallHeroPawn::SetQuestTarget(FVector WorldLocation)
 {
  if (WorldLocation.ContainsNaN() || WorldLocation.GetAbsMax() > 100000000.f) return;
@@ -240,10 +242,10 @@ void AMoonfallHeroPawn::ToggleDisplayMode() {
 }
 
 void AMoonfallHeroPawn::OpenOptions() { bOptionsOpen = !bOptionsOpen; if (bOptionsOpen) bWorldMapOpen = false; }
-void AMoonfallHeroPawn::OptionsUp() { if (bOptionsOpen) OptionsSelection = (OptionsSelection + 6) % 7; }
-void AMoonfallHeroPawn::OptionsDown() { if (bOptionsOpen) OptionsSelection = (OptionsSelection + 1) % 7; }
-void AMoonfallHeroPawn::OptionsLeft() { AdjustOption(-1); }
-void AMoonfallHeroPawn::OptionsRight() { AdjustOption(1); }
+void AMoonfallHeroPawn::OptionsUp() { if (bWorldMapOpen) WorldMapPan.Y = FMath::Clamp(WorldMapPan.Y + 2000.f, -50000.f, 50000.f); else if (bOptionsOpen) OptionsSelection = (OptionsSelection + 6) % 7; }
+void AMoonfallHeroPawn::OptionsDown() { if (bWorldMapOpen) WorldMapPan.Y = FMath::Clamp(WorldMapPan.Y - 2000.f, -50000.f, 50000.f); else if (bOptionsOpen) OptionsSelection = (OptionsSelection + 1) % 7; }
+void AMoonfallHeroPawn::OptionsLeft() { if (bWorldMapOpen) WorldMapPan.X = FMath::Clamp(WorldMapPan.X - 2000.f, -50000.f, 50000.f); else AdjustOption(-1); }
+void AMoonfallHeroPawn::OptionsRight() { if (bWorldMapOpen) WorldMapPan.X = FMath::Clamp(WorldMapPan.X + 2000.f, -50000.f, 50000.f); else AdjustOption(1); }
 void AMoonfallHeroPawn::AdjustOption(int32 Direction) {
  if (!bOptionsOpen || !GEngine) return;
  UGameUserSettings* Settings = GEngine->GetGameUserSettings();
