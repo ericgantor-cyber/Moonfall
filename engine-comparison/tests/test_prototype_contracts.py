@@ -969,6 +969,24 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("Health = GetHudMaxHealth();", self.cpp)
         self.assertNotIn('ActionName="Respawn"', INPUT.read_text(encoding="utf-8"))
 
+    def test_region_entry_creates_immediate_living_checkpoint(self):
+        self.assertIn("int32 LastCheckpointRegion = 0;", self.header)
+        self.assertIn("LastCheckpointRegion = MoonfallWorldRules::RegionAt(HeroMesh->GetRelativeLocation().X);", self.cpp)
+        self.assertIn("const int32 CurrentRegion = MoonfallWorldRules::RegionAt(Position.X);", self.cpp)
+        self.assertIn("CurrentRegion != LastCheckpointRegion || CheckpointTimer >= CheckpointInterval", self.cpp)
+        self.assertIn("LastCheckpointRegion = CurrentRegion;", self.cpp)
+        self.assertIn("SaveProgress(); // Saves living state only, never heals after enemy kills.", self.cpp)
+        self.assertIn("if (Health > 0.f)", self.cpp)
+
+    def test_defeat_recovery_prompt_shows_only_when_dead(self):
+        hud = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8")
+        self.assertIn("bool IsDefeated() const { return Health <= 0.f; }", self.header)
+        self.assertIn("if (Hero->IsDefeated())", hud)
+        self.assertIn('TEXT("DEFEATED")', hud)
+        self.assertIn('TEXT("Left-click to return to your last checkpoint")', hud)
+        self.assertNotIn('ActionName="Respawn"', INPUT.read_text(encoding="utf-8"))
+        self.assertIn("if (!bRespawnRequested && GetWorld())", self.cpp)
+
     def test_original_art_import_is_checksum_guarded(self):
         import_tool = (ROOT / "tools/import_godot_art.py").read_text()
         verify_tool = (ROOT / "tools/verify_art_import.py").read_text()
