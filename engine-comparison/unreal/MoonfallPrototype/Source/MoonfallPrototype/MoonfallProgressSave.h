@@ -62,4 +62,11 @@ public:
     UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category="Prototype")
     float SavedStamina = 150.f;
 
+    // Default zero preserves the behavior of older experimental save files.
+    UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category="Prototype")
+    int32 SavedMinimapTrackingMode = 0;
+
+    UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category="Prototype")
+    int32 SavedMinimapZoomLevel = 0;
+
 };
