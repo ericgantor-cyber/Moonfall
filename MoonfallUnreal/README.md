@@ -83,3 +83,7 @@ The existing combat HUD now draws a small north-up chart in its upper-right area
 ## Visited-area minimap trail (Unreal prototype)
 
 The local minimap now remembers a bounded set of **384 visited 2-metre world cells** and draws their centers when near the player. Unvisited positions are not filled in as terrain, so unexplored areas remain visually empty. This is temporary HUD-session memory and intentionally does **not** pretend to be a saved exploration atlas or actual cave geometry; exploration persistence, room discovery and quest icons still need to be ported from the existing Godot game. Only the existing Unreal combat HUD changes; hero art and the Godot project remain untouched. UE 5.4 compilation and packaged Windows playtesting are still unverified.
+
+## Independent minimap range controls
+
+Press **+ / =** to zoom the combat minimap in, or **-** to zoom out. This changes the visible local-world radius in 4-metre steps, bounded between 12 and 48 metres; it does not alter the third-person camera's mouse-wheel zoom. The map displays its current radius below the chart. The controls are disabled while Options is open. Existing visited-cell trail and enemy markers retain their clipping to the selected range. Source tests are included, but the Unreal Editor compile and Windows runtime remain unverified.
