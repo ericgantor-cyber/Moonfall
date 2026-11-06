@@ -487,46 +487,6 @@ TArray<AMoonfallPawn::FEnemyPosture> AMoonfallPawn::GetEnemyPostures() const
     return Visible;
 }
 
-TArray<FVector> AMoonfallPawn::GetEnemyMapPositions() const
-{
-    TArray<FVector> Result;
-    // The minimap displays only a 1700 cm neighborhood; collecting every
-    // distant enemy each draw wastes memory and HUD work in larger worlds.
-    constexpr int32 MaxMinimapEnemies = 48;
-    Result.Reserve(FMath::Min(Enemies.Num(), MaxMinimapEnemies));
-    if (!HeroMesh) return Result;
-    const FVector HeroPosition = HeroMesh->GetRelativeLocation();
-    for (const FWorldEnemy& Enemy : Enemies)
-    {
-        if (!Enemy.Mesh) continue;
-        const FVector Position = Enemy.Mesh->GetRelativeLocation();
-        if (FMath::Abs(Position.X - HeroPosition.X) > 1700.f ||
-            FMath::Abs(Position.Y - HeroPosition.Y) > 1700.f) continue;
-        if (Result.Num() < MaxMinimapEnemies)
-        {
-            Result.Add(Position);
-            continue;
-        }
-        // Keep the closest visible threats instead of the first 48 spawned.
-        // This stays bounded, without sorting or allocating extra arrays.
-        int32 FarthestIndex = INDEX_NONE;
-        float FarthestDistanceSq = -1.f;
-        for (int32 I = 0; I < Result.Num(); ++I)
-        {
-            const float DistanceSq = FVector::DistSquared2D(Result[I], HeroPosition);
-            if (DistanceSq > FarthestDistanceSq)
-            {
-                FarthestDistanceSq = DistanceSq;
-                FarthestIndex = I;
-            }
-        }
-        if (FarthestIndex != INDEX_NONE &&
-            FVector::DistSquared2D(Position, HeroPosition) < FarthestDistanceSq)
-            Result[FarthestIndex] = Position;
-    }
-    return Result;
-}
-
 void AMoonfallPawn::RecordDamageNumber(const FVector& LocalPosition,
     float Amount, bool bHeavy, bool bMagic)
 {
