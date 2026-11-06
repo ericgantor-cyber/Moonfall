@@ -97,3 +97,7 @@ Unreal gameplay/Blueprint code can call `SetQuestTarget(WorldLocation)` and `Cle
 ## First connected Unreal gameplay quest: arena boss
 
 The existing Unreal arena boss now starts a **Defeat the Arena Boss** objective when spawned and when the player pawn is available. It points the existing minimap quest target toward that boss. Defeating the boss through the existing damage/death code completes the objective once, clears its waypoint, and displays a completion banner in the existing combat HUD. Quest progress is scoped to this prototype game session; it is **not** a general quest journal, a saved quest, a full world atlas, or a migrated dungeon quest system. A preexisting manually assigned quest target takes priority rather than being overwritten when the arena boss spawns. Source checks are present; **Unreal C++ compilation and runtime gameplay are not verified.**
+
+## Boss quest progress in the Unreal HUD
+
+The arena-boss quest tracker now displays the player's **distance to the assigned boss waypoint (metres)** and a **boss-health progress bar** while the objective is active. The readout uses the living boss already found by the combat HUD, avoiding another enemy scan. When the tracked boss is defeated, the quest completes and its green completion message disappears after 5 seconds rather than remaining over gameplay forever. Quest rewards, a general-purpose journal, and an Unreal world atlas are not implemented by this update. The latest changes require Unreal Editor compilation and actual Windows gameplay verification.
