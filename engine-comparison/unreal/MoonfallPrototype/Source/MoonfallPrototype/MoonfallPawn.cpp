@@ -609,11 +609,74 @@ void AMoonfallPawn::Zoom(float Value)
     ZoomDistance = FMath::Clamp(ZoomDistance - Value * 125.f, 900.f, 2500.f);
     CameraBoom->TargetArmLength = ZoomDistance;
 }
+void AMoonfallPawn::BeginGuard()
+{
+    if (Health <= 0.f || DodgeTimer > 0.f || GuardBreakTimer > 0.f ||
+        Stamina < 12.f) return;
+    bGuardHeld = true;
+    const FVector Move(Forward, Right, 0.f);
+    if (Move.SizeSquared2D() > 0.01f)
+        GuardDirection = Move.GetSafeNormal2D();
+    GuardParryTimer = ParryWindow; // Only a fresh press offers the brief parry.
+}
+
+void AMoonfallPawn::EndGuard()
+{
+    bGuardHeld = false;
+    GuardParryTimer = 0.f;
+}
+
+void AMoonfallPawn::RecordGuardEvent(bool bParried, bool bBroken)
+{
+    if (!HeroMesh) return;
+    if (DamageNumbers.Num() >= 24) DamageNumbers.RemoveAt(0);
+    FDamageNumber Number;
+    Number.LocalPosition = HeroMesh->GetRelativeLocation() + FVector(0.f, 0.f, 130.f);
+    Number.bParried = bParried;
+    Number.bGuardBroken = bBroken;
+    Number.bBlocked = !bParried && !bBroken;
+    DamageNumbers.Add(Number);
+}
+
+float AMoonfallPawn::ResolveGuardHit(
+    const FVector& AttackOrigin, float Damage, bool bUnblockable, bool& bParried)
+{
+    bParried = false;
+    if (!IsGuarding() || GuardBreakTimer > 0.f || bUnblockable) return Damage;
+    const FVector ToAttacker = (AttackOrigin - HeroMesh->GetRelativeLocation()).GetSafeNormal2D();
+    // A guard defends the forward 120-degree arc only.
+    if (FVector::DotProduct(GuardDirection, ToAttacker) < 0.5f) return Damage;
+    if (GuardParryTimer > 0.f)
+    {
+        bParried = true;
+        GuardParryTimer = 0.f;
+        CounterWindow = CounterDuration;
+        Stamina = FMath::Min(GetHudMaxStamina(), Stamina + 8.f);
+        RecordGuardEvent(true, false);
+        return 0.f;
+    }
+    const float GuardCost = FMath::Max(12.f, Damage * 1.3f);
+    if (Stamina < GuardCost)
+    {
+        Stamina = 0.f;
+        bGuardHeld = false;
+        GuardBreakTimer = GuardBreakDuration;
+        RecordGuardEvent(false, true);
+        return Damage; // Exhausted guards never grant invulnerability.
+    }
+    Stamina -= GuardCost;
+    StaminaRegenDelay = 0.8f;
+    RecordGuardEvent(false, false);
+    return Damage * 0.25f; // A maintained directional block reduces damage by 75%.
+}
+
 void AMoonfallPawn::Dodge()
 {
     if (Health > 0.f && DodgeCooldown <= 0.f && Stamina >= 45.f &&
         FVector2D(Forward, Right).SizeSquared() > 0.01f)
     {
+        // Dodge takes priority and cancels a held guard, never stacks protection.
+        EndGuard();
         DodgeTimer = 0.32f;
         DodgeCooldown = 1.2f;
         Stamina -= 45.f;
@@ -791,6 +854,8 @@ void AMoonfallPawn::SetupPlayerInputComponent(UInputComponent* Input)
     Input->BindAxis(TEXT("Zoom"), this, &AMoonfallPawn::Zoom);
     Input->BindAction(TEXT("Attack"), IE_Pressed, this, &AMoonfallPawn::Attack);
     Input->BindAction(TEXT("Dodge"), IE_Pressed, this, &AMoonfallPawn::Dodge);
+    Input->BindAction(TEXT("Guard"), IE_Pressed, this, &AMoonfallPawn::BeginGuard);
+    Input->BindAction(TEXT("Guard"), IE_Released, this, &AMoonfallPawn::EndGuard);
     Input->BindAction(TEXT("ArcaneBolt"), IE_Pressed, this, &AMoonfallPawn::CastBolt);
     Input->BindAction(TEXT("ArcaneHeal"), IE_Pressed, this, &AMoonfallPawn::CastHeal);
 }
@@ -816,13 +881,18 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
     const bool bDodgeActiveThisFrame = DodgeTimer > 0.f;
     DodgeTimer = FMath::Max(0.f, DodgeTimer - ReactionDt);
     DodgeCooldown = FMath::Max(0.f, DodgeCooldown - Dt);
+    GuardBreakTimer = FMath::Max(0.f, GuardBreakTimer - ReactionDt);
+    GuardParryTimer = FMath::Max(0.f, GuardParryTimer - ReactionDt);
+    const FVector GuardInput(Forward, Right, 0.f);
+    if (bGuardHeld && GuardInput.SizeSquared2D() > 0.01f)
+        GuardDirection = GuardInput.GetSafeNormal2D();
     // Dodging temporarily stops passive stamina gain. A rewarded perfect
     // dodge can still restore its explicit 10 stamina immediately.
     // Only regenerate for the portion of this frame after the delay ends.
     // Otherwise a frame that crosses the boundary grants free early stamina.
     const float StaminaRegenDt = FMath::Max(0.f, Dt - StaminaRegenDelay);
     StaminaRegenDelay = FMath::Max(0.f, StaminaRegenDelay - Dt);
-    if (StaminaRegenDt > 0.f)
+    if (StaminaRegenDt > 0.f && !IsGuarding())
         Stamina = FMath::Min(GetHudMaxStamina(), Stamina + 30.f * StaminaRegenDt);
     Mana = FMath::Min(180.f, Mana + 8.f * Dt);
     BoltCooldown = FMath::Max(0.f, BoltCooldown - Dt);
@@ -838,7 +908,7 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
         // A frame hitch must not teleport the hero through a boss warning or chamber.
         const float MovementDt = FMath::Min(Dt, 0.05f);
         FVector Position = HeroMesh->GetRelativeLocation() +
-            Direction * (bDodgeActiveThisFrame ? 1200.f : 600.f) * MovementDt;
+            Direction * (bDodgeActiveThisFrame ? 1200.f : (IsGuarding() ? 340.f : 600.f)) * MovementDt;
         Position.X = FMath::Clamp(Position.X, -1600.f, 17600.f);
         Position.Y = FMath::Clamp(Position.Y, -3200.f, 3200.f);
         HeroMesh->SetRelativeLocation(Position);
@@ -877,7 +947,7 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
             }
             if (ContactIndex != INDEX_NONE)
             {
-                const FWorldEnemy& Contact = Enemies[ContactIndex];
+                FWorldEnemy& Contact = Enemies[ContactIndex];
                 if (bDodgeActiveThisFrame)
                 {
                     CounterWindow = CounterDuration;
@@ -887,8 +957,20 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
                 {
                     const float ContactDamage = 5.f + 2.f * Contact.Region +
                         (Contact.bEnraged ? 4.f : 0.f);
-                    RecordHeroHit(FMath::Min(Health, ContactDamage), false);
-                    Health = FMath::Max(0.f, Health - ContactDamage);
+                    bool bParried = false;
+                    const float Taken = ResolveGuardHit(
+                        Contact.Mesh->GetRelativeLocation(), ContactDamage, false, bParried);
+                    if (bParried)
+                    {
+                        Contact.StaggerTimer = Contact.bGuardian ? 0.9f : 0.6f;
+                        Contact.AttackWindup = 0.f;
+                        Contact.AttackRecovery = FMath::Max(Contact.AttackRecovery, 0.8f);
+                    }
+                    if (Taken > 0.f)
+                    {
+                        RecordHeroHit(FMath::Min(Health, Taken), false);
+                        Health = FMath::Max(0.f, Health - Taken);
+                    }
                 }
                 EnemyDamageCooldown = 1.2f;
             }
@@ -919,6 +1001,7 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
             BossAttackPhase = BossHealth <= 30.f ? 3 : (BossHealth <= 65.f ? 2 : 1);
             ++BossAttackCount;
             const bool bRadial = BossAttackPhase >= 2 && BossAttackCount % 2 == 0;
+            bBossRadialAttack = bRadial;
             const FVector Center = bRadial ? BossMesh->GetRelativeLocation()
                                            : HeroMesh->GetRelativeLocation();
             TargetWorld = FVector(Center.X, Center.Y, 0.f);
@@ -969,8 +1052,19 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
                     // overlapping attacks must not instantly double-hit the hero.
                     const float BossDamage = BossAttackPhase == 3 ? 28.f :
                         (BossAttackPhase == 2 ? 24.f : 20.f);
-                    RecordHeroHit(FMath::Min(Health, BossDamage), false);
-                    Health = FMath::Max(0.f, Health - BossDamage);
+                    bool bParried = false;
+                    const float Taken = ResolveGuardHit(
+                        BossMesh->GetRelativeLocation(), BossDamage, bBossRadialAttack, bParried);
+                    if (bParried)
+                    {
+                        // A precise directional parry interrupts the boss's next cadence.
+                        CastCooldown = FMath::Max(CastCooldown, 1.5f);
+                    }
+                    if (Taken > 0.f)
+                    {
+                        RecordHeroHit(FMath::Min(Health, Taken), false);
+                        Health = FMath::Max(0.f, Health - Taken);
+                    }
                     EnemyDamageCooldown = 1.2f;
                 }
             }
