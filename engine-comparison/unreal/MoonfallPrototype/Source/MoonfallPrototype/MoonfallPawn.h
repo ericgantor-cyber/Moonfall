@@ -51,6 +51,7 @@ public:
     bool IsBossPostureActive() const { return !bWon && BossPosture > 0.f; }
     bool IsBossStaggered() const { return !bWon && BossStaggerTimer > 0.f; }
     TArray<FVector> GetChamberMapPositions() const;
+    TArray<FVector> GetWorldMapChamberPositions() const;
     struct FDamageNumber
     {
         FVector LocalPosition = FVector::ZeroVector;
