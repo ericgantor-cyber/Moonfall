@@ -168,6 +168,13 @@ static func dungeon_quest_marker_visible(marker:Vector3,rooms:Array[Vector3],rad
   return false
  return true
 
+# Point toward distant objectives without placing indicators outside the chart.
+static func quest_chart_edge_offset(offset:Vector2,half_bounds:Vector2)->Vector2:
+ if not is_finite(offset.x) or not is_finite(offset.y):return Vector2.ZERO
+ if half_bounds.x<=0.0 or half_bounds.y<=0.0:return Vector2.ZERO
+ var overflow:float=maxf(1.0,maxf(absf(offset.x)/half_bounds.x,absf(offset.y)/half_bounds.y))
+ return offset/overflow
+
 func _draw()->void:
  var rect:Rect2=Rect2(Vector2.ZERO,size)
  draw_rect(rect,Color(0.025,0.04,0.075,0.94),true)
@@ -281,6 +288,10 @@ func _draw()->void:
   if dungeon_active and not dungeon_quest_marker_visible(quest_position,dungeon_rooms,dungeon_floor_radii,discovered_chambers):continue
   var quest_delta:Vector2=Vector2(quest_position.x-player_position.x,quest_position.z-player_position.z)*scale_factor
   if absf(quest_delta.x)>size.x*0.45 or absf(quest_delta.y)>size.y*0.45:
+   var direction:Vector2=quest_delta.normalized()
+   var side:Vector2=Vector2(-direction.y,direction.x)
+   var edge:Vector2=centre+quest_chart_edge_offset(quest_delta,size*0.40)
+   draw_colored_polygon(PackedVector2Array([edge+direction*5.0,edge-direction*7.0+side*4.0,edge-direction*7.0-side*4.0]),Color(0.8,0.45,1.0))
    continue
   var quest_screen:Vector2=centre+quest_delta
   draw_circle(quest_screen,7.0,Color(0.8,0.45,1.0))
