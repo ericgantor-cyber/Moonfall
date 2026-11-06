@@ -1,0 +1,68 @@
+name: Moonfall Unreal C++ compile (trusted Windows runner)
+
+# Manual only: never execute unreviewed PR code on a machine with Unreal installed.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: moonfall-unreal-compile-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  compile-editor:
+    runs-on: [self-hosted, Windows, X64, unreal-5-4]
+    timeout-minutes: 120
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Check out requested commit
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Verify trusted Windows Unreal build environment
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if (-not $env:UE54_ROOT) {
+            throw 'UE54_ROOT must be defined in the Windows runner environment, pointing to an installed Unreal Engine 5.4.'
+          }
+          $engineBuild = Join-Path $env:UE54_ROOT 'Engine\Build\BatchFiles\Build.bat'
+          if (-not (Test-Path -LiteralPath $engineBuild -PathType Leaf)) {
+            throw "Unreal Engine Build.bat not found at $engineBuild"
+          }
+          $project = 'MoonfallUnreal\MoonfallUnreal.uproject'
+          if (-not (Test-Path -LiteralPath $project -PathType Leaf)) { throw 'Unreal project is missing.' }
+          Write-Host "Unreal build tool found. Running a real C++ build, not a source-only check."
+
+      - name: Compile MoonfallUnrealEditor Win64 Development
+        run: |
+          $ErrorActionPreference = 'Stop'
+          & .\MoonfallUnreal\Build\Build-Windows.ps1 -UnrealRoot $env:UE54_ROOT -CompileOnly
+          if ($LASTEXITCODE -ne 0) { throw "Moonfall editor build returned $LASTEXITCODE" }
+          "### Unreal C++ compile passed" >> $env:GITHUB_STEP_SUMMARY
+          "Commit: ${{ github.sha }}" >> $env:GITHUB_STEP_SUMMARY
+          "UE 5.4 Editor Win64 Development target compiled. This does not package or test the game." >> $env:GITHUB_STEP_SUMMARY
+
+      - name: Upload compiler diagnostics on failure
+        if: failure()
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: MoonfallUnreal-Compile-Logs
+          path: |
+            MoonfallUnreal/Saved/Logs/
+            MoonfallUnreal/Intermediate/Build/Win64/*.log
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Summarize outcome
+        if: always()
+        run: |
+          "### Moonfall Unreal compile-only run" >> $env:GITHUB_STEP_SUMMARY
+          "Status: ${{ job.status }}" >> $env:GITHUB_STEP_SUMMARY
+          "Requires a trusted self-hosted Windows x64 runner labeled unreal-5-4, with UE54_ROOT, UE 5.4 and VS 2022 C++ tools installed." >> $env:GITHUB_STEP_SUMMARY
+          "No installer or packaged Windows game is produced by this workflow." >> $env:GITHUB_STEP_SUMMARY
