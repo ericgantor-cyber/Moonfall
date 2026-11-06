@@ -24,6 +24,18 @@ class UnrealWindowsBuildScriptTests(unittest.TestCase):
         self.assertIn("if: ${{ success() }}", upload.split("      - name:", 1)[0])
         self.assertIn("if-no-files-found: error", upload)
 
+    def test_runner_preflight_checks_local_prerequisites_without_secrets(self):
+        check = (SCRIPT.parent / "check-runner-prerequisites.ps1").read_text(encoding="utf-8")
+        doc = (SCRIPT.parent / "REAL_WINDOWS_CI.md").read_text(encoding="utf-8")
+        for required in ("Build.version", "UnrealEditor-Cmd.exe", "RunUAT.bat",
+                         "Microsoft.VisualStudio.Component.VC.Tools.x86.x64",
+                         "Windows Kits", "Windows.h"):
+            self.assertIn(required, check)
+        self.assertIn("check-runner-prerequisites.ps1", doc)
+        self.assertIn("Settings > Actions > Runners", doc)
+        self.assertNotIn("registration-token", check)
+        self.assertNotIn("config.cmd", check)
+
     def test_project_and_targets_exist(self):
         self.assertTrue((PROJECT / "MoonfallPrototype.uproject").is_file())
         self.assertTrue((PROJECT / "Source" / "MoonfallPrototype.Target.cs").is_file())
