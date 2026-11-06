@@ -315,6 +315,30 @@ class PrototypeContracts(unittest.TestCase):
         self.assertNotIn("DrawRect(TerrainTint(Region), TopLeft.X", minimap)
         self.assertNotIn("Hero->GetEnemyMapPositions()", minimap)
 
+    def test_map_preferences_save_immediately_without_moving_checkpoint(self):
+        body = self.cpp.split("void AMoonfallPawn::SaveMapPreferences()", 1)[1].split(
+            "void AMoonfallPawn::CycleMinimapTracking()", 1)[0]
+        self.assertIn("void SaveMapPreferences();", self.header)
+        self.assertIn("LoadGameFromSlot", body)
+        self.assertIn("CreateSaveGameObject", body)
+        self.assertIn("Progress->SavedMinimapTrackingMode = MinimapTrackingMode;", body)
+        self.assertIn("Progress->SavedMinimapZoomLevel = MinimapZoomLevel;", body)
+        self.assertIn("SaveGameToSlot", body)
+        for forbidden in ("SavedHeroPosition =", "SavedHealth =",
+                          "SavedStamina =", "SavedMana =", "bHasCheckpoint =",
+                          "SaveProgress();", "Progress->ExploredMapCells ="):
+            self.assertNotIn(forbidden, body)
+        tracking = self.cpp.split("void AMoonfallPawn::CycleMinimapTracking()", 1)[1].split(
+            "bool AMoonfallPawn::TryHandleMinimapZoomClick()", 1)[0]
+        self.assertIn("SaveMapPreferences();", tracking)
+        zoom = self.cpp.split("bool AMoonfallPawn::TryHandleMinimapZoomClick()", 1)[1].split(
+            "void AMoonfallPawn::EndGuard()", 1)[0]
+        self.assertIn("if (MinimapZoomLevel < 2)", zoom)
+        self.assertIn("if (MinimapZoomLevel > 0)", zoom)
+        self.assertEqual(zoom.count("SaveMapPreferences();"), 2)
+        self.assertNotIn('ActionName="MinimapZoom",Key=M',
+                         INPUT.read_text(encoding="utf-8"))
+
     def test_full_map_discovery_counts_only_revealed_caves(self):
         hud = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8")
         minimap = hud.split("// Compact WoW-style circular minimap", 1)[1]
@@ -455,8 +479,10 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("constexpr float ButtonHalfSize = 15.f;", self.cpp)
         self.assertIn("MouseDelta.SizeSquared() <= FMath::Square(72.f)", self.cpp)
         self.assertIn("FVector2D(30.f, 30.f)", minimap)
-        self.assertIn("MinimapZoomLevel = FMath::Min(MinimapZoomLevel + 1, 2);", self.cpp)
-        self.assertIn("MinimapZoomLevel = FMath::Max(MinimapZoomLevel - 1, 0);", self.cpp)
+        self.assertIn("if (MinimapZoomLevel < 2)", self.cpp)
+        self.assertIn("++MinimapZoomLevel;", self.cpp)
+        self.assertIn("if (MinimapZoomLevel > 0)", self.cpp)
+        self.assertIn("--MinimapZoomLevel;", self.cpp)
         self.assertIn("const FVector2D ZoomPlus(RadarCenter.X + 58.f, 67.f);", minimap)
         self.assertIn("const FVector2D ZoomMinus(RadarCenter.X + 58.f, 99.f);", minimap)
         self.assertIn("GetMinimapWorldRadius() const", self.header)
