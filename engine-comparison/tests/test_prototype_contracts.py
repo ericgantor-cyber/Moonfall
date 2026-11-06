@@ -462,7 +462,7 @@ class PrototypeContracts(unittest.TestCase):
     def test_post_boss_exploration_and_xp_awards(self):
         self.assertIn("if (Input.GetMouseButtonDown(0) && attackCd<=0)", self.unity)
         self.assertIn("bool bossInRange = !won && Vector3.Distance(hero.position,boss.position)<4f;", self.unity)
-        self.assertIn("if (AttackCooldown > 0.f) return;", self.cpp)
+        self.assertIn("if (AttackCooldown > 0.f || GuardBreakTimer > 0.f) return;", self.cpp)
         self.assertIn("const bool bBossInRange = BossDistance <= 400.f;", self.cpp)
         self.assertNotIn("if (Health <= 0.f || bWon || AttackCooldown > 0.f)", self.cpp)
 
@@ -603,7 +603,7 @@ class PrototypeContracts(unittest.TestCase):
         start = self.cpp.index("void AMoonfallPawn::CastBolt()")
         end = self.cpp.index("void AMoonfallPawn::CastHeal()", start)
         bolt = self.cpp[start:end]
-        self.assertIn("if (Health <= 0.f || BoltCooldown > 0.f || Mana < 30.f) return;", bolt)
+        self.assertIn("if (Health <= 0.f || GuardBreakTimer > 0.f || BoltCooldown > 0.f || Mana < 30.f) return;", bolt)
         self.assertIn("if (EnemyIndex == INDEX_NONE && !bBossInRange) return;", bolt)
         self.assertLess(bolt.index("if (EnemyIndex == INDEX_NONE"), bolt.index("CounterWindow = 0.f;"))
         self.assertIn("(bRiposte ? CounterMultiplier : 1.f)", bolt)
@@ -960,7 +960,7 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("UGameplayStatics::OpenLevel(GetWorld(), FName(*LevelName))", attack)
         self.assertIn("bRespawnRequested = true;", attack)
         self.assertLess(attack.index("if (Health <= 0.f)"),
-                        attack.index("if (AttackCooldown > 0.f) return;"))
+                        attack.index("if (AttackCooldown > 0.f || GuardBreakTimer > 0.f) return;"))
         self.assertIn("bool bRespawnRequested = false;", self.header)
         # Saving on level transition must not overwrite the living checkpoint.
         self.assertIn("if (HeroMesh && Health > 0.f)", self.cpp)
@@ -1104,6 +1104,20 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("Hero->GetGuardDirection()", hud)
         self.assertIn("Hero->IsParryWindowActive()", hud)
         self.assertNotIn('TEXT("BLOCK")', hud)
+
+    def test_guard_break_recovery_prevents_offense_and_dodge_exploits(self):
+        source = self.cpp
+        self.assertIn("if (Health > 0.f && GuardBreakTimer <= 0.f && DodgeCooldown <= 0.f", source)
+        self.assertIn("if (AttackCooldown > 0.f || GuardBreakTimer > 0.f) return;", source)
+        self.assertIn("if (Health <= 0.f || GuardBreakTimer > 0.f || BoltCooldown > 0.f", source)
+        self.assertIn("if (Health <= 0.f || GuardBreakTimer > 0.f || HealCooldown > 0.f", source)
+        self.assertIn("GuardBreakTimer = GuardBreakDuration;", source)
+        self.assertIn("GuardBreakTimer = FMath::Max(0.f, GuardBreakTimer - ReactionDt);", source)
+        self.assertIn("EndGuard(); // Casting commits to offense instead of stacking a held block.", source)
+        self.assertIn("EndGuard();\n    Mana -= 40.f;", source)
+        self.assertIn("// A committed strike lowers the guard; parry-earned ripostes remain valid.", source)
+        self.assertIn("if (Enemy.Portrait) Enemy.Portrait->SetRelativeScale3D(FVector(2.f));", source)
+        self.assertIn("else Enemy.Mesh->SetRelativeScale3D(FVector(Enemy.bGuardian ? 1.3f : 1.1f));", source)
 
     def test_original_art_import_is_checksum_guarded(self):
         import_tool = (ROOT / "tools/import_godot_art.py").read_text()
