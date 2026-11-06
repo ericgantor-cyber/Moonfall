@@ -5,6 +5,7 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$EngineRoot,
     [switch]$Package,
+    [switch]$CreateMap,
     [string]$ArchiveDirectory = ""
 )
 $ErrorActionPreference = "Stop"
@@ -39,6 +40,28 @@ if (-not (Test-Path -LiteralPath $GameExe -PathType Leaf)) {
 }
 Write-Host "Unreal Editor and Win64 Development game compilation succeeded."
 Write-Host "Compilation alone does not prove packaged gameplay or save/load behavior."
+
+if ($CreateMap) {
+    $EditorExe = Join-Path $EngineRoot "Engine\Binaries\Win64\UnrealEditor-Cmd.exe"
+    $MapScript = Join-Path $PSScriptRoot "MoonfallPrototype\Content\Python\create_startup_map.py"
+    $MapAsset = Join-Path $PSScriptRoot "MoonfallPrototype\Content\Maps\MoonfallPrototype.umap"
+    if (-not (Test-Path -LiteralPath $EditorExe -PathType Leaf)) {
+        throw "Unreal editor executable is missing: $EditorExe"
+    }
+    if (-not (Test-Path -LiteralPath $MapScript -PathType Leaf)) {
+        throw "Startup level creation script is missing: $MapScript"
+    }
+    if (-not (Test-Path -LiteralPath $MapAsset -PathType Leaf)) {
+        & $EditorExe $Project "-ExecutePythonScript=$MapScript" -unattended -nop4
+        if ($LASTEXITCODE -ne 0) {
+            throw "Unreal Editor startup map creation failed (exit $LASTEXITCODE)."
+        }
+    }
+    if (-not (Test-Path -LiteralPath $MapAsset -PathType Leaf)) {
+        throw "Unreal Editor exited without creating the required .umap: $MapAsset"
+    }
+    Write-Host "Startup map is ready: $MapAsset"
+}
 
 if ($Package) {
     if (-not (Test-Path -LiteralPath $RunUAT -PathType Leaf)) {
