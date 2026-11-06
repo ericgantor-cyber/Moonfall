@@ -254,6 +254,34 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("FMath::Square(1200.f)", posture)
         self.assertIn("if (Visible.Num() >= MaxPostureIndicators) break;", posture)
 
+    def test_minimap_terrain_neighbor_search_matches_all_regions(self):
+        # Static contract plus an exhaustive coordinate grid for the world
+        # footprint. Side floors reach 2,000 cm from their region center.
+        import math
+        hud = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8")
+        self.assertIn("const int32 NearestRegion = FMath::RoundToInt(", hud)
+        self.assertIn("const int32 FirstRegion = FMath::Max(0, NearestRegion - 1);", hud)
+        self.assertIn("for (int32 Region = FirstRegion; Region <= LastRegion; ++Region)", hud)
+
+        def contains(region, x, y):
+            center = region * 3200
+            if abs(x - center) <= 1700 and abs(y) <= 1700:
+                return True
+            for chamber in range(5):
+                cx = center + (chamber - 2) * 600
+                cy = 2400 if chamber % 2 == 0 else -2400
+                if abs(x - cx) <= 800 and abs(y - cy) <= 800:
+                    return True
+            return False
+
+        for x in range(-3500, 19601, 175):
+            nearest = math.floor(x / 3200 + .5)
+            subset = range(max(0, nearest - 1), min(5, nearest + 1) + 1)
+            for y in range(-3500, 3501, 350):
+                expected = next((r for r in range(6) if contains(r, x, y)), -1)
+                actual = next((r for r in subset if contains(r, x, y)), -1)
+                self.assertEqual(actual, expected, (x, y))
+
     def test_terrain_map_readability_and_safe_combat_overlay(self):
         hud = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8")
         minimap = hud.split("// Compact WoW-style circular minimap", 1)[1]
