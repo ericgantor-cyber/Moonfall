@@ -1,6 +1,7 @@
 #pragma once
 #include "CoreMinimal.h"
 #include "GameFramework/HUD.h"
+class AMoonfallHeroPawn;
 #include "MoonfallCombatHUD.generated.h"
 UCLASS()
 class MOONFALLUNREAL_API AMoonfallCombatHUD : public AHUD
@@ -21,4 +22,5 @@ private:
  bool bExplorationDirty = false;
  float NextExplorationSaveAt = 0.f;
  void SaveExploration();
+ void DrawExplorationAtlas(const AMoonfallHeroPawn* Hero);
 };
