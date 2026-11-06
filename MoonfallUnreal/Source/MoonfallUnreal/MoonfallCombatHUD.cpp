@@ -15,8 +15,12 @@ void AMoonfallCombatHUD::BeginPlay()
  if (!GConfig) return;
  TArray<FString> SavedCells;
  GConfig->GetArray(TEXT("Moonfall.Exploration"), TEXT("VisitedCells"), SavedCells, GGameUserSettingsIni);
+ int32 SavedCellSizeCm = 200; // Older Moonfall saves used 2-metre cells and no version marker.
+ GConfig->GetInt(TEXT("Moonfall.Exploration"), TEXT("CellSizeCm"), SavedCellSizeCm, GGameUserSettingsIni);
+ const bool bLegacyCells = SavedCellSizeCm == 200;
+ if (SavedCellSizeCm != 200 && SavedCellSizeCm != 1000) return;
  for (const FString& Encoded : SavedCells) {
-  if (ExploredMapCells.Num() >= 384) break;
+  if (ExploredMapCells.Num() >= MaxExplorationCells) break;
   FString XText, YText;
   int32 X = 0, Y = 0;
   if (!Encoded.Split(TEXT(","), &XText, &YText) ||
@@ -24,8 +28,18 @@ void AMoonfallCombatHUD::BeginPlay()
       !FDefaultValueHelper::ParseInt(YText, Y) ||
       FMath::Abs(static_cast<int64>(X)) > 50000 ||
       FMath::Abs(static_cast<int64>(Y)) > 50000) continue;
-  const FIntPoint Cell(X,Y);
-  if (!ExploredMapCells.Contains(Cell)) ExploredMapCells.Add(Cell);
+  // Floor toward negative infinity to keep western/southern map coordinates correct.
+  const FIntPoint Cell = bLegacyCells
+    ? FIntPoint(FMath::FloorToInt((static_cast<double>(X)+0.5)*200.0/ExplorationCellSizeCm),
+                FMath::FloorToInt((static_cast<double>(Y)+0.5)*200.0/ExplorationCellSizeCm))
+    : FIntPoint(X,Y);
+  if (!ExploredMapIndex.Contains(Cell)) {
+   ExploredMapCells.Add(Cell);
+   ExploredMapIndex.Add(Cell);
+  }
+ }
+ // The next autosave upgrades older cell coordinates without discarding discoveries.
+ if (bLegacyCells && SavedCells.Num() > 0) bExplorationDirty = true;
  }
 }
 void AMoonfallCombatHUD::SaveExploration()
@@ -36,6 +50,7 @@ void AMoonfallCombatHUD::SaveExploration()
  for (const FIntPoint& Cell : ExploredMapCells)
   EncodedCells.Add(FString::Printf(TEXT("%d,%d"), Cell.X, Cell.Y));
  GConfig->SetArray(TEXT("Moonfall.Exploration"), TEXT("VisitedCells"), EncodedCells, GGameUserSettingsIni);
+ GConfig->SetInt(TEXT("Moonfall.Exploration"), TEXT("CellSizeCm"), 1000, GGameUserSettingsIni);
  GConfig->Flush(false, GGameUserSettingsIni);
  bExplorationDirty = false;
 }
@@ -51,12 +66,16 @@ void AMoonfallCombatHUD::DrawHUD()
  const AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this,0));
  if (!IsValid(Hero)) return;
  // Track exploration independently of HUD visibility, including compact or Options screens.
- const float CellSize = 200.f; // Unreal centimetres
+ const float CellSize = ExplorationCellSizeCm; // 10-metre Unreal-world exploration tiles
  const FVector HeroPosition = Hero->GetActorLocation();
  const FIntPoint CurrentCell(FMath::FloorToInt(HeroPosition.X / CellSize), FMath::FloorToInt(HeroPosition.Y / CellSize));
- if (!ExploredMapCells.Contains(CurrentCell)) {
-  if (ExploredMapCells.Num() >= 384) ExploredMapCells.RemoveAt(0, 1, EAllowShrinking::No);
+ if (!ExploredMapIndex.Contains(CurrentCell)) {
+  if (ExploredMapCells.Num() >= MaxExplorationCells) {
+   ExploredMapIndex.Remove(ExploredMapCells[0]);
+   ExploredMapCells.RemoveAt(0, 1, EAllowShrinking::No);
+  }
   ExploredMapCells.Add(CurrentCell);
+  ExploredMapIndex.Add(CurrentCell);
   bExplorationDirty = true;
  }
  const float Now = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f;
@@ -152,7 +171,7 @@ void AMoonfallCombatHUD::DrawHUD()
   const float MapRange = FMath::Clamp(Hero->MinimapRange, 1200.f, 4800.f); // Unreal centimetres
   for (const FIntPoint& Cell : ExploredMapCells) {
    const FVector2D CellOffset((Cell.X + 0.5f) * CellSize - HeroPosition.X, (Cell.Y + 0.5f) * CellSize - HeroPosition.Y);
-   if (CellOffset.SizeSquared() > FMath::Square(MapRange - CellSize)) continue;
+   if (CellOffset.SizeSquared() > FMath::Square(MapRange)) continue;
    const FVector2D DiscoveredScreen = MapCenter + FVector2D(CellOffset.X, -CellOffset.Y) * (MapRadius * 0.86f / MapRange);
    DrawRect(FLinearColor(0.2f,0.32f,0.42f,0.55f),DiscoveredScreen.X-2.f,DiscoveredScreen.Y-2.f,4.f,4.f);
   }
@@ -328,7 +347,8 @@ void AMoonfallCombatHUD::DrawExplorationAtlas(const AMoonfallHeroPawn* Hero)
           TopLeft.X+20.f,TopLeft.Y+35.f,nullptr,0.8f);
  // Only cells the player has actually visited are charted, never speculative terrain.
  for (const FIntPoint& Cell : ExploredMapCells) {
-  const FVector2D Offset((Cell.X+0.5f)*200.f-Player.X-Pan.X,(Cell.Y+0.5f)*200.f-Player.Y-Pan.Y);
+  const FVector2D Offset((Cell.X+0.5f)*ExplorationCellSizeCm-Player.X-Pan.X,
+                         (Cell.Y+0.5f)*ExplorationCellSizeCm-Player.Y-Pan.Y);
   if (FMath::Abs(Offset.X)>HalfWorldRange || FMath::Abs(Offset.Y)>HalfWorldRange) continue;
   const FVector2D Spot = Centre+FVector2D(Offset.X,-Offset.Y)*Scale;
   if (Spot.X<TopLeft.X+12.f || Spot.X>TopLeft.X+Width-12.f ||
