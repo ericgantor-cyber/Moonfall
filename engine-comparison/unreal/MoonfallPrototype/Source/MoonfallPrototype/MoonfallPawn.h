@@ -44,6 +44,8 @@ public:
     bool IsBossDefeated() const { return bWon; }
     // T cycles ALL -> CHAMBERS -> BOSS -> OFF, no enemy tracking.
     int32 GetMinimapTrackingMode() const { return MinimapTrackingMode; }
+    int32 GetMinimapZoomLevel() const { return MinimapZoomLevel; }
+    float GetMinimapWorldRadius() const { return MinimapZoomLevel == 2 ? 850.f : (MinimapZoomLevel == 1 ? 1200.f : 1700.f); }
     float GetBossPostureRatio() const { return FMath::Clamp(BossPosture / BossPostureThreshold, 0.f, 1.f); }
     bool IsBossPostureActive() const { return !bWon && BossPosture > 0.f; }
     bool IsBossStaggered() const { return !bWon && BossStaggerTimer > 0.f; }
@@ -117,6 +119,8 @@ private:
     void EndGuard();
     void CycleMinimapTracking();
     int32 MinimapTrackingMode = 0; // 0 all, 1 chambers, 2 boss, 3 off.
+    void CycleMinimapZoom();
+    int32 MinimapZoomLevel = 0; // 0 wide, 1 medium, 2 close.
     struct FChamberCache
     {
         UStaticMeshComponent* Mesh = nullptr;
