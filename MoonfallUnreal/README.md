@@ -181,3 +181,13 @@ Visited ten-metre exploration tiles now draw as connected filled areas on both t
 ## Compass and hero-facing indicator on the minimap
 
 The north-up circular minimap now shows all four fixed cardinal directions (N/E/S/W) and replaces the small central player square with a cyan directional arrow driven by the hero's world-facing vector. The map itself does not rotate, and discovered tiles, boss/enemy markers, quest markers, and personal waypoint pins retain their existing coordinates. This is pure HUD drawing, with no new per-frame actor searches or art dependencies. Confirm arrow facing and contrast in a real Unreal Windows build; Unreal compilation remains unverified.
+
+## Real UE 5.4 C++ compilation in GitHub Actions
+
+A separate manual GitHub Actions workflow lives at `.github/workflows/unreal-compile-windows.yml`, named **Moonfall Unreal C++ compile (trusted Windows runner)**. It checks out the chosen commit and invokes `MoonfallUnreal/Build/Build-Windows.ps1 -CompileOnly`, which compiles `MoonfallUnrealEditor Win64 Development` using the installed Unreal 5.4 toolchain, rather than merely scanning C++ text.
+
+The workflow is intentionally **manual only** (`workflow_dispatch`), requires a trusted self-hosted **Windows x64** Actions runner labeled `unreal-5-4`, and expects `UE54_ROOT` to point to Unreal Engine 5.4 on that runner. The build machine also needs Visual Studio 2022 C++ tools and Windows SDK. Failure diagnostic logs are uploaded as Actions artifacts when available, and the build result appears in the Actions summary.
+
+**To activate:** On a dedicated Windows PC with Unreal and C++ tools installed, open the repository's **Settings > Actions > Runners** and follow GitHub's instructions to register the machine, assign the label `unreal-5-4`, and set `UE54_ROOT` in its runner environment. Avoid registering a sensitive personal workstation or running untrusted pull request code; dedicated isolated runners are preferable. Once the workflow file is on the default branch, open **Actions > Moonfall Unreal C++ compile (trusted Windows runner) > Run workflow** and select the reviewed branch. Until a suitable runner is online, jobs cannot actually compile.
+
+Use the existing separate `Moonfall Unreal Windows build (self-hosted)` manual workflow for full cooking, launcher, and NSIS installer. The compile-only workflow does **not** produce an executable installer, nor verify Windows gameplay. Nothing in this documentation claims a UE compile has already succeeded.
