@@ -155,7 +155,7 @@ class PrototypeContracts(unittest.TestCase):
         damage = self.cpp.split("void AMoonfallPawn::DamageWorldEnemy(", 1)[1].split(
             "TArray<FVector> AMoonfallPawn::GetChamberMapPositions()", 1)[0]
         self.assertIn("DamageWorldEnemy(EnemyIndex, Damage, bRiposte, bComboFinisher);", melee)
-        self.assertIn("DamageWorldEnemy(EnemyIndex, Damage, bRiposte);", bolt)
+        self.assertIn("DamageWorldEnemy(EnemyIndex, Damage, bRiposte, false, true);", bolt)
         self.assertIn("bComboFinisher && !Enemy.bGuardian", damage)
         self.assertIn("Enemy.bGuardian ? 0.8f : 0.4f", damage)
         self.assertIn("Enemy.bGuardian ? 120.f : 90.f", damage)
@@ -186,13 +186,13 @@ class PrototypeContracts(unittest.TestCase):
 
     def test_unreal_riposte_staggers_guardians_and_blocks_contact(self):
         self.assertIn("float StaggerTimer = 0.f;", self.header)
-        self.assertIn("void AMoonfallPawn::DamageWorldEnemy(int32 Index, float Damage, bool bRiposte, bool bComboFinisher)", self.cpp)
+        self.assertIn("void AMoonfallPawn::DamageWorldEnemy(int32 Index, float Damage, bool bRiposte, bool bComboFinisher, bool bMagic)", self.cpp)
         self.assertIn("if ((bRiposte && Enemy.bGuardian) || (bComboFinisher && !Enemy.bGuardian))", self.cpp)
         self.assertIn("Enemy.StaggerTimer = Enemy.bGuardian ? 0.8f : 0.4f;", self.cpp)
         self.assertIn("Enemy.StaggerTimer = FMath::Max(0.f, Enemy.StaggerTimer - MoveDt);", self.cpp)
         self.assertIn("if (!Candidate.Mesh || Candidate.bReturningHome ||\n                    Candidate.bStaggeredThisFrame || !Candidate.bAttackReadyThisFrame) continue;", self.cpp)
         self.assertIn("if (!bHitBoss) DamageWorldEnemy(EnemyIndex, Damage, bRiposte, bComboFinisher);", self.cpp)
-        self.assertIn("if (!bHitBoss) DamageWorldEnemy(EnemyIndex, Damage, bRiposte);", self.cpp)
+        self.assertIn("if (!bHitBoss) DamageWorldEnemy(EnemyIndex, Damage, bRiposte, false, true);", self.cpp)
 
     def test_unreal_dodge_stamina_regen_delay_keeps_perfect_dodge_reward(self):
         dodge = self.cpp.split("void AMoonfallPawn::Dodge()", 1)[1].split(
@@ -607,7 +607,7 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("if (EnemyIndex == INDEX_NONE && !bBossInRange) return;", bolt)
         self.assertLess(bolt.index("if (EnemyIndex == INDEX_NONE"), bolt.index("CounterWindow = 0.f;"))
         self.assertIn("(bRiposte ? CounterMultiplier : 1.f)", bolt)
-        self.assertIn("if (!bHitBoss) DamageWorldEnemy(EnemyIndex, Damage, bRiposte);", bolt)
+        self.assertIn("if (!bHitBoss) DamageWorldEnemy(EnemyIndex, Damage, bRiposte, false, true);", bolt)
         self.assertIn("BossHealth - Damage", bolt)
         self.assertIn("Mana -= 30.f;", bolt)
         self.assertIn("BoltCooldown = 1.1f;", bolt)
@@ -642,7 +642,7 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("float AMoonfallPawn::HealingSpellAmount() const", self.cpp)
         self.assertIn("return 18.f + Progression.Level + 0.5f * GuardianBlessingCount();", self.cpp)
         self.assertIn("if (!bHitBoss) DamageWorldEnemy(EnemyIndex, Damage, bRiposte, bComboFinisher);", self.cpp)
-        self.assertIn("if (!bHitBoss) DamageWorldEnemy(EnemyIndex, Damage, bRiposte);", self.cpp)
+        self.assertIn("if (!bHitBoss) DamageWorldEnemy(EnemyIndex, Damage, bRiposte, false, true);", self.cpp)
         self.assertIn("Health + HealingSpellAmount()", self.cpp)
 
     def test_legacy_hero_selection_is_ignored_without_deleting_saves(self):
