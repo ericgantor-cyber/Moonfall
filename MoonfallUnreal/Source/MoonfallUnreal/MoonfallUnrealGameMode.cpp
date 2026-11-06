@@ -11,5 +11,7 @@ AMoonfallUnrealGameMode::AMoonfallUnrealGameMode()
 
 void AMoonfallUnrealGameMode::BeginPlay() {
  Super::BeginPlay();
- if (GetWorld()) GetWorld()->SpawnActor<AMoonfallArena>(FVector::ZeroVector, FRotator::ZeroRotator);
+ if (!GetWorld()) return;
+ UClass* SpawnClass = ArenaClass ? ArenaClass.Get() : AMoonfallArena::StaticClass();
+ GetWorld()->SpawnActor<AMoonfallArena>(SpawnClass,FVector::ZeroVector,FRotator::ZeroRotator);
 }
