@@ -389,6 +389,23 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("MapWidth >= 520.f", map_code)
         self.assertNotIn("Hero->GetEnemyMapPositions()", map_code)
 
+    def test_region_cave_progress_and_bars_respect_discovery(self):
+        hud = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8")
+        map_code = hud.split("// Cave discovery statistics", 1)[1]
+        self.assertIn("int32 RegionDiscoveredCaves = 0;", map_code)
+        self.assertIn("int32 RegionClearedCaves = 0;", map_code)
+        self.assertIn("if (!Hero->IsMapExplored(FVector2D(CavePosition.X, CavePosition.Y)))", map_code)
+        self.assertLess(map_code.index("if (!Hero->IsMapExplored(FVector2D(CavePosition.X, CavePosition.Y)))"),
+                        map_code.index("++RegionDiscoveredCaves;"))
+        self.assertIn("if (Region == ActiveRegionIndex)", map_code)
+        self.assertIn("if (bCleared) ++RegionClearedCaves;", map_code)
+        self.assertIn('TEXT("THIS REGION: %d/%d CAVES FOUND   %d CLEARED")', map_code)
+        self.assertIn("RegionDiscoveredCaves, MoonfallWorldRules::ChambersPerRegion, RegionClearedCaves", map_code)
+        self.assertIn("BarWidth * WorldPercent / 100.f", map_code)
+        self.assertIn("BarWidth * RegionPercent / 100.f", map_code)
+        self.assertIn("if (MapWidth >= 520.f)", map_code)
+        self.assertNotIn("Hero->GetEnemyMapPositions()", map_code)
+
     def test_full_map_discovery_counts_only_revealed_caves(self):
         hud = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8")
         minimap = hud.split("// Compact WoW-style circular minimap", 1)[1]
@@ -397,7 +414,7 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("MoonfallWorldRules::ChamberReward(Region, Cave)", minimap)
         self.assertIn("if (!Hero->IsMapExplored(FVector2D(CavePosition.X, CavePosition.Y)))", minimap)
         self.assertIn("++DiscoveredCaves;", minimap)
-        self.assertIn("if (Hero->IsCaveCleared(Region, Cave)) ++ClearedCaves;", minimap)
+        self.assertIn("if (bCleared) ++ClearedCaves;", minimap)
         self.assertIn('TEXT("CAVES FOUND: %d/%d   CLEARED: %d")', minimap)
         self.assertIn("MoonfallWorldRules::TotalChambers, ClearedCaves", minimap)
         self.assertNotIn("Hero->GetEnemyMapPositions()", minimap)
