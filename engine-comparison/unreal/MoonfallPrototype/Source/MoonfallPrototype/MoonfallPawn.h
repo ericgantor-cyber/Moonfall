@@ -46,6 +46,13 @@ public:
     int32 GetMinimapTrackingMode() const { return MinimapTrackingMode; }
     int32 GetMinimapZoomLevel() const { return MinimapZoomLevel; }
     bool IsWorldMapVisible() const { return bWorldMapVisible; }
+    // Persisted 2 m discovery cells across the continuous world.
+    static constexpr float FogMinX = -2000.f;
+    static constexpr float FogMinY = -3600.f;
+    static constexpr float FogCellSize = 200.f;
+    static constexpr int32 FogWidth = 100;
+    static constexpr int32 FogHeight = 36;
+    bool IsMapExplored(const FVector2D& WorldPosition) const;
     float GetMinimapWorldRadius() const { return MinimapZoomLevel == 2 ? 850.f : (MinimapZoomLevel == 1 ? 1200.f : 1700.f); }
     float GetBossPostureRatio() const { return FMath::Clamp(BossPosture / BossPostureThreshold, 0.f, 1.f); }
     bool IsBossPostureActive() const { return !bWon && BossPosture > 0.f; }
@@ -122,6 +129,8 @@ private:
     void CycleMinimapTracking();
     void ToggleWorldMap();
     bool bWorldMapVisible = false; // Temporary full terrain map, closed by default.
+    TArray<uint8> ExploredMapCells; // 3,600 saved byte flags; older saves start undiscovered.
+    void RevealMapAround(const FVector& WorldPosition);
     int32 MinimapTrackingMode = 0; // 0 all, 1 chambers, 2 boss, 3 off.
     // UI clicks are handled before combat, so zoom buttons never trigger attacks.
     bool TryHandleMinimapZoomClick();
