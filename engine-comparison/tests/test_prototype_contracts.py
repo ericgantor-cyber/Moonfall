@@ -293,11 +293,32 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("RadiusAtY", minimap)
         self.assertIn("FLinearColor(.045f, .055f, .085f, .88f)", minimap)
         self.assertIn("DrawRect(FLinearColor(.035f, .045f, .075f, .93f)", minimap)
-        self.assertIn("Region == MoonfallWorldRules::RegionAt(H.X)", minimap)
+        self.assertIn("if (!Hero->IsMapExplored(FVector2D(WorldX, WorldY))) continue;", minimap)
         self.assertIn('TEXT("REGION %d / %d")', minimap)
-        self.assertIn('TEXT("GREEN: CAVE   RED: BOSS   CYAN: YOU")', minimap)
+        self.assertIn('TEXT("FOG: UNEXPLORED BLANK   GREEN: CAVE   RED: BOSS")', minimap)
         self.assertNotIn("Hero->GetEnemyMapPositions()", minimap)
         self.assertNotIn("NearestChamberDirection", minimap)
+
+    def test_fog_of_war_hides_unknown_world_terrain_and_markers(self):
+        saved = SAVES.read_text(encoding="utf-8")
+        hud = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8")
+        minimap = hud.split("// Compact WoW-style circular minimap", 1)[1]
+        self.assertIn("TArray<uint8> ExploredMapCells;", saved)
+        self.assertIn("static constexpr int32 FogWidth = 100;", self.header)
+        self.assertIn("static constexpr int32 FogHeight = 36;", self.header)
+        self.assertIn("void AMoonfallPawn::RevealMapAround(const FVector& WorldPosition)", self.cpp)
+        self.assertIn("ExploredMapCells.Init(0, FogWidth * FogHeight);", self.cpp)
+        self.assertIn("RevealMapAround(HeroMesh->GetRelativeLocation());", self.cpp)
+        self.assertIn("RevealMapAround(Position);", self.cpp)
+        self.assertIn("Progress->ExploredMapCells = ExploredMapCells;", self.cpp)
+        self.assertIn("ExploredMapCells = Progress->ExploredMapCells;", self.cpp)
+        self.assertIn("Hero->IsMapExplored(WorldSample)", minimap)
+        self.assertIn("if (!Hero->IsMapExplored(FVector2D(Chamber.X, Chamber.Y))) continue;", minimap)
+        self.assertIn("Hero->IsMapExplored(FVector2D(B.X, B.Y))", minimap)
+        self.assertIn("if (!Hero->IsMapExplored(FVector2D(WorldX, WorldY))) continue;", minimap)
+        self.assertIn("if (!Hero->IsMapExplored(FVector2D(X, 0.f))) continue;", minimap)
+        self.assertNotIn("MoonfallWorldRules::RegionCenter(Region) + 1700.f", minimap)
+        self.assertNotIn("Hero->GetEnemyMapPositions()", minimap)
 
     def test_nearest_unclaimed_cave_is_highlighted_without_direction_arrows(self):
         hud = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8")
@@ -336,7 +357,7 @@ class PrototypeContracts(unittest.TestCase):
         hud = (ROOT / "unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8")
         minimap = hud.split("// Compact WoW-style circular minimap", 1)[1]
         self.assertIn('TEXT("CAVES")', minimap)
-        self.assertIn('TEXT("GREEN: CAVE   RED: BOSS   CYAN: YOU")', minimap)
+        self.assertIn('TEXT("FOG: UNEXPLORED BLANK   GREEN: CAVE   RED: BOSS")', minimap)
         self.assertIn("Cave mouth icon: an arch and dark entrance", minimap)
         self.assertNotIn('TEXT("CHAMBERS")', minimap)
         self.assertIn("MoonfallWorldRules::ChamberCenter(Region, Chamber)", hud)
