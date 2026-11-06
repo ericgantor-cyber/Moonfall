@@ -20,6 +20,10 @@ public:
  UPROPERTY(EditAnywhere, Category="Combat") float AttackCooldown = 1.3f;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat") bool bElite = false;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat") bool bBoss = false;
+ UPROPERTY(EditDefaultsOnly, Category="Moonfall|Enemy Art") UStaticMesh* RegularEnemyArt = nullptr;
+ UPROPERTY(EditDefaultsOnly, Category="Moonfall|Enemy Art") UMaterialInterface* RegularEnemyMaterial = nullptr;
+ UPROPERTY(EditDefaultsOnly, Category="Moonfall|Enemy Art") UStaticMesh* BossEnemyArt = nullptr;
+ UPROPERTY(EditDefaultsOnly, Category="Moonfall|Enemy Art") UMaterialInterface* BossEnemyMaterial = nullptr;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat") bool bCorruptedCrow = false;
  // Optional imported art overrides; default primitive silhouette remains a safe fallback.
  UPROPERTY(EditDefaultsOnly, Category="Moonfall|Crow Art") UStaticMesh* CrowBodyArt = nullptr;
