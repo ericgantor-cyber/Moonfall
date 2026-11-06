@@ -12,6 +12,7 @@ public:
  virtual void BeginPlay() override;
  UPROPERTY(EditAnywhere, Category="Dungeon") int32 EnemyCount = 5;
  UPROPERTY(EditDefaultsOnly, Category="Moonfall|Art") TSubclassOf<class AMoonfallEnemy> CrowEnemyClass;
+ UPROPERTY(EditDefaultsOnly, Category="Moonfall|Art") UStaticMesh* RuinMeshArt = nullptr;
  UPROPERTY(EditDefaultsOnly, Category="Moonfall|Art") UMaterialInterface* RuinStoneMaterial = nullptr;
  UPROPERTY(EditAnywhere, Category="Moonfall|Art", meta=(ClampMin="0",ClampMax="48")) int32 RubbleCount = 24;
 private:
