@@ -181,6 +181,7 @@ func _draw()->void:
    var start:Vector3=passage["start"]
    var finish:Vector3=passage["end"]
    var width:float=passage["width"]
+   if not bool(passage.get("explored",false)):continue # Skip hidden geometry before viewport and polygon work.
    if not passage_near_chart(start,finish,width,player_position,Vector2(size.x,size.y)*0.5/scale_factor):continue
    var path:Vector2=Vector2(finish.x-start.x,finish.z-start.z)
    if path.length_squared()<0.0001:continue
@@ -188,10 +189,8 @@ func _draw()->void:
    var from_point:Vector2=centre+Vector2(start.x-player_position.x,start.z-player_position.z)*scale_factor
    var to_point:Vector2=centre+Vector2(finish.x-player_position.x,finish.z-player_position.z)*scale_factor
    var corners:=PackedVector2Array([from_point+normal,to_point+normal,to_point-normal,from_point-normal])
-   var explored:bool=bool(passage.get("explored",false))
-   if not explored:continue # Fog of war: never reveal unvisited corridors.
-   draw_colored_polygon(corners,Color(0.34,0.37,0.44,0.82) if explored else Color(0.075,0.095,0.13,0.88))
-   var edge_color:Color=Color(0.72,0.76,0.83,0.88) if explored else Color(0.25,0.30,0.39,0.65)
+   draw_colored_polygon(corners,Color(0.34,0.37,0.44,0.82))
+   var edge_color:Color=Color(0.72,0.76,0.83,0.88)
    draw_line(from_point+normal,to_point+normal,edge_color,1.5)
    draw_line(from_point-normal,to_point-normal,edge_color,1.5)
  # Draw only authored floor meshes as a local top-down plan. No invented corridors.
