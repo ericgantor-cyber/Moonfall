@@ -134,6 +134,17 @@ jobs:
             throw 'Set repository variable MOONFALL_UE56_ROOT to the installed Unreal Engine 5.6 directory.'
           }
           & ./engine-comparison/unreal/verify-windows-build.ps1 -EngineRoot $env:UE_56_ROOT -CreateMap -Package -ArchiveDirectory (Join-Path $env:RUNNER_TEMP 'MoonfallUE56Package')
+      - name: Upload Unreal diagnostics when compilation or packaging fails
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: Moonfall-Unreal56-Failure-Logs
+          path: |
+            engine-comparison/unreal/MoonfallPrototype/Saved/Logs/*.log
+            engine-comparison/unreal/MoonfallPrototype/Saved/Crashes/**/*
+            engine-comparison/unreal/MoonfallPrototype/Intermediate/Build/Win64/**/*.log
+          if-no-files-found: warn
+          retention-days: 7
       - name: Upload successfully verified Win64 package
         uses: actions/upload-artifact@v4
         with:
