@@ -65,6 +65,7 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("ZoomOut"), IE_Pressed, this, &AMoonfallHeroPawn::ZoomCameraOut);
  Input->BindAction(TEXT("MinimapZoomIn"), IE_Pressed, this, &AMoonfallHeroPawn::ZoomMinimapIn);
  Input->BindAction(TEXT("MinimapZoomOut"), IE_Pressed, this, &AMoonfallHeroPawn::ZoomMinimapOut);
+ Input->BindAction(TEXT("WorldMap"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleWorldMap);
  Input->BindAction(TEXT("Jump"), IE_Pressed, this, &ACharacter::Jump);
  Input->BindAction(TEXT("Jump"), IE_Released, this, &ACharacter::StopJumping);
  Input->BindAction(TEXT("CastLeft"), IE_Pressed, this, &AMoonfallHeroPawn::CastLeft);
@@ -79,6 +80,7 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("OptionsLeft"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsLeft);
  Input->BindAction(TEXT("OptionsRight"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsRight);
 }
+void AMoonfallHeroPawn::ToggleWorldMap() { if (!bOptionsOpen) bWorldMapOpen = !bWorldMapOpen; }
 void AMoonfallHeroPawn::SetQuestTarget(FVector WorldLocation)
 {
  if (WorldLocation.ContainsNaN() || WorldLocation.GetAbsMax() > 100000000.f) return;
