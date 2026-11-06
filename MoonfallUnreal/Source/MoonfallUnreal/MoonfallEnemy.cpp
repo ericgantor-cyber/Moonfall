@@ -382,6 +382,15 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
  }
 }
 
+bool AMoonfallEnemy::IsCrowAttackWarningActive() const
+{
+ return bCorruptedCrow && Health > 0.f && !bCrowDiving && CrowAttackEndsAt >= 0.f
+   && GetWorld() && CrowAttackEndsAt > GetWorld()->GetTimeSeconds();
+}
+int32 AMoonfallEnemy::GetCrowAttackPattern() const
+{
+ return bCorruptedCrow ? CrowAttackKind : -1;
+}
 void AMoonfallEnemy::UpdateCrowAppearance(float TimeSeconds)
 {
  if (!bCorruptedCrow || !Body) return;
