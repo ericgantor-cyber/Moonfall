@@ -581,6 +581,9 @@ void AMoonfallHud::DrawHUD()
         // one rectangle instead of thousands of individual 2 m tiles.
         // This preserves blank unexplored cells and scales better on full maps.
         int32 DiscoveredGroundCells = 0;
+        int32 TotalWalkableCells = 0;
+        int32 RevealedByRegion[MoonfallWorldRules::RegionCount] = {};
+        int32 TotalByRegion[MoonfallWorldRules::RegionCount] = {};
         for (int32 Y = 0; Y < AMoonfallPawn::FogHeight; ++Y)
         {
             const float WorldY = AMoonfallPawn::FogMinY +
@@ -594,10 +597,20 @@ void AMoonfallHud::DrawHUD()
                 {
                     const float WorldX = AMoonfallPawn::FogMinX +
                         (X + .5f) * AMoonfallPawn::FogCellSize;
-                    if (Hero->IsMapExplored(FVector2D(WorldX, WorldY)))
+                    // Count only actual floor cells. Empty world grid cells
+                    // must not inflate the world or regional completion ratios.
+                    const FVector2D WorldCell(WorldX, WorldY);
+                    const int32 TerrainRegion = TerrainRegionAt(WorldCell);
+                    if (TerrainRegion != INDEX_NONE)
                     {
-                        Region = TerrainRegionAt(FVector2D(WorldX, WorldY));
-                        if (Region != INDEX_NONE) ++DiscoveredGroundCells;
+                        ++TotalWalkableCells;
+                        ++TotalByRegion[TerrainRegion];
+                        if (Hero->IsMapExplored(WorldCell))
+                        {
+                            Region = TerrainRegion;
+                            ++DiscoveredGroundCells;
+                            ++RevealedByRegion[TerrainRegion];
+                        }
                     }
                 }
                 if (Region == ActiveRegion) continue;
@@ -707,11 +720,26 @@ void AMoonfallHud::DrawHUD()
             DiscoveredCaves, MoonfallWorldRules::TotalChambers, ClearedCaves),
             FLinearColor(.86f, .92f, .82f), MapOrigin.X + 10.f,
             MapOrigin.Y + MapHeight - 57.f, nullptr, .70f);
-        // This counts revealed walkable terrain only, not hidden map cells.
+        // Percentages use discovered walkable floors, never the empty fog grid.
+        // No hidden cave coordinates or boss locations are exposed by totals.
+        const int32 ActiveRegionIndex = FMath::Clamp(
+            MoonfallWorldRules::RegionAt(H.X), 0, MoonfallWorldRules::RegionCount - 1);
+        const int32 WorldPercent = TotalWalkableCells > 0
+            ? FMath::Clamp(FMath::RoundToInt(
+                100.f * DiscoveredGroundCells / TotalWalkableCells), 0, 100) : 0;
+        const int32 RegionPercent = TotalByRegion[ActiveRegionIndex] > 0
+            ? FMath::Clamp(FMath::RoundToInt(
+                100.f * RevealedByRegion[ActiveRegionIndex] /
+                TotalByRegion[ActiveRegionIndex]), 0, 100) : 0;
         if (MapWidth >= 520.f)
+        {
             DrawText(FString::Printf(TEXT("DISCOVERED: %d TILES"), DiscoveredGroundCells),
                 FLinearColor(.83f, .85f, .91f), MapOrigin.X + MapWidth - 190.f,
                 MapOrigin.Y + 6.f, nullptr, .75f);
+            DrawText(FString::Printf(TEXT("WORLD %d%%   REGION %d%%"),
+                WorldPercent, RegionPercent), FLinearColor(.95f, .84f, .55f),
+                MapOrigin.X + MapWidth - 207.f, MapOrigin.Y + 27.f, nullptr, .75f);
+        }
         DrawText(TEXT("TAB: CLOSE MAP"), FLinearColor(.9f, .86f, .96f),
             MapOrigin.X + 10.f, MapOrigin.Y + MapHeight - 19.f, nullptr, .75f);
     }
