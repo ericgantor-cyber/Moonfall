@@ -48,6 +48,8 @@ public:
         float Age = 0.f;
         bool bHeavy = false;
         bool bMagic = false;
+        bool bIncoming = false;
+        bool bDodged = false;
     };
     const TArray<FDamageNumber>& GetDamageNumbers() const { return DamageNumbers; }
     static constexpr float DamageNumberLifetime = 1.25f;
@@ -79,6 +81,7 @@ private:
     TArray<FWorldEnemy> Enemies;
     TArray<FDamageNumber> DamageNumbers; // Bounded, temporary combat feedback only.
     void RecordDamageNumber(const FVector& LocalPosition, float Amount, bool bHeavy, bool bMagic);
+    void RecordHeroHit(float Amount, bool bDodged);
     struct FChamberCache
     {
         UStaticMeshComponent* Mesh = nullptr;
