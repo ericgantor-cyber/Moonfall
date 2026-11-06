@@ -115,3 +115,7 @@ While the M/View world atlas is open, player movement, camera-look inputs, spell
 ## Large world-atlas zoom and quest-marker clipping
 
 With the large world atlas open, **+ / =** zooms in and **-** zooms out in 25-metre steps, with a 50–500-metre player-centred viewing radius. With the atlas closed, the same keys retain the separate **12–48-metre minimap** zoom. Distant quest markers are constrained to the visible chart area rather than overlapping the title or escaping the panel. This is still a discovered-cell chart with bounded memory, **not** a rendered terrain map or fully ported quest journal. Unreal compilation and actual gameplay input tests remain unverified.
+
+## Atlas panning and recenter
+
+The M/View world atlas now pans in 20-metre steps with **WASD**, **arrow keys**, or **controller D-pad**, bounded to ±500 metres from the player's current position. Press **R** or the controller's **Y/Triangle** button to recenter on the player. The player marker, visited cells, and quest target now use the panned viewport correctly; player markers disappear when fully outside the visible chart. Map mode blocks game camera zoom so the D-pad cannot both pan the atlas and zoom the third-person camera. The small minimap and the separate world-atlas zoom still retain their own settings. These controls are committed as C++ source; **Unreal compile and Windows runtime input tests have not been performed.**
