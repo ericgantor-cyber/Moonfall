@@ -163,6 +163,19 @@ jobs:
           assert 'GConfig->SetFloat(TEXT("Moonfall.Map"), TEXT("WaypointX")' in hero
           assert 'GConfig->Flush(false, GGameUserSettingsIni)' in hero
           assert 'if (bWorldMapOpen && !bOptionsOpen && bPersonalWaypointActive)' in hero
+          birds_header = (root/'MoonfallUnreal'/'MoonfallBirdFlock.h').read_text()
+          birds = (root/'MoonfallUnreal'/'MoonfallBirdFlock.cpp').read_text()
+          assert 'class MOONFALLUNREAL_API AMoonfallBirdFlock' in birds_header
+          assert 'UInstancedStaticMeshComponent' in birds_header
+          assert 'BirdCount = 10' in birds_header
+          assert 'FMath::Clamp(BirdCount, 0, 16)' in birds
+          assert 'PrimaryActorTick.TickInterval = 0.05f' in birds
+          assert 'FVector::DistSquared2D' in birds
+          assert 'BirdCount-1' in birds and 'SetInstanceTransform' in birds
+          assert 'bOptionsOpen || Hero->bWorldMapOpen' in birds
+          assert 'ECollisionEnabled::NoCollision' in birds
+          assert 'SpawnActor<AMoonfallBirdFlock>' in arena
+          assert '#include "MoonfallBirdFlock.h"' in arena
           assert 'FMath::Min(Distance,MapRange)' in hud
           assert 'ActionName="MapClickWaypoint",Key=LeftMouseButton' in inputs
           assert 'BindAction(TEXT("MapClickWaypoint")' in hero
