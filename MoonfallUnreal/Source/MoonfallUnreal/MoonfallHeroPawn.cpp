@@ -4,6 +4,7 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Components/InputComponent.h"
 #include "Engine/World.h"
+#include "GameFramework/PlayerController.h"
 #include "DrawDebugHelpers.h"
 #include "Engine/Engine.h"
 #include "GameFramework/GameUserSettings.h"
@@ -16,7 +17,7 @@ AMoonfallHeroPawn::AMoonfallHeroPawn()
  PrimaryActorTick.bCanEverTick = true;
  CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
  CameraBoom->SetupAttachment(GetRootComponent());
- CameraBoom->TargetArmLength = 450.f;
+ CameraBoom->TargetArmLength = CameraDistance;
  CameraBoom->bUsePawnControlRotation = true;
  FollowCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("FollowCamera"));
  FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName);
@@ -35,6 +36,23 @@ void AMoonfallHeroPawn::BeginPlay() {
  CombatTextScale = FMath::Clamp(FMath::RoundToFloat(CombatTextScale * 4.f) / 4.f, 0.75f, 2.f);
  if (GConfig) GConfig->GetFloat(TEXT("Moonfall.Accessibility"), TEXT("BossWarningScale"), BossWarningScale, GGameUserSettingsIni);
  BossWarningScale = FMath::Clamp(FMath::RoundToFloat(BossWarningScale * 4.f) / 4.f, 1.f, 2.f);
+ // Restore only a valid, explicitly saved personal map pin; never restore quest locations.
+ if (GConfig) {
+  bool bSavedWaypointActive = false;
+  GConfig->GetBool(TEXT("Moonfall.Map"), TEXT("PersonalWaypointActive"), bSavedWaypointActive, GGameUserSettingsIni);
+  if (bSavedWaypointActive) {
+   float X = 0.f, Y = 0.f, Z = 0.f;
+   const bool bValid = GConfig->GetFloat(TEXT("Moonfall.Map"), TEXT("WaypointX"), X, GGameUserSettingsIni)
+    && GConfig->GetFloat(TEXT("Moonfall.Map"), TEXT("WaypointY"), Y, GGameUserSettingsIni)
+    && GConfig->GetFloat(TEXT("Moonfall.Map"), TEXT("WaypointZ"), Z, GGameUserSettingsIni)
+    && FMath::IsFinite(X) && FMath::IsFinite(Y) && FMath::IsFinite(Z)
+    && FMath::Abs(X) <= 10000000.f && FMath::Abs(Y) <= 10000000.f && FMath::Abs(Z) <= 10000000.f;
+   if (bValid) {
+    PersonalWaypoint = FVector(X,Y,Z);
+    bPersonalWaypointActive = true;
+   }
+  }
+ }
  // No FG vendor plugin or runtime capability integration has been added.
  bFrameGenerationAvailable = false;
  const TSharedPtr<IPlugin> FSR = IPluginManager::Get().FindPlugin(TEXT("FSR"));
@@ -47,7 +65,11 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
  Super::Tick(DeltaSeconds);
  // Bounded camera impulse, no camera shake object or spawned effects.
  ImpactCameraOffset = FMath::FInterpTo(ImpactCameraOffset, 0.f, FMath::Max(0.f, DeltaSeconds), 12.f);
- if (CameraBoom) CameraBoom->TargetArmLength = 450.f + (bReduceMotion ? 0.f : ImpactCameraOffset);
+ if (CameraBoom)
+ {
+  const float TargetDistance = FMath::Clamp(CameraDistance + (bReduceMotion ? 0.f : ImpactCameraOffset), 250.f, 850.f);
+  CameraBoom->TargetArmLength = FMath::FInterpTo(CameraBoom->TargetArmLength, TargetDistance, FMath::Max(0.f, DeltaSeconds), 10.f);
+ }
  if (Health > 0.f && Mana < MaxMana) Mana = FMath::Min(MaxMana, Mana + ManaRegenPerSecond * (1.f + FMath::Min(0.25f, AccessoryTier * 0.012f)) * FMath::Max(0.f, DeltaSeconds));
 }
 void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
@@ -57,6 +79,15 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAxis(TEXT("MoveRight"), this, &AMoonfallHeroPawn::MoveRight);
  Input->BindAxis(TEXT("Turn"), this, &AMoonfallHeroPawn::Turn);
  Input->BindAxis(TEXT("LookUp"), this, &AMoonfallHeroPawn::LookUp);
+ Input->BindAction(TEXT("ZoomIn"), IE_Pressed, this, &AMoonfallHeroPawn::ZoomCameraIn);
+ Input->BindAction(TEXT("ZoomOut"), IE_Pressed, this, &AMoonfallHeroPawn::ZoomCameraOut);
+ Input->BindAction(TEXT("MinimapZoomIn"), IE_Pressed, this, &AMoonfallHeroPawn::ZoomMinimapIn);
+ Input->BindAction(TEXT("MinimapZoomOut"), IE_Pressed, this, &AMoonfallHeroPawn::ZoomMinimapOut);
+ Input->BindAction(TEXT("WorldMap"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleWorldMap);
+ Input->BindAction(TEXT("WorldMapRecenter"), IE_Pressed, this, &AMoonfallHeroPawn::RecenterWorldMap);
+ Input->BindAction(TEXT("PlaceWaypoint"), IE_Pressed, this, &AMoonfallHeroPawn::PlacePersonalWaypoint);
+ Input->BindAction(TEXT("MapClickWaypoint"), IE_Pressed, this, &AMoonfallHeroPawn::PlacePersonalWaypointAtCursor);
+ Input->BindAction(TEXT("ClearWaypoint"), IE_Pressed, this, &AMoonfallHeroPawn::ClearPersonalWaypoint);
  Input->BindAction(TEXT("Jump"), IE_Pressed, this, &ACharacter::Jump);
  Input->BindAction(TEXT("Jump"), IE_Released, this, &ACharacter::StopJumping);
  Input->BindAction(TEXT("CastLeft"), IE_Pressed, this, &AMoonfallHeroPawn::CastLeft);
@@ -71,9 +102,94 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("OptionsLeft"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsLeft);
  Input->BindAction(TEXT("OptionsRight"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsRight);
 }
-void AMoonfallHeroPawn::MoveForward(float Value)
+void AMoonfallHeroPawn::ToggleWorldMap()
 {
  if (bOptionsOpen) return;
+ bWorldMapOpen = !bWorldMapOpen;
+ if (APlayerController* PC = Cast<APlayerController>(GetController())) PC->bShowMouseCursor = bWorldMapOpen;
+}
+void AMoonfallHeroPawn::RecenterWorldMap() { if (bWorldMapOpen && !bOptionsOpen) WorldMapPan = FVector2D::ZeroVector; }
+void AMoonfallHeroPawn::PlacePersonalWaypoint()
+{
+ if (!bWorldMapOpen || bOptionsOpen) return;
+ const FVector Origin = GetActorLocation();
+ // The atlas is player-relative and panned in world X/Y, so its centre is the placement target.
+ PersonalWaypoint = FVector(Origin.X + WorldMapPan.X, Origin.Y + WorldMapPan.Y, Origin.Z);
+ bPersonalWaypointActive = true;
+ SavePersonalWaypoint();
+}
+void AMoonfallHeroPawn::PlacePersonalWaypointAtCursor()
+{
+ if (!bWorldMapOpen || bOptionsOpen) return;
+ APlayerController* PC = Cast<APlayerController>(GetController());
+ if (!PC) return;
+ int32 ViewX = 0, ViewY = 0;
+ PC->GetViewportSize(ViewX,ViewY);
+ float MouseX = 0.f, MouseY = 0.f;
+ if (ViewX <= 0 || ViewY <= 0 || !PC->GetMousePosition(MouseX,MouseY)) return;
+ const float Width = FMath::Max(200.f, static_cast<float>(ViewX) - 60.f);
+ const float Height = FMath::Max(180.f, static_cast<float>(ViewY) - 90.f);
+ const float Left = (ViewX - Width) * 0.5f;
+ const float Top = (ViewY - Height) * 0.5f;
+ // Match DrawExplorationAtlas bounds and scale. Ignore title, footer and outside clicks.
+ if (MouseX < Left+12.f || MouseX > Left+Width-12.f ||
+     MouseY < Top+70.f || MouseY > Top+Height-16.f) return;
+ const float Range = FMath::Clamp(WorldMapRange, 5000.f, 50000.f);
+ const float Scale = FMath::Min(Width-40.f,Height-75.f)*0.5f/Range;
+ if (Scale <= KINDA_SMALL_NUMBER) return;
+ const FVector Origin = GetActorLocation();
+ PersonalWaypoint = FVector(
+  Origin.X+WorldMapPan.X+(MouseX-ViewX*0.5f)/Scale,
+  Origin.Y+WorldMapPan.Y-(MouseY-ViewY*0.5f)/Scale,Origin.Z);
+ bPersonalWaypointActive = true;
+ SavePersonalWaypoint();
+}
+void AMoonfallHeroPawn::ClearPersonalWaypoint()
+{
+ if (bWorldMapOpen && !bOptionsOpen && bPersonalWaypointActive) {
+  bPersonalWaypointActive = false;
+  SavePersonalWaypoint();
+ }
+}
+void AMoonfallHeroPawn::SavePersonalWaypoint()
+{
+ if (!GConfig) return;
+ GConfig->SetBool(TEXT("Moonfall.Map"), TEXT("PersonalWaypointActive"), bPersonalWaypointActive, GGameUserSettingsIni);
+ if (bPersonalWaypointActive) {
+  GConfig->SetFloat(TEXT("Moonfall.Map"), TEXT("WaypointX"), PersonalWaypoint.X, GGameUserSettingsIni);
+  GConfig->SetFloat(TEXT("Moonfall.Map"), TEXT("WaypointY"), PersonalWaypoint.Y, GGameUserSettingsIni);
+  GConfig->SetFloat(TEXT("Moonfall.Map"), TEXT("WaypointZ"), PersonalWaypoint.Z, GGameUserSettingsIni);
+ }
+ GConfig->Flush(false, GGameUserSettingsIni);
+}
+void AMoonfallHeroPawn::SetQuestTarget(FVector WorldLocation)
+{
+ if (WorldLocation.ContainsNaN() || WorldLocation.GetAbsMax() > 100000000.f) return;
+ QuestTarget = WorldLocation;
+ bQuestTargetActive = true;
+}
+void AMoonfallHeroPawn::ClearQuestTarget()
+{
+ bQuestTargetActive = false;
+}
+void AMoonfallHeroPawn::BeginArenaBossQuest(FVector BossLocation)
+{
+ if (bArenaBossQuestComplete || bArenaBossQuestActive || bQuestTargetActive ||
+     BossLocation.ContainsNaN() || BossLocation.GetAbsMax() > 100000000.f) return;
+ SetQuestTarget(BossLocation);
+ bArenaBossQuestActive = true;
+}
+void AMoonfallHeroPawn::CompleteArenaBossQuest()
+{
+ if (!bArenaBossQuestActive || bArenaBossQuestComplete) return;
+ bArenaBossQuestActive = false;
+ bArenaBossQuestComplete = true;
+ ArenaBossQuestCompletedAt = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f;
+ ClearQuestTarget();
+}
+void AMoonfallHeroPawn::MoveForward(float Value)
+{
+ if (bOptionsOpen || bWorldMapOpen) return;
  if (Controller && !FMath::IsNearlyZero(Value))
  {
   const FRotator Yaw(0.f, Controller->GetControlRotation().Yaw, 0.f);
@@ -82,20 +198,34 @@ void AMoonfallHeroPawn::MoveForward(float Value)
 }
 void AMoonfallHeroPawn::MoveRight(float Value)
 {
- if (bOptionsOpen) return;
+ if (bOptionsOpen || bWorldMapOpen) return;
  if (Controller && !FMath::IsNearlyZero(Value))
  {
   const FRotator Yaw(0.f, Controller->GetControlRotation().Yaw, 0.f);
   AddMovementInput(FRotationMatrix(Yaw).GetUnitAxis(EAxis::Y), Value);
  }
 }
-void AMoonfallHeroPawn::Turn(float Value) { if (!bOptionsOpen) AddControllerYawInput(Value); }
-void AMoonfallHeroPawn::LookUp(float Value) { if (!bOptionsOpen) AddControllerPitchInput(Value); }
+void AMoonfallHeroPawn::Turn(float Value) { if (!bOptionsOpen && !bWorldMapOpen) AddControllerYawInput(Value); }
+void AMoonfallHeroPawn::LookUp(float Value) { if (!bOptionsOpen && !bWorldMapOpen) AddControllerPitchInput(Value); }
+void AMoonfallHeroPawn::ZoomCameraIn() { if (!bOptionsOpen && !bWorldMapOpen) CameraDistance = FMath::Clamp(CameraDistance - 50.f, 250.f, 850.f); }
+void AMoonfallHeroPawn::ZoomCameraOut() { if (!bOptionsOpen && !bWorldMapOpen) CameraDistance = FMath::Clamp(CameraDistance + 50.f, 250.f, 850.f); }
+void AMoonfallHeroPawn::ZoomMinimapIn()
+{
+ if (bOptionsOpen) return;
+ if (bWorldMapOpen) WorldMapRange = FMath::Clamp(WorldMapRange - 2500.f, 5000.f, 50000.f);
+ else MinimapRange = FMath::Clamp(MinimapRange - 400.f, 1200.f, 4800.f);
+}
+void AMoonfallHeroPawn::ZoomMinimapOut()
+{
+ if (bOptionsOpen) return;
+ if (bWorldMapOpen) WorldMapRange = FMath::Clamp(WorldMapRange + 2500.f, 5000.f, 50000.f);
+ else MinimapRange = FMath::Clamp(MinimapRange + 400.f, 1200.f, 4800.f);
+}
 bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
 {
  static const float Costs[6] = {16.f,13.f,22.f,25.f,18.f,14.f};
  static const float Cooldowns[6] = {0.8f,0.65f,1.2f,2.f,1.f,0.9f};
- if (Health <= 0.f || bOptionsOpen || !GetWorld() || School < 0 || School >= 6 || Hand < 0 || Hand > 1 || !FMath::IsFinite(Multiplier) || Multiplier <= 0.f || Multiplier > 2.f) return false;
+ if (Health <= 0.f || bOptionsOpen || bWorldMapOpen || !GetWorld() || School < 0 || School >= 6 || Hand < 0 || Hand > 1 || !FMath::IsFinite(Multiplier) || Multiplier <= 0.f || Multiplier > 2.f) return false;
  const float Time = GetWorld()->GetTimeSeconds();
  if (!FMath::IsFinite(Health) || !FMath::IsFinite(MaxHealth) || MaxHealth <= 0.f || Health > MaxHealth || !FMath::IsFinite(MaxMana) || MaxMana <= 0.f || !FMath::IsFinite(Mana) || !FMath::IsFinite(SpellPowerMultiplier) || SpellPowerMultiplier <= 0.f || Mana < Costs[School] * Multiplier || Time - LastCastTime[Hand] < Cooldowns[School]) return false;
  if (School == 3 && Health >= MaxHealth) return false;
@@ -123,11 +253,11 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
  OnSpellCast(School, Hand == 0);
  return true;
 }
-void AMoonfallHeroPawn::CastLeft() { if (bOptionsOpen) return; TryCast(LeftSpell, 0, 1.f); }
-void AMoonfallHeroPawn::CastRight() { if (bOptionsOpen) return; TryCast(RightSpell, 1, 1.f); }
+void AMoonfallHeroPawn::CastLeft() { if (bOptionsOpen || bWorldMapOpen) return; TryCast(LeftSpell, 0, 1.f); }
+void AMoonfallHeroPawn::CastRight() { if (bOptionsOpen || bWorldMapOpen) return; TryCast(RightSpell, 1, 1.f); }
 void AMoonfallHeroPawn::CastBoth()
 {
- if (bOptionsOpen) return;
+ if (bOptionsOpen || bWorldMapOpen) return;
  if (LeftSpell != RightSpell || !GetWorld()) return;
  const float Time = GetWorld()->GetTimeSeconds();
  static const float Cooldowns[6] = {0.8f,0.65f,1.2f,2.f,1.f,0.9f};
@@ -140,7 +270,7 @@ void AMoonfallHeroPawn::CastBoth()
 }
 void AMoonfallHeroPawn::Dodge()
 {
- if (bOptionsOpen || Health <= 0.f || !GetWorld()) return;
+ if (bOptionsOpen || bWorldMapOpen || Health <= 0.f || !GetWorld()) return;
  const float Now = GetWorld()->GetTimeSeconds();
  if (Now < NextDodgeAt) return;
  NextDodgeAt = Now + DodgeCooldown;
@@ -190,11 +320,18 @@ void AMoonfallHeroPawn::ToggleDisplayMode() {
  Settings->SaveSettings();
 }
 
-void AMoonfallHeroPawn::OpenOptions() { bOptionsOpen = !bOptionsOpen; }
-void AMoonfallHeroPawn::OptionsUp() { if (bOptionsOpen) OptionsSelection = (OptionsSelection + 6) % 7; }
-void AMoonfallHeroPawn::OptionsDown() { if (bOptionsOpen) OptionsSelection = (OptionsSelection + 1) % 7; }
-void AMoonfallHeroPawn::OptionsLeft() { AdjustOption(-1); }
-void AMoonfallHeroPawn::OptionsRight() { AdjustOption(1); }
+void AMoonfallHeroPawn::OpenOptions()
+{
+ bOptionsOpen = !bOptionsOpen;
+ if (bOptionsOpen) {
+  bWorldMapOpen = false;
+  if (APlayerController* PC = Cast<APlayerController>(GetController())) PC->bShowMouseCursor = false;
+ }
+}
+void AMoonfallHeroPawn::OptionsUp() { if (bWorldMapOpen) WorldMapPan.Y = FMath::Clamp(WorldMapPan.Y + 2000.f, -50000.f, 50000.f); else if (bOptionsOpen) OptionsSelection = (OptionsSelection + 6) % 7; }
+void AMoonfallHeroPawn::OptionsDown() { if (bWorldMapOpen) WorldMapPan.Y = FMath::Clamp(WorldMapPan.Y - 2000.f, -50000.f, 50000.f); else if (bOptionsOpen) OptionsSelection = (OptionsSelection + 1) % 7; }
+void AMoonfallHeroPawn::OptionsLeft() { if (bWorldMapOpen) WorldMapPan.X = FMath::Clamp(WorldMapPan.X - 2000.f, -50000.f, 50000.f); else AdjustOption(-1); }
+void AMoonfallHeroPawn::OptionsRight() { if (bWorldMapOpen) WorldMapPan.X = FMath::Clamp(WorldMapPan.X + 2000.f, -50000.f, 50000.f); else AdjustOption(1); }
 void AMoonfallHeroPawn::AdjustOption(int32 Direction) {
  if (!bOptionsOpen || !GEngine) return;
  UGameUserSettings* Settings = GEngine->GetGameUserSettings();

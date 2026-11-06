@@ -26,6 +26,32 @@ jobs:
           assert 'BUILD MOONFALL' in center
           assert 'Setup-WindowsPrerequisites.ps1' in center
           assert 'Build-Windows.ps1' in center
+          # Validate the *manual* real compiler recipe as text, without pretending CI compiled Unreal.
+          compile_workflow = Path('.github/workflows/unreal-compile-windows.yml').read_text()
+          build_script = Path('MoonfallUnreal/Build/Build-Windows.ps1').read_text()
+          assert 'workflow_dispatch:' in compile_workflow
+          assert 'pull_request:' not in compile_workflow
+          assert 'runs-on: [self-hosted, Windows, X64, unreal-5-4]' in compile_workflow
+          assert 'persist-credentials: false' in compile_workflow
+          assert 'permissions:' in compile_workflow and 'contents: read' in compile_workflow
+          assert 'MoonfallUnreal\\Build\\Build-Windows.ps1 -UnrealRoot $env:UE54_ROOT -CompileOnly' in compile_workflow
+          assert 'if (-not $env:UE54_ROOT)' in compile_workflow
+          assert 'MoonfallUnrealEditor Win64 Development' in build_script
+          assert 'if ($CompileOnly)' in build_script
+          assert 'if ($LASTEXITCODE -ne 0)' in build_script
+          assert 'Upload compiler diagnostics on failure' in compile_workflow
+          assert 'Unreal C++ compile passed' in compile_workflow
+          runner_check = Path('MoonfallUnreal/Build/Check-CompileRunner.ps1').read_text()
+          assert "Set-StrictMode -Version Latest" in runner_check
+          assert "Engine\\Build\\BatchFiles\\Build.bat" in runner_check
+          assert "Microsoft.VisualStudio.Component.VC.Tools.x86.x64" in runner_check
+          assert "unreal-5-4" in runner_check
+          assert "UE54_ROOT=" in runner_check
+          assert "settings/actions/runners" in runner_check
+          assert "-CompileOnly" in runner_check
+          assert "if ($RunCompile)" in runner_check
+          assert "No compilation has run" in runner_check
+          assert "never downloads a runner" in runner_check
           assert 'CANCEL' in center and 'OPEN OUTPUT' in center
           root = Path('MoonfallUnreal/Source')
           for path in root.rglob('*.cpp'):
@@ -40,8 +66,8 @@ jobs:
           hero = (root/'MoonfallUnreal'/'MoonfallHeroPawn.cpp').read_text()
           assert 'NextPathRefreshAt' in enemy and 'CachedWaypoint' in enemy
           assert 'SetLifeSpan(1.25f)' in enemy
-          assert 'if (!bOptionsOpen) AddControllerYawInput' in hero
-          assert 'if (!bOptionsOpen) AddControllerPitchInput' in hero
+          assert 'if (!bOptionsOpen && !bWorldMapOpen) AddControllerYawInput' in hero
+          assert 'if (!bOptionsOpen && !bWorldMapOpen) AddControllerPitchInput' in hero
           assert 'ManaRegenPerSecond' in hero and 'Tick(float DeltaSeconds)' in hero
           assert 'DamageImmunityUntil' in hero and 'NextDodgeAt' in hero
           assert 'GetLastMovementInputVector' in hero
@@ -58,8 +84,290 @@ jobs:
           assert 'ActionName="CastLeft",Key=LeftMouseButton' in inputs
           assert 'ActionName="CastRight",Key=RightMouseButton' in inputs
           assert 'ActionName="DualCast",Key=Gamepad_LeftTrigger' in inputs
+          assert 'ActionName="ZoomIn",Key=MouseScrollUp' in inputs
+          assert 'ActionName="ZoomOut",Key=MouseScrollDown' in inputs
+          assert 'BindAction(TEXT("ZoomIn")' in hero and 'BindAction(TEXT("ZoomOut")' in hero
+          assert 'CameraDistance - 50.f' in hero and 'CameraDistance + 50.f' in hero
+          assert 'FMath::Clamp(CameraDistance + (bReduceMotion ? 0.f : ImpactCameraOffset), 250.f, 850.f)' in hero
+          assert 'FMath::FInterpTo(CameraBoom->TargetArmLength, TargetDistance' in hero
+          assert 'ActionName="ZoomIn",Key=Gamepad_DPad_Up' in inputs
+          assert 'ActionName="ZoomOut",Key=Gamepad_DPad_Down' in inputs
           assert 'DrawArc(Radius * 0.85f' in hud and 'DrawArc(Radius * 0.97f' in hud
           assert 'DisplayHealth = FMath::FInterpTo' in hud and 'LevelGlowUntil' in hud
+          assert 'const float MapRange = FMath::Clamp(Hero->MinimapRange, 1200.f, 4800.f)' in hud
+          assert 'DrawnEnemies < 32' in hud
+          assert 'Hero->GetActorForwardVector()' in hud
+          assert 'FVector2D(Facing3D.X,-Facing3D.Y).GetSafeNormal()' in hud
+          assert 'const FVector2D ArrowTip = MapCenter + Facing*11.f' in hud
+          assert 'const FVector2D ArrowWing(-Facing.Y,Facing.X)' in hud
+          assert 'Canvas->K2_DrawLine(ArrowTip,ArrowBase+ArrowWing*5.f' in hud
+          assert 'Canvas->K2_DrawLine(ArrowTip,ArrowBase-ArrowWing*5.f' in hud
+          assert 'DrawText(TEXT("N")' in hud and 'DrawText(TEXT("E")' in hud
+          assert 'DrawText(TEXT("W")' in hud and 'DrawText(TEXT("S")' in hud
+          assert 'Delta.SizeSquared() > FMath::Square(MapRange)' in hud
+          assert 'MapEnemy->bBoss ? FLinearColor' in hud
+          assert 'DrawRect(FLinearColor(0.27f,0.88f,1.f),MapCenter.X-1.5f,MapCenter.Y-1.5f,3.f,3.f)' in hud
+          hud_header = (root/'MoonfallUnreal'/'MoonfallCombatHUD.h').read_text()
+          assert 'TArray<FIntPoint> ExploredMapCells' in hud_header
+          assert 'ExploredMapCells.Num() >= MaxExplorationCells' in hud
+          assert 'static constexpr int32 MaxExplorationCells = 4096' in hud_header
+          assert 'static constexpr float ExplorationCellSizeCm = 1000.f' in hud_header
+          assert 'TSet<FIntPoint> ExploredMapIndex' in hud_header
+          assert 'ExploredMapIndex.Contains(CurrentCell)' in hud
+          assert 'ExploredMapIndex.Remove(ExploredMapCells[0])' in hud
+          assert 'ExploredMapIndex.Add(CurrentCell)' in hud
+          assert 'SavedCellSizeCm = 200' in hud
+          assert 'SavedCellSizeCm != 200 && SavedCellSizeCm != 1000' in hud
+          assert 'if (bLegacyCells && SavedCells.Num() > 0) bExplorationDirty = true' in hud
+          assert 'FMath::FloorToInt((static_cast<double>(X)+0.5)*200.0/ExplorationCellSizeCm)' in hud
+          assert 'GConfig->SetInt(TEXT("Moonfall.Exploration"), TEXT("CellSizeCm"), 1000' in hud
+          assert 'ExplorationCellSizeCm-Player.X-Pan.X' in hud
+          # Coordinate migration must floor negative world coordinates, not truncate toward zero.
+          import math
+          def legacy_cell_to_new_cell(old):
+              return math.floor((old + .5) * 200 / 1000)
+          assert legacy_cell_to_new_cell(-1) == -1
+          assert legacy_cell_to_new_cell(-5) == -1
+          assert legacy_cell_to_new_cell(0) == 0
+          assert legacy_cell_to_new_cell(4) == 0
+          assert legacy_cell_to_new_cell(5) == 1
+          assert 'ExploredMapIndex.Contains(CurrentCell)' in hud
+          assert 'const float CellSize = ExplorationCellSizeCm' in hud
+          assert 'FMath::Clamp(Hero->MinimapRange, 1200.f, 4800.f)' in hud
+          assert 'MapRange/100.f' in hud
+          assert 'ActionName="MinimapZoomIn",Key=Equals' in inputs
+          assert 'ActionName="MinimapZoomOut",Key=Hyphen' in inputs
+          assert 'BindAction(TEXT("MinimapZoomIn")' in hero and 'BindAction(TEXT("MinimapZoomOut")' in hero
+          assert 'MinimapRange - 400.f, 1200.f, 4800.f' in hero
+          assert 'MinimapRange + 400.f, 1200.f, 4800.f' in hero
+          assert 'virtual void BeginPlay() override' in hud_header
+          assert 'virtual void EndPlay(' in hud_header
+          assert 'GConfig->GetArray(TEXT("Moonfall.Exploration")' in hud
+          assert 'GConfig->SetArray(TEXT("Moonfall.Exploration")' in hud
+          assert 'GConfig->Flush(false, GGameUserSettingsIni)' in hud
+          assert 'NextExplorationSaveAt = Now + 15.f' in hud
+          assert 'FDefaultValueHelper::ParseInt(' in hud
+          assert 'bQuestTargetActive' in hero and 'SetQuestTarget(FVector WorldLocation)' in hero
+          assert 'ClearQuestTarget()' in hero
+          assert 'if (Hero->bQuestTargetActive)' in hud
+          assert 'FMath::Min(QuestDistance, MapRange)' in hud
+          assert 'bArenaBossQuestActive' in hud and 'QUEST: Defeat the Arena Boss' in hud
+          assert 'FVector::Dist2D(Hero->GetActorLocation(), Hero->QuestTarget) / 100.f' in hud
+          assert 'Boss->Health / FMath::Max(1.f, Boss->BossMaxHealth)' in hud
+          assert 'TrackerWidth*Progress' in hud
+          assert 'GetWorld()->GetTimeSeconds() - Hero->ArenaBossQuestCompletedAt < 5.f' in hud
+          assert 'ArenaBossQuestCompletedAt = GetWorld()' in hero
+          assert 'QUEST COMPLETE: Arena Boss' in hud
+          assert 'BeginArenaBossQuest(FVector BossLocation)' in hero
+          assert 'CompleteArenaBossQuest()' in hero
+          assert 'if (!bArenaBossQuestActive || bArenaBossQuestComplete) return' in hero
+          assert 'bArenaBossQuestComplete = true' in hero
+          assert 'ClearQuestTarget();' in hero
+          assert 'Hero->BeginArenaBossQuest(Enemy->GetActorLocation())' in arena
+          assert 'if (bBoss) Hero->CompleteArenaBossQuest()' in enemy
+          assert 'const FIntPoint CurrentCell' in hud and hud.index('const FIntPoint CurrentCell') < hud.index('if (Canvas->SizeX >= 700.f')
+          assert '(DiscoveredScreen - MapCenter).SizeSquared() >' in hud
+          hero_header = (root/'MoonfallUnreal'/'MoonfallHeroPawn.h').read_text()
+          assert 'bool bWorldMapOpen = false' in hero_header
+          assert 'ActionName="WorldMap",Key=M' in inputs
+          assert 'ActionName="WorldMap",Key=Gamepad_Special_Left' in inputs
+          assert 'BindAction(TEXT("WorldMap")' in hero
+          assert 'ToggleWorldMap()' in hero
+          assert 'if (bOptionsOpen || bWorldMapOpen) return' in hero
+          assert 'bOptionsOpen || bWorldMapOpen || !GetWorld()' in hero
+          assert 'bWorldMapOpen = false;' in hero and 'PC->bShowMouseCursor = false' in hero
+          assert 'Hero->bOptionsOpen || Hero->bWorldMapOpen' in enemy
+          assert 'DrawExplorationAtlas(Hero)' in hud
+          assert 'const float HalfWorldRange = FMath::Clamp(Hero->WorldMapRange, 5000.f, 50000.f)' in hud
+          assert 'WorldMapRange - 2500.f, 5000.f, 50000.f' in hero
+          assert 'WorldMapRange + 2500.f, 5000.f, 50000.f' in hero
+          assert 'if (bWorldMapOpen) WorldMapRange' in hero
+          assert 'float WorldMapRange = 15000.f' in hero_header
+          assert 'FMath::Clamp(RawTarget.Y,TopLeft.Y+70.f,TopLeft.Y+Height-16.f)' in hud
+          assert 'HalfWorldRange/100.f' in hud
+          assert 'FVector2D WorldMapPan = FVector2D::ZeroVector' in hero_header
+          assert 'ActionName="WorldMapRecenter",Key=R' in inputs
+          assert 'ActionName="WorldMapRecenter",Key=Gamepad_FaceButton_Top' in inputs
+          assert 'BindAction(TEXT("WorldMapRecenter")' in hero
+          assert 'WorldMapPan = FVector2D::ZeroVector' in hero
+          assert 'WorldMapPan.Y + 2000.f' in hero and 'WorldMapPan.Y - 2000.f' in hero
+          assert 'WorldMapPan.X + 2000.f' in hero and 'WorldMapPan.X - 2000.f' in hero
+          assert 'const FVector2D Pan = Hero->WorldMapPan' in hud
+          assert 'Player.X-Pan.X' in hud and 'Player.Y-Pan.Y' in hud
+          assert 'const FVector2D RawPlayer = Centre + FVector2D(-Pan.X, Pan.Y) * Scale' in hud
+          assert 'if (!bOptionsOpen && !bWorldMapOpen) CameraDistance' in hero
+          assert 'bPersonalWaypointActive = false' in hero_header
+          assert 'FVector PersonalWaypoint = FVector::ZeroVector' in hero_header
+          assert 'ActionName="PlaceWaypoint",Key=T' in inputs
+          assert 'ActionName="ClearWaypoint",Key=BackSpace' in inputs
+          assert 'ActionName="PlaceWaypoint",Key=Gamepad_LeftShoulder' in inputs
+          assert 'ActionName="ClearWaypoint",Key=Gamepad_RightShoulder' in inputs
+          assert 'BindAction(TEXT("PlaceWaypoint")' in hero
+          assert 'BindAction(TEXT("ClearWaypoint")' in hero
+          assert 'Origin.X + WorldMapPan.X' in hero and 'Origin.Y + WorldMapPan.Y' in hero
+          assert 'if (!bWorldMapOpen || bOptionsOpen) return' in hero
+          assert 'if (Hero->bPersonalWaypointActive)' in hud
+          assert 'const FVector WaypointOffset = Hero->PersonalWaypoint - Player' in hud
+          assert 'SavePersonalWaypoint();' in hero
+          assert 'GConfig->GetBool(TEXT("Moonfall.Map"), TEXT("PersonalWaypointActive")' in hero
+          assert 'GConfig->GetFloat(TEXT("Moonfall.Map"), TEXT("WaypointX")' in hero
+          assert 'GConfig->GetFloat(TEXT("Moonfall.Map"), TEXT("WaypointY")' in hero
+          assert 'GConfig->GetFloat(TEXT("Moonfall.Map"), TEXT("WaypointZ")' in hero
+          assert 'FMath::IsFinite(X) && FMath::IsFinite(Y) && FMath::IsFinite(Z)' in hero
+          assert 'GConfig->SetBool(TEXT("Moonfall.Map"), TEXT("PersonalWaypointActive")' in hero
+          assert 'GConfig->SetFloat(TEXT("Moonfall.Map"), TEXT("WaypointX")' in hero
+          assert 'GConfig->Flush(false, GGameUserSettingsIni)' in hero
+          assert 'if (bWorldMapOpen && !bOptionsOpen && bPersonalWaypointActive)' in hero
+          enemy_header = (root/'MoonfallUnreal'/'MoonfallEnemy.h').read_text()
+          assert 'bool bCorruptedCrow = false' in enemy_header
+          assert 'void TickCorruptedCrow(float DeltaSeconds)' in enemy_header
+          assert 'if (bCorruptedCrow) { TickCorruptedCrow(DeltaSeconds); return; }' in enemy
+          assert 'CrowAttackKind = CrowAttackSequence++ % 3' in enemy
+          assert 'CROW TALON SWEEP - DODGE' in enemy
+          assert 'CROW FEINT - WAIT FOR DIVE' in enemy
+          assert 'CROW DIVE - DODGE' in enemy
+          assert 'void AMoonfallEnemy::UpdateCrowAppearance(float TimeSeconds)' in enemy
+          assert 'CrowLeftWing->SetRelativeRotation' in enemy
+          assert 'CrowRightWing->SetRelativeRotation' in enemy
+          assert 'ECollisionEnabled::NoCollision' in enemy
+          assert 'const bool bContact = Hit.bBlockingHit && Hit.GetActor() == Hero' in enemy
+          assert 'if (!bCrowHasHit && (bContact || Reach < 115.f))' in enemy
+          assert 'const bool bBlocked = GetWorld()->LineTraceSingleByChannel' in enemy
+          assert 'CrowRecoverUntil = Now+FMath::Max(1.7f,AttackCooldown)' in enemy
+          assert 'bCrowDiving = true' in enemy
+          assert 'FMath::Max(1.7f,AttackCooldown)' in enemy
+          assert 'AddActorWorldOffset((DiveTarget-Current).GetClampedToMaxSize' in enemy
+          assert 'Hero->ApplyMoonfallDamage(AttackDamage*DamageFactor)' in enemy
+          assert 'if (bCorruptedCrow && Health > 0.f && CrowAttackEndsAt >= 0.f && !bCrowDiving)' in enemy
+          assert 'Hero->bOptionsOpen || Hero->bWorldMapOpen' in enemy
+          assert 'bCorruptedCrow = true' in arena
+          assert 'BirdIndex<2' in arena
+          # Art upgrade: visible crow silhouette, low-overhead warning light, optional imported art.
+          assert 'CrowTail' in enemy_header and 'CrowLeftTalon' in enemy_header
+          assert 'CrowRightTalon' in enemy_header and 'CrowLeftEye' in enemy_header
+          assert 'CrowRightEye' in enemy_header and 'CrowWarningGlow' in enemy_header
+          assert 'CrowBodyArt' in enemy_header and 'CrowWingArt' in enemy_header
+          assert 'CrowFeatherMaterial' in enemy_header and 'CrowAccentMaterial' in enemy_header
+          assert 'CrowLeftWing->SetHiddenInGame(false)' in enemy
+          assert 'CrowTail->SetHiddenInGame(false)' in enemy
+          assert 'CrowWarningGlow->SetVisibility(CrowAttackEndsAt >= 0.f || bCrowDiving)' in enemy
+          assert 'CrowWarningGlow->SetCastShadows(false)' in enemy
+          assert 'CrowWingArt' in enemy and 'CrowBodyArt' in enemy
+          assert 'if (CrowFeatherMaterial)' in enemy and 'if (CrowAccentMaterial)' in enemy
+          assert 'void AMoonfallArena::CreateDecoration' in arena
+          arena_header = (root/'MoonfallUnreal'/'MoonfallArena.h').read_text()
+          assert 'UInstancedStaticMeshComponent* RuinPieces' in arena_header
+          assert 'UInstancedStaticMeshComponent* DeadTrees' in arena_header
+          assert 'UDirectionalLightComponent* Moonlight' in arena_header
+          assert 'UExponentialHeightFogComponent* GroundFog' in arena_header
+          assert 'bool bEnableMoonlight = true' in arena_header
+          assert 'bool bEnableLowFog = true' in arena_header
+          assert 'float GroundFogDensity = 0.012f' in arena_header
+          assert '#include "Components/DirectionalLightComponent.h"' in arena
+          assert '#include "Components/ExponentialHeightFogComponent.h"' in arena
+          assert 'CreateDefaultSubobject<UDirectionalLightComponent>(TEXT("Moonlight"))' in arena
+          assert 'CreateDefaultSubobject<UExponentialHeightFogComponent>(TEXT("GroundFog"))' in arena
+          assert 'Moonlight->SetCastShadows(false)' in arena
+          assert 'GroundFog->SetFogHeightFalloff(0.34f)' in arena
+          assert 'GroundFog->SetVisibility(bEnableLowFog)' in arena
+          assert 'Moonlight->SetVisibility(bEnableMoonlight)' in arena
+          assert 'FMath::Clamp(GroundFogDensity,0.f,0.025f)' in arena
+          assert 'UInstancedStaticMeshComponent* RitualStones' in arena_header
+          assert 'UInstancedStaticMeshComponent* RitualSigil' in arena_header
+          assert 'UStaticMesh* SigilTileMeshArt' in arena_header
+          assert 'UMaterialInterface* SigilTileMaterial' in arena_header
+          assert 'bool bShowRitualCircle = true' in arena_header
+          assert 'CreateDefaultSubobject<UInstancedStaticMeshComponent>(TEXT("RitualSigil"))' in arena
+          assert 'RitualSigil->SetCollisionEnabled(ECollisionEnabled::NoCollision)' in arena
+          assert 'RitualSigil->SetCastShadow(false)' in arena
+          assert 'RitualSigil->AddInstance(FTransform' in arena
+          assert 'if (bShowRitualCircle)' in arena and 'constexpr int32 RingTiles = 24' in arena
+          assert 'if (SigilTileMeshArt) RitualSigil->SetStaticMesh(SigilTileMeshArt)' in arena
+          assert 'if (SigilTileMaterial) RitualSigil->SetMaterial(0,SigilTileMaterial)' in arena
+          assert 'int32 DeadTreeCount = 10' in arena_header
+          assert 'UStaticMesh* DeadTreeMeshArt' in arena_header
+          assert 'UMaterialInterface* DeadTreeMaterial' in arena_header
+          assert 'UStaticMesh* RitualStoneMeshArt' in arena_header
+          assert 'UMaterialInterface* RitualStoneMaterial' in arena_header
+          assert 'CreateDefaultSubobject<UInstancedStaticMeshComponent>(TEXT("DeadTrees"))' in arena
+          assert 'CreateDefaultSubobject<UInstancedStaticMeshComponent>(TEXT("RitualStones"))' in arena
+          assert 'DeadTrees->SetCollisionEnabled(ECollisionEnabled::NoCollision)' in arena
+          assert 'RitualStones->SetCollisionEnabled(ECollisionEnabled::NoCollision)' in arena
+          assert 'FMath::Clamp(DeadTreeCount,0,16)' in arena
+          assert 'const float BaseZ = DeadTreeMeshArt ? 155.f : -10.f + Height*50.f' in arena
+          assert arena.index('Block->SetStaticMesh(') < arena.index('Block->RegisterComponent();')
+          assert 'bool IsCrowAttackWarningActive() const' in enemy_header
+          assert 'int32 GetCrowAttackPattern() const' in enemy_header
+          assert 'bool AMoonfallEnemy::IsCrowAttackWarningActive() const' in enemy
+          assert 'CrowAttackEndsAt > GetWorld()->GetTimeSeconds()' in enemy
+          assert 'Crow->IsCrowAttackWarningActive()' in hud
+          assert 'Crow->GetCrowAttackPattern()' in hud
+          assert 'DrawText(Warning,FLinearColor(1.f,0.8f,0.19f)' in hud
+          assert 'FMath::Clamp(Hero->BossWarningScale,1.f,2.f)' in hud
+          assert 'for (int32 i=0;i<7;++i)' in arena
+          assert 'AddFoliage(Base' in arena and 'AddRitualStone(FVector' in arena
+          assert 'if (!DeadTreeMeshArt)' in arena
+          assert 'if (DeadTreeMeshArt) DeadTrees->SetStaticMesh(DeadTreeMeshArt)' in arena
+          assert 'if (RitualStoneMeshArt) RitualStones->SetStaticMesh(RitualStoneMeshArt)' in arena
+          assert 'UMaterialInterface* RuinStoneMaterial' in arena_header
+          assert 'UStaticMesh* RuinMeshArt' in arena_header
+          assert 'if (RuinMeshArt) RuinPieces->SetStaticMesh(RuinMeshArt)' in arena
+          assert 'UStaticMesh* GroundMeshArt' in arena_header
+          assert 'UMaterialInterface* GroundMaterial' in arena_header
+          assert 'UStaticMesh* BoundaryMeshArt' in arena_header
+          assert 'UMaterialInterface* BoundaryMaterial' in arena_header
+          assert 'void AMoonfallArena::CreateBlock(FVector Position, FVector Scale, bool bGround)' in arena
+          assert 'bGround ? GroundMeshArt : BoundaryMeshArt' in arena
+          assert 'bGround ? GroundMaterial : BoundaryMaterial' in arena
+          assert 'CreateBlock(FVector(0,0,-60),FVector(30,30,1),true)' in arena
+          assert arena.count('),false);') >= 4
+          assert 'UStaticMesh* RegularEnemyArt' in enemy_header
+          assert 'UMaterialInterface* RegularEnemyMaterial' in enemy_header
+          assert 'UStaticMesh* BossEnemyArt' in enemy_header
+          assert 'UMaterialInterface* BossEnemyMaterial' in enemy_header
+          assert 'if (!bCorruptedCrow && Body)' in enemy
+          assert 'bBoss ? BossEnemyArt : RegularEnemyArt' in enemy
+          assert 'bBoss ? BossEnemyMaterial : RegularEnemyMaterial' in enemy
+          assert 'int32 RubbleCount = 24' in arena_header
+          assert 'CreateDefaultSubobject<UInstancedStaticMeshComponent>' in arena
+          assert 'RuinPieces->AddInstance(FTransform' in arena
+          assert 'FMath::Clamp(RubbleCount,0,48)' in arena
+          assert 'const float Angle = i*2.399963f' in arena
+          assert 'if (RuinStoneMaterial) RuinPieces->SetMaterial(0,RuinStoneMaterial)' in arena
+          assert 'RuinPieces->SetCollisionEnabled(ECollisionEnabled::NoCollision)' in arena
+          assert 'if (CrowWarningGlow) CrowWarningGlow->SetVisibility(false)' in enemy
+          assert 'void AMoonfallArena::CreateAtmosphereLight' in arena
+          assert 'SetCollisionEnabled(ECollisionEnabled::NoCollision)' in arena
+          assert arena.count('CreateAtmosphereLight(FVector(') == 2
+          assert 'CrowSpawnClass = CrowEnemyClass ? CrowEnemyClass.Get()' in arena
+          game_mode = (root/'MoonfallUnreal'/'MoonfallUnrealGameMode.cpp').read_text()
+          game_mode_header = (root/'MoonfallUnreal'/'MoonfallUnrealGameMode.h').read_text()
+          assert 'ArenaClass ? ArenaClass.Get() : AMoonfallArena::StaticClass()' in game_mode
+          assert 'TSubclassOf<class AMoonfallArena> ArenaClass' in game_mode_header
+          assert 'SpawnActor<AMoonfallBirdFlock>' not in arena
+          assert 'FMath::Min(Distance,MapRange)' in hud
+          assert 'ActionName="MapClickWaypoint",Key=LeftMouseButton' in inputs
+          assert 'BindAction(TEXT("MapClickWaypoint")' in hero
+          assert 'void AMoonfallHeroPawn::PlacePersonalWaypointAtCursor()' in hero
+          assert 'PC->GetViewportSize(ViewX,ViewY)' in hero
+          assert 'PC->GetMousePosition(MouseX,MouseY)' in hero
+          assert 'MouseY < Top+70.f || MouseY > Top+Height-16.f' in hero
+          assert 'Origin.X+WorldMapPan.X+(MouseX-ViewX*0.5f)/Scale' in hero
+          assert 'Origin.Y+WorldMapPan.Y-(MouseY-ViewY*0.5f)/Scale' in hero
+          assert 'PC->bShowMouseCursor = bWorldMapOpen' in hero
+          assert 'PC->bShowMouseCursor = false' in hero
+          assert 'SavePersonalWaypoint();' in hero
+          assert 'if (Hero->bQuestTargetActive)' in hud
+          assert 'for (const FIntPoint& Cell : ExploredMapCells)' in hud
+          assert 'const float MiniTilePixels = FMath::Clamp(CellSize * MiniScale, 2.f, 16.f)' in hud
+          assert 'FMath::Square(MapRadius * 0.86f - MiniTilePixels * 0.5f)' in hud
+          assert 'const float TilePixels = FMath::Max(2.f,ExplorationCellSizeCm*Scale)' in hud
+          assert 'const float Left = FMath::Max(Spot.X-TilePixels*0.5f,TopLeft.X+12.f)' in hud
+          assert 'const float Right = FMath::Min(Spot.X+TilePixels*0.5f,TopLeft.X+Width-12.f)' in hud
+          assert 'if (Right <= Left || Bottom <= Top) continue' in hud
+          assert 'DrawRect(FLinearColor(0.22f,0.36f,0.49f,0.85f),Left,Top,Right-Left,Bottom-Top)' in hud
+          assert hud.index('const FIntPoint CurrentCell') < hud.index('if (Hero->bOptionsOpen)')
+          assert hud.count('const FIntPoint CurrentCell') == 1
           print('Input mapping and combat source checks passed. Unreal compilation NOT performed.')
           PY
 

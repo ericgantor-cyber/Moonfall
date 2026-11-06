@@ -1,5 +1,6 @@
 #include "MoonfallEnemy.h"
 #include "Components/StaticMeshComponent.h"
+#include "Components/PointLightComponent.h"
 #include "UObject/ConstructorHelpers.h"
 #include "MoonfallHeroPawn.h"
 #include "Kismet/GameplayStatics.h"
@@ -15,6 +16,47 @@ AMoonfallEnemy::AMoonfallEnemy() {
   if (Sphere.Succeeded()) Body->SetStaticMesh(Sphere.Object);
   Body->SetCollisionProfileName(TEXT("BlockAll"));
   Body->SetRelativeScale3D(FVector(0.85f,0.85f,1.4f));
+  CrowLeftWing = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("CrowLeftWing"));
+  CrowRightWing = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("CrowRightWing"));
+  CrowBeak = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("CrowBeak"));
+  CrowTail = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("CrowTail"));
+  CrowLeftTalon = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("CrowLeftTalon"));
+  CrowRightTalon = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("CrowRightTalon"));
+  CrowLeftEye = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("CrowLeftEye"));
+  CrowRightEye = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("CrowRightEye"));
+  CrowWarningGlow = CreateDefaultSubobject<UPointLightComponent>(TEXT("CrowWarningGlow"));
+  CrowWarningGlow->SetupAttachment(Body);
+  CrowWarningGlow->SetRelativeLocation(FVector(40.f,0.f,-10.f));
+  CrowWarningGlow->SetIntensity(850.f);
+  CrowWarningGlow->SetAttenuationRadius(220.f);
+  CrowWarningGlow->SetLightColor(FLinearColor(0.95f,0.12f,0.08f));
+  CrowWarningGlow->SetCastShadows(false);
+  CrowWarningGlow->SetVisibility(false);
+  static ConstructorHelpers::FObjectFinder<UStaticMesh> Cube(TEXT("/Engine/BasicShapes/Cube.Cube"));
+  for (UStaticMeshComponent* Part : {CrowLeftWing,CrowRightWing,CrowBeak,CrowTail,
+                                      CrowLeftTalon,CrowRightTalon,CrowLeftEye,CrowRightEye}) {
+   Part->SetupAttachment(Body);
+   Part->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+   Part->SetCastShadow(false);
+   Part->SetHiddenInGame(true);
+   if (Cube.Succeeded()) Part->SetStaticMesh(Cube.Object);
+  }
+  CrowLeftWing->SetRelativeLocation(FVector(0.f,-95.f,0.f));
+  CrowRightWing->SetRelativeLocation(FVector(0.f,95.f,0.f));
+  CrowLeftWing->SetRelativeScale3D(FVector(0.5f,1.75f,0.065f));
+  CrowRightWing->SetRelativeScale3D(FVector(0.5f,1.75f,0.065f));
+  CrowBeak->SetRelativeLocation(FVector(100.f,0.f,-20.f));
+  CrowBeak->SetRelativeScale3D(FVector(0.55f,0.14f,0.13f));
+  CrowTail->SetRelativeLocation(FVector(-105.f,0.f,2.f));
+  CrowTail->SetRelativeScale3D(FVector(0.76f,0.54f,0.075f));
+  CrowLeftTalon->SetRelativeLocation(FVector(5.f,-46.f,-48.f));
+  CrowRightTalon->SetRelativeLocation(FVector(5.f,46.f,-48.f));
+  CrowLeftTalon->SetRelativeScale3D(FVector(0.38f,0.09f,0.26f));
+  CrowRightTalon->SetRelativeScale3D(FVector(0.38f,0.09f,0.26f));
+  CrowLeftEye->SetRelativeLocation(FVector(68.f,-37.f,24.f));
+  CrowRightEye->SetRelativeLocation(FVector(68.f,37.f,24.f));
+  CrowLeftEye->SetRelativeScale3D(FVector(0.08f,0.06f,0.08f));
+  CrowRightEye->SetRelativeScale3D(FVector(0.08f,0.06f,0.08f));
   PrimaryActorTick.bCanEverTick = true;
   PrimaryActorTick.TickInterval = 0.1f;
 }
@@ -30,6 +72,41 @@ void AMoonfallEnemy::BeginPlay() {
  AttackDamage = FMath::Max(1.f, AttackDamage * DamageScale);
  MaxHealthAtSpawn = FMath::Max(1.f, Health);
  BossMaxHealth = bBoss ? MaxHealthAtSpawn : 0.f;
+ // Imported art is optional; authored assets retain the original collision and combat logic.
+ if (!bCorruptedCrow && Body) {
+  UStaticMesh* SelectedMesh = bBoss ? BossEnemyArt : RegularEnemyArt;
+  UMaterialInterface* SelectedMaterial = bBoss ? BossEnemyMaterial : RegularEnemyMaterial;
+  if (SelectedMesh) Body->SetStaticMesh(SelectedMesh);
+  if (SelectedMaterial) Body->SetMaterial(0,SelectedMaterial);
+ }
+ if (bCorruptedCrow) {
+  AttackCooldown = FMath::Max(1.7f,AttackCooldown);
+  if (Body) Body->SetRelativeScale3D(FVector(0.65f,0.65f,0.5f));
+  CrowLeftWing->SetHiddenInGame(false);
+  CrowRightWing->SetHiddenInGame(false);
+  CrowBeak->SetHiddenInGame(false);
+  CrowTail->SetHiddenInGame(false);
+  CrowLeftTalon->SetHiddenInGame(false);
+  CrowRightTalon->SetHiddenInGame(false);
+  CrowLeftEye->SetHiddenInGame(false);
+  CrowRightEye->SetHiddenInGame(false);
+  CrowWarningGlow->SetVisibility(false);
+  if (CrowBodyArt) Body->SetStaticMesh(CrowBodyArt);
+  if (CrowWingArt) {
+   CrowLeftWing->SetStaticMesh(CrowWingArt);
+   CrowRightWing->SetStaticMesh(CrowWingArt);
+  }
+  if (CrowFeatherMaterial) {
+   for (UStaticMeshComponent* Part : {Body,CrowLeftWing,CrowRightWing,CrowTail})
+    Part->SetMaterial(0,CrowFeatherMaterial);
+  }
+  if (CrowAccentMaterial) {
+   for (UStaticMeshComponent* Part : {CrowBeak,CrowLeftTalon,CrowRightTalon,CrowLeftEye,CrowRightEye})
+    Part->SetMaterial(0,CrowAccentMaterial);
+  }
+  CrowRecoverUntil = GetWorld() ? GetWorld()->GetTimeSeconds() + 1.0f : 1.f;
+  SetActorTickInterval(0.05f);
+ }
 }
 
 void AMoonfallEnemy::TakeSpellDamage(float Amount) {
@@ -69,14 +146,21 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
   // Bosses absorb ordinary hits without repeated attack interruptions; phase changes still recover safely.
   // Normal enemies retain brief hit reactions to reward offensive pressure.
   if (!bBoss) HitReactionEndsAt = LastHitTime + 0.22f;
+  // Striking a crow during its telegraph interrupts the dive and opens a recovery window.
+  if (bCorruptedCrow && Health > 0.f && CrowAttackEndsAt >= 0.f && !bCrowDiving) {
+   CrowAttackEndsAt = -1.f;
+   CrowWarningGlow->SetVisibility(false);
+   CrowRecoverUntil = Now + 0.9f;
+  }
   if (Health <= 0.0f) {
-   if (AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0))) { Hero->AwardExperience(FMath::RoundToInt((bBoss ? 125.f : (bElite ? 50.f : 25.f)) * (1.f + 0.018f * FMath::Min(SpawnBalanceLevel - 1, 40)))); Hero->AwardEquipmentDrop(bElite, bBoss); }
+   if (AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0))) { Hero->AwardExperience(FMath::RoundToInt((bBoss ? 125.f : (bElite ? 50.f : 25.f)) * (1.f + 0.018f * FMath::Min(SpawnBalanceLevel - 1, 40)))); Hero->AwardEquipmentDrop(bElite, bBoss); if (bBoss) Hero->CompleteArenaBossQuest(); }
    SetActorHiddenInGame(true); SetActorEnableCollision(false); SetActorTickEnabled(false); SetLifeSpan(1.25f); }
 }
 
 void AMoonfallEnemy::Tick(float DeltaSeconds) {
  Super::Tick(DeltaSeconds);
  if (Health <= 0.f || !GetWorld()) return;
+ if (bCorruptedCrow) { TickCorruptedCrow(DeltaSeconds); return; }
  const float Now = GetWorld()->GetTimeSeconds();
  const bool Staggered = Now < HitReactionEndsAt;
  if (bBoss && Now < BossPhaseMessageUntil) {
@@ -112,7 +196,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   return;
  }
  AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0));
- if (!IsValid(Hero) || Hero->Health <= 0.f || Hero->bOptionsOpen) return;
+ if (!IsValid(Hero) || Hero->Health <= 0.f || Hero->bOptionsOpen || Hero->bWorldMapOpen) return;
  FVector Difference = Hero->GetActorLocation() - GetActorLocation();
  Difference.Z = 0.f;
  const float Distance = Difference.Size();
@@ -295,5 +379,109 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
    WindupEndsAt = Now + CurrentWindup;
    if (bBoss) BossWarningEndTime = WindupEndsAt;
   }
+ }
+}
+
+bool AMoonfallEnemy::IsCrowAttackWarningActive() const
+{
+ return bCorruptedCrow && Health > 0.f && !bCrowDiving && CrowAttackEndsAt >= 0.f
+   && GetWorld() && CrowAttackEndsAt > GetWorld()->GetTimeSeconds();
+}
+int32 AMoonfallEnemy::GetCrowAttackPattern() const
+{
+ return bCorruptedCrow ? CrowAttackKind : -1;
+}
+void AMoonfallEnemy::UpdateCrowAppearance(float TimeSeconds)
+{
+ if (!bCorruptedCrow || !Body) return;
+ const float WingBeat = FMath::Sin(TimeSeconds*(bCrowDiving ? 11.f : 6.8f) + GetUniqueID()*0.13f);
+ if (CrowLeftWing) CrowLeftWing->SetRelativeRotation(FRotator(0.f,0.f,25.f+WingBeat*26.f));
+ if (CrowRightWing) CrowRightWing->SetRelativeRotation(FRotator(0.f,0.f,-25.f-WingBeat*26.f));
+ if (CrowTail) CrowTail->SetRelativeRotation(FRotator(0.f,0.f,4.f*FMath::Sin(TimeSeconds*3.1f)));
+ if (CrowLeftTalon) CrowLeftTalon->SetRelativeRotation(FRotator(0.f,0.f,bCrowDiving ? -25.f : -6.f));
+ if (CrowRightTalon) CrowRightTalon->SetRelativeRotation(FRotator(0.f,0.f,bCrowDiving ? 25.f : 6.f));
+}
+void AMoonfallEnemy::TickCorruptedCrow(float DeltaSeconds)
+{
+ if (!GetWorld() || Health <= 0.f) return;
+ AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this,0));
+ if (!IsValid(Hero) || Hero->Health <= 0.f || Hero->bOptionsOpen || Hero->bWorldMapOpen) {
+  // The danger light must not remain visible while combat is suppressed.
+  if (CrowWarningGlow) CrowWarningGlow->SetVisibility(false);
+  return;
+ }
+ const float Now = GetWorld()->GetTimeSeconds();
+ const FVector HeroPosition = Hero->GetActorLocation();
+ const FVector Current = GetActorLocation();
+ const float PlanarDistance = FVector::Dist2D(Current,HeroPosition);
+ // Do not run high-frequency bird animation when outside combat visibility.
+ if (PlanarDistance > 2300.f && !bCrowDiving) {
+  SetActorTickInterval(0.4f);
+  CrowWarningGlow->SetVisibility(false);
+  CrowAttackEndsAt = -1.f;
+  return;
+ }
+ SetActorTickInterval(0.05f);
+ CrowWarningGlow->SetVisibility(CrowAttackEndsAt >= 0.f || bCrowDiving);
+ UpdateCrowAppearance(Now);
+ if (bCrowDiving) {
+  const float AttackSpeed = CrowAttackKind == 1 ? 1450.f : 1250.f;
+  const FVector DiveTarget = HeroPosition + FVector(0.f,0.f,35.f);
+  FHitResult Hit;
+  AddActorWorldOffset((DiveTarget-Current).GetClampedToMaxSize(AttackSpeed*DeltaSeconds),true,&Hit);
+  const float Reach = FVector::Dist(GetActorLocation(),DiveTarget);
+  // A blocking collision with the hero counts as contact, but walls must never deal damage.
+  const bool bContact = Hit.bBlockingHit && Hit.GetActor() == Hero;
+  if (!bCrowHasHit && (bContact || Reach < 115.f)) {
+   FHitResult Sight;
+   FCollisionQueryParams Params(SCENE_QUERY_STAT(MoonfallCrowSight),false);
+   Params.AddIgnoredActor(this);
+   const bool bBlocked = GetWorld()->LineTraceSingleByChannel(
+    Sight,GetActorLocation(),HeroPosition,ECC_Visibility,Params) && Sight.GetActor()!=Hero;
+   if (!bBlocked) {
+    const float DamageFactor = CrowAttackKind == 1 ? 1.15f : 0.8f;
+    Hero->ApplyMoonfallDamage(AttackDamage*DamageFactor);
+    OnEnemyAttack();
+    bCrowHasHit = true;
+   }
+  }
+  if (bContact || Reach < 115.f || Now >= CrowAttackEndsAt || Hit.bBlockingHit) {
+   bCrowDiving = false;
+   CrowAttackEndsAt = -1.f;
+    CrowRecoverUntil = Now+FMath::Max(1.7f,AttackCooldown);
+  }
+  return;
+ }
+ if (CrowAttackEndsAt >= 0.f) {
+  const FVector WarningPosition(HeroPosition.X,HeroPosition.Y,HeroPosition.Z+45.f);
+  DrawDebugCircle(GetWorld(),WarningPosition,CrowAttackKind == 1 ? 155.f : 115.f,
+                  16,CrowAttackKind == 1 ? FColor::Red : FColor::Orange,
+                  false,0.09f,0,2.f,FVector(1.f,0.f,0.f),FVector(0.f,1.f,0.f),false);
+  if (Now < CrowAttackEndsAt) {
+   DrawDebugString(GetWorld(),Current+FVector(0.f,0.f,100.f),
+    CrowAttackKind == 1 ? TEXT("CROW TALON SWEEP - DODGE") :
+    CrowAttackKind == 2 ? TEXT("CROW FEINT - WAIT FOR DIVE") : TEXT("CROW DIVE - DODGE"),
+    nullptr,FColor::Orange,0.07f,false);
+   return;
+  }
+  // A feint holds position longer, rather than dealing phantom damage during its warning.
+  bCrowDiving = true;
+  bCrowHasHit = false;
+  CrowAttackEndsAt = Now + (CrowAttackKind == 1 ? 0.65f : 0.55f);
+  return;
+ }
+ const FVector HighTarget(HeroPosition.X,HeroPosition.Y,HeroPosition.Z+360.f);
+ const float Angle = Now*(CrowRecoverUntil > Now ? 1.25f : 0.8f) + GetUniqueID()*0.17f;
+ const float OrbitRadius = CrowRecoverUntil > Now ? 470.f : 360.f;
+ const FVector OrbitTarget = HighTarget + FVector(FMath::Cos(Angle)*OrbitRadius,
+                                                   FMath::Sin(Angle)*OrbitRadius,85.f);
+ const FVector Delta = OrbitTarget - Current;
+ AddActorWorldOffset(Delta.GetClampedToMaxSize(420.f*DeltaSeconds),true);
+ if (Delta.SizeSquared2D() > 1.f)
+  SetActorRotation(FRotator(0.f,Delta.Rotation().Yaw,0.f));
+ if (Now >= CrowRecoverUntil && PlanarDistance < 1250.f) {
+  // Deterministic variation avoids random repeated attack patterns.
+  CrowAttackKind = CrowAttackSequence++ % 3;
+  CrowAttackEndsAt = Now + (CrowAttackKind == 2 ? 1.0f : CrowAttackKind == 1 ? 0.9f : 0.7f);
  }
 }
