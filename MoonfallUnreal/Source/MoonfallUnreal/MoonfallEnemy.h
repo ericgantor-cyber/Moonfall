@@ -76,4 +76,6 @@ public:
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Combat") float LastHitTime = -10.f;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat") float Health = 80.f;
  UFUNCTION(BlueprintCallable, Category="Combat") void TakeSpellDamage(float Amount);
+ UFUNCTION(BlueprintPure, Category="Moonfall|Crow") bool IsCrowAttackWarningActive() const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Crow") int32 GetCrowAttackPattern() const;
 };
