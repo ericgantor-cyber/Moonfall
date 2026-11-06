@@ -110,8 +110,14 @@ class UnrealWindowsBuildScriptTests(unittest.TestCase):
         self.assertIn("Test-WindowsExecutable -Path $_.FullName", self.script)
         self.assertNotIn("$PackageStartedUtc", self.script)
         self.assertIn("if ($PackagedExecutables.Count -eq 0)", self.script)
+        self.assertIn('Get-ChildItem -LiteralPath $RunArchiveDirectory -File -Recurse |', self.script)
+        self.assertIn('$_.Extension -in @(".pak", ".ucas") -and $_.Length -gt 0', self.script)
+        self.assertIn("if ($PackagedContent.Count -eq 0)", self.script)
+        self.assertIn("Verified cooked content files:", self.script)
         self.assertLess(self.script.index("    & $RunUAT BuildCookRun "),
                         self.script.index("if ($PackagedExecutables.Count -eq 0)"))
+        self.assertLess(self.script.index("if ($PackagedExecutables.Count -eq 0)"),
+                        self.script.index("if ($PackagedContent.Count -eq 0)"))
         self.assertIn("Manually launch and test", self.script)
 
 
