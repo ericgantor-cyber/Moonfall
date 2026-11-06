@@ -15,6 +15,13 @@ class AtlasFogContract(unittest.TestCase):
         passage = SOURCE[start:end]
         self.assertLess(passage.index("if not explored:continue"), passage.index("draw_colored_polygon"))
 
+    def test_undiscovered_pillars_hidden_before_draw(self):
+        start = SOURCE.index("for pillar in dungeon_pillars:", SOURCE.index("func _draw()"))
+        end = SOURCE.index("# Visited authored chambers", start)
+        pillar = SOURCE[start:end]
+        self.assertLess(pillar.index("if not pillar_discovered:continue"), pillar.index("draw_rect("))
+        self.assertIn("for visited_position in discovered_chambers:", pillar)
+
     def test_unvisited_rooms_hidden_before_geometry_and_labels(self):
         start = SOURCE.index("for room_index in range(dungeon_rooms.size()):", SOURCE.index("func _draw()"))
         end = SOURCE.index("# Local breadcrumbs", start)
