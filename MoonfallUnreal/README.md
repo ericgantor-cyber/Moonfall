@@ -177,3 +177,7 @@ The Unreal fog-of-war atlas now tracks visited **10-metre tiles (1,000 Unreal cm
 ## Filled fog-of-war tile rendering
 
 Visited ten-metre exploration tiles now draw as connected filled areas on both the minimap and the large atlas, rather than isolated four-pixel dots. Minimap fills are restricted to its circular interior; the atlas clips each rectangle to the map content region so it cannot overlap headers, map controls or footer text. Existing discovery persistence, saved-cell migration, waypoint/quest pins, and hidden unexplored areas are preserved. These source-level visuals still need an Unreal Engine 5.4 compile and real screen-size/Windows testing.
+
+## Compass and hero-facing indicator on the minimap
+
+The north-up circular minimap now shows all four fixed cardinal directions (N/E/S/W) and replaces the small central player square with a cyan directional arrow driven by the hero's world-facing vector. The map itself does not rotate, and discovered tiles, boss/enemy markers, quest markers, and personal waypoint pins retain their existing coordinates. This is pure HUD drawing, with no new per-frame actor searches or art dependencies. Confirm arrow facing and contrast in a real Unreal Windows build; Unreal compilation remains unverified.
