@@ -42,6 +42,9 @@ public:
     FVector GetHeroMapPosition() const { return HeroMesh ? HeroMesh->GetRelativeLocation() : FVector::ZeroVector; }
     FVector GetBossMapPosition() const { return BossMesh ? BossMesh->GetRelativeLocation() : FVector::ZeroVector; }
     bool IsBossDefeated() const { return bWon; }
+    float GetBossPostureRatio() const { return FMath::Clamp(BossPosture / BossPostureThreshold, 0.f, 1.f); }
+    bool IsBossPostureActive() const { return !bWon && BossPosture > 0.f; }
+    bool IsBossStaggered() const { return !bWon && BossStaggerTimer > 0.f; }
     TArray<FVector> GetEnemyMapPositions() const;
     TArray<FVector> GetChamberMapPositions() const;
     struct FDamageNumber
@@ -138,6 +141,11 @@ private:
     int32 BossAttackCount = 0;
     int32 BossAttackPhase = 1;
     float BossWarningRadius = 250.f;
+    float BossPosture = 0.f;
+    float BossPostureIdleTimer = 0.f;
+    float BossStaggerTimer = 0.f;
+    static constexpr float BossPostureThreshold = 180.f;
+    void ApplyBossPosture(float Damage, bool bRiposte, bool bFinisher, bool bMagic);
     static constexpr float CounterDuration = 1.5f;
     static constexpr float CounterMultiplier = 1.75f;
     int32 LastCheckpointRegion = 0; // Commit living progress on entering a new region.
