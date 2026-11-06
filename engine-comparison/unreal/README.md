@@ -58,6 +58,10 @@ Enemy strike warnings now hold the enemy at its current location rather than let
 
 The same bounded, temporary floating-number system now reports hero damage taken in red and successful timed dodges as a brief moonlit crescent with drifting blood-red streaks (an original, lightweight cinematic effect informed by Wukong's evasive afterimages and Dawnwalker's grounded duels). This covers both local enemy strikes and the three-phase boss's hits, without adding screen-filling HUD widgets or new game actors. It records only damage actually taken and actual successful dodge evasions; restored-checkpoint protection does not display a false hit. The previous gold critical / blue magic hit labels and the sixteen-second autosave are unchanged. Actual visual readability, projection and frame pacing still need Unreal 5.6 testing.
 
+## Unified enemy and boss attack warnings (source implemented, runtime unverified)
+
+Combat warnings now combine recognizable windup timing with a directional chevron, drawing on the readability of *Black Myth: Wukong* and the directional attack indicators of *The Blood of Dawnwalker*. An amber diamond and arrow near the attacking enemy indicate its incoming strike direction; the marker becomes crimson during the last 28% of the warning. The boss uses a larger indicator pointing toward its chosen impact location while the original world-space hazard decal remains active. Markers disappear immediately when a windup is interrupted, the enemy disengages, or the boss stops casting. This adds no new controls, imported artwork, or permanent HUD panel. The HUD implementation is source-test verified only and must be checked visually in an Unreal 5.6 gameplay build.
+
 ## Manual acceptance checklist
 
 - Compile editor and game C++ targets on Windows with UE 5.6 and record exact errors, warnings, and versions.
