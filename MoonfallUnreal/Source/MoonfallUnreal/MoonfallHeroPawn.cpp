@@ -35,6 +35,23 @@ void AMoonfallHeroPawn::BeginPlay() {
  CombatTextScale = FMath::Clamp(FMath::RoundToFloat(CombatTextScale * 4.f) / 4.f, 0.75f, 2.f);
  if (GConfig) GConfig->GetFloat(TEXT("Moonfall.Accessibility"), TEXT("BossWarningScale"), BossWarningScale, GGameUserSettingsIni);
  BossWarningScale = FMath::Clamp(FMath::RoundToFloat(BossWarningScale * 4.f) / 4.f, 1.f, 2.f);
+ // Restore only a valid, explicitly saved personal map pin; never restore quest locations.
+ if (GConfig) {
+  bool bSavedWaypointActive = false;
+  GConfig->GetBool(TEXT("Moonfall.Map"), TEXT("PersonalWaypointActive"), bSavedWaypointActive, GGameUserSettingsIni);
+  if (bSavedWaypointActive) {
+   float X = 0.f, Y = 0.f, Z = 0.f;
+   const bool bValid = GConfig->GetFloat(TEXT("Moonfall.Map"), TEXT("WaypointX"), X, GGameUserSettingsIni)
+    && GConfig->GetFloat(TEXT("Moonfall.Map"), TEXT("WaypointY"), Y, GGameUserSettingsIni)
+    && GConfig->GetFloat(TEXT("Moonfall.Map"), TEXT("WaypointZ"), Z, GGameUserSettingsIni)
+    && FMath::IsFinite(X) && FMath::IsFinite(Y) && FMath::IsFinite(Z)
+    && FMath::Abs(X) <= 10000000.f && FMath::Abs(Y) <= 10000000.f && FMath::Abs(Z) <= 10000000.f;
+   if (bValid) {
+    PersonalWaypoint = FVector(X,Y,Z);
+    bPersonalWaypointActive = true;
+   }
+  }
+ }
  // No FG vendor plugin or runtime capability integration has been added.
  bFrameGenerationAvailable = false;
  const TSharedPtr<IPlugin> FSR = IPluginManager::Get().FindPlugin(TEXT("FSR"));
@@ -92,10 +109,25 @@ void AMoonfallHeroPawn::PlacePersonalWaypoint()
  // The atlas is player-relative and panned in world X/Y, so its centre is the placement target.
  PersonalWaypoint = FVector(Origin.X + WorldMapPan.X, Origin.Y + WorldMapPan.Y, Origin.Z);
  bPersonalWaypointActive = true;
+ SavePersonalWaypoint();
 }
 void AMoonfallHeroPawn::ClearPersonalWaypoint()
 {
- if (bWorldMapOpen && !bOptionsOpen) bPersonalWaypointActive = false;
+ if (bWorldMapOpen && !bOptionsOpen && bPersonalWaypointActive) {
+  bPersonalWaypointActive = false;
+  SavePersonalWaypoint();
+ }
+}
+void AMoonfallHeroPawn::SavePersonalWaypoint()
+{
+ if (!GConfig) return;
+ GConfig->SetBool(TEXT("Moonfall.Map"), TEXT("PersonalWaypointActive"), bPersonalWaypointActive, GGameUserSettingsIni);
+ if (bPersonalWaypointActive) {
+  GConfig->SetFloat(TEXT("Moonfall.Map"), TEXT("WaypointX"), PersonalWaypoint.X, GGameUserSettingsIni);
+  GConfig->SetFloat(TEXT("Moonfall.Map"), TEXT("WaypointY"), PersonalWaypoint.Y, GGameUserSettingsIni);
+  GConfig->SetFloat(TEXT("Moonfall.Map"), TEXT("WaypointZ"), PersonalWaypoint.Z, GGameUserSettingsIni);
+ }
+ GConfig->Flush(false, GGameUserSettingsIni);
 }
 void AMoonfallHeroPawn::SetQuestTarget(FVector WorldLocation)
 {
