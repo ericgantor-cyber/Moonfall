@@ -51,9 +51,37 @@ def create_moonfall_start():
     original_config = config_path.read_text(encoding="utf-8")
     new_config = updated_map_config(original_config)
 
-    if unreal.EditorAssetLibrary.does_asset_exist(MAP):
-        raise RuntimeError("MoonfallStart already exists; refusing to overwrite it")
+    # Retry-safe: a prior run may have saved the map but failed before the
+    # configuration write. Keep an existing level intact and repair config only.
+    map_file = project_root / "Content" / "Maps" / "MoonfallStart.umap"
+    map_exists = unreal.EditorAssetLibrary.does_asset_exist(MAP)
+    if map_exists:
+        if not map_file.is_file() or map_file.stat().st_size <= 0:
+            raise RuntimeError("MoonfallStart asset exists but its .umap is missing or empty")
+        unreal.log("Using existing MoonfallStart level without overwriting it")
+    else:
+        if map_file.exists():
+            raise RuntimeError("MoonfallStart.umap is already on disk but Unreal cannot load the asset; refusing to overwrite")
 
+    if not map_exists:
+        create_new_startup_level()
+
+    # Configuration is updated only after a verified, saved .umap exists.
+    backup_path = config_path.with_suffix(".ini.before-moonfall-startup")
+    if new_config != original_config:
+        if backup_path.exists():
+            raise RuntimeError(
+                "Startup level exists, but config backup already exists: " +
+                str(backup_path) + ". Check it before changing configuration.")
+        backup_path.write_text(original_config, encoding="utf-8")
+        config_path.write_text(new_config, encoding="utf-8", newline="")
+
+    unreal.log("Verified " + MAP + " and configured game/editor startup maps. "
+               "Verify PlayerStart, navigation (P), collision, combat and HUD "
+               "using Play In Editor before packaging.")
+
+
+def create_new_startup_level():
     levels = unreal.get_editor_subsystem(unreal.LevelEditorSubsystem)
     actors = unreal.get_editor_subsystem(unreal.EditorActorSubsystem)
     if not levels.new_level(MAP, is_partitioned_world=False):
@@ -75,22 +103,6 @@ def create_moonfall_start():
 
     if not levels.save_current_level():
         raise RuntimeError("Could not save MoonfallStart; configuration is unchanged")
-
-    # Only update config after the map has been successfully saved. Preserve
-    # unrelated user settings and a backup if the write fails.
-    backup_path = config_path.with_suffix(".ini.before-moonfall-startup")
-    if new_config != original_config:
-        if backup_path.exists():
-            raise RuntimeError(
-                "Startup level saved, but config backup already exists: " +
-                str(backup_path) + ". Check it before changing configuration.")
-        backup_path.write_text(original_config, encoding="utf-8")
-        config_path.write_text(new_config, encoding="utf-8", newline="")
-
-    unreal.log("Saved " + MAP + " and configured game/editor startup maps. "
-               "Verify PlayerStart, navigation (P), collision, combat and HUD "
-               "using Play In Editor before packaging.")
-
 
 if __name__ == "__main__":
     create_moonfall_start()
