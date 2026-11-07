@@ -899,7 +899,9 @@ void AMoonfallPawn::Dodge()
     {
         // Commit to the initial direction for the complete dodge. Releasing
         // a stick or movement key must not waste stamina or shorten travel.
-        DodgeDirection = FVector(Forward, Right, 0.f).GetClampedToMaxSize(1.f);
+        // A partially tilted analog stick still triggers a complete dodge:
+        // magnitude controls walking speed, not stamina-paid dodge distance.
+        DodgeDirection = FVector(Forward, Right, 0.f).GetSafeNormal();
         DodgeTimer = 0.32f;
         DodgeCooldown = 1.2f;
         Stamina -= 45.f;
