@@ -73,10 +73,8 @@ if (Test-Path -LiteralPath $gameOutput) {
     Remove-Item -LiteralPath $gameOutput -Recurse -Force
 }
 New-Item -ItemType Directory -Force -Path $OutputDirectory | Out-Null
-$previousSetup = Join-Path $OutputDirectory 'MoonfallUnreal-Setup.exe'
-foreach ($old in @($previousSetup, "$previousSetup.sha256")) {
-    if (Test-Path -LiteralPath $old) { Remove-Item -LiteralPath $old -Force }
-}
+# Preserve a previously successful installer while cooking and building
+# the replacement. Only the verified promotion step may replace it.
 New-Item -ItemType Directory -Force -Path $gameOutput | Out-Null
 Set-Content -LiteralPath $marker -Value 'Managed by Moonfall Build-Windows.ps1. This directory can be replaced by a later build.' -Encoding ascii
 
