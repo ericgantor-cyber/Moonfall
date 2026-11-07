@@ -396,6 +396,17 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("Mana -=", damage)
         self.assertNotIn("Mana = FMath::Min", damage)
 
+    def test_blueprint_walk_speed_is_baseline_for_guard_and_sprint(self):
+        begin_play = self.hero_cpp.split("void AMoonfallHeroPawn::BeginPlay()", 1)[1].split(
+            "void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[0]
+        self.assertIn("Super::BeginPlay();", begin_play)
+        self.assertIn("const float AuthoredWalkSpeed = GetCharacterMovement()->MaxWalkSpeed;", begin_play)
+        self.assertIn("FMath::IsFinite(AuthoredWalkSpeed) && AuthoredWalkSpeed > 0.f", begin_play)
+        self.assertIn("NormalWalkSpeed = FMath::IsFinite(AuthoredWalkSpeed)", begin_play)
+        self.assertIn("GetCharacterMovement()->MaxWalkSpeed = NormalWalkSpeed;", begin_play)
+        self.assertLess(begin_play.index("Super::BeginPlay();"), begin_play.index("AuthoredWalkSpeed"))
+        self.assertNotIn("NormalWalkSpeed = 600.f;", begin_play)
+
     def test_guard_move_penalty_applies_and_cancels_immediately(self):
         start = self.hero_cpp.split("void AMoonfallHeroPawn::BeginGuard()", 1)[1].split(
             "void AMoonfallHeroPawn::EndGuard()", 1)[0]
