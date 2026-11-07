@@ -293,7 +293,7 @@ class UnrealMigrationParityGate(unittest.TestCase):
         self.assertIn("MouseX >= Min.X && MouseX <= Max.X && MouseY >= Min.Y && MouseY <= Max.Y", pawn)
         begin = pawn.index("void AMoonfallPawn::RetryFromCheckpoint()")
         retry = pawn[begin:pawn.index("\n}", begin) + 2]
-        self.assertIn("if (Health > 0.f || bWorldMapOpen || !GetWorld()) return;", retry)
+        self.assertIn("if (Health > 0.f || bWorldMapOpen || bRetryInProgress || !GetWorld()) return;", retry)
         self.assertIn("UGameplayStatics::GetCurrentLevelName(this, true)", retry)
         self.assertIn("UGameplayStatics::OpenLevel(this, FName(*LevelName));", retry)
         self.assertNotIn("SaveProgress();", retry)
