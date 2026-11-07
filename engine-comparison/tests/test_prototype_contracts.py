@@ -279,7 +279,7 @@ class PrototypeContracts(unittest.TestCase):
                         tick.index("DodgeTimer = FMath::Max(0.f, DodgeTimer - ReactionDt);"))
         self.assertIn("DodgeDirection * 1200.f * DodgeMovementDt", tick)
         self.assertEqual(tick.count("if (bDodgeActiveThisFrame)"), 2)
-        self.assertEqual(tick.count("DodgeTimer > 0.f"), 1)
+        self.assertEqual(tick.count("DodgeTimeRemainingThisFrame > 0.f"), 1)
 
     def test_unreal_dodge_window_matches_hitch_safe_boss_telegraph(self):
         tick = self.cpp.split("void AMoonfallPawn::Tick(", 1)[1]
