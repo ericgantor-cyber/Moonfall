@@ -258,9 +258,10 @@ void AMoonfallHeroPawn::BeginGuard()
  }
  const float Now = GetWorld()->GetTimeSeconds();
  // Holding guard cannot repeatedly open parry windows.
- if (Now >= NextParryAt) {
+ if (Now >= NextParryAt && FMath::IsFinite(ParryWindowSeconds)
+     && FMath::IsFinite(ParryCooldownSeconds)) {
   ParryWindowEndsAt = Now + FMath::Clamp(ParryWindowSeconds, 0.05f, 0.3f);
-  NextParryAt = Now + 0.8f;
+  NextParryAt = Now + FMath::Clamp(ParryCooldownSeconds, 0.3f, 2.f);
  } else {
   ParryWindowEndsAt = -1.f;
  }
@@ -374,7 +375,10 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
      : 0.f;
  // Perfect timing negates impact stamina altogether. The guard stance
  // still costs stamina while held, and normal blocks retain heavy-hit pressure.
- const bool bPerfectParry = bGuarding && Now <= ParryWindowEndsAt && Now <= NextParryAt;
+ // Perfect parries are deliberate responses to a known, front-facing
+ // attacker. Environmental damage without a source may still be blocked.
+ const bool bPerfectParry = bGuarding && bHasIncomingDamageSource && bFrontAttack
+     && Now <= ParryWindowEndsAt && Now <= NextParryAt;
  const float RequiredGuardCost = bPerfectParry ? 0.f : HitGuardCost;
  if (bGuarding && bFrontAttack && !bOptionsOpen
      && FMath::IsFinite(Stamina) && FMath::IsFinite(MaxStamina) && MaxStamina > 0.f
