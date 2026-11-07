@@ -83,6 +83,31 @@ class UnrealMigrationParityGate(unittest.TestCase):
         self.assertIn("X >= 0 && X < 48 && Y >= 0 && Y < 16", pawn)
 
 
+    def test_waypoints_persist_without_revealing_fogged_quests(self):
+        base = ROOT / "engine-comparison/unreal/MoonfallPrototype"
+        pawn = (base / "Source/MoonfallPrototype/MoonfallPawn.cpp").read_text(encoding="utf-8")
+        header = (base / "Source/MoonfallPrototype/MoonfallPawn.h").read_text(encoding="utf-8")
+        save = (base / "Source/MoonfallPrototype/MoonfallProgressSave.h").read_text(encoding="utf-8")
+        hud = (base / "Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8")
+        keys = (base / "Config/DefaultInput.ini").read_text(encoding="utf-8")
+        for action, key in (("SetWaypoint", "V"), ("ClearWaypoint", "B")):
+            self.assertIn(f'ActionName="{action}",Key={key}', keys)
+            self.assertIn(f'BindAction(TEXT("{action}")', pawn)
+        for token in ("bool bHasWaypoint = false;", "FVector SavedWaypoint", "TArray<uint8> DiscoveredMapCells"):
+            self.assertIn(token, save)
+        self.assertIn("GetQuestDestination(FVector& OutDestination) const;", header)
+        self.assertIn("GetWaypoint(FVector& OutWaypoint) const;", header)
+        self.assertIn("Progress->SavedWaypoint = bHasWaypoint ? Waypoint : FVector::ZeroVector;", pawn)
+        self.assertIn("Progress->bHasWaypoint = bHasWaypoint;", pawn)
+        self.assertIn("CandidateWaypoint.X >= -1600.f", pawn)
+        self.assertIn("CandidateWaypoint.Y <= 3200.f", pawn)
+        self.assertIn("if (!IsMapPositionDiscovered(Candidate)) continue;", pawn)
+        self.assertIn("!bWon && IsMapPositionDiscovered(GetBossMapPosition())", pawn)
+        self.assertIn("if (Hero->GetQuestDestination(Destination))", hud)
+        self.assertIn("if (Hero->GetWaypoint(MarkerPosition))", hud)
+        self.assertIn("PIN: %.0f m", hud)
+        self.assertIn("QUEST: %.0f m", hud)
+
     def test_character_and_input_constraints(self):
         constraints = self.data["constraints"]
         self.assertEqual(constraints["preserve_original_art"],
