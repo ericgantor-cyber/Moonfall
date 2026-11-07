@@ -7,6 +7,7 @@ on:
     paths:
       - '.github/workflows/unreal-hosted-reality-check.yml'
       - '.github/workflows/unreal-hosted-windows.yml'
+      - '.github/workflows/unreal-engine-from-source-windows.yml'
       - 'MoonfallUnreal/Build/Test-UnrealInstalledArchive.ps1'
       - 'MoonfallUnreal/Build/Test-UnrealInstalledArchive.Tests.ps1'
       - 'MoonfallUnreal/Build/Test-UnrealEngineVersion.ps1'
@@ -88,6 +89,36 @@ jobs:
             }
           }
           Write-Host 'Hosted Unreal build workflow safeguards verified as source text; UE compilation not run.'
+      - name: Check optional licensed UE 5.4 source build safeguards
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $sourceWorkflow = Get-Content '.github/workflows/unreal-engine-from-source-windows.yml' -Raw
+          foreach ($rule in @(
+            'workflow_dispatch:',
+            'if: ${{ inputs.confirm_build }}',
+            "repository: EpicGames/UnrealEngine",
+            'ref: ''5.4''',
+            'secrets.MOONFALL_EPIC_SOURCE_TOKEN',
+            'persist-credentials: false',
+            '250GB',
+            'Setup.bat',
+            'GenerateProjectFiles.bat',
+            'Make Installed Build Win64',
+            'Test-UnrealEngineVersion.ps1',
+            'fc949c896b37035564ab91da1405483b41a9f895',
+            'CompileOnly',
+            'if: failure()'
+          )) {
+            if (-not $sourceWorkflow.Contains($rule)) {
+              throw "Licensed Unreal source workflow missing safeguard: $rule"
+            }
+          }
+          if ($sourceWorkflow.Contains('actions/upload-artifact@v4') -and
+              $sourceWorkflow.Contains('path: ue-source')) {
+            throw 'Never upload privately licensed Epic engine source.'
+          }
+          "Optional licensed UE source build configuration passed source-text safeguards (no engine compile)." >> $env:GITHUB_STEP_SUMMARY
       - name: Run synthetic Unreal archive security regression tests
         shell: pwsh
         run: |
