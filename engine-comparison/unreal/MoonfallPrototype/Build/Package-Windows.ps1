@@ -102,6 +102,7 @@ $Arguments = @(
     '-build',
     '-cook',
     '-stage',
+    '-package',
     '-pak',
     '-archive',
     "-archivedirectory=$OutputDirectory",
