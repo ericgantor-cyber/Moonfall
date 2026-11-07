@@ -30,6 +30,11 @@ public:
     UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category="Prototype")
     int32 DefeatedEnemyMask = 0;
 
+    // Backward compatible: old saves default to undiscovered; the current region
+    // is revealed after the checkpoint position is restored.
+    UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category="Prototype")
+    int32 DiscoveredRegionMask = 0;
+
     UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category="Prototype")
     int32 ClaimedChamberMask = 0;
 
