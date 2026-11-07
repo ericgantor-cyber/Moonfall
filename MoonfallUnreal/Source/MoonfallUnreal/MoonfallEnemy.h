@@ -22,6 +22,8 @@ public:
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Boss") float BossWarningEndTime = -1.f;
  UFUNCTION(BlueprintImplementableEvent, Category="Combat") void OnHitFeedback(float Damage, float RemainingHealth);
  UFUNCTION(BlueprintImplementableEvent, Category="Combat") void OnEnemyAttack();
+ // Animation/VFX hook: fires once per successful perfect parry, not every tick.
+ UFUNCTION(BlueprintImplementableEvent, Category="Combat") void OnPerfectParried(float StaggerSeconds);
  UFUNCTION(BlueprintImplementableEvent, Category="Boss") void OnBossPhaseChanged(int32 NewPhase);
 private:
  float MaxHealthAtSpawn = 0.f;
