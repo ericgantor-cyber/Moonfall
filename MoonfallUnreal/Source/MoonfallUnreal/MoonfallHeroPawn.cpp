@@ -198,8 +198,20 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
       && FMath::IsFinite(ParryCounterDamageMultiplier) && ParryCounterDamageMultiplier >= 1.f;
   const float CounterMultiplier = bCounterReady
       ? FMath::Clamp(ParryCounterDamageMultiplier, 1.f, 2.f) : 1.f;
-  Enemy->TakeSpellDamage((18.f + School * 5.f) * Multiplier * SpellPowerMultiplier * (1.f + FMath::Min(0.35f, 0.018f * WeaponTier)) * CounterMultiplier);
-  if (bCounterReady) ParryCounterUntil = -1.f;
+  const float SpellDamage = (18.f + School * 5.f) * Multiplier * SpellPowerMultiplier
+    * (1.f + FMath::Min(0.35f, 0.018f * WeaponTier)) * CounterMultiplier;
+  // Reject invalid damage before spending mana or consuming a hard-earned counter.
+  if (!FMath::IsFinite(SpellDamage) || SpellDamage <= 0.f) return false;
+  const float HealthBeforeSpell = Enemy->Health;
+  Enemy->TakeSpellDamage(SpellDamage);
+  if (bCounterReady && Enemy->Health < HealthBeforeSpell) {
+   // A perfect-parry counter also pressures posture, making the next stance
+   // break attainable without handing out free pressure on a miss or no-op.
+   if (Enemy->Health > 0.f && FMath::IsFinite(ParryCounterPostureDamage)
+       && ParryCounterPostureDamage > 0.f)
+    Enemy->ApplyPostureDamage(FMath::Clamp(ParryCounterPostureDamage, 0.f, 100.f));
+   ParryCounterUntil = -1.f;
+  }
   const FColor SpellColors[6] = {FColor(245, 60, 39), FColor(65, 204, 245), FColor(168, 72, 236), FColor(72, 230, 130), FColor(245, 224, 64), FColor(76, 178, 68)};
   const FColor ImpactColor = SpellColors[School];
   DrawDebugSphere(GetWorld(), Hit.ImpactPoint, 24.f * Multiplier, 12, ImpactColor, false, 0.22f, 0, 2.f);
