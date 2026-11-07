@@ -4,6 +4,7 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Components/InputComponent.h"
 #include "Engine/World.h"
+#include "EngineUtils.h"
 #include "GameFramework/PlayerController.h"
 #include "DrawDebugHelpers.h"
 #include "Engine/Engine.h"
@@ -63,6 +64,30 @@ void AMoonfallHeroPawn::BeginPlay() {
 void AMoonfallHeroPawn::Tick(float DeltaSeconds)
 {
  Super::Tick(DeltaSeconds);
+ // Arena creation and player possession can happen in either order. Recover
+ // the boss quest when the arena spawned first and GetPlayerPawn was null.
+ // A named arena-only tag avoids stealing the quest from unrelated bosses.
+ if (!bArenaBossQuestActive && !bArenaBossQuestComplete && !bQuestTargetActive && GetWorld()) {
+  const float Now = GetWorld()->GetTimeSeconds();
+  if (Now >= NextArenaBossQuestSearchAt) {
+   NextArenaBossQuestSearchAt = Now + 0.5f;
+   for (TActorIterator<AMoonfallEnemy> It(GetWorld()); It; ++It) {
+    AMoonfallEnemy* Candidate = *It;
+    if (IsValid(Candidate) && Candidate->bBoss && Candidate->Health > 0.f &&
+        Candidate->ActorHasTag(FName(TEXT("MoonfallArenaQuestBoss")))) {
+     BeginArenaBossQuest(Candidate);
+     break;
+    }
+   }
+  }
+ }
+ // A streamed-out or externally removed boss must not strand an active quest
+ // and leave a permanent map waypoint pointing at nowhere.
+ if (bArenaBossQuestActive && !ActiveArenaBoss.IsValid()) {
+  bArenaBossQuestActive = false;
+  ActiveArenaBoss.Reset();
+  ClearQuestTarget();
+ }
  // Bosses can move far from their spawn: keep map and quest markers on the
  // actual target while it is alive. Invalid/destroyed actors are never dereferenced.
  if (AMoonfallEnemy* QuestBoss = GetArenaBossQuestTarget()) {
