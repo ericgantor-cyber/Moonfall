@@ -43,6 +43,7 @@ public:
     bool IsMapPositionDiscovered(const FVector& Position) const;
     int32 GetDiscoveredRegionCount() const;
     bool IsWorldMapOpen() const { return bWorldMapOpen; }
+    void GetRetryButtonBounds(float Width, float Height, FVector2D& OutMin, FVector2D& OutMax) const;
     float GetWorldMapZoom() const { return WorldMapZoom; }
     void GetWorldMapLayout(float Width, float Height, float& OutCell, FVector2D& OutOrigin,
         FVector2D& OutClipMin, FVector2D& OutClipMax) const;
@@ -87,6 +88,7 @@ private:
     TArray<uint8> DiscoveredMapCells; // 48 x 16 cells (400 cm), saved independently.
     bool bHasWaypoint = false;
     bool bWorldMapOpen = false;
+    bool bDeathInputEnabled = false;
     float WorldMapZoom = 1.f;
     FVector2D WorldMapPanCells = FVector2D::ZeroVector;
     float MapPanHorizontalInput = 0.f;
@@ -135,6 +137,7 @@ private:
     void Dodge();
     void Parry();
     void RetryFromCheckpoint();
+    void ClickRetryButton();
     void CastBolt();
     void CastHeal();
     void Victory();
