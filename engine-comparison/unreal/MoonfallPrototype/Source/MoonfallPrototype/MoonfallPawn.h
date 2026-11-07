@@ -43,7 +43,7 @@ public:
     bool IsMapPositionDiscovered(const FVector& Position) const;
     int32 GetDiscoveredRegionCount() const;
     bool IsWorldMapOpen() const { return bWorldMapOpen; }
-    void GetRetryButtonBounds(float Width, float Height, FVector2D& OutMin, FVector2D& OutMax) const;
+    void GetRespawnButtonBounds(float Width, float Height, FVector2D& OutMin, FVector2D& OutMax) const;
     float GetWorldMapZoom() const { return WorldMapZoom; }
     void GetWorldMapLayout(float Width, float Height, float& OutCell, FVector2D& OutOrigin,
         FVector2D& OutClipMin, FVector2D& OutClipMax) const;
@@ -89,7 +89,7 @@ private:
     bool bHasWaypoint = false;
     bool bWorldMapOpen = false;
     bool bDeathInputEnabled = false;
-    bool bRetryInProgress = false;
+    bool bRespawnInProgress = false;
     float WorldMapZoom = 1.f;
     FVector2D WorldMapPanCells = FVector2D::ZeroVector;
     float MapPanHorizontalInput = 0.f;
@@ -137,8 +137,8 @@ private:
     void Attack();
     void Dodge();
     void Parry();
-    void RetryFromCheckpoint();
-    void ClickRetryButton();
+    void RespawnFromCheckpoint();
+    void ClickRespawnButton();
     void CastBolt();
     void CastHeal();
     void Victory();
