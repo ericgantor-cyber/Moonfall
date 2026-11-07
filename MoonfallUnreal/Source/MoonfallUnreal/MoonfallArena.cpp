@@ -198,7 +198,7 @@ void AMoonfallArena::BeginPlay() {
   UGameplayStatics::FinishSpawningActor(Enemy, SpawnTransform);
   if (Enemy->bBoss) {
    if (AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0)))
-    Hero->BeginArenaBossQuest(Enemy->GetActorLocation());
+    Hero->BeginArenaBossQuest(Enemy);
   }
  }
 }
