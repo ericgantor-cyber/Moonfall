@@ -79,6 +79,16 @@ private:
  int32 NativeFinisherStyle = 1;
  bool bNativeFinisherShatter = false;
  bool bNativeFinisherBoss = false;
+ // Bounded queue keeps nearby rapid kills from erasing unfinished choreography.
+ struct FPendingFinisher {
+  FVector Target = FVector::ZeroVector;
+  int32 Style = 1;
+  bool bShatter = false;
+  bool bBoss = false;
+ };
+ TArray<FPendingFinisher> PendingFinishers;
+ static constexpr int32 MaxPendingFinishers = 8;
+ void StartFinisherPresentation(int32 ChainStep, bool bShatterKill, bool bBossKill, const FVector& DefeatedLocation);
  UPROPERTY(VisibleAnywhere, Category="Moonfall|Finishers") UStaticMeshComponent* FinisherSlashA = nullptr;
  UPROPERTY(VisibleAnywhere, Category="Moonfall|Finishers") UStaticMeshComponent* FinisherSlashB = nullptr;
  UPROPERTY(VisibleAnywhere, Category="Moonfall|Finishers") UPointLightComponent* FinisherFlash = nullptr;
