@@ -6,6 +6,8 @@ PlayerStart, directional sunlight and a skylight; runtime geometry is supplied
 by AMoonfallPawn. Validation is deliberately strict so cooking fails closed.
 """
 import unreal
+import os
+from pathlib import Path
 
 LEVEL_PATH = "/Game/Maps/MoonfallWorld"
 
@@ -50,6 +52,14 @@ def main():
         raise RuntimeError("MoonfallWorld needs a PlayerStart or the packaged game may spawn blank.")
 
     # Do not resave existing authored maps during validation.
+    # A unique marker proves the Python script finished validation, even when
+    # UnrealEditor-Cmd returns exit code zero after a Python exception.
+    sentinel = os.environ.get("MOONFALL_WORLD_VALIDATION_SENTINEL", "")
+    if not sentinel:
+        raise RuntimeError("Missing validation sentinel destination.")
+    sentinel_path = Path(sentinel)
+    sentinel_path.parent.mkdir(parents=True, exist_ok=True)
+    sentinel_path.write_text("MoonfallWorld validated\\n", encoding="utf-8")
     unreal.log("Moonfall startup world validated: " + LEVEL_PATH)
 
 
