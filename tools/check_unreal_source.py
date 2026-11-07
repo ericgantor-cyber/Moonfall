@@ -73,7 +73,11 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("GameDefaultMap", script)
         self.assertIn("if (-not $CompileOnly)", script)
         self.assertIn("Playable startup level missing:", script)
-        self.assertIn("Set GameDefaultMap=/Game/Maps/MoonfallStart", script)
+        self.assertIn("foreach ($mapKey in @('GameDefaultMap', 'EditorStartupMap'))", script)
+        self.assertIn("GlobalDefaultGameMode", script)
+        self.assertIn("Get-Item -LiteralPath $startupMap", script)
+        self.assertIn("$matchingEntries.Count -ne 1", script)
+        self.assertIn("$mapSectionMatches.Count -ne 1", script)
         self.assertIn("if ($PreflightOnly)", script)
 
     def test_progression_declared_and_defined(self):
