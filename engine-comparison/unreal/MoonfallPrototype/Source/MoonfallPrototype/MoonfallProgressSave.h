@@ -39,6 +39,12 @@ public:
     UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category="Prototype")
     TArray<uint8> DiscoveredMapCells;
 
+    // Manual navigation pin; deliberately separate from checkpoint and quest flags.
+    UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category="Prototype")
+    bool bHasWaypoint = false;
+    UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category="Prototype")
+    FVector SavedWaypoint = FVector::ZeroVector;
+
     UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category="Prototype")
     int32 ClaimedChamberMask = 0;
 
