@@ -455,10 +455,18 @@ TArray<FVector> AMoonfallPawn::GetEnemyMapPositions() const
     return Result;
 }
 
+void AMoonfallPawn::ShowDamageNumber(float Damage, float RemainingHealth)
+{
+    // One bounded HUD popup instead of allocating text widgets per hit.
+    LastDamageAmount = FMath::Clamp(Damage, 0.f, FMath::Max(0.f, RemainingHealth));
+    if (LastDamageAmount > 0.f) DamageNumberTimer = 0.85f;
+}
+
 void AMoonfallPawn::DamageWorldEnemy(int32 Index, float Damage, bool bRiposte, bool bComboFinisher)
 {
     if (!Enemies.IsValidIndex(Index)) return;
     FWorldEnemy& Enemy = Enemies[Index];
+    ShowDamageNumber(Damage, Enemy.Health);
     Enemy.Health = FMath::Max(0.f, Enemy.Health - Damage);
     if (Enemy.Health > 0.f)
     {
@@ -1039,6 +1047,7 @@ void AMoonfallPawn::Attack()
         if (!bHitBoss) DamageWorldEnemy(EnemyIndex, Damage, bRiposte, bComboFinisher);
         else
         {
+            ShowDamageNumber(Damage, BossHealth);
             BossHealth = FMath::Max(0.f, BossHealth - Damage);
             // Perfect-dodge ripostes can interrupt a live telegraphed boss cast.
             if (bRiposte && bCasting && BossHealth > 0.f)
@@ -1083,6 +1092,7 @@ void AMoonfallPawn::CastBolt()
     if (!bHitBoss) DamageWorldEnemy(EnemyIndex, Damage, bRiposte);
     else
     {
+        ShowDamageNumber(Damage, BossHealth);
         BossHealth = FMath::Max(0.f, BossHealth - Damage);
         if (bRiposte && bCasting && BossHealth > 0.f)
         {
@@ -1243,6 +1253,7 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
     BoltCooldown = FMath::Max(0.f, BoltCooldown - Dt);
     HealCooldown = FMath::Max(0.f, HealCooldown - Dt);
     EnemyDamageCooldown = FMath::Max(0.f, EnemyDamageCooldown - Dt);
+    DamageNumberTimer = FMath::Max(0.f, DamageNumberTimer - Dt);
     // Timer advances only in live gameplay. The world atlas pauses it too.
     const bool bRespawnProtectedThisFrame = RespawnGraceTimer > 0.f;
     RespawnGraceTimer = FMath::Max(0.f, RespawnGraceTimer - Dt);
