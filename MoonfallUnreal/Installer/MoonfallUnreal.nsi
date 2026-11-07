@@ -5,6 +5,24 @@ Unicode True
 !ifndef OUTPUT_EXE
   !error "Define OUTPUT_EXE for the generated installer"
 !endif
+; Fail during installer compilation instead of installing a partial payload.
+; The shipping workflow supplies fully cooked Unreal output, not the synthetic CI fixture.
+!ifexist "${SOURCE_DIR}\\MoonfallUnreal.exe"
+!else
+  !error "MoonfallUnreal.exe missing from installer source."
+!endif
+!ifexist "${SOURCE_DIR}\\MoonfallLauncher.exe"
+!else
+  !error "MoonfallLauncher.exe missing from installer source."
+!endif
+!ifexist "${SOURCE_DIR}\\Engine"
+!else
+  !error "Unreal Engine runtime folder missing from installer source."
+!endif
+!ifexist "${SOURCE_DIR}\\MoonfallUnreal"
+!else
+  !error "Moonfall cooked content folder missing from installer source."
+!endif
 Name "Moonfall Unreal"
 OutFile "${OUTPUT_EXE}"
 InstallDir "$LOCALAPPDATA\\Programs\\MoonfallUnreal"
