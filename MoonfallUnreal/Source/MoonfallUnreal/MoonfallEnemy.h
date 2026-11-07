@@ -39,6 +39,9 @@ public:
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Combat|Posture") bool bPostureFinisherAvailable = false;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat|Posture", meta=(ClampMin="1.0", ClampMax="4.0")) float PostureFinisherDamageMultiplier = 1.8f;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat|Posture", meta=(ClampMin="0.0", ClampMax="6.0")) float BossPostureBreakRecoverySeconds = 2.5f;
+ // Bosses adapt after each broken stance; hard caps prevent runaway scaling.
+ UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat|Posture", meta=(ClampMin="0.0", ClampMax="0.5")) float BossPostureGrowthPerBreak = 0.12f;
+ UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat|Posture", meta=(ClampMin="1.0", ClampMax="3.0")) float BossPostureGrowthCap = 1.75f;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat|Posture", meta=(ClampMin="0.0", ClampMax="5.0")) float PosturePressureRecoveryDelaySeconds = 3.f;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Combat|Posture") int32 PostureBreakCount = 0;
  UFUNCTION(BlueprintImplementableEvent, Category="Combat|Posture") void OnShatterFinisher(float DamageDealt);
@@ -58,6 +61,7 @@ private:
  float WindupEndsAt = -1.f;
  float HitReactionEndsAt = -1.f;
  float PostureRecoveryStartsAt = 0.f;
+ float BasePostureAtSpawn = 100.f;
  float NextPostureBreakAllowedAt = 0.f;
  int32 AttackSequence = 0;
  bool bComboSecondHitPending = false;
