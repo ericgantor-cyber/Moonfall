@@ -141,8 +141,10 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('BindAction(TEXT("Sprint"), IE_Pressed', self.hero_cpp)
         self.assertIn('BindAction(TEXT("Sprint"), IE_Released', self.hero_cpp)
         self.assertIn("void AMoonfallHeroPawn::BeginSprint()", self.hero_cpp)
-        self.assertIn("const float Required = FMath::Clamp(SprintRestartStamina, 0.f, MaxStamina);", self.hero_cpp)
-        self.assertIn("Stamina < Required || Stamina <= 0.f", self.hero_cpp)
+        self.assertIn("const bool bValidStamina = FMath::IsFinite(Stamina) && FMath::IsFinite(MaxStamina)", self.hero_cpp)
+        self.assertIn("FMath::IsFinite(SprintRestartStamina)", self.hero_cpp)
+        self.assertIn("bValidStamina ? FMath::Clamp(SprintRestartStamina, 0.f, MaxStamina) : 0.f", self.hero_cpp)
+        self.assertIn("!bValidStamina || Stamina < Required || Stamina <= 0.f", self.hero_cpp)
         self.assertIn("float SprintRestartStamina = 30.f;", self.hero_h)
         self.assertIn("void AMoonfallHeroPawn::EndSprint()", self.hero_cpp)
         self.assertIn("float SprintStaminaDrainPerSecond = 18.f;", self.hero_h)
@@ -150,6 +152,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         tick = self.hero_cpp.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1].split(
             "void AMoonfallHeroPawn::SetupPlayerInputComponent", 1)[0]
         self.assertIn("bSprintHeld && Stamina <= 0.f", tick)
+        self.assertIn("Stamina = FMath::Clamp(Stamina, 0.f, MaxStamina)", tick)
+        self.assertIn("!FMath::IsFinite(Stamina) || !FMath::IsFinite(MaxStamina)", tick)
         self.assertIn("!bSprintExhausted && !bGuarding && !bOptionsOpen && Health > 0.f", tick)
         self.assertIn("GetLastMovementInputVector().SizeSquared2D() > 0.01f", tick)
         self.assertIn("GetTimeSeconds() >= DamageImmunityUntil", tick)
@@ -158,7 +162,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Stamina = FMath::Max(0.f, Stamina - SprintStaminaDrainPerSecond", tick)
         self.assertIn("bSprintExhausted = true;", tick)
         self.assertIn("!bSprinting && GetWorld()", tick)
-        self.assertIn("Stamina + FMath::Max(0.f, StaminaRegenPerSecond) * StaminaDelta", tick)
+        self.assertIn("FMath::IsFinite(StaminaRegenPerSecond) && StaminaRegenPerSecond > 0.f", tick)
+        self.assertIn("Stamina + StaminaRegenPerSecond * StaminaDelta", tick)
         self.assertIn("FMath::IsFinite(SprintSpeedMultiplier)", tick)
         self.assertIn("NormalWalkSpeed * FMath::Clamp(SprintSpeedMultiplier", tick)
         self.assertIn(" : NormalWalkSpeed;", tick)
@@ -180,7 +185,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         tick = self.hero_cpp.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1].split(
             "void AMoonfallHeroPawn::SetupPlayerInputComponent", 1)[0]
         self.assertIn("GetTimeSeconds() >= StaminaRegenStartsAt", tick)
-        self.assertIn("FMath::Clamp(Stamina + FMath::Max(0.f, StaminaRegenPerSecond) * StaminaDelta, 0.f, MaxStamina)", tick)
+        self.assertIn("FMath::Clamp(Stamina + StaminaRegenPerSecond * StaminaDelta, 0.f, MaxStamina)", tick)
         self.assertIn("Health > 0.f", tick)
 
     def test_perfect_dodge_restores_bounded_stamina_once(self):
