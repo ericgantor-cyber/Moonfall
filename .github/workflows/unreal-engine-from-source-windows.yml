@@ -51,7 +51,7 @@ jobs:
       - name: Checkout pinned Moonfall Unreal PR 690 source
         uses: actions/checkout@v4
         with:
-          ref: 7802490c49724c7f824c9dd5b422c71b8a561d88
+          ref: d593eab5b9ec484571511ae673ec63e84f3dab71
           path: game-source
           persist-credentials: false
       - name: Confirm Epic source token secret is configured
@@ -76,7 +76,7 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $sha = (& git -C game-source rev-parse HEAD).Trim()
-          if ($sha -ne '7802490c49724c7f824c9dd5b422c71b8a561d88') { throw 'Unexpected Moonfall game commit' }
+          if ($sha -ne 'd593eab5b9ec484571511ae673ec63e84f3dab71') { throw 'Unexpected Moonfall game commit' }
           $file = '.\ue-source\Engine\Build\Build.version'
           if (-not (Test-Path $file)) { throw 'Unreal source Build.version missing' }
           $version = Get-Content $file -Raw | ConvertFrom-Json
