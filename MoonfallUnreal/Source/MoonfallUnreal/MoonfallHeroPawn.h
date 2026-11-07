@@ -74,7 +74,11 @@ private:
  float LastFinisherKillAt = -100.f;
  float NativeFinisherStartedAt = -100.f;
  FVector NativeFinisherTarget = FVector::ZeroVector;
+ FVector NativeFinisherOrigin = FVector::ZeroVector;
+ FVector NativeFinisherForward = FVector::ForwardVector;
+ int32 NativeFinisherStyle = 1;
  bool bNativeFinisherShatter = false;
+ bool bNativeFinisherBoss = false;
  UPROPERTY(VisibleAnywhere, Category="Moonfall|Finishers") UStaticMeshComponent* FinisherSlashA = nullptr;
  UPROPERTY(VisibleAnywhere, Category="Moonfall|Finishers") UStaticMeshComponent* FinisherSlashB = nullptr;
  UPROPERTY(VisibleAnywhere, Category="Moonfall|Finishers") UPointLightComponent* FinisherFlash = nullptr;
