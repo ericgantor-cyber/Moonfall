@@ -32,6 +32,31 @@ void AMoonfallEnemy::BeginPlay() {
  BossMaxHealth = bBoss ? MaxHealthAtSpawn : 0.f;
 }
 
+void AMoonfallEnemy::ApplyPostureDamage(float Amount) {
+ if (Health <= 0.f || !GetWorld() || !FMath::IsFinite(Amount) || Amount <= 0.f
+     || !FMath::IsFinite(MaxPosture) || MaxPosture <= 0.f) return;
+ const float Now = GetWorld()->GetTimeSeconds();
+ if (Now < PostureBrokenUntil) return;
+ if (!FMath::IsFinite(Posture)) Posture = 0.f;
+ Posture = FMath::Clamp(Posture + Amount, 0.f, MaxPosture);
+ PostureRecoveryStartsAt = Now + 3.f;
+ OnPostureChanged(Posture, MaxPosture);
+ if (Posture < MaxPosture) return;
+ // Break interrupts current attacks and exposes the enemy for a finite window.
+ Posture = 0.f;
+ const float VulnerabilitySeconds = bBoss ? 1.5f : (bElite ? 2.f : 2.5f);
+ PostureBrokenUntil = Now + VulnerabilitySeconds;
+ HitReactionEndsAt = FMath::Max(HitReactionEndsAt, PostureBrokenUntil);
+ WindupEndsAt = -1.f;
+ BossWarningEndTime = -1.f;
+ bComboSecondHitPending = false;
+ bComboSecondHitActive = false;
+ NextAttackAt = FMath::Max(NextAttackAt, PostureBrokenUntil + 0.35f);
+ CachedWaypoint = FVector::ZeroVector;
+ OnPostureChanged(Posture, MaxPosture);
+ OnPostureBroken(VulnerabilitySeconds);
+}
+
 void AMoonfallEnemy::TakeSpellDamage(float Amount) {
   // Ignore invalid/no-op hits so they cannot trigger phase changes, feedback, or loot.
   if (!FMath::IsFinite(Amount) || Amount <= 0.f || Health <= 0.f) return;
@@ -41,10 +66,19 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
   // Elites briefly brace against repeated hits, but the first strike retains
   // full impact and every hit still interrupts their attack windup.
   const float Now = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f;
-  const float EffectiveDamage = bElite && Now < HitReactionEndsAt ? Amount * 0.75f : Amount;
+  const bool bPostureExposed = Now < PostureBrokenUntil;
+  const float ExposureMultiplier = FMath::IsFinite(BrokenPostureDamageMultiplier)
+    ? FMath::Clamp(BrokenPostureDamageMultiplier, 1.f, 3.f) : 1.f;
+  const float EffectiveDamage = (bElite && Now < HitReactionEndsAt ? Amount * 0.75f : Amount)
+    * (bPostureExposed ? ExposureMultiplier : 1.f);
   const float HealthBeforeHit = Health;
   Health = FMath::Max(0.0f, Health - FMath::Max(0.0f, EffectiveDamage));
   const float ActualDamage = HealthBeforeHit - Health;
+  // Offensive pressure builds posture, but an already broken enemy cannot
+  // immediately be rebroken by damage dealt during its vulnerability window.
+  if (ActualDamage > 0.f && Health > 0.f && FMath::IsFinite(SpellPostureScale)
+      && SpellPostureScale > 0.f && !bPostureExposed)
+    ApplyPostureDamage(ActualDamage * FMath::Clamp(SpellPostureScale, 0.f, 2.f));
   if (bBoss && Health > 0.f) {
    const float HealthRatio = Health / FMath::Max(1.f, MaxHealthAtSpawn);
    const int32 NewPhase = HealthRatio <= 0.33f ? 3 : (HealthRatio <= 0.66f ? 2 : 1);
@@ -78,6 +112,13 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
  Super::Tick(DeltaSeconds);
  if (Health <= 0.f || !GetWorld()) return;
  const float Now = GetWorld()->GetTimeSeconds();
+ if (Now >= PostureBrokenUntil && Posture > 0.f && Now >= PostureRecoveryStartsAt
+     && FMath::IsFinite(MaxPosture) && MaxPosture > 0.f
+     && FMath::IsFinite(PostureRecoveryPerSecond) && PostureRecoveryPerSecond > 0.f) {
+  Posture = FMath::Clamp(Posture - FMath::Clamp(PostureRecoveryPerSecond, 0.f, 100.f)
+      * FMath::Clamp(DeltaSeconds, 0.f, 0.4f), 0.f, MaxPosture);
+  OnPostureChanged(Posture, MaxPosture);
+ }
  const bool Staggered = Now < HitReactionEndsAt;
  if (bBoss && Now < BossPhaseMessageUntil) {
   DrawDebugString(GetWorld(), GetActorLocation() + FVector(0.f, 0.f, 230.f),
@@ -170,7 +211,8 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
      // A successful parry ends this attack chain and opens counterplay.
      // Bosses recover sooner than ordinary enemies but cannot hit instantly.
      const float ParryStaggerSeconds = bBoss ? 0.45f : 0.75f;
-     HitReactionEndsAt = Now + ParryStaggerSeconds;
+     HitReactionEndsAt = FMath::Max(HitReactionEndsAt, Now + ParryStaggerSeconds);
+     ApplyPostureDamage(FMath::Max(0.f, ParryPostureDamage));
      OnPerfectParried(ParryStaggerSeconds);
      // Temporary visualization for editor/development builds until a Blueprint
      // implementation provides the finished impact animation and VFX.
