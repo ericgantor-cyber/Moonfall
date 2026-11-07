@@ -180,7 +180,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         tick = self.hero_cpp.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1].split(
             "void AMoonfallHeroPawn::SetupPlayerInputComponent", 1)[0]
         self.assertIn("GetTimeSeconds() >= StaminaRegenStartsAt", tick)
-        self.assertIn("FMath::Min(MaxStamina, Stamina +", tick)
+        self.assertIn("FMath::Clamp(Stamina + FMath::Max(0.f, StaminaRegenPerSecond) * StaminaDelta, 0.f, MaxStamina)", tick)
         self.assertIn("Health > 0.f", tick)
 
     def test_perfect_dodge_restores_bounded_stamina_once(self):
