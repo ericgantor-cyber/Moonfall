@@ -277,8 +277,13 @@ class UnrealMigrationParityGate(unittest.TestCase):
         self.assertIn("PC->SetInputMode(DeathInput);", death)
         self.assertIn("PC->bShowMouseCursor = true;", death)
         self.assertNotIn("ToggleWorldMap();", death)
-        self.assertIn("if (Health <= 0.f) return;", death)
-        self.assertLess(tick.index("if (Health <= 0.f) return;"),
+        self.assertIn("if (Health <= 0.f)\n    {", death)
+        self.assertIn("bCasting = false;", death)
+        self.assertIn("CastTimer = 0.f;", death)
+        self.assertIn("if (WarningMesh) WarningMesh->SetVisibility(false);", death)
+        death_cleanup = death[death.index("if (Health <= 0.f)\n    {"):]
+        self.assertIn("return;", death_cleanup)
+        self.assertLess(tick.index("if (WarningMesh) WarningMesh->SetVisibility(false);"),
                         tick.index("Mana = FMath::Min(180.f, Mana + 8.f * Dt);"))
         self.assertIn("if (Health <= 0.f || bRespawnInProgress) return;", cpp)
 
