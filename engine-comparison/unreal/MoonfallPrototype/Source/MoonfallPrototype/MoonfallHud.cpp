@@ -67,15 +67,84 @@ void AMoonfallHud::DrawHUD()
         DrawRing(OrbCenter, 25.f, Hero->GetHudXpRatio(), FLinearColor(.70f, .40f, 1.f));
     }
 
+    if (Hero->IsWorldMapOpen())
+    {
+        // Shared projection with pawn input: zoom and pan never desync clicks.
+        float Cell = 0.f;
+        FVector2D Origin, ClipMin, ClipMax;
+        Hero->GetWorldMapLayout(Canvas->ClipX, Canvas->ClipY,
+            Cell, Origin, ClipMin, ClipMax);
+        Canvas->K2_DrawBox(ClipMin - FVector2D(4.f, 4.f),
+            ClipMax - ClipMin + FVector2D(8.f, 8.f), 2.f,
+            FLinearColor(.55f, .55f, .62f));
+        for (int32 Y = 0; Y < 16; ++Y)
+            for (int32 X = 0; X < 48; ++X)
+            {
+                const FVector World(-1600.f + (X + .5f) * 400.f,
+                    -3200.f + (Y + .5f) * 400.f, 0.f);
+                if (!Hero->IsMapPositionDiscovered(World)) continue;
+                const FVector2D Tile = Origin + FVector2D(X * Cell, Y * Cell);
+                const FVector2D TileEnd = Tile + FVector2D(Cell, Cell);
+                const FVector2D VisibleMin(FMath::Max(Tile.X, ClipMin.X),
+                    FMath::Max(Tile.Y, ClipMin.Y));
+                const FVector2D VisibleMax(FMath::Min(TileEnd.X, ClipMax.X),
+                    FMath::Min(TileEnd.Y, ClipMax.Y));
+                if (VisibleMax.X <= VisibleMin.X || VisibleMax.Y <= VisibleMin.Y) continue;
+                Canvas->K2_DrawBox(VisibleMin, VisibleMax - VisibleMin, 1.f,
+                    FLinearColor(.28f, .49f, .43f));
+            }
+        const auto Plot = [&](const FVector& World, const FLinearColor& Color)
+        {
+            if (!Hero->IsMapPositionDiscovered(World)) return;
+            const FVector2D Screen = Origin + FVector2D(
+                (World.X + 1600.f) / 400.f * Cell,
+                (World.Y + 3200.f) / 400.f * Cell);
+            if (Screen.X >= ClipMin.X + 5.f && Screen.X < ClipMax.X - 5.f &&
+                Screen.Y >= ClipMin.Y + 5.f && Screen.Y < ClipMax.Y - 5.f)
+                DrawMarker(Screen.X, Screen.Y, Color);
+        };
+        for (const FVector& Chamber : Hero->GetChamberMapPositions())
+            Plot(Chamber, FLinearColor(.2f, .85f, .35f));
+        for (const FVector& Enemy : Hero->GetEnemyMapPositions())
+            Plot(Enemy, FLinearColor::Yellow);
+        if (!Hero->IsBossDefeated())
+            Plot(Hero->GetBossMapPosition(), FLinearColor::Red);
+        FVector Pin;
+        if (Hero->GetWaypoint(Pin)) Plot(Pin, FLinearColor(.3f, .8f, 1.f));
+        FVector Quest;
+        if (Hero->GetQuestDestination(Quest)) Plot(Quest, FLinearColor(1.f, .72f, .18f));
+        Plot(Hero->GetHeroMapPosition(), FLinearColor(.1f, .9f, 1.f));
+        DrawText(FString::Printf(TEXT("MOONFALL WORLD MAP  |  M close  |  Wheel zoom %.1fx  |  Arrows pan"), Hero->GetWorldMapZoom()),
+            FLinearColor::White, ClipMin.X, ClipMin.Y - 55.f);
+        DrawText(TEXT("Click explored terrain to set pin  |  Green chamber  Yellow beast  Red boss  Gold quest  Blue pin"),
+            FLinearColor(.85f, .85f, .85f), ClipMin.X, ClipMax.Y + 18.f);
+        return;
+    }
+
     // Prototype arena radar, not the production six-region Raven Atlas.
     const float Left = Canvas->ClipX - 178.f;
     Canvas->K2_DrawBox(FVector2D(Left, 18.f), FVector2D(160.f, 160.f), 2.f,
         FLinearColor(.2f, .3f, .4f, .8f));
     const FVector H = Hero->GetHeroMapPosition();
     const FVector B = Hero->GetBossMapPosition();
+    // Persistent 400 cm grid fog; unknown cells stay blank.
+    // Full Raven Atlas, terrain art and waypoints remain separate migration work.
+    DrawText(FString::Printf(TEXT("DISCOVERED %d/6"), Hero->GetDiscoveredRegionCount()),
+        FLinearColor(.75f, .8f, .9f), Left, 182.f);
+    // Reveal only sampled explored ground on the local radar, with no fog texture.
+    for (int32 Y = -4; Y <= 4; ++Y)
+        for (int32 X = -4; X <= 4; ++X)
+        {
+            const FVector CellCenter = H + FVector(X * 400.f, Y * 400.f, 0.f);
+            if (Hero->IsMapPositionDiscovered(CellCenter))
+                Canvas->K2_DrawBox(FVector2D(Left + 80.f + X * 16.f - 7.f,
+                    98.f - Y * 16.f - 7.f), FVector2D(14.f, 14.f), 1.f,
+                    FLinearColor(.22f, .42f, .37f, .75f));
+        }
     // Local radar follows the hero across six continuous world regions.
     for (const FVector& Chamber : Hero->GetChamberMapPositions())
     {
+        if (!Hero->IsMapPositionDiscovered(Chamber)) continue;
         const FVector Offset = Chamber - H;
         if (FMath::Abs(Offset.X) <= 1700.f && FMath::Abs(Offset.Y) <= 1700.f)
             DrawMarker(Left + 80.f + Offset.X * .04f, 98.f - Offset.Y * .04f,
@@ -83,14 +152,53 @@ void AMoonfallHud::DrawHUD()
     }
     for (const FVector& Enemy : Hero->GetEnemyMapPositions())
     {
+        if (!Hero->IsMapPositionDiscovered(Enemy)) continue;
         const FVector Offset = Enemy - H;
         if (FMath::Abs(Offset.X) <= 1700.f && FMath::Abs(Offset.Y) <= 1700.f)
             DrawMarker(Left + 80.f + Offset.X * .04f, 98.f - Offset.Y * .04f, FLinearColor::Yellow);
     }
     const FVector BossOffset = B - H;
-    if (!Hero->IsBossDefeated() &&
+    if (!Hero->IsBossDefeated() && Hero->IsMapPositionDiscovered(B) &&
         FMath::Abs(BossOffset.X) <= 1700.f && FMath::Abs(BossOffset.Y) <= 1700.f)
         DrawMarker(Left + 80.f + BossOffset.X * .04f,
             98.f - BossOffset.Y * .04f, FLinearColor::Red);
+    FVector MarkerPosition;
+    if (Hero->GetWaypoint(MarkerPosition))
+    {
+        const FVector Offset = MarkerPosition - H;
+        if (FMath::Abs(Offset.X) <= 1700.f && FMath::Abs(Offset.Y) <= 1700.f &&
+            Hero->IsMapPositionDiscovered(MarkerPosition))
+            DrawMarker(Left + 80.f + Offset.X * .04f, 98.f - Offset.Y * .04f,
+                FLinearColor(.4f, .8f, 1.f));
+        DrawText(FString::Printf(TEXT("PIN: %.0f m  (V set / B clear)"),
+            FVector::Dist2D(H, MarkerPosition) / 100.f),
+            FLinearColor(.4f, .8f, 1.f), Left - 110.f, 308.f);
+    }
+    FVector Destination;
+    if (Hero->GetQuestDestination(Destination))
+    {
+        const FVector Offset = Destination - H;
+        if (FMath::Abs(Offset.X) <= 1700.f && FMath::Abs(Offset.Y) <= 1700.f)
+            DrawMarker(Left + 80.f + Offset.X * .04f, 98.f - Offset.Y * .04f,
+                FLinearColor(1.f, .72f, .18f));
+        DrawText(FString::Printf(TEXT("QUEST: %.0f m"), FVector::Dist2D(H, Destination) / 100.f),
+            FLinearColor(1.f, .72f, .18f), Left - 110.f, 331.f);
+    }
     DrawMarker(Left + 80.f, 98.f, FLinearColor(.2f, .9f, 1.f));
+
+    // Quest tracker ports a persistent Godot-style objective list without
+    // duplicating save flags. The radar and original orb artwork stay intact.
+    const float QuestX = FMath::Max(10.f, Canvas->ClipX - 280.f);
+    const float QuestY = 192.f;
+    const int32 Beasts = Hero->GetQuestDefeatedBeasts();
+    const int32 Chambers = Hero->GetQuestClearedChambers();
+    DrawText(TEXT("WORLD QUESTS"), FLinearColor(.95f, .82f, .52f), QuestX, QuestY);
+    DrawText(FString::Printf(TEXT("%s Hunt beasts  %d/%d"),
+        Beasts >= 18 ? TEXT("[DONE]") : TEXT("[ ]"), Beasts, 18),
+        FLinearColor::White, QuestX, QuestY + 25.f);
+    DrawText(FString::Printf(TEXT("%s Clear chambers  %d/%d"),
+        Chambers >= 30 ? TEXT("[DONE]") : TEXT("[ ]"), Chambers, 30),
+        FLinearColor::White, QuestX, QuestY + 48.f);
+    DrawText(Hero->IsBossDefeated() ? TEXT("[DONE] Defeat Z") : TEXT("[ ] Defeat Z"),
+        FLinearColor::White, QuestX, QuestY + 71.f);
 }

@@ -30,6 +30,21 @@ public:
     UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category="Prototype")
     int32 DefeatedEnemyMask = 0;
 
+    // Backward compatible: old saves default to undiscovered; the current region
+    // is revealed after the checkpoint position is restored.
+    UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category="Prototype")
+    int32 DiscoveredRegionMask = 0;
+
+    // 48 x 16 exploration cells. Older saves load an empty array safely.
+    UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category="Prototype")
+    TArray<uint8> DiscoveredMapCells;
+
+    // Manual navigation pin; deliberately separate from checkpoint and quest flags.
+    UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category="Prototype")
+    bool bHasWaypoint = false;
+    UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category="Prototype")
+    FVector SavedWaypoint = FVector::ZeroVector;
+
     UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category="Prototype")
     int32 ClaimedChamberMask = 0;
 

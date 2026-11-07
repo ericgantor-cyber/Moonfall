@@ -10,6 +10,7 @@
 #include "Engine/Engine.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "Kismet/GameplayStatics.h"
+#include "GameFramework/PlayerController.h"
 #include "UObject/ConstructorHelpers.h"
 
 AMoonfallPawn::AMoonfallPawn()
@@ -111,6 +112,18 @@ void AMoonfallPawn::BeginPlay()
             // Legacy SelectedHeroIndex is retained in old save objects but ignored:
             // Z and Nyra are encounter bosses, not player avatar choices.
             DefeatedEnemyMask = Progress->DefeatedEnemyMask & ((1 << MoonfallWorldRules::TotalEnemies) - 1);
+            DiscoveredRegionMask = Progress->DiscoveredRegionMask & ((1 << MoonfallWorldRules::RegionCount) - 1);
+            if (Progress->DiscoveredMapCells.Num() == 48 * 16)
+                DiscoveredMapCells = Progress->DiscoveredMapCells;
+            const FVector CandidateWaypoint = Progress->SavedWaypoint;
+            if (Progress->bHasWaypoint && !CandidateWaypoint.ContainsNaN() &&
+                FMath::IsFinite(CandidateWaypoint.X) && FMath::IsFinite(CandidateWaypoint.Y) &&
+                CandidateWaypoint.X >= -1600.f && CandidateWaypoint.X <= 17600.f &&
+                CandidateWaypoint.Y >= -3200.f && CandidateWaypoint.Y <= 3200.f)
+            {
+                Waypoint = FVector(CandidateWaypoint.X, CandidateWaypoint.Y, 0.f);
+                bHasWaypoint = true;
+            }
             ClaimedChamberMask = Progress->ClaimedChamberMask & ((1 << MoonfallWorldRules::TotalChambers) - 1);
             DefeatedGuardianMask = Progress->DefeatedGuardianMask & ((1 << MoonfallWorldRules::TotalChambers) - 1);
             // Never allow saved chamber claims without a defeated guardian.
@@ -133,6 +146,9 @@ void AMoonfallPawn::BeginPlay()
     // Missing imports retain the regular prototype mesh.
     ZArtwork = LoadObject<UTexture2D>(nullptr, TEXT("/Game/MoonfallArt/heroes/Z_Original.Z_Original"));
     NyraArtwork = LoadObject<UTexture2D>(nullptr, TEXT("/Game/MoonfallArt/heroes/Nyra_Original.Nyra_Original"));
+    // Reveal the starting / restored region, but do not expose future regions.
+    DiscoveredRegionMask |= 1 << MoonfallWorldRules::RegionAt(HeroMesh->GetRelativeLocation().X);
+    RevealNearbyMapCells(HeroMesh->GetRelativeLocation());
     BuildWorld();
     // Z is the main god/boss; never assign original character art to HeroMesh.
     BossPortrait->SetSprite(ZArtwork);
@@ -467,6 +483,62 @@ void AMoonfallPawn::CollectNearbyChambers()
     }
 }
 
+bool AMoonfallPawn::IsMapPositionDiscovered(const FVector& Position) const
+{
+    // World spans [-1600,17600] X and [-3200,3200] Y.
+    // Never clamp an external position into a known cell.
+    const int32 X = FMath::FloorToInt((Position.X + 1600.f) / 400.f);
+    const int32 Y = FMath::FloorToInt((Position.Y + 3200.f) / 400.f);
+    return X >= 0 && X < 48 && Y >= 0 && Y < 16 &&
+        DiscoveredMapCells.Num() == 48 * 16 &&
+        DiscoveredMapCells[Y * 48 + X] != 0;
+}
+
+bool AMoonfallPawn::RevealNearbyMapCells(const FVector& Position)
+{
+    if (DiscoveredMapCells.Num() != 48 * 16)
+        DiscoveredMapCells.Init(0, 48 * 16);
+    const int32 X = FMath::Clamp(FMath::FloorToInt((Position.X + 1600.f) / 400.f), 0, 47);
+    const int32 Y = FMath::Clamp(FMath::FloorToInt((Position.Y + 3200.f) / 400.f), 0, 15);
+    bool bChanged = false;
+    for (int32 DY = -1; DY <= 1; ++DY)
+        for (int32 DX = -1; DX <= 1; ++DX)
+        {
+            const int32 CX = X + DX, CY = Y + DY;
+            if (CX < 0 || CX >= 48 || CY < 0 || CY >= 16) continue;
+            uint8& Cell = DiscoveredMapCells[CY * 48 + CX];
+            if (Cell == 0) { Cell = 1; bChanged = true; }
+        }
+    return bChanged;
+}
+
+int32 AMoonfallPawn::GetDiscoveredRegionCount() const
+{
+    int32 Count = 0;
+    for (int32 Region = 0; Region < MoonfallWorldRules::RegionCount; ++Region)
+        if ((DiscoveredRegionMask & (1 << Region)) != 0) ++Count;
+    return Count;
+}
+
+int32 AMoonfallPawn::GetQuestDefeatedBeasts() const
+{
+    // Read the same persistent flags used to stop defeated enemies respawning.
+    int32 Count = 0;
+    for (int32 Id = 0; Id < MoonfallWorldRules::TotalEnemies; ++Id)
+        if ((DefeatedEnemyMask & (1 << Id)) != 0) ++Count;
+    return Count;
+}
+
+int32 AMoonfallPawn::GetQuestClearedChambers() const
+{
+    // A chamber counts only when its defeated guardian's reward is claimed.
+    int32 Count = 0;
+    for (int32 Id = 0; Id < MoonfallWorldRules::TotalChambers; ++Id)
+        if ((ClaimedChamberMask & (1 << Id)) != 0 &&
+            (DefeatedGuardianMask & (1 << Id)) != 0) ++Count;
+    return Count;
+}
+
 void AMoonfallPawn::SaveProgress()
 {
     // Reuse the prior save so a death-time write cannot erase the last living checkpoint.
@@ -483,6 +555,10 @@ void AMoonfallPawn::SaveProgress()
     Progress->HeroPoints = Progression.HeroPoints;
     Progress->TamerPoints = Progression.TamerPoints;
     Progress->DefeatedEnemyMask = DefeatedEnemyMask;
+    Progress->DiscoveredRegionMask = DiscoveredRegionMask;
+    Progress->DiscoveredMapCells = DiscoveredMapCells;
+    Progress->bHasWaypoint = bHasWaypoint;
+    Progress->SavedWaypoint = bHasWaypoint ? Waypoint : FVector::ZeroVector;
     Progress->ClaimedChamberMask = ClaimedChamberMask;
     Progress->DefeatedGuardianMask = DefeatedGuardianMask;
     Progress->bBossDefeated = bWon;
@@ -500,15 +576,128 @@ void AMoonfallPawn::SaveProgress()
         UE_LOG(LogTemp, Warning, TEXT("Moonfall prototype: reward save failed."));
 }
 
+bool AMoonfallPawn::GetWaypoint(FVector& OutWaypoint) const
+{
+    if (!bHasWaypoint) return false;
+    OutWaypoint = Waypoint;
+    return true;
+}
+
+bool AMoonfallPawn::GetQuestDestination(FVector& OutDestination) const
+{
+    // Choose only an already discovered incomplete destination. Never disclose fogged locations.
+    const FVector HeroPosition = GetHeroMapPosition();
+    float BestDistanceSq = TNumericLimits<float>::Max();
+    bool bFound = false;
+    for (const FVector& Candidate : GetChamberMapPositions())
+    {
+        if (!IsMapPositionDiscovered(Candidate)) continue;
+        const float DistanceSq = FVector::DistSquared2D(HeroPosition, Candidate);
+        if (DistanceSq < BestDistanceSq)
+        {
+            BestDistanceSq = DistanceSq;
+            OutDestination = Candidate;
+            bFound = true;
+        }
+    }
+    if (!bFound && !bWon && IsMapPositionDiscovered(GetBossMapPosition()))
+    {
+        OutDestination = GetBossMapPosition();
+        bFound = true;
+    }
+    return bFound;
+}
+
+void AMoonfallPawn::ToggleWorldMap()
+{
+    bWorldMapOpen = !bWorldMapOpen;
+    Forward = 0.f;
+    Right = 0.f;
+    if (APlayerController* PC = Cast<APlayerController>(GetController()))
+        PC->bShowMouseCursor = bWorldMapOpen;
+}
+
+void AMoonfallPawn::GetWorldMapLayout(float Width, float Height, float& OutCell,
+    FVector2D& OutOrigin, FVector2D& OutClipMin, FVector2D& OutClipMax) const
+{
+    const float BaseCell = FMath::Max(1.f, FMath::Min(12.f,
+        FMath::Min((Width - 100.f) / 48.f, (Height - 200.f) / 16.f)));
+    OutCell = BaseCell * WorldMapZoom;
+    const FVector2D Center(Width * 0.5f, Height * 0.5f);
+    OutOrigin = Center - FVector2D(24.f + WorldMapPanCells.X,
+        8.f + WorldMapPanCells.Y) * OutCell;
+    OutClipMin = Center - FVector2D(24.f, 8.f) * BaseCell;
+    OutClipMax = Center + FVector2D(24.f, 8.f) * BaseCell;
+}
+
+void AMoonfallPawn::PanMapHorizontal(float Value) { MapPanHorizontalInput = Value; }
+void AMoonfallPawn::PanMapVertical(float Value) { MapPanVerticalInput = Value; }
+
+void AMoonfallPawn::PlaceMapWaypoint()
+{
+    if (!bWorldMapOpen || Health <= 0.f) return;
+    const APlayerController* PC = Cast<APlayerController>(GetController());
+    if (!PC) return;
+    float MouseX = 0.f, MouseY = 0.f;
+    if (!PC->GetMousePosition(MouseX, MouseY)) return;
+    int32 Width = 0, Height = 0;
+    PC->GetViewportSize(Width, Height);
+    if (Width < 200 || Height < 200) return;
+    float CellSize = 0.f;
+    FVector2D Origin, ClipMin, ClipMax;
+    GetWorldMapLayout(static_cast<float>(Width), static_cast<float>(Height),
+        CellSize, Origin, ClipMin, ClipMax);
+    if (MouseX < ClipMin.X || MouseX >= ClipMax.X ||
+        MouseY < ClipMin.Y || MouseY >= ClipMax.Y) return;
+    const int32 X = FMath::FloorToInt((MouseX - Origin.X) / CellSize);
+    const int32 Y = FMath::FloorToInt((MouseY - Origin.Y) / CellSize);
+    if (X < 0 || X >= 48 || Y < 0 || Y >= 16) return;
+    const FVector Candidate(-1600.f + (X + .5f) * 400.f,
+        -3200.f + (Y + .5f) * 400.f, 0.f);
+    if (!IsMapPositionDiscovered(Candidate)) return;
+    Waypoint = Candidate;
+    bHasWaypoint = true;
+    SaveProgress();
+}
+
+void AMoonfallPawn::SetWaypoint()
+{
+    if (bWorldMapOpen) return; // V never replaces a clicked map waypoint.
+    if (Health <= 0.f || !HeroMesh) return;
+    Waypoint = HeroMesh->GetRelativeLocation();
+    Waypoint.Z = 0.f;
+    bHasWaypoint = true;
+    SaveProgress();
+}
+
+void AMoonfallPawn::ClearWaypoint()
+{
+    if (!bHasWaypoint) return;
+    bHasWaypoint = false;
+    Waypoint = FVector::ZeroVector;
+    SaveProgress();
+}
+
 void AMoonfallPawn::MoveForward(float Value) { Forward = Value; }
 void AMoonfallPawn::MoveRight(float Value) { Right = Value; }
 void AMoonfallPawn::Zoom(float Value)
 {
+    if (bWorldMapOpen)
+    {
+        if (FMath::IsNearlyZero(Value)) return;
+        WorldMapZoom = FMath::Clamp(WorldMapZoom + Value * 0.2f, 1.f, 3.f);
+        const float MaxPanX = 24.f * (1.f - 1.f / WorldMapZoom);
+        const float MaxPanY = 8.f * (1.f - 1.f / WorldMapZoom);
+        WorldMapPanCells.X = FMath::Clamp(WorldMapPanCells.X, -MaxPanX, MaxPanX);
+        WorldMapPanCells.Y = FMath::Clamp(WorldMapPanCells.Y, -MaxPanY, MaxPanY);
+        return;
+    }
     ZoomDistance = FMath::Clamp(ZoomDistance - Value * 125.f, 900.f, 2500.f);
     CameraBoom->TargetArmLength = ZoomDistance;
 }
 void AMoonfallPawn::Dodge()
 {
+    if (bWorldMapOpen) return; // Map navigation must not spend stamina.
     if (Health > 0.f && DodgeCooldown <= 0.f && Stamina >= 45.f &&
         FVector2D(Forward, Right).SizeSquared() > 0.01f)
     {
@@ -545,6 +734,7 @@ float AMoonfallPawn::HealingSpellAmount() const
 
 void AMoonfallPawn::Attack()
 {
+    if (bWorldMapOpen) { PlaceMapWaypoint(); return; }
     if (Health <= 0.f || AttackCooldown > 0.f) return;
     const int32 EnemyIndex = NearestEnemyIndex(400.f);
     const float BossDistance = bWon ? TNumericLimits<float>::Max() :
@@ -604,6 +794,7 @@ void AMoonfallPawn::Attack()
 }
 void AMoonfallPawn::CastBolt()
 {
+    if (bWorldMapOpen) return; // No combat casts through the map.
     if (Health <= 0.f || BoltCooldown > 0.f || Mana < 30.f) return;
     const int32 EnemyIndex = NearestEnemyIndex(1000.f);
     const float BossDistance = bWon ? TNumericLimits<float>::Max() :
@@ -638,6 +829,7 @@ void AMoonfallPawn::CastBolt()
 
 void AMoonfallPawn::CastHeal()
 {
+    if (bWorldMapOpen) return;
     const float MaxHealth = GetHudMaxHealth();
     if (Health <= 0.f || HealCooldown > 0.f || Mana < 40.f || Health >= MaxHealth) return;
     Mana -= 40.f;
@@ -668,15 +860,30 @@ void AMoonfallPawn::SetupPlayerInputComponent(UInputComponent* Input)
     Input->BindAxis(TEXT("Forward"), this, &AMoonfallPawn::MoveForward);
     Input->BindAxis(TEXT("Right"), this, &AMoonfallPawn::MoveRight);
     Input->BindAxis(TEXT("Zoom"), this, &AMoonfallPawn::Zoom);
+    Input->BindAxis(TEXT("MapPanHorizontal"), this, &AMoonfallPawn::PanMapHorizontal);
+    Input->BindAxis(TEXT("MapPanVertical"), this, &AMoonfallPawn::PanMapVertical);
     Input->BindAction(TEXT("Attack"), IE_Pressed, this, &AMoonfallPawn::Attack);
     Input->BindAction(TEXT("Dodge"), IE_Pressed, this, &AMoonfallPawn::Dodge);
     Input->BindAction(TEXT("ArcaneBolt"), IE_Pressed, this, &AMoonfallPawn::CastBolt);
     Input->BindAction(TEXT("ArcaneHeal"), IE_Pressed, this, &AMoonfallPawn::CastHeal);
+    Input->BindAction(TEXT("SetWaypoint"), IE_Pressed, this, &AMoonfallPawn::SetWaypoint);
+    Input->BindAction(TEXT("ClearWaypoint"), IE_Pressed, this, &AMoonfallPawn::ClearWaypoint);
+    Input->BindAction(TEXT("ToggleWorldMap"), IE_Pressed, this, &AMoonfallPawn::ToggleWorldMap);
 }
 void AMoonfallPawn::Tick(float DeltaSeconds)
 {
     Super::Tick(DeltaSeconds);
     const float Dt = FMath::Max(0.f, DeltaSeconds);
+    if (bWorldMapOpen)
+    {
+        const float MapDt = FMath::Min(Dt, 0.05f);
+        WorldMapPanCells.X += MapPanHorizontalInput * 10.f * MapDt / WorldMapZoom;
+        WorldMapPanCells.Y += MapPanVerticalInput * 10.f * MapDt / WorldMapZoom;
+        const float MaxPanX = 24.f * (1.f - 1.f / WorldMapZoom);
+        const float MaxPanY = 8.f * (1.f - 1.f / WorldMapZoom);
+        WorldMapPanCells.X = FMath::Clamp(WorldMapPanCells.X, -MaxPanX, MaxPanX);
+        WorldMapPanCells.Y = FMath::Clamp(WorldMapPanCells.Y, -MaxPanY, MaxPanY);
+    }
     AttackCooldown = FMath::Max(0.f, AttackCooldown - Dt);
     // Preserve combat reaction windows across a rare long render stall.
     // Ordinary frame intervals still advance the timers in real time.
@@ -705,7 +912,7 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
     CheckpointTimer += Dt;
     if (Health > 0.f)
     {
-        FVector Direction(Forward, Right, 0.f);
+        FVector Direction = bWorldMapOpen ? FVector::ZeroVector : FVector(Forward, Right, 0.f);
         Direction = Direction.GetClampedToMaxSize(1.f);
         // A frame hitch must not teleport the hero through a boss warning or chamber.
         const float MovementDt = FMath::Min(Dt, 0.05f);
@@ -714,6 +921,13 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
         Position.X = FMath::Clamp(Position.X, -1600.f, 17600.f);
         Position.Y = FMath::Clamp(Position.Y, -3200.f, 3200.f);
         HeroMesh->SetRelativeLocation(Position);
+        const int32 CurrentRegion = MoonfallWorldRules::RegionAt(Position.X);
+        const int32 RegionBit = 1 << CurrentRegion;
+        const bool bNewRegion = (DiscoveredRegionMask & RegionBit) == 0;
+        if (bNewRegion) DiscoveredRegionMask |= RegionBit;
+        const bool bNewCells = RevealNearbyMapCells(Position);
+        if (bNewRegion || bNewCells)
+            SaveProgress(); // Persist only when discoveries change, not every frame.
         if (CheckpointTimer >= CheckpointInterval)
         {
             CheckpointTimer = 0.f;
