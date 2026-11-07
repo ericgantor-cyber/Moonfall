@@ -82,6 +82,14 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
   if (Stamina <= 0.f) bSprintExhausted = true;
  }
  const bool bSprinting = bCanSprint && !bSprintExhausted;
+ // Invalid Blueprint resource tuning cannot leave the hero guarding forever.
+ // BreakGuard also restores movement speed and clears the counterattack window.
+ if (bGuarding && !bOptionsOpen && Health > 0.f && GetWorld()
+     && (!FMath::IsFinite(Stamina) || !FMath::IsFinite(MaxStamina)
+         || MaxStamina <= 0.f || !FMath::IsFinite(GuardStaminaCost)
+         || GuardStaminaCost < 0.f)) {
+  BreakGuard();
+ }
  // Sustained guarding is a deliberate defensive commitment. Drain only on
  // playable frames and never allow invalid Blueprint values to corrupt stamina.
  if (bGuarding && !bOptionsOpen && Health > 0.f && GetWorld()
