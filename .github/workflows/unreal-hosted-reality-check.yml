@@ -7,6 +7,8 @@ on:
     paths:
       - '.github/workflows/unreal-hosted-reality-check.yml'
       - '.github/workflows/unreal-hosted-windows.yml'
+      - 'MoonfallUnreal/Build/Test-UnrealInstalledArchive.ps1'
+      - 'MoonfallUnreal/Build/Test-UnrealInstalledArchive.Tests.ps1'
   workflow_dispatch:
 
 permissions:
@@ -30,9 +32,8 @@ jobs:
             "inputs.attempt_compile && needs.windows-preflight.outputs.has_capacity == 'true'",
             "minimum_free_gb:",
             "MOONFALL_UE54_ARCHIVE_SHA256",
-            "Get-FileHash -LiteralPath",
-            "System.IO.Compression.ZipFile",
-            "uncompressedBytes + 15GB",
+            "Test-UnrealInstalledArchive.ps1",
+            "-ReserveBytes 15GB",
             "Expand-Archive -LiteralPath",
             "Build-Windows.ps1 -UnrealRoot",
             "-CompileOnly"
@@ -42,6 +43,10 @@ jobs:
             }
           }
           Write-Host 'Hosted Unreal build workflow safeguards verified as source text; UE compilation not run.'
+      - name: Run synthetic Unreal archive security regression tests
+        shell: pwsh
+        run: |
+          & .\MoonfallUnreal\Build\Test-UnrealInstalledArchive.Tests.ps1
       - name: Report actual Windows hosted runner capacity
         shell: pwsh
         run: |
