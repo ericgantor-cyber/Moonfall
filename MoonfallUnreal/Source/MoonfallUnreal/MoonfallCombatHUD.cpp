@@ -119,10 +119,12 @@ void AMoonfallCombatHUD::DrawHUD()
  DrawArc(Radius * 0.97f, XpFraction, FLinearColor(0.19f, 0.10f, 0.28f), FLinearColor(0.73f, 0.32f, 1.f), 4.f);
  // Thin green stamina arc stays outside the original red HP / blue mana / purple XP orb.
  const bool bStaminaLow = Hero->Stamina < Hero->DodgeStaminaCost;
+ const bool bSprintRecovery = Hero->Stamina < FMath::Clamp(Hero->SprintRestartStamina, 0.f, Hero->MaxStamina);
  DrawArc(Radius * 1.13f, DisplayStamina, FLinearColor(0.06f, 0.17f, 0.10f),
    bStaminaLow ? FLinearColor(1.f, 0.68f, 0.22f) : FLinearColor(0.22f, 0.86f, 0.43f), 3.f);
- if (bStaminaLow && !bCompactScreen) {
-  DrawText(TEXT("LOW STAMINA"), FLinearColor(1.f,0.80f,0.40f),
+ if ((bStaminaLow || bSprintRecovery) && !bCompactScreen) {
+  DrawText(bStaminaLow ? TEXT("LOW STAMINA") : TEXT("SPRINT RECOVERING"),
+    FLinearColor(1.f,0.80f,0.40f),
     CX + Radius + 14.f, CY + 15.f, nullptr, 0.82f * LabelScale);
  }
  const float GlowLeft = GetWorld() ? FMath::Max(0.f, LevelGlowUntil - GetWorld()->GetTimeSeconds()) : 0.f;
