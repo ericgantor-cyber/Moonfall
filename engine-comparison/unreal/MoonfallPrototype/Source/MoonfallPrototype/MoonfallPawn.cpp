@@ -949,7 +949,7 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
     // Snapshot dodge protection before advancing timers. The same active
     // frame controls travel, enemy contact and boss impact.
     const bool bDodgeActiveThisFrame = DodgeTimer > 0.f;
-    const bool bParryActiveThisFrame = ParryTimer > 0.f;
+    bool bParryActiveThisFrame = ParryTimer > 0.f;
     DodgeTimer = FMath::Max(0.f, DodgeTimer - ReactionDt);
     ParryTimer = FMath::Max(0.f, ParryTimer - ReactionDt);
     ParryCooldown = FMath::Max(0.f, ParryCooldown - Dt);
@@ -1026,6 +1026,7 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
                     // One defensive success per parry input. Stagger the
                     // specific contact enemy instead of disabling all AI.
                     ParryTimer = 0.f;
+                    bParryActiveThisFrame = false; // One successful parry per input.
                     CounterWindow = CounterDuration;
                     if (Enemies.IsValidIndex(ContactIndex))
                         Enemies[ContactIndex].StaggerTimer = 0.8f;
@@ -1106,6 +1107,7 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
                     // Timed boss parry cancels this resolved attack and grants
                     // a riposte. It never restores HP or refunds the parry cost.
                     ParryTimer = 0.f;
+                    bParryActiveThisFrame = false; // One successful parry per input.
                     CounterWindow = CounterDuration;
                     CastCooldown = FMath::Max(CastCooldown, 2.f);
                 }
