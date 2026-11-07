@@ -123,3 +123,11 @@ A separate, **manual-only** [Moonfall UE 5.4 source compilation workflow](https:
 4. Open the source workflow, select **Run workflow**, and enable `confirm_build` only when ready to incur the substantial source compilation and runner cost.
 
 The workflow keeps Epic's source and compiled engine **private on the transient runner**, uploads **only Moonfall game compilation logs on failure**, and does not publish a source archive or engine binaries. It does not yet cook/package a playable game or create an installer. Actual engine access, source compilation and game compilation are **unverified** until the authorized token and suitably sized runner are configured and the manual job succeeds. This workflow is not a substitute for verifying Epic's current license and use restrictions.
+
+## Test Epic source access without running an expensive engine build
+
+Use the new [Moonfall Epic Unreal 5.4 private source access check](https://github.com/ericgantor-cyber/Moonfall/actions/workflows/unreal-epic-access-check.yml). It runs manually on a standard GitHub-hosted Windows runner, uses a repository Actions secret named `MOONFALL_EPIC_SOURCE_TOKEN`, and requests only GitHub API metadata for `EpicGames/UnrealEngine` and the `5.4` branch.
+
+**Setup:** After linking the Epic Games and GitHub accounts, open [Moonfall's Actions secrets](https://github.com/ericgantor-cyber/Moonfall/settings/secrets/actions), select **New repository secret**, name it `MOONFALL_EPIC_SOURCE_TOKEN`, and supply a GitHub token with **read access to EpicGames/UnrealEngine** from an account authorized by Epic. Never enter a token in a chat, workflow input, public file, or log. Depending on GitHub and Epic organization policies, private third-party repository access may require a classic token or additional authorization. Keep the credential least-privileged and revoke it when no longer needed.
+
+Then select **Run workflow** in the access-check workflow. A successful run writes `MOONFALL_EPIC_ACCESS_PASS`; failures only report generic troubleshooting guidance, not credential contents. The check **does not download UE, use a large Windows runner, compile the engine, package Moonfall, or claim a playable game**. A successful access check is necessary but does not guarantee that a full UE 5.4 source build will fit within the available time, disk, or quota.
