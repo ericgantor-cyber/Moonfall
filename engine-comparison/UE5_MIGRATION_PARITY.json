@@ -64,12 +64,14 @@
     },
     {
       "id": "quest_and_atlas",
-      "status": "quest_tracker_and_saved_grid_fog_source_present_full_atlas_pending",
+      "status": "quest_tracker_grid_fog_waypoint_source_present_full_atlas_pending",
       "unreal": [
         "engine-comparison/unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.cpp",
-        "engine-comparison/unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallPawn.cpp"
+        "engine-comparison/unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallPawn.cpp",
+        "engine-comparison/unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallProgressSave.h",
+        "engine-comparison/unreal/MoonfallPrototype/Config/DefaultInput.ini"
       ],
-      "gate": "Verify 48x16 (400cm) discovery grid, older-save recovery, marker hiding and saved exploration in UE5.6 Windows; full terrain atlas and waypoints remain pending"
+      "gate": "Verify saved V/B map pin, fog-restricted nearest chamber/boss quest destination, and distance labels on UE5.6 Windows; full atlas map-click placement and terrain depiction remain pending"
     },
     {
       "id": "crafting_inventory",
