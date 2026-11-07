@@ -91,6 +91,7 @@ private:
     bool bWorldMapOpen = false;
     bool bDeathInputEnabled = false;
     bool bRespawnInProgress = false;
+    bool bCheckpointNeedsRepair = false; // Legacy/corrupt checkpoint, preserve world progression.
     float WorldMapZoom = 1.f;
     FVector2D WorldMapPanCells = FVector2D::ZeroVector;
     float MapPanHorizontalInput = 0.f;
