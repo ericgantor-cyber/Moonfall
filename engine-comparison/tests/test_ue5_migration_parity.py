@@ -210,6 +210,30 @@ class UnrealMigrationParityGate(unittest.TestCase):
         self.assertIn("combat paused", hud)
         self.assertIn("M / Esc close", hud)
 
+    def test_timed_parry_has_cost_cooldown_and_one_hit_consumption(self):
+        base = ROOT / "engine-comparison/unreal/MoonfallPrototype"
+        pawn = (base / "Source/MoonfallPrototype/MoonfallPawn.cpp").read_text(encoding="utf-8")
+        header = (base / "Source/MoonfallPrototype/MoonfallPawn.h").read_text(encoding="utf-8")
+        keys = (base / "Config/DefaultInput.ini").read_text(encoding="utf-8")
+        self.assertIn('ActionName="Parry",Key=RightMouseButton', keys)
+        self.assertIn("void Parry();", header)
+        self.assertIn("float ParryTimer = 0.f, ParryCooldown = 0.f;", header)
+        self.assertIn('Input->BindAction(TEXT("Parry"), IE_Pressed, this, &AMoonfallPawn::Parry);', pawn)
+        start = pawn.index("void AMoonfallPawn::Parry()")
+        body = pawn[start:pawn.index("\n}", start) + 2]
+        for required in ("if (bWorldMapOpen || Health <= 0.f || DodgeTimer > 0.f",
+                         "ParryCooldown > 0.f || Stamina < 25.f",
+                         "Stamina -= 25.f;", "ParryTimer = 0.22f;",
+                         "ParryCooldown = 1.25f;"):
+            self.assertIn(required, body)
+        tick = pawn[pawn.index("void AMoonfallPawn::Tick(float DeltaSeconds)"):]
+        self.assertIn("bool bParryActiveThisFrame = ParryTimer > 0.f;", tick)
+        self.assertIn("ParryCooldown = FMath::Max(0.f, ParryCooldown - Dt);", tick)
+        self.assertIn("Enemies[ContactIndex].StaggerTimer = 0.8f;", tick)
+        self.assertIn("CastCooldown = FMath::Max(CastCooldown, 2.f);", tick)
+        self.assertEqual(tick.count("bParryActiveThisFrame = false;"), 2)
+        self.assertLess(tick.index("if (bWorldMapOpen)"), tick.index("ParryCooldown ="))
+
     def test_open_map_blocks_combat_resource_inputs(self):
         pawn = (ROOT / "engine-comparison/unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallPawn.cpp").read_text(encoding="utf-8")
         for method in ("Dodge", "CastBolt", "CastHeal", "SetWaypoint"):
