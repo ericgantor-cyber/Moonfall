@@ -74,6 +74,11 @@ private:
  UPROPERTY(EditAnywhere, Category="Moonfall|Combat") float DodgeCooldown = 1.3f;
  UPROPERTY(EditAnywhere, Category="Moonfall|Combat", meta=(ClampMin="0.0")) float StaminaRegenPerSecond = 24.f;
  UPROPERTY(EditAnywhere, Category="Moonfall|Combat", meta=(ClampMin="0.0")) float PerfectDodgeStaminaReward = 10.f;
+ UPROPERTY(EditAnywhere, Category="Moonfall|Movement", meta=(ClampMin="0.0")) float SprintStaminaDrainPerSecond = 18.f;
+ UPROPERTY(EditAnywhere, Category="Moonfall|Movement", meta=(ClampMin="1.0", ClampMax="2.5")) float SprintSpeedMultiplier = 1.45f;
+ float NormalWalkSpeed = 600.f;
+ bool bSprintHeld = false;
+ bool bSprintExhausted = false;
  float StaminaRegenStartsAt = 0.f;
  void MoveForward(float Amount);
  void MoveRight(float Amount);
@@ -83,6 +88,8 @@ private:
  void CastRight();
  void CastBoth();
  void Dodge();
+ void BeginSprint();
+ void EndSprint();
  void BeginGuard();
  void EndGuard();
  void OpenOptions();
