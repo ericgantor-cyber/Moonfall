@@ -69,6 +69,31 @@ class PackageContract(unittest.TestCase):
                         workflow.index("Upload packaged game only after cook succeeds"))
         self.assertIn("if (@($data.files).Count -eq 0)", workflow)
 
+    def test_headless_boot_smoke_gates_windows_artifact_upload(self):
+        workflow = WORKFLOW.read_text(encoding="utf-8")
+        smoke = (ROOT / "engine-comparison/unreal/MoonfallPrototype/Build/SmokeTest-Windows.ps1").read_text(encoding="utf-8")
+        self.assertIn("Verify packaged game boots into MoonfallWorld headlessly", workflow)
+        self.assertLess(workflow.index("Verify packaged game boots into MoonfallWorld headlessly"),
+                        workflow.index("Upload packaged game only after cook succeeds"))
+        self.assertIn("SmokeDiagnostics/", workflow)
+        for guard in (
+            "MoonfallPackageManifest.json",
+            "Get-FileHash -LiteralPath $Target -Algorithm SHA256",
+            "Packaged file SHA256 mismatch",
+            "Start-Process -FilePath $Exe.FullName",
+            "Start-Sleep -Seconds $BootSeconds",
+            "if ($Process.HasExited)",
+            "MoonfallWorld",
+            "Fatal error:",
+            "Unhandled Exception:",
+            "Stop-Process -Id $Process.Id -Force",
+            "-nullrhi",
+            "-unattended",
+            "not a display, input, quest, save-load, audio or performance test",
+        ):
+            self.assertIn(guard.lower(), smoke.lower())
+        self.assertIn("BootSeconds must be between 10 and 120 seconds", smoke)
+
     def test_project_configures_generated_startup_map(self):
         ini = (ROOT / "engine-comparison/unreal/MoonfallPrototype/Config/DefaultEngine.ini").read_text(encoding="utf-8")
         self.assertIn("GameDefaultMap=/Game/Maps/MoonfallWorld", ini)

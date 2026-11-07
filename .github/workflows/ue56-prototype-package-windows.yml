@@ -51,6 +51,14 @@ jobs:
           if (@($data.files).Count -eq 0) { throw 'Packaging manifest has no files.' }
           "Integrity manifest validated for an untested Win64 package." >> $env:GITHUB_STEP_SUMMARY
 
+      - name: Verify packaged game boots into MoonfallWorld headlessly
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $root = '.\engine-comparison\unreal\MoonfallPrototype\Saved\WindowsPackage'
+          $smoke = '.\engine-comparison\unreal\MoonfallPrototype\Build\SmokeTest-Windows.ps1'
+          & $smoke -PackageDirectory $root -BootSeconds 25
+          "Packaged game passed a 25-second headless map boot smoke. Visual gameplay, saves and installer are UNTESTED." >> $env:GITHUB_STEP_SUMMARY
+
       - name: Upload packaged game only after cook succeeds
         uses: actions/upload-artifact@v4
         with:
@@ -68,6 +76,7 @@ jobs:
           path: |
             engine-comparison/unreal/MoonfallPrototype/Saved/Logs/
             engine-comparison/unreal/MoonfallPrototype/Intermediate/Build/Win64/
+            engine-comparison/unreal/MoonfallPrototype/Saved/WindowsPackage/SmokeDiagnostics/
           if-no-files-found: warn
           retention-days: 14
 
@@ -76,4 +85,4 @@ jobs:
         run: |
           "Status: ${{ job.status }}" >> $env:GITHUB_STEP_SUMMARY
           "Requires trusted UE5.6 Windows runner and UE56_ROOT. The startup map is generated inside Unreal Editor if no authored level exists." >> $env:GITHUB_STEP_SUMMARY
-          "No desktop shortcut, signed installer, benchmark or playable smoke test is provided by this job." >> $env:GITHUB_STEP_SUMMARY
+          "Headless boot only. No desktop shortcut, signed installer, visual gameplay, input, save reload or benchmark is provided by this job." >> $env:GITHUB_STEP_SUMMARY
