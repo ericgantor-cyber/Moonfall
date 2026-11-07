@@ -158,13 +158,24 @@ jobs:
           assert 'GetWorld()->GetTimeSeconds() - Hero->ArenaBossQuestCompletedAt < 5.f' in hud
           assert 'ArenaBossQuestCompletedAt = GetWorld()' in hero
           assert 'QUEST COMPLETE: Arena Boss' in hud
-          assert 'BeginArenaBossQuest(FVector BossLocation)' in hero
-          assert 'CompleteArenaBossQuest()' in hero
-          assert 'if (!bArenaBossQuestActive || bArenaBossQuestComplete) return' in hero
+          # Quest completion and HUD must be tied to the exact assigned boss
+          # actor. A separate spawned boss cannot steal progress or finish it.
+          hero_header = (root/'MoonfallUnreal'/'MoonfallHeroPawn.h').read_text()
+          assert 'TWeakObjectPtr<AMoonfallEnemy> ActiveArenaBoss' in hero_header
+          assert 'BeginArenaBossQuest(AMoonfallEnemy* Boss)' in hero_header
+          assert 'CompleteArenaBossQuest(AMoonfallEnemy* DefeatedBoss)' in hero_header
+          assert 'GetArenaBossQuestTarget() const' in hero_header
+          assert 'ActiveArenaBoss = Boss;' in hero
+          assert 'ActiveArenaBoss.Get() != DefeatedBoss' in hero
+          assert 'ActiveArenaBoss.Reset();' in hero
+          assert 'QuestTarget = CurrentLocation;' in hero
+          assert 'const AMoonfallEnemy* QuestBoss = Hero->GetArenaBossQuestTarget();' in hud
+          assert 'const float Progress = IsValid(QuestBoss)' in hud
+          assert 'QuestBossDistanceSq' not in hud
           assert 'bArenaBossQuestComplete = true' in hero
           assert 'ClearQuestTarget();' in hero
-          assert 'Hero->BeginArenaBossQuest(Enemy->GetActorLocation())' in arena
-          assert 'if (bBoss) Hero->CompleteArenaBossQuest()' in enemy
+          assert 'Hero->BeginArenaBossQuest(Enemy);' in arena
+          assert 'if (bBoss) Hero->CompleteArenaBossQuest(this);' in enemy
           assert 'const FIntPoint CurrentCell' in hud and hud.index('const FIntPoint CurrentCell') < hud.index('if (Canvas->SizeX >= 700.f')
           assert '(DiscoveredScreen - MapCenter).SizeSquared() >' in hud
           hero_header = (root/'MoonfallUnreal'/'MoonfallHeroPawn.h').read_text()
