@@ -20,6 +20,27 @@ if ($Manifest.project -ne 'MoonfallPrototype' -or $Manifest.engine -ne '5.6' -or
     $Manifest.tested_in_game -ne $false -or $Manifest.installer -ne $false) {
     throw 'Package integrity manifest is invalid.'
 }
+# Verify every archived file against the packager's SHA256 inventory before launch.
+foreach ($Entry in @($Manifest.files)) {
+    $RelativePath = [string]$Entry.path
+    if ([string]::IsNullOrWhiteSpace($RelativePath) -or
+        [System.IO.Path]::IsPathRooted($RelativePath) -or
+        $RelativePath -match '(^|[\\/])\.\.([\\/]|$)') {
+        throw "Invalid manifest file path: $RelativePath"
+    }
+    $Target = Join-Path $PackageDirectory $RelativePath
+    if (-not (Test-Path -LiteralPath $Target -PathType Leaf)) {
+        throw "Missing packaged file: $RelativePath"
+    }
+    $Item = Get-Item -LiteralPath $Target
+    if ($Item.Length -ne [long]$Entry.bytes) {
+        throw "Packaged file length mismatch: $RelativePath"
+    }
+    $Sha = (Get-FileHash -LiteralPath $Target -Algorithm SHA256).Hash.ToLowerInvariant()
+    if ($Sha -ne [string]$Entry.sha256) {
+        throw "Packaged file SHA256 mismatch: $RelativePath"
+    }
+}
 $Files = @(Get-ChildItem -LiteralPath $PackageDirectory -Recurse -File -Filter 'MoonfallPrototype*.exe')
 $Exe = $Files | Where-Object { $_.Name -match '^MoonfallPrototype-Win64-Development\.exe$' -and $_.Length -gt 0 } |
     Select-Object -First 1
