@@ -38,6 +38,8 @@ public:
     FVector GetHeroMapPosition() const { return HeroMesh ? HeroMesh->GetRelativeLocation() : FVector::ZeroVector; }
     FVector GetBossMapPosition() const { return BossMesh ? BossMesh->GetRelativeLocation() : FVector::ZeroVector; }
     bool IsBossDefeated() const { return bWon; }
+    int32 GetQuestDefeatedBeasts() const;
+    int32 GetQuestClearedChambers() const;
     TArray<FVector> GetEnemyMapPositions() const;
     TArray<FVector> GetChamberMapPositions() const;
 private:
