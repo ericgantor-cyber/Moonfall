@@ -360,6 +360,35 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Now - LastPerfectDodgeRewardAt < 1.f", reward)
         self.assertIn("PerfectDodgeWindowUntil = -1.f", reward)
 
+    def test_posture_shatter_finisher_boss_recovery_and_compact_hud(self):
+        self.assertIn("float PostureFinisherDamageMultiplier = 1.8f;", self.enemy_h)
+        self.assertIn("bool bPostureFinisherAvailable = false;", self.enemy_h)
+        self.assertIn("float BossPostureBreakRecoverySeconds = 2.5f;", self.enemy_h)
+        begin = self.enemy_cpp.split("void AMoonfallEnemy::BeginPlay()", 1)[1].split(
+            "void AMoonfallEnemy::ApplyPostureDamage", 1)[0]
+        self.assertIn("const float PostureMultiplier = bBoss ? 1.8f : (bElite ? 1.25f : 1.f);", begin)
+        self.assertIn("Posture = 0.f;", begin)
+        posture = self.enemy_cpp.split("void AMoonfallEnemy::ApplyPostureDamage(float Amount)", 1)[1].split(
+            "void AMoonfallEnemy::TakeSpellDamage", 1)[0]
+        self.assertIn("Now < NextPostureBreakAllowedAt", posture)
+        self.assertIn("bPostureFinisherAvailable = true;", posture)
+        self.assertIn("NextPostureBreakAllowedAt = PostureBrokenUntil", posture)
+        self.assertIn("OnPostureBroken(VulnerabilitySeconds);", posture)
+        damage = self.enemy_cpp.split("void AMoonfallEnemy::TakeSpellDamage(float Amount)", 1)[1].split(
+            "void AMoonfallEnemy::Tick(", 1)[0]
+        self.assertIn("bPostureExposed && bPostureFinisherAvailable", damage)
+        self.assertIn("FMath::Clamp(PostureFinisherDamageMultiplier, 1.f, 4.f)", damage)
+        self.assertIn("if (bShatterFinisher) bPostureFinisherAvailable = false;", damage)
+        self.assertIn("bShatterFinisher ? FinisherMultiplier : (bPostureExposed ? ExposureMultiplier : 1.f)", damage)
+        self.assertLess(damage.index("if (bShatterFinisher) bPostureFinisherAvailable = false;"),
+                        damage.index("Health = FMath::Max(0.0f, Health -"))
+        self.assertIn('TEXT("POSTURE SHATTERED")', self.hud)
+        self.assertIn('TEXT("SHATTERED")', self.hud)
+        self.assertIn("Boss->Posture / FMath::Max(1.f, Boss->MaxPosture)", self.hud)
+        self.assertIn("PostureTarget->Posture /", self.hud)
+        self.assertIn("PostureDistanceSq = FMath::Square(1200.f)", self.hud)
+        self.assertNotIn('TEXT("GUARD BROKEN")', self.hud)
+
     def test_enemy_posture_break_pressure_and_vulnerability(self):
         self.assertIn("float MaxPosture = 100.f;", self.enemy_h)
         self.assertIn("float ParryPostureDamage = 40.f;", self.enemy_h)
