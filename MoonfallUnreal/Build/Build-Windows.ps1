@@ -63,8 +63,9 @@ if (-not $CompileOnly) {
 
 }
 
-# A compiler smoke test must not depend on packaging tools, cooked maps, or output folders.
-if (-not $CompileOnly -and -not $PreflightOnly) {
+# Packaging preflight must check tools as well as maps. Compile-only stays independent
+# of packaging dependencies; preflight-only performs no compile or file deletion.
+if (-not $CompileOnly) {
     $uat = Join-Path $UnrealRoot 'Engine\Build\BatchFiles\RunUAT.bat'
     if (-not (Test-Path -LiteralPath $uat)) { throw "Unreal packaging tool missing: $uat" }
     foreach ($command in @('dotnet','makensis.exe')) {
@@ -84,7 +85,7 @@ if (-not $CompileOnly -and -not $PreflightOnly) {
 }
 
 if ($PreflightOnly) {
-    Write-Host 'Moonfall build preflight passed. Compilation and packaging were not run.'
+    Write-Host 'Moonfall packaging preflight passed: engine, compiler, map, .NET 8 and NSIS checked. Compilation and packaging were not run.'
     exit 0
 }
 
