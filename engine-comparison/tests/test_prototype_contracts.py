@@ -622,7 +622,7 @@ class PrototypeContracts(unittest.TestCase):
 
     def test_unreal_melee_aggro_and_boss_warning_pulse(self):
         self.assertIn("const bool bAggro = HeroDistSq < FMath::Square(800.f)", self.cpp)
-        self.assertIn("if (HeroDistSq > FMath::Square(160.f))", self.cpp)
+        self.assertIn("const bool bNeedsMove = HeroDistance > 160.f ||", self.cpp)
         self.assertIn("ToCandidateHome.GetClampedToMaxSize2D(Leash)", self.cpp)
         self.assertIn("BossWarningRadius / 50.f * Pulse", self.cpp)
         self.assertIn("BossAttackPhase == 3 ? 17.f : 11.f", self.cpp)
