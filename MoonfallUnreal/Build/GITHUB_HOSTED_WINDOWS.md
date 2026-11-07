@@ -69,3 +69,9 @@ The [Windows launcher build workflow](https://github.com/ericgantor-cyber/Moonfa
 The [Moonfall Windows launcher workflow](https://github.com/ericgantor-cyber/Moonfall/actions/workflows/unreal-launcher-windows.yml) now additionally compiles the real NSIS installer **script** on GitHub-hosted Windows against a **synthetic test-only** game structure and the successfully compiled launcher. Its test installer is deleted immediately and is **never distributed**. The published artifact contains only the stand-alone launcher executable and SHA-256 hash.
 
 [Verified passing Windows job](https://github.com/ericgantor-cyber/Moonfall/actions/runs/42317142396): launcher compiled, missing-game check passed, synthetic layout check passed, NSIS template compiled, and launcher-only artifact uploaded. This does not verify an Unreal game, real installer contents, installation/uninstallation, or gameplay.
+
+## Verified NSIS installation and uninstallation smoke test (2026-11-07 UTC)
+
+[GitHub-hosted Windows run 42317552438](https://github.com/ericgantor-cyber/Moonfall/actions/runs/42317552438) **passed** after the installer workflow was expanded to execute a silent **test-only NSIS installation** in a dedicated temporary directory, confirm installed launcher/game placeholder files, run `MoonfallLauncher.exe --check-install` from that installed directory, execute silent uninstallation, and check the placeholder game executable was removed. The synthetic installer is **deleted** after testing; it is never distributed as a playable game. Only the verified Windows launcher binary and its SHA-256 checksum are uploaded.
+
+This validates a basic install/uninstall path for the current NSIS script on the hosted runner. It does **not** validate an actual cooked Unreal game, desktop shortcut behavior, real user installs, a final Moonfall release installer, or gameplay. The full Unreal Engine 5.4 build remains pending.
