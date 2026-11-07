@@ -67,6 +67,16 @@ void AMoonfallHud::DrawHUD()
         DrawRing(OrbCenter, 25.f, Hero->GetHudXpRatio(), FLinearColor(.70f, .40f, 1.f));
     }
 
+    // Keep checkpoint protection visible without adding a permanent UI widget.
+    // Countdown uses only the same game-time state as damage immunity.
+    const float ProtectionSeconds = Hero->GetRespawnProtectionSeconds();
+    if (Hero->GetHudHealth() > 0.f && ProtectionSeconds > 0.f)
+    {
+        DrawText(FString::Printf(TEXT("PROTECTED %.1fs"), ProtectionSeconds),
+            FLinearColor(.35f, .95f, 1.f),
+            FMath::Max(12.f, OrbCenter.X - 55.f), FMath::Max(12.f, OrbCenter.Y - 76.f));
+    }
+
     if (Hero->GetHudHealth() <= 0.f)
     {
         // Respawn screen is fully rendered in the existing canvas: moonlit
