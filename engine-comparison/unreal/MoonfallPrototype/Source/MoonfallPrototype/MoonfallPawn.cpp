@@ -622,7 +622,24 @@ void AMoonfallPawn::ToggleWorldMap()
     Forward = 0.f;
     Right = 0.f;
     if (APlayerController* PC = Cast<APlayerController>(GetController()))
-        PC->bShowMouseCursor = bWorldMapOpen;
+    {
+        if (bWorldMapOpen)
+        {
+            // GameAndUI keeps mapped game actions active while allowing a real
+            // mouse cursor to reach discovered atlas cells without viewport capture.
+            FInputModeGameAndUI MapInput;
+            MapInput.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
+            MapInput.SetHideCursorDuringCapture(false);
+            PC->SetInputMode(MapInput);
+            PC->bShowMouseCursor = true;
+        }
+        else
+        {
+            // Restore click-to-attack and movement after closing the atlas.
+            PC->SetInputMode(FInputModeGameOnly());
+            PC->bShowMouseCursor = false;
+        }
+    }
 }
 
 void AMoonfallPawn::GetWorldMapLayout(float Width, float Height, float& OutCell,
