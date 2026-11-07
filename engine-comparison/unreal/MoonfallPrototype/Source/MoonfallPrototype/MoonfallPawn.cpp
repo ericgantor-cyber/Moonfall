@@ -662,6 +662,7 @@ void AMoonfallPawn::PlaceMapWaypoint()
 
 void AMoonfallPawn::SetWaypoint()
 {
+    if (bWorldMapOpen) return; // V never replaces a clicked map waypoint.
     if (Health <= 0.f || !HeroMesh) return;
     Waypoint = HeroMesh->GetRelativeLocation();
     Waypoint.Z = 0.f;
@@ -696,6 +697,7 @@ void AMoonfallPawn::Zoom(float Value)
 }
 void AMoonfallPawn::Dodge()
 {
+    if (bWorldMapOpen) return; // Map navigation must not spend stamina.
     if (Health > 0.f && DodgeCooldown <= 0.f && Stamina >= 45.f &&
         FVector2D(Forward, Right).SizeSquared() > 0.01f)
     {
@@ -792,6 +794,7 @@ void AMoonfallPawn::Attack()
 }
 void AMoonfallPawn::CastBolt()
 {
+    if (bWorldMapOpen) return; // No combat casts through the map.
     if (Health <= 0.f || BoltCooldown > 0.f || Mana < 30.f) return;
     const int32 EnemyIndex = NearestEnemyIndex(1000.f);
     const float BossDistance = bWon ? TNumericLimits<float>::Max() :
@@ -826,6 +829,7 @@ void AMoonfallPawn::CastBolt()
 
 void AMoonfallPawn::CastHeal()
 {
+    if (bWorldMapOpen) return;
     const float MaxHealth = GetHudMaxHealth();
     if (Health <= 0.f || HealCooldown > 0.f || Mana < 40.f || Health >= MaxHealth) return;
     Mana -= 40.f;
