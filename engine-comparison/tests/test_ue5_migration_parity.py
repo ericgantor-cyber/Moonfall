@@ -158,6 +158,24 @@ class UnrealMigrationParityGate(unittest.TestCase):
         self.assertIn("Wheel zoom", hud)
         self.assertIn("Arrows pan", hud)
 
+    def test_escape_closes_atlas_and_navigation_state_resets(self):
+        base = ROOT / "engine-comparison/unreal/MoonfallPrototype"
+        pawn = (base / "Source/MoonfallPrototype/MoonfallPawn.cpp").read_text(encoding="utf-8")
+        header = (base / "Source/MoonfallPrototype/MoonfallPawn.h").read_text(encoding="utf-8")
+        keys = (base / "Config/DefaultInput.ini").read_text(encoding="utf-8")
+        self.assertIn('ActionName="CloseWorldMap",Key=Escape', keys)
+        self.assertIn("void CloseWorldMap();", header)
+        self.assertIn('Input->BindAction(TEXT("CloseWorldMap"), IE_Pressed, this, &AMoonfallPawn::CloseWorldMap);', pawn)
+        close_start = pawn.index("void AMoonfallPawn::CloseWorldMap()")
+        close_body = pawn[close_start:pawn.index("\n}", close_start) + 2]
+        self.assertIn("if (bWorldMapOpen) ToggleWorldMap();", close_body)
+        toggle_start = pawn.index("void AMoonfallPawn::ToggleWorldMap()")
+        toggle_body = pawn[toggle_start:pawn.index("\n}", toggle_start) + 2]
+        self.assertIn("MapPanHorizontalInput = 0.f;", toggle_body)
+        self.assertIn("MapPanVerticalInput = 0.f;", toggle_body)
+        self.assertIn("Forward = 0.f;", toggle_body)
+        self.assertIn("Right = 0.f;", toggle_body)
+
     def test_open_map_blocks_combat_resource_inputs(self):
         pawn = (ROOT / "engine-comparison/unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallPawn.cpp").read_text(encoding="utf-8")
         for method in ("Dodge", "CastBolt", "CastHeal", "SetWaypoint"):
