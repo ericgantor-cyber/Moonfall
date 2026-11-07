@@ -49,6 +49,11 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
  ImpactCameraOffset = FMath::FInterpTo(ImpactCameraOffset, 0.f, FMath::Max(0.f, DeltaSeconds), 12.f);
  if (CameraBoom) CameraBoom->TargetArmLength = 450.f + (bReduceMotion ? 0.f : ImpactCameraOffset);
  if (Health > 0.f && Mana < MaxMana) Mana = FMath::Min(MaxMana, Mana + ManaRegenPerSecond * (1.f + FMath::Min(0.25f, AccessoryTier * 0.012f)) * FMath::Max(0.f, DeltaSeconds));
+ // Stamina powers dodges independently of spell mana and regenerates after exertion.
+ if (Health > 0.f && GetWorld() && GetWorld()->GetTimeSeconds() >= StaminaRegenStartsAt
+     && FMath::IsFinite(Stamina) && FMath::IsFinite(MaxStamina) && MaxStamina > 0.f) {
+  Stamina = FMath::Min(MaxStamina, Stamina + FMath::Max(0.f, StaminaRegenPerSecond) * FMath::Max(0.f, DeltaSeconds));
+ }
 }
 void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
 {
@@ -162,7 +167,11 @@ void AMoonfallHeroPawn::Dodge()
 {
  if (bOptionsOpen || Health <= 0.f || !GetWorld()) return;
  const float Now = GetWorld()->GetTimeSeconds();
- if (Now < NextDodgeAt) return;
+ if (Now < NextDodgeAt || !FMath::IsFinite(Stamina) || !FMath::IsFinite(MaxStamina)
+     || !FMath::IsFinite(DodgeStaminaCost) || MaxStamina <= 0.f
+     || DodgeStaminaCost < 0.f || Stamina < DodgeStaminaCost) return;
+ Stamina = FMath::Clamp(Stamina - DodgeStaminaCost, 0.f, MaxStamina);
+ StaminaRegenStartsAt = Now + 0.8f;
  EndGuard();
  NextDodgeAt = Now + DodgeCooldown;
  DamageImmunityUntil = Now + 0.24f;
