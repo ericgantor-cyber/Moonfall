@@ -410,14 +410,15 @@ class UnrealMigrationParityGate(unittest.TestCase):
         self.assertLess(save.index("SaveGameToSlot("),
                         save.index("bCheckpointNeedsRepair = false;"))
 
-    def test_checkpoints_do_not_capture_respawn_grace_or_critical_health(self):
+    def test_checkpoints_avoid_respawn_grace_or_recent_damage(self):
         base = ROOT / "engine-comparison/unreal/MoonfallPrototype"
         cpp = (base / "Source/MoonfallPrototype/MoonfallPawn.cpp").read_text(encoding="utf-8")
         safe = cpp[cpp.index("bool AMoonfallPawn::IsSafeCheckpointLocation() const"):
                    cpp.index("void AMoonfallPawn::SaveProgress()")]
         self.assertIn("RespawnGraceTimer > 0.f", safe)
         self.assertIn("EnemyDamageCooldown > 0.f", safe)
-        self.assertIn("Health < GetHudMaxHealth() * 0.25f", safe)
+        self.assertNotIn("Health < GetHudMaxHealth() * 0.25f", safe)
+        self.assertIn("Health <= 0.f", safe)
         self.assertIn("bRespawnInProgress || bCasting", safe)
         save = cpp[cpp.index("void AMoonfallPawn::SaveProgress()"):
                    cpp.index("bool AMoonfallPawn::GetWaypoint(")]
