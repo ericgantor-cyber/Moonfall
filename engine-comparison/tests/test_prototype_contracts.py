@@ -622,7 +622,7 @@ class PrototypeContracts(unittest.TestCase):
 
     def test_unreal_melee_aggro_and_boss_warning_pulse(self):
         self.assertIn("const bool bAggro = HeroDistSq < FMath::Square(800.f)", self.cpp)
-        self.assertIn("if (HeroDistSq > FMath::Square(160.f))", self.cpp)
+        self.assertIn("const bool bNeedsMove = HeroDistance > 160.f ||", self.cpp)
         self.assertIn("ToCandidateHome.GetClampedToMaxSize2D(Leash)", self.cpp)
         self.assertIn("BossWarningRadius / 50.f * Pulse", self.cpp)
         self.assertIn("BossAttackPhase == 3 ? 17.f : 11.f", self.cpp)
@@ -640,7 +640,8 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("float AMoonfallPawn::BasicAttackDamage() const", self.cpp)
         self.assertIn("float AMoonfallPawn::ArcaneBoltDamage() const", self.cpp)
         self.assertIn("float AMoonfallPawn::HealingSpellAmount() const", self.cpp)
-        self.assertIn("return 18.f + Progression.Level + 0.5f * GuardianBlessingCount();", self.cpp)
+        self.assertIn("return 18.f + Progression.Level + 0.5f * GuardianBlessingCount() +", self.cpp)
+        self.assertIn("0.75f * ChamberMasteryCount();", self.cpp)
         self.assertIn("if (!bHitBoss) DamageWorldEnemy(EnemyIndex, Damage, bRiposte, bComboFinisher);", self.cpp)
         self.assertIn("if (!bHitBoss) DamageWorldEnemy(EnemyIndex, Damage, bRiposte);", self.cpp)
         self.assertIn("Health + HealingSpellAmount()", self.cpp)

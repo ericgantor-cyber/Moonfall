@@ -505,6 +505,54 @@ class UnrealMigrationParityGate(unittest.TestCase):
         self.assertLess(tick.index("const float DodgeTimeRemainingThisFrame = DodgeTimer;"),
                         tick.index("DodgeTimer = FMath::Max(0.f, DodgeTimer - ReactionDt);"))
 
+    def test_three_world_enemy_tactics_remain_leashed_and_wave_free(self):
+        base = ROOT / "engine-comparison/unreal/MoonfallPrototype"
+        cpp = (base / "Source/MoonfallPrototype/MoonfallPawn.cpp").read_text(encoding="utf-8")
+        ai = cpp[cpp.index("void AMoonfallPawn::UpdateWorldEnemies(float Dt)"):
+                 cpp.index("int32 AMoonfallPawn::NearestEnemyIndex(")]
+        self.assertIn("const int32 Tactic = Enemy.bGuardian ? 0 : Enemy.Id % 3;", ai)
+        self.assertIn("if (Tactic == 1)", ai)
+        self.assertIn("Tangent(-MoveDirection.Y, MoveDirection.X, 0.f)", ai)
+        self.assertIn("Tactic == 2 && HeroDistance < 620.f", ai)
+        self.assertIn("ToCandidateHome.GetClampedToMaxSize2D(Leash)", ai)
+        self.assertIn("const float MoveDt = FMath::Clamp(Dt, 0.f, 0.05f);", ai)
+        self.assertNotIn("SpawnWave(", ai)
+
+    def test_chamber_materials_and_mastery_persist_without_new_save_fields(self):
+        base = ROOT / "engine-comparison/unreal/MoonfallPrototype"
+        cpp = (base / "Source/MoonfallPrototype/MoonfallPawn.cpp").read_text(encoding="utf-8")
+        header = (base / "Source/MoonfallPrototype/MoonfallPawn.h").read_text(encoding="utf-8")
+        self.assertIn("int32 ChamberMasteryCount() const;", header)
+        mastery = cpp[cpp.index("int32 AMoonfallPawn::ChamberMasteryCount() const"):
+                      cpp.index("float AMoonfallPawn::BasicAttackDamage() const")]
+        self.assertIn("ClaimedChamberMask & (1 << Id)", mastery)
+        self.assertIn("DefeatedGuardianMask & (1 << Id)", mastery)
+        self.assertIn("0.75f * ChamberMasteryCount()", cpp)
+        self.assertIn("1.25f * ChamberMasteryCount()", cpp)
+        chest = cpp[cpp.index("void AMoonfallPawn::CollectNearbyChambers()"):
+                    cpp.index("bool AMoonfallPawn::IsMapPositionDiscovered(")]
+        self.assertIn("if ((DefeatedGuardianMask & (1 << Id)) == 0) continue;", chest)
+        self.assertIn("BossInventory.Add(Reward);", chest)
+        self.assertIn("if (BossInventory.Num() < 100)", chest)
+        self.assertIn("if (bClaimedAny) SaveProgress();", chest)
+        self.assertEqual(chest.count("SaveProgress();"), 1)
+
+    def test_combat_damage_numbers_do_not_allocate_world_actors(self):
+        base = ROOT / "engine-comparison/unreal/MoonfallPrototype"
+        cpp = (base / "Source/MoonfallPrototype/MoonfallPawn.cpp").read_text(encoding="utf-8")
+        header = (base / "Source/MoonfallPrototype/MoonfallPawn.h").read_text(encoding="utf-8")
+        hud = (base / "Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8")
+        self.assertIn("float GetDamageNumberValue() const", header)
+        self.assertIn("float GetDamageNumberSeconds() const", header)
+        self.assertIn("void AMoonfallPawn::ShowDamageNumber(float Damage, float RemainingHealth)", cpp)
+        self.assertIn("FMath::Clamp(Damage, 0.f, FMath::Max(0.f, RemainingHealth))", cpp)
+        self.assertIn("DamageNumberTimer = FMath::Max(0.f, DamageNumberTimer - Dt);", cpp)
+        self.assertIn("ShowDamageNumber(Damage, Enemy.Health);", cpp)
+        self.assertIn("ShowDamageNumber(Damage, BossHealth);", cpp)
+        self.assertIn('TEXT("-%.0f")', hud)
+        self.assertIn("Hero->GetDamageNumberSeconds() > 0.f", hud)
+        self.assertNotIn("NewObject<", hud)
+
     def test_checkpoint_respawn_damage_grace_is_safe_and_paused_by_map(self):
         base = ROOT / "engine-comparison/unreal/MoonfallPrototype"
         cpp = (base / "Source/MoonfallPrototype/MoonfallPawn.cpp").read_text(encoding="utf-8")

@@ -380,14 +380,40 @@ void AMoonfallPawn::UpdateWorldEnemies(float Dt)
             !Enemy.bReturningHome && FromHome.SizeSquared() < FMath::Square(Leash);
         if (bAggro)
         {
-            if (HeroDistSq > FMath::Square(160.f))
+            // Three lightweight, deterministic normal-enemy tactics without
+            // spawning additional actors or allocating per-frame path data:
+            // 0: direct hunter; 1: circling skirmisher; 2: charging bruiser.
+            // Guardians retain their more aggressive direct pursuit.
+            const int32 Tactic = Enemy.bGuardian ? 0 : Enemy.Id % 3;
+            const float HeroDistance = FMath::Sqrt(HeroDistSq);
+            FVector MoveDirection = ToHero.GetSafeNormal();
+            float Speed = Enemy.bEnraged ? 360.f : (Enemy.bGuardian ? 280.f : 200.f);
+            if (Tactic == 1)
             {
-                const float Remaining = FMath::Max(0.f, Leash - FromHome.Size());
-                const float Step = FMath::Min((Enemy.bEnraged ? 360.f : (Enemy.bGuardian ? 280.f : 200.f)) * MoveDt, Remaining);
-                const FVector Candidate = From + ToHero.GetSafeNormal() * Step;
+                // Circle at medium range and backpedal only at close range.
+                // Keep a radial component so skirmishers eventually engage.
+                const FVector Tangent(-MoveDirection.Y, MoveDirection.X, 0.f);
+                if (HeroDistance < 240.f)
+                    MoveDirection = (-MoveDirection + Tangent * 0.35f).GetSafeNormal();
+                else if (HeroDistance < 520.f)
+                    MoveDirection = (MoveDirection * 0.35f + Tangent).GetSafeNormal();
+                Speed = 225.f;
+            }
+            else if (Tactic == 2 && HeroDistance < 620.f)
+            {
+                // Bruisers close distance quickly but still obey the leash.
+                Speed = 310.f;
+            }
+            const bool bNeedsMove = HeroDistance > 160.f ||
+                (Tactic == 1 && HeroDistance < 240.f);
+            if (bNeedsMove)
+            {
+                const float Step = Speed * MoveDt;
+                const FVector Candidate = From + MoveDirection * Step;
                 const FVector ToCandidateHome = Candidate - Enemy.Home;
-                // Prevent oblique pursuit from leaking outside the home radius.
-                const FVector Clamped = Enemy.Home + ToCandidateHome.GetClampedToMaxSize2D(Leash);
+                // Clamp all tactics inside the same chamber/home boundary.
+                const FVector Clamped = Enemy.Home +
+                    ToCandidateHome.GetClampedToMaxSize2D(Leash);
                 Enemy.Mesh->SetRelativeLocation(Clamped);
             }
         }
@@ -429,10 +455,18 @@ TArray<FVector> AMoonfallPawn::GetEnemyMapPositions() const
     return Result;
 }
 
+void AMoonfallPawn::ShowDamageNumber(float Damage, float RemainingHealth)
+{
+    // One bounded HUD popup instead of allocating text widgets per hit.
+    LastDamageAmount = FMath::Clamp(Damage, 0.f, FMath::Max(0.f, RemainingHealth));
+    if (LastDamageAmount > 0.f) DamageNumberTimer = 0.85f;
+}
+
 void AMoonfallPawn::DamageWorldEnemy(int32 Index, float Damage, bool bRiposte, bool bComboFinisher)
 {
     if (!Enemies.IsValidIndex(Index)) return;
     FWorldEnemy& Enemy = Enemies[Index];
+    ShowDamageNumber(Damage, Enemy.Health);
     Enemy.Health = FMath::Max(0.f, Enemy.Health - Damage);
     if (Enemy.Health > 0.f)
     {
@@ -487,6 +521,7 @@ TArray<FVector> AMoonfallPawn::GetChamberMapPositions() const
 void AMoonfallPawn::CollectNearbyChambers()
 {
     const FVector HeroPosition = HeroMesh->GetRelativeLocation();
+    bool bClaimedAny = false;
     for (int32 I = ChamberCaches.Num() - 1; I >= 0; --I)
     {
         const FChamberCache& Cache = ChamberCaches[I];
@@ -494,6 +529,7 @@ void AMoonfallPawn::CollectNearbyChambers()
         const int32 Id = Cache.Id;
         if ((DefeatedGuardianMask & (1 << Id)) == 0) continue; // No loot before guardian defeat.
         ClaimedChamberMask |= 1 << Id;
+        bClaimedAny = true;
         if (Cache.Artwork) Cache.Artwork->DestroyComponent();
         Cache.Mesh->DestroyComponent();
         ChamberCaches.RemoveAt(I);
@@ -501,8 +537,22 @@ void AMoonfallPawn::CollectNearbyChambers()
         Progression.AwardDefeat(
             Region, false, false, GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f);
         Mana = FMath::Min(180.f, Mana + 25.f);
-        SaveProgress();
+        // Each cleared chamber grants one named, unique equipment material.
+        // Use the existing persistent inventory rather than another save slot.
+        if (BossInventory.Num() < 100)
+        {
+            static const TCHAR* Materials[6] = {
+                TEXT("Embersteel"), TEXT("Moonweave"), TEXT("Graveglass"),
+                TEXT("Stormhide"), TEXT("Stariron"), TEXT("Voidcrystal")
+            };
+            const FString Reward = FString::Printf(
+                TEXT("%s chamber cache #%d"),
+                Materials[FMath::Clamp(Region, 0, 5)], Id + 1);
+            BossInventory.Add(Reward);
+        }
     }
+    // Persist once for all nearby claims, not one disk operation per chest.
+    if (bClaimedAny) SaveProgress();
 }
 
 bool AMoonfallPawn::IsMapPositionDiscovered(const FVector& Position) const
@@ -928,14 +978,27 @@ int32 AMoonfallPawn::GuardianBlessingCount() const
     return Count;
 }
 
+int32 AMoonfallPawn::ChamberMasteryCount() const
+{
+    // Claimed guardian caches are permanent. Derive mastery from the existing
+    // save mask so there is no second progress counter to get out of sync.
+    int32 Count = 0;
+    for (int32 Id = 0; Id < MoonfallWorldRules::TotalChambers; ++Id)
+        if ((ClaimedChamberMask & (1 << Id)) != 0 &&
+            (DefeatedGuardianMask & (1 << Id)) != 0) ++Count;
+    return Count;
+}
+
 float AMoonfallPawn::BasicAttackDamage() const
 {
-    return 18.f + Progression.Level + 0.5f * GuardianBlessingCount();
+    return 18.f + Progression.Level + 0.5f * GuardianBlessingCount() +
+        0.75f * ChamberMasteryCount();
 }
 
 float AMoonfallPawn::ArcaneBoltDamage() const
 {
-    return 28.f + 2.f * Progression.Level + 1.f * GuardianBlessingCount();
+    return 28.f + 2.f * Progression.Level + 1.f * GuardianBlessingCount() +
+        1.25f * ChamberMasteryCount();
 }
 
 float AMoonfallPawn::HealingSpellAmount() const
@@ -984,6 +1047,7 @@ void AMoonfallPawn::Attack()
         if (!bHitBoss) DamageWorldEnemy(EnemyIndex, Damage, bRiposte, bComboFinisher);
         else
         {
+            ShowDamageNumber(Damage, BossHealth);
             BossHealth = FMath::Max(0.f, BossHealth - Damage);
             // Perfect-dodge ripostes can interrupt a live telegraphed boss cast.
             if (bRiposte && bCasting && BossHealth > 0.f)
@@ -1028,6 +1092,7 @@ void AMoonfallPawn::CastBolt()
     if (!bHitBoss) DamageWorldEnemy(EnemyIndex, Damage, bRiposte);
     else
     {
+        ShowDamageNumber(Damage, BossHealth);
         BossHealth = FMath::Max(0.f, BossHealth - Damage);
         if (bRiposte && bCasting && BossHealth > 0.f)
         {
@@ -1188,6 +1253,7 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
     BoltCooldown = FMath::Max(0.f, BoltCooldown - Dt);
     HealCooldown = FMath::Max(0.f, HealCooldown - Dt);
     EnemyDamageCooldown = FMath::Max(0.f, EnemyDamageCooldown - Dt);
+    DamageNumberTimer = FMath::Max(0.f, DamageNumberTimer - Dt);
     // Timer advances only in live gameplay. The world atlas pauses it too.
     const bool bRespawnProtectedThisFrame = RespawnGraceTimer > 0.f;
     RespawnGraceTimer = FMath::Max(0.f, RespawnGraceTimer - Dt);

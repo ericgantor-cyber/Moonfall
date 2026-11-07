@@ -25,6 +25,8 @@ public:
     virtual void Tick(float DeltaSeconds) override;
     virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
     float GetHudHealth() const { return Health; }
+    float GetDamageNumberValue() const { return LastDamageAmount; }
+    float GetDamageNumberSeconds() const { return DamageNumberTimer; }
     float GetRespawnProtectionSeconds() const { return FMath::Max(0.f, RespawnGraceTimer); }
     float GetHudMaxHealth() const { return 100.f + 5.f * Victories + 2.f * (Progression.Level - 1); }
     float GetHudMana() const { return Mana; }
@@ -98,6 +100,8 @@ private:
     float MapPanVerticalInput = 0.f;
     FVector Waypoint = FVector::ZeroVector;
     float RespawnGraceTimer = 0.f; // Brief protection after loading a living checkpoint.
+    float LastDamageAmount = 0.f;
+    float DamageNumberTimer = 0.f; // Ephemeral combat feedback; never saved.
     float EnemyDamageCooldown = 0.f;
     float ParryTimer = 0.f, ParryCooldown = 0.f;
     float CounterWindow = 0.f;
@@ -140,6 +144,7 @@ private:
     void MoveForward(float Value);
     void MoveRight(float Value);
     void Zoom(float Value);
+    void ShowDamageNumber(float Damage, float RemainingHealth);
     void Attack();
     void Dodge();
     void Parry();
@@ -161,6 +166,7 @@ private:
     int32 NearestEnemyIndex(float Radius) const;
     void DamageWorldEnemy(int32 Index, float Damage, bool bRiposte = false, bool bComboFinisher = false);
     int32 GuardianBlessingCount() const;
+    int32 ChamberMasteryCount() const;
     float BasicAttackDamage() const;
     float ArcaneBoltDamage() const;
     float HealingSpellAmount() const;

@@ -128,6 +128,19 @@ void AMoonfallHud::DrawHUD()
         return;
     }
 
+    // Bounded floating combat number, visible only during live gameplay.
+    // Draw on the existing canvas, so no extra widgets or texture imports.
+    if (!Hero->IsWorldMapOpen() && Hero->GetDamageNumberSeconds() > 0.f)
+    {
+        const float Lifetime = Hero->GetDamageNumberSeconds();
+        const float Rise = (0.85f - Lifetime) * 38.f;
+        DrawText(FString::Printf(TEXT("-%.0f"), Hero->GetDamageNumberValue()),
+            FLinearColor(1.f, .78f, .36f),
+            FMath::Max(12.f, Canvas->ClipX * 0.5f - 22.f),
+            FMath::Max(18.f, Canvas->ClipY * 0.42f - Rise),
+            nullptr, 1.2f);
+    }
+
     if (Hero->IsWorldMapOpen())
     {
         // Shared projection with pawn input: zoom and pan never desync clicks.
