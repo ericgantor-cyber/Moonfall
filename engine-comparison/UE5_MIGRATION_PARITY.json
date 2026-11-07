@@ -64,14 +64,14 @@
     },
     {
       "id": "quest_and_atlas",
-      "status": "full_grid_map_click_pin_quest_markers_source_unverified",
+      "status": "world_map_zoom_pan_fog_markers_source_unverified",
       "unreal": [
         "engine-comparison/unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.cpp",
         "engine-comparison/unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallPawn.cpp",
         "engine-comparison/unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallProgressSave.h",
         "engine-comparison/unreal/MoonfallPrototype/Config/DefaultInput.ini"
       ],
-      "gate": "Build UE5.6 and test M world map, left-click only on revealed 48x16 tiles for saved waypoint placement, undiscovered markers hidden, map input never attacks, compass/quest HUD and reload. Terrain art and production Raven Atlas parity pending."
+      "gate": "UE5.6 Windows runtime verification required: M map, 1x–3x wheel zoom, arrow-key pan, clipping, click-to-pin projection, fog-hidden markers and separate gameplay camera zoom. Terrain art and production Atlas parity remain pending."
     },
     {
       "id": "crafting_inventory",
