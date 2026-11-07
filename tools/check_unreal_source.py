@@ -230,7 +230,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("ApplyMoonfallDamageFrom(float Amount, const FVector& SourceLocation)", self.hero_h)
         self.assertIn("Hero->ApplyMoonfallDamageFrom(", self.enemy_cpp)
         self.assertIn("GetActorLocation());", self.enemy_cpp)
-        self.assertIn("const FVector GuardForward = GetControlRotation().Vector().GetSafeNormal2D();", self.hero_cpp)
+        self.assertIn("const FVector GuardForward = GetActorForwardVector().GetSafeNormal2D();", self.hero_cpp)
         self.assertIn("const FVector ToSource = (IncomingDamageSource - GetActorLocation()).GetSafeNormal2D();", self.hero_cpp)
         self.assertIn("FVector::DotProduct(GuardForward, ToSource) >= 0.258819f", self.hero_cpp)
         self.assertIn("bGuarding && bFrontAttack && !bOptionsOpen", self.hero_cpp)
