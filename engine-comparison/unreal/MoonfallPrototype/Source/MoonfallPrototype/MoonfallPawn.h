@@ -43,6 +43,7 @@ public:
     bool IsBossDefeated() const { return bWon; }
     int32 GetQuestDefeatedBeasts() const;
     int32 GetQuestClearedChambers() const;
+    float GetNearestEnemyWindupSeconds() const;
     bool IsMapPositionDiscovered(const FVector& Position) const;
     int32 GetDiscoveredRegionCount() const;
     bool IsWorldMapOpen() const { return bWorldMapOpen; }
@@ -69,6 +70,9 @@ private:
         UBillboardComponent* Portrait = nullptr;
         float Health = 0.f;
         float StaggerTimer = 0.f; // Surviving guardians are stunned by dodge ripostes.
+        float AttackWindup = 0.f; // Visible windup before a discrete contact strike.
+        float AttackCooldown = 0.f; // Independent attack recovery per enemy.
+        bool bAttackReadyThisFrame = false; // One resolved strike, never perpetual overlap damage.
         bool bStaggeredThisFrame = false; // Keep contact disabled on the final stagger frame.
         int32 Region = 0;
         int32 Id = 0;
