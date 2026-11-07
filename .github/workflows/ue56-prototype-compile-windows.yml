@@ -1,0 +1,82 @@
+name: Moonfall UE5.6 prototype Windows C++ compile
+
+# Manual and trusted-runner only. Do not run unreviewed PR commits with engine credentials.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: moonfall-ue56-prototype-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  compile-ue56:
+    runs-on: [self-hosted, Windows, X64, unreal-5-6]
+    timeout-minutes: 120
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Check out reviewed commit
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Validate Unreal installation and project identity
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if (-not $env:UE56_ROOT) {
+            throw 'Missing UE56_ROOT: install UE 5.6 on a trusted Windows runner labeled unreal-5-6.'
+          }
+          $build = Join-Path $env:UE56_ROOT 'Engine\Build\BatchFiles\Build.bat'
+          $versionFile = Join-Path $env:UE56_ROOT 'Engine\Build\Build.version'
+          $project = Join-Path $env:GITHUB_WORKSPACE 'engine-comparison\unreal\MoonfallPrototype\MoonfallPrototype.uproject'
+          foreach ($required in @($build, $versionFile, $project)) {
+            if (-not (Test-Path -LiteralPath $required -PathType Leaf)) {
+              throw "Missing prerequisite: $required"
+            }
+          }
+          $version = Get-Content -LiteralPath $versionFile -Raw | ConvertFrom-Json
+          if ($version.MajorVersion -ne 5 -or $version.MinorVersion -ne 6) {
+            throw "Expected Unreal 5.6, found $($version.MajorVersion).$($version.MinorVersion)"
+          }
+          $uproject = Get-Content -LiteralPath $project -Raw | ConvertFrom-Json
+          if ($uproject.EngineAssociation -ne '5.6') {
+            throw "Prototype engine association is $($uproject.EngineAssociation), not 5.6"
+          }
+          Write-Host "Verified Unreal 5.6 engine and MoonfallPrototype project."
+
+      - name: Compile MoonfallPrototypeEditor Win64 Development with UnrealBuildTool
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $build = Join-Path $env:UE56_ROOT 'Engine\Build\BatchFiles\Build.bat'
+          $project = Join-Path $env:GITHUB_WORKSPACE 'engine-comparison\unreal\MoonfallPrototype\MoonfallPrototype.uproject'
+          & $build 'MoonfallPrototypeEditor' 'Win64' 'Development' "-Project=$project" '-WaitMutex' '-NoHotReloadFromIDE'
+          if ($LASTEXITCODE -ne 0) {
+            throw "UE5.6 editor C++ compile failed with exit code $LASTEXITCODE"
+          }
+          "### UE5.6 editor C++ compile passed" >> $env:GITHUB_STEP_SUMMARY
+          "SHA: ${{ github.sha }}" >> $env:GITHUB_STEP_SUMMARY
+          "This checks editor compilation only. It does not establish playable Win64 packaging or installer readiness." >> $env:GITHUB_STEP_SUMMARY
+
+      - name: Upload Unreal compiler logs if compilation fails
+        if: failure()
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: MoonfallPrototype-UE56-CompileLogs
+          path: |
+            engine-comparison/unreal/MoonfallPrototype/Saved/Logs/
+            engine-comparison/unreal/MoonfallPrototype/Intermediate/Build/Win64/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Record verification limitations
+        if: always()
+        run: |
+          "### UE5.6 prototype compile-only status" >> $env:GITHUB_STEP_SUMMARY
+          "Status: ${{ job.status }}" >> $env:GITHUB_STEP_SUMMARY
+          "Needs trusted self-hosted Windows x64 runner with unreal-5-6 label, UE56_ROOT, Visual Studio C++ and Windows SDK." >> $env:GITHUB_STEP_SUMMARY
+          "No Windows game export, runtime interaction test, graphics benchmark or installer is claimed." >> $env:GITHUB_STEP_SUMMARY
