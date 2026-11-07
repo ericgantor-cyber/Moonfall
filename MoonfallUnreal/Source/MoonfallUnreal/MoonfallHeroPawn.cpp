@@ -188,6 +188,11 @@ void AMoonfallHeroPawn::RewardPerfectDodge() {
  LastPerfectDodgeRewardAt = Now;
  PerfectDodgeWindowUntil = -1.f;
  Mana = FMath::Min(MaxMana, Mana + 8.f);
+ // Restore a small, bounded amount of stamina only on a true perfect dodge.
+ // The one-second reward gate above prevents repeated hits from farming stamina.
+ if (FMath::IsFinite(MaxStamina) && MaxStamina > 0.f && FMath::IsFinite(Stamina)) {
+  Stamina = FMath::Clamp(Stamina + FMath::Max(0.f, PerfectDodgeStaminaReward), 0.f, MaxStamina);
+ }
 }
 
 bool AMoonfallHeroPawn::ApplyMoonfallDamageFrom(float Amount, const FVector& SourceLocation) {
