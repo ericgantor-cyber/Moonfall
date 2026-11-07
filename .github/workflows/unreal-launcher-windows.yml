@@ -115,6 +115,9 @@ jobs:
               }
               Write-Host "NSIS missing-payload test passed: $missing"
             }
+            # PowerShell's GitHub Actions wrapper propagates LASTEXITCODE,
+            # even when deliberately nonzero native command results were expected.
+            $global:LASTEXITCODE = 0
             Remove-Item -LiteralPath $negativeRoot -Recurse -Force
             # Actually execute the installer in silent mode, using a dedicated
             # temporary destination. It contains test-only files, never a real game.
