@@ -111,6 +111,7 @@ void AMoonfallPawn::BeginPlay()
             // Legacy SelectedHeroIndex is retained in old save objects but ignored:
             // Z and Nyra are encounter bosses, not player avatar choices.
             DefeatedEnemyMask = Progress->DefeatedEnemyMask & ((1 << MoonfallWorldRules::TotalEnemies) - 1);
+            DiscoveredRegionMask = Progress->DiscoveredRegionMask & ((1 << MoonfallWorldRules::RegionCount) - 1);
             ClaimedChamberMask = Progress->ClaimedChamberMask & ((1 << MoonfallWorldRules::TotalChambers) - 1);
             DefeatedGuardianMask = Progress->DefeatedGuardianMask & ((1 << MoonfallWorldRules::TotalChambers) - 1);
             // Never allow saved chamber claims without a defeated guardian.
@@ -133,6 +134,8 @@ void AMoonfallPawn::BeginPlay()
     // Missing imports retain the regular prototype mesh.
     ZArtwork = LoadObject<UTexture2D>(nullptr, TEXT("/Game/MoonfallArt/heroes/Z_Original.Z_Original"));
     NyraArtwork = LoadObject<UTexture2D>(nullptr, TEXT("/Game/MoonfallArt/heroes/Nyra_Original.Nyra_Original"));
+    // Reveal the starting / restored region, but do not expose future regions.
+    DiscoveredRegionMask |= 1 << MoonfallWorldRules::RegionAt(HeroMesh->GetRelativeLocation().X);
     BuildWorld();
     // Z is the main god/boss; never assign original character art to HeroMesh.
     BossPortrait->SetSprite(ZArtwork);
@@ -467,6 +470,20 @@ void AMoonfallPawn::CollectNearbyChambers()
     }
 }
 
+bool AMoonfallPawn::IsMapPositionDiscovered(const FVector& Position) const
+{
+    const int32 Region = MoonfallWorldRules::RegionAt(Position.X);
+    return (DiscoveredRegionMask & (1 << Region)) != 0;
+}
+
+int32 AMoonfallPawn::GetDiscoveredRegionCount() const
+{
+    int32 Count = 0;
+    for (int32 Region = 0; Region < MoonfallWorldRules::RegionCount; ++Region)
+        if ((DiscoveredRegionMask & (1 << Region)) != 0) ++Count;
+    return Count;
+}
+
 int32 AMoonfallPawn::GetQuestDefeatedBeasts() const
 {
     // Read the same persistent flags used to stop defeated enemies respawning.
@@ -502,6 +519,7 @@ void AMoonfallPawn::SaveProgress()
     Progress->HeroPoints = Progression.HeroPoints;
     Progress->TamerPoints = Progression.TamerPoints;
     Progress->DefeatedEnemyMask = DefeatedEnemyMask;
+    Progress->DiscoveredRegionMask = DiscoveredRegionMask;
     Progress->ClaimedChamberMask = ClaimedChamberMask;
     Progress->DefeatedGuardianMask = DefeatedGuardianMask;
     Progress->bBossDefeated = bWon;
@@ -733,6 +751,13 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
         Position.X = FMath::Clamp(Position.X, -1600.f, 17600.f);
         Position.Y = FMath::Clamp(Position.Y, -3200.f, 3200.f);
         HeroMesh->SetRelativeLocation(Position);
+        const int32 CurrentRegion = MoonfallWorldRules::RegionAt(Position.X);
+        const int32 RegionBit = 1 << CurrentRegion;
+        if ((DiscoveredRegionMask & RegionBit) == 0)
+        {
+            DiscoveredRegionMask |= RegionBit;
+            SaveProgress(); // Persist discoveries when entering new regions.
+        }
         if (CheckpointTimer >= CheckpointInterval)
         {
             CheckpointTimer = 0.f;
