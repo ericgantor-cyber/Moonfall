@@ -575,8 +575,8 @@ class UnrealMigrationParityGate(unittest.TestCase):
                         bolt.index("Mana -= BoltManaCost;"))
         self.assertIn("FMath::Min(0.8f, 0.4f + 0.1f * ForgedRegionTier(2))", enemy_damage)
         self.assertIn("Enemy.bGuardian ? 0.8f :", enemy_damage)
-        self.assertIn("ContactDamage - 0.75f * ForgedRegionTier(4)", tick)
-        self.assertIn("BossBaseDamage - 0.75f * ForgedRegionTier(4)", tick)
+        self.assertIn("ContactDamage - 0.75f * ForgedRegionTier(4) - 0.25f * ForgedRandomWard()", tick)
+        self.assertIn("BossBaseDamage - 0.75f * ForgedRegionTier(4) - 0.25f * ForgedRandomWard()", tick)
         self.assertIn("FMath::Max(1.f,", tick)
         self.assertIn("bDodgeActiveThisFrame", tick)
         self.assertIn("bParryActiveThisFrame", tick)
@@ -640,6 +640,39 @@ class UnrealMigrationParityGate(unittest.TestCase):
         self.assertNotIn("INCOMING %.1fs",
             (base / "Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8"))
 
+    def test_forged_rng_affixes_are_persistent_bounded_and_roll_on_paid_upgrade(self):
+        base = ROOT / "engine-comparison/unreal/MoonfallPrototype"
+        cpp = (base / "Source/MoonfallPrototype/MoonfallPawn.cpp").read_text(encoding="utf-8")
+        header = (base / "Source/MoonfallPrototype/MoonfallPawn.h").read_text(encoding="utf-8")
+        parser = cpp[cpp.index("static bool ParseForgedEquipment("):
+                     cpp.index("void AMoonfallPawn::ForgeEquipment()")]
+        forge = cpp[cpp.index("void AMoonfallPawn::ForgeEquipmentForType("):
+                    cpp.index("float AMoonfallPawn::BasicAttackDamage()")]
+        self.assertIn('TEXT("|DMG=")', parser)
+        self.assertIn('TEXT("|WARD=")', parser)
+        self.assertIn("Rank < 1 || Rank > 4", parser)
+        self.assertIn("Damage > Rank * 2", parser)
+        self.assertIn("Ward > Rank", parser)
+        self.assertIn("if (bHasRoll)", parser)  # Old #R saves load with zero rolls
+        self.assertIn("ForgedRandomDamage(bool bArcane)", header)
+        self.assertIn("ForgedRandomWard()", header)
+        self.assertIn("Tier > HighestTier || (Tier == HighestTier && Score > HighestScore)", parser)
+        self.assertIn("return FMath::Min(24, Sum)", parser)
+        self.assertIn("MaterialsToSpend.Num() != MaterialCost", forge)
+        self.assertLess(forge.index("if (MaterialsToSpend.Num() != MaterialCost) continue;"),
+                        forge.index("FMath::RandRange(1, NewTier * 2)"))
+        self.assertIn("FMath::Max(PreviousDamage,", forge)
+        self.assertIn("FMath::Max(PreviousWard,", forge)
+        self.assertIn("FMath::RandRange(0, NewTier)", forge)
+        self.assertIn('TEXT("%s #%d|DMG=%d|WARD=%d")', forge)
+        self.assertIn("BossInventory = MoveTemp(UpdatedInventory);", forge)
+        self.assertEqual(forge.count("SaveProgress();"), 1)
+        self.assertIn("ForgedRandomDamage(false)", cpp)
+        self.assertIn("ForgedRandomDamage(true)", cpp)
+        self.assertIn("ForgedRandomWard()", cpp)
+        self.assertNotIn("INCOMING %.1fs",
+            (base / "Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8"))
+
     def test_masterwork_rank_four_increases_every_regional_perk(self):
         # Rank IV must not be just an inventory label for the three bounded
         # cooldown, mana and stagger effects.
@@ -663,7 +696,7 @@ class UnrealMigrationParityGate(unittest.TestCase):
         self.assertIn("ChambersPerRegion = 5", rules)
         scan = cpp[cpp.index("int32 AMoonfallPawn::ForgedRegionTier("):
                    cpp.index("void AMoonfallPawn::ForgeEquipment()")]
-        self.assertIn("Rank >= 1 && Rank <= 4", scan)
+        self.assertIn("Rank < 1 || Rank > 4", cpp[cpp.index("static bool ParseForgedEquipment("):cpp.index("int32 AMoonfallPawn::ForgedRegionTier(")])
         self.assertIn("return FMath::Min(12, Power);", scan)
         forge = cpp[cpp.index("void AMoonfallPawn::ForgeEquipmentForType(int32 DesiredType)"):
                     cpp.index("float AMoonfallPawn::BasicAttackDamage()")]
@@ -674,7 +707,7 @@ class UnrealMigrationParityGate(unittest.TestCase):
         self.assertIn("(DefeatedGuardianMask & (1 << Id)) == 0) continue;", forge)
         self.assertIn("MaterialsToSpend.Num() != MaterialCost", forge)
         self.assertIn("ConsumedMaterialNames.Contains(BossInventory[I])", forge)
-        self.assertIn("Gear[Region], CurrentTier + 1", forge)
+        self.assertIn("Gear[Region], NewTier, RolledDamage, RolledWard", forge)
         self.assertEqual(forge.count("SaveProgress();"), 1)
         self.assertEqual(sum(2 if tier == 0 else 1 for tier in range(4)), 5)
         self.assertNotIn("INCOMING %.1fs",
@@ -693,10 +726,10 @@ class UnrealMigrationParityGate(unittest.TestCase):
         self.assertIn('Input->BindAction(TEXT("ForgeEquipment"), IE_Pressed', cpp)
         scan = cpp[cpp.index("int32 AMoonfallPawn::ForgedRegionTier("):
                    cpp.index("void AMoonfallPawn::ForgeEquipment()")]
-        self.assertIn("const FString RankText = Item.RightChop(Prefix.Len());", scan)
-        self.assertIn("if (!RankText.IsNumeric()) continue;", scan)
-        self.assertIn("Rank >= 1 && Rank <= 4", scan)
-        self.assertIn("BestTier = FMath::Max(BestTier, Rank);", scan)
+        self.assertIn("ParseForgedEquipment(Item, Prefix, Tier, Damage, Ward)", scan)
+        self.assertIn("!RankText.IsNumeric()", cpp[cpp.index("static bool ParseForgedEquipment("):cpp.index("int32 AMoonfallPawn::ForgedRegionTier(")])
+        self.assertIn("Rank < 1 || Rank > 4", cpp[cpp.index("static bool ParseForgedEquipment("):cpp.index("int32 AMoonfallPawn::ForgedRegionTier(")])
+        self.assertIn("BestTier = FMath::Max(BestTier, Tier);", scan)
         self.assertIn("FMath::Min(12, Power)", scan)
         self.assertIn("Power += ForgedRegionTier(Region);", scan)
         forge = cpp[cpp.index("void AMoonfallPawn::ForgeEquipment()"):

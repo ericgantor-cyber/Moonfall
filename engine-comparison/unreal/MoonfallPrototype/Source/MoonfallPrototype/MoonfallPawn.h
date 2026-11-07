@@ -156,6 +156,9 @@ private:
     void ForgeArcaneEquipment();
     void ForgeEquipmentForType(int32 DesiredType); // -1 any, 0 melee, 1 arcane.
     int32 ForgedEquipmentPower(bool bArcane) const;
+    int32 ForgedRandomDamage(bool bArcane) const;
+    int32 ForgedRandomWard() const;
+    void GetForgedRollStats(int32 Region, int32& OutDamage, int32& OutWard) const;
     int32 ForgedRegionTier(int32 Region) const;
     void Attack();
     void Dodge();

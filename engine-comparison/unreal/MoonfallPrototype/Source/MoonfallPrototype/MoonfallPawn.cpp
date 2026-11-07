@@ -1065,35 +1065,111 @@ int32 AMoonfallPawn::ChamberMasteryCount() const
     return Count;
 }
 
+// Inventory-affix format: "Forged <name> #R|DMG=D|WARD=W".
+// Bare "#R" items from earlier releases remain valid with zero RNG bonuses.
+// Validated, bounded parsing rejects tampered names and absurd stats on load.
+static bool ParseForgedEquipment(const FString& Item, const FString& Prefix,
+    int32& OutRank, int32& OutDamage, int32& OutWard)
+{
+    if (!Item.StartsWith(Prefix)) return false;
+    const FString Suffix = Item.RightChop(Prefix.Len());
+    FString RankText, AffixText;
+    const bool bHasRoll = Suffix.Split(TEXT("|DMG="), &RankText, &AffixText);
+    if (!bHasRoll) RankText = Suffix;
+    if (RankText.Len() != 1 || !RankText.IsNumeric()) return false;
+    const int32 Rank = FCString::Atoi(*RankText);
+    if (Rank < 1 || Rank > 4) return false;
+    int32 Damage = 0, Ward = 0;
+    if (bHasRoll)
+    {
+        FString DamageText, WardText;
+        if (!AffixText.Split(TEXT("|WARD="), &DamageText, &WardText) ||
+            DamageText.IsEmpty() || WardText.IsEmpty() ||
+            DamageText.Len() > 2 || WardText.Len() > 2 ||
+            !DamageText.IsNumeric() || !WardText.IsNumeric()) return false;
+        Damage = FCString::Atoi(*DamageText);
+        Ward = FCString::Atoi(*WardText);
+        if (Damage < 1 || Damage > Rank * 2 || Ward < 0 || Ward > Rank) return false;
+    }
+    OutRank = Rank;
+    OutDamage = Damage;
+    OutWard = Ward;
+    return true;
+}
+
+static const TCHAR* ForgedGearNames[6] = {
+    TEXT("Forged Embersteel Blade"), TEXT("Forged Moonweave Focus"),
+    TEXT("Forged Graveglass Blade"), TEXT("Forged Stormhide Focus"),
+    TEXT("Forged Stariron Blade"), TEXT("Forged Voidcrystal Focus")
+};
+
 int32 AMoonfallPawn::ForgedRegionTier(int32 Region) const
 {
-    // One effective piece of equipment per region. Older saves may contain
-    // several numbered forged copies; use only the strongest valid rank so
-    // duplicates never multiply damage, while preserving legacy inventories.
-    static const TCHAR* Gear[6] = {
-        TEXT("Forged Embersteel Blade"), TEXT("Forged Moonweave Focus"),
-        TEXT("Forged Graveglass Blade"), TEXT("Forged Stormhide Focus"),
-        TEXT("Forged Stariron Blade"), TEXT("Forged Voidcrystal Focus")
-    };
     if (Region < 0 || Region >= MoonfallWorldRules::RegionCount) return 0;
-    const FString Prefix = FString(Gear[Region]) + TEXT(" #");
+    const FString Prefix = FString(ForgedGearNames[Region]) + TEXT(" #");
     int32 BestTier = 0;
     for (const FString& Item : BossInventory)
     {
-        if (!Item.StartsWith(Prefix)) continue;
-        const FString RankText = Item.RightChop(Prefix.Len());
-        if (!RankText.IsNumeric()) continue; // Never count malformed saved gear.
-        const int32 Rank = FCString::Atoi(*RankText);
-        if (Rank >= 1 && Rank <= 4)
-            BestTier = FMath::Max(BestTier, Rank);
+        int32 Tier = 0, Damage = 0, Ward = 0;
+        if (ParseForgedEquipment(Item, Prefix, Tier, Damage, Ward))
+            BestTier = FMath::Max(BestTier, Tier);
     }
     return BestTier;
 }
 
+void AMoonfallPawn::GetForgedRollStats(int32 Region, int32& OutDamage, int32& OutWard) const
+{
+    OutDamage = 0;
+    OutWard = 0;
+    if (Region < 0 || Region >= MoonfallWorldRules::RegionCount) return;
+    const FString Prefix = FString(ForgedGearNames[Region]) + TEXT(" #");
+    int32 HighestTier = 0;
+    int32 HighestScore = -1;
+    for (const FString& Item : BossInventory)
+    {
+        int32 Tier = 0, Damage = 0, Ward = 0;
+        if (!ParseForgedEquipment(Item, Prefix, Tier, Damage, Ward)) continue;
+        // At most one valid item counts per region; duplicate strings cannot
+        // stack stats. For legacy duplicates choose highest rank then quality.
+        const int32 Score = Damage + Ward;
+        if (Tier > HighestTier || (Tier == HighestTier && Score > HighestScore))
+        {
+            HighestTier = Tier;
+            HighestScore = Score;
+            OutDamage = Damage;
+            OutWard = Ward;
+        }
+    }
+}
+
+int32 AMoonfallPawn::ForgedRandomDamage(bool bArcane) const
+{
+    int32 Sum = 0;
+    for (int32 Region = 0; Region < MoonfallWorldRules::RegionCount; ++Region)
+    {
+        if ((Region % 2 == 1) != bArcane) continue;
+        int32 Damage = 0, Ward = 0;
+        GetForgedRollStats(Region, Damage, Ward);
+        Sum += Damage;
+    }
+    return FMath::Min(24, Sum); // 3 pieces, at most 8 damage each.
+}
+
+int32 AMoonfallPawn::ForgedRandomWard() const
+{
+    int32 Sum = 0;
+    for (int32 Region = 0; Region < MoonfallWorldRules::RegionCount; ++Region)
+    {
+        int32 Damage = 0, Ward = 0;
+        GetForgedRollStats(Region, Damage, Ward);
+        Sum += Ward;
+    }
+    return FMath::Min(24, Sum); // 6 pieces, at most 4 ward each.
+}
+
 int32 AMoonfallPawn::ForgedEquipmentPower(bool bArcane) const
 {
-    // Sum rank once per region, rather than counting duplicate inventory items.
-    // Three melee and three arcane regions reach rank IV (cap 12 each).
+    // Fixed mastery remains, independently of randomized affixes.
     int32 Power = 0;
     for (int32 Region = 0; Region < MoonfallWorldRules::RegionCount; ++Region)
         if ((Region % 2 == 1) == bArcane)
@@ -1172,6 +1248,15 @@ void AMoonfallPawn::ForgeEquipmentForType(int32 DesiredType)
         // Transactional inventory update. Remove all legacy copies from the
         // chosen region; replace with exactly one bounded upgraded item.
         const FString GearPrefix = FString(Gear[Region]) + TEXT(" #");
+        int32 PreviousDamage = 0, PreviousWard = 0;
+        GetForgedRollStats(Region, PreviousDamage, PreviousWard);
+        const int32 NewTier = CurrentTier + 1;
+        // One genuine random roll per successful forge. Upgrade rolls never
+        // reduce existing affixes; no roll occurs without paid materials.
+        const int32 RolledDamage = FMath::Max(PreviousDamage,
+            FMath::RandRange(1, NewTier * 2));
+        const int32 RolledWard = FMath::Max(PreviousWard,
+            FMath::RandRange(0, NewTier));
         TArray<FString> UpdatedInventory;
         UpdatedInventory.Reserve(BossInventory.Num());
         for (int32 I = 0; I < BossInventory.Num(); ++I)
@@ -1180,16 +1265,14 @@ void AMoonfallPawn::ForgeEquipmentForType(int32 DesiredType)
             // legacy duplicate entries, so they cannot fuel later recipes.
             if (MaterialsToSpend.Contains(I) ||
                 ConsumedMaterialNames.Contains(BossInventory[I])) continue;
-            if (BossInventory[I].StartsWith(GearPrefix))
-            {
-                const FString RankText = BossInventory[I].RightChop(GearPrefix.Len());
-                if (RankText.IsNumeric()) continue;
-            }
+            int32 OldTier = 0, OldDamage = 0, OldWard = 0;
+            if (ParseForgedEquipment(BossInventory[I], GearPrefix,
+                OldTier, OldDamage, OldWard)) continue;
             UpdatedInventory.Add(BossInventory[I]);
         }
         // Two-or-one authentic materials removed, so adding one never expands storage.
-        UpdatedInventory.Add(FString::Printf(TEXT("%s #%d"),
-            Gear[Region], CurrentTier + 1));
+        UpdatedInventory.Add(FString::Printf(TEXT("%s #%d|DMG=%d|WARD=%d"),
+            Gear[Region], NewTier, RolledDamage, RolledWard));
         BossInventory = MoveTemp(UpdatedInventory);
         SaveProgress();
         return; // Exactly one deliberate forge operation per button press.
@@ -1199,13 +1282,13 @@ void AMoonfallPawn::ForgeEquipmentForType(int32 DesiredType)
 float AMoonfallPawn::BasicAttackDamage() const
 {
     return 18.f + Progression.Level + 0.5f * GuardianBlessingCount() +
-        0.75f * ChamberMasteryCount() + 2.f * ForgedEquipmentPower(false);
+        0.75f * ChamberMasteryCount() + 2.f * ForgedEquipmentPower(false) + ForgedRandomDamage(false);
 }
 
 float AMoonfallPawn::ArcaneBoltDamage() const
 {
     return 28.f + 2.f * Progression.Level + 1.f * GuardianBlessingCount() +
-        1.25f * ChamberMasteryCount() + 3.f * ForgedEquipmentPower(true);
+        1.25f * ChamberMasteryCount() + 3.f * ForgedEquipmentPower(true) + ForgedRandomDamage(true);
 }
 
 float AMoonfallPawn::HealingSpellAmount() const
@@ -1564,7 +1647,7 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
                         (Contact.bEnraged ? 4.f : 0.f);
                     // Stariron wards reduce only landed hits, never below 1 HP.
                     const float MitigatedDamage = FMath::Max(1.f,
-                        ContactDamage - 0.75f * ForgedRegionTier(4));
+                        ContactDamage - 0.75f * ForgedRegionTier(4) - 0.25f * ForgedRandomWard());
                     Health = FMath::Max(0.f, Health - MitigatedDamage);
                 }
                 // Protection does not consume damage recovery. The first
@@ -1658,7 +1741,7 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
                     const float BossBaseDamage = BossAttackPhase == 3 ? 28.f :
                         (BossAttackPhase == 2 ? 24.f : 20.f);
                     Health = FMath::Max(0.f, Health - FMath::Max(1.f,
-                        BossBaseDamage - 0.75f * ForgedRegionTier(4)));
+                        BossBaseDamage - 0.75f * ForgedRegionTier(4) - 0.25f * ForgedRandomWard()));
                     EnemyDamageCooldown = 1.2f;
                 }
             }
