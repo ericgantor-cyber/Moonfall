@@ -114,7 +114,7 @@ void AMoonfallHud::DrawHUD()
         FVector Quest;
         if (Hero->GetQuestDestination(Quest)) Plot(Quest, FLinearColor(1.f, .72f, .18f));
         Plot(Hero->GetHeroMapPosition(), FLinearColor(.1f, .9f, 1.f));
-        DrawText(FString::Printf(TEXT("MOONFALL WORLD MAP  |  M close  |  Wheel zoom %.1fx  |  Arrows pan"), Hero->GetWorldMapZoom()),
+        DrawText(FString::Printf(TEXT("MOONFALL WORLD MAP (combat paused)  |  M / Esc close  |  Wheel zoom %.1fx  |  Arrows pan"), Hero->GetWorldMapZoom()),
             FLinearColor::White, ClipMin.X, ClipMin.Y - 55.f);
         DrawText(TEXT("Click explored terrain to set pin  |  Green chamber  Yellow beast  Red boss  Gold quest  Blue pin"),
             FLinearColor(.85f, .85f, .85f), ClipMin.X, ClipMax.Y + 18.f);

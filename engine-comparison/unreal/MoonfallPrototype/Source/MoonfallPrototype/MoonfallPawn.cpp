@@ -922,6 +922,11 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
         const float MaxPanY = 8.f * (1.f - 1.f / WorldMapZoom);
         WorldMapPanCells.X = FMath::Clamp(WorldMapPanCells.X, -MaxPanX, MaxPanX);
         WorldMapPanCells.Y = FMath::Clamp(WorldMapPanCells.Y, -MaxPanY, MaxPanY);
+        // The full-screen atlas disables combat actions. Freeze combat and
+        // resource clocks too, so opening it never causes unavoidable damage
+        // or grants free healing, mana, cooldowns, or invulnerability time.
+        // Keep map panning responsive; resume from the exact prior combat state.
+        return;
     }
     AttackCooldown = FMath::Max(0.f, AttackCooldown - Dt);
     // Preserve combat reaction windows across a rare long render stall.
