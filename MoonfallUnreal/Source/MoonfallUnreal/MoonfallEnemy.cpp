@@ -158,7 +158,15 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
     if (bParried) {
      // A successful parry ends this attack chain and opens counterplay.
      // Bosses recover sooner than ordinary enemies but cannot hit instantly.
-     HitReactionEndsAt = Now + (bBoss ? 0.45f : 0.75f);
+     const float ParryStaggerSeconds = bBoss ? 0.45f : 0.75f;
+     HitReactionEndsAt = Now + ParryStaggerSeconds;
+     OnPerfectParried(ParryStaggerSeconds);
+     // Temporary visualization for editor/development builds until a Blueprint
+     // implementation provides the finished impact animation and VFX.
+#if ENABLE_DRAW_DEBUG
+     DrawDebugSphere(GetWorld(), GetActorLocation() + FVector(0.f, 0.f, 75.f),
+       bBoss ? 125.f : 95.f, 16, FColor::Cyan, false, 0.3f, 0, 3.f);
+#endif
      NextAttackAt = FMath::Max(NextAttackAt, HitReactionEndsAt + 0.35f);
      bComboSecondHitPending = false;
      bComboSecondHitActive = false;
