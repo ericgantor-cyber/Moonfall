@@ -14,6 +14,15 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         cls.enemy_cpp = (ROOT / "MoonfallEnemy.cpp").read_text(encoding="utf-8")
         cls.hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
 
+    def test_windows_package_requires_project_startup_level(self):
+        script = (ROOT.parents[1] / "Build" / "Build-Windows.ps1").read_text(encoding="utf-8")
+        self.assertIn("MoonfallStart.umap", script)
+        self.assertIn("GameDefaultMap", script)
+        self.assertIn("if (-not $CompileOnly)", script)
+        self.assertIn("Playable startup level missing:", script)
+        self.assertIn("Set GameDefaultMap=/Game/Maps/MoonfallStart", script)
+        self.assertIn("if ($PreflightOnly)", script)
+
     def test_progression_declared_and_defined(self):
         for name in ("AwardExperience", "AwardEquipmentDrop", "RewardPerfectDodge"):
             self.assertIn(name + "(", self.hero_h)
