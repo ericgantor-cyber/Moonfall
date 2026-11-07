@@ -555,6 +555,31 @@ class UnrealMigrationParityGate(unittest.TestCase):
         self.assertIn("const float MoveDt = FMath::Clamp(Dt, 0.f, 0.05f);", ai)
         self.assertNotIn("SpawnWave(", ai)
 
+    def test_forging_prefers_local_region_and_gear_has_distinct_traits(self):
+        base = ROOT / "engine-comparison/unreal/MoonfallPrototype"
+        cpp = (base / "Source/MoonfallPrototype/MoonfallPawn.cpp").read_text(encoding="utf-8")
+        forge = cpp[cpp.index("void AMoonfallPawn::ForgeEquipment()"):
+                    cpp.index("float AMoonfallPawn::BasicAttackDamage()")]
+        self.assertIn("MoonfallWorldRules::RegionAt(HeroMesh->GetRelativeLocation().X)", forge)
+        self.assertIn("(LocalRegion + Offset) % MoonfallWorldRules::RegionCount", forge)
+        self.assertIn("if (CurrentTier >= 3) continue;", forge)
+        self.assertIn("const int32 MaterialCost = CurrentTier == 0 ? 2 : 1;", forge)
+        self.assertIn("!IsSafeCheckpointLocation()", forge)
+        self.assertIn("SaveProgress();", forge)
+        heal = cpp[cpp.index("float AMoonfallPawn::HealingSpellAmount() const"):
+                   cpp.index("void AMoonfallPawn::Attack()")]
+        self.assertIn("4.f * ForgedRegionTier(3)", heal)
+        melee = cpp[cpp.index("void AMoonfallPawn::Attack()"):
+                    cpp.index("void AMoonfallPawn::CastBolt()")]
+        self.assertIn("Stamina + 2.f * ForgedRegionTier(0)", melee)
+        self.assertIn("if (bComboFinisher && ForgedRegionTier(0) > 0)", melee)
+        bolt = cpp[cpp.index("void AMoonfallPawn::CastBolt()"):
+                   cpp.index("void AMoonfallPawn::CastHeal()")]
+        self.assertIn("0.08f * ForgedRegionTier(5)", bolt)
+        self.assertIn("FMath::Max(0.75f", bolt)
+        hud = (base / "Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8")
+        self.assertNotIn("INCOMING %.1fs", hud)
+
     def test_chamber_forging_ranks_are_unique_bounded_and_persistent(self):
         base = ROOT / "engine-comparison/unreal/MoonfallPrototype"
         cpp = (base / "Source/MoonfallPrototype/MoonfallPawn.cpp").read_text(encoding="utf-8")

@@ -1112,8 +1112,14 @@ void AMoonfallPawn::ForgeEquipment()
         TEXT("Forged Graveglass Blade"), TEXT("Forged Stormhide Focus"),
         TEXT("Forged Stariron Blade"), TEXT("Forged Voidcrystal Focus")
     };
-    for (int32 Region = 0; Region < MoonfallWorldRules::RegionCount; ++Region)
+    // Forge the region the player is physically exploring first. This lets
+    // players choose a recipe naturally by visiting its region, without
+    // introducing inventory screens, new input buttons, or a cluttered HUD.
+    const int32 LocalRegion = HeroMesh ?
+        MoonfallWorldRules::RegionAt(HeroMesh->GetRelativeLocation().X) : 0;
+    for (int32 Offset = 0; Offset < MoonfallWorldRules::RegionCount; ++Offset)
     {
+        const int32 Region = (LocalRegion + Offset) % MoonfallWorldRules::RegionCount;
         const int32 CurrentTier = ForgedRegionTier(Region);
         if (CurrentTier >= 3) continue; // Max rank; no further material cost.
         const int32 MaterialCost = CurrentTier == 0 ? 2 : 1;
@@ -1180,7 +1186,9 @@ float AMoonfallPawn::ArcaneBoltDamage() const
 
 float AMoonfallPawn::HealingSpellAmount() const
 {
-    return 30.f + Progression.Level;
+    // Stormhide focuses specialize in restorative magic; no automatic
+    // healing from kills, only the existing manually cast E ability.
+    return 30.f + Progression.Level + 4.f * ForgedRegionTier(3);
 }
 
 void AMoonfallPawn::Attack()
@@ -1220,6 +1228,10 @@ void AMoonfallPawn::Attack()
         // restores stamina; whiffs and arcane bolts never trigger the reward.
         if (bComboFinisher)
             Stamina = FMath::Min(GetHudMaxStamina(), Stamina + 8.f);
+        // Embersteel improves the return from a landed combo finisher only.
+        if (bComboFinisher && ForgedRegionTier(0) > 0)
+            Stamina = FMath::Min(GetHudMaxStamina(),
+                Stamina + 2.f * ForgedRegionTier(0));
         CounterWindow = 0.f; // The riposte is spent only on a successful in-range attack.
         if (!bHitBoss) DamageWorldEnemy(EnemyIndex, Damage, bRiposte, bComboFinisher);
         else
@@ -1260,6 +1272,9 @@ void AMoonfallPawn::CastBolt()
     const bool bHitBoss = bBossInRange && BossDistance < EnemyDistance;
     Mana -= 30.f;
     BoltCooldown = 1.1f;
+    // Voidcrystal focuses reward spell builds with faster follow-up casts.
+    BoltCooldown = FMath::Max(0.75f,
+        BoltCooldown - 0.08f * ForgedRegionTier(5));
     // A warned perfect dodge also empowers the next successful bolt, matching
     // the melee riposte. Invalid/out-of-range casts never consume the window.
     const bool bRiposte = CounterWindow > 0.f;
