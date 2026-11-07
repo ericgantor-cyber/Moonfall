@@ -4,6 +4,14 @@ name: Moonfall Unreal GitHub-hosted Windows feasibility and compile
 on:
   workflow_dispatch:
     inputs:
+      source_snapshot:
+        description: "Select trusted source snapshot for Unreal compilation and package"
+        required: true
+        type: choice
+        options:
+          - main
+          - pr690-pinned
+        default: main
       attempt_compile:
         description: "Compile with your authorized UE 5.4 archive (requires secrets and ample disk)"
         required: true
@@ -86,9 +94,49 @@ jobs:
     runs-on: ${{ vars.MOONFALL_HOSTED_RUNNER || 'windows-2022' }}
     timeout-minutes: 120
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout trusted build validators from the workflow commit
+        uses: actions/checkout@v4
         with:
+          ref: ${{ github.sha }}
+          path: build-tools
           persist-credentials: false
+      - name: Checkout selected Moonfall game source
+        uses: actions/checkout@v4
+        with:
+          # PR #690 is deliberately pinned. Do not build moving, unreviewed refs
+          # with an engine-archive secret on the same runner.
+          ref: ${{ inputs.source_snapshot == 'pr690-pinned' && '965ee5c40b940d4083dfc5440343ca8a7fc55df9' || github.sha }}
+          path: game-source
+          persist-credentials: false
+      - name: Verify selected source identity and required project files
+        shell: pwsh
+        env:
+          SOURCE_SNAPSHOT: ${{ inputs.source_snapshot }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $root = Join-Path $env:GITHUB_WORKSPACE 'game-source'
+          $actual = (& git -C $root rev-parse HEAD).Trim()
+          $expected = if ($env:SOURCE_SNAPSHOT -eq 'pr690-pinned') {
+            '965ee5c40b940d4083dfc5440343ca8a7fc55df9'
+          } elseif ($env:SOURCE_SNAPSHOT -eq 'main') {
+            '${{ github.sha }}'
+          } else {
+            throw 'Unsupported source snapshot selection.'
+          }
+          if ($actual -ine $expected) {
+            throw "Checkout changed unexpectedly: expected $expected, got $actual"
+          }
+          foreach ($file in @(
+            'MoonfallUnreal\MoonfallUnreal.uproject',
+            'MoonfallUnreal\Source\MoonfallUnrealEditor.Target.cs',
+            'MoonfallUnreal\Build\Build-Windows.ps1'
+          )) {
+            if (-not (Test-Path -LiteralPath (Join-Path $root $file) -PathType Leaf)) {
+              throw "Selected Moonfall source snapshot is missing $file"
+            }
+          }
+          "Moonfall source snapshot: $env:SOURCE_SNAPSHOT, exact commit $actual" >> $env:GITHUB_STEP_SUMMARY
+
       - name: Download and validate private UE 5.4 installed-build archive
         shell: pwsh
         env:
@@ -116,7 +164,7 @@ jobs:
             throw 'Installed engine archive URL must use HTTPS.'
           }
           Invoke-WebRequest -Uri $env:MOONFALL_UE54_ARCHIVE_URL -OutFile $archive -MaximumRedirection 0
-          & .\MoonfallUnreal\Build\Test-UnrealInstalledArchive.ps1 -ArchivePath $archive -ExpectedSha256 $env:MOONFALL_UE54_ARCHIVE_SHA256 -DestinationRoot $destination -ReserveBytes 15GB
+          & .\build-tools\MoonfallUnreal\Build\Test-UnrealInstalledArchive.ps1 -ArchivePath $archive -ExpectedSha256 $env:MOONFALL_UE54_ARCHIVE_SHA256 -DestinationRoot $destination -ReserveBytes 15GB
           New-Item -ItemType Directory -Force -Path $destination | Out-Null
           Expand-Archive -LiteralPath $archive -DestinationPath $destination -Force
           Remove-Item -LiteralPath $archive -Force
@@ -124,16 +172,16 @@ jobs:
           if (-not (Test-Path -LiteralPath $build -PathType Leaf)) {
             throw 'UE archive must have Engine/Build/BatchFiles/Build.bat at its root.'
           }
-          & .\MoonfallUnreal\Build\Test-UnrealEngineVersion.ps1 -UnrealRoot $destination
+          & .\build-tools\MoonfallUnreal\Build\Test-UnrealEngineVersion.ps1 -UnrealRoot $destination
           "Verified Unreal Engine 5.4 installed-build metadata and UnrealBuildTool are present." >> $env:GITHUB_STEP_SUMMARY
           "UE54_ROOT=$destination" >> $env:GITHUB_ENV
       - name: Compile MoonfallUnrealEditor with actual Unreal 5.4
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          & .\MoonfallUnreal\Build\Build-Windows.ps1 -UnrealRoot $env:UE54_ROOT -CompileOnly
+          & .\game-source\MoonfallUnreal\Build\Build-Windows.ps1 -UnrealRoot $env:UE54_ROOT -CompileOnly
           if ($LASTEXITCODE -ne 0) { throw "Unreal compiler failed with exit code $LASTEXITCODE" }
-          "Real Unreal Editor C++ compilation succeeded for ${{ github.sha }}." >> $env:GITHUB_STEP_SUMMARY
+          "Real Unreal Editor C++ compilation succeeded for source snapshot ${{ inputs.source_snapshot }}." >> $env:GITHUB_STEP_SUMMARY
       - name: Package actual Win64 Development game after successful Unreal C++ compile
         if: ${{ inputs.package_game }}
         shell: pwsh
@@ -143,7 +191,7 @@ jobs:
           if (-not (Test-Path -LiteralPath $uat -PathType Leaf)) {
             throw "Unreal AutomationTool missing: $uat"
           }
-          $project = (Resolve-Path '.\MoonfallUnreal\MoonfallUnreal.uproject').Path
+          $project = (Resolve-Path '.\game-source\MoonfallUnreal\MoonfallUnreal.uproject').Path
           $out = Join-Path $env:GITHUB_WORKSPACE 'MoonfallUnrealPackaged'
           if (Test-Path -LiteralPath $out) {
             throw "Refusing to overwrite pre-existing packaged game directory: $out"
@@ -164,7 +212,7 @@ jobs:
           }
           $content = Get-ChildItem -LiteralPath (Join-Path $root 'MoonfallUnreal') -File -Recurse | Select-Object -First 1
           if (-not $content) { throw 'Packaged game content is empty.' }
-          "Real UE Win64 Development game was packaged for commit ${{ github.sha }}. Gameplay and installation remain untested." >> $env:GITHUB_STEP_SUMMARY
+          "Real UE Win64 Development game packaged for source snapshot ${{ inputs.source_snapshot }}. Gameplay and installation remain untested." >> $env:GITHUB_STEP_SUMMARY
       - name: Upload actual packaged game only after full engine build
         if: ${{ inputs.package_game && success() }}
         uses: actions/upload-artifact@v4
