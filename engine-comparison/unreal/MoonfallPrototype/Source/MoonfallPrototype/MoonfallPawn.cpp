@@ -1062,30 +1062,45 @@ int32 AMoonfallPawn::ChamberMasteryCount() const
     return Count;
 }
 
-int32 AMoonfallPawn::ForgedEquipmentCount(bool bArcane) const
+int32 AMoonfallPawn::ForgedRegionTier(int32 Region) const
 {
-    // Forged items live in the existing persistent inventory alongside loot.
-    // Only completed equipment counts; unspent cache materials do not.
-    int32 Count = 0;
-    for (int32 Region = 0; Region < MoonfallWorldRules::RegionCount; ++Region)
+    // One effective piece of equipment per region. Older saves may contain
+    // several numbered forged copies; use only the strongest valid rank so
+    // duplicates never multiply damage, while preserving legacy inventories.
+    static const TCHAR* Gear[6] = {
+        TEXT("Forged Embersteel Blade"), TEXT("Forged Moonweave Focus"),
+        TEXT("Forged Graveglass Blade"), TEXT("Forged Stormhide Focus"),
+        TEXT("Forged Stariron Blade"), TEXT("Forged Voidcrystal Focus")
+    };
+    if (Region < 0 || Region >= MoonfallWorldRules::RegionCount) return 0;
+    const FString Prefix = FString(Gear[Region]) + TEXT(" #");
+    int32 BestTier = 0;
+    for (const FString& Item : BossInventory)
     {
-        if ((Region % 2 == 1) != bArcane) continue;
-        static const TCHAR* Gear[6] = {
-            TEXT("Forged Embersteel Blade"), TEXT("Forged Moonweave Focus"),
-            TEXT("Forged Graveglass Blade"), TEXT("Forged Stormhide Focus"),
-            TEXT("Forged Stariron Blade"), TEXT("Forged Voidcrystal Focus")
-        };
-        const FString Prefix = FString(Gear[Region]) + TEXT(" #");
-        for (const FString& Item : BossInventory)
-            if (Item.StartsWith(Prefix)) ++Count;
+        if (!Item.StartsWith(Prefix)) continue;
+        const FString RankText = Item.RightChop(Prefix.Len());
+        if (!RankText.IsNumeric()) continue; // Never count malformed saved gear.
+        const int32 Rank = FCString::Atoi(*RankText);
+        if (Rank >= 1) BestTier = FMath::Max(BestTier, FMath::Min(3, Rank));
     }
-    return FMath::Min(12, Count);
+    return BestTier;
+}
+
+int32 AMoonfallPawn::ForgedEquipmentPower(bool bArcane) const
+{
+    // Sum rank once per region, rather than counting duplicate inventory items.
+    // Three melee and three arcane regions can each reach rank three (cap 9).
+    int32 Power = 0;
+    for (int32 Region = 0; Region < MoonfallWorldRules::RegionCount; ++Region)
+        if ((Region % 2 == 1) == bArcane)
+            Power += ForgedRegionTier(Region);
+    return FMath::Min(9, Power);
 }
 
 void AMoonfallPawn::ForgeEquipment()
 {
-    // One deterministic recipe per press, no waves, alternate game mode, or
-    // modal HUD. Require a genuinely safe location to avoid menu-combat abuse.
+    // Forge rank I with two unique guardian caches from one region. Rank II
+    // and III each cost one further unique cache. No crafting in combat or map.
     if (bWorldMapOpen || Health <= 0.f || bRespawnInProgress ||
         !IsSafeCheckpointLocation()) return;
     static const TCHAR* Materials[6] = {
@@ -1099,38 +1114,63 @@ void AMoonfallPawn::ForgeEquipment()
     };
     for (int32 Region = 0; Region < MoonfallWorldRules::RegionCount; ++Region)
     {
-        const FString Prefix = FString(Materials[Region]) + TEXT(" chamber cache #");
-        int32 First = INDEX_NONE;
-        int32 Second = INDEX_NONE;
+        const int32 CurrentTier = ForgedRegionTier(Region);
+        if (CurrentTier >= 3) continue; // Max rank; no further material cost.
+        const int32 MaterialCost = CurrentTier == 0 ? 2 : 1;
+        TArray<int32, TInlineAllocator<2>> MaterialsToSpend;
+        // Only authentic, uniquely identified caches whose guardians were
+        // defeated and claimed may enter a recipe. A duplicate inventory
+        // string cannot be spent twice in the same forge action.
+        for (int32 Chamber = 0; Chamber < MoonfallWorldRules::ChambersPerRegion; ++Chamber)
+        {
+            const int32 Id = Region * MoonfallWorldRules::ChambersPerRegion + Chamber;
+            if ((ClaimedChamberMask & (1 << Id)) == 0 ||
+                (DefeatedGuardianMask & (1 << Id)) == 0) continue;
+            const FString Material = FString::Printf(
+                TEXT("%s chamber cache #%d"), Materials[Region], Id + 1);
+            for (int32 I = 0; I < BossInventory.Num(); ++I)
+            {
+                if (BossInventory[I] != Material) continue;
+                MaterialsToSpend.Add(I);
+                break; // One material for one real cache ID.
+            }
+            if (MaterialsToSpend.Num() == MaterialCost) break;
+        }
+        if (MaterialsToSpend.Num() != MaterialCost) continue;
+        // Transactional inventory update. Remove all legacy copies from the
+        // chosen region; replace with exactly one bounded upgraded item.
+        const FString GearPrefix = FString(Gear[Region]) + TEXT(" #");
+        TArray<FString> UpdatedInventory;
+        UpdatedInventory.Reserve(BossInventory.Num());
         for (int32 I = 0; I < BossInventory.Num(); ++I)
         {
-            if (!BossInventory[I].StartsWith(Prefix)) continue;
-            if (First == INDEX_NONE) First = I;
-            else { Second = I; break; }
+            if (MaterialsToSpend.Contains(I)) continue;
+            if (BossInventory[I].StartsWith(GearPrefix))
+            {
+                const FString RankText = BossInventory[I].RightChop(GearPrefix.Len());
+                if (RankText.IsNumeric()) continue;
+            }
+            UpdatedInventory.Add(BossInventory[I]);
         }
-        if (Second == INDEX_NONE) continue;
-        // Consumes exactly two earned cache materials and replaces them with
-        // one equipped, permanent item in the existing save inventory.
-        BossInventory.RemoveAt(Second);
-        BossInventory.RemoveAt(First);
-        const int32 Tier = 1 + (Region % 2 == 1 ?
-            ForgedEquipmentCount(true) : ForgedEquipmentCount(false));
-        BossInventory.Add(FString::Printf(TEXT("%s #%d"), Gear[Region], Tier));
+        // Two-or-one materials removed, so adding one never expands storage.
+        UpdatedInventory.Add(FString::Printf(TEXT("%s #%d"),
+            Gear[Region], CurrentTier + 1));
+        BossInventory = MoveTemp(UpdatedInventory);
         SaveProgress();
-        return;
+        return; // Exactly one deliberate forge operation per button press.
     }
 }
 
 float AMoonfallPawn::BasicAttackDamage() const
 {
     return 18.f + Progression.Level + 0.5f * GuardianBlessingCount() +
-        0.75f * ChamberMasteryCount() + 2.f * ForgedEquipmentCount(false);
+        0.75f * ChamberMasteryCount() + 2.f * ForgedEquipmentPower(false);
 }
 
 float AMoonfallPawn::ArcaneBoltDamage() const
 {
     return 28.f + 2.f * Progression.Level + 1.f * GuardianBlessingCount() +
-        1.25f * ChamberMasteryCount() + 3.f * ForgedEquipmentCount(true);
+        1.25f * ChamberMasteryCount() + 3.f * ForgedEquipmentPower(true);
 }
 
 float AMoonfallPawn::HealingSpellAmount() const
