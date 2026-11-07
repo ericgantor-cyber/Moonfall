@@ -130,7 +130,8 @@ class UnrealMigrationParityGate(unittest.TestCase):
         self.assertIn("PC->SetInputMode(FInputModeGameOnly());", pawn)
         self.assertIn("PC->bShowMouseCursor = true;", pawn)
         self.assertIn("PC->bShowMouseCursor = false;", pawn)
-        self.assertIn("bWorldMapOpen ? FVector::ZeroVector", pawn)
+        self.assertIn("if (bWorldMapOpen)\n    {", pawn)
+        self.assertIn("FVector Direction = bDodgeActiveThisFrame", pawn)
         self.assertIn("if (Hero->IsWorldMapOpen())", hud)
         self.assertIn("if (!Hero->IsMapPositionDiscovered(World)) continue;", hud)
         self.assertIn("Click explored terrain to set pin", hud)
@@ -530,7 +531,8 @@ class UnrealMigrationParityGate(unittest.TestCase):
         attack = pawn.split("void AMoonfallPawn::Attack()", 1)[1]
         self.assertLess(attack.index("if (bWorldMapOpen) { PlaceMapWaypoint(); return; }"),
                         attack.index("AttackCooldown ="))
-        self.assertIn("bWorldMapOpen ? FVector::ZeroVector", pawn)
+        self.assertIn("if (bWorldMapOpen)\n    {", pawn)
+        self.assertIn("FVector Direction = bDodgeActiveThisFrame", pawn)
 
     def test_character_and_input_constraints(self):
         constraints = self.data["constraints"]
