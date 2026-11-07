@@ -21,6 +21,8 @@ $zip = [System.IO.Compression.ZipFile]::OpenRead($archive)
 try {
     if ($zip.Entries.Count -gt 500000) { throw 'Unreal archive contains too many entries.' }
     $seen = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+    $files = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+    $directories = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
     $size = [long]0
     $foundBuildTool = $false
     foreach ($entry in $zip.Entries) {
@@ -35,8 +37,31 @@ try {
             $normalized.Contains([char]0)) {
             throw "Engine ZIP has unsafe entry path: $raw"
         }
+        # Windows normalizes trailing spaces/dots and reserves DOS device names.
+        # Reject names that could alias another archive entry on NTFS.
+        $parts = @($normalized.TrimEnd('/').Split('/'))
+        if ($parts.Count -eq 0 -or @($parts | Where-Object { $_ -eq '' }).Count -gt 0) {
+            throw 'Engine ZIP contains empty path components.'
+        }
+        foreach ($part in $parts) {
+            if ($part.EndsWith(' ') -or $part.EndsWith('.') -or
+                $part -match '^(?i)(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])($|\.)') {
+                throw "Engine ZIP has Windows-unsafe path segment: $part"
+            }
+        }
         if (-not $seen.Add($normalized.TrimEnd('/'))) {
             throw 'Engine ZIP contains duplicate paths differing only by case or slash.'
+        }
+        # A file cannot also act as a parent directory of another ZIP entry.
+        # ZIP implicit directories are allowed, but explicit file/dir conflicts aren't.
+        $isDirectory = $normalized.EndsWith('/')
+        $fileKey = $normalized.TrimEnd('/')
+        if ($isDirectory) {
+            if ($files.Contains($fileKey)) { throw 'Engine ZIP file/directory collision.' }
+            [void]$directories.Add($fileKey)
+        } else {
+            if ($directories.Contains($fileKey)) { throw 'Engine ZIP file/directory collision.' }
+            [void]$files.Add($fileKey)
         }
         $unixFileType = ($entry.ExternalAttributes -shr 16) -band 61440
         if ($unixFileType -eq 40960) {
@@ -48,6 +73,15 @@ try {
         $size += [long]$entry.Length
         if ($normalized -ieq 'Engine/Build/BatchFiles/Build.bat') {
             $foundBuildTool = $true
+        }
+    }
+    foreach ($fileKey in $files) {
+        $parent = $fileKey
+        while ($parent.Contains('/')) {
+            $parent = $parent.Substring(0, $parent.LastIndexOf('/'))
+            if ($files.Contains($parent)) {
+                throw 'Engine ZIP has file entries used as parent directories.'
+            }
         }
     }
     if (-not $foundBuildTool) {
