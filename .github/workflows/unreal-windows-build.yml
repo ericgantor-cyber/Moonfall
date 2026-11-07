@@ -55,6 +55,15 @@ jobs:
           $exe = Get-ChildItem $destination -Recurse -File -Filter 'MoonfallUnreal.exe' | Select-Object -First 1
           if (-not $exe) { throw 'Packaging finished without MoonfallUnreal.exe' }
           Write-Host "Packaged executable found: $($exe.FullName)"
+      - name: Smoke-test packaged Unreal game launch
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $exes = @(Get-ChildItem 'MoonfallUnrealPackaged' -Recurse -File -Filter 'MoonfallUnreal.exe')
+          if ($exes.Count -ne 1) { throw "Expected exactly one packaged game executable; found $($exes.Count)" }
+          & .\MoonfallUnreal\Build\Test-PackagedGame.ps1 -GameExecutable $exes[0].FullName -ObservationSeconds 8
+          if (-not $?) { throw 'Packaged Moonfall game launch smoke test failed.' }
+          "Packaged game remained running for the eight-second smoke test. Graphics and gameplay are not verified." >> $env:GITHUB_STEP_SUMMARY
       - name: Publish self-contained Windows launcher
         shell: pwsh
         run: |
