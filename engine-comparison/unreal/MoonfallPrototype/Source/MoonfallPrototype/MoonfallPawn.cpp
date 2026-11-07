@@ -534,7 +534,7 @@ void AMoonfallPawn::DamageWorldEnemy(int32 Index, float Damage, bool bRiposte, b
             // Third-hit finishers briefly stagger normal enemies; earned
             // ripostes retain the longer guardian-specific stagger.
             Enemy.StaggerTimer = Enemy.bGuardian ? 0.8f :
-                FMath::Min(0.7f, 0.4f + 0.1f * ForgedRegionTier(2));
+                FMath::Min(0.8f, 0.4f + 0.1f * ForgedRegionTier(2));
             // Graveglass ranks lengthen only landed normal-enemy finishers.
             // Guardian riposte timing stays intact.
             Enemy.AttackWindup = 0.f; // Riposte/finisher interrupts prepared strikes.
@@ -1285,7 +1285,7 @@ void AMoonfallPawn::CastBolt()
 {
     if (bWorldMapOpen) return; // No combat casts through the map.
     // Moonweave rank lowers the cost of a successful arcane bolt only.
-    const float BoltManaCost = FMath::Max(24.f, 30.f - 2.f * ForgedRegionTier(1));
+    const float BoltManaCost = FMath::Max(22.f, 30.f - 2.f * ForgedRegionTier(1));
     if (Health <= 0.f || ParryTimer > 0.f || BoltCooldown > 0.f ||
         Mana < BoltManaCost) return;
     const int32 EnemyIndex = NearestEnemyIndex(1000.f);
@@ -1300,7 +1300,7 @@ void AMoonfallPawn::CastBolt()
     Mana -= BoltManaCost;
     BoltCooldown = 1.1f;
     // Voidcrystal focuses reward spell builds with faster follow-up casts.
-    BoltCooldown = FMath::Max(0.75f,
+    BoltCooldown = FMath::Max(0.7f,
         BoltCooldown - 0.08f * ForgedRegionTier(5));
     // A warned perfect dodge also empowers the next successful bolt, matching
     // the melee riposte. Invalid/out-of-range casts never consume the window.
