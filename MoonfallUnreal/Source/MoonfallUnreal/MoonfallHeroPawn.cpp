@@ -10,6 +10,8 @@
 #include "Misc/ConfigCacheIni.h"
 #include "Interfaces/IPluginManager.h"
 #include "MoonfallEnemy.h"
+#include "Animation/AnimInstance.h"
+#include "Animation/AnimMontage.h"
 #include "CollisionQueryParams.h"
 AMoonfallHeroPawn::AMoonfallHeroPawn()
 {
@@ -516,6 +518,30 @@ void AMoonfallHeroPawn::AdjustOption(int32 Direction) {
  }
  Settings->ApplySettings(false);
  Settings->SaveSettings();
+}
+
+void AMoonfallHeroPawn::RegisterFinisherKill(bool bShatterKill, bool bBossKill)
+{
+ if (Health <= 0.f || !GetWorld()) return;
+ const float Now = GetWorld()->GetTimeSeconds();
+ const float Window = FMath::IsFinite(FinisherChainWindowSeconds)
+   ? FMath::Clamp(FinisherChainWindowSeconds, 0.5f, 10.f) : 4.f;
+ FinisherChainCount = Now - LastFinisherKillAt <= Window
+   ? FMath::Min(FinisherChainCount + 1, 5) : 1;
+ LastFinisherKillAt = Now;
+ // A finite five-step combo wraps through the authored animation variants.
+ const int32 ChainStep = FinisherChainCount;
+ if (!bReduceMotion && GetMesh() && FinisherMontages.Num() > 0) {
+  if (UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance()) {
+   const int32 MontageIndex = (ChainStep - 1) % FinisherMontages.Num();
+   if (UAnimMontage* Montage = FinisherMontages[MontageIndex].Get()) {
+    // Montages are optional, so unconfigured characters still receive
+    // Blueprint choreography events and progression without crashing.
+    AnimInstance->Montage_Play(Montage, 1.f);
+   }
+  }
+ }
+ OnFinisherChain(ChainStep, bShatterKill, bBossKill);
 }
 
 void AMoonfallHeroPawn::AwardExperience(int32 Amount)
