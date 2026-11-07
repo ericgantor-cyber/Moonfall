@@ -89,6 +89,7 @@ private:
     bool bHasWaypoint = false;
     bool bWorldMapOpen = false;
     bool bDeathInputEnabled = false;
+    bool bRetryInProgress = false;
     float WorldMapZoom = 1.f;
     FVector2D WorldMapPanCells = FVector2D::ZeroVector;
     float MapPanHorizontalInput = 0.f;
