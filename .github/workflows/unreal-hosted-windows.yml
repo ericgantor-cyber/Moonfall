@@ -119,6 +119,21 @@ jobs:
           if (-not (Test-Path -LiteralPath $build -PathType Leaf)) {
             throw 'UE archive must have Engine/Build/BatchFiles/Build.bat at its root.'
           }
+          # Do not pass a mislabeled engine archive into the Moonfall compiler.
+          # UE installed builds include Engine/Build/Build.version.
+          $versionPath = Join-Path $destination 'Engine\Build\Build.version'
+          if (-not (Test-Path -LiteralPath $versionPath -PathType Leaf)) {
+            throw 'Installed engine is missing Engine/Build/Build.version; cannot verify UE 5.4.'
+          }
+          $engineVersion = Get-Content -LiteralPath $versionPath -Raw | ConvertFrom-Json
+          if ([int]$engineVersion.MajorVersion -ne 5 -or [int]$engineVersion.MinorVersion -ne 4) {
+            throw "Expected Unreal Engine 5.4 but archive contains $($engineVersion.MajorVersion).$($engineVersion.MinorVersion)."
+          }
+          $ubt = Join-Path $destination 'Engine\Binaries\DotNET\UnrealBuildTool\UnrealBuildTool.dll'
+          if (-not (Test-Path -LiteralPath $ubt -PathType Leaf)) {
+            throw 'Installed UE archive missing UnrealBuildTool.dll; cannot compile a project.'
+          }
+          "Verified Unreal Engine 5.4 archive and UnrealBuildTool are present." >> $env:GITHUB_STEP_SUMMARY
           "UE54_ROOT=$destination" >> $env:GITHUB_ENV
       - name: Compile MoonfallUnrealEditor with actual Unreal 5.4
         shell: pwsh
