@@ -583,6 +583,8 @@ class UnrealMigrationParityGate(unittest.TestCase):
         self.assertIn("DefeatedGuardianMask & (1 << Id)", forge)
         self.assertIn("BossInventory[I] != Material", forge)
         self.assertIn("MaterialsToSpend.Contains(I)", forge)
+        self.assertIn("ConsumedMaterialNames.Add(Material);", forge)
+        self.assertIn("ConsumedMaterialNames.Contains(BossInventory[I])", forge)
         self.assertIn("UpdatedInventory.Add(FString::Printf(", forge)
         self.assertIn("BossInventory = MoveTemp(UpdatedInventory);", forge)
         self.assertIn("SaveProgress();", forge)
