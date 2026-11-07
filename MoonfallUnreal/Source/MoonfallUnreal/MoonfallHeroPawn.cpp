@@ -87,7 +87,7 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
   }
  }
  // Stamina powers dodges independently of spell mana and regenerates after exertion.
- if (Health > 0.f && !bSprinting && GetWorld() && GetWorld()->GetTimeSeconds() >= StaminaRegenStartsAt
+ if (Health > 0.f && !bSprinting && !bGuarding && GetWorld() && GetWorld()->GetTimeSeconds() >= StaminaRegenStartsAt
      && FMath::IsFinite(Stamina) && FMath::IsFinite(MaxStamina) && MaxStamina > 0.f
      && FMath::IsFinite(StaminaRegenPerSecond) && StaminaRegenPerSecond > 0.f) {
   Stamina = FMath::Clamp(Stamina + StaminaRegenPerSecond * StaminaDelta, 0.f, MaxStamina);
@@ -213,8 +213,12 @@ void AMoonfallHeroPawn::BeginGuard()
 }
 void AMoonfallHeroPawn::EndGuard()
 {
+ const bool bWasGuarding = bGuarding;
  bGuarding = false;
  ParryWindowEndsAt = -1.f;
+ // Guard stance cannot refill stamina for free; preserve longer dodge/impact delays.
+ if (bWasGuarding && GetWorld())
+  StaminaRegenStartsAt = FMath::Max(StaminaRegenStartsAt, GetWorld()->GetTimeSeconds() + 0.4f);
 }
 void AMoonfallHeroPawn::BeginSprint() {
  // Holding or repeating the press must not bypass exhaustion.
