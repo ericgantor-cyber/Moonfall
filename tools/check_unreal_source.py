@@ -39,6 +39,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('(project_root / "MoonfallUnreal.uproject").is_file()', generator)
         self.assertNotIn("get_project_file_path()", generator)
         self.assertIn("backup_path.write_text(original_config", generator)
+        self.assertIn('backup_path.read_text(encoding="utf-8") != original_config', generator)
+        self.assertIn('if backup_path.exists():', generator)
         self.assertIn("config_path.write_text(new_config", generator)
 
     def test_unreal_startup_map_config_preserves_other_settings(self):
