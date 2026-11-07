@@ -29,6 +29,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("unreal.NavMeshBoundsVolume", generator)
         self.assertIn("levels.save_current_level()", generator)
         self.assertIn("updated_map_config(original_config)", generator)
+        self.assertIn("Path(unreal.Paths.project_dir()).resolve()", generator)
+        self.assertIn('(project_root / "MoonfallUnreal.uproject").is_file()', generator)
+        self.assertNotIn("get_project_file_path()", generator)
         self.assertIn("backup_path.write_text(original_config", generator)
         self.assertIn("config_path.write_text(new_config", generator)
 
