@@ -161,6 +161,7 @@ private:
     float ArcaneBoltDamage() const;
     float HealingSpellAmount() const;
     bool RevealNearbyMapCells(const FVector& Position);
+    bool IsSafeCheckpointLocation() const;
     void SaveProgress();
     void CollectNearbyChambers();
     void UpdateWorldEnemies(float Dt);
