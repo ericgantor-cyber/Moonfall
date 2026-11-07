@@ -42,6 +42,8 @@ public:
  // Track the actual spawned actor, not an approximate spawn point. Weak references
  // never retain a destroyed enemy after streaming, level reset, or defeat.
  UPROPERTY(Transient) TWeakObjectPtr<AMoonfallEnemy> ActiveArenaBoss;
+ // Retry only until the arena quest is bound; avoids per-frame actor scans.
+ float NextArenaBossQuestSearchAt = 0.f;
  UFUNCTION(BlueprintCallable, Category="Moonfall|Quest") void BeginArenaBossQuest(AMoonfallEnemy* Boss);
  UFUNCTION(BlueprintCallable, Category="Moonfall|Quest") void CompleteArenaBossQuest(AMoonfallEnemy* DefeatedBoss);
  UFUNCTION(BlueprintPure, Category="Moonfall|Quest") AMoonfallEnemy* GetArenaBossQuestTarget() const;
