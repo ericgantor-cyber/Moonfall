@@ -1,0 +1,50 @@
+name: Moonfall Epic Unreal 5.4 private source access check
+
+# Safe, manually triggered credential test. Never clones or uploads Epic source.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-epic-source-access:
+    runs-on: windows-2022
+    timeout-minutes: 10
+    steps:
+      - name: Verify read-only Epic GitHub API access and UE 5.4 branch
+        shell: pwsh
+        env:
+          EPIC_SOURCE_TOKEN: ${{ secrets.MOONFALL_EPIC_SOURCE_TOKEN }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ([string]::IsNullOrWhiteSpace($env:EPIC_SOURCE_TOKEN)) {
+            throw 'Moonfall secret MOONFALL_EPIC_SOURCE_TOKEN is not configured. Add a token authorized to read EpicGames/UnrealEngine. Never paste it into chat or commit it.'
+          }
+          # The token is passed only in HTTPS request headers, never in a URL,
+          # executable argument, log, artifact, or workflow summary.
+          $headers = @{
+            Authorization = "Bearer $env:EPIC_SOURCE_TOKEN"
+            Accept = 'application/vnd.github+json'
+            'X-GitHub-Api-Version' = '2022-11-28'
+            'User-Agent' = 'Moonfall-UE54-Access-Check'
+          }
+          try {
+            $repository = Invoke-RestMethod -Uri 'https://api.github.com/repos/EpicGames/UnrealEngine' -Headers $headers -Method Get -TimeoutSec 30
+            if ($repository.full_name -ne 'EpicGames/UnrealEngine') {
+              throw 'Unexpected repository response.'
+            }
+            $branch = Invoke-RestMethod -Uri 'https://api.github.com/repos/EpicGames/UnrealEngine/branches/5.4' -Headers $headers -Method Get -TimeoutSec 30
+            if ($branch.name -ne '5.4' -or $branch.commit.sha -notmatch '^[0-9a-f]{40}$') {
+              throw 'Epic UE 5.4 branch data is not valid.'
+            }
+          } catch {
+            # Never interpolate raw HTTP exceptions or response bodies, as
+            # credential-bearing request context must stay out of CI logs.
+            throw 'Epic source access check failed. Confirm the token, Epic account authorization, repository access, and UE 5.4 branch.'
+          } finally {
+            $headers.Clear()
+          }
+          'EpicGames/UnrealEngine and its 5.4 branch are readable using the configured private token.' >> $env:GITHUB_STEP_SUMMARY
+          'Only GitHub API metadata was retrieved. No engine source downloaded, compiled, or uploaded.' >> $env:GITHUB_STEP_SUMMARY
+          Write-Host 'MOONFALL_EPIC_ACCESS_PASS'
