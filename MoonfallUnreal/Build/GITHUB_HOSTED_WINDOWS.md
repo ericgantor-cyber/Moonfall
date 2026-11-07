@@ -57,3 +57,9 @@ The download job calls `MoonfallUnreal/Build/Test-UnrealInstalledArchive.ps1` be
 ## Eleven Windows archive validation tests verified (2026-11-07 UTC)
 
 The shared Unreal installed-build validator also rejects NTFS-reserved DOS device names (including device names with extensions), directory components ending in spaces/dots, empty ZIP path components, and files that collide with parent directory paths. A [real GitHub-hosted Windows runner](https://github.com/ericgantor-cyber/Moonfall/actions/runs/42316628599) passed **11/11 synthetic archive tests**. It reported 146.91 GB free disk and Visual Studio 2022 C++ available. These tests exercise archive validation only; no UE 5.4 engine archive was provisioned and no real game compilation was performed.
+
+## Verified real Windows launcher compilation (2026-11-07 UTC)
+
+The [Windows launcher build workflow](https://github.com/ericgantor-cyber/Moonfall/actions/workflows/unreal-launcher-windows.yml) runs on GitHub-hosted `windows-2022`, publishes the **real** `MoonfallLauncher.exe` with .NET 8 for `win-x64`, and checks the launcher process exit codes when game files are missing or when a **synthetic test-only** folder structure is supplied. It writes a SHA-256 digest and uploads a short-lived artifact explicitly named **`MoonfallLauncher-ONLY-NOT-THE-GAME`**. That artifact contains the compiled launcher, NOT any cooked Unreal game or installer. Synthetic game files used in CI are NOT included.
+
+[Verified successful build run](https://github.com/ericgantor-cyber/Moonfall/actions/runs/42316908003): Windows .NET compilation passed; both launcher's file-structure checks passed; binary and checksum artifact uploaded. No UE 5.4 C++ game compilation or Windows installer build occurred.
