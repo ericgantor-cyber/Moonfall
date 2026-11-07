@@ -152,7 +152,8 @@ private:
     void Zoom(float Value);
     void ShowDamageNumber(float Damage, float RemainingHealth);
     void ForgeEquipment();
-    int32 ForgedEquipmentCount(bool bArcane) const;
+    int32 ForgedEquipmentPower(bool bArcane) const;
+    int32 ForgedRegionTier(int32 Region) const;
     void Attack();
     void Dodge();
     void Parry();

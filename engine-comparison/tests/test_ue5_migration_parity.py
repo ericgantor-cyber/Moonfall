@@ -555,33 +555,46 @@ class UnrealMigrationParityGate(unittest.TestCase):
         self.assertIn("const float MoveDt = FMath::Clamp(Dt, 0.f, 0.05f);", ai)
         self.assertNotIn("SpawnWave(", ai)
 
-    def test_chamber_forging_consumes_two_materials_and_saves_equipment(self):
+    def test_chamber_forging_ranks_are_unique_bounded_and_persistent(self):
         base = ROOT / "engine-comparison/unreal/MoonfallPrototype"
         cpp = (base / "Source/MoonfallPrototype/MoonfallPawn.cpp").read_text(encoding="utf-8")
         header = (base / "Source/MoonfallPrototype/MoonfallPawn.h").read_text(encoding="utf-8")
         inputs = (base / "Config/DefaultInput.ini").read_text(encoding="utf-8")
         self.assertIn("void ForgeEquipment();", header)
-        self.assertIn("int32 ForgedEquipmentCount(bool bArcane) const;", header)
+        self.assertIn("int32 ForgedRegionTier(int32 Region) const;", header)
+        self.assertIn("int32 ForgedEquipmentPower(bool bArcane) const;", header)
         self.assertIn('ActionName="ForgeEquipment",Key=C', inputs)
         self.assertIn('ActionName="ForgeEquipment",Key=Gamepad_RightShoulder', inputs)
         self.assertIn('Input->BindAction(TEXT("ForgeEquipment"), IE_Pressed', cpp)
+        scan = cpp[cpp.index("int32 AMoonfallPawn::ForgedRegionTier("):
+                   cpp.index("void AMoonfallPawn::ForgeEquipment()")]
+        self.assertIn("const FString RankText = Item.RightChop(Prefix.Len());", scan)
+        self.assertIn("if (!RankText.IsNumeric()) continue;", scan)
+        self.assertIn("FMath::Min(3, Rank)", scan)
+        self.assertIn("FMath::Min(9, Power)", scan)
+        self.assertIn("Power += ForgedRegionTier(Region);", scan)
         forge = cpp[cpp.index("void AMoonfallPawn::ForgeEquipment()"):
                     cpp.index("float AMoonfallPawn::BasicAttackDamage()")]
         self.assertIn("!IsSafeCheckpointLocation()", forge)
-        self.assertIn("BossInventory[I].StartsWith(Prefix)", forge)
-        self.assertIn("if (Second == INDEX_NONE) continue;", forge)
-        self.assertIn("BossInventory.RemoveAt(Second);", forge)
-        self.assertIn("BossInventory.RemoveAt(First);", forge)
-        self.assertLess(forge.index("BossInventory.RemoveAt(Second);"),
-                        forge.index("BossInventory.RemoveAt(First);"))
-        self.assertIn("BossInventory.Add(FString::Printf(", forge)
+        self.assertIn("if (CurrentTier >= 3) continue;", forge)
+        self.assertIn("const int32 MaterialCost = CurrentTier == 0 ? 2 : 1;", forge)
+        self.assertIn("MaterialsToSpend.Num() != MaterialCost", forge)
+        self.assertIn("ClaimedChamberMask & (1 << Id)", forge)
+        self.assertIn("DefeatedGuardianMask & (1 << Id)", forge)
+        self.assertIn("BossInventory[I] != Material", forge)
+        self.assertIn("MaterialsToSpend.Contains(I)", forge)
+        self.assertIn("ConsumedMaterialNames.Add(Material);", forge)
+        self.assertIn("ConsumedMaterialNames.Contains(BossInventory[I])", forge)
+        self.assertIn("UpdatedInventory.Add(FString::Printf(", forge)
+        self.assertIn("BossInventory = MoveTemp(UpdatedInventory);", forge)
         self.assertIn("SaveProgress();", forge)
+        self.assertEqual(forge.count("SaveProgress();"), 1)
         self.assertIn("Forged Embersteel Blade", forge)
         self.assertIn("Forged Voidcrystal Focus", forge)
-        self.assertIn("2.f * ForgedEquipmentCount(false)", cpp)
-        self.assertIn("3.f * ForgedEquipmentCount(true)", cpp)
-        self.assertIn("FMath::Min(12, Count)", cpp)
-        self.assertNotIn("INCOMING %.1fs", (base / "Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8"))
+        self.assertIn("2.f * ForgedEquipmentPower(false)", cpp)
+        self.assertIn("3.f * ForgedEquipmentPower(true)", cpp)
+        self.assertNotIn("INCOMING %.1fs",
+            (base / "Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8"))
 
     def test_chamber_materials_and_mastery_persist_without_new_save_fields(self):
         base = ROOT / "engine-comparison/unreal/MoonfallPrototype"
