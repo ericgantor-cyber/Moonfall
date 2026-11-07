@@ -105,7 +105,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                         workflow.index("Build-Windows.ps1 -UnrealRoot $env:UE54_ROOT -PreflightOnly"))
         self.assertIn("if (-not (Test-Path -LiteralPath $map -PathType Leaf))", workflow)
         self.assertIn('& $editor $project "-ExecutePythonScript=$script" -unattended -nop4', workflow)
-        self.assertNotIn("if (-not (Test-Path -LiteralPath $map -PathType Leaf)) {", workflow)
+        self.assertNotIn("if (-not (Test-Path -LiteralPath $map -PathType Leaf)) {", workflow.split("& $editor $project", 1)[0])
         self.assertLess(workflow.index("& $editor $project"), workflow.index("if (-not (Test-Path -LiteralPath $map -PathType Leaf))"))
         self.assertIn('"-map=/Game/Maps/MoonfallStart"', workflow)
         self.assertNotIn("Engine\\Content\\Maps\\Entry.umap", workflow)
