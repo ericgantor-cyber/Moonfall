@@ -383,7 +383,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("Mana -=", damage)
         self.assertNotIn("Mana = FMath::Min", damage)
 
-    def test_guard_break_cooldown_feedback_and_hud(self):
+    def test_guard_break_cooldown_without_hud_warning(self):
         self.assertIn("float GuardBrokenUntil = 0.f;", self.hero_h)
         self.assertIn("float GuardBreakRecoverySeconds = 1.0f;", self.hero_h)
         self.assertIn("void OnGuardBroken();", self.hero_h)
@@ -402,8 +402,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("if (Stamina < GuardStaminaCost) BreakGuard();", damage)
         self.assertIn("Insufficient stamina breaks guard without granting free damage reduction.", damage)
         self.assertIn("BreakGuard();", damage)
-        self.assertIn('TEXT("GUARD BROKEN")', self.hud)
-        self.assertIn("Hero->GuardBrokenUntil", self.hud)
+        self.assertNotIn('TEXT("GUARD BROKEN")', self.hud)
+        self.assertNotIn("Hero->GuardBrokenUntil", self.hud)
 
     def test_guard_and_parry_are_bounded_and_input_driven(self):
         self.assertIn('BindAction(TEXT("Guard"), IE_Pressed', self.hero_cpp)
