@@ -56,7 +56,15 @@ jobs:
               throw 'Moonfall Windows rebuild might delete a working installer before replacement is verified.'
             }
           }
-          "Pinned Moonfall PR 690 source checkout verified at $head; installer preservation checks passed; UE compilation not attempted." >> $env:GITHUB_STEP_SUMMARY
+          # The quest boss can differ from the nearest combat boss when
+          # continuous exploration places more than one boss in the world.
+          $hud = Get-Content -LiteralPath (Join-Path $root 'MoonfallUnreal\Source\MoonfallUnreal\MoonfallCombatHUD.cpp') -Raw
+          if (-not $hud.Contains('const AMoonfallEnemy* QuestBoss = nullptr;') -or
+              -not $hud.Contains('FVector::DistSquared2D(E->GetActorLocation(), Hero->QuestTarget)') -or
+              -not $hud.Contains('const float Progress = IsValid(QuestBoss)')) {
+            throw 'Quest tracker regression: using unrelated nearest boss for quest progress.'
+          }
+          "Pinned Moonfall PR 690 source checkout verified at $head; installer preservation and quest boss selection checks passed; UE compilation not attempted." >> $env:GITHUB_STEP_SUMMARY
       - name: Verify hosted Unreal compile safeguards
         shell: pwsh
         run: |
