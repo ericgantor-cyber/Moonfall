@@ -111,6 +111,18 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("bInCombatArea ? 0.1f : 0.4f", self.enemy_cpp)
         self.assertIn("SetActorTickInterval(DesiredTickInterval)", self.enemy_cpp)
 
+    def test_guard_and_parry_are_bounded_and_input_driven(self):
+        self.assertIn('BindAction(TEXT("Guard"), IE_Pressed', self.hero_cpp)
+        self.assertIn('BindAction(TEXT("Guard"), IE_Released', self.hero_cpp)
+        self.assertIn('void AMoonfallHeroPawn::BeginGuard()', self.hero_cpp)
+        self.assertIn('void AMoonfallHeroPawn::EndGuard()', self.hero_cpp)
+        self.assertIn("NextParryAt = Now + 0.8f", self.hero_cpp)
+        self.assertIn("ParryWindowEndsAt = -1.f", self.hero_cpp)
+        self.assertIn("DamageAfterGuard *= 0.4f", self.hero_cpp)
+        self.assertIn("Mana -= 4.f", self.hero_cpp)
+        self.assertIn("OnGuardImpact(ArmoredDamage - DamageAfterGuard, bPerfectParry)", self.hero_cpp)
+        self.assertIn('void AMoonfallHeroPawn::OpenOptions() {', self.hero_cpp)
+
     def test_enemy_attacks_cannot_go_through_cover(self):
         self.assertIn("SightParams.AddIgnoredActor(this)", self.enemy_cpp)
         self.assertIn("LineTraceSingleByChannel(", self.enemy_cpp)
