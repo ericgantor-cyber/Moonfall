@@ -206,6 +206,18 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("bInCombatArea ? 0.1f : 0.4f", self.enemy_cpp)
         self.assertIn("SetActorTickInterval(DesiredTickInterval)", self.enemy_cpp)
 
+    def test_every_enemy_melee_can_reward_a_precise_dodge(self):
+        impact = self.enemy_cpp.split("if (!bBlocked) {", 1)[1].split(
+            "const bool bParried =", 1)[0]
+        self.assertIn("Hero->RewardPerfectDodge();", impact)
+        self.assertNotIn("if (bBoss) Hero->RewardPerfectDodge();", impact)
+        reward = self.hero_cpp.split(
+            "void AMoonfallHeroPawn::RewardPerfectDodge() {", 1)[1].split(
+            "\\n}", 1)[0]
+        self.assertIn("Now > PerfectDodgeWindowUntil", reward)
+        self.assertIn("Now - LastPerfectDodgeRewardAt < 1.f", reward)
+        self.assertIn("PerfectDodgeWindowUntil = -1.f", reward)
+
     def test_perfect_parry_reaction_feedback_is_one_shot(self):
         self.assertIn("void OnPerfectParried(float StaggerSeconds);", self.enemy_h)
         self.assertIn("const float ParryStaggerSeconds = bBoss ? 0.45f : 0.75f;", self.enemy_cpp)
