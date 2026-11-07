@@ -151,9 +151,24 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("FMath::Min(MaxStamina, Stamina +", tick)
         self.assertIn("Health > 0.f", tick)
 
+    def test_perfect_dodge_restores_bounded_stamina_once(self):
+        self.assertIn("float PerfectDodgeStaminaReward = 10.f;", self.hero_h)
+        self.assertIn("float DodgeStaminaCost = 25.f;", self.hero_h)
+        self.assertEqual(self.hero_h.count("float DodgeStaminaCost = 25.f;"), 1)
+        reward = self.hero_cpp.split("void AMoonfallHeroPawn::RewardPerfectDodge() {", 1)[1].split(
+            "bool AMoonfallHeroPawn::ApplyMoonfallDamageFrom", 1)[0]
+        self.assertIn("Now - LastPerfectDodgeRewardAt < 1.f", reward)
+        self.assertIn("PerfectDodgeWindowUntil = -1.f;", reward)
+        self.assertIn("Stamina = FMath::Clamp(Stamina + FMath::Max(0.f, PerfectDodgeStaminaReward), 0.f, MaxStamina);", reward)
+        self.assertLess(reward.index("PerfectDodgeWindowUntil = -1.f;"),
+                        reward.index("Stamina = FMath::Clamp"))
+
     def test_orb_displays_stamina_without_replacing_existing_resources(self):
         self.assertIn("Hero->Stamina / FMath::Max(1.f, Hero->MaxStamina)", self.hud)
-        self.assertIn("DrawArc(Radius * 1.13f, ActualStamina", self.hud)
+        self.assertIn("DrawArc(Radius * 1.13f, DisplayStamina", self.hud)
+        self.assertIn("Hero->Stamina < Hero->DodgeStaminaCost", self.hud)
+        self.assertIn('TEXT("LOW STAMINA")', self.hud)
+        self.assertIn("DisplayStamina = FMath::FInterpTo(DisplayStamina, ActualStamina", self.hud)
         self.assertIn("DrawArc(Radius * 0.85f, ManaFraction", self.hud)
         self.assertIn("DrawArc(Radius * 0.97f, XpFraction", self.hud)
         self.assertIn("const float HealthFraction = DisplayHealth;", self.hud)
