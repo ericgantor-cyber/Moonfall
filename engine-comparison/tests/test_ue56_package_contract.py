@@ -42,6 +42,27 @@ class PackageContract(unittest.TestCase):
         self.assertIn("$UpdatedMapHash -ne $ExistingMapHash", packaging)
         self.assertIn("Refusing packaging", packaging)
 
+    def test_package_requires_fresh_archive_and_hashes_real_files(self):
+        script = SCRIPT.read_text(encoding="utf-8")
+        workflow = WORKFLOW.read_text(encoding="utf-8")
+        for item in (
+            "if ($OldEntries.Count -gt 0)",
+            "avoid stale build artifacts",
+            "Where-Object { $_.Length -gt 0 }",
+            "$HasPak -or ($HasToc -and $HasCas)",
+            "MoonfallPackageManifest.json",
+            "Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256",
+            "tested_in_game = $false",
+            "installer = $false",
+            "startup_map = $MapLongName",
+            "ConvertTo-Json -Depth 6",
+        ):
+            self.assertIn(item, script)
+        self.assertIn("Verify build manifest exists before artifact upload", workflow)
+        self.assertLess(workflow.index("Verify build manifest exists before artifact upload"),
+                        workflow.index("Upload packaged game only after cook succeeds"))
+        self.assertIn("if (@($data.files).Count -eq 0)", workflow)
+
     def test_project_configures_generated_startup_map(self):
         ini = (ROOT / "engine-comparison/unreal/MoonfallPrototype/Config/DefaultEngine.ini").read_text(encoding="utf-8")
         self.assertIn("GameDefaultMap=/Game/Maps/MoonfallWorld", ini)
