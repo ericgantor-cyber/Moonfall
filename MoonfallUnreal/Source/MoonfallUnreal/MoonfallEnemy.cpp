@@ -161,7 +161,9 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
        SightHit, GetActorLocation(), Hero->GetActorLocation(), ECC_Visibility, SightParams)
        && SightHit.GetActor() != Hero;
    if (!bBlocked) {
-    if (bBoss) Hero->RewardPerfectDodge();
+    // Every properly timed dodge can earn its reward, not only boss dodges.
+    // RewardPerfectDodge enforces the active dodge window and its cooldown.
+    Hero->RewardPerfectDodge();
     const bool bParried = Hero->ApplyMoonfallDamageFrom(
       AttackDamage * FMath::Min(2.3f, CurrentAttackMultiplier), GetActorLocation());
     if (bParried) {
