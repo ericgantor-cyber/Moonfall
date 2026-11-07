@@ -39,8 +39,25 @@ $ExistingMapHash = $null
 if (Test-Path -LiteralPath $MapAsset -PathType Leaf) {
     $ExistingMapHash = (Get-FileHash -LiteralPath $MapAsset -Algorithm SHA256).Hash
 }
-& $EditorCmd $Project "-ExecutePythonScript=$Generator" '-unattended' '-nop4' '-nosplash'
-if ($LASTEXITCODE -ne 0) { throw "UE5.6 startup map generation/validation failed ($LASTEXITCODE)" }
+$ValidationSentinel = Join-Path $ProjectRoot ("Saved\\WorldValidation-" + [guid]::NewGuid().ToString('N') + '.ok')
+$env:MOONFALL_WORLD_VALIDATION_SENTINEL = $ValidationSentinel
+try {
+    & $EditorCmd $Project "-ExecutePythonScript=$Generator" '-unattended' '-nop4' '-nosplash'
+    if ($LASTEXITCODE -ne 0) { throw "UE5.6 startup map generation/validation failed ($LASTEXITCODE)" }
+    if (-not (Test-Path -LiteralPath $ValidationSentinel -PathType Leaf)) {
+        throw 'Unreal Python validation did not produce a success marker. Refusing packaging.'
+    }
+    $ValidationMessage = (Get-Content -LiteralPath $ValidationSentinel -Raw).Trim()
+    if ($ValidationMessage -ne 'MoonfallWorld validated') {
+        throw 'Unreal Python validation marker was invalid. Refusing packaging.'
+    }
+}
+finally {
+    Remove-Item Env:\\MOONFALL_WORLD_VALIDATION_SENTINEL -ErrorAction SilentlyContinue
+    if (Test-Path -LiteralPath $ValidationSentinel) {
+        Remove-Item -LiteralPath $ValidationSentinel -Force
+    }
+}
 if (-not (Test-Path -LiteralPath $MapAsset -PathType Leaf)) {
     throw "Unreal editor did not produce a startup level at $MapAsset"
 }
