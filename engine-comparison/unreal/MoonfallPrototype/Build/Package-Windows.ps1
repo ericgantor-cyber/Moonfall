@@ -39,7 +39,7 @@ $ExistingMapHash = $null
 if (Test-Path -LiteralPath $MapAsset -PathType Leaf) {
     $ExistingMapHash = (Get-FileHash -LiteralPath $MapAsset -Algorithm SHA256).Hash
 }
-$ValidationSentinel = Join-Path $ProjectRoot ("Saved\\WorldValidation-" + [guid]::NewGuid().ToString('N') + '.ok')
+$ValidationSentinel = Join-Path $ProjectRoot ("Saved\WorldValidation-" + [guid]::NewGuid().ToString('N') + '.ok')
 $env:MOONFALL_WORLD_VALIDATION_SENTINEL = $ValidationSentinel
 try {
     & $EditorCmd $Project "-ExecutePythonScript=$Generator" '-unattended' '-nop4' '-nosplash'
@@ -53,7 +53,7 @@ try {
     }
 }
 finally {
-    Remove-Item Env:\\MOONFALL_WORLD_VALIDATION_SENTINEL -ErrorAction SilentlyContinue
+    Remove-Item -Path 'Env:MOONFALL_WORLD_VALIDATION_SENTINEL' -ErrorAction SilentlyContinue
     if (Test-Path -LiteralPath $ValidationSentinel) {
         Remove-Item -LiteralPath $ValidationSentinel -Force
     }
