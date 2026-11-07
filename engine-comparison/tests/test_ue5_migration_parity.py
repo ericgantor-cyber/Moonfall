@@ -108,6 +108,25 @@ class UnrealMigrationParityGate(unittest.TestCase):
         self.assertIn("PIN: %.0f m", hud)
         self.assertIn("QUEST: %.0f m", hud)
 
+    def test_full_map_click_never_attacks_or_reveals_fog(self):
+        base = ROOT / "engine-comparison/unreal/MoonfallPrototype"
+        pawn = (base / "Source/MoonfallPrototype/MoonfallPawn.cpp").read_text(encoding="utf-8")
+        hud = (base / "Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8")
+        header = (base / "Source/MoonfallPrototype/MoonfallPawn.h").read_text(encoding="utf-8")
+        keys = (base / "Config/DefaultInput.ini").read_text(encoding="utf-8")
+        self.assertIn('ActionName="ToggleWorldMap",Key=M', keys)
+        self.assertIn("ToggleWorldMap()", header)
+        self.assertIn("PlaceMapWaypoint()", header)
+        self.assertIn("if (bWorldMapOpen) { PlaceMapWaypoint(); return; }", pawn)
+        self.assertIn("if (!IsMapPositionDiscovered(Candidate)) return;", pawn)
+        self.assertIn("if (X < 0 || X >= 48 || Y < 0 || Y >= 16) return;", pawn)
+        self.assertIn("PC->bShowMouseCursor = bWorldMapOpen;", pawn)
+        self.assertIn("bWorldMapOpen ? FVector::ZeroVector", pawn)
+        self.assertIn("if (Hero->IsWorldMapOpen())", hud)
+        self.assertIn("if (!Hero->IsMapPositionDiscovered(World)) continue;", hud)
+        self.assertIn("Click explored terrain to set pin", hud)
+        self.assertIn("if (!Hero->IsBossDefeated())", hud)
+
     def test_character_and_input_constraints(self):
         constraints = self.data["constraints"]
         self.assertEqual(constraints["preserve_original_art"],
