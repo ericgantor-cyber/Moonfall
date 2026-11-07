@@ -48,12 +48,12 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         namespace = {"re": re, **constants}
         exec(compile(ast.fix_missing_locations(isolated), "<startup-config>", "exec"), namespace)
         original = (
-            "[/Script/EngineSettings.GameMapsSettings]\\n"
-            "GlobalDefaultGameMode=/Script/MoonfallUnreal.MoonfallUnrealGameMode\\n"
-            "GameDefaultMap=/Engine/Maps/Entry\\n"
-            "EditorStartupMap=/Engine/Maps/Entry\\n"
-            "\\n[/Script/Engine.RendererSettings]\\n"
-            "r.DefaultFeature.AntiAliasing=2\\n"
+            "[/Script/EngineSettings.GameMapsSettings]\n"
+            "GlobalDefaultGameMode=/Script/MoonfallUnreal.MoonfallUnrealGameMode\n"
+            "GameDefaultMap=/Engine/Maps/Entry\n"
+            "EditorStartupMap=/Engine/Maps/Entry\n"
+            "\n[/Script/Engine.RendererSettings]\n"
+            "r.DefaultFeature.AntiAliasing=2\n"
         )
         revised = namespace["updated_map_config"](original)
         self.assertIn("GameDefaultMap=/Game/Maps/MoonfallStart", revised)
@@ -62,7 +62,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertEqual(namespace["updated_map_config"](revised), revised)
         with self.assertRaises(ValueError):
             namespace["updated_map_config"](original.replace(
-                "GameDefaultMap=/Engine/Maps/Entry\\n", ""))
+                "GameDefaultMap=/Engine/Maps/Entry\n", ""))
         with self.assertRaises(ValueError):
             namespace["updated_map_config"](original + original)
 
