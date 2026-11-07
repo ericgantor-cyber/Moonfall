@@ -59,7 +59,19 @@ jobs:
           }
           "### UE5.6 editor C++ compile passed" >> $env:GITHUB_STEP_SUMMARY
           "SHA: ${{ github.sha }}" >> $env:GITHUB_STEP_SUMMARY
-          "This checks editor compilation only. It does not establish playable Win64 packaging or installer readiness." >> $env:GITHUB_STEP_SUMMARY
+          "This checks editor compilation. A separate step checks the Win64 game target; neither step packages a playable release." >> $env:GITHUB_STEP_SUMMARY
+
+      - name: Compile MoonfallPrototype Win64 Development game target
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $build = Join-Path $env:UE56_ROOT 'Engine\Build\BatchFiles\Build.bat'
+          $project = Join-Path $env:GITHUB_WORKSPACE 'engine-comparison\unreal\MoonfallPrototype\MoonfallPrototype.uproject'
+          & $build 'MoonfallPrototype' 'Win64' 'Development' "-Project=$project" '-WaitMutex' '-NoHotReloadFromIDE'
+          if ($LASTEXITCODE -ne 0) {
+            throw "UE5.6 Win64 game C++ compile failed with exit code $LASTEXITCODE"
+          }
+          "### UE5.6 Win64 game C++ compile passed" >> $env:GITHUB_STEP_SUMMARY
+          "This is a game target compilation test, not a cooked or packaged Windows release." >> $env:GITHUB_STEP_SUMMARY
 
       - name: Upload Unreal compiler logs if compilation fails
         if: failure()
@@ -76,7 +88,7 @@ jobs:
       - name: Record verification limitations
         if: always()
         run: |
-          "### UE5.6 prototype compile-only status" >> $env:GITHUB_STEP_SUMMARY
+          "### UE5.6 prototype editor + game compile status" >> $env:GITHUB_STEP_SUMMARY
           "Status: ${{ job.status }}" >> $env:GITHUB_STEP_SUMMARY
           "Needs trusted self-hosted Windows x64 runner with unreal-5-6 label, UE56_ROOT, Visual Studio C++ and Windows SDK." >> $env:GITHUB_STEP_SUMMARY
           "No Windows game export, runtime interaction test, graphics benchmark or installer is claimed." >> $env:GITHUB_STEP_SUMMARY
