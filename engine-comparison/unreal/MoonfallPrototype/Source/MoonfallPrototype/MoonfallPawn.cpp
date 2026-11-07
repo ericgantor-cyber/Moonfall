@@ -621,6 +621,8 @@ void AMoonfallPawn::ToggleWorldMap()
     bWorldMapOpen = !bWorldMapOpen;
     Forward = 0.f;
     Right = 0.f;
+    MapPanHorizontalInput = 0.f;
+    MapPanVerticalInput = 0.f;
     if (APlayerController* PC = Cast<APlayerController>(GetController()))
     {
         if (bWorldMapOpen)
@@ -640,6 +642,13 @@ void AMoonfallPawn::ToggleWorldMap()
             PC->bShowMouseCursor = false;
         }
     }
+}
+
+void AMoonfallPawn::CloseWorldMap()
+{
+    // Escape closes the atlas without consuming a combat action or affecting
+    // Escape behavior elsewhere once an in-game settings menu is added.
+    if (bWorldMapOpen) ToggleWorldMap();
 }
 
 void AMoonfallPawn::GetWorldMapLayout(float Width, float Height, float& OutCell,
@@ -894,6 +903,7 @@ void AMoonfallPawn::SetupPlayerInputComponent(UInputComponent* Input)
     Input->BindAction(TEXT("SetWaypoint"), IE_Pressed, this, &AMoonfallPawn::SetWaypoint);
     Input->BindAction(TEXT("ClearWaypoint"), IE_Pressed, this, &AMoonfallPawn::ClearWaypoint);
     Input->BindAction(TEXT("ToggleWorldMap"), IE_Pressed, this, &AMoonfallPawn::ToggleWorldMap);
+    Input->BindAction(TEXT("CloseWorldMap"), IE_Pressed, this, &AMoonfallPawn::CloseWorldMap);
 }
 void AMoonfallPawn::Tick(float DeltaSeconds)
 {
