@@ -9,6 +9,11 @@ on:
         required: true
         type: boolean
         default: false
+      package_game:
+        description: "After real UE compilation, cook and package Win64 game (no installer)"
+        required: true
+        type: boolean
+        default: false
       minimum_free_gb:
         description: "Minimum disk space required before Unreal download (recommended 80+ GB)"
         required: true
@@ -60,7 +65,7 @@ jobs:
           if (-not $hasCapacity) {
             Write-Warning "Hosted Windows runner has $available GB available, below the requested $minimumFreeGB GB."
             "Compile readiness: BLOCKED by disk space ($available GB < $minimumFreeGB GB)." >> $env:GITHUB_STEP_SUMMARY
-            if ('${{ inputs.attempt_compile }}' -eq 'true') {
+            if ('${{ inputs.attempt_compile }}' -eq 'true' -or '${{ inputs.package_game }}' -eq 'true') {
               throw 'Requested real Unreal compilation, but hosted runner lacks sufficient disk. Provision a larger runner and retry.'
             }
           } else {
@@ -76,7 +81,7 @@ jobs:
           "This workflow never automatically installs Unreal from Epic Games or exposes private engine archives." >> $env:GITHUB_STEP_SUMMARY
 
   compile-with-provided-engine:
-    if: ${{ inputs.attempt_compile && needs.windows-preflight.outputs.has_capacity == 'true' }}
+    if: ${{ (inputs.attempt_compile || inputs.package_game) && needs.windows-preflight.outputs.has_capacity == 'true' }}
     needs: windows-preflight
     runs-on: ${{ vars.MOONFALL_HOSTED_RUNNER || 'windows-2022' }}
     timeout-minutes: 120
@@ -129,6 +134,45 @@ jobs:
           & .\MoonfallUnreal\Build\Build-Windows.ps1 -UnrealRoot $env:UE54_ROOT -CompileOnly
           if ($LASTEXITCODE -ne 0) { throw "Unreal compiler failed with exit code $LASTEXITCODE" }
           "Real Unreal Editor C++ compilation succeeded for ${{ github.sha }}." >> $env:GITHUB_STEP_SUMMARY
+      - name: Package actual Win64 Development game after successful Unreal C++ compile
+        if: ${{ inputs.package_game }}
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $uat = Join-Path $env:UE54_ROOT 'Engine\Build\BatchFiles\RunUAT.bat'
+          if (-not (Test-Path -LiteralPath $uat -PathType Leaf)) {
+            throw "Unreal AutomationTool missing: $uat"
+          }
+          $project = (Resolve-Path '.\MoonfallUnreal\MoonfallUnreal.uproject').Path
+          $out = Join-Path $env:GITHUB_WORKSPACE 'MoonfallUnrealPackaged'
+          if (Test-Path -LiteralPath $out) {
+            throw "Refusing to overwrite pre-existing packaged game directory: $out"
+          }
+          & $uat BuildCookRun "-project=$project" -noP4 -platform=Win64 -clientconfig=Development -build -cook -stage -pak -prereqs -archive "-archivedirectory=$out" -utf8output
+          if ($LASTEXITCODE -ne 0) {
+            throw "Real Unreal Win64 packaging failed: $LASTEXITCODE"
+          }
+          $games = @(Get-ChildItem -LiteralPath $out -Recurse -File -Filter 'MoonfallUnreal.exe')
+          if ($games.Count -ne 1) {
+            throw "Expected one packaged real game executable; got $($games.Count)"
+          }
+          $root = $games[0].Directory.FullName
+          foreach ($folder in @('Engine', 'MoonfallUnreal')) {
+            if (-not (Test-Path -LiteralPath (Join-Path $root $folder) -PathType Container)) {
+              throw "Packaged Unreal game missing $folder"
+            }
+          }
+          $content = Get-ChildItem -LiteralPath (Join-Path $root 'MoonfallUnreal') -File -Recurse | Select-Object -First 1
+          if (-not $content) { throw 'Packaged game content is empty.' }
+          "Real UE Win64 Development game was packaged for commit ${{ github.sha }}. Gameplay and installation remain untested." >> $env:GITHUB_STEP_SUMMARY
+      - name: Upload actual packaged game only after full engine build
+        if: ${{ inputs.package_game && success() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: MoonfallUnreal-REAL-Game-Windows-Development-UNTESTED
+          path: MoonfallUnrealPackaged/
+          if-no-files-found: error
+          retention-days: 7
       - name: Upload Unreal diagnostics on failure
         if: failure()
         continue-on-error: true
