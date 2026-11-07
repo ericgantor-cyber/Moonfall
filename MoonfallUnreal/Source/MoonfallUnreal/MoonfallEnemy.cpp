@@ -225,9 +225,15 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
        SightHit, GetActorLocation(), Hero->GetActorLocation(), ECC_Visibility, SightParams)
        && SightHit.GetActor() != Hero;
    if (!bBlocked) {
-    // Every properly timed dodge can earn its reward, not only boss dodges.
-    // RewardPerfectDodge enforces the active dodge window and its cooldown.
-    Hero->RewardPerfectDodge();
+    // One actual timed dodge rewards the hero and pressures only the
+    // attacking enemy. Repeated overlapping hits cannot farm posture.
+    const bool bPerfectDodge = Hero->TryRewardPerfectDodge();
+    if (bPerfectDodge) {
+     const float DodgePressure = FMath::IsFinite(PerfectDodgePostureDamage)
+       ? FMath::Clamp(PerfectDodgePostureDamage, 0.f, 100.f) : 0.f;
+     if (DodgePressure > 0.f) ApplyPostureDamage(DodgePressure);
+     OnPerfectDodged(DodgePressure);
+    }
     const bool bParried = Hero->ApplyMoonfallDamageFrom(
       AttackDamage * FMath::Min(2.3f, CurrentAttackMultiplier), GetActorLocation());
     if (bParried) {
