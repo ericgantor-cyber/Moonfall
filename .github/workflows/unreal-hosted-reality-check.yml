@@ -109,6 +109,11 @@ jobs:
             'Test-UnrealEngineVersion.ps1',
             'fc949c896b37035564ab91da1405483b41a9f895',
             'CompileOnly',
+            'inputs.package_game',
+            'MoonfallWin64Packaged',
+            'Moonfall-Win64-REAL-SourceBuilt-Development-UNTESTED',
+            'if-no-files-found: error',
+            'BuildCookRun',
             'if: failure()'
           )) {
             if (-not $sourceWorkflow.Contains($rule)) {
