@@ -6,7 +6,7 @@ The repository provides a manually triggered workflow, [Moonfall Unreal GitHub-h
 
 Open the workflow, select **Run workflow**, and leave **attempt_compile** unchecked. This launches a Windows 2022 hosted runner (or your configured larger hosted runner), verifies Visual Studio 2022 C++ tooling, and reports **free disk space**.
 
-- If free space is below **35 GB**, compilation is blocked *before* any engine download. This is only a preliminary space gate: some UE 5.4 installed builds and intermediate files require considerably more storage.
+- The workflow measures free space and compares it with **minimum_free_gb** (default **80 GB**, configurable from **35 to 500 GB**). A preflight-only request reports insufficient space; a request with **attempt_compile=true** fails early if the runner is below the threshold. Some UE 5.4 builds and intermediates require more than 80 GB, so adjust this to the actual engine archive and build footprint.
 - A successful preflight means that Windows prerequisites and preliminary storage were checked. It does **not** mean Unreal Engine is installed or that Moonfall compiles.
 
 ## Optional: configure a larger GitHub-hosted Windows runner
@@ -22,8 +22,16 @@ Unreal Engine is **not** bundled with the standard GitHub-hosted Windows image. 
 - `MOONFALL_UE54_ARCHIVE_URL`: an authorized HTTPS download URL to the installed-build ZIP with `Engine/Build/BatchFiles/Build.bat` at its archive root.
 - `MOONFALL_UE54_ARCHIVE_SHA256`: the verified SHA-256 hash of the **exact ZIP bytes**.
 
-The workflow checks the 35 GB free-space threshold before downloading, verifies the ZIP hash before extracting, then attempts a **real `MoonfallUnrealEditor Win64 Development` compile** through `Build-Windows.ps1 -CompileOnly`. An archived installed build must be compatible with the target Windows/compiler setup and comply with Epic licensing. Do not upload private engine archives to a public repository. An HTTPS link or matching hash alone does not guarantee source trust.
+The workflow measures the compilation runner's own free disk space against the configured threshold before downloading, verifies the ZIP hash before extracting, then attempts a **real `MoonfallUnrealEditor Win64 Development` compile** through `Build-Windows.ps1 -CompileOnly`. An archived installed build must be compatible with the target Windows/compiler setup and comply with Epic licensing. Do not upload private engine archives to a public repository. An HTTPS link or matching hash alone does not guarantee source trust.
 
 Select `attempt_compile=true` **only after** capacity, permissions, and these secrets have been prepared. The job will fail clearly if any prerequisite is missing. This workflow does not package an installer, does not automatically provision or purchase runner capacity, and has not yet been used for a verified UE compile.
 
 The existing **self-hosted Unreal Windows build** workflow remains available for packaging, installer creation, and follow-up Windows gameplay testing.
+
+## Overhaul: honest, fail-fast hosted runner gating
+
+- The requested `minimum_free_gb` value defaults to **80**, not the older 35 GB threshold. It is an initial safety gate, not a guarantee that a full Unreal installation will fit.
+- **Preflight mode** reports any shortage without attempting an engine download or compilation.
+- **Compile mode** fails immediately when the preflight runner cannot meet the disk requirement, then independently rechecks the disk on the actual compile runner (a separate temporary Windows machine).
+- Engine archives are hash-verified before extraction; downloads no longer follow redirects. The latter means the private archive URL must resolve directly, without redirecting to a separate download address.
+- The workflow still requires manually configured secrets, appropriate licensed engine archives, hosted runner storage, and a real compile to pass. A successful preflight is **not** a successful Unreal build.
