@@ -568,12 +568,12 @@ class UnrealMigrationParityGate(unittest.TestCase):
         self.assertIn("Stamina + 2.f * ForgedRegionTier(0)", melee)
         self.assertIn("4.f * ForgedRegionTier(3)", cpp)
         self.assertIn("0.08f * ForgedRegionTier(5)", bolt)
-        self.assertIn("const float BoltManaCost = FMath::Max(24.f, 30.f - 2.f * ForgedRegionTier(1));", bolt)
+        self.assertIn("const float BoltManaCost = FMath::Max(22.f, 30.f - 2.f * ForgedRegionTier(1));", bolt)
         self.assertIn("Mana < BoltManaCost", bolt)
         self.assertIn("Mana -= BoltManaCost;", bolt)
         self.assertLess(bolt.index("if (EnemyIndex == INDEX_NONE && !bBossInRange) return;"),
                         bolt.index("Mana -= BoltManaCost;"))
-        self.assertIn("FMath::Min(0.7f, 0.4f + 0.1f * ForgedRegionTier(2))", enemy_damage)
+        self.assertIn("FMath::Min(0.8f, 0.4f + 0.1f * ForgedRegionTier(2))", enemy_damage)
         self.assertIn("Enemy.bGuardian ? 0.8f :", enemy_damage)
         self.assertIn("ContactDamage - 0.75f * ForgedRegionTier(4)", tick)
         self.assertIn("BossBaseDamage - 0.75f * ForgedRegionTier(4)", tick)
@@ -605,7 +605,7 @@ class UnrealMigrationParityGate(unittest.TestCase):
         bolt = cpp[cpp.index("void AMoonfallPawn::CastBolt()"):
                    cpp.index("void AMoonfallPawn::CastHeal()")]
         self.assertIn("0.08f * ForgedRegionTier(5)", bolt)
-        self.assertIn("FMath::Max(0.75f", bolt)
+        self.assertIn("FMath::Max(0.7f", bolt)
         hud = (base / "Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8")
         self.assertNotIn("INCOMING %.1fs", hud)
 
