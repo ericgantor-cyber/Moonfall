@@ -450,6 +450,23 @@ class UnrealMigrationParityGate(unittest.TestCase):
         self.assertIn("Progress->SavedHealth = Health;", save)
         self.assertNotIn("Progress->bHasCheckpoint = false;", save)
 
+    def test_dodge_direction_remains_committed_after_input_release(self):
+        base = ROOT / "engine-comparison/unreal/MoonfallPrototype"
+        cpp = (base / "Source/MoonfallPrototype/MoonfallPawn.cpp").read_text(encoding="utf-8")
+        header = (base / "Source/MoonfallPrototype/MoonfallPawn.h").read_text(encoding="utf-8")
+        self.assertIn("FVector DodgeDirection = FVector::ZeroVector;", header)
+        dodge = cpp[cpp.index("void AMoonfallPawn::Dodge()"):
+                    cpp.index("int32 AMoonfallPawn::GuardianBlessingCount()")]
+        self.assertIn("FVector2D(Forward, Right).SizeSquared() > 0.01f", dodge)
+        self.assertIn("DodgeDirection = FVector(Forward, Right, 0.f).GetClampedToMaxSize(1.f);", dodge)
+        self.assertLess(dodge.index("DodgeDirection ="), dodge.index("DodgeTimer = 0.32f;"))
+        tick = cpp[cpp.index("void AMoonfallPawn::Tick(float DeltaSeconds)"):]
+        self.assertIn("const bool bDodgeActiveThisFrame = DodgeTimer > 0.f;", tick)
+        self.assertIn("FVector Direction = bDodgeActiveThisFrame", tick)
+        self.assertIn("? DodgeDirection : FVector(Forward, Right, 0.f);", tick)
+        self.assertIn("Direction.GetClampedToMaxSize(1.f);", tick)
+        self.assertIn("Direction * (bDodgeActiveThisFrame ? 1200.f : 600.f) * MovementDt;", tick)
+
     def test_checkpoint_respawn_damage_grace_is_safe_and_paused_by_map(self):
         base = ROOT / "engine-comparison/unreal/MoonfallPrototype"
         cpp = (base / "Source/MoonfallPrototype/MoonfallPawn.cpp").read_text(encoding="utf-8")
