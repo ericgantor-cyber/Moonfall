@@ -67,6 +67,22 @@ void AMoonfallHud::DrawHUD()
         DrawRing(OrbCenter, 25.f, Hero->GetHudXpRatio(), FLinearColor(.70f, .40f, 1.f));
     }
 
+    if (Hero->GetHudHealth() <= 0.f)
+    {
+        // A mouse-click retry button drawn on the existing HUD canvas.
+        // The hitbox comes from the pawn, so visuals and clicks stay aligned.
+        FVector2D ButtonMin, ButtonMax;
+        Hero->GetRetryButtonBounds(Canvas->ClipX, Canvas->ClipY, ButtonMin, ButtonMax);
+        DrawText(TEXT("DEFEATED"), FLinearColor(1.f, .52f, .5f),
+            Canvas->ClipX * 0.5f - 55.f, ButtonMin.Y - 65.f);
+        Canvas->K2_DrawBox(ButtonMin, ButtonMax - ButtonMin, 3.f,
+            FLinearColor(.95f, .75f, .45f));
+        DrawText(TEXT("RETRY"), FLinearColor::White,
+            ButtonMin.X + 92.f, ButtonMin.Y + 19.f);
+        DrawText(TEXT("Click to return to your checkpoint"),
+            FLinearColor(.85f, .85f, .85f), ButtonMin.X - 15.f, ButtonMax.Y + 10.f);
+    }
+
     if (Hero->IsWorldMapOpen())
     {
         // Shared projection with pawn input: zoom and pan never desync clicks.

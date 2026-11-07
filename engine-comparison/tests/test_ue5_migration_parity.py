@@ -234,6 +234,38 @@ class UnrealMigrationParityGate(unittest.TestCase):
         self.assertEqual(tick.count("bParryActiveThisFrame = false;"), 2)
         self.assertLess(tick.index("if (bWorldMapOpen)"), tick.index("ParryCooldown ="))
 
+    def test_defeat_retry_restores_last_living_checkpoint_without_new_save_mode(self):
+        base = ROOT / "engine-comparison/unreal/MoonfallPrototype"
+        pawn = (base / "Source/MoonfallPrototype/MoonfallPawn.cpp").read_text(encoding="utf-8")
+        header = (base / "Source/MoonfallPrototype/MoonfallPawn.h").read_text(encoding="utf-8")
+        hud = (base / "Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8")
+        keys = (base / "Config/DefaultInput.ini").read_text(encoding="utf-8")
+        self.assertNotIn('ActionName="RetryFromCheckpoint",Key=R', keys)
+        self.assertIn('ActionName="Attack",Key=LeftMouseButton', keys)
+        self.assertIn("void RetryFromCheckpoint();", header)
+        self.assertIn("void ClickRetryButton();", header)
+        self.assertIn("GetRetryButtonBounds(", header)
+        self.assertIn("bDeathInputEnabled = false;", header)
+        self.assertNotIn('Input->BindAction(TEXT("RetryFromCheckpoint")', pawn)
+        self.assertIn("if (Health <= 0.f) { ClickRetryButton(); return; }", pawn)
+        self.assertIn("if (Health <= 0.f && !bDeathInputEnabled)", pawn)
+        self.assertIn("PC->bShowMouseCursor = true;", pawn)
+        self.assertIn("PC->SetInputMode(DeathInput);", pawn)
+        self.assertIn("GetRetryButtonBounds(static_cast<float>(Width), static_cast<float>(Height), Min, Max);", pawn)
+        self.assertIn("MouseX >= Min.X && MouseX <= Max.X && MouseY >= Min.Y && MouseY <= Max.Y", pawn)
+        begin = pawn.index("void AMoonfallPawn::RetryFromCheckpoint()")
+        retry = pawn[begin:pawn.index("\n}", begin) + 2]
+        self.assertIn("if (Health > 0.f || bWorldMapOpen || !GetWorld()) return;", retry)
+        self.assertIn("UGameplayStatics::GetCurrentLevelName(this, true)", retry)
+        self.assertIn("UGameplayStatics::OpenLevel(this, FName(*LevelName));", retry)
+        self.assertNotIn("SaveProgress();", retry)
+        self.assertIn("if (HeroMesh && Health > 0.f)", pawn)
+        self.assertIn('DrawText(TEXT("DEFEATED")', hud)
+        self.assertIn('DrawText(TEXT("RETRY")', hud)
+        self.assertIn("Click to return to your checkpoint", hud)
+        self.assertIn("Hero->GetRetryButtonBounds(Canvas->ClipX, Canvas->ClipY", hud)
+        self.assertIn("Canvas->K2_DrawBox(ButtonMin, ButtonMax - ButtonMin", hud)
+
     def test_open_map_blocks_combat_resource_inputs(self):
         pawn = (ROOT / "engine-comparison/unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallPawn.cpp").read_text(encoding="utf-8")
         for method in ("Dodge", "CastBolt", "CastHeal", "SetWaypoint"):

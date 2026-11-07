@@ -733,6 +733,45 @@ void AMoonfallPawn::Zoom(float Value)
     ZoomDistance = FMath::Clamp(ZoomDistance - Value * 125.f, 900.f, 2500.f);
     CameraBoom->TargetArmLength = ZoomDistance;
 }
+void AMoonfallPawn::GetRetryButtonBounds(float Width, float Height,
+    FVector2D& OutMin, FVector2D& OutMax) const
+{
+    // HUD and click handling share one viewport-relative hitbox.
+    const FVector2D Center(Width * 0.5f, Height * 0.5f + 45.f);
+    OutMin = Center - FVector2D(120.f, 30.f);
+    OutMax = Center + FVector2D(120.f, 30.f);
+}
+
+void AMoonfallPawn::ClickRetryButton()
+{
+    if (Health > 0.f || bWorldMapOpen) return;
+    const APlayerController* PC = Cast<APlayerController>(GetController());
+    if (!PC) return;
+    int32 Width = 0, Height = 0;
+    PC->GetViewportSize(Width, Height);
+    if (Width < 240 || Height < 160) return;
+    float MouseX = 0.f, MouseY = 0.f;
+    if (!PC->GetMousePosition(MouseX, MouseY)) return;
+    FVector2D Min, Max;
+    GetRetryButtonBounds(static_cast<float>(Width), static_cast<float>(Height), Min, Max);
+    if (MouseX >= Min.X && MouseX <= Max.X && MouseY >= Min.Y && MouseY <= Max.Y)
+        RetryFromCheckpoint();
+}
+
+void AMoonfallPawn::RetryFromCheckpoint()
+{
+    // Restart only after death; never overwrite the last living checkpoint
+    // with a defeated pawn before the saved world is reconstructed.
+    if (Health > 0.f || bWorldMapOpen || !GetWorld()) return;
+    const FString LevelName = UGameplayStatics::GetCurrentLevelName(this, true);
+    if (LevelName.IsEmpty())
+    {
+        UE_LOG(LogTemp, Warning, TEXT("Moonfall: cannot retry without a valid current level."));
+        return;
+    }
+    UGameplayStatics::OpenLevel(this, FName(*LevelName));
+}
+
 void AMoonfallPawn::Parry()
 {
     // A deliberate, short right-click timing window; never a held guard.
@@ -784,6 +823,7 @@ float AMoonfallPawn::HealingSpellAmount() const
 
 void AMoonfallPawn::Attack()
 {
+    if (Health <= 0.f) { ClickRetryButton(); return; }
     if (bWorldMapOpen) { PlaceMapWaypoint(); return; }
     if (Health <= 0.f || AttackCooldown > 0.f) return;
     const int32 EnemyIndex = NearestEnemyIndex(400.f);
@@ -915,6 +955,7 @@ void AMoonfallPawn::SetupPlayerInputComponent(UInputComponent* Input)
     Input->BindAction(TEXT("Attack"), IE_Pressed, this, &AMoonfallPawn::Attack);
     Input->BindAction(TEXT("Dodge"), IE_Pressed, this, &AMoonfallPawn::Dodge);
     Input->BindAction(TEXT("Parry"), IE_Pressed, this, &AMoonfallPawn::Parry);
+
     Input->BindAction(TEXT("ArcaneBolt"), IE_Pressed, this, &AMoonfallPawn::CastBolt);
     Input->BindAction(TEXT("ArcaneHeal"), IE_Pressed, this, &AMoonfallPawn::CastHeal);
     Input->BindAction(TEXT("SetWaypoint"), IE_Pressed, this, &AMoonfallPawn::SetWaypoint);
@@ -926,6 +967,20 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
 {
     Super::Tick(DeltaSeconds);
     const float Dt = FMath::Max(0.f, DeltaSeconds);
+    if (Health <= 0.f && !bDeathInputEnabled)
+    {
+        // Enable a real mouse pointer only on defeat; do it once, not every frame.
+        if (bWorldMapOpen) ToggleWorldMap();
+        if (APlayerController* PC = Cast<APlayerController>(GetController()))
+        {
+            FInputModeGameAndUI DeathInput;
+            DeathInput.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
+            DeathInput.SetHideCursorDuringCapture(false);
+            PC->SetInputMode(DeathInput);
+            PC->bShowMouseCursor = true;
+            bDeathInputEnabled = true;
+        }
+    }
     if (bWorldMapOpen)
     {
         const float MapDt = FMath::Min(Dt, 0.05f);
