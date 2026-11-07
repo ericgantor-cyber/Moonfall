@@ -134,6 +134,7 @@ private:
     void Attack();
     void Dodge();
     void Parry();
+    void RetryFromCheckpoint();
     void CastBolt();
     void CastHeal();
     void Victory();
