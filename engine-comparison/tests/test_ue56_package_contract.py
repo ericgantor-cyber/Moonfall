@@ -104,10 +104,46 @@ class PackageContract(unittest.TestCase):
         self.assertIn("-OutputDirectory $env:MOONFALL_PACKAGE_DIR", workflow)
         self.assertEqual(workflow.count("$root = $env:MOONFALL_PACKAGE_DIR"), 2)
         self.assertIn("path: ${{ env.MOONFALL_PACKAGE_DIR }}/", workflow)
-        self.assertIn("${{ env.MOONFALL_PACKAGE_DIR }}/SmokeDiagnostics/", workflow)
+        self.assertIn("${{ runner.temp }}/MoonfallSmokeDiagnostics/", workflow)
+        self.assertNotIn("${{ env.MOONFALL_PACKAGE_DIR }}/SmokeDiagnostics/", workflow)
         self.assertNotIn("Saved/WindowsPackage/", workflow)
         script = SCRIPT.read_text(encoding="utf-8")
         self.assertIn("if ($OldEntries.Count -gt 0)", script)
+
+    def test_smoke_logs_never_mutate_manifest_locked_game_package(self):
+        smoke = (ROOT / "engine-comparison/unreal/MoonfallPrototype/Build/SmokeTest-Windows.ps1").read_text(encoding="utf-8")
+        workflow = WORKFLOW.read_text(encoding="utf-8")
+        self.assertIn("[string]$DiagnosticsDirectory = ''", smoke)
+        self.assertIn("Join-Path ([System.IO.Path]::GetTempPath())", smoke)
+        self.assertIn("$SmokeDir.StartsWith($PackagePrefix", smoke)
+        self.assertIn("Smoke diagnostics must be outside the cooked package directory", smoke)
+        self.assertNotIn("$SmokeDir = Join-Path $PackageDirectory 'SmokeDiagnostics'", smoke)
+        self.assertIn("-DiagnosticsDirectory (Join-Path $env:RUNNER_TEMP 'MoonfallSmokeDiagnostics')", workflow)
+        self.assertIn("${{ runner.temp }}/MoonfallSmokeDiagnostics/", workflow)
+
+    def test_installer_requires_real_hashed_game_and_desktop_shortcut(self):
+        script = (ROOT / "engine-comparison/unreal/MoonfallPrototype/Build/Create-Installer-Windows.ps1").read_text(encoding="utf-8")
+        workflow = (ROOT / ".github/workflows/ue56-prototype-installer-windows.yml").read_text(encoding="utf-8")
+        for required in (
+            "MoonfallPackageManifest.json", "Get-FileHash -LiteralPath $Target -Algorithm SHA256",
+            "MoonfallPrototype.exe", "CookedContainers", "Unlisted file",
+            "Inno Setup 6", "ISCC.exe", "MoonfallPrototype-UE56-Win64-UNTESTED-Setup",
+            "desktopicon", "{autodesktop}", "InstallerBuildStatus.json",
+            "installation_tested = $false", "gameplay_tested = $false", "signed = $false",
+        ):
+            self.assertIn(required.lower(), script.lower())
+        for required in ("workflow_dispatch:", "persist-credentials: false",
+                         "runs-on: [self-hosted, Windows, X64, unreal-5-6]",
+                         "Package-Windows.ps1", "SmokeTest-Windows.ps1",
+                         "Create-Installer-Windows.ps1", "if-no-files-found: error", "UNTESTED"):
+            self.assertIn(required, workflow)
+        self.assertNotIn("pull_request:", workflow)
+        self.assertLess(workflow.index("Compile cook and package"),
+                        workflow.index("Headless boot smoke"))
+        self.assertLess(workflow.index("Headless boot smoke"),
+                        workflow.index("Create unsigned desktop-shortcut installer"))
+        self.assertLess(workflow.index("Create unsigned desktop-shortcut installer"),
+                        workflow.index("Upload installer only after successful build"))
 
     def test_boot_smoke_rejects_unlisted_and_duplicate_archive_files(self):
         smoke = (ROOT / "engine-comparison/unreal/MoonfallPrototype/Build/SmokeTest-Windows.ps1").read_text(encoding="utf-8")

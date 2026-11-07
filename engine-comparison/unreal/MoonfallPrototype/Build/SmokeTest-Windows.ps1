@@ -2,7 +2,8 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)][string]$PackageDirectory,
-    [int]$BootSeconds = 25
+    [int]$BootSeconds = 25,
+    [string]$DiagnosticsDirectory = ''
 )
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
@@ -75,7 +76,17 @@ if (-not $Exe) {
 }
 if (-not $Exe) { throw 'No nonempty MoonfallPrototype Windows executable in the package.' }
 
-$SmokeDir = Join-Path $PackageDirectory 'SmokeDiagnostics'
+# Never write diagnostics inside the manifest-locked game archive. Even one
+# extra boot log makes a downloaded package fail its own integrity check.
+if ([string]::IsNullOrWhiteSpace($DiagnosticsDirectory)) {
+    $DiagnosticsDirectory = Join-Path ([System.IO.Path]::GetTempPath()) ('MoonfallSmoke-' + [guid]::NewGuid().ToString('N'))
+}
+$SmokeDir = [System.IO.Path]::GetFullPath($DiagnosticsDirectory)
+$PackagePrefix = $PackageDirectory.TrimEnd('\\', '/') + [System.IO.Path]::DirectorySeparatorChar
+if ($SmokeDir.Equals($PackageDirectory, [StringComparison]::OrdinalIgnoreCase) -or
+    $SmokeDir.StartsWith($PackagePrefix, [StringComparison]::OrdinalIgnoreCase)) {
+    throw 'Smoke diagnostics must be outside the cooked package directory.'
+}
 New-Item -ItemType Directory -Force -Path $SmokeDir | Out-Null
 $LogPath = Join-Path $SmokeDir 'MoonfallBoot.log'
 if (Test-Path -LiteralPath $LogPath) {
