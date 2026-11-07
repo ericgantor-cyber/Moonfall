@@ -111,7 +111,7 @@ void AMoonfallHud::DrawHUD()
         const float TextX = CenterX - 39.f;
         const float TextY = (ButtonMin.Y + ButtonMax.Y) * 0.5f - 11.f;
         DrawText(TEXT("RESPAWN"), FLinearColor::White, TextX, TextY);
-        DrawText(TEXT("Click to respawn at your checkpoint"),
+        DrawText(TEXT("Click or press gamepad A to respawn at your checkpoint"),
             FLinearColor(.88f, .86f, 1.f),
             FMath::Max(10.f, CenterX - 145.f), ButtonMax.Y + 12.f);
         // Don't cover the respawn menu with quests, map, or attack overlays.
@@ -165,10 +165,18 @@ void AMoonfallHud::DrawHUD()
         FVector Quest;
         if (Hero->GetQuestDestination(Quest)) Plot(Quest, FLinearColor(1.f, .72f, .18f));
         Plot(Hero->GetHeroMapPosition(), FLinearColor(.1f, .9f, 1.f));
+        // Right-stick map center is also the gamepad waypoint target.
+        const FVector2D Reticle = (ClipMin + ClipMax) * 0.5f;
+        Canvas->K2_DrawLine(Reticle + FVector2D(-10.f, 0.f),
+            Reticle + FVector2D(10.f, 0.f), 2.f, FLinearColor(.3f, 1.f, .8f));
+        Canvas->K2_DrawLine(Reticle + FVector2D(0.f, -10.f),
+            Reticle + FVector2D(0.f, 10.f), 2.f, FLinearColor(.3f, 1.f, .8f));
         DrawText(FString::Printf(TEXT("MOONFALL WORLD MAP (combat paused)  |  M / Esc close  |  Wheel zoom %.1fx  |  Arrows pan"), Hero->GetWorldMapZoom()),
             FLinearColor::White, ClipMin.X, ClipMin.Y - 55.f);
-        DrawText(TEXT("Click explored terrain to set pin  |  Green chamber  Yellow beast  Red boss  Gold quest  Blue pin"),
+        DrawText(TEXT("Mouse: click explored tile | Pad: right stick pan, A set center pin, B close, D-pad up/down zoom"),
             FLinearColor(.85f, .85f, .85f), ClipMin.X, ClipMax.Y + 18.f);
+        DrawText(TEXT("Green chamber  Yellow beast  Red boss  Gold quest  Blue pin"),
+            FLinearColor(.85f, .85f, .85f), ClipMin.X, ClipMax.Y + 40.f);
         return;
     }
 
