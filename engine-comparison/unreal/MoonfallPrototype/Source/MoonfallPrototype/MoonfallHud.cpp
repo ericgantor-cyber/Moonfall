@@ -69,15 +69,13 @@ void AMoonfallHud::DrawHUD()
 
     if (Hero->IsWorldMapOpen())
     {
-        // Full 48x16 explored grid, centered and bounded within the viewport.
-        // Unknown tiles have no terrain information or quest markers.
-        const float Cell = FMath::Max(1.f, FMath::Min(12.f,
-            FMath::Min((Canvas->ClipX - 100.f) / 48.f,
-                       (Canvas->ClipY - 200.f) / 16.f)));
-        const float MapLeft = (Canvas->ClipX - Cell * 48.f) * .5f;
-        const float MapTop = (Canvas->ClipY - Cell * 16.f) * .5f;
-        Canvas->K2_DrawBox(FVector2D(MapLeft - 4.f, MapTop - 4.f),
-            FVector2D(Cell * 48.f + 8.f, Cell * 16.f + 8.f), 2.f,
+        // Shared projection with pawn input: zoom and pan never desync clicks.
+        float Cell = 0.f;
+        FVector2D Origin, ClipMin, ClipMax;
+        Hero->GetWorldMapLayout(Canvas->ClipX, Canvas->ClipY,
+            Cell, Origin, ClipMin, ClipMax);
+        Canvas->K2_DrawBox(ClipMin - FVector2D(4.f, 4.f),
+            ClipMax - ClipMin + FVector2D(8.f, 8.f), 2.f,
             FLinearColor(.55f, .55f, .62f));
         for (int32 Y = 0; Y < 16; ++Y)
             for (int32 X = 0; X < 48; ++X)
@@ -85,18 +83,25 @@ void AMoonfallHud::DrawHUD()
                 const FVector World(-1600.f + (X + .5f) * 400.f,
                     -3200.f + (Y + .5f) * 400.f, 0.f);
                 if (!Hero->IsMapPositionDiscovered(World)) continue;
-                Canvas->K2_DrawBox(FVector2D(MapLeft + X * Cell,
-                    MapTop + Y * Cell), FVector2D(Cell - 1.f, Cell - 1.f), 1.f,
+                const FVector2D Tile = Origin + FVector2D(X * Cell, Y * Cell);
+                const FVector2D TileEnd = Tile + FVector2D(Cell, Cell);
+                const FVector2D VisibleMin(FMath::Max(Tile.X, ClipMin.X),
+                    FMath::Max(Tile.Y, ClipMin.Y));
+                const FVector2D VisibleMax(FMath::Min(TileEnd.X, ClipMax.X),
+                    FMath::Min(TileEnd.Y, ClipMax.Y));
+                if (VisibleMax.X <= VisibleMin.X || VisibleMax.Y <= VisibleMin.Y) continue;
+                Canvas->K2_DrawBox(VisibleMin, VisibleMax - VisibleMin, 1.f,
                     FLinearColor(.28f, .49f, .43f));
             }
         const auto Plot = [&](const FVector& World, const FLinearColor& Color)
         {
             if (!Hero->IsMapPositionDiscovered(World)) return;
-            const float X = MapLeft + (World.X + 1600.f) / 400.f * Cell;
-            const float Y = MapTop + (World.Y + 3200.f) / 400.f * Cell;
-            if (X >= MapLeft && X < MapLeft + Cell * 48.f &&
-                Y >= MapTop && Y < MapTop + Cell * 16.f)
-                DrawMarker(X, Y, Color);
+            const FVector2D Screen = Origin + FVector2D(
+                (World.X + 1600.f) / 400.f * Cell,
+                (World.Y + 3200.f) / 400.f * Cell);
+            if (Screen.X >= ClipMin.X + 5.f && Screen.X < ClipMax.X - 5.f &&
+                Screen.Y >= ClipMin.Y + 5.f && Screen.Y < ClipMax.Y - 5.f)
+                DrawMarker(Screen.X, Screen.Y, Color);
         };
         for (const FVector& Chamber : Hero->GetChamberMapPositions())
             Plot(Chamber, FLinearColor(.2f, .85f, .35f));
@@ -108,12 +113,11 @@ void AMoonfallHud::DrawHUD()
         if (Hero->GetWaypoint(Pin)) Plot(Pin, FLinearColor(.3f, .8f, 1.f));
         FVector Quest;
         if (Hero->GetQuestDestination(Quest)) Plot(Quest, FLinearColor(1.f, .72f, .18f));
-        // Player is always visible at their actual position.
         Plot(Hero->GetHeroMapPosition(), FLinearColor(.1f, .9f, 1.f));
-        DrawText(TEXT("MOONFALL WORLD MAP  |  M close  |  Click explored terrain to set pin"),
-            FLinearColor::White, MapLeft, MapTop - 55.f);
-        DrawText(TEXT("Green: chamber  Yellow: beast  Red: boss  Gold: quest  Blue: waypoint"),
-            FLinearColor(.85f, .85f, .85f), MapLeft, MapTop + Cell * 16.f + 18.f);
+        DrawText(FString::Printf(TEXT("MOONFALL WORLD MAP  |  M close  |  Wheel zoom %.1fx  |  Arrows pan"), Hero->GetWorldMapZoom()),
+            FLinearColor::White, ClipMin.X, ClipMin.Y - 55.f);
+        DrawText(TEXT("Click explored terrain to set pin  |  Green chamber  Yellow beast  Red boss  Gold quest  Blue pin"),
+            FLinearColor(.85f, .85f, .85f), ClipMin.X, ClipMax.Y + 18.f);
         return;
     }
 
