@@ -165,8 +165,12 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("FMath::IsFinite(StaminaRegenPerSecond) && StaminaRegenPerSecond > 0.f", tick)
         self.assertIn("Stamina + StaminaRegenPerSecond * StaminaDelta", tick)
         self.assertIn("FMath::IsFinite(SprintSpeedMultiplier)", tick)
+        self.assertIn("float SprintAccelerationRate = 9.f;", self.hero_h)
         self.assertIn("NormalWalkSpeed * FMath::Clamp(SprintSpeedMultiplier", tick)
-        self.assertIn(" : NormalWalkSpeed;", tick)
+        self.assertIn("FMath::FInterpTo(", tick)
+        self.assertIn("FMath::Clamp(SprintAccelerationRate, 1.f, 20.f)", tick)
+        self.assertIn("GetCharacterMovement()->MaxWalkSpeed = NormalWalkSpeed;", tick)
+        self.assertLess(tick.index("if (bSprinting) {"), tick.index("} else {\n   GetCharacterMovement()->MaxWalkSpeed = NormalWalkSpeed;"))
         dodge = self.hero_cpp.split("void AMoonfallHeroPawn::Dodge()", 1)[1].split(
             "void AMoonfallHeroPawn::RewardPerfectDodge()", 1)[0]
         self.assertIn("bSprintExhausted = true;", dodge)
