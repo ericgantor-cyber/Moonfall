@@ -417,7 +417,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("DamageAfterGuard *= 0.4f", self.hero_cpp)
         self.assertIn("Stamina = FMath::Clamp(Stamina - GuardStaminaCost, 0.f, MaxStamina)", self.hero_cpp)
         self.assertNotIn("Mana -= 4.f", self.hero_cpp)
-        self.assertIn("if (Stamina < GuardStaminaCost) EndGuard();", self.hero_cpp)
+        self.assertIn("if (Stamina < GuardStaminaCost) BreakGuard();", self.hero_cpp)
         self.assertIn("OnGuardImpact(ArmoredDamage - DamageAfterGuard, bPerfectParry)", self.hero_cpp)
         self.assertIn('void AMoonfallHeroPawn::OpenOptions() {', self.hero_cpp)
 
