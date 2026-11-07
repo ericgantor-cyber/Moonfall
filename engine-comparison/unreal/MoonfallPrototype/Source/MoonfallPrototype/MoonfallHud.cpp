@@ -73,10 +73,20 @@ void AMoonfallHud::DrawHUD()
         FLinearColor(.2f, .3f, .4f, .8f));
     const FVector H = Hero->GetHeroMapPosition();
     const FVector B = Hero->GetBossMapPosition();
-    // Region-based exploration fog: no markers for regions never visited.
-    // The full Raven Atlas and per-cell fog remain separate migration tasks.
+    // Persistent 400 cm grid fog; unknown cells stay blank.
+    // Full Raven Atlas, terrain art and waypoints remain separate migration work.
     DrawText(FString::Printf(TEXT("DISCOVERED %d/6"), Hero->GetDiscoveredRegionCount()),
         FLinearColor(.75f, .8f, .9f), Left, 182.f);
+    // Reveal only sampled explored ground on the local radar, with no fog texture.
+    for (int32 Y = -4; Y <= 4; ++Y)
+        for (int32 X = -4; X <= 4; ++X)
+        {
+            const FVector CellCenter = H + FVector(X * 400.f, Y * 400.f, 0.f);
+            if (Hero->IsMapPositionDiscovered(CellCenter))
+                Canvas->K2_DrawBox(FVector2D(Left + 80.f + X * 16.f - 7.f,
+                    98.f - Y * 16.f - 7.f), FVector2D(14.f, 14.f), 1.f,
+                    FLinearColor(.22f, .42f, .37f, .75f));
+        }
     // Local radar follows the hero across six continuous world regions.
     for (const FVector& Chamber : Hero->GetChamberMapPositions())
     {
