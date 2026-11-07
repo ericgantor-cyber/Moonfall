@@ -447,22 +447,55 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("PostureDistanceSq = FMath::Square(1200.f)", self.hud)
         self.assertNotIn('TEXT("GUARD BROKEN")', self.hud)
 
+    def test_builtin_five_style_finisher_visuals_require_no_animation_assets(self):
+        hero_ctor = self.hero_cpp.split("AMoonfallHeroPawn::AMoonfallHeroPawn()", 1)[1].split(
+            "void AMoonfallHeroPawn::BeginPlay()", 1)[0]
+        self.assertIn('CreateDefaultSubobject<UStaticMeshComponent>(TEXT("FinisherSlashA"))', hero_ctor)
+        self.assertIn('CreateDefaultSubobject<UStaticMeshComponent>(TEXT("FinisherSlashB"))', hero_ctor)
+        self.assertIn('CreateDefaultSubobject<UPointLightComponent>(TEXT("FinisherFlash"))', hero_ctor)
+        self.assertIn('/Engine/BasicShapes/Cube.Cube', hero_ctor)
+        self.assertIn("ECollisionEnabled::NoCollision", hero_ctor)
+        self.assertIn("UpdateNativeFinisher(DeltaSeconds);", self.hero_cpp)
+        native = self.hero_cpp.split("void AMoonfallHeroPawn::UpdateNativeFinisher(float DeltaSeconds)", 1)[1].split(
+            "void AMoonfallHeroPawn::AwardExperience(", 1)[0]
+        self.assertIn("const int32 Style = FMath::Clamp(FinisherChainCount, 1, 5);", native)
+        self.assertIn("FinisherSlashA->SetWorldLocationAndRotation", native)
+        self.assertIn("FinisherSlashB->SetWorldLocationAndRotation", native)
+        self.assertIn("FinisherFlash->SetIntensity", native)
+        self.assertIn("bReduceMotion ? 0.22f : 0.78f", native)
+        self.assertIn("FinisherSlashA->SetHiddenInGame(bReduceMotion);", native)
+        self.assertIn("OnFinisherChain(ChainStep, bShatterKill, bBossKill);", self.hero_cpp)
+        self.assertIn("void TickDefeatAnimation(float DeltaSeconds);", self.enemy_h)
+        defeat = self.enemy_cpp.split("void AMoonfallEnemy::TickDefeatAnimation(float DeltaSeconds)", 1)[1].split(
+            "void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[0]
+        self.assertIn("DefeatAnimationStyle == 4 ? 900.f", defeat)
+        self.assertIn("Body->SetRelativeRotation", defeat)
+        self.assertIn("Body->SetRelativeScale3D", defeat)
+        self.assertIn("SetActorLocation(DefeatAnimationOrigin + Offset, false);", defeat)
+        self.assertIn("if (Health <= 0.f) {", self.enemy_cpp)
+        self.assertIn("TickDefeatAnimation(DeltaSeconds);", self.enemy_cpp)
+        self.assertNotIn("SetActorHiddenInGame(true);", self.enemy_cpp)
+        self.assertNotIn("SHATTER KO", self.hud)
+        self.assertNotIn("KO -%.0f", self.hud)
+
     def test_chainable_finisher_montages_and_no_ko_text(self):
         self.assertIn("TArray<TObjectPtr<UAnimMontage>> FinisherMontages;", self.hero_h)
         self.assertIn("float FinisherChainWindowSeconds = 4.f;", self.hero_h)
         self.assertIn("int32 FinisherChainCount = 0;", self.hero_h)
-        self.assertIn("void RegisterFinisherKill(bool bShatterKill, bool bBossKill);", self.hero_h)
+        self.assertIn("int32 RegisterFinisherKill(bool bShatterKill, bool bBossKill, FVector DefeatedLocation);", self.hero_h)
         self.assertIn("void OnFinisherChain(int32 ChainStep, bool bShatterKill, bool bBossKill);", self.hero_h)
         combo = self.hero_cpp.split("void AMoonfallHeroPawn::RegisterFinisherKill(", 1)[1].split(
             "void AMoonfallHeroPawn::AwardExperience(", 1)[0]
         self.assertIn("FMath::Clamp(FinisherChainWindowSeconds, 0.5f, 10.f)", combo)
         self.assertIn("FMath::Min(FinisherChainCount + 1, 5) : 1", combo)
+        self.assertIn("NativeFinisherStartedAt = Now;", combo)
+        self.assertIn("NativeFinisherTarget = DefeatedLocation.ContainsNaN()", combo)
         self.assertIn("!bReduceMotion && GetMesh() && FinisherMontages.Num() > 0", combo)
         self.assertIn("AnimInstance->Montage_Play(Montage, 1.f);", combo)
         self.assertIn("OnFinisherChain(ChainStep, bShatterKill, bBossKill);", combo)
         damage = self.enemy_cpp.split("void AMoonfallEnemy::TakeSpellDamage(float Amount)", 1)[1].split(
             "void AMoonfallEnemy::Tick(", 1)[0]
-        self.assertIn("Hero->RegisterFinisherKill(bLastHitWasShatter, bBoss);", damage)
+        self.assertIn("Hero->RegisterFinisherKill(bLastHitWasShatter, bBoss, GetActorLocation())", damage)
         self.assertNotIn("SHATTER KO", self.hud)
         self.assertNotIn("KO -%.0f", self.hud)
         self.assertNotIn('TEXT("GUARD BROKEN")', self.hud)
@@ -475,16 +508,16 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("if (!FMath::IsFinite(Amount) || Amount <= 0.f || Health <= 0.f) return;", damage)
         self.assertIn("Entry.bKillingBlow = Health <= 0.f;", damage)
         self.assertIn("OnEnemyDefeated(bLastHitWasShatter);", damage)
-        self.assertIn("SetActorHiddenInGame(true);", damage)
+        self.assertIn("DefeatAnimationStartedAt = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f;", damage)
         self.assertIn("SetLifeSpan(1.25f);", damage)
         self.assertLess(damage.index("Entry.bKillingBlow = Health <= 0.f;"), damage.index("if (Health <= 0.0f) {"))
         self.assertLess(damage.index("SetActorEnableCollision(false);"), damage.index("OnEnemyDefeated(bLastHitWasShatter);"))
         self.assertLess(damage.index("OnEnemyDefeated(bLastHitWasShatter);"), damage.index("Hero->AwardExperience"))
-        self.assertLess(damage.index("Hero->AwardEquipmentDrop"), damage.index("SetActorHiddenInGame(true);"))
+        self.assertLess(damage.index("Hero->AwardEquipmentDrop"), damage.index("SetLifeSpan(1.25f);"))
         self.assertNotIn('TEXT("SHATTER KO -%.0f")', self.hud)
         self.assertNotIn('TEXT("KO -%.0f")', self.hud)
         self.assertIn('FString::Printf(TEXT("-%.0f"), Hit.Amount)', self.hud)
-        self.assertIn("Hero->RegisterFinisherKill(bLastHitWasShatter, bBoss);", damage)
+        self.assertIn("Hero->RegisterFinisherKill(bLastHitWasShatter, bBoss, GetActorLocation())", damage)
         self.assertIn("VisibleDamageNumbers < 32", self.hud)
         self.assertNotIn('TEXT("GUARD BROKEN")', self.hud)
 
