@@ -103,12 +103,45 @@ jobs:
             if (Test-Path -LiteralPath $installRoot) {
               throw 'Refusing to reuse a preexisting smoke-test installation directory.'
             }
+            # Use a disposable GitHub-hosted Windows machine. Refuse to
+            # overwrite any existing user's shortcut or uninstall entry.
+            $desktopShortcut = Join-Path ([Environment]::GetFolderPath('DesktopDirectory')) 'Moonfall Unreal.lnk'
+            $menuShortcut = Join-Path ([Environment]::GetFolderPath('Programs')) 'Moonfall Unreal\Moonfall Unreal.lnk'
+            $uninstallKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\MoonfallUnreal'
+            foreach ($oldShortcut in @($desktopShortcut, $menuShortcut)) {
+              if (Test-Path -LiteralPath $oldShortcut) {
+                throw "Refusing to alter preexisting shortcut: $oldShortcut"
+              }
+            }
+            if (Test-Path -LiteralPath $uninstallKey) {
+              throw 'Refusing to overwrite a preexisting Moonfall uninstall entry.'
+            }
             $install = Start-Process -FilePath $installer -ArgumentList @('/S', "/D=$installRoot") -Wait -PassThru
             if ($install.ExitCode -ne 0) { throw "NSIS silent install failed with exit $($install.ExitCode)" }
             foreach ($file in @('MoonfallLauncher.exe', 'MoonfallUnreal.exe', 'Uninstall.exe', 'MoonfallUnreal\\placeholder.dat')) {
               if (-not (Test-Path -LiteralPath (Join-Path $installRoot $file) -PathType Leaf)) {
                 throw "NSIS install missing expected test fixture: $file"
               }
+            }
+            $shell = New-Object -ComObject WScript.Shell
+            foreach ($shortcut in @($desktopShortcut, $menuShortcut)) {
+              if (-not (Test-Path -LiteralPath $shortcut -PathType Leaf)) {
+                throw "Installer did not create Moonfall shortcut: $shortcut"
+              }
+              $target = $shell.CreateShortcut($shortcut).TargetPath
+              $expectedLauncher = Join-Path $installRoot 'MoonfallLauncher.exe'
+              if (-not [string]::Equals(
+                  [IO.Path]::GetFullPath($target), [IO.Path]::GetFullPath($expectedLauncher),
+                  [StringComparison]::OrdinalIgnoreCase)) {
+                throw "Shortcut has wrong target: $shortcut"
+              }
+            }
+            if (-not (Test-Path -LiteralPath $uninstallKey)) {
+              throw 'Installer did not register Moonfall in Windows uninstall settings.'
+            }
+            $registration = Get-ItemProperty -LiteralPath $uninstallKey
+            if ($registration.InstallLocation -ne $installRoot) {
+              throw 'Moonfall uninstall registration has the wrong install location.'
             }
             $launchCheck = Start-Process -FilePath (Join-Path $installRoot 'MoonfallLauncher.exe') -ArgumentList '--check-install' -WorkingDirectory $installRoot -Wait -PassThru
             if ($launchCheck.ExitCode -ne 0) {
@@ -121,7 +154,15 @@ jobs:
             if (Test-Path -LiteralPath (Join-Path $installRoot 'MoonfallUnreal.exe')) {
               throw 'NSIS uninstall left test game files behind.'
             }
-            "NSIS installation, installed launcher --check-install, and uninstallation passed with synthetic test-only files." >> $env:GITHUB_STEP_SUMMARY
+            foreach ($shortcut in @($desktopShortcut, $menuShortcut)) {
+              if (Test-Path -LiteralPath $shortcut) {
+                throw "NSIS uninstall left a shortcut behind: $shortcut"
+              }
+            }
+            if (Test-Path -LiteralPath $uninstallKey) {
+              throw 'NSIS uninstall left Windows uninstall registration behind.'
+            }
+            "NSIS install, launcher verification, two shortcut targets, uninstall registration, and uninstall cleanup all passed with synthetic files." >> $env:GITHUB_STEP_SUMMARY
             "No playable Moonfall Unreal game or real release installer was created." >> $env:GITHUB_STEP_SUMMARY
           } finally {
             if (Test-Path -LiteralPath $installer) {
