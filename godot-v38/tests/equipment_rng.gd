@@ -29,6 +29,20 @@ func _run()->void:
  var stats:Dictionary=INVENTORY.totals(empowered)
  check(int(stats["weapon_power"])==ordinary+10,"rolled Power and rarity modify equipped damage")
  check(int(stats["crit"])==3,"critical affix enters character stats")
+ # A second copy of equal rarity should upgrade the equipped bonuses when stronger.
+ empowered["loot_rolls"].append({"item_id":"ashwood_sword","rarity_index":3,"power_bonus":6,"affixes":[{"stat":"Power","value":9},{"stat":"Crit","value":4}]})
+ var better:Dictionary=INVENTORY.totals(empowered)
+ check(int(better["weapon_power"])==ordinary+15,"strongest equal-rarity roll wins")
+ check(int(better["crit"])==4,"stronger same-rarity crit bonus wins")
+ # A weaker equal-rarity roll must not downgrade the selected equipment bonuses.
+ empowered["loot_rolls"].append({"item_id":"ashwood_sword","rarity_index":3,"power_bonus":0,"affixes":[{"stat":"Power","value":1}]})
+ check(INVENTORY.totals(empowered)==better,"weaker same-rarity roll cannot downgrade stats")
+ # Higher rarity still takes precedence even if an older rarity has stronger affixes.
+ empowered["loot_rolls"].append({"item_id":"ashwood_sword","rarity_index":4,"power_bonus":8,"affixes":[{"stat":"Power","value":1}]})
+ var legendary:Dictionary=INVENTORY.totals(empowered)
+ check(int(legendary["weapon_power"])==ordinary+9,"higher rarity still wins")
+ check(int(legendary["crit"])==0,"highest rarity roll supplies the affixes")
+
  check(int(INVENTORY.normalize(empowered)["loot_rolls"].size())==1,"bonuses survive save normalization")
  print("GEAR RNG "+("PASS" if errors==0 else "FAIL"))
  quit(0 if errors==0 else 1)
