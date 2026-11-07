@@ -5,6 +5,7 @@ on:
     paths:
       - 'MoonfallUnreal/Launcher/**'
       - '.github/workflows/unreal-launcher-windows.yml'
+      - 'MoonfallUnreal/Installer/MoonfallUnreal.nsi'
   workflow_dispatch:
 
 permissions:
@@ -61,6 +62,47 @@ jobs:
           $result = Start-Process -FilePath (Join-Path $work 'MoonfallLauncher.exe') -ArgumentList '--check-install' -WorkingDirectory $work -NoNewWindow -Wait -PassThru
           if ($result.ExitCode -ne 0) { throw "Expected exit 0 for structurally complete test layout, got $($result.ExitCode)" }
           "Two launcher file-structure tests passed (synthetic layout; NOT Unreal gameplay)." >> $env:GITHUB_STEP_SUMMARY
+      - name: Compile NSIS installer template using test-only files
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $nsis = Get-Command makensis.exe -ErrorAction SilentlyContinue
+          if (-not $nsis) {
+            $candidate = Join-Path ${env:ProgramFiles(x86)} 'NSIS\makensis.exe'
+            if (-not (Test-Path -LiteralPath $candidate -PathType Leaf)) {
+              choco install nsis -y --no-progress --limit-output
+              if ($LASTEXITCODE -ne 0) { throw "NSIS installation failed: $LASTEXITCODE" }
+            }
+            $nsis = Get-Command makensis.exe -ErrorAction SilentlyContinue
+            if (-not $nsis) {
+              $nsis = Join-Path ${env:ProgramFiles(x86)} 'NSIS\makensis.exe'
+            } else { $nsis = $nsis.Source }
+          } else { $nsis = $nsis.Source }
+          if (-not (Test-Path -LiteralPath $nsis -PathType Leaf)) {
+            throw 'NSIS compiler not available on Windows runner.'
+          }
+          $fixture = Join-Path $env:RUNNER_TEMP 'moonfall-launcher-tests'
+          foreach ($file in @('MoonfallLauncher.exe', 'MoonfallUnreal.exe', 'MoonfallUnreal\placeholder.dat')) {
+            if (-not (Test-Path -LiteralPath (Join-Path $fixture $file) -PathType Leaf)) {
+              throw "Missing test fixture file $file"
+            }
+          }
+          # Never publish this installer: it contains a deliberately fake game.
+          $installer = Join-Path $env:RUNNER_TEMP 'MOONFALL-TEST-ONLY-DO-NOT-DISTRIBUTE.exe'
+          try {
+            & $nsis "/DSOURCE_DIR=$fixture" "/DOUTPUT_EXE=$installer" 'MoonfallUnreal\Installer\MoonfallUnreal.nsi'
+            if ($LASTEXITCODE -ne 0) { throw "NSIS compilation failed: $LASTEXITCODE" }
+            if (-not (Test-Path -LiteralPath $installer -PathType Leaf)) {
+              throw 'NSIS compilation returned success without creating a binary.'
+            }
+            if ((Get-Item -LiteralPath $installer).Length -le 0) {
+              throw 'NSIS generated an empty installer.'
+            }
+            "NSIS script compiled successfully with test-only fixture. No actual Moonfall game or release installer was produced." >> $env:GITHUB_STEP_SUMMARY
+          } finally {
+            if (Test-Path -LiteralPath $installer) {
+              Remove-Item -LiteralPath $installer -Force
+            }
+          }
       - name: Hash standalone launcher binary
         run: |
           $exe = '.\LauncherBuild\MoonfallLauncher.exe'
