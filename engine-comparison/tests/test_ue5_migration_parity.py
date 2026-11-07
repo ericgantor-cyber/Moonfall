@@ -152,6 +152,19 @@ class UnrealMigrationParityGate(unittest.TestCase):
         self.assertIn("Wheel zoom", hud)
         self.assertIn("Arrows pan", hud)
 
+    def test_open_map_blocks_combat_resource_inputs(self):
+        pawn = (ROOT / "engine-comparison/unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallPawn.cpp").read_text(encoding="utf-8")
+        for method in ("Dodge", "CastBolt", "CastHeal", "SetWaypoint"):
+            with self.subTest(method=method):
+                start = pawn.index("void AMoonfallPawn::" + method + "()")
+                body = pawn[start:pawn.index("\n}", start) + 2]
+                self.assertIn("if (bWorldMapOpen) return;", body)
+        # Left click is map placement before any attack cooldown/damage logic.
+        attack = pawn.split("void AMoonfallPawn::Attack()", 1)[1]
+        self.assertLess(attack.index("if (bWorldMapOpen) { PlaceMapWaypoint(); return; }"),
+                        attack.index("AttackCooldown ="))
+        self.assertIn("bWorldMapOpen ? FVector::ZeroVector", pawn)
+
     def test_character_and_input_constraints(self):
         constraints = self.data["constraints"]
         self.assertEqual(constraints["preserve_original_art"],
