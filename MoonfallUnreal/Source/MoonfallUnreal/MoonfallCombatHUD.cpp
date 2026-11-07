@@ -65,7 +65,7 @@ void AMoonfallCombatHUD::DrawHUD()
  const float ActualStamina = FMath::Clamp(Hero->Stamina / FMath::Max(1.f, Hero->MaxStamina), 0.f, 1.f);
  const float ActualXP = FMath::Clamp(static_cast<float>(Hero->Experience) / FMath::Max(1, Hero->ExperienceToNextLevel), 0.f, 1.f);
  const float Delta = GetWorld() ? FMath::Clamp(GetWorld()->GetDeltaSeconds(), 0.f, 0.1f) : 0.f;
- if (DisplayHealth < 0.f) { DisplayHealth = ActualHealth; DisplayMana = ActualMana; DisplayXP = ActualXP; }
+ if (DisplayHealth < 0.f) { DisplayHealth = ActualHealth; DisplayMana = ActualMana; DisplayXP = ActualXP; DisplayStamina = ActualStamina; }
  if (LastShownLevel < 0) LastShownLevel = Hero->Level;
  if (Hero->Level != LastShownLevel) {
   LastShownLevel = Hero->Level;
@@ -74,6 +74,7 @@ void AMoonfallCombatHUD::DrawHUD()
  }
  DisplayHealth = FMath::FInterpTo(DisplayHealth, ActualHealth, Delta, 9.f);
  DisplayMana = FMath::FInterpTo(DisplayMana, ActualMana, Delta, 9.f);
+ DisplayStamina = FMath::FInterpTo(DisplayStamina, ActualStamina, Delta, 11.f);
  DisplayXP = FMath::FInterpTo(DisplayXP, ActualXP, Delta, 7.f);
  const float HealthFraction = DisplayHealth;
  const float ManaFraction = DisplayMana;
@@ -117,7 +118,13 @@ void AMoonfallCombatHUD::DrawHUD()
  DrawArc(Radius * 0.85f, ManaFraction, FLinearColor(0.06f, 0.11f, 0.23f), FLinearColor(0.19f, 0.59f, 1.f), 5.f);
  DrawArc(Radius * 0.97f, XpFraction, FLinearColor(0.19f, 0.10f, 0.28f), FLinearColor(0.73f, 0.32f, 1.f), 4.f);
  // Thin green stamina arc stays outside the original red HP / blue mana / purple XP orb.
- DrawArc(Radius * 1.13f, ActualStamina, FLinearColor(0.06f, 0.17f, 0.10f), FLinearColor(0.22f, 0.86f, 0.43f), 3.f);
+ const bool bStaminaLow = Hero->Stamina < 25.f;
+ DrawArc(Radius * 1.13f, DisplayStamina, FLinearColor(0.06f, 0.17f, 0.10f),
+   bStaminaLow ? FLinearColor(1.f, 0.68f, 0.22f) : FLinearColor(0.22f, 0.86f, 0.43f), 3.f);
+ if (bStaminaLow && !bCompactScreen) {
+  DrawText(TEXT("LOW STAMINA"), FLinearColor(1.f,0.80f,0.40f),
+    CX + Radius + 14.f, CY + 15.f, nullptr, 0.82f * LabelScale);
+ }
  const float GlowLeft = GetWorld() ? FMath::Max(0.f, LevelGlowUntil - GetWorld()->GetTimeSeconds()) : 0.f;
  if (GlowLeft > 0.f) {
   const float Intensity = FMath::Clamp(GlowLeft / 1.25f, 0.f, 1.f);
