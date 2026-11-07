@@ -24,7 +24,7 @@ class PackageContract(unittest.TestCase):
         s = SCRIPT.read_text(encoding="utf-8")
         for expected in ("Content\\Maps\\$MapName.umap", "GameDefaultMap=",
                          "DefaultEngine.ini", "UE5.6 is required", "BuildCookRun",
-                         "'-cook'", "'-stage'", "'-pak'", "'-archive'",
+                         "'-cook'", "'-stage'", "'-package'", "'-pak'", "'-archive'",
                          "MoonfallPrototype.exe", "LASTEXITCODE"):
             self.assertIn(expected, s)
 
