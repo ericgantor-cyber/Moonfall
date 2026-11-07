@@ -364,10 +364,10 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
  const float HitGuardCost = bValidGuardCost && FMath::IsFinite(MaxStamina) && MaxStamina > 0.f
      ? GuardStaminaCost + FMath::Clamp(ArmoredDamage * FMath::Min(GuardImpactStaminaScale, 1.f), 0.f, MaxStamina)
      : 0.f;
- // Timely parries need only the base guard cost. Heavy-hit stamina scaling
- // applies to ordinary blocks, keeping skillful defense viable against bosses.
+ // Perfect timing negates impact stamina altogether. The guard stance
+ // still costs stamina while held, and normal blocks retain heavy-hit pressure.
  const bool bPerfectParry = bGuarding && Now <= ParryWindowEndsAt && Now <= NextParryAt;
- const float RequiredGuardCost = bPerfectParry ? GuardStaminaCost : HitGuardCost;
+ const float RequiredGuardCost = bPerfectParry ? 0.f : HitGuardCost;
  if (bGuarding && bFrontAttack && !bOptionsOpen
      && FMath::IsFinite(Stamina) && FMath::IsFinite(MaxStamina) && MaxStamina > 0.f
      && bValidGuardCost && FMath::IsFinite(RequiredGuardCost)
