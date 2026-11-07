@@ -64,9 +64,12 @@
     },
     {
       "id": "quest_and_atlas",
-      "status": "needs_parity_review",
-      "unreal": [],
-      "gate": "Compare against latest Godot quest tracking, exploration fog, zoom controls and map persistence"
+      "status": "quest_tracker_source_present_atlas_pending",
+      "unreal": [
+        "engine-comparison/unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.cpp",
+        "engine-comparison/unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallPawn.cpp"
+      ],
+      "gate": "Quest tracker for defeated beasts, claimed chambers, and Z reads saved flags; verify in Windows runtime, then port Godot atlas fog, waypoint and map persistence"
     },
     {
       "id": "crafting_inventory",
