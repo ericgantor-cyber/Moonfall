@@ -676,12 +676,30 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("FMath::Clamp(ParryCounterDamageMultiplier, 1.f, 2.f)", cast)
         self.assertIn("Enemy->TakeSpellDamage(SpellDamage);", cast)
         self.assertIn("* CounterMultiplier;", cast)
-        self.assertIn("if (bCounterReady && Enemy->Health < HealthBeforeSpell)", cast)
+        self.assertIn("if (bCounterReady && ActualSpellDamage > 0.f)", cast)
         self.assertIn("ParryCounterUntil = -1.f;", cast)
         self.assertLess(cast.index("Enemy->TakeSpellDamage(SpellDamage);"),
-                        cast.index("if (bCounterReady && Enemy->Health < HealthBeforeSpell)"))
+                        cast.index("if (bCounterReady && ActualSpellDamage > 0.f)"))
         self.assertLess(cast.index("if (!IsValid(Enemy) || Enemy->Health <= 0.f) return false;"),
                         cast.index("const bool bCounterReady"))
+        self.assertNotIn('TEXT("GUARD BROKEN")', self.hud)
+
+    def test_spell_school_posture_weights_are_bounded_and_require_real_hits(self):
+        self.assertIn("float OffensiveSpellPostureMultiplier = 1.f;", self.hero_h)
+        cast = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split(
+            "void AMoonfallHeroPawn::CastLeft()", 1)[0]
+        self.assertIn("SchoolPostureWeights[6] = {0.8f, 0.65f, 1.35f, 0.f, 1.15f, 0.9f}", cast)
+        self.assertIn("FMath::Clamp(0.018f * WeaponTier, 0.f, 0.35f)", cast)
+        self.assertIn("const float ActualSpellDamage = FMath::Clamp(HealthBeforeSpell - Enemy->Health, 0.f, HealthBeforeSpell);", cast)
+        self.assertIn("ActualSpellDamage > 0.f && Enemy->Health > 0.f", cast)
+        self.assertIn("FMath::IsFinite(OffensiveSpellPostureMultiplier)", cast)
+        self.assertIn("FMath::Clamp(OffensiveSpellPostureMultiplier, 0.f, 3.f)", cast)
+        self.assertIn("FMath::IsFinite(ExtraPosture) && ExtraPosture > 0.f", cast)
+        self.assertIn("Enemy->ApplyPostureDamage(FMath::Min(ExtraPosture, 100.f));", cast)
+        self.assertLess(cast.index("Enemy->TakeSpellDamage(SpellDamage);"),
+                        cast.index("const float ActualSpellDamage ="))
+        self.assertLess(cast.index("const float ActualSpellDamage ="),
+                        cast.index("Enemy->ApplyPostureDamage(FMath::Min(ExtraPosture, 100.f));"))
         self.assertNotIn('TEXT("GUARD BROKEN")', self.hud)
 
     def test_counterspell_posture_pressure_requires_real_spell_damage(self):
@@ -692,7 +710,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("!FMath::IsFinite(SpellDamage) || SpellDamage <= 0.f", cast)
         self.assertIn("const float HealthBeforeSpell = Enemy->Health;", cast)
         self.assertIn("Enemy->TakeSpellDamage(SpellDamage);", cast)
-        self.assertIn("if (bCounterReady && Enemy->Health < HealthBeforeSpell)", cast)
+        self.assertIn("if (bCounterReady && ActualSpellDamage > 0.f)", cast)
         self.assertIn("Enemy->Health > 0.f && FMath::IsFinite(ParryCounterPostureDamage)", cast)
         self.assertIn("Enemy->ApplyPostureDamage(FMath::Clamp(ParryCounterPostureDamage, 0.f, 100.f));", cast)
         self.assertIn("ParryCounterUntil = -1.f;", cast)
