@@ -274,7 +274,8 @@ void AMoonfallHeroPawn::Dodge()
  const float Now = GetWorld()->GetTimeSeconds();
  if (Now < NextDodgeAt || !FMath::IsFinite(Stamina) || !FMath::IsFinite(MaxStamina)
      || !FMath::IsFinite(DodgeStaminaCost) || MaxStamina <= 0.f
-     || DodgeStaminaCost < 0.f || Stamina < DodgeStaminaCost) return;
+     || DodgeStaminaCost < 0.f || Stamina < DodgeStaminaCost
+     || !FMath::IsFinite(DodgeLaunchSpeed) || DodgeLaunchSpeed <= 0.f) return;
  Stamina = FMath::Clamp(Stamina - DodgeStaminaCost, 0.f, MaxStamina);
  StaminaRegenStartsAt = Now + 0.8f;
  if (GetCharacterMovement()) GetCharacterMovement()->MaxWalkSpeed = NormalWalkSpeed;
@@ -284,9 +285,14 @@ void AMoonfallHeroPawn::Dodge()
  NextDodgeAt = Now + DodgeCooldown;
  DamageImmunityUntil = Now + 0.24f;
  PerfectDodgeWindowUntil = Now + 0.14f;
- const FVector MoveDirection = GetLastMovementInputVector().GetSafeNormal2D();
- const FVector Direction = MoveDirection.IsNearlyZero() ? GetActorForwardVector() : MoveDirection;
- LaunchCharacter(Direction * 650.f, true, false);
+ // Prefer live input for responsive controller/keyboard dodges. On frames
+ // without new input, use the most recently consumed movement direction.
+ const FVector PendingDirection = GetPendingMovementInputVector().GetSafeNormal2D();
+ const FVector LastDirection = GetLastMovementInputVector().GetSafeNormal2D();
+ const FVector ForwardDirection = GetActorForwardVector().GetSafeNormal2D();
+ const FVector Direction = !PendingDirection.IsNearlyZero() ? PendingDirection
+     : (!LastDirection.IsNearlyZero() ? LastDirection : ForwardDirection);
+ LaunchCharacter(Direction * FMath::Clamp(DodgeLaunchSpeed, 250.f, 1200.f), true, false);
 }
 
 void AMoonfallHeroPawn::RewardPerfectDodge() {
