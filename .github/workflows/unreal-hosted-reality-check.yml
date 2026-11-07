@@ -1,0 +1,40 @@
+name: Moonfall Windows hosted runner reality check
+
+# One lightweight Windows runner capability report when this workflow is introduced.
+# Does not download Unreal, compile Moonfall, or provision a paid large runner.
+on:
+  push:
+    paths:
+      - '.github/workflows/unreal-hosted-reality-check.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect-hosted-windows:
+    runs-on: windows-2022
+    timeout-minutes: 10
+    steps:
+      - name: Report actual Windows hosted runner capacity
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $root = [IO.Path]::GetPathRoot([IO.Path]::GetFullPath($env:RUNNER_TEMP)).TrimEnd('\')
+          $disk = Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='$root'"
+          if (-not $disk) { throw 'Unable to inspect hosted Windows runner disk.' }
+          $free = [math]::Round($disk.FreeSpace / 1GB, 2)
+          $size = [math]::Round($disk.Size / 1GB, 2)
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+          $hasVS = $false
+          if (Test-Path -LiteralPath $vswhere) {
+            $installs = @(& $vswhere -latest -version '[17.0,18.0)' -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath)
+            $hasVS = ($LASTEXITCODE -eq 0) -and [bool](@($installs | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }).Count)
+          }
+          "## Moonfall actual GitHub-hosted Windows capability" >> $env:GITHUB_STEP_SUMMARY
+          "Runner: $env:RUNNER_NAME" >> $env:GITHUB_STEP_SUMMARY
+          "Disk: $size GB total, $free GB currently free" >> $env:GITHUB_STEP_SUMMARY
+          "VS 2022 C++ tools found: $hasVS" >> $env:GITHUB_STEP_SUMMARY
+          "Standard runner meets 80 GB minimum: $($disk.FreeSpace -ge 80GB)" >> $env:GITHUB_STEP_SUMMARY
+          "No Unreal Engine compilation, installation, installer, or gameplay testing was attempted." >> $env:GITHUB_STEP_SUMMARY
+          Write-Host "MOONFALL_REALITY_CHECK free_gb=$free total_gb=$size vs2022_cpp=$hasVS minimum_80gb=$($disk.FreeSpace -ge 80GB)"
