@@ -27,7 +27,7 @@ jobs:
           if (-not $disk -or $disk.FreeSpace -lt 250GB) {
             throw 'UE source build requires at least 250 GB free. Provision a larger Windows runner and set MOONFALL_HOSTED_RUNNER.'
           }
-          $vswhere = Join-Path [Environment]::GetFolderPath('ProgramFilesX86') 'Microsoft Visual Studio\Installer\vswhere.exe'
+          $vswhere = Join-Path ([Environment]::GetFolderPath('ProgramFilesX86')) 'Microsoft Visual Studio\Installer\vswhere.exe'
           if (-not (Test-Path $vswhere)) { throw 'VS2022 tools not found' }
           $vs = @(& $vswhere -latest -version '[17.0,18.0)' -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath)
           if ($LASTEXITCODE -ne 0 -or -not ($vs | Where-Object { $_ })) { throw 'VS2022 C++ tools not found' }
@@ -44,6 +44,14 @@ jobs:
           ref: fc949c896b37035564ab91da1405483b41a9f895
           path: game-source
           persist-credentials: false
+      - name: Confirm Epic source token secret is configured
+        shell: pwsh
+        env:
+          EPIC_TOKEN: ${{ secrets.MOONFALL_EPIC_SOURCE_TOKEN }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:EPIC_TOKEN)) {
+            throw 'Configure MOONFALL_EPIC_SOURCE_TOKEN in Moonfall GitHub Actions secrets. Do not paste a token into chat.'
+          }
       - name: Checkout authorized private Epic Unreal Engine 5.4
         uses: actions/checkout@v4
         with:
