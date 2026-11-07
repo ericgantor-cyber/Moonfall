@@ -181,11 +181,13 @@ void AMoonfallHeroPawn::RewardPerfectDodge() {
  Mana = FMath::Min(MaxMana, Mana + 8.f);
 }
 
-void AMoonfallHeroPawn::ApplyMoonfallDamageFrom(float Amount, const FVector& SourceLocation) {
+bool AMoonfallHeroPawn::ApplyMoonfallDamageFrom(float Amount, const FVector& SourceLocation) {
+ bLastIncomingHitParried = false;
  IncomingDamageSource = SourceLocation;
  bHasIncomingDamageSource = true;
  ApplyMoonfallDamage(Amount);
  bHasIncomingDamageSource = false;
+ return bLastIncomingHitParried;
 }
 
 void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
@@ -204,6 +206,7 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
   Mana -= 4.f;
   const bool bPerfectParry = Now <= ParryWindowEndsAt && Now <= NextParryAt;
   if (bPerfectParry) {
+   bLastIncomingHitParried = bHasIncomingDamageSource;
    DamageAfterGuard = 0.f;
    ParryWindowEndsAt = -1.f;
    Mana = FMath::Min(MaxMana, Mana + 8.f);
