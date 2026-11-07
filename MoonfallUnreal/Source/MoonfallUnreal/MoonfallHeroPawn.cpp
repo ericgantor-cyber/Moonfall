@@ -28,6 +28,14 @@ AMoonfallHeroPawn::AMoonfallHeroPawn()
 }
 void AMoonfallHeroPawn::BeginPlay() {
  Super::BeginPlay();
+ // Blueprint defaults are applied after the native constructor. Capture the
+ // actual authored walk speed before sprint/guard begin changing MaxWalkSpeed.
+ if (GetCharacterMovement()) {
+  const float AuthoredWalkSpeed = GetCharacterMovement()->MaxWalkSpeed;
+  NormalWalkSpeed = FMath::IsFinite(AuthoredWalkSpeed) && AuthoredWalkSpeed > 0.f
+      ? AuthoredWalkSpeed : 600.f;
+  GetCharacterMovement()->MaxWalkSpeed = NormalWalkSpeed;
+ }
  int32 SavedPreference = 0;
  if (GConfig) GConfig->GetInt(TEXT("Moonfall.Graphics"), TEXT("FrameGenerationPreference"), SavedPreference, GGameUserSettingsIni);
  FrameGenerationPreference = FMath::Clamp(SavedPreference, 0, 2);
