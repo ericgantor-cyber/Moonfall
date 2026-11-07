@@ -12,6 +12,11 @@ on:
         required: true
         type: boolean
         default: false
+      create_installer:
+        description: "After real Win64 game cooking, build NSIS installer with desktop shortcut (untested)"
+        required: true
+        type: boolean
+        default: false
 permissions:
   contents: read
 concurrency:
@@ -103,7 +108,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Moonfall real C++ compile failed: $LASTEXITCODE" }
           "Actual Moonfall Unreal C++ compilation passed. No playable installer was built." >> $env:GITHUB_STEP_SUMMARY
       - name: Cook and package actual Moonfall Win64 Development game
-        if: ${{ inputs.package_game }}
+        if: ${{ inputs.package_game || inputs.create_installer }}
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
@@ -135,6 +140,67 @@ jobs:
         with:
           name: Moonfall-Win64-REAL-SourceBuilt-Development-UNTESTED
           path: MoonfallWin64Packaged/
+          if-no-files-found: error
+          retention-days: 3
+      - name: Prepare .NET 8 for Windows launcher
+        if: ${{ inputs.create_installer }}
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Build real-game Windows launcher and installer
+        if: ${{ inputs.create_installer }}
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $output = Join-Path $env:GITHUB_WORKSPACE 'MoonfallWin64Packaged'
+          $executables = @(Get-ChildItem -LiteralPath $output -Recurse -File -Filter 'MoonfallUnreal.exe')
+          if ($executables.Count -ne 1) { throw 'No single verified real MoonfallUnreal.exe to install.' }
+          $root = $executables[0].Directory.FullName
+          foreach ($folder in @('Engine', 'MoonfallUnreal')) {
+            if (-not (Test-Path -LiteralPath (Join-Path $root $folder) -PathType Container)) {
+              throw "Real packaged game missing $folder"
+            }
+          }
+          if (-not (Get-ChildItem -LiteralPath (Join-Path $root 'MoonfallUnreal') -File -Recurse | Select-Object -First 1)) {
+            throw 'Cooked content folder empty, refusing installer.'
+          }
+          $project = '.\\game-source\\MoonfallUnreal\\Launcher\\MoonfallLauncher.csproj'
+          & dotnet publish $project -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:PublishTrimmed=false "-o=$root"
+          if ($LASTEXITCODE -ne 0) { throw "Real launcher compilation failed: $LASTEXITCODE" }
+          $launcher = Join-Path $root 'MoonfallLauncher.exe'
+          if (-not (Test-Path -LiteralPath $launcher -PathType Leaf)) { throw 'Moonfall launcher missing after publish' }
+          $checked = Start-Process -FilePath $launcher -ArgumentList '--check-install' -WorkingDirectory $root -Wait -PassThru
+          if ($checked.ExitCode -ne 0) { throw "Real packaged game launcher validation failed: $($checked.ExitCode)" }
+          $nsis = Get-Command makensis.exe -ErrorAction SilentlyContinue
+          if (-not $nsis) {
+            $candidate = Join-Path ${env:ProgramFiles(x86)} 'NSIS\\makensis.exe'
+            if (-not (Test-Path -LiteralPath $candidate -PathType Leaf)) {
+              & choco install nsis -y --no-progress --limit-output
+              if ($LASTEXITCODE -ne 0) { throw "NSIS installation failed: $LASTEXITCODE" }
+            }
+            $nsis = Get-Command makensis.exe -ErrorAction SilentlyContinue
+            $nsis = if ($nsis) { $nsis.Source } else { $candidate }
+          } else {
+            $nsis = $nsis.Source
+          }
+          if (-not (Test-Path -LiteralPath $nsis -PathType Leaf)) { throw 'NSIS compiler unavailable' }
+          $installer = Join-Path $env:GITHUB_WORKSPACE 'MoonfallUnreal-Setup.exe'
+          $script = '.\\game-source\\MoonfallUnreal\\Installer\\MoonfallUnreal.nsi'
+          & $nsis "/DSOURCE_DIR=$root" "/DOUTPUT_EXE=$installer" $script
+          if ($LASTEXITCODE -ne 0) { throw "NSIS installer compilation failed: $LASTEXITCODE" }
+          if (-not (Test-Path -LiteralPath $installer -PathType Leaf) -or
+              (Get-Item -LiteralPath $installer).Length -le 0) { throw 'NSIS output is missing or empty' }
+          $hash = (Get-FileHash -LiteralPath $installer -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  MoonfallUnreal-Setup.exe" | Set-Content -Encoding ascii -LiteralPath "$installer.sha256"
+          "Actual game installer and launcher built from UE source-compiled Moonfall game. Installation and gameplay remain untested." >> $env:GITHUB_STEP_SUMMARY
+      - name: Upload actual Moonfall Windows installer only after success
+        if: ${{ inputs.create_installer && success() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: MoonfallUnreal-REAL-Windows-Installer-UNTESTED
+          path: |
+            MoonfallUnreal-Setup.exe
+            MoonfallUnreal-Setup.exe.sha256
           if-no-files-found: error
           retention-days: 3
       - name: Upload Moonfall game compile logs only on failure
