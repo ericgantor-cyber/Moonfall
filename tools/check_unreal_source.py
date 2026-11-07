@@ -447,6 +447,18 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("PostureDistanceSq = FMath::Square(1200.f)", self.hud)
         self.assertNotIn('TEXT("GUARD BROKEN")', self.hud)
 
+    def test_long_finisher_chain_rotates_styles_and_resets_on_gap(self):
+        self.assertIn("int32 FinisherSequenceCount = 0;", self.hero_h)
+        register = self.hero_cpp.split("int32 AMoonfallHeroPawn::RegisterFinisherKill(", 1)[1].split(
+            "void AMoonfallHeroPawn::StartFinisherPresentation(", 1)[0]
+        self.assertIn("Now >= LastFinisherKillAt && Now - LastFinisherKillAt <= Window", register)
+        self.assertIn("FMath::Min(FinisherSequenceCount + 1, 1000000) : 1;", register)
+        self.assertIn("FinisherChainCount = FMath::Min(FinisherSequenceCount, 5);", register)
+        self.assertIn("const int32 ChainStep = (FinisherSequenceCount - 1) % 5 + 1;", register)
+        self.assertIn("Pending.Target = DefeatedLocation.ContainsNaN()", register)
+        self.assertIn("PendingFinishers.Num() < MaxPendingFinishers", register)
+        self.assertNotIn('TEXT("GUARD BROKEN")', self.hud)
+
     def test_finisher_queue_preserves_rapid_kill_choreography(self):
         self.assertIn("struct FPendingFinisher", self.hero_h)
         self.assertIn("static constexpr int32 MaxPendingFinishers = 8;", self.hero_h)
@@ -458,7 +470,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("PendingFinishers.Num() < MaxPendingFinishers", register)
         self.assertIn("PendingFinishers.Add(Pending);", register)
         self.assertIn("PendingFinishers[PendingFinishers.Num() - 1] = Pending;", register)
-        self.assertIn("Pending.Target = DefeatedLocation;", register)
+        self.assertIn("Pending.Target = DefeatedLocation.ContainsNaN()", register)
         self.assertIn("Pending.Style = ChainStep;", register)
         self.assertIn("return ChainStep;", register)
         presentation = self.hero_cpp.split("void AMoonfallHeroPawn::StartFinisherPresentation(", 1)[1].split(
@@ -537,7 +549,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         combo = self.hero_cpp.split("int32 AMoonfallHeroPawn::RegisterFinisherKill(", 1)[1].split(
             "void AMoonfallHeroPawn::AwardExperience(", 1)[0]
         self.assertIn("FMath::Clamp(FinisherChainWindowSeconds, 0.5f, 10.f)", combo)
-        self.assertIn("FMath::Min(FinisherChainCount + 1, 5) : 1", combo)
+        self.assertIn("FMath::Min(FinisherSequenceCount + 1, 1000000) : 1", combo)
+        self.assertIn("FinisherChainCount = FMath::Min(FinisherSequenceCount, 5);", combo)
+        self.assertIn("const int32 ChainStep = (FinisherSequenceCount - 1) % 5 + 1;", combo)
         self.assertIn("NativeFinisherStartedAt = Now;", combo)
         self.assertIn("NativeFinisherTarget = DefeatedLocation.ContainsNaN()", combo)
         self.assertIn("NativeFinisherOrigin = GetActorLocation();", combo)
