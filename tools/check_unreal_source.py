@@ -546,7 +546,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         damage = self.hero_cpp.split("void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount)", 1)[1].split(
             "void AMoonfallHeroPawn::CycleGraphicsQuality()", 1)[0]
         self.assertIn("Stamina >= RequiredGuardCost", damage)
-        self.assertIn("const float RequiredGuardCost = bPerfectParry ? GuardStaminaCost : HitGuardCost;", damage)
+        self.assertIn("const float RequiredGuardCost = bPerfectParry ? 0.f : HitGuardCost;", damage)
         self.assertIn("const bool bPerfectParry = bGuarding && Now <= ParryWindowEndsAt && Now <= NextParryAt;", damage)
         self.assertIn("float GuardImpactStaminaScale = 0.15f;", self.hero_h)
         self.assertIn("FMath::IsFinite(GuardImpactStaminaScale)", damage)
@@ -586,12 +586,31 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("GetCharacterMovement()->MaxWalkSpeed = NormalWalkSpeed;", end)
         self.assertNotIn('TEXT("GUARD BROKEN")', self.hud)
 
+    def test_perfect_parry_avoids_impact_stamina_cost(self):
+        damage = self.hero_cpp.split("void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount)", 1)[1].split(
+            "void AMoonfallHeroPawn::CycleGraphicsQuality()", 1)[0]
+        self.assertIn("const float RequiredGuardCost = bPerfectParry ? 0.f : HitGuardCost;", damage)
+        self.assertIn("Stamina = FMath::Clamp(Stamina - RequiredGuardCost, 0.f, MaxStamina);", damage)
+        self.assertIn("if (bPerfectParry) {", damage)
+        self.assertIn("Stamina + PerfectParryStaminaReward", damage)
+        self.assertIn("const float HitGuardCost =", damage)
+        self.assertIn("if (Stamina < GuardStaminaCost) BreakGuard();", damage)
+        tick = self.hero_cpp.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1].split(
+            "void AMoonfallHeroPawn::SetupPlayerInputComponent", 1)[0]
+        self.assertIn("Stamina - GuardDrain * StaminaDelta", tick)
+        self.assertNotIn('TEXT("GUARD BROKEN")', self.hud)
+
     def test_guard_fatigue_drains_stamina_and_breaks_safely(self):
         self.assertIn("float GuardStaminaDrainPerSecond = 6.f;", self.hero_h)
         tick = self.hero_cpp.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1].split(
             "void AMoonfallHeroPawn::SetupPlayerInputComponent", 1)[0]
         self.assertIn("bGuarding && !bOptionsOpen && Health > 0.f && GetWorld()", tick)
         self.assertIn("FMath::IsFinite(GuardStaminaDrainPerSecond)", tick)
+        self.assertIn("!FMath::IsFinite(Stamina) || !FMath::IsFinite(MaxStamina)", tick)
+        self.assertIn("|| MaxStamina <= 0.f || !FMath::IsFinite(GuardStaminaCost)", tick)
+        self.assertIn("GuardStaminaCost < 0.f)) {", tick)
+        self.assertLess(tick.index("GuardStaminaCost < 0.f)) {"), tick.index("Stamina - GuardDrain * StaminaDelta"))
+        self.assertIn("BreakGuard();", tick)
         self.assertIn("FMath::Clamp(GuardStaminaDrainPerSecond, 0.f, 30.f)", tick)
         self.assertIn("Stamina - GuardDrain * StaminaDelta", tick)
         self.assertIn("StaminaRegenStartsAt = FMath::Max(", tick)
