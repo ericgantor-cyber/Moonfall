@@ -232,6 +232,16 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
      const float DodgePressure = FMath::IsFinite(PerfectDodgePostureDamage)
        ? FMath::Clamp(PerfectDodgePostureDamage, 0.f, 100.f) : 0.f;
      if (DodgePressure > 0.f) ApplyPostureDamage(DodgePressure);
+     // Evading a committed strike interrupts the attacker's combo, creating
+     // a real opening without adding more immunity to the hero.
+     const float RecoverySeconds = FMath::IsFinite(PerfectDodgeRecoverySeconds)
+       ? FMath::Clamp(PerfectDodgeRecoverySeconds, 0.f, 2.f) : 0.f;
+     HitReactionEndsAt = FMath::Max(HitReactionEndsAt, Now + RecoverySeconds);
+     NextAttackAt = FMath::Max(NextAttackAt, HitReactionEndsAt + 0.35f);
+     bComboSecondHitPending = false;
+     bComboSecondHitActive = false;
+     BossWarningEndTime = -1.f;
+     CachedWaypoint = FVector::ZeroVector;
      OnPerfectDodged(DodgePressure);
     }
     const bool bParried = Hero->ApplyMoonfallDamageFrom(
@@ -254,7 +264,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
      bComboSecondHitActive = false;
      BossWarningEndTime = -1.f;
      CachedWaypoint = FVector::ZeroVector;
-    } else {
+    } else if (!bPerfectDodge) {
      OnEnemyAttack();
     }
    }
