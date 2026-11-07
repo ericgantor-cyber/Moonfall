@@ -63,3 +63,9 @@ The shared Unreal installed-build validator also rejects NTFS-reserved DOS devic
 The [Windows launcher build workflow](https://github.com/ericgantor-cyber/Moonfall/actions/workflows/unreal-launcher-windows.yml) runs on GitHub-hosted `windows-2022`, publishes the **real** `MoonfallLauncher.exe` with .NET 8 for `win-x64`, and checks the launcher process exit codes when game files are missing or when a **synthetic test-only** folder structure is supplied. It writes a SHA-256 digest and uploads a short-lived artifact explicitly named **`MoonfallLauncher-ONLY-NOT-THE-GAME`**. That artifact contains the compiled launcher, NOT any cooked Unreal game or installer. Synthetic game files used in CI are NOT included.
 
 [Verified successful build run](https://github.com/ericgantor-cyber/Moonfall/actions/runs/42316908003): Windows .NET compilation passed; both launcher's file-structure checks passed; binary and checksum artifact uploaded. No UE 5.4 C++ game compilation or Windows installer build occurred.
+
+## NSIS installer template compiled on Windows (2026-11-07 UTC)
+
+The [Moonfall Windows launcher workflow](https://github.com/ericgantor-cyber/Moonfall/actions/workflows/unreal-launcher-windows.yml) now additionally compiles the real NSIS installer **script** on GitHub-hosted Windows against a **synthetic test-only** game structure and the successfully compiled launcher. Its test installer is deleted immediately and is **never distributed**. The published artifact contains only the stand-alone launcher executable and SHA-256 hash.
+
+[Verified passing Windows job](https://github.com/ericgantor-cyber/Moonfall/actions/runs/42317142396): launcher compiled, missing-game check passed, synthetic layout check passed, NSIS template compiled, and launcher-only artifact uploaded. This does not verify an Unreal game, real installer contents, installation/uninstallation, or gameplay.
