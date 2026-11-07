@@ -459,7 +459,8 @@ class UnrealMigrationParityGate(unittest.TestCase):
         dodge = cpp[cpp.index("void AMoonfallPawn::Dodge()"):
                     cpp.index("int32 AMoonfallPawn::GuardianBlessingCount()")]
         self.assertIn("FVector2D(Forward, Right).SizeSquared() > 0.01f", dodge)
-        self.assertIn("DodgeDirection = FVector(Forward, Right, 0.f).GetClampedToMaxSize(1.f);", dodge)
+        self.assertIn("DodgeDirection = FVector(Forward, Right, 0.f).GetSafeNormal();", dodge)
+        self.assertNotIn("DodgeDirection = FVector(Forward, Right, 0.f).GetClampedToMaxSize(1.f);", dodge)
         self.assertLess(dodge.index("DodgeDirection ="), dodge.index("DodgeTimer = 0.32f;"))
         tick = cpp[cpp.index("void AMoonfallPawn::Tick(float DeltaSeconds)"):]
         self.assertIn("const bool bDodgeActiveThisFrame = DodgeTimer > 0.f;", tick)
