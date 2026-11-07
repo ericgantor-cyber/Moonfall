@@ -272,7 +272,7 @@ class UnrealMigrationParityGate(unittest.TestCase):
         self.assertIn("DeadZone=0.24", inputs)
         self.assertIn("Click or press gamepad A to respawn", hud)
         self.assertIn("const FVector2D Reticle =", hud)
-        self.assertIn("Pad: right stick pan, A set center pin, B close", hud)
+        self.assertIn("Pad: right stick pan, A center pin, B close", hud)
 
     def test_timed_parry_has_cost_cooldown_and_one_hit_consumption(self):
         base = ROOT / "engine-comparison/unreal/MoonfallPrototype"
