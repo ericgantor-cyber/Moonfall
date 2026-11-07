@@ -69,6 +69,17 @@ class PackageContract(unittest.TestCase):
                         workflow.index("Upload packaged game only after cook succeeds"))
         self.assertIn("if (@($data.files).Count -eq 0)", workflow)
 
+    def test_run_isolated_windows_archive(self):
+        workflow = WORKFLOW.read_text(encoding="utf-8")
+        self.assertIn("MOONFALL_PACKAGE_DIR: ${{ runner.temp }}/MoonfallUE56Package/${{ github.run_id }}-${{ github.run_attempt }}", workflow)
+        self.assertIn("-OutputDirectory $env:MOONFALL_PACKAGE_DIR", workflow)
+        self.assertEqual(workflow.count("$root = $env:MOONFALL_PACKAGE_DIR"), 2)
+        self.assertIn("path: ${{ env.MOONFALL_PACKAGE_DIR }}/", workflow)
+        self.assertIn("${{ env.MOONFALL_PACKAGE_DIR }}/SmokeDiagnostics/", workflow)
+        self.assertNotIn("Saved/WindowsPackage/", workflow)
+        script = SCRIPT.read_text(encoding="utf-8")
+        self.assertIn("if ($OldEntries.Count -gt 0)", script)
+
     def test_headless_boot_smoke_gates_windows_artifact_upload(self):
         workflow = WORKFLOW.read_text(encoding="utf-8")
         smoke = (ROOT / "engine-comparison/unreal/MoonfallPrototype/Build/SmokeTest-Windows.ps1").read_text(encoding="utf-8")
