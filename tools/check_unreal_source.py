@@ -373,6 +373,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("return true;", reward)
         self.assertLess(reward.index("PerfectDodgeWindowUntil = -1.f;"), reward.index("return true;"))
         self.assertIn("float PerfectDodgePostureDamage = 18.f;", self.enemy_h)
+        self.assertIn("float PerfectDodgeRecoverySeconds = 0.5f;", self.enemy_h)
         self.assertIn("void OnPerfectDodged(float PosturePressure);", self.enemy_h)
         strike = self.enemy_cpp.split("if (!bBlocked) {", 1)[1].split(
             "const bool bParried =", 1)[0]
@@ -381,6 +382,18 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("FMath::Clamp(PerfectDodgePostureDamage, 0.f, 100.f)", strike)
         self.assertIn("ApplyPostureDamage(DodgePressure);", strike)
         self.assertIn("OnPerfectDodged(DodgePressure);", strike)
+        self.assertIn("FMath::IsFinite(PerfectDodgeRecoverySeconds)", strike)
+        self.assertIn("FMath::Clamp(PerfectDodgeRecoverySeconds, 0.f, 2.f)", strike)
+        self.assertIn("HitReactionEndsAt = FMath::Max(HitReactionEndsAt, Now + RecoverySeconds);", strike)
+        self.assertIn("NextAttackAt = FMath::Max(NextAttackAt, HitReactionEndsAt + 0.35f);", strike)
+        self.assertIn("bComboSecondHitPending = false;", strike)
+        self.assertIn("bComboSecondHitActive = false;", strike)
+        self.assertIn("BossWarningEndTime = -1.f;", strike)
+        self.assertLess(strike.index("const bool bPerfectDodge = Hero->TryRewardPerfectDodge();"),
+                        strike.index("HitReactionEndsAt = FMath::Max(HitReactionEndsAt, Now + RecoverySeconds);"))
+        self.assertLess(strike.index("HitReactionEndsAt = FMath::Max(HitReactionEndsAt, Now + RecoverySeconds);"),
+                        strike.index("OnPerfectDodged(DodgePressure);"))
+        self.assertIn("} else if (!bPerfectDodge) {", self.enemy_cpp)
         self.assertNotIn('TEXT("GUARD BROKEN")', self.hud)
 
     def test_posture_shatter_finisher_boss_recovery_and_compact_hud(self):
