@@ -43,6 +43,9 @@ public:
     bool IsMapPositionDiscovered(const FVector& Position) const;
     int32 GetDiscoveredRegionCount() const;
     bool IsWorldMapOpen() const { return bWorldMapOpen; }
+    float GetWorldMapZoom() const { return WorldMapZoom; }
+    void GetWorldMapLayout(float Width, float Height, float& OutCell, FVector2D& OutOrigin,
+        FVector2D& OutClipMin, FVector2D& OutClipMax) const;
     bool GetWaypoint(FVector& OutWaypoint) const;
     bool GetQuestDestination(FVector& OutDestination) const;
     TArray<FVector> GetEnemyMapPositions() const;
@@ -84,6 +87,10 @@ private:
     TArray<uint8> DiscoveredMapCells; // 48 x 16 cells (400 cm), saved independently.
     bool bHasWaypoint = false;
     bool bWorldMapOpen = false;
+    float WorldMapZoom = 1.f;
+    FVector2D WorldMapPanCells = FVector2D::ZeroVector;
+    float MapPanHorizontalInput = 0.f;
+    float MapPanVerticalInput = 0.f;
     FVector Waypoint = FVector::ZeroVector;
     float EnemyDamageCooldown = 0.f;
     float CounterWindow = 0.f;
@@ -114,6 +121,8 @@ private:
     bool bCasting = false, bWon = false;
     FVector TargetWorld = FVector::ZeroVector;
     void ToggleWorldMap();
+    void PanMapHorizontal(float Value);
+    void PanMapVertical(float Value);
     void PlaceMapWaypoint();
     void SetWaypoint();
     void ClearWaypoint();
