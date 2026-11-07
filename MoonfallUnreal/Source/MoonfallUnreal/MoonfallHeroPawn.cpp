@@ -181,13 +181,26 @@ void AMoonfallHeroPawn::RewardPerfectDodge() {
  Mana = FMath::Min(MaxMana, Mana + 8.f);
 }
 
+void AMoonfallHeroPawn::ApplyMoonfallDamageFrom(float Amount, const FVector& SourceLocation) {
+ IncomingDamageSource = SourceLocation;
+ bHasIncomingDamageSource = true;
+ ApplyMoonfallDamage(Amount);
+ bHasIncomingDamageSource = false;
+}
+
 void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
  if (Health <= 0.f || !FMath::IsFinite(Amount) || Amount <= 0.f || !GetWorld() || GetWorld()->GetTimeSeconds() < DamageImmunityUntil) return;
  const float Now = GetWorld()->GetTimeSeconds();
  const float PreviousHealth = Health;
  const float ArmoredDamage = Amount * (1.f - FMath::Min(0.28f, ArmorTier * 0.01f));
  float DamageAfterGuard = ArmoredDamage;
- if (bGuarding && !bOptionsOpen && Mana >= 4.f) {
+ // Enemy attacks must come from the front 150-degree guard cone.
+ // Older environment damage with no provided origin retains its guard behavior.
+ const FVector GuardForward = GetControlRotation().Vector().GetSafeNormal2D();
+ const FVector ToSource = (IncomingDamageSource - GetActorLocation()).GetSafeNormal2D();
+ const bool bFrontAttack = !bHasIncomingDamageSource || ToSource.IsNearlyZero()
+  || FVector::DotProduct(GuardForward, ToSource) >= 0.258819f;
+ if (bGuarding && bFrontAttack && !bOptionsOpen && Mana >= 4.f) {
   Mana -= 4.f;
   const bool bPerfectParry = Now <= ParryWindowEndsAt && Now <= NextParryAt;
   if (bPerfectParry) {
