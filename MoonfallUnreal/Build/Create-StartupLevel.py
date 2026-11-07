@@ -70,10 +70,14 @@ def create_moonfall_start():
     backup_path = config_path.with_suffix(".ini.before-moonfall-startup")
     if new_config != original_config:
         if backup_path.exists():
-            raise RuntimeError(
-                "Startup level exists, but config backup already exists: " +
-                str(backup_path) + ". Check it before changing configuration.")
-        backup_path.write_text(original_config, encoding="utf-8")
+            # An interrupted previous attempt may have written the backup but
+            # not the new config. Resume only if the backup matches exactly.
+            if backup_path.read_text(encoding="utf-8") != original_config:
+                raise RuntimeError(
+                    "Existing config backup differs from current settings: " +
+                    str(backup_path) + ". Review it before changing configuration.")
+        else:
+            backup_path.write_text(original_config, encoding="utf-8")
         config_path.write_text(new_config, encoding="utf-8", newline="")
 
     unreal.log("Verified " + MAP + " and configured game/editor startup maps. "
