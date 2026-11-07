@@ -167,10 +167,10 @@ class UnrealMigrationParityGate(unittest.TestCase):
         self.assertIn("void CloseWorldMap();", header)
         self.assertIn('Input->BindAction(TEXT("CloseWorldMap"), IE_Pressed, this, &AMoonfallPawn::CloseWorldMap);', pawn)
         close_start = pawn.index("void AMoonfallPawn::CloseWorldMap()")
-        close_body = pawn[close_start:pawn.index("\\n}", close_start) + 2]
+        close_body = pawn[close_start:pawn.index("\n}", close_start) + 2]
         self.assertIn("if (bWorldMapOpen) ToggleWorldMap();", close_body)
         toggle_start = pawn.index("void AMoonfallPawn::ToggleWorldMap()")
-        toggle_body = pawn[toggle_start:pawn.index("\\n}", toggle_start) + 2]
+        toggle_body = pawn[toggle_start:pawn.index("\n}", toggle_start) + 2]
         self.assertIn("MapPanHorizontalInput = 0.f;", toggle_body)
         self.assertIn("MapPanVerticalInput = 0.f;", toggle_body)
         self.assertIn("Forward = 0.f;", toggle_body)
