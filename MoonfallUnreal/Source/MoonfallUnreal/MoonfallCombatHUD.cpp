@@ -104,17 +104,28 @@ void AMoonfallCombatHUD::DrawHUD()
  // Nearest living boss, displayed without creating additional widget actors.
  const AMoonfallEnemy* Boss = nullptr;
  float BossDistanceSq = TNumericLimits<float>::Max();
+ // The nearest boss belongs to the combat health bar. Quest progression must
+ // follow the boss associated with the quest's original world target instead.
+ const AMoonfallEnemy* QuestBoss = nullptr;
+ float QuestBossDistanceSq = TNumericLimits<float>::Max();
  for (TActorIterator<AMoonfallEnemy> It(GetWorld()); It; ++It) {
   const AMoonfallEnemy* E = *It;
   if (!IsValid(E) || !E->bBoss || E->Health <= 0.f) continue;
   const float DistSq = FVector::DistSquared(E->GetActorLocation(), Hero->GetActorLocation());
   if (DistSq < BossDistanceSq) { Boss = E; BossDistanceSq = DistSq; }
+  if (Hero->bArenaBossQuestActive && Hero->bQuestTargetActive) {
+   const float QuestDistSq = FVector::DistSquared2D(E->GetActorLocation(), Hero->QuestTarget);
+   if (QuestDistSq < QuestBossDistanceSq) {
+    QuestBoss = E;
+    QuestBossDistanceSq = QuestDistSq;
+   }
+  }
  }
- // Compact quest tracker uses the live boss and explicit waypoint; no extra actor queries.
+ // Compact quest tracker tracks the quest's boss, not an unrelated nearby boss.
  if (Hero->bArenaBossQuestActive && Hero->bQuestTargetActive) {
   const float DistanceMetres = FVector::Dist2D(Hero->GetActorLocation(), Hero->QuestTarget) / 100.f;
-  const float Progress = IsValid(Boss)
-   ? 1.f - FMath::Clamp(Boss->Health / FMath::Max(1.f, Boss->BossMaxHealth), 0.f, 1.f) : 0.f;
+  const float Progress = IsValid(QuestBoss)
+   ? 1.f - FMath::Clamp(QuestBoss->Health / FMath::Max(1.f, QuestBoss->BossMaxHealth), 0.f, 1.f) : 0.f;
   const float TrackerWidth = FMath::Clamp(Canvas->SizeX * 0.22f, 180.f, 260.f);
   const float TrackerX = 22.f;
   const float TrackerY = 26.f;
