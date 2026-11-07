@@ -173,7 +173,7 @@ void AMoonfallHud::DrawHUD()
             Reticle + FVector2D(0.f, 10.f), 2.f, FLinearColor(.3f, 1.f, .8f));
         DrawText(FString::Printf(TEXT("MOONFALL WORLD MAP (combat paused)  |  M / Esc close  |  Wheel zoom %.1fx  |  Arrows pan"), Hero->GetWorldMapZoom()),
             FLinearColor::White, ClipMin.X, ClipMin.Y - 55.f);
-        DrawText(TEXT("Mouse: click explored tile | Pad: right stick pan, A set center pin, B close, D-pad up/down zoom"),
+        DrawText(TEXT("Click explored terrain to set pin | Pad: right stick pan, A center pin, B close, D-pad zoom"),
             FLinearColor(.85f, .85f, .85f), ClipMin.X, ClipMax.Y + 18.f);
         DrawText(TEXT("Green chamber  Yellow beast  Red boss  Gold quest  Blue pin"),
             FLinearColor(.85f, .85f, .85f), ClipMin.X, ClipMax.Y + 40.f);
