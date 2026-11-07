@@ -30,13 +30,18 @@ void AMoonfallEnemy::BeginPlay() {
  AttackDamage = FMath::Max(1.f, AttackDamage * DamageScale);
  MaxHealthAtSpawn = FMath::Max(1.f, Health);
  BossMaxHealth = bBoss ? MaxHealthAtSpawn : 0.f;
+ // Bosses and elites require sustained pressure rather than a fixed three-parry break.
+ const float PostureMultiplier = bBoss ? 1.8f : (bElite ? 1.25f : 1.f);
+ MaxPosture = FMath::IsFinite(MaxPosture) && MaxPosture > 0.f
+   ? FMath::Clamp(MaxPosture * PostureMultiplier, 1.f, 10000.f) : 100.f * PostureMultiplier;
+ Posture = 0.f;
 }
 
 void AMoonfallEnemy::ApplyPostureDamage(float Amount) {
  if (Health <= 0.f || !GetWorld() || !FMath::IsFinite(Amount) || Amount <= 0.f
      || !FMath::IsFinite(MaxPosture) || MaxPosture <= 0.f) return;
  const float Now = GetWorld()->GetTimeSeconds();
- if (Now < PostureBrokenUntil) return;
+ if (Now < PostureBrokenUntil || Now < NextPostureBreakAllowedAt) return;
  if (!FMath::IsFinite(Posture)) Posture = 0.f;
  Posture = FMath::Clamp(Posture + Amount, 0.f, MaxPosture);
  PostureRecoveryStartsAt = Now + 3.f;
@@ -46,6 +51,11 @@ void AMoonfallEnemy::ApplyPostureDamage(float Amount) {
  Posture = 0.f;
  const float VulnerabilitySeconds = bBoss ? 1.5f : (bElite ? 2.f : 2.5f);
  PostureBrokenUntil = Now + VulnerabilitySeconds;
+ bPostureFinisherAvailable = true;
+ // Bosses cannot be immediately chained into another posture break after recovery.
+ if (bBoss && FMath::IsFinite(BossPostureBreakRecoverySeconds))
+  NextPostureBreakAllowedAt = PostureBrokenUntil
+    + FMath::Clamp(BossPostureBreakRecoverySeconds, 0.f, 6.f);
  HitReactionEndsAt = FMath::Max(HitReactionEndsAt, PostureBrokenUntil);
  WindupEndsAt = -1.f;
  BossWarningEndTime = -1.f;
@@ -69,8 +79,12 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
   const bool bPostureExposed = Now < PostureBrokenUntil;
   const float ExposureMultiplier = FMath::IsFinite(BrokenPostureDamageMultiplier)
     ? FMath::Clamp(BrokenPostureDamageMultiplier, 1.f, 3.f) : 1.f;
+  const bool bShatterFinisher = bPostureExposed && bPostureFinisherAvailable;
+  const float FinisherMultiplier = bShatterFinisher && FMath::IsFinite(PostureFinisherDamageMultiplier)
+    ? FMath::Clamp(PostureFinisherDamageMultiplier, 1.f, 4.f) : 1.f;
   const float EffectiveDamage = (bElite && Now < HitReactionEndsAt ? Amount * 0.75f : Amount)
-    * (bPostureExposed ? ExposureMultiplier : 1.f);
+    * (bShatterFinisher ? FinisherMultiplier : (bPostureExposed ? ExposureMultiplier : 1.f));
+  if (bShatterFinisher) bPostureFinisherAvailable = false;
   const float HealthBeforeHit = Health;
   Health = FMath::Max(0.0f, Health - FMath::Max(0.0f, EffectiveDamage));
   const float ActualDamage = HealthBeforeHit - Health;
