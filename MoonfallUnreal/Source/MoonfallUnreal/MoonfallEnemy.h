@@ -24,6 +24,18 @@ public:
  UFUNCTION(BlueprintImplementableEvent, Category="Combat") void OnEnemyAttack();
  // Animation/VFX hook: fires once per successful perfect parry, not every tick.
  UFUNCTION(BlueprintImplementableEvent, Category="Combat") void OnPerfectParried(float StaggerSeconds);
+ // Enemy posture is independent of health. Pressure from parries and spells
+ // opens a brief vulnerability window when the meter fills.
+ UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat|Posture", meta=(ClampMin="1.0")) float MaxPosture = 100.f;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Combat|Posture") float Posture = 0.f;
+ UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat|Posture", meta=(ClampMin="0.0")) float ParryPostureDamage = 40.f;
+ UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat|Posture", meta=(ClampMin="0.0")) float SpellPostureScale = 0.3f;
+ UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat|Posture", meta=(ClampMin="0.0")) float PostureRecoveryPerSecond = 9.f;
+ UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat|Posture", meta=(ClampMin="1.0", ClampMax="3.0")) float BrokenPostureDamageMultiplier = 1.35f;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Combat|Posture") float PostureBrokenUntil = -1.f;
+ UFUNCTION(BlueprintImplementableEvent, Category="Combat|Posture") void OnPostureBroken(float VulnerabilitySeconds);
+ UFUNCTION(BlueprintImplementableEvent, Category="Combat|Posture") void OnPostureChanged(float CurrentPosture, float MaximumPosture);
+ UFUNCTION(BlueprintCallable, Category="Combat|Posture") void ApplyPostureDamage(float Amount);
  UFUNCTION(BlueprintImplementableEvent, Category="Boss") void OnBossPhaseChanged(int32 NewPhase);
 private:
  float MaxHealthAtSpawn = 0.f;
@@ -36,6 +48,7 @@ private:
  FVector LockedAttackDirection = FVector::ZeroVector;
  float WindupEndsAt = -1.f;
  float HitReactionEndsAt = -1.f;
+ float PostureRecoveryStartsAt = 0.f;
  int32 AttackSequence = 0;
  bool bComboSecondHitPending = false;
  bool bComboSecondHitActive = false;
