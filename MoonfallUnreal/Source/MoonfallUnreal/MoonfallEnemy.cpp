@@ -153,7 +153,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
        && SightHit.GetActor() != Hero;
    if (!bBlocked) {
     if (bBoss) Hero->RewardPerfectDodge();
-    Hero->ApplyMoonfallDamage(AttackDamage * FMath::Min(2.3f, CurrentAttackMultiplier));
+    Hero->ApplyMoonfallDamageFrom(AttackDamage * FMath::Min(2.3f, CurrentAttackMultiplier), GetActorLocation());
     OnEnemyAttack();
    }
   }
