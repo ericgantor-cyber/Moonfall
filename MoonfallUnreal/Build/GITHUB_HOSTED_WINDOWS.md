@@ -79,3 +79,9 @@ This validates a basic install/uninstall path for the current NSIS script on the
 ## Verified Windows desktop shortcut and uninstall registration testing (2026-11-07 UTC)
 
 The [GitHub-hosted Windows launcher and installer smoke test](https://github.com/ericgantor-cyber/Moonfall/actions/runs/42317794013) passed after adding checks for both **Desktop** and **Start Menu** shortcuts and their targets, Windows current-user uninstall registration and installation location, the installed launcher's `--check-install` response, and removal of shortcuts and the uninstall registry entry on uninstallation. The workflow refuses to run the test if preexisting Moonfall shortcuts or uninstall registration would be overwritten. The installer contains synthetic test-only game files and is deleted rather than published; the downloadable artifact is only the real launcher and its checksum. The full Unreal C++ game remains uncompiled.
+
+## Fail-fast installer content validation (2026-11-07 UTC)
+
+The NSIS installer now uses supported compile-time `!if /FileExists` checks to reject an incomplete source package before producing an installer. Four Windows negative tests verify that removing any of the following causes NSIS compilation to fail: `MoonfallUnreal.exe`, `MoonfallLauncher.exe`, `Engine/`, or `MoonfallUnreal/`. The successful test build still checks the desktop/Start Menu shortcuts, uninstall registration, installed launcher's `--check-install`, and removal of the synthetic test installation.
+
+[Verified Windows workflow run](https://github.com/ericgantor-cyber/Moonfall/actions/runs/42318297485) passed, and [NSIS installer script verification](https://github.com/ericgantor-cyber/Moonfall/actions/runs/42318120407) passed. The distributed artifact remains the **launcher only**, and the tests do not establish that a real Unreal game has compiled.
