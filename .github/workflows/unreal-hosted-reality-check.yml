@@ -116,9 +116,10 @@ jobs:
           }
           # The checkout legitimately uses path: ue-source; only artifact
           # upload blocks referencing that path are prohibited.
-          $uploadBlocks = [regex]::Matches($sourceWorkflow, '(?ms)^      - name: .*?upload.*?\r?\n(?:        .*\r?\n|          .*\r?\n)*')
-          foreach ($block in $uploadBlocks) {
-            if ($block.Value -match '(?m)^\s+path:\s*ue-source(?:/|\s|$)') {
+          $uploadAt = $sourceWorkflow.IndexOf('uses: actions/upload-artifact@v4')
+          if ($uploadAt -ge 0) {
+            $uploadConfig = $sourceWorkflow.Substring($uploadAt)
+            if ($uploadConfig -match '(?m)^\s+path:\s*ue-source(?:/|\s|$)') {
               throw 'Never upload privately licensed Epic engine source.'
             }
           }
