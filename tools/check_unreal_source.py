@@ -76,6 +76,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("foreach ($mapKey in @('GameDefaultMap', 'EditorStartupMap'))", script)
         self.assertIn("GlobalDefaultGameMode", script)
         self.assertIn("Get-Item -LiteralPath $startupMap", script)
+        self.assertIn('"-map=/Game/Maps/MoonfallStart"', script)
+        self.assertIn("BuildCookRun", script)
         self.assertIn("$matchingEntries.Count -ne 1", script)
         self.assertIn("$mapSectionMatches.Count -ne 1", script)
         self.assertIn("if ($PreflightOnly)", script)
