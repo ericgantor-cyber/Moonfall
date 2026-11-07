@@ -63,6 +63,15 @@ void AMoonfallHeroPawn::BeginPlay() {
 void AMoonfallHeroPawn::Tick(float DeltaSeconds)
 {
  Super::Tick(DeltaSeconds);
+ // Bosses can move far from their spawn: keep map and quest markers on the
+ // actual target while it is alive. Invalid/destroyed actors are never dereferenced.
+ if (AMoonfallEnemy* QuestBoss = GetArenaBossQuestTarget()) {
+  const FVector CurrentLocation = QuestBoss->GetActorLocation();
+  if (!CurrentLocation.ContainsNaN() && CurrentLocation.GetAbsMax() <= 100000000.f) {
+   QuestTarget = CurrentLocation;
+   bQuestTargetActive = true;
+  }
+ }
  // Bounded camera impulse, no camera shake object or spawned effects.
  ImpactCameraOffset = FMath::FInterpTo(ImpactCameraOffset, 0.f, FMath::Max(0.f, DeltaSeconds), 12.f);
  if (CameraBoom)
@@ -172,18 +181,30 @@ void AMoonfallHeroPawn::ClearQuestTarget()
 {
  bQuestTargetActive = false;
 }
-void AMoonfallHeroPawn::BeginArenaBossQuest(FVector BossLocation)
+void AMoonfallHeroPawn::BeginArenaBossQuest(AMoonfallEnemy* Boss)
 {
  if (bArenaBossQuestComplete || bArenaBossQuestActive || bQuestTargetActive ||
-     BossLocation.ContainsNaN() || BossLocation.GetAbsMax() > 100000000.f) return;
- SetQuestTarget(BossLocation);
+     !IsValid(Boss) || !Boss->bBoss || Boss->Health <= 0.f) return;
+ const FVector Location = Boss->GetActorLocation();
+ if (Location.ContainsNaN() || Location.GetAbsMax() > 100000000.f) return;
+ ActiveArenaBoss = Boss;
+ SetQuestTarget(Location);
  bArenaBossQuestActive = true;
 }
-void AMoonfallHeroPawn::CompleteArenaBossQuest()
+AMoonfallEnemy* AMoonfallHeroPawn::GetArenaBossQuestTarget() const
 {
- if (!bArenaBossQuestActive || bArenaBossQuestComplete) return;
+ AMoonfallEnemy* Boss = ActiveArenaBoss.Get();
+ return bArenaBossQuestActive && IsValid(Boss) && Boss->bBoss && Boss->Health > 0.f
+  ? Boss : nullptr;
+}
+void AMoonfallHeroPawn::CompleteArenaBossQuest(AMoonfallEnemy* DefeatedBoss)
+{
+ // Another boss, including one created by later dungeons, must never finish this quest.
+ if (!bArenaBossQuestActive || bArenaBossQuestComplete ||
+     !IsValid(DefeatedBoss) || ActiveArenaBoss.Get() != DefeatedBoss) return;
  bArenaBossQuestActive = false;
  bArenaBossQuestComplete = true;
+ ActiveArenaBoss.Reset();
  ArenaBossQuestCompletedAt = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f;
  ClearQuestTarget();
 }
