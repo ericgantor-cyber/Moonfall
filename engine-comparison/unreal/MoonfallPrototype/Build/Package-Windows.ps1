@@ -37,6 +37,15 @@ if ([string]::IsNullOrWhiteSpace($OutputDirectory)) {
 New-Item -ItemType Directory -Force -Path $OutputDirectory | Out-Null
 $OutputDirectory = (Resolve-Path -LiteralPath $OutputDirectory).Path
 $MapLongName = "/Game/Maps/$MapName"
+$EngineConfigPath = Join-Path $ProjectRoot 'Config\DefaultEngine.ini'
+if (-not (Test-Path -LiteralPath $EngineConfigPath -PathType Leaf)) {
+    throw 'Config/DefaultEngine.ini is missing.'
+}
+$EngineConfig = Get-Content -LiteralPath $EngineConfigPath -Raw
+$StartMapLine = "GameDefaultMap=$MapLongName"
+if (-not (($EngineConfig -split "\r?\n") -contains $StartMapLine)) {
+    throw "Set $StartMapLine in DefaultEngine.ini before packaging. A build without a startup level is not playable."
+}
 
 $Arguments = @(
     'BuildCookRun',
