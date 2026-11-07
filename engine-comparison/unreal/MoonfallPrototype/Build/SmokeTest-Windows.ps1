@@ -72,6 +72,9 @@ try {
     if ($Log -notmatch '(?i)(/Game/Maps/MoonfallWorld|MoonfallWorld)') {
         throw 'Boot log does not confirm the MoonfallWorld startup map.'
     }
+    if ($Log -notmatch 'MOONFALL_BOOT_READY pawn=MoonfallPawn regions=6 chambers=30') {
+        throw 'The Moonfall gameplay pawn did not confirm continuous-world initialization.'
+    }
     if ($Log -match '(?i)(Fatal error:|Unhandled Exception:|Assertion failed:|LogWindows: Error:)') {
         throw 'Unreal boot log reported a fatal error.'
     }

@@ -93,6 +93,12 @@ class PackageContract(unittest.TestCase):
         ):
             self.assertIn(guard.lower(), smoke.lower())
         self.assertIn("BootSeconds must be between 10 and 120 seconds", smoke)
+        pawn = (ROOT / "engine-comparison/unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallPawn.cpp").read_text(encoding="utf-8")
+        ready = "MOONFALL_BOOT_READY pawn=MoonfallPawn regions=%d chambers=%d"
+        self.assertIn(ready, pawn)
+        self.assertIn("MoonfallWorldRules::RegionCount, MoonfallWorldRules::TotalChambers", pawn)
+        self.assertIn("MOONFALL_BOOT_READY pawn=MoonfallPawn regions=6 chambers=30", smoke)
+        self.assertIn("gameplay pawn did not confirm", smoke)
 
     def test_project_configures_generated_startup_map(self):
         ini = (ROOT / "engine-comparison/unreal/MoonfallPrototype/Config/DefaultEngine.ini").read_text(encoding="utf-8")

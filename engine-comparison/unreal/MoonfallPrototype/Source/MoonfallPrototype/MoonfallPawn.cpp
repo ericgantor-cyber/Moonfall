@@ -150,6 +150,14 @@ void AMoonfallPawn::BeginPlay()
     DiscoveredRegionMask |= 1 << MoonfallWorldRules::RegionAt(HeroMesh->GetRelativeLocation().X);
     RevealNearbyMapCells(HeroMesh->GetRelativeLocation());
     BuildWorld();
+    // Runtime boot marker for the trusted Windows smoke test. A map name in the
+    // engine log alone does not prove the pawn or its continuous world started.
+    if (GetWorld() && HeroMesh && FloorMesh && Camera && Health > 0.f)
+    {
+        UE_LOG(LogTemp, Display,
+            TEXT("MOONFALL_BOOT_READY pawn=MoonfallPawn regions=%d chambers=%d"),
+            MoonfallWorldRules::RegionCount, MoonfallWorldRules::TotalChambers);
+    }
     // Z is the main god/boss; never assign original character art to HeroMesh.
     BossPortrait->SetSprite(ZArtwork);
     BossPortrait->SetHiddenInGame(ZArtwork == nullptr);
