@@ -99,3 +99,14 @@ The manually triggered [hosted Unreal workflow](https://github.com/ericgantor-cy
 The optional packaging job checks that the real `MoonfallUnreal.exe` exists exactly once, the packaged `Engine/` runtime exists, and the `MoonfallUnreal/` game-content directory is not empty. Only after the complete job passes will GitHub upload `MoonfallUnreal-REAL-Game-Windows-Development-UNTESTED`. It is a **development test artifact, not a verified playable game or release installer**. No artificial or synthetic files are added to the uploaded game. The existing `attempt_compile` option still supports compilation without packaging, and both toggles default to false to avoid unexpectedly downloading UE or using build minutes.
 
 **Prerequisites are still unresolved until the repository owner supplies a licensed UE 5.4 installed build.** The automated Windows source/safety tests check the workflow's configuration; they cannot claim game compilation without the engine. Completing a real game package also does not validate gameplay or a finished NSIS installation.
+
+## Select the actual Unreal gameplay source, including draft PR #690
+
+The [hosted Unreal compiler workflow](https://github.com/ericgantor-cyber/Moonfall/actions/workflows/unreal-hosted-windows.yml) now has a `source_snapshot` choice for manual runs:
+
+- `main` (default): compile the exact commit that triggered the workflow.
+- `pr690-pinned`: compile the **specific pinned commit** `965ee5c40b940d4083dfc5440343ca8a7fc55df9` from open PR #690. It does not follow newer branch changes automatically.
+
+The compile runner checks out **trusted build-validation scripts from the workflow commit** into `build-tools/` and checks out the selected gameplay snapshot separately into `game-source/`. It verifies the exact game commit and required Unreal project files before downloading an authorized engine archive, executes validator scripts from `build-tools/`, and uses the selected game's own `Build-Windows.ps1` and `MoonfallUnreal.uproject` for real compiler/cooker steps. This fixes the previous failure mode where running a workflow on `main` would unintentionally compile only the `main` version instead of the intended draft PR game.
+
+The pinned PR snapshot is selected **only by deliberate manual opt-in**. Its source should be reviewed before running it with the engine archive secret URL. A later PR head requires an intentional update to the pinned commit in the workflow. [Verified no-secrets Windows checkout run](https://github.com/ericgantor-cyber/Moonfall/actions/runs/42319170999) confirmed that the pinned PR commit resolves and includes the expected Unreal project/target/build script, with archive and version tests passing. **No authorized UE archive was supplied and no actual Unreal compilation was run in this checkout test.**
