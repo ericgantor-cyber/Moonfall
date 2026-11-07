@@ -31,7 +31,7 @@ jobs:
           if (-not ($sdks | Where-Object { $_ -match '^8\.' })) { throw 'Install .NET 8 SDK for the launcher.' }
           $nsis = Get-Command makensis.exe -ErrorAction SilentlyContinue
           if (-not $nsis) { throw 'Missing NSIS 3 makensis.exe on PATH.' }
-          Write-Host 'Prerequisites passed: Unreal engine and startup map, VS C++ tools, game targets, .NET 8 SDK and NSIS.'
+          Write-Host 'Prerequisites passed: Unreal engine, VS C++ tools, game targets, .NET 8 SDK and NSIS. Startup map is validated after generation.'
       - name: Compile Unreal Editor Win64 Development
         shell: pwsh
         run: |
@@ -49,12 +49,10 @@ jobs:
           $project = (Resolve-Path 'MoonfallUnreal\MoonfallUnreal.uproject').Path
           $script = (Resolve-Path 'MoonfallUnreal\Build\Create-StartupLevel.py').Path
           $map = 'MoonfallUnreal\Content\Maps\MoonfallStart.umap'
-          if (-not (Test-Path -LiteralPath $map -PathType Leaf)) {
-            # Full editor script mode provides the level-editor subsystems needed
-            # by Create-StartupLevel.py. This creates only a minimal starter map.
-            & $editor $project "-ExecutePythonScript=$script" -unattended -nop4
-            if ($LASTEXITCODE -ne 0) { throw "Unreal level generator exited $LASTEXITCODE" }
-          }
+          # Always run the generator. It preserves an existing map and safely
+          # resumes the config step if an earlier build stopped after map save.
+          & $editor $project "-ExecutePythonScript=$script" -unattended -nop4
+          if ($LASTEXITCODE -ne 0) { throw "Unreal level generator exited $LASTEXITCODE" }
           if (-not (Test-Path -LiteralPath $map -PathType Leaf)) {
             throw 'Unreal Editor did not save MoonfallStart.umap. Inspect editor logs; no installer will be published.'
           }
