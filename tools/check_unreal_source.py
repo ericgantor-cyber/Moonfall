@@ -33,7 +33,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("InventoryItemCodes.Num() >= 30", self.hero_cpp)
 
     def test_damage_hud_uses_current_max_health(self):
-        start = self.hero_cpp.index("void AMoonfallHeroPawn::ApplyMoonfallDamage")
+        start = self.hero_cpp.index("void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {")
         end = self.hero_cpp.index("void AMoonfallHeroPawn::", start + 5)
         damage_code = self.hero_cpp[start:end]
         self.assertIn("OnHealthChanged(Health, MaxHealth)", damage_code)
