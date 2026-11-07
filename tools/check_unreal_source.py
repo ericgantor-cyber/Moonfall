@@ -117,6 +117,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('void AMoonfallHeroPawn::BeginGuard()', self.hero_cpp)
         self.assertIn('void AMoonfallHeroPawn::EndGuard()', self.hero_cpp)
         self.assertIn("NextParryAt = Now + 0.8f", self.hero_cpp)
+        self.assertIn("Mana < 4.f || bGuarding) return;", self.hero_cpp)
+        self.assertIn("if (Health <= 0.f) EndGuard();", self.hero_cpp)
         self.assertIn("ParryWindowEndsAt = -1.f", self.hero_cpp)
         self.assertIn("DamageAfterGuard *= 0.4f", self.hero_cpp)
         self.assertIn("Mana -= 4.f", self.hero_cpp)
