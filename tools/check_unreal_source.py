@@ -141,6 +141,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('BindAction(TEXT("Sprint"), IE_Pressed', self.hero_cpp)
         self.assertIn('BindAction(TEXT("Sprint"), IE_Released', self.hero_cpp)
         self.assertIn("void AMoonfallHeroPawn::BeginSprint()", self.hero_cpp)
+        self.assertIn("void AMoonfallHeroPawn::BeginSprint() { bSprintHeld = true; bSprintExhausted = false; }", self.hero_cpp)
         self.assertIn("void AMoonfallHeroPawn::EndSprint()", self.hero_cpp)
         self.assertIn("float SprintStaminaDrainPerSecond = 18.f;", self.hero_h)
         self.assertIn("float SprintSpeedMultiplier = 1.45f;", self.hero_h)
