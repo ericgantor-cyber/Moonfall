@@ -82,6 +82,12 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
    GetCharacterMovement()->MaxWalkSpeed = FMath::FInterpTo(
        FMath::Clamp(GetCharacterMovement()->MaxWalkSpeed, NormalWalkSpeed, TargetSpeed),
        TargetSpeed, StaminaDelta, FMath::Clamp(SprintAccelerationRate, 1.f, 20.f));
+  } else if (bGuarding && !bOptionsOpen && Health > 0.f) {
+   // Guarding is deliberate, not a full-speed retreat. Invalid tuning uses
+   // normal speed instead of passing nonfinite values to CharacterMovement.
+   const float GuardMultiplier = FMath::IsFinite(GuardMoveSpeedMultiplier)
+       ? FMath::Clamp(GuardMoveSpeedMultiplier, 0.2f, 1.f) : 1.f;
+   GetCharacterMovement()->MaxWalkSpeed = NormalWalkSpeed * GuardMultiplier;
   } else {
    GetCharacterMovement()->MaxWalkSpeed = NormalWalkSpeed;
   }
@@ -201,7 +207,11 @@ void AMoonfallHeroPawn::BeginGuard()
      || !FMath::IsFinite(GuardStaminaCost) || GuardStaminaCost < 0.f
      || Stamina < GuardStaminaCost) return;
  bGuarding = true;
- if (GetCharacterMovement()) GetCharacterMovement()->MaxWalkSpeed = NormalWalkSpeed;
+ if (GetCharacterMovement()) {
+  const float GuardMultiplier = FMath::IsFinite(GuardMoveSpeedMultiplier)
+      ? FMath::Clamp(GuardMoveSpeedMultiplier, 0.2f, 1.f) : 1.f;
+  GetCharacterMovement()->MaxWalkSpeed = NormalWalkSpeed * GuardMultiplier;
+ }
  const float Now = GetWorld()->GetTimeSeconds();
  // Holding guard cannot repeatedly open parry windows.
  if (Now >= NextParryAt) {
@@ -216,6 +226,8 @@ void AMoonfallHeroPawn::EndGuard()
  const bool bWasGuarding = bGuarding;
  bGuarding = false;
  ParryWindowEndsAt = -1.f;
+ if (bWasGuarding && GetCharacterMovement())
+  GetCharacterMovement()->MaxWalkSpeed = NormalWalkSpeed;
  // Guard stance cannot refill stamina for free; preserve longer dodge/impact delays.
  if (bWasGuarding && GetWorld())
   StaminaRegenStartsAt = FMath::Max(StaminaRegenStartsAt, GetWorld()->GetTimeSeconds() + 0.4f);
