@@ -410,6 +410,23 @@ class UnrealMigrationParityGate(unittest.TestCase):
         self.assertLess(save.index("SaveGameToSlot("),
                         save.index("bCheckpointNeedsRepair = false;"))
 
+    def test_checkpoints_do_not_capture_respawn_grace_or_critical_health(self):
+        base = ROOT / "engine-comparison/unreal/MoonfallPrototype"
+        cpp = (base / "Source/MoonfallPrototype/MoonfallPawn.cpp").read_text(encoding="utf-8")
+        safe = cpp[cpp.index("bool AMoonfallPawn::IsSafeCheckpointLocation() const"):
+                   cpp.index("void AMoonfallPawn::SaveProgress()")]
+        self.assertIn("RespawnGraceTimer > 0.f", safe)
+        self.assertIn("EnemyDamageCooldown > 0.f", safe)
+        self.assertIn("Health < GetHudMaxHealth() * 0.25f", safe)
+        self.assertIn("bRespawnInProgress || bCasting", safe)
+        save = cpp[cpp.index("void AMoonfallPawn::SaveProgress()"):
+                   cpp.index("bool AMoonfallPawn::GetWaypoint(")]
+        self.assertIn("Progress->HeroXP = Progression.Experience;", save)
+        self.assertIn("Progress->DefeatedEnemyMask = DefeatedEnemyMask;", save)
+        self.assertIn("(!Progress->bHasCheckpoint || bCheckpointNeedsRepair || IsSafeCheckpointLocation())", save)
+        self.assertIn("Progress->SavedHealth = Health;", save)
+        self.assertIn("bWroteCheckpoint = true;", save)
+
     def test_progress_saves_do_not_move_checkpoint_into_live_combat(self):
         base = ROOT / "engine-comparison/unreal/MoonfallPrototype"
         cpp = (base / "Source/MoonfallPrototype/MoonfallPawn.cpp").read_text(encoding="utf-8")
