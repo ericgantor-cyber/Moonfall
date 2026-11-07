@@ -232,6 +232,39 @@ class UnrealMigrationParityGate(unittest.TestCase):
         self.assertIn('DrawText(TEXT("RESPAWN")', death_hud)
         self.assertIn("return;", death_hud)
 
+    def test_gamepad_trigger_cannot_activate_mouse_map_or_death_clicks(self):
+        base = ROOT / "engine-comparison/unreal/MoonfallPrototype"
+        config = (base / "Config/DefaultInput.ini").read_text(encoding="utf-8")
+        cpp = (base / "Source/MoonfallPrototype/MoonfallPawn.cpp").read_text(encoding="utf-8")
+        header = (base / "Source/MoonfallPrototype/MoonfallPawn.h").read_text(encoding="utf-8")
+        self.assertIn('ActionName="ControllerAttack",Key=Gamepad_RightTrigger', config)
+        self.assertNotIn('ActionName="Attack",Key=Gamepad_RightTrigger', config)
+        self.assertIn('ActionName="Attack",Key=LeftMouseButton', config)
+        self.assertIn("void ControllerAttack();", header)
+        self.assertIn('Input->BindAction(TEXT("ControllerAttack"), IE_Pressed', cpp)
+        start = cpp.index("void AMoonfallPawn::ControllerAttack()")
+        end = cpp.index("void AMoonfallPawn::ControllerConfirm()", start)
+        controller = cpp[start:end]
+        self.assertIn("if (Health <= 0.f || bWorldMapOpen || bRespawnInProgress) return;", controller)
+        self.assertIn("Attack();", controller)
+        self.assertNotIn("ClickRespawnButton();", controller)
+        self.assertNotIn("PlaceMapWaypoint();", controller)
+
+    def test_death_closes_atlas_and_stops_combat_before_resource_tick(self):
+        base = ROOT / "engine-comparison/unreal/MoonfallPrototype"
+        cpp = (base / "Source/MoonfallPrototype/MoonfallPawn.cpp").read_text(encoding="utf-8")
+        tick = cpp[cpp.index("void AMoonfallPawn::Tick(float DeltaSeconds)"):]
+        death = tick[:tick.index("    if (bWorldMapOpen)")]
+        self.assertIn("if (Health <= 0.f && !bDeathInputEnabled)", death)
+        self.assertIn("bWorldMapOpen = false;", death)
+        self.assertIn("PC->SetInputMode(DeathInput);", death)
+        self.assertIn("PC->bShowMouseCursor = true;", death)
+        self.assertNotIn("ToggleWorldMap();", death)
+        self.assertIn("if (Health <= 0.f) return;", death)
+        self.assertLess(tick.index("if (Health <= 0.f) return;"),
+                        tick.index("Mana = FMath::Min(180.f, Mana + 8.f * Dt);"))
+        self.assertIn("if (Health <= 0.f || bRespawnInProgress) return;", cpp)
+
     def test_controller_overhaul_combat_map_respawn_and_mouse_parity(self):
         base = ROOT / "engine-comparison/unreal/MoonfallPrototype"
         inputs = (base / "Config/DefaultInput.ini").read_text(encoding="utf-8")
