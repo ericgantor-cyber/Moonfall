@@ -340,7 +340,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
 
     def test_boss_phase_stops_pending_combo(self):
         damage = self.enemy_cpp.split("void AMoonfallEnemy::TakeSpellDamage(float Amount) {", 1)[1].split("\n}", 1)[0]
-        self.assertIn("NextAttackAt = Now + 1.5f", damage)
+        self.assertIn("NextAttackAt = FMath::Max(NextAttackAt, Now + 1.5f)", damage)
         self.assertIn("bComboSecondHitPending = false", damage)
         self.assertIn("bComboSecondHitActive = false", damage)
 
@@ -389,6 +389,26 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("PostureDistanceSq = FMath::Square(1200.f)", self.hud)
         self.assertNotIn('TEXT("GUARD BROKEN")', self.hud)
 
+    def test_shatter_finisher_expires_and_phase_transition_preserves_stagger(self):
+        self.assertIn("float PosturePressureRecoveryDelaySeconds = 3.f;", self.enemy_h)
+        self.assertIn("int32 PostureBreakCount = 0;", self.enemy_h)
+        self.assertIn("void OnShatterFinisher(float DamageDealt);", self.enemy_h)
+        posture = self.enemy_cpp.split("void AMoonfallEnemy::ApplyPostureDamage(float Amount)", 1)[1].split(
+            "void AMoonfallEnemy::TakeSpellDamage", 1)[0]
+        self.assertIn("PostureBreakCount = FMath::Min(PostureBreakCount + 1, 100000);", posture)
+        self.assertIn("FMath::Clamp(PosturePressureRecoveryDelaySeconds, 0.f, 5.f)", posture)
+        damage = self.enemy_cpp.split("void AMoonfallEnemy::TakeSpellDamage(float Amount)", 1)[1].split(
+            "void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[0]
+        self.assertIn("if (bShatterFinisher && ActualDamage > 0.f)", damage)
+        self.assertIn("OnShatterFinisher(ActualDamage);", damage)
+        self.assertIn("NextAttackAt = FMath::Max(NextAttackAt, Now + 1.5f);", damage)
+        tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
+        self.assertIn("if (bPostureFinisherAvailable && Now >= PostureBrokenUntil)", tick)
+        self.assertIn("bPostureFinisherAvailable = false;", tick)
+        self.assertLess(tick.index("if (bPostureFinisherAvailable && Now >= PostureBrokenUntil)"),
+                        tick.index("const bool Staggered = Now < HitReactionEndsAt;"))
+        self.assertNotIn('TEXT("GUARD BROKEN")', self.hud)
+
     def test_enemy_posture_break_pressure_and_vulnerability(self):
         self.assertIn("float MaxPosture = 100.f;", self.enemy_h)
         self.assertIn("float ParryPostureDamage = 40.f;", self.enemy_h)
@@ -401,7 +421,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("!FMath::IsFinite(Amount) || Amount <= 0.f", posture)
         self.assertIn("if (Now < PostureBrokenUntil || Now < NextPostureBreakAllowedAt) return;", posture)
         self.assertIn("Posture = FMath::Clamp(Posture + Amount, 0.f, MaxPosture);", posture)
-        self.assertIn("PostureRecoveryStartsAt = Now + 3.f;", posture)
+        self.assertIn("PostureRecoveryStartsAt = Now + (FMath::IsFinite(PosturePressureRecoveryDelaySeconds)", posture)
         self.assertIn("const float VulnerabilitySeconds = bBoss ? 1.5f : (bElite ? 2.f : 2.5f);", posture)
         self.assertIn("HitReactionEndsAt = FMath::Max(HitReactionEndsAt, PostureBrokenUntil);", posture)
         self.assertIn("WindupEndsAt = -1.f;", posture)
