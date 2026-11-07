@@ -195,6 +195,21 @@ class UnrealMigrationParityGate(unittest.TestCase):
             self.assertIn(expected, lookup)
         self.assertIn("DiscoveredMapCells[Y * 48 + X] != 0", lookup)
 
+    def test_full_screen_atlas_pauses_combat_and_resource_clocks(self):
+        base = ROOT / "engine-comparison/unreal/MoonfallPrototype"
+        pawn = (base / "Source/MoonfallPrototype/MoonfallPawn.cpp").read_text(encoding="utf-8")
+        hud = (base / "Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8")
+        tick = pawn[pawn.index("void AMoonfallPawn::Tick(float DeltaSeconds)"): ]
+        map_branch = tick[tick.index("if (bWorldMapOpen)"):tick.index("AttackCooldown = FMath::Max")]
+        self.assertIn("WorldMapPanCells.X +=", map_branch)
+        self.assertIn("WorldMapPanCells.Y +=", map_branch)
+        self.assertIn("return;", map_branch)
+        self.assertLess(map_branch.index("WorldMapPanCells.Y +="), map_branch.index("return;"))
+        self.assertIn("UpdateWorldEnemies(Dt);", tick)
+        self.assertIn("Mana = FMath::Min(180.f, Mana + 8.f * Dt);", tick)
+        self.assertIn("combat paused", hud)
+        self.assertIn("M / Esc close", hud)
+
     def test_open_map_blocks_combat_resource_inputs(self):
         pawn = (ROOT / "engine-comparison/unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallPawn.cpp").read_text(encoding="utf-8")
         for method in ("Dodge", "CastBolt", "CastHeal", "SetWaypoint"):
