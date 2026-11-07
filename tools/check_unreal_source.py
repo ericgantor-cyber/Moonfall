@@ -586,6 +586,22 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("GetCharacterMovement()->MaxWalkSpeed = NormalWalkSpeed;", end)
         self.assertNotIn('TEXT("GUARD BROKEN")', self.hud)
 
+    def test_guard_fatigue_drains_stamina_and_breaks_safely(self):
+        self.assertIn("float GuardStaminaDrainPerSecond = 6.f;", self.hero_h)
+        tick = self.hero_cpp.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1].split(
+            "void AMoonfallHeroPawn::SetupPlayerInputComponent", 1)[0]
+        self.assertIn("bGuarding && !bOptionsOpen && Health > 0.f && GetWorld()", tick)
+        self.assertIn("FMath::IsFinite(GuardStaminaDrainPerSecond)", tick)
+        self.assertIn("FMath::Clamp(GuardStaminaDrainPerSecond, 0.f, 30.f)", tick)
+        self.assertIn("Stamina - GuardDrain * StaminaDelta", tick)
+        self.assertIn("StaminaRegenStartsAt = FMath::Max(", tick)
+        self.assertIn("GuardStaminaCost > 0.f && Stamina < GuardStaminaCost", tick)
+        self.assertIn("BreakGuard();", tick)
+        self.assertLess(tick.index("Stamina - GuardDrain * StaminaDelta"),
+                        tick.index("BreakGuard();"))
+        self.assertLess(tick.index("BreakGuard();"), tick.index("if (GetCharacterMovement()) {"))
+        self.assertNotIn('TEXT("GUARD BROKEN")', self.hud)
+
     def test_guard_stance_stops_stamina_regen_and_release_delays_it(self):
         tick = self.hero_cpp.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1].split(
             "void AMoonfallHeroPawn::SetupPlayerInputComponent", 1)[0]
@@ -651,7 +667,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "void AMoonfallHeroPawn::BeginGuard()", 1)[0]
         self.assertIn("if (!bGuarding || !GetWorld()) return;", guard_break)
         self.assertIn("EndGuard();", guard_break)
-        self.assertIn("GuardBrokenUntil = GetWorld()->GetTimeSeconds() + FMath::Clamp(GuardBreakRecoverySeconds, 0.f, 3.f);", guard_break)
+        self.assertIn("FMath::IsFinite(GuardBreakRecoverySeconds)", guard_break)
+        self.assertIn("FMath::Clamp(GuardBreakRecoverySeconds, 0.f, 3.f) : 1.f;", guard_break)
+        self.assertIn("GuardBrokenUntil = GetWorld()->GetTimeSeconds() + RecoverySeconds;", guard_break)
         self.assertIn("OnGuardBroken();", guard_break)
         guard_start = self.hero_cpp.split("void AMoonfallHeroPawn::BeginGuard()", 1)[1].split(
             "void AMoonfallHeroPawn::EndGuard()", 1)[0]
