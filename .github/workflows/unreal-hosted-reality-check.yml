@@ -9,6 +9,8 @@ on:
       - '.github/workflows/unreal-hosted-windows.yml'
       - 'MoonfallUnreal/Build/Test-UnrealInstalledArchive.ps1'
       - 'MoonfallUnreal/Build/Test-UnrealInstalledArchive.Tests.ps1'
+      - 'MoonfallUnreal/Build/Test-UnrealEngineVersion.ps1'
+      - 'MoonfallUnreal/Build/Test-UnrealEngineVersion.Tests.ps1'
   workflow_dispatch:
 
 permissions:
@@ -33,6 +35,7 @@ jobs:
             "minimum_free_gb:",
             "MOONFALL_UE54_ARCHIVE_SHA256",
             "Test-UnrealInstalledArchive.ps1",
+            "Test-UnrealEngineVersion.ps1",
             "-ReserveBytes 15GB",
             "Expand-Archive -LiteralPath",
             "Build-Windows.ps1 -UnrealRoot",
@@ -47,6 +50,10 @@ jobs:
         shell: pwsh
         run: |
           & .\MoonfallUnreal\Build\Test-UnrealInstalledArchive.Tests.ps1
+      - name: Run Unreal 5.4 metadata and toolchain preflight regression cases
+        shell: pwsh
+        run: |
+          & .\MoonfallUnreal\Build\Test-UnrealEngineVersion.Tests.ps1
       - name: Report actual Windows hosted runner capacity
         shell: pwsh
         run: |
