@@ -1058,9 +1058,16 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
             bDeathInputEnabled = true;
         }
     }
-    // A defeated hero cannot keep regenerating mana/stamina, advancing
-    // enemy AI, or accruing checkpoint time behind the Respawn screen.
-    if (Health <= 0.f) return;
+    // A defeated hero cannot keep regenerating resources or advancing AI.
+    // Clear any active boss telegraph before the early return, otherwise
+    // dying during the warning leaves an attack marker behind RESPAWN UI.
+    if (Health <= 0.f)
+    {
+        bCasting = false;
+        CastTimer = 0.f;
+        if (WarningMesh) WarningMesh->SetVisibility(false);
+        return;
+    }
     if (bWorldMapOpen)
     {
         const float MapDt = FMath::Min(Dt, 0.05f);
