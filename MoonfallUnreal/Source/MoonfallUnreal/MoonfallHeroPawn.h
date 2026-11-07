@@ -66,6 +66,8 @@ private:
  float ParryWindowEndsAt = -1.f;
  float NextParryAt = 0.f;
  UPROPERTY(EditAnywhere, Category="Moonfall|Combat") float ParryWindowSeconds = 0.18f;
+ UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Combat", meta=(ClampMin="0.0")) float GuardStaminaCost = 8.f;
+ UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Combat", meta=(ClampMin="0.0")) float PerfectParryStaminaReward = 12.f;
  float DamageImmunityUntil = 0.f;
  float PerfectDodgeWindowUntil = -1.f;
  float LastPerfectDodgeRewardAt = -100.f;
