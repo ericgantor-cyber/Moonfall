@@ -95,6 +95,7 @@ private:
     float MapPanHorizontalInput = 0.f;
     float MapPanVerticalInput = 0.f;
     FVector Waypoint = FVector::ZeroVector;
+    float RespawnGraceTimer = 0.f; // Brief protection after loading a living checkpoint.
     float EnemyDamageCooldown = 0.f;
     float ParryTimer = 0.f, ParryCooldown = 0.f;
     float CounterWindow = 0.f;
