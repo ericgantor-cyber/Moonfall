@@ -198,13 +198,25 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
       && FMath::IsFinite(ParryCounterDamageMultiplier) && ParryCounterDamageMultiplier >= 1.f;
   const float CounterMultiplier = bCounterReady
       ? FMath::Clamp(ParryCounterDamageMultiplier, 1.f, 2.f) : 1.f;
+  // Distinct spell schools exert different stance pressure. All posture gains
+  // depend on real health damage and stop when the target dies.
+  static const float SchoolPostureWeights[6] = {0.8f, 0.65f, 1.35f, 0.f, 1.15f, 0.9f};
+  const float WeaponDamageBonus = 1.f + FMath::Clamp(0.018f * WeaponTier, 0.f, 0.35f);
   const float SpellDamage = (18.f + School * 5.f) * Multiplier * SpellPowerMultiplier
-    * (1.f + FMath::Min(0.35f, 0.018f * WeaponTier)) * CounterMultiplier;
+    * WeaponDamageBonus * CounterMultiplier;
   // Reject invalid damage before spending mana or consuming a hard-earned counter.
   if (!FMath::IsFinite(SpellDamage) || SpellDamage <= 0.f) return false;
   const float HealthBeforeSpell = Enemy->Health;
   Enemy->TakeSpellDamage(SpellDamage);
-  if (bCounterReady && Enemy->Health < HealthBeforeSpell) {
+  const float ActualSpellDamage = FMath::Clamp(HealthBeforeSpell - Enemy->Health, 0.f, HealthBeforeSpell);
+  if (ActualSpellDamage > 0.f && Enemy->Health > 0.f
+      && FMath::IsFinite(OffensiveSpellPostureMultiplier) && OffensiveSpellPostureMultiplier > 0.f) {
+   const float ExtraPosture = ActualSpellDamage * 0.25f * SchoolPostureWeights[School]
+       * FMath::Clamp(OffensiveSpellPostureMultiplier, 0.f, 3.f);
+   if (FMath::IsFinite(ExtraPosture) && ExtraPosture > 0.f)
+    Enemy->ApplyPostureDamage(FMath::Min(ExtraPosture, 100.f));
+  }
+  if (bCounterReady && ActualSpellDamage > 0.f) {
    // A perfect-parry counter also pressures posture, making the next stance
    // break attainable without handing out free pressure on a miss or no-op.
    if (Enemy->Health > 0.f && FMath::IsFinite(ParryCounterPostureDamage)
