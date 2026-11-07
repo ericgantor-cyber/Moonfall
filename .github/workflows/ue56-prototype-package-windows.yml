@@ -57,5 +57,5 @@ jobs:
         if: always()
         run: |
           "Status: ${{ job.status }}" >> $env:GITHUB_STEP_SUMMARY
-          "Requires a committed Content/Maps/MoonfallWorld.umap, trusted UE5.6 Windows runner and UE56_ROOT." >> $env:GITHUB_STEP_SUMMARY
+          "Requires trusted UE5.6 Windows runner and UE56_ROOT. The startup map is generated inside Unreal Editor if no authored level exists." >> $env:GITHUB_STEP_SUMMARY
           "No desktop shortcut, signed installer, benchmark or playable smoke test is provided by this job." >> $env:GITHUB_STEP_SUMMARY
