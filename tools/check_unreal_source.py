@@ -236,6 +236,14 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("bGuarding && bFrontAttack && !bOptionsOpen", self.hero_cpp)
         self.assertIn("bHasIncomingDamageSource = false;", self.hero_cpp)
 
+    def test_directional_guard_matches_character_facing_not_camera(self):
+        self.assertIn("bOrientRotationToMovement = true", self.hero_cpp)
+        damage = self.hero_cpp.split("void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {", 1)[1]
+        damage = damage.split("\\n}", 1)[0]
+        self.assertIn("GetActorForwardVector().GetSafeNormal2D()", damage)
+        self.assertNotIn("GetControlRotation().Vector().GetSafeNormal2D()", damage)
+        self.assertIn("FVector::DotProduct(GuardForward, ToSource) >= 0.258819f", damage)
+
     def test_guard_and_parry_are_bounded_and_input_driven(self):
         self.assertIn('BindAction(TEXT("Guard"), IE_Pressed', self.hero_cpp)
         self.assertIn('BindAction(TEXT("Guard"), IE_Released', self.hero_cpp)
