@@ -15,6 +15,8 @@ jobs:
   package:
     runs-on: [self-hosted, Windows, X64, unreal-5-6]
     timeout-minutes: 180
+    env:
+      MOONFALL_PACKAGE_DIR: ${{ runner.temp }}/MoonfallUE56Package/${{ github.run_id }}-${{ github.run_attempt }}
     defaults:
       run:
         shell: pwsh
@@ -29,14 +31,14 @@ jobs:
           $ErrorActionPreference = 'Stop'
           if (-not $env:UE56_ROOT) { throw 'UE56_ROOT is missing on the trusted Windows UE5.6 runner.' }
           $script = '.\engine-comparison\unreal\MoonfallPrototype\Build\Package-Windows.ps1'
-          & $script -UnrealRoot $env:UE56_ROOT
+          & $script -UnrealRoot $env:UE56_ROOT -OutputDirectory $env:MOONFALL_PACKAGE_DIR
           if ($LASTEXITCODE -ne 0) { throw "Package script failed: $LASTEXITCODE" }
           "Windows cooked game package created. Gameplay and installer not yet verified." >> $env:GITHUB_STEP_SUMMARY
 
       - name: Verify build manifest exists before artifact upload
         run: |
           $ErrorActionPreference = 'Stop'
-          $root = '.\engine-comparison\unreal\MoonfallPrototype\Saved\WindowsPackage'
+          $root = $env:MOONFALL_PACKAGE_DIR
           $manifest = Join-Path $root 'MoonfallPackageManifest.json'
           if (-not (Test-Path -LiteralPath $manifest -PathType Leaf)) {
             throw 'The cooked package integrity manifest is missing.'
@@ -54,7 +56,7 @@ jobs:
       - name: Verify packaged game boots into MoonfallWorld headlessly
         run: |
           $ErrorActionPreference = 'Stop'
-          $root = '.\engine-comparison\unreal\MoonfallPrototype\Saved\WindowsPackage'
+          $root = $env:MOONFALL_PACKAGE_DIR
           $smoke = '.\engine-comparison\unreal\MoonfallPrototype\Build\SmokeTest-Windows.ps1'
           & $smoke -PackageDirectory $root -BootSeconds 25
           "Packaged game passed a 25-second headless map boot smoke. Visual gameplay, saves and installer are UNTESTED." >> $env:GITHUB_STEP_SUMMARY
@@ -63,7 +65,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: MoonfallPrototype-UE56-Win64-UNTESTED
-          path: engine-comparison/unreal/MoonfallPrototype/Saved/WindowsPackage/
+          path: ${{ env.MOONFALL_PACKAGE_DIR }}/
           if-no-files-found: error
           retention-days: 14
 
@@ -76,7 +78,7 @@ jobs:
           path: |
             engine-comparison/unreal/MoonfallPrototype/Saved/Logs/
             engine-comparison/unreal/MoonfallPrototype/Intermediate/Build/Win64/
-            engine-comparison/unreal/MoonfallPrototype/Saved/WindowsPackage/SmokeDiagnostics/
+            ${{ env.MOONFALL_PACKAGE_DIR }}/SmokeDiagnostics/
           if-no-files-found: warn
           retention-days: 14
 
