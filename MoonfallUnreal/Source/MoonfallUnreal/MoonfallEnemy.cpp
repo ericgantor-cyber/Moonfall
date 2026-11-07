@@ -151,6 +151,7 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
    SetActorTickEnabled(false);
    OnEnemyDefeated(bLastHitWasShatter);
    if (AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0))) {
+    Hero->RegisterFinisherKill(bLastHitWasShatter, bBoss);
     const float RewardScale = 1.f + 0.018f * FMath::Min(SpawnBalanceLevel - 1, 40);
     Hero->AwardExperience(FMath::RoundToInt((bBoss ? 125.f : (bElite ? 50.f : 25.f)) * RewardScale));
     Hero->AwardEquipmentDrop(bElite, bBoss);
