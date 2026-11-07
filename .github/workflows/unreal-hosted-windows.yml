@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   windows-preflight:
-    runs-on: windows-2022
+    runs-on: ${{ vars.MOONFALL_HOSTED_RUNNER || 'windows-2022' }}
     timeout-minutes: 15
     outputs:
       available_gb: ${{ steps.storage.outputs.available_gb }}
@@ -28,8 +28,9 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $drive = (Get-Item $env:RUNNER_TEMP).PSDrive
-          $disk = Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='$($drive.Root.TrimEnd('\'))'"
+          $temporaryPath = [IO.Path]::GetFullPath($env:RUNNER_TEMP)
+          $driveLetter = [IO.Path]::GetPathRoot($temporaryPath).TrimEnd('\')
+          $disk = Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='$driveLetter'"
           if (-not $disk) { throw 'Could not determine runner free disk space.' }
           $available = [math]::Round($disk.FreeSpace / 1GB, 1)
           "available_gb=$available" >> $env:GITHUB_OUTPUT
@@ -40,18 +41,25 @@ jobs:
             throw 'Visual Studio 2022 C++ toolchain missing on hosted runner.'
           }
           "Windows runner free disk: $available GB" >> $env:GITHUB_STEP_SUMMARY
+          if ($disk.FreeSpace -lt 35GB) {
+            "::warning::Insufficient free space for configured engine extraction threshold (35 GB). Configure a larger GitHub-hosted runner in repo variable MOONFALL_HOSTED_RUNNER."
+            "Compile readiness: BLOCKED by disk space; use a larger runner." >> $env:GITHUB_STEP_SUMMARY
+          } else {
+            "Compile readiness: disk capacity passes the preliminary 35 GB check; full UE footprint may be greater." >> $env:GITHUB_STEP_SUMMARY
+          }
           "Visual Studio 2022 C++ tools: detected" >> $env:GITHUB_STEP_SUMMARY
           "Unreal Engine is NOT preinstalled; no compilation was attempted during preflight." >> $env:GITHUB_STEP_SUMMARY
       - name: Note engine provisioning requirement
         shell: pwsh
         run: |
           "For real compilation, a separately licensed UE 5.4 installed build must be securely provided. Standard hosted Windows runners may not have enough disk." >> $env:GITHUB_STEP_SUMMARY
-          "If a larger runner is required, configure one or use the existing trusted self-hosted workflow." >> $env:GITHUB_STEP_SUMMARY
+          "For a larger GitHub-hosted runner, provision it in your GitHub account and set the repository variable MOONFALL_HOSTED_RUNNER to its exact runner label." >> $env:GITHUB_STEP_SUMMARY
+          "This workflow never automatically installs Unreal from Epic Games or exposes private engine archives." >> $env:GITHUB_STEP_SUMMARY
 
   compile-with-provided-engine:
     if: ${{ inputs.attempt_compile }}
     needs: windows-preflight
-    runs-on: windows-2022
+    runs-on: ${{ vars.MOONFALL_HOSTED_RUNNER || 'windows-2022' }}
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
