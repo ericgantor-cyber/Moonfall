@@ -453,6 +453,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("TArray<FPendingFinisher> PendingFinishers;", self.hero_h)
         register = self.hero_cpp.split("int32 AMoonfallHeroPawn::RegisterFinisherKill(", 1)[1].split(
             "void AMoonfallHeroPawn::StartFinisherPresentation(", 1)[0]
+        self.assertIn("PendingFinishers.Num() > 0 || (Now >= NativeFinisherStartedAt", register)
         self.assertIn("Now - NativeFinisherStartedAt < NativeDuration", register)
         self.assertIn("PendingFinishers.Num() < MaxPendingFinishers", register)
         self.assertIn("PendingFinishers.Add(Pending);", register)
