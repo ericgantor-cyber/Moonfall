@@ -155,6 +155,13 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("OnGuardImpact(ArmoredDamage - DamageAfterGuard, bPerfectParry)", self.hero_cpp)
         self.assertIn('void AMoonfallHeroPawn::OpenOptions() {', self.hero_cpp)
 
+    def test_directional_melee_uses_locked_windup_facing(self):
+        self.assertIn("FVector LockedAttackDirection = FVector::ZeroVector;", self.enemy_h)
+        self.assertEqual(self.enemy_cpp.count("LockedAttackDirection = Difference.GetSafeNormal2D();"), 2)
+        self.assertIn("const bool bSpinningSweep = bBoss && BossSpecialMove == 4;", self.enemy_cpp)
+        self.assertIn("const bool bWithinAttackArc", self.enemy_cpp)
+        self.assertIn("if (bWithinAttackArc && Difference.Size() <= AttackRange * CurrentAttackRangeMultiplier)", self.enemy_cpp)
+
     def test_enemy_attacks_cannot_go_through_cover(self):
         self.assertIn("SightParams.AddIgnoredActor(this)", self.enemy_cpp)
         self.assertIn("LineTraceSingleByChannel(", self.enemy_cpp)
