@@ -35,13 +35,32 @@ if (-not $CompileOnly) {
     if (-not (Test-Path -LiteralPath $startupMap -PathType Leaf)) {
         throw 'Playable startup level missing: MoonfallUnreal/Content/Maps/MoonfallStart.umap. Create and save this level in Unreal Editor before packaging.'
     }
+    if ((Get-Item -LiteralPath $startupMap).Length -le 0) {
+        throw 'MoonfallStart.umap is empty. Save the level in Unreal Editor before packaging.'
+    }
     if (-not (Test-Path -LiteralPath $engineConfig -PathType Leaf)) {
         throw "Unreal engine configuration missing: $engineConfig"
     }
     $engineConfigText = Get-Content -LiteralPath $engineConfig -Raw
-    if ($engineConfigText -notmatch '(?m)^\s*GameDefaultMap\s*=\s*/Game/Maps/MoonfallStart\s*$') {
-        throw 'Set GameDefaultMap=/Game/Maps/MoonfallStart in MoonfallUnreal/Config/DefaultEngine.ini before packaging.'
+    $mapSectionMatches = @([regex]::Matches($engineConfigText, '(?m)^\s*\[/Script/EngineSettings.GameMapsSettings\]\s*$'))
+    if ($mapSectionMatches.Count -ne 1) {
+        throw 'Expected exactly one GameMapsSettings section in DefaultEngine.ini.'
     }
+    $mapSection = ($engineConfigText -split '(?m)^\s*\[/Script/EngineSettings.GameMapsSettings\]\s*$', 2)[1]
+    $mapSection = ($mapSection -split '(?m)^\s*\[[^\r\n]+\]\s*$', 2)[0]
+    foreach ($mapKey in @('GameDefaultMap', 'EditorStartupMap')) {
+        $matchingEntries = @([regex]::Matches($mapSection, "(?m)^\s*$mapKey\s*=\s*(.*?)\s*$"))
+        if ($matchingEntries.Count -ne 1 -or
+            $matchingEntries[0].Groups[1].Value.Trim() -ne '/Game/Maps/MoonfallStart') {
+            throw "Set exactly one $mapKey=/Game/Maps/MoonfallStart in DefaultEngine.ini before packaging."
+        }
+    }
+    $modeMatches = @([regex]::Matches($mapSection, '(?m)^\s*GlobalDefaultGameMode\s*=\s*(.*?)\s*$'))
+    if ($modeMatches.Count -ne 1 -or
+        $modeMatches[0].Groups[1].Value.Trim() -ne '/Script/MoonfallUnreal.MoonfallUnrealGameMode') {
+        throw 'Set GlobalDefaultGameMode=/Script/MoonfallUnreal.MoonfallUnrealGameMode before packaging.'
+    }
+
 }
 
 # A compiler smoke test must not depend on packaging tools, cooked maps, or output folders.
