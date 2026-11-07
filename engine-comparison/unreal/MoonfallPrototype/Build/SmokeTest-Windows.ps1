@@ -20,6 +20,31 @@ if ($Manifest.project -ne 'MoonfallPrototype' -or $Manifest.engine -ne '5.6' -or
     $Manifest.tested_in_game -ne $false -or $Manifest.installer -ne $false) {
     throw 'Package integrity manifest is invalid.'
 }
+# Match the manifest against the exact archive contents before creating smoke logs.
+# An allowlist of files is stronger than checking only known file hashes, because
+# unexpected executables or cooked assets could otherwise travel with the build.
+$ManifestFiles = @($Manifest.files)
+if ($ManifestFiles.Count -eq 0) {
+    throw 'Package manifest has an empty file inventory.'
+}
+$Recorded = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+foreach ($Entry in $ManifestFiles) {
+    $Name = ([string]$Entry.path).Replace('\', '/')
+    if ([string]::IsNullOrWhiteSpace($Name) -or -not $Recorded.Add($Name)) {
+        throw "Empty or duplicate file path in package manifest: $Name"
+    }
+}
+$Actual = @(Get-ChildItem -LiteralPath $PackageDirectory -Recurse -File |
+    Where-Object { $_.Name -ne 'MoonfallPackageManifest.json' })
+if ($Actual.Count -ne $Recorded.Count) {
+    throw "Package file count mismatch: manifest=$($Recorded.Count), actual=$($Actual.Count)"
+}
+foreach ($Item in $Actual) {
+    $Relative = $Item.FullName.Substring($PackageDirectory.Length).TrimStart('\', '/').Replace('\', '/')
+    if (-not $Recorded.Contains($Relative)) {
+        throw "Unlisted file present in Windows package: $Relative"
+    }
+}
 # Verify every archived file against the packager's SHA256 inventory before launch.
 foreach ($Entry in @($Manifest.files)) {
     $RelativePath = [string]$Entry.path

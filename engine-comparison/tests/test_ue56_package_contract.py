@@ -109,6 +109,19 @@ class PackageContract(unittest.TestCase):
         script = SCRIPT.read_text(encoding="utf-8")
         self.assertIn("if ($OldEntries.Count -gt 0)", script)
 
+    def test_boot_smoke_rejects_unlisted_and_duplicate_archive_files(self):
+        smoke = (ROOT / "engine-comparison/unreal/MoonfallPrototype/Build/SmokeTest-Windows.ps1").read_text(encoding="utf-8")
+        for guard in (
+            "HashSet[string]",
+            "Package manifest has an empty file inventory",
+            "Empty or duplicate file path in package manifest",
+            "Package file count mismatch",
+            "Unlisted file present in Windows package",
+            "Get-FileHash -LiteralPath $Target -Algorithm SHA256",
+        ):
+            self.assertIn(guard, smoke)
+        self.assertLess(smoke.index("Package file count mismatch"), smoke.index("Start-Process -FilePath"))
+
     def test_headless_boot_smoke_gates_windows_artifact_upload(self):
         workflow = WORKFLOW.read_text(encoding="utf-8")
         smoke = (ROOT / "engine-comparison/unreal/MoonfallPrototype/Build/SmokeTest-Windows.ps1").read_text(encoding="utf-8")
