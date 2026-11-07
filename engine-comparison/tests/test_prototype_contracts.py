@@ -537,7 +537,7 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("const float MovementDt = FMath::Min(Dt, 0.05f);", self.cpp)
         self.assertIn("DodgeDirection * 1200.f * DodgeMovementDt", self.cpp)
         # A stationary player cannot spend dodge stamina for no displacement.
-        self.assertIn("FVector2D(Forward, Right).SizeSquared() > 0.01f", self.cpp)
+        self.assertIn("FVector2D(Forward, Right).SizeSquared() <= 0.01f", self.cpp)
         self.assertNotIn("SpawnWave(", self.cpp)
 
     def test_unreal_level_max_hp_respects_existing_saves_without_kill_healing(self):
