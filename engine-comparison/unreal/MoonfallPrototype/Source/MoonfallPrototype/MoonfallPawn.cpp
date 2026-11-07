@@ -617,6 +617,22 @@ void AMoonfallPawn::ToggleWorldMap()
         PC->bShowMouseCursor = bWorldMapOpen;
 }
 
+void AMoonfallPawn::GetWorldMapLayout(float Width, float Height, float& OutCell,
+    FVector2D& OutOrigin, FVector2D& OutClipMin, FVector2D& OutClipMax) const
+{
+    const float BaseCell = FMath::Max(1.f, FMath::Min(12.f,
+        FMath::Min((Width - 100.f) / 48.f, (Height - 200.f) / 16.f)));
+    OutCell = BaseCell * WorldMapZoom;
+    const FVector2D Center(Width * 0.5f, Height * 0.5f);
+    OutOrigin = Center - FVector2D(24.f + WorldMapPanCells.X,
+        8.f + WorldMapPanCells.Y) * OutCell;
+    OutClipMin = Center - FVector2D(24.f, 8.f) * BaseCell;
+    OutClipMax = Center + FVector2D(24.f, 8.f) * BaseCell;
+}
+
+void AMoonfallPawn::PanMapHorizontal(float Value) { MapPanHorizontalInput = Value; }
+void AMoonfallPawn::PanMapVertical(float Value) { MapPanVerticalInput = Value; }
+
 void AMoonfallPawn::PlaceMapWaypoint()
 {
     if (!bWorldMapOpen || Health <= 0.f) return;
@@ -627,13 +643,14 @@ void AMoonfallPawn::PlaceMapWaypoint()
     int32 Width = 0, Height = 0;
     PC->GetViewportSize(Width, Height);
     if (Width < 200 || Height < 200) return;
-    // Keep the projection identical to the HUD's centered 48x16 map.
-    const float CellSize = FMath::Max(1.f, FMath::Min(12.f,
-        FMath::Min((Width - 100.f) / 48.f, (Height - 200.f) / 16.f)));
-    const float Left = (Width - 48.f * CellSize) * .5f;
-    const float Top = (Height - 16.f * CellSize) * .5f;
-    const int32 X = FMath::FloorToInt((MouseX - Left) / CellSize);
-    const int32 Y = FMath::FloorToInt((MouseY - Top) / CellSize);
+    float CellSize = 0.f;
+    FVector2D Origin, ClipMin, ClipMax;
+    GetWorldMapLayout(static_cast<float>(Width), static_cast<float>(Height),
+        CellSize, Origin, ClipMin, ClipMax);
+    if (MouseX < ClipMin.X || MouseX >= ClipMax.X ||
+        MouseY < ClipMin.Y || MouseY >= ClipMax.Y) return;
+    const int32 X = FMath::FloorToInt((MouseX - Origin.X) / CellSize);
+    const int32 Y = FMath::FloorToInt((MouseY - Origin.Y) / CellSize);
     if (X < 0 || X >= 48 || Y < 0 || Y >= 16) return;
     const FVector Candidate(-1600.f + (X + .5f) * 400.f,
         -3200.f + (Y + .5f) * 400.f, 0.f);
@@ -664,6 +681,16 @@ void AMoonfallPawn::MoveForward(float Value) { Forward = Value; }
 void AMoonfallPawn::MoveRight(float Value) { Right = Value; }
 void AMoonfallPawn::Zoom(float Value)
 {
+    if (bWorldMapOpen)
+    {
+        if (FMath::IsNearlyZero(Value)) return;
+        WorldMapZoom = FMath::Clamp(WorldMapZoom + Value * 0.2f, 1.f, 3.f);
+        const float MaxPanX = 24.f * (1.f - 1.f / WorldMapZoom);
+        const float MaxPanY = 8.f * (1.f - 1.f / WorldMapZoom);
+        WorldMapPanCells.X = FMath::Clamp(WorldMapPanCells.X, -MaxPanX, MaxPanX);
+        WorldMapPanCells.Y = FMath::Clamp(WorldMapPanCells.Y, -MaxPanY, MaxPanY);
+        return;
+    }
     ZoomDistance = FMath::Clamp(ZoomDistance - Value * 125.f, 900.f, 2500.f);
     CameraBoom->TargetArmLength = ZoomDistance;
 }
@@ -829,6 +856,8 @@ void AMoonfallPawn::SetupPlayerInputComponent(UInputComponent* Input)
     Input->BindAxis(TEXT("Forward"), this, &AMoonfallPawn::MoveForward);
     Input->BindAxis(TEXT("Right"), this, &AMoonfallPawn::MoveRight);
     Input->BindAxis(TEXT("Zoom"), this, &AMoonfallPawn::Zoom);
+    Input->BindAxis(TEXT("MapPanHorizontal"), this, &AMoonfallPawn::PanMapHorizontal);
+    Input->BindAxis(TEXT("MapPanVertical"), this, &AMoonfallPawn::PanMapVertical);
     Input->BindAction(TEXT("Attack"), IE_Pressed, this, &AMoonfallPawn::Attack);
     Input->BindAction(TEXT("Dodge"), IE_Pressed, this, &AMoonfallPawn::Dodge);
     Input->BindAction(TEXT("ArcaneBolt"), IE_Pressed, this, &AMoonfallPawn::CastBolt);
@@ -841,6 +870,16 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
 {
     Super::Tick(DeltaSeconds);
     const float Dt = FMath::Max(0.f, DeltaSeconds);
+    if (bWorldMapOpen)
+    {
+        const float MapDt = FMath::Min(Dt, 0.05f);
+        WorldMapPanCells.X += MapPanHorizontalInput * 10.f * MapDt / WorldMapZoom;
+        WorldMapPanCells.Y += MapPanVerticalInput * 10.f * MapDt / WorldMapZoom;
+        const float MaxPanX = 24.f * (1.f - 1.f / WorldMapZoom);
+        const float MaxPanY = 8.f * (1.f - 1.f / WorldMapZoom);
+        WorldMapPanCells.X = FMath::Clamp(WorldMapPanCells.X, -MaxPanX, MaxPanX);
+        WorldMapPanCells.Y = FMath::Clamp(WorldMapPanCells.Y, -MaxPanY, MaxPanY);
+    }
     AttackCooldown = FMath::Max(0.f, AttackCooldown - Dt);
     // Preserve combat reaction windows across a rare long render stall.
     // Ordinary frame intervals still advance the timers in real time.
