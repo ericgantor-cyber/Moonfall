@@ -206,18 +206,16 @@ void AMoonfallCombatHUD::DrawHUD()
        && Screen.Y >= 0.f && Screen.Y < Canvas->SizeY) {
     ++VisibleDamageNumbers;
     const bool bShatter = Hit.bShatter;
-    const bool bKillingBlow = Hit.bKillingBlow;
-    const FLinearColor DamageColor = bKillingBlow
-      ? FLinearColor(1.f, 0.35f, 0.38f, 1.f - Age / 0.8f)
-      : (bShatter ? FLinearColor(1.f, 0.56f, 0.22f, 1.f - Age / 0.8f)
-                  : FLinearColor(1.f, 0.84f, 0.2f, 1.f - Age / 0.8f));
-    const FString DamageLabel = bKillingBlow
-      ? (bShatter ? FString::Printf(TEXT("SHATTER KO -%.0f"), Hit.Amount)
-                  : FString::Printf(TEXT("KO -%.0f"), Hit.Amount))
-      : (bShatter ? FString::Printf(TEXT("SHATTER -%.0f"), Hit.Amount)
-                  : FString::Printf(TEXT("-%.0f"), Hit.Amount));
+    // Lethal hits retain ordinary damage numbers. No KO text overlays the
+    // finisher choreography; the combo is communicated through animation.
+    const FLinearColor DamageColor = bShatter
+      ? FLinearColor(1.f, 0.56f, 0.22f, 1.f - Age / 0.8f)
+      : FLinearColor(1.f, 0.84f, 0.2f, 1.f - Age / 0.8f);
+    const FString DamageLabel = bShatter
+      ? FString::Printf(TEXT("SHATTER -%.0f"), Hit.Amount)
+      : FString::Printf(TEXT("-%.0f"), Hit.Amount);
     DrawText(DamageLabel, DamageColor, Screen.X + HorizontalOffset, Screen.Y, nullptr,
-      (bKillingBlow ? 1.65f : (bShatter ? 1.55f : 1.3f)) * Hero->CombatTextScale);
+      (bShatter ? 1.55f : 1.3f) * Hero->CombatTextScale);
    }
   }
  }
