@@ -143,7 +143,16 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   // Dash displacement is handled gradually during its final windup.
   // Attack still resolves after the warning against the hero's live position.
   // Attack resolves against the hero's CURRENT position, so dodging works.
-  if (Difference.Size() <= AttackRange * CurrentAttackRangeMultiplier) {
+  // Lock a strike's facing at the moment its warning begins. Dodging behind
+  // a focused strike avoids the hit; spinning sweeps remain omnidirectional.
+  const FVector ImpactDirection = Difference.GetSafeNormal2D();
+  const float FacingDot = FVector::DotProduct(LockedAttackDirection, ImpactDirection);
+  const bool bSpinningSweep = bBoss && BossSpecialMove == 4;
+  const float MinFacingDot = (BossSpecialMove == 1 || CurrentAttackRangeMultiplier > 1.2f)
+    ? -0.35f : 0.f;
+  const bool bWithinAttackArc = bSpinningSweep || LockedAttackDirection.IsNearlyZero()
+    || Difference.IsNearlyZero() || FacingDot >= MinFacingDot;
+  if (bWithinAttackArc && Difference.Size() <= AttackRange * CurrentAttackRangeMultiplier) {
    // Do not damage the hero through solid arena walls or cover.
    FCollisionQueryParams SightParams(SCENE_QUERY_STAT(MoonfallMeleeSight), false);
    SightParams.AddIgnoredActor(this);
@@ -164,6 +173,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
    CurrentWindup = BossPhase >= 3 ? 0.5f : 0.7f;
    CurrentAttackMultiplier = 0.9f;
    CurrentAttackRangeMultiplier = 1.15f;
+   LockedAttackDirection = Difference.GetSafeNormal2D();
    WindupEndsAt = Now + CurrentWindup;
    BossWarningEndTime = WindupEndsAt;
   } else {
@@ -292,6 +302,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
     CurrentWindup += 0.25f;
     bComboSecondHitPending = true;
    }
+   LockedAttackDirection = Difference.GetSafeNormal2D();
    WindupEndsAt = Now + CurrentWindup;
    if (bBoss) BossWarningEndTime = WindupEndsAt;
   }
