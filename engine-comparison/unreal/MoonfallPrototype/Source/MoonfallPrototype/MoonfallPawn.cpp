@@ -157,6 +157,13 @@ void AMoonfallPawn::BeginPlay()
     // Reveal the starting / restored region, but do not expose future regions.
     DiscoveredRegionMask |= 1 << MoonfallWorldRules::RegionAt(HeroMesh->GetRelativeLocation().X);
     RevealNearbyMapCells(HeroMesh->GetRelativeLocation());
+    // Start the isometric camera at the loaded checkpoint instead of
+    // flying from the origin whenever a save restores another region.
+    if (CameraBoom && HeroMesh)
+    {
+        const FVector HeroPosition = HeroMesh->GetRelativeLocation();
+        CameraBoom->SetRelativeLocation(FVector(HeroPosition.X, HeroPosition.Y, 0.f));
+    }
     BuildWorld();
     if (bCheckpointNeedsRepair)
     {
@@ -718,6 +725,19 @@ void AMoonfallPawn::ToggleWorldMap()
     // The Respawn screen owns mouse focus after defeat.
     if (Health <= 0.f || bRespawnInProgress) return;
     bWorldMapOpen = !bWorldMapOpen;
+    if (bWorldMapOpen && HeroMesh)
+    {
+        // Start controller navigation over the hero's revealed map cell.
+        // Unlike zoom-based map pan, this selection works at 1x zoom.
+        const FVector HeroPosition = HeroMesh->GetRelativeLocation();
+        WorldMapCursorCells = FVector2D(
+            FMath::Clamp(FMath::FloorToFloat((HeroPosition.X + 1600.f) / 400.f) + .5f, .5f, 47.5f),
+            FMath::Clamp(FMath::FloorToFloat((HeroPosition.Y + 3200.f) / 400.f) + .5f, .5f, 15.5f));
+        WorldMapPanCells.X = FMath::Clamp(WorldMapCursorCells.X - 24.f,
+            -24.f * (1.f - 1.f / WorldMapZoom), 24.f * (1.f - 1.f / WorldMapZoom));
+        WorldMapPanCells.Y = FMath::Clamp(WorldMapCursorCells.Y - 8.f,
+            -8.f * (1.f - 1.f / WorldMapZoom), 8.f * (1.f - 1.f / WorldMapZoom));
+    }
     DodgeBufferTimer = 0.f; // Map UI cannot queue a combat dodge.
     Forward = 0.f;
     Right = 0.f;
@@ -796,11 +816,12 @@ void AMoonfallPawn::PlaceMapWaypoint()
 
 void AMoonfallPawn::SetMapCenterWaypoint()
 {
-    // Controller map focus is the center crosshair, not the mouse cursor.
-    // Zoom and right-stick pan use this same projection.
+    // Controller focus is an independent movable tile, not the mouse.
+    // At 1x zoom the whole atlas is visible, so gamepad A can still pick
+    // any explored tile instead of always the fixed center cell.
     if (!bWorldMapOpen || Health <= 0.f) return;
-    const int32 X = FMath::FloorToInt(24.f + WorldMapPanCells.X);
-    const int32 Y = FMath::FloorToInt(8.f + WorldMapPanCells.Y);
+    const int32 X = FMath::FloorToInt(WorldMapCursorCells.X);
+    const int32 Y = FMath::FloorToInt(WorldMapCursorCells.Y);
     if (X < 0 || X >= 48 || Y < 0 || Y >= 16) return;
     const FVector Candidate(-1600.f + (X + .5f) * 400.f,
         -3200.f + (Y + .5f) * 400.f, 0.f);
@@ -1195,12 +1216,15 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
     if (bWorldMapOpen)
     {
         const float MapDt = FMath::Min(Dt, 0.05f);
-        WorldMapPanCells.X += MapPanHorizontalInput * 10.f * MapDt / WorldMapZoom;
-        WorldMapPanCells.Y += MapPanVerticalInput * 10.f * MapDt / WorldMapZoom;
+        WorldMapCursorCells.X = FMath::Clamp(WorldMapCursorCells.X +
+            MapPanHorizontalInput * 10.f * MapDt / WorldMapZoom, .5f, 47.5f);
+        WorldMapCursorCells.Y = FMath::Clamp(WorldMapCursorCells.Y +
+            MapPanVerticalInput * 10.f * MapDt / WorldMapZoom, .5f, 15.5f);
         const float MaxPanX = 24.f * (1.f - 1.f / WorldMapZoom);
         const float MaxPanY = 8.f * (1.f - 1.f / WorldMapZoom);
-        WorldMapPanCells.X = FMath::Clamp(WorldMapPanCells.X, -MaxPanX, MaxPanX);
-        WorldMapPanCells.Y = FMath::Clamp(WorldMapPanCells.Y, -MaxPanY, MaxPanY);
+        // Follow the cursor only as far as the world edges allow.
+        WorldMapPanCells.X = FMath::Clamp(WorldMapCursorCells.X - 24.f, -MaxPanX, MaxPanX);
+        WorldMapPanCells.Y = FMath::Clamp(WorldMapCursorCells.Y - 8.f, -MaxPanY, MaxPanY);
         // The full-screen atlas disables combat actions. Freeze combat and
         // resource clocks too, so opening it never causes unavoidable damage
         // or grants free healing, mana, cooldowns, or invulnerability time.
@@ -1291,7 +1315,11 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
         }
         CollectNearbyChambers();
         UpdateWorldEnemies(Dt);
-        CameraBoom->SetRelativeLocation(FVector(Position.X, Position.Y, 0.f));
+        // Smooth isometric tracking while keeping checkpoint startup exact.
+        // Capped interpolation delta avoids a large hitch teleporting camera.
+        const FVector CameraTarget(Position.X, Position.Y, 0.f);
+        CameraBoom->SetRelativeLocation(FMath::VInterpTo(
+            CameraBoom->GetRelativeLocation(), CameraTarget, FMath::Min(Dt, 0.05f), 9.f));
         if (Health > 0.f && EnemyDamageCooldown <= 0.f)
         {
             // Find the nearest *engaged* contact. A retreating enemy cannot

@@ -202,10 +202,12 @@ class UnrealMigrationParityGate(unittest.TestCase):
         hud = (base / "Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8")
         tick = pawn[pawn.index("void AMoonfallPawn::Tick(float DeltaSeconds)"): ]
         map_branch = tick[tick.index("if (bWorldMapOpen)"):tick.index("AttackCooldown = FMath::Max")]
-        self.assertIn("WorldMapPanCells.X +=", map_branch)
-        self.assertIn("WorldMapPanCells.Y +=", map_branch)
+        self.assertIn("WorldMapCursorCells.X = FMath::Clamp(", map_branch)
+        self.assertIn("WorldMapCursorCells.Y = FMath::Clamp(", map_branch)
+        self.assertIn("WorldMapPanCells.X = FMath::Clamp(", map_branch)
+        self.assertIn("WorldMapPanCells.Y = FMath::Clamp(", map_branch)
         self.assertIn("return;", map_branch)
-        self.assertLess(map_branch.index("WorldMapPanCells.Y +="), map_branch.index("return;"))
+        self.assertLess(map_branch.index("WorldMapPanCells.Y = FMath::Clamp("), map_branch.index("return;"))
         self.assertIn("UpdateWorldEnemies(Dt);", tick)
         self.assertIn("Mana = FMath::Min(180.f, Mana + 8.f * Dt);", tick)
         self.assertIn("combat paused", hud)
@@ -320,15 +322,15 @@ class UnrealMigrationParityGate(unittest.TestCase):
         self.assertIn("Dodge();", back)
         center = pawn[pawn.index("void AMoonfallPawn::SetMapCenterWaypoint()"):
                       pawn.index("void AMoonfallPawn::ControllerConfirm()")]
-        self.assertIn("WorldMapPanCells.X", center)
-        self.assertIn("WorldMapPanCells.Y", center)
+        self.assertIn("WorldMapCursorCells.X", center)
+        self.assertIn("WorldMapCursorCells.Y", center)
         self.assertIn("if (!IsMapPositionDiscovered(Candidate)) return;", center)
         self.assertIn("SaveProgress();", center)
         self.assertIn("Gamepad_LeftX", inputs)
         self.assertIn("DeadZone=0.24", inputs)
         self.assertIn("Click or press gamepad A to respawn", hud)
         self.assertIn("const FVector2D Reticle =", hud)
-        self.assertIn("Pad: right stick pan, A center pin, B close", hud)
+        self.assertIn("Pad: right stick select tile, A explored pin, B close", hud)
 
     def test_timed_parry_has_cost_cooldown_and_one_hit_consumption(self):
         base = ROOT / "engine-comparison/unreal/MoonfallPrototype"
@@ -552,6 +554,43 @@ class UnrealMigrationParityGate(unittest.TestCase):
         self.assertIn('TEXT("-%.0f")', hud)
         self.assertIn("Hero->GetDamageNumberSeconds() > 0.f", hud)
         self.assertNotIn("NewObject<", hud)
+
+    def test_controller_atlas_selection_works_at_unzoomed_scale(self):
+        base = ROOT / "engine-comparison/unreal/MoonfallPrototype"
+        cpp = (base / "Source/MoonfallPrototype/MoonfallPawn.cpp").read_text(encoding="utf-8")
+        header = (base / "Source/MoonfallPrototype/MoonfallPawn.h").read_text(encoding="utf-8")
+        hud = (base / "Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8")
+        self.assertIn("FVector2D WorldMapCursorCells = FVector2D(24.5f, 8.5f);", header)
+        self.assertIn("GetWorldMapCursorCells() const", header)
+        map_open = cpp[cpp.index("void AMoonfallPawn::ToggleWorldMap()"):
+                       cpp.index("void AMoonfallPawn::CloseWorldMap()")]
+        self.assertIn("WorldMapCursorCells = FVector2D(", map_open)
+        self.assertIn("HeroMesh->GetRelativeLocation()", map_open)
+        tick = cpp[cpp.index("void AMoonfallPawn::Tick(float DeltaSeconds)"):]
+        map_branch = tick[tick.index("if (bWorldMapOpen)"):
+                          tick.index("AttackCooldown = FMath::Max")]
+        self.assertIn("WorldMapCursorCells.X = FMath::Clamp(", map_branch)
+        self.assertIn("WorldMapCursorCells.Y = FMath::Clamp(", map_branch)
+        self.assertIn("WorldMapPanCells.X = FMath::Clamp(", map_branch)
+        self.assertIn("WorldMapPanCells.Y = FMath::Clamp(", map_branch)
+        self.assertIn(".5f, 47.5f", map_branch)
+        place = cpp[cpp.index("void AMoonfallPawn::SetMapCenterWaypoint()"):
+                    cpp.index("void AMoonfallPawn::ControllerAttack()")]
+        self.assertIn("FMath::FloorToInt(WorldMapCursorCells.X)", place)
+        self.assertIn("FMath::FloorToInt(WorldMapCursorCells.Y)", place)
+        self.assertIn("if (!IsMapPositionDiscovered(Candidate)) return;", place)
+        self.assertIn("Origin + Hero->GetWorldMapCursorCells() * Cell", hud)
+
+    def test_isometric_camera_tracks_smoothly_after_checkpoint_snap(self):
+        base = ROOT / "engine-comparison/unreal/MoonfallPrototype"
+        cpp = (base / "Source/MoonfallPrototype/MoonfallPawn.cpp").read_text(encoding="utf-8")
+        begin = cpp[cpp.index("void AMoonfallPawn::BeginPlay()"):
+                    cpp.index("UBillboardComponent* AMoonfallPawn::AddWorldArtwork(")]
+        self.assertIn("CameraBoom->SetRelativeLocation(FVector(HeroPosition.X, HeroPosition.Y, 0.f));", begin)
+        tick = cpp[cpp.index("void AMoonfallPawn::Tick(float DeltaSeconds)"):]
+        self.assertIn("CameraBoom->SetRelativeLocation(FMath::VInterpTo(", tick)
+        self.assertIn("CameraBoom->GetRelativeLocation(), CameraTarget, FMath::Min(Dt, 0.05f), 9.f", tick)
+        self.assertIn("CameraBoom->TargetArmLength = ZoomDistance;", cpp)
 
     def test_checkpoint_respawn_damage_grace_is_safe_and_paused_by_map(self):
         base = ROOT / "engine-comparison/unreal/MoonfallPrototype"

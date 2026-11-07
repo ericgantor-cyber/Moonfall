@@ -48,6 +48,7 @@ public:
     bool IsWorldMapOpen() const { return bWorldMapOpen; }
     void GetRespawnButtonBounds(float Width, float Height, FVector2D& OutMin, FVector2D& OutMax) const;
     float GetWorldMapZoom() const { return WorldMapZoom; }
+    FVector2D GetWorldMapCursorCells() const { return WorldMapCursorCells; }
     void GetWorldMapLayout(float Width, float Height, float& OutCell, FVector2D& OutOrigin,
         FVector2D& OutClipMin, FVector2D& OutClipMax) const;
     bool GetWaypoint(FVector& OutWaypoint) const;
@@ -96,6 +97,7 @@ private:
     bool bCheckpointNeedsRepair = false; // Legacy/corrupt checkpoint, preserve world progression.
     float WorldMapZoom = 1.f;
     FVector2D WorldMapPanCells = FVector2D::ZeroVector;
+    FVector2D WorldMapCursorCells = FVector2D(24.5f, 8.5f); // Navigable at 1x zoom via controller.
     float MapPanHorizontalInput = 0.f;
     float MapPanVerticalInput = 0.f;
     FVector Waypoint = FVector::ZeroVector;
