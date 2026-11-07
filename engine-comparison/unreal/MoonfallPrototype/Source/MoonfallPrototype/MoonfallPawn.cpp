@@ -897,6 +897,9 @@ void AMoonfallPawn::Dodge()
     if (Health > 0.f && DodgeCooldown <= 0.f && Stamina >= 45.f &&
         FVector2D(Forward, Right).SizeSquared() > 0.01f)
     {
+        // Commit to the initial direction for the complete dodge. Releasing
+        // a stick or movement key must not waste stamina or shorten travel.
+        DodgeDirection = FVector(Forward, Right, 0.f).GetClampedToMaxSize(1.f);
         DodgeTimer = 0.32f;
         DodgeCooldown = 1.2f;
         Stamina -= 45.f;
@@ -1160,7 +1163,8 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
     CheckpointTimer += Dt;
     if (Health > 0.f)
     {
-        FVector Direction = bWorldMapOpen ? FVector::ZeroVector : FVector(Forward, Right, 0.f);
+        FVector Direction = bDodgeActiveThisFrame
+            ? DodgeDirection : FVector(Forward, Right, 0.f);
         Direction = Direction.GetClampedToMaxSize(1.f);
         // A frame hitch must not teleport the hero through a boss warning or chamber.
         const float MovementDt = FMath::Min(Dt, 0.05f);
