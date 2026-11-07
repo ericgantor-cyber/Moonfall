@@ -24,6 +24,7 @@ AMoonfallHeroPawn::AMoonfallHeroPawn()
  bUseControllerRotationYaw = false;
  GetCharacterMovement()->bOrientRotationToMovement = true;
  GetCharacterMovement()->JumpZVelocity = 600.f;
+ NormalWalkSpeed = GetCharacterMovement()->MaxWalkSpeed;
 }
 void AMoonfallHeroPawn::BeginPlay() {
  Super::BeginPlay();
@@ -49,8 +50,22 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
  ImpactCameraOffset = FMath::FInterpTo(ImpactCameraOffset, 0.f, FMath::Max(0.f, DeltaSeconds), 12.f);
  if (CameraBoom) CameraBoom->TargetArmLength = 450.f + (bReduceMotion ? 0.f : ImpactCameraOffset);
  if (Health > 0.f && Mana < MaxMana) Mana = FMath::Min(MaxMana, Mana + ManaRegenPerSecond * (1.f + FMath::Min(0.25f, AccessoryTier * 0.012f)) * FMath::Max(0.f, DeltaSeconds));
+ // Sprint drains only while moving, and never drains while paused in Options.
+ const float StaminaDelta = FMath::Clamp(DeltaSeconds, 0.f, 0.1f);
+ const bool bCanSprint = bSprintHeld && !bSprintExhausted && !bOptionsOpen && Health > 0.f
+     && FMath::IsFinite(Stamina) && FMath::IsFinite(MaxStamina) && MaxStamina > 0.f
+     && FMath::IsFinite(SprintStaminaDrainPerSecond) && SprintStaminaDrainPerSecond > 0.f
+     && GetVelocity().SizeSquared2D() > FMath::Square(10.f);
+ if (bCanSprint && Stamina > 0.f) {
+  Stamina = FMath::Max(0.f, Stamina - SprintStaminaDrainPerSecond * StaminaDelta);
+  if (GetWorld()) StaminaRegenStartsAt = GetWorld()->GetTimeSeconds() + 0.8f;
+  if (Stamina <= 0.f) bSprintExhausted = true;
+ }
+ const bool bSprinting = bCanSprint && !bSprintExhausted;
+ if (GetCharacterMovement()) GetCharacterMovement()->MaxWalkSpeed = bSprinting
+     ? NormalWalkSpeed * FMath::Clamp(SprintSpeedMultiplier, 1.f, 2.5f) : NormalWalkSpeed;
  // Stamina powers dodges independently of spell mana and regenerates after exertion.
- if (Health > 0.f && GetWorld() && GetWorld()->GetTimeSeconds() >= StaminaRegenStartsAt
+ if (Health > 0.f && !bSprinting && GetWorld() && GetWorld()->GetTimeSeconds() >= StaminaRegenStartsAt
      && FMath::IsFinite(Stamina) && FMath::IsFinite(MaxStamina) && MaxStamina > 0.f) {
   Stamina = FMath::Min(MaxStamina, Stamina + FMath::Max(0.f, StaminaRegenPerSecond) * FMath::Max(0.f, DeltaSeconds));
  }
@@ -68,6 +83,8 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("CastRight"), IE_Pressed, this, &AMoonfallHeroPawn::CastRight);
  Input->BindAction(TEXT("DualCast"), IE_Pressed, this, &AMoonfallHeroPawn::CastBoth);
  Input->BindAction(TEXT("Dodge"), IE_Pressed, this, &AMoonfallHeroPawn::Dodge);
+ Input->BindAction(TEXT("Sprint"), IE_Pressed, this, &AMoonfallHeroPawn::BeginSprint);
+ Input->BindAction(TEXT("Sprint"), IE_Released, this, &AMoonfallHeroPawn::EndSprint);
  Input->BindAction(TEXT("Guard"), IE_Pressed, this, &AMoonfallHeroPawn::BeginGuard);
  Input->BindAction(TEXT("Guard"), IE_Released, this, &AMoonfallHeroPawn::EndGuard);
  Input->BindAction(TEXT("GraphicsQuality"), IE_Pressed, this, &AMoonfallHeroPawn::CycleGraphicsQuality);
@@ -163,6 +180,9 @@ void AMoonfallHeroPawn::EndGuard()
  bGuarding = false;
  ParryWindowEndsAt = -1.f;
 }
+void AMoonfallHeroPawn::BeginSprint() { bSprintHeld = true; }
+void AMoonfallHeroPawn::EndSprint() { bSprintHeld = false; bSprintExhausted = false; }
+
 void AMoonfallHeroPawn::Dodge()
 {
  if (bOptionsOpen || Health <= 0.f || !GetWorld()) return;
@@ -172,6 +192,8 @@ void AMoonfallHeroPawn::Dodge()
      || DodgeStaminaCost < 0.f || Stamina < DodgeStaminaCost) return;
  Stamina = FMath::Clamp(Stamina - DodgeStaminaCost, 0.f, MaxStamina);
  StaminaRegenStartsAt = Now + 0.8f;
+ // Dodge takes priority over sprint. Releasing Sprint permits a fresh attempt.
+ bSprintExhausted = true;
  EndGuard();
  NextDodgeAt = Now + DodgeCooldown;
  DamageImmunityUntil = Now + 0.24f;
