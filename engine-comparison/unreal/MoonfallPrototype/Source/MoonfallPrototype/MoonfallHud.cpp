@@ -108,6 +108,28 @@ void AMoonfallHud::DrawHUD()
         FMath::Abs(BossOffset.X) <= 1700.f && FMath::Abs(BossOffset.Y) <= 1700.f)
         DrawMarker(Left + 80.f + BossOffset.X * .04f,
             98.f - BossOffset.Y * .04f, FLinearColor::Red);
+    FVector MarkerPosition;
+    if (Hero->GetWaypoint(MarkerPosition))
+    {
+        const FVector Offset = MarkerPosition - H;
+        if (FMath::Abs(Offset.X) <= 1700.f && FMath::Abs(Offset.Y) <= 1700.f &&
+            Hero->IsMapPositionDiscovered(MarkerPosition))
+            DrawMarker(Left + 80.f + Offset.X * .04f, 98.f - Offset.Y * .04f,
+                FLinearColor(.4f, .8f, 1.f));
+        DrawText(FString::Printf(TEXT("PIN: %.0f m  (V set / B clear)"),
+            FVector::Dist2D(H, MarkerPosition) / 100.f),
+            FLinearColor(.4f, .8f, 1.f), Left - 110.f, 308.f);
+    }
+    FVector Destination;
+    if (Hero->GetQuestDestination(Destination))
+    {
+        const FVector Offset = Destination - H;
+        if (FMath::Abs(Offset.X) <= 1700.f && FMath::Abs(Offset.Y) <= 1700.f)
+            DrawMarker(Left + 80.f + Offset.X * .04f, 98.f - Offset.Y * .04f,
+                FLinearColor(1.f, .72f, .18f));
+        DrawText(FString::Printf(TEXT("QUEST: %.0f m"), FVector::Dist2D(H, Destination) / 100.f),
+            FLinearColor(1.f, .72f, .18f), Left - 110.f, 331.f);
+    }
     DrawMarker(Left + 80.f, 98.f, FLinearColor(.2f, .9f, 1.f));
 
     // Quest tracker ports a persistent Godot-style objective list without
