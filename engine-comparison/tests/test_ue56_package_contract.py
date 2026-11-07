@@ -38,6 +38,12 @@ class PackageContract(unittest.TestCase):
                          "if not levels.save_current_level():"):
             self.assertIn(expected, script)
         self.assertIn("if existing:", script)
+        self.assertIn('MOONFALL_WORLD_VALIDATION_SENTINEL', script)
+        self.assertIn('sentinel_path.write_text(', script)
+        self.assertIn('$ValidationSentinel', packaging)
+        self.assertIn('if (-not (Test-Path -LiteralPath $ValidationSentinel', packaging)
+        self.assertIn("MoonfallWorld validated", packaging)
+        self.assertIn("Refusing packaging", packaging)
         self.assertIn("Get-FileHash -LiteralPath $MapAsset -Algorithm SHA256", packaging)
         self.assertIn("$UpdatedMapHash -ne $ExistingMapHash", packaging)
         self.assertIn("Refusing packaging", packaging)
