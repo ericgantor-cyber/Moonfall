@@ -54,7 +54,13 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
  const float StaminaDelta = FMath::Clamp(DeltaSeconds, 0.f, 0.1f);
  // Exhaustion requires releasing sprint before another burst; guard and dodge
  // immediately cancel sprint speed so defense cannot inherit a free boost.
- if (bSprintHeld && Stamina <= 0.f) bSprintExhausted = true;
+ if (!FMath::IsFinite(Stamina) || !FMath::IsFinite(MaxStamina) || MaxStamina <= 0.f) {
+  // Invalid runtime/Blueprint values should not spread through movement or HUD.
+  bSprintExhausted = true;
+ } else {
+  Stamina = FMath::Clamp(Stamina, 0.f, MaxStamina);
+  if (bSprintHeld && Stamina <= 0.f) bSprintExhausted = true;
+ }
  const bool bCanSprint = bSprintHeld && !bSprintExhausted && !bGuarding && !bOptionsOpen && Health > 0.f
      && FMath::IsFinite(Stamina) && FMath::IsFinite(MaxStamina) && MaxStamina > 0.f
      && FMath::IsFinite(SprintStaminaDrainPerSecond) && SprintStaminaDrainPerSecond > 0.f
@@ -72,8 +78,9 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
      ? NormalWalkSpeed * FMath::Clamp(SprintSpeedMultiplier, 1.f, 2.5f) : NormalWalkSpeed;
  // Stamina powers dodges independently of spell mana and regenerates after exertion.
  if (Health > 0.f && !bSprinting && GetWorld() && GetWorld()->GetTimeSeconds() >= StaminaRegenStartsAt
-     && FMath::IsFinite(Stamina) && FMath::IsFinite(MaxStamina) && MaxStamina > 0.f) {
-  Stamina = FMath::Clamp(Stamina + FMath::Max(0.f, StaminaRegenPerSecond) * StaminaDelta, 0.f, MaxStamina);
+     && FMath::IsFinite(Stamina) && FMath::IsFinite(MaxStamina) && MaxStamina > 0.f
+     && FMath::IsFinite(StaminaRegenPerSecond) && StaminaRegenPerSecond > 0.f) {
+  Stamina = FMath::Clamp(Stamina + StaminaRegenPerSecond * StaminaDelta, 0.f, MaxStamina);
  }
 }
 void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
@@ -191,9 +198,10 @@ void AMoonfallHeroPawn::BeginSprint() {
  // Holding or repeating the press must not bypass exhaustion.
  if (!bSprintHeld) {
   // An empty pool cannot be bypassed by tapping sprint repeatedly.
-  const float Required = FMath::Clamp(SprintRestartStamina, 0.f, MaxStamina);
-  bSprintExhausted = !FMath::IsFinite(Stamina) || !FMath::IsFinite(MaxStamina)
-      || MaxStamina <= 0.f || Stamina < Required || Stamina <= 0.f;
+  const bool bValidStamina = FMath::IsFinite(Stamina) && FMath::IsFinite(MaxStamina)
+      && FMath::IsFinite(SprintRestartStamina) && MaxStamina > 0.f;
+  const float Required = bValidStamina ? FMath::Clamp(SprintRestartStamina, 0.f, MaxStamina) : 0.f;
+  bSprintExhausted = !bValidStamina || Stamina < Required || Stamina <= 0.f;
  }
  bSprintHeld = true;
 }
