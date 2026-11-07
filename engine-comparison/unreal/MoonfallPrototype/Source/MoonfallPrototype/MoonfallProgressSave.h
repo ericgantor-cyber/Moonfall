@@ -35,6 +35,10 @@ public:
     UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category="Prototype")
     int32 DiscoveredRegionMask = 0;
 
+    // 48 x 16 exploration cells. Older saves load an empty array safely.
+    UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category="Prototype")
+    TArray<uint8> DiscoveredMapCells;
+
     UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category="Prototype")
     int32 ClaimedChamberMask = 0;
 
