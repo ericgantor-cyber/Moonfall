@@ -816,7 +816,7 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("CreateSaveGameObject(", save_code)
         self.assertLess(save_code.index("LoadGameFromSlot("),
                         save_code.index("CreateSaveGameObject("))
-        self.assertIn("if (HeroMesh && Health > 0.f)", save_code)
+        self.assertIn("if (HeroMesh && Health > 0.f &&", save_code)
         self.assertIn("Progress->bHasCheckpoint = true;", save_code)
         self.assertNotIn("Progress->bHasCheckpoint = false;", save_code)
         self.assertIn("Progress->SavedHealth = Health;", save_code)
@@ -835,7 +835,7 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("if (HeroMesh && GetWorld()) SaveProgress();", code)
         self.assertIn("Super::EndPlay(Reason);", code)
         self.assertNotIn("EEndPlayReason::EndPlayInEditor", code)
-        self.assertIn("if (HeroMesh && Health > 0.f)", self.cpp)
+        self.assertIn("if (HeroMesh && Health > 0.f &&", self.cpp)
 
     def test_checkpoint_resource_bars_preserve_mana_and_stamina(self):
         save = SAVES.read_text(encoding="utf-8")
@@ -857,7 +857,7 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn('Progress->SavedMana = Mana;', self.cpp)
         self.assertIn('Progress->SavedStamina = Stamina;', self.cpp)
         self.assertIn('Progress->bHasResourceCheckpoint = true;', self.cpp)
-        self.assertIn('if (HeroMesh && Health > 0.f)', self.cpp)
+        self.assertIn('if (HeroMesh && Health > 0.f &&', self.cpp)
         self.assertIn('if (hero != null && hp > 0f)', self.unity)
 
     def test_boss_hp_resets_but_victory_remains_saved(self):
