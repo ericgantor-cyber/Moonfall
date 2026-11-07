@@ -375,6 +375,19 @@ class UnrealMigrationParityGate(unittest.TestCase):
         self.assertIn("Click or press gamepad A to respawn at your checkpoint", hud)
         self.assertNotIn('DrawText(TEXT("RETRY")', hud)
 
+    def test_respawn_grace_hud_countdown_only_while_protected(self):
+        base = ROOT / "engine-comparison/unreal/MoonfallPrototype"
+        header = (base / "Source/MoonfallPrototype/MoonfallPawn.h").read_text(encoding="utf-8")
+        hud = (base / "Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8")
+        self.assertIn("float GetRespawnProtectionSeconds() const", header)
+        self.assertIn("FMath::Max(0.f, RespawnGraceTimer)", header)
+        self.assertIn("Hero->GetRespawnProtectionSeconds()", hud)
+        self.assertIn("Hero->GetHudHealth() > 0.f && ProtectionSeconds > 0.f", hud)
+        self.assertIn('TEXT("PROTECTED %.1fs")', hud)
+        self.assertLess(hud.index('TEXT("PROTECTED %.1fs")'),
+                        hud.index("if (Hero->GetHudHealth() <= 0.f)"))
+        self.assertIn("FMath::Max(12.f, OrbCenter.X - 55.f)", hud)
+
     def test_checkpoint_respawn_damage_grace_is_safe_and_paused_by_map(self):
         base = ROOT / "engine-comparison/unreal/MoonfallPrototype"
         cpp = (base / "Source/MoonfallPrototype/MoonfallPawn.cpp").read_text(encoding="utf-8")
