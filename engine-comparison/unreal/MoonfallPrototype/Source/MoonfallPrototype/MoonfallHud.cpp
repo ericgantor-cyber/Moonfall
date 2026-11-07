@@ -88,6 +88,9 @@ void AMoonfallHud::DrawHUD()
         DrawText(TEXT("RETRY"), FLinearColor::White, TextX, TextY);
         DrawText(TEXT("Click to return to your checkpoint"),
             FLinearColor(.85f, .85f, .85f), ButtonMin.X, ButtonMax.Y + 10.f);
+        // Do not render quest/radar distractions or atlas controls behind
+        // the death menu. Keep original resource orbs above as context.
+        return;
     }
 
     if (Hero->IsWorldMapOpen())
