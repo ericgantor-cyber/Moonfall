@@ -210,6 +210,8 @@ void AMoonfallHeroPawn::BreakGuard()
 {
  if (!bGuarding || !GetWorld()) return;
  EndGuard();
+ // Losing guard also forfeits any outstanding counterattack opportunity.
+ ParryCounterUntil = -1.f;
  GuardBrokenUntil = GetWorld()->GetTimeSeconds() + FMath::Clamp(GuardBreakRecoverySeconds, 0.f, 3.f);
  OnGuardBroken();
 }
@@ -357,8 +359,11 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
   BreakGuard();
  }
  Health = FMath::Max(0.f, Health - DamageAfterGuard);
- if (Health <= 0.f) EndGuard();
+ // Taking actual health damage interrupts the perfect-parry offensive opening.
+ // Fully blocked/parried hits leave it intact.
  const float DamageTaken = PreviousHealth - Health;
+ if (DamageTaken > 0.f) ParryCounterUntil = -1.f;
+ if (Health <= 0.f) EndGuard();
  if (!bReduceMotion) ImpactCameraOffset = FMath::Clamp(ImpactCameraOffset + FMath::Min(DamageTaken * 0.5f, 18.f), 0.f, 24.f);
  OnDamageImpact(DamageTaken);
  OnHealthChanged(Health, MaxHealth);
