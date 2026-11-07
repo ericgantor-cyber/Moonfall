@@ -52,11 +52,15 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
  if (Health > 0.f && Mana < MaxMana) Mana = FMath::Min(MaxMana, Mana + ManaRegenPerSecond * (1.f + FMath::Min(0.25f, AccessoryTier * 0.012f)) * FMath::Max(0.f, DeltaSeconds));
  // Sprint drains only while moving, and never drains while paused in Options.
  const float StaminaDelta = FMath::Clamp(DeltaSeconds, 0.f, 0.1f);
+ // Exhaustion requires releasing sprint before another burst; guard and dodge
+ // immediately cancel sprint speed so defense cannot inherit a free boost.
  if (bSprintHeld && Stamina <= 0.f) bSprintExhausted = true;
- const bool bCanSprint = bSprintHeld && !bSprintExhausted && !bOptionsOpen && Health > 0.f
+ const bool bCanSprint = bSprintHeld && !bSprintExhausted && !bGuarding && !bOptionsOpen && Health > 0.f
      && FMath::IsFinite(Stamina) && FMath::IsFinite(MaxStamina) && MaxStamina > 0.f
      && FMath::IsFinite(SprintStaminaDrainPerSecond) && SprintStaminaDrainPerSecond > 0.f
-     && GetVelocity().SizeSquared2D() > FMath::Square(10.f);
+     && GetVelocity().SizeSquared2D() > FMath::Square(10.f)
+     && GetLastMovementInputVector().SizeSquared2D() > 0.01f
+     && GetWorld() && GetWorld()->GetTimeSeconds() >= DamageImmunityUntil;
  if (bCanSprint && Stamina > 0.f) {
   Stamina = FMath::Max(0.f, Stamina - SprintStaminaDrainPerSecond * StaminaDelta);
   if (GetWorld()) StaminaRegenStartsAt = GetWorld()->GetTimeSeconds() + 0.8f;
@@ -167,6 +171,7 @@ void AMoonfallHeroPawn::BeginGuard()
 {
  if (bOptionsOpen || Health <= 0.f || !GetWorld() || Mana < 4.f || bGuarding) return;
  bGuarding = true;
+ if (GetCharacterMovement()) GetCharacterMovement()->MaxWalkSpeed = NormalWalkSpeed;
  const float Now = GetWorld()->GetTimeSeconds();
  // Holding guard cannot repeatedly open parry windows.
  if (Now >= NextParryAt) {
@@ -181,8 +186,16 @@ void AMoonfallHeroPawn::EndGuard()
  bGuarding = false;
  ParryWindowEndsAt = -1.f;
 }
-void AMoonfallHeroPawn::BeginSprint() { bSprintHeld = true; bSprintExhausted = false; }
-void AMoonfallHeroPawn::EndSprint() { bSprintHeld = false; bSprintExhausted = false; }
+void AMoonfallHeroPawn::BeginSprint() {
+ // Holding or repeating the press must not bypass exhaustion.
+ if (!bSprintHeld) bSprintExhausted = false;
+ bSprintHeld = true;
+}
+void AMoonfallHeroPawn::EndSprint() {
+ bSprintHeld = false;
+ bSprintExhausted = false;
+ if (GetCharacterMovement()) GetCharacterMovement()->MaxWalkSpeed = NormalWalkSpeed;
+}
 
 void AMoonfallHeroPawn::Dodge()
 {
@@ -193,6 +206,7 @@ void AMoonfallHeroPawn::Dodge()
      || DodgeStaminaCost < 0.f || Stamina < DodgeStaminaCost) return;
  Stamina = FMath::Clamp(Stamina - DodgeStaminaCost, 0.f, MaxStamina);
  StaminaRegenStartsAt = Now + 0.8f;
+ if (GetCharacterMovement()) GetCharacterMovement()->MaxWalkSpeed = NormalWalkSpeed;
  // Dodge takes priority over sprint. Releasing Sprint permits a fresh attempt.
  bSprintExhausted = true;
  EndGuard();
