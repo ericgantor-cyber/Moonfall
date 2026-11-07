@@ -31,7 +31,7 @@ jobs:
           $workflow = Get-Content '.github/workflows/unreal-hosted-windows.yml' -Raw
           foreach ($rule in @(
             "workflow_dispatch:",
-            "inputs.attempt_compile && needs.windows-preflight.outputs.has_capacity == 'true'",
+            "(inputs.attempt_compile || inputs.package_game) && needs.windows-preflight.outputs.has_capacity == 'true'",
             "minimum_free_gb:",
             "MOONFALL_UE54_ARCHIVE_SHA256",
             "Test-UnrealInstalledArchive.ps1",
