@@ -199,7 +199,15 @@ void AMoonfallCombatHUD::DrawHUD()
   if (GetOwningPlayerController() && GetOwningPlayerController()->ProjectWorldLocationToScreen(Enemy->GetActorLocation() + FVector(0,0,175.f + Age*65.f), Screen) &&
       Screen.X >= 0.f && Screen.X < Canvas->SizeX && Screen.Y >= 0.f && Screen.Y < Canvas->SizeY) {
    ++VisibleDamageNumbers;
-   DrawText(FString::Printf(TEXT("-%.0f"), Enemy->LastHitAmount), FLinearColor(1.f,0.84f,0.2f,1.f-Age/0.8f), Screen.X, Screen.Y, nullptr, 1.3f * Hero->CombatTextScale);
+   const bool bShatter = Enemy->bLastHitWasShatter;
+   const FLinearColor DamageColor = bShatter
+     ? FLinearColor(1.f, 0.56f, 0.22f, 1.f - Age / 0.8f)
+     : FLinearColor(1.f, 0.84f, 0.2f, 1.f - Age / 0.8f);
+   const FString DamageLabel = bShatter
+     ? FString::Printf(TEXT("SHATTER -%.0f"), Enemy->LastHitAmount)
+     : FString::Printf(TEXT("-%.0f"), Enemy->LastHitAmount);
+   DrawText(DamageLabel, DamageColor, Screen.X, Screen.Y, nullptr,
+     (bShatter ? 1.55f : 1.3f) * Hero->CombatTextScale);
   }
  }
 }
