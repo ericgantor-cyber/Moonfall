@@ -64,12 +64,12 @@
     },
     {
       "id": "quest_and_atlas",
-      "status": "quest_tracker_source_present_atlas_pending",
+      "status": "quest_tracker_and_region_fog_source_present_atlas_pending",
       "unreal": [
         "engine-comparison/unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.cpp",
         "engine-comparison/unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallPawn.cpp"
       ],
-      "gate": "Quest tracker for defeated beasts, claimed chambers, and Z reads saved flags; verify in Windows runtime, then port Godot atlas fog, waypoint and map persistence"
+      "gate": "Source includes saved 6-region discovery fog and quest tracker; confirm persistence and radar visibility in Windows UE5.6, then port per-cell fog, waypoints, and full atlas"
     },
     {
       "id": "crafting_inventory",
