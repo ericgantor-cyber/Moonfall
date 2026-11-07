@@ -746,7 +746,8 @@ void AMoonfallPawn::Parry()
 
 void AMoonfallPawn::Dodge()
 {
-    if (bWorldMapOpen || ParryTimer > 0.f) return; // Map navigation must not spend stamina.
+    if (bWorldMapOpen) return; // Map navigation must not spend stamina.
+    if (ParryTimer > 0.f) return; // Cannot dodge during a committed parry.
     if (Health > 0.f && DodgeCooldown <= 0.f && Stamina >= 45.f &&
         FVector2D(Forward, Right).SizeSquared() > 0.01f)
     {
