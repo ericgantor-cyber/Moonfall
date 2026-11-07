@@ -67,6 +67,13 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             namespace["updated_map_config"](original + original)
 
 
+    def test_manual_windows_release_uses_startup_map_preflight(self):
+        workflow = (ROOT.parents[2] / ".github" / "workflows" /
+                    "unreal-windows-build.yml").read_text(encoding="utf-8")
+        self.assertIn("Build-Windows.ps1 -UnrealRoot $env:UE54_ROOT -PreflightOnly", workflow)
+        self.assertIn('"-map=/Game/Maps/MoonfallStart"', workflow)
+        self.assertNotIn("Engine\\Content\\Maps\\Entry.umap", workflow)
+
     def test_windows_package_requires_project_startup_level(self):
         script = (ROOT.parents[1] / "Build" / "Build-Windows.ps1").read_text(encoding="utf-8")
         self.assertIn("MoonfallStart.umap", script)
