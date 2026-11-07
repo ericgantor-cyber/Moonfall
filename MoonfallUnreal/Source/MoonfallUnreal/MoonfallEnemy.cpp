@@ -112,7 +112,17 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   return;
  }
  AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0));
- if (!IsValid(Hero) || Hero->Health <= 0.f || Hero->bOptionsOpen) return;
+ if (!IsValid(Hero) || Hero->Health <= 0.f) return;
+ // Options pauses player input, so cancel any committed enemy windup.
+ // Never deliver a stale attack immediately when the player closes the menu.
+ if (Hero->bOptionsOpen) {
+  WindupEndsAt = -1.f;
+  BossWarningEndTime = -1.f;
+  bComboSecondHitPending = false;
+  bComboSecondHitActive = false;
+  NextAttackAt = FMath::Max(NextAttackAt, Now + FMath::Max(0.65f, AttackCooldown));
+  return;
+ }
  FVector Difference = Hero->GetActorLocation() - GetActorLocation();
  Difference.Z = 0.f;
  const float Distance = Difference.Size();
