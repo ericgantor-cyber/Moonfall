@@ -537,8 +537,9 @@ class UnrealMigrationParityGate(unittest.TestCase):
                      cpp.index("TArray<FVector> AMoonfallPawn::GetChamberMapPositions()")]
         self.assertIn("Enemy.AttackWindup = 0.f;", damage)
         self.assertIn("Enemy.AttackCooldown = FMath::Max(Enemy.AttackCooldown, 0.5f);", damage)
-        self.assertIn("GetNearestEnemyWindupSeconds()", hud)
-        self.assertIn("DODGE / PARRY", hud)
+        self.assertNotIn("GetNearestEnemyWindupSeconds()", hud)
+        self.assertNotIn("DODGE / PARRY", hud)
+        self.assertNotIn("INCOMING %.1fs", hud)
         self.assertNotIn("SpawnWave(", ai)
 
     def test_three_world_enemy_tactics_remain_leashed_and_wave_free(self):
