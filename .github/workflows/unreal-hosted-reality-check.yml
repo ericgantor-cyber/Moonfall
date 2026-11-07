@@ -29,7 +29,7 @@ jobs:
       - name: Retrieve pinned PR 690 Unreal source snapshot (no secrets)
         uses: actions/checkout@v4
         with:
-          ref: 670bb96f8e7df21077ce5af5b4f399c534594a4a
+          ref: 8151ec565bfc78446b30eab5428d0285a3360849
           path: pr690-snapshot
           persist-credentials: false
       - name: Verify pinned PR source resolves to intended Unreal project
@@ -38,7 +38,7 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $root = Join-Path $env:GITHUB_WORKSPACE 'pr690-snapshot'
           $head = (& git -C $root rev-parse HEAD).Trim()
-          if ($head -ne '670bb96f8e7df21077ce5af5b4f399c534594a4a') {
+          if ($head -ne '8151ec565bfc78446b30eab5428d0285a3360849') {
             throw 'Pinned PR snapshot resolved to unexpected commit.'
           }
           foreach ($relative in @('MoonfallUnreal\MoonfallUnreal.uproject', 'MoonfallUnreal\Source\MoonfallUnrealEditor.Target.cs', 'MoonfallUnreal\Build\Build-Windows.ps1')) {
@@ -73,7 +73,9 @@ jobs:
             @($hero, 'Candidate->ActorHasTag(FName(TEXT("MoonfallArenaQuestBoss")))'),
             @($hero, 'NextArenaBossQuestSearchAt = Now + 0.5f'),
             @($hero, 'if (bArenaBossQuestActive && !ActiveArenaBoss.IsValid())'),
-            @($enemy, 'Hero->CompleteArenaBossQuest(this);')
+            @($enemy, 'Hero->CompleteArenaBossQuest(this);'),
+            @($enemy, 'NextAttackAt = FMath::Max(NextAttackAt, Now + 0.45f)'),
+            @($enemy, 'CrowRecoverUntil = FMath::Max(CrowRecoverUntil, GetWorld()->GetTimeSeconds() + 0.45f)')
           )) {
             if (-not $check[0].Contains($check[1])) { throw "Assigned quest boss actor regression: $($check[1])" }
           }
@@ -96,7 +98,7 @@ jobs:
             "inputs.package_game",
             "source_snapshot:",
             "pr690-pinned",
-            "670bb96f8e7df21077ce5af5b4f399c534594a4a",
+            "8151ec565bfc78446b30eab5428d0285a3360849",
             "path: build-tools",
             "path: game-source",
             "source snapshot selection",
@@ -131,7 +133,7 @@ jobs:
             'GenerateProjectFiles.bat',
             'Make Installed Build Win64',
             'Test-UnrealEngineVersion.ps1',
-            '670bb96f8e7df21077ce5af5b4f399c534594a4a',
+            '8151ec565bfc78446b30eab5428d0285a3360849',
             'CompileOnly',
             'inputs.package_game',
             'MoonfallWin64Packaged',
