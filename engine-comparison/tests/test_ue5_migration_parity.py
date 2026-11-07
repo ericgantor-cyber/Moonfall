@@ -465,7 +465,13 @@ class UnrealMigrationParityGate(unittest.TestCase):
         self.assertEqual(dodge.count("Stamina -= 45.f;"), 1)
         tick = cpp[cpp.index("void AMoonfallPawn::Tick(float DeltaSeconds)"):]
         self.assertIn("DodgeBufferTimer = FMath::Max(0.f, DodgeBufferTimer - Dt);", tick)
-        self.assertIn("DodgeBufferTimer > 0.f && DodgeCooldown <= 0.f &&", tick)
+        self.assertIn("bBufferValidThisFrame && DodgeCooldown <= 0.f &&", tick)
+        self.assertLess(tick.index("DodgeCooldown = FMath::Max(0.f, DodgeCooldown - Dt);"),
+                        tick.index("DodgeDirection = BufferedDodgeDirection;"))
+        self.assertLess(tick.index("DodgeDirection = BufferedDodgeDirection;"),
+                        tick.index("const float DodgeTimeRemainingThisFrame = DodgeTimer;"))
+        self.assertLess(tick.index("const bool bDodgeActiveThisFrame = DodgeTimeRemainingThisFrame > 0.f;"),
+                        tick.index("const float DodgeMovementDt = bDodgeActiveThisFrame"))
         self.assertIn("DodgeTimer <= 0.f && ParryTimer <= 0.f && Stamina >= 45.f", tick)
         self.assertIn("DodgeDirection = BufferedDodgeDirection;", tick)
         self.assertLess(tick.index("DodgeDirection = BufferedDodgeDirection;"),

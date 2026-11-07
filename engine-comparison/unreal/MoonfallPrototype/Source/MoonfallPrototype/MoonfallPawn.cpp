@@ -1148,21 +1148,16 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
     const float ReactionDt = FMath::Min(Dt, 0.05f);
     MeleeComboTimer = FMath::Max(0.f, MeleeComboTimer - ReactionDt);
     if (MeleeComboTimer <= 0.f) MeleeComboCount = 0;
-    // Snapshot dodge protection before advancing timers. The same active
-    // frame controls travel, enemy contact and boss impact.
-    const float DodgeTimeRemainingThisFrame = DodgeTimer;
-    const bool bDodgeActiveThisFrame = DodgeTimeRemainingThisFrame > 0.f;
-    bool bParryActiveThisFrame = ParryTimer > 0.f;
-    DodgeTimer = FMath::Max(0.f, DodgeTimer - ReactionDt);
-    ParryTimer = FMath::Max(0.f, ParryTimer - ReactionDt);
-    ParryCooldown = FMath::Max(0.f, ParryCooldown - Dt);
+    // Advance cooldown before accepting a queued dodge, so the newly started
+    // dodge protects and moves the hero on this very frame, not one frame late.
     DodgeCooldown = FMath::Max(0.f, DodgeCooldown - Dt);
-    // Process at most one buffered dodge when its cooldown is ready. Map and
-    // death pauses return before this point; parry commitment takes priority.
+    // A buffered press already happened before this frame. Resolve at most
+    // one queue, and commit stamina only when the dodge actually starts.
     if (DodgeBufferTimer > 0.f)
     {
+        const bool bBufferValidThisFrame = DodgeBufferTimer > 0.f;
         DodgeBufferTimer = FMath::Max(0.f, DodgeBufferTimer - Dt);
-        if (DodgeBufferTimer > 0.f && DodgeCooldown <= 0.f &&
+        if (bBufferValidThisFrame && DodgeCooldown <= 0.f &&
             DodgeTimer <= 0.f && ParryTimer <= 0.f && Stamina >= 45.f)
         {
             DodgeDirection = BufferedDodgeDirection;
@@ -1173,6 +1168,14 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
             DodgeBufferTimer = 0.f;
         }
     }
+    // Snapshot newly activated or existing dodge protection before consuming
+    // frame time. This same state controls movement and both damage paths.
+    const float DodgeTimeRemainingThisFrame = DodgeTimer;
+    const bool bDodgeActiveThisFrame = DodgeTimeRemainingThisFrame > 0.f;
+    bool bParryActiveThisFrame = ParryTimer > 0.f;
+    DodgeTimer = FMath::Max(0.f, DodgeTimer - ReactionDt);
+    ParryTimer = FMath::Max(0.f, ParryTimer - ReactionDt);
+    ParryCooldown = FMath::Max(0.f, ParryCooldown - Dt);
     // Dodging temporarily stops passive stamina gain. A rewarded perfect
     // dodge can still restore its explicit 10 stamina immediately.
     // Only regenerate for the portion of this frame after the delay ends.
