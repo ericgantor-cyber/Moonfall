@@ -169,7 +169,14 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
   if (!GetWorld()->LineTraceSingleByChannel(Hit, Origin, End, ECC_Visibility, Params)) return false;
   AMoonfallEnemy* Enemy = Cast<AMoonfallEnemy>(Hit.GetActor());
   if (!IsValid(Enemy) || Enemy->Health <= 0.f) return false;
-  Enemy->TakeSpellDamage((18.f + School * 5.f) * Multiplier * SpellPowerMultiplier * (1.f + FMath::Min(0.35f, 0.018f * WeaponTier)));
+  // The first successful hostile spell shortly after a perfect parry is
+  // empowered. Misses, invalid targets and healing cannot spend the opening.
+  const bool bCounterReady = Time <= ParryCounterUntil
+      && FMath::IsFinite(ParryCounterDamageMultiplier) && ParryCounterDamageMultiplier >= 1.f;
+  const float CounterMultiplier = bCounterReady
+      ? FMath::Clamp(ParryCounterDamageMultiplier, 1.f, 2.f) : 1.f;
+  Enemy->TakeSpellDamage((18.f + School * 5.f) * Multiplier * SpellPowerMultiplier * (1.f + FMath::Min(0.35f, 0.018f * WeaponTier)) * CounterMultiplier);
+  if (bCounterReady) ParryCounterUntil = -1.f;
   const FColor SpellColors[6] = {FColor(245, 60, 39), FColor(65, 204, 245), FColor(168, 72, 236), FColor(72, 230, 130), FColor(245, 224, 64), FColor(76, 178, 68)};
   const FColor ImpactColor = SpellColors[School];
   DrawDebugSphere(GetWorld(), Hit.ImpactPoint, 24.f * Multiplier, 12, ImpactColor, false, 0.22f, 0, 2.f);
@@ -336,6 +343,8 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
    bLastIncomingHitParried = bHasIncomingDamageSource;
    DamageAfterGuard = 0.f;
    ParryWindowEndsAt = -1.f;
+   if (FMath::IsFinite(ParryCounterWindowSeconds) && ParryCounterWindowSeconds > 0.f)
+    ParryCounterUntil = Now + FMath::Clamp(ParryCounterWindowSeconds, 0.f, 5.f);
    if (FMath::IsFinite(PerfectParryStaminaReward) && PerfectParryStaminaReward > 0.f)
     Stamina = FMath::Clamp(Stamina + PerfectParryStaminaReward, 0.f, MaxStamina);
   } else {
