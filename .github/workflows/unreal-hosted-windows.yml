@@ -105,7 +105,7 @@ jobs:
         with:
           # PR #690 is deliberately pinned. Do not build moving, unreviewed refs
           # with an engine-archive secret on the same runner.
-          ref: ${{ inputs.source_snapshot == 'pr690-pinned' && '670bb96f8e7df21077ce5af5b4f399c534594a4a' || github.sha }}
+          ref: ${{ inputs.source_snapshot == 'pr690-pinned' && '8151ec565bfc78446b30eab5428d0285a3360849' || github.sha }}
           path: game-source
           persist-credentials: false
       - name: Verify selected source identity and required project files
@@ -117,7 +117,7 @@ jobs:
           $root = Join-Path $env:GITHUB_WORKSPACE 'game-source'
           $actual = (& git -C $root rev-parse HEAD).Trim()
           $expected = if ($env:SOURCE_SNAPSHOT -eq 'pr690-pinned') {
-            '670bb96f8e7df21077ce5af5b4f399c534594a4a'
+            '8151ec565bfc78446b30eab5428d0285a3360849'
           } elseif ($env:SOURCE_SNAPSHOT -eq 'main') {
             '${{ github.sha }}'
           } else {
