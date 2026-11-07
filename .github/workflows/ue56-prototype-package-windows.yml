@@ -63,7 +63,7 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $root = $env:MOONFALL_PACKAGE_DIR
           $smoke = '.\engine-comparison\unreal\MoonfallPrototype\Build\SmokeTest-Windows.ps1'
-          & $smoke -PackageDirectory $root -BootSeconds 25
+          & $smoke -PackageDirectory $root -BootSeconds 25 -DiagnosticsDirectory (Join-Path $env:RUNNER_TEMP 'MoonfallSmokeDiagnostics')
           "Packaged game passed a 25-second headless map boot smoke. Visual gameplay, saves and installer are UNTESTED." >> $env:GITHUB_STEP_SUMMARY
 
       - name: Upload packaged game only after cook succeeds
@@ -83,7 +83,7 @@ jobs:
           path: |
             engine-comparison/unreal/MoonfallPrototype/Saved/Logs/
             engine-comparison/unreal/MoonfallPrototype/Intermediate/Build/Win64/
-            ${{ env.MOONFALL_PACKAGE_DIR }}/SmokeDiagnostics/
+            ${{ runner.temp }}/MoonfallSmokeDiagnostics/
           if-no-files-found: warn
           retention-days: 14
 
