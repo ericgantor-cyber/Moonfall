@@ -114,9 +114,13 @@ jobs:
               throw "Licensed Unreal source workflow missing safeguard: $rule"
             }
           }
-          if ($sourceWorkflow.Contains('actions/upload-artifact@v4') -and
-              $sourceWorkflow.Contains('path: ue-source')) {
-            throw 'Never upload privately licensed Epic engine source.'
+          # The checkout legitimately uses path: ue-source; only artifact
+          # upload blocks referencing that path are prohibited.
+          $uploadBlocks = [regex]::Matches($sourceWorkflow, '(?ms)^      - name: .*?upload.*?\r?\n(?:        .*\r?\n|          .*\r?\n)*')
+          foreach ($block in $uploadBlocks) {
+            if ($block.Value -match '(?m)^\s+path:\s*ue-source(?:/|\s|$)') {
+              throw 'Never upload privately licensed Epic engine source.'
+            }
           }
           "Optional licensed UE source build configuration passed source-text safeguards (no engine compile)." >> $env:GITHUB_STEP_SUMMARY
       - name: Run synthetic Unreal archive security regression tests
