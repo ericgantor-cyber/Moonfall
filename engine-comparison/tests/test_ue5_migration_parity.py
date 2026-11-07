@@ -323,7 +323,7 @@ class UnrealMigrationParityGate(unittest.TestCase):
         center = pawn[pawn.index("void AMoonfallPawn::SetMapCenterWaypoint()"):
                       pawn.index("void AMoonfallPawn::ControllerConfirm()")]
         self.assertIn("WorldMapCursorCells.X", center)
-        self.assertIn("WorldMapPanCells.Y", center)
+        self.assertIn("WorldMapCursorCells.Y", center)
         self.assertIn("if (!IsMapPositionDiscovered(Candidate)) return;", center)
         self.assertIn("SaveProgress();", center)
         self.assertIn("Gamepad_LeftX", inputs)
