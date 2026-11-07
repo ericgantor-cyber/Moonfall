@@ -5,13 +5,22 @@ on:
   workflow_dispatch:
     inputs:
       attempt_compile:
-        description: "Compile using an authorized UE 5.4 installed-build archive (requires secrets and enough disk space)"
+        description: "Compile with your authorized UE 5.4 archive (requires secrets and ample disk)"
         required: true
         type: boolean
         default: false
+      minimum_free_gb:
+        description: "Minimum disk space required before Unreal download (recommended 80+ GB)"
+        required: true
+        type: number
+        default: 80
 
 permissions:
   contents: read
+
+concurrency:
+  group: moonfall-hosted-unreal-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   windows-preflight:
@@ -19,6 +28,7 @@ jobs:
     timeout-minutes: 15
     outputs:
       available_gb: ${{ steps.storage.outputs.available_gb }}
+      has_capacity: ${{ steps.storage.outputs.has_capacity }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -41,11 +51,20 @@ jobs:
             throw 'Visual Studio 2022 C++ toolchain missing on hosted runner.'
           }
           "Windows runner free disk: $available GB" >> $env:GITHUB_STEP_SUMMARY
-          if ($disk.FreeSpace -lt 35GB) {
-            "::warning::Insufficient free space for configured engine extraction threshold (35 GB). Configure a larger GitHub-hosted runner in repo variable MOONFALL_HOSTED_RUNNER."
-            "Compile readiness: BLOCKED by disk space; use a larger runner." >> $env:GITHUB_STEP_SUMMARY
+          $minimumFreeGB = [double]${{ inputs.minimum_free_gb }}
+          if ($minimumFreeGB -lt 35 -or $minimumFreeGB -gt 500) {
+            throw 'minimum_free_gb must be between 35 and 500.'
+          }
+          $hasCapacity = $disk.FreeSpace -ge ($minimumFreeGB * 1GB)
+          "has_capacity=$($hasCapacity.ToString().ToLowerInvariant())" >> $env:GITHUB_OUTPUT
+          if (-not $hasCapacity) {
+            Write-Warning "Hosted Windows runner has $available GB available, below the requested $minimumFreeGB GB."
+            "Compile readiness: BLOCKED by disk space ($available GB < $minimumFreeGB GB)." >> $env:GITHUB_STEP_SUMMARY
+            if ('${{ inputs.attempt_compile }}' -eq 'true') {
+              throw 'Requested real Unreal compilation, but hosted runner lacks sufficient disk. Provision a larger runner and retry.'
+            }
           } else {
-            "Compile readiness: disk capacity passes the preliminary 35 GB check; full UE footprint may be greater." >> $env:GITHUB_STEP_SUMMARY
+            "Compile readiness: initial disk threshold $minimumFreeGB GB passed; engine size must still be verified." >> $env:GITHUB_STEP_SUMMARY
           }
           "Visual Studio 2022 C++ tools: detected" >> $env:GITHUB_STEP_SUMMARY
           "Unreal Engine is NOT preinstalled; no compilation was attempted during preflight." >> $env:GITHUB_STEP_SUMMARY
@@ -78,9 +97,12 @@ jobs:
           if ($env:MOONFALL_UE54_ARCHIVE_SHA256 -notmatch '^[0-9a-fA-F]{64}$') {
             throw 'UE archive SHA-256 secret must be a 64-character hexadecimal digest.'
           }
-          $disk = Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='C:'"
-          if ($disk.FreeSpace -lt 35GB) {
-            throw 'Hosted runner has less than 35 GB free. UE 5.4 needs a larger provisioned runner; refusing large archive download.'
+          $driveLetter = [IO.Path]::GetPathRoot([IO.Path]::GetFullPath($env:RUNNER_TEMP)).TrimEnd('\')
+          $disk = Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='$driveLetter'"
+          if (-not $disk) { throw 'Cannot measure disk capacity on compilation runner.' }
+          $minimumFreeGB = [double]${{ inputs.minimum_free_gb }}
+          if ($disk.FreeSpace -lt $minimumFreeGB * 1GB) {
+            throw "Compilation runner lacks $minimumFreeGB GB free; cannot safely provision Unreal."
           }
           $archive = Join-Path $env:RUNNER_TEMP 'ue54-installed.zip'
           $destination = Join-Path $env:RUNNER_TEMP 'ue54-installed'
@@ -88,12 +110,16 @@ jobs:
           if (-not $env:MOONFALL_UE54_ARCHIVE_URL.StartsWith('https://')) {
             throw 'Installed engine archive URL must use HTTPS.'
           }
-          Invoke-WebRequest -Uri $env:MOONFALL_UE54_ARCHIVE_URL -OutFile $archive -MaximumRedirection 3
+          Invoke-WebRequest -Uri $env:MOONFALL_UE54_ARCHIVE_URL -OutFile $archive -MaximumRedirection 0
           $actual = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash
           if ($actual -ine $env:MOONFALL_UE54_ARCHIVE_SHA256) {
             throw 'Unreal engine archive checksum mismatch; refusing to extract.'
           }
           New-Item -ItemType Directory -Force -Path $destination | Out-Null
+          # Extraction requires additional free space beyond the compressed archive.
+          if ($disk.FreeSpace -lt 15GB) {
+            throw 'Too little free disk space after downloading the archive; refusing extraction.'
+          }
           Expand-Archive -LiteralPath $archive -DestinationPath $destination -Force
           Remove-Item -LiteralPath $archive -Force
           $build = Join-Path $destination 'Engine\Build\BatchFiles\Build.bat'
