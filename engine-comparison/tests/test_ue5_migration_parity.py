@@ -507,6 +507,40 @@ class UnrealMigrationParityGate(unittest.TestCase):
         self.assertLess(tick.index("const float DodgeTimeRemainingThisFrame = DodgeTimer;"),
                         tick.index("DodgeTimer = FMath::Max(0.f, DodgeTimer - ReactionDt);"))
 
+    def test_enemy_melee_requires_visible_windup_and_one_shot_recovery(self):
+        base = ROOT / "engine-comparison/unreal/MoonfallPrototype"
+        cpp = (base / "Source/MoonfallPrototype/MoonfallPawn.cpp").read_text(encoding="utf-8")
+        header = (base / "Source/MoonfallPrototype/MoonfallPawn.h").read_text(encoding="utf-8")
+        hud = (base / "Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8")
+        for field in ("float AttackWindup = 0.f;", "float AttackCooldown = 0.f;",
+                      "bool bAttackReadyThisFrame = false;"):
+            self.assertIn(field, header)
+        self.assertIn("float GetNearestEnemyWindupSeconds() const;", header)
+        ai = cpp[cpp.index("void AMoonfallPawn::UpdateWorldEnemies(float Dt)"):
+                 cpp.index("float AMoonfallPawn::GetNearestEnemyWindupSeconds()")]
+        self.assertIn("Enemy.bAttackReadyThisFrame = false;", ai)
+        self.assertIn("Enemy.AttackCooldown = FMath::Max(0.f, Enemy.AttackCooldown - MoveDt);", ai)
+        self.assertIn("Enemy.AttackWindup = FMath::Max(0.f, Enemy.AttackWindup - MoveDt);", ai)
+        self.assertIn("Enemy.bAttackReadyThisFrame = true;", ai)
+        self.assertIn("Enemy.AttackCooldown = Enemy.bGuardian ? 2.f : 1.5f;", ai)
+        self.assertIn("Enemy.AttackWindup = Enemy.bGuardian ?", ai)
+        self.assertIn("Enemy.AttackWindup = 0.f;", ai)
+        self.assertIn("HeroDistSq <= FMath::Square(240.f)", ai)
+        self.assertIn("const bool bAggro", ai)
+        tick = cpp[cpp.index("void AMoonfallPawn::Tick(float DeltaSeconds)"):]
+        self.assertLess(tick.index("UpdateWorldEnemies(Dt);"),
+                        tick.index("if (!Candidate.bAttackReadyThisFrame) continue;"))
+        self.assertIn("if (bDodgeActiveThisFrame) CounterWindow = CounterDuration;", tick)
+        self.assertIn("else if (bParryActiveThisFrame)", tick)
+        self.assertIn("else if (!bRespawnProtectedThisFrame)", tick)
+        damage = cpp[cpp.index("void AMoonfallPawn::DamageWorldEnemy("):
+                     cpp.index("TArray<FVector> AMoonfallPawn::GetChamberMapPositions()")]
+        self.assertIn("Enemy.AttackWindup = 0.f;", damage)
+        self.assertIn("Enemy.AttackCooldown = FMath::Max(Enemy.AttackCooldown, 0.5f);", damage)
+        self.assertIn("GetNearestEnemyWindupSeconds()", hud)
+        self.assertIn("DODGE / PARRY", hud)
+        self.assertNotIn("SpawnWave(", ai)
+
     def test_three_world_enemy_tactics_remain_leashed_and_wave_free(self):
         base = ROOT / "engine-comparison/unreal/MoonfallPrototype"
         cpp = (base / "Source/MoonfallPrototype/MoonfallPawn.cpp").read_text(encoding="utf-8")
