@@ -375,6 +375,25 @@ class UnrealMigrationParityGate(unittest.TestCase):
         self.assertIn("Click or press gamepad A to respawn at your checkpoint", hud)
         self.assertNotIn('DrawText(TEXT("RETRY")', hud)
 
+    def test_checkpoint_respawn_damage_grace_is_safe_and_paused_by_map(self):
+        base = ROOT / "engine-comparison/unreal/MoonfallPrototype"
+        cpp = (base / "Source/MoonfallPrototype/MoonfallPawn.cpp").read_text(encoding="utf-8")
+        header = (base / "Source/MoonfallPrototype/MoonfallPawn.h").read_text(encoding="utf-8")
+        self.assertIn("float RespawnGraceTimer = 0.f;", header)
+        begin = cpp[cpp.index("void AMoonfallPawn::BeginPlay()"):
+                    cpp.index("UBillboardComponent* AMoonfallPawn::AddWorldArtwork(")]
+        self.assertIn("RespawnGraceTimer = bLoadedCheckpoint ? 2.5f : 0.f;", begin)
+        tick = cpp[cpp.index("void AMoonfallPawn::Tick(float DeltaSeconds)"):]
+        self.assertIn("const bool bRespawnProtectedThisFrame = RespawnGraceTimer > 0.f;", tick)
+        self.assertIn("RespawnGraceTimer = FMath::Max(0.f, RespawnGraceTimer - Dt);", tick)
+        self.assertLess(tick.index("if (bWorldMapOpen)"),
+                        tick.index("RespawnGraceTimer = FMath::Max(0.f"))
+        self.assertIn("else if (!bRespawnProtectedThisFrame)", tick)
+        self.assertIn("if (!bRespawnProtectedThisFrame)\n                    EnemyDamageCooldown = 1.2f;", tick)
+        self.assertIn("else if (EnemyDamageCooldown <= 0.f && !bRespawnProtectedThisFrame)", tick)
+        self.assertNotIn("SaveProgress();", tick[tick.index("const bool bRespawnProtectedThisFrame"):
+                                                   tick.index("CounterWindow = FMath::Max")])
+
     def test_defeat_respawn_restores_last_living_checkpoint_without_new_save_mode(self):
         base = ROOT / "engine-comparison/unreal/MoonfallPrototype"
         pawn = (base / "Source/MoonfallPrototype/MoonfallPawn.cpp").read_text(encoding="utf-8")

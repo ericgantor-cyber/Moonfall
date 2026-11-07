@@ -213,9 +213,9 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("if (ContactIndex != INDEX_NONE)", tick)
         boss = tick.split("if (CastTimer <= 0.f)", 1)[1]
         self.assertIn("if (bDodgeActiveThisFrame)", boss)
-        self.assertIn("else if (EnemyDamageCooldown <= 0.f)", boss)
+        self.assertIn("else if (EnemyDamageCooldown <= 0.f && !bRespawnProtectedThisFrame)", boss)
         self.assertIn("EnemyDamageCooldown = 1.2f;", boss)
-        self.assertLess(boss.index("else if (EnemyDamageCooldown <= 0.f)"),
+        self.assertLess(boss.index("else if (EnemyDamageCooldown <= 0.f && !bRespawnProtectedThisFrame)"),
                         boss.index("Health = FMath::Max(0.f, Health -"))
         self.assertIn("EnemyDamageCooldown = FMath::Max(0.f, EnemyDamageCooldown - Dt);", tick)
 
