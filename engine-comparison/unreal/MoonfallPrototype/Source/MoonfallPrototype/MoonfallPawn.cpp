@@ -733,6 +733,20 @@ void AMoonfallPawn::Zoom(float Value)
     ZoomDistance = FMath::Clamp(ZoomDistance - Value * 125.f, 900.f, 2500.f);
     CameraBoom->TargetArmLength = ZoomDistance;
 }
+void AMoonfallPawn::RetryFromCheckpoint()
+{
+    // Restart only after death; never overwrite the last living checkpoint
+    // with a defeated pawn before the saved world is reconstructed.
+    if (Health > 0.f || bWorldMapOpen || !GetWorld()) return;
+    const FString LevelName = UGameplayStatics::GetCurrentLevelName(this, true);
+    if (LevelName.IsEmpty())
+    {
+        UE_LOG(LogTemp, Warning, TEXT("Moonfall: cannot retry without a valid current level."));
+        return;
+    }
+    UGameplayStatics::OpenLevel(this, FName(*LevelName));
+}
+
 void AMoonfallPawn::Parry()
 {
     // A deliberate, short right-click timing window; never a held guard.
@@ -915,6 +929,7 @@ void AMoonfallPawn::SetupPlayerInputComponent(UInputComponent* Input)
     Input->BindAction(TEXT("Attack"), IE_Pressed, this, &AMoonfallPawn::Attack);
     Input->BindAction(TEXT("Dodge"), IE_Pressed, this, &AMoonfallPawn::Dodge);
     Input->BindAction(TEXT("Parry"), IE_Pressed, this, &AMoonfallPawn::Parry);
+    Input->BindAction(TEXT("RetryFromCheckpoint"), IE_Pressed, this, &AMoonfallPawn::RetryFromCheckpoint);
     Input->BindAction(TEXT("ArcaneBolt"), IE_Pressed, this, &AMoonfallPawn::CastBolt);
     Input->BindAction(TEXT("ArcaneHeal"), IE_Pressed, this, &AMoonfallPawn::CastHeal);
     Input->BindAction(TEXT("SetWaypoint"), IE_Pressed, this, &AMoonfallPawn::SetWaypoint);
