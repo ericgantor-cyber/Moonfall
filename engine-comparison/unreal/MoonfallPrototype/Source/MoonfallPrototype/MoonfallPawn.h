@@ -114,6 +114,7 @@ private:
     UPROPERTY() USpringArmComponent* CameraBoom;
     UPROPERTY() UCameraComponent* Camera;
     float Forward = 0.f, Right = 0.f, Health = 100.f, BossHealth = 100.f;
+    FVector DodgeDirection = FVector::ZeroVector; // Snapshot movement on dodge input; releasing stick does not cancel it.
     float Mana = 180.f, Stamina = 150.f;
     float StaminaRegenDelay = 0.f; // Prevent instant recovery after committing to a dodge.
     int32 MeleeComboCount = 0;
