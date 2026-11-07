@@ -467,6 +467,25 @@ void AMoonfallPawn::CollectNearbyChambers()
     }
 }
 
+int32 AMoonfallPawn::GetQuestDefeatedBeasts() const
+{
+    // Read the same persistent flags used to stop defeated enemies respawning.
+    int32 Count = 0;
+    for (int32 Id = 0; Id < MoonfallWorldRules::TotalEnemies; ++Id)
+        if ((DefeatedEnemyMask & (1 << Id)) != 0) ++Count;
+    return Count;
+}
+
+int32 AMoonfallPawn::GetQuestClearedChambers() const
+{
+    // A chamber counts only when its defeated guardian's reward is claimed.
+    int32 Count = 0;
+    for (int32 Id = 0; Id < MoonfallWorldRules::TotalChambers; ++Id)
+        if ((ClaimedChamberMask & (1 << Id)) != 0 &&
+            (DefeatedGuardianMask & (1 << Id)) != 0) ++Count;
+    return Count;
+}
+
 void AMoonfallPawn::SaveProgress()
 {
     // Reuse the prior save so a death-time write cannot erase the last living checkpoint.
