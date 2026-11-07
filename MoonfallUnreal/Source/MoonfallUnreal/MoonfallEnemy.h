@@ -64,6 +64,11 @@ private:
  float PostureRecoveryStartsAt = 0.f;
  float BasePostureAtSpawn = 100.f;
  float NextPostureBreakAllowedAt = 0.f;
+ float DefeatAnimationStartedAt = -100.f;
+ FVector DefeatAnimationOrigin = FVector::ZeroVector;
+ int32 DefeatAnimationStyle = 1;
+ bool bDefeatAnimationShatter = false;
+ void TickDefeatAnimation(float DeltaSeconds);
  int32 AttackSequence = 0;
  bool bComboSecondHitPending = false;
  bool bComboSecondHitActive = false;
