@@ -554,6 +554,24 @@ int32 AMoonfallPawn::GetQuestClearedChambers() const
     return Count;
 }
 
+bool AMoonfallPawn::IsSafeCheckpointLocation() const
+{
+    if (!HeroMesh || Health <= 0.f || bRespawnInProgress || bCasting)
+        return false;
+    const FVector Position = HeroMesh->GetRelativeLocation();
+    if (!bWon && BossMesh &&
+        FVector::DistSquared2D(Position, BossMesh->GetRelativeLocation()) <
+            FMath::Square(1500.f))
+        return false;
+    for (const FWorldEnemy& Enemy : Enemies)
+    {
+        if (Enemy.Mesh && FVector::DistSquared2D(Position,
+                Enemy.Mesh->GetRelativeLocation()) < FMath::Square(750.f))
+            return false;
+    }
+    return true;
+}
+
 void AMoonfallPawn::SaveProgress()
 {
     // Reuse the prior save so a death-time write cannot erase the last living checkpoint.
@@ -578,7 +596,11 @@ void AMoonfallPawn::SaveProgress()
     Progress->DefeatedGuardianMask = DefeatedGuardianMask;
     Progress->bBossDefeated = bWon;
     // Preserve legacy SelectedHeroIndex from the loaded save; never reassign it.
-    if (HeroMesh && Health > 0.f)
+    // Always persist quest, loot and enemy victories immediately, but do not
+    // overwrite a living checkpoint while surrounded by enemies or near a boss.
+    // Bootstrap a first checkpoint even if the starting area is contested.
+    if (HeroMesh && Health > 0.f &&
+        (!Progress->bHasCheckpoint || IsSafeCheckpointLocation()))
     {
         Progress->bHasCheckpoint = true;
         Progress->SavedHeroPosition = HeroMesh->GetRelativeLocation();
