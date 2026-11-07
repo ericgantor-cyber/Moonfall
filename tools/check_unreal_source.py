@@ -222,6 +222,20 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("FMath::Clamp(Stamina + StaminaRegenPerSecond * StaminaDelta, 0.f, MaxStamina)", tick)
         self.assertIn("Health > 0.f", tick)
 
+    def test_dodge_cooldown_is_bounded_and_never_overlaps_immunity(self):
+        self.assertIn('ClampMin="0.24", ClampMax="5.0"', self.hero_h)
+        self.assertIn("float DodgeCooldown = 1.3f;", self.hero_h)
+        dodge = self.hero_cpp.split("void AMoonfallHeroPawn::Dodge()", 1)[1].split(
+            "void AMoonfallHeroPawn::RewardPerfectDodge()", 1)[0]
+        self.assertIn("Now < NextDodgeAt || Now < DamageImmunityUntil", dodge)
+        self.assertIn("!FMath::IsFinite(DodgeCooldown) || DodgeCooldown <= 0.f", dodge)
+        self.assertIn("NextDodgeAt = Now + FMath::Clamp(DodgeCooldown, 0.24f, 5.f);", dodge)
+        self.assertLess(dodge.index("!FMath::IsFinite(DodgeCooldown)"),
+                        dodge.index("Stamina = FMath::Clamp(Stamina - DodgeStaminaCost"))
+        self.assertLess(dodge.index("NextDodgeAt = Now + FMath::Clamp(DodgeCooldown"),
+                        dodge.index("DamageImmunityUntil = Now + 0.24f"))
+        self.assertNotIn('TEXT("GUARD BROKEN")', self.hud)
+
     def test_dodge_prefers_live_movement_direction_and_bounds_launch_speed(self):
         self.assertIn("float DodgeLaunchSpeed = 650.f;", self.hero_h)
         dodge = self.hero_cpp.split("void AMoonfallHeroPawn::Dodge()", 1)[1].split(
