@@ -34,12 +34,20 @@ void AMoonfallCombatHUD::DrawHUD()
  }
  // Nearest living boss, displayed without creating additional widget actors.
  const AMoonfallEnemy* Boss = nullptr;
+ const AMoonfallEnemy* PostureTarget = nullptr;
  float BossDistanceSq = TNumericLimits<float>::Max();
+ float PostureDistanceSq = FMath::Square(1200.f);
  for (TActorIterator<AMoonfallEnemy> It(GetWorld()); It; ++It) {
   const AMoonfallEnemy* E = *It;
-  if (!IsValid(E) || !E->bBoss || E->Health <= 0.f) continue;
+  if (!IsValid(E) || E->Health <= 0.f) continue;
   const float DistSq = FVector::DistSquared(E->GetActorLocation(), Hero->GetActorLocation());
-  if (DistSq < BossDistanceSq) { Boss = E; BossDistanceSq = DistSq; }
+  if (E->bBoss) {
+   if (DistSq < BossDistanceSq) { Boss = E; BossDistanceSq = DistSq; }
+  } else if (DistSq < PostureDistanceSq && (E->Posture > 0.f
+      || E->PostureBrokenUntil > GetWorld()->GetTimeSeconds())) {
+   PostureTarget = E;
+   PostureDistanceSq = DistSq;
+  }
  }
  if (Boss && BossDistanceSq < FMath::Square(3000.f)) {
   const float Width = FMath::Min(480.f, Canvas->SizeX * 0.68f);
@@ -47,12 +55,37 @@ void AMoonfallCombatHUD::DrawHUD()
   const float Y = 72.f;
   const float MaxHP = FMath::Max(Boss->Health, Boss->BossMaxHealth);
   const float Percent = FMath::Clamp(Boss->Health / FMath::Max(1.f, MaxHP), 0.f, 1.f);
-  DrawRect(FLinearColor(0.07f,0.04f,0.10f,0.94f),X-6.f,Y-30.f,Width+12.f,67.f);
+  DrawRect(FLinearColor(0.07f,0.04f,0.10f,0.94f),X-6.f,Y-30.f,Width+12.f,88.f);
   DrawRect(FLinearColor(0.19f,0.10f,0.16f),X,Y,Width,16.f);
   DrawRect(Boss->BossPhase >= 3 ? FLinearColor(0.86f,0.18f,0.67f) : FLinearColor(0.84f,0.15f,0.22f),X,Y,Width*Percent,16.f);
   DrawText(FString::Printf(TEXT("BOSS  |  PHASE %d  |  %.0f / %.0f HP"),Boss->BossPhase,Boss->Health,MaxHP),FLinearColor::White,X,Y-25.f,nullptr,0.95f);
+  const bool bBossPostureBroken = Boss->PostureBrokenUntil > GetWorld()->GetTimeSeconds();
+  const float BossPostureRatio = FMath::Clamp(Boss->Posture / FMath::Max(1.f, Boss->MaxPosture), 0.f, 1.f);
+  DrawRect(FLinearColor(0.15f,0.14f,0.24f),X,Y+24.f,Width,7.f);
+  DrawRect(bBossPostureBroken ? FLinearColor(1.f,0.77f,0.30f) : FLinearColor(0.84f,0.59f,1.f),
+    X,Y+24.f,Width*(bBossPostureBroken?1.f:BossPostureRatio),7.f);
+  DrawText(bBossPostureBroken ? TEXT("POSTURE SHATTERED") : TEXT("POSTURE"),
+    bBossPostureBroken ? FLinearColor(1.f,0.84f,0.48f) : FLinearColor(0.85f,0.79f,1.f),
+    X,Y+35.f,nullptr,0.78f);
   if (Boss->BossWarningEndTime > GetWorld()->GetTimeSeconds())
-   DrawText(TEXT("INCOMING ATTACK - DODGE"),FLinearColor(1.f,0.83f,0.24f),X,Y+18.f,nullptr,0.9f);
+   DrawText(TEXT("INCOMING ATTACK - DODGE"),FLinearColor(1.f,0.83f,0.24f),X,Y+55.f,nullptr,0.9f);
+ }
+ // Show only the nearest engaged non-boss posture target to avoid clutter.
+ if (PostureTarget && GetOwningPlayerController()) {
+  FVector2D Screen;
+  if (GetOwningPlayerController()->ProjectWorldLocationToScreen(
+      PostureTarget->GetActorLocation() + FVector(0.f,0.f,175.f),Screen)
+      && Screen.X >= 0.f && Screen.X + 80.f < Canvas->SizeX
+      && Screen.Y >= 0.f && Screen.Y + 18.f < Canvas->SizeY) {
+   const bool bShattered = PostureTarget->PostureBrokenUntil > GetWorld()->GetTimeSeconds();
+   const float Ratio = FMath::Clamp(PostureTarget->Posture /
+       FMath::Max(1.f, PostureTarget->MaxPosture),0.f,1.f);
+   DrawRect(FLinearColor(0.12f,0.11f,0.19f),Screen.X,Screen.Y,80.f,5.f);
+   DrawRect(bShattered ? FLinearColor(1.f,0.76f,0.24f) : FLinearColor(0.78f,0.47f,0.98f),
+     Screen.X,Screen.Y,80.f*(bShattered?1.f:Ratio),5.f);
+   if (bShattered) DrawText(TEXT("SHATTERED"),FLinearColor(1.f,0.83f,0.48f),
+     Screen.X,Screen.Y+7.f,nullptr,0.75f);
+  }
  }
  // Compact circular resource HUD at bottom left, with actual gameplay values.
  const float Radius = FMath::Clamp(FMath::Min(Canvas->SizeX, Canvas->SizeY) * 0.092f, 50.f, 80.f);
