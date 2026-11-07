@@ -10,6 +10,7 @@
 #include "Engine/Engine.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "Kismet/GameplayStatics.h"
+#include "GameFramework/PlayerController.h"
 #include "UObject/ConstructorHelpers.h"
 
 AMoonfallPawn::AMoonfallPawn()
@@ -607,6 +608,41 @@ bool AMoonfallPawn::GetQuestDestination(FVector& OutDestination) const
     return bFound;
 }
 
+void AMoonfallPawn::ToggleWorldMap()
+{
+    bWorldMapOpen = !bWorldMapOpen;
+    Forward = 0.f;
+    Right = 0.f;
+    if (APlayerController* PC = Cast<APlayerController>(GetController()))
+        PC->bShowMouseCursor = bWorldMapOpen;
+}
+
+void AMoonfallPawn::PlaceMapWaypoint()
+{
+    if (!bWorldMapOpen || Health <= 0.f) return;
+    const APlayerController* PC = Cast<APlayerController>(GetController());
+    if (!PC) return;
+    float MouseX = 0.f, MouseY = 0.f;
+    if (!PC->GetMousePosition(MouseX, MouseY)) return;
+    int32 Width = 0, Height = 0;
+    PC->GetViewportSize(Width, Height);
+    if (Width < 200 || Height < 200) return;
+    // Keep the projection identical to the HUD's centered 48x16 map.
+    const float CellSize = FMath::Max(1.f, FMath::Min(12.f,
+        FMath::Min((Width - 100.f) / 48.f, (Height - 200.f) / 16.f)));
+    const float Left = (Width - 48.f * CellSize) * .5f;
+    const float Top = (Height - 16.f * CellSize) * .5f;
+    const int32 X = FMath::FloorToInt((MouseX - Left) / CellSize);
+    const int32 Y = FMath::FloorToInt((MouseY - Top) / CellSize);
+    if (X < 0 || X >= 48 || Y < 0 || Y >= 16) return;
+    const FVector Candidate(-1600.f + (X + .5f) * 400.f,
+        -3200.f + (Y + .5f) * 400.f, 0.f);
+    if (!IsMapPositionDiscovered(Candidate)) return;
+    Waypoint = Candidate;
+    bHasWaypoint = true;
+    SaveProgress();
+}
+
 void AMoonfallPawn::SetWaypoint()
 {
     if (Health <= 0.f || !HeroMesh) return;
@@ -669,6 +705,7 @@ float AMoonfallPawn::HealingSpellAmount() const
 
 void AMoonfallPawn::Attack()
 {
+    if (bWorldMapOpen) { PlaceMapWaypoint(); return; }
     if (Health <= 0.f || AttackCooldown > 0.f) return;
     const int32 EnemyIndex = NearestEnemyIndex(400.f);
     const float BossDistance = bWon ? TNumericLimits<float>::Max() :
@@ -798,6 +835,7 @@ void AMoonfallPawn::SetupPlayerInputComponent(UInputComponent* Input)
     Input->BindAction(TEXT("ArcaneHeal"), IE_Pressed, this, &AMoonfallPawn::CastHeal);
     Input->BindAction(TEXT("SetWaypoint"), IE_Pressed, this, &AMoonfallPawn::SetWaypoint);
     Input->BindAction(TEXT("ClearWaypoint"), IE_Pressed, this, &AMoonfallPawn::ClearWaypoint);
+    Input->BindAction(TEXT("ToggleWorldMap"), IE_Pressed, this, &AMoonfallPawn::ToggleWorldMap);
 }
 void AMoonfallPawn::Tick(float DeltaSeconds)
 {
@@ -831,7 +869,7 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
     CheckpointTimer += Dt;
     if (Health > 0.f)
     {
-        FVector Direction(Forward, Right, 0.f);
+        FVector Direction = bWorldMapOpen ? FVector::ZeroVector : FVector(Forward, Right, 0.f);
         Direction = Direction.GetClampedToMaxSize(1.f);
         // A frame hitch must not teleport the hero through a boss warning or chamber.
         const float MovementDt = FMath::Min(Dt, 0.05f);
