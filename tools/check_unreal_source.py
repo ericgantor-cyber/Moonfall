@@ -436,6 +436,16 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         damage = self.hero_cpp.split("void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount)", 1)[1].split(
             "void AMoonfallHeroPawn::CycleGraphicsQuality()", 1)[0]
         self.assertIn("ParryCounterUntil = Now + FMath::Clamp(ParryCounterWindowSeconds, 0.f, 5.f)", damage)
+        self.assertIn("if (DamageTaken > 0.f) ParryCounterUntil = -1.f;", damage)
+        self.assertLess(damage.index("const float DamageTaken = PreviousHealth - Health;"),
+                        damage.index("if (DamageTaken > 0.f) ParryCounterUntil = -1.f;"))
+        self.assertLess(damage.index("if (DamageTaken > 0.f) ParryCounterUntil = -1.f;"),
+                        damage.index("if (Health <= 0.f) EndGuard();"))
+        break_guard = self.hero_cpp.split("void AMoonfallHeroPawn::BreakGuard()", 1)[1].split(
+            "void AMoonfallHeroPawn::BeginGuard()", 1)[0]
+        self.assertIn("ParryCounterUntil = -1.f;", break_guard)
+        self.assertLess(break_guard.index("ParryCounterUntil = -1.f;"),
+                        break_guard.index("OnGuardBroken();"))
         self.assertIn("FMath::IsFinite(ParryCounterWindowSeconds)", damage)
         cast = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split(
             "void AMoonfallHeroPawn::CastLeft()", 1)[0]
