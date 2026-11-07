@@ -97,6 +97,25 @@ jobs:
             if ((Get-Item -LiteralPath $installer).Length -le 0) {
               throw 'NSIS generated an empty installer.'
             }
+            # Negative tests: NSIS must refuse incomplete packages at compile time.
+            $negativeRoot = Join-Path $env:RUNNER_TEMP 'moonfall-nsis-negative-fixtures'
+            if (Test-Path -LiteralPath $negativeRoot) {
+              throw 'Refusing to reuse an existing negative test fixture folder.'
+            }
+            New-Item -ItemType Directory -Force -Path $negativeRoot | Out-Null
+            foreach ($missing in @('MoonfallUnreal.exe', 'MoonfallLauncher.exe', 'Engine', 'MoonfallUnreal')) {
+              $negative = Join-Path $negativeRoot ($missing.Replace('.', '_'))
+              New-Item -ItemType Directory -Force -Path $negative | Out-Null
+              Copy-Item -Path (Join-Path $fixture '*') -Destination $negative -Recurse
+              Remove-Item -LiteralPath (Join-Path $negative $missing) -Recurse -Force
+              $badOutput = Join-Path $negativeRoot ("bad-" + $missing.Replace('.', '_') + '.exe')
+              & $nsis "/DSOURCE_DIR=$negative" "/DOUTPUT_EXE=$badOutput" 'MoonfallUnreal\Installer\MoonfallUnreal.nsi' *> $null
+              if ($LASTEXITCODE -eq 0 -or (Test-Path -LiteralPath $badOutput -PathType Leaf)) {
+                throw "NSIS incorrectly accepted a source missing $missing"
+              }
+              Write-Host "NSIS missing-payload test passed: $missing"
+            }
+            Remove-Item -LiteralPath $negativeRoot -Recurse -Force
             # Actually execute the installer in silent mode, using a dedicated
             # temporary destination. It contains test-only files, never a real game.
             $installRoot = Join-Path $env:RUNNER_TEMP 'MOONFALL-NSIS-SMOKE-TEST-ONLY'
