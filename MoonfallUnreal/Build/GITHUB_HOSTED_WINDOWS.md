@@ -35,3 +35,9 @@ The existing **self-hosted Unreal Windows build** workflow remains available for
 - **Compile mode** fails immediately when the preflight runner cannot meet the disk requirement, then independently rechecks the disk on the actual compile runner (a separate temporary Windows machine).
 - Engine archives are hash-verified before extraction; downloads no longer follow redirects. The latter means the private archive URL must resolve directly, without redirecting to a separate download address.
 - The workflow still requires manually configured secrets, appropriate licensed engine archives, hosted runner storage, and a real compile to pass. A successful preflight is **not** a successful Unreal build.
+
+## Verified hosted Windows preflight (2026-11-07 UTC)
+
+A real standard `windows-2022` GitHub Actions runner executed the dedicated [Windows hosted runner reality check](https://github.com/ericgantor-cyber/Moonfall/actions/runs/42315908958) successfully. Its log reported **150 GB total disk**, **147.03 GB available**, **Visual Studio 2022 C++ toolchain detected**, and **80 GB preliminary disk threshold passed**.
+
+These values describe **that specific runner instance at that time**, not a guaranteed size or available capacity for future GitHub-hosted machines. Unreal Engine 5.4 was not installed, downloaded, compiled, cooked, or packaged as part of this check. The full build still needs an authorized installed-engine archive supplied through the documented repository secrets (or an alternative supported UE provisioning method), and enough space on the *separate* compile job runner. Do not treat a passing preflight as a UE compilation result.
