@@ -432,7 +432,7 @@ class UnrealMigrationParityGate(unittest.TestCase):
         self.assertIn("UGameplayStatics::GetCurrentLevelName(this, true)", retry)
         self.assertIn("UGameplayStatics::OpenLevel(this, FName(*LevelName));", retry)
         self.assertNotIn("SaveProgress();", retry)
-        self.assertIn("if (HeroMesh && Health > 0.f)", pawn)
+        self.assertIn("if (HeroMesh && Health > 0.f &&", pawn)
         self.assertIn('DrawText(TEXT("DEFEATED")', hud)
         self.assertIn('DrawText(TEXT("RESPAWN")', hud)
         self.assertIn("Click or press gamepad A to respawn at your checkpoint", hud)
