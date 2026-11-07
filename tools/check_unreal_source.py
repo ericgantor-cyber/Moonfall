@@ -447,6 +447,34 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("PostureDistanceSq = FMath::Square(1200.f)", self.hud)
         self.assertNotIn('TEXT("GUARD BROKEN")', self.hud)
 
+    def test_finisher_queue_preserves_rapid_kill_choreography(self):
+        self.assertIn("struct FPendingFinisher", self.hero_h)
+        self.assertIn("static constexpr int32 MaxPendingFinishers = 8;", self.hero_h)
+        self.assertIn("TArray<FPendingFinisher> PendingFinishers;", self.hero_h)
+        register = self.hero_cpp.split("int32 AMoonfallHeroPawn::RegisterFinisherKill(", 1)[1].split(
+            "void AMoonfallHeroPawn::StartFinisherPresentation(", 1)[0]
+        self.assertIn("Now - NativeFinisherStartedAt < NativeDuration", register)
+        self.assertIn("PendingFinishers.Num() < MaxPendingFinishers", register)
+        self.assertIn("PendingFinishers.Add(Pending);", register)
+        self.assertIn("PendingFinishers[PendingFinishers.Num() - 1] = Pending;", register)
+        self.assertIn("Pending.Target = DefeatedLocation;", register)
+        self.assertIn("Pending.Style = ChainStep;", register)
+        self.assertIn("return ChainStep;", register)
+        presentation = self.hero_cpp.split("void AMoonfallHeroPawn::StartFinisherPresentation(", 1)[1].split(
+            "void AMoonfallHeroPawn::UpdateNativeFinisher(", 1)[0]
+        self.assertIn("NativeFinisherStartedAt = Now;", presentation)
+        self.assertIn("OnFinisherChain(ChainStep, bShatterKill, bBossKill);", presentation)
+        self.assertIn("AnimInstance->Montage_Play(Montage, 1.f);", presentation)
+        update = self.hero_cpp.split("void AMoonfallHeroPawn::UpdateNativeFinisher(", 1)[1].split(
+            "void AMoonfallHeroPawn::AwardExperience(", 1)[0]
+        self.assertIn("const FPendingFinisher Pending = PendingFinishers[0];", update)
+        self.assertIn("PendingFinishers.RemoveAt(0);", update)
+        self.assertIn("StartFinisherPresentation(Pending.Style, Pending.bShatter, Pending.bBoss, Pending.Target);", update)
+        self.assertIn("PendingFinishers.Reset();", update)
+        self.assertLess(update.index("PendingFinishers.RemoveAt(0);"),
+                        update.index("StartFinisherPresentation(Pending.Style"))
+        self.assertNotIn("SHATTER KO", self.hud)
+
     def test_finisher_direction_is_locked_to_killed_target(self):
         self.assertIn("FVector NativeFinisherOrigin = FVector::ZeroVector;", self.hero_h)
         self.assertIn("FVector NativeFinisherForward = FVector::ForwardVector;", self.hero_h)
