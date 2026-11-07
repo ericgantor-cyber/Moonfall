@@ -16,8 +16,10 @@ jobs:
           if (-not (Test-Path $buildTool)) { throw "Build.bat not found: $buildTool" }
           $uatTool = Join-Path $env:UE54_ROOT 'Engine\Build\BatchFiles\RunUAT.bat'
           if (-not (Test-Path $uatTool)) { throw "Unreal AutomationTool missing: $uatTool" }
-          $entryMap = Join-Path $env:UE54_ROOT 'Engine\Content\Maps\Entry.umap'
-          if (-not (Test-Path $entryMap)) { throw "Configured Unreal startup level is missing: $entryMap. Verify UE 5.4 engine content before cooking." }
+          # Use the same project-owned startup level validation as the local build.
+          # Unreal's generic Engine/Maps/Entry is not a playable Moonfall level.
+          & .\MoonfallUnreal\Build\Build-Windows.ps1 -UnrealRoot $env:UE54_ROOT -PreflightOnly
+          if ($LASTEXITCODE -ne 0) { throw "Moonfall startup-level preflight failed: $LASTEXITCODE" }
           $vswhere = Join-Path ([Environment]::GetFolderPath('ProgramFilesX86')) 'Microsoft Visual Studio\Installer\vswhere.exe'
           if (-not (Test-Path $vswhere)) { throw 'Visual Studio Installer / vswhere.exe missing. Install Visual Studio 2022 with Desktop development with C++.' }
           $vsInstallation = & $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
@@ -48,7 +50,7 @@ jobs:
           if (-not (Test-Path $uat)) { throw "RunUAT.bat not found: $uat" }
           $uproject = (Resolve-Path 'MoonfallUnreal\MoonfallUnreal.uproject').Path
           $destination = Join-Path $env:GITHUB_WORKSPACE 'MoonfallUnrealPackaged'
-          & $uat BuildCookRun "-project=$uproject" -noP4 -platform=Win64 -clientconfig=Development -build -cook -stage -pak -prereqs -archive "-archivedirectory=$destination" -utf8output
+          & $uat BuildCookRun "-project=$uproject" -noP4 -platform=Win64 -clientconfig=Development -build -cook "-map=/Game/Maps/MoonfallStart" -stage -pak -prereqs -archive "-archivedirectory=$destination" -utf8output
           if ($LASTEXITCODE -ne 0) { throw "Unreal packaging failed: $LASTEXITCODE" }
           $exe = Get-ChildItem $destination -Recurse -File -Filter 'MoonfallUnreal.exe' | Select-Object -First 1
           if (-not $exe) { throw 'Packaging finished without MoonfallUnreal.exe' }
