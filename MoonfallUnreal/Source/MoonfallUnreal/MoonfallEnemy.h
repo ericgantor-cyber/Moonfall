@@ -29,6 +29,8 @@ public:
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat|Posture", meta=(ClampMin="1.0")) float MaxPosture = 100.f;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Combat|Posture") float Posture = 0.f;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat|Posture", meta=(ClampMin="0.0")) float ParryPostureDamage = 40.f;
+ UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat|Posture", meta=(ClampMin="0.0", ClampMax="100.0")) float PerfectDodgePostureDamage = 18.f;
+ UFUNCTION(BlueprintImplementableEvent, Category="Combat|Posture") void OnPerfectDodged(float PosturePressure);
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat|Posture", meta=(ClampMin="0.0")) float SpellPostureScale = 0.3f;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat|Posture", meta=(ClampMin="0.0")) float PostureRecoveryPerSecond = 9.f;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat|Posture", meta=(ClampMin="1.0", ClampMax="3.0")) float BrokenPostureDamageMultiplier = 1.35f;
