@@ -256,7 +256,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("float PerfectDodgeStaminaReward = 10.f;", self.hero_h)
         self.assertIn("float DodgeStaminaCost = 25.f;", self.hero_h)
         self.assertEqual(self.hero_h.count("float DodgeStaminaCost = 25.f;"), 1)
-        reward = self.hero_cpp.split("void AMoonfallHeroPawn::RewardPerfectDodge() {", 1)[1].split(
+        reward = self.hero_cpp.split("bool AMoonfallHeroPawn::TryRewardPerfectDodge() {", 1)[1].split(
             "bool AMoonfallHeroPawn::ApplyMoonfallDamageFrom", 1)[0]
         self.assertIn("Now - LastPerfectDodgeRewardAt < 1.f", reward)
         self.assertIn("PerfectDodgeWindowUntil = -1.f;", reward)
@@ -351,14 +351,37 @@ class MoonfallIntegrationChecks(unittest.TestCase):
     def test_every_enemy_melee_can_reward_a_precise_dodge(self):
         impact = self.enemy_cpp.split("if (!bBlocked) {", 1)[1].split(
             "const bool bParried =", 1)[0]
-        self.assertIn("Hero->RewardPerfectDodge();", impact)
-        self.assertNotIn("if (bBoss) Hero->RewardPerfectDodge();", impact)
+        self.assertIn("Hero->TryRewardPerfectDodge();", impact)
+        self.assertNotIn("if (bBoss) Hero->TryRewardPerfectDodge();", impact)
         reward = self.hero_cpp.split(
-            "void AMoonfallHeroPawn::RewardPerfectDodge() {", 1)[1].split(
+            "bool AMoonfallHeroPawn::TryRewardPerfectDodge() {", 1)[1].split(
             "\\n}", 1)[0]
         self.assertIn("Now > PerfectDodgeWindowUntil", reward)
         self.assertIn("Now - LastPerfectDodgeRewardAt < 1.f", reward)
         self.assertIn("PerfectDodgeWindowUntil = -1.f", reward)
+
+    def test_perfect_dodge_pressures_only_attacker_once(self):
+        self.assertIn("void RewardPerfectDodge();", self.hero_h)
+        self.assertIn("bool TryRewardPerfectDodge();", self.hero_h)
+        self.assertIn("TryRewardPerfectDodge();", self.hero_cpp.split(
+            "void AMoonfallHeroPawn::RewardPerfectDodge()", 1)[1].split(
+            "bool AMoonfallHeroPawn::TryRewardPerfectDodge()", 1)[0])
+        reward = self.hero_cpp.split("bool AMoonfallHeroPawn::TryRewardPerfectDodge() {", 1)[1].split(
+            "bool AMoonfallHeroPawn::ApplyMoonfallDamageFrom", 1)[0]
+        self.assertIn("Now - LastPerfectDodgeRewardAt < 1.f", reward)
+        self.assertIn("return false;", reward)
+        self.assertIn("return true;", reward)
+        self.assertLess(reward.index("PerfectDodgeWindowUntil = -1.f;"), reward.index("return true;"))
+        self.assertIn("float PerfectDodgePostureDamage = 18.f;", self.enemy_h)
+        self.assertIn("void OnPerfectDodged(float PosturePressure);", self.enemy_h)
+        strike = self.enemy_cpp.split("if (!bBlocked) {", 1)[1].split(
+            "const bool bParried =", 1)[0]
+        self.assertIn("const bool bPerfectDodge = Hero->TryRewardPerfectDodge();", strike)
+        self.assertIn("if (bPerfectDodge) {", strike)
+        self.assertIn("FMath::Clamp(PerfectDodgePostureDamage, 0.f, 100.f)", strike)
+        self.assertIn("ApplyPostureDamage(DodgePressure);", strike)
+        self.assertIn("OnPerfectDodged(DodgePressure);", strike)
+        self.assertNotIn('TEXT("GUARD BROKEN")', self.hud)
 
     def test_posture_shatter_finisher_boss_recovery_and_compact_hud(self):
         self.assertIn("float PostureFinisherDamageMultiplier = 1.8f;", self.enemy_h)
