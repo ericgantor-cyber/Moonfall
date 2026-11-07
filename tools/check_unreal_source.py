@@ -447,6 +447,26 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("PostureDistanceSq = FMath::Square(1200.f)", self.hud)
         self.assertNotIn('TEXT("GUARD BROKEN")', self.hud)
 
+    def test_killing_hit_keeps_damage_text_and_defeat_rewards_one_shot(self):
+        self.assertIn("bool bKillingBlow = false;", self.enemy_h)
+        self.assertIn("void OnEnemyDefeated(bool bKillingBlowWasShatter);", self.enemy_h)
+        damage = self.enemy_cpp.split("void AMoonfallEnemy::TakeSpellDamage(float Amount)", 1)[1].split(
+            "void AMoonfallEnemy::Tick(", 1)[0]
+        self.assertIn("if (!FMath::IsFinite(Amount) || Amount <= 0.f || Health <= 0.f) return;", damage)
+        self.assertIn("Entry.bKillingBlow = Health <= 0.f;", damage)
+        self.assertIn("OnEnemyDefeated(bLastHitWasShatter);", damage)
+        self.assertIn("SetActorHiddenInGame(true);", damage)
+        self.assertIn("SetLifeSpan(1.25f);", damage)
+        self.assertLess(damage.index("Entry.bKillingBlow = Health <= 0.f;"), damage.index("if (Health <= 0.0f) {"))
+        self.assertLess(damage.index("SetActorEnableCollision(false);"), damage.index("OnEnemyDefeated(bLastHitWasShatter);"))
+        self.assertLess(damage.index("OnEnemyDefeated(bLastHitWasShatter);"), damage.index("Hero->AwardExperience"))
+        self.assertLess(damage.index("Hero->AwardEquipmentDrop"), damage.index("SetActorHiddenInGame(true);"))
+        self.assertIn("const bool bKillingBlow = Hit.bKillingBlow;", self.hud)
+        self.assertIn('FString::Printf(TEXT("SHATTER KO -%.0f"), Hit.Amount)', self.hud)
+        self.assertIn('FString::Printf(TEXT("KO -%.0f"), Hit.Amount)', self.hud)
+        self.assertIn("VisibleDamageNumbers < 32", self.hud)
+        self.assertNotIn('TEXT("GUARD BROKEN")', self.hud)
+
     def test_rapid_hits_keep_independent_bounded_damage_labels(self):
         self.assertIn("static constexpr int32 DamageHistorySize = 4;", self.enemy_h)
         self.assertIn("FRecentDamageHit DamageHistory[DamageHistorySize];", self.enemy_h)
@@ -476,7 +496,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("const bool bShatter = Hit.bShatter;", self.hud)
         self.assertIn('FString::Printf(TEXT("SHATTER -%.0f"), Hit.Amount)', self.hud)
         self.assertIn('FString::Printf(TEXT("-%.0f"), Hit.Amount)', self.hud)
-        self.assertIn("(bShatter ? 1.55f : 1.3f) * Hero->CombatTextScale", self.hud)
+        self.assertIn("(bKillingBlow ? 1.65f : (bShatter ? 1.55f : 1.3f)) * Hero->CombatTextScale", self.hud)
         self.assertIn("VisibleDamageNumbers < 32", self.hud)
         self.assertNotIn('TEXT("GUARD BROKEN")', self.hud)
 
