@@ -38,9 +38,36 @@ class PackageContract(unittest.TestCase):
                          "if not levels.save_current_level():"):
             self.assertIn(expected, script)
         self.assertIn("if existing:", script)
+        self.assertIn('MOONFALL_WORLD_VALIDATION_SENTINEL', script)
+        self.assertIn('sentinel_path.write_text(', script)
+        self.assertIn('$ValidationSentinel', packaging)
+        self.assertIn('if (-not (Test-Path -LiteralPath $ValidationSentinel', packaging)
+        self.assertIn("MoonfallWorld validated", packaging)
+        self.assertIn("Refusing packaging", packaging)
         self.assertIn("Get-FileHash -LiteralPath $MapAsset -Algorithm SHA256", packaging)
         self.assertIn("$UpdatedMapHash -ne $ExistingMapHash", packaging)
         self.assertIn("Refusing packaging", packaging)
+
+    def test_package_requires_fresh_archive_and_hashes_real_files(self):
+        script = SCRIPT.read_text(encoding="utf-8")
+        workflow = WORKFLOW.read_text(encoding="utf-8")
+        for item in (
+            "if ($OldEntries.Count -gt 0)",
+            "avoid stale build artifacts",
+            "Where-Object { $_.Length -gt 0 }",
+            "$HasPak -or ($HasToc -and $HasCas)",
+            "MoonfallPackageManifest.json",
+            "Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256",
+            "tested_in_game = $false",
+            "installer = $false",
+            "startup_map = $MapLongName",
+            "ConvertTo-Json -Depth 6",
+        ):
+            self.assertIn(item, script)
+        self.assertIn("Verify build manifest exists before artifact upload", workflow)
+        self.assertLess(workflow.index("Verify build manifest exists before artifact upload"),
+                        workflow.index("Upload packaged game only after cook succeeds"))
+        self.assertIn("if (@($data.files).Count -eq 0)", workflow)
 
     def test_project_configures_generated_startup_map(self):
         ini = (ROOT / "engine-comparison/unreal/MoonfallPrototype/Config/DefaultEngine.ini").read_text(encoding="utf-8")

@@ -33,6 +33,24 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Package script failed: $LASTEXITCODE" }
           "Windows cooked game package created. Gameplay and installer not yet verified." >> $env:GITHUB_STEP_SUMMARY
 
+      - name: Verify build manifest exists before artifact upload
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $root = '.\engine-comparison\unreal\MoonfallPrototype\Saved\WindowsPackage'
+          $manifest = Join-Path $root 'MoonfallPackageManifest.json'
+          if (-not (Test-Path -LiteralPath $manifest -PathType Leaf)) {
+            throw 'The cooked package integrity manifest is missing.'
+          }
+          $data = Get-Content -LiteralPath $manifest -Raw | ConvertFrom-Json
+          if ($data.project -ne 'MoonfallPrototype' -or
+              $data.engine -ne '5.6' -or
+              $data.tested_in_game -ne $false -or
+              $data.installer -ne $false) {
+            throw 'Packaging manifest is invalid or overstates verification.'
+          }
+          if (@($data.files).Count -eq 0) { throw 'Packaging manifest has no files.' }
+          "Integrity manifest validated for an untested Win64 package." >> $env:GITHUB_STEP_SUMMARY
+
       - name: Upload packaged game only after cook succeeds
         uses: actions/upload-artifact@v4
         with:
