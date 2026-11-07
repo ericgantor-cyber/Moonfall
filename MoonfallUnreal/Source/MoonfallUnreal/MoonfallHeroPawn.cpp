@@ -14,6 +14,8 @@
 #include "Components/StaticMeshComponent.h"
 #include "Components/PointLightComponent.h"
 #include "UObject/ConstructorHelpers.h"
+#include "Engine/StaticMesh.h"
+#include "Math/RotationMatrix.h"
 #include "Animation/AnimInstance.h"
 #include "Animation/AnimMontage.h"
 #include "CollisionQueryParams.h"
