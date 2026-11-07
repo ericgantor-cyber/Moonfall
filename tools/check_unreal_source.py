@@ -134,7 +134,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(damage.index("DamageImmunityUntil"), damage.index("Health = FMath::Max"))
 
     def test_player_and_enemy_health_are_clamped_to_zero(self):
-        self.assertIn("Health = FMath::Max(0.f, Health - Amount", self.hero_cpp)
+        self.assertIn("Health = FMath::Max(0.f, Health - DamageAfterGuard)", self.hero_cpp)
+        self.assertIn("const float ArmoredDamage = Amount *", self.hero_cpp)
         self.assertIn("Health = FMath::Max(0.0f, Health -", self.enemy_cpp)
 
     def test_enemy_level_scaling_is_spawn_only(self):
