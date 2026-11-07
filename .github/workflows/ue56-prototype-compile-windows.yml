@@ -24,6 +24,11 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Verify Windows UE5.6 build prerequisites
+        run: |
+          $ErrorActionPreference = 'Stop'
+          & .\engine-comparison\unreal\MoonfallPrototype\Build\Check-WindowsRunner.ps1 -UnrealRoot $env:UE56_ROOT
+
       - name: Validate Unreal installation and project identity
         run: |
           $ErrorActionPreference = 'Stop'
