@@ -53,6 +53,26 @@ class UnrealMigrationParityGate(unittest.TestCase):
         self.assertIn("Defeat Z", hud)
         self.assertIn("Hero->IsBossDefeated()", hud)
 
+    def test_region_fog_does_not_reveal_unvisited_map_markers(self):
+        base = ROOT / "engine-comparison/unreal/MoonfallPrototype/Source/MoonfallPrototype"
+        pawn = (base / "MoonfallPawn.cpp").read_text(encoding="utf-8")
+        header = (base / "MoonfallPawn.h").read_text(encoding="utf-8")
+        hud = (base / "MoonfallHud.cpp").read_text(encoding="utf-8")
+        saves = (base / "MoonfallProgressSave.h").read_text(encoding="utf-8")
+        self.assertIn("int32 DiscoveredRegionMask = 0;", header)
+        self.assertIn("int32 DiscoveredRegionMask = 0;", saves)
+        self.assertIn("Progress->DiscoveredRegionMask = DiscoveredRegionMask;", pawn)
+        self.assertIn("DiscoveredRegionMask = Progress->DiscoveredRegionMask &", pawn)
+        self.assertIn("DiscoveredRegionMask |= 1 << MoonfallWorldRules::RegionAt(", pawn)
+        self.assertIn("if ((DiscoveredRegionMask & RegionBit) == 0)", pawn)
+        self.assertIn("SaveProgress(); // Persist discoveries", pawn)
+        self.assertIn("bool AMoonfallPawn::IsMapPositionDiscovered(", pawn)
+        self.assertIn("int32 AMoonfallPawn::GetDiscoveredRegionCount()", pawn)
+        self.assertIn("Hero->IsMapPositionDiscovered(Chamber)", hud)
+        self.assertIn("Hero->IsMapPositionDiscovered(Enemy)", hud)
+        self.assertIn("Hero->IsMapPositionDiscovered(B)", hud)
+        self.assertIn("DISCOVERED %d/6", hud)
+
     def test_character_and_input_constraints(self):
         constraints = self.data["constraints"]
         self.assertEqual(constraints["preserve_original_art"],
