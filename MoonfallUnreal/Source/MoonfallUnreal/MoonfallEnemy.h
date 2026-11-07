@@ -31,6 +31,7 @@ private:
  float NextPathRefreshAt = 0.f;
  float NextBlockedRepathAt = 0.f;
  FVector CachedWaypoint = FVector::ZeroVector;
+ FVector LockedAttackDirection = FVector::ZeroVector;
  float WindupEndsAt = -1.f;
  float HitReactionEndsAt = -1.f;
  int32 AttackSequence = 0;
