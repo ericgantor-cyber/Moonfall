@@ -114,6 +114,12 @@ jobs:
             'Moonfall-Win64-REAL-SourceBuilt-Development-UNTESTED',
             'if-no-files-found: error',
             'BuildCookRun',
+            'inputs.create_installer',
+            'actions/setup-dotnet@v4',
+            'MoonfallLauncher.exe',
+            'MoonfallUnreal.nsi',
+            'MoonfallUnreal-REAL-Windows-Installer-UNTESTED',
+            'MoonfallUnreal-Setup.exe.sha256',
             'if: failure()'
           )) {
             if (-not $sourceWorkflow.Contains($rule)) {
