@@ -7,6 +7,11 @@ on:
         required: true
         type: boolean
         default: false
+      package_game:
+        description: "After successful UE and Moonfall compilation, cook and upload Windows game (untested)"
+        required: true
+        type: boolean
+        default: false
 permissions:
   contents: read
 concurrency:
@@ -97,6 +102,41 @@ jobs:
           & .\game-source\MoonfallUnreal\Build\Build-Windows.ps1 -UnrealRoot $root -CompileOnly
           if ($LASTEXITCODE -ne 0) { throw "Moonfall real C++ compile failed: $LASTEXITCODE" }
           "Actual Moonfall Unreal C++ compilation passed. No playable installer was built." >> $env:GITHUB_STEP_SUMMARY
+      - name: Cook and package actual Moonfall Win64 Development game
+        if: ${{ inputs.package_game }}
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $uat = Join-Path $env:GITHUB_WORKSPACE 'ue-source\LocalBuilds\Engine\Windows\Engine\Build\BatchFiles\RunUAT.bat'
+          if (-not (Test-Path -LiteralPath $uat -PathType Leaf)) {
+            throw 'Real built engine does not contain RunUAT.bat; packaging is blocked.'
+          }
+          $project = (Resolve-Path -LiteralPath '.\game-source\MoonfallUnreal\MoonfallUnreal.uproject').Path
+          $output = Join-Path $env:GITHUB_WORKSPACE 'MoonfallWin64Packaged'
+          if (Test-Path -LiteralPath $output) {
+            throw 'Refusing to overwrite existing Moonfall packaged game directory.'
+          }
+          & $uat BuildCookRun "-project=$project" -noP4 -platform=Win64 -clientconfig=Development -build -cook -stage -pak -prereqs -archive "-archivedirectory=$output" -utf8output
+          if ($LASTEXITCODE -ne 0) { throw "Moonfall Win64 cooking/packaging failed: $LASTEXITCODE" }
+          $executables = @(Get-ChildItem -LiteralPath $output -Recurse -File -Filter 'MoonfallUnreal.exe')
+          if ($executables.Count -ne 1) { throw "Expected one packaged MoonfallUnreal.exe, got $($executables.Count)" }
+          $root = $executables[0].Directory.FullName
+          foreach ($folder in @('Engine', 'MoonfallUnreal')) {
+            if (-not (Test-Path -LiteralPath (Join-Path $root $folder) -PathType Container)) {
+              throw "Missing required packaged folder: $folder"
+            }
+          }
+          $gameData = Get-ChildItem -LiteralPath (Join-Path $root 'MoonfallUnreal') -File -Recurse | Select-Object -First 1
+          if (-not $gameData) { throw 'Packaged Moonfall game contains no cooked game files.' }
+          "Real Moonfall Win64 Development package created from source-built UE 5.4; runtime gameplay and installer still untested." >> $env:GITHUB_STEP_SUMMARY
+      - name: Upload real Moonfall Windows game only if the full build succeeds
+        if: ${{ inputs.package_game && success() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: Moonfall-Win64-REAL-SourceBuilt-Development-UNTESTED
+          path: MoonfallWin64Packaged/
+          if-no-files-found: error
+          retention-days: 3
       - name: Upload Moonfall game compile logs only on failure
         if: failure()
         continue-on-error: true
