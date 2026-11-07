@@ -308,7 +308,8 @@ class UnrealMigrationParityGate(unittest.TestCase):
         self.assertIn('DrawText(TEXT("RESPAWN")', hud)
         self.assertIn("Click to respawn at your checkpoint", hud)
         self.assertIn("Hero->GetRespawnButtonBounds(Canvas->ClipX, Canvas->ClipY", hud)
-        self.assertIn("Canvas->K2_DrawBox(ButtonMin, ButtonMax - ButtonMin", hud)
+        self.assertIn("const FVector2D ButtonSize = ButtonMax - ButtonMin;", hud)
+        self.assertIn("Canvas->K2_DrawBox(ButtonMin, ButtonSize", hud)
 
     def test_open_map_blocks_combat_resource_inputs(self):
         pawn = (ROOT / "engine-comparison/unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallPawn.cpp").read_text(encoding="utf-8")
