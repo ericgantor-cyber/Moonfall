@@ -380,14 +380,40 @@ void AMoonfallPawn::UpdateWorldEnemies(float Dt)
             !Enemy.bReturningHome && FromHome.SizeSquared() < FMath::Square(Leash);
         if (bAggro)
         {
-            if (HeroDistSq > FMath::Square(160.f))
+            // Three lightweight, deterministic normal-enemy tactics without
+            // spawning additional actors or allocating per-frame path data:
+            // 0: direct hunter; 1: circling skirmisher; 2: charging bruiser.
+            // Guardians retain their more aggressive direct pursuit.
+            const int32 Tactic = Enemy.bGuardian ? 0 : Enemy.Id % 3;
+            const float HeroDistance = FMath::Sqrt(HeroDistSq);
+            FVector MoveDirection = ToHero.GetSafeNormal();
+            float Speed = Enemy.bEnraged ? 360.f : (Enemy.bGuardian ? 280.f : 200.f);
+            if (Tactic == 1)
             {
-                const float Remaining = FMath::Max(0.f, Leash - FromHome.Size());
-                const float Step = FMath::Min((Enemy.bEnraged ? 360.f : (Enemy.bGuardian ? 280.f : 200.f)) * MoveDt, Remaining);
-                const FVector Candidate = From + ToHero.GetSafeNormal() * Step;
+                // Circle at medium range and backpedal only at close range.
+                // Keep a radial component so skirmishers eventually engage.
+                const FVector Tangent(-MoveDirection.Y, MoveDirection.X, 0.f);
+                if (HeroDistance < 240.f)
+                    MoveDirection = (-MoveDirection + Tangent * 0.35f).GetSafeNormal();
+                else if (HeroDistance < 520.f)
+                    MoveDirection = (MoveDirection * 0.35f + Tangent).GetSafeNormal();
+                Speed = 225.f;
+            }
+            else if (Tactic == 2 && HeroDistance < 620.f)
+            {
+                // Bruisers close distance quickly but still obey the leash.
+                Speed = 310.f;
+            }
+            const bool bNeedsMove = HeroDistance > 160.f ||
+                (Tactic == 1 && HeroDistance < 240.f);
+            if (bNeedsMove)
+            {
+                const float Step = Speed * MoveDt;
+                const FVector Candidate = From + MoveDirection * Step;
                 const FVector ToCandidateHome = Candidate - Enemy.Home;
-                // Prevent oblique pursuit from leaking outside the home radius.
-                const FVector Clamped = Enemy.Home + ToCandidateHome.GetClampedToMaxSize2D(Leash);
+                // Clamp all tactics inside the same chamber/home boundary.
+                const FVector Clamped = Enemy.Home +
+                    ToCandidateHome.GetClampedToMaxSize2D(Leash);
                 Enemy.Mesh->SetRelativeLocation(Clamped);
             }
         }
