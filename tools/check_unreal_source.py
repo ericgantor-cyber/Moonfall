@@ -447,6 +447,20 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("PostureDistanceSq = FMath::Square(1200.f)", self.hud)
         self.assertNotIn('TEXT("GUARD BROKEN")', self.hud)
 
+    def test_shatter_finisher_has_distinct_floating_damage_feedback(self):
+        self.assertIn("bool bLastHitWasShatter = false;", self.enemy_h)
+        damage = self.enemy_cpp.split("void AMoonfallEnemy::TakeSpellDamage(float Amount)", 1)[1].split(
+            "void AMoonfallEnemy::Tick(", 1)[0]
+        self.assertIn("bLastHitWasShatter = bShatterFinisher && ActualDamage > 0.f;", damage)
+        self.assertLess(damage.index("const float ActualDamage ="),
+                        damage.index("bLastHitWasShatter = bShatterFinisher"))
+        self.assertIn("const bool bShatter = Enemy->bLastHitWasShatter;", self.hud)
+        self.assertIn('FString::Printf(TEXT("SHATTER -%.0f"), Enemy->LastHitAmount)', self.hud)
+        self.assertIn('FString::Printf(TEXT("-%.0f"), Enemy->LastHitAmount)', self.hud)
+        self.assertIn("(bShatter ? 1.55f : 1.3f) * Hero->CombatTextScale", self.hud)
+        self.assertIn("VisibleDamageNumbers < 32", self.hud)
+        self.assertNotIn('TEXT("GUARD BROKEN")', self.hud)
+
     def test_shatter_finisher_expires_and_phase_transition_preserves_stagger(self):
         self.assertIn("float PosturePressureRecoveryDelaySeconds = 3.f;", self.enemy_h)
         self.assertIn("int32 PostureBreakCount = 0;", self.enemy_h)
