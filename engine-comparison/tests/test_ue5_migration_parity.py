@@ -555,6 +555,35 @@ class UnrealMigrationParityGate(unittest.TestCase):
         self.assertIn("const float MoveDt = FMath::Clamp(Dt, 0.f, 0.05f);", ai)
         self.assertNotIn("SpawnWave(", ai)
 
+    def test_all_six_forged_regions_offer_bounded_and_distinct_perks(self):
+        base = ROOT / "engine-comparison/unreal/MoonfallPrototype"
+        cpp = (base / "Source/MoonfallPrototype/MoonfallPawn.cpp").read_text(encoding="utf-8")
+        melee = cpp[cpp.index("void AMoonfallPawn::Attack()"):
+                    cpp.index("void AMoonfallPawn::CastBolt()")]
+        bolt = cpp[cpp.index("void AMoonfallPawn::CastBolt()"):
+                   cpp.index("void AMoonfallPawn::CastHeal()")]
+        enemy_damage = cpp[cpp.index("void AMoonfallPawn::DamageWorldEnemy("):
+                           cpp.index("TArray<FVector> AMoonfallPawn::GetChamberMapPositions()")]
+        tick = cpp[cpp.index("void AMoonfallPawn::Tick(float DeltaSeconds)"):]
+        self.assertIn("Stamina + 2.f * ForgedRegionTier(0)", melee)
+        self.assertIn("4.f * ForgedRegionTier(3)", cpp)
+        self.assertIn("0.08f * ForgedRegionTier(5)", bolt)
+        self.assertIn("const float BoltManaCost = FMath::Max(24.f, 30.f - 2.f * ForgedRegionTier(1));", bolt)
+        self.assertIn("Mana < BoltManaCost", bolt)
+        self.assertIn("Mana -= BoltManaCost;", bolt)
+        self.assertLess(bolt.index("if (EnemyIndex == INDEX_NONE && !bBossInRange) return;"),
+                        bolt.index("Mana -= BoltManaCost;"))
+        self.assertIn("FMath::Min(0.7f, 0.4f + 0.1f * ForgedRegionTier(2))", enemy_damage)
+        self.assertIn("Enemy.bGuardian ? 0.8f :", enemy_damage)
+        self.assertIn("ContactDamage - 0.75f * ForgedRegionTier(4)", tick)
+        self.assertIn("BossBaseDamage - 0.75f * ForgedRegionTier(4)", tick)
+        self.assertIn("FMath::Max(1.f,", tick)
+        self.assertIn("bDodgeActiveThisFrame", tick)
+        self.assertIn("bParryActiveThisFrame", tick)
+        hud = (base / "Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8")
+        self.assertNotIn("INCOMING %.1fs", hud)
+        self.assertNotIn("DODGE / PARRY", hud)
+
     def test_forging_prefers_local_region_and_gear_has_distinct_traits(self):
         base = ROOT / "engine-comparison/unreal/MoonfallPrototype"
         cpp = (base / "Source/MoonfallPrototype/MoonfallPawn.cpp").read_text(encoding="utf-8")

@@ -533,7 +533,10 @@ void AMoonfallPawn::DamageWorldEnemy(int32 Index, float Damage, bool bRiposte, b
         {
             // Third-hit finishers briefly stagger normal enemies; earned
             // ripostes retain the longer guardian-specific stagger.
-            Enemy.StaggerTimer = Enemy.bGuardian ? 0.8f : 0.4f;
+            Enemy.StaggerTimer = Enemy.bGuardian ? 0.8f :
+                FMath::Min(0.7f, 0.4f + 0.1f * ForgedRegionTier(2));
+            // Graveglass ranks lengthen only landed normal-enemy finishers.
+            // Guardian riposte timing stays intact.
             Enemy.AttackWindup = 0.f; // Riposte/finisher interrupts prepared strikes.
             Enemy.AttackCooldown = FMath::Max(Enemy.AttackCooldown, 0.5f);
             // Give a landed riposte physical space without pushing guardians
@@ -1260,7 +1263,10 @@ void AMoonfallPawn::Attack()
 void AMoonfallPawn::CastBolt()
 {
     if (bWorldMapOpen) return; // No combat casts through the map.
-    if (Health <= 0.f || ParryTimer > 0.f || BoltCooldown > 0.f || Mana < 30.f) return;
+    // Moonweave rank lowers the cost of a successful arcane bolt only.
+    const float BoltManaCost = FMath::Max(24.f, 30.f - 2.f * ForgedRegionTier(1));
+    if (Health <= 0.f || ParryTimer > 0.f || BoltCooldown > 0.f ||
+        Mana < BoltManaCost) return;
     const int32 EnemyIndex = NearestEnemyIndex(1000.f);
     const float BossDistance = bWon ? TNumericLimits<float>::Max() :
         FVector::Dist2D(HeroMesh->GetRelativeLocation(), BossMesh->GetRelativeLocation());
@@ -1270,7 +1276,7 @@ void AMoonfallPawn::CastBolt()
         FVector::Dist2D(HeroMesh->GetRelativeLocation(),
                         Enemies[EnemyIndex].Mesh->GetRelativeLocation());
     const bool bHitBoss = bBossInRange && BossDistance < EnemyDistance;
-    Mana -= 30.f;
+    Mana -= BoltManaCost;
     BoltCooldown = 1.1f;
     // Voidcrystal focuses reward spell builds with faster follow-up casts.
     BoltCooldown = FMath::Max(0.75f,
@@ -1533,7 +1539,10 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
                 {
                     const float ContactDamage = 5.f + 2.f * Contact.Region +
                         (Contact.bEnraged ? 4.f : 0.f);
-                    Health = FMath::Max(0.f, Health - ContactDamage);
+                    // Stariron wards reduce only landed hits, never below 1 HP.
+                    const float MitigatedDamage = FMath::Max(1.f,
+                        ContactDamage - 0.75f * ForgedRegionTier(4));
+                    Health = FMath::Max(0.f, Health - MitigatedDamage);
                 }
                 // Protection does not consume damage recovery. The first
                 // unprotected contact must still be a real threat.
@@ -1623,8 +1632,10 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
                 {
                     // Boss and mob strikes share a brief damage recovery window:
                     // overlapping attacks must not instantly double-hit the hero.
-                    Health = FMath::Max(0.f, Health -
-                        (BossAttackPhase == 3 ? 28.f : (BossAttackPhase == 2 ? 24.f : 20.f)));
+                    const float BossBaseDamage = BossAttackPhase == 3 ? 28.f :
+                        (BossAttackPhase == 2 ? 24.f : 20.f);
+                    Health = FMath::Max(0.f, Health - FMath::Max(1.f,
+                        BossBaseDamage - 0.75f * ForgedRegionTier(4)));
                     EnemyDamageCooldown = 1.2f;
                 }
             }

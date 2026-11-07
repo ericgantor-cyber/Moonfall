@@ -157,7 +157,7 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("DamageWorldEnemy(EnemyIndex, Damage, bRiposte, bComboFinisher);", melee)
         self.assertIn("DamageWorldEnemy(EnemyIndex, Damage, bRiposte);", bolt)
         self.assertIn("bComboFinisher && !Enemy.bGuardian", damage)
-        self.assertIn("Enemy.bGuardian ? 0.8f : 0.4f", damage)
+        self.assertIn("Enemy.bGuardian ? 0.8f :", damage)
         self.assertIn("Enemy.bGuardian ? 120.f : 90.f", damage)
         self.assertIn("Enemy.bGuardian ? 600.f : 900.f", damage)
 
@@ -175,7 +175,8 @@ class PrototypeContracts(unittest.TestCase):
         damage = self.cpp.split("void AMoonfallPawn::DamageWorldEnemy(", 1)[1].split(
             "TArray<FVector> AMoonfallPawn::GetChamberMapPositions()", 1)[0]
         self.assertIn("if ((bRiposte && Enemy.bGuardian) || (bComboFinisher && !Enemy.bGuardian))", damage)
-        self.assertIn("Enemy.StaggerTimer = Enemy.bGuardian ? 0.8f : 0.4f;", damage)
+        self.assertIn("Enemy.StaggerTimer = Enemy.bGuardian ? 0.8f :", damage)
+        self.assertIn("FMath::Min(0.7f, 0.4f + 0.1f * ForgedRegionTier(2))", damage)
         self.assertIn("if (Enemy.Mesh && HeroMesh)", damage)
         self.assertIn("Away.Z = 0.f;", damage)
         self.assertIn("if (!Away.IsNearlyZero())", damage)
@@ -188,7 +189,7 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("float StaggerTimer = 0.f;", self.header)
         self.assertIn("void AMoonfallPawn::DamageWorldEnemy(int32 Index, float Damage, bool bRiposte, bool bComboFinisher)", self.cpp)
         self.assertIn("if ((bRiposte && Enemy.bGuardian) || (bComboFinisher && !Enemy.bGuardian))", self.cpp)
-        self.assertIn("Enemy.StaggerTimer = Enemy.bGuardian ? 0.8f : 0.4f;", self.cpp)
+        self.assertIn("Enemy.StaggerTimer = Enemy.bGuardian ? 0.8f :", self.cpp)
         self.assertIn("Enemy.StaggerTimer = FMath::Max(0.f, Enemy.StaggerTimer - MoveDt);", self.cpp)
         self.assertIn("if (!Candidate.Mesh || Candidate.bReturningHome || Candidate.bStaggeredThisFrame) continue;", self.cpp)
         self.assertIn("if (!bHitBoss) DamageWorldEnemy(EnemyIndex, Damage, bRiposte, bComboFinisher);", self.cpp)
@@ -241,7 +242,7 @@ class PrototypeContracts(unittest.TestCase):
         combat = tick.split("if (ContactIndex != INDEX_NONE)", 1)[1].split(
             "EnemyDamageCooldown = 1.2f;", 1)[0]
         self.assertIn("if (bDodgeActiveThisFrame) CounterWindow = CounterDuration;", combat)
-        self.assertIn("Health = FMath::Max(0.f, Health - ContactDamage);", combat)
+        self.assertIn("Health = FMath::Max(0.f, Health - MitigatedDamage);", combat)
         self.assertIn("Contact.bEnraged ? 4.f : 0.f", combat)
 
     def test_unreal_guardian_frenzy_phase_at_low_health(self):
@@ -407,7 +408,7 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("Ring(new Vector2(90f, Screen.height - 108f), 34f, mana / MaxMana", self.unity)
         self.assertIn("AMoonfallPawn::CastBolt()", self.cpp)
         self.assertIn("AMoonfallPawn::CastHeal()", self.cpp)
-        self.assertIn("Mana < 30.f", self.cpp)
+        self.assertIn("Mana < BoltManaCost", self.cpp)
         self.assertIn("Mana < 40.f", self.cpp)
         self.assertIn("Mana = FMath::Min(180.f, Mana + 8.f * Dt)", self.cpp)
         self.assertNotIn("AddOnScreenDebugMessage", self.cpp)
@@ -603,13 +604,13 @@ class PrototypeContracts(unittest.TestCase):
         start = self.cpp.index("void AMoonfallPawn::CastBolt()")
         end = self.cpp.index("void AMoonfallPawn::CastHeal()", start)
         bolt = self.cpp[start:end]
-        self.assertIn("if (Health <= 0.f || ParryTimer > 0.f || BoltCooldown > 0.f || Mana < 30.f) return;", bolt)
+        self.assertIn("Mana < BoltManaCost) return;", bolt)
         self.assertIn("if (EnemyIndex == INDEX_NONE && !bBossInRange) return;", bolt)
         self.assertLess(bolt.index("if (EnemyIndex == INDEX_NONE"), bolt.index("CounterWindow = 0.f;"))
         self.assertIn("(bRiposte ? CounterMultiplier : 1.f)", bolt)
         self.assertIn("if (!bHitBoss) DamageWorldEnemy(EnemyIndex, Damage, bRiposte);", bolt)
         self.assertIn("BossHealth - Damage", bolt)
-        self.assertIn("Mana -= 30.f;", bolt)
+        self.assertIn("Mana -= BoltManaCost;", bolt)
         self.assertIn("BoltCooldown = 1.1f;", bolt)
 
     def test_unreal_boss_dodge_stamina_and_death_cleanup(self):
