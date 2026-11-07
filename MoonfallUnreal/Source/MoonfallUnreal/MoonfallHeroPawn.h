@@ -4,6 +4,7 @@
 #include "MoonfallHeroPawn.generated.h"
 class USpringArmComponent;
 class UCameraComponent;
+class AMoonfallEnemy;
 UCLASS()
 class MOONFALLUNREAL_API AMoonfallHeroPawn : public ACharacter
 {
@@ -38,8 +39,12 @@ public:
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Quest") bool bArenaBossQuestActive = false;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Quest") bool bArenaBossQuestComplete = false;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Quest") float ArenaBossQuestCompletedAt = -1.f;
- UFUNCTION(BlueprintCallable, Category="Moonfall|Quest") void BeginArenaBossQuest(FVector BossLocation);
- UFUNCTION(BlueprintCallable, Category="Moonfall|Quest") void CompleteArenaBossQuest();
+ // Track the actual spawned actor, not an approximate spawn point. Weak references
+ // never retain a destroyed enemy after streaming, level reset, or defeat.
+ UPROPERTY(Transient) TWeakObjectPtr<AMoonfallEnemy> ActiveArenaBoss;
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Quest") void BeginArenaBossQuest(AMoonfallEnemy* Boss);
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Quest") void CompleteArenaBossQuest(AMoonfallEnemy* DefeatedBoss);
+ UFUNCTION(BlueprintPure, Category="Moonfall|Quest") AMoonfallEnemy* GetArenaBossQuestTarget() const;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Combat") float Mana = 100.f;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Combat") float MaxMana = 100.f;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Combat") float Health = 100.f;
