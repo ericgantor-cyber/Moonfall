@@ -44,4 +44,9 @@ Assert-Archive -Name 'nested-traversal' -Entries @('Engine/Build/BatchFiles/Buil
 Assert-Archive -Name 'missing-build' -Entries @('Engine/Binaries/Win64/test.dll') -ShouldPass $false
 Assert-Archive -Name 'duplicate-case' -Entries @('Engine/Build/BatchFiles/Build.bat', 'engine/build/batchfiles/build.BAT') -ShouldPass $false
 Assert-Archive -Name 'hash-mismatch' -Entries @('Engine/Build/BatchFiles/Build.bat') -ShouldPass $false -WrongHash $true
+Assert-Archive -Name 'reserved-device' -Entries @('Engine/Build/BatchFiles/Build.bat', 'Engine/AUX.txt') -ShouldPass $false
+Assert-Archive -Name 'trailing-period' -Entries @('Engine/Build/BatchFiles/Build.bat', 'Engine/Bad./file.dll') -ShouldPass $false
+Assert-Archive -Name 'trailing-space' -Entries @('Engine/Build/BatchFiles/Build.bat', 'Engine/Bad /file.dll') -ShouldPass $false
+Assert-Archive -Name 'empty-path' -Entries @('Engine/Build/BatchFiles/Build.bat', 'Engine//doubled.dll') -ShouldPass $false
+Assert-Archive -Name 'file-parent-collision' -Entries @('Engine/Build/BatchFiles/Build.bat', 'Engine/SomeFile', 'Engine/SomeFile/nested.dll') -ShouldPass $false
 Write-Host 'All Moonfall Unreal ZIP safety tests passed.'
