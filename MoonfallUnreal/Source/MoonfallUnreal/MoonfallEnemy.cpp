@@ -153,8 +153,20 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
        && SightHit.GetActor() != Hero;
    if (!bBlocked) {
     if (bBoss) Hero->RewardPerfectDodge();
-    Hero->ApplyMoonfallDamageFrom(AttackDamage * FMath::Min(2.3f, CurrentAttackMultiplier), GetActorLocation());
-    OnEnemyAttack();
+    const bool bParried = Hero->ApplyMoonfallDamageFrom(
+      AttackDamage * FMath::Min(2.3f, CurrentAttackMultiplier), GetActorLocation());
+    if (bParried) {
+     // A successful parry ends this attack chain and opens counterplay.
+     // Bosses recover sooner than ordinary enemies but cannot hit instantly.
+     HitReactionEndsAt = Now + (bBoss ? 0.45f : 0.75f);
+     NextAttackAt = FMath::Max(NextAttackAt, HitReactionEndsAt + 0.35f);
+     bComboSecondHitPending = false;
+     bComboSecondHitActive = false;
+     BossWarningEndTime = -1.f;
+     CachedWaypoint = FVector::ZeroVector;
+    } else {
+     OnEnemyAttack();
+    }
    }
   }
   if (bComboSecondHitPending) {
