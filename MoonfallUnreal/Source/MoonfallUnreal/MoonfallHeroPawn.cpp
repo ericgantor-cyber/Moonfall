@@ -219,6 +219,8 @@ void AMoonfallHeroPawn::BreakGuard()
 void AMoonfallHeroPawn::BeginGuard()
 {
  if (bOptionsOpen || Health <= 0.f || !GetWorld() || bGuarding
+     // Do not stack a fresh parry window on top of dodge invulnerability.
+     || GetWorld()->GetTimeSeconds() < DamageImmunityUntil
      || GetWorld()->GetTimeSeconds() < GuardBrokenUntil
      || !FMath::IsFinite(Stamina) || !FMath::IsFinite(MaxStamina) || MaxStamina <= 0.f
      || !FMath::IsFinite(GuardStaminaCost) || GuardStaminaCost < 0.f
