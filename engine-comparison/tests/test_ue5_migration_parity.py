@@ -210,6 +210,28 @@ class UnrealMigrationParityGate(unittest.TestCase):
         self.assertIn("combat paused", hud)
         self.assertIn("M / Esc close", hud)
 
+    def test_combat_and_death_screen_state_are_mutually_exclusive(self):
+        base = ROOT / "engine-comparison/unreal/MoonfallPrototype"
+        pawn = (base / "Source/MoonfallPrototype/MoonfallPawn.cpp").read_text(encoding="utf-8")
+        header = (base / "Source/MoonfallPrototype/MoonfallPawn.h").read_text(encoding="utf-8")
+        hud = (base / "Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8")
+        self.assertIn("bool bRetryInProgress = false;", header)
+        toggle = pawn[pawn.index("void AMoonfallPawn::ToggleWorldMap()"):pawn.index("void AMoonfallPawn::CloseWorldMap()")]
+        self.assertIn("if (Health <= 0.f || bRetryInProgress) return;", toggle)
+        retry = pawn[pawn.index("void AMoonfallPawn::RetryFromCheckpoint()"):pawn.index("void AMoonfallPawn::Parry()")]
+        self.assertIn("bWorldMapOpen || bRetryInProgress || !GetWorld()", retry)
+        self.assertIn("bRetryInProgress = true;", retry)
+        self.assertLess(retry.index("bRetryInProgress = true;"), retry.index("UGameplayStatics::OpenLevel"))
+        self.assertNotIn("SaveProgress();", retry)
+        self.assertIn("if (Health <= 0.f || ParryTimer > 0.f || AttackCooldown > 0.f)", pawn)
+        self.assertIn("if (Health <= 0.f || ParryTimer > 0.f || BoltCooldown > 0.f", pawn)
+        self.assertIn("if (Health <= 0.f || ParryTimer > 0.f || HealCooldown > 0.f", pawn)
+        start = hud.index("if (Hero->GetHudHealth() <= 0.f)")
+        end = hud.index("if (Hero->IsWorldMapOpen())", start)
+        death_hud = hud[start:end]
+        self.assertIn('DrawText(TEXT("RETRY")', death_hud)
+        self.assertIn("return;", death_hud)
+
     def test_timed_parry_has_cost_cooldown_and_one_hit_consumption(self):
         base = ROOT / "engine-comparison/unreal/MoonfallPrototype"
         pawn = (base / "Source/MoonfallPrototype/MoonfallPawn.cpp").read_text(encoding="utf-8")
@@ -222,7 +244,7 @@ class UnrealMigrationParityGate(unittest.TestCase):
         start = pawn.index("void AMoonfallPawn::Parry()")
         body = pawn[start:pawn.index("\n}", start) + 2]
         for required in ("if (bWorldMapOpen || Health <= 0.f || DodgeTimer > 0.f",
-                         "ParryCooldown > 0.f || Stamina < 25.f",
+                         "ParryCooldown > 0.f || AttackCooldown > 0.f || Stamina < 25.f",
                          "Stamina -= 25.f;", "ParryTimer = 0.22f;",
                          "ParryCooldown = 1.25f;"):
             self.assertIn(required, body)
