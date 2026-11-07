@@ -127,6 +127,31 @@ class UnrealMigrationParityGate(unittest.TestCase):
         self.assertIn("Click explored terrain to set pin", hud)
         self.assertIn("if (!Hero->IsBossDefeated())", hud)
 
+    def test_map_zoom_pan_shared_projection_and_clipping(self):
+        base = ROOT / "engine-comparison/unreal/MoonfallPrototype"
+        pawn = (base / "Source/MoonfallPrototype/MoonfallPawn.cpp").read_text(encoding="utf-8")
+        header = (base / "Source/MoonfallPrototype/MoonfallPawn.h").read_text(encoding="utf-8")
+        hud = (base / "Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8")
+        keys = (base / "Config/DefaultInput.ini").read_text(encoding="utf-8")
+        for direction in ("MapPanHorizontal", "MapPanVertical"):
+            self.assertIn('AxisName="' + direction + '"', keys)
+            self.assertIn('BindAxis(TEXT("' + direction + '")', pawn)
+        self.assertIn("float WorldMapZoom = 1.f;", header)
+        self.assertIn("FVector2D WorldMapPanCells", header)
+        self.assertIn("if (bWorldMapOpen)", pawn)
+        self.assertIn("WorldMapZoom + Value * 0.2f, 1.f, 3.f", pawn)
+        self.assertIn("24.f * (1.f - 1.f / WorldMapZoom)", pawn)
+        self.assertIn("8.f * (1.f - 1.f / WorldMapZoom)", pawn)
+        self.assertIn("GetWorldMapLayout(", header)
+        self.assertIn("GetWorldMapLayout(", pawn)
+        self.assertIn("Hero->GetWorldMapLayout(", hud)
+        self.assertIn("MouseX < ClipMin.X", pawn)
+        self.assertIn("MouseY >= ClipMax.Y", pawn)
+        self.assertIn("VisibleMax.X <= VisibleMin.X", hud)
+        self.assertIn("Screen.X >= ClipMin.X + 5.f", hud)
+        self.assertIn("Wheel zoom", hud)
+        self.assertIn("Arrows pan", hud)
+
     def test_character_and_input_constraints(self):
         constraints = self.data["constraints"]
         self.assertEqual(constraints["preserve_original_art"],
