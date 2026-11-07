@@ -716,6 +716,14 @@ void AMoonfallPawn::SetMapCenterWaypoint()
     SaveProgress();
 }
 
+void AMoonfallPawn::ControllerAttack()
+{
+    // RT is combat-only. Mouse click has a separate map cursor action;
+    // controller A owns map waypoints and death-screen respawn.
+    if (Health <= 0.f || bWorldMapOpen || bRespawnInProgress) return;
+    Attack();
+}
+
 void AMoonfallPawn::ControllerConfirm()
 {
     if (Health <= 0.f) { RespawnFromCheckpoint(); return; }
@@ -1014,6 +1022,7 @@ void AMoonfallPawn::SetupPlayerInputComponent(UInputComponent* Input)
     Input->BindAction(TEXT("ClearWaypoint"), IE_Pressed, this, &AMoonfallPawn::ClearWaypoint);
     Input->BindAction(TEXT("ToggleWorldMap"), IE_Pressed, this, &AMoonfallPawn::ToggleWorldMap);
     Input->BindAction(TEXT("CloseWorldMap"), IE_Pressed, this, &AMoonfallPawn::CloseWorldMap);
+    Input->BindAction(TEXT("ControllerAttack"), IE_Pressed, this, &AMoonfallPawn::ControllerAttack);
     Input->BindAction(TEXT("ControllerConfirm"), IE_Pressed, this, &AMoonfallPawn::ControllerConfirm);
     Input->BindAction(TEXT("ControllerBack"), IE_Pressed, this, &AMoonfallPawn::ControllerBack);
     Input->BindAction(TEXT("ControllerZoomIn"), IE_Pressed, this, &AMoonfallPawn::ControllerZoomIn);
@@ -1026,8 +1035,15 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
     const float Dt = FMath::Max(0.f, DeltaSeconds);
     if (Health <= 0.f && !bDeathInputEnabled)
     {
-        // Enable a real mouse pointer only on defeat; do it once, not every frame.
-        if (bWorldMapOpen) ToggleWorldMap();
+        // If defeat and atlas state coincide, force-clear atlas mode. Calling
+        // ToggleWorldMap here is blocked by its dead-hero guard and can strand
+        // both controller A and mouse Respawn behind bWorldMapOpen.
+        bWorldMapOpen = false;
+        Forward = 0.f;
+        Right = 0.f;
+        MapPanHorizontalInput = 0.f;
+        MapPanVerticalInput = 0.f;
+        // Enable an accessible mouse pointer once for click-based respawn.
         if (APlayerController* PC = Cast<APlayerController>(GetController()))
         {
             FInputModeGameAndUI DeathInput;
@@ -1038,6 +1054,9 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
             bDeathInputEnabled = true;
         }
     }
+    // A defeated hero cannot keep regenerating mana/stamina, advancing
+    // enemy AI, or accruing checkpoint time behind the Respawn screen.
+    if (Health <= 0.f) return;
     if (bWorldMapOpen)
     {
         const float MapDt = FMath::Min(Dt, 0.05f);
