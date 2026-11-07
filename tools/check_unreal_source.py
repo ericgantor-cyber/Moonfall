@@ -364,17 +364,38 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("GetControlRotation().Vector().GetSafeNormal2D()", damage)
         self.assertIn("FVector::DotProduct(GuardForward, ToSource) >= 0.258819f", damage)
 
+    def test_guard_and_parry_share_stamina_without_spending_spell_mana(self):
+        self.assertIn("float GuardStaminaCost = 8.f;", self.hero_h)
+        self.assertIn("float PerfectParryStaminaReward = 12.f;", self.hero_h)
+        guard = self.hero_cpp.split("void AMoonfallHeroPawn::BeginGuard()", 1)[1].split(
+            "void AMoonfallHeroPawn::EndGuard()", 1)[0]
+        self.assertIn("!FMath::IsFinite(GuardStaminaCost)", guard)
+        self.assertIn("Stamina < GuardStaminaCost", guard)
+        damage = self.hero_cpp.split("void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount)", 1)[1].split(
+            "void AMoonfallHeroPawn::CycleGraphicsQuality()", 1)[0]
+        self.assertIn("Stamina >= GuardStaminaCost", damage)
+        self.assertIn("Stamina = FMath::Clamp(Stamina - GuardStaminaCost, 0.f, MaxStamina)", damage)
+        self.assertIn("StaminaRegenStartsAt = Now + 0.8f", damage)
+        self.assertIn("FMath::IsFinite(PerfectParryStaminaReward)", damage)
+        self.assertIn("Stamina + PerfectParryStaminaReward", damage)
+        self.assertIn("if (Stamina < GuardStaminaCost) EndGuard();", damage)
+        self.assertIn("Insufficient stamina breaks guard", damage)
+        self.assertNotIn("Mana -=", damage)
+        self.assertNotIn("Mana = FMath::Min", damage)
+
     def test_guard_and_parry_are_bounded_and_input_driven(self):
         self.assertIn('BindAction(TEXT("Guard"), IE_Pressed', self.hero_cpp)
         self.assertIn('BindAction(TEXT("Guard"), IE_Released', self.hero_cpp)
         self.assertIn('void AMoonfallHeroPawn::BeginGuard()', self.hero_cpp)
         self.assertIn('void AMoonfallHeroPawn::EndGuard()', self.hero_cpp)
         self.assertIn("NextParryAt = Now + 0.8f", self.hero_cpp)
-        self.assertIn("Mana < 4.f || bGuarding) return;", self.hero_cpp)
+        self.assertIn("Stamina < GuardStaminaCost) return;", self.hero_cpp)
         self.assertIn("if (Health <= 0.f) EndGuard();", self.hero_cpp)
         self.assertIn("ParryWindowEndsAt = -1.f", self.hero_cpp)
         self.assertIn("DamageAfterGuard *= 0.4f", self.hero_cpp)
-        self.assertIn("Mana -= 4.f", self.hero_cpp)
+        self.assertIn("Stamina = FMath::Clamp(Stamina - GuardStaminaCost, 0.f, MaxStamina)", self.hero_cpp)
+        self.assertNotIn("Mana -= 4.f", self.hero_cpp)
+        self.assertIn("if (Stamina < GuardStaminaCost) EndGuard();", self.hero_cpp)
         self.assertIn("OnGuardImpact(ArmoredDamage - DamageAfterGuard, bPerfectParry)", self.hero_cpp)
         self.assertIn('void AMoonfallHeroPawn::OpenOptions() {', self.hero_cpp)
 
