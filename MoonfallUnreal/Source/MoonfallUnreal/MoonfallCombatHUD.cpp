@@ -62,6 +62,7 @@ void AMoonfallCombatHUD::DrawHUD()
  const bool bCompactScreen = Canvas->SizeX < 760.f || Canvas->SizeY < 480.f;
  const float ActualHealth = FMath::Clamp(Hero->Health / FMath::Max(1.f, Hero->MaxHealth), 0.f, 1.f);
  const float ActualMana = FMath::Clamp(Hero->Mana / FMath::Max(1.f, Hero->MaxMana), 0.f, 1.f);
+ const float ActualStamina = FMath::Clamp(Hero->Stamina / FMath::Max(1.f, Hero->MaxStamina), 0.f, 1.f);
  const float ActualXP = FMath::Clamp(static_cast<float>(Hero->Experience) / FMath::Max(1, Hero->ExperienceToNextLevel), 0.f, 1.f);
  const float Delta = GetWorld() ? FMath::Clamp(GetWorld()->GetDeltaSeconds(), 0.f, 0.1f) : 0.f;
  if (DisplayHealth < 0.f) { DisplayHealth = ActualHealth; DisplayMana = ActualMana; DisplayXP = ActualXP; }
@@ -115,6 +116,8 @@ void AMoonfallCombatHUD::DrawHUD()
  }
  DrawArc(Radius * 0.85f, ManaFraction, FLinearColor(0.06f, 0.11f, 0.23f), FLinearColor(0.19f, 0.59f, 1.f), 5.f);
  DrawArc(Radius * 0.97f, XpFraction, FLinearColor(0.19f, 0.10f, 0.28f), FLinearColor(0.73f, 0.32f, 1.f), 4.f);
+ // Thin green stamina arc stays outside the original red HP / blue mana / purple XP orb.
+ DrawArc(Radius * 1.13f, ActualStamina, FLinearColor(0.06f, 0.17f, 0.10f), FLinearColor(0.22f, 0.86f, 0.43f), 3.f);
  const float GlowLeft = GetWorld() ? FMath::Max(0.f, LevelGlowUntil - GetWorld()->GetTimeSeconds()) : 0.f;
  if (GlowLeft > 0.f) {
   const float Intensity = FMath::Clamp(GlowLeft / 1.25f, 0.f, 1.f);
