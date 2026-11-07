@@ -8,6 +8,7 @@ on:
       - '.github/workflows/unreal-hosted-reality-check.yml'
       - '.github/workflows/unreal-hosted-windows.yml'
       - '.github/workflows/unreal-engine-from-source-windows.yml'
+      - '.github/workflows/unreal-epic-access-check.yml'
       - 'MoonfallUnreal/Build/Test-UnrealInstalledArchive.ps1'
       - 'MoonfallUnreal/Build/Test-UnrealInstalledArchive.Tests.ps1'
       - 'MoonfallUnreal/Build/Test-UnrealEngineVersion.ps1'
@@ -124,6 +125,28 @@ jobs:
             }
           }
           "Optional licensed UE source build configuration passed source-text safeguards (no engine compile)." >> $env:GITHUB_STEP_SUMMARY
+      - name: Verify Epic private access-check is manual and does not clone source
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $file = '.github/workflows/unreal-epic-access-check.yml'
+          $flow = Get-Content -LiteralPath $file -Raw
+          foreach ($rule in @(
+            'workflow_dispatch:',
+            'secrets.MOONFALL_EPIC_SOURCE_TOKEN',
+            'https://api.github.com/repos/EpicGames/UnrealEngine',
+            'https://api.github.com/repos/EpicGames/UnrealEngine/branches/5.4',
+            'MOONFALL_EPIC_ACCESS_PASS'
+          )) {
+            if (-not $flow.Contains($rule)) { throw "Epic access check safeguard missing: $rule" }
+          }
+          if ($flow -match '(?m)^  push:' -or
+              $flow -match '(?m)^  pull_request:' -or
+              $flow.Contains('actions/checkout@') -or
+              $flow.Contains('upload-artifact@')) {
+            throw 'Epic access check must stay manual, metadata-only, and without artifacts.'
+          }
+          'Epic UE 5.4 private access-check workflow safety assertions passed; no secret was used.' >> $env:GITHUB_STEP_SUMMARY
       - name: Run synthetic Unreal archive security regression tests
         shell: pwsh
         run: |
