@@ -58,7 +58,10 @@ if (Test-Path -LiteralPath $LogPath) {
 }
 $Process = $null
 try {
-    $Args = @('-nullrhi', '-unattended', '-nosplash', "-abslog=$LogPath")
+    # Start-Process concatenates ArgumentList: quote the absolute log argument so
+    # runner and workspace directories containing spaces remain one Windows arg.
+    $QuotedLogPath = '"' + $LogPath + '"'
+    $Args = @('-nullrhi', '-unattended', '-nosplash', "-abslog=$QuotedLogPath")
     $Process = Start-Process -FilePath $Exe.FullName -ArgumentList $Args -PassThru -WorkingDirectory $Exe.DirectoryName
     Start-Sleep -Seconds $BootSeconds
     $Process.Refresh()
@@ -72,7 +75,7 @@ try {
     if ($Log -notmatch '(?i)(/Game/Maps/MoonfallWorld|MoonfallWorld)') {
         throw 'Boot log does not confirm the MoonfallWorld startup map.'
     }
-    if ($Log -notmatch 'MOONFALL_BOOT_READY pawn=MoonfallPawn regions=6 chambers=30') {
+    if ($Log -notmatch '(?m)^.*MOONFALL_BOOT_READY pawn=MoonfallPawn regions=6 chambers=30(?:\\s|$)') {
         throw 'The Moonfall gameplay pawn did not confirm continuous-world initialization.'
     }
     if ($Log -match '(?i)(Fatal error:|Unhandled Exception:|Assertion failed:|LogWindows: Error:)') {

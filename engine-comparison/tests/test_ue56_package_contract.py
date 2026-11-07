@@ -104,6 +104,9 @@ class PackageContract(unittest.TestCase):
         ):
             self.assertIn(guard.lower(), smoke.lower())
         self.assertIn("BootSeconds must be between 10 and 120 seconds", smoke)
+        self.assertIn("$QuotedLogPath = '\"' + $LogPath + '\"'", smoke)
+        self.assertIn('"-abslog=$QuotedLogPath"', smoke)
+        self.assertIn("(?m)^.*MOONFALL_BOOT_READY", smoke)
         pawn = (ROOT / "engine-comparison/unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallPawn.cpp").read_text(encoding="utf-8")
         ready = "MOONFALL_BOOT_READY pawn=MoonfallPawn regions=%d chambers=%d"
         self.assertIn(ready, pawn)
