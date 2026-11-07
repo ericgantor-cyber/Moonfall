@@ -64,14 +64,24 @@ class UnrealMigrationParityGate(unittest.TestCase):
         self.assertIn("Progress->DiscoveredRegionMask = DiscoveredRegionMask;", pawn)
         self.assertIn("DiscoveredRegionMask = Progress->DiscoveredRegionMask &", pawn)
         self.assertIn("DiscoveredRegionMask |= 1 << MoonfallWorldRules::RegionAt(", pawn)
-        self.assertIn("if ((DiscoveredRegionMask & RegionBit) == 0)", pawn)
-        self.assertIn("SaveProgress(); // Persist discoveries", pawn)
+        self.assertIn("const bool bNewRegion = (DiscoveredRegionMask & RegionBit) == 0;", pawn)
+        self.assertIn("SaveProgress(); // Persist only when discoveries change", pawn)
         self.assertIn("bool AMoonfallPawn::IsMapPositionDiscovered(", pawn)
         self.assertIn("int32 AMoonfallPawn::GetDiscoveredRegionCount()", pawn)
         self.assertIn("Hero->IsMapPositionDiscovered(Chamber)", hud)
         self.assertIn("Hero->IsMapPositionDiscovered(Enemy)", hud)
         self.assertIn("Hero->IsMapPositionDiscovered(B)", hud)
         self.assertIn("DISCOVERED %d/6", hud)
+        self.assertIn("TArray<uint8> DiscoveredMapCells;", header)
+        self.assertIn("TArray<uint8> DiscoveredMapCells;", saves)
+        self.assertIn("Progress->DiscoveredMapCells = DiscoveredMapCells;", pawn)
+        self.assertIn("Progress->DiscoveredMapCells.Num() == 48 * 16", pawn)
+        self.assertIn("DiscoveredMapCells.Init(0, 48 * 16)", pawn)
+        self.assertIn("const bool bNewCells = RevealNearbyMapCells(Position);", pawn)
+        self.assertIn("if (bNewRegion || bNewCells)", pawn)
+        self.assertIn("if (Hero->IsMapPositionDiscovered(CellCenter))", hud)
+        self.assertIn("X >= 0 && X < 48 && Y >= 0 && Y < 16", pawn)
+
 
     def test_character_and_input_constraints(self):
         constraints = self.data["constraints"]
