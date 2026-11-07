@@ -29,7 +29,7 @@ if ($ManifestFiles.Count -eq 0) {
 }
 $Recorded = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
 foreach ($Entry in $ManifestFiles) {
-    $Name = ([string]$Entry.path).Replace('\\', '/')
+    $Name = ([string]$Entry.path).Replace('\', '/')
     if ([string]::IsNullOrWhiteSpace($Name) -or -not $Recorded.Add($Name)) {
         throw "Empty or duplicate file path in package manifest: $Name"
     }
@@ -40,7 +40,7 @@ if ($Actual.Count -ne $Recorded.Count) {
     throw "Package file count mismatch: manifest=$($Recorded.Count), actual=$($Actual.Count)"
 }
 foreach ($Item in $Actual) {
-    $Relative = $Item.FullName.Substring($PackageDirectory.Length).TrimStart('\\', '/').Replace('\\', '/')
+    $Relative = $Item.FullName.Substring($PackageDirectory.Length).TrimStart('\', '/').Replace('\', '/')
     if (-not $Recorded.Contains($Relative)) {
         throw "Unlisted file present in Windows package: $Relative"
     }
