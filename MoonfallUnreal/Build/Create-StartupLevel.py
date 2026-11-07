@@ -31,7 +31,7 @@ def updated_map_config(config: str) -> str:
                 and lines[i].strip().endswith("]")), len(lines))
     for key in MAP_KEYS:
         matches = [i for i in range(start, end)
-                   if re.match(r"^\\s*" + key + r"\\s*=", lines[i])]
+                   if re.match(r"^\s*" + key + r"\s*=", lines[i])]
         if len(matches) != 1:
             raise ValueError("Expected exactly one " + key + " in GameMapsSettings")
         idx = matches[0]
