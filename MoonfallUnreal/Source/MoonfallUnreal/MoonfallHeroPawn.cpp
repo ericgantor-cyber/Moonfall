@@ -558,8 +558,13 @@ int32 AMoonfallHeroPawn::RegisterFinisherKill(bool bShatterKill, bool bBossKill,
  // Built-in impact choreography is mandatory. No mesh/AnimBP/asset assignment
  // is needed for the two slash shapes and flash attached in the constructor.
  NativeFinisherStartedAt = Now;
- NativeFinisherTarget = DefeatedLocation.ContainsNaN() ? GetActorLocation() + GetActorForwardVector() * 140.f : DefeatedLocation;
+ NativeFinisherOrigin = GetActorLocation();
+ NativeFinisherTarget = DefeatedLocation.ContainsNaN() ? NativeFinisherOrigin + GetActorForwardVector() * 140.f : DefeatedLocation;
+ NativeFinisherForward = (NativeFinisherTarget - NativeFinisherOrigin).GetSafeNormal2D();
+ if (NativeFinisherForward.IsNearlyZero()) NativeFinisherForward = GetActorForwardVector().GetSafeNormal2D();
+ NativeFinisherStyle = ChainStep;
  bNativeFinisherShatter = bShatterKill;
+ bNativeFinisherBoss = bBossKill;
  if (!bReduceMotion && GetMesh() && FinisherMontages.Num() > 0) {
   if (UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance()) {
    const int32 MontageIndex = (ChainStep - 1) % FinisherMontages.Num();
@@ -584,11 +589,12 @@ void AMoonfallHeroPawn::UpdateNativeFinisher(float DeltaSeconds)
  }
  const float T = FMath::Clamp(Age / Duration, 0.f, 1.f);
  const float Envelope = FMath::Sin(T * PI);
- const FVector Origin = GetActorLocation();
- FVector Forward = (NativeFinisherTarget - Origin).GetSafeNormal2D();
- if (Forward.IsNearlyZero()) Forward = GetActorForwardVector().GetSafeNormal2D();
+ // Snapshot facing and style on kill so moving or chaining the next attack
+ // does not bend this finisher's trajectory toward an unrelated target.
+ const FVector Origin = NativeFinisherOrigin;
+ const FVector Forward = NativeFinisherForward;
  const FVector Side = FVector::CrossProduct(FVector::UpVector, Forward);
- const int32 Style = FMath::Clamp(FinisherChainCount, 1, 5);
+ const int32 Style = FMath::Clamp(NativeFinisherStyle, 1, 5);
  // Five distinct readable movements: crossing cleave, rising strike,
  // double sweep, spinning slash, and final descending execution.
  const float Spin = (Style == 4 ? 2.f * PI : PI) * T;
@@ -603,7 +609,7 @@ void AMoonfallHeroPawn::UpdateNativeFinisher(float DeltaSeconds)
    : 105.f + 60.f * FMath::Sin(Spin);
  const FVector Center = Origin + Forward * (90.f + 45.f * Envelope)
     + Side * Lateral + FVector::UpVector * Height;
- const float BladeLength = bNativeFinisherShatter ? 2.8f : 2.25f;
+ const float BladeLength = bNativeFinisherBoss ? 3.2f : (bNativeFinisherShatter ? 2.8f : 2.25f);
  const float Tilt = Style == 2 ? 70.f - 140.f * T
    : Style == 5 ? -70.f + 140.f * T : 110.f * Sweep;
  const FRotator SlashRotation = FRotationMatrix::MakeFromX(Forward).Rotator()
@@ -618,7 +624,7 @@ void AMoonfallHeroPawn::UpdateNativeFinisher(float DeltaSeconds)
  FinisherFlash->SetWorldLocation(Center);
  FinisherFlash->SetLightColor(bNativeFinisherShatter ? FLinearColor(1.f, 0.25f, 0.8f)
    : FLinearColor(0.2f, 0.78f, 1.f));
- FinisherFlash->SetIntensity((bReduceMotion ? 900.f : 3500.f) * Envelope);
+ FinisherFlash->SetIntensity((bReduceMotion ? 900.f : (bNativeFinisherBoss ? 4800.f : 3500.f)) * Envelope);
  FinisherFlash->SetVisibility(true);
 }
 
