@@ -674,13 +674,31 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "void AMoonfallHeroPawn::CastLeft()", 1)[0]
         self.assertIn("Time <= ParryCounterUntil", cast)
         self.assertIn("FMath::Clamp(ParryCounterDamageMultiplier, 1.f, 2.f)", cast)
-        self.assertIn("Enemy->TakeSpellDamage(", cast)
-        self.assertIn("* CounterMultiplier)", cast)
-        self.assertIn("if (bCounterReady) ParryCounterUntil = -1.f;", cast)
-        self.assertLess(cast.index("Enemy->TakeSpellDamage("),
-                        cast.index("if (bCounterReady) ParryCounterUntil = -1.f;"))
+        self.assertIn("Enemy->TakeSpellDamage(SpellDamage);", cast)
+        self.assertIn("* CounterMultiplier;", cast)
+        self.assertIn("if (bCounterReady && Enemy->Health < HealthBeforeSpell)", cast)
+        self.assertIn("ParryCounterUntil = -1.f;", cast)
+        self.assertLess(cast.index("Enemy->TakeSpellDamage(SpellDamage);"),
+                        cast.index("if (bCounterReady && Enemy->Health < HealthBeforeSpell)"))
         self.assertLess(cast.index("if (!IsValid(Enemy) || Enemy->Health <= 0.f) return false;"),
                         cast.index("const bool bCounterReady"))
+        self.assertNotIn('TEXT("GUARD BROKEN")', self.hud)
+
+    def test_counterspell_posture_pressure_requires_real_spell_damage(self):
+        self.assertIn("float ParryCounterPostureDamage = 15.f;", self.hero_h)
+        cast = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split(
+            "void AMoonfallHeroPawn::CastLeft()", 1)[0]
+        self.assertIn("const float SpellDamage =", cast)
+        self.assertIn("!FMath::IsFinite(SpellDamage) || SpellDamage <= 0.f", cast)
+        self.assertIn("const float HealthBeforeSpell = Enemy->Health;", cast)
+        self.assertIn("Enemy->TakeSpellDamage(SpellDamage);", cast)
+        self.assertIn("if (bCounterReady && Enemy->Health < HealthBeforeSpell)", cast)
+        self.assertIn("Enemy->Health > 0.f && FMath::IsFinite(ParryCounterPostureDamage)", cast)
+        self.assertIn("Enemy->ApplyPostureDamage(FMath::Clamp(ParryCounterPostureDamage, 0.f, 100.f));", cast)
+        self.assertIn("ParryCounterUntil = -1.f;", cast)
+        self.assertLess(cast.index("!FMath::IsFinite(SpellDamage)"), cast.index("Enemy->TakeSpellDamage(SpellDamage);"))
+        self.assertLess(cast.index("Enemy->TakeSpellDamage(SpellDamage);"), cast.index("if (bCounterReady && Enemy->Health < HealthBeforeSpell)"))
+        self.assertLess(cast.index("Enemy->ApplyPostureDamage("), cast.index("ParryCounterUntil = -1.f;"))
         self.assertNotIn('TEXT("GUARD BROKEN")', self.hud)
 
     def test_dodge_immunity_cannot_overlap_new_guard_parry(self):
