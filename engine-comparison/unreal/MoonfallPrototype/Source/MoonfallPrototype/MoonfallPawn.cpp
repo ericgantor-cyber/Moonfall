@@ -1072,9 +1072,10 @@ static bool ParseForgedEquipment(const FString& Item, const FString& Prefix,
     int32& OutRank, int32& OutDamage, int32& OutWard)
 {
     if (!Item.StartsWith(Prefix)) return false;
-    FString RankText = Item.RightChop(Prefix.Len());
-    FString AffixText;
-    const bool bHasRoll = RankText.Split(TEXT("|DMG="), &RankText, &AffixText);
+    const FString Suffix = Item.RightChop(Prefix.Len());
+    FString RankText, AffixText;
+    const bool bHasRoll = Suffix.Split(TEXT("|DMG="), &RankText, &AffixText);
+    if (!bHasRoll) RankText = Suffix;
     if (RankText.Len() != 1 || !RankText.IsNumeric()) return false;
     const int32 Rank = FCString::Atoi(*RankText);
     if (Rank < 1 || Rank > 4) return false;
