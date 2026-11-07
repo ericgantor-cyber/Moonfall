@@ -88,6 +88,14 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("$matchingEntries.Count -ne 1", script)
         self.assertIn("$mapSectionMatches.Count -ne 1", script)
         self.assertIn("if ($PreflightOnly)", script)
+        self.assertIn("if (-not $CompileOnly) {", script)
+        self.assertNotIn("if (-not $CompileOnly -and -not $PreflightOnly)", script)
+        self.assertIn("Get-Command $command", script)
+        self.assertIn("makensis.exe", script)
+        self.assertIn("dotnet --list-sdks", script)
+        self.assertLess(script.index("if (-not $CompileOnly) {", script.index("# Packaging preflight")),
+                        script.index("if ($PreflightOnly)"))
+        self.assertLess(script.index("dotnet --list-sdks"), script.index("if ($PreflightOnly)"))
 
     def test_progression_declared_and_defined(self):
         for name in ("AwardExperience", "AwardEquipmentDrop", "RewardPerfectDodge"):
