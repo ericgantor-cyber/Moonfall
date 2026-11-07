@@ -93,6 +93,7 @@ private:
     float MapPanVerticalInput = 0.f;
     FVector Waypoint = FVector::ZeroVector;
     float EnemyDamageCooldown = 0.f;
+    float ParryTimer = 0.f, ParryCooldown = 0.f;
     float CounterWindow = 0.f;
     int32 BossAttackCount = 0;
     int32 BossAttackPhase = 1;
@@ -132,6 +133,7 @@ private:
     void Zoom(float Value);
     void Attack();
     void Dodge();
+    void Parry();
     void CastBolt();
     void CastHeal();
     void Victory();
