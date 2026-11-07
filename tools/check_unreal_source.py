@@ -14,6 +14,20 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         cls.enemy_cpp = (ROOT / "MoonfallEnemy.cpp").read_text(encoding="utf-8")
         cls.hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
 
+    def test_unreal_startup_level_generator_is_safe_and_parseable(self):
+        import ast
+        import json
+        generator = (ROOT.parents[1] / "Build" / "Create-StartupLevel.py").read_text(encoding="utf-8")
+        ast.parse(generator)
+        project = json.loads((ROOT.parents[1] / "MoonfallUnreal.uproject").read_text(encoding="utf-8"))
+        self.assertTrue(any(p.get("Name") == "PythonScriptPlugin" and p.get("Enabled") for p in project.get("Plugins", [])))
+        self.assertIn('MAP = "/Game/Maps/MoonfallStart"', generator)
+        self.assertIn("EditorAssetLibrary.does_asset_exist(MAP)", generator)
+        self.assertIn("levels.new_level(MAP, is_partitioned_world=False)", generator)
+        self.assertIn("unreal.PlayerStart", generator)
+        self.assertIn("unreal.NavMeshBoundsVolume", generator)
+        self.assertIn("levels.save_current_level()", generator)
+
     def test_windows_package_requires_project_startup_level(self):
         script = (ROOT.parents[1] / "Build" / "Build-Windows.ps1").read_text(encoding="utf-8")
         self.assertIn("MoonfallStart.umap", script)
