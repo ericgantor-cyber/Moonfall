@@ -97,10 +97,39 @@ jobs:
             if ((Get-Item -LiteralPath $installer).Length -le 0) {
               throw 'NSIS generated an empty installer.'
             }
-            "NSIS script compiled successfully with test-only fixture. No actual Moonfall game or release installer was produced." >> $env:GITHUB_STEP_SUMMARY
+            # Actually execute the installer in silent mode, using a dedicated
+            # temporary destination. It contains test-only files, never a real game.
+            $installRoot = Join-Path $env:RUNNER_TEMP 'MOONFALL-NSIS-SMOKE-TEST-ONLY'
+            if (Test-Path -LiteralPath $installRoot) {
+              throw 'Refusing to reuse a preexisting smoke-test installation directory.'
+            }
+            $install = Start-Process -FilePath $installer -ArgumentList @('/S', "/D=$installRoot") -Wait -PassThru
+            if ($install.ExitCode -ne 0) { throw "NSIS silent install failed with exit $($install.ExitCode)" }
+            foreach ($file in @('MoonfallLauncher.exe', 'MoonfallUnreal.exe', 'Uninstall.exe', 'MoonfallUnreal\\placeholder.dat')) {
+              if (-not (Test-Path -LiteralPath (Join-Path $installRoot $file) -PathType Leaf)) {
+                throw "NSIS install missing expected test fixture: $file"
+              }
+            }
+            $launchCheck = Start-Process -FilePath (Join-Path $installRoot 'MoonfallLauncher.exe') -ArgumentList '--check-install' -WorkingDirectory $installRoot -Wait -PassThru
+            if ($launchCheck.ExitCode -ne 0) {
+              throw "Installed launcher failed file layout test: $($launchCheck.ExitCode)"
+            }
+            $remove = Start-Process -FilePath (Join-Path $installRoot 'Uninstall.exe') -ArgumentList '/S' -Wait -PassThru
+            if ($remove.ExitCode -ne 0) {
+              throw "NSIS silent uninstall failed with exit $($remove.ExitCode)"
+            }
+            if (Test-Path -LiteralPath (Join-Path $installRoot 'MoonfallUnreal.exe')) {
+              throw 'NSIS uninstall left test game files behind.'
+            }
+            "NSIS installation, installed launcher --check-install, and uninstallation passed with synthetic test-only files." >> $env:GITHUB_STEP_SUMMARY
+            "No playable Moonfall Unreal game or real release installer was created." >> $env:GITHUB_STEP_SUMMARY
           } finally {
             if (Test-Path -LiteralPath $installer) {
               Remove-Item -LiteralPath $installer -Force
+            }
+            $testRoot = Join-Path $env:RUNNER_TEMP 'MOONFALL-NSIS-SMOKE-TEST-ONLY'
+            if (Test-Path -LiteralPath $testRoot) {
+              Remove-Item -LiteralPath $testRoot -Recurse -Force
             }
           }
       - name: Hash standalone launcher binary
