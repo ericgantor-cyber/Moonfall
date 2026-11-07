@@ -29,7 +29,7 @@ jobs:
       - name: Retrieve pinned PR 690 Unreal source snapshot (no secrets)
         uses: actions/checkout@v4
         with:
-          ref: 7802490c49724c7f824c9dd5b422c71b8a561d88
+          ref: d593eab5b9ec484571511ae673ec63e84f3dab71
           path: pr690-snapshot
           persist-credentials: false
       - name: Verify pinned PR source resolves to intended Unreal project
@@ -38,7 +38,7 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $root = Join-Path $env:GITHUB_WORKSPACE 'pr690-snapshot'
           $head = (& git -C $root rev-parse HEAD).Trim()
-          if ($head -ne '7802490c49724c7f824c9dd5b422c71b8a561d88') {
+          if ($head -ne 'd593eab5b9ec484571511ae673ec63e84f3dab71') {
             throw 'Pinned PR snapshot resolved to unexpected commit.'
           }
           foreach ($relative in @('MoonfallUnreal\MoonfallUnreal.uproject', 'MoonfallUnreal\Source\MoonfallUnrealEditor.Target.cs', 'MoonfallUnreal\Build\Build-Windows.ps1')) {
@@ -59,10 +59,22 @@ jobs:
           # The quest boss can differ from the nearest combat boss when
           # continuous exploration places more than one boss in the world.
           $hud = Get-Content -LiteralPath (Join-Path $root 'MoonfallUnreal\Source\MoonfallUnreal\MoonfallCombatHUD.cpp') -Raw
-          if (-not $hud.Contains('const AMoonfallEnemy* QuestBoss = nullptr;') -or
-              -not $hud.Contains('FVector::DistSquared2D(E->GetActorLocation(), Hero->QuestTarget)') -or
-              -not $hud.Contains('const float Progress = IsValid(QuestBoss)')) {
-            throw 'Quest tracker regression: using unrelated nearest boss for quest progress.'
+          $hero = Get-Content -LiteralPath (Join-Path $root 'MoonfallUnreal\Source\MoonfallUnreal\MoonfallHeroPawn.cpp') -Raw
+          $arena = Get-Content -LiteralPath (Join-Path $root 'MoonfallUnreal\Source\MoonfallUnreal\MoonfallArena.cpp') -Raw
+          $enemy = Get-Content -LiteralPath (Join-Path $root 'MoonfallUnreal\Source\MoonfallUnreal\MoonfallEnemy.cpp') -Raw
+          foreach ($check in @(
+            @($hud, 'const AMoonfallEnemy* QuestBoss = Hero->GetArenaBossQuestTarget();'),
+            @($hud, 'const float Progress = IsValid(QuestBoss)'),
+            @($hero, 'ActiveArenaBoss = Boss;'),
+            @($hero, 'ActiveArenaBoss.Get() != DefeatedBoss'),
+            @($hero, 'QuestTarget = CurrentLocation;'),
+            @($arena, 'Hero->BeginArenaBossQuest(Enemy);'),
+            @($enemy, 'Hero->CompleteArenaBossQuest(this);')
+          )) {
+            if (-not $check[0].Contains($check[1])) { throw "Assigned quest boss actor regression: $($check[1])" }
+          }
+          if ($hud.Contains('QuestBossDistanceSq') -or $enemy.Contains('Hero->CompleteArenaBossQuest();')) {
+            throw 'Quest tracker must never guess a boss by proximity or complete quests without actor identity.'
           }
           "Pinned Moonfall PR 690 source checkout verified at $head; installer preservation and quest boss selection checks passed; UE compilation not attempted." >> $env:GITHUB_STEP_SUMMARY
       - name: Verify hosted Unreal compile safeguards
@@ -80,7 +92,7 @@ jobs:
             "inputs.package_game",
             "source_snapshot:",
             "pr690-pinned",
-            "7802490c49724c7f824c9dd5b422c71b8a561d88",
+            "d593eab5b9ec484571511ae673ec63e84f3dab71",
             "path: build-tools",
             "path: game-source",
             "source snapshot selection",
@@ -115,7 +127,7 @@ jobs:
             'GenerateProjectFiles.bat',
             'Make Installed Build Win64',
             'Test-UnrealEngineVersion.ps1',
-            '7802490c49724c7f824c9dd5b422c71b8a561d88',
+            'd593eab5b9ec484571511ae673ec63e84f3dab71',
             'CompileOnly',
             'inputs.package_game',
             'MoonfallWin64Packaged',
