@@ -82,6 +82,21 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
   if (Stamina <= 0.f) bSprintExhausted = true;
  }
  const bool bSprinting = bCanSprint && !bSprintExhausted;
+ // Sustained guarding is a deliberate defensive commitment. Drain only on
+ // playable frames and never allow invalid Blueprint values to corrupt stamina.
+ if (bGuarding && !bOptionsOpen && Health > 0.f && GetWorld()
+     && FMath::IsFinite(Stamina) && FMath::IsFinite(MaxStamina) && MaxStamina > 0.f
+     && FMath::IsFinite(GuardStaminaCost) && GuardStaminaCost >= 0.f) {
+  const float GuardDrain = FMath::IsFinite(GuardStaminaDrainPerSecond)
+    ? FMath::Clamp(GuardStaminaDrainPerSecond, 0.f, 30.f) : 0.f;
+  Stamina = FMath::Clamp(Stamina - GuardDrain * StaminaDelta, 0.f, MaxStamina);
+  if (GuardDrain > 0.f) StaminaRegenStartsAt = FMath::Max(
+      StaminaRegenStartsAt, GetWorld()->GetTimeSeconds() + 0.8f);
+  // Guard cannot continue in a state where even a base block is impossible.
+  // Positive-cost guards break at the threshold; zero-cost guards break at zero.
+  if (Stamina <= 0.f || (GuardStaminaCost > 0.f && Stamina < GuardStaminaCost))
+   BreakGuard();
+ }
  if (GetCharacterMovement()) {
   // Ramp into sprint without allowing boosted speed during guard, dodges,
   // menus, death, exhaustion or a released sprint key.
@@ -212,7 +227,9 @@ void AMoonfallHeroPawn::BreakGuard()
  EndGuard();
  // Losing guard also forfeits any outstanding counterattack opportunity.
  ParryCounterUntil = -1.f;
- GuardBrokenUntil = GetWorld()->GetTimeSeconds() + FMath::Clamp(GuardBreakRecoverySeconds, 0.f, 3.f);
+ const float RecoverySeconds = FMath::IsFinite(GuardBreakRecoverySeconds)
+    ? FMath::Clamp(GuardBreakRecoverySeconds, 0.f, 3.f) : 1.f;
+ GuardBrokenUntil = GetWorld()->GetTimeSeconds() + RecoverySeconds;
  OnGuardBroken();
 }
 
