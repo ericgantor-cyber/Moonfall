@@ -33,6 +33,26 @@ class UnrealMigrationParityGate(unittest.TestCase):
                 for relative_path in feature["unreal"]:
                     self.assertTrue((ROOT / relative_path).is_file(), relative_path)
 
+    def test_quest_tracker_uses_persistent_combat_and_loot_flags(self):
+        base = ROOT / "engine-comparison/unreal/MoonfallPrototype/Source/MoonfallPrototype"
+        header = (base / "MoonfallPawn.h").read_text(encoding="utf-8")
+        pawn = (base / "MoonfallPawn.cpp").read_text(encoding="utf-8")
+        hud = (base / "MoonfallHud.cpp").read_text(encoding="utf-8")
+        saves = (base / "MoonfallProgressSave.h").read_text(encoding="utf-8")
+        for method in ("GetQuestDefeatedBeasts", "GetQuestClearedChambers"):
+            self.assertIn(method + "() const;", header)
+            self.assertIn("AMoonfallPawn::" + method + "() const", pawn)
+            self.assertIn("Hero->" + method + "()", hud)
+        self.assertIn("DefeatedEnemyMask & (1 << Id)", pawn)
+        self.assertIn("ClaimedChamberMask & (1 << Id)", pawn)
+        self.assertIn("DefeatedGuardianMask & (1 << Id)", pawn)
+        for flag in ("DefeatedEnemyMask", "ClaimedChamberMask", "DefeatedGuardianMask"):
+            self.assertIn(flag, saves)
+            self.assertIn("Progress->" + flag + " = " + flag + ";", pawn)
+        self.assertIn("WORLD QUESTS", hud)
+        self.assertIn("Defeat Z", hud)
+        self.assertIn("Hero->IsBossDefeated()", hud)
+
     def test_character_and_input_constraints(self):
         constraints = self.data["constraints"]
         self.assertEqual(constraints["preserve_original_art"],
