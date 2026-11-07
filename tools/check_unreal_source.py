@@ -24,6 +24,12 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertTrue(any(p.get("Name") == "EditorScriptingUtilities" and p.get("Enabled") for p in project.get("Plugins", [])))
         self.assertIn('MAP = "/Game/Maps/MoonfallStart"', generator)
         self.assertIn("EditorAssetLibrary.does_asset_exist(MAP)", generator)
+        self.assertIn("def create_new_startup_level():", generator)
+        self.assertIn("if not map_exists:", generator)
+        self.assertIn("if map_exists:", generator)
+        self.assertIn("map_file.stat().st_size <= 0", generator)
+        self.assertIn("create_new_startup_level()", generator)
+        self.assertIn("if map_file.exists():", generator)
         self.assertIn("levels.new_level(MAP, is_partitioned_world=False)", generator)
         self.assertIn("unreal.PlayerStart", generator)
         self.assertIn("unreal.NavMeshBoundsVolume", generator)
@@ -98,6 +104,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(workflow.index("Generate and validate Moonfall startup level"),
                         workflow.index("Build-Windows.ps1 -UnrealRoot $env:UE54_ROOT -PreflightOnly"))
         self.assertIn("if (-not (Test-Path -LiteralPath $map -PathType Leaf))", workflow)
+        self.assertIn('& $editor $project "-ExecutePythonScript=$script" -unattended -nop4', workflow)
+        self.assertNotIn("if (-not (Test-Path -LiteralPath $map -PathType Leaf)) {", workflow)
+        self.assertLess(workflow.index("& $editor $project"), workflow.index("if (-not (Test-Path -LiteralPath $map -PathType Leaf))"))
         self.assertIn('"-map=/Game/Maps/MoonfallStart"', workflow)
         self.assertNotIn("Engine\\Content\\Maps\\Entry.umap", workflow)
 
