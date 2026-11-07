@@ -1118,6 +1118,7 @@ void AMoonfallPawn::ForgeEquipment()
         if (CurrentTier >= 3) continue; // Max rank; no further material cost.
         const int32 MaterialCost = CurrentTier == 0 ? 2 : 1;
         TArray<int32, TInlineAllocator<2>> MaterialsToSpend;
+        TArray<FString, TInlineAllocator<2>> ConsumedMaterialNames;
         // Only authentic, uniquely identified caches whose guardians were
         // defeated and claimed may enter a recipe. A duplicate inventory
         // string cannot be spent twice in the same forge action.
@@ -1132,6 +1133,7 @@ void AMoonfallPawn::ForgeEquipment()
             {
                 if (BossInventory[I] != Material) continue;
                 MaterialsToSpend.Add(I);
+                ConsumedMaterialNames.Add(Material);
                 break; // One material for one real cache ID.
             }
             if (MaterialsToSpend.Num() == MaterialCost) break;
@@ -1144,7 +1146,10 @@ void AMoonfallPawn::ForgeEquipment()
         UpdatedInventory.Reserve(BossInventory.Num());
         for (int32 I = 0; I < BossInventory.Num(); ++I)
         {
-            if (MaterialsToSpend.Contains(I)) continue;
+            // Remove all copies of consumed cache IDs, including malformed
+            // legacy duplicate entries, so they cannot fuel later recipes.
+            if (MaterialsToSpend.Contains(I) ||
+                ConsumedMaterialNames.Contains(BossInventory[I])) continue;
             if (BossInventory[I].StartsWith(GearPrefix))
             {
                 const FString RankText = BossInventory[I].RightChop(GearPrefix.Len());
