@@ -64,12 +64,12 @@
     },
     {
       "id": "quest_and_atlas",
-      "status": "quest_tracker_and_region_fog_source_present_atlas_pending",
+      "status": "quest_tracker_and_saved_grid_fog_source_present_full_atlas_pending",
       "unreal": [
         "engine-comparison/unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.cpp",
         "engine-comparison/unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallPawn.cpp"
       ],
-      "gate": "Source includes saved 6-region discovery fog and quest tracker; confirm persistence and radar visibility in Windows UE5.6, then port per-cell fog, waypoints, and full atlas"
+      "gate": "Verify 48x16 (400cm) discovery grid, older-save recovery, marker hiding and saved exploration in UE5.6 Windows; full terrain atlas and waypoints remain pending"
     },
     {
       "id": "crafting_inventory",
