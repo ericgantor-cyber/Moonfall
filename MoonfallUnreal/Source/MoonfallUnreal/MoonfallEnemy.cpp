@@ -44,7 +44,8 @@ void AMoonfallEnemy::ApplyPostureDamage(float Amount) {
  if (Now < PostureBrokenUntil || Now < NextPostureBreakAllowedAt) return;
  if (!FMath::IsFinite(Posture)) Posture = 0.f;
  Posture = FMath::Clamp(Posture + Amount, 0.f, MaxPosture);
- PostureRecoveryStartsAt = Now + 3.f;
+ PostureRecoveryStartsAt = Now + (FMath::IsFinite(PosturePressureRecoveryDelaySeconds)
+   ? FMath::Clamp(PosturePressureRecoveryDelaySeconds, 0.f, 5.f) : 3.f);
  OnPostureChanged(Posture, MaxPosture);
  if (Posture < MaxPosture) return;
  // Break interrupts current attacks and exposes the enemy for a finite window.
@@ -52,6 +53,7 @@ void AMoonfallEnemy::ApplyPostureDamage(float Amount) {
  const float VulnerabilitySeconds = bBoss ? 1.5f : (bElite ? 2.f : 2.5f);
  PostureBrokenUntil = Now + VulnerabilitySeconds;
  bPostureFinisherAvailable = true;
+ PostureBreakCount = FMath::Min(PostureBreakCount + 1, 100000);
  // Bosses cannot be immediately chained into another posture break after recovery.
  if (bBoss && FMath::IsFinite(BossPostureBreakRecoverySeconds))
   NextPostureBreakAllowedAt = PostureBrokenUntil
@@ -88,6 +90,8 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
   const float HealthBeforeHit = Health;
   Health = FMath::Max(0.0f, Health - FMath::Max(0.0f, EffectiveDamage));
   const float ActualDamage = HealthBeforeHit - Health;
+  if (bShatterFinisher && ActualDamage > 0.f)
+    OnShatterFinisher(ActualDamage);
   // Offensive pressure builds posture, but an already broken enemy cannot
   // immediately be rebroken by damage dealt during its vulnerability window.
   if (ActualDamage > 0.f && Health > 0.f && FMath::IsFinite(SpellPostureScale)
@@ -100,7 +104,8 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
     BossPhase = NewPhase;
     WindupEndsAt = -1.f;
     BossWarningEndTime = -1.f;
-    NextAttackAt = Now + 1.5f;
+    // A phase transition cannot truncate an active posture-break lockout.
+    NextAttackAt = FMath::Max(NextAttackAt, Now + 1.5f);
     BossPhaseMessageUntil = Now + 1.5f;
     AttackSequence = 0;
     BossSpecialMove = 0;
@@ -126,6 +131,10 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
  Super::Tick(DeltaSeconds);
  if (Health <= 0.f || !GetWorld()) return;
  const float Now = GetWorld()->GetTimeSeconds();
+ // A shatter follow-up expires with its break window. Never carry it into
+ // another posture cycle or let an expired flag affect later spells.
+ if (bPostureFinisherAvailable && Now >= PostureBrokenUntil)
+  bPostureFinisherAvailable = false;
  if (Now >= PostureBrokenUntil && Posture > 0.f && Now >= PostureRecoveryStartsAt
      && FMath::IsFinite(MaxPosture) && MaxPosture > 0.f
      && FMath::IsFinite(PostureRecoveryPerSecond) && PostureRecoveryPerSecond > 0.f) {
