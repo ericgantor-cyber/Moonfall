@@ -36,6 +36,9 @@ public:
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Combat|Posture") bool bPostureFinisherAvailable = false;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat|Posture", meta=(ClampMin="1.0", ClampMax="4.0")) float PostureFinisherDamageMultiplier = 1.8f;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat|Posture", meta=(ClampMin="0.0", ClampMax="6.0")) float BossPostureBreakRecoverySeconds = 2.5f;
+ UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat|Posture", meta=(ClampMin="0.0", ClampMax="5.0")) float PosturePressureRecoveryDelaySeconds = 3.f;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Combat|Posture") int32 PostureBreakCount = 0;
+ UFUNCTION(BlueprintImplementableEvent, Category="Combat|Posture") void OnShatterFinisher(float DamageDealt);
  UFUNCTION(BlueprintImplementableEvent, Category="Combat|Posture") void OnPostureBroken(float VulnerabilitySeconds);
  UFUNCTION(BlueprintImplementableEvent, Category="Combat|Posture") void OnPostureChanged(float CurrentPosture, float MaximumPosture);
  UFUNCTION(BlueprintCallable, Category="Combat|Posture") void ApplyPostureDamage(float Amount);
