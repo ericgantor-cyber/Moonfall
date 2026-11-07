@@ -24,6 +24,27 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
+      - name: Retrieve pinned PR 690 Unreal source snapshot (no secrets)
+        uses: actions/checkout@v4
+        with:
+          ref: 965ee5c40b940d4083dfc5440343ca8a7fc55df9
+          path: pr690-snapshot
+          persist-credentials: false
+      - name: Verify pinned PR source resolves to intended Unreal project
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $root = Join-Path $env:GITHUB_WORKSPACE 'pr690-snapshot'
+          $head = (& git -C $root rev-parse HEAD).Trim()
+          if ($head -ne '965ee5c40b940d4083dfc5440343ca8a7fc55df9') {
+            throw 'Pinned PR snapshot resolved to unexpected commit.'
+          }
+          foreach ($relative in @('MoonfallUnreal\MoonfallUnreal.uproject', 'MoonfallUnreal\Source\MoonfallUnrealEditor.Target.cs', 'MoonfallUnreal\Build\Build-Windows.ps1')) {
+            if (-not (Test-Path -LiteralPath (Join-Path $root $relative) -PathType Leaf)) {
+              throw "Pinned Moonfall PR is missing $relative"
+            }
+          }
+          "Pinned Moonfall PR 690 source checkout verified at $head; UE compilation not attempted." >> $env:GITHUB_STEP_SUMMARY
       - name: Verify hosted Unreal compile safeguards
         shell: pwsh
         run: |
