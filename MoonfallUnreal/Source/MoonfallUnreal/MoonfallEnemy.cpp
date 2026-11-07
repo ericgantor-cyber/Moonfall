@@ -196,7 +196,19 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   return;
  }
  AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0));
- if (!IsValid(Hero) || Hero->Health <= 0.f || Hero->bOptionsOpen || Hero->bWorldMapOpen) return;
+ if (!IsValid(Hero) || Hero->Health <= 0.f || Hero->bOptionsOpen || Hero->bWorldMapOpen) {
+  // Map/options screens suppress combat. Invalidate any timed strike, or it
+  // could resolve immediately on closing the menu without a fresh warning.
+  WindupEndsAt = -1.f;
+  BossWarningEndTime = -1.f;
+  bComboSecondHitPending = false;
+  bComboSecondHitActive = false;
+  BossSpecialMove = 0;
+  NextAttackAt = FMath::Max(NextAttackAt, Now + 0.45f);
+  CachedWaypoint = FVector::ZeroVector;
+  NextPathRefreshAt = 0.f;
+  return;
+ }
  FVector Difference = Hero->GetActorLocation() - GetActorLocation();
  Difference.Z = 0.f;
  const float Distance = Difference.Size();
@@ -406,8 +418,13 @@ void AMoonfallEnemy::TickCorruptedCrow(float DeltaSeconds)
  if (!GetWorld() || Health <= 0.f) return;
  AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this,0));
  if (!IsValid(Hero) || Hero->Health <= 0.f || Hero->bOptionsOpen || Hero->bWorldMapOpen) {
-  // The danger light must not remain visible while combat is suppressed.
+  // Cancel telegraphed dives when combat is suppressed, rather than resuming
+  // an expired dive against the player immediately after the menu closes.
+  CrowAttackEndsAt = -1.f;
+  bCrowDiving = false;
+  bCrowHasHit = false;
   if (CrowWarningGlow) CrowWarningGlow->SetVisibility(false);
+  CrowRecoverUntil = FMath::Max(CrowRecoverUntil, GetWorld()->GetTimeSeconds() + 0.45f);
   return;
  }
  const float Now = GetWorld()->GetTimeSeconds();
