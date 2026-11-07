@@ -1,11 +1,12 @@
 name: Moonfall Windows hosted runner reality check
 
-# One lightweight Windows runner capability report when this workflow is introduced.
+# Lightweight Windows capacity report and source safety assertions on workflow edits.
 # Does not download Unreal, compile Moonfall, or provision a paid large runner.
 on:
   push:
     paths:
       - '.github/workflows/unreal-hosted-reality-check.yml'
+      - '.github/workflows/unreal-hosted-windows.yml'
   workflow_dispatch:
 
 permissions:
@@ -16,6 +17,31 @@ jobs:
     runs-on: windows-2022
     timeout-minutes: 10
     steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Verify hosted Unreal compile safeguards
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $workflow = Get-Content '.github/workflows/unreal-hosted-windows.yml' -Raw
+          foreach ($rule in @(
+            "workflow_dispatch:",
+            "inputs.attempt_compile && needs.windows-preflight.outputs.has_capacity == 'true'",
+            "minimum_free_gb:",
+            "MOONFALL_UE54_ARCHIVE_SHA256",
+            "Get-FileHash -LiteralPath",
+            "System.IO.Compression.ZipFile",
+            "uncompressedBytes + 15GB",
+            "Expand-Archive -LiteralPath",
+            "Build-Windows.ps1 -UnrealRoot",
+            "-CompileOnly"
+          )) {
+            if (-not $workflow.Contains($rule)) {
+              throw "Hosted Unreal workflow safety regression: missing $rule"
+            }
+          }
+          Write-Host 'Hosted Unreal build workflow safeguards verified as source text; UE compilation not run.'
       - name: Report actual Windows hosted runner capacity
         shell: pwsh
         run: |
