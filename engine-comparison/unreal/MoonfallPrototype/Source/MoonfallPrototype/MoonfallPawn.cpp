@@ -355,12 +355,17 @@ void AMoonfallPawn::UpdateWorldEnemies(float Dt)
     for (FWorldEnemy& Enemy : Enemies)
     {
         if (!Enemy.Mesh) continue;
+        // An attack is a one-frame event. Holding contact cannot deal damage
+        // without a fresh, telegraphed windup and cooldown.
+        Enemy.bAttackReadyThisFrame = false;
+        Enemy.AttackCooldown = FMath::Max(0.f, Enemy.AttackCooldown - MoveDt);
         // Snapshot stagger before advancing timers so the final active frame
         // blocks both movement and contact damage.
         Enemy.bStaggeredThisFrame = Enemy.StaggerTimer > 0.f;
         if (Enemy.bStaggeredThisFrame)
         {
             Enemy.StaggerTimer = FMath::Max(0.f, Enemy.StaggerTimer - MoveDt);
+            Enemy.AttackWindup = 0.f; // A real stagger interrupts an attack.
             continue;
         }
         // Guardians enter their final phase once below 35% of their starting HP.
@@ -385,6 +390,35 @@ void AMoonfallPawn::UpdateWorldEnemies(float Dt)
             Enemy.bReturningHome = false;
         const bool bAggro = HeroDistSq < FMath::Square(800.f) &&
             !Enemy.bReturningHome && FromHome.SizeSquared() < FMath::Square(Leash);
+        // Contact strikes require a readable windup. Moving away, breaking
+        // leash, or stunning the attacker cancels the pending strike.
+        // Full frame hitches advance no more than 50ms of enemy combat time.
+        if (bAggro && HeroDistSq <= FMath::Square(240.f))
+        {
+            if (Enemy.AttackWindup > 0.f)
+            {
+                Enemy.AttackWindup = FMath::Max(0.f, Enemy.AttackWindup - MoveDt);
+                if (Enemy.AttackWindup <= 0.f)
+                {
+                    Enemy.bAttackReadyThisFrame = true;
+                    Enemy.AttackCooldown = Enemy.bGuardian ? 2.f : 1.5f;
+                }
+            }
+            else if (Enemy.AttackCooldown <= 0.f)
+            {
+                const int32 Tactic = Enemy.bGuardian ? 0 : Enemy.Id % 3;
+                Enemy.AttackWindup = Enemy.bGuardian ? (Enemy.bEnraged ? 0.6f : 0.85f) :
+                    (Tactic == 2 ? 0.75f : (Tactic == 1 ? 0.55f : 0.65f));
+            }
+        }
+        else
+        {
+            // Expire partial windups when a target escapes. Prevent the next
+            // re-engagement from instantly firing an old half-finished strike.
+            if (Enemy.AttackWindup > 0.f)
+                Enemy.AttackCooldown = FMath::Max(Enemy.AttackCooldown, 0.25f);
+            Enemy.AttackWindup = 0.f;
+        }
         if (bAggro)
         {
             // Three lightweight, deterministic normal-enemy tactics without
@@ -430,6 +464,22 @@ void AMoonfallPawn::UpdateWorldEnemies(float Dt)
             Enemy.Mesh->SetRelativeLocation(From - FromHome.GetSafeNormal() * ReturnStep);
         }
     }
+}
+
+float AMoonfallPawn::GetNearestEnemyWindupSeconds() const
+{
+    if (!HeroMesh || Health <= 0.f || bWorldMapOpen) return 0.f;
+    const FVector HeroPosition = HeroMesh->GetRelativeLocation();
+    float NearestThreat = TNumericLimits<float>::Max();
+    for (const FWorldEnemy& Enemy : Enemies)
+    {
+        if (!Enemy.Mesh || Enemy.bReturningHome || Enemy.bStaggeredThisFrame ||
+            Enemy.AttackWindup <= 0.f) continue;
+        if (FVector::DistSquared2D(HeroPosition, Enemy.Mesh->GetRelativeLocation()) >
+            FMath::Square(320.f)) continue;
+        NearestThreat = FMath::Min(NearestThreat, Enemy.AttackWindup);
+    }
+    return NearestThreat == TNumericLimits<float>::Max() ? 0.f : NearestThreat;
 }
 
 int32 AMoonfallPawn::NearestEnemyIndex(float Radius) const
@@ -484,6 +534,8 @@ void AMoonfallPawn::DamageWorldEnemy(int32 Index, float Damage, bool bRiposte, b
             // Third-hit finishers briefly stagger normal enemies; earned
             // ripostes retain the longer guardian-specific stagger.
             Enemy.StaggerTimer = Enemy.bGuardian ? 0.8f : 0.4f;
+            Enemy.AttackWindup = 0.f; // Riposte/finisher interrupts prepared strikes.
+            Enemy.AttackCooldown = FMath::Max(Enemy.AttackCooldown, 0.5f);
             // Give a landed riposte physical space without pushing guardians
             // outside their chamber leash or introducing a physics actor.
             if (Enemy.Mesh && HeroMesh)
@@ -1331,6 +1383,7 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
             {
                 const FWorldEnemy& Candidate = Enemies[I];
                 if (!Candidate.Mesh || Candidate.bReturningHome || Candidate.bStaggeredThisFrame) continue;
+                if (!Candidate.bAttackReadyThisFrame) continue;
                 const FVector HomeOffset = Candidate.Mesh->GetRelativeLocation() - Candidate.Home;
                 const float Leash = Candidate.bGuardian ? 600.f : 900.f;
                 if (HomeOffset.SizeSquared2D() >= FMath::Square(Leash)) continue;
