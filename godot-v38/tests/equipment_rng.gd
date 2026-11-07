@@ -12,6 +12,14 @@ func _initialize()->void:
  call_deferred("_run")
 func _run()->void:
  var item:Dictionary=CATALOG.get_item("ashwood_sword")
+ var catalog_size:int=CATALOG.generate_catalog().size()
+ check(catalog_size>100,"equipment catalog is populated")
+ check(CATALOG.get_item("missing_id").is_empty(),"unknown item lookup stays empty")
+ var altered:Dictionary=CATALOG.get_item("ashwood_sword")
+ altered["power"]=999999
+ check(int(CATALOG.get_item("ashwood_sword")["power"])==int(item["power"]),"cached lookup returns mutation-safe copies")
+ for entry in CATALOG.generate_catalog():
+  check(CATALOG.get_item(str(entry["id"]))==entry,"indexed lookup matches generated catalog for "+str(entry["id"]))
  var first:Dictionary=RNG.roll(item,2345)
  check(first==RNG.roll(item,2345),"same seed reproducible")
  check(first["affixes"].size()<=3,"bounded affixes")
