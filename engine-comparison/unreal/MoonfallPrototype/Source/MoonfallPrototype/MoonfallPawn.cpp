@@ -1166,9 +1166,6 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
     CheckpointTimer += Dt;
     if (Health > 0.f)
     {
-        FVector Direction = bDodgeActiveThisFrame
-            ? DodgeDirection : FVector(Forward, Right, 0.f);
-        Direction = Direction.GetClampedToMaxSize(1.f);
         // A frame hitch must not teleport the hero through a boss warning or chamber.
         const float MovementDt = FMath::Min(Dt, 0.05f);
         // The last dodge frame must not travel a full frame after only a
