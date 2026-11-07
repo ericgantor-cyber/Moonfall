@@ -18,6 +18,8 @@ public:
  bool ApplyMoonfallDamageFrom(float Amount, const FVector& SourceLocation);
  UFUNCTION(BlueprintCallable, Category="Moonfall|Combat") void RewardPerfectDodge();
  UPROPERTY(BlueprintReadOnly, Category="Moonfall|Combat") bool bGuarding = false;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Combat") float GuardBrokenUntil = 0.f;
+ UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Combat") void OnGuardBroken();
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Combat") void OnGuardImpact(float DamageBlocked, bool bPerfectParry);
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Combat") void OnHealthChanged(float NewHealth, float MaxHealth);
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Combat") void OnDamageImpact(float DamageTaken);
@@ -68,6 +70,7 @@ private:
  UPROPERTY(EditAnywhere, Category="Moonfall|Combat") float ParryWindowSeconds = 0.18f;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Combat", meta=(ClampMin="0.0")) float GuardStaminaCost = 8.f;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Combat", meta=(ClampMin="0.0")) float PerfectParryStaminaReward = 12.f;
+ UPROPERTY(EditAnywhere, Category="Moonfall|Combat", meta=(ClampMin="0.0", ClampMax="3.0")) float GuardBreakRecoverySeconds = 1.0f;
  float DamageImmunityUntil = 0.f;
  float PerfectDodgeWindowUntil = -1.f;
  float LastPerfectDodgeRewardAt = -100.f;
@@ -94,6 +97,7 @@ private:
  void Dodge();
  void BeginSprint();
  void EndSprint();
+ void BreakGuard();
  void BeginGuard();
  void EndGuard();
  void OpenOptions();
