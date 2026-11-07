@@ -176,6 +176,22 @@ class UnrealMigrationParityGate(unittest.TestCase):
         self.assertIn("Forward = 0.f;", toggle_body)
         self.assertIn("Right = 0.f;", toggle_body)
 
+    def test_fog_reveal_inclusive_world_boundary(self):
+        pawn = (ROOT / "engine-comparison/unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallPawn.cpp").read_text(encoding="utf-8")
+        start = pawn.index("bool AMoonfallPawn::IsMapPositionDiscovered(")
+        end = pawn.index("\n}", start)
+        lookup = pawn[start:end]
+        for expected in (
+            "Position.X < -1600.f || Position.X > 17600.f",
+            "Position.Y < -3200.f || Position.Y > 3200.f",
+            "FMath::IsFinite(Position.X)",
+            "FMath::IsFinite(Position.Y)",
+            "FMath::Clamp(FMath::FloorToInt((Position.X + 1600.f) / 400.f), 0, 47)",
+            "FMath::Clamp(FMath::FloorToInt((Position.Y + 3200.f) / 400.f), 0, 15)",
+        ):
+            self.assertIn(expected, lookup)
+        self.assertIn("DiscoveredMapCells[Y * 48 + X] != 0", lookup)
+
     def test_open_map_blocks_combat_resource_inputs(self):
         pawn = (ROOT / "engine-comparison/unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallPawn.cpp").read_text(encoding="utf-8")
         for method in ("Dodge", "CastBolt", "CastHeal", "SetWaypoint"):
