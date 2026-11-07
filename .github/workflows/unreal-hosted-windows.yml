@@ -129,7 +129,10 @@ jobs:
                   [IO.Path]::IsPathRooted($entry.FullName)) {
                 throw 'Archive contains unsafe paths; refusing extraction.'
               }
-              $uncompressedBytes = [checked]($uncompressedBytes + $entry.Length)
+              if ($entry.Length -gt ([long]::MaxValue - $uncompressedBytes)) {
+                throw 'Archive uncompressed size overflows supported integer range.'
+              }
+              $uncompressedBytes += [int64]$entry.Length
             }
           } finally {
             $zip.Dispose()
