@@ -5,6 +5,8 @@
 class USpringArmComponent;
 class UCameraComponent;
 class UAnimMontage;
+class UStaticMeshComponent;
+class UPointLightComponent;
 UCLASS()
 class MOONFALLUNREAL_API AMoonfallHeroPawn : public ACharacter
 {
@@ -45,11 +47,11 @@ public:
  UPROPERTY(BlueprintReadOnly, Category="Moonfall|Progression") int32 Level = 1;
  UPROPERTY(BlueprintReadOnly, Category="Moonfall|Progression") int32 Experience = 0;
  UPROPERTY(BlueprintReadOnly, Category="Moonfall|Progression") int32 ExperienceToNextLevel = 100;
- // Consecutive kills progress through a selectable montage chain; all assets are optional.
+ // Every takedown plays native five-style choreography; authored montages layer over it.
  UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|Finishers") TArray<TObjectPtr<UAnimMontage>> FinisherMontages;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Finishers", meta=(ClampMin="0.5", ClampMax="10.0")) float FinisherChainWindowSeconds = 4.f;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Finishers") int32 FinisherChainCount = 0;
- UFUNCTION(BlueprintCallable, Category="Moonfall|Finishers") void RegisterFinisherKill(bool bShatterKill, bool bBossKill);
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Finishers") int32 RegisterFinisherKill(bool bShatterKill, bool bBossKill, FVector DefeatedLocation);
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Finishers") void OnFinisherChain(int32 ChainStep, bool bShatterKill, bool bBossKill);
  UFUNCTION(BlueprintCallable, Category="Moonfall|Progression") void AwardExperience(int32 Amount);
  UFUNCTION(BlueprintCallable, Category="Moonfall|Loot") void AwardEquipmentDrop(bool bEliteEnemy, bool bBossEnemy);
@@ -70,6 +72,13 @@ private:
  UPROPERTY(VisibleAnywhere) USpringArmComponent* CameraBoom;
  UPROPERTY(VisibleAnywhere) UCameraComponent* FollowCamera;
  float LastFinisherKillAt = -100.f;
+ float NativeFinisherStartedAt = -100.f;
+ FVector NativeFinisherTarget = FVector::ZeroVector;
+ bool bNativeFinisherShatter = false;
+ UPROPERTY(VisibleAnywhere, Category="Moonfall|Finishers") UStaticMeshComponent* FinisherSlashA = nullptr;
+ UPROPERTY(VisibleAnywhere, Category="Moonfall|Finishers") UStaticMeshComponent* FinisherSlashB = nullptr;
+ UPROPERTY(VisibleAnywhere, Category="Moonfall|Finishers") UPointLightComponent* FinisherFlash = nullptr;
+ void UpdateNativeFinisher(float DeltaSeconds);
  float LastCastTime[2] = {-100.f,-100.f};
  float NextDodgeAt = 0.f;
  FVector IncomingDamageSource = FVector::ZeroVector;
