@@ -622,6 +622,8 @@ bool AMoonfallPawn::GetQuestDestination(FVector& OutDestination) const
 
 void AMoonfallPawn::ToggleWorldMap()
 {
+    // The Retry screen owns mouse focus after defeat.
+    if (Health <= 0.f || bRetryInProgress) return;
     bWorldMapOpen = !bWorldMapOpen;
     Forward = 0.f;
     Right = 0.f;
@@ -765,13 +767,14 @@ void AMoonfallPawn::RetryFromCheckpoint()
 {
     // Restart only after death; never overwrite the last living checkpoint
     // with a defeated pawn before the saved world is reconstructed.
-    if (Health > 0.f || bWorldMapOpen || !GetWorld()) return;
+    if (Health > 0.f || bWorldMapOpen || bRetryInProgress || !GetWorld()) return;
     const FString LevelName = UGameplayStatics::GetCurrentLevelName(this, true);
     if (LevelName.IsEmpty())
     {
         UE_LOG(LogTemp, Warning, TEXT("Moonfall: cannot retry without a valid current level."));
         return;
     }
+    bRetryInProgress = true; // Ignore double-clicks during level travel.
     UGameplayStatics::OpenLevel(this, FName(*LevelName));
 }
 
@@ -779,7 +782,7 @@ void AMoonfallPawn::Parry()
 {
     // A deliberate, short right-click timing window; never a held guard.
     if (bWorldMapOpen || Health <= 0.f || DodgeTimer > 0.f ||
-        ParryCooldown > 0.f || Stamina < 25.f) return;
+        ParryCooldown > 0.f || AttackCooldown > 0.f || Stamina < 25.f) return;
     Stamina -= 25.f;
     StaminaRegenDelay = 0.6f;
     ParryTimer = 0.22f;
@@ -828,7 +831,7 @@ void AMoonfallPawn::Attack()
 {
     if (Health <= 0.f) { ClickRetryButton(); return; }
     if (bWorldMapOpen) { PlaceMapWaypoint(); return; }
-    if (Health <= 0.f || AttackCooldown > 0.f) return;
+    if (Health <= 0.f || ParryTimer > 0.f || AttackCooldown > 0.f) return;
     const int32 EnemyIndex = NearestEnemyIndex(400.f);
     const float BossDistance = bWon ? TNumericLimits<float>::Max() :
         FVector::Dist2D(HeroMesh->GetRelativeLocation(), BossMesh->GetRelativeLocation());
@@ -888,7 +891,7 @@ void AMoonfallPawn::Attack()
 void AMoonfallPawn::CastBolt()
 {
     if (bWorldMapOpen) return; // No combat casts through the map.
-    if (Health <= 0.f || BoltCooldown > 0.f || Mana < 30.f) return;
+    if (Health <= 0.f || ParryTimer > 0.f || BoltCooldown > 0.f || Mana < 30.f) return;
     const int32 EnemyIndex = NearestEnemyIndex(1000.f);
     const float BossDistance = bWon ? TNumericLimits<float>::Max() :
         FVector::Dist2D(HeroMesh->GetRelativeLocation(), BossMesh->GetRelativeLocation());
@@ -924,7 +927,7 @@ void AMoonfallPawn::CastHeal()
 {
     if (bWorldMapOpen) return;
     const float MaxHealth = GetHudMaxHealth();
-    if (Health <= 0.f || HealCooldown > 0.f || Mana < 40.f || Health >= MaxHealth) return;
+    if (Health <= 0.f || ParryTimer > 0.f || HealCooldown > 0.f || Mana < 40.f || Health >= MaxHealth) return;
     Mana -= 40.f;
     HealCooldown = 5.f;
     Health = FMath::Min(MaxHealth, Health + HealingSpellAmount());
