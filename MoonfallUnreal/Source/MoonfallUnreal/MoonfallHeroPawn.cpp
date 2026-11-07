@@ -63,6 +63,8 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("CastRight"), IE_Pressed, this, &AMoonfallHeroPawn::CastRight);
  Input->BindAction(TEXT("DualCast"), IE_Pressed, this, &AMoonfallHeroPawn::CastBoth);
  Input->BindAction(TEXT("Dodge"), IE_Pressed, this, &AMoonfallHeroPawn::Dodge);
+ Input->BindAction(TEXT("Guard"), IE_Pressed, this, &AMoonfallHeroPawn::BeginGuard);
+ Input->BindAction(TEXT("Guard"), IE_Released, this, &AMoonfallHeroPawn::EndGuard);
  Input->BindAction(TEXT("GraphicsQuality"), IE_Pressed, this, &AMoonfallHeroPawn::CycleGraphicsQuality);
  Input->BindAction(TEXT("DisplayMode"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleDisplayMode);
  Input->BindAction(TEXT("Options"), IE_Pressed, this, &AMoonfallHeroPawn::OpenOptions);
@@ -138,11 +140,30 @@ void AMoonfallHeroPawn::CastBoth()
   OnSpellCast(LeftSpell, false);
  }
 }
+void AMoonfallHeroPawn::BeginGuard()
+{
+ if (bOptionsOpen || Health <= 0.f || !GetWorld() || Mana < 4.f) return;
+ bGuarding = true;
+ const float Now = GetWorld()->GetTimeSeconds();
+ // Holding guard cannot repeatedly open parry windows.
+ if (Now >= NextParryAt) {
+  ParryWindowEndsAt = Now + FMath::Clamp(ParryWindowSeconds, 0.05f, 0.3f);
+  NextParryAt = Now + 0.8f;
+ } else {
+  ParryWindowEndsAt = -1.f;
+ }
+}
+void AMoonfallHeroPawn::EndGuard()
+{
+ bGuarding = false;
+ ParryWindowEndsAt = -1.f;
+}
 void AMoonfallHeroPawn::Dodge()
 {
  if (bOptionsOpen || Health <= 0.f || !GetWorld()) return;
  const float Now = GetWorld()->GetTimeSeconds();
  if (Now < NextDodgeAt) return;
+ EndGuard();
  NextDodgeAt = Now + DodgeCooldown;
  DamageImmunityUntil = Now + 0.24f;
  PerfectDodgeWindowUntil = Now + 0.14f;
@@ -162,8 +183,24 @@ void AMoonfallHeroPawn::RewardPerfectDodge() {
 
 void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
  if (Health <= 0.f || !FMath::IsFinite(Amount) || Amount <= 0.f || !GetWorld() || GetWorld()->GetTimeSeconds() < DamageImmunityUntil) return;
+ const float Now = GetWorld()->GetTimeSeconds();
  const float PreviousHealth = Health;
- Health = FMath::Max(0.f, Health - Amount * (1.f - FMath::Min(0.28f, ArmorTier * 0.01f)));
+ const float ArmoredDamage = Amount * (1.f - FMath::Min(0.28f, ArmorTier * 0.01f));
+ float DamageAfterGuard = ArmoredDamage;
+ if (bGuarding && !bOptionsOpen && Mana >= 4.f) {
+  Mana -= 4.f;
+  const bool bPerfectParry = Now <= ParryWindowEndsAt && Now <= NextParryAt;
+  if (bPerfectParry) {
+   DamageAfterGuard = 0.f;
+   ParryWindowEndsAt = -1.f;
+   Mana = FMath::Min(MaxMana, Mana + 8.f);
+  } else {
+   DamageAfterGuard *= 0.4f;
+  }
+  OnGuardImpact(ArmoredDamage - DamageAfterGuard, bPerfectParry);
+  if (Mana < 4.f) EndGuard();
+ }
+ Health = FMath::Max(0.f, Health - DamageAfterGuard);
  const float DamageTaken = PreviousHealth - Health;
  if (!bReduceMotion) ImpactCameraOffset = FMath::Clamp(ImpactCameraOffset + FMath::Min(DamageTaken * 0.5f, 18.f), 0.f, 24.f);
  OnDamageImpact(DamageTaken);
@@ -190,7 +227,10 @@ void AMoonfallHeroPawn::ToggleDisplayMode() {
  Settings->SaveSettings();
 }
 
-void AMoonfallHeroPawn::OpenOptions() { bOptionsOpen = !bOptionsOpen; }
+void AMoonfallHeroPawn::OpenOptions() {
+ if (!bOptionsOpen) EndGuard();
+ bOptionsOpen = !bOptionsOpen;
+}
 void AMoonfallHeroPawn::OptionsUp() { if (bOptionsOpen) OptionsSelection = (OptionsSelection + 6) % 7; }
 void AMoonfallHeroPawn::OptionsDown() { if (bOptionsOpen) OptionsSelection = (OptionsSelection + 1) % 7; }
 void AMoonfallHeroPawn::OptionsLeft() { AdjustOption(-1); }
