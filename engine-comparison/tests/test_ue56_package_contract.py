@@ -78,6 +78,8 @@ class PackageContract(unittest.TestCase):
         self.assertIn("SmokeDiagnostics/", workflow)
         for guard in (
             "MoonfallPackageManifest.json",
+            "Get-FileHash -LiteralPath $Target -Algorithm SHA256",
+            "Packaged file SHA256 mismatch",
             "Start-Process -FilePath $Exe.FullName",
             "Start-Sleep -Seconds $BootSeconds",
             "if ($Process.HasExited)",
