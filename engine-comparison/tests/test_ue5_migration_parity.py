@@ -388,6 +388,28 @@ class UnrealMigrationParityGate(unittest.TestCase):
                         hud.index("if (Hero->GetHudHealth() <= 0.f)"))
         self.assertIn("FMath::Max(12.f, OrbCenter.X - 55.f)", hud)
 
+    def test_invalid_checkpoint_is_repaired_without_resetting_world_progress(self):
+        base = ROOT / "engine-comparison/unreal/MoonfallPrototype"
+        pawn = (base / "Source/MoonfallPrototype/MoonfallPawn.cpp").read_text(encoding="utf-8")
+        header = (base / "Source/MoonfallPrototype/MoonfallPawn.h").read_text(encoding="utf-8")
+        self.assertIn("bool bCheckpointNeedsRepair = false;", header)
+        begin = pawn[pawn.index("void AMoonfallPawn::BeginPlay()"):
+                     pawn.index("UBillboardComponent* AMoonfallPawn::AddWorldArtwork(")]
+        self.assertIn("bCheckpointNeedsRepair = Progress->bHasCheckpoint && !bLoadedCheckpoint;", begin)
+        self.assertIn("if (bCheckpointNeedsRepair)", begin)
+        self.assertLess(begin.index("BuildWorld();"), begin.index("if (bCheckpointNeedsRepair)"))
+        self.assertIn("SaveProgress();", begin[begin.index("if (bCheckpointNeedsRepair)"):])
+        self.assertIn("DefeatedEnemyMask = Progress->DefeatedEnemyMask", begin)
+        self.assertIn("ClaimedChamberMask = Progress->ClaimedChamberMask", begin)
+        save = pawn[pawn.index("void AMoonfallPawn::SaveProgress()"):
+                    pawn.index("bool AMoonfallPawn::GetWaypoint(")]
+        self.assertIn("bool bWroteCheckpoint = false;", save)
+        self.assertIn("bCheckpointNeedsRepair || IsSafeCheckpointLocation()", save)
+        self.assertIn("bWroteCheckpoint = true;", save)
+        self.assertIn("else if (bWroteCheckpoint)\n        bCheckpointNeedsRepair = false;", save)
+        self.assertLess(save.index("SaveGameToSlot("),
+                        save.index("bCheckpointNeedsRepair = false;"))
+
     def test_progress_saves_do_not_move_checkpoint_into_live_combat(self):
         base = ROOT / "engine-comparison/unreal/MoonfallPrototype"
         cpp = (base / "Source/MoonfallPrototype/MoonfallPawn.cpp").read_text(encoding="utf-8")
@@ -403,7 +425,7 @@ class UnrealMigrationParityGate(unittest.TestCase):
                    cpp.index("bool AMoonfallPawn::GetWaypoint(")]
         self.assertIn("Progress->DefeatedEnemyMask = DefeatedEnemyMask;", save)
         self.assertIn("Progress->ClaimedChamberMask = ClaimedChamberMask;", save)
-        self.assertIn("(!Progress->bHasCheckpoint || IsSafeCheckpointLocation())", save)
+        self.assertIn("(!Progress->bHasCheckpoint || bCheckpointNeedsRepair || IsSafeCheckpointLocation())", save)
         self.assertLess(save.index("Progress->DefeatedEnemyMask ="),
                         save.index("IsSafeCheckpointLocation()"))
         self.assertIn("Progress->SavedHeroPosition = HeroMesh->GetRelativeLocation();", save)
