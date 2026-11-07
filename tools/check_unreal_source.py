@@ -447,6 +447,23 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("PostureDistanceSq = FMath::Square(1200.f)", self.hud)
         self.assertNotIn('TEXT("GUARD BROKEN")', self.hud)
 
+    def test_finisher_direction_is_locked_to_killed_target(self):
+        self.assertIn("FVector NativeFinisherOrigin = FVector::ZeroVector;", self.hero_h)
+        self.assertIn("FVector NativeFinisherForward = FVector::ForwardVector;", self.hero_h)
+        self.assertIn("int32 NativeFinisherStyle = 1;", self.hero_h)
+        self.assertIn("bool bNativeFinisherBoss = false;", self.hero_h)
+        combo = self.hero_cpp.split("int32 AMoonfallHeroPawn::RegisterFinisherKill(", 1)[1].split(
+            "void AMoonfallHeroPawn::UpdateNativeFinisher(", 1)[0]
+        self.assertIn("NativeFinisherStyle = ChainStep;", combo)
+        self.assertIn("NativeFinisherForward = (NativeFinisherTarget - NativeFinisherOrigin).GetSafeNormal2D();", combo)
+        native = self.hero_cpp.split("void AMoonfallHeroPawn::UpdateNativeFinisher(", 1)[1].split(
+            "void AMoonfallHeroPawn::AwardExperience(", 1)[0]
+        self.assertIn("const FVector Origin = NativeFinisherOrigin;", native)
+        self.assertIn("const FVector Forward = NativeFinisherForward;", native)
+        self.assertIn("FMath::Clamp(NativeFinisherStyle, 1, 5)", native)
+        self.assertNotIn("(NativeFinisherTarget - Origin).GetSafeNormal2D()", native)
+        self.assertNotIn("FMath::Clamp(FinisherChainCount, 1, 5)", native)
+
     def test_builtin_five_style_finisher_visuals_require_no_animation_assets(self):
         hero_ctor = self.hero_cpp.split("AMoonfallHeroPawn::AMoonfallHeroPawn()", 1)[1].split(
             "void AMoonfallHeroPawn::BeginPlay()", 1)[0]
@@ -458,7 +475,11 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("UpdateNativeFinisher(DeltaSeconds);", self.hero_cpp)
         native = self.hero_cpp.split("void AMoonfallHeroPawn::UpdateNativeFinisher(float DeltaSeconds)", 1)[1].split(
             "void AMoonfallHeroPawn::AwardExperience(", 1)[0]
-        self.assertIn("const int32 Style = FMath::Clamp(FinisherChainCount, 1, 5);", native)
+        self.assertIn("const int32 Style = FMath::Clamp(NativeFinisherStyle, 1, 5);", native)
+        self.assertIn("const FVector Origin = NativeFinisherOrigin;", native)
+        self.assertIn("const FVector Forward = NativeFinisherForward;", native)
+        self.assertIn("bNativeFinisherBoss ? 3.2f", native)
+        self.assertIn("bNativeFinisherBoss ? 4800.f", native)
         self.assertIn("FinisherSlashA->SetWorldLocationAndRotation", native)
         self.assertIn("FinisherSlashB->SetWorldLocationAndRotation", native)
         self.assertIn("FinisherFlash->SetIntensity", native)
@@ -490,6 +511,10 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("FMath::Min(FinisherChainCount + 1, 5) : 1", combo)
         self.assertIn("NativeFinisherStartedAt = Now;", combo)
         self.assertIn("NativeFinisherTarget = DefeatedLocation.ContainsNaN()", combo)
+        self.assertIn("NativeFinisherOrigin = GetActorLocation();", combo)
+        self.assertIn("NativeFinisherForward = (NativeFinisherTarget - NativeFinisherOrigin).GetSafeNormal2D();", combo)
+        self.assertIn("NativeFinisherStyle = ChainStep;", combo)
+        self.assertIn("bNativeFinisherBoss = bBossKill;", combo)
         self.assertIn("!bReduceMotion && GetMesh() && FinisherMontages.Num() > 0", combo)
         self.assertIn("AnimInstance->Montage_Play(Montage, 1.f);", combo)
         self.assertIn("OnFinisherChain(ChainStep, bShatterKill, bBossKill);", combo)
