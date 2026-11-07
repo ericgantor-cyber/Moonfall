@@ -76,7 +76,7 @@ jobs:
           "This workflow never automatically installs Unreal from Epic Games or exposes private engine archives." >> $env:GITHUB_STEP_SUMMARY
 
   compile-with-provided-engine:
-    if: ${{ inputs.attempt_compile }}
+    if: ${{ inputs.attempt_compile && needs.windows-preflight.outputs.has_capacity == 'true' }}
     needs: windows-preflight
     runs-on: ${{ vars.MOONFALL_HOSTED_RUNNER || 'windows-2022' }}
     timeout-minutes: 120
@@ -116,9 +116,28 @@ jobs:
             throw 'Unreal engine archive checksum mismatch; refusing to extract.'
           }
           New-Item -ItemType Directory -Force -Path $destination | Out-Null
-          # Extraction requires additional free space beyond the compressed archive.
-          if ($disk.FreeSpace -lt 15GB) {
-            throw 'Too little free disk space after downloading the archive; refusing extraction.'
+          # The preflight disk measurement is stale after download. Read the ZIP
+          # directory without extracting it, then require room for its contents
+          # plus 15 GB of intermediate build headroom. Reject malformed archives.
+          Add-Type -AssemblyName System.IO.Compression
+          $zip = [System.IO.Compression.ZipFile]::OpenRead($archive)
+          try {
+            $uncompressedBytes = [int64]0
+            foreach ($entry in $zip.Entries) {
+              if ($entry.FullName.StartsWith('/') -or
+                  $entry.FullName -match '(^|/|\\)\.\.(/|\\|$)' -or
+                  [IO.Path]::IsPathRooted($entry.FullName)) {
+                throw 'Archive contains unsafe paths; refusing extraction.'
+              }
+              $uncompressedBytes = [checked]($uncompressedBytes + $entry.Length)
+            }
+          } finally {
+            $zip.Dispose()
+          }
+          $diskAfterDownload = Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='$driveLetter'"
+          if (-not $diskAfterDownload -or
+              $diskAfterDownload.FreeSpace -lt ($uncompressedBytes + 15GB)) {
+            throw 'Insufficient free disk after download for extracted UE 5.4 files plus 15 GB build headroom.'
           }
           Expand-Archive -LiteralPath $archive -DestinationPath $destination -Force
           Remove-Item -LiteralPath $archive -Force
