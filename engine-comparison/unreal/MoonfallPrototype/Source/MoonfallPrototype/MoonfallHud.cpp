@@ -73,9 +73,14 @@ void AMoonfallHud::DrawHUD()
         FLinearColor(.2f, .3f, .4f, .8f));
     const FVector H = Hero->GetHeroMapPosition();
     const FVector B = Hero->GetBossMapPosition();
+    // Region-based exploration fog: no markers for regions never visited.
+    // The full Raven Atlas and per-cell fog remain separate migration tasks.
+    DrawText(FString::Printf(TEXT("DISCOVERED %d/6"), Hero->GetDiscoveredRegionCount()),
+        FLinearColor(.75f, .8f, .9f), Left, 182.f);
     // Local radar follows the hero across six continuous world regions.
     for (const FVector& Chamber : Hero->GetChamberMapPositions())
     {
+        if (!Hero->IsMapPositionDiscovered(Chamber)) continue;
         const FVector Offset = Chamber - H;
         if (FMath::Abs(Offset.X) <= 1700.f && FMath::Abs(Offset.Y) <= 1700.f)
             DrawMarker(Left + 80.f + Offset.X * .04f, 98.f - Offset.Y * .04f,
@@ -83,12 +88,13 @@ void AMoonfallHud::DrawHUD()
     }
     for (const FVector& Enemy : Hero->GetEnemyMapPositions())
     {
+        if (!Hero->IsMapPositionDiscovered(Enemy)) continue;
         const FVector Offset = Enemy - H;
         if (FMath::Abs(Offset.X) <= 1700.f && FMath::Abs(Offset.Y) <= 1700.f)
             DrawMarker(Left + 80.f + Offset.X * .04f, 98.f - Offset.Y * .04f, FLinearColor::Yellow);
     }
     const FVector BossOffset = B - H;
-    if (!Hero->IsBossDefeated() &&
+    if (!Hero->IsBossDefeated() && Hero->IsMapPositionDiscovered(B) &&
         FMath::Abs(BossOffset.X) <= 1700.f && FMath::Abs(BossOffset.Y) <= 1700.f)
         DrawMarker(Left + 80.f + BossOffset.X * .04f,
             98.f - BossOffset.Y * .04f, FLinearColor::Red);
