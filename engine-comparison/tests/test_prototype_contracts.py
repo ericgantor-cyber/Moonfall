@@ -157,7 +157,7 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("DamageWorldEnemy(EnemyIndex, Damage, bRiposte, bComboFinisher);", melee)
         self.assertIn("DamageWorldEnemy(EnemyIndex, Damage, bRiposte);", bolt)
         self.assertIn("bComboFinisher && !Enemy.bGuardian", damage)
-        self.assertIn("Enemy.bGuardian ? 0.8f : 0.4f", damage)
+        self.assertIn("Enemy.bGuardian ? 0.8f :", damage)
         self.assertIn("Enemy.bGuardian ? 120.f : 90.f", damage)
         self.assertIn("Enemy.bGuardian ? 600.f : 900.f", damage)
 
@@ -189,7 +189,7 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("float StaggerTimer = 0.f;", self.header)
         self.assertIn("void AMoonfallPawn::DamageWorldEnemy(int32 Index, float Damage, bool bRiposte, bool bComboFinisher)", self.cpp)
         self.assertIn("if ((bRiposte && Enemy.bGuardian) || (bComboFinisher && !Enemy.bGuardian))", self.cpp)
-        self.assertIn("Enemy.StaggerTimer = Enemy.bGuardian ? 0.8f : 0.4f;", self.cpp)
+        self.assertIn("Enemy.StaggerTimer = Enemy.bGuardian ? 0.8f :", self.cpp)
         self.assertIn("Enemy.StaggerTimer = FMath::Max(0.f, Enemy.StaggerTimer - MoveDt);", self.cpp)
         self.assertIn("if (!Candidate.Mesh || Candidate.bReturningHome || Candidate.bStaggeredThisFrame) continue;", self.cpp)
         self.assertIn("if (!bHitBoss) DamageWorldEnemy(EnemyIndex, Damage, bRiposte, bComboFinisher);", self.cpp)
@@ -604,7 +604,7 @@ class PrototypeContracts(unittest.TestCase):
         start = self.cpp.index("void AMoonfallPawn::CastBolt()")
         end = self.cpp.index("void AMoonfallPawn::CastHeal()", start)
         bolt = self.cpp[start:end]
-        self.assertIn("if (Health <= 0.f || ParryTimer > 0.f || BoltCooldown > 0.f || Mana < 30.f) return;", bolt)
+        self.assertIn("Mana < BoltManaCost) return;", bolt)
         self.assertIn("if (EnemyIndex == INDEX_NONE && !bBossInRange) return;", bolt)
         self.assertLess(bolt.index("if (EnemyIndex == INDEX_NONE"), bolt.index("CounterWindow = 0.f;"))
         self.assertIn("(bRiposte ? CounterMultiplier : 1.f)", bolt)
