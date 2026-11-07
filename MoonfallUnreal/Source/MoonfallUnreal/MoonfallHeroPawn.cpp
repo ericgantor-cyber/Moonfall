@@ -142,7 +142,7 @@ void AMoonfallHeroPawn::CastBoth()
 }
 void AMoonfallHeroPawn::BeginGuard()
 {
- if (bOptionsOpen || Health <= 0.f || !GetWorld() || Mana < 4.f) return;
+ if (bOptionsOpen || Health <= 0.f || !GetWorld() || Mana < 4.f || bGuarding) return;
  bGuarding = true;
  const float Now = GetWorld()->GetTimeSeconds();
  // Holding guard cannot repeatedly open parry windows.
@@ -201,6 +201,7 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
   if (Mana < 4.f) EndGuard();
  }
  Health = FMath::Max(0.f, Health - DamageAfterGuard);
+ if (Health <= 0.f) EndGuard();
  const float DamageTaken = PreviousHealth - Health;
  if (!bReduceMotion) ImpactCameraOffset = FMath::Clamp(ImpactCameraOffset + FMath::Min(DamageTaken * 0.5f, 18.f), 0.f, 24.f);
  OnDamageImpact(DamageTaken);
