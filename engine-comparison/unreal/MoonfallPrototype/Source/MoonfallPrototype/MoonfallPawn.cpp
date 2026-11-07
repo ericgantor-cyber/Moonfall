@@ -970,14 +970,27 @@ int32 AMoonfallPawn::GuardianBlessingCount() const
     return Count;
 }
 
+int32 AMoonfallPawn::ChamberMasteryCount() const
+{
+    // Claimed guardian caches are permanent. Derive mastery from the existing
+    // save mask so there is no second progress counter to get out of sync.
+    int32 Count = 0;
+    for (int32 Id = 0; Id < MoonfallWorldRules::TotalChambers; ++Id)
+        if ((ClaimedChamberMask & (1 << Id)) != 0 &&
+            (DefeatedGuardianMask & (1 << Id)) != 0) ++Count;
+    return Count;
+}
+
 float AMoonfallPawn::BasicAttackDamage() const
 {
-    return 18.f + Progression.Level + 0.5f * GuardianBlessingCount();
+    return 18.f + Progression.Level + 0.5f * GuardianBlessingCount() +
+        0.75f * ChamberMasteryCount();
 }
 
 float AMoonfallPawn::ArcaneBoltDamage() const
 {
-    return 28.f + 2.f * Progression.Level + 1.f * GuardianBlessingCount();
+    return 28.f + 2.f * Progression.Level + 1.f * GuardianBlessingCount() +
+        1.25f * ChamberMasteryCount();
 }
 
 float AMoonfallPawn::HealingSpellAmount() const
