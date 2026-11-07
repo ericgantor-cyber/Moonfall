@@ -460,6 +460,20 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                         cast.index("const bool bCounterReady"))
         self.assertNotIn('TEXT("GUARD BROKEN")', self.hud)
 
+    def test_dodge_immunity_cannot_overlap_new_guard_parry(self):
+        guard = self.hero_cpp.split("void AMoonfallHeroPawn::BeginGuard()", 1)[1].split(
+            "void AMoonfallHeroPawn::EndGuard()", 1)[0]
+        self.assertIn("GetWorld()->GetTimeSeconds() < DamageImmunityUntil", guard)
+        self.assertLess(guard.index("GetWorld()->GetTimeSeconds() < DamageImmunityUntil"),
+                        guard.index("bGuarding = true;"))
+        self.assertLess(guard.index("GetWorld()->GetTimeSeconds() < DamageImmunityUntil"),
+                        guard.index("ParryWindowEndsAt = Now +"))
+        dodge = self.hero_cpp.split("void AMoonfallHeroPawn::Dodge()", 1)[1].split(
+            "void AMoonfallHeroPawn::RewardPerfectDodge()", 1)[0]
+        self.assertIn("DamageImmunityUntil = Now + 0.24f;", dodge)
+        self.assertIn("EndGuard();", dodge)
+        self.assertNotIn('TEXT("GUARD BROKEN")', self.hud)
+
     def test_guard_break_cooldown_without_hud_warning(self):
         self.assertIn("float GuardBrokenUntil = 0.f;", self.hero_h)
         self.assertIn("float GuardBreakRecoverySeconds = 1.0f;", self.hero_h)
