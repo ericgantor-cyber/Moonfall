@@ -69,6 +69,22 @@ class PackageContract(unittest.TestCase):
                         workflow.index("Upload packaged game only after cook succeeds"))
         self.assertIn("if (@($data.files).Count -eq 0)", workflow)
 
+    def test_trusted_windows_runner_preflight_before_engine_actions(self):
+        preflight = (ROOT / "engine-comparison/unreal/MoonfallPrototype/Build/Check-WindowsRunner.ps1").read_text(encoding="utf-8")
+        compile_ci = (ROOT / ".github/workflows/ue56-prototype-compile-windows.yml").read_text(encoding="utf-8")
+        package_ci = WORKFLOW.read_text(encoding="utf-8")
+        for required in ("Build.version", "UE56_ROOT", "UnrealEditor-Cmd.exe", "RunUAT.bat",
+                         "vswhere.exe", "Microsoft.VisualStudio.Component.VC.Tools.x86.x64",
+                         "'[17.0,18.0)'", "Windows Kits", "um\\x64", "EngineAssociation"):
+            self.assertIn(required, preflight)
+        for workflow, build_step in (
+            (compile_ci, "Compile MoonfallPrototypeEditor Win64 Development"),
+            (package_ci, "Cook and package real UE5.6 Win64 game"),
+        ):
+            self.assertIn("Check-WindowsRunner.ps1 -UnrealRoot $env:UE56_ROOT", workflow)
+            self.assertLess(workflow.index("Check-WindowsRunner.ps1"), workflow.index(build_step))
+            self.assertIn("runs-on: [self-hosted, Windows, X64, unreal-5-6]", workflow)
+
     def test_run_isolated_windows_archive(self):
         workflow = WORKFLOW.read_text(encoding="utf-8")
         self.assertIn("MOONFALL_PACKAGE_DIR: ${{ runner.temp }}/MoonfallUE56Package/${{ github.run_id }}-${{ github.run_attempt }}", workflow)

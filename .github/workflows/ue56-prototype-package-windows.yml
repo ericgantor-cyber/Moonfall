@@ -26,6 +26,11 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Verify Windows UE5.6 build prerequisites
+        run: |
+          $ErrorActionPreference = 'Stop'
+          & .\engine-comparison\unreal\MoonfallPrototype\Build\Check-WindowsRunner.ps1 -UnrealRoot $env:UE56_ROOT
+
       - name: Cook and package real UE5.6 Win64 game
         run: |
           $ErrorActionPreference = 'Stop'
