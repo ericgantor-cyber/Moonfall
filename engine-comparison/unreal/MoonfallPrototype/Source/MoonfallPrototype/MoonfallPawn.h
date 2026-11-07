@@ -121,6 +121,7 @@ private:
     bool bCasting = false, bWon = false;
     FVector TargetWorld = FVector::ZeroVector;
     void ToggleWorldMap();
+    void CloseWorldMap();
     void PanMapHorizontal(float Value);
     void PanMapVertical(float Value);
     void PlaceMapWaypoint();
