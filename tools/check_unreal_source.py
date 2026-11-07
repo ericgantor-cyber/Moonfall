@@ -484,7 +484,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("int32 FinisherChainCount = 0;", self.hero_h)
         self.assertIn("int32 RegisterFinisherKill(bool bShatterKill, bool bBossKill, FVector DefeatedLocation);", self.hero_h)
         self.assertIn("void OnFinisherChain(int32 ChainStep, bool bShatterKill, bool bBossKill);", self.hero_h)
-        combo = self.hero_cpp.split("void AMoonfallHeroPawn::RegisterFinisherKill(", 1)[1].split(
+        combo = self.hero_cpp.split("int32 AMoonfallHeroPawn::RegisterFinisherKill(", 1)[1].split(
             "void AMoonfallHeroPawn::AwardExperience(", 1)[0]
         self.assertIn("FMath::Clamp(FinisherChainWindowSeconds, 0.5f, 10.f)", combo)
         self.assertIn("FMath::Min(FinisherChainCount + 1, 5) : 1", combo)
