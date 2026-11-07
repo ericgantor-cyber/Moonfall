@@ -196,7 +196,11 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("FMath::FInterpTo(", tick)
         self.assertIn("FMath::Clamp(SprintAccelerationRate, 1.f, 20.f)", tick)
         self.assertIn("GetCharacterMovement()->MaxWalkSpeed = NormalWalkSpeed;", tick)
-        self.assertLess(tick.index("if (bSprinting) {"), tick.index("} else {\n   GetCharacterMovement()->MaxWalkSpeed = NormalWalkSpeed;"))
+        self.assertLess(tick.index("if (bSprinting) {"), tick.index("} else if (bGuarding && !bOptionsOpen && Health > 0.f) {"))
+        self.assertIn("float GuardMoveSpeedMultiplier = 0.65f;", self.hero_h)
+        self.assertIn("FMath::IsFinite(GuardMoveSpeedMultiplier)", tick)
+        self.assertIn("NormalWalkSpeed * GuardMultiplier", tick)
+        self.assertIn("GetCharacterMovement()->MaxWalkSpeed = NormalWalkSpeed;", tick)
         dodge = self.hero_cpp.split("void AMoonfallHeroPawn::Dodge()", 1)[1].split(
             "void AMoonfallHeroPawn::RewardPerfectDodge()", 1)[0]
         self.assertIn("bSprintExhausted = true;", dodge)
@@ -391,6 +395,17 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Insufficient stamina breaks guard", damage)
         self.assertNotIn("Mana -=", damage)
         self.assertNotIn("Mana = FMath::Min", damage)
+
+    def test_guard_move_penalty_applies_and_cancels_immediately(self):
+        start = self.hero_cpp.split("void AMoonfallHeroPawn::BeginGuard()", 1)[1].split(
+            "void AMoonfallHeroPawn::EndGuard()", 1)[0]
+        end = self.hero_cpp.split("void AMoonfallHeroPawn::EndGuard()", 1)[1].split(
+            "void AMoonfallHeroPawn::BeginSprint()", 1)[0]
+        self.assertIn("FMath::Clamp(GuardMoveSpeedMultiplier, 0.2f, 1.f)", start)
+        self.assertIn("GetCharacterMovement()->MaxWalkSpeed = NormalWalkSpeed * GuardMultiplier;", start)
+        self.assertIn("if (bWasGuarding && GetCharacterMovement())", end)
+        self.assertIn("GetCharacterMovement()->MaxWalkSpeed = NormalWalkSpeed;", end)
+        self.assertNotIn('TEXT("GUARD BROKEN")', self.hud)
 
     def test_guard_stance_stops_stamina_regen_and_release_delays_it(self):
         tick = self.hero_cpp.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1].split(
