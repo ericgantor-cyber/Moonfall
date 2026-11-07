@@ -451,6 +451,32 @@ class UnrealMigrationParityGate(unittest.TestCase):
         self.assertIn("Progress->SavedHealth = Health;", save)
         self.assertNotIn("Progress->bHasCheckpoint = false;", save)
 
+    def test_early_dodge_button_press_is_buffered_once_without_extra_stamina(self):
+        base = ROOT / "engine-comparison/unreal/MoonfallPrototype"
+        cpp = (base / "Source/MoonfallPrototype/MoonfallPawn.cpp").read_text(encoding="utf-8")
+        header = (base / "Source/MoonfallPrototype/MoonfallPawn.h").read_text(encoding="utf-8")
+        self.assertIn("float DodgeBufferTimer = 0.f;", header)
+        self.assertIn("FVector BufferedDodgeDirection = FVector::ZeroVector;", header)
+        dodge = cpp[cpp.index("void AMoonfallPawn::Dodge()"):
+                    cpp.index("int32 AMoonfallPawn::GuardianBlessingCount()")]
+        self.assertIn("else if (DodgeCooldown <= 0.18f)", dodge)
+        self.assertIn("BufferedDodgeDirection = FVector(Forward, Right, 0.f).GetSafeNormal();", dodge)
+        self.assertIn("DodgeBufferTimer = 0.2f;", dodge)
+        self.assertEqual(dodge.count("Stamina -= 45.f;"), 1)
+        tick = cpp[cpp.index("void AMoonfallPawn::Tick(float DeltaSeconds)"):]
+        self.assertIn("DodgeBufferTimer = FMath::Max(0.f, DodgeBufferTimer - Dt);", tick)
+        self.assertIn("DodgeBufferTimer > 0.f && DodgeCooldown <= 0.f &&", tick)
+        self.assertIn("DodgeTimer <= 0.f && ParryTimer <= 0.f && Stamina >= 45.f", tick)
+        self.assertIn("DodgeDirection = BufferedDodgeDirection;", tick)
+        self.assertLess(tick.index("DodgeDirection = BufferedDodgeDirection;"),
+                        tick.index("Stamina -= 45.f;"))
+        self.assertIn("DodgeBufferTimer = 0.f;", tick)
+        toggle = cpp[cpp.index("void AMoonfallPawn::ToggleWorldMap()"):
+                     cpp.index("void AMoonfallPawn::CloseWorldMap()")]
+        self.assertIn("DodgeBufferTimer = 0.f;", toggle)
+        self.assertLess(tick.index("if (bWorldMapOpen)"), tick.index("if (DodgeBufferTimer > 0.f)"))
+        self.assertIn("DodgeBufferTimer = 0.f;", tick[:tick.index("if (bWorldMapOpen)")])
+
     def test_dodge_direction_remains_committed_after_input_release(self):
         base = ROOT / "engine-comparison/unreal/MoonfallPrototype"
         cpp = (base / "Source/MoonfallPrototype/MoonfallPawn.cpp").read_text(encoding="utf-8")
@@ -458,7 +484,7 @@ class UnrealMigrationParityGate(unittest.TestCase):
         self.assertIn("FVector DodgeDirection = FVector::ZeroVector;", header)
         dodge = cpp[cpp.index("void AMoonfallPawn::Dodge()"):
                     cpp.index("int32 AMoonfallPawn::GuardianBlessingCount()")]
-        self.assertIn("FVector2D(Forward, Right).SizeSquared() > 0.01f", dodge)
+        self.assertIn("FVector2D(Forward, Right).SizeSquared() <= 0.01f", dodge)
         self.assertIn("DodgeDirection = FVector(Forward, Right, 0.f).GetSafeNormal();", dodge)
         self.assertNotIn("DodgeDirection = FVector(Forward, Right, 0.f).GetClampedToMaxSize(1.f);", dodge)
         self.assertLess(dodge.index("DodgeDirection ="), dodge.index("DodgeTimer = 0.32f;"))
