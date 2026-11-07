@@ -198,7 +198,9 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
  float DamageAfterGuard = ArmoredDamage;
  // Enemy attacks must come from the front 150-degree guard cone.
  // Older environment damage with no provided origin retains its guard behavior.
- const FVector GuardForward = GetControlRotation().Vector().GetSafeNormal2D();
+ // Guard follows the hero mesh/actor facing, not the orbiting camera.
+ // Movement currently orients the character independently of view yaw.
+ const FVector GuardForward = GetActorForwardVector().GetSafeNormal2D();
  const FVector ToSource = (IncomingDamageSource - GetActorLocation()).GetSafeNormal2D();
  const bool bFrontAttack = !bHasIncomingDamageSource || ToSource.IsNearlyZero()
   || FVector::DotProduct(GuardForward, ToSource) >= 0.258819f;
