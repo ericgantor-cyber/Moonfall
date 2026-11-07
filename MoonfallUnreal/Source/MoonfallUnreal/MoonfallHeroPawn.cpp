@@ -58,6 +58,7 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
  const bool bCanSprint = bSprintHeld && !bSprintExhausted && !bGuarding && !bOptionsOpen && Health > 0.f
      && FMath::IsFinite(Stamina) && FMath::IsFinite(MaxStamina) && MaxStamina > 0.f
      && FMath::IsFinite(SprintStaminaDrainPerSecond) && SprintStaminaDrainPerSecond > 0.f
+     && FMath::IsFinite(SprintSpeedMultiplier) && SprintSpeedMultiplier > 1.f
      && GetVelocity().SizeSquared2D() > FMath::Square(10.f)
      && GetLastMovementInputVector().SizeSquared2D() > 0.01f
      && GetWorld() && GetWorld()->GetTimeSeconds() >= DamageImmunityUntil;
@@ -72,7 +73,7 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
  // Stamina powers dodges independently of spell mana and regenerates after exertion.
  if (Health > 0.f && !bSprinting && GetWorld() && GetWorld()->GetTimeSeconds() >= StaminaRegenStartsAt
      && FMath::IsFinite(Stamina) && FMath::IsFinite(MaxStamina) && MaxStamina > 0.f) {
-  Stamina = FMath::Min(MaxStamina, Stamina + FMath::Max(0.f, StaminaRegenPerSecond) * FMath::Max(0.f, DeltaSeconds));
+  Stamina = FMath::Clamp(Stamina + FMath::Max(0.f, StaminaRegenPerSecond) * StaminaDelta, 0.f, MaxStamina);
  }
 }
 void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
@@ -188,7 +189,12 @@ void AMoonfallHeroPawn::EndGuard()
 }
 void AMoonfallHeroPawn::BeginSprint() {
  // Holding or repeating the press must not bypass exhaustion.
- if (!bSprintHeld) bSprintExhausted = false;
+ if (!bSprintHeld) {
+  // An empty pool cannot be bypassed by tapping sprint repeatedly.
+  const float Required = FMath::Clamp(SprintRestartStamina, 0.f, MaxStamina);
+  bSprintExhausted = !FMath::IsFinite(Stamina) || !FMath::IsFinite(MaxStamina)
+      || MaxStamina <= 0.f || Stamina < Required || Stamina <= 0.f;
+ }
  bSprintHeld = true;
 }
 void AMoonfallHeroPawn::EndSprint() {
