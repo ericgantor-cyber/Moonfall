@@ -73,14 +73,21 @@ void AMoonfallHud::DrawHUD()
         // The hitbox comes from the pawn, so visuals and clicks stay aligned.
         FVector2D ButtonMin, ButtonMax;
         Hero->GetRetryButtonBounds(Canvas->ClipX, Canvas->ClipY, ButtonMin, ButtonMax);
+        float MouseX = -1.f, MouseY = -1.f;
+        const bool bHasMouse = PlayerOwner->GetMousePosition(MouseX, MouseY);
+        const bool bHovered = bHasMouse &&
+            MouseX >= ButtonMin.X && MouseX <= ButtonMax.X &&
+            MouseY >= ButtonMin.Y && MouseY <= ButtonMax.Y;
         DrawText(TEXT("DEFEATED"), FLinearColor(1.f, .52f, .5f),
             Canvas->ClipX * 0.5f - 55.f, ButtonMin.Y - 65.f);
-        Canvas->K2_DrawBox(ButtonMin, ButtonMax - ButtonMin, 3.f,
-            FLinearColor(.95f, .75f, .45f));
-        DrawText(TEXT("RETRY"), FLinearColor::White,
-            ButtonMin.X + 92.f, ButtonMin.Y + 19.f);
+        // Highlight the entire actionable hitbox, not just a small label.
+        Canvas->K2_DrawBox(ButtonMin, ButtonMax - ButtonMin, bHovered ? 5.f : 3.f,
+            bHovered ? FLinearColor(.24f, 1.f, .8f) : FLinearColor(.95f, .75f, .45f));
+        const float TextX = (ButtonMin.X + ButtonMax.X) * 0.5f - 26.f;
+        const float TextY = (ButtonMin.Y + ButtonMax.Y) * 0.5f - 11.f;
+        DrawText(TEXT("RETRY"), FLinearColor::White, TextX, TextY);
         DrawText(TEXT("Click to return to your checkpoint"),
-            FLinearColor(.85f, .85f, .85f), ButtonMin.X - 15.f, ButtonMax.Y + 10.f);
+            FLinearColor(.85f, .85f, .85f), ButtonMin.X, ButtonMax.Y + 10.f);
     }
 
     if (Hero->IsWorldMapOpen())

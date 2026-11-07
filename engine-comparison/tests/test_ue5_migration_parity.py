@@ -234,6 +234,22 @@ class UnrealMigrationParityGate(unittest.TestCase):
         self.assertEqual(tick.count("bParryActiveThisFrame = false;"), 2)
         self.assertLess(tick.index("if (bWorldMapOpen)"), tick.index("ParryCooldown ="))
 
+    def test_retry_button_responsive_geometry_and_hover(self):
+        base = ROOT / "engine-comparison/unreal/MoonfallPrototype"
+        pawn = (base / "Source/MoonfallPrototype/MoonfallPawn.cpp").read_text(encoding="utf-8")
+        hud = (base / "Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8")
+        bounds_start = pawn.index("void AMoonfallPawn::GetRetryButtonBounds(")
+        bounds = pawn[bounds_start:pawn.index("\n}", bounds_start) + 2]
+        self.assertIn("FMath::Min(360.f, Width - 32.f)", bounds)
+        self.assertIn("FMath::Min(84.f, Height * 0.16f)", bounds)
+        self.assertIn("OutMin = Center -", bounds)
+        self.assertIn("OutMax = Center +", bounds)
+        self.assertIn("PlayerOwner->GetMousePosition(MouseX, MouseY)", hud)
+        self.assertIn("MouseX >= ButtonMin.X && MouseX <= ButtonMax.X", hud)
+        self.assertIn("MouseY >= ButtonMin.Y && MouseY <= ButtonMax.Y", hud)
+        self.assertIn("bHovered ? 5.f : 3.f", hud)
+        self.assertIn("Hero->GetRetryButtonBounds(Canvas->ClipX, Canvas->ClipY", hud)
+
     def test_defeat_retry_restores_last_living_checkpoint_without_new_save_mode(self):
         base = ROOT / "engine-comparison/unreal/MoonfallPrototype"
         pawn = (base / "Source/MoonfallPrototype/MoonfallPawn.cpp").read_text(encoding="utf-8")

@@ -736,10 +736,13 @@ void AMoonfallPawn::Zoom(float Value)
 void AMoonfallPawn::GetRetryButtonBounds(float Width, float Height,
     FVector2D& OutMin, FVector2D& OutMax) const
 {
-    // HUD and click handling share one viewport-relative hitbox.
-    const FVector2D Center(Width * 0.5f, Height * 0.5f + 45.f);
-    OutMin = Center - FVector2D(120.f, 30.f);
-    OutMax = Center + FVector2D(120.f, 30.f);
+    // Large, responsive single-click target. Use exactly this geometry for
+    // HUD rendering, hover feedback and mouse hit testing.
+    const float ButtonWidth = FMath::Max(160.f, FMath::Min(360.f, Width - 32.f));
+    const float ButtonHeight = FMath::Max(56.f, FMath::Min(84.f, Height * 0.16f));
+    const FVector2D Center(Width * 0.5f, Height * 0.5f);
+    OutMin = Center - FVector2D(ButtonWidth * 0.5f, ButtonHeight * 0.5f);
+    OutMax = Center + FVector2D(ButtonWidth * 0.5f, ButtonHeight * 0.5f);
 }
 
 void AMoonfallPawn::ClickRetryButton()
