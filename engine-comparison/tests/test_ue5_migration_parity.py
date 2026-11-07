@@ -696,7 +696,7 @@ class UnrealMigrationParityGate(unittest.TestCase):
         self.assertIn("ChambersPerRegion = 5", rules)
         scan = cpp[cpp.index("int32 AMoonfallPawn::ForgedRegionTier("):
                    cpp.index("void AMoonfallPawn::ForgeEquipment()")]
-        self.assertIn("Rank < 1 || Rank > 4", scan)
+        self.assertIn("Rank < 1 || Rank > 4", cpp[cpp.index("static bool ParseForgedEquipment("):cpp.index("int32 AMoonfallPawn::ForgedRegionTier(")])
         self.assertIn("return FMath::Min(12, Power);", scan)
         forge = cpp[cpp.index("void AMoonfallPawn::ForgeEquipmentForType(int32 DesiredType)"):
                     cpp.index("float AMoonfallPawn::BasicAttackDamage()")]
@@ -727,8 +727,8 @@ class UnrealMigrationParityGate(unittest.TestCase):
         scan = cpp[cpp.index("int32 AMoonfallPawn::ForgedRegionTier("):
                    cpp.index("void AMoonfallPawn::ForgeEquipment()")]
         self.assertIn("ParseForgedEquipment(Item, Prefix, Tier, Damage, Ward)", scan)
-        self.assertIn("!RankText.IsNumeric()", scan)
-        self.assertIn("Rank < 1 || Rank > 4", scan)
+        self.assertIn("!RankText.IsNumeric()", cpp[cpp.index("static bool ParseForgedEquipment("):cpp.index("int32 AMoonfallPawn::ForgedRegionTier(")])
+        self.assertIn("Rank < 1 || Rank > 4", cpp[cpp.index("static bool ParseForgedEquipment("):cpp.index("int32 AMoonfallPawn::ForgedRegionTier(")])
         self.assertIn("BestTier = FMath::Max(BestTier, Tier);", scan)
         self.assertIn("FMath::Min(12, Power)", scan)
         self.assertIn("Power += ForgedRegionTier(Region);", scan)
