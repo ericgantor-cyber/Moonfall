@@ -77,7 +77,8 @@ private:
     int32 ClaimedChamberMask = 0;
     int32 DefeatedGuardianMask = 0;
     int32 DefeatedEnemyMask = 0;
-    int32 DiscoveredRegionMask = 0; // Six saved region bits; never reveal unvisited regions.
+    int32 DiscoveredRegionMask = 0; // Coarse legacy region summary.
+    TArray<uint8> DiscoveredMapCells; // 48 x 16 cells (400 cm), saved independently.
     float EnemyDamageCooldown = 0.f;
     float CounterWindow = 0.f;
     int32 BossAttackCount = 0;
@@ -123,6 +124,7 @@ private:
     float BasicAttackDamage() const;
     float ArcaneBoltDamage() const;
     float HealingSpellAmount() const;
+    bool RevealNearbyMapCells(const FVector& Position);
     void SaveProgress();
     void CollectNearbyChambers();
     void UpdateWorldEnemies(float Dt);
