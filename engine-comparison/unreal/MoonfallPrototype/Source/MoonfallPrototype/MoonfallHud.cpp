@@ -141,17 +141,6 @@ void AMoonfallHud::DrawHUD()
             nullptr, 1.2f);
     }
 
-    // Minimal, high-contrast enemy tell near the action. No new images,
-    // actors, overlays or alterations to the original character artwork.
-    const float ThreatSeconds = Hero->GetNearestEnemyWindupSeconds();
-    if (ThreatSeconds > 0.f)
-    {
-        DrawText(FString::Printf(TEXT("INCOMING %.1fs  |  DODGE / PARRY"), ThreatSeconds),
-            FLinearColor(1.f, .42f, .30f),
-            FMath::Max(10.f, Canvas->ClipX * 0.5f - 135.f),
-            FMath::Max(10.f, Canvas->ClipY * 0.24f));
-    }
-
     if (Hero->IsWorldMapOpen())
     {
         // Shared projection with pawn input: zoom and pan never desync clicks.
