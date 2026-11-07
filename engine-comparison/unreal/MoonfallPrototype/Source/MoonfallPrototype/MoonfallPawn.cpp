@@ -114,6 +114,15 @@ void AMoonfallPawn::BeginPlay()
             DiscoveredRegionMask = Progress->DiscoveredRegionMask & ((1 << MoonfallWorldRules::RegionCount) - 1);
             if (Progress->DiscoveredMapCells.Num() == 48 * 16)
                 DiscoveredMapCells = Progress->DiscoveredMapCells;
+            const FVector CandidateWaypoint = Progress->SavedWaypoint;
+            if (Progress->bHasWaypoint && !CandidateWaypoint.ContainsNaN() &&
+                FMath::IsFinite(CandidateWaypoint.X) && FMath::IsFinite(CandidateWaypoint.Y) &&
+                CandidateWaypoint.X >= -1600.f && CandidateWaypoint.X <= 17600.f &&
+                CandidateWaypoint.Y >= -3200.f && CandidateWaypoint.Y <= 3200.f)
+            {
+                Waypoint = FVector(CandidateWaypoint.X, CandidateWaypoint.Y, 0.f);
+                bHasWaypoint = true;
+            }
             ClaimedChamberMask = Progress->ClaimedChamberMask & ((1 << MoonfallWorldRules::TotalChambers) - 1);
             DefeatedGuardianMask = Progress->DefeatedGuardianMask & ((1 << MoonfallWorldRules::TotalChambers) - 1);
             // Never allow saved chamber claims without a defeated guardian.
@@ -547,6 +556,8 @@ void AMoonfallPawn::SaveProgress()
     Progress->DefeatedEnemyMask = DefeatedEnemyMask;
     Progress->DiscoveredRegionMask = DiscoveredRegionMask;
     Progress->DiscoveredMapCells = DiscoveredMapCells;
+    Progress->bHasWaypoint = bHasWaypoint;
+    Progress->SavedWaypoint = bHasWaypoint ? Waypoint : FVector::ZeroVector;
     Progress->ClaimedChamberMask = ClaimedChamberMask;
     Progress->DefeatedGuardianMask = DefeatedGuardianMask;
     Progress->bBossDefeated = bWon;
@@ -562,6 +573,55 @@ void AMoonfallPawn::SaveProgress()
     }
     if (!UGameplayStatics::SaveGameToSlot(Progress, TEXT("MoonfallPrototypeBossRewards"), 0))
         UE_LOG(LogTemp, Warning, TEXT("Moonfall prototype: reward save failed."));
+}
+
+bool AMoonfallPawn::GetWaypoint(FVector& OutWaypoint) const
+{
+    if (!bHasWaypoint) return false;
+    OutWaypoint = Waypoint;
+    return true;
+}
+
+bool AMoonfallPawn::GetQuestDestination(FVector& OutDestination) const
+{
+    // Choose only an already discovered incomplete destination. Never disclose fogged locations.
+    const FVector HeroPosition = GetHeroMapPosition();
+    float BestDistanceSq = TNumericLimits<float>::Max();
+    bool bFound = false;
+    for (const FVector& Candidate : GetChamberMapPositions())
+    {
+        if (!IsMapPositionDiscovered(Candidate)) continue;
+        const float DistanceSq = FVector::DistSquared2D(HeroPosition, Candidate);
+        if (DistanceSq < BestDistanceSq)
+        {
+            BestDistanceSq = DistanceSq;
+            OutDestination = Candidate;
+            bFound = true;
+        }
+    }
+    if (!bFound && !bWon && IsMapPositionDiscovered(GetBossMapPosition()))
+    {
+        OutDestination = GetBossMapPosition();
+        bFound = true;
+    }
+    return bFound;
+}
+
+void AMoonfallPawn::SetWaypoint()
+{
+    if (Health <= 0.f || !HeroMesh) return;
+    Waypoint = HeroMesh->GetRelativeLocation();
+    Waypoint.Z = 0.f;
+    bHasWaypoint = true;
+    SaveProgress();
+}
+
+void AMoonfallPawn::ClearWaypoint()
+{
+    if (!bHasWaypoint) return;
+    bHasWaypoint = false;
+    Waypoint = FVector::ZeroVector;
+    SaveProgress();
 }
 
 void AMoonfallPawn::MoveForward(float Value) { Forward = Value; }
@@ -736,6 +796,8 @@ void AMoonfallPawn::SetupPlayerInputComponent(UInputComponent* Input)
     Input->BindAction(TEXT("Dodge"), IE_Pressed, this, &AMoonfallPawn::Dodge);
     Input->BindAction(TEXT("ArcaneBolt"), IE_Pressed, this, &AMoonfallPawn::CastBolt);
     Input->BindAction(TEXT("ArcaneHeal"), IE_Pressed, this, &AMoonfallPawn::CastHeal);
+    Input->BindAction(TEXT("SetWaypoint"), IE_Pressed, this, &AMoonfallPawn::SetWaypoint);
+    Input->BindAction(TEXT("ClearWaypoint"), IE_Pressed, this, &AMoonfallPawn::ClearWaypoint);
 }
 void AMoonfallPawn::Tick(float DeltaSeconds)
 {
