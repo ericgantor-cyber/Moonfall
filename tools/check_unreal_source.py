@@ -27,6 +27,45 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("unreal.PlayerStart", generator)
         self.assertIn("unreal.NavMeshBoundsVolume", generator)
         self.assertIn("levels.save_current_level()", generator)
+        self.assertIn("updated_map_config(original_config)", generator)
+        self.assertIn("backup_path.write_text(original_config", generator)
+        self.assertIn("config_path.write_text(new_config", generator)
+
+    def test_unreal_startup_map_config_preserves_other_settings(self):
+        import ast
+        import re
+        source = (ROOT.parents[1] / "Build" / "Create-StartupLevel.py").read_text(encoding="utf-8")
+        module = ast.parse(source)
+        constants = {}
+        for item in module.body:
+            if isinstance(item, ast.Assign) and len(item.targets) == 1:
+                target = item.targets[0]
+                if isinstance(target, ast.Name) and target.id in ("MAP", "MAP_SECTION", "MAP_KEYS"):
+                    constants[target.id] = ast.literal_eval(item.value)
+        fn = next(item for item in module.body
+                  if isinstance(item, ast.FunctionDef) and item.name == "updated_map_config")
+        isolated = ast.Module(body=[fn], type_ignores=[])
+        namespace = {"re": re, **constants}
+        exec(compile(ast.fix_missing_locations(isolated), "<startup-config>", "exec"), namespace)
+        original = (
+            "[/Script/EngineSettings.GameMapsSettings]\\n"
+            "GlobalDefaultGameMode=/Script/MoonfallUnreal.MoonfallUnrealGameMode\\n"
+            "GameDefaultMap=/Engine/Maps/Entry\\n"
+            "EditorStartupMap=/Engine/Maps/Entry\\n"
+            "\\n[/Script/Engine.RendererSettings]\\n"
+            "r.DefaultFeature.AntiAliasing=2\\n"
+        )
+        revised = namespace["updated_map_config"](original)
+        self.assertIn("GameDefaultMap=/Game/Maps/MoonfallStart", revised)
+        self.assertIn("EditorStartupMap=/Game/Maps/MoonfallStart", revised)
+        self.assertIn("r.DefaultFeature.AntiAliasing=2", revised)
+        self.assertEqual(namespace["updated_map_config"](revised), revised)
+        with self.assertRaises(ValueError):
+            namespace["updated_map_config"](original.replace(
+                "GameDefaultMap=/Engine/Maps/Entry\\n", ""))
+        with self.assertRaises(ValueError):
+            namespace["updated_map_config"](original + original)
+
 
     def test_windows_package_requires_project_startup_level(self):
         script = (ROOT.parents[1] / "Build" / "Build-Windows.ps1").read_text(encoding="utf-8")
