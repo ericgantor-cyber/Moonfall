@@ -84,7 +84,7 @@ exec(open(r"C:\PATH\TO\Moonfall\MoonfallUnreal\Build\Create-StartupLevel.py", en
 ```
 
 4. Confirm Content/Maps/MoonfallStart.umap was saved. Press P in the editor to inspect whether the navigation volume covers the arena. Resize or rebuild navigation as necessary; the script's volume size is provisional.
-5. Set GameDefaultMap=/Game/Maps/MoonfallStart and EditorStartupMap=/Game/Maps/MoonfallStart in Config/DefaultEngine.ini. The Python script intentionally does not alter existing project configuration.
+5. The generator updates GameDefaultMap and EditorStartupMap to /Game/Maps/MoonfallStart in Config/DefaultEngine.ini after the level saves, preserving unrelated settings and creating a .ini.before-moonfall-startup backup. Inspect the result before packaging.
 6. Test Play in Editor and compile the Unreal C++ code on Windows before attempting a packaged game or installer. The generated map is a prototype test level, not the finished 3D Moonfall world.
 
 **Status:** Only the editor script and its source checks have been committed. A binary .umap asset, Unreal compilation, and a Windows playable build remain unverified.
@@ -98,7 +98,7 @@ The prototype currently defaults to the generic engine Entry map. Before packagi
 2. Create a Basic level in the Unreal Editor. Verify the C++ MoonfallUnrealGameMode is active; it spawns the prototype arena and player pawn.
 3. Add PlayerStart and a NavMeshBoundsVolume covering the arena. Verify controls, collisions, combat, guard/parry, boss attacks and HUD in Play in Editor.
 4. Save as MoonfallUnreal/Content/Maps/MoonfallStart.umap.
-5. In MoonfallUnreal/Config/DefaultEngine.ini set GameDefaultMap=/Game/Maps/MoonfallStart and EditorStartupMap=/Game/Maps/MoonfallStart under the GameMapsSettings section.
+5. If you used the generator, it updates and backs up the two startup-map settings automatically after a successful save. If you created the map manually, set GameDefaultMap=/Game/Maps/MoonfallStart and EditorStartupMap=/Game/Maps/MoonfallStart under GameMapsSettings.
 6. On a trusted UE 5.4 Windows machine, run Build-Windows.ps1 -CompileOnly to compile C++; run -PreflightOnly for packaging prerequisites and level configuration, then run the full script to package and build the installer.
 7. Launch the packaged game and test the installer, gameplay and accessibility on Windows 10 and 11. A process-launch smoke test does not prove gameplay correctness.
 
