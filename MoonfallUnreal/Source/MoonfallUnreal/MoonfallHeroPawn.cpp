@@ -291,12 +291,18 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
  const FVector ToSource = (IncomingDamageSource - GetActorLocation()).GetSafeNormal2D();
  const bool bFrontAttack = !bHasIncomingDamageSource || ToSource.IsNearlyZero()
   || FVector::DotProduct(GuardForward, ToSource) >= 0.258819f;
+ // Heavy attacks exert greater guard pressure. Invalid tuning values fail closed.
+ const bool bValidGuardCost = FMath::IsFinite(GuardStaminaCost) && GuardStaminaCost >= 0.f
+     && FMath::IsFinite(GuardImpactStaminaScale) && GuardImpactStaminaScale >= 0.f;
+ const float HitGuardCost = bValidGuardCost
+     ? GuardStaminaCost + FMath::Clamp(ArmoredDamage * FMath::Min(GuardImpactStaminaScale, 1.f), 0.f, MaxStamina)
+     : MaxStamina + 1.f;
  if (bGuarding && bFrontAttack && !bOptionsOpen
      && FMath::IsFinite(Stamina) && FMath::IsFinite(MaxStamina) && MaxStamina > 0.f
-     && FMath::IsFinite(GuardStaminaCost) && GuardStaminaCost >= 0.f
-     && Stamina >= GuardStaminaCost) {
+     && bValidGuardCost && FMath::IsFinite(HitGuardCost)
+     && Stamina >= HitGuardCost) {
   // Physical defense uses the same stamina pool as sprinting and dodging.
-  Stamina = FMath::Clamp(Stamina - GuardStaminaCost, 0.f, MaxStamina);
+  Stamina = FMath::Clamp(Stamina - HitGuardCost, 0.f, MaxStamina);
   StaminaRegenStartsAt = Now + 0.8f;
   const bool bPerfectParry = Now <= ParryWindowEndsAt && Now <= NextParryAt;
   if (bPerfectParry) {
