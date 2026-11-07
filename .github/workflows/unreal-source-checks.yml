@@ -257,6 +257,13 @@ jobs:
           assert 'Hero->ApplyMoonfallDamage(AttackDamage*DamageFactor)' in enemy
           assert 'if (bCorruptedCrow && Health > 0.f && CrowAttackEndsAt >= 0.f && !bCrowDiving)' in enemy
           assert 'Hero->bOptionsOpen || Hero->bWorldMapOpen' in enemy
+          # Opening the map/options must cancel telegraphed combat attacks.
+          assert 'NextAttackAt = FMath::Max(NextAttackAt, Now + 0.45f)' in enemy
+          assert 'BossSpecialMove = 0;' in enemy
+          assert 'bComboSecondHitPending = false;' in enemy
+          assert 'CrowAttackEndsAt = -1.f;' in enemy
+          assert 'bCrowDiving = false;' in enemy
+          assert 'CrowRecoverUntil = FMath::Max(CrowRecoverUntil, GetWorld()->GetTimeSeconds() + 0.45f)' in enemy
           assert 'bCorruptedCrow = true' in arena
           assert 'BirdIndex<2' in arena
           # Art upgrade: visible crow silhouette, low-overhead warning light, optional imported art.
