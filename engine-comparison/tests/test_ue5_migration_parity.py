@@ -640,6 +640,22 @@ class UnrealMigrationParityGate(unittest.TestCase):
         self.assertNotIn("INCOMING %.1fs",
             (base / "Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8"))
 
+    def test_masterwork_rank_four_increases_every_regional_perk(self):
+        # Rank IV must not be just an inventory label for the three bounded
+        # cooldown, mana and stagger effects.
+        base = ROOT / "engine-comparison/unreal/MoonfallPrototype"
+        cpp = (base / "Source/MoonfallPrototype/MoonfallPawn.cpp").read_text(encoding="utf-8")
+        self.assertIn("FMath::Max(22.f, 30.f - 2.f * ForgedRegionTier(1))", cpp)
+        self.assertIn("FMath::Min(0.8f, 0.4f + 0.1f * ForgedRegionTier(2))", cpp)
+        self.assertIn("FMath::Max(0.7f,", cpp)
+        self.assertIn("BoltCooldown - 0.08f * ForgedRegionTier(5)", cpp)
+        self.assertEqual([max(22, 30 - 2 * t) for t in range(5)],
+                         [30, 28, 26, 24, 22])
+        self.assertEqual([round(min(0.8, 0.4 + 0.1 * t), 2) for t in range(5)],
+                         [0.4, 0.5, 0.6, 0.7, 0.8])
+        self.assertEqual([round(max(0.7, 1.1 - 0.08 * t), 2) for t in range(5)],
+                         [1.1, 1.02, 0.94, 0.86, 0.78])
+
     def test_masterwork_uses_fifth_guardian_cache_with_bounded_rank_four(self):
         base = ROOT / "engine-comparison/unreal/MoonfallPrototype"
         cpp = (base / "Source/MoonfallPrototype/MoonfallPawn.cpp").read_text(encoding="utf-8")
