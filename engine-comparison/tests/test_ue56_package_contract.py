@@ -27,10 +27,14 @@ class PackageContract(unittest.TestCase):
                          "MoonfallPrototype.exe", "LASTEXITCODE"):
             self.assertIn(expected, s)
 
-    def test_project_currently_missing_startup_map_configuration(self):
+    def test_project_configures_generated_startup_map(self):
         ini = (ROOT / "engine-comparison/unreal/MoonfallPrototype/Config/DefaultEngine.ini").read_text(encoding="utf-8")
-        # Do not mislabel source-only successful checks as a playable package.
-        self.assertNotIn("GameDefaultMap=/Game/Maps/MoonfallWorld", ini)
+        self.assertIn("GameDefaultMap=/Game/Maps/MoonfallWorld", ini)
+        script = SCRIPT.read_text(encoding="utf-8")
+        self.assertIn("generate_startup_world.py", script)
+        self.assertIn("UnrealEditor-Cmd.exe", script)
+        self.assertIn("-ExecutePythonScript=$Generator", script)
+        self.assertIn("Unreal editor did not produce a startup level", script)
 
 if __name__ == "__main__":
     unittest.main()
