@@ -181,7 +181,7 @@ void AMoonfallHeroPawn::EndGuard()
  bGuarding = false;
  ParryWindowEndsAt = -1.f;
 }
-void AMoonfallHeroPawn::BeginSprint() { bSprintHeld = true; }
+void AMoonfallHeroPawn::BeginSprint() { bSprintHeld = true; bSprintExhausted = false; }
 void AMoonfallHeroPawn::EndSprint() { bSprintHeld = false; bSprintExhausted = false; }
 
 void AMoonfallHeroPawn::Dodge()
