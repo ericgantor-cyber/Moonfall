@@ -28,7 +28,7 @@ if ($LASTEXITCODE -ne 0 -or -not ($vsInstall | Where-Object { -not [string]::IsN
 Write-Host "Detected Visual Studio C++ toolchain: $($vsInstall | Select-Object -First 1)"
 
 # A playable package needs a real project-owned level, not the engine's
-# generic /Engine/Maps/Entry placeholder. A compile-only run remains possible.
+# generic /Engine/Maps/Entry placeholder. Compile-only remains possible.
 if (-not $CompileOnly) {
     $startupMap = Join-Path $repoRoot 'MoonfallUnreal\Content\Maps\MoonfallStart.umap'
     $engineConfig = Join-Path $repoRoot 'MoonfallUnreal\Config\DefaultEngine.ini'
@@ -39,7 +39,12 @@ if (-not $CompileOnly) {
         throw "Unreal engine configuration missing: $engineConfig"
     }
     $engineConfigText = Get-Content -LiteralPath $engineConfig -Raw
-    if ($engineConfigText -notmatch '(?m)^\s*GameDefaultMap\s*=\s*/Game/Maps/MoonfallStart\s*
+    if ($engineConfigText -notmatch '(?m)^\s*GameDefaultMap\s*=\s*/Game/Maps/MoonfallStart\s*$') {
+        throw 'Set GameDefaultMap=/Game/Maps/MoonfallStart in MoonfallUnreal/Config/DefaultEngine.ini before packaging.'
+    }
+}
+
+# A compiler smoke test must not depend on packaging tools, cooked maps, or output folders.
 if (-not $CompileOnly -and -not $PreflightOnly) {
     $uat = Join-Path $UnrealRoot 'Engine\Build\BatchFiles\RunUAT.bat'
     if (-not (Test-Path -LiteralPath $uat)) { throw "Unreal packaging tool missing: $uat" }
