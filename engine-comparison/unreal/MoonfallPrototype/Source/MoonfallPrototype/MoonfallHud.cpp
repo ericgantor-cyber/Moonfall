@@ -69,27 +69,52 @@ void AMoonfallHud::DrawHUD()
 
     if (Hero->GetHudHealth() <= 0.f)
     {
-        // A mouse-click retry button drawn on the existing HUD canvas.
-        // The hitbox comes from the pawn, so visuals and clicks stay aligned.
+        // Respawn screen is fully rendered in the existing canvas: moonlit
+        // spirit-sigil artwork, an accessible click target and no added modes.
         FVector2D ButtonMin, ButtonMax;
-        Hero->GetRetryButtonBounds(Canvas->ClipX, Canvas->ClipY, ButtonMin, ButtonMax);
+        Hero->GetRespawnButtonBounds(Canvas->ClipX, Canvas->ClipY, ButtonMin, ButtonMax);
+        const FVector2D ButtonSize = ButtonMax - ButtonMin;
+        const float CenterX = Canvas->ClipX * 0.5f;
+        const float ArtRadius = FMath::Clamp(Canvas->ClipY * .105f, 24.f, 70.f);
+        const float ArtY = FMath::Max(ArtRadius + 14.f, ButtonMin.Y - ArtRadius - 38.f);
+        const FVector2D SigilCenter(CenterX, ArtY);
+        // Bounded 40-segment ritual moon: visible even without imported PNGs.
+        constexpr int32 RuneSegments = 40;
+        for (int32 I = 0; I < RuneSegments; ++I)
+        {
+            const float A = I * 2.f * PI / RuneSegments - HALF_PI;
+            const float B = (I + 1) * 2.f * PI / RuneSegments - HALF_PI;
+            const FVector2D RingA = SigilCenter +
+                FVector2D(FMath::Cos(A), FMath::Sin(A)) * ArtRadius;
+            const FVector2D RingB = SigilCenter +
+                FVector2D(FMath::Cos(B), FMath::Sin(B)) * ArtRadius;
+            Canvas->K2_DrawLine(RingA, RingB, 2.f, FLinearColor(.7f, .38f, 1.f));
+            // Eight inner rune spokes and an inset magic-circle ring.
+            if (I % 5 == 0)
+            {
+                const FVector2D Inner = SigilCenter +
+                    FVector2D(FMath::Cos(A), FMath::Sin(A)) * ArtRadius * .42f;
+                Canvas->K2_DrawLine(Inner, RingA, 2.f, FLinearColor(.3f, .8f, 1.f));
+            }
+        }
+        // The art does not use or modify the original Z/Nyra character images.
+        DrawText(TEXT("DEFEATED"), FLinearColor(1.f, .45f, .52f),
+            CenterX - 55.f, ArtY - ArtRadius - 43.f);
         float MouseX = -1.f, MouseY = -1.f;
         const bool bHasMouse = PlayerOwner->GetMousePosition(MouseX, MouseY);
         const bool bHovered = bHasMouse &&
             MouseX >= ButtonMin.X && MouseX <= ButtonMax.X &&
             MouseY >= ButtonMin.Y && MouseY <= ButtonMax.Y;
-        DrawText(TEXT("DEFEATED"), FLinearColor(1.f, .52f, .5f),
-            Canvas->ClipX * 0.5f - 55.f, ButtonMin.Y - 65.f);
-        // Highlight the entire actionable hitbox, not just a small label.
-        Canvas->K2_DrawBox(ButtonMin, ButtonMax - ButtonMin, bHovered ? 5.f : 3.f,
-            bHovered ? FLinearColor(.24f, 1.f, .8f) : FLinearColor(.95f, .75f, .45f));
-        const float TextX = (ButtonMin.X + ButtonMax.X) * 0.5f - 26.f;
+        // One high-contrast outline that shares the pawn's full click hitbox.
+        Canvas->K2_DrawBox(ButtonMin, ButtonSize, bHovered ? 5.f : 3.f,
+            bHovered ? FLinearColor(.25f, 1.f, .82f) : FLinearColor(.95f, .75f, .45f));
+        const float TextX = CenterX - 39.f;
         const float TextY = (ButtonMin.Y + ButtonMax.Y) * 0.5f - 11.f;
-        DrawText(TEXT("RETRY"), FLinearColor::White, TextX, TextY);
-        DrawText(TEXT("Click to return to your checkpoint"),
-            FLinearColor(.85f, .85f, .85f), ButtonMin.X, ButtonMax.Y + 10.f);
-        // Do not render quest/radar distractions or atlas controls behind
-        // the death menu. Keep original resource orbs above as context.
+        DrawText(TEXT("RESPAWN"), FLinearColor::White, TextX, TextY);
+        DrawText(TEXT("Click to respawn at your checkpoint"),
+            FLinearColor(.88f, .86f, 1.f),
+            FMath::Max(10.f, CenterX - 145.f), ButtonMax.Y + 12.f);
+        // Don't cover the respawn menu with quests, map, or attack overlays.
         return;
     }
 
