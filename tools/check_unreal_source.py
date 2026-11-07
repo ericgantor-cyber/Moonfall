@@ -399,7 +399,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         posture = self.enemy_cpp.split("void AMoonfallEnemy::ApplyPostureDamage(float Amount)", 1)[1].split(
             "void AMoonfallEnemy::TakeSpellDamage", 1)[0]
         self.assertIn("!FMath::IsFinite(Amount) || Amount <= 0.f", posture)
-        self.assertIn("if (Now < PostureBrokenUntil) return;", posture)
+        self.assertIn("if (Now < PostureBrokenUntil || Now < NextPostureBreakAllowedAt) return;", posture)
         self.assertIn("Posture = FMath::Clamp(Posture + Amount, 0.f, MaxPosture);", posture)
         self.assertIn("PostureRecoveryStartsAt = Now + 3.f;", posture)
         self.assertIn("const float VulnerabilitySeconds = bBoss ? 1.5f : (bElite ? 2.f : 2.5f);", posture)
