@@ -13,6 +13,8 @@ $Project = Join-Path $ProjectRoot 'MoonfallPrototype.uproject'
 $RunUAT = Join-Path $UnrealRoot 'Engine\Build\BatchFiles\RunUAT.bat'
 $VersionPath = Join-Path $UnrealRoot 'Engine\Build\Build.version'
 $MapAsset = Join-Path $ProjectRoot "Content\Maps\$MapName.umap"
+$Generator = Join-Path $ProjectRoot 'Content\Python\generate_startup_world.py'
+$EditorCmd = Join-Path $UnrealRoot 'Engine\Binaries\Win64\UnrealEditor-Cmd.exe'
 
 foreach ($required in @($Project, $RunUAT, $VersionPath)) {
     if (-not (Test-Path -LiteralPath $required -PathType Leaf)) {
@@ -26,8 +28,27 @@ if ($Version.MajorVersion -ne 5 -or $Version.MinorVersion -ne 6) {
 $ProjectData = Get-Content -LiteralPath $Project -Raw | ConvertFrom-Json
 if ($ProjectData.EngineAssociation -ne '5.6') { throw 'The project is not associated with UE5.6.' }
 if ($MapName -notmatch '^[A-Za-z][A-Za-z0-9_]*$') { throw 'Unsafe map asset name.' }
+# Validate every package attempt, including a preexisting artist-authored level.
+# The generator loads but does not save/modify existing assets.
+foreach ($required in @($Generator, $EditorCmd)) {
+    if (-not (Test-Path -LiteralPath $required -PathType Leaf)) {
+        throw "Cannot validate startup level; missing: $required"
+    }
+}
+$ExistingMapHash = $null
+if (Test-Path -LiteralPath $MapAsset -PathType Leaf) {
+    $ExistingMapHash = (Get-FileHash -LiteralPath $MapAsset -Algorithm SHA256).Hash
+}
+& $EditorCmd $Project "-ExecutePythonScript=$Generator" '-unattended' '-nop4' '-nosplash'
+if ($LASTEXITCODE -ne 0) { throw "UE5.6 startup map generation/validation failed ($LASTEXITCODE)" }
 if (-not (Test-Path -LiteralPath $MapAsset -PathType Leaf)) {
-    throw "Playable start map missing: $MapAsset. Create, save and commit the UE5.6 level before attempting a Windows package."
+    throw "Unreal editor did not produce a startup level at $MapAsset"
+}
+if ($ExistingMapHash) {
+    $UpdatedMapHash = (Get-FileHash -LiteralPath $MapAsset -Algorithm SHA256).Hash
+    if ($UpdatedMapHash -ne $ExistingMapHash) {
+        throw 'Existing artist-authored MoonfallWorld was changed during validation. Refusing packaging.'
+    }
 }
 
 # Never claim an installer without a successful cook and a verified executable.
