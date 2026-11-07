@@ -11,6 +11,9 @@
 #include "Interfaces/IPluginManager.h"
 #include "MoonfallEnemy.h"
 #include "Components/SkeletalMeshComponent.h"
+#include "Components/StaticMeshComponent.h"
+#include "Components/PointLightComponent.h"
+#include "UObject/ConstructorHelpers.h"
 #include "Animation/AnimInstance.h"
 #include "Animation/AnimMontage.h"
 #include "CollisionQueryParams.h"
@@ -28,6 +31,24 @@ AMoonfallHeroPawn::AMoonfallHeroPawn()
  GetCharacterMovement()->bOrientRotationToMovement = true;
  GetCharacterMovement()->JumpZVelocity = 600.f;
  NormalWalkSpeed = GetCharacterMovement()->MaxWalkSpeed;
+ // Native geometry makes five distinct finishing sequences available even to
+ // characters without a skeletal mesh or an authored animation asset.
+ FinisherSlashA = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("FinisherSlashA"));
+ FinisherSlashA->SetupAttachment(GetRootComponent());
+ FinisherSlashB = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("FinisherSlashB"));
+ FinisherSlashB->SetupAttachment(GetRootComponent());
+ static ConstructorHelpers::FObjectFinder<UStaticMesh> SlashMesh(TEXT("/Engine/BasicShapes/Cube.Cube"));
+ for (UStaticMeshComponent* Slash : {FinisherSlashA, FinisherSlashB}) {
+  if (SlashMesh.Succeeded()) Slash->SetStaticMesh(SlashMesh.Object);
+  Slash->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+  Slash->SetCastShadow(false);
+  Slash->SetHiddenInGame(true);
+ }
+ FinisherFlash = CreateDefaultSubobject<UPointLightComponent>(TEXT("FinisherFlash"));
+ FinisherFlash->SetupAttachment(GetRootComponent());
+ FinisherFlash->SetIntensity(0.f);
+ FinisherFlash->SetAttenuationRadius(420.f);
+ FinisherFlash->SetVisibility(false);
 }
 void AMoonfallHeroPawn::BeginPlay() {
  Super::BeginPlay();
@@ -57,6 +78,7 @@ void AMoonfallHeroPawn::BeginPlay() {
 void AMoonfallHeroPawn::Tick(float DeltaSeconds)
 {
  Super::Tick(DeltaSeconds);
+ UpdateNativeFinisher(DeltaSeconds);
  // Bounded camera impulse, no camera shake object or spawned effects.
  ImpactCameraOffset = FMath::FInterpTo(ImpactCameraOffset, 0.f, FMath::Max(0.f, DeltaSeconds), 12.f);
  if (CameraBoom) CameraBoom->TargetArmLength = 450.f + (bReduceMotion ? 0.f : ImpactCameraOffset);
@@ -521,28 +543,81 @@ void AMoonfallHeroPawn::AdjustOption(int32 Direction) {
  Settings->SaveSettings();
 }
 
-void AMoonfallHeroPawn::RegisterFinisherKill(bool bShatterKill, bool bBossKill)
+int32 AMoonfallHeroPawn::RegisterFinisherKill(bool bShatterKill, bool bBossKill, FVector DefeatedLocation)
 {
- if (Health <= 0.f || !GetWorld()) return;
+ if (Health <= 0.f || !GetWorld()) return 0;
  const float Now = GetWorld()->GetTimeSeconds();
  const float Window = FMath::IsFinite(FinisherChainWindowSeconds)
    ? FMath::Clamp(FinisherChainWindowSeconds, 0.5f, 10.f) : 4.f;
  FinisherChainCount = Now - LastFinisherKillAt <= Window
    ? FMath::Min(FinisherChainCount + 1, 5) : 1;
  LastFinisherKillAt = Now;
- // A finite five-step combo wraps through the authored animation variants.
  const int32 ChainStep = FinisherChainCount;
+ // Built-in impact choreography is mandatory. No mesh/AnimBP/asset assignment
+ // is needed for the two slash shapes and flash attached in the constructor.
+ NativeFinisherStartedAt = Now;
+ NativeFinisherTarget = DefeatedLocation.ContainsNaN() ? GetActorLocation() + GetActorForwardVector() * 140.f : DefeatedLocation;
+ bNativeFinisherShatter = bShatterKill;
  if (!bReduceMotion && GetMesh() && FinisherMontages.Num() > 0) {
   if (UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance()) {
    const int32 MontageIndex = (ChainStep - 1) % FinisherMontages.Num();
-   if (UAnimMontage* Montage = FinisherMontages[MontageIndex].Get()) {
-    // Montages are optional, so unconfigured characters still receive
-    // Blueprint choreography events and progression without crashing.
+   if (UAnimMontage* Montage = FinisherMontages[MontageIndex].Get())
     AnimInstance->Montage_Play(Montage, 1.f);
-   }
   }
  }
  OnFinisherChain(ChainStep, bShatterKill, bBossKill);
+ return ChainStep;
+}
+
+void AMoonfallHeroPawn::UpdateNativeFinisher(float DeltaSeconds)
+{
+ if (!GetWorld() || !FinisherSlashA || !FinisherSlashB || !FinisherFlash) return;
+ const float Age = GetWorld()->GetTimeSeconds() - NativeFinisherStartedAt;
+ const float Duration = bReduceMotion ? 0.22f : 0.78f;
+ if (Health <= 0.f || bOptionsOpen || Age < 0.f || Age >= Duration) {
+  FinisherSlashA->SetHiddenInGame(true);
+  FinisherSlashB->SetHiddenInGame(true);
+  FinisherFlash->SetVisibility(false);
+  return;
+ }
+ const float T = FMath::Clamp(Age / Duration, 0.f, 1.f);
+ const float Envelope = FMath::Sin(T * PI);
+ const FVector Origin = GetActorLocation();
+ FVector Forward = (NativeFinisherTarget - Origin).GetSafeNormal2D();
+ if (Forward.IsNearlyZero()) Forward = GetActorForwardVector().GetSafeNormal2D();
+ const FVector Side = FVector::CrossProduct(FVector::UpVector, Forward);
+ const int32 Style = FMath::Clamp(FinisherChainCount, 1, 5);
+ // Five distinct readable movements: crossing cleave, rising strike,
+ // double sweep, spinning slash, and final descending execution.
+ const float Spin = (Style == 4 ? 2.f * PI : PI) * T;
+ const float Sweep = FMath::Sin((T - 0.5f) * PI);
+ const float Lateral = Style == 1 ? 110.f * Sweep
+   : Style == 2 ? -65.f + 130.f * T
+   : Style == 3 ? 130.f * Sweep
+   : Style == 4 ? 115.f * FMath::Cos(Spin)
+   : 70.f * FMath::Sin(Spin);
+ const float Height = Style == 2 ? 55.f + T * 150.f
+   : Style == 5 ? 245.f - T * 165.f
+   : 105.f + 60.f * FMath::Sin(Spin);
+ const FVector Center = Origin + Forward * (90.f + 45.f * Envelope)
+    + Side * Lateral + FVector::UpVector * Height;
+ const float BladeLength = bNativeFinisherShatter ? 2.8f : 2.25f;
+ const float Tilt = Style == 2 ? 70.f - 140.f * T
+   : Style == 5 ? -70.f + 140.f * T : 110.f * Sweep;
+ const FRotator SlashRotation = FRotationMatrix::MakeFromX(Forward).Rotator()
+   + FRotator(Tilt, 0.f, Style == 4 ? FMath::RadiansToDegrees(Spin) : 35.f * Sweep);
+ FinisherSlashA->SetWorldLocationAndRotation(Center, SlashRotation);
+ FinisherSlashA->SetWorldScale3D(FVector(BladeLength * Envelope, 0.055f, 0.025f));
+ FinisherSlashA->SetHiddenInGame(bReduceMotion);
+ FinisherSlashB->SetWorldLocationAndRotation(Center + Side * 35.f - FVector::UpVector * 30.f,
+   SlashRotation + FRotator(Style == 3 ? -55.f : 48.f, 0.f, 0.f));
+ FinisherSlashB->SetWorldScale3D(FVector(BladeLength * 0.65f * Envelope, 0.045f, 0.023f));
+ FinisherSlashB->SetHiddenInGame(bReduceMotion || Style == 2);
+ FinisherFlash->SetWorldLocation(Center);
+ FinisherFlash->SetLightColor(bNativeFinisherShatter ? FLinearColor(1.f, 0.25f, 0.8f)
+   : FLinearColor(0.2f, 0.78f, 1.f));
+ FinisherFlash->SetIntensity((bReduceMotion ? 900.f : 3500.f) * Envelope);
+ FinisherFlash->SetVisibility(true);
 }
 
 void AMoonfallHeroPawn::AwardExperience(int32 Amount)
