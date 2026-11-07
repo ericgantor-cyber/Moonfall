@@ -1,0 +1,79 @@
+name: Moonfall Windows launcher real build and install checks
+
+on:
+  push:
+    paths:
+      - 'MoonfallUnreal/Launcher/**'
+      - '.github/workflows/unreal-launcher-windows.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: moonfall-launcher-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-launcher:
+    runs-on: windows-2022
+    timeout-minutes: 25
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Publish real self-contained Windows launcher
+        run: |
+          $ErrorActionPreference = 'Stop'
+          dotnet publish '.\MoonfallUnreal\Launcher\MoonfallLauncher.csproj' -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:PublishTrimmed=false -o .\LauncherBuild
+          if ($LASTEXITCODE -ne 0) { throw "Launcher .NET compilation failed: $LASTEXITCODE" }
+          $exe = '.\LauncherBuild\MoonfallLauncher.exe'
+          if (-not (Test-Path $exe -PathType Leaf)) { throw 'Launcher .exe was not created.' }
+          $size = (Get-Item $exe).Length
+          if ($size -le 0) { throw 'Launcher executable is empty.' }
+          "MoonfallLauncher.exe compiled: $size bytes" >> $env:GITHUB_STEP_SUMMARY
+      - name: Verify launcher refuses missing game files
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $launcher = (Resolve-Path '.\LauncherBuild\MoonfallLauncher.exe').Path
+          $work = Join-Path $env:RUNNER_TEMP 'moonfall-launcher-tests'
+          New-Item -ItemType Directory -Force -Path $work | Out-Null
+          Copy-Item -LiteralPath $launcher -Destination (Join-Path $work 'MoonfallLauncher.exe')
+          $isolated = Join-Path $work 'MoonfallLauncher.exe'
+          $result = Start-Process -FilePath $isolated -ArgumentList '--check-install' -WorkingDirectory $work -NoNewWindow -Wait -PassThru
+          if ($result.ExitCode -ne 2) { throw "Expected exit 2 for missing game, got $($result.ExitCode)" }
+          Write-Host 'Missing-game negative test passed.'
+      - name: Verify launcher accepts complete synthetic game layout
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $work = Join-Path $env:RUNNER_TEMP 'moonfall-launcher-tests'
+          # Synthetic files are ONLY for the launcher file-presence test.
+          # Do not upload or distribute them as a real game.
+          New-Item -ItemType Directory -Force -Path (Join-Path $work 'Engine'), (Join-Path $work 'MoonfallUnreal') | Out-Null
+          Set-Content -LiteralPath (Join-Path $work 'MoonfallUnreal.exe') -Value 'not a real executable'
+          Set-Content -LiteralPath (Join-Path $work 'MoonfallUnreal\placeholder.dat') -Value 'synthetic'
+          $result = Start-Process -FilePath (Join-Path $work 'MoonfallLauncher.exe') -ArgumentList '--check-install' -WorkingDirectory $work -NoNewWindow -Wait -PassThru
+          if ($result.ExitCode -ne 0) { throw "Expected exit 0 for structurally complete test layout, got $($result.ExitCode)" }
+          "Two launcher file-structure tests passed (synthetic layout; NOT Unreal gameplay)." >> $env:GITHUB_STEP_SUMMARY
+      - name: Hash standalone launcher binary
+        run: |
+          $exe = '.\LauncherBuild\MoonfallLauncher.exe'
+          $hash = (Get-FileHash -LiteralPath $exe -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  MoonfallLauncher.exe" | Set-Content -Encoding ascii '.\LauncherBuild\MoonfallLauncher.exe.sha256'
+          "Launcher SHA256: $hash" >> $env:GITHUB_STEP_SUMMARY
+          "This is ONLY a launcher binary, NOT a packaged Moonfall Unreal game or installer." >> $env:GITHUB_STEP_SUMMARY
+      - name: Upload launcher-only test artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MoonfallLauncher-ONLY-NOT-THE-GAME
+          path: |
+            LauncherBuild/MoonfallLauncher.exe
+            LauncherBuild/MoonfallLauncher.exe.sha256
+          if-no-files-found: error
+          retention-days: 7
