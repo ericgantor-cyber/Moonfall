@@ -131,6 +131,7 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
   OnHitFeedback(ActualDamage, Health);
   // Hit feedback is now tracked by the HUD rather than persistent debug strings.
   LastHitAmount = ActualDamage;
+  bLastHitWasShatter = bShatterFinisher && ActualDamage > 0.f;
   LastHitTime = GetWorld() ? GetWorld()->GetTimeSeconds() : -10.f;
   // Bosses absorb ordinary hits without repeated attack interruptions; phase changes still recover safely.
   // Normal enemies retain brief hit reactions to reward offensive pressure.
