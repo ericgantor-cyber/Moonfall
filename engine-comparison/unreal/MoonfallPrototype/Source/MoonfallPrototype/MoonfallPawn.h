@@ -161,6 +161,7 @@ private:
     int32 NearestEnemyIndex(float Radius) const;
     void DamageWorldEnemy(int32 Index, float Damage, bool bRiposte = false, bool bComboFinisher = false);
     int32 GuardianBlessingCount() const;
+    int32 ChamberMasteryCount() const;
     float BasicAttackDamage() const;
     float ArcaneBoltDamage() const;
     float HealingSpellAmount() const;
