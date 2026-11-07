@@ -111,13 +111,22 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("bInCombatArea ? 0.1f : 0.4f", self.enemy_cpp)
         self.assertIn("SetActorTickInterval(DesiredTickInterval)", self.enemy_cpp)
 
+    def test_perfect_parry_reaction_feedback_is_one_shot(self):
+        self.assertIn("void OnPerfectParried(float StaggerSeconds);", self.enemy_h)
+        self.assertIn("const float ParryStaggerSeconds = bBoss ? 0.45f : 0.75f;", self.enemy_cpp)
+        self.assertIn("OnPerfectParried(ParryStaggerSeconds);", self.enemy_cpp)
+        parry_branch = self.enemy_cpp.split("if (bParried) {", 1)[1].split("} else {", 1)[0]
+        self.assertIn("OnPerfectParried(ParryStaggerSeconds);", parry_branch)
+        self.assertIn("#if ENABLE_DRAW_DEBUG", parry_branch)
+        self.assertIn("FColor::Cyan", parry_branch)
+
     def test_perfect_parry_staggers_attacker_and_breaks_combo(self):
         self.assertIn("bool ApplyMoonfallDamageFrom(float Amount, const FVector& SourceLocation)", self.hero_h)
         self.assertIn("bLastIncomingHitParried = false;", self.hero_cpp)
         self.assertIn("bLastIncomingHitParried = bHasIncomingDamageSource;", self.hero_cpp)
         self.assertIn("return bLastIncomingHitParried;", self.hero_cpp)
         self.assertIn("const bool bParried = Hero->ApplyMoonfallDamageFrom(", self.enemy_cpp)
-        self.assertIn("HitReactionEndsAt = Now + (bBoss ? 0.45f : 0.75f);", self.enemy_cpp)
+        self.assertIn("HitReactionEndsAt = Now + ParryStaggerSeconds;", self.enemy_cpp)
         self.assertIn("NextAttackAt = FMath::Max(NextAttackAt, HitReactionEndsAt + 0.35f);", self.enemy_cpp)
         self.assertIn("bComboSecondHitPending = false;", self.enemy_cpp)
         self.assertIn("if (bParried)", self.enemy_cpp)
