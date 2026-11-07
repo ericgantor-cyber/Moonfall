@@ -1114,7 +1114,7 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
     EnemyDamageCooldown = FMath::Max(0.f, EnemyDamageCooldown - Dt);
     // Timer advances only in live gameplay. The world atlas pauses it too.
     const bool bRespawnProtectedThisFrame = RespawnGraceTimer > 0.f;
-    RespawnGraceTimer = FMath::Max(0.f, RespawnGraceTimer - FMath::Min(Dt, 0.05f));
+    RespawnGraceTimer = FMath::Max(0.f, RespawnGraceTimer - Dt);
     // Preserve earned ripostes during a render stall, matching dodge and telegraph timing.
     CounterWindow = FMath::Max(0.f, CounterWindow - ReactionDt);
     CheckpointTimer += Dt;
