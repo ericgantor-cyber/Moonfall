@@ -71,6 +71,25 @@ powershell -ExecutionPolicy Bypass -File .\MoonfallUnreal\Build\Build-Windows.ps
 The script fails early if prerequisites are absent, compiles the editor target, runs Unreal Windows packaging with prerequisites, builds the self-contained launcher, runs the launcher file check, and creates `MoonfallUnrealLocalBuild\MoonfallUnreal-Setup.exe`. **No Windows Unreal compile has been run here.** This does not remove the need for UE 5.4 on the build machine, nor replace manual game/installer tests. The finished installer is intended for end users without Unreal Editor.
 
 
+## Generate the startup level with Unreal Editor
+
+The project includes Build/Create-StartupLevel.py to create a blank MoonfallStart map with PlayerStart and a navigation bounds volume. It **must run inside Unreal Editor 5.4**, not regular Python or GitHub Actions. It refuses to overwrite a preexisting level.
+
+1. Open MoonfallUnreal.uproject in Unreal Editor 5.4 and enable Python Editor Script Plugin if prompted, then restart the editor.
+2. Open the Unreal Editor Python console using Tools > Debug > Python Console (menu location may vary).
+3. Enter the following command, replacing the path with the actual checkout location:
+
+```python
+exec(open(r"C:\PATH\TO\Moonfall\MoonfallUnreal\Build\Create-StartupLevel.py", encoding="utf-8").read())
+```
+
+4. Confirm Content/Maps/MoonfallStart.umap was saved. Press P in the editor to inspect whether the navigation volume covers the arena. Resize or rebuild navigation as necessary; the script's volume size is provisional.
+5. Set GameDefaultMap=/Game/Maps/MoonfallStart and EditorStartupMap=/Game/Maps/MoonfallStart in Config/DefaultEngine.ini. The Python script intentionally does not alter existing project configuration.
+6. Test Play in Editor and compile the Unreal C++ code on Windows before attempting a packaged game or installer. The generated map is a prototype test level, not the finished 3D Moonfall world.
+
+**Status:** Only the editor script and its source checks have been committed. A binary .umap asset, Unreal compilation, and a Windows playable build remain unverified.
+
+
 ## Unreal Windows packaging: required startup level
 
 The prototype currently defaults to the generic engine Entry map. Before packaging a playable Windows build:
