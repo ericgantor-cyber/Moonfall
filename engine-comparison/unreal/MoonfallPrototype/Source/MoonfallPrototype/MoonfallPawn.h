@@ -137,6 +137,7 @@ private:
     void Attack();
     void Dodge();
     void Parry();
+    void ControllerAttack();
     void ControllerConfirm();
     void ControllerBack();
     void ControllerZoomIn();
