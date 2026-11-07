@@ -134,6 +134,30 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("OnHealthChanged(Health, MaxHealth)", damage_code)
         self.assertNotIn("OnHealthChanged(Health, 100.f)", damage_code)
 
+    def test_stamina_cost_and_regeneration_are_bounded(self):
+        self.assertIn("float Stamina = 100.f;", self.hero_h)
+        self.assertIn("float MaxStamina = 100.f;", self.hero_h)
+        self.assertIn("float DodgeStaminaCost = 25.f;", self.hero_h)
+        self.assertIn("float StaminaRegenPerSecond = 24.f;", self.hero_h)
+        dodge = self.hero_cpp.split("void AMoonfallHeroPawn::Dodge()", 1)[1].split(
+            "void AMoonfallHeroPawn::RewardPerfectDodge()", 1)[0]
+        self.assertIn("Stamina < DodgeStaminaCost", dodge)
+        self.assertIn("Stamina = FMath::Clamp(Stamina - DodgeStaminaCost", dodge)
+        self.assertIn("StaminaRegenStartsAt = Now + 0.8f", dodge)
+        self.assertLess(dodge.index("Stamina < DodgeStaminaCost"), dodge.index("LaunchCharacter("))
+        tick = self.hero_cpp.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1].split(
+            "void AMoonfallHeroPawn::SetupPlayerInputComponent", 1)[0]
+        self.assertIn("GetTimeSeconds() >= StaminaRegenStartsAt", tick)
+        self.assertIn("FMath::Min(MaxStamina, Stamina +", tick)
+        self.assertIn("Health > 0.f", tick)
+
+    def test_orb_displays_stamina_without_replacing_existing_resources(self):
+        self.assertIn("Hero->Stamina / FMath::Max(1.f, Hero->MaxStamina)", self.hud)
+        self.assertIn("DrawArc(Radius * 1.13f, ActualStamina", self.hud)
+        self.assertIn("DrawArc(Radius * 0.85f, ManaFraction", self.hud)
+        self.assertIn("DrawArc(Radius * 0.97f, XpFraction", self.hud)
+        self.assertIn("const float HealthFraction = DisplayHealth;", self.hud)
+
     def test_dodge_immunity_and_perfect_window_order(self):
         start = self.hero_cpp.index("void AMoonfallHeroPawn::Dodge()")
         end = self.hero_cpp.index("void AMoonfallHeroPawn::RewardPerfectDodge()", start)
