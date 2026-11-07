@@ -300,9 +300,13 @@ void AMoonfallHeroPawn::Dodge()
 }
 
 void AMoonfallHeroPawn::RewardPerfectDodge() {
- if (!GetWorld() || Health <= 0.f) return;
+ TryRewardPerfectDodge();
+}
+
+bool AMoonfallHeroPawn::TryRewardPerfectDodge() {
+ if (!GetWorld() || Health <= 0.f) return false;
  const float Now = GetWorld()->GetTimeSeconds();
- if (Now > PerfectDodgeWindowUntil || Now - LastPerfectDodgeRewardAt < 1.f) return;
+ if (Now > PerfectDodgeWindowUntil || Now - LastPerfectDodgeRewardAt < 1.f) return false;
  LastPerfectDodgeRewardAt = Now;
  PerfectDodgeWindowUntil = -1.f;
  Mana = FMath::Min(MaxMana, Mana + 8.f);
@@ -311,6 +315,7 @@ void AMoonfallHeroPawn::RewardPerfectDodge() {
  if (FMath::IsFinite(MaxStamina) && MaxStamina > 0.f && FMath::IsFinite(Stamina)) {
   Stamina = FMath::Clamp(Stamina + FMath::Max(0.f, PerfectDodgeStaminaReward), 0.f, MaxStamina);
  }
+ return true;
 }
 
 bool AMoonfallHeroPawn::ApplyMoonfallDamageFrom(float Amount, const FVector& SourceLocation) {
