@@ -192,6 +192,8 @@ void AMoonfallArena::BeginPlay() {
   if (i == Count - 1 && Count >= 4) {
    Enemy->bElite = true;
    Enemy->bBoss = true;
+   // Unique arena-quest marker: other dungeon bosses must not become this target.
+   Enemy->Tags.AddUnique(FName(TEXT("MoonfallArenaQuestBoss")));
    Enemy->Health *= 4.f;
    Enemy->AttackCooldown *= 1.15f;
   }
