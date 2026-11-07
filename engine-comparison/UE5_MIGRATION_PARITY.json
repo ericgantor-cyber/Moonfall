@@ -64,14 +64,14 @@
     },
     {
       "id": "quest_and_atlas",
-      "status": "quest_tracker_grid_fog_waypoint_source_present_full_atlas_pending",
+      "status": "full_grid_map_click_pin_quest_markers_source_unverified",
       "unreal": [
         "engine-comparison/unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallHud.cpp",
         "engine-comparison/unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallPawn.cpp",
         "engine-comparison/unreal/MoonfallPrototype/Source/MoonfallPrototype/MoonfallProgressSave.h",
         "engine-comparison/unreal/MoonfallPrototype/Config/DefaultInput.ini"
       ],
-      "gate": "Verify saved V/B map pin, fog-restricted nearest chamber/boss quest destination, and distance labels on UE5.6 Windows; full atlas map-click placement and terrain depiction remain pending"
+      "gate": "Build UE5.6 and test M world map, left-click only on revealed 48x16 tiles for saved waypoint placement, undiscovered markers hidden, map input never attacks, compass/quest HUD and reload. Terrain art and production Raven Atlas parity pending."
     },
     {
       "id": "crafting_inventory",
