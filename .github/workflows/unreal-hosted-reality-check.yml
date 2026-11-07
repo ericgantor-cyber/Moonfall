@@ -44,7 +44,17 @@ jobs:
               throw "Pinned Moonfall PR is missing $relative"
             }
           }
-          "Pinned Moonfall PR 690 source checkout verified at $head; UE compilation not attempted." >> $env:GITHUB_STEP_SUMMARY
+          # Prevent regression: rebuilding Moonfall must never destroy a prior
+          # successful installer before its replacement passes verification.
+          foreach ($sourceRoot in @($env:GITHUB_WORKSPACE, $root)) {
+            $buildScript = Get-Content -LiteralPath (Join-Path $sourceRoot 'MoonfallUnreal\Build\Build-Windows.ps1') -Raw
+            if ($buildScript.Contains('$previousSetup =') -or
+                -not $buildScript.Contains('$backupSetup =') -or
+                -not $buildScript.Contains('Promoted installer SHA256 mismatch.')) {
+              throw 'Moonfall Windows rebuild might delete a working installer before replacement is verified.'
+            }
+          }
+          "Pinned Moonfall PR 690 source checkout verified at $head; installer preservation checks passed; UE compilation not attempted." >> $env:GITHUB_STEP_SUMMARY
       - name: Verify hosted Unreal compile safeguards
         shell: pwsh
         run: |
