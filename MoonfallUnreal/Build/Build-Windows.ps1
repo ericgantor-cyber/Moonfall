@@ -116,7 +116,9 @@ New-Item -ItemType Directory -Force -Path $gameOutput | Out-Null
 Set-Content -LiteralPath $marker -Value 'Managed by Moonfall Build-Windows.ps1. This directory can be replaced by a later build.' -Encoding ascii
 
 Write-Host 'Packaging Unreal Win64 Development game...'
-& $uat BuildCookRun "-project=$project" -noP4 -platform=Win64 -clientconfig=Development -build -cook -stage -pak -prereqs -archive "-archivedirectory=$gameOutput" -utf8output
+# Explicitly cook the same project-owned map validated above. A successful C++ build alone
+# does not establish that the executable can load its intended startup level.
+& $uat BuildCookRun "-project=$project" -noP4 -platform=Win64 -clientconfig=Development -build -cook "-map=/Game/Maps/MoonfallStart" -stage -pak -prereqs -archive "-archivedirectory=$gameOutput" -utf8output
 if ($LASTEXITCODE -ne 0) { throw "Unreal packaging failed: $LASTEXITCODE" }
 
 $games = @(Get-ChildItem $gameOutput -Filter 'MoonfallUnreal.exe' -Recurse -File)
