@@ -187,7 +187,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("GetVelocity().SizeSquared2D()", tick)
         self.assertIn("Stamina = FMath::Max(0.f, Stamina - SprintStaminaDrainPerSecond", tick)
         self.assertIn("bSprintExhausted = true;", tick)
-        self.assertIn("!bSprinting && GetWorld()", tick)
+        self.assertIn("!bSprinting && !bGuarding && GetWorld()", tick)
         self.assertIn("FMath::IsFinite(StaminaRegenPerSecond) && StaminaRegenPerSecond > 0.f", tick)
         self.assertIn("Stamina + StaminaRegenPerSecond * StaminaDelta", tick)
         self.assertIn("FMath::IsFinite(SprintSpeedMultiplier)", tick)
@@ -391,6 +391,17 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Insufficient stamina breaks guard", damage)
         self.assertNotIn("Mana -=", damage)
         self.assertNotIn("Mana = FMath::Min", damage)
+
+    def test_guard_stance_stops_stamina_regen_and_release_delays_it(self):
+        tick = self.hero_cpp.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1].split(
+            "void AMoonfallHeroPawn::SetupPlayerInputComponent", 1)[0]
+        self.assertIn("!bSprinting && !bGuarding && GetWorld()", tick)
+        end_guard = self.hero_cpp.split("void AMoonfallHeroPawn::EndGuard()", 1)[1].split(
+            "void AMoonfallHeroPawn::BeginSprint()", 1)[0]
+        self.assertIn("const bool bWasGuarding = bGuarding;", end_guard)
+        self.assertIn("if (bWasGuarding && GetWorld())", end_guard)
+        self.assertIn("FMath::Max(StaminaRegenStartsAt, GetWorld()->GetTimeSeconds() + 0.4f)", end_guard)
+        self.assertNotIn('TEXT("GUARD BROKEN")', self.hud)
 
     def test_guard_break_cooldown_without_hud_warning(self):
         self.assertIn("float GuardBrokenUntil = 0.f;", self.hero_h)
