@@ -22,6 +22,7 @@ public:
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Boss") float BossWarningEndTime = -1.f;
  UFUNCTION(BlueprintImplementableEvent, Category="Combat") void OnHitFeedback(float Damage, float RemainingHealth);
  UFUNCTION(BlueprintImplementableEvent, Category="Combat") void OnEnemyAttack();
+ UFUNCTION(BlueprintImplementableEvent, Category="Combat") void OnEnemyDefeated(bool bKillingBlowWasShatter);
  // Animation/VFX hook: fires once per successful perfect parry, not every tick.
  UFUNCTION(BlueprintImplementableEvent, Category="Combat") void OnPerfectParried(float StaggerSeconds);
  // Enemy posture is independent of health. Pressure from parries and spells
@@ -81,6 +82,7 @@ public:
   float Amount = 0.f;
   float Time = -10.f;
   bool bShatter = false;
+  bool bKillingBlow = false;
  };
  FRecentDamageHit DamageHistory[DamageHistorySize];
  int32 NextDamageHistorySlot = 0;
