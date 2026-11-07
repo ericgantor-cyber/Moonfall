@@ -558,7 +558,7 @@ int32 AMoonfallHeroPawn::RegisterFinisherKill(bool bShatterKill, bool bBossKill,
  // Queue follow-up executions instead of cutting off the current choreography.
  // Five visual styles cycle by combo count; the bounded queue prevents bloat.
  const float NativeDuration = bReduceMotion ? 0.22f : 0.78f;
- if (Now >= NativeFinisherStartedAt && Now - NativeFinisherStartedAt < NativeDuration) {
+ if (PendingFinishers.Num() > 0 || (Now >= NativeFinisherStartedAt && Now - NativeFinisherStartedAt < NativeDuration)) {
   FPendingFinisher Pending;
   Pending.Target = DefeatedLocation;
   Pending.Style = ChainStep;
