@@ -1084,7 +1084,8 @@ int32 AMoonfallPawn::ForgedRegionTier(int32 Region) const
         const FString RankText = Item.RightChop(Prefix.Len());
         if (!RankText.IsNumeric()) continue; // Never count malformed saved gear.
         const int32 Rank = FCString::Atoi(*RankText);
-        if (Rank >= 1) BestTier = FMath::Max(BestTier, FMath::Min(3, Rank));
+        if (Rank >= 1 && Rank <= 4)
+            BestTier = FMath::Max(BestTier, Rank);
     }
     return BestTier;
 }
@@ -1092,12 +1093,12 @@ int32 AMoonfallPawn::ForgedRegionTier(int32 Region) const
 int32 AMoonfallPawn::ForgedEquipmentPower(bool bArcane) const
 {
     // Sum rank once per region, rather than counting duplicate inventory items.
-    // Three melee and three arcane regions can each reach rank three (cap 9).
+    // Three melee and three arcane regions reach rank IV (cap 12 each).
     int32 Power = 0;
     for (int32 Region = 0; Region < MoonfallWorldRules::RegionCount; ++Region)
         if ((Region % 2 == 1) == bArcane)
             Power += ForgedRegionTier(Region);
-    return FMath::Min(9, Power);
+    return FMath::Min(12, Power);
 }
 
 void AMoonfallPawn::ForgeEquipment()
@@ -1117,8 +1118,10 @@ void AMoonfallPawn::ForgeArcaneEquipment()
 
 void AMoonfallPawn::ForgeEquipmentForType(int32 DesiredType)
 {
-    // Forge rank I with two unique guardian caches from one region. Rank II
-    // and III each cost one further unique cache. No crafting in combat or map.
+    // Forge rank I with two distinct guardian caches, then ranks II, III
+    // and IV each consume one more cache. A region's five guardian caches
+    // therefore fully fund one Masterwork rank IV piece, with no leftovers.
+    // Never forge during combat, while defeated, or behind an open map.
     if (bWorldMapOpen || Health <= 0.f || bRespawnInProgress ||
         !IsSafeCheckpointLocation()) return;
     static const TCHAR* Materials[6] = {
@@ -1142,7 +1145,7 @@ void AMoonfallPawn::ForgeEquipmentForType(int32 DesiredType)
         // -1 remains the original auto-forge, prioritizing the local region.
         if (DesiredType >= 0 && (Region % 2) != DesiredType) continue;
         const int32 CurrentTier = ForgedRegionTier(Region);
-        if (CurrentTier >= 3) continue; // Max rank; no further material cost.
+        if (CurrentTier >= 4) continue; // Masterwork cap: no further material cost.
         const int32 MaterialCost = CurrentTier == 0 ? 2 : 1;
         TArray<int32, TInlineAllocator<2>> MaterialsToSpend;
         TArray<FString, TInlineAllocator<2>> ConsumedMaterialNames;
@@ -1184,7 +1187,7 @@ void AMoonfallPawn::ForgeEquipmentForType(int32 DesiredType)
             }
             UpdatedInventory.Add(BossInventory[I]);
         }
-        // Two-or-one materials removed, so adding one never expands storage.
+        // Two-or-one authentic materials removed, so adding one never expands storage.
         UpdatedInventory.Add(FString::Printf(TEXT("%s #%d"),
             Gear[Region], CurrentTier + 1));
         BossInventory = MoveTemp(UpdatedInventory);
