@@ -29,7 +29,7 @@ jobs:
       - name: Retrieve pinned PR 690 Unreal source snapshot (no secrets)
         uses: actions/checkout@v4
         with:
-          ref: fc949c896b37035564ab91da1405483b41a9f895
+          ref: 7802490c49724c7f824c9dd5b422c71b8a561d88
           path: pr690-snapshot
           persist-credentials: false
       - name: Verify pinned PR source resolves to intended Unreal project
@@ -38,7 +38,7 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $root = Join-Path $env:GITHUB_WORKSPACE 'pr690-snapshot'
           $head = (& git -C $root rev-parse HEAD).Trim()
-          if ($head -ne 'fc949c896b37035564ab91da1405483b41a9f895') {
+          if ($head -ne '7802490c49724c7f824c9dd5b422c71b8a561d88') {
             throw 'Pinned PR snapshot resolved to unexpected commit.'
           }
           foreach ($relative in @('MoonfallUnreal\MoonfallUnreal.uproject', 'MoonfallUnreal\Source\MoonfallUnrealEditor.Target.cs', 'MoonfallUnreal\Build\Build-Windows.ps1')) {
@@ -72,7 +72,7 @@ jobs:
             "inputs.package_game",
             "source_snapshot:",
             "pr690-pinned",
-            "fc949c896b37035564ab91da1405483b41a9f895",
+            "7802490c49724c7f824c9dd5b422c71b8a561d88",
             "path: build-tools",
             "path: game-source",
             "source snapshot selection",
@@ -107,7 +107,7 @@ jobs:
             'GenerateProjectFiles.bat',
             'Make Installed Build Win64',
             'Test-UnrealEngineVersion.ps1',
-            'fc949c896b37035564ab91da1405483b41a9f895',
+            '7802490c49724c7f824c9dd5b422c71b8a561d88',
             'CompileOnly',
             'inputs.package_game',
             'MoonfallWin64Packaged',
