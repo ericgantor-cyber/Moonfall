@@ -75,6 +75,15 @@ public:
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Combat") float LastHitAmount = 0.f;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Combat") float LastHitTime = -10.f;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Combat") bool bLastHitWasShatter = false;
+ // Fixed-size history preserves quick successive hits without spawning actors.
+ static constexpr int32 DamageHistorySize = 4;
+ struct FRecentDamageHit {
+  float Amount = 0.f;
+  float Time = -10.f;
+  bool bShatter = false;
+ };
+ FRecentDamageHit DamageHistory[DamageHistorySize];
+ int32 NextDamageHistorySlot = 0;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat") float Health = 80.f;
  UFUNCTION(BlueprintCallable, Category="Combat") void TakeSpellDamage(float Amount);
 };
