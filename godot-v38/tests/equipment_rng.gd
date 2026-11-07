@@ -15,6 +15,22 @@ func _run()->void:
  var first:Dictionary=RNG.roll(item,2345)
  check(first==RNG.roll(item,2345),"same seed reproducible")
  check(first["affixes"].size()<=3,"bounded affixes")
+ check(RNG.roll({},12).is_empty(),"empty item does not generate loot")
+ check(RNG.roll({"tier":1},12).is_empty(),"missing item ID rejected")
+ var malformed:Dictionary={"id":"test_item","tier":-1000}
+ var safe:Dictionary=RNG.roll(malformed,481,0,80)
+ for affix in safe["affixes"]:
+  check(int(affix["value"])>=2,"negative item tier cannot produce invalid affix")
+ var extreme:Dictionary=RNG.roll({"id":"test_item","tier":1000000},481,0,80)
+ for affix in extreme["affixes"]:
+  check(int(affix["value"])<=106,"extreme tier cannot create unbounded stat")
+ for seed in range(100):
+  var result:Dictionary=RNG.roll(item,seed)
+  var seen:Dictionary={}
+  for affix in result["affixes"]:
+   check(not seen.has(affix["stat"]),"no duplicate rolled affix for seed "+str(seed))
+   seen[affix["stat"]]=true
+  check(result==RNG.roll(item,seed),"deterministic roll seed "+str(seed))
  check(int(RNG.roll(item,3,0,80)["rarity_index"])>=3,"pity guarantees epic")
  check(RNG.next_pity(80,3)==0,"pity resets after rare roll")
  var state:Dictionary=INVENTORY.new_state()
