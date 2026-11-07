@@ -274,12 +274,12 @@ class PrototypeContracts(unittest.TestCase):
 
     def test_unreal_active_dodge_snapshot_survives_final_frame(self):
         tick = self.cpp.split("void AMoonfallPawn::Tick(", 1)[1]
-        self.assertIn("const bool bDodgeActiveThisFrame = DodgeTimer > 0.f;", tick)
-        self.assertLess(tick.index("const bool bDodgeActiveThisFrame = DodgeTimer > 0.f;"),
+        self.assertIn("const bool bDodgeActiveThisFrame = DodgeTimeRemainingThisFrame > 0.f;", tick)
+        self.assertLess(tick.index("const bool bDodgeActiveThisFrame = DodgeTimeRemainingThisFrame > 0.f;"),
                         tick.index("DodgeTimer = FMath::Max(0.f, DodgeTimer - ReactionDt);"))
-        self.assertIn("Direction * (bDodgeActiveThisFrame ? 1200.f : 600.f) * MovementDt", tick)
+        self.assertIn("DodgeDirection * 1200.f * DodgeMovementDt", tick)
         self.assertEqual(tick.count("if (bDodgeActiveThisFrame)"), 2)
-        self.assertEqual(tick.count("DodgeTimer > 0.f"), 1)
+        self.assertEqual(tick.count("DodgeTimeRemainingThisFrame > 0.f"), 1)
 
     def test_unreal_dodge_window_matches_hitch_safe_boss_telegraph(self):
         tick = self.cpp.split("void AMoonfallPawn::Tick(", 1)[1]
@@ -535,7 +535,7 @@ class PrototypeContracts(unittest.TestCase):
         # Large frame delays must not cause giant positional jumps.
         self.assertIn("const float MoveDt = FMath::Clamp(Dt, 0.f, 0.05f);", self.cpp)
         self.assertIn("const float MovementDt = FMath::Min(Dt, 0.05f);", self.cpp)
-        self.assertIn("Direction * (bDodgeActiveThisFrame ? 1200.f : 600.f) * MovementDt", self.cpp)
+        self.assertIn("DodgeDirection * 1200.f * DodgeMovementDt", self.cpp)
         # A stationary player cannot spend dodge stamina for no displacement.
         self.assertIn("FVector2D(Forward, Right).SizeSquared() > 0.01f", self.cpp)
         self.assertNotIn("SpawnWave(", self.cpp)

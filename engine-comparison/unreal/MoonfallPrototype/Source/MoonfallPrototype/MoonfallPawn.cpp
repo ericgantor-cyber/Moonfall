@@ -1139,7 +1139,8 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
     if (MeleeComboTimer <= 0.f) MeleeComboCount = 0;
     // Snapshot dodge protection before advancing timers. The same active
     // frame controls travel, enemy contact and boss impact.
-    const bool bDodgeActiveThisFrame = DodgeTimer > 0.f;
+    const float DodgeTimeRemainingThisFrame = DodgeTimer;
+    const bool bDodgeActiveThisFrame = DodgeTimeRemainingThisFrame > 0.f;
     bool bParryActiveThisFrame = ParryTimer > 0.f;
     DodgeTimer = FMath::Max(0.f, DodgeTimer - ReactionDt);
     ParryTimer = FMath::Max(0.f, ParryTimer - ReactionDt);
@@ -1165,13 +1166,18 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
     CheckpointTimer += Dt;
     if (Health > 0.f)
     {
-        FVector Direction = bDodgeActiveThisFrame
-            ? DodgeDirection : FVector(Forward, Right, 0.f);
-        Direction = Direction.GetClampedToMaxSize(1.f);
         // A frame hitch must not teleport the hero through a boss warning or chamber.
         const float MovementDt = FMath::Min(Dt, 0.05f);
+        // The last dodge frame must not travel a full frame after only a
+        // fraction of the 0.32s dodge remains. Divide the movement between
+        // committed dash and ordinary input without discarding frame time.
+        const float DodgeMovementDt = bDodgeActiveThisFrame
+            ? FMath::Min(MovementDt, DodgeTimeRemainingThisFrame) : 0.f;
+        const float WalkMovementDt = MovementDt - DodgeMovementDt;
+        const FVector WalkDirection = FVector(Forward, Right, 0.f).GetClampedToMaxSize(1.f);
         FVector Position = HeroMesh->GetRelativeLocation() +
-            Direction * (bDodgeActiveThisFrame ? 1200.f : 600.f) * MovementDt;
+            DodgeDirection * 1200.f * DodgeMovementDt +
+            WalkDirection * 600.f * WalkMovementDt;
         Position.X = FMath::Clamp(Position.X, -1600.f, 17600.f);
         Position.Y = FMath::Clamp(Position.Y, -3200.f, 3200.f);
         HeroMesh->SetRelativeLocation(Position);

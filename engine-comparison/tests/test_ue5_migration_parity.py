@@ -131,7 +131,7 @@ class UnrealMigrationParityGate(unittest.TestCase):
         self.assertIn("PC->bShowMouseCursor = true;", pawn)
         self.assertIn("PC->bShowMouseCursor = false;", pawn)
         self.assertIn("if (bWorldMapOpen)\n    {", pawn)
-        self.assertIn("FVector Direction = bDodgeActiveThisFrame", pawn)
+        self.assertIn("const float DodgeMovementDt = bDodgeActiveThisFrame", pawn)
         self.assertIn("if (Hero->IsWorldMapOpen())", hud)
         self.assertIn("if (!Hero->IsMapPositionDiscovered(World)) continue;", hud)
         self.assertIn("Click explored terrain to set pin", hud)
@@ -463,11 +463,15 @@ class UnrealMigrationParityGate(unittest.TestCase):
         self.assertNotIn("DodgeDirection = FVector(Forward, Right, 0.f).GetClampedToMaxSize(1.f);", dodge)
         self.assertLess(dodge.index("DodgeDirection ="), dodge.index("DodgeTimer = 0.32f;"))
         tick = cpp[cpp.index("void AMoonfallPawn::Tick(float DeltaSeconds)"):]
-        self.assertIn("const bool bDodgeActiveThisFrame = DodgeTimer > 0.f;", tick)
-        self.assertIn("FVector Direction = bDodgeActiveThisFrame", tick)
-        self.assertIn("? DodgeDirection : FVector(Forward, Right, 0.f);", tick)
-        self.assertIn("Direction.GetClampedToMaxSize(1.f);", tick)
-        self.assertIn("Direction * (bDodgeActiveThisFrame ? 1200.f : 600.f) * MovementDt;", tick)
+        self.assertIn("const float DodgeTimeRemainingThisFrame = DodgeTimer;", tick)
+        self.assertIn("const bool bDodgeActiveThisFrame = DodgeTimeRemainingThisFrame > 0.f;", tick)
+        self.assertIn("const float DodgeMovementDt = bDodgeActiveThisFrame", tick)
+        self.assertIn("FMath::Min(MovementDt, DodgeTimeRemainingThisFrame) : 0.f;", tick)
+        self.assertIn("const float WalkMovementDt = MovementDt - DodgeMovementDt;", tick)
+        self.assertIn("DodgeDirection * 1200.f * DodgeMovementDt", tick)
+        self.assertIn("WalkDirection * 600.f * WalkMovementDt", tick)
+        self.assertLess(tick.index("const float DodgeTimeRemainingThisFrame = DodgeTimer;"),
+                        tick.index("DodgeTimer = FMath::Max(0.f, DodgeTimer - ReactionDt);"))
 
     def test_checkpoint_respawn_damage_grace_is_safe_and_paused_by_map(self):
         base = ROOT / "engine-comparison/unreal/MoonfallPrototype"
@@ -533,7 +537,7 @@ class UnrealMigrationParityGate(unittest.TestCase):
         self.assertLess(attack.index("if (bWorldMapOpen) { PlaceMapWaypoint(); return; }"),
                         attack.index("AttackCooldown ="))
         self.assertIn("if (bWorldMapOpen)\n    {", pawn)
-        self.assertIn("FVector Direction = bDodgeActiveThisFrame", pawn)
+        self.assertIn("const float DodgeMovementDt = bDodgeActiveThisFrame", pawn)
 
     def test_character_and_input_constraints(self):
         constraints = self.data["constraints"]
