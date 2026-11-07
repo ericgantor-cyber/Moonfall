@@ -3,6 +3,7 @@
 Static checks only: no Unreal, Windows or runtime validation is performed.
 """
 from pathlib import Path
+import ast
 import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -29,6 +30,7 @@ class PackageContract(unittest.TestCase):
 
     def test_generator_validates_existing_level_without_overwriting(self):
         script = (ROOT / "engine-comparison/unreal/MoonfallPrototype/Content/Python/generate_startup_world.py").read_text(encoding="utf-8")
+        ast.parse(script)
         packaging = SCRIPT.read_text(encoding="utf-8")
         for expected in ("assets.does_asset_exist(LEVEL_PATH)", "levels.load_level(LEVEL_PATH)",
                          "levels.new_level(LEVEL_PATH, False)", "subsystem.get_all_level_actors()",
