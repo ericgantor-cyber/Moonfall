@@ -360,6 +360,36 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Now - LastPerfectDodgeRewardAt < 1.f", reward)
         self.assertIn("PerfectDodgeWindowUntil = -1.f", reward)
 
+    def test_enemy_posture_break_pressure_and_vulnerability(self):
+        self.assertIn("float MaxPosture = 100.f;", self.enemy_h)
+        self.assertIn("float ParryPostureDamage = 40.f;", self.enemy_h)
+        self.assertIn("float SpellPostureScale = 0.3f;", self.enemy_h)
+        self.assertIn("float BrokenPostureDamageMultiplier = 1.35f;", self.enemy_h)
+        self.assertIn("void OnPostureBroken(float VulnerabilitySeconds);", self.enemy_h)
+        self.assertIn("void OnPostureChanged(float CurrentPosture, float MaximumPosture);", self.enemy_h)
+        posture = self.enemy_cpp.split("void AMoonfallEnemy::ApplyPostureDamage(float Amount)", 1)[1].split(
+            "void AMoonfallEnemy::TakeSpellDamage", 1)[0]
+        self.assertIn("!FMath::IsFinite(Amount) || Amount <= 0.f", posture)
+        self.assertIn("if (Now < PostureBrokenUntil) return;", posture)
+        self.assertIn("Posture = FMath::Clamp(Posture + Amount, 0.f, MaxPosture);", posture)
+        self.assertIn("PostureRecoveryStartsAt = Now + 3.f;", posture)
+        self.assertIn("const float VulnerabilitySeconds = bBoss ? 1.5f : (bElite ? 2.f : 2.5f);", posture)
+        self.assertIn("HitReactionEndsAt = FMath::Max(HitReactionEndsAt, PostureBrokenUntil);", posture)
+        self.assertIn("WindupEndsAt = -1.f;", posture)
+        self.assertIn("bComboSecondHitPending = false;", posture)
+        self.assertIn("OnPostureBroken(VulnerabilitySeconds);", posture)
+        damage = self.enemy_cpp.split("void AMoonfallEnemy::TakeSpellDamage(float Amount)", 1)[1].split(
+            "void AMoonfallEnemy::Tick(", 1)[0]
+        self.assertIn("Now < PostureBrokenUntil", damage)
+        self.assertIn("bPostureExposed ? ExposureMultiplier : 1.f", damage)
+        self.assertIn("ApplyPostureDamage(ActualDamage * FMath::Clamp(SpellPostureScale, 0.f, 2.f))", damage)
+        tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
+        self.assertIn("Now >= PostureRecoveryStartsAt", tick)
+        self.assertIn("OnPostureChanged(Posture, MaxPosture);", tick)
+        parry = self.enemy_cpp.split("if (bParried) {", 1)[1].split("} else {", 1)[0]
+        self.assertIn("ApplyPostureDamage(FMath::Max(0.f, ParryPostureDamage));", parry)
+        self.assertNotIn('TEXT("GUARD BROKEN")', self.hud)
+
     def test_perfect_parry_reaction_feedback_is_one_shot(self):
         self.assertIn("void OnPerfectParried(float StaggerSeconds);", self.enemy_h)
         self.assertIn("const float ParryStaggerSeconds = bBoss ? 0.45f : 0.75f;", self.enemy_cpp)
@@ -375,7 +405,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("bLastIncomingHitParried = bHasIncomingDamageSource;", self.hero_cpp)
         self.assertIn("return bLastIncomingHitParried;", self.hero_cpp)
         self.assertIn("const bool bParried = Hero->ApplyMoonfallDamageFrom(", self.enemy_cpp)
-        self.assertIn("HitReactionEndsAt = Now + ParryStaggerSeconds;", self.enemy_cpp)
+        self.assertIn("HitReactionEndsAt = FMath::Max(HitReactionEndsAt, Now + ParryStaggerSeconds);", self.enemy_cpp)
         self.assertIn("NextAttackAt = FMath::Max(NextAttackAt, HitReactionEndsAt + 0.35f);", self.enemy_cpp)
         self.assertIn("bComboSecondHitPending = false;", self.enemy_cpp)
         self.assertIn("if (bParried)", self.enemy_cpp)
