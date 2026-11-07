@@ -67,6 +67,56 @@ void AMoonfallHud::DrawHUD()
         DrawRing(OrbCenter, 25.f, Hero->GetHudXpRatio(), FLinearColor(.70f, .40f, 1.f));
     }
 
+    if (Hero->IsWorldMapOpen())
+    {
+        // Full 48x16 explored grid, centered and bounded within the viewport.
+        // Unknown tiles have no terrain information or quest markers.
+        const float Cell = FMath::Max(1.f, FMath::Min(12.f,
+            FMath::Min((Canvas->ClipX - 100.f) / 48.f,
+                       (Canvas->ClipY - 200.f) / 16.f)));
+        const float MapLeft = (Canvas->ClipX - Cell * 48.f) * .5f;
+        const float MapTop = (Canvas->ClipY - Cell * 16.f) * .5f;
+        Canvas->K2_DrawBox(FVector2D(MapLeft - 4.f, MapTop - 4.f),
+            FVector2D(Cell * 48.f + 8.f, Cell * 16.f + 8.f), 2.f,
+            FLinearColor(.55f, .55f, .62f));
+        for (int32 Y = 0; Y < 16; ++Y)
+            for (int32 X = 0; X < 48; ++X)
+            {
+                const FVector World(-1600.f + (X + .5f) * 400.f,
+                    -3200.f + (Y + .5f) * 400.f, 0.f);
+                if (!Hero->IsMapPositionDiscovered(World)) continue;
+                Canvas->K2_DrawBox(FVector2D(MapLeft + X * Cell,
+                    MapTop + Y * Cell), FVector2D(Cell - 1.f, Cell - 1.f), 1.f,
+                    FLinearColor(.28f, .49f, .43f));
+            }
+        const auto Plot = [&](const FVector& World, const FLinearColor& Color)
+        {
+            if (!Hero->IsMapPositionDiscovered(World)) return;
+            const float X = MapLeft + (World.X + 1600.f) / 400.f * Cell;
+            const float Y = MapTop + (World.Y + 3200.f) / 400.f * Cell;
+            if (X >= MapLeft && X < MapLeft + Cell * 48.f &&
+                Y >= MapTop && Y < MapTop + Cell * 16.f)
+                DrawMarker(X, Y, Color);
+        };
+        for (const FVector& Chamber : Hero->GetChamberMapPositions())
+            Plot(Chamber, FLinearColor(.2f, .85f, .35f));
+        for (const FVector& Enemy : Hero->GetEnemyMapPositions())
+            Plot(Enemy, FLinearColor::Yellow);
+        if (!Hero->IsBossDefeated())
+            Plot(Hero->GetBossMapPosition(), FLinearColor::Red);
+        FVector Pin;
+        if (Hero->GetWaypoint(Pin)) Plot(Pin, FLinearColor(.3f, .8f, 1.f));
+        FVector Quest;
+        if (Hero->GetQuestDestination(Quest)) Plot(Quest, FLinearColor(1.f, .72f, .18f));
+        // Player is always visible at their actual position.
+        Plot(Hero->GetHeroMapPosition(), FLinearColor(.1f, .9f, 1.f));
+        DrawText(TEXT("MOONFALL WORLD MAP  |  M close  |  Click explored terrain to set pin"),
+            FLinearColor::White, MapLeft, MapTop - 55.f);
+        DrawText(TEXT("Green: chamber  Yellow: beast  Red: boss  Gold: quest  Blue: waypoint"),
+            FLinearColor(.85f, .85f, .85f), MapLeft, MapTop + Cell * 16.f + 18.f);
+        return;
+    }
+
     // Prototype arena radar, not the production six-region Raven Atlas.
     const float Left = Canvas->ClipX - 178.f;
     Canvas->K2_DrawBox(FVector2D(Left, 18.f), FVector2D(160.f, 160.f), 2.f,
