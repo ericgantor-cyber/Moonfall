@@ -43,9 +43,8 @@ foreach ($File in $Actual) {
 }
 $GameExe = $Actual | Where-Object { $_.Name -eq 'MoonfallPrototype.exe' -and $_.Length -gt 0 } | Select-Object -First 1
 if (-not $GameExe) { throw 'Missing nonempty packaged game executable.' }
-if (-not @($Actual | Where-Object { $_.Extension -in @('.pak', '.utoc', '.ucas') -and $_.Length -gt 0 }).Count) {
-    throw 'Missing cooked game data.'
-}
+$CookedContainers = @($Actual | Where-Object { $_.Extension -in @('.pak', '.utoc', '.ucas') -and $_.Length -gt 0 })
+if ($CookedContainers.Count -eq 0) { throw 'Missing cooked game data.' }
 if ([string]::IsNullOrWhiteSpace($InnoCompiler)) {
     $InnoCompiler = Join-Path ([Environment]::GetFolderPath('ProgramFilesX86')) 'Inno Setup 6\ISCC.exe'
 }
