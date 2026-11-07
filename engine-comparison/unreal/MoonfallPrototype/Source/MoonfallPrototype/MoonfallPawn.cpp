@@ -733,9 +733,20 @@ void AMoonfallPawn::Zoom(float Value)
     ZoomDistance = FMath::Clamp(ZoomDistance - Value * 125.f, 900.f, 2500.f);
     CameraBoom->TargetArmLength = ZoomDistance;
 }
+void AMoonfallPawn::Parry()
+{
+    // A deliberate, short right-click timing window; never a held guard.
+    if (bWorldMapOpen || Health <= 0.f || DodgeTimer > 0.f ||
+        ParryCooldown > 0.f || Stamina < 25.f) return;
+    Stamina -= 25.f;
+    StaminaRegenDelay = 0.6f;
+    ParryTimer = 0.22f;
+    ParryCooldown = 1.25f;
+}
+
 void AMoonfallPawn::Dodge()
 {
-    if (bWorldMapOpen) return; // Map navigation must not spend stamina.
+    if (bWorldMapOpen || ParryTimer > 0.f) return; // Map navigation must not spend stamina.
     if (Health > 0.f && DodgeCooldown <= 0.f && Stamina >= 45.f &&
         FVector2D(Forward, Right).SizeSquared() > 0.01f)
     {
@@ -902,6 +913,7 @@ void AMoonfallPawn::SetupPlayerInputComponent(UInputComponent* Input)
     Input->BindAxis(TEXT("MapPanVertical"), this, &AMoonfallPawn::PanMapVertical);
     Input->BindAction(TEXT("Attack"), IE_Pressed, this, &AMoonfallPawn::Attack);
     Input->BindAction(TEXT("Dodge"), IE_Pressed, this, &AMoonfallPawn::Dodge);
+    Input->BindAction(TEXT("Parry"), IE_Pressed, this, &AMoonfallPawn::Parry);
     Input->BindAction(TEXT("ArcaneBolt"), IE_Pressed, this, &AMoonfallPawn::CastBolt);
     Input->BindAction(TEXT("ArcaneHeal"), IE_Pressed, this, &AMoonfallPawn::CastHeal);
     Input->BindAction(TEXT("SetWaypoint"), IE_Pressed, this, &AMoonfallPawn::SetWaypoint);
@@ -937,7 +949,10 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
     // Snapshot dodge protection before advancing timers. The same active
     // frame controls travel, enemy contact and boss impact.
     const bool bDodgeActiveThisFrame = DodgeTimer > 0.f;
+    const bool bParryActiveThisFrame = ParryTimer > 0.f;
     DodgeTimer = FMath::Max(0.f, DodgeTimer - ReactionDt);
+    ParryTimer = FMath::Max(0.f, ParryTimer - ReactionDt);
+    ParryCooldown = FMath::Max(0.f, ParryCooldown - Dt);
     DodgeCooldown = FMath::Max(0.f, DodgeCooldown - Dt);
     // Dodging temporarily stops passive stamina gain. A rewarded perfect
     // dodge can still restore its explicit 10 stamina immediately.
@@ -1006,6 +1021,15 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
             {
                 const FWorldEnemy& Contact = Enemies[ContactIndex];
                 if (bDodgeActiveThisFrame) CounterWindow = CounterDuration;
+                else if (bParryActiveThisFrame)
+                {
+                    // One defensive success per parry input. Stagger the
+                    // specific contact enemy instead of disabling all AI.
+                    ParryTimer = 0.f;
+                    CounterWindow = CounterDuration;
+                    if (Enemies.IsValidIndex(ContactIndex))
+                        Enemies[ContactIndex].StaggerTimer = 0.8f;
+                }
                 else
                 {
                     const float ContactDamage = 5.f + 2.f * Contact.Region +
@@ -1077,7 +1101,15 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
                            (BossAttackPhase == 2 ? 2.9f : 3.5f);
             if (FVector::Dist2D(HeroMesh->GetRelativeLocation(), TargetWorld) < BossWarningRadius)
             {
-                if (bDodgeActiveThisFrame)
+                if (bParryActiveThisFrame)
+                {
+                    // Timed boss parry cancels this resolved attack and grants
+                    // a riposte. It never restores HP or refunds the parry cost.
+                    ParryTimer = 0.f;
+                    CounterWindow = CounterDuration;
+                    CastCooldown = FMath::Max(CastCooldown, 2.f);
+                }
+                else if (bDodgeActiveThisFrame)
                 {
                     // A successful warned dodge rewards timing, not passive kill healing.
                     // Each strike resolves only once, limiting the stamina refund.
