@@ -551,21 +551,28 @@ int32 AMoonfallHeroPawn::RegisterFinisherKill(bool bShatterKill, bool bBossKill,
  const float Now = GetWorld()->GetTimeSeconds();
  const float Window = FMath::IsFinite(FinisherChainWindowSeconds)
    ? FMath::Clamp(FinisherChainWindowSeconds, 0.5f, 10.f) : 4.f;
- FinisherChainCount = Now - LastFinisherKillAt <= Window
-   ? FMath::Min(FinisherChainCount + 1, 5) : 1;
+ const bool bContinueChain = Now >= LastFinisherKillAt && Now - LastFinisherKillAt <= Window;
+ FinisherSequenceCount = bContinueChain
+   ? FMath::Min(FinisherSequenceCount + 1, 1000000) : 1;
+ FinisherChainCount = FMath::Min(FinisherSequenceCount, 5);
  LastFinisherKillAt = Now;
- const int32 ChainStep = FinisherChainCount;
+ const int32 ChainStep = (FinisherSequenceCount - 1) % 5 + 1;
  // Queue follow-up executions instead of cutting off the current choreography.
  // Five visual styles cycle by combo count; the bounded queue prevents bloat.
  const float NativeDuration = bReduceMotion ? 0.22f : 0.78f;
  if (PendingFinishers.Num() > 0 || (Now >= NativeFinisherStartedAt && Now - NativeFinisherStartedAt < NativeDuration)) {
   FPendingFinisher Pending;
-  Pending.Target = DefeatedLocation;
+  Pending.Target = DefeatedLocation.ContainsNaN()
+    ? GetActorLocation() + GetActorForwardVector() * 140.f : DefeatedLocation;
   Pending.Style = ChainStep;
   Pending.bShatter = bShatterKill;
   Pending.bBoss = bBossKill;
   if (PendingFinishers.Num() < MaxPendingFinishers) PendingFinishers.Add(Pending);
-  else PendingFinishers[PendingFinishers.Num() - 1] = Pending;
+  else {
+   // Preserve all earlier queued choreography and prioritize the most recent
+   // finishing move if more than eight kills arrive before playback catches up.
+   PendingFinishers[PendingFinishers.Num() - 1] = Pending;
+  }
   return ChainStep;
  }
  StartFinisherPresentation(ChainStep, bShatterKill, bBossKill, DefeatedLocation);
