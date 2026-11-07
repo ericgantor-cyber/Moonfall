@@ -112,6 +112,8 @@ void AMoonfallPawn::BeginPlay()
             // Z and Nyra are encounter bosses, not player avatar choices.
             DefeatedEnemyMask = Progress->DefeatedEnemyMask & ((1 << MoonfallWorldRules::TotalEnemies) - 1);
             DiscoveredRegionMask = Progress->DiscoveredRegionMask & ((1 << MoonfallWorldRules::RegionCount) - 1);
+            if (Progress->DiscoveredMapCells.Num() == 48 * 16)
+                DiscoveredMapCells = Progress->DiscoveredMapCells;
             ClaimedChamberMask = Progress->ClaimedChamberMask & ((1 << MoonfallWorldRules::TotalChambers) - 1);
             DefeatedGuardianMask = Progress->DefeatedGuardianMask & ((1 << MoonfallWorldRules::TotalChambers) - 1);
             // Never allow saved chamber claims without a defeated guardian.
@@ -136,6 +138,7 @@ void AMoonfallPawn::BeginPlay()
     NyraArtwork = LoadObject<UTexture2D>(nullptr, TEXT("/Game/MoonfallArt/heroes/Nyra_Original.Nyra_Original"));
     // Reveal the starting / restored region, but do not expose future regions.
     DiscoveredRegionMask |= 1 << MoonfallWorldRules::RegionAt(HeroMesh->GetRelativeLocation().X);
+    RevealNearbyMapCells(HeroMesh->GetRelativeLocation());
     BuildWorld();
     // Z is the main god/boss; never assign original character art to HeroMesh.
     BossPortrait->SetSprite(ZArtwork);
@@ -472,8 +475,31 @@ void AMoonfallPawn::CollectNearbyChambers()
 
 bool AMoonfallPawn::IsMapPositionDiscovered(const FVector& Position) const
 {
-    const int32 Region = MoonfallWorldRules::RegionAt(Position.X);
-    return (DiscoveredRegionMask & (1 << Region)) != 0;
+    // World spans [-1600,17600] X and [-3200,3200] Y.
+    // Never clamp an external position into a known cell.
+    const int32 X = FMath::FloorToInt((Position.X + 1600.f) / 400.f);
+    const int32 Y = FMath::FloorToInt((Position.Y + 3200.f) / 400.f);
+    return X >= 0 && X < 48 && Y >= 0 && Y < 16 &&
+        DiscoveredMapCells.Num() == 48 * 16 &&
+        DiscoveredMapCells[Y * 48 + X] != 0;
+}
+
+bool AMoonfallPawn::RevealNearbyMapCells(const FVector& Position)
+{
+    if (DiscoveredMapCells.Num() != 48 * 16)
+        DiscoveredMapCells.Init(0, 48 * 16);
+    const int32 X = FMath::Clamp(FMath::FloorToInt((Position.X + 1600.f) / 400.f), 0, 47);
+    const int32 Y = FMath::Clamp(FMath::FloorToInt((Position.Y + 3200.f) / 400.f), 0, 15);
+    bool bChanged = false;
+    for (int32 DY = -1; DY <= 1; ++DY)
+        for (int32 DX = -1; DX <= 1; ++DX)
+        {
+            const int32 CX = X + DX, CY = Y + DY;
+            if (CX < 0 || CX >= 48 || CY < 0 || CY >= 16) continue;
+            uint8& Cell = DiscoveredMapCells[CY * 48 + CX];
+            if (Cell == 0) { Cell = 1; bChanged = true; }
+        }
+    return bChanged;
 }
 
 int32 AMoonfallPawn::GetDiscoveredRegionCount() const
@@ -520,6 +546,7 @@ void AMoonfallPawn::SaveProgress()
     Progress->TamerPoints = Progression.TamerPoints;
     Progress->DefeatedEnemyMask = DefeatedEnemyMask;
     Progress->DiscoveredRegionMask = DiscoveredRegionMask;
+    Progress->DiscoveredMapCells = DiscoveredMapCells;
     Progress->ClaimedChamberMask = ClaimedChamberMask;
     Progress->DefeatedGuardianMask = DefeatedGuardianMask;
     Progress->bBossDefeated = bWon;
@@ -753,11 +780,11 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
         HeroMesh->SetRelativeLocation(Position);
         const int32 CurrentRegion = MoonfallWorldRules::RegionAt(Position.X);
         const int32 RegionBit = 1 << CurrentRegion;
-        if ((DiscoveredRegionMask & RegionBit) == 0)
-        {
-            DiscoveredRegionMask |= RegionBit;
-            SaveProgress(); // Persist discoveries when entering new regions.
-        }
+        const bool bNewRegion = (DiscoveredRegionMask & RegionBit) == 0;
+        if (bNewRegion) DiscoveredRegionMask |= RegionBit;
+        const bool bNewCells = RevealNearbyMapCells(Position);
+        if (bNewRegion || bNewCells)
+            SaveProgress(); // Persist only when discoveries change, not every frame.
         if (CheckpointTimer >= CheckpointInterval)
         {
             CheckpointTimer = 0.f;
