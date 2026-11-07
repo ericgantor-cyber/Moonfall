@@ -388,6 +388,28 @@ class UnrealMigrationParityGate(unittest.TestCase):
                         hud.index("if (Hero->GetHudHealth() <= 0.f)"))
         self.assertIn("FMath::Max(12.f, OrbCenter.X - 55.f)", hud)
 
+    def test_progress_saves_do_not_move_checkpoint_into_live_combat(self):
+        base = ROOT / "engine-comparison/unreal/MoonfallPrototype"
+        cpp = (base / "Source/MoonfallPrototype/MoonfallPawn.cpp").read_text(encoding="utf-8")
+        header = (base / "Source/MoonfallPrototype/MoonfallPawn.h").read_text(encoding="utf-8")
+        self.assertIn("bool IsSafeCheckpointLocation() const;", header)
+        safe = cpp[cpp.index("bool AMoonfallPawn::IsSafeCheckpointLocation() const"):
+                   cpp.index("void AMoonfallPawn::SaveProgress()")]
+        self.assertIn("Health <= 0.f || bRespawnInProgress || bCasting", safe)
+        self.assertIn("FMath::Square(1500.f)", safe)
+        self.assertIn("FMath::Square(750.f)", safe)
+        self.assertIn("FVector::DistSquared2D", safe)
+        save = cpp[cpp.index("void AMoonfallPawn::SaveProgress()"):
+                   cpp.index("bool AMoonfallPawn::GetWaypoint(")]
+        self.assertIn("Progress->DefeatedEnemyMask = DefeatedEnemyMask;", save)
+        self.assertIn("Progress->ClaimedChamberMask = ClaimedChamberMask;", save)
+        self.assertIn("(!Progress->bHasCheckpoint || IsSafeCheckpointLocation())", save)
+        self.assertLess(save.index("Progress->DefeatedEnemyMask ="),
+                        save.index("IsSafeCheckpointLocation()"))
+        self.assertIn("Progress->SavedHeroPosition = HeroMesh->GetRelativeLocation();", save)
+        self.assertIn("Progress->SavedHealth = Health;", save)
+        self.assertNotIn("Progress->bHasCheckpoint = false;", save)
+
     def test_checkpoint_respawn_damage_grace_is_safe_and_paused_by_map(self):
         base = ROOT / "engine-comparison/unreal/MoonfallPrototype"
         cpp = (base / "Source/MoonfallPrototype/MoonfallPawn.cpp").read_text(encoding="utf-8")
