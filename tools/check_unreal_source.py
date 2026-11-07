@@ -396,6 +396,28 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("} else if (!bPerfectDodge) {", self.enemy_cpp)
         self.assertNotIn('TEXT("GUARD BROKEN")', self.hud)
 
+    def test_boss_posture_adapts_with_bounded_growth_and_elite_finisher_ignores_brace(self):
+        self.assertIn("float BossPostureGrowthPerBreak = 0.12f;", self.enemy_h)
+        self.assertIn("float BossPostureGrowthCap = 1.75f;", self.enemy_h)
+        self.assertIn("float BasePostureAtSpawn = 100.f;", self.enemy_h)
+        begin = self.enemy_cpp.split("void AMoonfallEnemy::BeginPlay()", 1)[1].split(
+            "void AMoonfallEnemy::ApplyPostureDamage", 1)[0]
+        self.assertIn("BasePostureAtSpawn = MaxPosture;", begin)
+        posture = self.enemy_cpp.split("void AMoonfallEnemy::ApplyPostureDamage(float Amount)", 1)[1].split(
+            "void AMoonfallEnemy::TakeSpellDamage", 1)[0]
+        self.assertIn("PostureBreakCount = FMath::Min(PostureBreakCount + 1, 100000);", posture)
+        self.assertIn("if (bBoss && FMath::IsFinite(BasePostureAtSpawn) && BasePostureAtSpawn > 0.f)", posture)
+        self.assertIn("FMath::Clamp(BossPostureGrowthPerBreak, 0.f, 0.5f)", posture)
+        self.assertIn("FMath::Clamp(BossPostureGrowthCap, 1.f, 3.f)", posture)
+        self.assertIn("FMath::Min(PostureBreakCount, 100)", posture)
+        self.assertIn("MaxPosture = FMath::Min(10000.f, BasePostureAtSpawn", posture)
+        damage = self.enemy_cpp.split("void AMoonfallEnemy::TakeSpellDamage(float Amount)", 1)[1].split(
+            "void AMoonfallEnemy::Tick(", 1)[0]
+        self.assertIn("bElite && Now < HitReactionEndsAt && !bShatterFinisher", damage)
+        self.assertIn("const float EffectiveDamage = BracedDamage", damage)
+        self.assertIn("bShatterFinisher ? FinisherMultiplier : (bPostureExposed ? ExposureMultiplier : 1.f)", damage)
+        self.assertNotIn('TEXT("GUARD BROKEN")', self.hud)
+
     def test_posture_shatter_finisher_boss_recovery_and_compact_hud(self):
         self.assertIn("float PostureFinisherDamageMultiplier = 1.8f;", self.enemy_h)
         self.assertIn("bool bPostureFinisherAvailable = false;", self.enemy_h)
