@@ -111,6 +111,16 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("bInCombatArea ? 0.1f : 0.4f", self.enemy_cpp)
         self.assertIn("SetActorTickInterval(DesiredTickInterval)", self.enemy_cpp)
 
+    def test_guard_only_catches_front_facing_enemy_strikes(self):
+        self.assertIn("ApplyMoonfallDamageFrom(float Amount, const FVector& SourceLocation)", self.hero_h)
+        self.assertIn("Hero->ApplyMoonfallDamageFrom(", self.enemy_cpp)
+        self.assertIn("GetActorLocation());", self.enemy_cpp)
+        self.assertIn("const FVector GuardForward = GetControlRotation().Vector().GetSafeNormal2D();", self.hero_cpp)
+        self.assertIn("const FVector ToSource = (IncomingDamageSource - GetActorLocation()).GetSafeNormal2D();", self.hero_cpp)
+        self.assertIn("FVector::DotProduct(GuardForward, ToSource) >= 0.258819f", self.hero_cpp)
+        self.assertIn("bGuarding && bFrontAttack && !bOptionsOpen", self.hero_cpp)
+        self.assertIn("bHasIncomingDamageSource = false;", self.hero_cpp)
+
     def test_guard_and_parry_are_bounded_and_input_driven(self):
         self.assertIn('BindAction(TEXT("Guard"), IE_Pressed', self.hero_cpp)
         self.assertIn('BindAction(TEXT("Guard"), IE_Released', self.hero_cpp)
