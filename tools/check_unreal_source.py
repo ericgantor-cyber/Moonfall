@@ -222,6 +222,22 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("FMath::Clamp(Stamina + StaminaRegenPerSecond * StaminaDelta, 0.f, MaxStamina)", tick)
         self.assertIn("Health > 0.f", tick)
 
+    def test_dodge_prefers_live_movement_direction_and_bounds_launch_speed(self):
+        self.assertIn("float DodgeLaunchSpeed = 650.f;", self.hero_h)
+        dodge = self.hero_cpp.split("void AMoonfallHeroPawn::Dodge()", 1)[1].split(
+            "void AMoonfallHeroPawn::RewardPerfectDodge()", 1)[0]
+        self.assertIn("!FMath::IsFinite(DodgeLaunchSpeed)", dodge)
+        self.assertIn("GetPendingMovementInputVector().GetSafeNormal2D()", dodge)
+        self.assertIn("GetLastMovementInputVector().GetSafeNormal2D()", dodge)
+        self.assertIn("GetActorForwardVector().GetSafeNormal2D()", dodge)
+        self.assertIn("!PendingDirection.IsNearlyZero() ? PendingDirection", dodge)
+        self.assertIn("FMath::Clamp(DodgeLaunchSpeed, 250.f, 1200.f)", dodge)
+        self.assertLess(dodge.index("!FMath::IsFinite(DodgeLaunchSpeed)"),
+                        dodge.index("Stamina = FMath::Clamp(Stamina - DodgeStaminaCost"))
+        self.assertLess(dodge.index("GetPendingMovementInputVector()"),
+                        dodge.index("LaunchCharacter("))
+        self.assertNotIn('TEXT("GUARD BROKEN")', self.hud)
+
     def test_perfect_dodge_restores_bounded_stamina_once(self):
         self.assertIn("float PerfectDodgeStaminaReward = 10.f;", self.hero_h)
         self.assertIn("float DodgeStaminaCost = 25.f;", self.hero_h)
