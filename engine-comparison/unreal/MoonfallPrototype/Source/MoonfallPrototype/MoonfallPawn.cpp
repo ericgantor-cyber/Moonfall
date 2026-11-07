@@ -1062,16 +1062,75 @@ int32 AMoonfallPawn::ChamberMasteryCount() const
     return Count;
 }
 
+int32 AMoonfallPawn::ForgedEquipmentCount(bool bArcane) const
+{
+    // Forged items live in the existing persistent inventory alongside loot.
+    // Only completed equipment counts; unspent cache materials do not.
+    int32 Count = 0;
+    for (int32 Region = 0; Region < MoonfallWorldRules::RegionCount; ++Region)
+    {
+        if ((Region % 2 == 1) != bArcane) continue;
+        static const TCHAR* Gear[6] = {
+            TEXT("Forged Embersteel Blade"), TEXT("Forged Moonweave Focus"),
+            TEXT("Forged Graveglass Blade"), TEXT("Forged Stormhide Focus"),
+            TEXT("Forged Stariron Blade"), TEXT("Forged Voidcrystal Focus")
+        };
+        const FString Prefix = FString(Gear[Region]) + TEXT(" #");
+        for (const FString& Item : BossInventory)
+            if (Item.StartsWith(Prefix)) ++Count;
+    }
+    return FMath::Min(12, Count);
+}
+
+void AMoonfallPawn::ForgeEquipment()
+{
+    // One deterministic recipe per press, no waves, alternate game mode, or
+    // modal HUD. Require a genuinely safe location to avoid menu-combat abuse.
+    if (bWorldMapOpen || Health <= 0.f || bRespawnInProgress ||
+        !IsSafeCheckpointLocation()) return;
+    static const TCHAR* Materials[6] = {
+        TEXT("Embersteel"), TEXT("Moonweave"), TEXT("Graveglass"),
+        TEXT("Stormhide"), TEXT("Stariron"), TEXT("Voidcrystal")
+    };
+    static const TCHAR* Gear[6] = {
+        TEXT("Forged Embersteel Blade"), TEXT("Forged Moonweave Focus"),
+        TEXT("Forged Graveglass Blade"), TEXT("Forged Stormhide Focus"),
+        TEXT("Forged Stariron Blade"), TEXT("Forged Voidcrystal Focus")
+    };
+    for (int32 Region = 0; Region < MoonfallWorldRules::RegionCount; ++Region)
+    {
+        const FString Prefix = FString(Materials[Region]) + TEXT(" chamber cache #");
+        int32 First = INDEX_NONE;
+        int32 Second = INDEX_NONE;
+        for (int32 I = 0; I < BossInventory.Num(); ++I)
+        {
+            if (!BossInventory[I].StartsWith(Prefix)) continue;
+            if (First == INDEX_NONE) First = I;
+            else { Second = I; break; }
+        }
+        if (Second == INDEX_NONE) continue;
+        // Consumes exactly two earned cache materials and replaces them with
+        // one equipped, permanent item in the existing save inventory.
+        BossInventory.RemoveAt(Second);
+        BossInventory.RemoveAt(First);
+        const int32 Tier = 1 + (Region % 2 == 1 ?
+            ForgedEquipmentCount(true) : ForgedEquipmentCount(false));
+        BossInventory.Add(FString::Printf(TEXT("%s #%d"), Gear[Region], Tier));
+        SaveProgress();
+        return;
+    }
+}
+
 float AMoonfallPawn::BasicAttackDamage() const
 {
     return 18.f + Progression.Level + 0.5f * GuardianBlessingCount() +
-        0.75f * ChamberMasteryCount();
+        0.75f * ChamberMasteryCount() + 2.f * ForgedEquipmentCount(false);
 }
 
 float AMoonfallPawn::ArcaneBoltDamage() const
 {
     return 28.f + 2.f * Progression.Level + 1.f * GuardianBlessingCount() +
-        1.25f * ChamberMasteryCount();
+        1.25f * ChamberMasteryCount() + 3.f * ForgedEquipmentCount(true);
 }
 
 float AMoonfallPawn::HealingSpellAmount() const
@@ -1215,6 +1274,7 @@ void AMoonfallPawn::SetupPlayerInputComponent(UInputComponent* Input)
     Input->BindAction(TEXT("Attack"), IE_Pressed, this, &AMoonfallPawn::Attack);
     Input->BindAction(TEXT("Dodge"), IE_Pressed, this, &AMoonfallPawn::Dodge);
     Input->BindAction(TEXT("Parry"), IE_Pressed, this, &AMoonfallPawn::Parry);
+    Input->BindAction(TEXT("ForgeEquipment"), IE_Pressed, this, &AMoonfallPawn::ForgeEquipment);
 
     Input->BindAction(TEXT("ArcaneBolt"), IE_Pressed, this, &AMoonfallPawn::CastBolt);
     Input->BindAction(TEXT("ArcaneHeal"), IE_Pressed, this, &AMoonfallPawn::CastHeal);

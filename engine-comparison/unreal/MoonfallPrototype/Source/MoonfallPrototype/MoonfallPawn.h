@@ -151,6 +151,8 @@ private:
     void MoveRight(float Value);
     void Zoom(float Value);
     void ShowDamageNumber(float Damage, float RemainingHealth);
+    void ForgeEquipment();
+    int32 ForgedEquipmentCount(bool bArcane) const;
     void Attack();
     void Dodge();
     void Parry();
