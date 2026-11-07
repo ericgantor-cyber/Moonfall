@@ -750,6 +750,7 @@ void AMoonfallPawn::ControllerZoomOut()
 
 void AMoonfallPawn::ControllerSetWaypoint()
 {
+    if (Health <= 0.f || bRespawnInProgress) return;
     if (bWorldMapOpen) SetMapCenterWaypoint();
     else SetWaypoint();
 }
@@ -766,7 +767,8 @@ void AMoonfallPawn::SetWaypoint()
 
 void AMoonfallPawn::ClearWaypoint()
 {
-    if (!bHasWaypoint) return;
+    // Defeat and level travel must not mutate persistent navigation data.
+    if (Health <= 0.f || bRespawnInProgress || !bHasWaypoint) return;
     bHasWaypoint = false;
     Waypoint = FVector::ZeroVector;
     SaveProgress();
@@ -776,6 +778,8 @@ void AMoonfallPawn::MoveForward(float Value) { Forward = Value; }
 void AMoonfallPawn::MoveRight(float Value) { Right = Value; }
 void AMoonfallPawn::Zoom(float Value)
 {
+    // Prevent mouse-wheel camera changes behind the death/respawn overlay.
+    if (Health <= 0.f || bRespawnInProgress) return;
     if (bWorldMapOpen)
     {
         if (FMath::IsNearlyZero(Value)) return;
