@@ -134,6 +134,30 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("OnHealthChanged(Health, MaxHealth)", damage_code)
         self.assertNotIn("OnHealthChanged(Health, 100.f)", damage_code)
 
+    def test_stamina_sprint_has_keyboard_controller_and_exhaustion_gates(self):
+        inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
+        self.assertIn('ActionName="Sprint",Key=LeftShift', inputs)
+        self.assertIn('ActionName="Sprint",Key=Gamepad_LeftThumbstick', inputs)
+        self.assertIn('BindAction(TEXT("Sprint"), IE_Pressed', self.hero_cpp)
+        self.assertIn('BindAction(TEXT("Sprint"), IE_Released', self.hero_cpp)
+        self.assertIn("void AMoonfallHeroPawn::BeginSprint()", self.hero_cpp)
+        self.assertIn("void AMoonfallHeroPawn::EndSprint()", self.hero_cpp)
+        self.assertIn("float SprintStaminaDrainPerSecond = 18.f;", self.hero_h)
+        self.assertIn("float SprintSpeedMultiplier = 1.45f;", self.hero_h)
+        tick = self.hero_cpp.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1].split(
+            "void AMoonfallHeroPawn::SetupPlayerInputComponent", 1)[0]
+        self.assertIn("bSprintHeld && Stamina <= 0.f", tick)
+        self.assertIn("!bSprintExhausted && !bOptionsOpen && Health > 0.f", tick)
+        self.assertIn("GetVelocity().SizeSquared2D()", tick)
+        self.assertIn("Stamina = FMath::Max(0.f, Stamina - SprintStaminaDrainPerSecond", tick)
+        self.assertIn("bSprintExhausted = true;", tick)
+        self.assertIn("!bSprinting && GetWorld()", tick)
+        self.assertIn("NormalWalkSpeed * FMath::Clamp(SprintSpeedMultiplier", tick)
+        self.assertIn(" : NormalWalkSpeed;", tick)
+        dodge = self.hero_cpp.split("void AMoonfallHeroPawn::Dodge()", 1)[1].split(
+            "void AMoonfallHeroPawn::RewardPerfectDodge()", 1)[0]
+        self.assertIn("bSprintExhausted = true;", dodge)
+
     def test_stamina_cost_and_regeneration_are_bounded(self):
         self.assertIn("float Stamina = 100.f;", self.hero_h)
         self.assertIn("float MaxStamina = 100.f;", self.hero_h)
