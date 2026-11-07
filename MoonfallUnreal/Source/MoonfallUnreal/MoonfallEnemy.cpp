@@ -133,6 +133,13 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
   LastHitAmount = ActualDamage;
   bLastHitWasShatter = bShatterFinisher && ActualDamage > 0.f;
   LastHitTime = GetWorld() ? GetWorld()->GetTimeSeconds() : -10.f;
+  if (ActualDamage > 0.f && FMath::IsFinite(ActualDamage) && GetWorld()) {
+   FRecentDamageHit& Entry = DamageHistory[NextDamageHistorySlot];
+   Entry.Amount = ActualDamage;
+   Entry.Time = LastHitTime;
+   Entry.bShatter = bLastHitWasShatter;
+   NextDamageHistorySlot = (NextDamageHistorySlot + 1) % DamageHistorySize;
+  }
   // Bosses absorb ordinary hits without repeated attack interruptions; phase changes still recover safely.
   // Normal enemies retain brief hit reactions to reward offensive pressure.
   if (!bBoss) HitReactionEndsAt = FMath::Max(HitReactionEndsAt, LastHitTime + 0.22f);
