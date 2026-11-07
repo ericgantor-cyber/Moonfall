@@ -52,6 +52,7 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
  if (Health > 0.f && Mana < MaxMana) Mana = FMath::Min(MaxMana, Mana + ManaRegenPerSecond * (1.f + FMath::Min(0.25f, AccessoryTier * 0.012f)) * FMath::Max(0.f, DeltaSeconds));
  // Sprint drains only while moving, and never drains while paused in Options.
  const float StaminaDelta = FMath::Clamp(DeltaSeconds, 0.f, 0.1f);
+ if (bSprintHeld && Stamina <= 0.f) bSprintExhausted = true;
  const bool bCanSprint = bSprintHeld && !bSprintExhausted && !bOptionsOpen && Health > 0.f
      && FMath::IsFinite(Stamina) && FMath::IsFinite(MaxStamina) && MaxStamina > 0.f
      && FMath::IsFinite(SprintStaminaDrainPerSecond) && SprintStaminaDrainPerSecond > 0.f
