@@ -27,6 +27,19 @@ class PackageContract(unittest.TestCase):
                          "MoonfallPrototype.exe", "LASTEXITCODE"):
             self.assertIn(expected, s)
 
+    def test_generator_validates_existing_level_without_overwriting(self):
+        script = (ROOT / "engine-comparison/unreal/MoonfallPrototype/Content/Python/generate_startup_world.py").read_text(encoding="utf-8")
+        packaging = SCRIPT.read_text(encoding="utf-8")
+        for expected in ("assets.does_asset_exist(LEVEL_PATH)", "levels.load_level(LEVEL_PATH)",
+                         "levels.new_level(LEVEL_PATH, False)", "subsystem.get_all_level_actors()",
+                         "verify_actor(world_actors, unreal.PlayerStart)",
+                         "if not levels.save_current_level():"):
+            self.assertIn(expected, script)
+        self.assertIn("if existing:", script)
+        self.assertIn("Get-FileHash -LiteralPath $MapAsset -Algorithm SHA256", packaging)
+        self.assertIn("$UpdatedMapHash -ne $ExistingMapHash", packaging)
+        self.assertIn("Refusing packaging", packaging)
+
     def test_project_configures_generated_startup_map(self):
         ini = (ROOT / "engine-comparison/unreal/MoonfallPrototype/Config/DefaultEngine.ini").read_text(encoding="utf-8")
         self.assertIn("GameDefaultMap=/Game/Maps/MoonfallWorld", ini)
