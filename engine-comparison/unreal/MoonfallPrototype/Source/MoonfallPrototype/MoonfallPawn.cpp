@@ -622,8 +622,8 @@ bool AMoonfallPawn::GetQuestDestination(FVector& OutDestination) const
 
 void AMoonfallPawn::ToggleWorldMap()
 {
-    // The Retry screen owns mouse focus after defeat.
-    if (Health <= 0.f || bRetryInProgress) return;
+    // The Respawn screen owns mouse focus after defeat.
+    if (Health <= 0.f || bRespawnInProgress) return;
     bWorldMapOpen = !bWorldMapOpen;
     Forward = 0.f;
     Right = 0.f;
@@ -735,7 +735,7 @@ void AMoonfallPawn::Zoom(float Value)
     ZoomDistance = FMath::Clamp(ZoomDistance - Value * 125.f, 900.f, 2500.f);
     CameraBoom->TargetArmLength = ZoomDistance;
 }
-void AMoonfallPawn::GetRetryButtonBounds(float Width, float Height,
+void AMoonfallPawn::GetRespawnButtonBounds(float Width, float Height,
     FVector2D& OutMin, FVector2D& OutMax) const
 {
     // Large, responsive single-click target. Use exactly this geometry for
@@ -747,7 +747,7 @@ void AMoonfallPawn::GetRetryButtonBounds(float Width, float Height,
     OutMax = Center + FVector2D(ButtonWidth * 0.5f, ButtonHeight * 0.5f);
 }
 
-void AMoonfallPawn::ClickRetryButton()
+void AMoonfallPawn::ClickRespawnButton()
 {
     if (Health > 0.f || bWorldMapOpen) return;
     const APlayerController* PC = Cast<APlayerController>(GetController());
@@ -758,23 +758,23 @@ void AMoonfallPawn::ClickRetryButton()
     float MouseX = 0.f, MouseY = 0.f;
     if (!PC->GetMousePosition(MouseX, MouseY)) return;
     FVector2D Min, Max;
-    GetRetryButtonBounds(static_cast<float>(Width), static_cast<float>(Height), Min, Max);
+    GetRespawnButtonBounds(static_cast<float>(Width), static_cast<float>(Height), Min, Max);
     if (MouseX >= Min.X && MouseX <= Max.X && MouseY >= Min.Y && MouseY <= Max.Y)
-        RetryFromCheckpoint();
+        RespawnFromCheckpoint();
 }
 
-void AMoonfallPawn::RetryFromCheckpoint()
+void AMoonfallPawn::RespawnFromCheckpoint()
 {
     // Restart only after death; never overwrite the last living checkpoint
     // with a defeated pawn before the saved world is reconstructed.
-    if (Health > 0.f || bWorldMapOpen || bRetryInProgress || !GetWorld()) return;
+    if (Health > 0.f || bWorldMapOpen || bRespawnInProgress || !GetWorld()) return;
     const FString LevelName = UGameplayStatics::GetCurrentLevelName(this, true);
     if (LevelName.IsEmpty())
     {
-        UE_LOG(LogTemp, Warning, TEXT("Moonfall: cannot retry without a valid current level."));
+        UE_LOG(LogTemp, Warning, TEXT("Moonfall: cannot respawn without a valid current level."));
         return;
     }
-    bRetryInProgress = true; // Ignore double-clicks during level travel.
+    bRespawnInProgress = true; // Ignore double-clicks during level travel.
     UGameplayStatics::OpenLevel(this, FName(*LevelName));
 }
 
@@ -829,7 +829,7 @@ float AMoonfallPawn::HealingSpellAmount() const
 
 void AMoonfallPawn::Attack()
 {
-    if (Health <= 0.f) { ClickRetryButton(); return; }
+    if (Health <= 0.f) { ClickRespawnButton(); return; }
     if (bWorldMapOpen) { PlaceMapWaypoint(); return; }
     if (Health <= 0.f || ParryTimer > 0.f || AttackCooldown > 0.f) return;
     const int32 EnemyIndex = NearestEnemyIndex(400.f);
