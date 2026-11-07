@@ -40,11 +40,11 @@ def updated_map_config(config: str) -> str:
 
 
 def create_moonfall_start():
-    if not unreal.Paths.get_project_file_path().replace("\\", "/").endswith(
-            "/MoonfallUnreal.uproject"):
+    # project_dir() is exposed by the 5.4 Python API. Validate the actual
+    # project layout without depending on project-file-path helper availability.
+    project_root = Path(unreal.Paths.project_dir()).resolve()
+    if not (project_root / "MoonfallUnreal.uproject").is_file():
         raise RuntimeError("Open MoonfallUnreal.uproject before running this script")
-
-    project_root = Path(unreal.Paths.project_dir())
     config_path = project_root / "Config" / "DefaultEngine.ini"
     if not config_path.is_file():
         raise RuntimeError("Missing Unreal configuration: " + str(config_path))
