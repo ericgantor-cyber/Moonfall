@@ -373,8 +373,12 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Stamina < GuardStaminaCost", guard)
         damage = self.hero_cpp.split("void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount)", 1)[1].split(
             "void AMoonfallHeroPawn::CycleGraphicsQuality()", 1)[0]
-        self.assertIn("Stamina >= GuardStaminaCost", damage)
-        self.assertIn("Stamina = FMath::Clamp(Stamina - GuardStaminaCost, 0.f, MaxStamina)", damage)
+        self.assertIn("Stamina >= HitGuardCost", damage)
+        self.assertIn("float GuardImpactStaminaScale = 0.15f;", self.hero_h)
+        self.assertIn("FMath::IsFinite(GuardImpactStaminaScale)", damage)
+        self.assertIn("ArmoredDamage * FMath::Min(GuardImpactStaminaScale, 1.f)", damage)
+        self.assertLess(damage.index("Stamina >= HitGuardCost"), damage.index("Stamina = FMath::Clamp(Stamina - HitGuardCost"))
+        self.assertIn("Stamina = FMath::Clamp(Stamina - HitGuardCost, 0.f, MaxStamina)", damage)
         self.assertIn("StaminaRegenStartsAt = Now + 0.8f", damage)
         self.assertIn("FMath::IsFinite(PerfectParryStaminaReward)", damage)
         self.assertIn("Stamina + PerfectParryStaminaReward", damage)
@@ -415,7 +419,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("if (Health <= 0.f) EndGuard();", self.hero_cpp)
         self.assertIn("ParryWindowEndsAt = -1.f", self.hero_cpp)
         self.assertIn("DamageAfterGuard *= 0.4f", self.hero_cpp)
-        self.assertIn("Stamina = FMath::Clamp(Stamina - GuardStaminaCost, 0.f, MaxStamina)", self.hero_cpp)
+        self.assertIn("Stamina = FMath::Clamp(Stamina - HitGuardCost, 0.f, MaxStamina)", self.hero_cpp)
         self.assertNotIn("Mana -= 4.f", self.hero_cpp)
         self.assertIn("if (Stamina < GuardStaminaCost) BreakGuard();", self.hero_cpp)
         self.assertIn("OnGuardImpact(ArmoredDamage - DamageAfterGuard, bPerfectParry)", self.hero_cpp)
