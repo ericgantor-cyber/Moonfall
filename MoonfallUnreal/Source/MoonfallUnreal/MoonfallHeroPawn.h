@@ -15,6 +15,8 @@ public:
  virtual void Tick(float DeltaSeconds) override;
  UFUNCTION(BlueprintCallable, Category="Moonfall|Combat") void ApplyMoonfallDamage(float Amount);
  UFUNCTION(BlueprintCallable, Category="Moonfall|Combat") void RewardPerfectDodge();
+ UPROPERTY(BlueprintReadOnly, Category="Moonfall|Combat") bool bGuarding = false;
+ UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Combat") void OnGuardImpact(float DamageBlocked, bool bPerfectParry);
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Combat") void OnHealthChanged(float NewHealth, float MaxHealth);
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Combat") void OnDamageImpact(float DamageTaken);
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Accessibility") bool bReduceMotion = false;
@@ -53,6 +55,9 @@ private:
  UPROPERTY(VisibleAnywhere) UCameraComponent* FollowCamera;
  float LastCastTime[2] = {-100.f,-100.f};
  float NextDodgeAt = 0.f;
+ float ParryWindowEndsAt = -1.f;
+ float NextParryAt = 0.f;
+ UPROPERTY(EditAnywhere, Category="Moonfall|Combat") float ParryWindowSeconds = 0.18f;
  float DamageImmunityUntil = 0.f;
  float PerfectDodgeWindowUntil = -1.f;
  float LastPerfectDodgeRewardAt = -100.f;
@@ -67,6 +72,8 @@ private:
  void CastRight();
  void CastBoth();
  void Dodge();
+ void BeginGuard();
+ void EndGuard();
  void OpenOptions();
  void OptionsUp();
  void OptionsDown();
