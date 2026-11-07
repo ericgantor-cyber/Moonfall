@@ -111,6 +111,17 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("bInCombatArea ? 0.1f : 0.4f", self.enemy_cpp)
         self.assertIn("SetActorTickInterval(DesiredTickInterval)", self.enemy_cpp)
 
+    def test_perfect_parry_staggers_attacker_and_breaks_combo(self):
+        self.assertIn("bool ApplyMoonfallDamageFrom(float Amount, const FVector& SourceLocation)", self.hero_h)
+        self.assertIn("bLastIncomingHitParried = false;", self.hero_cpp)
+        self.assertIn("bLastIncomingHitParried = bHasIncomingDamageSource;", self.hero_cpp)
+        self.assertIn("return bLastIncomingHitParried;", self.hero_cpp)
+        self.assertIn("const bool bParried = Hero->ApplyMoonfallDamageFrom(", self.enemy_cpp)
+        self.assertIn("HitReactionEndsAt = Now + (bBoss ? 0.45f : 0.75f);", self.enemy_cpp)
+        self.assertIn("NextAttackAt = FMath::Max(NextAttackAt, HitReactionEndsAt + 0.35f);", self.enemy_cpp)
+        self.assertIn("bComboSecondHitPending = false;", self.enemy_cpp)
+        self.assertIn("if (bParried)", self.enemy_cpp)
+
     def test_guard_only_catches_front_facing_enemy_strikes(self):
         self.assertIn("ApplyMoonfallDamageFrom(float Amount, const FVector& SourceLocation)", self.hero_h)
         self.assertIn("Hero->ApplyMoonfallDamageFrom(", self.enemy_cpp)
