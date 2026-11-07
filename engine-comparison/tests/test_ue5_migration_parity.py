@@ -80,7 +80,10 @@ class UnrealMigrationParityGate(unittest.TestCase):
         self.assertIn("const bool bNewCells = RevealNearbyMapCells(Position);", pawn)
         self.assertIn("if (bNewRegion || bNewCells)", pawn)
         self.assertIn("if (Hero->IsMapPositionDiscovered(CellCenter))", hud)
-        self.assertIn("X >= 0 && X < 48 && Y >= 0 && Y < 16", pawn)
+        self.assertIn("Position.X < -1600.f || Position.X > 17600.f", pawn)
+        self.assertIn("Position.Y < -3200.f || Position.Y > 3200.f", pawn)
+        self.assertIn("FMath::Clamp(FMath::FloorToInt((Position.X + 1600.f) / 400.f), 0, 47)", pawn)
+        self.assertIn("FMath::Clamp(FMath::FloorToInt((Position.Y + 3200.f) / 400.f), 0, 15)", pawn)
 
 
     def test_waypoints_persist_without_revealing_fogged_quests(self):
