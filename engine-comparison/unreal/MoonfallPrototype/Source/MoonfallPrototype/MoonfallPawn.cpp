@@ -570,8 +570,7 @@ bool AMoonfallPawn::IsSafeCheckpointLocation() const
     // Respawn grace and recent combat do not establish a new safe location.
     // Progress is still saved, but the previous living checkpoint is retained.
     if (!HeroMesh || Health <= 0.f || bRespawnInProgress || bCasting ||
-        RespawnGraceTimer > 0.f || EnemyDamageCooldown > 0.f ||
-        Health < GetHudMaxHealth() * 0.25f)
+        RespawnGraceTimer > 0.f || EnemyDamageCooldown > 0.f)
         return false;
     const FVector Position = HeroMesh->GetRelativeLocation();
     if (!bWon && BossMesh &&
