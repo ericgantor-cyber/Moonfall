@@ -493,12 +493,16 @@ void AMoonfallPawn::CollectNearbyChambers()
 
 bool AMoonfallPawn::IsMapPositionDiscovered(const FVector& Position) const
 {
-    // World spans [-1600,17600] X and [-3200,3200] Y.
-    // Never clamp an external position into a known cell.
-    const int32 X = FMath::FloorToInt((Position.X + 1600.f) / 400.f);
-    const int32 Y = FMath::FloorToInt((Position.Y + 3200.f) / 400.f);
-    return X >= 0 && X < 48 && Y >= 0 && Y < 16 &&
-        DiscoveredMapCells.Num() == 48 * 16 &&
+    // The clamped movement bounds include their upper edges, while 48x16 cell
+    // indices end at 47/15. Match the reveal grid at those exact boundaries
+    // without ever treating an out-of-world location as discovered.
+    if (!FMath::IsFinite(Position.X) || !FMath::IsFinite(Position.Y) ||
+        Position.X < -1600.f || Position.X > 17600.f ||
+        Position.Y < -3200.f || Position.Y > 3200.f)
+        return false;
+    const int32 X = FMath::Clamp(FMath::FloorToInt((Position.X + 1600.f) / 400.f), 0, 47);
+    const int32 Y = FMath::Clamp(FMath::FloorToInt((Position.Y + 3200.f) / 400.f), 0, 15);
+    return DiscoveredMapCells.Num() == 48 * 16 &&
         DiscoveredMapCells[Y * 48 + X] != 0;
 }
 
