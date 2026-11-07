@@ -67,6 +67,18 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             namespace["updated_map_config"](original + original)
 
 
+    def test_manual_windows_release_smoke_tests_before_installer(self):
+        workflow = (ROOT.parents[2] / ".github" / "workflows" /
+                    "unreal-windows-build.yml").read_text(encoding="utf-8")
+        self.assertIn("Smoke-test packaged Unreal game launch", workflow)
+        self.assertIn("Test-PackagedGame.ps1", workflow)
+        self.assertIn("-ObservationSeconds 8", workflow)
+        self.assertLess(workflow.index("Smoke-test packaged Unreal game launch"),
+                        workflow.index("Upload packaged Windows build"))
+        self.assertLess(workflow.index("Smoke-test packaged Unreal game launch"),
+                        workflow.index("Build Windows installer with NSIS"))
+        self.assertIn("Graphics and gameplay are not verified.", workflow)
+
     def test_manual_windows_release_uses_startup_map_preflight(self):
         workflow = (ROOT.parents[2] / ".github" / "workflows" /
                     "unreal-windows-build.yml").read_text(encoding="utf-8")
