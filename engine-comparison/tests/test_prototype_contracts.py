@@ -462,7 +462,7 @@ class PrototypeContracts(unittest.TestCase):
     def test_post_boss_exploration_and_xp_awards(self):
         self.assertIn("if (Input.GetMouseButtonDown(0) && attackCd<=0)", self.unity)
         self.assertIn("bool bossInRange = !won && Vector3.Distance(hero.position,boss.position)<4f;", self.unity)
-        self.assertIn("if (Health <= 0.f || AttackCooldown > 0.f) return;", self.cpp)
+        self.assertIn("if (Health <= 0.f || ParryTimer > 0.f || AttackCooldown > 0.f) return;", self.cpp)
         self.assertIn("const bool bBossInRange = BossDistance <= 400.f;", self.cpp)
         self.assertNotIn("if (Health <= 0.f || bWon || AttackCooldown > 0.f)", self.cpp)
 
