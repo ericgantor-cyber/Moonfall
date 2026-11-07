@@ -232,6 +232,48 @@ class UnrealMigrationParityGate(unittest.TestCase):
         self.assertIn('DrawText(TEXT("RESPAWN")', death_hud)
         self.assertIn("return;", death_hud)
 
+    def test_controller_overhaul_combat_map_respawn_and_mouse_parity(self):
+        base = ROOT / "engine-comparison/unreal/MoonfallPrototype"
+        inputs = (base / "Config/DefaultInput.ini").read_text(encoding="utf-8")
+        pawn = (base / "Source/MoonfallPrototype/MoonfallPawn.cpp").read_text(encoding="utf-8")
+        header = (base / "Source/MoonfallPrototype/MoonfallPawn.h").read_text(encoding="utf-8")
+        hud = (base / "Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8")
+        for key in ('Gamepad_LeftX', 'Gamepad_LeftY', 'Gamepad_RightX',
+                    'Gamepad_RightY', 'Gamepad_RightTrigger', 'Gamepad_LeftTrigger',
+                    'Gamepad_FaceButton_Bottom', 'Gamepad_FaceButton_Right',
+                    'Gamepad_FaceButton_Left', 'Gamepad_FaceButton_Top',
+                    'Gamepad_Special_Right', 'Gamepad_DPad_Up', 'Gamepad_DPad_Down'):
+            self.assertIn('Key=' + key, inputs)
+        for original in ('Key=LeftMouseButton', 'Key=RightMouseButton',
+                         'Key=MouseScrollUp', 'Key=MouseScrollDown', 'Key=W', 'Key=S'):
+            self.assertIn(original, inputs)
+        self.assertNotIn('ActionName="RespawnFromCheckpoint"', inputs)
+        self.assertNotIn('ActionName="RetryFromCheckpoint"', inputs)
+        for action in ('ControllerConfirm', 'ControllerBack', 'ControllerZoomIn',
+                       'ControllerZoomOut', 'ControllerSetWaypoint'):
+            self.assertIn('void ' + action + '();', header)
+            self.assertIn('Input->BindAction(TEXT("' + action + '"), IE_Pressed', pawn)
+        confirm = pawn[pawn.index("void AMoonfallPawn::ControllerConfirm()"):
+                       pawn.index("void AMoonfallPawn::ControllerBack()")]
+        self.assertIn("if (Health <= 0.f) { RespawnFromCheckpoint(); return; }", confirm)
+        self.assertIn("if (bWorldMapOpen) { SetMapCenterWaypoint(); return; }", confirm)
+        self.assertIn("Attack();", confirm)
+        back = pawn[pawn.index("void AMoonfallPawn::ControllerBack()"):
+                    pawn.index("void AMoonfallPawn::ControllerZoomIn()")]
+        self.assertIn("if (bWorldMapOpen) { CloseWorldMap(); return; }", back)
+        self.assertIn("Dodge();", back)
+        center = pawn[pawn.index("void AMoonfallPawn::SetMapCenterWaypoint()"):
+                      pawn.index("void AMoonfallPawn::ControllerConfirm()")]
+        self.assertIn("WorldMapPanCells.X", center)
+        self.assertIn("WorldMapPanCells.Y", center)
+        self.assertIn("if (!IsMapPositionDiscovered(Candidate)) return;", center)
+        self.assertIn("SaveProgress();", center)
+        self.assertIn("Gamepad_LeftX", inputs)
+        self.assertIn("DeadZone=0.24", inputs)
+        self.assertIn("Click or press gamepad A to respawn", hud)
+        self.assertIn("const FVector2D Reticle =", hud)
+        self.assertIn("Pad: right stick pan, A center pin, B close", hud)
+
     def test_timed_parry_has_cost_cooldown_and_one_hit_consumption(self):
         base = ROOT / "engine-comparison/unreal/MoonfallPrototype"
         pawn = (base / "Source/MoonfallPrototype/MoonfallPawn.cpp").read_text(encoding="utf-8")
@@ -275,7 +317,7 @@ class UnrealMigrationParityGate(unittest.TestCase):
         self.assertIn("Canvas->K2_DrawLine(RingA, RingB, 2.f", hud)
         self.assertIn("Canvas->K2_DrawLine(Inner, RingA, 2.f", hud)
         self.assertIn("FMath::Clamp(Canvas->ClipY * .105f, 24.f, 70.f)", hud)
-        self.assertIn("Click to respawn at your checkpoint", hud)
+        self.assertIn("Click or press gamepad A to respawn at your checkpoint", hud)
         self.assertNotIn('DrawText(TEXT("RETRY")', hud)
 
     def test_defeat_respawn_restores_last_living_checkpoint_without_new_save_mode(self):
@@ -306,7 +348,7 @@ class UnrealMigrationParityGate(unittest.TestCase):
         self.assertIn("if (HeroMesh && Health > 0.f)", pawn)
         self.assertIn('DrawText(TEXT("DEFEATED")', hud)
         self.assertIn('DrawText(TEXT("RESPAWN")', hud)
-        self.assertIn("Click to respawn at your checkpoint", hud)
+        self.assertIn("Click or press gamepad A to respawn at your checkpoint", hud)
         self.assertIn("Hero->GetRespawnButtonBounds(Canvas->ClipX, Canvas->ClipY", hud)
         self.assertIn("const FVector2D ButtonSize = ButtonMax - ButtonMin;", hud)
         self.assertIn("Canvas->K2_DrawBox(ButtonMin, ButtonSize", hud)

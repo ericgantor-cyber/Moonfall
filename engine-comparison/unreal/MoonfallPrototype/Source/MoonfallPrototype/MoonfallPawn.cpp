@@ -700,6 +700,52 @@ void AMoonfallPawn::PlaceMapWaypoint()
     SaveProgress();
 }
 
+void AMoonfallPawn::SetMapCenterWaypoint()
+{
+    // Controller map focus is the center crosshair, not the mouse cursor.
+    // Zoom and right-stick pan use this same projection.
+    if (!bWorldMapOpen || Health <= 0.f) return;
+    const int32 X = FMath::FloorToInt(24.f + WorldMapPanCells.X);
+    const int32 Y = FMath::FloorToInt(8.f + WorldMapPanCells.Y);
+    if (X < 0 || X >= 48 || Y < 0 || Y >= 16) return;
+    const FVector Candidate(-1600.f + (X + .5f) * 400.f,
+        -3200.f + (Y + .5f) * 400.f, 0.f);
+    if (!IsMapPositionDiscovered(Candidate)) return;
+    Waypoint = Candidate;
+    bHasWaypoint = true;
+    SaveProgress();
+}
+
+void AMoonfallPawn::ControllerConfirm()
+{
+    if (Health <= 0.f) { RespawnFromCheckpoint(); return; }
+    if (bWorldMapOpen) { SetMapCenterWaypoint(); return; }
+    Attack();
+}
+
+void AMoonfallPawn::ControllerBack()
+{
+    if (Health <= 0.f) return;
+    if (bWorldMapOpen) { CloseWorldMap(); return; }
+    Dodge();
+}
+
+void AMoonfallPawn::ControllerZoomIn()
+{
+    if (Health > 0.f) Zoom(1.f);
+}
+
+void AMoonfallPawn::ControllerZoomOut()
+{
+    if (Health > 0.f) Zoom(-1.f);
+}
+
+void AMoonfallPawn::ControllerSetWaypoint()
+{
+    if (bWorldMapOpen) SetMapCenterWaypoint();
+    else SetWaypoint();
+}
+
 void AMoonfallPawn::SetWaypoint()
 {
     if (bWorldMapOpen) return; // V never replaces a clicked map waypoint.
@@ -968,6 +1014,11 @@ void AMoonfallPawn::SetupPlayerInputComponent(UInputComponent* Input)
     Input->BindAction(TEXT("ClearWaypoint"), IE_Pressed, this, &AMoonfallPawn::ClearWaypoint);
     Input->BindAction(TEXT("ToggleWorldMap"), IE_Pressed, this, &AMoonfallPawn::ToggleWorldMap);
     Input->BindAction(TEXT("CloseWorldMap"), IE_Pressed, this, &AMoonfallPawn::CloseWorldMap);
+    Input->BindAction(TEXT("ControllerConfirm"), IE_Pressed, this, &AMoonfallPawn::ControllerConfirm);
+    Input->BindAction(TEXT("ControllerBack"), IE_Pressed, this, &AMoonfallPawn::ControllerBack);
+    Input->BindAction(TEXT("ControllerZoomIn"), IE_Pressed, this, &AMoonfallPawn::ControllerZoomIn);
+    Input->BindAction(TEXT("ControllerZoomOut"), IE_Pressed, this, &AMoonfallPawn::ControllerZoomOut);
+    Input->BindAction(TEXT("ControllerSetWaypoint"), IE_Pressed, this, &AMoonfallPawn::ControllerSetWaypoint);
 }
 void AMoonfallPawn::Tick(float DeltaSeconds)
 {
