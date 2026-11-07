@@ -137,6 +137,12 @@ private:
     void Attack();
     void Dodge();
     void Parry();
+    void ControllerConfirm();
+    void ControllerBack();
+    void ControllerZoomIn();
+    void ControllerZoomOut();
+    void ControllerSetWaypoint();
+    void SetMapCenterWaypoint();
     void RespawnFromCheckpoint();
     void ClickRespawnButton();
     void CastBolt();
