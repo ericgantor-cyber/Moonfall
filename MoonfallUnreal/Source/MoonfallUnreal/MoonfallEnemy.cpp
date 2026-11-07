@@ -138,14 +138,26 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
    Entry.Amount = ActualDamage;
    Entry.Time = LastHitTime;
    Entry.bShatter = bLastHitWasShatter;
+   Entry.bKillingBlow = Health <= 0.f;
    NextDamageHistorySlot = (NextDamageHistorySlot + 1) % DamageHistorySize;
   }
   // Bosses absorb ordinary hits without repeated attack interruptions; phase changes still recover safely.
   // Normal enemies retain brief hit reactions to reward offensive pressure.
   if (!bBoss) HitReactionEndsAt = FMath::Max(HitReactionEndsAt, LastHitTime + 0.22f);
   if (Health <= 0.0f) {
-   if (AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0))) { Hero->AwardExperience(FMath::RoundToInt((bBoss ? 125.f : (bElite ? 50.f : 25.f)) * (1.f + 0.018f * FMath::Min(SpawnBalanceLevel - 1, 40)))); Hero->AwardEquipmentDrop(bElite, bBoss); }
-   SetActorHiddenInGame(true); SetActorEnableCollision(false); SetActorTickEnabled(false); SetLifeSpan(1.25f); }
+   // Disable combat first. The actor stays alive briefly so its final damage
+   // history remains readable to the HUD after the mesh is hidden.
+   SetActorEnableCollision(false);
+   SetActorTickEnabled(false);
+   OnEnemyDefeated(bLastHitWasShatter);
+   if (AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0))) {
+    const float RewardScale = 1.f + 0.018f * FMath::Min(SpawnBalanceLevel - 1, 40);
+    Hero->AwardExperience(FMath::RoundToInt((bBoss ? 125.f : (bElite ? 50.f : 25.f)) * RewardScale));
+    Hero->AwardEquipmentDrop(bElite, bBoss);
+   }
+   SetActorHiddenInGame(true);
+   SetLifeSpan(1.25f);
+  }
 }
 
 void AMoonfallEnemy::Tick(float DeltaSeconds) {
