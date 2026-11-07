@@ -42,6 +42,7 @@ public:
     int32 GetQuestClearedChambers() const;
     bool IsMapPositionDiscovered(const FVector& Position) const;
     int32 GetDiscoveredRegionCount() const;
+    bool IsWorldMapOpen() const { return bWorldMapOpen; }
     bool GetWaypoint(FVector& OutWaypoint) const;
     bool GetQuestDestination(FVector& OutDestination) const;
     TArray<FVector> GetEnemyMapPositions() const;
@@ -82,6 +83,7 @@ private:
     int32 DiscoveredRegionMask = 0; // Coarse legacy region summary.
     TArray<uint8> DiscoveredMapCells; // 48 x 16 cells (400 cm), saved independently.
     bool bHasWaypoint = false;
+    bool bWorldMapOpen = false;
     FVector Waypoint = FVector::ZeroVector;
     float EnemyDamageCooldown = 0.f;
     float CounterWindow = 0.f;
@@ -111,6 +113,8 @@ private:
     FMoonfallProgression Progression;
     bool bCasting = false, bWon = false;
     FVector TargetWorld = FVector::ZeroVector;
+    void ToggleWorldMap();
+    void PlaceMapWaypoint();
     void SetWaypoint();
     void ClearWaypoint();
     void MoveForward(float Value);
