@@ -187,7 +187,10 @@ void AMoonfallHeroPawn::CastBoth()
 }
 void AMoonfallHeroPawn::BeginGuard()
 {
- if (bOptionsOpen || Health <= 0.f || !GetWorld() || Mana < 4.f || bGuarding) return;
+ if (bOptionsOpen || Health <= 0.f || !GetWorld() || bGuarding
+     || !FMath::IsFinite(Stamina) || !FMath::IsFinite(MaxStamina) || MaxStamina <= 0.f
+     || !FMath::IsFinite(GuardStaminaCost) || GuardStaminaCost < 0.f
+     || Stamina < GuardStaminaCost) return;
  bGuarding = true;
  if (GetCharacterMovement()) GetCharacterMovement()->MaxWalkSpeed = NormalWalkSpeed;
  const float Now = GetWorld()->GetTimeSeconds();
@@ -279,19 +282,28 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
  const FVector ToSource = (IncomingDamageSource - GetActorLocation()).GetSafeNormal2D();
  const bool bFrontAttack = !bHasIncomingDamageSource || ToSource.IsNearlyZero()
   || FVector::DotProduct(GuardForward, ToSource) >= 0.258819f;
- if (bGuarding && bFrontAttack && !bOptionsOpen && Mana >= 4.f) {
-  Mana -= 4.f;
+ if (bGuarding && bFrontAttack && !bOptionsOpen
+     && FMath::IsFinite(Stamina) && FMath::IsFinite(MaxStamina) && MaxStamina > 0.f
+     && FMath::IsFinite(GuardStaminaCost) && GuardStaminaCost >= 0.f
+     && Stamina >= GuardStaminaCost) {
+  // Physical defense uses the same stamina pool as sprinting and dodging.
+  Stamina = FMath::Clamp(Stamina - GuardStaminaCost, 0.f, MaxStamina);
+  StaminaRegenStartsAt = Now + 0.8f;
   const bool bPerfectParry = Now <= ParryWindowEndsAt && Now <= NextParryAt;
   if (bPerfectParry) {
    bLastIncomingHitParried = bHasIncomingDamageSource;
    DamageAfterGuard = 0.f;
    ParryWindowEndsAt = -1.f;
-   Mana = FMath::Min(MaxMana, Mana + 8.f);
+   if (FMath::IsFinite(PerfectParryStaminaReward) && PerfectParryStaminaReward > 0.f)
+    Stamina = FMath::Clamp(Stamina + PerfectParryStaminaReward, 0.f, MaxStamina);
   } else {
    DamageAfterGuard *= 0.4f;
   }
   OnGuardImpact(ArmoredDamage - DamageAfterGuard, bPerfectParry);
-  if (Mana < 4.f) EndGuard();
+  if (Stamina < GuardStaminaCost) EndGuard();
+ } else if (bGuarding && bFrontAttack) {
+  // Insufficient stamina breaks guard without granting free damage reduction.
+  EndGuard();
  }
  Health = FMath::Max(0.f, Health - DamageAfterGuard);
  if (Health <= 0.f) EndGuard();
