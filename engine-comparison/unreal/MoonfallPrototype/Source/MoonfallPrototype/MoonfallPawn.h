@@ -40,6 +40,8 @@ public:
     bool IsBossDefeated() const { return bWon; }
     int32 GetQuestDefeatedBeasts() const;
     int32 GetQuestClearedChambers() const;
+    bool IsMapPositionDiscovered(const FVector& Position) const;
+    int32 GetDiscoveredRegionCount() const;
     TArray<FVector> GetEnemyMapPositions() const;
     TArray<FVector> GetChamberMapPositions() const;
 private:
@@ -75,6 +77,7 @@ private:
     int32 ClaimedChamberMask = 0;
     int32 DefeatedGuardianMask = 0;
     int32 DefeatedEnemyMask = 0;
+    int32 DiscoveredRegionMask = 0; // Six saved region bits; never reveal unvisited regions.
     float EnemyDamageCooldown = 0.f;
     float CounterWindow = 0.f;
     int32 BossAttackCount = 0;
