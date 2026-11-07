@@ -232,6 +232,23 @@ class UnrealMigrationParityGate(unittest.TestCase):
         self.assertIn('DrawText(TEXT("RESPAWN")', death_hud)
         self.assertIn("return;", death_hud)
 
+    def test_defeat_blocks_waypoint_save_and_camera_zoom(self):
+        base = ROOT / "engine-comparison/unreal/MoonfallPrototype"
+        pawn = (base / "Source/MoonfallPrototype/MoonfallPawn.cpp").read_text(encoding="utf-8")
+        zoom = pawn[pawn.index("void AMoonfallPawn::Zoom(float Value)"):
+                    pawn.index("void AMoonfallPawn::GetRespawnButtonBounds(", pawn.index("void AMoonfallPawn::Zoom(float Value)"))]
+        clear = pawn[pawn.index("void AMoonfallPawn::ClearWaypoint()"):
+                     pawn.index("void AMoonfallPawn::MoveForward(float Value)")]
+        pad = pawn[pawn.index("void AMoonfallPawn::ControllerSetWaypoint()"):
+                   pawn.index("void AMoonfallPawn::SetWaypoint()")]
+        self.assertIn("if (Health <= 0.f || bRespawnInProgress) return;", zoom)
+        self.assertLess(zoom.index("if (Health <= 0.f || bRespawnInProgress) return;"),
+                        zoom.index("ZoomDistance ="))
+        self.assertIn("if (Health <= 0.f || bRespawnInProgress || !bHasWaypoint) return;", clear)
+        self.assertLess(clear.index("if (Health <= 0.f"), clear.index("SaveProgress();"))
+        self.assertIn("if (Health <= 0.f || bRespawnInProgress) return;", pad)
+        self.assertIn("RespawnFromCheckpoint();", pawn)
+
     def test_gamepad_trigger_cannot_activate_mouse_map_or_death_clicks(self):
         base = ROOT / "engine-comparison/unreal/MoonfallPrototype"
         config = (base / "Config/DefaultInput.ini").read_text(encoding="utf-8")
