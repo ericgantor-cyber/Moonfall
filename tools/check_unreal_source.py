@@ -447,6 +447,26 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("PostureDistanceSq = FMath::Square(1200.f)", self.hud)
         self.assertNotIn('TEXT("GUARD BROKEN")', self.hud)
 
+    def test_chainable_finisher_montages_and_no_ko_text(self):
+        self.assertIn("TArray<TObjectPtr<UAnimMontage>> FinisherMontages;", self.hero_h)
+        self.assertIn("float FinisherChainWindowSeconds = 4.f;", self.hero_h)
+        self.assertIn("int32 FinisherChainCount = 0;", self.hero_h)
+        self.assertIn("void RegisterFinisherKill(bool bShatterKill, bool bBossKill);", self.hero_h)
+        self.assertIn("void OnFinisherChain(int32 ChainStep, bool bShatterKill, bool bBossKill);", self.hero_h)
+        combo = self.hero_cpp.split("void AMoonfallHeroPawn::RegisterFinisherKill(", 1)[1].split(
+            "void AMoonfallHeroPawn::AwardExperience(", 1)[0]
+        self.assertIn("FMath::Clamp(FinisherChainWindowSeconds, 0.5f, 10.f)", combo)
+        self.assertIn("FMath::Min(FinisherChainCount + 1, 5) : 1", combo)
+        self.assertIn("!bReduceMotion && GetMesh() && FinisherMontages.Num() > 0", combo)
+        self.assertIn("AnimInstance->Montage_Play(Montage, 1.f);", combo)
+        self.assertIn("OnFinisherChain(ChainStep, bShatterKill, bBossKill);", combo)
+        damage = self.enemy_cpp.split("void AMoonfallEnemy::TakeSpellDamage(float Amount)", 1)[1].split(
+            "void AMoonfallEnemy::Tick(", 1)[0]
+        self.assertIn("Hero->RegisterFinisherKill(bLastHitWasShatter, bBoss);", damage)
+        self.assertNotIn("SHATTER KO", self.hud)
+        self.assertNotIn("KO -%.0f", self.hud)
+        self.assertNotIn('TEXT("GUARD BROKEN")', self.hud)
+
     def test_killing_hit_keeps_damage_text_and_defeat_rewards_one_shot(self):
         self.assertIn("bool bKillingBlow = false;", self.enemy_h)
         self.assertIn("void OnEnemyDefeated(bool bKillingBlowWasShatter);", self.enemy_h)
@@ -461,9 +481,10 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(damage.index("SetActorEnableCollision(false);"), damage.index("OnEnemyDefeated(bLastHitWasShatter);"))
         self.assertLess(damage.index("OnEnemyDefeated(bLastHitWasShatter);"), damage.index("Hero->AwardExperience"))
         self.assertLess(damage.index("Hero->AwardEquipmentDrop"), damage.index("SetActorHiddenInGame(true);"))
-        self.assertIn("const bool bKillingBlow = Hit.bKillingBlow;", self.hud)
-        self.assertIn('FString::Printf(TEXT("SHATTER KO -%.0f"), Hit.Amount)', self.hud)
-        self.assertIn('FString::Printf(TEXT("KO -%.0f"), Hit.Amount)', self.hud)
+        self.assertNotIn('TEXT("SHATTER KO -%.0f")', self.hud)
+        self.assertNotIn('TEXT("KO -%.0f")', self.hud)
+        self.assertIn('FString::Printf(TEXT("-%.0f"), Hit.Amount)', self.hud)
+        self.assertIn("Hero->RegisterFinisherKill(bLastHitWasShatter, bBoss);", damage)
         self.assertIn("VisibleDamageNumbers < 32", self.hud)
         self.assertNotIn('TEXT("GUARD BROKEN")', self.hud)
 
@@ -496,7 +517,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("const bool bShatter = Hit.bShatter;", self.hud)
         self.assertIn('FString::Printf(TEXT("SHATTER -%.0f"), Hit.Amount)', self.hud)
         self.assertIn('FString::Printf(TEXT("-%.0f"), Hit.Amount)', self.hud)
-        self.assertIn("(bKillingBlow ? 1.65f : (bShatter ? 1.55f : 1.3f)) * Hero->CombatTextScale", self.hud)
+        self.assertIn("(bShatter ? 1.55f : 1.3f) * Hero->CombatTextScale", self.hud)
         self.assertIn("VisibleDamageNumbers < 32", self.hud)
         self.assertNotIn('TEXT("GUARD BROKEN")', self.hud)
 
