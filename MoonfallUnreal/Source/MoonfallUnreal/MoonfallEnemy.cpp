@@ -35,6 +35,7 @@ void AMoonfallEnemy::BeginPlay() {
  MaxPosture = FMath::IsFinite(MaxPosture) && MaxPosture > 0.f
    ? FMath::Clamp(MaxPosture * PostureMultiplier, 1.f, 10000.f) : 100.f * PostureMultiplier;
  Posture = 0.f;
+ BasePostureAtSpawn = MaxPosture;
 }
 
 void AMoonfallEnemy::ApplyPostureDamage(float Amount) {
@@ -54,6 +55,14 @@ void AMoonfallEnemy::ApplyPostureDamage(float Amount) {
  PostureBrokenUntil = Now + VulnerabilitySeconds;
  bPostureFinisherAvailable = true;
  PostureBreakCount = FMath::Min(PostureBreakCount + 1, 100000);
+ if (bBoss && FMath::IsFinite(BasePostureAtSpawn) && BasePostureAtSpawn > 0.f) {
+  const float Growth = FMath::IsFinite(BossPostureGrowthPerBreak)
+    ? FMath::Clamp(BossPostureGrowthPerBreak, 0.f, 0.5f) : 0.f;
+  const float Cap = FMath::IsFinite(BossPostureGrowthCap)
+    ? FMath::Clamp(BossPostureGrowthCap, 1.f, 3.f) : 1.f;
+  MaxPosture = FMath::Min(10000.f, BasePostureAtSpawn
+    * FMath::Min(Cap, 1.f + Growth * FMath::Min(PostureBreakCount, 100)));
+ }
  // Bosses cannot be immediately chained into another posture break after recovery.
  if (bBoss && FMath::IsFinite(BossPostureBreakRecoverySeconds))
   NextPostureBreakAllowedAt = PostureBrokenUntil
@@ -84,7 +93,11 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
   const bool bShatterFinisher = bPostureExposed && bPostureFinisherAvailable;
   const float FinisherMultiplier = bShatterFinisher && FMath::IsFinite(PostureFinisherDamageMultiplier)
     ? FMath::Clamp(PostureFinisherDamageMultiplier, 1.f, 4.f) : 1.f;
-  const float EffectiveDamage = (bElite && Now < HitReactionEndsAt ? Amount * 0.75f : Amount)
+  // A earned shatter finisher bypasses elite repeat-hit bracing, but normal
+  // spells still respect it. Avoids undercutting the one-shot payoff.
+  const float BracedDamage = bElite && Now < HitReactionEndsAt && !bShatterFinisher
+    ? Amount * 0.75f : Amount;
+  const float EffectiveDamage = BracedDamage
     * (bShatterFinisher ? FinisherMultiplier : (bPostureExposed ? ExposureMultiplier : 1.f));
   if (bShatterFinisher) bPostureFinisherAvailable = false;
   const float HealthBeforeHit = Health;
