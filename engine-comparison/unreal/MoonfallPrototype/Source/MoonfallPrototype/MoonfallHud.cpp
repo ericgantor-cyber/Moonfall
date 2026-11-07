@@ -67,6 +67,16 @@ void AMoonfallHud::DrawHUD()
         DrawRing(OrbCenter, 25.f, Hero->GetHudXpRatio(), FLinearColor(.70f, .40f, 1.f));
     }
 
+    if (Hero->GetHudHealth() <= 0.f)
+    {
+        // Single readable death prompt. Reuse the preserved last-living save;
+        // never add a new game mode or extra combat HUD controls.
+        const float CenterX = FMath::Max(16.f, Canvas->ClipX * 0.5f - 190.f);
+        const float CenterY = Canvas->ClipY * 0.5f;
+        DrawText(TEXT("DEFEATED  |  Press R to retry from checkpoint"),
+            FLinearColor(1.f, .52f, .5f), CenterX, CenterY);
+    }
+
     if (Hero->IsWorldMapOpen())
     {
         // Shared projection with pawn input: zoom and pan never desync clicks.
