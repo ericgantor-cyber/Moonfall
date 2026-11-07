@@ -111,6 +111,16 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("bInCombatArea ? 0.1f : 0.4f", self.enemy_cpp)
         self.assertIn("SetActorTickInterval(DesiredTickInterval)", self.enemy_cpp)
 
+    def test_options_menu_cancels_pending_enemy_windups(self):
+        tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds) {", 1)[1]
+        guard = tick.split("if (Hero->bOptionsOpen) {", 1)[1].split("\n }", 1)[0]
+        for reset in ("WindupEndsAt = -1.f", "BossWarningEndTime = -1.f",
+                      "bComboSecondHitPending = false", "bComboSecondHitActive = false"):
+            self.assertIn(reset, guard)
+        self.assertIn("NextAttackAt = FMath::Max(NextAttackAt", guard)
+        self.assertLess(tick.index("if (Hero->bOptionsOpen) {"),
+                        tick.index("if (WindupEndsAt > 0.f && Now >= WindupEndsAt)"))
+
     def test_enemy_attacks_cannot_go_through_cover(self):
         self.assertIn("SightParams.AddIgnoredActor(this)", self.enemy_cpp)
         self.assertIn("LineTraceSingleByChannel(", self.enemy_cpp)
