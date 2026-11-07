@@ -16,10 +16,8 @@ jobs:
           if (-not (Test-Path $buildTool)) { throw "Build.bat not found: $buildTool" }
           $uatTool = Join-Path $env:UE54_ROOT 'Engine\Build\BatchFiles\RunUAT.bat'
           if (-not (Test-Path $uatTool)) { throw "Unreal AutomationTool missing: $uatTool" }
-          # Use the same project-owned startup level validation as the local build.
-          # Unreal's generic Engine/Maps/Entry is not a playable Moonfall level.
-          & .\MoonfallUnreal\Build\Build-Windows.ps1 -UnrealRoot $env:UE54_ROOT -PreflightOnly
-          if ($LASTEXITCODE -ne 0) { throw "Moonfall startup-level preflight failed: $LASTEXITCODE" }
+          # The project-owned .umap is generated after the Editor target compiles.
+          # Do not require it before we have invoked Unreal Editor.
           $vswhere = Join-Path ([Environment]::GetFolderPath('ProgramFilesX86')) 'Microsoft Visual Studio\Installer\vswhere.exe'
           if (-not (Test-Path $vswhere)) { throw 'Visual Studio Installer / vswhere.exe missing. Install Visual Studio 2022 with Desktop development with C++.' }
           $vsInstallation = & $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
@@ -42,6 +40,29 @@ jobs:
           $uproject = (Resolve-Path 'MoonfallUnreal\MoonfallUnreal.uproject').Path
           & $buildTool MoonfallUnrealEditor Win64 Development "-Project=$uproject" -WaitMutex -NoHotReload
           if ($LASTEXITCODE -ne 0) { throw "Unreal compilation failed with exit code $LASTEXITCODE" }
+      - name: Generate and validate Moonfall startup level
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $editor = Join-Path $env:UE54_ROOT 'Engine\Binaries\Win64\UnrealEditor-Cmd.exe'
+          if (-not (Test-Path -LiteralPath $editor -PathType Leaf)) { throw "Unreal Editor command executable missing: $editor" }
+          $project = (Resolve-Path 'MoonfallUnreal\MoonfallUnreal.uproject').Path
+          $script = (Resolve-Path 'MoonfallUnreal\Build\Create-StartupLevel.py').Path
+          $map = 'MoonfallUnreal\Content\Maps\MoonfallStart.umap'
+          if (-not (Test-Path -LiteralPath $map -PathType Leaf)) {
+            # Full editor script mode provides the level-editor subsystems needed
+            # by Create-StartupLevel.py. This creates only a minimal starter map.
+            & $editor $project "-ExecutePythonScript=$script" -unattended -nop4
+            if ($LASTEXITCODE -ne 0) { throw "Unreal level generator exited $LASTEXITCODE" }
+          }
+          if (-not (Test-Path -LiteralPath $map -PathType Leaf)) {
+            throw 'Unreal Editor did not save MoonfallStart.umap. Inspect editor logs; no installer will be published.'
+          }
+          # Fail closed if script execution was skipped, failed partially, or
+          # saved a level without setting correct startup map and game mode.
+          & .\MoonfallUnreal\Build\Build-Windows.ps1 -UnrealRoot $env:UE54_ROOT -PreflightOnly
+          if (-not $?) { throw 'Generated Moonfall startup-level preflight failed.' }
+          "MoonfallStart.umap exists and packaging preflight passed. Gameplay is unverified." >> $env:GITHUB_STEP_SUMMARY
       - name: Package Windows game using AutomationTool
         shell: pwsh
         run: |
