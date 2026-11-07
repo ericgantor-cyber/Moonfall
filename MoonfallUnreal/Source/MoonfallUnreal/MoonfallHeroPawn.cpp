@@ -74,8 +74,18 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
   if (Stamina <= 0.f) bSprintExhausted = true;
  }
  const bool bSprinting = bCanSprint && !bSprintExhausted;
- if (GetCharacterMovement()) GetCharacterMovement()->MaxWalkSpeed = bSprinting
-     ? NormalWalkSpeed * FMath::Clamp(SprintSpeedMultiplier, 1.f, 2.5f) : NormalWalkSpeed;
+ if (GetCharacterMovement()) {
+  // Ramp into sprint without allowing boosted speed during guard, dodges,
+  // menus, death, exhaustion or a released sprint key.
+  if (bSprinting) {
+   const float TargetSpeed = NormalWalkSpeed * FMath::Clamp(SprintSpeedMultiplier, 1.f, 2.5f);
+   GetCharacterMovement()->MaxWalkSpeed = FMath::FInterpTo(
+       FMath::Clamp(GetCharacterMovement()->MaxWalkSpeed, NormalWalkSpeed, TargetSpeed),
+       TargetSpeed, StaminaDelta, FMath::Clamp(SprintAccelerationRate, 1.f, 20.f));
+  } else {
+   GetCharacterMovement()->MaxWalkSpeed = NormalWalkSpeed;
+  }
+ }
  // Stamina powers dodges independently of spell mana and regenerates after exertion.
  if (Health > 0.f && !bSprinting && GetWorld() && GetWorld()->GetTimeSeconds() >= StaminaRegenStartsAt
      && FMath::IsFinite(Stamina) && FMath::IsFinite(MaxStamina) && MaxStamina > 0.f
