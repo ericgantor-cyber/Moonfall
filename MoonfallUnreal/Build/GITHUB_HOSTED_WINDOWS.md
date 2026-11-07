@@ -41,3 +41,9 @@ The existing **self-hosted Unreal Windows build** workflow remains available for
 A real standard `windows-2022` GitHub Actions runner executed the dedicated [Windows hosted runner reality check](https://github.com/ericgantor-cyber/Moonfall/actions/runs/42315908958) successfully. Its log reported **150 GB total disk**, **147.03 GB available**, **Visual Studio 2022 C++ toolchain detected**, and **80 GB preliminary disk threshold passed**.
 
 These values describe **that specific runner instance at that time**, not a guaranteed size or available capacity for future GitHub-hosted machines. Unreal Engine 5.4 was not installed, downloaded, compiled, cooked, or packaged as part of this check. The full build still needs an authorized installed-engine archive supplied through the documented repository secrets (or an alternative supported UE provisioning method), and enough space on the *separate* compile job runner. Do not treat a passing preflight as a UE compilation result.
+
+## Fix-and-progress checks (2026-11-07 UTC)
+
+The hosted compile workflow now requires the preflight job's `has_capacity=true` output before scheduling the costly engine job. It also **rechecks free disk on the separate compile runner after downloading the ZIP**, reads the archive directory to estimate uncompressed size and requires at least **15 GB additional headroom** before extraction. Suspicious archive path entries are rejected. The [hosted Windows reality check](https://github.com/ericgantor-cyber/Moonfall/actions/workflows/unreal-hosted-reality-check.yml) now reruns when the hosted compiler workflow changes and validates that these safety checks remain in its source.
+
+These checks avoid known failure modes and are not yet proof the UE ZIP extraction and real Unreal compilation succeed. The managed Windows image remains an ephemeral machine; engine files are not persisted across jobs.
