@@ -1,0 +1,61 @@
+name: Moonfall UE5.6 Windows playable package (manual)
+
+# Manual trusted runner only. Compilation does not imply cooking, packaging or gameplay success.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: moonfall-ue56-package-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  package:
+    runs-on: [self-hosted, Windows, X64, unreal-5-6]
+    timeout-minutes: 180
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Check out reviewed revision
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Cook and package real UE5.6 Win64 game
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if (-not $env:UE56_ROOT) { throw 'UE56_ROOT is missing on the trusted Windows UE5.6 runner.' }
+          $script = '.\engine-comparison\unreal\MoonfallPrototype\Build\Package-Windows.ps1'
+          & $script -UnrealRoot $env:UE56_ROOT
+          if ($LASTEXITCODE -ne 0) { throw "Package script failed: $LASTEXITCODE" }
+          "Windows cooked game package created. Gameplay and installer not yet verified." >> $env:GITHUB_STEP_SUMMARY
+
+      - name: Upload packaged game only after cook succeeds
+        uses: actions/upload-artifact@v4
+        with:
+          name: MoonfallPrototype-UE56-Win64-UNTESTED
+          path: engine-comparison/unreal/MoonfallPrototype/Saved/WindowsPackage/
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload diagnostics on failure
+        if: failure()
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: MoonfallPrototype-UE56-PackageLogs
+          path: |
+            engine-comparison/unreal/MoonfallPrototype/Saved/Logs/
+            engine-comparison/unreal/MoonfallPrototype/Intermediate/Build/Win64/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Record limits
+        if: always()
+        run: |
+          "Status: ${{ job.status }}" >> $env:GITHUB_STEP_SUMMARY
+          "Requires a committed Content/Maps/MoonfallWorld.umap, trusted UE5.6 Windows runner and UE56_ROOT." >> $env:GITHUB_STEP_SUMMARY
+          "No desktop shortcut, signed installer, benchmark or playable smoke test is provided by this job." >> $env:GITHUB_STEP_SUMMARY
