@@ -715,7 +715,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Enemy->ApplyPostureDamage(FMath::Clamp(ParryCounterPostureDamage, 0.f, 100.f));", cast)
         self.assertIn("ParryCounterUntil = -1.f;", cast)
         self.assertLess(cast.index("!FMath::IsFinite(SpellDamage)"), cast.index("Enemy->TakeSpellDamage(SpellDamage);"))
-        self.assertLess(cast.index("Enemy->TakeSpellDamage(SpellDamage);"), cast.index("if (bCounterReady && Enemy->Health < HealthBeforeSpell)"))
+        self.assertLess(cast.index("Enemy->TakeSpellDamage(SpellDamage);"), cast.index("if (bCounterReady && ActualSpellDamage > 0.f)"))
         self.assertLess(cast.index("Enemy->ApplyPostureDamage("), cast.index("ParryCounterUntil = -1.f;"))
         self.assertNotIn('TEXT("GUARD BROKEN")', self.hud)
 
