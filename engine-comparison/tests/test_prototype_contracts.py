@@ -176,7 +176,7 @@ class PrototypeContracts(unittest.TestCase):
             "TArray<FVector> AMoonfallPawn::GetChamberMapPositions()", 1)[0]
         self.assertIn("if ((bRiposte && Enemy.bGuardian) || (bComboFinisher && !Enemy.bGuardian))", damage)
         self.assertIn("Enemy.StaggerTimer = Enemy.bGuardian ? 0.8f :", damage)
-        self.assertIn("FMath::Min(0.7f, 0.4f + 0.1f * ForgedRegionTier(2))", damage)
+        self.assertIn("FMath::Min(0.8f, 0.4f + 0.1f * ForgedRegionTier(2))", damage)
         self.assertIn("if (Enemy.Mesh && HeroMesh)", damage)
         self.assertIn("Away.Z = 0.f;", damage)
         self.assertIn("if (!Away.IsNearlyZero())", damage)
