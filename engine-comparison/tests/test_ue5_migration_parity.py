@@ -591,7 +591,7 @@ class UnrealMigrationParityGate(unittest.TestCase):
                     cpp.index("float AMoonfallPawn::BasicAttackDamage()")]
         self.assertIn("MoonfallWorldRules::RegionAt(HeroMesh->GetRelativeLocation().X)", forge)
         self.assertIn("(LocalRegion + Offset) % MoonfallWorldRules::RegionCount", forge)
-        self.assertIn("if (CurrentTier >= 3) continue;", forge)
+        self.assertIn("if (CurrentTier >= 4) continue;", forge)
         self.assertIn("const int32 MaterialCost = CurrentTier == 0 ? 2 : 1;", forge)
         self.assertIn("!IsSafeCheckpointLocation()", forge)
         self.assertIn("SaveProgress();", forge)
@@ -640,6 +640,30 @@ class UnrealMigrationParityGate(unittest.TestCase):
         self.assertNotIn("INCOMING %.1fs",
             (base / "Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8"))
 
+    def test_masterwork_uses_fifth_guardian_cache_with_bounded_rank_four(self):
+        base = ROOT / "engine-comparison/unreal/MoonfallPrototype"
+        cpp = (base / "Source/MoonfallPrototype/MoonfallPawn.cpp").read_text(encoding="utf-8")
+        rules = (base / "Source/MoonfallPrototype/MoonfallWorldRules.h").read_text(encoding="utf-8")
+        self.assertIn("ChambersPerRegion = 5", rules)
+        scan = cpp[cpp.index("int32 AMoonfallPawn::ForgedRegionTier("):
+                   cpp.index("void AMoonfallPawn::ForgeEquipment()")]
+        self.assertIn("Rank >= 1 && Rank <= 4", scan)
+        self.assertIn("return FMath::Min(12, Power);", scan)
+        forge = cpp[cpp.index("void AMoonfallPawn::ForgeEquipmentForType(int32 DesiredType)"):
+                    cpp.index("float AMoonfallPawn::BasicAttackDamage()")]
+        self.assertIn("if (CurrentTier >= 4) continue;", forge)
+        self.assertIn("const int32 MaterialCost = CurrentTier == 0 ? 2 : 1;", forge)
+        self.assertIn("const int32 Id = Region * MoonfallWorldRules::ChambersPerRegion + Chamber;", forge)
+        self.assertIn("if ((ClaimedChamberMask & (1 << Id)) == 0 ||", forge)
+        self.assertIn("(DefeatedGuardianMask & (1 << Id)) == 0) continue;", forge)
+        self.assertIn("MaterialsToSpend.Num() != MaterialCost", forge)
+        self.assertIn("ConsumedMaterialNames.Contains(BossInventory[I])", forge)
+        self.assertIn("Gear[Region], CurrentTier + 1", forge)
+        self.assertEqual(forge.count("SaveProgress();"), 1)
+        self.assertEqual(sum(2 if tier == 0 else 1 for tier in range(4)), 5)
+        self.assertNotIn("INCOMING %.1fs",
+            (base / "Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8"))
+
     def test_chamber_forging_ranks_are_unique_bounded_and_persistent(self):
         base = ROOT / "engine-comparison/unreal/MoonfallPrototype"
         cpp = (base / "Source/MoonfallPrototype/MoonfallPawn.cpp").read_text(encoding="utf-8")
@@ -655,13 +679,14 @@ class UnrealMigrationParityGate(unittest.TestCase):
                    cpp.index("void AMoonfallPawn::ForgeEquipment()")]
         self.assertIn("const FString RankText = Item.RightChop(Prefix.Len());", scan)
         self.assertIn("if (!RankText.IsNumeric()) continue;", scan)
-        self.assertIn("FMath::Min(3, Rank)", scan)
-        self.assertIn("FMath::Min(9, Power)", scan)
+        self.assertIn("Rank >= 1 && Rank <= 4", scan)
+        self.assertIn("BestTier = FMath::Max(BestTier, Rank);", scan)
+        self.assertIn("FMath::Min(12, Power)", scan)
         self.assertIn("Power += ForgedRegionTier(Region);", scan)
         forge = cpp[cpp.index("void AMoonfallPawn::ForgeEquipment()"):
                     cpp.index("float AMoonfallPawn::BasicAttackDamage()")]
         self.assertIn("!IsSafeCheckpointLocation()", forge)
-        self.assertIn("if (CurrentTier >= 3) continue;", forge)
+        self.assertIn("if (CurrentTier >= 4) continue;", forge)
         self.assertIn("const int32 MaterialCost = CurrentTier == 0 ? 2 : 1;", forge)
         self.assertIn("MaterialsToSpend.Num() != MaterialCost", forge)
         self.assertIn("ClaimedChamberMask & (1 << Id)", forge)
