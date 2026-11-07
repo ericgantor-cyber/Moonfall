@@ -69,6 +69,19 @@ class PackageContract(unittest.TestCase):
                         workflow.index("Upload packaged game only after cook succeeds"))
         self.assertIn("if (@($data.files).Count -eq 0)", workflow)
 
+    def test_local_end_to_end_verification_command(self):
+        verify = (ROOT / "engine-comparison/unreal/MoonfallPrototype/Build/Verify-Windows.ps1").read_text(encoding="utf-8")
+        for required in ("Check-WindowsRunner.ps1", "Package-Windows.ps1",
+                         "SmokeTest-Windows.ps1", "MoonfallPrototypeEditor",
+                         "'MoonfallPrototype'", "'Win64'", "'Development'",
+                         "-OutputDirectory $OutputDirectory", "-BootSeconds $BootSeconds",
+                         "Refusing to reuse a nonempty archive directory",
+                         "Unreal $Target C++ compilation failed"):
+            self.assertIn(required, verify)
+        self.assertLess(verify.index("& $Preflight"), verify.index("& $Build"))
+        self.assertLess(verify.index("& $Build"), verify.index("& $Packager"))
+        self.assertLess(verify.index("& $Packager"), verify.index("& $Smoke"))
+
     def test_trusted_windows_runner_preflight_before_engine_actions(self):
         preflight = (ROOT / "engine-comparison/unreal/MoonfallPrototype/Build/Check-WindowsRunner.ps1").read_text(encoding="utf-8")
         compile_ci = (ROOT / ".github/workflows/ue56-prototype-compile-windows.yml").read_text(encoding="utf-8")
