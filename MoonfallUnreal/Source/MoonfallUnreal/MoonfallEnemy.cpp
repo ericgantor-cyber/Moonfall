@@ -145,25 +145,56 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
   // Normal enemies retain brief hit reactions to reward offensive pressure.
   if (!bBoss) HitReactionEndsAt = FMath::Max(HitReactionEndsAt, LastHitTime + 0.22f);
   if (Health <= 0.0f) {
-   // Disable combat first. The actor stays alive briefly so its final damage
-   // history remains readable to the HUD after the mesh is hidden.
+   // Disable combat immediately but retain the mesh for real native defeat
+   // choreography. Tick handles only death visuals after Health reaches zero.
    SetActorEnableCollision(false);
-   SetActorTickEnabled(false);
+   DefeatAnimationStartedAt = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f;
+   DefeatAnimationOrigin = GetActorLocation();
+   bDefeatAnimationShatter = bLastHitWasShatter;
+   DefeatAnimationStyle = 1;
+   SetActorTickEnabled(true);
+   SetActorTickInterval(0.f);
    OnEnemyDefeated(bLastHitWasShatter);
    if (AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0))) {
-    Hero->RegisterFinisherKill(bLastHitWasShatter, bBoss);
+    DefeatAnimationStyle = FMath::Max(1, Hero->RegisterFinisherKill(bLastHitWasShatter, bBoss, GetActorLocation()));
     const float RewardScale = 1.f + 0.018f * FMath::Min(SpawnBalanceLevel - 1, 40);
     Hero->AwardExperience(FMath::RoundToInt((bBoss ? 125.f : (bElite ? 50.f : 25.f)) * RewardScale));
     Hero->AwardEquipmentDrop(bElite, bBoss);
    }
-   SetActorHiddenInGame(true);
+   // Brief visibility is essential: no instant pop/disappear before finisher.
    SetLifeSpan(1.25f);
   }
 }
 
+void AMoonfallEnemy::TickDefeatAnimation(float DeltaSeconds)
+{
+ if (!Body || !GetWorld()) return;
+ const float Age = GetWorld()->GetTimeSeconds() - DefeatAnimationStartedAt;
+ const float T = FMath::Clamp(Age / 1.15f, 0.f, 1.f);
+ const float Ease = T * T * (3.f - 2.f * T);
+ const float Direction = DefeatAnimationStyle % 2 == 0 ? -1.f : 1.f;
+ const float Spin = DefeatAnimationStyle == 4 ? 900.f : (DefeatAnimationStyle == 3 ? 540.f : 200.f);
+ const float Launch = DefeatAnimationStyle == 2 ? 210.f * FMath::Sin(T * PI)
+   : DefeatAnimationStyle == 5 ? 100.f * FMath::Sin(T * PI)
+   : 85.f * FMath::Sin(T * PI);
+ const float Backward = (bDefeatAnimationShatter ? 160.f : 95.f) * Ease;
+ const FVector Offset = -GetActorForwardVector().GetSafeNormal2D() * Backward
+   + FVector::UpVector * Launch;
+ SetActorLocation(DefeatAnimationOrigin + Offset, false);
+ Body->SetRelativeRotation(FRotator(Direction * Spin * Ease, 0.f,
+   DefeatAnimationStyle == 3 ? Direction * 180.f * Ease : 0.f));
+ const float Shrink = FMath::Clamp(1.f - 0.94f * FMath::Pow(T, 2.f), 0.06f, 1.f);
+ Body->SetRelativeScale3D(FVector(0.85f, 0.85f, 1.4f) * Shrink);
+ // Actor is removed by the 1.25-second lifespan, with collisions already off.
+}
+
 void AMoonfallEnemy::Tick(float DeltaSeconds) {
  Super::Tick(DeltaSeconds);
- if (Health <= 0.f || !GetWorld()) return;
+ if (!GetWorld()) return;
+ if (Health <= 0.f) {
+  TickDefeatAnimation(DeltaSeconds);
+  return;
+ }
  const float Now = GetWorld()->GetTimeSeconds();
  // A shatter follow-up expires with its break window. Never carry it into
  // another posture cycle or let an expired flag affect later spells.
