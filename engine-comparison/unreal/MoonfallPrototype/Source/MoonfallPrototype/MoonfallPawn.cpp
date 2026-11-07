@@ -109,6 +109,11 @@ void AMoonfallPawn::BeginPlay()
                     bLoadedCheckpoint = true;
                 }
             }
+            // Keep world achievements, inventory, and discovery flags from a
+            // legacy or damaged save, but repair an unusable respawn snapshot.
+            // Otherwise bHasCheckpoint may stay true forever and prevent
+            // safe checkpoint bootstrap when enemies occupy the start.
+            bCheckpointNeedsRepair = Progress->bHasCheckpoint && !bLoadedCheckpoint;
             // Legacy SelectedHeroIndex is retained in old save objects but ignored:
             // Z and Nyra are encounter bosses, not player avatar choices.
             DefeatedEnemyMask = Progress->DefeatedEnemyMask & ((1 << MoonfallWorldRules::TotalEnemies) - 1);
@@ -153,6 +158,12 @@ void AMoonfallPawn::BeginPlay()
     DiscoveredRegionMask |= 1 << MoonfallWorldRules::RegionAt(HeroMesh->GetRelativeLocation().X);
     RevealNearbyMapCells(HeroMesh->GetRelativeLocation());
     BuildWorld();
+    if (bCheckpointNeedsRepair)
+    {
+        // Replace the damaged checkpoint at the new-game starting position.
+        // This is an explicit repair, not a reset of earned loot or discoveries.
+        SaveProgress();
+    }
     // Runtime boot marker for the trusted Windows smoke test. A map name in the
     // engine log alone does not prove the pawn or its continuous world started.
     if (GetWorld() && HeroMesh && FloorMesh && Camera && Health > 0.f)
@@ -596,11 +607,12 @@ void AMoonfallPawn::SaveProgress()
     Progress->DefeatedGuardianMask = DefeatedGuardianMask;
     Progress->bBossDefeated = bWon;
     // Preserve legacy SelectedHeroIndex from the loaded save; never reassign it.
+    bool bWroteCheckpoint = false;
     // Always persist quest, loot and enemy victories immediately, but do not
     // overwrite a living checkpoint while surrounded by enemies or near a boss.
     // Bootstrap a first checkpoint even if the starting area is contested.
     if (HeroMesh && Health > 0.f &&
-        (!Progress->bHasCheckpoint || IsSafeCheckpointLocation()))
+        (!Progress->bHasCheckpoint || bCheckpointNeedsRepair || IsSafeCheckpointLocation()))
     {
         Progress->bHasCheckpoint = true;
         Progress->SavedHeroPosition = HeroMesh->GetRelativeLocation();
@@ -608,9 +620,12 @@ void AMoonfallPawn::SaveProgress()
         Progress->bHasResourceCheckpoint = true;
         Progress->SavedMana = Mana;
         Progress->SavedStamina = Stamina;
+        bWroteCheckpoint = true;
     }
     if (!UGameplayStatics::SaveGameToSlot(Progress, TEXT("MoonfallPrototypeBossRewards"), 0))
         UE_LOG(LogTemp, Warning, TEXT("Moonfall prototype: reward save failed."));
+    else if (bWroteCheckpoint)
+        bCheckpointNeedsRepair = false;
 }
 
 bool AMoonfallPawn::GetWaypoint(FVector& OutWaypoint) const
