@@ -93,4 +93,20 @@ void AMoonfallHud::DrawHUD()
         DrawMarker(Left + 80.f + BossOffset.X * .04f,
             98.f - BossOffset.Y * .04f, FLinearColor::Red);
     DrawMarker(Left + 80.f, 98.f, FLinearColor(.2f, .9f, 1.f));
+
+    // Quest tracker ports a persistent Godot-style objective list without
+    // duplicating save flags. The radar and original orb artwork stay intact.
+    const float QuestX = FMath::Max(10.f, Canvas->ClipX - 280.f);
+    const float QuestY = 192.f;
+    const int32 Beasts = Hero->GetQuestDefeatedBeasts();
+    const int32 Chambers = Hero->GetQuestClearedChambers();
+    DrawText(TEXT("WORLD QUESTS"), FLinearColor(.95f, .82f, .52f), QuestX, QuestY);
+    DrawText(FString::Printf(TEXT("%s Hunt beasts  %d/%d"),
+        Beasts >= 18 ? TEXT("[DONE]") : TEXT("[ ]"), Beasts, 18),
+        FLinearColor::White, QuestX, QuestY + 25.f);
+    DrawText(FString::Printf(TEXT("%s Clear chambers  %d/%d"),
+        Chambers >= 30 ? TEXT("[DONE]") : TEXT("[ ]"), Chambers, 30),
+        FLinearColor::White, QuestX, QuestY + 48.f);
+    DrawText(Hero->IsBossDefeated() ? TEXT("[DONE] Defeat Z") : TEXT("[ ] Defeat Z"),
+        FLinearColor::White, QuestX, QuestY + 71.f);
 }
