@@ -272,7 +272,9 @@ void AMoonfallHeroPawn::Dodge()
 {
  if (bOptionsOpen || Health <= 0.f || !GetWorld()) return;
  const float Now = GetWorld()->GetTimeSeconds();
- if (Now < NextDodgeAt || !FMath::IsFinite(Stamina) || !FMath::IsFinite(MaxStamina)
+ if (Now < NextDodgeAt || Now < DamageImmunityUntil
+     || !FMath::IsFinite(DodgeCooldown) || DodgeCooldown <= 0.f
+     || !FMath::IsFinite(Stamina) || !FMath::IsFinite(MaxStamina)
      || !FMath::IsFinite(DodgeStaminaCost) || MaxStamina <= 0.f
      || DodgeStaminaCost < 0.f || Stamina < DodgeStaminaCost
      || !FMath::IsFinite(DodgeLaunchSpeed) || DodgeLaunchSpeed <= 0.f) return;
@@ -282,7 +284,9 @@ void AMoonfallHeroPawn::Dodge()
  // Dodge takes priority over sprint. Releasing Sprint permits a fresh attempt.
  bSprintExhausted = true;
  EndGuard();
- NextDodgeAt = Now + DodgeCooldown;
+ // Even if a Blueprint changes cooldown at runtime, dodges cannot restart
+ // inside the 0.24s immunity window or schedule a nonfinite cooldown.
+ NextDodgeAt = Now + FMath::Clamp(DodgeCooldown, 0.24f, 5.f);
  DamageImmunityUntil = Now + 0.24f;
  PerfectDodgeWindowUntil = Now + 0.14f;
  // Prefer live input for responsive controller/keyboard dodges. On frames
