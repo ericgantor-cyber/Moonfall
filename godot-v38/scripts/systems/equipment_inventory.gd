@@ -72,6 +72,20 @@ static func loot_enemy(state:Dictionary,hero_level:int,seed:int)->Dictionary:
   return drop
  return item
 
+static func _roll_strength(roll:Dictionary)->int:
+ # Score only bonuses that can actually contribute to character stats.
+ var strength:int=clampi(int(roll.get("power_bonus",0)),0,12)
+ var used:Dictionary={}
+ var affixes:Variant=roll.get("affixes",[])
+ if not affixes is Array:return strength
+ for affix in affixes:
+  if not affix is Dictionary:continue
+  var stat:String=str(affix.get("stat",""))
+  if not RNG.AFFIXES.has(stat) or used.has(stat):continue
+  used[stat]=true
+  strength+=clampi(int(affix.get("value",0)),0,30)
+ return strength
+
 static func totals(state:Dictionary)->Dictionary:
  var stats:Dictionary={"weapon_power":0,"armor":0,"magic":0,"vitality":0,"haste":0,"crit":0,"ward":0,"elemental":0}
  var slots:Dictionary=state.get("equipped",{})
@@ -87,7 +101,9 @@ static func totals(state:Dictionary)->Dictionary:
   var best_roll:Dictionary={}
   for roll in state.get("loot_rolls",[]):
    if roll is Dictionary and str(roll.get("item_id",""))==str(item["id"]):
-    if int(roll.get("rarity_index",0))>int(best_roll.get("rarity_index",-1)):
+    var rolled_rarity:int=clampi(int(roll.get("rarity_index",0)),0,4)
+    var best_rarity:int=int(best_roll.get("rarity_index",-1))
+    if rolled_rarity>best_rarity or (rolled_rarity==best_rarity and _roll_strength(roll)>_roll_strength(best_roll)):
      best_roll=roll
   var bonus:int=clampi(int(best_roll.get("power_bonus",0)),0,12)
   if str(item["category"])=="weapon":stats["weapon_power"]+=bonus
