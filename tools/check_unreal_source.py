@@ -383,6 +383,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Now < PostureBrokenUntil", damage)
         self.assertIn("bPostureExposed ? ExposureMultiplier : 1.f", damage)
         self.assertIn("ApplyPostureDamage(ActualDamage * FMath::Clamp(SpellPostureScale, 0.f, 2.f))", damage)
+        self.assertIn("HitReactionEndsAt = FMath::Max(HitReactionEndsAt, LastHitTime + 0.22f);", damage)
         tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
         self.assertIn("Now >= PostureRecoveryStartsAt", tick)
         self.assertIn("OnPostureChanged(Posture, MaxPosture);", tick)
