@@ -185,9 +185,18 @@ void AMoonfallHeroPawn::CastBoth()
   OnSpellCast(LeftSpell, false);
  }
 }
+void AMoonfallHeroPawn::BreakGuard()
+{
+ if (!bGuarding || !GetWorld()) return;
+ EndGuard();
+ GuardBrokenUntil = GetWorld()->GetTimeSeconds() + FMath::Clamp(GuardBreakRecoverySeconds, 0.f, 3.f);
+ OnGuardBroken();
+}
+
 void AMoonfallHeroPawn::BeginGuard()
 {
  if (bOptionsOpen || Health <= 0.f || !GetWorld() || bGuarding
+     || GetWorld()->GetTimeSeconds() < GuardBrokenUntil
      || !FMath::IsFinite(Stamina) || !FMath::IsFinite(MaxStamina) || MaxStamina <= 0.f
      || !FMath::IsFinite(GuardStaminaCost) || GuardStaminaCost < 0.f
      || Stamina < GuardStaminaCost) return;
@@ -300,10 +309,10 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
    DamageAfterGuard *= 0.4f;
   }
   OnGuardImpact(ArmoredDamage - DamageAfterGuard, bPerfectParry);
-  if (Stamina < GuardStaminaCost) EndGuard();
+  if (Stamina < GuardStaminaCost) BreakGuard();
  } else if (bGuarding && bFrontAttack) {
   // Insufficient stamina breaks guard without granting free damage reduction.
-  EndGuard();
+  BreakGuard();
  }
  Health = FMath::Max(0.f, Health - DamageAfterGuard);
  if (Health <= 0.f) EndGuard();
