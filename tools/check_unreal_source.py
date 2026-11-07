@@ -21,6 +21,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         ast.parse(generator)
         project = json.loads((ROOT.parents[1] / "MoonfallUnreal.uproject").read_text(encoding="utf-8"))
         self.assertTrue(any(p.get("Name") == "PythonScriptPlugin" and p.get("Enabled") for p in project.get("Plugins", [])))
+        self.assertTrue(any(p.get("Name") == "EditorScriptingUtilities" and p.get("Enabled") for p in project.get("Plugins", [])))
         self.assertIn('MAP = "/Game/Maps/MoonfallStart"', generator)
         self.assertIn("EditorAssetLibrary.does_asset_exist(MAP)", generator)
         self.assertIn("levels.new_level(MAP, is_partitioned_world=False)", generator)
@@ -83,6 +84,17 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         workflow = (ROOT.parents[2] / ".github" / "workflows" /
                     "unreal-windows-build.yml").read_text(encoding="utf-8")
         self.assertIn("Build-Windows.ps1 -UnrealRoot $env:UE54_ROOT -PreflightOnly", workflow)
+        self.assertIn("UnrealEditor-Cmd.exe", workflow)
+        self.assertIn("-ExecutePythonScript=$script", workflow)
+        self.assertIn("Create-StartupLevel.py", workflow)
+        self.assertIn("MoonfallStart.umap", workflow)
+        self.assertLess(workflow.index("Compile Unreal Editor Win64 Development"),
+                        workflow.index("Generate and validate Moonfall startup level"))
+        self.assertLess(workflow.index("Generate and validate Moonfall startup level"),
+                        workflow.index("Package Windows game using AutomationTool"))
+        self.assertLess(workflow.index("Generate and validate Moonfall startup level"),
+                        workflow.index("Build-Windows.ps1 -UnrealRoot $env:UE54_ROOT -PreflightOnly"))
+        self.assertIn("if (-not (Test-Path -LiteralPath $map -PathType Leaf))", workflow)
         self.assertIn('"-map=/Game/Maps/MoonfallStart"', workflow)
         self.assertNotIn("Engine\\Content\\Maps\\Entry.umap", workflow)
 
