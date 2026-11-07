@@ -429,6 +429,27 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("FMath::Max(StaminaRegenStartsAt, GetWorld()->GetTimeSeconds() + 0.4f)", end_guard)
         self.assertNotIn('TEXT("GUARD BROKEN")', self.hud)
 
+    def test_perfect_parry_counterspell_is_time_limited_and_consumed_on_hit(self):
+        self.assertIn("float ParryCounterWindowSeconds = 2.f;", self.hero_h)
+        self.assertIn("float ParryCounterDamageMultiplier = 1.25f;", self.hero_h)
+        self.assertIn("float ParryCounterUntil = -1.f;", self.hero_h)
+        damage = self.hero_cpp.split("void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount)", 1)[1].split(
+            "void AMoonfallHeroPawn::CycleGraphicsQuality()", 1)[0]
+        self.assertIn("ParryCounterUntil = Now + FMath::Clamp(ParryCounterWindowSeconds, 0.f, 5.f)", damage)
+        self.assertIn("FMath::IsFinite(ParryCounterWindowSeconds)", damage)
+        cast = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split(
+            "void AMoonfallHeroPawn::CastLeft()", 1)[0]
+        self.assertIn("Time <= ParryCounterUntil", cast)
+        self.assertIn("FMath::Clamp(ParryCounterDamageMultiplier, 1.f, 2.f)", cast)
+        self.assertIn("Enemy->TakeSpellDamage(", cast)
+        self.assertIn("* CounterMultiplier)", cast)
+        self.assertIn("if (bCounterReady) ParryCounterUntil = -1.f;", cast)
+        self.assertLess(cast.index("Enemy->TakeSpellDamage("),
+                        cast.index("if (bCounterReady) ParryCounterUntil = -1.f;"))
+        self.assertLess(cast.index("if (!IsValid(Enemy) || Enemy->Health <= 0.f) return false;"),
+                        cast.index("const bool bCounterReady"))
+        self.assertNotIn('TEXT("GUARD BROKEN")', self.hud)
+
     def test_guard_break_cooldown_without_hud_warning(self):
         self.assertIn("float GuardBrokenUntil = 0.f;", self.hero_h)
         self.assertIn("float GuardBreakRecoverySeconds = 1.0f;", self.hero_h)
