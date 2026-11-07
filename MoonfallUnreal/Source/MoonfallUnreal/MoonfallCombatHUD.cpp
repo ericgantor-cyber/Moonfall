@@ -104,22 +104,14 @@ void AMoonfallCombatHUD::DrawHUD()
  // Nearest living boss, displayed without creating additional widget actors.
  const AMoonfallEnemy* Boss = nullptr;
  float BossDistanceSq = TNumericLimits<float>::Max();
- // The nearest boss belongs to the combat health bar. Quest progression must
- // follow the boss associated with the quest's original world target instead.
- const AMoonfallEnemy* QuestBoss = nullptr;
- float QuestBossDistanceSq = TNumericLimits<float>::Max();
+ // Combat can display the nearest boss, while the quest uses its exact
+ // weak actor reference. Proximity must never silently switch quest targets.
+ const AMoonfallEnemy* QuestBoss = Hero->GetArenaBossQuestTarget();
  for (TActorIterator<AMoonfallEnemy> It(GetWorld()); It; ++It) {
   const AMoonfallEnemy* E = *It;
   if (!IsValid(E) || !E->bBoss || E->Health <= 0.f) continue;
   const float DistSq = FVector::DistSquared(E->GetActorLocation(), Hero->GetActorLocation());
   if (DistSq < BossDistanceSq) { Boss = E; BossDistanceSq = DistSq; }
-  if (Hero->bArenaBossQuestActive && Hero->bQuestTargetActive) {
-   const float QuestDistSq = FVector::DistSquared2D(E->GetActorLocation(), Hero->QuestTarget);
-   if (QuestDistSq < QuestBossDistanceSq) {
-    QuestBoss = E;
-    QuestBossDistanceSq = QuestDistSq;
-   }
-  }
  }
  // Compact quest tracker tracks the quest's boss, not an unrelated nearby boss.
  if (Hero->bArenaBossQuestActive && Hero->bQuestTargetActive) {
