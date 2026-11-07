@@ -142,6 +142,9 @@ void AMoonfallPawn::BeginPlay()
     }
     if (!bLoadedCheckpoint)
         Health = GetHudMaxHealth(); // Full health at a new start, never from kills.
+    // Loaded living checkpoints may be within enemy aggro range. Grant a short
+    // damage-only grace period so respawn cannot instantly chain into death.
+    RespawnGraceTimer = bLoadedCheckpoint ? 2.5f : 0.f;
     // Load original boss art before world generation so Nyra's guardian can use it.
     // Missing imports retain the regular prototype mesh.
     ZArtwork = LoadObject<UTexture2D>(nullptr, TEXT("/Game/MoonfallArt/heroes/Z_Original.Z_Original"));
@@ -1109,6 +1112,9 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
     BoltCooldown = FMath::Max(0.f, BoltCooldown - Dt);
     HealCooldown = FMath::Max(0.f, HealCooldown - Dt);
     EnemyDamageCooldown = FMath::Max(0.f, EnemyDamageCooldown - Dt);
+    // Timer advances only in live gameplay. The world atlas pauses it too.
+    const bool bRespawnProtectedThisFrame = RespawnGraceTimer > 0.f;
+    RespawnGraceTimer = FMath::Max(0.f, RespawnGraceTimer - FMath::Min(Dt, 0.05f));
     // Preserve earned ripostes during a render stall, matching dodge and telegraph timing.
     CounterWindow = FMath::Max(0.f, CounterWindow - ReactionDt);
     CheckpointTimer += Dt;
@@ -1174,13 +1180,16 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
                     if (Enemies.IsValidIndex(ContactIndex))
                         Enemies[ContactIndex].StaggerTimer = 0.8f;
                 }
-                else
+                else if (!bRespawnProtectedThisFrame)
                 {
                     const float ContactDamage = 5.f + 2.f * Contact.Region +
                         (Contact.bEnraged ? 4.f : 0.f);
                     Health = FMath::Max(0.f, Health - ContactDamage);
                 }
-                EnemyDamageCooldown = 1.2f;
+                // Protection does not consume damage recovery. The first
+                // unprotected contact must still be a real threat.
+                if (!bRespawnProtectedThisFrame)
+                    EnemyDamageCooldown = 1.2f;
             }
         }
     }
@@ -1261,7 +1270,7 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
                     CounterWindow = CounterDuration;
                     Stamina = FMath::Min(GetHudMaxStamina(), Stamina + 10.f);
                 }
-                else if (EnemyDamageCooldown <= 0.f)
+                else if (EnemyDamageCooldown <= 0.f && !bRespawnProtectedThisFrame)
                 {
                     // Boss and mob strikes share a brief damage recovery window:
                     // overlapping attacks must not instantly double-hit the hero.
