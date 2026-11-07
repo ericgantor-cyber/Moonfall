@@ -193,21 +193,28 @@ void AMoonfallCombatHUD::DrawHUD()
  int32 VisibleDamageNumbers = 0;
  for (TActorIterator<AMoonfallEnemy> It(GetWorld()); It && VisibleDamageNumbers < 32; ++It) {
   const AMoonfallEnemy* Enemy = *It;
-  const float Age = GetWorld()->GetTimeSeconds() - Enemy->LastHitTime;
-  if (Age < 0.f || Age > 0.8f || Enemy->LastHitAmount <= 0.f) continue;
-  FVector2D Screen;
-  if (GetOwningPlayerController() && GetOwningPlayerController()->ProjectWorldLocationToScreen(Enemy->GetActorLocation() + FVector(0,0,175.f + Age*65.f), Screen) &&
-      Screen.X >= 0.f && Screen.X < Canvas->SizeX && Screen.Y >= 0.f && Screen.Y < Canvas->SizeY) {
-   ++VisibleDamageNumbers;
-   const bool bShatter = Enemy->bLastHitWasShatter;
-   const FLinearColor DamageColor = bShatter
-     ? FLinearColor(1.f, 0.56f, 0.22f, 1.f - Age / 0.8f)
-     : FLinearColor(1.f, 0.84f, 0.2f, 1.f - Age / 0.8f);
-   const FString DamageLabel = bShatter
-     ? FString::Printf(TEXT("SHATTER -%.0f"), Enemy->LastHitAmount)
-     : FString::Printf(TEXT("-%.0f"), Enemy->LastHitAmount);
-   DrawText(DamageLabel, DamageColor, Screen.X, Screen.Y, nullptr,
-     (bShatter ? 1.55f : 1.3f) * Hero->CombatTextScale);
+  for (int32 Slot = 0; Slot < AMoonfallEnemy::DamageHistorySize && VisibleDamageNumbers < 32; ++Slot) {
+   const AMoonfallEnemy::FRecentDamageHit& Hit = Enemy->DamageHistory[Slot];
+   const float Age = GetWorld()->GetTimeSeconds() - Hit.Time;
+   if (Age < 0.f || Age > 0.8f || !FMath::IsFinite(Hit.Amount) || Hit.Amount <= 0.f) continue;
+   FVector2D Screen;
+   // Offset entries so consecutive attacks on the same target remain readable.
+   const float HorizontalOffset = static_cast<float>(Slot - 1) * 24.f;
+   const FVector WorldTextPosition = Enemy->GetActorLocation() + FVector(0.f, 0.f, 175.f + Age * 65.f);
+   if (GetOwningPlayerController() && GetOwningPlayerController()->ProjectWorldLocationToScreen(WorldTextPosition, Screen)
+       && Screen.X + HorizontalOffset >= 0.f && Screen.X + HorizontalOffset < Canvas->SizeX
+       && Screen.Y >= 0.f && Screen.Y < Canvas->SizeY) {
+    ++VisibleDamageNumbers;
+    const bool bShatter = Hit.bShatter;
+    const FLinearColor DamageColor = bShatter
+      ? FLinearColor(1.f, 0.56f, 0.22f, 1.f - Age / 0.8f)
+      : FLinearColor(1.f, 0.84f, 0.2f, 1.f - Age / 0.8f);
+    const FString DamageLabel = bShatter
+      ? FString::Printf(TEXT("SHATTER -%.0f"), Hit.Amount)
+      : FString::Printf(TEXT("-%.0f"), Hit.Amount);
+    DrawText(DamageLabel, DamageColor, Screen.X + HorizontalOffset, Screen.Y, nullptr,
+      (bShatter ? 1.55f : 1.3f) * Hero->CombatTextScale);
+   }
   }
  }
 }
