@@ -447,6 +447,25 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("PostureDistanceSq = FMath::Square(1200.f)", self.hud)
         self.assertNotIn('TEXT("GUARD BROKEN")', self.hud)
 
+    def test_rapid_hits_keep_independent_bounded_damage_labels(self):
+        self.assertIn("static constexpr int32 DamageHistorySize = 4;", self.enemy_h)
+        self.assertIn("FRecentDamageHit DamageHistory[DamageHistorySize];", self.enemy_h)
+        self.assertIn("int32 NextDamageHistorySlot = 0;", self.enemy_h)
+        damage = self.enemy_cpp.split("void AMoonfallEnemy::TakeSpellDamage(float Amount)", 1)[1].split(
+            "void AMoonfallEnemy::Tick(", 1)[0]
+        self.assertIn("if (ActualDamage > 0.f && FMath::IsFinite(ActualDamage) && GetWorld())", damage)
+        self.assertIn("FRecentDamageHit& Entry = DamageHistory[NextDamageHistorySlot];", damage)
+        self.assertIn("Entry.Amount = ActualDamage;", damage)
+        self.assertIn("Entry.Time = LastHitTime;", damage)
+        self.assertIn("Entry.bShatter = bLastHitWasShatter;", damage)
+        self.assertIn("NextDamageHistorySlot = (NextDamageHistorySlot + 1) % DamageHistorySize;", damage)
+        self.assertIn("Slot < AMoonfallEnemy::DamageHistorySize && VisibleDamageNumbers < 32", self.hud)
+        self.assertIn("const AMoonfallEnemy::FRecentDamageHit& Hit = Enemy->DamageHistory[Slot];", self.hud)
+        self.assertIn("const float Age = GetWorld()->GetTimeSeconds() - Hit.Time;", self.hud)
+        self.assertIn("!FMath::IsFinite(Hit.Amount) || Hit.Amount <= 0.f", self.hud)
+        self.assertIn("Screen.X + HorizontalOffset", self.hud)
+        self.assertNotIn('TEXT("GUARD BROKEN")', self.hud)
+
     def test_shatter_finisher_has_distinct_floating_damage_feedback(self):
         self.assertIn("bool bLastHitWasShatter = false;", self.enemy_h)
         damage = self.enemy_cpp.split("void AMoonfallEnemy::TakeSpellDamage(float Amount)", 1)[1].split(
@@ -454,9 +473,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("bLastHitWasShatter = bShatterFinisher && ActualDamage > 0.f;", damage)
         self.assertLess(damage.index("const float ActualDamage ="),
                         damage.index("bLastHitWasShatter = bShatterFinisher"))
-        self.assertIn("const bool bShatter = Enemy->bLastHitWasShatter;", self.hud)
-        self.assertIn('FString::Printf(TEXT("SHATTER -%.0f"), Enemy->LastHitAmount)', self.hud)
-        self.assertIn('FString::Printf(TEXT("-%.0f"), Enemy->LastHitAmount)', self.hud)
+        self.assertIn("const bool bShatter = Hit.bShatter;", self.hud)
+        self.assertIn('FString::Printf(TEXT("SHATTER -%.0f"), Hit.Amount)', self.hud)
+        self.assertIn('FString::Printf(TEXT("-%.0f"), Hit.Amount)', self.hud)
         self.assertIn("(bShatter ? 1.55f : 1.3f) * Hero->CombatTextScale", self.hud)
         self.assertIn("VisibleDamageNumbers < 32", self.hud)
         self.assertNotIn('TEXT("GUARD BROKEN")', self.hud)
