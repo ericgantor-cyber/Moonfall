@@ -379,6 +379,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("float GuardImpactStaminaScale = 0.15f;", self.hero_h)
         self.assertIn("FMath::IsFinite(GuardImpactStaminaScale)", damage)
         self.assertIn("ArmoredDamage * FMath::Min(GuardImpactStaminaScale, 1.f)", damage)
+        self.assertIn("const float HitGuardCost =", damage)
+        self.assertLess(damage.index("const float HitGuardCost ="), damage.index("const float RequiredGuardCost ="))
         self.assertLess(damage.index("Stamina >= RequiredGuardCost"), damage.index("Stamina = FMath::Clamp(Stamina - RequiredGuardCost"))
         self.assertLess(damage.index("const bool bPerfectParry"), damage.index("Stamina >= RequiredGuardCost"))
         self.assertIn("Stamina = FMath::Clamp(Stamina - RequiredGuardCost, 0.f, MaxStamina)", damage)
