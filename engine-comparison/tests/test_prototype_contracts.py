@@ -641,7 +641,7 @@ class PrototypeContracts(unittest.TestCase):
         self.assertIn("float AMoonfallPawn::ArcaneBoltDamage() const", self.cpp)
         self.assertIn("float AMoonfallPawn::HealingSpellAmount() const", self.cpp)
         self.assertIn("return 18.f + Progression.Level + 0.5f * GuardianBlessingCount() +", self.cpp)
-        self.assertIn("0.75f * ChamberMasteryCount();", self.cpp)
+        self.assertIn("0.75f * ChamberMasteryCount() + 2.f * ForgedEquipmentCount(false);", self.cpp)
         self.assertIn("if (!bHitBoss) DamageWorldEnemy(EnemyIndex, Damage, bRiposte, bComboFinisher);", self.cpp)
         self.assertIn("if (!bHitBoss) DamageWorldEnemy(EnemyIndex, Damage, bRiposte);", self.cpp)
         self.assertIn("Health + HealingSpellAmount()", self.cpp)
