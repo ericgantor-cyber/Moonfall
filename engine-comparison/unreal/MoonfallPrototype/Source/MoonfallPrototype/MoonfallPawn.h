@@ -115,6 +115,8 @@ private:
     UPROPERTY() UCameraComponent* Camera;
     float Forward = 0.f, Right = 0.f, Health = 100.f, BossHealth = 100.f;
     FVector DodgeDirection = FVector::ZeroVector; // Snapshot movement on dodge input; releasing stick does not cancel it.
+    FVector BufferedDodgeDirection = FVector::ZeroVector;
+    float DodgeBufferTimer = 0.f; // Short pre-cooldown input queue, never persisted.
     float Mana = 180.f, Stamina = 150.f;
     float StaminaRegenDelay = 0.f; // Prevent instant recovery after committing to a dodge.
     int32 MeleeComboCount = 0;

@@ -668,6 +668,7 @@ void AMoonfallPawn::ToggleWorldMap()
     // The Respawn screen owns mouse focus after defeat.
     if (Health <= 0.f || bRespawnInProgress) return;
     bWorldMapOpen = !bWorldMapOpen;
+    DodgeBufferTimer = 0.f; // Map UI cannot queue a combat dodge.
     Forward = 0.f;
     Right = 0.f;
     MapPanHorizontalInput = 0.f;
@@ -894,9 +895,11 @@ void AMoonfallPawn::Dodge()
 {
     if (bWorldMapOpen) return; // Map navigation must not spend stamina.
     if (ParryTimer > 0.f) return; // Cannot dodge during a committed parry.
-    if (Health > 0.f && DodgeCooldown <= 0.f && Stamina >= 45.f &&
-        FVector2D(Forward, Right).SizeSquared() > 0.01f)
+    if (Health <= 0.f || bRespawnInProgress || Stamina < 45.f ||
+        FVector2D(Forward, Right).SizeSquared() <= 0.01f) return;
+    if (DodgeCooldown <= 0.f)
     {
+        DodgeBufferTimer = 0.f; // A new dodge supersedes any queued input.
         // Commit to the initial direction for the complete dodge. Releasing
         // a stick or movement key must not waste stamina or shorten travel.
         // A partially tilted analog stick still triggers a complete dodge:
@@ -906,6 +909,13 @@ void AMoonfallPawn::Dodge()
         DodgeCooldown = 1.2f;
         Stamina -= 45.f;
         StaminaRegenDelay = 0.6f;
+    }
+    else if (DodgeCooldown <= 0.18f)
+    {
+        // A slightly early button press queues a single dodge. Nothing is
+        // spent until it actually begins, and its direction stays committed.
+        BufferedDodgeDirection = FVector(Forward, Right, 0.f).GetSafeNormal();
+        DodgeBufferTimer = 0.2f;
     }
 }
 int32 AMoonfallPawn::GuardianBlessingCount() const
@@ -1091,6 +1101,7 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
         // ToggleWorldMap here is blocked by its dead-hero guard and can strand
         // both controller A and mouse Respawn behind bWorldMapOpen.
         bWorldMapOpen = false;
+        DodgeBufferTimer = 0.f;
         Forward = 0.f;
         Right = 0.f;
         MapPanHorizontalInput = 0.f;
@@ -1146,6 +1157,22 @@ void AMoonfallPawn::Tick(float DeltaSeconds)
     ParryTimer = FMath::Max(0.f, ParryTimer - ReactionDt);
     ParryCooldown = FMath::Max(0.f, ParryCooldown - Dt);
     DodgeCooldown = FMath::Max(0.f, DodgeCooldown - Dt);
+    // Process at most one buffered dodge when its cooldown is ready. Map and
+    // death pauses return before this point; parry commitment takes priority.
+    if (DodgeBufferTimer > 0.f)
+    {
+        DodgeBufferTimer = FMath::Max(0.f, DodgeBufferTimer - Dt);
+        if (DodgeBufferTimer > 0.f && DodgeCooldown <= 0.f &&
+            DodgeTimer <= 0.f && ParryTimer <= 0.f && Stamina >= 45.f)
+        {
+            DodgeDirection = BufferedDodgeDirection;
+            DodgeTimer = 0.32f;
+            DodgeCooldown = 1.2f;
+            Stamina -= 45.f;
+            StaminaRegenDelay = 0.6f;
+            DodgeBufferTimer = 0.f;
+        }
+    }
     // Dodging temporarily stops passive stamina gain. A rewarded perfect
     // dodge can still restore its explicit 10 stamina immediately.
     // Only regenerate for the portion of this frame after the delay ends.
