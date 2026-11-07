@@ -555,6 +555,27 @@ int32 AMoonfallHeroPawn::RegisterFinisherKill(bool bShatterKill, bool bBossKill,
    ? FMath::Min(FinisherChainCount + 1, 5) : 1;
  LastFinisherKillAt = Now;
  const int32 ChainStep = FinisherChainCount;
+ // Queue follow-up executions instead of cutting off the current choreography.
+ // Five visual styles cycle by combo count; the bounded queue prevents bloat.
+ const float NativeDuration = bReduceMotion ? 0.22f : 0.78f;
+ if (Now >= NativeFinisherStartedAt && Now - NativeFinisherStartedAt < NativeDuration) {
+  FPendingFinisher Pending;
+  Pending.Target = DefeatedLocation;
+  Pending.Style = ChainStep;
+  Pending.bShatter = bShatterKill;
+  Pending.bBoss = bBossKill;
+  if (PendingFinishers.Num() < MaxPendingFinishers) PendingFinishers.Add(Pending);
+  else PendingFinishers[PendingFinishers.Num() - 1] = Pending;
+  return ChainStep;
+ }
+ StartFinisherPresentation(ChainStep, bShatterKill, bBossKill, DefeatedLocation);
+ return ChainStep;
+}
+
+void AMoonfallHeroPawn::StartFinisherPresentation(int32 ChainStep, bool bShatterKill, bool bBossKill, const FVector& DefeatedLocation)
+{
+ if (!GetWorld()) return;
+ const float Now = GetWorld()->GetTimeSeconds();
  // Built-in impact choreography is mandatory. No mesh/AnimBP/asset assignment
  // is needed for the two slash shapes and flash attached in the constructor.
  NativeFinisherStartedAt = Now;
@@ -573,14 +594,24 @@ int32 AMoonfallHeroPawn::RegisterFinisherKill(bool bShatterKill, bool bBossKill,
   }
  }
  OnFinisherChain(ChainStep, bShatterKill, bBossKill);
- return ChainStep;
 }
 
 void AMoonfallHeroPawn::UpdateNativeFinisher(float DeltaSeconds)
 {
  if (!GetWorld() || !FinisherSlashA || !FinisherSlashB || !FinisherFlash) return;
- const float Age = GetWorld()->GetTimeSeconds() - NativeFinisherStartedAt;
+ float Age = GetWorld()->GetTimeSeconds() - NativeFinisherStartedAt;
  const float Duration = bReduceMotion ? 0.22f : 0.78f;
+ if (Health <= 0.f || bOptionsOpen) {
+  PendingFinishers.Reset();
+ }
+ // Start the oldest queued execution after the previous effect completes.
+ // Presentation (including montage and Blueprint notification) occurs on start.
+ if (Health > 0.f && !bOptionsOpen && Age >= Duration && PendingFinishers.Num() > 0) {
+  const FPendingFinisher Pending = PendingFinishers[0];
+  PendingFinishers.RemoveAt(0);
+  StartFinisherPresentation(Pending.Style, Pending.bShatter, Pending.bBoss, Pending.Target);
+  Age = 0.f;
+ }
  if (Health <= 0.f || bOptionsOpen || Age < 0.f || Age >= Duration) {
   FinisherSlashA->SetHiddenInGame(true);
   FinisherSlashB->SetHiddenInGame(true);
