@@ -1102,6 +1102,21 @@ int32 AMoonfallPawn::ForgedEquipmentPower(bool bArcane) const
 
 void AMoonfallPawn::ForgeEquipment()
 {
+    ForgeEquipmentForType(-1); // Existing C / right shoulder behavior.
+}
+
+void AMoonfallPawn::ForgeMeleeEquipment()
+{
+    ForgeEquipmentForType(0);
+}
+
+void AMoonfallPawn::ForgeArcaneEquipment()
+{
+    ForgeEquipmentForType(1);
+}
+
+void AMoonfallPawn::ForgeEquipmentForType(int32 DesiredType)
+{
     // Forge rank I with two unique guardian caches from one region. Rank II
     // and III each cost one further unique cache. No crafting in combat or map.
     if (bWorldMapOpen || Health <= 0.f || bRespawnInProgress ||
@@ -1123,6 +1138,9 @@ void AMoonfallPawn::ForgeEquipment()
     for (int32 Offset = 0; Offset < MoonfallWorldRules::RegionCount; ++Offset)
     {
         const int32 Region = (LocalRegion + Offset) % MoonfallWorldRules::RegionCount;
+        // Optional focused controls never silently forge the wrong gear type.
+        // -1 remains the original auto-forge, prioritizing the local region.
+        if (DesiredType >= 0 && (Region % 2) != DesiredType) continue;
         const int32 CurrentTier = ForgedRegionTier(Region);
         if (CurrentTier >= 3) continue; // Max rank; no further material cost.
         const int32 MaterialCost = CurrentTier == 0 ? 2 : 1;
@@ -1341,6 +1359,8 @@ void AMoonfallPawn::SetupPlayerInputComponent(UInputComponent* Input)
     Input->BindAction(TEXT("Dodge"), IE_Pressed, this, &AMoonfallPawn::Dodge);
     Input->BindAction(TEXT("Parry"), IE_Pressed, this, &AMoonfallPawn::Parry);
     Input->BindAction(TEXT("ForgeEquipment"), IE_Pressed, this, &AMoonfallPawn::ForgeEquipment);
+    Input->BindAction(TEXT("ForgeMelee"), IE_Pressed, this, &AMoonfallPawn::ForgeMeleeEquipment);
+    Input->BindAction(TEXT("ForgeArcane"), IE_Pressed, this, &AMoonfallPawn::ForgeArcaneEquipment);
 
     Input->BindAction(TEXT("ArcaneBolt"), IE_Pressed, this, &AMoonfallPawn::CastBolt);
     Input->BindAction(TEXT("ArcaneHeal"), IE_Pressed, this, &AMoonfallPawn::CastHeal);

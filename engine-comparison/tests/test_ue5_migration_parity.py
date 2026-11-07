@@ -609,6 +609,37 @@ class UnrealMigrationParityGate(unittest.TestCase):
         hud = (base / "Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8")
         self.assertNotIn("INCOMING %.1fs", hud)
 
+    def test_focus_and_melee_forge_inputs_do_not_spend_other_recipes(self):
+        base = ROOT / "engine-comparison/unreal/MoonfallPrototype"
+        cpp = (base / "Source/MoonfallPrototype/MoonfallPawn.cpp").read_text(encoding="utf-8")
+        header = (base / "Source/MoonfallPrototype/MoonfallPawn.h").read_text(encoding="utf-8")
+        inputs = (base / "Config/DefaultInput.ini").read_text(encoding="utf-8")
+        for declaration in ("void ForgeEquipment();", "void ForgeMeleeEquipment();",
+                            "void ForgeArcaneEquipment();", "void ForgeEquipmentForType(int32 DesiredType);"):
+            self.assertIn(declaration, header)
+        for binding in ('ActionName="ForgeEquipment",Key=C',
+                        'ActionName="ForgeEquipment",Key=Gamepad_RightShoulder',
+                        'ActionName="ForgeMelee",Key=X',
+                        'ActionName="ForgeArcane",Key=F',
+                        'ActionName="ForgeMelee",Key=Gamepad_LeftThumbstick',
+                        'ActionName="ForgeArcane",Key=Gamepad_RightThumbstick'):
+            self.assertIn(binding, inputs)
+        for name in ("ForgeEquipment", "ForgeMelee", "ForgeArcane"):
+            self.assertIn('Input->BindAction(TEXT("' + name + '"), IE_Pressed', cpp)
+        self.assertIn("ForgeEquipmentForType(-1);", cpp)
+        self.assertIn("ForgeEquipmentForType(0);", cpp)
+        self.assertIn("ForgeEquipmentForType(1);", cpp)
+        forge = cpp[cpp.index("void AMoonfallPawn::ForgeEquipmentForType(int32 DesiredType)"):
+                    cpp.index("float AMoonfallPawn::BasicAttackDamage()")]
+        self.assertIn("if (DesiredType >= 0 && (Region % 2) != DesiredType) continue;", forge)
+        self.assertLess(forge.index("if (DesiredType >= 0"),
+                        forge.index("const int32 CurrentTier = ForgedRegionTier(Region);"))
+        self.assertIn("!IsSafeCheckpointLocation()", forge)
+        self.assertIn("const int32 MaterialCost = CurrentTier == 0 ? 2 : 1;", forge)
+        self.assertEqual(forge.count("SaveProgress();"), 1)
+        self.assertNotIn("INCOMING %.1fs",
+            (base / "Source/MoonfallPrototype/MoonfallHud.cpp").read_text(encoding="utf-8"))
+
     def test_chamber_forging_ranks_are_unique_bounded_and_persistent(self):
         base = ROOT / "engine-comparison/unreal/MoonfallPrototype"
         cpp = (base / "Source/MoonfallPrototype/MoonfallPawn.cpp").read_text(encoding="utf-8")
