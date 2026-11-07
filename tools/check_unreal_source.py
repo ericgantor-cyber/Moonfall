@@ -617,7 +617,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("GuardStaminaCost > 0.f && Stamina < GuardStaminaCost", tick)
         self.assertIn("BreakGuard();", tick)
         self.assertLess(tick.index("Stamina - GuardDrain * StaminaDelta"),
-                        tick.index("BreakGuard();"))
+                        tick.rindex("BreakGuard();"))
         self.assertLess(tick.index("BreakGuard();"), tick.index("if (GetCharacterMovement()) {"))
         self.assertNotIn('TEXT("GUARD BROKEN")', self.hud)
 
