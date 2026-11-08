@@ -628,3 +628,25 @@ void AMoonfallArena::StreamResidents(const FVector& PlayerLocation) {
   ++Spawned;
  }
 }
+
+int32 AMoonfallArena::GetRegionalSupplyRating(int32 RegionIndex) const {
+ if (RegionIndex < 0 || RegionIndex >= Regions) return 0;
+ int32 Guardians = 0;
+ for (int32 Dungeon = 0; Dungeon < DungeonsPerRegion; ++Dungeon)
+  if (IsDungeonQuestCompleted(RegionIndex * DungeonsPerRegion + Dungeon))
+   ++Guardians;
+ // Supplies improve after verified guardians fall, with no fabricated stock drops.
+ return FMath::Clamp(20 + Guardians * 15 + FMath::Max(0, GetRegionalFactionStanding(RegionIndex)) / 5, 0, 100);
+}
+int32 AMoonfallArena::GetRegionalServicePrice(int32 RegionIndex, int32 RoleIndex) const {
+ if (!bContinuousWorld || RegionIndex < 0 || RegionIndex >= Regions ||
+     (RoleIndex != 1 && RoleIndex != 2)) return 0;
+ const int32 Standing = GetRegionalFactionStanding(RegionIndex);
+ const int32 Supply = GetRegionalSupplyRating(RegionIndex);
+ const int32 Base = RoleIndex == 1 ? 12 : 10;
+ const int32 StandingAdjustment = Standing < 0 ? (-Standing + 14) / 15
+     : -(Standing / 25);
+ const int32 SupplyDiscount = Supply / 30;
+ // Prices stay positive; no negative-price or free-item farming.
+ return FMath::Clamp(Base + StandingAdjustment - SupplyDiscount, 4, 25);
+}
