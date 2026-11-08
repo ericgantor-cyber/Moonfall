@@ -15,4 +15,6 @@ public:
  // Optional on older saves, using existing schema version to avoid loss of defeats.
  UPROPERTY() TArray<int32> DiscoveredRegionIds;
  UPROPERTY() TArray<int32> DiscoveredDungeonEntranceIds;
+ // Optional on old saves: -1 means no user-tracked dungeon objective.
+ UPROPERTY() int32 TrackedDungeonQuestId = -1;
 };
