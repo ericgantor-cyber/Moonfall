@@ -130,6 +130,20 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
   const float HealthBeforeHit = Health;
   Health = FMath::Max(0.0f, Health - FMath::Max(0.0f, EffectiveDamage));
   const float ActualDamage = HealthBeforeHit - Health;
+  // Wounded elites get a brief breathing-space maneuver, not an escape loop.
+  // Bosses, dead enemies and enemies with broken posture never enter retreat.
+  if (bElite && !bBoss && ActualDamage > 0.f && Health > 0.f
+      && MaxHealthAtSpawn > 0.f && Health / MaxHealthAtSpawn <= 0.3f
+      && FMath::IsFinite(Now) && Now >= NextTacticalRetreatAt
+      && Now >= PostureBrokenUntil) {
+   TacticalRetreatUntil = Now + 0.7f;
+   NextTacticalRetreatAt = Now + 8.f;
+   NextAttackAt = FMath::Max(NextAttackAt, TacticalRetreatUntil + 0.25f);
+   WindupEndsAt = -1.f;
+   bComboSecondHitPending = false;
+   bComboSecondHitActive = false;
+   CachedWaypoint = FVector::ZeroVector;
+  }
   if (bShatterFinisher && ActualDamage > 0.f)
     OnShatterFinisher(ActualDamage);
   // Offensive pressure builds posture, but an already broken enemy cannot
@@ -514,6 +528,16 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
    CachedWaypoint = FVector::ZeroVector;
   }
  } else if (Distance <= AttackRange) {
+  // A wounded elite falls back only within its short earned retreat window.
+  // Swept movement honors solid geometry and never changes boss behavior.
+  if (bElite && !bBoss && Now < TacticalRetreatUntil
+      && Now >= HitReactionEndsAt && Now >= PostureBrokenUntil && Distance > 1.f) {
+   const FVector RetreatDirection = -Difference.GetSafeNormal2D();
+   const float RetreatStep = 200.f * SafeAIDelta;
+   FHitResult RetreatHit;
+   AddActorWorldOffset(RetreatDirection * RetreatStep, true, &RetreatHit);
+   return;
+  }
   // Elites and advanced bosses reposition between strikes, not during
   // locked attack windups or posture breaks. A small sideways sweep keeps
   // combat mobile while preserving walls, hit arcs and dodge windows.
