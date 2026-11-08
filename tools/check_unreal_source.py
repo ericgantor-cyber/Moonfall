@@ -399,8 +399,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("GetWorld()->GetTimeSeconds() < CombatRecoveryEndsAt", tick)
         self.assertIn("FMath::Clamp(CombatManaRegenMultiplier, 0.f, 1.f)", tick)
         self.assertIn("ManaRegenPerSecond * MenuRecoveryBoost * CombatManaFactor", tick)
-        self.assertIn("CombatRecoveryEndsAt = FMath::Max( (FMath::IsFinite(CombatRecoverySeconds)", cast)
-        self.assertIn("CombatRecoveryEndsAt = FMath::Max( (FMath::IsFinite(CombatRecoverySeconds)", damage)
+        self.assertIn("CombatRecoveryEndsAt = FMath::Max(", cast)
+        self.assertIn("CombatRecoveryEndsAt = FMath::Max(", damage)
         self.assertIn("Mana + FMath::Clamp(PerfectParryManaReward, 0.f, 15.f)", damage)
         self.assertIn("float CombatRecoverySeconds = 5.f;", self.hero_h)
         self.assertIn("float CombatManaRegenMultiplier = 0.5f;", self.hero_h)
@@ -431,8 +431,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         damage = self.hero_cpp.split("void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount)", 1)[1].split(
             "void AMoonfallHeroPawn::CycleGraphicsQuality()", 1)[0]
         parry = damage.split("if (bPerfectParry) {", 1)[1].split("bLastIncomingHitParried", 1)[0]
-        self.assertIn("CombatRecoveryEndsAt = FMath::Max( (FMath::IsFinite(CombatRecoverySeconds)", damage)
-        self.assertLess(damage.index("CombatRecoveryEndsAt = FMath::Max( (FMath::IsFinite(CombatRecoverySeconds)"), damage.index("if (bPerfectParry) {"))
+        self.assertIn("CombatRecoveryEndsAt = FMath::Max(", damage)
+        self.assertLess(damage.index("CombatRecoveryEndsAt = FMath::Max("), damage.index("if (bPerfectParry) {"))
         self.assertIn("FMath::Clamp(CombatRecoverySeconds, 0.f, 12.f) : 5.f", damage)
         self.assertIn("PerfectParryManaReward", parry)
 
@@ -451,26 +451,26 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         finisher = self.hero_cpp.split("int32 AMoonfallHeroPawn::RegisterFinisherKill(", 1)[1].split(
             "void AMoonfallHeroPawn::", 1)[0]
         self.assertIn("if (Health <= 0.f || !GetWorld()) return 0;", finisher)
-        self.assertIn("CombatRecoveryEndsAt = FMath::Max( (FMath::IsFinite(CombatRecoverySeconds)", finisher)
+        self.assertIn("CombatRecoveryEndsAt = FMath::Max(", finisher)
         self.assertIn("FMath::Clamp(CombatRecoverySeconds, 0.f, 12.f) : 5.f", finisher)
         self.assertLess(finisher.index("if (Health <= 0.f || !GetWorld()) return 0;"),
-                        finisher.index("CombatRecoveryEndsAt = Now +"))
+                        finisher.index("CombatRecoveryEndsAt = FMath::Max("))
 
     def test_normal_blocks_also_refresh_combat_recovery(self):
         damage = self.hero_cpp.split("void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount)", 1)[1].split(
             "void AMoonfallHeroPawn::CycleGraphicsQuality()", 1)[0]
         guard = damage.split("if (bGuarding && bFrontAttack && !bOptionsOpen", 1)[1].split(
             "if (bPerfectParry) {", 1)[0]
-        self.assertIn("CombatRecoveryEndsAt = FMath::Max( (FMath::IsFinite(CombatRecoverySeconds)", guard)
+        self.assertIn("CombatRecoveryEndsAt = FMath::Max(", guard)
         self.assertIn("Stamina = FMath::Clamp(Stamina - RequiredGuardCost, 0.f, MaxStamina)", guard)
-        self.assertLess(guard.index("CombatRecoveryEndsAt = Now +"), guard.index("Stamina = FMath::Clamp"))
+        self.assertLess(guard.index("CombatRecoveryEndsAt = FMath::Max("), guard.index("Stamina = FMath::Clamp"))
 
     def test_valid_hostile_cast_sets_combat_without_free_combo(self):
         cast = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split(
             "void AMoonfallHeroPawn::", 1)[0]
         self.assertLess(cast.index("Enemy->TakeSpellDamage(SpellDamage);"),
-                        cast.index("CombatRecoveryEndsAt = Time +"))
-        self.assertLess(cast.index("CombatRecoveryEndsAt = Time +"),
+                        cast.index("CombatRecoveryEndsAt = FMath::Max("))
+        self.assertLess(cast.index("CombatRecoveryEndsAt = FMath::Max("),
                         cast.index("if (ActualSpellDamage > 0.f) {"))
         self.assertLess(cast.index("if (ActualSpellDamage > 0.f) {"),
                         cast.index("HitComboStage = bComboAlive"))
