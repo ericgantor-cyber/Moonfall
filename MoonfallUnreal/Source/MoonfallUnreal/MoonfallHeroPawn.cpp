@@ -478,11 +478,14 @@ bool AMoonfallHeroPawn::TryRewardPerfectDodge() {
  if (Now > PerfectDodgeWindowUntil || Now - LastPerfectDodgeRewardAt < 1.f) return false;
  LastPerfectDodgeRewardAt = Now;
  PerfectDodgeWindowUntil = -1.f;
- Mana = FMath::Min(MaxMana, Mana + 8.f);
- // Restore a small, bounded amount of stamina only on a true perfect dodge.
+ // Invalid Blueprint resource values must never contaminate the combat HUD.
+ if (FMath::IsFinite(MaxMana) && MaxMana > 0.f && FMath::IsFinite(Mana))
+  Mana = FMath::Clamp(Mana + 8.f, 0.f, MaxMana);
+ // Restore stamina only from a finite, capped reward on a true perfect dodge.
  // The one-second reward gate above prevents repeated hits from farming stamina.
- if (FMath::IsFinite(MaxStamina) && MaxStamina > 0.f && FMath::IsFinite(Stamina)) {
-  Stamina = FMath::Clamp(Stamina + FMath::Max(0.f, PerfectDodgeStaminaReward), 0.f, MaxStamina);
+ if (FMath::IsFinite(MaxStamina) && MaxStamina > 0.f && FMath::IsFinite(Stamina)
+     && FMath::IsFinite(PerfectDodgeStaminaReward) && PerfectDodgeStaminaReward > 0.f) {
+  Stamina = FMath::Clamp(Stamina + FMath::Clamp(PerfectDodgeStaminaReward, 0.f, 25.f), 0.f, MaxStamina);
  }
  return true;
 }
