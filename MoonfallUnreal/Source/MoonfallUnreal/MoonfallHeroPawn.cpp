@@ -90,7 +90,9 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
   const float ComboWindow = FMath::IsFinite(HitComboWindowSeconds)
       ? FMath::Clamp(HitComboWindowSeconds, 0.5f, 4.f) : 2.f;
   const AMoonfallEnemy* ComboTarget = LastHitComboTarget.Get();
-  if (Health <= 0.f || bOptionsOpen || !IsValid(ComboTarget) || ComboTarget->Health <= 0.f
+  if (Health <= 0.f || bOptionsOpen || bInventoryOpen || !IsValid(ComboTarget)
+       || !FMath::IsFinite(ComboTarget->Health) || ComboTarget->Health <= 0.f
+       || !FMath::IsFinite(ComboNow) || !FMath::IsFinite(LastSuccessfulHitAt)
       || ComboNow < LastSuccessfulHitAt || ComboNow - LastSuccessfulHitAt > ComboWindow) {
    HitComboStage = 0;
    LastHitComboTarget.Reset();
@@ -98,7 +100,10 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
   }
  }
  // Bounded camera impulse, no camera shake object or spawned effects.
- ImpactCameraOffset = FMath::FInterpTo(ImpactCameraOffset, 0.f, FMath::Max(0.f, DeltaSeconds), 12.f);
+ // Never allow invalid frame time or camera impulse to contaminate the boom.
+ if (!FMath::IsFinite(ImpactCameraOffset)) ImpactCameraOffset = 0.f;
+ const float SafeCameraDelta = FMath::IsFinite(DeltaSeconds) ? FMath::Clamp(DeltaSeconds, 0.f, 0.1f) : 0.f;
+ ImpactCameraOffset = FMath::Clamp(FMath::FInterpTo(FMath::Clamp(ImpactCameraOffset, 0.f, 24.f), 0.f, SafeCameraDelta, 12.f), 0.f, 24.f);
  if (CameraBoom) CameraBoom->TargetArmLength = 450.f + (bReduceMotion ? 0.f : ImpactCameraOffset);
  // Mana regenerates during gameplay and while a menu is open.
  const float SafeRecoveryDelta = FMath::IsFinite(DeltaSeconds) ? FMath::Clamp(DeltaSeconds, 0.f, 0.1f) : 0.f;
