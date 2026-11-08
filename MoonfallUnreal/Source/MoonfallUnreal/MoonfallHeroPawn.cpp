@@ -580,9 +580,9 @@ int32 AMoonfallHeroPawn::RegisterFinisherKill(bool bShatterKill, bool bBossKill,
  if (FinisherChainCount >= 3 && FMath::IsFinite(FinisherMomentumDurationSeconds)
      && FinisherMomentumDurationSeconds >= 1.f)
   FinisherMomentumUntil = Now + FMath::Clamp(FinisherMomentumDurationSeconds, 1.f, 12.f);
- // The fifth, tenth, fifteenth... confirmed kills emit one finite posture
- // shockwave. No HP damage, instant kills, additional loot, or spawned actors.
- if (FinisherSequenceCount % 5 == 0 && FMath::IsFinite(FinisherShockwaveRadius)
+ // Chained finishing kills (second and onward) send a posture-only pulse.
+ // No five-kill milestones, HP damage, extra loot, or spawned effect actors.
+ if (FinisherSequenceCount >= 2 && FMath::IsFinite(FinisherShockwaveRadius)
      && FMath::IsFinite(FinisherShockwavePosture)) {
   const float Radius = FMath::Clamp(FinisherShockwaveRadius, 0.f, 600.f);
   const float Pressure = FMath::Clamp(FinisherShockwavePosture, 0.f, 60.f);
