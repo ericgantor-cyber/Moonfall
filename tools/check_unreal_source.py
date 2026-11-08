@@ -1736,6 +1736,23 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertEqual(tick.count("Nav->ProjectPointToNavigation("), 1)
         self.assertEqual(tick.count("Nav->FindPathToLocationSynchronously("), 1)
 
+    def test_phase_three_divine_attacks_alternate_locked_mark_geometries(self):
+        enemy = self.enemy_cpp
+        self.assertIn("bool bDivineAlternateGeometry = false;", self.enemy_h)
+        self.assertIn("int32 DivineSignatureCastCount = 0;", self.enemy_h)
+        self.assertIn("++DivineSignatureCastCount;", enemy)
+        self.assertIn("BossPhase >= 3 && DivineSignatureCastCount % 2 == 0", enemy)
+        self.assertIn("bVoidReaper ? GetActorLocation() : HeroPosition", enemy)
+        self.assertIn("bVoidReaper ? HeroPosition : GetActorLocation()", enemy)
+        self.assertIn("bVoidReaper ? 440.f : 350.f", enemy)
+        self.assertIn("bVoidReaper ? 300.f : 410.f", enemy)
+        self.assertIn('TEXT("VOID COLLAPSE")', enemy)
+        self.assertIn('TEXT("ECLIPSE MARK")', enemy)
+        self.assertIn("DivineSignatureCastCount = 0;", enemy)
+        self.assertIn("bDivineAlternateGeometry = false;", enemy)
+        self.assertIn("FVector::DistSquared2D(HeroPosition, DivineSignatureCenter)", enemy)
+        self.assertEqual(enemy.count("Nav->FindPathToLocationSynchronously("), 1)
+
     def test_divine_signature_attacks_are_unique_telegraphed_and_dodgeable(self):
         enemy = self.enemy_cpp
         self.assertIn("bool bDivineSignatureActive = false;", self.enemy_h)
@@ -1744,8 +1761,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('const bool bVoidReaper = DivineBossId == FName(TEXT("z_void_reaper"));', enemy)
         self.assertIn('const bool bEclipseQueen = DivineBossId == FName(TEXT("nyra_eclipse_queen"));', enemy)
         self.assertIn("AttackSequence % 4 == 0", enemy)
-        self.assertIn("DivineSignatureCenter = bVoidReaper ? HeroPosition : GetActorLocation();", enemy)
-        self.assertIn("DivineSignatureRadius = bVoidReaper ? 300.f : 410.f;", enemy)
+        self.assertIn("DivineSignatureCenter = bDivineAlternateGeometry", enemy)
+        self.assertIn("DivineSignatureRadius = bDivineAlternateGeometry", enemy)
         self.assertIn("CurrentWindup = BossPhase >= 3 ? 1.2f : 1.7f;", enemy)
         self.assertIn("FVector::DistSquared2D(HeroPosition, DivineSignatureCenter)", enemy)
         self.assertIn("const bool bWithinBasicAttack = !bDivineSignatureActive", enemy)

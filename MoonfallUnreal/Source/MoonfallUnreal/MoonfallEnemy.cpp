@@ -166,6 +166,8 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
     AttackSequence = 0;
     BossSpecialMove = 0;
     bDivineSignatureActive = false;
+    bDivineAlternateGeometry = false;
+    DivineSignatureCastCount = 0;
     bComboSecondHitPending = false;
     bComboSecondHitActive = false;
     CachedWaypoint = FVector::ZeroVector;
@@ -482,9 +484,12 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
    DrawDebugCircle(GetWorld(), DivineSignatureCenter - FVector(0.f,0.f,55.f),
      DivineSignatureRadius, 32, DivineBossId == FName(TEXT("z_void_reaper")) ? FColor::Purple : FColor::Cyan,
      false, 0.12f, 0, 3.f * WarningScale, FVector(1.f,0.f,0.f), FVector(0.f,1.f,0.f), false);
+   const bool bVoidSignature = DivineBossId == FName(TEXT("z_void_reaper"));
+   const TCHAR* DivineWarningText = bVoidSignature
+     ? (bDivineAlternateGeometry ? TEXT("VOID COLLAPSE") : TEXT("VOID JUDGMENT"))
+     : (bDivineAlternateGeometry ? TEXT("ECLIPSE MARK") : TEXT("ECLIPSE PULSE"));
    DrawDebugString(GetWorld(), DivineSignatureCenter + FVector(0.f,0.f,120.f),
-     DivineBossId == FName(TEXT("z_void_reaper")) ? TEXT("VOID JUDGMENT") : TEXT("ECLIPSE PULSE"),
-     nullptr, FColor::White, 0.12f, false);
+     DivineWarningText, nullptr, FColor::White, 0.12f, false);
   }
   DrawDebugString(GetWorld(), GetActorLocation() + FVector(0.f,0.f,160.f), BossSpecialMove == 5 ? TEXT("SKYFALL SLAM") : (BossSpecialMove == 4 ? TEXT("SPINNING SWEEP") : (BossSpecialMove == 3 ? TEXT("DASH STRIKE") : (bComboSecondHitActive ? TEXT("COMBO FOLLOW-UP") : (BossSpecialMove == 2 ? TEXT("ECLIPSE SLAM") : (BossSpecialMove == 1 ? TEXT("MOON CLEAVE") : (CurrentAttackMultiplier > 2.f ? (bBoss ? TEXT("BOSS CRUSH") : TEXT("ELITE CRUSH")) : (CurrentAttackMultiplier > 1.5f ? TEXT("HEAVY") : (CurrentAttackRangeMultiplier > 1.f ? TEXT("SWEEP") : TEXT("STRIKE"))))))))), nullptr, FColor::Red, 0.12f, false);
   return;
@@ -715,13 +720,22 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
    // Every fourth divine attack replaces the generic pattern with a
    // distinct readable hazard. No new actors or per-frame allocations.
    bDivineSignatureActive = false;
+   bDivineAlternateGeometry = false;
    const bool bVoidReaper = DivineBossId == FName(TEXT("z_void_reaper"));
    const bool bEclipseQueen = DivineBossId == FName(TEXT("nyra_eclipse_queen"));
    if (bBoss && (bVoidReaper || bEclipseQueen) && AttackSequence % 4 == 0) {
     bDivineSignatureActive = true;
     BossSpecialMove = 0;
-    DivineSignatureCenter = bVoidReaper ? HeroPosition : GetActorLocation();
-    DivineSignatureRadius = bVoidReaper ? 300.f : 410.f;
+    ++DivineSignatureCastCount;
+    // Phase three alternates the two shapes for each god; locked targets
+    // never follow the player's later movements during a warning.
+    bDivineAlternateGeometry = BossPhase >= 3 && DivineSignatureCastCount % 2 == 0;
+    DivineSignatureCenter = bDivineAlternateGeometry
+      ? (bVoidReaper ? GetActorLocation() : HeroPosition)
+      : (bVoidReaper ? HeroPosition : GetActorLocation());
+    DivineSignatureRadius = bDivineAlternateGeometry
+      ? (bVoidReaper ? 440.f : 350.f)
+      : (bVoidReaper ? 300.f : 410.f);
     CurrentWindup = BossPhase >= 3 ? 1.2f : 1.7f;
     CurrentAttackMultiplier = bVoidReaper ? 1.8f : 1.5f;
     CurrentAttackRangeMultiplier = 1.f;
