@@ -649,7 +649,7 @@ class WorldFoundationTests(unittest.TestCase):
         self.assertIn("int32 EquippedWeaponCode = 0;", econ)
         self.assertIn("int32 Salvage = 0;", econ)
         self.assertIn("SavePlayerEconomy();", hero_cpp)
-        self.assertIn("SaveGameToSlot(Save, PlayerEconomySlot, 0)", hero_cpp)
+        self.assertIn("return UGameplayStatics::SaveGameToSlot(Save, PlayerEconomySlot, 0);", hero_cpp)
         self.assertIn("LoadGameFromSlot(PlayerEconomySlot, 0)", hero_cpp)
         self.assertIn("Save->InventoryItemCodes.Num() > 2048", hero_cpp)
         self.assertIn("IsValidEconomyItem(Code)", hero_cpp)
@@ -717,6 +717,30 @@ class WorldFoundationTests(unittest.TestCase):
                         craft.index("InventoryItemCodes.Add(ItemCode);"))
         self.assertLess(craft.index("InventoryItemCodes.Add(ItemCode);"),
                         craft.index("SavePlayerEconomy();"))
+
+    def test_crafting_player_save_failure_rolls_back_without_reward(self):
+        root = ROOT / "MoonfallUnreal/Source/MoonfallUnreal"
+        hero = (root / "MoonfallHeroPawn.cpp").read_text(encoding="utf-8")
+        hero_h = (root / "MoonfallHeroPawn.h").read_text(encoding="utf-8")
+        self.assertIn("bool TrySavePlayerEconomy();", hero_h)
+        self.assertIn("bool AMoonfallHeroPawn::TrySavePlayerEconomy()", hero)
+        self.assertIn("return UGameplayStatics::SaveGameToSlot(Save, PlayerEconomySlot, 0);", hero)
+        self.assertIn("bool RefundWorkshopStock(int32 RegionIndex);", HEADER)
+        self.assertIn("bool AMoonfallArena::RefundWorkshopStock(int32 RegionIndex)", CPP)
+        refund = CPP.split("bool AMoonfallArena::RefundWorkshopStock(int32 RegionIndex)", 1)[1].split(
+            "void AMoonfallArena::AdvanceWorkshopProduction()", 1)[0]
+        self.assertIn("WorkshopStock[RegionIndex] = FMath::Clamp(OldCount + 1, 0, 8);", refund)
+        self.assertIn("SaveWorldProgress();", refund)
+        craft = hero.split("void AMoonfallHeroPawn::CraftWithNearestArtisan()", 1)[1].split(
+            "void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[0]
+        self.assertIn("if (!TrySavePlayerEconomy()) {", craft)
+        self.assertIn("InventoryItemCodes.RemoveAt(InventoryItemCodes.Num() - 1);", craft)
+        self.assertIn("Salvage = SalvageBeforePurchase;", craft)
+        self.assertIn("Arena->RefundWorkshopStock(Region);", craft)
+        self.assertLess(craft.index("if (!TrySavePlayerEconomy()) {"),
+                        craft.index("bLastCraftSucceeded = true;"))
+        self.assertLess(craft.index("Salvage = SalvageBeforePurchase;"),
+                        craft.index("bLastCraftSucceeded = true;"))
 
     def test_connected_geometry(self):
         self.assertIn("Region * RegionSpacing", CPP)
