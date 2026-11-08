@@ -317,7 +317,7 @@ class WorldFoundationTests(unittest.TestCase):
         self.assertIn("SelectNextDiscoveredDungeonQuestInRegion(Nearest->RegionIndex)", hero_cpp)
         self.assertIn('ActionName="InteractQuestGuide",Key=R', inputs)
         self.assertIn('ActionName="InteractQuestGuide",Key=Gamepad_DPad_Right', inputs)
-        self.assertIn('TEXT("R: Talk   G: Encourage   H: Intimidate  |  D-pad Right/Up/Down")', hud)
+        self.assertIn('TEXT("R: Talk   T: Service   G: Encourage   H: Intimidate")', hud)
         self.assertIn("FVector::DistSquared2D(Guide->GetActorLocation(), Hero->GetActorLocation())", hud)
         # Eighteen non-hostile NPCs, three jobs in each region.
         self.assertEqual(len([(r, role) for r in range(6) for role in range(3)]), 18)
@@ -503,6 +503,46 @@ class WorldFoundationTests(unittest.TestCase):
         self.assertEqual(len(regions), 1093)
         self.assertEqual(max(regions.count(i) for i in range(6)) - min(regions.count(i) for i in range(6)), 1)
         self.assertEqual(len(set(range(18)) & set(range(18, 1111))), 0)
+
+    def test_regional_trade_and_real_salvage_services(self):
+        root = ROOT / "MoonfallUnreal"
+        hero_h = (root / "Source/MoonfallUnreal/MoonfallHeroPawn.h").read_text(encoding="utf-8")
+        hero_cpp = (root / "Source/MoonfallUnreal/MoonfallHeroPawn.cpp").read_text(encoding="utf-8")
+        hud = (root / "Source/MoonfallUnreal/MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        inputs = (root / "Config/DefaultInput.ini").read_text(encoding="utf-8")
+        self.assertIn("GetRegionalServicePrice(int32 RegionIndex, int32 RoleIndex) const;", HEADER)
+        self.assertIn("GetRegionalSupplyRating(int32 RegionIndex) const;", HEADER)
+        self.assertIn("if (IsDungeonQuestCompleted(RegionIndex * DungeonsPerRegion + Dungeon))", CPP)
+        self.assertIn("20 + Guardians * 15", CPP)
+        self.assertIn("const int32 Standing = GetRegionalFactionStanding(RegionIndex);", CPP)
+        self.assertIn("const int32 Supply = GetRegionalSupplyRating(RegionIndex);", CPP)
+        self.assertIn("return FMath::Clamp(Base + StandingAdjustment - SupplyDiscount, 4, 25);", CPP)
+        self.assertIn("void BuyNearestNpcService();", hero_h)
+        self.assertIn("void AMoonfallHeroPawn::BuyNearestNpcService()", hero_cpp)
+        self.assertIn("if (!IsValid(Npc) || Npc->RoleIndex == 0) continue;", hero_cpp)
+        self.assertIn("if (Price <= 0) return;", hero_cpp)
+        self.assertIn("if (!bNeedsService || Salvage < Price) return;", hero_cpp)
+        self.assertIn("Salvage -= Price;", hero_cpp)
+        self.assertIn("Mana = FMath::Clamp(Mana + 35.f, 0.f, MaxMana);", hero_cpp)
+        self.assertIn("Stamina = FMath::Clamp(Stamina + 35.f, 0.f, MaxStamina);", hero_cpp)
+        self.assertIn("bLastServicePurchased = true;", hero_cpp)
+        body = hero_cpp.split("void AMoonfallHeroPawn::BuyNearestNpcService()", 1)[1].split("void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[0]
+        self.assertNotIn("Health =", body)
+        self.assertNotIn("AwardExperience(", body)
+        self.assertNotIn("AwardEquipmentDrop(", body)
+        self.assertIn('ActionName="BuyNpcService",Key=T', inputs)
+        self.assertIn('ActionName="BuyNpcService",Key=Gamepad_DPad_Left', inputs)
+        self.assertIn('TEXT("Supply %d / 100  |  Service %d salvage")', hud)
+        self.assertIn('TEXT("%s: Service complete, %d salvage paid.")', hud)
+        self.assertIn("LastServicePrice = 0;", hero_h)
+        # Economic prices remain strictly positive and bounded across standings.
+        for role in (1, 2):
+            for standing in range(-100, 101, 5):
+                for supply in range(0, 101, 5):
+                    adjustment = (abs(standing) + 14) // 15 if standing < 0 else -(standing // 25)
+                    quote = max(4, min(25, (12 if role == 1 else 10) + adjustment - supply // 30))
+                    self.assertGreaterEqual(quote, 4)
+                    self.assertLessEqual(quote, 25)
 
     def test_connected_geometry(self):
         self.assertIn("Region * RegionSpacing", CPP)
