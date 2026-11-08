@@ -417,6 +417,33 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(tick.index("FMath::IsFinite(DeltaSeconds) ? FMath::Clamp("),
                         tick.index("OnPostureChanged(Posture, MaxPosture)"))
 
+    def test_ai_batch_clamps_chase_and_dash_simulation_steps(self):
+        tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
+        self.assertIn("if (!FMath::IsFinite(Now)) return;", tick)
+        self.assertIn("const float SafeAIDelta = FMath::IsFinite(DeltaSeconds) ? FMath::Clamp(DeltaSeconds, 0.f, 0.1f) : 0.f;", tick)
+        self.assertIn("FMath::Min(960.f * SafeAIDelta, Remaining)", tick)
+        self.assertIn("FMath::IsFinite(ChaseSpeed) ? ChaseSpeed : 0.f", tick)
+        self.assertIn("0.f, 2000.f) * SafeAIDelta, true, &Hit)", tick)
+        self.assertLess(tick.index("const float SafeAIDelta"), tick.index("AddActorWorldOffset("))
+
+    def test_ai_batch_invalid_spell_damage_cannot_consume_shatter(self):
+        spell = self.enemy_cpp.split("void AMoonfallEnemy::TakeSpellDamage(float Amount)", 1)[1].split(
+            "void AMoonfallEnemy::BeginFinisherDefeat(", 1)[0]
+        self.assertIn("!FMath::IsFinite(EffectiveDamage) || EffectiveDamage <= 0.f", spell)
+        self.assertLess(spell.index("!FMath::IsFinite(EffectiveDamage)"),
+                        spell.index("if (bShatterFinisher) bPostureFinisherAvailable = false;"))
+        self.assertLess(spell.index("!FMath::IsFinite(EffectiveDamage)"),
+                        spell.index("Health = FMath::Max(0.0f, Health -"))
+
+    def test_ai_batch_guard_recovery_and_vitals_are_safe(self):
+        tick = self.hero_cpp.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1].split(
+            "void AMoonfallHeroPawn::SetupPlayerInputComponent", 1)[0]
+        self.assertIn("FMath::IsFinite(StaminaRegenStartsAt) ? StaminaRegenStartsAt : GetWorld()->GetTimeSeconds()", tick)
+        guard = self.hero_cpp.split("void AMoonfallHeroPawn::BeginGuard()", 1)[1].split(
+            "void AMoonfallHeroPawn::EndGuard()", 1)[0]
+        self.assertIn("Health <= 0.f || !FMath::IsFinite(Health)", guard)
+        self.assertLess(guard.index("!FMath::IsFinite(Health)"), guard.index("EndSprint();"))
+
     def test_guard_clears_held_sprint_before_entering_stance(self):
         guard = self.hero_cpp.split("void AMoonfallHeroPawn::BeginGuard()", 1)[1].split(
             "void AMoonfallHeroPawn::EndGuard()", 1)[0]
