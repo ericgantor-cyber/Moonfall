@@ -49,6 +49,11 @@ public:
  // Re-derived from the world save; never stack the same guardian on reloading.
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Quests") int32 AppliedGuardianQuestRewards = 0;
  UFUNCTION(BlueprintCallable, Category="Moonfall|Quests") void ApplyGuardianQuestRewards(int32 CompletedGuardianCount);
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Quests") int32 LastGuideRegionIndex = -1;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Quests") bool bLastGuideFoundQuest = false;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Quests") float LastGuideMessageUntil = -1.f;
+ UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Quests")
+ void OnQuestGuideSpoken(int32 RegionIndex, bool bFoundKnownObjective);
  UPROPERTY(BlueprintReadOnly, Category="Moonfall|Progression") int32 Level = 1;
  UPROPERTY(BlueprintReadOnly, Category="Moonfall|Progression") int32 Experience = 0;
  UPROPERTY(BlueprintReadOnly, Category="Moonfall|Progression") int32 ExperienceToNextLevel = 100;
