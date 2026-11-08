@@ -474,13 +474,37 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   DrawDebugString(GetWorld(), GetActorLocation() + FVector(0.f,0.f,160.f), BossSpecialMove == 5 ? TEXT("SKYFALL SLAM") : (BossSpecialMove == 4 ? TEXT("SPINNING SWEEP") : (BossSpecialMove == 3 ? TEXT("DASH STRIKE") : (bComboSecondHitActive ? TEXT("COMBO FOLLOW-UP") : (BossSpecialMove == 2 ? TEXT("ECLIPSE SLAM") : (BossSpecialMove == 1 ? TEXT("MOON CLEAVE") : (CurrentAttackMultiplier > 2.f ? (bBoss ? TEXT("BOSS CRUSH") : TEXT("ELITE CRUSH")) : (CurrentAttackMultiplier > 1.5f ? TEXT("HEAVY") : (CurrentAttackRangeMultiplier > 1.f ? TEXT("SWEEP") : TEXT("STRIKE"))))))))), nullptr, FColor::Red, 0.12f, false);
   return;
  }
- if (Distance > AttackRange && Distance < 2200.f) {
+ // Ordinary enemies investigate a recently seen hero rather than tracking
+ // the player through solid walls. Boss encounters retain full arena awareness.
+ // Visibility traces run at most once per 0.45 seconds per ordinary enemy.
+ if (!bBoss && Now >= NextSightCheckAt) {
+  NextSightCheckAt = Now + 0.45f + 0.05f * static_cast<float>(GetUniqueID() % 3u);
+  FCollisionQueryParams PerceptionParams(SCENE_QUERY_STAT(MoonfallEnemyPerception), false);
+  PerceptionParams.AddIgnoredActor(this);
+  FHitResult PerceptionHit;
+  const bool bSightBlocked = GetWorld()->LineTraceSingleByChannel(
+    PerceptionHit, EnemyPosition, HeroPosition, ECC_Visibility, PerceptionParams)
+    && PerceptionHit.GetActor() != Hero;
+  bCanSeeHero = !bSightBlocked;
+  if (bCanSeeHero) {
+   LastSawHeroAt = Now;
+   LastKnownHeroPosition = HeroPosition;
+  }
+ }
+ const bool bHasRecentSight = bBoss || (FMath::IsFinite(LastSawHeroAt)
+   && Now - LastSawHeroAt <= 2.5f);
+ if (!bHasRecentSight) {
+  CachedWaypoint = FVector::ZeroVector;
+  NextPathRefreshAt = 0.f;
+  return;
+ }
+ if ((Distance > AttackRange || (!bBoss && !bCanSeeHero)) && Distance < 2200.f) {
   FHitResult Hit;
-  FVector Target = Hero->GetActorLocation();
+  FVector Target = (!bBoss && !bCanSeeHero) ? LastKnownHeroPosition : Hero->GetActorLocation();
   // Give different ordinary enemies stable approach lanes instead of all
   // pursuing the same point. A fixed four-slot split avoids per-tick random
   // jitter, extra neighbor searches, and new navigation queries.
-  if (Distance > AttackRange * 2.f && Distance < 900.f) {
+  if ((bBoss || bCanSeeHero) && Distance > AttackRange * 2.f && Distance < 900.f) {
    const FVector Side(-Difference.Y, Difference.X, 0.f);
    float FlankSign = 1.f;
    float FlankDistance = 0.f;
@@ -580,7 +604,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
     AddActorWorldOffset(StrafeStep, true, &StrafeHit);
    }
   }
-  if (WindupEndsAt < 0.f && Now >= NextAttackAt) {
+  if ((bBoss || bCanSeeHero) && WindupEndsAt < 0.f && Now >= NextAttackAt) {
    // Small-pack coordination: avoid three ordinary enemies delivering their
    // tells at once. Scan only at attack decisions, not on every AI tick;
    // cap work even in massive continuously explored regions.
