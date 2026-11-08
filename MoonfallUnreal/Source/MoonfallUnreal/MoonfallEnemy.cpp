@@ -478,6 +478,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
  // the player through solid walls. Boss encounters retain full arena awareness.
  // Visibility traces run at most once per 0.45 seconds per ordinary enemy.
  if (!bBoss && Now >= NextSightCheckAt) {
+  const bool bWasVisible = bCanSeeHero;
   NextSightCheckAt = Now + 0.45f + 0.05f * static_cast<float>(GetUniqueID() % 3u);
   FCollisionQueryParams PerceptionParams(SCENE_QUERY_STAT(MoonfallEnemyPerception), false);
   PerceptionParams.AddIgnoredActor(this);
@@ -486,6 +487,12 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
     PerceptionHit, EnemyPosition, HeroPosition, ECC_Visibility, PerceptionParams)
     && PerceptionHit.GetActor() != Hero;
   bCanSeeHero = !bSightBlocked;
+  // The old waypoint may lead toward the hero's now-hidden live position.
+  // Invalidate it once when visibility changes, not on every sight tick.
+  if (bCanSeeHero != bWasVisible) {
+   CachedWaypoint = FVector::ZeroVector;
+   NextPathRefreshAt = 0.f;
+  }
   if (bCanSeeHero) {
    LastSawHeroAt = Now;
    LastKnownHeroPosition = HeroPosition;
@@ -494,6 +501,15 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
  const bool bHasRecentSight = bBoss || (FMath::IsFinite(LastSawHeroAt)
    && Now - LastSawHeroAt <= 2.5f);
  if (!bHasRecentSight) {
+  CachedWaypoint = FVector::ZeroVector;
+  NextPathRefreshAt = 0.f;
+  return;
+ }
+ // Search terminates when an ordinary enemy actually reaches the last
+ // observed location. Do not orbit a vacant position for 2.5 seconds.
+ if (!bBoss && !bCanSeeHero
+     && FVector::DistSquared2D(EnemyPosition, LastKnownHeroPosition) <= FMath::Square(85.f)) {
+  LastSawHeroAt = -100.f;
   CachedWaypoint = FVector::ZeroVector;
   NextPathRefreshAt = 0.f;
   return;
