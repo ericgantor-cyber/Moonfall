@@ -344,6 +344,14 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("OnHealthChanged(Health, MaxHealth)", damage_code)
         self.assertNotIn("OnHealthChanged(Health, 100.f)", damage_code)
 
+    def test_opening_menus_releases_held_sprint(self):
+        inventory = self.hero_cpp.split("void AMoonfallHeroPawn::ToggleInventory()", 1)[1].split(
+            "void AMoonfallHeroPawn::EquipSelectedInventoryItem()", 1)[0]
+        self.assertIn("if (!bInventoryOpen) {\n  EndSprint();\n  EndGuard();", inventory)
+        options = self.hero_cpp.split("void AMoonfallHeroPawn::OpenOptions()", 1)[1].split(
+            "void AMoonfallHeroPawn::OptionsUp()", 1)[0]
+        self.assertIn("if (!bOptionsOpen) {\n  EndSprint();\n  EndGuard();", options)
+
     def test_sprint_input_is_rejected_in_menus_or_after_defeat(self):
         begin = self.hero_cpp.split("void AMoonfallHeroPawn::BeginSprint()", 1)[1].split(
             "void AMoonfallHeroPawn::EndSprint()", 1)[0]
