@@ -317,7 +317,7 @@ class WorldFoundationTests(unittest.TestCase):
         self.assertIn("SelectNextDiscoveredDungeonQuestInRegion(Nearest->RegionIndex)", hero_cpp)
         self.assertIn('ActionName="InteractQuestGuide",Key=R', inputs)
         self.assertIn('ActionName="InteractQuestGuide",Key=Gamepad_DPad_Right', inputs)
-        self.assertIn('TEXT("R: Talk   T: Service   G: Encourage   H: Intimidate")', hud)
+        self.assertIn('TEXT("R: Talk   T: Service   V: Craft   G/H: Social")', hud)
         self.assertIn("FVector::DistSquared2D(Guide->GetActorLocation(), Hero->GetActorLocation())", hud)
         # Eighteen non-hostile NPCs, three jobs in each region.
         self.assertEqual(len([(r, role) for r in range(6) for role in range(3)]), 18)
@@ -543,6 +543,53 @@ class WorldFoundationTests(unittest.TestCase):
                     quote = max(4, min(25, (12 if role == 1 else 10) + adjustment - supply // 30))
                     self.assertGreaterEqual(quote, 4)
                     self.assertLessEqual(quote, 25)
+
+    def test_crafting_inventory_workshop_stock_and_controls(self):
+        root = ROOT / "MoonfallUnreal"
+        hero_h = (root / "Source/MoonfallUnreal/MoonfallHeroPawn.h").read_text(encoding="utf-8")
+        hero_cpp = (root / "Source/MoonfallUnreal/MoonfallHeroPawn.cpp").read_text(encoding="utf-8")
+        hud = (root / "Source/MoonfallUnreal/MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        save = (root / "Source/MoonfallUnreal/MoonfallWorldProgressSave.h").read_text(encoding="utf-8")
+        inputs = (root / "Config/DefaultInput.ini").read_text(encoding="utf-8")
+        self.assertIn("GetWorkshopStock(int32 RegionIndex) const;", HEADER)
+        self.assertIn("GetCraftingPrice(int32 RegionIndex) const;", HEADER)
+        self.assertIn("PurchaseWorkshopStock(int32 RegionIndex);", HEADER)
+        self.assertIn("WorkshopStock.Init(3, Regions);", CPP)
+        self.assertIn("Saved->WorkshopStock.Num() == Regions", CPP)
+        self.assertIn("Saved->WorkshopStock = WorkshopStock;", CPP)
+        self.assertIn("TArray<int32> WorkshopStock;", save)
+        self.assertIn("NextWorkshopProductionAt = Now + 120.f;", CPP)
+        self.assertIn("GetRegionalSupplyRating(Region) / 20", CPP)
+        self.assertIn("if (!DiscoveredRegions.Contains(Region)) continue;", CPP)
+        self.assertIn("if (WorkshopStock[Region] < Capacity)", CPP)
+        self.assertIn("return FMath::Clamp(Base + ReputationPenalty, 7, 20);", CPP)
+        self.assertIn("if (!bContinuousWorld || RegionIndex < 0 || RegionIndex >= Regions ||", CPP)
+        self.assertIn("--WorkshopStock[RegionIndex];", CPP)
+        self.assertIn("void CraftWithNearestArtisan();", hero_h)
+        self.assertIn("void AMoonfallHeroPawn::CraftWithNearestArtisan()", hero_cpp)
+        body = hero_cpp.split("void AMoonfallHeroPawn::CraftWithNearestArtisan()", 1)[1].split("void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[0]
+        self.assertIn("if (!IsValid(Npc) || Npc->RoleIndex != 1) continue;", body)
+        self.assertIn("if (LastCraftPrice <= 0 || LastWorkshopStock <= 0 || Salvage < LastCraftPrice) return;", body)
+        self.assertIn("if (!Arena->PurchaseWorkshopStock(Region)) return;", body)
+        self.assertIn("Salvage -= LastCraftPrice;", body)
+        self.assertIn("InventoryItemCodes.Add(ItemCode);", body)
+        self.assertIn("const int32 ItemCode = Slot * 10000 + 1000 + Tier;", body)
+        self.assertNotIn("EquipInventoryItem(", body)
+        self.assertNotIn("Health =", body)
+        self.assertNotIn("AwardExperience(", body)
+        self.assertIn('ActionName="CraftNpcItem",Key=V', inputs)
+        self.assertIn('ActionName="CraftNpcItem",Key=Gamepad_FaceButton_Top', inputs)
+        self.assertIn('ActionName="DualCast",Key=C', inputs)
+        self.assertIn('TEXT("R: Talk   T: Service   V: Craft   G/H: Social")', hud)
+        self.assertIn('TEXT("%s: Crafted uncommon equipment for %d salvage.")', hud)
+        # Crafted uncommon items must pass the actual pickup/equipment decoder.
+        for region in range(6):
+            for level in (1, 5, 25, 75, 150):
+                tier = min(25, max(1, level // 5 + 1))
+                code = region % 3 * 10000 + 1000 + tier
+                self.assertEqual((code // 10000) % 10, region % 3)
+                self.assertEqual((code // 1000) % 10, 1)
+                self.assertTrue(1 <= code % 1000 <= 25)
 
     def test_connected_geometry(self):
         self.assertIn("Region * RegionSpacing", CPP)
