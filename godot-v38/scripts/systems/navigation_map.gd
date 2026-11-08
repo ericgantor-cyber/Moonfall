@@ -152,6 +152,22 @@ static func passage_near_chart(start:Vector3,finish:Vector3,width:float,centre_p
  var margin:float=width*0.5
  return maxf(start.x,finish.x)+margin>=centre_position.x-half_extent.x and minf(start.x,finish.x)-margin<=centre_position.x+half_extent.x and maxf(start.z,finish.z)+margin>=centre_position.z-half_extent.y and minf(start.z,finish.z)-margin<=centre_position.z+half_extent.y
 
+# Hide objectives within physical dungeon chambers until their room is visited.
+# Outside dungeon rooms, normal world objectives are still visible.
+static func dungeon_quest_marker_visible(marker:Vector3,rooms:Array[Vector3],radii:Array[float],known:Array[Vector3])->bool:
+ if not _valid_world_point(marker):return false
+ for i in range(mini(rooms.size(),MAX_CHAMBER_MARKERS)):
+  if i>=radii.size():continue
+  var radius:float=radii[i]
+  if not is_finite(radius) or radius<=0.0:continue
+  var chamber:Vector3=rooms[i]
+  if not _valid_world_point(chamber):continue
+  if Vector2(marker.x-chamber.x,marker.z-chamber.z).length_squared()>radius*radius:continue
+  for visited_position in known:
+   if Vector2(visited_position.x-chamber.x,visited_position.z-chamber.z).length_squared()<1.0:return true
+  return false
+ return true
+
 func _draw()->void:
  var rect:Rect2=Rect2(Vector2.ZERO,size)
  draw_rect(rect,Color(0.025,0.04,0.075,0.94),true)
@@ -178,6 +194,7 @@ func _draw()->void:
  # These solid walkways exist as StaticBody3D platforms in the connected world.
  if dungeon_active:
   for passage in dungeon_passages:
+   if not bool(passage.get("explored",false)):continue
    var start:Vector3=passage["start"]
    var finish:Vector3=passage["end"]
    var width:float=passage["width"]
@@ -188,9 +205,8 @@ func _draw()->void:
    var from_point:Vector2=centre+Vector2(start.x-player_position.x,start.z-player_position.z)*scale_factor
    var to_point:Vector2=centre+Vector2(finish.x-player_position.x,finish.z-player_position.z)*scale_factor
    var corners:=PackedVector2Array([from_point+normal,to_point+normal,to_point-normal,from_point-normal])
-   var explored:bool=bool(passage.get("explored",false))
-   draw_colored_polygon(corners,Color(0.34,0.37,0.44,0.82) if explored else Color(0.075,0.095,0.13,0.88))
-   var edge_color:Color=Color(0.72,0.76,0.83,0.88) if explored else Color(0.25,0.30,0.39,0.65)
+   draw_colored_polygon(corners,Color(0.34,0.37,0.44,0.82))
+   var edge_color:Color=Color(0.72,0.76,0.83,0.88)
    draw_line(from_point+normal,to_point+normal,edge_color,1.5)
    draw_line(from_point-normal,to_point-normal,edge_color,1.5)
  # Draw only authored floor meshes as a local top-down plan. No invented corridors.
@@ -206,11 +222,12 @@ func _draw()->void:
     if Vector2(visited_position.x-room_position.x,visited_position.z-room_position.z).length_squared()<1.0:
      visited=true
      break
-   draw_circle(room_screen,floor_radius,Color(0.29,0.33,0.39,0.77) if visited else Color(0.08,0.10,0.15,0.88))
-   draw_arc(room_screen,floor_radius,0.0,TAU,24,Color(0.93,0.76,0.48) if visited else Color(0.35,0.42,0.52,0.65),2.0)
+   if not visited:continue
+   draw_circle(room_screen,floor_radius,Color(0.29,0.33,0.39,0.77))
+   draw_arc(room_screen,floor_radius,0.0,TAU,24,Color(0.93,0.76,0.48),2.0)
    if room_index==dungeon_current_room:
     draw_arc(room_screen,floor_radius+4.0,0.0,TAU,24,Color(0.38,0.90,1.0),2.5)
-   draw_string(ThemeDB.fallback_font,room_screen+Vector2(-4.0,5.0),str(room_index+1),HORIZONTAL_ALIGNMENT_LEFT,-1,14,Color(0.95,0.96,0.99) if visited else Color(0.58,0.63,0.71))
+   draw_string(ThemeDB.fallback_font,room_screen+Vector2(-4.0,5.0),str(room_index+1),HORIZONTAL_ALIGNMENT_LEFT,-1,14,Color(0.95,0.96,0.99))
  # Local breadcrumbs reflect real sampled hero movement, not inferred corridors.
  if dungeon_active:
   var last_offset:Vector2=Vector2.ZERO
@@ -229,6 +246,19 @@ func _draw()->void:
   for pillar in dungeon_pillars:
    var pillar_offset:Vector2=Vector2(pillar.x-player_position.x,pillar.z-player_position.z)*scale_factor
    if absf(pillar_offset.x)>size.x*0.5 or absf(pillar_offset.y)>size.y*0.5:continue
+   var pillar_discovered:bool=false
+   for room_index in range(dungeon_rooms.size()):
+    if room_index>=dungeon_floor_radii.size():continue
+    var room_position:Vector3=dungeon_rooms[room_index]
+    var radius:float=dungeon_floor_radii[room_index]
+    if radius<=0.0:continue
+    if Vector2(pillar.x-room_position.x,pillar.z-room_position.z).length_squared()>radius*radius:continue
+    for visited_position in discovered_chambers:
+     if Vector2(visited_position.x-room_position.x,visited_position.z-room_position.z).length_squared()<1.0:
+      pillar_discovered=true
+      break
+    if pillar_discovered:break
+   if not pillar_discovered:continue
    var mapped:Vector2=centre+pillar_offset
    draw_rect(Rect2(mapped-Vector2(2,2),Vector2(4,4)),Color(0.75,0.80,0.89,0.9),true)
  # Visited authored chambers are gold-ring landmarks independent of quests.
@@ -249,6 +279,7 @@ func _draw()->void:
   draw_line(centre,marker,Color(1.0,0.77,0.22,0.7),2.0)
   draw_circle(marker,7.0,Color(1.0,0.74,0.19))
  for quest_position in quest_markers:
+  if dungeon_active and not dungeon_quest_marker_visible(quest_position,dungeon_rooms,dungeon_floor_radii,discovered_chambers):continue
   var quest_delta:Vector2=Vector2(quest_position.x-player_position.x,quest_position.z-player_position.z)*scale_factor
   if absf(quest_delta.x)>size.x*0.45 or absf(quest_delta.y)>size.y*0.45:
    continue
