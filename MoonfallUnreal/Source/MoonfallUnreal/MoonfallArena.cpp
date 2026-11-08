@@ -176,6 +176,22 @@ void AMoonfallArena::StreamWorld() {
  bool BuiltOne = false, SpawnedOne = false;
  // One chamber geometry allocation and at most one hostile spawn per 0.25s scan.
  for (int32 Region = 0; Region < Regions; ++Region) {
+  const FVector RegionPos(Region * RegionSpacing, 0.f, 0.f);
+  if (FVector::DistSquared2D(Here, RegionPos) < 2200.f * 2200.f
+      && !DiscoveredRegions.Contains(Region)) {
+   DiscoveredRegions.Add(Region);
+   bWorldSavePending = true;
+  }
+  // Entrance markers are earned through traversal, not proximity streaming.
+  for (int32 Dungeon = 0; Dungeon < DungeonsPerRegion; ++Dungeon) {
+   const int32 EntranceId = Region * DungeonsPerRegion + Dungeon;
+   const FVector Entrance = RoomCenter(Region, Dungeon, 0);
+   if (FVector::DistSquared2D(Here, Entrance) < 650.f * 650.f
+       && !DiscoveredDungeonEntrances.Contains(EntranceId)) {
+    DiscoveredDungeonEntrances.Add(EntranceId);
+    bWorldSavePending = true;
+   }
+  }
   for (int32 Index = 0; Index < 3 && !SpawnedOne; ++Index) {
    const int32 Id = Region * 3 + Index;
    const FVector At(Region * RegionSpacing - 650.f + Index * 650.f,
@@ -235,6 +251,8 @@ bool AMoonfallArena::IsValidEncounterId(int32 Id) {
 void AMoonfallArena::LoadWorldProgress() {
  DefeatedEncounters.Empty();
  DiscoveredChambers.Empty();
+ DiscoveredRegions.Empty();
+ DiscoveredDungeonEntrances.Empty();
  if (!UGameplayStatics::DoesSaveGameExist(WorldProgressSlot, 0)) return;
  UMoonfallWorldProgressSave* Saved = Cast<UMoonfallWorldProgressSave>(
   UGameplayStatics::LoadGameFromSlot(WorldProgressSlot, 0));
@@ -244,6 +262,13 @@ void AMoonfallArena::LoadWorldProgress() {
  }
  // Schema v1 accepts 36 wildlife and 150 dungeon encounters; no ID reuse.
  if (DefeatedEncounters.Num() > 186) DefeatedEncounters.Empty();
+ for (const int32 Region : Saved->DiscoveredRegionIds) {
+  if (Region >= 0 && Region < Regions) DiscoveredRegions.Add(Region);
+ }
+ for (const int32 Entrance : Saved->DiscoveredDungeonEntranceIds) {
+  if (Entrance >= 0 && Entrance < Regions * DungeonsPerRegion)
+   DiscoveredDungeonEntrances.Add(Entrance);
+ }
  for (const int32 Room : Saved->DiscoveredChamberIds) {
   if (Room >= 0 && Room < Regions * DungeonsPerRegion * ChambersPerDungeon)
    DiscoveredChambers.Add(Room);
@@ -280,6 +305,15 @@ void AMoonfallArena::SaveWorldProgress() {
    Saved->DiscoveredChamberIds.Add(Room);
  }
  Saved->DiscoveredChamberIds.Sort();
+ for (const int32 Region : DiscoveredRegions) {
+  if (Region >= 0 && Region < Regions) Saved->DiscoveredRegionIds.Add(Region);
+ }
+ Saved->DiscoveredRegionIds.Sort();
+ for (const int32 Entrance : DiscoveredDungeonEntrances) {
+  if (Entrance >= 0 && Entrance < Regions * DungeonsPerRegion)
+   Saved->DiscoveredDungeonEntranceIds.Add(Entrance);
+ }
+ Saved->DiscoveredDungeonEntranceIds.Sort();
  if (UGameplayStatics::SaveGameToSlot(Saved, WorldProgressSlot, 0))
   bWorldSavePending = false;
 }
