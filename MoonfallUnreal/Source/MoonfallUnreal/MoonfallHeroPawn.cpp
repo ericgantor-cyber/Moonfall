@@ -802,6 +802,8 @@ void AMoonfallHeroPawn::AwardEquipmentDrop(bool bEliteEnemy, bool bBossEnemy)
   *EquippedAffix = LastLootAffix;
   const int32 Previous = *Slot;
   *Slot = NewTier;
+  int32* EquippedCode = bBossEnemy ? &EquippedAccessoryCode : (bEliteEnemy ? &EquippedArmorCode : &EquippedWeaponCode);
+  *EquippedCode = ItemCode;
   EquipmentTier = FMath::Max(WeaponTier, FMath::Max(ArmorTier, AccessoryTier));
   if (Slot == &ArmorTier) {
    MaxHealth += 2.f * (NewTier - Previous);
@@ -811,4 +813,39 @@ void AMoonfallHeroPawn::AwardEquipmentDrop(bool bEliteEnemy, bool bBossEnemy)
  } else {
   Salvage = FMath::Min(9999, Salvage + (bBossEnemy ? 5 : (bEliteEnemy ? 2 : 1)));
  }
+}
+
+bool AMoonfallHeroPawn::EquipInventoryItem(int32 InventoryIndex)
+{
+ if (Health <= 0.f || !InventoryItemCodes.IsValidIndex(InventoryIndex)) return false;
+ const int32 Code = InventoryItemCodes[InventoryIndex];
+ if (Code <= 0) return false;
+ // Validate every decoded field before mutating equipped items or health.
+ const int32 Affix = Code / 100000;
+ const int32 SlotIndex = (Code / 10000) % 10;
+ const int32 Rarity = (Code / 1000) % 10;
+ const int32 Tier = Code % 1000;
+ if (Affix < 0 || Affix > 3 || SlotIndex < 0 || SlotIndex > 2
+     || Rarity < 0 || Rarity > 3 || Tier < 1 || Tier > 25
+     || (Rarity == 0 && Affix != 0)
+     || Code != Affix * 100000 + SlotIndex * 10000 + Rarity * 1000 + Tier)
+  return false;
+ int32* EquippedTier = SlotIndex == 0 ? &WeaponTier : (SlotIndex == 1 ? &ArmorTier : &AccessoryTier);
+ int32* EquippedAffix = SlotIndex == 0 ? &WeaponAffix : (SlotIndex == 1 ? &ArmorAffix : &AccessoryAffix);
+ int32* EquippedCode = SlotIndex == 0 ? &EquippedWeaponCode
+     : (SlotIndex == 1 ? &EquippedArmorCode : &EquippedAccessoryCode);
+ if (*EquippedCode == Code && *EquippedTier == Tier && *EquippedAffix == Affix) return false;
+ const int32 PreviousTier = *EquippedTier;
+ *EquippedTier = Tier;
+ *EquippedAffix = Affix;
+ *EquippedCode = Code;
+ EquipmentTier = FMath::Max(WeaponTier, FMath::Max(ArmorTier, AccessoryTier));
+ if (SlotIndex == 1 && PreviousTier != Tier) {
+  // Equipping lower-tier armor cannot grant free health, or reduce it below 1.
+  const float HealthDelta = 2.f * (Tier - PreviousTier);
+  MaxHealth = FMath::Max(1.f, MaxHealth + HealthDelta);
+  Health = FMath::Clamp(Health + HealthDelta, 1.f, MaxHealth);
+  OnHealthChanged(Health, MaxHealth);
+ }
+ return true;
 }
