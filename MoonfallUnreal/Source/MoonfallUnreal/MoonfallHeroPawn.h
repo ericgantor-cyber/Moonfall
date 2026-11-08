@@ -183,6 +183,7 @@ private:
  bool bSprintHeld = false;
  bool bSprintExhausted = false;
  float StaminaRegenStartsAt = 0.f;
+ void TryJump();
  void MoveForward(float Amount);
  void MoveRight(float Amount);
  void Turn(float Amount);
