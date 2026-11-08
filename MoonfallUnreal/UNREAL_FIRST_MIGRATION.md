@@ -165,3 +165,8 @@ The inventory cap is now enforced **before** loot pickups, scripted direct award
 The game mode now detects an Arena actor already placed in the level before spawning its own default `AMoonfallArena`. This avoids accidentally creating two world simulation coordinators, duplicate enemy/NPC actors and competing saves under the same progress slot when a designer-authored level includes its own Arena. The continuous-world Arena also explicitly includes `EngineUtils.h` and `GameFramework/Pawn.h`, ensuring actor iteration and pawn types have direct compile dependencies rather than relying on other headers to pull them in. A source regression test checks the startup guard.
 
 The native `Verify-Win64.ps1` verification command remains available on a Windows machine with a real Unreal 5.4 installation. GitHub CI here validates source contracts, **not** Unreal Engine compilation or Windows packaging.
+
+## Crafting save-order fix
+The artisan purchase path now writes **decremented workshop stock to the Unreal world save slot before giving the hero an item or spending Salvage**. If the world save fails, it reverses the in-memory decrement and rejects the transaction. This prevents a stale workshop stock save from allowing duplicate purchases across a restart when the hero's item was already saved. Source regressions enforce stock save, save-failure rollback and craft-step ordering.
+
+**Caution:** The world save and the independent player economy save remain separate files. The change does not guarantee true two-slot atomic transactions: an interruption or player save failure after the workshop save can still leave mismatched inventory/stock. Full crash consistency needs a transactional journal or a unified save workflow and native runtime/restart tests.
