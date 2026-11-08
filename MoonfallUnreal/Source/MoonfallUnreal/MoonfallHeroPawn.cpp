@@ -101,7 +101,13 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
  ImpactCameraOffset = FMath::FInterpTo(ImpactCameraOffset, 0.f, FMath::Max(0.f, DeltaSeconds), 12.f);
  if (CameraBoom) CameraBoom->TargetArmLength = 450.f + (bReduceMotion ? 0.f : ImpactCameraOffset);
  // Mana regenerates during gameplay and while a menu is open.
- if (Health > 0.f && Mana < MaxMana) Mana = FMath::Min(MaxMana, Mana + ManaRegenPerSecond * (1.f + FMath::Min(0.25f, AccessoryTier * 0.012f) + (AccessoryAffix == 3 ? 0.08f : 0.f)) * FMath::Max(0.f, DeltaSeconds));
+ const float MenuRecoveryBoost = (bOptionsOpen || bInventoryOpen) && FMath::IsFinite(MenuRecoveryMultiplier)
+     ? FMath::Clamp(MenuRecoveryMultiplier, 1.f, 2.f) : 1.f;
+ if (Health > 0.f && FMath::IsFinite(Mana) && FMath::IsFinite(MaxMana) && MaxMana > 0.f
+     && FMath::IsFinite(ManaRegenPerSecond) && ManaRegenPerSecond > 0.f && Mana < MaxMana)
+  Mana = FMath::Min(MaxMana, Mana + ManaRegenPerSecond * MenuRecoveryBoost
+      * (1.f + FMath::Min(0.25f, AccessoryTier * 0.012f) + (AccessoryAffix == 3 ? 0.08f : 0.f))
+      * FMath::Clamp(DeltaSeconds, 0.f, 0.1f));
  // Recovery in either menu is bounded and never revives a defeated hero.
  if ((bOptionsOpen || bInventoryOpen) && Health > 0.f && FMath::IsFinite(Health)
      && FMath::IsFinite(MaxHealth) && MaxHealth > 0.f && Health < MaxHealth
@@ -180,7 +186,7 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
  if (Health > 0.f && !bSprinting && !bGuarding && GetWorld() && GetWorld()->GetTimeSeconds() >= StaminaRegenStartsAt
      && FMath::IsFinite(Stamina) && FMath::IsFinite(MaxStamina) && MaxStamina > 0.f
      && FMath::IsFinite(StaminaRegenPerSecond) && StaminaRegenPerSecond > 0.f) {
-  Stamina = FMath::Clamp(Stamina + StaminaRegenPerSecond * StaminaDelta, 0.f, MaxStamina);
+  Stamina = FMath::Clamp(Stamina + StaminaRegenPerSecond * StaminaDelta * MenuRecoveryBoost, 0.f, MaxStamina);
  }
 }
 void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
