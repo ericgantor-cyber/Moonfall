@@ -89,3 +89,10 @@ This is an **original Moonfall implementation** combining broad design inspirati
 - **Original gameplay**: No waves, new combat AI controllers, artificial companion relationships, or hidden map discoveries. Existing R / D-pad Right quest-guide dialogue and selection remains. Z and Nyra's source artwork and Godot sources stay unchanged.
 
 **Needed before release:** UE 5.4 native compile and in-editor playtest, test controller D-pad input vs menu navigation, NPC path validity around authored terrain, confirm saves across restarts and profile dynamic light cost. Dialogue lines are rule-based templates, not LLM-generated conversations or authored voiced performances.
+
+## NPC population expansion and role-aware behavior
+The six-region prototype now spawns **18 individually named civilian NPCs** (three per region: quest guide, artisan and scout) with original role-specific temperaments. They each receive a stable NPC ID `RegionIndex * 3 + RoleIndex`. Lightweight ambient routines retain half-second proximity gating and use role-offset schedules. Quest guides alone select discovered dungeon objectives; artisans and scouts share regional observations without rewriting the active quest.
+
+Each person has distinct trust/fear memory in optional, bounded 18-slot Unreal SaveGame arrays. Existing regional NPC memories are migrated to the original guide identities when older saves lack per-person arrays, and older fields stay populated. Genuine local guardian victories contribute role-sensitive reputation (+8 for guides, +5 for artisans, +10 for scouts per guardian). Social choices have personal cooldowns and role-dependent reactions; bullying scouts builds less fear but hurts trust more, while artisans particularly value respectful conversation. Dialogue displays a speaker's role-specific reaction, personality and current schedule.
+
+This is a local rule-based **prototype**, not a fully simulated town, emergent language model, authored relationships between all NPCs, or new artwork. It preserves Godot, its saves, and original Z/Nyra images. Native UE 5.4 compilation, reload and navigation playtests are outstanding.
