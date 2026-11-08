@@ -546,6 +546,17 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(reward.index("LastPerfectDodgeRewardAt = Now;"),
                         reward.index("Mana = FMath::Clamp(Mana + 8.f"))
 
+    def test_perfect_dodge_rewards_require_live_valid_window(self):
+        reward = self.hero_cpp.split("bool AMoonfallHeroPawn::TryRewardPerfectDodge()", 1)[1].split(
+            "bool AMoonfallHeroPawn::ApplyMoonfallDamageFrom(", 1)[0]
+        self.assertIn("Health <= 0.f || bOptionsOpen || bInventoryOpen", reward)
+        for field in ("Now", "PerfectDodgeWindowUntil", "LastPerfectDodgeRewardAt"):
+            self.assertIn(f"!FMath::IsFinite({field})", reward)
+        self.assertIn("Now > PerfectDodgeWindowUntil || Now - LastPerfectDodgeRewardAt < 1.f", reward)
+        self.assertLess(reward.index("bOptionsOpen || bInventoryOpen"), reward.index("LastPerfectDodgeRewardAt = Now;"))
+        self.assertLess(reward.index("!FMath::IsFinite(PerfectDodgeWindowUntil)"),
+                        reward.index("PerfectDodgeWindowUntil = -1.f;"))
+
     def test_sprint_input_is_rejected_in_menus_or_after_defeat(self):
         begin = self.hero_cpp.split("void AMoonfallHeroPawn::BeginSprint()", 1)[1].split(
             "void AMoonfallHeroPawn::EndSprint()", 1)[0]
