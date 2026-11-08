@@ -280,7 +280,8 @@ class WorldFoundationTests(unittest.TestCase):
         self.assertIn("Body->SetCollisionEnabled(ECollisionEnabled::QueryOnly);", guide_cpp)
         self.assertIn("Body->SetCollisionResponseToChannel(ECC_WorldStatic, ECR_Block);", guide_cpp)
         self.assertIn("SpawnActor<AMoonfallQuestGuide>", CPP)
-        self.assertIn("Guide->RegionIndex = Region;", CPP)
+        self.assertIn("Npc->RegionIndex = Region;", CPP)
+        self.assertIn("Npc->RoleIndex = Role;", CPP)
         self.assertIn("SelectNextDiscoveredDungeonQuestInRegion(int32 RegionIndex)", HEADER)
         self.assertIn("if (!DiscoveredDungeonEntrances.Contains(EntranceId)) continue;", CPP)
         self.assertIn("return TrackDungeonQuest(EntranceId);", CPP)
@@ -318,8 +319,8 @@ class WorldFoundationTests(unittest.TestCase):
         self.assertIn('ActionName="InteractQuestGuide",Key=Gamepad_DPad_Right', inputs)
         self.assertIn('TEXT("R: Talk   G: Encourage   H: Intimidate  |  D-pad Right/Up/Down")', hud)
         self.assertIn("FVector::DistSquared2D(Guide->GetActorLocation(), Hero->GetActorLocation())", hud)
-        # Six stationary guides, one per region; no new combat waves or hidden quest discovery.
-        self.assertEqual(len([r * 6000 for r in range(6)]), 6)
+        # Eighteen non-hostile NPCs, three jobs in each region.
+        self.assertEqual(len([(r, role) for r in range(6) for role in range(3)]), 18)
 
     def test_social_memory_and_civilian_routines(self):
         root = ROOT / "MoonfallUnreal"
@@ -353,8 +354,8 @@ class WorldFoundationTests(unittest.TestCase):
         self.assertIn("GetRoutineLabel() const", guide_h)
         self.assertIn("void AMoonfallHeroPawn::EncourageQuestGuide()", hero_cpp)
         self.assertIn("void AMoonfallHeroPawn::IntimidateQuestGuide()", hero_cpp)
-        self.assertIn("LastGuideTrust = Arena->GetGuideTrust(Nearest->RegionIndex);", hero_cpp)
-        self.assertIn("LastGuideFear = Arena->GetGuideFear(Nearest->RegionIndex);", hero_cpp)
+        self.assertIn("LastGuideTrust = Arena->GetNpcTrust(Nearest->GetPersistentNpcId());", hero_cpp)
+        self.assertIn("LastGuideFear = Arena->GetNpcFear(Nearest->GetPersistentNpcId());", hero_cpp)
         self.assertIn("LastGuideSocialChoice = -1;", hero_h)
         self.assertIn('TEXT("%s: I remember your kindness.")', hud)
         self.assertIn('TEXT("%s: Your threats will not be forgotten.")', hud)
@@ -363,6 +364,46 @@ class WorldFoundationTests(unittest.TestCase):
         self.assertIn('ActionName="IntimidateQuestGuide",Key=H', inputs)
         self.assertIn('ActionName="EncourageQuestGuide",Key=Gamepad_DPad_Up', inputs)
         self.assertIn('ActionName="IntimidateQuestGuide",Key=Gamepad_DPad_Down', inputs)
+
+    def test_eighteen_npc_relationships_and_roles(self):
+        root = ROOT / "MoonfallUnreal"
+        save = (root / "Source/MoonfallUnreal/MoonfallWorldProgressSave.h").read_text(encoding="utf-8")
+        npc_h = (root / "Source/MoonfallUnreal/MoonfallQuestGuide.h").read_text(encoding="utf-8")
+        npc_cpp = (root / "Source/MoonfallUnreal/MoonfallQuestGuide.cpp").read_text(encoding="utf-8")
+        hero_h = (root / "Source/MoonfallUnreal/MoonfallHeroPawn.h").read_text(encoding="utf-8")
+        hero_cpp = (root / "Source/MoonfallUnreal/MoonfallHeroPawn.cpp").read_text(encoding="utf-8")
+        hud = (root / "Source/MoonfallUnreal/MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        self.assertIn("for (int32 Role = 0; Role < 3; ++Role)", CPP)
+        self.assertIn("Npc->RoleIndex = Role;", CPP)
+        self.assertIn("FText AMoonfallQuestGuide::GetPersonalityLabel() const", npc_cpp)
+        self.assertIn("GetPersistentNpcId() const", npc_h)
+        for name in ("Ash Warden", "Cinder Smith", "Ember Watcher",
+                     "Mire Keeper", "Bog Herbalist", "Fen Scout",
+                     "Frost Herald", "Rime Tailor", "Snow Pathfinder",
+                     "Storm Oracle", "Thunder Artisan", "Cloud Ranger",
+                     "Foundry Chronicler", "Forge Mechanic", "Iron Sentinel",
+                     "Eclipse Seer", "Moon Weaver", "Shadow Lookout"):
+            self.assertIn('TEXT("' + name + '")', npc_cpp)
+        self.assertIn("TArray<int32> NpcTrustMemory;", save)
+        self.assertIn("TArray<int32> NpcFearMemory;", save)
+        self.assertIn("NpcTrustMemory.Init(0, Regions * 3);", CPP)
+        self.assertIn("NpcFearMemory.Init(0, Regions * 3);", CPP)
+        self.assertIn("Saved->NpcTrustMemory.Num() == Regions * 3", CPP)
+        self.assertIn("Saved->NpcFearMemory.Num() == Regions * 3", CPP)
+        self.assertIn("Saved->NpcTrustMemory = NpcTrustMemory;", CPP)
+        self.assertIn("Saved->NpcFearMemory = NpcFearMemory;", CPP)
+        self.assertIn("RecordNpcSocialChoice(int32 NpcId, bool bIntimidate)", HEADER)
+        self.assertIn("GetNpcTrust(int32 NpcId) const", HEADER)
+        self.assertIn("GetNpcFear(int32 NpcId) const", HEADER)
+        self.assertIn("if (Previous && Now - *Previous < 30.f) return false;", CPP)
+        self.assertIn("if (Role == 0) {", CPP)
+        self.assertIn("LastNpcRole == 0", hero_cpp)
+        self.assertIn("RecordNpcSocialChoice(Nearest->GetPersistentNpcId(), bIntimidate)", hero_cpp)
+        self.assertIn("FString LastNpcPersonality;", hero_h)
+        self.assertIn("FString LastNpcRoutine;", hero_h)
+        self.assertIn('TEXT("%s: I make what this region needs.")', hud)
+        self.assertIn('TEXT("%s: My watch keeps the roads safe.")', hud)
+        self.assertEqual(len({region * 3 + role for region in range(6) for role in range(3)}), 18)
 
     def test_connected_geometry(self):
         self.assertIn("Region * RegionSpacing", CPP)
