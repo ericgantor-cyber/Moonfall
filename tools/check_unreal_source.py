@@ -1724,9 +1724,27 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertEqual(tick.count("Nav->FindPathToLocationSynchronously("), 1)
         self.assertEqual(tick.count("Nav->ProjectPointToNavigation("), 1)
 
+    def test_enemy_sight_memory_does_not_track_through_walls(self):
+        tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
+        self.assertIn("float NextSightCheckAt = 0.f;", self.enemy_h)
+        self.assertIn("float LastSawHeroAt = -100.f;", self.enemy_h)
+        self.assertIn("FVector LastKnownHeroPosition = FVector::ZeroVector;", self.enemy_h)
+        self.assertIn("if (!bBoss && Now >= NextSightCheckAt)", tick)
+        self.assertIn("NextSightCheckAt = Now + 0.45f", tick)
+        self.assertIn("SCENE_QUERY_STAT(MoonfallEnemyPerception)", tick)
+        self.assertIn("PerceptionParams.AddIgnoredActor(this);", tick)
+        self.assertIn("PerceptionHit.GetActor() != Hero", tick)
+        self.assertIn("LastKnownHeroPosition = HeroPosition;", tick)
+        self.assertIn("Now - LastSawHeroAt <= 2.5f", tick)
+        self.assertIn("if (!bHasRecentSight)", tick)
+        self.assertIn("(!bBoss && !bCanSeeHero)", tick)
+        self.assertIn("(!bBoss && !bCanSeeHero) ? LastKnownHeroPosition", tick)
+        self.assertIn("if ((bBoss || bCanSeeHero) && WindupEndsAt < 0.f", tick)
+        self.assertEqual(tick.count("Nav->FindPathToLocationSynchronously("), 1)
+
     def test_enemy_formation_lanes_spread_pursuit_without_more_nav_lookups(self):
         tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
-        self.assertIn("if (Distance > AttackRange * 2.f && Distance < 900.f)", tick)
+        self.assertIn("Distance > AttackRange * 2.f && Distance < 900.f", tick)
         self.assertIn("const uint32 Lane = GetUniqueID() % 4u;", tick)
         self.assertIn("FlankSign = Lane % 2u == 0u ? -1.f : 1.f;", tick)
         self.assertIn("FlankDistance = Lane >= 2u ? 105.f : 70.f;", tick)
