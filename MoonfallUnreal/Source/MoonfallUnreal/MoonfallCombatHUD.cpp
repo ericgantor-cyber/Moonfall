@@ -98,6 +98,33 @@ void AMoonfallCombatHUD::DrawHUD()
   if (!FMath::IsFinite(PlayerPos.X) || !FMath::IsFinite(PlayerPos.Y)) break;
   DrawRect(FLinearColor(0.025f, 0.035f, 0.07f, 0.9f),
            MapLeft, MapTop, MapWidth, MapWidth);
+  // Low-cost terrain silhouettes are revealed only after entering a region.
+  // Unvisited regions remain black fog, even if nearby on the same map.
+  for (const int32 Region : Arena->GetDiscoveredRegions()) {
+   if (Region < 0 || Region >= 6) continue;
+   const float DX = (Region * 6000.f - PlayerPos.X) * Scale;
+   const float DY = PlayerPos.Y * Scale;
+   if (DX * DX + DY * DY > MapRadius * MapRadius) continue;
+   const FLinearColor Terrain[] = {
+    FLinearColor(0.31f,0.15f,0.12f,0.75f), FLinearColor(0.13f,0.29f,0.19f,0.75f),
+    FLinearColor(0.26f,0.38f,0.47f,0.75f), FLinearColor(0.22f,0.24f,0.45f,0.75f),
+    FLinearColor(0.36f,0.27f,0.17f,0.75f), FLinearColor(0.27f,0.16f,0.37f,0.75f)
+   };
+   DrawRect(Terrain[Region], CenterX + DX - 16.f, CenterY + DY - 16.f, 32.f, 32.f);
+  }
+  // Known dungeon entrances are marked independently of interior discoveries.
+  for (const int32 EntranceId : Arena->GetDiscoveredDungeonEntrances()) {
+   if (EntranceId < 0 || EntranceId >= 30) continue;
+   const int32 Region = EntranceId / 5;
+   const int32 Dungeon = EntranceId % 5;
+   const float WorldX = Region * 6000.f - 2200.f + Dungeon * 1100.f;
+   const float WorldY = 3600.f;
+   const float DX = (WorldX - PlayerPos.X) * Scale;
+   const float DY = (PlayerPos.Y - WorldY) * Scale;
+   if (DX * DX + DY * DY > MapRadius * MapRadius) continue;
+   DrawRect(FLinearColor(0.96f, 0.67f, 0.27f), CenterX + DX - 3.f,
+    CenterY + DY - 3.f, 6.f, 6.f);
+  }
   for (const int32 RoomId : Arena->GetDiscoveredChambers()) {
    if (RoomId < 0 || RoomId >= 420) continue;
    const int32 Region = RoomId / 70;
