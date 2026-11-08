@@ -54,7 +54,7 @@ void AMoonfallGroundLoot::InitializeLoot(int32 InItemCode)
  const FColor Colors[] = {FColor(230,230,230), FColor(65,175,255),
    FColor(245,201,63), FColor(183,89,244)};
  const FColor QualityColor = Colors[Rarity];
- ItemLabel->SetText(FText::FromString(FString::Printf(TEXT("%s %s%s  T%d"),
+ ItemLabel->SetText(FText::FromString(FString::Printf(TEXT("%s %s%s  T%d  [F / X]"),
    QualityNames[Rarity], TraitNames[Affix], SlotNames[Slot], Tier)));
  ItemLabel->SetTextRenderColor(QualityColor);
  // Colored beacon and object communicate rarity without transient effects or tick.
