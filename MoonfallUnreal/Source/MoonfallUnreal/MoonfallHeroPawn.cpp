@@ -399,6 +399,10 @@ void AMoonfallHeroPawn::BeginGuard()
      || !FMath::IsFinite(Stamina) || !FMath::IsFinite(MaxStamina) || MaxStamina <= 0.f
      || !FMath::IsFinite(GuardStaminaCost) || GuardStaminaCost < 0.f
      || Stamina < GuardStaminaCost) return;
+ // Guard and parry cooldown timestamps must be finite before committing stamina or stance.
+ const float GuardNow = GetWorld()->GetTimeSeconds();
+ if (!FMath::IsFinite(GuardNow) || !FMath::IsFinite(DamageImmunityUntil)
+     || !FMath::IsFinite(GuardBrokenUntil) || !FMath::IsFinite(NextParryAt)) return;
  // A new guard stance cancels held sprint instead of resuming it on release.
  EndSprint();
  bGuarding = true;
@@ -426,7 +430,7 @@ void AMoonfallHeroPawn::EndGuard()
   GetCharacterMovement()->MaxWalkSpeed = NormalWalkSpeed;
  // Guard stance cannot refill stamina for free; preserve longer dodge/impact delays.
  if (bWasGuarding && GetWorld())
-  StaminaRegenStartsAt = FMath::Max(StaminaRegenStartsAt, GetWorld()->GetTimeSeconds() + 0.4f);
+  StaminaRegenStartsAt = FMath::Max(FMath::IsFinite(StaminaRegenStartsAt) ? StaminaRegenStartsAt : GetWorld()->GetTimeSeconds(), GetWorld()->GetTimeSeconds() + 0.4f);
 }
 void AMoonfallHeroPawn::BeginSprint() {
  // Menu and defeat inputs must not latch a sprint for later gameplay.
@@ -548,6 +552,7 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
  // Perfect parries are deliberate responses to a known, front-facing
  // attacker. Environmental damage without a source may still be blocked.
  const bool bPerfectParry = bGuarding && bHasIncomingDamageSource && bFrontAttack
+     && FMath::IsFinite(ParryWindowEndsAt) && FMath::IsFinite(NextParryAt)
      && Now <= ParryWindowEndsAt && Now <= NextParryAt;
  const float RequiredGuardCost = bPerfectParry ? 0.f : HitGuardCost;
  if (bGuarding && bFrontAttack && !bOptionsOpen
