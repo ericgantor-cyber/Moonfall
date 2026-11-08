@@ -557,6 +557,20 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(reward.index("!FMath::IsFinite(PerfectDodgeWindowUntil)"),
                         reward.index("PerfectDodgeWindowUntil = -1.f;"))
 
+    def test_dodge_rejects_invalid_timers_and_preserves_stamina_delay(self):
+        dodge = self.hero_cpp.split("void AMoonfallHeroPawn::Dodge()", 1)[1].split(
+            "void AMoonfallHeroPawn::RewardPerfectDodge()", 1)[0]
+        for value in ("Now", "NextDodgeAt", "DamageImmunityUntil"):
+            self.assertIn(f"!FMath::IsFinite({value})", dodge)
+            self.assertLess(dodge.index(f"!FMath::IsFinite({value})"),
+                            dodge.index("Stamina = FMath::Clamp(Stamina - DodgeStaminaCost"))
+        self.assertIn("Now < NextDodgeAt || Now < DamageImmunityUntil", dodge)
+        self.assertIn("StaminaRegenStartsAt = FMath::Max(", dodge)
+        self.assertIn("FMath::IsFinite(StaminaRegenStartsAt) ? StaminaRegenStartsAt : Now", dodge)
+        self.assertIn("Now + 0.8f);", dodge)
+        self.assertLess(dodge.index("StaminaRegenStartsAt = FMath::Max("),
+                        dodge.index("LaunchCharacter("))
+
     def test_sprint_input_is_rejected_in_menus_or_after_defeat(self):
         begin = self.hero_cpp.split("void AMoonfallHeroPawn::BeginSprint()", 1)[1].split(
             "void AMoonfallHeroPawn::EndSprint()", 1)[0]
@@ -618,7 +632,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "void AMoonfallHeroPawn::RewardPerfectDodge()", 1)[0]
         self.assertIn("Stamina < DodgeStaminaCost", dodge)
         self.assertIn("Stamina = FMath::Clamp(Stamina - DodgeStaminaCost", dodge)
-        self.assertIn("StaminaRegenStartsAt = Now + 0.8f", dodge)
+        self.assertIn("StaminaRegenStartsAt = FMath::Max(FMath::IsFinite(StaminaRegenStartsAt) ? StaminaRegenStartsAt : Now, Now + 0.8f);", dodge)
         self.assertLess(dodge.index("Stamina < DodgeStaminaCost"), dodge.index("LaunchCharacter("))
         tick = self.hero_cpp.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1].split(
             "void AMoonfallHeroPawn::SetupPlayerInputComponent", 1)[0]
