@@ -147,6 +147,21 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("void AMoonfallEnemy::BeginPlay()", self.enemy_cpp)
         self.assertIn("Hero->AwardEquipmentDrop", self.enemy_cpp)
 
+    def test_randomized_loot_rarity_is_bounded_with_boss_guarantees(self):
+        loot = self.hero_cpp.split("void AMoonfallHeroPawn::AwardEquipmentDrop(", 1)[1].split(
+            "void AMoonfallHeroPawn::", 1)[0]
+        self.assertIn("const int32 LootRoll = FMath::RandRange(0, 99);", loot)
+        self.assertIn("const int32 RarityBias = FMath::Clamp(Level / 5, 0, 12);", loot)
+        self.assertIn("LastLootRarity = bBossEnemy ? 3", loot)
+        self.assertIn("(bEliteEnemy ? (LootRoll < 15 ? 3 : 2)", loot)
+        self.assertIn("LootRoll < 3 + RarityBias / 3 ? 3", loot)
+        self.assertIn("LootRoll < 18 + RarityBias ? 2", loot)
+        self.assertIn("LootRoll < 53 + RarityBias ? 1 : 0", loot)
+        self.assertIn("FMath::Clamp(Level / 5", loot)
+        self.assertIn("InventoryItemCodes.Num() >= 30", loot)
+        self.assertIn("LastLootSlot * 10000 + LastLootRarity * 1000 + NewTier", loot)
+        self.assertNotIn("FinisherShockwave", self.hero_cpp)
+
     def test_equipment_stats_affect_combat(self):
         for name in ("WeaponTier", "ArmorTier", "AccessoryTier"):
             self.assertIn(name, self.hero_h)
