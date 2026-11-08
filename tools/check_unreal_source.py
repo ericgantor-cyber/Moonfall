@@ -571,6 +571,21 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(dodge.index("StaminaRegenStartsAt = FMath::Max("),
                         dodge.index("LaunchCharacter("))
 
+    def test_guard_impact_preserves_stamina_delay_and_resets_stale_counter(self):
+        damage = self.hero_cpp.split("void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount)", 1)[1].split(
+            "void AMoonfallHeroPawn::CycleGraphicsQuality()", 1)[0]
+        guard = damage.split("if (bGuarding && bFrontAttack && !bOptionsOpen", 1)[1].split(
+            "OnGuardImpact(", 1)[0]
+        self.assertIn("StaminaRegenStartsAt = FMath::Max(", guard)
+        self.assertIn("FMath::IsFinite(StaminaRegenStartsAt) ? StaminaRegenStartsAt : Now", guard)
+        self.assertLess(guard.index("StaminaRegenStartsAt = FMath::Max("),
+                        guard.index("if (bPerfectParry) {"))
+        parry = guard.split("if (bPerfectParry) {", 1)[1]
+        self.assertIn("ParryCounterUntil = -1.f;", parry)
+        self.assertIn("if (FMath::IsFinite(ParryCounterWindowSeconds) && ParryCounterWindowSeconds > 0.f)", parry)
+        self.assertLess(parry.index("ParryCounterUntil = -1.f;"),
+                        parry.index("ParryCounterUntil = Now + FMath::Clamp(ParryCounterWindowSeconds"))
+
     def test_sprint_input_is_rejected_in_menus_or_after_defeat(self):
         begin = self.hero_cpp.split("void AMoonfallHeroPawn::BeginSprint()", 1)[1].split(
             "void AMoonfallHeroPawn::EndSprint()", 1)[0]
@@ -1288,7 +1303,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(damage.index("Stamina >= RequiredGuardCost"), damage.index("Stamina = FMath::Clamp(Stamina - RequiredGuardCost"))
         self.assertLess(damage.index("const bool bPerfectParry"), damage.index("Stamina >= RequiredGuardCost"))
         self.assertIn("Stamina = FMath::Clamp(Stamina - RequiredGuardCost, 0.f, MaxStamina)", damage)
-        self.assertIn("StaminaRegenStartsAt = Now + 0.8f", damage)
+        self.assertIn("StaminaRegenStartsAt = FMath::Max(FMath::IsFinite(StaminaRegenStartsAt) ? StaminaRegenStartsAt : Now, Now + 0.8f);", damage)
         self.assertIn("FMath::IsFinite(PerfectParryStaminaReward)", damage)
         self.assertIn("Stamina + PerfectParryStaminaReward", damage)
         self.assertIn("if (Stamina < GuardStaminaCost) BreakGuard();", damage)
