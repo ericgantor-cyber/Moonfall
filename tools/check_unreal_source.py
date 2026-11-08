@@ -365,7 +365,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
     def test_menu_regen_restores_hp_mana_and_stamina(self):
         tick = self.hero_cpp.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1].split(
             "void AMoonfallHeroPawn::SetupPlayerInputComponent", 1)[0]
-        self.assertIn("Mana + ManaRegenPerSecond", tick)
+        self.assertIn("Mana + FMath::Clamp(ManaRegenPerSecond, 0.f, 250.f)", tick)
         self.assertIn("(bOptionsOpen || bInventoryOpen) && Health > 0.f", tick)
         self.assertIn("FMath::IsFinite(MenuHealthRegenPerSecond)", tick)
         self.assertIn("FMath::Clamp(MenuHealthRegenPerSecond, 0.f, 20.f)", tick)
