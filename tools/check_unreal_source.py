@@ -147,6 +147,16 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("void AMoonfallEnemy::BeginPlay()", self.enemy_cpp)
         self.assertIn("Hero->SpawnGroundEquipmentDrop", self.enemy_cpp)
 
+    def test_death_closes_inventory_overlay(self):
+        damage = self.hero_cpp.split("void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount)", 1)[1].split(
+            "void AMoonfallHeroPawn::CycleGraphicsQuality()", 1)[0]
+        self.assertIn("if (Health <= 0.f) {", damage)
+        self.assertIn("EndSprint();", damage)
+        self.assertIn("EndGuard();", damage)
+        self.assertIn("bInventoryOpen = false;", damage)
+        self.assertLess(damage.index("EndSprint();"), damage.index("EndGuard();"))
+        self.assertLess(damage.index("if (Health <= 0.f) {"), damage.index("bInventoryOpen = false;"))
+
     def test_keyboard_controller_inventory_overlay_navigation_and_equip(self):
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
         for binding in ('ActionName="Inventory",Key=I', 'ActionName="Inventory",Key=Gamepad_Special_Left',
@@ -336,6 +346,163 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("OnHealthChanged(Health, MaxHealth)", damage_code)
         self.assertNotIn("OnHealthChanged(Health, 100.f)", damage_code)
 
+    def test_opening_menus_releases_held_sprint(self):
+        inventory = self.hero_cpp.split("void AMoonfallHeroPawn::ToggleInventory()", 1)[1].split(
+            "void AMoonfallHeroPawn::EquipSelectedInventoryItem()", 1)[0]
+        self.assertIn("if (!bInventoryOpen) {\n  EndSprint();\n  EndGuard();", inventory)
+        options = self.hero_cpp.split("void AMoonfallHeroPawn::OpenOptions()", 1)[1].split(
+            "void AMoonfallHeroPawn::OptionsUp()", 1)[0]
+        self.assertIn("if (!bOptionsOpen) {\n  EndSprint();\n  EndGuard();", options)
+
+    def test_guard_clears_held_sprint_before_entering_stance(self):
+        guard = self.hero_cpp.split("void AMoonfallHeroPawn::BeginGuard()", 1)[1].split(
+            "void AMoonfallHeroPawn::EndGuard()", 1)[0]
+        self.assertIn("EndSprint();", guard)
+        self.assertLess(guard.index("EndSprint();"), guard.index("bGuarding = true;"))
+        self.assertIn("|| Stamina < GuardStaminaCost) return;", guard)
+        self.assertLess(guard.index("|| Stamina < GuardStaminaCost) return;"), guard.index("EndSprint();"))
+
+    def test_menu_regen_restores_hp_mana_and_stamina(self):
+        tick = self.hero_cpp.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1].split(
+            "void AMoonfallHeroPawn::SetupPlayerInputComponent", 1)[0]
+        self.assertIn("Mana + FMath::Clamp(ManaRegenPerSecond, 0.f, 250.f)", tick)
+        self.assertIn("(bOptionsOpen || bInventoryOpen) && Health > 0.f", tick)
+        self.assertIn("FMath::IsFinite(MenuHealthRegenPerSecond)", tick)
+        self.assertIn("FMath::Clamp(MenuHealthRegenPerSecond, 0.f, 20.f)", tick)
+        self.assertIn("OnHealthChanged(Health, MaxHealth)", tick)
+        self.assertIn("if (Health > 0.f && !bSprinting && !bGuarding && GetWorld()", tick)
+        self.assertNotIn("!bOptionsOpen && !bInventoryOpen\\n     && !bSprinting", tick)
+        self.assertIn("float MenuHealthRegenPerSecond = 2.f;", self.hero_h)
+        self.assertIn("float MenuRecoveryMultiplier = 1.5f;", self.hero_h)
+        self.assertIn("FMath::Clamp(MenuRecoveryMultiplier, 1.f, 2.f)", tick)
+        self.assertIn("Mana + FMath::Clamp(ManaRegenPerSecond, 0.f, 250.f) * MenuRecoveryBoost", tick)
+
+    def test_menu_health_regen_waits_after_real_damage(self):
+        tick = self.hero_cpp.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1].split(
+            "void AMoonfallHeroPawn::SetupPlayerInputComponent", 1)[0]
+        damage = self.hero_cpp.split("void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount)", 1)[1].split(
+            "void AMoonfallHeroPawn::CycleGraphicsQuality()", 1)[0]
+        self.assertIn("GetWorld()->GetTimeSeconds() >= MenuHealthRegenStartsAt", tick)
+        self.assertIn("MenuHealthRegenStartsAt = Now + (FMath::IsFinite(MenuHealthRegenDelaySeconds)", damage)
+        self.assertLess(damage.index("if (DamageTaken > 0.f) {"),
+                        damage.index("MenuHealthRegenStartsAt = Now +"))
+        self.assertIn("float MenuHealthRegenDelaySeconds = 3.f;", self.hero_h)
+        self.assertIn("float MenuHealthRegenStartsAt = 0.f;", self.hero_h)
+
+    def test_combat_mana_pacing_and_perfect_parry_reward(self):
+        tick = self.hero_cpp.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1].split(
+            "void AMoonfallHeroPawn::SetupPlayerInputComponent", 1)[0]
+        cast = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split(
+            "void AMoonfallHeroPawn::", 1)[0]
+        damage = self.hero_cpp.split("void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount)", 1)[1].split(
+            "void AMoonfallHeroPawn::CycleGraphicsQuality()", 1)[0]
+        self.assertIn("GetWorld()->GetTimeSeconds() < CombatRecoveryEndsAt", tick)
+        self.assertIn("FMath::Clamp(CombatManaRegenMultiplier, 0.f, 1.f)", tick)
+        self.assertIn("FMath::Clamp(ManaRegenPerSecond, 0.f, 250.f) * MenuRecoveryBoost * CombatManaFactor", tick)
+        self.assertIn("CombatRecoveryEndsAt = FMath::Max(", cast)
+        self.assertIn("CombatRecoveryEndsAt = FMath::Max(", damage)
+        self.assertIn("Mana + FMath::Clamp(PerfectParryManaReward, 0.f, 15.f)", damage)
+        self.assertIn("float CombatRecoverySeconds = 5.f;", self.hero_h)
+        self.assertIn("float CombatManaRegenMultiplier = 0.5f;", self.hero_h)
+        self.assertIn("float PerfectParryManaReward = 5.f;", self.hero_h)
+
+    def test_menu_hp_healing_requires_out_of_combat_recovery(self):
+        tick = self.hero_cpp.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1].split(
+            "void AMoonfallHeroPawn::SetupPlayerInputComponent", 1)[0]
+        self.assertIn("const bool bInCombatRecoveryWindow = GetWorld()", tick)
+        health_gate = tick.split("// Recovery in either menu is bounded and never revives a defeated hero.", 1)[1].split(
+            "const float BeforeRegen = Health;", 1)[0]
+        self.assertIn("GetWorld()->GetTimeSeconds() >= MenuHealthRegenStartsAt", health_gate)
+        self.assertIn("&& !bInCombatRecoveryWindow) {", health_gate)
+        self.assertLess(health_gate.index("GetWorld()->GetTimeSeconds() >= MenuHealthRegenStartsAt"),
+                        health_gate.index("&& !bInCombatRecoveryWindow) {"))
+
+    def test_regen_uses_safe_delta_and_combat_fallback(self):
+        tick = self.hero_cpp.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1].split(
+            "void AMoonfallHeroPawn::SetupPlayerInputComponent", 1)[0]
+        self.assertIn("FMath::IsFinite(DeltaSeconds) ? FMath::Clamp(DeltaSeconds, 0.f, 0.1f) : 0.f", tick)
+        self.assertIn("const float StaminaDelta = SafeRecoveryDelta;", tick)
+        self.assertIn("* SafeRecoveryDelta);", tick)
+        self.assertIn("FMath::Clamp(AccessoryTier * 0.012f, 0.f, 0.25f)", tick)
+        self.assertIn("FMath::Clamp(CombatManaRegenMultiplier, 0.f, 1.f) : 0.5f", tick)
+        self.assertIn("Mana >= 0.f && Mana < MaxMana", tick)
+
+    def test_perfect_parry_extends_combat_recovery(self):
+        damage = self.hero_cpp.split("void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount)", 1)[1].split(
+            "void AMoonfallHeroPawn::CycleGraphicsQuality()", 1)[0]
+        parry = damage.split("if (bPerfectParry) {", 1)[1].split("bLastIncomingHitParried", 1)[0]
+        self.assertIn("CombatRecoveryEndsAt = FMath::Max(", damage)
+        self.assertLess(damage.index("CombatRecoveryEndsAt = FMath::Max("), damage.index("if (bPerfectParry) {"))
+        self.assertIn("FMath::Clamp(CombatRecoverySeconds, 0.f, 12.f) : 5.f", damage)
+        self.assertIn("PerfectParryManaReward", parry)
+
+    def test_combat_recovery_timers_handle_nonfinite_tuning(self):
+        cast = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split(
+            "void AMoonfallHeroPawn::", 1)[0]
+        damage = self.hero_cpp.split("void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount)", 1)[1].split(
+            "void AMoonfallHeroPawn::CycleGraphicsQuality()", 1)[0]
+        self.assertIn("FMath::IsFinite(CombatRecoverySeconds)", cast)
+        self.assertEqual(damage.count("FMath::IsFinite(CombatRecoverySeconds)"), 2)
+        self.assertIn("FMath::IsFinite(MenuHealthRegenDelaySeconds)", damage)
+        self.assertIn("FMath::Clamp(MenuHealthRegenDelaySeconds, 0.f, 10.f) : 3.f", damage)
+        self.assertIn("FMath::Clamp(CombatRecoverySeconds, 0.f, 12.f) : 5.f", damage)
+
+    def test_finisher_kills_refresh_combat_recovery(self):
+        finisher = self.hero_cpp.split("int32 AMoonfallHeroPawn::RegisterFinisherKill(", 1)[1].split(
+            "void AMoonfallHeroPawn::", 1)[0]
+        self.assertIn("if (Health <= 0.f || !GetWorld()) return 0;", finisher)
+        self.assertIn("CombatRecoveryEndsAt = FMath::Max(", finisher)
+        self.assertIn("FMath::Clamp(CombatRecoverySeconds, 0.f, 12.f) : 5.f", finisher)
+        self.assertLess(finisher.index("if (Health <= 0.f || !GetWorld()) return 0;"),
+                        finisher.index("CombatRecoveryEndsAt = FMath::Max("))
+
+    def test_normal_blocks_also_refresh_combat_recovery(self):
+        damage = self.hero_cpp.split("void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount)", 1)[1].split(
+            "void AMoonfallHeroPawn::CycleGraphicsQuality()", 1)[0]
+        guard = damage.split("if (bGuarding && bFrontAttack && !bOptionsOpen", 1)[1].split(
+            "if (bPerfectParry) {", 1)[0]
+        self.assertIn("CombatRecoveryEndsAt = FMath::Max(", guard)
+        self.assertIn("Stamina = FMath::Clamp(Stamina - RequiredGuardCost, 0.f, MaxStamina)", guard)
+        self.assertLess(guard.index("CombatRecoveryEndsAt = FMath::Max("), guard.index("Stamina = FMath::Clamp"))
+
+    def test_valid_hostile_cast_sets_combat_without_free_combo(self):
+        cast = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split(
+            "void AMoonfallHeroPawn::", 1)[0]
+        self.assertLess(cast.index("Enemy->TakeSpellDamage(SpellDamage);"),
+                        cast.index("CombatRecoveryEndsAt = FMath::Max("))
+        self.assertLess(cast.index("CombatRecoveryEndsAt = FMath::Max("),
+                        cast.index("if (ActualSpellDamage > 0.f) {"))
+        self.assertLess(cast.index("if (ActualSpellDamage > 0.f) {"),
+                        cast.index("HitComboStage = bComboAlive"))
+        self.assertIn("FMath::Clamp(CombatRecoverySeconds, 0.f, 12.f) : 5.f", cast)
+
+    def test_combat_recovery_windows_never_shorten(self):
+        cast = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split(
+            "void AMoonfallHeroPawn::CastLeft()", 1)[0]
+        damage = self.hero_cpp.split("void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount)", 1)[1].split(
+            "void AMoonfallHeroPawn::CycleGraphicsQuality()", 1)[0]
+        finisher = self.hero_cpp.split("int32 AMoonfallHeroPawn::RegisterFinisherKill(", 1)[1].split(
+            "void AMoonfallHeroPawn::", 1)[0]
+        for body, count in ((cast, 1), (damage, 2), (finisher, 1)):
+            self.assertEqual(body.count("CombatRecoveryEndsAt = FMath::Max("), count)
+            self.assertEqual(body.count("FMath::IsFinite(CombatRecoveryEndsAt) ? CombatRecoveryEndsAt : 0.f"), count)
+
+    def test_regeneration_rates_are_bounded_even_with_extreme_finite_tuning(self):
+        tick = self.hero_cpp.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1].split(
+            "void AMoonfallHeroPawn::SetupPlayerInputComponent", 1)[0]
+        self.assertIn("FMath::IsFinite(ManaRegenPerSecond) && ManaRegenPerSecond > 0.f", tick)
+        self.assertIn("FMath::Clamp(ManaRegenPerSecond, 0.f, 250.f)", tick)
+        self.assertIn("FMath::IsFinite(StaminaRegenPerSecond) && StaminaRegenPerSecond > 0.f", tick)
+        self.assertIn("FMath::Clamp(StaminaRegenPerSecond, 0.f, 250.f)", tick)
+        self.assertIn("const float SafeRecoveryDelta = FMath::IsFinite(DeltaSeconds)", tick)
+
+    def test_sprint_input_is_rejected_in_menus_or_after_defeat(self):
+        begin = self.hero_cpp.split("void AMoonfallHeroPawn::BeginSprint()", 1)[1].split(
+            "void AMoonfallHeroPawn::EndSprint()", 1)[0]
+        self.assertIn("if (bOptionsOpen || bInventoryOpen || Health <= 0.f) return;", begin)
+        self.assertLess(begin.index("if (bOptionsOpen || bInventoryOpen || Health <= 0.f) return;"),
+                        begin.index("bSprintHeld = true;"))
+
     def test_stamina_sprint_has_keyboard_controller_and_exhaustion_gates(self):
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
         self.assertIn('ActionName="Sprint",Key=LeftShift', inputs)
@@ -365,7 +532,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("bSprintExhausted = true;", tick)
         self.assertIn("!bSprinting && !bGuarding && GetWorld()", tick)
         self.assertIn("FMath::IsFinite(StaminaRegenPerSecond) && StaminaRegenPerSecond > 0.f", tick)
-        self.assertIn("Stamina + StaminaRegenPerSecond * StaminaDelta", tick)
+        self.assertIn("Stamina + FMath::Clamp(StaminaRegenPerSecond, 0.f, 250.f) * StaminaDelta * MenuRecoveryBoost", tick)
         self.assertIn("FMath::IsFinite(SprintSpeedMultiplier)", tick)
         self.assertIn("float SprintAccelerationRate = 9.f;", self.hero_h)
         self.assertIn("NormalWalkSpeed * FMath::Clamp(SprintSpeedMultiplier", tick)
@@ -395,7 +562,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         tick = self.hero_cpp.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1].split(
             "void AMoonfallHeroPawn::SetupPlayerInputComponent", 1)[0]
         self.assertIn("GetTimeSeconds() >= StaminaRegenStartsAt", tick)
-        self.assertIn("FMath::Clamp(Stamina + StaminaRegenPerSecond * StaminaDelta, 0.f, MaxStamina)", tick)
+        self.assertIn("FMath::Clamp(Stamina + FMath::Clamp(StaminaRegenPerSecond, 0.f, 250.f) * StaminaDelta * MenuRecoveryBoost, 0.f, MaxStamina)", tick)
         self.assertIn("Health > 0.f", tick)
 
     def test_dodge_cooldown_is_bounded_and_never_overlaps_immunity(self):
@@ -1168,7 +1335,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(damage.index("const float DamageTaken = PreviousHealth - Health;"),
                         damage.index("if (DamageTaken > 0.f) {",))
         self.assertLess(damage.index("if (DamageTaken > 0.f) {",),
-                        damage.index("if (Health <= 0.f) EndGuard();"))
+                        damage.index("if (Health <= 0.f) {\n  // Clear any held sprint so a later respawn cannot inherit it.\n  EndSprint();\n  EndGuard();"))
         break_guard = self.hero_cpp.split("void AMoonfallHeroPawn::BreakGuard()", 1)[1].split(
             "void AMoonfallHeroPawn::BeginGuard()", 1)[0]
         self.assertIn("ParryCounterUntil = -1.f;", break_guard)
@@ -1269,7 +1436,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('void AMoonfallHeroPawn::EndGuard()', self.hero_cpp)
         self.assertIn("NextParryAt = Now + FMath::Clamp(ParryCooldownSeconds, 0.3f, 2.f);", self.hero_cpp)
         self.assertIn("Stamina < GuardStaminaCost) return;", self.hero_cpp)
-        self.assertIn("if (Health <= 0.f) EndGuard();", self.hero_cpp)
+        self.assertIn("if (Health <= 0.f) {\n  // Clear any held sprint so a later respawn cannot inherit it.\n  EndSprint();\n  EndGuard();\n  // Defeat must not leave the inventory overlay trapping the player.\n  bInventoryOpen = false;\n }", self.hero_cpp)
         self.assertIn("ParryWindowEndsAt = -1.f", self.hero_cpp)
         self.assertIn("DamageAfterGuard *= 0.4f", self.hero_cpp)
         self.assertIn("Stamina = FMath::Clamp(Stamina - RequiredGuardCost, 0.f, MaxStamina)", self.hero_cpp)
