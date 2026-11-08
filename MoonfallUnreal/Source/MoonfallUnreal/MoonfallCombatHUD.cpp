@@ -180,7 +180,7 @@ void AMoonfallCombatHUD::DrawHUD()
   if (FMath::Abs(Guide->GetActorLocation().Z - Hero->GetActorLocation().Z) > 250.f) continue;
   if (FVector::DistSquared2D(Guide->GetActorLocation(), Hero->GetActorLocation()) >= FMath::Square(380.f))
    continue;
-  DrawText(TEXT("R: Talk   T: Service   G: Encourage   H: Intimidate"),
+  DrawText(TEXT("R: Talk   T: Service   C: Craft   G/H: Social"),
     FLinearColor(0.95f, 0.84f, 0.43f), FMath::Max(20.f, Canvas->SizeX * 0.38f),
     Canvas->SizeY - 92.f, nullptr, 0.9f);
   break;
@@ -190,7 +190,12 @@ void AMoonfallCombatHUD::DrawHUD()
   const FString Speaker = Hero->LastGuideTitle.IsEmpty()
     ? TEXT("Quest Guide") : Hero->LastGuideTitle;
   FString GuideLine;
-  if (Hero->bLastServicePurchased)
+  if (Hero->bLastCraftSucceeded)
+   GuideLine = FString::Printf(TEXT("%s: Crafted uncommon equipment for %d salvage."), *Speaker, Hero->LastCraftPrice);
+  else if (Hero->LastCraftPrice > 0 && Hero->LastNpcRole == 1 && Hero->LastServicePrice == 0)
+   GuideLine = FString::Printf(TEXT("%s: Craft %d salvage; workshop stock %d."),
+     *Speaker, Hero->LastCraftPrice, Hero->LastWorkshopStock);
+  else if (Hero->bLastServicePurchased)
    GuideLine = FString::Printf(TEXT("%s: Service complete, %d salvage paid."), *Speaker, Hero->LastServicePrice);
   else if (Hero->LastServicePrice > 0 && Hero->LastGuideSocialChoice == -1 &&
            Hero->LastNpcRole > 0)
