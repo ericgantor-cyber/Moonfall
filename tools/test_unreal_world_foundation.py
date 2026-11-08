@@ -35,7 +35,7 @@ class WorldFoundationTests(unittest.TestCase):
 
     def test_no_wave_mode_or_art_mutation(self):
         self.assertIn("bool bContinuousWorld = true;", HEADER)
-        self.assertIn("if (bContinuousWorld) { BuildWorld(); return; }", CPP)
+        self.assertIn("if (bContinuousWorld) { LoadWorldProgress(); BuildWorld(); return; }", CPP)
         self.assertIn("BuildLegacyArena", CPP) if "BuildLegacyArena" in CPP else self.assertIn("const int32 Count = FMath::Clamp(EnemyCount", CPP)
         self.assertIn("SpawnActor<AMoonfallArena>", MODE)
         self.assertNotIn("Z.png", CPP)
