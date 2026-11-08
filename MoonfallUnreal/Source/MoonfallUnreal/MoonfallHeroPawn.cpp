@@ -1140,6 +1140,9 @@ void AMoonfallHeroPawn::InteractQuestGuide()
   if (!IsValid(Arena)) continue;
   LastGuideTrust = Arena->GetNpcTrust(Nearest->GetPersistentNpcId());
   LastGuideFear = Arena->GetNpcFear(Nearest->GetPersistentNpcId());
+  LastFactionStanding = Arena->GetRegionalFactionStanding(Nearest->RegionIndex);
+  LastNpcAllyBond = Arena->GetNpcBond(Nearest->GetPersistentNpcId(),
+    Nearest->RegionIndex * 3);
   LastGuideSocialChoice = -1;
   // Artisans and scouts share news, but only quest guides change the tracked quest.
   bLastGuideFoundQuest = LastNpcRole == 0
@@ -1181,6 +1184,9 @@ void AMoonfallHeroPawn::ApplyQuestGuideSocialAction(bool bIntimidate)
   LastGuideTitle = Nearest->GetGuideTitle().ToString();
   LastGuideTrust = Arena->GetNpcTrust(Nearest->GetPersistentNpcId());
   LastGuideFear = Arena->GetNpcFear(Nearest->GetPersistentNpcId());
+  LastFactionStanding = Arena->GetRegionalFactionStanding(Nearest->RegionIndex);
+  LastNpcAllyBond = Arena->GetNpcBond(Nearest->GetPersistentNpcId(),
+    Nearest->RegionIndex * 3);
   LastGuideSocialChoice = bIntimidate ? 1 : 0;
   LastGuideMessageUntil = GetWorld()->GetTimeSeconds() + 4.f;
   OnQuestGuideSpoken(LastGuideRegionIndex, false);
