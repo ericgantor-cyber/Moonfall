@@ -87,6 +87,29 @@ constexpr FRegionalEnemyProfile RegionalEnemyProfiles[18] = {
  {TEXT("Eclipse Reaver"), 1.95f, 1.65f, 1.12f, 1.19f, 0.94f, 1.95f}
 };
 
+
+// Second cohort uses stable IDs 438..455; never remap the original 18 or dungeon IDs.
+constexpr int32 ExtraRegionalEncounterBase = 18 + Regions * DungeonsPerRegion * ChambersPerDungeon;
+constexpr FRegionalEnemyProfile ExtraRegionalEnemyProfiles[18] = {
+ {TEXT("Ashen Viper"), 1.12f, 1.20f, 1.28f, 1.05f, 0.82f, 0.95f},
+ {TEXT("Magma Tusk"), 1.80f, 1.35f, 0.68f, 1.15f, 1.32f, 1.75f},
+ {TEXT("Coalwing Harrier"), 0.92f, 1.04f, 1.52f, 0.88f, 0.76f, 0.82f},
+ {TEXT("Sporefang Hunter"), 1.06f, 1.10f, 1.35f, 1.12f, 0.89f, 1.05f},
+ {TEXT("Mossbound Titan"), 1.95f, 1.38f, 0.64f, 1.18f, 1.42f, 1.95f},
+ {TEXT("Rotclaw Ambusher"), 1.18f, 1.33f, 1.26f, 0.95f, 0.83f, 1.15f},
+ {TEXT("Snowveil Lynx"), 0.91f, 1.22f, 1.52f, 0.88f, 0.78f, 0.83f},
+ {TEXT("Frostmaw Behemoth"), 2.00f, 1.42f, 0.62f, 1.20f, 1.48f, 2.05f},
+ {TEXT("Iceglass Stalker"), 1.10f, 1.15f, 1.38f, 1.06f, 0.85f, 1.00f},
+ {TEXT("Lightning Jackal"), 1.00f, 1.23f, 1.55f, 0.90f, 0.79f, 0.88f},
+ {TEXT("Thunderhoof Juggernaut"), 1.92f, 1.45f, 0.66f, 1.16f, 1.40f, 1.92f},
+ {TEXT("Cloudpiercer"), 1.08f, 1.35f, 1.33f, 1.12f, 0.90f, 1.06f},
+ {TEXT("Rivet Hound"), 1.05f, 1.14f, 1.45f, 0.91f, 0.82f, 0.95f},
+ {TEXT("Slagforge Goliath"), 2.00f, 1.46f, 0.61f, 1.22f, 1.48f, 2.10f},
+ {TEXT("Voltspine Pursuer"), 1.20f, 1.37f, 1.29f, 1.08f, 0.89f, 1.20f},
+ {TEXT("Nightglass Wraith"), 0.96f, 1.28f, 1.51f, 0.87f, 0.77f, 0.86f},
+ {TEXT("Abyssal Hornbeast"), 2.05f, 1.51f, 0.63f, 1.19f, 1.47f, 2.12f},
+ {TEXT("Dreadmoon Ravager"), 1.35f, 1.55f, 1.25f, 1.10f, 0.88f, 1.35f}
+};
 FVector RoomCenter(int32 Region, int32 Dungeon, int32 Chamber) {
  return FVector(Region * RegionSpacing - 2200.f + Dungeon * 1100.f,
  3600.f + Chamber * 780.f, 0.f);
@@ -112,10 +135,14 @@ bool AMoonfallArena::SpawnEncounter(int32 Id, FVector Position, int32 Region, bo
  if (!Enemy) return false;
  Enemy->bElite = Elite;
  Enemy->bBoss = Boss;
- if (Id >= 0 && Id < 18) {
-  const FRegionalEnemyProfile& Profile = RegionalEnemyProfiles[Id];
+ if ((Id >= 0 && Id < 18) ||
+     (Id >= ExtraRegionalEncounterBase && Id < ExtraRegionalEncounterBase + 18)) {
+  const bool bExtra = Id >= ExtraRegionalEncounterBase;
+  const int32 ProfileIndex = bExtra ? Id - ExtraRegionalEncounterBase : Id;
+  const FRegionalEnemyProfile& Profile = bExtra
+    ? ExtraRegionalEnemyProfiles[ProfileIndex] : RegionalEnemyProfiles[ProfileIndex];
   Enemy->ArchetypeName = FName(Profile.Name);
-  Enemy->bElite = Id % 3 == 2;
+  Enemy->bElite = ProfileIndex % 3 == 2;
   Enemy->Health = FMath::Clamp(Enemy->Health * Profile.HealthScale, 1.f, 100000.f);
   Enemy->AttackDamage = FMath::Clamp(Enemy->AttackDamage * Profile.DamageScale, 1.f, 10000.f);
   Enemy->ChaseSpeed = FMath::Clamp(Enemy->ChaseSpeed * Profile.SpeedScale, 60.f, 600.f);
@@ -155,6 +182,16 @@ void AMoonfallArena::StreamWorld() {
    if (!SpawnedEncounters.Contains(Id) && FVector::DistSquared2D(Here, At) < 850.f * 850.f)
     SpawnedOne = SpawnEncounter(Id, At, Region, false, false);
   }
+  // Three additional native wildlife encounters per biome, using a separate
+  // ID range so old saves never reinterpret existing dungeon or monster kills.
+  for (int32 Index = 0; Index < 3 && !SpawnedOne; ++Index) {
+   const int32 Id = ExtraRegionalEncounterBase + Region * 3 + Index;
+   const FVector At(Region * RegionSpacing - 900.f + Index * 900.f,
+    -800.f - (Index % 2) * 450.f, 0.f);
+   if (!SpawnedEncounters.Contains(Id) && !DefeatedEncounters.Contains(Id)
+       && FVector::DistSquared2D(Here, At) < 850.f * 850.f)
+    SpawnedOne = SpawnEncounter(Id, At, Region, false, false);
+  }
   for (int32 Dungeon = 0; Dungeon < DungeonsPerRegion; ++Dungeon) {
    for (int32 Chamber = 0; Chamber < ChambersPerDungeon; ++Chamber) {
     const int32 Room = (Region * DungeonsPerRegion + Dungeon) * ChambersPerDungeon + Chamber;
@@ -183,6 +220,7 @@ constexpr int32 WorldEncounterUpperBound = 18 + Regions * DungeonsPerRegion * Ch
 }
 bool AMoonfallArena::IsValidEncounterId(int32 Id) {
  if (Id >= 0 && Id < 18) return true;
+ if (Id >= ExtraRegionalEncounterBase && Id < ExtraRegionalEncounterBase + 18) return true;
  if (Id < 18 || Id >= WorldEncounterUpperBound) return false;
  const int32 Stage = ((Id - 18) % ChambersPerDungeon) + 1;
  return Stage == 3 || Stage == 5 || Stage == 9 || Stage == 12 || Stage == 14;
@@ -196,8 +234,8 @@ void AMoonfallArena::LoadWorldProgress() {
  for (const int32 Id : Saved->DefeatedEncounterIds) {
   if (IsValidEncounterId(Id)) DefeatedEncounters.Add(Id);
  }
- // This schema accepts at most eighteen wildlife plus 150 dungeon enemies.
- if (DefeatedEncounters.Num() > 168) DefeatedEncounters.Empty();
+ // Schema v1 accepts 36 wildlife and 150 dungeon encounters; no ID reuse.
+ if (DefeatedEncounters.Num() > 186) DefeatedEncounters.Empty();
 }
 void AMoonfallArena::ObserveDefeatedEncounters() {
  for (auto It = ActiveEncounters.CreateIterator(); It; ++It) {
