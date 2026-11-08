@@ -344,6 +344,13 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("OnHealthChanged(Health, MaxHealth)", damage_code)
         self.assertNotIn("OnHealthChanged(Health, 100.f)", damage_code)
 
+    def test_sprint_input_is_rejected_in_menus_or_after_defeat(self):
+        begin = self.hero_cpp.split("void AMoonfallHeroPawn::BeginSprint()", 1)[1].split(
+            "void AMoonfallHeroPawn::EndSprint()", 1)[0]
+        self.assertIn("if (bOptionsOpen || bInventoryOpen || Health <= 0.f) return;", begin)
+        self.assertLess(begin.index("if (bOptionsOpen || bInventoryOpen || Health <= 0.f) return;"),
+                        begin.index("bSprintHeld = true;"))
+
     def test_stamina_sprint_has_keyboard_controller_and_exhaustion_gates(self):
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
         self.assertIn('ActionName="Sprint",Key=LeftShift', inputs)
