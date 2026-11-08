@@ -586,6 +586,29 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(parry.index("ParryCounterUntil = -1.f;"),
                         parry.index("ParryCounterUntil = Now + FMath::Clamp(ParryCounterWindowSeconds"))
 
+    def test_combo_clears_in_inventory_and_rejects_invalid_target_or_timers(self):
+        tick = self.hero_cpp.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1].split(
+            "void AMoonfallHeroPawn::SetupPlayerInputComponent", 1)[0]
+        combo = tick.split("if (HitComboStage > 0 && GetWorld()) {", 1)[1].split(
+            "// Bounded camera impulse", 1)[0]
+        self.assertIn("bOptionsOpen || bInventoryOpen", combo)
+        for check in ("!FMath::IsFinite(ComboTarget->Health)", "!FMath::IsFinite(ComboNow)",
+                      "!FMath::IsFinite(LastSuccessfulHitAt)"):
+            self.assertIn(check, combo)
+        self.assertIn("HitComboStage = 0;", combo)
+        self.assertIn("LastHitComboTarget.Reset();", combo)
+
+    def test_camera_impulse_rejects_invalid_delta_and_clamps_zoom(self):
+        tick = self.hero_cpp.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1].split(
+            "void AMoonfallHeroPawn::SetupPlayerInputComponent", 1)[0]
+        self.assertIn("if (!FMath::IsFinite(ImpactCameraOffset)) ImpactCameraOffset = 0.f;", tick)
+        self.assertIn("const float SafeCameraDelta = FMath::IsFinite(DeltaSeconds)", tick)
+        self.assertIn("FMath::Clamp(DeltaSeconds, 0.f, 0.1f)", tick)
+        self.assertIn("FMath::Clamp(ImpactCameraOffset, 0.f, 24.f)", tick)
+        self.assertIn("FMath::FInterpTo(", tick)
+        self.assertLess(tick.index("if (!FMath::IsFinite(ImpactCameraOffset))"),
+                        tick.index("CameraBoom->TargetArmLength"))
+
     def test_sprint_input_is_rejected_in_menus_or_after_defeat(self):
         begin = self.hero_cpp.split("void AMoonfallHeroPawn::BeginSprint()", 1)[1].split(
             "void AMoonfallHeroPawn::EndSprint()", 1)[0]
@@ -1419,7 +1442,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         tick = self.hero_cpp.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1].split(
             "void AMoonfallHeroPawn::SetupPlayerInputComponent", 1)[0]
         self.assertIn("ComboNow - LastSuccessfulHitAt > ComboWindow", tick)
-        self.assertIn("!IsValid(ComboTarget) || ComboTarget->Health <= 0.f", tick)
+        self.assertIn("!IsValid(ComboTarget)", tick)
+        self.assertIn("ComboTarget->Health <= 0.f", tick)
         self.assertIn("Health <= 0.f || bOptionsOpen", tick)
         self.assertIn("HitComboStage = 0;", tick)
         self.assertIn("LastHitComboTarget.Reset();", tick)
