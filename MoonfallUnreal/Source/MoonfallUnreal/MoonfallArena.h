@@ -50,6 +50,8 @@ public:
  int32 GetCraftingPrice(int32 RegionIndex) const;
  UFUNCTION(BlueprintCallable, Category="Moonfall|Economy")
  bool PurchaseWorkshopStock(int32 RegionIndex);
+ // Compensation after a failed player-economy save. Never grants extra stock.
+ bool RefundWorkshopStock(int32 RegionIndex);
 private:
  TSet<int32> BuiltRooms;
  TSet<int32> SpawnedEncounters;
