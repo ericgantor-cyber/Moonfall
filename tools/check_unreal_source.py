@@ -375,7 +375,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("float MenuHealthRegenPerSecond = 2.f;", self.hero_h)
         self.assertIn("float MenuRecoveryMultiplier = 1.5f;", self.hero_h)
         self.assertIn("FMath::Clamp(MenuRecoveryMultiplier, 1.f, 2.f)", tick)
-        self.assertIn("Mana + ManaRegenPerSecond * MenuRecoveryBoost", tick)
+        self.assertIn("Mana + FMath::Clamp(ManaRegenPerSecond, 0.f, 250.f) * MenuRecoveryBoost", tick)
 
     def test_menu_health_regen_waits_after_real_damage(self):
         tick = self.hero_cpp.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1].split(
