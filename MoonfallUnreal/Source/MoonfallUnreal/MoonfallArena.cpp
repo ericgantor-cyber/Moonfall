@@ -175,6 +175,7 @@ void AMoonfallArena::Tick(float DeltaSeconds) {
  Super::Tick(DeltaSeconds);
  if (bContinuousWorld) {
   ObserveDefeatedEncounters();
+  AdvanceWorkshopProduction();
   // Rewards come from unique persisted guardian defeat IDs, not hit callbacks.
   // Each player pawn applies only the difference, including after save reload.
   if (AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0)))
@@ -279,6 +280,8 @@ void AMoonfallArena::LoadWorldProgress() {
  LastNpcSocialActionAt.Empty();
  ResidentTrustMemory.Init(0, 1111 - Regions * 3);
  ResidentFearMemory.Init(0, 1111 - Regions * 3);
+ WorkshopStock.Init(3, Regions);
+ NextWorkshopProductionAt = GetWorld() ? GetWorld()->GetTimeSeconds() + 120.f : 120.f;
  ActiveResidents.Empty();
  PopulationCursor = Regions * 3;
  LastGuideSocialActionAt.Empty();
@@ -340,6 +343,10 @@ void AMoonfallArena::LoadWorldProgress() {
   for (int32 Id = 0; Id < ResidentFearMemory.Num(); ++Id)
    ResidentFearMemory[Id] = FMath::Clamp(Saved->ResidentFearMemory[Id], 0, 100);
  }
+ if (Saved->WorkshopStock.Num() == Regions) {
+  for (int32 Region = 0; Region < Regions; ++Region)
+   WorkshopStock[Region] = FMath::Clamp(Saved->WorkshopStock[Region], 0, 8);
+ }
  for (const int32 Room : Saved->DiscoveredChamberIds) {
   if (Room >= 0 && Room < Regions * DungeonsPerRegion * ChambersPerDungeon)
    DiscoveredChambers.Add(Room);
@@ -391,6 +398,7 @@ void AMoonfallArena::SaveWorldProgress() {
  Saved->NpcFearMemory = NpcFearMemory;
  Saved->ResidentTrustMemory = ResidentTrustMemory;
  Saved->ResidentFearMemory = ResidentFearMemory;
+ Saved->WorkshopStock = WorkshopStock;
  Saved->TrackedDungeonQuestId = DiscoveredDungeonEntrances.Contains(TrackedDungeonQuestId)
   ? TrackedDungeonQuestId : -1;
  if (UGameplayStatics::SaveGameToSlot(Saved, WorldProgressSlot, 0))
@@ -649,4 +657,38 @@ int32 AMoonfallArena::GetRegionalServicePrice(int32 RegionIndex, int32 RoleIndex
  const int32 SupplyDiscount = Supply / 30;
  // Prices stay positive; no negative-price or free-item farming.
  return FMath::Clamp(Base + StandingAdjustment - SupplyDiscount, 4, 25);
+}
+
+int32 AMoonfallArena::GetWorkshopStock(int32 RegionIndex) const {
+ if (RegionIndex < 0 || RegionIndex >= Regions || !WorkshopStock.IsValidIndex(RegionIndex)) return 0;
+ return FMath::Clamp(WorkshopStock[RegionIndex], 0, 8);
+}
+int32 AMoonfallArena::GetCraftingPrice(int32 RegionIndex) const {
+ if (!bContinuousWorld || RegionIndex < 0 || RegionIndex >= Regions) return 0;
+ const int32 Base = 9 + (100 - GetRegionalSupplyRating(RegionIndex)) / 20;
+ const int32 ReputationPenalty = FMath::Max(0, -GetRegionalFactionStanding(RegionIndex)) / 20;
+ return FMath::Clamp(Base + ReputationPenalty, 7, 20);
+}
+bool AMoonfallArena::PurchaseWorkshopStock(int32 RegionIndex) {
+ if (!bContinuousWorld || RegionIndex < 0 || RegionIndex >= Regions ||
+     !DiscoveredRegions.Contains(RegionIndex) ||
+     !WorkshopStock.IsValidIndex(RegionIndex) || WorkshopStock[RegionIndex] <= 0) return false;
+ --WorkshopStock[RegionIndex];
+ bWorldSavePending = true;
+ return true;
+}
+void AMoonfallArena::AdvanceWorkshopProduction() {
+ if (!GetWorld() || !bContinuousWorld || WorkshopStock.Num() != Regions) return;
+ const float Now = GetWorld()->GetTimeSeconds();
+ if (!FMath::IsFinite(Now) || Now < NextWorkshopProductionAt) return;
+ // No backfill loop or catch-up burst; one bounded workshop cycle.
+ NextWorkshopProductionAt = Now + 120.f;
+ for (int32 Region = 0; Region < Regions; ++Region) {
+  if (!DiscoveredRegions.Contains(Region)) continue;
+  const int32 Capacity = FMath::Clamp(2 + GetRegionalSupplyRating(Region) / 20, 2, 7);
+  if (WorkshopStock[Region] < Capacity) {
+   WorkshopStock[Region] = FMath::Min(Capacity, WorkshopStock[Region] + 1);
+   bWorldSavePending = true;
+  }
+ }
 }
