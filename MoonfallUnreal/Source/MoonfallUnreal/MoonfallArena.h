@@ -11,10 +11,13 @@ public:
  virtual void Tick(float DeltaSeconds) override;
  UPROPERTY(EditAnywhere, Category="World") bool bContinuousWorld = true;
  UPROPERTY(EditAnywhere, Category="Dungeon") int32 EnemyCount = 5;
+ // Read-only C++ access for the compact explored-only minimap.
+ const TSet<int32>& GetDiscoveredChambers() const { return DiscoveredChambers; }
 private:
  TSet<int32> BuiltRooms;
  TSet<int32> SpawnedEncounters;
  TSet<int32> DefeatedEncounters;
+ TSet<int32> DiscoveredChambers;
  TMap<int32, TWeakObjectPtr<AMoonfallEnemy>> ActiveEncounters;
  bool bWorldSavePending = false;
  void LoadWorldProgress();
