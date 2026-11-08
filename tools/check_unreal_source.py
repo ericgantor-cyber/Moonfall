@@ -660,7 +660,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(damage.index("Entry.bKillingBlow = Health <= 0.f;"), damage.index("if (Health <= 0.0f) {"))
         self.assertLess(damage.index("SetActorEnableCollision(false);"), damage.index("OnEnemyDefeated(bLastHitWasShatter);"))
         self.assertLess(damage.index("OnEnemyDefeated(bLastHitWasShatter);"), damage.index("Hero->AwardExperience"))
-        self.assertLess(damage.index("Hero->AwardEquipmentDrop"), damage.index("SetLifeSpan(9.5f);"))
+        self.assertLess(damage.index("SetLifeSpan(9.5f);"), damage.index("Hero->RegisterFinisherKill("))
         self.assertNotIn('TEXT("SHATTER KO -%.0f")', self.hud)
         self.assertNotIn('TEXT("KO -%.0f")', self.hud)
         self.assertIn('FString::Printf(TEXT("-%.0f"), Hit.Amount)', self.hud)
