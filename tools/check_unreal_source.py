@@ -1975,7 +1975,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertEqual(self.enemy_cpp.count("LockedAttackDirection = Difference.GetSafeNormal2D();"), 2)
         self.assertIn("const bool bSpinningSweep = bBoss && BossSpecialMove == 4;", self.enemy_cpp)
         self.assertIn("const bool bWithinAttackArc", self.enemy_cpp)
-        self.assertIn("if (bWithinAttackArc && Difference.Size() <= AttackRange * CurrentAttackRangeMultiplier)", self.enemy_cpp)
+        self.assertIn("bWithinAttackArc && Difference.Size() <= AttackRange * CurrentAttackRangeMultiplier;", self.enemy_cpp)
+        self.assertIn("if (bWithinDivineMarker || bWithinBasicAttack)", self.enemy_cpp)
 
     def test_enemy_attacks_cannot_go_through_cover(self):
         self.assertIn("SightParams.AddIgnoredActor(this)", self.enemy_cpp)
