@@ -147,6 +147,31 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("void AMoonfallEnemy::BeginPlay()", self.enemy_cpp)
         self.assertIn("Hero->AwardEquipmentDrop", self.enemy_cpp)
 
+    def test_inventory_equipping_validates_item_codes_and_recalculates_armor(self):
+        self.assertIn("bool EquipInventoryItem(int32 InventoryIndex);", self.hero_h)
+        for field in ("EquippedWeaponCode", "EquippedArmorCode", "EquippedAccessoryCode"):
+            self.assertIn("int32 " + field + " = 0;", self.hero_h)
+        equip = self.hero_cpp.split("bool AMoonfallHeroPawn::EquipInventoryItem(int32 InventoryIndex)", 1)[1]
+        self.assertIn("InventoryItemCodes.IsValidIndex(InventoryIndex)", equip)
+        self.assertIn("const int32 Code = InventoryItemCodes[InventoryIndex];", equip)
+        self.assertIn("if (Affix < 0 || Affix > 3", equip)
+        self.assertIn("SlotIndex < 0 || SlotIndex > 2", equip)
+        self.assertIn("Rarity < 0 || Rarity > 3", equip)
+        self.assertIn("Tier < 1 || Tier > 25", equip)
+        self.assertIn("(Rarity == 0 && Affix != 0)", equip)
+        self.assertIn("Code != Affix * 100000 + SlotIndex * 10000 + Rarity * 1000 + Tier", equip)
+        self.assertIn("*EquippedTier = Tier;", equip)
+        self.assertIn("*EquippedAffix = Affix;", equip)
+        self.assertIn("*EquippedCode = Code;", equip)
+        self.assertIn("MaxHealth = FMath::Max(1.f, MaxHealth + HealthDelta);", equip)
+        self.assertIn("Health = FMath::Clamp(Health + HealthDelta, 1.f, MaxHealth);", equip)
+        self.assertIn("OnHealthChanged(Health, MaxHealth);", equip)
+        self.assertLess(equip.index("Code != Affix * 100000"), equip.index("*EquippedTier = Tier;"))
+        loot = self.hero_cpp.split("void AMoonfallHeroPawn::AwardEquipmentDrop(", 1)[1].split(
+            "bool AMoonfallHeroPawn::EquipInventoryItem(", 1)[0]
+        self.assertIn("*EquippedCode = ItemCode;", loot)
+        self.assertIn("InventoryItemCodes.Num() >= 30", loot)
+
     def test_random_item_affixes_apply_bounded_slot_specific_bonuses(self):
         for field in ("LastLootAffix", "WeaponAffix", "ArmorAffix", "AccessoryAffix"):
             self.assertIn("int32 " + field + " = 0;", self.hero_h)
