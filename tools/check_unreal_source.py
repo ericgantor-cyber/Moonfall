@@ -1653,6 +1653,20 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("LastSuccessfulHitAt = -100.f;", tick)
         self.assertNotIn("FinisherShockwave", self.hero_cpp)
 
+    def test_enemy_formation_lanes_spread_pursuit_without_more_nav_lookups(self):
+        tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
+        self.assertIn("if (Distance > AttackRange * 2.f && Distance < 900.f)", tick)
+        self.assertIn("const uint32 Lane = GetUniqueID() % 4u;", tick)
+        self.assertIn("FlankSign = Lane % 2u == 0u ? -1.f : 1.f;", tick)
+        self.assertIn("FlankDistance = Lane >= 2u ? 105.f : 70.f;", tick)
+        self.assertIn("if (BossPhase >= 2)", tick)
+        self.assertIn("FlankDistance = 175.f;", tick)
+        self.assertIn("FlankDistance = 125.f;", tick)
+        self.assertIn("Target += Side.GetSafeNormal() * FlankDistance * FlankSign;", tick)
+        self.assertEqual(tick.count("Nav->FindPathToLocationSynchronously("), 1)
+        self.assertEqual(tick.count("Nav->ProjectPointToNavigation("), 1)
+        self.assertIn("AddActorWorldOffset(Direction.GetSafeNormal()", tick)
+
     def test_boss_basic_attack_patterns_randomize_without_immediate_repeats(self):
         self.assertIn("int32 LastBossAttackPattern = -1;", self.enemy_h)
         self.assertIn("const int32 PatternCount = (bElite || (bBoss && BossPhase >= 2)) ? 4 : 3;", self.enemy_cpp)
