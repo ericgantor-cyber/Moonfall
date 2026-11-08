@@ -1,6 +1,7 @@
 #include "MoonfallCombatHUD.h"
 #include "MoonfallHeroPawn.h"
 #include "MoonfallEnemy.h"
+#include "MoonfallArena.h"
 #include "EngineUtils.h"
 #include "Engine/World.h"
 #include "Kismet/GameplayStatics.h"
@@ -79,6 +80,41 @@ void AMoonfallCombatHUD::DrawHUD()
   DrawText(TEXT("I / Select / Esc: close"), FLinearColor::White,
      Left + 18.f, Top + PanelHeight - 28.f, nullptr, 0.8f);
   return;
+ }
+ // Compact north-up Raven Atlas prototype: only physically discovered
+ // chambers appear. Nearby unvisited chambers and quest locations remain blank.
+ // No additional HUD widget, radar actor or persistent tick allocation.
+ for (TActorIterator<AMoonfallArena> ArenaIt(GetWorld()); ArenaIt; ++ArenaIt) {
+  const AMoonfallArena* Arena = *ArenaIt;
+  if (!IsValid(Arena) || !Arena->bContinuousWorld) continue;
+  const float MapWidth = FMath::Clamp(Canvas->SizeX * 0.16f, 120.f, 184.f);
+  const float MapLeft = Canvas->SizeX - MapWidth - 18.f;
+  const float MapTop = 18.f;
+  const float CenterX = MapLeft + MapWidth * 0.5f;
+  const float CenterY = MapTop + MapWidth * 0.5f;
+  const float MapRadius = MapWidth * 0.44f;
+  const float Scale = MapRadius / 4800.f;
+  const FVector PlayerPos = Hero->GetActorLocation();
+  if (!FMath::IsFinite(PlayerPos.X) || !FMath::IsFinite(PlayerPos.Y)) break;
+  DrawRect(FLinearColor(0.025f, 0.035f, 0.07f, 0.9f),
+           MapLeft, MapTop, MapWidth, MapWidth);
+  for (const int32 RoomId : Arena->GetDiscoveredChambers()) {
+   if (RoomId < 0 || RoomId >= 420) continue;
+   const int32 Region = RoomId / 70;
+   const int32 Dungeon = (RoomId % 70) / 14;
+   const int32 Chamber = RoomId % 14;
+   // Matches MoonfallArena::RoomCenter; unknown coordinates remain hidden.
+   const float WorldX = Region * 6000.f - 2200.f + Dungeon * 1100.f;
+   const float WorldY = 3600.f + Chamber * 780.f;
+   const float DX = (WorldX - PlayerPos.X) * Scale;
+   const float DY = (PlayerPos.Y - WorldY) * Scale;
+   if (DX * DX + DY * DY > MapRadius * MapRadius) continue;
+   DrawRect(FLinearColor(0.55f, 0.65f, 0.85f, 0.90f),
+            CenterX + DX - 2.f, CenterY + DY - 2.f, 4.f, 4.f);
+  }
+  // A single high-contrast player marker; north remains screen-up.
+  DrawRect(FLinearColor(0.96f, 0.81f, 0.33f), CenterX - 3.f, CenterY - 3.f, 6.f, 6.f);
+  break;
  }
  // Nearest living boss, displayed without creating additional widget actors.
  const AMoonfallEnemy* Boss = nullptr;
