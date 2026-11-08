@@ -190,3 +190,8 @@ No native Unreal compilation or in-engine controller/dialogue playtest has been 
 
 ## Quest journal tracked-selection repair
 Opening **J: Quests** now selects the current tracked *discovered* dungeon quest using the same ascending dungeon ID ordering as quest confirmation, instead of retaining a stale selection from another objective. If the tracked quest is unavailable or no quest is discovered, selection safely resets to the first available entry or zero. Confirming a quest also clamps the selected index to the current discovered count. Existing fog-of-war access checks, Enter/Y tracking and nine-entry pagination stay unchanged. Source regression coverage checks both menu entry and confirmed-selection paths. Native UE and controller verification are still pending.
+
+## Ground loot loss on failed inventory save
+Picking up a ground equipment actor no longer destroys the pickup unless `TrySavePlayerEconomy()` successfully writes the newly added inventory item. On a save failure, the added item is removed from the in-memory bag and the pickup returns false, retaining the world actor for another attempt. Last-loot UI metadata is updated only after a successful save. The existing maximum-inventory guard, item-code validation and no-auto-equip rules still apply. Source regression tests check the save/rollback/destroy ordering.
+
+This does not persist ground pickup actors through a process restart or guarantee atomic state across world and player SaveGame files. Native Unreal 5.4 compilation and live disk-failure tests remain unverified.
