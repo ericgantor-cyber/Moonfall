@@ -32,6 +32,53 @@ void AMoonfallCombatHUD::DrawHUD()
   DrawText(TEXT("WASD / Arrows / D-pad: navigate    Esc / Start: close"),FLinearColor::White,MenuLeft+18.f,MenuTop+MenuHeight-28.f,nullptr,0.85f);
   return;
  }
+ if (Hero->bInventoryOpen) {
+  // Canvas-only paginated inventory: no extra actors, widgets, or hidden controls.
+  const float PanelWidth = FMath::Min(680.f, FMath::Max(280.f, Canvas->SizeX - 24.f));
+  const float PanelHeight = FMath::Min(580.f, FMath::Max(280.f, Canvas->SizeY - 24.f));
+  const float Left = (Canvas->SizeX - PanelWidth) * 0.5f;
+  const float Top = (Canvas->SizeY - PanelHeight) * 0.5f;
+  DrawRect(FLinearColor(0.04f, 0.035f, 0.10f, 0.96f), Left, Top, PanelWidth, PanelHeight);
+  DrawText(TEXT("MOONFALL  |  INVENTORY"), FLinearColor::White, Left + 18.f, Top + 16.f, nullptr, 1.3f);
+  const int32 Count = Hero->InventoryItemCodes.Num();
+  const int32 PerPage = 8;
+  const int32 Selected = FMath::Clamp(Hero->InventorySelection, 0, FMath::Max(0, Count - 1));
+  const int32 PageStart = Selected / PerPage * PerPage;
+  const int32 PageEnd = FMath::Min(Count, PageStart + PerPage);
+  DrawText(FString::Printf(TEXT("%d items  |  page %d / %d"), Count, PageStart / PerPage + 1,
+    FMath::Max(1, (Count + PerPage - 1) / PerPage)), FLinearColor(0.75f,0.72f,0.91f),
+    Left + 18.f, Top + 49.f, nullptr, 0.9f);
+  if (Count == 0)
+   DrawText(TEXT("No equipment yet. Defeat enemies to find gear."), FLinearColor::White,
+     Left + 18.f, Top + 100.f, nullptr, 0.92f);
+  const float RowSpacing = FMath::Max(21.f, (PanelHeight - 142.f) / PerPage);
+  for (int32 Index = PageStart; Index < PageEnd; ++Index) {
+   const int32 Code = Hero->InventoryItemCodes[Index];
+   const int32 Affix = Code / 100000;
+   const int32 Slot = (Code / 10000) % 10;
+   const int32 Rarity = (Code / 1000) % 10;
+   const int32 Tier = Code % 1000;
+   const TCHAR* Slots[] = {TEXT("Weapon"), TEXT("Armor"), TEXT("Accessory")};
+   const TCHAR* Rarities[] = {TEXT("Common"), TEXT("Uncommon"), TEXT("Rare"), TEXT("Epic")};
+   const TCHAR* Traits[] = {TEXT("None"), TEXT("Force"), TEXT("Ward"), TEXT("Focus")};
+   const bool bValid = Code > 0 && Slot <= 2 && Affix <= 3 && Rarity <= 3 && Tier >= 1 && Tier <= 25;
+   const bool bEquipped = Code == (Slot == 0 ? Hero->EquippedWeaponCode
+     : Slot == 1 ? Hero->EquippedArmorCode : Hero->EquippedAccessoryCode);
+   const float Y = Top + 83.f + (Index - PageStart) * RowSpacing;
+   if (Index == Selected) DrawRect(FLinearColor(0.25f,0.18f,0.43f,0.90f),
+     Left + 12.f, Y - 3.f, PanelWidth - 24.f, RowSpacing - 3.f);
+   const FString Row = bValid ? FString::Printf(TEXT("%02d  %s  T%d  %s  %s%s"),
+      Index + 1, Slots[Slot], Tier, Rarities[Rarity], Traits[Affix], bEquipped ? TEXT("  [EQUIPPED]") : TEXT(""))
+    : FString::Printf(TEXT("%02d  Invalid item"), Index + 1);
+   DrawText(Row, Index == Selected ? FLinearColor::Yellow : FLinearColor::White,
+      Left + 20.f, Y, nullptr, Canvas->SizeX < 900.f ? 0.75f : 0.9f);
+  }
+  DrawText(TEXT("WASD / Arrows / D-pad: select   Enter / A / Left / Right: equip"),
+     FLinearColor::White, Left + 18.f, Top + PanelHeight - 51.f, nullptr, 0.75f);
+  DrawText(TEXT("I / Select / Esc: close"), FLinearColor::White,
+     Left + 18.f, Top + PanelHeight - 28.f, nullptr, 0.8f);
+  return;
+ }
  // Nearest living boss, displayed without creating additional widget actors.
  const AMoonfallEnemy* Boss = nullptr;
  const AMoonfallEnemy* PostureTarget = nullptr;
