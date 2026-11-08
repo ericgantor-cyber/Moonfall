@@ -665,6 +665,24 @@ class WorldFoundationTests(unittest.TestCase):
         self.assertIn("JournalPageStart = Hero->QuestJournalSelection / 9 * 9", hud)
         self.assertIn("if (ThisKnownIndex < JournalPageStart) continue;", hud)
 
+    def test_inventory_capacity_and_native_windows_compile_script(self):
+        root = ROOT / "MoonfallUnreal"
+        hero = (root / "Source/MoonfallUnreal/MoonfallHeroPawn.cpp").read_text(encoding="utf-8")
+        build = (root / "Verify-Win64.ps1").read_text(encoding="utf-8")
+        self.assertIn("if (ItemCode <= 0 || InventoryItemCodes.Num() >= 2048) return;", hero)
+        self.assertIn("if (Health <= 0.f || ItemCode <= 0 || InventoryItemCodes.Num() >= 2048) return false;", hero)
+        craft = hero.split("void AMoonfallHeroPawn::CraftWithNearestArtisan()",1)[1].split(
+            "void AMoonfallHeroPawn::PickupNearestGroundLoot()",1)[0]
+        self.assertIn("InventoryItemCodes.Num() >= 2048) return;", craft)
+        self.assertLess(craft.index("InventoryItemCodes.Num() >= 2048) return;"),
+                        craft.index("Arena->PurchaseWorkshopStock(Region)"))
+        self.assertIn("Build.version", build)
+        self.assertIn("$version.MajorVersion -ne 5 -or $version.MinorVersion -ne 4", build)
+        self.assertIn("MoonfallUnrealEditor", build)
+        self.assertIn('if ($BuildGame) { $targets += "MoonfallUnreal" }', build)
+        self.assertIn("Native Unreal Win64 compile checks passed", build)
+        self.assertIn("if ($result -ne 0)", build)
+
     def test_connected_geometry(self):
         self.assertIn("Region * RegionSpacing", CPP)
         self.assertIn("FVector(60.f, 60.f, 1.f)", CPP)
