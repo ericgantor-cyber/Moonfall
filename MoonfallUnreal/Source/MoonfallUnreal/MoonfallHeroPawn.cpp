@@ -852,7 +852,9 @@ int32 AMoonfallHeroPawn::RollEquipmentCode(bool bEliteEnemy, bool bBossEnemy)
    : (LootRoll < 18 + RarityBias ? 2
    : (LootRoll < 53 + RarityBias ? 1 : 0))));
  LastLootTier = NewTier;
- LastLootSlot = bBossEnemy ? 2 : (bEliteEnemy ? 1 : 0);
+ // Enemy rank influences quality, not gear slot: any enemy can drop
+ // weapons, armor, or accessories.
+ LastLootSlot = FMath::RandRange(0, 2);
  // Rare and better drops carry one randomized trait. Lower rarities may
  // roll a trait, but common items never do. These are encoded in item IDs.
  LastLootAffix = LastLootRarity == 0 ? 0
@@ -879,15 +881,15 @@ void AMoonfallHeroPawn::AwardEquipmentDrop(bool bEliteEnemy, bool bBossEnemy)
  InventoryItemCodes.Add(ItemCode);
  InventorySelection = FMath::Clamp(InventorySelection, 0, InventoryItemCodes.Num() - 1);
  // Rotate awards across equipment categories; higher-tier items replace lower tiers.
- int32* Slot = bBossEnemy ? &AccessoryTier : (bEliteEnemy ? &ArmorTier : &WeaponTier);
- int32* EquippedAffix = bBossEnemy ? &AccessoryAffix : (bEliteEnemy ? &ArmorAffix : &WeaponAffix);
+ int32* Slot = LastLootSlot == 2 ? &AccessoryTier : (LastLootSlot == 1 ? &ArmorTier : &WeaponTier);
+ int32* EquippedAffix = LastLootSlot == 2 ? &AccessoryAffix : (LastLootSlot == 1 ? &ArmorAffix : &WeaponAffix);
  // A new trait is equipped only when upgrading tiers; same-tier items remain
  // inventory choices rather than silently replacing the player's current perk.
  if (NewTier > *Slot) {
   *EquippedAffix = LastLootAffix;
   const int32 Previous = *Slot;
   *Slot = NewTier;
-  int32* EquippedCode = bBossEnemy ? &EquippedAccessoryCode : (bEliteEnemy ? &EquippedArmorCode : &EquippedWeaponCode);
+  int32* EquippedCode = LastLootSlot == 2 ? &EquippedAccessoryCode : (LastLootSlot == 1 ? &EquippedArmorCode : &EquippedWeaponCode);
   *EquippedCode = ItemCode;
   EquipmentTier = FMath::Max(WeaponTier, FMath::Max(ArmorTier, AccessoryTier));
   if (Slot == &ArmorTier) {
@@ -925,17 +927,23 @@ bool AMoonfallHeroPawn::CollectGroundEquipmentCode(int32 ItemCode)
 void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(bool bEliteEnemy, bool bBossEnemy, FVector DefeatedLocation)
 {
  if (!GetWorld() || Health <= 0.f) return;
- const int32 ItemCode = RollEquipmentCode(bEliteEnemy, bBossEnemy);
- if (ItemCode <= 0) return;
- // Small scattering keeps multiple drops visually distinct, without waves.
+ // Bosses scatter three rewards, elites two, regular enemies one.
+ // All remain on the ground until individually collected; never auto-salvage.
+ const int32 DropCount = bBossEnemy ? 3 : (bEliteEnemy ? 2 : 1);
  const FVector Origin = DefeatedLocation.ContainsNaN() ? GetActorLocation() : DefeatedLocation;
- const FVector SpawnAt = Origin + FVector(FMath::RandRange(-50.f, 50.f),
-   FMath::RandRange(-50.f, 50.f), 45.f);
- FActorSpawnParameters Params;
- Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
- if (AMoonfallGroundLoot* Loot = GetWorld()->SpawnActor<AMoonfallGroundLoot>(
-     AMoonfallGroundLoot::StaticClass(), SpawnAt, FRotator::ZeroRotator, Params))
-  Loot->InitializeLoot(ItemCode);
+ for (int32 Drop = 0; Drop < DropCount; ++Drop) {
+  const int32 ItemCode = RollEquipmentCode(bEliteEnemy, bBossEnemy);
+  if (ItemCode <= 0) continue;
+  const float Angle = 2.f * PI * static_cast<float>(Drop) / static_cast<float>(DropCount);
+  const float Spread = DropCount == 1 ? 0.f : 105.f;
+  const FVector SpawnAt = Origin + FVector(Spread * FMath::Cos(Angle),
+    Spread * FMath::Sin(Angle), 45.f);
+  FActorSpawnParameters Params;
+  Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+  if (AMoonfallGroundLoot* Loot = GetWorld()->SpawnActor<AMoonfallGroundLoot>(
+      AMoonfallGroundLoot::StaticClass(), SpawnAt, FRotator::ZeroRotator, Params))
+   Loot->InitializeLoot(ItemCode);
+ }
 }
 
 void AMoonfallHeroPawn::PickupNearestGroundLoot()
