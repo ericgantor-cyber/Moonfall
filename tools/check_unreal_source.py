@@ -497,6 +497,24 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(tick.index("if (CachedWaypoint.ContainsNaN())"),
                         tick.index("FVector ToWaypoint = CachedWaypoint - GetActorLocation();"))
 
+    def test_unreal_mousewheel_zoom_clean_backport(self):
+        inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
+        self.assertIn('ActionName="ZoomIn",Key=MouseScrollUp', inputs)
+        self.assertIn('ActionName="ZoomOut",Key=MouseScrollDown', inputs)
+        self.assertIn('BindAction(TEXT("ZoomIn"), IE_Pressed', self.hero_cpp)
+        self.assertIn('BindAction(TEXT("ZoomOut"), IE_Pressed', self.hero_cpp)
+        self.assertIn('float CameraDistance = 450.f;', self.hero_h)
+        for name, operator in (("ZoomCameraIn", "-"), ("ZoomCameraOut", "+")):
+            action = self.hero_cpp.split(f"void AMoonfallHeroPawn::{name}()", 1)[1].split("\n}", 1)[0]
+            self.assertIn("bOptionsOpen || bInventoryOpen", action)
+            self.assertIn("FMath::IsFinite(CameraDistance) ? CameraDistance : 450.f", action)
+            self.assertIn(f"{operator} 65.f, 250.f, 850.f", action)
+        tick = self.hero_cpp.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1].split(
+            "void AMoonfallHeroPawn::SetupPlayerInputComponent", 1)[0]
+        self.assertIn("FMath::IsFinite(CameraBoom->TargetArmLength)", tick)
+        self.assertIn("FMath::FInterpTo(CurrentCameraDistance, TargetCameraDistance, SafeCameraDelta, 10.f)", tick)
+        self.assertIn("bReduceMotion ? 0.f : ImpactCameraOffset", tick)
+
     def test_guard_clears_held_sprint_before_entering_stance(self):
         guard = self.hero_cpp.split("void AMoonfallHeroPawn::BeginGuard()", 1)[1].split(
             "void AMoonfallHeroPawn::EndGuard()", 1)[0]

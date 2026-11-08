@@ -26,7 +26,7 @@ AMoonfallHeroPawn::AMoonfallHeroPawn()
  PrimaryActorTick.bCanEverTick = true;
  CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
  CameraBoom->SetupAttachment(GetRootComponent());
- CameraBoom->TargetArmLength = 450.f;
+ CameraBoom->TargetArmLength = CameraDistance;
  CameraBoom->bUsePawnControlRotation = true;
  FollowCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("FollowCamera"));
  FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName);
@@ -104,7 +104,13 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
  if (!FMath::IsFinite(ImpactCameraOffset)) ImpactCameraOffset = 0.f;
  const float SafeCameraDelta = FMath::IsFinite(DeltaSeconds) ? FMath::Clamp(DeltaSeconds, 0.f, 0.1f) : 0.f;
  ImpactCameraOffset = FMath::Clamp(FMath::FInterpTo(FMath::Clamp(ImpactCameraOffset, 0.f, 24.f), 0.f, SafeCameraDelta, 12.f), 0.f, 24.f);
- if (CameraBoom) CameraBoom->TargetArmLength = 450.f + (bReduceMotion ? 0.f : ImpactCameraOffset);
+ if (CameraBoom) {
+  const float SafeDistance = FMath::IsFinite(CameraDistance) ? FMath::Clamp(CameraDistance, 250.f, 850.f) : 450.f;
+  const float TargetCameraDistance = FMath::Clamp(SafeDistance + (bReduceMotion ? 0.f : ImpactCameraOffset), 250.f, 874.f);
+  const float CurrentCameraDistance = FMath::IsFinite(CameraBoom->TargetArmLength)
+      ? FMath::Clamp(CameraBoom->TargetArmLength, 250.f, 874.f) : SafeDistance;
+  CameraBoom->TargetArmLength = FMath::FInterpTo(CurrentCameraDistance, TargetCameraDistance, SafeCameraDelta, 10.f);
+ }
  // Mana regenerates during gameplay and while a menu is open.
  const float SafeRecoveryDelta = FMath::IsFinite(DeltaSeconds) ? FMath::Clamp(DeltaSeconds, 0.f, 0.1f) : 0.f;
  const float MenuRecoveryBoost = (bOptionsOpen || bInventoryOpen) && FMath::IsFinite(MenuRecoveryMultiplier)
@@ -215,6 +221,8 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAxis(TEXT("MoveRight"), this, &AMoonfallHeroPawn::MoveRight);
  Input->BindAxis(TEXT("Turn"), this, &AMoonfallHeroPawn::Turn);
  Input->BindAxis(TEXT("LookUp"), this, &AMoonfallHeroPawn::LookUp);
+ Input->BindAction(TEXT("ZoomIn"), IE_Pressed, this, &AMoonfallHeroPawn::ZoomCameraIn);
+ Input->BindAction(TEXT("ZoomOut"), IE_Pressed, this, &AMoonfallHeroPawn::ZoomCameraOut);
  Input->BindAction(TEXT("Jump"), IE_Pressed, this, &AMoonfallHeroPawn::TryJump);
  Input->BindAction(TEXT("Jump"), IE_Released, this, &ACharacter::StopJumping);
  Input->BindAction(TEXT("CastLeft"), IE_Pressed, this, &AMoonfallHeroPawn::CastLeft);
@@ -236,6 +244,14 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("OptionsDown"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsDown);
  Input->BindAction(TEXT("OptionsLeft"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsLeft);
  Input->BindAction(TEXT("OptionsRight"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsRight);
+}
+void AMoonfallHeroPawn::ZoomCameraIn() {
+ if (Health <= 0.f || bOptionsOpen || bInventoryOpen) return;
+ CameraDistance = FMath::Clamp((FMath::IsFinite(CameraDistance) ? CameraDistance : 450.f) - 65.f, 250.f, 850.f);
+}
+void AMoonfallHeroPawn::ZoomCameraOut() {
+ if (Health <= 0.f || bOptionsOpen || bInventoryOpen) return;
+ CameraDistance = FMath::Clamp((FMath::IsFinite(CameraDistance) ? CameraDistance : 450.f) + 65.f, 250.f, 850.f);
 }
 void AMoonfallHeroPawn::TryJump()
 {
