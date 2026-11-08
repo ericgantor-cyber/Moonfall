@@ -13,6 +13,8 @@
 #include "MoonfallGroundLoot.h"
 #include "MoonfallQuestGuide.h"
 #include "MoonfallArena.h"
+#include "MoonfallPlayerEconomySave.h"
+#include "Kismet/GameplayStatics.h"
 #include "EngineUtils.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Components/StaticMeshComponent.h"
@@ -80,7 +82,68 @@ void AMoonfallHeroPawn::BeginPlay() {
  const TSharedPtr<IPlugin> DLSS = IPluginManager::Get().FindPlugin(TEXT("DLSS"));
  bFrameGenerationPluginDetected = (FSR.IsValid() && FSR->IsEnabled()) || (DLSS.IsValid() && DLSS->IsEnabled());
  // Detection is only a hint, never proof of a supported frame-generation runtime.
+ LoadPlayerEconomy();
 }
+
+namespace {
+const FString PlayerEconomySlot = TEXT("MoonfallUnrealPlayerEconomyV1");
+bool IsValidEconomyItem(int32 Code) {
+ const int32 Affix = Code / 100000;
+ const int32 Slot = (Code / 10000) % 10;
+ const int32 Rarity = (Code / 1000) % 10;
+ const int32 Tier = Code % 1000;
+ return Code > 0 && Affix >= 0 && Affix <= 3 && Slot >= 0 && Slot <= 2
+  && Rarity >= 0 && Rarity <= 3 && Tier >= 1 && Tier <= 25
+  && !(Rarity == 0 && Affix != 0)
+  && Code == Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier;
+}
+}
+void AMoonfallHeroPawn::SavePlayerEconomy() {
+ if (!GetWorld()) return;
+ UMoonfallPlayerEconomySave* Save = Cast<UMoonfallPlayerEconomySave>(
+   UGameplayStatics::CreateSaveGameObject(UMoonfallPlayerEconomySave::StaticClass()));
+ if (!Save) return;
+ Save->Salvage = FMath::Clamp(Salvage, 0, 9999);
+ // Protect disk writes against malformed codes and runaway allocations.
+ for (int32 Code : InventoryItemCodes) {
+  if (Save->InventoryItemCodes.Num() >= 2048) break;
+  if (IsValidEconomyItem(Code)) Save->InventoryItemCodes.Add(Code);
+ }
+ Save->EquippedWeaponCode = EquippedWeaponCode;
+ Save->EquippedArmorCode = EquippedArmorCode;
+ Save->EquippedAccessoryCode = EquippedAccessoryCode;
+ UGameplayStatics::SaveGameToSlot(Save, PlayerEconomySlot, 0);
+}
+void AMoonfallHeroPawn::LoadPlayerEconomy() {
+ if (!UGameplayStatics::DoesSaveGameExist(PlayerEconomySlot, 0)) return;
+ const UMoonfallPlayerEconomySave* Save = Cast<UMoonfallPlayerEconomySave>(
+  UGameplayStatics::LoadGameFromSlot(PlayerEconomySlot, 0));
+ if (!Save || Save->Version != 1 || Save->InventoryItemCodes.Num() > 2048) return;
+ TArray<int32> ValidItems;
+ for (int32 Code : Save->InventoryItemCodes)
+  if (IsValidEconomyItem(Code)) ValidItems.Add(Code);
+ InventoryItemCodes = MoveTemp(ValidItems);
+ Salvage = FMath::Clamp(Save->Salvage, 0, 9999);
+ // Equipped codes must exist in the actual bag and match their slot.
+ const int32 EquippedCodes[] = {
+  Save->EquippedWeaponCode, Save->EquippedArmorCode, Save->EquippedAccessoryCode
+ };
+ int32* Tiers[] = { &WeaponTier, &ArmorTier, &AccessoryTier };
+ int32* Affixes[] = { &WeaponAffix, &ArmorAffix, &AccessoryAffix };
+ int32* Codes[] = { &EquippedWeaponCode, &EquippedArmorCode, &EquippedAccessoryCode };
+ for (int32 Slot = 0; Slot < 3; ++Slot) {
+  const int32 Code = EquippedCodes[Slot];
+  if (IsValidEconomyItem(Code) && (Code / 10000) % 10 == Slot &&
+      InventoryItemCodes.Contains(Code)) {
+   *Codes[Slot] = Code;
+   *Tiers[Slot] = Code % 1000;
+   *Affixes[Slot] = Code / 100000;
+  }
+ }
+ EquipmentTier = FMath::Max(WeaponTier, FMath::Max(ArmorTier, AccessoryTier));
+ InventorySelection = FMath::Clamp(InventorySelection, 0, FMath::Max(0, InventoryItemCodes.Num()-1));
+}
+
 void AMoonfallHeroPawn::Tick(float DeltaSeconds)
 {
  Super::Tick(DeltaSeconds);
@@ -739,6 +802,7 @@ bool AMoonfallHeroPawn::SalvageInventoryItem(int32 InventoryIndex)
  const int32 SalvageReward = 1 + Rarity * 2 + Tier / 5;
  Salvage = FMath::Clamp(Salvage + SalvageReward, 0, 9999);
  InventoryItemCodes.RemoveAt(InventoryIndex);
+ SavePlayerEconomy();
  InventorySelection = FMath::Clamp(InventorySelection, 0, FMath::Max(0, InventoryItemCodes.Num() - 1));
  return true;
 }
@@ -1085,6 +1149,7 @@ void AMoonfallHeroPawn::AwardEquipmentDrop(bool bEliteEnemy, bool bBossEnemy)
    OnHealthChanged(Health, MaxHealth);
   }
  }
+ SavePlayerEconomy();
 }
 
 bool AMoonfallHeroPawn::CollectGroundEquipmentCode(int32 ItemCode)
@@ -1108,6 +1173,7 @@ bool AMoonfallHeroPawn::CollectGroundEquipmentCode(int32 ItemCode)
  const int32 EquippedTier = SlotIndex == 0 ? WeaponTier
      : (SlotIndex == 1 ? ArmorTier : AccessoryTier);
  LastLootUpgrade = Tier - EquippedTier;
+ SavePlayerEconomy();
  return true;
 }
 
@@ -1269,6 +1335,7 @@ void AMoonfallHeroPawn::BuyNearestNpcService()
     : (FMath::IsFinite(Stamina) && FMath::IsFinite(MaxStamina) && Stamina < MaxStamina - 1.f);
   if (!bNeedsService || Salvage < Price) return;
   Salvage -= Price;
+  SavePlayerEconomy();
   if (Role == 1) Mana = FMath::Clamp(Mana + 35.f, 0.f, MaxMana);
   else Stamina = FMath::Clamp(Stamina + 35.f, 0.f, MaxStamina);
   bLastServicePurchased = true;
@@ -1314,6 +1381,7 @@ void AMoonfallHeroPawn::CraftWithNearestArtisan()
   if (!Arena->PurchaseWorkshopStock(Region)) return;
   Salvage -= LastCraftPrice;
   InventoryItemCodes.Add(ItemCode);
+  SavePlayerEconomy();
   LastWorkshopStock = Arena->GetWorkshopStock(Region);
   bLastCraftSucceeded = true;
   Nearest->ReactToPlayer(Arena->GetNpcTrust(Nearest->GetPersistentNpcId()),
@@ -1373,5 +1441,6 @@ bool AMoonfallHeroPawn::EquipInventoryItem(int32 InventoryIndex)
   Health = FMath::Clamp(Health + HealthDelta, 1.f, MaxHealth);
   OnHealthChanged(Health, MaxHealth);
  }
+ SavePlayerEconomy();
  return true;
 }
