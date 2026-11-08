@@ -1278,8 +1278,8 @@ void AMoonfallHeroPawn::InteractQuestGuide()
   LastSupplyRating = Arena->GetRegionalSupplyRating(Nearest->RegionIndex);
   LastServicePrice = Arena->GetRegionalServicePrice(Nearest->RegionIndex, LastNpcRole);
   bLastServicePurchased = false;
-  LastNpcAllyBond = Arena->GetNpcBond(Nearest->GetPersistentNpcId(),
-    Nearest->RegionIndex * 3);
+  const int32 CounterpartId = Nearest->RegionIndex * 3 + (LastNpcRole == 0 ? 1 : 0);
+  LastNpcAllyBond = Arena->GetNpcBond(Nearest->GetPersistentNpcId(), CounterpartId);
   Nearest->ReactToPlayer(LastGuideTrust, LastGuideFear);
   LastGuideSocialChoice = -1;
   // Artisans and scouts share news, but only quest guides change the tracked quest.
@@ -1318,16 +1318,22 @@ void AMoonfallHeroPawn::ApplyQuestGuideSocialAction(bool bIntimidate)
   AMoonfallArena* Arena = *It;
   if (!IsValid(Arena)) continue;
   if (!Arena->RecordNpcSocialChoice(Nearest->GetPersistentNpcId(), bIntimidate)) return;
+  // Refresh the actual NPC identity before quoting services or displaying
+  // dialogue: a social action can target somebody different from last talk.
   LastGuideRegionIndex = FMath::Clamp(Nearest->RegionIndex, 0, 5);
   LastGuideTitle = Nearest->GetGuideTitle().ToString();
+  LastNpcRole = FMath::Clamp(Nearest->RoleIndex, 0, 2);
+  LastNpcPersonality = Nearest->GetPersonalityLabel().ToString();
+  LastNpcRoutine = Nearest->GetRoutineLabel().ToString();
   LastGuideTrust = Arena->GetNpcTrust(Nearest->GetPersistentNpcId());
   LastGuideFear = Arena->GetNpcFear(Nearest->GetPersistentNpcId());
   LastFactionStanding = Arena->GetRegionalFactionStanding(Nearest->RegionIndex);
   LastSupplyRating = Arena->GetRegionalSupplyRating(Nearest->RegionIndex);
   LastServicePrice = Arena->GetRegionalServicePrice(Nearest->RegionIndex, LastNpcRole);
   bLastServicePurchased = false;
-  LastNpcAllyBond = Arena->GetNpcBond(Nearest->GetPersistentNpcId(),
-    Nearest->RegionIndex * 3);
+  // Guides relate to local artisans; other roles relate to the guide.
+  const int32 CounterpartId = Nearest->RegionIndex * 3 + (LastNpcRole == 0 ? 1 : 0);
+  LastNpcAllyBond = Arena->GetNpcBond(Nearest->GetPersistentNpcId(), CounterpartId);
   Nearest->ReactToPlayer(LastGuideTrust, LastGuideFear);
   LastGuideSocialChoice = bIntimidate ? 1 : 0;
   bLastCraftSucceeded = false;
