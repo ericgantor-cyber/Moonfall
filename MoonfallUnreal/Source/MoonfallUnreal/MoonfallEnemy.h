@@ -60,6 +60,11 @@ private:
  float NextAttackAt = 0.f;
  float NextPathRefreshAt = 0.f;
  float NextBlockedRepathAt = 0.f;
+ // Ordinary enemies remember the last visible hero location for a short time.
+ float NextSightCheckAt = 0.f;
+ float LastSawHeroAt = -100.f;
+ bool bCanSeeHero = false;
+ FVector LastKnownHeroPosition = FVector::ZeroVector;
  // Cooldown limits wall-escape sweeps when several enemies crowd a doorway.
  float NextObstacleSidestepAt = 0.f;
  int32 ObstacleSidestepCount = 0;
