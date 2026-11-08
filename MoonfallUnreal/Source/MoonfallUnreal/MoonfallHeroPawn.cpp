@@ -81,6 +81,20 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
 {
  Super::Tick(DeltaSeconds);
  UpdateNativeFinisher(DeltaSeconds);
+ // Expire the visible combo stage even if the player stops attacking.
+ // Also discard defeated or destroyed targets to avoid a stale combo HUD.
+ if (HitComboStage > 0 && GetWorld()) {
+  const float ComboNow = GetWorld()->GetTimeSeconds();
+  const float ComboWindow = FMath::IsFinite(HitComboWindowSeconds)
+      ? FMath::Clamp(HitComboWindowSeconds, 0.5f, 4.f) : 2.f;
+  const AMoonfallEnemy* ComboTarget = LastHitComboTarget.Get();
+  if (Health <= 0.f || bOptionsOpen || !IsValid(ComboTarget) || ComboTarget->Health <= 0.f
+      || ComboNow < LastSuccessfulHitAt || ComboNow - LastSuccessfulHitAt > ComboWindow) {
+   HitComboStage = 0;
+   LastHitComboTarget.Reset();
+   LastSuccessfulHitAt = -100.f;
+  }
+ }
  // Bounded camera impulse, no camera shake object or spawned effects.
  ImpactCameraOffset = FMath::FInterpTo(ImpactCameraOffset, 0.f, FMath::Max(0.f, DeltaSeconds), 12.f);
  if (CameraBoom) CameraBoom->TargetArmLength = 450.f + (bReduceMotion ? 0.f : ImpactCameraOffset);
@@ -232,8 +246,9 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
   const float MomentumBonus = Time <= FinisherMomentumUntil
       && FMath::IsFinite(FinisherMomentumDamageMultiplier)
     ? FMath::Clamp(FinisherMomentumDamageMultiplier, 1.f, 1.5f) : 1.f;
-  // Only confirmed recent hits qualify for an attack combo. The multiplier
-  // uses the PREVIOUS successful hit stage; this hit can advance it afterward.
+  // Every connected same-target attack earns its own stage bonus.
+  // Stage 1: +0%, stage 2: +4%, stage 3: +8%, stage 4: +12%
+  // at defaults. The current hit is not allowed to invent a previous hit.
   const float ComboWindow = FMath::IsFinite(HitComboWindowSeconds)
       ? FMath::Clamp(HitComboWindowSeconds, 0.5f, 4.f) : 2.f;
   // Combo power must be earned on the SAME living target. Moving to a
@@ -243,7 +258,7 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
   const int32 IncomingStage = bComboAlive ? FMath::Clamp(HitComboStage, 0, 4) : 0;
   const float ComboStepBonus = FMath::IsFinite(HitComboDamagePerStage)
       ? FMath::Clamp(HitComboDamagePerStage, 0.f, 0.12f) : 0.f;
-  const float HitComboMultiplier = 1.f + ComboStepBonus * FMath::Max(0, IncomingStage - 1);
+  const float HitComboMultiplier = 1.f + ComboStepBonus * FMath::Clamp(IncomingStage, 0, 3);
   const float SpellDamage = (18.f + School * 5.f) * Multiplier * SpellPowerMultiplier
     * WeaponDamageBonus * CounterMultiplier * MomentumBonus * HitComboMultiplier;
   // Reject invalid damage before spending mana or consuming a hard-earned counter.
