@@ -14,7 +14,13 @@ public:
  AMoonfallQuestGuide();
  virtual void BeginPlay() override;
  virtual void Tick(float DeltaSeconds) override;
- // A cheap deterministic three-stop routine, never a navmesh chase or crowd sim.
+ // Low-cost local day/shift routine, no AI controller or distant actor simulation.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC") int32 DayPhase = 0;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC") int32 CurrentMood = 0;
+ UFUNCTION(BlueprintCallable, Category="Moonfall|NPC")
+ void ReactToPlayer(int32 Trust, int32 Fear);
+ // Allows conversation without NPC sliding away from the hero.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC") float ConversationPausedUntil = 0.f;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC") int32 CurrentRoutine = 0;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Quests")
  int32 RegionIndex = 0;
@@ -33,4 +39,5 @@ public:
  UFUNCTION(BlueprintPure, Category="Moonfall|NPC") FText GetRoutineLabel() const;
 private:
  FVector HomeLocation = FVector::ZeroVector;
+ float LastVisualMoodUpdate = -1.f;
 };
