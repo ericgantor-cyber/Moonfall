@@ -1692,7 +1692,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Now >= HitReactionEndsAt && Now >= PostureBrokenUntil", self.enemy_cpp)
         tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
         self.assertLess(tick.index("if (bElite && !bBoss && Now < TacticalRetreatUntil"),
-                        tick.index("if (Distance > AttackRange && Distance < 2200.f)"))
+                        tick.index("if ((Distance > AttackRange || (!bBoss && !bCanSeeHero)) && Distance < 2200.f)"))
         self.assertIn("const float RetreatStep = 200.f * SafeAIDelta;", self.enemy_cpp)
         self.assertIn("AddActorWorldOffset(RetreatDirection * RetreatStep, true, &RetreatHit);", self.enemy_cpp)
         self.assertEqual(self.enemy_cpp.count("Nav->FindPathToLocationSynchronously("), 1)
@@ -1707,7 +1707,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("StrafeSpeed * SafeAIDelta;", tick)
         self.assertIn("AddActorWorldOffset(StrafeStep, true, &StrafeHit);", tick)
         self.assertLess(tick.index("AddActorWorldOffset(StrafeStep, true, &StrafeHit);"),
-                        tick.index("if (WindupEndsAt < 0.f && Now >= NextAttackAt) {"))
+                        tick.index("if ((bBoss || bCanSeeHero) && WindupEndsAt < 0.f && Now >= NextAttackAt) {"))
         self.assertEqual(tick.count("Nav->FindPathToLocationSynchronously("), 1)
 
     def test_wall_obstacle_escape_is_swept_time_bounded_and_does_not_add_nav_solves(self):
