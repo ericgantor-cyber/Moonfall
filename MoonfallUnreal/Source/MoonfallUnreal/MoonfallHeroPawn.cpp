@@ -756,6 +756,25 @@ void AMoonfallHeroPawn::OpenQuestPage() {
  if (bOptionsOpen || Health <= 0.f) return;
  if (!bInventoryOpen) ToggleInventory();
  InventoryMenuTab = 2;
+ QuestJournalSelection = 0;
+ if (!GetWorld()) return;
+ // The journal and tracker use the same sorted discovered-entrance ordering.
+ // Select the currently tracked objective rather than a stale list position.
+ for (TActorIterator<AMoonfallArena> It(GetWorld()); It; ++It) {
+  const AMoonfallArena* Arena = *It;
+  if (!IsValid(Arena)) continue;
+  const int32 TrackedId = Arena->GetTrackedDungeonQuestId();
+  int32 KnownIndex = 0;
+  for (int32 Id = 0; Id < 30; ++Id) {
+   if (!Arena->GetDiscoveredDungeonEntrances().Contains(Id)) continue;
+   if (Id == TrackedId) {
+    QuestJournalSelection = KnownIndex;
+    return;
+   }
+   ++KnownIndex;
+  }
+  break;
+ }
 }
 void AMoonfallHeroPawn::OpenWorldPage() {
  if (bOptionsOpen || Health <= 0.f) return;
@@ -837,6 +856,8 @@ void AMoonfallHeroPawn::SelectJournalQuest() {
  for (TActorIterator<AMoonfallArena> It(GetWorld()); It; ++It) {
   AMoonfallArena* Arena = *It;
   if (!IsValid(Arena)) continue;
+  QuestJournalSelection = FMath::Clamp(QuestJournalSelection, 0,
+    FMath::Max(0, Arena->GetDiscoveredDungeonEntrances().Num() - 1));
   int32 Index = 0;
   for (int32 Id = 0; Id < 30; ++Id) {
    if (!Arena->GetDiscoveredDungeonEntrances().Contains(Id)) continue;
