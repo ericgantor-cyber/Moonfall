@@ -99,10 +99,13 @@ bool IsValidEconomyItem(int32 Code) {
 }
 }
 void AMoonfallHeroPawn::SavePlayerEconomy() {
- if (!GetWorld()) return;
+ TrySavePlayerEconomy();
+}
+bool AMoonfallHeroPawn::TrySavePlayerEconomy() {
+ if (!GetWorld()) return false;
  UMoonfallPlayerEconomySave* Save = Cast<UMoonfallPlayerEconomySave>(
    UGameplayStatics::CreateSaveGameObject(UMoonfallPlayerEconomySave::StaticClass()));
- if (!Save) return;
+ if (!Save) return false;
  Save->Salvage = FMath::Clamp(Salvage, 0, 9999);
  // Protect disk writes against malformed codes and runaway allocations.
  for (int32 Code : InventoryItemCodes) {
@@ -112,7 +115,7 @@ void AMoonfallHeroPawn::SavePlayerEconomy() {
  Save->EquippedWeaponCode = EquippedWeaponCode;
  Save->EquippedArmorCode = EquippedArmorCode;
  Save->EquippedAccessoryCode = EquippedAccessoryCode;
- UGameplayStatics::SaveGameToSlot(Save, PlayerEconomySlot, 0);
+ return UGameplayStatics::SaveGameToSlot(Save, PlayerEconomySlot, 0);
 }
 void AMoonfallHeroPawn::LoadPlayerEconomy() {
  if (!UGameplayStatics::DoesSaveGameExist(PlayerEconomySlot, 0)) return;
@@ -1421,9 +1424,17 @@ void AMoonfallHeroPawn::CraftWithNearestArtisan()
   const int32 Affix = 1 + Region % 3;
   const int32 ItemCode = Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier;
   if (!Arena->PurchaseWorkshopStock(Region)) return;
+  const int32 SalvageBeforePurchase = Salvage;
   Salvage -= LastCraftPrice;
   InventoryItemCodes.Add(ItemCode);
-  SavePlayerEconomy();
+  if (!TrySavePlayerEconomy()) {
+   // Do not tell the player an item was purchased if its save failed.
+   InventoryItemCodes.RemoveAt(InventoryItemCodes.Num() - 1);
+   Salvage = SalvageBeforePurchase;
+   Arena->RefundWorkshopStock(Region);
+   LastWorkshopStock = Arena->GetWorkshopStock(Region);
+   return;
+  }
   LastWorkshopStock = Arena->GetWorkshopStock(Region);
   bLastCraftSucceeded = true;
   Nearest->ReactToPlayer(Arena->GetNpcTrust(Nearest->GetPersistentNpcId()),
