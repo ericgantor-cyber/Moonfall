@@ -20,6 +20,7 @@ public:
  UFUNCTION(BlueprintPure, Category="Moonfall|Quests") bool IsDungeonQuestCompleted(int32 EntranceId) const;
  UFUNCTION(BlueprintPure, Category="Moonfall|Quests") int32 GetTrackedDungeonQuestId() const { return TrackedDungeonQuestId; }
  UFUNCTION(BlueprintPure, Category="Moonfall|Quests") int32 GetCompletedDungeonQuestCount() const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Quests") int32 GetDungeonResidentDefeatCount(int32 EntranceId) const;
 private:
  TSet<int32> BuiltRooms;
  TSet<int32> SpawnedEncounters;
