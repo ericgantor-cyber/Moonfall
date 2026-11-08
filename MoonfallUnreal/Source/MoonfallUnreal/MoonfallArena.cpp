@@ -497,10 +497,46 @@ bool AMoonfallArena::RecordNpcSocialChoice(int32 NpcId, bool bIntimidate) {
  const int32 FearDelta = bIntimidate ? (Role == 2 ? 6 : 12) : -4;
  NpcTrustMemory[NpcId] = FMath::Clamp(NpcTrustMemory[NpcId] + TrustDelta, -100, 100);
  NpcFearMemory[NpcId] = FMath::Clamp(NpcFearMemory[NpcId] + FearDelta, 0, 100);
+ // Local word of mouth: other residents react according to their established
+ // bond with the target. Only the original social choice triggers gossip.
+ const int32 Region = NpcId / 3;
+ for (int32 OtherRole = 0; OtherRole < 3; ++OtherRole) {
+  const int32 OtherId = Region * 3 + OtherRole;
+  if (OtherId == NpcId || !NpcTrustMemory.IsValidIndex(OtherId)) continue;
+  const int32 Bond = GetNpcBond(NpcId, OtherId);
+  const int32 GossipDelta = bIntimidate
+    ? (Bond >= 0 ? -3 : 1) : (Bond >= 0 ? 2 : -1);
+  NpcTrustMemory[OtherId] = FMath::Clamp(NpcTrustMemory[OtherId] + GossipDelta, -100, 100);
+ }
+ // Keep the six legacy guide values synced when an artisan/scout's story spreads.
+ GuideTrustMemory[Region] = NpcTrustMemory[Region * 3];
+ GuideFearMemory[Region] = NpcFearMemory[Region * 3];
  if (Role == 0) {
   GuideTrustMemory[NpcId / 3] = NpcTrustMemory[NpcId];
   GuideFearMemory[NpcId / 3] = NpcFearMemory[NpcId];
  }
  bWorldSavePending = true;
  return true;
+}
+
+int32 AMoonfallArena::GetNpcBond(int32 NpcId, int32 OtherNpcId) const {
+ if (NpcId < 0 || NpcId >= Regions * 3 || OtherNpcId < 0 ||
+     OtherNpcId >= Regions * 3 || NpcId == OtherNpcId) return 0;
+ // Bonds are symmetric and predetermined by roles, not random Tick outcomes.
+ if (NpcId / 3 != OtherNpcId / 3) return 0;
+ const int32 A = NpcId % 3;
+ const int32 B = OtherNpcId % 3;
+ if ((A == 0 && B == 1) || (A == 1 && B == 0)) return 60; // trusted partners
+ if ((A == 0 && B == 2) || (A == 2 && B == 0)) return 35; // watchful allies
+ return -25; // artisan/scout rivalry
+}
+int32 AMoonfallArena::GetRegionalFactionStanding(int32 RegionIndex) const {
+ if (RegionIndex < 0 || RegionIndex >= Regions) return 0;
+ int32 Sum = 0;
+ for (int32 Role = 0; Role < 3; ++Role) {
+  const int32 NpcId = RegionIndex * 3 + Role;
+  Sum += GetNpcTrust(NpcId);
+  Sum -= GetNpcFear(NpcId) / 2;
+ }
+ return FMath::Clamp(FMath::RoundToInt(Sum / 3.f), -100, 100);
 }
