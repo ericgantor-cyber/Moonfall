@@ -182,3 +182,8 @@ This is *best-effort compensation*, **not** a crash-atomic two-slot transaction.
 - Regression tests verify conditional save outcomes and ensure loot tests inspect only loot code, rather than mistaking the unrelated craft rollback as automated item deletion.
 
 This is still best-effort recovery, not a true atomic transaction across two SaveGame slots. The rare interruption between slot writes, and workshop refund write failures, remain unhandled without a transaction journal. Unreal 5.4 native compilation and Windows gameplay tests have not been run here.
+
+## NPC interaction identity bug fix
+Social actions (encourage/intimidate) now refresh the actually targeted character's role, personality and current routine **before** calculating service-price feedback. Previously, the last-spoken NPC role could leak into a different character's dialogue, causing incorrect mana/stamina quotes. The original guide identity now shows the guide-to-artisan bond rather than asking for a self-bond of zero; artisan and scout relations to the guide are unchanged. Regression assertions cover both talk and social action paths.
+
+No native Unreal compilation or in-engine controller/dialogue playtest has been performed for this fix; only source checks are available in the repository.
