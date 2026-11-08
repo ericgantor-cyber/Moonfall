@@ -84,6 +84,19 @@ void AMoonfallEnemy::ApplyPostureDamage(float Amount) {
  OnPostureBroken(VulnerabilitySeconds);
 }
 
+void AMoonfallEnemy::RegisterComboMilestone(int32 Stage) {
+ if (Stage != 4 && Stage != 8 && Stage != 12) return;
+ if (!GetWorld() || !FMath::IsFinite(Health) || Health <= 0.f) return;
+ const float Now = GetWorld()->GetTimeSeconds();
+ if (!FMath::IsFinite(Now) || !FMath::IsFinite(PostureBrokenUntil)) return;
+ // Ordinary enemies flinch briefly. Bosses keep their existing attack
+ // and posture-break rules instead of being repeatedly stun-locked.
+ if (!bBoss && Now >= PostureBrokenUntil) {
+  HitReactionEndsAt = FMath::Max(FMath::IsFinite(HitReactionEndsAt) ? HitReactionEndsAt : Now, Now + 0.16f);
+ }
+ OnComboMilestone(Stage);
+}
+
 void AMoonfallEnemy::TakeSpellDamage(float Amount) {
   // Ignore invalid/no-op hits so they cannot trigger phase changes, feedback, or loot.
   if (!FMath::IsFinite(Amount) || Amount <= 0.f || Health <= 0.f) return;
