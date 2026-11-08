@@ -424,7 +424,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("const float SafeAIDelta = FMath::IsFinite(DeltaSeconds) ? FMath::Clamp(DeltaSeconds, 0.f, 0.1f) : 0.f;", tick)
         self.assertIn("FMath::Min(960.f * SafeAIDelta, Remaining)", tick)
         self.assertIn("FMath::IsFinite(ChaseSpeed) ? ChaseSpeed : 0.f", tick)
-        self.assertIn("0.f, 2000.f) * SafeAIDelta, true, &Hit)", tick)
+        self.assertIn("const float SafeChaseSpeed = FMath::Clamp(", tick)
+        self.assertIn("ChaseSpeed : 0.f, 0.f, 2000.f);", tick)
+        self.assertIn("SafeChaseSpeed * ChaseMultiplier * SafeAIDelta, true, &Hit)", tick)
         self.assertLess(tick.index("const float SafeAIDelta"), tick.index("AddActorWorldOffset("))
 
     def test_ai_batch_invalid_spell_damage_cannot_consume_shatter(self):
