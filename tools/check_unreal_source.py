@@ -593,6 +593,18 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(begin.index("if (bOptionsOpen || bInventoryOpen || Health <= 0.f) return;"),
                         begin.index("bSprintHeld = true;"))
 
+    def test_sprint_drain_is_bounded_and_recovery_is_monotonic(self):
+        tick = self.hero_cpp.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1].split(
+            "void AMoonfallHeroPawn::SetupPlayerInputComponent", 1)[0]
+        sprint = tick.split("if (bCanSprint && Stamina > 0.f) {", 1)[1].split(
+            "const bool bSprinting =", 1)[0]
+        self.assertIn("FMath::IsFinite(SprintStaminaDrainPerSecond) && SprintStaminaDrainPerSecond > 0.f", tick)
+        self.assertIn("FMath::Clamp(SprintStaminaDrainPerSecond, 0.f, 250.f) * StaminaDelta", sprint)
+        self.assertIn("const float SprintRecoveryAt = GetWorld()->GetTimeSeconds() + 0.8f;", sprint)
+        self.assertIn("FMath::IsFinite(StaminaRegenStartsAt) ? StaminaRegenStartsAt : SprintRecoveryAt", sprint)
+        self.assertIn("StaminaRegenStartsAt = FMath::Max(", sprint)
+        self.assertLess(sprint.index("Stamina = FMath::Max("), sprint.index("StaminaRegenStartsAt = FMath::Max("))
+
     def test_stamina_sprint_has_keyboard_controller_and_exhaustion_gates(self):
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
         self.assertIn('ActionName="Sprint",Key=LeftShift', inputs)
@@ -618,7 +630,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("GetTimeSeconds() >= DamageImmunityUntil", tick)
         self.assertIn("if (GetCharacterMovement()) GetCharacterMovement()->MaxWalkSpeed = NormalWalkSpeed;", self.hero_cpp)
         self.assertIn("GetVelocity().SizeSquared2D()", tick)
-        self.assertIn("Stamina = FMath::Max(0.f, Stamina - SprintStaminaDrainPerSecond", tick)
+        self.assertIn("Stamina = FMath::Max(0.f, Stamina - FMath::Clamp(SprintStaminaDrainPerSecond, 0.f, 250.f)", tick)
         self.assertIn("bSprintExhausted = true;", tick)
         self.assertIn("!bSprinting && !bGuarding && GetWorld()", tick)
         self.assertIn("FMath::IsFinite(StaminaRegenPerSecond) && StaminaRegenPerSecond > 0.f", tick)
