@@ -781,6 +781,24 @@ class WorldFoundationTests(unittest.TestCase):
         self.assertIn("for (int32 Id = 0; Id < 30; ++Id)", open_quest)
         self.assertIn("for (int32 Id = 0; Id < 30; ++Id)", select)
 
+    def test_ground_loot_survives_failed_player_inventory_save(self):
+        root = ROOT / "MoonfallUnreal/Source/MoonfallUnreal"
+        hero = (root / "MoonfallHeroPawn.cpp").read_text(encoding="utf-8")
+        loot = (root / "MoonfallGroundLoot.cpp").read_text(encoding="utf-8")
+        collect = hero.split("bool AMoonfallHeroPawn::CollectGroundEquipmentCode(int32 ItemCode)",1)[1].split(
+            "void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(",1)[0]
+        self.assertIn("InventoryItemCodes.Add(ItemCode);", collect)
+        self.assertIn("if (!TrySavePlayerEconomy()) {", collect)
+        self.assertIn("InventoryItemCodes.RemoveAt(InventoryItemCodes.Num() - 1);", collect)
+        self.assertIn("return false;", collect)
+        self.assertNotIn("SavePlayerEconomy();", collect)
+        self.assertLess(collect.index("if (!TrySavePlayerEconomy()) {"),
+                        collect.index("LastLootAffix = Affix;"))
+        self.assertIn("if (!IsValid(Hero) || !Hero->CollectGroundEquipmentCode(ItemCode)) return false;", loot)
+        self.assertLess(loot.index("Hero->CollectGroundEquipmentCode(ItemCode)"),
+                        loot.index("bCollected = true;"))
+        self.assertLess(loot.index("bCollected = true;"), loot.index("Destroy();"))
+
     def test_connected_geometry(self):
         self.assertIn("Region * RegionSpacing", CPP)
         self.assertIn("FVector(60.f, 60.f, 1.f)", CPP)
