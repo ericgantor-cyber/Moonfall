@@ -142,6 +142,7 @@ bool AMoonfallArena::SpawnEncounter(int32 Id, FVector Position, int32 Region, bo
   const FRegionalEnemyProfile& Profile = bExtra
     ? ExtraRegionalEnemyProfiles[ProfileIndex] : RegionalEnemyProfiles[ProfileIndex];
   Enemy->ArchetypeName = FName(Profile.Name);
+  Enemy->RegionalAttackStyle = ProfileIndex % 6;
   Enemy->bElite = ProfileIndex % 3 == 2;
   Enemy->Health = FMath::Clamp(Enemy->Health * Profile.HealthScale, 1.f, 100000.f);
   Enemy->AttackDamage = FMath::Clamp(Enemy->AttackDamage * Profile.DamageScale, 1.f, 10000.f);
