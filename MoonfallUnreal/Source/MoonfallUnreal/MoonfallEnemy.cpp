@@ -502,7 +502,19 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
    // Alternate quick strikes, heavy attacks and wider sweeps with distinct warnings.
    // An elite cannot chain another attack during its recovery window.
    // Phase-two bosses unlock a fourth, highly telegraphed crush.
-   const int32 Pattern = AttackSequence++ % ((bElite || (bBoss && BossPhase >= 2)) ? 4 : 3);
+   const int32 PatternCount = (bElite || (bBoss && BossPhase >= 2)) ? 4 : 3;
+   int32 Pattern = AttackSequence++ % PatternCount;
+   if (bBoss) {
+    // Select uniformly from all other basic patterns. No extra actor,
+    // ticker, path solve or unbounded retry loop is needed.
+    if (LastBossAttackPattern >= 0 && LastBossAttackPattern < PatternCount) {
+     Pattern = FMath::RandRange(0, PatternCount - 2);
+     if (Pattern >= LastBossAttackPattern) ++Pattern;
+    } else {
+     Pattern = FMath::RandRange(0, PatternCount - 1);
+    }
+    LastBossAttackPattern = Pattern;
+   }
    BossSpecialMove = bBoss && BossPhase >= 2 && AttackSequence % 5 == 0 ? (BossPhase >= 3 ? 2 : 1) : 0;
    if (bBoss && BossPhase >= 2 && AttackSequence % 7 == 0) BossSpecialMove = 3;
    if (bBoss && BossPhase >= 3 && AttackSequence % 9 == 0) BossSpecialMove = 4;
