@@ -1668,6 +1668,21 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                         tick.index("const int32 PatternCount ="))
         self.assertEqual(tick.count("Nav->FindPathToLocationSynchronously("), 1)
 
+    def test_wounded_elite_retreat_is_brief_cooldown_gated_and_collision_safe(self):
+        self.assertIn("float TacticalRetreatUntil = -1.f;", self.enemy_h)
+        self.assertIn("float NextTacticalRetreatAt = 0.f;", self.enemy_h)
+        self.assertIn("bElite && !bBoss && ActualDamage > 0.f && Health > 0.f", self.enemy_cpp)
+        self.assertIn("Health / MaxHealthAtSpawn <= 0.3f", self.enemy_cpp)
+        self.assertIn("Now >= NextTacticalRetreatAt", self.enemy_cpp)
+        self.assertIn("TacticalRetreatUntil = Now + 0.7f;", self.enemy_cpp)
+        self.assertIn("NextTacticalRetreatAt = Now + 8.f;", self.enemy_cpp)
+        self.assertIn("NextAttackAt = FMath::Max(NextAttackAt, TacticalRetreatUntil + 0.25f);", self.enemy_cpp)
+        self.assertIn("if (bElite && !bBoss && Now < TacticalRetreatUntil", self.enemy_cpp)
+        self.assertIn("Now >= HitReactionEndsAt && Now >= PostureBrokenUntil && Distance > 1.f", self.enemy_cpp)
+        self.assertIn("const float RetreatStep = 200.f * SafeAIDelta;", self.enemy_cpp)
+        self.assertIn("AddActorWorldOffset(RetreatDirection * RetreatStep, true, &RetreatHit);", self.enemy_cpp)
+        self.assertEqual(self.enemy_cpp.count("Nav->FindPathToLocationSynchronously("), 1)
+
     def test_elites_and_late_bosses_strafe_only_during_attack_recovery(self):
         tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
         self.assertIn("if ((bElite || (bBoss && BossPhase >= 2))", tick)
