@@ -46,7 +46,7 @@ jobs:
           assert 'DamageImmunityUntil' in hero and 'NextDodgeAt' in hero
           assert 'GetLastMovementInputVector' in hero
           assert enemy.count('Nav->ProjectPointToNavigation(') == 1
-          assert enemy.index('if (Now >= NextPathRefreshAt)') < enemy.index('Nav->ProjectPointToNavigation(')
+          assert enemy.index('if (!FMath::IsFinite(NextPathRefreshAt) || Now >= NextPathRefreshAt)') < enemy.index('Nav->ProjectPointToNavigation(')
           enemy_header = (root/'MoonfallUnreal'/'MoonfallEnemy.h').read_text()
           assert 'AttackSequence++ %' in enemy and 'BossPhase >= 2' in enemy
           assert 'TEXT("ELITE CRUSH")' in enemy
