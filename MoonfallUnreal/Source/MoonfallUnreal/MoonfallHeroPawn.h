@@ -58,6 +58,8 @@ public:
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC") int32 LastNpcRole = 0;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC") int32 LastGuideTrust = 0;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC") int32 LastGuideFear = 0;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC") int32 LastFactionStanding = 0;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC") int32 LastNpcAllyBond = 0;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC") int32 LastGuideSocialChoice = -1;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Quests") int32 LastGuideQuestId = -1;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Quests") int32 LastGuideResidentDefeats = 0;
