@@ -187,22 +187,20 @@ void AMoonfallCombatHUD::DrawHUD()
  }
  // Dialogue feedback remains near the guide prompt, no separate menu or actor.
  if (Hero->LastGuideRegionIndex >= 0 && Hero->LastGuideMessageUntil > GetWorld()->GetTimeSeconds()) {
-  const TCHAR* GuideTitles[] = {TEXT("Ash Warden"), TEXT("Mire Keeper"),
-    TEXT("Frost Herald"), TEXT("Storm Oracle"), TEXT("Foundry Chronicler"),
-    TEXT("Eclipse Seer")};
-  const int32 Region = FMath::Clamp(Hero->LastGuideRegionIndex, 0, 5);
+  const FString Speaker = Hero->LastGuideTitle.IsEmpty()
+    ? TEXT("Quest Guide") : Hero->LastGuideTitle;
   FString GuideLine;
   if (!Hero->bLastGuideFoundQuest || Hero->LastGuideQuestId < 0)
-   GuideLine = FString::Printf(TEXT("%s: Discover an entrance first."), GuideTitles[Region]);
+   GuideLine = FString::Printf(TEXT("%s: Discover an entrance first."), *Speaker);
   else if (Hero->bLastGuideGuardianDefeated)
    GuideLine = FString::Printf(TEXT("%s: Dungeon %d is liberated. Seek another."),
-     GuideTitles[Region], Hero->LastGuideQuestId + 1);
+     *Speaker, Hero->LastGuideQuestId + 1);
   else if (Hero->LastGuideResidentDefeats >= 4)
    GuideLine = FString::Printf(TEXT("%s: Dungeon %d guardian awaits."),
-     GuideTitles[Region], Hero->LastGuideQuestId + 1);
+     *Speaker, Hero->LastGuideQuestId + 1);
   else
    GuideLine = FString::Printf(TEXT("%s: Dungeon %d, residents %d of 4."),
-     GuideTitles[Region], Hero->LastGuideQuestId + 1,
+     *Speaker, Hero->LastGuideQuestId + 1,
      FMath::Clamp(Hero->LastGuideResidentDefeats, 0, 4));
   DrawText(GuideLine, FLinearColor(0.93f, 0.85f, 0.66f),
     FMath::Max(18.f, Canvas->SizeX * 0.18f), Canvas->SizeY - 121.f,
