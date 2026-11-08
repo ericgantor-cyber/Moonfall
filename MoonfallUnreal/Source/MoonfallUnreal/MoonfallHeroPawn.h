@@ -53,6 +53,9 @@ public:
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Quests") bool bLastGuideFoundQuest = false;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Quests") float LastGuideMessageUntil = -1.f;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Quests") FString LastGuideTitle;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC") int32 LastGuideTrust = 0;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC") int32 LastGuideFear = 0;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC") int32 LastGuideSocialChoice = -1;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Quests") int32 LastGuideQuestId = -1;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Quests") int32 LastGuideResidentDefeats = 0;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Quests") bool bLastGuideGuardianDefeated = false;
@@ -217,6 +220,9 @@ private:
  void InventoryConfirm();
  void InventorySalvage();
  void InteractQuestGuide();
+ void EncourageQuestGuide();
+ void IntimidateQuestGuide();
+ void ApplyQuestGuideSocialAction(bool bIntimidate);
  void OpenOptions();
  void OptionsUp();
  void OptionsDown();
