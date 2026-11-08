@@ -67,6 +67,8 @@ public:
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Combat", meta=(ClampMin="0.5", ClampMax="4.0")) float HitComboWindowSeconds = 2.f;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Combat", meta=(ClampMin="0.0", ClampMax="0.12")) float HitComboDamagePerStage = 0.04f;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Combat") int32 HitComboStage = 0;
+ // The fourth connected hit adds posture pressure to THAT enemy only.
+ UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Combat", meta=(ClampMin="0.0", ClampMax="30.0")) float HitComboFourthHitPosture = 12.f;
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Combat") void OnSuccessfulHitCombo(int32 Stage, bool bLeftHand);
   UFUNCTION(BlueprintCallable, Category="Moonfall|Finishers") int32 RegisterFinisherKill(bool bShatterKill, bool bBossKill, FVector DefeatedLocation, AMoonfallEnemy* DefeatedEnemy);
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Finishers") void OnFinisherChain(int32 ChainStep, bool bShatterKill, bool bBossKill);
@@ -111,6 +113,7 @@ private:
  UPROPERTY(VisibleAnywhere, Category="Moonfall|Finishers") UStaticMeshComponent* FinisherSlashB = nullptr;
  UPROPERTY(VisibleAnywhere, Category="Moonfall|Finishers") UPointLightComponent* FinisherFlash = nullptr;
  void UpdateNativeFinisher(float DeltaSeconds);
+ TWeakObjectPtr<AMoonfallEnemy> LastHitComboTarget;
  float LastSuccessfulHitAt = -100.f;
  float LastCastTime[2] = {-100.f,-100.f};
  float NextDodgeAt = 0.f;
