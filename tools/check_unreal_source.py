@@ -465,6 +465,17 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Stamina = FMath::Clamp(Stamina - RequiredGuardCost, 0.f, MaxStamina)", guard)
         self.assertLess(guard.index("CombatRecoveryEndsAt = Now +"), guard.index("Stamina = FMath::Clamp"))
 
+    def test_valid_hostile_cast_sets_combat_without_free_combo(self):
+        cast = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split(
+            "void AMoonfallHeroPawn::", 1)[0]
+        self.assertLess(cast.index("Enemy->TakeSpellDamage(SpellDamage);"),
+                        cast.index("CombatRecoveryEndsAt = Time +"))
+        self.assertLess(cast.index("CombatRecoveryEndsAt = Time +"),
+                        cast.index("if (ActualSpellDamage > 0.f) {"))
+        self.assertLess(cast.index("if (ActualSpellDamage > 0.f) {"),
+                        cast.index("HitComboStage = bComboAlive"))
+        self.assertIn("FMath::Clamp(CombatRecoverySeconds, 0.f, 12.f) : 5.f", cast)
+
     def test_sprint_input_is_rejected_in_menus_or_after_defeat(self):
         begin = self.hero_cpp.split("void AMoonfallHeroPawn::BeginSprint()", 1)[1].split(
             "void AMoonfallHeroPawn::EndSprint()", 1)[0]
