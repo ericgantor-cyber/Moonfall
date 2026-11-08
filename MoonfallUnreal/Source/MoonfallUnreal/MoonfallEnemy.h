@@ -96,6 +96,10 @@ private:
  bool bComboSecondHitPending = false;
  bool bComboSecondHitActive = false;
  int32 BossSpecialMove = 0;
+ // Distinct, telegraphed divine signatures use the standard damage pipeline.
+ bool bDivineSignatureActive = false;
+ FVector DivineSignatureCenter = FVector::ZeroVector;
+ float DivineSignatureRadius = 0.f;
  float CurrentWindup = 0.5f;
  float CurrentAttackMultiplier = 1.f;
  float CurrentAttackRangeMultiplier = 1.f;
