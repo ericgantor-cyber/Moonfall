@@ -4,7 +4,6 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Components/InputComponent.h"
 #include "Engine/World.h"
-#include "EngineUtils.h"
 #include "DrawDebugHelpers.h"
 #include "Engine/Engine.h"
 #include "GameFramework/GameUserSettings.h"
@@ -580,29 +579,6 @@ int32 AMoonfallHeroPawn::RegisterFinisherKill(bool bShatterKill, bool bBossKill,
  if (FinisherChainCount >= 3 && FMath::IsFinite(FinisherMomentumDurationSeconds)
      && FinisherMomentumDurationSeconds >= 1.f)
   FinisherMomentumUntil = Now + FMath::Clamp(FinisherMomentumDurationSeconds, 1.f, 12.f);
- // Chained finishing kills (second and onward) send a posture-only pulse.
- // No five-kill milestones, HP damage, extra loot, or spawned effect actors.
- if (FinisherSequenceCount >= 2 && FMath::IsFinite(FinisherShockwaveRadius)
-     && FMath::IsFinite(FinisherShockwavePosture)) {
-  const float Radius = FMath::Clamp(FinisherShockwaveRadius, 0.f, 600.f);
-  const float Pressure = FMath::Clamp(FinisherShockwavePosture, 0.f, 60.f);
-  int32 AffectedEnemies = 0;
-  int32 ExaminedEnemies = 0;
-  const FVector PulseOrigin = DefeatedLocation.ContainsNaN() ? GetActorLocation() : DefeatedLocation;
-  if (Radius > 0.f && Pressure > 0.f) {
-   for (TActorIterator<AMoonfallEnemy> It(GetWorld()); It && ExaminedEnemies < 64 && AffectedEnemies < 8; ++It) {
-    ++ExaminedEnemies;
-    AMoonfallEnemy* NearbyEnemy = *It;
-    if (!IsValid(NearbyEnemy) || NearbyEnemy == DefeatedEnemy || NearbyEnemy->Health <= 0.f) continue;
-    if (FVector::DistSquared2D(NearbyEnemy->GetActorLocation(), PulseOrigin) > FMath::Square(Radius)) continue;
-    NearbyEnemy->ApplyPostureDamage(Pressure);
-    ++AffectedEnemies;
-   }
-  }
-  OnFinisherShockwave(AffectedEnemies);
-  if (!bReduceMotion && Radius > 0.f && Pressure > 0.f)
-   DrawDebugSphere(GetWorld(), PulseOrigin, Radius, 24, FColor(185, 65, 235), false, 0.35f, 0, 2.5f);
- }
  // Queue follow-up executions instead of cutting off the current choreography.
  // Five visual styles cycle by combo count; the bounded queue prevents bloat.
  const float NativeDuration = bReduceMotion ? 0.22f : 0.78f;
