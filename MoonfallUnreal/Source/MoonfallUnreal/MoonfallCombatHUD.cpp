@@ -2,6 +2,7 @@
 #include "MoonfallHeroPawn.h"
 #include "MoonfallEnemy.h"
 #include "MoonfallArena.h"
+#include "MoonfallQuestGuide.h"
 #include "EngineUtils.h"
 #include "Engine/World.h"
 #include "Kismet/GameplayStatics.h"
@@ -170,6 +171,18 @@ void AMoonfallCombatHUD::DrawHUD()
       FLinearColor(0.72f, 0.83f, 1.f), MapLeft,
       MapTop + MapWidth + 40.f, nullptr, TextScale * 0.8f);
   }
+  break;
+ }
+ // Proximity-only quest guide prompt. Never advertises undiscovered quest pins.
+ for (TActorIterator<AMoonfallQuestGuide> GuideIt(GetWorld()); GuideIt; ++GuideIt) {
+  const AMoonfallQuestGuide* Guide = *GuideIt;
+  if (!IsValid(Guide)) continue;
+  if (FMath::Abs(Guide->GetActorLocation().Z - Hero->GetActorLocation().Z) > 250.f) continue;
+  if (FVector::DistSquared2D(Guide->GetActorLocation(), Hero->GetActorLocation()) >= FMath::Square(380.f))
+   continue;
+  DrawText(TEXT("R / D-pad Right: Speak to Guide"),
+    FLinearColor(0.95f, 0.84f, 0.43f), FMath::Max(20.f, Canvas->SizeX * 0.38f),
+    Canvas->SizeY - 92.f, nullptr, 0.9f);
   break;
  }
  // Nearest living boss, displayed without creating additional widget actors.
