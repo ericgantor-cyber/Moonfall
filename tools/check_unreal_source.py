@@ -354,6 +354,14 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "void AMoonfallHeroPawn::OptionsUp()", 1)[0]
         self.assertIn("if (!bOptionsOpen) {\n  EndSprint();\n  EndGuard();", options)
 
+    def test_guard_clears_held_sprint_before_entering_stance(self):
+        guard = self.hero_cpp.split("void AMoonfallHeroPawn::BeginGuard()", 1)[1].split(
+            "void AMoonfallHeroPawn::EndGuard()", 1)[0]
+        self.assertIn("EndSprint();", guard)
+        self.assertLess(guard.index("EndSprint();"), guard.index("bGuarding = true;"))
+        self.assertIn("|| Stamina < GuardStaminaCost) return;", guard)
+        self.assertLess(guard.index("|| Stamina < GuardStaminaCost) return;"), guard.index("EndSprint();"))
+
     def test_sprint_input_is_rejected_in_menus_or_after_defeat(self):
         begin = self.hero_cpp.split("void AMoonfallHeroPawn::BeginSprint()", 1)[1].split(
             "void AMoonfallHeroPawn::EndSprint()", 1)[0]
