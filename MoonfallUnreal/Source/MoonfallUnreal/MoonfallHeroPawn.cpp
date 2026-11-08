@@ -553,7 +553,7 @@ void AMoonfallHeroPawn::AdjustOption(int32 Direction) {
  Settings->SaveSettings();
 }
 
-int32 AMoonfallHeroPawn::RegisterFinisherKill(bool bShatterKill, bool bBossKill, FVector DefeatedLocation)
+int32 AMoonfallHeroPawn::RegisterFinisherKill(bool bShatterKill, bool bBossKill, FVector DefeatedLocation, AMoonfallEnemy* DefeatedEnemy)
 {
  if (Health <= 0.f || !GetWorld()) return 0;
  const float Now = GetWorld()->GetTimeSeconds();
@@ -587,6 +587,7 @@ int32 AMoonfallHeroPawn::RegisterFinisherKill(bool bShatterKill, bool bBossKill,
   Pending.Target = DefeatedLocation.ContainsNaN()
     ? GetActorLocation() + GetActorForwardVector() * 140.f : DefeatedLocation;
   Pending.Style = ChainStep;
+  Pending.Enemy = DefeatedEnemy;
   Pending.bShatter = bShatterKill;
   Pending.bBoss = bBossKill;
   if (PendingFinishers.Num() < MaxPendingFinishers) PendingFinishers.Add(Pending);
@@ -597,16 +598,19 @@ int32 AMoonfallHeroPawn::RegisterFinisherKill(bool bShatterKill, bool bBossKill,
   }
   return ChainStep;
  }
- StartFinisherPresentation(ChainStep, bShatterKill, bBossKill, DefeatedLocation);
+ StartFinisherPresentation(ChainStep, bShatterKill, bBossKill, DefeatedLocation, DefeatedEnemy);
  return ChainStep;
 }
 
-void AMoonfallHeroPawn::StartFinisherPresentation(int32 ChainStep, bool bShatterKill, bool bBossKill, const FVector& DefeatedLocation)
+void AMoonfallHeroPawn::StartFinisherPresentation(int32 ChainStep, bool bShatterKill, bool bBossKill, const FVector& DefeatedLocation, AMoonfallEnemy* DefeatedEnemy)
 {
  if (!GetWorld()) return;
  const float Now = GetWorld()->GetTimeSeconds();
  // Built-in impact choreography is mandatory. No mesh/AnimBP/asset assignment
  // is needed for the two slash shapes and flash attached in the constructor.
+ // The enemy's death reaction begins alongside its actual queued execution,
+ // not when it first entered the queue. Weak references expire safely.
+ if (IsValid(DefeatedEnemy)) DefeatedEnemy->BeginFinisherDefeat(ChainStep);
  NativeFinisherStartedAt = Now;
  NativeFinisherOrigin = GetActorLocation();
  NativeFinisherTarget = DefeatedLocation.ContainsNaN() ? NativeFinisherOrigin + GetActorForwardVector() * 140.f : DefeatedLocation;
@@ -638,7 +642,7 @@ void AMoonfallHeroPawn::UpdateNativeFinisher(float DeltaSeconds)
  if (Health > 0.f && !bOptionsOpen && Age >= Duration && PendingFinishers.Num() > 0) {
   const FPendingFinisher Pending = PendingFinishers[0];
   PendingFinishers.RemoveAt(0);
-  StartFinisherPresentation(Pending.Style, Pending.bShatter, Pending.bBoss, Pending.Target);
+  StartFinisherPresentation(Pending.Style, Pending.bShatter, Pending.bBoss, Pending.Target, Pending.Enemy.Get());
   Age = 0.f;
  }
  if (Health <= 0.f || bOptionsOpen || Age < 0.f || Age >= Duration) {
