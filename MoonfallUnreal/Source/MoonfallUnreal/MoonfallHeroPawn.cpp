@@ -353,6 +353,8 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
    if (bNewPostureMilestone && Enemy->Health > 0.f
        && FMath::IsFinite(HitComboFourthHitPosture) && HitComboFourthHitPosture > 0.f)
     Enemy->ApplyPostureDamage(FMath::Clamp(HitComboFourthHitPosture, 0.f, 30.f));
+   if (bNewPostureMilestone && Enemy->Health > 0.f)
+    Enemy->RegisterComboMilestone(HitComboStage);
    OnSuccessfulHitCombo(HitComboStage, Hand == 0);
   }
   if (ActualSpellDamage > 0.f && Enemy->Health > 0.f
