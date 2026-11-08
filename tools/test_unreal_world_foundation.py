@@ -763,6 +763,24 @@ class WorldFoundationTests(unittest.TestCase):
         self.assertLess(social.index("LastNpcRole = FMath::Clamp(Nearest->RoleIndex, 0, 2);"),
                         social.index("LastServicePrice = Arena->GetRegionalServicePrice("))
 
+    def test_quest_page_tracks_active_objective_without_stale_index(self):
+        hero = (ROOT / "MoonfallUnreal/Source/MoonfallUnreal/MoonfallHeroPawn.cpp").read_text(encoding="utf-8")
+        open_quest = hero.split("void AMoonfallHeroPawn::OpenQuestPage()",1)[1].split(
+            "void AMoonfallHeroPawn::OpenWorldPage()",1)[0]
+        select = hero.split("void AMoonfallHeroPawn::SelectJournalQuest()",1)[1].split(
+            "void AMoonfallHeroPawn::OptionsUp()",1)[0]
+        self.assertIn("QuestJournalSelection = 0;", open_quest)
+        self.assertIn("const int32 TrackedId = Arena->GetTrackedDungeonQuestId();", open_quest)
+        self.assertIn("if (!Arena->GetDiscoveredDungeonEntrances().Contains(Id)) continue;", open_quest)
+        self.assertIn("if (Id == TrackedId)", open_quest)
+        self.assertIn("QuestJournalSelection = KnownIndex;", open_quest)
+        self.assertIn("QuestJournalSelection = FMath::Clamp(QuestJournalSelection, 0,", select)
+        self.assertIn("Arena->GetDiscoveredDungeonEntrances().Num() - 1", select)
+        self.assertIn("Arena->TrackDungeonQuest(Id);", select)
+        # Stable numeric discovery order shared by both page-open and confirm.
+        self.assertIn("for (int32 Id = 0; Id < 30; ++Id)", open_quest)
+        self.assertIn("for (int32 Id = 0; Id < 30; ++Id)", select)
+
     def test_connected_geometry(self):
         self.assertIn("Region * RegionSpacing", CPP)
         self.assertIn("FVector(60.f, 60.f, 1.f)", CPP)
