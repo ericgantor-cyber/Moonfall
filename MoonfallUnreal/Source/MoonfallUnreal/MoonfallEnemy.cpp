@@ -1,5 +1,6 @@
 #include "MoonfallEnemy.h"
 #include "Components/StaticMeshComponent.h"
+#include "Components/PointLightComponent.h"
 #include "UObject/ConstructorHelpers.h"
 #include "MoonfallHeroPawn.h"
 #include "Kismet/GameplayStatics.h"
@@ -15,6 +16,14 @@ AMoonfallEnemy::AMoonfallEnemy() {
   if (Sphere.Succeeded()) Body->SetStaticMesh(Sphere.Object);
   Body->SetCollisionProfileName(TEXT("BlockAll"));
   Body->SetRelativeScale3D(FVector(0.85f,0.85f,1.4f));
+  AttackTellLight = CreateDefaultSubobject<UPointLightComponent>(TEXT("AttackTellLight"));
+  AttackTellLight->SetupAttachment(Body);
+  AttackTellLight->SetRelativeLocation(FVector(0.f, 0.f, 105.f));
+  AttackTellLight->SetCastShadows(false);
+  AttackTellLight->SetAttenuationRadius(260.f);
+  AttackTellLight->SetIntensity(0.f);
+  AttackTellLight->SetVisibility(false);
+
   PrimaryActorTick.bCanEverTick = true;
   PrimaryActorTick.TickInterval = 0.1f;
 }
@@ -215,6 +224,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
  Super::Tick(DeltaSeconds);
  if (!GetWorld()) return;
  if (Health <= 0.f) {
+  if (AttackTellLight) AttackTellLight->SetVisibility(false);
   TickDefeatAnimation(DeltaSeconds);
   return;
  }
@@ -227,6 +237,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
  AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0));
  if (!IsValid(Hero) || !FMath::IsFinite(Hero->Health) || Hero->Health <= 0.f
      || Hero->bOptionsOpen || Hero->bInventoryOpen) {
+  if (AttackTellLight) AttackTellLight->SetVisibility(false);
   WindupEndsAt = -1.f;
   BossWarningEndTime = -1.f;
   bComboSecondHitPending = false;
@@ -262,6 +273,27 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   const float Scale = Staggered ? 0.92f : 1.f + (Windup > 0.f ? (1.f - Windup) * 0.18f : 0.f);
   const float Squash = bBossTelegraph ? 1.f - 0.12f * Anticipation : 1.f - 0.09f * Recovery;
   Body->SetRelativeScale3D(FVector(0.85f * Scale / FMath::Max(0.75f,Squash), 0.85f * Scale / FMath::Max(0.75f,Squash), 1.4f * Squash / Scale));
+  // Procedural anticipation is rendered in packaged games. Rotation affects
+  // only the mesh, not actor navigation, hitbox direction or locked strike aim.
+  const bool bAnticipating = WindupEndsAt > Now && FMath::IsFinite(CurrentWindup) && CurrentWindup > 0.f;
+  const float Progress = bAnticipating ? 1.f - Windup : 0.f;
+  const float Lean = bAnticipating ? (bBoss ? 8.f : 4.f + 1.5f * FMath::Clamp(RegionalAttackStyle, 0, 5)) * Progress : 0.f;
+  const float Twist = bAnticipating && !bBoss && (RegionalAttackStyle % 2 == 1) ? -Lean * 0.6f : Lean * 0.6f;
+  Body->SetRelativeRotation(FRotator(Lean, Twist, 0.f));
+ }
+ if (AttackTellLight) {
+  // Reused light component, visible only while actively winding up near the
+  // hero. No shadows, VFX actor allocation, timers or extra tick functions.
+  const bool bVisible = WindupEndsAt > Now && FMath::IsFinite(WindupEndsAt);
+  if (bVisible) {
+   const int32 Style = FMath::Clamp(RegionalAttackStyle, 0, 5);
+   const FLinearColor SchoolColor = bBoss ? FLinearColor(0.8f, 0.12f, 0.65f)
+    : (Style % 2 == 0 ? FLinearColor(1.f, 0.24f, 0.04f) : FLinearColor(0.16f, 0.54f, 1.f));
+   AttackTellLight->SetLightColor(SchoolColor);
+   const float Progress = FMath::Clamp(1.f - (WindupEndsAt - Now) / FMath::Max(0.32f, CurrentWindup), 0.f, 1.f);
+   AttackTellLight->SetIntensity(400.f + 1100.f * Progress);
+  }
+  AttackTellLight->SetVisibility(bVisible);
  }
  if (bBoss && Now < BossPhaseMessageUntil) {
   // A readable phase-change recovery: no movement or attacks during the transition.
