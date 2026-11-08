@@ -494,6 +494,25 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("DefeatAnimationStartedAt < 0.f", self.enemy_cpp)
         self.assertNotIn("SHATTER KO", self.hud)
 
+    def test_fifth_kill_shockwave_is_bounded_and_nonlethal(self):
+        self.assertIn("float FinisherShockwaveRadius = 320.f;", self.hero_h)
+        self.assertIn("float FinisherShockwavePosture = 22.f;", self.hero_h)
+        self.assertIn("void OnFinisherShockwave(int32 AffectedEnemies);", self.hero_h)
+        register = self.hero_cpp.split("int32 AMoonfallHeroPawn::RegisterFinisherKill(", 1)[1].split(
+            "void AMoonfallHeroPawn::StartFinisherPresentation(", 1)[0]
+        self.assertIn("FinisherSequenceCount % 5 == 0", register)
+        self.assertIn("FMath::Clamp(FinisherShockwaveRadius, 0.f, 600.f)", register)
+        self.assertIn("FMath::Clamp(FinisherShockwavePosture, 0.f, 60.f)", register)
+        self.assertIn("ExaminedEnemies < 64 && AffectedEnemies < 8", register)
+        self.assertIn("NearbyEnemy == DefeatedEnemy || NearbyEnemy->Health <= 0.f", register)
+        self.assertIn("FVector::DistSquared2D(NearbyEnemy->GetActorLocation(), PulseOrigin)", register)
+        self.assertIn("NearbyEnemy->ApplyPostureDamage(Pressure);", register)
+        self.assertIn("OnFinisherShockwave(AffectedEnemies);", register)
+        self.assertIn("if (!bReduceMotion && Radius > 0.f && Pressure > 0.f)", register)
+        self.assertNotIn("NearbyEnemy->TakeSpellDamage", register)
+        self.assertNotIn("Hero->AwardEquipmentDrop", register)
+        self.assertNotIn("SHATTER KO", self.hud)
+
     def test_finisher_momentum_rewards_combat_resources_and_respects_damage(self):
         for definition in [
             "float FinisherStaminaRestore = 8.f;",
