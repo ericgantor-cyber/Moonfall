@@ -389,6 +389,23 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("float MenuHealthRegenDelaySeconds = 3.f;", self.hero_h)
         self.assertIn("float MenuHealthRegenStartsAt = 0.f;", self.hero_h)
 
+    def test_combat_mana_pacing_and_perfect_parry_reward(self):
+        tick = self.hero_cpp.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1].split(
+            "void AMoonfallHeroPawn::SetupPlayerInputComponent", 1)[0]
+        cast = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split(
+            "void AMoonfallHeroPawn::", 1)[0]
+        damage = self.hero_cpp.split("void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount)", 1)[1].split(
+            "void AMoonfallHeroPawn::CycleGraphicsQuality()", 1)[0]
+        self.assertIn("GetWorld()->GetTimeSeconds() < CombatRecoveryEndsAt", tick)
+        self.assertIn("FMath::Clamp(CombatManaRegenMultiplier, 0.f, 1.f)", tick)
+        self.assertIn("ManaRegenPerSecond * MenuRecoveryBoost * CombatManaFactor", tick)
+        self.assertIn("CombatRecoveryEndsAt = Time + FMath::Clamp(CombatRecoverySeconds, 0.f, 12.f)", cast)
+        self.assertIn("CombatRecoveryEndsAt = Now + FMath::Clamp(CombatRecoverySeconds, 0.f, 12.f)", damage)
+        self.assertIn("Mana + FMath::Clamp(PerfectParryManaReward, 0.f, 15.f)", damage)
+        self.assertIn("float CombatRecoverySeconds = 5.f;", self.hero_h)
+        self.assertIn("float CombatManaRegenMultiplier = 0.5f;", self.hero_h)
+        self.assertIn("float PerfectParryManaReward = 5.f;", self.hero_h)
+
     def test_sprint_input_is_rejected_in_menus_or_after_defeat(self):
         begin = self.hero_cpp.split("void AMoonfallHeroPawn::BeginSprint()", 1)[1].split(
             "void AMoonfallHeroPawn::EndSprint()", 1)[0]
