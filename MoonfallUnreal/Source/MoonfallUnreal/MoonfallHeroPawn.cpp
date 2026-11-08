@@ -204,7 +204,7 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAxis(TEXT("MoveRight"), this, &AMoonfallHeroPawn::MoveRight);
  Input->BindAxis(TEXT("Turn"), this, &AMoonfallHeroPawn::Turn);
  Input->BindAxis(TEXT("LookUp"), this, &AMoonfallHeroPawn::LookUp);
- Input->BindAction(TEXT("Jump"), IE_Pressed, this, &ACharacter::Jump);
+ Input->BindAction(TEXT("Jump"), IE_Pressed, this, &AMoonfallHeroPawn::TryJump);
  Input->BindAction(TEXT("Jump"), IE_Released, this, &ACharacter::StopJumping);
  Input->BindAction(TEXT("CastLeft"), IE_Pressed, this, &AMoonfallHeroPawn::CastLeft);
  Input->BindAction(TEXT("CastRight"), IE_Pressed, this, &AMoonfallHeroPawn::CastRight);
@@ -226,9 +226,15 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("OptionsLeft"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsLeft);
  Input->BindAction(TEXT("OptionsRight"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsRight);
 }
+void AMoonfallHeroPawn::TryJump()
+{
+ // Jump must obey the same defeated/menu input locks as Dodge and Cast.
+ if (Health <= 0.f || bOptionsOpen || bInventoryOpen) return;
+ Jump();
+}
 void AMoonfallHeroPawn::MoveForward(float Value)
 {
- if (bOptionsOpen || bInventoryOpen) return;
+ if (Health <= 0.f || bOptionsOpen || bInventoryOpen || !FMath::IsFinite(Value)) return;
  if (Controller && !FMath::IsNearlyZero(Value))
  {
   const FRotator Yaw(0.f, Controller->GetControlRotation().Yaw, 0.f);
@@ -237,15 +243,15 @@ void AMoonfallHeroPawn::MoveForward(float Value)
 }
 void AMoonfallHeroPawn::MoveRight(float Value)
 {
- if (bOptionsOpen || bInventoryOpen) return;
+ if (Health <= 0.f || bOptionsOpen || bInventoryOpen || !FMath::IsFinite(Value)) return;
  if (Controller && !FMath::IsNearlyZero(Value))
  {
   const FRotator Yaw(0.f, Controller->GetControlRotation().Yaw, 0.f);
   AddMovementInput(FRotationMatrix(Yaw).GetUnitAxis(EAxis::Y), Value);
  }
 }
-void AMoonfallHeroPawn::Turn(float Value) { if (!bOptionsOpen) AddControllerYawInput(Value); }
-void AMoonfallHeroPawn::LookUp(float Value) { if (!bOptionsOpen) AddControllerPitchInput(Value); }
+void AMoonfallHeroPawn::Turn(float Value) { if (Health > 0.f && !bOptionsOpen && !bInventoryOpen && FMath::IsFinite(Value)) AddControllerYawInput(Value); }
+void AMoonfallHeroPawn::LookUp(float Value) { if (Health > 0.f && !bOptionsOpen && !bInventoryOpen && FMath::IsFinite(Value)) AddControllerPitchInput(Value); }
 bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
 {
  static const float Costs[6] = {16.f,13.f,22.f,25.f,18.f,14.f};
