@@ -1653,6 +1653,17 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("LastSuccessfulHitAt = -100.f;", tick)
         self.assertNotIn("FinisherShockwave", self.hero_cpp)
 
+    def test_boss_basic_attack_patterns_randomize_without_immediate_repeats(self):
+        self.assertIn("int32 LastBossAttackPattern = -1;", self.enemy_h)
+        self.assertIn("const int32 PatternCount = (bElite || (bBoss && BossPhase >= 2)) ? 4 : 3;", self.enemy_cpp)
+        self.assertIn("int32 Pattern = AttackSequence++ % PatternCount;", self.enemy_cpp)
+        self.assertIn("if (bBoss) {", self.enemy_cpp)
+        self.assertIn("FMath::RandRange(0, PatternCount - 2)", self.enemy_cpp)
+        self.assertIn("if (Pattern >= LastBossAttackPattern) ++Pattern;", self.enemy_cpp)
+        self.assertIn("LastBossAttackPattern = Pattern;", self.enemy_cpp)
+        self.assertIn("if (bBoss && BossPhase >= 2 && AttackSequence % 7 == 0)", self.enemy_cpp)
+        self.assertIn("LockedAttackDirection = Difference.GetSafeNormal2D();", self.enemy_cpp)
+
     def test_twelve_stage_attack_combo_requires_real_hits_and_has_bounded_damage(self):
         self.assertIn("float HitComboWindowSeconds = 2.f;", self.hero_h)
         self.assertIn("float HitComboDamagePerStage = 0.04f;", self.hero_h)
