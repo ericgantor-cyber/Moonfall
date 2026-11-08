@@ -198,6 +198,10 @@ void AMoonfallCombatHUD::DrawHUD()
    GuideLine = FString::Printf(TEXT("%s: Please, leave us in peace."), *Speaker);
   else if (Hero->LastGuideTrust >= 55)
    GuideLine = FString::Printf(TEXT("%s: Our region remembers what you have done."), *Speaker);
+  else if (Hero->LastNpcRole == 1)
+   GuideLine = FString::Printf(TEXT("%s: I make what this region needs."), *Speaker);
+  else if (Hero->LastNpcRole == 2)
+   GuideLine = FString::Printf(TEXT("%s: My watch keeps the roads safe."), *Speaker);
   else if (!Hero->bLastGuideFoundQuest || Hero->LastGuideQuestId < 0)
    GuideLine = FString::Printf(TEXT("%s: Discover an entrance first."), *Speaker);
   else if (Hero->bLastGuideGuardianDefeated)
@@ -213,6 +217,9 @@ void AMoonfallCombatHUD::DrawHUD()
   DrawText(GuideLine, FLinearColor(0.93f, 0.85f, 0.66f),
     FMath::Max(18.f, Canvas->SizeX * 0.18f), Canvas->SizeY - 121.f,
     nullptr, Canvas->SizeX < 900.f ? 0.70f : 0.88f);
+  DrawText(FString::Printf(TEXT("%s  |  %s"), *Hero->LastNpcPersonality, *Hero->LastNpcRoutine),
+    FLinearColor(0.86f,0.78f,0.97f), FMath::Max(18.f, Canvas->SizeX * 0.18f),
+    Canvas->SizeY - 85.f, nullptr, 0.72f);
   DrawText(FString::Printf(TEXT("Trust %d   Fear %d"), Hero->LastGuideTrust, Hero->LastGuideFear),
     FLinearColor(0.75f,0.85f,0.98f), FMath::Max(18.f, Canvas->SizeX * 0.18f),
     Canvas->SizeY - 103.f, nullptr, 0.72f);
