@@ -85,6 +85,32 @@ class WorldFoundationTests(unittest.TestCase):
         self.assertIn("if (Id >= 0 && Id < 18)", CPP)
         self.assertIn("SpawnedOne = SpawnEncounter(Id, At, Region, false, false)", CPP)
 
+    def test_additional_regional_enemies_save_compatibility(self):
+        import re
+        block = CPP.split("constexpr FRegionalEnemyProfile ExtraRegionalEnemyProfiles[18] = {", 1)[1].split("};", 1)[0]
+        names = re.findall(r'TEXT\("([^"]+)"\)', block)
+        original = CPP.split("constexpr FRegionalEnemyProfile RegionalEnemyProfiles[18] = {", 1)[1].split("};", 1)[0]
+        old_names = re.findall(r'TEXT\("([^"]+)"\)', original)
+        self.assertEqual(len(names), 18)
+        self.assertEqual(len(set(names + old_names)), 36)
+        original_ids = set(range(18))
+        dungeon_ids = {18 + room for room in range(420) if room % 14 in (2, 4, 8, 11, 13)}
+        new_ids = {438 + region * 3 + index for region in range(6) for index in range(3)}
+        self.assertEqual(len(new_ids), 18)
+        self.assertFalse(new_ids & (original_ids | dungeon_ids))
+        self.assertEqual(len(new_ids | original_ids | dungeon_ids), 186)
+        self.assertIn("constexpr int32 ExtraRegionalEncounterBase = 18 + Regions * DungeonsPerRegion * ChambersPerDungeon;", CPP)
+        self.assertIn("ExtraRegionalEnemyProfiles[ProfileIndex]", CPP)
+        self.assertIn("const int32 Id = ExtraRegionalEncounterBase + Region * 3 + Index;", CPP)
+        self.assertIn("Id >= ExtraRegionalEncounterBase && Id < ExtraRegionalEncounterBase + 18) return true;", CPP)
+        self.assertIn("if (DefeatedEncounters.Num() > 186)", CPP)
+        self.assertIn("SpawnedOne = SpawnEncounter(Id, At, Region, false, false);", CPP)
+        self.assertIn("ProfileIndex % 3 == 2", CPP)
+        for row in re.findall(r'\{TEXT\("[^"]+"\),\s*([^}]+)\}', block):
+            scalars = [float(v) for v in re.findall(r'([0-9]+\.[0-9]+)f', row)]
+            self.assertEqual(len(scalars), 6)
+            self.assertTrue(all(0.6 <= v <= 2.2 for v in scalars))
+
     def test_connected_geometry(self):
         self.assertIn("Region * RegionSpacing", CPP)
         self.assertIn("FVector(60.f, 60.f, 1.f)", CPP)
