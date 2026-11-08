@@ -348,7 +348,7 @@ class WorldFoundationTests(unittest.TestCase):
         self.assertIn("GetGuideTrust(int32 RegionIndex) const", HEADER)
         self.assertIn("GetGuideFear(int32 RegionIndex) const", HEADER)
         self.assertIn("if (!IsValid(Hero) || FVector::DistSquared2D(", guide_cpp)
-        self.assertIn("CurrentRoutine = (FMath::FloorToInt(Now / 90.f)", guide_cpp)
+        self.assertIn("DayPhase = FMath::FloorToInt(FMath::Fmod(Now, 480.f) / 120.f);", guide_cpp)
         self.assertIn("PrimaryActorTick.TickInterval = 0.5f;", guide_cpp)
         self.assertIn("AddActorWorldOffset(ToGoal.GetSafeNormal() * Step, true, &Hit);", guide_cpp)
         self.assertIn("GetRoutineLabel() const", guide_h)
@@ -441,6 +441,32 @@ class WorldFoundationTests(unittest.TestCase):
                 self.assertEqual(bond(a, b), bond(b, a))
                 if a // 3 != b // 3:
                     self.assertEqual(bond(a, b), 0)
+
+    def test_npc_role_shifts_and_conversation_reactivity(self):
+        root = ROOT / "MoonfallUnreal/Source/MoonfallUnreal"
+        npc_h = (root / "MoonfallQuestGuide.h").read_text(encoding="utf-8")
+        npc_cpp = (root / "MoonfallQuestGuide.cpp").read_text(encoding="utf-8")
+        hero_cpp = (root / "MoonfallHeroPawn.cpp").read_text(encoding="utf-8")
+        self.assertIn("int32 DayPhase = 0;", npc_h)
+        self.assertIn("int32 CurrentMood = 0;", npc_h)
+        self.assertIn("void ReactToPlayer(int32 Trust, int32 Fear);", npc_h)
+        self.assertIn("float ConversationPausedUntil = 0.f;", npc_h)
+        self.assertIn("PrimaryActorTick.TickInterval = 0.5f;", npc_cpp)
+        self.assertIn("FVector::DistSquared2D(Hero->GetActorLocation(), HomeLocation)", npc_cpp)
+        self.assertIn("const int32 RoutineByRoleAndPhase[3][4]", npc_cpp)
+        self.assertIn("DayPhase = FMath::FloorToInt(FMath::Fmod(Now, 480.f) / 120.f);", npc_cpp)
+        self.assertIn("if (Now < ConversationPausedUntil) return;", npc_cpp)
+        self.assertIn("ConversationPausedUntil = Now + 5.f;", npc_cpp)
+        self.assertIn("CurrentMood = Fear >= 55 ? 2 : Trust >= 50 ? 1 : 0;", npc_cpp)
+        self.assertIn("LeftArm->SetRelativeRotation(", npc_cpp)
+        self.assertIn("RightArm->SetRelativeRotation(", npc_cpp)
+        self.assertIn("AddActorWorldOffset(ToGoal.GetSafeNormal() * Step, true, &Hit);", npc_cpp)
+        self.assertEqual(hero_cpp.count("Nearest->ReactToPlayer(LastGuideTrust, LastGuideFear);"), 2)
+        # All 18 NPCs have deterministic, bounded schedules, with no actor spam.
+        assignments = ((0, 1, 0, 3), (1, 2, 1, 3), (0, 2, 0, 1))
+        self.assertEqual(len(assignments), 3)
+        self.assertTrue(all(0 <= task <= 3 for shift in assignments for task in shift))
+        self.assertNotIn("SpawnActor<", npc_cpp)
 
     def test_connected_geometry(self):
         self.assertIn("Region * RegionSpacing", CPP)
