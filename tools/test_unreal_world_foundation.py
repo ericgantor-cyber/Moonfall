@@ -146,6 +146,23 @@ class WorldFoundationTests(unittest.TestCase):
         self.assertIn("Hero->ApplyMoonfallDamageFrom(", enemy_cpp)
         self.assertNotIn("SpawnActor<UPointLightComponent>", enemy_cpp)
 
+    def test_attack_styles_not_overwritten_and_animation_events_once(self):
+        enemy_cpp = (ROOT / "MoonfallUnreal/Source/MoonfallUnreal/MoonfallEnemy.cpp").read_text(encoding="utf-8")
+        enemy_h = (ROOT / "MoonfallUnreal/Source/MoonfallUnreal/MoonfallEnemy.h").read_text(encoding="utf-8")
+        base_attack = enemy_cpp.index("CurrentWindup = Pattern == 0 ?")
+        special_attack = enemy_cpp.index("if (BossSpecialMove == 3)")
+        regional_styles = enemy_cpp.index("switch (FMath::Clamp(RegionalAttackStyle, 0, 5))")
+        commitment = enemy_cpp.rindex("WindupEndsAt = Now + CurrentWindup;")
+        self.assertLess(base_attack, special_attack)
+        self.assertLess(special_attack, regional_styles)
+        self.assertLess(regional_styles, commitment)
+        self.assertIn("OnAttackWindup(int32 Style, float WindupSeconds, float Reach, bool bBossAttack)", enemy_h)
+        self.assertIn("OnAttackReleased(int32 Style, bool bBossAttack)", enemy_h)
+        self.assertEqual(enemy_cpp.count("OnAttackWindup("), 2)
+        self.assertEqual(enemy_cpp.count("OnAttackReleased("), 1)
+        self.assertIn("OnAttackReleased(bBoss ? BossSpecialMove : RegionalAttackStyle, bBoss);", enemy_cpp)
+        self.assertIn("CurrentWindup = FMath::Clamp(CurrentWindup, 0.32f, 2.f);", enemy_cpp)
+
     def test_connected_geometry(self):
         self.assertIn("Region * RegionSpacing", CPP)
         self.assertIn("FVector(60.f, 60.f, 1.f)", CPP)
