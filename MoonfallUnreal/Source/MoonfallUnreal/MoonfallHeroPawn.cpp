@@ -239,6 +239,9 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("DisplayMode"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleDisplayMode);
  Input->BindAction(TEXT("Options"), IE_Pressed, this, &AMoonfallHeroPawn::OpenOptions);
  Input->BindAction(TEXT("Inventory"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleInventory);
+ Input->BindAction(TEXT("CharacterPage"), IE_Pressed, this, &AMoonfallHeroPawn::OpenCharacterPage);
+ Input->BindAction(TEXT("QuestPage"), IE_Pressed, this, &AMoonfallHeroPawn::OpenQuestPage);
+ Input->BindAction(TEXT("WorldPage"), IE_Pressed, this, &AMoonfallHeroPawn::OpenWorldPage);
  Input->BindAction(TEXT("InventoryConfirm"), IE_Pressed, this, &AMoonfallHeroPawn::InventoryConfirm);
  Input->BindAction(TEXT("InventorySalvage"), IE_Pressed, this, &AMoonfallHeroPawn::InventorySalvage);
  Input->BindAction(TEXT("PickupLoot"), IE_Pressed, this, &AMoonfallHeroPawn::PickupNearestGroundLoot);
@@ -671,9 +674,27 @@ void AMoonfallHeroPawn::ToggleDisplayMode() {
  Settings->SaveSettings();
 }
 
+
+void AMoonfallHeroPawn::OpenCharacterPage() {
+ if (bOptionsOpen || Health <= 0.f) return;
+ if (!bInventoryOpen) ToggleInventory();
+ InventoryMenuTab = 1;
+}
+void AMoonfallHeroPawn::OpenQuestPage() {
+ if (bOptionsOpen || Health <= 0.f) return;
+ if (!bInventoryOpen) ToggleInventory();
+ InventoryMenuTab = 2;
+}
+void AMoonfallHeroPawn::OpenWorldPage() {
+ if (bOptionsOpen || Health <= 0.f) return;
+ if (!bInventoryOpen) ToggleInventory();
+ InventoryMenuTab = 3;
+}
+
 void AMoonfallHeroPawn::ToggleInventory() {
  if (bOptionsOpen || Health <= 0.f) return;
  if (!bInventoryOpen) {
+  InventoryMenuTab = 0;
   StopJumping();
   if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
   EndSprint();
@@ -683,11 +704,11 @@ void AMoonfallHeroPawn::ToggleInventory() {
  bInventoryOpen = !bInventoryOpen;
 }
 void AMoonfallHeroPawn::EquipSelectedInventoryItem() {
- if (!bInventoryOpen || !InventoryItemCodes.IsValidIndex(InventorySelection)) return;
+ if (!bInventoryOpen || InventoryMenuTab != 0 || !InventoryItemCodes.IsValidIndex(InventorySelection)) return;
  EquipInventoryItem(InventorySelection);
 }
 void AMoonfallHeroPawn::SalvageSelectedInventoryItem() {
- if (bInventoryOpen) SalvageInventoryItem(InventorySelection);
+ if (bInventoryOpen && InventoryMenuTab == 0) SalvageInventoryItem(InventorySelection);
 }
 void AMoonfallHeroPawn::InventorySalvage() { SalvageSelectedInventoryItem(); }
 bool AMoonfallHeroPawn::SalvageInventoryItem(int32 InventoryIndex)
@@ -736,6 +757,7 @@ void AMoonfallHeroPawn::OpenOptions() {
 }
 void AMoonfallHeroPawn::OptionsUp() {
  if (bInventoryOpen) {
+  if (InventoryMenuTab != 0) return;
   InventorySelection = FMath::Max(0, InventorySelection - 1);
   return;
  }
@@ -743,17 +765,18 @@ void AMoonfallHeroPawn::OptionsUp() {
 }
 void AMoonfallHeroPawn::OptionsDown() {
  if (bInventoryOpen) {
+  if (InventoryMenuTab != 0) return;
   InventorySelection = FMath::Min(FMath::Max(0, InventoryItemCodes.Num() - 1), InventorySelection + 1);
   return;
  }
  if (bOptionsOpen) OptionsSelection = (OptionsSelection + 1) % 7;
 }
 void AMoonfallHeroPawn::OptionsLeft() {
- if (bInventoryOpen) { EquipSelectedInventoryItem(); return; }
+ if (bInventoryOpen) { InventoryMenuTab = (InventoryMenuTab + 3) % 4; return; }
  AdjustOption(-1);
 }
 void AMoonfallHeroPawn::OptionsRight() {
- if (bInventoryOpen) { EquipSelectedInventoryItem(); return; }
+ if (bInventoryOpen) { InventoryMenuTab = (InventoryMenuTab + 1) % 4; return; }
  AdjustOption(1);
 }
 void AMoonfallHeroPawn::AdjustOption(int32 Direction) {
