@@ -1,6 +1,7 @@
 #include "MoonfallGroundLoot.h"
 #include "MoonfallHeroPawn.h"
 #include "Components/StaticMeshComponent.h"
+#include "Components/SceneComponent.h"
 #include "Components/TextRenderComponent.h"
 #include "UObject/ConstructorHelpers.h"
 #include "Engine/StaticMesh.h"
@@ -11,12 +12,14 @@ AMoonfallGroundLoot::AMoonfallGroundLoot()
 {
  PrimaryActorTick.bCanEverTick = false;
  SetActorEnableCollision(false);
+ SceneRoot = CreateDefaultSubobject<USceneComponent>(TEXT("LootRoot"));
+ SetRootComponent(SceneRoot);
  PickupMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("PickupMesh"));
- SetRootComponent(PickupMesh);
+ PickupMesh->SetupAttachment(SceneRoot);
  RarityBeacon = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("RarityBeacon"));
- RarityBeacon->SetupAttachment(PickupMesh);
+ RarityBeacon->SetupAttachment(SceneRoot);
  ItemLabel = CreateDefaultSubobject<UTextRenderComponent>(TEXT("ItemLabel"));
- ItemLabel->SetupAttachment(PickupMesh);
+ ItemLabel->SetupAttachment(SceneRoot);
  static ConstructorHelpers::FObjectFinder<UStaticMesh> Sphere(TEXT("/Engine/BasicShapes/Sphere.Sphere"));
  static ConstructorHelpers::FObjectFinder<UStaticMesh> Cylinder(TEXT("/Engine/BasicShapes/Cylinder.Cylinder"));
  if (Sphere.Succeeded()) PickupMesh->SetStaticMesh(Sphere.Object);
