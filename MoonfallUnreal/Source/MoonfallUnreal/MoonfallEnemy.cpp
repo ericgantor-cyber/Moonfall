@@ -92,7 +92,11 @@ void AMoonfallEnemy::RegisterComboMilestone(int32 Stage) {
  // Ordinary enemies flinch briefly. Bosses keep their existing attack
  // and posture-break rules instead of being repeatedly stun-locked.
  if (!bBoss && Now >= PostureBrokenUntil) {
-  HitReactionEndsAt = FMath::Max(FMath::IsFinite(HitReactionEndsAt) ? HitReactionEndsAt : Now, Now + 0.16f);
+  // Higher chain milestones are more readable, but never prolong an
+  // ordinary hit reaction past a quarter-second from the current hit.
+  const float FlinchSeconds = Stage == 12 ? 0.24f : (Stage == 8 ? 0.18f : 0.12f);
+  const float PreviousReactionEnd = FMath::IsFinite(HitReactionEndsAt) ? HitReactionEndsAt : Now;
+  HitReactionEndsAt = FMath::Max(PreviousReactionEnd, Now + FlinchSeconds);
  }
  OnComboMilestone(Stage);
 }
