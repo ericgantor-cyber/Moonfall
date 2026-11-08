@@ -98,7 +98,7 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
  // Bounded camera impulse, no camera shake object or spawned effects.
  ImpactCameraOffset = FMath::FInterpTo(ImpactCameraOffset, 0.f, FMath::Max(0.f, DeltaSeconds), 12.f);
  if (CameraBoom) CameraBoom->TargetArmLength = 450.f + (bReduceMotion ? 0.f : ImpactCameraOffset);
- if (Health > 0.f && Mana < MaxMana) Mana = FMath::Min(MaxMana, Mana + ManaRegenPerSecond * (1.f + FMath::Min(0.25f, AccessoryTier * 0.012f)) * FMath::Max(0.f, DeltaSeconds));
+ if (Health > 0.f && Mana < MaxMana) Mana = FMath::Min(MaxMana, Mana + ManaRegenPerSecond * (1.f + FMath::Min(0.25f, AccessoryTier * 0.012f) + (AccessoryAffix == 3 ? 0.08f : 0.f)) * FMath::Max(0.f, DeltaSeconds));
  // Sprint drains only while moving, and never drains while paused in Options.
  const float StaminaDelta = FMath::Clamp(DeltaSeconds, 0.f, 0.1f);
  // Exhaustion requires releasing sprint before another burst; guard and dodge
@@ -242,7 +242,9 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
   // Distinct spell schools exert different stance pressure. All posture gains
   // depend on real health damage and stop when the target dies.
   static const float SchoolPostureWeights[6] = {0.8f, 0.65f, 1.35f, 0.f, 1.15f, 0.9f};
-  const float WeaponDamageBonus = 1.f + FMath::Clamp(0.018f * WeaponTier, 0.f, 0.35f);
+  // Force weapon affix adds a modest spell damage bonus, independent of tiers.
+  const float WeaponDamageBonus = 1.f + FMath::Clamp(0.018f * WeaponTier, 0.f, 0.35f)
+      + (WeaponAffix == 1 ? 0.06f : 0.f);
   const float MomentumBonus = Time <= FinisherMomentumUntil
       && FMath::IsFinite(FinisherMomentumDamageMultiplier)
     ? FMath::Clamp(FinisherMomentumDamageMultiplier, 1.f, 1.5f) : 1.f;
@@ -449,7 +451,10 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
  if (Health <= 0.f || !FMath::IsFinite(Amount) || Amount <= 0.f || !GetWorld() || GetWorld()->GetTimeSeconds() < DamageImmunityUntil) return;
  const float Now = GetWorld()->GetTimeSeconds();
  const float PreviousHealth = Health;
- const float ArmoredDamage = Amount * (1.f - FMath::Min(0.28f, ArmorTier * 0.01f));
+ // Ward armor affix provides a small, capped flat mitigation bonus.
+ const float ArmorMitigation = FMath::Min(0.34f, FMath::Min(0.28f, ArmorTier * 0.01f)
+   + (ArmorAffix == 2 ? 0.06f : 0.f));
+ const float ArmoredDamage = Amount * (1.f - ArmorMitigation);
  float DamageAfterGuard = ArmoredDamage;
  // Enemy attacks must come from the front 150-degree guard cone.
  // Older environment damage with no provided origin retains its guard behavior.
@@ -775,15 +780,26 @@ void AMoonfallHeroPawn::AwardEquipmentDrop(bool bEliteEnemy, bool bBossEnemy)
    : (LootRoll < 53 + RarityBias ? 1 : 0))));
  LastLootTier = NewTier;
  LastLootSlot = bBossEnemy ? 2 : (bEliteEnemy ? 1 : 0);
+ // Rare and better drops carry one randomized trait. Lower rarities may
+ // roll a trait, but common items never do. These are encoded in item IDs.
+ LastLootAffix = LastLootRarity == 0 ? 0
+   : (LastLootRarity == 1 && FMath::RandRange(0, 99) < 60
+     ? 0 : FMath::RandRange(1, 3));
  const int32 PreviousTier = LastLootSlot == 2 ? AccessoryTier : (LastLootSlot == 1 ? ArmorTier : WeaponTier);
  LastLootUpgrade = NewTier - PreviousTier;
- // Compact stable item code: slot, rarity, tier. Maximum 30 entries.
- const int32 ItemCode = LastLootSlot * 10000 + LastLootRarity * 1000 + NewTier;
+ // Compact item code: affix (100000s), slot (10000s), rarity (1000s),
+ // tier (units). Distinct rolls remain distinguishable; max 30 entries.
+ const int32 ItemCode = LastLootAffix * 100000 + LastLootSlot * 10000
+   + LastLootRarity * 1000 + NewTier;
  if (InventoryItemCodes.Num() >= 30) InventoryItemCodes.RemoveAt(0);
  InventoryItemCodes.Add(ItemCode);
  // Rotate awards across equipment categories; higher-tier items replace lower tiers.
  int32* Slot = bBossEnemy ? &AccessoryTier : (bEliteEnemy ? &ArmorTier : &WeaponTier);
+ int32* EquippedAffix = bBossEnemy ? &AccessoryAffix : (bEliteEnemy ? &ArmorAffix : &WeaponAffix);
+ // A new trait is equipped only when upgrading tiers; same-tier items remain
+ // inventory choices rather than silently replacing the player's current perk.
  if (NewTier > *Slot) {
+  *EquippedAffix = LastLootAffix;
   const int32 Previous = *Slot;
   *Slot = NewTier;
   EquipmentTier = FMath::Max(WeaponTier, FMath::Max(ArmorTier, AccessoryTier));
