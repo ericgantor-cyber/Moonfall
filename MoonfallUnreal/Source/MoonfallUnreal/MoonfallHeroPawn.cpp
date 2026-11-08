@@ -839,7 +839,7 @@ void AMoonfallHeroPawn::AwardExperience(int32 Amount)
 int32 AMoonfallHeroPawn::RollEquipmentCode(bool bEliteEnemy, bool bBossEnemy)
 {
  if (Health <= 0.f) return 0;
- // Bounded randomized loot, without spawned pickup actors or per-frame work.
+ // Roll randomized item stats once at death; pickup is handled separately.
  // Keep boss/elite rewards meaningful: guaranteed epic for bosses, at least rare
  // for elites. Regular enemies use weighted chances with a modest level bias.
  const int32 NewTier = FMath::Clamp(Level / 5 + (bBossEnemy ? 2 : (bEliteEnemy ? 1 : 0)), 1, 25);
@@ -895,8 +895,6 @@ void AMoonfallHeroPawn::AwardEquipmentDrop(bool bEliteEnemy, bool bBossEnemy)
    Health = FMath::Min(MaxHealth, Health + 2.f * (NewTier - Previous));
    OnHealthChanged(Health, MaxHealth);
   }
- } else {
-  Salvage = FMath::Min(9999, Salvage + (bBossEnemy ? 5 : (bEliteEnemy ? 2 : 1)));
  }
 }
 
