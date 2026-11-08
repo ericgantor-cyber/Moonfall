@@ -239,6 +239,33 @@ class WorldFoundationTests(unittest.TestCase):
         self.assertEqual(len({18 + eid * 14 + 13 for eid in range(30)}), 30)
         self.assertTrue(all((18 + eid * 14 + 13) % 14 == 3 for eid in range(30)))
 
+    def test_dungeon_quest_chains_and_permanent_capacity_rewards(self):
+        hero_h = (ROOT / "MoonfallUnreal/Source/MoonfallUnreal/MoonfallHeroPawn.h").read_text(encoding="utf-8")
+        hero_cpp = (ROOT / "MoonfallUnreal/Source/MoonfallUnreal/MoonfallHeroPawn.cpp").read_text(encoding="utf-8")
+        hud = (ROOT / "MoonfallUnreal/Source/MoonfallUnreal/MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        self.assertIn("GetDungeonResidentDefeatCount(int32 EntranceId) const", HEADER)
+        self.assertIn("const int32 Stages[] = {3, 5, 9, 12};", CPP)
+        self.assertIn("if (DefeatedEncounters.Contains(EncounterId)) ++Defeated;", CPP)
+        self.assertIn("Hero->ApplyGuardianQuestRewards(GetCompletedDungeonQuestCount());", CPP)
+        self.assertIn("AppliedGuardianQuestRewards = 0;", hero_h)
+        self.assertIn("void ApplyGuardianQuestRewards(int32 CompletedGuardianCount);", hero_h)
+        self.assertIn("if (Completed <= AppliedGuardianQuestRewards) return;", hero_cpp)
+        self.assertIn("const int32 Delta = Completed - AppliedGuardianQuestRewards;", hero_cpp)
+        self.assertIn("MaxMana = FMath::Clamp(MaxMana + 3.f * Delta", hero_cpp)
+        self.assertIn("MaxStamina = FMath::Clamp(MaxStamina + 3.f * Delta", hero_cpp)
+        reward_body = hero_cpp.split("void AMoonfallHeroPawn::ApplyGuardianQuestRewards(", 1)[1].split("void AMoonfallHeroPawn::AwardExperience(", 1)[0]
+        self.assertNotIn("Health =", reward_body)
+        self.assertNotIn("AwardExperience(", reward_body)
+        self.assertNotIn("AwardEquipmentDrop(", reward_body)
+        self.assertIn("ResidentsDefeated < 4", hud)
+        self.assertIn('TEXT("Defeat residents: %d / 4")', hud)
+        self.assertIn("GetCompletedDungeonQuestCount() * 3", hud)
+        for eid in range(30):
+            resident_ids = {18 + eid * 14 + stage - 1 for stage in (3, 5, 9, 12)}
+            guardian_id = 18 + eid * 14 + 13
+            self.assertEqual(len(resident_ids), 4)
+            self.assertNotIn(guardian_id, resident_ids)
+
     def test_connected_geometry(self):
         self.assertIn("Region * RegionSpacing", CPP)
         self.assertIn("FVector(60.f, 60.f, 1.f)", CPP)
