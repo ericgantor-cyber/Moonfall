@@ -198,6 +198,12 @@ void AMoonfallArena::StreamWorld() {
     const int32 Room = (Region * DungeonsPerRegion + Dungeon) * ChambersPerDungeon + Chamber;
     const FVector At = RoomCenter(Region, Dungeon, Chamber);
     const float Distance = FVector::DistSquared2D(Here, At);
+    // Visiting a chamber reveals it permanently; merely streaming geometry
+    // within draw distance does not expose unexplored locations on the map.
+    if (Distance < 450.f * 450.f && !DiscoveredChambers.Contains(Room)) {
+     DiscoveredChambers.Add(Room);
+     bWorldSavePending = true;
+    }
     if (!BuiltOne && !BuiltRooms.Contains(Room) && Distance < 1500.f * 1500.f) {
      CreateBlock(At + FVector(0.f, 0.f, -60.f), FVector(7.f, 6.f, 1.f));
      BuiltRooms.Add(Room);
@@ -228,6 +234,7 @@ bool AMoonfallArena::IsValidEncounterId(int32 Id) {
 }
 void AMoonfallArena::LoadWorldProgress() {
  DefeatedEncounters.Empty();
+ DiscoveredChambers.Empty();
  if (!UGameplayStatics::DoesSaveGameExist(WorldProgressSlot, 0)) return;
  UMoonfallWorldProgressSave* Saved = Cast<UMoonfallWorldProgressSave>(
   UGameplayStatics::LoadGameFromSlot(WorldProgressSlot, 0));
@@ -237,6 +244,10 @@ void AMoonfallArena::LoadWorldProgress() {
  }
  // Schema v1 accepts 36 wildlife and 150 dungeon encounters; no ID reuse.
  if (DefeatedEncounters.Num() > 186) DefeatedEncounters.Empty();
+ for (const int32 Room : Saved->DiscoveredChamberIds) {
+  if (Room >= 0 && Room < Regions * DungeonsPerRegion * ChambersPerDungeon)
+   DiscoveredChambers.Add(Room);
+ }
 }
 void AMoonfallArena::ObserveDefeatedEncounters() {
  for (auto It = ActiveEncounters.CreateIterator(); It; ++It) {
@@ -264,6 +275,11 @@ void AMoonfallArena::SaveWorldProgress() {
   if (IsValidEncounterId(Id)) Saved->DefeatedEncounterIds.Add(Id);
  }
  Saved->DefeatedEncounterIds.Sort();
+ for (const int32 Room : DiscoveredChambers) {
+  if (Room >= 0 && Room < Regions * DungeonsPerRegion * ChambersPerDungeon)
+   Saved->DiscoveredChamberIds.Add(Room);
+ }
+ Saved->DiscoveredChamberIds.Sort();
  if (UGameplayStatics::SaveGameToSlot(Saved, WorldProgressSlot, 0))
   bWorldSavePending = false;
 }
