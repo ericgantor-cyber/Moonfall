@@ -1119,11 +1119,16 @@ void AMoonfallHeroPawn::InteractQuestGuide()
   if (DistSq < ClosestSq) { ClosestSq = DistSq; Nearest = Guide; }
  }
  if (!Nearest) return;
+ LastGuideRegionIndex = Nearest->RegionIndex;
+ bLastGuideFoundQuest = false;
+ LastGuideMessageUntil = GetWorld()->GetTimeSeconds() + 4.f;
  for (TActorIterator<AMoonfallArena> It(GetWorld()); It; ++It) {
   AMoonfallArena* Arena = *It;
-  if (IsValid(Arena) && Arena->SelectNextDiscoveredDungeonQuestInRegion(Nearest->RegionIndex))
-   break;
+  if (!IsValid(Arena)) continue;
+  bLastGuideFoundQuest = Arena->SelectNextDiscoveredDungeonQuestInRegion(Nearest->RegionIndex);
+  break;
  }
+ OnQuestGuideSpoken(LastGuideRegionIndex, bLastGuideFoundQuest);
 }
 
 void AMoonfallHeroPawn::PickupNearestGroundLoot()
