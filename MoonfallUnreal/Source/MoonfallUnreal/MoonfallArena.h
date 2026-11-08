@@ -24,6 +24,11 @@ public:
  UFUNCTION(BlueprintPure, Category="Moonfall|Quests") int32 GetDungeonResidentDefeatCount(int32 EntranceId) const;
  // Guide interactions only select a quest that the player already discovered.
  UFUNCTION(BlueprintCallable, Category="Moonfall|Quests") bool SelectNextDiscoveredDungeonQuestInRegion(int32 RegionIndex);
+ // Region-scoped NPC memory: social choices are persisted and earned guardian
+ // reputation is derived from verified encounter defeats rather than a timer.
+ UFUNCTION(BlueprintCallable, Category="Moonfall|NPC") bool RecordGuideSocialChoice(int32 RegionIndex, bool bIntimidate);
+ UFUNCTION(BlueprintPure, Category="Moonfall|NPC") int32 GetGuideTrust(int32 RegionIndex) const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|NPC") int32 GetGuideFear(int32 RegionIndex) const;
 private:
  TSet<int32> BuiltRooms;
  TSet<int32> SpawnedEncounters;
@@ -32,6 +37,9 @@ private:
  TSet<int32> DiscoveredRegions;
  TSet<int32> DiscoveredDungeonEntrances;
  int32 TrackedDungeonQuestId = -1;
+ TArray<int32> GuideTrustMemory;
+ TArray<int32> GuideFearMemory;
+ TMap<int32, float> LastGuideSocialActionAt;
  TMap<int32, TWeakObjectPtr<AMoonfallEnemy>> ActiveEncounters;
  bool bWorldSavePending = false;
  void LoadWorldProgress();
