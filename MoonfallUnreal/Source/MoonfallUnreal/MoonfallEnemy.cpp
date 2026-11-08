@@ -782,7 +782,6 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
     ActiveDivineMoveId = bVoidReaper
       ? FName(bDivineAlternateGeometry ? TEXT("VoidCollapse") : TEXT("VoidJudgment"))
       : FName(bDivineAlternateGeometry ? TEXT("EclipseMark") : TEXT("EclipsePulse"));
-    OnDivineAttackTelegraphed(ActiveDivineMoveId, DivineSignatureCenter, DivineSignatureRadius, CurrentWindup);
    }
    if (!bDivineSignatureActive && bComboFollowUp && BossSpecialMove == 0) {
     CurrentWindup += 0.25f;
@@ -791,6 +790,11 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
    LockedAttackDirection = Difference.GetSafeNormal2D();
    WindupEndsAt = Now + CurrentWindup;
    if (bBoss) BossWarningEndTime = WindupEndsAt;
+   // Blueprint hooks run synchronously. Publish a fully initialized warning
+   // clock before notifying the animation / accessible combat indicator.
+   if (bDivineSignatureActive) {
+    OnDivineAttackTelegraphed(ActiveDivineMoveId, DivineSignatureCenter, DivineSignatureRadius, CurrentWindup);
+   }
   }
  }
 }
