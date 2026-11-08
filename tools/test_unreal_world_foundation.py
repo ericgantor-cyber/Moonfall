@@ -648,13 +648,17 @@ class WorldFoundationTests(unittest.TestCase):
         self.assertIn("Save->InventoryItemCodes.Num() > 2048", hero_cpp)
         self.assertIn("IsValidEconomyItem(Code)", hero_cpp)
         self.assertIn("InventoryItemCodes.Contains(Code)", hero_cpp)
+        self.assertIn("MaxHealth + 2.f * ArmorTier", hero_cpp)
+        self.assertIn("Health = FMath::Clamp(Health, 1.f, MaxHealth);", hero_cpp)
         self.assertIn("void SelectJournalQuest();", hero_h)
         self.assertIn("void AMoonfallHeroPawn::SelectJournalQuest()", hero_cpp)
         self.assertIn("Arena->TrackDungeonQuest(Id);", hero_cpp)
         self.assertIn("GetDiscoveredDungeonEntrances().Contains(Id)", hero_cpp)
         self.assertIn("if (bInventoryOpen && InventoryMenuTab == 2) { SelectJournalQuest(); return; }", hero_cpp)
         self.assertIn("QuestJournalSelection = FMath::Max(0, QuestJournalSelection - 1);", hero_cpp)
-        self.assertIn("Shown == Hero->QuestJournalSelection", hud)
+        self.assertIn("ThisKnownIndex == Hero->QuestJournalSelection", hud)
+        self.assertIn("JournalPageStart = Hero->QuestJournalSelection / 9 * 9", hud)
+        self.assertIn("if (ThisKnownIndex < JournalPageStart) continue;", hud)
 
     def test_connected_geometry(self):
         self.assertIn("Region * RegionSpacing", CPP)
