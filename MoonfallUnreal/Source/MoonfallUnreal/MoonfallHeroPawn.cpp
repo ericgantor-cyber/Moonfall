@@ -861,42 +861,9 @@ void AMoonfallHeroPawn::AwardEquipmentDrop(bool bEliteEnemy, bool bBossEnemy)
  // tier (units). Distinct rolls remain distinguishable; max 30 entries.
  const int32 ItemCode = LastLootAffix * 100000 + LastLootSlot * 10000
    + LastLootRarity * 1000 + NewTier;
- // At capacity, prefer the oldest spare item. Identical codes can exist
- // multiple times, so preserve at least one copy of equipped gear and allow
- // excess duplicate copies to be removed without trapping the inventory.
- if (InventoryItemCodes.Num() >= 30) {
-  int32 DiscardIndex = INDEX_NONE;
-  for (int32 Index = 0; Index < InventoryItemCodes.Num(); ++Index) {
-   const int32 Existing = InventoryItemCodes[Index];
-   const bool bEquippedCode = Existing == EquippedWeaponCode
-       || Existing == EquippedArmorCode || Existing == EquippedAccessoryCode;
-   if (!bEquippedCode) {
-    DiscardIndex = Index;
-    break;
-   }
-   int32 Copies = 0;
-   for (const int32 Candidate : InventoryItemCodes)
-    if (Candidate == Existing) ++Copies;
-   if (Copies > 1) {
-    DiscardIndex = Index;
-    break;
-   }
-  }
-  if (DiscardIndex == INDEX_NONE) {
-   // All stored codes are currently equipped, so keep those items intact.
-   // This should be unreachable with normal 30-slot loot, but fail safely.
-   Salvage = FMath::Min(9999, Salvage + 1);
-   return;
-  }
-  const int32 DiscardedCode = InventoryItemCodes[DiscardIndex];
-  const int32 DiscardedRarity = (DiscardedCode / 1000) % 10;
-  const int32 DiscardedTier = DiscardedCode % 1000;
-  if (DiscardedCode > 0 && DiscardedRarity >= 0 && DiscardedRarity <= 3
-      && DiscardedTier >= 1 && DiscardedTier <= 25)
-   Salvage = FMath::Min(9999, Salvage + 1 + DiscardedRarity * 2 + DiscardedTier / 5);
-  InventoryItemCodes.RemoveAt(DiscardIndex);
-  if (InventorySelection > DiscardIndex) --InventorySelection;
- }
+ // Full inventory never silently deletes or salvages an item.
+ // The drop is declined until the player makes space manually.
+ if (InventoryItemCodes.Num() >= 30) return;
  InventoryItemCodes.Add(ItemCode);
  InventorySelection = FMath::Clamp(InventorySelection, 0, InventoryItemCodes.Num() - 1);
  // Rotate awards across equipment categories; higher-tier items replace lower tiers.
