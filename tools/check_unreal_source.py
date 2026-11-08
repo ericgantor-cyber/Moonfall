@@ -635,7 +635,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("if (!FMath::IsFinite(Amount) || Amount <= 0.f || Health <= 0.f) return;", damage)
         self.assertIn("Entry.bKillingBlow = Health <= 0.f;", damage)
         self.assertIn("OnEnemyDefeated(bLastHitWasShatter);", damage)
-        self.assertIn("DefeatAnimationStartedAt = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f;", damage)
+        self.assertIn("DefeatAnimationStartedAt = -100.f;", damage)
         self.assertIn("SetLifeSpan(9.5f);", damage)
         self.assertLess(damage.index("Entry.bKillingBlow = Health <= 0.f;"), damage.index("if (Health <= 0.0f) {"))
         self.assertLess(damage.index("SetActorEnableCollision(false);"), damage.index("OnEnemyDefeated(bLastHitWasShatter);"))
