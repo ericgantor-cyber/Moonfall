@@ -1653,6 +1653,21 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("LastSuccessfulHitAt = -100.f;", tick)
         self.assertNotIn("FinisherShockwave", self.hero_cpp)
 
+    def test_ordinary_enemy_attack_coordination_is_bounded_and_keeps_bosses_independent(self):
+        tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
+        self.assertIn('#include "EngineUtils.h"', self.enemy_cpp)
+        self.assertIn("if (!bBoss && !bElite) {", tick)
+        self.assertIn("ConsideredAllies < 32", tick)
+        self.assertIn("Other->WindupEndsAt > Now", tick)
+        self.assertIn("FVector::DistSquared2D(", tick)
+        self.assertIn("FMath::Square(550.f)", tick)
+        self.assertIn("if (++NearbyWindingAllies >= 2) break;", tick)
+        self.assertIn("NextAttackAt = Now + SlotDelay;", tick)
+        self.assertIn("0.18f + 0.04f * static_cast<float>(GetUniqueID() % 4u)", tick)
+        self.assertLess(tick.index("if (!bBoss && !bElite) {"),
+                        tick.index("const int32 PatternCount ="))
+        self.assertEqual(tick.count("Nav->FindPathToLocationSynchronously("), 1)
+
     def test_elites_and_late_bosses_strafe_only_during_attack_recovery(self):
         tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
         self.assertIn("if ((bElite || (bBoss && BossPhase >= 2))", tick)
