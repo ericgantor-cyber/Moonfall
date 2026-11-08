@@ -49,11 +49,27 @@ AMoonfallQuestGuide::AMoonfallQuestGuide()
 
 FText AMoonfallQuestGuide::GetGuideTitle() const
 {
- static const TCHAR* Titles[] = {
-  TEXT("Ash Warden"), TEXT("Mire Keeper"), TEXT("Frost Herald"),
-  TEXT("Storm Oracle"), TEXT("Foundry Chronicler"), TEXT("Eclipse Seer")
+ static const TCHAR* Names[6][3] = {
+  {TEXT("Ash Warden"), TEXT("Cinder Smith"), TEXT("Ember Watcher")},
+  {TEXT("Mire Keeper"), TEXT("Bog Herbalist"), TEXT("Fen Scout")},
+  {TEXT("Frost Herald"), TEXT("Rime Tailor"), TEXT("Snow Pathfinder")},
+  {TEXT("Storm Oracle"), TEXT("Thunder Artisan"), TEXT("Cloud Ranger")},
+  {TEXT("Foundry Chronicler"), TEXT("Forge Mechanic"), TEXT("Iron Sentinel")},
+  {TEXT("Eclipse Seer"), TEXT("Moon Weaver"), TEXT("Shadow Lookout")}
  };
- return FText::FromString(Titles[FMath::Clamp(RegionIndex, 0, 5)]);
+ return FText::FromString(Names[FMath::Clamp(RegionIndex, 0, 5)][FMath::Clamp(RoleIndex, 0, 2)]);
+}
+FText AMoonfallQuestGuide::GetPersonalityLabel() const
+{
+ static const TCHAR* Traits[6][3] = {
+  {TEXT("protective"), TEXT("pragmatic"), TEXT("cautious")},
+  {TEXT("patient"), TEXT("curious"), TEXT("suspicious")},
+  {TEXT("disciplined"), TEXT("reserved"), TEXT("loyal")},
+  {TEXT("visionary"), TEXT("impulsive"), TEXT("bold")},
+  {TEXT("methodical"), TEXT("inventive"), TEXT("dutiful")},
+  {TEXT("mysterious"), TEXT("compassionate"), TEXT("watchful")}
+ };
+ return FText::FromString(Traits[FMath::Clamp(RegionIndex, 0, 5)][FMath::Clamp(RoleIndex, 0, 2)]);
 }
 
 void AMoonfallQuestGuide::BeginPlay()
@@ -72,7 +88,8 @@ void AMoonfallQuestGuide::Tick(float DeltaSeconds)
  if (!FMath::IsFinite(Now)) return;
  // Different region guides offset their watch, market and rest cycles.
  // The world clock never forces a quest deadline or skips player exploration.
- CurrentRoutine = (FMath::FloorToInt(Now / 90.f) + FMath::Clamp(RegionIndex, 0, 5)) % 3;
+ CurrentRoutine = (FMath::FloorToInt(Now / 90.f) + FMath::Clamp(RegionIndex, 0, 5)
+   + FMath::Clamp(RoleIndex, 0, 2)) % 3;
  const FVector Waypoints[] = {HomeLocation,
    HomeLocation + FVector(180.f, 65.f, 0.f),
    HomeLocation + FVector(-130.f, -100.f, 0.f)};
