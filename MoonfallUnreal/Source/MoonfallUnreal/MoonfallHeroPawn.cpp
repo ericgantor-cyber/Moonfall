@@ -555,6 +555,7 @@ void AMoonfallHeroPawn::ToggleDisplayMode() {
 void AMoonfallHeroPawn::ToggleInventory() {
  if (bOptionsOpen || Health <= 0.f) return;
  if (!bInventoryOpen) {
+  EndSprint();
   EndGuard();
   InventorySelection = FMath::Clamp(InventorySelection, 0, FMath::Max(0, InventoryItemCodes.Num() - 1));
  }
@@ -602,7 +603,10 @@ bool AMoonfallHeroPawn::SalvageInventoryItem(int32 InventoryIndex)
 void AMoonfallHeroPawn::InventoryConfirm() { EquipSelectedInventoryItem(); }
 void AMoonfallHeroPawn::OpenOptions() {
  if (bInventoryOpen) { bInventoryOpen = false; return; }
- if (!bOptionsOpen) EndGuard();
+ if (!bOptionsOpen) {
+  EndSprint();
+  EndGuard();
+ }
  bOptionsOpen = !bOptionsOpen;
 }
 void AMoonfallHeroPawn::OptionsUp() {
