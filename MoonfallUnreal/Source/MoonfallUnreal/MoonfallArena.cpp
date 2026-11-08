@@ -8,6 +8,8 @@
 #include "Engine/World.h"
 #include "Kismet/GameplayStatics.h"
 #include "UObject/UObjectGlobals.h"
+#include "EngineUtils.h"
+#include "GameFramework/Pawn.h"
 AMoonfallArena::AMoonfallArena() {
  PrimaryActorTick.bCanEverTick = true;
  PrimaryActorTick.TickInterval = 0.25f;
