@@ -852,8 +852,36 @@ void AMoonfallHeroPawn::AwardEquipmentDrop(bool bEliteEnemy, bool bBossEnemy)
  // tier (units). Distinct rolls remain distinguishable; max 30 entries.
  const int32 ItemCode = LastLootAffix * 100000 + LastLootSlot * 10000
    + LastLootRarity * 1000 + NewTier;
- if (InventoryItemCodes.Num() >= 30) InventoryItemCodes.RemoveAt(0);
+ // At capacity, discard the oldest UN-equipped entry, never a weapon,
+ // armor, or accessory still worn by the hero. Duplicate item codes are treated
+ // conservatively as equipped to prevent silently removing the worn item.
+ if (InventoryItemCodes.Num() >= 30) {
+  int32 DiscardIndex = INDEX_NONE;
+  for (int32 Index = 0; Index < InventoryItemCodes.Num(); ++Index) {
+   const int32 Existing = InventoryItemCodes[Index];
+   if (Existing != EquippedWeaponCode && Existing != EquippedArmorCode
+       && Existing != EquippedAccessoryCode) {
+    DiscardIndex = Index;
+    break;
+   }
+  }
+  if (DiscardIndex == INDEX_NONE) {
+   // All stored codes are currently equipped, so keep those items intact.
+   // This should be unreachable with normal 30-slot loot, but fail safely.
+   Salvage = FMath::Min(9999, Salvage + 1);
+   return;
+  }
+  const int32 DiscardedCode = InventoryItemCodes[DiscardIndex];
+  const int32 DiscardedRarity = (DiscardedCode / 1000) % 10;
+  const int32 DiscardedTier = DiscardedCode % 1000;
+  if (DiscardedCode > 0 && DiscardedRarity >= 0 && DiscardedRarity <= 3
+      && DiscardedTier >= 1 && DiscardedTier <= 25)
+   Salvage = FMath::Min(9999, Salvage + 1 + DiscardedRarity * 2 + DiscardedTier / 5);
+  InventoryItemCodes.RemoveAt(DiscardIndex);
+  if (InventorySelection > DiscardIndex) --InventorySelection;
+ }
  InventoryItemCodes.Add(ItemCode);
+ InventorySelection = FMath::Clamp(InventorySelection, 0, InventoryItemCodes.Num() - 1);
  // Rotate awards across equipment categories; higher-tier items replace lower tiers.
  int32* Slot = bBossEnemy ? &AccessoryTier : (bEliteEnemy ? &ArmorTier : &WeaponTier);
  int32* EquippedAffix = bBossEnemy ? &AccessoryAffix : (bEliteEnemy ? &ArmorAffix : &WeaponAffix);
