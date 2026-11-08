@@ -761,10 +761,18 @@ void AMoonfallHeroPawn::AwardExperience(int32 Amount)
 void AMoonfallHeroPawn::AwardEquipmentDrop(bool bEliteEnemy, bool bBossEnemy)
 {
  if (Health <= 0.f) return;
- // Bounded deterministic loot, without spawned pickup actors or per-frame work.
+ // Bounded randomized loot, without spawned pickup actors or per-frame work.
+ // Keep boss/elite rewards meaningful: guaranteed epic for bosses, at least rare
+ // for elites. Regular enemies use weighted chances with a modest level bias.
  const int32 NewTier = FMath::Clamp(Level / 5 + (bBossEnemy ? 2 : (bEliteEnemy ? 1 : 0)), 1, 25);
- // Rarity: 0 common, 1 uncommon, 2 rare, 3 epic. Boss loot is more valuable.
- LastLootRarity = bBossEnemy ? 3 : (bEliteEnemy ? 2 : (Level >= 10 ? 1 : 0));
+ const int32 LootRoll = FMath::RandRange(0, 99);
+ const int32 RarityBias = FMath::Clamp(Level / 5, 0, 12);
+ // Rarity: 0 common, 1 uncommon, 2 rare, 3 epic.
+ LastLootRarity = bBossEnemy ? 3
+   : (bEliteEnemy ? (LootRoll < 15 ? 3 : 2)
+   : (LootRoll < 3 + RarityBias / 3 ? 3
+   : (LootRoll < 18 + RarityBias ? 2
+   : (LootRoll < 53 + RarityBias ? 1 : 0))));
  LastLootTier = NewTier;
  LastLootSlot = bBossEnemy ? 2 : (bEliteEnemy ? 1 : 0);
  const int32 PreviousTier = LastLootSlot == 2 ? AccessoryTier : (LastLootSlot == 1 ? ArmorTier : WeaponTier);
