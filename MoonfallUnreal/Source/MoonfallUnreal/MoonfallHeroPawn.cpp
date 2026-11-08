@@ -517,8 +517,12 @@ bool AMoonfallHeroPawn::ApplyMoonfallDamageFrom(float Amount, const FVector& Sou
 }
 
 void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
- if (Health <= 0.f || !FMath::IsFinite(Amount) || Amount <= 0.f || !GetWorld() || GetWorld()->GetTimeSeconds() < DamageImmunityUntil) return;
+ // Reject invalid hero vitals and damage before guard math or HUD updates.
+ if (Health <= 0.f || !FMath::IsFinite(Health) || !FMath::IsFinite(MaxHealth)
+     || MaxHealth <= 0.f || !FMath::IsFinite(Amount) || Amount <= 0.f || !GetWorld()) return;
  const float Now = GetWorld()->GetTimeSeconds();
+ if (!FMath::IsFinite(Now) || !FMath::IsFinite(DamageImmunityUntil)
+     || GetWorld()->GetTimeSeconds() < DamageImmunityUntil) return;
  const float PreviousHealth = Health;
  // Ward armor affix provides a small, capped flat mitigation bonus.
  const float ArmorMitigation = FMath::Min(0.34f, FMath::Min(0.28f, ArmorTier * 0.01f)
