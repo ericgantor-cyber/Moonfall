@@ -126,6 +126,8 @@ public:
  // AC-style page navigation, while keeping Moonfall's existing gameplay systems.
  // 0 Gear, 1 Character, 2 Quests, 3 World.
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Menus") int32 InventoryMenuTab = 0;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Menus") int32 QuestJournalSelection = 0;
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Menus") void SelectJournalQuest();
  UFUNCTION(BlueprintCallable, Category="Moonfall|Menus") void OpenCharacterPage();
  UFUNCTION(BlueprintCallable, Category="Moonfall|Menus") void OpenQuestPage();
  UFUNCTION(BlueprintCallable, Category="Moonfall|Menus") void OpenWorldPage();
