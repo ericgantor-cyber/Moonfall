@@ -694,6 +694,8 @@ bool AMoonfallHeroPawn::SalvageInventoryItem(int32 InventoryIndex)
 }
 void AMoonfallHeroPawn::InventoryConfirm() { EquipSelectedInventoryItem(); }
 void AMoonfallHeroPawn::OpenOptions() {
+ // The defeat screen owns input until respawn; do not reopen gameplay menus.
+ if (Health <= 0.f || !FMath::IsFinite(Health)) return;
  if (bInventoryOpen) { bInventoryOpen = false; return; }
  if (!bOptionsOpen) {
   StopJumping();
