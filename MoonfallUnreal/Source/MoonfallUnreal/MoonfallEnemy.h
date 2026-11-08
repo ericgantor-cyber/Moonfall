@@ -25,6 +25,9 @@ public:
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Boss") float BossWarningEndTime = -1.f;
  UFUNCTION(BlueprintImplementableEvent, Category="Combat") void OnHitFeedback(float Damage, float RemainingHealth);
  UFUNCTION(BlueprintImplementableEvent, Category="Combat") void OnEnemyAttack();
+ // Once-per-strike hooks for authored montage and effect assets.
+ UFUNCTION(BlueprintImplementableEvent, Category="Combat|Animation") void OnAttackWindup(int32 Style, float WindupSeconds, float Reach, bool bBossAttack);
+ UFUNCTION(BlueprintImplementableEvent, Category="Combat|Animation") void OnAttackReleased(int32 Style, bool bBossAttack);
  UFUNCTION(BlueprintImplementableEvent, Category="Combat") void OnEnemyDefeated(bool bKillingBlowWasShatter);
  // Animation/VFX hook: fires once per successful perfect parry, not every tick.
  UFUNCTION(BlueprintImplementableEvent, Category="Combat") void OnPerfectParried(float StaggerSeconds);
