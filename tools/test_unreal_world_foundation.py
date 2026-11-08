@@ -799,6 +799,33 @@ class WorldFoundationTests(unittest.TestCase):
                         loot.index("bCollected = true;"))
         self.assertLess(loot.index("bCollected = true;"), loot.index("Destroy();"))
 
+    def test_failed_equip_and_salvage_save_roll_back_all_inventory_state(self):
+        hero = (ROOT / "MoonfallUnreal/Source/MoonfallUnreal/MoonfallHeroPawn.cpp").read_text(encoding="utf-8")
+        equip = hero.split("bool AMoonfallHeroPawn::EquipInventoryItem(int32 InventoryIndex)",1)[1].split(
+            "void AMoonfallHeroPawn::CraftWithNearestArtisan()",1)[0]
+        salvage = hero.split("bool AMoonfallHeroPawn::SalvageInventoryItem(int32 InventoryIndex)",1)[1].split(
+            "void AMoonfallHeroPawn::InventoryConfirm()",1)[0]
+        for field in ("PreviousTier", "PreviousAffix", "PreviousCode",
+                      "PreviousEquipmentTier", "PreviousMaxHealth", "PreviousHealth"):
+            self.assertIn(field, equip)
+        self.assertIn("if (!TrySavePlayerEconomy()) {", equip)
+        self.assertIn("*EquippedTier = PreviousTier;", equip)
+        self.assertIn("*EquippedAffix = PreviousAffix;", equip)
+        self.assertIn("*EquippedCode = PreviousCode;", equip)
+        self.assertIn("MaxHealth = PreviousMaxHealth;", equip)
+        self.assertIn("Health = PreviousHealth;", equip)
+        self.assertLess(equip.index("if (!TrySavePlayerEconomy()) {"),
+                        equip.index("OnHealthChanged(Health, MaxHealth);"))
+        self.assertIn("const int32 PreviousSalvage = Salvage;", salvage)
+        self.assertIn("InventoryItemCodes.RemoveAt(InventoryIndex);", salvage)
+        self.assertIn("if (!TrySavePlayerEconomy()) {", salvage)
+        self.assertIn("InventoryItemCodes.Insert(Code, InventoryIndex);", salvage)
+        self.assertIn("Salvage = PreviousSalvage;", salvage)
+        self.assertLess(salvage.index("InventoryItemCodes.Insert(Code, InventoryIndex);"),
+                        salvage.index("return false;", salvage.index("if (!TrySavePlayerEconomy()) {")))
+        self.assertLess(salvage.index("if (!TrySavePlayerEconomy()) {"),
+                        salvage.index("InventorySelection = FMath::Clamp("))
+
     def test_connected_geometry(self):
         self.assertIn("Region * RegionSpacing", CPP)
         self.assertIn("FVector(60.f, 60.f, 1.f)", CPP)
