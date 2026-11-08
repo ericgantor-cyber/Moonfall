@@ -14,6 +14,13 @@ public:
 private:
  TSet<int32> BuiltRooms;
  TSet<int32> SpawnedEncounters;
+ TSet<int32> DefeatedEncounters;
+ TMap<int32, TWeakObjectPtr<AMoonfallEnemy>> ActiveEncounters;
+ bool bWorldSavePending = false;
+ void LoadWorldProgress();
+ void ObserveDefeatedEncounters();
+ void SaveWorldProgress();
+ static bool IsValidEncounterId(int32 Id);
  void BuildWorld();
  void StreamWorld();
  bool SpawnEncounter(int32 Id, FVector Position, int32 Region, bool Elite, bool Boss);
