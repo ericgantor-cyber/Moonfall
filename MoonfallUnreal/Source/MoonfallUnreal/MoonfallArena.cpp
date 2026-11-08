@@ -1,6 +1,7 @@
 #include "MoonfallArena.h"
 #include "MoonfallEnemy.h"
 #include "MoonfallHeroPawn.h"
+#include "MoonfallWorldProgressSave.h"
 #include "Components/SceneComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/World.h"
@@ -23,7 +24,7 @@ void AMoonfallArena::CreateBlock(FVector Position, FVector Scale) {
 }
 void AMoonfallArena::BeginPlay() {
  Super::BeginPlay();
- if (bContinuousWorld) { BuildWorld(); return; }
+ if (bContinuousWorld) { LoadWorldProgress(); BuildWorld(); return; }
  CreateBlock(FVector(0,0,-60),FVector(30,30,1));
  CreateBlock(FVector(1500,0,200),FVector(1,30,5));
  CreateBlock(FVector(-1500,0,200),FVector(1,30,5));
@@ -72,7 +73,7 @@ void AMoonfallArena::BuildWorld() {
  StreamWorld();
 }
 bool AMoonfallArena::SpawnEncounter(int32 Id, FVector Position, int32 Region, bool Elite, bool Boss) {
- if (!GetWorld() || SpawnedEncounters.Contains(Id)) return false;
+ if (!GetWorld() || SpawnedEncounters.Contains(Id) || DefeatedEncounters.Contains(Id)) return false;
  const FTransform Transform(FRotator::ZeroRotator, Position + FVector(0.f, 0.f, 110.f));
  AMoonfallEnemy* Enemy = Cast<AMoonfallEnemy>(
   UGameplayStatics::BeginDeferredActorSpawnFromClass(this, AMoonfallEnemy::StaticClass(), Transform));
@@ -83,12 +84,17 @@ bool AMoonfallArena::SpawnEncounter(int32 Id, FVector Position, int32 Region, bo
  Enemy->Health = FMath::Clamp(Enemy->Health * Scale * (Boss ? 4.f : Elite ? 1.7f : 1.f), 1.f, 100000.f);
  Enemy->AttackDamage = FMath::Clamp(Enemy->AttackDamage * Scale * (Boss ? 1.6f : 1.f), 1.f, 10000.f);
  UGameplayStatics::FinishSpawningActor(Enemy, Transform);
- SpawnedEncounters.Add(Id); // Defeated creatures do not respawn within this session.
+ SpawnedEncounters.Add(Id);
+ ActiveEncounters.Add(Id, Enemy); // Observe real combat deaths before saving progress.
  return true;
 }
 void AMoonfallArena::Tick(float DeltaSeconds) {
  Super::Tick(DeltaSeconds);
- if (bContinuousWorld) StreamWorld();
+ if (bContinuousWorld) {
+  ObserveDefeatedEncounters();
+  if (bWorldSavePending) SaveWorldProgress();
+  StreamWorld();
+ }
 }
 void AMoonfallArena::StreamWorld() {
  if (!GetWorld()) return;
@@ -125,4 +131,56 @@ void AMoonfallArena::StreamWorld() {
    }
   }
  }
+}
+
+namespace {
+const FString WorldProgressSlot = TEXT("MoonfallUnrealWorldProgress_v1");
+constexpr int32 WorldEncounterUpperBound = 18 + Regions * DungeonsPerRegion * ChambersPerDungeon;
+}
+bool AMoonfallArena::IsValidEncounterId(int32 Id) {
+ if (Id >= 0 && Id < 18) return true;
+ if (Id < 18 || Id >= WorldEncounterUpperBound) return false;
+ const int32 Stage = ((Id - 18) % ChambersPerDungeon) + 1;
+ return Stage == 3 || Stage == 5 || Stage == 9 || Stage == 12 || Stage == 14;
+}
+void AMoonfallArena::LoadWorldProgress() {
+ DefeatedEncounters.Empty();
+ if (!UGameplayStatics::DoesSaveGameExist(WorldProgressSlot, 0)) return;
+ UMoonfallWorldProgressSave* Saved = Cast<UMoonfallWorldProgressSave>(
+  UGameplayStatics::LoadGameFromSlot(WorldProgressSlot, 0));
+ if (!Saved || Saved->SchemaVersion != 1) return;
+ for (const int32 Id : Saved->DefeatedEncounterIds) {
+  if (IsValidEncounterId(Id)) DefeatedEncounters.Add(Id);
+ }
+ // This schema accepts at most eighteen wildlife plus 150 dungeon enemies.
+ if (DefeatedEncounters.Num() > 168) DefeatedEncounters.Empty();
+}
+void AMoonfallArena::ObserveDefeatedEncounters() {
+ for (auto It = ActiveEncounters.CreateIterator(); It; ++It) {
+  AMoonfallEnemy* Enemy = It.Value().Get();
+  // Only an observed lethal combat hit is counted as a victory. An actor being
+  // garbage-collected, unloaded or deleted is not proof that it was defeated.
+  if (IsValid(Enemy) && FMath::IsFinite(Enemy->Health) && Enemy->Health <= 0.f) {
+   const int32 Id = It.Key();
+   if (IsValidEncounterId(Id) && !DefeatedEncounters.Contains(Id)) {
+    DefeatedEncounters.Add(Id);
+    bWorldSavePending = true;
+   }
+   It.RemoveCurrent();
+  } else if (!IsValid(Enemy)) {
+   It.RemoveCurrent();
+  }
+ }
+}
+void AMoonfallArena::SaveWorldProgress() {
+ if (!GetWorld() || !bWorldSavePending) return;
+ UMoonfallWorldProgressSave* Saved = Cast<UMoonfallWorldProgressSave>(
+  UGameplayStatics::CreateSaveGameObject(UMoonfallWorldProgressSave::StaticClass()));
+ if (!Saved) return;
+ for (const int32 Id : DefeatedEncounters) {
+  if (IsValidEncounterId(Id)) Saved->DefeatedEncounterIds.Add(Id);
+ }
+ Saved->DefeatedEncounterIds.Sort();
+ if (UGameplayStatics::SaveGameToSlot(Saved, WorldProgressSlot, 0))
+  bWorldSavePending = false;
 }
