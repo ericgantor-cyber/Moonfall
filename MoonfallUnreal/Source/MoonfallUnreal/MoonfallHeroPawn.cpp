@@ -229,8 +229,11 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
   // depend on real health damage and stop when the target dies.
   static const float SchoolPostureWeights[6] = {0.8f, 0.65f, 1.35f, 0.f, 1.15f, 0.9f};
   const float WeaponDamageBonus = 1.f + FMath::Clamp(0.018f * WeaponTier, 0.f, 0.35f);
+  const float MomentumBonus = Time <= FinisherMomentumUntil
+      && FMath::IsFinite(FinisherMomentumDamageMultiplier)
+    ? FMath::Clamp(FinisherMomentumDamageMultiplier, 1.f, 1.5f) : 1.f;
   const float SpellDamage = (18.f + School * 5.f) * Multiplier * SpellPowerMultiplier
-    * WeaponDamageBonus * CounterMultiplier;
+    * WeaponDamageBonus * CounterMultiplier * MomentumBonus;
   // Reject invalid damage before spending mana or consuming a hard-earned counter.
   if (!FMath::IsFinite(SpellDamage) || SpellDamage <= 0.f) return false;
   const float HealthBeforeSpell = Enemy->Health;
@@ -459,7 +462,12 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
  // Taking actual health damage interrupts the perfect-parry offensive opening.
  // Fully blocked/parried hits leave it intact.
  const float DamageTaken = PreviousHealth - Health;
- if (DamageTaken > 0.f) ParryCounterUntil = -1.f;
+ if (DamageTaken > 0.f) {
+  ParryCounterUntil = -1.f;
+  // A real injury breaks the aggressive momentum chain. Parries and blocks
+  // still preserve it, so defensive skill matters.
+  FinisherMomentumUntil = -1.f;
+ }
  if (Health <= 0.f) EndGuard();
  if (!bReduceMotion) ImpactCameraOffset = FMath::Clamp(ImpactCameraOffset + FMath::Min(DamageTaken * 0.5f, 18.f), 0.f, 24.f);
  OnDamageImpact(DamageTaken);
@@ -557,6 +565,20 @@ int32 AMoonfallHeroPawn::RegisterFinisherKill(bool bShatterKill, bool bBossKill,
  FinisherChainCount = FMath::Min(FinisherSequenceCount, 5);
  LastFinisherKillAt = Now;
  const int32 ChainStep = (FinisherSequenceCount - 1) % 5 + 1;
+ // Every confirmed kill contributes capped momentum, independent of queued
+ // visual playback. Boss and shatter kills earn stronger resource rewards.
+ const float KillRewardScale = bBossKill ? 2.f : (bShatterKill ? 1.5f : 1.f);
+ if (FMath::IsFinite(MaxStamina) && MaxStamina > 0.f && FMath::IsFinite(Stamina)
+     && FMath::IsFinite(FinisherStaminaRestore) && FinisherStaminaRestore > 0.f)
+  Stamina = FMath::Clamp(Stamina + FMath::Clamp(FinisherStaminaRestore, 0.f, 25.f)
+      * KillRewardScale, 0.f, MaxStamina);
+ if (FMath::IsFinite(MaxMana) && MaxMana > 0.f && FMath::IsFinite(Mana)
+     && FMath::IsFinite(FinisherManaRestore) && FinisherManaRestore > 0.f)
+  Mana = FMath::Clamp(Mana + FMath::Clamp(FinisherManaRestore, 0.f, 25.f)
+      * KillRewardScale, 0.f, MaxMana);
+ if (FinisherChainCount >= 3 && FMath::IsFinite(FinisherMomentumDurationSeconds)
+     && FinisherMomentumDurationSeconds >= 1.f)
+  FinisherMomentumUntil = Now + FMath::Clamp(FinisherMomentumDurationSeconds, 1.f, 12.f);
  // Queue follow-up executions instead of cutting off the current choreography.
  // Five visual styles cycle by combo count; the bounded queue prevents bloat.
  const float NativeDuration = bReduceMotion ? 0.22f : 0.78f;
