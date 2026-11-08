@@ -55,6 +55,38 @@ constexpr int32 Regions = 6;
 constexpr int32 DungeonsPerRegion = 5;
 constexpr int32 ChambersPerDungeon = 14;
 constexpr float RegionSpacing = 6000.f;
+struct FRegionalEnemyProfile {
+ const TCHAR* Name;
+ float HealthScale;
+ float DamageScale;
+ float SpeedScale;
+ float ReachScale;
+ float CooldownScale;
+ float PostureScale;
+};
+// Six biome families, three genuinely different combat stat profiles in each.
+// Uses existing melee/chase/posture behavior; never allocates an AI per profile.
+constexpr FRegionalEnemyProfile RegionalEnemyProfiles[18] = {
+ {TEXT("Ashling Skirmisher"), 0.85f, 0.85f, 1.38f, 0.85f, 0.82f, 0.80f},
+ {TEXT("Cinderback Brute"), 1.50f, 1.28f, 0.70f, 1.05f, 1.25f, 1.55f},
+ {TEXT("Emberclaw Warden"), 1.80f, 1.40f, 0.95f, 1.15f, 1.10f, 1.70f},
+ {TEXT("Mirewing Stalker"), 0.95f, 0.98f, 1.48f, 0.83f, 0.80f, 0.85f},
+ {TEXT("Bogroot Crusher"), 1.65f, 1.26f, 0.67f, 1.10f, 1.32f, 1.60f},
+ {TEXT("Fenfang Alpha"), 1.85f, 1.42f, 1.05f, 1.12f, 1.10f, 1.80f},
+ {TEXT("Frostbite Runner"), 0.84f, 1.03f, 1.50f, 0.82f, 0.75f, 0.82f},
+ {TEXT("Glacial Bulwark"), 1.85f, 1.20f, 0.62f, 1.15f, 1.40f, 1.85f},
+ {TEXT("Rimehorn Ravager"), 1.75f, 1.52f, 1.07f, 1.20f, 1.05f, 1.55f},
+ {TEXT("Stormveil Prowler"), 0.92f, 1.10f, 1.48f, 0.93f, 0.76f, 0.90f},
+ {TEXT("Thundershell Sentinel"), 1.70f, 1.26f, 0.69f, 1.13f, 1.25f, 1.70f},
+ {TEXT("Tempest Fang"), 1.85f, 1.48f, 1.16f, 1.08f, 0.95f, 1.70f},
+ {TEXT("Ironwhisker Scout"), 0.96f, 0.95f, 1.37f, 0.83f, 0.85f, 0.90f},
+ {TEXT("Foundrybreaker"), 1.90f, 1.30f, 0.63f, 1.17f, 1.45f, 2.00f},
+ {TEXT("Sparkcoil Executioner"), 1.80f, 1.55f, 1.10f, 1.15f, 0.92f, 1.85f},
+ {TEXT("Moonshade Pouncer"), 0.90f, 1.14f, 1.55f, 0.84f, 0.74f, 0.85f},
+ {TEXT("Voidplate Colossus"), 2.00f, 1.40f, 0.61f, 1.20f, 1.50f, 2.10f},
+ {TEXT("Eclipse Reaver"), 1.95f, 1.65f, 1.12f, 1.19f, 0.94f, 1.95f}
+};
+
 FVector RoomCenter(int32 Region, int32 Dungeon, int32 Chamber) {
  return FVector(Region * RegionSpacing - 2200.f + Dungeon * 1100.f,
  3600.f + Chamber * 780.f, 0.f);
@@ -80,6 +112,18 @@ bool AMoonfallArena::SpawnEncounter(int32 Id, FVector Position, int32 Region, bo
  if (!Enemy) return false;
  Enemy->bElite = Elite;
  Enemy->bBoss = Boss;
+ if (Id >= 0 && Id < 18) {
+  const FRegionalEnemyProfile& Profile = RegionalEnemyProfiles[Id];
+  Enemy->ArchetypeName = FName(Profile.Name);
+  Enemy->bElite = Id % 3 == 2;
+  Enemy->Health = FMath::Clamp(Enemy->Health * Profile.HealthScale, 1.f, 100000.f);
+  Enemy->AttackDamage = FMath::Clamp(Enemy->AttackDamage * Profile.DamageScale, 1.f, 10000.f);
+  Enemy->ChaseSpeed = FMath::Clamp(Enemy->ChaseSpeed * Profile.SpeedScale, 60.f, 600.f);
+  Enemy->AttackRange = FMath::Clamp(Enemy->AttackRange * Profile.ReachScale, 90.f, 240.f);
+  Enemy->AttackCooldown = FMath::Clamp(Enemy->AttackCooldown * Profile.CooldownScale, 0.65f, 3.5f);
+  Enemy->MaxPosture = FMath::Clamp(Enemy->MaxPosture * Profile.PostureScale, 40.f, 500.f);
+ }
+
  const float Scale = 1.f + 0.22f * FMath::Clamp(Region, 0, Regions - 1);
  Enemy->Health = FMath::Clamp(Enemy->Health * Scale * (Boss ? 4.f : Elite ? 1.7f : 1.f), 1.f, 100000.f);
  Enemy->AttackDamage = FMath::Clamp(Enemy->AttackDamage * Scale * (Boss ? 1.6f : 1.f), 1.f, 10000.f);
