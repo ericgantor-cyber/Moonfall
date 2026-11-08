@@ -446,6 +446,15 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("FMath::Clamp(MenuHealthRegenDelaySeconds, 0.f, 10.f) : 3.f", damage)
         self.assertIn("FMath::Clamp(CombatRecoverySeconds, 0.f, 12.f) : 5.f", damage)
 
+    def test_finisher_kills_refresh_combat_recovery(self):
+        finisher = self.hero_cpp.split("int32 AMoonfallHeroPawn::RegisterFinisherKill(", 1)[1].split(
+            "void AMoonfallHeroPawn::", 1)[0]
+        self.assertIn("if (Health <= 0.f || !GetWorld()) return 0;", finisher)
+        self.assertIn("CombatRecoveryEndsAt = Now + (FMath::IsFinite(CombatRecoverySeconds)", finisher)
+        self.assertIn("FMath::Clamp(CombatRecoverySeconds, 0.f, 12.f) : 5.f", finisher)
+        self.assertLess(finisher.index("if (Health <= 0.f || !GetWorld()) return 0;"),
+                        finisher.index("CombatRecoveryEndsAt = Now +"))
+
     def test_sprint_input_is_rejected_in_menus_or_after_defeat(self):
         begin = self.hero_cpp.split("void AMoonfallHeroPawn::BeginSprint()", 1)[1].split(
             "void AMoonfallHeroPawn::EndSprint()", 1)[0]
