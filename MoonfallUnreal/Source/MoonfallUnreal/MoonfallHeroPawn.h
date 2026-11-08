@@ -45,6 +45,35 @@ public:
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Combat") float Health = 100.f;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Progression") float MaxHealth = 100.f;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Progression") float SpellPowerMultiplier = 1.f;
+ // Defeated dungeon guardians permanently raise maximum mana and stamina.
+ // Re-derived from the world save; never stack the same guardian on reloading.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Quests") int32 AppliedGuardianQuestRewards = 0;
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Quests") void ApplyGuardianQuestRewards(int32 CompletedGuardianCount);
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Quests") int32 LastGuideRegionIndex = -1;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Quests") bool bLastGuideFoundQuest = false;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Quests") float LastGuideMessageUntil = -1.f;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Quests") FString LastGuideTitle;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC") FString LastNpcPersonality;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC") FString LastNpcRoutine;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC") int32 LastNpcRole = 0;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC") int32 LastGuideTrust = 0;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC") int32 LastGuideFear = 0;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC") int32 LastFactionStanding = 0;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Economy") int32 LastServicePrice = 0;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Economy") int32 LastSupplyRating = 0;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Economy") bool bLastServicePurchased = false;
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Economy") void BuyNearestNpcService();
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Economy") void CraftWithNearestArtisan();
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Economy") bool bLastCraftSucceeded = false;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Economy") int32 LastCraftPrice = 0;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Economy") int32 LastWorkshopStock = 0;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC") int32 LastNpcAllyBond = 0;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC") int32 LastGuideSocialChoice = -1;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Quests") int32 LastGuideQuestId = -1;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Quests") int32 LastGuideResidentDefeats = 0;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Quests") bool bLastGuideGuardianDefeated = false;
+ UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Quests")
+ void OnQuestGuideSpoken(int32 RegionIndex, bool bFoundKnownObjective);
  UPROPERTY(BlueprintReadOnly, Category="Moonfall|Progression") int32 Level = 1;
  UPROPERTY(BlueprintReadOnly, Category="Moonfall|Progression") int32 Experience = 0;
  UPROPERTY(BlueprintReadOnly, Category="Moonfall|Progression") int32 ExperienceToNextLevel = 100;
@@ -80,6 +109,10 @@ public:
  UFUNCTION(BlueprintCallable, Category="Moonfall|Loot") void PickupNearestGroundLoot();
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Loot") int32 EquipmentTier = 0;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Loot") int32 Salvage = 0;
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Economy") void SavePlayerEconomy();
+ // Synchronous save result used by purchases to avoid reporting unsaved rewards.
+ bool TrySavePlayerEconomy();
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Economy") void LoadPlayerEconomy();
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Loot") int32 LastLootRarity = 0;
  // Trait codes: 0 none, 1 force, 2 ward, 3 focus.
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Loot") int32 LastLootAffix = 0;
@@ -92,6 +125,14 @@ public:
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Loot") TArray<int32> InventoryItemCodes;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Inventory") bool bInventoryOpen = false;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Inventory") int32 InventorySelection = 0;
+ // AC-style page navigation, while keeping Moonfall's existing gameplay systems.
+ // 0 Gear, 1 Character, 2 Quests, 3 World.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Menus") int32 InventoryMenuTab = 0;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Menus") int32 QuestJournalSelection = 0;
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Menus") void SelectJournalQuest();
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Menus") void OpenCharacterPage();
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Menus") void OpenQuestPage();
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Menus") void OpenWorldPage();
  UFUNCTION(BlueprintCallable, Category="Moonfall|Inventory") void ToggleInventory();
  UFUNCTION(BlueprintCallable, Category="Moonfall|Inventory") void EquipSelectedInventoryItem();
  // Salvage only un-equipped entries. Returns false for invalid/protected gear.
@@ -203,6 +244,10 @@ private:
  void EndGuard();
  void InventoryConfirm();
  void InventorySalvage();
+ void InteractQuestGuide();
+ void EncourageQuestGuide();
+ void IntimidateQuestGuide();
+ void ApplyQuestGuideSocialAction(bool bIntimidate);
  void OpenOptions();
  void OptionsUp();
  void OptionsDown();

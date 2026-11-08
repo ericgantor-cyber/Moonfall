@@ -1,5 +1,6 @@
 #include "MoonfallEnemy.h"
 #include "Components/StaticMeshComponent.h"
+#include "Components/PointLightComponent.h"
 #include "UObject/ConstructorHelpers.h"
 #include "MoonfallHeroPawn.h"
 #include "Kismet/GameplayStatics.h"
@@ -15,6 +16,14 @@ AMoonfallEnemy::AMoonfallEnemy() {
   if (Sphere.Succeeded()) Body->SetStaticMesh(Sphere.Object);
   Body->SetCollisionProfileName(TEXT("BlockAll"));
   Body->SetRelativeScale3D(FVector(0.85f,0.85f,1.4f));
+  AttackTellLight = CreateDefaultSubobject<UPointLightComponent>(TEXT("AttackTellLight"));
+  AttackTellLight->SetupAttachment(Body);
+  AttackTellLight->SetRelativeLocation(FVector(0.f, 0.f, 105.f));
+  AttackTellLight->SetCastShadows(false);
+  AttackTellLight->SetAttenuationRadius(260.f);
+  AttackTellLight->SetIntensity(0.f);
+  AttackTellLight->SetVisibility(false);
+
   PrimaryActorTick.bCanEverTick = true;
   PrimaryActorTick.TickInterval = 0.1f;
 }
@@ -215,6 +224,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
  Super::Tick(DeltaSeconds);
  if (!GetWorld()) return;
  if (Health <= 0.f) {
+  if (AttackTellLight) AttackTellLight->SetVisibility(false);
   TickDefeatAnimation(DeltaSeconds);
   return;
  }
@@ -227,6 +237,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
  AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0));
  if (!IsValid(Hero) || !FMath::IsFinite(Hero->Health) || Hero->Health <= 0.f
      || Hero->bOptionsOpen || Hero->bInventoryOpen) {
+  if (AttackTellLight) AttackTellLight->SetVisibility(false);
   WindupEndsAt = -1.f;
   BossWarningEndTime = -1.f;
   bComboSecondHitPending = false;
@@ -262,6 +273,27 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   const float Scale = Staggered ? 0.92f : 1.f + (Windup > 0.f ? (1.f - Windup) * 0.18f : 0.f);
   const float Squash = bBossTelegraph ? 1.f - 0.12f * Anticipation : 1.f - 0.09f * Recovery;
   Body->SetRelativeScale3D(FVector(0.85f * Scale / FMath::Max(0.75f,Squash), 0.85f * Scale / FMath::Max(0.75f,Squash), 1.4f * Squash / Scale));
+  // Procedural anticipation is rendered in packaged games. Rotation affects
+  // only the mesh, not actor navigation, hitbox direction or locked strike aim.
+  const bool bAnticipating = WindupEndsAt > Now && FMath::IsFinite(CurrentWindup) && CurrentWindup > 0.f;
+  const float Progress = bAnticipating ? 1.f - Windup : 0.f;
+  const float Lean = bAnticipating ? (bBoss ? 8.f : 4.f + 1.5f * FMath::Clamp(RegionalAttackStyle, 0, 5)) * Progress : 0.f;
+  const float Twist = bAnticipating && !bBoss && (RegionalAttackStyle % 2 == 1) ? -Lean * 0.6f : Lean * 0.6f;
+  Body->SetRelativeRotation(FRotator(Lean, Twist, 0.f));
+ }
+ if (AttackTellLight) {
+  // Reused light component, visible only while actively winding up near the
+  // hero. No shadows, VFX actor allocation, timers or extra tick functions.
+  const bool bVisible = WindupEndsAt > Now && FMath::IsFinite(WindupEndsAt);
+  if (bVisible) {
+   const int32 Style = FMath::Clamp(RegionalAttackStyle, 0, 5);
+   const FLinearColor SchoolColor = bBoss ? FLinearColor(0.8f, 0.12f, 0.65f)
+    : (Style % 2 == 0 ? FLinearColor(1.f, 0.24f, 0.04f) : FLinearColor(0.16f, 0.54f, 1.f));
+   AttackTellLight->SetLightColor(SchoolColor);
+   const float Progress = FMath::Clamp(1.f - (WindupEndsAt - Now) / FMath::Max(0.32f, CurrentWindup), 0.f, 1.f);
+   AttackTellLight->SetIntensity(400.f + 1100.f * Progress);
+  }
+  AttackTellLight->SetVisibility(bVisible);
  }
  if (bBoss && Now < BossPhaseMessageUntil) {
   // A readable phase-change recovery: no movement or attacks during the transition.
@@ -307,6 +339,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   return;
  }
  if (WindupEndsAt > 0.f && Now >= WindupEndsAt) {
+  OnAttackReleased(bBoss ? BossSpecialMove : RegionalAttackStyle, bBoss);
   WindupEndsAt = -1.f;
   BossWarningEndTime = -1.f;
   // Heavy elite crushes demand recovery, leaving a counterattack window.
@@ -392,6 +425,8 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
    CurrentAttackRangeMultiplier = 1.15f;
    LockedAttackDirection = Difference.GetSafeNormal2D();
    WindupEndsAt = Now + CurrentWindup;
+   OnAttackWindup(BossSpecialMove, CurrentWindup,
+     AttackRange * CurrentAttackRangeMultiplier, bBoss);
    BossWarningEndTime = WindupEndsAt;
   } else {
    bComboSecondHitActive = false;
@@ -411,6 +446,15 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
     AddActorWorldOffset(DashVector * Step, true, &DashHit);
    }
   }
+  // Regional attack tell uses the existing windup. Debug-only placeholder VFX.
+#if ENABLE_DRAW_DEBUG
+  if (!bBoss && RegionalAttackStyle >= 0 && RegionalAttackStyle < 6) {
+   DrawDebugCircle(GetWorld(), GetActorLocation() - FVector(0.f,0.f,55.f),
+    AttackRange * CurrentAttackRangeMultiplier, 20,
+    RegionalAttackStyle % 2 == 0 ? FColor::Orange : FColor::Cyan,
+    false, 0.12f, 0, 1.5f, FVector(1.f,0.f,0.f), FVector(0.f,1.f,0.f), false);
+  }
+#endif
   // Boss warnings are intentionally cheap: one short-lived debug ring per AI tick,
   // no spawned particles, persistent actors, dynamic materials or extra tick loops.
   const AMoonfallHeroPawn* Viewer = bBoss ? Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0)) : nullptr;
@@ -523,8 +567,24 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
     CurrentWindup += 0.25f;
     bComboSecondHitPending = true;
    }
+   // Six nonboss combat rhythms on the existing AI, with bounded readable windups.
+   if (!bBoss) {
+    switch (FMath::Clamp(RegionalAttackStyle, 0, 5)) {
+     case 0: CurrentWindup *= 0.78f; CurrentAttackRangeMultiplier *= 0.92f; break; // pouncer
+     case 1: CurrentWindup *= 1.30f; CurrentAttackMultiplier *= 1.18f; CurrentAttackRangeMultiplier *= 1.12f; break; // bulwark
+     case 2: CurrentWindup *= 0.91f; CurrentAttackMultiplier *= 1.09f; break; // reaver
+     case 3: CurrentWindup *= 0.83f; CurrentAttackMultiplier *= 0.87f; CurrentAttackRangeMultiplier *= 0.95f; break; // harrier
+     case 4: CurrentWindup *= 1.38f; CurrentAttackMultiplier *= 1.22f; CurrentAttackRangeMultiplier *= 1.17f; break; // juggernaut
+     case 5: CurrentWindup *= Pattern == 2 ? 1.20f : 0.88f; CurrentAttackRangeMultiplier *= Pattern == 2 ? 1.19f : 0.95f; break; // hunter
+    }
+    CurrentWindup = FMath::Clamp(CurrentWindup, 0.32f, 2.f);
+    CurrentAttackMultiplier = FMath::Clamp(CurrentAttackMultiplier, 0.5f, 2.3f);
+    CurrentAttackRangeMultiplier = FMath::Clamp(CurrentAttackRangeMultiplier, 0.75f, 1.8f);
+   }
    LockedAttackDirection = Difference.GetSafeNormal2D();
    WindupEndsAt = Now + CurrentWindup;
+   OnAttackWindup(bBoss ? BossSpecialMove : RegionalAttackStyle, CurrentWindup,
+     AttackRange * CurrentAttackRangeMultiplier, bBoss);
    if (bBoss) BossWarningEndTime = WindupEndsAt;
   }
  }

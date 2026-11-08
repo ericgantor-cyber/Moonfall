@@ -184,7 +184,11 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("if (bInventoryOpen) { bInventoryOpen = false; return; }", toggle)
         self.assertIn("InventorySelection = FMath::Max(0, InventorySelection - 1);", toggle)
         self.assertIn("InventorySelection = FMath::Min(FMath::Max(0, InventoryItemCodes.Num() - 1), InventorySelection + 1);", toggle)
-        self.assertIn("if (bInventoryOpen) { EquipSelectedInventoryItem(); return; }", toggle)
+        # Left/right now change journal tabs instead of equipping behind a menu.
+        self.assertIn("InventoryMenuTab = (InventoryMenuTab + 3) % 4;", toggle)
+        self.assertIn("InventoryMenuTab = (InventoryMenuTab + 1) % 4;", toggle)
+        self.assertIn("if (!bInventoryOpen || InventoryMenuTab != 0 ||", toggle)
+        self.assertIn("if (bInventoryOpen && InventoryMenuTab == 0)", toggle)
         self.assertIn("if (Health <= 0.f || bOptionsOpen || bInventoryOpen || !FMath::IsFinite(Value)) return;", self.hero_cpp)
         self.assertIn("bOptionsOpen || bInventoryOpen || !GetWorld()", self.hero_cpp)
         self.assertIn("if (Hero->bInventoryOpen)", self.hud)
@@ -230,7 +234,13 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("InventoryItemCodes.Add(ItemCode);", collect)
         self.assertNotIn("EquippedCode =", collect)
         self.assertNotIn("Salvage =", collect)
-        self.assertNotIn("RemoveAt(", collect)
+        # The only removal is the last appended item if the disk save fails.
+        self.assertIn("if (!TrySavePlayerEconomy()) {", collect)
+        self.assertIn("InventoryItemCodes.RemoveAt(InventoryItemCodes.Num() - 1);", collect)
+        self.assertLess(collect.index("InventoryItemCodes.Add(ItemCode);"),
+                        collect.index("if (!TrySavePlayerEconomy()) {"))
+        self.assertLess(collect.index("if (!TrySavePlayerEconomy()) {"),
+                        collect.index("LastLootAffix = Affix;"))
         self.assertIn("PrimaryActorTick.bCanEverTick = false;", ground_cpp)
         self.assertIn("CreateDefaultSubobject<UTextRenderComponent>", ground_cpp)
         self.assertIn("CreateDefaultSubobject<UStaticMeshComponent>", ground_cpp)
@@ -244,7 +254,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
 
     def test_inventory_accepts_new_loot_without_rejection_or_auto_cleanup(self):
         loot = self.hero_cpp.split("void AMoonfallHeroPawn::AwardEquipmentDrop(", 1)[1].split(
-            "bool AMoonfallHeroPawn::EquipInventoryItem(", 1)[0]
+            "bool AMoonfallHeroPawn::CollectGroundEquipmentCode(", 1)[0]
         self.assertIn("InventoryItemCodes.Add(ItemCode);", loot)
         self.assertNotIn("InventoryItemCodes.Num() >= 30", loot)
         self.assertNotIn("DiscardIndex", loot)
@@ -357,7 +367,12 @@ class MoonfallIntegrationChecks(unittest.TestCase):
     def test_opening_menus_releases_held_sprint(self):
         inventory = self.hero_cpp.split("void AMoonfallHeroPawn::ToggleInventory()", 1)[1].split(
             "void AMoonfallHeroPawn::EquipSelectedInventoryItem()", 1)[0]
-        self.assertIn("if (!bInventoryOpen) {\n  StopJumping();\n  if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();\n  EndSprint();\n  EndGuard();", inventory)
+        self.assertIn("if (!bInventoryOpen) {", inventory)
+        for stop in ("StopJumping();",
+                     "GetCharacterMovement()->StopMovementImmediately();",
+                     "EndSprint();", "EndGuard();"):
+            self.assertIn(stop, inventory)
+        self.assertIn("InventoryMenuTab = 0;", inventory)
         options = self.hero_cpp.split("void AMoonfallHeroPawn::OpenOptions()", 1)[1].split(
             "void AMoonfallHeroPawn::OptionsUp()", 1)[0]
         self.assertIn("if (!bOptionsOpen) {\n  StopJumping();\n  if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();\n  EndSprint();\n  EndGuard();", options)

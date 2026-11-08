@@ -11,6 +11,10 @@
 #include "Interfaces/IPluginManager.h"
 #include "MoonfallEnemy.h"
 #include "MoonfallGroundLoot.h"
+#include "MoonfallQuestGuide.h"
+#include "MoonfallArena.h"
+#include "MoonfallPlayerEconomySave.h"
+#include "Kismet/GameplayStatics.h"
 #include "EngineUtils.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Components/StaticMeshComponent.h"
@@ -78,7 +82,77 @@ void AMoonfallHeroPawn::BeginPlay() {
  const TSharedPtr<IPlugin> DLSS = IPluginManager::Get().FindPlugin(TEXT("DLSS"));
  bFrameGenerationPluginDetected = (FSR.IsValid() && FSR->IsEnabled()) || (DLSS.IsValid() && DLSS->IsEnabled());
  // Detection is only a hint, never proof of a supported frame-generation runtime.
+ LoadPlayerEconomy();
 }
+
+namespace {
+const FString PlayerEconomySlot = TEXT("MoonfallUnrealPlayerEconomyV1");
+bool IsValidEconomyItem(int32 Code) {
+ const int32 Affix = Code / 100000;
+ const int32 Slot = (Code / 10000) % 10;
+ const int32 Rarity = (Code / 1000) % 10;
+ const int32 Tier = Code % 1000;
+ return Code > 0 && Affix >= 0 && Affix <= 3 && Slot >= 0 && Slot <= 2
+  && Rarity >= 0 && Rarity <= 3 && Tier >= 1 && Tier <= 25
+  && !(Rarity == 0 && Affix != 0)
+  && Code == Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier;
+}
+}
+void AMoonfallHeroPawn::SavePlayerEconomy() {
+ TrySavePlayerEconomy();
+}
+bool AMoonfallHeroPawn::TrySavePlayerEconomy() {
+ if (!GetWorld()) return false;
+ UMoonfallPlayerEconomySave* Save = Cast<UMoonfallPlayerEconomySave>(
+   UGameplayStatics::CreateSaveGameObject(UMoonfallPlayerEconomySave::StaticClass()));
+ if (!Save) return false;
+ Save->Salvage = FMath::Clamp(Salvage, 0, 9999);
+ // Protect disk writes against malformed codes and runaway allocations.
+ for (int32 Code : InventoryItemCodes) {
+  if (Save->InventoryItemCodes.Num() >= 2048) break;
+  if (IsValidEconomyItem(Code)) Save->InventoryItemCodes.Add(Code);
+ }
+ Save->EquippedWeaponCode = EquippedWeaponCode;
+ Save->EquippedArmorCode = EquippedArmorCode;
+ Save->EquippedAccessoryCode = EquippedAccessoryCode;
+ return UGameplayStatics::SaveGameToSlot(Save, PlayerEconomySlot, 0);
+}
+void AMoonfallHeroPawn::LoadPlayerEconomy() {
+ if (!UGameplayStatics::DoesSaveGameExist(PlayerEconomySlot, 0)) return;
+ const UMoonfallPlayerEconomySave* Save = Cast<UMoonfallPlayerEconomySave>(
+  UGameplayStatics::LoadGameFromSlot(PlayerEconomySlot, 0));
+ if (!Save || Save->Version != 1 || Save->InventoryItemCodes.Num() > 2048) return;
+ TArray<int32> ValidItems;
+ for (int32 Code : Save->InventoryItemCodes)
+  if (IsValidEconomyItem(Code)) ValidItems.Add(Code);
+ InventoryItemCodes = MoveTemp(ValidItems);
+ Salvage = FMath::Clamp(Save->Salvage, 0, 9999);
+ // Equipped codes must exist in the actual bag and match their slot.
+ const int32 EquippedCodes[] = {
+  Save->EquippedWeaponCode, Save->EquippedArmorCode, Save->EquippedAccessoryCode
+ };
+ int32* Tiers[] = { &WeaponTier, &ArmorTier, &AccessoryTier };
+ int32* Affixes[] = { &WeaponAffix, &ArmorAffix, &AccessoryAffix };
+ int32* Codes[] = { &EquippedWeaponCode, &EquippedArmorCode, &EquippedAccessoryCode };
+ for (int32 Slot = 0; Slot < 3; ++Slot) {
+  const int32 Code = EquippedCodes[Slot];
+  if (IsValidEconomyItem(Code) && (Code / 10000) % 10 == Slot &&
+      InventoryItemCodes.Contains(Code)) {
+   *Codes[Slot] = Code;
+   *Tiers[Slot] = Code % 1000;
+   *Affixes[Slot] = Code / 100000;
+  }
+ }
+ EquipmentTier = FMath::Max(WeaponTier, FMath::Max(ArmorTier, AccessoryTier));
+ // Restored armor must retain its max-health capacity; do not heal on reload.
+ if (ArmorTier > 0) {
+  MaxHealth = FMath::Max(1.f, MaxHealth + 2.f * ArmorTier);
+  Health = FMath::Clamp(Health, 1.f, MaxHealth);
+  OnHealthChanged(Health, MaxHealth);
+ }
+ InventorySelection = FMath::Clamp(InventorySelection, 0, FMath::Max(0, InventoryItemCodes.Num()-1));
+}
+
 void AMoonfallHeroPawn::Tick(float DeltaSeconds)
 {
  Super::Tick(DeltaSeconds);
@@ -237,9 +311,17 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("DisplayMode"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleDisplayMode);
  Input->BindAction(TEXT("Options"), IE_Pressed, this, &AMoonfallHeroPawn::OpenOptions);
  Input->BindAction(TEXT("Inventory"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleInventory);
+ Input->BindAction(TEXT("CharacterPage"), IE_Pressed, this, &AMoonfallHeroPawn::OpenCharacterPage);
+ Input->BindAction(TEXT("QuestPage"), IE_Pressed, this, &AMoonfallHeroPawn::OpenQuestPage);
+ Input->BindAction(TEXT("WorldPage"), IE_Pressed, this, &AMoonfallHeroPawn::OpenWorldPage);
  Input->BindAction(TEXT("InventoryConfirm"), IE_Pressed, this, &AMoonfallHeroPawn::InventoryConfirm);
  Input->BindAction(TEXT("InventorySalvage"), IE_Pressed, this, &AMoonfallHeroPawn::InventorySalvage);
  Input->BindAction(TEXT("PickupLoot"), IE_Pressed, this, &AMoonfallHeroPawn::PickupNearestGroundLoot);
+ Input->BindAction(TEXT("InteractQuestGuide"), IE_Pressed, this, &AMoonfallHeroPawn::InteractQuestGuide);
+ Input->BindAction(TEXT("BuyNpcService"), IE_Pressed, this, &AMoonfallHeroPawn::BuyNearestNpcService);
+ Input->BindAction(TEXT("CraftNpcItem"), IE_Pressed, this, &AMoonfallHeroPawn::CraftWithNearestArtisan);
+ Input->BindAction(TEXT("EncourageQuestGuide"), IE_Pressed, this, &AMoonfallHeroPawn::EncourageQuestGuide);
+ Input->BindAction(TEXT("IntimidateQuestGuide"), IE_Pressed, this, &AMoonfallHeroPawn::IntimidateQuestGuide);
  Input->BindAction(TEXT("OptionsUp"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsUp);
  Input->BindAction(TEXT("OptionsDown"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsDown);
  Input->BindAction(TEXT("OptionsLeft"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsLeft);
@@ -664,9 +746,46 @@ void AMoonfallHeroPawn::ToggleDisplayMode() {
  Settings->SaveSettings();
 }
 
+
+void AMoonfallHeroPawn::OpenCharacterPage() {
+ if (bOptionsOpen || Health <= 0.f) return;
+ if (!bInventoryOpen) ToggleInventory();
+ InventoryMenuTab = 1;
+}
+void AMoonfallHeroPawn::OpenQuestPage() {
+ if (bOptionsOpen || Health <= 0.f) return;
+ if (!bInventoryOpen) ToggleInventory();
+ InventoryMenuTab = 2;
+ QuestJournalSelection = 0;
+ if (!GetWorld()) return;
+ // The journal and tracker use the same sorted discovered-entrance ordering.
+ // Select the currently tracked objective rather than a stale list position.
+ for (TActorIterator<AMoonfallArena> It(GetWorld()); It; ++It) {
+  const AMoonfallArena* Arena = *It;
+  if (!IsValid(Arena)) continue;
+  const int32 TrackedId = Arena->GetTrackedDungeonQuestId();
+  int32 KnownIndex = 0;
+  for (int32 Id = 0; Id < 30; ++Id) {
+   if (!Arena->GetDiscoveredDungeonEntrances().Contains(Id)) continue;
+   if (Id == TrackedId) {
+    QuestJournalSelection = KnownIndex;
+    return;
+   }
+   ++KnownIndex;
+  }
+  break;
+ }
+}
+void AMoonfallHeroPawn::OpenWorldPage() {
+ if (bOptionsOpen || Health <= 0.f) return;
+ if (!bInventoryOpen) ToggleInventory();
+ InventoryMenuTab = 3;
+}
+
 void AMoonfallHeroPawn::ToggleInventory() {
  if (bOptionsOpen || Health <= 0.f) return;
  if (!bInventoryOpen) {
+  InventoryMenuTab = 0;
   StopJumping();
   if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
   EndSprint();
@@ -676,11 +795,11 @@ void AMoonfallHeroPawn::ToggleInventory() {
  bInventoryOpen = !bInventoryOpen;
 }
 void AMoonfallHeroPawn::EquipSelectedInventoryItem() {
- if (!bInventoryOpen || !InventoryItemCodes.IsValidIndex(InventorySelection)) return;
+ if (!bInventoryOpen || InventoryMenuTab != 0 || !InventoryItemCodes.IsValidIndex(InventorySelection)) return;
  EquipInventoryItem(InventorySelection);
 }
 void AMoonfallHeroPawn::SalvageSelectedInventoryItem() {
- if (bInventoryOpen) SalvageInventoryItem(InventorySelection);
+ if (bInventoryOpen && InventoryMenuTab == 0) SalvageInventoryItem(InventorySelection);
 }
 void AMoonfallHeroPawn::InventorySalvage() { SalvageSelectedInventoryItem(); }
 bool AMoonfallHeroPawn::SalvageInventoryItem(int32 InventoryIndex)
@@ -709,12 +828,21 @@ bool AMoonfallHeroPawn::SalvageInventoryItem(int32 InventoryIndex)
   return false;
  // Higher rarity/tier gear produces more salvage, never exceeding the cap.
  const int32 SalvageReward = 1 + Rarity * 2 + Tier / 5;
+ const int32 PreviousSalvage = Salvage;
  Salvage = FMath::Clamp(Salvage + SalvageReward, 0, 9999);
  InventoryItemCodes.RemoveAt(InventoryIndex);
+ if (!TrySavePlayerEconomy()) {
+  InventoryItemCodes.Insert(Code, InventoryIndex);
+  Salvage = PreviousSalvage;
+  return false;
+ }
  InventorySelection = FMath::Clamp(InventorySelection, 0, FMath::Max(0, InventoryItemCodes.Num() - 1));
  return true;
 }
-void AMoonfallHeroPawn::InventoryConfirm() { EquipSelectedInventoryItem(); }
+void AMoonfallHeroPawn::InventoryConfirm() {
+ if (bInventoryOpen && InventoryMenuTab == 2) { SelectJournalQuest(); return; }
+ EquipSelectedInventoryItem();
+}
 void AMoonfallHeroPawn::OpenOptions() {
  // The defeat screen owns input until respawn; do not reopen gameplay menus.
  if (Health <= 0.f || !FMath::IsFinite(Health)) return;
@@ -727,8 +855,31 @@ void AMoonfallHeroPawn::OpenOptions() {
  }
  bOptionsOpen = !bOptionsOpen;
 }
+
+void AMoonfallHeroPawn::SelectJournalQuest() {
+ if (!bInventoryOpen || InventoryMenuTab != 2 || !GetWorld()) return;
+ for (TActorIterator<AMoonfallArena> It(GetWorld()); It; ++It) {
+  AMoonfallArena* Arena = *It;
+  if (!IsValid(Arena)) continue;
+  QuestJournalSelection = FMath::Clamp(QuestJournalSelection, 0,
+    FMath::Max(0, Arena->GetDiscoveredDungeonEntrances().Num() - 1));
+  int32 Index = 0;
+  for (int32 Id = 0; Id < 30; ++Id) {
+   if (!Arena->GetDiscoveredDungeonEntrances().Contains(Id)) continue;
+   if (Index == QuestJournalSelection) {
+    Arena->TrackDungeonQuest(Id);
+    return;
+   }
+   ++Index;
+  }
+  break;
+ }
+}
+
 void AMoonfallHeroPawn::OptionsUp() {
  if (bInventoryOpen) {
+  if (InventoryMenuTab == 2) { QuestJournalSelection = FMath::Max(0, QuestJournalSelection - 1); return; }
+  if (InventoryMenuTab != 0) return;
   InventorySelection = FMath::Max(0, InventorySelection - 1);
   return;
  }
@@ -736,17 +887,27 @@ void AMoonfallHeroPawn::OptionsUp() {
 }
 void AMoonfallHeroPawn::OptionsDown() {
  if (bInventoryOpen) {
+  if (InventoryMenuTab == 2) {
+   int32 Discovered = 0;
+   if (GetWorld()) for (TActorIterator<AMoonfallArena> It(GetWorld()); It; ++It) {
+    if (IsValid(*It)) Discovered = (*It)->GetDiscoveredDungeonEntrances().Num();
+    break;
+   }
+   QuestJournalSelection = FMath::Clamp(QuestJournalSelection + 1, 0, FMath::Max(0, Discovered - 1));
+   return;
+  }
+  if (InventoryMenuTab != 0) return;
   InventorySelection = FMath::Min(FMath::Max(0, InventoryItemCodes.Num() - 1), InventorySelection + 1);
   return;
  }
  if (bOptionsOpen) OptionsSelection = (OptionsSelection + 1) % 7;
 }
 void AMoonfallHeroPawn::OptionsLeft() {
- if (bInventoryOpen) { EquipSelectedInventoryItem(); return; }
+ if (bInventoryOpen) { InventoryMenuTab = (InventoryMenuTab + 3) % 4; return; }
  AdjustOption(-1);
 }
 void AMoonfallHeroPawn::OptionsRight() {
- if (bInventoryOpen) { EquipSelectedInventoryItem(); return; }
+ if (bInventoryOpen) { InventoryMenuTab = (InventoryMenuTab + 1) % 4; return; }
  AdjustOption(1);
 }
 void AMoonfallHeroPawn::AdjustOption(int32 Direction) {
@@ -962,6 +1123,20 @@ void AMoonfallHeroPawn::UpdateNativeFinisher(float DeltaSeconds)
  FinisherFlash->SetVisibility(true);
 }
 
+void AMoonfallHeroPawn::ApplyGuardianQuestRewards(int32 CompletedGuardianCount)
+{
+ // No kill-healing and no XP or loot duplication; only persistent capacity.
+ const int32 Completed = FMath::Clamp(CompletedGuardianCount, 0, 30);
+ if (Completed <= AppliedGuardianQuestRewards) return;
+ const int32 Delta = Completed - AppliedGuardianQuestRewards;
+ AppliedGuardianQuestRewards = Completed;
+ MaxMana = FMath::Clamp(MaxMana + 3.f * Delta, 1.f, 10000.f);
+ MaxStamina = FMath::Clamp(MaxStamina + 3.f * Delta, 1.f, 10000.f);
+ // Do NOT restore current health, mana, or stamina as a kill reward.
+ Mana = FMath::Clamp(Mana, 0.f, MaxMana);
+ Stamina = FMath::Clamp(Stamina, 0.f, MaxStamina);
+}
+
 void AMoonfallHeroPawn::AwardExperience(int32 Amount)
 {
  if (Amount <= 0 || Health <= 0.f || Level >= 100) return;
@@ -1017,7 +1192,7 @@ int32 AMoonfallHeroPawn::RollEquipmentCode(bool bEliteEnemy, bool bBossEnemy)
 void AMoonfallHeroPawn::AwardEquipmentDrop(bool bEliteEnemy, bool bBossEnemy)
 {
  const int32 ItemCode = RollEquipmentCode(bEliteEnemy, bBossEnemy);
- if (ItemCode <= 0) return;
+ if (ItemCode <= 0 || InventoryItemCodes.Num() >= 2048) return;
  const int32 NewTier = LastLootTier;
  // Do not reject new loot, automatically salvage, or silently discard items.
  // The paginated inventory supports growth beyond the former 30-slot limit.
@@ -1041,11 +1216,12 @@ void AMoonfallHeroPawn::AwardEquipmentDrop(bool bEliteEnemy, bool bBossEnemy)
    OnHealthChanged(Health, MaxHealth);
   }
  }
+ SavePlayerEconomy();
 }
 
 bool AMoonfallHeroPawn::CollectGroundEquipmentCode(int32 ItemCode)
 {
- if (Health <= 0.f || ItemCode <= 0) return false;
+ if (Health <= 0.f || ItemCode <= 0 || InventoryItemCodes.Num() >= 2048) return false;
  const int32 Affix = ItemCode / 100000;
  const int32 SlotIndex = (ItemCode / 10000) % 10;
  const int32 Rarity = (ItemCode / 1000) % 10;
@@ -1056,7 +1232,13 @@ bool AMoonfallHeroPawn::CollectGroundEquipmentCode(int32 ItemCode)
      || ItemCode != Affix * 100000 + SlotIndex * 10000 + Rarity * 1000 + Tier)
   return false;
  // Picking up an item NEVER equips, automatically salvages, or deletes gear.
+ // The pickup actor must remain in the world until the inventory write succeeds.
+ // On a disk-write failure, roll back only the newly appended item.
  InventoryItemCodes.Add(ItemCode);
+ if (!TrySavePlayerEconomy()) {
+  InventoryItemCodes.RemoveAt(InventoryItemCodes.Num() - 1);
+  return false;
+ }
  LastLootAffix = Affix;
  LastLootSlot = SlotIndex;
  LastLootRarity = Rarity;
@@ -1086,6 +1268,218 @@ void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(bool bEliteEnemy, bool bBossEne
   if (AMoonfallGroundLoot* Loot = GetWorld()->SpawnActor<AMoonfallGroundLoot>(
       AMoonfallGroundLoot::StaticClass(), SpawnAt, FRotator::ZeroRotator, Params))
    Loot->InitializeLoot(ItemCode);
+ }
+}
+
+void AMoonfallHeroPawn::InteractQuestGuide()
+{
+ if (Health <= 0.f || bOptionsOpen || bInventoryOpen || !GetWorld()) return;
+ AMoonfallQuestGuide* Nearest = nullptr;
+ float ClosestSq = FMath::Square(380.f);
+ for (TActorIterator<AMoonfallQuestGuide> It(GetWorld()); It; ++It) {
+  AMoonfallQuestGuide* Guide = *It;
+  if (!IsValid(Guide)) continue;
+  if (FMath::Abs(Guide->GetActorLocation().Z - GetActorLocation().Z) > 250.f) continue;
+  const float DistSq = FVector::DistSquared2D(Guide->GetActorLocation(), GetActorLocation());
+  if (DistSq < ClosestSq) { ClosestSq = DistSq; Nearest = Guide; }
+ }
+ if (!Nearest) return;
+ // Face the player only when spoken to; no expensive NPC Tick or controller.
+ FVector Facing = GetActorLocation() - Nearest->GetActorLocation();
+ Facing.Z = 0.f;
+ if (!Facing.IsNearlyZero()) Nearest->SetActorRotation(Facing.Rotation());
+ LastGuideTitle = Nearest->GetGuideTitle().ToString();
+ LastNpcPersonality = Nearest->GetPersonalityLabel().ToString();
+ LastNpcRoutine = Nearest->GetRoutineLabel().ToString();
+ LastNpcRole = FMath::Clamp(Nearest->RoleIndex, 0, 2);
+ LastGuideRegionIndex = FMath::Clamp(Nearest->RegionIndex, 0, 5);
+ bLastGuideFoundQuest = false;
+ LastGuideQuestId = -1;
+ LastGuideResidentDefeats = 0;
+ bLastGuideGuardianDefeated = false;
+ bLastCraftSucceeded = false;
+ LastCraftPrice = 0;
+ LastGuideMessageUntil = GetWorld()->GetTimeSeconds() + 4.f;
+ for (TActorIterator<AMoonfallArena> It(GetWorld()); It; ++It) {
+  AMoonfallArena* Arena = *It;
+  if (!IsValid(Arena)) continue;
+  LastGuideTrust = Arena->GetNpcTrust(Nearest->GetPersistentNpcId());
+  LastGuideFear = Arena->GetNpcFear(Nearest->GetPersistentNpcId());
+  LastFactionStanding = Arena->GetRegionalFactionStanding(Nearest->RegionIndex);
+  LastSupplyRating = Arena->GetRegionalSupplyRating(Nearest->RegionIndex);
+  LastServicePrice = Arena->GetRegionalServicePrice(Nearest->RegionIndex, LastNpcRole);
+  bLastServicePurchased = false;
+  const int32 CounterpartId = Nearest->RegionIndex * 3 + (LastNpcRole == 0 ? 1 : 0);
+  LastNpcAllyBond = Arena->GetNpcBond(Nearest->GetPersistentNpcId(), CounterpartId);
+  Nearest->ReactToPlayer(LastGuideTrust, LastGuideFear);
+  LastGuideSocialChoice = -1;
+  // Artisans and scouts share news, but only quest guides change the tracked quest.
+  bLastGuideFoundQuest = LastNpcRole == 0
+    ? Arena->SelectNextDiscoveredDungeonQuestInRegion(Nearest->RegionIndex)
+    : false;
+  if (bLastGuideFoundQuest) {
+   const int32 Selected = Arena->GetTrackedDungeonQuestId();
+   if (Selected >= 0 && Selected < 30) {
+    LastGuideQuestId = Selected;
+    LastGuideResidentDefeats = Arena->GetDungeonResidentDefeatCount(Selected);
+    bLastGuideGuardianDefeated = Arena->IsDungeonQuestCompleted(Selected);
+   }
+  }
+  break;
+ }
+ OnQuestGuideSpoken(LastGuideRegionIndex, bLastGuideFoundQuest);
+}
+
+void AMoonfallHeroPawn::EncourageQuestGuide() { ApplyQuestGuideSocialAction(false); }
+void AMoonfallHeroPawn::IntimidateQuestGuide() { ApplyQuestGuideSocialAction(true); }
+void AMoonfallHeroPawn::ApplyQuestGuideSocialAction(bool bIntimidate)
+{
+ if (Health <= 0.f || bOptionsOpen || bInventoryOpen || !GetWorld()) return;
+ AMoonfallQuestGuide* Nearest = nullptr;
+ float BestSq = FMath::Square(380.f);
+ for (TActorIterator<AMoonfallQuestGuide> It(GetWorld()); It; ++It) {
+  AMoonfallQuestGuide* Guide = *It;
+  if (!IsValid(Guide)) continue;
+  if (FMath::Abs(Guide->GetActorLocation().Z - GetActorLocation().Z) > 250.f) continue;
+  const float DistSq = FVector::DistSquared2D(Guide->GetActorLocation(), GetActorLocation());
+  if (DistSq < BestSq) { BestSq = DistSq; Nearest = Guide; }
+ }
+ if (!Nearest) return;
+ for (TActorIterator<AMoonfallArena> It(GetWorld()); It; ++It) {
+  AMoonfallArena* Arena = *It;
+  if (!IsValid(Arena)) continue;
+  if (!Arena->RecordNpcSocialChoice(Nearest->GetPersistentNpcId(), bIntimidate)) return;
+  // Refresh the actual NPC identity before quoting services or displaying
+  // dialogue: a social action can target somebody different from last talk.
+  LastGuideRegionIndex = FMath::Clamp(Nearest->RegionIndex, 0, 5);
+  LastGuideTitle = Nearest->GetGuideTitle().ToString();
+  LastNpcRole = FMath::Clamp(Nearest->RoleIndex, 0, 2);
+  LastNpcPersonality = Nearest->GetPersonalityLabel().ToString();
+  LastNpcRoutine = Nearest->GetRoutineLabel().ToString();
+  LastGuideTrust = Arena->GetNpcTrust(Nearest->GetPersistentNpcId());
+  LastGuideFear = Arena->GetNpcFear(Nearest->GetPersistentNpcId());
+  LastFactionStanding = Arena->GetRegionalFactionStanding(Nearest->RegionIndex);
+  LastSupplyRating = Arena->GetRegionalSupplyRating(Nearest->RegionIndex);
+  LastServicePrice = Arena->GetRegionalServicePrice(Nearest->RegionIndex, LastNpcRole);
+  bLastServicePurchased = false;
+  // Guides relate to local artisans; other roles relate to the guide.
+  const int32 CounterpartId = Nearest->RegionIndex * 3 + (LastNpcRole == 0 ? 1 : 0);
+  LastNpcAllyBond = Arena->GetNpcBond(Nearest->GetPersistentNpcId(), CounterpartId);
+  Nearest->ReactToPlayer(LastGuideTrust, LastGuideFear);
+  LastGuideSocialChoice = bIntimidate ? 1 : 0;
+  bLastCraftSucceeded = false;
+ LastCraftPrice = 0;
+ LastGuideMessageUntil = GetWorld()->GetTimeSeconds() + 4.f;
+  OnQuestGuideSpoken(LastGuideRegionIndex, false);
+  break;
+ }
+}
+
+void AMoonfallHeroPawn::BuyNearestNpcService()
+{
+ if (Health <= 0.f || bOptionsOpen || bInventoryOpen || !GetWorld()) return;
+ AMoonfallQuestGuide* Nearest = nullptr;
+ float BestSq = FMath::Square(380.f);
+ for (TActorIterator<AMoonfallQuestGuide> It(GetWorld()); It; ++It) {
+  AMoonfallQuestGuide* Npc = *It;
+  if (!IsValid(Npc) || Npc->RoleIndex == 0) continue;
+  if (FMath::Abs(Npc->GetActorLocation().Z - GetActorLocation().Z) > 250.f) continue;
+  const float Distance = FVector::DistSquared2D(Npc->GetActorLocation(), GetActorLocation());
+  if (Distance < BestSq) { Nearest = Npc; BestSq = Distance; }
+ }
+ if (!Nearest) return;
+ const int32 Role = FMath::Clamp(Nearest->RoleIndex, 0, 2);
+ for (TActorIterator<AMoonfallArena> It(GetWorld()); It; ++It) {
+  AMoonfallArena* Arena = *It;
+  if (!IsValid(Arena)) continue;
+  const int32 Price = Arena->GetRegionalServicePrice(Nearest->RegionIndex, Role);
+  if (Price <= 0) return;
+  LastNpcRole = Role;
+  LastGuideRegionIndex = Nearest->RegionIndex;
+  LastGuideTitle = Nearest->GetGuideTitle().ToString();
+  LastNpcPersonality = Nearest->GetPersonalityLabel().ToString();
+  LastNpcRoutine = Nearest->GetRoutineLabel().ToString();
+  LastSupplyRating = Arena->GetRegionalSupplyRating(Nearest->RegionIndex);
+  LastFactionStanding = Arena->GetRegionalFactionStanding(Nearest->RegionIndex);
+  LastServicePrice = Price;
+  bLastServicePurchased = false;
+  LastGuideSocialChoice = -1;
+  bLastCraftSucceeded = false;
+ LastCraftPrice = 0;
+ LastGuideMessageUntil = GetWorld()->GetTimeSeconds() + 4.f;
+  // Spend real salvage only for a genuinely missing resource. No kill-healing.
+  const bool bNeedsService = Role == 1
+    ? (FMath::IsFinite(Mana) && FMath::IsFinite(MaxMana) && Mana < MaxMana - 1.f)
+    : (FMath::IsFinite(Stamina) && FMath::IsFinite(MaxStamina) && Stamina < MaxStamina - 1.f);
+  if (!bNeedsService || Salvage < Price) return;
+  Salvage -= Price;
+  if (!TrySavePlayerEconomy()) {
+   Salvage += Price;
+   return;
+  }
+  if (Role == 1) Mana = FMath::Clamp(Mana + 35.f, 0.f, MaxMana);
+  else Stamina = FMath::Clamp(Stamina + 35.f, 0.f, MaxStamina);
+  bLastServicePurchased = true;
+  Nearest->ReactToPlayer(Arena->GetNpcTrust(Nearest->GetPersistentNpcId()),
+    Arena->GetNpcFear(Nearest->GetPersistentNpcId()));
+  return;
+ }
+}
+
+void AMoonfallHeroPawn::CraftWithNearestArtisan()
+{
+ if (Health <= 0.f || bOptionsOpen || bInventoryOpen || !GetWorld()) return;
+ AMoonfallQuestGuide* Nearest = nullptr;
+ float BestSq = FMath::Square(380.f);
+ for (TActorIterator<AMoonfallQuestGuide> It(GetWorld()); It; ++It) {
+  AMoonfallQuestGuide* Npc = *It;
+  if (!IsValid(Npc) || Npc->RoleIndex != 1) continue;
+  if (FMath::Abs(Npc->GetActorLocation().Z - GetActorLocation().Z) > 250.f) continue;
+  const float DistSq = FVector::DistSquared2D(Npc->GetActorLocation(), GetActorLocation());
+  if (DistSq < BestSq) { Nearest = Npc; BestSq = DistSq; }
+ }
+ if (!Nearest) return;
+ for (TActorIterator<AMoonfallArena> It(GetWorld()); It; ++It) {
+  AMoonfallArena* Arena = *It;
+  if (!IsValid(Arena)) continue;
+  const int32 Region = Nearest->RegionIndex;
+  LastCraftPrice = Arena->GetCraftingPrice(Region);
+  LastWorkshopStock = Arena->GetWorkshopStock(Region);
+  bLastCraftSucceeded = false;
+  LastGuideRegionIndex = Region;
+  LastGuideTitle = Nearest->GetGuideTitle().ToString();
+  LastNpcRole = 1;
+  LastGuideSocialChoice = -1;
+  bLastServicePurchased = false;
+  LastServicePrice = 0;
+  LastGuideMessageUntil = GetWorld()->GetTimeSeconds() + 4.f;
+  if (LastCraftPrice <= 0 || LastWorkshopStock <= 0 || Salvage < LastCraftPrice ||
+      InventoryItemCodes.Num() >= 2048) return;
+  // Six regional recipes: three item slots and region-specific traits.
+  // Higher supply from genuine guardian victories unlocks rare craft quality.
+  // All codes obey the existing item decoder and are never auto-equipped.
+  const int32 Slot = Region % 3;
+  const int32 Tier = FMath::Clamp(Level / 5 + 1, 1, 25);
+  const int32 Rarity = Arena->GetRegionalSupplyRating(Region) >= 65 ? 2 : 1;
+  const int32 Affix = 1 + Region % 3;
+  const int32 ItemCode = Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier;
+  if (!Arena->PurchaseWorkshopStock(Region)) return;
+  const int32 SalvageBeforePurchase = Salvage;
+  Salvage -= LastCraftPrice;
+  InventoryItemCodes.Add(ItemCode);
+  if (!TrySavePlayerEconomy()) {
+   // Do not tell the player an item was purchased if its save failed.
+   InventoryItemCodes.RemoveAt(InventoryItemCodes.Num() - 1);
+   Salvage = SalvageBeforePurchase;
+   Arena->RefundWorkshopStock(Region);
+   LastWorkshopStock = Arena->GetWorkshopStock(Region);
+   return;
+  }
+  LastWorkshopStock = Arena->GetWorkshopStock(Region);
+  bLastCraftSucceeded = true;
+  Nearest->ReactToPlayer(Arena->GetNpcTrust(Nearest->GetPersistentNpcId()),
+    Arena->GetNpcFear(Nearest->GetPersistentNpcId()));
+  return;
  }
 }
 
@@ -1129,6 +1523,11 @@ bool AMoonfallHeroPawn::EquipInventoryItem(int32 InventoryIndex)
      : (SlotIndex == 1 ? &EquippedArmorCode : &EquippedAccessoryCode);
  if (*EquippedCode == Code && *EquippedTier == Tier && *EquippedAffix == Affix) return false;
  const int32 PreviousTier = *EquippedTier;
+ const int32 PreviousAffix = *EquippedAffix;
+ const int32 PreviousCode = *EquippedCode;
+ const int32 PreviousEquipmentTier = EquipmentTier;
+ const float PreviousMaxHealth = MaxHealth;
+ const float PreviousHealth = Health;
  *EquippedTier = Tier;
  *EquippedAffix = Affix;
  *EquippedCode = Code;
@@ -1138,7 +1537,17 @@ bool AMoonfallHeroPawn::EquipInventoryItem(int32 InventoryIndex)
   const float HealthDelta = 2.f * (Tier - PreviousTier);
   MaxHealth = FMath::Max(1.f, MaxHealth + HealthDelta);
   Health = FMath::Clamp(Health + HealthDelta, 1.f, MaxHealth);
-  OnHealthChanged(Health, MaxHealth);
  }
+ if (!TrySavePlayerEconomy()) {
+  *EquippedTier = PreviousTier;
+  *EquippedAffix = PreviousAffix;
+  *EquippedCode = PreviousCode;
+  EquipmentTier = PreviousEquipmentTier;
+  MaxHealth = PreviousMaxHealth;
+  Health = PreviousHealth;
+  return false;
+ }
+ if (SlotIndex == 1 && PreviousTier != Tier)
+  OnHealthChanged(Health, MaxHealth);
  return true;
 }

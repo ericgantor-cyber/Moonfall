@@ -63,6 +63,10 @@ jobs:
           print('Input mapping and combat source checks passed. Unreal compilation NOT performed.')
           PY
 
+      - name: Verify Unreal continuous-world contracts
+        shell: bash
+        run: python3 -m unittest discover -s tools -p 'test_unreal_world_foundation.py' -v
+
       - name: Parse Windows build scripts
         shell: pwsh
         run: |

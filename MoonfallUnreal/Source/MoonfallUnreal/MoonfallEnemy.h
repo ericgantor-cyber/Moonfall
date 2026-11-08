@@ -3,6 +3,7 @@
 #include "GameFramework/Actor.h"
 #include "MoonfallEnemy.generated.h"
 class UStaticMeshComponent;
+class UPointLightComponent;
 UCLASS()
 class MOONFALLUNREAL_API AMoonfallEnemy : public AActor
 {
@@ -11,6 +12,8 @@ public:
  AMoonfallEnemy();
  virtual void Tick(float DeltaSeconds) override;
  virtual void BeginPlay() override;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Combat|Identity") FName ArchetypeName = NAME_None;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Combat|Identity") int32 RegionalAttackStyle = 0;
  UPROPERTY(EditAnywhere, Category="Combat") float ChaseSpeed = 180.f;
  UPROPERTY(EditAnywhere, Category="Combat") float AttackDamage = 8.f;
  UPROPERTY(EditAnywhere, Category="Combat") float AttackRange = 145.f;
@@ -22,6 +25,9 @@ public:
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Boss") float BossWarningEndTime = -1.f;
  UFUNCTION(BlueprintImplementableEvent, Category="Combat") void OnHitFeedback(float Damage, float RemainingHealth);
  UFUNCTION(BlueprintImplementableEvent, Category="Combat") void OnEnemyAttack();
+ // Once-per-strike hooks for authored montage and effect assets.
+ UFUNCTION(BlueprintImplementableEvent, Category="Combat|Animation") void OnAttackWindup(int32 Style, float WindupSeconds, float Reach, bool bBossAttack);
+ UFUNCTION(BlueprintImplementableEvent, Category="Combat|Animation") void OnAttackReleased(int32 Style, bool bBossAttack);
  UFUNCTION(BlueprintImplementableEvent, Category="Combat") void OnEnemyDefeated(bool bKillingBlowWasShatter);
  // Animation/VFX hook: fires once per successful perfect parry, not every tick.
  UFUNCTION(BlueprintImplementableEvent, Category="Combat") void OnPerfectParried(float StaggerSeconds);
@@ -78,6 +84,8 @@ private:
  float CurrentAttackRangeMultiplier = 1.f;
 public:
  UPROPERTY(VisibleAnywhere) UStaticMeshComponent* Body;
+ // Reused non-shadow-casting in-world windup light: no spawned particles or new actor.
+ UPROPERTY(VisibleAnywhere, Category="Combat|Visuals") UPointLightComponent* AttackTellLight = nullptr;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Combat") float LastHitAmount = 0.f;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Combat") float LastHitTime = -10.f;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Combat") bool bLastHitWasShatter = false;

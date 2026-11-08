@@ -1,6 +1,8 @@
 #include "MoonfallCombatHUD.h"
 #include "MoonfallHeroPawn.h"
 #include "MoonfallEnemy.h"
+#include "MoonfallArena.h"
+#include "MoonfallQuestGuide.h"
 #include "EngineUtils.h"
 #include "Engine/World.h"
 #include "Kismet/GameplayStatics.h"
@@ -13,6 +15,131 @@ void AMoonfallCombatHUD::DrawHUD()
  if (!Canvas) return;
  const AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this,0));
  if (!IsValid(Hero)) return;
+ // Moonfall's own Valhalla-style journal layout: no copied art or UMG assets.
+ if (Hero->bInventoryOpen && Hero->InventoryMenuTab != 0) {
+  const float Width = FMath::Max(280.f, Canvas->SizeX - 32.f);
+  const float Height = FMath::Max(270.f, Canvas->SizeY - 32.f);
+  const float L = 16.f, T = 16.f;
+  DrawRect(FLinearColor(0.025f,0.035f,0.065f,0.97f), L, T, Width, Height);
+  DrawRect(FLinearColor(0.73f,0.58f,0.3f,1.f), L + 14.f, T + 51.f, Width - 28.f, 2.f);
+  const TCHAR* Tabs[] = {TEXT("GEAR"), TEXT("CHARACTER"), TEXT("QUESTS"), TEXT("WORLD")};
+  const float TabSpace = (Width - 32.f) / 4.f;
+  for (int32 Tab = 0; Tab < 4; ++Tab) {
+   const float X = L + 16.f + Tab * TabSpace;
+   if (Hero->InventoryMenuTab == Tab)
+    DrawRect(FLinearColor(0.35f,0.27f,0.48f,0.86f), X - 4.f, T + 9.f, TabSpace - 8.f, 37.f);
+   DrawText(Tabs[Tab], Hero->InventoryMenuTab == Tab ?
+     FLinearColor(1.f,0.87f,0.48f) : FLinearColor(0.68f,0.76f,0.87f),
+     X + 3.f, T + 18.f, nullptr, Canvas->SizeX < 900.f ? 0.77f : 1.f);
+  }
+  const float Left = L + 24.f;
+  const float ContentTop = T + 75.f;
+  if (Hero->InventoryMenuTab == 1) {
+   DrawText(TEXT("CHARACTER  /  POWER"), FLinearColor(1.f,0.88f,0.56f),Left,ContentTop,nullptr,1.28f);
+   const FString Rows[] = {
+    FString::Printf(TEXT("Level %d    XP %d"), Hero->Level, Hero->Experience),
+    FString::Printf(TEXT("Health       %.0f / %.0f"), Hero->Health, Hero->MaxHealth),
+    FString::Printf(TEXT("Mana         %.0f / %.0f"), Hero->Mana, Hero->MaxMana),
+    FString::Printf(TEXT("Stamina      %.0f / %.0f"), Hero->Stamina, Hero->MaxStamina),
+    FString::Printf(TEXT("Spell power  %.2fx"), Hero->SpellPowerMultiplier),
+    FString::Printf(TEXT("Equipment   Weapon T%d    Armor T%d    Accessory T%d"),
+     Hero->WeaponTier, Hero->ArmorTier, Hero->AccessoryTier),
+    FString::Printf(TEXT("Salvage %d    Gear in bag %d"), Hero->Salvage, Hero->InventoryItemCodes.Num())
+   };
+   const float Gap = FMath::Clamp((Height - 180.f) / 7.f, 24.f, 53.f);
+   for (int32 i = 0; i < 7; ++i)
+    DrawText(Rows[i], FLinearColor(0.88f,0.9f,0.98f), Left + 10.f,
+     ContentTop + 43.f + i * Gap, nullptr, Canvas->SizeX < 850.f ? 0.78f : 1.05f);
+  } else if (Hero->InventoryMenuTab == 2) {
+   DrawText(TEXT("QUEST JOURNAL  /  KNOWN OBJECTIVES"),FLinearColor(1.f,0.88f,0.56f),
+    Left,ContentTop,nullptr,1.12f);
+   bool bHasQuests = false;
+   for (TActorIterator<AMoonfallArena> It(GetWorld()); It; ++It) {
+    const AMoonfallArena* Arena = *It;
+    if (!IsValid(Arena) || !Arena->bContinuousWorld) continue;
+    const int32 Tracked = Arena->GetTrackedDungeonQuestId();
+    DrawText(FString::Printf(TEXT("Guardians defeated: %d / 30"), Arena->GetCompletedDungeonQuestCount()),
+      FLinearColor::White,Left + 10.f,ContentTop + 45.f,nullptr,1.f);
+    const int32 JournalPageStart = Hero->QuestJournalSelection / 9 * 9;
+    int32 KnownIndex = 0, Shown = 0;
+    for (int32 Entrance = 0; Entrance < 30 && Shown < 9; ++Entrance) {
+     if (!Arena->GetDiscoveredDungeonEntrances().Contains(Entrance)) continue;
+     bHasQuests = true;
+     const int32 ThisKnownIndex = KnownIndex++;
+     if (ThisKnownIndex < JournalPageStart) continue;
+     const bool bComplete = Arena->IsDungeonQuestCompleted(Entrance);
+     const int32 Progress = Arena->GetDungeonResidentDefeatCount(Entrance);
+     const bool bSelected = ThisKnownIndex == Hero->QuestJournalSelection;
+     if (bSelected)
+      DrawRect(FLinearColor(0.26f,0.23f,0.41f,0.88f), Left+6.f,
+       ContentTop + 75.f + Shown * FMath::Clamp((Height - 215.f)/9.f,19.f,38.f),
+       Width-75.f, 23.f);
+     const FString Line = FString::Printf(TEXT("%s Region %d  /  Dungeon %d     %s"),
+       bSelected ? TEXT(">") : Entrance == Tracked ? TEXT("*") : TEXT(" "),
+       Entrance / 5 + 1, Entrance % 5 + 1,
+       bComplete ? TEXT("COMPLETE") : Progress >= 4 ? TEXT("GUARDIAN") : TEXT("RESIDENTS"));
+     DrawText(Line, bComplete ? FLinearColor(0.45f,0.87f,0.55f) :
+       bSelected || Entrance == Tracked ? FLinearColor(1.f,0.85f,0.36f) : FLinearColor::White,
+       Left + 12.f, ContentTop + 79.f + Shown * FMath::Clamp((Height - 215.f)/9.f,19.f,38.f),
+       nullptr,Canvas->SizeX < 850.f ? 0.7f : 0.91f);
+     ++Shown;
+    }
+    break;
+   }
+   if (!bHasQuests)
+    DrawText(TEXT("Explore the world to discover dungeon quests."), FLinearColor::White,
+      Left + 12.f,ContentTop + 95.f,nullptr,0.92f);
+   DrawText(TEXT("W/S: choose discovered quest   Enter/Y: track"), FLinearColor(0.82f,0.85f,0.95f),
+    Left+8.f, T+Height-69.f, nullptr, 0.8f);
+  } else if (Hero->InventoryMenuTab == 3) {
+   DrawText(TEXT("RAVEN ATLAS  /  EXPLORED WORLD"),FLinearColor(1.f,0.88f,0.56f),
+    Left,ContentTop,nullptr,1.14f);
+   const float MapLeft = Left + 8.f, MapTop = ContentTop + 40.f;
+   const float MapWidth = FMath::Max(200.f, Width - 70.f);
+   const float MapHeight = FMath::Max(150.f, Height - 165.f);
+   DrawRect(FLinearColor(0.015f,0.025f,0.04f,1.f),MapLeft,MapTop,MapWidth,MapHeight);
+   for (TActorIterator<AMoonfallArena> It(GetWorld()); It; ++It) {
+    const AMoonfallArena* Arena = *It;
+    if (!IsValid(Arena) || !Arena->bContinuousWorld) continue;
+    // Deterministic coordinate projection; never draw undiscovered locations.
+    const float ScaleX = MapWidth / 41000.f, ScaleY = MapHeight / 17000.f;
+    const float CenterX = MapLeft + 35.f, CenterY = MapTop + MapHeight - 40.f;
+    for (int32 Region = 0; Region < 6; ++Region) {
+     if (!Arena->GetDiscoveredRegions().Contains(Region)) continue;
+     const float X = CenterX + Region * 6000.f * ScaleX;
+     DrawRect(FLinearColor(0.21f,0.25f,0.35f), X-15.f, CenterY-6.f, 30.f,12.f);
+     DrawText(FString::Printf(TEXT("R%d"),Region+1),FLinearColor(0.8f,0.85f,1.f),
+      X-9.f,CenterY+12.f,nullptr,0.65f);
+    }
+    for (const int32 Entrance : Arena->GetDiscoveredDungeonEntrances()) {
+     if (Entrance < 0 || Entrance >= 30) continue;
+     const float X = CenterX + (Entrance / 5 * 6000.f - 2200.f + (Entrance % 5)*1100.f) * ScaleX;
+     const float Y = CenterY - 3600.f * ScaleY;
+     DrawRect(Arena->IsDungeonQuestCompleted(Entrance) ?
+       FLinearColor(0.32f,0.85f,0.49f) :
+       Entrance == Arena->GetTrackedDungeonQuestId() ?
+       FLinearColor(1.f,0.89f,0.3f) : FLinearColor(0.88f,0.61f,0.26f),X-4.f,Y-4.f,8.f,8.f);
+    }
+    for (const int32 Chamber : Arena->GetDiscoveredChambers()) {
+     if (Chamber < 0 || Chamber >= 420) continue;
+     const int32 Region = Chamber / 70, Dungeon = (Chamber % 70) / 14;
+     const float X = CenterX + (Region * 6000.f - 2200.f + Dungeon * 1100.f) * ScaleX;
+     const float Y = CenterY - (3600.f + (Chamber % 14)*780.f) * ScaleY;
+     DrawRect(FLinearColor(0.55f,0.69f,0.88f),X-2.f,Y-2.f,4.f,4.f);
+    }
+    const FVector Pos = Hero->GetActorLocation();
+    if (FMath::IsFinite(Pos.X) && FMath::IsFinite(Pos.Y))
+     DrawRect(FLinearColor(1.f,1.f,1.f),CenterX+Pos.X*ScaleX-4.f,
+       CenterY-Pos.Y*ScaleY-4.f,8.f,8.f);
+    break;
+   }
+   DrawText(TEXT("Unexplored regions and dungeons remain hidden."),
+     FLinearColor(0.75f,0.81f,0.9f),Left+8.f,T+Height-69.f,nullptr,0.85f);
+  }
+  DrawText(TEXT("A / D or Left / Right: switch tabs   I / Esc: close"),
+    FLinearColor(0.85f,0.85f,0.95f),Left,T+Height-33.f,nullptr,0.82f);
+  return;
+ }
  if (Hero->bOptionsOpen) {
   const float MenuWidth = FMath::Min(560.f, FMath::Max(240.f, Canvas->SizeX - 24.f));
   const float MenuHeight = FMath::Min(550.f, FMath::Max(280.f, Canvas->SizeY - 24.f));
@@ -39,7 +166,9 @@ void AMoonfallCombatHUD::DrawHUD()
   const float Left = (Canvas->SizeX - PanelWidth) * 0.5f;
   const float Top = (Canvas->SizeY - PanelHeight) * 0.5f;
   DrawRect(FLinearColor(0.04f, 0.035f, 0.10f, 0.96f), Left, Top, PanelWidth, PanelHeight);
-  DrawText(TEXT("MOONFALL  |  INVENTORY"), FLinearColor::White, Left + 18.f, Top + 16.f, nullptr, 1.3f);
+  DrawText(TEXT("GEAR  |  CHARACTER  |  QUESTS  |  WORLD"),
+    FLinearColor(1.f,0.87f,0.48f), Left + 18.f, Top + 16.f, nullptr,
+    Canvas->SizeX < 900.f ? 0.82f : 1.f);
   const int32 Count = Hero->InventoryItemCodes.Num();
   const int32 PerPage = 8;
   const int32 Selected = FMath::Clamp(Hero->InventorySelection, 0, FMath::Max(0, Count - 1));
@@ -74,11 +203,177 @@ void AMoonfallCombatHUD::DrawHUD()
    DrawText(Row, Index == Selected ? FLinearColor::Yellow : FLinearColor::White,
       Left + 20.f, Y, nullptr, Canvas->SizeX < 900.f ? 0.75f : 0.9f);
   }
-  DrawText(TEXT("WASD / D-pad: select   Enter / Y: equip   Delete / X: salvage"),
+  DrawText(TEXT("W / S: select  A / D: tabs  Enter / Y: equip  Delete / X: salvage"),
      FLinearColor::White, Left + 18.f, Top + PanelHeight - 51.f, nullptr, 0.75f);
-  DrawText(TEXT("I / Select / Esc: close"), FLinearColor::White,
+  DrawText(TEXT("I / Select / Esc: close   K: character   J: quests   M: map"), FLinearColor::White,
      Left + 18.f, Top + PanelHeight - 28.f, nullptr, 0.8f);
   return;
+ }
+ // Compact north-up Raven Atlas prototype: only physically discovered
+ // chambers appear. Nearby unvisited chambers and quest locations remain blank.
+ // No additional HUD widget, radar actor or persistent tick allocation.
+ for (TActorIterator<AMoonfallArena> ArenaIt(GetWorld()); ArenaIt; ++ArenaIt) {
+  const AMoonfallArena* Arena = *ArenaIt;
+  if (!IsValid(Arena) || !Arena->bContinuousWorld) continue;
+  const float MapWidth = FMath::Clamp(Canvas->SizeX * 0.16f, 120.f, 184.f);
+  const float MapLeft = Canvas->SizeX - MapWidth - 18.f;
+  const float MapTop = 18.f;
+  const float CenterX = MapLeft + MapWidth * 0.5f;
+  const float CenterY = MapTop + MapWidth * 0.5f;
+  const float MapRadius = MapWidth * 0.44f;
+  const float Scale = MapRadius / 4800.f;
+  const FVector PlayerPos = Hero->GetActorLocation();
+  if (!FMath::IsFinite(PlayerPos.X) || !FMath::IsFinite(PlayerPos.Y)) break;
+  DrawRect(FLinearColor(0.025f, 0.035f, 0.07f, 0.9f),
+           MapLeft, MapTop, MapWidth, MapWidth);
+  // Low-cost terrain silhouettes are revealed only after entering a region.
+  // Unvisited regions remain black fog, even if nearby on the same map.
+  for (const int32 Region : Arena->GetDiscoveredRegions()) {
+   if (Region < 0 || Region >= 6) continue;
+   const float DX = (Region * 6000.f - PlayerPos.X) * Scale;
+   const float DY = PlayerPos.Y * Scale;
+   if (DX * DX + DY * DY > MapRadius * MapRadius) continue;
+   const FLinearColor Terrain[] = {
+    FLinearColor(0.31f,0.15f,0.12f,0.75f), FLinearColor(0.13f,0.29f,0.19f,0.75f),
+    FLinearColor(0.26f,0.38f,0.47f,0.75f), FLinearColor(0.22f,0.24f,0.45f,0.75f),
+    FLinearColor(0.36f,0.27f,0.17f,0.75f), FLinearColor(0.27f,0.16f,0.37f,0.75f)
+   };
+   DrawRect(Terrain[Region], CenterX + DX - 16.f, CenterY + DY - 16.f, 32.f, 32.f);
+  }
+  // Known dungeon entrances are marked independently of interior discoveries.
+  for (const int32 EntranceId : Arena->GetDiscoveredDungeonEntrances()) {
+   if (EntranceId < 0 || EntranceId >= 30) continue;
+   const int32 Region = EntranceId / 5;
+   const int32 Dungeon = EntranceId % 5;
+   const float WorldX = Region * 6000.f - 2200.f + Dungeon * 1100.f;
+   const float WorldY = 3600.f;
+   const float DX = (WorldX - PlayerPos.X) * Scale;
+   const float DY = (PlayerPos.Y - WorldY) * Scale;
+   if (DX * DX + DY * DY > MapRadius * MapRadius) continue;
+   const bool bTracked = EntranceId == Arena->GetTrackedDungeonQuestId();
+   const bool bComplete = Arena->IsDungeonQuestCompleted(EntranceId);
+   DrawRect(bComplete ? FLinearColor(0.3f, 0.85f, 0.44f)
+      : bTracked ? FLinearColor(1.f, 0.94f, 0.39f)
+      : FLinearColor(0.96f, 0.67f, 0.27f),
+    CenterX + DX - (bTracked ? 4.f : 3.f),
+    CenterY + DY - (bTracked ? 4.f : 3.f),
+    bTracked ? 8.f : 6.f, bTracked ? 8.f : 6.f);
+  }
+  for (const int32 RoomId : Arena->GetDiscoveredChambers()) {
+   if (RoomId < 0 || RoomId >= 420) continue;
+   const int32 Region = RoomId / 70;
+   const int32 Dungeon = (RoomId % 70) / 14;
+   const int32 Chamber = RoomId % 14;
+   // Matches MoonfallArena::RoomCenter; unknown coordinates remain hidden.
+   const float WorldX = Region * 6000.f - 2200.f + Dungeon * 1100.f;
+   const float WorldY = 3600.f + Chamber * 780.f;
+   const float DX = (WorldX - PlayerPos.X) * Scale;
+   const float DY = (PlayerPos.Y - WorldY) * Scale;
+   if (DX * DX + DY * DY > MapRadius * MapRadius) continue;
+   DrawRect(FLinearColor(0.55f, 0.65f, 0.85f, 0.90f),
+            CenterX + DX - 2.f, CenterY + DY - 2.f, 4.f, 4.f);
+  }
+  // A single high-contrast player marker; north remains screen-up.
+  DrawRect(FLinearColor(0.96f, 0.81f, 0.33f), CenterX - 3.f, CenterY - 3.f, 6.f, 6.f);
+  // Compact grounded objective, next to the map, not an extra combat overlay.
+  const int32 QuestId = Arena->GetTrackedDungeonQuestId();
+  if (QuestId >= 0 && QuestId < 30 &&
+      Arena->GetDiscoveredDungeonEntrances().Contains(QuestId)) {
+   const bool bComplete = Arena->IsDungeonQuestCompleted(QuestId);
+   const float TextScale = Canvas->SizeX < 800.f ? 0.72f : 0.84f;
+   DrawText(FString::Printf(TEXT("DUNGEON %d  |  %d / 30"),
+      QuestId + 1, Arena->GetCompletedDungeonQuestCount()),
+      FLinearColor(0.93f, 0.85f, 0.66f), MapLeft,
+      MapTop + MapWidth + 6.f, nullptr, TextScale);
+   const int32 ResidentsDefeated = Arena->GetDungeonResidentDefeatCount(QuestId);
+   const FString Objective = bComplete ? TEXT("Guardian defeated")
+     : ResidentsDefeated < 4
+       ? FString::Printf(TEXT("Defeat residents: %d / 4"), ResidentsDefeated)
+       : TEXT("Defeat the guardian");
+   DrawText(Objective, bComplete ? FLinearColor(0.38f, 0.95f, 0.5f)
+      : FLinearColor::White, MapLeft, MapTop + MapWidth + 23.f, nullptr, TextScale);
+   // Persistent capacity reward displayed without a new HUD widget or pickup.
+   DrawText(FString::Printf(TEXT("Guardian power: +%d max mana/stamina"),
+      Arena->GetCompletedDungeonQuestCount() * 3),
+      FLinearColor(0.72f, 0.83f, 1.f), MapLeft,
+      MapTop + MapWidth + 40.f, nullptr, TextScale * 0.8f);
+  }
+  break;
+ }
+ // Proximity-only quest guide prompt. Never advertises undiscovered quest pins.
+ for (TActorIterator<AMoonfallQuestGuide> GuideIt(GetWorld()); GuideIt; ++GuideIt) {
+  const AMoonfallQuestGuide* Guide = *GuideIt;
+  if (!IsValid(Guide)) continue;
+  if (FMath::Abs(Guide->GetActorLocation().Z - Hero->GetActorLocation().Z) > 250.f) continue;
+  if (FVector::DistSquared2D(Guide->GetActorLocation(), Hero->GetActorLocation()) >= FMath::Square(380.f))
+   continue;
+  DrawText(TEXT("R: Talk   T: Service   V: Craft   G/H: Social"),
+    FLinearColor(0.95f, 0.84f, 0.43f), FMath::Max(20.f, Canvas->SizeX * 0.38f),
+    Canvas->SizeY - 92.f, nullptr, 0.9f);
+  break;
+ }
+ // Dialogue feedback remains near the guide prompt, no separate menu or actor.
+ if (Hero->LastGuideRegionIndex >= 0 && Hero->LastGuideMessageUntil > GetWorld()->GetTimeSeconds()) {
+  const FString Speaker = Hero->LastGuideTitle.IsEmpty()
+    ? TEXT("Quest Guide") : Hero->LastGuideTitle;
+  FString GuideLine;
+  if (Hero->bLastCraftSucceeded)
+   GuideLine = FString::Printf(TEXT("%s: Crafted regional equipment for %d salvage."), *Speaker, Hero->LastCraftPrice);
+  else if (Hero->LastCraftPrice > 0 && Hero->LastNpcRole == 1 && Hero->LastServicePrice == 0)
+   GuideLine = FString::Printf(TEXT("%s: Craft %d salvage; workshop stock %d."),
+     *Speaker, Hero->LastCraftPrice, Hero->LastWorkshopStock);
+  else if (Hero->bLastServicePurchased)
+   GuideLine = FString::Printf(TEXT("%s: Service complete, %d salvage paid."), *Speaker, Hero->LastServicePrice);
+  else if (Hero->LastServicePrice > 0 && Hero->LastGuideSocialChoice == -1 &&
+           Hero->LastNpcRole > 0)
+   GuideLine = FString::Printf(TEXT("%s: %s service costs %d salvage."),
+      *Speaker, Hero->LastNpcRole == 1 ? TEXT("Mana") : TEXT("Stamina"), Hero->LastServicePrice);
+  else if (Hero->LastGuideSocialChoice == 0)
+   GuideLine = FString::Printf(TEXT("%s: I remember your kindness."), *Speaker);
+  else if (Hero->LastGuideSocialChoice == 1)
+   GuideLine = FString::Printf(TEXT("%s: Your threats will not be forgotten."), *Speaker);
+  else if (Hero->LastFactionStanding <= -45)
+   GuideLine = FString::Printf(TEXT("%s: Your reputation has unsettled this town."), *Speaker);
+  else if (Hero->LastFactionStanding >= 55)
+   GuideLine = FString::Printf(TEXT("%s: Our community speaks well of you."), *Speaker);
+  else if (Hero->LastGuideFear >= 50)
+   GuideLine = FString::Printf(TEXT("%s: Please, leave us in peace."), *Speaker);
+  else if (Hero->LastGuideTrust >= 55)
+   GuideLine = FString::Printf(TEXT("%s: Our region remembers what you have done."), *Speaker);
+  else if (Hero->LastNpcRole == 1)
+   GuideLine = FString::Printf(TEXT("%s: I make what this region needs."), *Speaker);
+  else if (Hero->LastNpcRole == 2)
+   GuideLine = FString::Printf(TEXT("%s: My watch keeps the roads safe."), *Speaker);
+  else if (!Hero->bLastGuideFoundQuest || Hero->LastGuideQuestId < 0)
+   GuideLine = FString::Printf(TEXT("%s: Discover an entrance first."), *Speaker);
+  else if (Hero->bLastGuideGuardianDefeated)
+   GuideLine = FString::Printf(TEXT("%s: Dungeon %d is liberated. Seek another."),
+     *Speaker, Hero->LastGuideQuestId + 1);
+  else if (Hero->LastGuideResidentDefeats >= 4)
+   GuideLine = FString::Printf(TEXT("%s: Dungeon %d guardian awaits."),
+     *Speaker, Hero->LastGuideQuestId + 1);
+  else
+   GuideLine = FString::Printf(TEXT("%s: Dungeon %d, residents %d of 4."),
+     *Speaker, Hero->LastGuideQuestId + 1,
+     FMath::Clamp(Hero->LastGuideResidentDefeats, 0, 4));
+  DrawText(GuideLine, FLinearColor(0.93f, 0.85f, 0.66f),
+    FMath::Max(18.f, Canvas->SizeX * 0.18f), Canvas->SizeY - 121.f,
+    nullptr, Canvas->SizeX < 900.f ? 0.70f : 0.88f);
+  DrawText(FString::Printf(TEXT("%s  |  %s"), *Hero->LastNpcPersonality, *Hero->LastNpcRoutine),
+    FLinearColor(0.86f,0.78f,0.97f), FMath::Max(18.f, Canvas->SizeX * 0.18f),
+    Canvas->SizeY - 85.f, nullptr, 0.72f);
+  if (Hero->LastNpcRole > 0 && Hero->LastServicePrice > 0)
+   DrawText(FString::Printf(TEXT("Supply %d / 100  |  Service %d salvage"),
+     Hero->LastSupplyRating, Hero->LastServicePrice),
+     FLinearColor(0.9f,0.8f,0.55f), FMath::Max(18.f, Canvas->SizeX * 0.18f),
+     Canvas->SizeY - 49.f, nullptr, 0.72f);
+  DrawText(FString::Printf(TEXT("Faction %d   Ally bond %d"),
+      Hero->LastFactionStanding, Hero->LastNpcAllyBond),
+    FLinearColor(0.80f,0.86f,0.97f), FMath::Max(18.f, Canvas->SizeX * 0.18f),
+    Canvas->SizeY - 67.f, nullptr, 0.72f);
+  DrawText(FString::Printf(TEXT("Trust %d   Fear %d"), Hero->LastGuideTrust, Hero->LastGuideFear),
+    FLinearColor(0.75f,0.85f,0.98f), FMath::Max(18.f, Canvas->SizeX * 0.18f),
+    Canvas->SizeY - 103.f, nullptr, 0.72f);
  }
  // Nearest living boss, displayed without creating additional widget actors.
  const AMoonfallEnemy* Boss = nullptr;
