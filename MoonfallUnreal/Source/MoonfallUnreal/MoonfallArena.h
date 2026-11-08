@@ -38,6 +38,11 @@ public:
  UFUNCTION(BlueprintPure, Category="Moonfall|NPC") int32 GetNpcFear(int32 NpcId) const;
  UFUNCTION(BlueprintPure, Category="Moonfall|NPC") int32 GetRegionalFactionStanding(int32 RegionIndex) const;
  UFUNCTION(BlueprintPure, Category="Moonfall|NPC") int32 GetNpcBond(int32 NpcId, int32 OtherNpcId) const;
+ // Deterministic regional trade pricing. Role 1: mana; role 2: stamina.
+ UFUNCTION(BlueprintPure, Category="Moonfall|Economy")
+ int32 GetRegionalServicePrice(int32 RegionIndex, int32 RoleIndex) const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Economy")
+ int32 GetRegionalSupplyRating(int32 RegionIndex) const;
 private:
  TSet<int32> BuiltRooms;
  TSet<int32> SpawnedEncounters;
