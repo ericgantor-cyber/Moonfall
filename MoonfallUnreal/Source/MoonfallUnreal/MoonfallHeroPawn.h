@@ -207,6 +207,7 @@ private:
  void EndGuard();
  void InventoryConfirm();
  void InventorySalvage();
+ void InteractQuestGuide();
  void OpenOptions();
  void OptionsUp();
  void OptionsDown();
