@@ -194,6 +194,10 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         spawn = self.hero_cpp.split("void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(", 1)[1].split(
             "void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[0]
         self.assertIn("RollEquipmentCode(bEliteEnemy, bBossEnemy)", spawn)
+        self.assertIn("const int32 DropCount = bBossEnemy ? 3 : (bEliteEnemy ? 2 : 1);", spawn)
+        self.assertIn("for (int32 Drop = 0; Drop < DropCount; ++Drop)", spawn)
+        self.assertIn("Spread * FMath::Cos(Angle)", spawn)
+        self.assertIn("Spread * FMath::Sin(Angle)", spawn)
         self.assertIn("SpawnActor<AMoonfallGroundLoot>", spawn)
         self.assertIn("Loot->InitializeLoot(ItemCode);", spawn)
         pickup = self.hero_cpp.split("void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[1].split(
@@ -307,6 +311,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         loot = self.hero_cpp.split("int32 AMoonfallHeroPawn::RollEquipmentCode(", 1)[1].split(
             "void AMoonfallHeroPawn::AwardEquipmentDrop(", 1)[0]
         self.assertIn("const int32 LootRoll = FMath::RandRange(0, 99);", loot)
+        self.assertIn("LastLootSlot = FMath::RandRange(0, 2);", loot)
         self.assertIn("const int32 RarityBias = FMath::Clamp(Level / 5, 0, 12);", loot)
         self.assertIn("LastLootRarity = bBossEnemy ? 3", loot)
         self.assertIn("(bEliteEnemy ? (LootRoll < 15 ? 3 : 2)", loot)
