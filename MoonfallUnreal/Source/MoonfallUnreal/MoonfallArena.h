@@ -43,6 +43,13 @@ public:
  int32 GetRegionalServicePrice(int32 RegionIndex, int32 RoleIndex) const;
  UFUNCTION(BlueprintPure, Category="Moonfall|Economy")
  int32 GetRegionalSupplyRating(int32 RegionIndex) const;
+ // Workshop stock is finite and save-backed; only artisans offer recipes.
+ UFUNCTION(BlueprintPure, Category="Moonfall|Economy")
+ int32 GetWorkshopStock(int32 RegionIndex) const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Economy")
+ int32 GetCraftingPrice(int32 RegionIndex) const;
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Economy")
+ bool PurchaseWorkshopStock(int32 RegionIndex);
 private:
  TSet<int32> BuiltRooms;
  TSet<int32> SpawnedEncounters;
@@ -64,6 +71,9 @@ private:
  static FVector GetResidentHome(int32 ResidentId);
  TMap<int32, float> LastGuideSocialActionAt;
  TMap<int32, TWeakObjectPtr<AMoonfallEnemy>> ActiveEncounters;
+ TArray<int32> WorkshopStock;
+ float NextWorkshopProductionAt = 0.f;
+ void AdvanceWorkshopProduction();
  bool bWorldSavePending = false;
  void LoadWorldProgress();
  void ObserveDefeatedEncounters();
