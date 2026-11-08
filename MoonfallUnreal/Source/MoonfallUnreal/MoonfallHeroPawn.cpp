@@ -315,7 +315,8 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
       && FMath::IsFinite(FinisherMomentumDamageMultiplier)
     ? FMath::Clamp(FinisherMomentumDamageMultiplier, 1.f, 1.5f) : 1.f;
   // Every connected same-target attack earns its own stage bonus.
-  // Stage 1: +0%, stage 2: +4%, stage 3: +8%, stage 4: +12%
+  // Twelve connected attacks can chain, but damage caps at the stage-four
+  // bonus. Longer sequences unlock posture milestones, not runaway damage.
   // at defaults. The current hit is not allowed to invent a previous hit.
   const float ComboWindow = FMath::IsFinite(HitComboWindowSeconds)
       ? FMath::Clamp(HitComboWindowSeconds, 0.5f, 4.f) : 2.f;
@@ -323,7 +324,7 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
   // different enemy starts its own chain rather than inheriting free damage.
   const bool bSameTarget = LastHitComboTarget.IsValid() && LastHitComboTarget.Get() == Enemy;
   const bool bComboAlive = bSameTarget && Time >= LastSuccessfulHitAt && Time - LastSuccessfulHitAt <= ComboWindow;
-  const int32 IncomingStage = bComboAlive ? FMath::Clamp(HitComboStage, 0, 4) : 0;
+  const int32 IncomingStage = bComboAlive ? FMath::Clamp(HitComboStage, 0, 12) : 0;
   const float ComboStepBonus = FMath::IsFinite(HitComboDamagePerStage)
       ? FMath::Clamp(HitComboDamagePerStage, 0.f, 0.12f) : 0.f;
   const float HitComboMultiplier = 1.f + ComboStepBonus * FMath::Clamp(IncomingStage, 0, 3);
@@ -341,12 +342,15 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
        ? FMath::Clamp(CombatRecoverySeconds, 0.f, 12.f) : 5.f));
   const float ActualSpellDamage = FMath::Clamp(HealthBeforeSpell - Enemy->Health, 0.f, HealthBeforeSpell);
   if (ActualSpellDamage > 0.f) {
-   HitComboStage = bComboAlive ? FMath::Min(HitComboStage + 1, 4) : 1;
+   HitComboStage = bComboAlive ? FMath::Min(HitComboStage + 1, 12) : 1;
    LastHitComboTarget = Enemy;
    LastSuccessfulHitAt = Time;
-   // One precise single-target posture strike on entering stage four.
-   // No pulse, no area effects, and no repeated fourth-hit farming.
-   if (HitComboStage == 4 && IncomingStage == 3 && Enemy->Health > 0.f
+   // Milestones are earned only once per uninterrupted same-target chain.
+   // Each fourth hit (4, 8, 12) adds bounded posture pressure, but no
+   // area hit, free health, or repeated reward when the chain is capped.
+   const bool bNewPostureMilestone = HitComboStage > IncomingStage
+       && (HitComboStage == 4 || HitComboStage == 8 || HitComboStage == 12);
+   if (bNewPostureMilestone && Enemy->Health > 0.f
        && FMath::IsFinite(HitComboFourthHitPosture) && HitComboFourthHitPosture > 0.f)
     Enemy->ApplyPostureDamage(FMath::Clamp(HitComboFourthHitPosture, 0.f, 30.f));
    OnSuccessfulHitCombo(HitComboStage, Hand == 0);
