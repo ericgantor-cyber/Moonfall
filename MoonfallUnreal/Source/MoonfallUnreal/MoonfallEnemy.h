@@ -12,6 +12,7 @@ public:
  virtual void Tick(float DeltaSeconds) override;
  virtual void BeginPlay() override;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Combat|Identity") FName ArchetypeName = NAME_None;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Combat|Identity") int32 RegionalAttackStyle = 0;
  UPROPERTY(EditAnywhere, Category="Combat") float ChaseSpeed = 180.f;
  UPROPERTY(EditAnywhere, Category="Combat") float AttackDamage = 8.f;
  UPROPERTY(EditAnywhere, Category="Combat") float AttackRange = 145.f;
