@@ -103,9 +103,13 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
  // Mana regenerates during gameplay and while a menu is open.
  const float MenuRecoveryBoost = (bOptionsOpen || bInventoryOpen) && FMath::IsFinite(MenuRecoveryMultiplier)
      ? FMath::Clamp(MenuRecoveryMultiplier, 1.f, 2.f) : 1.f;
+ // WoW-style pacing: combat mana regenerates more slowly; resting restores full pace.
+ const bool bInCombatRecoveryWindow = GetWorld() && GetWorld()->GetTimeSeconds() < CombatRecoveryEndsAt;
+ const float CombatManaFactor = bInCombatRecoveryWindow && FMath::IsFinite(CombatManaRegenMultiplier)
+     ? FMath::Clamp(CombatManaRegenMultiplier, 0.f, 1.f) : 1.f;
  if (Health > 0.f && FMath::IsFinite(Mana) && FMath::IsFinite(MaxMana) && MaxMana > 0.f
      && FMath::IsFinite(ManaRegenPerSecond) && ManaRegenPerSecond > 0.f && Mana < MaxMana)
-  Mana = FMath::Min(MaxMana, Mana + ManaRegenPerSecond * MenuRecoveryBoost
+  Mana = FMath::Min(MaxMana, Mana + ManaRegenPerSecond * MenuRecoveryBoost * CombatManaFactor
       * (1.f + FMath::Min(0.25f, AccessoryTier * 0.012f) + (AccessoryAffix == 3 ? 0.08f : 0.f))
       * FMath::Clamp(DeltaSeconds, 0.f, 0.1f));
  // Recovery in either menu is bounded and never revives a defeated hero.
@@ -292,6 +296,7 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
   Enemy->TakeSpellDamage(SpellDamage);
   const float ActualSpellDamage = FMath::Clamp(HealthBeforeSpell - Enemy->Health, 0.f, HealthBeforeSpell);
   if (ActualSpellDamage > 0.f) {
+   CombatRecoveryEndsAt = Time + FMath::Clamp(CombatRecoverySeconds, 0.f, 12.f);
    HitComboStage = bComboAlive ? FMath::Min(HitComboStage + 1, 4) : 1;
    LastHitComboTarget = Enemy;
    LastSuccessfulHitAt = Time;
@@ -512,6 +517,10 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
   Stamina = FMath::Clamp(Stamina - RequiredGuardCost, 0.f, MaxStamina);
   StaminaRegenStartsAt = Now + 0.8f;
   if (bPerfectParry) {
+   // Perfect timing returns a small amount of mana as well as stamina.
+   if (FMath::IsFinite(Mana) && FMath::IsFinite(MaxMana) && MaxMana > 0.f
+       && FMath::IsFinite(PerfectParryManaReward) && PerfectParryManaReward > 0.f)
+    Mana = FMath::Clamp(Mana + FMath::Clamp(PerfectParryManaReward, 0.f, 15.f), 0.f, MaxMana);
    bLastIncomingHitParried = bHasIncomingDamageSource;
    DamageAfterGuard = 0.f;
    ParryWindowEndsAt = -1.f;
@@ -533,6 +542,7 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
  // Fully blocked/parried hits leave it intact.
  const float DamageTaken = PreviousHealth - Health;
  if (DamageTaken > 0.f) {
+  CombatRecoveryEndsAt = Now + FMath::Clamp(CombatRecoverySeconds, 0.f, 12.f);
   // Prevent immediate menu healing after taking combat damage.
   MenuHealthRegenStartsAt = Now + FMath::Clamp(MenuHealthRegenDelaySeconds, 0.f, 10.f);
   ParryCounterUntil = -1.f;
