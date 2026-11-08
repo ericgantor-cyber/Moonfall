@@ -297,10 +297,12 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
   if (!FMath::IsFinite(SpellDamage) || SpellDamage <= 0.f) return false;
   const float HealthBeforeSpell = Enemy->Health;
   Enemy->TakeSpellDamage(SpellDamage);
+  // A valid hostile cast is combat even if enemy defenses absorb all HP damage.
+  // Combo stages, posture, and counter rewards still require real damage.
+  CombatRecoveryEndsAt = Time + (FMath::IsFinite(CombatRecoverySeconds)
+       ? FMath::Clamp(CombatRecoverySeconds, 0.f, 12.f) : 5.f);
   const float ActualSpellDamage = FMath::Clamp(HealthBeforeSpell - Enemy->Health, 0.f, HealthBeforeSpell);
   if (ActualSpellDamage > 0.f) {
-   CombatRecoveryEndsAt = Time + (FMath::IsFinite(CombatRecoverySeconds)
-        ? FMath::Clamp(CombatRecoverySeconds, 0.f, 12.f) : 5.f);
    HitComboStage = bComboAlive ? FMath::Min(HitComboStage + 1, 4) : 1;
    LastHitComboTarget = Enemy;
    LastSuccessfulHitAt = Time;
