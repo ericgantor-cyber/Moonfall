@@ -1163,7 +1163,7 @@ int32 AMoonfallHeroPawn::RollEquipmentCode(bool bEliteEnemy, bool bBossEnemy)
 void AMoonfallHeroPawn::AwardEquipmentDrop(bool bEliteEnemy, bool bBossEnemy)
 {
  const int32 ItemCode = RollEquipmentCode(bEliteEnemy, bBossEnemy);
- if (ItemCode <= 0) return;
+ if (ItemCode <= 0 || InventoryItemCodes.Num() >= 2048) return;
  const int32 NewTier = LastLootTier;
  // Do not reject new loot, automatically salvage, or silently discard items.
  // The paginated inventory supports growth beyond the former 30-slot limit.
@@ -1192,7 +1192,7 @@ void AMoonfallHeroPawn::AwardEquipmentDrop(bool bEliteEnemy, bool bBossEnemy)
 
 bool AMoonfallHeroPawn::CollectGroundEquipmentCode(int32 ItemCode)
 {
- if (Health <= 0.f || ItemCode <= 0) return false;
+ if (Health <= 0.f || ItemCode <= 0 || InventoryItemCodes.Num() >= 2048) return false;
  const int32 Affix = ItemCode / 100000;
  const int32 SlotIndex = (ItemCode / 10000) % 10;
  const int32 Rarity = (ItemCode / 1000) % 10;
@@ -1410,7 +1410,8 @@ void AMoonfallHeroPawn::CraftWithNearestArtisan()
   bLastServicePurchased = false;
   LastServicePrice = 0;
   LastGuideMessageUntil = GetWorld()->GetTimeSeconds() + 4.f;
-  if (LastCraftPrice <= 0 || LastWorkshopStock <= 0 || Salvage < LastCraftPrice) return;
+  if (LastCraftPrice <= 0 || LastWorkshopStock <= 0 || Salvage < LastCraftPrice ||
+      InventoryItemCodes.Num() >= 2048) return;
   // Six regional recipes: three item slots and region-specific traits.
   // Higher supply from genuine guardian victories unlocks rare craft quality.
   // All codes obey the existing item decoder and are never auto-equipped.
