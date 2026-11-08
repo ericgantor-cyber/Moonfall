@@ -151,8 +151,10 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         damage = self.hero_cpp.split("void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount)", 1)[1].split(
             "void AMoonfallHeroPawn::CycleGraphicsQuality()", 1)[0]
         self.assertIn("if (Health <= 0.f) {", damage)
+        self.assertIn("EndSprint();", damage)
         self.assertIn("EndGuard();", damage)
         self.assertIn("bInventoryOpen = false;", damage)
+        self.assertLess(damage.index("EndSprint();"), damage.index("EndGuard();"))
         self.assertLess(damage.index("if (Health <= 0.f) {"), damage.index("bInventoryOpen = false;"))
 
     def test_keyboard_controller_inventory_overlay_navigation_and_equip(self):
@@ -1191,7 +1193,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(damage.index("const float DamageTaken = PreviousHealth - Health;"),
                         damage.index("if (DamageTaken > 0.f) {",))
         self.assertLess(damage.index("if (DamageTaken > 0.f) {",),
-                        damage.index("if (Health <= 0.f) {\n  EndGuard();"))
+                        damage.index("if (Health <= 0.f) {\n  // Clear any held sprint so a later respawn cannot inherit it.\n  EndSprint();\n  EndGuard();"))
         break_guard = self.hero_cpp.split("void AMoonfallHeroPawn::BreakGuard()", 1)[1].split(
             "void AMoonfallHeroPawn::BeginGuard()", 1)[0]
         self.assertIn("ParryCounterUntil = -1.f;", break_guard)
@@ -1292,7 +1294,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('void AMoonfallHeroPawn::EndGuard()', self.hero_cpp)
         self.assertIn("NextParryAt = Now + FMath::Clamp(ParryCooldownSeconds, 0.3f, 2.f);", self.hero_cpp)
         self.assertIn("Stamina < GuardStaminaCost) return;", self.hero_cpp)
-        self.assertIn("if (Health <= 0.f) {\n  EndGuard();\n  // Defeat must not leave the inventory overlay trapping the player.\n  bInventoryOpen = false;\n }", self.hero_cpp)
+        self.assertIn("if (Health <= 0.f) {\n  // Clear any held sprint so a later respawn cannot inherit it.\n  EndSprint();\n  EndGuard();\n  // Defeat must not leave the inventory overlay trapping the player.\n  bInventoryOpen = false;\n }", self.hero_cpp)
         self.assertIn("ParryWindowEndsAt = -1.f", self.hero_cpp)
         self.assertIn("DamageAfterGuard *= 0.4f", self.hero_cpp)
         self.assertIn("Stamina = FMath::Clamp(Stamina - RequiredGuardCost, 0.f, MaxStamina)", self.hero_cpp)
