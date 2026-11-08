@@ -1754,7 +1754,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
     def test_divine_telegraph_event_observes_committed_cast_clock(self):
         enemy = self.enemy_cpp
         start = enemy.index("++DivineSignatureCastCount;")
-        end = enemy.index("\\n  }\\n }\\n}", start)
+        end = enemy.index("OnDivineAttackTelegraphed(", start) + len("OnDivineAttackTelegraphed(") + 120
         cast = enemy[start:end]
         self.assertIn("WindupEndsAt = Now + CurrentWindup;", cast)
         self.assertIn("if (bBoss) BossWarningEndTime = WindupEndsAt;", cast)
