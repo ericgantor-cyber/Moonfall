@@ -577,6 +577,9 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
   LastSuccessfulHitAt = -100.f;
  }
  if (Health <= 0.f) {
+  // Prevent lingering movement/jump input from carrying through defeat.
+  StopJumping();
+  if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
   // Clear any held sprint so a later respawn cannot inherit it.
   EndSprint();
   EndGuard();
@@ -611,6 +614,8 @@ void AMoonfallHeroPawn::ToggleDisplayMode() {
 void AMoonfallHeroPawn::ToggleInventory() {
  if (bOptionsOpen || Health <= 0.f) return;
  if (!bInventoryOpen) {
+  StopJumping();
+  if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
   EndSprint();
   EndGuard();
   InventorySelection = FMath::Clamp(InventorySelection, 0, FMath::Max(0, InventoryItemCodes.Num() - 1));
@@ -660,6 +665,8 @@ void AMoonfallHeroPawn::InventoryConfirm() { EquipSelectedInventoryItem(); }
 void AMoonfallHeroPawn::OpenOptions() {
  if (bInventoryOpen) { bInventoryOpen = false; return; }
  if (!bOptionsOpen) {
+  StopJumping();
+  if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
   EndSprint();
   EndGuard();
  }
