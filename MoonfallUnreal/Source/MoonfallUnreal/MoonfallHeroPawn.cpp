@@ -520,7 +520,11 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
   LastHitComboTarget.Reset();
   LastSuccessfulHitAt = -100.f;
  }
- if (Health <= 0.f) EndGuard();
+ if (Health <= 0.f) {
+  EndGuard();
+  // Defeat must not leave the inventory overlay trapping the player.
+  bInventoryOpen = false;
+ }
  if (!bReduceMotion) ImpactCameraOffset = FMath::Clamp(ImpactCameraOffset + FMath::Min(DamageTaken * 0.5f, 18.f), 0.f, 24.f);
  OnDamageImpact(DamageTaken);
  OnHealthChanged(Health, MaxHealth);
