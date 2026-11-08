@@ -45,7 +45,8 @@ void AMoonfallCombatHUD::DrawHUD()
   const int32 Selected = FMath::Clamp(Hero->InventorySelection, 0, FMath::Max(0, Count - 1));
   const int32 PageStart = Selected / PerPage * PerPage;
   const int32 PageEnd = FMath::Min(Count, PageStart + PerPage);
-  DrawText(FString::Printf(TEXT("%d items  |  page %d / %d"), Count, PageStart / PerPage + 1,
+  DrawText(FString::Printf(TEXT("%d items  |  %d salvage  |  page %d / %d"),
+    Count, Hero->Salvage, PageStart / PerPage + 1,
     FMath::Max(1, (Count + PerPage - 1) / PerPage)), FLinearColor(0.75f,0.72f,0.91f),
     Left + 18.f, Top + 49.f, nullptr, 0.9f);
   if (Count == 0)
@@ -73,7 +74,7 @@ void AMoonfallCombatHUD::DrawHUD()
    DrawText(Row, Index == Selected ? FLinearColor::Yellow : FLinearColor::White,
       Left + 20.f, Y, nullptr, Canvas->SizeX < 900.f ? 0.75f : 0.9f);
   }
-  DrawText(TEXT("WASD / Arrows / D-pad: select   Enter / Y / Left / Right: equip"),
+  DrawText(TEXT("WASD / D-pad: select   Enter / Y: equip   Delete / X: salvage"),
      FLinearColor::White, Left + 18.f, Top + PanelHeight - 51.f, nullptr, 0.75f);
   DrawText(TEXT("I / Select / Esc: close"), FLinearColor::White,
      Left + 18.f, Top + PanelHeight - 28.f, nullptr, 0.8f);
