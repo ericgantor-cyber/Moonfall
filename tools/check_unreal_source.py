@@ -1710,6 +1710,20 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                         tick.index("if (WindupEndsAt < 0.f && Now >= NextAttackAt) {"))
         self.assertEqual(tick.count("Nav->FindPathToLocationSynchronously("), 1)
 
+    def test_wall_obstacle_escape_is_swept_time_bounded_and_does_not_add_nav_solves(self):
+        tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
+        self.assertIn("float NextObstacleSidestepAt = 0.f;", self.enemy_h)
+        self.assertIn("int32 ObstacleSidestepCount = 0;", self.enemy_h)
+        self.assertIn("if (Hit.bBlockingHit && Now >= NextObstacleSidestepAt", tick)
+        self.assertIn("SafeAIDelta > 0.f && !Direction.IsNearlyZero()", tick)
+        self.assertIn("NextObstacleSidestepAt = Now + 0.6f;", tick)
+        self.assertIn("ObstacleSidestepCount++", tick)
+        self.assertIn("120.f * SafeAIDelta", tick)
+        self.assertIn("AddActorWorldOffset(EscapeStep, true, &EscapeHit);", tick)
+        self.assertIn("if (Hit.bBlockingHit && Now >= NextBlockedRepathAt)", tick)
+        self.assertEqual(tick.count("Nav->FindPathToLocationSynchronously("), 1)
+        self.assertEqual(tick.count("Nav->ProjectPointToNavigation("), 1)
+
     def test_enemy_formation_lanes_spread_pursuit_without_more_nav_lookups(self):
         tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
         self.assertIn("if (Distance > AttackRange * 2.f && Distance < 900.f)", tick)
