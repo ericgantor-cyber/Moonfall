@@ -193,6 +193,7 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("Options"), IE_Pressed, this, &AMoonfallHeroPawn::OpenOptions);
  Input->BindAction(TEXT("Inventory"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleInventory);
  Input->BindAction(TEXT("InventoryConfirm"), IE_Pressed, this, &AMoonfallHeroPawn::InventoryConfirm);
+ Input->BindAction(TEXT("InventorySalvage"), IE_Pressed, this, &AMoonfallHeroPawn::InventorySalvage);
  Input->BindAction(TEXT("OptionsUp"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsUp);
  Input->BindAction(TEXT("OptionsDown"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsDown);
  Input->BindAction(TEXT("OptionsLeft"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsLeft);
@@ -553,6 +554,32 @@ void AMoonfallHeroPawn::ToggleInventory() {
 void AMoonfallHeroPawn::EquipSelectedInventoryItem() {
  if (!bInventoryOpen || !InventoryItemCodes.IsValidIndex(InventorySelection)) return;
  EquipInventoryItem(InventorySelection);
+}
+void AMoonfallHeroPawn::SalvageSelectedInventoryItem() {
+ if (bInventoryOpen) SalvageInventoryItem(InventorySelection);
+}
+void AMoonfallHeroPawn::InventorySalvage() { SalvageSelectedInventoryItem(); }
+bool AMoonfallHeroPawn::SalvageInventoryItem(int32 InventoryIndex)
+{
+ if (Health <= 0.f || !InventoryItemCodes.IsValidIndex(InventoryIndex)) return false;
+ const int32 Code = InventoryItemCodes[InventoryIndex];
+ if (Code <= 0 || Code == EquippedWeaponCode || Code == EquippedArmorCode
+     || Code == EquippedAccessoryCode) return false;
+ const int32 Affix = Code / 100000;
+ const int32 SlotIndex = (Code / 10000) % 10;
+ const int32 Rarity = (Code / 1000) % 10;
+ const int32 Tier = Code % 1000;
+ if (Affix < 0 || Affix > 3 || SlotIndex < 0 || SlotIndex > 2
+     || Rarity < 0 || Rarity > 3 || Tier < 1 || Tier > 25
+     || (Rarity == 0 && Affix != 0)
+     || Code != Affix * 100000 + SlotIndex * 10000 + Rarity * 1000 + Tier)
+  return false;
+ // Higher rarity/tier gear produces more salvage, never exceeding the cap.
+ const int32 SalvageReward = 1 + Rarity * 2 + Tier / 5;
+ Salvage = FMath::Clamp(Salvage + SalvageReward, 0, 9999);
+ InventoryItemCodes.RemoveAt(InventoryIndex);
+ InventorySelection = FMath::Clamp(InventorySelection, 0, FMath::Max(0, InventoryItemCodes.Num() - 1));
+ return true;
 }
 void AMoonfallHeroPawn::InventoryConfirm() { EquipSelectedInventoryItem(); }
 void AMoonfallHeroPawn::OpenOptions() {
