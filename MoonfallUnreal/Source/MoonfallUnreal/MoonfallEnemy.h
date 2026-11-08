@@ -60,6 +60,9 @@ private:
  float NextAttackAt = 0.f;
  float NextPathRefreshAt = 0.f;
  float NextBlockedRepathAt = 0.f;
+ // Brief tactical withdrawal for wounded elites, with a long re-use cooldown.
+ float TacticalRetreatUntil = -1.f;
+ float NextTacticalRetreatAt = 0.f;
  FVector CachedWaypoint = FVector::ZeroVector;
  FVector LockedAttackDirection = FVector::ZeroVector;
  float WindupEndsAt = -1.f;
