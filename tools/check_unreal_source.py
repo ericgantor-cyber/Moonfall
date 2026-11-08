@@ -151,7 +151,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
         for binding in ('ActionName="Inventory",Key=I', 'ActionName="Inventory",Key=Gamepad_Special_Left',
                         'ActionName="InventoryConfirm",Key=Enter',
-                        'ActionName="InventoryConfirm",Key=Gamepad_FaceButton_Bottom'):
+                        'ActionName="InventoryConfirm",Key=Gamepad_FaceButton_Top'):
             self.assertIn(binding, inputs)
         self.assertIn("bool bInventoryOpen = false;", self.hero_h)
         self.assertIn("int32 InventorySelection = 0;", self.hero_h)
