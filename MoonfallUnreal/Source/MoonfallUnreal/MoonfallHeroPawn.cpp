@@ -269,6 +269,9 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
   if (!GetWorld()->LineTraceSingleByChannel(Hit, Origin, End, ECC_Visibility, Params)) return false;
   AMoonfallEnemy* Enemy = Cast<AMoonfallEnemy>(Hit.GetActor());
   if (!IsValid(Enemy) || Enemy->Health <= 0.f) return false;
+  // Reject corrupted target resource state before damage, mana cost or combo rewards.
+  if (!FMath::IsFinite(Enemy->Health) || !FMath::IsFinite(Enemy->MaxHealth)
+      || Enemy->MaxHealth <= 0.f) return false;
   // The first successful hostile spell shortly after a perfect parry is
   // empowered. Misses, invalid targets and healing cannot spend the opening.
   const bool bCounterReady = Time <= ParryCounterUntil
