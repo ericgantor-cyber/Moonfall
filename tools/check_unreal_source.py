@@ -1635,7 +1635,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
     def test_fourth_hit_has_full_damage_bonus_and_expiring_combo_clears(self):
         cast = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split(
             "void AMoonfallHeroPawn::CastLeft()", 1)[0]
-        self.assertIn("HitComboMultiplier = 1.f + ComboStepBonus * FMath::Clamp(IncomingStage, 0, 3);", cast)
+        self.assertIn("HitComboMultiplier = 1.f + ComboStepBonus * FMath::Clamp(EffectiveIncomingStage, 0, 3);", cast)
         self.assertNotIn("FMath::Max(0, IncomingStage - 1)", cast)
         self.assertIn("IncomingStage = bComboAlive ? FMath::Clamp(HitComboStage, 0, 12) : 0;", cast)
         tick = self.hero_cpp.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1].split(
@@ -1665,7 +1665,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("HitComboMultiplier = 1.f + ComboStepBonus", cast)
         self.assertIn("* CounterMultiplier * MomentumBonus * HitComboMultiplier;", cast)
         self.assertIn("if (ActualSpellDamage > 0.f) {", cast)
-        self.assertIn("HitComboStage = bComboAlive ? FMath::Min(HitComboStage + 1, 12) : 1;", cast)
+        self.assertIn("HitComboStage = bComboAlive ? (IncomingStage >= 12 ? 1 : IncomingStage + 1) : 1;", cast)
+        self.assertIn("const int32 EffectiveIncomingStage = IncomingStage == 12 ? 0 : IncomingStage;", cast)
+        self.assertIn("FMath::Clamp(EffectiveIncomingStage, 0, 3)", cast)
         self.assertIn("LastSuccessfulHitAt = Time;", cast)
         self.assertIn("OnSuccessfulHitCombo(HitComboStage, Hand == 0);", cast)
         self.assertLess(cast.index("const float ActualSpellDamage ="),
