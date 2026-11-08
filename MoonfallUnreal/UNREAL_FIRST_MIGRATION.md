@@ -103,3 +103,10 @@ Each region's three civilian NPCs now have deterministic **trusting guide–arti
 Each region exposes a bounded faction standing in [−100, +100] based on all three residents' individual trust, real guardian-victory reputation and half-weighted fear. The existing NPC interaction HUD now displays local faction standing and guide bond, with distinct reactions for strongly supportive or hostile communities. These changes do not fabricate regional quest completion or reveal undiscovered map coordinates.
 
 **Limitations:** Rule-based local relationships, not a comprehensive family tree, simulated economic system, or autonomous NPC conversations; native UE 5.4 compile, multiplayer authority, restart save verification and playtesting remain necessary. Godot and original Z/Nyra art are untouched.
+
+## Fable-inspired living population: occupational shifts and interaction reactions
+The 18 civilian prototypes now share a compact local **eight-minute day cycle** split into four 120-second shifts. Guide, artisan and scout roles map those shifts into deterministic work, market, watch, patrol, rest and night-watch activities. Each NPC moves between a small set of nearby waypoints using a half-second, hero-proximity-gated update and collision sweeps; no AI controller, citywide navigation graph or new actor spawning is required. This is a simulation clock, not real-time day/night sky and lighting. NPCs do not advance or time out quests.
+
+During conversations, the NPC pauses movement for five seconds and uses existing primitive arm meshes for a simple trust/fear-dependent greeting or wary stance. Disposition is derived from existing persistent individual relationships and regional deeds. These are placeholder poses, **not skeletal animation or authored speech**. The existing social-choice, quest, fog and save contracts remain unchanged.
+
+Verification required before playable Unreal release: native Unreal 5.4 C++ Editor compile, in-game shifts and wall collision checks, 18-NPC perf profile, animated asset authoring, controller input, save/restart and Windows packaging.
