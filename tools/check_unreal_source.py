@@ -147,6 +147,14 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("void AMoonfallEnemy::BeginPlay()", self.enemy_cpp)
         self.assertIn("Hero->SpawnGroundEquipmentDrop", self.enemy_cpp)
 
+    def test_death_closes_inventory_overlay(self):
+        damage = self.hero_cpp.split("void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount)", 1)[1].split(
+            "void AMoonfallHeroPawn::CycleGraphicsQuality()", 1)[0]
+        self.assertIn("if (Health <= 0.f) {", damage)
+        self.assertIn("EndGuard();", damage)
+        self.assertIn("bInventoryOpen = false;", damage)
+        self.assertLess(damage.index("if (Health <= 0.f) {"), damage.index("bInventoryOpen = false;"))
+
     def test_keyboard_controller_inventory_overlay_navigation_and_equip(self):
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
         for binding in ('ActionName="Inventory",Key=I', 'ActionName="Inventory",Key=Gamepad_Special_Left',
