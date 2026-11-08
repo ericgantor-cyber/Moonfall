@@ -100,9 +100,33 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
  // Bounded camera impulse, no camera shake object or spawned effects.
  ImpactCameraOffset = FMath::FInterpTo(ImpactCameraOffset, 0.f, FMath::Max(0.f, DeltaSeconds), 12.f);
  if (CameraBoom) CameraBoom->TargetArmLength = 450.f + (bReduceMotion ? 0.f : ImpactCameraOffset);
- if (Health > 0.f && Mana < MaxMana) Mana = FMath::Min(MaxMana, Mana + ManaRegenPerSecond * (1.f + FMath::Min(0.25f, AccessoryTier * 0.012f) + (AccessoryAffix == 3 ? 0.08f : 0.f)) * FMath::Max(0.f, DeltaSeconds));
+ // Mana regenerates during gameplay and while a menu is open.
+ const float SafeRecoveryDelta = FMath::IsFinite(DeltaSeconds) ? FMath::Clamp(DeltaSeconds, 0.f, 0.1f) : 0.f;
+ const float MenuRecoveryBoost = (bOptionsOpen || bInventoryOpen) && FMath::IsFinite(MenuRecoveryMultiplier)
+     ? FMath::Clamp(MenuRecoveryMultiplier, 1.f, 2.f) : 1.f;
+ // WoW-style pacing: combat mana regenerates more slowly; resting restores full pace.
+ const bool bInCombatRecoveryWindow = GetWorld() && GetWorld()->GetTimeSeconds() < CombatRecoveryEndsAt;
+ const float CombatManaFactor = bInCombatRecoveryWindow
+     ? (FMath::IsFinite(CombatManaRegenMultiplier)
+         ? FMath::Clamp(CombatManaRegenMultiplier, 0.f, 1.f) : 0.5f) : 1.f;
+ if (Health > 0.f && FMath::IsFinite(Mana) && FMath::IsFinite(MaxMana) && MaxMana > 0.f
+     && FMath::IsFinite(ManaRegenPerSecond) && ManaRegenPerSecond > 0.f && Mana >= 0.f && Mana < MaxMana)
+  Mana = FMath::Min(MaxMana, Mana + FMath::Clamp(ManaRegenPerSecond, 0.f, 250.f) * MenuRecoveryBoost * CombatManaFactor
+      * (1.f + FMath::Clamp(AccessoryTier * 0.012f, 0.f, 0.25f) + (AccessoryAffix == 3 ? 0.08f : 0.f))
+      * SafeRecoveryDelta);
+ // Recovery in either menu is bounded and never revives a defeated hero.
+ if ((bOptionsOpen || bInventoryOpen) && Health > 0.f && FMath::IsFinite(Health)
+     && FMath::IsFinite(MaxHealth) && MaxHealth > 0.f && Health < MaxHealth
+     && FMath::IsFinite(MenuHealthRegenPerSecond) && MenuHealthRegenPerSecond > 0.f
+     && GetWorld() && GetWorld()->GetTimeSeconds() >= MenuHealthRegenStartsAt
+     && !bInCombatRecoveryWindow) {
+  const float BeforeRegen = Health;
+  Health = FMath::Min(MaxHealth, Health + FMath::Clamp(MenuHealthRegenPerSecond, 0.f, 20.f)
+      * SafeRecoveryDelta);
+  if (Health > BeforeRegen) OnHealthChanged(Health, MaxHealth);
+ }
  // Sprint drains only while moving, and never drains while paused in Options.
- const float StaminaDelta = FMath::Clamp(DeltaSeconds, 0.f, 0.1f);
+ const float StaminaDelta = SafeRecoveryDelta;
  // Exhaustion requires releasing sprint before another burst; guard and dodge
  // immediately cancel sprint speed so defense cannot inherit a free boost.
  if (!FMath::IsFinite(Stamina) || !FMath::IsFinite(MaxStamina) || MaxStamina <= 0.f) {
@@ -170,7 +194,7 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
  if (Health > 0.f && !bSprinting && !bGuarding && GetWorld() && GetWorld()->GetTimeSeconds() >= StaminaRegenStartsAt
      && FMath::IsFinite(Stamina) && FMath::IsFinite(MaxStamina) && MaxStamina > 0.f
      && FMath::IsFinite(StaminaRegenPerSecond) && StaminaRegenPerSecond > 0.f) {
-  Stamina = FMath::Clamp(Stamina + StaminaRegenPerSecond * StaminaDelta, 0.f, MaxStamina);
+  Stamina = FMath::Clamp(Stamina + FMath::Clamp(StaminaRegenPerSecond, 0.f, 250.f) * StaminaDelta * MenuRecoveryBoost, 0.f, MaxStamina);
  }
 }
 void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
@@ -273,6 +297,12 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
   if (!FMath::IsFinite(SpellDamage) || SpellDamage <= 0.f) return false;
   const float HealthBeforeSpell = Enemy->Health;
   Enemy->TakeSpellDamage(SpellDamage);
+  // A valid hostile cast is combat even if enemy defenses absorb all HP damage.
+  // Combo stages, posture, and counter rewards still require real damage.
+  CombatRecoveryEndsAt = FMath::Max(
+       FMath::IsFinite(CombatRecoveryEndsAt) ? CombatRecoveryEndsAt : 0.f,
+       Time + (FMath::IsFinite(CombatRecoverySeconds)
+       ? FMath::Clamp(CombatRecoverySeconds, 0.f, 12.f) : 5.f));
   const float ActualSpellDamage = FMath::Clamp(HealthBeforeSpell - Enemy->Health, 0.f, HealthBeforeSpell);
   if (ActualSpellDamage > 0.f) {
    HitComboStage = bComboAlive ? FMath::Min(HitComboStage + 1, 4) : 1;
@@ -350,6 +380,8 @@ void AMoonfallHeroPawn::BeginGuard()
      || !FMath::IsFinite(Stamina) || !FMath::IsFinite(MaxStamina) || MaxStamina <= 0.f
      || !FMath::IsFinite(GuardStaminaCost) || GuardStaminaCost < 0.f
      || Stamina < GuardStaminaCost) return;
+ // A new guard stance cancels held sprint instead of resuming it on release.
+ EndSprint();
  bGuarding = true;
  if (GetCharacterMovement()) {
   const float GuardMultiplier = FMath::IsFinite(GuardMoveSpeedMultiplier)
@@ -489,10 +521,19 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
      && FMath::IsFinite(Stamina) && FMath::IsFinite(MaxStamina) && MaxStamina > 0.f
      && bValidGuardCost && FMath::IsFinite(RequiredGuardCost)
      && Stamina >= RequiredGuardCost) {
+  // Successful blocks and parries both count as active combat.
+  CombatRecoveryEndsAt = FMath::Max(
+       FMath::IsFinite(CombatRecoveryEndsAt) ? CombatRecoveryEndsAt : 0.f,
+       Now + (FMath::IsFinite(CombatRecoverySeconds)
+      ? FMath::Clamp(CombatRecoverySeconds, 0.f, 12.f) : 5.f));
   // Physical defense uses the same stamina pool as sprinting and dodging.
   Stamina = FMath::Clamp(Stamina - RequiredGuardCost, 0.f, MaxStamina);
   StaminaRegenStartsAt = Now + 0.8f;
   if (bPerfectParry) {
+   // Perfect timing returns a small amount of mana as well as stamina.
+   if (FMath::IsFinite(Mana) && FMath::IsFinite(MaxMana) && MaxMana > 0.f
+       && FMath::IsFinite(PerfectParryManaReward) && PerfectParryManaReward > 0.f)
+    Mana = FMath::Clamp(Mana + FMath::Clamp(PerfectParryManaReward, 0.f, 15.f), 0.f, MaxMana);
    bLastIncomingHitParried = bHasIncomingDamageSource;
    DamageAfterGuard = 0.f;
    ParryWindowEndsAt = -1.f;
@@ -514,6 +555,13 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
  // Fully blocked/parried hits leave it intact.
  const float DamageTaken = PreviousHealth - Health;
  if (DamageTaken > 0.f) {
+  CombatRecoveryEndsAt = FMath::Max(
+       FMath::IsFinite(CombatRecoveryEndsAt) ? CombatRecoveryEndsAt : 0.f,
+       Now + (FMath::IsFinite(CombatRecoverySeconds)
+       ? FMath::Clamp(CombatRecoverySeconds, 0.f, 12.f) : 5.f));
+  // Prevent immediate menu healing after taking combat damage.
+  MenuHealthRegenStartsAt = Now + (FMath::IsFinite(MenuHealthRegenDelaySeconds)
+       ? FMath::Clamp(MenuHealthRegenDelaySeconds, 0.f, 10.f) : 3.f);
   ParryCounterUntil = -1.f;
   // A real injury breaks the aggressive momentum chain. Parries and blocks
   // still preserve it, so defensive skill matters.
@@ -523,6 +571,8 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
   LastSuccessfulHitAt = -100.f;
  }
  if (Health <= 0.f) {
+  // Clear any held sprint so a later respawn cannot inherit it.
+  EndSprint();
   EndGuard();
   // Defeat must not leave the inventory overlay trapping the player.
   bInventoryOpen = false;
@@ -686,6 +736,11 @@ int32 AMoonfallHeroPawn::RegisterFinisherKill(bool bShatterKill, bool bBossKill,
 {
  if (Health <= 0.f || !GetWorld()) return 0;
  const float Now = GetWorld()->GetTimeSeconds();
+ // A confirmed finisher is combat, not a safe rest window.
+ CombatRecoveryEndsAt = FMath::Max(
+       FMath::IsFinite(CombatRecoveryEndsAt) ? CombatRecoveryEndsAt : 0.f,
+       Now + (FMath::IsFinite(CombatRecoverySeconds)
+     ? FMath::Clamp(CombatRecoverySeconds, 0.f, 12.f) : 5.f));
  const float Window = FMath::IsFinite(FinisherChainWindowSeconds)
    ? FMath::Clamp(FinisherChainWindowSeconds, 0.5f, 10.f) : 4.f;
  const bool bContinueChain = Now >= LastFinisherKillAt && Now - LastFinisherKillAt <= Window;
