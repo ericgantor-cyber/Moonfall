@@ -60,6 +60,31 @@ class WorldFoundationTests(unittest.TestCase):
         self.assertEqual(len({i for i in valid if i >= 18}), 150)
         self.assertEqual(len(valid & set(range(18))), 18)
 
+    def test_eighteen_region_enemy_profiles(self):
+        import re
+        enemy = (ROOT / "MoonfallUnreal/Source/MoonfallUnreal/MoonfallEnemy.h").read_text(encoding="utf-8")
+        block = CPP.split("constexpr FRegionalEnemyProfile RegionalEnemyProfiles[18] = {", 1)[1].split("};", 1)[0]
+        entries = re.findall(r'\{TEXT\("([^"]+)"\),\s*([0-9.]+)f,\s*([0-9.]+)f,\s*([0-9.]+)f,\s*([0-9.]+)f,\s*([0-9.]+)f,\s*([0-9.]+)f\}', block)
+        self.assertEqual(len(entries), 18)
+        self.assertEqual(len({entry[0] for entry in entries}), 18)
+        for entry in entries:
+            hp, damage, speed, reach, cooldown, posture = (float(v) for v in entry[1:])
+            self.assertTrue(0.6 <= hp <= 2.1)
+            self.assertTrue(0.7 <= damage <= 1.7)
+            self.assertTrue(0.6 <= speed <= 1.6)
+            self.assertTrue(0.8 <= reach <= 1.25)
+            self.assertTrue(0.7 <= cooldown <= 1.6)
+            self.assertTrue(0.7 <= posture <= 2.2)
+        for region in range(6):
+            self.assertEqual(len(set(entries[region * 3:region * 3 + 3])), 3)
+        self.assertIn("Enemy->ArchetypeName = FName(Profile.Name);", CPP)
+        self.assertIn("Enemy->bElite = Id % 3 == 2;", CPP)
+        self.assertIn("ArchetypeName", enemy)
+        for stat in ("Health", "AttackDamage", "ChaseSpeed", "AttackRange", "AttackCooldown", "MaxPosture"):
+            self.assertIn("Enemy->" + stat + " = FMath::Clamp(", CPP)
+        self.assertIn("if (Id >= 0 && Id < 18)", CPP)
+        self.assertIn("SpawnedOne = SpawnEncounter(Id, At, Region, false, false)", CPP)
+
     def test_connected_geometry(self):
         self.assertIn("Region * RegionSpacing", CPP)
         self.assertIn("FVector(60.f, 60.f, 1.f)", CPP)
