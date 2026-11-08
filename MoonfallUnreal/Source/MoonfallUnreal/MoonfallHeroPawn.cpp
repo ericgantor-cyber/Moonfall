@@ -191,6 +191,8 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("GraphicsQuality"), IE_Pressed, this, &AMoonfallHeroPawn::CycleGraphicsQuality);
  Input->BindAction(TEXT("DisplayMode"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleDisplayMode);
  Input->BindAction(TEXT("Options"), IE_Pressed, this, &AMoonfallHeroPawn::OpenOptions);
+ Input->BindAction(TEXT("Inventory"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleInventory);
+ Input->BindAction(TEXT("InventoryConfirm"), IE_Pressed, this, &AMoonfallHeroPawn::InventoryConfirm);
  Input->BindAction(TEXT("OptionsUp"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsUp);
  Input->BindAction(TEXT("OptionsDown"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsDown);
  Input->BindAction(TEXT("OptionsLeft"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsLeft);
@@ -198,7 +200,7 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
 }
 void AMoonfallHeroPawn::MoveForward(float Value)
 {
- if (bOptionsOpen) return;
+ if (bOptionsOpen || bInventoryOpen) return;
  if (Controller && !FMath::IsNearlyZero(Value))
  {
   const FRotator Yaw(0.f, Controller->GetControlRotation().Yaw, 0.f);
@@ -207,7 +209,7 @@ void AMoonfallHeroPawn::MoveForward(float Value)
 }
 void AMoonfallHeroPawn::MoveRight(float Value)
 {
- if (bOptionsOpen) return;
+ if (bOptionsOpen || bInventoryOpen) return;
  if (Controller && !FMath::IsNearlyZero(Value))
  {
   const FRotator Yaw(0.f, Controller->GetControlRotation().Yaw, 0.f);
@@ -220,7 +222,7 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
 {
  static const float Costs[6] = {16.f,13.f,22.f,25.f,18.f,14.f};
  static const float Cooldowns[6] = {0.8f,0.65f,1.2f,2.f,1.f,0.9f};
- if (Health <= 0.f || bOptionsOpen || !GetWorld() || School < 0 || School >= 6 || Hand < 0 || Hand > 1 || !FMath::IsFinite(Multiplier) || Multiplier <= 0.f || Multiplier > 2.f) return false;
+ if (Health <= 0.f || bOptionsOpen || bInventoryOpen || !GetWorld() || School < 0 || School >= 6 || Hand < 0 || Hand > 1 || !FMath::IsFinite(Multiplier) || Multiplier <= 0.f || Multiplier > 2.f) return false;
  const float Time = GetWorld()->GetTimeSeconds();
  if (!FMath::IsFinite(Health) || !FMath::IsFinite(MaxHealth) || MaxHealth <= 0.f || Health > MaxHealth || !FMath::IsFinite(MaxMana) || MaxMana <= 0.f || !FMath::IsFinite(Mana) || !FMath::IsFinite(SpellPowerMultiplier) || SpellPowerMultiplier <= 0.f || Mana < Costs[School] * Multiplier || Time - LastCastTime[Hand] < Cooldowns[School]) return false;
  if (School == 3 && Health >= MaxHealth) return false;
@@ -337,7 +339,7 @@ void AMoonfallHeroPawn::BreakGuard()
 
 void AMoonfallHeroPawn::BeginGuard()
 {
- if (bOptionsOpen || Health <= 0.f || !GetWorld() || bGuarding
+ if (bOptionsOpen || bInventoryOpen || Health <= 0.f || !GetWorld() || bGuarding
      // Do not stack a fresh parry window on top of dodge invulnerability.
      || GetWorld()->GetTimeSeconds() < DamageImmunityUntil
      || GetWorld()->GetTimeSeconds() < GuardBrokenUntil
@@ -390,7 +392,7 @@ void AMoonfallHeroPawn::EndSprint() {
 
 void AMoonfallHeroPawn::Dodge()
 {
- if (bOptionsOpen || Health <= 0.f || !GetWorld()) return;
+ if (bOptionsOpen || bInventoryOpen || Health <= 0.f || !GetWorld()) return;
  const float Now = GetWorld()->GetTimeSeconds();
  if (Now < NextDodgeAt || Now < DamageImmunityUntil
      || !FMath::IsFinite(DodgeCooldown) || DodgeCooldown <= 0.f
@@ -540,14 +542,46 @@ void AMoonfallHeroPawn::ToggleDisplayMode() {
  Settings->SaveSettings();
 }
 
+void AMoonfallHeroPawn::ToggleInventory() {
+ if (bOptionsOpen || Health <= 0.f) return;
+ if (!bInventoryOpen) {
+  EndGuard();
+  InventorySelection = FMath::Clamp(InventorySelection, 0, FMath::Max(0, InventoryItemCodes.Num() - 1));
+ }
+ bInventoryOpen = !bInventoryOpen;
+}
+void AMoonfallHeroPawn::EquipSelectedInventoryItem() {
+ if (!bInventoryOpen || !InventoryItemCodes.IsValidIndex(InventorySelection)) return;
+ EquipInventoryItem(InventorySelection);
+}
+void AMoonfallHeroPawn::InventoryConfirm() { EquipSelectedInventoryItem(); }
 void AMoonfallHeroPawn::OpenOptions() {
+ if (bInventoryOpen) { bInventoryOpen = false; return; }
  if (!bOptionsOpen) EndGuard();
  bOptionsOpen = !bOptionsOpen;
 }
-void AMoonfallHeroPawn::OptionsUp() { if (bOptionsOpen) OptionsSelection = (OptionsSelection + 6) % 7; }
-void AMoonfallHeroPawn::OptionsDown() { if (bOptionsOpen) OptionsSelection = (OptionsSelection + 1) % 7; }
-void AMoonfallHeroPawn::OptionsLeft() { AdjustOption(-1); }
-void AMoonfallHeroPawn::OptionsRight() { AdjustOption(1); }
+void AMoonfallHeroPawn::OptionsUp() {
+ if (bInventoryOpen) {
+  InventorySelection = FMath::Max(0, InventorySelection - 1);
+  return;
+ }
+ if (bOptionsOpen) OptionsSelection = (OptionsSelection + 6) % 7;
+}
+void AMoonfallHeroPawn::OptionsDown() {
+ if (bInventoryOpen) {
+  InventorySelection = FMath::Min(FMath::Max(0, InventoryItemCodes.Num() - 1), InventorySelection + 1);
+  return;
+ }
+ if (bOptionsOpen) OptionsSelection = (OptionsSelection + 1) % 7;
+}
+void AMoonfallHeroPawn::OptionsLeft() {
+ if (bInventoryOpen) { EquipSelectedInventoryItem(); return; }
+ AdjustOption(-1);
+}
+void AMoonfallHeroPawn::OptionsRight() {
+ if (bInventoryOpen) { EquipSelectedInventoryItem(); return; }
+ AdjustOption(1);
+}
 void AMoonfallHeroPawn::AdjustOption(int32 Direction) {
  if (!bOptionsOpen || !GEngine) return;
  UGameUserSettings* Settings = GEngine->GetGameUserSettings();
