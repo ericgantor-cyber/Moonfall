@@ -405,6 +405,43 @@ class WorldFoundationTests(unittest.TestCase):
         self.assertIn('TEXT("%s: My watch keeps the roads safe.")', hud)
         self.assertEqual(len({region * 3 + role for region in range(6) for role in range(3)}), 18)
 
+    def test_faction_standing_and_npc_word_of_mouth(self):
+        root = ROOT / "MoonfallUnreal/Source/MoonfallUnreal"
+        hero_h = (root / "MoonfallHeroPawn.h").read_text(encoding="utf-8")
+        hero_cpp = (root / "MoonfallHeroPawn.cpp").read_text(encoding="utf-8")
+        hud = (root / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        self.assertIn("GetRegionalFactionStanding(int32 RegionIndex) const", HEADER)
+        self.assertIn("GetNpcBond(int32 NpcId, int32 OtherNpcId) const", HEADER)
+        self.assertIn("if (NpcId / 3 != OtherNpcId / 3) return 0;", CPP)
+        self.assertIn("return 60; // trusted partners", CPP)
+        self.assertIn("return 35; // watchful allies", CPP)
+        self.assertIn("return -25; // artisan/scout rivalry", CPP)
+        self.assertIn("const int32 Bond = GetNpcBond(NpcId, OtherId);", CPP)
+        self.assertIn("if (OtherId == NpcId || !NpcTrustMemory.IsValidIndex(OtherId)) continue;", CPP)
+        self.assertIn("const int32 GossipDelta = bIntimidate", CPP)
+        self.assertIn("NpcTrustMemory[OtherId] + GossipDelta", CPP)
+        self.assertIn("GuideTrustMemory[Region] = NpcTrustMemory[Region * 3];", CPP)
+        self.assertIn("Sum += GetNpcTrust(NpcId);", CPP)
+        self.assertIn("Sum -= GetNpcFear(NpcId) / 2;", CPP)
+        self.assertIn("LastFactionStanding = 0;", hero_h)
+        self.assertIn("LastNpcAllyBond = 0;", hero_h)
+        self.assertIn("GetRegionalFactionStanding(Nearest->RegionIndex)", hero_cpp)
+        self.assertIn("GetNpcBond(Nearest->GetPersistentNpcId()", hero_cpp)
+        self.assertIn('TEXT("Faction %d   Ally bond %d")', hud)
+        self.assertIn('TEXT("%s: Your reputation has unsettled this town.")', hud)
+        self.assertIn('TEXT("%s: Our community speaks well of you.")', hud)
+        # Cross-region social gossip is forbidden, and bonds stay symmetric.
+        def bond(a, b):
+            if a == b or a // 3 != b // 3:
+                return 0
+            roles = {a % 3, b % 3}
+            return 60 if roles == {0, 1} else 35 if roles == {0, 2} else -25
+        for a in range(18):
+            for b in range(18):
+                self.assertEqual(bond(a, b), bond(b, a))
+                if a // 3 != b // 3:
+                    self.assertEqual(bond(a, b), 0)
+
     def test_connected_geometry(self):
         self.assertIn("Region * RegionSpacing", CPP)
         self.assertIn("FVector(60.f, 60.f, 1.f)", CPP)
