@@ -156,6 +156,9 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
    DefeatAnimationStyle = 1;
    SetActorTickEnabled(true);
    SetActorTickInterval(0.f);
+   // Set the fallback BEFORE registering: an immediately played finisher
+   // shortens it to 1.25 seconds and must not be overridden afterward.
+   SetLifeSpan(9.5f);
    OnEnemyDefeated(bLastHitWasShatter);
    if (AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0))) {
     DefeatAnimationStyle = FMath::Max(1, Hero->RegisterFinisherKill(bLastHitWasShatter, bBoss, GetActorLocation(), this));
@@ -163,8 +166,7 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
     Hero->AwardExperience(FMath::RoundToInt((bBoss ? 125.f : (bElite ? 50.f : 25.f)) * RewardScale));
     Hero->AwardEquipmentDrop(bElite, bBoss);
    }
-   // Brief visibility is essential: no instant pop/disappear before finisher.
-   SetLifeSpan(9.5f);
+   // Visible until the queued finisher plays or the finite fallback expires.
   }
 }
 
