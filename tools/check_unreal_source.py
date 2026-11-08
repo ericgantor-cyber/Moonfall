@@ -157,6 +157,14 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(damage.index("EndSprint();"), damage.index("EndGuard();"))
         self.assertLess(damage.index("if (Health <= 0.f) {"), damage.index("bInventoryOpen = false;"))
 
+    def test_death_closes_options_and_inventory_overlays(self):
+        damage = self.hero_cpp.split("void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount)", 1)[1].split(
+            "void AMoonfallHeroPawn::CycleGraphicsQuality()", 1)[0]
+        defeat = damage.split("if (Health <= 0.f) {", 1)[1].split("if (!bReduceMotion)", 1)[0]
+        self.assertIn("bInventoryOpen = false;", defeat)
+        self.assertIn("bOptionsOpen = false;", defeat)
+        self.assertLess(defeat.index("EndGuard();"), defeat.index("bOptionsOpen = false;"))
+
     def test_keyboard_controller_inventory_overlay_navigation_and_equip(self):
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
         for binding in ('ActionName="Inventory",Key=I', 'ActionName="Inventory",Key=Gamepad_Special_Left',
@@ -354,6 +362,141 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "void AMoonfallHeroPawn::OptionsUp()", 1)[0]
         self.assertIn("if (!bOptionsOpen) {\n  StopJumping();\n  if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();\n  EndSprint();\n  EndGuard();", options)
 
+    def test_options_cannot_reopen_while_hero_is_defeated(self):
+        options = self.hero_cpp.split("void AMoonfallHeroPawn::OpenOptions()", 1)[1].split(
+            "void AMoonfallHeroPawn::OptionsUp()", 1)[0]
+        self.assertIn("if (Health <= 0.f || !FMath::IsFinite(Health)) return;", options)
+        self.assertLess(options.index("if (Health <= 0.f || !FMath::IsFinite(Health)) return;"),
+                        options.index("if (bInventoryOpen)"))
+        self.assertLess(options.index("if (Health <= 0.f || !FMath::IsFinite(Health)) return;"),
+                        options.index("bOptionsOpen = !bOptionsOpen;"))
+        damage = self.hero_cpp.split("void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount)", 1)[1].split(
+            "void AMoonfallHeroPawn::CycleGraphicsQuality()", 1)[0]
+        self.assertIn("bInventoryOpen = false;", damage)
+        self.assertIn("bOptionsOpen = false;", damage)
+
+    def test_batch_menus_cancel_enemy_windups_and_followups(self):
+        tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
+        menu = tick.split("// Pause hostile behavior during both gameplay menus", 1)[1].split(
+            "// A shatter follow-up expires", 1)[0]
+        self.assertIn("Hero->bOptionsOpen || Hero->bInventoryOpen", menu)
+        for action in ("WindupEndsAt = -1.f;", "BossWarningEndTime = -1.f;",
+                       "bComboSecondHitPending = false;", "bComboSecondHitActive = false;",
+                       "LockedAttackDirection = FVector::ZeroVector;"):
+            self.assertIn(action, menu)
+        self.assertIn("NextAttackAt = FMath::Max(", menu)
+        self.assertIn("Now + 0.35f", menu)
+        self.assertLess(menu.index("bInventoryOpen"), menu.index("return;"))
+        self.assertLess(tick.index("// Pause hostile behavior during both gameplay menus"),
+                        tick.index("if (WindupEndsAt > 0.f && Now >= WindupEndsAt)"))
+        self.assertEqual(tick.count("AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0));"), 1)
+
+    def test_batch_guard_validates_timers_before_stance(self):
+        begin = self.hero_cpp.split("void AMoonfallHeroPawn::BeginGuard()", 1)[1].split(
+            "void AMoonfallHeroPawn::EndGuard()", 1)[0]
+        for field in ("GuardNow", "DamageImmunityUntil", "GuardBrokenUntil", "NextParryAt"):
+            self.assertIn(f"!FMath::IsFinite({field})", begin)
+            self.assertLess(begin.index(f"!FMath::IsFinite({field})"), begin.index("EndSprint();"))
+        end = self.hero_cpp.split("void AMoonfallHeroPawn::EndGuard()", 1)[1].split(
+            "void AMoonfallHeroPawn::BeginSprint()", 1)[0]
+        self.assertIn("FMath::IsFinite(StaminaRegenStartsAt) ? StaminaRegenStartsAt", end)
+        self.assertIn("GetWorld()->GetTimeSeconds() + 0.4f", end)
+
+    def test_batch_perfect_parry_requires_finite_windows(self):
+        damage = self.hero_cpp.split("void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount)", 1)[1].split(
+            "void AMoonfallHeroPawn::CycleGraphicsQuality()", 1)[0]
+        parry = damage.split("const bool bPerfectParry =", 1)[1].split(
+            "const float RequiredGuardCost =", 1)[0]
+        self.assertIn("FMath::IsFinite(ParryWindowEndsAt)", parry)
+        self.assertIn("FMath::IsFinite(NextParryAt)", parry)
+        self.assertIn("Now <= ParryWindowEndsAt && Now <= NextParryAt", parry)
+
+    def test_batch_enemy_posture_uses_finite_frame_delta(self):
+        tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
+        self.assertIn("FMath::IsFinite(DeltaSeconds) ? FMath::Clamp(DeltaSeconds, 0.f, 0.4f) : 0.f", tick)
+        self.assertLess(tick.index("FMath::IsFinite(DeltaSeconds) ? FMath::Clamp("),
+                        tick.index("OnPostureChanged(Posture, MaxPosture)"))
+
+    def test_ai_batch_clamps_chase_and_dash_simulation_steps(self):
+        tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
+        self.assertIn("if (!FMath::IsFinite(Now)) return;", tick)
+        self.assertIn("const float SafeAIDelta = FMath::IsFinite(DeltaSeconds) ? FMath::Clamp(DeltaSeconds, 0.f, 0.1f) : 0.f;", tick)
+        self.assertIn("FMath::Min(960.f * SafeAIDelta, Remaining)", tick)
+        self.assertIn("FMath::IsFinite(ChaseSpeed) ? ChaseSpeed : 0.f", tick)
+        self.assertIn("0.f, 2000.f) * SafeAIDelta, true, &Hit)", tick)
+        self.assertLess(tick.index("const float SafeAIDelta"), tick.index("AddActorWorldOffset("))
+
+    def test_ai_batch_invalid_spell_damage_cannot_consume_shatter(self):
+        spell = self.enemy_cpp.split("void AMoonfallEnemy::TakeSpellDamage(float Amount)", 1)[1].split(
+            "void AMoonfallEnemy::BeginFinisherDefeat(", 1)[0]
+        self.assertIn("!FMath::IsFinite(EffectiveDamage) || EffectiveDamage <= 0.f", spell)
+        self.assertLess(spell.index("!FMath::IsFinite(EffectiveDamage)"),
+                        spell.index("if (bShatterFinisher) bPostureFinisherAvailable = false;"))
+        self.assertLess(spell.index("!FMath::IsFinite(EffectiveDamage)"),
+                        spell.index("Health = FMath::Max(0.0f, Health -"))
+
+    def test_ai_batch_guard_recovery_and_vitals_are_safe(self):
+        tick = self.hero_cpp.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1].split(
+            "void AMoonfallHeroPawn::SetupPlayerInputComponent", 1)[0]
+        self.assertIn("FMath::IsFinite(StaminaRegenStartsAt) ? StaminaRegenStartsAt : GetWorld()->GetTimeSeconds()", tick)
+        guard = self.hero_cpp.split("void AMoonfallHeroPawn::BeginGuard()", 1)[1].split(
+            "void AMoonfallHeroPawn::EndGuard()", 1)[0]
+        self.assertIn("Health <= 0.f || !FMath::IsFinite(Health)", guard)
+        self.assertLess(guard.index("!FMath::IsFinite(Health)"), guard.index("EndSprint();"))
+
+    def test_enemy_spawn_scaling_rejects_invalid_blueprint_vitals(self):
+        begin = self.enemy_cpp.split("void AMoonfallEnemy::BeginPlay()", 1)[1].split(
+            "void AMoonfallEnemy::ApplyPostureDamage", 1)[0]
+        self.assertIn("FMath::IsFinite(Health) && Health > 0.f ? Health : 1.f", begin)
+        self.assertIn("FMath::IsFinite(AttackDamage) && AttackDamage > 0.f ? AttackDamage : 1.f", begin)
+        self.assertIn("FMath::Clamp(BaseHealth, 1.f, 100000.f) * HPScale", begin)
+        self.assertIn("FMath::Clamp(BaseDamage, 1.f, 10000.f) * DamageScale", begin)
+        self.assertLess(begin.index("const float BaseHealth"), begin.index("MaxHealthAtSpawn ="))
+
+    def test_enemy_posture_break_rejects_invalid_cooldown_timers(self):
+        posture = self.enemy_cpp.split("void AMoonfallEnemy::ApplyPostureDamage(float Amount)", 1)[1].split(
+            "void AMoonfallEnemy::TakeSpellDamage", 1)[0]
+        for field in ("Now", "PostureBrokenUntil", "NextPostureBreakAllowedAt"):
+            self.assertIn(f"!FMath::IsFinite({field})", posture)
+            self.assertLess(posture.index(f"!FMath::IsFinite({field})"), posture.index("Posture = FMath::Clamp("))
+        self.assertIn("if (Now < PostureBrokenUntil || Now < NextPostureBreakAllowedAt) return;", posture)
+
+    def test_enemy_ai_rejects_invalid_hero_and_posture_recovery(self):
+        tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
+        self.assertIn("!FMath::IsFinite(Hero->Health) || Hero->Health <= 0.f", tick)
+        self.assertLess(tick.index("!FMath::IsFinite(Hero->Health)"), tick.index("FVector Difference ="))
+        self.assertIn("FMath::IsFinite(Posture) && Posture > 0.f", tick)
+        self.assertIn("FMath::IsFinite(PostureRecoveryStartsAt) && Now >= PostureRecoveryStartsAt", tick)
+        self.assertLess(tick.index("FMath::IsFinite(PostureRecoveryStartsAt)"), tick.index("OnPostureChanged(Posture, MaxPosture)"))
+
+    def test_boss_batch_rejects_corrupted_target_positions(self):
+        tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
+        self.assertIn("HeroPosition.ContainsNaN() || EnemyPosition.ContainsNaN()", tick)
+        self.assertIn("if (!FMath::IsFinite(Distance)) return;", tick)
+        self.assertLess(tick.index("HeroPosition.ContainsNaN()"), tick.index("const bool bInCombatArea"))
+
+    def test_boss_batch_recovery_preserves_staggers_and_bounds_cooldowns(self):
+        tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
+        self.assertIn("FMath::IsFinite(AttackCooldown) ? FMath::Clamp(AttackCooldown, 0.65f, 10.f) : 1.f", tick)
+        self.assertIn("NextAttackAt = FMath::Max(FMath::IsFinite(NextAttackAt) ? NextAttackAt : Now, AttackRecoveryAt);", tick)
+        self.assertLess(tick.index("const float RecoveryCooldown"), tick.index("const FVector ImpactDirection"))
+
+    def test_boss_batch_validates_attack_damage_before_dodge_or_parry(self):
+        tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
+        self.assertIn("const float IncomingAttackDamage = AttackDamage * FMath::Min(2.3f, CurrentAttackMultiplier);", tick)
+        self.assertIn("!FMath::IsFinite(IncomingAttackDamage) || IncomingAttackDamage <= 0.f", tick)
+        self.assertLess(tick.index("!FMath::IsFinite(IncomingAttackDamage)"),
+                        tick.index("const bool bPerfectDodge = Hero->TryRewardPerfectDodge();"))
+        self.assertIn("IncomingAttackDamage, GetActorLocation());", tick)
+
+    def test_boss_batch_invalid_nav_cache_resets_before_chasing(self):
+        tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
+        self.assertIn("!FMath::IsFinite(NextPathRefreshAt) || Now >= NextPathRefreshAt", tick)
+        self.assertIn("if (CachedWaypoint.ContainsNaN()) {", tick)
+        self.assertIn("CachedWaypoint = FVector::ZeroVector;", tick)
+        self.assertLess(tick.index("if (CachedWaypoint.ContainsNaN())"),
+                        tick.index("FVector ToWaypoint = CachedWaypoint - GetActorLocation();"))
+
     def test_guard_clears_held_sprint_before_entering_stance(self):
         guard = self.hero_cpp.split("void AMoonfallHeroPawn::BeginGuard()", 1)[1].split(
             "void AMoonfallHeroPawn::EndGuard()", 1)[0]
@@ -527,12 +670,110 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             self.assertIn("GetCharacterMovement()->StopMovementImmediately();", body)
             self.assertLess(body.index("StopJumping();"), body.index("EndSprint();"))
 
+    def test_perfect_dodge_rewards_reject_nonfinite_resources_and_tuning(self):
+        reward = self.hero_cpp.split("bool AMoonfallHeroPawn::TryRewardPerfectDodge()", 1)[1].split(
+            "bool AMoonfallHeroPawn::ApplyMoonfallDamageFrom(", 1)[0]
+        self.assertIn("FMath::IsFinite(MaxMana) && MaxMana > 0.f && FMath::IsFinite(Mana)", reward)
+        self.assertIn("Mana = FMath::Clamp(Mana + 8.f, 0.f, MaxMana);", reward)
+        self.assertIn("FMath::IsFinite(MaxStamina) && MaxStamina > 0.f && FMath::IsFinite(Stamina)", reward)
+        self.assertIn("FMath::IsFinite(PerfectDodgeStaminaReward) && PerfectDodgeStaminaReward > 0.f", reward)
+        self.assertIn("FMath::Clamp(PerfectDodgeStaminaReward, 0.f, 25.f)", reward)
+        self.assertLess(reward.index("LastPerfectDodgeRewardAt = Now;"),
+                        reward.index("Mana = FMath::Clamp(Mana + 8.f"))
+
+    def test_perfect_dodge_rewards_require_live_valid_window(self):
+        reward = self.hero_cpp.split("bool AMoonfallHeroPawn::TryRewardPerfectDodge()", 1)[1].split(
+            "bool AMoonfallHeroPawn::ApplyMoonfallDamageFrom(", 1)[0]
+        self.assertIn("Health <= 0.f || bOptionsOpen || bInventoryOpen", reward)
+        for field in ("Now", "PerfectDodgeWindowUntil", "LastPerfectDodgeRewardAt"):
+            self.assertIn(f"!FMath::IsFinite({field})", reward)
+        self.assertIn("Now > PerfectDodgeWindowUntil || Now - LastPerfectDodgeRewardAt < 1.f", reward)
+        self.assertLess(reward.index("bOptionsOpen || bInventoryOpen"), reward.index("LastPerfectDodgeRewardAt = Now;"))
+        self.assertLess(reward.index("!FMath::IsFinite(PerfectDodgeWindowUntil)"),
+                        reward.index("PerfectDodgeWindowUntil = -1.f;"))
+
+    def test_dodge_rejects_invalid_timers_and_preserves_stamina_delay(self):
+        dodge = self.hero_cpp.split("void AMoonfallHeroPawn::Dodge()", 1)[1].split(
+            "void AMoonfallHeroPawn::RewardPerfectDodge()", 1)[0]
+        for value in ("Now", "NextDodgeAt", "DamageImmunityUntil"):
+            self.assertIn(f"!FMath::IsFinite({value})", dodge)
+            self.assertLess(dodge.index(f"!FMath::IsFinite({value})"),
+                            dodge.index("Stamina = FMath::Clamp(Stamina - DodgeStaminaCost"))
+        self.assertIn("Now < NextDodgeAt || Now < DamageImmunityUntil", dodge)
+        self.assertIn("StaminaRegenStartsAt = FMath::Max(", dodge)
+        self.assertIn("FMath::IsFinite(StaminaRegenStartsAt) ? StaminaRegenStartsAt : Now", dodge)
+        self.assertIn("Now + 0.8f);", dodge)
+        self.assertLess(dodge.index("StaminaRegenStartsAt = FMath::Max("),
+                        dodge.index("LaunchCharacter("))
+
+    def test_guard_impact_preserves_stamina_delay_and_resets_stale_counter(self):
+        damage = self.hero_cpp.split("void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount)", 1)[1].split(
+            "void AMoonfallHeroPawn::CycleGraphicsQuality()", 1)[0]
+        guard = damage.split("if (bGuarding && bFrontAttack && !bOptionsOpen", 1)[1].split(
+            "OnGuardImpact(", 1)[0]
+        self.assertIn("StaminaRegenStartsAt = FMath::Max(", guard)
+        self.assertIn("FMath::IsFinite(StaminaRegenStartsAt) ? StaminaRegenStartsAt : Now", guard)
+        self.assertLess(guard.index("StaminaRegenStartsAt = FMath::Max("),
+                        guard.index("if (bPerfectParry) {"))
+        parry = guard.split("if (bPerfectParry) {", 1)[1]
+        self.assertIn("ParryCounterUntil = -1.f;", parry)
+        self.assertIn("if (FMath::IsFinite(ParryCounterWindowSeconds) && ParryCounterWindowSeconds > 0.f)", parry)
+        self.assertLess(parry.index("ParryCounterUntil = -1.f;"),
+                        parry.index("ParryCounterUntil = Now + FMath::Clamp(ParryCounterWindowSeconds"))
+
+    def test_combo_clears_in_inventory_and_rejects_invalid_target_or_timers(self):
+        tick = self.hero_cpp.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1].split(
+            "void AMoonfallHeroPawn::SetupPlayerInputComponent", 1)[0]
+        combo = tick.split("if (HitComboStage > 0 && GetWorld()) {", 1)[1].split(
+            "// Bounded camera impulse", 1)[0]
+        self.assertIn("bOptionsOpen || bInventoryOpen", combo)
+        for check in ("!FMath::IsFinite(ComboTarget->Health)", "!FMath::IsFinite(ComboNow)",
+                      "!FMath::IsFinite(LastSuccessfulHitAt)"):
+            self.assertIn(check, combo)
+        self.assertIn("HitComboStage = 0;", combo)
+        self.assertIn("LastHitComboTarget.Reset();", combo)
+
+    def test_camera_impulse_rejects_invalid_delta_and_clamps_zoom(self):
+        tick = self.hero_cpp.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1].split(
+            "void AMoonfallHeroPawn::SetupPlayerInputComponent", 1)[0]
+        self.assertIn("if (!FMath::IsFinite(ImpactCameraOffset)) ImpactCameraOffset = 0.f;", tick)
+        self.assertIn("const float SafeCameraDelta = FMath::IsFinite(DeltaSeconds)", tick)
+        self.assertIn("FMath::Clamp(DeltaSeconds, 0.f, 0.1f)", tick)
+        self.assertIn("FMath::Clamp(ImpactCameraOffset, 0.f, 24.f)", tick)
+        self.assertIn("FMath::FInterpTo(", tick)
+        self.assertLess(tick.index("if (!FMath::IsFinite(ImpactCameraOffset))"),
+                        tick.index("CameraBoom->TargetArmLength"))
+
+    def test_incoming_damage_rejects_invalid_hero_vitals_and_clock(self):
+        damage = self.hero_cpp.split("void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount)", 1)[1].split(
+            "void AMoonfallHeroPawn::CycleGraphicsQuality()", 1)[0]
+        for guard in ("Health <= 0.f", "!FMath::IsFinite(Health)", "!FMath::IsFinite(MaxHealth)",
+                      "MaxHealth <= 0.f", "!FMath::IsFinite(Amount)", "!FMath::IsFinite(Now)",
+                      "!FMath::IsFinite(DamageImmunityUntil)"):
+            self.assertIn(guard, damage)
+            self.assertLess(damage.index(guard), damage.index("const float PreviousHealth = Health;"))
+        self.assertIn("GetWorld()->GetTimeSeconds() < DamageImmunityUntil", damage)
+        self.assertLess(damage.index("const float PreviousHealth = Health;"),
+                        damage.index("const float ArmoredDamage = Amount *"))
+
     def test_sprint_input_is_rejected_in_menus_or_after_defeat(self):
         begin = self.hero_cpp.split("void AMoonfallHeroPawn::BeginSprint()", 1)[1].split(
             "void AMoonfallHeroPawn::EndSprint()", 1)[0]
         self.assertIn("if (bOptionsOpen || bInventoryOpen || Health <= 0.f) return;", begin)
         self.assertLess(begin.index("if (bOptionsOpen || bInventoryOpen || Health <= 0.f) return;"),
                         begin.index("bSprintHeld = true;"))
+
+    def test_sprint_drain_is_bounded_and_recovery_is_monotonic(self):
+        tick = self.hero_cpp.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1].split(
+            "void AMoonfallHeroPawn::SetupPlayerInputComponent", 1)[0]
+        sprint = tick.split("if (bCanSprint && Stamina > 0.f) {", 1)[1].split(
+            "const bool bSprinting =", 1)[0]
+        self.assertIn("FMath::IsFinite(SprintStaminaDrainPerSecond) && SprintStaminaDrainPerSecond > 0.f", tick)
+        self.assertIn("FMath::Clamp(SprintStaminaDrainPerSecond, 0.f, 250.f) * StaminaDelta", sprint)
+        self.assertIn("const float SprintRecoveryAt = GetWorld()->GetTimeSeconds() + 0.8f;", sprint)
+        self.assertIn("FMath::IsFinite(StaminaRegenStartsAt) ? StaminaRegenStartsAt : SprintRecoveryAt", sprint)
+        self.assertIn("StaminaRegenStartsAt = FMath::Max(", sprint)
+        self.assertLess(sprint.index("Stamina = FMath::Max("), sprint.index("StaminaRegenStartsAt = FMath::Max("))
 
     def test_stamina_sprint_has_keyboard_controller_and_exhaustion_gates(self):
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
@@ -559,7 +800,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("GetTimeSeconds() >= DamageImmunityUntil", tick)
         self.assertIn("if (GetCharacterMovement()) GetCharacterMovement()->MaxWalkSpeed = NormalWalkSpeed;", self.hero_cpp)
         self.assertIn("GetVelocity().SizeSquared2D()", tick)
-        self.assertIn("Stamina = FMath::Max(0.f, Stamina - SprintStaminaDrainPerSecond", tick)
+        self.assertIn("Stamina = FMath::Max(0.f, Stamina - FMath::Clamp(SprintStaminaDrainPerSecond, 0.f, 250.f)", tick)
         self.assertIn("bSprintExhausted = true;", tick)
         self.assertIn("!bSprinting && !bGuarding && GetWorld()", tick)
         self.assertIn("FMath::IsFinite(StaminaRegenPerSecond) && StaminaRegenPerSecond > 0.f", tick)
@@ -588,7 +829,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "void AMoonfallHeroPawn::RewardPerfectDodge()", 1)[0]
         self.assertIn("Stamina < DodgeStaminaCost", dodge)
         self.assertIn("Stamina = FMath::Clamp(Stamina - DodgeStaminaCost", dodge)
-        self.assertIn("StaminaRegenStartsAt = Now + 0.8f", dodge)
+        self.assertIn("StaminaRegenStartsAt = FMath::Max(FMath::IsFinite(StaminaRegenStartsAt) ? StaminaRegenStartsAt : Now, Now + 0.8f);", dodge)
         self.assertLess(dodge.index("Stamina < DodgeStaminaCost"), dodge.index("LaunchCharacter("))
         tick = self.hero_cpp.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1].split(
             "void AMoonfallHeroPawn::SetupPlayerInputComponent", 1)[0]
@@ -634,7 +875,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "bool AMoonfallHeroPawn::ApplyMoonfallDamageFrom", 1)[0]
         self.assertIn("Now - LastPerfectDodgeRewardAt < 1.f", reward)
         self.assertIn("PerfectDodgeWindowUntil = -1.f;", reward)
-        self.assertIn("Stamina = FMath::Clamp(Stamina + FMath::Max(0.f, PerfectDodgeStaminaReward), 0.f, MaxStamina);", reward)
+        self.assertIn("Stamina = FMath::Clamp(Stamina + FMath::Clamp(PerfectDodgeStaminaReward, 0.f, 25.f), 0.f, MaxStamina);", reward)
         self.assertLess(reward.index("PerfectDodgeWindowUntil = -1.f;"),
                         reward.index("Stamina = FMath::Clamp"))
 
@@ -820,6 +1061,36 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("PostureTarget->Posture /", self.hud)
         self.assertIn("PostureDistanceSq = FMath::Square(1200.f)", self.hud)
         self.assertNotIn('TEXT("GUARD BROKEN")', self.hud)
+
+    def test_inventory_menu_cancels_pending_finisher_visuals(self):
+        update = self.hero_cpp.split("void AMoonfallHeroPawn::UpdateNativeFinisher(float DeltaSeconds)", 1)[1].split(
+            "void AMoonfallHeroPawn::AwardExperience", 1)[0]
+        self.assertIn("if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bMissingFinisherVisuals) {", update)
+        self.assertIn("WaitingEnemy->BeginFinisherDefeat(Pending.Style);", update)
+        self.assertIn("PendingFinishers.Reset();", update)
+        self.assertIn("if (Health > 0.f && !bOptionsOpen && !bInventoryOpen && Age >= Duration", update)
+        self.assertIn("if (Health <= 0.f || bOptionsOpen || bInventoryOpen || Age < 0.f || Age >= Duration) {", update)
+        self.assertLess(update.index("PendingFinishers.Reset();"),
+                        update.index("if (Health > 0.f && !bOptionsOpen && !bInventoryOpen"))
+
+    def test_finisher_lifecycle_handles_menu_kills_and_missing_visuals(self):
+        register = self.hero_cpp.split("int32 AMoonfallHeroPawn::RegisterFinisherKill(", 1)[1].split(
+            "void AMoonfallHeroPawn::StartFinisherPresentation(", 1)[0]
+        update = self.hero_cpp.split("void AMoonfallHeroPawn::UpdateNativeFinisher(", 1)[1].split(
+            "void AMoonfallHeroPawn::AwardExperience(", 1)[0]
+        self.assertIn("if (bOptionsOpen || bInventoryOpen || !FinisherSlashA || !FinisherSlashB || !FinisherFlash) {", register)
+        self.assertIn("if (IsValid(DefeatedEnemy)) DefeatedEnemy->BeginFinisherDefeat(ChainStep);", register)
+        self.assertLess(register.index("FinisherManaRestore"), register.index("if (bOptionsOpen || bInventoryOpen || !FinisherSlashA"))
+        self.assertLess(register.index("if (bOptionsOpen || bInventoryOpen || !FinisherSlashA"),
+                        register.index("PendingFinishers.Num() > 0"))
+        self.assertIn("const bool bMissingFinisherVisuals = !FinisherSlashA || !FinisherSlashB || !FinisherFlash;", update)
+        self.assertIn("if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bMissingFinisherVisuals) {", update)
+        self.assertLess(update.index("WaitingEnemy->BeginFinisherDefeat(Pending.Style);"),
+                        update.index("PendingFinishers.Reset();"))
+        self.assertLess(update.index("PendingFinishers.Reset();"),
+                        update.index("if (bMissingFinisherVisuals) return;"))
+        self.assertLess(update.index("if (bMissingFinisherVisuals) return;"),
+                        update.index("FinisherSlashA->SetHiddenInGame(true);"))
 
     def test_finisher_cleanup_when_queue_overflows_or_is_cancelled(self):
         register = self.hero_cpp.split("int32 AMoonfallHeroPawn::RegisterFinisherKill(", 1)[1].split(
@@ -1214,7 +1485,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(damage.index("Stamina >= RequiredGuardCost"), damage.index("Stamina = FMath::Clamp(Stamina - RequiredGuardCost"))
         self.assertLess(damage.index("const bool bPerfectParry"), damage.index("Stamina >= RequiredGuardCost"))
         self.assertIn("Stamina = FMath::Clamp(Stamina - RequiredGuardCost, 0.f, MaxStamina)", damage)
-        self.assertIn("StaminaRegenStartsAt = Now + 0.8f", damage)
+        self.assertIn("StaminaRegenStartsAt = FMath::Max(FMath::IsFinite(StaminaRegenStartsAt) ? StaminaRegenStartsAt : Now, Now + 0.8f);", damage)
         self.assertIn("FMath::IsFinite(PerfectParryStaminaReward)", damage)
         self.assertIn("Stamina + PerfectParryStaminaReward", damage)
         self.assertIn("if (Stamina < GuardStaminaCost) BreakGuard();", damage)
@@ -1287,7 +1558,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "void AMoonfallHeroPawn::BeginSprint()", 1)[0]
         self.assertIn("const bool bWasGuarding = bGuarding;", end_guard)
         self.assertIn("if (bWasGuarding && GetWorld())", end_guard)
-        self.assertIn("FMath::Max(StaminaRegenStartsAt, GetWorld()->GetTimeSeconds() + 0.4f)", end_guard)
+        self.assertIn("FMath::Max(FMath::IsFinite(StaminaRegenStartsAt) ? StaminaRegenStartsAt : GetWorld()->GetTimeSeconds(), GetWorld()->GetTimeSeconds() + 0.4f)", end_guard)
         self.assertNotIn('TEXT("GUARD BROKEN")', self.hud)
 
     def test_fourth_hit_posture_only_affects_combo_target_once(self):
@@ -1318,7 +1589,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         tick = self.hero_cpp.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1].split(
             "void AMoonfallHeroPawn::SetupPlayerInputComponent", 1)[0]
         self.assertIn("ComboNow - LastSuccessfulHitAt > ComboWindow", tick)
-        self.assertIn("!IsValid(ComboTarget) || ComboTarget->Health <= 0.f", tick)
+        self.assertIn("!IsValid(ComboTarget)", tick)
+        self.assertIn("ComboTarget->Health <= 0.f", tick)
         self.assertIn("Health <= 0.f || bOptionsOpen", tick)
         self.assertIn("HitComboStage = 0;", tick)
         self.assertIn("LastHitComboTarget.Reset();", tick)
@@ -1467,7 +1739,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('void AMoonfallHeroPawn::EndGuard()', self.hero_cpp)
         self.assertIn("NextParryAt = Now + FMath::Clamp(ParryCooldownSeconds, 0.3f, 2.f);", self.hero_cpp)
         self.assertIn("Stamina < GuardStaminaCost) return;", self.hero_cpp)
-        self.assertIn("if (Health <= 0.f) {\n  // Prevent lingering movement/jump input from carrying through defeat.\n  StopJumping();\n  if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();\n  // Clear any held sprint so a later respawn cannot inherit it.\n  EndSprint();\n  EndGuard();\n  // Defeat must not leave the inventory overlay trapping the player.\n  bInventoryOpen = false;\n }", self.hero_cpp)
+        self.assertIn("if (Health <= 0.f) {\n  // Prevent lingering movement/jump input from carrying through defeat.\n  StopJumping();\n  if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();\n  // Clear any held sprint so a later respawn cannot inherit it.\n  EndSprint();\n  EndGuard();\n  // Defeat clears every gameplay menu so the death/respawn screen stays visible.\n  bInventoryOpen = false;\n  bOptionsOpen = false;\n }", self.hero_cpp)
         self.assertIn("ParryWindowEndsAt = -1.f", self.hero_cpp)
         self.assertIn("DamageAfterGuard *= 0.4f", self.hero_cpp)
         self.assertIn("Stamina = FMath::Clamp(Stamina - RequiredGuardCost, 0.f, MaxStamina)", self.hero_cpp)
@@ -1501,8 +1773,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
     def test_enemy_level_scaling_is_spawn_only(self):
         begin = self.enemy_cpp.split("void AMoonfallEnemy::BeginPlay() {", 1)[1].split("\n}", 1)[0]
         self.assertIn("SpawnBalanceLevel = IsValid(Player)", begin)
-        self.assertIn("Health = FMath::Max(1.f, Health * HPScale)", begin)
-        self.assertIn("AttackDamage = FMath::Max(1.f, AttackDamage * DamageScale)", begin)
+        self.assertIn("Health = FMath::Clamp(BaseHealth, 1.f, 100000.f) * HPScale", begin)
+        self.assertIn("AttackDamage = FMath::Clamp(BaseDamage, 1.f, 10000.f) * DamageScale", begin)
 
     def test_offensive_spell_requires_live_target(self):
         cast = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split("\n}", 1)[0]
@@ -1519,6 +1791,20 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("!FMath::IsFinite(Multiplier)", cast)
         self.assertIn("Multiplier <= 0.f", cast)
         self.assertLess(cast.index("!FMath::IsFinite(Multiplier)"), cast.index("Mana -= Costs[School] * Multiplier"))
+
+    def test_hostile_spell_rejects_nonfinite_enemy_health_before_mutation(self):
+        cast = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split(
+            "void AMoonfallHeroPawn::CastLeft()", 1)[0]
+        self.assertIn("if (!IsValid(Enemy) || Enemy->Health <= 0.f) return false;", cast)
+        self.assertIn("!FMath::IsFinite(Enemy->Health)", cast)
+        self.assertIn("!FMath::IsFinite(Enemy->MaxHealth)", cast)
+        self.assertIn("Enemy->MaxHealth <= 0.f", cast)
+        self.assertLess(cast.index("!FMath::IsFinite(Enemy->Health)"),
+                        cast.index("Enemy->TakeSpellDamage(SpellDamage);"))
+        self.assertLess(cast.index("!FMath::IsFinite(Enemy->Health)"),
+                        cast.index("Mana -= Costs[School] * Multiplier;"))
+        self.assertLess(cast.index("!FMath::IsFinite(Enemy->Health)"),
+                        cast.index("HitComboStage = bComboAlive"))
 
     def test_spell_resource_values_validated(self):
         cast = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split("\n}", 1)[0]
