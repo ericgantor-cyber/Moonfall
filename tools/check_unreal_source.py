@@ -406,6 +406,17 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("float CombatManaRegenMultiplier = 0.5f;", self.hero_h)
         self.assertIn("float PerfectParryManaReward = 5.f;", self.hero_h)
 
+    def test_menu_hp_healing_requires_out_of_combat_recovery(self):
+        tick = self.hero_cpp.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1].split(
+            "void AMoonfallHeroPawn::SetupPlayerInputComponent", 1)[0]
+        self.assertIn("const bool bInCombatRecoveryWindow = GetWorld()", tick)
+        health_gate = tick.split("// Recovery in either menu is bounded and never revives a defeated hero.", 1)[1].split(
+            "const float BeforeRegen = Health;", 1)[0]
+        self.assertIn("GetWorld()->GetTimeSeconds() >= MenuHealthRegenStartsAt", health_gate)
+        self.assertIn("&& !bInCombatRecoveryWindow) {", health_gate)
+        self.assertLess(health_gate.index("GetWorld()->GetTimeSeconds() >= MenuHealthRegenStartsAt"),
+                        health_gate.index("&& !bInCombatRecoveryWindow) {"))
+
     def test_sprint_input_is_rejected_in_menus_or_after_defeat(self):
         begin = self.hero_cpp.split("void AMoonfallHeroPawn::BeginSprint()", 1)[1].split(
             "void AMoonfallHeroPawn::EndSprint()", 1)[0]
