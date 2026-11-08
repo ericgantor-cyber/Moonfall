@@ -563,8 +563,17 @@ bool AMoonfallHeroPawn::SalvageInventoryItem(int32 InventoryIndex)
 {
  if (Health <= 0.f || !InventoryItemCodes.IsValidIndex(InventoryIndex)) return false;
  const int32 Code = InventoryItemCodes[InventoryIndex];
- if (Code <= 0 || Code == EquippedWeaponCode || Code == EquippedArmorCode
-     || Code == EquippedAccessoryCode) return false;
+ if (Code <= 0) return false;
+ // The final inventory copy of equipped gear is protected. Extra duplicates
+ // may be salvaged because the worn code remains represented in the bag.
+ const bool bEquippedCode = Code == EquippedWeaponCode || Code == EquippedArmorCode
+     || Code == EquippedAccessoryCode;
+ if (bEquippedCode) {
+  int32 Copies = 0;
+  for (const int32 Candidate : InventoryItemCodes)
+   if (Candidate == Code) ++Copies;
+  if (Copies <= 1) return false;
+ }
  const int32 Affix = Code / 100000;
  const int32 SlotIndex = (Code / 10000) % 10;
  const int32 Rarity = (Code / 1000) % 10;
@@ -852,15 +861,23 @@ void AMoonfallHeroPawn::AwardEquipmentDrop(bool bEliteEnemy, bool bBossEnemy)
  // tier (units). Distinct rolls remain distinguishable; max 30 entries.
  const int32 ItemCode = LastLootAffix * 100000 + LastLootSlot * 10000
    + LastLootRarity * 1000 + NewTier;
- // At capacity, discard the oldest UN-equipped entry, never a weapon,
- // armor, or accessory still worn by the hero. Duplicate item codes are treated
- // conservatively as equipped to prevent silently removing the worn item.
+ // At capacity, prefer the oldest spare item. Identical codes can exist
+ // multiple times, so preserve at least one copy of equipped gear and allow
+ // excess duplicate copies to be removed without trapping the inventory.
  if (InventoryItemCodes.Num() >= 30) {
   int32 DiscardIndex = INDEX_NONE;
   for (int32 Index = 0; Index < InventoryItemCodes.Num(); ++Index) {
    const int32 Existing = InventoryItemCodes[Index];
-   if (Existing != EquippedWeaponCode && Existing != EquippedArmorCode
-       && Existing != EquippedAccessoryCode) {
+   const bool bEquippedCode = Existing == EquippedWeaponCode
+       || Existing == EquippedArmorCode || Existing == EquippedAccessoryCode;
+   if (!bEquippedCode) {
+    DiscardIndex = Index;
+    break;
+   }
+   int32 Copies = 0;
+   for (const int32 Candidate : InventoryItemCodes)
+    if (Candidate == Existing) ++Copies;
+   if (Copies > 1) {
     DiscardIndex = Index;
     break;
    }
