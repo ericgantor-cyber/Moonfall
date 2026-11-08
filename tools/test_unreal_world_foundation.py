@@ -111,6 +111,23 @@ class WorldFoundationTests(unittest.TestCase):
             self.assertEqual(len(scalars), 6)
             self.assertTrue(all(0.6 <= v <= 2.2 for v in scalars))
 
+    def test_regional_attack_overhaul(self):
+        enemy_h = (ROOT / "MoonfallUnreal/Source/MoonfallUnreal/MoonfallEnemy.h").read_text(encoding="utf-8")
+        enemy_cpp = (ROOT / "MoonfallUnreal/Source/MoonfallUnreal/MoonfallEnemy.cpp").read_text(encoding="utf-8")
+        self.assertIn("RegionalAttackStyle = 0", enemy_h)
+        self.assertIn("Enemy->RegionalAttackStyle = ProfileIndex % 6;", CPP)
+        self.assertIn("switch (FMath::Clamp(RegionalAttackStyle, 0, 5))", enemy_cpp)
+        for style in range(6):
+            self.assertIn("case " + str(style) + ":", enemy_cpp)
+        self.assertIn("CurrentWindup = FMath::Clamp(CurrentWindup, 0.32f, 2.f);", enemy_cpp)
+        self.assertIn("CurrentAttackMultiplier = FMath::Clamp(CurrentAttackMultiplier, 0.5f, 2.3f);", enemy_cpp)
+        self.assertIn("CurrentAttackRangeMultiplier = FMath::Clamp(CurrentAttackRangeMultiplier, 0.75f, 1.8f);", enemy_cpp)
+        self.assertIn("if (!bBoss)", enemy_cpp)
+        self.assertIn("#if ENABLE_DRAW_DEBUG", enemy_cpp)
+        self.assertIn("DrawDebugCircle(GetWorld(), GetActorLocation()", enemy_cpp)
+        self.assertIn("Hero->ApplyMoonfallDamageFrom(", enemy_cpp)
+        self.assertIn("Hero->TryRewardPerfectDodge()", enemy_cpp)
+
     def test_connected_geometry(self):
         self.assertIn("Region * RegionSpacing", CPP)
         self.assertIn("FVector(60.f, 60.f, 1.f)", CPP)
