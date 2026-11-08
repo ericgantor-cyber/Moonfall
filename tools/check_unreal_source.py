@@ -1736,6 +1736,22 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertEqual(tick.count("Nav->ProjectPointToNavigation("), 1)
         self.assertEqual(tick.count("Nav->FindPathToLocationSynchronously("), 1)
 
+    def test_divine_animation_callbacks_and_interruption_cleanup(self):
+        self.assertIn("void OnDivineAttackTelegraphed(FName MoveId, FVector TargetCenter, float Radius, float WarningSeconds);", self.enemy_h)
+        self.assertIn("void OnDivineAttackResolved(FName MoveId, FVector TargetCenter, bool bHeroInsideMarker);", self.enemy_h)
+        self.assertIn("void OnDivineAttackInterrupted(FName MoveId);", self.enemy_h)
+        self.assertIn("FName ActiveDivineMoveId = NAME_None;", self.enemy_h)
+        self.assertIn('TEXT("VoidCollapse")', self.enemy_cpp)
+        self.assertIn('TEXT("VoidJudgment")', self.enemy_cpp)
+        self.assertIn('TEXT("EclipseMark")', self.enemy_cpp)
+        self.assertIn('TEXT("EclipsePulse")', self.enemy_cpp)
+        self.assertIn("OnDivineAttackTelegraphed(ActiveDivineMoveId, DivineSignatureCenter, DivineSignatureRadius, CurrentWindup);", self.enemy_cpp)
+        self.assertIn("OnDivineAttackResolved(ActiveDivineMoveId, DivineSignatureCenter, bWithinDivineMarker);", self.enemy_cpp)
+        self.assertIn("OnDivineAttackInterrupted(ActiveDivineMoveId);", self.enemy_cpp)
+        self.assertIn("bDivineSignatureActive = false;", self.enemy_cpp)
+        self.assertIn("ActiveDivineMoveId = NAME_None;", self.enemy_cpp)
+        self.assertLess(self.enemy_cpp.index("OnDivineAttackResolved("), self.enemy_cpp.index("if (bWithinDivineMarker || bWithinBasicAttack)"))
+
     def test_phase_three_divine_attacks_alternate_locked_mark_geometries(self):
         enemy = self.enemy_cpp
         self.assertIn("bool bDivineAlternateGeometry = false;", self.enemy_h)

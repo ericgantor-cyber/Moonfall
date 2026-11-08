@@ -22,6 +22,10 @@ public:
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Boss|Divine") FName DivineBossId = NAME_None;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Boss|Divine") FText DivineBossTitle;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Boss|Divine") FName DivineBossRegion = NAME_None;
+ // Optional Blueprint animation/VFX callbacks. No artwork or animation asset generated.
+ UFUNCTION(BlueprintImplementableEvent, Category="Boss|Divine") void OnDivineAttackTelegraphed(FName MoveId, FVector TargetCenter, float Radius, float WarningSeconds);
+ UFUNCTION(BlueprintImplementableEvent, Category="Boss|Divine") void OnDivineAttackResolved(FName MoveId, FVector TargetCenter, bool bHeroInsideMarker);
+ UFUNCTION(BlueprintImplementableEvent, Category="Boss|Divine") void OnDivineAttackInterrupted(FName MoveId);
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Combat") int32 BossPhase = 1;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Boss") float BossMaxHealth = 0.f;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Boss") float BossWarningEndTime = -1.f;
@@ -98,6 +102,7 @@ private:
  int32 BossSpecialMove = 0;
  // Distinct, telegraphed divine signatures use the standard damage pipeline.
  bool bDivineSignatureActive = false;
+ FName ActiveDivineMoveId = NAME_None;
  bool bDivineAlternateGeometry = false;
  int32 DivineSignatureCastCount = 0;
  FVector DivineSignatureCenter = FVector::ZeroVector;
