@@ -1724,6 +1724,18 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertEqual(tick.count("Nav->FindPathToLocationSynchronously("), 1)
         self.assertEqual(tick.count("Nav->ProjectPointToNavigation("), 1)
 
+    def test_lost_sight_investigation_repaths_once_and_stops_at_last_seen_location(self):
+        tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
+        self.assertIn("const bool bWasVisible = bCanSeeHero;", tick)
+        self.assertIn("if (bCanSeeHero != bWasVisible)", tick)
+        self.assertIn("CachedWaypoint = FVector::ZeroVector;", tick)
+        self.assertIn("NextPathRefreshAt = 0.f;", tick)
+        self.assertIn("FVector::DistSquared2D(EnemyPosition, LastKnownHeroPosition) <= FMath::Square(85.f)", tick)
+        self.assertIn("LastSawHeroAt = -100.f;", tick)
+        self.assertLess(tick.index("LastSawHeroAt = -100.f;"), tick.index("if ((Distance > AttackRange || (!bBoss && !bCanSeeHero))"))
+        self.assertEqual(tick.count("Nav->ProjectPointToNavigation("), 1)
+        self.assertEqual(tick.count("Nav->FindPathToLocationSynchronously("), 1)
+
     def test_enemy_sight_memory_does_not_track_through_walls(self):
         tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
         self.assertIn("float NextSightCheckAt = 0.f;", self.enemy_h)
