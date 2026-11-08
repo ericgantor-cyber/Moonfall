@@ -32,6 +32,8 @@ public:
  UFUNCTION(BlueprintCallable, Category="Moonfall|NPC") bool RecordNpcSocialChoice(int32 NpcId, bool bIntimidate);
  UFUNCTION(BlueprintPure, Category="Moonfall|NPC") int32 GetNpcTrust(int32 NpcId) const;
  UFUNCTION(BlueprintPure, Category="Moonfall|NPC") int32 GetNpcFear(int32 NpcId) const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|NPC") int32 GetRegionalFactionStanding(int32 RegionIndex) const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|NPC") int32 GetNpcBond(int32 NpcId, int32 OtherNpcId) const;
 private:
  TSet<int32> BuiltRooms;
  TSet<int32> SpawnedEncounters;
