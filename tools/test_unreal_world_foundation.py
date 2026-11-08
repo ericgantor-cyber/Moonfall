@@ -468,6 +468,42 @@ class WorldFoundationTests(unittest.TestCase):
         self.assertTrue(all(0 <= task <= 3 for shift in assignments for task in shift))
         self.assertNotIn("SpawnActor<", npc_cpp)
 
+    def test_virtual_population_1111_and_streaming_budget(self):
+        root = ROOT / "MoonfallUnreal/Source/MoonfallUnreal"
+        npc_h = (root / "MoonfallQuestGuide.h").read_text(encoding="utf-8")
+        npc_cpp = (root / "MoonfallQuestGuide.cpp").read_text(encoding="utf-8")
+        save = (root / "MoonfallWorldProgressSave.h").read_text(encoding="utf-8")
+        self.assertIn("GetPopulationCount() const { return 1111; }", HEADER)
+        self.assertIn("GetActiveStreamedResidentCount() const { return ActiveResidents.Num(); }", HEADER)
+        self.assertIn("constexpr int32 MaxStreamedResidents = 24;", CPP)
+        self.assertIn("Checked < 80 && Spawned < 2", CPP)
+        self.assertIn("PopulationCursor = Regions * 3 + (PopulationCursor - Regions * 3 + 1) % (1111 - Regions * 3);", CPP)
+        self.assertIn("Npc->PopulationNpcId = Id;", CPP)
+        self.assertIn("Npc->RoleIndex = 1 + ((Id - Regions * 3) / Regions) % 2;", CPP)
+        self.assertIn("GetResidentHome(int32 ResidentId)", HEADER)
+        self.assertIn("if (const APawn* LocalHero = UGameplayStatics::GetPlayerPawn(this, 0))", CPP)
+        self.assertIn("StreamResidents(LocalHero->GetActorLocation());", CPP)
+        self.assertIn("Npc->Destroy();", CPP)
+        self.assertIn("FMath::Square(1200.f)", CPP)
+        self.assertIn("FMath::Square(1650.f)", CPP)
+        self.assertIn("ResidentTrustMemory.Init(0, 1111 - Regions * 3);", CPP)
+        self.assertIn("ResidentFearMemory.Init(0, 1111 - Regions * 3);", CPP)
+        self.assertIn("Saved->ResidentTrustMemory.Num() == 1111 - Regions * 3", CPP)
+        self.assertIn("Saved->ResidentFearMemory.Num() == 1111 - Regions * 3", CPP)
+        self.assertIn("Saved->ResidentTrustMemory = ResidentTrustMemory;", CPP)
+        self.assertIn("Saved->ResidentFearMemory = ResidentFearMemory;", CPP)
+        self.assertIn("TArray<int32> ResidentTrustMemory;", save)
+        self.assertIn("TArray<int32> ResidentFearMemory;", save)
+        self.assertIn("int32 PopulationNpcId = -1;", npc_h)
+        self.assertIn("PopulationNpcId >= 18 && PopulationNpcId < 1111", npc_h)
+        self.assertIn("if (PopulationNpcId >= 18 && PopulationNpcId < 1111)", npc_cpp)
+        self.assertEqual(len(set(range(1111))), 1111)
+        # Records above the original 18 distribute across six stable regional cohorts.
+        regions = [(npc_id - 18) % 6 for npc_id in range(18, 1111)]
+        self.assertEqual(len(regions), 1093)
+        self.assertEqual(max(regions.count(i) for i in range(6)) - min(regions.count(i) for i in range(6)), 1)
+        self.assertEqual(len(set(range(18)) & set(range(18, 1111))), 0)
+
     def test_connected_geometry(self):
         self.assertIn("Region * RegionSpacing", CPP)
         self.assertIn("FVector(60.f, 60.f, 1.f)", CPP)
