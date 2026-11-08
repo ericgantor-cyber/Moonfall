@@ -1659,6 +1659,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
         self.assertIn('#include "EngineUtils.h"', self.enemy_cpp)
         self.assertIn("if (!bBoss && !bElite) {", tick)
+        self.assertIn("ScannedActors < 64 && ConsideredAllies < 32", tick)
+        self.assertIn("++ScannedActors;", tick)
+        self.assertLess(tick.index("++ScannedActors;"), tick.index("if (!IsValid(Other)"))
         self.assertIn("ConsideredAllies < 32", tick)
         self.assertIn("Other->WindupEndsAt > Now", tick)
         self.assertIn("FVector::DistSquared2D(", tick)
