@@ -22,3 +22,8 @@
 
 ## Engine/version caveat
 The main `MoonfallUnreal.uproject` currently declares Unreal Engine 5.4. Do not claim it is compiled under 5.6 or rename its association until the configured toolchain is tested.
+
+## Regional enemy upgrade (18 distinct native profiles)
+Each of the six regions now has three named enemies: a faster skirmisher, a tougher frontline combatant, and an elite variant. All 18 use deterministic, bounded adjustments to existing native movement speed, hit reach, attack interval, health, damage and posture. This makes the existing fights play differently without introducing wave spawners, new combat systems or additional Tick actors. Names are exposed through `ArchetypeName` for later UI/VFX hookups. The profile roster includes Ashling Skirmisher, Cinderback Brute, Emberclaw Warden, Mirewing Stalker, Bogroot Crusher, Fenfang Alpha, Frostbite Runner, Glacial Bulwark, Rimehorn Ravager, Stormveil Prowler, Thundershell Sentinel, Tempest Fang, Ironwhisker Scout, Foundrybreaker, Sparkcoil Executioner, Moonshade Pouncer, Voidplate Colossus and Eclipse Reaver.
+
+These remain the existing prototype enemy meshes and inherited AI moves, **not** eighteen independently modeled, fully animated creatures or eighteen new attack trees. Names and stat bounds are source-testable; Unreal gameplay and performance need verification in the engine. All regional encounter IDs, saved defeat state, dungeon residents and original Godot artwork stay unchanged.
