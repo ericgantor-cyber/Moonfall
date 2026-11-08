@@ -1405,11 +1405,14 @@ void AMoonfallHeroPawn::CraftWithNearestArtisan()
   LastServicePrice = 0;
   LastGuideMessageUntil = GetWorld()->GetTimeSeconds() + 4.f;
   if (LastCraftPrice <= 0 || LastWorkshopStock <= 0 || Salvage < LastCraftPrice) return;
-  // Valid, deterministic item code: uncommon item, one of three slots,
-  // tier grounded in the hero's actual level; never auto-equip.
+  // Six regional recipes: three item slots and region-specific traits.
+  // Higher supply from genuine guardian victories unlocks rare craft quality.
+  // All codes obey the existing item decoder and are never auto-equipped.
   const int32 Slot = Region % 3;
   const int32 Tier = FMath::Clamp(Level / 5 + 1, 1, 25);
-  const int32 ItemCode = Slot * 10000 + 1000 + Tier;
+  const int32 Rarity = Arena->GetRegionalSupplyRating(Region) >= 65 ? 2 : 1;
+  const int32 Affix = 1 + Region % 3;
+  const int32 ItemCode = Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier;
   if (!Arena->PurchaseWorkshopStock(Region)) return;
   Salvage -= LastCraftPrice;
   InventoryItemCodes.Add(ItemCode);
