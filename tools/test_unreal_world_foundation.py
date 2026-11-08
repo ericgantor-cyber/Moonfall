@@ -574,7 +574,7 @@ class WorldFoundationTests(unittest.TestCase):
         self.assertIn("if (!Arena->PurchaseWorkshopStock(Region)) return;", body)
         self.assertIn("Salvage -= LastCraftPrice;", body)
         self.assertIn("InventoryItemCodes.Add(ItemCode);", body)
-        self.assertIn("const int32 ItemCode = Slot * 10000 + 1000 + Tier;", body)
+        self.assertIn("const int32 ItemCode = Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier;", body)
         self.assertNotIn("EquipInventoryItem(", body)
         self.assertNotIn("Health =", body)
         self.assertNotIn("AwardExperience(", body)
@@ -582,15 +582,19 @@ class WorldFoundationTests(unittest.TestCase):
         self.assertIn('ActionName="CraftNpcItem",Key=Gamepad_FaceButton_Top', inputs)
         self.assertIn('ActionName="DualCast",Key=C', inputs)
         self.assertIn('TEXT("R: Talk   T: Service   V: Craft   G/H: Social")', hud)
-        self.assertIn('TEXT("%s: Crafted uncommon equipment for %d salvage.")', hud)
-        # Crafted uncommon items must pass the actual pickup/equipment decoder.
+        self.assertIn('TEXT("%s: Crafted regional equipment for %d salvage.")', hud)
+        # All six region recipes and guardian-upgraded rarities decode.
         for region in range(6):
             for level in (1, 5, 25, 75, 150):
-                tier = min(25, max(1, level // 5 + 1))
-                code = region % 3 * 10000 + 1000 + tier
-                self.assertEqual((code // 10000) % 10, region % 3)
-                self.assertEqual((code // 1000) % 10, 1)
-                self.assertTrue(1 <= code % 1000 <= 25)
+                for supply in (20, 64, 65, 100):
+                    tier = min(25, max(1, level // 5 + 1))
+                    rarity = 2 if supply >= 65 else 1
+                    affix = 1 + region % 3
+                    code = affix * 100000 + region % 3 * 10000 + rarity * 1000 + tier
+                    self.assertEqual(code // 100000, affix)
+                    self.assertEqual((code // 10000) % 10, region % 3)
+                    self.assertEqual((code // 1000) % 10, rarity)
+                    self.assertTrue(1 <= code % 1000 <= 25)
 
     def test_assassins_creed_style_moonfall_menu_pages(self):
         root = ROOT / "MoonfallUnreal"
@@ -625,6 +629,32 @@ class WorldFoundationTests(unittest.TestCase):
         self.assertIn('ActionName="DualCast",Key=C', inputs)
         self.assertIn('ActionName="Inventory",Key=I', inputs)
         self.assertIn('ActionName="Options",Key=Escape', inputs)
+
+    def test_player_economy_save_and_quest_journal_actions(self):
+        root = ROOT / "MoonfallUnreal/Source/MoonfallUnreal"
+        hero_h = (root / "MoonfallHeroPawn.h").read_text(encoding="utf-8")
+        hero_cpp = (root / "MoonfallHeroPawn.cpp").read_text(encoding="utf-8")
+        hud = (root / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        econ = (root / "MoonfallPlayerEconomySave.h").read_text(encoding="utf-8")
+        self.assertIn("MoonfallUnrealPlayerEconomyV1", hero_cpp)
+        self.assertIn("LoadPlayerEconomy();", hero_cpp)
+        self.assertIn("UMoonfallPlayerEconomySave", econ)
+        self.assertIn("TArray<int32> InventoryItemCodes;", econ)
+        self.assertIn("int32 EquippedWeaponCode = 0;", econ)
+        self.assertIn("int32 Salvage = 0;", econ)
+        self.assertIn("SavePlayerEconomy();", hero_cpp)
+        self.assertIn("SaveGameToSlot(Save, PlayerEconomySlot, 0)", hero_cpp)
+        self.assertIn("LoadGameFromSlot(PlayerEconomySlot, 0)", hero_cpp)
+        self.assertIn("Save->InventoryItemCodes.Num() > 2048", hero_cpp)
+        self.assertIn("IsValidEconomyItem(Code)", hero_cpp)
+        self.assertIn("InventoryItemCodes.Contains(Code)", hero_cpp)
+        self.assertIn("void SelectJournalQuest();", hero_h)
+        self.assertIn("void AMoonfallHeroPawn::SelectJournalQuest()", hero_cpp)
+        self.assertIn("Arena->TrackDungeonQuest(Id);", hero_cpp)
+        self.assertIn("GetDiscoveredDungeonEntrances().Contains(Id)", hero_cpp)
+        self.assertIn("if (bInventoryOpen && InventoryMenuTab == 2) { SelectJournalQuest(); return; }", hero_cpp)
+        self.assertIn("QuestJournalSelection = FMath::Max(0, QuestJournalSelection - 1);", hero_cpp)
+        self.assertIn("Shown == Hero->QuestJournalSelection", hud)
 
     def test_connected_geometry(self):
         self.assertIn("Region * RegionSpacing", CPP)
