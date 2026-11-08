@@ -2,6 +2,7 @@
 #include "Components/StaticMeshComponent.h"
 #include "UObject/ConstructorHelpers.h"
 #include "Engine/World.h"
+#include "GameFramework/Pawn.h"
 #include "Kismet/GameplayStatics.h"
 
 AMoonfallQuestGuide::AMoonfallQuestGuide()
@@ -16,7 +17,10 @@ AMoonfallQuestGuide::AMoonfallQuestGuide()
  static ConstructorHelpers::FObjectFinder<UStaticMesh> Cube(TEXT("/Engine/BasicShapes/Cube.Cube"));
  if (Cylinder.Succeeded()) Body->SetStaticMesh(Cylinder.Object);
  Body->SetRelativeScale3D(FVector(0.45f, 0.45f, 1.55f));
- Body->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+ // NPCs do not block players, but navigation sweeps must stop at world walls.
+ Body->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+ Body->SetCollisionResponseToAllChannels(ECR_Ignore);
+ Body->SetCollisionResponseToChannel(ECC_WorldStatic, ECR_Block);
 
  Head = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("GuideHead"));
  Head->SetupAttachment(Body);
