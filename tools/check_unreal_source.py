@@ -1625,7 +1625,10 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Stage != 4 && Stage != 8 && Stage != 12", reaction)
         self.assertIn("Health <= 0.f", reaction)
         self.assertIn("if (!bBoss && Now >= PostureBrokenUntil)", reaction)
-        self.assertIn("Now + 0.16f", reaction)
+        self.assertIn("Stage == 12 ? 0.24f : (Stage == 8 ? 0.18f : 0.12f)", reaction)
+        self.assertIn("FMath::IsFinite(HitReactionEndsAt)", reaction)
+        self.assertIn("Now + FlinchSeconds", reaction)
+        self.assertNotIn("Now + 0.5f", reaction)
         self.assertIn("OnComboMilestone(Stage);", reaction)
         cast = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split(
             "void AMoonfallHeroPawn::CastLeft()", 1)[0]
