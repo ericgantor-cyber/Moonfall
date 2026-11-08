@@ -806,7 +806,10 @@ bool AMoonfallHeroPawn::SalvageInventoryItem(int32 InventoryIndex)
  InventorySelection = FMath::Clamp(InventorySelection, 0, FMath::Max(0, InventoryItemCodes.Num() - 1));
  return true;
 }
-void AMoonfallHeroPawn::InventoryConfirm() { EquipSelectedInventoryItem(); }
+void AMoonfallHeroPawn::InventoryConfirm() {
+ if (bInventoryOpen && InventoryMenuTab == 2) { SelectJournalQuest(); return; }
+ EquipSelectedInventoryItem();
+}
 void AMoonfallHeroPawn::OpenOptions() {
  // The defeat screen owns input until respawn; do not reopen gameplay menus.
  if (Health <= 0.f || !FMath::IsFinite(Health)) return;
@@ -819,8 +822,28 @@ void AMoonfallHeroPawn::OpenOptions() {
  }
  bOptionsOpen = !bOptionsOpen;
 }
+
+void AMoonfallHeroPawn::SelectJournalQuest() {
+ if (!bInventoryOpen || InventoryMenuTab != 2 || !GetWorld()) return;
+ for (TActorIterator<AMoonfallArena> It(GetWorld()); It; ++It) {
+  AMoonfallArena* Arena = *It;
+  if (!IsValid(Arena)) continue;
+  int32 Index = 0;
+  for (int32 Id = 0; Id < 30; ++Id) {
+   if (!Arena->GetDiscoveredDungeonEntrances().Contains(Id)) continue;
+   if (Index == QuestJournalSelection) {
+    Arena->TrackDungeonQuest(Id);
+    return;
+   }
+   ++Index;
+  }
+  break;
+ }
+}
+
 void AMoonfallHeroPawn::OptionsUp() {
  if (bInventoryOpen) {
+  if (InventoryMenuTab == 2) { QuestJournalSelection = FMath::Max(0, QuestJournalSelection - 1); return; }
   if (InventoryMenuTab != 0) return;
   InventorySelection = FMath::Max(0, InventorySelection - 1);
   return;
@@ -829,6 +852,15 @@ void AMoonfallHeroPawn::OptionsUp() {
 }
 void AMoonfallHeroPawn::OptionsDown() {
  if (bInventoryOpen) {
+  if (InventoryMenuTab == 2) {
+   int32 Discovered = 0;
+   if (GetWorld()) for (TActorIterator<AMoonfallArena> It(GetWorld()); It; ++It) {
+    if (IsValid(*It)) Discovered = (*It)->GetDiscoveredDungeonEntrances().Num();
+    break;
+   }
+   QuestJournalSelection = FMath::Clamp(QuestJournalSelection + 1, 0, FMath::Max(0, Discovered - 1));
+   return;
+  }
   if (InventoryMenuTab != 0) return;
   InventorySelection = FMath::Min(FMath::Max(0, InventoryItemCodes.Num() - 1), InventorySelection + 1);
   return;
