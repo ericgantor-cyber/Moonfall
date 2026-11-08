@@ -49,7 +49,7 @@ func _run() -> void:
  if Input.get_connected_joypads().is_empty():
   check((game.get("pad_atlas_previous") as Dictionary).is_empty(),"Disconnected controller button history is cleared")
 
- check(game.get("beasts").size() == 76, "74 legacy actor IDs plus two divine boss actors remain stable")
+ check(game.get("beasts").size() >= 76, "original wildlife and divine bosses remain alongside optional dungeon residents")
  # The pack coordinator must not scan neighbors when downstream steering
  # cannot flank. Verify counters, then verify moving foes still coordinate.
  var pack_actor:Dictionary={}
