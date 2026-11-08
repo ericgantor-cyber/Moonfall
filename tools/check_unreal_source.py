@@ -494,13 +494,14 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("DefeatAnimationStartedAt < 0.f", self.enemy_cpp)
         self.assertNotIn("SHATTER KO", self.hud)
 
-    def test_fifth_kill_shockwave_is_bounded_and_nonlethal(self):
+    def test_chain_finisher_shockwave_is_bounded_and_nonlethal(self):
         self.assertIn("float FinisherShockwaveRadius = 320.f;", self.hero_h)
-        self.assertIn("float FinisherShockwavePosture = 22.f;", self.hero_h)
+        self.assertIn("float FinisherShockwavePosture = 12.f;", self.hero_h)
         self.assertIn("void OnFinisherShockwave(int32 AffectedEnemies);", self.hero_h)
         register = self.hero_cpp.split("int32 AMoonfallHeroPawn::RegisterFinisherKill(", 1)[1].split(
             "void AMoonfallHeroPawn::StartFinisherPresentation(", 1)[0]
-        self.assertIn("FinisherSequenceCount % 5 == 0", register)
+        self.assertIn("FinisherSequenceCount >= 2", register)
+        self.assertNotIn("FinisherSequenceCount % 5 == 0", register)
         self.assertIn("FMath::Clamp(FinisherShockwaveRadius, 0.f, 600.f)", register)
         self.assertIn("FMath::Clamp(FinisherShockwavePosture, 0.f, 60.f)", register)
         self.assertIn("ExaminedEnemies < 64 && AffectedEnemies < 8", register)
