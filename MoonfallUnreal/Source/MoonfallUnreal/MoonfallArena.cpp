@@ -189,6 +189,7 @@ void AMoonfallArena::StreamWorld() {
    if (FVector::DistSquared2D(Here, Entrance) < 650.f * 650.f
        && !DiscoveredDungeonEntrances.Contains(EntranceId)) {
     DiscoveredDungeonEntrances.Add(EntranceId);
+    if (TrackedDungeonQuestId < 0) TrackedDungeonQuestId = EntranceId;
     bWorldSavePending = true;
    }
   }
@@ -253,6 +254,7 @@ void AMoonfallArena::LoadWorldProgress() {
  DiscoveredChambers.Empty();
  DiscoveredRegions.Empty();
  DiscoveredDungeonEntrances.Empty();
+ TrackedDungeonQuestId = -1;
  if (!UGameplayStatics::DoesSaveGameExist(WorldProgressSlot, 0)) return;
  UMoonfallWorldProgressSave* Saved = Cast<UMoonfallWorldProgressSave>(
   UGameplayStatics::LoadGameFromSlot(WorldProgressSlot, 0));
@@ -268,6 +270,18 @@ void AMoonfallArena::LoadWorldProgress() {
  for (const int32 Entrance : Saved->DiscoveredDungeonEntranceIds) {
   if (Entrance >= 0 && Entrance < Regions * DungeonsPerRegion)
    DiscoveredDungeonEntrances.Add(Entrance);
+ }
+ // A quest is trackable only when its entrance was actually discovered.
+ if (Saved->TrackedDungeonQuestId >= 0 &&
+     Saved->TrackedDungeonQuestId < Regions * DungeonsPerRegion &&
+     DiscoveredDungeonEntrances.Contains(Saved->TrackedDungeonQuestId))
+  TrackedDungeonQuestId = Saved->TrackedDungeonQuestId;
+ else if (!DiscoveredDungeonEntrances.IsEmpty()) {
+  // Older saves gain a deterministic known objective, never an undiscovered one.
+  int32 FirstKnown = Regions * DungeonsPerRegion;
+  for (const int32 Entrance : DiscoveredDungeonEntrances)
+   FirstKnown = FMath::Min(FirstKnown, Entrance);
+  TrackedDungeonQuestId = FirstKnown;
  }
  for (const int32 Room : Saved->DiscoveredChamberIds) {
   if (Room >= 0 && Room < Regions * DungeonsPerRegion * ChambersPerDungeon)
@@ -314,6 +328,31 @@ void AMoonfallArena::SaveWorldProgress() {
    Saved->DiscoveredDungeonEntranceIds.Add(Entrance);
  }
  Saved->DiscoveredDungeonEntranceIds.Sort();
+ Saved->TrackedDungeonQuestId = DiscoveredDungeonEntrances.Contains(TrackedDungeonQuestId)
+  ? TrackedDungeonQuestId : -1;
  if (UGameplayStatics::SaveGameToSlot(Saved, WorldProgressSlot, 0))
   bWorldSavePending = false;
+}
+
+bool AMoonfallArena::IsDungeonQuestCompleted(int32 EntranceId) const {
+ if (EntranceId < 0 || EntranceId >= Regions * DungeonsPerRegion) return false;
+ // Every dungeon has 14 chambers; its final guardian is in chamber 14.
+ const int32 GuardianEncounterId = 18 + EntranceId * ChambersPerDungeon + (ChambersPerDungeon - 1);
+ return DefeatedEncounters.Contains(GuardianEncounterId);
+}
+int32 AMoonfallArena::GetCompletedDungeonQuestCount() const {
+ int32 Completed = 0;
+ for (int32 EntranceId = 0; EntranceId < Regions * DungeonsPerRegion; ++EntranceId) {
+  if (IsDungeonQuestCompleted(EntranceId)) ++Completed;
+ }
+ return Completed;
+}
+bool AMoonfallArena::TrackDungeonQuest(int32 EntranceId) {
+ // Blueprint/UI can only track an entrance the hero has actually found.
+ if (!bContinuousWorld || !DiscoveredDungeonEntrances.Contains(EntranceId)) return false;
+ if (TrackedDungeonQuestId != EntranceId) {
+  TrackedDungeonQuestId = EntranceId;
+  bWorldSavePending = true;
+ }
+ return true;
 }
