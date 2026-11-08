@@ -157,6 +157,14 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(damage.index("EndSprint();"), damage.index("EndGuard();"))
         self.assertLess(damage.index("if (Health <= 0.f) {"), damage.index("bInventoryOpen = false;"))
 
+    def test_death_closes_options_and_inventory_overlays(self):
+        damage = self.hero_cpp.split("void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount)", 1)[1].split(
+            "void AMoonfallHeroPawn::CycleGraphicsQuality()", 1)[0]
+        defeat = damage.split("if (Health <= 0.f) {", 1)[1].split("if (!bReduceMotion)", 1)[0]
+        self.assertIn("bInventoryOpen = false;", defeat)
+        self.assertIn("bOptionsOpen = false;", defeat)
+        self.assertLess(defeat.index("EndGuard();"), defeat.index("bOptionsOpen = false;"))
+
     def test_keyboard_controller_inventory_overlay_navigation_and_equip(self):
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
         for binding in ('ActionName="Inventory",Key=I', 'ActionName="Inventory",Key=Gamepad_Special_Left',
@@ -1467,7 +1475,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('void AMoonfallHeroPawn::EndGuard()', self.hero_cpp)
         self.assertIn("NextParryAt = Now + FMath::Clamp(ParryCooldownSeconds, 0.3f, 2.f);", self.hero_cpp)
         self.assertIn("Stamina < GuardStaminaCost) return;", self.hero_cpp)
-        self.assertIn("if (Health <= 0.f) {\n  // Prevent lingering movement/jump input from carrying through defeat.\n  StopJumping();\n  if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();\n  // Clear any held sprint so a later respawn cannot inherit it.\n  EndSprint();\n  EndGuard();\n  // Defeat must not leave the inventory overlay trapping the player.\n  bInventoryOpen = false;\n }", self.hero_cpp)
+        self.assertIn("if (Health <= 0.f) {\n  // Prevent lingering movement/jump input from carrying through defeat.\n  StopJumping();\n  if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();\n  // Clear any held sprint so a later respawn cannot inherit it.\n  EndSprint();\n  EndGuard();\n  // Defeat clears every gameplay menu so the death/respawn screen stays visible.\n  bInventoryOpen = false;\n  bOptionsOpen = false;\n }", self.hero_cpp)
         self.assertIn("ParryWindowEndsAt = -1.f", self.hero_cpp)
         self.assertIn("DamageAfterGuard *= 0.4f", self.hero_cpp)
         self.assertIn("Stamina = FMath::Clamp(Stamina - RequiredGuardCost, 0.f, MaxStamina)", self.hero_cpp)
