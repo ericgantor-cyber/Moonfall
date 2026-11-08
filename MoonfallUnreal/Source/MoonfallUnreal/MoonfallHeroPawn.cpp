@@ -111,7 +111,7 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
          ? FMath::Clamp(CombatManaRegenMultiplier, 0.f, 1.f) : 0.5f) : 1.f;
  if (Health > 0.f && FMath::IsFinite(Mana) && FMath::IsFinite(MaxMana) && MaxMana > 0.f
      && FMath::IsFinite(ManaRegenPerSecond) && ManaRegenPerSecond > 0.f && Mana >= 0.f && Mana < MaxMana)
-  Mana = FMath::Min(MaxMana, Mana + ManaRegenPerSecond * MenuRecoveryBoost * CombatManaFactor
+  Mana = FMath::Min(MaxMana, Mana + FMath::Clamp(ManaRegenPerSecond, 0.f, 250.f) * MenuRecoveryBoost * CombatManaFactor
       * (1.f + FMath::Clamp(AccessoryTier * 0.012f, 0.f, 0.25f) + (AccessoryAffix == 3 ? 0.08f : 0.f))
       * SafeRecoveryDelta);
  // Recovery in either menu is bounded and never revives a defeated hero.
@@ -194,7 +194,7 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
  if (Health > 0.f && !bSprinting && !bGuarding && GetWorld() && GetWorld()->GetTimeSeconds() >= StaminaRegenStartsAt
      && FMath::IsFinite(Stamina) && FMath::IsFinite(MaxStamina) && MaxStamina > 0.f
      && FMath::IsFinite(StaminaRegenPerSecond) && StaminaRegenPerSecond > 0.f) {
-  Stamina = FMath::Clamp(Stamina + StaminaRegenPerSecond * StaminaDelta * MenuRecoveryBoost, 0.f, MaxStamina);
+  Stamina = FMath::Clamp(Stamina + FMath::Clamp(StaminaRegenPerSecond, 0.f, 250.f) * StaminaDelta * MenuRecoveryBoost, 0.f, MaxStamina);
  }
 }
 void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
