@@ -10,6 +10,8 @@
 #include "Misc/ConfigCacheIni.h"
 #include "Interfaces/IPluginManager.h"
 #include "MoonfallEnemy.h"
+#include "MoonfallGroundLoot.h"
+#include "EngineUtils.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Components/PointLightComponent.h"
@@ -194,6 +196,7 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("Inventory"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleInventory);
  Input->BindAction(TEXT("InventoryConfirm"), IE_Pressed, this, &AMoonfallHeroPawn::InventoryConfirm);
  Input->BindAction(TEXT("InventorySalvage"), IE_Pressed, this, &AMoonfallHeroPawn::InventorySalvage);
+ Input->BindAction(TEXT("PickupLoot"), IE_Pressed, this, &AMoonfallHeroPawn::PickupNearestGroundLoot);
  Input->BindAction(TEXT("OptionsUp"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsUp);
  Input->BindAction(TEXT("OptionsDown"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsDown);
  Input->BindAction(TEXT("OptionsLeft"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsLeft);
@@ -833,9 +836,9 @@ void AMoonfallHeroPawn::AwardExperience(int32 Amount)
  if (Level >= 100) Experience = 0;
 }
 
-void AMoonfallHeroPawn::AwardEquipmentDrop(bool bEliteEnemy, bool bBossEnemy)
+int32 AMoonfallHeroPawn::RollEquipmentCode(bool bEliteEnemy, bool bBossEnemy)
 {
- if (Health <= 0.f) return;
+ if (Health <= 0.f) return 0;
  // Bounded randomized loot, without spawned pickup actors or per-frame work.
  // Keep boss/elite rewards meaningful: guaranteed epic for bosses, at least rare
  // for elites. Regular enemies use weighted chances with a modest level bias.
@@ -861,6 +864,16 @@ void AMoonfallHeroPawn::AwardEquipmentDrop(bool bEliteEnemy, bool bBossEnemy)
  // tier (units). Distinct drops persist until the player salvages them.
  const int32 ItemCode = LastLootAffix * 100000 + LastLootSlot * 10000
    + LastLootRarity * 1000 + NewTier;
+ return ItemCode;
+}
+
+// Legacy direct grant remains available for scripted rewards. Enemy deaths
+// instead spawn a ground actor, so equipment is not auto-collected on kills.
+void AMoonfallHeroPawn::AwardEquipmentDrop(bool bEliteEnemy, bool bBossEnemy)
+{
+ const int32 ItemCode = RollEquipmentCode(bEliteEnemy, bBossEnemy);
+ if (ItemCode <= 0) return;
+ const int32 NewTier = LastLootTier;
  // Do not reject new loot, automatically salvage, or silently discard items.
  // The paginated inventory supports growth beyond the former 30-slot limit.
  InventoryItemCodes.Add(ItemCode);
@@ -885,6 +898,65 @@ void AMoonfallHeroPawn::AwardEquipmentDrop(bool bEliteEnemy, bool bBossEnemy)
  } else {
   Salvage = FMath::Min(9999, Salvage + (bBossEnemy ? 5 : (bEliteEnemy ? 2 : 1)));
  }
+}
+
+bool AMoonfallHeroPawn::CollectGroundEquipmentCode(int32 ItemCode)
+{
+ if (Health <= 0.f || ItemCode <= 0) return false;
+ const int32 Affix = ItemCode / 100000;
+ const int32 SlotIndex = (ItemCode / 10000) % 10;
+ const int32 Rarity = (ItemCode / 1000) % 10;
+ const int32 Tier = ItemCode % 1000;
+ if (Affix < 0 || Affix > 3 || SlotIndex < 0 || SlotIndex > 2
+     || Rarity < 0 || Rarity > 3 || Tier < 1 || Tier > 25
+     || (Rarity == 0 && Affix != 0)
+     || ItemCode != Affix * 100000 + SlotIndex * 10000 + Rarity * 1000 + Tier)
+  return false;
+ // Picking up an item NEVER equips, automatically salvages, or deletes gear.
+ InventoryItemCodes.Add(ItemCode);
+ LastLootAffix = Affix;
+ LastLootSlot = SlotIndex;
+ LastLootRarity = Rarity;
+ LastLootTier = Tier;
+ const int32 EquippedTier = SlotIndex == 0 ? WeaponTier
+     : (SlotIndex == 1 ? ArmorTier : AccessoryTier);
+ LastLootUpgrade = Tier - EquippedTier;
+ return true;
+}
+
+void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(bool bEliteEnemy, bool bBossEnemy, FVector DefeatedLocation)
+{
+ if (!GetWorld() || Health <= 0.f) return;
+ const int32 ItemCode = RollEquipmentCode(bEliteEnemy, bBossEnemy);
+ if (ItemCode <= 0) return;
+ // Small scattering keeps multiple drops visually distinct, without waves.
+ const FVector Origin = DefeatedLocation.ContainsNaN() ? GetActorLocation() : DefeatedLocation;
+ const FVector SpawnAt = Origin + FVector(FMath::RandRange(-50.f, 50.f),
+   FMath::RandRange(-50.f, 50.f), 45.f);
+ FActorSpawnParameters Params;
+ Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+ if (AMoonfallGroundLoot* Loot = GetWorld()->SpawnActor<AMoonfallGroundLoot>(
+     AMoonfallGroundLoot::StaticClass(), SpawnAt, FRotator::ZeroRotator, Params))
+  Loot->InitializeLoot(ItemCode);
+}
+
+void AMoonfallHeroPawn::PickupNearestGroundLoot()
+{
+ if (Health <= 0.f || bOptionsOpen || bInventoryOpen || !GetWorld()) return;
+ AMoonfallGroundLoot* Nearest = nullptr;
+ float BestDistanceSq = FMath::Square(250.f);
+ // Input-only search. Ground loot actors never need a per-frame pickup scan.
+ for (TActorIterator<AMoonfallGroundLoot> It(GetWorld()); It; ++It) {
+  AMoonfallGroundLoot* Candidate = *It;
+  if (!IsValid(Candidate) || Candidate->GetItemCode() <= 0) continue;
+  if (FMath::Abs(Candidate->GetActorLocation().Z - GetActorLocation().Z) > 150.f) continue;
+  const float DistanceSq = FVector::DistSquared2D(Candidate->GetActorLocation(), GetActorLocation());
+  if (DistanceSq <= BestDistanceSq) {
+   BestDistanceSq = DistanceSq;
+   Nearest = Candidate;
+  }
+ }
+ if (IsValid(Nearest)) Nearest->TryCollect();
 }
 
 bool AMoonfallHeroPawn::EquipInventoryItem(int32 InventoryIndex)
