@@ -73,7 +73,7 @@ void AMoonfallCombatHUD::DrawHUD()
    DrawText(Row, Index == Selected ? FLinearColor::Yellow : FLinearColor::White,
       Left + 20.f, Y, nullptr, Canvas->SizeX < 900.f ? 0.75f : 0.9f);
   }
-  DrawText(TEXT("WASD / Arrows / D-pad: select   Enter / A / Left / Right: equip"),
+  DrawText(TEXT("WASD / Arrows / D-pad: select   Enter / Y / Left / Right: equip"),
      FLinearColor::White, Left + 18.f, Top + PanelHeight - 51.f, nullptr, 0.75f);
   DrawText(TEXT("I / Select / Esc: close"), FLinearColor::White,
      Left + 18.f, Top + PanelHeight - 28.f, nullptr, 0.8f);
