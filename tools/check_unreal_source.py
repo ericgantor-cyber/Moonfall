@@ -514,6 +514,19 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         for axis, call in (("Turn", "AddControllerYawInput"), ("LookUp", "AddControllerPitchInput")):
             self.assertIn(f"void AMoonfallHeroPawn::{axis}(float Value) {{ if (Health > 0.f && !bOptionsOpen && !bInventoryOpen && FMath::IsFinite(Value)) {call}(Value); }}", controls)
 
+    def test_menu_entry_and_defeat_cancel_lingering_jumps_and_velocity(self):
+        inventory = self.hero_cpp.split("void AMoonfallHeroPawn::ToggleInventory()", 1)[1].split(
+            "void AMoonfallHeroPawn::EquipSelectedInventoryItem()", 1)[0]
+        options = self.hero_cpp.split("void AMoonfallHeroPawn::OpenOptions()", 1)[1].split(
+            "void AMoonfallHeroPawn::OptionsUp()", 1)[0]
+        damage = self.hero_cpp.split("void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount)", 1)[1].split(
+            "void AMoonfallHeroPawn::CycleGraphicsQuality()", 1)[0]
+        defeat = damage.split("if (Health <= 0.f) {", 1)[1].split("if (!bReduceMotion)", 1)[0]
+        for body in (inventory, options, defeat):
+            self.assertIn("StopJumping();", body)
+            self.assertIn("GetCharacterMovement()->StopMovementImmediately();", body)
+            self.assertLess(body.index("StopJumping();"), body.index("EndSprint();"))
+
     def test_sprint_input_is_rejected_in_menus_or_after_defeat(self):
         begin = self.hero_cpp.split("void AMoonfallHeroPawn::BeginSprint()", 1)[1].split(
             "void AMoonfallHeroPawn::EndSprint()", 1)[0]
