@@ -195,3 +195,10 @@ Opening **J: Quests** now selects the current tracked *discovered* dungeon quest
 Picking up a ground equipment actor no longer destroys the pickup unless `TrySavePlayerEconomy()` successfully writes the newly added inventory item. On a save failure, the added item is removed from the in-memory bag and the pickup returns false, retaining the world actor for another attempt. Last-loot UI metadata is updated only after a successful save. The existing maximum-inventory guard, item-code validation and no-auto-equip rules still apply. Source regression tests check the save/rollback/destroy ordering.
 
 This does not persist ground pickup actors through a process restart or guarantee atomic state across world and player SaveGame files. Native Unreal 5.4 compilation and live disk-failure tests remain unverified.
+
+## Inventory equipment and salvage SaveGame failure recovery
+- **Equipping** now checks the result of `TrySavePlayerEconomy()` and, on failed write, restores the previously equipped tier, affix and item code, aggregate equipment tier, maximum health and current health. Health UI events are fired only after a successful armor equip save, preventing a false equipment update.
+- **Salvaging** now keeps a copy of the original Salvage balance and the removed item. On a failed write the exact item is inserted back at its original inventory index, Salvage returns to its previous balance, and the operation reports failure. Inventory selection changes only after a successful save.
+- Added source regressions for both rollback paths. These avoid reporting successful operations while the persistent economy file still contains the previous inventory state.
+
+Not a native UE5.4 compile or injected save-failure gameplay test. The independent world/player slots remain non-atomic across process crashes.
