@@ -728,6 +728,9 @@ int32 AMoonfallHeroPawn::RegisterFinisherKill(bool bShatterKill, bool bBossKill,
 {
  if (Health <= 0.f || !GetWorld()) return 0;
  const float Now = GetWorld()->GetTimeSeconds();
+ // A confirmed finisher is combat, not a safe rest window.
+ CombatRecoveryEndsAt = Now + (FMath::IsFinite(CombatRecoverySeconds)
+     ? FMath::Clamp(CombatRecoverySeconds, 0.f, 12.f) : 5.f);
  const float Window = FMath::IsFinite(FinisherChainWindowSeconds)
    ? FMath::Clamp(FinisherChainWindowSeconds, 0.5f, 10.f) : 4.f;
  const bool bContinueChain = Now >= LastFinisherKillAt && Now - LastFinisherKillAt <= Window;
