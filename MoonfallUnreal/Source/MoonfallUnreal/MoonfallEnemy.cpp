@@ -210,6 +210,18 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   return;
  }
  const float Now = GetWorld()->GetTimeSeconds();
+ // Pause hostile behavior during both gameplay menus and after hero defeat.
+ // Cancel winding attacks so closing a menu never delivers an instant hit.
+ AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0));
+ if (!IsValid(Hero) || Hero->Health <= 0.f || Hero->bOptionsOpen || Hero->bInventoryOpen) {
+  WindupEndsAt = -1.f;
+  BossWarningEndTime = -1.f;
+  bComboSecondHitPending = false;
+  bComboSecondHitActive = false;
+  LockedAttackDirection = FVector::ZeroVector;
+  NextAttackAt = FMath::Max(FMath::IsFinite(NextAttackAt) ? NextAttackAt : Now, Now + 0.35f);
+  return;
+ }
  // A shatter follow-up expires with its break window. Never carry it into
  // another posture cycle or let an expired flag affect later spells.
  if (bPostureFinisherAvailable && Now >= PostureBrokenUntil)
@@ -218,7 +230,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
      && FMath::IsFinite(MaxPosture) && MaxPosture > 0.f
      && FMath::IsFinite(PostureRecoveryPerSecond) && PostureRecoveryPerSecond > 0.f) {
   Posture = FMath::Clamp(Posture - FMath::Clamp(PostureRecoveryPerSecond, 0.f, 100.f)
-      * FMath::Clamp(DeltaSeconds, 0.f, 0.4f), 0.f, MaxPosture);
+      * (FMath::IsFinite(DeltaSeconds) ? FMath::Clamp(DeltaSeconds, 0.f, 0.4f) : 0.f), 0.f, MaxPosture);
   OnPostureChanged(Posture, MaxPosture);
  }
  const bool Staggered = Now < HitReactionEndsAt;
@@ -254,8 +266,6 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   NextAttackAt = FMath::Max(NextAttackAt, Now + 0.35f);
   return;
  }
- AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0));
- if (!IsValid(Hero) || Hero->Health <= 0.f || Hero->bOptionsOpen) return;
  FVector Difference = Hero->GetActorLocation() - GetActorLocation();
  Difference.Z = 0.f;
  const float Distance = Difference.Size();
