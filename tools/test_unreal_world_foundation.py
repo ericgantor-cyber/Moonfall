@@ -190,6 +190,32 @@ class WorldFoundationTests(unittest.TestCase):
                     self.assertEqual((room // 70, (room % 70) // 14, room % 14),
                                      (region, dungeon, chamber))
 
+    def test_atlas_region_terrain_and_entrance_fog(self):
+        save = (ROOT / "MoonfallUnreal/Source/MoonfallUnreal/MoonfallWorldProgressSave.h").read_text(encoding="utf-8")
+        hud = (ROOT / "MoonfallUnreal/Source/MoonfallUnreal/MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        self.assertIn("DiscoveredRegionIds", save)
+        self.assertIn("DiscoveredDungeonEntranceIds", save)
+        self.assertIn("TSet<int32> DiscoveredRegions;", HEADER)
+        self.assertIn("TSet<int32> DiscoveredDungeonEntrances;", HEADER)
+        self.assertIn("GetDiscoveredRegions() const", HEADER)
+        self.assertIn("GetDiscoveredDungeonEntrances() const", HEADER)
+        self.assertIn("FVector::DistSquared2D(Here, RegionPos) < 2200.f * 2200.f", CPP)
+        self.assertIn("FVector::DistSquared2D(Here, Entrance) < 650.f * 650.f", CPP)
+        self.assertIn("const int32 EntranceId = Region * DungeonsPerRegion + Dungeon;", CPP)
+        self.assertIn("Saved->DiscoveredRegionIds.Sort();", CPP)
+        self.assertIn("Saved->DiscoveredDungeonEntranceIds.Sort();", CPP)
+        self.assertIn("if (Region >= 0 && Region < Regions) DiscoveredRegions.Add(Region);", CPP)
+        self.assertIn("Entrance >= 0 && Entrance < Regions * DungeonsPerRegion", CPP)
+        self.assertIn("Arena->GetDiscoveredRegions()", hud)
+        self.assertIn("Arena->GetDiscoveredDungeonEntrances()", hud)
+        self.assertIn("if (EntranceId < 0 || EntranceId >= 30) continue;", hud)
+        self.assertIn("const int32 Region = EntranceId / 5;", hud)
+        self.assertIn("const int32 Dungeon = EntranceId % 5;", hud)
+        # No fog bypass: draw from discovered sets, never all possible entrances.
+        self.assertNotIn("for (int32 EntranceId = 0; EntranceId < 30;", hud)
+        self.assertNotIn("for (int32 Region = 0; Region < 6; ++Region)", hud)
+        self.assertEqual(len({r * 5 + d for r in range(6) for d in range(5)}), 30)
+
     def test_connected_geometry(self):
         self.assertIn("Region * RegionSpacing", CPP)
         self.assertIn("FVector(60.f, 60.f, 1.f)", CPP)
