@@ -1478,7 +1478,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "void AMoonfallHeroPawn::BeginSprint()", 1)[0]
         self.assertIn("const bool bWasGuarding = bGuarding;", end_guard)
         self.assertIn("if (bWasGuarding && GetWorld())", end_guard)
-        self.assertIn("FMath::Max(StaminaRegenStartsAt, GetWorld()->GetTimeSeconds() + 0.4f)", end_guard)
+        self.assertIn("FMath::Max(FMath::IsFinite(StaminaRegenStartsAt) ? StaminaRegenStartsAt : GetWorld()->GetTimeSeconds(), GetWorld()->GetTimeSeconds() + 0.4f)", end_guard)
         self.assertNotIn('TEXT("GUARD BROKEN")', self.hud)
 
     def test_fourth_hit_posture_only_affects_combo_target_once(self):
