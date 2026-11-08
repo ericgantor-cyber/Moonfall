@@ -32,14 +32,70 @@ void AMoonfallCombatHUD::DrawHUD()
   DrawText(TEXT("WASD / Arrows / D-pad: navigate    Esc / Start: close"),FLinearColor::White,MenuLeft+18.f,MenuTop+MenuHeight-28.f,nullptr,0.85f);
   return;
  }
+ if (Hero->bInventoryOpen) {
+  // Canvas-only paginated inventory: no extra actors, widgets, or hidden controls.
+  const float PanelWidth = FMath::Min(680.f, FMath::Max(280.f, Canvas->SizeX - 24.f));
+  const float PanelHeight = FMath::Min(580.f, FMath::Max(280.f, Canvas->SizeY - 24.f));
+  const float Left = (Canvas->SizeX - PanelWidth) * 0.5f;
+  const float Top = (Canvas->SizeY - PanelHeight) * 0.5f;
+  DrawRect(FLinearColor(0.04f, 0.035f, 0.10f, 0.96f), Left, Top, PanelWidth, PanelHeight);
+  DrawText(TEXT("MOONFALL  |  INVENTORY"), FLinearColor::White, Left + 18.f, Top + 16.f, nullptr, 1.3f);
+  const int32 Count = Hero->InventoryItemCodes.Num();
+  const int32 PerPage = 8;
+  const int32 Selected = FMath::Clamp(Hero->InventorySelection, 0, FMath::Max(0, Count - 1));
+  const int32 PageStart = Selected / PerPage * PerPage;
+  const int32 PageEnd = FMath::Min(Count, PageStart + PerPage);
+  DrawText(FString::Printf(TEXT("%d items  |  %d salvage  |  page %d / %d"),
+    Count, Hero->Salvage, PageStart / PerPage + 1,
+    FMath::Max(1, (Count + PerPage - 1) / PerPage)), FLinearColor(0.75f,0.72f,0.91f),
+    Left + 18.f, Top + 49.f, nullptr, 0.9f);
+  if (Count == 0)
+   DrawText(TEXT("No equipment yet. Defeat enemies to find gear."), FLinearColor::White,
+     Left + 18.f, Top + 100.f, nullptr, 0.92f);
+  const float RowSpacing = FMath::Max(21.f, (PanelHeight - 142.f) / PerPage);
+  for (int32 Index = PageStart; Index < PageEnd; ++Index) {
+   const int32 Code = Hero->InventoryItemCodes[Index];
+   const int32 Affix = Code / 100000;
+   const int32 Slot = (Code / 10000) % 10;
+   const int32 Rarity = (Code / 1000) % 10;
+   const int32 Tier = Code % 1000;
+   const TCHAR* Slots[] = {TEXT("Weapon"), TEXT("Armor"), TEXT("Accessory")};
+   const TCHAR* Rarities[] = {TEXT("Common"), TEXT("Uncommon"), TEXT("Rare"), TEXT("Epic")};
+   const TCHAR* Traits[] = {TEXT("None"), TEXT("Force"), TEXT("Ward"), TEXT("Focus")};
+   const bool bValid = Code > 0 && Slot <= 2 && Affix <= 3 && Rarity <= 3 && Tier >= 1 && Tier <= 25;
+   const bool bEquipped = Code == (Slot == 0 ? Hero->EquippedWeaponCode
+     : Slot == 1 ? Hero->EquippedArmorCode : Hero->EquippedAccessoryCode);
+   const float Y = Top + 83.f + (Index - PageStart) * RowSpacing;
+   if (Index == Selected) DrawRect(FLinearColor(0.25f,0.18f,0.43f,0.90f),
+     Left + 12.f, Y - 3.f, PanelWidth - 24.f, RowSpacing - 3.f);
+   const FString Row = bValid ? FString::Printf(TEXT("%02d  %s  T%d  %s  %s%s"),
+      Index + 1, Slots[Slot], Tier, Rarities[Rarity], Traits[Affix], bEquipped ? TEXT("  [EQUIPPED]") : TEXT(""))
+    : FString::Printf(TEXT("%02d  Invalid item"), Index + 1);
+   DrawText(Row, Index == Selected ? FLinearColor::Yellow : FLinearColor::White,
+      Left + 20.f, Y, nullptr, Canvas->SizeX < 900.f ? 0.75f : 0.9f);
+  }
+  DrawText(TEXT("WASD / D-pad: select   Enter / Y: equip   Delete / X: salvage"),
+     FLinearColor::White, Left + 18.f, Top + PanelHeight - 51.f, nullptr, 0.75f);
+  DrawText(TEXT("I / Select / Esc: close"), FLinearColor::White,
+     Left + 18.f, Top + PanelHeight - 28.f, nullptr, 0.8f);
+  return;
+ }
  // Nearest living boss, displayed without creating additional widget actors.
  const AMoonfallEnemy* Boss = nullptr;
+ const AMoonfallEnemy* PostureTarget = nullptr;
  float BossDistanceSq = TNumericLimits<float>::Max();
+ float PostureDistanceSq = FMath::Square(1200.f);
  for (TActorIterator<AMoonfallEnemy> It(GetWorld()); It; ++It) {
   const AMoonfallEnemy* E = *It;
-  if (!IsValid(E) || !E->bBoss || E->Health <= 0.f) continue;
+  if (!IsValid(E) || E->Health <= 0.f) continue;
   const float DistSq = FVector::DistSquared(E->GetActorLocation(), Hero->GetActorLocation());
-  if (DistSq < BossDistanceSq) { Boss = E; BossDistanceSq = DistSq; }
+  if (E->bBoss) {
+   if (DistSq < BossDistanceSq) { Boss = E; BossDistanceSq = DistSq; }
+  } else if (DistSq < PostureDistanceSq && (E->Posture > 0.f
+      || E->PostureBrokenUntil > GetWorld()->GetTimeSeconds())) {
+   PostureTarget = E;
+   PostureDistanceSq = DistSq;
+  }
  }
  if (Boss && BossDistanceSq < FMath::Square(3000.f)) {
   const float Width = FMath::Min(480.f, Canvas->SizeX * 0.68f);
@@ -47,12 +103,37 @@ void AMoonfallCombatHUD::DrawHUD()
   const float Y = 72.f;
   const float MaxHP = FMath::Max(Boss->Health, Boss->BossMaxHealth);
   const float Percent = FMath::Clamp(Boss->Health / FMath::Max(1.f, MaxHP), 0.f, 1.f);
-  DrawRect(FLinearColor(0.07f,0.04f,0.10f,0.94f),X-6.f,Y-30.f,Width+12.f,67.f);
+  DrawRect(FLinearColor(0.07f,0.04f,0.10f,0.94f),X-6.f,Y-30.f,Width+12.f,88.f);
   DrawRect(FLinearColor(0.19f,0.10f,0.16f),X,Y,Width,16.f);
   DrawRect(Boss->BossPhase >= 3 ? FLinearColor(0.86f,0.18f,0.67f) : FLinearColor(0.84f,0.15f,0.22f),X,Y,Width*Percent,16.f);
   DrawText(FString::Printf(TEXT("BOSS  |  PHASE %d  |  %.0f / %.0f HP"),Boss->BossPhase,Boss->Health,MaxHP),FLinearColor::White,X,Y-25.f,nullptr,0.95f);
+  const bool bBossPostureBroken = Boss->PostureBrokenUntil > GetWorld()->GetTimeSeconds();
+  const float BossPostureRatio = FMath::Clamp(Boss->Posture / FMath::Max(1.f, Boss->MaxPosture), 0.f, 1.f);
+  DrawRect(FLinearColor(0.15f,0.14f,0.24f),X,Y+24.f,Width,7.f);
+  DrawRect(bBossPostureBroken ? FLinearColor(1.f,0.77f,0.30f) : FLinearColor(0.84f,0.59f,1.f),
+    X,Y+24.f,Width*(bBossPostureBroken?1.f:BossPostureRatio),7.f);
+  DrawText(bBossPostureBroken ? TEXT("POSTURE SHATTERED") : TEXT("POSTURE"),
+    bBossPostureBroken ? FLinearColor(1.f,0.84f,0.48f) : FLinearColor(0.85f,0.79f,1.f),
+    X,Y+35.f,nullptr,0.78f);
   if (Boss->BossWarningEndTime > GetWorld()->GetTimeSeconds())
-   DrawText(TEXT("INCOMING ATTACK - DODGE"),FLinearColor(1.f,0.83f,0.24f),X,Y+18.f,nullptr,0.9f);
+   DrawText(TEXT("INCOMING ATTACK - DODGE"),FLinearColor(1.f,0.83f,0.24f),X,Y+55.f,nullptr,0.9f);
+ }
+ // Show only the nearest engaged non-boss posture target to avoid clutter.
+ if (PostureTarget && GetOwningPlayerController()) {
+  FVector2D Screen;
+  if (GetOwningPlayerController()->ProjectWorldLocationToScreen(
+      PostureTarget->GetActorLocation() + FVector(0.f,0.f,175.f),Screen)
+      && Screen.X >= 0.f && Screen.X + 80.f < Canvas->SizeX
+      && Screen.Y >= 0.f && Screen.Y + 18.f < Canvas->SizeY) {
+   const bool bShattered = PostureTarget->PostureBrokenUntil > GetWorld()->GetTimeSeconds();
+   const float Ratio = FMath::Clamp(PostureTarget->Posture /
+       FMath::Max(1.f, PostureTarget->MaxPosture),0.f,1.f);
+   DrawRect(FLinearColor(0.12f,0.11f,0.19f),Screen.X,Screen.Y,80.f,5.f);
+   DrawRect(bShattered ? FLinearColor(1.f,0.76f,0.24f) : FLinearColor(0.78f,0.47f,0.98f),
+     Screen.X,Screen.Y,80.f*(bShattered?1.f:Ratio),5.f);
+   if (bShattered) DrawText(TEXT("SHATTERED"),FLinearColor(1.f,0.83f,0.48f),
+     Screen.X,Screen.Y+7.f,nullptr,0.75f);
+  }
  }
  // Compact circular resource HUD at bottom left, with actual gameplay values.
  const float Radius = FMath::Clamp(FMath::Min(Canvas->SizeX, Canvas->SizeY) * 0.092f, 50.f, 80.f);
@@ -62,9 +143,10 @@ void AMoonfallCombatHUD::DrawHUD()
  const bool bCompactScreen = Canvas->SizeX < 760.f || Canvas->SizeY < 480.f;
  const float ActualHealth = FMath::Clamp(Hero->Health / FMath::Max(1.f, Hero->MaxHealth), 0.f, 1.f);
  const float ActualMana = FMath::Clamp(Hero->Mana / FMath::Max(1.f, Hero->MaxMana), 0.f, 1.f);
+ const float ActualStamina = FMath::Clamp(Hero->Stamina / FMath::Max(1.f, Hero->MaxStamina), 0.f, 1.f);
  const float ActualXP = FMath::Clamp(static_cast<float>(Hero->Experience) / FMath::Max(1, Hero->ExperienceToNextLevel), 0.f, 1.f);
  const float Delta = GetWorld() ? FMath::Clamp(GetWorld()->GetDeltaSeconds(), 0.f, 0.1f) : 0.f;
- if (DisplayHealth < 0.f) { DisplayHealth = ActualHealth; DisplayMana = ActualMana; DisplayXP = ActualXP; }
+ if (DisplayHealth < 0.f) { DisplayHealth = ActualHealth; DisplayMana = ActualMana; DisplayXP = ActualXP; DisplayStamina = ActualStamina; }
  if (LastShownLevel < 0) LastShownLevel = Hero->Level;
  if (Hero->Level != LastShownLevel) {
   LastShownLevel = Hero->Level;
@@ -73,6 +155,7 @@ void AMoonfallCombatHUD::DrawHUD()
  }
  DisplayHealth = FMath::FInterpTo(DisplayHealth, ActualHealth, Delta, 9.f);
  DisplayMana = FMath::FInterpTo(DisplayMana, ActualMana, Delta, 9.f);
+ DisplayStamina = FMath::FInterpTo(DisplayStamina, ActualStamina, Delta, 11.f);
  DisplayXP = FMath::FInterpTo(DisplayXP, ActualXP, Delta, 7.f);
  const float HealthFraction = DisplayHealth;
  const float ManaFraction = DisplayMana;
@@ -115,6 +198,16 @@ void AMoonfallCombatHUD::DrawHUD()
  }
  DrawArc(Radius * 0.85f, ManaFraction, FLinearColor(0.06f, 0.11f, 0.23f), FLinearColor(0.19f, 0.59f, 1.f), 5.f);
  DrawArc(Radius * 0.97f, XpFraction, FLinearColor(0.19f, 0.10f, 0.28f), FLinearColor(0.73f, 0.32f, 1.f), 4.f);
+ // Thin green stamina arc stays outside the original red HP / blue mana / purple XP orb.
+ const bool bStaminaLow = Hero->Stamina < Hero->DodgeStaminaCost;
+ const bool bSprintRecovery = Hero->Stamina < FMath::Clamp(Hero->SprintRestartStamina, 0.f, Hero->MaxStamina);
+ DrawArc(Radius * 1.13f, DisplayStamina, FLinearColor(0.06f, 0.17f, 0.10f),
+   bStaminaLow ? FLinearColor(1.f, 0.68f, 0.22f) : FLinearColor(0.22f, 0.86f, 0.43f), 3.f);
+ if ((bStaminaLow || bSprintRecovery) && !bCompactScreen) {
+  DrawText(bStaminaLow ? TEXT("LOW STAMINA") : TEXT("SPRINT RECOVERING"),
+    FLinearColor(1.f,0.80f,0.40f),
+    CX + Radius + 14.f, CY + 15.f, nullptr, 0.82f * LabelScale);
+ }
  const float GlowLeft = GetWorld() ? FMath::Max(0.f, LevelGlowUntil - GetWorld()->GetTimeSeconds()) : 0.f;
  if (GlowLeft > 0.f) {
   const float Intensity = FMath::Clamp(GlowLeft / 1.25f, 0.f, 1.f);
@@ -148,13 +241,30 @@ void AMoonfallCombatHUD::DrawHUD()
  int32 VisibleDamageNumbers = 0;
  for (TActorIterator<AMoonfallEnemy> It(GetWorld()); It && VisibleDamageNumbers < 32; ++It) {
   const AMoonfallEnemy* Enemy = *It;
-  const float Age = GetWorld()->GetTimeSeconds() - Enemy->LastHitTime;
-  if (Age < 0.f || Age > 0.8f || Enemy->LastHitAmount <= 0.f) continue;
-  FVector2D Screen;
-  if (GetOwningPlayerController() && GetOwningPlayerController()->ProjectWorldLocationToScreen(Enemy->GetActorLocation() + FVector(0,0,175.f + Age*65.f), Screen) &&
-      Screen.X >= 0.f && Screen.X < Canvas->SizeX && Screen.Y >= 0.f && Screen.Y < Canvas->SizeY) {
-   ++VisibleDamageNumbers;
-   DrawText(FString::Printf(TEXT("-%.0f"), Enemy->LastHitAmount), FLinearColor(1.f,0.84f,0.2f,1.f-Age/0.8f), Screen.X, Screen.Y, nullptr, 1.3f * Hero->CombatTextScale);
+  for (int32 Slot = 0; Slot < AMoonfallEnemy::DamageHistorySize && VisibleDamageNumbers < 32; ++Slot) {
+   const AMoonfallEnemy::FRecentDamageHit& Hit = Enemy->DamageHistory[Slot];
+   const float Age = GetWorld()->GetTimeSeconds() - Hit.Time;
+   if (Age < 0.f || Age > 0.8f || !FMath::IsFinite(Hit.Amount) || Hit.Amount <= 0.f) continue;
+   FVector2D Screen;
+   // Offset entries so consecutive attacks on the same target remain readable.
+   const float HorizontalOffset = static_cast<float>(Slot - 1) * 24.f;
+   const FVector WorldTextPosition = Enemy->GetActorLocation() + FVector(0.f, 0.f, 175.f + Age * 65.f);
+   if (GetOwningPlayerController() && GetOwningPlayerController()->ProjectWorldLocationToScreen(WorldTextPosition, Screen)
+       && Screen.X + HorizontalOffset >= 0.f && Screen.X + HorizontalOffset < Canvas->SizeX
+       && Screen.Y >= 0.f && Screen.Y < Canvas->SizeY) {
+    ++VisibleDamageNumbers;
+    const bool bShatter = Hit.bShatter;
+    // Lethal hits retain ordinary damage numbers. No KO text overlays the
+    // finisher choreography; the combo is communicated through animation.
+    const FLinearColor DamageColor = bShatter
+      ? FLinearColor(1.f, 0.56f, 0.22f, 1.f - Age / 0.8f)
+      : FLinearColor(1.f, 0.84f, 0.2f, 1.f - Age / 0.8f);
+    const FString DamageLabel = bShatter
+      ? FString::Printf(TEXT("SHATTER -%.0f"), Hit.Amount)
+      : FString::Printf(TEXT("-%.0f"), Hit.Amount);
+    DrawText(DamageLabel, DamageColor, Screen.X + HorizontalOffset, Screen.Y, nullptr,
+      (bShatter ? 1.55f : 1.3f) * Hero->CombatTextScale);
+   }
   }
  }
 }

@@ -69,3 +69,37 @@ powershell -ExecutionPolicy Bypass -File .\MoonfallUnreal\Build\Build-Windows.ps
 ```
 
 The script fails early if prerequisites are absent, compiles the editor target, runs Unreal Windows packaging with prerequisites, builds the self-contained launcher, runs the launcher file check, and creates `MoonfallUnrealLocalBuild\MoonfallUnreal-Setup.exe`. **No Windows Unreal compile has been run here.** This does not remove the need for UE 5.4 on the build machine, nor replace manual game/installer tests. The finished installer is intended for end users without Unreal Editor.
+
+
+## Generate the startup level with Unreal Editor
+
+The project includes Build/Create-StartupLevel.py to create a blank MoonfallStart map with PlayerStart and a navigation bounds volume. It **must run inside Unreal Editor 5.4**, not regular Python or GitHub Actions. It refuses to overwrite a preexisting level.
+
+1. Open MoonfallUnreal.uproject in Unreal Editor 5.4 and enable Python Editor Script Plugin if prompted, then restart the editor.
+2. Open the Unreal Editor Python console using Tools > Debug > Python Console (menu location may vary).
+3. Enter the following command, replacing the path with the actual checkout location:
+
+```python
+exec(open(r"C:\PATH\TO\Moonfall\MoonfallUnreal\Build\Create-StartupLevel.py", encoding="utf-8").read())
+```
+
+4. Confirm Content/Maps/MoonfallStart.umap was saved. Press P in the editor to inspect whether the navigation volume covers the arena. Resize or rebuild navigation as necessary; the script's volume size is provisional.
+5. The generator updates GameDefaultMap and EditorStartupMap to /Game/Maps/MoonfallStart in Config/DefaultEngine.ini after the level saves, preserving unrelated settings and creating a .ini.before-moonfall-startup backup. Inspect the result before packaging.
+6. Test Play in Editor and compile the Unreal C++ code on Windows before attempting a packaged game or installer. The generated map is a prototype test level, not the finished 3D Moonfall world.
+
+**Status:** Only the editor script and its source checks have been committed. A binary .umap asset, Unreal compilation, and a Windows playable build remain unverified.
+
+
+## Unreal Windows packaging: required startup level
+
+The prototype currently defaults to the generic engine Entry map. Before packaging a playable Windows build:
+
+1. Open MoonfallUnreal.uproject using Unreal Engine 5.4 and the Visual Studio C++ tools.
+2. Create a Basic level in the Unreal Editor. Verify the C++ MoonfallUnrealGameMode is active; it spawns the prototype arena and player pawn.
+3. Add PlayerStart and a NavMeshBoundsVolume covering the arena. Verify controls, collisions, combat, guard/parry, boss attacks and HUD in Play in Editor.
+4. Save as MoonfallUnreal/Content/Maps/MoonfallStart.umap.
+5. If you used the generator, it updates and backs up the two startup-map settings automatically after a successful save. If you created the map manually, set GameDefaultMap=/Game/Maps/MoonfallStart and EditorStartupMap=/Game/Maps/MoonfallStart under GameMapsSettings.
+6. On a trusted UE 5.4 Windows machine, run Build-Windows.ps1 -CompileOnly to compile C++; run -PreflightOnly for packaging prerequisites and level configuration, then run the full script to package and build the installer.
+7. Launch the packaged game and test the installer, gameplay and accessibility on Windows 10 and 11. A process-launch smoke test does not prove gameplay correctness.
+
+Packaging deliberately stops with an actionable error if the project-owned startup level is missing. The map and a verified Unreal Windows build have not yet been created by this change.

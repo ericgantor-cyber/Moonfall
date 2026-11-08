@@ -27,8 +27,45 @@ if ($LASTEXITCODE -ne 0 -or -not ($vsInstall | Where-Object { -not [string]::IsN
 }
 Write-Host "Detected Visual Studio C++ toolchain: $($vsInstall | Select-Object -First 1)"
 
-# A compiler smoke test must not depend on packaging tools, cooked maps, or output folders.
-if (-not $CompileOnly -and -not $PreflightOnly) {
+# A playable package needs a real project-owned level, not the engine's
+# generic /Engine/Maps/Entry placeholder. Compile-only remains possible.
+if (-not $CompileOnly) {
+    $startupMap = Join-Path $repoRoot 'MoonfallUnreal\Content\Maps\MoonfallStart.umap'
+    $engineConfig = Join-Path $repoRoot 'MoonfallUnreal\Config\DefaultEngine.ini'
+    if (-not (Test-Path -LiteralPath $startupMap -PathType Leaf)) {
+        throw 'Playable startup level missing: MoonfallUnreal/Content/Maps/MoonfallStart.umap. Create and save this level in Unreal Editor before packaging.'
+    }
+    if ((Get-Item -LiteralPath $startupMap).Length -le 0) {
+        throw 'MoonfallStart.umap is empty. Save the level in Unreal Editor before packaging.'
+    }
+    if (-not (Test-Path -LiteralPath $engineConfig -PathType Leaf)) {
+        throw "Unreal engine configuration missing: $engineConfig"
+    }
+    $engineConfigText = Get-Content -LiteralPath $engineConfig -Raw
+    $mapSectionMatches = @([regex]::Matches($engineConfigText, '(?m)^\s*\[/Script/EngineSettings.GameMapsSettings\]\s*$'))
+    if ($mapSectionMatches.Count -ne 1) {
+        throw 'Expected exactly one GameMapsSettings section in DefaultEngine.ini.'
+    }
+    $mapSection = ($engineConfigText -split '(?m)^\s*\[/Script/EngineSettings.GameMapsSettings\]\s*$', 2)[1]
+    $mapSection = ($mapSection -split '(?m)^\s*\[[^\r\n]+\]\s*$', 2)[0]
+    foreach ($mapKey in @('GameDefaultMap', 'EditorStartupMap')) {
+        $matchingEntries = @([regex]::Matches($mapSection, "(?m)^\s*$mapKey\s*=\s*(.*?)\s*$"))
+        if ($matchingEntries.Count -ne 1 -or
+            $matchingEntries[0].Groups[1].Value.Trim() -ne '/Game/Maps/MoonfallStart') {
+            throw "Set exactly one $mapKey=/Game/Maps/MoonfallStart in DefaultEngine.ini before packaging."
+        }
+    }
+    $modeMatches = @([regex]::Matches($mapSection, '(?m)^\s*GlobalDefaultGameMode\s*=\s*(.*?)\s*$'))
+    if ($modeMatches.Count -ne 1 -or
+        $modeMatches[0].Groups[1].Value.Trim() -ne '/Script/MoonfallUnreal.MoonfallUnrealGameMode') {
+        throw 'Set GlobalDefaultGameMode=/Script/MoonfallUnreal.MoonfallUnrealGameMode before packaging.'
+    }
+
+}
+
+# Packaging preflight must check tools as well as maps. Compile-only stays independent
+# of packaging dependencies; preflight-only performs no compile or file deletion.
+if (-not $CompileOnly) {
     $uat = Join-Path $UnrealRoot 'Engine\Build\BatchFiles\RunUAT.bat'
     if (-not (Test-Path -LiteralPath $uat)) { throw "Unreal packaging tool missing: $uat" }
     foreach ($command in @('dotnet','makensis.exe')) {
@@ -48,7 +85,7 @@ if (-not $CompileOnly -and -not $PreflightOnly) {
 }
 
 if ($PreflightOnly) {
-    Write-Host 'Moonfall build preflight passed. Compilation and packaging were not run.'
+    Write-Host 'Moonfall packaging preflight passed: engine, compiler, map, .NET 8 and NSIS checked. Compilation and packaging were not run.'
     exit 0
 }
 
@@ -80,7 +117,9 @@ New-Item -ItemType Directory -Force -Path $gameOutput | Out-Null
 Set-Content -LiteralPath $marker -Value 'Managed by Moonfall Build-Windows.ps1. This directory can be replaced by a later build.' -Encoding ascii
 
 Write-Host 'Packaging Unreal Win64 Development game...'
-& $uat BuildCookRun "-project=$project" -noP4 -platform=Win64 -clientconfig=Development -build -cook -stage -pak -prereqs -archive "-archivedirectory=$gameOutput" -utf8output
+# Explicitly cook the same project-owned map validated above. A successful C++ build alone
+# does not establish that the executable can load its intended startup level.
+& $uat BuildCookRun "-project=$project" -noP4 -platform=Win64 -clientconfig=Development -build -cook "-map=/Game/Maps/MoonfallStart" -stage -pak -prereqs -archive "-archivedirectory=$gameOutput" -utf8output
 if ($LASTEXITCODE -ne 0) { throw "Unreal packaging failed: $LASTEXITCODE" }
 
 $games = @(Get-ChildItem $gameOutput -Filter 'MoonfallUnreal.exe' -Recurse -File)

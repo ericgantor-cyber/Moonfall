@@ -30,6 +30,52 @@ void AMoonfallEnemy::BeginPlay() {
  AttackDamage = FMath::Max(1.f, AttackDamage * DamageScale);
  MaxHealthAtSpawn = FMath::Max(1.f, Health);
  BossMaxHealth = bBoss ? MaxHealthAtSpawn : 0.f;
+ // Bosses and elites require sustained pressure rather than a fixed three-parry break.
+ const float PostureMultiplier = bBoss ? 1.8f : (bElite ? 1.25f : 1.f);
+ MaxPosture = FMath::IsFinite(MaxPosture) && MaxPosture > 0.f
+   ? FMath::Clamp(MaxPosture * PostureMultiplier, 1.f, 10000.f) : 100.f * PostureMultiplier;
+ Posture = 0.f;
+ BasePostureAtSpawn = MaxPosture;
+}
+
+void AMoonfallEnemy::ApplyPostureDamage(float Amount) {
+ if (Health <= 0.f || !GetWorld() || !FMath::IsFinite(Amount) || Amount <= 0.f
+     || !FMath::IsFinite(MaxPosture) || MaxPosture <= 0.f) return;
+ const float Now = GetWorld()->GetTimeSeconds();
+ if (Now < PostureBrokenUntil || Now < NextPostureBreakAllowedAt) return;
+ if (!FMath::IsFinite(Posture)) Posture = 0.f;
+ Posture = FMath::Clamp(Posture + Amount, 0.f, MaxPosture);
+ PostureRecoveryStartsAt = Now + (FMath::IsFinite(PosturePressureRecoveryDelaySeconds)
+   ? FMath::Clamp(PosturePressureRecoveryDelaySeconds, 0.f, 5.f) : 3.f);
+ OnPostureChanged(Posture, MaxPosture);
+ if (Posture < MaxPosture) return;
+ // Break interrupts current attacks and exposes the enemy for a finite window.
+ Posture = 0.f;
+ const float VulnerabilitySeconds = bBoss ? 1.5f : (bElite ? 2.f : 2.5f);
+ PostureBrokenUntil = Now + VulnerabilitySeconds;
+ bPostureFinisherAvailable = true;
+ PostureBreakCount = FMath::Min(PostureBreakCount + 1, 100000);
+ if (bBoss && FMath::IsFinite(BasePostureAtSpawn) && BasePostureAtSpawn > 0.f) {
+  const float Growth = FMath::IsFinite(BossPostureGrowthPerBreak)
+    ? FMath::Clamp(BossPostureGrowthPerBreak, 0.f, 0.5f) : 0.f;
+  const float Cap = FMath::IsFinite(BossPostureGrowthCap)
+    ? FMath::Clamp(BossPostureGrowthCap, 1.f, 3.f) : 1.f;
+  MaxPosture = FMath::Min(10000.f, BasePostureAtSpawn
+    * FMath::Min(Cap, 1.f + Growth * FMath::Min(PostureBreakCount, 100)));
+ }
+ // Bosses cannot be immediately chained into another posture break after recovery.
+ if (bBoss && FMath::IsFinite(BossPostureBreakRecoverySeconds))
+  NextPostureBreakAllowedAt = PostureBrokenUntil
+    + FMath::Clamp(BossPostureBreakRecoverySeconds, 0.f, 6.f);
+ HitReactionEndsAt = FMath::Max(HitReactionEndsAt, PostureBrokenUntil);
+ WindupEndsAt = -1.f;
+ BossWarningEndTime = -1.f;
+ bComboSecondHitPending = false;
+ bComboSecondHitActive = false;
+ NextAttackAt = FMath::Max(NextAttackAt, PostureBrokenUntil + 0.35f);
+ CachedWaypoint = FVector::ZeroVector;
+ OnPostureChanged(Posture, MaxPosture);
+ OnPostureBroken(VulnerabilitySeconds);
 }
 
 void AMoonfallEnemy::TakeSpellDamage(float Amount) {
@@ -41,10 +87,29 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
   // Elites briefly brace against repeated hits, but the first strike retains
   // full impact and every hit still interrupts their attack windup.
   const float Now = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f;
-  const float EffectiveDamage = bElite && Now < HitReactionEndsAt ? Amount * 0.75f : Amount;
+  const bool bPostureExposed = Now < PostureBrokenUntil;
+  const float ExposureMultiplier = FMath::IsFinite(BrokenPostureDamageMultiplier)
+    ? FMath::Clamp(BrokenPostureDamageMultiplier, 1.f, 3.f) : 1.f;
+  const bool bShatterFinisher = bPostureExposed && bPostureFinisherAvailable;
+  const float FinisherMultiplier = bShatterFinisher && FMath::IsFinite(PostureFinisherDamageMultiplier)
+    ? FMath::Clamp(PostureFinisherDamageMultiplier, 1.f, 4.f) : 1.f;
+  // A earned shatter finisher bypasses elite repeat-hit bracing, but normal
+  // spells still respect it. Avoids undercutting the one-shot payoff.
+  const float BracedDamage = bElite && Now < HitReactionEndsAt && !bShatterFinisher
+    ? Amount * 0.75f : Amount;
+  const float EffectiveDamage = BracedDamage
+    * (bShatterFinisher ? FinisherMultiplier : (bPostureExposed ? ExposureMultiplier : 1.f));
+  if (bShatterFinisher) bPostureFinisherAvailable = false;
   const float HealthBeforeHit = Health;
   Health = FMath::Max(0.0f, Health - FMath::Max(0.0f, EffectiveDamage));
   const float ActualDamage = HealthBeforeHit - Health;
+  if (bShatterFinisher && ActualDamage > 0.f)
+    OnShatterFinisher(ActualDamage);
+  // Offensive pressure builds posture, but an already broken enemy cannot
+  // immediately be rebroken by damage dealt during its vulnerability window.
+  if (ActualDamage > 0.f && Health > 0.f && FMath::IsFinite(SpellPostureScale)
+      && SpellPostureScale > 0.f && !bPostureExposed)
+    ApplyPostureDamage(ActualDamage * FMath::Clamp(SpellPostureScale, 0.f, 2.f));
   if (bBoss && Health > 0.f) {
    const float HealthRatio = Health / FMath::Max(1.f, MaxHealthAtSpawn);
    const int32 NewPhase = HealthRatio <= 0.33f ? 3 : (HealthRatio <= 0.66f ? 2 : 1);
@@ -52,7 +117,8 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
     BossPhase = NewPhase;
     WindupEndsAt = -1.f;
     BossWarningEndTime = -1.f;
-    NextAttackAt = Now + 1.5f;
+    // A phase transition cannot truncate an active posture-break lockout.
+    NextAttackAt = FMath::Max(NextAttackAt, Now + 1.5f);
     BossPhaseMessageUntil = Now + 1.5f;
     AttackSequence = 0;
     BossSpecialMove = 0;
@@ -65,19 +131,96 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
   OnHitFeedback(ActualDamage, Health);
   // Hit feedback is now tracked by the HUD rather than persistent debug strings.
   LastHitAmount = ActualDamage;
+  bLastHitWasShatter = bShatterFinisher && ActualDamage > 0.f;
   LastHitTime = GetWorld() ? GetWorld()->GetTimeSeconds() : -10.f;
+  if (ActualDamage > 0.f && FMath::IsFinite(ActualDamage) && GetWorld()) {
+   FRecentDamageHit& Entry = DamageHistory[NextDamageHistorySlot];
+   Entry.Amount = ActualDamage;
+   Entry.Time = LastHitTime;
+   Entry.bShatter = bLastHitWasShatter;
+   Entry.bKillingBlow = Health <= 0.f;
+   NextDamageHistorySlot = (NextDamageHistorySlot + 1) % DamageHistorySize;
+  }
   // Bosses absorb ordinary hits without repeated attack interruptions; phase changes still recover safely.
   // Normal enemies retain brief hit reactions to reward offensive pressure.
-  if (!bBoss) HitReactionEndsAt = LastHitTime + 0.22f;
+  if (!bBoss) HitReactionEndsAt = FMath::Max(HitReactionEndsAt, LastHitTime + 0.22f);
   if (Health <= 0.0f) {
-   if (AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0))) { Hero->AwardExperience(FMath::RoundToInt((bBoss ? 125.f : (bElite ? 50.f : 25.f)) * (1.f + 0.018f * FMath::Min(SpawnBalanceLevel - 1, 40)))); Hero->AwardEquipmentDrop(bElite, bBoss); }
-   SetActorHiddenInGame(true); SetActorEnableCollision(false); SetActorTickEnabled(false); SetLifeSpan(1.25f); }
+   // Disable combat immediately but retain the mesh for real native defeat
+   // choreography. Tick handles only death visuals after Health reaches zero.
+   SetActorEnableCollision(false);
+   // Wait for the hero's actual animation slot before playing the death
+   // reaction; weak queue refs and a finite lifespan prevent stranded corpses.
+   DefeatAnimationStartedAt = -100.f;
+   DefeatAnimationOrigin = GetActorLocation();
+   bDefeatAnimationShatter = bLastHitWasShatter;
+   DefeatAnimationStyle = 1;
+   SetActorTickEnabled(true);
+   SetActorTickInterval(0.f);
+   // Set the fallback BEFORE registering: an immediately played finisher
+   // shortens it to 1.25 seconds and must not be overridden afterward.
+   SetLifeSpan(9.5f);
+   OnEnemyDefeated(bLastHitWasShatter);
+   if (AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0))) {
+    DefeatAnimationStyle = FMath::Max(1, Hero->RegisterFinisherKill(bLastHitWasShatter, bBoss, GetActorLocation(), this));
+    const float RewardScale = 1.f + 0.018f * FMath::Min(SpawnBalanceLevel - 1, 40);
+    Hero->AwardExperience(FMath::RoundToInt((bBoss ? 125.f : (bElite ? 50.f : 25.f)) * RewardScale));
+    Hero->SpawnGroundEquipmentDrop(bElite, bBoss, GetActorLocation());
+   }
+   // Visible until the queued finisher plays or the finite fallback expires.
+  }
+}
+
+void AMoonfallEnemy::BeginFinisherDefeat(int32 Style)
+{
+ if (Health > 0.f || !GetWorld() || DefeatAnimationStartedAt >= 0.f) return;
+ DefeatAnimationStyle = FMath::Clamp(Style, 1, 5);
+ DefeatAnimationOrigin = GetActorLocation();
+ DefeatAnimationStartedAt = GetWorld()->GetTimeSeconds();
+ // Keep the defeated actor only as long as its choreography needs.
+ SetLifeSpan(1.25f);
+}
+
+void AMoonfallEnemy::TickDefeatAnimation(float DeltaSeconds)
+{
+ if (!Body || !GetWorld() || DefeatAnimationStartedAt < 0.f) return;
+ const float Age = GetWorld()->GetTimeSeconds() - DefeatAnimationStartedAt;
+ const float T = FMath::Clamp(Age / 1.15f, 0.f, 1.f);
+ const float Ease = T * T * (3.f - 2.f * T);
+ const float Direction = DefeatAnimationStyle % 2 == 0 ? -1.f : 1.f;
+ const float Spin = DefeatAnimationStyle == 4 ? 900.f : (DefeatAnimationStyle == 3 ? 540.f : 200.f);
+ const float Launch = DefeatAnimationStyle == 2 ? 210.f * FMath::Sin(T * PI)
+   : DefeatAnimationStyle == 5 ? 100.f * FMath::Sin(T * PI)
+   : 85.f * FMath::Sin(T * PI);
+ const float Backward = (bDefeatAnimationShatter ? 160.f : 95.f) * Ease;
+ const FVector Offset = -GetActorForwardVector().GetSafeNormal2D() * Backward
+   + FVector::UpVector * Launch;
+ SetActorLocation(DefeatAnimationOrigin + Offset, false);
+ Body->SetRelativeRotation(FRotator(Direction * Spin * Ease, 0.f,
+   DefeatAnimationStyle == 3 ? Direction * 180.f * Ease : 0.f));
+ const float Shrink = FMath::Clamp(1.f - 0.94f * FMath::Pow(T, 2.f), 0.06f, 1.f);
+ Body->SetRelativeScale3D(FVector(0.85f, 0.85f, 1.4f) * Shrink);
+ // Actor is removed by the 1.25-second lifespan, with collisions already off.
 }
 
 void AMoonfallEnemy::Tick(float DeltaSeconds) {
  Super::Tick(DeltaSeconds);
- if (Health <= 0.f || !GetWorld()) return;
+ if (!GetWorld()) return;
+ if (Health <= 0.f) {
+  TickDefeatAnimation(DeltaSeconds);
+  return;
+ }
  const float Now = GetWorld()->GetTimeSeconds();
+ // A shatter follow-up expires with its break window. Never carry it into
+ // another posture cycle or let an expired flag affect later spells.
+ if (bPostureFinisherAvailable && Now >= PostureBrokenUntil)
+  bPostureFinisherAvailable = false;
+ if (Now >= PostureBrokenUntil && Posture > 0.f && Now >= PostureRecoveryStartsAt
+     && FMath::IsFinite(MaxPosture) && MaxPosture > 0.f
+     && FMath::IsFinite(PostureRecoveryPerSecond) && PostureRecoveryPerSecond > 0.f) {
+  Posture = FMath::Clamp(Posture - FMath::Clamp(PostureRecoveryPerSecond, 0.f, 100.f)
+      * FMath::Clamp(DeltaSeconds, 0.f, 0.4f), 0.f, MaxPosture);
+  OnPostureChanged(Posture, MaxPosture);
+ }
  const bool Staggered = Now < HitReactionEndsAt;
  if (bBoss && Now < BossPhaseMessageUntil) {
   DrawDebugString(GetWorld(), GetActorLocation() + FVector(0.f, 0.f, 230.f),
@@ -143,7 +286,16 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   // Dash displacement is handled gradually during its final windup.
   // Attack still resolves after the warning against the hero's live position.
   // Attack resolves against the hero's CURRENT position, so dodging works.
-  if (Difference.Size() <= AttackRange * CurrentAttackRangeMultiplier) {
+  // Commit attack direction when windup starts, rather than tracking the player
+  // through a full turn. Wide sweeps cover a larger arc; spins remain 360 degrees.
+  const FVector ImpactDirection = Difference.GetSafeNormal2D();
+  const float FacingDot = FVector::DotProduct(LockedAttackDirection, ImpactDirection);
+  const bool bSpinningSweep = bBoss && BossSpecialMove == 4;
+  const float MinFacingDot = (BossSpecialMove == 1 || CurrentAttackRangeMultiplier > 1.2f)
+    ? -0.35f : 0.f;
+  const bool bWithinAttackArc = bSpinningSweep || LockedAttackDirection.IsNearlyZero()
+    || Difference.IsNearlyZero() || FacingDot >= MinFacingDot;
+  if (bWithinAttackArc && Difference.Size() <= AttackRange * CurrentAttackRangeMultiplier) {
    // Do not damage the hero through solid arena walls or cover.
    FCollisionQueryParams SightParams(SCENE_QUERY_STAT(MoonfallMeleeSight), false);
    SightParams.AddIgnoredActor(this);
@@ -152,9 +304,48 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
        SightHit, GetActorLocation(), Hero->GetActorLocation(), ECC_Visibility, SightParams)
        && SightHit.GetActor() != Hero;
    if (!bBlocked) {
-    if (bBoss) Hero->RewardPerfectDodge();
-    Hero->ApplyMoonfallDamage(AttackDamage * FMath::Min(2.3f, CurrentAttackMultiplier));
-    OnEnemyAttack();
+    // One actual timed dodge rewards the hero and pressures only the
+    // attacking enemy. Repeated overlapping hits cannot farm posture.
+    const bool bPerfectDodge = Hero->TryRewardPerfectDodge();
+    if (bPerfectDodge) {
+     const float DodgePressure = FMath::IsFinite(PerfectDodgePostureDamage)
+       ? FMath::Clamp(PerfectDodgePostureDamage, 0.f, 100.f) : 0.f;
+     if (DodgePressure > 0.f) ApplyPostureDamage(DodgePressure);
+     // Evading a committed strike interrupts the attacker's combo, creating
+     // a real opening without adding more immunity to the hero.
+     const float RecoverySeconds = FMath::IsFinite(PerfectDodgeRecoverySeconds)
+       ? FMath::Clamp(PerfectDodgeRecoverySeconds, 0.f, 2.f) : 0.f;
+     HitReactionEndsAt = FMath::Max(HitReactionEndsAt, Now + RecoverySeconds);
+     NextAttackAt = FMath::Max(NextAttackAt, HitReactionEndsAt + 0.35f);
+     bComboSecondHitPending = false;
+     bComboSecondHitActive = false;
+     BossWarningEndTime = -1.f;
+     CachedWaypoint = FVector::ZeroVector;
+     OnPerfectDodged(DodgePressure);
+    }
+    const bool bParried = Hero->ApplyMoonfallDamageFrom(
+      AttackDamage * FMath::Min(2.3f, CurrentAttackMultiplier), GetActorLocation());
+    if (bParried) {
+     // A successful parry ends this attack chain and opens counterplay.
+     // Bosses recover sooner than ordinary enemies but cannot hit instantly.
+     const float ParryStaggerSeconds = bBoss ? 0.45f : 0.75f;
+     HitReactionEndsAt = FMath::Max(HitReactionEndsAt, Now + ParryStaggerSeconds);
+     ApplyPostureDamage(FMath::Max(0.f, ParryPostureDamage));
+     OnPerfectParried(ParryStaggerSeconds);
+     // Temporary visualization for editor/development builds until a Blueprint
+     // implementation provides the finished impact animation and VFX.
+#if ENABLE_DRAW_DEBUG
+     DrawDebugSphere(GetWorld(), GetActorLocation() + FVector(0.f, 0.f, 75.f),
+       bBoss ? 125.f : 95.f, 16, FColor::Cyan, false, 0.3f, 0, 3.f);
+#endif
+     NextAttackAt = FMath::Max(NextAttackAt, HitReactionEndsAt + 0.35f);
+     bComboSecondHitPending = false;
+     bComboSecondHitActive = false;
+     BossWarningEndTime = -1.f;
+     CachedWaypoint = FVector::ZeroVector;
+    } else if (!bPerfectDodge) {
+     OnEnemyAttack();
+    }
    }
   }
   if (bComboSecondHitPending) {
@@ -164,6 +355,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
    CurrentWindup = BossPhase >= 3 ? 0.5f : 0.7f;
    CurrentAttackMultiplier = 0.9f;
    CurrentAttackRangeMultiplier = 1.15f;
+   LockedAttackDirection = Difference.GetSafeNormal2D();
    WindupEndsAt = Now + CurrentWindup;
    BossWarningEndTime = WindupEndsAt;
   } else {
@@ -292,6 +484,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
     CurrentWindup += 0.25f;
     bComboSecondHitPending = true;
    }
+   LockedAttackDirection = Difference.GetSafeNormal2D();
    WindupEndsAt = Now + CurrentWindup;
    if (bBoss) BossWarningEndTime = WindupEndsAt;
   }

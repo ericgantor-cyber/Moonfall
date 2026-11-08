@@ -10,6 +10,16 @@
 #include "Misc/ConfigCacheIni.h"
 #include "Interfaces/IPluginManager.h"
 #include "MoonfallEnemy.h"
+#include "MoonfallGroundLoot.h"
+#include "EngineUtils.h"
+#include "Components/SkeletalMeshComponent.h"
+#include "Components/StaticMeshComponent.h"
+#include "Components/PointLightComponent.h"
+#include "UObject/ConstructorHelpers.h"
+#include "Engine/StaticMesh.h"
+#include "Math/RotationMatrix.h"
+#include "Animation/AnimInstance.h"
+#include "Animation/AnimMontage.h"
 #include "CollisionQueryParams.h"
 AMoonfallHeroPawn::AMoonfallHeroPawn()
 {
@@ -24,9 +34,36 @@ AMoonfallHeroPawn::AMoonfallHeroPawn()
  bUseControllerRotationYaw = false;
  GetCharacterMovement()->bOrientRotationToMovement = true;
  GetCharacterMovement()->JumpZVelocity = 600.f;
+ NormalWalkSpeed = GetCharacterMovement()->MaxWalkSpeed;
+ // Native geometry makes five distinct finishing sequences available even to
+ // characters without a skeletal mesh or an authored animation asset.
+ FinisherSlashA = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("FinisherSlashA"));
+ FinisherSlashA->SetupAttachment(GetRootComponent());
+ FinisherSlashB = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("FinisherSlashB"));
+ FinisherSlashB->SetupAttachment(GetRootComponent());
+ static ConstructorHelpers::FObjectFinder<UStaticMesh> SlashMesh(TEXT("/Engine/BasicShapes/Cube.Cube"));
+ for (UStaticMeshComponent* Slash : {FinisherSlashA, FinisherSlashB}) {
+  if (SlashMesh.Succeeded()) Slash->SetStaticMesh(SlashMesh.Object);
+  Slash->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+  Slash->SetCastShadow(false);
+  Slash->SetHiddenInGame(true);
+ }
+ FinisherFlash = CreateDefaultSubobject<UPointLightComponent>(TEXT("FinisherFlash"));
+ FinisherFlash->SetupAttachment(GetRootComponent());
+ FinisherFlash->SetIntensity(0.f);
+ FinisherFlash->SetAttenuationRadius(420.f);
+ FinisherFlash->SetVisibility(false);
 }
 void AMoonfallHeroPawn::BeginPlay() {
  Super::BeginPlay();
+ // Blueprint defaults are applied after the native constructor. Capture the
+ // actual authored walk speed before sprint/guard begin changing MaxWalkSpeed.
+ if (GetCharacterMovement()) {
+  const float AuthoredWalkSpeed = GetCharacterMovement()->MaxWalkSpeed;
+  NormalWalkSpeed = FMath::IsFinite(AuthoredWalkSpeed) && AuthoredWalkSpeed > 0.f
+      ? AuthoredWalkSpeed : 600.f;
+  GetCharacterMovement()->MaxWalkSpeed = NormalWalkSpeed;
+ }
  int32 SavedPreference = 0;
  if (GConfig) GConfig->GetInt(TEXT("Moonfall.Graphics"), TEXT("FrameGenerationPreference"), SavedPreference, GGameUserSettingsIni);
  FrameGenerationPreference = FMath::Clamp(SavedPreference, 0, 2);
@@ -45,10 +82,120 @@ void AMoonfallHeroPawn::BeginPlay() {
 void AMoonfallHeroPawn::Tick(float DeltaSeconds)
 {
  Super::Tick(DeltaSeconds);
+ UpdateNativeFinisher(DeltaSeconds);
+ // Expire the visible combo stage even if the player stops attacking.
+ // Also discard defeated or destroyed targets to avoid a stale combo HUD.
+ if (HitComboStage > 0 && GetWorld()) {
+  const float ComboNow = GetWorld()->GetTimeSeconds();
+  const float ComboWindow = FMath::IsFinite(HitComboWindowSeconds)
+      ? FMath::Clamp(HitComboWindowSeconds, 0.5f, 4.f) : 2.f;
+  const AMoonfallEnemy* ComboTarget = LastHitComboTarget.Get();
+  if (Health <= 0.f || bOptionsOpen || !IsValid(ComboTarget) || ComboTarget->Health <= 0.f
+      || ComboNow < LastSuccessfulHitAt || ComboNow - LastSuccessfulHitAt > ComboWindow) {
+   HitComboStage = 0;
+   LastHitComboTarget.Reset();
+   LastSuccessfulHitAt = -100.f;
+  }
+ }
  // Bounded camera impulse, no camera shake object or spawned effects.
  ImpactCameraOffset = FMath::FInterpTo(ImpactCameraOffset, 0.f, FMath::Max(0.f, DeltaSeconds), 12.f);
  if (CameraBoom) CameraBoom->TargetArmLength = 450.f + (bReduceMotion ? 0.f : ImpactCameraOffset);
- if (Health > 0.f && Mana < MaxMana) Mana = FMath::Min(MaxMana, Mana + ManaRegenPerSecond * (1.f + FMath::Min(0.25f, AccessoryTier * 0.012f)) * FMath::Max(0.f, DeltaSeconds));
+ // Mana regenerates during gameplay and while a menu is open.
+ const float SafeRecoveryDelta = FMath::IsFinite(DeltaSeconds) ? FMath::Clamp(DeltaSeconds, 0.f, 0.1f) : 0.f;
+ const float MenuRecoveryBoost = (bOptionsOpen || bInventoryOpen) && FMath::IsFinite(MenuRecoveryMultiplier)
+     ? FMath::Clamp(MenuRecoveryMultiplier, 1.f, 2.f) : 1.f;
+ // WoW-style pacing: combat mana regenerates more slowly; resting restores full pace.
+ const bool bInCombatRecoveryWindow = GetWorld() && GetWorld()->GetTimeSeconds() < CombatRecoveryEndsAt;
+ const float CombatManaFactor = bInCombatRecoveryWindow
+     ? (FMath::IsFinite(CombatManaRegenMultiplier)
+         ? FMath::Clamp(CombatManaRegenMultiplier, 0.f, 1.f) : 0.5f) : 1.f;
+ if (Health > 0.f && FMath::IsFinite(Mana) && FMath::IsFinite(MaxMana) && MaxMana > 0.f
+     && FMath::IsFinite(ManaRegenPerSecond) && ManaRegenPerSecond > 0.f && Mana >= 0.f && Mana < MaxMana)
+  Mana = FMath::Min(MaxMana, Mana + FMath::Clamp(ManaRegenPerSecond, 0.f, 250.f) * MenuRecoveryBoost * CombatManaFactor
+      * (1.f + FMath::Clamp(AccessoryTier * 0.012f, 0.f, 0.25f) + (AccessoryAffix == 3 ? 0.08f : 0.f))
+      * SafeRecoveryDelta);
+ // Recovery in either menu is bounded and never revives a defeated hero.
+ if ((bOptionsOpen || bInventoryOpen) && Health > 0.f && FMath::IsFinite(Health)
+     && FMath::IsFinite(MaxHealth) && MaxHealth > 0.f && Health < MaxHealth
+     && FMath::IsFinite(MenuHealthRegenPerSecond) && MenuHealthRegenPerSecond > 0.f
+     && GetWorld() && GetWorld()->GetTimeSeconds() >= MenuHealthRegenStartsAt
+     && !bInCombatRecoveryWindow) {
+  const float BeforeRegen = Health;
+  Health = FMath::Min(MaxHealth, Health + FMath::Clamp(MenuHealthRegenPerSecond, 0.f, 20.f)
+      * SafeRecoveryDelta);
+  if (Health > BeforeRegen) OnHealthChanged(Health, MaxHealth);
+ }
+ // Sprint drains only while moving, and never drains while paused in Options.
+ const float StaminaDelta = SafeRecoveryDelta;
+ // Exhaustion requires releasing sprint before another burst; guard and dodge
+ // immediately cancel sprint speed so defense cannot inherit a free boost.
+ if (!FMath::IsFinite(Stamina) || !FMath::IsFinite(MaxStamina) || MaxStamina <= 0.f) {
+  // Invalid runtime/Blueprint values should not spread through movement or HUD.
+  bSprintExhausted = true;
+ } else {
+  Stamina = FMath::Clamp(Stamina, 0.f, MaxStamina);
+  if (bSprintHeld && Stamina <= 0.f) bSprintExhausted = true;
+ }
+ const bool bCanSprint = bSprintHeld && !bSprintExhausted && !bGuarding && !bOptionsOpen && !bInventoryOpen && Health > 0.f
+     && FMath::IsFinite(Stamina) && FMath::IsFinite(MaxStamina) && MaxStamina > 0.f
+     && FMath::IsFinite(SprintStaminaDrainPerSecond) && SprintStaminaDrainPerSecond > 0.f
+     && FMath::IsFinite(SprintSpeedMultiplier) && SprintSpeedMultiplier > 1.f
+     && GetVelocity().SizeSquared2D() > FMath::Square(10.f)
+     && GetLastMovementInputVector().SizeSquared2D() > 0.01f
+     && GetWorld() && GetWorld()->GetTimeSeconds() >= DamageImmunityUntil;
+ if (bCanSprint && Stamina > 0.f) {
+  Stamina = FMath::Max(0.f, Stamina - SprintStaminaDrainPerSecond * StaminaDelta);
+  if (GetWorld()) StaminaRegenStartsAt = GetWorld()->GetTimeSeconds() + 0.8f;
+  if (Stamina <= 0.f) bSprintExhausted = true;
+ }
+ const bool bSprinting = bCanSprint && !bSprintExhausted;
+ // Invalid Blueprint resource tuning cannot leave the hero guarding forever.
+ // BreakGuard also restores movement speed and clears the counterattack window.
+ if (bGuarding && !bOptionsOpen && Health > 0.f && GetWorld()
+     && (!FMath::IsFinite(Stamina) || !FMath::IsFinite(MaxStamina)
+         || MaxStamina <= 0.f || !FMath::IsFinite(GuardStaminaCost)
+         || GuardStaminaCost < 0.f)) {
+  BreakGuard();
+ }
+ // Sustained guarding is a deliberate defensive commitment. Drain only on
+ // playable frames and never allow invalid Blueprint values to corrupt stamina.
+ if (bGuarding && !bOptionsOpen && Health > 0.f && GetWorld()
+     && FMath::IsFinite(Stamina) && FMath::IsFinite(MaxStamina) && MaxStamina > 0.f
+     && FMath::IsFinite(GuardStaminaCost) && GuardStaminaCost >= 0.f) {
+  const float GuardDrain = FMath::IsFinite(GuardStaminaDrainPerSecond)
+    ? FMath::Clamp(GuardStaminaDrainPerSecond, 0.f, 30.f) : 0.f;
+  Stamina = FMath::Clamp(Stamina - GuardDrain * StaminaDelta, 0.f, MaxStamina);
+  if (GuardDrain > 0.f) StaminaRegenStartsAt = FMath::Max(
+      StaminaRegenStartsAt, GetWorld()->GetTimeSeconds() + 0.8f);
+  // Guard cannot continue in a state where even a base block is impossible.
+  // Positive-cost guards break at the threshold; zero-cost guards break at zero.
+  if (Stamina <= 0.f || (GuardStaminaCost > 0.f && Stamina < GuardStaminaCost))
+   BreakGuard();
+ }
+ if (GetCharacterMovement()) {
+  // Ramp into sprint without allowing boosted speed during guard, dodges,
+  // menus, death, exhaustion or a released sprint key.
+  if (bSprinting) {
+   const float TargetSpeed = NormalWalkSpeed * FMath::Clamp(SprintSpeedMultiplier, 1.f, 2.5f);
+   GetCharacterMovement()->MaxWalkSpeed = FMath::FInterpTo(
+       FMath::Clamp(GetCharacterMovement()->MaxWalkSpeed, NormalWalkSpeed, TargetSpeed),
+       TargetSpeed, StaminaDelta, FMath::Clamp(SprintAccelerationRate, 1.f, 20.f));
+  } else if (bGuarding && !bOptionsOpen && Health > 0.f) {
+   // Guarding is deliberate, not a full-speed retreat. Invalid tuning uses
+   // normal speed instead of passing nonfinite values to CharacterMovement.
+   const float GuardMultiplier = FMath::IsFinite(GuardMoveSpeedMultiplier)
+       ? FMath::Clamp(GuardMoveSpeedMultiplier, 0.2f, 1.f) : 1.f;
+   GetCharacterMovement()->MaxWalkSpeed = NormalWalkSpeed * GuardMultiplier;
+  } else {
+   GetCharacterMovement()->MaxWalkSpeed = NormalWalkSpeed;
+  }
+ }
+ // Stamina powers dodges independently of spell mana and regenerates after exertion.
+ if (Health > 0.f && !bSprinting && !bGuarding && GetWorld() && GetWorld()->GetTimeSeconds() >= StaminaRegenStartsAt
+     && FMath::IsFinite(Stamina) && FMath::IsFinite(MaxStamina) && MaxStamina > 0.f
+     && FMath::IsFinite(StaminaRegenPerSecond) && StaminaRegenPerSecond > 0.f) {
+  Stamina = FMath::Clamp(Stamina + FMath::Clamp(StaminaRegenPerSecond, 0.f, 250.f) * StaminaDelta * MenuRecoveryBoost, 0.f, MaxStamina);
+ }
 }
 void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
 {
@@ -63,9 +210,17 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("CastRight"), IE_Pressed, this, &AMoonfallHeroPawn::CastRight);
  Input->BindAction(TEXT("DualCast"), IE_Pressed, this, &AMoonfallHeroPawn::CastBoth);
  Input->BindAction(TEXT("Dodge"), IE_Pressed, this, &AMoonfallHeroPawn::Dodge);
+ Input->BindAction(TEXT("Sprint"), IE_Pressed, this, &AMoonfallHeroPawn::BeginSprint);
+ Input->BindAction(TEXT("Sprint"), IE_Released, this, &AMoonfallHeroPawn::EndSprint);
+ Input->BindAction(TEXT("Guard"), IE_Pressed, this, &AMoonfallHeroPawn::BeginGuard);
+ Input->BindAction(TEXT("Guard"), IE_Released, this, &AMoonfallHeroPawn::EndGuard);
  Input->BindAction(TEXT("GraphicsQuality"), IE_Pressed, this, &AMoonfallHeroPawn::CycleGraphicsQuality);
  Input->BindAction(TEXT("DisplayMode"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleDisplayMode);
  Input->BindAction(TEXT("Options"), IE_Pressed, this, &AMoonfallHeroPawn::OpenOptions);
+ Input->BindAction(TEXT("Inventory"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleInventory);
+ Input->BindAction(TEXT("InventoryConfirm"), IE_Pressed, this, &AMoonfallHeroPawn::InventoryConfirm);
+ Input->BindAction(TEXT("InventorySalvage"), IE_Pressed, this, &AMoonfallHeroPawn::InventorySalvage);
+ Input->BindAction(TEXT("PickupLoot"), IE_Pressed, this, &AMoonfallHeroPawn::PickupNearestGroundLoot);
  Input->BindAction(TEXT("OptionsUp"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsUp);
  Input->BindAction(TEXT("OptionsDown"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsDown);
  Input->BindAction(TEXT("OptionsLeft"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsLeft);
@@ -73,7 +228,7 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
 }
 void AMoonfallHeroPawn::MoveForward(float Value)
 {
- if (bOptionsOpen) return;
+ if (bOptionsOpen || bInventoryOpen) return;
  if (Controller && !FMath::IsNearlyZero(Value))
  {
   const FRotator Yaw(0.f, Controller->GetControlRotation().Yaw, 0.f);
@@ -82,7 +237,7 @@ void AMoonfallHeroPawn::MoveForward(float Value)
 }
 void AMoonfallHeroPawn::MoveRight(float Value)
 {
- if (bOptionsOpen) return;
+ if (bOptionsOpen || bInventoryOpen) return;
  if (Controller && !FMath::IsNearlyZero(Value))
  {
   const FRotator Yaw(0.f, Controller->GetControlRotation().Yaw, 0.f);
@@ -95,7 +250,7 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
 {
  static const float Costs[6] = {16.f,13.f,22.f,25.f,18.f,14.f};
  static const float Cooldowns[6] = {0.8f,0.65f,1.2f,2.f,1.f,0.9f};
- if (Health <= 0.f || bOptionsOpen || !GetWorld() || School < 0 || School >= 6 || Hand < 0 || Hand > 1 || !FMath::IsFinite(Multiplier) || Multiplier <= 0.f || Multiplier > 2.f) return false;
+ if (Health <= 0.f || bOptionsOpen || bInventoryOpen || !GetWorld() || School < 0 || School >= 6 || Hand < 0 || Hand > 1 || !FMath::IsFinite(Multiplier) || Multiplier <= 0.f || Multiplier > 2.f) return false;
  const float Time = GetWorld()->GetTimeSeconds();
  if (!FMath::IsFinite(Health) || !FMath::IsFinite(MaxHealth) || MaxHealth <= 0.f || Health > MaxHealth || !FMath::IsFinite(MaxMana) || MaxMana <= 0.f || !FMath::IsFinite(Mana) || !FMath::IsFinite(SpellPowerMultiplier) || SpellPowerMultiplier <= 0.f || Mana < Costs[School] * Multiplier || Time - LastCastTime[Hand] < Cooldowns[School]) return false;
  if (School == 3 && Health >= MaxHealth) return false;
@@ -108,7 +263,73 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
   if (!GetWorld()->LineTraceSingleByChannel(Hit, Origin, End, ECC_Visibility, Params)) return false;
   AMoonfallEnemy* Enemy = Cast<AMoonfallEnemy>(Hit.GetActor());
   if (!IsValid(Enemy) || Enemy->Health <= 0.f) return false;
-  Enemy->TakeSpellDamage((18.f + School * 5.f) * Multiplier * SpellPowerMultiplier * (1.f + FMath::Min(0.35f, 0.018f * WeaponTier)));
+  // The first successful hostile spell shortly after a perfect parry is
+  // empowered. Misses, invalid targets and healing cannot spend the opening.
+  const bool bCounterReady = Time <= ParryCounterUntil
+      && FMath::IsFinite(ParryCounterDamageMultiplier) && ParryCounterDamageMultiplier >= 1.f;
+  const float CounterMultiplier = bCounterReady
+      ? FMath::Clamp(ParryCounterDamageMultiplier, 1.f, 2.f) : 1.f;
+  // Distinct spell schools exert different stance pressure. All posture gains
+  // depend on real health damage and stop when the target dies.
+  static const float SchoolPostureWeights[6] = {0.8f, 0.65f, 1.35f, 0.f, 1.15f, 0.9f};
+  // Force weapon affix adds a modest spell damage bonus, independent of tiers.
+  const float WeaponDamageBonus = 1.f + FMath::Clamp(0.018f * WeaponTier, 0.f, 0.35f)
+      + (WeaponAffix == 1 ? 0.06f : 0.f);
+  const float MomentumBonus = Time <= FinisherMomentumUntil
+      && FMath::IsFinite(FinisherMomentumDamageMultiplier)
+    ? FMath::Clamp(FinisherMomentumDamageMultiplier, 1.f, 1.5f) : 1.f;
+  // Every connected same-target attack earns its own stage bonus.
+  // Stage 1: +0%, stage 2: +4%, stage 3: +8%, stage 4: +12%
+  // at defaults. The current hit is not allowed to invent a previous hit.
+  const float ComboWindow = FMath::IsFinite(HitComboWindowSeconds)
+      ? FMath::Clamp(HitComboWindowSeconds, 0.5f, 4.f) : 2.f;
+  // Combo power must be earned on the SAME living target. Moving to a
+  // different enemy starts its own chain rather than inheriting free damage.
+  const bool bSameTarget = LastHitComboTarget.IsValid() && LastHitComboTarget.Get() == Enemy;
+  const bool bComboAlive = bSameTarget && Time >= LastSuccessfulHitAt && Time - LastSuccessfulHitAt <= ComboWindow;
+  const int32 IncomingStage = bComboAlive ? FMath::Clamp(HitComboStage, 0, 4) : 0;
+  const float ComboStepBonus = FMath::IsFinite(HitComboDamagePerStage)
+      ? FMath::Clamp(HitComboDamagePerStage, 0.f, 0.12f) : 0.f;
+  const float HitComboMultiplier = 1.f + ComboStepBonus * FMath::Clamp(IncomingStage, 0, 3);
+  const float SpellDamage = (18.f + School * 5.f) * Multiplier * SpellPowerMultiplier
+    * WeaponDamageBonus * CounterMultiplier * MomentumBonus * HitComboMultiplier;
+  // Reject invalid damage before spending mana or consuming a hard-earned counter.
+  if (!FMath::IsFinite(SpellDamage) || SpellDamage <= 0.f) return false;
+  const float HealthBeforeSpell = Enemy->Health;
+  Enemy->TakeSpellDamage(SpellDamage);
+  // A valid hostile cast is combat even if enemy defenses absorb all HP damage.
+  // Combo stages, posture, and counter rewards still require real damage.
+  CombatRecoveryEndsAt = FMath::Max(
+       FMath::IsFinite(CombatRecoveryEndsAt) ? CombatRecoveryEndsAt : 0.f,
+       Time + (FMath::IsFinite(CombatRecoverySeconds)
+       ? FMath::Clamp(CombatRecoverySeconds, 0.f, 12.f) : 5.f));
+  const float ActualSpellDamage = FMath::Clamp(HealthBeforeSpell - Enemy->Health, 0.f, HealthBeforeSpell);
+  if (ActualSpellDamage > 0.f) {
+   HitComboStage = bComboAlive ? FMath::Min(HitComboStage + 1, 4) : 1;
+   LastHitComboTarget = Enemy;
+   LastSuccessfulHitAt = Time;
+   // One precise single-target posture strike on entering stage four.
+   // No pulse, no area effects, and no repeated fourth-hit farming.
+   if (HitComboStage == 4 && IncomingStage == 3 && Enemy->Health > 0.f
+       && FMath::IsFinite(HitComboFourthHitPosture) && HitComboFourthHitPosture > 0.f)
+    Enemy->ApplyPostureDamage(FMath::Clamp(HitComboFourthHitPosture, 0.f, 30.f));
+   OnSuccessfulHitCombo(HitComboStage, Hand == 0);
+  }
+  if (ActualSpellDamage > 0.f && Enemy->Health > 0.f
+      && FMath::IsFinite(OffensiveSpellPostureMultiplier) && OffensiveSpellPostureMultiplier > 0.f) {
+   const float ExtraPosture = ActualSpellDamage * 0.25f * SchoolPostureWeights[School]
+       * FMath::Clamp(OffensiveSpellPostureMultiplier, 0.f, 3.f);
+   if (FMath::IsFinite(ExtraPosture) && ExtraPosture > 0.f)
+    Enemy->ApplyPostureDamage(FMath::Min(ExtraPosture, 100.f));
+  }
+  if (bCounterReady && ActualSpellDamage > 0.f) {
+   // A perfect-parry counter also pressures posture, making the next stance
+   // break attainable without handing out free pressure on a miss or no-op.
+   if (Enemy->Health > 0.f && FMath::IsFinite(ParryCounterPostureDamage)
+       && ParryCounterPostureDamage > 0.f)
+    Enemy->ApplyPostureDamage(FMath::Clamp(ParryCounterPostureDamage, 0.f, 100.f));
+   ParryCounterUntil = -1.f;
+  }
   const FColor SpellColors[6] = {FColor(245, 60, 39), FColor(65, 204, 245), FColor(168, 72, 236), FColor(72, 230, 130), FColor(245, 224, 64), FColor(76, 178, 68)};
   const FColor ImpactColor = SpellColors[School];
   DrawDebugSphere(GetWorld(), Hit.ImpactPoint, 24.f * Multiplier, 12, ImpactColor, false, 0.22f, 0, 2.f);
@@ -138,33 +359,224 @@ void AMoonfallHeroPawn::CastBoth()
   OnSpellCast(LeftSpell, false);
  }
 }
+void AMoonfallHeroPawn::BreakGuard()
+{
+ if (!bGuarding || !GetWorld()) return;
+ EndGuard();
+ // Losing guard also forfeits any outstanding counterattack opportunity.
+ ParryCounterUntil = -1.f;
+ const float RecoverySeconds = FMath::IsFinite(GuardBreakRecoverySeconds)
+    ? FMath::Clamp(GuardBreakRecoverySeconds, 0.f, 3.f) : 1.f;
+ GuardBrokenUntil = GetWorld()->GetTimeSeconds() + RecoverySeconds;
+ OnGuardBroken();
+}
+
+void AMoonfallHeroPawn::BeginGuard()
+{
+ if (bOptionsOpen || bInventoryOpen || Health <= 0.f || !GetWorld() || bGuarding
+     // Do not stack a fresh parry window on top of dodge invulnerability.
+     || GetWorld()->GetTimeSeconds() < DamageImmunityUntil
+     || GetWorld()->GetTimeSeconds() < GuardBrokenUntil
+     || !FMath::IsFinite(Stamina) || !FMath::IsFinite(MaxStamina) || MaxStamina <= 0.f
+     || !FMath::IsFinite(GuardStaminaCost) || GuardStaminaCost < 0.f
+     || Stamina < GuardStaminaCost) return;
+ // A new guard stance cancels held sprint instead of resuming it on release.
+ EndSprint();
+ bGuarding = true;
+ if (GetCharacterMovement()) {
+  const float GuardMultiplier = FMath::IsFinite(GuardMoveSpeedMultiplier)
+      ? FMath::Clamp(GuardMoveSpeedMultiplier, 0.2f, 1.f) : 1.f;
+  GetCharacterMovement()->MaxWalkSpeed = NormalWalkSpeed * GuardMultiplier;
+ }
+ const float Now = GetWorld()->GetTimeSeconds();
+ // Holding guard cannot repeatedly open parry windows.
+ if (Now >= NextParryAt && FMath::IsFinite(ParryWindowSeconds)
+     && FMath::IsFinite(ParryCooldownSeconds)) {
+  ParryWindowEndsAt = Now + FMath::Clamp(ParryWindowSeconds, 0.05f, 0.3f);
+  NextParryAt = Now + FMath::Clamp(ParryCooldownSeconds, 0.3f, 2.f);
+ } else {
+  ParryWindowEndsAt = -1.f;
+ }
+}
+void AMoonfallHeroPawn::EndGuard()
+{
+ const bool bWasGuarding = bGuarding;
+ bGuarding = false;
+ ParryWindowEndsAt = -1.f;
+ if (bWasGuarding && GetCharacterMovement())
+  GetCharacterMovement()->MaxWalkSpeed = NormalWalkSpeed;
+ // Guard stance cannot refill stamina for free; preserve longer dodge/impact delays.
+ if (bWasGuarding && GetWorld())
+  StaminaRegenStartsAt = FMath::Max(StaminaRegenStartsAt, GetWorld()->GetTimeSeconds() + 0.4f);
+}
+void AMoonfallHeroPawn::BeginSprint() {
+ // Menu and defeat inputs must not latch a sprint for later gameplay.
+ if (bOptionsOpen || bInventoryOpen || Health <= 0.f) return;
+ // Holding or repeating the press must not bypass exhaustion.
+ if (!bSprintHeld) {
+  // An empty pool cannot be bypassed by tapping sprint repeatedly.
+  const bool bValidStamina = FMath::IsFinite(Stamina) && FMath::IsFinite(MaxStamina)
+      && FMath::IsFinite(SprintRestartStamina) && MaxStamina > 0.f;
+  const float Required = bValidStamina ? FMath::Clamp(SprintRestartStamina, 0.f, MaxStamina) : 0.f;
+  bSprintExhausted = !bValidStamina || Stamina < Required || Stamina <= 0.f;
+ }
+ bSprintHeld = true;
+}
+void AMoonfallHeroPawn::EndSprint() {
+ bSprintHeld = false;
+ bSprintExhausted = false;
+ if (GetCharacterMovement()) GetCharacterMovement()->MaxWalkSpeed = NormalWalkSpeed;
+}
+
 void AMoonfallHeroPawn::Dodge()
 {
- if (bOptionsOpen || Health <= 0.f || !GetWorld()) return;
+ if (bOptionsOpen || bInventoryOpen || Health <= 0.f || !GetWorld()) return;
  const float Now = GetWorld()->GetTimeSeconds();
- if (Now < NextDodgeAt) return;
- NextDodgeAt = Now + DodgeCooldown;
+ if (Now < NextDodgeAt || Now < DamageImmunityUntil
+     || !FMath::IsFinite(DodgeCooldown) || DodgeCooldown <= 0.f
+     || !FMath::IsFinite(Stamina) || !FMath::IsFinite(MaxStamina)
+     || !FMath::IsFinite(DodgeStaminaCost) || MaxStamina <= 0.f
+     || DodgeStaminaCost < 0.f || Stamina < DodgeStaminaCost
+     || !FMath::IsFinite(DodgeLaunchSpeed) || DodgeLaunchSpeed <= 0.f) return;
+ Stamina = FMath::Clamp(Stamina - DodgeStaminaCost, 0.f, MaxStamina);
+ StaminaRegenStartsAt = Now + 0.8f;
+ if (GetCharacterMovement()) GetCharacterMovement()->MaxWalkSpeed = NormalWalkSpeed;
+ // Dodge takes priority over sprint. Releasing Sprint permits a fresh attempt.
+ bSprintExhausted = true;
+ EndGuard();
+ // Even if a Blueprint changes cooldown at runtime, dodges cannot restart
+ // inside the 0.24s immunity window or schedule a nonfinite cooldown.
+ NextDodgeAt = Now + FMath::Clamp(DodgeCooldown, 0.24f, 5.f);
  DamageImmunityUntil = Now + 0.24f;
  PerfectDodgeWindowUntil = Now + 0.14f;
- const FVector MoveDirection = GetLastMovementInputVector().GetSafeNormal2D();
- const FVector Direction = MoveDirection.IsNearlyZero() ? GetActorForwardVector() : MoveDirection;
- LaunchCharacter(Direction * 650.f, true, false);
+ // Prefer live input for responsive controller/keyboard dodges. On frames
+ // without new input, use the most recently consumed movement direction.
+ const FVector PendingDirection = GetPendingMovementInputVector().GetSafeNormal2D();
+ const FVector LastDirection = GetLastMovementInputVector().GetSafeNormal2D();
+ const FVector ForwardDirection = GetActorForwardVector().GetSafeNormal2D();
+ const FVector Direction = !PendingDirection.IsNearlyZero() ? PendingDirection
+     : (!LastDirection.IsNearlyZero() ? LastDirection : ForwardDirection);
+ LaunchCharacter(Direction * FMath::Clamp(DodgeLaunchSpeed, 250.f, 1200.f), true, false);
 }
 
 void AMoonfallHeroPawn::RewardPerfectDodge() {
- if (!GetWorld() || Health <= 0.f) return;
+ TryRewardPerfectDodge();
+}
+
+bool AMoonfallHeroPawn::TryRewardPerfectDodge() {
+ if (!GetWorld() || Health <= 0.f) return false;
  const float Now = GetWorld()->GetTimeSeconds();
- if (Now > PerfectDodgeWindowUntil || Now - LastPerfectDodgeRewardAt < 1.f) return;
+ if (Now > PerfectDodgeWindowUntil || Now - LastPerfectDodgeRewardAt < 1.f) return false;
  LastPerfectDodgeRewardAt = Now;
  PerfectDodgeWindowUntil = -1.f;
  Mana = FMath::Min(MaxMana, Mana + 8.f);
+ // Restore a small, bounded amount of stamina only on a true perfect dodge.
+ // The one-second reward gate above prevents repeated hits from farming stamina.
+ if (FMath::IsFinite(MaxStamina) && MaxStamina > 0.f && FMath::IsFinite(Stamina)) {
+  Stamina = FMath::Clamp(Stamina + FMath::Max(0.f, PerfectDodgeStaminaReward), 0.f, MaxStamina);
+ }
+ return true;
+}
+
+bool AMoonfallHeroPawn::ApplyMoonfallDamageFrom(float Amount, const FVector& SourceLocation) {
+ bLastIncomingHitParried = false;
+ IncomingDamageSource = SourceLocation;
+ bHasIncomingDamageSource = true;
+ ApplyMoonfallDamage(Amount);
+ bHasIncomingDamageSource = false;
+ return bLastIncomingHitParried;
 }
 
 void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
  if (Health <= 0.f || !FMath::IsFinite(Amount) || Amount <= 0.f || !GetWorld() || GetWorld()->GetTimeSeconds() < DamageImmunityUntil) return;
+ const float Now = GetWorld()->GetTimeSeconds();
  const float PreviousHealth = Health;
- Health = FMath::Max(0.f, Health - Amount * (1.f - FMath::Min(0.28f, ArmorTier * 0.01f)));
+ // Ward armor affix provides a small, capped flat mitigation bonus.
+ const float ArmorMitigation = FMath::Min(0.34f, FMath::Min(0.28f, ArmorTier * 0.01f)
+   + (ArmorAffix == 2 ? 0.06f : 0.f));
+ const float ArmoredDamage = Amount * (1.f - ArmorMitigation);
+ float DamageAfterGuard = ArmoredDamage;
+ // Enemy attacks must come from the front 150-degree guard cone.
+ // Older environment damage with no provided origin retains its guard behavior.
+ // Guard follows the hero mesh/actor facing, not the orbiting camera.
+ // Movement currently orients the character independently of view yaw.
+ const FVector GuardForward = GetActorForwardVector().GetSafeNormal2D();
+ const FVector ToSource = (IncomingDamageSource - GetActorLocation()).GetSafeNormal2D();
+ const bool bFrontAttack = !bHasIncomingDamageSource || ToSource.IsNearlyZero()
+  || FVector::DotProduct(GuardForward, ToSource) >= 0.258819f;
+ // Heavy attacks exert greater guard pressure. Invalid tuning values fail closed.
+ const bool bValidGuardCost = FMath::IsFinite(GuardStaminaCost) && GuardStaminaCost >= 0.f
+     && FMath::IsFinite(GuardImpactStaminaScale) && GuardImpactStaminaScale >= 0.f;
+ const float HitGuardCost = bValidGuardCost && FMath::IsFinite(MaxStamina) && MaxStamina > 0.f
+     ? GuardStaminaCost + FMath::Clamp(ArmoredDamage * FMath::Min(GuardImpactStaminaScale, 1.f), 0.f, MaxStamina)
+     : 0.f;
+ // Perfect timing negates impact stamina altogether. The guard stance
+ // still costs stamina while held, and normal blocks retain heavy-hit pressure.
+ // Perfect parries are deliberate responses to a known, front-facing
+ // attacker. Environmental damage without a source may still be blocked.
+ const bool bPerfectParry = bGuarding && bHasIncomingDamageSource && bFrontAttack
+     && Now <= ParryWindowEndsAt && Now <= NextParryAt;
+ const float RequiredGuardCost = bPerfectParry ? 0.f : HitGuardCost;
+ if (bGuarding && bFrontAttack && !bOptionsOpen
+     && FMath::IsFinite(Stamina) && FMath::IsFinite(MaxStamina) && MaxStamina > 0.f
+     && bValidGuardCost && FMath::IsFinite(RequiredGuardCost)
+     && Stamina >= RequiredGuardCost) {
+  // Successful blocks and parries both count as active combat.
+  CombatRecoveryEndsAt = FMath::Max(
+       FMath::IsFinite(CombatRecoveryEndsAt) ? CombatRecoveryEndsAt : 0.f,
+       Now + (FMath::IsFinite(CombatRecoverySeconds)
+      ? FMath::Clamp(CombatRecoverySeconds, 0.f, 12.f) : 5.f));
+  // Physical defense uses the same stamina pool as sprinting and dodging.
+  Stamina = FMath::Clamp(Stamina - RequiredGuardCost, 0.f, MaxStamina);
+  StaminaRegenStartsAt = Now + 0.8f;
+  if (bPerfectParry) {
+   // Perfect timing returns a small amount of mana as well as stamina.
+   if (FMath::IsFinite(Mana) && FMath::IsFinite(MaxMana) && MaxMana > 0.f
+       && FMath::IsFinite(PerfectParryManaReward) && PerfectParryManaReward > 0.f)
+    Mana = FMath::Clamp(Mana + FMath::Clamp(PerfectParryManaReward, 0.f, 15.f), 0.f, MaxMana);
+   bLastIncomingHitParried = bHasIncomingDamageSource;
+   DamageAfterGuard = 0.f;
+   ParryWindowEndsAt = -1.f;
+   if (FMath::IsFinite(ParryCounterWindowSeconds) && ParryCounterWindowSeconds > 0.f)
+    ParryCounterUntil = Now + FMath::Clamp(ParryCounterWindowSeconds, 0.f, 5.f);
+   if (FMath::IsFinite(PerfectParryStaminaReward) && PerfectParryStaminaReward > 0.f)
+    Stamina = FMath::Clamp(Stamina + PerfectParryStaminaReward, 0.f, MaxStamina);
+  } else {
+   DamageAfterGuard *= 0.4f;
+  }
+  OnGuardImpact(ArmoredDamage - DamageAfterGuard, bPerfectParry);
+  if (Stamina < GuardStaminaCost) BreakGuard();
+ } else if (bGuarding && bFrontAttack) {
+  // Insufficient stamina breaks guard without granting free damage reduction.
+  BreakGuard();
+ }
+ Health = FMath::Max(0.f, Health - DamageAfterGuard);
+ // Taking actual health damage interrupts the perfect-parry offensive opening.
+ // Fully blocked/parried hits leave it intact.
  const float DamageTaken = PreviousHealth - Health;
+ if (DamageTaken > 0.f) {
+  CombatRecoveryEndsAt = FMath::Max(
+       FMath::IsFinite(CombatRecoveryEndsAt) ? CombatRecoveryEndsAt : 0.f,
+       Now + (FMath::IsFinite(CombatRecoverySeconds)
+       ? FMath::Clamp(CombatRecoverySeconds, 0.f, 12.f) : 5.f));
+  // Prevent immediate menu healing after taking combat damage.
+  MenuHealthRegenStartsAt = Now + (FMath::IsFinite(MenuHealthRegenDelaySeconds)
+       ? FMath::Clamp(MenuHealthRegenDelaySeconds, 0.f, 10.f) : 3.f);
+  ParryCounterUntil = -1.f;
+  // A real injury breaks the aggressive momentum chain. Parries and blocks
+  // still preserve it, so defensive skill matters.
+  FinisherMomentumUntil = -1.f;
+  HitComboStage = 0;
+  LastHitComboTarget.Reset();
+  LastSuccessfulHitAt = -100.f;
+ }
+ if (Health <= 0.f) {
+  // Clear any held sprint so a later respawn cannot inherit it.
+  EndSprint();
+  EndGuard();
+  // Defeat must not leave the inventory overlay trapping the player.
+  bInventoryOpen = false;
+ }
  if (!bReduceMotion) ImpactCameraOffset = FMath::Clamp(ImpactCameraOffset + FMath::Min(DamageTaken * 0.5f, 18.f), 0.f, 24.f);
  OnDamageImpact(DamageTaken);
  OnHealthChanged(Health, MaxHealth);
@@ -190,11 +602,85 @@ void AMoonfallHeroPawn::ToggleDisplayMode() {
  Settings->SaveSettings();
 }
 
-void AMoonfallHeroPawn::OpenOptions() { bOptionsOpen = !bOptionsOpen; }
-void AMoonfallHeroPawn::OptionsUp() { if (bOptionsOpen) OptionsSelection = (OptionsSelection + 6) % 7; }
-void AMoonfallHeroPawn::OptionsDown() { if (bOptionsOpen) OptionsSelection = (OptionsSelection + 1) % 7; }
-void AMoonfallHeroPawn::OptionsLeft() { AdjustOption(-1); }
-void AMoonfallHeroPawn::OptionsRight() { AdjustOption(1); }
+void AMoonfallHeroPawn::ToggleInventory() {
+ if (bOptionsOpen || Health <= 0.f) return;
+ if (!bInventoryOpen) {
+  EndSprint();
+  EndGuard();
+  InventorySelection = FMath::Clamp(InventorySelection, 0, FMath::Max(0, InventoryItemCodes.Num() - 1));
+ }
+ bInventoryOpen = !bInventoryOpen;
+}
+void AMoonfallHeroPawn::EquipSelectedInventoryItem() {
+ if (!bInventoryOpen || !InventoryItemCodes.IsValidIndex(InventorySelection)) return;
+ EquipInventoryItem(InventorySelection);
+}
+void AMoonfallHeroPawn::SalvageSelectedInventoryItem() {
+ if (bInventoryOpen) SalvageInventoryItem(InventorySelection);
+}
+void AMoonfallHeroPawn::InventorySalvage() { SalvageSelectedInventoryItem(); }
+bool AMoonfallHeroPawn::SalvageInventoryItem(int32 InventoryIndex)
+{
+ if (Health <= 0.f || !InventoryItemCodes.IsValidIndex(InventoryIndex)) return false;
+ const int32 Code = InventoryItemCodes[InventoryIndex];
+ if (Code <= 0) return false;
+ // The final inventory copy of equipped gear is protected. Extra duplicates
+ // may be salvaged because the worn code remains represented in the bag.
+ const bool bEquippedCode = Code == EquippedWeaponCode || Code == EquippedArmorCode
+     || Code == EquippedAccessoryCode;
+ if (bEquippedCode) {
+  int32 Copies = 0;
+  for (const int32 Candidate : InventoryItemCodes)
+   if (Candidate == Code) ++Copies;
+  if (Copies <= 1) return false;
+ }
+ const int32 Affix = Code / 100000;
+ const int32 SlotIndex = (Code / 10000) % 10;
+ const int32 Rarity = (Code / 1000) % 10;
+ const int32 Tier = Code % 1000;
+ if (Affix < 0 || Affix > 3 || SlotIndex < 0 || SlotIndex > 2
+     || Rarity < 0 || Rarity > 3 || Tier < 1 || Tier > 25
+     || (Rarity == 0 && Affix != 0)
+     || Code != Affix * 100000 + SlotIndex * 10000 + Rarity * 1000 + Tier)
+  return false;
+ // Higher rarity/tier gear produces more salvage, never exceeding the cap.
+ const int32 SalvageReward = 1 + Rarity * 2 + Tier / 5;
+ Salvage = FMath::Clamp(Salvage + SalvageReward, 0, 9999);
+ InventoryItemCodes.RemoveAt(InventoryIndex);
+ InventorySelection = FMath::Clamp(InventorySelection, 0, FMath::Max(0, InventoryItemCodes.Num() - 1));
+ return true;
+}
+void AMoonfallHeroPawn::InventoryConfirm() { EquipSelectedInventoryItem(); }
+void AMoonfallHeroPawn::OpenOptions() {
+ if (bInventoryOpen) { bInventoryOpen = false; return; }
+ if (!bOptionsOpen) {
+  EndSprint();
+  EndGuard();
+ }
+ bOptionsOpen = !bOptionsOpen;
+}
+void AMoonfallHeroPawn::OptionsUp() {
+ if (bInventoryOpen) {
+  InventorySelection = FMath::Max(0, InventorySelection - 1);
+  return;
+ }
+ if (bOptionsOpen) OptionsSelection = (OptionsSelection + 6) % 7;
+}
+void AMoonfallHeroPawn::OptionsDown() {
+ if (bInventoryOpen) {
+  InventorySelection = FMath::Min(FMath::Max(0, InventoryItemCodes.Num() - 1), InventorySelection + 1);
+  return;
+ }
+ if (bOptionsOpen) OptionsSelection = (OptionsSelection + 1) % 7;
+}
+void AMoonfallHeroPawn::OptionsLeft() {
+ if (bInventoryOpen) { EquipSelectedInventoryItem(); return; }
+ AdjustOption(-1);
+}
+void AMoonfallHeroPawn::OptionsRight() {
+ if (bInventoryOpen) { EquipSelectedInventoryItem(); return; }
+ AdjustOption(1);
+}
 void AMoonfallHeroPawn::AdjustOption(int32 Direction) {
  if (!bOptionsOpen || !GEngine) return;
  UGameUserSettings* Settings = GEngine->GetGameUserSettings();
@@ -246,6 +732,158 @@ void AMoonfallHeroPawn::AdjustOption(int32 Direction) {
  Settings->SaveSettings();
 }
 
+int32 AMoonfallHeroPawn::RegisterFinisherKill(bool bShatterKill, bool bBossKill, FVector DefeatedLocation, AMoonfallEnemy* DefeatedEnemy)
+{
+ if (Health <= 0.f || !GetWorld()) return 0;
+ const float Now = GetWorld()->GetTimeSeconds();
+ // A confirmed finisher is combat, not a safe rest window.
+ CombatRecoveryEndsAt = FMath::Max(
+       FMath::IsFinite(CombatRecoveryEndsAt) ? CombatRecoveryEndsAt : 0.f,
+       Now + (FMath::IsFinite(CombatRecoverySeconds)
+     ? FMath::Clamp(CombatRecoverySeconds, 0.f, 12.f) : 5.f));
+ const float Window = FMath::IsFinite(FinisherChainWindowSeconds)
+   ? FMath::Clamp(FinisherChainWindowSeconds, 0.5f, 10.f) : 4.f;
+ const bool bContinueChain = Now >= LastFinisherKillAt && Now - LastFinisherKillAt <= Window;
+ FinisherSequenceCount = bContinueChain
+   ? FMath::Min(FinisherSequenceCount + 1, 1000000) : 1;
+ FinisherChainCount = FMath::Min(FinisherSequenceCount, 5);
+ LastFinisherKillAt = Now;
+ const int32 ChainStep = (FinisherSequenceCount - 1) % 5 + 1;
+ // Every confirmed kill contributes capped momentum, independent of queued
+ // visual playback. Boss and shatter kills earn stronger resource rewards.
+ const float KillRewardScale = bBossKill ? 2.f : (bShatterKill ? 1.5f : 1.f);
+ if (FMath::IsFinite(MaxStamina) && MaxStamina > 0.f && FMath::IsFinite(Stamina)
+     && FMath::IsFinite(FinisherStaminaRestore) && FinisherStaminaRestore > 0.f)
+  Stamina = FMath::Clamp(Stamina + FMath::Clamp(FinisherStaminaRestore, 0.f, 25.f)
+      * KillRewardScale, 0.f, MaxStamina);
+ if (FMath::IsFinite(MaxMana) && MaxMana > 0.f && FMath::IsFinite(Mana)
+     && FMath::IsFinite(FinisherManaRestore) && FinisherManaRestore > 0.f)
+  Mana = FMath::Clamp(Mana + FMath::Clamp(FinisherManaRestore, 0.f, 25.f)
+      * KillRewardScale, 0.f, MaxMana);
+ if (FinisherChainCount >= 3 && FMath::IsFinite(FinisherMomentumDurationSeconds)
+     && FinisherMomentumDurationSeconds >= 1.f)
+  FinisherMomentumUntil = Now + FMath::Clamp(FinisherMomentumDurationSeconds, 1.f, 12.f);
+ // Queue follow-up executions instead of cutting off the current choreography.
+ // Five visual styles cycle by combo count; the bounded queue prevents bloat.
+ const float NativeDuration = bReduceMotion ? 0.22f : 0.78f;
+ if (PendingFinishers.Num() > 0 || (Now >= NativeFinisherStartedAt && Now - NativeFinisherStartedAt < NativeDuration)) {
+  FPendingFinisher Pending;
+  Pending.Target = DefeatedLocation.ContainsNaN()
+    ? GetActorLocation() + GetActorForwardVector() * 140.f : DefeatedLocation;
+  Pending.Style = ChainStep;
+  Pending.Enemy = DefeatedEnemy;
+  Pending.bShatter = bShatterKill;
+  Pending.bBoss = bBossKill;
+  if (PendingFinishers.Num() < MaxPendingFinishers) PendingFinishers.Add(Pending);
+  else {
+   // Preserve all earlier queued choreography and prioritize the most recent
+   // finishing move if more than eight kills arrive before playback catches up.
+   if (AMoonfallEnemy* SupersededEnemy = PendingFinishers.Last().Enemy.Get())
+    SupersededEnemy->BeginFinisherDefeat(PendingFinishers.Last().Style);
+   PendingFinishers[PendingFinishers.Num() - 1] = Pending;
+  }
+  return ChainStep;
+ }
+ StartFinisherPresentation(ChainStep, bShatterKill, bBossKill, DefeatedLocation, DefeatedEnemy);
+ return ChainStep;
+}
+
+void AMoonfallHeroPawn::StartFinisherPresentation(int32 ChainStep, bool bShatterKill, bool bBossKill, const FVector& DefeatedLocation, AMoonfallEnemy* DefeatedEnemy)
+{
+ if (!GetWorld()) return;
+ const float Now = GetWorld()->GetTimeSeconds();
+ // Built-in impact choreography is mandatory. No mesh/AnimBP/asset assignment
+ // is needed for the two slash shapes and flash attached in the constructor.
+ // The enemy's death reaction begins alongside its actual queued execution,
+ // not when it first entered the queue. Weak references expire safely.
+ if (IsValid(DefeatedEnemy)) DefeatedEnemy->BeginFinisherDefeat(ChainStep);
+ NativeFinisherStartedAt = Now;
+ NativeFinisherOrigin = GetActorLocation();
+ NativeFinisherTarget = DefeatedLocation.ContainsNaN() ? NativeFinisherOrigin + GetActorForwardVector() * 140.f : DefeatedLocation;
+ NativeFinisherForward = (NativeFinisherTarget - NativeFinisherOrigin).GetSafeNormal2D();
+ if (NativeFinisherForward.IsNearlyZero()) NativeFinisherForward = GetActorForwardVector().GetSafeNormal2D();
+ NativeFinisherStyle = ChainStep;
+ bNativeFinisherShatter = bShatterKill;
+ bNativeFinisherBoss = bBossKill;
+ if (!bReduceMotion && GetMesh() && FinisherMontages.Num() > 0) {
+  if (UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance()) {
+   const int32 MontageIndex = (ChainStep - 1) % FinisherMontages.Num();
+   if (UAnimMontage* Montage = FinisherMontages[MontageIndex].Get())
+    AnimInstance->Montage_Play(Montage, 1.f);
+  }
+ }
+ OnFinisherChain(ChainStep, bShatterKill, bBossKill);
+}
+
+void AMoonfallHeroPawn::UpdateNativeFinisher(float DeltaSeconds)
+{
+ if (!GetWorld() || !FinisherSlashA || !FinisherSlashB || !FinisherFlash) return;
+ float Age = GetWorld()->GetTimeSeconds() - NativeFinisherStartedAt;
+ const float Duration = bReduceMotion ? 0.22f : 0.78f;
+ if (Health <= 0.f || bOptionsOpen) {
+  // Resolve skipped presentations so defeated enemies never remain frozen
+  // until fallback expiry after the hero dies or gameplay is paused.
+  for (const FPendingFinisher& Pending : PendingFinishers) {
+   if (AMoonfallEnemy* WaitingEnemy = Pending.Enemy.Get())
+    WaitingEnemy->BeginFinisherDefeat(Pending.Style);
+  }
+  PendingFinishers.Reset();
+ }
+ // Start the oldest queued execution after the previous effect completes.
+ // Presentation (including montage and Blueprint notification) occurs on start.
+ if (Health > 0.f && !bOptionsOpen && Age >= Duration && PendingFinishers.Num() > 0) {
+  const FPendingFinisher Pending = PendingFinishers[0];
+  PendingFinishers.RemoveAt(0);
+  StartFinisherPresentation(Pending.Style, Pending.bShatter, Pending.bBoss, Pending.Target, Pending.Enemy.Get());
+  Age = 0.f;
+ }
+ if (Health <= 0.f || bOptionsOpen || Age < 0.f || Age >= Duration) {
+  FinisherSlashA->SetHiddenInGame(true);
+  FinisherSlashB->SetHiddenInGame(true);
+  FinisherFlash->SetVisibility(false);
+  return;
+ }
+ const float T = FMath::Clamp(Age / Duration, 0.f, 1.f);
+ const float Envelope = FMath::Sin(T * PI);
+ // Snapshot facing and style on kill so moving or chaining the next attack
+ // does not bend this finisher's trajectory toward an unrelated target.
+ const FVector Origin = NativeFinisherOrigin;
+ const FVector Forward = NativeFinisherForward;
+ const FVector Side = FVector::CrossProduct(FVector::UpVector, Forward);
+ const int32 Style = FMath::Clamp(NativeFinisherStyle, 1, 5);
+ // Five distinct readable movements: crossing cleave, rising strike,
+ // double sweep, spinning slash, and final descending execution.
+ const float Spin = (Style == 4 ? 2.f * PI : PI) * T;
+ const float Sweep = FMath::Sin((T - 0.5f) * PI);
+ const float Lateral = Style == 1 ? 110.f * Sweep
+   : Style == 2 ? -65.f + 130.f * T
+   : Style == 3 ? 130.f * Sweep
+   : Style == 4 ? 115.f * FMath::Cos(Spin)
+   : 70.f * FMath::Sin(Spin);
+ const float Height = Style == 2 ? 55.f + T * 150.f
+   : Style == 5 ? 245.f - T * 165.f
+   : 105.f + 60.f * FMath::Sin(Spin);
+ const FVector Center = Origin + Forward * (90.f + 45.f * Envelope)
+    + Side * Lateral + FVector::UpVector * Height;
+ const float BladeLength = bNativeFinisherBoss ? 3.2f : (bNativeFinisherShatter ? 2.8f : 2.25f);
+ const float Tilt = Style == 2 ? 70.f - 140.f * T
+   : Style == 5 ? -70.f + 140.f * T : 110.f * Sweep;
+ const FRotator SlashRotation = FRotationMatrix::MakeFromX(Forward).Rotator()
+   + FRotator(Tilt, 0.f, Style == 4 ? FMath::RadiansToDegrees(Spin) : 35.f * Sweep);
+ FinisherSlashA->SetWorldLocationAndRotation(Center, SlashRotation);
+ FinisherSlashA->SetWorldScale3D(FVector(BladeLength * Envelope, 0.055f, 0.025f));
+ FinisherSlashA->SetHiddenInGame(bReduceMotion);
+ FinisherSlashB->SetWorldLocationAndRotation(Center + Side * 35.f - FVector::UpVector * 30.f,
+   SlashRotation + FRotator(Style == 3 ? -55.f : 48.f, 0.f, 0.f));
+ FinisherSlashB->SetWorldScale3D(FVector(BladeLength * 0.65f * Envelope, 0.045f, 0.023f));
+ FinisherSlashB->SetHiddenInGame(bReduceMotion || Style == 2);
+ FinisherFlash->SetWorldLocation(Center);
+ FinisherFlash->SetLightColor(bNativeFinisherShatter ? FLinearColor(1.f, 0.25f, 0.8f)
+   : FLinearColor(0.2f, 0.78f, 1.f));
+ FinisherFlash->SetIntensity((bReduceMotion ? 900.f : (bNativeFinisherBoss ? 4800.f : 3500.f)) * Envelope);
+ FinisherFlash->SetVisibility(true);
+}
+
 void AMoonfallHeroPawn::AwardExperience(int32 Amount)
 {
  if (Amount <= 0 || Health <= 0.f || Level >= 100) return;
@@ -263,33 +901,166 @@ void AMoonfallHeroPawn::AwardExperience(int32 Amount)
  if (Level >= 100) Experience = 0;
 }
 
-void AMoonfallHeroPawn::AwardEquipmentDrop(bool bEliteEnemy, bool bBossEnemy)
+int32 AMoonfallHeroPawn::RollEquipmentCode(bool bEliteEnemy, bool bBossEnemy)
 {
- if (Health <= 0.f) return;
- // Bounded deterministic loot, without spawned pickup actors or per-frame work.
+ if (Health <= 0.f) return 0;
+ // Roll randomized item stats once at death; pickup is handled separately.
+ // Keep boss/elite rewards meaningful: guaranteed epic for bosses, at least rare
+ // for elites. Regular enemies use weighted chances with a modest level bias.
  const int32 NewTier = FMath::Clamp(Level / 5 + (bBossEnemy ? 2 : (bEliteEnemy ? 1 : 0)), 1, 25);
- // Rarity: 0 common, 1 uncommon, 2 rare, 3 epic. Boss loot is more valuable.
- LastLootRarity = bBossEnemy ? 3 : (bEliteEnemy ? 2 : (Level >= 10 ? 1 : 0));
+ const int32 LootRoll = FMath::RandRange(0, 99);
+ const int32 RarityBias = FMath::Clamp(Level / 5, 0, 12);
+ // Rarity: 0 common, 1 uncommon, 2 rare, 3 epic.
+ LastLootRarity = bBossEnemy ? 3
+   : (bEliteEnemy ? (LootRoll < 15 ? 3 : 2)
+   : (LootRoll < 3 + RarityBias / 3 ? 3
+   : (LootRoll < 18 + RarityBias ? 2
+   : (LootRoll < 53 + RarityBias ? 1 : 0))));
  LastLootTier = NewTier;
- LastLootSlot = bBossEnemy ? 2 : (bEliteEnemy ? 1 : 0);
+ // Enemy rank influences quality, not gear slot: any enemy can drop
+ // weapons, armor, or accessories.
+ LastLootSlot = FMath::RandRange(0, 2);
+ // Rare and better drops carry one randomized trait. Lower rarities may
+ // roll a trait, but common items never do. These are encoded in item IDs.
+ LastLootAffix = LastLootRarity == 0 ? 0
+   : (LastLootRarity == 1 && FMath::RandRange(0, 99) < 60
+     ? 0 : FMath::RandRange(1, 3));
  const int32 PreviousTier = LastLootSlot == 2 ? AccessoryTier : (LastLootSlot == 1 ? ArmorTier : WeaponTier);
  LastLootUpgrade = NewTier - PreviousTier;
- // Compact stable item code: slot, rarity, tier. Maximum 30 entries.
- const int32 ItemCode = LastLootSlot * 10000 + LastLootRarity * 1000 + NewTier;
- if (InventoryItemCodes.Num() >= 30) InventoryItemCodes.RemoveAt(0);
+ // Compact item code: affix (100000s), slot (10000s), rarity (1000s),
+ // tier (units). Distinct drops persist until the player salvages them.
+ const int32 ItemCode = LastLootAffix * 100000 + LastLootSlot * 10000
+   + LastLootRarity * 1000 + NewTier;
+ return ItemCode;
+}
+
+// Legacy direct grant remains available for scripted rewards. Enemy deaths
+// instead spawn a ground actor, so equipment is not auto-collected on kills.
+void AMoonfallHeroPawn::AwardEquipmentDrop(bool bEliteEnemy, bool bBossEnemy)
+{
+ const int32 ItemCode = RollEquipmentCode(bEliteEnemy, bBossEnemy);
+ if (ItemCode <= 0) return;
+ const int32 NewTier = LastLootTier;
+ // Do not reject new loot, automatically salvage, or silently discard items.
+ // The paginated inventory supports growth beyond the former 30-slot limit.
  InventoryItemCodes.Add(ItemCode);
+ InventorySelection = FMath::Clamp(InventorySelection, 0, InventoryItemCodes.Num() - 1);
  // Rotate awards across equipment categories; higher-tier items replace lower tiers.
- int32* Slot = bBossEnemy ? &AccessoryTier : (bEliteEnemy ? &ArmorTier : &WeaponTier);
+ int32* Slot = LastLootSlot == 2 ? &AccessoryTier : (LastLootSlot == 1 ? &ArmorTier : &WeaponTier);
+ int32* EquippedAffix = LastLootSlot == 2 ? &AccessoryAffix : (LastLootSlot == 1 ? &ArmorAffix : &WeaponAffix);
+ // A new trait is equipped only when upgrading tiers; same-tier items remain
+ // inventory choices rather than silently replacing the player's current perk.
  if (NewTier > *Slot) {
+  *EquippedAffix = LastLootAffix;
   const int32 Previous = *Slot;
   *Slot = NewTier;
+  int32* EquippedCode = LastLootSlot == 2 ? &EquippedAccessoryCode : (LastLootSlot == 1 ? &EquippedArmorCode : &EquippedWeaponCode);
+  *EquippedCode = ItemCode;
   EquipmentTier = FMath::Max(WeaponTier, FMath::Max(ArmorTier, AccessoryTier));
   if (Slot == &ArmorTier) {
    MaxHealth += 2.f * (NewTier - Previous);
    Health = FMath::Min(MaxHealth, Health + 2.f * (NewTier - Previous));
    OnHealthChanged(Health, MaxHealth);
   }
- } else {
-  Salvage = FMath::Min(9999, Salvage + (bBossEnemy ? 5 : (bEliteEnemy ? 2 : 1)));
  }
+}
+
+bool AMoonfallHeroPawn::CollectGroundEquipmentCode(int32 ItemCode)
+{
+ if (Health <= 0.f || ItemCode <= 0) return false;
+ const int32 Affix = ItemCode / 100000;
+ const int32 SlotIndex = (ItemCode / 10000) % 10;
+ const int32 Rarity = (ItemCode / 1000) % 10;
+ const int32 Tier = ItemCode % 1000;
+ if (Affix < 0 || Affix > 3 || SlotIndex < 0 || SlotIndex > 2
+     || Rarity < 0 || Rarity > 3 || Tier < 1 || Tier > 25
+     || (Rarity == 0 && Affix != 0)
+     || ItemCode != Affix * 100000 + SlotIndex * 10000 + Rarity * 1000 + Tier)
+  return false;
+ // Picking up an item NEVER equips, automatically salvages, or deletes gear.
+ InventoryItemCodes.Add(ItemCode);
+ LastLootAffix = Affix;
+ LastLootSlot = SlotIndex;
+ LastLootRarity = Rarity;
+ LastLootTier = Tier;
+ const int32 EquippedTier = SlotIndex == 0 ? WeaponTier
+     : (SlotIndex == 1 ? ArmorTier : AccessoryTier);
+ LastLootUpgrade = Tier - EquippedTier;
+ return true;
+}
+
+void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(bool bEliteEnemy, bool bBossEnemy, FVector DefeatedLocation)
+{
+ if (!GetWorld() || Health <= 0.f) return;
+ // Bosses scatter three rewards, elites two, regular enemies one.
+ // All remain on the ground until individually collected; never auto-salvage.
+ const int32 DropCount = bBossEnemy ? 3 : (bEliteEnemy ? 2 : 1);
+ const FVector Origin = DefeatedLocation.ContainsNaN() ? GetActorLocation() : DefeatedLocation;
+ for (int32 Drop = 0; Drop < DropCount; ++Drop) {
+  const int32 ItemCode = RollEquipmentCode(bEliteEnemy, bBossEnemy);
+  if (ItemCode <= 0) continue;
+  const float Angle = 2.f * PI * static_cast<float>(Drop) / static_cast<float>(DropCount);
+  const float Spread = DropCount == 1 ? 0.f : 105.f;
+  const FVector SpawnAt = Origin + FVector(Spread * FMath::Cos(Angle),
+    Spread * FMath::Sin(Angle), 45.f);
+  FActorSpawnParameters Params;
+  Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+  if (AMoonfallGroundLoot* Loot = GetWorld()->SpawnActor<AMoonfallGroundLoot>(
+      AMoonfallGroundLoot::StaticClass(), SpawnAt, FRotator::ZeroRotator, Params))
+   Loot->InitializeLoot(ItemCode);
+ }
+}
+
+void AMoonfallHeroPawn::PickupNearestGroundLoot()
+{
+ if (Health <= 0.f || bOptionsOpen || bInventoryOpen || !GetWorld()) return;
+ AMoonfallGroundLoot* Nearest = nullptr;
+ float BestDistanceSq = FMath::Square(250.f);
+ // Input-only search. Ground loot actors never need a per-frame pickup scan.
+ for (TActorIterator<AMoonfallGroundLoot> It(GetWorld()); It; ++It) {
+  AMoonfallGroundLoot* Candidate = *It;
+  if (!IsValid(Candidate) || Candidate->GetItemCode() <= 0) continue;
+  if (FMath::Abs(Candidate->GetActorLocation().Z - GetActorLocation().Z) > 150.f) continue;
+  const float DistanceSq = FVector::DistSquared2D(Candidate->GetActorLocation(), GetActorLocation());
+  if (DistanceSq <= BestDistanceSq) {
+   BestDistanceSq = DistanceSq;
+   Nearest = Candidate;
+  }
+ }
+ if (IsValid(Nearest)) Nearest->TryCollect();
+}
+
+bool AMoonfallHeroPawn::EquipInventoryItem(int32 InventoryIndex)
+{
+ if (Health <= 0.f || !InventoryItemCodes.IsValidIndex(InventoryIndex)) return false;
+ const int32 Code = InventoryItemCodes[InventoryIndex];
+ if (Code <= 0) return false;
+ // Validate every decoded field before mutating equipped items or health.
+ const int32 Affix = Code / 100000;
+ const int32 SlotIndex = (Code / 10000) % 10;
+ const int32 Rarity = (Code / 1000) % 10;
+ const int32 Tier = Code % 1000;
+ if (Affix < 0 || Affix > 3 || SlotIndex < 0 || SlotIndex > 2
+     || Rarity < 0 || Rarity > 3 || Tier < 1 || Tier > 25
+     || (Rarity == 0 && Affix != 0)
+     || Code != Affix * 100000 + SlotIndex * 10000 + Rarity * 1000 + Tier)
+  return false;
+ int32* EquippedTier = SlotIndex == 0 ? &WeaponTier : (SlotIndex == 1 ? &ArmorTier : &AccessoryTier);
+ int32* EquippedAffix = SlotIndex == 0 ? &WeaponAffix : (SlotIndex == 1 ? &ArmorAffix : &AccessoryAffix);
+ int32* EquippedCode = SlotIndex == 0 ? &EquippedWeaponCode
+     : (SlotIndex == 1 ? &EquippedArmorCode : &EquippedAccessoryCode);
+ if (*EquippedCode == Code && *EquippedTier == Tier && *EquippedAffix == Affix) return false;
+ const int32 PreviousTier = *EquippedTier;
+ *EquippedTier = Tier;
+ *EquippedAffix = Affix;
+ *EquippedCode = Code;
+ EquipmentTier = FMath::Max(WeaponTier, FMath::Max(ArmorTier, AccessoryTier));
+ if (SlotIndex == 1 && PreviousTier != Tier) {
+  // Equipping lower-tier armor cannot grant free health, or reduce it below 1.
+  const float HealthDelta = 2.f * (Tier - PreviousTier);
+  MaxHealth = FMath::Max(1.f, MaxHealth + HealthDelta);
+  Health = FMath::Clamp(Health + HealthDelta, 1.f, MaxHealth);
+  OnHealthChanged(Health, MaxHealth);
+ }
+ return true;
 }

@@ -11,6 +11,7 @@ public:
 private:
  float DisplayHealth = -1.f;
  float DisplayMana = -1.f;
+ float DisplayStamina = -1.f;
  float DisplayXP = -1.f;
  int32 LastShownLevel = -1;
  float LevelGlowUntil = 0.f;
