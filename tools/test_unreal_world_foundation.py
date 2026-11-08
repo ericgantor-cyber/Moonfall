@@ -684,6 +684,20 @@ class WorldFoundationTests(unittest.TestCase):
         self.assertIn("Native Unreal Win64 compile checks passed", build)
         self.assertIn("if ($result -ne 0)", build)
 
+    def test_single_arena_startup_and_explicit_native_dependencies(self):
+        root = ROOT / "MoonfallUnreal/Source/MoonfallUnreal"
+        game_mode = (root / "MoonfallUnrealGameMode.cpp").read_text(encoding="utf-8")
+        arena = (root / "MoonfallArena.cpp").read_text(encoding="utf-8")
+        self.assertIn('#include "EngineUtils.h"', game_mode)
+        self.assertIn('#include "EngineUtils.h"', arena)
+        self.assertIn('#include "GameFramework/Pawn.h"', arena)
+        self.assertIn("for (TActorIterator<AMoonfallArena> Existing(GetWorld()); Existing; ++Existing)", game_mode)
+        self.assertIn("if (IsValid(*Existing)) return;", game_mode)
+        self.assertIn("GetWorld()->SpawnActor<AMoonfallArena>", game_mode)
+        self.assertLess(game_mode.index("if (IsValid(*Existing)) return;"),
+                        game_mode.index("GetWorld()->SpawnActor<AMoonfallArena>"))
+        self.assertEqual(game_mode.count("GetWorld()->SpawnActor<AMoonfallArena>"), 1)
+
     def test_connected_geometry(self):
         self.assertIn("Region * RegionSpacing", CPP)
         self.assertIn("FVector(60.f, 60.f, 1.f)", CPP)
