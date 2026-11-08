@@ -1376,7 +1376,10 @@ void AMoonfallHeroPawn::BuyNearestNpcService()
     : (FMath::IsFinite(Stamina) && FMath::IsFinite(MaxStamina) && Stamina < MaxStamina - 1.f);
   if (!bNeedsService || Salvage < Price) return;
   Salvage -= Price;
-  SavePlayerEconomy();
+  if (!TrySavePlayerEconomy()) {
+   Salvage += Price;
+   return;
+  }
   if (Role == 1) Mana = FMath::Clamp(Mana + 35.f, 0.f, MaxMana);
   else Stamina = FMath::Clamp(Stamina + 35.f, 0.f, MaxStamina);
   bLastServicePurchased = true;
