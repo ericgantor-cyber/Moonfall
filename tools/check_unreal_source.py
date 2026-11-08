@@ -177,7 +177,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("InventorySelection = FMath::Max(0, InventorySelection - 1);", toggle)
         self.assertIn("InventorySelection = FMath::Min(FMath::Max(0, InventoryItemCodes.Num() - 1), InventorySelection + 1);", toggle)
         self.assertIn("if (bInventoryOpen) { EquipSelectedInventoryItem(); return; }", toggle)
-        self.assertIn("if (bOptionsOpen || bInventoryOpen) return;", self.hero_cpp)
+        self.assertIn("if (Health <= 0.f || bOptionsOpen || bInventoryOpen || !FMath::IsFinite(Value)) return;", self.hero_cpp)
         self.assertIn("bOptionsOpen || bInventoryOpen || !GetWorld()", self.hero_cpp)
         self.assertIn("if (Hero->bInventoryOpen)", self.hud)
         self.assertIn("const int32 PerPage = 8;", self.hud)
