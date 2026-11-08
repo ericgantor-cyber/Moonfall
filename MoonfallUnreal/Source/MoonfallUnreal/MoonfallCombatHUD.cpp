@@ -194,6 +194,10 @@ void AMoonfallCombatHUD::DrawHUD()
    GuideLine = FString::Printf(TEXT("%s: I remember your kindness."), *Speaker);
   else if (Hero->LastGuideSocialChoice == 1)
    GuideLine = FString::Printf(TEXT("%s: Your threats will not be forgotten."), *Speaker);
+  else if (Hero->LastFactionStanding <= -45)
+   GuideLine = FString::Printf(TEXT("%s: Your reputation has unsettled this town."), *Speaker);
+  else if (Hero->LastFactionStanding >= 55)
+   GuideLine = FString::Printf(TEXT("%s: Our community speaks well of you."), *Speaker);
   else if (Hero->LastGuideFear >= 50)
    GuideLine = FString::Printf(TEXT("%s: Please, leave us in peace."), *Speaker);
   else if (Hero->LastGuideTrust >= 55)
@@ -220,6 +224,10 @@ void AMoonfallCombatHUD::DrawHUD()
   DrawText(FString::Printf(TEXT("%s  |  %s"), *Hero->LastNpcPersonality, *Hero->LastNpcRoutine),
     FLinearColor(0.86f,0.78f,0.97f), FMath::Max(18.f, Canvas->SizeX * 0.18f),
     Canvas->SizeY - 85.f, nullptr, 0.72f);
+  DrawText(FString::Printf(TEXT("Faction %d   Ally bond %d"),
+      Hero->LastFactionStanding, Hero->LastNpcAllyBond),
+    FLinearColor(0.80f,0.86f,0.97f), FMath::Max(18.f, Canvas->SizeX * 0.18f),
+    Canvas->SizeY - 67.f, nullptr, 0.72f);
   DrawText(FString::Printf(TEXT("Trust %d   Fear %d"), Hero->LastGuideTrust, Hero->LastGuideFear),
     FLinearColor(0.75f,0.85f,0.98f), FMath::Max(18.f, Canvas->SizeX * 0.18f),
     Canvas->SizeY - 103.f, nullptr, 0.72f);
