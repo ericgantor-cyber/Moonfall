@@ -777,6 +777,12 @@ int32 AMoonfallHeroPawn::RegisterFinisherKill(bool bShatterKill, bool bBossKill,
  if (FinisherChainCount >= 3 && FMath::IsFinite(FinisherMomentumDurationSeconds)
      && FinisherMomentumDurationSeconds >= 1.f)
   FinisherMomentumUntil = Now + FMath::Clamp(FinisherMomentumDurationSeconds, 1.f, 12.f);
+ // Kills during menus must still resolve the enemy death animation, but must
+ // not start or queue hidden finisher choreography.
+ if (bOptionsOpen || bInventoryOpen || !FinisherSlashA || !FinisherSlashB || !FinisherFlash) {
+  if (IsValid(DefeatedEnemy)) DefeatedEnemy->BeginFinisherDefeat(ChainStep);
+  return ChainStep;
+ }
  // Queue follow-up executions instead of cutting off the current choreography.
  // Five visual styles cycle by combo count; the bounded queue prevents bloat.
  const float NativeDuration = bReduceMotion ? 0.22f : 0.78f;
@@ -831,10 +837,11 @@ void AMoonfallHeroPawn::StartFinisherPresentation(int32 ChainStep, bool bShatter
 
 void AMoonfallHeroPawn::UpdateNativeFinisher(float DeltaSeconds)
 {
- if (!GetWorld() || !FinisherSlashA || !FinisherSlashB || !FinisherFlash) return;
+ if (!GetWorld()) return;
  float Age = GetWorld()->GetTimeSeconds() - NativeFinisherStartedAt;
  const float Duration = bReduceMotion ? 0.22f : 0.78f;
- if (Health <= 0.f || bOptionsOpen || bInventoryOpen) {
+ const bool bMissingFinisherVisuals = !FinisherSlashA || !FinisherSlashB || !FinisherFlash;
+ if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bMissingFinisherVisuals) {
   // Resolve skipped presentations so defeated enemies never remain frozen
   // when the hero is defeated or gameplay menus interrupt choreography.
   for (const FPendingFinisher& Pending : PendingFinishers) {
@@ -843,6 +850,9 @@ void AMoonfallHeroPawn::UpdateNativeFinisher(float DeltaSeconds)
   }
   PendingFinishers.Reset();
  }
+ // Never access a missing effect component; queued enemy death reactions above
+ // still resolve, so stripped/failed VFX do not strand corpses.
+ if (bMissingFinisherVisuals) return;
  // Start the oldest queued execution after the previous effect completes.
  // Presentation (including montage and Blueprint notification) occurs on start.
  if (Health > 0.f && !bOptionsOpen && !bInventoryOpen && Age >= Duration && PendingFinishers.Num() > 0) {
