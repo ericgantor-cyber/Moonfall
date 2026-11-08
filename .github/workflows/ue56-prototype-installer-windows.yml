@@ -14,13 +14,15 @@ jobs:
   windows-installer:
     runs-on: [self-hosted, Windows, X64, unreal-5-6]
     timeout-minutes: 210
-    env:
-      MOONFALL_PACKAGE_DIR: ${{ runner.temp }}/MoonfallUE56InstallerInput/${{ github.run_id }}-${{ github.run_attempt }}
-      MOONFALL_SETUP_DIR: ${{ runner.temp }}/MoonfallUE56InstallerOutput/${{ github.run_id }}-${{ github.run_attempt }}
     defaults:
       run:
         shell: pwsh
     steps:
+      - name: Configure runner-local build directories
+        shell: pwsh
+        run: |
+          "MOONFALL_PACKAGE_DIR=$env:RUNNER_TEMP/MoonfallUE56InstallerInput/${{ github.run_id }}-${{ github.run_attempt }}" >> $env:GITHUB_ENV
+          "MOONFALL_SETUP_DIR=$env:RUNNER_TEMP/MoonfallUE56InstallerOutput/${{ github.run_id }}-${{ github.run_attempt }}" >> $env:GITHUB_ENV
       - name: Checkout reviewed revision
         uses: actions/checkout@v4
         with:
