@@ -60,13 +60,16 @@ void AMoonfallCombatHUD::DrawHUD()
     const int32 Tracked = Arena->GetTrackedDungeonQuestId();
     DrawText(FString::Printf(TEXT("Guardians defeated: %d / 30"), Arena->GetCompletedDungeonQuestCount()),
       FLinearColor::White,Left + 10.f,ContentTop + 45.f,nullptr,1.f);
-    int32 Shown = 0;
+    const int32 JournalPageStart = Hero->QuestJournalSelection / 9 * 9;
+    int32 KnownIndex = 0, Shown = 0;
     for (int32 Entrance = 0; Entrance < 30 && Shown < 9; ++Entrance) {
      if (!Arena->GetDiscoveredDungeonEntrances().Contains(Entrance)) continue;
      bHasQuests = true;
+     const int32 ThisKnownIndex = KnownIndex++;
+     if (ThisKnownIndex < JournalPageStart) continue;
      const bool bComplete = Arena->IsDungeonQuestCompleted(Entrance);
      const int32 Progress = Arena->GetDungeonResidentDefeatCount(Entrance);
-     const bool bSelected = Shown == Hero->QuestJournalSelection;
+     const bool bSelected = ThisKnownIndex == Hero->QuestJournalSelection;
      if (bSelected)
       DrawRect(FLinearColor(0.26f,0.23f,0.41f,0.88f), Left+6.f,
        ContentTop + 75.f + Shown * FMath::Clamp((Height - 215.f)/9.f,19.f,38.f),
