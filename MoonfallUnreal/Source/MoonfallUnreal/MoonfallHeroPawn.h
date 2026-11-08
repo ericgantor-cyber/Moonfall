@@ -121,6 +121,12 @@ public:
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Loot") TArray<int32> InventoryItemCodes;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Inventory") bool bInventoryOpen = false;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Inventory") int32 InventorySelection = 0;
+ // AC-style page navigation, while keeping Moonfall's existing gameplay systems.
+ // 0 Gear, 1 Character, 2 Quests, 3 World.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Menus") int32 InventoryMenuTab = 0;
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Menus") void OpenCharacterPage();
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Menus") void OpenQuestPage();
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Menus") void OpenWorldPage();
  UFUNCTION(BlueprintCallable, Category="Moonfall|Inventory") void ToggleInventory();
  UFUNCTION(BlueprintCallable, Category="Moonfall|Inventory") void EquipSelectedInventoryItem();
  // Salvage only un-equipped entries. Returns false for invalid/protected gear.
