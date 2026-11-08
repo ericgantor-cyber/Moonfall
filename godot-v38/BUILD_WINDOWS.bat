@@ -382,5 +382,7 @@ if errorlevel 1 goto failed
  echo Windows gameplay and signature still require user testing.
 exit /b 0
 :failed
- echo ERROR: Build failed. Open the newest GODOT_*_LOG.txt or run tests\verify_build_test_manifest.py to inspect test dependencies.
+ echo ERROR: Build failed. Showing the three most recently written Godot logs to identify the failing suite.
+ powershell -NoProfile -Command "Get-ChildItem -File -Filter 'GODOT_*_LOG.txt' | Sort-Object LastWriteTime -Descending | Select-Object -First 3 | ForEach-Object { Write-Host ('=== ' + $_.Name + ' ==='); Get-Content -LiteralPath $_.FullName -Tail 40 }"
+ echo ERROR: Inspect the attached GODOT_*_LOG.txt files for complete diagnostics.
 exit /b 1

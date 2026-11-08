@@ -12,6 +12,7 @@ func check(ok:bool,description:String)->void:
  if ok:print("PASS atlas: "+description)
  else:
   failures+=1
+  print("FAIL atlas: "+description)
   push_error("FAIL atlas: "+description)
 
 func _initialize()->void:
@@ -305,7 +306,21 @@ func _run()->void:
  map.call("set_dungeon_passages",known_walkway)
  check(bool((map.get("dungeon_passages") as Array)[0]["explored"]),"discovered passages illuminate after both endpoints are explored")
  check("start_known and end_known" in source and "atlas_chambers_seen.has" in source,"passage discovery uses saved chamber exploration")
- check("var explored:bool" in room_map_source and "edge_color" in room_map_source,"unknown passages render darker until discovered")
+ check(not NAV.dungeon_quest_marker_visible(Vector3(10,0,10),[Vector3(10,0,10)],[6.0],[]),"undiscovered dungeon chambers hide their quest marker")
+ check(NAV.dungeon_quest_marker_visible(Vector3(10,0,10),[Vector3(10,0,10)],[6.0],[Vector3(10,0,10)]),"discovered dungeon rooms reveal quest markers")
+ check(NAV.dungeon_quest_marker_visible(Vector3(100,0,100),[Vector3(10,0,10)],[6.0],[]),"ordinary world quest markers remain visible")
+ check(not NAV.dungeon_quest_marker_visible(Vector3(NAN,0,0),[Vector3(10,0,10)],[6.0],[]),"invalid quest locations never become visible")
+ check(not NAV.dungeon_quest_marker_visible(Vector3(15.5,0,10),[Vector3(10,0,10)],[6.0],[]),"unexplored chamber floor edges reject map waypoint clicks")
+ check(NAV.dungeon_quest_marker_visible(Vector3(15.5,0,10),[Vector3(10,0,10)],[6.0],[Vector3(10,0,10)]),"visited chamber floor edges allow map waypoints")
+ check("if not dungeon_quest_marker_visible(location,dungeon_rooms,dungeon_floor_radii,discovered_chambers):return" in room_map_source,"waypoint clicks use dungeon floor fog-of-war guard")
+ check(NAV.quest_chart_edge_offset(Vector2(200,0),Vector2(40,20)).is_equal_approx(Vector2(40,0)),"distant quest projects to horizontal chart edge")
+ check(NAV.quest_chart_edge_offset(Vector2(-80,-120),Vector2(40,20)).is_equal_approx(Vector2(-13.333333,-20)),"diagonal quest direction remains accurate at chart edge")
+ check(NAV.quest_chart_edge_offset(Vector2(10,5),Vector2(40,20)).is_equal_approx(Vector2(10,5)),"nearby quest remains at actual position")
+ check("quest_chart_edge_offset(quest_delta,size*0.40)" in room_map_source,"offscreen quest markers are drawn at atlas edge")
+ check("var primary_quest_drawn:bool=false" in room_map_source and "primary_quest_drawn=true" in room_map_source,"first visible priority quest is visually highlighted")
+ check("if dungeon_active and not dungeon_quest_marker_visible(quest_position" in room_map_source and room_map_source.find("if dungeon_active and not dungeon_quest_marker_visible(quest_position")<room_map_source.find("primary_quest_drawn=true"),"hidden dungeon quests do not consume priority highlight")
+ check("var quest_color:Color=Color(1.0,0.78,0.24) if primary" in room_map_source,"priority quests use gold markers while other quests stay purple")
+ check('if not bool(passage.get("explored",false)):continue' in room_map_source and "edge_color" in room_map_source,"undiscovered passages stay hidden while discovered passage edges render")
  map.call("set_dungeon_passages",walkways)
  check((map.get("dungeon_passages") as Array)[0]["start"]==Vector3(-11,0,-3),"dungeon walkway map preserves exact authored positions")
  check(NAV.passage_near_chart(Vector3(-11,0,-3),Vector3(11,0,-3),3.6,Vector3.ZERO,Vector2(15,15)),"visible connected passage intersects atlas viewport")

@@ -30,3 +30,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python tests/verify_v38_overhaul.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Test atlas fog-of-war and waypoint regression contracts
+        shell: pwsh
+        run: |
+          python -m unittest discover -s tests -p "test_atlas_fog_contract.py" -v
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
