@@ -121,11 +121,16 @@ void AMoonfallArena::BuildWorld() {
  // The existing small test arena remains available when bContinuousWorld is false.
  for (int32 Region = 0; Region < Regions; ++Region) {
   CreateBlock(FVector(Region * RegionSpacing, 0.f, -60.f), FVector(60.f, 60.f, 1.f));
-  // One harmless quest guide near the center of each discovered region.
-  const FVector GuideAt(Region * RegionSpacing + 700.f, 350.f, 105.f);
-  if (AMoonfallQuestGuide* Guide = GetWorld()->SpawnActor<AMoonfallQuestGuide>(
-      AMoonfallQuestGuide::StaticClass(), GuideAt, FRotator::ZeroRotator))
-   Guide->RegionIndex = Region;
+  // Three distinct residents per region: guide, artisan and scout. No waves.
+  for (int32 Role = 0; Role < 3; ++Role) {
+   const FVector NpcAt(Region * RegionSpacing + 700.f + Role * 230.f,
+     350.f + (Role % 2) * 180.f, 105.f);
+   if (AMoonfallQuestGuide* Npc = GetWorld()->SpawnActor<AMoonfallQuestGuide>(
+       AMoonfallQuestGuide::StaticClass(), NpcAt, FRotator::ZeroRotator)) {
+    Npc->RegionIndex = Region;
+    Npc->RoleIndex = Role;
+   }
+  }
   for (int32 Dungeon = 0; Dungeon < DungeonsPerRegion; ++Dungeon) {
    const FVector Entrance = RoomCenter(Region, Dungeon, 0);
    CreateBlock(FVector(Entrance.X, 8650.f, -60.f), FVector(3.5f, 120.f, 1.f));
@@ -267,6 +272,9 @@ void AMoonfallArena::LoadWorldProgress() {
  TrackedDungeonQuestId = -1;
  GuideTrustMemory.Init(0, Regions);
  GuideFearMemory.Init(0, Regions);
+ NpcTrustMemory.Init(0, Regions * 3);
+ NpcFearMemory.Init(0, Regions * 3);
+ LastNpcSocialActionAt.Empty();
  LastGuideSocialActionAt.Empty();
  if (!UGameplayStatics::DoesSaveGameExist(WorldProgressSlot, 0)) return;
  UMoonfallWorldProgressSave* Saved = Cast<UMoonfallWorldProgressSave>(
@@ -304,6 +312,19 @@ void AMoonfallArena::LoadWorldProgress() {
  if (Saved->GuideFearMemory.Num() == Regions) {
   for (int32 Region = 0; Region < Regions; ++Region)
    GuideFearMemory[Region] = FMath::Clamp(Saved->GuideFearMemory[Region], 0, 100);
+ }
+ // Upgrade older regional relationships to the original six guide identities.
+ for (int32 Region = 0; Region < Regions; ++Region) {
+  NpcTrustMemory[Region * 3] = GuideTrustMemory[Region];
+  NpcFearMemory[Region * 3] = GuideFearMemory[Region];
+ }
+ if (Saved->NpcTrustMemory.Num() == Regions * 3) {
+  for (int32 Npc = 0; Npc < Regions * 3; ++Npc)
+   NpcTrustMemory[Npc] = FMath::Clamp(Saved->NpcTrustMemory[Npc], -100, 100);
+ }
+ if (Saved->NpcFearMemory.Num() == Regions * 3) {
+  for (int32 Npc = 0; Npc < Regions * 3; ++Npc)
+   NpcFearMemory[Npc] = FMath::Clamp(Saved->NpcFearMemory[Npc], 0, 100);
  }
  for (const int32 Room : Saved->DiscoveredChamberIds) {
   if (Room >= 0 && Room < Regions * DungeonsPerRegion * ChambersPerDungeon)
@@ -352,6 +373,8 @@ void AMoonfallArena::SaveWorldProgress() {
  Saved->DiscoveredDungeonEntranceIds.Sort();
  Saved->GuideTrustMemory = GuideTrustMemory;
  Saved->GuideFearMemory = GuideFearMemory;
+ Saved->NpcTrustMemory = NpcTrustMemory;
+ Saved->NpcFearMemory = NpcFearMemory;
  Saved->TrackedDungeonQuestId = DiscoveredDungeonEntrances.Contains(TrackedDungeonQuestId)
   ? TrackedDungeonQuestId : -1;
  if (UGameplayStatics::SaveGameToSlot(Saved, WorldProgressSlot, 0))
@@ -440,6 +463,44 @@ bool AMoonfallArena::RecordGuideSocialChoice(int32 RegionIndex, bool bIntimidate
   GuideTrustMemory[RegionIndex] + (bIntimidate ? -10 : 7), -100, 100);
  GuideFearMemory[RegionIndex] = FMath::Clamp(
   GuideFearMemory[RegionIndex] + (bIntimidate ? 12 : -4), 0, 100);
+ bWorldSavePending = true;
+ return true;
+}
+
+int32 AMoonfallArena::GetNpcTrust(int32 NpcId) const {
+ if (NpcId < 0 || NpcId >= Regions * 3 || !NpcTrustMemory.IsValidIndex(NpcId)) return 0;
+ int32 Deeds = 0;
+ const int32 Region = NpcId / 3;
+ for (int32 Dungeon = 0; Dungeon < DungeonsPerRegion; ++Dungeon)
+  if (IsDungeonQuestCompleted(Region * DungeonsPerRegion + Dungeon))
+   Deeds += (NpcId % 3 == 2 ? 10 : NpcId % 3 == 1 ? 5 : 8);
+ return FMath::Clamp(NpcTrustMemory[NpcId] + Deeds, -100, 100);
+}
+int32 AMoonfallArena::GetNpcFear(int32 NpcId) const {
+ if (NpcId < 0 || NpcId >= Regions * 3 || !NpcFearMemory.IsValidIndex(NpcId)) return 0;
+ return FMath::Clamp(NpcFearMemory[NpcId], 0, 100);
+}
+bool AMoonfallArena::RecordNpcSocialChoice(int32 NpcId, bool bIntimidate) {
+ if (!bContinuousWorld || !GetWorld() || NpcId < 0 || NpcId >= Regions * 3
+     || !DiscoveredRegions.Contains(NpcId / 3)
+     || !NpcTrustMemory.IsValidIndex(NpcId) || !NpcFearMemory.IsValidIndex(NpcId)) return false;
+ const float Now = GetWorld()->GetTimeSeconds();
+ if (!FMath::IsFinite(Now)) return false;
+ const float* Previous = LastNpcSocialActionAt.Find(NpcId);
+ if (Previous && Now - *Previous < 30.f) return false;
+ LastNpcSocialActionAt.Add(NpcId, Now);
+ // Personalities react differently: artisans appreciate kindness, guards fear
+ // intimidation less, and scouts value heroic deeds more.
+ const int32 Role = NpcId % 3;
+ const int32 TrustDelta = bIntimidate ? (Role == 2 ? -13 : -10)
+   : (Role == 1 ? 10 : 7);
+ const int32 FearDelta = bIntimidate ? (Role == 2 ? 6 : 12) : -4;
+ NpcTrustMemory[NpcId] = FMath::Clamp(NpcTrustMemory[NpcId] + TrustDelta, -100, 100);
+ NpcFearMemory[NpcId] = FMath::Clamp(NpcFearMemory[NpcId] + FearDelta, 0, 100);
+ if (Role == 0) {
+  GuideTrustMemory[NpcId / 3] = NpcTrustMemory[NpcId];
+  GuideFearMemory[NpcId / 3] = NpcFearMemory[NpcId];
+ }
  bWorldSavePending = true;
  return true;
 }
