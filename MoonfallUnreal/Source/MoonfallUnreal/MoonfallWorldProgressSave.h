@@ -23,4 +23,7 @@ public:
  // Optional per-person relationship history, six regions * three identities.
  UPROPERTY() TArray<int32> NpcTrustMemory;
  UPROPERTY() TArray<int32> NpcFearMemory;
+ // Sparse-history-in-spirit: compact fixed 1093-int arrays; no actor serialization.
+ UPROPERTY() TArray<int32> ResidentTrustMemory;
+ UPROPERTY() TArray<int32> ResidentFearMemory;
 };
