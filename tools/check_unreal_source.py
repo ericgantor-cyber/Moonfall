@@ -427,6 +427,14 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("FMath::Clamp(CombatManaRegenMultiplier, 0.f, 1.f) : 0.5f", tick)
         self.assertIn("Mana >= 0.f && Mana < MaxMana", tick)
 
+    def test_perfect_parry_extends_combat_recovery(self):
+        damage = self.hero_cpp.split("void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount)", 1)[1].split(
+            "void AMoonfallHeroPawn::CycleGraphicsQuality()", 1)[0]
+        parry = damage.split("if (bPerfectParry) {", 1)[1].split("bLastIncomingHitParried", 1)[0]
+        self.assertIn("CombatRecoveryEndsAt = Now + (FMath::IsFinite(CombatRecoverySeconds)", parry)
+        self.assertIn("FMath::Clamp(CombatRecoverySeconds, 0.f, 12.f) : 5.f", parry)
+        self.assertIn("PerfectParryManaReward", parry)
+
     def test_sprint_input_is_rejected_in_menus_or_after_defeat(self):
         begin = self.hero_cpp.split("void AMoonfallHeroPawn::BeginSprint()", 1)[1].split(
             "void AMoonfallHeroPawn::EndSprint()", 1)[0]
