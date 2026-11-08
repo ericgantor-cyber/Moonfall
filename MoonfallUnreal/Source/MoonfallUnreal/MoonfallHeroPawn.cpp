@@ -243,6 +243,7 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("InventorySalvage"), IE_Pressed, this, &AMoonfallHeroPawn::InventorySalvage);
  Input->BindAction(TEXT("PickupLoot"), IE_Pressed, this, &AMoonfallHeroPawn::PickupNearestGroundLoot);
  Input->BindAction(TEXT("InteractQuestGuide"), IE_Pressed, this, &AMoonfallHeroPawn::InteractQuestGuide);
+ Input->BindAction(TEXT("BuyNpcService"), IE_Pressed, this, &AMoonfallHeroPawn::BuyNearestNpcService);
  Input->BindAction(TEXT("EncourageQuestGuide"), IE_Pressed, this, &AMoonfallHeroPawn::EncourageQuestGuide);
  Input->BindAction(TEXT("IntimidateQuestGuide"), IE_Pressed, this, &AMoonfallHeroPawn::IntimidateQuestGuide);
  Input->BindAction(TEXT("OptionsUp"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsUp);
@@ -1141,6 +1142,9 @@ void AMoonfallHeroPawn::InteractQuestGuide()
   LastGuideTrust = Arena->GetNpcTrust(Nearest->GetPersistentNpcId());
   LastGuideFear = Arena->GetNpcFear(Nearest->GetPersistentNpcId());
   LastFactionStanding = Arena->GetRegionalFactionStanding(Nearest->RegionIndex);
+  LastSupplyRating = Arena->GetRegionalSupplyRating(Nearest->RegionIndex);
+  LastServicePrice = Arena->GetRegionalServicePrice(Nearest->RegionIndex, LastNpcRole);
+  bLastServicePurchased = false;
   LastNpcAllyBond = Arena->GetNpcBond(Nearest->GetPersistentNpcId(),
     Nearest->RegionIndex * 3);
   Nearest->ReactToPlayer(LastGuideTrust, LastGuideFear);
@@ -1186,6 +1190,9 @@ void AMoonfallHeroPawn::ApplyQuestGuideSocialAction(bool bIntimidate)
   LastGuideTrust = Arena->GetNpcTrust(Nearest->GetPersistentNpcId());
   LastGuideFear = Arena->GetNpcFear(Nearest->GetPersistentNpcId());
   LastFactionStanding = Arena->GetRegionalFactionStanding(Nearest->RegionIndex);
+  LastSupplyRating = Arena->GetRegionalSupplyRating(Nearest->RegionIndex);
+  LastServicePrice = Arena->GetRegionalServicePrice(Nearest->RegionIndex, LastNpcRole);
+  bLastServicePurchased = false;
   LastNpcAllyBond = Arena->GetNpcBond(Nearest->GetPersistentNpcId(),
     Nearest->RegionIndex * 3);
   Nearest->ReactToPlayer(LastGuideTrust, LastGuideFear);
@@ -1193,6 +1200,51 @@ void AMoonfallHeroPawn::ApplyQuestGuideSocialAction(bool bIntimidate)
   LastGuideMessageUntil = GetWorld()->GetTimeSeconds() + 4.f;
   OnQuestGuideSpoken(LastGuideRegionIndex, false);
   break;
+ }
+}
+
+void AMoonfallHeroPawn::BuyNearestNpcService()
+{
+ if (Health <= 0.f || bOptionsOpen || bInventoryOpen || !GetWorld()) return;
+ AMoonfallQuestGuide* Nearest = nullptr;
+ float BestSq = FMath::Square(380.f);
+ for (TActorIterator<AMoonfallQuestGuide> It(GetWorld()); It; ++It) {
+  AMoonfallQuestGuide* Npc = *It;
+  if (!IsValid(Npc) || Npc->RoleIndex == 0) continue;
+  if (FMath::Abs(Npc->GetActorLocation().Z - GetActorLocation().Z) > 250.f) continue;
+  const float Distance = FVector::DistSquared2D(Npc->GetActorLocation(), GetActorLocation());
+  if (Distance < BestSq) { Nearest = Npc; BestSq = Distance; }
+ }
+ if (!Nearest) return;
+ const int32 Role = FMath::Clamp(Nearest->RoleIndex, 0, 2);
+ for (TActorIterator<AMoonfallArena> It(GetWorld()); It; ++It) {
+  AMoonfallArena* Arena = *It;
+  if (!IsValid(Arena)) continue;
+  const int32 Price = Arena->GetRegionalServicePrice(Nearest->RegionIndex, Role);
+  if (Price <= 0) return;
+  LastNpcRole = Role;
+  LastGuideRegionIndex = Nearest->RegionIndex;
+  LastGuideTitle = Nearest->GetGuideTitle().ToString();
+  LastNpcPersonality = Nearest->GetPersonalityLabel().ToString();
+  LastNpcRoutine = Nearest->GetRoutineLabel().ToString();
+  LastSupplyRating = Arena->GetRegionalSupplyRating(Nearest->RegionIndex);
+  LastFactionStanding = Arena->GetRegionalFactionStanding(Nearest->RegionIndex);
+  LastServicePrice = Price;
+  bLastServicePurchased = false;
+  LastGuideSocialChoice = -1;
+  LastGuideMessageUntil = GetWorld()->GetTimeSeconds() + 4.f;
+  // Spend real salvage only for a genuinely missing resource. No kill-healing.
+  const bool bNeedsService = Role == 1
+    ? (FMath::IsFinite(Mana) && FMath::IsFinite(MaxMana) && Mana < MaxMana - 1.f)
+    : (FMath::IsFinite(Stamina) && FMath::IsFinite(MaxStamina) && Stamina < MaxStamina - 1.f);
+  if (!bNeedsService || Salvage < Price) return;
+  Salvage -= Price;
+  if (Role == 1) Mana = FMath::Clamp(Mana + 35.f, 0.f, MaxMana);
+  else Stamina = FMath::Clamp(Stamina + 35.f, 0.f, MaxStamina);
+  bLastServicePurchased = true;
+  Nearest->ReactToPlayer(Arena->GetNpcTrust(Nearest->GetPersistentNpcId()),
+    Arena->GetNpcFear(Nearest->GetPersistentNpcId()));
+  return;
  }
 }
 
