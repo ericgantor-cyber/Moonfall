@@ -513,7 +513,23 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
    CachedWaypoint = FVector::ZeroVector;
   }
  } else if (Distance <= AttackRange) {
-  const float Now = GetWorld()->GetTimeSeconds();
+  // Elites and advanced bosses reposition between strikes, not during
+  // locked attack windups or posture breaks. A small sideways sweep keeps
+  // combat mobile while preserving walls, hit arcs and dodge windows.
+  if ((bElite || (bBoss && BossPhase >= 2))
+      && WindupEndsAt < 0.f && Now < NextAttackAt
+      && Now >= HitReactionEndsAt && Now >= PostureBrokenUntil
+      && Distance > AttackRange * 0.45f && Distance > 1.f) {
+   const FVector StrafeSide(-Difference.Y, Difference.X, 0.f);
+   const float StrafeSign = (AttackSequence % 2 == 0) ? -1.f : 1.f;
+   const float StrafeSpeed = bBoss ? 95.f : 70.f;
+   const FVector StrafeStep = StrafeSide.GetSafeNormal() * StrafeSign
+     * StrafeSpeed * SafeAIDelta;
+   if (!StrafeStep.IsNearlyZero()) {
+    FHitResult StrafeHit;
+    AddActorWorldOffset(StrafeStep, true, &StrafeHit);
+   }
+  }
   if (WindupEndsAt < 0.f && Now >= NextAttackAt) {
    // Alternate quick strikes, heavy attacks and wider sweeps with distinct warnings.
    // An elite cannot chain another attack during its recovery window.
