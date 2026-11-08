@@ -520,6 +520,9 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
   Stamina = FMath::Clamp(Stamina - RequiredGuardCost, 0.f, MaxStamina);
   StaminaRegenStartsAt = Now + 0.8f;
   if (bPerfectParry) {
+   // A successful defensive exchange is still combat; do not grant safe-rest healing immediately.
+   CombatRecoveryEndsAt = Now + (FMath::IsFinite(CombatRecoverySeconds)
+       ? FMath::Clamp(CombatRecoverySeconds, 0.f, 12.f) : 5.f);
    // Perfect timing returns a small amount of mana as well as stamina.
    if (FMath::IsFinite(Mana) && FMath::IsFinite(MaxMana) && MaxMana > 0.f
        && FMath::IsFinite(PerfectParryManaReward) && PerfectParryManaReward > 0.f)
