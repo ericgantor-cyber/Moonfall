@@ -163,6 +163,33 @@ class WorldFoundationTests(unittest.TestCase):
         self.assertIn("OnAttackReleased(bBoss ? BossSpecialMove : RegionalAttackStyle, bBoss);", enemy_cpp)
         self.assertIn("CurrentWindup = FMath::Clamp(CurrentWindup, 0.32f, 2.f);", enemy_cpp)
 
+    def test_exploration_discovery_and_minimap(self):
+        save = (ROOT / "MoonfallUnreal/Source/MoonfallUnreal/MoonfallWorldProgressSave.h").read_text(encoding="utf-8")
+        hud = (ROOT / "MoonfallUnreal/Source/MoonfallUnreal/MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        self.assertIn("DiscoveredChamberIds", save)
+        self.assertIn("TSet<int32> DiscoveredChambers;", HEADER)
+        self.assertIn("GetDiscoveredChambers() const", HEADER)
+        self.assertIn("Distance < 450.f * 450.f && !DiscoveredChambers.Contains(Room)", CPP)
+        self.assertIn("bWorldSavePending = true;", CPP)
+        self.assertIn("for (const int32 Room : Saved->DiscoveredChamberIds)", CPP)
+        self.assertIn("Room >= 0 && Room < Regions * DungeonsPerRegion * ChambersPerDungeon", CPP)
+        self.assertIn("Saved->DiscoveredChamberIds.Sort();", CPP)
+        self.assertIn("Arena->GetDiscoveredChambers()", hud)
+        self.assertIn("if (RoomId < 0 || RoomId >= 420) continue;", hud)
+        self.assertIn("const int32 Region = RoomId / 70;", hud)
+        self.assertIn("const int32 Dungeon = (RoomId % 70) / 14;", hud)
+        self.assertIn("const int32 Chamber = RoomId % 14;", hud)
+        self.assertIn("DX * DX + DY * DY > MapRadius * MapRadius", hud)
+        self.assertIn("const FVector PlayerPos = Hero->GetActorLocation();", hud)
+        # No unvisited-location reveal: map may only iterate the discovered set.
+        self.assertNotIn("for (int32 RoomId = 0; RoomId < 420;", hud)
+        for region in range(6):
+            for dungeon in range(5):
+                for chamber in range(14):
+                    room = (region * 5 + dungeon) * 14 + chamber
+                    self.assertEqual((room // 70, (room % 70) // 14, room % 14),
+                                     (region, dungeon, chamber))
+
     def test_connected_geometry(self):
         self.assertIn("Region * RegionSpacing", CPP)
         self.assertIn("FVector(60.f, 60.f, 1.f)", CPP)
