@@ -175,3 +175,10 @@ The artisan purchase path now writes **decremented workshop stock to the Unreal 
 Artisan purchases now check the synchronous result of writing the player-economy SaveGame. Successful workshop stock persistence is required first. If saving the hero's newly crafted item and Salvage balance fails, the crafted item is removed from the active inventory, the previous Salvage balance is restored, and a bounded workshop stock refund is persisted using the world SaveGame. The UI only reports crafting success once the player save succeeds. Existing other callers retain the `SavePlayerEconomy()` convenience wrapper, while the purchase path uses `TrySavePlayerEconomy()` to check the actual result.
 
 This is *best-effort compensation*, **not** a crash-atomic two-slot transaction. A process crash between slot writes or failed stock-refund persistence may still cause mismatch, and normal equipment/Salvage changes outside crafting do not yet propagate save-failure feedback. Native UE 5.4 compilation, Windows runtime failure injection and restart tests remain required.
+
+## Latest integration pass: save-result-aware NPC services and crafting
+- Artisan gear purchases require a completed workshop stock save followed by a successful hero inventory/Salvage save; on hero-save failure the new item and Salvage deduction are rolled back in memory and a bounded workshop refund is attempted and saved.
+- Scout/artisan **mana or stamina services** now also check hero-save success before restoring resources. On failure, the Salvage deduction is rolled back and no service is reported as successful.
+- Regression tests verify conditional save outcomes and ensure loot tests inspect only loot code, rather than mistaking the unrelated craft rollback as automated item deletion.
+
+This is still best-effort recovery, not a true atomic transaction across two SaveGame slots. The rare interruption between slot writes, and workshop refund write failures, remain unhandled without a transaction journal. Unreal 5.4 native compilation and Windows gameplay tests have not been run here.
