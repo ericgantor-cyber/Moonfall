@@ -712,6 +712,16 @@ bool AMoonfallArena::PurchaseWorkshopStock(int32 RegionIndex) {
  }
  return true;
 }
+bool AMoonfallArena::RefundWorkshopStock(int32 RegionIndex) {
+ if (!bContinuousWorld || !WorkshopStock.IsValidIndex(RegionIndex)) return false;
+ // A refund never increases stock beyond the valid persisted maximum.
+ const int32 OldCount = WorkshopStock[RegionIndex];
+ WorkshopStock[RegionIndex] = FMath::Clamp(OldCount + 1, 0, 8);
+ if (WorkshopStock[RegionIndex] == OldCount) return false;
+ bWorldSavePending = true;
+ SaveWorldProgress();
+ return !bWorldSavePending;
+}
 void AMoonfallArena::AdvanceWorkshopProduction() {
  if (!GetWorld() || !bContinuousWorld || WorkshopStock.Num() != Regions) return;
  const float Now = GetWorld()->GetTimeSeconds();
