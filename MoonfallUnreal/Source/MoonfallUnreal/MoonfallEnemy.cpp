@@ -448,13 +448,29 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
  if (Distance > AttackRange && Distance < 2200.f) {
   FHitResult Hit;
   FVector Target = Hero->GetActorLocation();
-  // Elites approach at an offset, creating a flank instead of simply
-  // piling into the same straight-line pursuit as regular enemies.
-  if ((bElite || (bBoss && BossPhase >= 2)) && Distance > AttackRange * 2.f && Distance < 900.f) {
+  // Give different ordinary enemies stable approach lanes instead of all
+  // pursuing the same point. A fixed four-slot split avoids per-tick random
+  // jitter, extra neighbor searches, and new navigation queries.
+  if (Distance > AttackRange * 2.f && Distance < 900.f) {
    const FVector Side(-Difference.Y, Difference.X, 0.f);
-   // Bosses change flank direction between attacks; normal elites keep the original flank.
-   const float FlankSign = bBoss && AttackSequence % 2 == 0 ? -1.f : 1.f;
-   Target += Side.GetSafeNormal() * (bBoss ? 175.f : 125.f) * FlankSign;
+   float FlankSign = 1.f;
+   float FlankDistance = 0.f;
+   if (bBoss) {
+    // Preserve phase-one direct pursuit and existing phase-two side swaps.
+    if (BossPhase >= 2) {
+     FlankSign = AttackSequence % 2 == 0 ? -1.f : 1.f;
+     FlankDistance = 175.f;
+    }
+   } else if (bElite) {
+    FlankDistance = 125.f;
+   } else {
+    // Deterministic actor-local lanes: left/right, near/wide. Collision
+    // sweeps still protect against walls and occupied corridors.
+    const uint32 Lane = GetUniqueID() % 4u;
+    FlankSign = Lane % 2u == 0u ? -1.f : 1.f;
+    FlankDistance = Lane >= 2u ? 105.f : 70.f;
+   }
+   Target += Side.GetSafeNormal() * FlankDistance * FlankSign;
   }
   // Solve paths only when the cache expires. Use the live hero position when
   // navigation is unavailable, and never chase an uninitialized waypoint.
