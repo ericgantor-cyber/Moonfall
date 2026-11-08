@@ -834,9 +834,9 @@ void AMoonfallHeroPawn::UpdateNativeFinisher(float DeltaSeconds)
  if (!GetWorld() || !FinisherSlashA || !FinisherSlashB || !FinisherFlash) return;
  float Age = GetWorld()->GetTimeSeconds() - NativeFinisherStartedAt;
  const float Duration = bReduceMotion ? 0.22f : 0.78f;
- if (Health <= 0.f || bOptionsOpen) {
+ if (Health <= 0.f || bOptionsOpen || bInventoryOpen) {
   // Resolve skipped presentations so defeated enemies never remain frozen
-  // until fallback expiry after the hero dies or gameplay is paused.
+  // when the hero is defeated or gameplay menus interrupt choreography.
   for (const FPendingFinisher& Pending : PendingFinishers) {
    if (AMoonfallEnemy* WaitingEnemy = Pending.Enemy.Get())
     WaitingEnemy->BeginFinisherDefeat(Pending.Style);
@@ -845,13 +845,13 @@ void AMoonfallHeroPawn::UpdateNativeFinisher(float DeltaSeconds)
  }
  // Start the oldest queued execution after the previous effect completes.
  // Presentation (including montage and Blueprint notification) occurs on start.
- if (Health > 0.f && !bOptionsOpen && Age >= Duration && PendingFinishers.Num() > 0) {
+ if (Health > 0.f && !bOptionsOpen && !bInventoryOpen && Age >= Duration && PendingFinishers.Num() > 0) {
   const FPendingFinisher Pending = PendingFinishers[0];
   PendingFinishers.RemoveAt(0);
   StartFinisherPresentation(Pending.Style, Pending.bShatter, Pending.bBoss, Pending.Target, Pending.Enemy.Get());
   Age = 0.f;
  }
- if (Health <= 0.f || bOptionsOpen || Age < 0.f || Age >= Duration) {
+ if (Health <= 0.f || bOptionsOpen || bInventoryOpen || Age < 0.f || Age >= Duration) {
   FinisherSlashA->SetHiddenInGame(true);
   FinisherSlashB->SetHiddenInGame(true);
   FinisherFlash->SetVisibility(false);
