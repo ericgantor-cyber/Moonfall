@@ -1,10 +1,14 @@
 #include "MoonfallQuestGuide.h"
 #include "Components/StaticMeshComponent.h"
 #include "UObject/ConstructorHelpers.h"
+#include "Engine/World.h"
+#include "Kismet/GameplayStatics.h"
 
 AMoonfallQuestGuide::AMoonfallQuestGuide()
 {
- PrimaryActorTick.bCanEverTick = false;
+ // Half-second scheduler; no Behavior Tree, controller or expensive path search.
+ PrimaryActorTick.bCanEverTick = true;
+ PrimaryActorTick.TickInterval = 0.5f;
  Body = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("GuideBody"));
  SetRootComponent(Body);
  static ConstructorHelpers::FObjectFinder<UStaticMesh> Cylinder(TEXT("/Engine/BasicShapes/Cylinder.Cylinder"));
@@ -46,4 +50,41 @@ FText AMoonfallQuestGuide::GetGuideTitle() const
   TEXT("Storm Oracle"), TEXT("Foundry Chronicler"), TEXT("Eclipse Seer")
  };
  return FText::FromString(Titles[FMath::Clamp(RegionIndex, 0, 5)]);
+}
+
+void AMoonfallQuestGuide::BeginPlay()
+{
+ Super::BeginPlay();
+ HomeLocation = GetActorLocation();
+}
+void AMoonfallQuestGuide::Tick(float DeltaSeconds)
+{
+ Super::Tick(DeltaSeconds);
+ if (!GetWorld()) return;
+ const APawn* Hero = UGameplayStatics::GetPlayerPawn(this, 0);
+ if (!IsValid(Hero) || FVector::DistSquared2D(Hero->GetActorLocation(), HomeLocation)
+     > FMath::Square(2600.f)) return;
+ const float Now = GetWorld()->GetTimeSeconds();
+ if (!FMath::IsFinite(Now)) return;
+ // Different region guides offset their watch, market and rest cycles.
+ // The world clock never forces a quest deadline or skips player exploration.
+ CurrentRoutine = (FMath::FloorToInt(Now / 90.f) + FMath::Clamp(RegionIndex, 0, 5)) % 3;
+ const FVector Waypoints[] = {HomeLocation,
+   HomeLocation + FVector(180.f, 65.f, 0.f),
+   HomeLocation + FVector(-130.f, -100.f, 0.f)};
+ const FVector Goal = Waypoints[CurrentRoutine];
+ const FVector Here = GetActorLocation();
+ const FVector ToGoal = FVector(Goal.X - Here.X, Goal.Y - Here.Y, 0.f);
+ const float Distance = ToGoal.Size();
+ if (Distance < 10.f) return;
+ // Small, collision-aware steps. Never teleport, go vertical or clip a wall.
+ const float Step = FMath::Min(Distance, 90.f * FMath::Clamp(DeltaSeconds, 0.f, 0.5f));
+ FHitResult Hit;
+ AddActorWorldOffset(ToGoal.GetSafeNormal() * Step, true, &Hit);
+}
+FText AMoonfallQuestGuide::GetRoutineLabel() const
+{
+ static const TCHAR* Routines[] = {TEXT("Keeping watch"), TEXT("Visiting the market"),
+   TEXT("Resting at camp")};
+ return FText::FromString(Routines[FMath::Clamp(CurrentRoutine, 0, 2)]);
 }
