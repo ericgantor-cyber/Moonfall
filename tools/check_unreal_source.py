@@ -447,6 +447,38 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("PostureDistanceSq = FMath::Square(1200.f)", self.hud)
         self.assertNotIn('TEXT("GUARD BROKEN")', self.hud)
 
+    def test_finisher_momentum_rewards_combat_resources_and_respects_damage(self):
+        for definition in [
+            "float FinisherStaminaRestore = 8.f;",
+            "float FinisherManaRestore = 6.f;",
+            "float FinisherMomentumDamageMultiplier = 1.15f;",
+            "float FinisherMomentumDurationSeconds = 6.f;",
+            "float FinisherMomentumUntil = -1.f;",
+        ]:
+            self.assertIn(definition, self.hero_h)
+        combo = self.hero_cpp.split("int32 AMoonfallHeroPawn::RegisterFinisherKill(", 1)[1].split(
+            "void AMoonfallHeroPawn::StartFinisherPresentation(", 1)[0]
+        self.assertIn("const float KillRewardScale = bBossKill ? 2.f : (bShatterKill ? 1.5f : 1.f);", combo)
+        self.assertIn("FMath::Clamp(FinisherStaminaRestore, 0.f, 25.f)", combo)
+        self.assertIn("FMath::Clamp(FinisherManaRestore, 0.f, 25.f)", combo)
+        self.assertIn("Stamina = FMath::Clamp(", combo)
+        self.assertIn("Mana = FMath::Clamp(", combo)
+        self.assertIn("FinisherChainCount >= 3", combo)
+        self.assertIn("FinisherMomentumUntil = Now + FMath::Clamp(FinisherMomentumDurationSeconds, 1.f, 12.f);", combo)
+        self.assertNotIn("Health = ", combo)
+        cast = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split(
+            "void AMoonfallHeroPawn::CastLeft()", 1)[0]
+        self.assertIn("Time <= FinisherMomentumUntil", cast)
+        self.assertIn("FMath::Clamp(FinisherMomentumDamageMultiplier, 1.f, 1.5f)", cast)
+        self.assertIn("* CounterMultiplier * MomentumBonus;", cast)
+        self.assertIn("if (School == 3 && Health >= MaxHealth) return false;", cast)
+        damage = self.hero_cpp.split("void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount)", 1)[1].split(
+            "void AMoonfallHeroPawn::CycleGraphicsQuality()", 1)[0]
+        self.assertIn("if (DamageTaken > 0.f) {", damage)
+        self.assertIn("FinisherMomentumUntil = -1.f;", damage)
+        self.assertLess(damage.index("const float DamageTaken = PreviousHealth - Health;"),
+                        damage.index("FinisherMomentumUntil = -1.f;"))
+
     def test_long_finisher_chain_rotates_styles_and_resets_on_gap(self):
         self.assertIn("int32 FinisherSequenceCount = 0;", self.hero_h)
         register = self.hero_cpp.split("int32 AMoonfallHeroPawn::RegisterFinisherKill(", 1)[1].split(
@@ -834,10 +866,10 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         damage = self.hero_cpp.split("void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount)", 1)[1].split(
             "void AMoonfallHeroPawn::CycleGraphicsQuality()", 1)[0]
         self.assertIn("ParryCounterUntil = Now + FMath::Clamp(ParryCounterWindowSeconds, 0.f, 5.f)", damage)
-        self.assertIn("if (DamageTaken > 0.f) ParryCounterUntil = -1.f;", damage)
+        self.assertIn("if (DamageTaken > 0.f) {",, damage)
         self.assertLess(damage.index("const float DamageTaken = PreviousHealth - Health;"),
-                        damage.index("if (DamageTaken > 0.f) ParryCounterUntil = -1.f;"))
-        self.assertLess(damage.index("if (DamageTaken > 0.f) ParryCounterUntil = -1.f;"),
+                        damage.index("if (DamageTaken > 0.f) {",))
+        self.assertLess(damage.index("if (DamageTaken > 0.f) {",),
                         damage.index("if (Health <= 0.f) EndGuard();"))
         break_guard = self.hero_cpp.split("void AMoonfallHeroPawn::BreakGuard()", 1)[1].split(
             "void AMoonfallHeroPawn::BeginGuard()", 1)[0]
@@ -850,7 +882,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Time <= ParryCounterUntil", cast)
         self.assertIn("FMath::Clamp(ParryCounterDamageMultiplier, 1.f, 2.f)", cast)
         self.assertIn("Enemy->TakeSpellDamage(SpellDamage);", cast)
-        self.assertIn("* CounterMultiplier;", cast)
+        self.assertIn("* CounterMultiplier * MomentumBonus;", cast)
         self.assertIn("if (bCounterReady && ActualSpellDamage > 0.f)", cast)
         self.assertIn("ParryCounterUntil = -1.f;", cast)
         self.assertLess(cast.index("Enemy->TakeSpellDamage(SpellDamage);"),
