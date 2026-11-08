@@ -185,6 +185,18 @@ void AMoonfallCombatHUD::DrawHUD()
     Canvas->SizeY - 92.f, nullptr, 0.9f);
   break;
  }
+ // Dialogue feedback remains near the guide prompt, no separate menu or actor.
+ if (Hero->LastGuideRegionIndex >= 0 && Hero->LastGuideMessageUntil > GetWorld()->GetTimeSeconds()) {
+  const TCHAR* RegionNames[] = {TEXT("Ash"), TEXT("Mire"), TEXT("Frost"),
+    TEXT("Storm"), TEXT("Foundry"), TEXT("Eclipse")};
+  const int32 Region = FMath::Clamp(Hero->LastGuideRegionIndex, 0, 5);
+  const FString GuideLine = Hero->bLastGuideFoundQuest
+    ? FString::Printf(TEXT("%s Guide: A discovered dungeon awaits. Follow the atlas."), RegionNames[Region])
+    : FString::Printf(TEXT("%s Guide: Explore an entrance first."), RegionNames[Region]);
+  DrawText(GuideLine, FLinearColor(0.93f, 0.85f, 0.66f),
+    FMath::Max(18.f, Canvas->SizeX * 0.18f), Canvas->SizeY - 121.f,
+    nullptr, Canvas->SizeX < 900.f ? 0.70f : 0.88f);
+ }
  // Nearest living boss, displayed without creating additional widget actors.
  const AMoonfallEnemy* Boss = nullptr;
  const AMoonfallEnemy* PostureTarget = nullptr;
