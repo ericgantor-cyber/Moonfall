@@ -180,7 +180,7 @@ void AMoonfallCombatHUD::DrawHUD()
   if (FMath::Abs(Guide->GetActorLocation().Z - Hero->GetActorLocation().Z) > 250.f) continue;
   if (FVector::DistSquared2D(Guide->GetActorLocation(), Hero->GetActorLocation()) >= FMath::Square(380.f))
    continue;
-  DrawText(TEXT("R / D-pad Right: Speak to Guide"),
+  DrawText(TEXT("R: Talk   G: Encourage   H: Intimidate  |  D-pad Right/Up/Down"),
     FLinearColor(0.95f, 0.84f, 0.43f), FMath::Max(20.f, Canvas->SizeX * 0.38f),
     Canvas->SizeY - 92.f, nullptr, 0.9f);
   break;
@@ -190,7 +190,15 @@ void AMoonfallCombatHUD::DrawHUD()
   const FString Speaker = Hero->LastGuideTitle.IsEmpty()
     ? TEXT("Quest Guide") : Hero->LastGuideTitle;
   FString GuideLine;
-  if (!Hero->bLastGuideFoundQuest || Hero->LastGuideQuestId < 0)
+  if (Hero->LastGuideSocialChoice == 0)
+   GuideLine = FString::Printf(TEXT("%s: I remember your kindness."), *Speaker);
+  else if (Hero->LastGuideSocialChoice == 1)
+   GuideLine = FString::Printf(TEXT("%s: Your threats will not be forgotten."), *Speaker);
+  else if (Hero->LastGuideFear >= 50)
+   GuideLine = FString::Printf(TEXT("%s: Please, leave us in peace."), *Speaker);
+  else if (Hero->LastGuideTrust >= 55)
+   GuideLine = FString::Printf(TEXT("%s: Our region remembers what you have done."), *Speaker);
+  else if (!Hero->bLastGuideFoundQuest || Hero->LastGuideQuestId < 0)
    GuideLine = FString::Printf(TEXT("%s: Discover an entrance first."), *Speaker);
   else if (Hero->bLastGuideGuardianDefeated)
    GuideLine = FString::Printf(TEXT("%s: Dungeon %d is liberated. Seek another."),
@@ -205,6 +213,9 @@ void AMoonfallCombatHUD::DrawHUD()
   DrawText(GuideLine, FLinearColor(0.93f, 0.85f, 0.66f),
     FMath::Max(18.f, Canvas->SizeX * 0.18f), Canvas->SizeY - 121.f,
     nullptr, Canvas->SizeX < 900.f ? 0.70f : 0.88f);
+  DrawText(FString::Printf(TEXT("Trust %d   Fear %d"), Hero->LastGuideTrust, Hero->LastGuideFear),
+    FLinearColor(0.75f,0.85f,0.98f), FMath::Max(18.f, Canvas->SizeX * 0.18f),
+    Canvas->SizeY - 103.f, nullptr, 0.72f);
  }
  // Nearest living boss, displayed without creating additional widget actors.
  const AMoonfallEnemy* Boss = nullptr;
