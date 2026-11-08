@@ -653,7 +653,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "bool AMoonfallHeroPawn::ApplyMoonfallDamageFrom", 1)[0]
         self.assertIn("Now - LastPerfectDodgeRewardAt < 1.f", reward)
         self.assertIn("PerfectDodgeWindowUntil = -1.f;", reward)
-        self.assertIn("Stamina = FMath::Clamp(Stamina + FMath::Max(0.f, PerfectDodgeStaminaReward), 0.f, MaxStamina);", reward)
+        self.assertIn("Stamina = FMath::Clamp(Stamina + FMath::Clamp(PerfectDodgeStaminaReward, 0.f, 25.f), 0.f, MaxStamina);", reward)
         self.assertLess(reward.index("PerfectDodgeWindowUntil = -1.f;"),
                         reward.index("Stamina = FMath::Clamp"))
 
