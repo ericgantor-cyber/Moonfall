@@ -547,7 +547,8 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
       ? FMath::Clamp(CombatRecoverySeconds, 0.f, 12.f) : 5.f));
   // Physical defense uses the same stamina pool as sprinting and dodging.
   Stamina = FMath::Clamp(Stamina - RequiredGuardCost, 0.f, MaxStamina);
-  StaminaRegenStartsAt = Now + 0.8f;
+  // Guard impacts cannot shorten an existing dodge/sprint recovery delay.
+  StaminaRegenStartsAt = FMath::Max(FMath::IsFinite(StaminaRegenStartsAt) ? StaminaRegenStartsAt : Now, Now + 0.8f);
   if (bPerfectParry) {
    // Perfect timing returns a small amount of mana as well as stamina.
    if (FMath::IsFinite(Mana) && FMath::IsFinite(MaxMana) && MaxMana > 0.f
@@ -556,6 +557,8 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
    bLastIncomingHitParried = bHasIncomingDamageSource;
    DamageAfterGuard = 0.f;
    ParryWindowEndsAt = -1.f;
+   // Malformed tuning must not preserve a previous counterattack window.
+   ParryCounterUntil = -1.f;
    if (FMath::IsFinite(ParryCounterWindowSeconds) && ParryCounterWindowSeconds > 0.f)
     ParryCounterUntil = Now + FMath::Clamp(ParryCounterWindowSeconds, 0.f, 5.f);
    if (FMath::IsFinite(PerfectParryStaminaReward) && PerfectParryStaminaReward > 0.f)
