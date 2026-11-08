@@ -243,6 +243,8 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("InventorySalvage"), IE_Pressed, this, &AMoonfallHeroPawn::InventorySalvage);
  Input->BindAction(TEXT("PickupLoot"), IE_Pressed, this, &AMoonfallHeroPawn::PickupNearestGroundLoot);
  Input->BindAction(TEXT("InteractQuestGuide"), IE_Pressed, this, &AMoonfallHeroPawn::InteractQuestGuide);
+ Input->BindAction(TEXT("EncourageQuestGuide"), IE_Pressed, this, &AMoonfallHeroPawn::EncourageQuestGuide);
+ Input->BindAction(TEXT("IntimidateQuestGuide"), IE_Pressed, this, &AMoonfallHeroPawn::IntimidateQuestGuide);
  Input->BindAction(TEXT("OptionsUp"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsUp);
  Input->BindAction(TEXT("OptionsDown"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsDown);
  Input->BindAction(TEXT("OptionsLeft"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsLeft);
@@ -1133,6 +1135,9 @@ void AMoonfallHeroPawn::InteractQuestGuide()
  for (TActorIterator<AMoonfallArena> It(GetWorld()); It; ++It) {
   AMoonfallArena* Arena = *It;
   if (!IsValid(Arena)) continue;
+  LastGuideTrust = Arena->GetGuideTrust(Nearest->RegionIndex);
+  LastGuideFear = Arena->GetGuideFear(Nearest->RegionIndex);
+  LastGuideSocialChoice = -1;
   bLastGuideFoundQuest = Arena->SelectNextDiscoveredDungeonQuestInRegion(Nearest->RegionIndex);
   if (bLastGuideFoundQuest) {
    const int32 Selected = Arena->GetTrackedDungeonQuestId();
@@ -1145,6 +1150,36 @@ void AMoonfallHeroPawn::InteractQuestGuide()
   break;
  }
  OnQuestGuideSpoken(LastGuideRegionIndex, bLastGuideFoundQuest);
+}
+
+void AMoonfallHeroPawn::EncourageQuestGuide() { ApplyQuestGuideSocialAction(false); }
+void AMoonfallHeroPawn::IntimidateQuestGuide() { ApplyQuestGuideSocialAction(true); }
+void AMoonfallHeroPawn::ApplyQuestGuideSocialAction(bool bIntimidate)
+{
+ if (Health <= 0.f || bOptionsOpen || bInventoryOpen || !GetWorld()) return;
+ AMoonfallQuestGuide* Nearest = nullptr;
+ float BestSq = FMath::Square(380.f);
+ for (TActorIterator<AMoonfallQuestGuide> It(GetWorld()); It; ++It) {
+  AMoonfallQuestGuide* Guide = *It;
+  if (!IsValid(Guide)) continue;
+  if (FMath::Abs(Guide->GetActorLocation().Z - GetActorLocation().Z) > 250.f) continue;
+  const float DistSq = FVector::DistSquared2D(Guide->GetActorLocation(), GetActorLocation());
+  if (DistSq < BestSq) { BestSq = DistSq; Nearest = Guide; }
+ }
+ if (!Nearest) return;
+ for (TActorIterator<AMoonfallArena> It(GetWorld()); It; ++It) {
+  AMoonfallArena* Arena = *It;
+  if (!IsValid(Arena)) continue;
+  if (!Arena->RecordGuideSocialChoice(Nearest->RegionIndex, bIntimidate)) return;
+  LastGuideRegionIndex = FMath::Clamp(Nearest->RegionIndex, 0, 5);
+  LastGuideTitle = Nearest->GetGuideTitle().ToString();
+  LastGuideTrust = Arena->GetGuideTrust(Nearest->RegionIndex);
+  LastGuideFear = Arena->GetGuideFear(Nearest->RegionIndex);
+  LastGuideSocialChoice = bIntimidate ? 1 : 0;
+  LastGuideMessageUntil = GetWorld()->GetTimeSeconds() + 4.f;
+  OnQuestGuideSpoken(LastGuideRegionIndex, false);
+  break;
+ }
 }
 
 void AMoonfallHeroPawn::PickupNearestGroundLoot()
