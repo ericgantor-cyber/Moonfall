@@ -702,6 +702,14 @@ bool AMoonfallArena::PurchaseWorkshopStock(int32 RegionIndex) {
      !WorkshopStock.IsValidIndex(RegionIndex) || WorkshopStock[RegionIndex] <= 0) return false;
  --WorkshopStock[RegionIndex];
  bWorldSavePending = true;
+ // Commit the limited workshop stock *before* the hero gains crafted gear.
+ // If this world save fails, roll back and reject the purchase; otherwise a
+ // restart could mint duplicate crafted equipment from stale workshop stock.
+ SaveWorldProgress();
+ if (bWorldSavePending) {
+  ++WorkshopStock[RegionIndex];
+  return false;
+ }
  return true;
 }
 void AMoonfallArena::AdvanceWorkshopProduction() {
