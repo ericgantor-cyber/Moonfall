@@ -90,7 +90,9 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
   const float ComboWindow = FMath::IsFinite(HitComboWindowSeconds)
       ? FMath::Clamp(HitComboWindowSeconds, 0.5f, 4.f) : 2.f;
   const AMoonfallEnemy* ComboTarget = LastHitComboTarget.Get();
-  if (Health <= 0.f || bOptionsOpen || !IsValid(ComboTarget) || ComboTarget->Health <= 0.f
+  if (Health <= 0.f || bOptionsOpen || bInventoryOpen || !IsValid(ComboTarget)
+       || !FMath::IsFinite(ComboTarget->Health) || ComboTarget->Health <= 0.f
+       || !FMath::IsFinite(ComboNow) || !FMath::IsFinite(LastSuccessfulHitAt)
       || ComboNow < LastSuccessfulHitAt || ComboNow - LastSuccessfulHitAt > ComboWindow) {
    HitComboStage = 0;
    LastHitComboTarget.Reset();
@@ -98,7 +100,10 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
   }
  }
  // Bounded camera impulse, no camera shake object or spawned effects.
- ImpactCameraOffset = FMath::FInterpTo(ImpactCameraOffset, 0.f, FMath::Max(0.f, DeltaSeconds), 12.f);
+ // Never allow invalid frame time or camera impulse to contaminate the boom.
+ if (!FMath::IsFinite(ImpactCameraOffset)) ImpactCameraOffset = 0.f;
+ const float SafeCameraDelta = FMath::IsFinite(DeltaSeconds) ? FMath::Clamp(DeltaSeconds, 0.f, 0.1f) : 0.f;
+ ImpactCameraOffset = FMath::Clamp(FMath::FInterpTo(FMath::Clamp(ImpactCameraOffset, 0.f, 24.f), 0.f, SafeCameraDelta, 12.f), 0.f, 24.f);
  if (CameraBoom) CameraBoom->TargetArmLength = 450.f + (bReduceMotion ? 0.f : ImpactCameraOffset);
  // Mana regenerates during gameplay and while a menu is open.
  const float SafeRecoveryDelta = FMath::IsFinite(DeltaSeconds) ? FMath::Clamp(DeltaSeconds, 0.f, 0.1f) : 0.f;
@@ -144,8 +149,13 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
      && GetLastMovementInputVector().SizeSquared2D() > 0.01f
      && GetWorld() && GetWorld()->GetTimeSeconds() >= DamageImmunityUntil;
  if (bCanSprint && Stamina > 0.f) {
-  Stamina = FMath::Max(0.f, Stamina - SprintStaminaDrainPerSecond * StaminaDelta);
-  if (GetWorld()) StaminaRegenStartsAt = GetWorld()->GetTimeSeconds() + 0.8f;
+  // Cap runtime tuning so a large Blueprint value cannot overflow stamina drain.
+  Stamina = FMath::Max(0.f, Stamina - FMath::Clamp(SprintStaminaDrainPerSecond, 0.f, 250.f) * StaminaDelta);
+  // Sprint must not shorten a longer dodge/guard cooldown.
+  if (GetWorld()) {
+   const float SprintRecoveryAt = GetWorld()->GetTimeSeconds() + 0.8f;
+   StaminaRegenStartsAt = FMath::Max(FMath::IsFinite(StaminaRegenStartsAt) ? StaminaRegenStartsAt : SprintRecoveryAt, SprintRecoveryAt);
+  }
   if (Stamina <= 0.f) bSprintExhausted = true;
  }
  const bool bSprinting = bCanSprint && !bSprintExhausted;
@@ -166,7 +176,8 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
     ? FMath::Clamp(GuardStaminaDrainPerSecond, 0.f, 30.f) : 0.f;
   Stamina = FMath::Clamp(Stamina - GuardDrain * StaminaDelta, 0.f, MaxStamina);
   if (GuardDrain > 0.f) StaminaRegenStartsAt = FMath::Max(
-      StaminaRegenStartsAt, GetWorld()->GetTimeSeconds() + 0.8f);
+      FMath::IsFinite(StaminaRegenStartsAt) ? StaminaRegenStartsAt : GetWorld()->GetTimeSeconds(),
+      GetWorld()->GetTimeSeconds() + 0.8f);
   // Guard cannot continue in a state where even a base block is impossible.
   // Positive-cost guards break at the threshold; zero-cost guards break at zero.
   if (Stamina <= 0.f || (GuardStaminaCost > 0.f && Stamina < GuardStaminaCost))
@@ -269,6 +280,9 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
   if (!GetWorld()->LineTraceSingleByChannel(Hit, Origin, End, ECC_Visibility, Params)) return false;
   AMoonfallEnemy* Enemy = Cast<AMoonfallEnemy>(Hit.GetActor());
   if (!IsValid(Enemy) || Enemy->Health <= 0.f) return false;
+  // Reject corrupted target resource state before damage, mana cost or combo rewards.
+  if (!FMath::IsFinite(Enemy->Health) || !FMath::IsFinite(Enemy->MaxHealth)
+      || Enemy->MaxHealth <= 0.f) return false;
   // The first successful hostile spell shortly after a perfect parry is
   // empowered. Misses, invalid targets and healing cannot spend the opening.
   const bool bCounterReady = Time <= ParryCounterUntil
@@ -379,13 +393,17 @@ void AMoonfallHeroPawn::BreakGuard()
 
 void AMoonfallHeroPawn::BeginGuard()
 {
- if (bOptionsOpen || bInventoryOpen || Health <= 0.f || !GetWorld() || bGuarding
+ if (bOptionsOpen || bInventoryOpen || Health <= 0.f || !FMath::IsFinite(Health) || !GetWorld() || bGuarding
      // Do not stack a fresh parry window on top of dodge invulnerability.
      || GetWorld()->GetTimeSeconds() < DamageImmunityUntil
      || GetWorld()->GetTimeSeconds() < GuardBrokenUntil
      || !FMath::IsFinite(Stamina) || !FMath::IsFinite(MaxStamina) || MaxStamina <= 0.f
      || !FMath::IsFinite(GuardStaminaCost) || GuardStaminaCost < 0.f
      || Stamina < GuardStaminaCost) return;
+ // Guard and parry cooldown timestamps must be finite before committing stamina or stance.
+ const float GuardNow = GetWorld()->GetTimeSeconds();
+ if (!FMath::IsFinite(GuardNow) || !FMath::IsFinite(DamageImmunityUntil)
+     || !FMath::IsFinite(GuardBrokenUntil) || !FMath::IsFinite(NextParryAt)) return;
  // A new guard stance cancels held sprint instead of resuming it on release.
  EndSprint();
  bGuarding = true;
@@ -413,7 +431,7 @@ void AMoonfallHeroPawn::EndGuard()
   GetCharacterMovement()->MaxWalkSpeed = NormalWalkSpeed;
  // Guard stance cannot refill stamina for free; preserve longer dodge/impact delays.
  if (bWasGuarding && GetWorld())
-  StaminaRegenStartsAt = FMath::Max(StaminaRegenStartsAt, GetWorld()->GetTimeSeconds() + 0.4f);
+  StaminaRegenStartsAt = FMath::Max(FMath::IsFinite(StaminaRegenStartsAt) ? StaminaRegenStartsAt : GetWorld()->GetTimeSeconds(), GetWorld()->GetTimeSeconds() + 0.4f);
 }
 void AMoonfallHeroPawn::BeginSprint() {
  // Menu and defeat inputs must not latch a sprint for later gameplay.
@@ -438,14 +456,17 @@ void AMoonfallHeroPawn::Dodge()
 {
  if (bOptionsOpen || bInventoryOpen || Health <= 0.f || !GetWorld()) return;
  const float Now = GetWorld()->GetTimeSeconds();
- if (Now < NextDodgeAt || Now < DamageImmunityUntil
+ // Nonfinite cooldown timestamps must not allow repeated dodges or immunity.
+ if (!FMath::IsFinite(Now) || !FMath::IsFinite(NextDodgeAt)
+     || !FMath::IsFinite(DamageImmunityUntil)
+     || Now < NextDodgeAt || Now < DamageImmunityUntil
      || !FMath::IsFinite(DodgeCooldown) || DodgeCooldown <= 0.f
      || !FMath::IsFinite(Stamina) || !FMath::IsFinite(MaxStamina)
      || !FMath::IsFinite(DodgeStaminaCost) || MaxStamina <= 0.f
      || DodgeStaminaCost < 0.f || Stamina < DodgeStaminaCost
      || !FMath::IsFinite(DodgeLaunchSpeed) || DodgeLaunchSpeed <= 0.f) return;
  Stamina = FMath::Clamp(Stamina - DodgeStaminaCost, 0.f, MaxStamina);
- StaminaRegenStartsAt = Now + 0.8f;
+ StaminaRegenStartsAt = FMath::Max(FMath::IsFinite(StaminaRegenStartsAt) ? StaminaRegenStartsAt : Now, Now + 0.8f);
  if (GetCharacterMovement()) GetCharacterMovement()->MaxWalkSpeed = NormalWalkSpeed;
  // Dodge takes priority over sprint. Releasing Sprint permits a fresh attempt.
  bSprintExhausted = true;
@@ -470,16 +491,23 @@ void AMoonfallHeroPawn::RewardPerfectDodge() {
 }
 
 bool AMoonfallHeroPawn::TryRewardPerfectDodge() {
- if (!GetWorld() || Health <= 0.f) return false;
+ // Rewards are earned only during live gameplay, not behind paused overlays.
+ if (!GetWorld() || Health <= 0.f || bOptionsOpen || bInventoryOpen) return false;
  const float Now = GetWorld()->GetTimeSeconds();
- if (Now > PerfectDodgeWindowUntil || Now - LastPerfectDodgeRewardAt < 1.f) return false;
+ // Invalid or expired windows must never grant an unearned dodge reward.
+ if (!FMath::IsFinite(Now) || !FMath::IsFinite(PerfectDodgeWindowUntil)
+     || !FMath::IsFinite(LastPerfectDodgeRewardAt)
+     || Now > PerfectDodgeWindowUntil || Now - LastPerfectDodgeRewardAt < 1.f) return false;
  LastPerfectDodgeRewardAt = Now;
  PerfectDodgeWindowUntil = -1.f;
- Mana = FMath::Min(MaxMana, Mana + 8.f);
- // Restore a small, bounded amount of stamina only on a true perfect dodge.
+ // Invalid Blueprint resource values must never contaminate the combat HUD.
+ if (FMath::IsFinite(MaxMana) && MaxMana > 0.f && FMath::IsFinite(Mana))
+  Mana = FMath::Clamp(Mana + 8.f, 0.f, MaxMana);
+ // Restore stamina only from a finite, capped reward on a true perfect dodge.
  // The one-second reward gate above prevents repeated hits from farming stamina.
- if (FMath::IsFinite(MaxStamina) && MaxStamina > 0.f && FMath::IsFinite(Stamina)) {
-  Stamina = FMath::Clamp(Stamina + FMath::Max(0.f, PerfectDodgeStaminaReward), 0.f, MaxStamina);
+ if (FMath::IsFinite(MaxStamina) && MaxStamina > 0.f && FMath::IsFinite(Stamina)
+     && FMath::IsFinite(PerfectDodgeStaminaReward) && PerfectDodgeStaminaReward > 0.f) {
+  Stamina = FMath::Clamp(Stamina + FMath::Clamp(PerfectDodgeStaminaReward, 0.f, 25.f), 0.f, MaxStamina);
  }
  return true;
 }
@@ -494,8 +522,12 @@ bool AMoonfallHeroPawn::ApplyMoonfallDamageFrom(float Amount, const FVector& Sou
 }
 
 void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
- if (Health <= 0.f || !FMath::IsFinite(Amount) || Amount <= 0.f || !GetWorld() || GetWorld()->GetTimeSeconds() < DamageImmunityUntil) return;
+ // Reject invalid hero vitals and damage before guard math or HUD updates.
+ if (Health <= 0.f || !FMath::IsFinite(Health) || !FMath::IsFinite(MaxHealth)
+     || MaxHealth <= 0.f || !FMath::IsFinite(Amount) || Amount <= 0.f || !GetWorld()) return;
  const float Now = GetWorld()->GetTimeSeconds();
+ if (!FMath::IsFinite(Now) || !FMath::IsFinite(DamageImmunityUntil)
+     || GetWorld()->GetTimeSeconds() < DamageImmunityUntil) return;
  const float PreviousHealth = Health;
  // Ward armor affix provides a small, capped flat mitigation bonus.
  const float ArmorMitigation = FMath::Min(0.34f, FMath::Min(0.28f, ArmorTier * 0.01f)
@@ -521,6 +553,7 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
  // Perfect parries are deliberate responses to a known, front-facing
  // attacker. Environmental damage without a source may still be blocked.
  const bool bPerfectParry = bGuarding && bHasIncomingDamageSource && bFrontAttack
+     && FMath::IsFinite(ParryWindowEndsAt) && FMath::IsFinite(NextParryAt)
      && Now <= ParryWindowEndsAt && Now <= NextParryAt;
  const float RequiredGuardCost = bPerfectParry ? 0.f : HitGuardCost;
  if (bGuarding && bFrontAttack && !bOptionsOpen
@@ -534,7 +567,8 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
       ? FMath::Clamp(CombatRecoverySeconds, 0.f, 12.f) : 5.f));
   // Physical defense uses the same stamina pool as sprinting and dodging.
   Stamina = FMath::Clamp(Stamina - RequiredGuardCost, 0.f, MaxStamina);
-  StaminaRegenStartsAt = Now + 0.8f;
+  // Guard impacts cannot shorten an existing dodge/sprint recovery delay.
+  StaminaRegenStartsAt = FMath::Max(FMath::IsFinite(StaminaRegenStartsAt) ? StaminaRegenStartsAt : Now, Now + 0.8f);
   if (bPerfectParry) {
    // Perfect timing returns a small amount of mana as well as stamina.
    if (FMath::IsFinite(Mana) && FMath::IsFinite(MaxMana) && MaxMana > 0.f
@@ -543,6 +577,8 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
    bLastIncomingHitParried = bHasIncomingDamageSource;
    DamageAfterGuard = 0.f;
    ParryWindowEndsAt = -1.f;
+   // Malformed tuning must not preserve a previous counterattack window.
+   ParryCounterUntil = -1.f;
    if (FMath::IsFinite(ParryCounterWindowSeconds) && ParryCounterWindowSeconds > 0.f)
     ParryCounterUntil = Now + FMath::Clamp(ParryCounterWindowSeconds, 0.f, 5.f);
    if (FMath::IsFinite(PerfectParryStaminaReward) && PerfectParryStaminaReward > 0.f)
@@ -664,6 +700,8 @@ bool AMoonfallHeroPawn::SalvageInventoryItem(int32 InventoryIndex)
 }
 void AMoonfallHeroPawn::InventoryConfirm() { EquipSelectedInventoryItem(); }
 void AMoonfallHeroPawn::OpenOptions() {
+ // The defeat screen owns input until respawn; do not reopen gameplay menus.
+ if (Health <= 0.f || !FMath::IsFinite(Health)) return;
  if (bInventoryOpen) { bInventoryOpen = false; return; }
  if (!bOptionsOpen) {
   StopJumping();
@@ -777,6 +815,12 @@ int32 AMoonfallHeroPawn::RegisterFinisherKill(bool bShatterKill, bool bBossKill,
  if (FinisherChainCount >= 3 && FMath::IsFinite(FinisherMomentumDurationSeconds)
      && FinisherMomentumDurationSeconds >= 1.f)
   FinisherMomentumUntil = Now + FMath::Clamp(FinisherMomentumDurationSeconds, 1.f, 12.f);
+ // Kills during menus must still resolve the enemy death animation, but must
+ // not start or queue hidden finisher choreography.
+ if (bOptionsOpen || bInventoryOpen || !FinisherSlashA || !FinisherSlashB || !FinisherFlash) {
+  if (IsValid(DefeatedEnemy)) DefeatedEnemy->BeginFinisherDefeat(ChainStep);
+  return ChainStep;
+ }
  // Queue follow-up executions instead of cutting off the current choreography.
  // Five visual styles cycle by combo count; the bounded queue prevents bloat.
  const float NativeDuration = bReduceMotion ? 0.22f : 0.78f;
@@ -831,27 +875,31 @@ void AMoonfallHeroPawn::StartFinisherPresentation(int32 ChainStep, bool bShatter
 
 void AMoonfallHeroPawn::UpdateNativeFinisher(float DeltaSeconds)
 {
- if (!GetWorld() || !FinisherSlashA || !FinisherSlashB || !FinisherFlash) return;
+ if (!GetWorld()) return;
  float Age = GetWorld()->GetTimeSeconds() - NativeFinisherStartedAt;
  const float Duration = bReduceMotion ? 0.22f : 0.78f;
- if (Health <= 0.f || bOptionsOpen) {
+ const bool bMissingFinisherVisuals = !FinisherSlashA || !FinisherSlashB || !FinisherFlash;
+ if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bMissingFinisherVisuals) {
   // Resolve skipped presentations so defeated enemies never remain frozen
-  // until fallback expiry after the hero dies or gameplay is paused.
+  // when the hero is defeated or gameplay menus interrupt choreography.
   for (const FPendingFinisher& Pending : PendingFinishers) {
    if (AMoonfallEnemy* WaitingEnemy = Pending.Enemy.Get())
     WaitingEnemy->BeginFinisherDefeat(Pending.Style);
   }
   PendingFinishers.Reset();
  }
+ // Never access a missing effect component; queued enemy death reactions above
+ // still resolve, so stripped/failed VFX do not strand corpses.
+ if (bMissingFinisherVisuals) return;
  // Start the oldest queued execution after the previous effect completes.
  // Presentation (including montage and Blueprint notification) occurs on start.
- if (Health > 0.f && !bOptionsOpen && Age >= Duration && PendingFinishers.Num() > 0) {
+ if (Health > 0.f && !bOptionsOpen && !bInventoryOpen && Age >= Duration && PendingFinishers.Num() > 0) {
   const FPendingFinisher Pending = PendingFinishers[0];
   PendingFinishers.RemoveAt(0);
   StartFinisherPresentation(Pending.Style, Pending.bShatter, Pending.bBoss, Pending.Target, Pending.Enemy.Get());
   Age = 0.f;
  }
- if (Health <= 0.f || bOptionsOpen || Age < 0.f || Age >= Duration) {
+ if (Health <= 0.f || bOptionsOpen || bInventoryOpen || Age < 0.f || Age >= Duration) {
   FinisherSlashA->SetHiddenInGame(true);
   FinisherSlashB->SetHiddenInGame(true);
   FinisherFlash->SetVisibility(false);
