@@ -527,7 +527,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "void AMoonfallHeroPawn::CastLeft()", 1)[0]
         self.assertIn("Time <= FinisherMomentumUntil", cast)
         self.assertIn("FMath::Clamp(FinisherMomentumDamageMultiplier, 1.f, 1.5f)", cast)
-        self.assertIn("* CounterMultiplier * MomentumBonus;", cast)
+        self.assertIn("* CounterMultiplier * MomentumBonus * HitComboMultiplier;", cast)
         self.assertIn("if (School == 3 && Health >= MaxHealth) return false;", cast)
         damage = self.hero_cpp.split("void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount)", 1)[1].split(
             "void AMoonfallHeroPawn::CycleGraphicsQuality()", 1)[0]
@@ -916,6 +916,34 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("FMath::Max(StaminaRegenStartsAt, GetWorld()->GetTimeSeconds() + 0.4f)", end_guard)
         self.assertNotIn('TEXT("GUARD BROKEN")', self.hud)
 
+    def test_four_stage_attack_combo_requires_real_hits_and_has_bounded_damage(self):
+        self.assertIn("float HitComboWindowSeconds = 2.f;", self.hero_h)
+        self.assertIn("float HitComboDamagePerStage = 0.04f;", self.hero_h)
+        self.assertIn("int32 HitComboStage = 0;", self.hero_h)
+        self.assertIn("float LastSuccessfulHitAt = -100.f;", self.hero_h)
+        self.assertIn("void OnSuccessfulHitCombo(int32 Stage, bool bLeftHand);", self.hero_h)
+        cast = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split(
+            "void AMoonfallHeroPawn::CastLeft()", 1)[0]
+        self.assertIn("Time - LastSuccessfulHitAt <= ComboWindow", cast)
+        self.assertIn("FMath::Clamp(HitComboWindowSeconds, 0.5f, 4.f)", cast)
+        self.assertIn("FMath::Clamp(HitComboDamagePerStage, 0.f, 0.12f)", cast)
+        self.assertIn("HitComboMultiplier = 1.f + ComboStepBonus", cast)
+        self.assertIn("* CounterMultiplier * MomentumBonus * HitComboMultiplier;", cast)
+        self.assertIn("if (ActualSpellDamage > 0.f) {", cast)
+        self.assertIn("HitComboStage = bComboAlive ? FMath::Min(HitComboStage + 1, 4) : 1;", cast)
+        self.assertIn("LastSuccessfulHitAt = Time;", cast)
+        self.assertIn("OnSuccessfulHitCombo(HitComboStage, Hand == 0);", cast)
+        self.assertLess(cast.index("const float ActualSpellDamage ="),
+                        cast.index("OnSuccessfulHitCombo(HitComboStage, Hand == 0);"))
+        self.assertLess(cast.index("if (School == 3 && Health >= MaxHealth) return false;"),
+                        cast.index("const float HitComboMultiplier"))
+        injury = self.hero_cpp.split("void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount)", 1)[1].split(
+            "void AMoonfallHeroPawn::CycleGraphicsQuality()", 1)[0]
+        self.assertIn("if (DamageTaken > 0.f) {", injury)
+        self.assertIn("HitComboStage = 0;", injury)
+        self.assertIn("LastSuccessfulHitAt = -100.f;", injury)
+        self.assertNotIn("FinisherShockwave", self.hero_cpp)
+
     def test_perfect_parry_counterspell_is_time_limited_and_consumed_on_hit(self):
         self.assertIn("float ParryCounterWindowSeconds = 2.f;", self.hero_h)
         self.assertIn("float ParryCounterDamageMultiplier = 1.25f;", self.hero_h)
@@ -939,7 +967,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Time <= ParryCounterUntil", cast)
         self.assertIn("FMath::Clamp(ParryCounterDamageMultiplier, 1.f, 2.f)", cast)
         self.assertIn("Enemy->TakeSpellDamage(SpellDamage);", cast)
-        self.assertIn("* CounterMultiplier * MomentumBonus;", cast)
+        self.assertIn("* CounterMultiplier * MomentumBonus * HitComboMultiplier;", cast)
         self.assertIn("if (bCounterReady && ActualSpellDamage > 0.f)", cast)
         self.assertIn("ParryCounterUntil = -1.f;", cast)
         self.assertLess(cast.index("Enemy->TakeSpellDamage(SpellDamage);"),
