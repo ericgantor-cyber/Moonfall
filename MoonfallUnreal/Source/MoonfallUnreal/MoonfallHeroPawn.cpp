@@ -236,7 +236,10 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
   // uses the PREVIOUS successful hit stage; this hit can advance it afterward.
   const float ComboWindow = FMath::IsFinite(HitComboWindowSeconds)
       ? FMath::Clamp(HitComboWindowSeconds, 0.5f, 4.f) : 2.f;
-  const bool bComboAlive = Time >= LastSuccessfulHitAt && Time - LastSuccessfulHitAt <= ComboWindow;
+  // Combo power must be earned on the SAME living target. Moving to a
+  // different enemy starts its own chain rather than inheriting free damage.
+  const bool bSameTarget = LastHitComboTarget.IsValid() && LastHitComboTarget.Get() == Enemy;
+  const bool bComboAlive = bSameTarget && Time >= LastSuccessfulHitAt && Time - LastSuccessfulHitAt <= ComboWindow;
   const int32 IncomingStage = bComboAlive ? FMath::Clamp(HitComboStage, 0, 4) : 0;
   const float ComboStepBonus = FMath::IsFinite(HitComboDamagePerStage)
       ? FMath::Clamp(HitComboDamagePerStage, 0.f, 0.12f) : 0.f;
@@ -250,7 +253,13 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
   const float ActualSpellDamage = FMath::Clamp(HealthBeforeSpell - Enemy->Health, 0.f, HealthBeforeSpell);
   if (ActualSpellDamage > 0.f) {
    HitComboStage = bComboAlive ? FMath::Min(HitComboStage + 1, 4) : 1;
+   LastHitComboTarget = Enemy;
    LastSuccessfulHitAt = Time;
+   // One precise single-target posture strike on entering stage four.
+   // No pulse, no area effects, and no repeated fourth-hit farming.
+   if (HitComboStage == 4 && IncomingStage == 3 && Enemy->Health > 0.f
+       && FMath::IsFinite(HitComboFourthHitPosture) && HitComboFourthHitPosture > 0.f)
+    Enemy->ApplyPostureDamage(FMath::Clamp(HitComboFourthHitPosture, 0.f, 30.f));
    OnSuccessfulHitCombo(HitComboStage, Hand == 0);
   }
   if (ActualSpellDamage > 0.f && Enemy->Health > 0.f
@@ -482,6 +491,7 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
   // still preserve it, so defensive skill matters.
   FinisherMomentumUntil = -1.f;
   HitComboStage = 0;
+  LastHitComboTarget.Reset();
   LastSuccessfulHitAt = -100.f;
  }
  if (Health <= 0.f) EndGuard();
