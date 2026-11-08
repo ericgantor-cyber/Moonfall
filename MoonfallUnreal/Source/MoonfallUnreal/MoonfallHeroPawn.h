@@ -59,6 +59,10 @@ public:
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC") int32 LastGuideTrust = 0;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC") int32 LastGuideFear = 0;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC") int32 LastFactionStanding = 0;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Economy") int32 LastServicePrice = 0;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Economy") int32 LastSupplyRating = 0;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Economy") bool bLastServicePurchased = false;
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Economy") void BuyNearestNpcService();
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC") int32 LastNpcAllyBond = 0;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC") int32 LastGuideSocialChoice = -1;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Quests") int32 LastGuideQuestId = -1;
