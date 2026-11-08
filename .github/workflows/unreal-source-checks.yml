@@ -84,10 +84,10 @@ jobs:
           & ./MoonfallUnreal/Build/Test-UnrealEngineVersion.Tests.ps1
           $localBuild = Get-Content -LiteralPath 'MoonfallUnreal/Build/Build-Windows.ps1' -Raw
           $hostedBuild = Get-Content -LiteralPath '.github/workflows/unreal-windows-build.yml' -Raw
-          if ($localBuild -notmatch 'Test-UnrealEngineVersion\\.ps1') {
+          if ($localBuild -notmatch 'Test-UnrealEngineVersion\.ps1') {
             throw 'Local Windows build bypasses Unreal version validation.'
           }
-          if ($hostedBuild -notmatch 'Test-UnrealEngineVersion\\.ps1') {
+          if ($hostedBuild -notmatch 'Test-UnrealEngineVersion\.ps1') {
             throw 'Self-hosted Windows build bypasses Unreal version validation.'
           }
           Write-Host 'Both Unreal Windows build entrypoints call the tested engine version guard.'
