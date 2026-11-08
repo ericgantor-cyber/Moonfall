@@ -1119,13 +1119,24 @@ void AMoonfallHeroPawn::InteractQuestGuide()
   if (DistSq < ClosestSq) { ClosestSq = DistSq; Nearest = Guide; }
  }
  if (!Nearest) return;
- LastGuideRegionIndex = Nearest->RegionIndex;
+ LastGuideRegionIndex = FMath::Clamp(Nearest->RegionIndex, 0, 5);
  bLastGuideFoundQuest = false;
+ LastGuideQuestId = -1;
+ LastGuideResidentDefeats = 0;
+ bLastGuideGuardianDefeated = false;
  LastGuideMessageUntil = GetWorld()->GetTimeSeconds() + 4.f;
  for (TActorIterator<AMoonfallArena> It(GetWorld()); It; ++It) {
   AMoonfallArena* Arena = *It;
   if (!IsValid(Arena)) continue;
   bLastGuideFoundQuest = Arena->SelectNextDiscoveredDungeonQuestInRegion(Nearest->RegionIndex);
+  if (bLastGuideFoundQuest) {
+   const int32 Selected = Arena->GetTrackedDungeonQuestId();
+   if (Selected >= 0 && Selected < 30) {
+    LastGuideQuestId = Selected;
+    LastGuideResidentDefeats = Arena->GetDungeonResidentDefeatCount(Selected);
+    bLastGuideGuardianDefeated = Arena->IsDungeonQuestCompleted(Selected);
+   }
+  }
   break;
  }
  OnQuestGuideSpoken(LastGuideRegionIndex, bLastGuideFoundQuest);
