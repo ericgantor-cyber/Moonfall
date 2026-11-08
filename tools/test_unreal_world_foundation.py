@@ -128,6 +128,24 @@ class WorldFoundationTests(unittest.TestCase):
         self.assertIn("Hero->ApplyMoonfallDamageFrom(", enemy_cpp)
         self.assertIn("Hero->TryRewardPerfectDodge()", enemy_cpp)
 
+    def test_packaged_combat_visual_foundation(self):
+        enemy_h = (ROOT / "MoonfallUnreal/Source/MoonfallUnreal/MoonfallEnemy.h").read_text(encoding="utf-8")
+        enemy_cpp = (ROOT / "MoonfallUnreal/Source/MoonfallUnreal/MoonfallEnemy.cpp").read_text(encoding="utf-8")
+        self.assertIn("UPointLightComponent* AttackTellLight", enemy_h)
+        self.assertIn('CreateDefaultSubobject<UPointLightComponent>(TEXT("AttackTellLight"))', enemy_cpp)
+        self.assertIn("AttackTellLight->SetCastShadows(false);", enemy_cpp)
+        self.assertIn("AttackTellLight->SetVisibility(false);", enemy_cpp)
+        self.assertIn("if (Health <= 0.f)", enemy_cpp)
+        self.assertIn("if (AttackTellLight) AttackTellLight->SetVisibility(false);", enemy_cpp)
+        self.assertIn("Body->SetRelativeRotation(FRotator(Lean, Twist, 0.f));", enemy_cpp)
+        self.assertIn("AttackTellLight->SetLightColor(SchoolColor);", enemy_cpp)
+        self.assertIn("AttackTellLight->SetIntensity(400.f + 1100.f * Progress);", enemy_cpp)
+        self.assertIn("AttackTellLight->SetVisibility(bVisible);", enemy_cpp)
+        self.assertIn("WindupEndsAt > Now && FMath::IsFinite(WindupEndsAt)", enemy_cpp)
+        # Visual additions must not change combat-hit calculations or create actors.
+        self.assertIn("Hero->ApplyMoonfallDamageFrom(", enemy_cpp)
+        self.assertNotIn("SpawnActor<UPointLightComponent>", enemy_cpp)
+
     def test_connected_geometry(self):
         self.assertIn("Region * RegionSpacing", CPP)
         self.assertIn("FVector(60.f, 60.f, 1.f)", CPP)
