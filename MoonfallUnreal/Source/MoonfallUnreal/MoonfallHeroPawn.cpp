@@ -141,6 +141,12 @@ void AMoonfallHeroPawn::LoadPlayerEconomy() {
   }
  }
  EquipmentTier = FMath::Max(WeaponTier, FMath::Max(ArmorTier, AccessoryTier));
+ // Restored armor must retain its max-health capacity; do not heal on reload.
+ if (ArmorTier > 0) {
+  MaxHealth = FMath::Max(1.f, MaxHealth + 2.f * ArmorTier);
+  Health = FMath::Clamp(Health, 1.f, MaxHealth);
+  OnHealthChanged(Health, MaxHealth);
+ }
  InventorySelection = FMath::Clamp(InventorySelection, 0, FMath::Max(0, InventoryItemCodes.Num()-1));
 }
 
