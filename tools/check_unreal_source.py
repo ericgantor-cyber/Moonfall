@@ -1674,11 +1674,14 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("bElite && !bBoss && ActualDamage > 0.f && Health > 0.f", self.enemy_cpp)
         self.assertIn("Health / MaxHealthAtSpawn <= 0.3f", self.enemy_cpp)
         self.assertIn("Now >= NextTacticalRetreatAt", self.enemy_cpp)
-        self.assertIn("TacticalRetreatUntil = Now + 0.7f;", self.enemy_cpp)
+        self.assertIn("TacticalRetreatUntil = Now + 2.f;", self.enemy_cpp)
         self.assertIn("NextTacticalRetreatAt = Now + 8.f;", self.enemy_cpp)
         self.assertIn("NextAttackAt = FMath::Max(NextAttackAt, TacticalRetreatUntil + 0.25f);", self.enemy_cpp)
         self.assertIn("if (bElite && !bBoss && Now < TacticalRetreatUntil", self.enemy_cpp)
-        self.assertIn("Now >= HitReactionEndsAt && Now >= PostureBrokenUntil && Distance > 1.f", self.enemy_cpp)
+        self.assertIn("Now >= HitReactionEndsAt && Now >= PostureBrokenUntil", self.enemy_cpp)
+        tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
+        self.assertLess(tick.index("if (bElite && !bBoss && Now < TacticalRetreatUntil"),
+                        tick.index("if (Distance > AttackRange && Distance < 2200.f)"))
         self.assertIn("const float RetreatStep = 200.f * SafeAIDelta;", self.enemy_cpp)
         self.assertIn("AddActorWorldOffset(RetreatDirection * RetreatStep, true, &RetreatHit);", self.enemy_cpp)
         self.assertEqual(self.enemy_cpp.count("Nav->FindPathToLocationSynchronously("), 1)
