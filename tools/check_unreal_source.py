@@ -417,6 +417,16 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(health_gate.index("GetWorld()->GetTimeSeconds() >= MenuHealthRegenStartsAt"),
                         health_gate.index("&& !bInCombatRecoveryWindow) {"))
 
+    def test_regen_uses_safe_delta_and_combat_fallback(self):
+        tick = self.hero_cpp.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1].split(
+            "void AMoonfallHeroPawn::SetupPlayerInputComponent", 1)[0]
+        self.assertIn("FMath::IsFinite(DeltaSeconds) ? FMath::Clamp(DeltaSeconds, 0.f, 0.1f) : 0.f", tick)
+        self.assertIn("const float StaminaDelta = SafeRecoveryDelta;", tick)
+        self.assertIn("* SafeRecoveryDelta);", tick)
+        self.assertIn("FMath::Clamp(AccessoryTier * 0.012f, 0.f, 0.25f)", tick)
+        self.assertIn("FMath::Clamp(CombatManaRegenMultiplier, 0.f, 1.f) : 0.5f", tick)
+        self.assertIn("Mana >= 0.f && Mana < MaxMana", tick)
+
     def test_sprint_input_is_rejected_in_menus_or_after_defeat(self):
         begin = self.hero_cpp.split("void AMoonfallHeroPawn::BeginSprint()", 1)[1].split(
             "void AMoonfallHeroPawn::EndSprint()", 1)[0]
