@@ -178,25 +178,17 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("I / Select / Esc: close", self.hud)
         self.assertNotIn("FinisherShockwave", self.hero_cpp)
 
-    def test_full_inventory_keeps_equipped_items_and_salvages_oldest_spare(self):
+    def test_full_inventory_never_auto_deletes_or_salvages_items(self):
         loot = self.hero_cpp.split("void AMoonfallHeroPawn::AwardEquipmentDrop(", 1)[1].split(
             "bool AMoonfallHeroPawn::EquipInventoryItem(", 1)[0]
-        self.assertIn("if (InventoryItemCodes.Num() >= 30)", loot)
-        self.assertIn("int32 DiscardIndex = INDEX_NONE;", loot)
-        self.assertIn("Existing == EquippedWeaponCode", loot)
-        self.assertIn("Existing == EquippedArmorCode", loot)
-        self.assertIn("Existing == EquippedAccessoryCode", loot)
-        self.assertIn("for (const int32 Candidate : InventoryItemCodes)", loot)
-        self.assertIn("if (Copies > 1)", loot)
-        self.assertLess(loot.index("if (Copies > 1)"), loot.index("if (DiscardIndex == INDEX_NONE)"))
-        self.assertIn("if (DiscardIndex == INDEX_NONE)", loot)
-        self.assertIn("const int32 DiscardedCode = InventoryItemCodes[DiscardIndex];", loot)
-        self.assertIn("Salvage = FMath::Min(9999, Salvage + 1 + DiscardedRarity * 2 + DiscardedTier / 5);", loot)
-        self.assertIn("InventoryItemCodes.RemoveAt(DiscardIndex);", loot)
-        self.assertIn("if (InventorySelection > DiscardIndex) --InventorySelection;", loot)
+        self.assertIn("if (InventoryItemCodes.Num() >= 30) return;", loot)
+        self.assertIn("InventoryItemCodes.Add(ItemCode);", loot)
+        self.assertLess(loot.index("if (InventoryItemCodes.Num() >= 30) return;"),
+                        loot.index("InventoryItemCodes.Add(ItemCode);"))
+        self.assertNotIn("DiscardIndex", loot)
+        self.assertNotIn("DiscardedCode", loot)
+        self.assertNotIn("InventoryItemCodes.RemoveAt(", loot)
         self.assertIn("InventorySelection = FMath::Clamp(InventorySelection, 0, InventoryItemCodes.Num() - 1);", loot)
-        self.assertNotIn("InventoryItemCodes.RemoveAt(0);", loot)
-        self.assertLess(loot.index("InventoryItemCodes.RemoveAt(DiscardIndex);"), loot.index("InventoryItemCodes.Add(ItemCode);"))
 
     def test_inventory_salvage_is_validated_and_protects_equipped_gear(self):
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
