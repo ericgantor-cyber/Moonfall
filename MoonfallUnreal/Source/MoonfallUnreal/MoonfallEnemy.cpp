@@ -8,6 +8,7 @@
 #include "NavigationPath.h"
 #include "DrawDebugHelpers.h"
 #include "CollisionQueryParams.h"
+#include "EngineUtils.h"
 AMoonfallEnemy::AMoonfallEnemy() {
   Body = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Body"));
   SetRootComponent(Body);
@@ -531,6 +532,28 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
    }
   }
   if (WindupEndsAt < 0.f && Now >= NextAttackAt) {
+   // Small-pack coordination: avoid three ordinary enemies delivering their
+   // tells at once. Scan only at attack decisions, not on every AI tick;
+   // cap work even in massive continuously explored regions.
+   if (!bBoss && !bElite) {
+    int32 NearbyWindingAllies = 0;
+    int32 ConsideredAllies = 0;
+    for (TActorIterator<AMoonfallEnemy> It(GetWorld()); It && ConsideredAllies < 32; ++It) {
+     const AMoonfallEnemy* Other = *It;
+     if (!IsValid(Other) || Other == this || Other->Health <= 0.f
+         || Other->bBoss || Other->bElite) continue;
+     ++ConsideredAllies;
+     if (Other->WindupEndsAt > Now
+         && FVector::DistSquared2D(Other->GetActorLocation(), GetActorLocation()) < FMath::Square(550.f)) {
+      if (++NearbyWindingAllies >= 2) break;
+     }
+    }
+    if (NearbyWindingAllies >= 2) {
+     const float SlotDelay = 0.18f + 0.04f * static_cast<float>(GetUniqueID() % 4u);
+     NextAttackAt = Now + SlotDelay;
+     return;
+    }
+   }
    // Alternate quick strikes, heavy attacks and wider sweeps with distinct warnings.
    // An elite cannot chain another attack during its recovery window.
    // Phase-two bosses unlock a fourth, highly telegraphed crush.
