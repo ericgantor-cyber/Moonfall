@@ -573,8 +573,13 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
    // cap work even in massive continuously explored regions.
    if (!bBoss && !bElite) {
     int32 NearbyWindingAllies = 0;
+    int32 ScannedActors = 0;
     int32 ConsideredAllies = 0;
-    for (TActorIterator<AMoonfallEnemy> It(GetWorld()); It && ConsideredAllies < 32; ++It) {
+    // Cap the iterator itself, not only eligible allies. Large worlds can
+    // contain many bosses, defeated actors, and inactive enemies.
+    for (TActorIterator<AMoonfallEnemy> It(GetWorld());
+         It && ScannedActors < 64 && ConsideredAllies < 32; ++It) {
+     ++ScannedActors;
      const AMoonfallEnemy* Other = *It;
      if (!IsValid(Other) || Other == this || Other->Health <= 0.f
          || Other->bBoss || Other->bElite) continue;
