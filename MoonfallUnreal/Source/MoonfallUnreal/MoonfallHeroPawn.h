@@ -62,8 +62,9 @@ public:
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Finishers", meta=(ClampMin="1.0", ClampMax="1.5")) float FinisherMomentumDamageMultiplier = 1.15f;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Finishers", meta=(ClampMin="1.0", ClampMax="12.0")) float FinisherMomentumDurationSeconds = 6.f;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Finishers") float FinisherMomentumUntil = -1.f;
- // Successful click attacks build a four-stage combo with a modest bounded
- // damage payoff. Misses, heals and failed casts never advance the sequence.
+ // Successful click attacks build a twelve-stage same-target combo with
+ // bounded damage and posture milestones at hits 4/8/12. Misses, heals and
+ // failed casts never advance the sequence.
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Combat", meta=(ClampMin="0.5", ClampMax="4.0")) float HitComboWindowSeconds = 2.f;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Combat", meta=(ClampMin="0.0", ClampMax="0.12")) float HitComboDamagePerStage = 0.04f;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Combat") int32 HitComboStage = 0;
