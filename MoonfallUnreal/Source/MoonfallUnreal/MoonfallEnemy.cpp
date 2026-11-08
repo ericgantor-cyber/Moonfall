@@ -280,9 +280,14 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   NextAttackAt = FMath::Max(NextAttackAt, Now + 0.35f);
   return;
  }
- FVector Difference = Hero->GetActorLocation() - GetActorLocation();
+ // Reject invalid actor transforms before targeting, pathfinding or attack hit checks.
+ const FVector HeroPosition = Hero->GetActorLocation();
+ const FVector EnemyPosition = GetActorLocation();
+ if (HeroPosition.ContainsNaN() || EnemyPosition.ContainsNaN()) return;
+ FVector Difference = HeroPosition - EnemyPosition;
  Difference.Z = 0.f;
  const float Distance = Difference.Size();
+ if (!FMath::IsFinite(Distance)) return;
  // Far-away enemies use a slower think rate. Return to responsive combat
  // polling when the hero approaches, without per-frame work on idle mobs.
  const bool bInCombatArea = Distance < 2200.f;
@@ -305,7 +310,10 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   WindupEndsAt = -1.f;
   BossWarningEndTime = -1.f;
   // Heavy elite crushes demand recovery, leaving a counterattack window.
-  NextAttackAt = Now + FMath::Max(0.65f, AttackCooldown) + ((bElite || bBoss) && CurrentAttackMultiplier > 2.f ? 1.0f : 0.f);
+  // Preserve longer stagger recovery and cap invalid cooldown tuning.
+  const float RecoveryCooldown = FMath::IsFinite(AttackCooldown) ? FMath::Clamp(AttackCooldown, 0.65f, 10.f) : 1.f;
+  const float AttackRecoveryAt = Now + RecoveryCooldown + ((bElite || bBoss) && CurrentAttackMultiplier > 2.f ? 1.0f : 0.f);
+  NextAttackAt = FMath::Max(FMath::IsFinite(NextAttackAt) ? NextAttackAt : Now, AttackRecoveryAt);
   if (bBoss) DrawDebugSphere(GetWorld(), GetActorLocation(), AttackRange * CurrentAttackRangeMultiplier, 16, BossPhase >= 3 ? FColor::Magenta : FColor::Orange, false, 0.18f, 0, 2.f);
   // Dash displacement is handled gradually during its final windup.
   // Attack still resolves after the warning against the hero's live position.
@@ -328,6 +336,9 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
        SightHit, GetActorLocation(), Hero->GetActorLocation(), ECC_Visibility, SightParams)
        && SightHit.GetActor() != Hero;
    if (!bBlocked) {
+    // Damage must be finite and positive before dodge or parry callbacks fire.
+    const float IncomingAttackDamage = AttackDamage * FMath::Min(2.3f, CurrentAttackMultiplier);
+    if (!FMath::IsFinite(IncomingAttackDamage) || IncomingAttackDamage <= 0.f) return;
     // One actual timed dodge rewards the hero and pressures only the
     // attacking enemy. Repeated overlapping hits cannot farm posture.
     const bool bPerfectDodge = Hero->TryRewardPerfectDodge();
@@ -348,7 +359,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
      OnPerfectDodged(DodgePressure);
     }
     const bool bParried = Hero->ApplyMoonfallDamageFrom(
-      AttackDamage * FMath::Min(2.3f, CurrentAttackMultiplier), GetActorLocation());
+      IncomingAttackDamage, GetActorLocation());
     if (bParried) {
      // A successful parry ends this attack chain and opens counterplay.
      // Bosses recover sooner than ordinary enemies but cannot hit instantly.
@@ -431,7 +442,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   // Solve paths only when the cache expires. Use the live hero position when
   // navigation is unavailable, and never chase an uninitialized waypoint.
   if (UNavigationSystemV1* Nav = FNavigationSystem::GetCurrent<UNavigationSystemV1>(GetWorld())) {
-   if (Now >= NextPathRefreshAt) {
+   if (!FMath::IsFinite(NextPathRefreshAt) || Now >= NextPathRefreshAt) {
     NextPathRefreshAt = Now + 0.5f + FMath::FRandRange(0.f, 0.2f);
     FNavLocation Point;
     if (Nav->ProjectPointToNavigation(Target, Point)) {
@@ -441,6 +452,10 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
     } else {
      CachedWaypoint = Target;
     }
+   }
+   if (CachedWaypoint.ContainsNaN()) {
+    CachedWaypoint = FVector::ZeroVector;
+    NextPathRefreshAt = 0.f;
    }
    if (!CachedWaypoint.IsNearlyZero()) {
     FVector ToWaypoint = CachedWaypoint - GetActorLocation();
