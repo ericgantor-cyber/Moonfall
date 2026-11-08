@@ -1607,7 +1607,11 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("ComboMontages.IsValidIndex(HitComboStage - 1)", cast)
         self.assertIn("ComboMontages[HitComboStage - 1].Get()", cast)
         self.assertIn("Anim->Montage_Play(Montage, 1.f);", cast)
-        self.assertIn("!bReduceMotion", cast)
+        self.assertIn("Enemy->Health > 0.f && !bReduceMotion", cast)
+        self.assertLess(cast.index("const float HealthBeforeSpell = Enemy->Health;"),
+                        cast.index("Enemy->TakeSpellDamage(SpellDamage);"))
+        self.assertLess(cast.index("Enemy->TakeSpellDamage(SpellDamage);"),
+                        cast.index("if (Enemy->Health > 0.f && !bReduceMotion"))
         self.assertLess(cast.index("if (ActualSpellDamage > 0.f) {"),
                         cast.index("Anim->Montage_Play(Montage, 1.f);"))
         self.assertLess(cast.index("Anim->Montage_Play(Montage, 1.f);"),
