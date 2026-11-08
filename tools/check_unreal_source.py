@@ -935,6 +935,22 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("FinisherShockwave", self.hero_h)
         self.assertNotIn("FinisherShockwave", self.hero_cpp)
 
+    def test_fourth_hit_has_full_damage_bonus_and_expiring_combo_clears(self):
+        cast = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split(
+            "void AMoonfallHeroPawn::CastLeft()", 1)[0]
+        self.assertIn("HitComboMultiplier = 1.f + ComboStepBonus * FMath::Clamp(IncomingStage, 0, 3);", cast)
+        self.assertNotIn("FMath::Max(0, IncomingStage - 1)", cast)
+        self.assertIn("IncomingStage = bComboAlive ? FMath::Clamp(HitComboStage, 0, 4) : 0;", cast)
+        tick = self.hero_cpp.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1].split(
+            "void AMoonfallHeroPawn::SetupPlayerInputComponent", 1)[0]
+        self.assertIn("ComboNow - LastSuccessfulHitAt > ComboWindow", tick)
+        self.assertIn("!IsValid(ComboTarget) || ComboTarget->Health <= 0.f", tick)
+        self.assertIn("Health <= 0.f || bOptionsOpen", tick)
+        self.assertIn("HitComboStage = 0;", tick)
+        self.assertIn("LastHitComboTarget.Reset();", tick)
+        self.assertIn("LastSuccessfulHitAt = -100.f;", tick)
+        self.assertNotIn("FinisherShockwave", self.hero_cpp)
+
     def test_four_stage_attack_combo_requires_real_hits_and_has_bounded_damage(self):
         self.assertIn("float HitComboWindowSeconds = 2.f;", self.hero_h)
         self.assertIn("float HitComboDamagePerStage = 0.04f;", self.hero_h)
