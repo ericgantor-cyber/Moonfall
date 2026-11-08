@@ -73,6 +73,8 @@ private:
  bool bDefeatAnimationShatter = false;
  void TickDefeatAnimation(float DeltaSeconds);
  int32 AttackSequence = 0;
+ // Random basic boss attacks cannot repeat immediately, even after phase changes.
+ int32 LastBossAttackPattern = -1;
  bool bComboSecondHitPending = false;
  bool bComboSecondHitActive = false;
  int32 BossSpecialMove = 0;
