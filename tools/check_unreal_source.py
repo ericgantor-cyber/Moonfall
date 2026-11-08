@@ -444,6 +444,31 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Health <= 0.f || !FMath::IsFinite(Health)", guard)
         self.assertLess(guard.index("!FMath::IsFinite(Health)"), guard.index("EndSprint();"))
 
+    def test_enemy_spawn_scaling_rejects_invalid_blueprint_vitals(self):
+        begin = self.enemy_cpp.split("void AMoonfallEnemy::BeginPlay()", 1)[1].split(
+            "void AMoonfallEnemy::ApplyPostureDamage", 1)[0]
+        self.assertIn("FMath::IsFinite(Health) && Health > 0.f ? Health : 1.f", begin)
+        self.assertIn("FMath::IsFinite(AttackDamage) && AttackDamage > 0.f ? AttackDamage : 1.f", begin)
+        self.assertIn("FMath::Clamp(BaseHealth, 1.f, 100000.f) * HPScale", begin)
+        self.assertIn("FMath::Clamp(BaseDamage, 1.f, 10000.f) * DamageScale", begin)
+        self.assertLess(begin.index("const float BaseHealth"), begin.index("MaxHealthAtSpawn ="))
+
+    def test_enemy_posture_break_rejects_invalid_cooldown_timers(self):
+        posture = self.enemy_cpp.split("void AMoonfallEnemy::ApplyPostureDamage(float Amount)", 1)[1].split(
+            "void AMoonfallEnemy::TakeSpellDamage", 1)[0]
+        for field in ("Now", "PostureBrokenUntil", "NextPostureBreakAllowedAt"):
+            self.assertIn(f"!FMath::IsFinite({field})", posture)
+            self.assertLess(posture.index(f"!FMath::IsFinite({field})"), posture.index("Posture = FMath::Clamp("))
+        self.assertIn("if (Now < PostureBrokenUntil || Now < NextPostureBreakAllowedAt) return;", posture)
+
+    def test_enemy_ai_rejects_invalid_hero_and_posture_recovery(self):
+        tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
+        self.assertIn("!FMath::IsFinite(Hero->Health) || Hero->Health <= 0.f", tick)
+        self.assertLess(tick.index("!FMath::IsFinite(Hero->Health)"), tick.index("FVector Difference ="))
+        self.assertIn("FMath::IsFinite(Posture) && Posture > 0.f", tick)
+        self.assertIn("FMath::IsFinite(PostureRecoveryStartsAt) && Now >= PostureRecoveryStartsAt", tick)
+        self.assertLess(tick.index("FMath::IsFinite(PostureRecoveryStartsAt)"), tick.index("OnPostureChanged(Posture, MaxPosture)"))
+
     def test_guard_clears_held_sprint_before_entering_stance(self):
         guard = self.hero_cpp.split("void AMoonfallHeroPawn::BeginGuard()", 1)[1].split(
             "void AMoonfallHeroPawn::EndGuard()", 1)[0]
@@ -1720,8 +1745,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
     def test_enemy_level_scaling_is_spawn_only(self):
         begin = self.enemy_cpp.split("void AMoonfallEnemy::BeginPlay() {", 1)[1].split("\n}", 1)[0]
         self.assertIn("SpawnBalanceLevel = IsValid(Player)", begin)
-        self.assertIn("Health = FMath::Max(1.f, Health * HPScale)", begin)
-        self.assertIn("AttackDamage = FMath::Max(1.f, AttackDamage * DamageScale)", begin)
+        self.assertIn("Health = FMath::Clamp(BaseHealth, 1.f, 100000.f) * HPScale", begin)
+        self.assertIn("AttackDamage = FMath::Clamp(BaseDamage, 1.f, 10000.f) * DamageScale", begin)
 
     def test_offensive_spell_requires_live_target(self):
         cast = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split("\n}", 1)[0]
