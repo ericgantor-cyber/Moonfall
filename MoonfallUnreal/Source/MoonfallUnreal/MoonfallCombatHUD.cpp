@@ -157,9 +157,18 @@ void AMoonfallCombatHUD::DrawHUD()
       QuestId + 1, Arena->GetCompletedDungeonQuestCount()),
       FLinearColor(0.93f, 0.85f, 0.66f), MapLeft,
       MapTop + MapWidth + 6.f, nullptr, TextScale);
-   DrawText(bComplete ? TEXT("Guardian defeated") : TEXT("Defeat the guardian"),
-      bComplete ? FLinearColor(0.38f, 0.95f, 0.5f) : FLinearColor::White,
-      MapLeft, MapTop + MapWidth + 23.f, nullptr, TextScale);
+   const int32 ResidentsDefeated = Arena->GetDungeonResidentDefeatCount(QuestId);
+   const FString Objective = bComplete ? TEXT("Guardian defeated")
+     : ResidentsDefeated < 4
+       ? FString::Printf(TEXT("Defeat residents: %d / 4"), ResidentsDefeated)
+       : TEXT("Defeat the guardian");
+   DrawText(Objective, bComplete ? FLinearColor(0.38f, 0.95f, 0.5f)
+      : FLinearColor::White, MapLeft, MapTop + MapWidth + 23.f, nullptr, TextScale);
+   // Persistent capacity reward displayed without a new HUD widget or pickup.
+   DrawText(FString::Printf(TEXT("Guardian power: +%d max mana/stamina"),
+      Arena->GetCompletedDungeonQuestCount() * 3),
+      FLinearColor(0.72f, 0.83f, 1.f), MapLeft,
+      MapTop + MapWidth + 40.f, nullptr, TextScale * 0.8f);
   }
   break;
  }
