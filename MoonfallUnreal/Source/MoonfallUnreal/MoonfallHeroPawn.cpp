@@ -100,7 +100,17 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
  // Bounded camera impulse, no camera shake object or spawned effects.
  ImpactCameraOffset = FMath::FInterpTo(ImpactCameraOffset, 0.f, FMath::Max(0.f, DeltaSeconds), 12.f);
  if (CameraBoom) CameraBoom->TargetArmLength = 450.f + (bReduceMotion ? 0.f : ImpactCameraOffset);
+ // Mana regenerates during gameplay and while a menu is open.
  if (Health > 0.f && Mana < MaxMana) Mana = FMath::Min(MaxMana, Mana + ManaRegenPerSecond * (1.f + FMath::Min(0.25f, AccessoryTier * 0.012f) + (AccessoryAffix == 3 ? 0.08f : 0.f)) * FMath::Max(0.f, DeltaSeconds));
+ // Recovery in either menu is bounded and never revives a defeated hero.
+ if ((bOptionsOpen || bInventoryOpen) && Health > 0.f && FMath::IsFinite(Health)
+     && FMath::IsFinite(MaxHealth) && MaxHealth > 0.f && Health < MaxHealth
+     && FMath::IsFinite(MenuHealthRegenPerSecond) && MenuHealthRegenPerSecond > 0.f) {
+  const float BeforeRegen = Health;
+  Health = FMath::Min(MaxHealth, Health + FMath::Clamp(MenuHealthRegenPerSecond, 0.f, 20.f)
+      * FMath::Clamp(DeltaSeconds, 0.f, 0.1f));
+  if (Health > BeforeRegen) OnHealthChanged(Health, MaxHealth);
+ }
  // Sprint drains only while moving, and never drains while paused in Options.
  const float StaminaDelta = FMath::Clamp(DeltaSeconds, 0.f, 0.1f);
  // Exhaustion requires releasing sprint before another burst; guard and dodge
@@ -167,8 +177,7 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
   }
  }
  // Stamina powers dodges independently of spell mana and regenerates after exertion.
- if (Health > 0.f && !bOptionsOpen && !bInventoryOpen
-     && !bSprinting && !bGuarding && GetWorld() && GetWorld()->GetTimeSeconds() >= StaminaRegenStartsAt
+ if (Health > 0.f && !bSprinting && !bGuarding && GetWorld() && GetWorld()->GetTimeSeconds() >= StaminaRegenStartsAt
      && FMath::IsFinite(Stamina) && FMath::IsFinite(MaxStamina) && MaxStamina > 0.f
      && FMath::IsFinite(StaminaRegenPerSecond) && StaminaRegenPerSecond > 0.f) {
   Stamina = FMath::Clamp(Stamina + StaminaRegenPerSecond * StaminaDelta, 0.f, MaxStamina);
