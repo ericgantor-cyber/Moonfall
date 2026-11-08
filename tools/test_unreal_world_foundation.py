@@ -213,7 +213,8 @@ class WorldFoundationTests(unittest.TestCase):
         self.assertIn("const int32 Dungeon = EntranceId % 5;", hud)
         # No fog bypass: draw from discovered sets, never all possible entrances.
         self.assertNotIn("for (int32 EntranceId = 0; EntranceId < 30;", hud)
-        self.assertNotIn("for (int32 Region = 0; Region < 6; ++Region)", hud)
+        # Full world atlas may scan six regions, but draws only discovered regions.
+        self.assertIn("if (!Arena->GetDiscoveredRegions().Contains(Region)) continue;", hud)
         self.assertEqual(len({r * 5 + d for r in range(6) for d in range(5)}), 30)
 
     def test_guardian_quests_grounded_in_real_defeat_and_discovery(self):
