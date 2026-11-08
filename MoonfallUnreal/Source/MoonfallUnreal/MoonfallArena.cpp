@@ -265,6 +265,9 @@ void AMoonfallArena::LoadWorldProgress() {
  DiscoveredRegions.Empty();
  DiscoveredDungeonEntrances.Empty();
  TrackedDungeonQuestId = -1;
+ GuideTrustMemory.Init(0, Regions);
+ GuideFearMemory.Init(0, Regions);
+ LastGuideSocialActionAt.Empty();
  if (!UGameplayStatics::DoesSaveGameExist(WorldProgressSlot, 0)) return;
  UMoonfallWorldProgressSave* Saved = Cast<UMoonfallWorldProgressSave>(
   UGameplayStatics::LoadGameFromSlot(WorldProgressSlot, 0));
@@ -292,6 +295,15 @@ void AMoonfallArena::LoadWorldProgress() {
   for (const int32 Entrance : DiscoveredDungeonEntrances)
    FirstKnown = FMath::Min(FirstKnown, Entrance);
   TrackedDungeonQuestId = FirstKnown;
+ }
+ // Older save slots have no social arrays. Ignore malformed or oversized data.
+ if (Saved->GuideTrustMemory.Num() == Regions) {
+  for (int32 Region = 0; Region < Regions; ++Region)
+   GuideTrustMemory[Region] = FMath::Clamp(Saved->GuideTrustMemory[Region], -100, 100);
+ }
+ if (Saved->GuideFearMemory.Num() == Regions) {
+  for (int32 Region = 0; Region < Regions; ++Region)
+   GuideFearMemory[Region] = FMath::Clamp(Saved->GuideFearMemory[Region], 0, 100);
  }
  for (const int32 Room : Saved->DiscoveredChamberIds) {
   if (Room >= 0 && Room < Regions * DungeonsPerRegion * ChambersPerDungeon)
@@ -338,6 +350,8 @@ void AMoonfallArena::SaveWorldProgress() {
    Saved->DiscoveredDungeonEntranceIds.Add(Entrance);
  }
  Saved->DiscoveredDungeonEntranceIds.Sort();
+ Saved->GuideTrustMemory = GuideTrustMemory;
+ Saved->GuideFearMemory = GuideFearMemory;
  Saved->TrackedDungeonQuestId = DiscoveredDungeonEntrances.Contains(TrackedDungeonQuestId)
   ? TrackedDungeonQuestId : -1;
  if (UGameplayStatics::SaveGameToSlot(Saved, WorldProgressSlot, 0))
@@ -393,4 +407,39 @@ bool AMoonfallArena::SelectNextDiscoveredDungeonQuestInRegion(int32 RegionIndex)
   }
  }
  return false;
+}
+
+int32 AMoonfallArena::GetGuideTrust(int32 RegionIndex) const {
+ if (RegionIndex < 0 || RegionIndex >= Regions) return 0;
+ const int32 Base = GuideTrustMemory.IsValidIndex(RegionIndex)
+   ? FMath::Clamp(GuideTrustMemory[RegionIndex], -100, 100) : 0;
+ // Recognize only verified guardian victories in this guide's region.
+ int32 GuardianReputation = 0;
+ for (int32 Dungeon = 0; Dungeon < DungeonsPerRegion; ++Dungeon)
+  if (IsDungeonQuestCompleted(RegionIndex * DungeonsPerRegion + Dungeon))
+   GuardianReputation += 8;
+ return FMath::Clamp(Base + GuardianReputation, -100, 100);
+}
+int32 AMoonfallArena::GetGuideFear(int32 RegionIndex) const {
+ if (RegionIndex < 0 || RegionIndex >= Regions ||
+     !GuideFearMemory.IsValidIndex(RegionIndex)) return 0;
+ return FMath::Clamp(GuideFearMemory[RegionIndex], 0, 100);
+}
+bool AMoonfallArena::RecordGuideSocialChoice(int32 RegionIndex, bool bIntimidate) {
+ if (!bContinuousWorld || !GetWorld() || RegionIndex < 0 || RegionIndex >= Regions
+     || !DiscoveredRegions.Contains(RegionIndex)
+     || !GuideTrustMemory.IsValidIndex(RegionIndex)
+     || !GuideFearMemory.IsValidIndex(RegionIndex)) return false;
+ const float Now = GetWorld()->GetTimeSeconds();
+ if (!FMath::IsFinite(Now)) return false;
+ const float* Previous = LastGuideSocialActionAt.Find(RegionIndex);
+ // Avoid farming relationship points through repeated input presses.
+ if (Previous && Now - *Previous < 30.f) return false;
+ LastGuideSocialActionAt.Add(RegionIndex, Now);
+ GuideTrustMemory[RegionIndex] = FMath::Clamp(
+  GuideTrustMemory[RegionIndex] + (bIntimidate ? -10 : 7), -100, 100);
+ GuideFearMemory[RegionIndex] = FMath::Clamp(
+  GuideFearMemory[RegionIndex] + (bIntimidate ? 12 : -4), 0, 100);
+ bWorldSavePending = true;
+ return true;
 }
