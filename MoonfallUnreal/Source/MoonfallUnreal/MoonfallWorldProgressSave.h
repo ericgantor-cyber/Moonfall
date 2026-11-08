@@ -10,4 +10,6 @@ class MOONFALLUNREAL_API UMoonfallWorldProgressSave : public USaveGame {
 public:
  UPROPERTY() int32 SchemaVersion = 1;
  UPROPERTY() TArray<int32> DefeatedEncounterIds;
+ // Backward-compatible optional data: absent in older schema-v1 saves.
+ UPROPERTY() TArray<int32> DiscoveredChamberIds;
 };
