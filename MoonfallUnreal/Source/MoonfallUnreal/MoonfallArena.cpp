@@ -164,6 +164,10 @@ void AMoonfallArena::Tick(float DeltaSeconds) {
  Super::Tick(DeltaSeconds);
  if (bContinuousWorld) {
   ObserveDefeatedEncounters();
+  // Rewards come from unique persisted guardian defeat IDs, not hit callbacks.
+  // Each player pawn applies only the difference, including after save reload.
+  if (AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0)))
+   Hero->ApplyGuardianQuestRewards(GetCompletedDungeonQuestCount());
   if (bWorldSavePending) SaveWorldProgress();
   StreamWorld();
  }
@@ -339,6 +343,16 @@ bool AMoonfallArena::IsDungeonQuestCompleted(int32 EntranceId) const {
  // Every dungeon has 14 chambers; its final guardian is in chamber 14.
  const int32 GuardianEncounterId = 18 + EntranceId * ChambersPerDungeon + (ChambersPerDungeon - 1);
  return DefeatedEncounters.Contains(GuardianEncounterId);
+}
+int32 AMoonfallArena::GetDungeonResidentDefeatCount(int32 EntranceId) const {
+ if (EntranceId < 0 || EntranceId >= Regions * DungeonsPerRegion) return 0;
+ const int32 Stages[] = {3, 5, 9, 12};
+ int32 Defeated = 0;
+ for (const int32 Stage : Stages) {
+  const int32 EncounterId = 18 + EntranceId * ChambersPerDungeon + (Stage - 1);
+  if (DefeatedEncounters.Contains(EncounterId)) ++Defeated;
+ }
+ return Defeated;
 }
 int32 AMoonfallArena::GetCompletedDungeonQuestCount() const {
  int32 Completed = 0;
