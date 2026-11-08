@@ -57,6 +57,12 @@ FText AMoonfallQuestGuide::GetGuideTitle() const
   {TEXT("Foundry Chronicler"), TEXT("Forge Mechanic"), TEXT("Iron Sentinel")},
   {TEXT("Eclipse Seer"), TEXT("Moon Weaver"), TEXT("Shadow Lookout")}
  };
+ if (PopulationNpcId >= 18 && PopulationNpcId < 1111) {
+  static const TCHAR* Regions[] = {TEXT("Ash"), TEXT("Mire"), TEXT("Frost"), TEXT("Storm"), TEXT("Foundry"), TEXT("Eclipse")};
+  static const TCHAR* Roles[] = {TEXT("Warden"), TEXT("Artisan"), TEXT("Scout")};
+  return FText::FromString(FString::Printf(TEXT("%s %s %04d"),
+    Regions[FMath::Clamp(RegionIndex, 0, 5)], Roles[FMath::Clamp(RoleIndex, 0, 2)], PopulationNpcId + 1));
+ }
  return FText::FromString(Names[FMath::Clamp(RegionIndex, 0, 5)][FMath::Clamp(RoleIndex, 0, 2)]);
 }
 FText AMoonfallQuestGuide::GetPersonalityLabel() const
@@ -69,6 +75,11 @@ FText AMoonfallQuestGuide::GetPersonalityLabel() const
   {TEXT("methodical"), TEXT("inventive"), TEXT("dutiful")},
   {TEXT("mysterious"), TEXT("compassionate"), TEXT("watchful")}
  };
+ if (PopulationNpcId >= 18 && PopulationNpcId < 1111) {
+  static const TCHAR* Variants[] = {TEXT("curious"), TEXT("protective"), TEXT("reserved"),
+    TEXT("spirited"), TEXT("pragmatic"), TEXT("kind"), TEXT("suspicious"), TEXT("loyal")};
+  return FText::FromString(Variants[PopulationNpcId % 8]);
+ }
  return FText::FromString(Traits[FMath::Clamp(RegionIndex, 0, 5)][FMath::Clamp(RoleIndex, 0, 2)]);
 }
 
