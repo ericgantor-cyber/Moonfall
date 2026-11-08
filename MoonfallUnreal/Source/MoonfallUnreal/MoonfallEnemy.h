@@ -92,5 +92,6 @@ public:
  FRecentDamageHit DamageHistory[DamageHistorySize];
  int32 NextDamageHistorySlot = 0;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat") float Health = 80.f;
+ UFUNCTION(BlueprintCallable, Category="Combat") void BeginFinisherDefeat(int32 Style);
  UFUNCTION(BlueprintCallable, Category="Combat") void TakeSpellDamage(float Amount);
 };
