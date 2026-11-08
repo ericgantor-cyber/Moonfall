@@ -41,6 +41,25 @@ class WorldFoundationTests(unittest.TestCase):
         self.assertNotIn("Z.png", CPP)
         self.assertNotIn("Nyra.png", CPP)
 
+    def test_persistent_defeats_are_validated_and_separate(self):
+        save = (ROOT / "MoonfallUnreal/Source/MoonfallUnreal/MoonfallWorldProgressSave.h").read_text(encoding="utf-8")
+        self.assertIn('MoonfallUnrealWorldProgress_v1', CPP)
+        self.assertIn('SchemaVersion = 1', save)
+        self.assertIn('DefeatedEncounterIds', save)
+        self.assertIn('Saved->SchemaVersion != 1', CPP)
+        self.assertIn('if (IsValidEncounterId(Id)) DefeatedEncounters.Add(Id);', CPP)
+        self.assertIn('DefeatedEncounters.Contains(Id)', CPP)
+        self.assertIn('Enemy->Health <= 0.f', CPP)
+        self.assertIn('It.RemoveCurrent();', CPP)
+        self.assertIn('bWorldSavePending = true;', CPP)
+        self.assertIn('SaveGameToSlot(Saved, WorldProgressSlot, 0)', CPP)
+        self.assertIn('if (bWorldSavePending) SaveWorldProgress();', CPP)
+        valid = {i for i in range(18)}
+        valid |= {18 + room for room in range(420) if room % 14 in (2, 4, 8, 11, 13)}
+        self.assertEqual(len(valid), 168)
+        self.assertEqual(len({i for i in valid if i >= 18}), 150)
+        self.assertEqual(len(valid & set(range(18))), 18)
+
     def test_connected_geometry(self):
         self.assertIn("Region * RegionSpacing", CPP)
         self.assertIn("FVector(60.f, 60.f, 1.f)", CPP)
