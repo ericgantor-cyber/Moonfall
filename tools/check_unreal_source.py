@@ -1736,6 +1736,24 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertEqual(tick.count("Nav->ProjectPointToNavigation("), 1)
         self.assertEqual(tick.count("Nav->FindPathToLocationSynchronously("), 1)
 
+    def test_unreal_divine_bosses_are_distinct_nonplayable_world_actors(self):
+        arena = (ROOT / "MoonfallArena.cpp").read_text(encoding="utf-8")
+        self.assertIn("FName DivineBossId = NAME_None;", self.enemy_h)
+        self.assertIn("FText DivineBossTitle;", self.enemy_h)
+        self.assertIn("FName DivineBossRegion = NAME_None;", self.enemy_h)
+        self.assertIn("Count >= 5 && (i == Count - 2 || i == Count - 1)", arena)
+        self.assertIn('TEXT("z_void_reaper")', arena)
+        self.assertIn('TEXT("nyra_eclipse_queen")', arena)
+        self.assertIn('TEXT("Z, Void Reaper")', arena)
+        self.assertIn('TEXT("Nyra, Eclipse Queen")', arena)
+        self.assertIn('TEXT("ShatteredRuins")', arena)
+        self.assertIn('TEXT("EclipseCitadel")', arena)
+        self.assertIn('TEXT("DivineWorldBoss")', arena)
+        self.assertLess(arena.index("Enemy->bBoss = true;"),
+                        arena.index("FinishSpawningActor(Enemy, SpawnTransform)"))
+        # Role identities belong to boss actors, not the controllable pawn.
+        self.assertNotIn("DivineBossId", self.hero_h)
+
     def test_enemy_sight_memory_does_not_track_through_walls(self):
         tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
         self.assertIn("float NextSightCheckAt = 0.f;", self.enemy_h)

@@ -17,6 +17,11 @@ public:
  UPROPERTY(EditAnywhere, Category="Combat") float AttackCooldown = 1.3f;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat") bool bElite = false;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat") bool bBoss = false;
+ // Divine world bosses are NPC encounters, never playable hero identities.
+ // The exact source artwork is intentionally not recreated or modified here.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Boss|Divine") FName DivineBossId = NAME_None;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Boss|Divine") FText DivineBossTitle;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Boss|Divine") FName DivineBossRegion = NAME_None;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Combat") int32 BossPhase = 1;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Boss") float BossMaxHealth = 0.f;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Boss") float BossWarningEndTime = -1.f;

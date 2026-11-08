@@ -36,7 +36,22 @@ void AMoonfallArena::BeginPlay() {
   AMoonfallEnemy* Enemy = Cast<AMoonfallEnemy>(UGameplayStatics::BeginDeferredActorSpawnFromClass(
     this, AMoonfallEnemy::StaticClass(), SpawnTransform));
   if (!Enemy) continue;
-  if (i == Count - 1 && Count >= 4) {
+  // This provisional arena showcases both existing divine world bosses.
+  // Their actual Shattered Ruins/Eclipse Citadel placement and approved art
+  // are handled in the world migration, not fabricated in this C++ scaffold.
+  if (Count >= 5 && (i == Count - 2 || i == Count - 1)) {
+   const bool bZ = i == Count - 2;
+   Enemy->bElite = true;
+   Enemy->bBoss = true;
+   Enemy->DivineBossId = bZ ? FName(TEXT("z_void_reaper")) : FName(TEXT("nyra_eclipse_queen"));
+   Enemy->DivineBossTitle = bZ ? FText::FromString(TEXT("Z, Void Reaper"))
+                              : FText::FromString(TEXT("Nyra, Eclipse Queen"));
+   Enemy->DivineBossRegion = bZ ? FName(TEXT("ShatteredRuins")) : FName(TEXT("EclipseCitadel"));
+   Enemy->Tags.Add(FName(TEXT("DivineWorldBoss")));
+   Enemy->Health *= bZ ? 4.f : 4.5f;
+   Enemy->AttackCooldown *= 1.15f;
+  } else if (Count == 4 && i == Count - 1) {
+   // Keep the old four-enemy prototype setup valid.
    Enemy->bElite = true;
    Enemy->bBoss = true;
    Enemy->Health *= 4.f;
