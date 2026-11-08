@@ -424,7 +424,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("const float SafeAIDelta = FMath::IsFinite(DeltaSeconds) ? FMath::Clamp(DeltaSeconds, 0.f, 0.1f) : 0.f;", tick)
         self.assertIn("FMath::Min(960.f * SafeAIDelta, Remaining)", tick)
         self.assertIn("FMath::IsFinite(ChaseSpeed) ? ChaseSpeed : 0.f", tick)
-        self.assertIn("0.f, 2000.f) * SafeAIDelta, true, &Hit)", tick)
+        self.assertIn("const float SafeChaseSpeed = FMath::Clamp(", tick)
+        self.assertIn("ChaseSpeed : 0.f, 0.f, 2000.f);", tick)
+        self.assertIn("SafeChaseSpeed * ChaseMultiplier * SafeAIDelta, true, &Hit)", tick)
         self.assertLess(tick.index("const float SafeAIDelta"), tick.index("AddActorWorldOffset("))
 
     def test_ai_batch_invalid_spell_damage_cannot_consume_shatter(self):
@@ -1676,6 +1678,12 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Now >= NextTacticalRetreatAt", self.enemy_cpp)
         self.assertIn("TacticalRetreatUntil = Now + 2.f;", self.enemy_cpp)
         self.assertIn("NextTacticalRetreatAt = Now + 8.f;", self.enemy_cpp)
+        self.assertIn("TacticalReengageUntil = TacticalRetreatUntil + 1.5f;", self.enemy_cpp)
+        self.assertIn("bRetreatFlankLeft = !bRetreatFlankLeft;", self.enemy_cpp)
+        self.assertIn("Now >= TacticalRetreatUntil && Now < TacticalReengageUntil", self.enemy_cpp)
+        self.assertIn("FlankSign = bRetreatFlankLeft ? -1.f : 1.f;", self.enemy_cpp)
+        self.assertIn("const float ChaseMultiplier = bTacticalReengage ? 1.2f : 1.f;", self.enemy_cpp)
+        self.assertIn("SafeChaseSpeed * ChaseMultiplier * SafeAIDelta", self.enemy_cpp)
         self.assertIn("NextAttackAt = FMath::Max(NextAttackAt, TacticalRetreatUntil + 0.25f);", self.enemy_cpp)
         self.assertIn("if (bElite && !bBoss && Now < TacticalRetreatUntil", self.enemy_cpp)
         self.assertIn("Now >= HitReactionEndsAt && Now >= PostureBrokenUntil", self.enemy_cpp)
