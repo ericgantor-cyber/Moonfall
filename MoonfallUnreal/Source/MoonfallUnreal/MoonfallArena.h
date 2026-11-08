@@ -3,6 +3,7 @@
 #include "GameFramework/Actor.h"
 #include "MoonfallArena.generated.h"
 class AMoonfallEnemy;
+class AMoonfallQuestGuide;
 UCLASS()
 class MOONFALLUNREAL_API AMoonfallArena : public AActor {
  GENERATED_BODY()
@@ -12,6 +13,9 @@ public:
  virtual void Tick(float DeltaSeconds) override;
  UPROPERTY(EditAnywhere, Category="World") bool bContinuousWorld = true;
  UPROPERTY(EditAnywhere, Category="Dungeon") int32 EnemyCount = 5;
+ // The population is 1111 records; never 1111 simultaneous Actors.
+ UFUNCTION(BlueprintPure, Category="Moonfall|Population") int32 GetPopulationCount() const { return 1111; }
+ UFUNCTION(BlueprintPure, Category="Moonfall|Population") int32 GetActiveStreamedResidentCount() const { return ActiveResidents.Num(); }
  // Read-only C++ access for the compact explored-only minimap.
  const TSet<int32>& GetDiscoveredChambers() const { return DiscoveredChambers; }
  const TSet<int32>& GetDiscoveredRegions() const { return DiscoveredRegions; }
@@ -47,6 +51,12 @@ private:
  TArray<int32> NpcTrustMemory;
  TArray<int32> NpcFearMemory;
  TMap<int32, float> LastNpcSocialActionAt;
+ TArray<int32> ResidentTrustMemory;
+ TArray<int32> ResidentFearMemory;
+ TMap<int32, TWeakObjectPtr<AMoonfallQuestGuide>> ActiveResidents;
+ int32 PopulationCursor = 18;
+ void StreamResidents(const FVector& PlayerLocation);
+ static FVector GetResidentHome(int32 ResidentId);
  TMap<int32, float> LastGuideSocialActionAt;
  TMap<int32, TWeakObjectPtr<AMoonfallEnemy>> ActiveEncounters;
  bool bWorldSavePending = false;
