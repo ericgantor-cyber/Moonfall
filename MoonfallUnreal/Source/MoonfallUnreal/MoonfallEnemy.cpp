@@ -411,6 +411,15 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
     AddActorWorldOffset(DashVector * Step, true, &DashHit);
    }
   }
+  // Regional attack tell uses the existing windup. Debug-only placeholder VFX.
+#if ENABLE_DRAW_DEBUG
+  if (!bBoss && RegionalAttackStyle >= 0 && RegionalAttackStyle < 6) {
+   DrawDebugCircle(GetWorld(), GetActorLocation() - FVector(0.f,0.f,55.f),
+    AttackRange * CurrentAttackRangeMultiplier, 20,
+    RegionalAttackStyle % 2 == 0 ? FColor::Orange : FColor::Cyan,
+    false, 0.12f, 0, 1.5f, FVector(1.f,0.f,0.f), FVector(0.f,1.f,0.f), false);
+  }
+#endif
   // Boss warnings are intentionally cheap: one short-lived debug ring per AI tick,
   // no spawned particles, persistent actors, dynamic materials or extra tick loops.
   const AMoonfallHeroPawn* Viewer = bBoss ? Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0)) : nullptr;
@@ -490,6 +499,20 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
    if (bBoss && BossPhase >= 2 && AttackSequence % 7 == 0) BossSpecialMove = 3;
    if (bBoss && BossPhase >= 3 && AttackSequence % 9 == 0) BossSpecialMove = 4;
    if (bBoss && BossPhase >= 3 && AttackSequence % 11 == 0) BossSpecialMove = 5;
+   // Six nonboss combat rhythms on the existing AI, with bounded readable windups.
+   if (!bBoss) {
+    switch (FMath::Clamp(RegionalAttackStyle, 0, 5)) {
+     case 0: CurrentWindup *= 0.78f; CurrentAttackRangeMultiplier *= 0.92f; break; // pouncer
+     case 1: CurrentWindup *= 1.30f; CurrentAttackMultiplier *= 1.18f; CurrentAttackRangeMultiplier *= 1.12f; break; // bulwark
+     case 2: CurrentWindup *= 0.91f; CurrentAttackMultiplier *= 1.09f; break; // reaver
+     case 3: CurrentWindup *= 0.83f; CurrentAttackMultiplier *= 0.87f; CurrentAttackRangeMultiplier *= 0.95f; break; // harrier
+     case 4: CurrentWindup *= 1.38f; CurrentAttackMultiplier *= 1.22f; CurrentAttackRangeMultiplier *= 1.17f; break; // juggernaut
+     case 5: CurrentWindup *= Pattern == 2 ? 1.20f : 0.88f; CurrentAttackRangeMultiplier *= Pattern == 2 ? 1.19f : 0.95f; break; // hunter
+    }
+    CurrentWindup = FMath::Clamp(CurrentWindup, 0.32f, 2.f);
+    CurrentAttackMultiplier = FMath::Clamp(CurrentAttackMultiplier, 0.5f, 2.3f);
+    CurrentAttackRangeMultiplier = FMath::Clamp(CurrentAttackRangeMultiplier, 0.75f, 1.8f);
+   }
    // Later-phase bosses alternate fast opener and a readable delayed follow-up.
    const bool bComboFollowUp = bBoss && BossPhase >= 2 && Pattern == 1;
    CurrentWindup = Pattern == 0 ? 0.38f : (Pattern == 1 ? 0.85f : (Pattern == 2 ? 0.65f : 1.05f));
