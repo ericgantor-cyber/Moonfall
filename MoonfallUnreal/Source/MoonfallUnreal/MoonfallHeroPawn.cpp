@@ -144,8 +144,13 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
      && GetLastMovementInputVector().SizeSquared2D() > 0.01f
      && GetWorld() && GetWorld()->GetTimeSeconds() >= DamageImmunityUntil;
  if (bCanSprint && Stamina > 0.f) {
-  Stamina = FMath::Max(0.f, Stamina - SprintStaminaDrainPerSecond * StaminaDelta);
-  if (GetWorld()) StaminaRegenStartsAt = GetWorld()->GetTimeSeconds() + 0.8f;
+  // Cap runtime tuning so a large Blueprint value cannot overflow stamina drain.
+  Stamina = FMath::Max(0.f, Stamina - FMath::Clamp(SprintStaminaDrainPerSecond, 0.f, 250.f) * StaminaDelta);
+  // Sprint must not shorten a longer dodge/guard cooldown.
+  if (GetWorld()) {
+   const float SprintRecoveryAt = GetWorld()->GetTimeSeconds() + 0.8f;
+   StaminaRegenStartsAt = FMath::Max(FMath::IsFinite(StaminaRegenStartsAt) ? StaminaRegenStartsAt : SprintRecoveryAt, SprintRecoveryAt);
+  }
   if (Stamina <= 0.f) bSprintExhausted = true;
  }
  const bool bSprinting = bCanSprint && !bSprintExhausted;
