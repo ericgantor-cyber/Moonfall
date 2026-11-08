@@ -181,8 +181,8 @@ void AMoonfallArena::Tick(float DeltaSeconds) {
    Hero->ApplyGuardianQuestRewards(GetCompletedDungeonQuestCount());
   if (bWorldSavePending) SaveWorldProgress();
   StreamWorld();
-  StreamResidents(UGameplayStatics::GetPlayerPawn(this, 0)
-    ? UGameplayStatics::GetPlayerPawn(this, 0)->GetActorLocation() : FVector::ZeroVector);
+  if (const APawn* LocalHero = UGameplayStatics::GetPlayerPawn(this, 0))
+   StreamResidents(LocalHero->GetActorLocation());
  }
 }
 void AMoonfallArena::StreamWorld() {
