@@ -147,3 +147,16 @@ Character displays live level, XP, Health, Mana, Stamina, spell power, three equ
 5. **Regression and integration hardening**: New tests cover SaveGame item validation, equipment capacity restoration, gossip and faction weighting, recipes and journal pagination. No duplicated UI actor, wave system or new external art.
 
 **Release boundary**: This is a committed source-level integration in the draft Unreal PR. Native UE 5.4 C++ compilation, in-game SaveGame restart behavior, UI/controller interaction, collision, frame-time profiling and Windows installer are not verified. World stock and player inventory use independent SaveGame slots and are not yet an atomic transaction across a crash.
+
+## Native Win64 build entry point and inventory overflow guard
+A native build verification script is available as `MoonfallUnreal/Verify-Win64.ps1`. From Windows PowerShell, with Unreal Engine 5.4 and MSVC/Windows SDK already installed, run:
+
+```powershell
+.\Verify-Win64.ps1 -EngineRoot "C:\Program Files\Epic Games\UE_5.4" -BuildGame
+```
+
+The script checks `Build.version` for UE **5.4**, invokes the actual Unreal Build Tool via `Build.bat` for the Editor target and optionally the Win64 Development game target, and fails explicitly on native compiler errors. It **does not** package an installer or perform gameplay testing. GitHub's existing ordinary Actions are still **source-contract checks only** because they don't have a local Unreal installation.
+
+The inventory cap is now enforced **before** loot pickups, scripted direct awards, or crafting consumes workshop stock or Salvage. This closes a save-data loss path: the economy slot can serialize at most 2,048 validated item codes, so the player cannot accumulate unsavable additional items. Ground loot can remain uncollected when the bag is full. Existing equipped-item salvage protections remain active.
+
+**Remaining release blockers:** Native build has not yet run, save/stock updates use separate slots rather than one crash-atomic transaction, all real Windows gameplay controls/UI still need hands-on tests, and the current Unreal art is primitive placeholders. Godot and original Z/Nyra artwork remain untouched.
