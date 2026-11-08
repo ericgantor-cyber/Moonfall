@@ -1126,6 +1126,9 @@ void AMoonfallHeroPawn::InteractQuestGuide()
  Facing.Z = 0.f;
  if (!Facing.IsNearlyZero()) Nearest->SetActorRotation(Facing.Rotation());
  LastGuideTitle = Nearest->GetGuideTitle().ToString();
+ LastNpcPersonality = Nearest->GetPersonalityLabel().ToString();
+ LastNpcRoutine = Nearest->GetRoutineLabel().ToString();
+ LastNpcRole = FMath::Clamp(Nearest->RoleIndex, 0, 2);
  LastGuideRegionIndex = FMath::Clamp(Nearest->RegionIndex, 0, 5);
  bLastGuideFoundQuest = false;
  LastGuideQuestId = -1;
@@ -1135,10 +1138,13 @@ void AMoonfallHeroPawn::InteractQuestGuide()
  for (TActorIterator<AMoonfallArena> It(GetWorld()); It; ++It) {
   AMoonfallArena* Arena = *It;
   if (!IsValid(Arena)) continue;
-  LastGuideTrust = Arena->GetGuideTrust(Nearest->RegionIndex);
-  LastGuideFear = Arena->GetGuideFear(Nearest->RegionIndex);
+  LastGuideTrust = Arena->GetNpcTrust(Nearest->GetPersistentNpcId());
+  LastGuideFear = Arena->GetNpcFear(Nearest->GetPersistentNpcId());
   LastGuideSocialChoice = -1;
-  bLastGuideFoundQuest = Arena->SelectNextDiscoveredDungeonQuestInRegion(Nearest->RegionIndex);
+  // Artisans and scouts share news, but only quest guides change the tracked quest.
+  bLastGuideFoundQuest = LastNpcRole == 0
+    ? Arena->SelectNextDiscoveredDungeonQuestInRegion(Nearest->RegionIndex)
+    : false;
   if (bLastGuideFoundQuest) {
    const int32 Selected = Arena->GetTrackedDungeonQuestId();
    if (Selected >= 0 && Selected < 30) {
@@ -1170,11 +1176,11 @@ void AMoonfallHeroPawn::ApplyQuestGuideSocialAction(bool bIntimidate)
  for (TActorIterator<AMoonfallArena> It(GetWorld()); It; ++It) {
   AMoonfallArena* Arena = *It;
   if (!IsValid(Arena)) continue;
-  if (!Arena->RecordGuideSocialChoice(Nearest->RegionIndex, bIntimidate)) return;
+  if (!Arena->RecordNpcSocialChoice(Nearest->GetPersistentNpcId(), bIntimidate)) return;
   LastGuideRegionIndex = FMath::Clamp(Nearest->RegionIndex, 0, 5);
   LastGuideTitle = Nearest->GetGuideTitle().ToString();
-  LastGuideTrust = Arena->GetGuideTrust(Nearest->RegionIndex);
-  LastGuideFear = Arena->GetGuideFear(Nearest->RegionIndex);
+  LastGuideTrust = Arena->GetNpcTrust(Nearest->GetPersistentNpcId());
+  LastGuideFear = Arena->GetNpcFear(Nearest->GetPersistentNpcId());
   LastGuideSocialChoice = bIntimidate ? 1 : 0;
   LastGuideMessageUntil = GetWorld()->GetTimeSeconds() + 4.f;
   OnQuestGuideSpoken(LastGuideRegionIndex, false);
