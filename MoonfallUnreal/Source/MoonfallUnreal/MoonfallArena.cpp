@@ -181,6 +181,8 @@ void AMoonfallArena::Tick(float DeltaSeconds) {
    Hero->ApplyGuardianQuestRewards(GetCompletedDungeonQuestCount());
   if (bWorldSavePending) SaveWorldProgress();
   StreamWorld();
+  StreamResidents(UGameplayStatics::GetPlayerPawn(this, 0)
+    ? UGameplayStatics::GetPlayerPawn(this, 0)->GetActorLocation() : FVector::ZeroVector);
  }
 }
 void AMoonfallArena::StreamWorld() {
@@ -275,6 +277,10 @@ void AMoonfallArena::LoadWorldProgress() {
  NpcTrustMemory.Init(0, Regions * 3);
  NpcFearMemory.Init(0, Regions * 3);
  LastNpcSocialActionAt.Empty();
+ ResidentTrustMemory.Init(0, 1111 - Regions * 3);
+ ResidentFearMemory.Init(0, 1111 - Regions * 3);
+ ActiveResidents.Empty();
+ PopulationCursor = Regions * 3;
  LastGuideSocialActionAt.Empty();
  if (!UGameplayStatics::DoesSaveGameExist(WorldProgressSlot, 0)) return;
  UMoonfallWorldProgressSave* Saved = Cast<UMoonfallWorldProgressSave>(
@@ -326,6 +332,14 @@ void AMoonfallArena::LoadWorldProgress() {
   for (int32 Npc = 0; Npc < Regions * 3; ++Npc)
    NpcFearMemory[Npc] = FMath::Clamp(Saved->NpcFearMemory[Npc], 0, 100);
  }
+ if (Saved->ResidentTrustMemory.Num() == 1111 - Regions * 3) {
+  for (int32 Id = 0; Id < ResidentTrustMemory.Num(); ++Id)
+   ResidentTrustMemory[Id] = FMath::Clamp(Saved->ResidentTrustMemory[Id], -100, 100);
+ }
+ if (Saved->ResidentFearMemory.Num() == 1111 - Regions * 3) {
+  for (int32 Id = 0; Id < ResidentFearMemory.Num(); ++Id)
+   ResidentFearMemory[Id] = FMath::Clamp(Saved->ResidentFearMemory[Id], 0, 100);
+ }
  for (const int32 Room : Saved->DiscoveredChamberIds) {
   if (Room >= 0 && Room < Regions * DungeonsPerRegion * ChambersPerDungeon)
    DiscoveredChambers.Add(Room);
@@ -375,6 +389,8 @@ void AMoonfallArena::SaveWorldProgress() {
  Saved->GuideFearMemory = GuideFearMemory;
  Saved->NpcTrustMemory = NpcTrustMemory;
  Saved->NpcFearMemory = NpcFearMemory;
+ Saved->ResidentTrustMemory = ResidentTrustMemory;
+ Saved->ResidentFearMemory = ResidentFearMemory;
  Saved->TrackedDungeonQuestId = DiscoveredDungeonEntrances.Contains(TrackedDungeonQuestId)
   ? TrackedDungeonQuestId : -1;
  if (UGameplayStatics::SaveGameToSlot(Saved, WorldProgressSlot, 0))
@@ -468,6 +484,11 @@ bool AMoonfallArena::RecordGuideSocialChoice(int32 RegionIndex, bool bIntimidate
 }
 
 int32 AMoonfallArena::GetNpcTrust(int32 NpcId) const {
+ if (NpcId >= Regions * 3 && NpcId < 1111) {
+  const int32 Idx = NpcId - Regions * 3;
+  if (!ResidentTrustMemory.IsValidIndex(Idx)) return 0;
+  return FMath::Clamp(ResidentTrustMemory[Idx], -100, 100);
+ }
  if (NpcId < 0 || NpcId >= Regions * 3 || !NpcTrustMemory.IsValidIndex(NpcId)) return 0;
  int32 Deeds = 0;
  const int32 Region = NpcId / 3;
@@ -477,10 +498,32 @@ int32 AMoonfallArena::GetNpcTrust(int32 NpcId) const {
  return FMath::Clamp(NpcTrustMemory[NpcId] + Deeds, -100, 100);
 }
 int32 AMoonfallArena::GetNpcFear(int32 NpcId) const {
+ if (NpcId >= Regions * 3 && NpcId < 1111) {
+  const int32 Idx = NpcId - Regions * 3;
+  return ResidentFearMemory.IsValidIndex(Idx) ? FMath::Clamp(ResidentFearMemory[Idx], 0, 100) : 0;
+ }
  if (NpcId < 0 || NpcId >= Regions * 3 || !NpcFearMemory.IsValidIndex(NpcId)) return 0;
  return FMath::Clamp(NpcFearMemory[NpcId], 0, 100);
 }
 bool AMoonfallArena::RecordNpcSocialChoice(int32 NpcId, bool bIntimidate) {
+ if (NpcId >= Regions * 3 && NpcId < 1111) {
+  const int32 Index = NpcId - Regions * 3;
+  const int32 Region = Index % Regions;
+  if (!bContinuousWorld || !GetWorld() || !DiscoveredRegions.Contains(Region)
+      || !ResidentTrustMemory.IsValidIndex(Index) || !ResidentFearMemory.IsValidIndex(Index))
+   return false;
+  const float Now = GetWorld()->GetTimeSeconds();
+  if (!FMath::IsFinite(Now)) return false;
+  const float* Previous = LastNpcSocialActionAt.Find(NpcId);
+  if (Previous && Now - *Previous < 30.f) return false;
+  LastNpcSocialActionAt.Add(NpcId, Now);
+  ResidentTrustMemory[Index] = FMath::Clamp(
+   ResidentTrustMemory[Index] + (bIntimidate ? -10 : 7), -100, 100);
+  ResidentFearMemory[Index] = FMath::Clamp(
+   ResidentFearMemory[Index] + (bIntimidate ? 12 : -4), 0, 100);
+  bWorldSavePending = true;
+  return true;
+ }
  if (!bContinuousWorld || !GetWorld() || NpcId < 0 || NpcId >= Regions * 3
      || !DiscoveredRegions.Contains(NpcId / 3)
      || !NpcTrustMemory.IsValidIndex(NpcId) || !NpcFearMemory.IsValidIndex(NpcId)) return false;
@@ -539,4 +582,49 @@ int32 AMoonfallArena::GetRegionalFactionStanding(int32 RegionIndex) const {
   Sum -= GetNpcFear(NpcId) / 2;
  }
  return FMath::Clamp(FMath::RoundToInt(Sum / 3.f), -100, 100);
+}
+
+FVector AMoonfallArena::GetResidentHome(int32 ResidentId) {
+ // IDs 18..1110 distribute evenly across six regions, without storing locations.
+ const int32 Local = (ResidentId - Regions * 3) / Regions;
+ const int32 Region = (ResidentId - Regions * 3) % Regions;
+ const int32 Column = Local % 15;
+ const int32 Row = Local / 15;
+ return FVector(Region * RegionSpacing - 1900.f + Column * 270.f,
+   -1650.f + Row * 260.f, 105.f);
+}
+void AMoonfallArena::StreamResidents(const FVector& PlayerLocation) {
+ if (!GetWorld()) return;
+ // Unload far actors first. Defeated enemies and the 18 authored NPCs are unaffected.
+ for (auto It = ActiveResidents.CreateIterator(); It; ++It) {
+  AMoonfallQuestGuide* Npc = It.Value().Get();
+  if (!IsValid(Npc)) { It.RemoveCurrent(); continue; }
+  if (FVector::DistSquared2D(Npc->GetActorLocation(), PlayerLocation) > FMath::Square(1650.f)) {
+   Npc->Destroy();
+   It.RemoveCurrent();
+  }
+ }
+ constexpr int32 MaxStreamedResidents = 24;
+ if (ActiveResidents.Num() >= MaxStreamedResidents) return;
+ // Scan no more than 80 records per quarter-second tick; spawn at most two.
+ int32 Spawned = 0;
+ for (int32 Checked = 0; Checked < 80 && Spawned < 2
+      && ActiveResidents.Num() < MaxStreamedResidents; ++Checked) {
+  const int32 Id = PopulationCursor;
+  PopulationCursor = Regions * 3 + (PopulationCursor - Regions * 3 + 1) % (1111 - Regions * 3);
+  if (ActiveResidents.Contains(Id)) continue;
+  const FVector Home = GetResidentHome(Id);
+  if (FVector::DistSquared2D(Home, PlayerLocation) > FMath::Square(1200.f)) continue;
+  const FTransform SpawnTransform(FRotator::ZeroRotator, Home);
+  AMoonfallQuestGuide* Npc = Cast<AMoonfallQuestGuide>(
+   UGameplayStatics::BeginDeferredActorSpawnFromClass(this,
+    AMoonfallQuestGuide::StaticClass(), SpawnTransform));
+  if (!Npc) continue;
+  Npc->PopulationNpcId = Id;
+  Npc->RegionIndex = (Id - Regions * 3) % Regions;
+  Npc->RoleIndex = 1 + ((Id - Regions * 3) / Regions) % 2;
+  UGameplayStatics::FinishSpawningActor(Npc, SpawnTransform);
+  ActiveResidents.Add(Id, Npc);
+  ++Spawned;
+ }
 }
