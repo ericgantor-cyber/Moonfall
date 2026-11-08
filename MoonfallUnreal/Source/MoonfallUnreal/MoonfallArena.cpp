@@ -1,6 +1,7 @@
 #include "MoonfallArena.h"
 #include "MoonfallEnemy.h"
 #include "MoonfallHeroPawn.h"
+#include "MoonfallQuestGuide.h"
 #include "MoonfallWorldProgressSave.h"
 #include "Components/SceneComponent.h"
 #include "Components/StaticMeshComponent.h"
@@ -120,6 +121,11 @@ void AMoonfallArena::BuildWorld() {
  // The existing small test arena remains available when bContinuousWorld is false.
  for (int32 Region = 0; Region < Regions; ++Region) {
   CreateBlock(FVector(Region * RegionSpacing, 0.f, -60.f), FVector(60.f, 60.f, 1.f));
+  // One harmless quest guide near the center of each discovered region.
+  const FVector GuideAt(Region * RegionSpacing + 700.f, 350.f, 105.f);
+  if (AMoonfallQuestGuide* Guide = GetWorld()->SpawnActor<AMoonfallQuestGuide>(
+      AMoonfallQuestGuide::StaticClass(), GuideAt, FRotator::ZeroRotator))
+   Guide->RegionIndex = Region;
   for (int32 Dungeon = 0; Dungeon < DungeonsPerRegion; ++Dungeon) {
    const FVector Entrance = RoomCenter(Region, Dungeon, 0);
    CreateBlock(FVector(Entrance.X, 8650.f, -60.f), FVector(3.5f, 120.f, 1.f));
@@ -369,4 +375,22 @@ bool AMoonfallArena::TrackDungeonQuest(int32 EntranceId) {
   bWorldSavePending = true;
  }
  return true;
+}
+
+bool AMoonfallArena::SelectNextDiscoveredDungeonQuestInRegion(int32 RegionIndex) {
+ if (!bContinuousWorld || RegionIndex < 0 || RegionIndex >= Regions) return false;
+ // Deterministic rotation among visited entrances, with unfinished quests first.
+ const int32 Start = RegionIndex * DungeonsPerRegion;
+ const int32 Current = TrackedDungeonQuestId;
+ for (int32 Pass = 0; Pass < 2; ++Pass) {
+  for (int32 Offset = 1; Offset <= DungeonsPerRegion; ++Offset) {
+   const int32 CurrentLocal = Current >= Start && Current < Start + DungeonsPerRegion
+      ? Current - Start : -1;
+   const int32 EntranceId = Start + (CurrentLocal + Offset) % DungeonsPerRegion;
+   if (!DiscoveredDungeonEntrances.Contains(EntranceId)) continue;
+   if (Pass == 0 && IsDungeonQuestCompleted(EntranceId)) continue;
+   return TrackDungeonQuest(EntranceId);
+  }
+ }
+ return false;
 }
