@@ -147,6 +147,28 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("void AMoonfallEnemy::BeginPlay()", self.enemy_cpp)
         self.assertIn("Hero->AwardEquipmentDrop", self.enemy_cpp)
 
+    def test_random_item_affixes_apply_bounded_slot_specific_bonuses(self):
+        for field in ("LastLootAffix", "WeaponAffix", "ArmorAffix", "AccessoryAffix"):
+            self.assertIn("int32 " + field + " = 0;", self.hero_h)
+        loot = self.hero_cpp.split("void AMoonfallHeroPawn::AwardEquipmentDrop(", 1)[1].split(
+            "void AMoonfallHeroPawn::", 1)[0]
+        self.assertIn("LastLootAffix = LastLootRarity == 0 ? 0", loot)
+        self.assertIn("FMath::RandRange(1, 3)", loot)
+        self.assertIn("LastLootAffix * 100000 + LastLootSlot * 10000", loot)
+        self.assertIn("int32* EquippedAffix =", loot)
+        self.assertIn("*EquippedAffix = LastLootAffix;", loot)
+        self.assertLess(loot.index("if (NewTier > *Slot) {"), loot.index("*EquippedAffix = LastLootAffix;"))
+        cast = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split(
+            "void AMoonfallHeroPawn::CastLeft()", 1)[0]
+        self.assertIn("(WeaponAffix == 1 ? 0.06f : 0.f)", cast)
+        damage = self.hero_cpp.split("void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount)", 1)[1].split(
+            "void AMoonfallHeroPawn::CycleGraphicsQuality()", 1)[0]
+        self.assertIn("FMath::Min(0.34f", damage)
+        self.assertIn("(ArmorAffix == 2 ? 0.06f : 0.f)", damage)
+        self.assertIn("(AccessoryAffix == 3 ? 0.08f : 0.f)", self.hero_cpp)
+        self.assertIn("InventoryItemCodes.Num() >= 30", loot)
+        self.assertNotIn("FinisherShockwave", self.hero_cpp)
+
     def test_randomized_loot_rarity_is_bounded_with_boss_guarantees(self):
         loot = self.hero_cpp.split("void AMoonfallHeroPawn::AwardEquipmentDrop(", 1)[1].split(
             "void AMoonfallHeroPawn::", 1)[0]
@@ -159,7 +181,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("LootRoll < 53 + RarityBias ? 1 : 0", loot)
         self.assertIn("FMath::Clamp(Level / 5", loot)
         self.assertIn("InventoryItemCodes.Num() >= 30", loot)
-        self.assertIn("LastLootSlot * 10000 + LastLootRarity * 1000 + NewTier", loot)
+        self.assertIn("LastLootAffix * 100000 + LastLootSlot * 10000", loot)
         self.assertNotIn("FinisherShockwave", self.hero_cpp)
 
     def test_equipment_stats_affect_combat(self):
