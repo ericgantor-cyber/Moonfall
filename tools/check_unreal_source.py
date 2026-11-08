@@ -1600,6 +1600,19 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("FinisherShockwave", self.hero_h)
         self.assertNotIn("FinisherShockwave", self.hero_cpp)
 
+    def test_optional_twelve_slot_combo_animation_montages(self):
+        self.assertIn("TArray<TObjectPtr<UAnimMontage>> ComboMontages;", self.hero_h)
+        cast = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split(
+            "void AMoonfallHeroPawn::CastLeft()", 1)[0]
+        self.assertIn("ComboMontages.IsValidIndex(HitComboStage - 1)", cast)
+        self.assertIn("ComboMontages[HitComboStage - 1].Get()", cast)
+        self.assertIn("Anim->Montage_Play(Montage, 1.f);", cast)
+        self.assertIn("!bReduceMotion", cast)
+        self.assertLess(cast.index("if (ActualSpellDamage > 0.f) {"),
+                        cast.index("Anim->Montage_Play(Montage, 1.f);"))
+        self.assertLess(cast.index("Anim->Montage_Play(Montage, 1.f);"),
+                        cast.index("OnSuccessfulHitCombo(HitComboStage, Hand == 0);"))
+
     def test_combo_milestone_reaction_cues_are_bounded(self):
         self.assertIn("void RegisterComboMilestone(int32 Stage);", self.enemy_h)
         self.assertIn("void OnComboMilestone(int32 Stage);", self.enemy_h)
