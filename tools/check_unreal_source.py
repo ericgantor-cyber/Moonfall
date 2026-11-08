@@ -234,7 +234,13 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("InventoryItemCodes.Add(ItemCode);", collect)
         self.assertNotIn("EquippedCode =", collect)
         self.assertNotIn("Salvage =", collect)
-        self.assertNotIn("RemoveAt(", collect)
+        # The only removal is the last appended item if the disk save fails.
+        self.assertIn("if (!TrySavePlayerEconomy()) {", collect)
+        self.assertIn("InventoryItemCodes.RemoveAt(InventoryItemCodes.Num() - 1);", collect)
+        self.assertLess(collect.index("InventoryItemCodes.Add(ItemCode);"),
+                        collect.index("if (!TrySavePlayerEconomy()) {"))
+        self.assertLess(collect.index("if (!TrySavePlayerEconomy()) {"),
+                        collect.index("LastLootAffix = Affix;"))
         self.assertIn("PrimaryActorTick.bCanEverTick = false;", ground_cpp)
         self.assertIn("CreateDefaultSubobject<UTextRenderComponent>", ground_cpp)
         self.assertIn("CreateDefaultSubobject<UStaticMeshComponent>", ground_cpp)
