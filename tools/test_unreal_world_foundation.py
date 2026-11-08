@@ -575,7 +575,8 @@ class WorldFoundationTests(unittest.TestCase):
         self.assertIn("void AMoonfallHeroPawn::CraftWithNearestArtisan()", hero_cpp)
         body = hero_cpp.split("void AMoonfallHeroPawn::CraftWithNearestArtisan()", 1)[1].split("void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[0]
         self.assertIn("if (!IsValid(Npc) || Npc->RoleIndex != 1) continue;", body)
-        self.assertIn("if (LastCraftPrice <= 0 || LastWorkshopStock <= 0 || Salvage < LastCraftPrice) return;", body)
+        self.assertIn("if (LastCraftPrice <= 0 || LastWorkshopStock <= 0 || Salvage < LastCraftPrice ||", body)
+        self.assertIn("InventoryItemCodes.Num() >= 2048) return;", body)
         self.assertIn("if (!Arena->PurchaseWorkshopStock(Region)) return;", body)
         self.assertIn("Salvage -= LastCraftPrice;", body)
         self.assertIn("InventoryItemCodes.Add(ItemCode);", body)
