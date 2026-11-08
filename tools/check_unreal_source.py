@@ -356,7 +356,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("bSprintHeld && Stamina <= 0.f", tick)
         self.assertIn("Stamina = FMath::Clamp(Stamina, 0.f, MaxStamina)", tick)
         self.assertIn("!FMath::IsFinite(Stamina) || !FMath::IsFinite(MaxStamina)", tick)
-        self.assertIn("!bSprintExhausted && !bGuarding && !bOptionsOpen && Health > 0.f", tick)
+        self.assertIn("!bSprintExhausted && !bGuarding && !bOptionsOpen && !bInventoryOpen && Health > 0.f", tick)
         self.assertIn("GetLastMovementInputVector().SizeSquared2D() > 0.01f", tick)
         self.assertIn("GetTimeSeconds() >= DamageImmunityUntil", tick)
         self.assertIn("if (GetCharacterMovement()) GetCharacterMovement()->MaxWalkSpeed = NormalWalkSpeed;", self.hero_cpp)
