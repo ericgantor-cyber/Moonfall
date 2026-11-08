@@ -1136,6 +1136,8 @@ void AMoonfallHeroPawn::InteractQuestGuide()
  LastGuideQuestId = -1;
  LastGuideResidentDefeats = 0;
  bLastGuideGuardianDefeated = false;
+ bLastCraftSucceeded = false;
+ LastCraftPrice = 0;
  LastGuideMessageUntil = GetWorld()->GetTimeSeconds() + 4.f;
  for (TActorIterator<AMoonfallArena> It(GetWorld()); It; ++It) {
   AMoonfallArena* Arena = *It;
@@ -1198,7 +1200,9 @@ void AMoonfallHeroPawn::ApplyQuestGuideSocialAction(bool bIntimidate)
     Nearest->RegionIndex * 3);
   Nearest->ReactToPlayer(LastGuideTrust, LastGuideFear);
   LastGuideSocialChoice = bIntimidate ? 1 : 0;
-  LastGuideMessageUntil = GetWorld()->GetTimeSeconds() + 4.f;
+  bLastCraftSucceeded = false;
+ LastCraftPrice = 0;
+ LastGuideMessageUntil = GetWorld()->GetTimeSeconds() + 4.f;
   OnQuestGuideSpoken(LastGuideRegionIndex, false);
   break;
  }
@@ -1233,7 +1237,9 @@ void AMoonfallHeroPawn::BuyNearestNpcService()
   LastServicePrice = Price;
   bLastServicePurchased = false;
   LastGuideSocialChoice = -1;
-  LastGuideMessageUntil = GetWorld()->GetTimeSeconds() + 4.f;
+  bLastCraftSucceeded = false;
+ LastCraftPrice = 0;
+ LastGuideMessageUntil = GetWorld()->GetTimeSeconds() + 4.f;
   // Spend real salvage only for a genuinely missing resource. No kill-healing.
   const bool bNeedsService = Role == 1
     ? (FMath::IsFinite(Mana) && FMath::IsFinite(MaxMana) && Mana < MaxMana - 1.f)
