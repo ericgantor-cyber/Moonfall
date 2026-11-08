@@ -176,7 +176,8 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
     ? FMath::Clamp(GuardStaminaDrainPerSecond, 0.f, 30.f) : 0.f;
   Stamina = FMath::Clamp(Stamina - GuardDrain * StaminaDelta, 0.f, MaxStamina);
   if (GuardDrain > 0.f) StaminaRegenStartsAt = FMath::Max(
-      StaminaRegenStartsAt, GetWorld()->GetTimeSeconds() + 0.8f);
+      FMath::IsFinite(StaminaRegenStartsAt) ? StaminaRegenStartsAt : GetWorld()->GetTimeSeconds(),
+      GetWorld()->GetTimeSeconds() + 0.8f);
   // Guard cannot continue in a state where even a base block is impossible.
   // Positive-cost guards break at the threshold; zero-cost guards break at zero.
   if (Stamina <= 0.f || (GuardStaminaCost > 0.f && Stamina < GuardStaminaCost))
@@ -392,13 +393,17 @@ void AMoonfallHeroPawn::BreakGuard()
 
 void AMoonfallHeroPawn::BeginGuard()
 {
- if (bOptionsOpen || bInventoryOpen || Health <= 0.f || !GetWorld() || bGuarding
+ if (bOptionsOpen || bInventoryOpen || Health <= 0.f || !FMath::IsFinite(Health) || !GetWorld() || bGuarding
      // Do not stack a fresh parry window on top of dodge invulnerability.
      || GetWorld()->GetTimeSeconds() < DamageImmunityUntil
      || GetWorld()->GetTimeSeconds() < GuardBrokenUntil
      || !FMath::IsFinite(Stamina) || !FMath::IsFinite(MaxStamina) || MaxStamina <= 0.f
      || !FMath::IsFinite(GuardStaminaCost) || GuardStaminaCost < 0.f
      || Stamina < GuardStaminaCost) return;
+ // Guard and parry cooldown timestamps must be finite before committing stamina or stance.
+ const float GuardNow = GetWorld()->GetTimeSeconds();
+ if (!FMath::IsFinite(GuardNow) || !FMath::IsFinite(DamageImmunityUntil)
+     || !FMath::IsFinite(GuardBrokenUntil) || !FMath::IsFinite(NextParryAt)) return;
  // A new guard stance cancels held sprint instead of resuming it on release.
  EndSprint();
  bGuarding = true;
@@ -426,7 +431,7 @@ void AMoonfallHeroPawn::EndGuard()
   GetCharacterMovement()->MaxWalkSpeed = NormalWalkSpeed;
  // Guard stance cannot refill stamina for free; preserve longer dodge/impact delays.
  if (bWasGuarding && GetWorld())
-  StaminaRegenStartsAt = FMath::Max(StaminaRegenStartsAt, GetWorld()->GetTimeSeconds() + 0.4f);
+  StaminaRegenStartsAt = FMath::Max(FMath::IsFinite(StaminaRegenStartsAt) ? StaminaRegenStartsAt : GetWorld()->GetTimeSeconds(), GetWorld()->GetTimeSeconds() + 0.4f);
 }
 void AMoonfallHeroPawn::BeginSprint() {
  // Menu and defeat inputs must not latch a sprint for later gameplay.
@@ -517,8 +522,12 @@ bool AMoonfallHeroPawn::ApplyMoonfallDamageFrom(float Amount, const FVector& Sou
 }
 
 void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
- if (Health <= 0.f || !FMath::IsFinite(Amount) || Amount <= 0.f || !GetWorld() || GetWorld()->GetTimeSeconds() < DamageImmunityUntil) return;
+ // Reject invalid hero vitals and damage before guard math or HUD updates.
+ if (Health <= 0.f || !FMath::IsFinite(Health) || !FMath::IsFinite(MaxHealth)
+     || MaxHealth <= 0.f || !FMath::IsFinite(Amount) || Amount <= 0.f || !GetWorld()) return;
  const float Now = GetWorld()->GetTimeSeconds();
+ if (!FMath::IsFinite(Now) || !FMath::IsFinite(DamageImmunityUntil)
+     || GetWorld()->GetTimeSeconds() < DamageImmunityUntil) return;
  const float PreviousHealth = Health;
  // Ward armor affix provides a small, capped flat mitigation bonus.
  const float ArmorMitigation = FMath::Min(0.34f, FMath::Min(0.28f, ArmorTier * 0.01f)
@@ -544,6 +553,7 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
  // Perfect parries are deliberate responses to a known, front-facing
  // attacker. Environmental damage without a source may still be blocked.
  const bool bPerfectParry = bGuarding && bHasIncomingDamageSource && bFrontAttack
+     && FMath::IsFinite(ParryWindowEndsAt) && FMath::IsFinite(NextParryAt)
      && Now <= ParryWindowEndsAt && Now <= NextParryAt;
  const float RequiredGuardCost = bPerfectParry ? 0.f : HitGuardCost;
  if (bGuarding && bFrontAttack && !bOptionsOpen
@@ -690,6 +700,8 @@ bool AMoonfallHeroPawn::SalvageInventoryItem(int32 InventoryIndex)
 }
 void AMoonfallHeroPawn::InventoryConfirm() { EquipSelectedInventoryItem(); }
 void AMoonfallHeroPawn::OpenOptions() {
+ // The defeat screen owns input until respawn; do not reopen gameplay menus.
+ if (Health <= 0.f || !FMath::IsFinite(Health)) return;
  if (bInventoryOpen) { bInventoryOpen = false; return; }
  if (!bOptionsOpen) {
   StopJumping();
