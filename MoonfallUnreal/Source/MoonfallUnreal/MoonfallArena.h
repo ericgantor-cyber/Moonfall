@@ -15,6 +15,11 @@ public:
  const TSet<int32>& GetDiscoveredChambers() const { return DiscoveredChambers; }
  const TSet<int32>& GetDiscoveredRegions() const { return DiscoveredRegions; }
  const TSet<int32>& GetDiscoveredDungeonEntrances() const { return DiscoveredDungeonEntrances; }
+ // One grounded quest per dungeon, completed only when its actual final guardian dies.
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Quests") bool TrackDungeonQuest(int32 EntranceId);
+ UFUNCTION(BlueprintPure, Category="Moonfall|Quests") bool IsDungeonQuestCompleted(int32 EntranceId) const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Quests") int32 GetTrackedDungeonQuestId() const { return TrackedDungeonQuestId; }
+ UFUNCTION(BlueprintPure, Category="Moonfall|Quests") int32 GetCompletedDungeonQuestCount() const;
 private:
  TSet<int32> BuiltRooms;
  TSet<int32> SpawnedEncounters;
@@ -22,6 +27,7 @@ private:
  TSet<int32> DiscoveredChambers;
  TSet<int32> DiscoveredRegions;
  TSet<int32> DiscoveredDungeonEntrances;
+ int32 TrackedDungeonQuestId = -1;
  TMap<int32, TWeakObjectPtr<AMoonfallEnemy>> ActiveEncounters;
  bool bWorldSavePending = false;
  void LoadWorldProgress();
