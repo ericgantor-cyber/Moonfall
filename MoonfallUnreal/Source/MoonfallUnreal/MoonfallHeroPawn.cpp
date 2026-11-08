@@ -355,9 +355,10 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
     Enemy->ApplyPostureDamage(FMath::Clamp(HitComboFourthHitPosture, 0.f, 30.f));
    if (bNewPostureMilestone && Enemy->Health > 0.f)
     Enemy->RegisterComboMilestone(HitComboStage);
-   // Authored montages are optional and never gate successful damage.
-   // Do not cycle fewer assets as if they were twelve distinct animations.
-   if (!bReduceMotion && HitComboStage >= 1 && HitComboStage <= 12
+   // A lethal hit may have already started finisher choreography in
+   // TakeSpellDamage. Never interrupt that finisher with a basic combo montage.
+   // Nonlethal hits use their authored slot, without requiring every slot.
+   if (Enemy->Health > 0.f && !bReduceMotion && HitComboStage >= 1 && HitComboStage <= 12
        && ComboMontages.IsValidIndex(HitComboStage - 1) && GetMesh()) {
     if (UAnimInstance* Anim = GetMesh()->GetAnimInstance()) {
      if (UAnimMontage* Montage = ComboMontages[HitComboStage - 1].Get())
