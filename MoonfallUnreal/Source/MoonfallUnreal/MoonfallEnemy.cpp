@@ -99,6 +99,9 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
     ? Amount * 0.75f : Amount;
   const float EffectiveDamage = BracedDamage
     * (bShatterFinisher ? FinisherMultiplier : (bPostureExposed ? ExposureMultiplier : 1.f));
+  // Extreme finite Blueprint values can overflow once affixes and shatter multiply.
+  // Do not consume the once-only shatter opening for invalid damage.
+  if (!FMath::IsFinite(EffectiveDamage) || EffectiveDamage <= 0.f) return;
   if (bShatterFinisher) bPostureFinisherAvailable = false;
   const float HealthBeforeHit = Health;
   Health = FMath::Max(0.0f, Health - FMath::Max(0.0f, EffectiveDamage));
@@ -210,6 +213,9 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   return;
  }
  const float Now = GetWorld()->GetTimeSeconds();
+ // Finite, capped simulation time prevents a hung frame from teleporting enemies.
+ if (!FMath::IsFinite(Now)) return;
+ const float SafeAIDelta = FMath::IsFinite(DeltaSeconds) ? FMath::Clamp(DeltaSeconds, 0.f, 0.1f) : 0.f;
  // Pause hostile behavior during both gameplay menus and after hero defeat.
  // Cancel winding attacks so closing a menu never delivers an instant hit.
  AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0));
@@ -380,7 +386,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
    // Sweep a bounded step each AI tick. Stop short of the hero, and stop at walls.
    const FVector DashVector = (Hero->GetActorLocation() - GetActorLocation()).GetSafeNormal2D();
    const float Remaining = FMath::Max(0.f, Distance - 85.f);
-   const float Step = FMath::Min(FMath::Min(960.f * FMath::Max(0.f, DeltaSeconds), Remaining), 240.f);
+   const float Step = FMath::Min(FMath::Min(960.f * SafeAIDelta, Remaining), 240.f);
    if (Step > 0.f) {
     FHitResult DashHit;
     AddActorWorldOffset(DashVector * Step, true, &DashHit);
@@ -442,7 +448,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   }
   FVector Direction = Target - GetActorLocation();
   Direction.Z = 0.f;
-  AddActorWorldOffset(Direction.GetSafeNormal() * ChaseSpeed * DeltaSeconds, true, &Hit);
+  AddActorWorldOffset(Direction.GetSafeNormal() * FMath::Clamp(FMath::IsFinite(ChaseSpeed) ? ChaseSpeed : 0.f, 0.f, 2000.f) * SafeAIDelta, true, &Hit);
   // If collision blocks the cached route, request a fresh navigation path.
   // Rate-limit retries to avoid a synchronous path solve every AI tick.
   if (Hit.bBlockingHit && Now >= NextBlockedRepathAt) {
