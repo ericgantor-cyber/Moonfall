@@ -3,6 +3,7 @@
 #include "GameFramework/Actor.h"
 #include "MoonfallEnemy.generated.h"
 class UStaticMeshComponent;
+class UPointLightComponent;
 UCLASS()
 class MOONFALLUNREAL_API AMoonfallEnemy : public AActor
 {
@@ -80,6 +81,8 @@ private:
  float CurrentAttackRangeMultiplier = 1.f;
 public:
  UPROPERTY(VisibleAnywhere) UStaticMeshComponent* Body;
+ // Reused non-shadow-casting in-world windup light: no spawned particles or new actor.
+ UPROPERTY(VisibleAnywhere, Category="Combat|Visuals") UPointLightComponent* AttackTellLight = nullptr;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Combat") float LastHitAmount = 0.f;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Combat") float LastHitTime = -10.f;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Combat") bool bLastHitWasShatter = false;
