@@ -176,7 +176,8 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
     ? FMath::Clamp(GuardStaminaDrainPerSecond, 0.f, 30.f) : 0.f;
   Stamina = FMath::Clamp(Stamina - GuardDrain * StaminaDelta, 0.f, MaxStamina);
   if (GuardDrain > 0.f) StaminaRegenStartsAt = FMath::Max(
-      StaminaRegenStartsAt, GetWorld()->GetTimeSeconds() + 0.8f);
+      FMath::IsFinite(StaminaRegenStartsAt) ? StaminaRegenStartsAt : GetWorld()->GetTimeSeconds(),
+      GetWorld()->GetTimeSeconds() + 0.8f);
   // Guard cannot continue in a state where even a base block is impossible.
   // Positive-cost guards break at the threshold; zero-cost guards break at zero.
   if (Stamina <= 0.f || (GuardStaminaCost > 0.f && Stamina < GuardStaminaCost))
@@ -392,7 +393,7 @@ void AMoonfallHeroPawn::BreakGuard()
 
 void AMoonfallHeroPawn::BeginGuard()
 {
- if (bOptionsOpen || bInventoryOpen || Health <= 0.f || !GetWorld() || bGuarding
+ if (bOptionsOpen || bInventoryOpen || Health <= 0.f || !FMath::IsFinite(Health) || !GetWorld() || bGuarding
      // Do not stack a fresh parry window on top of dodge invulnerability.
      || GetWorld()->GetTimeSeconds() < DamageImmunityUntil
      || GetWorld()->GetTimeSeconds() < GuardBrokenUntil
