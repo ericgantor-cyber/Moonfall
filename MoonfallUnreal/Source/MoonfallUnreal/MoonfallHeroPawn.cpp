@@ -523,6 +523,8 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
   LastSuccessfulHitAt = -100.f;
  }
  if (Health <= 0.f) {
+  // Clear any held sprint so a later respawn cannot inherit it.
+  EndSprint();
   EndGuard();
   // Defeat must not leave the inventory overlay trapping the player.
   bInventoryOpen = false;
