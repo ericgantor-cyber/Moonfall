@@ -2,6 +2,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "MoonfallArena.generated.h"
+class AMoonfallEnemy;
 UCLASS()
 class MOONFALLUNREAL_API AMoonfallArena : public AActor {
  GENERATED_BODY()
