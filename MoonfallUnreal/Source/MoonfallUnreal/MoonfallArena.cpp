@@ -529,6 +529,15 @@ bool AMoonfallArena::RecordNpcSocialChoice(int32 NpcId, bool bIntimidate) {
    ResidentTrustMemory[Index] + (bIntimidate ? -10 : 7), -100, 100);
   ResidentFearMemory[Index] = FMath::Clamp(
    ResidentFearMemory[Index] + (bIntimidate ? 12 : -4), 0, 100);
+  // Two neighbors in the same virtual town hear about the interaction.
+  // A fixed one-hop update, never a cascading social graph traversal.
+  for (int32 Offset : {-Regions, Regions}) {
+   const int32 Neighbor = Index + Offset;
+   if (!ResidentTrustMemory.IsValidIndex(Neighbor) ||
+       Neighbor % Regions != Region) continue;
+   ResidentTrustMemory[Neighbor] = FMath::Clamp(
+     ResidentTrustMemory[Neighbor] + (bIntimidate ? -2 : 1), -100, 100);
+  }
   bWorldSavePending = true;
   return true;
  }
@@ -589,7 +598,23 @@ int32 AMoonfallArena::GetRegionalFactionStanding(int32 RegionIndex) const {
   Sum += GetNpcTrust(NpcId);
   Sum -= GetNpcFear(NpcId) / 2;
  }
- return FMath::Clamp(FMath::RoundToInt(Sum / 3.f), -100, 100);
+ // Active social history from generated residents contributes without letting
+ // neutral virtual residents drown out the original three named NPCs.
+ int32 ActiveCount = 0;
+ int32 ResidentSum = 0;
+ for (int32 Index = RegionIndex; Index < ResidentTrustMemory.Num(); Index += Regions) {
+  if (!ResidentFearMemory.IsValidIndex(Index)) break;
+  const int32 Trust = ResidentTrustMemory[Index], Fear = ResidentFearMemory[Index];
+  if (Trust == 0 && Fear == 0) continue;
+  ResidentSum += Trust - Fear / 2;
+  ++ActiveCount;
+ }
+ const int32 NamedStanding = FMath::RoundToInt(Sum / 3.f);
+ if (ActiveCount == 0) return FMath::Clamp(NamedStanding, -100, 100);
+ const int32 ResidentStanding = FMath::RoundToInt(
+   static_cast<float>(ResidentSum) / ActiveCount);
+ return FMath::Clamp(FMath::RoundToInt(
+   NamedStanding * 0.7f + ResidentStanding * 0.3f), -100, 100);
 }
 
 FVector AMoonfallArena::GetResidentHome(int32 ResidentId) {
