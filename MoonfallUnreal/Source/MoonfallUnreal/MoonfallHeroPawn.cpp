@@ -111,7 +111,8 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
  // Recovery in either menu is bounded and never revives a defeated hero.
  if ((bOptionsOpen || bInventoryOpen) && Health > 0.f && FMath::IsFinite(Health)
      && FMath::IsFinite(MaxHealth) && MaxHealth > 0.f && Health < MaxHealth
-     && FMath::IsFinite(MenuHealthRegenPerSecond) && MenuHealthRegenPerSecond > 0.f) {
+     && FMath::IsFinite(MenuHealthRegenPerSecond) && MenuHealthRegenPerSecond > 0.f
+     && GetWorld() && GetWorld()->GetTimeSeconds() >= MenuHealthRegenStartsAt) {
   const float BeforeRegen = Health;
   Health = FMath::Min(MaxHealth, Health + FMath::Clamp(MenuHealthRegenPerSecond, 0.f, 20.f)
       * FMath::Clamp(DeltaSeconds, 0.f, 0.1f));
@@ -532,6 +533,8 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
  // Fully blocked/parried hits leave it intact.
  const float DamageTaken = PreviousHealth - Health;
  if (DamageTaken > 0.f) {
+  // Prevent immediate menu healing after taking combat damage.
+  MenuHealthRegenStartsAt = Now + FMath::Clamp(MenuHealthRegenDelaySeconds, 0.f, 10.f);
   ParryCounterUntil = -1.f;
   // A real injury breaks the aggressive momentum chain. Parries and blocks
   // still preserve it, so defensive skill matters.
