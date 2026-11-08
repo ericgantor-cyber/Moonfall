@@ -136,7 +136,7 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
       && MaxHealthAtSpawn > 0.f && Health / MaxHealthAtSpawn <= 0.3f
       && FMath::IsFinite(Now) && Now >= NextTacticalRetreatAt
       && Now >= PostureBrokenUntil) {
-   TacticalRetreatUntil = Now + 0.7f;
+   TacticalRetreatUntil = Now + 2.f;
    NextTacticalRetreatAt = Now + 8.f;
    NextAttackAt = FMath::Max(NextAttackAt, TacticalRetreatUntil + 0.25f);
    WindupEndsAt = -1.f;
@@ -338,6 +338,18 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   NextPathRefreshAt = 0.f;
   return;
  }
+ // Complete the full two-second elite retreat even after moving outside
+ // melee range. Otherwise the pursuit branch would cancel it early.
+ if (bElite && !bBoss && Now < TacticalRetreatUntil
+     && Now >= HitReactionEndsAt && Now >= PostureBrokenUntil) {
+  if (Distance > 1.f) {
+   const FVector RetreatDirection = -Difference.GetSafeNormal2D();
+   const float RetreatStep = 200.f * SafeAIDelta;
+   FHitResult RetreatHit;
+   AddActorWorldOffset(RetreatDirection * RetreatStep, true, &RetreatHit);
+  }
+  return;
+ }
  if (WindupEndsAt > 0.f && Now >= WindupEndsAt) {
   WindupEndsAt = -1.f;
   BossWarningEndTime = -1.f;
@@ -528,16 +540,6 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
    CachedWaypoint = FVector::ZeroVector;
   }
  } else if (Distance <= AttackRange) {
-  // A wounded elite falls back only within its short earned retreat window.
-  // Swept movement honors solid geometry and never changes boss behavior.
-  if (bElite && !bBoss && Now < TacticalRetreatUntil
-      && Now >= HitReactionEndsAt && Now >= PostureBrokenUntil && Distance > 1.f) {
-   const FVector RetreatDirection = -Difference.GetSafeNormal2D();
-   const float RetreatStep = 200.f * SafeAIDelta;
-   FHitResult RetreatHit;
-   AddActorWorldOffset(RetreatDirection * RetreatStep, true, &RetreatHit);
-   return;
-  }
   // Elites and advanced bosses reposition between strikes, not during
   // locked attack windups or posture breaks. A small sideways sweep keeps
   // combat mobile while preserving walls, hit arcs and dodge windows.
