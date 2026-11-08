@@ -362,11 +362,17 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("|| Stamina < GuardStaminaCost) return;", guard)
         self.assertLess(guard.index("|| Stamina < GuardStaminaCost) return;"), guard.index("EndSprint();"))
 
-    def test_stamina_regeneration_pauses_for_open_menus(self):
+    def test_menu_regen_restores_hp_mana_and_stamina(self):
         tick = self.hero_cpp.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1].split(
             "void AMoonfallHeroPawn::SetupPlayerInputComponent", 1)[0]
-        self.assertIn("if (Health > 0.f && !bOptionsOpen && !bInventoryOpen\n"
-                      "     && !bSprinting && !bGuarding && GetWorld()", tick)
+        self.assertIn("Mana + ManaRegenPerSecond", tick)
+        self.assertIn("(bOptionsOpen || bInventoryOpen) && Health > 0.f", tick)
+        self.assertIn("FMath::IsFinite(MenuHealthRegenPerSecond)", tick)
+        self.assertIn("FMath::Clamp(MenuHealthRegenPerSecond, 0.f, 20.f)", tick)
+        self.assertIn("OnHealthChanged(Health, MaxHealth)", tick)
+        self.assertIn("if (Health > 0.f && !bSprinting && !bGuarding && GetWorld()", tick)
+        self.assertNotIn("!bOptionsOpen && !bInventoryOpen\\n     && !bSprinting", tick)
+        self.assertIn("float MenuHealthRegenPerSecond = 2.f;", self.hero_h)
 
     def test_sprint_input_is_rejected_in_menus_or_after_defeat(self):
         begin = self.hero_cpp.split("void AMoonfallHeroPawn::BeginSprint()", 1)[1].split(
