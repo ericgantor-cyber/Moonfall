@@ -26,8 +26,11 @@ void AMoonfallEnemy::BeginPlay() {
  const float Levels = static_cast<float>(SpawnBalanceLevel - 1);
  const float HPScale = 1.f + 0.035f * FMath::Min(Levels, 30.f) + 0.018f * FMath::Max(0.f, Levels - 30.f);
  const float DamageScale = 1.f + 0.012f * FMath::Min(Levels, 30.f) + 0.006f * FMath::Max(0.f, Levels - 30.f);
- Health = FMath::Max(1.f, Health * HPScale);
- AttackDamage = FMath::Max(1.f, AttackDamage * DamageScale);
+ // Blueprint tuning must not overflow enemy vitality or damage at spawn.
+ const float BaseHealth = FMath::IsFinite(Health) && Health > 0.f ? Health : 1.f;
+ const float BaseDamage = FMath::IsFinite(AttackDamage) && AttackDamage > 0.f ? AttackDamage : 1.f;
+ Health = FMath::Clamp(BaseHealth, 1.f, 100000.f) * HPScale;
+ AttackDamage = FMath::Clamp(BaseDamage, 1.f, 10000.f) * DamageScale;
  MaxHealthAtSpawn = FMath::Max(1.f, Health);
  BossMaxHealth = bBoss ? MaxHealthAtSpawn : 0.f;
  // Bosses and elites require sustained pressure rather than a fixed three-parry break.
@@ -42,6 +45,9 @@ void AMoonfallEnemy::ApplyPostureDamage(float Amount) {
  if (Health <= 0.f || !GetWorld() || !FMath::IsFinite(Amount) || Amount <= 0.f
      || !FMath::IsFinite(MaxPosture) || MaxPosture <= 0.f) return;
  const float Now = GetWorld()->GetTimeSeconds();
+ // Reject invalid posture timers rather than accidentally breaking a boss for free.
+ if (!FMath::IsFinite(Now) || !FMath::IsFinite(PostureBrokenUntil)
+     || !FMath::IsFinite(NextPostureBreakAllowedAt)) return;
  if (Now < PostureBrokenUntil || Now < NextPostureBreakAllowedAt) return;
  if (!FMath::IsFinite(Posture)) Posture = 0.f;
  Posture = FMath::Clamp(Posture + Amount, 0.f, MaxPosture);
@@ -219,7 +225,8 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
  // Pause hostile behavior during both gameplay menus and after hero defeat.
  // Cancel winding attacks so closing a menu never delivers an instant hit.
  AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0));
- if (!IsValid(Hero) || Hero->Health <= 0.f || Hero->bOptionsOpen || Hero->bInventoryOpen) {
+ if (!IsValid(Hero) || !FMath::IsFinite(Hero->Health) || Hero->Health <= 0.f
+     || Hero->bOptionsOpen || Hero->bInventoryOpen) {
   WindupEndsAt = -1.f;
   BossWarningEndTime = -1.f;
   bComboSecondHitPending = false;
@@ -232,7 +239,8 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
  // another posture cycle or let an expired flag affect later spells.
  if (bPostureFinisherAvailable && Now >= PostureBrokenUntil)
   bPostureFinisherAvailable = false;
- if (Now >= PostureBrokenUntil && Posture > 0.f && Now >= PostureRecoveryStartsAt
+ if (Now >= PostureBrokenUntil && FMath::IsFinite(Posture) && Posture > 0.f
+     && FMath::IsFinite(PostureRecoveryStartsAt) && Now >= PostureRecoveryStartsAt
      && FMath::IsFinite(MaxPosture) && MaxPosture > 0.f
      && FMath::IsFinite(PostureRecoveryPerSecond) && PostureRecoveryPerSecond > 0.f) {
   Posture = FMath::Clamp(Posture - FMath::Clamp(PostureRecoveryPerSecond, 0.f, 100.f)
