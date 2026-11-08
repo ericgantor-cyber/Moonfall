@@ -66,12 +66,17 @@ void AMoonfallCombatHUD::DrawHUD()
      bHasQuests = true;
      const bool bComplete = Arena->IsDungeonQuestCompleted(Entrance);
      const int32 Progress = Arena->GetDungeonResidentDefeatCount(Entrance);
+     const bool bSelected = Shown == Hero->QuestJournalSelection;
+     if (bSelected)
+      DrawRect(FLinearColor(0.26f,0.23f,0.41f,0.88f), Left+6.f,
+       ContentTop + 75.f + Shown * FMath::Clamp((Height - 215.f)/9.f,19.f,38.f),
+       Width-75.f, 23.f);
      const FString Line = FString::Printf(TEXT("%s Region %d  /  Dungeon %d     %s"),
-       Entrance == Tracked ? TEXT(">") : TEXT(" "),
+       bSelected ? TEXT(">") : Entrance == Tracked ? TEXT("*") : TEXT(" "),
        Entrance / 5 + 1, Entrance % 5 + 1,
        bComplete ? TEXT("COMPLETE") : Progress >= 4 ? TEXT("GUARDIAN") : TEXT("RESIDENTS"));
      DrawText(Line, bComplete ? FLinearColor(0.45f,0.87f,0.55f) :
-       Entrance == Tracked ? FLinearColor(1.f,0.85f,0.36f) : FLinearColor::White,
+       bSelected || Entrance == Tracked ? FLinearColor(1.f,0.85f,0.36f) : FLinearColor::White,
        Left + 12.f, ContentTop + 79.f + Shown * FMath::Clamp((Height - 215.f)/9.f,19.f,38.f),
        nullptr,Canvas->SizeX < 850.f ? 0.7f : 0.91f);
      ++Shown;
@@ -81,6 +86,8 @@ void AMoonfallCombatHUD::DrawHUD()
    if (!bHasQuests)
     DrawText(TEXT("Explore the world to discover dungeon quests."), FLinearColor::White,
       Left + 12.f,ContentTop + 95.f,nullptr,0.92f);
+   DrawText(TEXT("W/S: choose discovered quest   Enter/Y: track"), FLinearColor(0.82f,0.85f,0.95f),
+    Left+8.f, T+Height-69.f, nullptr, 0.8f);
   } else if (Hero->InventoryMenuTab == 3) {
    DrawText(TEXT("RAVEN ATLAS  /  EXPLORED WORLD"),FLinearColor(1.f,0.88f,0.56f),
     Left,ContentTop,nullptr,1.14f);
