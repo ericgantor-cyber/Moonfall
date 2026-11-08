@@ -542,8 +542,21 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   const float SafeChaseSpeed = FMath::Clamp(FMath::IsFinite(ChaseSpeed) ? ChaseSpeed : 0.f, 0.f, 2000.f);
   const float ChaseMultiplier = bTacticalReengage ? 1.2f : 1.f;
   AddActorWorldOffset(Direction.GetSafeNormal() * SafeChaseSpeed * ChaseMultiplier * SafeAIDelta, true, &Hit);
-  // If collision blocks the cached route, request a fresh navigation path.
-  // Rate-limit retries to avoid a synchronous path solve every AI tick.
+  // Collision can trap packs at tight doorways. First try one short
+  // sideways swept step, alternating sides on successive collisions.
+  // Rate-limit attempts so wall contact never triggers an extra movement
+  // sweep or synchronous path query every AI tick.
+  if (Hit.bBlockingHit && Now >= NextObstacleSidestepAt
+      && SafeAIDelta > 0.f && !Direction.IsNearlyZero()) {
+   NextObstacleSidestepAt = Now + 0.6f;
+   const FVector Side(-Direction.Y, Direction.X, 0.f);
+   const float SideSign = ((GetUniqueID() + static_cast<uint32>(ObstacleSidestepCount++)) % 2u == 0u) ? -1.f : 1.f;
+   const FVector EscapeStep = Side.GetSafeNormal() * SideSign * (120.f * SafeAIDelta);
+   FHitResult EscapeHit;
+   AddActorWorldOffset(EscapeStep, true, &EscapeHit);
+  }
+  // A blocked route is invalidated only on its original repath cooldown.
+  // The existing single navigation solve then selects a fresh waypoint.
   if (Hit.bBlockingHit && Now >= NextBlockedRepathAt) {
    NextPathRefreshAt = 0.f;
    NextBlockedRepathAt = Now + 0.5f;
