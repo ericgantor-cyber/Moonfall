@@ -858,12 +858,11 @@ void AMoonfallHeroPawn::AwardEquipmentDrop(bool bEliteEnemy, bool bBossEnemy)
  const int32 PreviousTier = LastLootSlot == 2 ? AccessoryTier : (LastLootSlot == 1 ? ArmorTier : WeaponTier);
  LastLootUpgrade = NewTier - PreviousTier;
  // Compact item code: affix (100000s), slot (10000s), rarity (1000s),
- // tier (units). Distinct rolls remain distinguishable; max 30 entries.
+ // tier (units). Distinct drops persist until the player salvages them.
  const int32 ItemCode = LastLootAffix * 100000 + LastLootSlot * 10000
    + LastLootRarity * 1000 + NewTier;
- // Full inventory never silently deletes or salvages an item.
- // The drop is declined until the player makes space manually.
- if (InventoryItemCodes.Num() >= 30) return;
+ // Do not reject new loot, automatically salvage, or silently discard items.
+ // The paginated inventory supports growth beyond the former 30-slot limit.
  InventoryItemCodes.Add(ItemCode);
  InventorySelection = FMath::Clamp(InventorySelection, 0, InventoryItemCodes.Num() - 1);
  // Rotate awards across equipment categories; higher-tier items replace lower tiers.
