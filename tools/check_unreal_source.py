@@ -377,6 +377,18 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("FMath::Clamp(MenuRecoveryMultiplier, 1.f, 2.f)", tick)
         self.assertIn("Mana + ManaRegenPerSecond * MenuRecoveryBoost", tick)
 
+    def test_menu_health_regen_waits_after_real_damage(self):
+        tick = self.hero_cpp.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1].split(
+            "void AMoonfallHeroPawn::SetupPlayerInputComponent", 1)[0]
+        damage = self.hero_cpp.split("void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount)", 1)[1].split(
+            "void AMoonfallHeroPawn::CycleGraphicsQuality()", 1)[0]
+        self.assertIn("GetWorld()->GetTimeSeconds() >= MenuHealthRegenStartsAt", tick)
+        self.assertIn("MenuHealthRegenStartsAt = Now + FMath::Clamp(MenuHealthRegenDelaySeconds, 0.f, 10.f)", damage)
+        self.assertLess(damage.index("if (DamageTaken > 0.f) {"),
+                        damage.index("MenuHealthRegenStartsAt = Now +"))
+        self.assertIn("float MenuHealthRegenDelaySeconds = 3.f;", self.hero_h)
+        self.assertIn("float MenuHealthRegenStartsAt = 0.f;", self.hero_h)
+
     def test_sprint_input_is_rejected_in_menus_or_after_defeat(self):
         begin = self.hero_cpp.split("void AMoonfallHeroPawn::BeginSprint()", 1)[1].split(
             "void AMoonfallHeroPawn::EndSprint()", 1)[0]
