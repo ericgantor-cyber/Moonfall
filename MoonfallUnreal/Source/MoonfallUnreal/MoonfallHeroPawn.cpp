@@ -167,7 +167,8 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
   }
  }
  // Stamina powers dodges independently of spell mana and regenerates after exertion.
- if (Health > 0.f && !bSprinting && !bGuarding && GetWorld() && GetWorld()->GetTimeSeconds() >= StaminaRegenStartsAt
+ if (Health > 0.f && !bOptionsOpen && !bInventoryOpen
+     && !bSprinting && !bGuarding && GetWorld() && GetWorld()->GetTimeSeconds() >= StaminaRegenStartsAt
      && FMath::IsFinite(Stamina) && FMath::IsFinite(MaxStamina) && MaxStamina > 0.f
      && FMath::IsFinite(StaminaRegenPerSecond) && StaminaRegenPerSecond > 0.f) {
   Stamina = FMath::Clamp(Stamina + StaminaRegenPerSecond * StaminaDelta, 0.f, MaxStamina);
