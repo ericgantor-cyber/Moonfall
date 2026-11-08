@@ -375,6 +375,48 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("bInventoryOpen = false;", damage)
         self.assertIn("bOptionsOpen = false;", damage)
 
+    def test_batch_menus_cancel_enemy_windups_and_followups(self):
+        tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
+        menu = tick.split("// Pause hostile behavior during both gameplay menus", 1)[1].split(
+            "// A shatter follow-up expires", 1)[0]
+        self.assertIn("Hero->bOptionsOpen || Hero->bInventoryOpen", menu)
+        for action in ("WindupEndsAt = -1.f;", "BossWarningEndTime = -1.f;",
+                       "bComboSecondHitPending = false;", "bComboSecondHitActive = false;",
+                       "LockedAttackDirection = FVector::ZeroVector;"):
+            self.assertIn(action, menu)
+        self.assertIn("NextAttackAt = FMath::Max(", menu)
+        self.assertIn("Now + 0.35f", menu)
+        self.assertLess(menu.index("bInventoryOpen"), menu.index("return;"))
+        self.assertLess(tick.index("// Pause hostile behavior during both gameplay menus"),
+                        tick.index("if (WindupEndsAt > 0.f && Now >= WindupEndsAt)"))
+        self.assertEqual(tick.count("AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0));"), 1)
+
+    def test_batch_guard_validates_timers_before_stance(self):
+        begin = self.hero_cpp.split("void AMoonfallHeroPawn::BeginGuard()", 1)[1].split(
+            "void AMoonfallHeroPawn::EndGuard()", 1)[0]
+        for field in ("GuardNow", "DamageImmunityUntil", "GuardBrokenUntil", "NextParryAt"):
+            self.assertIn(f"!FMath::IsFinite({field})", begin)
+            self.assertLess(begin.index(f"!FMath::IsFinite({field})"), begin.index("EndSprint();"))
+        end = self.hero_cpp.split("void AMoonfallHeroPawn::EndGuard()", 1)[1].split(
+            "void AMoonfallHeroPawn::BeginSprint()", 1)[0]
+        self.assertIn("FMath::IsFinite(StaminaRegenStartsAt) ? StaminaRegenStartsAt", end)
+        self.assertIn("GetWorld()->GetTimeSeconds() + 0.4f", end)
+
+    def test_batch_perfect_parry_requires_finite_windows(self):
+        damage = self.hero_cpp.split("void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount)", 1)[1].split(
+            "void AMoonfallHeroPawn::CycleGraphicsQuality()", 1)[0]
+        parry = damage.split("const bool bPerfectParry =", 1)[1].split(
+            "const float RequiredGuardCost =", 1)[0]
+        self.assertIn("FMath::IsFinite(ParryWindowEndsAt)", parry)
+        self.assertIn("FMath::IsFinite(NextParryAt)", parry)
+        self.assertIn("Now <= ParryWindowEndsAt && Now <= NextParryAt", parry)
+
+    def test_batch_enemy_posture_uses_finite_frame_delta(self):
+        tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
+        self.assertIn("FMath::IsFinite(DeltaSeconds) ? FMath::Clamp(DeltaSeconds, 0.f, 0.4f) : 0.f", tick)
+        self.assertLess(tick.index("FMath::IsFinite(DeltaSeconds) ? FMath::Clamp("),
+                        tick.index("OnPostureChanged(Posture, MaxPosture)"))
+
     def test_guard_clears_held_sprint_before_entering_stance(self):
         guard = self.hero_cpp.split("void AMoonfallHeroPawn::BeginGuard()", 1)[1].split(
             "void AMoonfallHeroPawn::EndGuard()", 1)[0]
