@@ -583,8 +583,9 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
   // Clear any held sprint so a later respawn cannot inherit it.
   EndSprint();
   EndGuard();
-  // Defeat must not leave the inventory overlay trapping the player.
+  // Defeat clears every gameplay menu so the death/respawn screen stays visible.
   bInventoryOpen = false;
+  bOptionsOpen = false;
  }
  if (!bReduceMotion) ImpactCameraOffset = FMath::Clamp(ImpactCameraOffset + FMath::Min(DamageTaken * 0.5f, 18.f), 0.f, 24.f);
  OnDamageImpact(DamageTaken);
