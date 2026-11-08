@@ -362,6 +362,19 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "void AMoonfallHeroPawn::OptionsUp()", 1)[0]
         self.assertIn("if (!bOptionsOpen) {\n  StopJumping();\n  if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();\n  EndSprint();\n  EndGuard();", options)
 
+    def test_options_cannot_reopen_while_hero_is_defeated(self):
+        options = self.hero_cpp.split("void AMoonfallHeroPawn::OpenOptions()", 1)[1].split(
+            "void AMoonfallHeroPawn::OptionsUp()", 1)[0]
+        self.assertIn("if (Health <= 0.f || !FMath::IsFinite(Health)) return;", options)
+        self.assertLess(options.index("if (Health <= 0.f || !FMath::IsFinite(Health)) return;"),
+                        options.index("if (bInventoryOpen)"))
+        self.assertLess(options.index("if (Health <= 0.f || !FMath::IsFinite(Health)) return;"),
+                        options.index("bOptionsOpen = !bOptionsOpen;"))
+        damage = self.hero_cpp.split("void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount)", 1)[1].split(
+            "void AMoonfallHeroPawn::CycleGraphicsQuality()", 1)[0]
+        self.assertIn("bInventoryOpen = false;", damage)
+        self.assertIn("bOptionsOpen = false;", damage)
+
     def test_guard_clears_held_sprint_before_entering_stance(self):
         guard = self.hero_cpp.split("void AMoonfallHeroPawn::BeginGuard()", 1)[1].split(
             "void AMoonfallHeroPawn::EndGuard()", 1)[0]
