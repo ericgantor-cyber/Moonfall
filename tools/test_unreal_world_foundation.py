@@ -78,7 +78,7 @@ class WorldFoundationTests(unittest.TestCase):
         for region in range(6):
             self.assertEqual(len(set(entries[region * 3:region * 3 + 3])), 3)
         self.assertIn("Enemy->ArchetypeName = FName(Profile.Name);", CPP)
-        self.assertIn("Enemy->bElite = Id % 3 == 2;", CPP)
+        self.assertIn("Enemy->bElite = ProfileIndex % 3 == 2;", CPP)
         self.assertIn("ArchetypeName", enemy)
         for stat in ("Health", "AttackDamage", "ChaseSpeed", "AttackRange", "AttackCooldown", "MaxPosture"):
             self.assertIn("Enemy->" + stat + " = FMath::Clamp(", CPP)
