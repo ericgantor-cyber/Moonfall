@@ -748,6 +748,21 @@ class WorldFoundationTests(unittest.TestCase):
         self.assertLess(craft.index("Salvage = SalvageBeforePurchase;"),
                         craft.index("bLastCraftSucceeded = true;"))
 
+    def test_social_action_uses_current_npc_identity_and_bond(self):
+        hero = (ROOT / "MoonfallUnreal/Source/MoonfallUnreal/MoonfallHeroPawn.cpp").read_text(encoding="utf-8")
+        talk = hero.split("void AMoonfallHeroPawn::InteractQuestGuide()",1)[1].split(
+            "void AMoonfallHeroPawn::EncourageQuestGuide()",1)[0]
+        social = hero.split("void AMoonfallHeroPawn::ApplyQuestGuideSocialAction(bool bIntimidate)",1)[1].split(
+            "void AMoonfallHeroPawn::BuyNearestNpcService()",1)[0]
+        self.assertIn("LastNpcRole = FMath::Clamp(Nearest->RoleIndex, 0, 2);", social)
+        self.assertIn("LastNpcPersonality = Nearest->GetPersonalityLabel().ToString();", social)
+        self.assertIn("LastNpcRoutine = Nearest->GetRoutineLabel().ToString();", social)
+        for action in (talk, social):
+            self.assertIn("LastNpcRole == 0 ? 1 : 0", action)
+            self.assertIn("Arena->GetNpcBond(Nearest->GetPersistentNpcId(), CounterpartId)", action)
+        self.assertLess(social.index("LastNpcRole = FMath::Clamp(Nearest->RoleIndex, 0, 2);"),
+                        social.index("LastServicePrice = Arena->GetRegionalServicePrice("))
+
     def test_connected_geometry(self):
         self.assertIn("Region * RegionSpacing", CPP)
         self.assertIn("FVector(60.f, 60.f, 1.f)", CPP)
