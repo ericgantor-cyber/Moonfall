@@ -1558,6 +1558,20 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Multiplier <= 0.f", cast)
         self.assertLess(cast.index("!FMath::IsFinite(Multiplier)"), cast.index("Mana -= Costs[School] * Multiplier"))
 
+    def test_hostile_spell_rejects_nonfinite_enemy_health_before_mutation(self):
+        cast = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split(
+            "void AMoonfallHeroPawn::CastLeft()", 1)[0]
+        self.assertIn("if (!IsValid(Enemy) || Enemy->Health <= 0.f) return false;", cast)
+        self.assertIn("!FMath::IsFinite(Enemy->Health)", cast)
+        self.assertIn("!FMath::IsFinite(Enemy->MaxHealth)", cast)
+        self.assertIn("Enemy->MaxHealth <= 0.f", cast)
+        self.assertLess(cast.index("!FMath::IsFinite(Enemy->Health)"),
+                        cast.index("Enemy->TakeSpellDamage(SpellDamage);"))
+        self.assertLess(cast.index("!FMath::IsFinite(Enemy->Health)"),
+                        cast.index("Mana -= Costs[School] * Multiplier;"))
+        self.assertLess(cast.index("!FMath::IsFinite(Enemy->Health)"),
+                        cast.index("HitComboStage = bComboAlive"))
+
     def test_spell_resource_values_validated(self):
         cast = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split("\n}", 1)[0]
         self.assertIn("!FMath::IsFinite(Mana)", cast)
