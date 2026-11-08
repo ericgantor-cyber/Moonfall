@@ -26,4 +26,6 @@ public:
  // Sparse-history-in-spirit: compact fixed 1093-int arrays; no actor serialization.
  UPROPERTY() TArray<int32> ResidentTrustMemory;
  UPROPERTY() TArray<int32> ResidentFearMemory;
+ // Optional six-region workshop stock, absent in older Unreal SaveGame slots.
+ UPROPERTY() TArray<int32> WorkshopStock;
 };
