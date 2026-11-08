@@ -594,6 +594,8 @@ int32 AMoonfallHeroPawn::RegisterFinisherKill(bool bShatterKill, bool bBossKill,
   else {
    // Preserve all earlier queued choreography and prioritize the most recent
    // finishing move if more than eight kills arrive before playback catches up.
+   if (AMoonfallEnemy* SupersededEnemy = PendingFinishers.Last().Enemy.Get())
+    SupersededEnemy->BeginFinisherDefeat(PendingFinishers.Last().Style);
    PendingFinishers[PendingFinishers.Num() - 1] = Pending;
   }
   return ChainStep;
@@ -635,6 +637,12 @@ void AMoonfallHeroPawn::UpdateNativeFinisher(float DeltaSeconds)
  float Age = GetWorld()->GetTimeSeconds() - NativeFinisherStartedAt;
  const float Duration = bReduceMotion ? 0.22f : 0.78f;
  if (Health <= 0.f || bOptionsOpen) {
+  // Resolve skipped presentations so defeated enemies never remain frozen
+  // until fallback expiry after the hero dies or gameplay is paused.
+  for (const FPendingFinisher& Pending : PendingFinishers) {
+   if (AMoonfallEnemy* WaitingEnemy = Pending.Enemy.Get())
+    WaitingEnemy->BeginFinisherDefeat(Pending.Style);
+  }
   PendingFinishers.Reset();
  }
  // Start the oldest queued execution after the previous effect completes.
