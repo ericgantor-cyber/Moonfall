@@ -16,6 +16,7 @@ jobs:
           if (-not (Test-Path $buildTool)) { throw "Build.bat not found: $buildTool" }
           $uatTool = Join-Path $env:UE54_ROOT 'Engine\Build\BatchFiles\RunUAT.bat'
           if (-not (Test-Path $uatTool)) { throw "Unreal AutomationTool missing: $uatTool" }
+          & .\MoonfallUnreal\Build\Test-UnrealEngineVersion.ps1 -UnrealRoot $env:UE54_ROOT
           # The project-owned .umap is generated after the Editor target compiles.
           # Do not require it before we have invoked Unreal Editor.
           $vswhere = Join-Path ([Environment]::GetFolderPath('ProgramFilesX86')) 'Microsoft Visual Studio\Installer\vswhere.exe'
