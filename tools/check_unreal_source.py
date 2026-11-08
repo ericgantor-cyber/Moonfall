@@ -1736,6 +1736,26 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertEqual(tick.count("Nav->ProjectPointToNavigation("), 1)
         self.assertEqual(tick.count("Nav->FindPathToLocationSynchronously("), 1)
 
+    def test_divine_signature_attacks_are_unique_telegraphed_and_dodgeable(self):
+        enemy = self.enemy_cpp
+        self.assertIn("bool bDivineSignatureActive = false;", self.enemy_h)
+        self.assertIn("FVector DivineSignatureCenter = FVector::ZeroVector;", self.enemy_h)
+        self.assertIn("float DivineSignatureRadius = 0.f;", self.enemy_h)
+        self.assertIn('const bool bVoidReaper = DivineBossId == FName(TEXT("z_void_reaper"));', enemy)
+        self.assertIn('const bool bEclipseQueen = DivineBossId == FName(TEXT("nyra_eclipse_queen"));', enemy)
+        self.assertIn("AttackSequence % 4 == 0", enemy)
+        self.assertIn("DivineSignatureCenter = bVoidReaper ? HeroPosition : GetActorLocation();", enemy)
+        self.assertIn("DivineSignatureRadius = bVoidReaper ? 300.f : 410.f;", enemy)
+        self.assertIn("CurrentWindup = BossPhase >= 3 ? 1.2f : 1.7f;", enemy)
+        self.assertIn("FVector::DistSquared2D(HeroPosition, DivineSignatureCenter)", enemy)
+        self.assertIn("const bool bWithinBasicAttack = !bDivineSignatureActive", enemy)
+        self.assertIn("if (bWithinDivineMarker || bWithinBasicAttack)", enemy)
+        self.assertIn('TEXT("VOID JUDGMENT")', enemy)
+        self.assertIn('TEXT("ECLIPSE PULSE")', enemy)
+        self.assertIn("if (!bDivineSignatureActive && bComboFollowUp", enemy)
+        self.assertIn("Hero->ApplyMoonfallDamageFrom(", enemy)
+        self.assertIn("Hero->TryRewardPerfectDodge()", enemy)
+
     def test_unreal_divine_bosses_are_distinct_nonplayable_world_actors(self):
         arena = (ROOT / "MoonfallArena.cpp").read_text(encoding="utf-8")
         self.assertIn("FName DivineBossId = NAME_None;", self.enemy_h)
@@ -1955,7 +1975,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertEqual(self.enemy_cpp.count("LockedAttackDirection = Difference.GetSafeNormal2D();"), 2)
         self.assertIn("const bool bSpinningSweep = bBoss && BossSpecialMove == 4;", self.enemy_cpp)
         self.assertIn("const bool bWithinAttackArc", self.enemy_cpp)
-        self.assertIn("if (bWithinAttackArc && Difference.Size() <= AttackRange * CurrentAttackRangeMultiplier)", self.enemy_cpp)
+        self.assertIn("bWithinAttackArc && Difference.Size() <= AttackRange * CurrentAttackRangeMultiplier;", self.enemy_cpp)
+        self.assertIn("if (bWithinDivineMarker || bWithinBasicAttack)", self.enemy_cpp)
 
     def test_enemy_attacks_cannot_go_through_cover(self):
         self.assertIn("SightParams.AddIgnoredActor(this)", self.enemy_cpp)

@@ -165,6 +165,7 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
     BossPhaseMessageUntil = Now + 1.5f;
     AttackSequence = 0;
     BossSpecialMove = 0;
+    bDivineSignatureActive = false;
     bComboSecondHitPending = false;
     bComboSecondHitActive = false;
     CachedWaypoint = FVector::ZeroVector;
@@ -371,9 +372,15 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   const bool bSpinningSweep = bBoss && BossSpecialMove == 4;
   const float MinFacingDot = (BossSpecialMove == 1 || CurrentAttackRangeMultiplier > 1.2f)
     ? -0.35f : 0.f;
-  const bool bWithinAttackArc = bSpinningSweep || LockedAttackDirection.IsNearlyZero()
+  const bool bWithinAttackArc = bDivineSignatureActive || bSpinningSweep || LockedAttackDirection.IsNearlyZero()
     || Difference.IsNearlyZero() || FacingDot >= MinFacingDot;
-  if (bWithinAttackArc && Difference.Size() <= AttackRange * CurrentAttackRangeMultiplier) {
+  // Z strikes the locked mark; Nyra pulses around her position at cast start.
+  // Both signatures are avoidable by leaving the marked area before impact.
+  const bool bWithinDivineMarker = bDivineSignatureActive
+    && FVector::DistSquared2D(HeroPosition, DivineSignatureCenter) <= FMath::Square(DivineSignatureRadius);
+  const bool bWithinBasicAttack = !bDivineSignatureActive
+    && bWithinAttackArc && Difference.Size() <= AttackRange * CurrentAttackRangeMultiplier;
+  if (bWithinDivineMarker || bWithinBasicAttack) {
    // Do not damage the hero through solid arena walls or cover.
    FCollisionQueryParams SightParams(SCENE_QUERY_STAT(MoonfallMeleeSight), false);
    SightParams.AddIgnoredActor(this);
@@ -471,6 +478,14 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   if (bBoss) DrawDebugCircle(GetWorld(), GetActorLocation() - FVector(0.f,0.f,55.f),
     AttackRange * CurrentAttackRangeMultiplier, 24, TellColor, false, 0.12f, 0, 3.f * WarningScale,
     FVector(1.f,0.f,0.f), FVector(0.f,1.f,0.f), false);
+  if (bDivineSignatureActive) {
+   DrawDebugCircle(GetWorld(), DivineSignatureCenter - FVector(0.f,0.f,55.f),
+     DivineSignatureRadius, 32, DivineBossId == FName(TEXT("z_void_reaper")) ? FColor::Purple : FColor::Cyan,
+     false, 0.12f, 0, 3.f * WarningScale, FVector(1.f,0.f,0.f), FVector(0.f,1.f,0.f), false);
+   DrawDebugString(GetWorld(), DivineSignatureCenter + FVector(0.f,0.f,120.f),
+     DivineBossId == FName(TEXT("z_void_reaper")) ? TEXT("VOID JUDGMENT") : TEXT("ECLIPSE PULSE"),
+     nullptr, FColor::White, 0.12f, false);
+  }
   DrawDebugString(GetWorld(), GetActorLocation() + FVector(0.f,0.f,160.f), BossSpecialMove == 5 ? TEXT("SKYFALL SLAM") : (BossSpecialMove == 4 ? TEXT("SPINNING SWEEP") : (BossSpecialMove == 3 ? TEXT("DASH STRIKE") : (bComboSecondHitActive ? TEXT("COMBO FOLLOW-UP") : (BossSpecialMove == 2 ? TEXT("ECLIPSE SLAM") : (BossSpecialMove == 1 ? TEXT("MOON CLEAVE") : (CurrentAttackMultiplier > 2.f ? (bBoss ? TEXT("BOSS CRUSH") : TEXT("ELITE CRUSH")) : (CurrentAttackMultiplier > 1.5f ? TEXT("HEAVY") : (CurrentAttackRangeMultiplier > 1.f ? TEXT("SWEEP") : TEXT("STRIKE"))))))))), nullptr, FColor::Red, 0.12f, false);
   return;
  }
@@ -697,7 +712,22 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
    } else if (BossSpecialMove == 5) { // Aerial-style slam, grounded hit resolution.
     CurrentWindup = 1.5f; CurrentAttackMultiplier = 2.2f; CurrentAttackRangeMultiplier = 1.35f;
    }
-   if (bComboFollowUp && BossSpecialMove == 0) {
+   // Every fourth divine attack replaces the generic pattern with a
+   // distinct readable hazard. No new actors or per-frame allocations.
+   bDivineSignatureActive = false;
+   const bool bVoidReaper = DivineBossId == FName(TEXT("z_void_reaper"));
+   const bool bEclipseQueen = DivineBossId == FName(TEXT("nyra_eclipse_queen"));
+   if (bBoss && (bVoidReaper || bEclipseQueen) && AttackSequence % 4 == 0) {
+    bDivineSignatureActive = true;
+    BossSpecialMove = 0;
+    DivineSignatureCenter = bVoidReaper ? HeroPosition : GetActorLocation();
+    DivineSignatureRadius = bVoidReaper ? 300.f : 410.f;
+    CurrentWindup = BossPhase >= 3 ? 1.2f : 1.7f;
+    CurrentAttackMultiplier = bVoidReaper ? 1.8f : 1.5f;
+    CurrentAttackRangeMultiplier = 1.f;
+    bComboSecondHitPending = false;
+   }
+   if (!bDivineSignatureActive && bComboFollowUp && BossSpecialMove == 0) {
     CurrentWindup += 0.25f;
     bComboSecondHitPending = true;
    }
