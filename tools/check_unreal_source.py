@@ -496,6 +496,24 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("FMath::Clamp(StaminaRegenPerSecond, 0.f, 250.f)", tick)
         self.assertIn("const float SafeRecoveryDelta = FMath::IsFinite(DeltaSeconds)", tick)
 
+    def test_gameplay_movement_camera_and_jump_obey_menu_and_defeat_locks(self):
+        controls = self.hero_cpp.split("void AMoonfallHeroPawn::SetupPlayerInputComponent", 1)[1].split(
+            "bool AMoonfallHeroPawn::TryCast(", 1)[0]
+        self.assertIn('BindAction(TEXT("Jump"), IE_Pressed, this, &AMoonfallHeroPawn::TryJump);', controls)
+        self.assertIn('BindAction(TEXT("Jump"), IE_Released, this, &ACharacter::StopJumping);', controls)
+        self.assertIn("void TryJump();", self.hero_h)
+        jump = controls.split("void AMoonfallHeroPawn::TryJump()", 1)[1].split(
+            "void AMoonfallHeroPawn::MoveForward", 1)[0]
+        self.assertIn("if (Health <= 0.f || bOptionsOpen || bInventoryOpen) return;", jump)
+        self.assertLess(jump.index("if (Health <= 0.f || bOptionsOpen || bInventoryOpen) return;"),
+                        jump.index("Jump();"))
+        for axis in ("MoveForward", "MoveRight"):
+            body = controls.split(f"void AMoonfallHeroPawn::{axis}(float Value)", 1)[1].split(
+                "}", 1)[0]
+            self.assertIn("Health <= 0.f || bOptionsOpen || bInventoryOpen || !FMath::IsFinite(Value)", body)
+        for axis, call in (("Turn", "AddControllerYawInput"), ("LookUp", "AddControllerPitchInput")):
+            self.assertIn(f"void AMoonfallHeroPawn::{axis}(float Value) {{ if (Health > 0.f && !bOptionsOpen && !bInventoryOpen && FMath::IsFinite(Value)) {call}(Value); }}", controls)
+
     def test_sprint_input_is_rejected_in_menus_or_after_defeat(self):
         begin = self.hero_cpp.split("void AMoonfallHeroPawn::BeginSprint()", 1)[1].split(
             "void AMoonfallHeroPawn::EndSprint()", 1)[0]
