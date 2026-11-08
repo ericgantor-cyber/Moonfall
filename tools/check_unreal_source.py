@@ -1600,6 +1600,21 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("FinisherShockwave", self.hero_h)
         self.assertNotIn("FinisherShockwave", self.hero_cpp)
 
+    def test_combo_milestone_reaction_cues_are_bounded(self):
+        self.assertIn("void RegisterComboMilestone(int32 Stage);", self.enemy_h)
+        self.assertIn("void OnComboMilestone(int32 Stage);", self.enemy_h)
+        reaction = self.enemy_cpp.split("void AMoonfallEnemy::RegisterComboMilestone(int32 Stage)", 1)[1].split(
+            "void AMoonfallEnemy::TakeSpellDamage", 1)[0]
+        self.assertIn("Stage != 4 && Stage != 8 && Stage != 12", reaction)
+        self.assertIn("Health <= 0.f", reaction)
+        self.assertIn("if (!bBoss && Now >= PostureBrokenUntil)", reaction)
+        self.assertIn("Now + 0.16f", reaction)
+        self.assertIn("OnComboMilestone(Stage);", reaction)
+        cast = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split(
+            "void AMoonfallHeroPawn::CastLeft()", 1)[0]
+        self.assertIn("if (bNewPostureMilestone && Enemy->Health > 0.f)", cast)
+        self.assertIn("Enemy->RegisterComboMilestone(HitComboStage);", cast)
+
     def test_fourth_hit_has_full_damage_bonus_and_expiring_combo_clears(self):
         cast = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split(
             "void AMoonfallHeroPawn::CastLeft()", 1)[0]
