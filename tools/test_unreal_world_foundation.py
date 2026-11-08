@@ -591,6 +591,40 @@ class WorldFoundationTests(unittest.TestCase):
                 self.assertEqual((code // 1000) % 10, 1)
                 self.assertTrue(1 <= code % 1000 <= 25)
 
+    def test_assassins_creed_style_moonfall_menu_pages(self):
+        root = ROOT / "MoonfallUnreal"
+        hero_h = (root / "Source/MoonfallUnreal/MoonfallHeroPawn.h").read_text(encoding="utf-8")
+        hero_cpp = (root / "Source/MoonfallUnreal/MoonfallHeroPawn.cpp").read_text(encoding="utf-8")
+        hud = (root / "Source/MoonfallUnreal/MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        inputs = (root / "Config/DefaultInput.ini").read_text(encoding="utf-8")
+        self.assertIn("int32 InventoryMenuTab = 0;", hero_h)
+        for fn in ("OpenCharacterPage", "OpenQuestPage", "OpenWorldPage"):
+            self.assertIn("void " + fn + "();", hero_h)
+            self.assertIn("void AMoonfallHeroPawn::" + fn + "()", hero_cpp)
+        for value in (1, 2, 3):
+            self.assertIn("InventoryMenuTab = " + str(value) + ";", hero_cpp)
+        self.assertIn("InventoryMenuTab = (InventoryMenuTab + 3) % 4;", hero_cpp)
+        self.assertIn("InventoryMenuTab = (InventoryMenuTab + 1) % 4;", hero_cpp)
+        self.assertIn("if (!bInventoryOpen || InventoryMenuTab != 0 ||", hero_cpp)
+        self.assertIn("if (bInventoryOpen && InventoryMenuTab == 0)", hero_cpp)
+        self.assertIn("if (Hero->bInventoryOpen && Hero->InventoryMenuTab != 0)", hud)
+        for title in ("GEAR", "CHARACTER", "QUESTS", "WORLD"):
+            self.assertIn('TEXT("' + title + '")', hud)
+        self.assertIn("Hero->WeaponTier, Hero->ArmorTier, Hero->AccessoryTier", hud)
+        self.assertIn("Arena->GetDiscoveredRegions().Contains(Region)", hud)
+        self.assertIn("Arena->GetDiscoveredDungeonEntrances()", hud)
+        self.assertIn("Arena->GetDiscoveredChambers()", hud)
+        self.assertIn("if (!Arena->GetDiscoveredDungeonEntrances().Contains(Entrance)) continue;", hud)
+        self.assertIn("Arena->IsDungeonQuestCompleted(Entrance)", hud)
+        self.assertIn("Arena->GetTrackedDungeonQuestId()", hud)
+        self.assertIn("Unexplored regions and dungeons remain hidden.", hud)
+        for action, key in (("CharacterPage", "K"), ("QuestPage", "J"), ("WorldPage", "M")):
+            self.assertIn('ActionName="' + action + '",Key=' + key, inputs)
+            self.assertIn('BindAction(TEXT("' + action + '")', hero_cpp)
+        self.assertIn('ActionName="DualCast",Key=C', inputs)
+        self.assertIn('ActionName="Inventory",Key=I', inputs)
+        self.assertIn('ActionName="Options",Key=Escape', inputs)
+
     def test_connected_geometry(self):
         self.assertIn("Region * RegionSpacing", CPP)
         self.assertIn("FVector(60.f, 60.f, 1.f)", CPP)
