@@ -962,6 +962,20 @@ void AMoonfallHeroPawn::UpdateNativeFinisher(float DeltaSeconds)
  FinisherFlash->SetVisibility(true);
 }
 
+void AMoonfallHeroPawn::ApplyGuardianQuestRewards(int32 CompletedGuardianCount)
+{
+ // No kill-healing and no XP or loot duplication; only persistent capacity.
+ const int32 Completed = FMath::Clamp(CompletedGuardianCount, 0, 30);
+ if (Completed <= AppliedGuardianQuestRewards) return;
+ const int32 Delta = Completed - AppliedGuardianQuestRewards;
+ AppliedGuardianQuestRewards = Completed;
+ MaxMana = FMath::Clamp(MaxMana + 3.f * Delta, 1.f, 10000.f);
+ MaxStamina = FMath::Clamp(MaxStamina + 3.f * Delta, 1.f, 10000.f);
+ // Do NOT restore current health, mana, or stamina as a kill reward.
+ Mana = FMath::Clamp(Mana, 0.f, MaxMana);
+ Stamina = FMath::Clamp(Stamina, 0.f, MaxStamina);
+}
+
 void AMoonfallHeroPawn::AwardExperience(int32 Amount)
 {
  if (Amount <= 0 || Health <= 0.f || Level >= 100) return;
