@@ -716,7 +716,7 @@ class WorldFoundationTests(unittest.TestCase):
         self.assertLess(craft.index("Salvage -= LastCraftPrice;"),
                         craft.index("InventoryItemCodes.Add(ItemCode);"))
         self.assertLess(craft.index("InventoryItemCodes.Add(ItemCode);"),
-                        craft.index("SavePlayerEconomy();"))
+                        craft.index("if (!TrySavePlayerEconomy()) {"))
 
     def test_crafting_player_save_failure_rolls_back_without_reward(self):
         root = ROOT / "MoonfallUnreal/Source/MoonfallUnreal"
@@ -734,6 +734,12 @@ class WorldFoundationTests(unittest.TestCase):
         craft = hero.split("void AMoonfallHeroPawn::CraftWithNearestArtisan()", 1)[1].split(
             "void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[0]
         self.assertIn("if (!TrySavePlayerEconomy()) {", craft)
+        service = hero.split("void AMoonfallHeroPawn::BuyNearestNpcService()", 1)[1].split(
+            "void AMoonfallHeroPawn::CraftWithNearestArtisan()", 1)[0]
+        self.assertIn("if (!TrySavePlayerEconomy()) {", service)
+        self.assertIn("Salvage += Price;", service)
+        self.assertLess(service.index("if (!TrySavePlayerEconomy()) {"),
+                        service.index("if (Role == 1) Mana ="))
         self.assertIn("InventoryItemCodes.RemoveAt(InventoryItemCodes.Num() - 1);", craft)
         self.assertIn("Salvage = SalvageBeforePurchase;", craft)
         self.assertIn("Arena->RefundWorkshopStock(Region);", craft)
