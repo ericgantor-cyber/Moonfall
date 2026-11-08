@@ -178,6 +178,29 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("I / Select / Esc: close", self.hud)
         self.assertNotIn("FinisherShockwave", self.hero_cpp)
 
+    def test_inventory_salvage_is_validated_and_protects_equipped_gear(self):
+        inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
+        self.assertIn('ActionName="InventorySalvage",Key=Delete', inputs)
+        self.assertIn('ActionName="InventorySalvage",Key=Gamepad_FaceButton_Left', inputs)
+        self.assertIn("bool SalvageInventoryItem(int32 InventoryIndex);", self.hero_h)
+        self.assertIn("void SalvageSelectedInventoryItem();", self.hero_h)
+        self.assertIn('BindAction(TEXT("InventorySalvage"), IE_Pressed', self.hero_cpp)
+        salvage = self.hero_cpp.split("bool AMoonfallHeroPawn::SalvageInventoryItem(int32 InventoryIndex)", 1)[1].split(
+            "void AMoonfallHeroPawn::InventoryConfirm()", 1)[0]
+        self.assertIn("InventoryItemCodes.IsValidIndex(InventoryIndex)", salvage)
+        self.assertIn("Code == EquippedWeaponCode || Code == EquippedArmorCode", salvage)
+        self.assertIn("Code == EquippedAccessoryCode", salvage)
+        self.assertIn("Rarity < 0 || Rarity > 3 || Tier < 1 || Tier > 25", salvage)
+        self.assertIn("(Rarity == 0 && Affix != 0)", salvage)
+        self.assertIn("const int32 SalvageReward = 1 + Rarity * 2 + Tier / 5;", salvage)
+        self.assertIn("Salvage = FMath::Clamp(Salvage + SalvageReward, 0, 9999);", salvage)
+        self.assertIn("InventoryItemCodes.RemoveAt(InventoryIndex);", salvage)
+        self.assertLess(salvage.index("Code == EquippedWeaponCode"), salvage.index("Salvage = FMath::Clamp("))
+        self.assertLess(salvage.index("Salvage = FMath::Clamp("), salvage.index("InventoryItemCodes.RemoveAt(InventoryIndex);"))
+        self.assertIn("Hero->Salvage", self.hud)
+        self.assertIn("Delete / X: salvage", self.hud)
+        self.assertNotIn("FinisherShockwave", self.hero_cpp)
+
     def test_inventory_equipping_validates_item_codes_and_recalculates_armor(self):
         self.assertIn("bool EquipInventoryItem(int32 InventoryIndex);", self.hero_h)
         for field in ("EquippedWeaponCode", "EquippedArmorCode", "EquippedAccessoryCode"):
