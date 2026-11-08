@@ -55,7 +55,7 @@ jobs:
           if (-not $env:UE54_ROOT) { throw 'UE54_ROOT is missing on the self-hosted runner.' }
           $engineBuild = Join-Path $env:UE54_ROOT 'Engine/Build/BatchFiles/Build.bat'
           if (-not (Test-Path -LiteralPath $engineBuild)) { throw "Missing Unreal 5.4 Build.bat: $engineBuild" }
-          & ./MoonfallUnreal/Build/Build-Windows.ps1 -UnrealRoot $env:UE54_ROOT -PreflightOnly
+          & ./MoonfallUnreal/Build/Build-Windows.ps1 -UnrealRoot $env:UE54_ROOT -CompilePreflightOnly
           if (-not $?) { throw 'Moonfall build prerequisites failed.' }
       - name: Compile Moonfall Unreal Editor
         shell: pwsh

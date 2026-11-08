@@ -26,6 +26,13 @@ jobs:
           assert 'BUILD MOONFALL' in center
           assert 'Setup-WindowsPrerequisites.ps1' in center
           assert 'Build-Windows.ps1' in center
+          build_script = Path('MoonfallUnreal/Build/Build-Windows.ps1').read_text()
+          compile_workflow = Path('.github/workflows/windows-unreal-preflight.yml').read_text()
+          assert '[switch]$CompilePreflightOnly' in build_script
+          assert 'if (-not $CompileOnly -and -not $CompilePreflightOnly) {' in build_script
+          assert 'if ($CompilePreflightOnly) {' in build_script
+          assert '-CompilePreflightOnly' in compile_workflow
+          assert '-UnrealRoot $env:UE54_ROOT -PreflightOnly' not in compile_workflow
           assert 'CANCEL' in center and 'OPEN OUTPUT' in center
           root = Path('MoonfallUnreal/Source')
           for path in root.rglob('*.cpp'):

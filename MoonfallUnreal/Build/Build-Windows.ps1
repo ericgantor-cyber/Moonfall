@@ -3,6 +3,7 @@ param(
     [string]$OutputDirectory = "",
     [switch]$CompileOnly,
     [switch]$PreflightOnly,
+    [switch]$CompilePreflightOnly,
     [switch]$LaunchSmokeTest
 )
 $ErrorActionPreference = 'Stop'
@@ -31,7 +32,7 @@ Write-Host "Detected Visual Studio C++ toolchain: $($vsInstall | Select-Object -
 
 # A playable package needs a real project-owned level, not the engine's
 # generic /Engine/Maps/Entry placeholder. Compile-only remains possible.
-if (-not $CompileOnly) {
+if (-not $CompileOnly -and -not $CompilePreflightOnly) {
     $startupMap = Join-Path $repoRoot 'MoonfallUnreal\Content\Maps\MoonfallStart.umap'
     $engineConfig = Join-Path $repoRoot 'MoonfallUnreal\Config\DefaultEngine.ini'
     if (-not (Test-Path -LiteralPath $startupMap -PathType Leaf)) {
@@ -67,7 +68,7 @@ if (-not $CompileOnly) {
 
 # Packaging preflight must check tools as well as maps. Compile-only stays independent
 # of packaging dependencies; preflight-only performs no compile or file deletion.
-if (-not $CompileOnly) {
+if (-not $CompileOnly -and -not $CompilePreflightOnly) {
     $uat = Join-Path $UnrealRoot 'Engine\Build\BatchFiles\RunUAT.bat'
     if (-not (Test-Path -LiteralPath $uat)) { throw "Unreal packaging tool missing: $uat" }
     foreach ($command in @('dotnet','makensis.exe')) {
@@ -86,6 +87,10 @@ if (-not $CompileOnly) {
 
 }
 
+if ($CompilePreflightOnly) {
+    Write-Host 'Moonfall compile preflight passed: UE 5.4 and VS C++ toolchain checked. No map, packaging tools or compilation required.'
+    exit 0
+}
 if ($PreflightOnly) {
     Write-Host 'Moonfall packaging preflight passed: engine, compiler, map, .NET 8 and NSIS checked. Compilation and packaging were not run.'
     exit 0
