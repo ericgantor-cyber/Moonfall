@@ -299,7 +299,8 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
   Enemy->TakeSpellDamage(SpellDamage);
   const float ActualSpellDamage = FMath::Clamp(HealthBeforeSpell - Enemy->Health, 0.f, HealthBeforeSpell);
   if (ActualSpellDamage > 0.f) {
-   CombatRecoveryEndsAt = Time + FMath::Clamp(CombatRecoverySeconds, 0.f, 12.f);
+   CombatRecoveryEndsAt = Time + (FMath::IsFinite(CombatRecoverySeconds)
+        ? FMath::Clamp(CombatRecoverySeconds, 0.f, 12.f) : 5.f);
    HitComboStage = bComboAlive ? FMath::Min(HitComboStage + 1, 4) : 1;
    LastHitComboTarget = Enemy;
    LastSuccessfulHitAt = Time;
@@ -548,9 +549,11 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
  // Fully blocked/parried hits leave it intact.
  const float DamageTaken = PreviousHealth - Health;
  if (DamageTaken > 0.f) {
-  CombatRecoveryEndsAt = Now + FMath::Clamp(CombatRecoverySeconds, 0.f, 12.f);
+  CombatRecoveryEndsAt = Now + (FMath::IsFinite(CombatRecoverySeconds)
+       ? FMath::Clamp(CombatRecoverySeconds, 0.f, 12.f) : 5.f);
   // Prevent immediate menu healing after taking combat damage.
-  MenuHealthRegenStartsAt = Now + FMath::Clamp(MenuHealthRegenDelaySeconds, 0.f, 10.f);
+  MenuHealthRegenStartsAt = Now + (FMath::IsFinite(MenuHealthRegenDelaySeconds)
+       ? FMath::Clamp(MenuHealthRegenDelaySeconds, 0.f, 10.f) : 3.f);
   ParryCounterUntil = -1.f;
   // A real injury breaks the aggressive momentum chain. Parries and blocks
   // still preserve it, so defensive skill matters.
