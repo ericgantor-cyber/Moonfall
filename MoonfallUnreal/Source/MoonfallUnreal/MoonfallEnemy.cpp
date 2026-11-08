@@ -148,7 +148,9 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
    // Disable combat immediately but retain the mesh for real native defeat
    // choreography. Tick handles only death visuals after Health reaches zero.
    SetActorEnableCollision(false);
-   DefeatAnimationStartedAt = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f;
+   // Wait for the hero's actual animation slot before playing the death
+   // reaction; weak queue refs and a finite lifespan prevent stranded corpses.
+   DefeatAnimationStartedAt = -100.f;
    DefeatAnimationOrigin = GetActorLocation();
    bDefeatAnimationShatter = bLastHitWasShatter;
    DefeatAnimationStyle = 1;
@@ -156,19 +158,29 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
    SetActorTickInterval(0.f);
    OnEnemyDefeated(bLastHitWasShatter);
    if (AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0))) {
-    DefeatAnimationStyle = FMath::Max(1, Hero->RegisterFinisherKill(bLastHitWasShatter, bBoss, GetActorLocation()));
+    DefeatAnimationStyle = FMath::Max(1, Hero->RegisterFinisherKill(bLastHitWasShatter, bBoss, GetActorLocation(), this));
     const float RewardScale = 1.f + 0.018f * FMath::Min(SpawnBalanceLevel - 1, 40);
     Hero->AwardExperience(FMath::RoundToInt((bBoss ? 125.f : (bElite ? 50.f : 25.f)) * RewardScale));
     Hero->AwardEquipmentDrop(bElite, bBoss);
    }
    // Brief visibility is essential: no instant pop/disappear before finisher.
-   SetLifeSpan(1.25f);
+   SetLifeSpan(9.5f);
   }
+}
+
+void AMoonfallEnemy::BeginFinisherDefeat(int32 Style)
+{
+ if (Health > 0.f || !GetWorld() || DefeatAnimationStartedAt >= 0.f) return;
+ DefeatAnimationStyle = FMath::Clamp(Style, 1, 5);
+ DefeatAnimationOrigin = GetActorLocation();
+ DefeatAnimationStartedAt = GetWorld()->GetTimeSeconds();
+ // Keep the defeated actor only as long as its choreography needs.
+ SetLifeSpan(1.25f);
 }
 
 void AMoonfallEnemy::TickDefeatAnimation(float DeltaSeconds)
 {
- if (!Body || !GetWorld()) return;
+ if (!Body || !GetWorld() || DefeatAnimationStartedAt < 0.f) return;
  const float Age = GetWorld()->GetTimeSeconds() - DefeatAnimationStartedAt;
  const float T = FMath::Clamp(Age / 1.15f, 0.f, 1.f);
  const float Ease = T * T * (3.f - 2.f * T);
