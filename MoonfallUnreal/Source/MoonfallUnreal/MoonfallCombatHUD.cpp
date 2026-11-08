@@ -180,7 +180,7 @@ void AMoonfallCombatHUD::DrawHUD()
   if (FMath::Abs(Guide->GetActorLocation().Z - Hero->GetActorLocation().Z) > 250.f) continue;
   if (FVector::DistSquared2D(Guide->GetActorLocation(), Hero->GetActorLocation()) >= FMath::Square(380.f))
    continue;
-  DrawText(TEXT("R: Talk   G: Encourage   H: Intimidate  |  D-pad Right/Up/Down"),
+  DrawText(TEXT("R: Talk   T: Service   G: Encourage   H: Intimidate"),
     FLinearColor(0.95f, 0.84f, 0.43f), FMath::Max(20.f, Canvas->SizeX * 0.38f),
     Canvas->SizeY - 92.f, nullptr, 0.9f);
   break;
@@ -190,7 +190,13 @@ void AMoonfallCombatHUD::DrawHUD()
   const FString Speaker = Hero->LastGuideTitle.IsEmpty()
     ? TEXT("Quest Guide") : Hero->LastGuideTitle;
   FString GuideLine;
-  if (Hero->LastGuideSocialChoice == 0)
+  if (Hero->bLastServicePurchased)
+   GuideLine = FString::Printf(TEXT("%s: Service complete, %d salvage paid."), *Speaker, Hero->LastServicePrice);
+  else if (Hero->LastServicePrice > 0 && Hero->LastGuideSocialChoice == -1 &&
+           Hero->LastNpcRole > 0)
+   GuideLine = FString::Printf(TEXT("%s: %s service costs %d salvage."),
+      *Speaker, Hero->LastNpcRole == 1 ? TEXT("Mana") : TEXT("Stamina"), Hero->LastServicePrice);
+  else if (Hero->LastGuideSocialChoice == 0)
    GuideLine = FString::Printf(TEXT("%s: I remember your kindness."), *Speaker);
   else if (Hero->LastGuideSocialChoice == 1)
    GuideLine = FString::Printf(TEXT("%s: Your threats will not be forgotten."), *Speaker);
@@ -224,6 +230,11 @@ void AMoonfallCombatHUD::DrawHUD()
   DrawText(FString::Printf(TEXT("%s  |  %s"), *Hero->LastNpcPersonality, *Hero->LastNpcRoutine),
     FLinearColor(0.86f,0.78f,0.97f), FMath::Max(18.f, Canvas->SizeX * 0.18f),
     Canvas->SizeY - 85.f, nullptr, 0.72f);
+  if (Hero->LastNpcRole > 0 && Hero->LastServicePrice > 0)
+   DrawText(FString::Printf(TEXT("Supply %d / 100  |  Service %d salvage"),
+     Hero->LastSupplyRating, Hero->LastServicePrice),
+     FLinearColor(0.9f,0.8f,0.55f), FMath::Max(18.f, Canvas->SizeX * 0.18f),
+     Canvas->SizeY - 49.f, nullptr, 0.72f);
   DrawText(FString::Printf(TEXT("Faction %d   Ally bond %d"),
       Hero->LastFactionStanding, Hero->LastNpcAllyBond),
     FLinearColor(0.80f,0.86f,0.97f), FMath::Max(18.f, Canvas->SizeX * 0.18f),
