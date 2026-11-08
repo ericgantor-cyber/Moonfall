@@ -86,26 +86,57 @@ void AMoonfallQuestGuide::Tick(float DeltaSeconds)
      > FMath::Square(2600.f)) return;
  const float Now = GetWorld()->GetTimeSeconds();
  if (!FMath::IsFinite(Now)) return;
- // Different region guides offset their watch, market and rest cycles.
- // The world clock never forces a quest deadline or skips player exploration.
- CurrentRoutine = (FMath::FloorToInt(Now / 90.f) + FMath::Clamp(RegionIndex, 0, 5)
-   + FMath::Clamp(RoleIndex, 0, 2)) % 3;
- const FVector Waypoints[] = {HomeLocation,
-   HomeLocation + FVector(180.f, 65.f, 0.f),
-   HomeLocation + FVector(-130.f, -100.f, 0.f)};
+ // Eight-minute local day clock. Four shifts with different work priorities
+ // by occupation: guides keep watch, artisans work, scouts patrol.
+ DayPhase = FMath::FloorToInt(FMath::Fmod(Now, 480.f) / 120.f);
+ const int32 Role = FMath::Clamp(RoleIndex, 0, 2);
+ static const int32 RoutineByRoleAndPhase[3][4] = {
+  {0, 1, 0, 3}, // guide: watch, visit, watch, sleep
+  {1, 2, 1, 3}, // artisan: work, trade, work, sleep
+  {0, 2, 0, 1}  // scout: patrol, scout, patrol, night watch
+ };
+ CurrentRoutine = RoutineByRoleAndPhase[Role][FMath::Clamp(DayPhase, 0, 3)];
+ if (Now < ConversationPausedUntil) return;
+ const FVector Waypoints[] = {
+  HomeLocation,
+  HomeLocation + FVector(180.f, 65.f, 0.f),
+  HomeLocation + FVector(-130.f, -100.f, 0.f),
+  HomeLocation + FVector(55.f, -160.f, 0.f)
+ };
  const FVector Goal = Waypoints[CurrentRoutine];
  const FVector Here = GetActorLocation();
- const FVector ToGoal = FVector(Goal.X - Here.X, Goal.Y - Here.Y, 0.f);
+ const FVector ToGoal(Goal.X - Here.X, Goal.Y - Here.Y, 0.f);
  const float Distance = ToGoal.Size();
  if (Distance < 10.f) return;
- // Small, collision-aware steps. Never teleport, go vertical or clip a wall.
+ // Small swept steps, no automatic teleporting or costly path search.
  const float Step = FMath::Min(Distance, 90.f * FMath::Clamp(DeltaSeconds, 0.f, 0.5f));
  FHitResult Hit;
  AddActorWorldOffset(ToGoal.GetSafeNormal() * Step, true, &Hit);
 }
+void AMoonfallQuestGuide::ReactToPlayer(int32 Trust, int32 Fear)
+{
+ if (!GetWorld()) return;
+ const float Now = GetWorld()->GetTimeSeconds();
+ ConversationPausedUntil = Now + 5.f;
+ CurrentMood = Fear >= 55 ? 2 : Trust >= 50 ? 1 : 0;
+ // Pose changes only when the disposition actually changes; no per-frame IK.
+ if (CurrentMood != FMath::RoundToInt(LastVisualMoodUpdate)) {
+  LastVisualMoodUpdate = static_cast<float>(CurrentMood);
+  if (LeftArm && RightArm) {
+   const float Wave = CurrentMood == 1 ? 37.f : CurrentMood == 2 ? -35.f : -15.f;
+   LeftArm->SetRelativeRotation(FRotator(Wave, 0.f, -14.f));
+   RightArm->SetRelativeRotation(FRotator(Wave, 0.f, 14.f));
+  }
+ }
+}
+
 FText AMoonfallQuestGuide::GetRoutineLabel() const
 {
- static const TCHAR* Routines[] = {TEXT("Keeping watch"), TEXT("Visiting the market"),
-   TEXT("Resting at camp")};
- return FText::FromString(Routines[FMath::Clamp(CurrentRoutine, 0, 2)]);
+ const int32 Role = FMath::Clamp(RoleIndex, 0, 2);
+ static const TCHAR* Labels[3][4] = {
+  {TEXT("Keeping watch"), TEXT("Checking the square"), TEXT("Reviewing patrols"), TEXT("Resting")},
+  {TEXT("Preparing supplies"), TEXT("Trading wares"), TEXT("Gathering materials"), TEXT("Resting")},
+  {TEXT("Patrolling roads"), TEXT("Night patrol"), TEXT("Surveying trails"), TEXT("Resting")}
+ };
+ return FText::FromString(Labels[Role][FMath::Clamp(CurrentRoutine, 0, 3)]);
 }
