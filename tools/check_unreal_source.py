@@ -431,8 +431,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         damage = self.hero_cpp.split("void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount)", 1)[1].split(
             "void AMoonfallHeroPawn::CycleGraphicsQuality()", 1)[0]
         parry = damage.split("if (bPerfectParry) {", 1)[1].split("bLastIncomingHitParried", 1)[0]
-        self.assertIn("CombatRecoveryEndsAt = Now + (FMath::IsFinite(CombatRecoverySeconds)", parry)
-        self.assertIn("FMath::Clamp(CombatRecoverySeconds, 0.f, 12.f) : 5.f", parry)
+        self.assertIn("CombatRecoveryEndsAt = Now + (FMath::IsFinite(CombatRecoverySeconds)", damage)
+        self.assertLess(damage.index("CombatRecoveryEndsAt = Now + (FMath::IsFinite(CombatRecoverySeconds)"), damage.index("if (bPerfectParry) {"))
+        self.assertIn("FMath::Clamp(CombatRecoverySeconds, 0.f, 12.f) : 5.f", damage)
         self.assertIn("PerfectParryManaReward", parry)
 
     def test_combat_recovery_timers_handle_nonfinite_tuning(self):
@@ -454,6 +455,15 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("FMath::Clamp(CombatRecoverySeconds, 0.f, 12.f) : 5.f", finisher)
         self.assertLess(finisher.index("if (Health <= 0.f || !GetWorld()) return 0;"),
                         finisher.index("CombatRecoveryEndsAt = Now +"))
+
+    def test_normal_blocks_also_refresh_combat_recovery(self):
+        damage = self.hero_cpp.split("void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount)", 1)[1].split(
+            "void AMoonfallHeroPawn::CycleGraphicsQuality()", 1)[0]
+        guard = damage.split("if (bGuarding && bFrontAttack && !bOptionsOpen", 1)[1].split(
+            "if (bPerfectParry) {", 1)[0]
+        self.assertIn("CombatRecoveryEndsAt = Now + (FMath::IsFinite(CombatRecoverySeconds)", guard)
+        self.assertIn("Stamina = FMath::Clamp(Stamina - RequiredGuardCost, 0.f, MaxStamina)", guard)
+        self.assertLess(guard.index("CombatRecoveryEndsAt = Now +"), guard.index("Stamina = FMath::Clamp"))
 
     def test_sprint_input_is_rejected_in_menus_or_after_defeat(self):
         begin = self.hero_cpp.split("void AMoonfallHeroPawn::BeginSprint()", 1)[1].split(
