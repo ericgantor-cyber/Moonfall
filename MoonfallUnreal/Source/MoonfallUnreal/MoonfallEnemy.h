@@ -60,6 +60,9 @@ private:
  float NextAttackAt = 0.f;
  float NextPathRefreshAt = 0.f;
  float NextBlockedRepathAt = 0.f;
+ // Cooldown limits wall-escape sweeps when several enemies crowd a doorway.
+ float NextObstacleSidestepAt = 0.f;
+ int32 ObstacleSidestepCount = 0;
  // Brief tactical withdrawal for wounded elites, with a long re-use cooldown.
  float TacticalRetreatUntil = -1.f;
  float TacticalReengageUntil = -1.f;
