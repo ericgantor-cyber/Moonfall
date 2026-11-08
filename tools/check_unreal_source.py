@@ -609,6 +609,18 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(tick.index("if (!FMath::IsFinite(ImpactCameraOffset))"),
                         tick.index("CameraBoom->TargetArmLength"))
 
+    def test_incoming_damage_rejects_invalid_hero_vitals_and_clock(self):
+        damage = self.hero_cpp.split("void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount)", 1)[1].split(
+            "void AMoonfallHeroPawn::CycleGraphicsQuality()", 1)[0]
+        for guard in ("Health <= 0.f", "!FMath::IsFinite(Health)", "!FMath::IsFinite(MaxHealth)",
+                      "MaxHealth <= 0.f", "!FMath::IsFinite(Amount)", "!FMath::IsFinite(Now)",
+                      "!FMath::IsFinite(DamageImmunityUntil)"):
+            self.assertIn(guard, damage)
+            self.assertLess(damage.index(guard), damage.index("const float PreviousHealth = Health;"))
+        self.assertIn("GetWorld()->GetTimeSeconds() < DamageImmunityUntil", damage)
+        self.assertLess(damage.index("const float PreviousHealth = Health;"),
+                        damage.index("const float ArmoredDamage = Amount *"))
+
     def test_sprint_input_is_rejected_in_menus_or_after_defeat(self):
         begin = self.hero_cpp.split("void AMoonfallHeroPawn::BeginSprint()", 1)[1].split(
             "void AMoonfallHeroPawn::EndSprint()", 1)[0]
