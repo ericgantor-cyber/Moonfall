@@ -17,4 +17,7 @@ public:
  UPROPERTY() TArray<int32> DiscoveredDungeonEntranceIds;
  // Optional on old saves: -1 means no user-tracked dungeon objective.
  UPROPERTY() int32 TrackedDungeonQuestId = -1;
+ // Optional arrays on legacy SaveGame v1, validated before use.
+ UPROPERTY() TArray<int32> GuideTrustMemory;
+ UPROPERTY() TArray<int32> GuideFearMemory;
 };
