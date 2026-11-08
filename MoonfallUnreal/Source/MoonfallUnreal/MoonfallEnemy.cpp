@@ -137,7 +137,9 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
       && FMath::IsFinite(Now) && Now >= NextTacticalRetreatAt
       && Now >= PostureBrokenUntil) {
    TacticalRetreatUntil = Now + 2.f;
+   TacticalReengageUntil = TacticalRetreatUntil + 1.5f;
    NextTacticalRetreatAt = Now + 8.f;
+   bRetreatFlankLeft = !bRetreatFlankLeft;
    NextAttackAt = FMath::Max(NextAttackAt, TacticalRetreatUntil + 0.25f);
    WindupEndsAt = -1.f;
    bComboSecondHitPending = false;
@@ -489,6 +491,8 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
      FlankDistance = 175.f;
     }
    } else if (bElite) {
+    // Switch flank side after a low-health withdrawal.
+    FlankSign = bRetreatFlankLeft ? -1.f : 1.f;
     FlankDistance = 125.f;
    } else {
     // Deterministic actor-local lanes: left/right, near/wide. Collision
@@ -531,7 +535,13 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   }
   FVector Direction = Target - GetActorLocation();
   Direction.Z = 0.f;
-  AddActorWorldOffset(Direction.GetSafeNormal() * FMath::Clamp(FMath::IsFinite(ChaseSpeed) ? ChaseSpeed : 0.f, 0.f, 2000.f) * SafeAIDelta, true, &Hit);
+  // A brief re-entry chase bonus rewards the two-second withdrawal
+  // without increasing damage, attack frequency, or extra navigation queries.
+  const bool bTacticalReengage = bElite && !bBoss
+    && Now >= TacticalRetreatUntil && Now < TacticalReengageUntil;
+  const float SafeChaseSpeed = FMath::Clamp(FMath::IsFinite(ChaseSpeed) ? ChaseSpeed : 0.f, 0.f, 2000.f);
+  const float ChaseMultiplier = bTacticalReengage ? 1.2f : 1.f;
+  AddActorWorldOffset(Direction.GetSafeNormal() * SafeChaseSpeed * ChaseMultiplier * SafeAIDelta, true, &Hit);
   // If collision blocks the cached route, request a fresh navigation path.
   // Rate-limit retries to avoid a synchronous path solve every AI tick.
   if (Hit.bBlockingHit && Now >= NextBlockedRepathAt) {
