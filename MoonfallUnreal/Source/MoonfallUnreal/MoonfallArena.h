@@ -21,6 +21,8 @@ public:
  UFUNCTION(BlueprintPure, Category="Moonfall|Quests") int32 GetTrackedDungeonQuestId() const { return TrackedDungeonQuestId; }
  UFUNCTION(BlueprintPure, Category="Moonfall|Quests") int32 GetCompletedDungeonQuestCount() const;
  UFUNCTION(BlueprintPure, Category="Moonfall|Quests") int32 GetDungeonResidentDefeatCount(int32 EntranceId) const;
+ // Guide interactions only select a quest that the player already discovered.
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Quests") bool SelectNextDiscoveredDungeonQuestInRegion(int32 RegionIndex);
 private:
  TSet<int32> BuiltRooms;
  TSet<int32> SpawnedEncounters;
