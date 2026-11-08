@@ -1176,7 +1176,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(damage.index("const float DamageTaken = PreviousHealth - Health;"),
                         damage.index("if (DamageTaken > 0.f) {",))
         self.assertLess(damage.index("if (DamageTaken > 0.f) {",),
-                        damage.index("if (Health <= 0.f) EndGuard();"))
+                        damage.index("if (Health <= 0.f) {\n  EndGuard();")))
         break_guard = self.hero_cpp.split("void AMoonfallHeroPawn::BreakGuard()", 1)[1].split(
             "void AMoonfallHeroPawn::BeginGuard()", 1)[0]
         self.assertIn("ParryCounterUntil = -1.f;", break_guard)
