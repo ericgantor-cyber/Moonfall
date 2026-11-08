@@ -198,6 +198,17 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
   // Normal enemies retain brief hit reactions to reward offensive pressure.
   if (!bBoss) HitReactionEndsAt = FMath::Max(HitReactionEndsAt, LastHitTime + 0.22f);
   if (Health <= 0.0f) {
+   // Defeat cancels pending divine warnings before notifying VFX and death
+   // animations. Never leave a danger marker active on a defeated god.
+   if (bDivineSignatureActive) {
+    OnDivineAttackInterrupted(ActiveDivineMoveId);
+    bDivineSignatureActive = false;
+    ActiveDivineMoveId = NAME_None;
+   }
+   WindupEndsAt = -1.f;
+   BossWarningEndTime = -1.f;
+   bComboSecondHitPending = false;
+   bComboSecondHitActive = false;
    // Disable combat immediately but retain the mesh for real native defeat
    // choreography. Tick handles only death visuals after Health reaches zero.
    SetActorEnableCollision(false);
