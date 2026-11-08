@@ -517,13 +517,13 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
      && FMath::IsFinite(Stamina) && FMath::IsFinite(MaxStamina) && MaxStamina > 0.f
      && bValidGuardCost && FMath::IsFinite(RequiredGuardCost)
      && Stamina >= RequiredGuardCost) {
+  // Successful blocks and parries both count as active combat.
+  CombatRecoveryEndsAt = Now + (FMath::IsFinite(CombatRecoverySeconds)
+      ? FMath::Clamp(CombatRecoverySeconds, 0.f, 12.f) : 5.f);
   // Physical defense uses the same stamina pool as sprinting and dodging.
   Stamina = FMath::Clamp(Stamina - RequiredGuardCost, 0.f, MaxStamina);
   StaminaRegenStartsAt = Now + 0.8f;
   if (bPerfectParry) {
-   // A successful defensive exchange is still combat; do not grant safe-rest healing immediately.
-   CombatRecoveryEndsAt = Now + (FMath::IsFinite(CombatRecoverySeconds)
-       ? FMath::Clamp(CombatRecoverySeconds, 0.f, 12.f) : 5.f);
    // Perfect timing returns a small amount of mana as well as stamina.
    if (FMath::IsFinite(Mana) && FMath::IsFinite(MaxMana) && MaxMana > 0.f
        && FMath::IsFinite(PerfectParryManaReward) && PerfectParryManaReward > 0.f)
