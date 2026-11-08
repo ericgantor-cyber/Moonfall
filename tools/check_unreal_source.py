@@ -535,6 +535,17 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             self.assertIn("GetCharacterMovement()->StopMovementImmediately();", body)
             self.assertLess(body.index("StopJumping();"), body.index("EndSprint();"))
 
+    def test_perfect_dodge_rewards_reject_nonfinite_resources_and_tuning(self):
+        reward = self.hero_cpp.split("bool AMoonfallHeroPawn::TryRewardPerfectDodge()", 1)[1].split(
+            "bool AMoonfallHeroPawn::ApplyMoonfallDamageFrom(", 1)[0]
+        self.assertIn("FMath::IsFinite(MaxMana) && MaxMana > 0.f && FMath::IsFinite(Mana)", reward)
+        self.assertIn("Mana = FMath::Clamp(Mana + 8.f, 0.f, MaxMana);", reward)
+        self.assertIn("FMath::IsFinite(MaxStamina) && MaxStamina > 0.f && FMath::IsFinite(Stamina)", reward)
+        self.assertIn("FMath::IsFinite(PerfectDodgeStaminaReward) && PerfectDodgeStaminaReward > 0.f", reward)
+        self.assertIn("FMath::Clamp(PerfectDodgeStaminaReward, 0.f, 25.f)", reward)
+        self.assertLess(reward.index("LastPerfectDodgeRewardAt = Now;"),
+                        reward.index("Mana = FMath::Clamp(Mana + 8.f"))
+
     def test_sprint_input_is_rejected_in_menus_or_after_defeat(self):
         begin = self.hero_cpp.split("void AMoonfallHeroPawn::BeginSprint()", 1)[1].split(
             "void AMoonfallHeroPawn::EndSprint()", 1)[0]
