@@ -160,3 +160,8 @@ The script checks `Build.version` for UE **5.4**, invokes the actual Unreal Buil
 The inventory cap is now enforced **before** loot pickups, scripted direct awards, or crafting consumes workshop stock or Salvage. This closes a save-data loss path: the economy slot can serialize at most 2,048 validated item codes, so the player cannot accumulate unsavable additional items. Ground loot can remain uncollected when the bag is full. Existing equipped-item salvage protections remain active.
 
 **Remaining release blockers:** Native build has not yet run, save/stock updates use separate slots rather than one crash-atomic transaction, all real Windows gameplay controls/UI still need hands-on tests, and the current Unreal art is primitive placeholders. Godot and original Z/Nyra artwork remain untouched.
+
+## Windows readiness follow-up: single Arena ownership
+The game mode now detects an Arena actor already placed in the level before spawning its own default `AMoonfallArena`. This avoids accidentally creating two world simulation coordinators, duplicate enemy/NPC actors and competing saves under the same progress slot when a designer-authored level includes its own Arena. The continuous-world Arena also explicitly includes `EngineUtils.h` and `GameFramework/Pawn.h`, ensuring actor iteration and pawn types have direct compile dependencies rather than relying on other headers to pull them in. A source regression test checks the startup guard.
+
+The native `Verify-Win64.ps1` verification command remains available on a Windows machine with a real Unreal 5.4 installation. GitHub CI here validates source contracts, **not** Unreal Engine compilation or Windows packaging.
