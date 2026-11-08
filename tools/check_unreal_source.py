@@ -399,8 +399,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("GetWorld()->GetTimeSeconds() < CombatRecoveryEndsAt", tick)
         self.assertIn("FMath::Clamp(CombatManaRegenMultiplier, 0.f, 1.f)", tick)
         self.assertIn("ManaRegenPerSecond * MenuRecoveryBoost * CombatManaFactor", tick)
-        self.assertIn("CombatRecoveryEndsAt = Time + (FMath::IsFinite(CombatRecoverySeconds)", cast)
-        self.assertIn("CombatRecoveryEndsAt = Now + (FMath::IsFinite(CombatRecoverySeconds)", damage)
+        self.assertIn("CombatRecoveryEndsAt = FMath::Max( (FMath::IsFinite(CombatRecoverySeconds)", cast)
+        self.assertIn("CombatRecoveryEndsAt = FMath::Max( (FMath::IsFinite(CombatRecoverySeconds)", damage)
         self.assertIn("Mana + FMath::Clamp(PerfectParryManaReward, 0.f, 15.f)", damage)
         self.assertIn("float CombatRecoverySeconds = 5.f;", self.hero_h)
         self.assertIn("float CombatManaRegenMultiplier = 0.5f;", self.hero_h)
@@ -431,8 +431,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         damage = self.hero_cpp.split("void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount)", 1)[1].split(
             "void AMoonfallHeroPawn::CycleGraphicsQuality()", 1)[0]
         parry = damage.split("if (bPerfectParry) {", 1)[1].split("bLastIncomingHitParried", 1)[0]
-        self.assertIn("CombatRecoveryEndsAt = Now + (FMath::IsFinite(CombatRecoverySeconds)", damage)
-        self.assertLess(damage.index("CombatRecoveryEndsAt = Now + (FMath::IsFinite(CombatRecoverySeconds)"), damage.index("if (bPerfectParry) {"))
+        self.assertIn("CombatRecoveryEndsAt = FMath::Max( (FMath::IsFinite(CombatRecoverySeconds)", damage)
+        self.assertLess(damage.index("CombatRecoveryEndsAt = FMath::Max( (FMath::IsFinite(CombatRecoverySeconds)"), damage.index("if (bPerfectParry) {"))
         self.assertIn("FMath::Clamp(CombatRecoverySeconds, 0.f, 12.f) : 5.f", damage)
         self.assertIn("PerfectParryManaReward", parry)
 
@@ -451,7 +451,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         finisher = self.hero_cpp.split("int32 AMoonfallHeroPawn::RegisterFinisherKill(", 1)[1].split(
             "void AMoonfallHeroPawn::", 1)[0]
         self.assertIn("if (Health <= 0.f || !GetWorld()) return 0;", finisher)
-        self.assertIn("CombatRecoveryEndsAt = Now + (FMath::IsFinite(CombatRecoverySeconds)", finisher)
+        self.assertIn("CombatRecoveryEndsAt = FMath::Max( (FMath::IsFinite(CombatRecoverySeconds)", finisher)
         self.assertIn("FMath::Clamp(CombatRecoverySeconds, 0.f, 12.f) : 5.f", finisher)
         self.assertLess(finisher.index("if (Health <= 0.f || !GetWorld()) return 0;"),
                         finisher.index("CombatRecoveryEndsAt = Now +"))
@@ -461,7 +461,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "void AMoonfallHeroPawn::CycleGraphicsQuality()", 1)[0]
         guard = damage.split("if (bGuarding && bFrontAttack && !bOptionsOpen", 1)[1].split(
             "if (bPerfectParry) {", 1)[0]
-        self.assertIn("CombatRecoveryEndsAt = Now + (FMath::IsFinite(CombatRecoverySeconds)", guard)
+        self.assertIn("CombatRecoveryEndsAt = FMath::Max( (FMath::IsFinite(CombatRecoverySeconds)", guard)
         self.assertIn("Stamina = FMath::Clamp(Stamina - RequiredGuardCost, 0.f, MaxStamina)", guard)
         self.assertLess(guard.index("CombatRecoveryEndsAt = Now +"), guard.index("Stamina = FMath::Clamp"))
 
@@ -475,6 +475,17 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(cast.index("if (ActualSpellDamage > 0.f) {"),
                         cast.index("HitComboStage = bComboAlive"))
         self.assertIn("FMath::Clamp(CombatRecoverySeconds, 0.f, 12.f) : 5.f", cast)
+
+    def test_combat_recovery_windows_never_shorten(self):
+        cast = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split(
+            "void AMoonfallHeroPawn::CastLeft()", 1)[0]
+        damage = self.hero_cpp.split("void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount)", 1)[1].split(
+            "void AMoonfallHeroPawn::CycleGraphicsQuality()", 1)[0]
+        finisher = self.hero_cpp.split("int32 AMoonfallHeroPawn::RegisterFinisherKill(", 1)[1].split(
+            "void AMoonfallHeroPawn::", 1)[0]
+        for body, count in ((cast, 1), (damage, 2), (finisher, 1)):
+            self.assertEqual(body.count("CombatRecoveryEndsAt = FMath::Max("), count)
+            self.assertEqual(body.count("FMath::IsFinite(CombatRecoveryEndsAt) ? CombatRecoveryEndsAt : 0.f"), count)
 
     def test_sprint_input_is_rejected_in_menus_or_after_defeat(self):
         begin = self.hero_cpp.split("void AMoonfallHeroPawn::BeginSprint()", 1)[1].split(
