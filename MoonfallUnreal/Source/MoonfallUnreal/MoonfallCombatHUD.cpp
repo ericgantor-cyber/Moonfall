@@ -180,7 +180,7 @@ void AMoonfallCombatHUD::DrawHUD()
   if (FMath::Abs(Guide->GetActorLocation().Z - Hero->GetActorLocation().Z) > 250.f) continue;
   if (FVector::DistSquared2D(Guide->GetActorLocation(), Hero->GetActorLocation()) >= FMath::Square(380.f))
    continue;
-  DrawText(TEXT("R: Talk   T: Service   C: Craft   G/H: Social"),
+  DrawText(TEXT("R: Talk   T: Service   V: Craft   G/H: Social"),
     FLinearColor(0.95f, 0.84f, 0.43f), FMath::Max(20.f, Canvas->SizeX * 0.38f),
     Canvas->SizeY - 92.f, nullptr, 0.9f);
   break;
