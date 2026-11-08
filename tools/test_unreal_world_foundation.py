@@ -216,6 +216,29 @@ class WorldFoundationTests(unittest.TestCase):
         self.assertNotIn("for (int32 Region = 0; Region < 6; ++Region)", hud)
         self.assertEqual(len({r * 5 + d for r in range(6) for d in range(5)}), 30)
 
+    def test_guardian_quests_grounded_in_real_defeat_and_discovery(self):
+        save = (ROOT / "MoonfallUnreal/Source/MoonfallUnreal/MoonfallWorldProgressSave.h").read_text(encoding="utf-8")
+        hud = (ROOT / "MoonfallUnreal/Source/MoonfallUnreal/MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        self.assertIn("UPROPERTY() int32 TrackedDungeonQuestId = -1;", save)
+        self.assertIn("bool TrackDungeonQuest(int32 EntranceId);", HEADER)
+        self.assertIn("bool IsDungeonQuestCompleted(int32 EntranceId) const;", HEADER)
+        self.assertIn("GetCompletedDungeonQuestCount() const;", HEADER)
+        self.assertIn("TrackedDungeonQuestId = -1;", CPP)
+        self.assertIn("if (TrackedDungeonQuestId < 0) TrackedDungeonQuestId = EntranceId;", CPP)
+        self.assertIn("DiscoveredDungeonEntrances.Contains(Saved->TrackedDungeonQuestId)", CPP)
+        self.assertIn("Saved->TrackedDungeonQuestId = DiscoveredDungeonEntrances.Contains(TrackedDungeonQuestId)", CPP)
+        self.assertIn("const int32 GuardianEncounterId = 18 + EntranceId * ChambersPerDungeon + (ChambersPerDungeon - 1);", CPP)
+        self.assertIn("return DefeatedEncounters.Contains(GuardianEncounterId);", CPP)
+        self.assertIn("if (!bContinuousWorld || !DiscoveredDungeonEntrances.Contains(EntranceId)) return false;", CPP)
+        self.assertIn("Arena->GetDiscoveredDungeonEntrances().Contains(QuestId)", hud)
+        self.assertIn("Arena->IsDungeonQuestCompleted(EntranceId)", hud)
+        self.assertIn("Arena->GetCompletedDungeonQuestCount()", hud)
+        self.assertIn('TEXT("Defeat the guardian")', hud)
+        self.assertIn('TEXT("Guardian defeated")', hud)
+        # No quest may be marked completed by visitation alone.
+        self.assertEqual(len({18 + eid * 14 + 13 for eid in range(30)}), 30)
+        self.assertTrue(all((18 + eid * 14 + 13) % 14 == 3 for eid in range(30)))
+
     def test_connected_geometry(self):
         self.assertIn("Region * RegionSpacing", CPP)
         self.assertIn("FVector(60.f, 60.f, 1.f)", CPP)
