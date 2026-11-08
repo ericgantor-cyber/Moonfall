@@ -98,6 +98,8 @@ private:
  int32 BossSpecialMove = 0;
  // Distinct, telegraphed divine signatures use the standard damage pipeline.
  bool bDivineSignatureActive = false;
+ bool bDivineAlternateGeometry = false;
+ int32 DivineSignatureCastCount = 0;
  FVector DivineSignatureCenter = FVector::ZeroVector;
  float DivineSignatureRadius = 0.f;
  float CurrentWindup = 0.5f;
