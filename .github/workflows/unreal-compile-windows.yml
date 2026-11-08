@@ -41,14 +41,23 @@ jobs:
       - name: Compile MoonfallUnrealEditor Win64 Development
         run: |
           $ErrorActionPreference = 'Stop'
-          & .\MoonfallUnreal\Build\Build-Windows.ps1 -UnrealRoot $env:UE54_ROOT -CompileOnly
-          if ($LASTEXITCODE -ne 0) { throw "Moonfall editor build returned $LASTEXITCODE" }
-          "### Unreal C++ compile passed" >> $env:GITHUB_STEP_SUMMARY
-          "Commit: ${{ github.sha }}" >> $env:GITHUB_STEP_SUMMARY
-          "UE 5.4 Editor Win64 Development target compiled. This does not package or test the game." >> $env:GITHUB_STEP_SUMMARY
+          $logDir = Join-Path $env:RUNNER_TEMP 'MoonfallUnrealCompile'
+          New-Item -Path $logDir -ItemType Directory -Force | Out-Null
+          $transcript = Join-Path $logDir 'EditorBuild-Transcript.txt'
+          Start-Transcript -LiteralPath $transcript -Force | Out-Null
+          try {
+            & .\MoonfallUnreal\Build\Build-Windows.ps1 -UnrealRoot $env:UE54_ROOT -CompileOnly
+            if (-not $?) { throw 'Moonfall Unreal Editor compile script failed.' }
+            if ($LASTEXITCODE -ne 0) { throw "Moonfall editor build returned $LASTEXITCODE" }
+            "### Unreal C++ compile passed" >> $env:GITHUB_STEP_SUMMARY
+            "Commit: ${{ github.sha }}" >> $env:GITHUB_STEP_SUMMARY
+            "UE 5.4 Editor Win64 Development target compiled. This does not package or test the game." >> $env:GITHUB_STEP_SUMMARY
+          } finally {
+            Stop-Transcript | Out-Null
+          }
 
-      - name: Upload compiler diagnostics on failure
-        if: failure()
+      - name: Upload compiler diagnostics
+        if: always()
         continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
@@ -56,6 +65,7 @@ jobs:
           path: |
             MoonfallUnreal/Saved/Logs/
             MoonfallUnreal/Intermediate/Build/Win64/*.log
+            ${{ runner.temp }}/MoonfallUnrealCompile/EditorBuild-Transcript.txt
           if-no-files-found: warn
           retention-days: 14
 

@@ -29,4 +29,14 @@ jobs:
           foreach ($item in @('MoonfallUnrealEditor', 'BuildCookRun', '--check-install', 'makensis.exe')) {
             if (-not $content.Contains($item)) { throw "Build step absent: $item" }
           }
-          Write-Host 'Build script parses and core stages are present. Unreal SDK compilation NOT performed.'
+          $workflow = Get-Content '.github/workflows/unreal-compile-windows.yml' -Raw
+          foreach ($required in @(
+            'Start-Transcript -LiteralPath $transcript -Force',
+            'Stop-Transcript | Out-Null',
+            'finally {',
+            'if: always()',
+            'MoonfallUnrealCompile/EditorBuild-Transcript.txt'
+          )) {
+            if (-not $workflow.Contains($required)) { throw "Unreal compile diagnostic logging regression: $required" }
+          }
+          Write-Host 'Build script parses; UE compile workflow preserves editor build transcript. Unreal SDK compilation NOT performed.'
