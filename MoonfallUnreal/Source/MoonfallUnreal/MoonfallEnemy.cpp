@@ -339,6 +339,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   return;
  }
  if (WindupEndsAt > 0.f && Now >= WindupEndsAt) {
+  OnAttackReleased(bBoss ? BossSpecialMove : RegionalAttackStyle, bBoss);
   WindupEndsAt = -1.f;
   BossWarningEndTime = -1.f;
   // Heavy elite crushes demand recovery, leaving a counterattack window.
@@ -438,6 +439,8 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
    }
    LockedAttackDirection = Difference.GetSafeNormal2D();
    WindupEndsAt = Now + CurrentWindup;
+   OnAttackWindup(BossSpecialMove, CurrentWindup,
+     AttackRange * CurrentAttackRangeMultiplier, bBoss);
    BossWarningEndTime = WindupEndsAt;
   } else {
    bComboSecondHitActive = false;
@@ -580,6 +583,8 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
    }
    LockedAttackDirection = Difference.GetSafeNormal2D();
    WindupEndsAt = Now + CurrentWindup;
+   OnAttackWindup(bBoss ? BossSpecialMove : RegionalAttackStyle, CurrentWindup,
+     AttackRange * CurrentAttackRangeMultiplier, bBoss);
    if (bBoss) BossWarningEndTime = WindupEndsAt;
   }
  }
