@@ -15,12 +15,14 @@ jobs:
   package:
     runs-on: [self-hosted, Windows, X64, unreal-5-6]
     timeout-minutes: 180
-    env:
-      MOONFALL_PACKAGE_DIR: ${{ runner.temp }}/MoonfallUE56Package/${{ github.run_id }}-${{ github.run_attempt }}
     defaults:
       run:
         shell: pwsh
     steps:
+      - name: Configure runner-local build directory
+        shell: pwsh
+        run: |
+          "MOONFALL_PACKAGE_DIR=$env:RUNNER_TEMP/MoonfallUE56Package/${{ github.run_id }}-${{ github.run_attempt }}" >> $env:GITHUB_ENV
       - name: Check out reviewed revision
         uses: actions/checkout@v4
         with:
