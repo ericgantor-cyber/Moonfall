@@ -244,6 +244,7 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("PickupLoot"), IE_Pressed, this, &AMoonfallHeroPawn::PickupNearestGroundLoot);
  Input->BindAction(TEXT("InteractQuestGuide"), IE_Pressed, this, &AMoonfallHeroPawn::InteractQuestGuide);
  Input->BindAction(TEXT("BuyNpcService"), IE_Pressed, this, &AMoonfallHeroPawn::BuyNearestNpcService);
+ Input->BindAction(TEXT("CraftNpcItem"), IE_Pressed, this, &AMoonfallHeroPawn::CraftWithNearestArtisan);
  Input->BindAction(TEXT("EncourageQuestGuide"), IE_Pressed, this, &AMoonfallHeroPawn::EncourageQuestGuide);
  Input->BindAction(TEXT("IntimidateQuestGuide"), IE_Pressed, this, &AMoonfallHeroPawn::IntimidateQuestGuide);
  Input->BindAction(TEXT("OptionsUp"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsUp);
@@ -1242,6 +1243,50 @@ void AMoonfallHeroPawn::BuyNearestNpcService()
   if (Role == 1) Mana = FMath::Clamp(Mana + 35.f, 0.f, MaxMana);
   else Stamina = FMath::Clamp(Stamina + 35.f, 0.f, MaxStamina);
   bLastServicePurchased = true;
+  Nearest->ReactToPlayer(Arena->GetNpcTrust(Nearest->GetPersistentNpcId()),
+    Arena->GetNpcFear(Nearest->GetPersistentNpcId()));
+  return;
+ }
+}
+
+void AMoonfallHeroPawn::CraftWithNearestArtisan()
+{
+ if (Health <= 0.f || bOptionsOpen || bInventoryOpen || !GetWorld()) return;
+ AMoonfallQuestGuide* Nearest = nullptr;
+ float BestSq = FMath::Square(380.f);
+ for (TActorIterator<AMoonfallQuestGuide> It(GetWorld()); It; ++It) {
+  AMoonfallQuestGuide* Npc = *It;
+  if (!IsValid(Npc) || Npc->RoleIndex != 1) continue;
+  if (FMath::Abs(Npc->GetActorLocation().Z - GetActorLocation().Z) > 250.f) continue;
+  const float DistSq = FVector::DistSquared2D(Npc->GetActorLocation(), GetActorLocation());
+  if (DistSq < BestSq) { Nearest = Npc; BestSq = DistSq; }
+ }
+ if (!Nearest) return;
+ for (TActorIterator<AMoonfallArena> It(GetWorld()); It; ++It) {
+  AMoonfallArena* Arena = *It;
+  if (!IsValid(Arena)) continue;
+  const int32 Region = Nearest->RegionIndex;
+  LastCraftPrice = Arena->GetCraftingPrice(Region);
+  LastWorkshopStock = Arena->GetWorkshopStock(Region);
+  bLastCraftSucceeded = false;
+  LastGuideRegionIndex = Region;
+  LastGuideTitle = Nearest->GetGuideTitle().ToString();
+  LastNpcRole = 1;
+  LastGuideSocialChoice = -1;
+  bLastServicePurchased = false;
+  LastServicePrice = 0;
+  LastGuideMessageUntil = GetWorld()->GetTimeSeconds() + 4.f;
+  if (LastCraftPrice <= 0 || LastWorkshopStock <= 0 || Salvage < LastCraftPrice) return;
+  // Valid, deterministic item code: uncommon item, one of three slots,
+  // tier grounded in the hero's actual level; never auto-equip.
+  const int32 Slot = Region % 3;
+  const int32 Tier = FMath::Clamp(Level / 5 + 1, 1, 25);
+  const int32 ItemCode = Slot * 10000 + 1000 + Tier;
+  if (!Arena->PurchaseWorkshopStock(Region)) return;
+  Salvage -= LastCraftPrice;
+  InventoryItemCodes.Add(ItemCode);
+  LastWorkshopStock = Arena->GetWorkshopStock(Region);
+  bLastCraftSucceeded = true;
   Nearest->ReactToPlayer(Arena->GetNpcTrust(Nearest->GetPersistentNpcId()),
     Arena->GetNpcFear(Nearest->GetPersistentNpcId()));
   return;
