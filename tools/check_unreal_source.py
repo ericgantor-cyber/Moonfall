@@ -1653,6 +1653,19 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("LastSuccessfulHitAt = -100.f;", tick)
         self.assertNotIn("FinisherShockwave", self.hero_cpp)
 
+    def test_elites_and_late_bosses_strafe_only_during_attack_recovery(self):
+        tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
+        self.assertIn("if ((bElite || (bBoss && BossPhase >= 2))", tick)
+        self.assertIn("WindupEndsAt < 0.f && Now < NextAttackAt", tick)
+        self.assertIn("Now >= HitReactionEndsAt && Now >= PostureBrokenUntil", tick)
+        self.assertIn("Distance > AttackRange * 0.45f && Distance > 1.f", tick)
+        self.assertIn("const float StrafeSpeed = bBoss ? 95.f : 70.f;", tick)
+        self.assertIn("StrafeSpeed * SafeAIDelta;", tick)
+        self.assertIn("AddActorWorldOffset(StrafeStep, true, &StrafeHit);", tick)
+        self.assertLess(tick.index("AddActorWorldOffset(StrafeStep, true, &StrafeHit);"),
+                        tick.index("if (WindupEndsAt < 0.f && Now >= NextAttackAt) {"))
+        self.assertEqual(tick.count("Nav->FindPathToLocationSynchronously("), 1)
+
     def test_enemy_formation_lanes_spread_pursuit_without_more_nav_lookups(self):
         tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
         self.assertIn("if (Distance > AttackRange * 2.f && Distance < 900.f)", tick)
