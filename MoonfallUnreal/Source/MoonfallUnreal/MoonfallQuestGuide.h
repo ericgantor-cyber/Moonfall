@@ -27,7 +27,9 @@ public:
  // Three distinct civilian roles per region. 0 quest guide, 1 craftsperson,
  // 2 scout. Unique ID is stable across saves: Region*3 + Role.
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC") int32 RoleIndex = 0;
- UFUNCTION(BlueprintPure, Category="Moonfall|NPC") int32 GetPersistentNpcId() const { return FMath::Clamp(RegionIndex, 0, 5) * 3 + FMath::Clamp(RoleIndex, 0, 2); }
+ // 0..17 are existing authored characters; 18..1110 are streamed residents.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC") int32 PopulationNpcId = -1;
+ UFUNCTION(BlueprintPure, Category="Moonfall|NPC") int32 GetPersistentNpcId() const { return PopulationNpcId >= 18 && PopulationNpcId < 1111 ? PopulationNpcId : FMath::Clamp(RegionIndex, 0, 5) * 3 + FMath::Clamp(RoleIndex, 0, 2); }
  UFUNCTION(BlueprintPure, Category="Moonfall|NPC") FText GetPersonalityLabel() const;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Quests")
  UStaticMeshComponent* Body = nullptr;
