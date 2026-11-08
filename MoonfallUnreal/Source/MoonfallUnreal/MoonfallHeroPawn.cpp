@@ -116,7 +116,8 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
  if ((bOptionsOpen || bInventoryOpen) && Health > 0.f && FMath::IsFinite(Health)
      && FMath::IsFinite(MaxHealth) && MaxHealth > 0.f && Health < MaxHealth
      && FMath::IsFinite(MenuHealthRegenPerSecond) && MenuHealthRegenPerSecond > 0.f
-     && GetWorld() && GetWorld()->GetTimeSeconds() >= MenuHealthRegenStartsAt) {
+     && GetWorld() && GetWorld()->GetTimeSeconds() >= MenuHealthRegenStartsAt
+     && !bInCombatRecoveryWindow) {
   const float BeforeRegen = Health;
   Health = FMath::Min(MaxHealth, Health + FMath::Clamp(MenuHealthRegenPerSecond, 0.f, 20.f)
       * FMath::Clamp(DeltaSeconds, 0.f, 0.1f));
