@@ -1736,6 +1736,21 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertEqual(tick.count("Nav->ProjectPointToNavigation("), 1)
         self.assertEqual(tick.count("Nav->FindPathToLocationSynchronously("), 1)
 
+    def test_divine_death_cancels_pending_cast_before_defeat_event(self):
+        damage = self.enemy_cpp.split("void AMoonfallEnemy::TakeSpellDamage(", 1)[1]
+        start = damage.index("if (Health <= 0.0f) {")
+        end = damage.index("OnEnemyDefeated(", start)
+        death = damage[start:end]
+        self.assertIn("if (bDivineSignatureActive) {", death)
+        self.assertIn("OnDivineAttackInterrupted(ActiveDivineMoveId);", death)
+        self.assertIn("bDivineSignatureActive = false;", death)
+        self.assertIn("ActiveDivineMoveId = NAME_None;", death)
+        self.assertIn("WindupEndsAt = -1.f;", death)
+        self.assertIn("BossWarningEndTime = -1.f;", death)
+        self.assertIn("bComboSecondHitPending = false;", death)
+        self.assertIn("bComboSecondHitActive = false;", death)
+        self.assertLess(death.index("OnDivineAttackInterrupted("), death.index("SetActorEnableCollision(false)"))
+
     def test_divine_animation_callbacks_and_interruption_cleanup(self):
         self.assertIn("void OnDivineAttackTelegraphed(FName MoveId, FVector TargetCenter, float Radius, float WarningSeconds);", self.enemy_h)
         self.assertIn("void OnDivineAttackResolved(FName MoveId, FVector TargetCenter, bool bHeroInsideMarker);", self.enemy_h)
