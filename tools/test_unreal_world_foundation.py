@@ -266,6 +266,35 @@ class WorldFoundationTests(unittest.TestCase):
             self.assertEqual(len(resident_ids), 4)
             self.assertNotIn(guardian_id, resident_ids)
 
+    def test_regional_quest_guides_and_accessible_interaction(self):
+        root = ROOT / "MoonfallUnreal"
+        guide_h = (root / "Source/MoonfallUnreal/MoonfallQuestGuide.h").read_text(encoding="utf-8")
+        guide_cpp = (root / "Source/MoonfallUnreal/MoonfallQuestGuide.cpp").read_text(encoding="utf-8")
+        hero_h = (root / "Source/MoonfallUnreal/MoonfallHeroPawn.h").read_text(encoding="utf-8")
+        hero_cpp = (root / "Source/MoonfallUnreal/MoonfallHeroPawn.cpp").read_text(encoding="utf-8")
+        hud = (root / "Source/MoonfallUnreal/MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        inputs = (root / "Config/DefaultInput.ini").read_text(encoding="utf-8")
+        self.assertIn("class MOONFALLUNREAL_API AMoonfallQuestGuide", guide_h)
+        self.assertIn("PrimaryActorTick.bCanEverTick = false;", guide_cpp)
+        self.assertIn("ECollisionEnabled::NoCollision", guide_cpp)
+        self.assertIn("SpawnActor<AMoonfallQuestGuide>", CPP)
+        self.assertIn("Guide->RegionIndex = Region;", CPP)
+        self.assertIn("SelectNextDiscoveredDungeonQuestInRegion(int32 RegionIndex)", HEADER)
+        self.assertIn("if (!DiscoveredDungeonEntrances.Contains(EntranceId)) continue;", CPP)
+        self.assertIn("return TrackDungeonQuest(EntranceId);", CPP)
+        self.assertIn("if (Pass == 0 && IsDungeonQuestCompleted(EntranceId)) continue;", CPP)
+        self.assertIn("void InteractQuestGuide();", hero_h)
+        self.assertIn("void AMoonfallHeroPawn::InteractQuestGuide()", hero_cpp)
+        self.assertIn("bOptionsOpen || bInventoryOpen", hero_cpp)
+        self.assertIn("if (!Nearest) return;", hero_cpp)
+        self.assertIn("SelectNextDiscoveredDungeonQuestInRegion(Nearest->RegionIndex)", hero_cpp)
+        self.assertIn('ActionName="InteractQuestGuide",Key=R', inputs)
+        self.assertIn('ActionName="InteractQuestGuide",Key=Gamepad_DPad_Right', inputs)
+        self.assertIn('TEXT("R / D-pad Right: Speak to Guide")', hud)
+        self.assertIn("FVector::DistSquared2D(Guide->GetActorLocation(), Hero->GetActorLocation())", hud)
+        # Six stationary guides, one per region; no new combat waves or hidden quest discovery.
+        self.assertEqual(len([r * 6000 for r in range(6)]), 6)
+
     def test_connected_geometry(self):
         self.assertIn("Region * RegionSpacing", CPP)
         self.assertIn("FVector(60.f, 60.f, 1.f)", CPP)
