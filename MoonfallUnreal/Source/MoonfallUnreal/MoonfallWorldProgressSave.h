@@ -12,4 +12,7 @@ public:
  UPROPERTY() TArray<int32> DefeatedEncounterIds;
  // Backward-compatible optional data: absent in older schema-v1 saves.
  UPROPERTY() TArray<int32> DiscoveredChamberIds;
+ // Optional on older saves, using existing schema version to avoid loss of defeats.
+ UPROPERTY() TArray<int32> DiscoveredRegionIds;
+ UPROPERTY() TArray<int32> DiscoveredDungeonEntranceIds;
 };
