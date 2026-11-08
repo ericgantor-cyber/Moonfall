@@ -1227,7 +1227,13 @@ bool AMoonfallHeroPawn::CollectGroundEquipmentCode(int32 ItemCode)
      || ItemCode != Affix * 100000 + SlotIndex * 10000 + Rarity * 1000 + Tier)
   return false;
  // Picking up an item NEVER equips, automatically salvages, or deletes gear.
+ // The pickup actor must remain in the world until the inventory write succeeds.
+ // On a disk-write failure, roll back only the newly appended item.
  InventoryItemCodes.Add(ItemCode);
+ if (!TrySavePlayerEconomy()) {
+  InventoryItemCodes.RemoveAt(InventoryItemCodes.Num() - 1);
+  return false;
+ }
  LastLootAffix = Affix;
  LastLootSlot = SlotIndex;
  LastLootRarity = Rarity;
@@ -1235,7 +1241,6 @@ bool AMoonfallHeroPawn::CollectGroundEquipmentCode(int32 ItemCode)
  const int32 EquippedTier = SlotIndex == 0 ? WeaponTier
      : (SlotIndex == 1 ? ArmorTier : AccessoryTier);
  LastLootUpgrade = Tier - EquippedTier;
- SavePlayerEconomy();
  return true;
 }
 
