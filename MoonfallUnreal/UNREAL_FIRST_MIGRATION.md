@@ -1,0 +1,23 @@
+# Moonfall Unreal-first migration: verified boundaries
+
+**Decision:** Unreal Engine 5 is the long-term target. Keep `godot-v38/` intact as the source-of-truth baseline until native Unreal Win64 playtests reach parity. Keep Z and Nyra's original source artwork untouched.
+
+## Milestone 1: continuous test-world foundation (this PR)
+- Six touching region floors, five dungeon corridors per region and fourteen traversable stage floors per corridor (30 x 14 = 420 stage locations).
+- Encounter stages 3, 5, 9 and 12 give 120 resident slots; stage 14 gives 30 final guardians; three regional wildlife slots in each of the six regions give 18 additional enemies. These are individual native `AMoonfallEnemy` actor slots, not waves or fully authored species.
+- Bounded proximity work: at most one new room mesh and one new enemy per 0.25-second world scan; no pre-spawning all 168 enemies. Only already approached rooms allocate their stage meshes.
+- Uses existing `MoonfallHeroPawn`, `MoonfallEnemy`, combat and damage rules. Existing five-enemy arena remains available with `bContinuousWorld = false`.
+- **Missing:** true Godot dungeon level design, obstacles, art, navigation volumes, physically distinct rooms, treasure and rewards, minimap/atlas, quests, save migration, persistent cleared encounters across restarts, boss identity and animations, packaged Windows playtest. All encounter IDs are currently session-only.
+- Source-contract unit tests are **not** Unreal Editor compilation or runtime performance evidence.
+
+## Next migration gates
+1. Compile and run UE 5.4 project on Windows against the exact branch/commit. Test world traversal, navigation, collision, streaming and attack reach. Correct issues before distributing.
+2. Save per-encounter cleared IDs and player checkpoint with bounded/versioned Unreal SaveGame serialization; ensure defeated bosses do not respawn across restarts.
+3. Port dungeon quest state and Raven Atlas discovery without adding combat HUD clutter; only visible minimap and red HP/blue mana/purple XP rings remain.
+4. Reuse original Z/Nyra art **byte-identically**; verify imports and attribution. Do not turn original pictures into new designs.
+5. Port Godot items, rarity/loot/crafting, professions, and quest rewards with golden reference fixtures. Never conflate `engine-comparison/` with the main `MoonfallUnreal/` module.
+6. Add animation/VFX, real boss behaviors, controller accessibility and practical 1080p/1440p/4K GPU profiling.
+7. Run repeatable Windows 10/11 editor build, cooked package, installer, clean-machine launch, suspend/save/load, input and gameplay tests. Only then reconsider Godot retirement.
+
+## Engine/version caveat
+The main `MoonfallUnreal.uproject` currently declares Unreal Engine 5.4. Do not claim it is compiled under 5.6 or rename its association until the configured toolchain is tested.
