@@ -473,9 +473,13 @@ void AMoonfallHeroPawn::RewardPerfectDodge() {
 }
 
 bool AMoonfallHeroPawn::TryRewardPerfectDodge() {
- if (!GetWorld() || Health <= 0.f) return false;
+ // Rewards are earned only during live gameplay, not behind paused overlays.
+ if (!GetWorld() || Health <= 0.f || bOptionsOpen || bInventoryOpen) return false;
  const float Now = GetWorld()->GetTimeSeconds();
- if (Now > PerfectDodgeWindowUntil || Now - LastPerfectDodgeRewardAt < 1.f) return false;
+ // Invalid or expired windows must never grant an unearned dodge reward.
+ if (!FMath::IsFinite(Now) || !FMath::IsFinite(PerfectDodgeWindowUntil)
+     || !FMath::IsFinite(LastPerfectDodgeRewardAt)
+     || Now > PerfectDodgeWindowUntil || Now - LastPerfectDodgeRewardAt < 1.f) return false;
  LastPerfectDodgeRewardAt = Now;
  PerfectDodgeWindowUntil = -1.f;
  // Invalid Blueprint resource values must never contaminate the combat HUD.
