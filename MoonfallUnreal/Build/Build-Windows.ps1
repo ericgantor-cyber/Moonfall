@@ -17,6 +17,9 @@ if ([string]::IsNullOrWhiteSpace($UnrealRoot)) {
 $build = Join-Path $UnrealRoot 'Engine\Build\BatchFiles\Build.bat'
 if (-not (Test-Path -LiteralPath $project)) { throw "Unreal project file missing: $project" }
 if (-not (Test-Path -LiteralPath $build)) { throw "Unreal Build.bat missing: $build" }
+# Fail early when a newer/older installation is accidentally supplied as UE54_ROOT.
+& (Join-Path $PSScriptRoot 'Test-UnrealEngineVersion.ps1') -UnrealRoot $UnrealRoot
+if ($LASTEXITCODE -ne 0) { throw 'Unreal Engine 5.4 toolchain validation failed.' }
 $vswhere = Join-Path ([Environment]::GetFolderPath('ProgramFilesX86')) 'Microsoft Visual Studio\Installer\vswhere.exe'
 if (-not (Test-Path -LiteralPath $vswhere)) {
     throw 'Visual Studio 2022 C++ tools not detected. Install Visual Studio Build Tools with Desktop development with C++.'
