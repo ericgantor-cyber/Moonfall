@@ -11,6 +11,8 @@
 #include "Interfaces/IPluginManager.h"
 #include "MoonfallEnemy.h"
 #include "MoonfallGroundLoot.h"
+#include "MoonfallQuestGuide.h"
+#include "MoonfallArena.h"
 #include "EngineUtils.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Components/StaticMeshComponent.h"
@@ -240,6 +242,7 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("InventoryConfirm"), IE_Pressed, this, &AMoonfallHeroPawn::InventoryConfirm);
  Input->BindAction(TEXT("InventorySalvage"), IE_Pressed, this, &AMoonfallHeroPawn::InventorySalvage);
  Input->BindAction(TEXT("PickupLoot"), IE_Pressed, this, &AMoonfallHeroPawn::PickupNearestGroundLoot);
+ Input->BindAction(TEXT("InteractQuestGuide"), IE_Pressed, this, &AMoonfallHeroPawn::InteractQuestGuide);
  Input->BindAction(TEXT("OptionsUp"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsUp);
  Input->BindAction(TEXT("OptionsDown"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsDown);
  Input->BindAction(TEXT("OptionsLeft"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsLeft);
@@ -1100,6 +1103,26 @@ void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(bool bEliteEnemy, bool bBossEne
   if (AMoonfallGroundLoot* Loot = GetWorld()->SpawnActor<AMoonfallGroundLoot>(
       AMoonfallGroundLoot::StaticClass(), SpawnAt, FRotator::ZeroRotator, Params))
    Loot->InitializeLoot(ItemCode);
+ }
+}
+
+void AMoonfallHeroPawn::InteractQuestGuide()
+{
+ if (Health <= 0.f || bOptionsOpen || bInventoryOpen || !GetWorld()) return;
+ AMoonfallQuestGuide* Nearest = nullptr;
+ float ClosestSq = FMath::Square(380.f);
+ for (TActorIterator<AMoonfallQuestGuide> It(GetWorld()); It; ++It) {
+  AMoonfallQuestGuide* Guide = *It;
+  if (!IsValid(Guide)) continue;
+  if (FMath::Abs(Guide->GetActorLocation().Z - GetActorLocation().Z) > 250.f) continue;
+  const float DistSq = FVector::DistSquared2D(Guide->GetActorLocation(), GetActorLocation());
+  if (DistSq < ClosestSq) { ClosestSq = DistSq; Nearest = Guide; }
+ }
+ if (!Nearest) return;
+ for (TActorIterator<AMoonfallArena> It(GetWorld()); It; ++It) {
+  AMoonfallArena* Arena = *It;
+  if (IsValid(Arena) && Arena->SelectNextDiscoveredDungeonQuestInRegion(Nearest->RegionIndex))
+   break;
  }
 }
 
