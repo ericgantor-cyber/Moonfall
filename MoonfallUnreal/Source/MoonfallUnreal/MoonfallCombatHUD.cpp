@@ -122,8 +122,14 @@ void AMoonfallCombatHUD::DrawHUD()
    const float DX = (WorldX - PlayerPos.X) * Scale;
    const float DY = (PlayerPos.Y - WorldY) * Scale;
    if (DX * DX + DY * DY > MapRadius * MapRadius) continue;
-   DrawRect(FLinearColor(0.96f, 0.67f, 0.27f), CenterX + DX - 3.f,
-    CenterY + DY - 3.f, 6.f, 6.f);
+   const bool bTracked = EntranceId == Arena->GetTrackedDungeonQuestId();
+   const bool bComplete = Arena->IsDungeonQuestCompleted(EntranceId);
+   DrawRect(bComplete ? FLinearColor(0.3f, 0.85f, 0.44f)
+      : bTracked ? FLinearColor(1.f, 0.94f, 0.39f)
+      : FLinearColor(0.96f, 0.67f, 0.27f),
+    CenterX + DX - (bTracked ? 4.f : 3.f),
+    CenterY + DY - (bTracked ? 4.f : 3.f),
+    bTracked ? 8.f : 6.f, bTracked ? 8.f : 6.f);
   }
   for (const int32 RoomId : Arena->GetDiscoveredChambers()) {
    if (RoomId < 0 || RoomId >= 420) continue;
@@ -141,6 +147,20 @@ void AMoonfallCombatHUD::DrawHUD()
   }
   // A single high-contrast player marker; north remains screen-up.
   DrawRect(FLinearColor(0.96f, 0.81f, 0.33f), CenterX - 3.f, CenterY - 3.f, 6.f, 6.f);
+  // Compact grounded objective, next to the map, not an extra combat overlay.
+  const int32 QuestId = Arena->GetTrackedDungeonQuestId();
+  if (QuestId >= 0 && QuestId < 30 &&
+      Arena->GetDiscoveredDungeonEntrances().Contains(QuestId)) {
+   const bool bComplete = Arena->IsDungeonQuestCompleted(QuestId);
+   const float TextScale = Canvas->SizeX < 800.f ? 0.72f : 0.84f;
+   DrawText(FString::Printf(TEXT("DUNGEON %d  |  %d / 30"),
+      QuestId + 1, Arena->GetCompletedDungeonQuestCount()),
+      FLinearColor(0.93f, 0.85f, 0.66f), MapLeft,
+      MapTop + MapWidth + 6.f, nullptr, TextScale);
+   DrawText(bComplete ? TEXT("Guardian defeated") : TEXT("Defeat the guardian"),
+      bComplete ? FLinearColor(0.38f, 0.95f, 0.5f) : FLinearColor::White,
+      MapLeft, MapTop + MapWidth + 23.f, nullptr, TextScale);
+  }
   break;
  }
  // Nearest living boss, displayed without creating additional widget actors.
