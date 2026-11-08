@@ -13,6 +13,8 @@ const ACCESSORIES:Array[String] = ["Ring","Amulet","Cloak"]
 const MATERIAL_TIERS:Array[String] = ["Ashwood","Ironbark","Moonsteel","Starforged","Voidglass","Dawnfire"]
 const RARITIES:Array[String] = ["Common","Uncommon","Rare","Epic","Legendary"]
 const ELEMENTS:Array[String] = ["Physical","Fire","Frost","Shock","Poison","Arcane"]
+# Populate this index once and never expose stored dictionaries to callers.
+static var _item_index:Dictionary={}
 
 static func generate_catalog()->Array[Dictionary]:
  var result:Array[Dictionary]=[]
@@ -52,9 +54,12 @@ static func _item(category:String,family:String,material:String,tier:int)->Dicti
   "level_required":1+tier*6,"upgrade_cap":mini(tier+1,5)}
 
 static func get_item(item_id:String)->Dictionary:
- for entry in generate_catalog():
-  if str(entry["id"])==item_id:return entry
- return {}
+ if item_id.is_empty():return {}
+ if _item_index.is_empty():
+  for entry in generate_catalog():
+   _item_index[str(entry["id"])]=entry
+ var item:Dictionary=_item_index.get(item_id,{})
+ return item.duplicate(true) if not item.is_empty() else {}
 
 static func loot_for_level(level:int,seed:int)->Dictionary:
  var tier:int=clampi((maxi(1,level)-1)/6,0,MATERIAL_TIERS.size()-1)
