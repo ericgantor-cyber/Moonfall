@@ -350,6 +350,8 @@ void AMoonfallHeroPawn::BeginGuard()
      || !FMath::IsFinite(Stamina) || !FMath::IsFinite(MaxStamina) || MaxStamina <= 0.f
      || !FMath::IsFinite(GuardStaminaCost) || GuardStaminaCost < 0.f
      || Stamina < GuardStaminaCost) return;
+ // A new guard stance cancels held sprint instead of resuming it on release.
+ EndSprint();
  bGuarding = true;
  if (GetCharacterMovement()) {
   const float GuardMultiplier = FMath::IsFinite(GuardMoveSpeedMultiplier)
