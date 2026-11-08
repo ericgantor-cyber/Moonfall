@@ -20,4 +20,7 @@ public:
  // Optional arrays on legacy SaveGame v1, validated before use.
  UPROPERTY() TArray<int32> GuideTrustMemory;
  UPROPERTY() TArray<int32> GuideFearMemory;
+ // Optional per-person relationship history, six regions * three identities.
+ UPROPERTY() TArray<int32> NpcTrustMemory;
+ UPROPERTY() TArray<int32> NpcFearMemory;
 };
