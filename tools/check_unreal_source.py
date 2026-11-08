@@ -178,13 +178,11 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("I / Select / Esc: close", self.hud)
         self.assertNotIn("FinisherShockwave", self.hero_cpp)
 
-    def test_full_inventory_never_auto_deletes_or_salvages_items(self):
+    def test_inventory_accepts_new_loot_without_rejection_or_auto_cleanup(self):
         loot = self.hero_cpp.split("void AMoonfallHeroPawn::AwardEquipmentDrop(", 1)[1].split(
             "bool AMoonfallHeroPawn::EquipInventoryItem(", 1)[0]
-        self.assertIn("if (InventoryItemCodes.Num() >= 30) return;", loot)
         self.assertIn("InventoryItemCodes.Add(ItemCode);", loot)
-        self.assertLess(loot.index("if (InventoryItemCodes.Num() >= 30) return;"),
-                        loot.index("InventoryItemCodes.Add(ItemCode);"))
+        self.assertNotIn("InventoryItemCodes.Num() >= 30", loot)
         self.assertNotIn("DiscardIndex", loot)
         self.assertNotIn("DiscardedCode", loot)
         self.assertNotIn("InventoryItemCodes.RemoveAt(", loot)
@@ -239,7 +237,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         loot = self.hero_cpp.split("void AMoonfallHeroPawn::AwardEquipmentDrop(", 1)[1].split(
             "bool AMoonfallHeroPawn::EquipInventoryItem(", 1)[0]
         self.assertIn("*EquippedCode = ItemCode;", loot)
-        self.assertIn("InventoryItemCodes.Num() >= 30", loot)
+        self.assertIn("InventoryItemCodes.Add(ItemCode);", loot)
 
     def test_random_item_affixes_apply_bounded_slot_specific_bonuses(self):
         for field in ("LastLootAffix", "WeaponAffix", "ArmorAffix", "AccessoryAffix"):
@@ -260,7 +258,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("FMath::Min(0.34f", damage)
         self.assertIn("(ArmorAffix == 2 ? 0.06f : 0.f)", damage)
         self.assertIn("(AccessoryAffix == 3 ? 0.08f : 0.f)", self.hero_cpp)
-        self.assertIn("InventoryItemCodes.Num() >= 30", loot)
+        self.assertIn("InventoryItemCodes.Add(ItemCode);", loot)
         self.assertNotIn("FinisherShockwave", self.hero_cpp)
 
     def test_randomized_loot_rarity_is_bounded_with_boss_guarantees(self):
@@ -274,7 +272,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("LootRoll < 18 + RarityBias ? 2", loot)
         self.assertIn("LootRoll < 53 + RarityBias ? 1 : 0", loot)
         self.assertIn("FMath::Clamp(Level / 5", loot)
-        self.assertIn("InventoryItemCodes.Num() >= 30", loot)
+        self.assertIn("InventoryItemCodes.Add(ItemCode);", loot)
         self.assertIn("LastLootAffix * 100000 + LastLootSlot * 10000", loot)
         self.assertNotIn("FinisherShockwave", self.hero_cpp)
 
@@ -282,7 +280,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         for name in ("WeaponTier", "ArmorTier", "AccessoryTier"):
             self.assertIn(name, self.hero_h)
             self.assertIn(name, self.hero_cpp)
-        self.assertIn("InventoryItemCodes.Num() >= 30", self.hero_cpp)
+        self.assertIn("InventoryItemCodes.Add(ItemCode);", self.hero_cpp)
 
     def test_damage_hud_uses_current_max_health(self):
         start = self.hero_cpp.index("void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {")
