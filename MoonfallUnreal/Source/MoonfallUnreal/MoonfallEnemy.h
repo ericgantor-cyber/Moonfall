@@ -11,6 +11,7 @@ public:
  AMoonfallEnemy();
  virtual void Tick(float DeltaSeconds) override;
  virtual void BeginPlay() override;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Combat|Identity") FName ArchetypeName = NAME_None;
  UPROPERTY(EditAnywhere, Category="Combat") float ChaseSpeed = 180.f;
  UPROPERTY(EditAnywhere, Category="Combat") float AttackDamage = 8.f;
  UPROPERTY(EditAnywhere, Category="Combat") float AttackRange = 145.f;
