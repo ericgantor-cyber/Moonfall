@@ -232,13 +232,27 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
   const float MomentumBonus = Time <= FinisherMomentumUntil
       && FMath::IsFinite(FinisherMomentumDamageMultiplier)
     ? FMath::Clamp(FinisherMomentumDamageMultiplier, 1.f, 1.5f) : 1.f;
+  // Only confirmed recent hits qualify for an attack combo. The multiplier
+  // uses the PREVIOUS successful hit stage; this hit can advance it afterward.
+  const float ComboWindow = FMath::IsFinite(HitComboWindowSeconds)
+      ? FMath::Clamp(HitComboWindowSeconds, 0.5f, 4.f) : 2.f;
+  const bool bComboAlive = Time >= LastSuccessfulHitAt && Time - LastSuccessfulHitAt <= ComboWindow;
+  const int32 IncomingStage = bComboAlive ? FMath::Clamp(HitComboStage, 0, 4) : 0;
+  const float ComboStepBonus = FMath::IsFinite(HitComboDamagePerStage)
+      ? FMath::Clamp(HitComboDamagePerStage, 0.f, 0.12f) : 0.f;
+  const float HitComboMultiplier = 1.f + ComboStepBonus * FMath::Max(0, IncomingStage - 1);
   const float SpellDamage = (18.f + School * 5.f) * Multiplier * SpellPowerMultiplier
-    * WeaponDamageBonus * CounterMultiplier * MomentumBonus;
+    * WeaponDamageBonus * CounterMultiplier * MomentumBonus * HitComboMultiplier;
   // Reject invalid damage before spending mana or consuming a hard-earned counter.
   if (!FMath::IsFinite(SpellDamage) || SpellDamage <= 0.f) return false;
   const float HealthBeforeSpell = Enemy->Health;
   Enemy->TakeSpellDamage(SpellDamage);
   const float ActualSpellDamage = FMath::Clamp(HealthBeforeSpell - Enemy->Health, 0.f, HealthBeforeSpell);
+  if (ActualSpellDamage > 0.f) {
+   HitComboStage = bComboAlive ? FMath::Min(HitComboStage + 1, 4) : 1;
+   LastSuccessfulHitAt = Time;
+   OnSuccessfulHitCombo(HitComboStage, Hand == 0);
+  }
   if (ActualSpellDamage > 0.f && Enemy->Health > 0.f
       && FMath::IsFinite(OffensiveSpellPostureMultiplier) && OffensiveSpellPostureMultiplier > 0.f) {
    const float ExtraPosture = ActualSpellDamage * 0.25f * SchoolPostureWeights[School]
@@ -467,6 +481,8 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
   // A real injury breaks the aggressive momentum chain. Parries and blocks
   // still preserve it, so defensive skill matters.
   FinisherMomentumUntil = -1.f;
+  HitComboStage = 0;
+  LastSuccessfulHitAt = -100.f;
  }
  if (Health <= 0.f) EndGuard();
  if (!bReduceMotion) ImpactCameraOffset = FMath::Clamp(ImpactCameraOffset + FMath::Min(DamageTaken * 0.5f, 18.f), 0.f, 24.f);
