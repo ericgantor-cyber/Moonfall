@@ -44,10 +44,10 @@ jobs:
           assert 'Health > 0.f && !bOptionsOpen && !bInventoryOpen && FMath::IsFinite(Value)) AddControllerPitchInput' in hero
           assert 'ManaRegenPerSecond' in hero and 'Tick(float DeltaSeconds)' in hero
           assert 'DamageImmunityUntil' in hero and 'NextDodgeAt' in hero
-          assert 'FMath::Min(HitComboStage + 1, 12)' in hero
+          assert 'IncomingStage >= 12 ? 1 : IncomingStage + 1' in hero
           assert 'HitComboStage == 4 || HitComboStage == 8 || HitComboStage == 12' in hero
           assert 'HitComboStage > IncomingStage' in hero
-          assert 'FMath::Clamp(IncomingStage, 0, 3)' in hero
+          assert 'FMath::Clamp(EffectiveIncomingStage, 0, 3)' in hero
           assert 'OnSuccessfulHitCombo(HitComboStage, Hand == 0)' in hero
           assert 'GetLastMovementInputVector' in hero
           assert enemy.count('Nav->ProjectPointToNavigation(') == 1
