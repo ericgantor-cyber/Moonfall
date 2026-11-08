@@ -828,9 +828,14 @@ bool AMoonfallHeroPawn::SalvageInventoryItem(int32 InventoryIndex)
   return false;
  // Higher rarity/tier gear produces more salvage, never exceeding the cap.
  const int32 SalvageReward = 1 + Rarity * 2 + Tier / 5;
+ const int32 PreviousSalvage = Salvage;
  Salvage = FMath::Clamp(Salvage + SalvageReward, 0, 9999);
  InventoryItemCodes.RemoveAt(InventoryIndex);
- SavePlayerEconomy();
+ if (!TrySavePlayerEconomy()) {
+  InventoryItemCodes.Insert(Code, InventoryIndex);
+  Salvage = PreviousSalvage;
+  return false;
+ }
  InventorySelection = FMath::Clamp(InventorySelection, 0, FMath::Max(0, InventoryItemCodes.Num() - 1));
  return true;
 }
@@ -1518,6 +1523,11 @@ bool AMoonfallHeroPawn::EquipInventoryItem(int32 InventoryIndex)
      : (SlotIndex == 1 ? &EquippedArmorCode : &EquippedAccessoryCode);
  if (*EquippedCode == Code && *EquippedTier == Tier && *EquippedAffix == Affix) return false;
  const int32 PreviousTier = *EquippedTier;
+ const int32 PreviousAffix = *EquippedAffix;
+ const int32 PreviousCode = *EquippedCode;
+ const int32 PreviousEquipmentTier = EquipmentTier;
+ const float PreviousMaxHealth = MaxHealth;
+ const float PreviousHealth = Health;
  *EquippedTier = Tier;
  *EquippedAffix = Affix;
  *EquippedCode = Code;
@@ -1527,8 +1537,17 @@ bool AMoonfallHeroPawn::EquipInventoryItem(int32 InventoryIndex)
   const float HealthDelta = 2.f * (Tier - PreviousTier);
   MaxHealth = FMath::Max(1.f, MaxHealth + HealthDelta);
   Health = FMath::Clamp(Health + HealthDelta, 1.f, MaxHealth);
-  OnHealthChanged(Health, MaxHealth);
  }
- SavePlayerEconomy();
+ if (!TrySavePlayerEconomy()) {
+  *EquippedTier = PreviousTier;
+  *EquippedAffix = PreviousAffix;
+  *EquippedCode = PreviousCode;
+  EquipmentTier = PreviousEquipmentTier;
+  MaxHealth = PreviousMaxHealth;
+  Health = PreviousHealth;
+  return false;
+ }
+ if (SlotIndex == 1 && PreviousTier != Tier)
+  OnHealthChanged(Health, MaxHealth);
  return true;
 }
