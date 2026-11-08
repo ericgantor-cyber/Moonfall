@@ -315,7 +315,7 @@ void AMoonfallCombatHUD::DrawHUD()
     ? TEXT("Quest Guide") : Hero->LastGuideTitle;
   FString GuideLine;
   if (Hero->bLastCraftSucceeded)
-   GuideLine = FString::Printf(TEXT("%s: Crafted uncommon equipment for %d salvage."), *Speaker, Hero->LastCraftPrice);
+   GuideLine = FString::Printf(TEXT("%s: Crafted regional equipment for %d salvage."), *Speaker, Hero->LastCraftPrice);
   else if (Hero->LastCraftPrice > 0 && Hero->LastNpcRole == 1 && Hero->LastServicePrice == 0)
    GuideLine = FString::Printf(TEXT("%s: Craft %d salvage; workshop stock %d."),
      *Speaker, Hero->LastCraftPrice, Hero->LastWorkshopStock);
