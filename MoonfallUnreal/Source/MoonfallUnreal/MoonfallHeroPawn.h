@@ -109,6 +109,8 @@ public:
  UFUNCTION(BlueprintCallable, Category="Moonfall|Loot") void PickupNearestGroundLoot();
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Loot") int32 EquipmentTier = 0;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Loot") int32 Salvage = 0;
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Economy") void SavePlayerEconomy();
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Economy") void LoadPlayerEconomy();
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Loot") int32 LastLootRarity = 0;
  // Trait codes: 0 none, 1 force, 2 ward, 3 focus.
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Loot") int32 LastLootAffix = 0;
