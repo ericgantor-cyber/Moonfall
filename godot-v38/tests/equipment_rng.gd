@@ -12,9 +12,28 @@ func _initialize()->void:
  call_deferred("_run")
 func _run()->void:
  var item:Dictionary=CATALOG.get_item("ashwood_sword")
+ var catalog_size:int=CATALOG.generate_catalog().size()
+ check(catalog_size>100,"catalog is populated")
+ check(CATALOG.get_item("missing_id").is_empty(),"unknown ID yields no item")
+ var altered:Dictionary=CATALOG.get_item("ashwood_sword")
+ altered["power"]=999999
+ check(int(CATALOG.get_item("ashwood_sword")["power"])==int(item["power"]),"cached catalog returns mutation-safe copies")
+ for entry in CATALOG.generate_catalog():
+  check(CATALOG.get_item(str(entry["id"]))==entry,"cached lookup matches generated entry "+str(entry["id"]))
  var first:Dictionary=RNG.roll(item,2345)
  check(first==RNG.roll(item,2345),"same seed reproducible")
  check(first["affixes"].size()<=3,"bounded affixes")
+ check(RNG.roll({},12).is_empty(),"empty item rejected")
+ check(RNG.roll({"tier":1},12).is_empty(),"missing item ID rejected")
+ var safe:Dictionary=RNG.roll({"id":"test_item","tier":-1000},481,0,80)
+ for affix in safe["affixes"]:
+  check(int(affix["value"])>=2,"negative tier cannot create negative affix")
+ var extreme:Dictionary=RNG.roll({"id":"test_item","tier":1000000},481,0,80)
+ for affix in extreme["affixes"]:
+  check(int(affix["value"])<=106,"extreme tiers remain bounded")
+ for seed in range(100):
+  var result:Dictionary=RNG.roll(item,seed)
+  check(result==RNG.roll(item,seed),"RNG remains deterministic "+str(seed))
  check(int(RNG.roll(item,3,0,80)["rarity_index"])>=3,"pity guarantees epic")
  check(RNG.next_pity(80,3)==0,"pity resets after rare roll")
  var state:Dictionary=INVENTORY.new_state()
@@ -30,5 +49,17 @@ func _run()->void:
  check(int(stats["weapon_power"])==ordinary+10,"rolled Power and rarity modify equipped damage")
  check(int(stats["crit"])==3,"critical affix enters character stats")
  check(int(INVENTORY.normalize(empowered)["loot_rolls"].size())==1,"bonuses survive save normalization")
+ # Within the same rarity, the strongest valid roll must win rather than the oldest.
+ empowered["loot_rolls"].append({"item_id":"ashwood_sword","rarity_index":3,"power_bonus":6,"affixes":[{"stat":"Power","value":9},{"stat":"Crit","value":4}]})
+ var better:Dictionary=INVENTORY.totals(empowered)
+ check(int(better["weapon_power"])==ordinary+15,"strongest equal-rarity roll wins")
+ check(int(better["crit"])==4,"strongest same-rarity crit enters stats")
+ empowered["loot_rolls"].append({"item_id":"ashwood_sword","rarity_index":3,"power_bonus":0,"affixes":[{"stat":"Power","value":1}]})
+ check(INVENTORY.totals(empowered)==better,"weaker same-rarity copy cannot downgrade")
+ empowered["loot_rolls"].append({"item_id":"ashwood_sword","rarity_index":4,"power_bonus":8,"affixes":[{"stat":"Power","value":1}]})
+ var legendary:Dictionary=INVENTORY.totals(empowered)
+ check(int(legendary["weapon_power"])==ordinary+9,"higher rarity takes precedence")
+ check(int(legendary["crit"])==0,"highest rarity supplies affixes")
+ check(int(INVENTORY.normalize(empowered)["loot_rolls"].size())==4,"all valid duplicate rolls survive save normalization")
  print("GEAR RNG "+("PASS" if errors==0 else "FAIL"))
  quit(0 if errors==0 else 1)

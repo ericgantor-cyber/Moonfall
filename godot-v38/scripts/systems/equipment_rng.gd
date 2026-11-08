@@ -3,7 +3,9 @@ extends RefCounted
 const RARITIES:Array[String]=["Common","Uncommon","Rare","Epic","Legendary"]
 const AFFIXES:Array[String]=["Power","Vitality","Haste","Crit","Ward","Elemental"]
 static func roll(item:Dictionary,seed:int,luck:int=0,pity:int=0)->Dictionary:
- if item.is_empty():return {}
+ if item.is_empty() or str(item.get("id","")).is_empty():return {}
+ # Clamp imported or corrupted tiers before generating combat affixes.
+ var tier:int=clampi(int(item.get("tier",1)),1,100)
  var rng:RandomNumberGenerator=RandomNumberGenerator.new()
  rng.seed=seed
  var boost:int=clampi(luck,0,40)
@@ -21,7 +23,7 @@ static func roll(item:Dictionary,seed:int,luck:int=0,pity:int=0)->Dictionary:
   var index:int=rng.randi_range(0,pool.size()-1)
   var kind:String=pool[index]
   pool.remove_at(index)
-  affixes.append({"stat":kind,"value":1+int(item.get("tier",1))+rng.randi_range(0,rarity+1)})
+  affixes.append({"stat":kind,"value":1+tier+rng.randi_range(0,rarity+1)})
  return {"item_id":str(item.get("id","")),"rarity":RARITIES[rarity],"rarity_index":rarity,"affixes":affixes,"power_bonus":rarity*2+rng.randi_range(0,2),"roll_seed":seed}
 static func next_pity(current:int,rarity_index:int)->int:
  return 0 if rarity_index>=2 else mini(80,maxi(0,current)+1)
