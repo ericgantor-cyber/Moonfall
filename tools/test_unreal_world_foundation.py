@@ -698,6 +698,26 @@ class WorldFoundationTests(unittest.TestCase):
                         game_mode.index("GetWorld()->SpawnActor<AMoonfallArena>"))
         self.assertEqual(game_mode.count("GetWorld()->SpawnActor<AMoonfallArena>"), 1)
 
+    def test_workshop_purchase_flushes_world_save_before_crafting(self):
+        hero_cpp = (ROOT / "MoonfallUnreal/Source/MoonfallUnreal/MoonfallHeroPawn.cpp").read_text(encoding="utf-8")
+        purchase = CPP.split("bool AMoonfallArena::PurchaseWorkshopStock(int32 RegionIndex)", 1)[1].split(
+            "void AMoonfallArena::AdvanceWorkshopProduction()", 1)[0]
+        self.assertIn("--WorkshopStock[RegionIndex];", purchase)
+        self.assertIn("bWorldSavePending = true;", purchase)
+        self.assertIn("SaveWorldProgress();", purchase)
+        self.assertIn("if (bWorldSavePending) {", purchase)
+        self.assertIn("++WorkshopStock[RegionIndex];", purchase)
+        self.assertIn("return false;", purchase)
+        self.assertLess(purchase.index("SaveWorldProgress();"), purchase.index("return true;"))
+        craft = hero_cpp.split("void AMoonfallHeroPawn::CraftWithNearestArtisan()",1)[1].split(
+            "void AMoonfallHeroPawn::PickupNearestGroundLoot()",1)[0]
+        self.assertLess(craft.index("if (!Arena->PurchaseWorkshopStock(Region)) return;"),
+                        craft.index("Salvage -= LastCraftPrice;"))
+        self.assertLess(craft.index("Salvage -= LastCraftPrice;"),
+                        craft.index("InventoryItemCodes.Add(ItemCode);"))
+        self.assertLess(craft.index("InventoryItemCodes.Add(ItemCode);"),
+                        craft.index("SavePlayerEconomy();"))
+
     def test_connected_geometry(self):
         self.assertIn("Region * RegionSpacing", CPP)
         self.assertIn("FVector(60.f, 60.f, 1.f)", CPP)
