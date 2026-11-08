@@ -147,6 +147,37 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("void AMoonfallEnemy::BeginPlay()", self.enemy_cpp)
         self.assertIn("Hero->AwardEquipmentDrop", self.enemy_cpp)
 
+    def test_keyboard_controller_inventory_overlay_navigation_and_equip(self):
+        inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
+        for binding in ('ActionName="Inventory",Key=I', 'ActionName="Inventory",Key=Gamepad_Special_Left',
+                        'ActionName="InventoryConfirm",Key=Enter',
+                        'ActionName="InventoryConfirm",Key=Gamepad_FaceButton_Bottom'):
+            self.assertIn(binding, inputs)
+        self.assertIn("bool bInventoryOpen = false;", self.hero_h)
+        self.assertIn("int32 InventorySelection = 0;", self.hero_h)
+        self.assertIn("void ToggleInventory();", self.hero_h)
+        self.assertIn("void EquipSelectedInventoryItem();", self.hero_h)
+        self.assertIn('BindAction(TEXT("Inventory"), IE_Pressed', self.hero_cpp)
+        self.assertIn('BindAction(TEXT("InventoryConfirm"), IE_Pressed', self.hero_cpp)
+        toggle = self.hero_cpp.split("void AMoonfallHeroPawn::ToggleInventory()", 1)[1].split(
+            "void AMoonfallHeroPawn::AdjustOption", 1)[0]
+        self.assertIn("bInventoryOpen = !bInventoryOpen;", toggle)
+        self.assertIn("EquipInventoryItem(InventorySelection);", toggle)
+        self.assertIn("if (bInventoryOpen) { bInventoryOpen = false; return; }", toggle)
+        self.assertIn("InventorySelection = FMath::Max(0, InventorySelection - 1);", toggle)
+        self.assertIn("InventorySelection = FMath::Min(FMath::Max(0, InventoryItemCodes.Num() - 1), InventorySelection + 1);", toggle)
+        self.assertIn("if (bInventoryOpen) { EquipSelectedInventoryItem(); return; }", toggle)
+        self.assertIn("if (bOptionsOpen || bInventoryOpen) return;", self.hero_cpp)
+        self.assertIn("bOptionsOpen || bInventoryOpen || !GetWorld()", self.hero_cpp)
+        self.assertIn("if (Hero->bInventoryOpen)", self.hud)
+        self.assertIn("const int32 PerPage = 8;", self.hud)
+        self.assertIn("Hero->InventoryItemCodes[Index]", self.hud)
+        self.assertIn("Hero->EquippedWeaponCode", self.hud)
+        self.assertIn("Hero->EquippedArmorCode", self.hud)
+        self.assertIn("Hero->EquippedAccessoryCode", self.hud)
+        self.assertIn("I / Select / Esc: close", self.hud)
+        self.assertNotIn("FinisherShockwave", self.hero_cpp)
+
     def test_inventory_equipping_validates_item_codes_and_recalculates_armor(self):
         self.assertIn("bool EquipInventoryItem(int32 InventoryIndex);", self.hero_h)
         for field in ("EquippedWeaponCode", "EquippedArmorCode", "EquippedAccessoryCode"):
