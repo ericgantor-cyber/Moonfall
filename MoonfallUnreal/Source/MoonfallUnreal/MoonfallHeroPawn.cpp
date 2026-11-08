@@ -327,7 +327,10 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
   const int32 IncomingStage = bComboAlive ? FMath::Clamp(HitComboStage, 0, 12) : 0;
   const float ComboStepBonus = FMath::IsFinite(HitComboDamagePerStage)
       ? FMath::Clamp(HitComboDamagePerStage, 0.f, 0.12f) : 0.f;
-  const float HitComboMultiplier = 1.f + ComboStepBonus * FMath::Clamp(IncomingStage, 0, 3);
+  // After stage 12, the next connected hit begins a new chain rather than
+  // looping the last animation and its damage bonus forever.
+  const int32 EffectiveIncomingStage = IncomingStage == 12 ? 0 : IncomingStage;
+  const float HitComboMultiplier = 1.f + ComboStepBonus * FMath::Clamp(EffectiveIncomingStage, 0, 3);
   const float SpellDamage = (18.f + School * 5.f) * Multiplier * SpellPowerMultiplier
     * WeaponDamageBonus * CounterMultiplier * MomentumBonus * HitComboMultiplier;
   // Reject invalid damage before spending mana or consuming a hard-earned counter.
@@ -342,7 +345,7 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
        ? FMath::Clamp(CombatRecoverySeconds, 0.f, 12.f) : 5.f));
   const float ActualSpellDamage = FMath::Clamp(HealthBeforeSpell - Enemy->Health, 0.f, HealthBeforeSpell);
   if (ActualSpellDamage > 0.f) {
-   HitComboStage = bComboAlive ? FMath::Min(HitComboStage + 1, 12) : 1;
+   HitComboStage = bComboAlive ? (IncomingStage >= 12 ? 1 : IncomingStage + 1) : 1;
    LastHitComboTarget = Enemy;
    LastSuccessfulHitAt = Time;
    // Milestones are earned only once per uninterrupted same-target chain.
