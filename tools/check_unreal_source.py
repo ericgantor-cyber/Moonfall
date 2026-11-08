@@ -447,6 +447,26 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("PostureDistanceSq = FMath::Square(1200.f)", self.hud)
         self.assertNotIn('TEXT("GUARD BROKEN")', self.hud)
 
+    def test_finisher_cleanup_when_queue_overflows_or_is_cancelled(self):
+        register = self.hero_cpp.split("int32 AMoonfallHeroPawn::RegisterFinisherKill(", 1)[1].split(
+            "void AMoonfallHeroPawn::StartFinisherPresentation(", 1)[0]
+        self.assertIn("SupersededEnemy->BeginFinisherDefeat(PendingFinishers.Last().Style);", register)
+        self.assertLess(register.index("SupersededEnemy->BeginFinisherDefeat("),
+                        register.index("PendingFinishers[PendingFinishers.Num() - 1] = Pending;"))
+        update = self.hero_cpp.split("void AMoonfallHeroPawn::UpdateNativeFinisher(", 1)[1].split(
+            "void AMoonfallHeroPawn::AwardExperience(", 1)[0]
+        self.assertIn("for (const FPendingFinisher& Pending : PendingFinishers)", update)
+        self.assertIn("WaitingEnemy->BeginFinisherDefeat(Pending.Style);", update)
+        self.assertLess(update.index("WaitingEnemy->BeginFinisherDefeat(Pending.Style);"),
+                        update.index("PendingFinishers.Reset();"))
+        damage = self.enemy_cpp.split("void AMoonfallEnemy::TakeSpellDamage(float Amount)", 1)[1].split(
+            "void AMoonfallEnemy::BeginFinisherDefeat(", 1)[0]
+        self.assertLess(damage.index("SetLifeSpan(9.5f);"), damage.index("Hero->RegisterFinisherKill("))
+        self.assertEqual(damage.count("SetLifeSpan(9.5f);"), 1)
+        begin = self.enemy_cpp.split("void AMoonfallEnemy::BeginFinisherDefeat(", 1)[1].split(
+            "void AMoonfallEnemy::TickDefeatAnimation(", 1)[0]
+        self.assertIn("SetLifeSpan(1.25f);", begin)
+
     def test_queued_finishers_start_enemy_death_reaction_on_playback(self):
         self.assertIn("TWeakObjectPtr<AMoonfallEnemy> Enemy;", self.hero_h)
         self.assertIn("void BeginFinisherDefeat(int32 Style);", self.enemy_h)
