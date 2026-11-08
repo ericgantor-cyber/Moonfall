@@ -48,6 +48,9 @@ public:
  UFUNCTION(BlueprintImplementableEvent, Category="Combat|Posture") void OnShatterFinisher(float DamageDealt);
  UFUNCTION(BlueprintImplementableEvent, Category="Combat|Posture") void OnPostureBroken(float VulnerabilitySeconds);
  UFUNCTION(BlueprintImplementableEvent, Category="Combat|Posture") void OnPostureChanged(float CurrentPosture, float MaximumPosture);
+ // Optional animation cue for earned hits 4/8/12; no new asset required.
+ UFUNCTION(BlueprintImplementableEvent, Category="Combat|Combo") void OnComboMilestone(int32 Stage);
+ void RegisterComboMilestone(int32 Stage);
  UFUNCTION(BlueprintCallable, Category="Combat|Posture") void ApplyPostureDamage(float Amount);
  UFUNCTION(BlueprintImplementableEvent, Category="Boss") void OnBossPhaseChanged(int32 NewPhase);
 private:
