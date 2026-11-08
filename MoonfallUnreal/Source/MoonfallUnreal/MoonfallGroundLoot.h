@@ -3,6 +3,7 @@
 #include "GameFramework/Actor.h"
 #include "MoonfallGroundLoot.generated.h"
 
+class USceneComponent;
 class UStaticMeshComponent;
 class UTextRenderComponent;
 
@@ -16,6 +17,7 @@ public:
  int32 GetItemCode() const { return ItemCode; }
  bool TryCollect();
 private:
+ UPROPERTY(VisibleAnywhere) USceneComponent* SceneRoot;
  UPROPERTY(VisibleAnywhere) UStaticMeshComponent* PickupMesh;
  UPROPERTY(VisibleAnywhere) UStaticMeshComponent* RarityBeacon;
  UPROPERTY(VisibleAnywhere) UTextRenderComponent* ItemLabel;
