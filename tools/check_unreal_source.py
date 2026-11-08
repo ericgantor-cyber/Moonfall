@@ -116,7 +116,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         script = (ROOT.parents[1] / "Build" / "Build-Windows.ps1").read_text(encoding="utf-8")
         self.assertIn("MoonfallStart.umap", script)
         self.assertIn("GameDefaultMap", script)
-        self.assertIn("if (-not $CompileOnly)", script)
+        self.assertIn("if (-not $CompileOnly -and -not $CompilePreflightOnly) {", script)
+        self.assertIn("if ($CompilePreflightOnly) {", script)
         self.assertIn("Playable startup level missing:", script)
         self.assertIn("foreach ($mapKey in @('GameDefaultMap', 'EditorStartupMap'))", script)
         self.assertIn("GlobalDefaultGameMode", script)
@@ -126,12 +127,12 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("$matchingEntries.Count -ne 1", script)
         self.assertIn("$mapSectionMatches.Count -ne 1", script)
         self.assertIn("if ($PreflightOnly)", script)
-        self.assertIn("if (-not $CompileOnly) {", script)
+        self.assertEqual(script.count("if (-not $CompileOnly -and -not $CompilePreflightOnly) {"), 2)
         self.assertNotIn("if (-not $CompileOnly -and -not $PreflightOnly)", script)
         self.assertIn("Get-Command $command", script)
         self.assertIn("makensis.exe", script)
         self.assertIn("dotnet --list-sdks", script)
-        self.assertLess(script.index("if (-not $CompileOnly) {", script.index("# Packaging preflight")),
+        self.assertLess(script.index("if (-not $CompileOnly -and -not $CompilePreflightOnly) {", script.index("# Packaging preflight")),
                         script.index("if ($PreflightOnly)"))
         self.assertLess(script.index("dotnet --list-sdks"), script.index("if ($PreflightOnly)"))
 
