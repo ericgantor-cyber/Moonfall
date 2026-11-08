@@ -60,6 +60,11 @@ void AMoonfallEnemy::ApplyPostureDamage(float Amount) {
  Posture = 0.f;
  const float VulnerabilitySeconds = bBoss ? 1.5f : (bElite ? 2.f : 2.5f);
  PostureBrokenUntil = Now + VulnerabilitySeconds;
+ if (bDivineSignatureActive) {
+  OnDivineAttackInterrupted(ActiveDivineMoveId);
+  bDivineSignatureActive = false;
+  ActiveDivineMoveId = NAME_None;
+ }
  bPostureFinisherAvailable = true;
  PostureBreakCount = FMath::Min(PostureBreakCount + 1, 100000);
  if (bBoss && FMath::IsFinite(BasePostureAtSpawn) && BasePostureAtSpawn > 0.f) {
@@ -158,6 +163,8 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
    const int32 NewPhase = HealthRatio <= 0.33f ? 3 : (HealthRatio <= 0.66f ? 2 : 1);
    if (NewPhase > BossPhase) {
     BossPhase = NewPhase;
+    if (bDivineSignatureActive) OnDivineAttackInterrupted(ActiveDivineMoveId);
+    ActiveDivineMoveId = NAME_None;
     WindupEndsAt = -1.f;
     BossWarningEndTime = -1.f;
     // A phase transition cannot truncate an active posture-break lockout.
@@ -264,6 +271,11 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
  AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0));
  if (!IsValid(Hero) || !FMath::IsFinite(Hero->Health) || Hero->Health <= 0.f
      || Hero->bOptionsOpen || Hero->bInventoryOpen) {
+  if (bDivineSignatureActive) {
+   OnDivineAttackInterrupted(ActiveDivineMoveId);
+   bDivineSignatureActive = false;
+   ActiveDivineMoveId = NAME_None;
+  }
   WindupEndsAt = -1.f;
   BossWarningEndTime = -1.f;
   bComboSecondHitPending = false;
@@ -310,6 +322,11 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
  }
  if (Staggered) {
   // A successful hit interrupts an enemy's windup, rewarding reactive combat.
+  if (bDivineSignatureActive) {
+   OnDivineAttackInterrupted(ActiveDivineMoveId);
+   bDivineSignatureActive = false;
+   ActiveDivineMoveId = NAME_None;
+  }
   WindupEndsAt = -1.f;
   BossWarningEndTime = -1.f;
   bComboSecondHitPending = false;
@@ -335,6 +352,11 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   SetActorTickInterval(DesiredTickInterval);
  }
  if (!bInCombatArea) {
+  if (bDivineSignatureActive) {
+   OnDivineAttackInterrupted(ActiveDivineMoveId);
+   bDivineSignatureActive = false;
+   ActiveDivineMoveId = NAME_None;
+  }
   WindupEndsAt = -1.f;
   bComboSecondHitPending = false;
   bComboSecondHitActive = false;
@@ -382,6 +404,12 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
     && FVector::DistSquared2D(HeroPosition, DivineSignatureCenter) <= FMath::Square(DivineSignatureRadius);
   const bool bWithinBasicAttack = !bDivineSignatureActive
     && bWithinAttackArc && Difference.Size() <= AttackRange * CurrentAttackRangeMultiplier;
+  // Resolution event is emitted once for either hit or miss, before reset.
+  if (bDivineSignatureActive) {
+   OnDivineAttackResolved(ActiveDivineMoveId, DivineSignatureCenter, bWithinDivineMarker);
+   bDivineSignatureActive = false;
+   ActiveDivineMoveId = NAME_None;
+  }
   if (bWithinDivineMarker || bWithinBasicAttack) {
    // Do not damage the hero through solid arena walls or cover.
    FCollisionQueryParams SightParams(SCENE_QUERY_STAT(MoonfallMeleeSight), false);
@@ -740,6 +768,10 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
     CurrentAttackMultiplier = bVoidReaper ? 1.8f : 1.5f;
     CurrentAttackRangeMultiplier = 1.f;
     bComboSecondHitPending = false;
+    ActiveDivineMoveId = bVoidReaper
+      ? FName(bDivineAlternateGeometry ? TEXT("VoidCollapse") : TEXT("VoidJudgment"))
+      : FName(bDivineAlternateGeometry ? TEXT("EclipseMark") : TEXT("EclipsePulse"));
+    OnDivineAttackTelegraphed(ActiveDivineMoveId, DivineSignatureCenter, DivineSignatureRadius, CurrentWindup);
    }
    if (!bDivineSignatureActive && bComboFollowUp && BossSpecialMove == 0) {
     CurrentWindup += 0.25f;
