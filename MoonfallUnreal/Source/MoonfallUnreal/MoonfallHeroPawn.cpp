@@ -355,6 +355,15 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
     Enemy->ApplyPostureDamage(FMath::Clamp(HitComboFourthHitPosture, 0.f, 30.f));
    if (bNewPostureMilestone && Enemy->Health > 0.f)
     Enemy->RegisterComboMilestone(HitComboStage);
+   // Authored montages are optional and never gate successful damage.
+   // Do not cycle fewer assets as if they were twelve distinct animations.
+   if (!bReduceMotion && HitComboStage >= 1 && HitComboStage <= 12
+       && ComboMontages.IsValidIndex(HitComboStage - 1) && GetMesh()) {
+    if (UAnimInstance* Anim = GetMesh()->GetAnimInstance()) {
+     if (UAnimMontage* Montage = ComboMontages[HitComboStage - 1].Get())
+      Anim->Montage_Play(Montage, 1.f);
+    }
+   }
    OnSuccessfulHitCombo(HitComboStage, Hand == 0);
   }
   if (ActualSpellDamage > 0.f && Enemy->Health > 0.f
