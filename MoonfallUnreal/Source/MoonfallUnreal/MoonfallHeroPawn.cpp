@@ -1119,6 +1119,11 @@ void AMoonfallHeroPawn::InteractQuestGuide()
   if (DistSq < ClosestSq) { ClosestSq = DistSq; Nearest = Guide; }
  }
  if (!Nearest) return;
+ // Face the player only when spoken to; no expensive NPC Tick or controller.
+ FVector Facing = GetActorLocation() - Nearest->GetActorLocation();
+ Facing.Z = 0.f;
+ if (!Facing.IsNearlyZero()) Nearest->SetActorRotation(Facing.Rotation());
+ LastGuideTitle = Nearest->GetGuideTitle().ToString();
  LastGuideRegionIndex = FMath::Clamp(Nearest->RegionIndex, 0, 5);
  bLastGuideFoundQuest = false;
  LastGuideQuestId = -1;
