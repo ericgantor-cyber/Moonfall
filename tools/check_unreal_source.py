@@ -829,6 +829,17 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("PostureDistanceSq = FMath::Square(1200.f)", self.hud)
         self.assertNotIn('TEXT("GUARD BROKEN")', self.hud)
 
+    def test_inventory_menu_cancels_pending_finisher_visuals(self):
+        update = self.hero_cpp.split("void AMoonfallHeroPawn::UpdateNativeFinisher(float DeltaSeconds)", 1)[1].split(
+            "void AMoonfallHeroPawn::AwardExperience", 1)[0]
+        self.assertIn("if (Health <= 0.f || bOptionsOpen || bInventoryOpen) {", update)
+        self.assertIn("WaitingEnemy->BeginFinisherDefeat(Pending.Style);", update)
+        self.assertIn("PendingFinishers.Reset();", update)
+        self.assertIn("if (Health > 0.f && !bOptionsOpen && !bInventoryOpen && Age >= Duration", update)
+        self.assertIn("if (Health <= 0.f || bOptionsOpen || bInventoryOpen || Age < 0.f || Age >= Duration) {", update)
+        self.assertLess(update.index("PendingFinishers.Reset();"),
+                        update.index("if (Health > 0.f && !bOptionsOpen && !bInventoryOpen"))
+
     def test_finisher_cleanup_when_queue_overflows_or_is_cancelled(self):
         register = self.hero_cpp.split("int32 AMoonfallHeroPawn::RegisterFinisherKill(", 1)[1].split(
             "void AMoonfallHeroPawn::StartFinisherPresentation(", 1)[0]
