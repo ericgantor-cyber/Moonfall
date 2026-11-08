@@ -441,14 +441,17 @@ void AMoonfallHeroPawn::Dodge()
 {
  if (bOptionsOpen || bInventoryOpen || Health <= 0.f || !GetWorld()) return;
  const float Now = GetWorld()->GetTimeSeconds();
- if (Now < NextDodgeAt || Now < DamageImmunityUntil
+ // Nonfinite cooldown timestamps must not allow repeated dodges or immunity.
+ if (!FMath::IsFinite(Now) || !FMath::IsFinite(NextDodgeAt)
+     || !FMath::IsFinite(DamageImmunityUntil)
+     || Now < NextDodgeAt || Now < DamageImmunityUntil
      || !FMath::IsFinite(DodgeCooldown) || DodgeCooldown <= 0.f
      || !FMath::IsFinite(Stamina) || !FMath::IsFinite(MaxStamina)
      || !FMath::IsFinite(DodgeStaminaCost) || MaxStamina <= 0.f
      || DodgeStaminaCost < 0.f || Stamina < DodgeStaminaCost
      || !FMath::IsFinite(DodgeLaunchSpeed) || DodgeLaunchSpeed <= 0.f) return;
  Stamina = FMath::Clamp(Stamina - DodgeStaminaCost, 0.f, MaxStamina);
- StaminaRegenStartsAt = Now + 0.8f;
+ StaminaRegenStartsAt = FMath::Max(FMath::IsFinite(StaminaRegenStartsAt) ? StaminaRegenStartsAt : Now, Now + 0.8f);
  if (GetCharacterMovement()) GetCharacterMovement()->MaxWalkSpeed = NormalWalkSpeed;
  // Dodge takes priority over sprint. Releasing Sprint permits a fresh attempt.
  bSprintExhausted = true;
