@@ -1751,6 +1751,22 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("bComboSecondHitActive = false;", death)
         self.assertLess(death.index("OnDivineAttackInterrupted("), death.index("SetActorEnableCollision(false)"))
 
+    def test_divine_telegraph_event_observes_committed_cast_clock(self):
+        enemy = self.enemy_cpp
+        start = enemy.index("++DivineSignatureCastCount;")
+        end = enemy.index("\\n  }\\n }\\n}", start)
+        cast = enemy[start:end]
+        self.assertIn("WindupEndsAt = Now + CurrentWindup;", cast)
+        self.assertIn("if (bBoss) BossWarningEndTime = WindupEndsAt;", cast)
+        self.assertIn("if (bDivineSignatureActive) {", cast)
+        self.assertIn("OnDivineAttackTelegraphed(ActiveDivineMoveId, DivineSignatureCenter, DivineSignatureRadius, CurrentWindup);", cast)
+        self.assertLess(cast.index("WindupEndsAt = Now + CurrentWindup;"),
+                        cast.index("OnDivineAttackTelegraphed("))
+        self.assertLess(cast.index("BossWarningEndTime = WindupEndsAt;"),
+                        cast.index("OnDivineAttackTelegraphed("))
+        self.assertLess(cast.index("LockedAttackDirection = Difference.GetSafeNormal2D();"),
+                        cast.index("OnDivineAttackTelegraphed("))
+
     def test_divine_animation_callbacks_and_interruption_cleanup(self):
         self.assertIn("void OnDivineAttackTelegraphed(FName MoveId, FVector TargetCenter, float Radius, float WarningSeconds);", self.enemy_h)
         self.assertIn("void OnDivineAttackResolved(FName MoveId, FVector TargetCenter, bool bHeroInsideMarker);", self.enemy_h)
