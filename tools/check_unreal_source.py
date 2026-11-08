@@ -916,6 +916,25 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("FMath::Max(StaminaRegenStartsAt, GetWorld()->GetTimeSeconds() + 0.4f)", end_guard)
         self.assertNotIn('TEXT("GUARD BROKEN")', self.hud)
 
+    def test_fourth_hit_posture_only_affects_combo_target_once(self):
+        self.assertIn("TWeakObjectPtr<AMoonfallEnemy> LastHitComboTarget;", self.hero_h)
+        self.assertIn("float HitComboFourthHitPosture = 12.f;", self.hero_h)
+        cast = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split(
+            "void AMoonfallHeroPawn::CastLeft()", 1)[0]
+        self.assertIn("LastHitComboTarget.IsValid() && LastHitComboTarget.Get() == Enemy", cast)
+        self.assertIn("const bool bComboAlive = bSameTarget &&", cast)
+        self.assertIn("LastHitComboTarget = Enemy;", cast)
+        self.assertIn("HitComboStage == 4 && IncomingStage == 3 && Enemy->Health > 0.f", cast)
+        self.assertIn("FMath::Clamp(HitComboFourthHitPosture, 0.f, 30.f)", cast)
+        self.assertIn("Enemy->ApplyPostureDamage(", cast)
+        self.assertLess(cast.index("if (ActualSpellDamage > 0.f) {"),
+                        cast.index("HitComboStage == 4 && IncomingStage == 3"))
+        damage = self.hero_cpp.split("void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount)", 1)[1].split(
+            "void AMoonfallHeroPawn::CycleGraphicsQuality()", 1)[0]
+        self.assertIn("LastHitComboTarget.Reset();", damage)
+        self.assertNotIn("FinisherShockwave", self.hero_h)
+        self.assertNotIn("FinisherShockwave", self.hero_cpp)
+
     def test_four_stage_attack_combo_requires_real_hits_and_has_bounded_damage(self):
         self.assertIn("float HitComboWindowSeconds = 2.f;", self.hero_h)
         self.assertIn("float HitComboDamagePerStage = 0.04f;", self.hero_h)
@@ -925,6 +944,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         cast = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split(
             "void AMoonfallHeroPawn::CastLeft()", 1)[0]
         self.assertIn("Time - LastSuccessfulHitAt <= ComboWindow", cast)
+        self.assertIn("LastHitComboTarget.IsValid() && LastHitComboTarget.Get() == Enemy", cast)
+        self.assertIn("const bool bComboAlive = bSameTarget &&", cast)
         self.assertIn("FMath::Clamp(HitComboWindowSeconds, 0.5f, 4.f)", cast)
         self.assertIn("FMath::Clamp(HitComboDamagePerStage, 0.f, 0.12f)", cast)
         self.assertIn("HitComboMultiplier = 1.f + ComboStepBonus", cast)
