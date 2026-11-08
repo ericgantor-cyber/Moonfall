@@ -29,6 +29,9 @@ public:
  UFUNCTION(BlueprintCallable, Category="Moonfall|NPC") bool RecordGuideSocialChoice(int32 RegionIndex, bool bIntimidate);
  UFUNCTION(BlueprintPure, Category="Moonfall|NPC") int32 GetGuideTrust(int32 RegionIndex) const;
  UFUNCTION(BlueprintPure, Category="Moonfall|NPC") int32 GetGuideFear(int32 RegionIndex) const;
+ UFUNCTION(BlueprintCallable, Category="Moonfall|NPC") bool RecordNpcSocialChoice(int32 NpcId, bool bIntimidate);
+ UFUNCTION(BlueprintPure, Category="Moonfall|NPC") int32 GetNpcTrust(int32 NpcId) const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|NPC") int32 GetNpcFear(int32 NpcId) const;
 private:
  TSet<int32> BuiltRooms;
  TSet<int32> SpawnedEncounters;
@@ -39,6 +42,9 @@ private:
  int32 TrackedDungeonQuestId = -1;
  TArray<int32> GuideTrustMemory;
  TArray<int32> GuideFearMemory;
+ TArray<int32> NpcTrustMemory;
+ TArray<int32> NpcFearMemory;
+ TMap<int32, float> LastNpcSocialActionAt;
  TMap<int32, float> LastGuideSocialActionAt;
  TMap<int32, TWeakObjectPtr<AMoonfallEnemy>> ActiveEncounters;
  bool bWorldSavePending = false;
