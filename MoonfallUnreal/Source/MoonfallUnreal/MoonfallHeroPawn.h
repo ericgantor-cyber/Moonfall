@@ -53,6 +53,9 @@ public:
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Quests") bool bLastGuideFoundQuest = false;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Quests") float LastGuideMessageUntil = -1.f;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Quests") FString LastGuideTitle;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC") FString LastNpcPersonality;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC") FString LastNpcRoutine;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC") int32 LastNpcRole = 0;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC") int32 LastGuideTrust = 0;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC") int32 LastGuideFear = 0;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC") int32 LastGuideSocialChoice = -1;
