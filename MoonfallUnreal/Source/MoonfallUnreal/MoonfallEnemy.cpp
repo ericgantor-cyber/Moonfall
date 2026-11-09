@@ -744,7 +744,8 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
       if (!IsValid(Other) || Other == this || Other->Health <= 0.f || Other->bBoss) continue;
       // Keep dungeon role coordination in its own pack; never block an
       // unrelated open-world mob's attack because a dungeon pack is nearby.
-      if (bDungeonRole && Other->DungeonPackId != DungeonPackId) continue;
+      if (bDungeonRole && (DungeonPackId < 0 || Other->DungeonPackId != DungeonPackId)) continue;
+      if (!bDungeonRole && Other->DungeonPackId >= 0) continue;
       if (Other->WindupEndsAt > Now
           && FVector::DistSquared2D(Other->GetActorLocation(), GetActorLocation()) < FMath::Square(550.f)
           && ++NearbyWindingAllies >= 2) break;
