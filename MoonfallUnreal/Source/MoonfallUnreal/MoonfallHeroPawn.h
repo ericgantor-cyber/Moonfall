@@ -96,6 +96,13 @@ public:
  // Dedicated progression profile: independent of equipment and exploration saves.
  void LoadProgressionProfile();
  void SaveProgressionProfile() const;
+ // Only grounded, collision-safe checkpoints are restored across restarts.
+ void LoadWorldCheckpoint();
+ void SaveWorldCheckpoint();
+ void UpdateWorldCheckpoint(float DeltaSeconds);
+ float WorldCheckpointTimer = 0.f;
+ FVector LastSavedWorldCheckpoint = FVector::ZeroVector;
+ bool bHasSavedWorldCheckpoint = false;
  // Every takedown plays native five-style choreography; authored montages layer over it.
  UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|Finishers") TArray<TObjectPtr<UAnimMontage>> FinisherMontages;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Finishers", meta=(ClampMin="0.5", ClampMax="10.0")) float FinisherChainWindowSeconds = 4.f;
