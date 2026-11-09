@@ -4,6 +4,7 @@
 #include "Components/BoxComponent.h"
 #include "Components/InstancedStaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
+#include "Engine/World.h"
 #include "UObject/ConstructorHelpers.h"
 
 AMoonfallDungeonLayout::AMoonfallDungeonLayout()
