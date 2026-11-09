@@ -361,6 +361,21 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Hero->GetEquipmentUpgradeScore(AdvisedIndex)", inventory)
         self.assertNotIn("J: jump", inventory)
 
+    def test_combat_hud_supports_all_six_loot_rarities_and_unlimited_bag(self):
+        hud = self.hud
+        rarity_section = hud.split("const TCHAR* RarityNames[] =", 1)[1].split(
+            "if (!bCompactScreen) DrawText(TEXT(\"ESC  OPTIONS\"),", 1
+        )[0]
+        for name in ("COMMON", "UNCOMMON", "RARE", "EPIC", "EMERALD", "LEGENDARY"):
+            self.assertIn('TEXT("' + name + '")', rarity_section)
+        self.assertIn("UE_ARRAY_COUNT(RarityNames)", rarity_section)
+        self.assertIn("RarityNames[Rarity]", rarity_section)
+        self.assertIn("if (Hero->LastLootTier > 0)", rarity_section)
+        self.assertIn("Last received: %s Tier %d", rarity_section)
+        self.assertIn("Bag %d", rarity_section)
+        self.assertNotIn("Bag %d/30", rarity_section)
+        self.assertNotIn("if (Hero->InventoryItemCodes.Num() > 0)", rarity_section)
+
     def test_ai_gear_advisor_is_visible_without_equipping(self):
         hud = self.hud
         inventory = hud.split("if (Hero->bInventoryOpen) {", 1)[1].split(
