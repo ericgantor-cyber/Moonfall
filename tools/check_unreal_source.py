@@ -185,7 +185,15 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("if (bInventoryOpen) { bInventoryOpen = false; bCharacterStatsOpen = false; return; }", toggle)
         self.assertIn("InventorySelection = FMath::Max(0, InventorySelection - 1);", toggle)
         self.assertIn("InventorySelection = FMath::Min(FMath::Max(0, InventoryItemCodes.Num() - 1), InventorySelection + 1);", toggle)
-        self.assertIn("if (bInventoryOpen) { EquipSelectedInventoryItem(); return; }", toggle)
+        self.assertIn("InventorySelection = FMath::Clamp(InventorySelection - 5, 0,", toggle)
+        self.assertIn("InventorySelection = FMath::Clamp(InventorySelection + 5, 0,", toggle)
+        for direction in ("OptionsLeft", "OptionsRight"):
+            navigation = self.hero_cpp.split(
+                "void AMoonfallHeroPawn::" + direction + "()", 1
+            )[1].split("void AMoonfallHeroPawn::", 1)[0]
+            self.assertNotIn("EquipSelectedInventoryItem(", navigation)
+            self.assertNotIn("EquipInventoryItem(", navigation)
+        self.assertIn("EquipInventoryItem(InventorySelection);", toggle)
         self.assertIn("if (Health <= 0.f || bOptionsOpen || bInventoryOpen || !FMath::IsFinite(Value)) return;", self.hero_cpp)
         self.assertIn("bOptionsOpen || bInventoryOpen || !GetWorld()", self.hero_cpp)
         self.assertIn("if (Hero->bInventoryOpen)", self.hud)
