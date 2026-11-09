@@ -932,8 +932,13 @@ void AMoonfallHeroPawn::ToggleCharacterStats()
   bInventoryOpen = true;
   bCharacterStatsOpen = true;
   UpdateInventoryMouseMode();
+ } else if (bCharacterStatsOpen) {
+  // C closes character info without leaving the inventory behind.
+  bCharacterStatsOpen = false;
+  bInventoryOpen = false;
+  UpdateInventoryMouseMode();
  } else {
-  bCharacterStatsOpen = !bCharacterStatsOpen;
+  bCharacterStatsOpen = true;
  }
 }
 
