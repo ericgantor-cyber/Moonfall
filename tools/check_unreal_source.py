@@ -2799,5 +2799,30 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("DiscoveredRegionCount = DiscoveredRegions.Num()", load)
         self.assertIn("DiscoveredRegionCount, AMoonfallHeroPawn::MaxExplorationRegions", self.hud)
 
+    def test_exploration_quest_stages_derive_from_persisted_regions(self):
+        self.assertIn("GetExplorationQuestStage() const;", self.hero_h)
+        self.assertIn("GetExplorationQuestTarget() const;", self.hero_h)
+        self.assertIn("GetExplorationQuestTitle() const;", self.hero_h)
+        self.assertIn("OnExplorationQuestCompleted(int32 CompletedRegions)", self.hero_h)
+        stage = self.hero_cpp.split("int32 AMoonfallHeroPawn::GetExplorationQuestStage()", 1)[1].split(
+            "int32 AMoonfallHeroPawn::GetExplorationQuestTarget()", 1)[0]
+        for number in ("Count < 5", "Count < 15", "Count < 30", "Count < MaxExplorationRegions"):
+            self.assertIn(number, stage)
+        self.assertIn("Targets[] = {5, 15, 30, MaxExplorationRegions, MaxExplorationRegions}", self.hero_cpp)
+        for label in ("First Footprints", "Beyond the Veil", "Horizonwalker",
+                      "Chart the Unknown", "All Lands Charted"):
+            self.assertIn(label, self.hero_cpp)
+        discovery = self.hero_cpp.split("void AMoonfallHeroPawn::UpdateExplorationDiscovery(", 1)[1].split(
+            "void AMoonfallHeroPawn::BeginPlay()", 1)[0]
+        self.assertLess(discovery.index("SaveExplorationProfile();"), discovery.index("OnExplorationQuestCompleted("))
+        self.assertIn("DiscoveredRegionCount == 5 || DiscoveredRegionCount == 15", discovery)
+        self.assertIn("DiscoveredRegionCount == 30", discovery)
+        self.assertIn("DiscoveredRegionCount == MaxExplorationRegions", discovery)
+        self.assertNotIn("OnExplorationQuestCompleted(", self.hero_cpp.split(
+            "void AMoonfallHeroPawn::LoadExplorationProfile()", 1)[1].split(
+            "void AMoonfallHeroPawn::SaveExplorationProfile()", 1)[0])
+        self.assertIn('TEXT("QUEST | %s  %d/%d%s")', self.hud)
+        self.assertIn("QuestBarWidth * QuestFraction", self.hud)
+
 if __name__ == "__main__":
     unittest.main()
