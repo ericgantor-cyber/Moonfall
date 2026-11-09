@@ -568,7 +568,19 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   NextPathRefreshAt = 0.f;
   return;
  }
- if ((Distance > AttackRange || (!bBoss && !bCanSeeHero)) && Distance < 2200.f) {
+ // Divine bosses can begin their distinct marked-area signature from a
+ // measured spell range. Only the next scheduled signature is eligible:
+ // normal blows, other bosses, elites and ordinary mobs remain melee-only.
+ // This checks existing state without adding extra AI ticks or nav queries.
+ const bool bDivineSignatureDue = bBoss
+   && (DivineBossId == FName(TEXT("z_void_reaper"))
+       || DivineBossId == FName(TEXT("nyra_eclipse_queen")))
+   && AttackSequence % 4 == 3;
+ const bool bDivineRangedCastReady = bDivineSignatureDue
+   && WindupEndsAt < 0.f && Now >= NextAttackAt
+   && Distance > AttackRange && Distance <= 750.f;
+ if ((Distance > AttackRange || (!bBoss && !bCanSeeHero))
+     && Distance < 2200.f && !bDivineRangedCastReady) {
   FHitResult Hit;
   FVector Target = (!bBoss && !bCanSeeHero) ? LastKnownHeroPosition : Hero->GetActorLocation();
   // Give different ordinary enemies stable approach lanes instead of all
@@ -656,11 +668,12 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
    NextBlockedRepathAt = Now + 0.5f;
    CachedWaypoint = FVector::ZeroVector;
   }
- } else if (Distance <= AttackRange) {
+ } else if (Distance <= AttackRange || bDivineRangedCastReady) {
   // Elites and advanced bosses reposition between strikes, not during
   // locked attack windups or posture breaks. A small sideways sweep keeps
   // combat mobile while preserving walls, hit arcs and dodge windows.
-  if ((bElite || (bBoss && BossPhase >= 2))
+  if (!bDivineRangedCastReady
+      && (bElite || (bBoss && BossPhase >= 2))
       && WindupEndsAt < 0.f && Now < NextAttackAt
       && Now >= HitReactionEndsAt && Now >= PostureBrokenUntil
       && Distance > AttackRange * 0.45f && Distance > 1.f) {

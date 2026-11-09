@@ -1692,14 +1692,14 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Now >= HitReactionEndsAt && Now >= PostureBrokenUntil", self.enemy_cpp)
         tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
         self.assertLess(tick.index("if (bElite && !bBoss && Now < TacticalRetreatUntil"),
-                        tick.index("if ((Distance > AttackRange || (!bBoss && !bCanSeeHero)) && Distance < 2200.f)"))
+                        tick.index("&& Distance < 2200.f && !bDivineRangedCastReady)"))
         self.assertIn("const float RetreatStep = 200.f * SafeAIDelta;", self.enemy_cpp)
         self.assertIn("AddActorWorldOffset(RetreatDirection * RetreatStep, true, &RetreatHit);", self.enemy_cpp)
         self.assertEqual(self.enemy_cpp.count("Nav->FindPathToLocationSynchronously("), 1)
 
     def test_elites_and_late_bosses_strafe_only_during_attack_recovery(self):
         tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
-        self.assertIn("if ((bElite || (bBoss && BossPhase >= 2))", tick)
+        self.assertIn("&& (bElite || (bBoss && BossPhase >= 2))", tick)
         self.assertIn("WindupEndsAt < 0.f && Now < NextAttackAt", tick)
         self.assertIn("Now >= HitReactionEndsAt && Now >= PostureBrokenUntil", tick)
         self.assertIn("Distance > AttackRange * 0.45f && Distance > 1.f", tick)
@@ -1798,6 +1798,21 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("bDivineSignatureActive = false;", self.enemy_cpp)
         self.assertIn("ActiveDivineMoveId = NAME_None;", self.enemy_cpp)
         self.assertLess(self.enemy_cpp.index("OnDivineAttackResolved("), self.enemy_cpp.index("if (bWithinDivineMarker || bWithinBasicAttack)"))
+
+    def test_divine_signatures_can_cast_at_range_without_ranged_melee(self):
+        tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
+        self.assertIn("const bool bDivineSignatureDue = bBoss", tick)
+        self.assertIn('DivineBossId == FName(TEXT("z_void_reaper"))', tick)
+        self.assertIn('DivineBossId == FName(TEXT("nyra_eclipse_queen"))', tick)
+        self.assertIn("AttackSequence % 4 == 3;", tick)
+        self.assertIn("const bool bDivineRangedCastReady = bDivineSignatureDue", tick)
+        self.assertIn("Distance > AttackRange && Distance <= 750.f;", tick)
+        self.assertIn("&& Distance < 2200.f && !bDivineRangedCastReady)", tick)
+        self.assertIn("} else if (Distance <= AttackRange || bDivineRangedCastReady) {", tick)
+        self.assertIn("if (!bDivineRangedCastReady", tick)
+        self.assertIn("if (bBoss && (bVoidReaper || bEclipseQueen) && AttackSequence % 4 == 0)", tick)
+        self.assertEqual(tick.count("Nav->FindPathToLocationSynchronously("), 1)
+        self.assertEqual(tick.count("Nav->ProjectPointToNavigation("), 1)
 
     def test_divine_alternation_only_advances_after_completed_cast(self):
         enemy = self.enemy_cpp
