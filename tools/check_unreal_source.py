@@ -3042,7 +3042,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("for (int32 Chamber = 1; Chamber < ChamberCount - 1; ++Chamber)", layout_cpp)
         self.assertIn("ChamberTriggers.Add(Trigger);", layout_cpp)
         self.assertIn("GetRandomizedHazardChamber(HazardIndex) == ChamberIndex", layout_cpp)
-        self.assertIn("Stream.RandRange(1, 4);", layout_cpp)
+        self.assertIn("int32 Types[9] = {1, 2, 3, 4, 1, 2, 3, 4, 1};", layout_cpp)
+        self.assertIn("Stream.RandRange(0, Index)", layout_cpp)
         self.assertIn("if (ChamberIndex == 0) return 0;", layout_cpp)
         self.assertIn("if (ChamberIndex == ChamberCount - 1) return 6;", layout_cpp)
         self.assertIn("Trigger->OnComponentBeginOverlap.AddDynamic(", layout_cpp)
@@ -3056,23 +3057,25 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         layout_h = (ROOT / "MoonfallDungeonLayout.h").read_text(encoding="utf-8")
         layout_cpp = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
         self.assertIn("float ShrineManaRestore = 35.f;", layout_h)
-        self.assertIn("void ResolveChamberReward(AMoonfallHeroPawn* Hero, int32 ChamberIndex, int32 ChamberType);", layout_h)
+        self.assertIn("bool ResolveChamberReward(AMoonfallHeroPawn* Hero, int32 ChamberIndex, int32 ChamberType);", layout_h)
         self.assertIn("OnShrineActivated(", layout_h)
         self.assertIn("OnTreasureDropped(", layout_h)
         chamber = layout_cpp.split("void AMoonfallDungeonLayout::HandleChamberOverlap(", 1)[1].split(
-            "void AMoonfallDungeonLayout::ResolveChamberReward(", 1)[0]
-        self.assertLess(chamber.index("EnteredChambersMask |= Bit;"), chamber.index("ResolveChamberReward("))
+            "bool AMoonfallDungeonLayout::ResolveChamberReward(", 1)[0]
+        self.assertLess(chamber.index("ResolveChamberReward("), chamber.index("EnteredChambersMask |= Bit;"))
         self.assertIn("OnChamberEntered(Hero, ChamberIndex, ChamberType);", chamber)
-        reward = layout_cpp.split("void AMoonfallDungeonLayout::ResolveChamberReward(", 1)[1]
+        reward = layout_cpp.split("bool AMoonfallDungeonLayout::ResolveChamberReward(", 1)[1]
         self.assertIn("if (ChamberType == 3)", reward)
         self.assertIn("Hero->Mana = FMath::Clamp(", reward)
         self.assertNotIn("Hero->Health =", reward)
-        self.assertIn("if (ChamberType != 2 || !GetWorld()) return;", reward)
+        self.assertIn("if (!GetWorld()) return false;", reward)
         self.assertIn("FRandomStream Stream(GetEffectiveLayoutSeed()", reward)
         self.assertIn("const int32 Rarity = Stream.RandRange(2, 4);", reward)
         self.assertIn("const int32 Slot = Stream.RandRange(0, 8);", reward)
         self.assertIn("const int32 Trait = Stream.RandRange(1, 3);", reward)
         self.assertIn("SpawnActor<AMoonfallGroundLoot>", reward)
+        self.assertIn("ClaimedRewardMask |= Bit;", reward)
+        self.assertIn("SaveRewardClaims();", reward)
         self.assertIn("Loot->InitializeLoot(ItemCode);", reward)
         self.assertNotIn("Hero->CollectGroundEquipmentCode(", reward)
 
@@ -3117,6 +3120,28 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("FVector(0.f, -1250.f, -20.f)", road_cpp)
         self.assertNotIn("OpenLevel(", game)
         self.assertNotIn("OpenLevel(", road_cpp)
+
+    def test_all_dungeons_guarantee_balanced_room_types_and_persist_claims(self):
+        h = (ROOT / "MoonfallDungeonLayout.h").read_text(encoding="utf-8")
+        cpp = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
+        self.assertIn("int32 Types[9] = {1, 2, 3, 4, 1, 2, 3, 4, 1};", cpp)
+        self.assertIn("for (int32 Candidate = 1; Candidate < ChamberCount - 1; ++Candidate)", cpp)
+        self.assertIn("if (EligibleCount != 9) return -1;", cpp)
+        self.assertIn("uint16 ClaimedRewardMask = 0;", h)
+        self.assertIn("LoadRewardClaims();", cpp)
+        self.assertIn('TEXT("Moonfall.DungeonRewards.V1.Z%dD%d")', cpp)
+        self.assertIn('TEXT("ClaimedMask")', cpp)
+        self.assertIn('RawMask < 0 || (RawMask >> ChamberCount) != 0', cpp)
+        self.assertIn("if ((ClaimedRewardMask & Bit) != 0u) return true;", cpp)
+        self.assertIn("GConfig->Flush(false, GGameUserSettingsIni);", cpp)
+        chamber = cpp.split("void AMoonfallDungeonLayout::HandleChamberOverlap(", 1)[1].split(
+            "void AMoonfallDungeonLayout::LoadRewardClaims()", 1)[0]
+        self.assertLess(chamber.index("ResolveChamberReward("), chamber.index("EnteredChambersMask |= Bit;"))
+        reward = cpp.split("bool AMoonfallDungeonLayout::ResolveChamberReward(", 1)[1]
+        self.assertIn("if (!IsValid(Loot)) return false;", reward)
+        self.assertLess(reward.index("Loot->InitializeLoot(ItemCode);"),
+                        reward.index("ClaimedRewardMask |= Bit;", reward.index("Loot->InitializeLoot(ItemCode);")))
+        self.assertNotIn("Hero->Health =", reward)
 
 if __name__ == "__main__":
     unittest.main()

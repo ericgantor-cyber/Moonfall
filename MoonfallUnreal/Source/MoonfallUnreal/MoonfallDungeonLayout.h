@@ -92,12 +92,17 @@ public:
 private:
  float NextHazardDamageAt = -1.f;
  uint16 EnteredChambersMask = 0;
+ // Saved independently of actor lifetime so revisiting or reloading cannot
+ // create the same treasure twice or repeatedly consume a shrine.
+ uint16 ClaimedRewardMask = 0;
+ void LoadRewardClaims();
+ void SaveRewardClaims() const;
  UFUNCTION()
  void HandleChamberOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor,
     UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep,
     const FHitResult& SweepResult);
  void BuildHazardChambers(int32 OutChambers[3]) const;
- void ResolveChamberReward(AMoonfallHeroPawn* Hero, int32 ChamberIndex, int32 ChamberType);
+ bool ResolveChamberReward(AMoonfallHeroPawn* Hero, int32 ChamberIndex, int32 ChamberType);
  UFUNCTION()
  void HandleHazardOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor,
     UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep,
