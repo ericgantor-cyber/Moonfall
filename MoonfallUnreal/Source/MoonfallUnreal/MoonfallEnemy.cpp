@@ -562,8 +562,11 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
    LastKnownHeroPosition = HeroPosition;
   }
  }
+ // Scouts keep tracking the last seen position slightly longer, without
+ // gaining wall vision, extra navigation requests, or global aggro.
+ const float LastSeenGrace = ActorHasTag(FName(TEXT("DungeonScout"))) ? 4.f : 2.5f;
  const bool bHasRecentSight = bBoss || (FMath::IsFinite(LastSawHeroAt)
-   && Now - LastSawHeroAt <= 2.5f);
+   && Now - LastSawHeroAt <= LastSeenGrace);
  if (!bHasRecentSight) {
   CachedWaypoint = FVector::ZeroVector;
   NextPathRefreshAt = 0.f;
@@ -623,6 +626,11 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
      FlankSign = AttackSequence % 2 == 0 ? -1.f : 1.f;
      FlankDistance = 175.f;
     }
+   } else if (ActorHasTag(FName(TEXT("DungeonScout")))) {
+    // Scouts seek a wider side approach. Keep movement inside the existing
+    // swept-collision and nav-path safeguards.
+    FlankSign = GetUniqueID() % 2u == 0u ? -1.f : 1.f;
+    FlankDistance = 185.f;
    } else if (bElite) {
     // Switch flank side after a low-health withdrawal.
     FlankSign = bRetreatFlankLeft ? -1.f : 1.f;
@@ -706,7 +714,8 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
       && Distance > AttackRange * 0.45f && Distance > 1.f) {
    const FVector StrafeSide(-Difference.Y, Difference.X, 0.f);
    const float StrafeSign = (AttackSequence % 2 == 0) ? -1.f : 1.f;
-   const float StrafeSpeed = bBoss ? 95.f : 70.f;
+   const float StrafeSpeed = bBoss ? 95.f
+     : (ActorHasTag(FName(TEXT("DungeonPackLeader"))) ? 100.f : 70.f);
    const FVector StrafeStep = StrafeSide.GetSafeNormal() * StrafeSign
      * StrafeSpeed * SafeAIDelta;
    if (!StrafeStep.IsNearlyZero()) {
