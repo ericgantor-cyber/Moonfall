@@ -133,6 +133,13 @@ public:
  // Equip a validated inventory entry by index; the item remains in inventory.
  UFUNCTION(BlueprintCallable, Category="Moonfall|Equipment") bool EquipInventoryItem(int32 InventoryIndex);
  // Explicit inventory action, never automatic on loot pickup.
+ // Lightweight local gear advisor: evaluates worn gear, item quality and
+ // Force/Ward/Focus set synergy. It never equips, salvages or changes saves.
+ // Returns -1 if there is no strictly better inventory choice.
+ UFUNCTION(BlueprintPure, Category="Moonfall|Equipment|Advisor") int32 GetRecommendedEquipmentIndex() const;
+ // A positive score means the specified bag item improves its own worn slot.
+ // Zero or negative means keep the current gear; invalid indices return 0.
+ UFUNCTION(BlueprintPure, Category="Moonfall|Equipment|Advisor") int32 GetEquipmentUpgradeScore(int32 InventoryIndex) const;
  UFUNCTION(BlueprintCallable, Category="Moonfall|Equipment") int32 EquipBestInventoryUpgrades();
  void EquipBestInventoryAction();
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Equipment") void OnBestLoadoutEquipped(int32 UpgradesEquipped);
