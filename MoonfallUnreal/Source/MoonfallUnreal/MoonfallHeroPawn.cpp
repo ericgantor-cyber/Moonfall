@@ -1434,6 +1434,60 @@ void AMoonfallHeroPawn::PickupNearestGroundLoot()
  }
 }
 
+// A deterministic, no-network gear advisor. Tier has the largest weight;
+// rarity and set synergy only break close ties, so an AI hint never silently
+// changes equipment or overrides a deliberate player preference.
+int32 AMoonfallHeroPawn::GetEquipmentUpgradeScore(int32 InventoryIndex) const
+{
+ if (!InventoryItemCodes.IsValidIndex(InventoryIndex)) return 0;
+ const int32 Candidate = InventoryItemCodes[InventoryIndex];
+ if (Candidate <= 0) return 0;
+ const int32 Slot = (Candidate / 10000) % 10;
+ int32 Trait = 0, Rarity = 0, Tier = 0;
+ if (!DecodeEquippedItem(Candidate, Slot, Trait, Rarity, Tier)) return 0;
+ const int32 EquippedCodes[3] = {EquippedWeaponCode, EquippedArmorCode, EquippedAccessoryCode};
+ if (Candidate == EquippedCodes[Slot]) return 0;
+ const auto GearScore = [&](int32 Code) {
+  int32 ScoredTrait = 0, ScoredRarity = 0, ScoredTier = 0;
+  if (!DecodeEquippedItem(Code, Slot, ScoredTrait, ScoredRarity, ScoredTier)) return 0;
+  // Existing valid gear gains a small bonus for set synergy with the OTHER
+  // slots only. No double-counting its own set piece.
+  int32 MatchingPieces = 0;
+  if (ScoredTrait > 0) {
+   for (int32 OtherSlot = 0; OtherSlot < 3; ++OtherSlot) {
+    if (OtherSlot == Slot) continue;
+    int32 OtherTrait = 0, OtherRarity = 0, OtherTier = 0;
+    if (DecodeEquippedItem(EquippedCodes[OtherSlot], OtherSlot,
+                           OtherTrait, OtherRarity, OtherTier) &&
+        OtherTrait == ScoredTrait) ++MatchingPieces;
+   }
+  }
+  const int32 SynergyScore = MatchingPieces == 2 ? 80
+      : (MatchingPieces == 1 ? 40 : 0);
+  return ScoredTier * 1000 + ScoredRarity * 100 +
+         (ScoredTrait > 0 ? 10 : 0) + SynergyScore;
+ };
+ return GearScore(Candidate) - GearScore(EquippedCodes[Slot]);
+}
+
+int32 AMoonfallHeroPawn::GetRecommendedEquipmentIndex() const
+{
+ // Only advise while the inventory is displayed. This function is read-only
+ // and does not change selection, worn gear, health, currency or the save.
+ if (!bInventoryOpen || bOptionsOpen || !FMath::IsFinite(Health) || Health <= 0.f)
+  return -1;
+ int32 BestIndex = -1;
+ int32 BestImprovement = 0;
+ for (int32 Index = 0; Index < InventoryItemCodes.Num(); ++Index) {
+  const int32 Improvement = GetEquipmentUpgradeScore(Index);
+  if (Improvement > BestImprovement) {
+   BestImprovement = Improvement;
+   BestIndex = Index;
+  }
+ }
+ return BestIndex;
+}
+
 void AMoonfallHeroPawn::EquipBestInventoryAction() { if (!bCharacterStatsOpen) EquipBestInventoryUpgrades(); }
 
 int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()
