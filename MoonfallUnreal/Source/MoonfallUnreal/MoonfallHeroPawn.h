@@ -111,6 +111,10 @@ public:
  // Raise rarity one rank through explicit salvage crafting; worn stats update.
  UFUNCTION(BlueprintCallable, Category="Moonfall|Crafting") bool AscendInventoryItemRarity(int32 InventoryIndex);
  UFUNCTION(BlueprintCallable, Category="Moonfall|Crafting") void AscendSelectedInventoryItem();
+ // Reforge a rare-or-better item to a different Force/Ward/Focus affix.
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Crafting") bool ReforgeInventoryItemAffix(int32 InventoryIndex);
+ void ReforgeSelectedInventoryItem();
+ UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Crafting") void OnEquipmentReforged(int32 NewItemCode, int32 SalvageSpent);
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Crafting") void OnEquipmentAscended(int32 NewItemCode, int32 SalvageSpent);
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Crafting") void OnEquipmentCrafted(int32 NewItemCode, int32 SalvageSpent);
  // Equip a validated inventory entry by index; the item remains in inventory.
