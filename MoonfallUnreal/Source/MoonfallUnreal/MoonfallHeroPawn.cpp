@@ -71,7 +71,8 @@ float AMoonfallHeroPawn::GetCriticalChance() const
  // Force: 2-piece improves critical chances. A 3-piece grants mastery.
  const int32 Rarity = FMath::Clamp((EquippedWeaponCode / 1000) % 10, 0, 5);
  const float TraitCrit = WeaponAffix == 1 ? Rarity * 0.008f : 0.f;
- return FMath::Clamp(0.05f + TraitCrit + (GetSetPieceCount(1) >= 2 ? 0.03f : 0.f),
+ return FMath::Clamp(0.05f + TraitCrit + (GetSetPieceCount(1) >= 2 ? 0.03f : 0.f)
+   + (GetSetPieceCount(1) >= 4 ? 0.02f : 0.f),
    0.05f, 0.25f);
 }
 
@@ -81,7 +82,8 @@ float AMoonfallHeroPawn::GetHasteBonus() const
  const int32 Rarity = FMath::Clamp((EquippedAccessoryCode / 1000) % 10, 0, 5);
  const float TraitHaste = AccessoryAffix == 3 ? Rarity * 0.006f : 0.f;
  return FMath::Clamp(TraitHaste + (GetSetPieceCount(3) >= 2 ? 0.04f : 0.f)
-   + (HasLegendaryPerk(2) ? 0.025f : 0.f),
+   + (HasLegendaryPerk(2) ? 0.025f : 0.f)
+   + (GetSetPieceCount(3) >= 4 ? 0.02f : 0.f),
    0.f, 0.20f);
 }
 
@@ -90,7 +92,9 @@ float AMoonfallHeroPawn::GetMasteryBonus() const
  // Mastery rewards overall equipped power; triple Force strengthens spells.
  const float GearMastery = FMath::Clamp((WeaponTier + ArmorTier + AccessoryTier)
    * 0.0015f, 0.f, 0.12f);
- return FMath::Clamp(GearMastery + (GetSetPieceCount(1) >= 3 ? 0.04f : 0.f),
+ return FMath::Clamp(GearMastery + (GetSetPieceCount(1) >= 3 ? 0.04f : 0.f)
+   + (GetSetPieceCount(1) >= 6 ? 0.02f : 0.f)
+   + (GetSetPieceCount(1) >= 9 ? 0.02f : 0.f),
    0.f, 0.16f);
 }
 
@@ -99,7 +103,8 @@ float AMoonfallHeroPawn::GetVersatilityBonus() const
  // Ward: Versatility increases damage dealt and halves its defensive effect.
  const int32 Rarity = FMath::Clamp((EquippedArmorCode / 1000) % 10, 0, 5);
  const float TraitVersatility = ArmorAffix == 2 ? Rarity * 0.005f : 0.f;
- return FMath::Clamp(TraitVersatility + (GetSetPieceCount(2) >= 2 ? 0.03f : 0.f),
+ return FMath::Clamp(TraitVersatility + (GetSetPieceCount(2) >= 2 ? 0.03f : 0.f)
+   + (GetSetPieceCount(2) >= 4 ? 0.02f : 0.f),
    0.f, 0.12f);
 }
 
@@ -208,6 +213,8 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
       * (1.f + FMath::Clamp(AccessoryTier * 0.012f, 0.f, 0.25f) + (AccessoryAffix == 3 ? 0.08f : 0.f)
         + FMath::Clamp(((EquippedAccessoryCode / 1000) % 10) * 0.02f, 0.f, 0.10f)
         + (GetSetPieceCount(3) >= 3 ? 0.06f : 0.f)
+   + (GetSetPieceCount(3) >= 6 ? 0.04f : 0.f)
+   + (GetSetPieceCount(3) >= 9 ? 0.04f : 0.f)
         + FMath::Clamp(GetInsight() * 0.002f, 0.f, 0.20f))
       * SafeRecoveryDelta);
  // Recovery in either menu is bounded and never revives a defeated hero.
@@ -670,6 +677,8 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
    + FMath::Clamp(((EquippedArmorCode / 1000) % 10) * 0.005f, 0.f, 0.025f)
    + GetVersatilityBonus() * 0.5f
    + (GetSetPieceCount(2) >= 3 ? 0.025f : 0.f)
+   + (GetSetPieceCount(2) >= 6 ? 0.015f : 0.f)
+   + (GetSetPieceCount(2) >= 9 ? 0.015f : 0.f)
    + (HasLegendaryPerk(1) ? 0.015f : 0.f));
  const float ArmoredDamage = Amount * (1.f - ArmorMitigation);
  float DamageAfterGuard = ArmoredDamage;
@@ -1558,7 +1567,7 @@ int32 AMoonfallHeroPawn::GetProjectedSetPieceCount(int32 Affix, int32 CandidateC
  const int32 CurrentCode = GetEquippedCodeForSlot(Slot);
  const int32 PreviousAffix = GetItemPower(CurrentCode) > 0 ? CurrentCode / 100000 : 0;
  return FMath::Clamp(GetSetPieceCount(Affix) - (PreviousAffix == Affix ? 1 : 0)
-      + (CandidateCode / 100000 == Affix ? 1 : 0), 0, 3);
+      + (CandidateCode / 100000 == Affix ? 1 : 0), 0, 9);
 }
 
 bool AMoonfallHeroPawn::HasLegendaryPerk(int32 Slot) const
