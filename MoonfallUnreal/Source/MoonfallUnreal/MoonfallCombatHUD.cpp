@@ -76,8 +76,31 @@ void AMoonfallCombatHUD::DrawHUD()
   }
   DrawText(TEXT("WASD / D-pad: select   Enter / Y: equip   Delete / X: salvage"),
      FLinearColor::White, Left + 18.f, Top + PanelHeight - 51.f, nullptr, 0.75f);
-  DrawText(TEXT("B / LT: equip best   U / RT: upgrade selected (4 + tier x 2 + rarity x 3 salvage)"),
-     FLinearColor(0.78f,0.90f,0.95f), Left + 18.f, Top + PanelHeight - 70.f, nullptr, 0.64f);
+  // Display cost for the actual selected item, rather than a formula
+  // players must calculate while navigating the inventory.
+  if (Hero->InventoryItemCodes.IsValidIndex(Selected)) {
+   const int32 SelectedCode = Hero->InventoryItemCodes[Selected];
+   const int32 SelectedTier = SelectedCode % 1000;
+   const int32 SelectedRarity = (SelectedCode / 1000) % 10;
+   const int32 SelectedSlot = (SelectedCode / 10000) % 10;
+   const int32 SelectedAffix = SelectedCode / 100000;
+   const bool bForgeable = SelectedCode > 0 && SelectedTier >= 1 && SelectedTier < 25
+     && SelectedSlot >= 0 && SelectedSlot <= 2
+     && SelectedRarity >= 0 && SelectedRarity <= 3
+     && SelectedAffix >= 0 && SelectedAffix <= 3
+     && (SelectedRarity != 0 || SelectedAffix == 0)
+     && SelectedCode == SelectedAffix * 100000 + SelectedSlot * 10000
+       + SelectedRarity * 1000 + SelectedTier;
+   const int32 NextCost = 4 + SelectedTier * 2 + SelectedRarity * 3;
+   const FString ForgeStatus = !bForgeable ? TEXT("Crafting: MAX TIER or invalid")
+     : FString::Printf(TEXT("Next tier: %d salvage  [%s]"),
+       NextCost, Hero->Salvage >= NextCost ? TEXT("READY") : TEXT("NEED MORE"));
+   DrawText(ForgeStatus, bForgeable && Hero->Salvage >= NextCost
+     ? FLinearColor(0.50f,0.95f,0.62f) : FLinearColor(0.98f,0.67f,0.45f),
+     Left + 18.f, Top + PanelHeight - 89.f, nullptr, 0.82f);
+  }
+  DrawText(TEXT("B / LT: equip best   U / RT: +1 tier   H / RB: forge up to 5 tiers"),
+     FLinearColor(0.78f,0.90f,0.95f), Left + 18.f, Top + PanelHeight - 70.f, nullptr, 0.74f);
   DrawText(TEXT("I / Select / Esc: close"), FLinearColor::White,
      Left + 18.f, Top + PanelHeight - 28.f, nullptr, 0.8f);
   return;

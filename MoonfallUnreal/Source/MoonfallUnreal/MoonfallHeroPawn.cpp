@@ -240,6 +240,7 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("InventoryConfirm"), IE_Pressed, this, &AMoonfallHeroPawn::InventoryConfirm);
  Input->BindAction(TEXT("InventorySalvage"), IE_Pressed, this, &AMoonfallHeroPawn::InventorySalvage);
  Input->BindAction(TEXT("UpgradeGear"), IE_Pressed, this, &AMoonfallHeroPawn::UpgradeSelectedInventoryItem);
+ Input->BindAction(TEXT("ForgeFive"), IE_Pressed, this, &AMoonfallHeroPawn::ForgeFiveSelectedInventoryItem);
  Input->BindAction(TEXT("EquipBest"), IE_Pressed, this, &AMoonfallHeroPawn::EquipBestInventoryAction);
  Input->BindAction(TEXT("PickupLoot"), IE_Pressed, this, &AMoonfallHeroPawn::PickupNearestGroundLoot);
  Input->BindAction(TEXT("OptionsUp"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsUp);
@@ -771,6 +772,26 @@ bool AMoonfallHeroPawn::UpgradeInventoryItem(int32 InventoryIndex)
  LastLootUpgrade = (Tier + 1) - (Slot == 0 ? WeaponTier : (Slot == 1 ? ArmorTier : AccessoryTier));
  OnEquipmentCrafted(NewCode, Cost);
  return true;
+}
+
+int32 AMoonfallHeroPawn::ForgeInventoryItemLevels(int32 InventoryIndex, int32 MaxLevels)
+{
+ if (!bInventoryOpen || bOptionsOpen || Health <= 0.f
+     || !InventoryItemCodes.IsValidIndex(InventoryIndex)) return 0;
+ // Reuse validated, transactional one-tier crafting for every step.
+ // No special currency discount, overflow, or forced equipment changes.
+ const int32 Limit = FMath::Clamp(MaxLevels, 0, 5);
+ int32 Upgraded = 0;
+ for (int32 Step = 0; Step < Limit; ++Step) {
+  if (!UpgradeInventoryItem(InventoryIndex)) break;
+  ++Upgraded;
+ }
+ return Upgraded;
+}
+
+void AMoonfallHeroPawn::ForgeFiveSelectedInventoryItem()
+{
+ ForgeInventoryItemLevels(InventorySelection, 5);
 }
 
 void AMoonfallHeroPawn::UpgradeSelectedInventoryItem()
