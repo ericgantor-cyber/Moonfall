@@ -7,6 +7,34 @@
 #include "Engine/Canvas.h"
 #include "Engine/Engine.h"
 #include "GameFramework/GameUserSettings.h"
+int32 AMoonfallCombatHUD::GetInventoryItemAtScreenPosition(
+    const AMoonfallHeroPawn* Hero, float X, float Y) const
+{
+ // Use the same geometry and pagination as DrawHUD. The hit test is read-only
+ // and never chooses a hidden or off-page entry.
+ if (!Canvas || !IsValid(Hero) || !Hero->bInventoryOpen ||
+     Hero->bCharacterStatsOpen || Hero->bOptionsOpen ||
+     !FMath::IsFinite(X) || !FMath::IsFinite(Y)) return -1;
+ const int32 Count = Hero->InventoryItemCodes.Num();
+ if (Count <= 0) return -1;
+ const float PanelWidth = FMath::Min(680.f, FMath::Max(280.f, Canvas->SizeX - 24.f));
+ const float PanelHeight = FMath::Min(580.f, FMath::Max(280.f, Canvas->SizeY - 24.f));
+ const float Left = (Canvas->SizeX - PanelWidth) * 0.5f;
+ const float Top = (Canvas->SizeY - PanelHeight) * 0.5f;
+ const int32 PerPage = FMath::Clamp(FMath::FloorToInt((PanelHeight - 290.f) / 25.f), 2, 8);
+ const int32 Selected = FMath::Clamp(Hero->InventorySelection, 0, Count - 1);
+ const int32 PageStart = Selected / PerPage * PerPage;
+ const int32 PageEnd = FMath::Min(Count, PageStart + PerPage);
+ const float RowSpacing = FMath::Max(21.f, (PanelHeight - 290.f) / PerPage);
+ if (X < Left + 12.f || X > Left + PanelWidth - 12.f) return -1;
+ for (int32 Index = PageStart; Index < PageEnd; ++Index) {
+  const float RowTop = Top + 145.f + (Index - PageStart) * RowSpacing - 3.f;
+  if (Y >= RowTop && Y < RowTop + RowSpacing - 3.f)
+   return Index;
+ }
+ return -1;
+}
+
 void AMoonfallCombatHUD::DrawHUD()
 {
  Super::DrawHUD();
