@@ -356,7 +356,7 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("AscendGear"), IE_Pressed, this, &AMoonfallHeroPawn::AscendSelectedInventoryItem);
  Input->BindAction(TEXT("ReforgeGear"), IE_Pressed, this, &AMoonfallHeroPawn::ReforgeSelectedInventoryItem);
  Input->BindAction(TEXT("EquipBest"), IE_Pressed, this, &AMoonfallHeroPawn::EquipBestInventoryAction);
- Input->BindAction(TEXT("AdvisorSelect"), IE_Pressed, this, &AMoonfallHeroPawn::SelectRecommendedEquipment);
+ Input->BindAction(TEXT("Atlas"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleAtlas);
  Input->BindAction(TEXT("PickupLoot"), IE_Pressed, this, &AMoonfallHeroPawn::PickupNearestGroundLoot);
  Input->BindAction(TEXT("OptionsUp"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsUp);
  Input->BindAction(TEXT("OptionsDown"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsDown);
@@ -364,22 +364,22 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("OptionsRight"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsRight);
 }
 void AMoonfallHeroPawn::ZoomCameraIn() {
- if (Health <= 0.f || bOptionsOpen || bInventoryOpen) return;
+ if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen) return;
  CameraDistance = FMath::Clamp((FMath::IsFinite(CameraDistance) ? CameraDistance : 450.f) - 65.f, 250.f, 850.f);
 }
 void AMoonfallHeroPawn::ZoomCameraOut() {
- if (Health <= 0.f || bOptionsOpen || bInventoryOpen) return;
+ if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen) return;
  CameraDistance = FMath::Clamp((FMath::IsFinite(CameraDistance) ? CameraDistance : 450.f) + 65.f, 250.f, 850.f);
 }
 void AMoonfallHeroPawn::TryJump()
 {
  // Jump must obey the same defeated/menu input locks as Dodge and Cast.
- if (Health <= 0.f || bOptionsOpen || bInventoryOpen) return;
+ if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen) return;
  Jump();
 }
 void AMoonfallHeroPawn::MoveForward(float Value)
 {
- if (Health <= 0.f || bOptionsOpen || bInventoryOpen || !FMath::IsFinite(Value)) return;
+ if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || !FMath::IsFinite(Value)) return;
  if (Controller && !FMath::IsNearlyZero(Value))
  {
   const FRotator Yaw(0.f, Controller->GetControlRotation().Yaw, 0.f);
@@ -388,17 +388,18 @@ void AMoonfallHeroPawn::MoveForward(float Value)
 }
 void AMoonfallHeroPawn::MoveRight(float Value)
 {
- if (Health <= 0.f || bOptionsOpen || bInventoryOpen || !FMath::IsFinite(Value)) return;
+ if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || !FMath::IsFinite(Value)) return;
  if (Controller && !FMath::IsNearlyZero(Value))
  {
   const FRotator Yaw(0.f, Controller->GetControlRotation().Yaw, 0.f);
   AddMovementInput(FRotationMatrix(Yaw).GetUnitAxis(EAxis::Y), Value);
  }
 }
-void AMoonfallHeroPawn::Turn(float Value) { if (Health > 0.f && !bOptionsOpen && !bInventoryOpen && FMath::IsFinite(Value)) AddControllerYawInput(Value); }
-void AMoonfallHeroPawn::LookUp(float Value) { if (Health > 0.f && !bOptionsOpen && !bInventoryOpen && FMath::IsFinite(Value)) AddControllerPitchInput(Value); }
+void AMoonfallHeroPawn::Turn(float Value) { if (Health > 0.f && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && FMath::IsFinite(Value)) AddControllerYawInput(Value); }
+void AMoonfallHeroPawn::LookUp(float Value) { if (Health > 0.f && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && FMath::IsFinite(Value)) AddControllerPitchInput(Value); }
 bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier, bool bOvercharged)
 {
+ if (bAtlasOpen) return false;
  static const float Costs[6] = {16.f,13.f,22.f,25.f,18.f,14.f};
  static const float Cooldowns[6] = {0.8f,0.65f,1.2f,2.f,1.f,0.9f};
  if (Health <= 0.f || bOptionsOpen || bInventoryOpen || !GetWorld() || School < 0 || School >= 6 || Hand < 0 || Hand > 1 || !FMath::IsFinite(Multiplier) || Multiplier <= 0.f || Multiplier > 2.f) return false;
@@ -532,6 +533,7 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier, bool
 void AMoonfallHeroPawn::CastLeft() { if (bOptionsOpen || bInventoryOpen) return; TryCast(LeftSpell, 0, 1.f); }
 void AMoonfallHeroPawn::LeftClickContextAction()
 {
+ if (bAtlasOpen) return;
  // Mouse left selects a visible bag row, but never equips or salvages it.
  // Outside menus the same button performs the usual left-hand spell.
  if (bOptionsOpen) return;
@@ -559,6 +561,7 @@ void AMoonfallHeroPawn::LeftClickContextAction()
 }
 void AMoonfallHeroPawn::CastRight()
 {
+ if (bAtlasOpen) return;
  // Keyboard and controller right-hand cast input must never equip gear.
  // Gamepad RB is also bound to forging while inventory is open.
  if (bOptionsOpen || bInventoryOpen) return;
@@ -566,6 +569,7 @@ void AMoonfallHeroPawn::CastRight()
 }
 void AMoonfallHeroPawn::RightClickContextAction()
 {
+ if (bAtlasOpen) return;
  // Only the physical right mouse button equips from inventory.
  // Controller shoulder buttons keep combat/forge behavior separate.
  if (bOptionsOpen) return;
@@ -614,8 +618,9 @@ void AMoonfallHeroPawn::ReleaseRightClickContext()
 }
 void AMoonfallHeroPawn::CastBoth()
 {
+ if (bAtlasOpen) return;
  // LT can mean Equip Best in inventory: reject combat before doing spell work.
- if (bOptionsOpen || bInventoryOpen || !FMath::IsFinite(Health) || Health <= 0.f) return;
+ if (bOptionsOpen || bInventoryOpen || bAtlasOpen || !FMath::IsFinite(Health) || Health <= 0.f) return;
  if (LeftSpell != RightSpell || !GetWorld()) return;
  // Validate both hands before spending mana or applying a single overcharge.
  if (LeftSpell < 0 || LeftSpell >= 6 || RightSpell < 0 || RightSpell >= 6) return;
@@ -649,6 +654,7 @@ void AMoonfallHeroPawn::BreakGuard()
 
 void AMoonfallHeroPawn::BeginGuard()
 {
+ if (bAtlasOpen) return;
  if (bOptionsOpen || bInventoryOpen || Health <= 0.f || !FMath::IsFinite(Health) || !GetWorld() || bGuarding
      // Do not stack a fresh parry window on top of dodge invulnerability.
      || GetWorld()->GetTimeSeconds() < DamageImmunityUntil
@@ -710,6 +716,7 @@ void AMoonfallHeroPawn::EndSprint() {
 
 void AMoonfallHeroPawn::Dodge()
 {
+ if (bAtlasOpen) return;
  if (bOptionsOpen || bInventoryOpen || Health <= 0.f || !GetWorld()) return;
  const float Now = GetWorld()->GetTimeSeconds();
  // Nonfinite cooldown timestamps must not allow repeated dodges or immunity.
@@ -881,6 +888,7 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
   // Defeat clears every gameplay menu and releases the inventory cursor.
   bInventoryOpen = false;
   bCharacterStatsOpen = false;
+  bAtlasOpen = false;
   bOptionsOpen = false;
   ResetMouseCastChord();
   UpdateInventoryMouseMode();
@@ -934,8 +942,21 @@ void AMoonfallHeroPawn::UpdateInventoryMouseMode()
  }
 }
 
+void AMoonfallHeroPawn::ToggleAtlas()
+{
+ if (!FMath::IsFinite(Health) || Health <= 0.f || bOptionsOpen || bInventoryOpen) return;
+ ResetMouseCastChord();
+ if (!bAtlasOpen) {
+  StopJumping();
+  if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
+  EndSprint();
+  EndGuard();
+ }
+ bAtlasOpen = !bAtlasOpen;
+}
+
 void AMoonfallHeroPawn::ToggleInventory() {
- if (bOptionsOpen || !FMath::IsFinite(Health) || Health <= 0.f) return;
+ if (bOptionsOpen || bAtlasOpen || !FMath::IsFinite(Health) || Health <= 0.f) return;
  ResetMouseCastChord();
  if (!bInventoryOpen) {
   StopJumping();
@@ -1144,6 +1165,10 @@ void AMoonfallHeroPawn::OpenOptions() {
  // The defeat screen owns input until respawn; do not reopen gameplay menus.
  if (Health <= 0.f || !FMath::IsFinite(Health)) return;
  ResetMouseCastChord();
+ if (bAtlasOpen) {
+  bAtlasOpen = false;
+  return;
+ }
  if (bInventoryOpen) {
   bInventoryOpen = false;
   bCharacterStatsOpen = false;
@@ -1482,6 +1507,7 @@ void AMoonfallHeroPawn::AwardEquipmentDrop(bool bEliteEnemy, bool bBossEnemy)
 
 bool AMoonfallHeroPawn::CollectGroundEquipmentCode(int32 ItemCode)
 {
+ if (bAtlasOpen) return false;
  // Enforce the same gameplay state at the collection boundary as the
  // manual pickup input. Other future callers must not bypass open menus.
  if (!FMath::IsFinite(Health) || Health <= 0.f || bOptionsOpen || bInventoryOpen || ItemCode <= 0) return false;
@@ -1539,6 +1565,7 @@ void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(bool bEliteEnemy, bool bBossEne
 
 void AMoonfallHeroPawn::PickupNearestGroundLoot()
 {
+ if (bAtlasOpen) return;
  if (!FMath::IsFinite(Health) || Health <= 0.f || bOptionsOpen || bInventoryOpen || !GetWorld()) return;
  // One actor pass prevents distant drops from starving nearby ones. Keep the
  // closest 96 so blocked loot does not hide reachable drops behind it.
@@ -1635,16 +1662,6 @@ int32 AMoonfallHeroPawn::GetRecommendedEquipmentIndex() const
   }
  }
  return BestIndex;
-}
-
-void AMoonfallHeroPawn::SelectRecommendedEquipment()
-{
- // J moves the inventory selection only; it never equips or salvages.
- if (!bInventoryOpen || bCharacterStatsOpen || bOptionsOpen ||
-     !FMath::IsFinite(Health) || Health <= 0.f) return;
- const int32 Recommendation = GetRecommendedEquipmentIndex();
- if (InventoryItemCodes.IsValidIndex(Recommendation))
-  InventorySelection = Recommendation;
 }
 
 void AMoonfallHeroPawn::EquipBestInventoryAction() { if (!bCharacterStatsOpen) EquipBestInventoryUpgrades(); }
