@@ -76,4 +76,25 @@ void AMoonfallArena::BeginPlay() {
   }
   UGameplayStatics::FinishSpawningActor(Enemy, SpawnTransform);
  }
+ // One 25% roll per arena. On success, generate THREE separate mob groups,
+ // each containing 5..11 ordinary enemies. Boss encounter slots are unchanged.
+ if (FMath::FRand() < 0.25f) {
+  constexpr int32 BonusGroupCount = 3;
+  constexpr float GroupCenterRadius = 950.f;
+  for (int32 Group = 0; Group < BonusGroupCount; ++Group) {
+   const int32 GroupSize = FMath::RandRange(5, 11);
+   const float GroupAngle = (2.f * PI * Group) / BonusGroupCount;
+   const FVector GroupCenter = GetActorLocation() + FVector(
+     GroupCenterRadius * FMath::Cos(GroupAngle),
+     GroupCenterRadius * FMath::Sin(GroupAngle), 60.f);
+   for (int32 Member = 0; Member < GroupSize; ++Member) {
+    const float Angle = 2.f * PI * Member / GroupSize;
+    const float Radius = 230.f;
+    const FVector Position = GroupCenter + FVector(
+      Radius * FMath::Cos(Angle), Radius * FMath::Sin(Angle), 0.f);
+    GetWorld()->SpawnActor<AMoonfallEnemy>(AMoonfallEnemy::StaticClass(),
+      Position, FRotator::ZeroRotator);
+   }
+  }
+ }
 }
