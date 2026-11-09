@@ -42,7 +42,10 @@ static func equip(state:Dictionary,item_id:String,hero_level:int)->bool:
 static func add_material(state:Dictionary,material:String,count:int)->bool:
  if material=="" or count<=0:return false
  var materials:Dictionary=state.get("materials",{})
- materials[material]=mini(999999,maxi(0,int(materials.get(material,0)))+count)
+ # Reject overflow rather than claiming materials were awarded when the cap is full.
+ var current:int=maxi(0,int(materials.get(material,0)))
+ if current>=999999 or count>999999-current:return false
+ materials[material]=current+count
  state["materials"]=materials
  return true
 
