@@ -3076,5 +3076,23 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Loot->InitializeLoot(ItemCode);", reward)
         self.assertNotIn("Hero->CollectGroundEquipmentCode(", reward)
 
+    def test_playable_startup_spawns_seeded_dungeon_with_open_arena_gateway(self):
+        game = (ROOT / "MoonfallUnrealGameMode.cpp").read_text(encoding="utf-8")
+        arena = (ROOT / "MoonfallArena.cpp").read_text(encoding="utf-8")
+        self.assertIn('#include "MoonfallDungeonLayout.h"', game)
+        self.assertIn("SpawnActor<AMoonfallArena>", game)
+        self.assertIn("SpawnActorDeferred<AMoonfallDungeonLayout>", game)
+        self.assertIn("DungeonOrigin(0.f, -2100.f, 0.f)", game)
+        self.assertIn("DungeonFacing(0.f, -90.f, 0.f)", game)
+        self.assertIn("Dungeon->ZoneIndex = 0;", game)
+        self.assertIn("Dungeon->DungeonIndex = 0;", game)
+        self.assertIn("Dungeon->LayoutSeed = 0;", game)
+        self.assertIn("Dungeon->bRandomizeChambers = true;", game)
+        self.assertIn("Dungeon->FinishSpawning(DungeonTransform);", game)
+        self.assertIn("CreateBlock(FVector(-850,-1500,200),FVector(13,1,5));", arena)
+        self.assertIn("CreateBlock(FVector(850,-1500,200),FVector(13,1,5));", arena)
+        self.assertNotIn("CreateBlock(FVector(0,-1500,200),FVector(30,1,5));", arena)
+        self.assertNotIn("OpenLevel(", game)
+
 if __name__ == "__main__":
     unittest.main()
