@@ -61,9 +61,9 @@ void AMoonfallCombatHUD::DrawHUD()
    const int32 Rarity = (Code / 1000) % 10;
    const int32 Tier = Code % 1000;
    const TCHAR* Slots[] = {TEXT("Weapon"), TEXT("Armor"), TEXT("Accessory")};
-   const TCHAR* Rarities[] = {TEXT("Common"), TEXT("Uncommon"), TEXT("Rare"), TEXT("Epic")};
+   const TCHAR* Rarities[] = {TEXT("Common"), TEXT("Uncommon"), TEXT("Rare"), TEXT("Epic"), TEXT("Emerald"), TEXT("Legendary")};
    const TCHAR* Traits[] = {TEXT("None"), TEXT("Force"), TEXT("Ward"), TEXT("Focus")};
-   const bool bValid = Code > 0 && Slot <= 2 && Affix <= 3 && Rarity <= 3 && Tier >= 1 && Tier <= 25;
+   const bool bValid = Code > 0 && Slot <= 2 && Affix <= 3 && Rarity <= 5 && Tier >= 1 && Tier <= 25;
    const bool bEquipped = Code == (Slot == 0 ? Hero->EquippedWeaponCode
      : Slot == 1 ? Hero->EquippedArmorCode : Hero->EquippedAccessoryCode);
    const float Y = Top + 110.f + (Index - PageStart) * RowSpacing;
@@ -72,13 +72,19 @@ void AMoonfallCombatHUD::DrawHUD()
    const FString Row = bValid ? FString::Printf(TEXT("%02d  %s  T%d  %s  %s%s"),
       Index + 1, Slots[Slot], Tier, Rarities[Rarity], Traits[Affix], bEquipped ? TEXT("  [EQUIPPED]") : TEXT(""))
     : FString::Printf(TEXT("%02d  Invalid item"), Index + 1);
-   DrawText(Row, Index == Selected ? FLinearColor::Yellow : FLinearColor::White,
-      Left + 20.f, Y, nullptr, Canvas->SizeX < 900.f ? 0.75f : 0.9f);
+   // Item names retain a clear text label plus a distinct quality color.
+   const FLinearColor RarityColors[] = {FLinearColor(0.90f,0.90f,0.90f),
+     FLinearColor(0.25f,0.69f,1.f), FLinearColor(0.96f,0.79f,0.25f),
+     FLinearColor(0.72f,0.35f,0.96f), FLinearColor(0.23f,0.84f,0.42f),
+     FLinearColor(1.f,0.52f,0.12f)};
+   DrawText(Row, Index == Selected ? FLinearColor::Yellow
+     : (bValid ? RarityColors[Rarity] : FLinearColor::White),
+     Left + 20.f, Y, nullptr, Canvas->SizeX < 900.f ? 0.75f : 0.9f);
   }
   // Live stat summary mirrors the modifiers applied in combat and recovery.
-  const int32 WeaponRarity = FMath::Clamp((Hero->EquippedWeaponCode / 1000) % 10, 0, 3);
-  const int32 ArmorRarity = FMath::Clamp((Hero->EquippedArmorCode / 1000) % 10, 0, 3);
-  const int32 AccessoryRarity = FMath::Clamp((Hero->EquippedAccessoryCode / 1000) % 10, 0, 3);
+  const int32 WeaponRarity = FMath::Clamp((Hero->EquippedWeaponCode / 1000) % 10, 0, 5);
+  const int32 ArmorRarity = FMath::Clamp((Hero->EquippedArmorCode / 1000) % 10, 0, 5);
+  const int32 AccessoryRarity = FMath::Clamp((Hero->EquippedAccessoryCode / 1000) % 10, 0, 5);
   const float WeaponBonusPct = 100.f * (FMath::Clamp(0.018f * Hero->WeaponTier, 0.f, 0.35f)
     + (Hero->WeaponAffix == 1 ? 0.06f : 0.f) + WeaponRarity * 0.015f);
   const float ArmorMitigationPct = 100.f * FMath::Min(0.34f, FMath::Min(0.28f, Hero->ArmorTier * 0.01f)
@@ -101,13 +107,13 @@ void AMoonfallCombatHUD::DrawHUD()
    const int32 SelectedAffix = SelectedCode / 100000;
    const bool bForgeable = SelectedCode > 0 && SelectedTier >= 1 && SelectedTier < 25
      && SelectedSlot >= 0 && SelectedSlot <= 2
-     && SelectedRarity >= 0 && SelectedRarity <= 3
+     && SelectedRarity >= 0 && SelectedRarity <= 5
      && SelectedAffix >= 0 && SelectedAffix <= 3
      && (SelectedRarity != 0 || SelectedAffix == 0)
      && SelectedCode == SelectedAffix * 100000 + SelectedSlot * 10000
        + SelectedRarity * 1000 + SelectedTier;
    const bool bAscendable = SelectedCode > 0 && SelectedTier >= 1 && SelectedTier <= 25
-     && SelectedSlot >= 0 && SelectedSlot <= 2 && SelectedRarity >= 0 && SelectedRarity < 3
+     && SelectedSlot >= 0 && SelectedSlot <= 2 && SelectedRarity >= 0 && SelectedRarity < 5
      && SelectedAffix >= 0 && SelectedAffix <= 3
      && (SelectedRarity != 0 || SelectedAffix == 0)
      && SelectedCode == SelectedAffix * 100000 + SelectedSlot * 10000
@@ -116,7 +122,7 @@ void AMoonfallCombatHUD::DrawHUD()
    DrawText(bAscendable
      ? FString::Printf(TEXT("Ascend rarity: %d salvage  [%s]"),
          AscendCost, Hero->Salvage >= AscendCost ? TEXT("READY") : TEXT("NEED MORE"))
-     : TEXT("Ascend rarity: MAX / invalid"),
+     : TEXT("Ascend rarity: LEGENDARY / invalid"),
      bAscendable && Hero->Salvage >= AscendCost
        ? FLinearColor(0.55f,0.92f,0.75f) : FLinearColor(0.96f,0.66f,0.46f),
      Left + 18.f, Top + PanelHeight - 135.f, nullptr, 0.74f);
@@ -280,7 +286,7 @@ void AMoonfallCombatHUD::DrawHUD()
  }
  if (!bCompactScreen) {
   const TCHAR* RarityNames[] = { TEXT("COMMON"), TEXT("UNCOMMON"), TEXT("RARE"), TEXT("EPIC") };
-  const int32 Rarity = FMath::Clamp(Hero->LastLootRarity, 0, 3);
+  const int32 Rarity = FMath::Clamp(Hero->LastLootRarity, 0, 5);
   DrawText(FString::Printf(TEXT("Gear W:%d A:%d C:%d | Salvage %d | Bag %d/30"),
    Hero->WeaponTier, Hero->ArmorTier, Hero->AccessoryTier, Hero->Salvage, Hero->InventoryItemCodes.Num()),
    FLinearColor(0.85f,0.84f,0.95f), 24.f, Canvas->SizeY - 75.f, nullptr, 0.8f);
