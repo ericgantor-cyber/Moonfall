@@ -1344,7 +1344,9 @@ void AMoonfallHeroPawn::AwardEquipmentDrop(bool bEliteEnemy, bool bBossEnemy)
 
 bool AMoonfallHeroPawn::CollectGroundEquipmentCode(int32 ItemCode)
 {
- if (Health <= 0.f || ItemCode <= 0) return false;
+ // Enforce the same gameplay state at the collection boundary as the
+ // manual pickup input. Other future callers must not bypass open menus.
+ if (Health <= 0.f || bOptionsOpen || bInventoryOpen || ItemCode <= 0) return false;
  const int32 Affix = ItemCode / 100000;
  const int32 SlotIndex = (ItemCode / 10000) % 10;
  const int32 Rarity = (ItemCode / 1000) % 10;
