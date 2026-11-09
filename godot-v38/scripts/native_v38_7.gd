@@ -64,7 +64,7 @@ func _aim_candidate(radius:float)->Dictionary:
   to_enemy.y=0.0
   var distance:float=to_enemy.length_squared()
   if distance>max_distance or distance<0.001 or not _has_clear_sight(player,body):continue
-  if aim_locked_id>=0 and beasts.find(beast)==aim_locked_id:locked=beast
+  if aim_locked_id>=0 and body.get_instance_id()==aim_locked_id:locked=beast
   var alignment:float=to_enemy.normalized().dot(aim_direction)
   var threshold:float=AIM_ASSIST_DOT if aim_assist_enabled else AIM_CONE_DOT
   if alignment<threshold:continue
@@ -85,7 +85,9 @@ func _toggle_aim_lock()->void:
  if target.is_empty():
   _show_message("No target in aim",0.8)
   return
- aim_locked_id=beasts.find(target)
+ var target_body:CharacterBody3D=target.get("body") as CharacterBody3D
+ if not is_instance_valid(target_body):return
+ aim_locked_id=target_body.get_instance_id()
  _show_message("Target locked",0.8)
 
 func _start_game(selected_hero:String)->void:
