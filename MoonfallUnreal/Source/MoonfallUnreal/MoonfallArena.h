@@ -11,7 +11,8 @@ public:
  virtual void BeginPlay() override;
  UPROPERTY(EditAnywhere, Category="Dungeon") int32 EnemyCount = 5;
  // Arena preset only; this does not create a streamed open-world biome system.
- // Supported: Forest, Cave, Foundry. Unrecognized names use the Forest profile.
+ // Profiles: Forest, Cave, Foundry, Swamp, Desert, Tundra, Volcanic,
+ // Ruins, Crypt, Coast, Highlands, Eclipse. Unknown names fall back to Forest.
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Dungeon|Spawning") FName SpawnBiome = FName(TEXT("Forest"));
  // NAME_None keeps the previous combined showcase. Select one god per arena
  // by setting this to z_void_reaper or nyra_eclipse_queen in the editor.
