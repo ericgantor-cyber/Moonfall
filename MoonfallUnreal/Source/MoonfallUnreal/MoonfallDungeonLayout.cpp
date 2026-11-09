@@ -64,6 +64,20 @@ AMoonfallDungeonLayout::AMoonfallDungeonLayout()
  FinalChamberTrigger->SetCollisionResponseToAllChannels(ECR_Ignore);
  FinalChamberTrigger->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
  FinalChamberTrigger->SetGenerateOverlapEvents(true);
+ // The twelve interior rooms are 1..12, excluding entrance
+ // index 0 and final boss index 13. Lightweight components, no Tick.
+ for (int32 Chamber = 1; Chamber < ChamberCount - 1; ++Chamber) {
+  UBoxComponent* Trigger = CreateDefaultSubobject<UBoxComponent>(
+      FName(*FString::Printf(TEXT("ChamberTrigger_%02d"), Chamber)));
+  Trigger->SetupAttachment(Root);
+  Trigger->InitBoxExtent(FVector(220.f, 165.f, 140.f));
+  Trigger->SetRelativeLocation(FVector(Chamber * ChamberLength, 0.f, 145.f));
+  Trigger->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+  Trigger->SetCollisionResponseToAllChannels(ECR_Ignore);
+  Trigger->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
+  Trigger->SetGenerateOverlapEvents(true);
+  ChamberTriggers.Add(Trigger);
+ }
 }
 
 int32 AMoonfallDungeonLayout::GetEffectiveLayoutSeed() const
@@ -96,6 +110,20 @@ int32 AMoonfallDungeonLayout::GetRandomizedHazardChamber(int32 HazardIndex) cons
  int32 Chambers[3];
  BuildHazardChambers(Chambers);
  return Chambers[HazardIndex];
+}
+
+int32 AMoonfallDungeonLayout::GetChamberType(int32 ChamberIndex) const
+{
+ if (ChamberIndex < 0 || ChamberIndex >= ChamberCount) return -1;
+ if (ChamberIndex == 0) return 0;
+ if (ChamberIndex == ChamberCount - 1) return 6;
+ for (int32 HazardIndex = 0; HazardIndex < 3; ++HazardIndex)
+  if (GetRandomizedHazardChamber(HazardIndex) == ChamberIndex) return 5;
+ if (!bRandomizeChambers) return 1 + ((ChamberIndex - 1) % 4);
+ // Independent per-room seed. Adding a new type doesn't perturb the existing
+ // trap and pillar RNG sequence or scramble already-authored layout geometry.
+ FRandomStream Stream(GetEffectiveLayoutSeed() ^ (ChamberIndex * 7919 + 0x41CD));
+ return Stream.RandRange(1, 4);
 }
 
 void AMoonfallDungeonLayout::OnConstruction(const FTransform& Transform)
@@ -161,6 +189,8 @@ void AMoonfallDungeonLayout::BeginPlay()
   HazardTriggerA->SetGenerateOverlapEvents(false);
   HazardTriggerB->SetGenerateOverlapEvents(false);
   HazardTriggerC->SetGenerateOverlapEvents(false);
+  for (UBoxComponent* Trigger : ChamberTriggers)
+   if (IsValid(Trigger)) Trigger->SetGenerateOverlapEvents(false);
   return;
  }
  EntranceTrigger->OnComponentBeginOverlap.AddDynamic(this, &AMoonfallDungeonLayout::HandleEntrance);
@@ -168,6 +198,9 @@ void AMoonfallDungeonLayout::BeginPlay()
  HazardTriggerA->OnComponentBeginOverlap.AddDynamic(this, &AMoonfallDungeonLayout::HandleHazardOverlap);
  HazardTriggerB->OnComponentBeginOverlap.AddDynamic(this, &AMoonfallDungeonLayout::HandleHazardOverlap);
  HazardTriggerC->OnComponentBeginOverlap.AddDynamic(this, &AMoonfallDungeonLayout::HandleHazardOverlap);
+ for (UBoxComponent* Trigger : ChamberTriggers)
+  if (IsValid(Trigger)) Trigger->OnComponentBeginOverlap.AddDynamic(
+      this, &AMoonfallDungeonLayout::HandleChamberOverlap);
 }
 
 void AMoonfallDungeonLayout::HandleEntrance(
@@ -207,4 +240,23 @@ void AMoonfallDungeonLayout::HandleHazardOverlap(
  if (!FMath::IsFinite(Now) || Now < NextHazardDamageAt) return;
  NextHazardDamageAt = Now + FMath::Clamp(HazardCooldownSeconds, 0.5f, 20.f);
  Hero->ApplyMoonfallDamage(HazardDamage);
+}
+
+void AMoonfallDungeonLayout::HandleChamberOverlap(
+ UPrimitiveComponent* OverlappedComp, AActor* OtherActor,
+ UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep,
+ const FHitResult& SweepResult)
+{
+ AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(OtherActor);
+ if (!IsValid(Hero) || !Hero->IsPlayerControlled() || Hero->Health <= 0.f) return;
+ // Find the overlap's owning chamber without per-frame polling.
+ for (int32 Index = 0; Index < ChamberTriggers.Num(); ++Index) {
+  if (ChamberTriggers[Index] != OverlappedComp) continue;
+  const int32 ChamberIndex = Index + 1;
+  const uint16 Bit = static_cast<uint16>(1u << ChamberIndex);
+  if ((EnteredChambersMask & Bit) != 0u) return;
+  EnteredChambersMask |= Bit;
+  OnChamberEntered(Hero, ChamberIndex, GetChamberType(ChamberIndex));
+  return;
+ }
 }

@@ -68,10 +68,25 @@ public:
  int32 GetEffectiveLayoutSeed() const;
  UFUNCTION(BlueprintPure, Category="Moonfall|Dungeon|Randomizer")
  int32 GetRandomizedHazardChamber(int32 HazardIndex) const;
+ // Room kinds: 0 Entrance, 1 Combat, 2 Treasure, 3 Shrine,
+ // 4 Puzzle, 5 Hazard, 6 Final boss. All stay walkable.
+ UFUNCTION(BlueprintPure, Category="Moonfall|Dungeon|Randomizer")
+ int32 GetChamberType(int32 ChamberIndex) const;
+ // Level-authored Blueprint gameplay can use this event to populate a
+ // single chamber with its biome-specific NPCs, loot, puzzles or effects.
+ UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Dungeon")
+ void OnChamberEntered(AMoonfallHeroPawn* Hero, int32 ChamberIndex, int32 ChamberType);
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Dungeon")
+ TArray<TObjectPtr<UBoxComponent>> ChamberTriggers;
 
 
 private:
  float NextHazardDamageAt = -1.f;
+ uint16 EnteredChambersMask = 0;
+ UFUNCTION()
+ void HandleChamberOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor,
+    UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep,
+    const FHitResult& SweepResult);
  void BuildHazardChambers(int32 OutChambers[3]) const;
  UFUNCTION()
  void HandleHazardOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor,
