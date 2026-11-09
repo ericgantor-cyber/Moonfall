@@ -82,7 +82,7 @@ void AMoonfallArena::BeginPlay() {
  }
  // One 25% roll for the whole encounter, not one roll per group.
  // Stagger groups so a lucky roll does not spawn up to 33 attackers at once.
- if (FMath::FRand() < 0.25f) {
+ if (bIsDungeonEncounter && FMath::FRand() < 0.25f) {
   PendingBonusGroupSizes.Reserve(3);
   for (int32 Group = 0; Group < 3; ++Group) {
    PendingBonusGroupSizes.Add(FMath::RandRange(5, 11));
@@ -95,6 +95,12 @@ void AMoonfallArena::BeginPlay() {
 void AMoonfallArena::SpawnNextBonusGroup() {
  UWorld* World = GetWorld();
  if (!World || NextBonusGroup >= PendingBonusGroupSizes.Num()) return;
+ // Also guard scheduled callbacks if an arena is changed to a zone at runtime.
+ if (!bIsDungeonEncounter) {
+  PendingBonusGroupSizes.Empty();
+  GetWorldTimerManager().ClearTimer(BonusSpawnTimer);
+  return;
+ }
  // Avoid fresh enemy spawns during a paused menu, after defeat, or mid-boss fight.
  // Keep the queued group's size rather than rerolling it on retries.
  const AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0));
