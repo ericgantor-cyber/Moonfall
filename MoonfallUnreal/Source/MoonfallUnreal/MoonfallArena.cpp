@@ -234,11 +234,37 @@ void AMoonfallArena::SpawnNextBonusGroup() {
     &AMoonfallArena::SpawnNextBonusGroup, 4.f, false);
   return;
  }
- TerrainPlacementAttempts = 0;
+ // Spawn the entire pack as one logical unit: a collision failure must not
+ // silently produce fewer than 5..11 members or advance dungeon progression.
+ TArray<AMoonfallEnemy*> Spawned;
+ Spawned.Reserve(GroupSize);
+ FActorSpawnParameters SpawnParams;
+ SpawnParams.SpawnCollisionHandlingOverride =
+   ESpawnActorCollisionHandlingMethod::DontSpawnIfColliding;
  for (const FVector& Position : ValidPositions) {
-  World->SpawnActor<AMoonfallEnemy>(AMoonfallEnemy::StaticClass(),
-    Position, FRotator::ZeroRotator);
+  AMoonfallEnemy* Enemy = World->SpawnActor<AMoonfallEnemy>(
+    AMoonfallEnemy::StaticClass(), Position, FRotator::ZeroRotator, SpawnParams);
+  if (!IsValid(Enemy)) break;
+  Spawned.Add(Enemy);
  }
+ if (Spawned.Num() != GroupSize) {
+  for (AMoonfallEnemy* Enemy : Spawned) {
+   if (IsValid(Enemy)) Enemy->Destroy();
+  }
+  // Bound even collision-failure retries, not just terrain-trace failures.
+  constexpr int32 MaxSpawnAttempts = 12;
+  if (++TerrainPlacementAttempts >= MaxSpawnAttempts) {
+   PendingBonusGroupSizes.Empty();
+   GetWorldTimerManager().ClearTimer(BonusSpawnTimer);
+   return;
+  }
+  GetWorldTimerManager().SetTimer(BonusSpawnTimer, this,
+    &AMoonfallArena::SpawnNextBonusGroup, 4.f, false);
+  return;
+ }
+ TerrainPlacementAttempts = 0;
+ ++BonusGroupsSpawned;
+ BonusMobsSpawned += GroupSize;
  ++NextBonusGroup;
  if (NextBonusGroup < PendingBonusGroupSizes.Num()) {
   GetWorldTimerManager().SetTimer(BonusSpawnTimer, this,
