@@ -40,6 +40,47 @@ void AMoonfallCombatHUD::DrawHUD()
   const float Top = (Canvas->SizeY - PanelHeight) * 0.5f;
   DrawRect(FLinearColor(0.04f, 0.035f, 0.10f, 0.96f), Left, Top, PanelWidth, PanelHeight);
   DrawText(TEXT("MOONFALL  |  INVENTORY"), FLinearColor::White, Left + 18.f, Top + 16.f, nullptr, 1.3f);
+  if (Hero->bCharacterStatsOpen) {
+   // Character sheet is a read-only page. Inventory operations remain locked
+   // while it is open; controller and keyboard switch pages with the same input.
+   DrawText(TEXT("MOONFALL  |  CHARACTER"), FLinearColor::White,
+     Left + 18.f, Top + 17.f, nullptr, 1.35f);
+   DrawText(FString::Printf(TEXT("Level %d  |  XP %d / %d  |  Salvage %d"),
+      Hero->Level, Hero->Experience, Hero->ExperienceToNextLevel, Hero->Salvage),
+      FLinearColor(0.78f,0.83f,1.f), Left + 18.f, Top + 57.f, nullptr, 0.95f);
+   const float RowHeight = FMath::Clamp((PanelHeight - 145.f) / 11.f, 13.f, 36.f);
+   const float StartY = Top + 96.f;
+   const FString CharacterLines[] = {
+     TEXT("PRIMARY ATTRIBUTES"),
+     FString::Printf(TEXT("Might: %d    |    +%.1f%% hostile spell power"),
+       Hero->GetMight(), FMath::Min(Hero->GetMight() * 0.1f, 10.f)),
+     FString::Printf(TEXT("Insight: %d    |    +%.1f%% mana regeneration"),
+       Hero->GetInsight(), FMath::Min(Hero->GetInsight() * 0.2f, 20.f)),
+     FString::Printf(TEXT("Resolve: %d    |    +%.1f%% stamina regeneration"),
+       Hero->GetResolve(), FMath::Min(Hero->GetResolve() * 0.3f, 30.f)),
+     TEXT("SECONDARY STATS"),
+     FString::Printf(TEXT("Critical Strike: %.1f%%  |  Haste: %.1f%%"),
+       Hero->GetCriticalChance() * 100.f, Hero->GetHasteBonus() * 100.f),
+     FString::Printf(TEXT("Mastery: %.1f%%  |  Versatility: %.1f%%"),
+       Hero->GetMasteryBonus() * 100.f, Hero->GetVersatilityBonus() * 100.f),
+     TEXT("EQUIPMENT SET BONUSES"),
+     FString::Printf(TEXT("Force %d/3: 2pc +3%% crit; 3pc +4%% mastery"),
+       Hero->GetSetPieceCount(1)),
+     FString::Printf(TEXT("Ward %d/3: 2pc +3%% vers; 3pc +2.5%% protection"),
+       Hero->GetSetPieceCount(2)),
+     FString::Printf(TEXT("Focus %d/3: 2pc +4%% haste; 3pc +6%% mana regen"),
+       Hero->GetSetPieceCount(3))
+   };
+   for (int32 Row = 0; Row < UE_ARRAY_COUNT(CharacterLines); ++Row)
+    DrawText(CharacterLines[Row],
+      Row == 0 || Row == 4 || Row == 7 ? FLinearColor(0.52f,0.91f,0.76f) : FLinearColor::White,
+      Left + 18.f, StartY + Row * RowHeight, nullptr,
+      PanelHeight < 360.f ? 0.55f : (Canvas->SizeX < 900.f ? 0.75f : 0.90f));
+   DrawText(TEXT("P / A: back to inventory    I / Select / Esc: close"),
+     FLinearColor(0.81f,0.83f,0.97f), Left + 18.f, Top + PanelHeight - 29.f,
+     nullptr, 0.8f);
+   return;
+  }
   const int32 Count = Hero->InventoryItemCodes.Num();
   // Reserve height for a real equipment-stat line and three controls rows.
   const int32 PerPage = FMath::Clamp(FMath::FloorToInt((PanelHeight - 290.f) / 25.f), 2, 8);
@@ -164,7 +205,7 @@ void AMoonfallCombatHUD::DrawHUD()
   }
   DrawText(TEXT("B / LT: equip best   U / RT: +1 tier   H / RB: forge 5   R / B: ascend   G / LB: reforge"),
      FLinearColor(0.78f,0.90f,0.95f), Left + 18.f, Top + PanelHeight - 70.f, nullptr, 0.74f);
-  DrawText(TEXT("I / Select / Esc: close"), FLinearColor::White,
+  DrawText(TEXT("P / A: character stats    I / Select / Esc: close"), FLinearColor::White,
      Left + 18.f, Top + PanelHeight - 28.f, nullptr, 0.8f);
   return;
  }

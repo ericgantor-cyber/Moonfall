@@ -182,7 +182,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "void AMoonfallHeroPawn::AdjustOption", 1)[0]
         self.assertIn("bInventoryOpen = !bInventoryOpen;", toggle)
         self.assertIn("EquipInventoryItem(InventorySelection);", toggle)
-        self.assertIn("if (bInventoryOpen) { bInventoryOpen = false; return; }", toggle)
+        self.assertIn("if (bInventoryOpen) { bInventoryOpen = false; bCharacterStatsOpen = false; return; }", toggle)
         self.assertIn("InventorySelection = FMath::Max(0, InventorySelection - 1);", toggle)
         self.assertIn("InventorySelection = FMath::Min(FMath::Max(0, InventoryItemCodes.Num() - 1), InventorySelection + 1);", toggle)
         self.assertIn("if (bInventoryOpen) { EquipSelectedInventoryItem(); return; }", toggle)
@@ -271,6 +271,31 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("DiscardedCode", loot)
         self.assertNotIn("InventoryItemCodes.RemoveAt(", loot)
         self.assertIn("InventorySelection = FMath::Clamp(InventorySelection, 0, InventoryItemCodes.Num() - 1);", loot)
+
+    def test_primary_stats_sheet_is_read_only_and_affects_combat_recovery(self):
+        inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
+        hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        self.assertIn('ActionName="CharacterStats",Key=P', inputs)
+        self.assertIn('ActionName="CharacterStats",Key=Gamepad_FaceButton_Bottom', inputs)
+        self.assertIn('BindAction(TEXT("CharacterStats"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleCharacterStats)', self.hero_cpp)
+        self.assertIn("void ToggleCharacterStats();", self.hero_h)
+        self.assertIn("bool bCharacterStatsOpen = false;", self.hero_h)
+        for name in ("GetMight", "GetInsight", "GetResolve"):
+            self.assertIn("int32 " + name + "() const;", self.hero_h)
+            self.assertIn("int32 AMoonfallHeroPawn::" + name + "() const", self.hero_cpp)
+        self.assertIn("GetMight() * 0.001f", self.hero_cpp)
+        self.assertIn("GetInsight() * 0.002f", self.hero_cpp)
+        self.assertIn("GetResolve() * 0.003f", self.hero_cpp)
+        self.assertIn("if (bInventoryOpen && !bOptionsOpen && Health > 0.f)", self.hero_cpp)
+        self.assertIn("if (!bInventoryOpen) bCharacterStatsOpen = false;", self.hero_cpp)
+        self.assertIn("if (!bCharacterStatsOpen) ForgeInventoryItemLevels(InventorySelection, 5);", self.hero_cpp)
+        self.assertIn("if (!bCharacterStatsOpen) ReforgeInventoryItemAffix(InventorySelection);", self.hero_cpp)
+        self.assertIn("if (Hero->bCharacterStatsOpen)", hud)
+        self.assertIn("PRIMARY ATTRIBUTES", hud)
+        self.assertIn("SECONDARY STATS", hud)
+        self.assertIn("EQUIPMENT SET BONUSES", hud)
+        self.assertIn("P / A: back to inventory", hud)
+        self.assertIn("P / A: character stats", hud)
 
     def test_wow_inspired_secondary_stats_and_three_slot_trait_sets(self):
         hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
@@ -453,7 +478,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('ActionName="EquipBest",Key=Gamepad_LeftTrigger', inputs)
         self.assertIn('BindAction(TEXT("EquipBest"), IE_Pressed, this, &AMoonfallHeroPawn::EquipBestInventoryAction)', self.hero_cpp)
         self.assertIn("void EquipBestInventoryAction();", self.hero_h)
-        self.assertIn("void AMoonfallHeroPawn::EquipBestInventoryAction() { EquipBestInventoryUpgrades(); }", self.hero_cpp)
+        self.assertIn("void AMoonfallHeroPawn::EquipBestInventoryAction() { if (!bCharacterStatsOpen) EquipBestInventoryUpgrades(); }", self.hero_cpp)
         self.assertIn('int32 EquipBestInventoryUpgrades();', self.hero_h)
         self.assertIn('void OnBestLoadoutEquipped(int32 UpgradesEquipped);', self.hero_h)
         body = self.hero_cpp.split("int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()", 1)[1].split(
@@ -1076,7 +1101,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         tick = self.hero_cpp.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1].split(
             "void AMoonfallHeroPawn::SetupPlayerInputComponent", 1)[0]
         self.assertIn("GetTimeSeconds() >= StaminaRegenStartsAt", tick)
-        self.assertIn("FMath::Clamp(Stamina + FMath::Clamp(StaminaRegenPerSecond, 0.f, 250.f) * StaminaDelta * MenuRecoveryBoost, 0.f, MaxStamina)", tick)
+        self.assertIn("FMath::Clamp(Stamina + FMath::Clamp(StaminaRegenPerSecond, 0.f, 250.f) * StaminaDelta * MenuRecoveryBoost", tick)
         self.assertIn("Health > 0.f", tick)
 
     def test_dodge_cooldown_is_bounded_and_never_overlaps_immunity(self):
