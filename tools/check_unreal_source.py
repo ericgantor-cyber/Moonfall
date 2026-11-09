@@ -1815,6 +1815,23 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertEqual(tick.count("Nav->FindPathToLocationSynchronously("), 1)
         self.assertEqual(tick.count("Nav->ProjectPointToNavigation("), 1)
 
+    def test_divine_phase_transitions_open_with_readable_signature(self):
+        enemy = self.enemy_cpp
+        self.assertIn("void OnDivinePhaseEntered(FName BossId, int32 NewPhase, float RecoverySeconds);", self.enemy_h)
+        self.assertIn('const bool bDivinePhase = DivineBossId == FName(TEXT("z_void_reaper"))', enemy)
+        self.assertIn('|| DivineBossId == FName(TEXT("nyra_eclipse_queen"));', enemy)
+        self.assertIn("const int32 NewDivineInterval = BossPhase >= 3 ? 2 : (BossPhase == 2 ? 3 : 4);", enemy)
+        self.assertIn("AttackSequence = bDivinePhase ? NewDivineInterval - 1 : 0;", enemy)
+        self.assertIn("NextAttackAt = FMath::Max(NextAttackAt, Now + 1.5f);", enemy)
+        self.assertIn("if (bDivinePhase) OnDivinePhaseEntered(DivineBossId, BossPhase, 1.5f);", enemy)
+        phase = enemy.split("if (NewPhase > BossPhase) {", 1)[1].split("OnBossPhaseChanged(BossPhase);", 1)[0]
+        self.assertLess(phase.index("CancelDivineSignature();"), phase.index("AttackSequence = bDivinePhase"))
+        self.assertLess(phase.index("NextAttackAt = FMath::Max("), phase.index("AttackSequence = bDivinePhase"))
+        self.assertIn("DivineSignatureCastCount = 0;", phase)
+        self.assertIn("bDivineAlternateGeometry = false;", phase)
+        self.assertIn("AttackSequence % DivineSignatureInterval == DivineSignatureInterval - 1;", enemy)
+        self.assertIn("AttackSequence % DivineSignatureInterval == 0)", enemy)
+
     def test_divine_spell_frequency_escalates_by_phase_without_changing_warnings(self):
         tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
         self.assertIn("const int32 DivineSignatureInterval = BossPhase >= 3 ? 2 : (BossPhase == 2 ? 3 : 4);", tick)
