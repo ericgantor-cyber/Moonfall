@@ -3032,5 +3032,25 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("FinalChamberTrigger->SetRelativeLocation(", layout_cpp)
         self.assertNotIn("OpenLevel(", layout_cpp)
 
+    def test_seeded_dungeon_room_archetypes_and_single_entry_callbacks(self):
+        layout_h = (ROOT / "MoonfallDungeonLayout.h").read_text(encoding="utf-8")
+        layout_cpp = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
+        self.assertIn("int32 GetChamberType(int32 ChamberIndex) const;", layout_h)
+        self.assertIn("void OnChamberEntered(AMoonfallHeroPawn* Hero, int32 ChamberIndex, int32 ChamberType);", layout_h)
+        self.assertIn("TArray<TObjectPtr<UBoxComponent>> ChamberTriggers;", layout_h)
+        self.assertIn("uint16 EnteredChambersMask = 0;", layout_h)
+        self.assertIn("for (int32 Chamber = 1; Chamber < ChamberCount - 1; ++Chamber)", layout_cpp)
+        self.assertIn("ChamberTriggers.Add(Trigger);", layout_cpp)
+        self.assertIn("GetRandomizedHazardChamber(HazardIndex) == ChamberIndex", layout_cpp)
+        self.assertIn("Stream.RandRange(1, 4);", layout_cpp)
+        self.assertIn("if (ChamberIndex == 0) return 0;", layout_cpp)
+        self.assertIn("if (ChamberIndex == ChamberCount - 1) return 6;", layout_cpp)
+        self.assertIn("Trigger->OnComponentBeginOverlap.AddDynamic(", layout_cpp)
+        self.assertIn("HandleChamberOverlap", layout_cpp)
+        self.assertIn("EnteredChambersMask |= Bit;", layout_cpp)
+        self.assertIn("OnChamberEntered(Hero, ChamberIndex, GetChamberType(ChamberIndex));", layout_cpp)
+        self.assertIn("Hero->IsPlayerControlled()", layout_cpp)
+        self.assertNotIn("SpawnActor<", layout_cpp)
+
 if __name__ == "__main__":
     unittest.main()
