@@ -343,23 +343,35 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                         craft.index("LastLootUpgrade = (Tier + 1) - PreviousEquippedTier;"))
         self.assertIn("InventoryItemCodes[InventoryIndex] = Code;\n  return false;", craft)
 
-    def test_j_selects_advisor_recommendation_without_equipping(self):
+    def test_j_toggles_atlas_not_gear_selection(self):
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
-        self.assertIn('ActionName="AdvisorSelect",Key=J', inputs)
-        self.assertIn('BindAction(TEXT("AdvisorSelect"), IE_Pressed', self.hero_cpp)
-        self.assertIn("void SelectRecommendedEquipment();", self.hero_h)
-        action = self.hero_cpp.split("void AMoonfallHeroPawn::SelectRecommendedEquipment()", 1)[1].split(
-            "void AMoonfallHeroPawn::EquipBestInventoryAction()", 1
+        self.assertIn('ActionName="Atlas",Key=J', inputs)
+        self.assertNotIn('ActionName="AdvisorSelect"', inputs)
+        self.assertIn('BindAction(TEXT("Atlas"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleAtlas)', self.hero_cpp)
+        self.assertIn("void ToggleAtlas();", self.hero_h)
+        self.assertIn("bool bAtlasOpen = false;", self.hero_h)
+        self.assertNotIn("void SelectRecommendedEquipment();", self.hero_h)
+        toggle = self.hero_cpp.split("void AMoonfallHeroPawn::ToggleAtlas()", 1)[1].split(
+            "void AMoonfallHeroPawn::ToggleInventory()", 1
         )[0]
-        self.assertIn("!bInventoryOpen || bCharacterStatsOpen || bOptionsOpen", action)
-        self.assertIn("!FMath::IsFinite(Health) || Health <= 0.f", action)
-        self.assertIn("GetRecommendedEquipmentIndex()", action)
-        self.assertIn("InventoryItemCodes.IsValidIndex(Recommendation)", action)
-        self.assertIn("InventorySelection = Recommendation;", action)
-        for forbidden in ("EquipInventoryItem(", "EquipBestInventoryUpgrades(",
-                          "SalvageInventoryItem(", "InventoryItemCodes.RemoveAt("):
-            self.assertNotIn(forbidden, action)
-        self.assertIn("J: advisor", self.hud)
+        self.assertIn("bOptionsOpen || bInventoryOpen", toggle)
+        self.assertIn("!FMath::IsFinite(Health) || Health <= 0.f", toggle)
+        self.assertIn("ResetMouseCastChord();", toggle)
+        self.assertIn("EndSprint();", toggle)
+        self.assertIn("EndGuard();", toggle)
+        self.assertIn("bAtlasOpen = !bAtlasOpen;", toggle)
+        for forbidden in ("EquipInventoryItem(", "InventorySelection =",
+                          "SalvageInventoryItem(", "GetRecommendedEquipmentIndex()"):
+            self.assertNotIn(forbidden, toggle)
+        atlas = self.hud.split("if (Hero->bAtlasOpen) {", 1)[1].split(
+            "if (Hero->bInventoryOpen) {", 1
+        )[0]
+        self.assertIn('TEXT("MOONFALL  |  ATLAS")', atlas)
+        self.assertIn("Hero->GetActorLocation()", atlas)
+        self.assertIn("FMath::IsFinite(WorldPos.X)", atlas)
+        self.assertIn("Undiscovered terrain is not shown", atlas)
+        self.assertIn("J / Esc: close", atlas)
+        self.assertNotIn("J: advisor", self.hud)
 
     def test_direct_salvage_fails_closed_when_menus_or_health_invalid(self):
         body = self.hero_cpp.split(
@@ -540,7 +552,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("bOptionsOpen || bInventoryOpen || !FMath::IsFinite(Health)", dual)
         self.assertLess(dual.index("bInventoryOpen"), dual.index("GetWorld()->GetTimeSeconds()"))
         self.assertIn("Left-click: select", self.hud)
-        self.assertIn('ActionName="AdvisorSelect",Key=J', inputs)
+        self.assertIn('ActionName="Atlas",Key=J', inputs)
 
     def test_both_mouse_buttons_dual_cast_without_c_and_single_on_release(self):
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
@@ -609,7 +621,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(mouse.index("EquipSelectedInventoryItem();"),
                         mouse.index("bRightMouseHeld = true;"))
         self.assertIn("Right-click / Enter / Y: equip", self.hud)
-        self.assertIn('ActionName="AdvisorSelect",Key=J', inputs)
+        self.assertIn('ActionName="Atlas",Key=J', inputs)
 
     def test_direct_equipment_change_requires_open_inventory(self):
         equip = self.hero_cpp.split(
