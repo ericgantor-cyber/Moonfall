@@ -111,6 +111,8 @@ public:
  UFUNCTION(BlueprintCallable, Category="Moonfall|Map") void ToggleAtlas();
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Inventory") bool bCharacterStatsOpen = false;
  UFUNCTION(BlueprintCallable, Category="Moonfall|Inventory") void ToggleCharacterStats();
+ // Controller A switches existing inventory pages, never closes the menu.
+ void SwitchInventoryPage();
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Inventory") int32 InventorySelection = 0;
  UFUNCTION(BlueprintCallable, Category="Moonfall|Inventory") void ToggleInventory();
  // Preserve right-click combat outside inventory while enabling pointer-driven loot management.
