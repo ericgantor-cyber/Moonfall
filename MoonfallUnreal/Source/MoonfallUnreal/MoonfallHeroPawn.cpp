@@ -1438,8 +1438,9 @@ void AMoonfallHeroPawn::EquipBestInventoryAction() { if (!bCharacterStatsOpen) E
 
 int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()
 {
- // Only a deliberate input while viewing inventory can change worn equipment.
- if (!bInventoryOpen || bOptionsOpen || Health <= 0.f) return 0;
+ // Require valid hero state before even scanning the inventory. The explicit
+ // EquipInventoryItem boundary independently enforces the same restriction.
+ if (!bInventoryOpen || bOptionsOpen || !FMath::IsFinite(Health) || Health <= 0.f) return 0;
  const int32 EquippedCodes[3] = {EquippedWeaponCode, EquippedArmorCode, EquippedAccessoryCode};
  int32 BestScores[3] = {-1, -1, -1};
  int32 BestIndices[3] = {-1, -1, -1};
