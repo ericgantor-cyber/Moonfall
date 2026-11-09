@@ -9,4 +9,9 @@ class MOONFALLUNREAL_API AMoonfallUnrealGameMode : public AGameModeBase
 public:
  AMoonfallUnrealGameMode();
  virtual void BeginPlay() override;
+ // Default to an open-world test arena. Explicitly opt in for dungeon packs.
+ UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Encounter")
+ bool bStartInDungeonEncounter = false;
+ UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Encounter")
+ FName StartingSpawnBiome = FName(TEXT("Forest"));
 };
