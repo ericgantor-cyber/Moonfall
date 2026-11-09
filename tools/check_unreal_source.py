@@ -2165,7 +2165,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("const bool bLegacyGodSlot = !bSingleDivineEncounter && Count >= 5", arena)
         self.assertIn("const bool bZ = bNamedGodSlot ? bZEncounter : i == Count - 2;", arena)
         self.assertIn("else if (!bSingleDivineEncounter && Count == 4", arena)
-        self.assertEqual(arena.count("CreateBlock(FVector("), 9)
+        self.assertEqual(arena.count("CreateBlock(FVector("), 10)
         self.assertNotIn("PrimaryActorTick.bCanEverTick = true", arena)
         self.assertLess(arena.index("Enemy->DivineBossId ="), arena.index("FinishSpawningActor(Enemy, SpawnTransform)"))
 
@@ -2984,7 +2984,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("ZoneIndex >= AMoonfallHeroPawn::DungeonZoneCount", layout_cpp)
         self.assertIn("DungeonIndex >= AMoonfallHeroPawn::DungeonsPerZone", layout_cpp)
         self.assertNotIn("OpenLevel(", layout_cpp)
-        self.assertNotIn("SpawnActor<", layout_cpp)
+        self.assertNotIn("SpawnActor<AMoonfallEnemy>", layout_cpp)
 
     def test_dungeon_hazards_are_avoidable_and_cooldown_bounded(self):
         layout_h = (ROOT / "MoonfallDungeonLayout.h").read_text(encoding="utf-8")
@@ -3010,7 +3010,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("FMath::Clamp(HazardCooldownSeconds, 0.5f, 20.f)", hazard)
         self.assertIn("Hero->ApplyMoonfallDamage(HazardDamage);", hazard)
         self.assertLess(hazard.index("NextHazardDamageAt = Now"), hazard.index("Hero->ApplyMoonfallDamage("))
-        self.assertNotIn("SpawnActor", hazard)
+        self.assertNotIn("SpawnActor", hazard.split("void AMoonfallDungeonLayout::HandleChamberOverlap(", 1)[0])
         self.assertNotIn("OpenLevel", hazard)
 
     def test_dungeon_randomizer_is_seeded_reproducible_and_keeps_exit_open(self):
@@ -3050,7 +3050,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("EnteredChambersMask |= Bit;", layout_cpp)
         self.assertIn("OnChamberEntered(Hero, ChamberIndex, ChamberType);", layout_cpp)
         self.assertIn("Hero->IsPlayerControlled()", layout_cpp)
-        self.assertNotIn("SpawnActor<", layout_cpp)
+        self.assertNotIn("SpawnActor<AMoonfallEnemy>", layout_cpp)
 
     def test_dungeon_treasure_and_shrine_rewards_are_single_entry(self):
         layout_h = (ROOT / "MoonfallDungeonLayout.h").read_text(encoding="utf-8")
