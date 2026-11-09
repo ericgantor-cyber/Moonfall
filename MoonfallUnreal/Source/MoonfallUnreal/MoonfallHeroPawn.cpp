@@ -1391,40 +1391,48 @@ void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(bool bEliteEnemy, bool bBossEne
 void AMoonfallHeroPawn::PickupNearestGroundLoot()
 {
  if (Health <= 0.f || bOptionsOpen || bInventoryOpen || !GetWorld()) return;
- // Scan all loot actors so distant old drops cannot starve nearby pickups.
- // Only the closest candidates are subjected to expensive visibility traces.
+ // Scan the full world so distant old drops cannot starve nearby pickups.
+ // Keep traces bounded, but try another nearby batch if the first is blocked.
  constexpr int32 MaxLootCandidates = 24;
  constexpr int32 MaxLootPerPress = 6;
- TArray<AMoonfallGroundLoot*> NearbyLoot;
- NearbyLoot.Reserve(MaxLootCandidates);
- TArray<float> NearbyDistanceSq;
- NearbyDistanceSq.Reserve(MaxLootCandidates);
+ constexpr int32 MaxCandidateBatches = 4;
+ TSet<AMoonfallGroundLoot*> ExaminedLoot;
  const FVector HeroPosition = GetActorLocation();
  const float PickupRangeSq = FMath::Square(250.f);
- for (TActorIterator<AMoonfallGroundLoot> It(GetWorld()); It; ++It) {
-  AMoonfallGroundLoot* Candidate = *It;
-  if (!IsValid(Candidate) || Candidate->GetItemCode() <= 0) continue;
-  const FVector LootPosition = Candidate->GetActorLocation();
-  if (FMath::Abs(LootPosition.Z - HeroPosition.Z) > 150.f) continue;
-  const float DistanceSq = FVector::DistSquared2D(LootPosition, HeroPosition);
-  if (!FMath::IsFinite(DistanceSq) || DistanceSq > PickupRangeSq) continue;
-  int32 InsertAt = 0;
-  while (InsertAt < NearbyDistanceSq.Num() && NearbyDistanceSq[InsertAt] <= DistanceSq)
-   ++InsertAt;
-  if (InsertAt >= MaxLootCandidates) continue;
-  NearbyLoot.Insert(Candidate, InsertAt);
-  NearbyDistanceSq.Insert(DistanceSq, InsertAt);
-  if (NearbyLoot.Num() > MaxLootCandidates) {
-   NearbyLoot.RemoveAt(MaxLootCandidates);
-   NearbyDistanceSq.RemoveAt(MaxLootCandidates);
-  }
- }
  int32 Collected = 0;
- for (AMoonfallGroundLoot* Loot : NearbyLoot) {
-  if (!IsValid(Loot)) continue;
-  // TryCollect is the single authority for range, height and cover checks.
-  // Failed (e.g. obstructed) pickups do not consume the per-press allowance.
-  if (Loot->TryCollect() && ++Collected >= MaxLootPerPress) break;
+ for (int32 Batch = 0; Batch < MaxCandidateBatches && Collected < MaxLootPerPress; ++Batch) {
+  TArray<AMoonfallGroundLoot*> NearbyLoot;
+  NearbyLoot.Reserve(MaxLootCandidates);
+  TArray<float> NearbyDistanceSq;
+  NearbyDistanceSq.Reserve(MaxLootCandidates);
+  for (TActorIterator<AMoonfallGroundLoot> It(GetWorld()); It; ++It) {
+   AMoonfallGroundLoot* Candidate = *It;
+   if (!IsValid(Candidate) || Candidate->GetItemCode() <= 0 ||
+       ExaminedLoot.Contains(Candidate)) continue;
+   const FVector LootPosition = Candidate->GetActorLocation();
+   if (FMath::Abs(LootPosition.Z - HeroPosition.Z) > 150.f) continue;
+   const float DistanceSq = FVector::DistSquared2D(LootPosition, HeroPosition);
+   if (!FMath::IsFinite(DistanceSq) || DistanceSq > PickupRangeSq) continue;
+   int32 InsertAt = 0;
+   while (InsertAt < NearbyDistanceSq.Num() && NearbyDistanceSq[InsertAt] <= DistanceSq)
+    ++InsertAt;
+   if (InsertAt >= MaxLootCandidates) continue;
+   NearbyLoot.Insert(Candidate, InsertAt);
+   NearbyDistanceSq.Insert(DistanceSq, InsertAt);
+   if (NearbyLoot.Num() > MaxLootCandidates) {
+    NearbyLoot.RemoveAt(MaxLootCandidates);
+    NearbyDistanceSq.RemoveAt(MaxLootCandidates);
+   }
+  }
+  if (NearbyLoot.IsEmpty()) break;
+  for (AMoonfallGroundLoot* Loot : NearbyLoot) {
+   // Do not recheck rejected loot in the next batch on the same keypress.
+   ExaminedLoot.Add(Loot);
+   if (!IsValid(Loot)) continue;
+   // TryCollect alone checks reach, cover and item validity. A failed
+   // collection must not consume the successful-pickup allowance.
+   if (Loot->TryCollect() && ++Collected >= MaxLootPerPress) break;
+  }
  }
 }
 
