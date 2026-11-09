@@ -3076,5 +3076,23 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Loot->InitializeLoot(ItemCode);", reward)
         self.assertNotIn("Hero->CollectGroundEquipmentCode(", reward)
 
+    def test_startup_map_installs_randomized_dungeon_without_overwrite(self):
+        import ast
+        source = (ROOT.parents[1] / "Build" / "Create-StartupLevel.py").read_text(encoding="utf-8")
+        ast.parse(source)
+        self.assertIn('DUNGEON_CLASS_PATH = "/Script/MoonfallUnreal.MoonfallDungeonLayout"', source)
+        self.assertIn('def install_randomized_dungeon():', source)
+        self.assertIn('unreal.load_class(None, DUNGEON_CLASS_PATH)', source)
+        self.assertIn('levels.load_level(MAP)', source)
+        self.assertIn('if actor.get_actor_label() == DUNGEON_LABEL:', source)
+        self.assertIn('return False', source)
+        self.assertIn('actors.spawn_actor_from_class(', source)
+        self.assertIn('dungeon.set_editor_property("zone_index", 0)', source)
+        self.assertIn('dungeon.set_editor_property("dungeon_index", 0)', source)
+        self.assertIn('dungeon.set_editor_property("layout_seed", 90111)', source)
+        self.assertIn('dungeon.set_editor_property("b_randomize_chambers", True)', source)
+        self.assertIn('if not levels.save_current_level():', source)
+        self.assertIn('install_randomized_dungeon()', source)
+
 if __name__ == "__main__":
     unittest.main()

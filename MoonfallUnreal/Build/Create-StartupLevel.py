@@ -39,6 +39,54 @@ def updated_map_config(config: str) -> str:
     return "".join(lines)
 
 
+DUNGEON_LABEL = "Moonfall_RandomizedDungeon_Zone1_01"
+DUNGEON_CLASS_PATH = "/Script/MoonfallUnreal.MoonfallDungeonLayout"
+
+
+def install_randomized_dungeon():
+    """Add one playable seeded dungeon to MoonfallStart without duplicates.
+
+    This updates only the startup level in the currently open Unreal project.
+    Native C++ must first be compiled so its dungeon class is registered.
+    """
+    if not unreal.EditorAssetLibrary.does_asset_exist(MAP):
+        raise RuntimeError("Generate MoonfallStart before installing the dungeon")
+    dungeon_class = unreal.load_class(None, DUNGEON_CLASS_PATH)
+    if dungeon_class is None:
+        raise RuntimeError(
+            "MoonfallDungeonLayout Unreal C++ class is missing. "
+            "Compile the project and restart Unreal Editor before retrying.")
+    levels = unreal.get_editor_subsystem(unreal.LevelEditorSubsystem)
+    actors = unreal.get_editor_subsystem(unreal.EditorActorSubsystem)
+    if not levels.load_level(MAP):
+        raise RuntimeError("Could not load the MoonfallStart map")
+    for actor in actors.get_all_level_actors():
+        if actor.get_actor_label() == DUNGEON_LABEL:
+            if not actor.is_a(dungeon_class):
+                raise RuntimeError(
+                    "Dungeon label is occupied by a different actor; refusing to modify it")
+            unreal.log("Randomized dungeon already installed; existing actor preserved")
+            return False
+
+    # Place the first entrance away from the original combat spawn. The 14-room
+    # block extends along +X and must be visually collision-checked in Editor.
+    dungeon = actors.spawn_actor_from_class(
+        dungeon_class, unreal.Vector(3500.0, 4200.0, 0.0),
+        unreal.Rotator(0.0, 0.0, 0.0))
+    if dungeon is None:
+        raise RuntimeError("Failed to place the randomized dungeon in MoonfallStart")
+    dungeon.set_actor_label(DUNGEON_LABEL)
+    dungeon.set_editor_property("zone_index", 0)
+    dungeon.set_editor_property("dungeon_index", 0)
+    dungeon.set_editor_property("layout_seed", 90111)
+    dungeon.set_editor_property("b_randomize_chambers", True)
+    if not levels.save_current_level():
+        raise RuntimeError("Dungeon actor was placed but MoonfallStart could not be saved")
+    unreal.log("Installed randomized dungeon 1/30 in MoonfallStart: "
+               "14 connected chambers, seeded traps, treasure and shrines")
+    return True
+
+
 def create_moonfall_start():
     # project_dir() is exposed by the 5.4 Python API. Validate the actual
     # project layout without depending on project-file-path helper availability.
@@ -79,6 +127,10 @@ def create_moonfall_start():
         else:
             backup_path.write_text(original_config, encoding="utf-8")
         config_path.write_text(new_config, encoding="utf-8", newline="")
+
+    # Install exactly one seeded dungeon into the real startup level, including
+    # previously created maps. Never overwrite user-authored level actors.
+    install_randomized_dungeon()
 
     unreal.log("Verified " + MAP + " and configured game/editor startup maps. "
                "Verify PlayerStart, navigation (P), collision, combat and HUD "
