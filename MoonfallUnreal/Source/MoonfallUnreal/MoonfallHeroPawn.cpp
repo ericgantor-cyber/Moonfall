@@ -1598,6 +1598,19 @@ bool AMoonfallHeroPawn::HasLegendaryPerk(int32 Slot) const
      && (Code / 1000) % 10 == 5;
 }
 
+// A stable checksum detects partial writes or modified local profiles. It
+// uses only serialized values, so it is independent of pointer addresses.
+static uint32 MoonfallEquipmentProfileChecksum(const TArray<int32>& Bag,
+    const int32* Worn, int32 SalvageValue)
+{
+ uint32 Hash = 2166136261u;
+ for (const int32 Code : Bag)
+  Hash = (Hash ^ static_cast<uint32>(Code)) * 16777619u;
+ for (int32 Slot = 0; Slot < 9; ++Slot)
+  Hash = (Hash ^ static_cast<uint32>(Worn[Slot])) * 16777619u;
+ return (Hash ^ static_cast<uint32>(SalvageValue)) * 16777619u;
+}
+
 void AMoonfallHeroPawn::SaveEquipmentProfile() const
 {
  if (!GConfig || bRestoringEquipmentProfile || InventoryItemCodes.Num() > 512)
@@ -1617,12 +1630,16 @@ void AMoonfallHeroPawn::SaveEquipmentProfile() const
       (Code / 10000) % 10 != Slot || !InventoryItemCodes.Contains(Code))) return;
   Worn[Slot] = Code;
  }
+ TArray<int32> ProfileBag = InventoryItemCodes;
+ const int32 ProfileSalvage = FMath::Clamp(Salvage, 0, 9999);
+ const uint32 ProfileChecksum = MoonfallEquipmentProfileChecksum(ProfileBag, Worn, ProfileSalvage);
  GConfig->SetArray(Section, TEXT("InventoryCodes"), StoredBag, GGameUserSettingsIni);
  for (int32 Slot = 0; Slot < 9; ++Slot)
   GConfig->SetInt(Section, *FString::Printf(TEXT("Slot%d"), Slot),
     Worn[Slot], GGameUserSettingsIni);
- GConfig->SetInt(Section, TEXT("Salvage"), FMath::Clamp(Salvage, 0, 9999),
-   GGameUserSettingsIni);
+ GConfig->SetInt(Section, TEXT("Salvage"), ProfileSalvage, GGameUserSettingsIni);
+ GConfig->SetString(Section, TEXT("Checksum"),
+   *FString::Printf(TEXT("%u"), ProfileChecksum), GGameUserSettingsIni);
  GConfig->SetInt(Section, TEXT("Version"), 1, GGameUserSettingsIni);
  GConfig->Flush(false, GGameUserSettingsIni);
 }
@@ -1655,6 +1672,15 @@ void AMoonfallHeroPawn::LoadEquipmentProfile()
  int32 SavedSalvage = 0;
  if (!GConfig->GetInt(Section, TEXT("Salvage"), SavedSalvage, GGameUserSettingsIni)
     || SavedSalvage < 0 || SavedSalvage > 9999) return;
+ // Older V1 profiles without a checksum remain readable. Any present
+ // checksum must match the entire nine-slot loadout before anything mutates.
+ FString StoredChecksum;
+ if (GConfig->GetString(Section, TEXT("Checksum"), StoredChecksum, GGameUserSettingsIni)) {
+  uint32 ExpectedChecksum = 0;
+  if (!LexTryParseString(ExpectedChecksum, *StoredChecksum) ||
+      ExpectedChecksum != MoonfallEquipmentProfileChecksum(ValidBag, Worn, SavedSalvage))
+   return;
+ }
  // Fully validate first, so an incomplete profile cannot partially replace gear.
  bRestoringEquipmentProfile = true;
  const int32 PreviousArmorTier = FMath::Clamp(ArmorTier, 0, 25);
