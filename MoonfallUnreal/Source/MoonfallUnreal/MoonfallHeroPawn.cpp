@@ -519,7 +519,19 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
  return true;
 }
 void AMoonfallHeroPawn::CastLeft() { if (bOptionsOpen) return; TryCast(LeftSpell, 0, 1.f); }
-void AMoonfallHeroPawn::CastRight() { if (bOptionsOpen) return; TryCast(RightSpell, 1, 1.f); }
+void AMoonfallHeroPawn::CastRight()
+{
+ if (bOptionsOpen) return;
+ // Right mouse click equips the selected bag item while inventory is open.
+ // The same input keeps its normal right-hand spell outside inventory.
+ // EquipSelectedInventoryItem enforces the read-only character sheet and
+ // EquipInventoryItem validates the item and hero state.
+ if (bInventoryOpen) {
+  EquipSelectedInventoryItem();
+  return;
+ }
+ TryCast(RightSpell, 1, 1.f);
+}
 void AMoonfallHeroPawn::CastBoth()
 {
  if (bOptionsOpen) return;
