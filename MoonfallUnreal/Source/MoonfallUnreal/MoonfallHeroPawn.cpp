@@ -11,6 +11,8 @@
 #include "Interfaces/IPluginManager.h"
 #include "MoonfallEnemy.h"
 #include "MoonfallGroundLoot.h"
+#include "MoonfallCombatHUD.h"
+#include "GameFramework/PlayerController.h"
 #include "EngineUtils.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Components/StaticMeshComponent.h"
@@ -527,6 +529,19 @@ void AMoonfallHeroPawn::CastRight()
  // EquipSelectedInventoryItem enforces the read-only character sheet and
  // EquipInventoryItem validates the item and hero state.
  if (bInventoryOpen) {
+  if (bCharacterStatsOpen) return;
+  // When a pointer is available, right-click the visible row under it.
+  // Off-row clicks retain the existing selected-entry equip shortcut.
+  if (APlayerController* Controller = Cast<APlayerController>(GetController())) {
+   if (AMoonfallCombatHUD* HUD = Cast<AMoonfallCombatHUD>(Controller->GetHUD())) {
+    float MouseX = 0.f, MouseY = 0.f;
+    if (Controller->GetMousePosition(MouseX, MouseY)) {
+     const int32 ClickedIndex = HUD->GetInventoryItemAtScreenPosition(this, MouseX, MouseY);
+     if (InventoryItemCodes.IsValidIndex(ClickedIndex))
+      InventorySelection = ClickedIndex;
+    }
+   }
+  }
   EquipSelectedInventoryItem();
   return;
  }
