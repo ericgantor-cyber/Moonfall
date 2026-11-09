@@ -448,6 +448,36 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(best.index("bCharacterStatsOpen"),
                         best.index("InventoryItemCodes.Num()"))
 
+    def test_right_click_hit_tests_visible_inventory_rows_only(self):
+        hud_header = (ROOT / "MoonfallCombatHUD.h").read_text(encoding="utf-8")
+        self.assertIn("GetInventoryItemAtScreenPosition(", hud_header)
+        hit_test = self.hud.split(
+            "int32 AMoonfallCombatHUD::GetInventoryItemAtScreenPosition(", 1
+        )[1].split("void AMoonfallCombatHUD::DrawHUD()", 1)[0]
+        self.assertIn("Hero->bCharacterStatsOpen || Hero->bOptionsOpen", hit_test)
+        self.assertIn("!FMath::IsFinite(X) || !FMath::IsFinite(Y)", hit_test)
+        self.assertIn("const int32 PageStart = Selected / PerPage * PerPage;", hit_test)
+        self.assertIn("const int32 PageEnd = FMath::Min(Count, PageStart + PerPage);", hit_test)
+        self.assertIn("Index = PageStart; Index < PageEnd; ++Index", hit_test)
+        self.assertIn("return Index;", hit_test)
+        self.assertIn("return -1;", hit_test)
+        for forbidden in ("InventorySelection =", "EquipInventoryItem(",
+                          "InventoryItemCodes.RemoveAt(", "SalvageInventoryItem("):
+            self.assertNotIn(forbidden, hit_test)
+        cast = self.hero_cpp.split("void AMoonfallHeroPawn::CastRight()", 1)[1].split(
+            "void AMoonfallHeroPawn::CastBoth()", 1
+        )[0]
+        self.assertIn("Controller->GetMousePosition(MouseX, MouseY)", cast)
+        self.assertIn("HUD->GetInventoryItemAtScreenPosition(this, MouseX, MouseY)", cast)
+        self.assertIn("if (InventoryItemCodes.IsValidIndex(ClickedIndex))", cast)
+        self.assertIn("InventorySelection = ClickedIndex;", cast)
+        self.assertIn("EquipSelectedInventoryItem();", cast)
+        self.assertLess(cast.index("GetInventoryItemAtScreenPosition("),
+                        cast.index("EquipSelectedInventoryItem();"))
+        self.assertLess(cast.index("EquipSelectedInventoryItem();"),
+                        cast.index("TryCast(RightSpell, 1, 1.f);"))
+        self.assertNotIn("AdvisorSelect", cast)
+
     def test_right_click_equips_only_in_inventory_and_never_casts_there(self):
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
         self.assertIn('ActionName="CastRight",Key=RightMouseButton', inputs)
