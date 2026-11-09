@@ -25,6 +25,7 @@ public:
  void LoadEquipmentProfile();
  bool bRestoringEquipmentProfile = false;
  bool bEquipmentCraftingInProgress = false;
+ bool bBatchEquippingInventory = false;
  UFUNCTION(BlueprintPure, Category="Moonfall|Equipment") int32 GetEquippedCodeForSlot(int32 Slot) const;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Equipment") TArray<int32> ExtraEquippedCodes = {0,0,0,0,0,0};
  UFUNCTION(BlueprintPure, Category="Moonfall|Equipment|Sets") int32 GetSetPieceCount(int32 Affix) const;
