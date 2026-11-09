@@ -239,6 +239,8 @@ private:
  void ZoomCameraIn();
  void ZoomCameraOut();
  void CastLeft();
+ // Left mouse selects pointed gear in inventory, casts during combat.
+ void LeftClickContextAction();
  void CastRight();
  // Mouse-specific context action: equip inventory row or cast outside menus.
  void RightClickContextAction();
