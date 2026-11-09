@@ -1493,7 +1493,30 @@ int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()
      break;
     }
    }
-   if (bBreaksSetBonus) continue;
+   if (bBreaksSetBonus) {
+    // The top-ranked item would break a set. Search the bag for the
+    // strongest better item with the SAME set trait instead of giving up.
+    // Bound the scan to the bag and only accept valid items in this slot.
+    const int32 WornTier = EquippedCode % 1000;
+    const int32 WornRarity = (EquippedCode / 1000) % 10;
+    int32 AlternateScore = WornTier * 100 + WornRarity * 10 + 1;
+    int32 AlternateIndex = -1;
+    for (int32 Index = 0; Index < InventoryItemCodes.Num(); ++Index) {
+     const int32 Code = InventoryItemCodes[Index];
+     if ((Code / 10000) % 10 != Slot || Code / 100000 != OldAffix
+         || GetItemPower(Code) <= 0) continue;
+     const int32 Tier = Code % 1000;
+     const int32 Rarity = (Code / 1000) % 10;
+     const int32 Score = Tier * 100 + Rarity * 10 + 1;
+     if (Score > AlternateScore) {
+      AlternateScore = Score;
+      AlternateIndex = Index;
+     }
+    }
+    if (AlternateIndex >= 0 && EquipInventoryItem(AlternateIndex))
+     ++UpgradesEquipped;
+    continue;
+   }
   }
   if (EquipInventoryItem(BestIndices[Slot])) ++UpgradesEquipped;
  }
