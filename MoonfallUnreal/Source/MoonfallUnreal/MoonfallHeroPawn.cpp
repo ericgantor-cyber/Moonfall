@@ -1476,8 +1476,26 @@ int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()
  int32 UpgradesEquipped = 0;
  bBatchEquippingInventory = true;
  for (int32 Slot = 0; Slot < 9; ++Slot) {
-  if (BestIndices[Slot] >= 0 && EquipInventoryItem(BestIndices[Slot]))
-   ++UpgradesEquipped;
+  if (BestIndices[Slot] < 0) continue;
+  const int32 CandidateCode = InventoryItemCodes[BestIndices[Slot]];
+  const int32 EquippedCode = GetEquippedCodeForSlot(Slot);
+  const int32 OldAffix = GetItemPower(EquippedCode) > 0 ? EquippedCode / 100000 : 0;
+  const int32 NewAffix = CandidateCode / 100000;
+  // Auto-select must not silently turn off a live 2/3/4/6/9-piece bonus.
+  // Manual equipping remains unrestricted, so the player stays in control.
+  if (OldAffix >= 1 && OldAffix <= 3 && NewAffix != OldAffix) {
+   const int32 Before = GetSetPieceCount(OldAffix);
+   const int32 After = GetProjectedSetPieceCount(OldAffix, CandidateCode);
+   bool bBreaksSetBonus = false;
+   for (const int32 Threshold : {2, 3, 4, 6, 9}) {
+    if (Before >= Threshold && After < Threshold) {
+     bBreaksSetBonus = true;
+     break;
+    }
+   }
+   if (bBreaksSetBonus) continue;
+  }
+  if (EquipInventoryItem(BestIndices[Slot])) ++UpgradesEquipped;
  }
  bBatchEquippingInventory = false;
  if (UpgradesEquipped > 0) SaveEquipmentProfile();
