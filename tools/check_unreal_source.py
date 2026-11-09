@@ -2637,5 +2637,21 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                         load.index("InventoryItemCodes = MoveTemp(ValidBag)"))
         self.assertIn("const bool bHasChecksum", load)
 
+    def test_profile_load_transaction_rolls_back_all_worn_gear(self):
+        load = self.hero_cpp.split("void AMoonfallHeroPawn::LoadEquipmentProfile()", 1)[1]
+        self.assertIn("if (Health <= 0.f || !FMath::IsFinite(Health)", load)
+        self.assertIn("const TArray<int32> PreviousBag = InventoryItemCodes;", load)
+        self.assertIn("const TArray<int32> PreviousExtras = ExtraEquippedCodes;", load)
+        self.assertIn("if (Index == INDEX_NONE || !EquipInventoryItem(Index))", load)
+        self.assertIn("if (!bLoadSucceeded)", load)
+        for field in ("InventoryItemCodes", "ExtraEquippedCodes", "InventorySelection",
+                      "Salvage", "EquippedWeaponCode", "EquippedArmorCode",
+                      "EquippedAccessoryCode", "WeaponTier", "ArmorTier",
+                      "AccessoryTier", "WeaponAffix", "ArmorAffix",
+                      "AccessoryAffix", "EquipmentTier", "Health", "MaxHealth"):
+            self.assertIn(field + " = Previous", load)
+        self.assertLess(load.index("if (!bLoadSucceeded)"),
+                        load.index("bRestoringEquipmentProfile = false;"))
+
 if __name__ == "__main__":
     unittest.main()
