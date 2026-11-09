@@ -1,5 +1,6 @@
 #include "MoonfallGroundLoot.h"
 #include "MoonfallHeroPawn.h"
+#include "MoonfallDungeonLayout.h"
 #include "Components/StaticMeshComponent.h"
 #include "Components/SceneComponent.h"
 #include "Components/TextRenderComponent.h"
@@ -66,12 +67,21 @@ void AMoonfallGroundLoot::InitializeLoot(int32 InItemCode)
   PickupMaterial->SetVectorParameterValue(TEXT("Color"), FLinearColor(QualityColor));
 }
 
+void AMoonfallGroundLoot::BindDungeonReward(AMoonfallDungeonLayout* Owner, int32 ChamberIndex)
+{
+ if (!IsValid(Owner) || ChamberIndex <= 0
+     || ChamberIndex >= AMoonfallDungeonLayout::ChamberCount - 1) return;
+ RewardOwner = Owner;
+ RewardChamberIndex = ChamberIndex;
+}
+
 bool AMoonfallGroundLoot::TryCollect()
 {
  if (bCollected || ItemCode <= 0) return false;
  AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0));
  if (!IsValid(Hero) || !Hero->CollectGroundEquipmentCode(ItemCode)) return false;
  bCollected = true;
+ if (RewardOwner.IsValid()) RewardOwner->MarkTreasureCollected(RewardChamberIndex, this);
  Destroy();
  return true;
 }

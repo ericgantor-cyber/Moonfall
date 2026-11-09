@@ -3073,10 +3073,10 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("const int32 Rarity = Stream.RandRange(2, 4);", reward)
         self.assertIn("const int32 Slot = Stream.RandRange(0, 8);", reward)
         self.assertIn("const int32 Trait = Stream.RandRange(1, 3);", reward)
-        self.assertIn("SpawnActor<AMoonfallGroundLoot>", reward)
-        self.assertIn("ClaimedRewardMask |= Bit;", reward)
+        self.assertIn("SpawnActor<AMoonfallGroundLoot>", layout_cpp)
+        self.assertIn("ClaimedRewardMask |= Bit;", layout_cpp)
         self.assertIn("SaveRewardClaims();", reward)
-        self.assertIn("Loot->InitializeLoot(ItemCode);", reward)
+        self.assertIn("Loot->InitializeLoot(ItemCode);", layout_cpp)
         self.assertNotIn("Hero->CollectGroundEquipmentCode(", reward)
 
     def test_playable_startup_spawns_seeded_dungeon_with_open_arena_gateway(self):
@@ -3138,10 +3138,32 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "void AMoonfallDungeonLayout::LoadRewardClaims()", 1)[0]
         self.assertLess(chamber.index("ResolveChamberReward("), chamber.index("EnteredChambersMask |= Bit;"))
         reward = cpp.split("bool AMoonfallDungeonLayout::ResolveChamberReward(", 1)[1]
-        self.assertIn("if (!IsValid(Loot)) return false;", reward)
-        self.assertLess(reward.index("Loot->InitializeLoot(ItemCode);"),
-                        reward.index("ClaimedRewardMask |= Bit;", reward.index("Loot->InitializeLoot(ItemCode);")))
+        self.assertIn("if (!IsValid(Loot)) return false;", cpp)
+        self.assertIn("PendingTreasureCodes[ChamberIndex] = ItemCode;", reward)
+        self.assertNotIn("ClaimedRewardMask |= Bit;", reward.split("bool AMoonfallDungeonLayout::SpawnTreasureAtChamber(", 1)[0].split("if ((SpawnedTreasureMask & Bit) != 0u)", 1)[1])
         self.assertNotIn("Hero->Health =", reward)
+
+    def test_dungeon_unclaimed_ground_loot_restores_and_claims_only_after_pickup(self):
+        h = (ROOT / "MoonfallDungeonLayout.h").read_text(encoding="utf-8")
+        cpp = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
+        loot_h = (ROOT / "MoonfallGroundLoot.h").read_text(encoding="utf-8")
+        loot_cpp = (ROOT / "MoonfallGroundLoot.cpp").read_text(encoding="utf-8")
+        self.assertIn("int32 PendingTreasureCodes[ChamberCount] = {};", h)
+        self.assertIn("uint16 SpawnedTreasureMask = 0;", h)
+        self.assertIn("void MarkTreasureCollected(int32 ChamberIndex, const AMoonfallGroundLoot* Loot);", h)
+        self.assertIn('TEXT("PendingTreasure%d")', cpp)
+        self.assertIn("PendingTreasureCodes[Chamber] > 0", cpp)
+        self.assertIn("SpawnTreasureAtChamber(Chamber, PendingTreasureCodes[Chamber]);", cpp)
+        self.assertIn("if ((SpawnedTreasureMask & Bit) != 0u) return true;", cpp)
+        self.assertIn("PendingTreasureCodes[ChamberIndex] = ItemCode;", cpp)
+        self.assertIn("TWeakObjectPtr<AMoonfallDungeonLayout> RewardOwner;", loot_h)
+        self.assertIn("Loot->BindDungeonReward(this, ChamberIndex);", cpp)
+        self.assertIn("Loot->GetItemCode() != ItemCode", cpp)
+        self.assertIn("PendingTreasureCodes[ChamberIndex] = 0;", cpp)
+        pickup = loot_cpp.split("bool AMoonfallGroundLoot::TryCollect()", 1)[1]
+        self.assertLess(pickup.index("Hero->CollectGroundEquipmentCode(ItemCode)"),
+                        pickup.index("RewardOwner->MarkTreasureCollected("))
+        self.assertNotIn("Hero->Health =", cpp)
 
 if __name__ == "__main__":
     unittest.main()

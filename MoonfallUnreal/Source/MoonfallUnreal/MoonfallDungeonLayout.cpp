@@ -214,6 +214,10 @@ void AMoonfallDungeonLayout::BeginPlay()
   return;
  }
  LoadRewardClaims();
+ for (int32 Chamber = 1; Chamber < ChamberCount - 1; ++Chamber) {
+  if ((ClaimedRewardMask & (1u << Chamber)) == 0u && PendingTreasureCodes[Chamber] > 0)
+   SpawnTreasureAtChamber(Chamber, PendingTreasureCodes[Chamber]);
+ }
  EntranceTrigger->OnComponentBeginOverlap.AddDynamic(this, &AMoonfallDungeonLayout::HandleEntrance);
  FinalChamberTrigger->OnComponentBeginOverlap.AddDynamic(this, &AMoonfallDungeonLayout::HandleFinalChamber);
  HazardTriggerA->OnComponentBeginOverlap.AddDynamic(this, &AMoonfallDungeonLayout::HandleHazardOverlap);
@@ -297,6 +301,13 @@ void AMoonfallDungeonLayout::LoadRewardClaims()
      || RawMask < 0 || (RawMask >> ChamberCount) != 0)
   return;
  ClaimedRewardMask = static_cast<uint16>(RawMask);
+ for (int32 Chamber = 1; Chamber < ChamberCount - 1; ++Chamber) {
+  if ((ClaimedRewardMask & (1u << Chamber)) != 0u) continue;
+  int32 Pending = 0;
+  if (GConfig->GetInt(*Section, *FString::Printf(TEXT("PendingTreasure%d"), Chamber),
+       Pending, GGameUserSettingsIni) && Pending > 0)
+   PendingTreasureCodes[Chamber] = Pending;
+ }
 }
 
 void AMoonfallDungeonLayout::SaveRewardClaims() const
@@ -306,6 +317,9 @@ void AMoonfallDungeonLayout::SaveRewardClaims() const
                                           ZoneIndex, DungeonIndex);
  GConfig->SetInt(*Section, TEXT("ClaimedMask"), static_cast<int32>(ClaimedRewardMask),
                  GGameUserSettingsIni);
+ for (int32 Chamber = 1; Chamber < ChamberCount - 1; ++Chamber)
+  GConfig->SetInt(*Section, *FString::Printf(TEXT("PendingTreasure%d"), Chamber),
+                  PendingTreasureCodes[Chamber], GGameUserSettingsIni);
  GConfig->SetInt(*Section, TEXT("Version"), 1, GGameUserSettingsIni);
  GConfig->Flush(false, GGameUserSettingsIni);
 }
@@ -331,24 +345,53 @@ bool AMoonfallDungeonLayout::ResolveChamberReward(
   return true;
  }
  if (!GetWorld()) return false;
- // Deterministic loot quality, affix and slot. No global RNG dependency.
+ if ((SpawnedTreasureMask & Bit) != 0u) return true;
+ if (PendingTreasureCodes[ChamberIndex] > 0)
+  return SpawnTreasureAtChamber(ChamberIndex, PendingTreasureCodes[ChamberIndex]);
  FRandomStream Stream(GetEffectiveLayoutSeed() ^ (ChamberIndex * 11003 + 0x2F17));
  const int32 Slot = Stream.RandRange(0, 8);
  const int32 Rarity = Stream.RandRange(2, 4);
  const int32 Trait = Stream.RandRange(1, 3);
  const int32 Tier = FMath::Clamp(Hero->Level / 5 + 1, 1, 25);
  const int32 ItemCode = Trait * 100000 + Slot * 10000 + Rarity * 1000 + Tier;
- // Drop at a side alcove, not in the central travel path. Pickup stays manual.
- const FVector DropLocation = GetActorTransform().TransformPosition(
+ if (!SpawnTreasureAtChamber(ChamberIndex, ItemCode)) return false;
+ PendingTreasureCodes[ChamberIndex] = ItemCode;
+ SaveRewardClaims();
+ OnTreasureDropped(Hero, ChamberIndex);
+ return true;
+}
+
+bool AMoonfallDungeonLayout::SpawnTreasureAtChamber(int32 ChamberIndex, int32 ItemCode)
+{
+ if (!GetWorld() || ChamberIndex <= 0 || ChamberIndex >= ChamberCount - 1
+     || ItemCode <= 0 || GetChamberType(ChamberIndex) != 2) return false;
+ const uint16 Bit = static_cast<uint16>(1u << ChamberIndex);
+ if ((ClaimedRewardMask & Bit) != 0u || (SpawnedTreasureMask & Bit) != 0u)
+  return false;
+ const FVector Position = GetActorTransform().TransformPosition(
      FVector(ChamberIndex * ChamberLength, 255.f, 80.f));
  FActorSpawnParameters Params;
  Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
  AMoonfallGroundLoot* Loot = GetWorld()->SpawnActor<AMoonfallGroundLoot>(
-     AMoonfallGroundLoot::StaticClass(), DropLocation, GetActorRotation(), Params);
+     AMoonfallGroundLoot::StaticClass(), Position, GetActorRotation(), Params);
  if (!IsValid(Loot)) return false;
  Loot->InitializeLoot(ItemCode);
- ClaimedRewardMask |= Bit;
- SaveRewardClaims();
- OnTreasureDropped(Hero, ChamberIndex);
+ if (Loot->GetItemCode() != ItemCode) { Loot->Destroy(); return false; }
+ Loot->BindDungeonReward(this, ChamberIndex);
+ SpawnedTreasureMask |= Bit;
  return true;
+}
+
+void AMoonfallDungeonLayout::MarkTreasureCollected(
+ int32 ChamberIndex, const AMoonfallGroundLoot* Loot)
+{
+ if (!IsValid(Loot) || ChamberIndex <= 0 || ChamberIndex >= ChamberCount - 1
+     || PendingTreasureCodes[ChamberIndex] <= 0
+     || Loot->GetItemCode() != PendingTreasureCodes[ChamberIndex]) return;
+ const uint16 Bit = static_cast<uint16>(1u << ChamberIndex);
+ if ((ClaimedRewardMask & Bit) != 0u) return;
+ ClaimedRewardMask |= Bit;
+ PendingTreasureCodes[ChamberIndex] = 0;
+ SpawnedTreasureMask &= static_cast<uint16>(~Bit);
+ SaveRewardClaims();
 }
