@@ -2824,5 +2824,37 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('TEXT("QUEST | %s  %d/%d%s")', self.hud)
         self.assertIn("QuestBarWidth * QuestFraction", self.hud)
 
+    def test_hero_level_and_xp_save_without_replaying_rewards(self):
+        self.assertIn("void LoadProgressionProfile();", self.hero_h)
+        self.assertIn("void SaveProgressionProfile() const;", self.hero_h)
+        load = self.hero_cpp.split("void AMoonfallHeroPawn::LoadProgressionProfile()", 1)[1].split(
+            "void AMoonfallHeroPawn::SaveProgressionProfile()", 1)[0]
+        self.assertIn('TEXT("Moonfall.Progression.V1")', load)
+        self.assertIn('TEXT("Level")', load)
+        self.assertIn('TEXT("Experience")', load)
+        self.assertIn("SavedLevel < 1 || SavedLevel > 100", load)
+        self.assertIn("SavedXP >= TargetXP", load)
+        self.assertIn("SavedLevel == 100 ? SavedXP != 0", load)
+        self.assertIn("Level = SavedLevel;", load)
+        self.assertIn("Experience = SavedXP;", load)
+        self.assertIn("MaxHealth += LevelHealth;", load)
+        self.assertIn("SpellPowerMultiplier = 1.f", load)
+        self.assertNotIn("AwardExperience(", load)
+        begin = self.hero_cpp.split("void AMoonfallHeroPawn::BeginPlay()", 1)[1].split(
+            "void AMoonfallHeroPawn::Tick(", 1)[0]
+        self.assertLess(begin.index("LoadProgressionProfile();"),
+                        begin.index("LoadEquipmentProfile();"))
+        self.assertLess(begin.index("LoadEquipmentProfile();"),
+                        begin.index("LoadExplorationProfile();"))
+        award = self.hero_cpp.split("void AMoonfallHeroPawn::AwardExperience(", 1)[1].split(
+            "int32 AMoonfallHeroPawn::RollEquipmentCode(", 1)[0]
+        self.assertIn("SaveProgressionProfile();", award)
+        self.assertLess(award.index("if (Level >= 100) Experience = 0;"),
+                        award.index("SaveProgressionProfile();"))
+        save = self.hero_cpp.split("void AMoonfallHeroPawn::SaveProgressionProfile()", 1)[1].split(
+            "void AMoonfallHeroPawn::LoadExplorationProfile()", 1)[0]
+        self.assertIn('TEXT("Moonfall.Progression.V1")', save)
+        self.assertIn('GConfig->Flush(false, GGameUserSettingsIni)', save)
+
 if __name__ == "__main__":
     unittest.main()
