@@ -14,7 +14,9 @@ class GroundLootCollectionSafety(unittest.TestCase):
             "HeroPosition.ContainsNaN()",
             "LootPosition.ContainsNaN()",
             "FMath::Abs(LootPosition.Z - HeroPosition.Z) > 150.f",
-            "FVector::DistSquared2D(HeroPosition, LootPosition) > FMath::Square(250.f)",
+            "const float DistanceSq = FVector::DistSquared2D(HeroPosition, LootPosition);",
+            "!FMath::IsFinite(DistanceSq)",
+            "DistanceSq > FMath::Square(250.f)",
             "LineTraceSingleByChannel",
             "ECC_Visibility",
             "SightParams.AddIgnoredActor(Hero)",
@@ -22,6 +24,10 @@ class GroundLootCollectionSafety(unittest.TestCase):
         ):
             with self.subTest(required=required):
                 self.assertIn(required, method)
+        self.assertIn('#include "CollisionQueryParams.h"', source)
+        self.assertIn('#include "Engine/World.h"', source)
+        self.assertLess(method.index("!FMath::IsFinite(DistanceSq)"),
+                        method.index("LineTraceSingleByChannel"))
         self.assertLess(method.index("LineTraceSingleByChannel"),
                         method.index("Hero->CollectGroundEquipmentCode(ItemCode)"))
         self.assertLess(method.index("Hero->CollectGroundEquipmentCode(ItemCode)"),
