@@ -7,6 +7,8 @@
 #include "Engine/StaticMesh.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Kismet/GameplayStatics.h"
+#include "CollisionQueryParams.h"
+#include "Engine/World.h"
 
 AMoonfallGroundLoot::AMoonfallGroundLoot()
 {
@@ -74,9 +76,13 @@ bool AMoonfallGroundLoot::TryCollect()
  // candidate search. Blueprint or future callers must not collect distant loot.
  const FVector HeroPosition = Hero->GetActorLocation();
  const FVector LootPosition = GetActorLocation();
- if (HeroPosition.ContainsNaN() || LootPosition.ContainsNaN() ||
+ // Extreme finite positions can still overflow the squared-distance result.
+ // Never allow a nonfinite distance to bypass the pickup boundary.
+ if (HeroPosition.ContainsNaN() || LootPosition.ContainsNaN()) return false;
+ const float DistanceSq = FVector::DistSquared2D(HeroPosition, LootPosition);
+ if (!FMath::IsFinite(DistanceSq) ||
      FMath::Abs(LootPosition.Z - HeroPosition.Z) > 150.f ||
-     FVector::DistSquared2D(HeroPosition, LootPosition) > FMath::Square(250.f))
+     DistanceSq > FMath::Square(250.f))
   return false;
  FCollisionQueryParams SightParams(SCENE_QUERY_STAT(MoonfallGroundLootCollectSight), false);
  SightParams.AddIgnoredActor(Hero);
