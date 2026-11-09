@@ -2992,7 +2992,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         for field in ("HazardPlates", "HazardTriggerA", "HazardTriggerB", "HazardTriggerC",
                       "HazardDamage", "HazardCooldownSeconds"):
             self.assertIn(field, layout_h)
-        self.assertIn("const int32 Chambers[] = {3, 7, 11};", layout_cpp)
+        self.assertIn("BuildHazardChambers(HazardChambers);", layout_cpp)
         self.assertIn("HazardPlates->ClearInstances();", layout_cpp)
         self.assertIn("HazardPlates->AddInstance(", layout_cpp)
         self.assertIn("HazardPlates->SetCollisionEnabled(ECollisionEnabled::NoCollision)", layout_cpp)
@@ -3012,6 +3012,25 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(hazard.index("NextHazardDamageAt = Now"), hazard.index("Hero->ApplyMoonfallDamage("))
         self.assertNotIn("SpawnActor", hazard)
         self.assertNotIn("OpenLevel", hazard)
+
+    def test_dungeon_randomizer_is_seeded_reproducible_and_keeps_exit_open(self):
+        layout_h = (ROOT / "MoonfallDungeonLayout.h").read_text(encoding="utf-8")
+        layout_cpp = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
+        self.assertIn("int32 LayoutSeed = 0;", layout_h)
+        self.assertIn("bool bRandomizeChambers = true;", layout_h)
+        self.assertIn("GetEffectiveLayoutSeed() const;", layout_h)
+        self.assertIn("GetRandomizedHazardChamber(int32 HazardIndex) const;", layout_h)
+        self.assertIn("FRandomStream Stream(GetEffectiveLayoutSeed());", layout_cpp)
+        self.assertIn("Stream.RandRange(Index, 11)", layout_cpp)
+        self.assertIn("Candidates[Index] = Index + 1;", layout_cpp)
+        self.assertIn("Swap(Candidates[Index], Candidates[Choice]);", layout_cpp)
+        self.assertIn("if (!bRandomizeChambers)", layout_cpp)
+        self.assertIn("BuildHazardChambers(HazardChambers);", layout_cpp)
+        self.assertIn("Triggers[Index]->SetRelativeLocation(", layout_cpp)
+        self.assertIn("LayoutRandom.FRandRange(-55.f, 55.f)", layout_cpp)
+        self.assertIn("for (int32 Chamber = 1; Chamber < ChamberCount; ++Chamber)", layout_cpp)
+        self.assertIn("FinalChamberTrigger->SetRelativeLocation(", layout_cpp)
+        self.assertNotIn("OpenLevel(", layout_cpp)
 
 if __name__ == "__main__":
     unittest.main()
