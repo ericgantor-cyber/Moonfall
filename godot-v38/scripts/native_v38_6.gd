@@ -24,6 +24,13 @@ func _create_gear_drop(at:Vector3,kind:String,variant:String,zone:int,existing:D
  elif roll<clampf(0.48+float(zone)*0.020,0.48,0.70):tier=1
  var original_tier:int=LOOT_RARITIES.find(str(item.get("rarity","Common")))
  tier=maxi(tier,maxi(0,original_tier))
+ # Shared, checkpoint-persisted pity prevents long dry streaks in ordinary
+ # world loot. Special and guaranteed drops never consume the pity counter.
+ # Rare or better resets it; 30 misses guarantees Rare, 80 guarantees Epic.
+ var pity:int=clampi(int(gear_state.get("loot_pity",0)),0,80)
+ if pity>=80:tier=maxi(tier,3)
+ elif pity>=30:tier=maxi(tier,2)
+ gear_state["loot_pity"]=0 if tier>=2 else mini(80,pity+1)
  item["rarity"]=LOOT_RARITIES[tier]
  # Bounded level-scaled progression, avoiding infinite power inflation.
  item["power"]=clampi(int(item.get("power",0))+mini(hero_level/4,20)+tier*2,1,180)
