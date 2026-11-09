@@ -1,5 +1,6 @@
 #include "MoonfallDungeonLayout.h"
 #include "MoonfallHeroPawn.h"
+#include "MoonfallGroundLoot.h"
 #include "Components/SceneComponent.h"
 #include "Components/BoxComponent.h"
 #include "Components/InstancedStaticMeshComponent.h"
@@ -256,7 +257,44 @@ void AMoonfallDungeonLayout::HandleChamberOverlap(
   const uint16 Bit = static_cast<uint16>(1u << ChamberIndex);
   if ((EnteredChambersMask & Bit) != 0u) return;
   EnteredChambersMask |= Bit;
-  OnChamberEntered(Hero, ChamberIndex, GetChamberType(ChamberIndex));
+  const int32 ChamberType = GetChamberType(ChamberIndex);
+  ResolveChamberReward(Hero, ChamberIndex, ChamberType);
+  OnChamberEntered(Hero, ChamberIndex, ChamberType);
   return;
  }
+}
+
+void AMoonfallDungeonLayout::ResolveChamberReward(
+ AMoonfallHeroPawn* Hero, int32 ChamberIndex, int32 ChamberType)
+{
+ if (!IsValid(Hero) || Hero->Health <= 0.f || !Hero->IsPlayerControlled()
+     || ChamberIndex <= 0 || ChamberIndex >= ChamberCount - 1) return;
+ if (ChamberType == 3) {
+  // Shrine: restore mana only. Do not reintroduce kill-healing mechanics.
+  if (!FMath::IsFinite(ShrineManaRestore) || ShrineManaRestore <= 0.f
+      || !FMath::IsFinite(Hero->Mana) || !FMath::IsFinite(Hero->MaxMana)
+      || Hero->MaxMana <= 0.f) return;
+  Hero->Mana = FMath::Clamp(Hero->Mana + FMath::Clamp(ShrineManaRestore, 0.f, 100.f),
+                            0.f, Hero->MaxMana);
+  OnShrineActivated(Hero, ChamberIndex);
+  return;
+ }
+ if (ChamberType != 2 || !GetWorld()) return;
+ // Deterministic loot quality, affix and slot. No global RNG dependency.
+ FRandomStream Stream(GetEffectiveLayoutSeed() ^ (ChamberIndex * 11003 + 0x2F17));
+ const int32 Slot = Stream.RandRange(0, 8);
+ const int32 Rarity = Stream.RandRange(2, 4);
+ const int32 Trait = Stream.RandRange(1, 3);
+ const int32 Tier = FMath::Clamp(Hero->Level / 5 + 1, 1, 25);
+ const int32 ItemCode = Trait * 100000 + Slot * 10000 + Rarity * 1000 + Tier;
+ // Drop at a side alcove, not in the central travel path. Pickup stays manual.
+ const FVector DropLocation = GetActorTransform().TransformPosition(
+     FVector(ChamberIndex * ChamberLength, 255.f, 80.f));
+ FActorSpawnParameters Params;
+ Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+ AMoonfallGroundLoot* Loot = GetWorld()->SpawnActor<AMoonfallGroundLoot>(
+     AMoonfallGroundLoot::StaticClass(), DropLocation, GetActorRotation(), Params);
+ if (!IsValid(Loot)) return;
+ Loot->InitializeLoot(ItemCode);
+ OnTreasureDropped(Hero, ChamberIndex);
 }
