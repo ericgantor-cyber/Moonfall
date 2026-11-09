@@ -1700,6 +1700,27 @@ void AMoonfallHeroPawn::LoadEquipmentProfile()
    return;
  }
  // Fully validate first, so an incomplete profile cannot partially replace gear.
+ // Equipping is not permitted after death; leave live state untouched.
+ if (Health <= 0.f || !FMath::IsFinite(Health) || !FMath::IsFinite(MaxHealth)
+     || MaxHealth <= 0.f) return;
+ // Keep a complete in-memory rollback snapshot in case a gameplay hook or
+ // future equipment rule rejects one of the nine items during reconstruction.
+ const TArray<int32> PreviousBag = InventoryItemCodes;
+ const TArray<int32> PreviousExtras = ExtraEquippedCodes;
+ const int32 PreviousSelection = InventorySelection;
+ const int32 PreviousSalvage = Salvage;
+ const int32 PreviousWeaponCode = EquippedWeaponCode;
+ const int32 PreviousArmorCode = EquippedArmorCode;
+ const int32 PreviousAccessoryCode = EquippedAccessoryCode;
+ const int32 PreviousWeaponTier = WeaponTier;
+ const int32 PreviousArmorTierValue = ArmorTier;
+ const int32 PreviousAccessoryTier = AccessoryTier;
+ const int32 PreviousWeaponAffix = WeaponAffix;
+ const int32 PreviousArmorAffix = ArmorAffix;
+ const int32 PreviousAccessoryAffix = AccessoryAffix;
+ const int32 PreviousEquipmentTier = EquipmentTier;
+ const float PreviousHealth = Health;
+ const float PreviousMaxHealth = MaxHealth;
  bRestoringEquipmentProfile = true;
  const int32 PreviousArmorTier = FMath::Clamp(ArmorTier, 0, 25);
  MaxHealth = FMath::Max(1.f, MaxHealth - PreviousArmorTier * 2.f);
@@ -1712,10 +1733,32 @@ void AMoonfallHeroPawn::LoadEquipmentProfile()
  ExtraEquippedCodes.Init(0, 6);
  EquipmentTier = 0;
  Salvage = SavedSalvage;
+ bool bLoadSucceeded = true;
  for (int32 Slot = 0; Slot < 9; ++Slot) {
   if (Worn[Slot] <= 0) continue;
   const int32 Index = InventoryItemCodes.Find(Worn[Slot]);
-  if (Index != INDEX_NONE) EquipInventoryItem(Index);
+  if (Index == INDEX_NONE || !EquipInventoryItem(Index)) {
+   bLoadSucceeded = false;
+   break;
+  }
+ }
+ if (!bLoadSucceeded) {
+  InventoryItemCodes = PreviousBag;
+  ExtraEquippedCodes = PreviousExtras;
+  InventorySelection = PreviousSelection;
+  Salvage = PreviousSalvage;
+  EquippedWeaponCode = PreviousWeaponCode;
+  EquippedArmorCode = PreviousArmorCode;
+  EquippedAccessoryCode = PreviousAccessoryCode;
+  WeaponTier = PreviousWeaponTier;
+  ArmorTier = PreviousArmorTierValue;
+  AccessoryTier = PreviousAccessoryTier;
+  WeaponAffix = PreviousWeaponAffix;
+  ArmorAffix = PreviousArmorAffix;
+  AccessoryAffix = PreviousAccessoryAffix;
+  EquipmentTier = PreviousEquipmentTier;
+  Health = PreviousHealth;
+  MaxHealth = PreviousMaxHealth;
  }
  bRestoringEquipmentProfile = false;
  OnHealthChanged(Health, MaxHealth);
