@@ -87,6 +87,15 @@ void AMoonfallCombatHUD::DrawHUD()
   const int32 Selected = FMath::Clamp(Hero->InventorySelection, 0, FMath::Max(0, Count - 1));
   const int32 PageStart = Selected / PerPage * PerPage;
   const int32 PageEnd = FMath::Min(Count, PageStart + PerPage);
+  // Local advisor reads inventory and current set bonuses, never mutates gear.
+  // Show the inventory index even when its recommendation is on another page.
+  const int32 AdvisedIndex = Hero->GetRecommendedEquipmentIndex();
+  const int32 SelectedImprovement = Hero->GetEquipmentUpgradeScore(Selected);
+  DrawText(AdvisedIndex >= 0
+    ? FString::Printf(TEXT("GEAR ADVISOR: try item %d  |  manual equip only"), AdvisedIndex + 1)
+    : TEXT("GEAR ADVISOR: current loadout recommended"),
+    FLinearColor(0.54f,0.94f,0.76f), Left + 18.f, Top + 128.f,
+    nullptr, Canvas->SizeX < 900.f ? 0.64f : 0.75f);
   DrawText(FString::Printf(TEXT("%d items  |  %d salvage  |  page %d / %d"),
     Count, Hero->Salvage, PageStart / PerPage + 1,
     FMath::Max(1, (Count + PerPage - 1) / PerPage)), FLinearColor(0.75f,0.72f,0.91f),
@@ -107,11 +116,14 @@ void AMoonfallCombatHUD::DrawHUD()
    const bool bValid = Code > 0 && Slot <= 2 && Affix <= 3 && Rarity <= 5 && Tier >= 1 && Tier <= 25;
    const bool bEquipped = Code == (Slot == 0 ? Hero->EquippedWeaponCode
      : Slot == 1 ? Hero->EquippedArmorCode : Hero->EquippedAccessoryCode);
+   const bool bAdvised = Index == AdvisedIndex;
    const float Y = Top + 145.f + (Index - PageStart) * RowSpacing;
    if (Index == Selected) DrawRect(FLinearColor(0.25f,0.18f,0.43f,0.90f),
      Left + 12.f, Y - 3.f, PanelWidth - 24.f, RowSpacing - 3.f);
-   const FString Row = bValid ? FString::Printf(TEXT("%02d  %s  T%d  %s  %s%s"),
-      Index + 1, Slots[Slot], Tier, Rarities[Rarity], Traits[Affix], bEquipped ? TEXT("  [EQUIPPED]") : TEXT(""))
+   const FString Row = bValid ? FString::Printf(TEXT("%02d  %s  T%d  %s  %s%s%s"),
+      Index + 1, Slots[Slot], Tier, Rarities[Rarity], Traits[Affix],
+      bEquipped ? TEXT(" [EQUIPPED]") : TEXT(""),
+      bAdvised ? TEXT(" [ADVISOR]") : TEXT(""))
     : FString::Printf(TEXT("%02d  Invalid item"), Index + 1);
    // Item names retain a clear text label plus a distinct quality color.
    const FLinearColor RarityColors[] = {FLinearColor(0.90f,0.90f,0.90f),
@@ -122,6 +134,15 @@ void AMoonfallCombatHUD::DrawHUD()
      : (bValid ? RarityColors[Rarity] : FLinearColor::White),
      Left + 20.f, Y, nullptr, Canvas->SizeX < 900.f ? 0.75f : 0.9f);
   }
+  // The selected item's score is advisory only; it never calls EquipInventoryItem.
+  if (Count > 0)
+   DrawText(SelectedImprovement > 0
+     ? FString::Printf(TEXT("Selected: +%d advisor points vs worn slot"), SelectedImprovement)
+     : TEXT("Selected: no advised improvement vs worn slot"),
+     SelectedImprovement > 0 ? FLinearColor(0.56f,0.94f,0.75f)
+       : FLinearColor(0.77f,0.77f,0.85f),
+     Left + 18.f, Top + PanelHeight - 178.f, nullptr,
+     Canvas->SizeX < 900.f ? 0.65f : 0.75f);
   // Live stat summary mirrors the modifiers applied in combat and recovery.
   const int32 WeaponRarity = FMath::Clamp((Hero->EquippedWeaponCode / 1000) % 10, 0, 5);
   const int32 ArmorRarity = FMath::Clamp((Hero->EquippedArmorCode / 1000) % 10, 0, 5);
