@@ -42,7 +42,7 @@ void AMoonfallCombatHUD::DrawHUD()
   DrawText(TEXT("MOONFALL  |  INVENTORY"), FLinearColor::White, Left + 18.f, Top + 16.f, nullptr, 1.3f);
   const int32 Count = Hero->InventoryItemCodes.Num();
   // Reserve height for a real equipment-stat line and three controls rows.
-  const int32 PerPage = FMath::Clamp(FMath::FloorToInt((PanelHeight - 230.f) / 25.f), 2, 8);
+  const int32 PerPage = FMath::Clamp(FMath::FloorToInt((PanelHeight - 245.f) / 25.f), 2, 8);
   const int32 Selected = FMath::Clamp(Hero->InventorySelection, 0, FMath::Max(0, Count - 1));
   const int32 PageStart = Selected / PerPage * PerPage;
   const int32 PageEnd = FMath::Min(Count, PageStart + PerPage);
@@ -53,7 +53,7 @@ void AMoonfallCombatHUD::DrawHUD()
   if (Count == 0)
    DrawText(TEXT("No equipment yet. Defeat enemies to find gear."), FLinearColor::White,
      Left + 18.f, Top + 100.f, nullptr, 0.92f);
-  const float RowSpacing = FMath::Max(21.f, (PanelHeight - 230.f) / PerPage);
+  const float RowSpacing = FMath::Max(21.f, (PanelHeight - 245.f) / PerPage);
   for (int32 Index = PageStart; Index < PageEnd; ++Index) {
    const int32 Code = Hero->InventoryItemCodes[Index];
    const int32 Affix = Code / 100000;
@@ -106,6 +106,20 @@ void AMoonfallCombatHUD::DrawHUD()
      && (SelectedRarity != 0 || SelectedAffix == 0)
      && SelectedCode == SelectedAffix * 100000 + SelectedSlot * 10000
        + SelectedRarity * 1000 + SelectedTier;
+   const bool bAscendable = SelectedCode > 0 && SelectedTier >= 1 && SelectedTier <= 25
+     && SelectedSlot >= 0 && SelectedSlot <= 2 && SelectedRarity >= 0 && SelectedRarity < 3
+     && SelectedAffix >= 0 && SelectedAffix <= 3
+     && (SelectedRarity != 0 || SelectedAffix == 0)
+     && SelectedCode == SelectedAffix * 100000 + SelectedSlot * 10000
+       + SelectedRarity * 1000 + SelectedTier;
+   const int32 AscendCost = 20 + SelectedTier * 3 + SelectedRarity * 15;
+   DrawText(bAscendable
+     ? FString::Printf(TEXT("Ascend rarity: %d salvage  [%s]"),
+         AscendCost, Hero->Salvage >= AscendCost ? TEXT("READY") : TEXT("NEED MORE"))
+     : TEXT("Ascend rarity: MAX / invalid"),
+     bAscendable && Hero->Salvage >= AscendCost
+       ? FLinearColor(0.55f,0.92f,0.75f) : FLinearColor(0.96f,0.66f,0.46f),
+     Left + 18.f, Top + PanelHeight - 135.f, nullptr, 0.74f);
    const int32 NextCost = 4 + SelectedTier * 2 + SelectedRarity * 3;
    const FString ForgeStatus = !bForgeable ? TEXT("Crafting: MAX TIER or invalid")
      : FString::Printf(TEXT("Next tier: %d salvage  [%s]"),
@@ -114,7 +128,7 @@ void AMoonfallCombatHUD::DrawHUD()
      ? FLinearColor(0.50f,0.95f,0.62f) : FLinearColor(0.98f,0.67f,0.45f),
      Left + 18.f, Top + PanelHeight - 89.f, nullptr, 0.82f);
   }
-  DrawText(TEXT("B / LT: equip best   U / RT: +1 tier   H / RB: forge up to 5 tiers"),
+  DrawText(TEXT("B / LT: equip best   U / RT: +1 tier   H / RB: forge 5   R / B: ascend"),
      FLinearColor(0.78f,0.90f,0.95f), Left + 18.f, Top + PanelHeight - 70.f, nullptr, 0.74f);
   DrawText(TEXT("I / Select / Esc: close"), FLinearColor::White,
      Left + 18.f, Top + PanelHeight - 28.f, nullptr, 0.8f);
