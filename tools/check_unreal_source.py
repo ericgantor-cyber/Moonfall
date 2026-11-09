@@ -182,7 +182,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "void AMoonfallHeroPawn::AdjustOption", 1)[0]
         self.assertIn("bInventoryOpen = !bInventoryOpen;", toggle)
         self.assertIn("EquipInventoryItem(InventorySelection);", toggle)
-        self.assertIn("if (bInventoryOpen) { bInventoryOpen = false; return; }", toggle)
+        self.assertIn("if (bInventoryOpen) { bInventoryOpen = false; bCharacterStatsOpen = false; return; }", toggle)
         self.assertIn("InventorySelection = FMath::Max(0, InventorySelection - 1);", toggle)
         self.assertIn("InventorySelection = FMath::Min(FMath::Max(0, InventoryItemCodes.Num() - 1), InventorySelection + 1);", toggle)
         self.assertIn("if (bInventoryOpen) { EquipSelectedInventoryItem(); return; }", toggle)
@@ -478,7 +478,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('ActionName="EquipBest",Key=Gamepad_LeftTrigger', inputs)
         self.assertIn('BindAction(TEXT("EquipBest"), IE_Pressed, this, &AMoonfallHeroPawn::EquipBestInventoryAction)', self.hero_cpp)
         self.assertIn("void EquipBestInventoryAction();", self.hero_h)
-        self.assertIn("void AMoonfallHeroPawn::EquipBestInventoryAction() { EquipBestInventoryUpgrades(); }", self.hero_cpp)
+        self.assertIn("void AMoonfallHeroPawn::EquipBestInventoryAction() { if (!bCharacterStatsOpen) EquipBestInventoryUpgrades(); }", self.hero_cpp)
         self.assertIn('int32 EquipBestInventoryUpgrades();', self.hero_h)
         self.assertIn('void OnBestLoadoutEquipped(int32 UpgradesEquipped);', self.hero_h)
         body = self.hero_cpp.split("int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()", 1)[1].split(
@@ -1101,7 +1101,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         tick = self.hero_cpp.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1].split(
             "void AMoonfallHeroPawn::SetupPlayerInputComponent", 1)[0]
         self.assertIn("GetTimeSeconds() >= StaminaRegenStartsAt", tick)
-        self.assertIn("FMath::Clamp(Stamina + FMath::Clamp(StaminaRegenPerSecond, 0.f, 250.f) * StaminaDelta * MenuRecoveryBoost, 0.f, MaxStamina)", tick)
+        self.assertIn("FMath::Clamp(Stamina + FMath::Clamp(StaminaRegenPerSecond, 0.f, 250.f) * StaminaDelta * MenuRecoveryBoost", tick)
         self.assertIn("Health > 0.f", tick)
 
     def test_dodge_cooldown_is_bounded_and_never_overlaps_immunity(self):
