@@ -168,7 +168,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
 
     def test_keyboard_controller_inventory_overlay_navigation_and_equip(self):
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
-        for binding in ('ActionName="Inventory",Key=I', 'ActionName="Inventory",Key=Gamepad_Special_Left',
+        for binding in ('ActionName="Inventory",Key=B', 'ActionName="Inventory",Key=Gamepad_Special_Left',
                         'ActionName="InventoryConfirm",Key=Enter',
                         'ActionName="InventoryConfirm",Key=Gamepad_FaceButton_Top'):
             self.assertIn(binding, inputs)
@@ -342,6 +342,17 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(craft.index("EquipInventoryItem(InventoryIndex)"),
                         craft.index("LastLootUpgrade = (Tier + 1) - PreviousEquippedTier;"))
         self.assertIn("InventoryItemCodes[InventoryIndex] = Code;\n  return false;", craft)
+
+    def test_b_is_exclusive_keyboard_inventory_toggle(self):
+        inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
+        self.assertIn('ActionName="Inventory",Key=B', inputs)
+        self.assertNotIn('ActionName="Inventory",Key=I', inputs)
+        self.assertNotIn('ActionName="EquipBest",Key=B', inputs)
+        self.assertIn('ActionName="EquipBest",Key=Gamepad_LeftTrigger', inputs)
+        self.assertIn('ActionName="Atlas",Key=J', inputs)
+        self.assertIn('BindAction(TEXT("Inventory"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleInventory)', self.hero_cpp)
+        self.assertIn("LT: equip best", self.hud)
+        self.assertNotIn("B / LT: equip best", self.hud)
 
     def test_j_toggles_atlas_not_gear_selection(self):
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
@@ -914,7 +925,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
 
     def test_explicit_equip_best_loadout_is_validated_and_never_auto_equips_loot(self):
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
-        self.assertIn('ActionName="EquipBest",Key=B', inputs)
+        self.assertNotIn('ActionName="EquipBest",Key=B', inputs)
+        self.assertIn('ActionName="Inventory",Key=B', inputs)
         self.assertIn('ActionName="EquipBest",Key=Gamepad_LeftTrigger', inputs)
         self.assertIn('BindAction(TEXT("EquipBest"), IE_Pressed, this, &AMoonfallHeroPawn::EquipBestInventoryAction)', self.hero_cpp)
         self.assertIn("void EquipBestInventoryAction();", self.hero_h)
