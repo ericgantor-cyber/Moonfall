@@ -17,6 +17,14 @@ public:
  virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
  virtual void BeginPlay() override;
  virtual void Tick(float DeltaSeconds) override;
+ // Persistent exploration: each traversed world region grants XP only once.
+ static constexpr int32 MaxExplorationRegions = 80;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Exploration") int32 DiscoveredRegionCount = 0;
+ void LoadExplorationProfile();
+ void SaveExplorationProfile() const;
+ void UpdateExplorationDiscovery(float DeltaSeconds);
+ TArray<FIntPoint> DiscoveredRegions;
+ float ExplorationScanTimer = 0.f;
  // Original Moonfall set themes use existing Force/Ward/Focus traits
  // on three equipped slots. No changes to encoded item IDs or saved gear.
  // 0 Weapon, 1 Armor, 2 Accessory retain their original storage.

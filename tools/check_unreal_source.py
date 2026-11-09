@@ -2775,5 +2775,29 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('TEXT("Best: +%d  Protected %d  Safe +%d")', self.hud)
         self.assertIn("PanelWidth < 460.f", self.hud)
 
+    def test_exploration_regions_award_once_and_persist(self):
+        header = self.hero_h
+        self.assertIn("MaxExplorationRegions = 80", header)
+        self.assertIn("DiscoveredRegionCount = 0", header)
+        self.assertIn("TArray<FIntPoint> DiscoveredRegions;", header)
+        self.assertIn("UpdateExplorationDiscovery(float DeltaSeconds);", header)
+        self.assertIn("LoadExplorationProfile();", self.hero_cpp)
+        self.assertIn("UpdateExplorationDiscovery(DeltaSeconds);", self.hero_cpp)
+        update = self.hero_cpp.split("void AMoonfallHeroPawn::UpdateExplorationDiscovery(", 1)[1].split(
+            "void AMoonfallHeroPawn::BeginPlay()", 1)[0]
+        self.assertIn("DiscoveredRegions.Contains(Cell)", update)
+        self.assertIn("DiscoveredRegions.Add(Cell);", update)
+        self.assertIn("SaveExplorationProfile();", update)
+        self.assertIn("AwardExperience(30);", update)
+        self.assertLess(update.index("DiscoveredRegions.Add(Cell);"), update.index("AwardExperience(30);"))
+        self.assertIn("DiscoveredRegionCount >= MaxExplorationRegions", update)
+        self.assertIn("FMath::FloorToInt(Position.X / 4000.f)", update)
+        load = self.hero_cpp.split("void AMoonfallHeroPawn::LoadExplorationProfile(", 1)[1].split(
+            "void AMoonfallHeroPawn::SaveExplorationProfile(", 1)[0]
+        self.assertIn("SavedCount != SavedCells.Num()", load)
+        self.assertIn("Restored.Contains(FIntPoint(X, Y))", load)
+        self.assertIn("DiscoveredRegionCount = DiscoveredRegions.Num()", load)
+        self.assertIn("DiscoveredRegionCount, AMoonfallHeroPawn::MaxExplorationRegions", self.hud)
+
 if __name__ == "__main__":
     unittest.main()
