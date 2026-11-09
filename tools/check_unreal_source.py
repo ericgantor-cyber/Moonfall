@@ -238,7 +238,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("SetTextRenderColor(QualityColor);", ground_cpp)
         self.assertIn("if (bCollected || ItemCode <= 0) return false;", ground_cpp)
         self.assertIn("Hero->CollectGroundEquipmentCode(ItemCode)", ground_cpp)
-        self.assertLess(ground_cpp.index("Hero->CollectGroundEquipmentCode(ItemCode)"), ground_cpp.index("Destroy();"))
+        collect = ground_cpp.split("bool AMoonfallGroundLoot::TryCollect()", 1)[1]
+        self.assertLess(collect.index("Hero->CollectGroundEquipmentCode(ItemCode)"), collect.index("Destroy();"))
         self.assertIn("ItemCode = 0;", ground_h)
         self.assertNotIn("SetLifeSpan(", ground_cpp)
         self.assertNotIn("FinisherShockwave", self.hero_cpp)
