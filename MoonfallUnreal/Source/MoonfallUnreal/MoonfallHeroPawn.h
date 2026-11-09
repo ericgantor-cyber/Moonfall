@@ -144,6 +144,8 @@ public:
  UFUNCTION(BlueprintPure, Category="Moonfall|Equipment|Advisor") int32 GetEquipmentUpgradeScore(int32 InventoryIndex) const;
  UFUNCTION(BlueprintCallable, Category="Moonfall|Equipment") int32 EquipBestInventoryUpgrades();
  void EquipBestInventoryAction();
+ // J selects the recommended inventory row without equipping it.
+ void SelectRecommendedEquipment();
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Equipment") void OnBestLoadoutEquipped(int32 UpgradesEquipped);
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Equipment") int32 EquippedWeaponCode = 0;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Equipment") int32 EquippedArmorCode = 0;
@@ -262,5 +264,5 @@ private:
  void CycleGraphicsQuality();
  void ToggleDisplayMode();
  int32 RollEquipmentCode(bool bEliteEnemy, bool bBossEnemy);
- bool TryCast(int32 School, int32 Hand, float Multiplier);
+ bool TryCast(int32 School, int32 Hand, float Multiplier, bool bOvercharged = false);
 };
