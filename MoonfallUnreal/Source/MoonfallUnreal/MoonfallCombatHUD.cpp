@@ -92,7 +92,7 @@ void AMoonfallCombatHUD::DrawHUD()
   const int32 AdvisedIndex = Hero->GetRecommendedEquipmentIndex();
   const int32 SelectedImprovement = Hero->GetEquipmentUpgradeScore(Selected);
   DrawText(AdvisedIndex >= 0
-    ? FString::Printf(TEXT("GEAR ADVISOR: item %d  |  J: jump (no auto-equip)"), AdvisedIndex + 1)
+    ? FString::Printf(TEXT("GEAR ADVISOR: item %d  |  manual equip only"), AdvisedIndex + 1)
     : TEXT("GEAR ADVISOR: current loadout recommended"),
     FLinearColor(0.54f,0.94f,0.76f), Left + 18.f, Top + 128.f,
     nullptr, Canvas->SizeX < 900.f ? 0.64f : 0.75f);
