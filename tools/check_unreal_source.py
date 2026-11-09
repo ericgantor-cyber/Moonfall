@@ -1597,11 +1597,11 @@ class MoonfallIntegrationChecks(unittest.TestCase):
 
     def test_spell_cast_cost_and_cooldown_contract(self):
         cast = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split("\n}", 1)[0]
-        self.assertIn("Mana < Costs[School] * Multiplier", cast)
+        self.assertIn("Mana < Costs[School] * ManaCostMultiplier", cast)
         self.assertIn("Time - LastCastTime[Hand] < Cooldowns[School]", cast)
         self.assertIn("Mana -= Costs[School] * ManaCostMultiplier", cast)
         self.assertIn("LastCastTime[Hand] = Time", cast)
-        self.assertLess(cast.index("Mana < Costs[School] * Multiplier"), cast.index("Mana -= Costs[School] * ManaCostMultiplier"))
+        self.assertLess(cast.index("Mana < Costs[School] * ManaCostMultiplier"), cast.index("Mana -= Costs[School] * ManaCostMultiplier"))
 
     def test_xp_and_loot_only_on_enemy_death(self):
         damage = self.enemy_cpp.split("void AMoonfallEnemy::TakeSpellDamage(float Amount) {", 1)[1].split("\n}", 1)[0]
@@ -2838,7 +2838,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(cast.index("!FMath::IsFinite(Enemy->Health)"),
                         cast.index("Enemy->TakeSpellDamage(SpellDamage);"))
         self.assertLess(cast.index("!FMath::IsFinite(Enemy->Health)"),
-                        cast.index("Mana -= Costs[School] * Multiplier;"))
+                        cast.index("Mana -= Costs[School] * ManaCostMultiplier;"))
         self.assertLess(cast.index("!FMath::IsFinite(Enemy->Health)"),
                         cast.index("HitComboStage = bComboAlive"))
 
