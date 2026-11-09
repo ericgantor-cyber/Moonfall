@@ -2710,5 +2710,22 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Hero->GetEquipmentPower()", hud)
         self.assertNotIn("Bag %d/30", hud)
 
+    def test_equip_best_batches_profile_writes(self):
+        self.assertIn("bool bBatchEquippingInventory = false;", self.hero_h)
+        save = self.hero_cpp.split("void AMoonfallHeroPawn::SaveEquipmentProfile()", 1)[1].split(
+            "void AMoonfallHeroPawn::LoadEquipmentProfile()", 1)[0]
+        self.assertIn("bBatchEquippingInventory || InventoryItemCodes.Num() > 512", save)
+        body = self.hero_cpp.split("int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()", 1)[1].split(
+            "bool AMoonfallHeroPawn::EquipInventoryItem(", 1)[0]
+        self.assertLess(body.index("bBatchEquippingInventory = true;"),
+                        body.index("EquipInventoryItem(BestIndices[Slot])"))
+        self.assertLess(body.index("EquipInventoryItem(BestIndices[Slot])"),
+                        body.index("bBatchEquippingInventory = false;"))
+        self.assertIn("if (UpgradesEquipped > 0) SaveEquipmentProfile();", body)
+        self.assertLess(body.index("bBatchEquippingInventory = false;"),
+                        body.index("if (UpgradesEquipped > 0) SaveEquipmentProfile();"))
+        self.assertLess(body.index("SaveEquipmentProfile();"),
+                        body.index("OnBestLoadoutEquipped(UpgradesEquipped);"))
+
 if __name__ == "__main__":
     unittest.main()

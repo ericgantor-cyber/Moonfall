@@ -1471,11 +1471,16 @@ int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()
    BestIndices[Slot] = Index;
   }
  }
+ // Suppress intermediate disk writes: a deliberate nine-slot batch must
+ // persist its final equipment set, not a sequence of partial loadouts.
  int32 UpgradesEquipped = 0;
+ bBatchEquippingInventory = true;
  for (int32 Slot = 0; Slot < 9; ++Slot) {
   if (BestIndices[Slot] >= 0 && EquipInventoryItem(BestIndices[Slot]))
    ++UpgradesEquipped;
  }
+ bBatchEquippingInventory = false;
+ if (UpgradesEquipped > 0) SaveEquipmentProfile();
  OnBestLoadoutEquipped(UpgradesEquipped);
  return UpgradesEquipped;
 }
@@ -1598,7 +1603,7 @@ static uint32 MoonfallEquipmentProfileChecksum(const TArray<int32>& Bag,
 
 void AMoonfallHeroPawn::SaveEquipmentProfile() const
 {
- if (!GConfig || bRestoringEquipmentProfile || bEquipmentCraftingInProgress || InventoryItemCodes.Num() > 512)
+ if (!GConfig || bRestoringEquipmentProfile || bEquipmentCraftingInProgress || bBatchEquippingInventory || InventoryItemCodes.Num() > 512)
   return;
  static const TCHAR* Section = TEXT("Moonfall.EquipmentProfile.V1");
  TArray<FString> StoredBag;
