@@ -48,7 +48,7 @@ void AMoonfallCombatHUD::DrawHUD()
    DrawText(FString::Printf(TEXT("Level %d  |  XP %d / %d  |  Salvage %d"),
       Hero->Level, Hero->Experience, Hero->ExperienceToNextLevel, Hero->Salvage),
       FLinearColor(0.78f,0.83f,1.f), Left + 18.f, Top + 57.f, nullptr, 0.95f);
-   const float RowHeight = FMath::Clamp((PanelHeight - 145.f) / 16.f, 12.f, 33.f);
+   const float RowHeight = FMath::Clamp((PanelHeight - 145.f) / 16.f, 8.f, 26.f);
    const float StartY = Top + 96.f;
    const FString CharacterLines[] = {
      FString::Printf(TEXT("Equipment power: %d  |  W %d / A %d / T %d"),
