@@ -86,7 +86,7 @@ void AMoonfallCombatHUD::DrawHUD()
   }
   const int32 Count = Hero->InventoryItemCodes.Num();
   // Reserve height for a real equipment-stat line and three controls rows.
-  const int32 PerPage = FMath::Clamp(FMath::FloorToInt((PanelHeight - 290.f) / 25.f), 2, 8);
+  const int32 PerPage = FMath::Clamp(FMath::FloorToInt((PanelHeight - 335.f) / 25.f), 2, 8);
   const int32 Selected = FMath::Clamp(Hero->InventorySelection, 0, FMath::Max(0, Count - 1));
   const int32 PageStart = Selected / PerPage * PerPage;
   const int32 PageEnd = FMath::Min(Count, PageStart + PerPage);
@@ -97,7 +97,7 @@ void AMoonfallCombatHUD::DrawHUD()
   if (Count == 0)
    DrawText(TEXT("No equipment yet. Defeat enemies to find gear."), FLinearColor::White,
      Left + 18.f, Top + 100.f, nullptr, 0.92f);
-  const float RowSpacing = FMath::Max(21.f, (PanelHeight - 290.f) / PerPage);
+  const float RowSpacing = FMath::Max(21.f, (PanelHeight - 335.f) / PerPage);
   for (int32 Index = PageStart; Index < PageEnd; ++Index) {
    const int32 Code = Hero->InventoryItemCodes[Index];
    const int32 Affix = Code / 100000;
@@ -182,6 +182,25 @@ void AMoonfallCombatHUD::DrawHUD()
      && SelectedAffix >= 0 && SelectedAffix <= 3
      && SelectedCode == SelectedAffix * 100000 + SelectedSlot * 10000
        + SelectedRarity * 1000 + SelectedTier;
+   // Explicit preview of the resulting gear score and set thresholds.
+   // Never equips an item or fires a crafting action.
+   const int32 CandidatePower = Hero->GetItemPower(SelectedCode);
+   if (CandidatePower > 0 && PanelHeight >= 450.f) {
+    const int32 PowerDelta = Hero->GetItemPowerDelta(SelectedCode);
+    const TCHAR* PowerLabel = PowerDelta > 0 ? TEXT("UPGRADE") :
+        (PowerDelta < 0 ? TEXT("DOWNGRADE") : TEXT("EQUAL"));
+    DrawText(FString::Printf(TEXT("Gear preview: %d power (%+d)  [%s]"),
+         CandidatePower, PowerDelta, PowerLabel),
+      PowerDelta > 0 ? FLinearColor(0.52f,0.96f,0.65f) :
+       (PowerDelta < 0 ? FLinearColor(1.f,0.64f,0.44f) : FLinearColor::White),
+      Left + 18.f, Top + PanelHeight - 197.f, nullptr, 0.76f);
+    DrawText(FString::Printf(TEXT("After equip: Force %d/3  Ward %d/3  Focus %d/3"),
+         Hero->GetProjectedSetPieceCount(1, SelectedCode),
+         Hero->GetProjectedSetPieceCount(2, SelectedCode),
+         Hero->GetProjectedSetPieceCount(3, SelectedCode)),
+      FLinearColor(0.67f,0.92f,0.84f),
+      Left + 18.f, Top + PanelHeight - 177.f, nullptr, 0.73f);
+   }
    const int32 ReforgeCost = 12 + SelectedTier * 2 + SelectedRarity * 8;
    DrawText(bReforgeable
      ? FString::Printf(TEXT("Reforge trait: %d salvage  [%s]"),

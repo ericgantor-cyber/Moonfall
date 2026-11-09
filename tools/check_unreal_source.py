@@ -1985,7 +1985,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
 
     def test_divine_callbacks_observe_cleared_active_state(self):
         cpp = self.enemy_cpp
-        helper = cpp.split("void AMoonfallEnemy::CancelDivineSignature() {", 1)[1].split("\\n}", 1)[0]
+        helper = cpp.split("void AMoonfallEnemy::CancelDivineSignature() {", 1)[1].split("\n}", 1)[0]
         self.assertIn("if (!bDivineSignatureActive) return;", helper)
         self.assertIn("const FName InterruptedMove = ActiveDivineMoveId;", helper)
         self.assertLess(helper.index("bDivineSignatureActive = false;"),
@@ -2486,13 +2486,27 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         for declaration in ("GetEquipmentPower() const", "GetItemPower(int32 ItemCode) const"):
             self.assertIn(declaration, self.hero_h)
             self.assertIn(declaration, self.hero_cpp)
-        score = self.hero_cpp.split("int32 AMoonfallHeroPawn::GetItemPower(", 1)[1].split("\\n}", 1)[0]
+        score = self.hero_cpp.split("int32 AMoonfallHeroPawn::GetItemPower(", 1)[1].split("\n}", 1)[0]
         for guard in ("Rarity > 5", "Tier > 25", "Slot > 2", "Affix > 3",
                       "ItemCode != Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier"):
             self.assertIn(guard, score)
         self.assertIn("Tier * 100 + Rarity * 10 + (Affix > 0 ? 1 : 0)", score)
         self.assertIn("Hero->GetEquipmentPower()", self.hud)
         self.assertIn("Hero->GetItemPower(Hero->EquippedWeaponCode)", self.hud)
+
+    def test_inventory_upgrade_preview_never_mutates_equipment(self):
+        for symbol in ("GetItemPowerDelta(int32 ItemCode) const",
+                       "GetProjectedSetPieceCount(int32 Affix, int32 CandidateCode) const"):
+            self.assertIn(symbol, self.hero_h)
+        delta = self.hero_cpp.split("int32 AMoonfallHeroPawn::GetItemPowerDelta(", 1)[1].split("\n}", 1)[0]
+        projected = self.hero_cpp.split("int32 AMoonfallHeroPawn::GetProjectedSetPieceCount(", 1)[1].split("\n}", 1)[0]
+        for body in (delta, projected):
+            self.assertIn("GetItemPower(", body)
+            self.assertNotIn("EquipInventoryItem(", body)
+            self.assertNotIn("InventoryItemCodes.Add(", body)
+        self.assertIn("Gear preview:", self.hud)
+        self.assertIn("After equip: Force", self.hud)
+        self.assertIn("PanelHeight >= 450.f", self.hud)
 
 if __name__ == "__main__":
     unittest.main()
