@@ -2521,5 +2521,20 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             self.assertIn(f"Hero->HasLegendaryPerk({slot})", self.hud)
         self.assertIn("LEGENDARY EQUIPMENT PERKS", self.hud)
 
+    def test_character_screen_equipment_dashboard_and_compact_fallback(self):
+        hud = self.hud
+        self.assertIn("if (PanelWidth >= 560.f && PanelHeight >= 550.f)", hud)
+        self.assertIn("const int32 EquippedCodes[3]", hud)
+        self.assertIn("TEXT(\"WEAPON\"), TEXT(\"ARMOR\"), TEXT(\"ACCESSORY\")", hud)
+        self.assertIn("const TCHAR* Qualities[]", hud)
+        self.assertIn("Hero->GetItemPower(Code) > 0", hud)
+        self.assertIn("Hero->GetItemPowerDelta(Code)", hud)
+        self.assertIn("Hero->GetEquipmentPower()", hud)
+        self.assertIn("LEGENDARY EQUIPMENT PERKS", hud)
+        self.assertIn("EQUIPMENT SET BONUSES", hud)
+        self.assertIn("const FString CharacterLines[]", hud)
+        self.assertIn("P / A: back to inventory", hud)
+        self.assertNotIn("const bool bValid = Code > 0 && Slot <= 2", hud)
+
 if __name__ == "__main__":
     unittest.main()
