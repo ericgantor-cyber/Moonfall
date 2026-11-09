@@ -43,6 +43,21 @@ int32 AMoonfallHeroPawn::GetSetPieceCount(int32 Affix) const
  return Pieces;
 }
 
+int32 AMoonfallHeroPawn::GetMight() const
+{
+ return FMath::Clamp(10 + FMath::Max(0, Level - 1) / 2 + FMath::Clamp(WeaponTier, 0, 25), 10, 100);
+}
+
+int32 AMoonfallHeroPawn::GetInsight() const
+{
+ return FMath::Clamp(10 + FMath::Max(0, Level - 1) / 2 + FMath::Clamp(AccessoryTier, 0, 25), 10, 100);
+}
+
+int32 AMoonfallHeroPawn::GetResolve() const
+{
+ return FMath::Clamp(10 + FMath::Max(0, Level - 1) / 2 + FMath::Clamp(ArmorTier, 0, 25), 10, 100);
+}
+
 float AMoonfallHeroPawn::GetCriticalChance() const
 {
  // Force: 2-piece improves critical chances. A 3-piece grants mastery.
@@ -183,7 +198,8 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
   Mana = FMath::Min(MaxMana, Mana + FMath::Clamp(ManaRegenPerSecond, 0.f, 250.f) * MenuRecoveryBoost * CombatManaFactor
       * (1.f + FMath::Clamp(AccessoryTier * 0.012f, 0.f, 0.25f) + (AccessoryAffix == 3 ? 0.08f : 0.f)
         + FMath::Clamp(((EquippedAccessoryCode / 1000) % 10) * 0.02f, 0.f, 0.10f)
-        + (GetSetPieceCount(3) >= 3 ? 0.06f : 0.f))
+        + (GetSetPieceCount(3) >= 3 ? 0.06f : 0.f)
+        + FMath::Clamp(GetInsight() * 0.002f, 0.f, 0.20f))
       * SafeRecoveryDelta);
  // Recovery in either menu is bounded and never revives a defeated hero.
  if ((bOptionsOpen || bInventoryOpen) && Health > 0.f && FMath::IsFinite(Health)
@@ -271,7 +287,8 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
  if (Health > 0.f && !bSprinting && !bGuarding && GetWorld() && GetWorld()->GetTimeSeconds() >= StaminaRegenStartsAt
      && FMath::IsFinite(Stamina) && FMath::IsFinite(MaxStamina) && MaxStamina > 0.f
      && FMath::IsFinite(StaminaRegenPerSecond) && StaminaRegenPerSecond > 0.f) {
-  Stamina = FMath::Clamp(Stamina + FMath::Clamp(StaminaRegenPerSecond, 0.f, 250.f) * StaminaDelta * MenuRecoveryBoost, 0.f, MaxStamina);
+  Stamina = FMath::Clamp(Stamina + FMath::Clamp(StaminaRegenPerSecond, 0.f, 250.f) * StaminaDelta * MenuRecoveryBoost
+    * (1.f + FMath::Clamp(GetResolve() * 0.003f, 0.f, 0.30f)), 0.f, MaxStamina);
  }
 }
 void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
@@ -297,6 +314,7 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("DisplayMode"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleDisplayMode);
  Input->BindAction(TEXT("Options"), IE_Pressed, this, &AMoonfallHeroPawn::OpenOptions);
  Input->BindAction(TEXT("Inventory"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleInventory);
+ Input->BindAction(TEXT("CharacterStats"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleCharacterStats);
  Input->BindAction(TEXT("InventoryConfirm"), IE_Pressed, this, &AMoonfallHeroPawn::InventoryConfirm);
  Input->BindAction(TEXT("InventorySalvage"), IE_Pressed, this, &AMoonfallHeroPawn::InventorySalvage);
  Input->BindAction(TEXT("UpgradeGear"), IE_Pressed, this, &AMoonfallHeroPawn::UpgradeSelectedInventoryItem);
@@ -401,10 +419,11 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
   // and Critical Strike provides an occasional 1.5x hostile spell hit.
   // Crit is rolled only after a valid enemy was acquired.
   const bool bCriticalSpell = FMath::FRand() < GetCriticalChance();
+  const float MightMultiplier = 1.f + FMath::Clamp(GetMight() * 0.001f, 0.f, 0.10f);
   const float SpellDamage = (18.f + School * 5.f) * Multiplier * SpellPowerMultiplier
     * WeaponDamageBonus * CounterMultiplier * MomentumBonus * HitComboMultiplier
     * (1.f + GetMasteryBonus()) * (1.f + GetVersatilityBonus())
-    * (bCriticalSpell ? 1.5f : 1.f);
+    * (bCriticalSpell ? 1.5f : 1.f) * MightMultiplier;
   // Reject invalid damage before spending mana or consuming a hard-earned counter.
   if (!FMath::IsFinite(SpellDamage) || SpellDamage <= 0.f) return false;
   const float HealthBeforeSpell = Enemy->Health;
@@ -758,6 +777,12 @@ void AMoonfallHeroPawn::ToggleDisplayMode() {
  Settings->SaveSettings();
 }
 
+void AMoonfallHeroPawn::ToggleCharacterStats()
+{
+ if (bInventoryOpen && !bOptionsOpen && Health > 0.f)
+  bCharacterStatsOpen = !bCharacterStatsOpen;
+}
+
 void AMoonfallHeroPawn::ToggleInventory() {
  if (bOptionsOpen || Health <= 0.f) return;
  if (!bInventoryOpen) {
@@ -768,13 +793,14 @@ void AMoonfallHeroPawn::ToggleInventory() {
   InventorySelection = FMath::Clamp(InventorySelection, 0, FMath::Max(0, InventoryItemCodes.Num() - 1));
  }
  bInventoryOpen = !bInventoryOpen;
+ if (!bInventoryOpen) bCharacterStatsOpen = false;
 }
 void AMoonfallHeroPawn::EquipSelectedInventoryItem() {
- if (!bInventoryOpen || !InventoryItemCodes.IsValidIndex(InventorySelection)) return;
+ if (!bInventoryOpen || bCharacterStatsOpen || !InventoryItemCodes.IsValidIndex(InventorySelection)) return;
  EquipInventoryItem(InventorySelection);
 }
 void AMoonfallHeroPawn::SalvageSelectedInventoryItem() {
- if (bInventoryOpen) SalvageInventoryItem(InventorySelection);
+ if (bInventoryOpen && !bCharacterStatsOpen) SalvageInventoryItem(InventorySelection);
 }
 void AMoonfallHeroPawn::InventorySalvage() { SalvageSelectedInventoryItem(); }
 bool AMoonfallHeroPawn::SalvageInventoryItem(int32 InventoryIndex)
@@ -886,7 +912,7 @@ bool AMoonfallHeroPawn::ReforgeInventoryItemAffix(int32 InventoryIndex)
 
 void AMoonfallHeroPawn::ReforgeSelectedInventoryItem()
 {
- ReforgeInventoryItemAffix(InventorySelection);
+ if (!bCharacterStatsOpen) ReforgeInventoryItemAffix(InventorySelection);
 }
 
 bool AMoonfallHeroPawn::AscendInventoryItemRarity(int32 InventoryIndex)
@@ -925,7 +951,7 @@ bool AMoonfallHeroPawn::AscendInventoryItemRarity(int32 InventoryIndex)
 
 void AMoonfallHeroPawn::AscendSelectedInventoryItem()
 {
- AscendInventoryItemRarity(InventorySelection);
+ if (!bCharacterStatsOpen) AscendInventoryItemRarity(InventorySelection);
 }
 
 int32 AMoonfallHeroPawn::ForgeInventoryItemLevels(int32 InventoryIndex, int32 MaxLevels)
@@ -945,19 +971,19 @@ int32 AMoonfallHeroPawn::ForgeInventoryItemLevels(int32 InventoryIndex, int32 Ma
 
 void AMoonfallHeroPawn::ForgeFiveSelectedInventoryItem()
 {
- ForgeInventoryItemLevels(InventorySelection, 5);
+ if (!bCharacterStatsOpen) ForgeInventoryItemLevels(InventorySelection, 5);
 }
 
 void AMoonfallHeroPawn::UpgradeSelectedInventoryItem()
 {
- UpgradeInventoryItem(InventorySelection);
+ if (!bCharacterStatsOpen) UpgradeInventoryItem(InventorySelection);
 }
 
 void AMoonfallHeroPawn::InventoryConfirm() { EquipSelectedInventoryItem(); }
 void AMoonfallHeroPawn::OpenOptions() {
  // The defeat screen owns input until respawn; do not reopen gameplay menus.
  if (Health <= 0.f || !FMath::IsFinite(Health)) return;
- if (bInventoryOpen) { bInventoryOpen = false; return; }
+ if (bInventoryOpen) { bInventoryOpen = false; bCharacterStatsOpen = false; return; }
  if (!bOptionsOpen) {
   StopJumping();
   if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
@@ -1383,7 +1409,7 @@ void AMoonfallHeroPawn::PickupNearestGroundLoot()
  }
 }
 
-void AMoonfallHeroPawn::EquipBestInventoryAction() { EquipBestInventoryUpgrades(); }
+void AMoonfallHeroPawn::EquipBestInventoryAction() { if (!bCharacterStatsOpen) EquipBestInventoryUpgrades(); }
 
 int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()
 {
