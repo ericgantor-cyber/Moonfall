@@ -101,6 +101,7 @@ private:
  bool bComboSecondHitActive = false;
  int32 BossSpecialMove = 0;
  // Distinct, telegraphed divine signatures use the standard damage pipeline.
+ void CancelDivineSignature();
  bool bDivineSignatureActive = false;
  FName ActiveDivineMoveId = NAME_None;
  bool bDivineAlternateGeometry = false;
