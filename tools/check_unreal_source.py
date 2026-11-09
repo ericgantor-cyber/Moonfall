@@ -2884,8 +2884,11 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("WorldCheckpointTimer = 16.f;", self.hero_cpp)
 
     def test_dungeon_entrance_discovery_is_bounded_persistent_and_one_time(self):
-        self.assertIn("static constexpr int32 DungeonZoneCount = 4;", self.hero_h)
+        self.assertIn("static constexpr int32 DungeonZoneCount = 6;", self.hero_h)
         self.assertIn("static constexpr int32 DungeonsPerZone = 5;", self.hero_h)
+        self.assertIn("static constexpr int32 DungeonZoneCount = 6;", self.hero_h)
+        self.assertIn("static constexpr int32 DungeonsPerZone = 5;", self.hero_h)
+        self.assertIn("DungeonZoneCount * DungeonsPerZone", self.hero_cpp)
         self.assertIn("bool DiscoverDungeonEntrance(int32 ZoneIndex, int32 DungeonIndex);", self.hero_h)
         self.assertIn("bool IsDungeonDiscovered(int32 ZoneIndex, int32 DungeonIndex) const;", self.hero_h)
         discover = self.hero_cpp.split("bool AMoonfallHeroPawn::DiscoverDungeonEntrance(", 1)[1].split(
