@@ -1111,20 +1111,50 @@ void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(bool bEliteEnemy, bool bBossEne
 void AMoonfallHeroPawn::PickupNearestGroundLoot()
 {
  if (Health <= 0.f || bOptionsOpen || bInventoryOpen || !GetWorld()) return;
- AMoonfallGroundLoot* Nearest = nullptr;
- float BestDistanceSq = FMath::Square(250.f);
- // Input-only search. Ground loot actors never need a per-frame pickup scan.
- for (TActorIterator<AMoonfallGroundLoot> It(GetWorld()); It; ++It) {
+ // One explicit pickup press handles a nearby cluster, reducing repeated
+ // input without ever automatically equipping, salvaging or destroying loot.
+ // Keep actor iteration and collection bounded for a continuous world.
+ constexpr int32 MaxLootScanned = 128;
+ constexpr int32 MaxLootPerPress = 6;
+ TArray<AMoonfallGroundLoot*> NearbyLoot;
+ NearbyLoot.Reserve(MaxLootPerPress);
+ TArray<float> NearbyDistanceSq;
+ NearbyDistanceSq.Reserve(MaxLootPerPress);
+ const FVector HeroPosition = GetActorLocation();
+ const float PickupRangeSq = FMath::Square(250.f);
+ int32 Scanned = 0;
+ for (TActorIterator<AMoonfallGroundLoot> It(GetWorld());
+      It && Scanned < MaxLootScanned; ++It) {
+  ++Scanned;
   AMoonfallGroundLoot* Candidate = *It;
   if (!IsValid(Candidate) || Candidate->GetItemCode() <= 0) continue;
-  if (FMath::Abs(Candidate->GetActorLocation().Z - GetActorLocation().Z) > 150.f) continue;
-  const float DistanceSq = FVector::DistSquared2D(Candidate->GetActorLocation(), GetActorLocation());
-  if (DistanceSq <= BestDistanceSq) {
-   BestDistanceSq = DistanceSq;
-   Nearest = Candidate;
+  const FVector LootPosition = Candidate->GetActorLocation();
+  if (FMath::Abs(LootPosition.Z - HeroPosition.Z) > 150.f) continue;
+  const float DistanceSq = FVector::DistSquared2D(LootPosition, HeroPosition);
+  if (!FMath::IsFinite(DistanceSq) || DistanceSq > PickupRangeSq) continue;
+  // A nearby pickup must be reachable: walls and solid cover block collection.
+  FCollisionQueryParams LootSightParams(SCENE_QUERY_STAT(MoonfallGroundLootPickupSight), false);
+  LootSightParams.AddIgnoredActor(this);
+  LootSightParams.AddIgnoredActor(Candidate);
+  FHitResult LootSightHit;
+  if (GetWorld()->LineTraceSingleByChannel(LootSightHit,
+      HeroPosition + FVector(0.f, 0.f, 40.f),
+      LootPosition + FVector(0.f, 0.f, 40.f),
+      ECC_Visibility, LootSightParams)) continue;
+  int32 InsertAt = 0;
+  while (InsertAt < NearbyDistanceSq.Num() && NearbyDistanceSq[InsertAt] <= DistanceSq)
+   ++InsertAt;
+  if (InsertAt >= MaxLootPerPress) continue;
+  NearbyLoot.Insert(Candidate, InsertAt);
+  NearbyDistanceSq.Insert(DistanceSq, InsertAt);
+  if (NearbyLoot.Num() > MaxLootPerPress) {
+   NearbyLoot.RemoveAt(MaxLootPerPress);
+   NearbyDistanceSq.RemoveAt(MaxLootPerPress);
   }
  }
- if (IsValid(Nearest)) Nearest->TryCollect();
+ for (AMoonfallGroundLoot* Loot : NearbyLoot) {
+  if (IsValid(Loot)) Loot->TryCollect();
+ }
 }
 
 bool AMoonfallHeroPawn::EquipInventoryItem(int32 InventoryIndex)
