@@ -2567,9 +2567,23 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("0, 9);", self.hero_cpp)
         self.assertIn("Hero->GetEquippedCodeForSlot(Slot)", self.hud)
         self.assertIn("After == 9 ? TEXT(\"MAX 9/9\")", self.hud)
-        self.assertIn("const int32 Target = After < 2 ? 2 : (After < 4 ? 4 : (After < 6 ? 6 : 9));", self.hud)
+        self.assertIn("const int32 Target = After < 2 ? 2 : (After < 3 ? 3 : (After < 4 ? 4 : (After < 6 ? 6 : 9)));", self.hud)
         for set_affix in (1,2,3):
             self.assertIn(f"GetSetPieceCount({set_affix}) >= 4", self.hero_cpp)
+
+    def test_nine_slot_equipment_reliability_fixes(self):
+        begin = self.hero_cpp.split("void AMoonfallHeroPawn::BeginPlay()", 1)[1].split("void AMoonfallHeroPawn::", 1)[0]
+        self.assertIn("ExtraEquippedCodes.Num() != 6", begin)
+        self.assertIn("ExtraEquippedCodes.SetNum(6)", begin)
+        awards = self.hero_cpp.split("void AMoonfallHeroPawn::AwardEquipmentDrop(", 1)[1].split("bool AMoonfallHeroPawn::CollectGroundEquipmentCode(", 1)[0]
+        self.assertIn("if (LastLootSlot >= 3)", awards)
+        extras = awards.split("if (LastLootSlot >= 3)", 1)[1].split("return;", 1)[0]
+        self.assertNotIn("EquipInventoryItem(", extras)
+        upgrade = self.hero_cpp.split("bool AMoonfallHeroPawn::UpgradeInventoryItem(", 1)[1].split("bool AMoonfallHeroPawn::", 1)[0]
+        self.assertIn("const int32 PreviousWornTier", upgrade)
+        self.assertIn("LastLootUpgrade = (Tier + 1) - PreviousWornTier;", upgrade)
+        self.assertIn("for (int32 ExtraSlot = 3; ExtraSlot < 9; ++ExtraSlot)", self.hero_cpp)
+        self.assertIn("After < 3 ? 3", self.hud)
 
 if __name__ == "__main__":
     unittest.main()
