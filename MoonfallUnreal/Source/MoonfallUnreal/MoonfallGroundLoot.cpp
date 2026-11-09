@@ -43,16 +43,17 @@ void AMoonfallGroundLoot::InitializeLoot(int32 InItemCode)
  const int32 Rarity = (InItemCode / 1000) % 10;
  const int32 Tier = InItemCode % 1000;
  if (Affix < 0 || Affix > 3 || Slot < 0 || Slot > 2 ||
-     Rarity < 0 || Rarity > 3 || Tier < 1 || Tier > 25 ||
+     Rarity < 0 || Rarity > 5 || Tier < 1 || Tier > 25 ||
      (Rarity == 0 && Affix != 0) ||
      InItemCode != Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier)
   return;
  ItemCode = InItemCode;
  const TCHAR* SlotNames[] = {TEXT("Weapon"), TEXT("Armor"), TEXT("Accessory")};
- const TCHAR* QualityNames[] = {TEXT("Common"), TEXT("Uncommon"), TEXT("Rare"), TEXT("Epic")};
+ const TCHAR* QualityNames[] = {TEXT("Common"), TEXT("Uncommon"), TEXT("Rare"), TEXT("Epic"), TEXT("Emerald"), TEXT("Legendary")};
  const TCHAR* TraitNames[] = {TEXT(""), TEXT("Force "), TEXT("Ward "), TEXT("Focus ")};
  const FColor Colors[] = {FColor(230,230,230), FColor(65,175,255),
-   FColor(245,201,63), FColor(183,89,244)};
+   FColor(245,201,63), FColor(183,89,244), FColor(58,214,107),
+   FColor(255,132,32)};
  const FColor QualityColor = Colors[Rarity];
  ItemLabel->SetText(FText::FromString(FString::Printf(TEXT("%s %s%s  T%d  [F / X]"),
    QualityNames[Rarity], TraitNames[Affix], SlotNames[Slot], Tier)));
