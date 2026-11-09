@@ -80,16 +80,35 @@ void AMoonfallArena::BeginPlay() {
   }
   UGameplayStatics::FinishSpawningActor(Enemy, SpawnTransform);
  }
- // One 25% roll for the whole encounter, not one roll per group.
- // Stagger groups so a lucky roll does not spawn up to 33 attackers at once.
- if (bIsDungeonEncounter && FMath::FRand() < 0.25f) {
-  PendingBonusGroupSizes.Reserve(3);
-  for (int32 Group = 0; Group < 3; ++Group) {
-   PendingBonusGroupSizes.Add(FMath::RandRange(5, 11));
-  }
-  GetWorldTimerManager().SetTimer(BonusSpawnTimer, this,
-    &AMoonfallArena::SpawnNextBonusGroup, 4.f, false);
+ // Dungeon-only encounter rolls are deferred until the player arrives.
+ // Open-world zones never start this proximity check or its 5..11-mob rule.
+ if (bIsDungeonEncounter) {
+  GetWorldTimerManager().SetTimer(DungeonEntryTimer, this,
+    &AMoonfallArena::CheckDungeonEntry, 1.f, true);
  }
+}
+
+void AMoonfallArena::CheckDungeonEntry() {
+ if (!bIsDungeonEncounter) {
+  GetWorldTimerManager().ClearTimer(DungeonEntryTimer);
+  return;
+ }
+ const AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(
+   UGameplayStatics::GetPlayerPawn(this, 0));
+ if (!IsValid(Hero) || !FMath::IsFinite(Hero->Health) || Hero->Health <= 0.f
+     || Hero->bOptionsOpen || Hero->bInventoryOpen) return;
+ constexpr float DungeonEncounterRadius = 1300.f;
+ if (FVector::DistSquared2D(Hero->GetActorLocation(), GetActorLocation())
+     > FMath::Square(DungeonEncounterRadius)) return;
+ // Only one 25% roll per dungeon encounter, triggered on arrival.
+ GetWorldTimerManager().ClearTimer(DungeonEntryTimer);
+ if (FMath::FRand() >= 0.25f) return;
+ PendingBonusGroupSizes.Reserve(3);
+ for (int32 Group = 0; Group < 3; ++Group) {
+  PendingBonusGroupSizes.Add(FMath::RandRange(5, 11));
+ }
+ GetWorldTimerManager().SetTimer(BonusSpawnTimer, this,
+   &AMoonfallArena::SpawnNextBonusGroup, 4.f, false);
 }
 
 void AMoonfallArena::SpawnNextBonusGroup() {
@@ -108,7 +127,12 @@ void AMoonfallArena::SpawnNextBonusGroup() {
   PendingBonusGroupSizes.Empty();
   return;
  }
- if (Hero->bOptionsOpen || Hero->bInventoryOpen) {
+ // Prevent dormant dungeons from spawning bonus mobs after the player leaves.
+ // Keep the queued size and resume when the player returns.
+ constexpr float DungeonEncounterRadius = 1300.f;
+ if (Hero->bOptionsOpen || Hero->bInventoryOpen
+     || FVector::DistSquared2D(Hero->GetActorLocation(), GetActorLocation())
+          > FMath::Square(DungeonEncounterRadius)) {
   GetWorldTimerManager().SetTimer(BonusSpawnTimer, this,
     &AMoonfallArena::SpawnNextBonusGroup, 4.f, false);
   return;
