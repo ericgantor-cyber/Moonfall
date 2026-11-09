@@ -243,6 +243,18 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("SetLifeSpan(", ground_cpp)
         self.assertNotIn("FinisherShockwave", self.hero_cpp)
 
+    def test_ground_loot_collection_boundary_rejects_open_menus(self):
+        collect = self.hero_cpp.split(
+            "bool AMoonfallHeroPawn::CollectGroundEquipmentCode(int32 ItemCode)", 1
+        )[1].split("void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(", 1)[0]
+        self.assertIn(
+            "Health <= 0.f || bOptionsOpen || bInventoryOpen || ItemCode <= 0",
+            collect,
+        )
+        self.assertLess(
+            collect.index("bInventoryOpen"), collect.index("InventoryItemCodes.Add(ItemCode)")
+        )
+
     def test_nearby_batch_loot_is_range_and_cover_safe(self):
         pickup = self.hero_cpp.split("void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[1].split(
             "void AMoonfallHeroPawn::EquipBestInventoryAction()", 1)[0]
