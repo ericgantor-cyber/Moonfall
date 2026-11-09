@@ -176,6 +176,22 @@ bool AMoonfallHeroPawn::IsDungeonDiscovered(int32 ZoneIndex, int32 DungeonIndex)
  return (DungeonDiscoveryMask & (1u << BitIndex)) != 0u;
 }
 
+int32 AMoonfallHeroPawn::GetDiscoveredDungeonsInZone(int32 ZoneIndex) const
+{
+ if (ZoneIndex < 0 || ZoneIndex >= DungeonZoneCount) return 0;
+ int32 Count = 0;
+ for (int32 DungeonIndex = 0; DungeonIndex < DungeonsPerZone; ++DungeonIndex)
+  if (IsDungeonDiscovered(ZoneIndex, DungeonIndex)) ++Count;
+ return Count;
+}
+
+int32 AMoonfallHeroPawn::GetNextIncompleteDungeonZone() const
+{
+ for (int32 ZoneIndex = 0; ZoneIndex < DungeonZoneCount; ++ZoneIndex)
+  if (GetDiscoveredDungeonsInZone(ZoneIndex) < DungeonsPerZone) return ZoneIndex;
+ return -1; // All six zones charted.
+}
+
 bool AMoonfallHeroPawn::DiscoverDungeonEntrance(int32 ZoneIndex, int32 DungeonIndex)
 {
  // Called by authored entrance triggers. Discovering an entrance does not
@@ -189,6 +205,10 @@ bool AMoonfallHeroPawn::DiscoverDungeonEntrance(int32 ZoneIndex, int32 DungeonIn
  SaveDungeonDiscoveries();
  AwardExperience(100);
  OnDungeonEntranceDiscovered(ZoneIndex, DungeonIndex);
+ // Per-zone objectives are derived from the persisted mask. This fires only
+ // when the fifth unique entrance is discovered, never while loading a save.
+ if (GetDiscoveredDungeonsInZone(ZoneIndex) == DungeonsPerZone)
+  OnDungeonZoneCharted(ZoneIndex);
  return true;
 }
 
