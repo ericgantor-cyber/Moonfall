@@ -42,8 +42,29 @@ public:
  UInstancedStaticMeshComponent* Floors;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Dungeon")
  UInstancedStaticMeshComponent* Walls;
+ // Three optional physical trap volumes in side alcoves of chambers 4, 8, 12.
+ // A safe central path remains open. No per-frame polling or enemy waves.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Dungeon")
+ UInstancedStaticMeshComponent* HazardPlates;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Dungeon")
+ UBoxComponent* HazardTriggerA;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Dungeon")
+ UBoxComponent* HazardTriggerB;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Dungeon")
+ UBoxComponent* HazardTriggerC;
+ UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Dungeon|Hazards",
+   meta=(ClampMin="0.0", ClampMax="100.0"))
+ float HazardDamage = 12.f;
+ UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Dungeon|Hazards",
+   meta=(ClampMin="0.5", ClampMax="20.0"))
+ float HazardCooldownSeconds = 2.f;
 
 private:
+ float NextHazardDamageAt = -1.f;
+ UFUNCTION()
+ void HandleHazardOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor,
+    UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep,
+    const FHitResult& SweepResult);
  bool bFinalChamberNotified = false;
  UFUNCTION()
  void HandleEntrance(UPrimitiveComponent* OverlappedComp, AActor* OtherActor,

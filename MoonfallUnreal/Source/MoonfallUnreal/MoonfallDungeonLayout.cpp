@@ -4,6 +4,7 @@
 #include "Components/BoxComponent.h"
 #include "Components/InstancedStaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
+#include "Engine/World.h"
 #include "UObject/ConstructorHelpers.h"
 
 AMoonfallDungeonLayout::AMoonfallDungeonLayout()
@@ -26,6 +27,27 @@ AMoonfallDungeonLayout::AMoonfallDungeonLayout()
  Floors->SetCollisionResponseToAllChannels(ECR_Block);
  Walls->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
  Walls->SetCollisionResponseToAllChannels(ECR_Block);
+ HazardPlates = CreateDefaultSubobject<UInstancedStaticMeshComponent>(TEXT("HazardPlates"));
+ HazardPlates->SetupAttachment(Root);
+ if (Cube.Succeeded()) HazardPlates->SetStaticMesh(Cube.Object);
+ HazardPlates->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+ // Side traps are authored as fixed overlap volumes, never solid obstructions.
+ HazardTriggerA = CreateDefaultSubobject<UBoxComponent>(TEXT("HazardTriggerA"));
+ HazardTriggerB = CreateDefaultSubobject<UBoxComponent>(TEXT("HazardTriggerB"));
+ HazardTriggerC = CreateDefaultSubobject<UBoxComponent>(TEXT("HazardTriggerC"));
+ UBoxComponent* Triggers[] = {HazardTriggerA, HazardTriggerB, HazardTriggerC};
+ const int32 Chambers[] = {3, 7, 11};
+ for (int32 Index = 0; Index < 3; ++Index) {
+  UBoxComponent* Trigger = Triggers[Index];
+  Trigger->SetupAttachment(Root);
+  Trigger->InitBoxExtent(FVector(140.f, 130.f, 110.f));
+  Trigger->SetRelativeLocation(FVector(Chambers[Index] * ChamberLength,
+      Index % 2 == 0 ? -265.f : 265.f, 95.f));
+  Trigger->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+  Trigger->SetCollisionResponseToAllChannels(ECR_Ignore);
+  Trigger->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
+  Trigger->SetGenerateOverlapEvents(true);
+ }
 
  EntranceTrigger = CreateDefaultSubobject<UBoxComponent>(TEXT("EntranceTrigger"));
  EntranceTrigger->SetupAttachment(Root);
@@ -50,6 +72,14 @@ void AMoonfallDungeonLayout::OnConstruction(const FTransform& Transform)
  Super::OnConstruction(Transform);
  Floors->ClearInstances();
  Walls->ClearInstances();
+ HazardPlates->ClearInstances();
+ // Raised floor panels visually distinguish damaging side alcoves.
+ for (const int32 Chamber : {3, 7, 11}) {
+  const int32 Index = Chamber == 3 ? 0 : (Chamber == 7 ? 1 : 2);
+  HazardPlates->AddInstance(FTransform(FRotator::ZeroRotator,
+      FVector(Chamber * ChamberLength, Index % 2 == 0 ? -265.f : 265.f, 8.f),
+      FVector(2.8f, 2.6f, 0.1f)));
+ }
  // Fourteen connected rooms; openings in every cross-wall allow normal
  // player movement from chamber 1 to 14 without a loading transition.
  for (int32 Chamber = 0; Chamber < ChamberCount; ++Chamber) {
@@ -88,10 +118,16 @@ void AMoonfallDungeonLayout::BeginPlay()
      || DungeonIndex < 0 || DungeonIndex >= AMoonfallHeroPawn::DungeonsPerZone) {
   EntranceTrigger->SetGenerateOverlapEvents(false);
   FinalChamberTrigger->SetGenerateOverlapEvents(false);
+  HazardTriggerA->SetGenerateOverlapEvents(false);
+  HazardTriggerB->SetGenerateOverlapEvents(false);
+  HazardTriggerC->SetGenerateOverlapEvents(false);
   return;
  }
  EntranceTrigger->OnComponentBeginOverlap.AddDynamic(this, &AMoonfallDungeonLayout::HandleEntrance);
  FinalChamberTrigger->OnComponentBeginOverlap.AddDynamic(this, &AMoonfallDungeonLayout::HandleFinalChamber);
+ HazardTriggerA->OnComponentBeginOverlap.AddDynamic(this, &AMoonfallDungeonLayout::HandleHazardOverlap);
+ HazardTriggerB->OnComponentBeginOverlap.AddDynamic(this, &AMoonfallDungeonLayout::HandleHazardOverlap);
+ HazardTriggerC->OnComponentBeginOverlap.AddDynamic(this, &AMoonfallDungeonLayout::HandleHazardOverlap);
 }
 
 void AMoonfallDungeonLayout::HandleEntrance(
@@ -114,4 +150,21 @@ void AMoonfallDungeonLayout::HandleFinalChamber(
      || Hero->Health <= 0.f) return;
  bFinalChamberNotified = true;
  OnFinalChamberEntered(Hero);
+}
+
+void AMoonfallDungeonLayout::HandleHazardOverlap(
+ UPrimitiveComponent* OverlappedComp, AActor* OtherActor,
+ UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep,
+ const FHitResult& SweepResult)
+{
+ // The hazard is an avoidable side path, not a wave, timer, or unavoidable
+ // corridor tax. Only the living player hero can be hurt.
+ AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(OtherActor);
+ if (!IsValid(Hero) || !Hero->IsPlayerControlled() || Hero->Health <= 0.f
+     || !GetWorld() || !FMath::IsFinite(HazardDamage) || HazardDamage <= 0.f)
+  return;
+ const float Now = GetWorld()->GetTimeSeconds();
+ if (!FMath::IsFinite(Now) || Now < NextHazardDamageAt) return;
+ NextHazardDamageAt = Now + FMath::Clamp(HazardCooldownSeconds, 0.5f, 20.f);
+ Hero->ApplyMoonfallDamage(HazardDamage);
 }

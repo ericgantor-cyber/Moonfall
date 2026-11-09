@@ -2986,5 +2986,32 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("OpenLevel(", layout_cpp)
         self.assertNotIn("SpawnActor<", layout_cpp)
 
+    def test_dungeon_hazards_are_avoidable_and_cooldown_bounded(self):
+        layout_h = (ROOT / "MoonfallDungeonLayout.h").read_text(encoding="utf-8")
+        layout_cpp = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
+        for field in ("HazardPlates", "HazardTriggerA", "HazardTriggerB", "HazardTriggerC",
+                      "HazardDamage", "HazardCooldownSeconds"):
+            self.assertIn(field, layout_h)
+        self.assertIn("const int32 Chambers[] = {3, 7, 11};", layout_cpp)
+        self.assertIn("HazardPlates->ClearInstances();", layout_cpp)
+        self.assertIn("HazardPlates->AddInstance(", layout_cpp)
+        self.assertIn("HazardPlates->SetCollisionEnabled(ECollisionEnabled::NoCollision)", layout_cpp)
+        self.assertIn("Trigger->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap)", layout_cpp)
+        self.assertIn("HazardTriggerA->OnComponentBeginOverlap.AddDynamic(", layout_cpp)
+        self.assertIn("HazardTriggerB->OnComponentBeginOverlap.AddDynamic(", layout_cpp)
+        self.assertIn("HazardTriggerC->OnComponentBeginOverlap.AddDynamic(", layout_cpp)
+        self.assertIn("HazardTriggerC->SetGenerateOverlapEvents(false);", layout_cpp)
+        hazard = layout_cpp.split("void AMoonfallDungeonLayout::HandleHazardOverlap(", 1)[1]
+        self.assertIn("Cast<AMoonfallHeroPawn>(OtherActor)", hazard)
+        self.assertIn("Hero->IsPlayerControlled()", hazard)
+        self.assertIn("Hero->Health <= 0.f", hazard)
+        self.assertIn("FMath::IsFinite(HazardDamage)", hazard)
+        self.assertIn("Now < NextHazardDamageAt", hazard)
+        self.assertIn("FMath::Clamp(HazardCooldownSeconds, 0.5f, 20.f)", hazard)
+        self.assertIn("Hero->ApplyMoonfallDamage(HazardDamage);", hazard)
+        self.assertLess(hazard.index("NextHazardDamageAt = Now"), hazard.index("Hero->ApplyMoonfallDamage("))
+        self.assertNotIn("SpawnActor", hazard)
+        self.assertNotIn("OpenLevel", hazard)
+
 if __name__ == "__main__":
     unittest.main()
