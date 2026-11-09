@@ -2609,5 +2609,21 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             self.assertIn(name, self.hero_cpp)
         self.assertGreaterEqual(self.hero_cpp.count("SaveEquipmentProfile();"), 9)
 
+    def test_equipment_profile_integrity_and_v1_compatibility(self):
+        checksum = self.hero_cpp.split("static uint32 MoonfallEquipmentProfileChecksum(", 1)[1].split("\n}", 1)[0]
+        save = self.hero_cpp.split("void AMoonfallHeroPawn::SaveEquipmentProfile()", 1)[1].split("void AMoonfallHeroPawn::LoadEquipmentProfile()", 1)[0]
+        load = self.hero_cpp.split("void AMoonfallHeroPawn::LoadEquipmentProfile()", 1)[1]
+        self.assertIn("2166136261u", checksum)
+        self.assertIn("16777619u", checksum)
+        self.assertIn("for (const int32 Code : Bag)", checksum)
+        self.assertIn("for (int32 Slot = 0; Slot < 9; ++Slot)", checksum)
+        self.assertIn("GConfig->SetString(Section, TEXT(\"Checksum\")", save)
+        self.assertIn("GConfig->GetString(Section, TEXT(\"Checksum\")", load)
+        self.assertIn("LexTryParseString(ExpectedChecksum, *StoredChecksum)", load)
+        self.assertIn("MoonfallEquipmentProfileChecksum(ValidBag, Worn, SavedSalvage)", load)
+        self.assertLess(load.index("ExpectedChecksum != MoonfallEquipmentProfileChecksum"),
+                        load.index("InventoryItemCodes = MoveTemp(ValidBag)"))
+        self.assertIn("Version != 1", load)
+
 if __name__ == "__main__":
     unittest.main()
