@@ -4,6 +4,7 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Components/InputComponent.h"
 #include "Engine/World.h"
+#include "Kismet/GameplayStatics.h"
 #include "DrawDebugHelpers.h"
 #include "Engine/Engine.h"
 #include "GameFramework/GameUserSettings.h"
@@ -167,6 +168,65 @@ FString AMoonfallHeroPawn::GetExplorationQuestTitle() const
  }
 }
 
+void AMoonfallHeroPawn::LoadWorldCheckpoint()
+{
+ if (!GConfig || !GetWorld()) return;
+ static const TCHAR* Section = TEXT("Moonfall.WorldCheckpoint.V1");
+ int32 Version = 0;
+ FString SavedMap, XText, YText, ZText;
+ if (!GConfig->GetInt(Section, TEXT("Version"), Version, GGameUserSettingsIni)
+     || Version != 1
+     || !GConfig->GetString(Section, TEXT("Map"), SavedMap, GGameUserSettingsIni)
+     || SavedMap != UGameplayStatics::GetCurrentLevelName(this, true)
+     || !GConfig->GetString(Section, TEXT("X"), XText, GGameUserSettingsIni)
+     || !GConfig->GetString(Section, TEXT("Y"), YText, GGameUserSettingsIni)
+     || !GConfig->GetString(Section, TEXT("Z"), ZText, GGameUserSettingsIni)) return;
+ float X = 0.f, Y = 0.f, Z = 0.f;
+ if (!LexTryParseString(X, *XText) || !LexTryParseString(Y, *YText)
+     || !LexTryParseString(Z, *ZText)
+     || !FMath::IsFinite(X) || !FMath::IsFinite(Y) || !FMath::IsFinite(Z)
+     || FMath::Abs(X) > 2000000.f || FMath::Abs(Y) > 2000000.f
+     || FMath::Abs(Z) > 2000000.f) return;
+ FVector SafeLocation(X, Y, Z);
+ // Never force a hero into blocked geometry. Unreal finds a nearby viable
+ // capsule placement or retains the map's authored spawn if none exists.
+ if (!GetWorld()->FindTeleportSpot(this, SafeLocation, GetActorRotation())) return;
+ if (!SetActorLocation(SafeLocation, false, nullptr, ETeleportType::TeleportPhysics)) return;
+ LastSavedWorldCheckpoint = SafeLocation;
+ bHasSavedWorldCheckpoint = true;
+}
+
+void AMoonfallHeroPawn::SaveWorldCheckpoint()
+{
+ if (!GConfig || !GetWorld() || Health <= 0.f || bOptionsOpen || bInventoryOpen
+     || !GetCharacterMovement() || !GetCharacterMovement()->IsMovingOnGround()) return;
+ const FVector Location = GetActorLocation();
+ if (Location.ContainsNaN() || FMath::Abs(Location.X) > 2000000.f
+     || FMath::Abs(Location.Y) > 2000000.f || FMath::Abs(Location.Z) > 2000000.f) return;
+ // Avoid disk traffic while standing still or reloading the same checkpoint.
+ if (bHasSavedWorldCheckpoint && FVector::DistSquared(Location, LastSavedWorldCheckpoint) < FMath::Square(300.f))
+  return;
+ static const TCHAR* Section = TEXT("Moonfall.WorldCheckpoint.V1");
+ GConfig->SetString(Section, TEXT("Map"),
+   *UGameplayStatics::GetCurrentLevelName(this, true), GGameUserSettingsIni);
+ GConfig->SetString(Section, TEXT("X"), *FString::SanitizeFloat(Location.X), GGameUserSettingsIni);
+ GConfig->SetString(Section, TEXT("Y"), *FString::SanitizeFloat(Location.Y), GGameUserSettingsIni);
+ GConfig->SetString(Section, TEXT("Z"), *FString::SanitizeFloat(Location.Z), GGameUserSettingsIni);
+ GConfig->SetInt(Section, TEXT("Version"), 1, GGameUserSettingsIni);
+ GConfig->Flush(false, GGameUserSettingsIni);
+ LastSavedWorldCheckpoint = Location;
+ bHasSavedWorldCheckpoint = true;
+}
+
+void AMoonfallHeroPawn::UpdateWorldCheckpoint(float DeltaSeconds)
+{
+ if (!FMath::IsFinite(DeltaSeconds) || DeltaSeconds <= 0.f) return;
+ WorldCheckpointTimer -= FMath::Min(DeltaSeconds, 0.1f);
+ if (WorldCheckpointTimer > 0.f) return;
+ WorldCheckpointTimer = 16.f;
+ SaveWorldCheckpoint();
+}
+
 void AMoonfallHeroPawn::LoadProgressionProfile()
 {
  if (!GConfig) return;
@@ -308,11 +368,13 @@ void AMoonfallHeroPawn::BeginPlay() {
  LoadProgressionProfile();
  LoadEquipmentProfile();
  LoadExplorationProfile();
+ LoadWorldCheckpoint();
 }
 void AMoonfallHeroPawn::Tick(float DeltaSeconds)
 {
  Super::Tick(DeltaSeconds);
  UpdateExplorationDiscovery(DeltaSeconds);
+ UpdateWorldCheckpoint(DeltaSeconds);
  UpdateNativeFinisher(DeltaSeconds);
  // Expire the visible combo stage even if the player stops attacking.
  // Also discard defeated or destroyed targets to avoid a stale combo HUD.

@@ -2856,5 +2856,32 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('TEXT("Moonfall.Progression.V1")', save)
         self.assertIn('GConfig->Flush(false, GGameUserSettingsIni)', save)
 
+    def test_world_checkpoint_is_map_bound_and_collision_safe(self):
+        self.assertIn("void LoadWorldCheckpoint();", self.hero_h)
+        self.assertIn("void SaveWorldCheckpoint();", self.hero_h)
+        self.assertIn("void UpdateWorldCheckpoint(float DeltaSeconds);", self.hero_h)
+        load = self.hero_cpp.split("void AMoonfallHeroPawn::LoadWorldCheckpoint()", 1)[1].split(
+            "void AMoonfallHeroPawn::SaveWorldCheckpoint()", 1)[0]
+        self.assertIn('TEXT("Moonfall.WorldCheckpoint.V1")', load)
+        self.assertIn("UGameplayStatics::GetCurrentLevelName(this, true)", load)
+        self.assertIn("FMath::IsFinite(X)", load)
+        self.assertIn("FindTeleportSpot(this, SafeLocation, GetActorRotation())", load)
+        self.assertIn("SetActorLocation(SafeLocation, false, nullptr, ETeleportType::TeleportPhysics)", load)
+        self.assertLess(load.index("FindTeleportSpot("), load.index("SetActorLocation("))
+        save = self.hero_cpp.split("void AMoonfallHeroPawn::SaveWorldCheckpoint()", 1)[1].split(
+            "void AMoonfallHeroPawn::UpdateWorldCheckpoint(", 1)[0]
+        self.assertIn("Health <= 0.f", save)
+        self.assertIn("IsMovingOnGround()", save)
+        self.assertIn("FVector::DistSquared(Location, LastSavedWorldCheckpoint)", save)
+        self.assertIn("GConfig->Flush(false, GGameUserSettingsIni)", save)
+        begin = self.hero_cpp.split("void AMoonfallHeroPawn::BeginPlay()", 1)[1].split(
+            "void AMoonfallHeroPawn::Tick(", 1)[0]
+        self.assertIn("LoadWorldCheckpoint();", begin)
+        self.assertLess(begin.index("LoadExplorationProfile();"), begin.index("LoadWorldCheckpoint();"))
+        tick = self.hero_cpp.split("void AMoonfallHeroPawn::Tick(", 1)[1].split(
+            "UpdateNativeFinisher(DeltaSeconds);", 1)[0]
+        self.assertIn("UpdateWorldCheckpoint(DeltaSeconds);", tick)
+        self.assertIn("WorldCheckpointTimer = 16.f;", self.hero_cpp)
+
 if __name__ == "__main__":
     unittest.main()
