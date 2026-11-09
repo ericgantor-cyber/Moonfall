@@ -124,7 +124,7 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
      && FMath::IsFinite(ManaRegenPerSecond) && ManaRegenPerSecond > 0.f && Mana >= 0.f && Mana < MaxMana)
   Mana = FMath::Min(MaxMana, Mana + FMath::Clamp(ManaRegenPerSecond, 0.f, 250.f) * MenuRecoveryBoost * CombatManaFactor
       * (1.f + FMath::Clamp(AccessoryTier * 0.012f, 0.f, 0.25f) + (AccessoryAffix == 3 ? 0.08f : 0.f)
-        + FMath::Clamp(((EquippedAccessoryCode / 1000) % 10) * 0.02f, 0.f, 0.06f))
+        + FMath::Clamp(((EquippedAccessoryCode / 1000) % 10) * 0.02f, 0.f, 0.10f))
       * SafeRecoveryDelta);
  // Recovery in either menu is bounded and never revives a defeated hero.
  if ((bOptionsOpen || bInventoryOpen) && Health > 0.f && FMath::IsFinite(Health)
@@ -316,7 +316,7 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
   // Force weapon affix adds a modest spell damage bonus, independent of tiers.
   const float WeaponDamageBonus = 1.f + FMath::Clamp(0.018f * WeaponTier, 0.f, 0.35f)
       + (WeaponAffix == 1 ? 0.06f : 0.f)
-      + FMath::Clamp(((EquippedWeaponCode / 1000) % 10) * 0.015f, 0.f, 0.045f);
+      + FMath::Clamp(((EquippedWeaponCode / 1000) % 10) * 0.015f, 0.f, 0.075f);
   const float MomentumBonus = Time <= FinisherMomentumUntil
       && FMath::IsFinite(FinisherMomentumDamageMultiplier)
     ? FMath::Clamp(FinisherMomentumDamageMultiplier, 1.f, 1.5f) : 1.f;
@@ -573,7 +573,7 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
  // Ward armor affix provides a small, capped flat mitigation bonus.
  const float ArmorMitigation = FMath::Min(0.34f, FMath::Min(0.28f, ArmorTier * 0.01f)
    + (ArmorAffix == 2 ? 0.06f : 0.f)
-   + FMath::Clamp(((EquippedArmorCode / 1000) % 10) * 0.005f, 0.f, 0.015f));
+   + FMath::Clamp(((EquippedArmorCode / 1000) % 10) * 0.005f, 0.f, 0.025f));
  const float ArmoredDamage = Amount * (1.f - ArmorMitigation);
  float DamageAfterGuard = ArmoredDamage;
  // Enemy attacks must come from the front 150-degree guard cone.
@@ -729,7 +729,7 @@ bool AMoonfallHeroPawn::SalvageInventoryItem(int32 InventoryIndex)
  const int32 Rarity = (Code / 1000) % 10;
  const int32 Tier = Code % 1000;
  if (Affix < 0 || Affix > 3 || SlotIndex < 0 || SlotIndex > 2
-     || Rarity < 0 || Rarity > 3 || Tier < 1 || Tier > 25
+     || Rarity < 0 || Rarity > 5 || Tier < 1 || Tier > 25
      || (Rarity == 0 && Affix != 0)
      || Code != Affix * 100000 + SlotIndex * 10000 + Rarity * 1000 + Tier)
   return false;
@@ -753,7 +753,7 @@ bool AMoonfallHeroPawn::UpgradeInventoryItem(int32 InventoryIndex)
  const int32 Rarity = (Code / 1000) % 10;
  const int32 Tier = Code % 1000;
  if (Affix < 0 || Affix > 3 || Slot < 0 || Slot > 2
-     || Rarity < 0 || Rarity > 3 || Tier < 1 || Tier >= 25
+     || Rarity < 0 || Rarity > 5 || Tier < 1 || Tier >= 25
      || (Rarity == 0 && Affix != 0)
      || Code != Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier) return false;
  // A selected item matching the worn slot upgrades both representations.
@@ -790,7 +790,7 @@ bool AMoonfallHeroPawn::AscendInventoryItemRarity(int32 InventoryIndex)
  const int32 Rarity = (Code / 1000) % 10;
  const int32 Tier = Code % 1000;
  if (Affix < 0 || Affix > 3 || Slot < 0 || Slot > 2
-     || Rarity < 0 || Rarity >= 3 || Tier < 1 || Tier > 25
+     || Rarity < 0 || Rarity >= 5 || Tier < 1 || Tier > 25
      || (Rarity == 0 && Affix != 0)
      || Code != Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier) return false;
  // Rising rank requires progressively more materials, but costs remain
@@ -1116,12 +1116,18 @@ int32 AMoonfallHeroPawn::RollEquipmentCode(bool bEliteEnemy, bool bBossEnemy)
  const int32 NewTier = FMath::Clamp(Level / 5 + (bBossEnemy ? 2 : (bEliteEnemy ? 1 : 0)), 1, 25);
  const int32 LootRoll = FMath::RandRange(0, 99);
  const int32 RarityBias = FMath::Clamp(Level / 5, 0, 12);
- // Rarity: 0 common, 1 uncommon, 2 rare, 3 epic.
- LastLootRarity = bBossEnemy ? 3
-   : (bEliteEnemy ? (LootRoll < 15 ? 3 : 2)
-   : (LootRoll < 3 + RarityBias / 3 ? 3
-   : (LootRoll < 18 + RarityBias ? 2
-   : (LootRoll < 53 + RarityBias ? 1 : 0))));
+ // Existing rarity codes 0-3 are stable for compatibility.
+ // 4 Emerald and 5 Legendary add special high-end reward targets.
+ // Bosses always roll at least Epic; max-level bosses can yield Legendary.
+ LastLootRarity = bBossEnemy
+   ? (Level >= 60 && LootRoll < 12 ? 5 : (Level >= 30 && LootRoll < 40 ? 4 : 3))
+   : (bEliteEnemy
+     ? (Level >= 50 && LootRoll < 3 ? 5 : (Level >= 20 && LootRoll < 12 ? 4
+       : (LootRoll < 27 ? 3 : 2)))
+     : (Level >= 60 && LootRoll < 1 ? 5 : (Level >= 40 && LootRoll < 3 ? 4
+       : (LootRoll < 3 + RarityBias / 3 ? 3
+       : (LootRoll < 18 + RarityBias ? 2
+       : (LootRoll < 53 + RarityBias ? 1 : 0)))))));
  LastLootTier = NewTier;
  // Enemy rank influences quality, not gear slot: any enemy can drop
  // weapons, armor, or accessories.
@@ -1179,7 +1185,7 @@ bool AMoonfallHeroPawn::CollectGroundEquipmentCode(int32 ItemCode)
  const int32 Rarity = (ItemCode / 1000) % 10;
  const int32 Tier = ItemCode % 1000;
  if (Affix < 0 || Affix > 3 || SlotIndex < 0 || SlotIndex > 2
-     || Rarity < 0 || Rarity > 3 || Tier < 1 || Tier > 25
+     || Rarity < 0 || Rarity > 5 || Tier < 1 || Tier > 25
      || (Rarity == 0 && Affix != 0)
      || ItemCode != Affix * 100000 + SlotIndex * 10000 + Rarity * 1000 + Tier)
   return false;
@@ -1284,7 +1290,7 @@ int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()
   const int32 EncodedSlot = (Code / 10000) % 10;
   const int32 Rarity = (Code / 1000) % 10;
   const int32 Tier = Code % 1000;
-  if (EncodedSlot != Slot || Affix < 0 || Affix > 3 || Rarity < 0 || Rarity > 3
+  if (EncodedSlot != Slot || Affix < 0 || Affix > 3 || Rarity < 0 || Rarity > 5
       || Tier < 1 || Tier > 25 || (Rarity == 0 && Affix != 0)
       || Code != Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier) continue;
   BestScores[Slot] = Tier * 100 + Rarity * 10 + (Affix > 0 ? 1 : 0);
@@ -1296,7 +1302,7 @@ int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()
   const int32 Slot = (Code / 10000) % 10;
   const int32 Rarity = (Code / 1000) % 10;
   const int32 Tier = Code % 1000;
-  if (Slot < 0 || Slot > 2 || Affix < 0 || Affix > 3 || Rarity < 0 || Rarity > 3
+  if (Slot < 0 || Slot > 2 || Affix < 0 || Affix > 3 || Rarity < 0 || Rarity > 5
       || Tier < 1 || Tier > 25 || (Rarity == 0 && Affix != 0)
       || Code != Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier) continue;
   const int32 Score = Tier * 100 + Rarity * 10 + (Affix > 0 ? 1 : 0);
@@ -1325,7 +1331,7 @@ bool AMoonfallHeroPawn::EquipInventoryItem(int32 InventoryIndex)
  const int32 Rarity = (Code / 1000) % 10;
  const int32 Tier = Code % 1000;
  if (Affix < 0 || Affix > 3 || SlotIndex < 0 || SlotIndex > 2
-     || Rarity < 0 || Rarity > 3 || Tier < 1 || Tier > 25
+     || Rarity < 0 || Rarity > 5 || Tier < 1 || Tier > 25
      || (Rarity == 0 && Affix != 0)
      || Code != Affix * 100000 + SlotIndex * 10000 + Rarity * 1000 + Tier)
   return false;
