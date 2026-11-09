@@ -151,6 +151,12 @@ void AMoonfallCombatHUD::DrawHUD()
      DrawText(SetThree[S],
        SetCounts[S] >= 3 ? FLinearColor::White : FLinearColor(0.55f,0.58f,0.65f),
        R + 95.f, Y + 19.f, nullptr, 0.68f);
+     const TCHAR* Later[] = {TEXT("4pc +2% crit   6/9pc +mastery"),
+       TEXT("4pc +2% vers   6/9pc +armor"),
+       TEXT("4pc +2% haste   6/9pc +regen")};
+     DrawText(Later[S], SetCounts[S] >= 4
+       ? FLinearColor(0.64f,0.95f,0.77f) : FLinearColor(0.56f,0.59f,0.68f),
+       R + 95.f, Y + 36.f, nullptr, 0.56f);
     }
     DrawText(TEXT("P / A: back to inventory    I / Select / Esc: close"),
       FLinearColor(0.81f,0.83f,0.97f), Left + 18.f,
@@ -270,7 +276,7 @@ void AMoonfallCombatHUD::DrawHUD()
   const int32 ForcePieces = Hero->GetSetPieceCount(1);
   const int32 WardPieces = Hero->GetSetPieceCount(2);
   const int32 FocusPieces = Hero->GetSetPieceCount(3);
-  DrawText(FString::Printf(TEXT("Sets: Force %d/9  Ward %d/9  Focus %d/9    2pc + 3pc unlock bonuses"),
+  DrawText(FString::Printf(TEXT("Sets: Force %d/9  Ward %d/9  Focus %d/9    2/3/4/6/9pc bonuses"),
     ForcePieces, WardPieces, FocusPieces), FLinearColor(0.59f,0.95f,0.77f),
     Left + 18.f, Top + 113.f, nullptr, Canvas->SizeX < 900.f ? 0.61f : 0.72f);
   DrawText(TEXT("WASD / D-pad: select   Enter / Y: equip   Delete / X: salvage"),
@@ -322,7 +328,7 @@ void AMoonfallCombatHUD::DrawHUD()
     }
     if (Milestones.IsEmpty()) Milestones = TEXT("No set milestones changed");
     // Report the nearest incomplete milestone for each affected set.
-    // A completed 3/3 set is MAX, not an invented 4-piece unlock.
+    // Complete 9/9 sets are MAX; preview the next valid threshold.
     const int32 CandidateAffix = SelectedCode / 100000;
     const int32 CurrentCode = Hero->GetEquippedCodeForSlot(SelectedSlot);
     const int32 ReplacedAffix = Hero->GetItemPower(CurrentCode) > 0
