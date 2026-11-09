@@ -132,8 +132,12 @@ void AMoonfallArena::SpawnNextBonusGroup() {
  }
  // Three widely separated groups, with terrain projected individually.
  // Validate ALL group members before spawning to avoid partial packs.
- constexpr float GroupCenterRadius = 950.f;
- constexpr float MemberRadius = 230.f;
+ // Space packs based on available room style, without modifying their stats.
+ // Compact caves require tighter packs; Foundry packs use more of the arena.
+ const bool bCaveBiome = SpawnBiome == FName(TEXT("Cave"));
+ const bool bFoundryBiome = SpawnBiome == FName(TEXT("Foundry"));
+ const float GroupCenterRadius = bCaveBiome ? 780.f : (bFoundryBiome ? 1030.f : 950.f);
+ const float MemberRadius = bCaveBiome ? 175.f : (bFoundryBiome ? 260.f : 230.f);
  constexpr float SpawnHeight = 90.f;
  constexpr float MinPlayerDistance = 550.f;
  // Rotate the candidate cluster each retry to explore different viable ground.
@@ -147,7 +151,8 @@ void AMoonfallArena::SpawnNextBonusGroup() {
  FCollisionQueryParams GroundParams(SCENE_QUERY_STAT(MoonfallMobGround), false);
  bool bValidGroup = true;
  for (int32 Member = 0; Member < GroupSize; ++Member) {
-  const float Angle = 2.f * PI * Member / GroupSize;
+  // Rotate pack formation on each terrain retry to test new safe clearances.
+  const float Angle = 2.f * PI * Member / GroupSize + 0.17f * TerrainPlacementAttempts;
   const FVector Candidate = GroupCenter + FVector(
     MemberRadius * FMath::Cos(Angle), MemberRadius * FMath::Sin(Angle), 0.f);
   FHitResult GroundHit;
