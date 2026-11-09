@@ -866,7 +866,7 @@ bool AMoonfallHeroPawn::UpgradeInventoryItem(int32 InventoryIndex)
 {
  // Craft the selected inventory item on explicit input. If it is worn,
  // upgrade that equipped slot too, without auto-equipping other bag items.
- if (!bInventoryOpen || bOptionsOpen || Health <= 0.f
+ if (!bInventoryOpen || bOptionsOpen || !FMath::IsFinite(Health) || Health <= 0.f
      || !InventoryItemCodes.IsValidIndex(InventoryIndex)) return false;
  const int32 Code = InventoryItemCodes[InventoryIndex];
  if (Code <= 0) return false;
@@ -907,7 +907,7 @@ bool AMoonfallHeroPawn::ReforgeInventoryItemAffix(int32 InventoryIndex)
 {
  // Explicit crafting inside inventory only. Common/uncommon traits cannot be
  // reforged; rare and higher retain their tier and quality unchanged.
- if (!bInventoryOpen || bOptionsOpen || Health <= 0.f
+ if (!bInventoryOpen || bOptionsOpen || !FMath::IsFinite(Health) || Health <= 0.f
      || !InventoryItemCodes.IsValidIndex(InventoryIndex)) return false;
  const int32 Code = InventoryItemCodes[InventoryIndex];
  if (Code <= 0) return false;
@@ -949,7 +949,7 @@ void AMoonfallHeroPawn::ReforgeSelectedInventoryItem()
 bool AMoonfallHeroPawn::AscendInventoryItemRarity(int32 InventoryIndex)
 {
  // Explicit inventory-only crafting. Ascension does not change tier or affix.
- if (!bInventoryOpen || bOptionsOpen || Health <= 0.f
+ if (!bInventoryOpen || bOptionsOpen || !FMath::IsFinite(Health) || Health <= 0.f
      || !InventoryItemCodes.IsValidIndex(InventoryIndex)) return false;
  const int32 Code = InventoryItemCodes[InventoryIndex];
  if (Code <= 0) return false;
@@ -987,7 +987,7 @@ void AMoonfallHeroPawn::AscendSelectedInventoryItem()
 
 int32 AMoonfallHeroPawn::ForgeInventoryItemLevels(int32 InventoryIndex, int32 MaxLevels)
 {
- if (!bInventoryOpen || bOptionsOpen || Health <= 0.f
+ if (!bInventoryOpen || bOptionsOpen || !FMath::IsFinite(Health) || Health <= 0.f
      || !InventoryItemCodes.IsValidIndex(InventoryIndex)) return 0;
  // Reuse validated, transactional one-tier crafting for every step.
  // No special currency discount, overflow, or forced equipment changes.
