@@ -1374,7 +1374,15 @@ void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(bool bEliteEnemy, bool bBossEne
  // Bosses scatter three rewards, elites two, regular enemies one.
  // All remain on the ground until individually collected; never auto-salvage.
  const int32 DropCount = bBossEnemy ? 3 : (bEliteEnemy ? 2 : 1);
- const FVector Origin = DefeatedLocation.ContainsNaN() ? GetActorLocation() : DefeatedLocation;
+ // A corrupt enemy location must never generate loot at infinite world coordinates.
+ // Fall back to the hero only if the hero location is also fully finite.
+ const auto FiniteLocation = [](const FVector& Location) {
+  return FMath::IsFinite(Location.X) && FMath::IsFinite(Location.Y) &&
+         FMath::IsFinite(Location.Z);
+ };
+ const FVector HeroPosition = GetActorLocation();
+ const FVector Origin = FiniteLocation(DefeatedLocation) ? DefeatedLocation : HeroPosition;
+ if (!FiniteLocation(Origin)) return;
  for (int32 Drop = 0; Drop < DropCount; ++Drop) {
   const int32 ItemCode = RollEquipmentCode(bEliteEnemy, bBossEnemy);
   if (ItemCode <= 0) continue;
@@ -1382,6 +1390,7 @@ void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(bool bEliteEnemy, bool bBossEne
   const float Spread = DropCount == 1 ? 0.f : 105.f;
   const FVector SpawnAt = Origin + FVector(Spread * FMath::Cos(Angle),
     Spread * FMath::Sin(Angle), 45.f);
+  if (!FiniteLocation(SpawnAt)) continue;
   FActorSpawnParameters Params;
   Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
   if (AMoonfallGroundLoot* Loot = GetWorld()->SpawnActor<AMoonfallGroundLoot>(
