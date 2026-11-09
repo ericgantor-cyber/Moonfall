@@ -2984,7 +2984,10 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("ZoneIndex >= AMoonfallHeroPawn::DungeonZoneCount", layout_cpp)
         self.assertIn("DungeonIndex >= AMoonfallHeroPawn::DungeonsPerZone", layout_cpp)
         self.assertNotIn("OpenLevel(", layout_cpp)
-        self.assertNotIn("SpawnActor<AMoonfallEnemy>", layout_cpp)
+        # Never spawn enemies during geometry construction or BeginPlay.
+        self.assertNotIn("SpawnActorDeferred<AMoonfallEnemy>", layout_cpp.split(
+            "void AMoonfallDungeonLayout::OnConstruction(", 1)[1].split(
+            "void AMoonfallDungeonLayout::BeginPlay()", 1)[0])
 
     def test_dungeon_hazards_are_avoidable_and_cooldown_bounded(self):
         layout_h = (ROOT / "MoonfallDungeonLayout.h").read_text(encoding="utf-8")
@@ -3164,6 +3167,30 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(pickup.index("Hero->CollectGroundEquipmentCode(ItemCode)"),
                         pickup.index("RewardOwner->MarkTreasureCollected("))
         self.assertNotIn("Hero->Health =", cpp)
+
+    def test_seeded_combat_chambers_spawn_bounded_enemies_on_entry_only(self):
+        h = (ROOT / "MoonfallDungeonLayout.h").read_text(encoding="utf-8")
+        cpp = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
+        self.assertIn("int32 EnemiesPerCombatChamber = 2;", h)
+        self.assertIn("bool StartCombatChamber(AMoonfallHeroPawn* Hero, int32 ChamberIndex);", h)
+        self.assertIn("void OnChamberEncounterSpawned(", h)
+        chamber = cpp.split("void AMoonfallDungeonLayout::HandleChamberOverlap(", 1)[1].split(
+            "void AMoonfallDungeonLayout::LoadRewardClaims()", 1)[0]
+        self.assertIn("if (ChamberType == 1 && !StartCombatChamber(Hero, ChamberIndex)) return;", chamber)
+        self.assertLess(chamber.index("StartCombatChamber("), chamber.index("EnteredChambersMask |= Bit;"))
+        encounter = cpp.split("bool AMoonfallDungeonLayout::StartCombatChamber(", 1)[1]
+        self.assertIn("GetChamberType(ChamberIndex) != 1", encounter)
+        self.assertIn("Stream(GetEffectiveLayoutSeed()", encounter)
+        self.assertIn("const bool bEliteEncounter = Stream.RandRange(0, 4) == 0;", encounter)
+        self.assertIn("FMath::Clamp(EnemiesPerCombatChamber, 1, 2)", encounter)
+        self.assertIn("SpawnActorDeferred<AMoonfallEnemy>", encounter)
+        self.assertIn("Enemy->bBoss = false;", encounter)
+        self.assertIn("Enemy->bElite = bEliteEncounter;", encounter)
+        self.assertIn("Enemy->FinishSpawning(SpawnTransform);", encounter)
+        self.assertIn("if (Spawned == 0) return false;", encounter)
+        self.assertIn("OnChamberEncounterSpawned(Hero, ChamberIndex, Spawned, bEliteEncounter);", encounter)
+        self.assertNotIn("OpenLevel(", encounter)
+        self.assertNotIn("SetTimer(", encounter)
 
 if __name__ == "__main__":
     unittest.main()
