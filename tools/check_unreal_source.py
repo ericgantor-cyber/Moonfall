@@ -448,6 +448,23 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(best.index("bCharacterStatsOpen"),
                         best.index("InventoryItemCodes.Num()"))
 
+    def test_right_click_equips_only_in_inventory_and_never_casts_there(self):
+        inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
+        self.assertIn('ActionName="CastRight",Key=RightMouseButton', inputs)
+        self.assertIn('BindAction(TEXT("CastRight"), IE_Pressed', self.hero_cpp)
+        handler = self.hero_cpp.split("void AMoonfallHeroPawn::CastRight()", 1)[1].split(
+            "void AMoonfallHeroPawn::CastBoth()", 1
+        )[0]
+        self.assertIn("if (bOptionsOpen) return;", handler)
+        self.assertIn("if (bInventoryOpen) {", handler)
+        self.assertIn("EquipSelectedInventoryItem();", handler)
+        self.assertIn("TryCast(RightSpell, 1, 1.f);", handler)
+        self.assertLess(handler.index("EquipSelectedInventoryItem();"), handler.index("return;\n }"))
+        self.assertLess(handler.index("return;\n }"), handler.index("TryCast(RightSpell, 1, 1.f);"))
+        self.assertIn("!bInventoryOpen || bCharacterStatsOpen", self.hero_cpp)
+        self.assertIn("Right-click / Enter / Y: equip", self.hud)
+        self.assertNotIn('ActionName="AdvisorSelect"', inputs)
+
     def test_direct_equipment_change_requires_open_inventory(self):
         equip = self.hero_cpp.split(
             "bool AMoonfallHeroPawn::EquipInventoryItem(int32 InventoryIndex)", 1
