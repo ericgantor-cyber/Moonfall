@@ -5,11 +5,13 @@ on:
       - 'MoonfallUnreal/**'
       - '.github/workflows/unreal-source-checks.yml'
       - 'tools/test_unreal_loot_collection_safety.py'
+      - 'tools/test_unreal_equipment_stat_validation.py'
   pull_request:
     paths:
       - 'MoonfallUnreal/**'
       - '.github/workflows/unreal-source-checks.yml'
       - 'tools/test_unreal_loot_collection_safety.py'
+      - 'tools/test_unreal_equipment_stat_validation.py'
 jobs:
   source-check:
     runs-on: ubuntu-latest
@@ -77,10 +79,11 @@ jobs:
           print('Input mapping and combat source checks passed. Unreal compilation NOT performed.')
           PY
 
-      - name: Run Unreal ground loot collection regression
+      - name: Run integrated Unreal equipment and loot regressions
         shell: bash
         run: |
           set -euo pipefail
+          python3 -m unittest discover -s tools -p 'test_unreal_equipment_stat_validation.py' -v
           python3 -m unittest discover -s tools -p 'test_unreal_loot_collection_safety.py' -v
 
       - name: Parse Windows build scripts
