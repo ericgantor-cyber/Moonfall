@@ -143,7 +143,6 @@ void AMoonfallArena::SpawnNextBonusGroup() {
  TArray<FVector> ValidPositions;
  ValidPositions.Reserve(GroupSize);
  FCollisionQueryParams GroundParams(SCENE_QUERY_STAT(MoonfallMobGround), false);
- GroundParams.AddIgnoredActor(this);
  bool bValidGroup = true;
  for (int32 Member = 0; Member < GroupSize; ++Member) {
   const float Angle = 2.f * PI * Member / GroupSize;
