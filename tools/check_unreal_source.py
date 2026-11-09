@@ -333,6 +333,26 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                         craft.index("LastLootUpgrade = (Tier + 1) - PreviousEquippedTier;"))
         self.assertIn("InventoryItemCodes[InventoryIndex] = Code;\n  return false;", craft)
 
+    def test_read_only_ai_equipment_advisor_uses_worn_gear_and_sets(self):
+        self.assertIn("GetRecommendedEquipmentIndex() const;", self.hero_h)
+        self.assertIn("GetEquipmentUpgradeScore(int32 InventoryIndex) const;", self.hero_h)
+        section = self.hero_cpp.split(
+            "int32 AMoonfallHeroPawn::GetEquipmentUpgradeScore(", 1
+        )[1].split("void AMoonfallHeroPawn::EquipBestInventoryAction()", 1)[0]
+        self.assertIn("DecodeEquippedItem(Candidate, Slot, Trait, Rarity, Tier)", section)
+        self.assertIn("DecodeEquippedItem(EquippedCodes[OtherSlot], OtherSlot,", section)
+        self.assertIn("if (OtherSlot == Slot) continue;", section)
+        self.assertIn("ScoredTier * 1000 + ScoredRarity * 100", section)
+        self.assertIn("MatchingPieces == 2 ? 80", section)
+        self.assertIn("MatchingPieces == 1 ? 40", section)
+        self.assertIn("GearScore(Candidate) - GearScore(EquippedCodes[Slot])", section)
+        self.assertIn("if (Candidate == EquippedCodes[Slot]) return 0;", section)
+        self.assertIn("if (Improvement > BestImprovement)", section)
+        self.assertIn("if (!bInventoryOpen || bOptionsOpen || !FMath::IsFinite(Health)", section)
+        for forbidden in ("EquipInventoryItem(", "InventoryItemCodes.Add(",
+                          "InventoryItemCodes.RemoveAt(", "Salvage -=", "EquippedWeaponCode ="):
+            self.assertNotIn(forbidden, section)
+
     def test_equip_best_rejects_nonfinite_health_before_inventory_scan(self):
         equip_best = self.hero_cpp.split(
             "int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()", 1
