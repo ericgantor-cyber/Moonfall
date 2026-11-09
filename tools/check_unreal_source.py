@@ -1877,7 +1877,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("float DivineSignatureRadius = 0.f;", self.enemy_h)
         self.assertIn('const bool bVoidReaper = DivineBossId == FName(TEXT("z_void_reaper"));', enemy)
         self.assertIn('const bool bEclipseQueen = DivineBossId == FName(TEXT("nyra_eclipse_queen"));', enemy)
-        self.assertIn("AttackSequence % 4 == 0", enemy)
+        self.assertIn("AttackSequence % DivineSignatureInterval == 0", enemy)
         self.assertIn("DivineSignatureCenter = bDivineAlternateGeometry", enemy)
         self.assertIn("DivineSignatureRadius = bDivineAlternateGeometry", enemy)
         self.assertIn("CurrentWindup = BossPhase >= 3 ? 1.2f : 1.7f;", enemy)
