@@ -2735,13 +2735,28 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("GetProjectedSetPieceCount(OldAffix, CandidateCode)", body)
         self.assertIn("for (const int32 Threshold : {2, 3, 4, 6, 9})", body)
         self.assertIn("Before >= Threshold && After < Threshold", body)
-        self.assertIn("if (bBreaksSetBonus) continue;", body)
-        self.assertLess(body.index("if (bBreaksSetBonus) continue;"),
+        self.assertIn("if (bBreaksSetBonus) {", body)
+        self.assertIn("if (AlternateIndex >= 0 && EquipInventoryItem(AlternateIndex))", body)
+        self.assertLess(body.index("if (bBreaksSetBonus) {"),
                         body.index("if (EquipInventoryItem(BestIndices[Slot]))"))
         # The automatic safeguard does not alter the deliberate single-slot path.
         manual = self.hero_cpp.split("bool AMoonfallHeroPawn::EquipInventoryItem(int32 InventoryIndex)", 1)[1].split(
             "int32 AMoonfallHeroPawn::GetItemPower(", 1)[0]
         self.assertNotIn("bBreaksSetBonus", manual)
+
+    def test_equip_best_tries_next_same_set_upgrade_instead_of_skipping(self):
+        body = self.hero_cpp.split("int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()", 1)[1].split(
+            "bool AMoonfallHeroPawn::EquipInventoryItem(", 1)[0]
+        fallback = body.split("if (bBreaksSetBonus) {", 1)[1].split(
+            "if (EquipInventoryItem(BestIndices[Slot]))", 1)[0]
+        self.assertIn("int32 AlternateIndex = -1;", fallback)
+        self.assertIn("for (int32 Index = 0; Index < InventoryItemCodes.Num(); ++Index)", fallback)
+        self.assertIn("Code / 100000 != OldAffix", fallback)
+        self.assertIn("GetItemPower(Code) <= 0", fallback)
+        self.assertIn("if (Score > AlternateScore)", fallback)
+        self.assertIn("EquipInventoryItem(AlternateIndex)", fallback)
+        self.assertIn("continue;", fallback)
+        self.assertIn("if (UpgradesEquipped > 0) SaveEquipmentProfile();", body)
 
 if __name__ == "__main__":
     unittest.main()
