@@ -2883,5 +2883,32 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("UpdateWorldCheckpoint(DeltaSeconds);", tick)
         self.assertIn("WorldCheckpointTimer = 16.f;", self.hero_cpp)
 
+    def test_dungeon_entrance_discovery_is_bounded_persistent_and_one_time(self):
+        self.assertIn("static constexpr int32 DungeonZoneCount = 4;", self.hero_h)
+        self.assertIn("static constexpr int32 DungeonsPerZone = 5;", self.hero_h)
+        self.assertIn("bool DiscoverDungeonEntrance(int32 ZoneIndex, int32 DungeonIndex);", self.hero_h)
+        self.assertIn("bool IsDungeonDiscovered(int32 ZoneIndex, int32 DungeonIndex) const;", self.hero_h)
+        discover = self.hero_cpp.split("bool AMoonfallHeroPawn::DiscoverDungeonEntrance(", 1)[1].split(
+            "void AMoonfallHeroPawn::LoadDungeonDiscoveries()", 1)[0]
+        self.assertIn("IsDungeonDiscovered(ZoneIndex, DungeonIndex)", discover)
+        self.assertIn("DungeonDiscoveryMask |= 1u << BitIndex;", discover)
+        self.assertIn("++DiscoveredDungeonCount;", discover)
+        self.assertIn("SaveDungeonDiscoveries();", discover)
+        self.assertIn("AwardExperience(100);", discover)
+        self.assertIn("OnDungeonEntranceDiscovered(ZoneIndex, DungeonIndex);", discover)
+        self.assertLess(discover.index("SaveDungeonDiscoveries();"), discover.index("AwardExperience(100);"))
+        load = self.hero_cpp.split("void AMoonfallHeroPawn::LoadDungeonDiscoveries()", 1)[1].split(
+            "void AMoonfallHeroPawn::SaveDungeonDiscoveries()", 1)[0]
+        self.assertIn('TEXT("Moonfall.Dungeons.V1")', load)
+        self.assertIn("RawMask < 0", load)
+        self.assertIn("DiscoveredDungeonCount = 0;", load)
+        self.assertIn("DungeonDiscoveryMask & (1u << BitIndex)", load)
+        self.assertNotIn("AwardExperience(", load)
+        begin = self.hero_cpp.split("void AMoonfallHeroPawn::BeginPlay()", 1)[1].split(
+            "void AMoonfallHeroPawn::Tick(", 1)[0]
+        self.assertLess(begin.index("LoadExplorationProfile();"), begin.index("LoadDungeonDiscoveries();"))
+        self.assertLess(begin.index("LoadDungeonDiscoveries();"), begin.index("LoadWorldCheckpoint();"))
+        self.assertIn('TEXT("DUNGEONS | %d / %d entrances found  |  5 per zone")', self.hud)
+
 if __name__ == "__main__":
     unittest.main()
