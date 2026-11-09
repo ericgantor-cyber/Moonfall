@@ -568,6 +568,10 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   NextPathRefreshAt = 0.f;
   return;
  }
+ // Each divine phase compresses the signature cycle without shortening
+ // its existing readable warning. Phase 1: fourth attack, phase 2: third,
+ // phase 3: every second attack. Shared by range eligibility and selection.
+ const int32 DivineSignatureInterval = BossPhase >= 3 ? 2 : (BossPhase == 2 ? 3 : 4);
  // Divine bosses can begin their distinct marked-area signature from a
  // measured spell range. Only the next scheduled signature is eligible:
  // normal blows, other bosses, elites and ordinary mobs remain melee-only.
@@ -575,7 +579,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
  const bool bDivineSignatureDue = bBoss
    && (DivineBossId == FName(TEXT("z_void_reaper"))
        || DivineBossId == FName(TEXT("nyra_eclipse_queen")))
-   && AttackSequence % 4 == 3;
+   && AttackSequence % DivineSignatureInterval == DivineSignatureInterval - 1;
  const bool bDivineRangedCastCandidate = bDivineSignatureDue
    && WindupEndsAt < 0.f && Now >= NextAttackAt
    && Distance > AttackRange && Distance <= 750.f;
@@ -777,13 +781,13 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
    } else if (BossSpecialMove == 5) { // Aerial-style slam, grounded hit resolution.
     CurrentWindup = 1.5f; CurrentAttackMultiplier = 2.2f; CurrentAttackRangeMultiplier = 1.35f;
    }
-   // Every fourth divine attack replaces the generic pattern with a
-   // distinct readable hazard. No new actors or per-frame allocations.
+   // Each phase uses its shared, progressively tighter divine attack cycle.
+   // No new actors, timers, animation allocations or pathfinding queries.
    bDivineSignatureActive = false;
    bDivineAlternateGeometry = false;
    const bool bVoidReaper = DivineBossId == FName(TEXT("z_void_reaper"));
    const bool bEclipseQueen = DivineBossId == FName(TEXT("nyra_eclipse_queen"));
-   if (bBoss && (bVoidReaper || bEclipseQueen) && AttackSequence % 4 == 0) {
+   if (bBoss && (bVoidReaper || bEclipseQueen) && AttackSequence % DivineSignatureInterval == 0) {
     bDivineSignatureActive = true;
     BossSpecialMove = 0;
     // Use the number of *resolved* signatures, not attempted windups.
