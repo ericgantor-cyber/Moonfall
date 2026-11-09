@@ -334,6 +334,7 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("Jump"), IE_Released, this, &ACharacter::StopJumping);
  Input->BindAction(TEXT("CastLeft"), IE_Pressed, this, &AMoonfallHeroPawn::CastLeft);
  Input->BindAction(TEXT("CastRight"), IE_Pressed, this, &AMoonfallHeroPawn::CastRight);
+ Input->BindAction(TEXT("RightClickContext"), IE_Pressed, this, &AMoonfallHeroPawn::RightClickContextAction);
  Input->BindAction(TEXT("DualCast"), IE_Pressed, this, &AMoonfallHeroPawn::CastBoth);
  Input->BindAction(TEXT("Dodge"), IE_Pressed, this, &AMoonfallHeroPawn::Dodge);
  Input->BindAction(TEXT("Sprint"), IE_Pressed, this, &AMoonfallHeroPawn::BeginSprint);
@@ -523,15 +524,18 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
 void AMoonfallHeroPawn::CastLeft() { if (bOptionsOpen) return; TryCast(LeftSpell, 0, 1.f); }
 void AMoonfallHeroPawn::CastRight()
 {
+ // Keyboard and controller right-hand cast input must never equip gear.
+ // Gamepad RB is also bound to forging while inventory is open.
+ if (bOptionsOpen || bInventoryOpen) return;
+ TryCast(RightSpell, 1, 1.f);
+}
+void AMoonfallHeroPawn::RightClickContextAction()
+{
+ // Only the physical right mouse button equips from inventory.
+ // Controller shoulder buttons keep combat/forge behavior separate.
  if (bOptionsOpen) return;
- // Right mouse click equips the selected bag item while inventory is open.
- // The same input keeps its normal right-hand spell outside inventory.
- // EquipSelectedInventoryItem enforces the read-only character sheet and
- // EquipInventoryItem validates the item and hero state.
  if (bInventoryOpen) {
   if (bCharacterStatsOpen) return;
-  // When a pointer is available, right-click the visible row under it.
-  // Off-row clicks retain the existing selected-entry equip shortcut.
   if (APlayerController* Controller = Cast<APlayerController>(GetController())) {
    if (AMoonfallCombatHUD* HUD = Cast<AMoonfallCombatHUD>(Controller->GetHUD())) {
     float MouseX = 0.f, MouseY = 0.f;
