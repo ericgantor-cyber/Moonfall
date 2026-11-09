@@ -549,7 +549,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         dual = self.hero_cpp.split("void AMoonfallHeroPawn::CastBoth()", 1)[1].split(
             "void AMoonfallHeroPawn::BreakGuard()", 1
         )[0]
-        self.assertIn("bOptionsOpen || bInventoryOpen || !FMath::IsFinite(Health)", dual)
+        self.assertIn("bOptionsOpen || bInventoryOpen || bAtlasOpen || !FMath::IsFinite(Health)", dual)
         self.assertLess(dual.index("bInventoryOpen"), dual.index("GetWorld()->GetTimeSeconds()"))
         self.assertIn("Left-click: select", self.hud)
         self.assertIn('ActionName="Atlas",Key=J', inputs)
@@ -1368,7 +1368,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         for axis in ("MoveForward", "MoveRight"):
             body = controls.split(f"void AMoonfallHeroPawn::{axis}(float Value)", 1)[1].split(
                 "}", 1)[0]
-            self.assertIn("Health <= 0.f || bOptionsOpen || bInventoryOpen || !FMath::IsFinite(Value)", body)
+            self.assertIn("Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || !FMath::IsFinite(Value)", body)
         for axis, call in (("Turn", "AddControllerYawInput"), ("LookUp", "AddControllerPitchInput")):
             self.assertIn(f"void AMoonfallHeroPawn::{axis}(float Value) {{ if (Health > 0.f && !bOptionsOpen && !bInventoryOpen && FMath::IsFinite(Value)) {call}(Value); }}", controls)
 
