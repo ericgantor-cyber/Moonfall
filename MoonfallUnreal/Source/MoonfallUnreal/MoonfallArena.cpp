@@ -211,7 +211,7 @@ void AMoonfallArena::SpawnNextBonusGroup() {
  for (int32 Member = 0; Member < GroupSize; ++Member) {
   // Different biomes give packs different readable silhouettes.
   // Keep all formation geometry safely inside the arena perimeter.
-  const float Angle = 2.f * PI * Member / GroupSize + 0.17f * TerrainPlacementAttempts;
+  const float Angle = 2.f * PI * Member / GroupSize;
   FVector Offset;
   if (FormationShape == 1) {
    Offset = FVector(MemberRadius * FMath::Cos(Angle),
@@ -288,7 +288,10 @@ void AMoonfallArena::SpawnNextBonusGroup() {
    Enemy->Tags.AddUnique(FName(TEXT("DungeonPackLeader")));
   }
   UGameplayStatics::FinishSpawningActor(Enemy, EnemyTransform);
-  if (!IsValid(Enemy) || Enemy->IsActorBeingDestroyed()) break;
+  if (!IsValid(Enemy) || Enemy->IsActorBeingDestroyed()) {
+   if (IsValid(Enemy)) Enemy->Destroy();
+   break;
+  }
   Spawned.Add(Enemy);
  }
  if (Spawned.Num() != GroupSize) {
