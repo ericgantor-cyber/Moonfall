@@ -12,6 +12,9 @@ public:
  UPROPERTY(EditAnywhere, Category="Dungeon") int32 EnemyCount = 5;
  // Explicit dungeon designation. Open-world zone arenas never run the 5-11 bonus-pack rule.
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Dungeon|Spawning") bool bIsDungeonEncounter = false;
+ // Read-only counters useful for HUDs, debugging, and dungeon regression tests.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Dungeon|Spawning") int32 BonusGroupsSpawned = 0;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Dungeon|Spawning") int32 BonusMobsSpawned = 0;
  // Arena preset only; this does not create a streamed open-world biome system.
  // Profiles: Forest, Cave, Foundry, Swamp, Desert, Tundra, Volcanic,
  // Ruins, Crypt, Coast, Highlands, Eclipse. Unknown names fall back to Forest.
