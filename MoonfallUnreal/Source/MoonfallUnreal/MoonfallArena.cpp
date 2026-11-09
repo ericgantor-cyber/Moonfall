@@ -132,12 +132,32 @@ void AMoonfallArena::SpawnNextBonusGroup() {
  }
  // Three widely separated groups, with terrain projected individually.
  // Validate ALL group members before spawning to avoid partial packs.
- // Space packs based on available room style, without modifying their stats.
- // Compact caves require tighter packs; Foundry packs use more of the arena.
- const bool bCaveBiome = SpawnBiome == FName(TEXT("Cave"));
- const bool bFoundryBiome = SpawnBiome == FName(TEXT("Foundry"));
- const float GroupCenterRadius = bCaveBiome ? 780.f : (bFoundryBiome ? 1030.f : 950.f);
- const float MemberRadius = bCaveBiome ? 175.f : (bFoundryBiome ? 260.f : 230.f);
+ // Biome-inspired formation profiles only, not new terrain/maps or enemy assets.
+ // Keep the whole cluster within the existing arena footprint.
+ struct FSpawnFormation { const TCHAR* Name; float CenterRadius; float MemberRadius; };
+ static const FSpawnFormation Profiles[] = {
+  {TEXT("Forest"), 950.f, 230.f},
+  {TEXT("Cave"), 780.f, 175.f},
+  {TEXT("Foundry"), 1030.f, 260.f},
+  {TEXT("Swamp"), 820.f, 210.f},
+  {TEXT("Desert"), 1080.f, 245.f},
+  {TEXT("Tundra"), 1060.f, 230.f},
+  {TEXT("Volcanic"), 900.f, 190.f},
+  {TEXT("Ruins"), 860.f, 205.f},
+  {TEXT("Crypt"), 760.f, 170.f},
+  {TEXT("Coast"), 1010.f, 220.f},
+  {TEXT("Highlands"), 980.f, 200.f},
+  {TEXT("Eclipse"), 920.f, 250.f}
+ };
+ float GroupCenterRadius = Profiles[0].CenterRadius;
+ float MemberRadius = Profiles[0].MemberRadius;
+ for (const FSpawnFormation& Profile : Profiles) {
+  if (SpawnBiome == FName(Profile.Name)) {
+   GroupCenterRadius = Profile.CenterRadius;
+   MemberRadius = Profile.MemberRadius;
+   break;
+  }
+ }
  constexpr float SpawnHeight = 90.f;
  constexpr float MinPlayerDistance = 550.f;
  // Rotate the candidate cluster each retry to explore different viable ground.
