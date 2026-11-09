@@ -4,7 +4,6 @@
 #include "MoonfallDungeonLayout.h"
 #include "MoonfallCombatHUD.h"
 #include "Engine/World.h"
-#include "Kismet/GameplayStatics.h"
 AMoonfallUnrealGameMode::AMoonfallUnrealGameMode()
 {
  DefaultPawnClass = AMoonfallHeroPawn::StaticClass();
