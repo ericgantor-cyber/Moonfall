@@ -10,6 +10,8 @@ public:
  AMoonfallArena();
  virtual void BeginPlay() override;
  UPROPERTY(EditAnywhere, Category="Dungeon") int32 EnemyCount = 5;
+ // Explicit dungeon designation. Open-world zone arenas never run the 5-11 bonus-pack rule.
+ UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Dungeon|Spawning") bool bIsDungeonEncounter = false;
  // Arena preset only; this does not create a streamed open-world biome system.
  // Profiles: Forest, Cave, Foundry, Swamp, Desert, Tundra, Volcanic,
  // Ruins, Crypt, Coast, Highlands, Eclipse. Unknown names fall back to Forest.
