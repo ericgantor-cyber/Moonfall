@@ -19,6 +19,10 @@ public:
  virtual void Tick(float DeltaSeconds) override;
  // Original Moonfall set themes use existing Force/Ward/Focus traits
  // on three equipped slots. No changes to encoded item IDs or saved gear.
+ // 0 Weapon, 1 Armor, 2 Accessory retain their original storage.
+ // 3 Head, 4 Shoulders, 5 Chest, 6 Hands, 7 Legs, 8 Boots.
+ UFUNCTION(BlueprintPure, Category="Moonfall|Equipment") int32 GetEquippedCodeForSlot(int32 Slot) const;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Equipment") TArray<int32> ExtraEquippedCodes = {0,0,0,0,0,0};
  UFUNCTION(BlueprintPure, Category="Moonfall|Equipment|Sets") int32 GetSetPieceCount(int32 Affix) const;
  // Derived primary attributes, no additional persistent save schema.
  // A deterministic, bounded comparison score, not an additional saved stat.

@@ -57,7 +57,8 @@ void AMoonfallCombatHUD::DrawHUD()
     const float R = L + ColumnWidth + ColumnGap;
     const float BodyTop = Top + 91.f;
     const float TextScale = Canvas->SizeX < 900.f ? 0.69f : 0.79f;
-    const TCHAR* SlotNames[] = {TEXT("WEAPON"), TEXT("ARMOR"), TEXT("ACCESSORY")};
+    const TCHAR* SlotNames[] = {TEXT("WEAPON"), TEXT("ARMOR"), TEXT("ACCESSORY"),
+      TEXT("HEAD"), TEXT("SHOULDERS"), TEXT("CHEST"), TEXT("HANDS"), TEXT("LEGS"), TEXT("BOOTS")};
     const TCHAR* Qualities[] = {TEXT("COMMON"), TEXT("UNCOMMON"), TEXT("RARE"),
       TEXT("EPIC"), TEXT("EMERALD"), TEXT("LEGENDARY")};
     const TCHAR* Traits[] = {TEXT("PLAIN"), TEXT("FORCE"), TEXT("WARD"), TEXT("FOCUS")};
@@ -67,31 +68,30 @@ void AMoonfallCombatHUD::DrawHUD()
       FLinearColor(1.f,0.55f,0.16f)};
     DrawText(FString::Printf(TEXT("GEAR POWER %d"), Hero->GetEquipmentPower()),
       FLinearColor(0.95f,0.86f,0.58f), L, BodyTop, nullptr, 1.02f);
-    const int32 EquippedCodes[3] = {Hero->EquippedWeaponCode, Hero->EquippedArmorCode,
-      Hero->EquippedAccessoryCode};
-    for (int32 Slot = 0; Slot < 3; ++Slot) {
-     const int32 Code = EquippedCodes[Slot];
+    
+    for (int32 Slot = 0; Slot < 9; ++Slot) {
+     const int32 Code = Hero->GetEquippedCodeForSlot(Slot);
      const int32 ItemPower = Hero->GetItemPower(Code);
-     const float Y = BodyTop + 29.f + Slot * 66.f;
+     const float Y = BodyTop + 29.f + Slot * 31.f;
      DrawRect(FLinearColor(0.10f,0.11f,0.19f,0.96f),
-       L, Y, ColumnWidth, 59.f);
+       L, Y, ColumnWidth, 28.f);
      DrawText(SlotNames[Slot], FLinearColor(0.79f,0.83f,0.96f),
-       L + 9.f, Y + 5.f, nullptr, 0.70f);
+       L + 9.f, Y + 9.f, nullptr, 0.68f);
      if (ItemPower <= 0) {
       DrawText(TEXT("EMPTY SLOT"), FLinearColor(0.62f,0.67f,0.77f),
-       L + 9.f, Y + 26.f, nullptr, 0.82f);
+       L + 9.f, Y + 13.f, nullptr, 0.72f);
      } else {
       const int32 Tier = Code % 1000;
       const int32 Rarity = (Code / 1000) % 10;
       const int32 Affix = Code / 100000;
       DrawText(FString::Printf(TEXT("%s T%d  %s"), Qualities[Rarity], Tier, Traits[Affix]),
-        QualityColors[Rarity], L + 9.f, Y + 24.f, nullptr, TextScale);
+        QualityColors[Rarity], L + 88.f, Y + 7.f, nullptr, 0.65f);
       DrawText(FString::Printf(TEXT("%d POWER"), ItemPower),
         FLinearColor(0.88f,0.91f,1.f),
-        L + ColumnWidth * 0.58f, Y + 5.f, nullptr, 0.65f);
+        L + ColumnWidth * 0.78f, Y + 7.f, nullptr, 0.58f);
      }
     }
-    const float LeftStatsY = BodyTop + 236.f;
+    const float LeftStatsY = BodyTop + 318.f;
     DrawText(TEXT("PRIMARY ATTRIBUTES"), FLinearColor(0.52f,0.91f,0.76f),
       L, LeftStatsY, nullptr, 0.90f);
     DrawText(FString::Printf(TEXT("Might %d   Insight %d   Resolve %d"),
@@ -134,16 +134,16 @@ void AMoonfallCombatHUD::DrawHUD()
       TEXT("3pc: +6% mana regen")};
     for (int32 S = 0; S < 3; ++S) {
      const float Y = BodyTop + 207.f + S * 52.f;
-     DrawText(FString::Printf(TEXT("%s %d/3"), SetNames[S], SetCounts[S]),
+     DrawText(FString::Printf(TEXT("%s %d/9"), SetNames[S], SetCounts[S]),
        SetCounts[S] >= 2 ? FLinearColor(0.53f,0.95f,0.74f)
                          : FLinearColor(0.77f,0.79f,0.86f),
        R, Y, nullptr, 0.75f);
      // Three-segment progress marker remains readable without changing
      // equipped gear or the save format.
-     for (int32 Piece = 0; Piece < 3; ++Piece) {
+     for (int32 Piece = 0; Piece < 9; ++Piece) {
       DrawRect(Piece < SetCounts[S] ? FLinearColor(0.31f,0.92f,0.63f)
                                    : FLinearColor(0.28f,0.29f,0.37f),
-       R + 7.f + Piece * 17.f, Y + 21.f, 13.f, 5.f);
+       R + 7.f + Piece * 8.f, Y + 21.f, 6.f, 5.f);
      }
      DrawText(SetTwo[S],
        SetCounts[S] >= 2 ? FLinearColor::White : FLinearColor(0.55f,0.58f,0.65f),
@@ -151,6 +151,12 @@ void AMoonfallCombatHUD::DrawHUD()
      DrawText(SetThree[S],
        SetCounts[S] >= 3 ? FLinearColor::White : FLinearColor(0.55f,0.58f,0.65f),
        R + 95.f, Y + 19.f, nullptr, 0.68f);
+     const TCHAR* Later[] = {TEXT("4pc +2% crit   6/9pc +mastery"),
+       TEXT("4pc +2% vers   6/9pc +armor"),
+       TEXT("4pc +2% haste   6/9pc +regen")};
+     DrawText(Later[S], SetCounts[S] >= 4
+       ? FLinearColor(0.64f,0.95f,0.77f) : FLinearColor(0.56f,0.59f,0.68f),
+       R + 95.f, Y + 36.f, nullptr, 0.56f);
     }
     DrawText(TEXT("P / A: back to inventory    I / Select / Esc: close"),
       FLinearColor(0.81f,0.83f,0.97f), Left + 18.f,
@@ -183,11 +189,11 @@ void AMoonfallCombatHUD::DrawHUD()
      FString::Printf(TEXT("Accessory: %s  |  +2.5%% haste"),
        Hero->HasLegendaryPerk(2) ? TEXT("ACTIVE") : TEXT("LOCKED")),
      TEXT("EQUIPMENT SET BONUSES"),
-     FString::Printf(TEXT("Force %d/3: 2pc +3%% crit; 3pc +4%% mastery"),
+     FString::Printf(TEXT("Force %d/9: 2pc +3%% crit; 3pc +4%% mastery"),
        Hero->GetSetPieceCount(1)),
-     FString::Printf(TEXT("Ward %d/3: 2pc +3%% vers; 3pc +2.5%% protection"),
+     FString::Printf(TEXT("Ward %d/9: 2pc +3%% vers; 3pc +2.5%% protection"),
        Hero->GetSetPieceCount(2)),
-     FString::Printf(TEXT("Focus %d/3: 2pc +4%% haste; 3pc +6%% mana regen"),
+     FString::Printf(TEXT("Focus %d/9: 2pc +4%% haste; 3pc +6%% mana regen"),
        Hero->GetSetPieceCount(3))
    };
    for (int32 Row = 0; Row < UE_ARRAY_COUNT(CharacterLines); ++Row)
@@ -220,12 +226,12 @@ void AMoonfallCombatHUD::DrawHUD()
    const int32 Slot = (Code / 10000) % 10;
    const int32 Rarity = (Code / 1000) % 10;
    const int32 Tier = Code % 1000;
-   const TCHAR* Slots[] = {TEXT("Weapon"), TEXT("Armor"), TEXT("Accessory")};
+   const TCHAR* Slots[] = {TEXT("Weapon"), TEXT("Armor"), TEXT("Accessory"),
+    TEXT("Head"), TEXT("Shoulders"), TEXT("Chest"), TEXT("Hands"), TEXT("Legs"), TEXT("Boots")};
    const TCHAR* Rarities[] = {TEXT("Common"), TEXT("Uncommon"), TEXT("Rare"), TEXT("Epic"), TEXT("Emerald"), TEXT("Legendary")};
    const TCHAR* Traits[] = {TEXT("None"), TEXT("Force"), TEXT("Ward"), TEXT("Focus")};
    const bool bValid = Hero->GetItemPower(Code) > 0;
-   const bool bEquipped = Code == (Slot == 0 ? Hero->EquippedWeaponCode
-     : Slot == 1 ? Hero->EquippedArmorCode : Hero->EquippedAccessoryCode);
+   const bool bEquipped = bValid && Code == Hero->GetEquippedCodeForSlot(Slot);
    const float Y = Top + 145.f + (Index - PageStart) * RowSpacing;
    if (Index == Selected) DrawRect(FLinearColor(0.25f,0.18f,0.43f,0.90f),
      Left + 12.f, Y - 3.f, PanelWidth - 24.f, RowSpacing - 3.f);
@@ -270,7 +276,7 @@ void AMoonfallCombatHUD::DrawHUD()
   const int32 ForcePieces = Hero->GetSetPieceCount(1);
   const int32 WardPieces = Hero->GetSetPieceCount(2);
   const int32 FocusPieces = Hero->GetSetPieceCount(3);
-  DrawText(FString::Printf(TEXT("Sets: Force %d/3  Ward %d/3  Focus %d/3    2pc + 3pc unlock bonuses"),
+  DrawText(FString::Printf(TEXT("Sets: Force %d/9  Ward %d/9  Focus %d/9    2/3/4/6/9pc bonuses"),
     ForcePieces, WardPieces, FocusPieces), FLinearColor(0.59f,0.95f,0.77f),
     Left + 18.f, Top + 113.f, nullptr, Canvas->SizeX < 900.f ? 0.61f : 0.72f);
   DrawText(TEXT("WASD / D-pad: select   Enter / Y: equip   Delete / X: salvage"),
@@ -284,20 +290,20 @@ void AMoonfallCombatHUD::DrawHUD()
    const int32 SelectedSlot = (SelectedCode / 10000) % 10;
    const int32 SelectedAffix = SelectedCode / 100000;
    const bool bForgeable = SelectedCode > 0 && SelectedTier >= 1 && SelectedTier < 25
-     && SelectedSlot >= 0 && SelectedSlot <= 2
+     && SelectedSlot >= 0 && SelectedSlot <= 8
      && SelectedRarity >= 0 && SelectedRarity <= 5
      && SelectedAffix >= 0 && SelectedAffix <= 3
      && (SelectedRarity != 0 || SelectedAffix == 0)
      && SelectedCode == SelectedAffix * 100000 + SelectedSlot * 10000
        + SelectedRarity * 1000 + SelectedTier;
    const bool bAscendable = SelectedCode > 0 && SelectedTier >= 1 && SelectedTier <= 25
-     && SelectedSlot >= 0 && SelectedSlot <= 2 && SelectedRarity >= 0 && SelectedRarity < 5
+     && SelectedSlot >= 0 && SelectedSlot <= 8 && SelectedRarity >= 0 && SelectedRarity < 5
      && SelectedAffix >= 0 && SelectedAffix <= 3
      && (SelectedRarity != 0 || SelectedAffix == 0)
      && SelectedCode == SelectedAffix * 100000 + SelectedSlot * 10000
        + SelectedRarity * 1000 + SelectedTier;
    const bool bReforgeable = SelectedCode > 0 && SelectedTier >= 1 && SelectedTier <= 25
-     && SelectedSlot >= 0 && SelectedSlot <= 2 && SelectedRarity >= 2 && SelectedRarity <= 5
+     && SelectedSlot >= 0 && SelectedSlot <= 8 && SelectedRarity >= 2 && SelectedRarity <= 5
      && SelectedAffix >= 0 && SelectedAffix <= 3
      && SelectedCode == SelectedAffix * 100000 + SelectedSlot * 10000
        + SelectedRarity * 1000 + SelectedTier;
@@ -310,7 +316,7 @@ void AMoonfallCombatHUD::DrawHUD()
     for (int32 Affix = 1; Affix <= 3; ++Affix) {
      const int32 Before = Hero->GetSetPieceCount(Affix);
      const int32 After = Hero->GetProjectedSetPieceCount(Affix, SelectedCode);
-     for (int32 Threshold = 2; Threshold <= 3; ++Threshold) {
+     for (const int32 Threshold : {2, 3, 4, 6, 9}) {
       const bool Gained = Before < Threshold && After >= Threshold;
       const bool Lost = Before >= Threshold && After < Threshold;
       if (Gained || Lost) {
@@ -322,21 +328,20 @@ void AMoonfallCombatHUD::DrawHUD()
     }
     if (Milestones.IsEmpty()) Milestones = TEXT("No set milestones changed");
     // Report the nearest incomplete milestone for each affected set.
-    // A completed 3/3 set is MAX, not an invented 4-piece unlock.
+    // Complete 9/9 sets are MAX; preview the next valid threshold.
     const int32 CandidateAffix = SelectedCode / 100000;
-    const int32 CurrentCode = SelectedSlot == 0 ? Hero->EquippedWeaponCode
-      : SelectedSlot == 1 ? Hero->EquippedArmorCode : Hero->EquippedAccessoryCode;
+    const int32 CurrentCode = Hero->GetEquippedCodeForSlot(SelectedSlot);
     const int32 ReplacedAffix = Hero->GetItemPower(CurrentCode) > 0
       ? CurrentCode / 100000 : 0;
     FString NextBonus;
     for (int32 Affix = 1; Affix <= 3; ++Affix) {
      if (Affix != CandidateAffix && Affix != ReplacedAffix) continue;
      const int32 After = Hero->GetProjectedSetPieceCount(Affix, SelectedCode);
-     const int32 Target = After < 2 ? 2 : 3;
+     const int32 Target = After < 2 ? 2 : (After < 4 ? 4 : (After < 6 ? 6 : 9));
      if (!NextBonus.IsEmpty()) NextBonus += TEXT("  |  ");
      NextBonus += FString::Printf(TEXT("%s: %s"),
        SetNames[Affix - 1],
-       After == 3 ? TEXT("MAX 3/3") :
+       After == 9 ? TEXT("MAX 9/9") :
        *FString::Printf(TEXT("%d more for %dpc"), Target - After, Target));
     }
     if (NextBonus.IsEmpty()) NextBonus = TEXT("No set progress change");
@@ -354,7 +359,7 @@ void AMoonfallCombatHUD::DrawHUD()
     DrawText(FString::Printf(TEXT("Next bonus: %s"), *NextBonus),
       FLinearColor(0.77f,0.94f,0.84f), Left + 18.f,
       Top + PanelHeight - 239.f, nullptr, 0.67f);
-    DrawText(FString::Printf(TEXT("After equip: Force %d/3  Ward %d/3  Focus %d/3"),
+    DrawText(FString::Printf(TEXT("After equip: Force %d/9  Ward %d/9  Focus %d/9"),
          Hero->GetProjectedSetPieceCount(1, SelectedCode),
          Hero->GetProjectedSetPieceCount(2, SelectedCode),
          Hero->GetProjectedSetPieceCount(3, SelectedCode)),
