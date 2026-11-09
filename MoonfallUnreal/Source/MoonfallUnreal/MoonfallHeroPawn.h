@@ -137,9 +137,6 @@ public:
  // Force/Ward/Focus set synergy. It never equips, salvages or changes saves.
  // Returns -1 if there is no strictly better inventory choice.
  UFUNCTION(BlueprintPure, Category="Moonfall|Equipment|Advisor") int32 GetRecommendedEquipmentIndex() const;
- // Jumps the inventory cursor to the suggested item, including another page.
- // Selection only: no equipping, forging, salvage or character-stat changes.
- UFUNCTION(BlueprintCallable, Category="Moonfall|Equipment|Advisor") bool SelectRecommendedEquipment();
  // A positive score means the specified bag item improves its own worn slot.
  // Zero or negative means keep the current gear; invalid indices return 0.
  UFUNCTION(BlueprintPure, Category="Moonfall|Equipment|Advisor") int32 GetEquipmentUpgradeScore(int32 InventoryIndex) const;
