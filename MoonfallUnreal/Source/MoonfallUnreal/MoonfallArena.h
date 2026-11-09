@@ -15,6 +15,10 @@ public:
  // Read-only counters useful for HUDs, debugging, and dungeon regression tests.
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Dungeon|Spawning") int32 BonusGroupsSpawned = 0;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Dungeon|Spawning") int32 BonusMobsSpawned = 0;
+ // Skyrim/Fallout-style first-entry dungeon level. Captured only once.
+ UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Dungeon|Spawning", meta=(ClampMin="1", ClampMax="100")) int32 MinimumDungeonLevel = 1;
+ UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Dungeon|Spawning", meta=(ClampMin="1", ClampMax="100")) int32 MaximumDungeonLevel = 100;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Dungeon|Spawning") int32 LockedDungeonLevel = 0;
  // Arena preset only; this does not create a streamed open-world biome system.
  // Profiles: Forest, Cave, Foundry, Swamp, Desert, Tundra, Volcanic,
  // Ruins, Crypt, Coast, Highlands, Eclipse. Unknown names fall back to Forest.
