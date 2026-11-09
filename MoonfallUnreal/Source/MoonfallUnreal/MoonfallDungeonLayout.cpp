@@ -75,6 +75,10 @@ void AMoonfallDungeonLayout::OnConstruction(const FTransform& Transform)
    Walls->AddInstance(FTransform(FRotator::ZeroRotator,
      FVector(X, Side * 315.f, 150.f), FVector(0.4f, 2.7f, 3.f)));
  }
+ // Cap the final arena; no accidental fall-through into unbuilt terrain.
+ Walls->AddInstance(FTransform(FRotator::ZeroRotator,
+    FVector((ChamberCount - 0.5f) * ChamberLength, 0.f, 150.f),
+    FVector(0.4f, ChamberWidth / 100.f, 3.f)));
 }
 
 void AMoonfallDungeonLayout::BeginPlay()
