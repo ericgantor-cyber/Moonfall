@@ -354,6 +354,33 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("LT: equip best", self.hud)
         self.assertNotIn("B / LT: equip best", self.hud)
 
+    def test_menu_keys_switch_directly_without_overlap_or_unwanted_equips(self):
+        atlas = self.hero_cpp.split("void AMoonfallHeroPawn::ToggleAtlas()", 1)[1].split(
+            "void AMoonfallHeroPawn::ToggleInventory()", 1
+        )[0]
+        inventory = self.hero_cpp.split("void AMoonfallHeroPawn::ToggleInventory()", 1)[1].split(
+            "void AMoonfallHeroPawn::EquipSelectedInventoryItem()", 1
+        )[0]
+        character = self.hero_cpp.split("void AMoonfallHeroPawn::ToggleCharacterStats()", 1)[1].split(
+            "void AMoonfallHeroPawn::UpdateInventoryMouseMode()", 1
+        )[0]
+        self.assertIn("if (bInventoryOpen)", atlas)
+        self.assertIn("bInventoryOpen = false;", atlas)
+        self.assertIn("bCharacterStatsOpen = false;", atlas)
+        self.assertIn("if (bAtlasOpen) bAtlasOpen = false;", inventory)
+        self.assertIn("if (bCharacterStatsOpen)", inventory)
+        self.assertIn("bCharacterStatsOpen = false;", inventory)
+        self.assertLess(inventory.index("if (bCharacterStatsOpen)"),
+                        inventory.index("bInventoryOpen = !bInventoryOpen;"))
+        self.assertIn("if (bAtlasOpen) bAtlasOpen = false;", character)
+        self.assertIn("UpdateInventoryMouseMode();", atlas)
+        self.assertIn("UpdateInventoryMouseMode();", inventory)
+        for body in (atlas, inventory, character):
+            self.assertIn("ResetMouseCastChord();", body)
+            for forbidden in ("EquipInventoryItem(", "SalvageInventoryItem(",
+                              "TryCast(", "Mana -="):
+                self.assertNotIn(forbidden, body)
+
     def test_j_toggles_atlas_not_gear_selection(self):
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
         self.assertIn('ActionName="Atlas",Key=J', inputs)
@@ -365,7 +392,10 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         toggle = self.hero_cpp.split("void AMoonfallHeroPawn::ToggleAtlas()", 1)[1].split(
             "void AMoonfallHeroPawn::ToggleInventory()", 1
         )[0]
-        self.assertIn("bOptionsOpen || bInventoryOpen", toggle)
+        self.assertIn("bOptionsOpen", toggle)
+        self.assertIn("if (bInventoryOpen)", toggle)
+        self.assertIn("bCharacterStatsOpen = false;", toggle)
+        self.assertIn("UpdateInventoryMouseMode();", toggle)
         self.assertIn("!FMath::IsFinite(Health) || Health <= 0.f", toggle)
         self.assertIn("ResetMouseCastChord();", toggle)
         self.assertIn("EndSprint();", toggle)
@@ -750,7 +780,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         toggle = self.hero_cpp.split("void AMoonfallHeroPawn::ToggleCharacterStats()", 1)[1].split(
             "void AMoonfallHeroPawn::UpdateInventoryMouseMode()", 1
         )[0]
-        self.assertIn("bOptionsOpen || bAtlasOpen", toggle)
+        self.assertIn("if (bAtlasOpen) bAtlasOpen = false;", toggle)
         self.assertIn("!FMath::IsFinite(Health) || Health <= 0.f", toggle)
         self.assertIn("if (!bInventoryOpen)", toggle)
         self.assertIn("ResetMouseCastChord();", toggle)
