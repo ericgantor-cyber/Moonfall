@@ -1799,12 +1799,25 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("ActiveDivineMoveId = NAME_None;", self.enemy_cpp)
         self.assertLess(self.enemy_cpp.index("OnDivineAttackResolved("), self.enemy_cpp.index("if (bWithinDivineMarker || bWithinBasicAttack)"))
 
+    def test_divine_alternation_only_advances_after_completed_cast(self):
+        enemy = self.enemy_cpp
+        impact = enemy.split("if (bDivineSignatureActive) {\\n   const FName ResolvedMove", 1)[1]
+        selection = enemy.split("// Use the number of *resolved* signatures", 1)[1]
+        self.assertIn("DivineSignatureCastCount = FMath::Min(DivineSignatureCastCount + 1, 100000);", impact)
+        self.assertLess(impact.index("DivineSignatureCastCount = FMath::Min("),
+                        impact.index("OnDivineAttackResolved("))
+        self.assertIn("DivineSignatureCastCount % 2 == 1;", selection)
+        self.assertNotIn("++DivineSignatureCastCount;", selection)
+        interruption = enemy.split("void AMoonfallEnemy::CancelDivineSignature() {", 1)[1].split("\\n}", 1)[0]
+        self.assertNotIn("DivineSignatureCastCount + 1", interruption)
+        self.assertIn("DivineSignatureCastCount = 0;", enemy)
+
     def test_phase_three_divine_attacks_alternate_locked_mark_geometries(self):
         enemy = self.enemy_cpp
         self.assertIn("bool bDivineAlternateGeometry = false;", self.enemy_h)
         self.assertIn("int32 DivineSignatureCastCount = 0;", self.enemy_h)
-        self.assertIn("++DivineSignatureCastCount;", enemy)
-        self.assertIn("BossPhase >= 3 && DivineSignatureCastCount % 2 == 0", enemy)
+        self.assertIn("DivineSignatureCastCount = FMath::Min(DivineSignatureCastCount + 1, 100000);", enemy)
+        self.assertIn("BossPhase >= 3 && DivineSignatureCastCount % 2 == 1", enemy)
         self.assertIn("bVoidReaper ? GetActorLocation() : HeroPosition", enemy)
         self.assertIn("bVoidReaper ? HeroPosition : GetActorLocation()", enemy)
         self.assertIn("bVoidReaper ? 440.f : 350.f", enemy)
