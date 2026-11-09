@@ -87,6 +87,13 @@ public:
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Dungeon|Rewards")
  void OnTreasureDropped(AMoonfallHeroPawn* Hero, int32 ChamberIndex);
  void MarkTreasureCollected(int32 ChamberIndex, const AMoonfallGroundLoot* Loot);
+ // Combat chambers spawn only when first entered, not continuously in waves.
+ UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Dungeon|Combat",
+   meta=(ClampMin="1", ClampMax="2"))
+ int32 EnemiesPerCombatChamber = 2;
+ UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Dungeon|Combat")
+ void OnChamberEncounterSpawned(AMoonfallHeroPawn* Hero, int32 ChamberIndex,
+                                 int32 SpawnedCount, bool bEliteEncounter);
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Dungeon")
  TArray<TObjectPtr<UBoxComponent>> ChamberTriggers;
 
@@ -108,6 +115,7 @@ private:
     const FHitResult& SweepResult);
  void BuildHazardChambers(int32 OutChambers[3]) const;
  bool ResolveChamberReward(AMoonfallHeroPawn* Hero, int32 ChamberIndex, int32 ChamberType);
+ bool StartCombatChamber(AMoonfallHeroPawn* Hero, int32 ChamberIndex);
  UFUNCTION()
  void HandleHazardOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor,
     UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep,
