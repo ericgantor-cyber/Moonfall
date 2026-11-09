@@ -27,6 +27,20 @@ void AMoonfallArena::BeginPlay() {
  CreateBlock(FVector(0,1500,200),FVector(30,1,5));
  CreateBlock(FVector(0,-1500,200),FVector(30,1,5));
  if (!GetWorld()) return;
+ const bool bZEncounter = FeaturedDivineBossId == FName(TEXT("z_void_reaper"));
+ const bool bNyraEncounter = FeaturedDivineBossId == FName(TEXT("nyra_eclipse_queen"));
+ const bool bSingleDivineEncounter = bZEncounter || bNyraEncounter;
+ if (bSingleDivineEncounter) {
+  // Sparse, fixed arena cover: preserves the open central fighting area.
+  // Pillars break sight for ranged spells and offer deliberate positioning.
+  // No tick, procedural allocation storm, or destructible prop simulation.
+  const float CoverOffset = bZEncounter ? 850.f : 700.f;
+  const FVector CoverScale = bZEncounter ? FVector(1.8f,1.8f,3.2f) : FVector(1.3f,2.4f,3.2f);
+  CreateBlock(FVector(CoverOffset, CoverOffset, 160.f), CoverScale);
+  CreateBlock(FVector(-CoverOffset, CoverOffset, 160.f), CoverScale);
+  CreateBlock(FVector(CoverOffset,-CoverOffset, 160.f), CoverScale);
+  CreateBlock(FVector(-CoverOffset,-CoverOffset,160.f), CoverScale);
+ }
  const int32 Count = FMath::Clamp(EnemyCount,0,12);
  for (int32 i=0;i<Count;++i) {
   float Angle = 2.f * PI * i / FMath::Max(1,Count);
@@ -36,11 +50,14 @@ void AMoonfallArena::BeginPlay() {
   AMoonfallEnemy* Enemy = Cast<AMoonfallEnemy>(UGameplayStatics::BeginDeferredActorSpawnFromClass(
     this, AMoonfallEnemy::StaticClass(), SpawnTransform));
   if (!Enemy) continue;
-  // This provisional arena showcases both existing divine world bosses.
-  // Their actual Shattered Ruins/Eclipse Citadel placement and approved art
-  // are handled in the world migration, not fabricated in this C++ scaffold.
-  if (Count >= 5 && (i == Count - 2 || i == Count - 1)) {
-   const bool bZ = i == Count - 2;
+  // The selected preset spawns only the corresponding divine boss in
+  // the final slot. NAME_None retains the previous two-god test showcase.
+  // Actual regional encounter placement is deferred to world migration.
+  const bool bNamedGodSlot = bSingleDivineEncounter && i == Count - 1;
+  const bool bLegacyGodSlot = !bSingleDivineEncounter && Count >= 5
+    && (i == Count - 2 || i == Count - 1);
+  if (bNamedGodSlot || bLegacyGodSlot) {
+   const bool bZ = bNamedGodSlot ? bZEncounter : i == Count - 2;
    Enemy->bElite = true;
    Enemy->bBoss = true;
    Enemy->DivineBossId = bZ ? FName(TEXT("z_void_reaper")) : FName(TEXT("nyra_eclipse_queen"));
@@ -50,7 +67,7 @@ void AMoonfallArena::BeginPlay() {
    Enemy->Tags.Add(FName(TEXT("DivineWorldBoss")));
    Enemy->Health *= bZ ? 4.f : 4.5f;
    Enemy->AttackCooldown *= 1.15f;
-  } else if (Count == 4 && i == Count - 1) {
+  } else if (!bSingleDivineEncounter && Count == 4 && i == Count - 1) {
    // Keep the old four-enemy prototype setup valid.
    Enemy->bElite = true;
    Enemy->bBoss = true;
