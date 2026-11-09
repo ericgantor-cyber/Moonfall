@@ -33,8 +33,11 @@ bool DecodeEquippedItem(int32 Code, int32 ExpectedSlot, int32& OutTrait, int32& 
  const int32 Slot = (Code / 10000) % 10;
  const int32 Rarity = (Code / 1000) % 10;
  const int32 Tier = Code % 1000;
- if (Trait < 1 || Trait > 6 || Slot != ExpectedSlot ||
-     Rarity < 1 || Rarity > 5 || Tier < 1 || Tier > 25 ||
+ // Match RollEquipmentCode/EquipInventoryItem: common gear and some
+ // uncommon gear legitimately have no trait (0). Common gear has rarity 0.
+ if (Trait < 0 || Trait > 3 || Slot != ExpectedSlot ||
+     Rarity < 0 || Rarity > 5 || Tier < 1 || Tier > 25 ||
+     (Rarity == 0 && Trait != 0) ||
      Code != Trait * 100000 + Slot * 10000 + Rarity * 1000 + Tier) return false;
  OutTrait = Trait;
  OutRarity = Rarity;
