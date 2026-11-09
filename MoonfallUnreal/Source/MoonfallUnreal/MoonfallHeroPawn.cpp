@@ -1517,3 +1517,25 @@ int32 AMoonfallHeroPawn::GetEquipmentPower() const
         GetItemPower(EquippedArmorCode) +
         GetItemPower(EquippedAccessoryCode);
 }
+
+int32 AMoonfallHeroPawn::GetItemPowerDelta(int32 ItemCode) const
+{
+ const int32 CandidatePower = GetItemPower(ItemCode);
+ if (CandidatePower <= 0) return 0;
+ const int32 Slot = (ItemCode / 10000) % 10;
+ const int32 CurrentCode = Slot == 0 ? EquippedWeaponCode :
+      (Slot == 1 ? EquippedArmorCode : EquippedAccessoryCode);
+ return CandidatePower - GetItemPower(CurrentCode);
+}
+
+int32 AMoonfallHeroPawn::GetProjectedSetPieceCount(int32 Affix, int32 CandidateCode) const
+{
+ if (Affix < 1 || Affix > 3 || GetItemPower(CandidateCode) <= 0)
+  return 0;
+ const int32 Slot = (CandidateCode / 10000) % 10;
+ const int32 CurrentCode = Slot == 0 ? EquippedWeaponCode :
+      (Slot == 1 ? EquippedArmorCode : EquippedAccessoryCode);
+ const int32 PreviousAffix = GetItemPower(CurrentCode) > 0 ? CurrentCode / 100000 : 0;
+ return FMath::Clamp(GetSetPieceCount(Affix) - (PreviousAffix == Affix ? 1 : 0)
+      + (CandidateCode / 100000 == Affix ? 1 : 0), 0, 3);
+}
