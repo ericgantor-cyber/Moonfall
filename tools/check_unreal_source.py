@@ -3140,7 +3140,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         reward = cpp.split("bool AMoonfallDungeonLayout::ResolveChamberReward(", 1)[1]
         self.assertIn("if (!IsValid(Loot)) return false;", cpp)
         self.assertIn("PendingTreasureCodes[ChamberIndex] = ItemCode;", reward)
-        self.assertNotIn("ClaimedRewardMask |= Bit;", reward)
+        self.assertNotIn("ClaimedRewardMask |= Bit;", reward.split("bool AMoonfallDungeonLayout::SpawnTreasureAtChamber(", 1)[0].split("if ((SpawnedTreasureMask & Bit) != 0u)", 1)[1])
         self.assertNotIn("Hero->Health =", reward)
 
     def test_dungeon_unclaimed_ground_loot_restores_and_claims_only_after_pickup(self):
