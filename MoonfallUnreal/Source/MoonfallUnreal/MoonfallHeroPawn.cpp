@@ -123,7 +123,8 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
  if (Health > 0.f && FMath::IsFinite(Mana) && FMath::IsFinite(MaxMana) && MaxMana > 0.f
      && FMath::IsFinite(ManaRegenPerSecond) && ManaRegenPerSecond > 0.f && Mana >= 0.f && Mana < MaxMana)
   Mana = FMath::Min(MaxMana, Mana + FMath::Clamp(ManaRegenPerSecond, 0.f, 250.f) * MenuRecoveryBoost * CombatManaFactor
-      * (1.f + FMath::Clamp(AccessoryTier * 0.012f, 0.f, 0.25f) + (AccessoryAffix == 3 ? 0.08f : 0.f))
+      * (1.f + FMath::Clamp(AccessoryTier * 0.012f, 0.f, 0.25f) + (AccessoryAffix == 3 ? 0.08f : 0.f)
+        + FMath::Clamp(((EquippedAccessoryCode / 1000) % 10) * 0.02f, 0.f, 0.06f))
       * SafeRecoveryDelta);
  // Recovery in either menu is bounded and never revives a defeated hero.
  if ((bOptionsOpen || bInventoryOpen) && Health > 0.f && FMath::IsFinite(Health)
@@ -313,7 +314,8 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
   static const float SchoolPostureWeights[6] = {0.8f, 0.65f, 1.35f, 0.f, 1.15f, 0.9f};
   // Force weapon affix adds a modest spell damage bonus, independent of tiers.
   const float WeaponDamageBonus = 1.f + FMath::Clamp(0.018f * WeaponTier, 0.f, 0.35f)
-      + (WeaponAffix == 1 ? 0.06f : 0.f);
+      + (WeaponAffix == 1 ? 0.06f : 0.f)
+      + FMath::Clamp(((EquippedWeaponCode / 1000) % 10) * 0.015f, 0.f, 0.045f);
   const float MomentumBonus = Time <= FinisherMomentumUntil
       && FMath::IsFinite(FinisherMomentumDamageMultiplier)
     ? FMath::Clamp(FinisherMomentumDamageMultiplier, 1.f, 1.5f) : 1.f;
@@ -569,7 +571,8 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
  const float PreviousHealth = Health;
  // Ward armor affix provides a small, capped flat mitigation bonus.
  const float ArmorMitigation = FMath::Min(0.34f, FMath::Min(0.28f, ArmorTier * 0.01f)
-   + (ArmorAffix == 2 ? 0.06f : 0.f));
+   + (ArmorAffix == 2 ? 0.06f : 0.f)
+   + FMath::Clamp(((EquippedArmorCode / 1000) % 10) * 0.005f, 0.f, 0.015f));
  const float ArmoredDamage = Amount * (1.f - ArmorMitigation);
  float DamageAfterGuard = ArmoredDamage;
  // Enemy attacks must come from the front 150-degree guard cone.
