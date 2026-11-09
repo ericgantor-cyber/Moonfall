@@ -41,7 +41,8 @@ void AMoonfallCombatHUD::DrawHUD()
   DrawRect(FLinearColor(0.04f, 0.035f, 0.10f, 0.96f), Left, Top, PanelWidth, PanelHeight);
   DrawText(TEXT("MOONFALL  |  INVENTORY"), FLinearColor::White, Left + 18.f, Top + 16.f, nullptr, 1.3f);
   const int32 Count = Hero->InventoryItemCodes.Num();
-  const int32 PerPage = 8;
+  // Reserve height for a real equipment-stat line and three controls rows.
+  const int32 PerPage = FMath::Clamp(FMath::FloorToInt((PanelHeight - 230.f) / 25.f), 2, 8);
   const int32 Selected = FMath::Clamp(Hero->InventorySelection, 0, FMath::Max(0, Count - 1));
   const int32 PageStart = Selected / PerPage * PerPage;
   const int32 PageEnd = FMath::Min(Count, PageStart + PerPage);
@@ -52,7 +53,7 @@ void AMoonfallCombatHUD::DrawHUD()
   if (Count == 0)
    DrawText(TEXT("No equipment yet. Defeat enemies to find gear."), FLinearColor::White,
      Left + 18.f, Top + 100.f, nullptr, 0.92f);
-  const float RowSpacing = FMath::Max(21.f, (PanelHeight - 142.f) / PerPage);
+  const float RowSpacing = FMath::Max(21.f, (PanelHeight - 230.f) / PerPage);
   for (int32 Index = PageStart; Index < PageEnd; ++Index) {
    const int32 Code = Hero->InventoryItemCodes[Index];
    const int32 Affix = Code / 100000;
@@ -65,7 +66,7 @@ void AMoonfallCombatHUD::DrawHUD()
    const bool bValid = Code > 0 && Slot <= 2 && Affix <= 3 && Rarity <= 3 && Tier >= 1 && Tier <= 25;
    const bool bEquipped = Code == (Slot == 0 ? Hero->EquippedWeaponCode
      : Slot == 1 ? Hero->EquippedArmorCode : Hero->EquippedAccessoryCode);
-   const float Y = Top + 83.f + (Index - PageStart) * RowSpacing;
+   const float Y = Top + 110.f + (Index - PageStart) * RowSpacing;
    if (Index == Selected) DrawRect(FLinearColor(0.25f,0.18f,0.43f,0.90f),
      Left + 12.f, Y - 3.f, PanelWidth - 24.f, RowSpacing - 3.f);
    const FString Row = bValid ? FString::Printf(TEXT("%02d  %s  T%d  %s  %s%s"),
@@ -86,7 +87,7 @@ void AMoonfallCombatHUD::DrawHUD()
     + (Hero->AccessoryAffix == 3 ? 0.08f : 0.f) + AccessoryRarity * 0.02f);
   DrawText(FString::Printf(TEXT("Equipped: +%.1f%% spell damage  |  %.1f%% protection  |  +%.1f%% mana regen"),
     WeaponBonusPct, ArmorMitigationPct, ManaRegenBonusPct),
-    FLinearColor(0.76f,0.90f,0.99f), Left + 18.f, Top + PanelHeight - 113.f,
+    FLinearColor(0.76f,0.90f,0.99f), Left + 18.f, Top + 75.f,
     nullptr, Canvas->SizeX < 900.f ? 0.62f : 0.74f);
   DrawText(TEXT("WASD / D-pad: select   Enter / Y: equip   Delete / X: salvage"),
      FLinearColor::White, Left + 18.f, Top + PanelHeight - 51.f, nullptr, 0.75f);
