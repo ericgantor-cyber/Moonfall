@@ -48,7 +48,7 @@ void AMoonfallCombatHUD::DrawHUD()
    DrawText(FString::Printf(TEXT("Level %d  |  XP %d / %d  |  Salvage %d"),
       Hero->Level, Hero->Experience, Hero->ExperienceToNextLevel, Hero->Salvage),
       FLinearColor(0.78f,0.83f,1.f), Left + 18.f, Top + 57.f, nullptr, 0.95f);
-   const float RowHeight = FMath::Clamp((PanelHeight - 165.f) / 11.f, 21.f, 36.f);
+   const float RowHeight = FMath::Clamp((PanelHeight - 145.f) / 11.f, 13.f, 36.f);
    const float StartY = Top + 96.f;
    const FString CharacterLines[] = {
      TEXT("PRIMARY ATTRIBUTES"),
@@ -74,7 +74,8 @@ void AMoonfallCombatHUD::DrawHUD()
    for (int32 Row = 0; Row < UE_ARRAY_COUNT(CharacterLines); ++Row)
     DrawText(CharacterLines[Row],
       Row == 0 || Row == 4 || Row == 7 ? FLinearColor(0.52f,0.91f,0.76f) : FLinearColor::White,
-      Left + 18.f, StartY + Row * RowHeight, nullptr, Canvas->SizeX < 900.f ? 0.75f : 0.90f);
+      Left + 18.f, StartY + Row * RowHeight, nullptr,
+      PanelHeight < 360.f ? 0.55f : (Canvas->SizeX < 900.f ? 0.75f : 0.90f));
    DrawText(TEXT("P / A: back to inventory    I / Select / Esc: close"),
      FLinearColor(0.81f,0.83f,0.97f), Left + 18.f, Top + PanelHeight - 29.f,
      nullptr, 0.8f);
