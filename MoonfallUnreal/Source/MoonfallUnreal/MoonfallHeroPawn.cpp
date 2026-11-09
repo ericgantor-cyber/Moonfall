@@ -162,7 +162,7 @@ void AMoonfallHeroPawn::LoadExplorationProfile()
   int32 X = 0, Y = 0;
   if (!Cell.Split(TEXT(":"), &XText, &YText)
       || !LexTryParseString(X, *XText) || !LexTryParseString(Y, *YText)
-      || FMath::Abs(X) > 512 || FMath::Abs(Y) > 512
+      || X < -512 || X > 512 || Y < -512 || Y > 512
       || Restored.Contains(FIntPoint(X, Y))) return;
   Restored.Add(FIntPoint(X, Y));
  }
