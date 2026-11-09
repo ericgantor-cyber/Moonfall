@@ -346,6 +346,29 @@ void AMoonfallCombatHUD::DrawHUD()
     }
     if (NextBonus.IsEmpty()) NextBonus = TEXT("No set progress change");
     const int32 PowerDelta = Hero->GetItemPowerDelta(SelectedCode);
+    // Preview the exact replacement in the selected slot. Calculations are
+    // read-only, so browsing equipment cannot change stats or save data.
+    const int32 WornPower = Hero->GetItemPower(CurrentCode);
+    const int32 WornTier = WornPower > 0 ? CurrentCode % 1000 : 0;
+    const int32 WornRarity = WornPower > 0 ? (CurrentCode / 1000) % 10 : 0;
+    const int32 ProjectedTotalPower = Hero->GetEquipmentPower() + PowerDelta;
+    if (PanelHeight >= 520.f) {
+     const TCHAR* ComparisonQuality[] = {TEXT("Common"), TEXT("Uncommon"),
+       TEXT("Rare"), TEXT("Epic"), TEXT("Emerald"), TEXT("Legendary")};
+     const FString WornLabel = WornPower > 0
+       ? FString::Printf(TEXT("%s T%d  P%d"),
+           ComparisonQuality[WornRarity], WornTier, WornPower)
+       : TEXT("Empty");
+     DrawText(FString::Printf(TEXT("Equipped: %s  |  Selected: T%d  P%d"),
+         *WornLabel, SelectedTier, CandidatePower),
+       FLinearColor(0.85f,0.88f,1.f),
+       Left + 18.f, Top + PanelHeight - 260.f, nullptr, 0.67f);
+     DrawText(FString::Printf(TEXT("Total gear power: %d  ->  %d  (%+d)"),
+         Hero->GetEquipmentPower(), ProjectedTotalPower, PowerDelta),
+       PowerDelta > 0 ? FLinearColor(0.55f,0.95f,0.66f)
+        : (PowerDelta < 0 ? FLinearColor(1.f,0.66f,0.47f) : FLinearColor::White),
+       Left + 18.f, Top + PanelHeight - 281.f, nullptr, 0.70f);
+    }
     const TCHAR* PowerLabel = PowerDelta > 0 ? TEXT("UPGRADE") :
         (PowerDelta < 0 ? TEXT("DOWNGRADE") : TEXT("EQUAL"));
     DrawText(FString::Printf(TEXT("Gear preview: %d power (%+d)  [%s]"),
