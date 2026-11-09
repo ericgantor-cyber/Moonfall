@@ -2501,7 +2501,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             self.assertIn("GetItemPower(", body)
             self.assertNotIn("EquipInventoryItem(", body)
             self.assertNotIn("InventoryItemCodes.Add(", body)
-        self.assertIn("Gear preview:", self.hud)
+        self.assertIn("Gear: %d P (%+d) [%s]  |  Total %d -> %d", self.hud)
         self.assertIn("After equip: Force", self.hud)
         self.assertIn("PanelHeight >= 450.f", self.hud)
 
@@ -2685,6 +2685,19 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("SaveEquipmentProfile();", awarded)
         self.assertIn('TEXT("EMPTY")', self.hud)
         self.assertIn("L + 88.f, Y + 7.f", self.hud)
+
+    def test_wow_style_equipment_comparison_is_read_only(self):
+        hud = self.hud
+        self.assertIn("const int32 WornPower = Hero->GetItemPower(CurrentCode);", hud)
+        self.assertIn("const int32 ProjectedTotalPower = Hero->GetEquipmentPower() + PowerDelta;", hud)
+        self.assertIn('TEXT("Equipped: %s  |  Selected: T%d  P%d")', hud)
+        self.assertIn("WornPower > 0 ? (CurrentCode / 1000) % 10 : 0", hud)
+        self.assertIn("PanelHeight >= 520.f", hud)
+        self.assertIn('TEXT("Gear: %d P (%+d) [%s]  |  Total %d -> %d")', hud)
+        self.assertLess(hud.index("const int32 WornPower"), hud.index("const TCHAR* PowerLabel"))
+        preview = hud.split("const int32 WornPower = Hero->GetItemPower(CurrentCode);", 1)[1].split("const int32 ReforgeCost =", 1)[0]
+        self.assertNotIn("EquipInventoryItem(", preview)
+        self.assertNotIn("SaveEquipmentProfile(", preview)
 
 if __name__ == "__main__":
     unittest.main()
