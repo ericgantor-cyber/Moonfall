@@ -31,9 +31,9 @@ public:
  void UpdateExplorationDiscovery(float DeltaSeconds);
  TArray<FIntPoint> DiscoveredRegions;
  float ExplorationScanTimer = 0.f;
- // Five authored dungeon entrances per zone, across four world zones.
+ // Five authored dungeon entrances per zone, across six world zones.
  // Designers bind their physical entrance triggers to DiscoverDungeonEntrance.
- static constexpr int32 DungeonZoneCount = 4;
+ static constexpr int32 DungeonZoneCount = 6;
  static constexpr int32 DungeonsPerZone = 5;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Dungeons") int32 DiscoveredDungeonCount = 0;
  UFUNCTION(BlueprintCallable, Category="Moonfall|Dungeons") bool DiscoverDungeonEntrance(int32 ZoneIndex, int32 DungeonIndex);
