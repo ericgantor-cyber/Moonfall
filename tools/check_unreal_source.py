@@ -258,6 +258,18 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             spawn.index("SpawnActor<AMoonfallGroundLoot>"),
         )
 
+    def test_crafted_worn_item_upgrade_uses_pre_equip_tier(self):
+        craft = self.hero_cpp.split(
+            "bool AMoonfallHeroPawn::UpgradeInventoryItem(int32 InventoryIndex)", 1
+        )[1].split("bool AMoonfallHeroPawn::ReforgeInventoryItemAffix(", 1)[0]
+        self.assertIn("const int32 PreviousEquippedTier = Slot == 0 ? WeaponTier", craft)
+        self.assertIn("LastLootUpgrade = (Tier + 1) - PreviousEquippedTier;", craft)
+        self.assertLess(craft.index("const int32 PreviousEquippedTier"),
+                        craft.index("EquipInventoryItem(InventoryIndex)"))
+        self.assertLess(craft.index("EquipInventoryItem(InventoryIndex)"),
+                        craft.index("LastLootUpgrade = (Tier + 1) - PreviousEquippedTier;"))
+        self.assertIn("InventoryItemCodes[InventoryIndex] = Code;\n  return false;", craft)
+
     def test_direct_equipment_change_requires_open_inventory(self):
         equip = self.hero_cpp.split(
             "bool AMoonfallHeroPawn::EquipInventoryItem(int32 InventoryIndex)", 1
