@@ -363,16 +363,12 @@ void AMoonfallCombatHUD::DrawHUD()
          *WornLabel, SelectedTier, CandidatePower),
        FLinearColor(0.85f,0.88f,1.f),
        Left + 18.f, Top + PanelHeight - 260.f, nullptr, 0.67f);
-     DrawText(FString::Printf(TEXT("Total gear power: %d  ->  %d  (%+d)"),
-         Hero->GetEquipmentPower(), ProjectedTotalPower, PowerDelta),
-       PowerDelta > 0 ? FLinearColor(0.55f,0.95f,0.66f)
-        : (PowerDelta < 0 ? FLinearColor(1.f,0.66f,0.47f) : FLinearColor::White),
-       Left + 18.f, Top + PanelHeight - 281.f, nullptr, 0.70f);
     }
     const TCHAR* PowerLabel = PowerDelta > 0 ? TEXT("UPGRADE") :
         (PowerDelta < 0 ? TEXT("DOWNGRADE") : TEXT("EQUAL"));
-    DrawText(FString::Printf(TEXT("Gear preview: %d power (%+d)  [%s]"),
-         CandidatePower, PowerDelta, PowerLabel),
+    DrawText(FString::Printf(TEXT("Gear: %d P (%+d) [%s]  |  Total %d -> %d"),
+         CandidatePower, PowerDelta, PowerLabel,
+         Hero->GetEquipmentPower(), ProjectedTotalPower),
       PowerDelta > 0 ? FLinearColor(0.52f,0.96f,0.65f) :
        (PowerDelta < 0 ? FLinearColor(1.f,0.64f,0.44f) : FLinearColor::White),
       Left + 18.f, Top + PanelHeight - 197.f, nullptr, 0.76f);
