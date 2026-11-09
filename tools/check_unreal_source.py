@@ -2536,5 +2536,15 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("P / A: back to inventory", hud)
         self.assertNotIn("const bool bValid = Code > 0 && Slot <= 2", hud)
 
+    def test_inventory_set_unlock_loss_inspector(self):
+        self.assertIn("Set unlocks: %s", self.hud)
+        self.assertIn("Before < Threshold && After >= Threshold", self.hud)
+        self.assertIn("Before >= Threshold && After < Threshold", self.hud)
+        self.assertIn("GetProjectedSetPieceCount(Affix, SelectedCode)", self.hud)
+        self.assertIn("No set milestones changed", self.hud)
+        self.assertIn("FMath::Clamp(FMath::FloorToInt((PanelHeight - 370.f) / 25.f), 2, 4)", self.hud)
+        self.assertIn("FMath::Max(21.f, (PanelHeight - 370.f) / PerPage)", self.hud)
+        self.assertIn("PanelHeight >= 450.f", self.hud)
+
 if __name__ == "__main__":
     unittest.main()
