@@ -1474,6 +1474,9 @@ int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()
  // Suppress intermediate disk writes: a deliberate nine-slot batch must
  // persist its final equipment set, not a sequence of partial loadouts.
  int32 UpgradesEquipped = 0;
+ LastEquipBestProtected = 0;
+ LastEquipBestAlternates = 0;
+ bHasEquipBestResult = true;
  bBatchEquippingInventory = true;
  for (int32 Slot = 0; Slot < 9; ++Slot) {
   if (BestIndices[Slot] < 0) continue;
@@ -1494,6 +1497,7 @@ int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()
     }
    }
    if (bBreaksSetBonus) {
+    ++LastEquipBestProtected;
     // The top-ranked item would break a set. Search the bag for the
     // strongest better item with the SAME set trait instead of giving up.
     // Bound the scan to the bag and only accept valid items in this slot.
@@ -1513,14 +1517,17 @@ int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()
       AlternateIndex = Index;
      }
     }
-    if (AlternateIndex >= 0 && EquipInventoryItem(AlternateIndex))
+    if (AlternateIndex >= 0 && EquipInventoryItem(AlternateIndex)) {
      ++UpgradesEquipped;
+     ++LastEquipBestAlternates;
+    }
     continue;
    }
   }
   if (EquipInventoryItem(BestIndices[Slot])) ++UpgradesEquipped;
  }
  bBatchEquippingInventory = false;
+ LastEquipBestUpgrades = UpgradesEquipped;
  if (UpgradesEquipped > 0) SaveEquipmentProfile();
  OnBestLoadoutEquipped(UpgradesEquipped);
  return UpgradesEquipped;
