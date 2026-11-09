@@ -18,5 +18,6 @@ private:
  void SpawnNextBonusGroup();
  TArray<int32> PendingBonusGroupSizes;
  int32 NextBonusGroup = 0;
+ int32 TerrainPlacementAttempts = 0;
  FTimerHandle BonusSpawnTimer;
 };
