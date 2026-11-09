@@ -556,9 +556,6 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("LastLootAffix = LastLootRarity == 0 ? 0", loot)
         self.assertIn("FMath::RandRange(1, 3)", loot)
         self.assertIn("LastLootAffix * 100000 + LastLootSlot * 10000", loot)
-        self.assertIn("int32* EquippedAffix =", self.hero_cpp)
-        self.assertIn("*EquippedAffix = LastLootAffix;", self.hero_cpp)
-        self.assertLess(self.hero_cpp.index("if (NewTier > *Slot) {"), self.hero_cpp.index("*EquippedAffix = LastLootAffix;"))
         cast = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split(
             "void AMoonfallHeroPawn::CastLeft()", 1)[0]
         self.assertIn("(WeaponAffix == 1 ? 0.06f : 0.f)", cast)
@@ -2575,9 +2572,11 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("ExtraEquippedCodes.Num() != 6", begin)
         self.assertIn("ExtraEquippedCodes.SetNum(6)", begin)
         awards = self.hero_cpp.split("void AMoonfallHeroPawn::AwardEquipmentDrop(", 1)[1].split("bool AMoonfallHeroPawn::CollectGroundEquipmentCode(", 1)[0]
-        self.assertIn("if (LastLootSlot >= 3)", awards)
-        extras = awards.split("if (LastLootSlot >= 3)", 1)[1].split("return;", 1)[0]
-        self.assertNotIn("EquipInventoryItem(", extras)
+        self.assertIn("GetEquippedCodeForSlot(LastLootSlot)", awards)
+        self.assertNotIn("EquipInventoryItem(", awards)
+        self.assertNotIn("EquippedWeaponCode =", awards)
+        self.assertNotIn("EquippedArmorCode =", awards)
+        self.assertNotIn("EquippedAccessoryCode =", awards)
         upgrade = self.hero_cpp.split("bool AMoonfallHeroPawn::UpgradeInventoryItem(", 1)[1].split("bool AMoonfallHeroPawn::", 1)[0]
         self.assertIn("const int32 PreviousWornTier", upgrade)
         self.assertIn("LastLootUpgrade = (Tier + 1) - PreviousWornTier;", upgrade)
@@ -2674,6 +2673,17 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(load.index("Health = FMath::Clamp(MaxHealth - PreviouslyMissingHealth"),
                         load.index("bRestoringEquipmentProfile = false;"))
         self.assertIn("Health = PreviousHealth;", load)
+
+    def test_all_nine_loot_slots_require_deliberate_equipping(self):
+        awarded = self.hero_cpp.split("void AMoonfallHeroPawn::AwardEquipmentDrop(", 1)[1].split(
+            "bool AMoonfallHeroPawn::CollectGroundEquipmentCode(", 1)[0]
+        self.assertIn("InventoryItemCodes.Add(ItemCode);", awarded)
+        self.assertIn("GetEquippedCodeForSlot(LastLootSlot)", awarded)
+        self.assertNotIn("EquipInventoryItem(", awarded)
+        self.assertNotIn("*EquippedCode = ItemCode", awarded)
+        self.assertIn("SaveEquipmentProfile();", awarded)
+        self.assertIn('TEXT("EMPTY")', self.hud)
+        self.assertIn("L + 88.f, Y + 7.f", self.hud)
 
 if __name__ == "__main__":
     unittest.main()
