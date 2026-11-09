@@ -26,6 +26,8 @@ public:
  UFUNCTION(BlueprintImplementableEvent, Category="Boss|Divine") void OnDivineAttackTelegraphed(FName MoveId, FVector TargetCenter, float Radius, float WarningSeconds);
  UFUNCTION(BlueprintImplementableEvent, Category="Boss|Divine") void OnDivineAttackResolved(FName MoveId, FVector TargetCenter, bool bHeroInsideMarker);
  UFUNCTION(BlueprintImplementableEvent, Category="Boss|Divine") void OnDivineAttackInterrupted(FName MoveId);
+ // Optional presentation hook: use the original god art in derived Blueprints.
+ UFUNCTION(BlueprintImplementableEvent, Category="Boss|Divine") void OnDivinePhaseEntered(FName BossId, int32 NewPhase, float RecoverySeconds);
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Combat") int32 BossPhase = 1;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Boss") float BossMaxHealth = 0.f;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Boss") float BossWarningEndTime = -1.f;
