@@ -727,28 +727,32 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
    // Small-pack coordination: avoid three ordinary enemies delivering their
    // tells at once. Scan only at attack decisions, not on every AI tick;
    // cap work even in massive continuously explored regions.
-   if (!bBoss && !bElite) {
-    int32 NearbyWindingAllies = 0;
-    int32 ScannedActors = 0;
-    int32 ConsideredAllies = 0;
-    // Cap the iterator itself, not only eligible allies. Large worlds can
-    // contain many bosses, defeated actors, and inactive enemies.
-    for (TActorIterator<AMoonfallEnemy> It(GetWorld());
-         It && ScannedActors < 64 && ConsideredAllies < 32; ++It) {
-     ++ScannedActors;
-     const AMoonfallEnemy* Other = *It;
-     if (!IsValid(Other) || Other == this || Other->Health <= 0.f
-         || Other->bBoss || Other->bElite) continue;
-     ++ConsideredAllies;
-     if (Other->WindupEndsAt > Now
-         && FVector::DistSquared2D(Other->GetActorLocation(), GetActorLocation()) < FMath::Square(550.f)) {
-      if (++NearbyWindingAllies >= 2) break;
+   if (!bBoss) {
+    // Dungeon packs share a two-attacker pressure budget, including leaders.
+    // Other elites keep existing behavior. Evaluate only at attack decisions,
+    // never every AI tick, and hard cap the actor scan.
+    const bool bDungeonRole = ActorHasTag(FName(TEXT("DungeonScout")))
+      || ActorHasTag(FName(TEXT("DungeonPackLeader")));
+    const bool bCoordinate = !bElite || bDungeonRole;
+    if (bCoordinate) {
+     int32 NearbyWindingAllies = 0;
+     int32 ScannedActors = 0;
+     for (TActorIterator<AMoonfallEnemy> It(GetWorld());
+          It && ScannedActors < 64; ++It) {
+      ++ScannedActors;
+      const AMoonfallEnemy* Other = *It;
+      if (!IsValid(Other) || Other == this || Other->Health <= 0.f || Other->bBoss) continue;
+      // Keep dungeon role coordination in its own pack; never block an
+      // unrelated open-world mob's attack because a dungeon pack is nearby.
+      if (bDungeonRole && Other->DungeonPackId != DungeonPackId) continue;
+      if (Other->WindupEndsAt > Now
+          && FVector::DistSquared2D(Other->GetActorLocation(), GetActorLocation()) < FMath::Square(550.f)
+          && ++NearbyWindingAllies >= 2) break;
      }
-    }
-    if (NearbyWindingAllies >= 2) {
-     const float SlotDelay = 0.18f + 0.04f * static_cast<float>(GetUniqueID() % 4u);
-     NextAttackAt = Now + SlotDelay;
-     return;
+     if (NearbyWindingAllies >= 2) {
+      NextAttackAt = Now + 0.18f + 0.04f * static_cast<float>(GetUniqueID() % 4u);
+      return;
+     }
     }
    }
    // Alternate quick strikes, heavy attacks and wider sweeps with distinct warnings.
