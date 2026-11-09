@@ -220,7 +220,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("SpawnActor<AMoonfallGroundLoot>", spawn)
         self.assertIn("Loot->InitializeLoot(ItemCode);", spawn)
         pickup = self.hero_cpp.split("void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[1].split(
-            "bool AMoonfallHeroPawn::EquipInventoryItem(", 1)[0]
+            "void AMoonfallHeroPawn::EquipBestInventoryAction()", 1)[0]
         self.assertIn("bOptionsOpen || bInventoryOpen", pickup)
         self.assertIn("FMath::Square(250.f)", pickup)
         self.assertIn("TActorIterator<AMoonfallGroundLoot>", pickup)
@@ -245,7 +245,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
 
     def test_nearby_batch_loot_is_range_and_cover_safe(self):
         pickup = self.hero_cpp.split("void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[1].split(
-            "bool AMoonfallHeroPawn::EquipInventoryItem(", 1)[0]
+            "void AMoonfallHeroPawn::EquipBestInventoryAction()", 1)[0]
         self.assertIn("constexpr int32 MaxLootScanned = 128;", pickup)
         self.assertIn("constexpr int32 MaxLootPerPress = 6;", pickup)
         self.assertIn("It && Scanned < MaxLootScanned;", pickup)
