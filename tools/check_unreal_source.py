@@ -2725,7 +2725,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('void AMoonfallHeroPawn::EndGuard()', self.hero_cpp)
         self.assertIn("NextParryAt = Now + FMath::Clamp(ParryCooldownSeconds, 0.3f, 2.f);", self.hero_cpp)
         self.assertIn("Stamina < GuardStaminaCost) return;", self.hero_cpp)
-        self.assertIn("if (Health <= 0.f) {\n  // Prevent lingering movement/jump input from carrying through defeat.\n  StopJumping();\n  if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();\n  // Clear any held sprint so a later respawn cannot inherit it.\n  EndSprint();\n  EndGuard();\n  // Defeat clears every gameplay menu and releases the inventory cursor.\n  bInventoryOpen = false;\n  bOptionsOpen = false;\n }", self.hero_cpp)
+        self.assertIn("if (Health <= 0.f) {\n  // Prevent lingering movement/jump input from carrying through defeat.\n  StopJumping();\n  if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();\n  // Clear any held sprint so a later respawn cannot inherit it.\n  EndSprint();\n  EndGuard();\n  // Defeat clears every gameplay menu and releases the inventory cursor.\n  bInventoryOpen = false;\n  bCharacterStatsOpen = false;\n  bOptionsOpen = false;\n  UpdateInventoryMouseMode();\n }", self.hero_cpp)
         self.assertIn("ParryWindowEndsAt = -1.f", self.hero_cpp)
         self.assertIn("DamageAfterGuard *= 0.4f", self.hero_cpp)
         self.assertIn("Stamina = FMath::Clamp(Stamina - RequiredGuardCost, 0.f, MaxStamina)", self.hero_cpp)
