@@ -1769,7 +1769,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
 
     def test_divine_telegraph_event_observes_committed_cast_clock(self):
         enemy = self.enemy_cpp
-        start = enemy.index("++DivineSignatureCastCount;")
+        start = enemy.index("// Use the number of *resolved* signatures")
         end = enemy.index("OnDivineAttackTelegraphed(", start) + len("OnDivineAttackTelegraphed(") + 120
         cast = enemy[start:end]
         self.assertIn("WindupEndsAt = Now + CurrentWindup;", cast)
@@ -1801,7 +1801,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
 
     def test_divine_alternation_only_advances_after_completed_cast(self):
         enemy = self.enemy_cpp
-        impact = enemy.split("if (bDivineSignatureActive) {\\n   const FName ResolvedMove", 1)[1]
+        impact = enemy.split("const FName ResolvedMove = ActiveDivineMoveId;", 1)[1]
         selection = enemy.split("// Use the number of *resolved* signatures", 1)[1]
         self.assertIn("DivineSignatureCastCount = FMath::Min(DivineSignatureCastCount + 1, 100000);", impact)
         self.assertLess(impact.index("DivineSignatureCastCount = FMath::Min("),
