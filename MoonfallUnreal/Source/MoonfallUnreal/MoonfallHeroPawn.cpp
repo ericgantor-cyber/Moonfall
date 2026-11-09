@@ -167,6 +167,49 @@ FString AMoonfallHeroPawn::GetExplorationQuestTitle() const
  }
 }
 
+void AMoonfallHeroPawn::LoadProgressionProfile()
+{
+ if (!GConfig) return;
+ static const TCHAR* Section = TEXT("Moonfall.Progression.V1");
+ int32 Version = 0, SavedLevel = 0, SavedXP = 0;
+ if (!GConfig->GetInt(Section, TEXT("Version"), Version, GGameUserSettingsIni)
+     || Version != 1
+     || !GConfig->GetInt(Section, TEXT("Level"), SavedLevel, GGameUserSettingsIni)
+     || !GConfig->GetInt(Section, TEXT("Experience"), SavedXP, GGameUserSettingsIni))
+  return;
+ // Validate the whole profile before touching the hero. Exact level thresholds
+ // reject inconsistent XP and prevent progress duplication after restarting.
+ if (SavedLevel < 1 || SavedLevel > 100) return;
+ const int32 TargetXP = 100 + (SavedLevel - 1) * 55;
+ if (SavedXP < 0 || (SavedLevel == 100 ? SavedXP != 0 : SavedXP >= TargetXP))
+  return;
+ // Restore progression BEFORE equipment so armor HP calculations remain valid.
+ // The current character blueprint's authored base health is retained.
+ const float LevelHealth = 4.f * (SavedLevel - 1);
+ if (!FMath::IsFinite(MaxHealth) || MaxHealth <= 0.f || !FMath::IsFinite(Health))
+  return;
+ Level = SavedLevel;
+ Experience = SavedXP;
+ ExperienceToNextLevel = TargetXP;
+ MaxHealth += LevelHealth;
+ Health = FMath::Clamp(Health + LevelHealth, 0.f, MaxHealth);
+ SpellPowerMultiplier = 1.f + 0.025f * FMath::Min(Level - 1, 30)
+     + 0.012f * FMath::Max(0, Level - 31);
+ OnHealthChanged(Health, MaxHealth);
+}
+
+void AMoonfallHeroPawn::SaveProgressionProfile() const
+{
+ if (!GConfig || Level < 1 || Level > 100
+     || Experience < 0 || (Level == 100 ? Experience != 0
+          : Experience >= 100 + (Level - 1) * 55)) return;
+ static const TCHAR* Section = TEXT("Moonfall.Progression.V1");
+ GConfig->SetInt(Section, TEXT("Level"), Level, GGameUserSettingsIni);
+ GConfig->SetInt(Section, TEXT("Experience"), Experience, GGameUserSettingsIni);
+ GConfig->SetInt(Section, TEXT("Version"), 1, GGameUserSettingsIni);
+ GConfig->Flush(false, GGameUserSettingsIni);
+}
+
 void AMoonfallHeroPawn::LoadExplorationProfile()
 {
  if (!GConfig) return;
@@ -262,6 +305,7 @@ void AMoonfallHeroPawn::BeginPlay() {
  const TSharedPtr<IPlugin> DLSS = IPluginManager::Get().FindPlugin(TEXT("DLSS"));
  bFrameGenerationPluginDetected = (FSR.IsValid() && FSR->IsEnabled()) || (DLSS.IsValid() && DLSS->IsEnabled());
  // Detection is only a hint, never proof of a supported frame-generation runtime.
+ LoadProgressionProfile();
  LoadEquipmentProfile();
  LoadExplorationProfile();
 }
@@ -1373,6 +1417,7 @@ void AMoonfallHeroPawn::AwardExperience(int32 Amount)
   OnHealthChanged(Health, MaxHealth);
  }
  if (Level >= 100) Experience = 0;
+ SaveProgressionProfile();
 }
 
 int32 AMoonfallHeroPawn::RollEquipmentCode(bool bEliteEnemy, bool bBossEnemy)
