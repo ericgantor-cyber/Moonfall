@@ -224,7 +224,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("bOptionsOpen || bInventoryOpen", pickup)
         self.assertIn("FMath::Square(250.f)", pickup)
         self.assertIn("TActorIterator<AMoonfallGroundLoot>", pickup)
-        self.assertIn("Nearest->TryCollect()", pickup)
+        self.assertIn("Loot->TryCollect()", pickup)
         collect = self.hero_cpp.split("bool AMoonfallHeroPawn::CollectGroundEquipmentCode(", 1)[1].split(
             "void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(", 1)[0]
         self.assertIn("ItemCode != Affix * 100000 + SlotIndex * 10000", collect)
@@ -242,6 +242,25 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("ItemCode = 0;", ground_h)
         self.assertNotIn("SetLifeSpan(", ground_cpp)
         self.assertNotIn("FinisherShockwave", self.hero_cpp)
+
+    def test_nearby_batch_loot_is_range_and_cover_safe(self):
+        pickup = self.hero_cpp.split("void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[1].split(
+            "bool AMoonfallHeroPawn::EquipInventoryItem(", 1)[0]
+        self.assertIn("constexpr int32 MaxLootScanned = 128;", pickup)
+        self.assertIn("constexpr int32 MaxLootPerPress = 6;", pickup)
+        self.assertIn("It && Scanned < MaxLootScanned;", pickup)
+        self.assertIn("FMath::Square(250.f)", pickup)
+        self.assertIn("FMath::Abs(LootPosition.Z - HeroPosition.Z) > 150.f", pickup)
+        self.assertIn("SCENE_QUERY_STAT(MoonfallGroundLootPickupSight)", pickup)
+        self.assertIn("LootSightParams.AddIgnoredActor(Candidate);", pickup)
+        self.assertIn("GetWorld()->LineTraceSingleByChannel(LootSightHit,", pickup)
+        self.assertIn("NearbyLoot.Insert(Candidate, InsertAt);", pickup)
+        self.assertIn("NearbyLoot.RemoveAt(MaxLootPerPress);", pickup)
+        self.assertIn("for (AMoonfallGroundLoot* Loot : NearbyLoot)", pickup)
+        self.assertIn("if (IsValid(Loot)) Loot->TryCollect();", pickup)
+        self.assertNotIn("EquipInventoryItem(", pickup)
+        self.assertNotIn("SalvageInventoryItem(", pickup)
+        self.assertNotIn("PrimaryActorTick", pickup)
 
     def test_inventory_accepts_new_loot_without_rejection_or_auto_cleanup(self):
         loot = self.hero_cpp.split("void AMoonfallHeroPawn::AwardEquipmentDrop(", 1)[1].split(
