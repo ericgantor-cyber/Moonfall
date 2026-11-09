@@ -54,6 +54,16 @@ void AMoonfallCombatHUD::DrawHUD()
       Hero->DiscoveredDungeonCount, AMoonfallHeroPawn::DungeonZoneCount * AMoonfallHeroPawn::DungeonsPerZone),
       FLinearColor(0.65f,0.82f,0.98f),
       Left + 18.f, Top + 102.f, nullptr, PanelWidth < 460.f ? 0.60f : 0.73f);
+   const int32 ActiveDungeonZone = Hero->GetNextIncompleteDungeonZone();
+   const int32 ZoneDungeonProgress = ActiveDungeonZone >= 0
+     ? Hero->GetDiscoveredDungeonsInZone(ActiveDungeonZone)
+     : AMoonfallHeroPawn::DungeonsPerZone;
+   DrawText(ActiveDungeonZone >= 0
+     ? FString::Printf(TEXT("DUNGEON QUEST | Zone %d  %d/%d entrances"),
+         ActiveDungeonZone + 1, ZoneDungeonProgress, AMoonfallHeroPawn::DungeonsPerZone)
+     : FString(TEXT("DUNGEON QUEST | All six zones charted")),
+     FLinearColor(0.64f,0.89f,0.78f),
+     Left + 18.f, Top + 118.f, nullptr, PanelWidth < 460.f ? 0.60f : 0.73f);
    const int32 QuestStage = Hero->GetExplorationQuestStage();
    const int32 QuestTarget = Hero->GetExplorationQuestTarget();
    const int32 QuestBase = QuestStage == 0 ? 0 : (QuestStage == 1 ? 5 : (QuestStage == 2 ? 15 : 30));
@@ -78,7 +88,7 @@ void AMoonfallCombatHUD::DrawHUD()
     const float ColumnWidth = (PanelWidth - 52.f - ColumnGap) * 0.5f;
     const float L = Left + 18.f;
     const float R = L + ColumnWidth + ColumnGap;
-    const float BodyTop = Top + 131.f;
+    const float BodyTop = Top + 153.f;
     const float TextScale = Canvas->SizeX < 900.f ? 0.69f : 0.79f;
     const TCHAR* SlotNames[] = {TEXT("WEAPON"), TEXT("ARMOR"), TEXT("ACCESSORY"),
       TEXT("HEAD"), TEXT("SHOULDERS"), TEXT("CHEST"), TEXT("HANDS"), TEXT("LEGS"), TEXT("BOOTS")};
@@ -187,7 +197,7 @@ void AMoonfallCombatHUD::DrawHUD()
     return;
    }
    const float RowHeight = FMath::Clamp((PanelHeight - 145.f) / 16.f, 8.f, 26.f);
-   const float StartY = Top + 133.f;
+   const float StartY = Top + 152.f;
    const FString CharacterLines[] = {
      FString::Printf(TEXT("Equipment power: %d  |  W %d / A %d / T %d"),
        Hero->GetEquipmentPower(), Hero->GetItemPower(Hero->EquippedWeaponCode),
