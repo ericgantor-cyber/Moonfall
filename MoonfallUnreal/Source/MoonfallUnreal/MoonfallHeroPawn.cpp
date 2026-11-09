@@ -142,6 +142,68 @@ AMoonfallHeroPawn::AMoonfallHeroPawn()
  FinisherFlash->SetAttenuationRadius(420.f);
  FinisherFlash->SetVisibility(false);
 }
+void AMoonfallHeroPawn::LoadExplorationProfile()
+{
+ if (!GConfig) return;
+ static const TCHAR* Section = TEXT("Moonfall.Exploration.V1");
+ int32 Version = 0;
+ if (!GConfig->GetInt(Section, TEXT("Version"), Version, GGameUserSettingsIni)
+     || Version != 1) return;
+ TArray<FString> SavedCells;
+ GConfig->GetArray(Section, TEXT("RegionCells"), SavedCells, GGameUserSettingsIni);
+ if (SavedCells.Num() > MaxExplorationRegions) return;
+ int32 SavedCount = 0;
+ if (!GConfig->GetInt(Section, TEXT("Count"), SavedCount, GGameUserSettingsIni)
+     || SavedCount != SavedCells.Num()) return;
+ TArray<FIntPoint> Restored;
+ Restored.Reserve(SavedCells.Num());
+ for (const FString& Cell : SavedCells) {
+  FString XText, YText;
+  int32 X = 0, Y = 0;
+  if (!Cell.Split(TEXT(":"), &XText, &YText)
+      || !LexTryParseString(X, *XText) || !LexTryParseString(Y, *YText)
+      || FMath::Abs(X) > 512 || FMath::Abs(Y) > 512
+      || Restored.Contains(FIntPoint(X, Y))) return;
+  Restored.Add(FIntPoint(X, Y));
+ }
+ DiscoveredRegions = MoveTemp(Restored);
+ DiscoveredRegionCount = DiscoveredRegions.Num();
+}
+
+void AMoonfallHeroPawn::SaveExplorationProfile() const
+{
+ if (!GConfig || DiscoveredRegions.Num() > MaxExplorationRegions) return;
+ static const TCHAR* Section = TEXT("Moonfall.Exploration.V1");
+ TArray<FString> SavedCells;
+ SavedCells.Reserve(DiscoveredRegions.Num());
+ for (const FIntPoint& Cell : DiscoveredRegions)
+  SavedCells.Add(FString::Printf(TEXT("%d:%d"), Cell.X, Cell.Y));
+ GConfig->SetArray(Section, TEXT("RegionCells"), SavedCells, GGameUserSettingsIni);
+ GConfig->SetInt(Section, TEXT("Count"), SavedCells.Num(), GGameUserSettingsIni);
+ GConfig->SetInt(Section, TEXT("Version"), 1, GGameUserSettingsIni);
+ GConfig->Flush(false, GGameUserSettingsIni);
+}
+
+void AMoonfallHeroPawn::UpdateExplorationDiscovery(float DeltaSeconds)
+{
+ if (Health <= 0.f || !GetWorld() || DiscoveredRegionCount >= MaxExplorationRegions
+     || !FMath::IsFinite(DeltaSeconds) || DeltaSeconds <= 0.f) return;
+ ExplorationScanTimer -= FMath::Min(DeltaSeconds, 0.1f);
+ if (ExplorationScanTimer > 0.f) return;
+ ExplorationScanTimer = 0.5f;
+ const FVector Position = GetActorLocation();
+ if (!FMath::IsFinite(Position.X) || !FMath::IsFinite(Position.Y)
+     || FMath::Abs(Position.X) > 2000000.f || FMath::Abs(Position.Y) > 2000000.f) return;
+ // 4000 Unreal units per cell; no new actors, waves or teleport triggers.
+ const FIntPoint Cell(FMath::FloorToInt(Position.X / 4000.f),
+                      FMath::FloorToInt(Position.Y / 4000.f));
+ if (DiscoveredRegions.Contains(Cell)) return;
+ DiscoveredRegions.Add(Cell);
+ DiscoveredRegionCount = DiscoveredRegions.Num();
+ SaveExplorationProfile();
+ AwardExperience(30);
+}
+
 void AMoonfallHeroPawn::BeginPlay() {
  Super::BeginPlay();
  // Preserve authored/loaded extra pieces; create missing slots only.
@@ -170,10 +232,12 @@ void AMoonfallHeroPawn::BeginPlay() {
  bFrameGenerationPluginDetected = (FSR.IsValid() && FSR->IsEnabled()) || (DLSS.IsValid() && DLSS->IsEnabled());
  // Detection is only a hint, never proof of a supported frame-generation runtime.
  LoadEquipmentProfile();
+ LoadExplorationProfile();
 }
 void AMoonfallHeroPawn::Tick(float DeltaSeconds)
 {
  Super::Tick(DeltaSeconds);
+ UpdateExplorationDiscovery(DeltaSeconds);
  UpdateNativeFinisher(DeltaSeconds);
  // Expire the visible combo stage even if the player stops attacking.
  // Also discard defeated or destroyed targets to avoid a stale combo HUD.
