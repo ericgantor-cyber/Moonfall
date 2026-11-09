@@ -408,6 +408,10 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
   if (bDivineSignatureActive) {
    const FName ResolvedMove = ActiveDivineMoveId;
    const FVector ResolvedCenter = DivineSignatureCenter;
+   // A cast counts once at resolution, even when it misses. Staggers,
+   // posture breaks, phase transitions and deaths do not consume an
+   // alternate phase-three pattern before the cast actually resolves.
+   DivineSignatureCastCount = FMath::Min(DivineSignatureCastCount + 1, 100000);
    bDivineSignatureActive = false;
    ActiveDivineMoveId = NAME_None;
    OnDivineAttackResolved(ResolvedMove, ResolvedCenter, bWithinDivineMarker);
@@ -756,10 +760,9 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
    if (bBoss && (bVoidReaper || bEclipseQueen) && AttackSequence % 4 == 0) {
     bDivineSignatureActive = true;
     BossSpecialMove = 0;
-    ++DivineSignatureCastCount;
-    // Phase three alternates the two shapes for each god; locked targets
-    // never follow the player's later movements during a warning.
-    bDivineAlternateGeometry = BossPhase >= 3 && DivineSignatureCastCount % 2 == 0;
+    // Use the number of *resolved* signatures, not attempted windups.
+    // First complete cast is the normal mark, the second is the alternate.
+    bDivineAlternateGeometry = BossPhase >= 3 && DivineSignatureCastCount % 2 == 1;
     DivineSignatureCenter = bDivineAlternateGeometry
       ? (bVoidReaper ? GetActorLocation() : HeroPosition)
       : (bVoidReaper ? HeroPosition : GetActorLocation());
