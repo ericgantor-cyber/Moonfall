@@ -3048,7 +3048,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Trigger->OnComponentBeginOverlap.AddDynamic(", layout_cpp)
         self.assertIn("HandleChamberOverlap", layout_cpp)
         self.assertIn("EnteredChambersMask |= Bit;", layout_cpp)
-        self.assertIn("OnChamberEntered(Hero, ChamberIndex, GetChamberType(ChamberIndex));", layout_cpp)
+        self.assertIn("OnChamberEntered(Hero, ChamberIndex, ChamberType);", layout_cpp)
         self.assertIn("Hero->IsPlayerControlled()", layout_cpp)
         self.assertNotIn("SpawnActor<", layout_cpp)
 
