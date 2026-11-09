@@ -306,8 +306,14 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         sets = self.hero_cpp.split("int32 AMoonfallHeroPawn::GetSetPieceCount(", 1)[1].split(
             "float AMoonfallHeroPawn::GetCriticalChance()", 1)[0]
         self.assertIn("const int32 Codes[3] = {EquippedWeaponCode, EquippedArmorCode, EquippedAccessoryCode};", sets)
-        self.assertIn("Rarity >= 1", sets)
-        self.assertIn("Code == Trait * 100000 + Slot * 10000 + Rarity * 1000 + Tier", sets)
+        # Validate all three equipped slots through the strict shared decoder.
+        # The decoder rejects malformed and wrong-slot codes before set bonuses.
+        self.assertIn("DecodeEquippedItem(Codes[Slot], Slot, Trait, Rarity, Tier) && Trait == Affix", sets)
+        decoder = self.hero_cpp.split("bool DecodeEquippedItem(", 1)[1].split("int32 ValidEquippedTier(", 1)[0]
+        self.assertIn("Slot != ExpectedSlot", decoder)
+        self.assertIn("Rarity < 1 || Rarity > 5", decoder)
+        self.assertIn("Tier < 1 || Tier > 25", decoder)
+        self.assertIn("Code != Trait * 100000 + Slot * 10000 + Rarity * 1000 + Tier", decoder)
         self.assertNotIn("InventoryItemCodes", sets)
         self.assertIn("GetSetPieceCount(1) >= 2 ? 0.03f", self.hero_cpp)
         self.assertIn("GetSetPieceCount(1) >= 3 ? 0.04f", self.hero_cpp)
