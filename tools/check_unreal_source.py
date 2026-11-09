@@ -311,8 +311,10 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("DecodeEquippedItem(Codes[Slot], Slot, Trait, Rarity, Tier) && Trait == Affix", sets)
         decoder = self.hero_cpp.split("bool DecodeEquippedItem(", 1)[1].split("int32 ValidEquippedTier(", 1)[0]
         self.assertIn("Slot != ExpectedSlot", decoder)
-        self.assertIn("Rarity < 1 || Rarity > 5", decoder)
+        self.assertIn("Rarity < 0 || Rarity > 5", decoder)
         self.assertIn("Tier < 1 || Tier > 25", decoder)
+        self.assertIn("(Rarity == 0 && Trait != 0)", decoder)
+        self.assertIn("Trait < 0 || Trait > 3", decoder)
         self.assertIn("Code != Trait * 100000 + Slot * 10000 + Rarity * 1000 + Tier", decoder)
         self.assertNotIn("InventoryItemCodes", sets)
         self.assertIn("GetSetPieceCount(1) >= 2 ? 0.03f", self.hero_cpp)
