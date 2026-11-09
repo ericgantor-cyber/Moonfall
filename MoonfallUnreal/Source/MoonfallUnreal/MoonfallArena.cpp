@@ -3,6 +3,8 @@
 #include "Components/SceneComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/World.h"
+#include "EngineUtils.h"
+#include "TimerManager.h"
 #include "Kismet/GameplayStatics.h"
 #include "UObject/UObjectGlobals.h"
 AMoonfallArena::AMoonfallArena() {
@@ -76,25 +78,54 @@ void AMoonfallArena::BeginPlay() {
   }
   UGameplayStatics::FinishSpawningActor(Enemy, SpawnTransform);
  }
- // One 25% roll per arena. On success, generate THREE separate mob groups,
- // each containing 5..11 ordinary enemies. Boss encounter slots are unchanged.
+ // One 25% roll for the whole encounter, not one roll per group.
+ // Stagger groups so a lucky roll does not spawn up to 33 attackers at once.
  if (FMath::FRand() < 0.25f) {
-  constexpr int32 BonusGroupCount = 3;
-  constexpr float GroupCenterRadius = 950.f;
-  for (int32 Group = 0; Group < BonusGroupCount; ++Group) {
-   const int32 GroupSize = FMath::RandRange(5, 11);
-   const float GroupAngle = (2.f * PI * Group) / BonusGroupCount;
-   const FVector GroupCenter = GetActorLocation() + FVector(
-     GroupCenterRadius * FMath::Cos(GroupAngle),
-     GroupCenterRadius * FMath::Sin(GroupAngle), 60.f);
-   for (int32 Member = 0; Member < GroupSize; ++Member) {
-    const float Angle = 2.f * PI * Member / GroupSize;
-    const float Radius = 230.f;
-    const FVector Position = GroupCenter + FVector(
-      Radius * FMath::Cos(Angle), Radius * FMath::Sin(Angle), 0.f);
-    GetWorld()->SpawnActor<AMoonfallEnemy>(AMoonfallEnemy::StaticClass(),
-      Position, FRotator::ZeroRotator);
-   }
+  PendingBonusGroupSizes.Reserve(3);
+  for (int32 Group = 0; Group < 3; ++Group) {
+   PendingBonusGroupSizes.Add(FMath::RandRange(5, 11));
   }
+  GetWorldTimerManager().SetTimer(BonusSpawnTimer, this,
+    &AMoonfallArena::SpawnNextBonusGroup, 4.f, false);
+ }
+}
+
+void AMoonfallArena::SpawnNextBonusGroup() {
+ UWorld* World = GetWorld();
+ if (!World || NextBonusGroup >= PendingBonusGroupSizes.Num()) return;
+ // Cap living enemies, including regular, elite, and divine bosses.
+ // Never fragment a group: postpone until all its members fit.
+ int32 LivingEnemies = 0;
+ for (TActorIterator<AMoonfallEnemy> It(World); It; ++It) {
+  if (IsValid(*It) && It->Health > 0.f) ++LivingEnemies;
+ }
+ const int32 GroupSize = PendingBonusGroupSizes[NextBonusGroup];
+ constexpr int32 MaxLivingEnemies = 24;
+ if (LivingEnemies + GroupSize > MaxLivingEnemies) {
+  GetWorldTimerManager().SetTimer(BonusSpawnTimer, this,
+    &AMoonfallArena::SpawnNextBonusGroup, 4.f, false);
+  return;
+ }
+ // Group centers are separated, and individual mobs orbit their center.
+ // Entire clusters stay inside the 3000x3000 arena footprint.
+ constexpr float GroupCenterRadius = 950.f;
+ constexpr float MemberRadius = 230.f;
+ const float GroupAngle = (2.f * PI * NextBonusGroup) / 3.f;
+ const FVector GroupCenter = GetActorLocation() + FVector(
+   GroupCenterRadius * FMath::Cos(GroupAngle),
+   GroupCenterRadius * FMath::Sin(GroupAngle), 60.f);
+ for (int32 Member = 0; Member < GroupSize; ++Member) {
+  const float Angle = 2.f * PI * Member / GroupSize;
+  const FVector Position = GroupCenter + FVector(
+    MemberRadius * FMath::Cos(Angle), MemberRadius * FMath::Sin(Angle), 0.f);
+  World->SpawnActor<AMoonfallEnemy>(AMoonfallEnemy::StaticClass(),
+    Position, FRotator::ZeroRotator);
+ }
+ ++NextBonusGroup;
+ if (NextBonusGroup < PendingBonusGroupSizes.Num()) {
+  GetWorldTimerManager().SetTimer(BonusSpawnTimer, this,
+    &AMoonfallArena::SpawnNextBonusGroup, 8.f, false);
+ } else {
+  PendingBonusGroupSizes.Empty();
  }
 }
