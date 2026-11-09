@@ -1609,15 +1609,18 @@ void AMoonfallHeroPawn::SaveEquipmentProfile() const
   if (GetItemPower(Code) <= 0) return; // Do not overwrite a valid save with corrupt data.
   StoredBag.Add(FString::FromInt(Code));
  }
- GConfig->SetArray(Section, TEXT("InventoryCodes"), StoredBag, GGameUserSettingsIni);
+ // Validate the entire snapshot before making any configuration writes.
+ int32 Worn[9] = {};
  for (int32 Slot = 0; Slot < 9; ++Slot) {
   const int32 Code = GetEquippedCodeForSlot(Slot);
-  // Do not persist phantom or wrong-slot equipped gear.
   if (Code != 0 && (GetItemPower(Code) <= 0 ||
       (Code / 10000) % 10 != Slot || !InventoryItemCodes.Contains(Code))) return;
-  GConfig->SetInt(Section, *FString::Printf(TEXT("Slot%d"), Slot), Code,
-    GGameUserSettingsIni);
+  Worn[Slot] = Code;
  }
+ GConfig->SetArray(Section, TEXT("InventoryCodes"), StoredBag, GGameUserSettingsIni);
+ for (int32 Slot = 0; Slot < 9; ++Slot)
+  GConfig->SetInt(Section, *FString::Printf(TEXT("Slot%d"), Slot),
+    Worn[Slot], GGameUserSettingsIni);
  GConfig->SetInt(Section, TEXT("Salvage"), FMath::Clamp(Salvage, 0, 9999),
    GGameUserSettingsIni);
  GConfig->SetInt(Section, TEXT("Version"), 1, GGameUserSettingsIni);
