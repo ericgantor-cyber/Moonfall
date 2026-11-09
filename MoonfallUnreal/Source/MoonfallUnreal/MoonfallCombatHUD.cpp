@@ -380,13 +380,17 @@ void AMoonfallCombatHUD::DrawHUD()
            CX + Radius + 14.f, CY - 13.f, nullptr, 0.96f * LabelScale);
  }
  if (!bCompactScreen) {
-  const TCHAR* RarityNames[] = { TEXT("COMMON"), TEXT("UNCOMMON"), TEXT("RARE"), TEXT("EPIC") };
-  const int32 Rarity = FMath::Clamp(Hero->LastLootRarity, 0, 5);
-  DrawText(FString::Printf(TEXT("Gear W:%d A:%d C:%d | Salvage %d | Bag %d/30"),
+  // All six item rarities must be represented before indexing the label.
+  // A received item is reported independently of the current bag size.
+  const TCHAR* RarityNames[] = { TEXT("COMMON"), TEXT("UNCOMMON"),
+    TEXT("RARE"), TEXT("EPIC"), TEXT("EMERALD"), TEXT("LEGENDARY") };
+  const int32 Rarity = FMath::Clamp(Hero->LastLootRarity, 0,
+    static_cast<int32>(UE_ARRAY_COUNT(RarityNames)) - 1);
+  DrawText(FString::Printf(TEXT("Gear W:%d A:%d C:%d | Salvage %d | Bag %d"),
    Hero->WeaponTier, Hero->ArmorTier, Hero->AccessoryTier, Hero->Salvage, Hero->InventoryItemCodes.Num()),
    FLinearColor(0.85f,0.84f,0.95f), 24.f, Canvas->SizeY - 75.f, nullptr, 0.8f);
-  if (Hero->InventoryItemCodes.Num() > 0) {
-   DrawText(FString::Printf(TEXT("Last drop: %s Tier %d (%+d vs equipped)"),
+  if (Hero->LastLootTier > 0) {
+   DrawText(FString::Printf(TEXT("Last received: %s Tier %d (%+d vs equipped)"),
     RarityNames[Rarity], Hero->LastLootTier, Hero->LastLootUpgrade),
     FLinearColor(0.95f,0.84f,0.47f), 24.f, Canvas->SizeY - 55.f, nullptr, 0.8f);
   }
