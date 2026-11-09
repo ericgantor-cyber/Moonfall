@@ -1042,11 +1042,20 @@ void AMoonfallHeroPawn::OptionsDown() {
  if (bOptionsOpen) OptionsSelection = (OptionsSelection + 1) % 7;
 }
 void AMoonfallHeroPawn::OptionsLeft() {
- if (bInventoryOpen) { EquipSelectedInventoryItem(); return; }
+ if (bInventoryOpen) {
+  // Directional input only navigates. Confirm (Enter / Y) equips gear.
+  InventorySelection = FMath::Clamp(InventorySelection - 5, 0,
+    FMath::Max(0, InventoryItemCodes.Num() - 1));
+  return;
+ }
  AdjustOption(-1);
 }
 void AMoonfallHeroPawn::OptionsRight() {
- if (bInventoryOpen) { EquipSelectedInventoryItem(); return; }
+ if (bInventoryOpen) {
+  InventorySelection = FMath::Clamp(InventorySelection + 5, 0,
+    FMath::Max(0, InventoryItemCodes.Num() - 1));
+  return;
+ }
  AdjustOption(1);
 }
 void AMoonfallHeroPawn::AdjustOption(int32 Direction) {
