@@ -76,6 +76,15 @@ public:
  // single chamber with its biome-specific NPCs, loot, puzzles or effects.
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Dungeon")
  void OnChamberEntered(AMoonfallHeroPawn* Hero, int32 ChamberIndex, int32 ChamberType);
+ // Treasure drops are always on the ground for manual pickup; shrine rooms
+ // restore mana, never HP. Both trigger once on room entry.
+ UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Dungeon|Rewards",
+   meta=(ClampMin="0.0", ClampMax="100.0"))
+ float ShrineManaRestore = 35.f;
+ UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Dungeon|Rewards")
+ void OnShrineActivated(AMoonfallHeroPawn* Hero, int32 ChamberIndex);
+ UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Dungeon|Rewards")
+ void OnTreasureDropped(AMoonfallHeroPawn* Hero, int32 ChamberIndex);
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Dungeon")
  TArray<TObjectPtr<UBoxComponent>> ChamberTriggers;
 
@@ -88,6 +97,7 @@ private:
     UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep,
     const FHitResult& SweepResult);
  void BuildHazardChambers(int32 OutChambers[3]) const;
+ void ResolveChamberReward(AMoonfallHeroPawn* Hero, int32 ChamberIndex, int32 ChamberType);
  UFUNCTION()
  void HandleHazardOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor,
     UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep,
