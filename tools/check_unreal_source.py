@@ -718,7 +718,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
     def test_primary_stats_sheet_is_read_only_and_affects_combat_recovery(self):
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
         hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
-        self.assertIn('ActionName="CharacterStats",Key=P', inputs)
+        self.assertIn('ActionName="CharacterStats",Key=C', inputs)
         self.assertIn('ActionName="CharacterStats",Key=Gamepad_FaceButton_Bottom', inputs)
         self.assertIn('BindAction(TEXT("CharacterStats"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleCharacterStats)', self.hero_cpp)
         self.assertIn("void ToggleCharacterStats();", self.hero_h)
@@ -729,7 +729,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("GetMight() * 0.001f", self.hero_cpp)
         self.assertIn("GetInsight() * 0.002f", self.hero_cpp)
         self.assertIn("GetResolve() * 0.003f", self.hero_cpp)
-        self.assertIn("if (bInventoryOpen && !bOptionsOpen && Health > 0.f)", self.hero_cpp)
+        self.assertIn("if (bOptionsOpen || bAtlasOpen || !FMath::IsFinite(Health) || Health <= 0.f) return;", self.hero_cpp)
         self.assertIn("if (!bInventoryOpen) bCharacterStatsOpen = false;", self.hero_cpp)
         self.assertIn("if (!bCharacterStatsOpen) ForgeInventoryItemLevels(InventorySelection, 5);", self.hero_cpp)
         self.assertIn("if (!bCharacterStatsOpen) ReforgeInventoryItemAffix(InventorySelection);", self.hero_cpp)
@@ -737,8 +737,36 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("PRIMARY ATTRIBUTES", hud)
         self.assertIn("SECONDARY STATS", hud)
         self.assertIn("EQUIPMENT SET BONUSES", hud)
-        self.assertIn("P / A: back to inventory", hud)
-        self.assertIn("P / A: character stats", hud)
+        self.assertIn("C / A: close character info", hud)
+        self.assertIn("C / A: character info", hud)
+
+    def test_c_opens_and_closes_character_info_directly_without_colliding_with_b_or_j(self):
+        inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
+        self.assertIn('ActionName="CharacterStats",Key=C', inputs)
+        self.assertNotIn('ActionName="CharacterStats",Key=P', inputs)
+        self.assertNotIn('ActionName="DualCast",Key=C', inputs)
+        self.assertIn('ActionName="Inventory",Key=B', inputs)
+        self.assertIn('ActionName="Atlas",Key=J', inputs)
+        toggle = self.hero_cpp.split("void AMoonfallHeroPawn::ToggleCharacterStats()", 1)[1].split(
+            "void AMoonfallHeroPawn::UpdateInventoryMouseMode()", 1
+        )[0]
+        self.assertIn("bOptionsOpen || bAtlasOpen", toggle)
+        self.assertIn("!FMath::IsFinite(Health) || Health <= 0.f", toggle)
+        self.assertIn("if (!bInventoryOpen)", toggle)
+        self.assertIn("ResetMouseCastChord();", toggle)
+        self.assertIn("EndSprint();", toggle)
+        self.assertIn("EndGuard();", toggle)
+        self.assertIn("bInventoryOpen = true;", toggle)
+        self.assertIn("bCharacterStatsOpen = true;", toggle)
+        self.assertIn("else if (bCharacterStatsOpen)", toggle)
+        self.assertIn("bCharacterStatsOpen = false;", toggle)
+        self.assertIn("bInventoryOpen = false;", toggle)
+        self.assertIn("UpdateInventoryMouseMode();", toggle)
+        self.assertIn("C / A: close character info", self.hud)
+        self.assertIn("C / A: character info", self.hud)
+        for forbidden in ("EquipInventoryItem(", "InventorySelection =",
+                          "SalvageInventoryItem("):
+            self.assertNotIn(forbidden, toggle)
 
     def test_wow_inspired_secondary_stats_and_three_slot_trait_sets(self):
         hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
