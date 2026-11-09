@@ -350,7 +350,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Level >= 30 && LootRoll < 40 ? 4", self.hero_cpp)
         self.assertIn("0.f, 0.075f);", self.hero_cpp)
         self.assertIn("0.f, 0.025f)", self.hero_cpp)
-        self.assertIn("0.f, 0.10f))", self.hero_cpp)
+        self.assertIn("0.f, 0.10f)", self.hero_cpp)
 
     def test_item_rarity_ascension_is_paid_bounded_and_updates_equipped_stats(self):
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
@@ -392,7 +392,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("AccessoryRarity * 0.02f", hud)
         self.assertIn("Equipped: +%.1f%% spell damage", hud)
         self.assertIn("FMath::FloorToInt((PanelHeight - 290.f) / 25.f), 2, 8", hud)
-        self.assertIn("Top + 110.f + (Index - PageStart) * RowSpacing", hud)
+        self.assertIn("Top + 145.f + (Index - PageStart) * RowSpacing", hud)
         self.assertIn("Top + 75.f", hud)
         self.assertIn("Hero->ArmorAffix == 2 ? 0.06f : 0.f", hud)
         self.assertIn("Hero->AccessoryAffix == 3 ? 0.08f : 0.f", hud)
