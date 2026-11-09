@@ -280,6 +280,7 @@ void AMoonfallArena::SpawnNextBonusGroup() {
     ESpawnActorCollisionHandlingMethod::DontSpawnIfColliding);
   if (!IsValid(Enemy)) break;
   Enemy->EncounterLevelOverride = LockedDungeonLevel;
+  Enemy->DungeonPackId = NextBonusGroup;
   if (Member == ScoutSlot) {
    Enemy->ChaseSpeed = FMath::Clamp(Enemy->ChaseSpeed * 1.18f, 1.f, 300.f);
    Enemy->Tags.AddUnique(FName(TEXT("DungeonScout")));
