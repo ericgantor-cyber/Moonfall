@@ -134,27 +134,30 @@ void AMoonfallArena::SpawnNextBonusGroup() {
  // Validate ALL group members before spawning to avoid partial packs.
  // Biome-inspired formation profiles only, not new terrain/maps or enemy assets.
  // Keep the whole cluster within the existing arena footprint.
- struct FSpawnFormation { const TCHAR* Name; float CenterRadius; float MemberRadius; };
+ // Shape: 0 ring, 1 elliptical pack, 2 staggered double row, 3 crescent.
+ struct FSpawnFormation { const TCHAR* Name; float CenterRadius; float MemberRadius; int32 Shape; };
  static const FSpawnFormation Profiles[] = {
-  {TEXT("Forest"), 950.f, 230.f},
-  {TEXT("Cave"), 780.f, 175.f},
-  {TEXT("Foundry"), 1030.f, 260.f},
-  {TEXT("Swamp"), 820.f, 210.f},
-  {TEXT("Desert"), 1080.f, 245.f},
-  {TEXT("Tundra"), 1060.f, 230.f},
-  {TEXT("Volcanic"), 900.f, 190.f},
-  {TEXT("Ruins"), 860.f, 205.f},
-  {TEXT("Crypt"), 760.f, 170.f},
-  {TEXT("Coast"), 1010.f, 220.f},
-  {TEXT("Highlands"), 980.f, 200.f},
-  {TEXT("Eclipse"), 920.f, 250.f}
+  {TEXT("Forest"), 950.f, 230.f, 0},
+  {TEXT("Cave"), 780.f, 175.f, 2},
+  {TEXT("Foundry"), 1030.f, 260.f, 2},
+  {TEXT("Swamp"), 820.f, 210.f, 3},
+  {TEXT("Desert"), 1080.f, 245.f, 1},
+  {TEXT("Tundra"), 1060.f, 230.f, 1},
+  {TEXT("Volcanic"), 900.f, 190.f, 0},
+  {TEXT("Ruins"), 860.f, 205.f, 2},
+  {TEXT("Crypt"), 760.f, 170.f, 3},
+  {TEXT("Coast"), 1010.f, 220.f, 3},
+  {TEXT("Highlands"), 980.f, 200.f, 1},
+  {TEXT("Eclipse"), 920.f, 250.f, 0}
  };
  float GroupCenterRadius = Profiles[0].CenterRadius;
  float MemberRadius = Profiles[0].MemberRadius;
+ int32 FormationShape = Profiles[0].Shape;
  for (const FSpawnFormation& Profile : Profiles) {
   if (SpawnBiome == FName(Profile.Name)) {
    GroupCenterRadius = Profile.CenterRadius;
    MemberRadius = Profile.MemberRadius;
+   FormationShape = Profile.Shape;
    break;
   }
  }
@@ -171,10 +174,29 @@ void AMoonfallArena::SpawnNextBonusGroup() {
  FCollisionQueryParams GroundParams(SCENE_QUERY_STAT(MoonfallMobGround), false);
  bool bValidGroup = true;
  for (int32 Member = 0; Member < GroupSize; ++Member) {
-  // Rotate pack formation on each terrain retry to test new safe clearances.
+  // Different biomes give packs different readable silhouettes.
+  // Keep all formation geometry safely inside the arena perimeter.
   const float Angle = 2.f * PI * Member / GroupSize + 0.17f * TerrainPlacementAttempts;
-  const FVector Candidate = GroupCenter + FVector(
-    MemberRadius * FMath::Cos(Angle), MemberRadius * FMath::Sin(Angle), 0.f);
+  FVector Offset;
+  if (FormationShape == 1) {
+   Offset = FVector(MemberRadius * FMath::Cos(Angle),
+     MemberRadius * 0.62f * FMath::Sin(Angle), 0.f);
+  } else if (FormationShape == 2) {
+   const int32 Column = Member / 2;
+   const int32 Columns = (GroupSize + 1) / 2;
+   Offset = FVector((float(Column) - 0.5f * float(Columns - 1)) * 95.f,
+     (Member % 2 == 0 ? -75.f : 75.f), 0.f);
+  } else if (FormationShape == 3) {
+   const float Arc = -1.15f + 2.3f * float(Member) / float(FMath::Max(1, GroupSize - 1));
+   Offset = FVector(MemberRadius * (FMath::Cos(Arc) - 0.45f),
+     MemberRadius * FMath::Sin(Arc), 0.f);
+  } else {
+   Offset = FVector(MemberRadius * FMath::Cos(Angle),
+     MemberRadius * FMath::Sin(Angle), 0.f);
+  }
+  const float Rotation = 0.17f * TerrainPlacementAttempts;
+  const FVector Candidate = GroupCenter + Offset.RotateAngleAxis(
+    FMath::RadiansToDegrees(Rotation), FVector::UpVector);
   FHitResult GroundHit;
   const bool bHasGround = World->LineTraceSingleByChannel(GroundHit,
     Candidate + FVector(0.f, 0.f, 450.f),
