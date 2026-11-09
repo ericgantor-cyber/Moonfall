@@ -540,7 +540,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("bOptionsOpen || bInventoryOpen || !FMath::IsFinite(Health)", dual)
         self.assertLess(dual.index("bInventoryOpen"), dual.index("GetWorld()->GetTimeSeconds()"))
         self.assertIn("Left-click: select", self.hud)
-        self.assertNotIn('ActionName="AdvisorSelect"', inputs)
+        self.assertIn('ActionName="AdvisorSelect",Key=J', inputs)
 
     def test_right_click_equips_only_in_inventory_and_never_casts_there(self):
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
@@ -568,7 +568,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(mouse.index("EquipSelectedInventoryItem();"),
                         mouse.index("TryCast(RightSpell, 1, 1.f);"))
         self.assertIn("Right-click / Enter / Y: equip", self.hud)
-        self.assertNotIn('ActionName="AdvisorSelect"', inputs)
+        self.assertIn('ActionName="AdvisorSelect",Key=J', inputs)
 
     def test_direct_equipment_change_requires_open_inventory(self):
         equip = self.hero_cpp.split(
