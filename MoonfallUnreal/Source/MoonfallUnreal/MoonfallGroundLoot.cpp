@@ -39,7 +39,10 @@ AMoonfallGroundLoot::AMoonfallGroundLoot()
 
 void AMoonfallGroundLoot::InitializeLoot(int32 InItemCode)
 {
- if (ItemCode != 0 || InItemCode <= 0) return;
+ // A repeated initialization must never replace an existing, valid drop.
+ if (ItemCode != 0 || bCollected) return;
+ // Failed initialization must not leave an unusable world actor behind.
+ if (InItemCode <= 0) { Destroy(); return; }
  const int32 Affix = InItemCode / 100000;
  const int32 Slot = (InItemCode / 10000) % 10;
  const int32 Rarity = (InItemCode / 1000) % 10;
@@ -47,8 +50,10 @@ void AMoonfallGroundLoot::InitializeLoot(int32 InItemCode)
  if (Affix < 0 || Affix > 3 || Slot < 0 || Slot > 2 ||
      Rarity < 0 || Rarity > 5 || Tier < 1 || Tier > 25 ||
      (Rarity == 0 && Affix != 0) ||
-     InItemCode != Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier)
+     InItemCode != Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier) {
+  Destroy();
   return;
+ }
  ItemCode = InItemCode;
  const TCHAR* SlotNames[] = {TEXT("Weapon"), TEXT("Armor"), TEXT("Accessory")};
  const TCHAR* QualityNames[] = {TEXT("Common"), TEXT("Uncommon"), TEXT("Rare"), TEXT("Epic"), TEXT("Emerald"), TEXT("Legendary")};
