@@ -272,6 +272,22 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("InventoryItemCodes.RemoveAt(", loot)
         self.assertIn("InventorySelection = FMath::Clamp(InventorySelection, 0, InventoryItemCodes.Num() - 1);", loot)
 
+    def test_equipped_rarity_adds_bounded_combat_stats_and_inventory_preview(self):
+        hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        self.assertIn("((EquippedWeaponCode / 1000) % 10) * 0.015f", self.hero_cpp)
+        self.assertIn("((EquippedArmorCode / 1000) % 10) * 0.005f", self.hero_cpp)
+        self.assertIn("((EquippedAccessoryCode / 1000) % 10) * 0.02f", self.hero_cpp)
+        self.assertIn("0.045f);", self.hero_cpp)
+        self.assertIn("0.015f));", self.hero_cpp)
+        self.assertIn("0.06f))", self.hero_cpp)
+        self.assertIn("WeaponRarity * 0.015f", hud)
+        self.assertIn("ArmorRarity * 0.005f", hud)
+        self.assertIn("AccessoryRarity * 0.02f", hud)
+        self.assertIn("Equipped: +%.1f%% spell damage", hud)
+        self.assertIn("Hero->ArmorAffix == 2 ? 0.06f : 0.f", hud)
+        self.assertIn("Hero->AccessoryAffix == 3 ? 0.08f : 0.f", hud)
+        self.assertIn("Hero->WeaponAffix == 1 ? 0.06f : 0.f", hud)
+
     def test_forge_five_reuses_safe_single_tier_crafting_and_hud_previews_cost(self):
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
         hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
