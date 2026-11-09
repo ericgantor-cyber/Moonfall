@@ -833,7 +833,11 @@ void AMoonfallHeroPawn::SalvageSelectedInventoryItem() {
 void AMoonfallHeroPawn::InventorySalvage() { SalvageSelectedInventoryItem(); }
 bool AMoonfallHeroPawn::SalvageInventoryItem(int32 InventoryIndex)
 {
- if (Health <= 0.f || !InventoryItemCodes.IsValidIndex(InventoryIndex)) return false;
+ // Enforce the inventory menu boundary for Blueprint and direct callers too.
+ // A background call must never destroy a bag item or award free salvage.
+ if (!bInventoryOpen || bCharacterStatsOpen || bOptionsOpen ||
+     !FMath::IsFinite(Health) || Health <= 0.f ||
+     !InventoryItemCodes.IsValidIndex(InventoryIndex)) return false;
  const int32 Code = InventoryItemCodes[InventoryIndex];
  if (Code <= 0) return false;
  // The final inventory copy of equipped gear is protected. Extra duplicates
@@ -1439,7 +1443,11 @@ void AMoonfallHeroPawn::PickupNearestGroundLoot()
 // changes equipment or overrides a deliberate player preference.
 int32 AMoonfallHeroPawn::GetEquipmentUpgradeScore(int32 InventoryIndex) const
 {
- if (!InventoryItemCodes.IsValidIndex(InventoryIndex)) return 0;
+ // Suppress advice outside a valid inventory state, including direct
+ // Blueprint queries, while preserving a read-only score for valid entries.
+ if (!bInventoryOpen || bCharacterStatsOpen || bOptionsOpen ||
+     !FMath::IsFinite(Health) || Health <= 0.f ||
+     !InventoryItemCodes.IsValidIndex(InventoryIndex)) return 0;
  const int32 Candidate = InventoryItemCodes[InventoryIndex];
  if (Candidate <= 0) return 0;
  const int32 Slot = (Candidate / 10000) % 10;
@@ -1474,7 +1482,8 @@ int32 AMoonfallHeroPawn::GetRecommendedEquipmentIndex() const
 {
  // Only advise while the inventory is displayed. This function is read-only
  // and does not change selection, worn gear, health, currency or the save.
- if (!bInventoryOpen || bOptionsOpen || !FMath::IsFinite(Health) || Health <= 0.f)
+ if (!bInventoryOpen || bCharacterStatsOpen || bOptionsOpen ||
+     !FMath::IsFinite(Health) || Health <= 0.f)
   return -1;
  int32 BestIndex = -1;
  int32 BestImprovement = 0;
