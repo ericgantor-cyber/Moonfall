@@ -30,8 +30,12 @@ void AMoonfallEnemy::BeginPlay() {
  // Blueprint tuning must not overflow enemy vitality or damage at spawn.
  const float BaseHealth = FMath::IsFinite(Health) && Health > 0.f ? Health : 1.f;
  const float BaseDamage = FMath::IsFinite(AttackDamage) && AttackDamage > 0.f ? AttackDamage : 1.f;
- Health = FMath::Clamp(BaseHealth, 1.f, 100000.f) * HPScale;
- AttackDamage = FMath::Clamp(BaseDamage, 1.f, 10000.f) * DamageScale;
+ // Three successive +25% upgrades compound to 1.953125x for non-boss mobs.
+ // Apply once at spawn; bosses keep their separately tuned health and damage.
+ constexpr float MobTripleUpgradeScale = 1.25f * 1.25f * 1.25f;
+ const float MobUpgradeScale = bBoss ? 1.f : MobTripleUpgradeScale;
+ Health = FMath::Clamp(BaseHealth, 1.f, 100000.f) * HPScale * MobUpgradeScale;
+ AttackDamage = FMath::Clamp(BaseDamage, 1.f, 10000.f) * DamageScale * MobUpgradeScale;
  MaxHealthAtSpawn = FMath::Max(1.f, Health);
  BossMaxHealth = bBoss ? MaxHealthAtSpawn : 0.f;
  // Bosses and elites require sustained pressure rather than a fixed three-parry break.
