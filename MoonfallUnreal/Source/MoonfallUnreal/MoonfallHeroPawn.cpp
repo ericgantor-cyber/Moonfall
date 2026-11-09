@@ -1490,7 +1490,10 @@ int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()
 
 bool AMoonfallHeroPawn::EquipInventoryItem(int32 InventoryIndex)
 {
- if (Health <= 0.f || !InventoryItemCodes.IsValidIndex(InventoryIndex)) return false;
+ // Equipping is always deliberate and inventory-scoped, even when called
+ // directly from a Blueprint or by the worn-item crafting sync path.
+ if (Health <= 0.f || !bInventoryOpen || bOptionsOpen ||
+     !InventoryItemCodes.IsValidIndex(InventoryIndex)) return false;
  const int32 Code = InventoryItemCodes[InventoryIndex];
  if (Code <= 0) return false;
  // Validate every decoded field before mutating equipped items or health.
