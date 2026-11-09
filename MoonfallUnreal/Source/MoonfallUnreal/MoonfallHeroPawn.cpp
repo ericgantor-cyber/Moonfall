@@ -243,6 +243,7 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("UpgradeGear"), IE_Pressed, this, &AMoonfallHeroPawn::UpgradeSelectedInventoryItem);
  Input->BindAction(TEXT("ForgeFive"), IE_Pressed, this, &AMoonfallHeroPawn::ForgeFiveSelectedInventoryItem);
  Input->BindAction(TEXT("AscendGear"), IE_Pressed, this, &AMoonfallHeroPawn::AscendSelectedInventoryItem);
+ Input->BindAction(TEXT("ReforgeGear"), IE_Pressed, this, &AMoonfallHeroPawn::ReforgeSelectedInventoryItem);
  Input->BindAction(TEXT("EquipBest"), IE_Pressed, this, &AMoonfallHeroPawn::EquipBestInventoryAction);
  Input->BindAction(TEXT("PickupLoot"), IE_Pressed, this, &AMoonfallHeroPawn::PickupNearestGroundLoot);
  Input->BindAction(TEXT("OptionsUp"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsUp);
@@ -776,6 +777,49 @@ bool AMoonfallHeroPawn::UpgradeInventoryItem(int32 InventoryIndex)
  LastLootUpgrade = (Tier + 1) - (Slot == 0 ? WeaponTier : (Slot == 1 ? ArmorTier : AccessoryTier));
  OnEquipmentCrafted(NewCode, Cost);
  return true;
+}
+
+bool AMoonfallHeroPawn::ReforgeInventoryItemAffix(int32 InventoryIndex)
+{
+ // Explicit crafting inside inventory only. Common/uncommon traits cannot be
+ // reforged; rare and higher retain their tier and quality unchanged.
+ if (!bInventoryOpen || bOptionsOpen || Health <= 0.f
+     || !InventoryItemCodes.IsValidIndex(InventoryIndex)) return false;
+ const int32 Code = InventoryItemCodes[InventoryIndex];
+ if (Code <= 0) return false;
+ const int32 Affix = Code / 100000;
+ const int32 Slot = (Code / 10000) % 10;
+ const int32 Rarity = (Code / 1000) % 10;
+ const int32 Tier = Code % 1000;
+ if (Affix < 0 || Affix > 3 || Slot < 0 || Slot > 2
+     || Rarity < 2 || Rarity > 5 || Tier < 1 || Tier > 25
+     || Code != Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier) return false;
+ // Unlike normal drops, reforge always yields a nonzero affix different
+ // from the old one, including for an originally traitless Rare item.
+ const int32 Cost = 12 + Tier * 2 + Rarity * 8;
+ if (Salvage < Cost) return false;
+ const int32 NewAffix = Affix == 0 ? FMath::RandRange(1, 3)
+     : 1 + ((Affix - 1 + FMath::RandRange(1, 2)) % 3);
+ const int32 NewCode = NewAffix * 100000 + Slot * 10000 + Rarity * 1000 + Tier;
+ const int32 EquippedCode = Slot == 0 ? EquippedWeaponCode
+     : (Slot == 1 ? EquippedArmorCode : EquippedAccessoryCode);
+ const bool bReforgingEquipped = Code == EquippedCode;
+ InventoryItemCodes[InventoryIndex] = NewCode;
+ // Keep the bag and the worn item in sync, including direct combat bonuses.
+ // Roll back and leave salvage untouched if that sync unexpectedly fails.
+ if (bReforgingEquipped && !EquipInventoryItem(InventoryIndex)) {
+  InventoryItemCodes[InventoryIndex] = Code;
+  return false;
+ }
+ Salvage -= Cost;
+ LastLootAffix = NewAffix;
+ OnEquipmentReforged(NewCode, Cost);
+ return true;
+}
+
+void AMoonfallHeroPawn::ReforgeSelectedInventoryItem()
+{
+ ReforgeInventoryItemAffix(InventorySelection);
 }
 
 bool AMoonfallHeroPawn::AscendInventoryItemRarity(int32 InventoryIndex)
