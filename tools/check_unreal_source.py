@@ -349,7 +349,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Level >= 60 && LootRoll < 12 ? 5", self.hero_cpp)
         self.assertIn("Level >= 30 && LootRoll < 40 ? 4", self.hero_cpp)
         self.assertIn("0.f, 0.075f);", self.hero_cpp)
-        self.assertIn("0.f, 0.025f));", self.hero_cpp)
+        self.assertIn("0.f, 0.025f)", self.hero_cpp)
         self.assertIn("0.f, 0.10f))", self.hero_cpp)
 
     def test_item_rarity_ascension_is_paid_bounded_and_updates_equipped_stats(self):
@@ -386,7 +386,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("((EquippedAccessoryCode / 1000) % 10) * 0.02f", self.hero_cpp)
         self.assertIn("0.075f);", self.hero_cpp)
         self.assertIn("0.025f));", self.hero_cpp)
-        self.assertIn("0.10f))", self.hero_cpp)
+        self.assertIn("0.10f)", self.hero_cpp)
         self.assertIn("WeaponRarity * 0.015f", hud)
         self.assertIn("ArmorRarity * 0.005f", hud)
         self.assertIn("AccessoryRarity * 0.02f", hud)
@@ -1414,7 +1414,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "void AMoonfallHeroPawn::CastLeft()", 1)[0]
         self.assertIn("Time <= FinisherMomentumUntil", cast)
         self.assertIn("FMath::Clamp(FinisherMomentumDamageMultiplier, 1.f, 1.5f)", cast)
-        self.assertIn("* CounterMultiplier * MomentumBonus * HitComboMultiplier;", cast)
+        self.assertIn("* CounterMultiplier * MomentumBonus * HitComboMultiplier", cast)
+        self.assertIn("(1.f + GetMasteryBonus()) * (1.f + GetVersatilityBonus())", cast)
         self.assertIn("if (School == 3 && Health >= MaxHealth) return false;", cast)
         damage = self.hero_cpp.split("void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount)", 1)[1].split(
             "void AMoonfallHeroPawn::CycleGraphicsQuality()", 1)[0]
@@ -2221,7 +2222,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("FMath::Clamp(HitComboWindowSeconds, 0.5f, 4.f)", cast)
         self.assertIn("FMath::Clamp(HitComboDamagePerStage, 0.f, 0.12f)", cast)
         self.assertIn("HitComboMultiplier = 1.f + ComboStepBonus", cast)
-        self.assertIn("* CounterMultiplier * MomentumBonus * HitComboMultiplier;", cast)
+        self.assertIn("* CounterMultiplier * MomentumBonus * HitComboMultiplier", cast)
+        self.assertIn("(1.f + GetMasteryBonus()) * (1.f + GetVersatilityBonus())", cast)
         self.assertIn("if (ActualSpellDamage > 0.f) {", cast)
         self.assertIn("HitComboStage = bComboAlive ? (IncomingStage >= 12 ? 1 : IncomingStage + 1) : 1;", cast)
         self.assertIn("const int32 EffectiveIncomingStage = IncomingStage == 12 ? 0 : IncomingStage;", cast)
@@ -2262,7 +2264,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Time <= ParryCounterUntil", cast)
         self.assertIn("FMath::Clamp(ParryCounterDamageMultiplier, 1.f, 2.f)", cast)
         self.assertIn("Enemy->TakeSpellDamage(SpellDamage);", cast)
-        self.assertIn("* CounterMultiplier * MomentumBonus * HitComboMultiplier;", cast)
+        self.assertIn("* CounterMultiplier * MomentumBonus * HitComboMultiplier", cast)
+        self.assertIn("(1.f + GetMasteryBonus()) * (1.f + GetVersatilityBonus())", cast)
         self.assertIn("if (bCounterReady && ActualSpellDamage > 0.f)", cast)
         self.assertIn("ParryCounterUntil = -1.f;", cast)
         self.assertLess(cast.index("Enemy->TakeSpellDamage(SpellDamage);"),
