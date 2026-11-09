@@ -77,5 +77,19 @@ func _run()->void:
   for i in range(keys.size()):
    check(str(combo_game.call("_wow_keyboard_action",keys[i]))==key_actions[i],"Alt+number shortcut "+str(i+1))
   check(str(combo_game.call("_wow_keyboard_action",KEY_SPACE)).is_empty(),"spacebar is not remapped as an attack")
+  # Regression: persistent boss IDs are identifiers, not array offsets.
+  # Verify each divine actor resolves through the new lookup and that
+  # absent IDs never accidentally select an unrelated beast.
+  var divine_ids:Dictionary=combo_game.get("divine_boss_ids")
+  for divine_id in divine_ids:
+   var boss_id:int=int(divine_ids[divine_id])
+   var actor:Dictionary=combo_game.call("_divine_actor_by_boss_id",boss_id)
+   check(not actor.is_empty() and str(actor.get("divine_id",""))==str(divine_id),"divine boss ID resolves to correct actor: "+str(divine_id))
+  var absent:Dictionary=combo_game.call("_divine_actor_by_boss_id",-999999)
+  check(absent.is_empty(),"missing divine boss ID never resolves to another actor")
+  combo_game.call("_clear_all_divine_warnings")
+  for divine_id in divine_ids:
+   var actor:Dictionary=combo_game.call("_divine_actor_by_boss_id",int(divine_ids[divine_id]))
+   check(float(actor.get("divine_warn_until",-1.0))==0.0 and not bool(actor.get("divine_chain_pending",true)),"warning cleanup cancels queued divine strikes: "+str(divine_id))
   combo_game.queue_free()
  quit(1 if failures>0 else 0)
