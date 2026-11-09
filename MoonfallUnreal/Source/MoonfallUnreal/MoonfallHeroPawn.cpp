@@ -21,6 +21,64 @@
 #include "Animation/AnimInstance.h"
 #include "Animation/AnimMontage.h"
 #include "CollisionQueryParams.h"
+// Equipment stats are intentionally derived from equipped codes, never the
+// inventory list: carrying loot cannot accidentally grant combat bonuses.
+// Ignore malformed codes so externally edited Blueprint state fails closed.
+int32 AMoonfallHeroPawn::GetSetPieceCount(int32 Affix) const
+{
+ if (Affix < 1 || Affix > 3) return 0;
+ const int32 Codes[3] = {EquippedWeaponCode, EquippedArmorCode, EquippedAccessoryCode};
+ int32 Pieces = 0;
+ for (int32 Slot = 0; Slot < 3; ++Slot) {
+  const int32 Code = Codes[Slot];
+  const int32 Trait = Code / 100000;
+  const int32 ItemSlot = (Code / 10000) % 10;
+  const int32 Rarity = (Code / 1000) % 10;
+  const int32 Tier = Code % 1000;
+  if (Code > 0 && Trait == Affix && ItemSlot == Slot && Rarity >= 1
+      && Rarity <= 5 && Tier >= 1 && Tier <= 25
+      && Code == Trait * 100000 + Slot * 10000 + Rarity * 1000 + Tier)
+   ++Pieces;
+ }
+ return Pieces;
+}
+
+float AMoonfallHeroPawn::GetCriticalChance() const
+{
+ // Force: 2-piece improves critical chances. A 3-piece grants mastery.
+ const int32 Rarity = FMath::Clamp((EquippedWeaponCode / 1000) % 10, 0, 5);
+ const float TraitCrit = WeaponAffix == 1 ? Rarity * 0.008f : 0.f;
+ return FMath::Clamp(0.05f + TraitCrit + (GetSetPieceCount(1) >= 2 ? 0.03f : 0.f),
+   0.05f, 0.25f);
+}
+
+float AMoonfallHeroPawn::GetHasteBonus() const
+{
+ // Focus: faster spell recovery at two matching items.
+ const int32 Rarity = FMath::Clamp((EquippedAccessoryCode / 1000) % 10, 0, 5);
+ const float TraitHaste = AccessoryAffix == 3 ? Rarity * 0.006f : 0.f;
+ return FMath::Clamp(TraitHaste + (GetSetPieceCount(3) >= 2 ? 0.04f : 0.f),
+   0.f, 0.20f);
+}
+
+float AMoonfallHeroPawn::GetMasteryBonus() const
+{
+ // Mastery rewards overall equipped power; triple Force strengthens spells.
+ const float GearMastery = FMath::Clamp((WeaponTier + ArmorTier + AccessoryTier)
+   * 0.0015f, 0.f, 0.12f);
+ return FMath::Clamp(GearMastery + (GetSetPieceCount(1) >= 3 ? 0.04f : 0.f),
+   0.f, 0.16f);
+}
+
+float AMoonfallHeroPawn::GetVersatilityBonus() const
+{
+ // Ward: Versatility increases damage dealt and halves its defensive effect.
+ const int32 Rarity = FMath::Clamp((EquippedArmorCode / 1000) % 10, 0, 5);
+ const float TraitVersatility = ArmorAffix == 2 ? Rarity * 0.005f : 0.f;
+ return FMath::Clamp(TraitVersatility + (GetSetPieceCount(2) >= 2 ? 0.03f : 0.f),
+   0.f, 0.12f);
+}
+
 AMoonfallHeroPawn::AMoonfallHeroPawn()
 {
  PrimaryActorTick.bCanEverTick = true;
@@ -124,7 +182,8 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
      && FMath::IsFinite(ManaRegenPerSecond) && ManaRegenPerSecond > 0.f && Mana >= 0.f && Mana < MaxMana)
   Mana = FMath::Min(MaxMana, Mana + FMath::Clamp(ManaRegenPerSecond, 0.f, 250.f) * MenuRecoveryBoost * CombatManaFactor
       * (1.f + FMath::Clamp(AccessoryTier * 0.012f, 0.f, 0.25f) + (AccessoryAffix == 3 ? 0.08f : 0.f)
-        + FMath::Clamp(((EquippedAccessoryCode / 1000) % 10) * 0.02f, 0.f, 0.10f))
+        + FMath::Clamp(((EquippedAccessoryCode / 1000) % 10) * 0.02f, 0.f, 0.10f)
+        + (GetSetPieceCount(3) >= 3 ? 0.06f : 0.f))
       * SafeRecoveryDelta);
  // Recovery in either menu is bounded and never revives a defeated hero.
  if ((bOptionsOpen || bInventoryOpen) && Health > 0.f && FMath::IsFinite(Health)
@@ -291,7 +350,7 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
  static const float Cooldowns[6] = {0.8f,0.65f,1.2f,2.f,1.f,0.9f};
  if (Health <= 0.f || bOptionsOpen || bInventoryOpen || !GetWorld() || School < 0 || School >= 6 || Hand < 0 || Hand > 1 || !FMath::IsFinite(Multiplier) || Multiplier <= 0.f || Multiplier > 2.f) return false;
  const float Time = GetWorld()->GetTimeSeconds();
- if (!FMath::IsFinite(Health) || !FMath::IsFinite(MaxHealth) || MaxHealth <= 0.f || Health > MaxHealth || !FMath::IsFinite(MaxMana) || MaxMana <= 0.f || !FMath::IsFinite(Mana) || !FMath::IsFinite(SpellPowerMultiplier) || SpellPowerMultiplier <= 0.f || Mana < Costs[School] * Multiplier || Time - LastCastTime[Hand] < Cooldowns[School]) return false;
+ if (!FMath::IsFinite(Health) || !FMath::IsFinite(MaxHealth) || MaxHealth <= 0.f || Health > MaxHealth || !FMath::IsFinite(MaxMana) || MaxMana <= 0.f || !FMath::IsFinite(Mana) || !FMath::IsFinite(SpellPowerMultiplier) || SpellPowerMultiplier <= 0.f || Mana < Costs[School] * Multiplier || Time - LastCastTime[Hand] < Cooldowns[School] / (1.f + GetHasteBonus())) return false;
  if (School == 3 && Health >= MaxHealth) return false;
  if (School != 3) {
   if (!IsValid(FollowCamera)) return false;
@@ -338,8 +397,14 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
   // looping the last animation and its damage bonus forever.
   const int32 EffectiveIncomingStage = IncomingStage == 12 ? 0 : IncomingStage;
   const float HitComboMultiplier = 1.f + ComboStepBonus * FMath::Clamp(EffectiveIncomingStage, 0, 3);
+  // Secondary stats: Mastery adds reliable power, Versatility scales offense
+  // and Critical Strike provides an occasional 1.5x hostile spell hit.
+  // Crit is rolled only after a valid enemy was acquired.
+  const bool bCriticalSpell = FMath::FRand() < GetCriticalChance();
   const float SpellDamage = (18.f + School * 5.f) * Multiplier * SpellPowerMultiplier
-    * WeaponDamageBonus * CounterMultiplier * MomentumBonus * HitComboMultiplier;
+    * WeaponDamageBonus * CounterMultiplier * MomentumBonus * HitComboMultiplier
+    * (1.f + GetMasteryBonus()) * (1.f + GetVersatilityBonus())
+    * (bCriticalSpell ? 1.5f : 1.f);
   // Reject invalid damage before spending mana or consuming a hard-earned counter.
   if (!FMath::IsFinite(SpellDamage) || SpellDamage <= 0.f) return false;
   const float HealthBeforeSpell = Enemy->Health;
@@ -574,7 +639,9 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
  // Ward armor affix provides a small, capped flat mitigation bonus.
  const float ArmorMitigation = FMath::Min(0.34f, FMath::Min(0.28f, ArmorTier * 0.01f)
    + (ArmorAffix == 2 ? 0.06f : 0.f)
-   + FMath::Clamp(((EquippedArmorCode / 1000) % 10) * 0.005f, 0.f, 0.025f));
+   + FMath::Clamp(((EquippedArmorCode / 1000) % 10) * 0.005f, 0.f, 0.025f)
+   + GetVersatilityBonus() * 0.5f
+   + (GetSetPieceCount(2) >= 3 ? 0.025f : 0.f));
  const float ArmoredDamage = Amount * (1.f - ArmorMitigation);
  float DamageAfterGuard = ArmoredDamage;
  // Enemy attacks must come from the front 150-degree guard cone.

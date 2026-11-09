@@ -42,7 +42,7 @@ void AMoonfallCombatHUD::DrawHUD()
   DrawText(TEXT("MOONFALL  |  INVENTORY"), FLinearColor::White, Left + 18.f, Top + 16.f, nullptr, 1.3f);
   const int32 Count = Hero->InventoryItemCodes.Num();
   // Reserve height for a real equipment-stat line and three controls rows.
-  const int32 PerPage = FMath::Clamp(FMath::FloorToInt((PanelHeight - 265.f) / 25.f), 2, 8);
+  const int32 PerPage = FMath::Clamp(FMath::FloorToInt((PanelHeight - 290.f) / 25.f), 2, 8);
   const int32 Selected = FMath::Clamp(Hero->InventorySelection, 0, FMath::Max(0, Count - 1));
   const int32 PageStart = Selected / PerPage * PerPage;
   const int32 PageEnd = FMath::Min(Count, PageStart + PerPage);
@@ -53,7 +53,7 @@ void AMoonfallCombatHUD::DrawHUD()
   if (Count == 0)
    DrawText(TEXT("No equipment yet. Defeat enemies to find gear."), FLinearColor::White,
      Left + 18.f, Top + 100.f, nullptr, 0.92f);
-  const float RowSpacing = FMath::Max(21.f, (PanelHeight - 265.f) / PerPage);
+  const float RowSpacing = FMath::Max(21.f, (PanelHeight - 290.f) / PerPage);
   for (int32 Index = PageStart; Index < PageEnd; ++Index) {
    const int32 Code = Hero->InventoryItemCodes[Index];
    const int32 Affix = Code / 100000;
@@ -66,7 +66,7 @@ void AMoonfallCombatHUD::DrawHUD()
    const bool bValid = Code > 0 && Slot <= 2 && Affix <= 3 && Rarity <= 5 && Tier >= 1 && Tier <= 25;
    const bool bEquipped = Code == (Slot == 0 ? Hero->EquippedWeaponCode
      : Slot == 1 ? Hero->EquippedArmorCode : Hero->EquippedAccessoryCode);
-   const float Y = Top + 110.f + (Index - PageStart) * RowSpacing;
+   const float Y = Top + 145.f + (Index - PageStart) * RowSpacing;
    if (Index == Selected) DrawRect(FLinearColor(0.25f,0.18f,0.43f,0.90f),
      Left + 12.f, Y - 3.f, PanelWidth - 24.f, RowSpacing - 3.f);
    const FString Row = bValid ? FString::Printf(TEXT("%02d  %s  T%d  %s  %s%s"),
@@ -88,13 +88,28 @@ void AMoonfallCombatHUD::DrawHUD()
   const float WeaponBonusPct = 100.f * (FMath::Clamp(0.018f * Hero->WeaponTier, 0.f, 0.35f)
     + (Hero->WeaponAffix == 1 ? 0.06f : 0.f) + WeaponRarity * 0.015f);
   const float ArmorMitigationPct = 100.f * FMath::Min(0.34f, FMath::Min(0.28f, Hero->ArmorTier * 0.01f)
-    + (Hero->ArmorAffix == 2 ? 0.06f : 0.f) + ArmorRarity * 0.005f);
+    + (Hero->ArmorAffix == 2 ? 0.06f : 0.f) + ArmorRarity * 0.005f
+    + Hero->GetVersatilityBonus() * 0.5f
+    + (Hero->GetSetPieceCount(2) >= 3 ? 0.025f : 0.f));
   const float ManaRegenBonusPct = 100.f * (FMath::Clamp(Hero->AccessoryTier * 0.012f, 0.f, 0.25f)
-    + (Hero->AccessoryAffix == 3 ? 0.08f : 0.f) + AccessoryRarity * 0.02f);
+    + (Hero->AccessoryAffix == 3 ? 0.08f : 0.f) + AccessoryRarity * 0.02f
+    + (Hero->GetSetPieceCount(3) >= 3 ? 0.06f : 0.f));
   DrawText(FString::Printf(TEXT("Equipped: +%.1f%% spell damage  |  %.1f%% protection  |  +%.1f%% mana regen"),
     WeaponBonusPct, ArmorMitigationPct, ManaRegenBonusPct),
     FLinearColor(0.76f,0.90f,0.99f), Left + 18.f, Top + 75.f,
     nullptr, Canvas->SizeX < 900.f ? 0.62f : 0.74f);
+  // Secondary stats and equipped-set thresholds always reflect active gear.
+  DrawText(FString::Printf(TEXT("Crit %.1f%%   Haste %.1f%%   Mastery %.1f%%   Versatility %.1f%%"),
+    Hero->GetCriticalChance() * 100.f, Hero->GetHasteBonus() * 100.f,
+    Hero->GetMasteryBonus() * 100.f, Hero->GetVersatilityBonus() * 100.f),
+    FLinearColor(0.81f,0.89f,1.f), Left + 18.f, Top + 94.f,
+    nullptr, Canvas->SizeX < 900.f ? 0.63f : 0.76f);
+  const int32 ForcePieces = Hero->GetSetPieceCount(1);
+  const int32 WardPieces = Hero->GetSetPieceCount(2);
+  const int32 FocusPieces = Hero->GetSetPieceCount(3);
+  DrawText(FString::Printf(TEXT("Sets: Force %d/3  Ward %d/3  Focus %d/3    2pc + 3pc unlock bonuses"),
+    ForcePieces, WardPieces, FocusPieces), FLinearColor(0.59f,0.95f,0.77f),
+    Left + 18.f, Top + 113.f, nullptr, Canvas->SizeX < 900.f ? 0.61f : 0.72f);
   DrawText(TEXT("WASD / D-pad: select   Enter / Y: equip   Delete / X: salvage"),
      FLinearColor::White, Left + 18.f, Top + PanelHeight - 51.f, nullptr, 0.75f);
   // Display cost for the actual selected item, rather than a formula

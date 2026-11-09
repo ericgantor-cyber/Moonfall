@@ -189,7 +189,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("if (Health <= 0.f || bOptionsOpen || bInventoryOpen || !FMath::IsFinite(Value)) return;", self.hero_cpp)
         self.assertIn("bOptionsOpen || bInventoryOpen || !GetWorld()", self.hero_cpp)
         self.assertIn("if (Hero->bInventoryOpen)", self.hud)
-        self.assertIn("const int32 PerPage = FMath::Clamp(FMath::FloorToInt((PanelHeight - 265.f) / 25.f), 2, 8);", self.hud)
+        self.assertIn("const int32 PerPage = FMath::Clamp(FMath::FloorToInt((PanelHeight - 290.f) / 25.f), 2, 8);", self.hud)
         self.assertIn("Hero->InventoryItemCodes[Index]", self.hud)
         self.assertIn("Hero->EquippedWeaponCode", self.hud)
         self.assertIn("Hero->EquippedArmorCode", self.hud)
@@ -272,6 +272,38 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("InventoryItemCodes.RemoveAt(", loot)
         self.assertIn("InventorySelection = FMath::Clamp(InventorySelection, 0, InventoryItemCodes.Num() - 1);", loot)
 
+    def test_wow_inspired_secondary_stats_and_three_slot_trait_sets(self):
+        hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        for signature in ("int32 GetSetPieceCount(int32 Affix) const;",
+                          "float GetCriticalChance() const;", "float GetHasteBonus() const;",
+                          "float GetMasteryBonus() const;", "float GetVersatilityBonus() const;"):
+            self.assertIn(signature, self.hero_h)
+        sets = self.hero_cpp.split("int32 AMoonfallHeroPawn::GetSetPieceCount(", 1)[1].split(
+            "float AMoonfallHeroPawn::GetCriticalChance()", 1)[0]
+        self.assertIn("const int32 Codes[3] = {EquippedWeaponCode, EquippedArmorCode, EquippedAccessoryCode};", sets)
+        self.assertIn("Rarity >= 1", sets)
+        self.assertIn("Code == Trait * 100000 + Slot * 10000 + Rarity * 1000 + Tier", sets)
+        self.assertNotIn("InventoryItemCodes", sets)
+        self.assertIn("GetSetPieceCount(1) >= 2 ? 0.03f", self.hero_cpp)
+        self.assertIn("GetSetPieceCount(1) >= 3 ? 0.04f", self.hero_cpp)
+        self.assertIn("GetSetPieceCount(2) >= 2 ? 0.03f", self.hero_cpp)
+        self.assertIn("GetSetPieceCount(2) >= 3 ? 0.025f", self.hero_cpp)
+        self.assertIn("GetSetPieceCount(3) >= 2 ? 0.04f", self.hero_cpp)
+        self.assertIn("GetSetPieceCount(3) >= 3 ? 0.06f", self.hero_cpp)
+        cast = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split(
+            "void AMoonfallHeroPawn::CastLeft()", 1)[0]
+        self.assertIn("Cooldowns[School] / (1.f + GetHasteBonus())", cast)
+        self.assertIn("const bool bCriticalSpell = FMath::FRand() < GetCriticalChance();", cast)
+        self.assertIn("bCriticalSpell ? 1.5f : 1.f", cast)
+        self.assertIn("(1.f + GetMasteryBonus()) * (1.f + GetVersatilityBonus())", cast)
+        self.assertIn("GetVersatilityBonus() * 0.5f", self.hero_cpp)
+        self.assertIn("GetSetPieceCount(1)", hud)
+        self.assertIn("GetSetPieceCount(2)", hud)
+        self.assertIn("GetSetPieceCount(3)", hud)
+        self.assertIn("Crit %.1f%%   Haste %.1f%%   Mastery %.1f%%   Versatility %.1f%%", hud)
+        self.assertIn("2pc + 3pc unlock bonuses", hud)
+        self.assertIn("Top + 145.f + (Index - PageStart) * RowSpacing", hud)
+
     def test_rare_and_higher_affix_reforging_preserves_equipped_stats_and_costs(self):
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
         hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
@@ -317,8 +349,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Level >= 60 && LootRoll < 12 ? 5", self.hero_cpp)
         self.assertIn("Level >= 30 && LootRoll < 40 ? 4", self.hero_cpp)
         self.assertIn("0.f, 0.075f);", self.hero_cpp)
-        self.assertIn("0.f, 0.025f));", self.hero_cpp)
-        self.assertIn("0.f, 0.10f))", self.hero_cpp)
+        self.assertIn("0.f, 0.025f)", self.hero_cpp)
+        self.assertIn("0.f, 0.10f)", self.hero_cpp)
 
     def test_item_rarity_ascension_is_paid_bounded_and_updates_equipped_stats(self):
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
@@ -354,13 +386,13 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("((EquippedAccessoryCode / 1000) % 10) * 0.02f", self.hero_cpp)
         self.assertIn("0.075f);", self.hero_cpp)
         self.assertIn("0.025f));", self.hero_cpp)
-        self.assertIn("0.10f))", self.hero_cpp)
+        self.assertIn("0.10f)", self.hero_cpp)
         self.assertIn("WeaponRarity * 0.015f", hud)
         self.assertIn("ArmorRarity * 0.005f", hud)
         self.assertIn("AccessoryRarity * 0.02f", hud)
         self.assertIn("Equipped: +%.1f%% spell damage", hud)
-        self.assertIn("FMath::FloorToInt((PanelHeight - 265.f) / 25.f), 2, 8", hud)
-        self.assertIn("Top + 110.f + (Index - PageStart) * RowSpacing", hud)
+        self.assertIn("FMath::FloorToInt((PanelHeight - 290.f) / 25.f), 2, 8", hud)
+        self.assertIn("Top + 145.f + (Index - PageStart) * RowSpacing", hud)
         self.assertIn("Top + 75.f", hud)
         self.assertIn("Hero->ArmorAffix == 2 ? 0.06f : 0.f", hud)
         self.assertIn("Hero->AccessoryAffix == 3 ? 0.08f : 0.f", hud)
@@ -1382,7 +1414,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "void AMoonfallHeroPawn::CastLeft()", 1)[0]
         self.assertIn("Time <= FinisherMomentumUntil", cast)
         self.assertIn("FMath::Clamp(FinisherMomentumDamageMultiplier, 1.f, 1.5f)", cast)
-        self.assertIn("* CounterMultiplier * MomentumBonus * HitComboMultiplier;", cast)
+        self.assertIn("* CounterMultiplier * MomentumBonus * HitComboMultiplier", cast)
+        self.assertIn("(1.f + GetMasteryBonus()) * (1.f + GetVersatilityBonus())", cast)
         self.assertIn("if (School == 3 && Health >= MaxHealth) return false;", cast)
         damage = self.hero_cpp.split("void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount)", 1)[1].split(
             "void AMoonfallHeroPawn::CycleGraphicsQuality()", 1)[0]
@@ -2189,7 +2222,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("FMath::Clamp(HitComboWindowSeconds, 0.5f, 4.f)", cast)
         self.assertIn("FMath::Clamp(HitComboDamagePerStage, 0.f, 0.12f)", cast)
         self.assertIn("HitComboMultiplier = 1.f + ComboStepBonus", cast)
-        self.assertIn("* CounterMultiplier * MomentumBonus * HitComboMultiplier;", cast)
+        self.assertIn("* CounterMultiplier * MomentumBonus * HitComboMultiplier", cast)
+        self.assertIn("(1.f + GetMasteryBonus()) * (1.f + GetVersatilityBonus())", cast)
         self.assertIn("if (ActualSpellDamage > 0.f) {", cast)
         self.assertIn("HitComboStage = bComboAlive ? (IncomingStage >= 12 ? 1 : IncomingStage + 1) : 1;", cast)
         self.assertIn("const int32 EffectiveIncomingStage = IncomingStage == 12 ? 0 : IncomingStage;", cast)
@@ -2230,7 +2264,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Time <= ParryCounterUntil", cast)
         self.assertIn("FMath::Clamp(ParryCounterDamageMultiplier, 1.f, 2.f)", cast)
         self.assertIn("Enemy->TakeSpellDamage(SpellDamage);", cast)
-        self.assertIn("* CounterMultiplier * MomentumBonus * HitComboMultiplier;", cast)
+        self.assertIn("* CounterMultiplier * MomentumBonus * HitComboMultiplier", cast)
+        self.assertIn("(1.f + GetMasteryBonus()) * (1.f + GetVersatilityBonus())", cast)
         self.assertIn("if (bCounterReady && ActualSpellDamage > 0.f)", cast)
         self.assertIn("ParryCounterUntil = -1.f;", cast)
         self.assertLess(cast.index("Enemy->TakeSpellDamage(SpellDamage);"),
