@@ -511,7 +511,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(mouse.index("GetInventoryItemAtScreenPosition("),
                         mouse.index("EquipSelectedInventoryItem();"))
         self.assertLess(mouse.index("EquipSelectedInventoryItem();"),
-                        mouse.index("TryCast(RightSpell, 1, 1.f);"))
+                        mouse.index("bRightMouseHeld = true;"))
         self.assertNotIn("AdvisorSelect", mouse)
 
     def test_left_click_selects_without_equipping_and_gamepad_cast_is_isolated(self):
@@ -528,9 +528,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("if (bCharacterStatsOpen) return;", left)
         self.assertIn("HUD->GetInventoryItemAtScreenPosition(this, MouseX, MouseY)", left)
         self.assertIn("InventorySelection = ClickedIndex;", left)
-        self.assertIn("TryCast(LeftSpell, 0, 1.f);", left)
+        self.assertIn("bLeftMouseHeld = true;", left)
         self.assertLess(left.index("InventorySelection = ClickedIndex;"),
-                        left.index("TryCast(LeftSpell, 0, 1.f);"))
+                        left.index("bLeftMouseHeld = true;"))
         for forbidden in ("EquipSelectedInventoryItem(", "EquipInventoryItem(",
                           "SalvageInventoryItem(", "InventoryItemCodes.RemoveAt("):
             self.assertNotIn(forbidden, left)
@@ -541,6 +541,47 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(dual.index("bInventoryOpen"), dual.index("GetWorld()->GetTimeSeconds()"))
         self.assertIn("Left-click: select", self.hud)
         self.assertIn('ActionName="AdvisorSelect",Key=J', inputs)
+
+    def test_both_mouse_buttons_dual_cast_without_c_and_single_on_release(self):
+        inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
+        self.assertNotIn('ActionName="DualCast",Key=C', inputs)
+        self.assertIn('ActionName="DualCast",Key=Gamepad_LeftTrigger', inputs)
+        for action, release, state, other in (
+            ("LeftClickContextAction", "ReleaseLeftClickContext", "bLeftMouseHeld", "bRightMouseHeld"),
+            ("RightClickContextAction", "ReleaseRightClickContext", "bRightMouseHeld", "bLeftMouseHeld"),
+        ):
+            self.assertIn("void " + release + "();", self.hero_h)
+            self.assertIn('BindAction(TEXT("' + action.replace("Action", "") + '"), IE_Released', self.hero_cpp)
+            pressed = self.hero_cpp.split("void AMoonfallHeroPawn::" + action + "()", 1)[1].split(
+                "void AMoonfallHeroPawn::", 1
+            )[0]
+            self.assertIn(state + " = true;", pressed)
+            self.assertIn("if (" + other + " && !bMouseChordConsumed)", pressed)
+            self.assertIn("bMouseChordConsumed = true;", pressed)
+            self.assertIn("CastBoth();", pressed)
+            self.assertLess(pressed.index("bMouseChordConsumed = true;"), pressed.index("CastBoth();"))
+            self.assertNotIn("TryCast(", pressed)
+            released = self.hero_cpp.split("void AMoonfallHeroPawn::" + release + "()", 1)[1].split(
+                "void AMoonfallHeroPawn::", 1
+            )[0]
+            self.assertIn("const bool bSingleCast = " + state + " && !bMouseChordConsumed;", released)
+            self.assertIn("!bOptionsOpen && !bInventoryOpen", released)
+            self.assertIn(state + " = false;", released)
+        left_release = self.hero_cpp.split("void AMoonfallHeroPawn::ReleaseLeftClickContext()", 1)[1].split(
+            "void AMoonfallHeroPawn::ReleaseRightClickContext()", 1
+        )[0]
+        right_release = self.hero_cpp.split("void AMoonfallHeroPawn::ReleaseRightClickContext()", 1)[1].split(
+            "void AMoonfallHeroPawn::CastBoth()", 1
+        )[0]
+        self.assertIn("TryCast(LeftSpell, 0, 1.f);", left_release)
+        self.assertIn("TryCast(RightSpell, 1, 1.f);", right_release)
+        self.assertIn("bMouseChordConsumed = false;", left_release)
+        self.assertIn("bMouseChordConsumed = false;", right_release)
+        for boundary in ("ToggleInventory()", "OpenOptions()"):
+            section = self.hero_cpp.split("void AMoonfallHeroPawn::" + boundary, 1)[1].split(
+                "void AMoonfallHeroPawn::", 1
+            )[0]
+            self.assertIn("ResetMouseCastChord();", section)
 
     def test_right_click_equips_only_in_inventory_and_never_casts_there(self):
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
@@ -564,9 +605,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("if (bInventoryOpen) {", mouse)
         self.assertIn("if (bCharacterStatsOpen) return;", mouse)
         self.assertIn("EquipSelectedInventoryItem();", mouse)
-        self.assertIn("TryCast(RightSpell, 1, 1.f);", mouse)
+        self.assertIn("bRightMouseHeld = true;", mouse)
         self.assertLess(mouse.index("EquipSelectedInventoryItem();"),
-                        mouse.index("TryCast(RightSpell, 1, 1.f);"))
+                        mouse.index("bRightMouseHeld = true;"))
         self.assertIn("Right-click / Enter / Y: equip", self.hud)
         self.assertIn('ActionName="AdvisorSelect",Key=J', inputs)
 
