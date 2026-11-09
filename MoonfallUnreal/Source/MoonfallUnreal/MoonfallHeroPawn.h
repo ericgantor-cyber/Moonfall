@@ -93,6 +93,9 @@ public:
  UPROPERTY(BlueprintReadOnly, Category="Moonfall|Progression") int32 Level = 1;
  UPROPERTY(BlueprintReadOnly, Category="Moonfall|Progression") int32 Experience = 0;
  UPROPERTY(BlueprintReadOnly, Category="Moonfall|Progression") int32 ExperienceToNextLevel = 100;
+ // Dedicated progression profile: independent of equipment and exploration saves.
+ void LoadProgressionProfile();
+ void SaveProgressionProfile() const;
  // Every takedown plays native five-style choreography; authored montages layer over it.
  UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|Finishers") TArray<TObjectPtr<UAnimMontage>> FinisherMontages;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Finishers", meta=(ClampMin="0.5", ClampMax="10.0")) float FinisherChainWindowSeconds = 4.f;
