@@ -11,6 +11,9 @@ public:
  AMoonfallEnemy();
  virtual void Tick(float DeltaSeconds) override;
  virtual void BeginPlay() override;
+ // Dungeon mobs can use a fixed level captured upon first dungeon entry.
+ // Zero retains the original player-level-at-spawn behavior for world mobs/bosses.
+ UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat|Encounter") int32 EncounterLevelOverride = 0;
  UPROPERTY(EditAnywhere, Category="Combat") float ChaseSpeed = 180.f;
  UPROPERTY(EditAnywhere, Category="Combat") float AttackDamage = 8.f;
  UPROPERTY(EditAnywhere, Category="Combat") float AttackRange = 145.f;
