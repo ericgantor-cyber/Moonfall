@@ -1799,6 +1799,21 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("ActiveDivineMoveId = NAME_None;", self.enemy_cpp)
         self.assertLess(self.enemy_cpp.index("OnDivineAttackResolved("), self.enemy_cpp.index("if (bWithinDivineMarker || bWithinBasicAttack)"))
 
+    def test_divine_signatures_can_cast_at_range_without_ranged_melee(self):
+        tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
+        self.assertIn("const bool bDivineSignatureDue = bBoss", tick)
+        self.assertIn('DivineBossId == FName(TEXT("z_void_reaper"))', tick)
+        self.assertIn('DivineBossId == FName(TEXT("nyra_eclipse_queen"))', tick)
+        self.assertIn("AttackSequence % 4 == 3;", tick)
+        self.assertIn("const bool bDivineRangedCastReady = bDivineSignatureDue", tick)
+        self.assertIn("Distance > AttackRange && Distance <= 750.f;", tick)
+        self.assertIn("&& Distance < 2200.f && !bDivineRangedCastReady)", tick)
+        self.assertIn("} else if (Distance <= AttackRange || bDivineRangedCastReady) {", tick)
+        self.assertIn("if (!bDivineRangedCastReady", tick)
+        self.assertIn("if (bBoss && (bVoidReaper || bEclipseQueen) && AttackSequence % 4 == 0)", tick)
+        self.assertEqual(tick.count("Nav->FindPathToLocationSynchronously("), 1)
+        self.assertEqual(tick.count("Nav->ProjectPointToNavigation("), 1)
+
     def test_divine_alternation_only_advances_after_completed_cast(self):
         enemy = self.enemy_cpp
         impact = enemy.split("const FName ResolvedMove = ActiveDivineMoveId;", 1)[1]
