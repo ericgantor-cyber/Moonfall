@@ -334,8 +334,10 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("Jump"), IE_Released, this, &ACharacter::StopJumping);
  Input->BindAction(TEXT("CastLeft"), IE_Pressed, this, &AMoonfallHeroPawn::CastLeft);
  Input->BindAction(TEXT("LeftClickContext"), IE_Pressed, this, &AMoonfallHeroPawn::LeftClickContextAction);
+ Input->BindAction(TEXT("LeftClickContext"), IE_Released, this, &AMoonfallHeroPawn::ReleaseLeftClickContext);
  Input->BindAction(TEXT("CastRight"), IE_Pressed, this, &AMoonfallHeroPawn::CastRight);
  Input->BindAction(TEXT("RightClickContext"), IE_Pressed, this, &AMoonfallHeroPawn::RightClickContextAction);
+ Input->BindAction(TEXT("RightClickContext"), IE_Released, this, &AMoonfallHeroPawn::ReleaseRightClickContext);
  Input->BindAction(TEXT("DualCast"), IE_Pressed, this, &AMoonfallHeroPawn::CastBoth);
  Input->BindAction(TEXT("Dodge"), IE_Pressed, this, &AMoonfallHeroPawn::Dodge);
  Input->BindAction(TEXT("Sprint"), IE_Pressed, this, &AMoonfallHeroPawn::BeginSprint);
@@ -547,7 +549,13 @@ void AMoonfallHeroPawn::LeftClickContextAction()
   }
   return;
  }
- TryCast(LeftSpell, 0, 1.f);
+ // Defer the individual spell until release so the second button can
+ // form a dual-cast chord without the first cast consuming its cooldown.
+ bLeftMouseHeld = true;
+ if (bRightMouseHeld && !bMouseChordConsumed) {
+  bMouseChordConsumed = true;
+  CastBoth();
+ }
 }
 void AMoonfallHeroPawn::CastRight()
 {
@@ -576,7 +584,33 @@ void AMoonfallHeroPawn::RightClickContextAction()
   EquipSelectedInventoryItem();
   return;
  }
- TryCast(RightSpell, 1, 1.f);
+ bRightMouseHeld = true;
+ if (bLeftMouseHeld && !bMouseChordConsumed) {
+  bMouseChordConsumed = true;
+  CastBoth();
+ }
+}
+void AMoonfallHeroPawn::ResetMouseCastChord()
+{
+ bLeftMouseHeld = false;
+ bRightMouseHeld = false;
+ bMouseChordConsumed = false;
+}
+void AMoonfallHeroPawn::ReleaseLeftClickContext()
+{
+ const bool bSingleCast = bLeftMouseHeld && !bMouseChordConsumed;
+ bLeftMouseHeld = false;
+ if (bSingleCast && !bOptionsOpen && !bInventoryOpen)
+  TryCast(LeftSpell, 0, 1.f);
+ if (!bLeftMouseHeld && !bRightMouseHeld) bMouseChordConsumed = false;
+}
+void AMoonfallHeroPawn::ReleaseRightClickContext()
+{
+ const bool bSingleCast = bRightMouseHeld && !bMouseChordConsumed;
+ bRightMouseHeld = false;
+ if (bSingleCast && !bOptionsOpen && !bInventoryOpen)
+  TryCast(RightSpell, 1, 1.f);
+ if (!bLeftMouseHeld && !bRightMouseHeld) bMouseChordConsumed = false;
 }
 void AMoonfallHeroPawn::CastBoth()
 {
@@ -848,6 +882,7 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
   bInventoryOpen = false;
   bCharacterStatsOpen = false;
   bOptionsOpen = false;
+  ResetMouseCastChord();
   UpdateInventoryMouseMode();
  }
  if (!bReduceMotion) ImpactCameraOffset = FMath::Clamp(ImpactCameraOffset + FMath::Min(DamageTaken * 0.5f, 18.f), 0.f, 24.f);
@@ -901,6 +936,7 @@ void AMoonfallHeroPawn::UpdateInventoryMouseMode()
 
 void AMoonfallHeroPawn::ToggleInventory() {
  if (bOptionsOpen || !FMath::IsFinite(Health) || Health <= 0.f) return;
+ ResetMouseCastChord();
  if (!bInventoryOpen) {
   StopJumping();
   if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
@@ -1107,6 +1143,7 @@ void AMoonfallHeroPawn::InventoryConfirm() { EquipSelectedInventoryItem(); }
 void AMoonfallHeroPawn::OpenOptions() {
  // The defeat screen owns input until respawn; do not reopen gameplay menus.
  if (Health <= 0.f || !FMath::IsFinite(Health)) return;
+ ResetMouseCastChord();
  if (bInventoryOpen) {
   bInventoryOpen = false;
   bCharacterStatsOpen = false;
