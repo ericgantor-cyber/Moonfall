@@ -1815,18 +1815,28 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertEqual(tick.count("Nav->FindPathToLocationSynchronously("), 1)
         self.assertEqual(tick.count("Nav->ProjectPointToNavigation("), 1)
 
+    def test_divine_spell_frequency_escalates_by_phase_without_changing_warnings(self):
+        tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
+        self.assertIn("const int32 DivineSignatureInterval = BossPhase >= 3 ? 2 : (BossPhase == 2 ? 3 : 4);", tick)
+        self.assertIn("AttackSequence % DivineSignatureInterval == DivineSignatureInterval - 1;", tick)
+        self.assertIn("AttackSequence % DivineSignatureInterval == 0)", tick)
+        self.assertEqual(tick.count("const int32 DivineSignatureInterval"), 1)
+        self.assertIn("CurrentWindup = BossPhase >= 3 ? 1.2f : 1.7f;", tick)
+        self.assertIn("DivineSignatureCastCount % 2 == 1;", tick)
+        self.assertEqual(tick.count("Nav->FindPathToLocationSynchronously("), 1)
+
     def test_divine_signatures_can_cast_at_range_without_ranged_melee(self):
         tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
         self.assertIn("const bool bDivineSignatureDue = bBoss", tick)
         self.assertIn('DivineBossId == FName(TEXT("z_void_reaper"))', tick)
         self.assertIn('DivineBossId == FName(TEXT("nyra_eclipse_queen"))', tick)
-        self.assertIn("AttackSequence % 4 == 3;", tick)
+        self.assertIn("AttackSequence % DivineSignatureInterval == DivineSignatureInterval - 1;", tick)
         self.assertIn("const bool bDivineRangedCastCandidate = bDivineSignatureDue", tick)
         self.assertIn("Distance > AttackRange && Distance <= 750.f;", tick)
         self.assertIn("&& Distance < 2200.f && !bDivineRangedCastReady)", tick)
         self.assertIn("} else if (Distance <= AttackRange || bDivineRangedCastReady) {", tick)
         self.assertIn("if (!bDivineRangedCastReady", tick)
-        self.assertIn("if (bBoss && (bVoidReaper || bEclipseQueen) && AttackSequence % 4 == 0)", tick)
+        self.assertIn("if (bBoss && (bVoidReaper || bEclipseQueen) && AttackSequence % DivineSignatureInterval == 0)", tick)
         self.assertEqual(tick.count("Nav->FindPathToLocationSynchronously("), 1)
         self.assertEqual(tick.count("Nav->ProjectPointToNavigation("), 1)
 
