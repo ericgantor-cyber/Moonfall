@@ -545,8 +545,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(equip.index("Code != Affix * 100000"), equip.index("*EquippedTier = Tier;"))
         loot = self.hero_cpp.split("void AMoonfallHeroPawn::AwardEquipmentDrop(", 1)[1].split(
             "bool AMoonfallHeroPawn::EquipInventoryItem(", 1)[0]
-        self.assertIn("*EquippedCode = ItemCode;", loot)
         self.assertIn("InventoryItemCodes.Add(ItemCode);", loot)
+        self.assertIn("GetEquippedCodeForSlot(LastLootSlot)", loot)
+        self.assertNotIn("*EquippedCode = ItemCode;", loot)
 
     def test_random_item_affixes_apply_bounded_slot_specific_bonuses(self):
         for field in ("LastLootAffix", "WeaponAffix", "ArmorAffix", "AccessoryAffix"):
@@ -556,9 +557,6 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("LastLootAffix = LastLootRarity == 0 ? 0", loot)
         self.assertIn("FMath::RandRange(1, 3)", loot)
         self.assertIn("LastLootAffix * 100000 + LastLootSlot * 10000", loot)
-        self.assertIn("int32* EquippedAffix =", self.hero_cpp)
-        self.assertIn("*EquippedAffix = LastLootAffix;", self.hero_cpp)
-        self.assertLess(self.hero_cpp.index("if (NewTier > *Slot) {"), self.hero_cpp.index("*EquippedAffix = LastLootAffix;"))
         cast = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split(
             "void AMoonfallHeroPawn::CastLeft()", 1)[0]
         self.assertIn("(WeaponAffix == 1 ? 0.06f : 0.f)", cast)
@@ -2575,9 +2573,11 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("ExtraEquippedCodes.Num() != 6", begin)
         self.assertIn("ExtraEquippedCodes.SetNum(6)", begin)
         awards = self.hero_cpp.split("void AMoonfallHeroPawn::AwardEquipmentDrop(", 1)[1].split("bool AMoonfallHeroPawn::CollectGroundEquipmentCode(", 1)[0]
-        self.assertIn("if (LastLootSlot >= 3)", awards)
-        extras = awards.split("if (LastLootSlot >= 3)", 1)[1].split("return;", 1)[0]
-        self.assertNotIn("EquipInventoryItem(", extras)
+        self.assertIn("GetEquippedCodeForSlot(LastLootSlot)", awards)
+        self.assertNotIn("EquipInventoryItem(", awards)
+        self.assertNotIn("EquippedWeaponCode =", awards)
+        self.assertNotIn("EquippedArmorCode =", awards)
+        self.assertNotIn("EquippedAccessoryCode =", awards)
         upgrade = self.hero_cpp.split("bool AMoonfallHeroPawn::UpgradeInventoryItem(", 1)[1].split("bool AMoonfallHeroPawn::", 1)[0]
         self.assertIn("const int32 PreviousWornTier", upgrade)
         self.assertIn("LastLootUpgrade = (Tier + 1) - PreviousWornTier;", upgrade)
@@ -2606,7 +2606,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("LoadEquipmentProfile();", self.hero_cpp)
         for name in ("OnEquipmentCrafted", "OnEquipmentAscended", "OnEquipmentReforged"):
             self.assertIn(name, self.hero_cpp)
-        self.assertGreaterEqual(self.hero_cpp.count("SaveEquipmentProfile();"), 9)
+        self.assertGreaterEqual(self.hero_cpp.count("SaveEquipmentProfile();"), 8)
 
     def test_equipment_profile_integrity_and_v1_compatibility(self):
         checksum = self.hero_cpp.split("static uint32 MoonfallEquipmentProfileChecksum(", 1)[1].split("\n}", 1)[0]
@@ -2674,6 +2674,17 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(load.index("Health = FMath::Clamp(MaxHealth - PreviouslyMissingHealth"),
                         load.index("bRestoringEquipmentProfile = false;"))
         self.assertIn("Health = PreviousHealth;", load)
+
+    def test_all_nine_loot_slots_require_deliberate_equipping(self):
+        awarded = self.hero_cpp.split("void AMoonfallHeroPawn::AwardEquipmentDrop(", 1)[1].split(
+            "bool AMoonfallHeroPawn::CollectGroundEquipmentCode(", 1)[0]
+        self.assertIn("InventoryItemCodes.Add(ItemCode);", awarded)
+        self.assertIn("GetEquippedCodeForSlot(LastLootSlot)", awarded)
+        self.assertNotIn("EquipInventoryItem(", awarded)
+        self.assertNotIn("*EquippedCode = ItemCode", awarded)
+        self.assertIn("SaveEquipmentProfile();", awarded)
+        self.assertIn('TEXT("EMPTY")', self.hud)
+        self.assertIn("L + 88.f, Y + 7.f", self.hud)
 
 if __name__ == "__main__":
     unittest.main()

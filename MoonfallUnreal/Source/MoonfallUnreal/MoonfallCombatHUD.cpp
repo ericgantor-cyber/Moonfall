@@ -78,8 +78,8 @@ void AMoonfallCombatHUD::DrawHUD()
      DrawText(SlotNames[Slot], FLinearColor(0.79f,0.83f,0.96f),
        L + 9.f, Y + 9.f, nullptr, 0.68f);
      if (ItemPower <= 0) {
-      DrawText(TEXT("EMPTY SLOT"), FLinearColor(0.62f,0.67f,0.77f),
-       L + 9.f, Y + 13.f, nullptr, 0.72f);
+      DrawText(TEXT("EMPTY"), FLinearColor(0.62f,0.67f,0.77f),
+       L + 88.f, Y + 7.f, nullptr, 0.65f);
      } else {
       const int32 Tier = Code % 1000;
       const int32 Rarity = (Code / 1000) % 10;
