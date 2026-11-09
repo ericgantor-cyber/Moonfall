@@ -267,13 +267,26 @@ void AMoonfallArena::SpawnNextBonusGroup() {
  // silently produce fewer than 5..11 members or advance dungeon progression.
  TArray<AMoonfallEnemy*> Spawned;
  Spawned.Reserve(GroupSize);
- for (const FVector& Position : ValidPositions) {
+ // Fable-style mixed-priority pack: a quick scout in every group, and
+ // one durable elite leader in later groups. No summons, no extra enemies.
+ // Assign these roles before BeginPlay so existing elite AI and posture apply.
+ const int32 ScoutSlot = (NextBonusGroup * 3 + 1) % GroupSize;
+ const int32 LeaderSlot = NextBonusGroup > 0 ? (ScoutSlot + GroupSize / 2) % GroupSize : -1;
+ for (int32 Member = 0; Member < ValidPositions.Num(); ++Member) {
+  const FVector& Position = ValidPositions[Member];
   const FTransform EnemyTransform(FRotator::ZeroRotator, Position);
   AMoonfallEnemy* Enemy = World->SpawnActorDeferred<AMoonfallEnemy>(
     AMoonfallEnemy::StaticClass(), EnemyTransform, nullptr, nullptr,
     ESpawnActorCollisionHandlingMethod::DontSpawnIfColliding);
   if (!IsValid(Enemy)) break;
   Enemy->EncounterLevelOverride = LockedDungeonLevel;
+  if (Member == ScoutSlot) {
+   Enemy->ChaseSpeed = FMath::Clamp(Enemy->ChaseSpeed * 1.18f, 1.f, 300.f);
+   Enemy->Tags.AddUnique(FName(TEXT("DungeonScout")));
+  } else if (Member == LeaderSlot) {
+   Enemy->bElite = true;
+   Enemy->Tags.AddUnique(FName(TEXT("DungeonPackLeader")));
+  }
   UGameplayStatics::FinishSpawningActor(Enemy, EnemyTransform);
   if (!IsValid(Enemy) || Enemy->IsActorBeingDestroyed()) break;
   Spawned.Add(Enemy);
