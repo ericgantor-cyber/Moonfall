@@ -2937,5 +2937,24 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Hero->GetDiscoveredDungeonsInZone(ActiveDungeonZone)", self.hud)
         self.assertIn('TEXT("DUNGEON QUEST | All six zones charted")', self.hud)
 
+    def test_placeable_dungeon_entrance_actor_discovers_on_player_overlap(self):
+        entrance_h = (ROOT / "MoonfallDungeonEntrance.h").read_text(encoding="utf-8")
+        entrance_cpp = (ROOT / "MoonfallDungeonEntrance.cpp").read_text(encoding="utf-8")
+        self.assertIn("class MOONFALLUNREAL_API AMoonfallDungeonEntrance : public AActor", entrance_h)
+        self.assertIn("UBoxComponent* DiscoveryTrigger;", entrance_h)
+        self.assertIn("UStaticMeshComponent* EntranceMarker;", entrance_h)
+        self.assertIn("int32 ZoneIndex = 0;", entrance_h)
+        self.assertIn("int32 DungeonIndex = 0;", entrance_h)
+        self.assertIn("PrimaryActorTick.bCanEverTick = false;", entrance_cpp)
+        self.assertIn("SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap)", entrance_cpp)
+        self.assertIn("ZoneIndex >= AMoonfallHeroPawn::DungeonZoneCount", entrance_cpp)
+        self.assertIn("DungeonIndex >= AMoonfallHeroPawn::DungeonsPerZone", entrance_cpp)
+        self.assertIn("OnComponentBeginOverlap.AddDynamic(", entrance_cpp)
+        self.assertIn("Cast<AMoonfallHeroPawn>(OtherActor)", entrance_cpp)
+        self.assertIn("Hero->IsPlayerControlled()", entrance_cpp)
+        self.assertIn("Hero->DiscoverDungeonEntrance(ZoneIndex, DungeonIndex);", entrance_cpp)
+        self.assertNotIn("OpenLevel(", entrance_cpp)
+        self.assertNotIn("SpawnActor<", entrance_cpp)
+
 if __name__ == "__main__":
     unittest.main()
