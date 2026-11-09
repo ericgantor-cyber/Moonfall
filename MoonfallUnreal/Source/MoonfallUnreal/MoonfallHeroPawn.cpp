@@ -239,6 +239,7 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("Inventory"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleInventory);
  Input->BindAction(TEXT("InventoryConfirm"), IE_Pressed, this, &AMoonfallHeroPawn::InventoryConfirm);
  Input->BindAction(TEXT("InventorySalvage"), IE_Pressed, this, &AMoonfallHeroPawn::InventorySalvage);
+ Input->BindAction(TEXT("UpgradeGear"), IE_Pressed, this, &AMoonfallHeroPawn::UpgradeSelectedInventoryItem);
  Input->BindAction(TEXT("EquipBest"), IE_Pressed, this, &AMoonfallHeroPawn::EquipBestInventoryAction);
  Input->BindAction(TEXT("PickupLoot"), IE_Pressed, this, &AMoonfallHeroPawn::PickupNearestGroundLoot);
  Input->BindAction(TEXT("OptionsUp"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsUp);
@@ -734,6 +735,39 @@ bool AMoonfallHeroPawn::SalvageInventoryItem(int32 InventoryIndex)
  InventorySelection = FMath::Clamp(InventorySelection, 0, FMath::Max(0, InventoryItemCodes.Num() - 1));
  return true;
 }
+bool AMoonfallHeroPawn::UpgradeInventoryItem(int32 InventoryIndex)
+{
+ // Crafting only works on explicitly selected, unequipped inventory items.
+ // Never mutate worn equipment behind the player's back.
+ if (!bInventoryOpen || bOptionsOpen || Health <= 0.f
+     || !InventoryItemCodes.IsValidIndex(InventoryIndex)) return false;
+ const int32 Code = InventoryItemCodes[InventoryIndex];
+ if (Code <= 0 || Code == EquippedWeaponCode || Code == EquippedArmorCode
+     || Code == EquippedAccessoryCode) return false;
+ const int32 Affix = Code / 100000;
+ const int32 Slot = (Code / 10000) % 10;
+ const int32 Rarity = (Code / 1000) % 10;
+ const int32 Tier = Code % 1000;
+ if (Affix < 0 || Affix > 3 || Slot < 0 || Slot > 2
+     || Rarity < 0 || Rarity > 3 || Tier < 1 || Tier >= 25
+     || (Rarity == 0 && Affix != 0)
+     || Code != Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier) return false;
+ // Higher tiers and rarities consume more of the salvage recovered from drops.
+ const int32 Cost = 4 + Tier * 2 + Rarity * 3;
+ if (Salvage < Cost) return false;
+ const int32 NewCode = Affix * 100000 + Slot * 10000 + Rarity * 1000 + (Tier + 1);
+ Salvage -= Cost;
+ InventoryItemCodes[InventoryIndex] = NewCode;
+ LastLootUpgrade = (Tier + 1) - (Slot == 0 ? WeaponTier : (Slot == 1 ? ArmorTier : AccessoryTier));
+ OnEquipmentCrafted(NewCode, Cost);
+ return true;
+}
+
+void AMoonfallHeroPawn::UpgradeSelectedInventoryItem()
+{
+ UpgradeInventoryItem(InventorySelection);
+}
+
 void AMoonfallHeroPawn::InventoryConfirm() { EquipSelectedInventoryItem(); }
 void AMoonfallHeroPawn::OpenOptions() {
  // The defeat screen owns input until respawn; do not reopen gameplay menus.

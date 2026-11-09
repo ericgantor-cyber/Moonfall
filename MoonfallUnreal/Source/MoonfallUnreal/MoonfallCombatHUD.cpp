@@ -76,6 +76,8 @@ void AMoonfallCombatHUD::DrawHUD()
   }
   DrawText(TEXT("WASD / D-pad: select   Enter / Y: equip   Delete / X: salvage"),
      FLinearColor::White, Left + 18.f, Top + PanelHeight - 51.f, nullptr, 0.75f);
+  DrawText(TEXT("B / LT: equip best   U / RT: upgrade selected (4 + tier x 2 + rarity x 3 salvage)"),
+     FLinearColor(0.78f,0.90f,0.95f), Left + 18.f, Top + PanelHeight - 70.f, nullptr, 0.64f);
   DrawText(TEXT("I / Select / Esc: close"), FLinearColor::White,
      Left + 18.f, Top + PanelHeight - 28.f, nullptr, 0.8f);
   return;
