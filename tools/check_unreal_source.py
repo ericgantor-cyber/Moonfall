@@ -276,7 +276,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
         self.assertIn('ActionName="EquipBest",Key=B', inputs)
         self.assertIn('ActionName="EquipBest",Key=Gamepad_LeftTrigger', inputs)
-        self.assertIn('BindAction(TEXT("EquipBest"), IE_Pressed', self.hero_cpp)
+        self.assertIn('BindAction(TEXT("EquipBest"), IE_Pressed, this, &AMoonfallHeroPawn::EquipBestInventoryAction)', self.hero_cpp)
+        self.assertIn("void EquipBestInventoryAction();", self.hero_h)
+        self.assertIn("void AMoonfallHeroPawn::EquipBestInventoryAction() { EquipBestInventoryUpgrades(); }", self.hero_cpp)
         self.assertIn('int32 EquipBestInventoryUpgrades();', self.hero_h)
         self.assertIn('void OnBestLoadoutEquipped(int32 UpgradesEquipped);', self.hero_h)
         body = self.hero_cpp.split("int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()", 1)[1].split(
