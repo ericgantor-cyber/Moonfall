@@ -168,6 +168,55 @@ FString AMoonfallHeroPawn::GetExplorationQuestTitle() const
  }
 }
 
+bool AMoonfallHeroPawn::IsDungeonDiscovered(int32 ZoneIndex, int32 DungeonIndex) const
+{
+ if (ZoneIndex < 0 || ZoneIndex >= DungeonZoneCount
+     || DungeonIndex < 0 || DungeonIndex >= DungeonsPerZone) return false;
+ const int32 BitIndex = ZoneIndex * DungeonsPerZone + DungeonIndex;
+ return (DungeonDiscoveryMask & (1u << BitIndex)) != 0u;
+}
+
+bool AMoonfallHeroPawn::DiscoverDungeonEntrance(int32 ZoneIndex, int32 DungeonIndex)
+{
+ // Called by authored entrance triggers. Discovering an entrance does not
+ // teleport the hero or spawn waves; level design controls actual entry.
+ if (Health <= 0.f || ZoneIndex < 0 || ZoneIndex >= DungeonZoneCount
+     || DungeonIndex < 0 || DungeonIndex >= DungeonsPerZone
+     || IsDungeonDiscovered(ZoneIndex, DungeonIndex)) return false;
+ const int32 BitIndex = ZoneIndex * DungeonsPerZone + DungeonIndex;
+ DungeonDiscoveryMask |= 1u << BitIndex;
+ ++DiscoveredDungeonCount;
+ SaveDungeonDiscoveries();
+ AwardExperience(100);
+ OnDungeonEntranceDiscovered(ZoneIndex, DungeonIndex);
+ return true;
+}
+
+void AMoonfallHeroPawn::LoadDungeonDiscoveries()
+{
+ if (!GConfig) return;
+ static const TCHAR* Section = TEXT("Moonfall.Dungeons.V1");
+ int32 Version = 0, RawMask = -1;
+ if (!GConfig->GetInt(Section, TEXT("Version"), Version, GGameUserSettingsIni)
+     || Version != 1
+     || !GConfig->GetInt(Section, TEXT("DiscoveredMask"), RawMask, GGameUserSettingsIni)
+     || RawMask < 0 || (static_cast<uint32>(RawMask) >> (DungeonZoneCount * DungeonsPerZone)) != 0u)
+  return;
+ DungeonDiscoveryMask = static_cast<uint32>(RawMask);
+ DiscoveredDungeonCount = 0;
+ for (int32 BitIndex = 0; BitIndex < DungeonZoneCount * DungeonsPerZone; ++BitIndex)
+  if ((DungeonDiscoveryMask & (1u << BitIndex)) != 0u) ++DiscoveredDungeonCount;
+}
+
+void AMoonfallHeroPawn::SaveDungeonDiscoveries() const
+{
+ if (!GConfig || (DungeonDiscoveryMask >> (DungeonZoneCount * DungeonsPerZone)) != 0u) return;
+ static const TCHAR* Section = TEXT("Moonfall.Dungeons.V1");
+ GConfig->SetInt(Section, TEXT("DiscoveredMask"), static_cast<int32>(DungeonDiscoveryMask), GGameUserSettingsIni);
+ GConfig->SetInt(Section, TEXT("Version"), 1, GGameUserSettingsIni);
+ GConfig->Flush(false, GGameUserSettingsIni);
+}
+
 void AMoonfallHeroPawn::LoadWorldCheckpoint()
 {
  if (!GConfig || !GetWorld()) return;
@@ -368,6 +417,7 @@ void AMoonfallHeroPawn::BeginPlay() {
  LoadProgressionProfile();
  LoadEquipmentProfile();
  LoadExplorationProfile();
+ LoadDungeonDiscoveries();
  LoadWorldCheckpoint();
 }
 void AMoonfallHeroPawn::Tick(float DeltaSeconds)

@@ -31,6 +31,17 @@ public:
  void UpdateExplorationDiscovery(float DeltaSeconds);
  TArray<FIntPoint> DiscoveredRegions;
  float ExplorationScanTimer = 0.f;
+ // Five authored dungeon entrances per zone, across six world zones.
+ // Designers bind their physical entrance triggers to DiscoverDungeonEntrance.
+ static constexpr int32 DungeonZoneCount = 6;
+ static constexpr int32 DungeonsPerZone = 5;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Dungeons") int32 DiscoveredDungeonCount = 0;
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Dungeons") bool DiscoverDungeonEntrance(int32 ZoneIndex, int32 DungeonIndex);
+ UFUNCTION(BlueprintPure, Category="Moonfall|Dungeons") bool IsDungeonDiscovered(int32 ZoneIndex, int32 DungeonIndex) const;
+ UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Dungeons") void OnDungeonEntranceDiscovered(int32 ZoneIndex, int32 DungeonIndex);
+ void LoadDungeonDiscoveries();
+ void SaveDungeonDiscoveries() const;
+ uint32 DungeonDiscoveryMask = 0u;
  // Original Moonfall set themes use existing Force/Ward/Focus traits
  // on three equipped slots. No changes to encoded item IDs or saved gear.
  // 0 Weapon, 1 Armor, 2 Accessory retain their original storage.
