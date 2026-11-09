@@ -71,7 +71,10 @@ jobs:
           assert 'TEXT("HEAVY")' in enemy and 'TEXT("SWEEP")' in enemy
           inputs = Path('MoonfallUnreal/Config/DefaultInput.ini').read_text()
           hud = (root/'MoonfallUnreal'/'MoonfallCombatHUD.cpp').read_text()
-          assert 'ActionName="CastLeft",Key=LeftMouseButton' in inputs
+          assert 'ActionName="LeftClickContext",Key=LeftMouseButton' in inputs
+          assert 'ActionName="CastLeft",Key=Gamepad_LeftShoulder' in inputs
+          assert 'ActionName="CastLeft",Key=LeftMouseButton' not in inputs
+          assert 'void AMoonfallHeroPawn::LeftClickContextAction()' in hero
           assert 'ActionName="RightClickContext",Key=RightMouseButton' in inputs
           assert 'ActionName="CastRight",Key=Gamepad_RightShoulder' in inputs
           assert 'ActionName="ForgeFive",Key=Gamepad_RightShoulder' in inputs
