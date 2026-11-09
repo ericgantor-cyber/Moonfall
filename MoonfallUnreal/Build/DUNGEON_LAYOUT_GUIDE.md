@@ -1,5 +1,12 @@
 # Moonfall Unreal: continuous fourteen-chamber dungeons
 
+## Startup-world randomizer integration
+
+After compiling the stacked Unreal C++ PR changes, open `MoonfallUnreal.uproject` in Unreal Editor and run `Build/Create-StartupLevel.py` in the editor Python console. The script now adds a **single actual `MoonfallDungeonLayout` actor** to `/Game/Maps/MoonfallStart`, including when the startup map already exists. It uses zone 0, dungeon 0, and fixed seed **90111**. Its world position is (3500, 4200, 0) and its 14 rooms extend along local +X.
+
+The install is label-guarded and idempotent. It will not replace an existing dungeon actor or overwrite previously authored map actors. To regenerate an existing layout, set its `LayoutSeed` in the Unreal details panel. Level and collision must be inspected before packaging. The first dungeon is added only when this Editor script is actually executed; the source-only PR does not contain a prebuilt `.umap` or Windows executable.
+
+
 This source change adds a **placeable native** `AMoonfallDungeonLayout`. It does **not** place 30 dungeons in the shipped map or supply authored boss/enemy behaviors.
 
 ## Editor setup
