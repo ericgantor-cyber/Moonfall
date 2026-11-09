@@ -1808,7 +1808,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                         impact.index("OnDivineAttackResolved("))
         self.assertIn("DivineSignatureCastCount % 2 == 1;", selection)
         self.assertNotIn("++DivineSignatureCastCount;", selection)
-        interruption = enemy.split("void AMoonfallEnemy::CancelDivineSignature() {", 1)[1].split("\\n}", 1)[0]
+        interruption = enemy.split("void AMoonfallEnemy::CancelDivineSignature() {", 1)[1].split("void AMoonfallEnemy::ApplyPostureDamage(", 1)[0]
         self.assertNotIn("DivineSignatureCastCount + 1", interruption)
         self.assertIn("DivineSignatureCastCount = 0;", enemy)
 
