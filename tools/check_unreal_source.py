@@ -337,7 +337,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("const int32 NextCost = 4 + SelectedTier * 2 + SelectedRarity * 3;", hud)
         self.assertIn("Hero->Salvage >= NextCost", hud)
         self.assertIn("SelectedTier < 25", hud)
-        self.assertIn("H / RB: forge up to 5 tiers", hud)
+        self.assertIn("H / RB: forge 5", hud)
 
     def test_salvage_upgrades_equipped_and_unequipped_gear_by_explicit_inventory_action(self):
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
