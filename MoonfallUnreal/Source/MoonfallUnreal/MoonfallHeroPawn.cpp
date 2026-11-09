@@ -737,13 +737,12 @@ bool AMoonfallHeroPawn::SalvageInventoryItem(int32 InventoryIndex)
 }
 bool AMoonfallHeroPawn::UpgradeInventoryItem(int32 InventoryIndex)
 {
- // Crafting only works on explicitly selected, unequipped inventory items.
- // Never mutate worn equipment behind the player's back.
+ // Craft the selected inventory item on explicit input. If it is worn,
+ // upgrade that equipped slot too, without auto-equipping other bag items.
  if (!bInventoryOpen || bOptionsOpen || Health <= 0.f
      || !InventoryItemCodes.IsValidIndex(InventoryIndex)) return false;
  const int32 Code = InventoryItemCodes[InventoryIndex];
- if (Code <= 0 || Code == EquippedWeaponCode || Code == EquippedArmorCode
-     || Code == EquippedAccessoryCode) return false;
+ if (Code <= 0) return false;
  const int32 Affix = Code / 100000;
  const int32 Slot = (Code / 10000) % 10;
  const int32 Rarity = (Code / 1000) % 10;
@@ -752,12 +751,23 @@ bool AMoonfallHeroPawn::UpgradeInventoryItem(int32 InventoryIndex)
      || Rarity < 0 || Rarity > 3 || Tier < 1 || Tier >= 25
      || (Rarity == 0 && Affix != 0)
      || Code != Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier) return false;
+ // A selected item matching the worn slot upgrades both representations.
+ // Other items remain unchanged even when they share the same item code.
+ const int32 EquippedCode = Slot == 0 ? EquippedWeaponCode
+     : (Slot == 1 ? EquippedArmorCode : EquippedAccessoryCode);
+ const bool bUpgradingEquipped = Code == EquippedCode;
  // Higher tiers and rarities consume more of the salvage recovered from drops.
  const int32 Cost = 4 + Tier * 2 + Rarity * 3;
  if (Salvage < Cost) return false;
  const int32 NewCode = Affix * 100000 + Slot * 10000 + Rarity * 1000 + (Tier + 1);
- Salvage -= Cost;
  InventoryItemCodes[InventoryIndex] = NewCode;
+ // Reuse the existing equip path so all derived stats, notably armor HP,
+ // update together. Roll back the inventory mutation on unexpected failure.
+ if (bUpgradingEquipped && !EquipInventoryItem(InventoryIndex)) {
+  InventoryItemCodes[InventoryIndex] = Code;
+  return false;
+ }
+ Salvage -= Cost;
  LastLootUpgrade = (Tier + 1) - (Slot == 0 ? WeaponTier : (Slot == 1 ? ArmorTier : AccessoryTier));
  OnEquipmentCrafted(NewCode, Cost);
  return true;
