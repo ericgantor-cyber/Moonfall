@@ -2653,5 +2653,27 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(load.index("if (!bLoadSucceeded)"),
                         load.index("bRestoringEquipmentProfile = false;"))
 
+    def test_crafting_saves_only_after_transaction_completes(self):
+        self.assertIn("bool bEquipmentCraftingInProgress = false;", self.hero_h)
+        save = self.hero_cpp.split("void AMoonfallHeroPawn::SaveEquipmentProfile()", 1)[1].split(
+            "void AMoonfallHeroPawn::LoadEquipmentProfile()", 1)[0]
+        self.assertIn("bRestoringEquipmentProfile || bEquipmentCraftingInProgress", save)
+        for name in ("UpgradeInventoryItem", "ReforgeInventoryItemAffix",
+                     "AscendInventoryItemRarity"):
+            method = self.hero_cpp.split(f"bool AMoonfallHeroPawn::{name}(int32 InventoryIndex)", 1)[1].split("\n}", 1)[0]
+            self.assertLess(method.index("bEquipmentCraftingInProgress = true;"),
+                            method.index("InventoryItemCodes[InventoryIndex] = NewCode;"))
+            self.assertIn("InventoryItemCodes[InventoryIndex] = Code;\n  bEquipmentCraftingInProgress = false;", method)
+            self.assertLess(method.index("bEquipmentCraftingInProgress = false;\n Salvage -= Cost;"),
+                            method.index("SaveEquipmentProfile();"))
+
+    def test_equipment_restore_preserves_damage_not_free_healing(self):
+        load = self.hero_cpp.split("void AMoonfallHeroPawn::LoadEquipmentProfile()", 1)[1]
+        self.assertIn("const float PreviouslyMissingHealth = FMath::Clamp(MaxHealth - Health, 0.f, MaxHealth);", load)
+        self.assertIn("if (bLoadSucceeded)\n  Health = FMath::Clamp(MaxHealth - PreviouslyMissingHealth, 1.f, MaxHealth);", load)
+        self.assertLess(load.index("Health = FMath::Clamp(MaxHealth - PreviouslyMissingHealth"),
+                        load.index("bRestoringEquipmentProfile = false;"))
+        self.assertIn("Health = PreviousHealth;", load)
+
 if __name__ == "__main__":
     unittest.main()
