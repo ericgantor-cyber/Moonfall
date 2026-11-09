@@ -20,6 +20,12 @@ public:
  // Persistent exploration: each traversed world region grants XP only once.
  static constexpr int32 MaxExplorationRegions = 80;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Exploration") int32 DiscoveredRegionCount = 0;
+ // Quest objectives derive from the persisted discovery ledger, not a second
+ // completion flag that could drift out of sync after a crash or restart.
+ UFUNCTION(BlueprintPure, Category="Moonfall|Quests") int32 GetExplorationQuestStage() const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Quests") int32 GetExplorationQuestTarget() const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Quests") FString GetExplorationQuestTitle() const;
+ UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Quests") void OnExplorationQuestCompleted(int32 CompletedRegions);
  void LoadExplorationProfile();
  void SaveExplorationProfile() const;
  void UpdateExplorationDiscovery(float DeltaSeconds);

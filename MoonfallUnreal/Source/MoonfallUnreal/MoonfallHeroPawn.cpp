@@ -142,6 +142,31 @@ AMoonfallHeroPawn::AMoonfallHeroPawn()
  FinisherFlash->SetAttenuationRadius(420.f);
  FinisherFlash->SetVisibility(false);
 }
+int32 AMoonfallHeroPawn::GetExplorationQuestStage() const
+{
+ const int32 Count = FMath::Clamp(DiscoveredRegionCount, 0, MaxExplorationRegions);
+ return Count < 5 ? 0 : Count < 15 ? 1 : Count < 30 ? 2
+      : Count < MaxExplorationRegions ? 3 : 4;
+}
+
+int32 AMoonfallHeroPawn::GetExplorationQuestTarget() const
+{
+ const int32 Stage = GetExplorationQuestStage();
+ const int32 Targets[] = {5, 15, 30, MaxExplorationRegions, MaxExplorationRegions};
+ return Targets[Stage];
+}
+
+FString AMoonfallHeroPawn::GetExplorationQuestTitle() const
+{
+ switch (GetExplorationQuestStage()) {
+  case 0: return TEXT("First Footprints");
+  case 1: return TEXT("Beyond the Veil");
+  case 2: return TEXT("Horizonwalker");
+  case 3: return TEXT("Chart the Unknown");
+  default: return TEXT("All Lands Charted");
+ }
+}
+
 void AMoonfallHeroPawn::LoadExplorationProfile()
 {
  if (!GConfig) return;
@@ -202,6 +227,12 @@ void AMoonfallHeroPawn::UpdateExplorationDiscovery(float DeltaSeconds)
  DiscoveredRegionCount = DiscoveredRegions.Num();
  SaveExplorationProfile();
  AwardExperience(30);
+ // Quest milestones are triggered exactly when a NEW region is found.
+ // Loading a completed quest never fires this event or grants XP again.
+ if (DiscoveredRegionCount == 5 || DiscoveredRegionCount == 15
+     || DiscoveredRegionCount == 30
+     || DiscoveredRegionCount == MaxExplorationRegions)
+  OnExplorationQuestCompleted(DiscoveredRegionCount);
 }
 
 void AMoonfallHeroPawn::BeginPlay() {

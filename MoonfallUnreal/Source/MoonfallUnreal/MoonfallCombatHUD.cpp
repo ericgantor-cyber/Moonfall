@@ -50,6 +50,23 @@ void AMoonfallCombatHUD::DrawHUD()
       Hero->DiscoveredRegionCount, AMoonfallHeroPawn::MaxExplorationRegions),
       FLinearColor(0.78f,0.83f,1.f), Left + 18.f, Top + 57.f, nullptr,
       PanelWidth < 460.f ? 0.68f : 0.83f);
+   const int32 QuestStage = Hero->GetExplorationQuestStage();
+   const int32 QuestTarget = Hero->GetExplorationQuestTarget();
+   const int32 QuestBase = QuestStage == 0 ? 0 : (QuestStage == 1 ? 5 : (QuestStage == 2 ? 15 : 30));
+   const int32 QuestCount = FMath::Clamp(Hero->DiscoveredRegionCount - QuestBase, 0,
+     FMath::Max(1, QuestTarget - QuestBase));
+   const int32 QuestRequired = FMath::Max(1, QuestTarget - QuestBase);
+   DrawText(FString::Printf(TEXT("QUEST | %s  %d/%d%s"),
+      *Hero->GetExplorationQuestTitle(), QuestCount, QuestRequired,
+      QuestStage >= 4 ? TEXT("  COMPLETE") : TEXT("")),
+      QuestStage >= 4 ? FLinearColor(0.58f,0.95f,0.72f)
+                      : FLinearColor(0.95f,0.81f,0.52f),
+      Left + 18.f, Top + 76.f, nullptr, PanelWidth < 460.f ? 0.63f : 0.74f);
+   const float QuestFraction = FMath::Clamp(static_cast<float>(QuestCount) / QuestRequired, 0.f, 1.f);
+   const float QuestBarWidth = PanelWidth - 36.f;
+   DrawRect(FLinearColor(0.23f,0.23f,0.33f), Left + 18.f, Top + 92.f, QuestBarWidth, 3.f);
+   DrawRect(FLinearColor(0.32f,0.84f,0.53f), Left + 18.f, Top + 92.f,
+     QuestBarWidth * QuestFraction, 3.f);
    // Large displays get dedicated equipment cards, combat stats and set panels.
    // The original compact character list below remains for smaller viewports.
    if (PanelWidth >= 560.f && PanelHeight >= 550.f) {
@@ -57,7 +74,7 @@ void AMoonfallCombatHUD::DrawHUD()
     const float ColumnWidth = (PanelWidth - 52.f - ColumnGap) * 0.5f;
     const float L = Left + 18.f;
     const float R = L + ColumnWidth + ColumnGap;
-    const float BodyTop = Top + 91.f;
+    const float BodyTop = Top + 109.f;
     const float TextScale = Canvas->SizeX < 900.f ? 0.69f : 0.79f;
     const TCHAR* SlotNames[] = {TEXT("WEAPON"), TEXT("ARMOR"), TEXT("ACCESSORY"),
       TEXT("HEAD"), TEXT("SHOULDERS"), TEXT("CHEST"), TEXT("HANDS"), TEXT("LEGS"), TEXT("BOOTS")};
@@ -166,7 +183,7 @@ void AMoonfallCombatHUD::DrawHUD()
     return;
    }
    const float RowHeight = FMath::Clamp((PanelHeight - 145.f) / 16.f, 8.f, 26.f);
-   const float StartY = Top + 96.f;
+   const float StartY = Top + 112.f;
    const FString CharacterLines[] = {
      FString::Printf(TEXT("Equipment power: %d  |  W %d / A %d / T %d"),
        Hero->GetEquipmentPower(), Hero->GetItemPower(Hero->EquippedWeaponCode),
