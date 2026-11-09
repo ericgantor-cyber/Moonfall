@@ -294,11 +294,24 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         )[1].split("}", 1)[0]
         self.assertIn("!FMath::IsFinite(Health) || Health <= 0.f || !bInventoryOpen || bOptionsOpen", equip)
         self.assertLess(equip.index("!bInventoryOpen"), equip.index("InventoryItemCodes[InventoryIndex]"))
-        # Crafting synchronizes currently worn gear from inside the inventory.
-        for method in ("UpgradeInventoryItem", "ReforgeInventoryItemAffix",
-                       "AscendInventoryItemRarity"):
-            part = self.hero_cpp.split("bool AMoonfallHeroPawn::" + method + "(", 1)[1]
-            self.assertIn("!bInventoryOpen || bOptionsOpen", part.split("}", 1)[0])
+        # Crafting synchronizes worn gear only while inventory is open and
+        # hero health is valid, including the five-level forge wrapper.
+        for return_type, method in (
+            ("bool", "UpgradeInventoryItem"),
+            ("bool", "ReforgeInventoryItemAffix"),
+            ("bool", "AscendInventoryItemRarity"),
+            ("int32", "ForgeInventoryItemLevels"),
+        ):
+            part = self.hero_cpp.split(
+                return_type + " AMoonfallHeroPawn::" + method + "(", 1
+            )[1].split("}", 1)[0]
+            self.assertIn(
+                "!bInventoryOpen || bOptionsOpen || !FMath::IsFinite(Health) || Health <= 0.f",
+                part,
+            )
+            self.assertLess(part.index("!FMath::IsFinite(Health)"),
+                            part.index("InventoryItemCodes[InventoryIndex]") if
+                            "InventoryItemCodes[InventoryIndex]" in part else len(part))
 
     def test_ground_loot_collection_boundary_rejects_open_menus(self):
         collect = self.hero_cpp.split(
