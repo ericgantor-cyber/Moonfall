@@ -72,7 +72,8 @@ float AMoonfallHeroPawn::GetHasteBonus() const
  // Focus: faster spell recovery at two matching items.
  const int32 Rarity = FMath::Clamp((EquippedAccessoryCode / 1000) % 10, 0, 5);
  const float TraitHaste = AccessoryAffix == 3 ? Rarity * 0.006f : 0.f;
- return FMath::Clamp(TraitHaste + (GetSetPieceCount(3) >= 2 ? 0.04f : 0.f),
+ return FMath::Clamp(TraitHaste + (GetSetPieceCount(3) >= 2 ? 0.04f : 0.f)
+   + (HasLegendaryPerk(2) ? 0.025f : 0.f),
    0.f, 0.20f);
 }
 
@@ -423,7 +424,7 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
   const float SpellDamage = (18.f + School * 5.f) * Multiplier * SpellPowerMultiplier
     * WeaponDamageBonus * CounterMultiplier * MomentumBonus * HitComboMultiplier
     * (1.f + GetMasteryBonus()) * (1.f + GetVersatilityBonus())
-    * (bCriticalSpell ? 1.5f : 1.f) * MightMultiplier;
+    * (bCriticalSpell ? (HasLegendaryPerk(0) ? 1.65f : 1.5f) : 1.f) * MightMultiplier;
   // Reject invalid damage before spending mana or consuming a hard-earned counter.
   if (!FMath::IsFinite(SpellDamage) || SpellDamage <= 0.f) return false;
   const float HealthBeforeSpell = Enemy->Health;
@@ -660,7 +661,8 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
    + (ArmorAffix == 2 ? 0.06f : 0.f)
    + FMath::Clamp(((EquippedArmorCode / 1000) % 10) * 0.005f, 0.f, 0.025f)
    + GetVersatilityBonus() * 0.5f
-   + (GetSetPieceCount(2) >= 3 ? 0.025f : 0.f));
+   + (GetSetPieceCount(2) >= 3 ? 0.025f : 0.f)
+   + (HasLegendaryPerk(1) ? 0.015f : 0.f));
  const float ArmoredDamage = Amount * (1.f - ArmorMitigation);
  float DamageAfterGuard = ArmoredDamage;
  // Enemy attacks must come from the front 150-degree guard cone.
@@ -1538,4 +1540,13 @@ int32 AMoonfallHeroPawn::GetProjectedSetPieceCount(int32 Affix, int32 CandidateC
  const int32 PreviousAffix = GetItemPower(CurrentCode) > 0 ? CurrentCode / 100000 : 0;
  return FMath::Clamp(GetSetPieceCount(Affix) - (PreviousAffix == Affix ? 1 : 0)
       + (CandidateCode / 100000 == Affix ? 1 : 0), 0, 3);
+}
+
+bool AMoonfallHeroPawn::HasLegendaryPerk(int32 Slot) const
+{
+ if (Slot < 0 || Slot > 2) return false;
+ const int32 Code = Slot == 0 ? EquippedWeaponCode :
+     (Slot == 1 ? EquippedArmorCode : EquippedAccessoryCode);
+ return GetItemPower(Code) > 0 && (Code / 10000) % 10 == Slot
+     && (Code / 1000) % 10 == 5;
 }
