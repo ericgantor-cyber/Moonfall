@@ -1277,7 +1277,7 @@ void AMoonfallHeroPawn::AwardExperience(int32 Amount)
 
 int32 AMoonfallHeroPawn::RollEquipmentCode(bool bEliteEnemy, bool bBossEnemy)
 {
- if (Health <= 0.f) return 0;
+ if (!FMath::IsFinite(Health) || Health <= 0.f) return 0;
  // Roll randomized item stats once at death; pickup is handled separately.
  // Keep boss/elite rewards meaningful: guaranteed epic for bosses, at least rare
  // for elites. Regular enemies use weighted chances with a modest level bias.
@@ -1287,7 +1287,7 @@ int32 AMoonfallHeroPawn::RollEquipmentCode(bool bEliteEnemy, bool bBossEnemy)
  // Existing rarity codes 0-3 are stable for compatibility.
  // 4 Emerald and 5 Legendary add special high-end reward targets.
  // Bosses always roll at least Epic; max-level bosses can yield Legendary.
- LastLootRarity = bBossEnemy
+ const int32 RolledRarity = bBossEnemy
    ? (Level >= 60 && LootRoll < 12 ? 5 : (Level >= 30 && LootRoll < 40 ? 4 : 3))
    : (bEliteEnemy
      ? (Level >= 50 && LootRoll < 3 ? 5 : (Level >= 20 && LootRoll < 12 ? 4
@@ -1296,21 +1296,18 @@ int32 AMoonfallHeroPawn::RollEquipmentCode(bool bEliteEnemy, bool bBossEnemy)
        : (LootRoll < 3 + RarityBias / 3 ? 3
        : (LootRoll < 18 + RarityBias ? 2
        : (LootRoll < 53 + RarityBias ? 1 : 0)))))));
- LastLootTier = NewTier;
  // Enemy rank influences quality, not gear slot: any enemy can drop
  // weapons, armor, or accessories.
- LastLootSlot = FMath::RandRange(0, 2);
+ const int32 RolledSlot = FMath::RandRange(0, 2);
  // Rare and better drops carry one randomized trait. Lower rarities may
  // roll a trait, but common items never do. These are encoded in item IDs.
- LastLootAffix = LastLootRarity == 0 ? 0
-   : (LastLootRarity == 1 && FMath::RandRange(0, 99) < 60
+ const int32 RolledAffix = RolledRarity == 0 ? 0
+   : (RolledRarity == 1 && FMath::RandRange(0, 99) < 60
      ? 0 : FMath::RandRange(1, 3));
- const int32 PreviousTier = LastLootSlot == 2 ? AccessoryTier : (LastLootSlot == 1 ? ArmorTier : WeaponTier);
- LastLootUpgrade = NewTier - PreviousTier;
  // Compact item code: affix (100000s), slot (10000s), rarity (1000s),
  // tier (units). Distinct drops persist until the player salvages them.
- const int32 ItemCode = LastLootAffix * 100000 + LastLootSlot * 10000
-   + LastLootRarity * 1000 + NewTier;
+ const int32 ItemCode = RolledAffix * 100000 + RolledSlot * 10000
+   + RolledRarity * 1000 + NewTier;
  return ItemCode;
 }
 
@@ -1323,8 +1320,20 @@ void AMoonfallHeroPawn::AwardEquipmentDrop(bool bEliteEnemy, bool bBossEnemy)
  if (!FMath::IsFinite(Health) || Health <= 0.f) return;
  const int32 ItemCode = RollEquipmentCode(bEliteEnemy, bBossEnemy);
  if (ItemCode <= 0) return;
+ // A scripted grant has been received. Only now update the loot notification.
+ // Keep the player's existing inventory selection and worn gear unchanged.
+ const int32 RolledAffix = ItemCode / 100000;
+ const int32 RolledSlot = (ItemCode / 10000) % 10;
+ const int32 RolledRarity = (ItemCode / 1000) % 10;
+ const int32 RolledTier = ItemCode % 1000;
  InventoryItemCodes.Add(ItemCode);
- InventorySelection = FMath::Clamp(InventorySelection, 0, InventoryItemCodes.Num() - 1);
+ LastLootAffix = RolledAffix;
+ LastLootSlot = RolledSlot;
+ LastLootRarity = RolledRarity;
+ LastLootTier = RolledTier;
+ const int32 EquippedTier = RolledSlot == 0 ? WeaponTier
+     : (RolledSlot == 1 ? ArmorTier : AccessoryTier);
+ LastLootUpgrade = RolledTier - EquippedTier;
 }
 
 bool AMoonfallHeroPawn::CollectGroundEquipmentCode(int32 ItemCode)
