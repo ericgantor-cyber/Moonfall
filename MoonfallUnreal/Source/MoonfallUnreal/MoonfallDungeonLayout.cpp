@@ -5,6 +5,7 @@
 #include "Components/InstancedStaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
 #include "Engine/World.h"
+#include "Math/RandomStream.h"
 #include "UObject/ConstructorHelpers.h"
 
 AMoonfallDungeonLayout::AMoonfallDungeonLayout()
@@ -36,13 +37,11 @@ AMoonfallDungeonLayout::AMoonfallDungeonLayout()
  HazardTriggerB = CreateDefaultSubobject<UBoxComponent>(TEXT("HazardTriggerB"));
  HazardTriggerC = CreateDefaultSubobject<UBoxComponent>(TEXT("HazardTriggerC"));
  UBoxComponent* Triggers[] = {HazardTriggerA, HazardTriggerB, HazardTriggerC};
- const int32 Chambers[] = {3, 7, 11};
  for (int32 Index = 0; Index < 3; ++Index) {
   UBoxComponent* Trigger = Triggers[Index];
   Trigger->SetupAttachment(Root);
   Trigger->InitBoxExtent(FVector(140.f, 130.f, 110.f));
-  Trigger->SetRelativeLocation(FVector(Chambers[Index] * ChamberLength,
-      Index % 2 == 0 ? -265.f : 265.f, 95.f));
+  // Actual placement is set in OnConstruction from a deterministic seed.
   Trigger->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
   Trigger->SetCollisionResponseToAllChannels(ECR_Ignore);
   Trigger->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
@@ -67,17 +66,55 @@ AMoonfallDungeonLayout::AMoonfallDungeonLayout()
  FinalChamberTrigger->SetGenerateOverlapEvents(true);
 }
 
+int32 AMoonfallDungeonLayout::GetEffectiveLayoutSeed() const
+{
+ return LayoutSeed != 0 ? LayoutSeed
+      : 1337 + FMath::Clamp(ZoneIndex, 0, 5) * 101
+             + FMath::Clamp(DungeonIndex, 0, 4) * 37;
+}
+
+void AMoonfallDungeonLayout::BuildHazardChambers(int32 OutChambers[3]) const
+{
+ if (!bRandomizeChambers) {
+  OutChambers[0] = 3; OutChambers[1] = 7; OutChambers[2] = 11;
+  return;
+ }
+ FRandomStream Stream(GetEffectiveLayoutSeed());
+ // Unique chamber indices, excluding the entrance and final boss room.
+ int32 Candidates[12];
+ for (int32 Index = 0; Index < 12; ++Index) Candidates[Index] = Index + 1;
+ for (int32 Index = 0; Index < 3; ++Index) {
+  const int32 Choice = Stream.RandRange(Index, 11);
+  Swap(Candidates[Index], Candidates[Choice]);
+  OutChambers[Index] = Candidates[Index];
+ }
+}
+
+int32 AMoonfallDungeonLayout::GetRandomizedHazardChamber(int32 HazardIndex) const
+{
+ if (HazardIndex < 0 || HazardIndex >= 3) return -1;
+ int32 Chambers[3];
+ BuildHazardChambers(Chambers);
+ return Chambers[HazardIndex];
+}
+
 void AMoonfallDungeonLayout::OnConstruction(const FTransform& Transform)
 {
  Super::OnConstruction(Transform);
  Floors->ClearInstances();
  Walls->ClearInstances();
  HazardPlates->ClearInstances();
- // Raised floor panels visually distinguish damaging side alcoves.
- for (const int32 Chamber : {3, 7, 11}) {
-  const int32 Index = Chamber == 3 ? 0 : (Chamber == 7 ? 1 : 2);
+ // Seeded dungeon variants preserve every connecting doorway and the boss room.
+ int32 HazardChambers[3];
+ BuildHazardChambers(HazardChambers);
+ UBoxComponent* Triggers[] = {HazardTriggerA, HazardTriggerB, HazardTriggerC};
+ FRandomStream LayoutRandom(GetEffectiveLayoutSeed() ^ 0x5A17);
+ for (int32 Index = 0; Index < 3; ++Index) {
+  const int32 Chamber = HazardChambers[Index];
+  const float Side = LayoutRandom.RandRange(0, 1) == 0 ? -265.f : 265.f;
+  Triggers[Index]->SetRelativeLocation(FVector(Chamber * ChamberLength, Side, 95.f));
   HazardPlates->AddInstance(FTransform(FRotator::ZeroRotator,
-      FVector(Chamber * ChamberLength, Index % 2 == 0 ? -265.f : 265.f, 8.f),
+      FVector(Chamber * ChamberLength, Side, 8.f),
       FVector(2.8f, 2.6f, 0.1f)));
  }
  // Fourteen connected rooms; openings in every cross-wall allow normal
@@ -92,9 +129,12 @@ void AMoonfallDungeonLayout::OnConstruction(const FTransform& Transform)
       FVector(X, Side * ChamberWidth * 0.5f, 150.f),
       FVector(ChamberLength / 100.f, 0.4f, 3.f)));
    // Pillars break up the corridor silhouette without blocking the doorway.
+   // Variations are on the wall-side only; the central route stays clear.
+   const float OffsetJitter = bRandomizeChambers ? LayoutRandom.FRandRange(-55.f, 55.f) : 0.f;
    for (const float Offset : {-420.f, 420.f})
     Walls->AddInstance(FTransform(FRotator::ZeroRotator,
-      FVector(X + Offset, Side * 335.f, 150.f), FVector(0.7f, 0.7f, 3.f)));
+      FVector(X + Offset + OffsetJitter, Side * 335.f, 150.f),
+      FVector(0.7f, 0.7f, 3.f)));
   }
  }
  // Dividers at room boundaries leave a 360-unit central passage.
