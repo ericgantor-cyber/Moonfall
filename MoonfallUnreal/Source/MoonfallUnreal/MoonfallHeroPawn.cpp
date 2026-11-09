@@ -1422,16 +1422,8 @@ void AMoonfallHeroPawn::PickupNearestGroundLoot()
  int32 Collected = 0;
  for (AMoonfallGroundLoot* Loot : NearbyLoot) {
   if (!IsValid(Loot)) continue;
-  // Preserve the existing cover check; an obstructed nearby drop must not
-  // prevent a slightly farther but reachable drop from being collected.
-  FCollisionQueryParams LootSightParams(SCENE_QUERY_STAT(MoonfallGroundLootPickupSight), false);
-  LootSightParams.AddIgnoredActor(this);
-  LootSightParams.AddIgnoredActor(Loot);
-  FHitResult LootSightHit;
-  if (GetWorld()->LineTraceSingleByChannel(LootSightHit,
-      HeroPosition + FVector(0.f, 0.f, 40.f),
-      Loot->GetActorLocation() + FVector(0.f, 0.f, 40.f),
-      ECC_Visibility, LootSightParams)) continue;
+  // TryCollect is the single authority for range, height and cover checks.
+  // Failed (e.g. obstructed) pickups do not consume the per-press allowance.
   if (Loot->TryCollect() && ++Collected >= MaxLootPerPress) break;
  }
 }
