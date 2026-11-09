@@ -216,6 +216,18 @@ void AMoonfallCombatHUD::DrawHUD()
     Count, Hero->Salvage, PageStart / PerPage + 1,
     FMath::Max(1, (Count + PerPage - 1) / PerPage)), FLinearColor(0.75f,0.72f,0.91f),
     Left + 18.f, Top + 49.f, nullptr, 0.9f);
+  if (Hero->bHasEquipBestResult) {
+   const bool bCompactResult = PanelWidth < 460.f;
+   const FString Result = bCompactResult
+     ? FString::Printf(TEXT("Best: +%d  Protected %d  Safe +%d"),
+         Hero->LastEquipBestUpgrades, Hero->LastEquipBestProtected,
+         Hero->LastEquipBestAlternates)
+     : FString::Printf(TEXT("Equip Best: %d upgrades  |  %d sets protected  |  %d safe swaps"),
+         Hero->LastEquipBestUpgrades, Hero->LastEquipBestProtected,
+         Hero->LastEquipBestAlternates);
+   DrawText(Result, FLinearColor(0.56f,0.93f,0.75f),
+     Left + 18.f, Top + 81.f, nullptr, bCompactResult ? 0.65f : 0.72f);
+  }
   if (Count == 0)
    DrawText(TEXT("No equipment yet. Defeat enemies to find gear."), FLinearColor::White,
      Left + 18.f, Top + 100.f, nullptr, 0.92f);
