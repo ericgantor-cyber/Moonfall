@@ -86,33 +86,54 @@ static func _roll_strength(roll:Dictionary)->int:
   strength+=clampi(int(affix.get("value",0)),0,30)
  return strength
 
+static func _best_owned_rolls(state:Dictionary)->Dictionary:
+ # Scan bounded roll history once, not once for every equipment slot.
+ # A rolled bonus never applies unless its corresponding item is owned.
+ var owned:Dictionary=state.get("items",{})
+ var best:Dictionary={}
+ var history:Variant=state.get("loot_rolls",[])
+ if not history is Array:return best
+ for roll in history:
+  if not roll is Dictionary:continue
+  var item_id:String=str(roll.get("item_id",""))
+  if int(owned.get(item_id,0))<=0 or CATALOG.get_item(item_id).is_empty():continue
+  var rarity:int=clampi(int(roll.get("rarity_index",0)),0,4)
+  var previous:Dictionary=best.get(item_id,{})
+  if previous.is_empty() or rarity>clampi(int(previous.get("rarity_index",0)),0,4) or (rarity==clampi(int(previous.get("rarity_index",0)),0,4) and _roll_strength(roll)>_roll_strength(previous)):
+   best[item_id]=roll
+ return best
+
 static func totals(state:Dictionary)->Dictionary:
  var stats:Dictionary={"weapon_power":0,"armor":0,"magic":0,"vitality":0,"haste":0,"crit":0,"ward":0,"elemental":0}
  var slots:Dictionary=state.get("equipped",{})
+ var owned:Dictionary=state.get("items",{})
+ var best_rolls:Dictionary=_best_owned_rolls(state)
  for slot in SLOTS:
-  var item:Dictionary=CATALOG.get_item(str(slots.get(slot,"")))
-  if item.is_empty():continue
+  var id:String=str(slots.get(slot,""))
+  if int(owned.get(id,0))<=0:continue
+  var item:Dictionary=CATALOG.get_item(id)
+  if item.is_empty() or slot_for(item)!=slot:continue
   var power:int=int(item["power"])
   match str(item["category"]):
    "weapon":stats["weapon_power"]+=power
    "armor":stats["armor"]+=power
    "offhand","accessory":stats["magic"]+=power
-  # Apply only a matching owned item's highest rolled bonus.
-  var best_roll:Dictionary={}
-  for roll in state.get("loot_rolls",[]):
-   if roll is Dictionary and str(roll.get("item_id",""))==str(item["id"]):
-    var rolled_rarity:int=clampi(int(roll.get("rarity_index",0)),0,4)
-    var best_rarity:int=int(best_roll.get("rarity_index",-1))
-    if rolled_rarity>best_rarity or (rolled_rarity==best_rarity and _roll_strength(roll)>_roll_strength(best_roll)):
-     best_roll=roll
+  var best_roll:Dictionary=best_rolls.get(id,{})
   var bonus:int=clampi(int(best_roll.get("power_bonus",0)),0,12)
   if str(item["category"])=="weapon":stats["weapon_power"]+=bonus
   elif str(item["category"])=="armor":stats["armor"]+=bonus
   else:stats["magic"]+=bonus
-  for affix in best_roll.get("affixes",[]):
+  # Duplicate or unknown affixes in corrupted saves cannot stack bonuses.
+  var used_affixes:Dictionary={}
+  var affixes:Variant=best_roll.get("affixes",[])
+  if not affixes is Array:continue
+  for affix in affixes:
    if not affix is Dictionary:continue
+   var kind:String=str(affix.get("stat",""))
+   if not RNG.AFFIXES.has(kind) or used_affixes.has(kind):continue
+   used_affixes[kind]=true
    var value:int=clampi(int(affix.get("value",0)),0,30)
-   match str(affix.get("stat","")):
+   match kind:
     "Power":stats["weapon_power"]+=value
     "Vitality":stats["vitality"]+=value
     "Haste":stats["haste"]+=value
