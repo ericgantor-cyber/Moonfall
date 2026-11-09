@@ -243,6 +243,21 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("SetLifeSpan(", ground_cpp)
         self.assertNotIn("FinisherShockwave", self.hero_cpp)
 
+    def test_ground_loot_spawn_rejects_nonfinite_coordinates(self):
+        spawn = self.hero_cpp.split(
+            "void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(", 1
+        )[1].split("void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[0]
+        self.assertIn("FMath::IsFinite(Location.X)", spawn)
+        self.assertIn("FMath::IsFinite(Location.Y)", spawn)
+        self.assertIn("FMath::IsFinite(Location.Z)", spawn)
+        self.assertIn("FiniteLocation(DefeatedLocation) ? DefeatedLocation : HeroPosition", spawn)
+        self.assertIn("if (!FiniteLocation(Origin)) return;", spawn)
+        self.assertIn("if (!FiniteLocation(SpawnAt)) continue;", spawn)
+        self.assertLess(
+            spawn.index("if (!FiniteLocation(SpawnAt)) continue;"),
+            spawn.index("SpawnActor<AMoonfallGroundLoot>"),
+        )
+
     def test_ground_loot_collection_boundary_rejects_open_menus(self):
         collect = self.hero_cpp.split(
             "bool AMoonfallHeroPawn::CollectGroundEquipmentCode(int32 ItemCode)", 1
