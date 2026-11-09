@@ -490,34 +490,45 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         for forbidden in ("InventorySelection =", "EquipInventoryItem(",
                           "InventoryItemCodes.RemoveAt(", "SalvageInventoryItem("):
             self.assertNotIn(forbidden, hit_test)
-        cast = self.hero_cpp.split("void AMoonfallHeroPawn::CastRight()", 1)[1].split(
-            "void AMoonfallHeroPawn::CastBoth()", 1
-        )[0]
-        self.assertIn("Controller->GetMousePosition(MouseX, MouseY)", cast)
-        self.assertIn("HUD->GetInventoryItemAtScreenPosition(this, MouseX, MouseY)", cast)
-        self.assertIn("if (InventoryItemCodes.IsValidIndex(ClickedIndex))", cast)
-        self.assertIn("InventorySelection = ClickedIndex;", cast)
-        self.assertIn("EquipSelectedInventoryItem();", cast)
-        self.assertLess(cast.index("GetInventoryItemAtScreenPosition("),
-                        cast.index("EquipSelectedInventoryItem();"))
-        self.assertLess(cast.index("EquipSelectedInventoryItem();"),
-                        cast.index("TryCast(RightSpell, 1, 1.f);"))
-        self.assertNotIn("AdvisorSelect", cast)
+        mouse = self.hero_cpp.split(
+            "void AMoonfallHeroPawn::RightClickContextAction()", 1
+        )[1].split("void AMoonfallHeroPawn::CastBoth()", 1)[0]
+        self.assertIn("Controller->GetMousePosition(MouseX, MouseY)", mouse)
+        self.assertIn("HUD->GetInventoryItemAtScreenPosition(this, MouseX, MouseY)", mouse)
+        self.assertIn("if (InventoryItemCodes.IsValidIndex(ClickedIndex))", mouse)
+        self.assertIn("InventorySelection = ClickedIndex;", mouse)
+        self.assertIn("EquipSelectedInventoryItem();", mouse)
+        self.assertLess(mouse.index("GetInventoryItemAtScreenPosition("),
+                        mouse.index("EquipSelectedInventoryItem();"))
+        self.assertLess(mouse.index("EquipSelectedInventoryItem();"),
+                        mouse.index("TryCast(RightSpell, 1, 1.f);"))
+        self.assertNotIn("AdvisorSelect", mouse)
 
     def test_right_click_equips_only_in_inventory_and_never_casts_there(self):
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
-        self.assertIn('ActionName="CastRight",Key=RightMouseButton', inputs)
+        self.assertIn('ActionName="RightClickContext",Key=RightMouseButton', inputs)
+        self.assertNotIn('ActionName="CastRight",Key=RightMouseButton', inputs)
+        self.assertIn('ActionName="CastRight",Key=Gamepad_RightShoulder', inputs)
+        self.assertIn('ActionName="ForgeFive",Key=Gamepad_RightShoulder', inputs)
+        self.assertIn('BindAction(TEXT("RightClickContext"), IE_Pressed', self.hero_cpp)
         self.assertIn('BindAction(TEXT("CastRight"), IE_Pressed', self.hero_cpp)
-        handler = self.hero_cpp.split("void AMoonfallHeroPawn::CastRight()", 1)[1].split(
-            "void AMoonfallHeroPawn::CastBoth()", 1
-        )[0]
-        self.assertIn("if (bOptionsOpen) return;", handler)
-        self.assertIn("if (bInventoryOpen) {", handler)
-        self.assertIn("EquipSelectedInventoryItem();", handler)
-        self.assertIn("TryCast(RightSpell, 1, 1.f);", handler)
-        self.assertLess(handler.index("EquipSelectedInventoryItem();"), handler.index("return;\n }"))
-        self.assertLess(handler.index("return;\n }"), handler.index("TryCast(RightSpell, 1, 1.f);"))
-        self.assertIn("!bInventoryOpen || bCharacterStatsOpen", self.hero_cpp)
+        self.assertIn("void RightClickContextAction();", self.hero_h)
+        keyboard_controller = self.hero_cpp.split(
+            "void AMoonfallHeroPawn::CastRight()", 1
+        )[1].split("void AMoonfallHeroPawn::RightClickContextAction()", 1)[0]
+        self.assertIn("if (bOptionsOpen || bInventoryOpen) return;", keyboard_controller)
+        self.assertIn("TryCast(RightSpell, 1, 1.f);", keyboard_controller)
+        self.assertNotIn("EquipSelectedInventoryItem(", keyboard_controller)
+        mouse = self.hero_cpp.split(
+            "void AMoonfallHeroPawn::RightClickContextAction()", 1
+        )[1].split("void AMoonfallHeroPawn::CastBoth()", 1)[0]
+        self.assertIn("if (bOptionsOpen) return;", mouse)
+        self.assertIn("if (bInventoryOpen) {", mouse)
+        self.assertIn("if (bCharacterStatsOpen) return;", mouse)
+        self.assertIn("EquipSelectedInventoryItem();", mouse)
+        self.assertIn("TryCast(RightSpell, 1, 1.f);", mouse)
+        self.assertLess(mouse.index("EquipSelectedInventoryItem();"),
+                        mouse.index("TryCast(RightSpell, 1, 1.f);"))
         self.assertIn("Right-click / Enter / Y: equip", self.hud)
         self.assertNotIn('ActionName="AdvisorSelect"', inputs)
 
