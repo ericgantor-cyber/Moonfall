@@ -24,7 +24,9 @@ static func slot_for(item:Dictionary)->String:
 static func add_item(state:Dictionary,item_id:String,count:int=1)->bool:
  if count<=0 or CATALOG.get_item(item_id).is_empty():return false
  var items:Dictionary=state.get("items",{})
- items[item_id]=mini(9999,maxi(0,int(items.get(item_id,0)))+count)
+ var current:int=clampi(int(items.get(item_id,0)),0,9999)
+ if count>9999-current:return false
+ items[item_id]=current+count
  state["items"]=items
  return true
 
@@ -60,7 +62,8 @@ static func craft(state:Dictionary,item_id:String,hero_level:int)->bool:
 static func loot_enemy(state:Dictionary,hero_level:int,seed:int)->Dictionary:
  var item:Dictionary=CATALOG.loot_for_level(hero_level,seed)
  if not item.is_empty():
-  add_item(state,str(item["id"]))
+  # A full stack must not create phantom loot or advance pity/roll history.
+  if not add_item(state,str(item["id"])):return {}
   var rarity:Dictionary=RNG.roll(item,seed+int(state.get("loot_pity",0))*9973,0,int(state.get("loot_pity",0)))
   state["loot_pity"]=RNG.next_pity(int(state.get("loot_pity",0)),int(rarity["rarity_index"]))
   var rolls:Array=state.get("loot_rolls",[])
