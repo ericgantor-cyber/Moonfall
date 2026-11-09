@@ -74,6 +74,20 @@ void AMoonfallCombatHUD::DrawHUD()
    DrawText(Row, Index == Selected ? FLinearColor::Yellow : FLinearColor::White,
       Left + 20.f, Y, nullptr, Canvas->SizeX < 900.f ? 0.75f : 0.9f);
   }
+  // Live stat summary mirrors the modifiers applied in combat and recovery.
+  const int32 WeaponRarity = FMath::Clamp((Hero->EquippedWeaponCode / 1000) % 10, 0, 3);
+  const int32 ArmorRarity = FMath::Clamp((Hero->EquippedArmorCode / 1000) % 10, 0, 3);
+  const int32 AccessoryRarity = FMath::Clamp((Hero->EquippedAccessoryCode / 1000) % 10, 0, 3);
+  const float WeaponBonusPct = 100.f * (FMath::Clamp(0.018f * Hero->WeaponTier, 0.f, 0.35f)
+    + (Hero->WeaponAffix == 1 ? 0.06f : 0.f) + WeaponRarity * 0.015f);
+  const float ArmorMitigationPct = 100.f * FMath::Min(0.34f, FMath::Min(0.28f, Hero->ArmorTier * 0.01f)
+    + (Hero->ArmorAffix == 2 ? 0.06f : 0.f) + ArmorRarity * 0.005f);
+  const float ManaRegenBonusPct = 100.f * (FMath::Clamp(Hero->AccessoryTier * 0.012f, 0.f, 0.25f)
+    + (Hero->AccessoryAffix == 3 ? 0.08f : 0.f) + AccessoryRarity * 0.02f);
+  DrawText(FString::Printf(TEXT("Equipped: +%.1f%% spell damage  |  %.1f%% protection  |  +%.1f%% mana regen"),
+    WeaponBonusPct, ArmorMitigationPct, ManaRegenBonusPct),
+    FLinearColor(0.76f,0.90f,0.99f), Left + 18.f, Top + PanelHeight - 113.f,
+    nullptr, Canvas->SizeX < 900.f ? 0.62f : 0.74f);
   DrawText(TEXT("WASD / D-pad: select   Enter / Y: equip   Delete / X: salvage"),
      FLinearColor::White, Left + 18.f, Top + PanelHeight - 51.f, nullptr, 0.75f);
   // Display cost for the actual selected item, rather than a formula
