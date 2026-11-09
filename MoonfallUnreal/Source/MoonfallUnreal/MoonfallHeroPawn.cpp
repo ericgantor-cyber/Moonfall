@@ -350,6 +350,7 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("AscendGear"), IE_Pressed, this, &AMoonfallHeroPawn::AscendSelectedInventoryItem);
  Input->BindAction(TEXT("ReforgeGear"), IE_Pressed, this, &AMoonfallHeroPawn::ReforgeSelectedInventoryItem);
  Input->BindAction(TEXT("EquipBest"), IE_Pressed, this, &AMoonfallHeroPawn::EquipBestInventoryAction);
+ Input->BindAction(TEXT("AdvisorSelect"), IE_Pressed, this, &AMoonfallHeroPawn::SelectRecommendedEquipment);
  Input->BindAction(TEXT("PickupLoot"), IE_Pressed, this, &AMoonfallHeroPawn::PickupNearestGroundLoot);
  Input->BindAction(TEXT("OptionsUp"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsUp);
  Input->BindAction(TEXT("OptionsDown"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsDown);
@@ -1486,6 +1487,18 @@ int32 AMoonfallHeroPawn::GetRecommendedEquipmentIndex() const
   }
  }
  return BestIndex;
+}
+
+bool AMoonfallHeroPawn::SelectRecommendedEquipment()
+{
+ // The advisor is a navigation shortcut, not a gear change. Character-stats
+ // and options pages never accept the input, even through Blueprint calls.
+ if (!bInventoryOpen || bCharacterStatsOpen || bOptionsOpen ||
+     !FMath::IsFinite(Health) || Health <= 0.f) return false;
+ const int32 SuggestedIndex = GetRecommendedEquipmentIndex();
+ if (!InventoryItemCodes.IsValidIndex(SuggestedIndex)) return false;
+ InventorySelection = SuggestedIndex;
+ return true;
 }
 
 void AMoonfallHeroPawn::EquipBestInventoryAction() { if (!bCharacterStatsOpen) EquipBestInventoryUpgrades(); }
