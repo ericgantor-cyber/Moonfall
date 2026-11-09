@@ -272,6 +272,31 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("InventoryItemCodes.RemoveAt(", loot)
         self.assertIn("InventorySelection = FMath::Clamp(InventorySelection, 0, InventoryItemCodes.Num() - 1);", loot)
 
+    def test_salvage_upgrades_unequipped_gear_only_by_explicit_inventory_action(self):
+        inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
+        hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        self.assertIn('ActionName="UpgradeGear",Key=U', inputs)
+        self.assertIn('ActionName="UpgradeGear",Key=Gamepad_RightTrigger', inputs)
+        self.assertIn('BindAction(TEXT("UpgradeGear"), IE_Pressed, this, &AMoonfallHeroPawn::UpgradeSelectedInventoryItem)', self.hero_cpp)
+        self.assertIn('bool UpgradeInventoryItem(int32 InventoryIndex);', self.hero_h)
+        self.assertIn('void UpgradeSelectedInventoryItem();', self.hero_h)
+        body = self.hero_cpp.split("bool AMoonfallHeroPawn::UpgradeInventoryItem(int32 InventoryIndex)", 1)[1].split(
+            "void AMoonfallHeroPawn::UpgradeSelectedInventoryItem()", 1)[0]
+        self.assertIn("!bInventoryOpen || bOptionsOpen || Health <= 0.f", body)
+        self.assertIn("!InventoryItemCodes.IsValidIndex(InventoryIndex)", body)
+        self.assertIn("Code == EquippedWeaponCode || Code == EquippedArmorCode", body)
+        self.assertIn("Code == EquippedAccessoryCode", body)
+        self.assertIn("Tier < 1 || Tier >= 25", body)
+        self.assertIn("Code != Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier", body)
+        self.assertIn("const int32 Cost = 4 + Tier * 2 + Rarity * 3;", body)
+        self.assertIn("if (Salvage < Cost) return false;", body)
+        self.assertLess(body.index("if (Salvage < Cost)"), body.index("Salvage -= Cost;"))
+        self.assertIn("InventoryItemCodes[InventoryIndex] = NewCode;", body)
+        self.assertIn("OnEquipmentCrafted(NewCode, Cost);", body)
+        self.assertNotIn("InventoryItemCodes.RemoveAt(", body)
+        self.assertNotIn("EquipInventoryItem(", body)
+        self.assertIn("U / RT: upgrade selected", hud)
+
     def test_explicit_equip_best_loadout_is_validated_and_never_auto_equips_loot(self):
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
         self.assertIn('ActionName="EquipBest",Key=B', inputs)
