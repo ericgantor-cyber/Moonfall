@@ -29,10 +29,17 @@ static func material_stack_counts(quantity:int)->Array[int]:
  return result
 
 static func transfer_gear(source:Array,destination:Array,index:int,capacity:int)->bool:
- if index<0 or index>=source.size() or destination.size()>=capacity:return false
+ # Transfers must be lossless, including when the source and destination alias.
+ # Never allow a caller to bypass the vault or bag limits with a bad capacity.
+ if is_same(source,destination):return false
+ if index<0 or index>=source.size():return false
+ if capacity<=0 or capacity>VAULT_LIMIT:return false
+ if destination.size()>=capacity:return false
  var item:Variant=source[index]
- if not (item is Dictionary):return false
- destination.append(item.duplicate(true))
+ if not (item is Dictionary) or item.is_empty():return false
+ # Duplicate before mutation so nested affixes cannot alias the original item.
+ var copied:Dictionary=item.duplicate(true)
+ destination.append(copied)
  source.remove_at(index)
  return true
 
