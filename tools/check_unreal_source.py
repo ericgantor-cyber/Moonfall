@@ -243,6 +243,24 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("SetLifeSpan(", ground_cpp)
         self.assertNotIn("FinisherShockwave", self.hero_cpp)
 
+    def test_loot_and_equipment_actions_reject_nonfinite_health(self):
+        boundaries = (
+            ("bool AMoonfallHeroPawn::CollectGroundEquipmentCode(", "void AMoonfallHeroPawn::SpawnGroundEquipmentDrop("),
+            ("void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(", "void AMoonfallHeroPawn::PickupNearestGroundLoot()"),
+            ("void AMoonfallHeroPawn::PickupNearestGroundLoot()", "void AMoonfallHeroPawn::EquipBestInventoryAction()"),
+            ("bool AMoonfallHeroPawn::EquipInventoryItem(", None),
+        )
+        for start, end in boundaries:
+            with self.subTest(method=start):
+                region = self.hero_cpp.split(start, 1)[1]
+                if end:
+                    region = region.split(end, 1)[0]
+                else:
+                    region = region.split("return true;", 1)[0]
+                self.assertIn("!FMath::IsFinite(Health) || Health <= 0.f", region)
+                self.assertLess(region.index("!FMath::IsFinite(Health)"),
+                                region.index("Health <= 0.f"))
+
     def test_ground_loot_spawn_rejects_nonfinite_coordinates(self):
         spawn = self.hero_cpp.split(
             "void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(", 1
@@ -274,7 +292,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         equip = self.hero_cpp.split(
             "bool AMoonfallHeroPawn::EquipInventoryItem(int32 InventoryIndex)", 1
         )[1].split("}", 1)[0]
-        self.assertIn("Health <= 0.f || !bInventoryOpen || bOptionsOpen", equip)
+        self.assertIn("!FMath::IsFinite(Health) || Health <= 0.f || !bInventoryOpen || bOptionsOpen", equip)
         self.assertLess(equip.index("!bInventoryOpen"), equip.index("InventoryItemCodes[InventoryIndex]"))
         # Crafting synchronizes currently worn gear from inside the inventory.
         for method in ("UpgradeInventoryItem", "ReforgeInventoryItemAffix",
@@ -287,7 +305,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "bool AMoonfallHeroPawn::CollectGroundEquipmentCode(int32 ItemCode)", 1
         )[1].split("void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(", 1)[0]
         self.assertIn(
-            "Health <= 0.f || bOptionsOpen || bInventoryOpen || ItemCode <= 0",
+            "!FMath::IsFinite(Health) || Health <= 0.f || bOptionsOpen || bInventoryOpen || ItemCode <= 0",
             collect,
         )
         self.assertLess(
