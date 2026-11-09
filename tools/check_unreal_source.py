@@ -272,6 +272,27 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("InventoryItemCodes.RemoveAt(", loot)
         self.assertIn("InventorySelection = FMath::Clamp(InventorySelection, 0, InventoryItemCodes.Num() - 1);", loot)
 
+    def test_forge_five_reuses_safe_single_tier_crafting_and_hud_previews_cost(self):
+        inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
+        hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        self.assertIn('ActionName="ForgeFive",Key=H', inputs)
+        self.assertIn('ActionName="ForgeFive",Key=Gamepad_RightShoulder', inputs)
+        self.assertIn('BindAction(TEXT("ForgeFive"), IE_Pressed, this, &AMoonfallHeroPawn::ForgeFiveSelectedInventoryItem)', self.hero_cpp)
+        self.assertIn('int32 ForgeInventoryItemLevels(int32 InventoryIndex, int32 MaxLevels);', self.hero_h)
+        self.assertIn('void ForgeFiveSelectedInventoryItem();', self.hero_h)
+        body = self.hero_cpp.split("int32 AMoonfallHeroPawn::ForgeInventoryItemLevels(", 1)[1].split(
+            "void AMoonfallHeroPawn::ForgeFiveSelectedInventoryItem()", 1)[0]
+        self.assertIn("!bInventoryOpen || bOptionsOpen || Health <= 0.f", body)
+        self.assertIn("!InventoryItemCodes.IsValidIndex(InventoryIndex)", body)
+        self.assertIn("FMath::Clamp(MaxLevels, 0, 5)", body)
+        self.assertIn("if (!UpgradeInventoryItem(InventoryIndex)) break;", body)
+        self.assertNotIn("Salvage -=", body)
+        self.assertNotIn("InventoryItemCodes.RemoveAt(", body)
+        self.assertIn("const int32 NextCost = 4 + SelectedTier * 2 + SelectedRarity * 3;", hud)
+        self.assertIn("Hero->Salvage >= NextCost", hud)
+        self.assertIn("SelectedTier < 25", hud)
+        self.assertIn("H / RB: forge up to 5 tiers", hud)
+
     def test_salvage_upgrades_equipped_and_unequipped_gear_by_explicit_inventory_action(self):
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
         hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
@@ -298,7 +319,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("if (bUpgradingEquipped && !EquipInventoryItem(InventoryIndex))", body)
         self.assertIn("InventoryItemCodes[InventoryIndex] = Code;", body)
         self.assertLess(body.index("EquipInventoryItem(InventoryIndex)"), body.index("Salvage -= Cost;"))
-        self.assertIn("U / RT: upgrade selected", hud)
+        self.assertIn("U / RT: +1 tier", hud)
 
     def test_explicit_equip_best_loadout_is_validated_and_never_auto_equips_loot(self):
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
