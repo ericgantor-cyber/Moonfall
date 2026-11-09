@@ -349,6 +349,7 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("Options"), IE_Pressed, this, &AMoonfallHeroPawn::OpenOptions);
  Input->BindAction(TEXT("Inventory"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleInventory);
  Input->BindAction(TEXT("CharacterStats"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleCharacterStats);
+ Input->BindAction(TEXT("InventoryPage"), IE_Pressed, this, &AMoonfallHeroPawn::SwitchInventoryPage);
  Input->BindAction(TEXT("InventoryConfirm"), IE_Pressed, this, &AMoonfallHeroPawn::InventoryConfirm);
  Input->BindAction(TEXT("InventorySalvage"), IE_Pressed, this, &AMoonfallHeroPawn::InventorySalvage);
  Input->BindAction(TEXT("UpgradeGear"), IE_Pressed, this, &AMoonfallHeroPawn::UpgradeSelectedInventoryItem);
@@ -916,6 +917,16 @@ void AMoonfallHeroPawn::ToggleDisplayMode() {
  Settings->SetFullscreenMode(Next);
  Settings->ApplySettings(false);
  Settings->SaveSettings();
+}
+
+void AMoonfallHeroPawn::SwitchInventoryPage()
+{
+ // Controller A is contextual: gameplay still jumps, inventory switches pages.
+ // It never equips, salvages, closes the inventory or enters the Atlas.
+ if (!bInventoryOpen || bOptionsOpen || bAtlasOpen ||
+     !FMath::IsFinite(Health) || Health <= 0.f) return;
+ ResetMouseCastChord();
+ bCharacterStatsOpen = !bCharacterStatsOpen;
 }
 
 void AMoonfallHeroPawn::ToggleCharacterStats()
