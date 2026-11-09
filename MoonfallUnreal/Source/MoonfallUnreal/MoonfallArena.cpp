@@ -100,6 +100,11 @@ void AMoonfallArena::CheckDungeonEntry() {
  constexpr float DungeonEncounterRadius = 1300.f;
  if (FVector::DistSquared2D(Hero->GetActorLocation(), GetActorLocation())
      > FMath::Square(DungeonEncounterRadius)) return;
+ // Lock encounter level on first entry, even if bonus packs do not roll.
+ // This avoids mobs suddenly becoming stronger when the player levels up.
+ const int32 MinLevel = FMath::Clamp(MinimumDungeonLevel, 1, 100);
+ const int32 MaxLevel = FMath::Clamp(MaximumDungeonLevel, MinLevel, 100);
+ LockedDungeonLevel = FMath::Clamp(Hero->Level, MinLevel, MaxLevel);
  // Only one 25% roll per dungeon encounter, triggered on arrival.
  GetWorldTimerManager().ClearTimer(DungeonEntryTimer);
  if (FMath::FRand() >= 0.25f) return;
@@ -262,13 +267,15 @@ void AMoonfallArena::SpawnNextBonusGroup() {
  // silently produce fewer than 5..11 members or advance dungeon progression.
  TArray<AMoonfallEnemy*> Spawned;
  Spawned.Reserve(GroupSize);
- FActorSpawnParameters SpawnParams;
- SpawnParams.SpawnCollisionHandlingOverride =
-   ESpawnActorCollisionHandlingMethod::DontSpawnIfColliding;
  for (const FVector& Position : ValidPositions) {
-  AMoonfallEnemy* Enemy = World->SpawnActor<AMoonfallEnemy>(
-    AMoonfallEnemy::StaticClass(), Position, FRotator::ZeroRotator, SpawnParams);
+  const FTransform EnemyTransform(FRotator::ZeroRotator, Position);
+  AMoonfallEnemy* Enemy = World->SpawnActorDeferred<AMoonfallEnemy>(
+    AMoonfallEnemy::StaticClass(), EnemyTransform, nullptr, nullptr,
+    ESpawnActorCollisionHandlingMethod::DontSpawnIfColliding);
   if (!IsValid(Enemy)) break;
+  Enemy->EncounterLevelOverride = LockedDungeonLevel;
+  UGameplayStatics::FinishSpawningActor(Enemy, EnemyTransform);
+  if (!IsValid(Enemy) || Enemy->IsActorBeingDestroyed()) break;
   Spawned.Add(Enemy);
  }
  if (Spawned.Num() != GroupSize) {
