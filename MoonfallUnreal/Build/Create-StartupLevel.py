@@ -4,7 +4,7 @@ Run in the project's Unreal Editor Python console:
   exec(open(r"C:\\path\\to\\MoonfallUnreal\\Build\\Create-StartupLevel.py", encoding="utf-8").read())
 
 Requires Python Editor Script Plugin. Never overwrites an existing level.
-The game mode creates the temporary combat arena at runtime.
+The game mode creates the temporary arena and connected six-zone dungeon network at runtime.
 """
 from pathlib import Path
 import re
