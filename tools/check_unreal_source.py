@@ -1692,14 +1692,14 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Now >= HitReactionEndsAt && Now >= PostureBrokenUntil", self.enemy_cpp)
         tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
         self.assertLess(tick.index("if (bElite && !bBoss && Now < TacticalRetreatUntil"),
-                        tick.index("if ((Distance > AttackRange || (!bBoss && !bCanSeeHero)) && Distance < 2200.f)"))
+                        tick.index("&& Distance < 2200.f && !bDivineRangedCastReady)"))
         self.assertIn("const float RetreatStep = 200.f * SafeAIDelta;", self.enemy_cpp)
         self.assertIn("AddActorWorldOffset(RetreatDirection * RetreatStep, true, &RetreatHit);", self.enemy_cpp)
         self.assertEqual(self.enemy_cpp.count("Nav->FindPathToLocationSynchronously("), 1)
 
     def test_elites_and_late_bosses_strafe_only_during_attack_recovery(self):
         tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
-        self.assertIn("if ((bElite || (bBoss && BossPhase >= 2))", tick)
+        self.assertIn("&& (bElite || (bBoss && BossPhase >= 2))", tick)
         self.assertIn("WindupEndsAt < 0.f && Now < NextAttackAt", tick)
         self.assertIn("Now >= HitReactionEndsAt && Now >= PostureBrokenUntil", tick)
         self.assertIn("Distance > AttackRange * 0.45f && Distance > 1.f", tick)
