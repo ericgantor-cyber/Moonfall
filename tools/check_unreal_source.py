@@ -249,6 +249,14 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         # Check the new nearest-first bounded candidate pool, not the removed global scan cap.
         self.assertIn("constexpr int32 MaxLootCandidates = 24;", pickup)
         self.assertIn("constexpr int32 MaxLootPerPress = 6;", pickup)
+        self.assertIn("constexpr int32 MaxCandidateBatches = 4;", pickup)
+        self.assertIn("TSet<AMoonfallGroundLoot*> ExaminedLoot;", pickup)
+        self.assertIn("Batch < MaxCandidateBatches && Collected < MaxLootPerPress", pickup)
+        self.assertIn("ExaminedLoot.Contains(Candidate)", pickup)
+        self.assertIn("ExaminedLoot.Add(Loot);", pickup)
+        self.assertIn("if (NearbyLoot.IsEmpty()) break;", pickup)
+        self.assertLess(pickup.index("ExaminedLoot.Add(Loot);"),
+                        pickup.index("Loot->TryCollect()"))
         self.assertIn("TActorIterator<AMoonfallGroundLoot> It(GetWorld()); It; ++It", pickup)
         self.assertNotIn("MaxLootScanned", pickup)
         self.assertIn("if (InsertAt >= MaxLootCandidates) continue;", pickup)
