@@ -583,11 +583,20 @@ void AMoonfallHeroPawn::CastBoth()
  // LT can mean Equip Best in inventory: reject combat before doing spell work.
  if (bOptionsOpen || bInventoryOpen || !FMath::IsFinite(Health) || Health <= 0.f) return;
  if (LeftSpell != RightSpell || !GetWorld()) return;
+ // Validate both hands before spending mana or applying a single overcharge.
+ if (LeftSpell < 0 || LeftSpell >= 6 || RightSpell < 0 || RightSpell >= 6) return;
  const float Time = GetWorld()->GetTimeSeconds();
+ const float Haste = GetHasteBonus();
  static const float Cooldowns[6] = {0.8f,0.65f,1.2f,2.f,1.f,0.9f};
- if (LeftSpell < 0 || LeftSpell >= 6 || RightSpell < 0 || RightSpell >= 6 || Time - LastCastTime[1] < Cooldowns[LeftSpell]) return;
+ if (!FMath::IsFinite(Time) || !FMath::IsFinite(Haste) || Haste <= -1.f ||
+     !FMath::IsFinite(LastCastTime[0]) || !FMath::IsFinite(LastCastTime[1])) return;
+ const float SharedCooldown = Cooldowns[LeftSpell] / (1.f + Haste);
+ if (!FMath::IsFinite(SharedCooldown) || SharedCooldown <= 0.f ||
+     Time - LastCastTime[0] < SharedCooldown ||
+     Time - LastCastTime[1] < SharedCooldown) return;
  if (TryCast(LeftSpell, 0, 2.f, true))
  {
+  // One payment and one spell effect, but both hands enter cooldown.
   LastCastTime[1] = LastCastTime[0];
   OnSpellCast(LeftSpell, false);
  }
