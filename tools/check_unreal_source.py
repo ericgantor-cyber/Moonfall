@@ -182,7 +182,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "void AMoonfallHeroPawn::AdjustOption", 1)[0]
         self.assertIn("bInventoryOpen = !bInventoryOpen;", toggle)
         self.assertIn("EquipInventoryItem(InventorySelection);", toggle)
-        self.assertIn("if (bInventoryOpen) { bInventoryOpen = false; bCharacterStatsOpen = false; return; }", toggle)
+        self.assertIn("bInventoryOpen = false;", toggle)
+        self.assertIn("bCharacterStatsOpen = false;", toggle)
+        self.assertIn("UpdateInventoryMouseMode();", toggle)
         self.assertIn("InventorySelection = FMath::Max(0, InventorySelection - 1);", toggle)
         self.assertIn("InventorySelection = FMath::Min(FMath::Max(0, InventoryItemCodes.Num() - 1), InventorySelection + 1);", toggle)
         self.assertIn("InventorySelection = FMath::Clamp(InventorySelection - 5, 0,", toggle)
@@ -447,6 +449,30 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("!bInventoryOpen || bCharacterStatsOpen || bOptionsOpen", best)
         self.assertLess(best.index("bCharacterStatsOpen"),
                         best.index("InventoryItemCodes.Num()"))
+
+    def test_inventory_pointer_mode_restored_on_close_escape_and_defeat(self):
+        self.assertIn("void UpdateInventoryMouseMode();", self.hero_h)
+        updater = self.hero_cpp.split(
+            "void AMoonfallHeroPawn::UpdateInventoryMouseMode()", 1
+        )[1].split("void AMoonfallHeroPawn::ToggleInventory()", 1)[0]
+        self.assertIn("Controller->IsLocalController()", updater)
+        self.assertIn("FInputModeGameAndUI InputMode;", updater)
+        self.assertIn("InputMode.SetHideCursorDuringCapture(false);", updater)
+        self.assertIn("Controller->bShowMouseCursor = true;", updater)
+        self.assertIn("Controller->SetInputMode(FInputModeGameOnly());", updater)
+        self.assertIn("Controller->bShowMouseCursor = false;", updater)
+        toggle = self.hero_cpp.split(
+            "void AMoonfallHeroPawn::ToggleInventory()", 1
+        )[1].split("void AMoonfallHeroPawn::EquipSelectedInventoryItem()", 1)[0]
+        self.assertIn("UpdateInventoryMouseMode();", toggle)
+        options = self.hero_cpp.split(
+            "void AMoonfallHeroPawn::OpenOptions()", 1
+        )[1].split("void AMoonfallHeroPawn::OptionsUp()", 1)[0]
+        self.assertIn("UpdateInventoryMouseMode();", options)
+        death = self.hero_cpp.split(
+            "void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount)", 1
+        )[1].split("void AMoonfallHeroPawn::CycleGraphicsQuality()", 1)[0]
+        self.assertIn("UpdateInventoryMouseMode();", death)
 
     def test_right_click_hit_tests_visible_inventory_rows_only(self):
         hud_header = (ROOT / "MoonfallCombatHUD.h").read_text(encoding="utf-8")
@@ -2699,7 +2725,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('void AMoonfallHeroPawn::EndGuard()', self.hero_cpp)
         self.assertIn("NextParryAt = Now + FMath::Clamp(ParryCooldownSeconds, 0.3f, 2.f);", self.hero_cpp)
         self.assertIn("Stamina < GuardStaminaCost) return;", self.hero_cpp)
-        self.assertIn("if (Health <= 0.f) {\n  // Prevent lingering movement/jump input from carrying through defeat.\n  StopJumping();\n  if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();\n  // Clear any held sprint so a later respawn cannot inherit it.\n  EndSprint();\n  EndGuard();\n  // Defeat clears every gameplay menu so the death/respawn screen stays visible.\n  bInventoryOpen = false;\n  bOptionsOpen = false;\n }", self.hero_cpp)
+        self.assertIn("if (Health <= 0.f) {\n  // Prevent lingering movement/jump input from carrying through defeat.\n  StopJumping();\n  if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();\n  // Clear any held sprint so a later respawn cannot inherit it.\n  EndSprint();\n  EndGuard();\n  // Defeat clears every gameplay menu and releases the inventory cursor.\n  bInventoryOpen = false;\n  bOptionsOpen = false;\n }", self.hero_cpp)
         self.assertIn("ParryWindowEndsAt = -1.f", self.hero_cpp)
         self.assertIn("DamageAfterGuard *= 0.4f", self.hero_cpp)
         self.assertIn("Stamina = FMath::Clamp(Stamina - RequiredGuardCost, 0.f, MaxStamina)", self.hero_cpp)
