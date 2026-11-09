@@ -341,6 +341,26 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("SelectRecommendedEquipment(", self.hero_h)
         self.assertNotIn("J: jump", self.hud)
 
+    def test_direct_salvage_fails_closed_when_menus_or_health_invalid(self):
+        body = self.hero_cpp.split(
+            "bool AMoonfallHeroPawn::SalvageInventoryItem(int32 InventoryIndex)", 1
+        )[1].split("bool AMoonfallHeroPawn::UpgradeInventoryItem(", 1)[0]
+        self.assertIn("!bInventoryOpen || bCharacterStatsOpen || bOptionsOpen", body)
+        self.assertIn("!FMath::IsFinite(Health) || Health <= 0.f", body)
+        self.assertLess(body.index("!bInventoryOpen"),
+                        body.index("InventoryItemCodes.RemoveAt(InventoryIndex);"))
+        self.assertIn("if (Copies <= 1) return false;", body)
+
+    def test_advisor_hud_validates_codes_before_labeling_gear(self):
+        inventory = self.hud.split("if (Hero->bInventoryOpen) {", 1)[1].split(
+            "// Nearest living boss", 1
+        )[0]
+        self.assertIn("&& (Rarity != 0 || Affix == 0)", inventory)
+        self.assertIn("Code == Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier", inventory)
+        self.assertIn("const bool bEquipped = bValid &&", inventory)
+        self.assertIn("Hero->GetEquipmentUpgradeScore(AdvisedIndex)", inventory)
+        self.assertNotIn("J: jump", inventory)
+
     def test_ai_gear_advisor_is_visible_without_equipping(self):
         hud = self.hud
         inventory = hud.split("if (Hero->bInventoryOpen) {", 1)[1].split(
@@ -348,11 +368,12 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         )[0]
         self.assertIn("Hero->GetRecommendedEquipmentIndex()", inventory)
         self.assertIn("Hero->GetEquipmentUpgradeScore(Selected)", inventory)
-        self.assertIn("GEAR ADVISOR: item %d", inventory)
-        self.assertIn("GEAR ADVISOR: current loadout recommended", inventory)
+        self.assertIn("ADVISOR: item %d  (+%d points)", inventory)
+        self.assertIn("ADVISOR: no higher-scoring gear found", inventory)
+        self.assertIn("ADVISOR: no items to compare", inventory)
         self.assertIn("[ADVISOR]", inventory)
         self.assertIn("Selected: +%d advisor points vs worn slot", inventory)
-        self.assertIn("manual equip only", inventory)
+        self.assertIn("equip manually", inventory)
         self.assertIn("Index == AdvisedIndex", inventory)
         self.assertNotIn("Hero->EquipInventoryItem(", inventory)
         self.assertNotIn("Hero->EquipBestInventoryUpgrades(", inventory)
@@ -374,7 +395,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("GearScore(Candidate) - GearScore(EquippedCodes[Slot])", section)
         self.assertIn("if (Candidate == EquippedCodes[Slot]) return 0;", section)
         self.assertIn("if (Improvement > BestImprovement)", section)
-        self.assertIn("if (!bInventoryOpen || bOptionsOpen || !FMath::IsFinite(Health)", section)
+        self.assertIn("!bInventoryOpen || bCharacterStatsOpen || bOptionsOpen", section)
+        self.assertIn("!FMath::IsFinite(Health) || Health <= 0.f", section)
         for forbidden in ("EquipInventoryItem(", "InventoryItemCodes.Add(",
                           "InventoryItemCodes.RemoveAt(", "Salvage -=", "EquippedWeaponCode ="):
             self.assertNotIn(forbidden, section)
