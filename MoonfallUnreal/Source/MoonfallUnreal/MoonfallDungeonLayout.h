@@ -58,9 +58,21 @@ public:
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Dungeon|Hazards",
    meta=(ClampMin="0.5", ClampMax="20.0"))
  float HazardCooldownSeconds = 2.f;
+ // Seed 0 derives a reproducible layout from the zone/dungeon IDs. Set a
+ // nonzero seed to generate a different dungeon without changing its route.
+ UPROPERTY(EditInstanceOnly, BlueprintReadOnly, Category="Moonfall|Dungeon|Randomizer")
+ int32 LayoutSeed = 0;
+ UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Dungeon|Randomizer")
+ bool bRandomizeChambers = true;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Dungeon|Randomizer")
+ int32 GetEffectiveLayoutSeed() const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Dungeon|Randomizer")
+ int32 GetRandomizedHazardChamber(int32 HazardIndex) const;
+
 
 private:
  float NextHazardDamageAt = -1.f;
+ void BuildHazardChambers(int32 OutChambers[3]) const;
  UFUNCTION()
  void HandleHazardOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor,
     UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep,
