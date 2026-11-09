@@ -158,7 +158,7 @@ void AMoonfallCombatHUD::DrawHUD()
   const int32 AdvisedIndex = Hero->GetRecommendedEquipmentIndex();
   const int32 SelectedImprovement = Hero->GetEquipmentUpgradeScore(Selected);
   DrawText(AdvisedIndex >= 0
-    ? FString::Printf(TEXT("ADVISOR: item %d  (+%d points)  |  J: advisor  |  equip manually"),
+    ? FString::Printf(TEXT("ADVISOR: item %d  (+%d points)  |  equip manually"),
         AdvisedIndex + 1, Hero->GetEquipmentUpgradeScore(AdvisedIndex))
     : Count == 0 ? TEXT("ADVISOR: no items to compare")
       : TEXT("ADVISOR: no higher-scoring gear found"),
