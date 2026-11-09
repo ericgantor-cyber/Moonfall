@@ -193,7 +193,7 @@ func _process(delta:float)->void:
  var body:CharacterBody3D=target.get("body") as CharacterBody3D
  if not is_instance_valid(body):return
  aim_marker.global_position=body.global_position+Vector3(0,2.2,0)
- aim_marker.text="◆ LOCKED" if aim_locked_id>=0 and beasts.find(target)==aim_locked_id else "◎ TARGET"
+ aim_marker.text="◆ LOCKED" if aim_locked_id>=0 and body.get_instance_id()==aim_locked_id else "◎ TARGET"
  aim_marker.visible=true
 
 func _start_game(selected_hero:String)->void:
