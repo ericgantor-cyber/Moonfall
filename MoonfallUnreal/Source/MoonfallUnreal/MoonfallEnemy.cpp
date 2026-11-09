@@ -576,9 +576,22 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
    && (DivineBossId == FName(TEXT("z_void_reaper"))
        || DivineBossId == FName(TEXT("nyra_eclipse_queen")))
    && AttackSequence % 4 == 3;
- const bool bDivineRangedCastReady = bDivineSignatureDue
+ const bool bDivineRangedCastCandidate = bDivineSignatureDue
    && WindupEndsAt < 0.f && Now >= NextAttackAt
    && Distance > AttackRange && Distance <= 750.f;
+ // Ranged spells need a clear sightline when the warning begins. Evaluate
+ // only ready signatures and cache a result for half a second to avoid
+ // extra line traces on every think tick around solid world geometry.
+ if (bDivineRangedCastCandidate && Now >= NextDivineCastSightAt) {
+  NextDivineCastSightAt = Now + 0.5f;
+  FCollisionQueryParams DivineSightParams(SCENE_QUERY_STAT(MoonfallDivineCastSight), false);
+  DivineSightParams.AddIgnoredActor(this);
+  FHitResult DivineSightHit;
+  bDivineCastLineClear = !GetWorld()->LineTraceSingleByChannel(
+    DivineSightHit, EnemyPosition, HeroPosition, ECC_Visibility, DivineSightParams)
+    || DivineSightHit.GetActor() == Hero;
+ }
+ const bool bDivineRangedCastReady = bDivineRangedCastCandidate && bDivineCastLineClear;
  if ((Distance > AttackRange || (!bBoss && !bCanSeeHero))
      && Distance < 2200.f && !bDivineRangedCastReady) {
   FHitResult Hit;
