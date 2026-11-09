@@ -60,6 +60,44 @@ void AMoonfallCombatHUD::DrawHUD()
   DrawText(TEXT("WASD / Arrows / D-pad: navigate    Esc / Start: close"),FLinearColor::White,MenuLeft+18.f,MenuTop+MenuHeight-28.f,nullptr,0.85f);
   return;
  }
+ if (Hero->bAtlasOpen) {
+  // UE5 Atlas foundation: live world coordinates, no invented discovered
+  // terrain, locations, or markers. Future exploration data can fill cells.
+  const float Width = FMath::Min(700.f, FMath::Max(280.f, Canvas->SizeX - 24.f));
+  const float Height = FMath::Min(650.f, FMath::Max(280.f, Canvas->SizeY - 24.f));
+  const float Left = (Canvas->SizeX - Width) * 0.5f;
+  const float Top = (Canvas->SizeY - Height) * 0.5f;
+  DrawRect(FLinearColor(0.025f,0.035f,0.075f,0.97f),Left,Top,Width,Height);
+  DrawText(TEXT("MOONFALL  |  ATLAS"),FLinearColor::White,
+    Left + 20.f,Top + 17.f,nullptr,1.3f);
+  const FVector WorldPos = Hero->GetActorLocation();
+  const bool bValidWorldPos = FMath::IsFinite(WorldPos.X) &&
+    FMath::IsFinite(WorldPos.Y) && FMath::IsFinite(WorldPos.Z);
+  const float MapSize = FMath::Max(140.f, FMath::Min(Width - 48.f, Height - 150.f));
+  const float MapLeft = Left + (Width - MapSize) * 0.5f;
+  const float MapTop = Top + 61.f;
+  DrawRect(FLinearColor(0.085f,0.12f,0.17f),MapLeft,MapTop,MapSize,MapSize);
+  for (int32 GridIndex = 1; GridIndex < 10; ++GridIndex) {
+   const float Offset = MapSize * GridIndex / 10.f;
+   DrawRect(FLinearColor(0.20f,0.28f,0.35f,0.50f),MapLeft + Offset,MapTop,1.f,MapSize);
+   DrawRect(FLinearColor(0.20f,0.28f,0.35f,0.50f),MapLeft,MapTop + Offset,MapSize,1.f);
+  }
+  if (bValidWorldPos) {
+   const float CenterX = MapLeft + MapSize * 0.5f;
+   const float CenterY = MapTop + MapSize * 0.5f;
+   DrawRect(FLinearColor(0.98f,0.82f,0.25f),CenterX - 5.f,CenterY - 5.f,10.f,10.f);
+   DrawText(TEXT("YOU"),FLinearColor::Yellow,CenterX + 9.f,CenterY - 8.f,nullptr,0.85f);
+   DrawText(FString::Printf(TEXT("World X %.0f   Y %.0f   Z %.0f"),
+     WorldPos.X,WorldPos.Y,WorldPos.Z),FLinearColor(0.8f,0.9f,1.f),
+     Left + 20.f,Top + Height - 76.f,nullptr,0.9f);
+  } else {
+   DrawText(TEXT("World coordinates unavailable"),FLinearColor::White,
+      Left + 20.f,Top + Height - 76.f,nullptr,0.9f);
+  }
+  DrawText(TEXT("Undiscovered terrain is not shown  |  J / Esc: close"),
+    FLinearColor(0.7f,0.85f,0.88f),Left + 20.f,Top + Height - 43.f,nullptr,0.78f);
+  return;
+ }
  if (Hero->bInventoryOpen) {
   // Canvas-only paginated inventory: no extra actors, widgets, or hidden controls.
   const float PanelWidth = FMath::Min(680.f, FMath::Max(280.f, Canvas->SizeX - 24.f));
