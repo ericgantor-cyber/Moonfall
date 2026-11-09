@@ -240,6 +240,8 @@ private:
  void ZoomCameraOut();
  void CastLeft();
  void CastRight();
+ // Mouse-specific context action: equip inventory row or cast outside menus.
+ void RightClickContextAction();
  void CastBoth();
  void Dodge();
  void BeginSprint();
