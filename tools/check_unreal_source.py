@@ -1736,20 +1736,36 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertEqual(tick.count("Nav->ProjectPointToNavigation("), 1)
         self.assertEqual(tick.count("Nav->FindPathToLocationSynchronously("), 1)
 
+    def test_divine_callbacks_observe_cleared_active_state(self):
+        cpp = self.enemy_cpp
+        helper = cpp.split("void AMoonfallEnemy::CancelDivineSignature() {", 1)[1].split("\\n}", 1)[0]
+        self.assertIn("if (!bDivineSignatureActive) return;", helper)
+        self.assertIn("const FName InterruptedMove = ActiveDivineMoveId;", helper)
+        self.assertLess(helper.index("bDivineSignatureActive = false;"),
+                        helper.index("OnDivineAttackInterrupted(InterruptedMove);"))
+        self.assertLess(helper.index("ActiveDivineMoveId = NAME_None;"),
+                        helper.index("OnDivineAttackInterrupted(InterruptedMove);"))
+        self.assertEqual(cpp.count("CancelDivineSignature();"), 6)
+        impact = cpp.split("const FName ResolvedMove = ActiveDivineMoveId;", 1)[1]
+        self.assertLess(impact.index("bDivineSignatureActive = false;"),
+                        impact.index("OnDivineAttackResolved(ResolvedMove, ResolvedCenter, bWithinDivineMarker);"))
+        self.assertLess(impact.index("ActiveDivineMoveId = NAME_None;"),
+                        impact.index("OnDivineAttackResolved(ResolvedMove, ResolvedCenter, bWithinDivineMarker);"))
+
     def test_divine_death_cancels_pending_cast_before_defeat_event(self):
         damage = self.enemy_cpp.split("void AMoonfallEnemy::TakeSpellDamage(", 1)[1]
         start = damage.index("if (Health <= 0.0f) {")
         end = damage.index("OnEnemyDefeated(", start)
         death = damage[start:end]
         self.assertIn("if (bDivineSignatureActive) {", death)
-        self.assertIn("OnDivineAttackInterrupted(ActiveDivineMoveId);", death)
-        self.assertIn("bDivineSignatureActive = false;", death)
-        self.assertIn("ActiveDivineMoveId = NAME_None;", death)
+        self.assertIn("CancelDivineSignature();", death)
+        self.assertIn("bDivineSignatureActive = false;", self.enemy_cpp)
+        self.assertIn("ActiveDivineMoveId = NAME_None;", self.enemy_cpp)
         self.assertIn("WindupEndsAt = -1.f;", death)
         self.assertIn("BossWarningEndTime = -1.f;", death)
         self.assertIn("bComboSecondHitPending = false;", death)
         self.assertIn("bComboSecondHitActive = false;", death)
-        self.assertLess(death.index("OnDivineAttackInterrupted("), death.index("SetActorEnableCollision(false)"))
+        self.assertLess(death.index("CancelDivineSignature();"), death.index("SetActorEnableCollision(false)"))
 
     def test_divine_telegraph_event_observes_committed_cast_clock(self):
         enemy = self.enemy_cpp
@@ -1777,8 +1793,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('TEXT("EclipseMark")', self.enemy_cpp)
         self.assertIn('TEXT("EclipsePulse")', self.enemy_cpp)
         self.assertIn("OnDivineAttackTelegraphed(ActiveDivineMoveId, DivineSignatureCenter, DivineSignatureRadius, CurrentWindup);", self.enemy_cpp)
-        self.assertIn("OnDivineAttackResolved(ActiveDivineMoveId, DivineSignatureCenter, bWithinDivineMarker);", self.enemy_cpp)
-        self.assertIn("OnDivineAttackInterrupted(ActiveDivineMoveId);", self.enemy_cpp)
+        self.assertIn("OnDivineAttackResolved(ResolvedMove, ResolvedCenter, bWithinDivineMarker);", self.enemy_cpp)
+        self.assertIn("OnDivineAttackInterrupted(InterruptedMove);", self.enemy_cpp)
         self.assertIn("bDivineSignatureActive = false;", self.enemy_cpp)
         self.assertIn("ActiveDivineMoveId = NAME_None;", self.enemy_cpp)
         self.assertLess(self.enemy_cpp.index("OnDivineAttackResolved("), self.enemy_cpp.index("if (bWithinDivineMarker || bWithinBasicAttack)"))
