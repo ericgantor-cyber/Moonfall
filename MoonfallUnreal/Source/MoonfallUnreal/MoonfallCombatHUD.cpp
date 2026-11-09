@@ -177,7 +177,7 @@ void AMoonfallCombatHUD::DrawHUD()
   DrawText(FString::Printf(TEXT("Sets: Force %d/3  Ward %d/3  Focus %d/3    2pc + 3pc unlock bonuses"),
     ForcePieces, WardPieces, FocusPieces), FLinearColor(0.59f,0.95f,0.77f),
     Left + 18.f, Top + 113.f, nullptr, Canvas->SizeX < 900.f ? 0.61f : 0.72f);
-  DrawText(TEXT("Up/Down: select   Left/Right: skip 5   Enter/Y: equip   Delete/X: salvage"),
+  DrawText(TEXT("Up/Down: select   Left/Right: skip 5   Enter / Y: equip   Delete / X: salvage"),
      FLinearColor::White, Left + 18.f, Top + PanelHeight - 51.f, nullptr, 0.75f);
   // Display cost for the actual selected item, rather than a formula
   // players must calculate while navigating the inventory.
