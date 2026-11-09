@@ -261,6 +261,17 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                 self.assertLess(region.index("!FMath::IsFinite(Health)"),
                                 region.index("Health <= 0.f"))
 
+    def test_invalid_ground_loot_initialization_destroys_dead_pickups(self):
+        ground = (ROOT / "MoonfallGroundLoot.cpp").read_text(encoding="utf-8")
+        init = ground.split(
+            "void AMoonfallGroundLoot::InitializeLoot(int32 InItemCode)", 1
+        )[1].split("bool AMoonfallGroundLoot::TryCollect()", 1)[0]
+        self.assertIn("if (ItemCode != 0 || bCollected) return;", init)
+        self.assertIn("if (InItemCode <= 0) { Destroy(); return; }", init)
+        self.assertIn("InItemCode != Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier) {", init)
+        self.assertIn("Destroy();\n  return;", init)
+        self.assertLess(init.index("Destroy();\n  return;"), init.index("ItemCode = InItemCode;"))
+
     def test_loot_roll_does_not_report_uncollected_rewards(self):
         roll = self.hero_cpp.split(
             "int32 AMoonfallHeroPawn::RollEquipmentCode(", 1
