@@ -175,7 +175,14 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
     // A phase transition cannot truncate an active posture-break lockout.
     NextAttackAt = FMath::Max(NextAttackAt, Now + 1.5f);
     BossPhaseMessageUntil = Now + 1.5f;
-    AttackSequence = 0;
+    // A divine boss opens each escalated phase with its own signature
+    // after the existing 1.5-second breathing window. The scheduler
+    // tests the pre-increment attack sequence when deciding ranged casts.
+    // Generic bosses keep their normal fresh-cycle opening.
+    const bool bDivinePhase = DivineBossId == FName(TEXT("z_void_reaper"))
+      || DivineBossId == FName(TEXT("nyra_eclipse_queen"));
+    const int32 NewDivineInterval = BossPhase >= 3 ? 2 : (BossPhase == 2 ? 3 : 4);
+    AttackSequence = bDivinePhase ? NewDivineInterval - 1 : 0;
     BossSpecialMove = 0;
     bDivineSignatureActive = false;
     bDivineAlternateGeometry = false;
@@ -184,6 +191,7 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
     bComboSecondHitActive = false;
     CachedWaypoint = FVector::ZeroVector;
     OnBossPhaseChanged(BossPhase);
+    if (bDivinePhase) OnDivinePhaseEntered(DivineBossId, BossPhase, 1.5f);
    }
   }
   OnHitFeedback(ActualDamage, Health);
