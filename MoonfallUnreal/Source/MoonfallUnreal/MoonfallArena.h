@@ -24,9 +24,11 @@ public:
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Dungeon|Divine") FName FeaturedDivineBossId = NAME_None;
 private:
  void CreateBlock(FVector Position, FVector Scale);
+ void CheckDungeonEntry();
  void SpawnNextBonusGroup();
  TArray<int32> PendingBonusGroupSizes;
  int32 NextBonusGroup = 0;
  int32 TerrainPlacementAttempts = 0;
  FTimerHandle BonusSpawnTimer;
+ FTimerHandle DungeonEntryTimer;
 };
