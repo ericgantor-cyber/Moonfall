@@ -272,6 +272,30 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("InventoryItemCodes.RemoveAt(", loot)
         self.assertIn("InventorySelection = FMath::Clamp(InventorySelection, 0, InventoryItemCodes.Num() - 1);", loot)
 
+    def test_explicit_equip_best_loadout_is_validated_and_never_auto_equips_loot(self):
+        inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
+        self.assertIn('ActionName="EquipBest",Key=B', inputs)
+        self.assertIn('ActionName="EquipBest",Key=Gamepad_LeftTrigger', inputs)
+        self.assertIn('BindAction(TEXT("EquipBest"), IE_Pressed', self.hero_cpp)
+        self.assertIn('int32 EquipBestInventoryUpgrades();', self.hero_h)
+        self.assertIn('void OnBestLoadoutEquipped(int32 UpgradesEquipped);', self.hero_h)
+        body = self.hero_cpp.split("int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()", 1)[1].split(
+            "bool AMoonfallHeroPawn::EquipInventoryItem(", 1)[0]
+        self.assertIn("if (!bInventoryOpen || bOptionsOpen || Health <= 0.f) return 0;", body)
+        self.assertIn("const int32 EquippedCodes[3]", body)
+        self.assertIn("BestScores[3]", body)
+        self.assertIn("InventoryItemCodes.Num()", body)
+        self.assertIn("Tier * 100 + Rarity * 10 + (Affix > 0 ? 1 : 0)", body)
+        self.assertIn("Code != Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier", body)
+        self.assertIn("if (Score > BestScores[Slot])", body)
+        self.assertIn("EquipInventoryItem(BestIndices[Slot])", body)
+        self.assertIn("OnBestLoadoutEquipped(UpgradesEquipped);", body)
+        self.assertNotIn("SalvageInventoryItem(", body)
+        self.assertNotIn("RemoveAt(", body)
+        pickup = self.hero_cpp.split("bool AMoonfallHeroPawn::CollectGroundEquipmentCode(", 1)[1].split(
+            "void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(", 1)[0]
+        self.assertNotIn("EquipBestInventoryUpgrades", pickup)
+
     def test_inventory_salvage_is_validated_and_protects_equipped_gear(self):
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
         self.assertIn('ActionName="InventorySalvage",Key=Delete', inputs)
