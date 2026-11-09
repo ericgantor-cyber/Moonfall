@@ -2546,5 +2546,15 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("FMath::Max(21.f, (PanelHeight - 370.f) / PerPage)", self.hud)
         self.assertIn("PanelHeight >= 450.f", self.hud)
 
+    def test_three_segment_set_progress_and_next_bonus_preview(self):
+        self.assertIn("Piece < SetCounts[S]", self.hud)
+        self.assertIn("Piece < 3", self.hud)
+        self.assertIn("Next bonus: %s", self.hud)
+        self.assertIn("After == 3 ? TEXT(\"MAX 3/3\")", self.hud)
+        self.assertIn("Target - After, Target", self.hud)
+        self.assertIn("GetItemPower(CurrentCode) > 0", self.hud)
+        self.assertIn("No set progress change", self.hud)
+        self.assertIn("Affix != CandidateAffix && Affix != ReplacedAffix", self.hud)
+
 if __name__ == "__main__":
     unittest.main()
