@@ -261,6 +261,17 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                 self.assertLess(region.index("!FMath::IsFinite(Health)"),
                                 region.index("Health <= 0.f"))
 
+    def test_scripted_loot_reward_never_auto_equips(self):
+        reward = self.hero_cpp.split(
+            "void AMoonfallHeroPawn::AwardEquipmentDrop(", 1
+        )[1].split("bool AMoonfallHeroPawn::CollectGroundEquipmentCode(", 1)[0]
+        self.assertIn("if (!FMath::IsFinite(Health) || Health <= 0.f) return;", reward)
+        self.assertIn("RollEquipmentCode(bEliteEnemy, bBossEnemy)", reward)
+        self.assertIn("InventoryItemCodes.Add(ItemCode);", reward)
+        for forbidden in ("*EquippedCode", "*EquippedAffix", "*Slot =",
+                          "MaxHealth +=", "OnHealthChanged("):
+            self.assertNotIn(forbidden, reward)
+
     def test_ground_loot_spawn_rejects_nonfinite_coordinates(self):
         spawn = self.hero_cpp.split(
             "void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(", 1
@@ -650,8 +661,11 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(equip.index("Code != Affix * 100000"), equip.index("*EquippedTier = Tier;"))
         loot = self.hero_cpp.split("void AMoonfallHeroPawn::AwardEquipmentDrop(", 1)[1].split(
             "bool AMoonfallHeroPawn::EquipInventoryItem(", 1)[0]
-        self.assertIn("*EquippedCode = ItemCode;", loot)
         self.assertIn("InventoryItemCodes.Add(ItemCode);", loot)
+        self.assertNotIn("*EquippedCode =", loot)
+        self.assertNotIn("*EquippedTier =", loot)
+        self.assertNotIn("*EquippedAffix =", loot)
+        self.assertNotIn("OnHealthChanged(", loot)
 
     def test_random_item_affixes_apply_bounded_slot_specific_bonuses(self):
         for field in ("LastLootAffix", "WeaponAffix", "ArmorAffix", "AccessoryAffix"):
@@ -661,9 +675,14 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("LastLootAffix = LastLootRarity == 0 ? 0", loot)
         self.assertIn("FMath::RandRange(1, 3)", loot)
         self.assertIn("LastLootAffix * 100000 + LastLootSlot * 10000", loot)
-        self.assertIn("int32* EquippedAffix =", self.hero_cpp)
-        self.assertIn("*EquippedAffix = LastLootAffix;", self.hero_cpp)
-        self.assertLess(self.hero_cpp.index("if (NewTier > *Slot) {"), self.hero_cpp.index("*EquippedAffix = LastLootAffix;"))
+        scripted = self.hero_cpp.split(
+            "void AMoonfallHeroPawn::AwardEquipmentDrop(", 1
+        )[1].split("bool AMoonfallHeroPawn::CollectGroundEquipmentCode(", 1)[0]
+        self.assertIn("InventoryItemCodes.Add(ItemCode);", scripted)
+        self.assertNotIn("EquippedWeaponCode =", scripted)
+        self.assertNotIn("EquippedArmorCode =", scripted)
+        self.assertNotIn("EquippedAccessoryCode =", scripted)
+        self.assertNotIn("MaxHealth +=", scripted)
         cast = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split(
             "void AMoonfallHeroPawn::CastLeft()", 1)[0]
         self.assertIn("(WeaponAffix == 1 ? 0.06f : 0.f)", cast)
