@@ -48,7 +48,7 @@ void AMoonfallCombatHUD::DrawHUD()
    DrawText(FString::Printf(TEXT("Level %d  |  XP %d / %d  |  Salvage %d"),
       Hero->Level, Hero->Experience, Hero->ExperienceToNextLevel, Hero->Salvage),
       FLinearColor(0.78f,0.83f,1.f), Left + 18.f, Top + 57.f, nullptr, 0.95f);
-   const float RowHeight = FMath::Clamp((PanelHeight - 145.f) / 12.f, 12.f, 33.f);
+   const float RowHeight = FMath::Clamp((PanelHeight - 145.f) / 16.f, 12.f, 33.f);
    const float StartY = Top + 96.f;
    const FString CharacterLines[] = {
      FString::Printf(TEXT("Equipment power: %d  |  W %d / A %d / T %d"),
@@ -66,6 +66,13 @@ void AMoonfallCombatHUD::DrawHUD()
        Hero->GetCriticalChance() * 100.f, Hero->GetHasteBonus() * 100.f),
      FString::Printf(TEXT("Mastery: %.1f%%  |  Versatility: %.1f%%"),
        Hero->GetMasteryBonus() * 100.f, Hero->GetVersatilityBonus() * 100.f),
+     TEXT("LEGENDARY EQUIPMENT PERKS"),
+     FString::Printf(TEXT("Weapon: %s  |  critical damage x1.65"),
+       Hero->HasLegendaryPerk(0) ? TEXT("ACTIVE") : TEXT("LOCKED")),
+     FString::Printf(TEXT("Armor: %s  |  +1.5%% protection (34%% cap)"),
+       Hero->HasLegendaryPerk(1) ? TEXT("ACTIVE") : TEXT("LOCKED")),
+     FString::Printf(TEXT("Accessory: %s  |  +2.5%% haste"),
+       Hero->HasLegendaryPerk(2) ? TEXT("ACTIVE") : TEXT("LOCKED")),
      TEXT("EQUIPMENT SET BONUSES"),
      FString::Printf(TEXT("Force %d/3: 2pc +3%% crit; 3pc +4%% mastery"),
        Hero->GetSetPieceCount(1)),
@@ -76,7 +83,7 @@ void AMoonfallCombatHUD::DrawHUD()
    };
    for (int32 Row = 0; Row < UE_ARRAY_COUNT(CharacterLines); ++Row)
     DrawText(CharacterLines[Row],
-      Row == 1 || Row == 5 || Row == 8 ? FLinearColor(0.52f,0.91f,0.76f) : FLinearColor::White,
+      Row == 1 || Row == 5 || Row == 8 || Row == 12 ? FLinearColor(0.52f,0.91f,0.76f) : FLinearColor::White,
       Left + 18.f, StartY + Row * RowHeight, nullptr,
       PanelHeight < 360.f ? 0.55f : (Canvas->SizeX < 900.f ? 0.75f : 0.90f));
    DrawText(TEXT("P / A: back to inventory    I / Select / Esc: close"),
@@ -134,7 +141,8 @@ void AMoonfallCombatHUD::DrawHUD()
   const float ArmorMitigationPct = 100.f * FMath::Min(0.34f, FMath::Min(0.28f, Hero->ArmorTier * 0.01f)
     + (Hero->ArmorAffix == 2 ? 0.06f : 0.f) + ArmorRarity * 0.005f
     + Hero->GetVersatilityBonus() * 0.5f
-    + (Hero->GetSetPieceCount(2) >= 3 ? 0.025f : 0.f));
+    + (Hero->GetSetPieceCount(2) >= 3 ? 0.025f : 0.f)
+    + (Hero->HasLegendaryPerk(1) ? 0.015f : 0.f));
   const float ManaRegenBonusPct = 100.f * (FMath::Clamp(Hero->AccessoryTier * 0.012f, 0.f, 0.25f)
     + (Hero->AccessoryAffix == 3 ? 0.08f : 0.f) + AccessoryRarity * 0.02f
     + (Hero->GetSetPieceCount(3) >= 3 ? 0.06f : 0.f));
