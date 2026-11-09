@@ -8,7 +8,7 @@ const SLOTS:Array[String] = ["weapon","offhand","helmet","chest","gloves","legs"
 static func new_state()->Dictionary:
  var equipped:Dictionary={}
  for slot in SLOTS:equipped[slot]=""
- return {"items":{},"equipped":equipped,"materials":{},"gold":0,"loot_rolls":[],"loot_pity":0}
+ return {"items":{},"equipped":equipped,"materials":{},"gold":0,"loot_rolls":[],"loot_pity":0,"world_epic_pity":0}
 
 static func slot_for(item:Dictionary)->String:
  match str(item.get("category","")):
@@ -135,6 +135,7 @@ static func normalize(saved:Dictionary)->Dictionary:
     state["materials"][str(material)]=clampi(int(prior_materials[material]),0,999999)
  state["gold"]=clampi(int(saved.get("gold",0)),0,99999999)
  state["loot_pity"]=clampi(int(saved.get("loot_pity",0)),0,80)
+ state["world_epic_pity"]=clampi(int(saved.get("world_epic_pity",0)),0,80)
  var prior_rolls:Variant=saved.get("loot_rolls",[])
  if prior_rolls is Array:
   for entry in prior_rolls.slice(-250):
