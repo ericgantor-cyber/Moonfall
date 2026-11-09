@@ -45,9 +45,11 @@ void AMoonfallCombatHUD::DrawHUD()
    // while it is open; controller and keyboard switch pages with the same input.
    DrawText(TEXT("MOONFALL  |  CHARACTER"), FLinearColor::White,
      Left + 18.f, Top + 17.f, nullptr, 1.35f);
-   DrawText(FString::Printf(TEXT("Level %d  |  XP %d / %d  |  Salvage %d"),
-      Hero->Level, Hero->Experience, Hero->ExperienceToNextLevel, Hero->Salvage),
-      FLinearColor(0.78f,0.83f,1.f), Left + 18.f, Top + 57.f, nullptr, 0.95f);
+   DrawText(FString::Printf(TEXT("Lv %d | XP %d/%d | Salvage %d | Lands %d/%d"),
+      Hero->Level, Hero->Experience, Hero->ExperienceToNextLevel, Hero->Salvage,
+      Hero->DiscoveredRegionCount, AMoonfallHeroPawn::MaxExplorationRegions),
+      FLinearColor(0.78f,0.83f,1.f), Left + 18.f, Top + 57.f, nullptr,
+      PanelWidth < 460.f ? 0.68f : 0.83f);
    // Large displays get dedicated equipment cards, combat stats and set panels.
    // The original compact character list below remains for smaller viewports.
    if (PanelWidth >= 560.f && PanelHeight >= 550.f) {
