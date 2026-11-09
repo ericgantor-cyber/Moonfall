@@ -195,7 +195,7 @@ void AMoonfallCombatHUD::DrawHUD()
   }
   const int32 Count = Hero->InventoryItemCodes.Num();
   // Reserve height for a real equipment-stat line and three controls rows.
-  const int32 PerPage = FMath::Clamp(FMath::FloorToInt((PanelHeight - 335.f) / 25.f), 2, 8);
+  const int32 PerPage = FMath::Clamp(FMath::FloorToInt((PanelHeight - 370.f) / 25.f), 2, 4);
   const int32 Selected = FMath::Clamp(Hero->InventorySelection, 0, FMath::Max(0, Count - 1));
   const int32 PageStart = Selected / PerPage * PerPage;
   const int32 PageEnd = FMath::Min(Count, PageStart + PerPage);
@@ -206,7 +206,7 @@ void AMoonfallCombatHUD::DrawHUD()
   if (Count == 0)
    DrawText(TEXT("No equipment yet. Defeat enemies to find gear."), FLinearColor::White,
      Left + 18.f, Top + 100.f, nullptr, 0.92f);
-  const float RowSpacing = FMath::Max(21.f, (PanelHeight - 335.f) / PerPage);
+  const float RowSpacing = FMath::Max(21.f, (PanelHeight - 370.f) / PerPage);
   for (int32 Index = PageStart; Index < PageEnd; ++Index) {
    const int32 Code = Hero->InventoryItemCodes[Index];
    const int32 Affix = Code / 100000;
@@ -298,6 +298,22 @@ void AMoonfallCombatHUD::DrawHUD()
    // Never equips an item or fires a crafting action.
    const int32 CandidatePower = Hero->GetItemPower(SelectedCode);
    if (CandidatePower > 0 && PanelHeight >= 450.f) {
+    const TCHAR* SetNames[] = {TEXT("Force"), TEXT("Ward"), TEXT("Focus")};
+    FString Milestones;
+    for (int32 Affix = 1; Affix <= 3; ++Affix) {
+     const int32 Before = Hero->GetSetPieceCount(Affix);
+     const int32 After = Hero->GetProjectedSetPieceCount(Affix, SelectedCode);
+     for (int32 Threshold = 2; Threshold <= 3; ++Threshold) {
+      const bool Gained = Before < Threshold && After >= Threshold;
+      const bool Lost = Before >= Threshold && After < Threshold;
+      if (Gained || Lost) {
+       if (!Milestones.IsEmpty()) Milestones += TEXT("  ");
+       Milestones += FString::Printf(TEXT("%s %s %dpc"),
+         Gained ? TEXT("+") : TEXT("-"), SetNames[Affix - 1], Threshold);
+      }
+     }
+    }
+    if (Milestones.IsEmpty()) Milestones = TEXT("No set milestones changed");
     const int32 PowerDelta = Hero->GetItemPowerDelta(SelectedCode);
     const TCHAR* PowerLabel = PowerDelta > 0 ? TEXT("UPGRADE") :
         (PowerDelta < 0 ? TEXT("DOWNGRADE") : TEXT("EQUAL"));
@@ -306,6 +322,9 @@ void AMoonfallCombatHUD::DrawHUD()
       PowerDelta > 0 ? FLinearColor(0.52f,0.96f,0.65f) :
        (PowerDelta < 0 ? FLinearColor(1.f,0.64f,0.44f) : FLinearColor::White),
       Left + 18.f, Top + PanelHeight - 197.f, nullptr, 0.76f);
+    DrawText(FString::Printf(TEXT("Set unlocks: %s"), *Milestones),
+      FLinearColor(0.97f,0.81f,0.51f), Left + 18.f,
+      Top + PanelHeight - 218.f, nullptr, 0.70f);
     DrawText(FString::Printf(TEXT("After equip: Force %d/3  Ward %d/3  Focus %d/3"),
          Hero->GetProjectedSetPieceCount(1, SelectedCode),
          Hero->GetProjectedSetPieceCount(2, SelectedCode),
