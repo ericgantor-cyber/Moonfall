@@ -40,7 +40,7 @@ func _process(delta:float)->void:
   realm_follower.global_position=realm_follower.global_position.move_toward(destination,FOLLOW_SPEED*minf(delta,0.1))
   return
  if realm_companion_attack_timer>0.0:return
- if not _companion_target_valid(chosen):
+ if not _companion_target_valid(chosen,true):
   companion_cached_target.clear()
   return
  realm_companion_attack_timer=COMPANION_ATTACK_INTERVAL
@@ -53,14 +53,14 @@ func _process(delta:float)->void:
   _defeat_beast(chosen,true)
   companion_cached_target.clear()
 
-func _companion_target_valid(beast:Dictionary)->bool:
+func _companion_target_valid(beast:Dictionary,check_sight:bool=false)->bool:
  if beast.is_empty() or not bool(beast.get("alive",false)) or not bool(beast.get("hostile",false)):return false
  if float(beast.get("alert_until",0.0))<=map_time:return false
  var body:CharacterBody3D=beast.get("body") as CharacterBody3D
  if not is_instance_valid(body) or not is_instance_valid(player) or not is_instance_valid(realm_follower):return false
  if realm_follower.global_position.distance_squared_to(body.global_position)>=COMPANION_RANGE*COMPANION_RANGE:return false
  if player.global_position.distance_squared_to(body.global_position)>COMPANION_LEASH_RADIUS*COMPANION_LEASH_RADIUS:return false
- return _has_clear_sight(player,body)
+ return not check_sight or _has_clear_sight(player,body)
 
 func _companion_find_target()->Dictionary:
  var chosen:Dictionary={}
