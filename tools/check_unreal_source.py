@@ -3057,18 +3057,18 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         layout_h = (ROOT / "MoonfallDungeonLayout.h").read_text(encoding="utf-8")
         layout_cpp = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
         self.assertIn("float ShrineManaRestore = 35.f;", layout_h)
-        self.assertIn("void ResolveChamberReward(AMoonfallHeroPawn* Hero, int32 ChamberIndex, int32 ChamberType);", layout_h)
+        self.assertIn("bool ResolveChamberReward(AMoonfallHeroPawn* Hero, int32 ChamberIndex, int32 ChamberType);", layout_h)
         self.assertIn("OnShrineActivated(", layout_h)
         self.assertIn("OnTreasureDropped(", layout_h)
         chamber = layout_cpp.split("void AMoonfallDungeonLayout::HandleChamberOverlap(", 1)[1].split(
-            "void AMoonfallDungeonLayout::ResolveChamberReward(", 1)[0]
+            "bool AMoonfallDungeonLayout::ResolveChamberReward(", 1)[0]
         self.assertLess(chamber.index("ResolveChamberReward("), chamber.index("EnteredChambersMask |= Bit;"))
         self.assertIn("OnChamberEntered(Hero, ChamberIndex, ChamberType);", chamber)
-        reward = layout_cpp.split("void AMoonfallDungeonLayout::ResolveChamberReward(", 1)[1]
+        reward = layout_cpp.split("bool AMoonfallDungeonLayout::ResolveChamberReward(", 1)[1]
         self.assertIn("if (ChamberType == 3)", reward)
         self.assertIn("Hero->Mana = FMath::Clamp(", reward)
         self.assertNotIn("Hero->Health =", reward)
-        self.assertIn("if (ChamberType != 2 || !GetWorld()) return;", reward)
+        self.assertIn("if (!GetWorld()) return false;", reward)
         self.assertIn("FRandomStream Stream(GetEffectiveLayoutSeed()", reward)
         self.assertIn("const int32 Rarity = Stream.RandRange(2, 4);", reward)
         self.assertIn("const int32 Slot = Stream.RandRange(0, 8);", reward)
