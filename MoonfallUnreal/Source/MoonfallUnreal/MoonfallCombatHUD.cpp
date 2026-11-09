@@ -50,7 +50,7 @@ void AMoonfallCombatHUD::DrawHUD()
       FLinearColor(0.78f,0.83f,1.f), Left + 18.f, Top + 57.f, nullptr, 0.95f);
    // Large displays get dedicated equipment cards, combat stats and set panels.
    // The original compact character list below remains for smaller viewports.
-   if (PanelWidth >= 560.f && PanelHeight >= 440.f) {
+   if (PanelWidth >= 560.f && PanelHeight >= 550.f) {
     const float ColumnGap = 14.f;
     const float ColumnWidth = (PanelWidth - 52.f - ColumnGap) * 0.5f;
     const float L = Left + 18.f;
