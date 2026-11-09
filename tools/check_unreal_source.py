@@ -2913,5 +2913,29 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(begin.index("LoadDungeonDiscoveries();"), begin.index("LoadWorldCheckpoint();"))
         self.assertIn('TEXT("DUNGEONS | %d / %d entrances found  |  5 per zone")', self.hud)
 
+    def test_six_zone_dungeon_quest_counts_are_derived_and_not_replayed(self):
+        self.assertIn("int32 GetDiscoveredDungeonsInZone(int32 ZoneIndex) const;", self.hero_h)
+        self.assertIn("int32 GetNextIncompleteDungeonZone() const;", self.hero_h)
+        self.assertIn("void OnDungeonZoneCharted(int32 ZoneIndex);", self.hero_h)
+        zone = self.hero_cpp.split("int32 AMoonfallHeroPawn::GetDiscoveredDungeonsInZone(", 1)[1].split(
+            "int32 AMoonfallHeroPawn::GetNextIncompleteDungeonZone()", 1)[0]
+        self.assertIn("ZoneIndex < 0 || ZoneIndex >= DungeonZoneCount", zone)
+        self.assertIn("IsDungeonDiscovered(ZoneIndex, DungeonIndex)", zone)
+        next_zone = self.hero_cpp.split("int32 AMoonfallHeroPawn::GetNextIncompleteDungeonZone()", 1)[1].split(
+            "bool AMoonfallHeroPawn::DiscoverDungeonEntrance(", 1)[0]
+        self.assertIn("ZoneIndex < DungeonZoneCount", next_zone)
+        self.assertIn("GetDiscoveredDungeonsInZone(ZoneIndex) < DungeonsPerZone", next_zone)
+        self.assertIn("return -1;", next_zone)
+        discovery = self.hero_cpp.split("bool AMoonfallHeroPawn::DiscoverDungeonEntrance(", 1)[1].split(
+            "void AMoonfallHeroPawn::LoadDungeonDiscoveries()", 1)[0]
+        self.assertIn("if (GetDiscoveredDungeonsInZone(ZoneIndex) == DungeonsPerZone)", discovery)
+        self.assertIn("OnDungeonZoneCharted(ZoneIndex);", discovery)
+        self.assertNotIn("OnDungeonZoneCharted(", self.hero_cpp.split(
+            "void AMoonfallHeroPawn::LoadDungeonDiscoveries()", 1)[1].split(
+            "void AMoonfallHeroPawn::SaveDungeonDiscoveries()", 1)[0])
+        self.assertIn("Hero->GetNextIncompleteDungeonZone()", self.hud)
+        self.assertIn("Hero->GetDiscoveredDungeonsInZone(ActiveDungeonZone)", self.hud)
+        self.assertIn('TEXT("DUNGEON QUEST | All six zones charted")', self.hud)
+
 if __name__ == "__main__":
     unittest.main()

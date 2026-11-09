@@ -38,6 +38,9 @@ public:
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Dungeons") int32 DiscoveredDungeonCount = 0;
  UFUNCTION(BlueprintCallable, Category="Moonfall|Dungeons") bool DiscoverDungeonEntrance(int32 ZoneIndex, int32 DungeonIndex);
  UFUNCTION(BlueprintPure, Category="Moonfall|Dungeons") bool IsDungeonDiscovered(int32 ZoneIndex, int32 DungeonIndex) const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Dungeons") int32 GetDiscoveredDungeonsInZone(int32 ZoneIndex) const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Dungeons") int32 GetNextIncompleteDungeonZone() const;
+ UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Dungeons") void OnDungeonZoneCharted(int32 ZoneIndex);
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Dungeons") void OnDungeonEntranceDiscovered(int32 ZoneIndex, int32 DungeonIndex);
  void LoadDungeonDiscoveries();
  void SaveDungeonDiscoveries() const;
