@@ -1,6 +1,7 @@
 #pragma once
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "TimerManager.h"
 #include "MoonfallArena.generated.h"
 UCLASS()
 class MOONFALLUNREAL_API AMoonfallArena : public AActor {
@@ -14,4 +15,8 @@ public:
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Dungeon|Divine") FName FeaturedDivineBossId = NAME_None;
 private:
  void CreateBlock(FVector Position, FVector Scale);
+ void SpawnNextBonusGroup();
+ TArray<int32> PendingBonusGroupSizes;
+ int32 NextBonusGroup = 0;
+ FTimerHandle BonusSpawnTimer;
 };
