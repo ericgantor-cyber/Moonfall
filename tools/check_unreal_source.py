@@ -545,8 +545,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(equip.index("Code != Affix * 100000"), equip.index("*EquippedTier = Tier;"))
         loot = self.hero_cpp.split("void AMoonfallHeroPawn::AwardEquipmentDrop(", 1)[1].split(
             "bool AMoonfallHeroPawn::EquipInventoryItem(", 1)[0]
-        self.assertIn("*EquippedCode = ItemCode;", loot)
         self.assertIn("InventoryItemCodes.Add(ItemCode);", loot)
+        self.assertIn("GetEquippedCodeForSlot(LastLootSlot)", loot)
+        self.assertNotIn("*EquippedCode = ItemCode;", loot)
 
     def test_random_item_affixes_apply_bounded_slot_specific_bonuses(self):
         for field in ("LastLootAffix", "WeaponAffix", "ArmorAffix", "AccessoryAffix"):
@@ -2605,7 +2606,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("LoadEquipmentProfile();", self.hero_cpp)
         for name in ("OnEquipmentCrafted", "OnEquipmentAscended", "OnEquipmentReforged"):
             self.assertIn(name, self.hero_cpp)
-        self.assertGreaterEqual(self.hero_cpp.count("SaveEquipmentProfile();"), 9)
+        self.assertGreaterEqual(self.hero_cpp.count("SaveEquipmentProfile();"), 8)
 
     def test_equipment_profile_integrity_and_v1_compatibility(self):
         checksum = self.hero_cpp.split("static uint32 MoonfallEquipmentProfileChecksum(", 1)[1].split("\n}", 1)[0]
