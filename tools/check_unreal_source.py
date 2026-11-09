@@ -1799,13 +1799,29 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("ActiveDivineMoveId = NAME_None;", self.enemy_cpp)
         self.assertLess(self.enemy_cpp.index("OnDivineAttackResolved("), self.enemy_cpp.index("if (bWithinDivineMarker || bWithinBasicAttack)"))
 
+    def test_divine_ranged_cast_requires_throttled_clear_line_of_sight(self):
+        tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
+        self.assertIn("float NextDivineCastSightAt = 0.f;", self.enemy_h)
+        self.assertIn("bool bDivineCastLineClear = false;", self.enemy_h)
+        self.assertIn("const bool bDivineRangedCastCandidate = bDivineSignatureDue", tick)
+        self.assertIn("if (bDivineRangedCastCandidate && Now >= NextDivineCastSightAt)", tick)
+        self.assertIn("NextDivineCastSightAt = Now + 0.5f;", tick)
+        self.assertIn("SCENE_QUERY_STAT(MoonfallDivineCastSight)", tick)
+        self.assertIn("DivineSightParams.AddIgnoredActor(this);", tick)
+        self.assertIn("DivineSightHit.GetActor() == Hero;", tick)
+        self.assertIn("const bool bDivineRangedCastReady = bDivineRangedCastCandidate && bDivineCastLineClear;", tick)
+        self.assertLess(tick.index("bDivineRangedCastReady = bDivineRangedCastCandidate && bDivineCastLineClear;"),
+                        tick.index("&& Distance < 2200.f && !bDivineRangedCastReady)"))
+        self.assertEqual(tick.count("Nav->FindPathToLocationSynchronously("), 1)
+        self.assertEqual(tick.count("Nav->ProjectPointToNavigation("), 1)
+
     def test_divine_signatures_can_cast_at_range_without_ranged_melee(self):
         tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
         self.assertIn("const bool bDivineSignatureDue = bBoss", tick)
         self.assertIn('DivineBossId == FName(TEXT("z_void_reaper"))', tick)
         self.assertIn('DivineBossId == FName(TEXT("nyra_eclipse_queen"))', tick)
         self.assertIn("AttackSequence % 4 == 3;", tick)
-        self.assertIn("const bool bDivineRangedCastReady = bDivineSignatureDue", tick)
+        self.assertIn("const bool bDivineRangedCastCandidate = bDivineSignatureDue", tick)
         self.assertIn("Distance > AttackRange && Distance <= 750.f;", tick)
         self.assertIn("&& Distance < 2200.f && !bDivineRangedCastReady)", tick)
         self.assertIn("} else if (Distance <= AttackRange || bDivineRangedCastReady) {", tick)
