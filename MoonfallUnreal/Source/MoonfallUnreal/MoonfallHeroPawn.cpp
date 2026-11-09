@@ -885,13 +885,16 @@ bool AMoonfallHeroPawn::UpgradeInventoryItem(int32 InventoryIndex)
  if (Salvage < Cost) return false;
  const int32 PreviousWornTier = GetEquippedCodeForSlot(Slot) % 1000;
  const int32 NewCode = Affix * 100000 + Slot * 10000 + Rarity * 1000 + (Tier + 1);
+ bEquipmentCraftingInProgress = true;
  InventoryItemCodes[InventoryIndex] = NewCode;
  // Reuse the existing equip path so all derived stats, notably armor HP,
  // update together. Roll back the inventory mutation on unexpected failure.
  if (bUpgradingEquipped && !EquipInventoryItem(InventoryIndex)) {
   InventoryItemCodes[InventoryIndex] = Code;
+  bEquipmentCraftingInProgress = false;
   return false;
  }
+ bEquipmentCraftingInProgress = false;
  Salvage -= Cost;
  LastLootUpgrade = (Tier + 1) - PreviousWornTier;
  OnEquipmentCrafted(NewCode, Cost);
@@ -923,13 +926,16 @@ bool AMoonfallHeroPawn::ReforgeInventoryItemAffix(int32 InventoryIndex)
  const int32 NewCode = NewAffix * 100000 + Slot * 10000 + Rarity * 1000 + Tier;
  const int32 EquippedCode = GetEquippedCodeForSlot(Slot);
  const bool bReforgingEquipped = Code == EquippedCode;
+ bEquipmentCraftingInProgress = true;
  InventoryItemCodes[InventoryIndex] = NewCode;
  // Keep the bag and the worn item in sync, including direct combat bonuses.
  // Roll back and leave salvage untouched if that sync unexpectedly fails.
  if (bReforgingEquipped && !EquipInventoryItem(InventoryIndex)) {
   InventoryItemCodes[InventoryIndex] = Code;
+  bEquipmentCraftingInProgress = false;
   return false;
  }
+ bEquipmentCraftingInProgress = false;
  Salvage -= Cost;
  LastLootAffix = NewAffix;
  OnEquipmentReforged(NewCode, Cost);
@@ -964,11 +970,14 @@ bool AMoonfallHeroPawn::AscendInventoryItemRarity(int32 InventoryIndex)
  const int32 EquippedCode = GetEquippedCodeForSlot(Slot);
  const bool bAscendingEquipped = Code == EquippedCode;
  const int32 NewCode = Affix * 100000 + Slot * 10000 + (Rarity + 1) * 1000 + Tier;
+ bEquipmentCraftingInProgress = true;
  InventoryItemCodes[InventoryIndex] = NewCode;
  if (bAscendingEquipped && !EquipInventoryItem(InventoryIndex)) {
   InventoryItemCodes[InventoryIndex] = Code;
+  bEquipmentCraftingInProgress = false;
   return false;
  }
+ bEquipmentCraftingInProgress = false;
  Salvage -= Cost;
  LastLootRarity = Rarity + 1;
  OnEquipmentAscended(NewCode, Cost);
@@ -1613,7 +1622,7 @@ static uint32 MoonfallEquipmentProfileChecksum(const TArray<int32>& Bag,
 
 void AMoonfallHeroPawn::SaveEquipmentProfile() const
 {
- if (!GConfig || bRestoringEquipmentProfile || InventoryItemCodes.Num() > 512)
+ if (!GConfig || bRestoringEquipmentProfile || bEquipmentCraftingInProgress || InventoryItemCodes.Num() > 512)
   return;
  static const TCHAR* Section = TEXT("Moonfall.EquipmentProfile.V1");
  TArray<FString> StoredBag;
@@ -1721,6 +1730,8 @@ void AMoonfallHeroPawn::LoadEquipmentProfile()
  const int32 PreviousEquipmentTier = EquipmentTier;
  const float PreviousHealth = Health;
  const float PreviousMaxHealth = MaxHealth;
+ // Restoring armor must preserve damage already taken, not heal the player.
+ const float PreviouslyMissingHealth = FMath::Clamp(MaxHealth - Health, 0.f, MaxHealth);
  bRestoringEquipmentProfile = true;
  const int32 PreviousArmorTier = FMath::Clamp(ArmorTier, 0, 25);
  MaxHealth = FMath::Max(1.f, MaxHealth - PreviousArmorTier * 2.f);
@@ -1760,6 +1771,8 @@ void AMoonfallHeroPawn::LoadEquipmentProfile()
   Health = PreviousHealth;
   MaxHealth = PreviousMaxHealth;
  }
+ if (bLoadSucceeded)
+  Health = FMath::Clamp(MaxHealth - PreviouslyMissingHealth, 1.f, MaxHealth);
  bRestoringEquipmentProfile = false;
  OnHealthChanged(Health, MaxHealth);
 }
