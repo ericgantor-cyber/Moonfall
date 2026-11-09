@@ -2585,5 +2585,29 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("for (int32 ExtraSlot = 3; ExtraSlot < 9; ++ExtraSlot)", self.hero_cpp)
         self.assertIn("After < 3 ? 3", self.hud)
 
+    def test_nine_slot_profile_roundtrip_contract(self):
+        self.assertIn("void SaveEquipmentProfile() const;", self.hero_h)
+        self.assertIn("void LoadEquipmentProfile();", self.hero_h)
+        self.assertIn("bool bRestoringEquipmentProfile = false;", self.hero_h)
+        self.assertIn("Moonfall.EquipmentProfile.V1", self.hero_cpp)
+        save = self.hero_cpp.split("void AMoonfallHeroPawn::SaveEquipmentProfile()", 1)[1].split("void AMoonfallHeroPawn::LoadEquipmentProfile()", 1)[0]
+        load = self.hero_cpp.split("void AMoonfallHeroPawn::LoadEquipmentProfile()", 1)[1]
+        self.assertIn("InventoryItemCodes.Num() > 512", save)
+        self.assertIn("GetItemPower(Code) <= 0", save)
+        self.assertLess(save.index("if (Code != 0 &&"), save.index("GConfig->SetArray"))
+        self.assertIn("GConfig->SetInt(Section, TEXT(\"Version\"), 1", save)
+        self.assertIn("GConfig->Flush(false, GGameUserSettingsIni)", save)
+        self.assertIn("StoredBag.Num() > 512", load)
+        self.assertIn("LexTryParseString(Code, *Token)", load)
+        self.assertIn("!ValidBag.Contains(Code)", load)
+        self.assertLess(load.index("if (Code != 0 &&"), load.index("InventoryItemCodes = MoveTemp(ValidBag)"))
+        self.assertIn("ExtraEquippedCodes.Init(0, 6);", load)
+        self.assertIn("bRestoringEquipmentProfile = true;", load)
+        self.assertIn("bRestoringEquipmentProfile = false;", load)
+        self.assertIn("LoadEquipmentProfile();", self.hero_cpp)
+        for name in ("OnEquipmentCrafted", "OnEquipmentAscended", "OnEquipmentReforged"):
+            self.assertIn(name, self.hero_cpp)
+        self.assertGreaterEqual(self.hero_cpp.count("SaveEquipmentProfile();"), 9)
+
 if __name__ == "__main__":
     unittest.main()
