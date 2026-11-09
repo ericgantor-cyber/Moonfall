@@ -1,0 +1,36 @@
+name: Godot 4.5 gameplay regression gate
+on:
+  pull_request:
+    paths:
+      - "godot-v38/**"
+      - ".github/workflows/godot-gameplay-regressions.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  headless-gameplay:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pinned Godot 4.5.1
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 3 --output /tmp/godot.zip \
+            https://github.com/godotengine/godot/releases/download/4.5.1-stable/Godot_v4.5.1-stable_linux.x86_64.zip
+          echo "e6b26e8d" >/dev/null
+          unzip -q /tmp/godot.zip -d /tmp
+          sudo install -m 0755 /tmp/Godot_v4.5.1-stable_linux.x86_64 /usr/local/bin/godot
+          godot --version
+      - name: Import project resources
+        run: godot --headless --path godot-v38 --editor --import --quit
+      - name: Run equipment and RPG gameplay regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          for test in equipment_catalog.gd equipment_inventory.gd equipment_rng.gd; do
+            echo "::group::${test}"
+            godot --headless --path godot-v38 --script "res://tests/${test}"
+            echo "::endgroup::"
+          done
