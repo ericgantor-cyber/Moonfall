@@ -72,7 +72,12 @@ jobs:
           inputs = Path('MoonfallUnreal/Config/DefaultInput.ini').read_text()
           hud = (root/'MoonfallUnreal'/'MoonfallCombatHUD.cpp').read_text()
           assert 'ActionName="CastLeft",Key=LeftMouseButton' in inputs
-          assert 'ActionName="CastRight",Key=RightMouseButton' in inputs
+          assert 'ActionName="RightClickContext",Key=RightMouseButton' in inputs
+          assert 'ActionName="CastRight",Key=Gamepad_RightShoulder' in inputs
+          assert 'ActionName="ForgeFive",Key=Gamepad_RightShoulder' in inputs
+          assert 'ActionName="CastRight",Key=RightMouseButton' not in inputs
+          assert 'void AMoonfallHeroPawn::RightClickContextAction()' in hero
+          assert 'if (bOptionsOpen || bInventoryOpen) return;' in hero
           assert 'ActionName="DualCast",Key=Gamepad_LeftTrigger' in inputs
           assert 'DrawArc(Radius * 0.85f' in hud and 'DrawArc(Radius * 0.97f' in hud
           assert 'DisplayHealth = FMath::FInterpTo' in hud and 'LevelGlowUntil' in hud
