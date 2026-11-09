@@ -3,10 +3,12 @@ on:
   push:
     paths:
       - 'MoonfallUnreal/**'
+      - 'tools/check_unreal_source.py'
       - '.github/workflows/unreal-source-checks.yml'
   pull_request:
     paths:
       - 'MoonfallUnreal/**'
+      - 'tools/check_unreal_source.py'
       - '.github/workflows/unreal-source-checks.yml'
 jobs:
   source-check:
@@ -74,6 +76,10 @@ jobs:
           assert 'DisplayHealth = FMath::FInterpTo' in hud and 'LevelGlowUntil' in hud
           print('Input mapping and combat source checks passed. Unreal compilation NOT performed.')
           PY
+
+      - name: Run complete Unreal integration regression tests
+        shell: bash
+        run: python3 tools/check_unreal_source.py
 
       - name: Parse Windows build scripts
         shell: pwsh
