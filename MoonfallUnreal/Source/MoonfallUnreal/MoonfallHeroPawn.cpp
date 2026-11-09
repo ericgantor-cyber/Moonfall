@@ -1503,7 +1503,7 @@ int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()
 {
  // Require valid hero state before even scanning the inventory. The explicit
  // EquipInventoryItem boundary independently enforces the same restriction.
- if (!bInventoryOpen || bOptionsOpen || !FMath::IsFinite(Health) || Health <= 0.f) return 0;
+ if (!bInventoryOpen || bCharacterStatsOpen || bOptionsOpen || !FMath::IsFinite(Health) || Health <= 0.f) return 0;
  const int32 EquippedCodes[3] = {EquippedWeaponCode, EquippedArmorCode, EquippedAccessoryCode};
  int32 BestScores[3] = {-1, -1, -1};
  int32 BestIndices[3] = {-1, -1, -1};
@@ -1550,7 +1550,8 @@ bool AMoonfallHeroPawn::EquipInventoryItem(int32 InventoryIndex)
 {
  // Equipping is always deliberate and inventory-scoped, even when called
  // directly from a Blueprint or by the worn-item crafting sync path.
- if (!FMath::IsFinite(Health) || Health <= 0.f || !bInventoryOpen || bOptionsOpen ||
+ if (!FMath::IsFinite(Health) || Health <= 0.f || !bInventoryOpen ||
+     bCharacterStatsOpen || bOptionsOpen ||
      !InventoryItemCodes.IsValidIndex(InventoryIndex)) return false;
  const int32 Code = InventoryItemCodes[InventoryIndex];
  if (Code <= 0) return false;
