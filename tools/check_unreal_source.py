@@ -411,11 +411,26 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(equip_best.index("bOptionsOpen"),
                         equip_best.index("InventoryItemCodes.Num()"))
 
+    def test_stats_sheet_blocks_direct_equip_and_equip_best(self):
+        direct = self.hero_cpp.split(
+            "bool AMoonfallHeroPawn::EquipInventoryItem(int32 InventoryIndex)", 1
+        )[1].split("}", 1)[0]
+        self.assertIn("bCharacterStatsOpen || bOptionsOpen", direct)
+        self.assertLess(direct.index("bCharacterStatsOpen"),
+                        direct.index("InventoryItemCodes[InventoryIndex]"))
+        best = self.hero_cpp.split(
+            "int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()", 1
+        )[1].split("bool AMoonfallHeroPawn::EquipInventoryItem(", 1)[0]
+        self.assertIn("!bInventoryOpen || bCharacterStatsOpen || bOptionsOpen", best)
+        self.assertLess(best.index("bCharacterStatsOpen"),
+                        best.index("InventoryItemCodes.Num()"))
+
     def test_direct_equipment_change_requires_open_inventory(self):
         equip = self.hero_cpp.split(
             "bool AMoonfallHeroPawn::EquipInventoryItem(int32 InventoryIndex)", 1
         )[1].split("}", 1)[0]
-        self.assertIn("!FMath::IsFinite(Health) || Health <= 0.f || !bInventoryOpen || bOptionsOpen", equip)
+        self.assertIn("!FMath::IsFinite(Health) || Health <= 0.f || !bInventoryOpen", equip)
+        self.assertIn("bCharacterStatsOpen || bOptionsOpen", equip)
         self.assertLess(equip.index("!bInventoryOpen"), equip.index("InventoryItemCodes[InventoryIndex]"))
         # Crafting synchronizes worn gear only while inventory is open and
         # hero health is valid, including the five-level forge wrapper.
@@ -710,7 +725,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('void OnBestLoadoutEquipped(int32 UpgradesEquipped);', self.hero_h)
         body = self.hero_cpp.split("int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()", 1)[1].split(
             "bool AMoonfallHeroPawn::EquipInventoryItem(", 1)[0]
-        self.assertIn("if (!bInventoryOpen || bOptionsOpen || !FMath::IsFinite(Health) || Health <= 0.f) return 0;", body)
+        self.assertIn("if (!bInventoryOpen || bCharacterStatsOpen || bOptionsOpen || !FMath::IsFinite(Health) || Health <= 0.f) return 0;", body)
         self.assertIn("const int32 EquippedCodes[3]", body)
         self.assertIn("BestScores[3]", body)
         self.assertIn("InventoryItemCodes.Num()", body)
