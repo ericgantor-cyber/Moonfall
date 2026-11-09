@@ -51,8 +51,8 @@ jobs:
           hero = (root/'MoonfallUnreal'/'MoonfallHeroPawn.cpp').read_text()
           assert 'NextPathRefreshAt' in enemy and 'CachedWaypoint' in enemy
           assert 'SetLifeSpan(1.25f)' in enemy
-          assert 'Health > 0.f && !bOptionsOpen && !bInventoryOpen && FMath::IsFinite(Value)) AddControllerYawInput' in hero
-          assert 'Health > 0.f && !bOptionsOpen && !bInventoryOpen && FMath::IsFinite(Value)) AddControllerPitchInput' in hero
+          assert 'Health > 0.f && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && FMath::IsFinite(Value)) AddControllerYawInput' in hero
+          assert 'Health > 0.f && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && FMath::IsFinite(Value)) AddControllerPitchInput' in hero
           assert 'ManaRegenPerSecond' in hero and 'Tick(float DeltaSeconds)' in hero
           assert 'DamageImmunityUntil' in hero and 'NextDodgeAt' in hero
           assert 'IncomingStage >= 12 ? 1 : IncomingStage + 1' in hero
