@@ -354,6 +354,7 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("AscendGear"), IE_Pressed, this, &AMoonfallHeroPawn::AscendSelectedInventoryItem);
  Input->BindAction(TEXT("ReforgeGear"), IE_Pressed, this, &AMoonfallHeroPawn::ReforgeSelectedInventoryItem);
  Input->BindAction(TEXT("EquipBest"), IE_Pressed, this, &AMoonfallHeroPawn::EquipBestInventoryAction);
+ Input->BindAction(TEXT("AdvisorSelect"), IE_Pressed, this, &AMoonfallHeroPawn::SelectRecommendedEquipment);
  Input->BindAction(TEXT("PickupLoot"), IE_Pressed, this, &AMoonfallHeroPawn::PickupNearestGroundLoot);
  Input->BindAction(TEXT("OptionsUp"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsUp);
  Input->BindAction(TEXT("OptionsDown"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsDown);
@@ -394,13 +395,17 @@ void AMoonfallHeroPawn::MoveRight(float Value)
 }
 void AMoonfallHeroPawn::Turn(float Value) { if (Health > 0.f && !bOptionsOpen && !bInventoryOpen && FMath::IsFinite(Value)) AddControllerYawInput(Value); }
 void AMoonfallHeroPawn::LookUp(float Value) { if (Health > 0.f && !bOptionsOpen && !bInventoryOpen && FMath::IsFinite(Value)) AddControllerPitchInput(Value); }
-bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
+bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier, bool bOvercharged)
 {
  static const float Costs[6] = {16.f,13.f,22.f,25.f,18.f,14.f};
  static const float Cooldowns[6] = {0.8f,0.65f,1.2f,2.f,1.f,0.9f};
  if (Health <= 0.f || bOptionsOpen || bInventoryOpen || !GetWorld() || School < 0 || School >= 6 || Hand < 0 || Hand > 1 || !FMath::IsFinite(Multiplier) || Multiplier <= 0.f || Multiplier > 2.f) return false;
+ // Skyrim-inspired two-hand overcharge: the same spell in both hands costs
+ // 2.8x mana for 2.2x effect. Single-hand casts retain their previous values.
+ const float ManaCostMultiplier = bOvercharged ? 2.8f : Multiplier;
+ const float EffectMultiplier = bOvercharged ? 2.2f : Multiplier;
  const float Time = GetWorld()->GetTimeSeconds();
- if (!FMath::IsFinite(Health) || !FMath::IsFinite(MaxHealth) || MaxHealth <= 0.f || Health > MaxHealth || !FMath::IsFinite(MaxMana) || MaxMana <= 0.f || !FMath::IsFinite(Mana) || !FMath::IsFinite(SpellPowerMultiplier) || SpellPowerMultiplier <= 0.f || Mana < Costs[School] * Multiplier || Time - LastCastTime[Hand] < Cooldowns[School] / (1.f + GetHasteBonus())) return false;
+ if (!FMath::IsFinite(Health) || !FMath::IsFinite(MaxHealth) || MaxHealth <= 0.f || Health > MaxHealth || !FMath::IsFinite(MaxMana) || MaxMana <= 0.f || !FMath::IsFinite(Mana) || !FMath::IsFinite(SpellPowerMultiplier) || SpellPowerMultiplier <= 0.f || Mana < Costs[School] * ManaCostMultiplier || Time - LastCastTime[Hand] < Cooldowns[School] / (1.f + GetHasteBonus())) return false;
  if (School == 3 && Health >= MaxHealth) return false;
  if (School != 3) {
   if (!IsValid(FollowCamera)) return false;
@@ -452,7 +457,7 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
   // Crit is rolled only after a valid enemy was acquired.
   const bool bCriticalSpell = FMath::FRand() < GetCriticalChance();
   const float MightMultiplier = 1.f + FMath::Clamp(GetMight() * 0.001f, 0.f, 0.10f);
-  const float SpellDamage = (18.f + School * 5.f) * Multiplier * SpellPowerMultiplier
+  const float SpellDamage = (18.f + School * 5.f) * EffectMultiplier * SpellPowerMultiplier
     * WeaponDamageBonus * CounterMultiplier * MomentumBonus * HitComboMultiplier
     * (1.f + GetMasteryBonus()) * (1.f + GetVersatilityBonus())
     * (bCriticalSpell ? 1.5f : 1.f) * MightMultiplier;
@@ -510,13 +515,13 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
   }
   const FColor SpellColors[6] = {FColor(245, 60, 39), FColor(65, 204, 245), FColor(168, 72, 236), FColor(72, 230, 130), FColor(245, 224, 64), FColor(76, 178, 68)};
   const FColor ImpactColor = SpellColors[School];
-  DrawDebugSphere(GetWorld(), Hit.ImpactPoint, 24.f * Multiplier, 12, ImpactColor, false, 0.22f, 0, 2.f);
+  DrawDebugSphere(GetWorld(), Hit.ImpactPoint, 24.f * EffectMultiplier, 12, ImpactColor, false, 0.22f, 0, 2.f);
   DrawDebugLine(GetWorld(), Origin, Hit.ImpactPoint, ImpactColor, false, 0.12f, 0, 1.5f);
  }
- Mana -= Costs[School] * Multiplier;
+ Mana -= Costs[School] * ManaCostMultiplier;
  LastCastTime[Hand] = Time;
  if (School == 3) {
-  Health = FMath::Min(MaxHealth, Health + 24.f * Multiplier * SpellPowerMultiplier);
+  Health = FMath::Min(MaxHealth, Health + 24.f * EffectMultiplier * SpellPowerMultiplier);
   OnHealthChanged(Health, MaxHealth);
  }
  OnSpellCast(School, Hand == 0);
@@ -581,7 +586,7 @@ void AMoonfallHeroPawn::CastBoth()
  const float Time = GetWorld()->GetTimeSeconds();
  static const float Cooldowns[6] = {0.8f,0.65f,1.2f,2.f,1.f,0.9f};
  if (LeftSpell < 0 || LeftSpell >= 6 || RightSpell < 0 || RightSpell >= 6 || Time - LastCastTime[1] < Cooldowns[LeftSpell]) return;
- if (TryCast(LeftSpell, 0, 2.f))
+ if (TryCast(LeftSpell, 0, 2.f, true))
  {
   LastCastTime[1] = LastCastTime[0];
   OnSpellCast(LeftSpell, false);
@@ -1584,6 +1589,16 @@ int32 AMoonfallHeroPawn::GetRecommendedEquipmentIndex() const
   }
  }
  return BestIndex;
+}
+
+void AMoonfallHeroPawn::SelectRecommendedEquipment()
+{
+ // J moves the inventory selection only; it never equips or salvages.
+ if (!bInventoryOpen || bCharacterStatsOpen || bOptionsOpen ||
+     !FMath::IsFinite(Health) || Health <= 0.f) return;
+ const int32 Recommendation = GetRecommendedEquipmentIndex();
+ if (InventoryItemCodes.IsValidIndex(Recommendation))
+  InventorySelection = Recommendation;
 }
 
 void AMoonfallHeroPawn::EquipBestInventoryAction() { if (!bCharacterStatsOpen) EquipBestInventoryUpgrades(); }
