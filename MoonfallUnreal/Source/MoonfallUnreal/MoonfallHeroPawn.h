@@ -101,7 +101,7 @@ public:
  // Salvage only un-equipped entries. Returns false for invalid/protected gear.
  UFUNCTION(BlueprintCallable, Category="Moonfall|Inventory") bool SalvageInventoryItem(int32 InventoryIndex);
  UFUNCTION(BlueprintCallable, Category="Moonfall|Inventory") void SalvageSelectedInventoryItem();
- // Spend earned salvage on a selected unequipped piece. Tier 25 is the cap.
+ // Spend salvage to upgrade selected gear, including currently equipped pieces. Tier 25 cap.
  UFUNCTION(BlueprintCallable, Category="Moonfall|Crafting") bool UpgradeInventoryItem(int32 InventoryIndex);
  UFUNCTION(BlueprintCallable, Category="Moonfall|Crafting") void UpgradeSelectedInventoryItem();
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Crafting") void OnEquipmentCrafted(int32 NewItemCode, int32 SalvageSpent);
