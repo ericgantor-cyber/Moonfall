@@ -1,5 +1,6 @@
 #include "MoonfallArena.h"
 #include "MoonfallEnemy.h"
+#include "MoonfallHeroPawn.h"
 #include "Components/SceneComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/World.h"
@@ -93,11 +94,33 @@ void AMoonfallArena::BeginPlay() {
 void AMoonfallArena::SpawnNextBonusGroup() {
  UWorld* World = GetWorld();
  if (!World || NextBonusGroup >= PendingBonusGroupSizes.Num()) return;
+ // Avoid fresh enemy spawns during a paused menu, after defeat, or mid-boss fight.
+ // Keep the queued group's size rather than rerolling it on retries.
+ const AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0));
+ if (!IsValid(Hero) || !FMath::IsFinite(Hero->Health) || Hero->Health <= 0.f) {
+  PendingBonusGroupSizes.Empty();
+  return;
+ }
+ if (Hero->bOptionsOpen || Hero->bInventoryOpen) {
+  GetWorldTimerManager().SetTimer(BonusSpawnTimer, this,
+    &AMoonfallArena::SpawnNextBonusGroup, 4.f, false);
+  return;
+ }
  // Cap living enemies, including regular, elite, and divine bosses.
  // Never fragment a group: postpone until all its members fit.
  int32 LivingEnemies = 0;
+ bool bBossAlive = false;
  for (TActorIterator<AMoonfallEnemy> It(World); It; ++It) {
-  if (IsValid(*It) && It->Health > 0.f) ++LivingEnemies;
+  if (IsValid(*It) && It->Health > 0.f) {
+   ++LivingEnemies;
+   bBossAlive |= It->bBoss;
+  }
+ }
+ // Respect divine encounters. Do not add a crowd while a boss is active.
+ if (bBossAlive) {
+  GetWorldTimerManager().SetTimer(BonusSpawnTimer, this,
+    &AMoonfallArena::SpawnNextBonusGroup, 4.f, false);
+  return;
  }
  const int32 GroupSize = PendingBonusGroupSizes[NextBonusGroup];
  constexpr int32 MaxLivingEnemies = 24;
