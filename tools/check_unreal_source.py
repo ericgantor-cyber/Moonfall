@@ -258,6 +258,18 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             spawn.index("SpawnActor<AMoonfallGroundLoot>"),
         )
 
+    def test_direct_equipment_change_requires_open_inventory(self):
+        equip = self.hero_cpp.split(
+            "bool AMoonfallHeroPawn::EquipInventoryItem(int32 InventoryIndex)", 1
+        )[1].split("}", 1)[0]
+        self.assertIn("Health <= 0.f || !bInventoryOpen || bOptionsOpen", equip)
+        self.assertLess(equip.index("!bInventoryOpen"), equip.index("InventoryItemCodes[InventoryIndex]"))
+        # Crafting synchronizes currently worn gear from inside the inventory.
+        for method in ("UpgradeInventoryItem", "ReforgeInventoryItemAffix",
+                       "AscendInventoryItemRarity"):
+            part = self.hero_cpp.split("bool AMoonfallHeroPawn::" + method + "(", 1)[1]
+            self.assertIn("!bInventoryOpen || bOptionsOpen", part.split("}", 1)[0])
+
     def test_ground_loot_collection_boundary_rejects_open_menus(self):
         collect = self.hero_cpp.split(
             "bool AMoonfallHeroPawn::CollectGroundEquipmentCode(int32 ItemCode)", 1
