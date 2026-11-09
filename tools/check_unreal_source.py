@@ -2508,5 +2508,18 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("After equip: Force", self.hud)
         self.assertIn("PanelHeight >= 450.f", self.hud)
 
+    def test_legendary_slot_perks_are_validated_and_bounded(self):
+        self.assertIn("HasLegendaryPerk(int32 Slot) const", self.hero_h)
+        perk = self.hero_cpp.split("bool AMoonfallHeroPawn::HasLegendaryPerk(", 1)[1].split("\n}", 1)[0]
+        self.assertIn("Slot < 0 || Slot > 2", perk)
+        self.assertIn("GetItemPower(Code) > 0", perk)
+        self.assertIn("(Code / 1000) % 10 == 5", perk)
+        self.assertIn("HasLegendaryPerk(0) ? 1.65f : 1.5f", self.hero_cpp)
+        self.assertIn("HasLegendaryPerk(1) ? 0.015f : 0.f", self.hero_cpp)
+        self.assertIn("HasLegendaryPerk(2) ? 0.025f : 0.f", self.hero_cpp)
+        for slot in range(3):
+            self.assertIn(f"Hero->HasLegendaryPerk({slot})", self.hud)
+        self.assertIn("LEGENDARY EQUIPMENT PERKS", self.hud)
+
 if __name__ == "__main__":
     unittest.main()
