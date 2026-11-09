@@ -276,7 +276,7 @@ void AMoonfallArena::SpawnNextBonusGroup() {
   const FVector& Position = ValidPositions[Member];
   const FTransform EnemyTransform(FRotator::ZeroRotator, Position);
   AMoonfallEnemy* Enemy = World->SpawnActorDeferred<AMoonfallEnemy>(
-    AMoonfallEnemy::StaticClass(), EnemyTransform, nullptr, nullptr,
+    AMoonfallEnemy::StaticClass(), EnemyTransform, this, nullptr,
     ESpawnActorCollisionHandlingMethod::DontSpawnIfColliding);
   if (!IsValid(Enemy)) break;
   Enemy->EncounterLevelOverride = LockedDungeonLevel;
