@@ -69,7 +69,24 @@ bool AMoonfallGroundLoot::TryCollect()
 {
  if (bCollected || ItemCode <= 0) return false;
  AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0));
- if (!IsValid(Hero) || !Hero->CollectGroundEquipmentCode(ItemCode)) return false;
+ if (!IsValid(Hero) || !GetWorld()) return false;
+ // Enforce pickup reachability at the item boundary as well as in the hero's
+ // candidate search. Blueprint or future callers must not collect distant loot.
+ const FVector HeroPosition = Hero->GetActorLocation();
+ const FVector LootPosition = GetActorLocation();
+ if (HeroPosition.ContainsNaN() || LootPosition.ContainsNaN() ||
+     FMath::Abs(LootPosition.Z - HeroPosition.Z) > 150.f ||
+     FVector::DistSquared2D(HeroPosition, LootPosition) > FMath::Square(250.f))
+  return false;
+ FCollisionQueryParams SightParams(SCENE_QUERY_STAT(MoonfallGroundLootCollectSight), false);
+ SightParams.AddIgnoredActor(Hero);
+ SightParams.AddIgnoredActor(this);
+ FHitResult SightHit;
+ if (GetWorld()->LineTraceSingleByChannel(SightHit,
+     HeroPosition + FVector(0.f, 0.f, 40.f),
+     LootPosition + FVector(0.f, 0.f, 40.f),
+     ECC_Visibility, SightParams)) return false;
+ if (!Hero->CollectGroundEquipmentCode(ItemCode)) return false;
  bCollected = true;
  Destroy();
  return true;
