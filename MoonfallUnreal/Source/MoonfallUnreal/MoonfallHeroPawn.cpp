@@ -1349,7 +1349,7 @@ bool AMoonfallHeroPawn::CollectGroundEquipmentCode(int32 ItemCode)
 {
  // Enforce the same gameplay state at the collection boundary as the
  // manual pickup input. Other future callers must not bypass open menus.
- if (Health <= 0.f || bOptionsOpen || bInventoryOpen || ItemCode <= 0) return false;
+ if (!FMath::IsFinite(Health) || Health <= 0.f || bOptionsOpen || bInventoryOpen || ItemCode <= 0) return false;
  const int32 Affix = ItemCode / 100000;
  const int32 SlotIndex = (ItemCode / 10000) % 10;
  const int32 Rarity = (ItemCode / 1000) % 10;
@@ -1373,7 +1373,7 @@ bool AMoonfallHeroPawn::CollectGroundEquipmentCode(int32 ItemCode)
 
 void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(bool bEliteEnemy, bool bBossEnemy, FVector DefeatedLocation)
 {
- if (!GetWorld() || Health <= 0.f) return;
+ if (!GetWorld() || !FMath::IsFinite(Health) || Health <= 0.f) return;
  // Bosses scatter three rewards, elites two, regular enemies one.
  // All remain on the ground until individually collected; never auto-salvage.
  const int32 DropCount = bBossEnemy ? 3 : (bEliteEnemy ? 2 : 1);
@@ -1404,7 +1404,7 @@ void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(bool bEliteEnemy, bool bBossEne
 
 void AMoonfallHeroPawn::PickupNearestGroundLoot()
 {
- if (Health <= 0.f || bOptionsOpen || bInventoryOpen || !GetWorld()) return;
+ if (!FMath::IsFinite(Health) || Health <= 0.f || bOptionsOpen || bInventoryOpen || !GetWorld()) return;
  // One actor pass prevents distant drops from starving nearby ones. Keep the
  // closest 96 so blocked loot does not hide reachable drops behind it.
  // Expensive visibility traces happen only within TryCollect, never per actor.
@@ -1495,7 +1495,7 @@ bool AMoonfallHeroPawn::EquipInventoryItem(int32 InventoryIndex)
 {
  // Equipping is always deliberate and inventory-scoped, even when called
  // directly from a Blueprint or by the worn-item crafting sync path.
- if (Health <= 0.f || !bInventoryOpen || bOptionsOpen ||
+ if (!FMath::IsFinite(Health) || Health <= 0.f || !bInventoryOpen || bOptionsOpen ||
      !InventoryItemCodes.IsValidIndex(InventoryIndex)) return false;
  const int32 Code = InventoryItemCodes[InventoryIndex];
  if (Code <= 0) return false;
