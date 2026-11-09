@@ -37,8 +37,8 @@ class UnrealEquipmentStatValidation(unittest.TestCase):
     def test_decoder_rejects_invalid_slot_rarity_tier_and_encoding(self):
         source = self.source
         for token in ("Code <= 0", "Slot != ExpectedSlot",
-                      "Trait < 1 || Trait > 6", "Rarity < 1 || Rarity > 5",
-                      "Tier < 1 || Tier > 25",
+                      "Trait < 0 || Trait > 3", "Rarity < 0 || Rarity > 5",
+                      "(Rarity == 0 && Trait != 0)", "Tier < 1 || Tier > 25",
                       "Code != Trait * 100000 + Slot * 10000 + Rarity * 1000 + Tier"):
             self.assertIn(token, source)
 
