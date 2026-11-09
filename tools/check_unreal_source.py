@@ -2625,5 +2625,18 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                         load.index("InventoryItemCodes = MoveTemp(ValidBag)"))
         self.assertIn("Version != 1", load)
 
+    def test_equipment_save_count_and_integrity_marker(self):
+        save = self.hero_cpp.split("void AMoonfallHeroPawn::SaveEquipmentProfile()", 1)[1].split("void AMoonfallHeroPawn::LoadEquipmentProfile()", 1)[0]
+        load = self.hero_cpp.split("void AMoonfallHeroPawn::LoadEquipmentProfile()", 1)[1]
+        self.assertIn("TEXT(\"ItemCount\"), ProfileBag.Num()", save)
+        self.assertIn("TEXT(\"IntegrityRequired\"), true", save)
+        self.assertIn("TEXT(\"IntegrityRequired\"),", load)
+        self.assertIn("ExpectedCount != StoredBag.Num()", load)
+        self.assertIn("if (bIntegrityRequired && !bHasCount)", load)
+        self.assertIn("if (bIntegrityRequired && !bHasChecksum) return;", load)
+        self.assertLess(load.index("if (bIntegrityRequired && !bHasChecksum)"),
+                        load.index("InventoryItemCodes = MoveTemp(ValidBag)"))
+        self.assertIn("const bool bHasChecksum", load)
+
 if __name__ == "__main__":
     unittest.main()
