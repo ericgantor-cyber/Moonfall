@@ -136,7 +136,9 @@ void AMoonfallArena::SpawnNextBonusGroup() {
  constexpr float MemberRadius = 230.f;
  constexpr float SpawnHeight = 90.f;
  constexpr float MinPlayerDistance = 550.f;
- const float GroupAngle = (2.f * PI * NextBonusGroup) / 3.f;
+ // Rotate the candidate cluster each retry to explore different viable ground.
+ const float GroupAngle = (2.f * PI * NextBonusGroup) / 3.f
+   + 0.31f * TerrainPlacementAttempts;
  const FVector GroupCenter = GetActorLocation() + FVector(
    GroupCenterRadius * FMath::Cos(GroupAngle),
    GroupCenterRadius * FMath::Sin(GroupAngle), 0.f);
@@ -167,11 +169,19 @@ void AMoonfallArena::SpawnNextBonusGroup() {
   ValidPositions.Add(Position);
  }
  if (!bValidGroup || ValidPositions.Num() != GroupSize) {
-  // No partial groups or clipping into obstacles. Wait and try again.
+  // Try other cluster locations rather than tracing the same blocked geometry forever.
+  // If the level has no safe pack-sized ground, fail closed without spawning inside walls.
+  constexpr int32 MaxPlacementAttempts = 12;
+  if (++TerrainPlacementAttempts >= MaxPlacementAttempts) {
+   PendingBonusGroupSizes.Empty();
+   GetWorldTimerManager().ClearTimer(BonusSpawnTimer);
+   return;
+  }
   GetWorldTimerManager().SetTimer(BonusSpawnTimer, this,
     &AMoonfallArena::SpawnNextBonusGroup, 4.f, false);
   return;
  }
+ TerrainPlacementAttempts = 0;
  for (const FVector& Position : ValidPositions) {
   World->SpawnActor<AMoonfallEnemy>(AMoonfallEnemy::StaticClass(),
     Position, FRotator::ZeroRotator);
