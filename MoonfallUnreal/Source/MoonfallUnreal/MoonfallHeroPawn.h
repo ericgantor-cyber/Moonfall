@@ -108,6 +108,10 @@ public:
  // on insufficient salvage or tier 25 without deleting any gear.
  UFUNCTION(BlueprintCallable, Category="Moonfall|Crafting") int32 ForgeInventoryItemLevels(int32 InventoryIndex, int32 MaxLevels);
  void ForgeFiveSelectedInventoryItem();
+ // Raise rarity one rank through explicit salvage crafting; worn stats update.
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Crafting") bool AscendInventoryItemRarity(int32 InventoryIndex);
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Crafting") void AscendSelectedInventoryItem();
+ UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Crafting") void OnEquipmentAscended(int32 NewItemCode, int32 SalvageSpent);
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Crafting") void OnEquipmentCrafted(int32 NewItemCode, int32 SalvageSpent);
  // Equip a validated inventory entry by index; the item remains in inventory.
  UFUNCTION(BlueprintCallable, Category="Moonfall|Equipment") bool EquipInventoryItem(int32 InventoryIndex);
