@@ -2867,6 +2867,25 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("TryCast(LeftSpell, 0, 2.f, true)", dual)
         self.assertIn("LastCastTime[1] = LastCastTime[0];", dual)
 
+    def test_dual_cast_requires_both_hands_ready_under_haste(self):
+        dual = self.hero_cpp.split("void AMoonfallHeroPawn::CastBoth()", 1)[1].split(
+            "void AMoonfallHeroPawn::BreakGuard()", 1
+        )[0]
+        self.assertIn("const float Haste = GetHasteBonus();", dual)
+        self.assertIn("Cooldowns[LeftSpell] / (1.f + Haste)", dual)
+        self.assertIn("!FMath::IsFinite(Time)", dual)
+        self.assertIn("!FMath::IsFinite(Haste)", dual)
+        self.assertIn("!FMath::IsFinite(LastCastTime[0])", dual)
+        self.assertIn("!FMath::IsFinite(LastCastTime[1])", dual)
+        self.assertIn("Time - LastCastTime[0] < SharedCooldown", dual)
+        self.assertIn("Time - LastCastTime[1] < SharedCooldown", dual)
+        self.assertIn("if (TryCast(LeftSpell, 0, 2.f, true))", dual)
+        self.assertIn("LastCastTime[1] = LastCastTime[0];", dual)
+        self.assertLess(dual.index("Time - LastCastTime[1] < SharedCooldown"),
+                        dual.index("TryCast(LeftSpell, 0, 2.f, true)"))
+        self.assertLess(dual.index("TryCast(LeftSpell, 0, 2.f, true)"),
+                        dual.index("OnSpellCast(LeftSpell, false)"))
+
     def test_dual_cast_checks_both_spell_indices(self):
         dual = self.hero_cpp.split("void AMoonfallHeroPawn::CastBoth()", 1)[1].split("\n}", 1)[0]
         self.assertIn("LeftSpell < 0 || LeftSpell >= 6", dual)
