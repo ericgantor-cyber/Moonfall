@@ -5,6 +5,7 @@
 #include "Components/StaticMeshComponent.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
+#include "CollisionQueryParams.h"
 #include "TimerManager.h"
 #include "Kismet/GameplayStatics.h"
 #include "UObject/UObjectGlobals.h"
@@ -129,18 +130,50 @@ void AMoonfallArena::SpawnNextBonusGroup() {
     &AMoonfallArena::SpawnNextBonusGroup, 4.f, false);
   return;
  }
- // Group centers are separated, and individual mobs orbit their center.
- // Entire clusters stay inside the 3000x3000 arena footprint.
+ // Three widely separated groups, with terrain projected individually.
+ // Validate ALL group members before spawning to avoid partial packs.
  constexpr float GroupCenterRadius = 950.f;
  constexpr float MemberRadius = 230.f;
+ constexpr float SpawnHeight = 90.f;
+ constexpr float MinPlayerDistance = 550.f;
  const float GroupAngle = (2.f * PI * NextBonusGroup) / 3.f;
  const FVector GroupCenter = GetActorLocation() + FVector(
    GroupCenterRadius * FMath::Cos(GroupAngle),
-   GroupCenterRadius * FMath::Sin(GroupAngle), 60.f);
+   GroupCenterRadius * FMath::Sin(GroupAngle), 0.f);
+ TArray<FVector> ValidPositions;
+ ValidPositions.Reserve(GroupSize);
+ FCollisionQueryParams GroundParams(SCENE_QUERY_STAT(MoonfallMobGround), false);
+ GroundParams.AddIgnoredActor(this);
+ bool bValidGroup = true;
  for (int32 Member = 0; Member < GroupSize; ++Member) {
   const float Angle = 2.f * PI * Member / GroupSize;
-  const FVector Position = GroupCenter + FVector(
+  const FVector Candidate = GroupCenter + FVector(
     MemberRadius * FMath::Cos(Angle), MemberRadius * FMath::Sin(Angle), 0.f);
+  FHitResult GroundHit;
+  const bool bHasGround = World->LineTraceSingleByChannel(GroundHit,
+    Candidate + FVector(0.f, 0.f, 450.f),
+    Candidate - FVector(0.f, 0.f, 500.f), ECC_WorldStatic, GroundParams);
+  if (!bHasGround || GroundHit.ImpactNormal.Z < 0.75f) {
+   bValidGroup = false;
+   break;
+  }
+  const FVector Position = GroundHit.ImpactPoint + FVector(0.f, 0.f, SpawnHeight);
+  if (FVector::DistSquared2D(Position, Hero->GetActorLocation())
+      < FMath::Square(MinPlayerDistance)
+      || World->OverlapBlockingTestByChannel(Position, FQuat::Identity,
+           ECC_Pawn, FCollisionShape::MakeSphere(55.f), GroundParams)) {
+   bValidGroup = false;
+   break;
+  }
+  ValidPositions.Add(Position);
+ }
+ if (!bValidGroup || ValidPositions.Num() != GroupSize) {
+  // No partial groups or clipping into obstacles. Wait and try again.
+  GetWorldTimerManager().SetTimer(BonusSpawnTimer, this,
+    &AMoonfallArena::SpawnNextBonusGroup, 4.f, false);
+  return;
+ }
+ for (const FVector& Position : ValidPositions) {
   World->SpawnActor<AMoonfallEnemy>(AMoonfallEnemy::StaticClass(),
     Position, FRotator::ZeroRotator);
  }
