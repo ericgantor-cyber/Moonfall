@@ -1757,7 +1757,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         start = damage.index("if (Health <= 0.0f) {")
         end = damage.index("OnEnemyDefeated(", start)
         death = damage[start:end]
-        self.assertIn("if (bDivineSignatureActive) {", death)
+        self.assertIn("CancelDivineSignature();", death)
         self.assertIn("CancelDivineSignature();", death)
         self.assertIn("bDivineSignatureActive = false;", self.enemy_cpp)
         self.assertIn("ActiveDivineMoveId = NAME_None;", self.enemy_cpp)
