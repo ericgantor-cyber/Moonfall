@@ -333,6 +333,7 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("Jump"), IE_Pressed, this, &AMoonfallHeroPawn::TryJump);
  Input->BindAction(TEXT("Jump"), IE_Released, this, &ACharacter::StopJumping);
  Input->BindAction(TEXT("CastLeft"), IE_Pressed, this, &AMoonfallHeroPawn::CastLeft);
+ Input->BindAction(TEXT("LeftClickContext"), IE_Pressed, this, &AMoonfallHeroPawn::LeftClickContextAction);
  Input->BindAction(TEXT("CastRight"), IE_Pressed, this, &AMoonfallHeroPawn::CastRight);
  Input->BindAction(TEXT("RightClickContext"), IE_Pressed, this, &AMoonfallHeroPawn::RightClickContextAction);
  Input->BindAction(TEXT("DualCast"), IE_Pressed, this, &AMoonfallHeroPawn::CastBoth);
@@ -521,7 +522,28 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
  OnSpellCast(School, Hand == 0);
  return true;
 }
-void AMoonfallHeroPawn::CastLeft() { if (bOptionsOpen) return; TryCast(LeftSpell, 0, 1.f); }
+void AMoonfallHeroPawn::CastLeft() { if (bOptionsOpen || bInventoryOpen) return; TryCast(LeftSpell, 0, 1.f); }
+void AMoonfallHeroPawn::LeftClickContextAction()
+{
+ // Mouse left selects a visible bag row, but never equips or salvages it.
+ // Outside menus the same button performs the usual left-hand spell.
+ if (bOptionsOpen) return;
+ if (bInventoryOpen) {
+  if (bCharacterStatsOpen) return;
+  if (APlayerController* Controller = Cast<APlayerController>(GetController())) {
+   if (AMoonfallCombatHUD* HUD = Cast<AMoonfallCombatHUD>(Controller->GetHUD())) {
+    float MouseX = 0.f, MouseY = 0.f;
+    if (Controller->GetMousePosition(MouseX, MouseY)) {
+     const int32 ClickedIndex = HUD->GetInventoryItemAtScreenPosition(this, MouseX, MouseY);
+     if (InventoryItemCodes.IsValidIndex(ClickedIndex))
+      InventorySelection = ClickedIndex;
+    }
+   }
+  }
+  return;
+ }
+ TryCast(LeftSpell, 0, 1.f);
+}
 void AMoonfallHeroPawn::CastRight()
 {
  // Keyboard and controller right-hand cast input must never equip gear.
@@ -553,7 +575,8 @@ void AMoonfallHeroPawn::RightClickContextAction()
 }
 void AMoonfallHeroPawn::CastBoth()
 {
- if (bOptionsOpen) return;
+ // LT can mean Equip Best in inventory: reject combat before doing spell work.
+ if (bOptionsOpen || bInventoryOpen || !FMath::IsFinite(Health) || Health <= 0.f) return;
  if (LeftSpell != RightSpell || !GetWorld()) return;
  const float Time = GetWorld()->GetTimeSeconds();
  static const float Cooldowns[6] = {0.8f,0.65f,1.2f,2.f,1.f,0.9f};
