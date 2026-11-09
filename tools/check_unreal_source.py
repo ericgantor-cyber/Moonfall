@@ -749,7 +749,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
         hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
         self.assertIn('ActionName="CharacterStats",Key=C', inputs)
-        self.assertIn('ActionName="CharacterStats",Key=Gamepad_FaceButton_Bottom', inputs)
+        self.assertIn('ActionName="InventoryPage",Key=Gamepad_FaceButton_Bottom', inputs)
         self.assertIn('BindAction(TEXT("CharacterStats"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleCharacterStats)', self.hero_cpp)
         self.assertIn("void ToggleCharacterStats();", self.hero_h)
         self.assertIn("bool bCharacterStatsOpen = false;", self.hero_h)
@@ -797,6 +797,26 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         for forbidden in ("EquipInventoryItem(", "InventorySelection =",
                           "SalvageInventoryItem("):
             self.assertNotIn(forbidden, toggle)
+
+    def test_controller_a_switches_inventory_pages_without_closing_it(self):
+        inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
+        self.assertIn('ActionName="CharacterStats",Key=C', inputs)
+        self.assertIn('ActionName="InventoryPage",Key=Gamepad_FaceButton_Bottom', inputs)
+        self.assertIn('ActionName="Jump",Key=Gamepad_FaceButton_Bottom', inputs)
+        self.assertNotIn('ActionName="CharacterStats",Key=Gamepad_FaceButton_Bottom', inputs)
+        self.assertIn("void SwitchInventoryPage();", self.hero_h)
+        self.assertIn('BindAction(TEXT("InventoryPage"), IE_Pressed, this, &AMoonfallHeroPawn::SwitchInventoryPage)', self.hero_cpp)
+        body = self.hero_cpp.split("void AMoonfallHeroPawn::SwitchInventoryPage()", 1)[1].split(
+            "void AMoonfallHeroPawn::ToggleCharacterStats()", 1
+        )[0]
+        self.assertIn("!bInventoryOpen || bOptionsOpen || bAtlasOpen", body)
+        self.assertIn("!FMath::IsFinite(Health) || Health <= 0.f", body)
+        self.assertIn("ResetMouseCastChord();", body)
+        self.assertIn("bCharacterStatsOpen = !bCharacterStatsOpen;", body)
+        for forbidden in ("bInventoryOpen = false;", "bInventoryOpen = true;",
+                          "EquipInventoryItem(", "SalvageInventoryItem(",
+                          "TryCast(", "Mana -="):
+            self.assertNotIn(forbidden, body)
 
     def test_wow_inspired_secondary_stats_and_three_slot_trait_sets(self):
         hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
