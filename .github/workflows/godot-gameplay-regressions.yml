@@ -19,7 +19,6 @@ jobs:
           set -euo pipefail
           curl --fail --location --retry 3 --output /tmp/godot.zip \
             https://github.com/godotengine/godot/releases/download/4.5.1-stable/Godot_v4.5.1-stable_linux.x86_64.zip
-          echo "e6b26e8d" >/dev/null
           unzip -q /tmp/godot.zip -d /tmp
           sudo install -m 0755 /tmp/Godot_v4.5.1-stable_linux.x86_64 /usr/local/bin/godot
           godot --version
