@@ -1318,31 +1318,13 @@ int32 AMoonfallHeroPawn::RollEquipmentCode(bool bEliteEnemy, bool bBossEnemy)
 // instead spawn a ground actor, so equipment is not auto-collected on kills.
 void AMoonfallHeroPawn::AwardEquipmentDrop(bool bEliteEnemy, bool bBossEnemy)
 {
+ // Legacy scripted rewards are direct inventory grants, never automatic equips.
+ // Enemy kills still create world loot through SpawnGroundEquipmentDrop.
+ if (!FMath::IsFinite(Health) || Health <= 0.f) return;
  const int32 ItemCode = RollEquipmentCode(bEliteEnemy, bBossEnemy);
  if (ItemCode <= 0) return;
- const int32 NewTier = LastLootTier;
- // Do not reject new loot, automatically salvage, or silently discard items.
- // The paginated inventory supports growth beyond the former 30-slot limit.
  InventoryItemCodes.Add(ItemCode);
  InventorySelection = FMath::Clamp(InventorySelection, 0, InventoryItemCodes.Num() - 1);
- // Rotate awards across equipment categories; higher-tier items replace lower tiers.
- int32* Slot = LastLootSlot == 2 ? &AccessoryTier : (LastLootSlot == 1 ? &ArmorTier : &WeaponTier);
- int32* EquippedAffix = LastLootSlot == 2 ? &AccessoryAffix : (LastLootSlot == 1 ? &ArmorAffix : &WeaponAffix);
- // A new trait is equipped only when upgrading tiers; same-tier items remain
- // inventory choices rather than silently replacing the player's current perk.
- if (NewTier > *Slot) {
-  *EquippedAffix = LastLootAffix;
-  const int32 Previous = *Slot;
-  *Slot = NewTier;
-  int32* EquippedCode = LastLootSlot == 2 ? &EquippedAccessoryCode : (LastLootSlot == 1 ? &EquippedArmorCode : &EquippedWeaponCode);
-  *EquippedCode = ItemCode;
-  EquipmentTier = FMath::Max(WeaponTier, FMath::Max(ArmorTier, AccessoryTier));
-  if (Slot == &ArmorTier) {
-   MaxHealth += 2.f * (NewTier - Previous);
-   Health = FMath::Min(MaxHealth, Health + 2.f * (NewTier - Previous));
-   OnHealthChanged(Health, MaxHealth);
-  }
- }
 }
 
 bool AMoonfallHeroPawn::CollectGroundEquipmentCode(int32 ItemCode)
