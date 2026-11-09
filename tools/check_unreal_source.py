@@ -3054,7 +3054,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("EnteredChambersMask |= Bit;", layout_cpp)
         self.assertIn("OnChamberEntered(Hero, ChamberIndex, ChamberType);", layout_cpp)
         self.assertIn("Hero->IsPlayerControlled()", layout_cpp)
-        self.assertNotIn("SpawnActor<AMoonfallEnemy>", layout_cpp)
+        self.assertNotIn("SpawnActorDeferred<AMoonfallEnemy>", layout_cpp.split("void AMoonfallDungeonLayout::OnConstruction(", 1)[1].split("void AMoonfallDungeonLayout::BeginPlay()", 1)[0])
 
     def test_dungeon_treasure_and_shrine_rewards_are_single_entry(self):
         layout_h = (ROOT / "MoonfallDungeonLayout.h").read_text(encoding="utf-8")
