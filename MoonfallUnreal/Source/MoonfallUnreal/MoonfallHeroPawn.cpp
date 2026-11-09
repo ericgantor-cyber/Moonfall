@@ -8,6 +8,7 @@
 #include "Engine/Engine.h"
 #include "GameFramework/GameUserSettings.h"
 #include "Misc/ConfigCacheIni.h"
+#include "Misc/LexFromString.h"
 #include "Interfaces/IPluginManager.h"
 #include "MoonfallEnemy.h"
 #include "MoonfallGroundLoot.h"
@@ -168,6 +169,7 @@ void AMoonfallHeroPawn::BeginPlay() {
  const TSharedPtr<IPlugin> DLSS = IPluginManager::Get().FindPlugin(TEXT("DLSS"));
  bFrameGenerationPluginDetected = (FSR.IsValid() && FSR->IsEnabled()) || (DLSS.IsValid() && DLSS->IsEnabled());
  // Detection is only a hint, never proof of a supported frame-generation runtime.
+ LoadEquipmentProfile();
 }
 void AMoonfallHeroPawn::Tick(float DeltaSeconds)
 {
@@ -855,6 +857,7 @@ bool AMoonfallHeroPawn::SalvageInventoryItem(int32 InventoryIndex)
  Salvage = FMath::Clamp(Salvage + SalvageReward, 0, 9999);
  InventoryItemCodes.RemoveAt(InventoryIndex);
  InventorySelection = FMath::Clamp(InventorySelection, 0, FMath::Max(0, InventoryItemCodes.Num() - 1));
+ SaveEquipmentProfile();
  return true;
 }
 bool AMoonfallHeroPawn::UpgradeInventoryItem(int32 InventoryIndex)
@@ -892,6 +895,7 @@ bool AMoonfallHeroPawn::UpgradeInventoryItem(int32 InventoryIndex)
  Salvage -= Cost;
  LastLootUpgrade = (Tier + 1) - PreviousWornTier;
  OnEquipmentCrafted(NewCode, Cost);
+ SaveEquipmentProfile();
  return true;
 }
 
@@ -929,6 +933,7 @@ bool AMoonfallHeroPawn::ReforgeInventoryItemAffix(int32 InventoryIndex)
  Salvage -= Cost;
  LastLootAffix = NewAffix;
  OnEquipmentReforged(NewCode, Cost);
+ SaveEquipmentProfile();
  return true;
 }
 
@@ -967,6 +972,7 @@ bool AMoonfallHeroPawn::AscendInventoryItemRarity(int32 InventoryIndex)
  Salvage -= Cost;
  LastLootRarity = Rarity + 1;
  OnEquipmentAscended(NewCode, Cost);
+ SaveEquipmentProfile();
  return true;
 }
 
@@ -1322,6 +1328,7 @@ void AMoonfallHeroPawn::AwardEquipmentDrop(bool bEliteEnemy, bool bBossEnemy)
   // New wearable categories stay in the bag until explicit equip or Equip Best.
   // Simply earning loot cannot silently break a 4/6/9-piece set bonus.
   LastLootUpgrade = NewTier - (GetEquippedCodeForSlot(LastLootSlot) % 1000);
+  SaveEquipmentProfile();
   return;
  }
  int32* Slot = LastLootSlot == 2 ? &AccessoryTier : (LastLootSlot == 1 ? &ArmorTier : &WeaponTier);
@@ -1341,6 +1348,7 @@ void AMoonfallHeroPawn::AwardEquipmentDrop(bool bEliteEnemy, bool bBossEnemy)
    OnHealthChanged(Health, MaxHealth);
   }
  }
+ SaveEquipmentProfile();
 }
 
 bool AMoonfallHeroPawn::CollectGroundEquipmentCode(int32 ItemCode)
@@ -1364,6 +1372,7 @@ bool AMoonfallHeroPawn::CollectGroundEquipmentCode(int32 ItemCode)
  const int32 EquippedTier = SlotIndex < 3 ? (SlotIndex == 0 ? WeaponTier
      : (SlotIndex == 1 ? ArmorTier : AccessoryTier)) : (GetEquippedCodeForSlot(SlotIndex) % 1000);
  LastLootUpgrade = Tier - EquippedTier;
+ SaveEquipmentProfile();
  return true;
 }
 
@@ -1508,6 +1517,7 @@ bool AMoonfallHeroPawn::EquipInventoryItem(int32 InventoryIndex)
   EquipmentTier = FMath::Max(WeaponTier, FMath::Max(ArmorTier, AccessoryTier));
   for (int32 ExtraSlot = 3; ExtraSlot < 9; ++ExtraSlot)
    EquipmentTier = FMath::Max(EquipmentTier, GetEquippedCodeForSlot(ExtraSlot) % 1000);
+  SaveEquipmentProfile();
   return true;
  }
  int32* EquippedTier = SlotIndex == 0 ? &WeaponTier : (SlotIndex == 1 ? &ArmorTier : &AccessoryTier);
@@ -1529,6 +1539,7 @@ bool AMoonfallHeroPawn::EquipInventoryItem(int32 InventoryIndex)
   Health = FMath::Clamp(Health + HealthDelta, 1.f, MaxHealth);
   OnHealthChanged(Health, MaxHealth);
  }
+ SaveEquipmentProfile();
  return true;
 }
 
@@ -1586,3 +1597,83 @@ bool AMoonfallHeroPawn::HasLegendaryPerk(int32 Slot) const
  return GetItemPower(Code) > 0 && (Code / 10000) % 10 == Slot
      && (Code / 1000) % 10 == 5;
 }
+
+void AMoonfallHeroPawn::SaveEquipmentProfile() const
+{
+ if (!GConfig || bRestoringEquipmentProfile || InventoryItemCodes.Num() > 512)
+  return;
+ static const TCHAR* Section = TEXT("Moonfall.EquipmentProfile.V1");
+ TArray<FString> StoredBag;
+ StoredBag.Reserve(InventoryItemCodes.Num());
+ for (const int32 Code : InventoryItemCodes) {
+  if (GetItemPower(Code) <= 0) return; // Do not overwrite a valid save with corrupt data.
+  StoredBag.Add(FString::FromInt(Code));
+ }
+ // Validate the entire snapshot before making any configuration writes.
+ int32 Worn[9] = {};
+ for (int32 Slot = 0; Slot < 9; ++Slot) {
+  const int32 Code = GetEquippedCodeForSlot(Slot);
+  if (Code != 0 && (GetItemPower(Code) <= 0 ||
+      (Code / 10000) % 10 != Slot || !InventoryItemCodes.Contains(Code))) return;
+  Worn[Slot] = Code;
+ }
+ GConfig->SetArray(Section, TEXT("InventoryCodes"), StoredBag, GGameUserSettingsIni);
+ for (int32 Slot = 0; Slot < 9; ++Slot)
+  GConfig->SetInt(Section, *FString::Printf(TEXT("Slot%d"), Slot),
+    Worn[Slot], GGameUserSettingsIni);
+ GConfig->SetInt(Section, TEXT("Salvage"), FMath::Clamp(Salvage, 0, 9999),
+   GGameUserSettingsIni);
+ GConfig->SetInt(Section, TEXT("Version"), 1, GGameUserSettingsIni);
+ GConfig->Flush(false, GGameUserSettingsIni);
+}
+
+void AMoonfallHeroPawn::LoadEquipmentProfile()
+{
+ if (!GConfig) return;
+ static const TCHAR* Section = TEXT("Moonfall.EquipmentProfile.V1");
+ int32 Version = 0;
+ if (!GConfig->GetInt(Section, TEXT("Version"), Version, GGameUserSettingsIni)
+     || Version != 1) return;
+ TArray<FString> StoredBag;
+ GConfig->GetArray(Section, TEXT("InventoryCodes"), StoredBag, GGameUserSettingsIni);
+ if (StoredBag.Num() > 512) return;
+ TArray<int32> ValidBag;
+ ValidBag.Reserve(StoredBag.Num());
+ for (const FString& Token : StoredBag) {
+  int32 Code = 0;
+  if (!LexTryParseString(Code, *Token) || GetItemPower(Code) <= 0) return;
+  ValidBag.Add(Code);
+ }
+ int32 Worn[9] = {};
+ for (int32 Slot = 0; Slot < 9; ++Slot) {
+  const FString Key = FString::Printf(TEXT("Slot%d"), Slot);
+  if (!GConfig->GetInt(Section, *Key, Worn[Slot], GGameUserSettingsIni)) return;
+  const int32 Code = Worn[Slot];
+  if (Code != 0 && (GetItemPower(Code) <= 0 ||
+       (Code / 10000) % 10 != Slot || !ValidBag.Contains(Code))) return;
+ }
+ int32 SavedSalvage = 0;
+ if (!GConfig->GetInt(Section, TEXT("Salvage"), SavedSalvage, GGameUserSettingsIni)
+    || SavedSalvage < 0 || SavedSalvage > 9999) return;
+ // Fully validate first, so an incomplete profile cannot partially replace gear.
+ bRestoringEquipmentProfile = true;
+ const int32 PreviousArmorTier = FMath::Clamp(ArmorTier, 0, 25);
+ MaxHealth = FMath::Max(1.f, MaxHealth - PreviousArmorTier * 2.f);
+ Health = FMath::Clamp(Health, 1.f, MaxHealth);
+ InventoryItemCodes = MoveTemp(ValidBag);
+ InventorySelection = FMath::Clamp(InventorySelection, 0, FMath::Max(0, InventoryItemCodes.Num() - 1));
+ WeaponTier = ArmorTier = AccessoryTier = 0;
+ WeaponAffix = ArmorAffix = AccessoryAffix = 0;
+ EquippedWeaponCode = EquippedArmorCode = EquippedAccessoryCode = 0;
+ ExtraEquippedCodes.Init(0, 6);
+ EquipmentTier = 0;
+ Salvage = SavedSalvage;
+ for (int32 Slot = 0; Slot < 9; ++Slot) {
+  if (Worn[Slot] <= 0) continue;
+  const int32 Index = InventoryItemCodes.Find(Worn[Slot]);
+  if (Index != INDEX_NONE) EquipInventoryItem(Index);
+ }
+ bRestoringEquipmentProfile = false;
+ OnHealthChanged(Health, MaxHealth);
+}
+
