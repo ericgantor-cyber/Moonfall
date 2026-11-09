@@ -333,6 +333,24 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                         craft.index("LastLootUpgrade = (Tier + 1) - PreviousEquippedTier;"))
         self.assertIn("InventoryItemCodes[InventoryIndex] = Code;\n  return false;", craft)
 
+    def test_ai_gear_advisor_is_visible_without_equipping(self):
+        hud = self.hud
+        inventory = hud.split("if (Hero->bInventoryOpen) {", 1)[1].split(
+            "// Nearest living boss", 1
+        )[0]
+        self.assertIn("Hero->GetRecommendedEquipmentIndex()", inventory)
+        self.assertIn("Hero->GetEquipmentUpgradeScore(Selected)", inventory)
+        self.assertIn("GEAR ADVISOR: try item %d", inventory)
+        self.assertIn("GEAR ADVISOR: current loadout recommended", inventory)
+        self.assertIn("[ADVISOR]", inventory)
+        self.assertIn("Selected: +%d advisor points vs worn slot", inventory)
+        self.assertIn("manual equip only", inventory)
+        self.assertIn("Index == AdvisedIndex", inventory)
+        self.assertNotIn("Hero->EquipInventoryItem(", inventory)
+        self.assertNotIn("Hero->EquipBestInventoryUpgrades(", inventory)
+        self.assertLess(inventory.index("const int32 AdvisedIndex"),
+                        inventory.index("for (int32 Index = PageStart; Index < PageEnd; ++Index)"))
+
     def test_read_only_ai_equipment_advisor_uses_worn_gear_and_sets(self):
         self.assertIn("GetRecommendedEquipmentIndex() const;", self.hero_h)
         self.assertIn("GetEquipmentUpgradeScore(int32 InventoryIndex) const;", self.hero_h)
