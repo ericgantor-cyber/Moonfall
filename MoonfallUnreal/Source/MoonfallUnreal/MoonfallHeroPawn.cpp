@@ -920,8 +920,21 @@ void AMoonfallHeroPawn::ToggleDisplayMode() {
 
 void AMoonfallHeroPawn::ToggleCharacterStats()
 {
- if (bInventoryOpen && !bOptionsOpen && Health > 0.f)
+ // C opens character info from gameplay; controller A still switches
+ // between the character sheet and inventory without equipping anything.
+ if (bOptionsOpen || bAtlasOpen || !FMath::IsFinite(Health) || Health <= 0.f) return;
+ if (!bInventoryOpen) {
+  ResetMouseCastChord();
+  StopJumping();
+  if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
+  EndSprint();
+  EndGuard();
+  bInventoryOpen = true;
+  bCharacterStatsOpen = true;
+  UpdateInventoryMouseMode();
+ } else {
   bCharacterStatsOpen = !bCharacterStatsOpen;
+ }
 }
 
 void AMoonfallHeroPawn::UpdateInventoryMouseMode()
