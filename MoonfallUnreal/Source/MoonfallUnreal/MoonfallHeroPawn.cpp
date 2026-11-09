@@ -242,6 +242,7 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("InventorySalvage"), IE_Pressed, this, &AMoonfallHeroPawn::InventorySalvage);
  Input->BindAction(TEXT("UpgradeGear"), IE_Pressed, this, &AMoonfallHeroPawn::UpgradeSelectedInventoryItem);
  Input->BindAction(TEXT("ForgeFive"), IE_Pressed, this, &AMoonfallHeroPawn::ForgeFiveSelectedInventoryItem);
+ Input->BindAction(TEXT("AscendGear"), IE_Pressed, this, &AMoonfallHeroPawn::AscendSelectedInventoryItem);
  Input->BindAction(TEXT("EquipBest"), IE_Pressed, this, &AMoonfallHeroPawn::EquipBestInventoryAction);
  Input->BindAction(TEXT("PickupLoot"), IE_Pressed, this, &AMoonfallHeroPawn::PickupNearestGroundLoot);
  Input->BindAction(TEXT("OptionsUp"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsUp);
@@ -775,6 +776,45 @@ bool AMoonfallHeroPawn::UpgradeInventoryItem(int32 InventoryIndex)
  LastLootUpgrade = (Tier + 1) - (Slot == 0 ? WeaponTier : (Slot == 1 ? ArmorTier : AccessoryTier));
  OnEquipmentCrafted(NewCode, Cost);
  return true;
+}
+
+bool AMoonfallHeroPawn::AscendInventoryItemRarity(int32 InventoryIndex)
+{
+ // Explicit inventory-only crafting. Ascension does not change tier or affix.
+ if (!bInventoryOpen || bOptionsOpen || Health <= 0.f
+     || !InventoryItemCodes.IsValidIndex(InventoryIndex)) return false;
+ const int32 Code = InventoryItemCodes[InventoryIndex];
+ if (Code <= 0) return false;
+ const int32 Affix = Code / 100000;
+ const int32 Slot = (Code / 10000) % 10;
+ const int32 Rarity = (Code / 1000) % 10;
+ const int32 Tier = Code % 1000;
+ if (Affix < 0 || Affix > 3 || Slot < 0 || Slot > 2
+     || Rarity < 0 || Rarity >= 3 || Tier < 1 || Tier > 25
+     || (Rarity == 0 && Affix != 0)
+     || Code != Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier) return false;
+ // Rising rank requires progressively more materials, but costs remain
+ // bounded. Validate the entire transaction before editing inventory.
+ const int32 Cost = 20 + Tier * 3 + Rarity * 15;
+ if (Salvage < Cost) return false;
+ const int32 EquippedCode = Slot == 0 ? EquippedWeaponCode
+     : (Slot == 1 ? EquippedArmorCode : EquippedAccessoryCode);
+ const bool bAscendingEquipped = Code == EquippedCode;
+ const int32 NewCode = Affix * 100000 + Slot * 10000 + (Rarity + 1) * 1000 + Tier;
+ InventoryItemCodes[InventoryIndex] = NewCode;
+ if (bAscendingEquipped && !EquipInventoryItem(InventoryIndex)) {
+  InventoryItemCodes[InventoryIndex] = Code;
+  return false;
+ }
+ Salvage -= Cost;
+ LastLootRarity = Rarity + 1;
+ OnEquipmentAscended(NewCode, Cost);
+ return true;
+}
+
+void AMoonfallHeroPawn::AscendSelectedInventoryItem()
+{
+ AscendInventoryItemRarity(InventorySelection);
 }
 
 int32 AMoonfallHeroPawn::ForgeInventoryItemLevels(int32 InventoryIndex, int32 MaxLevels)
