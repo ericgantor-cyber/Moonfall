@@ -24,13 +24,21 @@
 // Equipment stats are intentionally derived from equipped codes, never the
 // inventory list: carrying loot cannot accidentally grant combat bonuses.
 // Ignore malformed codes so externally edited Blueprint state fails closed.
+int32 AMoonfallHeroPawn::GetEquippedCodeForSlot(int32 Slot) const
+{
+ if (Slot == 0) return EquippedWeaponCode;
+ if (Slot == 1) return EquippedArmorCode;
+ if (Slot == 2) return EquippedAccessoryCode;
+ return Slot >= 3 && Slot <= 8 && ExtraEquippedCodes.IsValidIndex(Slot - 3)
+     ? ExtraEquippedCodes[Slot - 3] : 0;
+}
+
 int32 AMoonfallHeroPawn::GetSetPieceCount(int32 Affix) const
 {
  if (Affix < 1 || Affix > 3) return 0;
- const int32 Codes[3] = {EquippedWeaponCode, EquippedArmorCode, EquippedAccessoryCode};
  int32 Pieces = 0;
- for (int32 Slot = 0; Slot < 3; ++Slot) {
-  const int32 Code = Codes[Slot];
+ for (int32 Slot = 0; Slot < 9; ++Slot) {
+  const int32 Code = GetEquippedCodeForSlot(Slot);
   const int32 Trait = Code / 100000;
   const int32 ItemSlot = (Code / 10000) % 10;
   const int32 Rarity = (Code / 1000) % 10;
@@ -812,8 +820,9 @@ bool AMoonfallHeroPawn::SalvageInventoryItem(int32 InventoryIndex)
  if (Code <= 0) return false;
  // The final inventory copy of equipped gear is protected. Extra duplicates
  // may be salvaged because the worn code remains represented in the bag.
- const bool bEquippedCode = Code == EquippedWeaponCode || Code == EquippedArmorCode
-     || Code == EquippedAccessoryCode;
+ bool bEquippedCode = false;
+ for (int32 Slot = 0; Slot < 9; ++Slot)
+  bEquippedCode |= Code == GetEquippedCodeForSlot(Slot) && Code > 0;
  if (bEquippedCode) {
   int32 Copies = 0;
   for (const int32 Candidate : InventoryItemCodes)
@@ -824,7 +833,7 @@ bool AMoonfallHeroPawn::SalvageInventoryItem(int32 InventoryIndex)
  const int32 SlotIndex = (Code / 10000) % 10;
  const int32 Rarity = (Code / 1000) % 10;
  const int32 Tier = Code % 1000;
- if (Affix < 0 || Affix > 3 || SlotIndex < 0 || SlotIndex > 2
+ if (Affix < 0 || Affix > 3 || SlotIndex < 0 || SlotIndex > 8
      || Rarity < 0 || Rarity > 5 || Tier < 1 || Tier > 25
      || (Rarity == 0 && Affix != 0)
      || Code != Affix * 100000 + SlotIndex * 10000 + Rarity * 1000 + Tier)
@@ -848,14 +857,13 @@ bool AMoonfallHeroPawn::UpgradeInventoryItem(int32 InventoryIndex)
  const int32 Slot = (Code / 10000) % 10;
  const int32 Rarity = (Code / 1000) % 10;
  const int32 Tier = Code % 1000;
- if (Affix < 0 || Affix > 3 || Slot < 0 || Slot > 2
+ if (Affix < 0 || Affix > 3 || Slot < 0 || Slot > 8
      || Rarity < 0 || Rarity > 5 || Tier < 1 || Tier >= 25
      || (Rarity == 0 && Affix != 0)
      || Code != Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier) return false;
  // A selected item matching the worn slot upgrades both representations.
  // Other items remain unchanged even when they share the same item code.
- const int32 EquippedCode = Slot == 0 ? EquippedWeaponCode
-     : (Slot == 1 ? EquippedArmorCode : EquippedAccessoryCode);
+ const int32 EquippedCode = GetEquippedCodeForSlot(Slot);
  const bool bUpgradingEquipped = Code == EquippedCode;
  // Higher tiers and rarities consume more of the salvage recovered from drops.
  const int32 Cost = 4 + Tier * 2 + Rarity * 3;
@@ -869,7 +877,7 @@ bool AMoonfallHeroPawn::UpgradeInventoryItem(int32 InventoryIndex)
   return false;
  }
  Salvage -= Cost;
- LastLootUpgrade = (Tier + 1) - (Slot == 0 ? WeaponTier : (Slot == 1 ? ArmorTier : AccessoryTier));
+ LastLootUpgrade = (Tier + 1) - (GetEquippedCodeForSlot(Slot) % 1000);
  OnEquipmentCrafted(NewCode, Cost);
  return true;
 }
@@ -886,7 +894,7 @@ bool AMoonfallHeroPawn::ReforgeInventoryItemAffix(int32 InventoryIndex)
  const int32 Slot = (Code / 10000) % 10;
  const int32 Rarity = (Code / 1000) % 10;
  const int32 Tier = Code % 1000;
- if (Affix < 0 || Affix > 3 || Slot < 0 || Slot > 2
+ if (Affix < 0 || Affix > 3 || Slot < 0 || Slot > 8
      || Rarity < 2 || Rarity > 5 || Tier < 1 || Tier > 25
      || Code != Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier) return false;
  // Unlike normal drops, reforge always yields a nonzero affix different
@@ -896,8 +904,7 @@ bool AMoonfallHeroPawn::ReforgeInventoryItemAffix(int32 InventoryIndex)
  const int32 NewAffix = Affix == 0 ? FMath::RandRange(1, 3)
      : 1 + ((Affix - 1 + FMath::RandRange(1, 2)) % 3);
  const int32 NewCode = NewAffix * 100000 + Slot * 10000 + Rarity * 1000 + Tier;
- const int32 EquippedCode = Slot == 0 ? EquippedWeaponCode
-     : (Slot == 1 ? EquippedArmorCode : EquippedAccessoryCode);
+ const int32 EquippedCode = GetEquippedCodeForSlot(Slot);
  const bool bReforgingEquipped = Code == EquippedCode;
  InventoryItemCodes[InventoryIndex] = NewCode;
  // Keep the bag and the worn item in sync, including direct combat bonuses.
@@ -928,7 +935,7 @@ bool AMoonfallHeroPawn::AscendInventoryItemRarity(int32 InventoryIndex)
  const int32 Slot = (Code / 10000) % 10;
  const int32 Rarity = (Code / 1000) % 10;
  const int32 Tier = Code % 1000;
- if (Affix < 0 || Affix > 3 || Slot < 0 || Slot > 2
+ if (Affix < 0 || Affix > 3 || Slot < 0 || Slot > 8
      || Rarity < 0 || Rarity >= 5 || Tier < 1 || Tier > 25
      || (Rarity == 0 && Affix != 0)
      || Code != Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier) return false;
@@ -936,8 +943,7 @@ bool AMoonfallHeroPawn::AscendInventoryItemRarity(int32 InventoryIndex)
  // bounded. Validate the entire transaction before editing inventory.
  const int32 Cost = 20 + Tier * 3 + Rarity * 15;
  if (Salvage < Cost) return false;
- const int32 EquippedCode = Slot == 0 ? EquippedWeaponCode
-     : (Slot == 1 ? EquippedArmorCode : EquippedAccessoryCode);
+ const int32 EquippedCode = GetEquippedCodeForSlot(Slot);
  const bool bAscendingEquipped = Code == EquippedCode;
  const int32 NewCode = Affix * 100000 + Slot * 10000 + (Rarity + 1) * 1000 + Tier;
  InventoryItemCodes[InventoryIndex] = NewCode;
@@ -1270,13 +1276,15 @@ int32 AMoonfallHeroPawn::RollEquipmentCode(bool bEliteEnemy, bool bBossEnemy)
  LastLootTier = NewTier;
  // Enemy rank influences quality, not gear slot: any enemy can drop
  // weapons, armor, or accessories.
- LastLootSlot = FMath::RandRange(0, 2);
+ LastLootSlot = FMath::RandRange(0, 8);
  // Rare and better drops carry one randomized trait. Lower rarities may
  // roll a trait, but common items never do. These are encoded in item IDs.
  LastLootAffix = LastLootRarity == 0 ? 0
    : (LastLootRarity == 1 && FMath::RandRange(0, 99) < 60
      ? 0 : FMath::RandRange(1, 3));
- const int32 PreviousTier = LastLootSlot == 2 ? AccessoryTier : (LastLootSlot == 1 ? ArmorTier : WeaponTier);
+ const int32 PreviousTier = LastLootSlot < 3
+     ? (LastLootSlot == 2 ? AccessoryTier : (LastLootSlot == 1 ? ArmorTier : WeaponTier))
+     : (GetEquippedCodeForSlot(LastLootSlot) % 1000);
  LastLootUpgrade = NewTier - PreviousTier;
  // Compact item code: affix (100000s), slot (10000s), rarity (1000s),
  // tier (units). Distinct drops persist until the player salvages them.
@@ -1297,6 +1305,11 @@ void AMoonfallHeroPawn::AwardEquipmentDrop(bool bEliteEnemy, bool bBossEnemy)
  InventoryItemCodes.Add(ItemCode);
  InventorySelection = FMath::Clamp(InventorySelection, 0, InventoryItemCodes.Num() - 1);
  // Rotate awards across equipment categories; higher-tier items replace lower tiers.
+ if (LastLootSlot >= 3) {
+  if (NewTier > GetEquippedCodeForSlot(LastLootSlot) % 1000)
+   EquipInventoryItem(InventoryItemCodes.Num() - 1);
+  return;
+ }
  int32* Slot = LastLootSlot == 2 ? &AccessoryTier : (LastLootSlot == 1 ? &ArmorTier : &WeaponTier);
  int32* EquippedAffix = LastLootSlot == 2 ? &AccessoryAffix : (LastLootSlot == 1 ? &ArmorAffix : &WeaponAffix);
  // A new trait is equipped only when upgrading tiers; same-tier items remain
@@ -1323,7 +1336,7 @@ bool AMoonfallHeroPawn::CollectGroundEquipmentCode(int32 ItemCode)
  const int32 SlotIndex = (ItemCode / 10000) % 10;
  const int32 Rarity = (ItemCode / 1000) % 10;
  const int32 Tier = ItemCode % 1000;
- if (Affix < 0 || Affix > 3 || SlotIndex < 0 || SlotIndex > 2
+ if (Affix < 0 || Affix > 3 || SlotIndex < 0 || SlotIndex > 8
      || Rarity < 0 || Rarity > 5 || Tier < 1 || Tier > 25
      || (Rarity == 0 && Affix != 0)
      || ItemCode != Affix * 100000 + SlotIndex * 10000 + Rarity * 1000 + Tier)
@@ -1334,8 +1347,8 @@ bool AMoonfallHeroPawn::CollectGroundEquipmentCode(int32 ItemCode)
  LastLootSlot = SlotIndex;
  LastLootRarity = Rarity;
  LastLootTier = Tier;
- const int32 EquippedTier = SlotIndex == 0 ? WeaponTier
-     : (SlotIndex == 1 ? ArmorTier : AccessoryTier);
+ const int32 EquippedTier = SlotIndex < 3 ? (SlotIndex == 0 ? WeaponTier
+     : (SlotIndex == 1 ? ArmorTier : AccessoryTier)) : (GetEquippedCodeForSlot(SlotIndex) % 1000);
  LastLootUpgrade = Tier - EquippedTier;
  return true;
 }
@@ -1417,13 +1430,13 @@ int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()
 {
  // Only a deliberate input while viewing inventory can change worn equipment.
  if (!bInventoryOpen || bOptionsOpen || Health <= 0.f) return 0;
- const int32 EquippedCodes[3] = {EquippedWeaponCode, EquippedArmorCode, EquippedAccessoryCode};
- int32 BestScores[3] = {-1, -1, -1};
- int32 BestIndices[3] = {-1, -1, -1};
+ int32 BestScores[9];
+ int32 BestIndices[9];
+ for (int32 Slot = 0; Slot < 9; ++Slot) { BestScores[Slot] = -1; BestIndices[Slot] = -1; }
  // Keep existing equipment unless the candidate is strictly better.
  // Tier is primary, rarity secondary, an affix breaks ties.
- for (int32 Slot = 0; Slot < 3; ++Slot) {
-  const int32 Code = EquippedCodes[Slot];
+ for (int32 Slot = 0; Slot < 9; ++Slot) {
+  const int32 Code = GetEquippedCodeForSlot(Slot);
   if (Code <= 0) continue;
   const int32 Affix = Code / 100000;
   const int32 EncodedSlot = (Code / 10000) % 10;
@@ -1441,7 +1454,7 @@ int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()
   const int32 Slot = (Code / 10000) % 10;
   const int32 Rarity = (Code / 1000) % 10;
   const int32 Tier = Code % 1000;
-  if (Slot < 0 || Slot > 2 || Affix < 0 || Affix > 3 || Rarity < 0 || Rarity > 5
+  if (Slot < 0 || Slot > 8 || Affix < 0 || Affix > 3 || Rarity < 0 || Rarity > 5
       || Tier < 1 || Tier > 25 || (Rarity == 0 && Affix != 0)
       || Code != Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier) continue;
   const int32 Score = Tier * 100 + Rarity * 10 + (Affix > 0 ? 1 : 0);
@@ -1451,7 +1464,7 @@ int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()
   }
  }
  int32 UpgradesEquipped = 0;
- for (int32 Slot = 0; Slot < 3; ++Slot) {
+ for (int32 Slot = 0; Slot < 9; ++Slot) {
   if (BestIndices[Slot] >= 0 && EquipInventoryItem(BestIndices[Slot]))
    ++UpgradesEquipped;
  }
@@ -1469,11 +1482,18 @@ bool AMoonfallHeroPawn::EquipInventoryItem(int32 InventoryIndex)
  const int32 SlotIndex = (Code / 10000) % 10;
  const int32 Rarity = (Code / 1000) % 10;
  const int32 Tier = Code % 1000;
- if (Affix < 0 || Affix > 3 || SlotIndex < 0 || SlotIndex > 2
+ if (Affix < 0 || Affix > 3 || SlotIndex < 0 || SlotIndex > 8
      || Rarity < 0 || Rarity > 5 || Tier < 1 || Tier > 25
      || (Rarity == 0 && Affix != 0)
      || Code != Affix * 100000 + SlotIndex * 10000 + Rarity * 1000 + Tier)
   return false;
+ if (SlotIndex >= 3) {
+  if (!ExtraEquippedCodes.IsValidIndex(SlotIndex - 3)) return false;
+  if (ExtraEquippedCodes[SlotIndex - 3] == Code) return false;
+  ExtraEquippedCodes[SlotIndex - 3] = Code;
+  EquipmentTier = FMath::Max(EquipmentTier, Tier);
+  return true;
+ }
  int32* EquippedTier = SlotIndex == 0 ? &WeaponTier : (SlotIndex == 1 ? &ArmorTier : &AccessoryTier);
  int32* EquippedAffix = SlotIndex == 0 ? &WeaponAffix : (SlotIndex == 1 ? &ArmorAffix : &AccessoryAffix);
  int32* EquippedCode = SlotIndex == 0 ? &EquippedWeaponCode
@@ -1504,7 +1524,7 @@ int32 AMoonfallHeroPawn::GetItemPower(int32 ItemCode) const
  const int32 Slot = (ItemCode / 10000) % 10;
  const int32 Rarity = (ItemCode / 1000) % 10;
  const int32 Tier = ItemCode % 1000;
- if (Affix < 0 || Affix > 3 || Slot < 0 || Slot > 2 ||
+ if (Affix < 0 || Affix > 3 || Slot < 0 || Slot > 8 ||
      Rarity < 0 || Rarity > 5 || Tier < 1 || Tier > 25 ||
      (Rarity == 0 && Affix != 0) ||
      ItemCode != Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier)
@@ -1515,9 +1535,10 @@ int32 AMoonfallHeroPawn::GetItemPower(int32 ItemCode) const
 
 int32 AMoonfallHeroPawn::GetEquipmentPower() const
 {
- return GetItemPower(EquippedWeaponCode) +
-        GetItemPower(EquippedArmorCode) +
-        GetItemPower(EquippedAccessoryCode);
+ int32 Power = 0;
+ for (int32 Slot = 0; Slot < 9; ++Slot)
+  Power += GetItemPower(GetEquippedCodeForSlot(Slot));
+ return Power;
 }
 
 int32 AMoonfallHeroPawn::GetItemPowerDelta(int32 ItemCode) const
@@ -1525,8 +1546,7 @@ int32 AMoonfallHeroPawn::GetItemPowerDelta(int32 ItemCode) const
  const int32 CandidatePower = GetItemPower(ItemCode);
  if (CandidatePower <= 0) return 0;
  const int32 Slot = (ItemCode / 10000) % 10;
- const int32 CurrentCode = Slot == 0 ? EquippedWeaponCode :
-      (Slot == 1 ? EquippedArmorCode : EquippedAccessoryCode);
+ const int32 CurrentCode = GetEquippedCodeForSlot(Slot);
  return CandidatePower - GetItemPower(CurrentCode);
 }
 
@@ -1535,8 +1555,7 @@ int32 AMoonfallHeroPawn::GetProjectedSetPieceCount(int32 Affix, int32 CandidateC
  if (Affix < 1 || Affix > 3 || GetItemPower(CandidateCode) <= 0)
   return 0;
  const int32 Slot = (CandidateCode / 10000) % 10;
- const int32 CurrentCode = Slot == 0 ? EquippedWeaponCode :
-      (Slot == 1 ? EquippedArmorCode : EquippedAccessoryCode);
+ const int32 CurrentCode = GetEquippedCodeForSlot(Slot);
  const int32 PreviousAffix = GetItemPower(CurrentCode) > 0 ? CurrentCode / 100000 : 0;
  return FMath::Clamp(GetSetPieceCount(Affix) - (PreviousAffix == Affix ? 1 : 0)
       + (CandidateCode / 100000 == Affix ? 1 : 0), 0, 3);
@@ -1544,9 +1563,8 @@ int32 AMoonfallHeroPawn::GetProjectedSetPieceCount(int32 Affix, int32 CandidateC
 
 bool AMoonfallHeroPawn::HasLegendaryPerk(int32 Slot) const
 {
- if (Slot < 0 || Slot > 2) return false;
- const int32 Code = Slot == 0 ? EquippedWeaponCode :
-     (Slot == 1 ? EquippedArmorCode : EquippedAccessoryCode);
+ if (Slot < 0 || Slot > 8) return false;
+ const int32 Code = GetEquippedCodeForSlot(Slot);
  return GetItemPower(Code) > 0 && (Code / 10000) % 10 == Slot
      && (Code / 1000) % 10 == 5;
 }
