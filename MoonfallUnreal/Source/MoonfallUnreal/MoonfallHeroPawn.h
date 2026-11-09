@@ -243,10 +243,17 @@ private:
  void CastLeft();
  // Left mouse selects pointed gear in inventory, casts during combat.
  void LeftClickContextAction();
+ void ReleaseLeftClickContext();
  void CastRight();
  // Mouse-specific context action: equip inventory row or cast outside menus.
  void RightClickContextAction();
+ void ReleaseRightClickContext();
  void CastBoth();
+ // Transient mouse chord state, never serialized to saves.
+ bool bLeftMouseHeld = false;
+ bool bRightMouseHeld = false;
+ bool bMouseChordConsumed = false;
+ void ResetMouseCastChord();
  void Dodge();
  void BeginSprint();
  void EndSprint();
