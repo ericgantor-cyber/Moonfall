@@ -261,6 +261,28 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                 self.assertLess(region.index("!FMath::IsFinite(Health)"),
                                 region.index("Health <= 0.f"))
 
+    def test_loot_roll_does_not_report_uncollected_rewards(self):
+        roll = self.hero_cpp.split(
+            "int32 AMoonfallHeroPawn::RollEquipmentCode(", 1
+        )[1].split("void AMoonfallHeroPawn::AwardEquipmentDrop(", 1)[0]
+        for field in ("LastLootAffix =", "LastLootSlot =",
+                      "LastLootRarity =", "LastLootTier =", "LastLootUpgrade ="):
+            self.assertNotIn(field, roll)
+        self.assertIn("const int32 RolledRarity = bBossEnemy", roll)
+        self.assertIn("const int32 RolledSlot = FMath::RandRange(0, 2)", roll)
+        self.assertIn("const int32 RolledAffix = RolledRarity", roll)
+        award = self.hero_cpp.split(
+            "void AMoonfallHeroPawn::AwardEquipmentDrop(", 1
+        )[1].split("bool AMoonfallHeroPawn::CollectGroundEquipmentCode(", 1)[0]
+        self.assertIn("LastLootAffix = RolledAffix;", award)
+        self.assertIn("LastLootSlot = RolledSlot;", award)
+        self.assertIn("LastLootRarity = RolledRarity;", award)
+        self.assertIn("LastLootTier = RolledTier;", award)
+        self.assertIn("LastLootUpgrade = RolledTier - EquippedTier;", award)
+        self.assertLess(award.index("InventoryItemCodes.Add(ItemCode);"),
+                        award.index("LastLootAffix = RolledAffix;"))
+        self.assertNotIn("InventorySelection =", award)
+
     def test_scripted_loot_reward_never_auto_equips(self):
         reward = self.hero_cpp.split(
             "void AMoonfallHeroPawn::AwardEquipmentDrop(", 1
@@ -377,7 +399,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("DiscardIndex", loot)
         self.assertNotIn("DiscardedCode", loot)
         self.assertNotIn("InventoryItemCodes.RemoveAt(", loot)
-        self.assertIn("InventorySelection = FMath::Clamp(InventorySelection, 0, InventoryItemCodes.Num() - 1);", loot)
+        self.assertNotIn("InventorySelection =", loot)
 
     def test_primary_stats_sheet_is_read_only_and_affects_combat_recovery(self):
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
@@ -672,9 +694,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             self.assertIn("int32 " + field + " = 0;", self.hero_h)
         loot = self.hero_cpp.split("int32 AMoonfallHeroPawn::RollEquipmentCode(", 1)[1].split(
             "void AMoonfallHeroPawn::AwardEquipmentDrop(", 1)[0]
-        self.assertIn("LastLootAffix = LastLootRarity == 0 ? 0", loot)
+        self.assertIn("const int32 RolledAffix = RolledRarity == 0 ? 0", loot)
         self.assertIn("FMath::RandRange(1, 3)", loot)
-        self.assertIn("LastLootAffix * 100000 + LastLootSlot * 10000", loot)
+        self.assertIn("RolledAffix * 100000 + RolledSlot * 10000", loot)
         scripted = self.hero_cpp.split(
             "void AMoonfallHeroPawn::AwardEquipmentDrop(", 1
         )[1].split("bool AMoonfallHeroPawn::CollectGroundEquipmentCode(", 1)[0]
@@ -698,9 +720,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         loot = self.hero_cpp.split("int32 AMoonfallHeroPawn::RollEquipmentCode(", 1)[1].split(
             "void AMoonfallHeroPawn::AwardEquipmentDrop(", 1)[0]
         self.assertIn("const int32 LootRoll = FMath::RandRange(0, 99);", loot)
-        self.assertIn("LastLootSlot = FMath::RandRange(0, 2);", loot)
+        self.assertIn("const int32 RolledSlot = FMath::RandRange(0, 2);", loot)
         self.assertIn("const int32 RarityBias = FMath::Clamp(Level / 5, 0, 12);", loot)
-        self.assertIn("LastLootRarity = bBossEnemy", loot)
+        self.assertIn("const int32 RolledRarity = bBossEnemy", loot)
         self.assertIn("Level >= 60 && LootRoll < 12 ? 5", loot)
         self.assertIn("Level >= 30 && LootRoll < 40 ? 4", loot)
         self.assertIn("LootRoll < 3 + RarityBias / 3 ? 3", loot)
@@ -708,7 +730,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("LootRoll < 53 + RarityBias ? 1 : 0", loot)
         self.assertIn("FMath::Clamp(Level / 5", loot)
         self.assertIn("InventoryItemCodes.Add(ItemCode);", self.hero_cpp)
-        self.assertIn("LastLootAffix * 100000 + LastLootSlot * 10000", loot)
+        self.assertIn("RolledAffix * 100000 + RolledSlot * 10000", loot)
         self.assertNotIn("FinisherShockwave", self.hero_cpp)
 
     def test_equipment_stats_affect_combat(self):
