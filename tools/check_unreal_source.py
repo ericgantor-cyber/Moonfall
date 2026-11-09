@@ -2699,5 +2699,16 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("EquipInventoryItem(", preview)
         self.assertNotIn("SaveEquipmentProfile(", preview)
 
+    def test_loot_hud_handles_every_rarity_and_real_inventory_size(self):
+        hud = self.hud
+        rarity = hud.split("const TCHAR* RarityNames[] =", 1)[1].split("};", 1)[0]
+        for label in ('TEXT("COMMON")', 'TEXT("UNCOMMON")', 'TEXT("RARE")',
+                      'TEXT("EPIC")', 'TEXT("EMERALD")', 'TEXT("LEGENDARY")'):
+            self.assertIn(label, rarity)
+        self.assertIn("FMath::Clamp(Hero->LastLootRarity, 0, 5)", hud)
+        self.assertIn('TEXT("Gear Power %d | Salvage %d | Bag %d")', hud)
+        self.assertIn("Hero->GetEquipmentPower()", hud)
+        self.assertNotIn("Bag %d/30", hud)
+
 if __name__ == "__main__":
     unittest.main()
