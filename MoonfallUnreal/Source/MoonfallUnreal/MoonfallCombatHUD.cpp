@@ -92,8 +92,10 @@ void AMoonfallCombatHUD::DrawHUD()
   const int32 AdvisedIndex = Hero->GetRecommendedEquipmentIndex();
   const int32 SelectedImprovement = Hero->GetEquipmentUpgradeScore(Selected);
   DrawText(AdvisedIndex >= 0
-    ? FString::Printf(TEXT("GEAR ADVISOR: item %d  |  manual equip only"), AdvisedIndex + 1)
-    : TEXT("GEAR ADVISOR: current loadout recommended"),
+    ? FString::Printf(TEXT("ADVISOR: item %d  (+%d points)  |  equip manually"),
+        AdvisedIndex + 1, Hero->GetEquipmentUpgradeScore(AdvisedIndex))
+    : Count == 0 ? TEXT("ADVISOR: no items to compare")
+      : TEXT("ADVISOR: no higher-scoring gear found"),
     FLinearColor(0.54f,0.94f,0.76f), Left + 18.f, Top + 128.f,
     nullptr, Canvas->SizeX < 900.f ? 0.64f : 0.75f);
   DrawText(FString::Printf(TEXT("%d items  |  %d salvage  |  page %d / %d"),
@@ -113,8 +115,11 @@ void AMoonfallCombatHUD::DrawHUD()
    const TCHAR* Slots[] = {TEXT("Weapon"), TEXT("Armor"), TEXT("Accessory")};
    const TCHAR* Rarities[] = {TEXT("Common"), TEXT("Uncommon"), TEXT("Rare"), TEXT("Epic"), TEXT("Emerald"), TEXT("Legendary")};
    const TCHAR* Traits[] = {TEXT("None"), TEXT("Force"), TEXT("Ward"), TEXT("Focus")};
-   const bool bValid = Code > 0 && Slot <= 2 && Affix <= 3 && Rarity <= 5 && Tier >= 1 && Tier <= 25;
-   const bool bEquipped = Code == (Slot == 0 ? Hero->EquippedWeaponCode
+   const bool bValid = Code > 0 && Slot >= 0 && Slot <= 2
+     && Affix >= 0 && Affix <= 3 && Rarity >= 0 && Rarity <= 5
+     && Tier >= 1 && Tier <= 25 && (Rarity != 0 || Affix == 0)
+     && Code == Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier;
+   const bool bEquipped = bValid && Code == (Slot == 0 ? Hero->EquippedWeaponCode
      : Slot == 1 ? Hero->EquippedArmorCode : Hero->EquippedAccessoryCode);
    const bool bAdvised = Index == AdvisedIndex;
    const float Y = Top + 145.f + (Index - PageStart) * RowSpacing;
