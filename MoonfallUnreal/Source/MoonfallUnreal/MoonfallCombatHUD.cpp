@@ -138,6 +138,13 @@ void AMoonfallCombatHUD::DrawHUD()
        SetCounts[S] >= 2 ? FLinearColor(0.53f,0.95f,0.74f)
                          : FLinearColor(0.77f,0.79f,0.86f),
        R, Y, nullptr, 0.75f);
+     // Three-segment progress marker remains readable without changing
+     // equipped gear or the save format.
+     for (int32 Piece = 0; Piece < 3; ++Piece) {
+      DrawRect(Piece < SetCounts[S] ? FLinearColor(0.31f,0.92f,0.63f)
+                                   : FLinearColor(0.28f,0.29f,0.37f),
+       R + 7.f + Piece * 17.f, Y + 21.f, 13.f, 5.f);
+     }
      DrawText(SetTwo[S],
        SetCounts[S] >= 2 ? FLinearColor::White : FLinearColor(0.55f,0.58f,0.65f),
        R + 95.f, Y, nullptr, 0.68f);
@@ -314,6 +321,25 @@ void AMoonfallCombatHUD::DrawHUD()
      }
     }
     if (Milestones.IsEmpty()) Milestones = TEXT("No set milestones changed");
+    // Report the nearest incomplete milestone for each affected set.
+    // A completed 3/3 set is MAX, not an invented 4-piece unlock.
+    const int32 CandidateAffix = SelectedCode / 100000;
+    const int32 CurrentCode = SelectedSlot == 0 ? Hero->EquippedWeaponCode
+      : SelectedSlot == 1 ? Hero->EquippedArmorCode : Hero->EquippedAccessoryCode;
+    const int32 ReplacedAffix = Hero->GetItemPower(CurrentCode) > 0
+      ? CurrentCode / 100000 : 0;
+    FString NextBonus;
+    for (int32 Affix = 1; Affix <= 3; ++Affix) {
+     if (Affix != CandidateAffix && Affix != ReplacedAffix) continue;
+     const int32 After = Hero->GetProjectedSetPieceCount(Affix, SelectedCode);
+     const int32 Target = After < 2 ? 2 : 3;
+     if (!NextBonus.IsEmpty()) NextBonus += TEXT("  |  ");
+     NextBonus += FString::Printf(TEXT("%s: %s"),
+       SetNames[Affix - 1],
+       After == 3 ? TEXT("MAX 3/3") :
+       *FString::Printf(TEXT("%d more for %dpc"), Target - After, Target));
+    }
+    if (NextBonus.IsEmpty()) NextBonus = TEXT("No set progress change");
     const int32 PowerDelta = Hero->GetItemPowerDelta(SelectedCode);
     const TCHAR* PowerLabel = PowerDelta > 0 ? TEXT("UPGRADE") :
         (PowerDelta < 0 ? TEXT("DOWNGRADE") : TEXT("EQUAL"));
@@ -325,6 +351,9 @@ void AMoonfallCombatHUD::DrawHUD()
     DrawText(FString::Printf(TEXT("Set unlocks: %s"), *Milestones),
       FLinearColor(0.97f,0.81f,0.51f), Left + 18.f,
       Top + PanelHeight - 218.f, nullptr, 0.70f);
+    DrawText(FString::Printf(TEXT("Next bonus: %s"), *NextBonus),
+      FLinearColor(0.77f,0.94f,0.84f), Left + 18.f,
+      Top + PanelHeight - 239.f, nullptr, 0.67f);
     DrawText(FString::Printf(TEXT("After equip: Force %d/3  Ward %d/3  Focus %d/3"),
          Hero->GetProjectedSetPieceCount(1, SelectedCode),
          Hero->GetProjectedSetPieceCount(2, SelectedCode),
