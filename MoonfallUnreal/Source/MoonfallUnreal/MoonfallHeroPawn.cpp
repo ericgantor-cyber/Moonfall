@@ -239,6 +239,7 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("Inventory"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleInventory);
  Input->BindAction(TEXT("InventoryConfirm"), IE_Pressed, this, &AMoonfallHeroPawn::InventoryConfirm);
  Input->BindAction(TEXT("InventorySalvage"), IE_Pressed, this, &AMoonfallHeroPawn::InventorySalvage);
+ Input->BindAction(TEXT("EquipBest"), IE_Pressed, this, &AMoonfallHeroPawn::EquipBestInventoryUpgrades);
  Input->BindAction(TEXT("PickupLoot"), IE_Pressed, this, &AMoonfallHeroPawn::PickupNearestGroundLoot);
  Input->BindAction(TEXT("OptionsUp"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsUp);
  Input->BindAction(TEXT("OptionsDown"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsDown);
@@ -1155,6 +1156,52 @@ void AMoonfallHeroPawn::PickupNearestGroundLoot()
  for (AMoonfallGroundLoot* Loot : NearbyLoot) {
   if (IsValid(Loot)) Loot->TryCollect();
  }
+}
+
+int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()
+{
+ // Only a deliberate input while viewing inventory can change worn equipment.
+ if (!bInventoryOpen || bOptionsOpen || Health <= 0.f) return 0;
+ const int32 EquippedCodes[3] = {EquippedWeaponCode, EquippedArmorCode, EquippedAccessoryCode};
+ int32 BestScores[3] = {-1, -1, -1};
+ int32 BestIndices[3] = {-1, -1, -1};
+ // Keep existing equipment unless the candidate is strictly better.
+ // Tier is primary, rarity secondary, an affix breaks ties.
+ for (int32 Slot = 0; Slot < 3; ++Slot) {
+  const int32 Code = EquippedCodes[Slot];
+  if (Code <= 0) continue;
+  const int32 Affix = Code / 100000;
+  const int32 EncodedSlot = (Code / 10000) % 10;
+  const int32 Rarity = (Code / 1000) % 10;
+  const int32 Tier = Code % 1000;
+  if (EncodedSlot != Slot || Affix < 0 || Affix > 3 || Rarity < 0 || Rarity > 3
+      || Tier < 1 || Tier > 25 || (Rarity == 0 && Affix != 0)
+      || Code != Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier) continue;
+  BestScores[Slot] = Tier * 100 + Rarity * 10 + (Affix > 0 ? 1 : 0);
+ }
+ for (int32 Index = 0; Index < InventoryItemCodes.Num(); ++Index) {
+  const int32 Code = InventoryItemCodes[Index];
+  if (Code <= 0) continue;
+  const int32 Affix = Code / 100000;
+  const int32 Slot = (Code / 10000) % 10;
+  const int32 Rarity = (Code / 1000) % 10;
+  const int32 Tier = Code % 1000;
+  if (Slot < 0 || Slot > 2 || Affix < 0 || Affix > 3 || Rarity < 0 || Rarity > 3
+      || Tier < 1 || Tier > 25 || (Rarity == 0 && Affix != 0)
+      || Code != Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier) continue;
+  const int32 Score = Tier * 100 + Rarity * 10 + (Affix > 0 ? 1 : 0);
+  if (Score > BestScores[Slot]) {
+   BestScores[Slot] = Score;
+   BestIndices[Slot] = Index;
+  }
+ }
+ int32 UpgradesEquipped = 0;
+ for (int32 Slot = 0; Slot < 3; ++Slot) {
+  if (BestIndices[Slot] >= 0 && EquipInventoryItem(BestIndices[Slot]))
+   ++UpgradesEquipped;
+ }
+ OnBestLoadoutEquipped(UpgradesEquipped);
+ return UpgradesEquipped;
 }
 
 bool AMoonfallHeroPawn::EquipInventoryItem(int32 InventoryIndex)
