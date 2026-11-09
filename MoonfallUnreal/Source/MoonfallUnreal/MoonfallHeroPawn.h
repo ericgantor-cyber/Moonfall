@@ -26,6 +26,10 @@ public:
  bool bRestoringEquipmentProfile = false;
  bool bEquipmentCraftingInProgress = false;
  bool bBatchEquippingInventory = false;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Equipment") bool bHasEquipBestResult = false;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Equipment") int32 LastEquipBestUpgrades = 0;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Equipment") int32 LastEquipBestProtected = 0;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Equipment") int32 LastEquipBestAlternates = 0;
  UFUNCTION(BlueprintPure, Category="Moonfall|Equipment") int32 GetEquippedCodeForSlot(int32 Slot) const;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Equipment") TArray<int32> ExtraEquippedCodes = {0,0,0,0,0,0};
  UFUNCTION(BlueprintPure, Category="Moonfall|Equipment|Sets") int32 GetSetPieceCount(int32 Affix) const;

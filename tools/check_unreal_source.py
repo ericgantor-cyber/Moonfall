@@ -2758,5 +2758,22 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("continue;", fallback)
         self.assertIn("if (UpgradesEquipped > 0) SaveEquipmentProfile();", body)
 
+    def test_equip_best_reports_set_protection_and_compatible_swaps(self):
+        for field in ("bHasEquipBestResult", "LastEquipBestUpgrades",
+                      "LastEquipBestProtected", "LastEquipBestAlternates"):
+            self.assertIn(field, self.hero_h)
+        body = self.hero_cpp.split("int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()", 1)[1].split(
+            "bool AMoonfallHeroPawn::EquipInventoryItem(", 1)[0]
+        self.assertIn("LastEquipBestProtected = 0;", body)
+        self.assertIn("LastEquipBestAlternates = 0;", body)
+        self.assertIn("++LastEquipBestProtected;", body)
+        self.assertIn("++LastEquipBestAlternates;", body)
+        self.assertIn("LastEquipBestUpgrades = UpgradesEquipped;", body)
+        self.assertIn("bHasEquipBestResult = true;", body)
+        self.assertIn("if (UpgradesEquipped > 0) SaveEquipmentProfile();", body)
+        self.assertIn('TEXT("Equip Best: %d upgrades  |  %d sets protected  |  %d safe swaps")', self.hud)
+        self.assertIn('TEXT("Best: +%d  Protected %d  Safe +%d")', self.hud)
+        self.assertIn("PanelWidth < 460.f", self.hud)
+
 if __name__ == "__main__":
     unittest.main()
