@@ -333,6 +333,16 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                         craft.index("LastLootUpgrade = (Tier + 1) - PreviousEquippedTier;"))
         self.assertIn("InventoryItemCodes[InventoryIndex] = Code;\n  return false;", craft)
 
+    def test_equip_best_rejects_nonfinite_health_before_inventory_scan(self):
+        equip_best = self.hero_cpp.split(
+            "int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()", 1
+        )[1].split("bool AMoonfallHeroPawn::EquipInventoryItem(", 1)[0]
+        self.assertIn("!FMath::IsFinite(Health) || Health <= 0.f", equip_best)
+        self.assertLess(equip_best.index("!FMath::IsFinite(Health)"),
+                        equip_best.index("InventoryItemCodes.Num()"))
+        self.assertLess(equip_best.index("bOptionsOpen"),
+                        equip_best.index("InventoryItemCodes.Num()"))
+
     def test_direct_equipment_change_requires_open_inventory(self):
         equip = self.hero_cpp.split(
             "bool AMoonfallHeroPawn::EquipInventoryItem(int32 InventoryIndex)", 1
@@ -632,7 +642,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('void OnBestLoadoutEquipped(int32 UpgradesEquipped);', self.hero_h)
         body = self.hero_cpp.split("int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()", 1)[1].split(
             "bool AMoonfallHeroPawn::EquipInventoryItem(", 1)[0]
-        self.assertIn("if (!bInventoryOpen || bOptionsOpen || Health <= 0.f) return 0;", body)
+        self.assertIn("if (!bInventoryOpen || bOptionsOpen || !FMath::IsFinite(Health) || Health <= 0.f) return 0;", body)
         self.assertIn("const int32 EquippedCodes[3]", body)
         self.assertIn("BestScores[3]", body)
         self.assertIn("InventoryItemCodes.Num()", body)
