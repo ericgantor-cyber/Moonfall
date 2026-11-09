@@ -48,6 +48,108 @@ void AMoonfallCombatHUD::DrawHUD()
    DrawText(FString::Printf(TEXT("Level %d  |  XP %d / %d  |  Salvage %d"),
       Hero->Level, Hero->Experience, Hero->ExperienceToNextLevel, Hero->Salvage),
       FLinearColor(0.78f,0.83f,1.f), Left + 18.f, Top + 57.f, nullptr, 0.95f);
+   // Large displays get dedicated equipment cards, combat stats and set panels.
+   // The original compact character list below remains for smaller viewports.
+   if (PanelWidth >= 560.f && PanelHeight >= 440.f) {
+    const float ColumnGap = 14.f;
+    const float ColumnWidth = (PanelWidth - 52.f - ColumnGap) * 0.5f;
+    const float L = Left + 18.f;
+    const float R = L + ColumnWidth + ColumnGap;
+    const float BodyTop = Top + 91.f;
+    const float TextScale = Canvas->SizeX < 900.f ? 0.69f : 0.79f;
+    const TCHAR* SlotNames[] = {TEXT("WEAPON"), TEXT("ARMOR"), TEXT("ACCESSORY")};
+    const TCHAR* Qualities[] = {TEXT("COMMON"), TEXT("UNCOMMON"), TEXT("RARE"),
+      TEXT("EPIC"), TEXT("EMERALD"), TEXT("LEGENDARY")};
+    const TCHAR* Traits[] = {TEXT("PLAIN"), TEXT("FORCE"), TEXT("WARD"), TEXT("FOCUS")};
+    const FLinearColor QualityColors[] = {FLinearColor(0.84f,0.86f,0.91f),
+      FLinearColor(0.36f,0.79f,1.f), FLinearColor(1.f,0.79f,0.32f),
+      FLinearColor(0.72f,0.52f,1.f), FLinearColor(0.26f,0.94f,0.53f),
+      FLinearColor(1.f,0.55f,0.16f)};
+    DrawText(FString::Printf(TEXT("GEAR POWER %d"), Hero->GetEquipmentPower()),
+      FLinearColor(0.95f,0.86f,0.58f), L, BodyTop, nullptr, 1.02f);
+    const int32 EquippedCodes[3] = {Hero->EquippedWeaponCode, Hero->EquippedArmorCode,
+      Hero->EquippedAccessoryCode};
+    for (int32 Slot = 0; Slot < 3; ++Slot) {
+     const int32 Code = EquippedCodes[Slot];
+     const int32 ItemPower = Hero->GetItemPower(Code);
+     const float Y = BodyTop + 29.f + Slot * 66.f;
+     DrawRect(FLinearColor(0.10f,0.11f,0.19f,0.96f),
+       L, Y, ColumnWidth, 59.f);
+     DrawText(SlotNames[Slot], FLinearColor(0.79f,0.83f,0.96f),
+       L + 9.f, Y + 5.f, nullptr, 0.70f);
+     if (ItemPower <= 0) {
+      DrawText(TEXT("EMPTY SLOT"), FLinearColor(0.62f,0.67f,0.77f),
+       L + 9.f, Y + 26.f, nullptr, 0.82f);
+     } else {
+      const int32 Tier = Code % 1000;
+      const int32 Rarity = (Code / 1000) % 10;
+      const int32 Affix = Code / 100000;
+      DrawText(FString::Printf(TEXT("%s T%d  %s"), Qualities[Rarity], Tier, Traits[Affix]),
+        QualityColors[Rarity], L + 9.f, Y + 24.f, nullptr, TextScale);
+      DrawText(FString::Printf(TEXT("%d POWER"), ItemPower),
+        FLinearColor(0.88f,0.91f,1.f),
+        L + ColumnWidth * 0.58f, Y + 5.f, nullptr, 0.65f);
+     }
+    }
+    const float LeftStatsY = BodyTop + 236.f;
+    DrawText(TEXT("PRIMARY ATTRIBUTES"), FLinearColor(0.52f,0.91f,0.76f),
+      L, LeftStatsY, nullptr, 0.90f);
+    DrawText(FString::Printf(TEXT("Might %d   Insight %d   Resolve %d"),
+      Hero->GetMight(), Hero->GetInsight(), Hero->GetResolve()),
+      FLinearColor::White, L, LeftStatsY + 23.f, nullptr, TextScale);
+    DrawText(TEXT("SECONDARY STATS"), FLinearColor(0.52f,0.91f,0.76f),
+      L, LeftStatsY + 51.f, nullptr, 0.90f);
+    DrawText(FString::Printf(TEXT("Crit %.1f%%   Haste %.1f%%"),
+      Hero->GetCriticalChance() * 100.f, Hero->GetHasteBonus() * 100.f),
+      FLinearColor::White, L, LeftStatsY + 75.f, nullptr, TextScale);
+    DrawText(FString::Printf(TEXT("Mastery %.1f%%   Vers %.1f%%"),
+      Hero->GetMasteryBonus() * 100.f, Hero->GetVersatilityBonus() * 100.f),
+      FLinearColor::White, L, LeftStatsY + 96.f, nullptr, TextScale);
+    DrawText(TEXT("LEGENDARY EQUIPMENT PERKS"),
+      FLinearColor(1.f,0.74f,0.42f), R, BodyTop, nullptr, 0.85f);
+    const FString Perks[] = {
+      FString::Printf(TEXT("Weapon %s: 1.65x crit damage"),
+        Hero->HasLegendaryPerk(0) ? TEXT("ACTIVE") : TEXT("LOCKED")),
+      FString::Printf(TEXT("Armor %s: +1.5%% protection"),
+        Hero->HasLegendaryPerk(1) ? TEXT("ACTIVE") : TEXT("LOCKED")),
+      FString::Printf(TEXT("Accessory %s: +2.5%% haste"),
+        Hero->HasLegendaryPerk(2) ? TEXT("ACTIVE") : TEXT("LOCKED"))
+    };
+    for (int32 Slot = 0; Slot < 3; ++Slot) {
+     DrawRect(FLinearColor(0.14f,0.10f,0.18f,0.95f),
+       R, BodyTop + 27.f + Slot * 45.f, ColumnWidth, 39.f);
+     DrawText(Perks[Slot],
+       Hero->HasLegendaryPerk(Slot) ? FLinearColor(1.f,0.79f,0.40f)
+                                   : FLinearColor(0.65f,0.67f,0.75f),
+       R + 7.f, BodyTop + 38.f + Slot * 45.f, nullptr, TextScale);
+    }
+    DrawText(TEXT("EQUIPMENT SET BONUSES"), FLinearColor(0.52f,0.91f,0.76f),
+      R, BodyTop + 182.f, nullptr, 0.90f);
+    const int32 SetCounts[] = {Hero->GetSetPieceCount(1), Hero->GetSetPieceCount(2),
+      Hero->GetSetPieceCount(3)};
+    const TCHAR* SetNames[] = {TEXT("FORCE"), TEXT("WARD"), TEXT("FOCUS")};
+    const TCHAR* SetTwo[] = {TEXT("2pc: +3% crit"), TEXT("2pc: +3% versatility"),
+      TEXT("2pc: +4% haste")};
+    const TCHAR* SetThree[] = {TEXT("3pc: +4% mastery"), TEXT("3pc: +2.5% protection"),
+      TEXT("3pc: +6% mana regen")};
+    for (int32 S = 0; S < 3; ++S) {
+     const float Y = BodyTop + 207.f + S * 52.f;
+     DrawText(FString::Printf(TEXT("%s %d/3"), SetNames[S], SetCounts[S]),
+       SetCounts[S] >= 2 ? FLinearColor(0.53f,0.95f,0.74f)
+                         : FLinearColor(0.77f,0.79f,0.86f),
+       R, Y, nullptr, 0.75f);
+     DrawText(SetTwo[S],
+       SetCounts[S] >= 2 ? FLinearColor::White : FLinearColor(0.55f,0.58f,0.65f),
+       R + 95.f, Y, nullptr, 0.68f);
+     DrawText(SetThree[S],
+       SetCounts[S] >= 3 ? FLinearColor::White : FLinearColor(0.55f,0.58f,0.65f),
+       R + 95.f, Y + 19.f, nullptr, 0.68f);
+    }
+    DrawText(TEXT("P / A: back to inventory    I / Select / Esc: close"),
+      FLinearColor(0.81f,0.83f,0.97f), Left + 18.f,
+      Top + PanelHeight - 29.f, nullptr, 0.78f);
+    return;
+   }
    const float RowHeight = FMath::Clamp((PanelHeight - 145.f) / 16.f, 8.f, 26.f);
    const float StartY = Top + 96.f;
    const FString CharacterLines[] = {
@@ -114,14 +216,16 @@ void AMoonfallCombatHUD::DrawHUD()
    const TCHAR* Slots[] = {TEXT("Weapon"), TEXT("Armor"), TEXT("Accessory")};
    const TCHAR* Rarities[] = {TEXT("Common"), TEXT("Uncommon"), TEXT("Rare"), TEXT("Epic"), TEXT("Emerald"), TEXT("Legendary")};
    const TCHAR* Traits[] = {TEXT("None"), TEXT("Force"), TEXT("Ward"), TEXT("Focus")};
-   const bool bValid = Code > 0 && Slot <= 2 && Affix <= 3 && Rarity <= 5 && Tier >= 1 && Tier <= 25;
+   const bool bValid = Hero->GetItemPower(Code) > 0;
    const bool bEquipped = Code == (Slot == 0 ? Hero->EquippedWeaponCode
      : Slot == 1 ? Hero->EquippedArmorCode : Hero->EquippedAccessoryCode);
    const float Y = Top + 145.f + (Index - PageStart) * RowSpacing;
    if (Index == Selected) DrawRect(FLinearColor(0.25f,0.18f,0.43f,0.90f),
      Left + 12.f, Y - 3.f, PanelWidth - 24.f, RowSpacing - 3.f);
-   const FString Row = bValid ? FString::Printf(TEXT("%02d  %s  T%d  %s  %s%s"),
-      Index + 1, Slots[Slot], Tier, Rarities[Rarity], Traits[Affix], bEquipped ? TEXT("  [EQUIPPED]") : TEXT(""))
+   const FString Row = bValid ? FString::Printf(TEXT("%02d %s T%d %s %s  P%d  %+d%s"),
+      Index + 1, Slots[Slot], Tier, Rarities[Rarity], Traits[Affix],
+      Hero->GetItemPower(Code), Hero->GetItemPowerDelta(Code),
+      bEquipped ? TEXT(" [E]") : TEXT(""))
     : FString::Printf(TEXT("%02d  Invalid item"), Index + 1);
    // Item names retain a clear text label plus a distinct quality color.
    const FLinearColor RarityColors[] = {FLinearColor(0.90f,0.90f,0.90f),
