@@ -64,7 +64,7 @@ AMoonfallDungeonLayout::AMoonfallDungeonLayout()
  FinalChamberTrigger->SetCollisionResponseToAllChannels(ECR_Ignore);
  FinalChamberTrigger->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
  FinalChamberTrigger->SetGenerateOverlapEvents(true);
- // Eleven? The full twelve interior rooms are 1..12, excluding entrance
+ // The twelve interior rooms are 1..12, excluding entrance
  // index 0 and final boss index 13. Lightweight components, no Tick.
  for (int32 Chamber = 1; Chamber < ChamberCount - 1; ++Chamber) {
   UBoxComponent* Trigger = CreateDefaultSubobject<UBoxComponent>(
