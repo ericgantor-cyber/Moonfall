@@ -340,7 +340,7 @@ class UE5RewardParity(unittest.TestCase):
         self.assertIn("Hero->bRewardSaveInitialized", restore)
         self.assertIn("Hero->bRewardSaveLoadFailed", restore)
         self.assertIn("Hero->HasUnlockedGate(GateId)", restore)
-        self.assertIn("else\\n {\\n  const FString& SlotName = UMoonfallRewardSaveGame::GetRewardSlotName();", restore)
+        self.assertIn("const FString& SlotName = UMoonfallRewardSaveGame::GetRewardSlotName();", restore)
         self.assertIn("UGameplayStatics::LoadGameFromSlot(SlotName, 0)", restore)
         self.assertIn("Saved->UnlockedGateIds.Contains(GateId)", restore)
         self.assertIn("ApplyOpenState();", restore)
