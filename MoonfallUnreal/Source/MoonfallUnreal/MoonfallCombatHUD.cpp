@@ -10,7 +10,7 @@
 int32 AMoonfallCombatHUD::GetInventoryItemAtScreenPosition(
     const AMoonfallHeroPawn* Hero, float X, float Y) const
 {
- // Use the same geometry and pagination as DrawHUD. The hit test is read-only
+ // Use the same geometry and scroll window as DrawHUD. The hit test is read-only
  // and never chooses a hidden or off-page entry.
  if (!Canvas || !IsValid(Hero) || !Hero->bInventoryOpen ||
      Hero->bCharacterStatsOpen || Hero->bOptionsOpen ||
@@ -24,10 +24,10 @@ int32 AMoonfallCombatHUD::GetInventoryItemAtScreenPosition(
  const bool bWideInventory = Canvas->SizeX >= 1100.f && Canvas->SizeY >= 600.f;
  const float PanelWidth = FMath::Min(bWideInventory ? 1040.f : 680.f, FMath::Max(280.f, Canvas->SizeX - 24.f));
  const float ListWidth = bWideInventory ? PanelWidth - 340.f : PanelWidth;
- const float PanelHeight = FMath::Min(580.f, FMath::Max(280.f, Canvas->SizeY - 24.f));
+ const float PanelHeight = FMath::Min(860.f, FMath::Max(280.f, Canvas->SizeY - 24.f));
  const float Left = (Canvas->SizeX - PanelWidth) * 0.5f;
  const float Top = (Canvas->SizeY - PanelHeight) * 0.5f;
- const int32 PerPage = FMath::Clamp(FMath::FloorToInt((PanelHeight - 290.f) / 25.f), 2, 8);
+ const int32 PerPage = FMath::Clamp(FMath::FloorToInt((PanelHeight - 290.f) / 25.f), 2, 22);
  const int32 Selected = FMath::Clamp(Hero->InventorySelection, 0, Count - 1);
  const int32 PageStart = FMath::Clamp(Hero->InventoryViewStart, 0, FMath::Max(0, Count - PerPage));
  const int32 PageEnd = FMath::Min(Count, PageStart + PerPage);
@@ -52,7 +52,7 @@ bool AMoonfallCombatHUD::IsInventorySortButtonAtScreenPosition(
  const float PanelWidth = FMath::Min(bWideInventory ? 1040.f : 680.f,
    FMath::Max(280.f, Canvas->SizeX - 24.f));
  const float ListWidth = bWideInventory ? PanelWidth - 340.f : PanelWidth;
- const float PanelHeight = FMath::Min(580.f, FMath::Max(280.f, Canvas->SizeY - 24.f));
+ const float PanelHeight = FMath::Min(860.f, FMath::Max(280.f, Canvas->SizeY - 24.f));
  const float Left = (Canvas->SizeX - PanelWidth) * 0.5f;
  const float Top = (Canvas->SizeY - PanelHeight) * 0.5f;
  // Compact windows put the button on the bottom row to avoid title overlap.
@@ -128,11 +128,11 @@ void AMoonfallCombatHUD::DrawHUD()
   return;
  }
  if (Hero->bInventoryOpen) {
-  // Canvas-only paginated inventory: no extra actors, widgets, or hidden controls.
+  // One continuous scrollable bag: all item codes share one list and one viewport.
   const bool bWideInventory = Canvas->SizeX >= 1100.f && Canvas->SizeY >= 600.f;
  const float PanelWidth = FMath::Min(bWideInventory ? 1040.f : 680.f, FMath::Max(280.f, Canvas->SizeX - 24.f));
  const float ListWidth = bWideInventory ? PanelWidth - 340.f : PanelWidth;
-  const float PanelHeight = FMath::Min(580.f, FMath::Max(280.f, Canvas->SizeY - 24.f));
+  const float PanelHeight = FMath::Min(860.f, FMath::Max(280.f, Canvas->SizeY - 24.f));
   const float Left = (Canvas->SizeX - PanelWidth) * 0.5f;
   const float Top = (Canvas->SizeY - PanelHeight) * 0.5f;
   DrawRect(FLinearColor(0.04f, 0.035f, 0.10f, 0.96f), Left, Top, PanelWidth, PanelHeight);
@@ -191,13 +191,13 @@ void AMoonfallCombatHUD::DrawHUD()
    return;
   }
   const int32 Count = Hero->InventoryItemCodes.Num();
-  // Reserve height for a real equipment-stat line and three controls rows.
-  const int32 PerPage = FMath::Clamp(FMath::FloorToInt((PanelHeight - 290.f) / 25.f), 2, 8);
+  // Show as many bag rows as fit without covering the summary and controls.
+  const int32 PerPage = FMath::Clamp(FMath::FloorToInt((PanelHeight - 290.f) / 25.f), 2, 22);
   const int32 Selected = FMath::Clamp(Hero->InventorySelection, 0, FMath::Max(0, Count - 1));
   const int32 PageStart = FMath::Clamp(Hero->InventoryViewStart, 0, FMath::Max(0, Count - PerPage));
   const int32 PageEnd = FMath::Min(Count, PageStart + PerPage);
   // Local advisor reads inventory and current set bonuses, never mutates gear.
-  // Show the inventory index even when its recommendation is on another page.
+  // Show the inventory index even when its recommendation is outside the visible bag.
   const int32 AdvisedIndex = Hero->GetRecommendedEquipmentIndex();
   const int32 SelectedImprovement = Hero->GetEquipmentUpgradeScore(Selected);
   DrawText(AdvisedIndex >= 0
