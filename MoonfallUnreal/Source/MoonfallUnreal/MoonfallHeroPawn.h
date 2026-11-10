@@ -17,6 +17,7 @@ public:
  virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
  virtual void BeginPlay() override;
  virtual void Tick(float DeltaSeconds) override;
+ virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
  // Original Moonfall set themes use existing Force/Ward/Focus traits
  // on three equipped slots. No changes to encoded item IDs or saved gear.
  UFUNCTION(BlueprintPure, Category="Moonfall|Equipment|Sets") int32 GetSetPieceCount(int32 Affix) const;
@@ -272,6 +273,11 @@ public:
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Combat") int32 RightSpell = 1;
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Combat") void OnSpellCast(int32 School, bool bLeftHand);
 private:
+ // All talent writes and XP changes share a bounded, versioned snapshot.
+ bool SaveProgress();
+ bool LoadProgress();
+ bool bProgressDirty = false;
+ float LastProgressSaveAt = -1000.f;
  UPROPERTY(VisibleAnywhere) USpringArmComponent* CameraBoom;
  UPROPERTY(VisibleAnywhere) UCameraComponent* FollowCamera;
  float LastFinisherKillAt = -100.f;
