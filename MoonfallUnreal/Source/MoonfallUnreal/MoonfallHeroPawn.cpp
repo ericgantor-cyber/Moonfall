@@ -545,6 +545,10 @@ void AMoonfallHeroPawn::LeftClickContextAction()
    if (AMoonfallCombatHUD* HUD = Cast<AMoonfallCombatHUD>(Controller->GetHUD())) {
     float MouseX = 0.f, MouseY = 0.f;
     if (Controller->GetMousePosition(MouseX, MouseY)) {
+     if (HUD->IsInventorySortButtonAtScreenPosition(this, MouseX, MouseY)) {
+      CycleInventorySort();
+      return;
+     }
      const int32 ClickedIndex = HUD->GetInventoryItemAtScreenPosition(this, MouseX, MouseY);
      if (InventoryItemCodes.IsValidIndex(ClickedIndex))
       InventorySelection = ClickedIndex;
