@@ -1007,7 +1007,8 @@ void AMoonfallHeroPawn::ToggleCharacterStats()
  // C opens character info from gameplay; controller A still switches
  // between the character sheet and inventory without equipping anything.
  if (bOptionsOpen || !FMath::IsFinite(Health) || Health <= 0.f) return;
- if (bAtlasOpen) { bAtlasOpen = false; bTalentsOpen = false; UpdateInventoryMouseMode(); }
+ if (bAtlasOpen) { bAtlasOpen = false; bTalentsOpen = false; }
+ UpdateInventoryMouseMode();
  if (!bInventoryOpen) {
   ResetMouseCastChord();
   StopJumping();
@@ -1206,7 +1207,8 @@ void AMoonfallHeroPawn::ToggleTalents()
 void AMoonfallHeroPawn::ToggleInventory() {
  if (bOptionsOpen || !FMath::IsFinite(Health) || Health <= 0.f) return;
  ResetMouseCastChord();
- if (bAtlasOpen) { bAtlasOpen = false; bTalentsOpen = false; UpdateInventoryMouseMode(); }
+ if (bAtlasOpen) { bAtlasOpen = false; bTalentsOpen = false; }
+ UpdateInventoryMouseMode();
  if (bCharacterStatsOpen) {
   // B returns from character info directly to the editable inventory.
   bCharacterStatsOpen = false;
