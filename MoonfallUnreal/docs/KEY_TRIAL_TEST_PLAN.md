@@ -107,6 +107,23 @@ Moonfall's fully migrated Godot world or finished dungeon.
 - Test scripted equipment grants with both empty and occupied slots.
   They share the same pickup transaction and do not replace occupied gear.
 
+## Batched elite and boss loot saves
+
+- One enemy death generates the full group first: regular 1, elite 2, boss 3.
+  All valid records are appended and committed with a **single** reward-save
+  write, then their pickup actors are materialized. On write failure the
+  entire new group is rolled back, with temporary manual pickups attempted
+  for every rolled item and an explicit unsaved-loot warning.
+- In a test arena kill multiple elites and bosses, restart and verify each
+  dropped code appears exactly once with the expected count. Verify there
+  are no phantom saved IDs from rejected writes or malformed duplicate IDs.
+- Run read-only-save tests and fill the 512-record cap. Verify no partial
+  saved boss reward group appears: either the group is committed, or every
+  attempted item becomes temporary where actor spawning succeeds.
+- This reduces save writes for one multi-drop encounter, but many different
+  enemy deaths still write independently. Verify gameplay on native UE5
+  Windows builds before concluding that combat stutter has improved.
+
 ## World-loot persistence (reward save v4)
 
 - Back up an existing v1, v2 or v3 reward save. Loading upgrades it in memory
