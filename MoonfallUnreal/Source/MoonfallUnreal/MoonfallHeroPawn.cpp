@@ -586,12 +586,15 @@ void AMoonfallHeroPawn::RightClickContextAction()
     float MouseX = 0.f, MouseY = 0.f;
     if (Controller->GetMousePosition(MouseX, MouseY)) {
      const int32 ClickedIndex = HUD->GetInventoryItemAtScreenPosition(this, MouseX, MouseY);
-     if (InventoryItemCodes.IsValidIndex(ClickedIndex))
+     // A right-click on empty inventory space must never equip the
+     // previously selected item. Only the clicked visible row can equip.
+     if (InventoryItemCodes.IsValidIndex(ClickedIndex)) {
       InventorySelection = ClickedIndex;
+      EquipSelectedInventoryItem();
+     }
     }
    }
   }
-  EquipSelectedInventoryItem();
   return;
  }
  bRightMouseHeld = true;
