@@ -82,6 +82,17 @@ class InventoryCapacityPort(unittest.TestCase):
                           "InventoryItemCodes.Empty(", "Destroy("):
             self.assertNotIn(forbidden, method)
 
+    def test_compact_key_ring_never_covers_clickable_bag_rows(self):
+        hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        # Existing bag rows begin 145 px below the panel top.
+        self.assertIn("const float Y = Top + 145.f +", hud)
+        # At the 280px compact minimum, the ring is at 85..123, not
+        # overlapping a 145px gear row as its former bottom anchor did.
+        self.assertIn("PanelHeight < 400.f ? Top+85.f : Top+PanelHeight-135.f", hud)
+        # C-only has its own condensed layout; don't cover small stat pages.
+        self.assertIn("!Hero->bBagPanelOpen && PanelHeight >= 400.f", hud)
+        self.assertIn("if (bDual)", hud)
+
     def test_auto_expanding_key_ring_pickups_and_persistence(self):
         header = (ROOT / "MoonfallHeroPawn.h").read_text(encoding="utf-8")
         save = (ROOT / "MoonfallProgressSaveGame.h").read_text(encoding="utf-8")
