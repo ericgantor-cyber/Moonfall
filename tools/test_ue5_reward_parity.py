@@ -578,7 +578,7 @@ class UE5RewardParity(unittest.TestCase):
     def test_world_loot_overflow_falls_back_to_visible_temporary_pickup(self):
         restore = self.hero.split("void AMoonfallHeroPawn::RestorePendingWorldEquipmentDrops()", 1)[1].split(
             "void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(", 1)[0]
-        self.assertIn("TSet<FGuid> SpawnedIds;", restore)
+        self.assertIn("TMap<FGuid, int32> SpawnedItemCodes;", restore)
         self.assertLess(restore.index("for (TActorIterator<AMoonfallGroundLoot>"),
                         restore.index("for (const FMoonfallWorldLootRecord& Record"))
         self.assertEqual(restore.count("TActorIterator<AMoonfallGroundLoot>"), 1)
@@ -613,6 +613,25 @@ class UE5RewardParity(unittest.TestCase):
         self.assertIn("UGameplayStatics::GetCurrentLevelName(this, true)", self.hero)
         gate = (ROOT / "MoonfallKeyGate.cpp").read_text()
         self.assertIn("Saved->SchemaVersion != 5", gate)
+
+    def test_persisted_loot_pickup_requires_correct_level_and_identity(self):
+        collect = self.hero.split("bool AMoonfallHeroPawn::CollectPersistedGroundEquipmentCode(", 1)[1].split(
+            "bool AMoonfallHeroPawn::RegisterWorldEquipmentDrops(", 1)[0]
+        self.assertIn("if (!GetWorld() || bRewardSaveLoadFailed) return false;", collect)
+        self.assertIn("if (CurrentLevelId.IsNone()) return false;", collect)
+        self.assertIn("Record.DropId == DropId && Record.ItemCode == ItemCode", collect)
+        self.assertIn("Record.LevelId == CurrentLevelId", collect)
+        self.assertLess(collect.index("Record.LevelId == CurrentLevelId"),
+                        collect.index("PendingWorldLoot.RemoveAt(Index);"))
+        self.assertIn("PendingWorldLoot.Insert(Record, Index);", collect)
+        restore = self.hero.split("void AMoonfallHeroPawn::RestorePendingWorldEquipmentDrops()", 1)[1].split(
+            "void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(", 1)[0]
+        self.assertIn("TMap<FGuid, int32> SpawnedItemCodes;", restore)
+        self.assertIn("SpawnedItemCodes.Find(Record.DropId)", restore)
+        self.assertIn("if (*ExistingCode != Record.ItemCode)", restore)
+        self.assertIn("skipping conflicting actor", restore)
+        self.assertIn("SpawnedItemCodes.Add(Record.DropId, Record.ItemCode);", restore)
+        self.assertEqual(restore.count("TActorIterator<AMoonfallGroundLoot>"), 1)
 
     def test_equipment_remains_manual_and_hud_shows_rewards(self):
         self.assertIn("void PickupNearestGroundLoot();", self.hero_h)
