@@ -549,10 +549,6 @@ void AMoonfallHeroPawn::LeftClickContextAction()
       CycleInventorySort();
       return;
      }
-     if (HUD->IsInventoryEquipButtonAtScreenPosition(this, MouseX, MouseY)) {
-      EquipSelectedInventoryItem();
-      return;
-     }
      const int32 ClickedIndex = HUD->GetInventoryItemAtScreenPosition(this, MouseX, MouseY);
      if (InventoryItemCodes.IsValidIndex(ClickedIndex))
       InventorySelection = ClickedIndex;
