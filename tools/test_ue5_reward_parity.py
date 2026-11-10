@@ -296,6 +296,22 @@ class UE5RewardParity(unittest.TestCase):
                         interaction.index("for (TActorIterator<AMoonfallKeyGate>"))
         self.assertIn("if (NearestFacing) Nearest = NearestFacing;", interaction)
 
+    def test_unreadable_reward_save_is_not_reset_or_overwritten(self):
+        self.assertIn("bool bRewardSaveLoadFailed = false;", self.hero_h)
+        loader = self.hero.split("bool AMoonfallHeroPawn::LoadRewardProgress()", 1)[1].split(
+            "bool AMoonfallHeroPawn::SaveRewardProgress()", 1)[0]
+        self.assertIn("bRewardSaveLoadFailed = true;", loader)
+        self.assertIn("bRewardSaveLoadFailed = false;", loader)
+        self.assertIn("Save->SchemaVersion != 1 && Save->SchemaVersion != 2", loader)
+        self.assertLess(loader.index("if (!Save ||"), loader.index("CollectedKeys.Reset();"))
+        self.assertLess(loader.index("if (!Save ||"), loader.index("Gold = 0;"))
+        save_method = self.hero.split("bool AMoonfallHeroPawn::SaveRewardProgress()", 1)[1].split(
+            "int64 AMoonfallHeroPawn::AddGold(", 1)[0]
+        self.assertIn("if (bRewardSaveLoadFailed) return false;", save_method)
+        self.assertLess(save_method.index("if (bRewardSaveLoadFailed) return false;"),
+                        save_method.index("CreateSaveGameObject("))
+        self.assertIn("SaveGameToSlot(Save, RewardSaveSlot, RewardSaveUser)", save_method)
+
     def test_equipment_remains_manual_and_hud_shows_rewards(self):
         self.assertIn("void PickupNearestGroundLoot();", self.hero_h)
         self.assertIn("Loot->TryCollect()", self.hero)
