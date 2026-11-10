@@ -88,8 +88,13 @@ static func _roll_strength(roll:Dictionary)->int:
 
 static func totals(state:Dictionary)->Dictionary:
  var stats:Dictionary={"weapon_power":0,"armor":0,"magic":0,"vitality":0,"haste":0,"crit":0,"ward":0,"elemental":0}
- var slots:Dictionary=state.get("equipped",{})
- var owned:Dictionary=state.get("items",{})
+ var slots_value:Variant=state.get("equipped",{})
+ var owned_value:Variant=state.get("items",{})
+ var rolls_value:Variant=state.get("loot_rolls",[])
+ if not slots_value is Dictionary or not owned_value is Dictionary:return stats
+ var slots:Dictionary=slots_value
+ var owned:Dictionary=owned_value
+ var rolls:Array=rolls_value if rolls_value is Array else []
  for slot in SLOTS:
   var item_id:String=str(slots.get(slot,""))
   if int(owned.get(item_id,0))<1:continue
@@ -102,7 +107,7 @@ static func totals(state:Dictionary)->Dictionary:
    "offhand","accessory":stats["magic"]+=power
   # Apply only a matching owned item's highest rolled bonus.
   var best_roll:Dictionary={}
-  for roll in state.get("loot_rolls",[]):
+  for roll in rolls:
    if roll is Dictionary and str(roll.get("item_id",""))==str(item["id"]):
     var rolled_rarity:int=clampi(int(roll.get("rarity_index",0)),0,4)
     var best_rarity:int=int(best_roll.get("rarity_index",-1))
@@ -112,7 +117,9 @@ static func totals(state:Dictionary)->Dictionary:
   if str(item["category"])=="weapon":stats["weapon_power"]+=bonus
   elif str(item["category"])=="armor":stats["armor"]+=bonus
   else:stats["magic"]+=bonus
-  for affix in best_roll.get("affixes",[]):
+  var affixes:Variant=best_roll.get("affixes",[])
+  if not affixes is Array:continue
+  for affix in affixes:
    if not affix is Dictionary:continue
    var value:int=clampi(int(affix.get("value",0)),0,30)
    match str(affix.get("stat","")):
