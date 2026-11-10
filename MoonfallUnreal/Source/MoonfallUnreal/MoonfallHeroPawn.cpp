@@ -1675,6 +1675,7 @@ void AMoonfallHeroPawn::SelectNextTalentPage()
 {
  if (!bAtlasOpen || !bTalentsOpen || bOptionsOpen || Health <= 0.f) return;
  const int32 Page = FMath::Clamp(TalentSelectedNode,0,137) / 27;
+ bTalentRespecArmed = false;
  TalentSelectedNode = ((Page + 1) % 6) * 27;
 }
 
@@ -1682,6 +1683,7 @@ void AMoonfallHeroPawn::SelectPreviousTalentPage()
 {
  if (!bAtlasOpen || !bTalentsOpen || bOptionsOpen || Health <= 0.f) return;
  const int32 Page = FMath::Clamp(TalentSelectedNode,0,137) / 27;
+ bTalentRespecArmed = false;
  TalentSelectedNode = ((Page + 5) % 6) * 27;
 }
 
@@ -1730,6 +1732,7 @@ bool AMoonfallHeroPawn::ActivateTalentNode(int32 Node)
 {
  if (Node < 0 || Node >= 138 || !bAtlasOpen || !bTalentsOpen ||
      bOptionsOpen || bInventoryOpen || Health <= 0.f) return false;
+ bTalentRespecArmed = false; // Any deliberate star action cancels a pending reset.
  TalentSelectedNode = Node;
  return Node < 3 ? SpendTalentPoint(Node) : Node < 27 ? UnlockTalentNode(Node) : UnlockAstralTalent(Node - 27);
 }
@@ -1742,13 +1745,13 @@ void AMoonfallHeroPawn::ActivateSelectedTalentNode()
 void AMoonfallHeroPawn::SelectNextTalentNode()
 {
  if (bAtlasOpen && bTalentsOpen && !bOptionsOpen && Health > 0.f)
-  TalentSelectedNode = (FMath::Clamp(TalentSelectedNode,0,137) + 1) % 138;
+  { bTalentRespecArmed = false; TalentSelectedNode = (FMath::Clamp(TalentSelectedNode,0,137) + 1) % 138; }
 }
 
 void AMoonfallHeroPawn::SelectPreviousTalentNode()
 {
  if (bAtlasOpen && bTalentsOpen && !bOptionsOpen && Health > 0.f)
-  TalentSelectedNode = (FMath::Clamp(TalentSelectedNode,0,137) + 137) % 138;
+  { bTalentRespecArmed = false; TalentSelectedNode = (FMath::Clamp(TalentSelectedNode,0,137) + 137) % 138; }
 }
 
 bool AMoonfallHeroPawn::CanUnlockTalentNode(int32 Node) const
