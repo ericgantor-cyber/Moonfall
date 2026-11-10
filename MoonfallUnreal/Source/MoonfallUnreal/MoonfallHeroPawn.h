@@ -122,6 +122,24 @@ public:
  void SpendForceTalent();
  void SpendFocusTalent();
  void SpendWardTalent();
+ // Tier II keystones and Tier III cross-branch constellations.
+ // Each unlock costs one point; graph prerequisites are server-side checked.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") bool bTalentForceKeystone = false;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") bool bTalentFocusKeystone = false;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") bool bTalentWardKeystone = false;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") bool bTalentBattleWeave = false;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") bool bTalentArcaneAegis = false;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") bool bTalentIronWill = false;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Talents") bool CanUnlockTalentNode(int32 Node) const;
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Talents") bool UnlockTalentNode(int32 Node);
+ void UnlockForceKeystone();
+ void UnlockFocusKeystone();
+ void UnlockWardKeystone();
+ void UnlockBattleWeave();
+ void UnlockArcaneAegis();
+ void UnlockIronWill();
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Talents") bool RespecTalents();
+
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Inventory") bool bCharacterStatsOpen = false;
  UFUNCTION(BlueprintCallable, Category="Moonfall|Inventory") void ToggleCharacterStats();
  // Controller A switches existing inventory pages, never closes the menu.
