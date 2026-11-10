@@ -107,6 +107,29 @@ Moonfall's fully migrated Godot world or finished dungeon.
 - Test scripted equipment grants with both empty and occupied slots.
   They share the same pickup transaction and do not replace occupied gear.
 
+## World-loot persistence (reward save v4)
+
+- Back up an existing v1, v2 or v3 reward save. Loading upgrades it in memory
+  without discarding previously saved gold, gates, keys, equipped gear or bag.
+  Schema v4 adds up to 512 durable world drops with unique GUIDs and positions.
+- Kill regular, elite and boss enemies; leave several drops on the floor. Exit,
+  reload, and verify the same item codes and positions reappear. Reload twice
+  to verify each saved GUID appears only once.
+- Pick up a restored drop with F/controller. Its GUID and item code must be
+  removed from saved ground loot in the same save transaction that adds the
+  item to the bag; test empty-slot auto-equip and occupied-slot preservation.
+  After restart, the collected drop must not reappear.
+- Deny reward-save writes and try collecting a restored drop. The bag, equipped
+  stats and GUID ledger must roll back, and the pickup must remain available.
+  Deny writes during enemy death: new uncommitted drops must not be portrayed
+  as durable; the HUD reports the write failure.
+- Invalid saved GUIDs, duplicate GUIDs, malformed item codes and non-finite
+  positions are rejected on load; inspect a backup save, never production data.
+- Native UE5 compilation, Windows playtest, and stress testing with many
+  pickups are still required. Scripted *recovery* drops created during an
+  ongoing disk-write failure are best effort and cannot survive a restart
+  until a successful save occurs.
+
 ## UE5 loot and save v3 verification
 
 - Upgrade a copy of a valid schema-v1 or v2 reward save. Gold, keys, quests
@@ -136,7 +159,7 @@ Moonfall's fully migrated Godot world or finished dungeon.
   With save writes denied, the exact rolled item should spawn as a manually
   collectable world pickup (not be rerolled). If the recovery spawn fails,
   the HUD must explicitly warn that the item could not be recovered.
-- IMPORTANT: Loose uncollected world drops are **not** saved between
-  sessions, including these recovery drops. Full world-loot persistence and
-  native Windows UE5 compilation/gameplay checks are still needed before
-  treating this as a production-ready equipment save.
+- Normal enemy drops now use the v4 persistent world-loot ledger. Emergency
+  recovery drops spawned when scripted reward saving fails remain unsaved,
+  since the disk is already rejecting writes. Native Windows UE5 compilation,
+  gameplay and stress checks are still necessary.
