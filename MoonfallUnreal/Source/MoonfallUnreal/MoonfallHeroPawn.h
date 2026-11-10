@@ -153,6 +153,10 @@ public:
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") bool bTalentNightfallAscension = false;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") bool bTalentRadiantNexus = false;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") bool bTalentTitanSoul = false;
+ // Ninth-tier convergence: choose the final powers by linking transcendents.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") bool bTalentCrimsonNova = false;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") bool bTalentAetherCovenant = false;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") bool bTalentLastCitadel = false;
  UFUNCTION(BlueprintPure, Category="Moonfall|Talents") bool CanUnlockTalentNode(int32 Node) const;
  UFUNCTION(BlueprintCallable, Category="Moonfall|Talents") bool UnlockTalentNode(int32 Node);
  // Indexed player-side API shared by mouse, keyboard and controller navigation.
