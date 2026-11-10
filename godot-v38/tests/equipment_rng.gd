@@ -66,6 +66,19 @@ func _run()->void:
  check(int(INVENTORY.totals(bad_rolls)["weapon_power"])==ordinary,"invalid loot rolls retain base stats")
  bad_rolls["loot_rolls"]=[{"item_id":"ashwood_sword","rarity_index":4,"power_bonus":5,"affixes":"invalid"}]
  check(int(INVENTORY.totals(bad_rolls)["weapon_power"])==ordinary+5,"invalid affixes retain bounded rarity bonus")
+ # Corrupt numeric inventory/save fields must be ignored, not coerced into power.
+ var corrupt_owned:Dictionary=empowered.duplicate(true)
+ corrupt_owned["items"]["ashwood_sword"]={"bad":true}
+ check(int(INVENTORY.totals(corrupt_owned)["weapon_power"])==0,"non-numeric owned quantity grants no combat stats")
+ var corrupt_saved:Dictionary=empowered.duplicate(true)
+ corrupt_saved["items"]["ashwood_sword"]={"bad":true}
+ corrupt_saved["materials"]={"Ashwood":["bad"]}
+ corrupt_saved["gold"]={"bad":true}
+ corrupt_saved["loot_pity"]=["bad"]
+ var clean_saved:Dictionary=INVENTORY.normalize(corrupt_saved)
+ check(not clean_saved["items"].has("ashwood_sword"),"invalid saved item quantity is dropped")
+ check(clean_saved["materials"].is_empty(),"invalid saved materials are dropped")
+ check(int(clean_saved["gold"])==0 and int(clean_saved["loot_pity"])==0,"invalid saved currency and pity reset safely")
  # A matching owned roll may contain malformed numeric values in an old save.
  var malformed_numbers:Dictionary=empowered.duplicate(true)
  malformed_numbers["loot_rolls"]=[{"item_id":"ashwood_sword","rarity_index":{"bad":true},"power_bonus":["bad"],"affixes":[{"stat":"Power","value":{"bad":true}},{"stat":"Crit","value":["bad"]}]}]
