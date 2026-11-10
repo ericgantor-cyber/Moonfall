@@ -20,8 +20,22 @@ int32 AMoonfallCombatHUD::GetInventoryItemAtScreenPosition(
  // Use the same geometry and scroll window as DrawHUD. The hit test is read-only
  // and never chooses a hidden or off-page entry.
  if (!Canvas || !IsValid(Hero) || !Hero->bInventoryOpen ||
-     Hero->bCharacterStatsOpen || Hero->bOptionsOpen ||
+     Hero->bOptionsOpen ||
      !FMath::IsFinite(X) || !FMath::IsFinite(Y)) return -1;
+ // On C, the character panel exposes one deliberately selected bag candidate.
+ // Only right-clicking the visible EQUIP control may equip that candidate.
+ if (Hero->bCharacterStatsOpen) {
+  if (!Hero->InventoryItemCodes.IsValidIndex(Hero->InventorySelection)) return -1;
+  const float PanelWidth = FMath::Min(Canvas->SizeX >= 1100.f && Canvas->SizeY >= 600.f ? 1040.f : 680.f,
+      FMath::Max(280.f, Canvas->SizeX - 24.f));
+  const float PanelHeight = FMath::Min(860.f, FMath::Max(280.f, Canvas->SizeY - 24.f));
+  const float Left = (Canvas->SizeX - PanelWidth) * 0.5f;
+  const float Top = (Canvas->SizeY - PanelHeight) * 0.5f;
+  const float ButtonX = Left + PanelWidth - 174.f;
+  const float ButtonY = Top + PanelHeight - 73.f;
+  return X >= ButtonX && X < ButtonX + 156.f &&
+      Y >= ButtonY && Y < ButtonY + 32.f ? Hero->InventorySelection : -1;
+ }
  // The SORT button owns its entire rectangle, even when a compact
  // viewport puts it over an equipment row. Neither mouse button can
  // accidentally select or equip a row through the SORT control.
@@ -580,6 +594,28 @@ void AMoonfallCombatHUD::DrawHUD()
    DrawText(FString::Printf(TEXT("Level %d  |  XP %d / %d  |  Salvage %d"),
       Hero->Level, Hero->Experience, Hero->ExperienceToNextLevel, Hero->Salvage),
       FLinearColor(0.78f,0.83f,1.f), Left + 18.f, Top + 57.f, nullptr, 0.95f);
+   // Character equipment controls use the same selected bag item as B.
+   // The clickable equip control is also used by the exact hit-test above.
+   const int32 CandidateIndex = Hero->InventorySelection;
+   const bool bHasCandidate = Hero->InventoryItemCodes.IsValidIndex(CandidateIndex);
+   const int32 CandidateCode = bHasCandidate ? Hero->InventoryItemCodes[CandidateIndex] : 0;
+   const int32 CandidateSlot = (CandidateCode / 10000) % 10;
+   const TCHAR* CandidateSlotName = CandidateSlot == 0 ? TEXT("Weapon")
+      : CandidateSlot == 1 ? TEXT("Armor") : TEXT("Accessory");
+   DrawText(bHasCandidate
+      ? FString::Printf(TEXT("GEAR %d/%d  %s  T%d  R%d  |  Up/Down: select  U: upgrade  R: ascend  G: reforge  H: forge"),
+          CandidateIndex + 1,Hero->InventoryItemCodes.Num(),CandidateSlotName,
+          CandidateCode % 1000,(CandidateCode / 1000) % 10)
+      : TEXT("GEAR: bag empty  |  B: open inventory"),
+      FLinearColor(0.77f,0.94f,0.84f),Left+18.f,Top+77.f,nullptr,
+      Canvas->SizeX < 900.f ? 0.48f : 0.68f);
+   if (bHasCandidate) {
+    const float ButtonX = Left + PanelWidth - 174.f;
+    const float ButtonY = Top + PanelHeight - 73.f;
+    DrawRect(FLinearColor(0.16f,0.40f,0.46f,0.97f),ButtonX,ButtonY,156.f,32.f);
+    DrawText(TEXT("RIGHT-CLICK: EQUIP"),FLinearColor::White,
+        ButtonX+7.f,ButtonY+8.f,nullptr,0.66f);
+   }
    // WoW Forever-style breakdown on accessible C subpages. The original
    // overview and B/C switching behavior stay unchanged. These are Moonfall
    // derived values, not exact WoW class ratings.
