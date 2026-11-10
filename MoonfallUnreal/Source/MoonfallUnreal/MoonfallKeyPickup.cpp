@@ -23,13 +23,28 @@ AMoonfallKeyPickup::AMoonfallKeyPickup()
  KeyLabel->SetRelativeLocation(FVector(0.f, 0.f, 55.f));
  KeyLabel->SetHorizontalAlignment(EHorizTextAligment::EHTA_Center);
  KeyLabel->SetWorldSize(20.f);
- KeyLabel->SetText(FText::FromString(TEXT("KEY  [F]")));
+ KeyLabel->SetText(FText::FromString(TEXT("KEY  [F / X]")));
  KeyLabel->SetTextRenderColor(FColor(255, 215, 110));
+}
+
+void AMoonfallKeyPickup::RefreshKeyLabel()
+{
+ // A discoverable key should identify itself, not display a generic cube label.
+ // Refresh after the level/deferred spawner has assigned its authored KeyId.
+ FString Name = TEXT("UNKNOWN KEY");
+ if (KeyId == FName(TEXT("wardens_crest")))
+  Name = TEXT("WARDENS' CREST");
+ else if (KeyId == FName(TEXT("outlaw_seal")))
+  Name = TEXT("OUTLAW SEAL");
+ else if (KeyId == FName(TEXT("fallen_gate_key")))
+  Name = TEXT("FALLEN GATE KEY");
+ KeyLabel->SetText(FText::FromString(Name + TEXT("  [F / X]")));
 }
 
 void AMoonfallKeyPickup::BeginPlay()
 {
  Super::BeginPlay();
+ RefreshKeyLabel();
  // A level may still contain an old placeholder after the key was saved.
  // The player may not have begun Play yet, so TryCollect also handles this.
  const AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(
