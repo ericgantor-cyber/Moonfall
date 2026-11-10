@@ -1,6 +1,5 @@
 #include "MoonfallKeyGate.h"
 #include "MoonfallHeroPawn.h"
-#include "Components/BoxComponent.h"
 #include "Components/SceneComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "UObject/ConstructorHelpers.h"
@@ -21,15 +20,7 @@ AMoonfallKeyGate::AMoonfallKeyGate()
  GateMesh->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
  GateMesh->SetCollisionResponseToAllChannels(ECR_Block);
 
- KeyProximity = CreateDefaultSubobject<UBoxComponent>(TEXT("KeyProximity"));
- KeyProximity->SetupAttachment(GateRoot);
- KeyProximity->SetBoxExtent(FVector(250.f, 190.f, 210.f));
- KeyProximity->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
- KeyProximity->SetCollisionResponseToAllChannels(ECR_Ignore);
- KeyProximity->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
- KeyProximity->SetGenerateOverlapEvents(true);
- KeyProximity->OnComponentBeginOverlap.AddDynamic(
-   this, &AMoonfallKeyGate::OnKeyProximityBegin);
+
 }
 
 bool AMoonfallKeyGate::TryUnlock(AActor* Candidate)
@@ -45,16 +36,8 @@ bool AMoonfallKeyGate::TryUnlock(AActor* Candidate)
  }
  bUnlocked = true;
  GateMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
- KeyProximity->SetCollisionEnabled(ECollisionEnabled::NoCollision);
  GateMesh->SetVisibility(false, true);
  OnGateUnlocked();
  return true;
 }
 
-void AMoonfallKeyGate::OnKeyProximityBegin(
- UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,
- UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep,
- const FHitResult& SweepResult)
-{
- TryUnlock(OtherActor);
-}
