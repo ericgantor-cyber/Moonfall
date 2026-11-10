@@ -183,10 +183,10 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("bInventoryOpen = false;", toggle)
         self.assertIn("bCharacterStatsOpen = false;", toggle)
         self.assertIn("UpdateInventoryMouseMode();", toggle)
-        self.assertIn("InventorySelection = FMath::Max(0, InventorySelection - 1);", toggle)
-        self.assertIn("InventorySelection = FMath::Min(FMath::Max(0, InventoryItemCodes.Num() - 1), InventorySelection + 1);", toggle)
-        self.assertIn("InventorySelection = FMath::Clamp(InventorySelection - 5, 0,", toggle)
-        self.assertIn("InventorySelection = FMath::Clamp(InventorySelection + 5, 0,", toggle)
+        self.assertIn("MenuActionFocus=FMath::Clamp(MenuActionFocus-1", toggle)
+        self.assertIn("MenuActionFocus=FMath::Clamp(MenuActionFocus+1", toggle)
+        self.assertIn("InventorySelection=FMath::Max(0,InventorySelection-1)", toggle)
+        self.assertIn("InventorySelection=FMath::Min(FMath::Max(0,InventoryItemCodes.Num()-1)", toggle)
         for direction in ("OptionsLeft", "OptionsRight"):
             navigation = self.hero_cpp.split(
                 "void AMoonfallHeroPawn::" + direction + "()", 1
@@ -202,7 +202,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Hero->EquippedWeaponCode", self.hud)
         self.assertIn("Hero->EquippedArmorCode", self.hud)
         self.assertIn("Hero->EquippedAccessoryCode", self.hud)
-        self.assertIn("B / Select / Esc: close", self.hud)
+        self.assertIn('TEXT("CLOSE")', self.hud)
         self.assertNotIn("FinisherShockwave", self.hero_cpp)
 
     def test_diablo_style_ground_loot_requires_explicit_pickup(self):
@@ -481,7 +481,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("GearScore(Candidate) - GearScore(EquippedCodes[Slot])", section)
         self.assertIn("if (Candidate == EquippedCodes[Slot]) return 0;", section)
         self.assertIn("if (Improvement > BestImprovement)", section)
-        self.assertIn("!bInventoryOpen || bCharacterStatsOpen || bOptionsOpen", section)
+        self.assertIn("!bInventoryOpen || bOptionsOpen", section)
         self.assertIn("!FMath::IsFinite(Health) || Health <= 0.f", section)
         for forbidden in ("EquipInventoryItem(", "InventoryItemCodes.Add(",
                           "InventoryItemCodes.RemoveAt(", "Salvage -=", "EquippedWeaponCode ="):
@@ -501,14 +501,15 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         direct = self.hero_cpp.split(
             "bool AMoonfallHeroPawn::EquipInventoryItem(int32 InventoryIndex)", 1
         )[1].split("}", 1)[0]
-        self.assertIn("bCharacterStatsOpen || bOptionsOpen", direct)
-        self.assertLess(direct.index("bCharacterStatsOpen"),
+        self.assertIn("bOptionsOpen", direct)
+        self.assertNotIn("bCharacterStatsOpen || bOptionsOpen", direct)
+        self.assertLess(direct.index("!bInventoryOpen"),
                         direct.index("InventoryItemCodes[InventoryIndex]"))
         best = self.hero_cpp.split(
             "int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()", 1
         )[1].split("bool AMoonfallHeroPawn::EquipInventoryItem(", 1)[0]
-        self.assertIn("!bInventoryOpen || bCharacterStatsOpen || bOptionsOpen", best)
-        self.assertLess(best.index("bCharacterStatsOpen"),
+        self.assertIn("!bInventoryOpen || bOptionsOpen", best)
+        self.assertLess(best.index("!bInventoryOpen"),
                         best.index("InventoryItemCodes.Num()"))
 
     def test_inventory_pointer_mode_restored_on_close_escape_and_defeat(self):
@@ -576,15 +577,16 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "void AMoonfallHeroPawn::CastRight()", 1
         )[0]
         self.assertIn("if (bInventoryOpen) {", left)
-        self.assertIn("if (bCharacterStatsOpen) return;", left)
+        self.assertIn("if (bCharacterStatsOpen) {", left)
         self.assertIn("HUD->GetInventoryItemAtScreenPosition(this, MouseX, MouseY)", left)
         self.assertIn("InventorySelection = ClickedIndex;", left)
         self.assertIn("bLeftMouseHeld = true;", left)
         self.assertLess(left.index("InventorySelection = ClickedIndex;"),
                         left.index("bLeftMouseHeld = true;"))
-        for forbidden in ("EquipSelectedInventoryItem(", "EquipInventoryItem(",
-                          "SalvageInventoryItem(", "InventoryItemCodes.RemoveAt("):
-            self.assertNotIn(forbidden, left)
+        self.assertIn("GetInventoryActionAtScreenPosition", left)
+        self.assertIn("case 0: EquipSelectedInventoryItem(); break;", left)
+        self.assertIn("case 5: SalvageSelectedInventoryItem(); break;", left)
+        self.assertNotIn("InventoryItemCodes.RemoveAt(", left)
         dual = self.hero_cpp.split("void AMoonfallHeroPawn::CastBoth()", 1)[1].split(
             "void AMoonfallHeroPawn::BreakGuard()", 1
         )[0]
@@ -760,14 +762,14 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("GetResolve() * 0.003f", self.hero_cpp)
         self.assertIn("if (bOptionsOpen || !FMath::IsFinite(Health) || Health <= 0.f) return;", self.hero_cpp)
         self.assertIn("if (!bInventoryOpen) bCharacterStatsOpen = false;", self.hero_cpp)
-        self.assertIn("if (!bCharacterStatsOpen) ForgeInventoryItemLevels(InventorySelection, 5);", self.hero_cpp)
-        self.assertIn("if (!bCharacterStatsOpen) ReforgeInventoryItemAffix(InventorySelection);", self.hero_cpp)
+        self.assertIn("ForgeInventoryItemLevels(InventorySelection, 5);", self.hero_cpp)
+        self.assertIn("ReforgeInventoryItemAffix(InventorySelection);", self.hero_cpp)
         self.assertIn("if (Hero->bCharacterStatsOpen)", hud)
         self.assertIn("PRIMARY ATTRIBUTES", hud)
         self.assertIn("SECONDARY STATS", hud)
         self.assertIn("EQUIPMENT SET BONUSES", hud)
-        self.assertIn("C / A: close character info", hud)
-        self.assertIn("C / A: character info", hud)
+        self.assertIn('TEXT("CLOSE")', hud)
+        self.assertIn('TEXT("CHARACTER")', hud)
 
     def test_c_opens_and_closes_character_info_directly_without_colliding_with_b_or_j(self):
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
@@ -811,7 +813,6 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("ActivateFocusedMenuAction();", trigger)
         self.assertIn("if (!bInventoryOpen) return;", trigger)
         self.assertIn("!FMath::IsFinite(Health) || Health <= 0.f", trigger)
-        self.assertIn("if (bTalentsOpen) ToggleAtlas()", trigger) if False else None
         self.assertIn("if (!bTalentsOpen) ToggleAtlas();", trigger)
         self.assertIn("ToggleCharacterStats();", trigger)
         self.assertIn("EquipSelectedInventoryItem();", trigger)
