@@ -1020,6 +1020,22 @@ void AMoonfallHeroPawn::LeftClickContextAction()
       InventoryViewStart = InventorySelection;
       return;
      }
+     const int32 BagAction = HUD->GetInventoryActionAtScreenPosition(this,MouseX,MouseY);
+     if (BagAction >= 0) {
+      if (BagAction == 6) { ToggleCharacterStats(); return; }
+      if (BagAction == 7) { ToggleInventory(); return; }
+      if (!InventoryItemCodes.IsValidIndex(InventorySelection)) return;
+      switch (BagAction) {
+       case 0: EquipSelectedInventoryItem(); break;
+       case 1: UpgradeSelectedInventoryItem(); break;
+       case 2: AscendSelectedInventoryItem(); break;
+       case 3: ReforgeSelectedInventoryItem(); break;
+       case 4: ForgeFiveSelectedInventoryItem(); break;
+       case 5: SalvageSelectedInventoryItem(); break;
+       default: break;
+      }
+      return;
+     }
      if (HUD->IsInventorySortButtonAtScreenPosition(this, MouseX, MouseY)) {
       CycleInventorySort();
       return;
