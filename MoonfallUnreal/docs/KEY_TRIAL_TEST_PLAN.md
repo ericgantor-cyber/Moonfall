@@ -151,6 +151,20 @@ Moonfall's fully migrated Godot world or finished dungeon.
   enemy deaths still write independently. Verify gameplay on native UE5
   Windows builds before concluding that combat stutter has improved.
 
+## Pickup visibility optimization and on-demand recovery
+
+- When six nearer reachable pickups are already candidates, distant actors
+  should not incur expensive line-of-sight traces. Test a crowded loot area
+  with walls and verify an occluded near pickup never excludes an accessible
+  farther pickup. Verify only six closest visible items are collected.
+- Simulate a successful durable save followed by failure to spawn its loot
+  actor. Stand within 250 cm of that saved record and press F/controller.
+  The action must make one recovery attempt, rescan nearby loot, and permit
+  pickup without requiring a process restart.
+- With no saved loot nearby, verify pressing F does not trigger a full
+  persisted-world restoration. Retry happens only on explicit input, not
+  per-frame. Profile dense arenas and save/reload behavior in native UE5.
+
 ## Manual loot interaction with many persistent drops
 
 - Scatter more than 128 persistent loot actors across the map, then spawn
