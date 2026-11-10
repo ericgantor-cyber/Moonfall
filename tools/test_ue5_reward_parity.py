@@ -222,6 +222,23 @@ class UE5RewardParity(unittest.TestCase):
         self.assertNotIn("SpawnActor<AMoonfallKeyPickup>", milestone)
         self.assertIn("RefreshKeyLabel();", pickup_cpp.split("void AMoonfallKeyPickup::BeginPlay()", 1)[1])
 
+    def test_accessible_key_and_gate_interaction_feedback(self):
+        self.assertIn("FString KeyInteractionNotice;", self.hero_h)
+        self.assertIn("float KeyInteractionNoticeUntil = -1.f;", self.hero_h)
+        self.assertIn("bool bKeyInteractionNoticeError = false;", self.hero_h)
+        interaction = self.hero.split("bool AMoonfallHeroPawn::TryInteractWithNearbyKey()", 1)[1].split(
+            "void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[0]
+        for phrase in ("QUEST KEY COLLECTED", "KEY ALREADY COLLECTED",
+                       "KEY NOT COLLECTED - CHECK SAVE OR KEY ID",
+                       "DOOR UNLOCKED", "DOOR NOT OPENED - CHECK SAVE",
+                       "LOCKED - FIND THE MATCHING KEY"):
+            self.assertIn(phrase, interaction)
+        self.assertIn("KeyInteractionNoticeUntil = GetWorld()->GetTimeSeconds() + 3.5f;", interaction)
+        self.assertIn("Hero->KeyInteractionNoticeUntil > NowSeconds", self.hud)
+        self.assertIn("Hero->bKeyInteractionNoticeError", self.hud)
+        self.assertIn("FMath::Clamp(Hero->CombatTextScale, 0.75f, 2.f)", self.hud)
+        self.assertNotIn("Tick(", interaction)
+
     def test_equipment_remains_manual_and_hud_shows_rewards(self):
         self.assertIn("void PickupNearestGroundLoot();", self.hero_h)
         self.assertIn("Loot->TryCollect()", self.hero)
