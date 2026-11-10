@@ -282,7 +282,12 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("if (InItemCode <= 0) { Destroy(); return; }", init)
         self.assertIn("InItemCode != Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier) {", init)
         self.assertIn("Destroy();\n  return;", init)
-        self.assertLess(init.index("Destroy();\n  return;"), init.index("ItemCode = InItemCode;"))
+        # Key-coded loot is a separately validated branch. Ensure invalid
+        # equipment is destroyed before the equipment ItemCode assignment.
+        equipment = init.split("const int32 Affix = InItemCode / 100000;", 1)[1]
+        self.assertLess(equipment.index("Destroy();\n  return;"),
+                        equipment.index("ItemCode = InItemCode;"))
+        self.assertIn("InItemCode > AMoonfallHeroPawn::KeyLootBase", init)
 
     def test_loot_roll_does_not_report_uncollected_rewards(self):
         roll = self.hero_cpp.split(
