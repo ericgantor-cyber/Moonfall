@@ -11,6 +11,10 @@ int32 AMoonfallCombatHUD::GetInventoryVisibleRowCount() const
 {
  if (!Canvas) return 2;
  const float PanelHeight = FMath::Min(860.f, FMath::Max(280.f, Canvas->SizeY - 24.f));
+ const AMoonfallHeroPawn* Hero = PlayerOwner
+    ? Cast<AMoonfallHeroPawn>(PlayerOwner->GetPawn()) : nullptr;
+ if (MoonfallDualPanels(Canvas,Hero))
+  return FMath::Clamp(FMath::FloorToInt((PanelHeight - 230.f)/25.f),2,20);
  return FMath::Clamp(FMath::FloorToInt((PanelHeight - 355.f) / 25.f), 2, 20);
 }
 
@@ -939,7 +943,7 @@ void AMoonfallCombatHUD::DrawHUD()
     const bool bEnabled = Action >= 7 ||
        (bHasCandidate && (Action != 0 || CandidateIndex > 0) &&
         (Action != 1 || CandidateIndex+1 < Hero->InventoryItemCodes.Num()));
-    DrawRect(Hero->MenuActionFocus==Action ? FLinearColor(0.72f,0.53f,0.20f) :
+    DrawRect((!bDual || Hero->bMenuFocusCharacter) && Hero->MenuActionFocus==Action ? FLinearColor(0.72f,0.53f,0.20f) :
        bEnabled ? FLinearColor(0.15f,0.38f,0.45f,0.97f)
         : FLinearColor(0.18f,0.18f,0.22f,0.94f),BX,BY,BW,BH);
     DrawText(Actions[Action],bEnabled ? FLinearColor::White
@@ -988,7 +992,7 @@ void AMoonfallCombatHUD::DrawHUD()
     const bool bEnabled = Action >= 7 ||
        (bHasCandidate && (Action != 0 || CandidateIndex > 0) &&
         (Action != 1 || CandidateIndex+1 < Hero->InventoryItemCodes.Num()));
-    DrawRect(Hero->MenuActionFocus==Action ? FLinearColor(0.72f,0.53f,0.20f) :
+    DrawRect((!bDual || Hero->bMenuFocusCharacter) && Hero->MenuActionFocus==Action ? FLinearColor(0.72f,0.53f,0.20f) :
        bEnabled ? FLinearColor(0.15f,0.38f,0.45f,0.97f)
         : FLinearColor(0.18f,0.18f,0.22f,0.94f),BX,BY,BW,BH);
     DrawText(Actions[Action],bEnabled ? FLinearColor::White
@@ -1288,7 +1292,7 @@ void AMoonfallCombatHUD::DrawHUD()
    float BX=0.f,BY=0.f,BW=0.f,BH=0.f;
    if (!MoonfallBagActionRect(Canvas,MoonfallDualPanels(Canvas,Hero),Action,BX,BY,BW,BH)) continue;
    const bool Enabled=Action>=6 || Count>0;
-   DrawRect(Hero->MenuActionFocus==Action ? FLinearColor(0.72f,0.53f,0.20f) :
+   DrawRect((!bDual || Hero->bMenuFocusCharacter) && Hero->MenuActionFocus==Action ? FLinearColor(0.72f,0.53f,0.20f) :
      Enabled ? FLinearColor(0.15f,0.38f,0.45f,0.97f)
       : FLinearColor(0.18f,0.18f,0.22f,0.94f),BX,BY,BW,BH);
    DrawText(BagActions[Action],Enabled ? FLinearColor::White
