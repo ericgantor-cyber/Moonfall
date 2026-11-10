@@ -578,7 +578,7 @@ class UE5RewardParity(unittest.TestCase):
     def test_world_loot_overflow_falls_back_to_visible_temporary_pickup(self):
         restore = self.hero.split("void AMoonfallHeroPawn::RestorePendingWorldEquipmentDrops()", 1)[1].split(
             "void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(", 1)[0]
-        self.assertIn("TMap<FGuid, int32> SpawnedItemCodes;", restore)
+        self.assertIn("TMap<FGuid, AMoonfallGroundLoot*> SpawnedActors;", restore)
         self.assertLess(restore.index("for (TActorIterator<AMoonfallGroundLoot>"),
                         restore.index("for (const FMoonfallWorldLootRecord& Record"))
         self.assertEqual(restore.count("TActorIterator<AMoonfallGroundLoot>"), 1)
@@ -626,11 +626,15 @@ class UE5RewardParity(unittest.TestCase):
         self.assertIn("PendingWorldLoot.Insert(Record, Index);", collect)
         restore = self.hero.split("void AMoonfallHeroPawn::RestorePendingWorldEquipmentDrops()", 1)[1].split(
             "void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(", 1)[0]
-        self.assertIn("TMap<FGuid, int32> SpawnedItemCodes;", restore)
-        self.assertIn("SpawnedItemCodes.Find(Record.DropId)", restore)
-        self.assertIn("if (*ExistingCode != Record.ItemCode)", restore)
-        self.assertIn("skipping conflicting actor", restore)
-        self.assertIn("SpawnedItemCodes.Add(Record.DropId, Record.ItemCode);", restore)
+        self.assertIn("TMap<FGuid, AMoonfallGroundLoot*> SpawnedActors;", restore)
+        self.assertIn("SpawnedActors.Find(Record.DropId)", restore)
+        self.assertIn("if ((*ExistingActor)->GetItemCode() == Record.ItemCode) continue;", restore)
+        self.assertIn("restoring saved item", restore)
+        self.assertIn("(*ExistingActor)->Destroy();", restore)
+        self.assertIn("SpawnedActors.Remove(Record.DropId);", restore)
+        self.assertLess(restore.index("(*ExistingActor)->Destroy();"),
+                        restore.index("BeginDeferredActorSpawnFromClass("))
+        self.assertIn("SpawnedActors.Add(Record.DropId, Loot);", restore)
         self.assertEqual(restore.count("TActorIterator<AMoonfallGroundLoot>"), 1)
 
     def test_equipment_remains_manual_and_hud_shows_rewards(self):
