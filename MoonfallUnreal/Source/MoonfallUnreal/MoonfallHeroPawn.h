@@ -116,6 +116,8 @@ public:
  // Controller A switches existing inventory pages, never closes the menu.
  void SwitchInventoryPage();
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Inventory") int32 InventorySelection = 0;
+ // Transient top visible row; wheel scrolls the bag without selecting/equipping.
+ int32 InventoryViewStart = 0;
  // 0 pickup order, 1 rarity/tier descending, 2 equipment slot then rarity.
  // Sorting reorders codes only; it never equips, salvages or destroys anything.
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Inventory") int32 InventorySortMode = 0;
