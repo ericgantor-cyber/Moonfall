@@ -512,16 +512,6 @@ void AMoonfallHeroPawn::BeginPlay() {
 void AMoonfallHeroPawn::Tick(float DeltaSeconds)
 {
  Super::Tick(DeltaSeconds);
- // Clear the confirmation visually as well as functionally when expired.
- if (bTalentRespecArmed && GetWorld()) {
-  const float Now = GetWorld()->GetTimeSeconds();
-  if (!bAtlasOpen || !bTalentsOpen || !FMath::IsFinite(Now) ||
-      !FMath::IsFinite(TalentRespecConfirmUntil) ||
-      Now > TalentRespecConfirmUntil) {
-   bTalentRespecArmed = false;
-   TalentRespecConfirmUntil = -1.f;
-  }
- }
  // No disk writes per frame or per attack. Persist dirty XP/talents every 16s
  // and on normal world teardown; if a write fails it remains dirty for retry.
  if (bProgressDirty && GetWorld() &&
@@ -975,6 +965,12 @@ void AMoonfallHeroPawn::LeftClickContextAction()
       return;
      }
      const int32 Nav=HUD->GetAtlasMenuActionAtScreenPosition(this,X,Y);
+     if (bTalentsOpen && bTalentRespecArmed) {
+      if (Nav == 4) ResolveTalentRespecConfirmation(true);
+      else if (Nav == 5) ResolveTalentRespecConfirmation(false);
+      // The dialog consumes all other clicks, including underlying stars.
+      return;
+     }
      if (Nav == 0) {
       if (bTalentsOpen) ToggleTalents(); else ToggleAtlas();
       return;
@@ -1742,6 +1738,7 @@ void AMoonfallHeroPawn::SpendWardTalent() { SpendTalentPoint(2); }
 
 bool AMoonfallHeroPawn::ActivateTalentNode(int32 Node)
 {
+ if (bTalentRespecArmed) return false;
  if (Node < 0 || Node >= 138 || !bAtlasOpen || !bTalentsOpen ||
      bOptionsOpen || bInventoryOpen || Health <= 0.f) return false;
  bTalentRespecArmed = false; // Any deliberate star action cancels a pending reset.
@@ -1751,6 +1748,11 @@ bool AMoonfallHeroPawn::ActivateTalentNode(int32 Node)
 
 void AMoonfallHeroPawn::ActivateSelectedTalentNode()
 {
+ // Gamepad A confirms the selected dialog answer, never a star underneath.
+ if (bTalentRespecArmed) {
+  ResolveTalentRespecConfirmation(TalentRespecChoice == 0);
+  return;
+ }
  ActivateTalentNode(FMath::Clamp(TalentSelectedNode,0,137));
 }
 
@@ -1848,26 +1850,29 @@ void AMoonfallHeroPawn::UnlockIronWill() { UnlockTalentNode(8); }
 
 void AMoonfallHeroPawn::RespecTalentAction()
 {
- const UWorld* World = GetWorld();
- const float Now = World ? World->GetTimeSeconds() : -1.f;
  if (!bAtlasOpen || !bTalentsOpen || bInventoryOpen || bOptionsOpen ||
-     !FMath::IsFinite(Health) || Health <= 0.f ||
-     !World || !FMath::IsFinite(Now)) {
+     !FMath::IsFinite(Health) || Health <= 0.f) {
   bTalentRespecArmed = false;
-  TalentRespecConfirmUntil = -1.f;
   return;
  }
- // A confirmation expires after five seconds. A late second press re-arms
- // instead of unexpectedly wiping 138 possible talent allocations.
- if (!bTalentRespecArmed || !FMath::IsFinite(TalentRespecConfirmUntil) ||
-     Now > TalentRespecConfirmUntil) {
-  bTalentRespecArmed = true;
-  TalentRespecConfirmUntil = Now + 5.f;
+ // Opening RESPEC never resets the build. Subsequent respec key presses
+ // cannot act as an implicit Yes; players must choose from the dialog.
+ if (bTalentRespecArmed) return;
+ bTalentRespecArmed = true;
+ TalentRespecChoice = 1; // No is the safe default.
+}
+
+void AMoonfallHeroPawn::ResolveTalentRespecConfirmation(bool bConfirm)
+{
+ if (!bTalentRespecArmed) return;
+ if (!bAtlasOpen || !bTalentsOpen || bInventoryOpen || bOptionsOpen ||
+     !FMath::IsFinite(Health) || Health <= 0.f) {
+  bTalentRespecArmed = false;
   return;
  }
  bTalentRespecArmed = false;
- TalentRespecConfirmUntil = -1.f;
- RespecTalents();
+ TalentRespecChoice = 1;
+ if (bConfirm) RespecTalents();
 }
 
 bool AMoonfallHeroPawn::RespecTalents()
@@ -2242,16 +2247,19 @@ void AMoonfallHeroPawn::OpenOptions() {
  UpdateInventoryMouseMode();
 }
 void AMoonfallHeroPawn::OptionsUp() {
+ if (bAtlasOpen && bTalentsOpen && bTalentRespecArmed) { TalentRespecChoice=0; return; }
  if (bAtlasOpen && !bTalentsOpen && !bOptionsOpen) { MenuActionFocus=0; return; }
  if (bOptionsOpen) { MenuActionFocus=MenuActionFocus<0 ? 0 : FMath::Clamp(MenuActionFocus-1,0,14); OptionsSelection=MenuActionFocus%7; return; }
  if (bInventoryOpen) { MenuActionFocus=MenuActionFocus<0 ? 0 : FMath::Clamp(MenuActionFocus-1,0,bCharacterStatsOpen?10:7); return; }
 }
 void AMoonfallHeroPawn::OptionsDown() {
+ if (bAtlasOpen && bTalentsOpen && bTalentRespecArmed) { TalentRespecChoice=1; return; }
  if (bAtlasOpen && !bTalentsOpen && !bOptionsOpen) { MenuActionFocus=0; return; }
  if (bOptionsOpen) { MenuActionFocus=FMath::Clamp(MenuActionFocus+1,0,14); OptionsSelection=MenuActionFocus%7; return; }
  if (bInventoryOpen) { MenuActionFocus=FMath::Clamp(MenuActionFocus+1,0,bCharacterStatsOpen?10:7); return; }
 }
 void AMoonfallHeroPawn::OptionsLeft() {
+ if (bAtlasOpen && bTalentsOpen && bTalentRespecArmed) { TalentRespecChoice=0; return; }
  if (bOptionsOpen) {
   if (MenuActionFocus < 0) { MenuActionFocus=OptionsSelection; return; }
   MenuActionFocus=OptionsSelection; AdjustOption(-1); return;
@@ -2259,6 +2267,7 @@ void AMoonfallHeroPawn::OptionsLeft() {
  if (bInventoryOpen) { InventorySelection=FMath::Max(0,InventorySelection-1); InventoryViewStart=InventorySelection; return; }
 }
 void AMoonfallHeroPawn::OptionsRight() {
+ if (bAtlasOpen && bTalentsOpen && bTalentRespecArmed) { TalentRespecChoice=1; return; }
  if (bOptionsOpen) {
   if (MenuActionFocus < 0) { MenuActionFocus=OptionsSelection+7; return; }
   MenuActionFocus=OptionsSelection+7; AdjustOption(1); return;
