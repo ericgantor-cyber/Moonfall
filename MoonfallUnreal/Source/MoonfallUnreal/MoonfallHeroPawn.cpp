@@ -474,6 +474,8 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("TalentNext"), IE_Pressed, this, &AMoonfallHeroPawn::SelectNextTalentNode);
  Input->BindAction(TEXT("TalentPrevious"), IE_Pressed, this, &AMoonfallHeroPawn::SelectPreviousTalentNode);
  Input->BindAction(TEXT("TalentActivate"), IE_Pressed, this, &AMoonfallHeroPawn::ActivateSelectedTalentNode);
+ Input->BindAction(TEXT("CharacterStatsNext"), IE_Pressed, this, &AMoonfallHeroPawn::NextCharacterStatsPage);
+ Input->BindAction(TEXT("CharacterStatsPrevious"), IE_Pressed, this, &AMoonfallHeroPawn::PreviousCharacterStatsPage);
  Input->BindAction(TEXT("TalentNextPage"), IE_Pressed, this, &AMoonfallHeroPawn::SelectNextTalentPage);
  Input->BindAction(TEXT("TalentPreviousPage"), IE_Pressed, this, &AMoonfallHeroPawn::SelectPreviousTalentPage);
  Input->BindAction(TEXT("PickupLoot"), IE_Pressed, this, &AMoonfallHeroPawn::PickupNearestGroundLoot);
@@ -630,6 +632,7 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier, bool
         + (bTalentDuskSovereign ? 0.20f : 0.f)
         + (bTalentNightfallAscension ? 0.15f : 0.f)
         + (bTalentCrimsonNova ? 0.10f : 0.f) : 0.f))
+    * (1.f + FMath::Min(0.08f,GetSpellDamagePower()*0.0002f))
     * (bTalentAstralSurge ? 1.10f : 1.f)
     * (1.f + FMath::Min(0.12f, GetAstralTalentCount(0) * 0.002f)) * MightMultiplier;
   // Reject invalid damage before spending mana or consuming a hard-earned counter.
@@ -987,6 +990,7 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
    + (ArmorAffix == 2 ? 0.06f : 0.f)
    + FMath::Clamp(((EquippedArmorCode / 1000) % 10) * 0.005f, 0.f, 0.025f)
    + GetVersatilityBonus() * 0.5f
+   + FMath::Min(0.02f,GetArmorRating()*0.000025f)
    + (GetSetPieceCount(2) >= 3 ? 0.025f : 0.f));
  const float ArmoredDamage = Amount * (1.f - ArmorMitigation);
  float DamageAfterGuard = ArmoredDamage;
@@ -1126,6 +1130,20 @@ void AMoonfallHeroPawn::SwitchInventoryPage()
      !FMath::IsFinite(Health) || Health <= 0.f) return;
  ResetMouseCastChord();
  bCharacterStatsOpen = !bCharacterStatsOpen;
+}
+
+void AMoonfallHeroPawn::NextCharacterStatsPage()
+{
+ if (bInventoryOpen && bCharacterStatsOpen && !bOptionsOpen &&
+     !bAtlasOpen && FMath::IsFinite(Health) && Health > 0.f)
+  CharacterStatsPage = (FMath::Clamp(CharacterStatsPage,0,2) + 1) % 3;
+}
+
+void AMoonfallHeroPawn::PreviousCharacterStatsPage()
+{
+ if (bInventoryOpen && bCharacterStatsOpen && !bOptionsOpen &&
+     !bAtlasOpen && FMath::IsFinite(Health) && Health > 0.f)
+  CharacterStatsPage = (FMath::Clamp(CharacterStatsPage,0,2) + 2) % 3;
 }
 
 void AMoonfallHeroPawn::ToggleCharacterStats()
