@@ -88,12 +88,15 @@ public:
   UFUNCTION(BlueprintCallable, Category="Moonfall|Finishers") int32 RegisterFinisherKill(bool bShatterKill, bool bBossKill, FVector DefeatedLocation, AMoonfallEnemy* DefeatedEnemy);
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Finishers") void OnFinisherChain(int32 ChainStep, bool bShatterKill, bool bBossKill);
  UFUNCTION(BlueprintCallable, Category="Moonfall|Progression") void AwardExperience(int32 Amount);
- // Godot reward parity. Currency and quest keys collect automatically;
- // physical equipment still uses deliberate manual pickup.
+ // Godot reward parity: currency auto-awards on defeat, physical keys and
+ // equipment require an explicit interaction, with persistent door progression.
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Rewards") int64 Gold = 0;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Rewards") int64 ConfirmedRewardKills = 0;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Rewards") TArray<FName> CollectedKeys;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Rewards") TArray<FName> CompletedFactionQuests;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Rewards") TArray<FName> UnlockedGateIds;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Rewards") bool HasUnlockedGate(FName GateId) const;
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Rewards") bool CommitGateUnlock(FName GateId, FName RequiredKeyId);
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Rewards") bool bKeyRingExpanded = false;
  // Transient inventory popover; never persisted as character progress.
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Rewards") bool bKeyRingInventoryOpen = false;
