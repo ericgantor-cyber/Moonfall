@@ -519,7 +519,9 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier, bool
     * (1.f + GetMasteryBonus()) * (1.f + GetVersatilityBonus())
     * ((bCriticalSpell ? 1.5f : 1.f)
       + (bCriticalSpell ? (bTalentForceKeystone ? 0.20f : 0.f)
-        + (bTalentBattleWeave ? 0.15f : 0.f) : 0.f)) * MightMultiplier;
+        + (bTalentBattleWeave ? 0.15f : 0.f)
+        + (bTalentStarbreaker ? 0.25f : 0.f) : 0.f))
+    * (bTalentAstralSurge ? 1.10f : 1.f) * MightMultiplier;
   // Reject invalid damage before spending mana or consuming a hard-earned counter.
   if (!FMath::IsFinite(SpellDamage) || SpellDamage <= 0.f) return false;
   const float HealthBeforeSpell = Enemy->Health;
@@ -931,6 +933,7 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
    // Bulwark improves sustained frontal blocking, not perfect parry.
    DamageAfterGuard *= 0.4f;
    if (bTalentWardKeystone) DamageAfterGuard *= 0.8f;
+   if (bTalentEternalSentinel) DamageAfterGuard *= 0.85f;
   }
   OnGuardImpact(ArmoredDamage - DamageAfterGuard, bPerfectParry);
   if (Stamina < GuardStaminaCost) BreakGuard();
@@ -1082,7 +1085,9 @@ int32 AMoonfallHeroPawn::GetUnspentTalentPoints() const
    - TalentForceRank - TalentFocusRank - TalentWardRank
    - int32(bTalentForceKeystone) - int32(bTalentFocusKeystone)
    - int32(bTalentWardKeystone) - int32(bTalentBattleWeave)
-   - int32(bTalentArcaneAegis) - int32(bTalentIronWill));
+   - int32(bTalentArcaneAegis) - int32(bTalentIronWill)
+   - int32(bTalentStarbreaker) - int32(bTalentAstralSurge)
+   - int32(bTalentEternalSentinel));
 }
 
 bool AMoonfallHeroPawn::SpendTalentPoint(int32 Branch)
@@ -1105,7 +1110,7 @@ void AMoonfallHeroPawn::SpendWardTalent() { SpendTalentPoint(2); }
 
 bool AMoonfallHeroPawn::ActivateTalentNode(int32 Node)
 {
- if (Node < 0 || Node >= 9 || !bAtlasOpen || !bTalentsOpen ||
+ if (Node < 0 || Node >= 12 || !bAtlasOpen || !bTalentsOpen ||
      bOptionsOpen || bInventoryOpen || Health <= 0.f) return false;
  TalentSelectedNode = Node;
  return Node < 3 ? SpendTalentPoint(Node) : UnlockTalentNode(Node);
@@ -1113,19 +1118,19 @@ bool AMoonfallHeroPawn::ActivateTalentNode(int32 Node)
 
 void AMoonfallHeroPawn::ActivateSelectedTalentNode()
 {
- ActivateTalentNode(FMath::Clamp(TalentSelectedNode,0,8));
+ ActivateTalentNode(FMath::Clamp(TalentSelectedNode,0,11));
 }
 
 void AMoonfallHeroPawn::SelectNextTalentNode()
 {
  if (bAtlasOpen && bTalentsOpen && !bOptionsOpen && Health > 0.f)
-  TalentSelectedNode = (FMath::Clamp(TalentSelectedNode,0,8) + 1) % 9;
+  TalentSelectedNode = (FMath::Clamp(TalentSelectedNode,0,11) + 1) % 12;
 }
 
 void AMoonfallHeroPawn::SelectPreviousTalentNode()
 {
  if (bAtlasOpen && bTalentsOpen && !bOptionsOpen && Health > 0.f)
-  TalentSelectedNode = (FMath::Clamp(TalentSelectedNode,0,8) + 8) % 9;
+  TalentSelectedNode = (FMath::Clamp(TalentSelectedNode,0,11) + 11) % 12;
 }
 
 bool AMoonfallHeroPawn::CanUnlockTalentNode(int32 Node) const
@@ -1141,6 +1146,10 @@ bool AMoonfallHeroPawn::CanUnlockTalentNode(int32 Node) const
  if (Node == 6) return bTalentForceKeystone && bTalentFocusKeystone && !bTalentBattleWeave;
  if (Node == 7) return bTalentFocusKeystone && bTalentWardKeystone && !bTalentArcaneAegis;
  if (Node == 8) return bTalentWardKeystone && bTalentForceKeystone && !bTalentIronWill;
+ // Apex: cross-branch commitment, not character-locked classes.
+ if (Node == 9) return bTalentBattleWeave && bTalentIronWill && !bTalentStarbreaker;
+ if (Node == 10) return bTalentBattleWeave && bTalentArcaneAegis && !bTalentAstralSurge;
+ if (Node == 11) return bTalentArcaneAegis && bTalentIronWill && !bTalentEternalSentinel;
  return false;
 }
 
@@ -1152,7 +1161,10 @@ bool AMoonfallHeroPawn::UnlockTalentNode(int32 Node)
    : Node == 5 ? &bTalentWardKeystone
    : Node == 6 ? &bTalentBattleWeave
    : Node == 7 ? &bTalentArcaneAegis
-   : Node == 8 ? &bTalentIronWill : nullptr;
+   : Node == 8 ? &bTalentIronWill
+   : Node == 9 ? &bTalentStarbreaker
+   : Node == 10 ? &bTalentAstralSurge
+   : Node == 11 ? &bTalentEternalSentinel : nullptr;
  if (!Flag || *Flag) return false;
  *Flag = true;
  return true;
@@ -1181,6 +1193,9 @@ bool AMoonfallHeroPawn::RespecTalents()
  bTalentBattleWeave = false;
  bTalentArcaneAegis = false;
  bTalentIronWill = false;
+ bTalentStarbreaker = false;
+ bTalentAstralSurge = false;
+ bTalentEternalSentinel = false;
  return true;
 }
 
