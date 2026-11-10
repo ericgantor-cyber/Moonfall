@@ -12,6 +12,8 @@ public:
  // Read-only hit test for the currently displayed inventory page.
  // Returns -1 if the pointer is outside a visible equipment row.
  int32 GetInventoryItemAtScreenPosition(const AMoonfallHeroPawn* Hero, float X, float Y) const;
+ // Visible SORT button hit test, shared with the inventory drawing geometry.
+ bool IsInventorySortButtonAtScreenPosition(const AMoonfallHeroPawn* Hero, float X, float Y) const;
 private:
  float DisplayHealth = -1.f;
  float DisplayMana = -1.f;
