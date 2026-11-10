@@ -244,6 +244,8 @@ public:
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|UI") int32 MenuActionFocus = -1;
  void ActivateFocusedMenuAction();
  void SwitchInventoryPage();
+ // On compact displays, switches the visible pane; on wide layouts switches controller focus.
+ void SwitchOpenInventoryPane();
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Inventory") int32 InventorySelection = 0;
  // Transient top visible row; wheel scrolls the bag without selecting/equipping.
  int32 InventoryViewStart = 0;
