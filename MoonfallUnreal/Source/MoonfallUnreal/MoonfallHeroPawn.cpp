@@ -1973,6 +1973,11 @@ bool AMoonfallHeroPawn::EquipInventoryItem(int32 InventoryIndex)
      : (SlotIndex == 1 ? &EquippedArmorCode : &EquippedAccessoryCode);
  if (*EquippedCode == Code && *EquippedTier == Tier && *EquippedAffix == Affix) return false;
  const int32 PreviousTier = *EquippedTier;
+ const int32 PreviousAffix = *EquippedAffix;
+ const int32 PreviousCode = *EquippedCode;
+ const int32 PreviousEquipmentTier = EquipmentTier;
+ const float PreviousMaxHealth = MaxHealth;
+ const float PreviousHealth = Health;
  *EquippedTier = Tier;
  *EquippedAffix = Affix;
  *EquippedCode = Code;
@@ -1983,6 +1988,23 @@ bool AMoonfallHeroPawn::EquipInventoryItem(int32 InventoryIndex)
   MaxHealth = FMath::Max(1.f, MaxHealth + HealthDelta);
   Health = FMath::Clamp(Health + HealthDelta, 1.f, MaxHealth);
   OnHealthChanged(Health, MaxHealth);
+ }
+ // Explicit equip must be durable. Crafting performs one combined save after
+ // mutating both the bag entry and its corresponding worn representation.
+ if (!bDeferEquippedSave && !SaveRewardProgress())
+ {
+  *EquippedTier = PreviousTier;
+  *EquippedAffix = PreviousAffix;
+  *EquippedCode = PreviousCode;
+  EquipmentTier = PreviousEquipmentTier;
+  MaxHealth = PreviousMaxHealth;
+  Health = PreviousHealth;
+  if (SlotIndex == 1) OnHealthChanged(Health, MaxHealth);
+  KeyInteractionNotice = TEXT("EQUIP SAVE FAILED - LOADOUT RESTORED");
+  bKeyInteractionNoticeError = true;
+  KeyInteractionNoticeUntil = GetWorld()
+    ? GetWorld()->GetTimeSeconds() + 6.f : 6.f;
+  return false;
  }
  return true;
 }
