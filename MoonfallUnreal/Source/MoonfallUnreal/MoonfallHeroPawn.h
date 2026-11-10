@@ -6,6 +6,7 @@ class USpringArmComponent;
 class UCameraComponent;
 class UAnimMontage;
 class AMoonfallEnemy;
+class AMoonfallKeyPickup;
 class UStaticMeshComponent;
 class UPointLightComponent;
 UCLASS()
@@ -268,6 +269,8 @@ private:
  void EndGuard();
  void UpdateInventoryMouseInput();
  bool TryInteractWithNearbyKey();
+ // Weak reference does not keep a collected/destroyed key alive.
+ TWeakObjectPtr<AMoonfallKeyPickup> PendingMilestoneKey;
  void SpawnMilestoneKey(const FVector& Location);
  void InventoryConfirm();
  void InventorySalvage();
