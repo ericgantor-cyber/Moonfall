@@ -358,6 +358,42 @@ class InventoryCapacityPort(unittest.TestCase):
         self.assertIn("bTalentArcaneAegis = false;", self.hero)
         self.assertIn("bTalentIronWill = false;", self.hero)
 
+    def test_fourth_tier_apex_talents_are_spendable_and_reversible(self):
+        hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        header = (ROOT / "MoonfallHeroPawn.h").read_text(encoding="utf-8")
+        for field in ("bTalentStarbreaker", "bTalentAstralSurge", "bTalentEternalSentinel"):
+            self.assertIn(field + " = false;", header)
+            self.assertIn("Hero->" + field, hud)
+        gate = body(self.hero, "bool AMoonfallHeroPawn::CanUnlockTalentNode(int32 Node) const")
+        for term in ("Node == 9", "Node == 10", "Node == 11",
+                     "bTalentBattleWeave && bTalentIronWill",
+                     "bTalentBattleWeave && bTalentArcaneAegis",
+                     "bTalentArcaneAegis && bTalentIronWill"):
+            self.assertIn(term, gate)
+        act = body(self.hero, "bool AMoonfallHeroPawn::ActivateTalentNode(int32 Node)")
+        self.assertIn("Node >= 12", act)
+        self.assertIn("UnlockTalentNode(Node)", act)
+        self.assertIn("% 12", body(self.hero, "void AMoonfallHeroPawn::SelectNextTalentNode()"))
+        self.assertIn("% 12", body(self.hero, "void AMoonfallHeroPawn::SelectPreviousTalentNode()"))
+        unlock = body(self.hero, "bool AMoonfallHeroPawn::UnlockTalentNode(int32 Node)")
+        self.assertIn("Node == 11 ? &bTalentEternalSentinel", unlock)
+        points = body(self.hero, "int32 AMoonfallHeroPawn::GetUnspentTalentPoints() const")
+        self.assertIn("int32(bTalentStarbreaker)", points)
+        self.assertIn("int32(bTalentEternalSentinel)", points)
+        respec = body(self.hero, "bool AMoonfallHeroPawn::RespecTalents()")
+        for field in ("bTalentStarbreaker", "bTalentAstralSurge", "bTalentEternalSentinel"):
+            self.assertIn(field + " = false;", respec)
+        cast = body(self.hero, "bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier, bool bOvercharged)")
+        self.assertIn("(bTalentStarbreaker ? 0.25f : 0.f)", cast)
+        self.assertIn("(bTalentAstralSurge ? 1.10f : 1.f)", cast)
+        hurt = body(self.hero, "void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount)")
+        self.assertIn("if (bTalentEternalSentinel) DamageAfterGuard *= 0.85f;", hurt)
+        self.assertIn("const TCHAR* ApexNames[]", hud)
+        self.assertIn("for (int32 Tier = 0; Tier < 4; ++Tier)", hud)
+        self.assertIn("const int32 ApexA[] = {0,0,1};", hud)
+        self.assertIn("const int32 ApexB[] = {2,1,2};", hud)
+        self.assertIn("Selected star %d / 12", hud)
+
     def test_inventory_has_no_equip_or_page_buttons(self):
         hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
         left = body(self.hero, "void AMoonfallHeroPawn::LeftClickContextAction()")
