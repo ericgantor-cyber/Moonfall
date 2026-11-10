@@ -133,6 +133,11 @@ public:
  // UE5 individual-item bag capacity, shared by rewards, pickups and HUD.
  static constexpr int32 MaxInventoryItems = 9999;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Loot") TArray<int32> InventoryItemCodes;
+ // Stable item identities preserve original pickup order across every sort.
+ // IDs are kept in lockstep with InventoryItemCodes, including duplicate gear.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Inventory") TArray<int32> InventoryPickupIds;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Inventory") int32 NextInventoryPickupId = 1;
+ void EnsureInventoryPickupIds();
  // Key ring uses its own dynamically growing array, never a bag slot.
  // World loot uses reserved code 9000000 + KeyId (1..9999).
  static constexpr int32 KeyLootBase = 9000000;
