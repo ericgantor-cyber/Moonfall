@@ -21,6 +21,8 @@ class UE5RewardParity(unittest.TestCase):
         self.assertIn("SaveGameToSlot(Save, RewardSaveSlot, RewardSaveUser)", self.hero)
         self.assertIn("LoadGameFromSlot(RewardSaveSlot, RewardSaveUser)", self.hero)
         self.assertIn("if (!LoadRewardProgress())", self.hero)
+        self.assertIn("GetRewardSlotName()", self.save)
+        self.assertIn("UMoonfallRewardSaveGame::GetRewardSlotName()", self.hero)
         self.assertIn("MAX_int64 - Gold", self.hero)
         self.assertNotIn("99999999", self.hero[self.hero.index("int64 AMoonfallHeroPawn::AddGold"):self.hero.index("bool AMoonfallHeroPawn::HasQuestKey")])
 
@@ -338,7 +340,7 @@ class UE5RewardParity(unittest.TestCase):
         self.assertIn("Hero->bRewardSaveInitialized", restore)
         self.assertIn("Hero->bRewardSaveLoadFailed", restore)
         self.assertIn("Hero->HasUnlockedGate(GateId)", restore)
-        self.assertIn("else\n {\n  const FString SlotName(", restore)
+        self.assertIn("else\\n {\\n  const FString& SlotName = UMoonfallRewardSaveGame::GetRewardSlotName();", restore)
         self.assertIn("UGameplayStatics::LoadGameFromSlot(SlotName, 0)", restore)
         self.assertIn("Saved->UnlockedGateIds.Contains(GateId)", restore)
         self.assertIn("ApplyOpenState();", restore)
