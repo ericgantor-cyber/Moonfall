@@ -1,6 +1,7 @@
 #include "MoonfallKeyGate.h"
 #include "MoonfallHeroPawn.h"
 #include "Components/BoxComponent.h"
+#include "Components/SceneComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "UObject/ConstructorHelpers.h"
 #include "Engine/StaticMesh.h"
@@ -9,8 +10,10 @@ AMoonfallKeyGate::AMoonfallKeyGate()
 {
  PrimaryActorTick.bCanEverTick = false;
 
+ GateRoot = CreateDefaultSubobject<USceneComponent>(TEXT("GateRoot"));
+ SetRootComponent(GateRoot);
  GateMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("GateMesh"));
- SetRootComponent(GateMesh);
+ GateMesh->SetupAttachment(GateRoot);
  static ConstructorHelpers::FObjectFinder<UStaticMesh> Cube(
    TEXT("/Engine/BasicShapes/Cube.Cube"));
  if (Cube.Succeeded()) GateMesh->SetStaticMesh(Cube.Object);
@@ -19,7 +22,7 @@ AMoonfallKeyGate::AMoonfallKeyGate()
  GateMesh->SetCollisionResponseToAllChannels(ECR_Block);
 
  KeyProximity = CreateDefaultSubobject<UBoxComponent>(TEXT("KeyProximity"));
- KeyProximity->SetupAttachment(GateMesh);
+ KeyProximity->SetupAttachment(GateRoot);
  KeyProximity->SetBoxExtent(FVector(250.f, 190.f, 210.f));
  KeyProximity->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
  KeyProximity->SetCollisionResponseToAllChannels(ECR_Ignore);
