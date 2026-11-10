@@ -68,6 +68,19 @@ class InventoryCapacityPort(unittest.TestCase):
                           'TEXT("NEXT PAGE")'):
             self.assertNotIn(forbidden, hud)
 
+    def test_salvage_respects_independent_b_and_c_focus(self):
+        selected = body(self.hero, "void AMoonfallHeroPawn::SalvageSelectedInventoryItem()")
+        self.assertIn("if (bBagPanelOpen && (!bCharacterStatsOpen || !bMenuFocusCharacter))", selected)
+        self.assertIn("SalvageInventoryItem(InventorySelection);", selected)
+        self.assertNotIn("bInventoryOpen && !bCharacterStatsOpen", selected)
+        direct = body(self.hero, "bool AMoonfallHeroPawn::SalvageInventoryItem(int32 InventoryIndex)")
+        self.assertIn("!bBagPanelOpen || bOptionsOpen", direct)
+        wrapper = body(self.hero, "void AMoonfallHeroPawn::InventorySalvage()")
+        self.assertIn("bCharacterStatsOpen && bMenuFocusCharacter", wrapper)
+        left = body(self.hero, "void AMoonfallHeroPawn::LeftClickContextAction()")
+        self.assertIn("bMenuFocusCharacter = false;", left)
+        self.assertIn("case 5: SalvageSelectedInventoryItem(); break;", left)
+
     def test_inventory_sort_is_explicit_and_does_not_modify_gear(self):
         method = body(self.hero, "void AMoonfallHeroPawn::CycleInventorySort()")
         self.assertIn("!bBagPanelOpen || bOptionsOpen", method)
