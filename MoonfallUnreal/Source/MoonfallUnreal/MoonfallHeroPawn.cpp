@@ -161,6 +161,7 @@ bool AMoonfallHeroPawn::LoadRewardProgress()
   CompletedFactionQuests.Reset();
   UnlockedGateIds.Reset();
   InventoryItemCodes.Reset();
+  Salvage = 0;
   bKeyRingExpanded = false;
   return true;
  }
@@ -180,6 +181,7 @@ bool AMoonfallHeroPawn::LoadRewardProgress()
  CompletedFactionQuests.Reset();
  UnlockedGateIds.Reset();
  InventoryItemCodes.Reset();
+ Salvage = 0;
  bKeyRingExpanded = false;
  Gold = FMath::Max<int64>(0, Save->Gold);
  ConfirmedRewardKills = FMath::Max<int64>(0, Save->ConfirmedKills);
@@ -206,6 +208,7 @@ bool AMoonfallHeroPawn::LoadRewardProgress()
  }
  if (Save->SchemaVersion >= 3)
  {
+  Salvage = FMath::Clamp(Save->Salvage, 0, 9999);
   // Never materialize malformed item codes from a damaged or edited slot.
   // A bounded list prevents untrusted saves from growing the live bag without limit.
   for (const int32 Code : Save->InventoryItemCodes)
@@ -240,6 +243,7 @@ bool AMoonfallHeroPawn::SaveRewardProgress()
  Save->CompletedFactionQuests = CompletedFactionQuests;
  Save->UnlockedGateIds = UnlockedGateIds;
  Save->InventoryItemCodes = InventoryItemCodes;
+ Save->Salvage = FMath::Clamp(Salvage, 0, 9999);
  return UGameplayStatics::SaveGameToSlot(Save, RewardSaveSlot, RewardSaveUser);
 }
 
@@ -1155,8 +1159,19 @@ bool AMoonfallHeroPawn::SalvageInventoryItem(int32 InventoryIndex)
   return false;
  // Higher rarity/tier gear produces more salvage, never exceeding the cap.
  const int32 SalvageReward = 1 + Rarity * 2 + Tier / 5;
+ const int32 PreviousSalvage = Salvage;
  Salvage = FMath::Clamp(Salvage + SalvageReward, 0, 9999);
  InventoryItemCodes.RemoveAt(InventoryIndex);
+ if (!SaveRewardProgress())
+ {
+  InventoryItemCodes.Insert(Code, InventoryIndex);
+  Salvage = PreviousSalvage;
+  KeyInteractionNotice = TEXT("SALVAGE SAVE FAILED - ITEM RESTORED");
+  bKeyInteractionNoticeError = true;
+  KeyInteractionNoticeUntil = GetWorld()
+    ? GetWorld()->GetTimeSeconds() + 6.f : 6.f;
+  return false;
+ }
  InventorySelection = FMath::Clamp(InventorySelection, 0, FMath::Max(0, InventoryItemCodes.Num() - 1));
  return true;
 }
