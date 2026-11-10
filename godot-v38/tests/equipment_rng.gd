@@ -56,6 +56,16 @@ func _run()->void:
  stale["items"].erase("ashwood_sword")
  check(int(INVENTORY.totals(stale)["weapon_power"])==0,"removed item grants no stale equipment power")
  check(int(INVENTORY.totals(empowered)["weapon_power"])==ordinary,"valid equipped item retains its power")
+ # Malformed legacy save fields must not crash combat stat calculation.
+ for field in ["equipped","items"]:
+  var malformed:Dictionary=empowered.duplicate(true)
+  malformed[field]="invalid"
+  check(int(INVENTORY.totals(malformed)["weapon_power"])==0,"invalid "+field+" safely grants no stats")
+ var bad_rolls:Dictionary=empowered.duplicate(true)
+ bad_rolls["loot_rolls"]="invalid"
+ check(int(INVENTORY.totals(bad_rolls)["weapon_power"])==ordinary,"invalid loot rolls retain base stats")
+ bad_rolls["loot_rolls"]=[{"item_id":"ashwood_sword","rarity_index":4,"power_bonus":5,"affixes":"invalid"}]
+ check(int(INVENTORY.totals(bad_rolls)["weapon_power"])==ordinary+5,"invalid affixes retain bounded rarity bonus")
  empowered["loot_rolls"].append({"item_id":"ashwood_sword","rarity_index":3,"power_bonus":6,"affixes":[{"stat":"Power","value":4},{"stat":"Crit","value":3}]})
  var stats:Dictionary=INVENTORY.totals(empowered)
  check(int(stats["weapon_power"])==ordinary+10,"rolled Power and rarity modify equipped damage")
