@@ -108,7 +108,10 @@ class UE5RewardParity(unittest.TestCase):
         self.assertIn("PrimaryActorTick.bCanEverTick = false;", key_cpp)
         self.assertIn("Hero->CollectQuestKey(KeyId)", key_cpp)
         self.assertIn("Destroy();", key_cpp)
-        self.assertIn("if (TryInteractWithNearbyKey()) return;", self.hero)
+        self.assertIn("void AMoonfallHeroPawn::InteractWithNearbyWorld()", self.hero)
+        self.assertIn("TryInteractWithNearbyKey();", self.hero.split(
+            "void AMoonfallHeroPawn::InteractWithNearbyWorld()", 1)[1].split(
+            "void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[0])
         self.assertIn("TActorIterator<AMoonfallKeyPickup>", self.hero)
         self.assertIn("TActorIterator<AMoonfallKeyGate>", self.hero)
         self.assertIn("FMath::Square(230.f)", self.hero)
