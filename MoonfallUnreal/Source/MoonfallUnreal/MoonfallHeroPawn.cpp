@@ -364,6 +364,12 @@ void AMoonfallHeroPawn::AwardEnemyCurrency(bool bEliteEnemy, bool bBossEnemy, FV
   if (!SaveRewardProgress())
   {
    ConfirmedRewardKills = PreviousKills;
+   KeyInteractionNotice = bRewardSaveLoadFailed
+     ? TEXT("REWARD SAVE ERROR - ORIGINAL FILE PROTECTED")
+     : TEXT("REWARD SAVE FAILED - GOLD AND KILL NOT SAVED");
+   bKeyInteractionNoticeError = true;
+   KeyInteractionNoticeUntil = GetWorld()
+     ? GetWorld()->GetTimeSeconds() + 6.f : 6.f;
    return;
   }
  }
@@ -373,6 +379,12 @@ void AMoonfallHeroPawn::AwardEnemyCurrency(bool bEliteEnemy, bool bBossEnemy, FV
   if (GrantedGold <= 0)
   {
    ConfirmedRewardKills = PreviousKills;
+   KeyInteractionNotice = bRewardSaveLoadFailed
+     ? TEXT("REWARD SAVE ERROR - ORIGINAL FILE PROTECTED")
+     : TEXT("REWARD SAVE FAILED - GOLD AND KILL NOT SAVED");
+   bKeyInteractionNoticeError = true;
+   KeyInteractionNoticeUntil = GetWorld()
+     ? GetWorld()->GetTimeSeconds() + 6.f : 6.f;
    return;
   }
  }
