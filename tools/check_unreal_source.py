@@ -773,7 +773,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("bInventoryOpen = bBagPanelOpen || bCharacterStatsOpen;", self.hero_cpp)
         self.assertIn("ForgeInventoryItemLevels(InventorySelection, 5);", self.hero_cpp)
         self.assertIn("ReforgeInventoryItemAffix(InventorySelection);", self.hero_cpp)
-        self.assertIn("if (Hero->bCharacterStatsOpen)", hud)
+        self.assertIn("const bool bDrawCharacter=Hero->bCharacterStatsOpen", hud)
         self.assertIn("PRIMARY ATTRIBUTES", hud)
         self.assertIn("SECONDARY STATS", hud)
         self.assertIn("EQUIPMENT SET BONUSES", hud)
@@ -1303,10 +1303,10 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         for name, operator in (("ZoomCameraIn", "-"), ("ZoomCameraOut", "+")):
             action = self.hero_cpp.split(f"void AMoonfallHeroPawn::{name}()", 1)[1].split("\n}", 1)[0]
             self.assertIn("bOptionsOpen || bAtlasOpen", action)
-            self.assertIn("if (bInventoryOpen)", action)
+            self.assertIn("if (bBagPanelOpen)", action)
             self.assertIn("InventoryViewStart", action)
             self.assertNotIn("InventorySelection =", action)
-            self.assertLess(action.index("if (bInventoryOpen)"),
+            self.assertLess(action.index("if (bBagPanelOpen)"),
                             action.index("CameraDistance ="))
             self.assertIn("return;", action)
             self.assertIn("FMath::IsFinite(CameraDistance) ? CameraDistance : 450.f", action)
