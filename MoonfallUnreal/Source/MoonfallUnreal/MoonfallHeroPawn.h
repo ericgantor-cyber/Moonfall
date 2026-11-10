@@ -137,6 +137,10 @@ public:
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") bool bTalentStarbreaker = false;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") bool bTalentAstralSurge = false;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") bool bTalentEternalSentinel = false;
+ // Tier V: specialized crown talents shared by every playable hero.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") bool bTalentVoidCrown = false;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") bool bTalentCelestialWell = false;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") bool bTalentAdamantOath = false;
  UFUNCTION(BlueprintPure, Category="Moonfall|Talents") bool CanUnlockTalentNode(int32 Node) const;
  UFUNCTION(BlueprintCallable, Category="Moonfall|Talents") bool UnlockTalentNode(int32 Node);
  // Indexed player-side API shared by mouse, keyboard and controller navigation.
