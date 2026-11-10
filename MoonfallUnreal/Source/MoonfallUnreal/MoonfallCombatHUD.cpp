@@ -589,7 +589,7 @@ void AMoonfallCombatHUD::DrawHUD()
      TEXT("PRIMARY ATTRIBUTES"),
      FString::Printf(TEXT("Strength: %d    Agility: %d"),Hero->GetStrength(),Hero->GetAgility()),
      FString::Printf(TEXT("Stamina: %d    Intellect: %d"),Hero->GetStaminaAttribute(),Hero->GetIntellect()),
-     FString::Printf(TEXT("Spirit: %d"),Hero->GetSpirit()),
+     FString::Printf(TEXT("Spirit: %d    MP5: %.1f"),Hero->GetSpirit(),Hero->GetManaRegenPerFive()),
      TEXT("ATTACK AND SPELL POWER"),
      FString::Printf(TEXT("Melee AP: %.0f    Ranged AP: %.0f"),Hero->GetMeleeAttackPower(),Hero->GetRangedAttackPower()),
      FString::Printf(TEXT("Hit Chance: %.1f%%    Critical: %.1f%%"),
@@ -600,7 +600,8 @@ void AMoonfallCombatHUD::DrawHUD()
         Hero->GetSpellDamagePower(),Hero->GetSpellHealingPower()),
      FString::Printf(TEXT("Spell Penetration: %.0f    Spell Pierce: %.0f"),
         Hero->GetSpellPenetration(),Hero->GetSpellPierce()),
-     FString::Printf(TEXT("Versatility: %.1f%%"),Hero->GetVersatilityBonus()*100.f),
+     FString::Printf(TEXT("Versatility: %.1f%%    Expertise: %.1f"),
+        Hero->GetVersatilityBonus()*100.f,Hero->GetExpertiseRating()),
      TEXT("Moonfall scaling; not WoW class formulas")
     };
     const FString StatLinesDefense[] = {
@@ -613,7 +614,8 @@ void AMoonfallCombatHUD::DrawHUD()
      TEXT("ELEMENTAL RESISTANCES"),
      FString::Printf(TEXT("Fire: %.0f    Frost: %.0f"),Hero->GetResistance(0),Hero->GetResistance(1)),
      FString::Printf(TEXT("Nature: %.0f    Shadow: %.0f"),Hero->GetResistance(2),Hero->GetResistance(3)),
-     FString::Printf(TEXT("Arcane: %.0f"),Hero->GetResistance(4)),
+     FString::Printf(TEXT("Arcane: %.0f    HP regen/5s: %.1f"),
+        Hero->GetResistance(4),Hero->GetHealthRegenPerFive()),
      TEXT("RESOURCE TOTALS"),
      FString::Printf(TEXT("Health: %.0f / %.0f"),Hero->Health,Hero->MaxHealth),
      FString::Printf(TEXT("Mana: %.0f / %.0f"),Hero->Mana,Hero->MaxMana),
