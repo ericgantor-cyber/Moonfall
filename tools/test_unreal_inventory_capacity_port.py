@@ -82,6 +82,20 @@ class InventoryCapacityPort(unittest.TestCase):
                           "InventoryItemCodes.Empty(", "Destroy("):
             self.assertNotIn(forbidden, method)
 
+    def test_forge_entry_points_reject_read_only_character_sheet(self):
+        # UI shortcuts alone are not sufficient: Blueprint/direct callers
+        # must honor the read-only character view before touching resources.
+        for name in (
+            "UpgradeInventoryItem",
+            "ReforgeInventoryItemAffix",
+            "AscendInventoryItemRarity",
+            "ForgeInventoryItemLevels",
+        ):
+            method = body(self.hero, "AMoonfallHeroPawn::" + name + "(")
+            guard = "if (!bInventoryOpen || bCharacterStatsOpen || bOptionsOpen ||"
+            self.assertIn(guard, method, name)
+            self.assertLess(method.index(guard), method.index("InventoryItemCodes[InventoryIndex]"), name)
+
     def test_sort_mode_survives_version_two_save_round_trip(self):
         source = self.hero
         save_header = (ROOT / "MoonfallProgressSaveGame.h").read_text(encoding="utf-8")
