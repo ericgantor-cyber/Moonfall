@@ -48,6 +48,9 @@ public:
  UFUNCTION(BlueprintPure, Category="Moonfall|Stats") float GetSpellHealingPower() const;
  UFUNCTION(BlueprintPure, Category="Moonfall|Stats") float GetSpellPenetration() const;
  UFUNCTION(BlueprintPure, Category="Moonfall|Stats") float GetSpellPierce() const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Stats") float GetExpertiseRating() const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Stats") float GetManaRegenPerFive() const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Stats") float GetHealthRegenPerFive() const;
  // School index 0 Fire, 1 Frost, 2 Nature, 3 Shadow, 4 Arcane.
  UFUNCTION(BlueprintPure, Category="Moonfall|Stats") float GetResistance(int32 School) const;
 
