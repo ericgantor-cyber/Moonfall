@@ -71,6 +71,38 @@ bool AMoonfallCombatHUD::IsInventorySortButtonAtScreenPosition(
 
 
 
+int32 AMoonfallCombatHUD::GetTalentNodeAtScreenPosition(
+ const AMoonfallHeroPawn* Hero, float X, float Y) const
+{
+ if (!Canvas || !IsValid(Hero) || !Hero->bAtlasOpen || !Hero->bTalentsOpen ||
+     Hero->bOptionsOpen || Hero->bInventoryOpen || Hero->Health <= 0.f ||
+     !FMath::IsFinite(X) || !FMath::IsFinite(Y)) return -1;
+ const float Width = FMath::Min(1120.f,FMath::Max(280.f,Canvas->SizeX - 24.f));
+ const float Height = FMath::Min(800.f,FMath::Max(280.f,Canvas->SizeY - 24.f));
+ const float Left = (Canvas->SizeX - Width) * 0.5f;
+ const float Top = (Canvas->SizeY - Height) * 0.5f;
+ if (X < Left || X > Left + Width || Y < Top || Y > Top + Height) return -1;
+ const float Zoom = FMath::Clamp(FMath::IsFinite(Hero->TalentZoom) ? Hero->TalentZoom : 1.f,0.75f,1.35f);
+ const float Scale = FMath::Clamp(FMath::Min(Width / 960.f,Height / 700.f),0.50f,1.15f);
+ const float CenterX[] = {
+  Left + Width * (0.50f + (0.19f - 0.50f) * Zoom),
+  Left + Width * 0.50f,
+  Left + Width * (0.50f + (0.81f - 0.50f) * Zoom)
+ };
+ const float TierY[] = {
+  Top + Height * (0.52f + (0.30f - 0.52f) * Zoom),
+  Top + Height * 0.52f,
+  Top + Height * (0.52f + (0.74f - 0.52f) * Zoom)
+ };
+ for (int32 Tier = 0; Tier < 3; ++Tier)
+  for (int32 Branch = 0; Branch < 3; ++Branch) {
+   const float DX = X - CenterX[Branch], DY = Y - TierY[Tier];
+   const float Radius = (Tier == 0 ? 18.f : Tier == 1 ? 22.f : 26.f) * Scale * Zoom + 10.f;
+   if (DX * DX + DY * DY <= Radius * Radius) return Tier * 3 + Branch;
+  }
+ return -1;
+}
+
 void AMoonfallCombatHUD::DrawHUD()
 {
  Super::DrawHUD();
@@ -110,7 +142,8 @@ void AMoonfallCombatHUD::DrawHUD()
   const float Top = (Canvas->SizeY - Height) * 0.5f;
   const float Scale = FMath::Clamp(FMath::Min(Width / 960.f, Height / 700.f), 0.50f, 1.15f);
   const bool bSmall = Width < 570.f || Height < 540.f;
-  const float Pulse = 0.80f + 0.20f * FMath::Sin(
+  const float Zoom = FMath::Clamp(FMath::IsFinite(Hero->TalentZoom) ? Hero->TalentZoom : 1.f,0.75f,1.35f);
+  const float Pulse = Hero->bReduceMotion ? 1.f : 0.80f + 0.20f * FMath::Sin(
     (GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f) * 1.3f);
   DrawRect(FLinearColor(0.014f,0.016f,0.047f,0.985f),Left,Top,Width,Height);
   // Layered nebula glints and star dust, deterministic from star index.
@@ -162,8 +195,16 @@ void AMoonfallCombatHUD::DrawHUD()
   };
   const FLinearColor Locked(0.23f,0.27f,0.37f,0.90f);
   const FLinearColor UnlockedColor(0.73f,0.88f,1.f,0.96f);
-  const float CenterX[] = {Left + Width * 0.19f,Left + Width * 0.50f,Left + Width * 0.81f};
-  const float TierY[] = {Top + Height * 0.30f,Top + Height * 0.52f,Top + Height * 0.74f};
+  const float CenterX[] = {
+   Left + Width * (0.50f + (0.19f - 0.50f) * Zoom),
+   Left + Width * 0.50f,
+   Left + Width * (0.50f + (0.81f - 0.50f) * Zoom)
+  };
+  const float TierY[] = {
+   Top + Height * (0.52f + (0.30f - 0.52f) * Zoom),
+   Top + Height * 0.52f,
+   Top + Height * (0.52f + (0.74f - 0.52f) * Zoom)
+  };
   // Luminous roots and links: draw dark rails under living colored filaments.
   for (int32 Branch = 0; Branch < 3; ++Branch) {
    DrawLine(CenterX[Branch],TierY[0],CenterX[Branch],TierY[1],
@@ -190,7 +231,7 @@ void AMoonfallCombatHUD::DrawHUD()
       : Hero->CanUnlockTalentNode(3 + (Tier - 1) * 3 + Branch);
     const FLinearColor Color = bActive ? BranchColors[Branch]
       : bAvailable ? FLinearColor(0.83f,0.73f,0.52f) : Locked;
-    const float R = (Tier == 0 ? 18.f : Tier == 1 ? 22.f : 26.f) * Scale;
+    const float R = (Tier == 0 ? 18.f : Tier == 1 ? 22.f : 26.f) * Scale * Zoom;
     const float X = CenterX[Branch],Y = TierY[Tier];
     for (int32 Seg = 0; Seg < 24; ++Seg) {
      const float A = 2.f * PI * Seg / 24.f;
@@ -205,6 +246,16 @@ void AMoonfallCombatHUD::DrawHUD()
         FLinearColor(Color.R,Color.G,Color.B,0.27f),1.f * Scale);
     }
     DrawRect(Color,X - 4.f * Scale,Y - 4.f * Scale,8.f * Scale,8.f * Scale);
+    if (Hero->TalentSelectedNode == Tier * 3 + Branch) {
+     const float FocusR = R + 11.f * Scale;
+     for (int32 Seg = 0; Seg < 24; ++Seg) {
+      const float A = 2.f * PI * Seg / 24.f;
+      const float B = 2.f * PI * (Seg + 1) / 24.f;
+      DrawLine(X + FocusR * FMath::Cos(A),Y + FocusR * FMath::Sin(A),
+       X + FocusR * FMath::Cos(B),Y + FocusR * FMath::Sin(B),
+       FLinearColor(1.f,0.90f,0.49f),2.2f * Scale);
+     }
+    }
     const TCHAR* Name = Tier == 0 ? BranchNames[Branch]
       : Tier == 1 ? KeystoneNames[Branch] : HybridNames[Branch];
     DrawText(Name,bActive ? FLinearColor(1.f,0.94f,0.85f) : FLinearColor(0.71f,0.76f,0.88f),
@@ -229,6 +280,12 @@ void AMoonfallCombatHUD::DrawHUD()
   DrawText(TEXT("1-3: root ranks   4-6: keystones   7-9: linked powers   Backspace: respec"),
     FLinearColor(0.91f,0.86f,0.98f),Left + 18.f,Top + Height - 70.f,
     nullptr,bSmall ? 0.48f : 0.75f);
+  DrawText(FString::Printf(TEXT("Selected star %d / 9     Zoom %.0f%%"),Hero->TalentSelectedNode + 1,Zoom * 100.f),
+    FLinearColor(0.97f,0.81f,0.51f),Left + Width * 0.58f,Top + 54.f,
+    nullptr,bSmall ? 0.55f : 0.76f);
+  DrawText(TEXT("Click a star / Tab / D-pad: select     Enter / A: invest     Wheel: zoom"),
+    FLinearColor(0.86f,0.82f,0.99f),Left + 18.f,Top + Height - 105.f,
+    nullptr,bSmall ? 0.43f : 0.67f);
   DrawText(TEXT("K / Esc: close    M: open map"),
     FLinearColor(0.70f,0.79f,0.91f),Left + 18.f,Top + Height - 35.f,
     nullptr,bSmall ? 0.68f : 0.83f);
