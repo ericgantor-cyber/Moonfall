@@ -160,12 +160,13 @@ bool AMoonfallHeroPawn::LoadRewardProgress()
   CollectedKeys.Reset();
   CompletedFactionQuests.Reset();
   UnlockedGateIds.Reset();
+  InventoryItemCodes.Reset();
   bKeyRingExpanded = false;
   return true;
  }
  const UMoonfallRewardSaveGame* Save = Cast<UMoonfallRewardSaveGame>(
    UGameplayStatics::LoadGameFromSlot(RewardSaveSlot, RewardSaveUser));
- if (!Save || (Save->SchemaVersion != 1 && Save->SchemaVersion != 2))
+ if (!Save || (Save->SchemaVersion != 1 && Save->SchemaVersion != 2 && Save->SchemaVersion != 3))
  {
   bRewardSaveLoadFailed = true;
   bRewardSaveInitialized = true;
@@ -178,6 +179,7 @@ bool AMoonfallHeroPawn::LoadRewardProgress()
  CollectedKeys.Reset();
  CompletedFactionQuests.Reset();
  UnlockedGateIds.Reset();
+ InventoryItemCodes.Reset();
  bKeyRingExpanded = false;
  Gold = FMath::Max<int64>(0, Save->Gold);
  ConfirmedRewardKills = FMath::Max<int64>(0, Save->ConfirmedKills);
@@ -202,6 +204,24 @@ bool AMoonfallHeroPawn::LoadRewardProgress()
     UnlockedGateIds.Add(GateId);
   }
  }
+ if (Save->SchemaVersion >= 3)
+ {
+  // Never materialize malformed item codes from a damaged or edited slot.
+  // A bounded list prevents untrusted saves from growing the live bag without limit.
+  for (const int32 Code : Save->InventoryItemCodes)
+  {
+   const int32 Affix = Code / 100000;
+   const int32 Slot = (Code / 10000) % 10;
+   const int32 Rarity = (Code / 1000) % 10;
+   const int32 Tier = Code % 1000;
+   if (InventoryItemCodes.Num() >= 4096) break;
+   if (Affix >= 0 && Affix <= 3 && Slot >= 0 && Slot <= 2
+       && Rarity >= 0 && Rarity <= 5 && Tier >= 1 && Tier <= 25
+       && (Rarity != 0 || Affix == 0)
+       && Code == Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier)
+    InventoryItemCodes.Add(Code);
+  }
+ }
  bKeyRingExpanded = !CollectedKeys.IsEmpty();
  return true;
 }
@@ -219,6 +239,7 @@ bool AMoonfallHeroPawn::SaveRewardProgress()
  Save->CollectedKeys = CollectedKeys;
  Save->CompletedFactionQuests = CompletedFactionQuests;
  Save->UnlockedGateIds = UnlockedGateIds;
+ Save->InventoryItemCodes = InventoryItemCodes;
  return UGameplayStatics::SaveGameToSlot(Save, RewardSaveSlot, RewardSaveUser);
 }
 
@@ -1632,7 +1653,19 @@ bool AMoonfallHeroPawn::CollectGroundEquipmentCode(int32 ItemCode)
      || ItemCode != Affix * 100000 + SlotIndex * 10000 + Rarity * 1000 + Tier)
   return false;
  // Picking up an item NEVER equips, automatically salvages, or deletes gear.
+ // Commit the bag BEFORE the world actor destroys the pickup. A failed save
+ // rolls the bag back and keeps the world item available for another attempt.
+ if (InventoryItemCodes.Num() >= 4096 || bRewardSaveLoadFailed) return false;
  InventoryItemCodes.Add(ItemCode);
+ if (!SaveRewardProgress())
+ {
+  InventoryItemCodes.Pop();
+  KeyInteractionNotice = TEXT("LOOT SAVE FAILED - ITEM LEFT ON GROUND");
+  bKeyInteractionNoticeError = true;
+  KeyInteractionNoticeUntil = GetWorld()
+    ? GetWorld()->GetTimeSeconds() + 6.f : 6.f;
+  return false;
+ }
  LastLootAffix = Affix;
  LastLootSlot = SlotIndex;
  LastLootRarity = Rarity;
