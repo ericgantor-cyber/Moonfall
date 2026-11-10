@@ -151,6 +151,21 @@ Moonfall's fully migrated Godot world or finished dungeon.
   enemy deaths still write independently. Verify gameplay on native UE5
   Windows builds before concluding that combat stutter has improved.
 
+## Map-aware world-loot persistence (reward save v5)
+
+- New persistent drops store the originating level name alongside their GUID,
+  item code and position. On map A, leave loot on the ground, travel to a
+  different map B and reload. A's saved drops must not appear at B's coordinates.
+  Return to map A and verify those exact drops are restored there.
+- Keep the same cross-map ledger so picking up a drop in A only removes its
+  matching GUID while leaving saved drops from B untouched. The global ledger
+  cap is still 512 records.
+- v4 legacy saves did not record a map. On first v4 load, records are
+  provisionally assigned to the current map for migration; the original
+  location cannot be inferred reliably. Back up v4 saves before migration.
+- Invalid v5 records with a missing level identity are skipped. Test full
+  restart after a successful save and verify named gate progress still opens.
+
 ## World-loot persistence (reward save v4)
 
 - Back up an existing v1, v2 or v3 reward save. Loading upgrades it in memory
