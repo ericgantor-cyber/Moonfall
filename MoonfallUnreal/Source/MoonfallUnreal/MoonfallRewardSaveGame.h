@@ -17,11 +17,14 @@ public:
   static const FString Slot(TEXT("Moonfall_RewardProgress_v1"));
   return Slot;
  }
- UPROPERTY(SaveGame) int32 SchemaVersion = 2;
+ UPROPERTY(SaveGame) int32 SchemaVersion = 3;
  UPROPERTY(SaveGame) int64 Gold = 0;
  UPROPERTY(SaveGame) int64 ConfirmedKills = 0;
  UPROPERTY(SaveGame) TArray<FName> CollectedKeys;
  UPROPERTY(SaveGame) TArray<FName> CompletedFactionQuests;
  // Stable authored gate IDs. v1 saves load with this list empty.
  UPROPERTY(SaveGame) TArray<FName> UnlockedGateIds;
+ // v3: equipment actually collected into the bag. Loose world drops remain
+ // transient; pickups only disappear after this inventory is saved.
+ UPROPERTY(SaveGame) TArray<int32> InventoryItemCodes;
 };
