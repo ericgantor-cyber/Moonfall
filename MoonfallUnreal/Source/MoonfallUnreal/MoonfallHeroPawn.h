@@ -95,6 +95,8 @@ public:
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Rewards") TArray<FName> CollectedKeys;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Rewards") TArray<FName> CompletedFactionQuests;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Rewards") bool bKeyRingExpanded = false;
+ // Transient inventory popover; never persisted as character progress.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Rewards") bool bKeyRingInventoryOpen = false;
  UFUNCTION(BlueprintCallable, Category="Moonfall|Rewards") bool CompleteFactionQuest(FName QuestId);
  UFUNCTION(BlueprintCallable, Category="Moonfall|Rewards") void ToggleKeyRing();
  UFUNCTION(BlueprintCallable, Category="Moonfall|Rewards") int64 AddGold(int64 Amount);
