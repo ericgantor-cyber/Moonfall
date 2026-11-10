@@ -198,7 +198,7 @@ func _apply_player_hit(target:Dictionary,base_damage:float,stagger_strength:floa
  target["realm_kill_recorded"]=true
  realm_victories+=1
  # Collect enemy gold directly into the persistent purse with no pickup key.
- var gold_found:int=3+mini(60,realm_victories/4)
+ var gold_found:int=EQUIPMENT.gold_for_kill(realm_victories)
  EQUIPMENT.add_gold(gear_state,gold_found)
  if realm_victories==5:_award_key("fallen_gate_key")
  # Award one deterministic catalog item for each confirmed player kill.
