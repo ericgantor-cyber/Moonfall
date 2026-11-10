@@ -19,6 +19,8 @@ func _initialize()->void:
  expect(RING.normalize({"keys":["outlaw_seal","outlaw_seal","invalid",9]})["keys"]==["outlaw_seal"],"untrusted save filtered")
  expect(RING.normalize(state)["keys"]==state["keys"],"save roundtrip")
  expect(RING.display_lines(state).contains("Fallen Gate Key"),"key ring display")
+ expect(GEAR.gold_for_kill(0)==0 and GEAR.gold_for_kill(1)==3,"gold is only paid for confirmed kills")
+ expect(GEAR.gold_for_kill(1000)>GEAR.gold_for_kill(240),"enemy gold scales without previous payout ceiling")
  var gear:Dictionary=GEAR.new_state()
  expect(GEAR.add_gold(gear,12)==12 and gear["gold"]==12,"auto-collected gold added")
  expect(GEAR.add_gold(gear,0)==0 and GEAR.add_gold(gear,-10)==0 and gear["gold"]==12,"invalid gold grants rejected")
