@@ -40,6 +40,26 @@ class UE5RewardParity(unittest.TestCase):
         self.assertIn("const int64 BaseGold = 3 + ConfirmedRewardKills / 4;", self.hero)
         self.assertIn("AddGold(BaseGold);", self.hero)
 
+    def test_quest_reward_is_one_time_and_saved(self):
+        self.assertIn("TArray<FName> CompletedFactionQuests", self.save)
+        self.assertIn("Save->CompletedFactionQuests = CompletedFactionQuests;", self.hero)
+        self.assertIn("for (const FName QuestId : Save->CompletedFactionQuests)", self.hero)
+        quest = self.hero.split("bool AMoonfallHeroPawn::CompleteFactionQuest(FName QuestId)", 1)[1].split(
+            "void AMoonfallHeroPawn::ToggleKeyRing()", 1)[0]
+        self.assertIn("CompletedFactionQuests.Contains(QuestId)", quest)
+        self.assertIn('FName(TEXT("wardens_crest"))', quest)
+        self.assertIn('FName(TEXT("outlaw_seal"))', quest)
+        self.assertIn("CompletedFactionQuests.Add(QuestId);", quest)
+        self.assertIn("bKeyRingExpanded = true;", quest)
+
+    def test_key_ring_input_and_visible_names(self):
+        inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text()
+        self.assertIn('ActionName="KeyRing",Key=K', inputs)
+        self.assertIn('BindAction(TEXT("KeyRing")', self.hero)
+        self.assertIn("Hero->bKeyRingExpanded", self.hud)
+        for label in ("Wardens' Crest", "Outlaw Seal", "Fallen Gate Key"):
+            self.assertIn(label, self.hud)
+
     def test_equipment_remains_manual_and_hud_shows_rewards(self):
         self.assertIn("void PickupNearestGroundLoot();", self.hero_h)
         self.assertIn("Loot->TryCollect()", self.hero)
