@@ -218,7 +218,11 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Spread * FMath::Cos(Angle)", spawn)
         self.assertIn("Spread * FMath::Sin(Angle)", spawn)
         self.assertIn("RegisterWorldEquipmentDrop(ItemCode, SpawnAt);", spawn)
-        self.assertIn("Loot->InitializeLoot(ItemCode);", spawn)
+        register = self.hero_cpp.split("bool AMoonfallHeroPawn::RegisterWorldEquipmentDrop(", 1)[1].split(
+            "void AMoonfallHeroPawn::RestorePendingWorldEquipmentDrops()", 1)[0]
+        self.assertIn("Loot->InitializeLoot(ItemCode);", register)
+        self.assertLess(register.index("if (!SaveRewardProgress())"),
+                        register.index("BeginDeferredActorSpawnFromClass("))
         pickup = self.hero_cpp.split("void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[1].split(
             "void AMoonfallHeroPawn::EquipBestInventoryAction()", 1)[0]
         self.assertIn("bOptionsOpen || bInventoryOpen", pickup)
