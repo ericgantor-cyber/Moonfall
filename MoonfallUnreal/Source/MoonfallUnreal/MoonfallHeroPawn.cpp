@@ -1841,27 +1841,59 @@ bool AMoonfallHeroPawn::CollectGroundEquipmentCode(int32 ItemCode)
      || (Rarity == 0 && Affix != 0)
      || ItemCode != Affix * 100000 + SlotIndex * 10000 + Rarity * 1000 + Tier)
   return false;
- // Picking up an item NEVER equips, automatically salvages, or deletes gear.
- // Commit the bag BEFORE the world actor destroys the pickup. A failed save
- // rolls the bag back and keeps the world item available for another attempt.
+ // A first pickup fills its matching empty slot, but never replaces worn gear.
+ // Bag and equipped state commit together before the world pickup is removed.
+ // No auto-salvaging, no upgrading, and no extra disk write per pickup.
  if (InventoryItemCodes.Num() >= 4096 || bRewardSaveLoadFailed) return false;
+ int32* EquippedCode = SlotIndex == 0 ? &EquippedWeaponCode
+   : (SlotIndex == 1 ? &EquippedArmorCode : &EquippedAccessoryCode);
+ int32* EquippedTier = SlotIndex == 0 ? &WeaponTier
+   : (SlotIndex == 1 ? &ArmorTier : &AccessoryTier);
+ int32* EquippedAffix = SlotIndex == 0 ? &WeaponAffix
+   : (SlotIndex == 1 ? &ArmorAffix : &AccessoryAffix);
+ const bool bAutoEquipEmptySlot = *EquippedCode == 0;
+ const int32 PreviousEquipmentTier = EquipmentTier;
+ const float PreviousMaxHealth = MaxHealth;
+ const float PreviousHealth = Health;
  InventoryItemCodes.Add(ItemCode);
+ if (bAutoEquipEmptySlot)
+ {
+  *EquippedCode = ItemCode;
+  *EquippedTier = Tier;
+  *EquippedAffix = Affix;
+  EquipmentTier = FMath::Max(WeaponTier, FMath::Max(ArmorTier, AccessoryTier));
+  if (SlotIndex == 1)
+  {
+   const float HealthBonus = 2.f * Tier;
+   MaxHealth = FMath::Max(1.f, MaxHealth + HealthBonus);
+   Health = FMath::Clamp(Health + HealthBonus, 1.f, MaxHealth);
+  }
+ }
  if (!SaveRewardProgress())
  {
   InventoryItemCodes.Pop();
+  if (bAutoEquipEmptySlot)
+  {
+   *EquippedCode = 0;
+   *EquippedTier = 0;
+   *EquippedAffix = 0;
+   EquipmentTier = PreviousEquipmentTier;
+   MaxHealth = PreviousMaxHealth;
+   Health = PreviousHealth;
+  }
   KeyInteractionNotice = TEXT("LOOT SAVE FAILED - ITEM LEFT ON GROUND");
   bKeyInteractionNoticeError = true;
   KeyInteractionNoticeUntil = GetWorld()
     ? GetWorld()->GetTimeSeconds() + 6.f : 6.f;
   return false;
  }
+ if (bAutoEquipEmptySlot && SlotIndex == 1)
+  OnHealthChanged(Health, MaxHealth);
  LastLootAffix = Affix;
  LastLootSlot = SlotIndex;
  LastLootRarity = Rarity;
  LastLootTier = Tier;
- const int32 EquippedTier = SlotIndex == 0 ? WeaponTier
-     : (SlotIndex == 1 ? ArmorTier : AccessoryTier);
- LastLootUpgrade = Tier - EquippedTier;
+ LastLootUpgrade = Tier - *EquippedTier;
  return true;
 }
 
