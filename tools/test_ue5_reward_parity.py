@@ -652,6 +652,20 @@ class UE5RewardParity(unittest.TestCase):
         self.assertIn("SpawnedActors.Add(Record.DropId, Loot);", restore)
         self.assertEqual(restore.count("TActorIterator<AMoonfallGroundLoot>"), 1)
 
+    def test_nearby_loot_is_not_starved_by_distant_persisted_actors(self):
+        pickup = self.hero.split("void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[1].split(
+            "void AMoonfallHeroPawn::EquipBestInventoryAction()", 1)[0]
+        self.assertIn("for (TActorIterator<AMoonfallGroundLoot> It(GetWorld()); It; ++It)", pickup)
+        self.assertNotIn("MaxLootScanned", pickup)
+        self.assertNotIn("Scanned < ", pickup)
+        self.assertIn("constexpr int32 MaxLootPerPress = 6;", pickup)
+        self.assertIn("if (InsertAt >= MaxLootPerPress) continue;", pickup)
+        self.assertIn("NearbyLoot.Insert(Candidate, InsertAt);", pickup)
+        self.assertIn("NearbyLoot.RemoveAt(MaxLootPerPress);", pickup)
+        self.assertIn("FMath::Square(250.f)", pickup)
+        self.assertIn("ECC_Visibility", pickup)
+        self.assertIn("if (IsValid(Loot)) Loot->TryCollect();", pickup)
+
     def test_equipment_remains_manual_and_hud_shows_rewards(self):
         self.assertIn("void PickupNearestGroundLoot();", self.hero_h)
         self.assertIn("Loot->TryCollect()", self.hero)
