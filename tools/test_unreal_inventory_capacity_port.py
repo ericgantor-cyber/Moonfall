@@ -134,6 +134,31 @@ class InventoryCapacityPort(unittest.TestCase):
         self.assertIn("HUD->GetInventoryItemAtScreenPosition", right)
 
 
+    def test_clickable_backpack_action_bar(self):
+        hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        header = (ROOT / "MoonfallCombatHUD.h").read_text(encoding="utf-8")
+        self.assertIn("GetInventoryActionAtScreenPosition(", header)
+        hit = body(hud, "int32 AMoonfallCombatHUD::GetInventoryActionAtScreenPosition(")
+        self.assertIn("Hero->bCharacterStatsOpen", hit)
+        self.assertIn("MoonfallBagActionRect(Canvas,Action", hit)
+        self.assertIn("return Action;", hit)
+        for title in ("EQUIP", "UPGRADE", "ASCEND", "REFORGE",
+                      "FORGE x5", "SALVAGE", "CHARACTER", "CLOSE"):
+            self.assertIn('TEXT("' + title + '")', hud)
+        click = body(self.hero, "void AMoonfallHeroPawn::LeftClickContextAction()")
+        self.assertIn("HUD->GetInventoryActionAtScreenPosition(this,MouseX,MouseY)", click)
+        self.assertIn("if (BagAction == 6) { ToggleCharacterStats(); return; }", click)
+        self.assertIn("if (BagAction == 7) { ToggleInventory(); return; }", click)
+        for action, method in ((0,"EquipSelectedInventoryItem"),
+                               (1,"UpgradeSelectedInventoryItem"),
+                               (2,"AscendSelectedInventoryItem"),
+                               (3,"ReforgeSelectedInventoryItem"),
+                               (4,"ForgeFiveSelectedInventoryItem"),
+                               (5,"SalvageSelectedInventoryItem")):
+            self.assertIn(f"case {action}: {method}(); break;", click)
+        self.assertLess(click.index("GetInventoryActionAtScreenPosition"),
+                        click.index("IsInventorySortButtonAtScreenPosition"))
+
     def test_clickable_settings_and_atlas_navigation(self):
         hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
         header = (ROOT / "MoonfallCombatHUD.h").read_text(encoding="utf-8")
