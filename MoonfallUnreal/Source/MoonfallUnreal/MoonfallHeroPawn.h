@@ -276,7 +276,7 @@ private:
  TWeakObjectPtr<AMoonfallKeyPickup> PendingMilestoneKey;
  // Bounded persistent world drops share the reward save transaction.
  UPROPERTY() TArray<FMoonfallWorldLootRecord> PendingWorldLoot;
- bool RegisterWorldEquipmentDrop(int32 ItemCode, const FVector& Location);
+ bool RegisterWorldEquipmentDrops(const TArray<FMoonfallWorldLootRecord>& NewDrops);
  void RestorePendingWorldEquipmentDrops();
  void SpawnMilestoneKey(const FVector& Location);
  // During crafting, equipped updates participate in the outer save transaction.
