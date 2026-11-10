@@ -105,7 +105,7 @@ static func totals(state:Dictionary)->Dictionary:
  var eligible_ids:Dictionary={}
  for slot in SLOTS:
   var equipped_id:String=str(slots.get(slot,""))
-  if int(owned.get(equipped_id,0))<1:continue
+  if _safe_roll_number(owned.get(equipped_id,0),9999)<1:continue
   var equipped_item:Dictionary=CATALOG.get_item(equipped_id)
   if not equipped_item.is_empty() and slot_for(equipped_item)==slot:
    eligible_ids[equipped_id]=true
@@ -121,7 +121,7 @@ static func totals(state:Dictionary)->Dictionary:
    best_by_item[roll_id]=roll
  for slot in SLOTS:
   var item_id:String=str(slots.get(slot,""))
-  if int(owned.get(item_id,0))<1:continue
+  if _safe_roll_number(owned.get(item_id,0),9999)<1:continue
   var item:Dictionary=CATALOG.get_item(item_id)
   if item.is_empty() or slot_for(item)!=slot:continue
   var power:int=int(item["power"])
@@ -158,15 +158,15 @@ static func normalize(saved:Dictionary)->Dictionary:
  var prior_items:Variant=saved.get("items",{})
  if prior_items is Dictionary:
   for id in prior_items:
-   var count:int=clampi(int(prior_items[id]),0,9999)
+   var count:int=_safe_roll_number(prior_items[id],9999)
    if count>0 and not CATALOG.get_item(str(id)).is_empty():state["items"][str(id)]=count
  var prior_materials:Variant=saved.get("materials",{})
  if prior_materials is Dictionary:
   for material in prior_materials:
-   if str(material)!="" and int(prior_materials[material])>0:
-    state["materials"][str(material)]=clampi(int(prior_materials[material]),0,999999)
- state["gold"]=clampi(int(saved.get("gold",0)),0,99999999)
- state["loot_pity"]=clampi(int(saved.get("loot_pity",0)),0,80)
+   if str(material)!="" and _safe_roll_number(prior_materials[material],999999)>0:
+    state["materials"][str(material)]=_safe_roll_number(prior_materials[material],999999)
+ state["gold"]=_safe_roll_number(saved.get("gold",0),99999999)
+ state["loot_pity"]=_safe_roll_number(saved.get("loot_pity",0),80)
  var prior_rolls:Variant=saved.get("loot_rolls",[])
  if prior_rolls is Array:
   for entry in prior_rolls.slice(-250):
