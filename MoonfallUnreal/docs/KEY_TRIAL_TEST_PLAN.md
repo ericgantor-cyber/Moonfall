@@ -39,7 +39,11 @@ Moonfall's fully migrated Godot world or finished dungeon.
     front-facing object, regardless of spawn/actor iteration order.
 14. Remove the front-facing object and retry: the reachable rear object
     must remain interactable as an accessibility fallback.
-15. Disable Key Trial and verify regular arenas remain unchanged.
+15. With a previously collected key actor still placed beside a locked
+    door, press F/controller pickup. The stale key should be cleaned up
+    without blocking the interaction with the gate. The same interaction
+    must never automatically grant a new key or open a gate without its key.
+16. Disable Key Trial and verify regular arenas remain unchanged.
 
 ## Known limitations
 
