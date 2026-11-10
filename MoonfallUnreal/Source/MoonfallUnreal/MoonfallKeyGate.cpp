@@ -50,7 +50,7 @@ void AMoonfallKeyGate::BeginPlay()
  }
  else
  {
-  const FString SlotName(TEXT("Moonfall_RewardProgress_v1"));
+  const FString& SlotName = UMoonfallRewardSaveGame::GetRewardSlotName();
   if (!UGameplayStatics::DoesSaveGameExist(SlotName, 0)) return;
   const UMoonfallRewardSaveGame* Saved = Cast<UMoonfallRewardSaveGame>(
     UGameplayStatics::LoadGameFromSlot(SlotName, 0));
