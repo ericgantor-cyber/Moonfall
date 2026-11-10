@@ -363,6 +363,19 @@ class UE5RewardParity(unittest.TestCase):
                         spawn.index("FinishSpawningActor(Pickup, SpawnTransform);"))
         self.assertIn("if (ConfirmedRewardKills >= 5", self.hero)
 
+    def test_failed_kill_reward_save_warns_without_claiming_currency(self):
+        kill = self.hero.split("void AMoonfallHeroPawn::AwardEnemyCurrency(", 1)[1].split(
+            "void AMoonfallHeroPawn::BeginPlay()", 1)[0]
+        self.assertEqual(kill.count("ConfirmedRewardKills = PreviousKills;"), 2)
+        self.assertEqual(kill.count("REWARD SAVE FAILED - GOLD AND KILL NOT SAVED"), 2)
+        self.assertEqual(kill.count("REWARD SAVE ERROR - ORIGINAL FILE PROTECTED"), 2)
+        self.assertEqual(kill.count("bKeyInteractionNoticeError = true;"), 2)
+        self.assertEqual(kill.count("KeyInteractionNoticeUntil = GetWorld()"), 2)
+        self.assertIn("if (!SaveRewardProgress())", kill)
+        self.assertIn("if (GrantedGold <= 0)", kill)
+        self.assertIn("SpawnMilestoneKey(DefeatedLocation);", kill)
+        self.assertIn("Hero->KeyInteractionNoticeUntil > NowSeconds", self.hud)
+
     def test_equipment_remains_manual_and_hud_shows_rewards(self):
         self.assertIn("void PickupNearestGroundLoot();", self.hero_h)
         self.assertIn("Loot->TryCollect()", self.hero)
