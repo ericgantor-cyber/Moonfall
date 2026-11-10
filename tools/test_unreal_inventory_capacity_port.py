@@ -172,6 +172,24 @@ class InventoryCapacityPort(unittest.TestCase):
         self.assertNotIn('TEXT("NEXT PAGE")', hud)
         self.assertNotIn('TEXT("EQUIP SELECTED")', hud)
 
+    def test_large_bag_advisor_is_throttled_and_invalidated_safely(self):
+        hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        header = (ROOT / "MoonfallCombatHUD.h").read_text(encoding="utf-8")
+        self.assertIn("CachedAdvisorIndex", header)
+        self.assertIn("CachedAdvisorHero", header)
+        self.assertIn("NextAdvisorRefreshAt", header)
+        self.assertIn("AdvisorNow + 0.25f", hud)
+        self.assertIn("CachedAdvisorCount != Count", hud)
+        self.assertIn("CachedAdvisorWeapon != Hero->EquippedWeaponCode", hud)
+        self.assertIn("CachedAdvisorArmor != Hero->EquippedArmorCode", hud)
+        self.assertIn("CachedAdvisorAccessory != Hero->EquippedAccessoryCode", hud)
+        self.assertIn("CachedAdvisorSortMode != Hero->InventorySortMode", hud)
+        self.assertIn("bAdvisorItemChanged", hud)
+        self.assertIn("CachedAdvisorHero = nullptr;", hud)
+        self.assertIn("Hero->GetRecommendedEquipmentIndex()", hud)
+        self.assertIn("const int32 AdvisedIndex = CachedAdvisorIndex;", hud)
+        self.assertNotIn('TEXT("EQUIP SELECTED")', hud)
+
     def test_inventory_has_no_equip_or_page_buttons(self):
         hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
         left = body(self.hero, "void AMoonfallHeroPawn::LeftClickContextAction()")
