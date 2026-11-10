@@ -102,7 +102,7 @@ public:
  UFUNCTION(BlueprintCallable, Category="Moonfall|Rewards") int64 AddGold(int64 Amount);
  UFUNCTION(BlueprintCallable, Category="Moonfall|Rewards") bool CollectQuestKey(FName KeyId);
  UFUNCTION(BlueprintPure, Category="Moonfall|Rewards") bool HasQuestKey(FName KeyId) const;
- UFUNCTION(BlueprintCallable, Category="Moonfall|Rewards") void AwardEnemyCurrency(bool bEliteEnemy, bool bBossEnemy);
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Rewards") void AwardEnemyCurrency(bool bEliteEnemy, bool bBossEnemy, FVector DefeatedLocation);
  UFUNCTION(BlueprintCallable, Category="Moonfall|Rewards") bool SaveRewardProgress();
  UFUNCTION(BlueprintCallable, Category="Moonfall|Rewards") bool LoadRewardProgress();
  UFUNCTION(BlueprintCallable, Category="Moonfall|Loot") void AwardEquipmentDrop(bool bEliteEnemy, bool bBossEnemy);
@@ -257,6 +257,7 @@ private:
  void EndGuard();
  void UpdateInventoryMouseInput();
  bool TryInteractWithNearbyKey();
+ void SpawnMilestoneKey(const FVector& Location);
  void InventoryConfirm();
  void InventorySalvage();
  void OpenOptions();
