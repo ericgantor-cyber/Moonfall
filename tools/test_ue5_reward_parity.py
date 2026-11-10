@@ -478,7 +478,7 @@ class UE5RewardParity(unittest.TestCase):
 
     def test_pickup_auto_equips_only_an_empty_matching_slot(self):
         collect = self.hero.split("bool AMoonfallHeroPawn::CollectGroundEquipmentCode(", 1)[1].split(
-            "void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(", 1)[0]
+            "bool AMoonfallHeroPawn::CollectPersistedGroundEquipmentCode(", 1)[0]
         self.assertIn("const bool bAutoEquipEmptySlot = *EquippedCode == 0;", collect)
         self.assertIn("if (bAutoEquipEmptySlot)", collect)
         self.assertIn("*EquippedCode = ItemCode;", collect)
