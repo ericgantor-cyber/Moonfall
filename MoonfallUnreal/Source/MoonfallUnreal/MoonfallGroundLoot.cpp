@@ -69,7 +69,7 @@ bool AMoonfallGroundLoot::TryCollect()
 {
  if (bCollected || ItemCode <= 0) return false;
  AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0));
- if (!IsValid(Hero) || !Hero->CollectGroundEquipmentCode(ItemCode)) return false;
+ if (!IsValid(Hero) || !Hero->CollectPersistedGroundEquipmentCode(ItemCode, PersistentDropId)) return false;
  bCollected = true;
  Destroy();
  return true;
