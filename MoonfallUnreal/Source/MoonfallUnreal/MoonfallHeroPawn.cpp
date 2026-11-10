@@ -93,7 +93,7 @@ float AMoonfallHeroPawn::GetCriticalChance() const
 {
  // Force: 2-piece improves critical chances. A 3-piece grants mastery.
  const float TraitCrit = ValidEquippedRarityBonus(EquippedWeaponCode, 0, 1, 0.008f);
- return FMath::Clamp(0.05f + TraitCrit + (GetSetPieceCount(1) >= 2 ? 0.03f : 0.f),
+ return FMath::Clamp(0.05f + TraitCrit + FMath::Clamp(TalentForceRank, 0, 10) * 0.005f + (GetSetPieceCount(1) >= 2 ? 0.03f : 0.f),
    0.05f, 0.25f);
 }
 
@@ -101,7 +101,7 @@ float AMoonfallHeroPawn::GetHasteBonus() const
 {
  // Focus: faster spell recovery at two matching items.
  const float TraitHaste = ValidEquippedRarityBonus(EquippedAccessoryCode, 2, 3, 0.006f);
- return FMath::Clamp(TraitHaste + (GetSetPieceCount(3) >= 2 ? 0.04f : 0.f),
+ return FMath::Clamp(TraitHaste + FMath::Clamp(TalentFocusRank, 0, 10) * 0.01f + (GetSetPieceCount(3) >= 2 ? 0.04f : 0.f),
    0.f, 0.20f);
 }
 
@@ -120,7 +120,7 @@ float AMoonfallHeroPawn::GetVersatilityBonus() const
 {
  // Ward: Versatility increases damage dealt and halves its defensive effect.
  const float TraitVersatility = ValidEquippedRarityBonus(EquippedArmorCode, 1, 2, 0.005f);
- return FMath::Clamp(TraitVersatility + (GetSetPieceCount(2) >= 2 ? 0.03f : 0.f),
+ return FMath::Clamp(TraitVersatility + FMath::Clamp(TalentWardRank, 0, 10) * 0.008f + (GetSetPieceCount(2) >= 2 ? 0.03f : 0.f),
    0.f, 0.12f);
 }
 
@@ -359,6 +359,9 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("EquipBest"), IE_Pressed, this, &AMoonfallHeroPawn::EquipBestInventoryAction);
  Input->BindAction(TEXT("Atlas"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleAtlas);
  Input->BindAction(TEXT("Talents"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleTalents);
+ Input->BindAction(TEXT("TalentForce"), IE_Pressed, this, &AMoonfallHeroPawn::SpendForceTalent);
+ Input->BindAction(TEXT("TalentFocus"), IE_Pressed, this, &AMoonfallHeroPawn::SpendFocusTalent);
+ Input->BindAction(TEXT("TalentWard"), IE_Pressed, this, &AMoonfallHeroPawn::SpendWardTalent);
  Input->BindAction(TEXT("PickupLoot"), IE_Pressed, this, &AMoonfallHeroPawn::PickupNearestGroundLoot);
  Input->BindAction(TEXT("OptionsUp"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsUp);
  Input->BindAction(TEXT("OptionsDown"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsDown);
@@ -1023,6 +1026,31 @@ void AMoonfallHeroPawn::ToggleAtlas()
  bAtlasOpen = !bWasMapOpen;
  bTalentsOpen = false;
 }
+
+int32 AMoonfallHeroPawn::GetUnspentTalentPoints() const
+{
+ // Level 1 begins with no points. Clamp overspending after external level edits.
+ return FMath::Max(0, FMath::Clamp(Level, 1, 100) - 1
+   - TalentForceRank - TalentFocusRank - TalentWardRank);
+}
+
+bool AMoonfallHeroPawn::SpendTalentPoint(int32 Branch)
+{
+ // Talents belong to the playable hero, not the Z/Nyra bosses.
+ // Never spend points from combat, inventory, map, or the death screen.
+ if (!bAtlasOpen || !bTalentsOpen || bInventoryOpen || bOptionsOpen ||
+     !FMath::IsFinite(Health) || Health <= 0.f ||
+     GetUnspentTalentPoints() <= 0) return false;
+ int32* Rank = Branch == 0 ? &TalentForceRank
+   : (Branch == 1 ? &TalentFocusRank : (Branch == 2 ? &TalentWardRank : nullptr));
+ if (!Rank || *Rank < 0 || *Rank >= 10) return false;
+ ++(*Rank);
+ return true;
+}
+
+void AMoonfallHeroPawn::SpendForceTalent() { SpendTalentPoint(0); }
+void AMoonfallHeroPawn::SpendFocusTalent() { SpendTalentPoint(1); }
+void AMoonfallHeroPawn::SpendWardTalent() { SpendTalentPoint(2); }
 
 void AMoonfallHeroPawn::ToggleTalents()
 {
