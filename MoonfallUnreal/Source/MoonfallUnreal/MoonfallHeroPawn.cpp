@@ -549,6 +549,15 @@ void AMoonfallHeroPawn::LeftClickContextAction()
       CycleInventorySort();
       return;
      }
+     const int32 PageDirection = HUD->GetInventoryPageButtonAtScreenPosition(this, MouseX, MouseY);
+     if (PageDirection != 0 && InventoryItemCodes.Num() > 0) {
+      const int32 PerPage = HUD->GetInventoryItemsPerPage();
+      const int32 CurrentPage = FMath::Clamp(InventorySelection, 0, InventoryItemCodes.Num() - 1) / PerPage;
+      const int32 LastPage = (InventoryItemCodes.Num() - 1) / PerPage;
+      const int32 NewPage = FMath::Clamp(CurrentPage + PageDirection, 0, LastPage);
+      InventorySelection = NewPage * PerPage;
+      return;
+     }
      const int32 ClickedIndex = HUD->GetInventoryItemAtScreenPosition(this, MouseX, MouseY);
      if (InventoryItemCodes.IsValidIndex(ClickedIndex))
       InventorySelection = ClickedIndex;
