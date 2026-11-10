@@ -17,7 +17,7 @@ int32 AMoonfallCombatHUD::GetInventoryItemAtScreenPosition(
      !FMath::IsFinite(X) || !FMath::IsFinite(Y)) return -1;
  const int32 Count = Hero->InventoryItemCodes.Num();
  if (Count <= 0) return -1;
- const bool bWideInventory = Canvas->SizeX >= 1100.f;
+ const bool bWideInventory = Canvas->SizeX >= 1100.f && Canvas->SizeY >= 600.f;
  const float PanelWidth = FMath::Min(bWideInventory ? 1040.f : 680.f, FMath::Max(280.f, Canvas->SizeX - 24.f));
  const float ListWidth = bWideInventory ? PanelWidth - 340.f : PanelWidth;
  const float PanelHeight = FMath::Min(580.f, FMath::Max(280.f, Canvas->SizeY - 24.f));
@@ -44,7 +44,7 @@ bool AMoonfallCombatHUD::IsInventorySortButtonAtScreenPosition(
  if (!Canvas || !IsValid(Hero) || !Hero->bInventoryOpen ||
      Hero->bCharacterStatsOpen || Hero->bOptionsOpen ||
      !FMath::IsFinite(X) || !FMath::IsFinite(Y)) return false;
- const bool bWideInventory = Canvas->SizeX >= 1100.f;
+ const bool bWideInventory = Canvas->SizeX >= 1100.f && Canvas->SizeY >= 600.f;
  const float PanelWidth = FMath::Min(bWideInventory ? 1040.f : 680.f,
    FMath::Max(280.f, Canvas->SizeX - 24.f));
  const float ListWidth = bWideInventory ? PanelWidth - 340.f : PanelWidth;
@@ -125,7 +125,7 @@ void AMoonfallCombatHUD::DrawHUD()
  }
  if (Hero->bInventoryOpen) {
   // Canvas-only paginated inventory: no extra actors, widgets, or hidden controls.
-  const bool bWideInventory = Canvas->SizeX >= 1100.f;
+  const bool bWideInventory = Canvas->SizeX >= 1100.f && Canvas->SizeY >= 600.f;
  const float PanelWidth = FMath::Min(bWideInventory ? 1040.f : 680.f, FMath::Max(280.f, Canvas->SizeX - 24.f));
  const float ListWidth = bWideInventory ? PanelWidth - 340.f : PanelWidth;
   const float PanelHeight = FMath::Min(580.f, FMath::Max(280.f, Canvas->SizeY - 24.f));
@@ -303,11 +303,17 @@ void AMoonfallCombatHUD::DrawHUD()
      DrawText(FString::Printf(TEXT("Salvage value: %d"),SalvageReward),
        DetailColor,TextX,DetailTop + 227.f,nullptr,0.85f);
      DrawText(Tier < 25 ? FString::Printf(TEXT("Upgrade: %d salvage"),UpgradeCost)
-       : TEXT("Upgrade: MAX TIER"),DetailColor,TextX,DetailTop + 254.f,nullptr,0.85f);
+       : TEXT("Upgrade: MAX TIER"),Tier < 25 && Hero->Salvage >= UpgradeCost
+       ? FLinearColor(0.52f,0.96f,0.69f) : FLinearColor(0.75f,0.70f,0.78f),
+       TextX,DetailTop + 254.f,nullptr,0.85f);
      DrawText(Rarity < 5 ? FString::Printf(TEXT("Ascend: %d salvage"),AscendCost)
-       : TEXT("Ascend: MAX RARITY"),DetailColor,TextX,DetailTop + 281.f,nullptr,0.85f);
+       : TEXT("Ascend: MAX RARITY"),Rarity < 5 && Hero->Salvage >= AscendCost
+       ? FLinearColor(0.52f,0.96f,0.69f) : FLinearColor(0.75f,0.70f,0.78f),
+       TextX,DetailTop + 281.f,nullptr,0.85f);
      DrawText(Rarity >= 2 ? FString::Printf(TEXT("Reforge: %d salvage"),ReforgeCost)
-       : TEXT("Reforge: Rare+ only"),DetailColor,TextX,DetailTop + 308.f,nullptr,0.85f);
+       : TEXT("Reforge: Rare+ only"),Rarity >= 2 && Hero->Salvage >= ReforgeCost
+       ? FLinearColor(0.52f,0.96f,0.69f) : FLinearColor(0.75f,0.70f,0.78f),
+       TextX,DetailTop + 308.f,nullptr,0.85f);
      DrawText(TEXT("Actions are manual; no auto-equip."),
        FLinearColor(0.69f,0.75f,0.85f),TextX,DetailTop + 339.f,nullptr,0.73f);
     } else {
