@@ -60,6 +60,28 @@ bool AMoonfallCombatHUD::IsInventorySortButtonAtScreenPosition(
 
 
 
+bool AMoonfallCombatHUD::CanEquipSelectedInventoryItem(const AMoonfallHeroPawn* Hero) const
+{
+ if (!IsValid(Hero) || !Hero->bInventoryOpen ||
+     Hero->bCharacterStatsOpen || Hero->bOptionsOpen ||
+     !FMath::IsFinite(Hero->Health) || Hero->Health <= 0.f ||
+     !Hero->InventoryItemCodes.IsValidIndex(Hero->InventorySelection)) return false;
+ const int32 Code = Hero->InventoryItemCodes[Hero->InventorySelection];
+ if (Code <= 0) return false;
+ const int32 Affix = Code / 100000;
+ const int32 Slot = (Code / 10000) % 10;
+ const int32 Rarity = (Code / 1000) % 10;
+ const int32 Tier = Code % 1000;
+ if (Affix < 0 || Affix > 3 || Slot < 0 || Slot > 2 ||
+     Rarity < 0 || Rarity > 5 || Tier < 1 || Tier > 25 ||
+     (Rarity == 0 && Affix != 0) ||
+     Code != Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier)
+  return false;
+ const int32 Equipped = Slot == 0 ? Hero->EquippedWeaponCode
+   : (Slot == 1 ? Hero->EquippedArmorCode : Hero->EquippedAccessoryCode);
+ return Code != Equipped;
+}
+
 bool AMoonfallCombatHUD::IsInventoryEquipButtonAtScreenPosition(
     const AMoonfallHeroPawn* Hero, float X, float Y) const
 {
@@ -67,7 +89,7 @@ bool AMoonfallCombatHUD::IsInventoryEquipButtonAtScreenPosition(
      Hero->bCharacterStatsOpen || Hero->bOptionsOpen ||
      Canvas->SizeX < 1100.f || Canvas->SizeY < 549.f ||
      !FMath::IsFinite(X) || !FMath::IsFinite(Y) ||
-     !Hero->InventoryItemCodes.IsValidIndex(Hero->InventorySelection)) return false;
+     !CanEquipSelectedInventoryItem(Hero)) return false;
  const float Width = FMath::Min(1040.f, FMath::Max(280.f, Canvas->SizeX - 24.f));
  const float Height = FMath::Min(580.f, FMath::Max(280.f, Canvas->SizeY - 24.f));
  if (Height < 525.f) return false;
@@ -338,11 +360,18 @@ void AMoonfallCombatHUD::DrawHUD()
    }
    // An explicit, non-destructive equip action. Hidden on short screens.
    if (PanelHeight >= 525.f && Hero->InventoryItemCodes.IsValidIndex(Selected)) {
+    const bool bCanEquip = CanEquipSelectedInventoryItem(Hero);
     const float ButtonY = Top + PanelHeight - 94.f;
-    DrawRect(FLinearColor(0.13f,0.36f,0.30f,0.98f),
+    DrawRect(bCanEquip ? FLinearColor(0.13f,0.36f,0.30f,0.98f)
+      : FLinearColor(0.15f,0.16f,0.20f,0.96f),
       DetailLeft + 14.f,ButtonY,284.f,36.f);
-    DrawText(TEXT("EQUIP SELECTED"),FLinearColor::White,
-      DetailLeft + 51.f,ButtonY + 8.f,nullptr,1.f);
+    DrawText(bCanEquip ? TEXT("EQUIP SELECTED")
+      : (Hero->InventoryItemCodes[Selected] == Hero->EquippedWeaponCode ||
+         Hero->InventoryItemCodes[Selected] == Hero->EquippedArmorCode ||
+         Hero->InventoryItemCodes[Selected] == Hero->EquippedAccessoryCode)
+        ? TEXT("ALREADY EQUIPPED") : TEXT("CANNOT EQUIP"),
+      bCanEquip ? FLinearColor::White : FLinearColor(0.66f,0.70f,0.76f),
+      DetailLeft + 38.f,ButtonY + 8.f,nullptr,0.93f);
    }
    if (bBagFull)
     DrawText(TEXT("BAG FULL: salvage spare gear"),
