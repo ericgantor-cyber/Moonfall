@@ -1,5 +1,7 @@
 #include "MoonfallKeyGate.h"
 #include "MoonfallHeroPawn.h"
+#include "MoonfallRewardSaveGame.h"
+#include "Kismet/GameplayStatics.h"
 #include "Components/SceneComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Components/TextRenderComponent.h"
@@ -31,6 +33,23 @@ AMoonfallKeyGate::AMoonfallKeyGate()
 
 }
 
+void AMoonfallKeyGate::BeginPlay()
+{
+ Super::BeginPlay();
+ // This is replay of a deliberate unlock from a prior session, not a new
+ // proximity unlock. Read directly from the versioned save so actor BeginPlay
+ // order does not depend on when the hero loads its own reward progress.
+ if (GateId.IsNone()) return;
+ const FString SlotName(TEXT("Moonfall_RewardProgress_v1"));
+ if (!UGameplayStatics::DoesSaveGameExist(SlotName, 0)) return;
+ const UMoonfallRewardSaveGame* Saved = Cast<UMoonfallRewardSaveGame>(
+   UGameplayStatics::LoadGameFromSlot(SlotName, 0));
+ if (!Saved || Saved->SchemaVersion != 2 || !Saved->UnlockedGateIds.Contains(GateId))
+  return;
+ ApplyOpenState();
+ OnSavedGateRestored();
+}
+
 bool AMoonfallKeyGate::TryUnlock(AActor* Candidate)
 {
  if (bUnlocked) return true;
@@ -55,11 +74,16 @@ bool AMoonfallKeyGate::TryUnlock(AActor* Candidate)
  // Commit the door state first. A failed disk save must not make a gate
  // appear permanently solved when the next session still considers it locked.
  if (!Hero->CommitGateUnlock(GateId, RequiredKeyId)) return false;
+ ApplyOpenState();
+ OnGateUnlocked();
+ return true;
+}
+
+void AMoonfallKeyGate::ApplyOpenState()
+{
  bUnlocked = true;
  GateMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
  GateMesh->SetVisibility(false, true);
  GateLabel->SetVisibility(false);
- OnGateUnlocked();
- return true;
 }
 
