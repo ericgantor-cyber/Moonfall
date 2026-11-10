@@ -224,7 +224,30 @@ void AMoonfallCombatHUD::DrawHUD()
      nullptr,0.72f);
   // Local advisor reads inventory and current set bonuses, never mutates gear.
   // Show the inventory index even when its recommendation is outside the visible bag.
-  const int32 AdvisedIndex = Hero->GetRecommendedEquipmentIndex();
+  const float AdvisorNow = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f;
+  const bool bAdvisorItemChanged = CachedAdvisorIndex >= 0 &&
+    (!Hero->InventoryItemCodes.IsValidIndex(CachedAdvisorIndex) ||
+     Hero->InventoryItemCodes[CachedAdvisorIndex] != CachedAdvisorItemCode);
+  // Immediate invalidation for bag size, worn gear and sorting; a short
+  // refresh interval also picks up same-count crafting and loot replacements.
+  if (CachedAdvisorHero != Hero || CachedAdvisorCount != Count ||
+      CachedAdvisorWeapon != Hero->EquippedWeaponCode ||
+      CachedAdvisorArmor != Hero->EquippedArmorCode ||
+      CachedAdvisorAccessory != Hero->EquippedAccessoryCode ||
+      CachedAdvisorSortMode != Hero->InventorySortMode ||
+      bAdvisorItemChanged || AdvisorNow >= NextAdvisorRefreshAt) {
+   CachedAdvisorIndex = Hero->GetRecommendedEquipmentIndex();
+   CachedAdvisorHero = Hero;
+   CachedAdvisorCount = Count;
+   CachedAdvisorWeapon = Hero->EquippedWeaponCode;
+   CachedAdvisorArmor = Hero->EquippedArmorCode;
+   CachedAdvisorAccessory = Hero->EquippedAccessoryCode;
+   CachedAdvisorSortMode = Hero->InventorySortMode;
+   CachedAdvisorItemCode = Hero->InventoryItemCodes.IsValidIndex(CachedAdvisorIndex)
+     ? Hero->InventoryItemCodes[CachedAdvisorIndex] : -1;
+   NextAdvisorRefreshAt = AdvisorNow + 0.25f;
+  }
+  const int32 AdvisedIndex = CachedAdvisorIndex;
   const int32 SelectedImprovement = Hero->GetEquipmentUpgradeScore(Selected);
   DrawText(AdvisedIndex >= 0
     ? FString::Printf(TEXT("ADVISOR: item %d  (+%d points)  |  equip manually"),
