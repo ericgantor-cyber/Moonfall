@@ -78,20 +78,24 @@ static func craft(state:Dictionary,item_id:String,hero_level:int)->bool:
 
 static func loot_enemy(state:Dictionary,hero_level:int,seed:int)->Dictionary:
  var item:Dictionary=CATALOG.loot_for_level(hero_level,seed)
- if not item.is_empty():
-  # A full or malformed inventory must not award a phantom drop or
-  # advance rarity pity when the item was never actually received.
-  if not add_item(state,str(item["id"])):return {}
-  var rarity:Dictionary=RNG.roll(item,seed+int(state.get("loot_pity",0))*9973,0,int(state.get("loot_pity",0)))
-  state["loot_pity"]=RNG.next_pity(int(state.get("loot_pity",0)),int(rarity["rarity_index"]))
-  var rolls:Array=state.get("loot_rolls",[])
-  rolls.append(rarity)
-  if rolls.size()>250:rolls.pop_front()
-  state["loot_rolls"]=rolls
-  var drop:Dictionary=item.duplicate(true)
-  drop["roll"]=rarity
-  return drop
- return item
+ if item.is_empty():return {}
+ # Validate all mutable reward fields before granting the item. A malformed
+ # legacy save must not grant an item and then fail while recording its roll.
+ var pity_value:Variant=state.get("loot_pity",0)
+ var rolls_value:Variant=state.get("loot_rolls",[])
+ if not rolls_value is Array:return {}
+ var pity:int=_safe_roll_number(pity_value,80)
+ var rarity:Dictionary=RNG.roll(item,seed+pity*9973,0,pity)
+ if rarity.is_empty() or not rarity.has("rarity_index"):return {}
+ if not add_item(state,str(item["id"])):return {}
+ var rolls:Array=rolls_value
+ rolls.append(rarity)
+ if rolls.size()>250:rolls.pop_front()
+ state["loot_rolls"]=rolls
+ state["loot_pity"]=RNG.next_pity(pity,int(rarity["rarity_index"]))
+ var drop:Dictionary=item.duplicate(true)
+ drop["roll"]=rarity
+ return drop
 
 static func _safe_roll_number(value:Variant,maximum:int)->int:
  # Saved loot metadata is untrusted; avoid casting objects or arrays to int.
