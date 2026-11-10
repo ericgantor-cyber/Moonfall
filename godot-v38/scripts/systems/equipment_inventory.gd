@@ -97,11 +97,18 @@ static func totals(state:Dictionary)->Dictionary:
  var rolls:Array=rolls_value if rolls_value is Array else []
  # Index the strongest roll once per item instead of scanning the entire
  # saved roll history for every equipped slot on every stat refresh.
+ var eligible_ids:Dictionary={}
+ for slot in SLOTS:
+  var equipped_id:String=str(slots.get(slot,""))
+  if int(owned.get(equipped_id,0))<1:continue
+  var equipped_item:Dictionary=CATALOG.get_item(equipped_id)
+  if not equipped_item.is_empty() and slot_for(equipped_item)==slot:
+   eligible_ids[equipped_id]=true
  var best_by_item:Dictionary={}
  for roll in rolls:
   if not roll is Dictionary:continue
   var roll_id:String=str(roll.get("item_id",""))
-  if roll_id=="":continue
+  if not eligible_ids.has(roll_id):continue
   var current:Dictionary=best_by_item.get(roll_id,{})
   var rarity:int=clampi(int(roll.get("rarity_index",0)),0,4)
   var current_rarity:int=int(current.get("rarity_index",-1))
