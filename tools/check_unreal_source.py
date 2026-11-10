@@ -543,7 +543,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         )[1].split("void AMoonfallCombatHUD::DrawHUD()", 1)[0]
         self.assertIn("Hero->bCharacterStatsOpen || Hero->bOptionsOpen", hit_test)
         self.assertIn("!FMath::IsFinite(X) || !FMath::IsFinite(Y)", hit_test)
-        self.assertIn("const int32 PageStart = Selected / PerPage * PerPage;", hit_test)
+        self.assertIn("const int32 PageStart = FMath::Clamp(Hero->InventoryViewStart", hit_test)
         self.assertIn("const int32 PageEnd = FMath::Min(Count, PageStart + PerPage);", hit_test)
         self.assertIn("Index = PageStart; Index < PageEnd; ++Index", hit_test)
         self.assertIn("return Index;", hit_test)
