@@ -151,6 +151,20 @@ Moonfall's fully migrated Godot world or finished dungeon.
   enemy deaths still write independently. Verify gameplay on native UE5
   Windows builds before concluding that combat stutter has improved.
 
+## Orphan and duplicate persistent pickup cleanup
+
+- Restore world loot with two actors carrying the same persisted GUID.
+  The first scan must remove extra copies, then use the saved record as
+  the authoritative item code; only one valid pickup remains collectable.
+- Restore with a persisted actor whose GUID is missing from the current-map
+  ledger, including a GUID belonging to a different map. The stale actor
+  must be removed, while saved drops from the other map stay on disk.
+- Normal temporary pickups deliberately have no persistent GUID. They
+  must survive this reconciliation pass and remain available for manual
+  collection; never delete transient fallback loot by mistake.
+- Re-run restoration and save/reload to verify idempotence, duplicate
+  prevention and correct inventory/equipped rollback when disk writes fail.
+
 ## Cross-map pickup hardening and saved-actor collision checks
 
 - Persisted pickups now require an exact match of GUID, item code **and**
