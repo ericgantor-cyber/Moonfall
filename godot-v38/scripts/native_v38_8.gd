@@ -445,10 +445,18 @@ func _clear_divine_warning(actor:Dictionary)->void:
  var disk:MeshInstance3D=actor.get("divine_disk") as MeshInstance3D
  if is_instance_valid(disk):disk.hide()
 
+# boss_id is a persistent encounter identifier, not a guaranteed array index.
+# Resolve it against the small divine roster only when clearing telegraphs.
+func _divine_actor_by_boss_id(boss_id:int)->Dictionary:
+ for actor in beasts:
+  if actor.has("divine_id") and int(actor.get("boss_id",-1))==boss_id:
+   return actor
+ return {}
+
 func _clear_all_divine_warnings()->void:
  for id in divine_boss_ids.values():
-  var slot:int=int(id)
-  if slot>=0 and slot<beasts.size():_clear_divine_warning(beasts[slot])
+  var actor:Dictionary=_divine_actor_by_boss_id(int(id))
+  if not actor.is_empty():_clear_divine_warning(actor)
 
 func _update_region_visibility()->void:
  super._update_region_visibility()
@@ -457,9 +465,8 @@ func _update_region_visibility()->void:
  if divine_last_visible_zone==region_index:return
  divine_last_visible_zone=region_index
  for id in divine_boss_ids.values():
-  var slot:int=int(id)
-  if slot<0 or slot>=beasts.size():continue
-  var actor:Dictionary=beasts[slot]
+  var actor:Dictionary=_divine_actor_by_boss_id(int(id))
+  if actor.is_empty():continue
   if int(actor.get("zone",-1))!=region_index or not bool(actor.get("alive",false)):
    _clear_divine_warning(actor)
 
