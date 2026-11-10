@@ -102,40 +102,81 @@ void AMoonfallCombatHUD::DrawHUD()
   return;
  }
  if (Hero->bAtlasOpen && Hero->bTalentsOpen) {
-  // Talents is a separate read-only foundation. No fabricated allocations.
-  const float Width = FMath::Min(700.f, FMath::Max(280.f, Canvas->SizeX - 24.f));
-  const float Height = FMath::Min(500.f, FMath::Max(280.f, Canvas->SizeY - 24.f));
+  // Universal, Skyrim-style constellation: roots -> keystones -> hybrid links.
+  // Nodes are intentional keyboard unlocks only; drawing never spends points.
+  const float Width = FMath::Min(920.f, FMath::Max(280.f, Canvas->SizeX - 24.f));
+  const float Height = FMath::Min(720.f, FMath::Max(280.f, Canvas->SizeY - 24.f));
   const float Left = (Canvas->SizeX - Width) * 0.5f;
   const float Top = (Canvas->SizeY - Height) * 0.5f;
-  DrawRect(FLinearColor(0.055f,0.045f,0.12f,0.97f),Left,Top,Width,Height);
+  DrawRect(FLinearColor(0.025f,0.025f,0.085f,0.97f),Left,Top,Width,Height);
   DrawText(TEXT("MOONFALL  |  TALENTS"),FLinearColor::White,
-    Left + 20.f,Top + 20.f,nullptr,1.3f);
-  DrawText(FString::Printf(TEXT("Level %d  |  Might %d  |  Insight %d"),
-    Hero->Level,Hero->GetMight(),Hero->GetInsight()),
-    FLinearColor(0.7f,0.89f,0.98f),Left + 20.f,Top + 88.f,nullptr,0.95f);
-  DrawText(FString::Printf(TEXT("Crit %.1f%%  |  Haste %.1f%%"),
-    Hero->GetCriticalChance() * 100.f,Hero->GetHasteBonus() * 100.f),
-    FLinearColor(0.7f,0.89f,0.98f),Left + 20.f,Top + 126.f,nullptr,0.95f);
+    Left + 18.f,Top + 14.f,nullptr,1.27f);
+  DrawText(FString::Printf(TEXT("Level %d  |  UN SPENT: %d  |  Might %d  Insight %d"),
+    Hero->Level,Hero->GetUnspentTalentPoints(),Hero->GetMight(),Hero->GetInsight()),
+    FLinearColor(0.82f,0.86f,1.f),Left + 18.f,Top + 47.f,nullptr,0.84f);
   DrawText(FString::Printf(TEXT("UNSPENT TALENT POINTS: %d"),
     Hero->GetUnspentTalentPoints()),
-    FLinearColor(0.98f,0.81f,0.47f),Left + 20.f,Top + 173.f,nullptr,0.99f);
+    FLinearColor(0.98f,0.81f,0.47f),Left + 18.f,Top + 73.f,nullptr,0.82f);
+  DrawText(FString::Printf(TEXT("Crit %.1f%%  |  Haste %.1f%%  |  Versatility %.1f%%"),
+    Hero->GetCriticalChance() * 100.f,Hero->GetHasteBonus() * 100.f,
+    Hero->GetVersatilityBonus() * 100.f),
+    FLinearColor(0.68f,0.88f,0.86f),Left + 18.f,Top + 96.f,nullptr,0.76f);
   const int32 Ranks[] = {Hero->TalentForceRank,Hero->TalentFocusRank,Hero->TalentWardRank};
   const TCHAR* BranchNames[] = {TEXT("1  FORCE"),TEXT("2  FOCUS"),TEXT("3  WARD")};
   const TCHAR* Benefits[] = {TEXT("+0.5% crit / rank"),TEXT("+1% haste / rank"),TEXT("+0.8% versatility / rank")};
-  for (int32 Branch = 0; Branch < 3; ++Branch) {
-   const float RowY = Top + 215.f + Branch * 49.f;
-   DrawRect(FLinearColor(0.13f,0.12f,0.23f,0.93f),Left + 19.f,RowY,Width - 38.f,42.f);
-   DrawText(FString::Printf(TEXT("%s  |  Rank %d/10"),
-     BranchNames[Branch],Ranks[Branch]),FLinearColor(0.88f,0.78f,1.f),
-     Left + 30.f,RowY + 9.f,nullptr,0.87f);
-   DrawText(Benefits[Branch],FLinearColor(0.68f,0.88f,0.86f),
-     Left + Width * 0.56f,RowY + 10.f,nullptr,0.75f);
+  const TCHAR* KeystoneNames[] = {TEXT("4  BATTLE FURY"),TEXT("5  MIND FLOW"),TEXT("6  BULWARK")};
+  const TCHAR* HybridNames[] = {TEXT("7  BATTLE WEAVE"),TEXT("8  ARCANE AEGIS"),TEXT("9  IRON WILL")};
+  const bool Unlocked[] = {
+    Hero->bTalentForceKeystone,Hero->bTalentFocusKeystone,Hero->bTalentWardKeystone,
+    Hero->bTalentBattleWeave,Hero->bTalentArcaneAegis,Hero->bTalentIronWill
+  };
+  const float CenterX[] = {Left + Width * 0.19f,Left + Width * 0.50f,Left + Width * 0.81f};
+  const float TierY[] = {Top + Height * 0.27f,Top + Height * 0.48f,Top + Height * 0.70f};
+  const FLinearColor Locked(0.23f,0.24f,0.35f,0.95f);
+  const FLinearColor UnlockedColor(0.55f,0.79f,0.98f,0.97f);
+  // Each root connects to its keystone, then two keystones to each hybrid.
+  for (int32 Branch = 0; Branch < 3; ++Branch)
+   DrawLine(CenterX[Branch],TierY[0] + 23.f,
+     CenterX[Branch],TierY[1] - 13.f,
+     Ranks[Branch] >= 3 ? UnlockedColor : Locked,2.f);
+  const int32 LinkA[] = {0,1,2};
+  const int32 LinkB[] = {1,2,0};
+  for (int32 Link = 0; Link < 3; ++Link) {
+   DrawLine(CenterX[LinkA[Link]],TierY[1] + 23.f,
+     CenterX[Link],TierY[2] - 14.f,
+     Unlocked[LinkA[Link]] ? UnlockedColor : Locked,1.5f);
+   DrawLine(CenterX[LinkB[Link]],TierY[1] + 23.f,
+     CenterX[Link],TierY[2] - 14.f,
+     Unlocked[LinkB[Link]] ? UnlockedColor : Locked,1.5f);
   }
-  DrawText(TEXT("Shared talents: all playable heroes. Bosses have separate powers."),
-    FLinearColor(0.75f,0.78f,0.87f),Left + 20.f,Top + Height - 69.f,nullptr,0.74f);
+  const float NodeWidth = FMath::Min(195.f,Width * 0.27f);
+  for (int32 Branch = 0; Branch < 3; ++Branch) {
+   const float X = CenterX[Branch] - NodeWidth * 0.5f;
+   DrawRect(Ranks[Branch] > 0 ? FLinearColor(0.32f,0.27f,0.51f,0.97f) : Locked,
+     X,TierY[0] - 14.f,NodeWidth,50.f);
+   DrawText(FString::Printf(TEXT("%s  %d/10"),BranchNames[Branch],Ranks[Branch]),
+     FLinearColor::White,X + 7.f,TierY[0] - 8.f,nullptr,0.8f);
+   DrawText(Benefits[Branch],FLinearColor(0.69f,0.9f,0.85f),
+     X + 7.f,TierY[0] + 13.f,nullptr,0.67f);
+   DrawRect(Unlocked[Branch] ? UnlockedColor : Locked,
+     X,TierY[1] - 14.f,NodeWidth,51.f);
+   DrawText(KeystoneNames[Branch],FLinearColor::White,
+     X + 7.f,TierY[1] - 7.f,nullptr,0.77f);
+   DrawText(Unlocked[Branch] ? TEXT("UNLOCKED") : TEXT("Needs 3 root ranks"),
+     FLinearColor(0.82f,0.86f,0.98f),X + 7.f,TierY[1] + 14.f,nullptr,0.66f);
+   DrawRect(Unlocked[3 + Branch] ? UnlockedColor : Locked,
+     X,TierY[2] - 14.f,NodeWidth,51.f);
+   DrawText(HybridNames[Branch],FLinearColor::White,
+     X + 7.f,TierY[2] - 7.f,nullptr,0.75f);
+   DrawText(Unlocked[3 + Branch] ? TEXT("UNLOCKED") : TEXT("Requires 2 keystones"),
+     FLinearColor(0.82f,0.86f,0.98f),X + 7.f,TierY[2] + 14.f,nullptr,0.66f);
+  }
+  DrawText(TEXT("1-3: root ranks   4-6: keystones   7-9: linked powers   Backspace: respec"),
+    FLinearColor(0.91f,0.86f,0.98f),Left + 18.f,Top + Height - 69.f,
+    nullptr,Width < 500.f ? 0.54f : 0.78f);
   DrawText(TEXT("K / Esc: close    M: open map"),
-    FLinearColor(0.8f,0.86f,0.97f),Left + 20.f,Top + Height - 36.f,
-    nullptr,0.85f);
+    FLinearColor(0.8f,0.86f,0.97f),Left + 18.f,Top + Height - 35.f,
+    nullptr,0.8f);
   return;
  }
  if (Hero->bAtlasOpen) {
