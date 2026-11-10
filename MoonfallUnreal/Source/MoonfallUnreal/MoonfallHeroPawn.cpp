@@ -368,8 +368,13 @@ void AMoonfallHeroPawn::ZoomCameraIn() {
  if (!FMath::IsFinite(Health) || Health <= 0.f || bOptionsOpen || bAtlasOpen) return;
  if (bInventoryOpen) {
   // WoW-style bag viewport scroll: one row per notch, no selection changes.
+  // Clamp to the last *full visible viewport*, with no dead wheel ticks.
+  int32 VisibleRows = 2;
+  if (const APlayerController* PC = Cast<APlayerController>(GetController()))
+   if (const AMoonfallCombatHUD* HUD = Cast<AMoonfallCombatHUD>(PC->GetHUD()))
+    VisibleRows = HUD->GetInventoryVisibleRowCount();
   InventoryViewStart = FMath::Clamp(InventoryViewStart - 1, 0,
-    FMath::Max(0, InventoryItemCodes.Num() - 1));
+    FMath::Max(0, InventoryItemCodes.Num() - VisibleRows));
   return;
  }
  CameraDistance = FMath::Clamp((FMath::IsFinite(CameraDistance) ? CameraDistance : 450.f) - 65.f, 250.f, 850.f);
@@ -378,8 +383,13 @@ void AMoonfallHeroPawn::ZoomCameraOut() {
  if (!FMath::IsFinite(Health) || Health <= 0.f || bOptionsOpen || bAtlasOpen) return;
  if (bInventoryOpen) {
   // Scroll the visible bag list independently of highlighted equipment.
+  // Clamp to the last *full visible viewport*, with no dead wheel ticks.
+  int32 VisibleRows = 2;
+  if (const APlayerController* PC = Cast<APlayerController>(GetController()))
+   if (const AMoonfallCombatHUD* HUD = Cast<AMoonfallCombatHUD>(PC->GetHUD()))
+    VisibleRows = HUD->GetInventoryVisibleRowCount();
   InventoryViewStart = FMath::Clamp(InventoryViewStart + 1, 0,
-    FMath::Max(0, InventoryItemCodes.Num() - 1));
+    FMath::Max(0, InventoryItemCodes.Num() - VisibleRows));
   return;
  }
  CameraDistance = FMath::Clamp((FMath::IsFinite(CameraDistance) ? CameraDistance : 450.f) + 65.f, 250.f, 850.f);
@@ -1124,6 +1134,8 @@ bool AMoonfallHeroPawn::SalvageInventoryItem(int32 InventoryIndex)
  Salvage = FMath::Clamp(Salvage + SalvageReward, 0, 9999);
  InventoryItemCodes.RemoveAt(InventoryIndex);
  InventorySelection = FMath::Clamp(InventorySelection, 0, FMath::Max(0, InventoryItemCodes.Num() - 1));
+ // A shrinking bag never leaves the scroll viewport stranded past its end.
+ InventoryViewStart = FMath::Clamp(InventoryViewStart, 0, FMath::Max(0, InventoryItemCodes.Num() - 1));
  return true;
 }
 bool AMoonfallHeroPawn::UpgradeInventoryItem(int32 InventoryIndex)
