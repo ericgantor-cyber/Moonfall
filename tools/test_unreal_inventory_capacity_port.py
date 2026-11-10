@@ -796,6 +796,46 @@ class InventoryCapacityPort(unittest.TestCase):
         self.assertNotIn("GetDodgeChance(",self.hero)
         self.assertNotIn("GetParryChance(",self.hero)
 
+    def test_inventory_and_gear_persist_in_validated_v2_snapshots(self):
+        save = (ROOT / "MoonfallProgressSaveGame.h").read_text(encoding="utf-8")
+        for field in ("InventoryCodes", "EquippedWeapon", "EquippedArmor",
+                      "EquippedAccessory", "SalvageMaterials"):
+            self.assertIn(field, save)
+        saving = body(self.hero,"bool AMoonfallHeroPawn::SaveProgress()")
+        loading = body(self.hero,"bool AMoonfallHeroPawn::LoadProgress()")
+        self.assertIn("Save->Version = 2;", saving)
+        self.assertIn("Save->InventoryCodes = InventoryItemCodes;", saving)
+        self.assertIn("Save->SalvageMaterials = Salvage;", saving)
+        self.assertIn("Save->InventoryCodes.Num() > MaxInventoryItems", saving)
+        self.assertIn("!DecodeEquippedItem(Code,Slot,Trait,Rarity,Tier)", saving)
+        self.assertIn("!Save->InventoryCodes.Contains(WornCodes[Slot])", saving)
+        self.assertIn("(Save->Version != 1 && Save->Version != 2)", loading)
+        self.assertIn("if (Save->Version == 2)", loading)
+        self.assertIn("Save->InventoryCodes.Num() > MaxInventoryItems", loading)
+        self.assertIn("!DecodeEquippedItem(Code,Slot,Trait,Rarity,Tier)", loading)
+        self.assertIn("!Save->InventoryCodes.Contains(WornCodes[Slot])", loading)
+        self.assertLess(loading.index("Save->InventoryCodes.Num() > MaxInventoryItems"),
+                        loading.index("Level = Save->Level;"))
+        self.assertIn("InventoryItemCodes = Save->InventoryCodes;", loading)
+        self.assertIn("EquippedWeaponCode = Save->EquippedWeapon;", loading)
+        self.assertIn("EquippedArmorCode = Save->EquippedArmor;", loading)
+        self.assertIn("EquippedAccessoryCode = Save->EquippedAccessory;", loading)
+        self.assertIn("WeaponTier = ValidEquippedTier(EquippedWeaponCode,0);", loading)
+        self.assertIn("ArmorTier = ValidEquippedTier(EquippedArmorCode,1);", loading)
+        self.assertIn("AccessoryTier = ValidEquippedTier(EquippedAccessoryCode,2);", loading)
+        self.assertIn("EquipmentTier = FMath::Max", loading)
+        self.assertIn("Salvage = Save->SalvageMaterials;", loading)
+        for method in ("EquipInventoryItem", "SalvageInventoryItem",
+                       "UpgradeInventoryItem", "ReforgeInventoryItemAffix",
+                       "AscendInventoryItemRarity", "CollectGroundEquipmentCode"):
+            piece = self.hero.split("AMoonfallHeroPawn::"+method+"(",1)[1].split("\n}\n",1)[0]
+            self.assertIn("bProgressDirty = true;",piece)
+        award = self.hero.split("AMoonfallHeroPawn::AwardEquipmentDrop(",1)[1].split("\n}\n",1)[0]
+        self.assertIn("bProgressDirty = true;",award)
+        self.assertNotIn("GetHitChance(",self.hero)
+        self.assertNotIn("GetDodgeChance(",self.hero)
+        self.assertNotIn("GetParryChance(",self.hero)
+
     def test_inventory_has_no_equip_or_page_buttons(self):
         hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
         left = body(self.hero, "void AMoonfallHeroPawn::LeftClickContextAction()")
