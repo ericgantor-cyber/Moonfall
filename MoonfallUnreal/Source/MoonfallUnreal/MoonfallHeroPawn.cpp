@@ -2046,61 +2046,67 @@ void AMoonfallHeroPawn::ToggleInventory()
  MenuActionFocus = -1;
  UpdateInventoryMouseMode();
 }
+void AMoonfallHeroPawn::EnsureInventoryPickupIds()
+{
+ // Existing V1/V2 inventories have no IDs. Their current order is the
+ // migration baseline. Never change a valid live ledger.
+ if (InventoryPickupIds.Num() == InventoryItemCodes.Num() &&
+     NextInventoryPickupId > 0) {
+  bool bValid=true;
+  TSet<int32> Seen;
+  for (int32 Id : InventoryPickupIds) {
+   if (Id <= 0 || Id >= NextInventoryPickupId || Seen.Contains(Id)) {
+    bValid=false; break;
+   }
+   Seen.Add(Id);
+  }
+  if (bValid) return;
+ }
+ InventoryPickupIds.Reset(InventoryItemCodes.Num());
+ for (int32 Index=0;Index<InventoryItemCodes.Num();++Index)
+  InventoryPickupIds.Add(Index+1);
+ NextInventoryPickupId=InventoryPickupIds.Num()+1;
+ bProgressDirty=true;
+}
+
 void AMoonfallHeroPawn::CycleInventorySort()
 {
- // Reorder only while the editable backpack is open. No gear or currency mutations.
  if (!bBagPanelOpen || bOptionsOpen ||
      (bCharacterStatsOpen && bMenuFocusCharacter) ||
      !FMath::IsFinite(Health) || Health <= 0.f) return;
- InventorySortMode = InventorySortMode == 1 ? 2 : 1;
- // Sorting reorders the saved bag; persist it with the normal autosave cycle.
- // Record the mode change even when there are fewer than two items.
- bProgressDirty = true;
- if (InventoryItemCodes.Num() < 2) return;
- const int32 OldSelection = FMath::Clamp(InventorySelection, 0, InventoryItemCodes.Num() - 1);
- const int32 SelectedCode = InventoryItemCodes[OldSelection];
- // Retain the selected duplicate by its stable occurrence number.
- int32 SelectedOccurrence = 0;
- for (int32 Index = 0; Index < OldSelection; ++Index)
-  if (InventoryItemCodes[Index] == SelectedCode) ++SelectedOccurrence;
- const int32 Mode = InventorySortMode;
- InventoryItemCodes.StableSort([Mode](const int32 A, const int32 B)
+ EnsureInventoryPickupIds();
+ // 0=original pickup order, 1=quality, 2=slot. All are reachable.
+ InventorySortMode=(FMath::Clamp(InventorySortMode,0,2)+1)%3;
+ bProgressDirty=true;
+ if (InventoryItemCodes.Num()<2) return;
+ const int32 OldSelection=FMath::Clamp(InventorySelection,0,InventoryItemCodes.Num()-1);
+ const int32 SelectedId=InventoryPickupIds[OldSelection];
+ struct FBagEntry { int32 Code; int32 PickupId; };
+ TArray<FBagEntry> Entries;
+ Entries.Reserve(InventoryItemCodes.Num());
+ for (int32 Index=0;Index<InventoryItemCodes.Num();++Index)
+  Entries.Add({InventoryItemCodes[Index],InventoryPickupIds[Index]});
+ const int32 Mode=InventorySortMode;
+ Entries.StableSort([Mode](const FBagEntry& A,const FBagEntry& B)
  {
-  const auto Valid = [](int32 Code) -> bool {
-   if (Code <= 0) return false;
-   const int32 Affix = Code / 100000;
-   const int32 Slot = (Code / 10000) % 10;
-   const int32 Rarity = (Code / 1000) % 10;
-   const int32 Tier = Code % 1000;
-   return Affix >= 0 && Affix <= 3 && Slot >= 0 && Slot <= 2 &&
-     Rarity >= 0 && Rarity <= 5 && Tier >= 1 && Tier <= 25 &&
-     (Rarity > 0 || Affix == 0) &&
-     Code == Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier;
-  };
-  const bool AValid = Valid(A), BValid = Valid(B);
-  if (AValid != BValid) return AValid;
-  if (!AValid) return false;
-  const int32 ASlot = (A / 10000) % 10, BSlot = (B / 10000) % 10;
-  const int32 ARarity = (A / 1000) % 10, BRarity = (B / 1000) % 10;
-  const int32 ATier = A % 1000, BTier = B % 1000;
-  if (Mode == 2 && ASlot != BSlot) return ASlot < BSlot;
-  if (ARarity != BRarity) return ARarity > BRarity;
-  if (ATier != BTier) return ATier > BTier;
-  if (Mode == 1 && ASlot != BSlot) return ASlot < BSlot;
-  return A < B;
+  if (Mode==0) return A.PickupId<B.PickupId;
+  const int32 ASlot=(A.Code/10000)%10, BSlot=(B.Code/10000)%10;
+  const int32 ARarity=(A.Code/1000)%10, BRarity=(B.Code/1000)%10;
+  const int32 ATier=A.Code%1000, BTier=B.Code%1000;
+  if (Mode==2 && ASlot!=BSlot) return ASlot<BSlot;
+  if (ARarity!=BRarity) return ARarity>BRarity;
+  if (ATier!=BTier) return ATier>BTier;
+  if (Mode==1 && ASlot!=BSlot) return ASlot<BSlot;
+  return A.PickupId<B.PickupId;
  });
- for (int32 Index = 0; Index < InventoryItemCodes.Num(); ++Index)
-  if (InventoryItemCodes[Index] == SelectedCode) {
-   if (SelectedOccurrence == 0) {
-    InventorySelection = Index;
-    InventoryViewStart = Index;
-    return;
-   }
-   --SelectedOccurrence;
+ for (int32 Index=0;Index<Entries.Num();++Index) {
+  InventoryItemCodes[Index]=Entries[Index].Code;
+  InventoryPickupIds[Index]=Entries[Index].PickupId;
+  if (Entries[Index].PickupId==SelectedId) {
+   InventorySelection=Index;
+   InventoryViewStart=Index;
   }
- // Defensive fallback: selection remains a valid visible entry.
- InventorySelection = FMath::Clamp(OldSelection, 0, InventoryItemCodes.Num() - 1);
- InventoryViewStart = InventorySelection;
+ }
 }
 void AMoonfallHeroPawn::EquipSelectedInventoryItem() {
  if (!bInventoryOpen || !InventoryItemCodes.IsValidIndex(InventorySelection)) return;
@@ -2149,7 +2155,9 @@ bool AMoonfallHeroPawn::SalvageInventoryItem(int32 InventoryIndex)
  // Higher rarity/tier gear produces more salvage, never exceeding the cap.
  const int32 SalvageReward = 1 + Rarity * 2 + Tier / 5;
  Salvage = FMath::Clamp(Salvage + SalvageReward, 0, 9999);
+ EnsureInventoryPickupIds();
  InventoryItemCodes.RemoveAt(InventoryIndex);
+ InventoryPickupIds.RemoveAt(InventoryIndex);
  InventorySelection = FMath::Clamp(InventorySelection, 0, FMath::Max(0, InventoryItemCodes.Num() - 1));
  // A shrinking bag never leaves the scroll viewport stranded past its end.
  InventoryViewStart = FMath::Clamp(InventoryViewStart, 0, FMath::Max(0, InventoryItemCodes.Num() - 1));
@@ -2678,7 +2686,9 @@ void AMoonfallHeroPawn::AwardEquipmentDrop(bool bEliteEnemy, bool bBossEnemy)
  const int32 RolledSlot = (ItemCode / 10000) % 10;
  const int32 RolledRarity = (ItemCode / 1000) % 10;
  const int32 RolledTier = ItemCode % 1000;
+ EnsureInventoryPickupIds();
  InventoryItemCodes.Add(ItemCode);
+ InventoryPickupIds.Add(NextInventoryPickupId++);
  LastLootAffix = RolledAffix;
  LastLootSlot = RolledSlot;
  LastLootRarity = RolledRarity;
@@ -2747,7 +2757,9 @@ bool AMoonfallHeroPawn::CollectGroundEquipmentCode(int32 ItemCode)
  // only destroy the actor after CollectGroundEquipmentCode returns true.
  if (InventoryItemCodes.Num() >= MaxInventoryItems) return false;
  // Picking up an item NEVER equips, automatically salvages, or deletes gear.
+ EnsureInventoryPickupIds();
  InventoryItemCodes.Add(ItemCode);
+ InventoryPickupIds.Add(NextInventoryPickupId++);
  LastLootAffix = Affix;
  LastLootSlot = SlotIndex;
  LastLootRarity = Rarity;
