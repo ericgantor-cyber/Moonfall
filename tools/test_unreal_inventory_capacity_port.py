@@ -180,6 +180,17 @@ class InventoryCapacityPort(unittest.TestCase):
                         click.index("if (Action == 7)"))
         self.assertIn("MenuActionFocus=Action;\\n       OptionsSelection=Action%7;".replace("\\n","\n"),click)
 
+    def test_respec_guards_preserve_valid_cpp_statements(self):
+        # Source-only CI cannot compile Unreal. Catch the exact regression
+        # where insertion split a comment and left prose inside C++.
+        self.assertNotIn("bTalentRespecArmed = false; controller A", self.hero)
+        self.assertNotIn("bTalentRespecArmed = false; do not reopen", self.hero)
+        for name in ("ToggleCharacterStats", "OpenOptions"):
+            method = body(self.hero, "void AMoonfallHeroPawn::" + name + "()")
+            self.assertIn("bTalentRespecArmed = false;", method)
+            self.assertIn("ResetMouseCastChord();", method)
+        self.assertIn("// The defeat screen owns input until respawn; do not reopen gameplay menus.", self.hero)
+
     def test_controller_focus_and_confirm_for_main_menus(self):
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
         header = (ROOT / "MoonfallHeroPawn.h").read_text(encoding="utf-8")
