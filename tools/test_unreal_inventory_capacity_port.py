@@ -99,6 +99,24 @@ class InventoryCapacityPort(unittest.TestCase):
         self.assertEqual([current_ids[i] for i in sorted(range(4), key=lambda i: new_ids[i])],
                          [12, 45, 107, 200])
 
+    def test_loot_respects_active_sort_without_losing_selected_item(self):
+        sorter=body(self.hero,"void AMoonfallHeroPawn::ApplyInventorySortPreservingSelection()")
+        self.assertIn("const int32 SelectedId=InventoryPickupIds[OldSelection];",sorter)
+        self.assertIn("Entries[Index].PickupId==SelectedId",sorter)
+        self.assertIn("InventorySelection=Index;",sorter)
+        self.assertIn("InventoryViewStart=Index;",sorter)
+        for method_name in ("void AMoonfallHeroPawn::AwardEquipmentDrop(",
+                            "bool AMoonfallHeroPawn::CollectGroundEquipmentCode("):
+            section=body(self.hero,method_name)
+            self.assertIn("EnsureInventoryPickupIds();",section)
+            self.assertIn("InventoryItemCodes.Add(ItemCode);",section)
+            self.assertIn("InventoryPickupIds.Add(NextInventoryPickupId++);",section)
+            self.assertIn("if (InventorySortMode != 0) ApplyInventorySortPreservingSelection();",section)
+            self.assertLess(section.index("InventoryItemCodes.Add(ItemCode);"),
+                            section.index("ApplyInventorySortPreservingSelection();"))
+        self.assertIn("void ApplyInventorySortPreservingSelection();",
+                      (ROOT / "MoonfallHeroPawn.h").read_text(encoding="utf-8"))
+
     def test_pickup_order_ids_survive_sort_salvage_and_v3_save(self):
         header=(ROOT / "MoonfallHeroPawn.h").read_text(encoding="utf-8")
         snapshot=(ROOT / "MoonfallProgressSaveGame.h").read_text(encoding="utf-8")
@@ -107,10 +125,11 @@ class InventoryCapacityPort(unittest.TestCase):
         self.assertIn("UPROPERTY(SaveGame) TArray<int32> InventoryPickupIds;", snapshot)
         sort=body(self.hero,"void AMoonfallHeroPawn::CycleInventorySort()")
         self.assertIn("InventorySortMode=(FMath::Clamp(InventorySortMode,0,2)+1)%3;",sort)
-        self.assertIn("Entries.Add({InventoryItemCodes[Index],InventoryPickupIds[Index]});",sort)
-        self.assertIn("if (Mode==0) return A.PickupId<B.PickupId;",sort)
-        self.assertIn("InventoryPickupIds[Index]=Entries[Index].PickupId;",sort)
-        self.assertIn("Entries[Index].PickupId==SelectedId",sort)
+        reorder=body(self.hero,"void AMoonfallHeroPawn::ApplyInventorySortPreservingSelection()")
+        self.assertIn("Entries.Add({InventoryItemCodes[Index],InventoryPickupIds[Index]});",reorder)
+        self.assertIn("if (Mode==0) return A.PickupId<B.PickupId;",reorder)
+        self.assertIn("InventoryPickupIds[Index]=Entries[Index].PickupId;",reorder)
+        self.assertIn("Entries[Index].PickupId==SelectedId",reorder)
         saving=body(self.hero,"bool AMoonfallHeroPawn::SaveProgress()")
         loading=body(self.hero,"bool AMoonfallHeroPawn::LoadProgress()")
         self.assertIn("Save->InventoryPickupIds = InventoryPickupIds;",saving)
@@ -129,16 +148,19 @@ class InventoryCapacityPort(unittest.TestCase):
     def test_inventory_sort_is_explicit_and_does_not_modify_gear(self):
         method = body(self.hero, "void AMoonfallHeroPawn::CycleInventorySort()")
         self.assertIn("!bBagPanelOpen || bOptionsOpen", method)
-        self.assertIn("Entries.StableSort(", method)
+        sorter = body(self.hero, "void AMoonfallHeroPawn::ApplyInventorySortPreservingSelection()")
+        self.assertIn("ApplyInventorySortPreservingSelection();", method)
+        self.assertIn("Entries.StableSort(", sorter)
         # Sorting changes persisted bag order, so the 16s autosave must see it.
-        self.assertLess(method.index("bProgressDirty=true;"), method.index("if (InventoryItemCodes.Num()<2) return;"))
-        self.assertIn("SelectedId=InventoryPickupIds[OldSelection]", method)
-        self.assertIn("InventorySelection=Index;", method)
-        self.assertIn("if (Mode==0) return A.PickupId<B.PickupId;", method)
-        self.assertIn("if (Mode==2 && ASlot!=BSlot) return ASlot<BSlot;", method)
+        self.assertIn("bProgressDirty=true;", method)
+        self.assertIn("if (InventoryItemCodes.Num()<2) return;", sorter)
+        self.assertIn("SelectedId=InventoryPickupIds[OldSelection]", sorter)
+        self.assertIn("InventorySelection=Index;", sorter)
+        self.assertIn("if (Mode==0) return A.PickupId<B.PickupId;", sorter)
+        self.assertIn("if (Mode==2 && ASlot!=BSlot) return ASlot<BSlot;", sorter)
         for forbidden in ("InventoryItemCodes.RemoveAt(", "Salvage -=", "EquipInventoryItem(",
                           "InventoryItemCodes.Empty(", "Destroy("):
-            self.assertNotIn(forbidden, method)
+            self.assertNotIn(forbidden, sorter)
 
     def test_compact_key_ring_never_covers_clickable_bag_rows(self):
         hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
