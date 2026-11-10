@@ -374,7 +374,7 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("TalentBattleWeave"), IE_Pressed, this, &AMoonfallHeroPawn::UnlockBattleWeave);
  Input->BindAction(TEXT("TalentArcaneAegis"), IE_Pressed, this, &AMoonfallHeroPawn::UnlockArcaneAegis);
  Input->BindAction(TEXT("TalentIronWill"), IE_Pressed, this, &AMoonfallHeroPawn::UnlockIronWill);
- Input->BindAction(TEXT("TalentRespec"), IE_Pressed, this, &AMoonfallHeroPawn::RespecTalents);
+ Input->BindAction(TEXT("TalentRespec"), IE_Pressed, this, &AMoonfallHeroPawn::RespecTalentAction);
  Input->BindAction(TEXT("PickupLoot"), IE_Pressed, this, &AMoonfallHeroPawn::PickupNearestGroundLoot);
  Input->BindAction(TEXT("OptionsUp"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsUp);
  Input->BindAction(TEXT("OptionsDown"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsDown);
@@ -1104,6 +1104,8 @@ void AMoonfallHeroPawn::UnlockWardKeystone() { UnlockTalentNode(5); }
 void AMoonfallHeroPawn::UnlockBattleWeave() { UnlockTalentNode(6); }
 void AMoonfallHeroPawn::UnlockArcaneAegis() { UnlockTalentNode(7); }
 void AMoonfallHeroPawn::UnlockIronWill() { UnlockTalentNode(8); }
+
+void AMoonfallHeroPawn::RespecTalentAction() { RespecTalents(); }
 
 bool AMoonfallHeroPawn::RespecTalents()
 {
