@@ -1054,12 +1054,17 @@ void AMoonfallHeroPawn::LeftClickContextAction()
       return;
      }
      if (HUD->IsInventorySortButtonAtScreenPosition(this, MouseX, MouseY)) {
+      bMenuFocusCharacter = false;
+      MenuActionFocus = -1;
       CycleInventorySort();
       return;
      }
      const int32 ClickedIndex = HUD->GetInventoryItemAtScreenPosition(this, MouseX, MouseY);
-     if (InventoryItemCodes.IsValidIndex(ClickedIndex))
+     if (InventoryItemCodes.IsValidIndex(ClickedIndex)) {
       InventorySelection = ClickedIndex;
+      bMenuFocusCharacter = false;
+      MenuActionFocus = -1;
+     }
     }
    }
   }
@@ -1099,6 +1104,8 @@ void AMoonfallHeroPawn::RightClickContextAction()
      // previously selected item. Only the clicked visible row can equip.
      if (InventoryItemCodes.IsValidIndex(ClickedIndex)) {
       InventorySelection = ClickedIndex;
+      bMenuFocusCharacter = false;
+      MenuActionFocus = -1;
       EquipSelectedInventoryItem();
      }
     }
@@ -1547,8 +1554,8 @@ void AMoonfallHeroPawn::PreviousCharacterStatsPage()
 void AMoonfallHeroPawn::ToggleCharacterStats()
 {
  if (bOptionsOpen || !FMath::IsFinite(Health) || Health <= 0.f) return;
- bTalentRespecArmed=false;
- if (bAtlasOpen) { bAtlasOpen=false; bTalentsOpen=false; }
+ bTalentRespecArmed = false;
+ if (bAtlasOpen) { bAtlasOpen = false; bTalentsOpen = false; }
  if (!bInventoryOpen) {
   ResetMouseCastChord();
   StopJumping();
