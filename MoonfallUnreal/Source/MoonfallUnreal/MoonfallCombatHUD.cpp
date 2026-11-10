@@ -12,7 +12,7 @@ void AMoonfallCombatHUD::NotifyHitBoxClick(FName BoxName)
  Super::NotifyHitBoxClick(BoxName);
  if (BoxName != FName(TEXT("MoonfallKeyRing"))) return;
  AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0));
- if (IsValid(Hero) && Hero->bInventoryOpen && Hero->bCharacterStatsOpen && !Hero->bOptionsOpen)
+ if (IsValid(Hero) && Hero->bInventoryOpen && !Hero->bOptionsOpen)
   Hero->ToggleKeyRing();
 }
 
@@ -49,6 +49,17 @@ void AMoonfallCombatHUD::DrawHUD()
   const float Top = (Canvas->SizeY - PanelHeight) * 0.5f;
   DrawRect(FLinearColor(0.04f, 0.035f, 0.10f, 0.96f), Left, Top, PanelWidth, PanelHeight);
   DrawText(TEXT("MOONFALL  |  INVENTORY"), FLinearColor::White, Left + 18.f, Top + 16.f, nullptr, 1.3f);
+  // Clicking Keys in the inventory opens a readable list without changing pages.
+  if (!Hero->bCharacterStatsOpen) {
+   const float KeyButtonX = Left + PanelWidth - 120.f;
+   const float KeyButtonY = Top + 10.f;
+   DrawRect(FLinearColor(0.23f,0.17f,0.32f,0.96f),
+     KeyButtonX, KeyButtonY, 106.f, 31.f);
+   AddHitBox(FVector2D(KeyButtonX, KeyButtonY),
+     FVector2D(106.f, 31.f), FName(TEXT("MoonfallKeyRing")), true, 20);
+   DrawText(FString::Printf(TEXT("KEYS (%d)"), Hero->CollectedKeys.Num()),
+     FLinearColor(0.99f,0.85f,0.46f), KeyButtonX + 10.f, KeyButtonY + 7.f, nullptr, 0.84f);
+  }
   if (Hero->bCharacterStatsOpen) {
    // Character sheet is a read-only page. Inventory operations remain locked
    // while it is open; controller and keyboard switch pages with the same input.
@@ -240,6 +251,31 @@ void AMoonfallCombatHUD::DrawHUD()
      FLinearColor(0.78f,0.90f,0.95f), Left + 18.f, Top + PanelHeight - 70.f, nullptr, 0.74f);
   DrawText(TEXT("P / A: character stats    I / Select / Esc: close"), FLinearColor::White,
      Left + 18.f, Top + PanelHeight - 28.f, nullptr, 0.8f);
+  if (Hero->bKeyRingInventoryOpen) {
+   // Compact popover, on top of equipment rows. The KEYS button remains visible
+   // above it so the same mouse click closes the panel.
+   const float PopWidth = FMath::Min(300.f, PanelWidth - 24.f);
+   const float PopLeft = Left + PanelWidth - PopWidth - 12.f;
+   const float PopTop = Top + 46.f;
+   DrawRect(FLinearColor(0.09f,0.075f,0.16f,0.99f),
+     PopLeft, PopTop, PopWidth, 136.f);
+   DrawText(TEXT("COLLECTED QUEST KEYS"), FLinearColor(0.99f,0.85f,0.46f),
+     PopLeft + 12.f, PopTop + 11.f, nullptr, 0.83f);
+   if (Hero->CollectedKeys.IsEmpty())
+    DrawText(TEXT("No keys collected yet"), FLinearColor::White,
+      PopLeft + 12.f, PopTop + 42.f, nullptr, 0.78f);
+   int32 Displayed = 0;
+   for (const FName KeyId : Hero->CollectedKeys) {
+    const TCHAR* KeyName = nullptr;
+    if (KeyId == FName(TEXT("wardens_crest"))) KeyName = TEXT("Wardens' Crest");
+    else if (KeyId == FName(TEXT("outlaw_seal"))) KeyName = TEXT("Outlaw Seal");
+    else if (KeyId == FName(TEXT("fallen_gate_key"))) KeyName = TEXT("Fallen Gate Key");
+    if (!KeyName) continue;
+    DrawText(KeyName, FLinearColor(0.92f,0.94f,1.f),
+      PopLeft + 12.f, PopTop + 39.f + Displayed * 26.f, nullptr, 0.78f);
+    if (++Displayed == 3) break;
+   }
+  }
   return;
  }
  // Nearest living boss, displayed without creating additional widget actors.
