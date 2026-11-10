@@ -1531,6 +1531,10 @@ void AMoonfallHeroPawn::AwardEquipmentDrop(bool bEliteEnemy, bool bBossEnemy)
  if (!FMath::IsFinite(Health) || Health <= 0.f) return;
  const int32 ItemCode = RollEquipmentCode(bEliteEnemy, bBossEnemy);
  if (ItemCode <= 0) return;
+ // Mirror Godot's bounded item inventory: failed awards must not announce loot.
+ // UE stores individual item codes, rather than Godot's stack counts.
+ constexpr int32 MaxInventoryItems = 9999;
+ if (InventoryItemCodes.Num() >= MaxInventoryItems) return;
  // A scripted grant has been received. Only now update the loot notification.
  // Keep the player's existing inventory selection and worn gear unchanged.
  const int32 RolledAffix = ItemCode / 100000;
@@ -1562,6 +1566,10 @@ bool AMoonfallHeroPawn::CollectGroundEquipmentCode(int32 ItemCode)
      || (Rarity == 0 && Affix != 0)
      || ItemCode != Affix * 100000 + SlotIndex * 10000 + Rarity * 1000 + Tier)
   return false;
+ // Preserve the physical ground drop when the bag is full. TryCollect must
+ // only destroy the actor after CollectGroundEquipmentCode returns true.
+ constexpr int32 MaxInventoryItems = 9999;
+ if (InventoryItemCodes.Num() >= MaxInventoryItems) return false;
  // Picking up an item NEVER equips, automatically salvages, or deletes gear.
  InventoryItemCodes.Add(ItemCode);
  LastLootAffix = Affix;
