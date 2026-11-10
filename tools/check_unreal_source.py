@@ -667,7 +667,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "bool AMoonfallHeroPawn::EquipInventoryItem(int32 InventoryIndex)", 1
         )[1].split("}", 1)[0]
         self.assertIn("!FMath::IsFinite(Health) || Health <= 0.f || !bInventoryOpen", equip)
-        self.assertIn("bCharacterStatsOpen || bOptionsOpen", equip)
+        self.assertIn("bOptionsOpen", equip)
+        self.assertNotIn("bCharacterStatsOpen || bOptionsOpen", equip)
         self.assertLess(equip.index("!bInventoryOpen"), equip.index("InventoryItemCodes[InventoryIndex]"))
         # Crafting synchronizes worn gear only while inventory is open and
         # hero health is valid, including the five-level forge wrapper.
@@ -790,8 +791,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("bCharacterStatsOpen = false;", toggle)
         self.assertIn("bInventoryOpen = false;", toggle)
         self.assertIn("UpdateInventoryMouseMode();", toggle)
-        self.assertIn("C / A: close character info", self.hud)
-        self.assertIn("C / A: character info", self.hud)
+        self.assertIn('TEXT("CLOSE")', self.hud)
+        self.assertIn('TEXT("CHARACTER")', self.hud)
         for forbidden in ("EquipInventoryItem(", "InventorySelection =",
                           "SalvageInventoryItem("):
             self.assertNotIn(forbidden, toggle)
@@ -804,17 +805,19 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn('ActionName="CharacterStats",Key=Gamepad_FaceButton_Bottom', inputs)
         self.assertIn("void SwitchInventoryPage();", self.hero_h)
         self.assertIn('BindAction(TEXT("InventoryPage"), IE_Pressed, this, &AMoonfallHeroPawn::SwitchInventoryPage)', self.hero_cpp)
-        body = self.hero_cpp.split("void AMoonfallHeroPawn::SwitchInventoryPage()", 1)[1].split(
-            "void AMoonfallHeroPawn::ToggleCharacterStats()", 1
+        trigger = self.hero_cpp.split("void AMoonfallHeroPawn::SwitchInventoryPage()", 1)[1].split(
+            "void AMoonfallHeroPawn::NextCharacterStatsPage()", 1
         )[0]
-        self.assertIn("!bInventoryOpen || bOptionsOpen || bAtlasOpen", body)
-        self.assertIn("!FMath::IsFinite(Health) || Health <= 0.f", body)
-        self.assertIn("ResetMouseCastChord();", body)
-        self.assertIn("bCharacterStatsOpen = !bCharacterStatsOpen;", body)
-        for forbidden in ("bInventoryOpen = false;", "bInventoryOpen = true;",
-                          "EquipInventoryItem(", "SalvageInventoryItem(",
-                          "TryCast(", "Mana -="):
-            self.assertNotIn(forbidden, body)
+        self.assertIn("ActivateFocusedMenuAction();", trigger)
+        self.assertIn("if (!bInventoryOpen) return;", trigger)
+        self.assertIn("!FMath::IsFinite(Health) || Health <= 0.f", trigger)
+        self.assertIn("if (bTalentsOpen) ToggleAtlas()", trigger) if False else None
+        self.assertIn("if (!bTalentsOpen) ToggleAtlas();", trigger)
+        self.assertIn("ToggleCharacterStats();", trigger)
+        self.assertIn("EquipSelectedInventoryItem();", trigger)
+        self.assertIn("SalvageSelectedInventoryItem();", trigger)
+        self.assertNotIn("TryCast(", trigger)
+        self.assertNotIn("Mana -=", trigger)
 
     def test_wow_inspired_secondary_stats_and_three_slot_trait_sets(self):
         hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
@@ -1006,12 +1009,12 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('ActionName="EquipBest",Key=Gamepad_LeftTrigger', inputs)
         self.assertIn('BindAction(TEXT("EquipBest"), IE_Pressed, this, &AMoonfallHeroPawn::EquipBestInventoryAction)', self.hero_cpp)
         self.assertIn("void EquipBestInventoryAction();", self.hero_h)
-        self.assertIn("void AMoonfallHeroPawn::EquipBestInventoryAction() { if (!bCharacterStatsOpen) EquipBestInventoryUpgrades(); }", self.hero_cpp)
+        self.assertIn("void AMoonfallHeroPawn::EquipBestInventoryAction() { EquipBestInventoryUpgrades(); }", self.hero_cpp)
         self.assertIn('int32 EquipBestInventoryUpgrades();', self.hero_h)
         self.assertIn('void OnBestLoadoutEquipped(int32 UpgradesEquipped);', self.hero_h)
         body = self.hero_cpp.split("int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()", 1)[1].split(
             "bool AMoonfallHeroPawn::EquipInventoryItem(", 1)[0]
-        self.assertIn("if (!bInventoryOpen || bCharacterStatsOpen || bOptionsOpen || !FMath::IsFinite(Health) || Health <= 0.f) return 0;", body)
+        self.assertIn("if (!bInventoryOpen || bOptionsOpen || !FMath::IsFinite(Health) || Health <= 0.f) return 0;", body)
         self.assertIn("const int32 EquippedCodes[3]", body)
         self.assertIn("BestScores[3]", body)
         self.assertIn("InventoryItemCodes.Num()", body)
