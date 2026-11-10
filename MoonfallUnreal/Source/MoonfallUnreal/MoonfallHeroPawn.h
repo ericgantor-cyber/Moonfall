@@ -278,6 +278,8 @@ private:
  UPROPERTY() TArray<FMoonfallWorldLootRecord> PendingWorldLoot;
  bool RegisterWorldEquipmentDrops(const TArray<FMoonfallWorldLootRecord>& NewDrops);
  void RestorePendingWorldEquipmentDrops();
+ // Auto-loot runs on a short interval; never scan every rendered frame.
+ float NextAutoLootAt = 0.f;
  void SpawnMilestoneKey(const FVector& Location);
  // During crafting, equipped updates participate in the outer save transaction.
  bool bDeferEquippedSave = false;
