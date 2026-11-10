@@ -738,6 +738,15 @@ void AMoonfallHeroPawn::ZoomCameraIn() {
  }
  if (!FMath::IsFinite(Health) || Health <= 0.f || bOptionsOpen || bAtlasOpen) return;
  if (bBagPanelOpen) {
+  // When B and C share a compact screen, C can cover the bag completely.
+  // Ignore wheel events there instead of scrolling hidden gear or zooming.
+  if (bCharacterStatsOpen && bMenuFocusCharacter) {
+   int32 ViewWidth=0,ViewHeight=0;
+   const APlayerController* PC=Cast<APlayerController>(GetController());
+   if (!PC) return;
+   PC->GetViewportSize(ViewWidth,ViewHeight);
+   if (ViewWidth < 960 || ViewHeight < 480) return;
+  }
   // WoW-style bag viewport scroll: one row per notch, no selection changes.
   // Clamp to the last *full visible viewport*, with no dead wheel ticks.
   int32 VisibleRows = 2;
@@ -759,6 +768,15 @@ void AMoonfallHeroPawn::ZoomCameraOut() {
  }
  if (!FMath::IsFinite(Health) || Health <= 0.f || bOptionsOpen || bAtlasOpen) return;
  if (bBagPanelOpen) {
+  // When B and C share a compact screen, C can cover the bag completely.
+  // Ignore wheel events there instead of scrolling hidden gear or zooming.
+  if (bCharacterStatsOpen && bMenuFocusCharacter) {
+   int32 ViewWidth=0,ViewHeight=0;
+   const APlayerController* PC=Cast<APlayerController>(GetController());
+   if (!PC) return;
+   PC->GetViewportSize(ViewWidth,ViewHeight);
+   if (ViewWidth < 960 || ViewHeight < 480) return;
+  }
   // Scroll the visible bag list independently of highlighted equipment.
   // Clamp to the last *full visible viewport*, with no dead wheel ticks.
   int32 VisibleRows = 2;
