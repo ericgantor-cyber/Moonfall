@@ -802,6 +802,9 @@ void AMoonfallCombatHUD::DrawHUD()
    Keys+=FString::FromInt(Hero->KeyRingIds[I]);
   }
   if (Total>Preview) Keys+=FString::Printf(TEXT("  +%d more"),Total-Preview);
+  if (Hero->LastCollectedKeyId > 0 &&
+      Hero->KeyRingIds.Contains(Hero->LastCollectedKeyId))
+   Keys+=FString::Printf(TEXT("  |  RECENT KEY #%d"),Hero->LastCollectedKeyId);
   DrawText(FString::Printf(TEXT("KEY RING  %d  %s"),Total,Total==0?TEXT("(empty)"):*Keys),
       FLinearColor(0.99f,0.83f,0.43f),X+9.f,Y+11.f,nullptr,
       W<480.f ? 0.57f : 0.72f);
