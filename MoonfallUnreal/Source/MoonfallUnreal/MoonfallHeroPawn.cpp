@@ -1459,12 +1459,56 @@ void AMoonfallHeroPawn::ToggleDisplayMode() {
 
 void AMoonfallHeroPawn::SwitchInventoryPage()
 {
- // Controller A is contextual: gameplay still jumps, inventory switches pages.
- // It never equips, salvages, closes the inventory or enters the Atlas.
- if (!bInventoryOpen || bOptionsOpen || bAtlasOpen ||
-     !FMath::IsFinite(Health) || Health <= 0.f) return;
- ResetMouseCastChord();
- bCharacterStatsOpen = !bCharacterStatsOpen;
+ ActivateFocusedMenuAction();
+}
+void AMoonfallHeroPawn::ActivateFocusedMenuAction()
+{
+ if (!FMath::IsFinite(Health) || Health <= 0.f) return;
+ if (bOptionsOpen) {
+  const int32 Focus=FMath::Clamp(MenuActionFocus,0,14);
+  if (Focus==14) { OpenOptions(); return; }
+  OptionsSelection=Focus%7;
+  AdjustOption(Focus<7 ? -1 : 1);
+  return;
+ }
+ if (bAtlasOpen) {
+  // Talent A is handled by the existing talent activation binding.
+  if (!bTalentsOpen) ToggleAtlas();
+  return;
+ }
+ if (!bInventoryOpen) return;
+ const int32 Focus=FMath::Clamp(MenuActionFocus,0,bCharacterStatsOpen ? 10 : 7);
+ if (bCharacterStatsOpen) {
+  if (Focus==7) { ToggleInventory(); return; }
+  if (Focus==8) { PreviousCharacterStatsPage(); return; }
+  if (Focus==9) { NextCharacterStatsPage(); return; }
+  if (Focus==10) { ToggleCharacterStats(); return; }
+  if (!InventoryItemCodes.IsValidIndex(InventorySelection)) return;
+  switch(Focus) {
+   case 0: InventorySelection=FMath::Max(0,InventorySelection-1); break;
+   case 1: InventorySelection=FMath::Min(InventoryItemCodes.Num()-1,InventorySelection+1); break;
+   case 2: EquipSelectedInventoryItem(); break;
+   case 3: UpgradeSelectedInventoryItem(); break;
+   case 4: AscendSelectedInventoryItem(); break;
+   case 5: ReforgeSelectedInventoryItem(); break;
+   case 6: ForgeFiveSelectedInventoryItem(); break;
+   default: break;
+  }
+ } else {
+  if (Focus==6) { ToggleCharacterStats(); return; }
+  if (Focus==7) { ToggleInventory(); return; }
+  if (!InventoryItemCodes.IsValidIndex(InventorySelection)) return;
+  switch(Focus) {
+   case 0: EquipSelectedInventoryItem(); break;
+   case 1: UpgradeSelectedInventoryItem(); break;
+   case 2: AscendSelectedInventoryItem(); break;
+   case 3: ReforgeSelectedInventoryItem(); break;
+   case 4: ForgeFiveSelectedInventoryItem(); break;
+   case 5: SalvageSelectedInventoryItem(); break;
+   default: break;
+  }
+ }
+ InventoryViewStart=InventorySelection;
 }
 
 void AMoonfallHeroPawn::NextCharacterStatsPage()
@@ -2138,42 +2182,24 @@ void AMoonfallHeroPawn::OpenOptions() {
   EndGuard();
  }
  bOptionsOpen = !bOptionsOpen;
+ MenuActionFocus = 0;
  UpdateInventoryMouseMode();
 }
 void AMoonfallHeroPawn::OptionsUp() {
- if (bInventoryOpen) {
-  InventorySelection = FMath::Max(0, InventorySelection - 1);
-  InventoryViewStart = InventorySelection;
-  return;
- }
- if (bOptionsOpen) OptionsSelection = (OptionsSelection + 6) % 7;
+ if (bOptionsOpen) { MenuActionFocus=FMath::Clamp(MenuActionFocus-1,0,14); OptionsSelection=MenuActionFocus%7; return; }
+ if (bInventoryOpen) { MenuActionFocus=FMath::Clamp(MenuActionFocus-1,0,bCharacterStatsOpen?10:7); return; }
 }
 void AMoonfallHeroPawn::OptionsDown() {
- if (bInventoryOpen) {
-  InventorySelection = FMath::Min(FMath::Max(0, InventoryItemCodes.Num() - 1), InventorySelection + 1);
-  InventoryViewStart = InventorySelection;
-  return;
- }
- if (bOptionsOpen) OptionsSelection = (OptionsSelection + 1) % 7;
+ if (bOptionsOpen) { MenuActionFocus=FMath::Clamp(MenuActionFocus+1,0,14); OptionsSelection=MenuActionFocus%7; return; }
+ if (bInventoryOpen) { MenuActionFocus=FMath::Clamp(MenuActionFocus+1,0,bCharacterStatsOpen?10:7); return; }
 }
 void AMoonfallHeroPawn::OptionsLeft() {
- if (bInventoryOpen) {
-  // Directional input only browses gear. Equipping is row right-click only.
-  InventorySelection = FMath::Clamp(InventorySelection - 5, 0,
-    FMath::Max(0, InventoryItemCodes.Num() - 1));
-  InventoryViewStart = InventorySelection;
-  return;
- }
- AdjustOption(-1);
+ if (bOptionsOpen) { MenuActionFocus=OptionsSelection; AdjustOption(-1); return; }
+ if (bInventoryOpen) { InventorySelection=FMath::Max(0,InventorySelection-1); InventoryViewStart=InventorySelection; return; }
 }
 void AMoonfallHeroPawn::OptionsRight() {
- if (bInventoryOpen) {
-  InventorySelection = FMath::Clamp(InventorySelection + 5, 0,
-    FMath::Max(0, InventoryItemCodes.Num() - 1));
-  InventoryViewStart = InventorySelection;
-  return;
- }
- AdjustOption(1);
+ if (bOptionsOpen) { MenuActionFocus=OptionsSelection+7; AdjustOption(1); return; }
+ if (bInventoryOpen) { InventorySelection=FMath::Min(FMath::Max(0,InventoryItemCodes.Num()-1),InventorySelection+1); InventoryViewStart=InventorySelection; return; }
 }
 void AMoonfallHeroPawn::AdjustOption(int32 Direction) {
  if (!bOptionsOpen || !GEngine) return;
