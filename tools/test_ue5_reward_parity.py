@@ -452,7 +452,7 @@ class UE5RewardParity(unittest.TestCase):
             self.assertIn("MaxHealth = OldMaxHealth;", craft)
             self.assertIn("CRAFT SAVE FAILED - ITEM AND MATERIALS RESTORED", craft)
             self.assertLess(craft.index("if (!SaveRewardProgress())"),
-                            craft.index("OnEquipment", craft.index("if (!SaveRewardProgress())"))
+                            craft.index("OnEquipment", craft.index("if (!SaveRewardProgress())")))
 
     def test_equipment_remains_manual_and_hud_shows_rewards(self):
         self.assertIn("void PickupNearestGroundLoot();", self.hero_h)
