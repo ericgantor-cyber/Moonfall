@@ -92,3 +92,25 @@ Moonfall's fully migrated Godot world or finished dungeon.
   orders in a native UE5 level, and verify no gate restores an unlock when the
   loaded reward save is corrupt or has an unsupported schema.
 - Z and Nyra's original artwork is not edited.
+
+## UE5 loot and save v3 verification
+
+- Upgrade a copy of a valid schema-v1 or v2 reward save. Gold, keys, quests
+  and named open gates should remain available; schema v3 adds collected
+  inventory and salvage without changing the existing slot filename.
+- Manually pick up several dropped equipment items with F/controller input.
+  Restart and verify the saved bag entries persist, including duplicates.
+  Ground drops that were not collected are still transient in this prototype.
+- With save writes denied, try to pick up ground equipment. The item must
+  remain visible and loot inventory must be rolled back, with a HUD warning.
+  Check that a cluster pickup does not destroy a failed-to-save item.
+- Salvage a non-equipped item with writes allowed, then reload: the item
+  stays removed and the salvage currency persists. Deny writes and repeat:
+  the original item and previous salvage value must both be restored.
+- Test invalid item codes in a *backup* v3 save. Malformed entries must not
+  materialize in the inventory, and the loaded bag is capped at 4,096 items.
+- IMPORTANT: Current v3 persistence covers ground-loot pickups and salvage
+  transactions, **not full equipped gear, crafting, upgrades, or loose
+  uncollected world drops**. Do not publish as a complete equipment save until
+  those systems are integrated and native Windows UE5 compilation/gameplay
+  tests pass.
