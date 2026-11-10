@@ -17,7 +17,9 @@ int32 AMoonfallCombatHUD::GetInventoryItemAtScreenPosition(
      !FMath::IsFinite(X) || !FMath::IsFinite(Y)) return -1;
  const int32 Count = Hero->InventoryItemCodes.Num();
  if (Count <= 0) return -1;
- const float PanelWidth = FMath::Min(680.f, FMath::Max(280.f, Canvas->SizeX - 24.f));
+ const bool bWideInventory = Canvas->SizeX >= 1100.f;
+ const float PanelWidth = FMath::Min(bWideInventory ? 1040.f : 680.f, FMath::Max(280.f, Canvas->SizeX - 24.f));
+ const float ListWidth = bWideInventory ? PanelWidth - 340.f : PanelWidth;
  const float PanelHeight = FMath::Min(580.f, FMath::Max(280.f, Canvas->SizeY - 24.f));
  const float Left = (Canvas->SizeX - PanelWidth) * 0.5f;
  const float Top = (Canvas->SizeY - PanelHeight) * 0.5f;
@@ -26,7 +28,7 @@ int32 AMoonfallCombatHUD::GetInventoryItemAtScreenPosition(
  const int32 PageStart = Selected / PerPage * PerPage;
  const int32 PageEnd = FMath::Min(Count, PageStart + PerPage);
  const float RowSpacing = FMath::Max(21.f, (PanelHeight - 290.f) / PerPage);
- if (X < Left + 12.f || X > Left + PanelWidth - 12.f) return -1;
+ if (X < Left + 12.f || X > Left + ListWidth - 12.f) return -1;
  for (int32 Index = PageStart; Index < PageEnd; ++Index) {
   const float RowTop = Top + 145.f + (Index - PageStart) * RowSpacing - 3.f;
   if (Y >= RowTop && Y < RowTop + RowSpacing - 3.f)
@@ -100,7 +102,9 @@ void AMoonfallCombatHUD::DrawHUD()
  }
  if (Hero->bInventoryOpen) {
   // Canvas-only paginated inventory: no extra actors, widgets, or hidden controls.
-  const float PanelWidth = FMath::Min(680.f, FMath::Max(280.f, Canvas->SizeX - 24.f));
+  const bool bWideInventory = Canvas->SizeX >= 1100.f;
+ const float PanelWidth = FMath::Min(bWideInventory ? 1040.f : 680.f, FMath::Max(280.f, Canvas->SizeX - 24.f));
+ const float ListWidth = bWideInventory ? PanelWidth - 340.f : PanelWidth;
   const float PanelHeight = FMath::Min(580.f, FMath::Max(280.f, Canvas->SizeY - 24.f));
   const float Left = (Canvas->SizeX - PanelWidth) * 0.5f;
   const float Top = (Canvas->SizeY - PanelHeight) * 0.5f;
@@ -170,7 +174,7 @@ void AMoonfallCombatHUD::DrawHUD()
     PageStart / PerPage + 1, FMath::Max(1, (Count + PerPage - 1) / PerPage)),
     bBagFull ? FLinearColor(1.f,0.45f,0.35f) : FLinearColor(0.75f,0.72f,0.91f),
     Left + 18.f, Top + 49.f, nullptr, 0.9f);
-  if (bBagFull)
+  if (bBagFull && !bWideInventory)
    DrawText(TEXT("BAG FULL - salvage unused gear to collect more loot"),
      FLinearColor(1.f,0.45f,0.35f), Left + 18.f, Top + 83.f,
      nullptr, Canvas->SizeX < 900.f ? 0.65f : 0.82f);
@@ -196,7 +200,7 @@ void AMoonfallCombatHUD::DrawHUD()
    const bool bAdvised = Index == AdvisedIndex;
    const float Y = Top + 145.f + (Index - PageStart) * RowSpacing;
    if (Index == Selected) DrawRect(FLinearColor(0.25f,0.18f,0.43f,0.90f),
-     Left + 12.f, Y - 3.f, PanelWidth - 24.f, RowSpacing - 3.f);
+     Left + 12.f, Y - 3.f, ListWidth - 24.f, RowSpacing - 3.f);
    const FString Row = bValid ? FString::Printf(TEXT("%02d  %s  T%d  %s  %s%s%s"),
       Index + 1, Slots[Slot], Tier, Rarities[Rarity], Traits[Affix],
       bEquipped ? TEXT(" [EQUIPPED]") : TEXT(""),
@@ -210,6 +214,78 @@ void AMoonfallCombatHUD::DrawHUD()
    DrawText(Row, Index == Selected ? FLinearColor::Yellow
      : (bValid ? RarityColors[Rarity] : FLinearColor::White),
      Left + 20.f, Y, nullptr, Canvas->SizeX < 900.f ? 0.75f : 0.9f);
+  }
+  // Expanded two-column inventory on desktop; compact layout remains on small screens.
+  // Inspection only: viewing an item never mutates gear or materials.
+  if (bWideInventory) {
+   const float DetailLeft = Left + ListWidth + 10.f;
+   const float DetailTop = Top + 43.f;
+   DrawRect(FLinearColor(0.075f,0.065f,0.15f,0.98f),
+     DetailLeft, DetailTop, 312.f, PanelHeight - 94.f);
+   DrawText(TEXT("GEAR INSPECTION"), FLinearColor(0.56f,0.93f,0.80f),
+     DetailLeft + 14.f, DetailTop + 13.f, nullptr, 1.08f);
+   if (Hero->InventoryItemCodes.IsValidIndex(Selected)) {
+    const int32 Code = Hero->InventoryItemCodes[Selected];
+    const int32 Affix = Code / 100000;
+    const int32 Slot = (Code / 10000) % 10;
+    const int32 Rarity = (Code / 1000) % 10;
+    const int32 Tier = Code % 1000;
+    const bool bValid = Code > 0 && Slot >= 0 && Slot <= 2
+      && Affix >= 0 && Affix <= 3 && Rarity >= 0 && Rarity <= 5
+      && Tier >= 1 && Tier <= 25 && (Rarity != 0 || Affix == 0)
+      && Code == Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier;
+    if (bValid) {
+     const TCHAR* Slots[] = {TEXT("Weapon"),TEXT("Armor"),TEXT("Accessory")};
+     const TCHAR* Rarities[] = {TEXT("Common"),TEXT("Uncommon"),TEXT("Rare"),
+       TEXT("Epic"),TEXT("Emerald"),TEXT("Legendary")};
+     const TCHAR* Traits[] = {TEXT("None"),TEXT("Force"),TEXT("Ward"),TEXT("Focus")};
+     const int32 Equipped = Slot == 0 ? Hero->EquippedWeaponCode
+       : (Slot == 1 ? Hero->EquippedArmorCode : Hero->EquippedAccessoryCode);
+     const int32 EquippedTier = Equipped % 1000;
+     const int32 EquippedRarity = (Equipped / 1000) % 10;
+     const int32 SalvageReward = 1 + Rarity * 2 + Tier / 5;
+     const int32 UpgradeCost = 4 + Tier * 2 + Rarity * 3;
+     const int32 AscendCost = 20 + Tier * 3 + Rarity * 15;
+     const int32 ReforgeCost = 12 + Tier * 2 + Rarity * 8;
+     const float TextX = DetailLeft + 14.f;
+     const FLinearColor DetailColor(0.85f,0.89f,1.f);
+     DrawText(FString::Printf(TEXT("%s  /  %s"),Slots[Slot],Rarities[Rarity]),
+       FLinearColor(1.f,0.83f,0.46f),TextX,DetailTop + 50.f,nullptr,0.91f);
+     DrawText(FString::Printf(TEXT("Tier %d / 25  |  Trait: %s"),Tier,Traits[Affix]),
+       DetailColor,TextX,DetailTop + 77.f,nullptr,0.87f);
+     DrawText(Code == Equipped ? TEXT("CURRENTLY EQUIPPED") : TEXT("IN BACKPACK"),
+       Code == Equipped ? FLinearColor(0.48f,0.96f,0.65f) : DetailColor,
+       TextX,DetailTop + 104.f,nullptr,0.85f);
+     DrawText(FString::Printf(TEXT("Worn: Tier %d  /  rarity %d"),
+       EquippedTier,EquippedRarity),DetailColor,TextX,DetailTop + 137.f,nullptr,0.85f);
+     DrawText(FString::Printf(TEXT("Advisor: %+d points"),
+       Hero->GetEquipmentUpgradeScore(Selected)),DetailColor,
+       TextX,DetailTop + 164.f,nullptr,0.85f);
+     DrawText(TEXT("CRAFTING & SALVAGE"),FLinearColor(0.56f,0.93f,0.80f),
+       TextX,DetailTop + 200.f,nullptr,0.93f);
+     DrawText(FString::Printf(TEXT("Salvage value: %d"),SalvageReward),
+       DetailColor,TextX,DetailTop + 227.f,nullptr,0.85f);
+     DrawText(Tier < 25 ? FString::Printf(TEXT("Upgrade: %d salvage"),UpgradeCost)
+       : TEXT("Upgrade: MAX TIER"),DetailColor,TextX,DetailTop + 254.f,nullptr,0.85f);
+     DrawText(Rarity < 5 ? FString::Printf(TEXT("Ascend: %d salvage"),AscendCost)
+       : TEXT("Ascend: MAX RARITY"),DetailColor,TextX,DetailTop + 281.f,nullptr,0.85f);
+     DrawText(Rarity >= 2 ? FString::Printf(TEXT("Reforge: %d salvage"),ReforgeCost)
+       : TEXT("Reforge: Rare+ only"),DetailColor,TextX,DetailTop + 308.f,nullptr,0.85f);
+     DrawText(TEXT("Actions are manual; no auto-equip."),
+       FLinearColor(0.69f,0.75f,0.85f),TextX,DetailTop + 339.f,nullptr,0.73f);
+    } else {
+     DrawText(TEXT("Invalid equipment code"),
+       FLinearColor(1.f,0.45f,0.35f),DetailLeft + 14.f,
+       DetailTop + 55.f,nullptr,0.9f);
+    }
+   } else {
+    DrawText(TEXT("Select an item to inspect gear."),
+      FLinearColor::White,DetailLeft + 14.f,DetailTop + 55.f,nullptr,0.82f);
+   }
+   if (bBagFull)
+    DrawText(TEXT("BAG FULL: salvage spare gear"),
+      FLinearColor(1.f,0.45f,0.35f),DetailLeft + 14.f,
+      DetailTop + PanelHeight - 132.f,nullptr,0.76f);
   }
   // The selected item's score is advisory only; it never calls EquipInventoryItem.
   if (Count > 0)
