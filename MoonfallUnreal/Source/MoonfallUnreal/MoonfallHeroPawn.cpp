@@ -350,6 +350,7 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("Inventory"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleInventory);
  Input->BindAction(TEXT("CharacterStats"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleCharacterStats);
  Input->BindAction(TEXT("InventoryPage"), IE_Pressed, this, &AMoonfallHeroPawn::SwitchInventoryPage);
+ Input->BindAction(TEXT("InventorySort"), IE_Pressed, this, &AMoonfallHeroPawn::CycleInventorySort);
  Input->BindAction(TEXT("InventoryConfirm"), IE_Pressed, this, &AMoonfallHeroPawn::InventoryConfirm);
  Input->BindAction(TEXT("InventorySalvage"), IE_Pressed, this, &AMoonfallHeroPawn::InventorySalvage);
  Input->BindAction(TEXT("UpgradeGear"), IE_Pressed, this, &AMoonfallHeroPawn::UpgradeSelectedInventoryItem);
@@ -1010,6 +1011,56 @@ void AMoonfallHeroPawn::ToggleInventory() {
  bInventoryOpen = !bInventoryOpen;
  if (!bInventoryOpen) bCharacterStatsOpen = false;
  UpdateInventoryMouseMode();
+}
+void AMoonfallHeroPawn::CycleInventorySort()
+{
+ // Reorder only while the editable backpack is open. No gear or currency mutations.
+ if (!bInventoryOpen || bCharacterStatsOpen || bOptionsOpen ||
+     !FMath::IsFinite(Health) || Health <= 0.f) return;
+ InventorySortMode = InventorySortMode == 1 ? 2 : 1;
+ if (InventoryItemCodes.Num() < 2) return;
+ const int32 OldSelection = FMath::Clamp(InventorySelection, 0, InventoryItemCodes.Num() - 1);
+ const int32 SelectedCode = InventoryItemCodes[OldSelection];
+ // Retain the selected duplicate by its stable occurrence number.
+ int32 SelectedOccurrence = 0;
+ for (int32 Index = 0; Index < OldSelection; ++Index)
+  if (InventoryItemCodes[Index] == SelectedCode) ++SelectedOccurrence;
+ const int32 Mode = InventorySortMode;
+ InventoryItemCodes.StableSort([Mode](const int32 A, const int32 B)
+ {
+  const auto Valid = [](int32 Code) -> bool {
+   if (Code <= 0) return false;
+   const int32 Affix = Code / 100000;
+   const int32 Slot = (Code / 10000) % 10;
+   const int32 Rarity = (Code / 1000) % 10;
+   const int32 Tier = Code % 1000;
+   return Affix >= 0 && Affix <= 3 && Slot >= 0 && Slot <= 2 &&
+     Rarity >= 0 && Rarity <= 5 && Tier >= 1 && Tier <= 25 &&
+     (Rarity > 0 || Affix == 0) &&
+     Code == Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier;
+  };
+  const bool AValid = Valid(A), BValid = Valid(B);
+  if (AValid != BValid) return AValid;
+  if (!AValid) return false;
+  const int32 ASlot = (A / 10000) % 10, BSlot = (B / 10000) % 10;
+  const int32 ARarity = (A / 1000) % 10, BRarity = (B / 1000) % 10;
+  const int32 ATier = A % 1000, BTier = B % 1000;
+  if (Mode == 2 && ASlot != BSlot) return ASlot < BSlot;
+  if (ARarity != BRarity) return ARarity > BRarity;
+  if (ATier != BTier) return ATier > BTier;
+  if (Mode == 1 && ASlot != BSlot) return ASlot < BSlot;
+  return A < B;
+ });
+ for (int32 Index = 0; Index < InventoryItemCodes.Num(); ++Index)
+  if (InventoryItemCodes[Index] == SelectedCode) {
+   if (SelectedOccurrence == 0) {
+    InventorySelection = Index;
+    return;
+   }
+   --SelectedOccurrence;
+  }
+ // Defensive fallback: selection remains a valid visible entry.
+ InventorySelection = FMath::Clamp(OldSelection, 0, InventoryItemCodes.Num() - 1);
 }
 void AMoonfallHeroPawn::EquipSelectedInventoryItem() {
  if (!bInventoryOpen || bCharacterStatsOpen || !InventoryItemCodes.IsValidIndex(InventorySelection)) return;
