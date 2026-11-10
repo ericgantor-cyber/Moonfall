@@ -965,7 +965,10 @@ void AMoonfallCombatHUD::DrawHUD()
         Hero->CharacterStatsPage + 1),
       FLinearColor(0.83f,0.83f,0.98f),Left+18.f,Top+PanelHeight-29.f,
       nullptr,Canvas->SizeX<900.f ? 0.54f : 0.78f);
-   if (!Hero->bBagPanelOpen) DrawKeyRingSummary(Left+10.f,Top+PanelHeight-210.f,PanelWidth-20.f);
+   // On very short character sheets the fixed stat/action rows already
+   // consume the panel; B still exposes the full key ring without overlap.
+   if (!Hero->bBagPanelOpen && PanelHeight >= 400.f)
+    DrawKeyRingSummary(Left+10.f,Top+PanelHeight-210.f,PanelWidth-20.f);
    // Overlay the interactive controls last, above stat text on all C pages.
    DrawRect(FLinearColor(0.04f,0.035f,0.10f,0.99f),
       Left,Top+PanelHeight-171.f,PanelWidth,171.f);
@@ -1313,7 +1316,10 @@ void AMoonfallCombatHUD::DrawHUD()
   }
   DrawText(TEXT("LT: equip best   U / RT: +1 tier   H / RB: forge 5   R / B: ascend   G / LB: reforge"),
      FLinearColor(0.78f,0.90f,0.95f), Left + 18.f, Top + PanelHeight - 70.f, nullptr, 0.74f);
-  DrawKeyRingSummary(Left+10.f,Top+PanelHeight-135.f,PanelWidth-20.f);
+  // The compact viewport's rows start at Top+145. Keep the ring
+  // above them rather than drawing a status overlay over selectable gear.
+  DrawKeyRingSummary(Left+10.f,
+    PanelHeight < 400.f ? Top+85.f : Top+PanelHeight-135.f,PanelWidth-20.f);
   // Interactive bag footer drawn last so buttons remain above status text.
   DrawRect(FLinearColor(0.04f,0.035f,0.10f,0.99f),
     Left,Top+PanelHeight-90.f,PanelWidth,90.f);
