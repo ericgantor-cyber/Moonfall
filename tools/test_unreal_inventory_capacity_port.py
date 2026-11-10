@@ -456,8 +456,8 @@ class InventoryCapacityPort(unittest.TestCase):
         self.assertIn("const int32 MythicB[] = {2,1,2};", hud)
         self.assertIn("for (int32 Tier = 0; Tier < 7; ++Tier)", hud)
         self.assertIn("Selected star %d / 21", hud)
-        self.assertIn("(FMath::Clamp(TalentSelectedNode,0,17) + 1) % 21", self.hero)
-        self.assertIn("(FMath::Clamp(TalentSelectedNode,0,17) + 17) % 21", self.hero)
+        self.assertIn("(FMath::Clamp(TalentSelectedNode,0,20) + 1) % 21", self.hero)
+        self.assertIn("(FMath::Clamp(TalentSelectedNode,0,20) + 20) % 21", self.hero)
 
     def test_seventh_tier_ascendants_are_gated_and_reversible(self):
         hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
