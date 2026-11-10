@@ -23,26 +23,37 @@ static func slot_for(item:Dictionary)->String:
 
 static func add_item(state:Dictionary,item_id:String,count:int=1)->bool:
  if count<=0 or CATALOG.get_item(item_id).is_empty():return false
- var items:Dictionary=state.get("items",{})
- items[item_id]=mini(9999,maxi(0,int(items.get(item_id,0)))+count)
+ var value:Variant=state.get("items",{})
+ if not value is Dictionary:return false
+ var items:Dictionary=value
+ var owned:int=_safe_roll_number(items.get(item_id,0),9999)
+ if owned>=9999:return false
+ items[item_id]=mini(9999,owned+count)
  state["items"]=items
  return true
 
 static func equip(state:Dictionary,item_id:String,hero_level:int)->bool:
  var item:Dictionary=CATALOG.get_item(item_id)
  if item.is_empty() or hero_level<int(item.get("level_required",1)):return false
- if int(state.get("items",{}).get(item_id,0))<1:return false
+ var owned_value:Variant=state.get("items",{})
+ if not owned_value is Dictionary or _safe_roll_number(owned_value.get(item_id,0),9999)<1:return false
  var slot:String=slot_for(item)
  if slot=="" or not SLOTS.has(slot):return false
- var slots:Dictionary=state.get("equipped",{})
+ var slots_value:Variant=state.get("equipped",{})
+ if not slots_value is Dictionary:return false
+ var slots:Dictionary=slots_value
  slots[slot]=item_id
  state["equipped"]=slots
  return true
 
 static func add_material(state:Dictionary,material:String,count:int)->bool:
  if material=="" or count<=0:return false
- var materials:Dictionary=state.get("materials",{})
- materials[material]=mini(999999,maxi(0,int(materials.get(material,0)))+count)
+ var value:Variant=state.get("materials",{})
+ if not value is Dictionary:return false
+ var materials:Dictionary=value
+ var available:int=_safe_roll_number(materials.get(material,0),999999)
+ if available>=999999:return false
+ materials[material]=mini(999999,available+count)
  state["materials"]=materials
  return true
 
