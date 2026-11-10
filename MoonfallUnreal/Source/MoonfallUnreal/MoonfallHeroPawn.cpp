@@ -1535,9 +1535,9 @@ void AMoonfallHeroPawn::PreviousCharacterStatsPage()
 
 void AMoonfallHeroPawn::ToggleCharacterStats()
 {
- // C opens character info from gameplay;
- bTalentRespecArmed = false; controller A still switches
- // between the character sheet and inventory without equipping anything.
+ // C opens character info from gameplay; controller A remains contextual.
+ // Switching between the sheet and the bag never auto-equips an item.
+ bTalentRespecArmed = false;
  if (bOptionsOpen || !FMath::IsFinite(Health) || Health <= 0.f) return;
  if (bAtlasOpen) { bAtlasOpen = false; bTalentsOpen = false; }
  UpdateInventoryMouseMode();
@@ -2196,8 +2196,8 @@ void AMoonfallHeroPawn::UpgradeSelectedInventoryItem()
 }
 
 void AMoonfallHeroPawn::OpenOptions() {
- // The defeat screen owns input until respawn;
- bTalentRespecArmed = false; do not reopen gameplay menus.
+ // The defeat screen owns input until respawn; do not reopen gameplay menus.
+ bTalentRespecArmed = false;
  if (Health <= 0.f || !FMath::IsFinite(Health)) return;
  ResetMouseCastChord();
  if (bAtlasOpen) {
