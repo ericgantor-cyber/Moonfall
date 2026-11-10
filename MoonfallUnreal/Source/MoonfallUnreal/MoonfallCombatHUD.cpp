@@ -7,6 +7,15 @@
 #include "Engine/Canvas.h"
 #include "Engine/Engine.h"
 #include "GameFramework/GameUserSettings.h"
+void AMoonfallCombatHUD::NotifyHitBoxClick(FName BoxName)
+{
+ Super::NotifyHitBoxClick(BoxName);
+ if (BoxName != FName(TEXT("MoonfallKeyRing"))) return;
+ AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0));
+ if (IsValid(Hero) && Hero->bInventoryOpen && Hero->bCharacterStatsOpen && !Hero->bOptionsOpen)
+  Hero->ToggleKeyRing();
+}
+
 void AMoonfallCombatHUD::DrawHUD()
 {
  Super::DrawHUD();
@@ -76,24 +85,29 @@ void AMoonfallCombatHUD::DrawHUD()
       Row == 0 || Row == 4 || Row == 7 ? FLinearColor(0.52f,0.91f,0.76f) : FLinearColor::White,
       Left + 18.f, StartY + Row * RowHeight, nullptr,
       PanelHeight < 360.f ? 0.55f : (Canvas->SizeX < 900.f ? 0.75f : 0.90f));
-   if (PanelHeight >= 450.f) {
-    FString KeyNames = TEXT("KEY RING: ");
-    if (!Hero->bKeyRingExpanded) {
-     KeyNames += TEXT("collapsed (K to expand)");
-    } else if (Hero->CollectedKeys.IsEmpty()) {
+   // Real clickable row: AHUD dispatches mouse clicks through this hitbox.
+   // No keyboard shortcut and no click-through when character sheet is closed.
+   const float KeyRowY = Top + PanelHeight - 65.f;
+   DrawRect(FLinearColor(0.15f,0.12f,0.22f,0.95f),
+     Left + 12.f, KeyRowY, PanelWidth - 24.f, 28.f);
+   AddHitBox(FVector2D(Left + 12.f, KeyRowY),
+     FVector2D(PanelWidth - 24.f, 28.f), FName(TEXT("MoonfallKeyRing")), true, 20);
+   FString KeyNames = Hero->bKeyRingExpanded ? TEXT("▼ KEY RING: ") : TEXT("▶ KEY RING (click to expand)");
+   if (Hero->bKeyRingExpanded) {
+    if (Hero->CollectedKeys.IsEmpty()) {
      KeyNames += TEXT("empty");
     } else {
      for (const FName KeyId : Hero->CollectedKeys) {
-      if (KeyNames != TEXT("KEY RING: ")) KeyNames += TEXT(" | ");
+      if (KeyNames != TEXT("▼ KEY RING: ")) KeyNames += TEXT(" | ");
       if (KeyId == FName(TEXT("wardens_crest"))) KeyNames += TEXT("Wardens' Crest");
       else if (KeyId == FName(TEXT("outlaw_seal"))) KeyNames += TEXT("Outlaw Seal");
       else if (KeyId == FName(TEXT("fallen_gate_key"))) KeyNames += TEXT("Fallen Gate Key");
      }
     }
-    DrawText(KeyNames, FLinearColor(0.99f,0.84f,0.48f),
-      Left + 18.f, Top + PanelHeight - 56.f, nullptr,
-      Canvas->SizeX < 900.f ? 0.65f : 0.79f);
    }
+   DrawText(KeyNames, FLinearColor(0.99f,0.84f,0.48f),
+     Left + 18.f, KeyRowY + 5.f, nullptr,
+     Canvas->SizeX < 900.f ? 0.57f : 0.75f);
    DrawText(TEXT("P / A: back to inventory    I / Select / Esc: close"),
      FLinearColor(0.81f,0.83f,0.97f), Left + 18.f, Top + PanelHeight - 29.f,
      nullptr, 0.8f);
