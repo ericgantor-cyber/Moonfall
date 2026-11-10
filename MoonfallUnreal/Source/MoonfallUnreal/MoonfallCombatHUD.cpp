@@ -116,8 +116,23 @@ void AMoonfallCombatHUD::DrawHUD()
   DrawText(FString::Printf(TEXT("Crit %.1f%%  |  Haste %.1f%%"),
     Hero->GetCriticalChance() * 100.f,Hero->GetHasteBonus() * 100.f),
     FLinearColor(0.7f,0.89f,0.98f),Left + 20.f,Top + 126.f,nullptr,0.95f);
-  DrawText(TEXT("Talent allocation tree not yet implemented."),
-    FLinearColor(0.98f,0.81f,0.47f),Left + 20.f,Top + 196.f,nullptr,0.95f);
+  DrawText(FString::Printf(TEXT("UNSPENT TALENT POINTS: %d"),
+    Hero->GetUnspentTalentPoints()),
+    FLinearColor(0.98f,0.81f,0.47f),Left + 20.f,Top + 173.f,nullptr,0.99f);
+  const int32 Ranks[] = {Hero->TalentForceRank,Hero->TalentFocusRank,Hero->TalentWardRank};
+  const TCHAR* BranchNames[] = {TEXT("1  FORCE"),TEXT("2  FOCUS"),TEXT("3  WARD")};
+  const TCHAR* Benefits[] = {TEXT("+0.5% crit / rank"),TEXT("+1% haste / rank"),TEXT("+0.8% versatility / rank")};
+  for (int32 Branch = 0; Branch < 3; ++Branch) {
+   const float RowY = Top + 215.f + Branch * 49.f;
+   DrawRect(FLinearColor(0.13f,0.12f,0.23f,0.93f),Left + 19.f,RowY,Width - 38.f,42.f);
+   DrawText(FString::Printf(TEXT("%s  |  Rank %d/10"),
+     BranchNames[Branch],Ranks[Branch]),FLinearColor(0.88f,0.78f,1.f),
+     Left + 30.f,RowY + 9.f,nullptr,0.87f);
+   DrawText(Benefits[Branch],FLinearColor(0.68f,0.88f,0.86f),
+     Left + Width * 0.56f,RowY + 10.f,nullptr,0.75f);
+  }
+  DrawText(TEXT("Shared talents: all playable heroes. Bosses have separate powers."),
+    FLinearColor(0.75f,0.78f,0.87f),Left + 20.f,Top + Height - 69.f,nullptr,0.74f);
   DrawText(TEXT("K / Esc: close    M: open map"),
     FLinearColor(0.8f,0.86f,0.97f),Left + 20.f,Top + Height - 36.f,
     nullptr,0.85f);
