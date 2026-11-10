@@ -27,4 +27,5 @@ public:
  // v3: equipment actually collected into the bag. Loose world drops remain
  // transient; pickups only disappear after this inventory is saved.
  UPROPERTY(SaveGame) TArray<int32> InventoryItemCodes;
+ UPROPERTY(SaveGame) int32 Salvage = 0;
 };
