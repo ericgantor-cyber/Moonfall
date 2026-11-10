@@ -1645,7 +1645,13 @@ bool AMoonfallHeroPawn::TryInteractWithNearbyKey()
   if (IsValid(*It) && !It->bUnlocked) Consider(*It);
  }
  if (AMoonfallKeyPickup* Key = Cast<AMoonfallKeyPickup>(Nearest))
-  return Key->TryCollect(this);
+ {
+  // The interaction was directed at this key even if disk saving fails.
+  // Keep the world key intact and never fall through to collecting equipment
+  // from the same button press after a failed key transaction.
+  Key->TryCollect(this);
+  return true;
+ }
  if (AMoonfallKeyGate* Gate = Cast<AMoonfallKeyGate>(Nearest))
  {
   Gate->TryUnlock(this);
