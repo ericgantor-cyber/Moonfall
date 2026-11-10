@@ -147,16 +147,27 @@ namespace
 
 bool AMoonfallHeroPawn::LoadRewardProgress()
 {
+ // Validate the save *before* clearing live progress. An unreadable or
+ // future-version slot must not be silently overwritten by default values.
+ if (!UGameplayStatics::DoesSaveGameExist(RewardSaveSlot, RewardSaveUser))
+ {
+  bRewardSaveLoadFailed = false;
+  return true;
+ }
+ const UMoonfallRewardSaveGame* Save = Cast<UMoonfallRewardSaveGame>(
+   UGameplayStatics::LoadGameFromSlot(RewardSaveSlot, RewardSaveUser));
+ if (!Save || (Save->SchemaVersion != 1 && Save->SchemaVersion != 2))
+ {
+  bRewardSaveLoadFailed = true;
+  return false;
+ }
+ bRewardSaveLoadFailed = false;
  Gold = 0;
  ConfirmedRewardKills = 0;
  CollectedKeys.Reset();
  CompletedFactionQuests.Reset();
  UnlockedGateIds.Reset();
  bKeyRingExpanded = false;
- if (!UGameplayStatics::DoesSaveGameExist(RewardSaveSlot, RewardSaveUser)) return true;
- const UMoonfallRewardSaveGame* Save = Cast<UMoonfallRewardSaveGame>(
-   UGameplayStatics::LoadGameFromSlot(RewardSaveSlot, RewardSaveUser));
- if (!Save || (Save->SchemaVersion != 1 && Save->SchemaVersion != 2)) return false;
  Gold = FMath::Max<int64>(0, Save->Gold);
  ConfirmedRewardKills = FMath::Max<int64>(0, Save->ConfirmedKills);
  for (const FName KeyId : Save->CollectedKeys)
@@ -186,6 +197,9 @@ bool AMoonfallHeroPawn::LoadRewardProgress()
 
 bool AMoonfallHeroPawn::SaveRewardProgress()
 {
+ // Fail closed when the existing slot is unreadable or a newer schema.
+ // Key/quest/gate transactions already roll back on a failed write.
+ if (bRewardSaveLoadFailed) return false;
  UMoonfallRewardSaveGame* Save = Cast<UMoonfallRewardSaveGame>(
    UGameplayStatics::CreateSaveGameObject(UMoonfallRewardSaveGame::StaticClass()));
  if (!Save) return false;
