@@ -84,6 +84,37 @@ int32 AMoonfallCombatHUD::GetCharacterActionAtScreenPosition(
  return -1;
 }
 
+static bool MoonfallBagActionRect(const UCanvas* Canvas, int32 Action,
+    float& X, float& Y, float& W, float& H)
+{
+ if (!Canvas || Action < 0 || Action >= 8) return false;
+ const bool bWide = Canvas->SizeX >= 1100.f && Canvas->SizeY >= 600.f;
+ const float PanelWidth=FMath::Min(bWide ? 1040.f : 680.f,
+   FMath::Max(280.f,Canvas->SizeX-24.f));
+ const float PanelHeight=FMath::Min(860.f,FMath::Max(280.f,Canvas->SizeY-24.f));
+ const float Left=(Canvas->SizeX-PanelWidth)*0.5f;
+ const float Top=(Canvas->SizeY-PanelHeight)*0.5f;
+ W=(PanelWidth-42.f)/4.f;
+ H=32.f;
+ X=Left+12.f+float(Action%4)*(W+6.f);
+ Y=Top+PanelHeight-82.f+float(Action/4)*37.f;
+ return true;
+}
+
+int32 AMoonfallCombatHUD::GetInventoryActionAtScreenPosition(
+    const AMoonfallHeroPawn* Hero,float X,float Y) const
+{
+ if (!Canvas || !IsValid(Hero) || !Hero->bInventoryOpen ||
+     Hero->bCharacterStatsOpen || Hero->bOptionsOpen ||
+     !FMath::IsFinite(X) || !FMath::IsFinite(Y)) return -1;
+ for (int32 Action=0;Action<8;++Action) {
+  float BX=0.f,BY=0.f,BW=0.f,BH=0.f;
+  if (!MoonfallBagActionRect(Canvas,Action,BX,BY,BW,BH)) continue;
+  if (X>=BX && X<BX+BW && Y>=BY && Y<BY+BH) return Action;
+ }
+ return -1;
+}
+
 int32 AMoonfallCombatHUD::GetOptionsActionAtScreenPosition(
     const AMoonfallHeroPawn* Hero, float X, float Y) const
 {
@@ -1102,8 +1133,23 @@ void AMoonfallCombatHUD::DrawHUD()
   }
   DrawText(TEXT("LT: equip best   U / RT: +1 tier   H / RB: forge 5   R / B: ascend   G / LB: reforge"),
      FLinearColor(0.78f,0.90f,0.95f), Left + 18.f, Top + PanelHeight - 70.f, nullptr, 0.74f);
-  DrawText(TEXT("C / A: character info    B / Select / Esc: close"), FLinearColor::White,
-     Left + 18.f, Top + PanelHeight - 28.f, nullptr, 0.8f);
+  // Interactive bag footer drawn last so buttons remain above status text.
+  DrawRect(FLinearColor(0.04f,0.035f,0.10f,0.99f),
+    Left,Top+PanelHeight-90.f,PanelWidth,90.f);
+  const TCHAR* BagActions[8]={
+    TEXT("EQUIP"),TEXT("UPGRADE"),TEXT("ASCEND"),TEXT("REFORGE"),
+    TEXT("FORGE x5"),TEXT("SALVAGE"),TEXT("CHARACTER"),TEXT("CLOSE")
+  };
+  for (int32 Action=0;Action<8;++Action) {
+   float BX=0.f,BY=0.f,BW=0.f,BH=0.f;
+   if (!MoonfallBagActionRect(Canvas,Action,BX,BY,BW,BH)) continue;
+   const bool Enabled=Action>=6 || Count>0;
+   DrawRect(Enabled ? FLinearColor(0.15f,0.38f,0.45f,0.97f)
+      : FLinearColor(0.18f,0.18f,0.22f,0.94f),BX,BY,BW,BH);
+   DrawText(BagActions[Action],Enabled ? FLinearColor::White
+       : FLinearColor(0.60f,0.62f,0.66f),BX+6.f,BY+8.f,nullptr,
+       Canvas->SizeX<650.f ? 0.54f : 0.73f);
+  }
   return;
  }
  // Nearest living boss, displayed without creating additional widget actors.
