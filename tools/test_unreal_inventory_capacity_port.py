@@ -51,13 +51,22 @@ class InventoryCapacityPort(unittest.TestCase):
 
     def test_expanded_inventory_preserves_mouse_row_selection(self):
         hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
-        self.assertEqual(hud.count("const bool bWideInventory = Canvas->SizeX >= 1100.f;"), 3)
+        self.assertEqual(hud.count("const bool bWideInventory = Canvas->SizeX >= 1100.f && Canvas->SizeY >= 600.f;"), 3)
         self.assertIn("if (X < Left + 12.f || X > Left + ListWidth - 12.f) return -1;", hud)
         self.assertIn("Left + 12.f, Y - 3.f, ListWidth - 24.f, RowSpacing - 3.f);", hud)
         self.assertIn('TEXT("GEAR INSPECTION")', hud)
         self.assertIn('TEXT("CRAFTING & SALVAGE")', hud)
         self.assertIn("GetEquipmentUpgradeScore(Selected)", hud)
         self.assertIn("bWideInventory ? 1040.f : 680.f", hud)
+        # Short desktop windows use the compact layout so the 339px detail
+        # stack does not run into the panel footer.
+        self.assertIn("Canvas->SizeY >= 600.f", hud)
+        self.assertIn("Hero->Salvage >= UpgradeCost", hud)
+        self.assertIn("Hero->Salvage >= AscendCost", hud)
+        self.assertIn("Hero->Salvage >= ReforgeCost", hud)
+        for forbidden in ('TEXT("EQUIP SELECTED")', 'TEXT("PREV PAGE")',
+                          'TEXT("NEXT PAGE")'):
+            self.assertNotIn(forbidden, hud)
 
     def test_inventory_sort_is_explicit_and_does_not_modify_gear(self):
         method = body(self.hero, "void AMoonfallHeroPawn::CycleInventorySort()")
