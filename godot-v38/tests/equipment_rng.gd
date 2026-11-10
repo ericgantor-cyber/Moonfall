@@ -77,6 +77,21 @@ func _run()->void:
  check(not INVENTORY.add_item(capped,"ashwood_sword"),"full item stack rejects phantom grant")
  check(not INVENTORY.add_material(capped,"Ashwood",1),"full material stack rejects phantom grant")
  check(int(capped["items"]["ashwood_sword"])==9999 and int(capped["materials"]["Ashwood"])==999999,"full-stack rejection preserves resources")
+ # Huge externally supplied counts must saturate, never wrap to negative.
+ var huge_grants:Dictionary=INVENTORY.new_state()
+ check(INVENTORY.add_item(huge_grants,"ashwood_sword",9223372036854775807),"huge item grant succeeds without overflow")
+ check(int(huge_grants["items"]["ashwood_sword"])==9999,"huge item grant saturates at item cap")
+ check(not INVENTORY.add_item(huge_grants,"ashwood_sword",1),"saturated item stack rejects additional grant")
+ check(INVENTORY.add_material(huge_grants,"Ashwood",9223372036854775807),"huge material grant succeeds without overflow")
+ check(int(huge_grants["materials"]["Ashwood"])==999999,"huge material grant saturates at material cap")
+ check(not INVENTORY.add_material(huge_grants,"Ashwood",1),"saturated material stack rejects additional grant")
+ var partial_grants:Dictionary=INVENTORY.new_state()
+ partial_grants["items"]["ashwood_sword"]=9998
+ partial_grants["materials"]["Ashwood"]=999998
+ check(INVENTORY.add_item(partial_grants,"ashwood_sword",9223372036854775807),"near-full item grant safely saturates")
+ check(INVENTORY.add_material(partial_grants,"Ashwood",9223372036854775807),"near-full material grant safely saturates")
+ check(int(partial_grants["items"]["ashwood_sword"])==9999 and int(partial_grants["materials"]["Ashwood"])==999999,"near-full grants preserve valid capped counts")
+ check(int(INVENTORY.normalize(huge_grants)["items"]["ashwood_sword"])==9999,"saturated item survives save normalization")
  # Failed loot grants must not create phantom rarity rolls or spend pity.
  var loot_candidate:Dictionary=CATALOG.loot_for_level(12,42)
  check(not loot_candidate.is_empty(),"deterministic loot fixture exists")
