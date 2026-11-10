@@ -213,7 +213,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         spawn = self.hero_cpp.split("void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(", 1)[1].split(
             "void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[0]
         self.assertIn("RollEquipmentCode(bEliteEnemy, bBossEnemy)", spawn)
-        self.assertIn("const int32 DropCount = bBossEnemy ? 3 : (bEliteEnemy ? 2 : 1);", spawn)
+        self.assertIn("const int32 BaseDropCount = bBossEnemy ? 3 : (bEliteEnemy ? 2 : 1);", spawn)
+        self.assertIn("const int32 BonusDropChance = bBossEnemy ? 50 : (bEliteEnemy ? 35 : 20);", spawn)
+        self.assertIn("const int32 DropCount = BaseDropCount + (FMath::RandRange(0, 99) < BonusDropChance ? 1 : 0);", spawn)
         self.assertIn("for (int32 Drop = 0; Drop < DropCount; ++Drop)", spawn)
         self.assertIn("Spread * FMath::Cos(Angle)", spawn)
         self.assertIn("Spread * FMath::Sin(Angle)", spawn)
