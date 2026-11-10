@@ -616,9 +616,19 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier, bool
   // Crit is rolled only after a valid enemy was acquired.
   const bool bCriticalSpell = FMath::FRand() < GetCriticalChance();
   const float MightMultiplier = 1.f + FMath::Clamp(GetMight() * 0.001f, 0.f, 0.10f);
+  // Map Moonfall's six cast schools onto five elemental resistance types.
+  // School 3 heals and never enters this hostile spell branch.
+  // 0 Fire, 1 Frost, 2 Arcane, 4 Nature, 5 Shadow.
+  static const int32 ElementSchoolForCast[6] = {0,1,4,-1,2,3};
+  const int32 ElementSchool = ElementSchoolForCast[School];
+  const float EffectiveResistance = ElementSchool >= 0
+    ? FMath::Max(0.f,Enemy->GetSchoolResistance(ElementSchool)
+        - GetSpellPenetration() - GetSpellPierce()) : 0.f;
+  const float ResistanceMultiplier = 1.f - FMath::Clamp(
+      EffectiveResistance * 0.004f,0.f,0.40f);
   const float SpellDamage = (18.f + School * 5.f) * EffectMultiplier * SpellPowerMultiplier
     * WeaponDamageBonus * CounterMultiplier * MomentumBonus * HitComboMultiplier
-    * (1.f + GetMasteryBonus()) * (1.f + GetVersatilityBonus())
+    * ResistanceMultiplier * (1.f + GetMasteryBonus()) * (1.f + GetVersatilityBonus())
     * ((bCriticalSpell ? 1.5f : 1.f)
       + (bCriticalSpell ? (bTalentForceKeystone ? 0.20f : 0.f)
         + (bTalentBattleWeave ? 0.15f : 0.f)
