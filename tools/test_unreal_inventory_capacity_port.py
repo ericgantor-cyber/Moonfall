@@ -190,6 +190,23 @@ class InventoryCapacityPort(unittest.TestCase):
         self.assertIn("const int32 AdvisedIndex = CachedAdvisorIndex;", hud)
         self.assertNotIn('TEXT("EQUIP SELECTED")', hud)
 
+    def test_m_map_and_k_talents_are_separate_without_fake_allocations(self):
+        config = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
+        hero_h = (ROOT / "MoonfallHeroPawn.h").read_text(encoding="utf-8")
+        hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        self.assertIn('ActionName="Atlas",Key=M', config)
+        self.assertIn('ActionName="Talents",Key=K', config)
+        self.assertNotIn('ActionName="Atlas",Key=J', config)
+        self.assertIn('BindAction(TEXT("Talents"), IE_Pressed', self.hero)
+        self.assertIn("void AMoonfallHeroPawn::ToggleTalents()", self.hero)
+        self.assertIn("bTalentsOpen = false;", hero_h)
+        self.assertIn('TEXT("MOONFALL  |  MAP")', hud)
+        self.assertIn('TEXT("MOONFALL  |  TALENTS")', hud)
+        self.assertIn('TEXT("Talent allocation tree not yet implemented.")', hud)
+        self.assertIn("if (Hero->bAtlasOpen && Hero->bTalentsOpen)", hud)
+        self.assertIn("bTalentsOpen = false;", self.hero)
+        self.assertNotIn('TEXT("EQUIP SELECTED")', hud)
+
     def test_inventory_has_no_equip_or_page_buttons(self):
         hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
         left = body(self.hero, "void AMoonfallHeroPawn::LeftClickContextAction()")
@@ -224,7 +241,7 @@ class InventoryCapacityPort(unittest.TestCase):
         self.assertNotIn('ActionName="InventoryConfirm",Key=Gamepad_FaceButton_Top', inputs)
         self.assertIn("EquipSelectedInventoryItem();", body(self.hero, "void AMoonfallHeroPawn::RightClickContextAction()"))
         self.assertIn("Right-click row: equip", hud)
-        self.assertIn('ActionName="Atlas",Key=J', inputs)
+        self.assertIn('ActionName="Atlas",Key=M', inputs)
         self.assertNotIn('TEXT("EQUIP SELECTED")', hud)
 
     def test_failed_pickup_keeps_world_actor(self):
