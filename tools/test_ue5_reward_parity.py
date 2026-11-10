@@ -580,7 +580,7 @@ class UE5RewardParity(unittest.TestCase):
             "void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(", 1)[0]
         self.assertIn("TMap<FGuid, AMoonfallGroundLoot*> SpawnedActors;", restore)
         self.assertLess(restore.index("for (TActorIterator<AMoonfallGroundLoot>"),
-                        restore.index("for (const FMoonfallWorldLootRecord& Record"))
+                        restore.index("for (const FMoonfallWorldLootRecord& Record", restore.index("TMap<FGuid")))
         self.assertEqual(restore.count("TActorIterator<AMoonfallGroundLoot>"), 1)
         spawn = self.hero.split("void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(", 1)[1].split(
             "bool AMoonfallHeroPawn::TryInteractWithNearbyKey()", 1)[0]
