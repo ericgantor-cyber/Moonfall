@@ -36,16 +36,27 @@ AMoonfallKeyGate::AMoonfallKeyGate()
 void AMoonfallKeyGate::BeginPlay()
 {
  Super::BeginPlay();
- // This is replay of a deliberate unlock from a prior session, not a new
- // proximity unlock. Read directly from the versioned save so actor BeginPlay
- // order does not depend on when the hero loads its own reward progress.
+ // Restore only a previously earned manual unlock. Reuse validated
+ // player progress when the hero initialized first; avoid a save-file read
+ // per gate in large dungeons. If the gate starts first, fall back to disk.
  if (GateId.IsNone()) return;
- const FString SlotName(TEXT("Moonfall_RewardProgress_v1"));
- if (!UGameplayStatics::DoesSaveGameExist(SlotName, 0)) return;
- const UMoonfallRewardSaveGame* Saved = Cast<UMoonfallRewardSaveGame>(
-   UGameplayStatics::LoadGameFromSlot(SlotName, 0));
- if (!Saved || Saved->SchemaVersion != 2 || !Saved->UnlockedGateIds.Contains(GateId))
-  return;
+ const AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(
+   UGameplayStatics::GetPlayerPawn(this, 0));
+ if (IsValid(Hero) && Hero->bRewardSaveInitialized)
+ {
+  // Invalid/future saves must not unlock doors using uncertain live state.
+  if (Hero->bRewardSaveLoadFailed || !Hero->HasUnlockedGate(GateId))
+   return;
+ }
+ else
+ {
+  const FString SlotName(TEXT("Moonfall_RewardProgress_v1"));
+  if (!UGameplayStatics::DoesSaveGameExist(SlotName, 0)) return;
+  const UMoonfallRewardSaveGame* Saved = Cast<UMoonfallRewardSaveGame>(
+    UGameplayStatics::LoadGameFromSlot(SlotName, 0));
+  if (!Saved || Saved->SchemaVersion != 2 || !Saved->UnlockedGateIds.Contains(GateId))
+   return;
+ }
  ApplyOpenState();
  OnSavedGateRestored();
 }
