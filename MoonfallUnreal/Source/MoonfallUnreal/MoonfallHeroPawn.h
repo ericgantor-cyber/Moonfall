@@ -93,6 +93,10 @@ public:
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Rewards") int64 Gold = 0;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Rewards") int64 ConfirmedRewardKills = 0;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Rewards") TArray<FName> CollectedKeys;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Rewards") TArray<FName> CompletedFactionQuests;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Rewards") bool bKeyRingExpanded = false;
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Rewards") bool CompleteFactionQuest(FName QuestId);
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Rewards") void ToggleKeyRing();
  UFUNCTION(BlueprintCallable, Category="Moonfall|Rewards") int64 AddGold(int64 Amount);
  UFUNCTION(BlueprintCallable, Category="Moonfall|Rewards") bool CollectQuestKey(FName KeyId);
  UFUNCTION(BlueprintPure, Category="Moonfall|Rewards") bool HasQuestKey(FName KeyId) const;
