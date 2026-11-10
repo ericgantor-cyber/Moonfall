@@ -136,6 +136,53 @@ class UE5RewardParity(unittest.TestCase):
         self.assertNotIn("Gate->TryUnlock(", arena_cpp)
         self.assertNotIn("OnComponentBeginOverlap", gate_cpp)
 
+    def test_v2_saves_retain_v1_compatibility_and_named_gates(self):
+        self.assertIn("int32 SchemaVersion = 2;", self.save)
+        self.assertIn("TArray<FName> UnlockedGateIds;", self.save)
+        self.assertIn("Save->SchemaVersion != 1 && Save->SchemaVersion != 2", self.hero)
+        self.assertIn("if (Save->SchemaVersion >= 2)", self.hero)
+        self.assertIn("Save->UnlockedGateIds = UnlockedGateIds;", self.hero)
+        self.assertIn("UnlockedGateIds.Num() < 256", self.hero)
+        self.assertIn("bool AMoonfallHeroPawn::HasUnlockedGate(FName GateId) const", self.hero)
+        unlock = self.hero.split("bool AMoonfallHeroPawn::CommitGateUnlock(", 1)[1].split(
+            "void AMoonfallHeroPawn::ToggleKeyRing()", 1)[0]
+        self.assertIn("!HasQuestKey(RequiredKeyId) && !HasUnlockedGate(GateId)", unlock)
+        self.assertIn("UnlockedGateIds.Add(GateId);", unlock)
+        self.assertIn("if (!SaveRewardProgress())", unlock)
+        self.assertIn("UnlockedGateIds.Remove(GateId);", unlock)
+        gate = (ROOT / "MoonfallKeyGate.cpp").read_text()
+        gate_h = (ROOT / "MoonfallKeyGate.h").read_text()
+        self.assertIn("FName GateId = NAME_None;", gate_h)
+        self.assertIn("Hero->CommitGateUnlock(GateId, RequiredKeyId)", gate)
+        self.assertIn("Hero->HasUnlockedGate(GateId)", gate)
+        self.assertLess(gate.index("Hero->CommitGateUnlock("), gate.index("bUnlocked = true;"))
+        arena = (ROOT / "MoonfallArena.cpp").read_text()
+        self.assertIn('Gate->GateId = FName(TEXT("wardens_trial_gate"));', arena)
+
+    def test_no_key_or_quest_is_consumed_on_save_failure(self):
+        pickup = (ROOT / "MoonfallKeyPickup.cpp").read_text()
+        collect = self.hero.split("bool AMoonfallHeroPawn::CollectQuestKey(", 1)[1].split(
+            "bool AMoonfallHeroPawn::CompleteFactionQuest(", 1)[0]
+        self.assertIn("if (!SaveRewardProgress())", collect)
+        self.assertIn("CollectedKeys.Remove(KeyId);", collect)
+        self.assertLess(collect.index("if (!SaveRewardProgress())"), collect.index("return true;"))
+        self.assertIn("if (!Hero->CollectQuestKey(KeyId)) return false;", pickup)
+        self.assertLess(pickup.index("Hero->CollectQuestKey(KeyId)"), pickup.index("Destroy();"))
+        quest = self.hero.split("bool AMoonfallHeroPawn::CompleteFactionQuest(", 1)[1].split(
+            "bool AMoonfallHeroPawn::HasUnlockedGate(", 1)[0]
+        self.assertIn("if (bNeedsKey && CollectedKeys.Num() >= 128) return false;", quest)
+        self.assertIn("CompletedFactionQuests.Remove(QuestId);", quest)
+        self.assertIn("if (bNeedsKey) CollectedKeys.Remove(RewardKey);", quest)
+        gold = self.hero.split("int64 AMoonfallHeroPawn::AddGold(", 1)[1].split(
+            "bool AMoonfallHeroPawn::HasQuestKey(", 1)[0]
+        self.assertIn("Gold = PreviousGold;", gold)
+        self.assertIn("return 0;", gold)
+        kill = self.hero.split("void AMoonfallHeroPawn::AwardEnemyCurrency(", 1)[1].split(
+            "void AMoonfallHeroPawn::BeginPlay()", 1)[0]
+        self.assertIn("ConfirmedRewardKills = PreviousKills;", kill)
+        self.assertIn("if (Gold >= MAX_int64)", kill)
+        self.assertIn("const int64 GrantedGold = AddGold(BaseGold);", kill)
+
     def test_equipment_remains_manual_and_hud_shows_rewards(self):
         self.assertIn("void PickupNearestGroundLoot();", self.hero_h)
         self.assertIn("Loot->TryCollect()", self.hero)
