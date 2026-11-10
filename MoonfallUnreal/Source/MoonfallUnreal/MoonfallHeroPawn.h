@@ -108,9 +108,11 @@ public:
  static constexpr int32 MaxInventoryItems = 9999;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Loot") TArray<int32> InventoryItemCodes;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Inventory") bool bInventoryOpen = false;
- // J toggles this read-only UE5 Atlas overlay, separate from gear and options.
+ // M toggles the map; K switches to a separate read-only talents overview.
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Map") bool bAtlasOpen = false;
  UFUNCTION(BlueprintCallable, Category="Moonfall|Map") void ToggleAtlas();
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") bool bTalentsOpen = false;
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Talents") void ToggleTalents();
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Inventory") bool bCharacterStatsOpen = false;
  UFUNCTION(BlueprintCallable, Category="Moonfall|Inventory") void ToggleCharacterStats();
  // Controller A switches existing inventory pages, never closes the menu.
