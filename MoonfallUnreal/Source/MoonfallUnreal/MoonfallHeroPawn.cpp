@@ -308,7 +308,7 @@ bool AMoonfallHeroPawn::SaveProgress()
  Save->InventorySortMode = InventorySortMode;
  if (Save->InventoryCodes.Num() > MaxInventoryItems ||
      Save->SalvageMaterials < 0 || Save->SalvageMaterials > 9999 ||
-     (Save->InventorySortMode != 1 && Save->InventorySortMode != 2)) return false;
+     (Save->InventorySortMode < 0 || Save->InventorySortMode > 2)) return false;
  for (int32 Code : Save->InventoryCodes) {
   int32 Trait = 0, Rarity = 0, Tier = 0;
   const int32 Slot = (Code / 10000) % 10;
@@ -397,7 +397,7 @@ bool AMoonfallHeroPawn::LoadProgress()
  if (Save->Version == 2) {
   if (Save->InventoryCodes.Num() > MaxInventoryItems ||
       Save->SalvageMaterials < 0 || Save->SalvageMaterials > 9999 ||
-     (Save->InventorySortMode != 1 && Save->InventorySortMode != 2)) return false;
+     (Save->InventorySortMode < 0 || Save->InventorySortMode > 2)) return false;
   for (int32 Code : Save->InventoryCodes) {
    int32 Trait = 0, Rarity = 0, Tier = 0;
    const int32 Slot = (Code / 10000) % 10;
