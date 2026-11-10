@@ -218,6 +218,10 @@ public:
  void PreviousCharacterStatsPage();
  UFUNCTION(BlueprintCallable, Category="Moonfall|Inventory") void ToggleCharacterStats();
  // Controller A switches existing inventory pages, never closes the menu.
+ // Controller menu focus. D-pad up/down moves through visible buttons;
+ // gamepad A activates one focused action without requiring a mouse.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|UI") int32 MenuActionFocus = 0;
+ void ActivateFocusedMenuAction();
  void SwitchInventoryPage();
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Inventory") int32 InventorySelection = 0;
  // Transient top visible row; wheel scrolls the bag without selecting/equipping.
