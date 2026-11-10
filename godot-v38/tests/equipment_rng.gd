@@ -36,6 +36,22 @@ func _run()->void:
   check(result==RNG.roll(item,seed),"RNG remains deterministic "+str(seed))
  check(int(RNG.roll(item,3,0,80)["rarity_index"])>=3,"pity guarantees epic")
  check(RNG.next_pity(80,3)==0,"pity resets after rare roll")
+ # Crafting must not charge materials when a stack cannot accept another item.
+ var craft_item:Dictionary=CATALOG.get_item("ashwood_sword")
+ var craft_material:String=str(craft_item["name"]).split(" ")[0]
+ var craft_cost:int=2+int(craft_item["tier"])*3
+ var full_stack:Dictionary=INVENTORY.new_state()
+ full_stack["items"]["ashwood_sword"]=9999
+ full_stack["materials"][craft_material]=craft_cost+5
+ check(not INVENTORY.craft(full_stack,"ashwood_sword",99),"full item stack rejects crafting")
+ check(int(full_stack["materials"][craft_material])==craft_cost+5,"failed full-stack craft preserves materials")
+ check(int(full_stack["items"]["ashwood_sword"])==9999,"failed full-stack craft preserves items")
+ full_stack["items"]["ashwood_sword"]=9998
+ check(INVENTORY.craft(full_stack,"ashwood_sword",99),"available stack permits crafting")
+ check(int(full_stack["items"]["ashwood_sword"])==9999 and int(full_stack["materials"][craft_material])==5,"successful craft grants exactly one item and charges once")
+ var corrupt_craft:Dictionary=INVENTORY.new_state()
+ corrupt_craft["materials"][craft_material]=[craft_cost]
+ check(not INVENTORY.craft(corrupt_craft,"ashwood_sword",99),"malformed materials cannot fund crafting")
  var state:Dictionary=INVENTORY.new_state()
  var drop:Dictionary=INVENTORY.loot_enemy(state,12,42)
  check(drop.has("roll") and state["loot_rolls"].size()==1,"loot roll persisted")
