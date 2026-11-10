@@ -37,6 +37,27 @@ int32 AMoonfallCombatHUD::GetInventoryItemAtScreenPosition(
  return -1;
 }
 
+
+bool AMoonfallCombatHUD::IsInventorySortButtonAtScreenPosition(
+    const AMoonfallHeroPawn* Hero, float X, float Y) const
+{
+ if (!Canvas || !IsValid(Hero) || !Hero->bInventoryOpen ||
+     Hero->bCharacterStatsOpen || Hero->bOptionsOpen ||
+     !FMath::IsFinite(X) || !FMath::IsFinite(Y)) return false;
+ const bool bWideInventory = Canvas->SizeX >= 1100.f;
+ const float PanelWidth = FMath::Min(bWideInventory ? 1040.f : 680.f,
+   FMath::Max(280.f, Canvas->SizeX - 24.f));
+ const float ListWidth = bWideInventory ? PanelWidth - 340.f : PanelWidth;
+ const float PanelHeight = FMath::Min(580.f, FMath::Max(280.f, Canvas->SizeY - 24.f));
+ const float Left = (Canvas->SizeX - PanelWidth) * 0.5f;
+ const float Top = (Canvas->SizeY - PanelHeight) * 0.5f;
+ // Compact windows put the button on the bottom row to avoid title overlap.
+ const float ButtonX = Left + ListWidth - 166.f;
+ const float ButtonY = ListWidth >= 500.f ? Top + 12.f : Top + PanelHeight - 109.f;
+ return X >= ButtonX && X < ButtonX + 148.f &&
+   Y >= ButtonY && Y < ButtonY + 33.f;
+}
+
 void AMoonfallCombatHUD::DrawHUD()
 {
  Super::DrawHUD();
@@ -110,6 +131,18 @@ void AMoonfallCombatHUD::DrawHUD()
   const float Top = (Canvas->SizeY - PanelHeight) * 0.5f;
   DrawRect(FLinearColor(0.04f, 0.035f, 0.10f, 0.96f), Left, Top, PanelWidth, PanelHeight);
   DrawText(TEXT("MOONFALL  |  INVENTORY"), FLinearColor::White, Left + 18.f, Top + 16.f, nullptr, 1.3f);
+  // Explicit clickable control, with a matching hit region above.
+  // No sorting happens during DrawHUD; only a deliberate click changes mode.
+  if (!Hero->bCharacterStatsOpen) {
+   const float ButtonX = Left + ListWidth - 166.f;
+   const float ButtonY = ListWidth >= 500.f ? Top + 12.f : Top + PanelHeight - 109.f;
+   DrawRect(FLinearColor(0.13f,0.34f,0.43f,0.97f),ButtonX,ButtonY,148.f,33.f);
+   const TCHAR* NextSort = Hero->InventorySortMode == 1 ? TEXT("SLOT")
+     : TEXT("QUALITY");
+   DrawText(FString::Printf(TEXT("SORT: %s"),NextSort),
+     FLinearColor::White,ButtonX + 10.f,ButtonY + 7.f,nullptr,0.88f);
+  }
+
   if (Hero->bCharacterStatsOpen) {
    // Character sheet is a read-only page. Inventory operations remain locked
    // while it is open; controller and keyboard switch pages with the same input.
