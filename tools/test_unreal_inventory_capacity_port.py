@@ -33,16 +33,21 @@ class InventoryCapacityPort(unittest.TestCase):
     def test_scripted_reward_fails_before_mutation(self):
         method = body(self.hero, "void AMoonfallHeroPawn::AwardEquipmentDrop(")
         guard = "if (InventoryItemCodes.Num() >= MaxInventoryItems) return;"
-        self.assertIn("constexpr int32 MaxInventoryItems = 9999;", method)
+        self.assertIn("MaxInventoryItems = 9999;", (ROOT / "MoonfallHeroPawn.h").read_text(encoding="utf-8"))
         self.assertLess(method.index(guard), method.index("InventoryItemCodes.Add(ItemCode);"))
         self.assertLess(method.index(guard), method.index("LastLootAffix ="))
 
     def test_ground_collection_fails_without_phantom_receipt(self):
         method = body(self.hero, "bool AMoonfallHeroPawn::CollectGroundEquipmentCode(")
         guard = "if (InventoryItemCodes.Num() >= MaxInventoryItems) return false;"
-        self.assertIn("constexpr int32 MaxInventoryItems = 9999;", method)
+        self.assertIn("MaxInventoryItems = 9999;", (ROOT / "MoonfallHeroPawn.h").read_text(encoding="utf-8"))
         self.assertLess(method.index(guard), method.index("InventoryItemCodes.Add(ItemCode);"))
         self.assertLess(method.index(guard), method.index("LastLootAffix ="))
+
+    def test_inventory_hud_displays_capacity_and_full_warning(self):
+        hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        self.assertIn("AMoonfallHeroPawn::MaxInventoryItems", hud)
+        self.assertIn('TEXT("BAG FULL - salvage unused gear to collect more loot")', hud)
 
     def test_failed_pickup_keeps_world_actor(self):
         method = body(self.loot, "bool AMoonfallGroundLoot::TryCollect()")
