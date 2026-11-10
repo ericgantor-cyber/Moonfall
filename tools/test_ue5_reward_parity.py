@@ -167,7 +167,9 @@ class UE5RewardParity(unittest.TestCase):
         self.assertIn("CollectedKeys.Remove(KeyId);", collect)
         self.assertLess(collect.index("if (!SaveRewardProgress())"), collect.index("return true;"))
         self.assertIn("if (!Hero->CollectQuestKey(KeyId)) return false;", pickup)
-        self.assertLess(pickup.index("Hero->CollectQuestKey(KeyId)"), pickup.index("Destroy();"))
+        collection_branch = pickup.split("if (!Hero->CollectQuestKey(KeyId)) return false;", 1)[1]
+        self.assertIn("Destroy();", collection_branch)
+        self.assertLess(collection_branch.index("Destroy();"), collection_branch.index("return true;"))
         quest = self.hero.split("bool AMoonfallHeroPawn::CompleteFactionQuest(", 1)[1].split(
             "bool AMoonfallHeroPawn::HasUnlockedGate(", 1)[0]
         self.assertIn("if (bNeedsKey && CollectedKeys.Num() >= 128) return false;", quest)
