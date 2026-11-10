@@ -2240,6 +2240,12 @@ void AMoonfallHeroPawn::PickupNearestGroundLoot()
  NearbyDistanceSq.Reserve(MaxLootPerPress);
  const FVector HeroPosition = GetActorLocation();
  const float PickupRangeSq = FMath::Square(250.f);
+ // One recovery attempt if the player is beside a durable record whose
+ // actor failed to materialize. Do not poll/rebuild world loot every frame.
+ for (int32 Attempt = 0; Attempt < 2; ++Attempt)
+ {
+  NearbyLoot.Reset();
+  NearbyDistanceSq.Reset();
  for (TActorIterator<AMoonfallGroundLoot> It(GetWorld()); It; ++It) {
   AMoonfallGroundLoot* Candidate = *It;
   if (!IsValid(Candidate) || Candidate->GetItemCode() <= 0) continue;
@@ -2269,6 +2275,22 @@ void AMoonfallHeroPawn::PickupNearestGroundLoot()
    NearbyLoot.RemoveAt(MaxLootPerPress);
    NearbyDistanceSq.RemoveAt(MaxLootPerPress);
   }
+ }
+  if (!NearbyLoot.IsEmpty() || Attempt > 0) break;
+  // Only perform a full reconciliation when a durable pickup is actually
+  // recorded near the player and no visible pickup could be selected.
+  const FName CurrentLevelId(*UGameplayStatics::GetCurrentLevelName(this, true));
+  bool bNearbySavedLoot = false;
+  for (const FMoonfallWorldLootRecord& Record : PendingWorldLoot)
+  {
+   if (Record.LevelId != CurrentLevelId) continue;
+   if (FMath::Abs(Record.Location.Z - HeroPosition.Z) > 150.f) continue;
+   if (FVector::DistSquared2D(Record.Location, HeroPosition) > PickupRangeSq) continue;
+   bNearbySavedLoot = true;
+   break;
+  }
+  if (!bNearbySavedLoot) break;
+  RestorePendingWorldEquipmentDrops();
  }
  for (AMoonfallGroundLoot* Loot : NearbyLoot) {
   if (IsValid(Loot)) Loot->TryCollect();
