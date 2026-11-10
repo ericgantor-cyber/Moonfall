@@ -125,6 +125,14 @@ Moonfall's fully migrated Godot world or finished dungeon.
   as durable; the HUD reports the write failure.
 - Invalid saved GUIDs, duplicate GUIDs, malformed item codes and non-finite
   positions are rejected on load; inspect a backup save, never production data.
+- On reload with hundreds of saved drops, restoration now indexes existing
+  persistent GUIDs once, rather than traversing all live pickups for every
+  saved record. Verify there are no duplicates after repeated restoration.
+- If the persistent world-loot ledger is full or its disk write fails, the
+  game attempts a clearly labeled temporary pickup with the exact same item
+  code. Verify it can be manually collected after saving recovers, but that
+  the warning accurately states it will not survive exiting before pickup.
+  If even transient spawning fails, a distinct failure warning is shown.
 - Native UE5 compilation, Windows playtest, and stress testing with many
   pickups are still required. Scripted *recovery* drops created during an
   ongoing disk-write failure are best effort and cannot survive a restart
