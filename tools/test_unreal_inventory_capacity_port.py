@@ -72,6 +72,8 @@ class InventoryCapacityPort(unittest.TestCase):
         method = body(self.hero, "void AMoonfallHeroPawn::CycleInventorySort()")
         self.assertIn("!bInventoryOpen || bCharacterStatsOpen || bOptionsOpen", method)
         self.assertIn("InventoryItemCodes.StableSort(", method)
+        # Sorting changes persisted bag order, so the 16s autosave must see it.
+        self.assertLess(method.index("bProgressDirty = true;"), method.index("if (InventoryItemCodes.Num() < 2) return;"))
         self.assertIn("SelectedOccurrence", method)
         self.assertIn("InventorySelection = Index;", method)
         self.assertIn("if (AValid != BValid) return AValid;", method)
