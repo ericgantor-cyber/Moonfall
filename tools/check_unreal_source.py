@@ -256,9 +256,10 @@ class MoonfallIntegrationChecks(unittest.TestCase):
     def test_nearby_batch_loot_is_range_and_cover_safe(self):
         pickup = self.hero_cpp.split("void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[1].split(
             "void AMoonfallHeroPawn::EquipBestInventoryAction()", 1)[0]
-        self.assertIn("constexpr int32 MaxLootScanned = 128;", pickup)
         self.assertIn("constexpr int32 MaxLootPerPress = 6;", pickup)
-        self.assertIn("It && Scanned < MaxLootScanned;", pickup)
+        self.assertIn("for (TActorIterator<AMoonfallGroundLoot> It(GetWorld()); It; ++It)", pickup)
+        self.assertNotIn("MaxLootScanned", pickup)
+        self.assertNotIn("Scanned < ", pickup)
         self.assertIn("FMath::Square(250.f)", pickup)
         self.assertIn("FMath::Abs(LootPosition.Z - HeroPosition.Z) > 150.f", pickup)
         self.assertIn("SCENE_QUERY_STAT(MoonfallGroundLootPickupSight)", pickup)
