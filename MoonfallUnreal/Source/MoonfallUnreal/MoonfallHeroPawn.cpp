@@ -1540,14 +1540,17 @@ void AMoonfallHeroPawn::ToggleCharacterStats()
   EndGuard();
   bInventoryOpen = true;
   bCharacterStatsOpen = true;
+  MenuActionFocus = 0;
   UpdateInventoryMouseMode();
  } else if (bCharacterStatsOpen) {
   // C closes character info without leaving the inventory behind.
   bCharacterStatsOpen = false;
   bInventoryOpen = false;
+  MenuActionFocus = 0;
   UpdateInventoryMouseMode();
  } else {
   bCharacterStatsOpen = true;
+  MenuActionFocus = 0;
  }
 }
 
@@ -1588,6 +1591,7 @@ void AMoonfallHeroPawn::ToggleAtlas()
  }
  bAtlasOpen = !bWasMapOpen;
  bTalentsOpen = false;
+ MenuActionFocus = 0;
  UpdateInventoryMouseMode();
 }
 
@@ -1882,6 +1886,7 @@ void AMoonfallHeroPawn::ToggleTalents()
  }
  bAtlasOpen = true;
  bTalentsOpen = true;
+ MenuActionFocus = 0;
  UpdateInventoryMouseMode();
 }
 
@@ -1893,6 +1898,7 @@ void AMoonfallHeroPawn::ToggleInventory() {
  if (bCharacterStatsOpen) {
   // B returns from character info directly to the editable inventory.
   bCharacterStatsOpen = false;
+  MenuActionFocus = 0;
   return;
  }
  if (!bInventoryOpen) {
@@ -1904,6 +1910,7 @@ void AMoonfallHeroPawn::ToggleInventory() {
   InventoryViewStart = InventorySelection;
  }
  bInventoryOpen = !bInventoryOpen;
+ MenuActionFocus = 0;
  if (!bInventoryOpen) bCharacterStatsOpen = false;
  UpdateInventoryMouseMode();
 }
