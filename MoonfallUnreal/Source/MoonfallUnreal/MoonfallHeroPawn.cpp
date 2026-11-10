@@ -168,6 +168,22 @@ float AMoonfallHeroPawn::GetSpellPierce() const
 {
  return FMath::Clamp(GetSpellPenetration()*0.20f,0.f,12.f);
 }
+float AMoonfallHeroPawn::GetExpertiseRating() const
+{
+ return FMath::Clamp(GetStrength()*0.08f +
+   ValidEquippedTier(EquippedWeaponCode,0)*0.5f,0.f,25.f);
+}
+
+float AMoonfallHeroPawn::GetManaRegenPerFive() const
+{
+ return FMath::Clamp(GetSpirit()*0.25f,0.f,50.f);
+}
+
+float AMoonfallHeroPawn::GetHealthRegenPerFive() const
+{
+ return FMath::Clamp(GetSpirit()*0.15f,0.f,30.f);
+}
+
 float AMoonfallHeroPawn::GetResistance(int32 School) const
 {
  if (School < 0 || School >= 5) return 0.f;
@@ -331,7 +347,8 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
       * (1.f + FMath::Clamp(AccessoryTier * 0.012f, 0.f, 0.25f) + (AccessoryAffix == 3 ? 0.08f : 0.f)
         + FMath::Clamp(((EquippedAccessoryCode / 1000) % 10) * 0.02f, 0.f, 0.10f)
         + (GetSetPieceCount(3) >= 3 ? 0.06f : 0.f)
-        + FMath::Clamp(GetInsight() * 0.002f, 0.f, 0.20f))
+        + FMath::Clamp(GetInsight() * 0.002f, 0.f, 0.20f)
+        + FMath::Clamp(GetManaRegenPerFive()*0.003f, 0.f, 0.10f))
       * SafeRecoveryDelta);
  // Recovery in either menu is bounded and never revives a defeated hero.
  if ((bOptionsOpen || bInventoryOpen) && Health > 0.f && FMath::IsFinite(Health)
@@ -341,7 +358,7 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
      && !bInCombatRecoveryWindow) {
   const float BeforeRegen = Health;
   Health = FMath::Min(MaxHealth, Health + FMath::Clamp(MenuHealthRegenPerSecond, 0.f, 20.f)
-      * SafeRecoveryDelta);
+      * SafeRecoveryDelta * (1.f + FMath::Min(0.10f,GetHealthRegenPerFive()*0.004f)));
   if (Health > BeforeRegen) OnHealthChanged(Health, MaxHealth);
  }
  // Sprint drains only while moving, and never drains while paused in Options.
@@ -2056,6 +2073,9 @@ void AMoonfallHeroPawn::AwardExperience(int32 Amount)
   ++Level;
   ExperienceToNextLevel = 100 + (Level - 1) * 55;
   MaxHealth += 4.f;
+  // Stamina and Intellect contribute bounded resource growth at each level.
+  MaxHealth += FMath::Min(2.f,GetStaminaAttribute()*0.02f);
+  MaxMana = FMath::Max(1.f,MaxMana + FMath::Min(1.5f,GetIntellect()*0.01f));
   SpellPowerMultiplier = 1.f + 0.025f * FMath::Min(Level - 1, 30) + 0.012f * FMath::Max(0, Level - 31);
   Health = FMath::Min(MaxHealth, Health + 12.f);
   Mana = FMath::Min(MaxMana, Mana + 10.f);
