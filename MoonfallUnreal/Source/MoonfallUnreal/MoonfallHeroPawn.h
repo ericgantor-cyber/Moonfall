@@ -253,6 +253,7 @@ private:
  void BreakGuard();
  void BeginGuard();
  void EndGuard();
+ void UpdateInventoryMouseInput();
  void InventoryConfirm();
  void InventorySalvage();
  void OpenOptions();
