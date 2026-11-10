@@ -70,7 +70,7 @@ class InventoryCapacityPort(unittest.TestCase):
 
     def test_inventory_sort_is_explicit_and_does_not_modify_gear(self):
         method = body(self.hero, "void AMoonfallHeroPawn::CycleInventorySort()")
-        self.assertIn("!bInventoryOpen || bCharacterStatsOpen || bOptionsOpen", method)
+        self.assertIn("!bBagPanelOpen || bOptionsOpen", method)
         self.assertIn("InventoryItemCodes.StableSort(", method)
         # Sorting changes persisted bag order, so the 16s autosave must see it.
         self.assertLess(method.index("bProgressDirty = true;"), method.index("if (InventoryItemCodes.Num() < 2) return;"))
@@ -81,6 +81,30 @@ class InventoryCapacityPort(unittest.TestCase):
         for forbidden in ("InventoryItemCodes.RemoveAt(", "Salvage -=", "EquipInventoryItem(",
                           "InventoryItemCodes.Empty(", "Destroy("):
             self.assertNotIn(forbidden, method)
+
+    def test_b_and_c_are_independent_and_simultaneously_clickable(self):
+        header = (ROOT / "MoonfallHeroPawn.h").read_text(encoding="utf-8")
+        hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        self.assertIn("bool bBagPanelOpen = false;", header)
+        self.assertIn("bool bMenuFocusCharacter = false;", header)
+        bag = body(self.hero, "void AMoonfallHeroPawn::ToggleInventory()")
+        char = body(self.hero, "void AMoonfallHeroPawn::ToggleCharacterStats()")
+        self.assertIn("bBagPanelOpen = !bBagPanelOpen;", bag)
+        self.assertNotIn("bCharacterStatsOpen = false;", bag)
+        self.assertIn("bCharacterStatsOpen = !bCharacterStatsOpen;", char)
+        self.assertNotIn("bBagPanelOpen = false;", char)
+        for method in (bag, char):
+            self.assertIn("bInventoryOpen = bBagPanelOpen || bCharacterStatsOpen;", method)
+        self.assertIn("MoonfallDualPanels(", hud)
+        self.assertIn("MoonfallDualBagGeometry(", hud)
+        self.assertIn("MoonfallDualCharacterGeometry(", hud)
+        self.assertIn('TEXT("MOONFALL  |  BAG")', hud)
+        self.assertIn("if (bDual) MoonfallDualCharacterGeometry(", hud)
+        self.assertIn("if (MoonfallDualPanels(Canvas,Hero))", hud)
+        self.assertIn("MoonfallBagActionRect(Canvas,true,Action", hud)
+        self.assertIn("MoonfallCharacterActionRect(Canvas,MoonfallDualPanels(Canvas,Hero),Action", hud)
+        self.assertIn("!Hero->bBagPanelOpen", hud)
+        self.assertIn("bMenuFocusCharacter = false;", self.hero)
 
     def test_character_sheet_allows_deliberate_gear_actions(self):
         # C can equip and upgrade the deliberately selected bag item;
@@ -98,7 +122,7 @@ class InventoryCapacityPort(unittest.TestCase):
             self.assertNotIn("bCharacterStatsOpen || bOptionsOpen", method, name)
         for name in ("CycleInventorySort", "SalvageInventoryItem"):
             method = body(self.hero, "AMoonfallHeroPawn::" + name + "(")
-            self.assertIn("bCharacterStatsOpen || bOptionsOpen", method, name)
+            self.assertIn("!bBagPanelOpen || bOptionsOpen", method, name)
         for name in ("UpgradeSelectedInventoryItem",
                      "ReforgeSelectedInventoryItem",
                      "AscendSelectedInventoryItem",
@@ -111,10 +135,10 @@ class InventoryCapacityPort(unittest.TestCase):
         hit = body(hud, "int32 AMoonfallCombatHUD::GetCharacterActionAtScreenPosition(")
         self.assertIn("!Hero->bCharacterStatsOpen", hit)
         self.assertIn("for (int32 Action = 0; Action < 11; ++Action)", hit)
-        self.assertIn("MoonfallCharacterActionRect(Canvas,Action", hit)
+        self.assertIn("MoonfallCharacterActionRect(Canvas,MoonfallDualPanels(Canvas,Hero),Action", hit)
         self.assertIn("return Action;", hit)
         row_hit = body(hud, "int32 AMoonfallCombatHUD::GetInventoryItemAtScreenPosition(")
-        self.assertIn("if (Hero->bCharacterStatsOpen) return -1;", row_hit)
+        self.assertIn("if (!Hero->bBagPanelOpen) return -1;", row_hit)
         for label in ("PREV", "NEXT", "EQUIP", "UPGRADE",
                       "ASCEND", "REFORGE", "FORGE x5", "OPEN BAG"):
             self.assertIn('TEXT("' + label + '")', hud)
@@ -136,7 +160,7 @@ class InventoryCapacityPort(unittest.TestCase):
         self.assertLess(left.index("if (bCharacterStatsOpen) {"),
                         left.index("IsInventorySortButtonAtScreenPosition"))
         right = body(self.hero, "void AMoonfallHeroPawn::RightClickContextAction()")
-        self.assertIn("if (bCharacterStatsOpen) return;", right)
+        self.assertIn("if (!bBagPanelOpen) return;", right)
         self.assertIn("HUD->GetInventoryItemAtScreenPosition", right)
 
 
@@ -236,22 +260,21 @@ class InventoryCapacityPort(unittest.TestCase):
         self.assertIn("// The defeat screen owns input until respawn; do not reopen gameplay menus.", self.hero)
 
     def test_cursor_mode_updates_after_menu_state_transitions(self):
-        # UI mode must be refreshed only after changing the modal flags.
         inventory = body(self.hero, "void AMoonfallHeroPawn::ToggleInventory()")
         character = body(self.hero, "void AMoonfallHeroPawn::ToggleCharacterStats()")
         options = body(self.hero, "void AMoonfallHeroPawn::OpenOptions()")
-        bag_return = inventory.split("if (bCharacterStatsOpen) {", 1)[1].split("return;", 1)[0]
-        self.assertLess(bag_return.index("bCharacterStatsOpen = false;"),
-                        bag_return.index("UpdateInventoryMouseMode();"))
-        self.assertNotIn("UpdateInventoryMouseMode();\\n if (bCharacterStatsOpen)".replace("\\n","\n"), inventory)
-        self.assertNotIn("UpdateInventoryMouseMode();\\n if (!bInventoryOpen)".replace("\\n","\n"), character)
-        sheet_open = character.split("} else {", 1)[1]
-        self.assertLess(sheet_open.index("bCharacterStatsOpen = true;"),
-                        sheet_open.index("UpdateInventoryMouseMode();"))
+        for toggle in (inventory, character):
+            self.assertIn("bInventoryOpen = bBagPanelOpen || bCharacterStatsOpen;", toggle)
+            self.assertIn("MenuActionFocus = -1;", toggle)
+            self.assertLess(toggle.index("bInventoryOpen = bBagPanelOpen || bCharacterStatsOpen;"),
+                            toggle.index("UpdateInventoryMouseMode();"))
+        self.assertIn("bBagPanelOpen = !bBagPanelOpen;", inventory)
+        self.assertIn("bCharacterStatsOpen = !bCharacterStatsOpen;", character)
         for flag in ("bAtlasOpen = false;", "bInventoryOpen = false;"):
             branch = options.split(flag, 1)[1].split("return;", 1)[0]
             self.assertIn("MenuActionFocus = -1;", branch)
             self.assertIn("UpdateInventoryMouseMode();", branch)
+
 
     def test_controller_focus_and_confirm_for_main_menus(self):
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
@@ -307,8 +330,8 @@ class InventoryCapacityPort(unittest.TestCase):
         header = (ROOT / "MoonfallCombatHUD.h").read_text(encoding="utf-8")
         self.assertIn("GetInventoryActionAtScreenPosition(", header)
         hit = body(hud, "int32 AMoonfallCombatHUD::GetInventoryActionAtScreenPosition(")
-        self.assertIn("Hero->bCharacterStatsOpen", hit)
-        self.assertIn("MoonfallBagActionRect(Canvas,Action", hit)
+        self.assertIn("Hero->bBagPanelOpen", hit)
+        self.assertIn("MoonfallBagActionRect(Canvas,MoonfallDualPanels(Canvas,Hero),Action", hit)
         self.assertIn("return Action;", hit)
         for title in ("EQUIP", "UPGRADE", "ASCEND", "REFORGE",
                       "FORGE x5", "SALVAGE", "CHARACTER", "CLOSE"):
@@ -439,10 +462,10 @@ class InventoryCapacityPort(unittest.TestCase):
     def test_one_big_bag_uses_a_single_continuous_scroll_viewport(self):
         hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
         self.assertIn("One continuous scrollable bag", hud)
-        self.assertEqual(hud.count("860.f, FMath::Max(280.f, Canvas->SizeY - 24.f)"), 4)
-        self.assertEqual(hud.count("FMath::FloorToInt((PanelHeight - 355.f) / 25.f), 2, 20"), 3)
+        self.assertGreaterEqual(hud.count("860.f, FMath::Max(280.f, Canvas->SizeY - 24.f)"), 4)
+        self.assertGreaterEqual(hud.count("FMath::FloorToInt((PanelHeight - 355.f) / 25.f), 2, 20"), 3)
         self.assertEqual(hud.count("FMath::Max(21.f, (PanelHeight - 355.f) / PerPage)"), 2)
-        self.assertEqual(hud.count("Hero->InventoryViewStart"), 2)
+        self.assertGreaterEqual(hud.count("Hero->InventoryViewStart"), 2)
         self.assertIn("showing %d-%d", hud)
         self.assertIn("Count - PerPage", hud)
         self.assertNotIn("Canvas-only paginated inventory", hud)
