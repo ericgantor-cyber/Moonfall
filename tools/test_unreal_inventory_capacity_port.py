@@ -653,7 +653,8 @@ class InventoryCapacityPort(unittest.TestCase):
                    "GetBlockChance", "GetBlockValue", "GetArmorRating",
                    "GetDefenseRating", "GetMeleeAttackPower", "GetRangedAttackPower",
                    "GetSpellDamagePower", "GetSpellHealingPower",
-                   "GetSpellPenetration", "GetSpellPierce", "GetResistance")
+                   "GetSpellPenetration", "GetSpellPierce", "GetResistance",
+                   "GetExpertiseRating", "GetManaRegenPerFive", "GetHealthRegenPerFive")
         for method in getters:
             self.assertIn(method + "(", header)
             self.assertIn("AMoonfallHeroPawn::" + method + "(", self.hero)
@@ -697,6 +698,12 @@ class InventoryCapacityPort(unittest.TestCase):
         self.assertIn("GetSpellHealingPower()*0.0002f",self.hero)
         self.assertIn("GetSpellDamagePower()*0.0002f",self.hero)
         self.assertIn("GetArmorRating()*0.000025f",self.hero)
+        self.assertIn("GetManaRegenPerFive()*0.003f",self.hero)
+        self.assertIn("GetHealthRegenPerFive()*0.004f",self.hero)
+        self.assertIn("GetStaminaAttribute()*0.02f",self.hero)
+        self.assertIn("GetIntellect()*0.01f",self.hero)
+        for label in ("Expertise:", "MP5:", "HP regen/5s:"):
+            self.assertIn(label,hud)
         self.assertIn("Mana -= Costs[School] * ManaCostMultiplier;",self.hero)
         self.assertIn("LastCastTime[Hand] = Time;",self.hero)
 
