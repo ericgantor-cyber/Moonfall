@@ -102,8 +102,13 @@ static func loot_enemy(state:Dictionary,hero_level:int,seed:int)->Dictionary:
 
 static func _safe_roll_number(value:Variant,maximum:int)->int:
  # Saved loot metadata is untrusted; avoid casting objects or arrays to int.
- if typeof(value)!=TYPE_INT and typeof(value)!=TYPE_FLOAT:return 0
- return clampi(int(value),0,maximum)
+ if typeof(value)==TYPE_INT:return clampi(value,0,maximum)
+ if typeof(value)!=TYPE_FLOAT:return 0
+ # Compare before conversion: NaN, infinity and out-of-range saved floats
+ # must never be passed to int(), which can yield undefined results.
+ if not value>=0.0:return 0
+ if value>=float(maximum):return maximum
+ return int(value)
 
 static func _roll_strength(roll:Dictionary)->int:
  # Count only bounded bonuses that contribute to a hero stat.
