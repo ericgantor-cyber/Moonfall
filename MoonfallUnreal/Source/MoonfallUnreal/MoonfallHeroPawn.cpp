@@ -1681,6 +1681,7 @@ bool AMoonfallHeroPawn::UnlockAstralTalent(int32 Index)
 
 void AMoonfallHeroPawn::SelectNextTalentPage()
 {
+ if (bTalentRespecArmed) return; // Dialog owns focus.
  if (!bAtlasOpen || !bTalentsOpen || bOptionsOpen || Health <= 0.f) return;
  const int32 Page = FMath::Clamp(TalentSelectedNode,0,137) / 27;
  bTalentRespecArmed = false;
@@ -1689,6 +1690,7 @@ void AMoonfallHeroPawn::SelectNextTalentPage()
 
 void AMoonfallHeroPawn::SelectPreviousTalentPage()
 {
+ if (bTalentRespecArmed) return; // Dialog owns focus.
  if (!bAtlasOpen || !bTalentsOpen || bOptionsOpen || Health <= 0.f) return;
  const int32 Page = FMath::Clamp(TalentSelectedNode,0,137) / 27;
  bTalentRespecArmed = false;
@@ -1758,14 +1760,16 @@ void AMoonfallHeroPawn::ActivateSelectedTalentNode()
 
 void AMoonfallHeroPawn::SelectNextTalentNode()
 {
+ if (bTalentRespecArmed) return; // D-pad belongs to Yes/No while the dialog is open.
  if (bAtlasOpen && bTalentsOpen && !bOptionsOpen && Health > 0.f)
-  { bTalentRespecArmed = false; TalentSelectedNode = (FMath::Clamp(TalentSelectedNode,0,137) + 1) % 138; }
+  TalentSelectedNode = (FMath::Clamp(TalentSelectedNode,0,137) + 1) % 138;
 }
 
 void AMoonfallHeroPawn::SelectPreviousTalentNode()
 {
+ if (bTalentRespecArmed) return; // Do not change stars behind the confirmation.
  if (bAtlasOpen && bTalentsOpen && !bOptionsOpen && Health > 0.f)
-  { bTalentRespecArmed = false; TalentSelectedNode = (FMath::Clamp(TalentSelectedNode,0,137) + 137) % 138; }
+  TalentSelectedNode = (FMath::Clamp(TalentSelectedNode,0,137) + 137) % 138;
 }
 
 bool AMoonfallHeroPawn::CanUnlockTalentNode(int32 Node) const
