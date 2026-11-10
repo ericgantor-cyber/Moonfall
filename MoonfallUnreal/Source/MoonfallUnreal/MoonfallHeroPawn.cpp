@@ -972,6 +972,28 @@ void AMoonfallHeroPawn::LeftClickContextAction()
    if (AMoonfallCombatHUD* HUD = Cast<AMoonfallCombatHUD>(Controller->GetHUD())) {
     float MouseX = 0.f, MouseY = 0.f;
     if (Controller->GetMousePosition(MouseX, MouseY)) {
+     if (bCharacterStatsOpen) {
+      const int32 Action = HUD->GetCharacterActionAtScreenPosition(this, MouseX, MouseY);
+      if (Action < 0) return;
+      if (Action == 7) { ToggleInventory(); return; }
+      if (InventoryItemCodes.Num() <= 0) return;
+      if (Action == 0) {
+       InventorySelection = FMath::Max(0,InventorySelection - 1);
+      } else if (Action == 1) {
+       InventorySelection = FMath::Min(InventoryItemCodes.Num()-1,InventorySelection + 1);
+      } else if (InventoryItemCodes.IsValidIndex(InventorySelection)) {
+       switch (Action) {
+        case 2: EquipSelectedInventoryItem(); break;
+        case 3: UpgradeSelectedInventoryItem(); break;
+        case 4: AscendSelectedInventoryItem(); break;
+        case 5: ReforgeSelectedInventoryItem(); break;
+        case 6: ForgeFiveSelectedInventoryItem(); break;
+        default: break;
+       }
+      }
+      InventoryViewStart = InventorySelection;
+      return;
+     }
      if (HUD->IsInventorySortButtonAtScreenPosition(this, MouseX, MouseY)) {
       CycleInventorySort();
       return;
@@ -1007,6 +1029,8 @@ void AMoonfallHeroPawn::RightClickContextAction()
  // Controller shoulder buttons keep combat/forge behavior separate.
  if (bOptionsOpen) return;
  if (bInventoryOpen) {
+  // Character actions are explicit left-click buttons only.
+  if (bCharacterStatsOpen) return;
   if (APlayerController* Controller = Cast<APlayerController>(GetController())) {
    if (AMoonfallCombatHUD* HUD = Cast<AMoonfallCombatHUD>(Controller->GetHUD())) {
     float MouseX = 0.f, MouseY = 0.f;
