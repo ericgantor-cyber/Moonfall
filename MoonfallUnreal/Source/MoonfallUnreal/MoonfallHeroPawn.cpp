@@ -151,11 +151,12 @@ bool AMoonfallHeroPawn::LoadRewardProgress()
  ConfirmedRewardKills = 0;
  CollectedKeys.Reset();
  CompletedFactionQuests.Reset();
+ UnlockedGateIds.Reset();
  bKeyRingExpanded = false;
  if (!UGameplayStatics::DoesSaveGameExist(RewardSaveSlot, RewardSaveUser)) return true;
  const UMoonfallRewardSaveGame* Save = Cast<UMoonfallRewardSaveGame>(
    UGameplayStatics::LoadGameFromSlot(RewardSaveSlot, RewardSaveUser));
- if (!Save || Save->SchemaVersion != 1) return false;
+ if (!Save || (Save->SchemaVersion != 1 && Save->SchemaVersion != 2)) return false;
  Gold = FMath::Max<int64>(0, Save->Gold);
  ConfirmedRewardKills = FMath::Max<int64>(0, Save->ConfirmedKills);
  for (const FName KeyId : Save->CollectedKeys)
@@ -170,6 +171,15 @@ bool AMoonfallHeroPawn::LoadRewardProgress()
       && !CompletedFactionQuests.Contains(QuestId))
    CompletedFactionQuests.Add(QuestId);
  }
+ if (Save->SchemaVersion >= 2)
+ {
+  for (const FName GateId : Save->UnlockedGateIds)
+  {
+   if (!GateId.IsNone() && !UnlockedGateIds.Contains(GateId)
+       && UnlockedGateIds.Num() < 256)
+    UnlockedGateIds.Add(GateId);
+  }
+ }
  bKeyRingExpanded = !CollectedKeys.IsEmpty();
  return true;
 }
@@ -183,6 +193,7 @@ bool AMoonfallHeroPawn::SaveRewardProgress()
  Save->ConfirmedKills = FMath::Max<int64>(0, ConfirmedRewardKills);
  Save->CollectedKeys = CollectedKeys;
  Save->CompletedFactionQuests = CompletedFactionQuests;
+ Save->UnlockedGateIds = UnlockedGateIds;
  return UGameplayStatics::SaveGameToSlot(Save, RewardSaveSlot, RewardSaveUser);
 }
 
@@ -192,8 +203,13 @@ int64 AMoonfallHeroPawn::AddGold(int64 Amount)
  Gold = FMath::Max<int64>(0, Gold);
  const int64 Granted = FMath::Min<int64>(Amount, MAX_int64 - Gold);
  if (Granted <= 0) return 0;
+ const int64 PreviousGold = Gold;
  Gold += Granted;
- SaveRewardProgress();
+ if (!SaveRewardProgress())
+ {
+  Gold = PreviousGold;
+  return 0;
+ }
  return Granted;
 }
 
@@ -207,8 +223,12 @@ bool AMoonfallHeroPawn::CollectQuestKey(FName KeyId)
  if (!IsSupportedQuestKey(KeyId) || HasQuestKey(KeyId) || CollectedKeys.Num() >= 128)
   return false;
  CollectedKeys.Add(KeyId);
+ if (!SaveRewardProgress())
+ {
+  CollectedKeys.Remove(KeyId);
+  return false;
+ }
  bKeyRingExpanded = true;
- SaveRewardProgress();
  return true;
 }
 
@@ -221,14 +241,42 @@ bool AMoonfallHeroPawn::CompleteFactionQuest(FName QuestId)
   RewardKey = FName(TEXT("outlaw_seal"));
  if (RewardKey.IsNone() || CompletedFactionQuests.Contains(QuestId))
   return false;
- // Both flags are committed together, so replaying a quest cannot mint a key.
+ // Commit both parts of the reward together: failed saves must never
+ // consume a quest completion without safely recording its key.
+ const bool bNeedsKey = !HasQuestKey(RewardKey);
+ if (bNeedsKey && CollectedKeys.Num() >= 128) return false;
  CompletedFactionQuests.Add(QuestId);
- if (!HasQuestKey(RewardKey) && CollectedKeys.Num() < 128)
+ if (bNeedsKey) CollectedKeys.Add(RewardKey);
+ if (!SaveRewardProgress())
  {
-  CollectedKeys.Add(RewardKey);
-  bKeyRingExpanded = true;
+  CompletedFactionQuests.Remove(QuestId);
+  if (bNeedsKey) CollectedKeys.Remove(RewardKey);
+  return false;
  }
- SaveRewardProgress();
+ bKeyRingExpanded = true;
+ return true;
+}
+
+bool AMoonfallHeroPawn::HasUnlockedGate(FName GateId) const
+{
+ return !GateId.IsNone() && UnlockedGateIds.Contains(GateId);
+}
+
+bool AMoonfallHeroPawn::CommitGateUnlock(FName GateId, FName RequiredKeyId)
+{
+ if (Health <= 0.f || bOptionsOpen || bInventoryOpen) return false;
+ if (!HasQuestKey(RequiredKeyId) && !HasUnlockedGate(GateId)) return false;
+ // Unidentified legacy gates work for this session only. Named gates survive
+ // restarts; no automatic unlock is triggered by player proximity.
+ if (GateId.IsNone()) return true;
+ if (HasUnlockedGate(GateId)) return true;
+ if (UnlockedGateIds.Num() >= 256) return false;
+ UnlockedGateIds.Add(GateId);
+ if (!SaveRewardProgress())
+ {
+  UnlockedGateIds.Remove(GateId);
+  return false;
+ }
  return true;
 }
 
