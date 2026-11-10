@@ -145,6 +145,10 @@ public:
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") bool bTalentEclipseHeart = false;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") bool bTalentInfiniteCurrent = false;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") bool bTalentWorldguard = false;
+ // Seventh-tier celestial ascendants: invest through two converging mythic paths.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") bool bTalentDuskSovereign = false;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") bool bTalentSoulConduit = false;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") bool bTalentUnbrokenBastion = false;
  UFUNCTION(BlueprintPure, Category="Moonfall|Talents") bool CanUnlockTalentNode(int32 Node) const;
  UFUNCTION(BlueprintCallable, Category="Moonfall|Talents") bool UnlockTalentNode(int32 Node);
  // Indexed player-side API shared by mouse, keyboard and controller navigation.
