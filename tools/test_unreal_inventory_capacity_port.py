@@ -94,6 +94,25 @@ class InventoryCapacityPort(unittest.TestCase):
         self.assertLess(left.index("CycleInventorySort();"), left.index("InventorySelection = ClickedIndex"))
         self.assertNotIn("EquipInventoryItem(", left)
 
+    def test_page_buttons_are_explicit_and_bounded(self):
+        hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        hdr = (ROOT / "MoonfallCombatHUD.h").read_text(encoding="utf-8")
+        self.assertIn("GetInventoryPageButtonAtScreenPosition(", hdr)
+        self.assertIn("int32 AMoonfallCombatHUD::GetInventoryItemsPerPage() const", hud)
+        self.assertIn("int32 AMoonfallCombatHUD::GetInventoryPageButtonAtScreenPosition(", hud)
+        self.assertIn('TEXT("PREV PAGE")', hud)
+        self.assertIn('TEXT("NEXT PAGE")', hud)
+        hit = body(hud, "int32 AMoonfallCombatHUD::GetInventoryPageButtonAtScreenPosition(")
+        self.assertIn("Canvas->SizeX < 1100.f || Canvas->SizeY < 540.f", hit)
+        self.assertIn("if (CurrentPage > 0", hit)
+        self.assertIn("if (CurrentPage < LastPage", hit)
+        left = body(self.hero, "void AMoonfallHeroPawn::LeftClickContextAction()")
+        self.assertLess(left.index("GetInventoryPageButtonAtScreenPosition"),
+                        left.index("GetInventoryItemAtScreenPosition"))
+        self.assertIn("FMath::Clamp(CurrentPage + PageDirection, 0, LastPage)", left)
+        self.assertIn("InventorySelection = NewPage * PerPage;", left)
+        self.assertNotIn("EquipInventoryItem(", left)
+
     def test_failed_pickup_keeps_world_actor(self):
         method = body(self.loot, "bool AMoonfallGroundLoot::TryCollect()")
         self.assertLess(
