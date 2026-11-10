@@ -22,9 +22,12 @@ Moonfall's fully migrated Godot world or finished dungeon.
 9. Save/restart, enable the trial again: the already collected key should not
    create another pickup. The gate should still require a deliberate unlock
    interaction.
-10. Repeat with a saved open gate: it must stay physically closed after load
-    until a deliberate interaction, then open using its saved ID even if the
-    corresponding key's state has changed.
+10. Repeat with a saved open named gate: it should restore its open
+    collision/visual state automatically when the level loads. This is
+    restoration of a previously earned unlock, not unlocking a new door
+    because the player approached. It should fire the separate
+    OnSavedGateRestored event, not replay the first-unlock effect.
+    A never-opened gate must still require deliberate interaction.
 11. Test failed saves: a key pickup must remain in the world and a gate must
     stay closed if its newly unlocked state cannot be persisted.
 12. Verify the HUD gives a brief, readable message for successful key
@@ -40,9 +43,9 @@ Moonfall's fully migrated Godot world or finished dungeon.
 - SaveGame progress is in a single local slot; multi-character profiles are
   not yet supported. Named gates now save their IDs in version 2, and version-1
   saves can still be loaded.
-- A newly spawned named gate remains visually locked until you explicitly
-  interact. That interaction restores the saved unlock without consuming keys.
-  Legacy gates with no unique GateId are session-only.
+- Named gates with a saved unlock restore their open state at BeginPlay
+  without input or proximity; only never-unlocked gates require manual key
+  interaction. Legacy gates with no unique GateId are session-only.
 - If key, quest, or door progress cannot be saved, the action must fail
   without destroying the world key or opening the gate. Test read-only save
   directories and save/restart recovery before publishing.
