@@ -207,6 +207,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         for action in ('ActionName="PickupLoot",Key=F', 'ActionName="PickupLoot",Key=Gamepad_FaceButton_Left'):
             self.assertIn(action, inputs)
         self.assertIn('BindAction(TEXT("PickupLoot"), IE_Pressed', self.hero_cpp)
+        self.assertIn("&AMoonfallHeroPawn::InteractWithNearbyWorld", self.hero_cpp)
+        self.assertIn("TryInteractWithNearbyKey();", self.hero_cpp.split("void AMoonfallHeroPawn::InteractWithNearbyWorld()", 1)[1].split("void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[0])
         self.assertIn("void PickupNearestGroundLoot();", self.hero_h)
         self.assertIn("void SpawnGroundEquipmentDrop(", self.hero_h)
         self.assertIn("bool CollectGroundEquipmentCode(int32 ItemCode);", self.hero_h)
