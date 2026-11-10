@@ -39,13 +39,19 @@ void AMoonfallArena::BeginPlay() {
   const FVector KeyLocation = GetActorLocation() + FVector(-640.f, 520.f, 75.f);
   const FVector GateLocation = GetActorLocation() + FVector(640.f, 520.f, 160.f);
   const FTransform KeyTransform(FRotator::ZeroRotator, KeyLocation);
-  AMoonfallKeyPickup* KeyPickup = Cast<AMoonfallKeyPickup>(
-    UGameplayStatics::BeginDeferredActorSpawnFromClass(
-      this, AMoonfallKeyPickup::StaticClass(), KeyTransform));
-  if (KeyPickup)
+  // A saved key must not respawn as an uncollectable duplicate in the trial.
+  const AMoonfallHeroPawn* TrialHero =
+    Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0));
+  if (!IsValid(TrialHero) || !TrialHero->HasQuestKey(TrialKey))
   {
-   KeyPickup->KeyId = TrialKey;
-   UGameplayStatics::FinishSpawningActor(KeyPickup, KeyTransform);
+   AMoonfallKeyPickup* KeyPickup = Cast<AMoonfallKeyPickup>(
+     UGameplayStatics::BeginDeferredActorSpawnFromClass(
+       this, AMoonfallKeyPickup::StaticClass(), KeyTransform));
+   if (KeyPickup)
+   {
+    KeyPickup->KeyId = TrialKey;
+    UGameplayStatics::FinishSpawningActor(KeyPickup, KeyTransform);
+   }
   }
   const FTransform GateTransform(FRotator::ZeroRotator, GateLocation);
   AMoonfallKeyGate* Gate = Cast<AMoonfallKeyGate>(
