@@ -6,6 +6,7 @@
 
 class USceneComponent;
 class UStaticMeshComponent;
+class UTextRenderComponent;
 
 // Place in a UE5 dungeon level or Blueprint. Gates stay locked on approach.
 // An explicit interaction calls TryUnlock; valid quest keys are not consumed.
@@ -38,5 +39,8 @@ protected:
 
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Quest Gate")
  TObjectPtr<UStaticMeshComponent> GateMesh;
+
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Quest Gate")
+ TObjectPtr<UTextRenderComponent> GateLabel;
 
 };
