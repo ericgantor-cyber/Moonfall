@@ -197,7 +197,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("I / Select / Esc: close", self.hud)
         self.assertNotIn("FinisherShockwave", self.hero_cpp)
 
-    def test_diablo_style_ground_loot_requires_explicit_pickup(self):
+    def test_diablo_style_ground_loot_automatically_collects_nearby_equipment(self):
         import re
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
         ground_h = (ROOT / "MoonfallGroundLoot.h").read_text(encoding="utf-8")
@@ -253,10 +253,10 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("SetLifeSpan(", ground_cpp)
         self.assertNotIn("FinisherShockwave", self.hero_cpp)
 
-    def test_nearby_batch_loot_is_range_and_cover_safe(self):
+    def test_unlimited_auto_loot_is_range_and_cover_safe(self):
         pickup = self.hero_cpp.split("void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[1].split(
             "void AMoonfallHeroPawn::EquipBestInventoryAction()", 1)[0]
-        self.assertIn("constexpr int32 MaxLootPerPress = 6;", pickup)
+        self.assertNotIn("MaxLootPerPress", pickup)
         self.assertIn("for (TActorIterator<AMoonfallGroundLoot> It(GetWorld()); It; ++It)", pickup)
         self.assertNotIn("MaxLootScanned", pickup)
         self.assertNotIn("Scanned < ", pickup)
@@ -265,10 +265,16 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("SCENE_QUERY_STAT(MoonfallGroundLootPickupSight)", pickup)
         self.assertIn("LootSightParams.AddIgnoredActor(Candidate);", pickup)
         self.assertIn("GetWorld()->LineTraceSingleByChannel(LootSightHit,", pickup)
-        self.assertIn("NearbyLoot.Insert(Candidate, InsertAt);", pickup)
-        self.assertIn("NearbyLoot.RemoveAt(MaxLootPerPress);", pickup)
+        self.assertIn("NearbyLoot.Add(Candidate);", pickup)
+        self.assertIn("InventoryItemCodes.Num() >= 4096", pickup)
         self.assertIn("for (AMoonfallGroundLoot* Loot : NearbyLoot)", pickup)
-        self.assertIn("if (IsValid(Loot)) Loot->TryCollect();", pickup)
+        tick = self.hero_cpp.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1].split(
+            "void AMoonfallHeroPawn::", 1)[0]
+        self.assertIn("NextAutoLootAt = Now + 0.35f;", tick)
+        self.assertIn("PickupNearestGroundLoot();", tick)
+        self.assertIn("float NextAutoLootAt = 0.f;", self.hero_h)
+        self.assertNotIn("TryInteractWithNearbyKey()", pickup)
+        self.assertIn("if (IsValid(Loot) && !Loot->TryCollect())", pickup)
         self.assertNotIn("EquipInventoryItem(", pickup)
         self.assertNotIn("SalvageInventoryItem(", pickup)
         self.assertNotIn("PrimaryActorTick", pickup)
