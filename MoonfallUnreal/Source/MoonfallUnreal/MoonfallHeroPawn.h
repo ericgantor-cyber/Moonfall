@@ -221,6 +221,9 @@ public:
  bool bTalentRespecCommitAuthorized = false;
  void CancelTalentRespecDialog();
 
+ // B and C are independent panels; bInventoryOpen is their shared gameplay lock.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Inventory") bool bBagPanelOpen = false;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Inventory") bool bMenuFocusCharacter = false;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Inventory") bool bCharacterStatsOpen = false;
  // C-page tabs: overview, offensive/primary, defenses and resistances.
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Stats") int32 CharacterStatsPage = 0;
