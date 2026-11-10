@@ -110,7 +110,7 @@ class InventoryCapacityPort(unittest.TestCase):
         self.assertIn("GetCharacterActionAtScreenPosition(", header)
         hit = body(hud, "int32 AMoonfallCombatHUD::GetCharacterActionAtScreenPosition(")
         self.assertIn("!Hero->bCharacterStatsOpen", hit)
-        self.assertIn("for (int32 Action = 0; Action < 8; ++Action)", hit)
+        self.assertIn("for (int32 Action = 0; Action < 11; ++Action)", hit)
         self.assertIn("MoonfallCharacterActionRect(Canvas,Action", hit)
         self.assertIn("return Action;", hit)
         row_hit = body(hud, "int32 AMoonfallCombatHUD::GetInventoryItemAtScreenPosition(")
@@ -121,6 +121,12 @@ class InventoryCapacityPort(unittest.TestCase):
         left = body(self.hero, "void AMoonfallHeroPawn::LeftClickContextAction()")
         self.assertIn("HUD->GetCharacterActionAtScreenPosition(this, MouseX, MouseY)", left)
         self.assertIn("if (Action == 7) { ToggleInventory(); return; }", left)
+        for action, method in ((8, "PreviousCharacterStatsPage"),
+                               (9, "NextCharacterStatsPage"),
+                               (10, "ToggleCharacterStats")):
+            self.assertIn(f"if (Action == {action}) {{ {method}(); return; }}", left)
+        for label in ("STATS -", "STATS +", "CLOSE"):
+            self.assertIn('TEXT("' + label + '")', hud)
         for action, call in ((2,"EquipSelectedInventoryItem"),
                              (3,"UpgradeSelectedInventoryItem"),
                              (4,"AscendSelectedInventoryItem"),
