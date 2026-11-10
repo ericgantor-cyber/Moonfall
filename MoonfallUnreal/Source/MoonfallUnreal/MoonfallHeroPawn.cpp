@@ -1241,14 +1241,54 @@ bool AMoonfallHeroPawn::UpgradeInventoryItem(int32 InventoryIndex)
  const int32 Cost = 4 + Tier * 2 + Rarity * 3;
  if (Salvage < Cost) return false;
  const int32 NewCode = Affix * 100000 + Slot * 10000 + Rarity * 1000 + (Tier + 1);
+ // The bag, salvage and worn stats must either all commit or all roll back.
+ const int32 OldSalvage = Salvage;
+ const int32 OldEquippedCode = Slot == 0 ? EquippedWeaponCode
+   : (Slot == 1 ? EquippedArmorCode : EquippedAccessoryCode);
+ const int32 OldEquippedTier = Slot == 0 ? WeaponTier
+   : (Slot == 1 ? ArmorTier : AccessoryTier);
+ const int32 OldEquippedAffix = Slot == 0 ? WeaponAffix
+   : (Slot == 1 ? ArmorAffix : AccessoryAffix);
+ const int32 OldEquipmentTier = EquipmentTier;
+ const float OldMaxHealth = MaxHealth;
+ const float OldHealth = Health;
+ bDeferEquippedSave = true;
  InventoryItemCodes[InventoryIndex] = NewCode;
  // Reuse the existing equip path so all derived stats, notably armor HP,
  // update together. Roll back the inventory mutation on unexpected failure.
  if (bUpgradingEquipped && !EquipInventoryItem(InventoryIndex)) {
+  bDeferEquippedSave = false;
   InventoryItemCodes[InventoryIndex] = Code;
   return false;
  }
  Salvage -= Cost;
+ bDeferEquippedSave = false;
+ if (!SaveRewardProgress())
+ {
+  InventoryItemCodes[InventoryIndex] = Code;
+  Salvage = OldSalvage;
+  if (bUpgradingEquipped)
+  {
+   int32* LiveCode = Slot == 0 ? &EquippedWeaponCode
+     : (Slot == 1 ? &EquippedArmorCode : &EquippedAccessoryCode);
+   int32* LiveTier = Slot == 0 ? &WeaponTier
+     : (Slot == 1 ? &ArmorTier : &AccessoryTier);
+   int32* LiveAffix = Slot == 0 ? &WeaponAffix
+     : (Slot == 1 ? &ArmorAffix : &AccessoryAffix);
+   *LiveCode = OldEquippedCode;
+   *LiveTier = OldEquippedTier;
+   *LiveAffix = OldEquippedAffix;
+   EquipmentTier = OldEquipmentTier;
+   MaxHealth = OldMaxHealth;
+   Health = OldHealth;
+   if (Slot == 1) OnHealthChanged(Health, MaxHealth);
+  }
+  KeyInteractionNotice = TEXT("CRAFT SAVE FAILED - ITEM AND MATERIALS RESTORED");
+  bKeyInteractionNoticeError = true;
+  KeyInteractionNoticeUntil = GetWorld()
+    ? GetWorld()->GetTimeSeconds() + 6.f : 6.f;
+  return false;
+ }
  LastLootUpgrade = (Tier + 1) - (Slot == 0 ? WeaponTier : (Slot == 1 ? ArmorTier : AccessoryTier));
  OnEquipmentCrafted(NewCode, Cost);
  return true;
@@ -1279,14 +1319,54 @@ bool AMoonfallHeroPawn::ReforgeInventoryItemAffix(int32 InventoryIndex)
  const int32 EquippedCode = Slot == 0 ? EquippedWeaponCode
      : (Slot == 1 ? EquippedArmorCode : EquippedAccessoryCode);
  const bool bReforgingEquipped = Code == EquippedCode;
+ // The bag, salvage and worn stats must either all commit or all roll back.
+ const int32 OldSalvage = Salvage;
+ const int32 OldEquippedCode = Slot == 0 ? EquippedWeaponCode
+   : (Slot == 1 ? EquippedArmorCode : EquippedAccessoryCode);
+ const int32 OldEquippedTier = Slot == 0 ? WeaponTier
+   : (Slot == 1 ? ArmorTier : AccessoryTier);
+ const int32 OldEquippedAffix = Slot == 0 ? WeaponAffix
+   : (Slot == 1 ? ArmorAffix : AccessoryAffix);
+ const int32 OldEquipmentTier = EquipmentTier;
+ const float OldMaxHealth = MaxHealth;
+ const float OldHealth = Health;
+ bDeferEquippedSave = true;
  InventoryItemCodes[InventoryIndex] = NewCode;
  // Keep the bag and the worn item in sync, including direct combat bonuses.
  // Roll back and leave salvage untouched if that sync unexpectedly fails.
  if (bReforgingEquipped && !EquipInventoryItem(InventoryIndex)) {
+  bDeferEquippedSave = false;
   InventoryItemCodes[InventoryIndex] = Code;
   return false;
  }
  Salvage -= Cost;
+ bDeferEquippedSave = false;
+ if (!SaveRewardProgress())
+ {
+  InventoryItemCodes[InventoryIndex] = Code;
+  Salvage = OldSalvage;
+  if (bReforgingEquipped)
+  {
+   int32* LiveCode = Slot == 0 ? &EquippedWeaponCode
+     : (Slot == 1 ? &EquippedArmorCode : &EquippedAccessoryCode);
+   int32* LiveTier = Slot == 0 ? &WeaponTier
+     : (Slot == 1 ? &ArmorTier : &AccessoryTier);
+   int32* LiveAffix = Slot == 0 ? &WeaponAffix
+     : (Slot == 1 ? &ArmorAffix : &AccessoryAffix);
+   *LiveCode = OldEquippedCode;
+   *LiveTier = OldEquippedTier;
+   *LiveAffix = OldEquippedAffix;
+   EquipmentTier = OldEquipmentTier;
+   MaxHealth = OldMaxHealth;
+   Health = OldHealth;
+   if (Slot == 1) OnHealthChanged(Health, MaxHealth);
+  }
+  KeyInteractionNotice = TEXT("CRAFT SAVE FAILED - ITEM AND MATERIALS RESTORED");
+  bKeyInteractionNoticeError = true;
+  KeyInteractionNoticeUntil = GetWorld()
+    ? GetWorld()->GetTimeSeconds() + 6.f : 6.f;
+  return false;
+ }
  LastLootAffix = NewAffix;
  OnEquipmentReforged(NewCode, Cost);
  return true;
@@ -1320,12 +1400,52 @@ bool AMoonfallHeroPawn::AscendInventoryItemRarity(int32 InventoryIndex)
      : (Slot == 1 ? EquippedArmorCode : EquippedAccessoryCode);
  const bool bAscendingEquipped = Code == EquippedCode;
  const int32 NewCode = Affix * 100000 + Slot * 10000 + (Rarity + 1) * 1000 + Tier;
+ // The bag, salvage and worn stats must either all commit or all roll back.
+ const int32 OldSalvage = Salvage;
+ const int32 OldEquippedCode = Slot == 0 ? EquippedWeaponCode
+   : (Slot == 1 ? EquippedArmorCode : EquippedAccessoryCode);
+ const int32 OldEquippedTier = Slot == 0 ? WeaponTier
+   : (Slot == 1 ? ArmorTier : AccessoryTier);
+ const int32 OldEquippedAffix = Slot == 0 ? WeaponAffix
+   : (Slot == 1 ? ArmorAffix : AccessoryAffix);
+ const int32 OldEquipmentTier = EquipmentTier;
+ const float OldMaxHealth = MaxHealth;
+ const float OldHealth = Health;
+ bDeferEquippedSave = true;
  InventoryItemCodes[InventoryIndex] = NewCode;
  if (bAscendingEquipped && !EquipInventoryItem(InventoryIndex)) {
+  bDeferEquippedSave = false;
   InventoryItemCodes[InventoryIndex] = Code;
   return false;
  }
  Salvage -= Cost;
+ bDeferEquippedSave = false;
+ if (!SaveRewardProgress())
+ {
+  InventoryItemCodes[InventoryIndex] = Code;
+  Salvage = OldSalvage;
+  if (bAscendingEquipped)
+  {
+   int32* LiveCode = Slot == 0 ? &EquippedWeaponCode
+     : (Slot == 1 ? &EquippedArmorCode : &EquippedAccessoryCode);
+   int32* LiveTier = Slot == 0 ? &WeaponTier
+     : (Slot == 1 ? &ArmorTier : &AccessoryTier);
+   int32* LiveAffix = Slot == 0 ? &WeaponAffix
+     : (Slot == 1 ? &ArmorAffix : &AccessoryAffix);
+   *LiveCode = OldEquippedCode;
+   *LiveTier = OldEquippedTier;
+   *LiveAffix = OldEquippedAffix;
+   EquipmentTier = OldEquipmentTier;
+   MaxHealth = OldMaxHealth;
+   Health = OldHealth;
+   if (Slot == 1) OnHealthChanged(Health, MaxHealth);
+  }
+  KeyInteractionNotice = TEXT("CRAFT SAVE FAILED - ITEM AND MATERIALS RESTORED");
+  bKeyInteractionNoticeError = true;
+  KeyInteractionNoticeUntil = GetWorld()
+    ? GetWorld()->GetTimeSeconds() + 6.f : 6.f;
+  return false;
+ }
  LastLootRarity = Rarity + 1;
  OnEquipmentAscended(NewCode, Cost);
  return true;
