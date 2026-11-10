@@ -1613,7 +1613,12 @@ bool AMoonfallHeroPawn::TryInteractWithNearbyKey()
  const FVector HeroPosition = GetActorLocation();
  const float RangeSquared = FMath::Square(230.f);
  float BestDistanceSq = RangeSquared;
+ float BestFacingDistanceSq = RangeSquared;
  AActor* Nearest = nullptr;
+ AActor* NearestFacing = nullptr;
+ // Prefer a nearby object ahead of the hero when several are reachable,
+ // while still allowing a lone object behind them as an accessible fallback.
+ const FVector Facing = GetActorForwardVector().GetSafeNormal2D();
  int32 Scanned = 0;
  auto Consider = [&](AActor* Candidate)
  {
@@ -1628,8 +1633,20 @@ bool AMoonfallHeroPawn::TryInteractWithNearbyKey()
   FHitResult Obstacle;
   if (GetWorld()->LineTraceSingleByChannel(Obstacle, HeroPosition + FVector(0,0,40.f),
        At + FVector(0,0,40.f), ECC_Visibility, Params)) return;
-  BestDistanceSq = DistanceSq;
-  Nearest = Candidate;
+  // Track a front-facing candidate separately so the closest object
+  // *behind* the character does not steal a key/door interaction.
+  const FVector Direction = (At - HeroPosition).GetSafeNormal2D();
+  if (FVector::DotProduct(Facing, Direction) >= 0.25f
+      && DistanceSq <= BestFacingDistanceSq)
+  {
+   BestFacingDistanceSq = DistanceSq;
+   NearestFacing = Candidate;
+  }
+  if (DistanceSq <= BestDistanceSq)
+  {
+   BestDistanceSq = DistanceSq;
+   Nearest = Candidate;
+  }
  };
  for (TActorIterator<AMoonfallKeyPickup> It(GetWorld()); It && Scanned < 128; ++It)
  {
@@ -1644,6 +1661,9 @@ bool AMoonfallHeroPawn::TryInteractWithNearbyKey()
   ++Scanned;
   if (IsValid(*It) && !It->bUnlocked) Consider(*It);
  }
+ // Facing is preference rather than a hard gate: accessible pickup input
+ // still works if the target is the only nearby object.
+ if (NearestFacing) Nearest = NearestFacing;
  // Messages are generated only when a player explicitly interacts;
  // HUD reads the notice until expiry without adding an actor tick.
  if (AMoonfallKeyPickup* Key = Cast<AMoonfallKeyPickup>(Nearest))
