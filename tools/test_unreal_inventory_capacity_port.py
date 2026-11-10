@@ -280,6 +280,25 @@ class InventoryCapacityPort(unittest.TestCase):
         self.assertNotIn("ZTalentRank", header)
         self.assertNotIn("NyraTalentRank", header)
 
+    def test_constellation_visuals_use_glowing_stars_not_boxed_node_cards(self):
+        hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        panel = hud.split("if (Hero->bAtlasOpen && Hero->bTalentsOpen) {", 1)[1].split(
+            "if (Hero->bAtlasOpen) {", 1)[0]
+        self.assertIn("CELESTIAL TALENTS", panel)
+        self.assertIn("const float Pulse =", panel)
+        self.assertIn("for (int32 Star = 0; Star < 85; ++Star)", panel)
+        self.assertIn("for (int32 Seg = 0; Seg < 24; ++Seg)", panel)
+        self.assertIn("R * FMath::Cos(A)", panel)
+        self.assertIn("R * FMath::Sin(A)", panel)
+        self.assertIn("const int32 LinkA[] = {0,1,2};", panel)
+        self.assertIn("const int32 LinkB[] = {1,2,0};", panel)
+        self.assertIn("Hero->CanUnlockTalentNode(", panel)
+        self.assertIn("DrawLine(CenterX[", panel)
+        self.assertIn("Backspace: respec", panel)
+        self.assertNotIn("NodeWidth", panel)
+        self.assertNotIn("RowY + Branch * 49.f", panel)
+        self.assertNotIn("SpendTalentPoint(", panel)
+
     def test_inventory_has_no_equip_or_page_buttons(self):
         hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
         left = body(self.hero, "void AMoonfallHeroPawn::LeftClickContextAction()")
