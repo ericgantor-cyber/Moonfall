@@ -231,7 +231,8 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
          ? FMath::Clamp(CombatManaRegenMultiplier, 0.f, 1.f) : 0.5f) : 1.f;
  if (Health > 0.f && FMath::IsFinite(Mana) && FMath::IsFinite(MaxMana) && MaxMana > 0.f
      && FMath::IsFinite(ManaRegenPerSecond) && ManaRegenPerSecond > 0.f && Mana >= 0.f && Mana < MaxMana)
-  Mana = FMath::Min(MaxMana, Mana + FMath::Clamp(ManaRegenPerSecond, 0.f, 250.f) * MenuRecoveryBoost * CombatManaFactor
+  Mana = FMath::Min(MaxMana, Mana + FMath::Clamp(ManaRegenPerSecond, 0.f, 250.f)
+      * (bTalentArcaneAegis ? 1.15f : 1.f) * MenuRecoveryBoost * CombatManaFactor
       * (1.f + FMath::Clamp(AccessoryTier * 0.012f, 0.f, 0.25f) + (AccessoryAffix == 3 ? 0.08f : 0.f)
         + FMath::Clamp(((EquippedAccessoryCode / 1000) % 10) * 0.02f, 0.f, 0.10f)
         + (GetSetPieceCount(3) >= 3 ? 0.06f : 0.f)
@@ -323,7 +324,8 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
  if (Health > 0.f && !bSprinting && !bGuarding && GetWorld() && GetWorld()->GetTimeSeconds() >= StaminaRegenStartsAt
      && FMath::IsFinite(Stamina) && FMath::IsFinite(MaxStamina) && MaxStamina > 0.f
      && FMath::IsFinite(StaminaRegenPerSecond) && StaminaRegenPerSecond > 0.f) {
-  Stamina = FMath::Clamp(Stamina + FMath::Clamp(StaminaRegenPerSecond, 0.f, 250.f) * StaminaDelta * MenuRecoveryBoost
+  Stamina = FMath::Clamp(Stamina + FMath::Clamp(StaminaRegenPerSecond, 0.f, 250.f)
+    * (bTalentIronWill ? 1.20f : 1.f) * StaminaDelta * MenuRecoveryBoost
     * (1.f + FMath::Clamp(GetResolve() * 0.003f, 0.f, 0.30f)), 0.f, MaxStamina);
  }
 }
@@ -456,7 +458,10 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier, bool
  if (Health <= 0.f || bOptionsOpen || bInventoryOpen || !GetWorld() || School < 0 || School >= 6 || Hand < 0 || Hand > 1 || !FMath::IsFinite(Multiplier) || Multiplier <= 0.f || Multiplier > 2.f) return false;
  // Skyrim-inspired two-hand overcharge: the same spell in both hands costs
  // 2.8x mana for 2.2x effect. Single-hand casts retain their previous values.
- const float ManaCostMultiplier = bOvercharged ? 2.8f : Multiplier;
+ // Mind Flow lowers actual casting costs, including dual-hand overcharge.
+ // The reduction is applied before checking and spending mana.
+ const float ManaCostMultiplier = (bOvercharged ? 2.8f : Multiplier)
+   * (bTalentFocusKeystone ? 0.90f : 1.f);
  const float EffectMultiplier = bOvercharged ? 2.2f : Multiplier;
  const float Time = GetWorld()->GetTimeSeconds();
  if (!FMath::IsFinite(Health) || !FMath::IsFinite(MaxHealth) || MaxHealth <= 0.f || Health > MaxHealth || !FMath::IsFinite(MaxMana) || MaxMana <= 0.f || !FMath::IsFinite(Mana) || !FMath::IsFinite(SpellPowerMultiplier) || SpellPowerMultiplier <= 0.f || Mana < Costs[School] * ManaCostMultiplier || Time - LastCastTime[Hand] < Cooldowns[School] / (1.f + GetHasteBonus())) return false;
@@ -514,7 +519,8 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier, bool
   const float SpellDamage = (18.f + School * 5.f) * EffectMultiplier * SpellPowerMultiplier
     * WeaponDamageBonus * CounterMultiplier * MomentumBonus * HitComboMultiplier
     * (1.f + GetMasteryBonus()) * (1.f + GetVersatilityBonus())
-    * (bCriticalSpell ? 1.5f : 1.f) * MightMultiplier;
+    * (bCriticalSpell ? (1.5f + (bTalentForceKeystone ? 0.20f : 0.f)
+      + (bTalentBattleWeave ? 0.15f : 0.f)) : 1.f) * MightMultiplier;
   // Reject invalid damage before spending mana or consuming a hard-earned counter.
   if (!FMath::IsFinite(SpellDamage) || SpellDamage <= 0.f) return false;
   const float HealthBeforeSpell = Enemy->Health;
@@ -923,7 +929,8 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
    if (FMath::IsFinite(PerfectParryStaminaReward) && PerfectParryStaminaReward > 0.f)
     Stamina = FMath::Clamp(Stamina + PerfectParryStaminaReward, 0.f, MaxStamina);
   } else {
-   DamageAfterGuard *= 0.4f;
+   // Bulwark improves sustained frontal blocking, not perfect parry.
+   DamageAfterGuard *= bTalentWardKeystone ? 0.32f : 0.4f;
   }
   OnGuardImpact(ArmoredDamage - DamageAfterGuard, bPerfectParry);
   if (Stamina < GuardStaminaCost) BreakGuard();
