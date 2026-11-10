@@ -77,6 +77,11 @@ void AMoonfallCombatHUD::DrawHUD()
  if (!Canvas) return;
  const AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this,0));
  if (!IsValid(Hero)) return;
+ // A newly opened bag must never inherit advice cached in an earlier menu.
+ if (!Hero->bInventoryOpen || Hero->bCharacterStatsOpen || Hero->bOptionsOpen) {
+  CachedAdvisorHero = nullptr;
+  NextAdvisorRefreshAt = -1.f;
+ }
  if (Hero->bOptionsOpen) {
   const float MenuWidth = FMath::Min(560.f, FMath::Max(240.f, Canvas->SizeX - 24.f));
   const float MenuHeight = FMath::Min(550.f, FMath::Max(280.f, Canvas->SizeY - 24.f));
