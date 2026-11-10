@@ -14,6 +14,9 @@ public:
  // Read-only hit test for the visible rows of the single scrolling bag.
  // Returns -1 if the pointer is outside a visible equipment row.
  int32 GetInventoryItemAtScreenPosition(const AMoonfallHeroPawn* Hero, float X, float Y) const;
+ // C screen: 0 previous, 1 next, 2 equip, 3 upgrade, 4 ascend,
+ // 5 reforge, 6 forge five, 7 open bag; -1 outside clickable controls.
+ int32 GetCharacterActionAtScreenPosition(const AMoonfallHeroPawn* Hero, float X, float Y) const;
  // Read-only constellation node hit test, returns -1 outside the nine visible stars.
  int32 GetTalentNodeAtScreenPosition(const AMoonfallHeroPawn* Hero, float X, float Y) const;
  // Visible SORT button hit test, shared with the inventory drawing geometry.
