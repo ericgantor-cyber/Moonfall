@@ -490,6 +490,19 @@ class InventoryCapacityPort(unittest.TestCase):
         self.assertIn("HUD->GetInventoryItemAtScreenPosition(this, MouseX, MouseY)", right)
         self.assertNotIn("IsInventoryEquipButtonAtScreenPosition", right)
 
+    def test_compact_character_focus_does_not_scroll_hidden_bag(self):
+        # Compact C covers B; the wheel must not change invisible bag state.
+        # The desktop dual-pane layout keeps normal bag scrolling available.
+        for name in ("ZoomCameraIn", "ZoomCameraOut"):
+            zoom = body(self.hero, "void AMoonfallHeroPawn::" + name + "()")
+            self.assertIn("if (bBagPanelOpen) {", zoom)
+            self.assertIn("if (bCharacterStatsOpen && bMenuFocusCharacter)", zoom)
+            self.assertIn("PC->GetViewportSize(ViewWidth,ViewHeight);", zoom)
+            self.assertIn("if (ViewWidth < 960 || ViewHeight < 480) return;", zoom)
+            self.assertLess(zoom.index("if (ViewWidth < 960 || ViewHeight < 480) return;"),
+                            zoom.index("InventoryViewStart = FMath::Clamp("))
+            self.assertIn("if (bInventoryOpen) return;", zoom)
+
     def test_c_only_menu_never_zooms_world_camera(self):
         # The bag is independent of C; C must still suppress world zoom.
         for name in ("ZoomCameraIn", "ZoomCameraOut"):
