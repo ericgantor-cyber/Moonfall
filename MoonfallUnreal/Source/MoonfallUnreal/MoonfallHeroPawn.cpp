@@ -1478,7 +1478,9 @@ void AMoonfallHeroPawn::ActivateFocusedMenuAction()
  }
  if (bAtlasOpen) {
   // Talent A is handled by the existing talent activation binding.
-  if (!bTalentsOpen) ToggleAtlas();
+  // On M, A closes only after the CLOSE button is deliberately focused.
+  // K retains its own talent A-button activation path.
+  if (!bTalentsOpen && MenuActionFocus == 0) ToggleAtlas();
   return;
  }
  if (!bInventoryOpen) return;
@@ -2221,19 +2223,27 @@ void AMoonfallHeroPawn::OpenOptions() {
  UpdateInventoryMouseMode();
 }
 void AMoonfallHeroPawn::OptionsUp() {
+ if (bAtlasOpen && !bTalentsOpen && !bOptionsOpen) { MenuActionFocus=0; return; }
  if (bOptionsOpen) { MenuActionFocus=MenuActionFocus<0 ? 0 : FMath::Clamp(MenuActionFocus-1,0,14); OptionsSelection=MenuActionFocus%7; return; }
  if (bInventoryOpen) { MenuActionFocus=MenuActionFocus<0 ? 0 : FMath::Clamp(MenuActionFocus-1,0,bCharacterStatsOpen?10:7); return; }
 }
 void AMoonfallHeroPawn::OptionsDown() {
+ if (bAtlasOpen && !bTalentsOpen && !bOptionsOpen) { MenuActionFocus=0; return; }
  if (bOptionsOpen) { MenuActionFocus=FMath::Clamp(MenuActionFocus+1,0,14); OptionsSelection=MenuActionFocus%7; return; }
  if (bInventoryOpen) { MenuActionFocus=FMath::Clamp(MenuActionFocus+1,0,bCharacterStatsOpen?10:7); return; }
 }
 void AMoonfallHeroPawn::OptionsLeft() {
- if (bOptionsOpen) { MenuActionFocus=OptionsSelection; AdjustOption(-1); return; }
+ if (bOptionsOpen) {
+  if (MenuActionFocus < 0) { MenuActionFocus=OptionsSelection; return; }
+  MenuActionFocus=OptionsSelection; AdjustOption(-1); return;
+ }
  if (bInventoryOpen) { InventorySelection=FMath::Max(0,InventorySelection-1); InventoryViewStart=InventorySelection; return; }
 }
 void AMoonfallHeroPawn::OptionsRight() {
- if (bOptionsOpen) { MenuActionFocus=OptionsSelection+7; AdjustOption(1); return; }
+ if (bOptionsOpen) {
+  if (MenuActionFocus < 0) { MenuActionFocus=OptionsSelection+7; return; }
+  MenuActionFocus=OptionsSelection+7; AdjustOption(1); return;
+ }
  if (bInventoryOpen) { InventorySelection=FMath::Min(FMath::Max(0,InventoryItemCodes.Num()-1),InventorySelection+1); InventoryViewStart=InventorySelection; return; }
 }
 void AMoonfallHeroPawn::AdjustOption(int32 Direction) {
