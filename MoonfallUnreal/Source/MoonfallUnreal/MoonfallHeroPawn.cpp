@@ -154,6 +154,7 @@ bool AMoonfallHeroPawn::LoadRewardProgress()
   // A deliberately new game may reset in-memory rewards, but an existing
   // unreadable save must never reset live progress or be overwritten.
   bRewardSaveLoadFailed = false;
+  bRewardSaveInitialized = true;
   Gold = 0;
   ConfirmedRewardKills = 0;
   CollectedKeys.Reset();
@@ -167,9 +168,11 @@ bool AMoonfallHeroPawn::LoadRewardProgress()
  if (!Save || (Save->SchemaVersion != 1 && Save->SchemaVersion != 2))
  {
   bRewardSaveLoadFailed = true;
+  bRewardSaveInitialized = true;
   return false;
  }
  bRewardSaveLoadFailed = false;
+ bRewardSaveInitialized = true;
  Gold = 0;
  ConfirmedRewardKills = 0;
  CollectedKeys.Reset();
