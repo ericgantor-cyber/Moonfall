@@ -1887,6 +1887,7 @@ bool AMoonfallHeroPawn::SalvageInventoryItem(int32 InventoryIndex)
  InventorySelection = FMath::Clamp(InventorySelection, 0, FMath::Max(0, InventoryItemCodes.Num() - 1));
  // A shrinking bag never leaves the scroll viewport stranded past its end.
  InventoryViewStart = FMath::Clamp(InventoryViewStart, 0, FMath::Max(0, InventoryItemCodes.Num() - 1));
+ bProgressDirty = true;
  return true;
 }
 bool AMoonfallHeroPawn::UpgradeInventoryItem(int32 InventoryIndex)
@@ -1927,6 +1928,7 @@ bool AMoonfallHeroPawn::UpgradeInventoryItem(int32 InventoryIndex)
  Salvage -= Cost;
  LastLootUpgrade = (Tier + 1) - PreviousEquippedTier;
  OnEquipmentCrafted(NewCode, Cost);
+ bProgressDirty = true;
  return true;
 }
 
@@ -1965,6 +1967,7 @@ bool AMoonfallHeroPawn::ReforgeInventoryItemAffix(int32 InventoryIndex)
  Salvage -= Cost;
  LastLootAffix = NewAffix;
  OnEquipmentReforged(NewCode, Cost);
+ bProgressDirty = true;
  return true;
 }
 
@@ -2004,6 +2007,7 @@ bool AMoonfallHeroPawn::AscendInventoryItemRarity(int32 InventoryIndex)
  Salvage -= Cost;
  LastLootRarity = Rarity + 1;
  OnEquipmentAscended(NewCode, Cost);
+ bProgressDirty = true;
  return true;
 }
 
@@ -2392,6 +2396,7 @@ void AMoonfallHeroPawn::AwardEquipmentDrop(bool bEliteEnemy, bool bBossEnemy)
  const int32 EquippedTier = RolledSlot == 0 ? WeaponTier
      : (RolledSlot == 1 ? ArmorTier : AccessoryTier);
  LastLootUpgrade = RolledTier - EquippedTier;
+ bProgressDirty = true;
 }
 
 bool AMoonfallHeroPawn::CollectGroundEquipmentCode(int32 ItemCode)
@@ -2421,6 +2426,7 @@ bool AMoonfallHeroPawn::CollectGroundEquipmentCode(int32 ItemCode)
  const int32 EquippedTier = SlotIndex == 0 ? WeaponTier
      : (SlotIndex == 1 ? ArmorTier : AccessoryTier);
  LastLootUpgrade = Tier - EquippedTier;
+ bProgressDirty = true;
  return true;
 }
 
@@ -2641,5 +2647,6 @@ bool AMoonfallHeroPawn::EquipInventoryItem(int32 InventoryIndex)
   Health = FMath::Clamp(Health + HealthDelta, 1.f, MaxHealth);
   OnHealthChanged(Health, MaxHealth);
  }
+ bProgressDirty = true;
  return true;
 }
