@@ -138,6 +138,7 @@ public:
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Inventory") TArray<int32> InventoryPickupIds;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Inventory") int32 NextInventoryPickupId = 1;
  void EnsureInventoryPickupIds();
+ void ApplyInventorySortPreservingSelection();
  // Key ring uses its own dynamically growing array, never a bag slot.
  // World loot uses reserved code 9000000 + KeyId (1..9999).
  static constexpr int32 KeyLootBase = 9000000;
