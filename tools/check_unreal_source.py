@@ -347,7 +347,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn('ActionName="Inventory",Key=I', inputs)
         self.assertNotIn('ActionName="EquipBest",Key=B', inputs)
         self.assertIn('ActionName="EquipBest",Key=Gamepad_LeftTrigger', inputs)
-        self.assertIn('ActionName="Atlas",Key=J', inputs)
+        self.assertIn('ActionName="Atlas",Key=M', inputs)
         self.assertIn('BindAction(TEXT("Inventory"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleInventory)', self.hero_cpp)
         self.assertIn("LT: equip best", self.hud)
         self.assertNotIn("B / LT: equip best", self.hud)
@@ -365,12 +365,12 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("if (bInventoryOpen)", atlas)
         self.assertIn("bInventoryOpen = false;", atlas)
         self.assertIn("bCharacterStatsOpen = false;", atlas)
-        self.assertIn("if (bAtlasOpen) bAtlasOpen = false;", inventory)
+        self.assertIn("if (bAtlasOpen) { bAtlasOpen = false; bTalentsOpen = false; }", inventory)
         self.assertIn("if (bCharacterStatsOpen)", inventory)
         self.assertIn("bCharacterStatsOpen = false;", inventory)
         self.assertLess(inventory.index("if (bCharacterStatsOpen)"),
                         inventory.index("bInventoryOpen = !bInventoryOpen;"))
-        self.assertIn("if (bAtlasOpen) bAtlasOpen = false;", character)
+        self.assertIn("if (bAtlasOpen) { bAtlasOpen = false; bTalentsOpen = false; }", character)
         self.assertIn("UpdateInventoryMouseMode();", atlas)
         self.assertIn("UpdateInventoryMouseMode();", inventory)
         for body in (atlas, inventory, character):
@@ -381,7 +381,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
 
     def test_j_toggles_atlas_not_gear_selection(self):
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
-        self.assertIn('ActionName="Atlas",Key=J', inputs)
+        self.assertIn('ActionName="Atlas",Key=M', inputs)
         self.assertNotIn('ActionName="AdvisorSelect"', inputs)
         self.assertIn('BindAction(TEXT("Atlas"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleAtlas)', self.hero_cpp)
         self.assertIn("void ToggleAtlas();", self.hero_h)
@@ -398,14 +398,14 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("ResetMouseCastChord();", toggle)
         self.assertIn("EndSprint();", toggle)
         self.assertIn("EndGuard();", toggle)
-        self.assertIn("bAtlasOpen = !bAtlasOpen;", toggle)
+        self.assertIn("bAtlasOpen = !bWasMapOpen;", toggle)
         for forbidden in ("EquipInventoryItem(", "InventorySelection =",
                           "SalvageInventoryItem(", "GetRecommendedEquipmentIndex()"):
             self.assertNotIn(forbidden, toggle)
         atlas = self.hud.split("if (Hero->bAtlasOpen) {", 1)[1].split(
             "if (Hero->bInventoryOpen) {", 1
         )[0]
-        self.assertIn('TEXT("MOONFALL  |  ATLAS")', atlas)
+        self.assertIn('TEXT("MOONFALL  |  MAP")', atlas)
         self.assertIn("Hero->GetActorLocation()", atlas)
         self.assertIn("FMath::IsFinite(WorldPos.X)", atlas)
         self.assertIn("Undiscovered terrain is not shown", atlas)
@@ -591,7 +591,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("bOptionsOpen || bInventoryOpen || bAtlasOpen || !FMath::IsFinite(Health)", dual)
         self.assertLess(dual.index("bInventoryOpen"), dual.index("GetWorld()->GetTimeSeconds()"))
         self.assertIn("Left-click: select", self.hud)
-        self.assertIn('ActionName="Atlas",Key=J', inputs)
+        self.assertIn('ActionName="Atlas",Key=M', inputs)
 
     def test_both_mouse_buttons_dual_cast_without_c_and_single_on_release(self):
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
@@ -660,7 +660,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(mouse.index("EquipSelectedInventoryItem();"),
                         mouse.index("bRightMouseHeld = true;"))
         self.assertIn("Right-click row: equip", self.hud)
-        self.assertIn('ActionName="Atlas",Key=J', inputs)
+        self.assertIn('ActionName="Atlas",Key=M', inputs)
 
     def test_direct_equipment_change_requires_open_inventory(self):
         equip = self.hero_cpp.split(
@@ -774,11 +774,11 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn('ActionName="CharacterStats",Key=P', inputs)
         self.assertNotIn('ActionName="DualCast",Key=C', inputs)
         self.assertIn('ActionName="Inventory",Key=B', inputs)
-        self.assertIn('ActionName="Atlas",Key=J', inputs)
+        self.assertIn('ActionName="Atlas",Key=M', inputs)
         toggle = self.hero_cpp.split("void AMoonfallHeroPawn::ToggleCharacterStats()", 1)[1].split(
             "void AMoonfallHeroPawn::UpdateInventoryMouseMode()", 1
         )[0]
-        self.assertIn("if (bAtlasOpen) bAtlasOpen = false;", toggle)
+        self.assertIn("if (bAtlasOpen) { bAtlasOpen = false; bTalentsOpen = false; }", toggle)
         self.assertIn("!FMath::IsFinite(Health) || Health <= 0.f", toggle)
         self.assertIn("if (!bInventoryOpen)", toggle)
         self.assertIn("ResetMouseCastChord();", toggle)
@@ -2921,7 +2921,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('void AMoonfallHeroPawn::EndGuard()', self.hero_cpp)
         self.assertIn("NextParryAt = Now + FMath::Clamp(ParryCooldownSeconds, 0.3f, 2.f);", self.hero_cpp)
         self.assertIn("Stamina < GuardStaminaCost) return;", self.hero_cpp)
-        self.assertIn("if (Health <= 0.f) {\n  // Prevent lingering movement/jump input from carrying through defeat.\n  StopJumping();\n  if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();\n  // Clear any held sprint so a later respawn cannot inherit it.\n  EndSprint();\n  EndGuard();\n  // Defeat clears every gameplay menu and releases the inventory cursor.\n  bInventoryOpen = false;\n  bCharacterStatsOpen = false;\n  bAtlasOpen = false;\n  bOptionsOpen = false;\n  ResetMouseCastChord();\n  UpdateInventoryMouseMode();\n }", self.hero_cpp)
+        self.assertIn("if (Health <= 0.f) {\n  // Prevent lingering movement/jump input from carrying through defeat.\n  StopJumping();\n  if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();\n  // Clear any held sprint so a later respawn cannot inherit it.\n  EndSprint();\n  EndGuard();\n  // Defeat clears every gameplay menu and releases the inventory cursor.\n  bInventoryOpen = false;\n  bCharacterStatsOpen = false;\n  bAtlasOpen = false;\n  bTalentsOpen = false;\n  bOptionsOpen = false;\n  ResetMouseCastChord();\n  UpdateInventoryMouseMode();\n }", self.hero_cpp)
         self.assertIn("ParryWindowEndsAt = -1.f", self.hero_cpp)
         self.assertIn("DamageAfterGuard *= 0.4f", self.hero_cpp)
         self.assertIn("Stamina = FMath::Clamp(Stamina - RequiredGuardCost, 0.f, MaxStamina)", self.hero_cpp)
