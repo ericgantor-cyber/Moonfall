@@ -202,10 +202,39 @@ class InventoryCapacityPort(unittest.TestCase):
         self.assertIn("bTalentsOpen = false;", hero_h)
         self.assertIn('TEXT("MOONFALL  |  MAP")', hud)
         self.assertIn('TEXT("MOONFALL  |  TALENTS")', hud)
-        self.assertIn('TEXT("Talent allocation tree not yet implemented.")', hud)
+        self.assertIn('TEXT("UNSPENT TALENT POINTS: %d")', hud)
+        self.assertIn('TEXT("1  FORCE")', hud)
+        self.assertIn('TEXT("2  FOCUS")', hud)
+        self.assertIn('TEXT("3  WARD")', hud)
+        self.assertIn("GetUnspentTalentPoints()", hud)
         self.assertIn("if (Hero->bAtlasOpen && Hero->bTalentsOpen)", hud)
         self.assertIn("bTalentsOpen = false;", self.hero)
         self.assertNotIn('TEXT("EQUIP SELECTED")', hud)
+
+    def test_shared_talents_spend_points_only_in_k_panel_and_affect_combat(self):
+        inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
+        header = (ROOT / "MoonfallHeroPawn.h").read_text(encoding="utf-8")
+        for action, key, method in (("TalentForce", "One", "SpendForceTalent"),
+                                    ("TalentFocus", "Two", "SpendFocusTalent"),
+                                    ("TalentWard", "Three", "SpendWardTalent")):
+            self.assertIn(f'ActionName="{action}",Key={key}', inputs)
+            self.assertIn(f'BindAction(TEXT("{action}"), IE_Pressed', self.hero)
+            self.assertIn(f"void AMoonfallHeroPawn::{method}()", self.hero)
+        for rank in ("TalentForceRank", "TalentFocusRank", "TalentWardRank"):
+            self.assertIn(rank + " = 0;", header)
+        spend = body(self.hero, "bool AMoonfallHeroPawn::SpendTalentPoint(int32 Branch)")
+        self.assertIn("!bAtlasOpen || !bTalentsOpen", spend)
+        self.assertIn("GetUnspentTalentPoints() <= 0", spend)
+        self.assertIn("*Rank >= 10", spend)
+        self.assertIn("++(*Rank);", spend)
+        points = body(self.hero, "int32 AMoonfallHeroPawn::GetUnspentTalentPoints() const")
+        self.assertIn("FMath::Clamp(Level, 1, 100) - 1", points)
+        self.assertIn("TalentForceRank - TalentFocusRank - TalentWardRank", points)
+        self.assertIn("FMath::Clamp(TalentForceRank, 0, 10) * 0.005f", self.hero)
+        self.assertIn("FMath::Clamp(TalentFocusRank, 0, 10) * 0.01f", self.hero)
+        self.assertIn("FMath::Clamp(TalentWardRank, 0, 10) * 0.008f", self.hero)
+        self.assertNotIn("ZTalentRank", header)
+        self.assertNotIn("NyraTalentRank", header)
 
     def test_inventory_has_no_equip_or_page_buttons(self):
         hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
