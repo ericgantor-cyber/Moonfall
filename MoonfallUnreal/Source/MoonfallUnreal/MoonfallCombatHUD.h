@@ -15,6 +15,8 @@ public:
  // Visible SORT button hit test, shared with the inventory drawing geometry.
  bool IsInventorySortButtonAtScreenPosition(const AMoonfallHeroPawn* Hero, float X, float Y) const;
  // Click-to-equip in the wide inspection pane. Never targets a hidden item.
+ // UI-only availability; final equip always revalidates in the pawn.
+ bool CanEquipSelectedInventoryItem(const AMoonfallHeroPawn* Hero) const;
  bool IsInventoryEquipButtonAtScreenPosition(const AMoonfallHeroPawn* Hero, float X, float Y) const;
 private:
  float DisplayHealth = -1.f;
