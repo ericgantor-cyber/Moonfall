@@ -2014,15 +2014,27 @@ void AMoonfallHeroPawn::RestorePendingWorldEquipmentDrops()
 {
  if (!GetWorld() || bRewardSaveLoadFailed) return;
  const FName CurrentLevelId(*UGameplayStatics::GetCurrentLevelName(this, true));
- // Build an index once, rather than scanning all world actors for each
- // saved drop. Both existing-actor and saved-record counts are bounded.
- // Keep the actor pointer so mismatches can be replaced instead of leaving
- // an uncollectable phantom permanently blocking the authoritative save.
+ // Reconcile persisted actors with the authoritative current-map ledger
+ // in one actor scan. Untracked temporary loot (invalid GUID) is untouched.
+ TSet<FGuid> ExpectedIds;
+ for (const FMoonfallWorldLootRecord& Record : PendingWorldLoot)
+ {
+  if (Record.LevelId == CurrentLevelId) ExpectedIds.Add(Record.DropId);
+ }
  TMap<FGuid, AMoonfallGroundLoot*> SpawnedActors;
  for (TActorIterator<AMoonfallGroundLoot> It(GetWorld()); It; ++It)
  {
-  if (IsValid(*It) && It->GetPersistentDropId().IsValid())
-   SpawnedActors.Add(It->GetPersistentDropId(), *It);
+  AMoonfallGroundLoot* Existing = *It;
+  if (!IsValid(Existing) || !Existing->GetPersistentDropId().IsValid()) continue;
+  const FGuid& Id = Existing->GetPersistentDropId();
+  if (!ExpectedIds.Contains(Id) || SpawnedActors.Contains(Id))
+  {
+   // An orphaned or duplicate persistent actor must not grant a second copy
+   // or suppress restoration of the saved item on the next pass.
+   Existing->Destroy();
+   continue;
+  }
+  SpawnedActors.Add(Id, Existing);
  }
  for (const FMoonfallWorldLootRecord& Record : PendingWorldLoot)
  {
