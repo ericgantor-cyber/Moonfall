@@ -649,8 +649,7 @@ class InventoryCapacityPort(unittest.TestCase):
     def test_forever_inspired_stats_are_derived_from_equipped_items(self):
         header = (ROOT / "MoonfallHeroPawn.h").read_text(encoding="utf-8")
         getters = ("GetStrength", "GetAgility", "GetStaminaAttribute", "GetIntellect",
-                   "GetSpirit", "GetHitChance", "GetDodgeChance", "GetParryChance",
-                   "GetBlockChance", "GetBlockValue", "GetArmorRating",
+                   "GetSpirit", "GetArmorRating",
                    "GetDefenseRating", "GetMeleeAttackPower", "GetRangedAttackPower",
                    "GetSpellDamagePower", "GetSpellHealingPower",
                    "GetSpellPenetration", "GetSpellPierce", "GetResistance",
@@ -686,15 +685,11 @@ class InventoryCapacityPort(unittest.TestCase):
         self.assertIn("StatLinesOffense[]",hud)
         self.assertIn("StatLinesDefense[]",hud)
         for label in ("Strength:", "Agility:", "Stamina:", "Intellect:", "Spirit:",
-                      "Hit Chance:", "Melee AP:", "Ranged AP:", "Spell Damage:",
+                      "Critical Strike:", "Melee AP:", "Ranged AP:", "Spell Damage:",
                       "Spell Healing:", "Spell Penetration:", "Spell Pierce:",
-                      "Dodge:", "Parry:", "Block chance:", "Block value:",
                       "Armor:", "Defense:", "Fire:", "Frost:", "Nature:",
                       "Shadow:", "Arcane:"):
             self.assertIn(label,hud)
-        self.assertIn("if (bSpellHit) Enemy->TakeSpellDamage(SpellDamage);",self.hero)
-        self.assertIn("FMath::FRand() <= GetHitChance()",self.hero)
-        self.assertIn("GetBlockValue()*0.025f",self.hero)
         self.assertIn("GetSpellHealingPower()*0.0002f",self.hero)
         self.assertIn("GetSpellDamagePower()*0.0002f",self.hero)
         self.assertIn("GetArmorRating()*0.000025f",self.hero)
@@ -706,6 +701,21 @@ class InventoryCapacityPort(unittest.TestCase):
             self.assertIn(label,hud)
         self.assertIn("Mana -= Costs[School] * ManaCostMultiplier;",self.hero)
         self.assertIn("LastCastTime[Hand] = Time;",self.hero)
+
+    def test_unwanted_hit_dodge_parry_block_stats_are_absent(self):
+        hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        header = (ROOT / "MoonfallHeroPawn.h").read_text(encoding="utf-8")
+        for name in ("GetHitChance", "GetDodgeChance", "GetParryChance",
+                     "GetBlockChance", "GetBlockValue"):
+            self.assertNotIn(name, header)
+            self.assertNotIn("AMoonfallHeroPawn::" + name, self.hero)
+            self.assertNotIn("Hero->" + name, hud)
+        for label in ("Hit Chance:", "Dodge:", "Parry:", "Block chance:", "Block value:"):
+            self.assertNotIn(label, hud)
+        self.assertIn("Enemy->TakeSpellDamage(SpellDamage);", self.hero)
+        self.assertNotIn("bSpellHit", self.hero)
+        self.assertIn("DamageAfterGuard *= 0.4f;", self.hero)
+        self.assertIn("Guard, dodge and parry use player input, not passive stats", hud)
 
     def test_inventory_has_no_equip_or_page_buttons(self):
         hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
