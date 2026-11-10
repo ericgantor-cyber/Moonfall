@@ -327,6 +327,23 @@ class UE5RewardParity(unittest.TestCase):
                         startup.index("SpawnMilestoneKey(GetActorLocation()"))
         self.assertIn("Hero->KeyInteractionNoticeUntil > NowSeconds", self.hud)
 
+    def test_gate_restoration_reuses_ready_hero_progress_and_falls_back_safely(self):
+        gate = (ROOT / "MoonfallKeyGate.cpp").read_text()
+        self.assertIn("bool bRewardSaveInitialized = false;", self.hero_h)
+        loader = self.hero.split("bool AMoonfallHeroPawn::LoadRewardProgress()", 1)[1].split(
+            "bool AMoonfallHeroPawn::SaveRewardProgress()", 1)[0]
+        self.assertEqual(loader.count("bRewardSaveInitialized = true;"), 3)
+        restore = gate.split("void AMoonfallKeyGate::BeginPlay()", 1)[1].split(
+            "bool AMoonfallKeyGate::TryUnlock(", 1)[0]
+        self.assertIn("Hero->bRewardSaveInitialized", restore)
+        self.assertIn("Hero->bRewardSaveLoadFailed", restore)
+        self.assertIn("Hero->HasUnlockedGate(GateId)", restore)
+        self.assertIn("else\n {\n  const FString SlotName(", restore)
+        self.assertIn("UGameplayStatics::LoadGameFromSlot(SlotName, 0)", restore)
+        self.assertIn("Saved->UnlockedGateIds.Contains(GateId)", restore)
+        self.assertIn("ApplyOpenState();", restore)
+        self.assertIn("OnSavedGateRestored();", restore)
+
     def test_equipment_remains_manual_and_hud_shows_rewards(self):
         self.assertIn("void PickupNearestGroundLoot();", self.hero_h)
         self.assertIn("Loot->TryCollect()", self.hero)
