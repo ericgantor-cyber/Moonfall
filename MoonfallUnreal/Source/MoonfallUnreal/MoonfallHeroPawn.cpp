@@ -2107,7 +2107,10 @@ void AMoonfallHeroPawn::EquipSelectedInventoryItem() {
  EquipInventoryItem(InventorySelection);
 }
 void AMoonfallHeroPawn::SalvageSelectedInventoryItem() {
- if (bInventoryOpen && !bCharacterStatsOpen) SalvageInventoryItem(InventorySelection);
+ // B and C may be open together. Only B's deliberate active selection
+ // authorizes salvage; opening C must not silently disable the bag action.
+ if (bBagPanelOpen && (!bCharacterStatsOpen || !bMenuFocusCharacter))
+  SalvageInventoryItem(InventorySelection);
 }
 void AMoonfallHeroPawn::InventorySalvage()
 {
