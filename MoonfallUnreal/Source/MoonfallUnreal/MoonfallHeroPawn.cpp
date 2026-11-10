@@ -2016,24 +2016,27 @@ void AMoonfallHeroPawn::RestorePendingWorldEquipmentDrops()
  const FName CurrentLevelId(*UGameplayStatics::GetCurrentLevelName(this, true));
  // Build an index once, rather than scanning all world actors for each
  // saved drop. Both existing-actor and saved-record counts are bounded.
- TMap<FGuid, int32> SpawnedItemCodes;
+ // Keep the actor pointer so mismatches can be replaced instead of leaving
+ // an uncollectable phantom permanently blocking the authoritative save.
+ TMap<FGuid, AMoonfallGroundLoot*> SpawnedActors;
  for (TActorIterator<AMoonfallGroundLoot> It(GetWorld()); It; ++It)
  {
   if (IsValid(*It) && It->GetPersistentDropId().IsValid())
-   SpawnedItemCodes.Add(It->GetPersistentDropId(), It->GetItemCode());
+   SpawnedActors.Add(It->GetPersistentDropId(), *It);
  }
  for (const FMoonfallWorldLootRecord& Record : PendingWorldLoot)
  {
   if (Record.LevelId != CurrentLevelId) continue;
-  const int32* ExistingCode = SpawnedItemCodes.Find(Record.DropId);
-  if (ExistingCode)
+  AMoonfallGroundLoot* const* ExistingActor = SpawnedActors.Find(Record.DropId);
+  if (ExistingActor && IsValid(*ExistingActor))
   {
-   // An existing actor with the same GUID but a different item must not
-   // silently replace the durable record or cause it to be collected.
-   if (*ExistingCode != Record.ItemCode)
-    UE_LOG(LogTemp, Warning, TEXT("Moonfall loot GUID collision: skipping conflicting actor %s"),
-      *Record.DropId.ToString());
-   continue;
+   if ((*ExistingActor)->GetItemCode() == Record.ItemCode) continue;
+   // The save file is authoritative. Never permit an actor with a stale
+   // code and matching GUID to suppress or claim the saved reward.
+   UE_LOG(LogTemp, Warning, TEXT("Moonfall loot GUID collision: restoring saved item %s"),
+     *Record.DropId.ToString());
+   (*ExistingActor)->Destroy();
+   SpawnedActors.Remove(Record.DropId);
   }
   const FTransform SpawnTransform(FRotator::ZeroRotator, Record.Location);
   AMoonfallGroundLoot* Loot = Cast<AMoonfallGroundLoot>(
@@ -2044,7 +2047,7 @@ void AMoonfallHeroPawn::RestorePendingWorldEquipmentDrops()
   Loot->SetPersistentDropId(Record.DropId);
   Loot->InitializeLoot(Record.ItemCode);
   UGameplayStatics::FinishSpawningActor(Loot, SpawnTransform);
-  SpawnedItemCodes.Add(Record.DropId, Record.ItemCode);
+  SpawnedActors.Add(Record.DropId, Loot);
  }
 }
 
