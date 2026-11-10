@@ -60,10 +60,12 @@ Moonfall's fully migrated Godot world or finished dungeon.
   directories and save/restart recovery before publishing.
 - Fixed trial actor positions and placeholder meshes are for a temporary
   mechanics test, not handcrafted world placement.
-- The fifth-kill world key is retried after subsequent confirmed kills if its
-  actor failed to spawn; duplicates already owned are dismissed when a pickup
-  is initialized or explicitly interacted with. This still requires native
-  gameplay/save-restart verification.
+- The fifth-kill world key is tracked with a weak actor reference after its
+  first discovery/spawn. Subsequent kills avoid repeatedly scanning all world
+  keys while it is still alive; if destroyed without collection, the next
+  confirmed kill can rediscover or respawn it. Native gameplay should verify
+  recovery, destruction and save/restart behavior. Duplicates already owned
+  are dismissed when initialized or explicitly interacted with.
 - On a failed reward load, the gameplay HUD now displays
   `REWARD SAVE ERROR - ORIGINAL FILE PROTECTED` for 12 seconds.
   Milestone key respawn is disabled for that session until a valid save
