@@ -780,12 +780,14 @@ void AMoonfallCombatHUD::DrawHUD()
  }
  if (Hero->bInventoryOpen) {
   // One continuous scrollable bag: all item codes share one list and one viewport.
+  const bool bDual = MoonfallDualPanels(Canvas,Hero);
   const bool bWideInventory = Canvas->SizeX >= 1100.f && Canvas->SizeY >= 600.f;
- const float PanelWidth = FMath::Min(bWideInventory ? 1040.f : 680.f, FMath::Max(280.f, Canvas->SizeX - 24.f));
- const float ListWidth = bWideInventory ? PanelWidth - 340.f : PanelWidth;
-  const float PanelHeight = FMath::Min(860.f, FMath::Max(280.f, Canvas->SizeY - 24.f));
-  const float Left = (Canvas->SizeX - PanelWidth) * 0.5f;
-  const float Top = (Canvas->SizeY - PanelHeight) * 0.5f;
+  float PanelWidth = FMath::Min(bWideInventory ? 1040.f : 680.f, FMath::Max(280.f, Canvas->SizeX - 24.f));
+  float PanelHeight = FMath::Min(860.f, FMath::Max(280.f, Canvas->SizeY - 24.f));
+  float Left = (Canvas->SizeX - PanelWidth) * 0.5f;
+  float Top = (Canvas->SizeY - PanelHeight) * 0.5f;
+  if (bDual) MoonfallDualCharacterGeometry(Canvas,Left,Top,PanelWidth,PanelHeight);
+  const float ListWidth = bDual ? PanelWidth : (bWideInventory ? PanelWidth - 340.f : PanelWidth);
   DrawRect(FLinearColor(0.04f, 0.035f, 0.10f, 0.96f), Left, Top, PanelWidth, PanelHeight);
   DrawText(TEXT("MOONFALL  |  INVENTORY"), FLinearColor::White, Left + 18.f, Top + 16.f, nullptr, 1.3f);
   // Explicit clickable control, with a matching hit region above.
@@ -800,9 +802,55 @@ void AMoonfallCombatHUD::DrawHUD()
      FLinearColor::White,ButtonX + 10.f,ButtonY + 7.f,nullptr,0.88f);
   }
 
+  if (bDual) {
+   // The full inventory stays present beside the equipped stats panel.
+   // Scroll offset and selection are shared by both panels.
+   float BagL=0.f,BagT=0.f,BagW=0.f,BagH=0.f;
+   MoonfallDualBagGeometry(Canvas,BagL,BagT,BagW,BagH);
+   DrawRect(FLinearColor(0.04f,0.035f,0.10f,0.97f),BagL,BagT,BagW,BagH);
+   DrawText(TEXT("MOONFALL  |  BAG"),FLinearColor::White,
+       BagL+12.f,BagT+18.f,nullptr,0.94f);
+   DrawRect(FLinearColor(0.13f,0.34f,0.43f,0.97f),
+       BagL+BagW-158.f,BagT+12.f,148.f,33.f);
+   DrawText(Hero->InventorySortMode==1 ? TEXT("SORT: SLOT") : TEXT("SORT: QUALITY"),
+       FLinearColor::White,BagL+BagW-149.f,BagT+20.f,nullptr,0.73f);
+   const int32 BagCount=Hero->InventoryItemCodes.Num();
+   const int32 Per=FMath::Clamp(FMath::FloorToInt((BagH-230.f)/25.f),2,20);
+   const int32 Start=FMath::Clamp(Hero->InventoryViewStart,0,FMath::Max(0,BagCount-Per));
+   DrawText(FString::Printf(TEXT("GEAR  %d / %d"),BagCount>0 ? FMath::Clamp(Hero->InventorySelection+1,1,BagCount):0,BagCount),
+       FLinearColor(0.75f,0.86f,0.99f),BagL+12.f,BagT+63.f,nullptr,0.78f);
+   for (int32 Index=Start;Index<FMath::Min(BagCount,Start+Per);++Index) {
+    const int32 Code=Hero->InventoryItemCodes[Index];
+    const float Y=BagT+100.f+(Index-Start)*25.f;
+    if (Index==Hero->InventorySelection)
+     DrawRect(FLinearColor(0.20f,0.34f,0.45f,0.93f),BagL+9.f,Y-2.f,BagW-18.f,24.f);
+    DrawText(FString::Printf(TEXT("%d  %s  T%d  R%d"),Index+1,
+       (Code/10000)%10==0 ? TEXT("WEAPON") :
+       ((Code/10000)%10==1 ? TEXT("ARMOR") : TEXT("ACCESSORY")),
+       Code%1000,(Code/1000)%10),FLinearColor::White,
+       BagL+14.f,Y+3.f,nullptr,0.68f);
+   }
+   DrawRect(FLinearColor(0.04f,0.035f,0.10f,0.99f),
+       BagL,BagT+BagH-90.f,BagW,90.f);
+   const TCHAR* BagLabels[8] = {
+     TEXT("EQUIP"),TEXT("UPGRADE"),TEXT("ASCEND"),TEXT("REFORGE"),
+     TEXT("FORGE x5"),TEXT("SALVAGE"),TEXT("CHARACTER"),TEXT("CLOSE")
+   };
+   for (int32 Action=0;Action<8;++Action) {
+    float X=0.f,Y=0.f,W=0.f,H=0.f;
+    if (!MoonfallBagActionRect(Canvas,true,Action,X,Y,W,H)) continue;
+    const bool bEnabled=Action>=6 || BagCount>0;
+    DrawRect(!Hero->bMenuFocusCharacter && Hero->MenuActionFocus==Action ?
+       FLinearColor(0.72f,0.53f,0.20f) :
+       bEnabled ? FLinearColor(0.15f,0.38f,0.45f,0.97f)
+       : FLinearColor(0.18f,0.18f,0.22f,0.94f),X,Y,W,H);
+    DrawText(BagLabels[Action],bEnabled?FLinearColor::White:
+       FLinearColor(0.60f,0.62f,0.66f),X+3.f,Y+9.f,nullptr,0.61f);
+   }
+  }
   if (Hero->bCharacterStatsOpen) {
-   // Character sheet is a read-only page. Inventory operations remain locked
-   // while it is open; controller and keyboard switch pages with the same input.
+   // C remains a fully interactive equipment and stat panel.
+   // In dual mode B is visible and selectable to its left.
    DrawText(TEXT("MOONFALL  |  CHARACTER"), FLinearColor::White,
      Left + 18.f, Top + 17.f, nullptr, 1.35f);
    DrawText(FString::Printf(TEXT("Level %d  |  XP %d / %d  |  Salvage %d"),
