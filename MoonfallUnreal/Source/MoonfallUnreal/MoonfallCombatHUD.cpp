@@ -146,6 +146,17 @@ int32 AMoonfallCombatHUD::GetAtlasMenuActionAtScreenPosition(
  const float H = Talents ? FMath::Min(800.f,FMath::Max(280.f,Canvas->SizeY-24.f))
    : FMath::Min(650.f,FMath::Max(280.f,Canvas->SizeY-24.f));
  const float L=(Canvas->SizeX-W)*0.5f,T=(Canvas->SizeY-H)*0.5f;
+ if (Talents && Hero->bTalentRespecArmed) {
+  const float DialogW=FMath::Min(380.f,W-24.f);
+  const float DialogL=L+(W-DialogW)*0.5f;
+  const float DialogT=T+(H-170.f)*0.5f;
+  const float ButtonW=(DialogW-42.f)*0.5f;
+  if (Y>=DialogT+111.f && Y<DialogT+151.f) {
+   if (X>=DialogL+14.f && X<DialogL+14.f+ButtonW) return 4; // YES
+   if (X>=DialogL+28.f+ButtonW && X<DialogL+28.f+2.f*ButtonW) return 5; // NO
+  }
+  return -1; // Modal dialog blocks every underlying button and talent.
+ }
  if (X >= L+W-96.f && X < L+W-12.f &&
      Y >= T+12.f && Y < T+46.f) return 0;
  if (Talents && X >= L+W-205.f && X < L+W-105.f &&
@@ -299,6 +310,30 @@ void AMoonfallCombatHUD::DrawHUD()
   DrawText(TEXT("CLOSE"),FLinearColor::White,MenuLeft+MenuWidth-89.f,MenuTop+MenuHeight-35.f,nullptr,0.85f);
   return;
  }
+ // A dedicated modal overlay is drawn last on both K layouts.
+ // Geometry is shared exactly with GetAtlasMenuActionAtScreenPosition.
+ const auto DrawRespecConfirmation = [&](float Left,float Top,float Width,float Height) {
+  if (!Hero->bTalentRespecArmed) return;
+  const float DialogW=FMath::Min(380.f,Width-24.f);
+  const float DialogL=Left+(Width-DialogW)*0.5f;
+  const float DialogT=Top+(Height-170.f)*0.5f;
+  const float ButtonW=(DialogW-42.f)*0.5f;
+  DrawRect(FLinearColor(0.025f,0.022f,0.057f,0.97f),DialogL,DialogT,DialogW,170.f);
+  DrawText(TEXT("ARE YOU SURE?"),FLinearColor::White,
+    DialogL+18.f,DialogT+18.f,nullptr,Width<600.f?0.82f:1.10f);
+  DrawText(TEXT("Reset all spent talent points?"),FLinearColor(0.92f,0.86f,0.96f),
+    DialogL+18.f,DialogT+56.f,nullptr,Width<600.f?0.57f:0.80f);
+  DrawText(TEXT("D-pad: choose   A: confirm"),FLinearColor(0.77f,0.78f,0.90f),
+    DialogL+18.f,DialogT+82.f,nullptr,Width<600.f?0.49f:0.65f);
+  for (int32 Choice=0;Choice<2;++Choice) {
+   const float X=DialogL+14.f+Choice*(ButtonW+14.f);
+   const bool bSelected=Hero->TalentRespecChoice==Choice;
+   DrawRect(bSelected ? FLinearColor(0.65f,0.46f,0.19f)
+       : FLinearColor(0.17f,0.33f,0.41f),X,DialogT+111.f,ButtonW,40.f);
+   DrawText(Choice==0?TEXT("YES"):TEXT("NO"),FLinearColor::White,
+     X+14.f,DialogT+122.f,nullptr,0.84f);
+  }
+ };
  if (Hero->bAtlasOpen && Hero->bTalentsOpen) {
   // Native Canvas constellation: circular celestial nodes and illuminated paths.
   // Purely visual animation; no textures, random allocations or auto-spend.
@@ -402,12 +437,14 @@ void AMoonfallCombatHUD::DrawHUD()
   DrawText(TEXT("CLOSE"),FLinearColor::White,Left+Width-84.f,Top+20.f,nullptr,0.77f);
   DrawRect(Hero->bTalentRespecArmed ? FLinearColor(0.60f,0.22f,0.24f)
     : FLinearColor(0.15f,0.35f,0.44f),Left+Width-205.f,Top+12.f,100.f,34.f);
-  DrawText(Hero->bTalentRespecArmed ? TEXT("CONFIRM!") : TEXT("RESPEC"),
+  DrawText(TEXT("RESPEC"),
     FLinearColor::White,Left+Width-195.f,Top+20.f,nullptr,0.74f);
   DrawRect(FLinearColor(0.15f,0.35f,0.44f),Left+12.f,Top+Height-44.f,88.f,34.f);
   DrawRect(FLinearColor(0.15f,0.35f,0.44f),Left+110.f,Top+Height-44.f,88.f,34.f);
   DrawText(TEXT("PREV"),FLinearColor::White,Left+22.f,Top+Height-36.f,nullptr,0.73f);
   DrawText(TEXT("NEXT"),FLinearColor::White,Left+120.f,Top+Height-36.f,nullptr,0.73f);
+
+   DrawRespecConfirmation(Left,Top,Width,Height);
 
    return;
   }
@@ -645,12 +682,14 @@ void AMoonfallCombatHUD::DrawHUD()
   DrawText(TEXT("CLOSE"),FLinearColor::White,Left+Width-84.f,Top+20.f,nullptr,0.77f);
   DrawRect(Hero->bTalentRespecArmed ? FLinearColor(0.60f,0.22f,0.24f)
     : FLinearColor(0.15f,0.35f,0.44f),Left+Width-205.f,Top+12.f,100.f,34.f);
-  DrawText(Hero->bTalentRespecArmed ? TEXT("CONFIRM!") : TEXT("RESPEC"),
+  DrawText(TEXT("RESPEC"),
     FLinearColor::White,Left+Width-195.f,Top+20.f,nullptr,0.74f);
   DrawRect(FLinearColor(0.15f,0.35f,0.44f),Left+12.f,Top+Height-44.f,88.f,34.f);
   DrawRect(FLinearColor(0.15f,0.35f,0.44f),Left+110.f,Top+Height-44.f,88.f,34.f);
   DrawText(TEXT("PREV"),FLinearColor::White,Left+22.f,Top+Height-36.f,nullptr,0.73f);
   DrawText(TEXT("NEXT"),FLinearColor::White,Left+120.f,Top+Height-36.f,nullptr,0.73f);
+
+  DrawRespecConfirmation(Left,Top,Width,Height);
 
   return;
  }
