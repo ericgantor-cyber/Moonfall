@@ -637,6 +637,21 @@ class UE5RewardParity(unittest.TestCase):
         self.assertIn("SpawnedActors.Add(Record.DropId, Loot);", restore)
         self.assertEqual(restore.count("TActorIterator<AMoonfallGroundLoot>"), 1)
 
+    def test_restore_removes_duplicate_and_orphaned_persistent_pickups(self):
+        restore = self.hero.split("void AMoonfallHeroPawn::RestorePendingWorldEquipmentDrops()", 1)[1].split(
+            "void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(", 1)[0]
+        self.assertIn("TSet<FGuid> ExpectedIds;", restore)
+        self.assertIn("if (Record.LevelId == CurrentLevelId) ExpectedIds.Add(Record.DropId);", restore)
+        self.assertIn("if (!IsValid(Existing) || !Existing->GetPersistentDropId().IsValid()) continue;", restore)
+        self.assertIn("!ExpectedIds.Contains(Id) || SpawnedActors.Contains(Id)", restore)
+        self.assertIn("Existing->Destroy();", restore)
+        self.assertLess(restore.index("Existing->Destroy();"),
+                        restore.index("for (const FMoonfallWorldLootRecord& Record : PendingWorldLoot)", restore.index("TMap<FGuid")))
+        self.assertIn("SpawnedActors.Add(Id, Existing);", restore)
+        self.assertIn("(*ExistingActor)->Destroy();", restore)
+        self.assertIn("SpawnedActors.Add(Record.DropId, Loot);", restore)
+        self.assertEqual(restore.count("TActorIterator<AMoonfallGroundLoot>"), 1)
+
     def test_equipment_remains_manual_and_hud_shows_rewards(self):
         self.assertIn("void PickupNearestGroundLoot();", self.hero_h)
         self.assertIn("Loot->TryCollect()", self.hero)
