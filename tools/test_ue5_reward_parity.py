@@ -512,6 +512,7 @@ class UE5RewardParity(unittest.TestCase):
         batch = self.hero.split("bool AMoonfallHeroPawn::RegisterWorldEquipmentDrops(", 1)[1].split(
             "void AMoonfallHeroPawn::RestorePendingWorldEquipmentDrops()", 1)[0]
         self.assertIn("PendingWorldLoot.Num() + NewDrops.Num() > 512", batch)
+        self.assertIn("NewDrops.Num() > 4", batch)
         self.assertIn("PendingWorldLoot.Append(NewDrops);", batch)
         self.assertIn("TSet<FGuid> BatchIds;", batch)
         self.assertIn("if (BatchIds.Contains(Record.DropId)) return false;", batch)
@@ -526,7 +527,9 @@ class UE5RewardParity(unittest.TestCase):
             "bool AMoonfallHeroPawn::TryInteractWithNearbyKey()", 1)[0]
         self.assertIn("RegisterWorldEquipmentDrops(Drops)", spawn)
         self.assertIn("Drops.Add(Record);", spawn)
-        self.assertIn("const int32 DropCount = bBossEnemy ? 3 : (bEliteEnemy ? 2 : 1);", spawn)
+        self.assertIn("const int32 BaseDropCount = bBossEnemy ? 3 : (bEliteEnemy ? 2 : 1);", spawn)
+        self.assertIn("const int32 BonusDropChance = bBossEnemy ? 50 : (bEliteEnemy ? 35 : 20);", spawn)
+        self.assertIn("const int32 DropCount = BaseDropCount + (FMath::RandRange(0, 99) < BonusDropChance ? 1 : 0);", spawn)
         self.assertLess(spawn.index("Drops.Add(Record);"), spawn.index("RegisterWorldEquipmentDrops(Drops)"))
         collect = self.hero.split("bool AMoonfallHeroPawn::CollectPersistedGroundEquipmentCode(", 1)[1].split(
             "bool AMoonfallHeroPawn::RegisterWorldEquipmentDrops(", 1)[0]
@@ -535,6 +538,24 @@ class UE5RewardParity(unittest.TestCase):
         self.assertIn("PendingWorldLoot.Insert(Record, Index);", collect)
         ground_cpp = (ROOT / "MoonfallGroundLoot.cpp").read_text()
         self.assertIn("CollectPersistedGroundEquipmentCode(ItemCode, PersistentDropId)", ground_cpp)
+
+    def test_drop_rng_is_bounded_and_rolls_per_item(self):
+        loot_roll = self.hero.split("int32 AMoonfallHeroPawn::RollEquipmentCode(", 1)[1].split(
+            "void AMoonfallHeroPawn::AwardEquipmentDrop(", 1)[0]
+        self.assertIn("const int32 BaseTier = Level / 5", loot_roll)
+        self.assertIn("BaseTier + FMath::RandRange(-1, 1)", loot_roll)
+        self.assertIn("FMath::Clamp(BaseTier + FMath::RandRange(-1, 1), 1, 25)", loot_roll)
+        self.assertIn("LastLootSlot = FMath::RandRange(0, 2);", loot_roll)
+        self.assertIn("const int32 LootRoll = FMath::RandRange(0, 99);", loot_roll)
+        spawn = self.hero.split("void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(", 1)[1].split(
+            "bool AMoonfallHeroPawn::TryInteractWithNearbyKey()", 1)[0]
+        self.assertIn("BonusDropChance = bBossEnemy ? 50 : (bEliteEnemy ? 35 : 20)", spawn)
+        self.assertIn("Drops.Reserve(DropCount);", spawn)
+        self.assertIn("for (int32 Drop = 0; Drop < DropCount; ++Drop)", spawn)
+        batch = self.hero.split("bool AMoonfallHeroPawn::RegisterWorldEquipmentDrops(", 1)[1].split(
+            "void AMoonfallHeroPawn::RestorePendingWorldEquipmentDrops()", 1)[0]
+        self.assertIn("NewDrops.Num() > 4", batch)
+        self.assertEqual(batch.count("SaveRewardProgress()"), 1)
 
     def test_world_loot_overflow_falls_back_to_visible_temporary_pickup(self):
         restore = self.hero.split("void AMoonfallHeroPawn::RestorePendingWorldEquipmentDrops()", 1)[1].split(
