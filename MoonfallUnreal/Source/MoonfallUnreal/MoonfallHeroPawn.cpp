@@ -1644,19 +1644,31 @@ bool AMoonfallHeroPawn::TryInteractWithNearbyKey()
   ++Scanned;
   if (IsValid(*It) && !It->bUnlocked) Consider(*It);
  }
+ // Messages are generated only when a player explicitly interacts;
+ // HUD reads the notice until expiry without adding an actor tick.
  if (AMoonfallKeyPickup* Key = Cast<AMoonfallKeyPickup>(Nearest))
  {
-  // The interaction was directed at this key even if disk saving fails.
-  // Keep the world key intact and never fall through to collecting equipment
-  // from the same button press after a failed key transaction.
-  Key->TryCollect(this);
+  const bool bAlreadyOwned = HasQuestKey(Key->KeyId);
+  const bool bCollected = Key->TryCollect(this);
+  KeyInteractionNotice = bCollected
+    ? (bAlreadyOwned ? TEXT("KEY ALREADY COLLECTED") : TEXT("QUEST KEY COLLECTED"))
+    : TEXT("KEY NOT COLLECTED - CHECK SAVE OR KEY ID");
+  bKeyInteractionNoticeError = !bCollected;
+  KeyInteractionNoticeUntil = GetWorld()->GetTimeSeconds() + 3.5f;
+  // A failed save cannot make this same input pick up equipment behind a key.
   return true;
  }
  if (AMoonfallKeyGate* Gate = Cast<AMoonfallKeyGate>(Nearest))
  {
-  Gate->TryUnlock(this);
-  // A locked gate still consumes this deliberate interaction, preventing
-  // equipment behind the closed door from being collected in the same press.
+  const bool bHasMatchingKey = HasQuestKey(Gate->RequiredKeyId)
+    || HasUnlockedGate(Gate->GateId);
+  const bool bOpened = Gate->TryUnlock(this);
+  KeyInteractionNotice = bOpened ? TEXT("DOOR UNLOCKED")
+    : (bHasMatchingKey ? TEXT("DOOR NOT OPENED - CHECK SAVE")
+                       : TEXT("LOCKED - FIND THE MATCHING KEY"));
+  bKeyInteractionNoticeError = !bOpened;
+  KeyInteractionNoticeUntil = GetWorld()->GetTimeSeconds() + 3.5f;
+  // An unsuccessful door attempt does not also collect loot behind it.
   return true;
  }
  return false;
