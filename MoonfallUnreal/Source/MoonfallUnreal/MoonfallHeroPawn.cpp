@@ -2027,6 +2027,7 @@ void AMoonfallHeroPawn::CycleInventorySort()
 {
  // Reorder only while the editable backpack is open. No gear or currency mutations.
  if (!bBagPanelOpen || bOptionsOpen ||
+     (bCharacterStatsOpen && bMenuFocusCharacter) ||
      !FMath::IsFinite(Health) || Health <= 0.f) return;
  InventorySortMode = InventorySortMode == 1 ? 2 : 1;
  // Sorting reorders the saved bag; persist it with the normal autosave cycle.
@@ -2085,7 +2086,12 @@ void AMoonfallHeroPawn::EquipSelectedInventoryItem() {
 void AMoonfallHeroPawn::SalvageSelectedInventoryItem() {
  if (bInventoryOpen && !bCharacterStatsOpen) SalvageInventoryItem(InventorySelection);
 }
-void AMoonfallHeroPawn::InventorySalvage() { SalvageSelectedInventoryItem(); }
+void AMoonfallHeroPawn::InventorySalvage()
+{
+ // Controller X is a B-only action, even when C is also visible.
+ if (!bBagPanelOpen || (bCharacterStatsOpen && bMenuFocusCharacter)) return;
+ SalvageSelectedInventoryItem();
+}
 bool AMoonfallHeroPawn::SalvageInventoryItem(int32 InventoryIndex)
 {
  // Enforce the inventory menu boundary for Blueprint and direct callers too.
