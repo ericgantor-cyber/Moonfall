@@ -107,9 +107,23 @@ Moonfall's fully migrated Godot world or finished dungeon.
 - Test scripted equipment grants with both empty and occupied slots.
   They share the same pickup transaction and do not replace occupied gear.
 
+## Randomized enemy loot
+
+- Regular enemies always roll one item plus a 20% chance for a second.
+  Elites always roll two plus a 35% chance for a third. Bosses always
+  roll three plus a 50% chance for a fourth. Rolls are independent for
+  each defeated enemy; the batch remains bounded to four records.
+- Each item independently rolls its rarity, trait and equipment category,
+  with tier varied by -1/0/+1 and clamped to 1..25. Existing minimum
+  rarity protections for elite/boss loot remain intact.
+- In native UE5 gameplay, test large samples from each enemy class,
+  verify the base reward is guaranteed and bonus rates are plausible,
+  then check save/reload, duplicate IDs, the 512-world-drop cap and
+  the no-loss temporary pickup fallback under failed writes.
+
 ## Batched elite and boss loot saves
 
-- One enemy death generates the full group first: regular 1, elite 2, boss 3.
+- One enemy death generates a randomized group: regular 1–2, elite 2–3, boss 3–4.
   All valid records are appended and committed with a **single** reward-save
   write, then their pickup actors are materialized. On write failure the
   entire new group is rolled back, with temporary manual pickups attempted
