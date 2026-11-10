@@ -28,6 +28,29 @@ public:
  UFUNCTION(BlueprintPure, Category="Moonfall|Equipment|Stats") float GetHasteBonus() const;
  UFUNCTION(BlueprintPure, Category="Moonfall|Equipment|Stats") float GetMasteryBonus() const;
  UFUNCTION(BlueprintPure, Category="Moonfall|Equipment|Stats") float GetVersatilityBonus() const;
+ // WoW Forever-inspired character breakdown. These are Moonfall-derived values,
+ // never a copy of another game's class/race formulas or an editable save schema.
+ UFUNCTION(BlueprintPure, Category="Moonfall|Stats") int32 GetStrength() const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Stats") int32 GetAgility() const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Stats") int32 GetStaminaAttribute() const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Stats") int32 GetIntellect() const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Stats") int32 GetSpirit() const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Stats") float GetHitChance() const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Stats") float GetDodgeChance() const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Stats") float GetParryChance() const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Stats") float GetBlockChance() const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Stats") float GetBlockValue() const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Stats") int32 GetArmorRating() const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Stats") int32 GetDefenseRating() const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Stats") float GetMeleeAttackPower() const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Stats") float GetRangedAttackPower() const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Stats") float GetSpellDamagePower() const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Stats") float GetSpellHealingPower() const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Stats") float GetSpellPenetration() const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Stats") float GetSpellPierce() const;
+ // School index 0 Fire, 1 Frost, 2 Nature, 3 Shadow, 4 Arcane.
+ UFUNCTION(BlueprintPure, Category="Moonfall|Stats") float GetResistance(int32 School) const;
+
  UFUNCTION(BlueprintCallable, Category="Moonfall|Combat") void ApplyMoonfallDamage(float Amount);
  // Enemy strikes provide an origin so guard only catches frontal blows.
  bool ApplyMoonfallDamageFrom(float Amount, const FVector& SourceLocation);
