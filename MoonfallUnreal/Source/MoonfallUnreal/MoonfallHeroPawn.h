@@ -133,6 +133,10 @@ public:
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") bool bTalentBattleWeave = false;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") bool bTalentArcaneAegis = false;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") bool bTalentIronWill = false;
+ // Fourth tier: three apex constellations requiring two adjacent hybrid talents.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") bool bTalentStarbreaker = false;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") bool bTalentAstralSurge = false;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") bool bTalentEternalSentinel = false;
  UFUNCTION(BlueprintPure, Category="Moonfall|Talents") bool CanUnlockTalentNode(int32 Node) const;
  UFUNCTION(BlueprintCallable, Category="Moonfall|Talents") bool UnlockTalentNode(int32 Node);
  // Indexed player-side API shared by mouse, keyboard and controller navigation.
