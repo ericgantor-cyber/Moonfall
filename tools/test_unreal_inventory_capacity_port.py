@@ -81,6 +81,24 @@ class InventoryCapacityPort(unittest.TestCase):
         self.assertIn("bMenuFocusCharacter = false;", left)
         self.assertIn("case 5: SalvageSelectedInventoryItem(); break;", left)
 
+    def test_pickup_id_compaction_keeps_older_item_order(self):
+        ensure = body(self.hero, "void AMoonfallHeroPawn::EnsureInventoryPickupIds()")
+        self.assertIn("NextInventoryPickupId < MAX_int32-1", ensure)
+        self.assertIn("TArray<int32> SortedIds=InventoryPickupIds;", ensure)
+        self.assertIn("SortedIds.Sort();", ensure)
+        self.assertIn("CompactIds.Add(SortedIds[Index],Index+1);", ensure)
+        self.assertIn("Id=CompactIds.FindChecked(Id);", ensure)
+        self.assertIn("NextInventoryPickupId=InventoryPickupIds.Num()+1;", ensure)
+        self.assertIn("bProgressDirty=true;", ensure)
+        # A sorted bag's displayed positions differ from pickup history.
+        current_ids = [200, 12, 107, 45]
+        by_age = sorted(current_ids)
+        compact = {old: position + 1 for position, old in enumerate(by_age)}
+        new_ids = [compact[old] for old in current_ids]
+        self.assertEqual(new_ids, [4, 1, 3, 2])
+        self.assertEqual([current_ids[i] for i in sorted(range(4), key=lambda i: new_ids[i])],
+                         [12, 45, 107, 200])
+
     def test_pickup_order_ids_survive_sort_salvage_and_v3_save(self):
         header=(ROOT / "MoonfallHeroPawn.h").read_text(encoding="utf-8")
         snapshot=(ROOT / "MoonfallProgressSaveGame.h").read_text(encoding="utf-8")
