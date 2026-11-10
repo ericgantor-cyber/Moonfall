@@ -89,9 +89,12 @@ static func _roll_strength(roll:Dictionary)->int:
 static func totals(state:Dictionary)->Dictionary:
  var stats:Dictionary={"weapon_power":0,"armor":0,"magic":0,"vitality":0,"haste":0,"crit":0,"ward":0,"elemental":0}
  var slots:Dictionary=state.get("equipped",{})
+ var owned:Dictionary=state.get("items",{})
  for slot in SLOTS:
-  var item:Dictionary=CATALOG.get_item(str(slots.get(slot,"")))
-  if item.is_empty():continue
+  var item_id:String=str(slots.get(slot,""))
+  if int(owned.get(item_id,0))<1:continue
+  var item:Dictionary=CATALOG.get_item(item_id)
+  if item.is_empty() or slot_for(item)!=slot:continue
   var power:int=int(item["power"])
   match str(item["category"]):
    "weapon":stats["weapon_power"]+=power
