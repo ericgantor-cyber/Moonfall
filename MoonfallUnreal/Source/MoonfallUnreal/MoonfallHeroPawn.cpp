@@ -958,6 +958,7 @@ void AMoonfallHeroPawn::LeftClickContextAction()
       const int32 Action=HUD->GetOptionsActionAtScreenPosition(this,X,Y);
       if (Action == 14) { OpenOptions(); return; }
       if (Action >= 0 && Action < 14) {
+       MenuActionFocus=Action;
        OptionsSelection=Action%7;
        AdjustOption(Action<7 ? -1 : 1);
       }
@@ -1001,6 +1002,7 @@ void AMoonfallHeroPawn::LeftClickContextAction()
      if (bCharacterStatsOpen) {
       const int32 Action = HUD->GetCharacterActionAtScreenPosition(this, MouseX, MouseY);
       if (Action < 0) return;
+      MenuActionFocus=Action;
       if (Action == 7) { ToggleInventory(); return; }
       if (Action == 8) { PreviousCharacterStatsPage(); return; }
       if (Action == 9) { NextCharacterStatsPage(); return; }
@@ -1025,6 +1027,7 @@ void AMoonfallHeroPawn::LeftClickContextAction()
      }
      const int32 BagAction = HUD->GetInventoryActionAtScreenPosition(this,MouseX,MouseY);
      if (BagAction >= 0) {
+      MenuActionFocus=BagAction;
       if (BagAction == 6) { ToggleCharacterStats(); return; }
       if (BagAction == 7) { ToggleInventory(); return; }
       if (!InventoryItemCodes.IsValidIndex(InventorySelection)) return;
