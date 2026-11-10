@@ -232,7 +232,11 @@ bool AMoonfallHeroPawn::CompleteFactionQuest(FName QuestId)
 
 void AMoonfallHeroPawn::ToggleKeyRing()
 {
- bKeyRingExpanded = !bKeyRingExpanded;
+ if (!bInventoryOpen || bOptionsOpen || Health <= 0.f) return;
+ if (bCharacterStatsOpen)
+  bKeyRingExpanded = !bKeyRingExpanded;
+ else
+  bKeyRingInventoryOpen = !bKeyRingInventoryOpen;
 }
 
 void AMoonfallHeroPawn::AwardEnemyCurrency(bool bEliteEnemy, bool bBossEnemy)
@@ -872,6 +876,7 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
   // Defeat clears every gameplay menu so the death/respawn screen stays visible.
   bInventoryOpen = false;
   bCharacterStatsOpen = false;
+  bKeyRingInventoryOpen = false;
   bOptionsOpen = false;
   UpdateInventoryMouseInput();
  }
@@ -935,7 +940,10 @@ void AMoonfallHeroPawn::ToggleInventory() {
   InventorySelection = FMath::Clamp(InventorySelection, 0, FMath::Max(0, InventoryItemCodes.Num() - 1));
  }
  bInventoryOpen = !bInventoryOpen;
- if (!bInventoryOpen) bCharacterStatsOpen = false;
+ if (!bInventoryOpen) {
+  bCharacterStatsOpen = false;
+  bKeyRingInventoryOpen = false;
+ }
  UpdateInventoryMouseInput();
 }
 void AMoonfallHeroPawn::EquipSelectedInventoryItem() {
@@ -1126,7 +1134,7 @@ void AMoonfallHeroPawn::InventoryConfirm() { EquipSelectedInventoryItem(); }
 void AMoonfallHeroPawn::OpenOptions() {
  // The defeat screen owns input until respawn; do not reopen gameplay menus.
  if (Health <= 0.f || !FMath::IsFinite(Health)) return;
- if (bInventoryOpen) { bInventoryOpen = false; bCharacterStatsOpen = false; UpdateInventoryMouseInput(); return; }
+ if (bInventoryOpen) { bInventoryOpen = false; bCharacterStatsOpen = false; bKeyRingInventoryOpen = false; UpdateInventoryMouseInput(); return; }
  if (!bOptionsOpen) {
   StopJumping();
   if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
