@@ -358,6 +358,7 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("ReforgeGear"), IE_Pressed, this, &AMoonfallHeroPawn::ReforgeSelectedInventoryItem);
  Input->BindAction(TEXT("EquipBest"), IE_Pressed, this, &AMoonfallHeroPawn::EquipBestInventoryAction);
  Input->BindAction(TEXT("Atlas"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleAtlas);
+ Input->BindAction(TEXT("Talents"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleTalents);
  Input->BindAction(TEXT("PickupLoot"), IE_Pressed, this, &AMoonfallHeroPawn::PickupNearestGroundLoot);
  Input->BindAction(TEXT("OptionsUp"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsUp);
  Input->BindAction(TEXT("OptionsDown"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsDown);
@@ -919,6 +920,7 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
   bInventoryOpen = false;
   bCharacterStatsOpen = false;
   bAtlasOpen = false;
+  bTalentsOpen = false;
   bOptionsOpen = false;
   ResetMouseCastChord();
   UpdateInventoryMouseMode();
@@ -963,7 +965,7 @@ void AMoonfallHeroPawn::ToggleCharacterStats()
  // C opens character info from gameplay; controller A still switches
  // between the character sheet and inventory without equipping anything.
  if (bOptionsOpen || !FMath::IsFinite(Health) || Health <= 0.f) return;
- if (bAtlasOpen) bAtlasOpen = false;
+ if (bAtlasOpen) { bAtlasOpen = false; bTalentsOpen = false; }
  if (!bInventoryOpen) {
   ResetMouseCastChord();
   StopJumping();
@@ -1005,25 +1007,52 @@ void AMoonfallHeroPawn::ToggleAtlas()
 {
  if (!FMath::IsFinite(Health) || Health <= 0.f || bOptionsOpen) return;
  ResetMouseCastChord();
+ // M always opens the map, or closes it when the map is already visible.
+ const bool bWasMapOpen = bAtlasOpen && !bTalentsOpen;
  if (!bAtlasOpen) {
   StopJumping();
   if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
   EndSprint();
   EndGuard();
-  // J switches from either inventory page straight into Atlas.
   if (bInventoryOpen) {
    bInventoryOpen = false;
    bCharacterStatsOpen = false;
    UpdateInventoryMouseMode();
   }
  }
- bAtlasOpen = !bAtlasOpen;
+ bAtlasOpen = !bWasMapOpen;
+ bTalentsOpen = false;
+}
+
+void AMoonfallHeroPawn::ToggleTalents()
+{
+ if (!FMath::IsFinite(Health) || Health <= 0.f || bOptionsOpen) return;
+ ResetMouseCastChord();
+ // Reuse the gameplay menu lock of the map, but show a separate K screen.
+ if (bAtlasOpen && bTalentsOpen) {
+  bTalentsOpen = false;
+  bAtlasOpen = false;
+  return;
+ }
+ if (!bAtlasOpen) {
+  StopJumping();
+  if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
+  EndSprint();
+  EndGuard();
+  if (bInventoryOpen) {
+   bInventoryOpen = false;
+   bCharacterStatsOpen = false;
+   UpdateInventoryMouseMode();
+  }
+ }
+ bAtlasOpen = true;
+ bTalentsOpen = true;
 }
 
 void AMoonfallHeroPawn::ToggleInventory() {
  if (bOptionsOpen || !FMath::IsFinite(Health) || Health <= 0.f) return;
  ResetMouseCastChord();
- if (bAtlasOpen) bAtlasOpen = false;
+ if (bAtlasOpen) { bAtlasOpen = false; bTalentsOpen = false; }
  if (bCharacterStatsOpen) {
   // B returns from character info directly to the editable inventory.
   bCharacterStatsOpen = false;
@@ -1292,6 +1321,7 @@ void AMoonfallHeroPawn::OpenOptions() {
  ResetMouseCastChord();
  if (bAtlasOpen) {
   bAtlasOpen = false;
+  bTalentsOpen = false;
   return;
  }
  if (bInventoryOpen) {
