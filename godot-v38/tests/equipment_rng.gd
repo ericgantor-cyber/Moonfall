@@ -61,5 +61,15 @@ func _run()->void:
  check(int(legendary["weapon_power"])==ordinary+9,"higher rarity takes precedence")
  check(int(legendary["crit"])==0,"highest rarity supplies affixes")
  check(int(INVENTORY.normalize(empowered)["loot_rolls"].size())==4,"all valid duplicate rolls survive save normalization")
+ # Corrupt/legacy rolls must not stack the same affix repeatedly.
+ var malformed:Dictionary=INVENTORY.new_state()
+ INVENTORY.add_item(malformed,"ashwood_sword")
+ INVENTORY.equip(malformed,"ashwood_sword",1)
+ malformed["loot_rolls"].append({"item_id":"ashwood_sword","rarity_index":4,"power_bonus":0,"affixes":[{"stat":"Power","value":5},{"stat":"Power","value":30},{"stat":"Crit","value":7},{"stat":"Unknown","value":30}]})
+ var guarded:Dictionary=INVENTORY.totals(malformed)
+ check(int(guarded["weapon_power"])==ordinary+5,"duplicate Power affix only applies once")
+ check(int(guarded["crit"])==7,"distinct supported affix still applies")
+ malformed["loot_rolls"][0]["affixes"]="invalid"
+ check(int(INVENTORY.totals(malformed)["weapon_power"])==ordinary,"malformed affix payload ignored")
  print("GEAR RNG "+("PASS" if errors==0 else "FAIL"))
  quit(0 if errors==0 else 1)
