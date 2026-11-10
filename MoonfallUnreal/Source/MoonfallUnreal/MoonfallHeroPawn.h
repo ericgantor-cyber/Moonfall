@@ -35,11 +35,6 @@ public:
  UFUNCTION(BlueprintPure, Category="Moonfall|Stats") int32 GetStaminaAttribute() const;
  UFUNCTION(BlueprintPure, Category="Moonfall|Stats") int32 GetIntellect() const;
  UFUNCTION(BlueprintPure, Category="Moonfall|Stats") int32 GetSpirit() const;
- UFUNCTION(BlueprintPure, Category="Moonfall|Stats") float GetHitChance() const;
- UFUNCTION(BlueprintPure, Category="Moonfall|Stats") float GetDodgeChance() const;
- UFUNCTION(BlueprintPure, Category="Moonfall|Stats") float GetParryChance() const;
- UFUNCTION(BlueprintPure, Category="Moonfall|Stats") float GetBlockChance() const;
- UFUNCTION(BlueprintPure, Category="Moonfall|Stats") float GetBlockValue() const;
  UFUNCTION(BlueprintPure, Category="Moonfall|Stats") int32 GetArmorRating() const;
  UFUNCTION(BlueprintPure, Category="Moonfall|Stats") int32 GetDefenseRating() const;
  UFUNCTION(BlueprintPure, Category="Moonfall|Stats") float GetMeleeAttackPower() const;
