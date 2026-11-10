@@ -287,13 +287,13 @@ void AMoonfallCombatHUD::DrawHUD()
       MenuLeft+20.f,MenuTop+75.f+i*MenuRowGap,nullptr,1.1f);
     const float ControlY=MenuTop+66.f+i*MenuRowGap;
     const float ControlH=FMath::Min(34.f,MenuRowGap-2.f);
-    DrawRect(FLinearColor(0.15f,0.35f,0.44f),MenuLeft+MenuWidth-104.f,ControlY,39.f,ControlH);
-    DrawRect(FLinearColor(0.15f,0.35f,0.44f),MenuLeft+MenuWidth-55.f,ControlY,39.f,ControlH);
+    DrawRect(Hero->MenuActionFocus==i ? FLinearColor(0.72f,0.53f,0.20f) : FLinearColor(0.15f,0.35f,0.44f),MenuLeft+MenuWidth-104.f,ControlY,39.f,ControlH);
+    DrawRect(Hero->MenuActionFocus==i+7 ? FLinearColor(0.72f,0.53f,0.20f) : FLinearColor(0.15f,0.35f,0.44f),MenuLeft+MenuWidth-55.f,ControlY,39.f,ControlH);
     DrawText(TEXT("-"),FLinearColor::White,MenuLeft+MenuWidth-91.f,ControlY+5.f,nullptr,0.95f);
     DrawText(TEXT("+"),FLinearColor::White,MenuLeft+MenuWidth-42.f,ControlY+5.f,nullptr,0.95f);
    }
   }
-  DrawRect(FLinearColor(0.15f,0.35f,0.44f),MenuLeft+MenuWidth-100.f,MenuTop+MenuHeight-43.f,88.f,34.f);
+  DrawRect(Hero->MenuActionFocus==14 ? FLinearColor(0.72f,0.53f,0.20f) : FLinearColor(0.15f,0.35f,0.44f),MenuLeft+MenuWidth-100.f,MenuTop+MenuHeight-43.f,88.f,34.f);
   DrawText(TEXT("CLOSE"),FLinearColor::White,MenuLeft+MenuWidth-89.f,MenuTop+MenuHeight-35.f,nullptr,0.85f);
   return;
  }
@@ -797,7 +797,8 @@ void AMoonfallCombatHUD::DrawHUD()
     const bool bEnabled = Action >= 7 ||
        (bHasCandidate && (Action != 0 || CandidateIndex > 0) &&
         (Action != 1 || CandidateIndex+1 < Hero->InventoryItemCodes.Num()));
-    DrawRect(bEnabled ? FLinearColor(0.15f,0.38f,0.45f,0.97f)
+    DrawRect(Hero->MenuActionFocus==Action ? FLinearColor(0.72f,0.53f,0.20f) :
+       bEnabled ? FLinearColor(0.15f,0.38f,0.45f,0.97f)
         : FLinearColor(0.18f,0.18f,0.22f,0.94f),BX,BY,BW,BH);
     DrawText(Actions[Action],bEnabled ? FLinearColor::White
         : FLinearColor(0.60f,0.62f,0.66f),BX+6.f,BY+8.f,
@@ -845,7 +846,8 @@ void AMoonfallCombatHUD::DrawHUD()
     const bool bEnabled = Action >= 7 ||
        (bHasCandidate && (Action != 0 || CandidateIndex > 0) &&
         (Action != 1 || CandidateIndex+1 < Hero->InventoryItemCodes.Num()));
-    DrawRect(bEnabled ? FLinearColor(0.15f,0.38f,0.45f,0.97f)
+    DrawRect(Hero->MenuActionFocus==Action ? FLinearColor(0.72f,0.53f,0.20f) :
+       bEnabled ? FLinearColor(0.15f,0.38f,0.45f,0.97f)
         : FLinearColor(0.18f,0.18f,0.22f,0.94f),BX,BY,BW,BH);
     DrawText(Actions[Action],bEnabled ? FLinearColor::White
         : FLinearColor(0.60f,0.62f,0.66f),BX+6.f,BY+8.f,
@@ -1144,7 +1146,8 @@ void AMoonfallCombatHUD::DrawHUD()
    float BX=0.f,BY=0.f,BW=0.f,BH=0.f;
    if (!MoonfallBagActionRect(Canvas,Action,BX,BY,BW,BH)) continue;
    const bool Enabled=Action>=6 || Count>0;
-   DrawRect(Enabled ? FLinearColor(0.15f,0.38f,0.45f,0.97f)
+   DrawRect(Hero->MenuActionFocus==Action ? FLinearColor(0.72f,0.53f,0.20f) :
+     Enabled ? FLinearColor(0.15f,0.38f,0.45f,0.97f)
       : FLinearColor(0.18f,0.18f,0.22f,0.94f),BX,BY,BW,BH);
    DrawText(BagActions[Action],Enabled ? FLinearColor::White
        : FLinearColor(0.60f,0.62f,0.66f),BX+6.f,BY+8.f,nullptr,
