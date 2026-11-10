@@ -338,6 +338,25 @@ class InventoryCapacityPort(unittest.TestCase):
         self.assertIn("Wheel: zoom", panel)
         self.assertIn("const float Zoom =", panel)
 
+    def test_talent_keystones_provide_distinct_live_combat_perks(self):
+        # Unlock flags must affect combat calculations, not merely change HUD color.
+        cast = body(self.hero, "bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier, bool bOvercharged)")
+        self.assertIn("(bTalentFocusKeystone ? 0.90f : 1.f)", cast)
+        self.assertIn("(bTalentForceKeystone ? 0.20f : 0.f)", cast)
+        self.assertIn("(bTalentBattleWeave ? 0.15f : 0.f)", cast)
+        self.assertIn("Mana < Costs[School] * ManaCostMultiplier", cast)
+        self.assertIn("Mana -= Costs[School] * ManaCostMultiplier;", cast)
+        hurt = body(self.hero, "void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount)")
+        self.assertIn("DamageAfterGuard *= bTalentWardKeystone ? 0.32f : 0.4f;", hurt)
+        tick = body(self.hero, "void AMoonfallHeroPawn::Tick(float DeltaSeconds)")
+        self.assertIn("(bTalentArcaneAegis ? 1.15f : 1.f)", tick)
+        self.assertIn("(bTalentIronWill ? 1.20f : 1.f)", tick)
+        self.assertIn("FMath::Min(MaxMana, Mana +", tick)
+        self.assertIn("FMath::Clamp(Stamina +", tick)
+        self.assertIn("bTalentForceKeystone = false;", self.hero)
+        self.assertIn("bTalentArcaneAegis = false;", self.hero)
+        self.assertIn("bTalentIronWill = false;", self.hero)
+
     def test_inventory_has_no_equip_or_page_buttons(self):
         hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
         left = body(self.hero, "void AMoonfallHeroPawn::LeftClickContextAction()")
