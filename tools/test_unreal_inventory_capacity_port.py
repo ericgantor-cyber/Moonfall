@@ -179,7 +179,7 @@ class InventoryCapacityPort(unittest.TestCase):
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
         header = (ROOT / "MoonfallHeroPawn.h").read_text(encoding="utf-8")
         hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
-        self.assertIn("int32 MenuActionFocus = 0;", header)
+        self.assertIn("int32 MenuActionFocus = -1;", header)
         self.assertIn("void ActivateFocusedMenuAction();", header)
         self.assertIn('ActionName="InventoryPage",Key=Gamepad_FaceButton_Bottom', inputs)
         self.assertNotIn('ActionName="CharacterStatsNext",Key=Gamepad_DPad_Right', inputs)
@@ -204,6 +204,13 @@ class InventoryCapacityPort(unittest.TestCase):
         self.assertIn("Hero->MenuActionFocus==Action", hud)
         self.assertIn("Hero->MenuActionFocus==i+7", hud)
         self.assertIn("Hero->MenuActionFocus==14", hud)
+        # Opening a menu must not leave a destructive action selected.
+        self.assertIn("if (MenuActionFocus < 0) return;", confirm)
+        self.assertEqual(confirm.count("if (MenuActionFocus < 0) return;"), 2)
+        for name in ("OptionsUp", "OptionsDown"):
+            navigation = body(self.hero, "void AMoonfallHeroPawn::" + name + "()")
+            self.assertIn("MenuActionFocus", navigation)
+        self.assertIn("MenuActionFocus = -1;", self.hero)
         jump = body(self.hero, "void AMoonfallHeroPawn::TryJump()")
         self.assertIn("bOptionsOpen || bInventoryOpen || bAtlasOpen", jump)
 
@@ -256,7 +263,7 @@ class InventoryCapacityPort(unittest.TestCase):
         mouse = body(self.hero, "void AMoonfallHeroPawn::UpdateInventoryMouseMode()")
         self.assertIn("bInventoryOpen || bAtlasOpen || bOptionsOpen", mouse)
         self.assertIn("bOptionsOpen = !bOptionsOpen;", self.hero)
-        self.assertIn("MenuActionFocus = 0;\\n UpdateInventoryMouseMode();".replace("\\n","\n"), self.hero)
+        self.assertIn("MenuActionFocus = -1;\\n UpdateInventoryMouseMode();".replace("\\n","\n"), self.hero)
 
     def test_sort_mode_survives_version_two_save_round_trip(self):
         source = self.hero
