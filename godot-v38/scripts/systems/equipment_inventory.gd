@@ -28,7 +28,8 @@ static func add_item(state:Dictionary,item_id:String,count:int=1)->bool:
  var items:Dictionary=value
  var owned:int=_safe_roll_number(items.get(item_id,0),9999)
  if owned>=9999:return false
- items[item_id]=mini(9999,owned+count)
+ # Saturate before addition: an untrusted large count must not overflow int64.
+ items[item_id]=owned+mini(count,9999-owned)
  state["items"]=items
  return true
 
@@ -53,7 +54,8 @@ static func add_material(state:Dictionary,material:String,count:int)->bool:
  var materials:Dictionary=value
  var available:int=_safe_roll_number(materials.get(material,0),999999)
  if available>=999999:return false
- materials[material]=mini(999999,available+count)
+ # Bound the increment first to avoid signed integer overflow.
+ materials[material]=available+mini(count,999999-available)
  state["materials"]=materials
  return true
 
