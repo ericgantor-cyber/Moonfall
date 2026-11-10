@@ -177,6 +177,23 @@ func _run()->void:
  check(not clean_saved["items"].has("ashwood_sword"),"invalid saved item quantity is dropped")
  check(clean_saved["materials"].is_empty(),"invalid saved materials are dropped")
  check(int(clean_saved["gold"])==0 and int(clean_saved["loot_pity"])==0,"invalid saved currency and pity reset safely")
+ # Nonfinite or oversized floating-point save values must not reach int().
+ var float_corrupt:Dictionary=empowered.duplicate(true)
+ float_corrupt["items"]["ashwood_sword"]=NAN
+ check(int(INVENTORY.totals(float_corrupt)["weapon_power"])==0,"NaN owned quantity grants no stats")
+ float_corrupt["items"]["ashwood_sword"]=INF
+ check(int(INVENTORY.totals(float_corrupt)["weapon_power"])==ordinary,"infinite owned quantity saturates safely")
+ float_corrupt["items"]["ashwood_sword"]=-INF
+ check(int(INVENTORY.totals(float_corrupt)["weapon_power"])==0,"negative infinite quantity grants no stats")
+ var float_saved:Dictionary=empowered.duplicate(true)
+ float_saved["gold"]=NAN
+ float_saved["loot_pity"]=INF
+ float_saved["materials"]={"Ashwood":INF,"Broken":NAN}
+ var normalized_float:Dictionary=INVENTORY.normalize(float_saved)
+ check(int(normalized_float["gold"])==0,"NaN gold normalizes to zero")
+ check(int(normalized_float["loot_pity"])==80,"infinite pity clamps to limit")
+ check(int(normalized_float["materials"]["Ashwood"])==999999,"infinite material stack clamps safely")
+ check(not normalized_float["materials"].has("Broken"),"NaN material quantity is discarded")
  # A matching owned roll may contain malformed numeric values in an old save.
  var malformed_numbers:Dictionary=empowered.duplicate(true)
  malformed_numbers["loot_rolls"]=[{"item_id":"ashwood_sword","rarity_index":{"bad":true},"power_bonus":["bad"],"affixes":[{"stat":"Power","value":{"bad":true}},{"stat":"Crit","value":["bad"]}]}]
