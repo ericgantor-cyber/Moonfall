@@ -179,6 +179,7 @@ bool AMoonfallHeroPawn::LoadRewardProgress()
  }
  bRewardSaveLoadFailed = false;
  bRewardSaveInitialized = true;
+ const int32 PreviousArmorTierOnLoad = ArmorTier;
  Gold = 0;
  ConfirmedRewardKills = 0;
  CollectedKeys.Reset();
@@ -262,6 +263,14 @@ bool AMoonfallHeroPawn::LoadRewardProgress()
    }
   }
   EquipmentTier = FMath::Max(WeaponTier, FMath::Max(ArmorTier, AccessoryTier));
+ }
+ // Preserve authored base stats and avoid double-applying armor on reload.
+ if (PreviousArmorTierOnLoad != ArmorTier)
+ {
+  const float ArmorHealthDelta = 2.f * (ArmorTier - PreviousArmorTierOnLoad);
+  MaxHealth = FMath::Max(1.f, MaxHealth + ArmorHealthDelta);
+  Health = FMath::Clamp(Health + ArmorHealthDelta, 1.f, MaxHealth);
+  OnHealthChanged(Health, MaxHealth);
  }
  bKeyRingExpanded = !CollectedKeys.IsEmpty();
  return true;
