@@ -43,6 +43,18 @@ void AMoonfallGroundLoot::InitializeLoot(int32 InItemCode)
  if (ItemCode != 0 || bCollected) return;
  // Failed initialization must not leave an unusable world actor behind.
  if (InItemCode <= 0) { Destroy(); return; }
+ if (InItemCode > AMoonfallHeroPawn::KeyLootBase &&
+     InItemCode <= AMoonfallHeroPawn::KeyLootBase + AMoonfallHeroPawn::MaxKeyId) {
+  ItemCode = InItemCode;
+  const int32 KeyId=ItemCode-AMoonfallHeroPawn::KeyLootBase;
+  ItemLabel->SetText(FText::FromString(FString::Printf(
+     TEXT("KEY %d  [F / X]"),KeyId)));
+  ItemLabel->SetTextRenderColor(FColor(245,201,63));
+  // Key drops are gold and use the same reach and line-of-sight checks.
+  if (UMaterialInstanceDynamic* Beacon=RarityBeacon->CreateAndSetMaterialInstanceDynamic(0))
+   Beacon->SetVectorParameterValue(TEXT("Color"),FLinearColor(FColor(245,201,63)));
+  return;
+ }
  const int32 Affix = InItemCode / 100000;
  const int32 Slot = (InItemCode / 10000) % 10;
  const int32 Rarity = (InItemCode / 1000) % 10;
