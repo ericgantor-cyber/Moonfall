@@ -212,9 +212,11 @@ public:
  // Respec is armed on first press and confirmed on a second explicit press.
  // Leaving the talent menu cancels it, protecting invested points.
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") bool bTalentRespecArmed = false;
- // World-time deadline. A stale confirmation is never allowed to reset a build.
- float TalentRespecConfirmUntil = -1.f;
+ // Confirmation dialog stays open until the player explicitly selects Yes or No.
+ // 0 = Yes, 1 = No (safe initial selection).
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") int32 TalentRespecChoice = 1;
  void RespecTalentAction();
+ void ResolveTalentRespecConfirmation(bool bConfirm);
 
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Inventory") bool bCharacterStatsOpen = false;
  // C-page tabs: overview, offensive/primary, defenses and resistances.
