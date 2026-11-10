@@ -168,16 +168,14 @@ class MoonfallIntegrationChecks(unittest.TestCase):
 
     def test_keyboard_controller_inventory_overlay_navigation_and_equip(self):
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
-        for binding in ('ActionName="Inventory",Key=B', 'ActionName="Inventory",Key=Gamepad_Special_Left',
-                        'ActionName="InventoryConfirm",Key=Enter',
-                        'ActionName="InventoryConfirm",Key=Gamepad_FaceButton_Top'):
+        for binding in ('ActionName="Inventory",Key=B', 'ActionName="Inventory",Key=Gamepad_Special_Left'):
             self.assertIn(binding, inputs)
         self.assertIn("bool bInventoryOpen = false;", self.hero_h)
         self.assertIn("int32 InventorySelection = 0;", self.hero_h)
         self.assertIn("void ToggleInventory();", self.hero_h)
         self.assertIn("void EquipSelectedInventoryItem();", self.hero_h)
         self.assertIn('BindAction(TEXT("Inventory"), IE_Pressed', self.hero_cpp)
-        self.assertIn('BindAction(TEXT("InventoryConfirm"), IE_Pressed', self.hero_cpp)
+        self.assertNotIn('BindAction(TEXT("InventoryConfirm"), IE_Pressed', self.hero_cpp)
         toggle = self.hero_cpp.split("void AMoonfallHeroPawn::ToggleInventory()", 1)[1].split(
             "void AMoonfallHeroPawn::AdjustOption", 1)[0]
         self.assertIn("bInventoryOpen = !bInventoryOpen;", toggle)
@@ -661,7 +659,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("bRightMouseHeld = true;", mouse)
         self.assertLess(mouse.index("EquipSelectedInventoryItem();"),
                         mouse.index("bRightMouseHeld = true;"))
-        self.assertIn("Right-click / Enter / Y: equip", self.hud)
+        self.assertIn("Right-click row: equip", self.hud)
         self.assertIn('ActionName="Atlas",Key=J', inputs)
 
     def test_direct_equipment_change_requires_open_inventory(self):
@@ -1036,7 +1034,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("void SalvageSelectedInventoryItem();", self.hero_h)
         self.assertIn('BindAction(TEXT("InventorySalvage"), IE_Pressed', self.hero_cpp)
         salvage = self.hero_cpp.split("bool AMoonfallHeroPawn::SalvageInventoryItem(int32 InventoryIndex)", 1)[1].split(
-            "void AMoonfallHeroPawn::InventoryConfirm()", 1)[0]
+            "void AMoonfallHeroPawn::OpenOptions()", 1)[0]
         self.assertIn("InventoryItemCodes.IsValidIndex(InventoryIndex)", salvage)
         self.assertIn("Code == EquippedWeaponCode || Code == EquippedArmorCode", salvage)
         self.assertIn("Code == EquippedAccessoryCode", salvage)
