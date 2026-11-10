@@ -147,6 +147,8 @@ bool AMoonfallHeroPawn::LoadRewardProgress()
  Gold = 0;
  ConfirmedRewardKills = 0;
  CollectedKeys.Reset();
+ CompletedFactionQuests.Reset();
+ bKeyRingExpanded = false;
  if (!UGameplayStatics::DoesSaveGameExist(RewardSaveSlot, RewardSaveUser)) return true;
  const UMoonfallRewardSaveGame* Save = Cast<UMoonfallRewardSaveGame>(
    UGameplayStatics::LoadGameFromSlot(RewardSaveSlot, RewardSaveUser));
@@ -158,6 +160,14 @@ bool AMoonfallHeroPawn::LoadRewardProgress()
   if (IsSupportedQuestKey(KeyId) && !CollectedKeys.Contains(KeyId) && CollectedKeys.Num() < 128)
    CollectedKeys.Add(KeyId);
  }
+ for (const FName QuestId : Save->CompletedFactionQuests)
+ {
+  if ((QuestId == FName(TEXT("realm_wardens_oath"))
+      || QuestId == FName(TEXT("realm_outlaw_pact")))
+      && !CompletedFactionQuests.Contains(QuestId))
+   CompletedFactionQuests.Add(QuestId);
+ }
+ bKeyRingExpanded = !CollectedKeys.IsEmpty();
  return true;
 }
 
@@ -169,6 +179,7 @@ bool AMoonfallHeroPawn::SaveRewardProgress()
  Save->Gold = FMath::Max<int64>(0, Gold);
  Save->ConfirmedKills = FMath::Max<int64>(0, ConfirmedRewardKills);
  Save->CollectedKeys = CollectedKeys;
+ Save->CompletedFactionQuests = CompletedFactionQuests;
  return UGameplayStatics::SaveGameToSlot(Save, RewardSaveSlot, RewardSaveUser);
 }
 
@@ -193,8 +204,34 @@ bool AMoonfallHeroPawn::CollectQuestKey(FName KeyId)
  if (!IsSupportedQuestKey(KeyId) || HasQuestKey(KeyId) || CollectedKeys.Num() >= 128)
   return false;
  CollectedKeys.Add(KeyId);
+ bKeyRingExpanded = true;
  SaveRewardProgress();
  return true;
+}
+
+bool AMoonfallHeroPawn::CompleteFactionQuest(FName QuestId)
+{
+ FName RewardKey = NAME_None;
+ if (QuestId == FName(TEXT("realm_wardens_oath")))
+  RewardKey = FName(TEXT("wardens_crest"));
+ else if (QuestId == FName(TEXT("realm_outlaw_pact")))
+  RewardKey = FName(TEXT("outlaw_seal"));
+ if (RewardKey.IsNone() || CompletedFactionQuests.Contains(QuestId))
+  return false;
+ // Both flags are committed together, so replaying a quest cannot mint a key.
+ CompletedFactionQuests.Add(QuestId);
+ if (!HasQuestKey(RewardKey) && CollectedKeys.Num() < 128)
+ {
+  CollectedKeys.Add(RewardKey);
+  bKeyRingExpanded = true;
+ }
+ SaveRewardProgress();
+ return true;
+}
+
+void AMoonfallHeroPawn::ToggleKeyRing()
+{
+ bKeyRingExpanded = !bKeyRingExpanded;
 }
 
 void AMoonfallHeroPawn::AwardEnemyCurrency(bool bEliteEnemy, bool bBossEnemy)
