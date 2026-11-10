@@ -404,6 +404,23 @@ class UE5RewardParity(unittest.TestCase):
         gate = (ROOT / "MoonfallKeyGate.cpp").read_text()
         self.assertIn("Saved->SchemaVersion != 2 && Saved->SchemaVersion != 3", gate)
 
+    def test_salvage_and_loot_save_as_one_rollback_safe_transaction(self):
+        self.assertIn("UPROPERTY(SaveGame) int32 Salvage = 0;", self.save)
+        self.assertIn("Save->Salvage = FMath::Clamp(Salvage, 0, 9999);", self.hero)
+        self.assertIn("Salvage = FMath::Clamp(Save->Salvage, 0, 9999);", self.hero)
+        salvage = self.hero.split("bool AMoonfallHeroPawn::SalvageInventoryItem(", 1)[1].split(
+            "\n}\n", 1)[0]
+        self.assertIn("const int32 PreviousSalvage = Salvage;", salvage)
+        self.assertIn("InventoryItemCodes.RemoveAt(InventoryIndex);", salvage)
+        self.assertIn("if (!SaveRewardProgress())", salvage)
+        self.assertIn("InventoryItemCodes.Insert(Code, InventoryIndex);", salvage)
+        self.assertIn("Salvage = PreviousSalvage;", salvage)
+        self.assertIn("SALVAGE SAVE FAILED - ITEM RESTORED", salvage)
+        self.assertLess(salvage.index("InventoryItemCodes.RemoveAt(InventoryIndex);"),
+                        salvage.index("if (!SaveRewardProgress())"))
+        self.assertLess(salvage.index("if (!SaveRewardProgress())"),
+                        salvage.index("InventorySelection = FMath::Clamp("))
+
     def test_equipment_remains_manual_and_hud_shows_rewards(self):
         self.assertIn("void PickupNearestGroundLoot();", self.hero_h)
         self.assertIn("Loot->TryCollect()", self.hero)
