@@ -124,7 +124,8 @@ class InventoryCapacityPort(unittest.TestCase):
             action = body(self.hero, "void AMoonfallHeroPawn::" + name + "()")
             self.assertIn("if (bInventoryOpen)", action)
             self.assertIn(change, action)
-            self.assertIn("InventoryItemCodes.Num() - 1", action)
+            self.assertIn("GetInventoryVisibleRowCount()", action)
+            self.assertIn("InventoryItemCodes.Num() - VisibleRows", action)
             self.assertNotIn("InventorySelection =", action)
             self.assertIn("return;", action)
             self.assertLess(action.index("if (bInventoryOpen)"),
@@ -154,6 +155,22 @@ class InventoryCapacityPort(unittest.TestCase):
         self.assertNotIn("Canvas-only paginated inventory", hud)
         self.assertNotIn('TEXT("PREV PAGE")', hud)
         self.assertNotIn('TEXT("NEXT PAGE")', hud)
+
+    def test_big_bag_scrollbar_and_salvage_scroll_clamp(self):
+        hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        header = (ROOT / "MoonfallCombatHUD.h").read_text(encoding="utf-8")
+        self.assertIn("GetInventoryVisibleRowCount() const", header)
+        self.assertIn("int32 AMoonfallCombatHUD::GetInventoryVisibleRowCount() const", hud)
+        self.assertIn("TrackHeight * PerPage / Count", hud)
+        self.assertIn("PageStart) / FMath::Max(1, Count - PerPage)", hud)
+        self.assertIn('TEXT("Selected item %d is %s")', hud)
+        self.assertIn("Selected < PageStart || Selected >= PageEnd", hud)
+        salvage = body(self.hero, "bool AMoonfallHeroPawn::SalvageInventoryItem(")
+        self.assertLess(salvage.index("InventoryItemCodes.RemoveAt(InventoryIndex)"),
+                        salvage.index("InventoryViewStart = FMath::Clamp("))
+        self.assertNotIn('TEXT("PREV PAGE")', hud)
+        self.assertNotIn('TEXT("NEXT PAGE")', hud)
+        self.assertNotIn('TEXT("EQUIP SELECTED")', hud)
 
     def test_inventory_has_no_equip_or_page_buttons(self):
         hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
