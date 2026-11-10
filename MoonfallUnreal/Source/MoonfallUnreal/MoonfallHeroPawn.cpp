@@ -1984,20 +1984,17 @@ bool AMoonfallHeroPawn::RegisterWorldEquipmentDrop(int32 ItemCode, const FVector
 void AMoonfallHeroPawn::RestorePendingWorldEquipmentDrops()
 {
  if (!GetWorld() || bRewardSaveLoadFailed) return;
- // Replay only committed IDs. Scan existing actors to avoid duplicates if
- // this function is invoked again in the same world.
+ // Build an index once, rather than scanning all world actors for each
+ // saved drop. Both existing-actor and saved-record counts are bounded.
+ TSet<FGuid> SpawnedIds;
+ for (TActorIterator<AMoonfallGroundLoot> It(GetWorld()); It; ++It)
+ {
+  if (IsValid(*It) && It->GetPersistentDropId().IsValid())
+   SpawnedIds.Add(It->GetPersistentDropId());
+ }
  for (const FMoonfallWorldLootRecord& Record : PendingWorldLoot)
  {
-  bool bAlreadySpawned = false;
-  for (TActorIterator<AMoonfallGroundLoot> It(GetWorld()); It; ++It)
-  {
-   if (IsValid(*It) && It->GetPersistentDropId() == Record.DropId)
-   {
-    bAlreadySpawned = true;
-    break;
-   }
-  }
-  if (bAlreadySpawned) continue;
+  if (SpawnedIds.Contains(Record.DropId)) continue;
   const FTransform SpawnTransform(FRotator::ZeroRotator, Record.Location);
   AMoonfallGroundLoot* Loot = Cast<AMoonfallGroundLoot>(
     UGameplayStatics::BeginDeferredActorSpawnFromClass(
@@ -2007,6 +2004,7 @@ void AMoonfallHeroPawn::RestorePendingWorldEquipmentDrops()
   Loot->SetPersistentDropId(Record.DropId);
   Loot->InitializeLoot(Record.ItemCode);
   UGameplayStatics::FinishSpawningActor(Loot, SpawnTransform);
+  SpawnedIds.Add(Record.DropId);
  }
 }
 
