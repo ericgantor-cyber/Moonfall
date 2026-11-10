@@ -432,6 +432,7 @@ bool AMoonfallHeroPawn::LoadProgress()
   // Restore all three equipped items from the validated owned inventory.
   InventoryItemCodes = Save->InventoryCodes;
   KeyRingIds = Save->KeyRingIds;
+  LastCollectedKeyId = 0; // The last discovery badge is session-only.
   EquippedWeaponCode = Save->EquippedWeapon;
   EquippedArmorCode = Save->EquippedArmor;
   EquippedAccessoryCode = Save->EquippedAccessory;
@@ -2660,6 +2661,7 @@ bool AMoonfallHeroPawn::AddKeyToRing(int32 KeyId)
  if (KeyRingIds.Num() >= MaxKeyId) return false;
  KeyRingIds.Add(KeyId);
  KeyRingIds.Sort();
+ LastCollectedKeyId = KeyId;
  bProgressDirty = true;
  return true;
 }
