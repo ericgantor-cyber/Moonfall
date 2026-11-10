@@ -584,20 +584,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("bLeftMouseHeld = true;", left)
         self.assertLess(left.index("InventorySelection = ClickedIndex;"),
                         left.index("bLeftMouseHeld = true;"))
-        # Only an explicit visible EQUIP button may equip on left-click.
-        equip_button = "HUD->IsInventoryEquipButtonAtScreenPosition(this, MouseX, MouseY)"
-        self.assertIn(equip_button, left)
-        self.assertLess(left.index(equip_button),
-                        left.index("HUD->GetInventoryItemAtScreenPosition(this, MouseX, MouseY)"))
-        self.assertIn("EquipSelectedInventoryItem();", left)
-        equip_region = left.split(equip_button, 1)[1].split(
-            "const int32 ClickedIndex", 1)[0]
-        self.assertIn("EquipSelectedInventoryItem();", equip_region)
-        self.assertIn("return;", equip_region)
-        row_region = left.split("const int32 ClickedIndex", 1)[1]
         for forbidden in ("EquipSelectedInventoryItem(", "EquipInventoryItem(",
                           "SalvageInventoryItem(", "InventoryItemCodes.RemoveAt("):
-            self.assertNotIn(forbidden, row_region)
+            self.assertNotIn(forbidden, left)
         dual = self.hero_cpp.split("void AMoonfallHeroPawn::CastBoth()", 1)[1].split(
             "void AMoonfallHeroPawn::BreakGuard()", 1
         )[0]
