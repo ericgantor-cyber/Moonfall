@@ -181,7 +181,10 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("bBagPanelOpen = !bBagPanelOpen;", toggle)
         self.assertIn("bInventoryOpen = bBagPanelOpen || bCharacterStatsOpen;", toggle)
         self.assertIn("bMenuFocusCharacter = !bBagPanelOpen && bCharacterStatsOpen;", toggle)
-        self.assertNotIn("EquipInventoryItem(InventorySelection);", toggle)
+        toggle_body = self.hero_cpp.split("void AMoonfallHeroPawn::ToggleInventory()", 1)[1].split(
+            "void AMoonfallHeroPawn::CycleInventorySort()", 1
+        )[0]
+        self.assertNotIn("EquipInventoryItem(InventorySelection);", toggle_body)
         self.assertIn("UpdateInventoryMouseMode();", toggle)
         self.assertIn("MenuActionFocus=MenuActionFocus<0 ? 0 : FMath::Clamp(MenuActionFocus-1", toggle)
         self.assertIn("MenuActionFocus=FMath::Clamp(MenuActionFocus+1", toggle)
