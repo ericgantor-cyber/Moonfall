@@ -15,6 +15,10 @@ int32 AMoonfallCombatHUD::GetInventoryItemAtScreenPosition(
  if (!Canvas || !IsValid(Hero) || !Hero->bInventoryOpen ||
      Hero->bCharacterStatsOpen || Hero->bOptionsOpen ||
      !FMath::IsFinite(X) || !FMath::IsFinite(Y)) return -1;
+ // The SORT button owns its entire rectangle, even when a compact
+ // viewport puts it over an equipment row. Neither mouse button can
+ // accidentally select or equip a row through the SORT control.
+ if (IsInventorySortButtonAtScreenPosition(Hero, X, Y)) return -1;
  const int32 Count = Hero->InventoryItemCodes.Num();
  if (Count <= 0) return -1;
  const bool bWideInventory = Canvas->SizeX >= 1100.f && Canvas->SizeY >= 600.f;
