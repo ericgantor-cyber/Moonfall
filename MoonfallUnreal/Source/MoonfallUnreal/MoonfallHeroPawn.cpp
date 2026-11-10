@@ -367,8 +367,8 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
 void AMoonfallHeroPawn::ZoomCameraIn() {
  if (!FMath::IsFinite(Health) || Health <= 0.f || bOptionsOpen || bAtlasOpen) return;
  if (bInventoryOpen) {
-  // Wheel up browses gear instead of changing the camera behind the menu.
-  InventorySelection = FMath::Clamp(InventorySelection - 3, 0,
+  // WoW-style bag viewport scroll: one row per notch, no selection changes.
+  InventoryViewStart = FMath::Clamp(InventoryViewStart - 1, 0,
     FMath::Max(0, InventoryItemCodes.Num() - 1));
   return;
  }
@@ -377,8 +377,8 @@ void AMoonfallHeroPawn::ZoomCameraIn() {
 void AMoonfallHeroPawn::ZoomCameraOut() {
  if (!FMath::IsFinite(Health) || Health <= 0.f || bOptionsOpen || bAtlasOpen) return;
  if (bInventoryOpen) {
-  // Wheel down browses three rows, without equipping or salvaging.
-  InventorySelection = FMath::Clamp(InventorySelection + 3, 0,
+  // Scroll the visible bag list independently of highlighted equipment.
+  InventoryViewStart = FMath::Clamp(InventoryViewStart + 1, 0,
     FMath::Max(0, InventoryItemCodes.Num() - 1));
   return;
  }
@@ -1025,6 +1025,7 @@ void AMoonfallHeroPawn::ToggleInventory() {
   EndSprint();
   EndGuard();
   InventorySelection = FMath::Clamp(InventorySelection, 0, FMath::Max(0, InventoryItemCodes.Num() - 1));
+  InventoryViewStart = InventorySelection;
  }
  bInventoryOpen = !bInventoryOpen;
  if (!bInventoryOpen) bCharacterStatsOpen = false;
@@ -1073,12 +1074,14 @@ void AMoonfallHeroPawn::CycleInventorySort()
   if (InventoryItemCodes[Index] == SelectedCode) {
    if (SelectedOccurrence == 0) {
     InventorySelection = Index;
+    InventoryViewStart = Index;
     return;
    }
    --SelectedOccurrence;
   }
  // Defensive fallback: selection remains a valid visible entry.
  InventorySelection = FMath::Clamp(OldSelection, 0, InventoryItemCodes.Num() - 1);
+ InventoryViewStart = InventorySelection;
 }
 void AMoonfallHeroPawn::EquipSelectedInventoryItem() {
  if (!bInventoryOpen || bCharacterStatsOpen || !InventoryItemCodes.IsValidIndex(InventorySelection)) return;
@@ -1296,6 +1299,7 @@ void AMoonfallHeroPawn::OpenOptions() {
 void AMoonfallHeroPawn::OptionsUp() {
  if (bInventoryOpen) {
   InventorySelection = FMath::Max(0, InventorySelection - 1);
+  InventoryViewStart = InventorySelection;
   return;
  }
  if (bOptionsOpen) OptionsSelection = (OptionsSelection + 6) % 7;
@@ -1303,6 +1307,7 @@ void AMoonfallHeroPawn::OptionsUp() {
 void AMoonfallHeroPawn::OptionsDown() {
  if (bInventoryOpen) {
   InventorySelection = FMath::Min(FMath::Max(0, InventoryItemCodes.Num() - 1), InventorySelection + 1);
+  InventoryViewStart = InventorySelection;
   return;
  }
  if (bOptionsOpen) OptionsSelection = (OptionsSelection + 1) % 7;
@@ -1312,6 +1317,7 @@ void AMoonfallHeroPawn::OptionsLeft() {
   // Directional input only browses gear. Equipping is row right-click only.
   InventorySelection = FMath::Clamp(InventorySelection - 5, 0,
     FMath::Max(0, InventoryItemCodes.Num() - 1));
+  InventoryViewStart = InventorySelection;
   return;
  }
  AdjustOption(-1);
@@ -1320,6 +1326,7 @@ void AMoonfallHeroPawn::OptionsRight() {
  if (bInventoryOpen) {
   InventorySelection = FMath::Clamp(InventorySelection + 5, 0,
     FMath::Max(0, InventoryItemCodes.Num() - 1));
+  InventoryViewStart = InventorySelection;
   return;
  }
  AdjustOption(1);
