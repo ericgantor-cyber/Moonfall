@@ -2022,7 +2022,25 @@ void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(bool bEliteEnemy, bool bBossEne
   const float Spread = DropCount == 1 ? 0.f : 105.f;
   const FVector SpawnAt = Origin + FVector(Spread * FMath::Cos(Angle),
     Spread * FMath::Sin(Angle), 45.f);
-  RegisterWorldEquipmentDrop(ItemCode, SpawnAt);
+  if (RegisterWorldEquipmentDrop(ItemCode, SpawnAt)) continue;
+  // The disk may be read-only or the bounded ledger may be full. Do not
+  // silently discard earned equipment: spawn a clearly temporary pickup.
+  // It can only become durable once the player successfully collects it.
+  const FTransform FallbackTransform(FRotator::ZeroRotator, SpawnAt);
+  AMoonfallGroundLoot* Fallback = Cast<AMoonfallGroundLoot>(
+    UGameplayStatics::BeginDeferredActorSpawnFromClass(
+      this, AMoonfallGroundLoot::StaticClass(), FallbackTransform,
+      ESpawnActorCollisionHandlingMethod::AlwaysSpawn));
+  if (Fallback)
+  {
+   Fallback->InitializeLoot(ItemCode);
+   UGameplayStatics::FinishSpawningActor(Fallback, FallbackTransform);
+  }
+  KeyInteractionNotice = Fallback
+    ? TEXT("LOOT NOT SAVED - TEMPORARY DROP, COLLECT BEFORE EXIT")
+    : TEXT("LOOT NOT SAVED - WORLD DROP FAILED");
+  bKeyInteractionNoticeError = true;
+  KeyInteractionNoticeUntil = GetWorld()->GetTimeSeconds() + 8.f;
  }
 }
 
