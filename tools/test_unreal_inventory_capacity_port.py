@@ -134,6 +134,31 @@ class InventoryCapacityPort(unittest.TestCase):
         self.assertIn("HUD->GetInventoryItemAtScreenPosition", right)
 
 
+    def test_clickable_settings_and_atlas_navigation(self):
+        hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        header = (ROOT / "MoonfallCombatHUD.h").read_text(encoding="utf-8")
+        self.assertIn("GetOptionsActionAtScreenPosition(", header)
+        self.assertIn("GetAtlasMenuActionAtScreenPosition(", header)
+        settings = body(hud, "int32 AMoonfallCombatHUD::GetOptionsActionAtScreenPosition(")
+        self.assertIn("return 14;", settings)
+        self.assertIn("return Row;", settings)
+        self.assertIn("return 7+Row;", settings)
+        atlas = body(hud, "int32 AMoonfallCombatHUD::GetAtlasMenuActionAtScreenPosition(")
+        self.assertIn("return 0;", atlas)
+        self.assertIn("return 1;", atlas)
+        self.assertIn("return 2;", atlas)
+        click = body(self.hero, "void AMoonfallHeroPawn::LeftClickContextAction()")
+        for call in ("GetOptionsActionAtScreenPosition", "GetAtlasMenuActionAtScreenPosition",
+                     "AdjustOption(Action<7 ? -1 : 1)", "SelectPreviousTalentPage",
+                     "SelectNextTalentPage", "ToggleAtlas()", "ToggleTalents()"):
+            self.assertIn(call, click)
+        self.assertLess(click.index("if (bOptionsOpen || bAtlasOpen)"),
+                        click.index("if (bAtlasOpen && bTalentsOpen)"))
+        mouse = body(self.hero, "void AMoonfallHeroPawn::UpdateInventoryMouseMode()")
+        self.assertIn("bInventoryOpen || bAtlasOpen || bOptionsOpen", mouse)
+        self.assertIn("bOptionsOpen = !bOptionsOpen;\\n UpdateInventoryMouseMode();".replace("\\n", "\n"),
+                      self.hero)
+
     def test_sort_mode_survives_version_two_save_round_trip(self):
         source = self.hero
         save_header = (ROOT / "MoonfallProgressSaveGame.h").read_text(encoding="utf-8")
