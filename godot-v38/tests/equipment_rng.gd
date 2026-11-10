@@ -90,5 +90,10 @@ func _run()->void:
  check(int(legendary["weapon_power"])==ordinary+9,"higher rarity takes precedence")
  check(int(legendary["crit"])==0,"highest rarity supplies affixes")
  check(int(INVENTORY.normalize(empowered)["loot_rolls"].size())==4,"all valid duplicate rolls survive save normalization")
+ # Unrelated loot history must not change equipped stats after roll indexing.
+ var noisy:Dictionary=empowered.duplicate(true)
+ for i in range(200):
+  noisy["loot_rolls"].append({"item_id":"missing_item_"+str(i),"rarity_index":4,"power_bonus":12,"affixes":[{"stat":"Power","value":30}]})
+ check(INVENTORY.totals(noisy)==legendary,"unrelated roll history cannot change equipped stats")
  print("GEAR RNG "+("PASS" if errors==0 else "FAIL"))
  quit(0 if errors==0 else 1)
