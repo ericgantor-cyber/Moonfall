@@ -140,6 +140,38 @@ class InventoryCapacityPort(unittest.TestCase):
         self.assertIn("HUD->GetInventoryItemAtScreenPosition", right)
 
 
+    def test_controller_focus_and_confirm_for_main_menus(self):
+        inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
+        header = (ROOT / "MoonfallHeroPawn.h").read_text(encoding="utf-8")
+        hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        self.assertIn("int32 MenuActionFocus = 0;", header)
+        self.assertIn("void ActivateFocusedMenuAction();", header)
+        self.assertIn('ActionName="InventoryPage",Key=Gamepad_FaceButton_Bottom', inputs)
+        self.assertNotIn('ActionName="CharacterStatsNext",Key=Gamepad_DPad_Right', inputs)
+        self.assertNotIn('ActionName="CharacterStatsPrevious",Key=Gamepad_DPad_Left', inputs)
+        confirm = body(self.hero, "void AMoonfallHeroPawn::ActivateFocusedMenuAction()")
+        for action in ("AdjustOption(", "ToggleAtlas()", "ToggleInventory()",
+                       "ToggleCharacterStats()", "NextCharacterStatsPage()",
+                       "PreviousCharacterStatsPage()", "EquipSelectedInventoryItem()",
+                       "UpgradeSelectedInventoryItem()", "SalvageSelectedInventoryItem()"):
+            self.assertIn(action, confirm)
+        self.assertIn("if (bTalentsOpen) return;", confirm)
+        trigger = body(self.hero, "void AMoonfallHeroPawn::SwitchInventoryPage()")
+        self.assertIn("ActivateFocusedMenuAction();", trigger)
+        for name in ("OptionsUp", "OptionsDown"):
+            step = body(self.hero, "void AMoonfallHeroPawn::" + name + "()")
+            self.assertIn("MenuActionFocus", step)
+            self.assertIn("bInventoryOpen", step)
+            self.assertIn("bOptionsOpen", step)
+        for name in ("OptionsLeft", "OptionsRight"):
+            step = body(self.hero, "void AMoonfallHeroPawn::" + name + "()")
+            self.assertIn("InventorySelection", step)
+        self.assertIn("Hero->MenuActionFocus==Action", hud)
+        self.assertIn("Hero->MenuActionFocus==i+7", hud)
+        self.assertIn("Hero->MenuActionFocus==14", hud)
+        jump = body(self.hero, "void AMoonfallHeroPawn::TryJump()")
+        self.assertIn("bOptionsOpen || bInventoryOpen || bAtlasOpen", jump)
+
     def test_clickable_backpack_action_bar(self):
         hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
         header = (ROOT / "MoonfallCombatHUD.h").read_text(encoding="utf-8")
