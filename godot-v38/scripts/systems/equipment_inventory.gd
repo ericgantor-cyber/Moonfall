@@ -31,6 +31,11 @@ static func add_item(state:Dictionary,item_id:String,count:int=1)->bool:
 ## Currency has no artificial gameplay cap; only the engine's 64-bit integer boundary.
 const MAX_GOLD:int = 9223372036854775807
 
+## Gold rewards increase with confirmed kills, without a level-based payout ceiling.
+static func gold_for_kill(kill_count:int)->int:
+ if kill_count<=0:return 0
+ return 3+kill_count/4
+
 static func add_gold(state:Dictionary,amount:int)->int:
  if amount<=0:return 0
  var before:int=maxi(0,int(state.get("gold",0)))
