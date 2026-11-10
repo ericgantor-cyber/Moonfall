@@ -87,14 +87,11 @@ void AMoonfallCombatHUD::DrawHUD()
   const int32 Selected = FMath::Clamp(Hero->InventorySelection, 0, FMath::Max(0, Count - 1));
   const int32 PageStart = Selected / PerPage * PerPage;
   const int32 PageEnd = FMath::Min(Count, PageStart + PerPage);
-  DrawText(FString::Printf(TEXT("%d items  |  %d salvage  |  page %d / %d"),
-    Count, Hero->Salvage, PageStart / PerPage + 1,
-    FMath::Max(1, (Count + PerPage - 1) / PerPage)), FLinearColor(0.75f,0.72f,0.91f),
-    Left + 18.f, Top + 49.f, nullptr, 0.9f);
-  // Rewards stay outside the equipment bag and require no pickup button.
-  DrawText(FString::Printf(TEXT("Gold %lld  |  Key ring %d"), 
-    static_cast<long long>(Hero->Gold), Hero->CollectedKeys.Num()),
-    FLinearColor(0.98f,0.84f,0.42f), Left + 18.f, Top + 75.f, nullptr, 0.85f);
+  DrawText(FString::Printf(TEXT("Items %d | Salvage %d | Gold %lld | Keys %d | %d/%d"),
+    Count, Hero->Salvage, static_cast<long long>(Hero->Gold), Hero->CollectedKeys.Num(),
+    PageStart / PerPage + 1, FMath::Max(1, (Count + PerPage - 1) / PerPage)),
+    FLinearColor(0.93f,0.82f,0.55f), Left + 18.f, Top + 49.f, nullptr,
+    Canvas->SizeX < 900.f ? 0.60f : 0.78f);
   if (Count == 0)
    DrawText(TEXT("No equipment yet. Defeat enemies to find gear."), FLinearColor::White,
      Left + 18.f, Top + 100.f, nullptr, 0.92f);
