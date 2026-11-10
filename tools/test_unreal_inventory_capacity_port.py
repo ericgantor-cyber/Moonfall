@@ -140,6 +140,28 @@ class InventoryCapacityPort(unittest.TestCase):
         self.assertIn("HUD->GetInventoryItemAtScreenPosition", right)
 
 
+    def test_talent_respec_requires_explicit_second_confirmation(self):
+        header = (ROOT / "MoonfallHeroPawn.h").read_text(encoding="utf-8")
+        inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
+        hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        self.assertIn("bool bTalentRespecArmed = false;", header)
+        self.assertIn('ActionName="TalentRespec",Key=BackSpace', inputs)
+        self.assertIn('ActionName="TalentRespec",Key=Gamepad_FaceButton_Top', inputs)
+        action = body(self.hero, "void AMoonfallHeroPawn::RespecTalentAction()")
+        self.assertIn("if (!bTalentRespecArmed)", action)
+        self.assertIn("bTalentRespecArmed = true;", action)
+        self.assertLess(action.index("bTalentRespecArmed = false;\\n RespecTalents();".replace("\\n","\n")),
+                        len(action))
+        click = body(self.hero, "void AMoonfallHeroPawn::LeftClickContextAction()")
+        self.assertIn("if (bTalentsOpen && Nav == 3) { RespecTalentAction(); return; }", click)
+        hit = body(hud, "int32 AMoonfallCombatHUD::GetAtlasMenuActionAtScreenPosition(")
+        self.assertIn("return 3;", hit)
+        self.assertIn('TEXT("CONFIRM!") : TEXT("RESPEC")', hud)
+        for name in ("ToggleTalents", "ToggleAtlas", "ToggleInventory",
+                     "ToggleCharacterStats", "OpenOptions"):
+            method = body(self.hero, "AMoonfallHeroPawn::" + name + "(")
+            self.assertIn("bTalentRespecArmed = false;", method)
+
     def test_mouse_and_controller_focus_share_the_same_button(self):
         click = body(self.hero, "void AMoonfallHeroPawn::LeftClickContextAction()")
         # Mouse actions update controller focus, so switching input methods
@@ -223,6 +245,7 @@ class InventoryCapacityPort(unittest.TestCase):
         self.assertIn("return 0;", atlas)
         self.assertIn("return 1;", atlas)
         self.assertIn("return 2;", atlas)
+        self.assertIn("return 3;", atlas)
         click = body(self.hero, "void AMoonfallHeroPawn::LeftClickContextAction()")
         for call in ("GetOptionsActionAtScreenPosition", "GetAtlasMenuActionAtScreenPosition",
                      "AdjustOption(Action<7 ? -1 : 1)", "SelectPreviousTalentPage",
