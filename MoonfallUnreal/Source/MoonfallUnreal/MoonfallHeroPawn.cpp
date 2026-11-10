@@ -948,6 +948,32 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier, bool
 void AMoonfallHeroPawn::CastLeft() { if (bOptionsOpen || bInventoryOpen) return; TryCast(LeftSpell, 0, 1.f); }
 void AMoonfallHeroPawn::LeftClickContextAction()
 {
+ // Every modal page routes its click before any combat input.
+ if (bOptionsOpen || bAtlasOpen) {
+  if (APlayerController* PC = Cast<APlayerController>(GetController())) {
+   if (AMoonfallCombatHUD* HUD = Cast<AMoonfallCombatHUD>(PC->GetHUD())) {
+    float X=0.f,Y=0.f;
+    if (PC->GetMousePosition(X,Y)) {
+     if (bOptionsOpen) {
+      const int32 Action=HUD->GetOptionsActionAtScreenPosition(this,X,Y);
+      if (Action == 14) { OpenOptions(); return; }
+      if (Action >= 0 && Action < 14) {
+       OptionsSelection=Action%7;
+       AdjustOption(Action<7 ? -1 : 1);
+      }
+      return;
+     }
+     const int32 Nav=HUD->GetAtlasMenuActionAtScreenPosition(this,X,Y);
+     if (Nav == 0) {
+      if (bTalentsOpen) ToggleTalents(); else ToggleAtlas();
+      return;
+     }
+     if (bTalentsOpen && Nav == 1) { SelectPreviousTalentPage(); return; }
+     if (bTalentsOpen && Nav == 2) { SelectNextTalentPage(); return; }
+    }
+   }
+  }
+ }
  if (bAtlasOpen && bTalentsOpen) {
   if (APlayerController* PC = Cast<APlayerController>(GetController())) {
    if (AMoonfallCombatHUD* HUD = Cast<AMoonfallCombatHUD>(PC->GetHUD())) {
@@ -1466,7 +1492,7 @@ void AMoonfallHeroPawn::UpdateInventoryMouseMode()
 {
  if (APlayerController* Controller = Cast<APlayerController>(GetController())) {
   if (!Controller->IsLocalController()) return;
-  if ((bInventoryOpen || (bAtlasOpen && bTalentsOpen)) && FMath::IsFinite(Health) && Health > 0.f) {
+  if ((bInventoryOpen || bAtlasOpen || bOptionsOpen) && FMath::IsFinite(Health) && Health > 0.f) {
    // GameAndUI preserves the bound right-click action without hiding the cursor.
    FInputModeGameAndUI InputMode;
    InputMode.SetHideCursorDuringCapture(false);
@@ -2093,6 +2119,7 @@ void AMoonfallHeroPawn::OpenOptions() {
   EndGuard();
  }
  bOptionsOpen = !bOptionsOpen;
+ UpdateInventoryMouseMode();
 }
 void AMoonfallHeroPawn::OptionsUp() {
  if (bInventoryOpen) {
