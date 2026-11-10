@@ -90,9 +90,10 @@ static func loot_enemy(state:Dictionary,hero_level:int,seed:int)->Dictionary:
  var rarity:Dictionary=RNG.roll(item,seed+pity*9973,0,pity)
  if rarity.is_empty() or not rarity.has("rarity_index"):return {}
  if not add_item(state,str(item["id"])):return {}
- var rolls:Array=rolls_value
+ # Bound even corrupted in-memory histories before recording the new drop.
+ # Work on a copy so a failed reward never mutates the caller's roll list.
+ var rolls:Array=rolls_value.slice(-249)
  rolls.append(rarity)
- if rolls.size()>250:rolls.pop_front()
  state["loot_rolls"]=rolls
  state["loot_pity"]=RNG.next_pity(pity,int(rarity["rarity_index"]))
  var drop:Dictionary=item.duplicate(true)
