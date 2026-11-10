@@ -321,7 +321,7 @@ class InventoryCapacityPort(unittest.TestCase):
         self.assertIn("ActivateTalentNode(Node);", left)
         self.assertIn("if (bAtlasOpen) return;", left)
         activation = body(self.hero, "bool AMoonfallHeroPawn::ActivateTalentNode(int32 Node)")
-        self.assertIn("Node < 0 || Node >= 9", activation)
+        self.assertIn("Node < 0 || Node >= 12", activation)
         self.assertIn("SpendTalentPoint(Node) : UnlockTalentNode(Node)", activation)
         zoomin = body(self.hero, "void AMoonfallHeroPawn::ZoomCameraIn()")
         zoomout = body(self.hero, "void AMoonfallHeroPawn::ZoomCameraOut()")
