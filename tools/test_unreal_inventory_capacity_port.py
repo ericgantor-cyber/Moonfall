@@ -104,6 +104,20 @@ class InventoryCapacityPort(unittest.TestCase):
         self.assertNotIn("EquipSelectedInventoryItem();", left)
         self.assertIn("GetInventoryItemAtScreenPosition", left)
 
+    def test_right_click_requires_a_visible_item_row_to_equip(self):
+        right = body(self.hero, "void AMoonfallHeroPawn::RightClickContextAction()")
+        guard = "if (InventoryItemCodes.IsValidIndex(ClickedIndex)) {"
+        self.assertIn(guard, right)
+        selected = right.index("InventorySelection = ClickedIndex;")
+        equipped = right.index("EquipSelectedInventoryItem();")
+        end_guard = right.index("\\n     }", equipped)
+        self.assertLess(right.index(guard), selected)
+        self.assertLess(selected, equipped)
+        self.assertLess(equipped, end_guard)
+        self.assertNotIn("EquipSelectedInventoryItem();", right[end_guard:])
+        self.assertIn("HUD->GetInventoryItemAtScreenPosition(this, MouseX, MouseY)", right)
+        self.assertNotIn("IsInventoryEquipButtonAtScreenPosition", right)
+
     def test_failed_pickup_keeps_world_actor(self):
         method = body(self.loot, "bool AMoonfallGroundLoot::TryCollect()")
         self.assertLess(
