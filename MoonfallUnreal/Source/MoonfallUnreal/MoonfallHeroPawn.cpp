@@ -151,7 +151,15 @@ bool AMoonfallHeroPawn::LoadRewardProgress()
  // future-version slot must not be silently overwritten by default values.
  if (!UGameplayStatics::DoesSaveGameExist(RewardSaveSlot, RewardSaveUser))
  {
+  // A deliberately new game may reset in-memory rewards, but an existing
+  // unreadable save must never reset live progress or be overwritten.
   bRewardSaveLoadFailed = false;
+  Gold = 0;
+  ConfirmedRewardKills = 0;
+  CollectedKeys.Reset();
+  CompletedFactionQuests.Reset();
+  UnlockedGateIds.Reset();
+  bKeyRingExpanded = false;
   return true;
  }
  const UMoonfallRewardSaveGame* Save = Cast<UMoonfallRewardSaveGame>(
