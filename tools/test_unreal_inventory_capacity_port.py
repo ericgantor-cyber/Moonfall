@@ -201,7 +201,7 @@ class InventoryCapacityPort(unittest.TestCase):
         self.assertIn("void AMoonfallHeroPawn::ToggleTalents()", self.hero)
         self.assertIn("bTalentsOpen = false;", hero_h)
         self.assertIn('TEXT("MOONFALL  |  MAP")', hud)
-        self.assertIn('TEXT("MOONFALL  |  TALENTS")', hud)
+        self.assertIn('CELESTIAL TALENTS', hud)
         self.assertIn('TEXT("UNSPENT TALENT POINTS: %d")', hud)
         self.assertIn('TEXT("1  FORCE")', hud)
         self.assertIn('TEXT("2  FOCUS")', hud)
