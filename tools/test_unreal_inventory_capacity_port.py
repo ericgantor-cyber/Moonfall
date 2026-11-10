@@ -118,6 +118,19 @@ class InventoryCapacityPort(unittest.TestCase):
         self.assertIn("HUD->GetInventoryItemAtScreenPosition(this, MouseX, MouseY)", right)
         self.assertNotIn("IsInventoryEquipButtonAtScreenPosition", right)
 
+    def test_confirm_shortcuts_removed_but_right_click_stays(self):
+        inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
+        hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        header = (ROOT / "MoonfallHeroPawn.h").read_text(encoding="utf-8")
+        for source in (inputs, self.hero, header):
+            self.assertNotIn("InventoryConfirm", source)
+        self.assertNotIn('ActionName="InventoryConfirm",Key=Enter', inputs)
+        self.assertNotIn('ActionName="InventoryConfirm",Key=Gamepad_FaceButton_Top', inputs)
+        self.assertIn("EquipSelectedInventoryItem();", body(self.hero, "void AMoonfallHeroPawn::RightClickContextAction()"))
+        self.assertIn("Right-click row: equip", hud)
+        self.assertIn('ActionName="Atlas",Key=J', inputs)
+        self.assertNotIn('TEXT("EQUIP SELECTED")', hud)
+
     def test_failed_pickup_keeps_world_actor(self):
         method = body(self.loot, "bool AMoonfallGroundLoot::TryCollect()")
         self.assertLess(
