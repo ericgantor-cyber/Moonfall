@@ -84,6 +84,46 @@ int32 AMoonfallCombatHUD::GetCharacterActionAtScreenPosition(
  return -1;
 }
 
+int32 AMoonfallCombatHUD::GetOptionsActionAtScreenPosition(
+    const AMoonfallHeroPawn* Hero, float X, float Y) const
+{
+ if (!Canvas || !IsValid(Hero) || !Hero->bOptionsOpen ||
+     !FMath::IsFinite(X) || !FMath::IsFinite(Y)) return -1;
+ const float W = FMath::Min(560.f,FMath::Max(240.f,Canvas->SizeX-24.f));
+ const float H = FMath::Min(550.f,FMath::Max(280.f,Canvas->SizeY-24.f));
+ const float L = (Canvas->SizeX-W)*0.5f, T = (Canvas->SizeY-H)*0.5f;
+ if (X >= L+W-100.f && X < L+W-12.f &&
+     Y >= T+H-43.f && Y < T+H-9.f) return 14;
+ const float Gap = (H-130.f)/7.f;
+ for (int32 Row=0; Row<7; ++Row) {
+  const float Y0 = T+66.f+Row*Gap;
+  if (Y < Y0 || Y >= Y0+FMath::Min(34.f,Gap-2.f)) continue;
+  if (X >= L+W-104.f && X < L+W-65.f) return Row;
+  if (X >= L+W-55.f && X < L+W-16.f) return 7+Row;
+ }
+ return -1;
+}
+
+int32 AMoonfallCombatHUD::GetAtlasMenuActionAtScreenPosition(
+    const AMoonfallHeroPawn* Hero, float X, float Y) const
+{
+ if (!Canvas || !IsValid(Hero) || !Hero->bAtlasOpen ||
+     Hero->bOptionsOpen || !FMath::IsFinite(X) || !FMath::IsFinite(Y)) return -1;
+ const bool Talents = Hero->bTalentsOpen;
+ const float W = Talents ? FMath::Min(1120.f,FMath::Max(280.f,Canvas->SizeX-24.f))
+   : FMath::Min(700.f,FMath::Max(280.f,Canvas->SizeX-24.f));
+ const float H = Talents ? FMath::Min(800.f,FMath::Max(280.f,Canvas->SizeY-24.f))
+   : FMath::Min(650.f,FMath::Max(280.f,Canvas->SizeY-24.f));
+ const float L=(Canvas->SizeX-W)*0.5f,T=(Canvas->SizeY-H)*0.5f;
+ if (X >= L+W-96.f && X < L+W-12.f &&
+     Y >= T+12.f && Y < T+46.f) return 0;
+ if (Talents && Y >= T+H-44.f && Y < T+H-10.f) {
+  if (X >= L+12.f && X < L+100.f) return 1;
+  if (X >= L+110.f && X < L+198.f) return 2;
+ }
+ return -1;
+}
+
 bool AMoonfallCombatHUD::IsInventorySortButtonAtScreenPosition(
     const AMoonfallHeroPawn* Hero, float X, float Y) const
 {
@@ -211,9 +251,19 @@ void AMoonfallCombatHUD::DrawHUD()
    Settings->GetResolutionScaleInformationEx(ScalePct, ScaleNormalized, ScaleMin, ScaleMax);
    const FIntPoint Res = Settings->GetScreenResolution();
    const FString Rows[] = {FString::Printf(TEXT("Resolution: %d x %d"),Res.X,Res.Y),FString::Printf(TEXT("Render scale: %.0f%%"),ScalePct),FString::Printf(TEXT("Quality preset: %d (0 Low - 3 Epic)"),Settings->GetOverallScalabilityLevel()),FString::Printf(TEXT("Frame Generation: %s (%s)"),Hero->FrameGenerationPreference==0?TEXT("Off"):Hero->FrameGenerationPreference==1?TEXT("Auto"):TEXT("On"),Hero->bFrameGenerationPluginDetected?TEXT("plugin detected; inactive"):TEXT("plugin unavailable")),FString::Printf(TEXT("Reduced motion: %s"),Hero->bReduceMotion?TEXT("On"):TEXT("Off")),FString::Printf(TEXT("Combat text size: %.0f%%"),Hero->CombatTextScale * 100.f),FString::Printf(TEXT("Boss warning visibility: %.0f%%"),Hero->BossWarningScale * 100.f)};
-   for (int32 i=0;i<7;++i) DrawText(Rows[i],i==Hero->OptionsSelection?FLinearColor::Yellow:FLinearColor::White,MenuLeft+20.f,MenuTop+75.f+i*MenuRowGap,nullptr,1.1f);
+   for (int32 i=0;i<7;++i) {
+    DrawText(Rows[i],i==Hero->OptionsSelection?FLinearColor::Yellow:FLinearColor::White,
+      MenuLeft+20.f,MenuTop+75.f+i*MenuRowGap,nullptr,1.1f);
+    const float ControlY=MenuTop+66.f+i*MenuRowGap;
+    const float ControlH=FMath::Min(34.f,MenuRowGap-2.f);
+    DrawRect(FLinearColor(0.15f,0.35f,0.44f),MenuLeft+MenuWidth-104.f,ControlY,39.f,ControlH);
+    DrawRect(FLinearColor(0.15f,0.35f,0.44f),MenuLeft+MenuWidth-55.f,ControlY,39.f,ControlH);
+    DrawText(TEXT("-"),FLinearColor::White,MenuLeft+MenuWidth-91.f,ControlY+5.f,nullptr,0.95f);
+    DrawText(TEXT("+"),FLinearColor::White,MenuLeft+MenuWidth-42.f,ControlY+5.f,nullptr,0.95f);
+   }
   }
-  DrawText(TEXT("WASD / Arrows / D-pad: navigate    Esc / Start: close"),FLinearColor::White,MenuLeft+18.f,MenuTop+MenuHeight-28.f,nullptr,0.85f);
+  DrawRect(FLinearColor(0.15f,0.35f,0.44f),MenuLeft+MenuWidth-100.f,MenuTop+MenuHeight-43.f,88.f,34.f);
+  DrawText(TEXT("CLOSE"),FLinearColor::White,MenuLeft+MenuWidth-89.f,MenuTop+MenuHeight-35.f,nullptr,0.85f);
   return;
  }
  if (Hero->bAtlasOpen && Hero->bTalentsOpen) {
@@ -231,6 +281,14 @@ void AMoonfallCombatHUD::DrawHUD()
   const float Pulse = Hero->bReduceMotion ? 1.f : 0.80f + 0.20f * FMath::Sin(
     (GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f) * 1.3f);
   DrawRect(FLinearColor(0.014f,0.016f,0.047f,0.985f),Left,Top,Width,Height);
+  // Clickable close and page navigation, independent of talent-node activation.
+  DrawRect(FLinearColor(0.15f,0.35f,0.44f),Left+Width-96.f,Top+12.f,84.f,34.f);
+  DrawText(TEXT("CLOSE"),FLinearColor::White,Left+Width-84.f,Top+20.f,nullptr,0.77f);
+  DrawRect(FLinearColor(0.15f,0.35f,0.44f),Left+12.f,Top+Height-44.f,88.f,34.f);
+  DrawRect(FLinearColor(0.15f,0.35f,0.44f),Left+110.f,Top+Height-44.f,88.f,34.f);
+  DrawText(TEXT("PREV"),FLinearColor::White,Left+22.f,Top+Height-36.f,nullptr,0.73f);
+  DrawText(TEXT("NEXT"),FLinearColor::White,Left+120.f,Top+Height-36.f,nullptr,0.73f);
+
   if (Hero->TalentSelectedNode >= 27) {
    // 111 distinct Astral stars live on five virtualized pages. No 138-node
    // single-frame Canvas pass or hundreds of overlapping labels.
@@ -557,6 +615,8 @@ void AMoonfallCombatHUD::DrawHUD()
   DrawRect(FLinearColor(0.025f,0.035f,0.075f,0.97f),Left,Top,Width,Height);
   DrawText(TEXT("MOONFALL  |  MAP"),FLinearColor::White,
     Left + 20.f,Top + 17.f,nullptr,1.3f);
+  DrawRect(FLinearColor(0.15f,0.35f,0.44f),Left+Width-96.f,Top+12.f,84.f,34.f);
+  DrawText(TEXT("CLOSE"),FLinearColor::White,Left+Width-84.f,Top+20.f,nullptr,0.77f);
   const FVector WorldPos = Hero->GetActorLocation();
   const bool bValidWorldPos = FMath::IsFinite(WorldPos.X) &&
     FMath::IsFinite(WorldPos.Y) && FMath::IsFinite(WorldPos.Z);
