@@ -20,7 +20,7 @@ class UE5RewardParity(unittest.TestCase):
             self.assertIn(field, self.save)
         self.assertIn("SaveGameToSlot(Save, RewardSaveSlot, RewardSaveUser)", self.hero)
         self.assertIn("LoadGameFromSlot(RewardSaveSlot, RewardSaveUser)", self.hero)
-        self.assertIn("LoadRewardProgress();", self.hero)
+        self.assertIn("if (!LoadRewardProgress())", self.hero)
         self.assertIn("MAX_int64 - Gold", self.hero)
         self.assertNotIn("99999999", self.hero[self.hero.index("int64 AMoonfallHeroPawn::AddGold"):self.hero.index("bool AMoonfallHeroPawn::HasQuestKey")])
 
@@ -314,6 +314,18 @@ class UE5RewardParity(unittest.TestCase):
         self.assertLess(save_method.index("if (bRewardSaveLoadFailed) return false;"),
                         save_method.index("CreateSaveGameObject("))
         self.assertIn("SaveGameToSlot(Save, RewardSaveSlot, RewardSaveUser)", save_method)
+
+    def test_failed_reward_load_warns_player_and_prevents_key_spawn(self):
+        startup = self.hero.split("void AMoonfallHeroPawn::BeginPlay()", 1)[1].split(
+            "void AMoonfallHeroPawn::Tick(", 1)[0]
+        self.assertIn("if (!LoadRewardProgress())", startup)
+        self.assertIn("REWARD SAVE ERROR - ORIGINAL FILE PROTECTED", startup)
+        self.assertIn("KeyInteractionNoticeUntil = GetWorld()", startup)
+        self.assertIn("bKeyInteractionNoticeError = true;", startup)
+        self.assertIn("if (!bRewardSaveLoadFailed && ConfirmedRewardKills >= 5", startup)
+        self.assertLess(startup.index("if (!LoadRewardProgress())"),
+                        startup.index("SpawnMilestoneKey(GetActorLocation()"))
+        self.assertIn("Hero->KeyInteractionNoticeUntil > NowSeconds", self.hud)
 
     def test_equipment_remains_manual_and_hud_shows_rewards(self):
         self.assertIn("void PickupNearestGroundLoot();", self.hero_h)
