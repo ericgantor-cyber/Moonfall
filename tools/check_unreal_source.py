@@ -230,7 +230,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("TActorIterator<AMoonfallGroundLoot>", pickup)
         self.assertIn("Loot->TryCollect()", pickup)
         collect = self.hero_cpp.split("bool AMoonfallHeroPawn::CollectGroundEquipmentCode(", 1)[1].split(
-            "void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(", 1)[0]
+            "bool AMoonfallHeroPawn::CollectPersistedGroundEquipmentCode(", 1)[0]
         self.assertIn("ItemCode != Affix * 100000 + SlotIndex * 10000", collect)
         self.assertIn("InventoryItemCodes.Add(ItemCode);", collect)
         self.assertIn("const bool bAutoEquipEmptySlot = *EquippedCode == 0;", collect)
