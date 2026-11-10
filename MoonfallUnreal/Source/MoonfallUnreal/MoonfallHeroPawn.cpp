@@ -1009,7 +1009,8 @@ void AMoonfallHeroPawn::LeftClickContextAction()
     if (Controller->GetMousePosition(MouseX, MouseY)) {
      if (bCharacterStatsOpen) {
       const int32 Action = HUD->GetCharacterActionAtScreenPosition(this, MouseX, MouseY);
-      if (Action < 0) return;
+      if (Action >= 0) {
+       bMenuFocusCharacter = true;
       MenuActionFocus=Action;
       if (Action == 7) { ToggleInventory(); return; }
       if (Action == 8) { PreviousCharacterStatsPage(); return; }
@@ -1032,9 +1033,11 @@ void AMoonfallHeroPawn::LeftClickContextAction()
       }
       InventoryViewStart = InventorySelection;
       return;
+      }
      }
      const int32 BagAction = HUD->GetInventoryActionAtScreenPosition(this,MouseX,MouseY);
      if (BagAction >= 0) {
+      bMenuFocusCharacter = false;
       MenuActionFocus=BagAction;
       if (BagAction == 6) { ToggleCharacterStats(); return; }
       if (BagAction == 7) { ToggleInventory(); return; }
@@ -1086,7 +1089,7 @@ void AMoonfallHeroPawn::RightClickContextAction()
  if (bOptionsOpen) return;
  if (bInventoryOpen) {
   // Character actions are explicit left-click buttons only.
-  if (bCharacterStatsOpen) return;
+  if (!bBagPanelOpen) return;
   if (APlayerController* Controller = Cast<APlayerController>(GetController())) {
    if (AMoonfallCombatHUD* HUD = Cast<AMoonfallCombatHUD>(Controller->GetHUD())) {
     float MouseX = 0.f, MouseY = 0.f;
@@ -1436,6 +1439,7 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
   EndGuard();
   // Defeat clears every gameplay menu and releases the inventory cursor.
   bInventoryOpen = false;
+  bBagPanelOpen = false;
   bCharacterStatsOpen = false;
   bAtlasOpen = false;
   bTalentsOpen = false;
@@ -1492,8 +1496,8 @@ void AMoonfallHeroPawn::ActivateFocusedMenuAction()
  }
  if (!bInventoryOpen) return;
  if (MenuActionFocus < 0) return; // Avoid accidental equip or salvage on opening B/C.
- const int32 Focus=FMath::Clamp(MenuActionFocus,0,bCharacterStatsOpen ? 10 : 7);
- if (bCharacterStatsOpen) {
+ const int32 Focus=FMath::Clamp(MenuActionFocus,0,bMenuFocusCharacter ? 10 : 7);
+ if (bMenuFocusCharacter && bCharacterStatsOpen) {
   if (Focus==7) { ToggleInventory(); return; }
   if (Focus==8) { PreviousCharacterStatsPage(); return; }
   if (Focus==9) { NextCharacterStatsPage(); return; }
@@ -1509,7 +1513,7 @@ void AMoonfallHeroPawn::ActivateFocusedMenuAction()
    case 6: ForgeFiveSelectedInventoryItem(); break;
    default: break;
   }
- } else {
+ } else if (bBagPanelOpen) {
   if (Focus==6) { ToggleCharacterStats(); return; }
   if (Focus==7) { ToggleInventory(); return; }
   if (!InventoryItemCodes.IsValidIndex(InventorySelection)) return;
@@ -1542,32 +1546,21 @@ void AMoonfallHeroPawn::PreviousCharacterStatsPage()
 
 void AMoonfallHeroPawn::ToggleCharacterStats()
 {
- // C opens character info from gameplay; controller A remains contextual.
- // Switching between the sheet and the bag never auto-equips an item.
- bTalentRespecArmed = false;
  if (bOptionsOpen || !FMath::IsFinite(Health) || Health <= 0.f) return;
- if (bAtlasOpen) { bAtlasOpen = false; bTalentsOpen = false; }
+ bTalentRespecArmed=false;
+ if (bAtlasOpen) { bAtlasOpen=false; bTalentsOpen=false; }
  if (!bInventoryOpen) {
   ResetMouseCastChord();
   StopJumping();
   if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
   EndSprint();
   EndGuard();
-  bInventoryOpen = true;
-  bCharacterStatsOpen = true;
-  MenuActionFocus = -1;
-  UpdateInventoryMouseMode();
- } else if (bCharacterStatsOpen) {
-  // C closes character info without leaving the inventory behind.
-  bCharacterStatsOpen = false;
-  bInventoryOpen = false;
-  MenuActionFocus = -1;
-  UpdateInventoryMouseMode();
- } else {
-  bCharacterStatsOpen = true;
-  MenuActionFocus = -1;
-  UpdateInventoryMouseMode();
  }
+ bCharacterStatsOpen = !bCharacterStatsOpen; // C affects only C, not B.
+ bInventoryOpen = bBagPanelOpen || bCharacterStatsOpen;
+ bMenuFocusCharacter = bCharacterStatsOpen;
+ MenuActionFocus = -1;
+ UpdateInventoryMouseMode();
 }
 
 void AMoonfallHeroPawn::UpdateInventoryMouseMode()
@@ -1602,6 +1595,7 @@ void AMoonfallHeroPawn::ToggleAtlas()
   EndGuard();
   if (bInventoryOpen) {
    bInventoryOpen = false;
+   bBagPanelOpen = false;
    bCharacterStatsOpen = false;
    UpdateInventoryMouseMode();
   }
@@ -1952,6 +1946,7 @@ void AMoonfallHeroPawn::ToggleTalents()
   EndGuard();
   if (bInventoryOpen) {
    bInventoryOpen = false;
+   bBagPanelOpen = false;
    bCharacterStatsOpen = false;
    UpdateInventoryMouseMode();
   }
@@ -1962,35 +1957,30 @@ void AMoonfallHeroPawn::ToggleTalents()
  UpdateInventoryMouseMode();
 }
 
-void AMoonfallHeroPawn::ToggleInventory() {
+void AMoonfallHeroPawn::ToggleInventory()
+{
  if (bOptionsOpen || !FMath::IsFinite(Health) || Health <= 0.f) return;
  bTalentRespecArmed = false;
  ResetMouseCastChord();
  if (bAtlasOpen) { bAtlasOpen = false; bTalentsOpen = false; }
- if (bCharacterStatsOpen) {
-  // B returns from character info directly to the editable inventory.
-  bCharacterStatsOpen = false;
-  MenuActionFocus = -1;
-  UpdateInventoryMouseMode();
-  return;
- }
  if (!bInventoryOpen) {
   StopJumping();
   if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
   EndSprint();
   EndGuard();
-  InventorySelection = FMath::Clamp(InventorySelection, 0, FMath::Max(0, InventoryItemCodes.Num() - 1));
-  InventoryViewStart = InventorySelection;
+  InventorySelection=FMath::Clamp(InventorySelection,0,FMath::Max(0,InventoryItemCodes.Num()-1));
+  InventoryViewStart=InventorySelection;
  }
- bInventoryOpen = !bInventoryOpen;
+ bBagPanelOpen = !bBagPanelOpen; // B affects only the bag, never C.
+ bInventoryOpen = bBagPanelOpen || bCharacterStatsOpen;
+ bMenuFocusCharacter = !bBagPanelOpen && bCharacterStatsOpen;
  MenuActionFocus = -1;
- if (!bInventoryOpen) bCharacterStatsOpen = false;
  UpdateInventoryMouseMode();
 }
 void AMoonfallHeroPawn::CycleInventorySort()
 {
  // Reorder only while the editable backpack is open. No gear or currency mutations.
- if (!bInventoryOpen || bCharacterStatsOpen || bOptionsOpen ||
+ if (!bBagPanelOpen || bOptionsOpen ||
      !FMath::IsFinite(Health) || Health <= 0.f) return;
  InventorySortMode = InventorySortMode == 1 ? 2 : 1;
  // Sorting reorders the saved bag; persist it with the normal autosave cycle.
@@ -2054,7 +2044,7 @@ bool AMoonfallHeroPawn::SalvageInventoryItem(int32 InventoryIndex)
 {
  // Enforce the inventory menu boundary for Blueprint and direct callers too.
  // A background call must never destroy a bag item or award free salvage.
- if (!bInventoryOpen || bCharacterStatsOpen || bOptionsOpen ||
+ if (!bBagPanelOpen || bOptionsOpen ||
      !FMath::IsFinite(Health) || Health <= 0.f ||
      !InventoryItemCodes.IsValidIndex(InventoryIndex)) return false;
  const int32 Code = InventoryItemCodes[InventoryIndex];
@@ -2258,6 +2248,7 @@ void AMoonfallHeroPawn::OpenOptions() {
  }
  if (bInventoryOpen) {
   bInventoryOpen = false;
+  bBagPanelOpen = false;
   bCharacterStatsOpen = false;
   MenuActionFocus = -1;
   UpdateInventoryMouseMode();
@@ -2277,13 +2268,13 @@ void AMoonfallHeroPawn::OptionsUp() {
  if (bAtlasOpen && bTalentsOpen && bTalentRespecArmed) { TalentRespecChoice=0; return; }
  if (bAtlasOpen && !bTalentsOpen && !bOptionsOpen) { MenuActionFocus=0; return; }
  if (bOptionsOpen) { MenuActionFocus=MenuActionFocus<0 ? 0 : FMath::Clamp(MenuActionFocus-1,0,14); OptionsSelection=MenuActionFocus%7; return; }
- if (bInventoryOpen) { MenuActionFocus=MenuActionFocus<0 ? 0 : FMath::Clamp(MenuActionFocus-1,0,bCharacterStatsOpen?10:7); return; }
+ if (bInventoryOpen) { MenuActionFocus=MenuActionFocus<0 ? 0 : FMath::Clamp(MenuActionFocus-1,0,bMenuFocusCharacter?10:7); return; }
 }
 void AMoonfallHeroPawn::OptionsDown() {
  if (bAtlasOpen && bTalentsOpen && bTalentRespecArmed) { TalentRespecChoice=1; return; }
  if (bAtlasOpen && !bTalentsOpen && !bOptionsOpen) { MenuActionFocus=0; return; }
  if (bOptionsOpen) { MenuActionFocus=FMath::Clamp(MenuActionFocus+1,0,14); OptionsSelection=MenuActionFocus%7; return; }
- if (bInventoryOpen) { MenuActionFocus=FMath::Clamp(MenuActionFocus+1,0,bCharacterStatsOpen?10:7); return; }
+ if (bInventoryOpen) { MenuActionFocus=FMath::Clamp(MenuActionFocus+1,0,bMenuFocusCharacter?10:7); return; }
 }
 void AMoonfallHeroPawn::OptionsLeft() {
  if (bAtlasOpen && bTalentsOpen && bTalentRespecArmed) { TalentRespecChoice=0; return; }
