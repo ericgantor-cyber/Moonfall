@@ -748,6 +748,8 @@ void AMoonfallHeroPawn::ZoomCameraIn() {
     FMath::Max(0, InventoryItemCodes.Num() - VisibleRows));
   return;
  }
+ // C-only view owns the mouse wheel; never zoom gameplay behind a menu.
+ if (bInventoryOpen) return;
  CameraDistance = FMath::Clamp((FMath::IsFinite(CameraDistance) ? CameraDistance : 450.f) - 65.f, 250.f, 850.f);
 }
 void AMoonfallHeroPawn::ZoomCameraOut() {
@@ -767,6 +769,8 @@ void AMoonfallHeroPawn::ZoomCameraOut() {
     FMath::Max(0, InventoryItemCodes.Num() - VisibleRows));
   return;
  }
+ // C-only view owns the mouse wheel; never zoom gameplay behind a menu.
+ if (bInventoryOpen) return;
  CameraDistance = FMath::Clamp((FMath::IsFinite(CameraDistance) ? CameraDistance : 450.f) + 65.f, 250.f, 850.f);
 }
 void AMoonfallHeroPawn::TryJump()
