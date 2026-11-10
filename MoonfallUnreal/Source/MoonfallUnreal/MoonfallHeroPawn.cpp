@@ -968,7 +968,6 @@ void AMoonfallHeroPawn::LeftClickContextAction()
  // Outside menus the same button performs the usual left-hand spell.
  if (bOptionsOpen) return;
  if (bInventoryOpen) {
-  if (bCharacterStatsOpen) return;
   if (APlayerController* Controller = Cast<APlayerController>(GetController())) {
    if (AMoonfallCombatHUD* HUD = Cast<AMoonfallCombatHUD>(Controller->GetHUD())) {
     float MouseX = 0.f, MouseY = 0.f;
@@ -1008,7 +1007,6 @@ void AMoonfallHeroPawn::RightClickContextAction()
  // Controller shoulder buttons keep combat/forge behavior separate.
  if (bOptionsOpen) return;
  if (bInventoryOpen) {
-  if (bCharacterStatsOpen) return;
   if (APlayerController* Controller = Cast<APlayerController>(GetController())) {
    if (AMoonfallCombatHUD* HUD = Cast<AMoonfallCombatHUD>(Controller->GetHUD())) {
     float MouseX = 0.f, MouseY = 0.f;
@@ -1799,7 +1797,7 @@ void AMoonfallHeroPawn::ToggleInventory() {
 void AMoonfallHeroPawn::CycleInventorySort()
 {
  // Reorder only while the editable backpack is open. No gear or currency mutations.
- if (!bInventoryOpen || bCharacterStatsOpen || bOptionsOpen ||
+ if (!bInventoryOpen || bOptionsOpen ||
      !FMath::IsFinite(Health) || Health <= 0.f) return;
  InventorySortMode = InventorySortMode == 1 ? 2 : 1;
  // Sorting reorders the saved bag; persist it with the normal autosave cycle.
@@ -1852,7 +1850,7 @@ void AMoonfallHeroPawn::CycleInventorySort()
  InventoryViewStart = InventorySelection;
 }
 void AMoonfallHeroPawn::EquipSelectedInventoryItem() {
- if (!bInventoryOpen || bCharacterStatsOpen || !InventoryItemCodes.IsValidIndex(InventorySelection)) return;
+ if (!bInventoryOpen || !InventoryItemCodes.IsValidIndex(InventorySelection)) return;
  EquipInventoryItem(InventorySelection);
 }
 void AMoonfallHeroPawn::SalvageSelectedInventoryItem() {
@@ -1863,7 +1861,7 @@ bool AMoonfallHeroPawn::SalvageInventoryItem(int32 InventoryIndex)
 {
  // Enforce the inventory menu boundary for Blueprint and direct callers too.
  // A background call must never destroy a bag item or award free salvage.
- if (!bInventoryOpen || bCharacterStatsOpen || bOptionsOpen ||
+ if (!bInventoryOpen || bOptionsOpen ||
      !FMath::IsFinite(Health) || Health <= 0.f ||
      !InventoryItemCodes.IsValidIndex(InventoryIndex)) return false;
  const int32 Code = InventoryItemCodes[InventoryIndex];
@@ -1901,7 +1899,7 @@ bool AMoonfallHeroPawn::UpgradeInventoryItem(int32 InventoryIndex)
 {
  // Craft the selected inventory item on explicit input. If it is worn,
  // upgrade that equipped slot too, without auto-equipping other bag items.
- if (!bInventoryOpen || bCharacterStatsOpen || bOptionsOpen || !FMath::IsFinite(Health) || Health <= 0.f
+ if (!bInventoryOpen || bOptionsOpen || !FMath::IsFinite(Health) || Health <= 0.f
      || !InventoryItemCodes.IsValidIndex(InventoryIndex)) return false;
  const int32 Code = InventoryItemCodes[InventoryIndex];
  if (Code <= 0) return false;
@@ -1943,7 +1941,7 @@ bool AMoonfallHeroPawn::ReforgeInventoryItemAffix(int32 InventoryIndex)
 {
  // Explicit crafting inside inventory only. Common/uncommon traits cannot be
  // reforged; rare and higher retain their tier and quality unchanged.
- if (!bInventoryOpen || bCharacterStatsOpen || bOptionsOpen || !FMath::IsFinite(Health) || Health <= 0.f
+ if (!bInventoryOpen || bOptionsOpen || !FMath::IsFinite(Health) || Health <= 0.f
      || !InventoryItemCodes.IsValidIndex(InventoryIndex)) return false;
  const int32 Code = InventoryItemCodes[InventoryIndex];
  if (Code <= 0) return false;
@@ -1980,13 +1978,13 @@ bool AMoonfallHeroPawn::ReforgeInventoryItemAffix(int32 InventoryIndex)
 
 void AMoonfallHeroPawn::ReforgeSelectedInventoryItem()
 {
- if (!bCharacterStatsOpen) ReforgeInventoryItemAffix(InventorySelection);
+ ReforgeInventoryItemAffix(InventorySelection);
 }
 
 bool AMoonfallHeroPawn::AscendInventoryItemRarity(int32 InventoryIndex)
 {
  // Explicit inventory-only crafting. Ascension does not change tier or affix.
- if (!bInventoryOpen || bCharacterStatsOpen || bOptionsOpen || !FMath::IsFinite(Health) || Health <= 0.f
+ if (!bInventoryOpen || bOptionsOpen || !FMath::IsFinite(Health) || Health <= 0.f
      || !InventoryItemCodes.IsValidIndex(InventoryIndex)) return false;
  const int32 Code = InventoryItemCodes[InventoryIndex];
  if (Code <= 0) return false;
@@ -2020,12 +2018,12 @@ bool AMoonfallHeroPawn::AscendInventoryItemRarity(int32 InventoryIndex)
 
 void AMoonfallHeroPawn::AscendSelectedInventoryItem()
 {
- if (!bCharacterStatsOpen) AscendInventoryItemRarity(InventorySelection);
+ AscendInventoryItemRarity(InventorySelection);
 }
 
 int32 AMoonfallHeroPawn::ForgeInventoryItemLevels(int32 InventoryIndex, int32 MaxLevels)
 {
- if (!bInventoryOpen || bCharacterStatsOpen || bOptionsOpen || !FMath::IsFinite(Health) || Health <= 0.f
+ if (!bInventoryOpen || bOptionsOpen || !FMath::IsFinite(Health) || Health <= 0.f
      || !InventoryItemCodes.IsValidIndex(InventoryIndex)) return 0;
  // Reuse validated, transactional one-tier crafting for every step.
  // No special currency discount, overflow, or forced equipment changes.
@@ -2040,12 +2038,12 @@ int32 AMoonfallHeroPawn::ForgeInventoryItemLevels(int32 InventoryIndex, int32 Ma
 
 void AMoonfallHeroPawn::ForgeFiveSelectedInventoryItem()
 {
- if (!bCharacterStatsOpen) ForgeInventoryItemLevels(InventorySelection, 5);
+ ForgeInventoryItemLevels(InventorySelection, 5);
 }
 
 void AMoonfallHeroPawn::UpgradeSelectedInventoryItem()
 {
- if (!bCharacterStatsOpen) UpgradeInventoryItem(InventorySelection);
+ UpgradeInventoryItem(InventorySelection);
 }
 
 void AMoonfallHeroPawn::OpenOptions() {
@@ -2517,7 +2515,7 @@ int32 AMoonfallHeroPawn::GetEquipmentUpgradeScore(int32 InventoryIndex) const
 {
  // Suppress advice outside a valid inventory state, including direct
  // Blueprint queries, while preserving a read-only score for valid entries.
- if (!bInventoryOpen || bCharacterStatsOpen || bOptionsOpen ||
+ if (!bInventoryOpen || bOptionsOpen ||
      !FMath::IsFinite(Health) || Health <= 0.f ||
      !InventoryItemCodes.IsValidIndex(InventoryIndex)) return 0;
  const int32 Candidate = InventoryItemCodes[InventoryIndex];
@@ -2554,7 +2552,7 @@ int32 AMoonfallHeroPawn::GetRecommendedEquipmentIndex() const
 {
  // Only advise while the inventory is displayed. This function is read-only
  // and does not change selection, worn gear, health, currency or the save.
- if (!bInventoryOpen || bCharacterStatsOpen || bOptionsOpen ||
+ if (!bInventoryOpen || bOptionsOpen ||
      !FMath::IsFinite(Health) || Health <= 0.f)
   return -1;
  int32 BestIndex = -1;
@@ -2569,13 +2567,13 @@ int32 AMoonfallHeroPawn::GetRecommendedEquipmentIndex() const
  return BestIndex;
 }
 
-void AMoonfallHeroPawn::EquipBestInventoryAction() { if (!bCharacterStatsOpen) EquipBestInventoryUpgrades(); }
+void AMoonfallHeroPawn::EquipBestInventoryAction() { EquipBestInventoryUpgrades(); }
 
 int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()
 {
  // Require valid hero state before even scanning the inventory. The explicit
  // EquipInventoryItem boundary independently enforces the same restriction.
- if (!bInventoryOpen || bCharacterStatsOpen || bOptionsOpen || !FMath::IsFinite(Health) || Health <= 0.f) return 0;
+ if (!bInventoryOpen || bOptionsOpen || !FMath::IsFinite(Health) || Health <= 0.f) return 0;
  const int32 EquippedCodes[3] = {EquippedWeaponCode, EquippedArmorCode, EquippedAccessoryCode};
  int32 BestScores[3] = {-1, -1, -1};
  int32 BestIndices[3] = {-1, -1, -1};
@@ -2623,7 +2621,7 @@ bool AMoonfallHeroPawn::EquipInventoryItem(int32 InventoryIndex)
  // Equipping is always deliberate and inventory-scoped, even when called
  // directly from a Blueprint or by the worn-item crafting sync path.
  if (!FMath::IsFinite(Health) || Health <= 0.f || !bInventoryOpen ||
-     bCharacterStatsOpen || bOptionsOpen ||
+     bOptionsOpen ||
      !InventoryItemCodes.IsValidIndex(InventoryIndex)) return false;
  const int32 Code = InventoryItemCodes[InventoryIndex];
  if (Code <= 0) return false;
