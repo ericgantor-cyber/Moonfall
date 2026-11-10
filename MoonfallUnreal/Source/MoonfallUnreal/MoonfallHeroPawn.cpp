@@ -112,27 +112,6 @@ int32 AMoonfallHeroPawn::GetSpirit() const
 {
  return FMath::Clamp(10 + GetInsight()/2 + TalentFocusRank,10,180);
 }
-float AMoonfallHeroPawn::GetHitChance() const
-{
- return FMath::Clamp(0.92f + GetAgility()*0.00025f +
-   ValidEquippedTier(EquippedWeaponCode,0)*0.001f,0.92f,0.99f);
-}
-float AMoonfallHeroPawn::GetDodgeChance() const
-{
- return FMath::Clamp(0.02f + GetAgility()*0.00025f,0.f,0.12f);
-}
-float AMoonfallHeroPawn::GetParryChance() const
-{
- return FMath::Clamp(0.02f + GetStrength()*0.00015f,0.f,0.10f);
-}
-float AMoonfallHeroPawn::GetBlockChance() const
-{
- return FMath::Clamp(0.04f + GetResolve()*0.0003f,0.f,0.14f);
-}
-float AMoonfallHeroPawn::GetBlockValue() const
-{
- return FMath::Clamp(GetStrength()*0.10f + GetResolve()*0.10f,0.f,60.f);
-}
 int32 AMoonfallHeroPawn::GetArmorRating() const
 {
  return FMath::Clamp(GetAgility()*2 + GetResolve()*2 +
@@ -655,10 +634,8 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier, bool
   // Reject invalid damage before spending mana or consuming a hard-earned counter.
   if (!FMath::IsFinite(SpellDamage) || SpellDamage <= 0.f) return false;
   const float HealthBeforeSpell = Enemy->Health;
-  // WoW Forever-inspired hit rating: a valid traced hostile spell can miss.
-  // Mana, cooldown and OnSpellCast still resolve at the end of the cast.
-  const bool bSpellHit = FMath::FRand() <= GetHitChance();
-  if (bSpellHit) Enemy->TakeSpellDamage(SpellDamage);
+  // Valid traced hostile spells resolve normally; no random Hit stat.
+  Enemy->TakeSpellDamage(SpellDamage);
   // A valid hostile cast is combat even if enemy defenses absorb all HP damage.
   // Combo stages, posture, and counter rewards still require real damage.
   CombatRecoveryEndsAt = FMath::Max(
@@ -1074,8 +1051,6 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
    if (bTalentUnbrokenBastion) DamageAfterGuard *= 0.95f;
    if (bTalentTitanSoul) DamageAfterGuard *= 0.95f;
    if (bTalentLastCitadel) DamageAfterGuard *= 0.95f;
-   // Block value offsets a small amount of remaining guarded damage.
-   DamageAfterGuard = FMath::Max(0.f,DamageAfterGuard - GetBlockValue()*0.025f);
    DamageAfterGuard *= (1.f - FMath::Min(0.12f, GetAstralTalentCount(2) * 0.003f));
   }
   OnGuardImpact(ArmoredDamage - DamageAfterGuard, bPerfectParry);
