@@ -301,6 +301,12 @@ bool AMoonfallHeroPawn::SaveProgress()
  // Copy the bag and equipped codes as one atomic snapshot. The worn slots
  // must still point to an owned entry and be legal for that equipment slot.
  Save->InventoryCodes = InventoryItemCodes;
+ Save->KeyRingIds = KeyRingIds;
+ if (Save->KeyRingIds.Num() > MaxKeyId) return false;
+ for (int32 I=0;I<Save->KeyRingIds.Num();++I) {
+  const int32 Id=Save->KeyRingIds[I];
+  if (Id < 1 || Id > MaxKeyId || (I>0 && Save->KeyRingIds[I-1] >= Id)) return false;
+ }
  Save->EquippedWeapon = EquippedWeaponCode;
  Save->EquippedArmor = EquippedArmorCode;
  Save->EquippedAccessory = EquippedAccessoryCode;
@@ -395,6 +401,11 @@ bool AMoonfallHeroPawn::LoadProgress()
  // V2 validates *every* item, worn ownership and inventory size before applying
  // any stat, root rank or resource. V1 preserves the preexisting inventory.
  if (Save->Version == 2) {
+  if (Save->KeyRingIds.Num() > MaxKeyId) return false;
+  for (int32 I=0;I<Save->KeyRingIds.Num();++I) {
+   const int32 Id=Save->KeyRingIds[I];
+   if (Id < 1 || Id > MaxKeyId || (I>0 && Save->KeyRingIds[I-1] >= Id)) return false;
+  }
   if (Save->InventoryCodes.Num() > MaxInventoryItems ||
       Save->SalvageMaterials < 0 || Save->SalvageMaterials > 9999 ||
      (Save->InventorySortMode < 0 || Save->InventorySortMode > 2)) return false;
@@ -420,6 +431,7 @@ bool AMoonfallHeroPawn::LoadProgress()
  if (Save->Version == 2) {
   // Restore all three equipped items from the validated owned inventory.
   InventoryItemCodes = Save->InventoryCodes;
+  KeyRingIds = Save->KeyRingIds;
   EquippedWeaponCode = Save->EquippedWeapon;
   EquippedArmorCode = Save->EquippedArmor;
   EquippedAccessoryCode = Save->EquippedAccessory;
@@ -2598,9 +2610,47 @@ void AMoonfallHeroPawn::AwardEquipmentDrop(bool bEliteEnemy, bool bBossEnemy)
  bProgressDirty = true;
 }
 
+bool AMoonfallHeroPawn::HasKey(int32 KeyId) const
+{
+ return KeyId >= 1 && KeyId <= MaxKeyId && KeyRingIds.Contains(KeyId);
+}
+
+bool AMoonfallHeroPawn::AddKeyToRing(int32 KeyId)
+{
+ // No fixed key slots: new distinct keys grow the ring automatically.
+ // Duplicate keys are already owned, so pickup may consume duplicate drops
+ // without granting inventory items or creating unnecessary save writes.
+ if (!HasAuthority() || KeyId < 1 || KeyId > MaxKeyId ||
+     !FMath::IsFinite(Health) || Health <= 0.f || bOptionsOpen ||
+     bInventoryOpen || bAtlasOpen) return false;
+ if (KeyRingIds.Contains(KeyId)) return true;
+ if (KeyRingIds.Num() >= MaxKeyId) return false;
+ KeyRingIds.Add(KeyId);
+ KeyRingIds.Sort();
+ bProgressDirty = true;
+ return true;
+}
+
+bool AMoonfallHeroPawn::SpawnGroundKeyDrop(int32 KeyId,FVector DropLocation)
+{
+ if (!HasAuthority() || !GetWorld() || KeyId < 1 || KeyId > MaxKeyId ||
+     DropLocation.ContainsNaN() || !FMath::IsFinite(DropLocation.X) ||
+     !FMath::IsFinite(DropLocation.Y) || !FMath::IsFinite(DropLocation.Z)) return false;
+ FActorSpawnParameters Params;
+ Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+ AMoonfallGroundLoot* Loot = GetWorld()->SpawnActor<AMoonfallGroundLoot>(
+     AMoonfallGroundLoot::StaticClass(),DropLocation,FRotator::ZeroRotator,Params);
+ if (!IsValid(Loot)) return false;
+ Loot->InitializeLoot(KeyLootBase + KeyId);
+ return Loot->GetItemCode() == KeyLootBase + KeyId;
+}
+
 bool AMoonfallHeroPawn::CollectGroundEquipmentCode(int32 ItemCode)
 {
  if (bAtlasOpen) return false;
+ // Reserved key loot routes to the ring before any equipment/bag checks.
+ if (ItemCode > KeyLootBase && ItemCode <= KeyLootBase + MaxKeyId)
+  return AddKeyToRing(ItemCode - KeyLootBase);
  // Enforce the same gameplay state at the collection boundary as the
  // manual pickup input. Other future callers must not bypass open menus.
  if (!FMath::IsFinite(Health) || Health <= 0.f || bOptionsOpen || bInventoryOpen || ItemCode <= 0) return false;
