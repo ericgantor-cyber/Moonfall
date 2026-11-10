@@ -140,39 +140,55 @@ class InventoryCapacityPort(unittest.TestCase):
         self.assertIn("HUD->GetInventoryItemAtScreenPosition", right)
 
 
-    def test_talent_respec_requires_explicit_second_confirmation(self):
+    def test_talent_respec_requires_explicit_yes_no_confirmation(self):
         header = (ROOT / "MoonfallHeroPawn.h").read_text(encoding="utf-8")
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
         hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
         self.assertIn("bool bTalentRespecArmed = false;", header)
-        self.assertIn("float TalentRespecConfirmUntil = -1.f;", header)
+        self.assertIn("int32 TalentRespecChoice = 1;", header)  # No by default.
+        self.assertNotIn("TalentRespecConfirmUntil", header + self.hero + hud)
         self.assertIn('ActionName="TalentRespec",Key=BackSpace', inputs)
         self.assertIn('ActionName="TalentRespec",Key=Gamepad_FaceButton_Top', inputs)
         action = body(self.hero, "void AMoonfallHeroPawn::RespecTalentAction()")
-        self.assertIn("if (!bTalentRespecArmed || !FMath::IsFinite(TalentRespecConfirmUntil)", action)
+        self.assertIn("if (bTalentRespecArmed) return;", action)
         self.assertIn("bTalentRespecArmed = true;", action)
-        self.assertIn("TalentRespecConfirmUntil = Now + 5.f;", action)
-        self.assertIn("Now > TalentRespecConfirmUntil", action)
-        self.assertIn("TalentRespecConfirmUntil = -1.f;", action)
-        tick = body(self.hero, "void AMoonfallHeroPawn::Tick(float DeltaSeconds)")
-        self.assertIn("if (bTalentRespecArmed && GetWorld())", tick)
-        self.assertIn("Now > TalentRespecConfirmUntil", tick)
-        self.assertIn("bTalentRespecArmed = false;", tick)
-        self.assertIn("bTalentRespecArmed = false;\\n TalentRespecConfirmUntil = -1.f;\\n RespecTalents();".replace("\\n","\n"), action)
+        self.assertIn("TalentRespecChoice = 1;", action)
+        self.assertNotIn("RespecTalents();", action)
+        resolution = body(self.hero, "void AMoonfallHeroPawn::ResolveTalentRespecConfirmation(")
+        self.assertIn("if (!bTalentRespecArmed) return;", resolution)
+        self.assertIn("if (bConfirm) RespecTalents();", resolution)
+        self.assertIn("bTalentRespecArmed = false;", resolution)
+        chosen = body(self.hero, "void AMoonfallHeroPawn::ActivateSelectedTalentNode()")
+        self.assertIn("ResolveTalentRespecConfirmation(TalentRespecChoice == 0);", chosen)
+        activation = body(self.hero, "bool AMoonfallHeroPawn::ActivateTalentNode(")
+        self.assertIn("if (bTalentRespecArmed) return false;", activation)
+        for direction, choice in (("OptionsLeft", 0), ("OptionsUp", 0),
+                                  ("OptionsRight", 1), ("OptionsDown", 1)):
+            controls = body(self.hero, "void AMoonfallHeroPawn::" + direction + "()")
+            self.assertIn("TalentRespecChoice=" + str(choice), controls)
         click = body(self.hero, "void AMoonfallHeroPawn::LeftClickContextAction()")
         self.assertIn("if (bTalentsOpen && Nav == 3) { RespecTalentAction(); return; }", click)
+        self.assertIn("if (Nav == 4) ResolveTalentRespecConfirmation(true);", click)
+        self.assertIn("else if (Nav == 5) ResolveTalentRespecConfirmation(false);", click)
+        self.assertIn("if (bTalentsOpen && bTalentRespecArmed)", click)
         hit = body(hud, "int32 AMoonfallCombatHUD::GetAtlasMenuActionAtScreenPosition(")
-        self.assertIn("return 3;", hit)
-        self.assertIn('TEXT("CONFIRM!") : TEXT("RESPEC")', hud)
+        self.assertIn("if (Talents && Hero->bTalentRespecArmed)", hit)
+        self.assertIn("return 4; // YES", hit)
+        self.assertIn("return 5; // NO", hit)
+        self.assertIn("return -1; // Modal dialog blocks", hit)
+        self.assertIn("DrawRespecConfirmation(Left,Top,Width,Height);", hud)
+        for label in ("ARE YOU SURE?", "YES", "NO"):
+            self.assertIn('TEXT("' + label + '")', hud)
+        self.assertIn("Hero->TalentRespecChoice==Choice", hud)
         for name in ("SelectNextTalentPage", "SelectPreviousTalentPage",
-                     "ActivateTalentNode", "SelectNextTalentNode",
-                     "SelectPreviousTalentNode"):
+                     "SelectNextTalentNode", "SelectPreviousTalentNode"):
             method = body(self.hero, "AMoonfallHeroPawn::" + name + "(")
-            self.assertIn("bTalentRespecArmed = false;", method)
+            self.assertIn("if (bTalentRespecArmed) return;", method)
         for name in ("ToggleTalents", "ToggleAtlas", "ToggleInventory",
                      "ToggleCharacterStats", "OpenOptions"):
             method = body(self.hero, "AMoonfallHeroPawn::" + name + "(")
             self.assertIn("bTalentRespecArmed = false;", method)
+
 
     def test_mouse_and_controller_focus_share_the_same_button(self):
         click = body(self.hero, "void AMoonfallHeroPawn::LeftClickContextAction()")
