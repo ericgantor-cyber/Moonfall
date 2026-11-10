@@ -64,6 +64,10 @@ Moonfall's fully migrated Godot world or finished dungeon.
   actor failed to spawn; duplicates already owned are dismissed when a pickup
   is initialized or explicitly interacted with. This still requires native
   gameplay/save-restart verification.
+- On a failed reward load, the gameplay HUD now displays
+  `REWARD SAVE ERROR - ORIGINAL FILE PROTECTED` for 12 seconds.
+  Milestone key respawn is disabled for that session until a valid save
+  loads; never automatically delete or replace the original slot.
 - Invalid or future-version reward saves are now protected against silent
   overwrite: `LoadRewardProgress` signals failure and subsequent reward
   save attempts fail closed. Back up the original slot before testing this
