@@ -1626,7 +1626,7 @@ bool AMoonfallHeroPawn::TryInteractWithNearbyKey()
   const FVector At = Candidate->GetActorLocation();
   if (FMath::Abs(At.Z - HeroPosition.Z) > 150.f) return;
   const float DistanceSq = FVector::DistSquared2D(At, HeroPosition);
-  if (!FMath::IsFinite(DistanceSq) || DistanceSq > BestDistanceSq) return;
+  if (!FMath::IsFinite(DistanceSq) || DistanceSq > RangeSquared) return;
   FCollisionQueryParams Params(SCENE_QUERY_STAT(MoonfallKeyInteractSight), false);
   Params.AddIgnoredActor(this);
   Params.AddIgnoredActor(Candidate);
