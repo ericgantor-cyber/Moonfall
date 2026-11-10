@@ -14,6 +14,9 @@ public:
  int32 GetInventoryItemAtScreenPosition(const AMoonfallHeroPawn* Hero, float X, float Y) const;
  // Visible SORT button hit test, shared with the inventory drawing geometry.
  bool IsInventorySortButtonAtScreenPosition(const AMoonfallHeroPawn* Hero, float X, float Y) const;
+ // -1 previous, +1 next, 0 no page button; no item mutations.
+ int32 GetInventoryPageButtonAtScreenPosition(const AMoonfallHeroPawn* Hero, float X, float Y) const;
+ int32 GetInventoryItemsPerPage() const;
 private:
  float DisplayHealth = -1.f;
  float DisplayMana = -1.f;
