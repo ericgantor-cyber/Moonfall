@@ -54,8 +54,15 @@ class UE5RewardParity(unittest.TestCase):
 
     def test_key_ring_input_and_visible_names(self):
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text()
-        self.assertIn('ActionName="KeyRing",Key=K', inputs)
-        self.assertIn('BindAction(TEXT("KeyRing")', self.hero)
+        self.assertNotIn('ActionName="KeyRing",Key=K', inputs)
+        self.assertNotIn('BindAction(TEXT("KeyRing")', self.hero)
+        self.assertIn("PC->bEnableClickEvents = bInventoryOpen;", self.hero)
+        self.assertIn("PC->bShowMouseCursor = bInventoryOpen;", self.hero)
+        self.assertIn("NotifyHitBoxClick(FName BoxName)", self.hud)
+        self.assertIn('AddHitBox(FVector2D(Left + 12.f, KeyRowY)', self.hud)
+        self.assertIn('FName(TEXT("MoonfallKeyRing"))', self.hud)
+        self.assertIn("Hero->bInventoryOpen && Hero->bCharacterStatsOpen", self.hud)
+        self.assertIn("Hero->ToggleKeyRing();", self.hud)
         self.assertIn("Hero->bKeyRingExpanded", self.hud)
         for label in ("Wardens' Crest", "Outlaw Seal", "Fallen Gate Key"):
             self.assertIn(label, self.hud)
