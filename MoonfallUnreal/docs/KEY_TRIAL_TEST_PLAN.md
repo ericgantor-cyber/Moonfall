@@ -156,10 +156,12 @@ Moonfall's fully migrated Godot world or finished dungeon.
 - Persisted pickups now require an exact match of GUID, item code **and**
   current map before removing a saved record. Test that a stale world actor
   from map A cannot claim its saved loot while in map B.
-- During restoration, the existing actor index records both GUID and item
-  code in one world scan. A conflicting actor with the same GUID but a
-  different code is logged and skipped rather than silently accepted as
-  the saved item. Inspect Unreal logs for GUID collision warnings.
+- During restoration, the existing actor index now tracks GUIDs to actual
+  pickup actors in one world scan. If a live actor has the saved GUID but the
+  wrong item code, restoration destroys the conflicting actor, logs a warning
+  and recreates the authoritative saved item instead of blocking recovery.
+  Verify the correct item is collectable and no phantom pickup remains.
+  If the replacement spawn fails, the saved record remains for another load.
 - Verify that failed pickups still leave saved records and the physical
   pickup intact, and that successful pickups persist normally after restart.
   Native UE5 compilation and cross-map gameplay validation remain pending.
