@@ -32,7 +32,7 @@ class UE5RewardParity(unittest.TestCase):
         self.assertIn("if (ConfirmedRewardKills == 5)", self.hero)
         self.assertIn("SpawnMilestoneKey(DefeatedLocation);", self.hero)
         self.assertNotIn('CollectQuestKey(FName(TEXT("fallen_gate_key")))', self.hero)
-        self.assertIn("SaveRewardProgress();", self.hero.split("bool AMoonfallHeroPawn::CollectQuestKey", 1)[1])
+        self.assertIn("if (!SaveRewardProgress())", self.hero.split("bool AMoonfallHeroPawn::CollectQuestKey", 1)[1])
 
     def test_gold_is_from_confirmed_death_not_hud_or_damage(self):
         death = self.enemy.split("OnEnemyDefeated(bLastHitWasShatter);", 1)[1]
