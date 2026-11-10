@@ -90,15 +90,16 @@ int32 AMoonfallCombatHUD::GetTalentNodeAtScreenPosition(
   Left + Width * (0.50f + (0.81f - 0.50f) * Zoom)
  };
  const float TierY[] = {
-  Top + Height * (0.52f + (0.25f - 0.52f) * Zoom),
-  Top + Height * (0.52f + (0.42f - 0.52f) * Zoom),
-  Top + Height * (0.52f + (0.60f - 0.52f) * Zoom),
-  Top + Height * (0.52f + (0.79f - 0.52f) * Zoom)
+  Top + Height * (0.52f + (0.21f - 0.52f) * Zoom),
+  Top + Height * (0.52f + (0.35f - 0.52f) * Zoom),
+  Top + Height * (0.52f + (0.50f - 0.52f) * Zoom),
+  Top + Height * (0.52f + (0.66f - 0.52f) * Zoom),
+  Top + Height * (0.52f + (0.82f - 0.52f) * Zoom)
  };
- for (int32 Tier = 0; Tier < 4; ++Tier)
+ for (int32 Tier = 0; Tier < 5; ++Tier)
   for (int32 Branch = 0; Branch < 3; ++Branch) {
    const float DX = X - CenterX[Branch], DY = Y - TierY[Tier];
-   const float Radius = (Tier == 0 ? 18.f : Tier == 1 ? 22.f : Tier == 2 ? 26.f : 30.f) * Scale * Zoom + 10.f;
+   const float Radius = (Tier == 0 ? 18.f : Tier == 1 ? 22.f : Tier == 2 ? 26.f : Tier == 3 ? 30.f : 33.f) * Scale * Zoom + 10.f;
    if (DX * DX + DY * DY <= Radius * Radius) return Tier * 3 + Branch;
   }
  return -1;
@@ -187,10 +188,12 @@ void AMoonfallCombatHUD::DrawHUD()
   const TCHAR* KeystoneNames[] = {TEXT("4  BATTLE FURY"),TEXT("5  MIND FLOW"),TEXT("6  BULWARK")};
   const TCHAR* HybridNames[] = {TEXT("7  BATTLE WEAVE"),TEXT("8  ARCANE AEGIS"),TEXT("9  IRON WILL")};
   const TCHAR* ApexNames[] = {TEXT("STARBREAKER"),TEXT("ASTRAL SURGE"),TEXT("ETERNAL SENTINEL")};
+  const TCHAR* CrownNames[] = {TEXT("VOID CROWN"),TEXT("CELESTIAL WELL"),TEXT("ADAMANT OATH")};
   const bool Unlocked[] = {
    Hero->bTalentForceKeystone,Hero->bTalentFocusKeystone,Hero->bTalentWardKeystone,
    Hero->bTalentBattleWeave,Hero->bTalentArcaneAegis,Hero->bTalentIronWill,
-   Hero->bTalentStarbreaker,Hero->bTalentAstralSurge,Hero->bTalentEternalSentinel
+   Hero->bTalentStarbreaker,Hero->bTalentAstralSurge,Hero->bTalentEternalSentinel,
+   Hero->bTalentVoidCrown,Hero->bTalentCelestialWell,Hero->bTalentAdamantOath
   };
   const FLinearColor BranchColors[] = {
    FLinearColor(1.f,0.53f,0.30f),FLinearColor(0.38f,0.73f,1.f),
@@ -204,10 +207,11 @@ void AMoonfallCombatHUD::DrawHUD()
    Left + Width * (0.50f + (0.81f - 0.50f) * Zoom)
   };
   const float TierY[] = {
-   Top + Height * (0.52f + (0.25f - 0.52f) * Zoom),
-   Top + Height * (0.52f + (0.42f - 0.52f) * Zoom),
-   Top + Height * (0.52f + (0.60f - 0.52f) * Zoom),
-   Top + Height * (0.52f + (0.79f - 0.52f) * Zoom)
+   Top + Height * (0.52f + (0.21f - 0.52f) * Zoom),
+   Top + Height * (0.52f + (0.35f - 0.52f) * Zoom),
+   Top + Height * (0.52f + (0.50f - 0.52f) * Zoom),
+   Top + Height * (0.52f + (0.66f - 0.52f) * Zoom),
+  Top + Height * (0.52f + (0.82f - 0.52f) * Zoom)
   };
   // Luminous roots and links: draw dark rails under living colored filaments.
   for (int32 Branch = 0; Branch < 3; ++Branch) {
@@ -234,9 +238,18 @@ void AMoonfallCombatHUD::DrawHUD()
    DrawLine(CenterX[ApexB[Apex]],TierY[2],CenterX[Apex],TierY[3],
      Unlocked[3 + ApexB[Apex]] ? UnlockedColor : Locked,1.8f * Scale);
   }
+  // Crown links converge only after two neighboring apex talents.
+  const int32 CrownA[] = {0,1,2};
+  const int32 CrownB[] = {1,2,0};
+  for (int32 Crown = 0; Crown < 3; ++Crown) {
+   DrawLine(CenterX[CrownA[Crown]],TierY[3],CenterX[Crown],TierY[4],
+     Unlocked[6 + CrownA[Crown]] ? UnlockedColor : Locked,2.f * Scale);
+   DrawLine(CenterX[CrownB[Crown]],TierY[3],CenterX[Crown],TierY[4],
+     Unlocked[6 + CrownB[Crown]] ? UnlockedColor : Locked,2.f * Scale);
+  }
   // Each node is concentric rings and a star core rather than a rectangle.
   // Ring segments are bounded for predictable frame cost.
-  for (int32 Tier = 0; Tier < 4; ++Tier) {
+  for (int32 Tier = 0; Tier < 5; ++Tier) {
    for (int32 Branch = 0; Branch < 3; ++Branch) {
     const bool bActive = Tier == 0 ? Ranks[Branch] > 0
       : Unlocked[(Tier - 1) * 3 + Branch];
@@ -244,7 +257,7 @@ void AMoonfallCombatHUD::DrawHUD()
       : Hero->CanUnlockTalentNode(3 + (Tier - 1) * 3 + Branch);
     const FLinearColor Color = bActive ? BranchColors[Branch]
       : bAvailable ? FLinearColor(0.83f,0.73f,0.52f) : Locked;
-    const float R = (Tier == 0 ? 18.f : Tier == 1 ? 22.f : Tier == 2 ? 26.f : 30.f) * Scale * Zoom;
+    const float R = (Tier == 0 ? 18.f : Tier == 1 ? 22.f : Tier == 2 ? 26.f : Tier == 3 ? 30.f : 33.f) * Scale * Zoom;
     const float X = CenterX[Branch],Y = TierY[Tier];
     for (int32 Seg = 0; Seg < 24; ++Seg) {
      const float A = 2.f * PI * Seg / 24.f;
@@ -271,7 +284,8 @@ void AMoonfallCombatHUD::DrawHUD()
     }
     const TCHAR* Name = Tier == 0 ? BranchNames[Branch]
       : Tier == 1 ? KeystoneNames[Branch]
-      : Tier == 2 ? HybridNames[Branch] : ApexNames[Branch];
+      : Tier == 2 ? HybridNames[Branch]
+      : Tier == 3 ? ApexNames[Branch] : CrownNames[Branch];
     DrawText(Name,bActive ? FLinearColor(1.f,0.94f,0.85f) : FLinearColor(0.71f,0.76f,0.88f),
       X - (bSmall ? 35.f : 59.f) * Scale,Y + R + 9.f * Scale,
       nullptr,bSmall ? 0.49f : 0.75f);
@@ -289,7 +303,7 @@ void AMoonfallCombatHUD::DrawHUD()
        X - 67.f * Scale,Y + R + 28.f * Scale,nullptr,0.60f);
    }
   }
-  DrawText(TEXT("APEX: requires two linked hybrid powers"),
+  DrawText(TEXT("APEX: two hybrids    CROWNS: two apex powers"),
     FLinearColor(0.75f,0.72f,0.93f),Left + 18.f,Top + Height - 126.f,
     nullptr,bSmall ? 0.42f : 0.68f);
   DrawLine(Left + 18.f,Top + Height - 87.f,Left + Width - 18.f,
@@ -297,7 +311,7 @@ void AMoonfallCombatHUD::DrawHUD()
   DrawText(TEXT("1-3: roots   4-6: keystones   7-9: hybrids   Apex: click/Enter   Backspace: respec"),
     FLinearColor(0.91f,0.86f,0.98f),Left + 18.f,Top + Height - 70.f,
     nullptr,bSmall ? 0.48f : 0.75f);
-  DrawText(FString::Printf(TEXT("Selected star %d / 12     Zoom %.0f%%"),Hero->TalentSelectedNode + 1,Zoom * 100.f),
+  DrawText(FString::Printf(TEXT("Selected star %d / 15     Zoom %.0f%%"),Hero->TalentSelectedNode + 1,Zoom * 100.f),
     FLinearColor(0.97f,0.81f,0.51f),Left + Width * 0.58f,Top + 54.f,
     nullptr,bSmall ? 0.55f : 0.76f);
   DrawText(TEXT("Click a star / Tab / D-pad: select     Enter / A: invest     Wheel: zoom"),
