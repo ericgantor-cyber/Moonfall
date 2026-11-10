@@ -313,8 +313,8 @@ class InventoryCapacityPort(unittest.TestCase):
         self.assertIn("GetTalentNodeAtScreenPosition(", hud_header)
         self.assertIn("GetTalentNodeAtScreenPosition(", hud)
         hit = body(hud, "int32 AMoonfallCombatHUD::GetTalentNodeAtScreenPosition(")
-        self.assertIn("DX * DX + DY * DY <= Radius * Radius", hit)
-        self.assertIn("return Tier * 3 + Branch;", hit)
+        self.assertIn("DistanceSq <= Radius * Radius && DistanceSq < BestDistanceSq", hit)
+        self.assertIn("ClosestNode = Tier * 3 + Branch;", hit)
         left = body(self.hero, "void AMoonfallHeroPawn::LeftClickContextAction()")
         self.assertIn("if (bAtlasOpen && bTalentsOpen)", left)
         self.assertIn("HUD->GetTalentNodeAtScreenPosition(this,X,Y)", left)
@@ -422,7 +422,7 @@ class InventoryCapacityPort(unittest.TestCase):
         self.assertIn("const int32 CrownB[] = {1,2,0};", hud)
         hit = body(hud, "int32 AMoonfallCombatHUD::GetTalentNodeAtScreenPosition(")
         self.assertIn("for (int32 Tier = 0; Tier < 9; ++Tier)", hit)
-        self.assertIn("return Tier * 3 + Branch;", hit)
+        self.assertIn("ClosestNode = Tier * 3 + Branch;", hit)
         self.assertIn("Selected star %d / 27", hud)
         self.assertIn("% 27", body(self.hero, "void AMoonfallHeroPawn::SelectNextTalentNode()"))
         self.assertIn("% 27", body(self.hero, "void AMoonfallHeroPawn::SelectPreviousTalentNode()"))
@@ -524,7 +524,7 @@ class InventoryCapacityPort(unittest.TestCase):
         self.assertIn("(FMath::Clamp(TalentSelectedNode,0,26) + 26) % 27", self.hero)
         hit = body(hud, "int32 AMoonfallCombatHUD::GetTalentNodeAtScreenPosition(")
         self.assertIn("for (int32 Tier = 0; Tier < 9; ++Tier)", hit)
-        self.assertIn("return Tier * 3 + Branch;", hit)
+        self.assertIn("ClosestNode = Tier * 3 + Branch;", hit)
 
     def test_ninth_tier_convergence_skills_have_real_gated_effects(self):
         hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
@@ -559,7 +559,34 @@ class InventoryCapacityPort(unittest.TestCase):
         self.assertIn("(FMath::Clamp(TalentSelectedNode,0,26) + 26) % 27", self.hero)
         hit = body(hud, "int32 AMoonfallCombatHUD::GetTalentNodeAtScreenPosition(")
         self.assertIn("for (int32 Tier = 0; Tier < 9; ++Tier)", hit)
-        self.assertIn("return Tier * 3 + Branch;", hit)
+        self.assertIn("ClosestNode = Tier * 3 + Branch;", hit)
+
+    def test_constellation_spacing_and_max_zoom_are_safe(self):
+        hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        panel = hud.split("if (Hero->bAtlasOpen && Hero->bTalentsOpen) {", 1)[1].split(
+            "if (Hero->bAtlasOpen) {", 1)[0]
+        hit = body(hud, "int32 AMoonfallCombatHUD::GetTalentNodeAtScreenPosition(")
+        # The input hit test and rendering must be based on identical coordinates,
+        # with no overlapping giant hit circles stealing points from other nodes.
+        self.assertEqual(hud.count("const float LayoutZoom = FMath::Min(Zoom,1.10f);"), 2)
+        self.assertEqual(hud.count("(12.f + Tier * 0.75f) * Scale * Zoom"), 2)
+        self.assertIn("ClosestNode = Tier * 3 + Branch;", hit)
+        self.assertIn("return ClosestNode;", hit)
+        self.assertNotIn("if (DX * DX + DY * DY <= Radius * Radius) return", hit)
+        for fraction in ("0.19f", "0.26f", "0.33f", "0.40f", "0.47f",
+                         "0.54f", "0.61f", "0.68f", "0.75f"):
+            expected = f"({fraction} - 0.47f) * LayoutZoom"
+            self.assertIn(expected, hit)
+            self.assertIn(expected, panel)
+        self.assertIn("if (!bSmall || Hero->TalentSelectedNode == Tier * 3 + Branch)", panel)
+        self.assertIn("const float FocusR = R + 5.f * Scale;", panel)
+        self.assertIn("Unlock higher tiers by owning both linked stars.", panel)
+        # Zooming must not place the first or last row outside the visible panel.
+        for zoom in (0.75, 1.0, 1.1, 1.35):
+            effective = min(zoom, 1.10)
+            ys = [0.47 + (0.19 + 0.07 * i - 0.47) * effective for i in range(9)]
+            self.assertTrue(all(0.08 < y < 0.82 for y in ys))
+            self.assertTrue(all(b - a > 0 for a, b in zip(ys, ys[1:])))
 
     def test_inventory_has_no_equip_or_page_buttons(self):
         hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
