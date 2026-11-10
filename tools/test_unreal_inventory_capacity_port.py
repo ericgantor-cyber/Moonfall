@@ -646,6 +646,60 @@ class InventoryCapacityPort(unittest.TestCase):
         self.assertIn("% 138", body(self.hero,
             "void AMoonfallHeroPawn::SelectPreviousTalentNode()"))
 
+    def test_forever_inspired_stats_are_derived_from_equipped_items(self):
+        header = (ROOT / "MoonfallHeroPawn.h").read_text(encoding="utf-8")
+        getters = ("GetStrength", "GetAgility", "GetStaminaAttribute", "GetIntellect",
+                   "GetSpirit", "GetHitChance", "GetDodgeChance", "GetParryChance",
+                   "GetBlockChance", "GetBlockValue", "GetArmorRating",
+                   "GetDefenseRating", "GetMeleeAttackPower", "GetRangedAttackPower",
+                   "GetSpellDamagePower", "GetSpellHealingPower",
+                   "GetSpellPenetration", "GetSpellPierce", "GetResistance")
+        for method in getters:
+            self.assertIn(method + "(", header)
+            self.assertIn("AMoonfallHeroPawn::" + method + "(", self.hero)
+        for method in ("GetStrength", "GetAgility", "GetStaminaAttribute",
+                       "GetIntellect", "GetArmorRating", "GetSpellDamagePower"):
+            # No non-equipped inventory item should grant a character bonus.
+            part = self.hero.split("AMoonfallHeroPawn::" + method + "(",1)[1].split("\n}\n",1)[0]
+            self.assertNotIn("InventoryItemCodes",part)
+        for reference in ("ValidEquippedTier(EquippedWeaponCode,0)",
+                          "ValidEquippedTier(EquippedAccessoryCode,2)",
+                          "ValidEquippedTier(EquippedArmorCode,1)"):
+            self.assertIn(reference,self.hero)
+        resistance = self.hero.split("AMoonfallHeroPawn::GetResistance(",1)[1].split("\n}\n",1)[0]
+        self.assertIn("School < 0 || School >= 5",resistance)
+        self.assertIn("FMath::Clamp(Natural+SchoolBonus,0.f,100.f)",resistance)
+
+    def test_forever_stats_have_safe_combat_hooks_and_character_pages(self):
+        hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        header = (ROOT / "MoonfallHeroPawn.h").read_text(encoding="utf-8")
+        inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
+        self.assertIn("CharacterStatsPage = 0",header)
+        self.assertIn("void AMoonfallHeroPawn::NextCharacterStatsPage()",self.hero)
+        self.assertIn("void AMoonfallHeroPawn::PreviousCharacterStatsPage()",self.hero)
+        self.assertIn("bInventoryOpen && bCharacterStatsOpen",self.hero)
+        for mapping in ("CharacterStatsNext", "CharacterStatsPrevious"):
+            self.assertIn('ActionName="' + mapping + '"',inputs)
+            self.assertIn('BindAction(TEXT("' + mapping + '")',self.hero)
+        self.assertIn("if (Hero->CharacterStatsPage != 0)",hud)
+        self.assertIn("StatLinesOffense[]",hud)
+        self.assertIn("StatLinesDefense[]",hud)
+        for label in ("Strength:", "Agility:", "Stamina:", "Intellect:", "Spirit:",
+                      "Hit Chance:", "Melee AP:", "Ranged AP:", "Spell Damage:",
+                      "Spell Healing:", "Spell Penetration:", "Spell Pierce:",
+                      "Dodge:", "Parry:", "Block chance:", "Block value:",
+                      "Armor:", "Defense:", "Fire:", "Frost:", "Nature:",
+                      "Shadow:", "Arcane:"):
+            self.assertIn(label,hud)
+        self.assertIn("if (bSpellHit) Enemy->TakeSpellDamage(SpellDamage);",self.hero)
+        self.assertIn("FMath::FRand() <= GetHitChance()",self.hero)
+        self.assertIn("GetBlockValue()*0.025f",self.hero)
+        self.assertIn("GetSpellHealingPower()*0.0002f",self.hero)
+        self.assertIn("GetSpellDamagePower()*0.0002f",self.hero)
+        self.assertIn("GetArmorRating()*0.000025f",self.hero)
+        self.assertIn("Mana -= Costs[School] * ManaCostMultiplier;",self.hero)
+        self.assertIn("LastCastTime[Hand] = Time;",self.hero)
+
     def test_inventory_has_no_equip_or_page_buttons(self):
         hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
         left = body(self.hero, "void AMoonfallHeroPawn::LeftClickContextAction()")
