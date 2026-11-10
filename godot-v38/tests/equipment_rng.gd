@@ -52,6 +52,31 @@ func _run()->void:
  var corrupt_craft:Dictionary=INVENTORY.new_state()
  corrupt_craft["materials"][craft_material]=[craft_cost]
  check(not INVENTORY.craft(corrupt_craft,"ashwood_sword",99),"malformed materials cannot fund crafting")
+ # Mutations on malformed saved state must fail without crashing or granting loot.
+ var broken_items:Dictionary=INVENTORY.new_state()
+ broken_items["items"]="invalid"
+ check(not INVENTORY.add_item(broken_items,"ashwood_sword"),"malformed item collection rejects grants")
+ check(not INVENTORY.equip(broken_items,"ashwood_sword",99),"malformed item collection rejects equip")
+ var broken_slots:Dictionary=INVENTORY.new_state()
+ INVENTORY.add_item(broken_slots,"ashwood_sword")
+ broken_slots["equipped"]="invalid"
+ check(not INVENTORY.equip(broken_slots,"ashwood_sword",99),"malformed equipped collection rejects equip")
+ var broken_materials:Dictionary=INVENTORY.new_state()
+ broken_materials["materials"]="invalid"
+ check(not INVENTORY.add_material(broken_materials,"Ashwood",1),"malformed materials reject grants")
+ var broken_counts:Dictionary=INVENTORY.new_state()
+ broken_counts["items"]["ashwood_sword"]={"bad":true}
+ check(INVENTORY.add_item(broken_counts,"ashwood_sword"),"invalid item count can recover through valid grant")
+ check(int(broken_counts["items"]["ashwood_sword"])==1,"recovered item count is one")
+ broken_counts["materials"]["Ashwood"]=["bad"]
+ check(INVENTORY.add_material(broken_counts,"Ashwood",2),"invalid material count can recover through valid grant")
+ check(int(broken_counts["materials"]["Ashwood"])==2,"recovered material count is two")
+ var capped:Dictionary=INVENTORY.new_state()
+ capped["items"]["ashwood_sword"]=9999
+ capped["materials"]["Ashwood"]=999999
+ check(not INVENTORY.add_item(capped,"ashwood_sword"),"full item stack rejects phantom grant")
+ check(not INVENTORY.add_material(capped,"Ashwood",1),"full material stack rejects phantom grant")
+ check(int(capped["items"]["ashwood_sword"])==9999 and int(capped["materials"]["Ashwood"])==999999,"full-stack rejection preserves resources")
  var state:Dictionary=INVENTORY.new_state()
  var drop:Dictionary=INVENTORY.loot_enemy(state,12,42)
  check(drop.has("roll") and state["loot_rolls"].size()==1,"loot roll persisted")
