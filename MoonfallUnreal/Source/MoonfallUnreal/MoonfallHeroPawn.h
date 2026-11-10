@@ -256,6 +256,7 @@ private:
  void BeginGuard();
  void EndGuard();
  void UpdateInventoryMouseInput();
+ bool TryInteractWithNearbyKey();
  void InventoryConfirm();
  void InventorySalvage();
  void OpenOptions();
