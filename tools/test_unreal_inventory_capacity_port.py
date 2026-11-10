@@ -321,7 +321,7 @@ class InventoryCapacityPort(unittest.TestCase):
         self.assertIn("ActivateTalentNode(Node);", left)
         self.assertIn("if (bAtlasOpen) return;", left)
         activation = body(self.hero, "bool AMoonfallHeroPawn::ActivateTalentNode(int32 Node)")
-        self.assertIn("Node < 0 || Node >= 27", activation)
+        self.assertIn("Node < 0 || Node >= 138", activation)
         self.assertIn("SpendTalentPoint(Node) : UnlockTalentNode(Node)", activation)
         zoomin = body(self.hero, "void AMoonfallHeroPawn::ZoomCameraIn()")
         zoomout = body(self.hero, "void AMoonfallHeroPawn::ZoomCameraOut()")
@@ -371,10 +371,10 @@ class InventoryCapacityPort(unittest.TestCase):
                      "bTalentArcaneAegis && bTalentIronWill"):
             self.assertIn(term, gate)
         act = body(self.hero, "bool AMoonfallHeroPawn::ActivateTalentNode(int32 Node)")
-        self.assertIn("Node >= 27", act)
+        self.assertIn("Node >= 138", act)
         self.assertIn("UnlockTalentNode(Node)", act)
-        self.assertIn("% 27", body(self.hero, "void AMoonfallHeroPawn::SelectNextTalentNode()"))
-        self.assertIn("% 27", body(self.hero, "void AMoonfallHeroPawn::SelectPreviousTalentNode()"))
+        self.assertIn("% 138", body(self.hero, "void AMoonfallHeroPawn::SelectNextTalentNode()"))
+        self.assertIn("% 138", body(self.hero, "void AMoonfallHeroPawn::SelectPreviousTalentNode()"))
         unlock = body(self.hero, "bool AMoonfallHeroPawn::UnlockTalentNode(int32 Node)")
         self.assertIn("Node == 11 ? &bTalentEternalSentinel", unlock)
         points = body(self.hero, "int32 AMoonfallHeroPawn::GetUnspentTalentPoints() const")
@@ -424,8 +424,8 @@ class InventoryCapacityPort(unittest.TestCase):
         self.assertIn("for (int32 Tier = 0; Tier < 9; ++Tier)", hit)
         self.assertIn("ClosestNode = Tier * 3 + Branch;", hit)
         self.assertIn("Selected star %d / 27", hud)
-        self.assertIn("% 27", body(self.hero, "void AMoonfallHeroPawn::SelectNextTalentNode()"))
-        self.assertIn("% 27", body(self.hero, "void AMoonfallHeroPawn::SelectPreviousTalentNode()"))
+        self.assertIn("% 138", body(self.hero, "void AMoonfallHeroPawn::SelectNextTalentNode()"))
+        self.assertIn("% 138", body(self.hero, "void AMoonfallHeroPawn::SelectPreviousTalentNode()"))
 
     def test_sixth_tier_mythics_gate_spending_refunds_and_combat(self):
         hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
@@ -456,8 +456,8 @@ class InventoryCapacityPort(unittest.TestCase):
         self.assertIn("const int32 MythicB[] = {2,1,2};", hud)
         self.assertIn("for (int32 Tier = 0; Tier < 9; ++Tier)", hud)
         self.assertIn("Selected star %d / 27", hud)
-        self.assertIn("(FMath::Clamp(TalentSelectedNode,0,26) + 1) % 27", self.hero)
-        self.assertIn("(FMath::Clamp(TalentSelectedNode,0,26) + 26) % 27", self.hero)
+        self.assertIn("(FMath::Clamp(TalentSelectedNode,0,137) + 1) % 138", self.hero)
+        self.assertIn("(FMath::Clamp(TalentSelectedNode,0,137) + 137) % 138", self.hero)
 
     def test_seventh_tier_ascendants_are_gated_and_reversible(self):
         hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
@@ -488,8 +488,8 @@ class InventoryCapacityPort(unittest.TestCase):
         self.assertIn("const int32 AscendantB[] = {2,1,2};", hud)
         self.assertIn("for (int32 Tier = 0; Tier < 9; ++Tier)", hud)
         self.assertIn("Selected star %d / 27", hud)
-        self.assertIn("(FMath::Clamp(TalentSelectedNode,0,26) + 1) % 27", self.hero)
-        self.assertIn("(FMath::Clamp(TalentSelectedNode,0,26) + 26) % 27", self.hero)
+        self.assertIn("(FMath::Clamp(TalentSelectedNode,0,137) + 1) % 138", self.hero)
+        self.assertIn("(FMath::Clamp(TalentSelectedNode,0,137) + 137) % 138", self.hero)
 
     def test_eighth_tier_transcendent_unlocks_are_connected_and_bounded(self):
         hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
@@ -520,8 +520,8 @@ class InventoryCapacityPort(unittest.TestCase):
         self.assertIn("const int32 TranscendentB[] = {2,1,2};", hud)
         self.assertIn("for (int32 Tier = 0; Tier < 9; ++Tier)", hud)
         self.assertIn("Selected star %d / 27", hud)
-        self.assertIn("(FMath::Clamp(TalentSelectedNode,0,26) + 1) % 27", self.hero)
-        self.assertIn("(FMath::Clamp(TalentSelectedNode,0,26) + 26) % 27", self.hero)
+        self.assertIn("(FMath::Clamp(TalentSelectedNode,0,137) + 1) % 138", self.hero)
+        self.assertIn("(FMath::Clamp(TalentSelectedNode,0,137) + 137) % 138", self.hero)
         hit = body(hud, "int32 AMoonfallCombatHUD::GetTalentNodeAtScreenPosition(")
         self.assertIn("for (int32 Tier = 0; Tier < 9; ++Tier)", hit)
         self.assertIn("ClosestNode = Tier * 3 + Branch;", hit)
@@ -555,8 +555,8 @@ class InventoryCapacityPort(unittest.TestCase):
         self.assertIn("const int32 ConvergenceB[] = {2,1,2};", hud)
         self.assertIn("for (int32 Tier = 0; Tier < 9; ++Tier)", hud)
         self.assertIn("Selected star %d / 27", hud)
-        self.assertIn("(FMath::Clamp(TalentSelectedNode,0,26) + 1) % 27", self.hero)
-        self.assertIn("(FMath::Clamp(TalentSelectedNode,0,26) + 26) % 27", self.hero)
+        self.assertIn("(FMath::Clamp(TalentSelectedNode,0,137) + 1) % 138", self.hero)
+        self.assertIn("(FMath::Clamp(TalentSelectedNode,0,137) + 137) % 138", self.hero)
         hit = body(hud, "int32 AMoonfallCombatHUD::GetTalentNodeAtScreenPosition(")
         self.assertIn("for (int32 Tier = 0; Tier < 9; ++Tier)", hit)
         self.assertIn("ClosestNode = Tier * 3 + Branch;", hit)
@@ -587,6 +587,63 @@ class InventoryCapacityPort(unittest.TestCase):
             ys = [0.47 + (0.19 + 0.07 * i - 0.47) * effective for i in range(9)]
             self.assertTrue(all(0.08 < y < 0.82 for y in ys))
             self.assertTrue(all(b - a > 0 for a, b in zip(ys, ys[1:])))
+
+    def test_111_astral_talents_are_real_gated_paged_and_bounded(self):
+        hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        header = (ROOT / "MoonfallHeroPawn.h").read_text(encoding="utf-8")
+        inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
+        for field in ("static constexpr int32 AstralTalentCount = 111",
+                      "TArray<uint8> AstralTalentUnlocked",
+                      "CanUnlockAstralTalent(int32 Index)",
+                      "UnlockAstralTalent(int32 Index)",
+                      "GetAstralTalentName(int32 Index)"):
+            self.assertIn(field, header)
+        self.assertIn("AstralTalentUnlocked.Init(uint8(0), AstralTalentCount);", self.hero)
+        self.assertIn("GetAstralTalentCount(-1)", body(self.hero,
+            "int32 AMoonfallHeroPawn::GetUnspentTalentPoints() const"))
+        self.assertIn("GetAstralTalentCount(0) * 0.002f", self.hero)
+        self.assertIn("GetAstralTalentCount(1) * 0.003f", self.hero)
+        self.assertIn("GetAstralTalentCount(2) * 0.003f", self.hero)
+        self.assertIn("Node >= 138", body(self.hero,
+            "bool AMoonfallHeroPawn::ActivateTalentNode(int32 Node)"))
+        self.assertIn("UnlockAstralTalent(Node - 27)", self.hero)
+        gate = body(self.hero, "bool AMoonfallHeroPawn::CanUnlockAstralTalent(int32 Index) const")
+        for condition in ("Index < 0 || Index >= AstralTalentCount",
+                          "GetUnspentTalentPoints() <= 0", "Stage == 0",
+                          "bTalentCrimsonNova,bTalentAetherCovenant,bTalentLastCitadel",
+                          "IsAstralTalentUnlocked(Index - 3)",
+                          "Stage % 6 == 0", "(Stage - 1) * 3 + (Branch + 1) % 3"):
+            self.assertIn(condition, gate)
+        self.assertIn("AstralTalentUnlocked[Index] = 1;", body(self.hero,
+            "bool AMoonfallHeroPawn::UnlockAstralTalent(int32 Index)"))
+        respec = body(self.hero, "bool AMoonfallHeroPawn::RespecTalents()")
+        self.assertIn("AstralTalentUnlocked.Init(uint8(0), AstralTalentCount);", respec)
+        name = body(self.hero, "FString AMoonfallHeroPawn::GetAstralTalentName(int32 Index) const")
+        self.assertIn("Motifs[37]", name)
+        self.assertIn("Branches[3]", name)
+        for branch in range(3):
+            indices = [3 * stage + branch for stage in range(37)]
+            self.assertEqual(len(indices), 37)
+            self.assertTrue(all(0 <= i < 111 for i in indices))
+        self.assertIn("MoonfallAstralStarPosition(", hud)
+        hit = body(hud, "int32 AMoonfallCombatHUD::GetTalentNodeAtScreenPosition(")
+        self.assertIn("Node >= 138", hit)
+        self.assertIn("BestNode = Node;", hit)
+        self.assertIn("return BestNode;", hit)
+        self.assertIn("if (Hero->TalentSelectedNode >= 27)", hud)
+        self.assertIn("ASTRAL CONSTELLATION", hud)
+        self.assertIn("Page * 27 + Local", hud)
+        self.assertIn("111 new talents", hud)
+        self.assertIn("GetAstralTalentName(Selected)", hud)
+        self.assertIn("CanUnlockAstralTalent(Astral)", hud)
+        for key in ("PageDown", "PageUp", "Gamepad_LeftShoulder", "Gamepad_RightShoulder"):
+            self.assertIn("Key=" + key, inputs)
+        self.assertIn("SelectNextTalentPage()", self.hero)
+        self.assertIn("SelectPreviousTalentPage()", self.hero)
+        self.assertIn("% 138", body(self.hero,
+            "void AMoonfallHeroPawn::SelectNextTalentNode()"))
+        self.assertIn("% 138", body(self.hero,
+            "void AMoonfallHeroPawn::SelectPreviousTalentNode()"))
 
     def test_inventory_has_no_equip_or_page_buttons(self):
         hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
