@@ -1530,7 +1530,8 @@ void AMoonfallHeroPawn::PreviousCharacterStatsPage()
 
 void AMoonfallHeroPawn::ToggleCharacterStats()
 {
- // C opens character info from gameplay; controller A still switches
+ // C opens character info from gameplay;
+ bTalentRespecArmed = false; controller A still switches
  // between the character sheet and inventory without equipping anything.
  if (bOptionsOpen || !FMath::IsFinite(Health) || Health <= 0.f) return;
  if (bAtlasOpen) { bAtlasOpen = false; bTalentsOpen = false; }
@@ -1578,6 +1579,7 @@ void AMoonfallHeroPawn::UpdateInventoryMouseMode()
 void AMoonfallHeroPawn::ToggleAtlas()
 {
  if (!FMath::IsFinite(Health) || Health <= 0.f || bOptionsOpen) return;
+ bTalentRespecArmed = false;
  ResetMouseCastChord();
  // M always opens the map, or closes it when the map is already visible.
  const bool bWasMapOpen = bAtlasOpen && !bTalentsOpen;
@@ -1826,7 +1828,20 @@ void AMoonfallHeroPawn::UnlockBattleWeave() { UnlockTalentNode(6); }
 void AMoonfallHeroPawn::UnlockArcaneAegis() { UnlockTalentNode(7); }
 void AMoonfallHeroPawn::UnlockIronWill() { UnlockTalentNode(8); }
 
-void AMoonfallHeroPawn::RespecTalentAction() { RespecTalents(); }
+void AMoonfallHeroPawn::RespecTalentAction()
+{
+ if (!bAtlasOpen || !bTalentsOpen || bInventoryOpen || bOptionsOpen ||
+     !FMath::IsFinite(Health) || Health <= 0.f) {
+  bTalentRespecArmed = false;
+  return;
+ }
+ if (!bTalentRespecArmed) {
+  bTalentRespecArmed = true;
+  return;
+ }
+ bTalentRespecArmed = false;
+ RespecTalents();
+}
 
 bool AMoonfallHeroPawn::RespecTalents()
 {
@@ -1861,6 +1876,7 @@ bool AMoonfallHeroPawn::RespecTalents()
  bTalentAetherCovenant = false;
  bTalentLastCitadel = false;
  AstralTalentUnlocked.Init(uint8(0), AstralTalentCount);
+ bTalentRespecArmed = false;
  bProgressDirty = true;
  return true;
 }
@@ -1868,6 +1884,7 @@ bool AMoonfallHeroPawn::RespecTalents()
 void AMoonfallHeroPawn::ToggleTalents()
 {
  if (!FMath::IsFinite(Health) || Health <= 0.f || bOptionsOpen) return;
+ bTalentRespecArmed = false;
  ResetMouseCastChord();
  // Reuse the gameplay menu lock of the map, but show a separate K screen.
  if (bAtlasOpen && bTalentsOpen) {
@@ -1895,6 +1912,7 @@ void AMoonfallHeroPawn::ToggleTalents()
 
 void AMoonfallHeroPawn::ToggleInventory() {
  if (bOptionsOpen || !FMath::IsFinite(Health) || Health <= 0.f) return;
+ bTalentRespecArmed = false;
  ResetMouseCastChord();
  if (bAtlasOpen) { bAtlasOpen = false; bTalentsOpen = false; }
  UpdateInventoryMouseMode();
@@ -2170,7 +2188,8 @@ void AMoonfallHeroPawn::UpgradeSelectedInventoryItem()
 }
 
 void AMoonfallHeroPawn::OpenOptions() {
- // The defeat screen owns input until respawn; do not reopen gameplay menus.
+ // The defeat screen owns input until respawn;
+ bTalentRespecArmed = false; do not reopen gameplay menus.
  if (Health <= 0.f || !FMath::IsFinite(Health)) return;
  ResetMouseCastChord();
  if (bAtlasOpen) {
