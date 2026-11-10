@@ -116,7 +116,13 @@ Moonfall's fully migrated Godot world or finished dungeon.
 - With save writes denied, attempt direct equipping and each crafting action
   on an unworn and worn item. The original inventory code, salvage currency,
   equipped code/tier/affix and armor-derived health must be restored.
-- IMPORTANT: Loose uncollected world drops and the legacy direct-grant path
-  are not fully persisted yet. In-world loot spawning and complete loadout
-  restore still require actual native Windows UE5 compilation and gameplay
-  tests before treating this as a production-ready equipment save.
+- Scripted legacy equipment grants now use the same transactional inventory
+  save as manual pickups. With a writable save, verify the exact granted code
+  remains in inventory after restart without automatically equipping.
+  With save writes denied, the exact rolled item should spawn as a manually
+  collectable world pickup (not be rerolled). If the recovery spawn fails,
+  the HUD must explicitly warn that the item could not be recovered.
+- IMPORTANT: Loose uncollected world drops are **not** saved between
+  sessions, including these recovery drops. Full world-loot persistence and
+  native Windows UE5 compilation/gameplay checks are still needed before
+  treating this as a production-ready equipment save.
