@@ -75,4 +75,9 @@ Moonfall's fully migrated Godot world or finished dungeon.
 - Native validation should test a deliberately malformed/unsupported-version
   copy of the reward slot, confirm the original bytes are preserved, and
   restore the backup afterward.
+- Named gates reuse the hero's already-validated reward state when the hero
+  initializes first, avoiding one disk read per door. If a gate initializes
+  first, it loads the existing reward slot directly. Check both initialization
+  orders in a native UE5 level, and verify no gate restores an unlock when the
+  loaded reward save is corrupt or has an unsupported schema.
 - Z and Nyra's original artwork is not edited.
