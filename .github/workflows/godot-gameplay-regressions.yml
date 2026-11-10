@@ -28,6 +28,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # Isolate integration tests from any default or previous runner save.
+          export XDG_DATA_HOME="${RUNNER_TEMP}/moonfall-gameplay-data"
+          export MOONFALL_TEST_PROFILE="${XDG_DATA_HOME}/godot/app_userdata"
+          mkdir -p "${MOONFALL_TEST_PROFILE}"
           for test in equipment_catalog.gd equipment_inventory.gd equipment_rng.gd loot_capacity_integrity.gd material_capacity_integrity.gd crafting_capacity.gd v30_4_inventory_rules.gd aim_v38_8.gd; do
             echo "::group::${test}"
             godot --headless --path godot-v38 --script "res://tests/${test}"
