@@ -229,7 +229,11 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(", 1)[0]
         self.assertIn("ItemCode != Affix * 100000 + SlotIndex * 10000", collect)
         self.assertIn("InventoryItemCodes.Add(ItemCode);", collect)
-        self.assertNotIn("EquippedCode =", collect)
+        self.assertIn("const bool bAutoEquipEmptySlot = *EquippedCode == 0;", collect)
+        self.assertIn("if (bAutoEquipEmptySlot)", collect)
+        self.assertIn("*EquippedCode = ItemCode;", collect)
+        self.assertIn("if (!SaveRewardProgress())", collect)
+        self.assertIn("*EquippedCode = 0;", collect)
         self.assertNotIn("Salvage =", collect)
         self.assertNotIn("RemoveAt(", collect)
         self.assertIn("PrimaryActorTick.bCanEverTick = false;", ground_cpp)
@@ -264,7 +268,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
 
     def test_inventory_accepts_new_loot_without_rejection_or_auto_cleanup(self):
         loot = self.hero_cpp.split("void AMoonfallHeroPawn::AwardEquipmentDrop(", 1)[1].split(
-            "bool AMoonfallHeroPawn::EquipInventoryItem(", 1)[0]
+            "bool AMoonfallHeroPawn::CollectGroundEquipmentCode(", 1)[0]
         self.assertIn("if (CollectGroundEquipmentCode(ItemCode))", loot)
         self.assertNotIn("InventoryItemCodes.Num() >= 30", loot)
         self.assertNotIn("DiscardIndex", loot)
@@ -547,7 +551,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("OnHealthChanged(Health, MaxHealth);", equip)
         self.assertLess(equip.index("Code != Affix * 100000"), equip.index("*EquippedTier = Tier;"))
         loot = self.hero_cpp.split("void AMoonfallHeroPawn::AwardEquipmentDrop(", 1)[1].split(
-            "bool AMoonfallHeroPawn::EquipInventoryItem(", 1)[0]
+            "bool AMoonfallHeroPawn::CollectGroundEquipmentCode(", 1)[0]
         self.assertIn("if (CollectGroundEquipmentCode(ItemCode))", loot)
         self.assertNotIn("*EquippedCode = ItemCode;", loot)
         self.assertIn("if (!bDeferEquippedSave && !SaveRewardProgress())", equip)
