@@ -264,7 +264,7 @@ bool AMoonfallHeroPawn::SaveProgress()
  UMoonfallProgressSaveGame* Save = Cast<UMoonfallProgressSaveGame>(
    UGameplayStatics::CreateSaveGameObject(UMoonfallProgressSaveGame::StaticClass()));
  if (!Save) return false;
- Save->Version = 2;
+ Save->Version = 3;
  Save->Level = Level;
  Save->Experience = FMath::Max(0,Experience);
  Save->MaxHealth = FMath::Clamp(FMath::IsFinite(MaxHealth)
@@ -300,7 +300,18 @@ bool AMoonfallHeroPawn::SaveProgress()
  Save->AstralUnlocks = AstralTalentUnlocked;
  // Copy the bag and equipped codes as one atomic snapshot. The worn slots
  // must still point to an owned entry and be legal for that equipment slot.
+ EnsureInventoryPickupIds();
  Save->InventoryCodes = InventoryItemCodes;
+ Save->InventoryPickupIds = InventoryPickupIds;
+ Save->NextInventoryPickupId = NextInventoryPickupId;
+ if (Save->InventoryPickupIds.Num() != Save->InventoryCodes.Num() ||
+     Save->NextInventoryPickupId <= 0) return false;
+ TSet<int32> SavedIds;
+ for (int32 Id : Save->InventoryPickupIds) {
+  if (Id <= 0 || Id >= Save->NextInventoryPickupId ||
+      SavedIds.Contains(Id)) return false;
+  SavedIds.Add(Id);
+ }
  Save->KeyRingIds = KeyRingIds;
  if (Save->KeyRingIds.Num() > MaxKeyId) return false;
  for (int32 I=0;I<Save->KeyRingIds.Num();++I) {
@@ -345,7 +356,7 @@ bool AMoonfallHeroPawn::LoadProgress()
      !UGameplayStatics::DoesSaveGameExist(TEXT("MoonfallHeroProgressV1"),0)) return false;
  const UMoonfallProgressSaveGame* Save = Cast<UMoonfallProgressSaveGame>(
    UGameplayStatics::LoadGameFromSlot(TEXT("MoonfallHeroProgressV1"),0));
- if (!Save || (Save->Version != 1 && Save->Version != 2) || Save->Level < 1 || Save->Level > 100 ||
+ if (!Save || (Save->Version != 1 && Save->Version != 2 && Save->Version != 3) || Save->Level < 1 || Save->Level > 100 ||
      Save->RootRanks.Num() != 3 || Save->CoreUnlocks.Num() != 24 ||
      Save->AstralUnlocks.Num() != AstralTalentCount ||
      !FMath::IsFinite(Save->MaxHealth) || !FMath::IsFinite(Save->MaxMana) ||
@@ -400,7 +411,17 @@ bool AMoonfallHeroPawn::LoadProgress()
 
  // V2 validates *every* item, worn ownership and inventory size before applying
  // any stat, root rank or resource. V1 preserves the preexisting inventory.
- if (Save->Version == 2) {
+ if (Save->Version >= 2) {
+  if (Save->Version == 3) {
+   if (Save->InventoryPickupIds.Num()!=Save->InventoryCodes.Num() ||
+       Save->NextInventoryPickupId<=0) return false;
+   TSet<int32> SeenPickupIds;
+   for (int32 Id : Save->InventoryPickupIds) {
+    if (Id<=0 || Id>=Save->NextInventoryPickupId ||
+        SeenPickupIds.Contains(Id)) return false;
+    SeenPickupIds.Add(Id);
+   }
+  }
   if (Save->KeyRingIds.Num() > MaxKeyId) return false;
   for (int32 I=0;I<Save->KeyRingIds.Num();++I) {
    const int32 Id=Save->KeyRingIds[I];
@@ -428,9 +449,19 @@ bool AMoonfallHeroPawn::LoadProgress()
  Level = Save->Level;
  Experience = Save->Experience;
  ExperienceToNextLevel = Threshold;
- if (Save->Version == 2) {
+ if (Save->Version >= 2) {
   // Restore all three equipped items from the validated owned inventory.
   InventoryItemCodes = Save->InventoryCodes;
+  if (Save->Version == 3) {
+   InventoryPickupIds = Save->InventoryPickupIds;
+   NextInventoryPickupId = Save->NextInventoryPickupId;
+  } else {
+   // Legacy V2 order is the best available pickup-order baseline.
+   InventoryPickupIds.Reset(InventoryItemCodes.Num());
+   for (int32 Index=0;Index<InventoryItemCodes.Num();++Index)
+    InventoryPickupIds.Add(Index+1);
+   NextInventoryPickupId=InventoryPickupIds.Num()+1;
+  }
   KeyRingIds = Save->KeyRingIds;
   LastCollectedKeyId = 0; // The last discovery badge is session-only.
   EquippedWeaponCode = Save->EquippedWeapon;
