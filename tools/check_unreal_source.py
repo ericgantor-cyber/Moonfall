@@ -217,7 +217,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("for (int32 Drop = 0; Drop < DropCount; ++Drop)", spawn)
         self.assertIn("Spread * FMath::Cos(Angle)", spawn)
         self.assertIn("Spread * FMath::Sin(Angle)", spawn)
-        self.assertIn("RegisterWorldEquipmentDrop(ItemCode, SpawnAt);", spawn)
+        self.assertIn("if (RegisterWorldEquipmentDrop(ItemCode, SpawnAt)) continue;", spawn)
         register = self.hero_cpp.split("bool AMoonfallHeroPawn::RegisterWorldEquipmentDrop(", 1)[1].split(
             "void AMoonfallHeroPawn::RestorePendingWorldEquipmentDrops()", 1)[0]
         self.assertIn("Loot->InitializeLoot(ItemCode);", register)
