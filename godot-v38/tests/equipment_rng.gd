@@ -44,6 +44,18 @@ func _run()->void:
  INVENTORY.add_item(empowered,"ashwood_sword")
  INVENTORY.equip(empowered,"ashwood_sword",1)
  var ordinary:int=int(INVENTORY.totals(empowered)["weapon_power"])
+ # Stale or tampered equipped references must not grant free combat stats.
+ var unowned:Dictionary=INVENTORY.new_state()
+ unowned["equipped"]["weapon"]="ashwood_sword"
+ check(int(INVENTORY.totals(unowned)["weapon_power"])==0,"unowned equipped item grants no power")
+ var wrong_slot:Dictionary=INVENTORY.new_state()
+ INVENTORY.add_item(wrong_slot,"ashwood_sword")
+ wrong_slot["equipped"]["helmet"]="ashwood_sword"
+ check(int(INVENTORY.totals(wrong_slot)["weapon_power"])==0,"wrong-slot equipment grants no power")
+ var stale:Dictionary=empowered.duplicate(true)
+ stale["items"].erase("ashwood_sword")
+ check(int(INVENTORY.totals(stale)["weapon_power"])==0,"removed item grants no stale equipment power")
+ check(int(INVENTORY.totals(empowered)["weapon_power"])==ordinary,"valid equipped item retains its power")
  empowered["loot_rolls"].append({"item_id":"ashwood_sword","rarity_index":3,"power_bonus":6,"affixes":[{"stat":"Power","value":4},{"stat":"Crit","value":3}]})
  var stats:Dictionary=INVENTORY.totals(empowered)
  check(int(stats["weapon_power"])==ordinary+10,"rolled Power and rarity modify equipped damage")
