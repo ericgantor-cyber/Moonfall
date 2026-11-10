@@ -66,6 +66,13 @@ func _run()->void:
  check(int(INVENTORY.totals(bad_rolls)["weapon_power"])==ordinary,"invalid loot rolls retain base stats")
  bad_rolls["loot_rolls"]=[{"item_id":"ashwood_sword","rarity_index":4,"power_bonus":5,"affixes":"invalid"}]
  check(int(INVENTORY.totals(bad_rolls)["weapon_power"])==ordinary+5,"invalid affixes retain bounded rarity bonus")
+ # A matching owned roll may contain malformed numeric values in an old save.
+ var malformed_numbers:Dictionary=empowered.duplicate(true)
+ malformed_numbers["loot_rolls"]=[{"item_id":"ashwood_sword","rarity_index":{"bad":true},"power_bonus":["bad"],"affixes":[{"stat":"Power","value":{"bad":true}},{"stat":"Crit","value":["bad"]}]}]
+ var numeric_stats:Dictionary=INVENTORY.totals(malformed_numbers)
+ check(int(numeric_stats["weapon_power"])==ordinary,"malformed numeric loot bonuses are ignored")
+ check(int(numeric_stats["crit"])==0,"malformed numeric affixes grant no crit")
+ check(INVENTORY.totals(INVENTORY.normalize(malformed_numbers))==numeric_stats,"malformed numeric loot survives safe save normalization")
  empowered["loot_rolls"].append({"item_id":"ashwood_sword","rarity_index":3,"power_bonus":6,"affixes":[{"stat":"Power","value":4},{"stat":"Crit","value":3}]})
  var stats:Dictionary=INVENTORY.totals(empowered)
  check(int(stats["weapon_power"])==ordinary+10,"rolled Power and rarity modify equipped damage")
