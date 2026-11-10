@@ -158,8 +158,7 @@ class InventoryCapacityPort(unittest.TestCase):
         self.assertIn("if (bTalentRespecArmed && GetWorld())", tick)
         self.assertIn("Now > TalentRespecConfirmUntil", tick)
         self.assertIn("bTalentRespecArmed = false;", tick)
-        self.assertLess(action.index("bTalentRespecArmed = false;\\n RespecTalents();".replace("\\n","\n")),
-                        len(action))
+        self.assertIn("bTalentRespecArmed = false;\\n TalentRespecConfirmUntil = -1.f;\\n RespecTalents();".replace("\\n","\n"), action)
         click = body(self.hero, "void AMoonfallHeroPawn::LeftClickContextAction()")
         self.assertIn("if (bTalentsOpen && Nav == 3) { RespecTalentAction(); return; }", click)
         hit = body(hud, "int32 AMoonfallCombatHUD::GetAtlasMenuActionAtScreenPosition(")
