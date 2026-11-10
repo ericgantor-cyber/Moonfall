@@ -113,6 +113,15 @@ public:
  UFUNCTION(BlueprintCallable, Category="Moonfall|Map") void ToggleAtlas();
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") bool bTalentsOpen = false;
  UFUNCTION(BlueprintCallable, Category="Moonfall|Talents") void ToggleTalents();
+ // One shared player talent tree. Bosses Z and Nyra are not player classes.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") int32 TalentForceRank = 0;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") int32 TalentFocusRank = 0;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") int32 TalentWardRank = 0;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Talents") int32 GetUnspentTalentPoints() const;
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Talents") bool SpendTalentPoint(int32 Branch);
+ void SpendForceTalent();
+ void SpendFocusTalent();
+ void SpendWardTalent();
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Inventory") bool bCharacterStatsOpen = false;
  UFUNCTION(BlueprintCallable, Category="Moonfall|Inventory") void ToggleCharacterStats();
  // Controller A switches existing inventory pages, never closes the menu.
