@@ -95,6 +95,18 @@ static func totals(state:Dictionary)->Dictionary:
  var slots:Dictionary=slots_value
  var owned:Dictionary=owned_value
  var rolls:Array=rolls_value if rolls_value is Array else []
+ # Index the strongest roll once per item instead of scanning the entire
+ # saved roll history for every equipped slot on every stat refresh.
+ var best_by_item:Dictionary={}
+ for roll in rolls:
+  if not roll is Dictionary:continue
+  var roll_id:String=str(roll.get("item_id",""))
+  if roll_id=="":continue
+  var current:Dictionary=best_by_item.get(roll_id,{})
+  var rarity:int=clampi(int(roll.get("rarity_index",0)),0,4)
+  var current_rarity:int=int(current.get("rarity_index",-1))
+  if rarity>current_rarity or (rarity==current_rarity and _roll_strength(roll)>_roll_strength(current)):
+   best_by_item[roll_id]=roll
  for slot in SLOTS:
   var item_id:String=str(slots.get(slot,""))
   if int(owned.get(item_id,0))<1:continue
@@ -106,13 +118,7 @@ static func totals(state:Dictionary)->Dictionary:
    "armor":stats["armor"]+=power
    "offhand","accessory":stats["magic"]+=power
   # Apply only a matching owned item's highest rolled bonus.
-  var best_roll:Dictionary={}
-  for roll in rolls:
-   if roll is Dictionary and str(roll.get("item_id",""))==str(item["id"]):
-    var rolled_rarity:int=clampi(int(roll.get("rarity_index",0)),0,4)
-    var best_rarity:int=int(best_roll.get("rarity_index",-1))
-    if rolled_rarity>best_rarity or (rolled_rarity==best_rarity and _roll_strength(roll)>_roll_strength(best_roll)):
-     best_roll=roll
+  var best_roll:Dictionary=best_by_item.get(item_id,{})
   var bonus:int=clampi(int(best_roll.get("power_bonus",0)),0,12)
   if str(item["category"])=="weapon":stats["weapon_power"]+=bonus
   elif str(item["category"])=="armor":stats["armor"]+=bonus
