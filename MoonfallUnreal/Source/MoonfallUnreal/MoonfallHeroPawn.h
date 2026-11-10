@@ -270,7 +270,6 @@ private:
  void BreakGuard();
  void BeginGuard();
  void EndGuard();
- void InventoryConfirm();
  void InventorySalvage();
  void OpenOptions();
  void OptionsUp();
