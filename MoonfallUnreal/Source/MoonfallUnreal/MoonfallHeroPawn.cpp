@@ -1,4 +1,5 @@
 #include "MoonfallHeroPawn.h"
+#include "GameFramework/PlayerController.h"
 #include "MoonfallRewardSaveGame.h"
 #include "Kismet/GameplayStatics.h"
 #include "Camera/CameraComponent.h"
@@ -434,7 +435,6 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("DisplayMode"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleDisplayMode);
  Input->BindAction(TEXT("Options"), IE_Pressed, this, &AMoonfallHeroPawn::OpenOptions);
  Input->BindAction(TEXT("Inventory"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleInventory);
- Input->BindAction(TEXT("KeyRing"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleKeyRing);
  Input->BindAction(TEXT("CharacterStats"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleCharacterStats);
  Input->BindAction(TEXT("InventoryConfirm"), IE_Pressed, this, &AMoonfallHeroPawn::InventoryConfirm);
  Input->BindAction(TEXT("InventorySalvage"), IE_Pressed, this, &AMoonfallHeroPawn::InventorySalvage);
@@ -871,7 +871,9 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
   EndGuard();
   // Defeat clears every gameplay menu so the death/respawn screen stays visible.
   bInventoryOpen = false;
+  bCharacterStatsOpen = false;
   bOptionsOpen = false;
+  UpdateInventoryMouseInput();
  }
  if (!bReduceMotion) ImpactCameraOffset = FMath::Clamp(ImpactCameraOffset + FMath::Min(DamageTaken * 0.5f, 18.f), 0.f, 24.f);
  OnDamageImpact(DamageTaken);
@@ -898,6 +900,25 @@ void AMoonfallHeroPawn::ToggleDisplayMode() {
  Settings->SaveSettings();
 }
 
+void AMoonfallHeroPawn::UpdateInventoryMouseInput()
+{
+ APlayerController* PC = Cast<APlayerController>(GetController());
+ if (!PC) return;
+ // Pointer interaction is active only for menus; gameplay retains mouse-aim input.
+ PC->bShowMouseCursor = bInventoryOpen;
+ PC->bEnableClickEvents = bInventoryOpen;
+ if (bInventoryOpen)
+ {
+  FInputModeGameAndUI Mode;
+  Mode.SetHideCursorDuringCapture(false);
+  PC->SetInputMode(Mode);
+ }
+ else
+ {
+  PC->SetInputMode(FInputModeGameOnly());
+ }
+}
+
 void AMoonfallHeroPawn::ToggleCharacterStats()
 {
  if (bInventoryOpen && !bOptionsOpen && Health > 0.f)
@@ -915,6 +936,7 @@ void AMoonfallHeroPawn::ToggleInventory() {
  }
  bInventoryOpen = !bInventoryOpen;
  if (!bInventoryOpen) bCharacterStatsOpen = false;
+ UpdateInventoryMouseInput();
 }
 void AMoonfallHeroPawn::EquipSelectedInventoryItem() {
  if (!bInventoryOpen || bCharacterStatsOpen || !InventoryItemCodes.IsValidIndex(InventorySelection)) return;
@@ -1104,7 +1126,7 @@ void AMoonfallHeroPawn::InventoryConfirm() { EquipSelectedInventoryItem(); }
 void AMoonfallHeroPawn::OpenOptions() {
  // The defeat screen owns input until respawn; do not reopen gameplay menus.
  if (Health <= 0.f || !FMath::IsFinite(Health)) return;
- if (bInventoryOpen) { bInventoryOpen = false; bCharacterStatsOpen = false; return; }
+ if (bInventoryOpen) { bInventoryOpen = false; bCharacterStatsOpen = false; UpdateInventoryMouseInput(); return; }
  if (!bOptionsOpen) {
   StopJumping();
   if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
