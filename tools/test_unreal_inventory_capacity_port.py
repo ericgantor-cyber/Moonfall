@@ -126,6 +126,23 @@ class InventoryCapacityPort(unittest.TestCase):
         self.assertIn("DrawKeyRingSummary(", hud)
         self.assertIn('TEXT("KEY RING  %d  %s")', hud)
 
+    def test_dpad_horizontal_navigation_respects_active_inventory_pane(self):
+        # Character focus cycles stat subpages, bag focus selects equipment.
+        # A visible but unfocused bag must not move when browsing C.
+        for direction, page in (("OptionsLeft", "PreviousCharacterStatsPage"),
+                                ("OptionsRight", "NextCharacterStatsPage")):
+            method = body(self.hero, "void AMoonfallHeroPawn::" + direction + "()")
+            focus = method.index("if (bCharacterStatsOpen && bMenuFocusCharacter)")
+            page_call = method.index(page + "();", focus)
+            bag_guard = method.index("if (!bBagPanelOpen) return;", page_call)
+            item_change = method.index("InventorySelection=", bag_guard)
+            self.assertLess(focus, page_call)
+            self.assertLess(page_call, bag_guard)
+            self.assertLess(bag_guard, item_change)
+            self.assertIn("InventoryViewStart=InventorySelection;", method)
+        self.assertIn("bMenuFocusCharacter = !bMenuFocusCharacter;",
+                      body(self.hero, "void AMoonfallHeroPawn::SwitchOpenInventoryPane()"))
+
     def test_compact_b_c_pane_focus_and_bag_only_actions(self):
         hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
         header = (ROOT / "MoonfallHeroPawn.h").read_text(encoding="utf-8")
