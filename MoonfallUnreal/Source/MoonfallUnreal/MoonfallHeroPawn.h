@@ -217,6 +217,7 @@ public:
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") int32 TalentRespecChoice = 1;
  void RespecTalentAction();
  void ResolveTalentRespecConfirmation(bool bConfirm);
+ void CancelTalentRespecDialog();
 
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Inventory") bool bCharacterStatsOpen = false;
  // C-page tabs: overview, offensive/primary, defenses and resistances.
