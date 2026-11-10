@@ -80,6 +80,20 @@ class InventoryCapacityPort(unittest.TestCase):
         self.assertIn("InventorySortMode == 1", hud)
         self.assertIn('TEXT("F8 / L3: sort gear', hud)
 
+    def test_clickable_sort_button_changes_sort_without_equipping(self):
+        hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        header = (ROOT / "MoonfallCombatHUD.h").read_text(encoding="utf-8")
+        self.assertIn("IsInventorySortButtonAtScreenPosition(", header)
+        self.assertIn("bool AMoonfallCombatHUD::IsInventorySortButtonAtScreenPosition(", hud)
+        self.assertIn('TEXT("SORT: %s")', hud)
+        self.assertIn("ButtonX + 148.f", hud)
+        self.assertIn("ButtonY + 33.f", hud)
+        left = body(self.hero, "void AMoonfallHeroPawn::LeftClickContextAction()")
+        self.assertIn("HUD->IsInventorySortButtonAtScreenPosition(this, MouseX, MouseY)", left)
+        self.assertLess(left.index("CycleInventorySort();"), left.index("GetInventoryItemAtScreenPosition"))
+        self.assertLess(left.index("CycleInventorySort();"), left.index("InventorySelection = ClickedIndex"))
+        self.assertNotIn("EquipInventoryItem(", left)
+
     def test_failed_pickup_keeps_world_actor(self):
         method = body(self.loot, "bool AMoonfallGroundLoot::TryCollect()")
         self.assertLess(
