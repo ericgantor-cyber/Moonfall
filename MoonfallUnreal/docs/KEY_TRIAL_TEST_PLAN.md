@@ -27,7 +27,11 @@ Moonfall's fully migrated Godot world or finished dungeon.
     corresponding key's state has changed.
 11. Test failed saves: a key pickup must remain in the world and a gate must
     stay closed if its newly unlocked state cannot be persisted.
-12. Disable Key Trial and verify regular arenas remain unchanged.
+12. Verify the HUD gives a brief, readable message for successful key
+    collection, an already-owned key, missing-key door, successful unlock,
+    and failed-save key/door attempts. The text must clear after 3.5 seconds
+    without flashes and respect the combat text size preference.
+13. Disable Key Trial and verify regular arenas remain unchanged.
 
 ## Known limitations
 
