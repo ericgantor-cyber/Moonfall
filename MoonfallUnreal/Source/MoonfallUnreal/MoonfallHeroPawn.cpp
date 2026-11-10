@@ -95,7 +95,8 @@ float AMoonfallHeroPawn::GetCriticalChance() const
  const float TraitCrit = ValidEquippedRarityBonus(EquippedWeaponCode, 0, 1, 0.008f);
  return FMath::Clamp(0.05f + TraitCrit + FMath::Clamp(TalentForceRank, 0, 10) * 0.005f
    + (bTalentForceKeystone ? 0.02f : 0.f) + (bTalentBattleWeave ? 0.01f : 0.f)
-   + (GetSetPieceCount(1) >= 2 ? 0.03f : 0.f),
+   + (GetSetPieceCount(1) >= 2 ? 0.03f : 0.f)
+   + FMath::Min(0.02f,GetAstralTalentCount(0) * 0.0005f),
    0.05f, 0.25f);
 }
 
@@ -105,7 +106,8 @@ float AMoonfallHeroPawn::GetHasteBonus() const
  const float TraitHaste = ValidEquippedRarityBonus(EquippedAccessoryCode, 2, 3, 0.006f);
  return FMath::Clamp(TraitHaste + FMath::Clamp(TalentFocusRank, 0, 10) * 0.01f
    + (bTalentFocusKeystone ? 0.02f : 0.f) + (bTalentArcaneAegis ? 0.01f : 0.f)
-   + (GetSetPieceCount(3) >= 2 ? 0.04f : 0.f),
+   + (GetSetPieceCount(3) >= 2 ? 0.04f : 0.f)
+   + FMath::Min(0.025f,GetAstralTalentCount(1) * 0.0007f),
    0.f, 0.20f);
 }
 
@@ -126,13 +128,15 @@ float AMoonfallHeroPawn::GetVersatilityBonus() const
  const float TraitVersatility = ValidEquippedRarityBonus(EquippedArmorCode, 1, 2, 0.005f);
  return FMath::Clamp(TraitVersatility + FMath::Clamp(TalentWardRank, 0, 10) * 0.008f
    + (bTalentWardKeystone ? 0.015f : 0.f) + (bTalentIronWill ? 0.015f : 0.f)
-   + (GetSetPieceCount(2) >= 2 ? 0.03f : 0.f),
+   + (GetSetPieceCount(2) >= 2 ? 0.03f : 0.f)
+   + FMath::Min(0.02f,GetAstralTalentCount(2) * 0.0005f),
    0.f, 0.12f);
 }
 
 AMoonfallHeroPawn::AMoonfallHeroPawn()
 {
  PrimaryActorTick.bCanEverTick = true;
+ AstralTalentUnlocked.Init(uint8(0), AstralTalentCount);
  CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
  CameraBoom->SetupAttachment(GetRootComponent());
  CameraBoom->TargetArmLength = CameraDistance;
@@ -378,6 +382,8 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("TalentNext"), IE_Pressed, this, &AMoonfallHeroPawn::SelectNextTalentNode);
  Input->BindAction(TEXT("TalentPrevious"), IE_Pressed, this, &AMoonfallHeroPawn::SelectPreviousTalentNode);
  Input->BindAction(TEXT("TalentActivate"), IE_Pressed, this, &AMoonfallHeroPawn::ActivateSelectedTalentNode);
+ Input->BindAction(TEXT("TalentNextPage"), IE_Pressed, this, &AMoonfallHeroPawn::SelectNextTalentPage);
+ Input->BindAction(TEXT("TalentPreviousPage"), IE_Pressed, this, &AMoonfallHeroPawn::SelectPreviousTalentPage);
  Input->BindAction(TEXT("PickupLoot"), IE_Pressed, this, &AMoonfallHeroPawn::PickupNearestGroundLoot);
  Input->BindAction(TEXT("OptionsUp"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsUp);
  Input->BindAction(TEXT("OptionsDown"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsDown);
@@ -464,7 +470,8 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier, bool
    * (bTalentInfiniteCurrent ? 0.90f : 1.f)
    * (bTalentSoulConduit ? 0.95f : 1.f)
    * (bTalentRadiantNexus ? 0.95f : 1.f)
-   * (bTalentAetherCovenant ? 0.95f : 1.f);
+   * (bTalentAetherCovenant ? 0.95f : 1.f)
+   * (1.f - FMath::Min(0.12f, GetAstralTalentCount(1) * 0.003f));
  const float EffectMultiplier = bOvercharged ? 2.2f : Multiplier;
  const float Time = GetWorld()->GetTimeSeconds();
  if (!FMath::IsFinite(Health) || !FMath::IsFinite(MaxHealth) || MaxHealth <= 0.f || Health > MaxHealth || !FMath::IsFinite(MaxMana) || MaxMana <= 0.f || !FMath::IsFinite(Mana) || !FMath::IsFinite(SpellPowerMultiplier) || SpellPowerMultiplier <= 0.f || Mana < Costs[School] * ManaCostMultiplier || Time - LastCastTime[Hand] < Cooldowns[School] / (1.f + GetHasteBonus())) return false;
@@ -531,7 +538,8 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier, bool
         + (bTalentDuskSovereign ? 0.20f : 0.f)
         + (bTalentNightfallAscension ? 0.15f : 0.f)
         + (bTalentCrimsonNova ? 0.10f : 0.f) : 0.f))
-    * (bTalentAstralSurge ? 1.10f : 1.f) * MightMultiplier;
+    * (bTalentAstralSurge ? 1.10f : 1.f)
+    * (1.f + FMath::Min(0.12f, GetAstralTalentCount(0) * 0.002f)) * MightMultiplier;
   // Reject invalid damage before spending mana or consuming a hard-earned counter.
   if (!FMath::IsFinite(SpellDamage) || SpellDamage <= 0.f) return false;
   const float HealthBeforeSpell = Enemy->Health;
@@ -949,6 +957,7 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
    if (bTalentUnbrokenBastion) DamageAfterGuard *= 0.95f;
    if (bTalentTitanSoul) DamageAfterGuard *= 0.95f;
    if (bTalentLastCitadel) DamageAfterGuard *= 0.95f;
+   DamageAfterGuard *= (1.f - FMath::Min(0.12f, GetAstralTalentCount(2) * 0.003f));
   }
   OnGuardImpact(ArmoredDamage - DamageAfterGuard, bPerfectParry);
   if (Stamina < GuardStaminaCost) BreakGuard();
@@ -1093,6 +1102,87 @@ void AMoonfallHeroPawn::ToggleAtlas()
  UpdateInventoryMouseMode();
 }
 
+// Astral extension: 111 distinctly named, point-costing, sequential stars.
+// There are 37 stages per branch; every sixth stage needs a neighboring branch
+// at the previous stage, forming a finite directed dependency graph.
+bool AMoonfallHeroPawn::IsAstralTalentUnlocked(int32 Index) const
+{
+ return Index >= 0 && Index < AstralTalentCount
+   && AstralTalentUnlocked.IsValidIndex(Index) && AstralTalentUnlocked[Index] != 0;
+}
+
+int32 AMoonfallHeroPawn::GetAstralTalentCount(int32 Branch) const
+{
+ if (Branch < -1 || Branch > 2) return 0;
+ int32 Count = 0;
+ for (int32 Index = 0; Index < AstralTalentCount; ++Index)
+  if ((Branch == -1 || Index % 3 == Branch) && IsAstralTalentUnlocked(Index))
+   ++Count;
+ return Count;
+}
+
+FString AMoonfallHeroPawn::GetAstralTalentName(int32 Index) const
+{
+ if (Index < 0 || Index >= AstralTalentCount) return TEXT("Unknown Star");
+ static const TCHAR* const Motifs[37] = {
+  TEXT("Ashen Wake"),TEXT("Emberbrand"),TEXT("Riftwalker"),
+  TEXT("Runic Pulse"),TEXT("Blood Comet"),TEXT("Solar Fang"),
+  TEXT("Thunderwake"),TEXT("Starforge"),TEXT("Phantom Ember"),
+  TEXT("Crimson Tide"),TEXT("Arcane Shard"),TEXT("Shadowflame"),
+  TEXT("Celestial Rift"),TEXT("Astral Blade"),TEXT("Moonshard"),
+  TEXT("Void Lantern"),TEXT("Dawnshatter"),TEXT("Astral Eclipse"),
+  TEXT("Titan Spark"),TEXT("Spiritstorm"),TEXT("Radiant Echo"),
+  TEXT("Dusk Herald"),TEXT("Rift Crown"),TEXT("Phoenix Crest"),
+  TEXT("Phantom Star"),TEXT("Eternal Prism"),TEXT("Moonfire Oath"),
+  TEXT("Netherstorm"),TEXT("Skybreaker"),TEXT("Dragon Halo"),
+  TEXT("Iron Meteor"),TEXT("Cosmic Bloom"),TEXT("Eclipse Wings"),
+  TEXT("Starfall Crown"),TEXT("Nebula Heart"),TEXT("Origin Flame"),
+  TEXT("Godstar Ascendant")
+ };
+ static const TCHAR* const Branches[3] = {TEXT("FORCE"),TEXT("FOCUS"),TEXT("WARD")};
+ return FString::Printf(TEXT("%s / %s"),Branches[Index % 3],Motifs[Index / 3]);
+}
+
+bool AMoonfallHeroPawn::CanUnlockAstralTalent(int32 Index) const
+{
+ if (Index < 0 || Index >= AstralTalentCount || !bAtlasOpen || !bTalentsOpen
+   || bInventoryOpen || bOptionsOpen || !FMath::IsFinite(Health)
+   || Health <= 0.f || GetUnspentTalentPoints() <= 0
+   || IsAstralTalentUnlocked(Index)) return false;
+ const int32 Branch = Index % 3;
+ const int32 Stage = Index / 3;
+ if (Stage == 0) {
+  const bool Roots[3] = {bTalentCrimsonNova,bTalentAetherCovenant,bTalentLastCitadel};
+  return Roots[Branch];
+ }
+ if (!IsAstralTalentUnlocked(Index - 3)) return false;
+ // The cross-link is always in the previous stage, never a cycle.
+ if (Stage % 6 == 0 && !IsAstralTalentUnlocked((Stage - 1) * 3 + (Branch + 1) % 3))
+  return false;
+ return true;
+}
+
+bool AMoonfallHeroPawn::UnlockAstralTalent(int32 Index)
+{
+ if (!CanUnlockAstralTalent(Index) || !AstralTalentUnlocked.IsValidIndex(Index)) return false;
+ AstralTalentUnlocked[Index] = 1;
+ return true;
+}
+
+void AMoonfallHeroPawn::SelectNextTalentPage()
+{
+ if (!bAtlasOpen || !bTalentsOpen || bOptionsOpen || Health <= 0.f) return;
+ const int32 Page = FMath::Clamp(TalentSelectedNode,0,137) / 27;
+ TalentSelectedNode = ((Page + 1) % 6) * 27;
+}
+
+void AMoonfallHeroPawn::SelectPreviousTalentPage()
+{
+ if (!bAtlasOpen || !bTalentsOpen || bOptionsOpen || Health <= 0.f) return;
+ const int32 Page = FMath::Clamp(TalentSelectedNode,0,137) / 27;
+ TalentSelectedNode = ((Page + 5) % 6) * 27;
+}
+
 int32 AMoonfallHeroPawn::GetUnspentTalentPoints() const
 {
  // Level 1 begins with no points. Clamp overspending after external level edits.
@@ -1112,7 +1202,7 @@ int32 AMoonfallHeroPawn::GetUnspentTalentPoints() const
    - int32(bTalentNightfallAscension) - int32(bTalentRadiantNexus)
    - int32(bTalentTitanSoul)
    - int32(bTalentCrimsonNova) - int32(bTalentAetherCovenant)
-   - int32(bTalentLastCitadel));
+   - int32(bTalentLastCitadel) - GetAstralTalentCount(-1));
 }
 
 bool AMoonfallHeroPawn::SpendTalentPoint(int32 Branch)
@@ -1135,27 +1225,27 @@ void AMoonfallHeroPawn::SpendWardTalent() { SpendTalentPoint(2); }
 
 bool AMoonfallHeroPawn::ActivateTalentNode(int32 Node)
 {
- if (Node < 0 || Node >= 27 || !bAtlasOpen || !bTalentsOpen ||
+ if (Node < 0 || Node >= 138 || !bAtlasOpen || !bTalentsOpen ||
      bOptionsOpen || bInventoryOpen || Health <= 0.f) return false;
  TalentSelectedNode = Node;
- return Node < 3 ? SpendTalentPoint(Node) : UnlockTalentNode(Node);
+ return Node < 3 ? SpendTalentPoint(Node) : Node < 27 ? UnlockTalentNode(Node) : UnlockAstralTalent(Node - 27);
 }
 
 void AMoonfallHeroPawn::ActivateSelectedTalentNode()
 {
- ActivateTalentNode(FMath::Clamp(TalentSelectedNode,0,26));
+ ActivateTalentNode(FMath::Clamp(TalentSelectedNode,0,137));
 }
 
 void AMoonfallHeroPawn::SelectNextTalentNode()
 {
  if (bAtlasOpen && bTalentsOpen && !bOptionsOpen && Health > 0.f)
-  TalentSelectedNode = (FMath::Clamp(TalentSelectedNode,0,26) + 1) % 27;
+  TalentSelectedNode = (FMath::Clamp(TalentSelectedNode,0,26) + 1) % 138;
 }
 
 void AMoonfallHeroPawn::SelectPreviousTalentNode()
 {
  if (bAtlasOpen && bTalentsOpen && !bOptionsOpen && Health > 0.f)
-  TalentSelectedNode = (FMath::Clamp(TalentSelectedNode,0,26) + 26) % 27;
+  TalentSelectedNode = (FMath::Clamp(TalentSelectedNode,0,26) + 137) % 138;
 }
 
 bool AMoonfallHeroPawn::CanUnlockTalentNode(int32 Node) const
@@ -1271,6 +1361,7 @@ bool AMoonfallHeroPawn::RespecTalents()
  bTalentCrimsonNova = false;
  bTalentAetherCovenant = false;
  bTalentLastCitadel = false;
+ AstralTalentUnlocked.Init(uint8(0), AstralTalentCount);
  return true;
 }
 
