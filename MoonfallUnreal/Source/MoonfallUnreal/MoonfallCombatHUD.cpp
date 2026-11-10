@@ -281,14 +281,6 @@ void AMoonfallCombatHUD::DrawHUD()
   const float Pulse = Hero->bReduceMotion ? 1.f : 0.80f + 0.20f * FMath::Sin(
     (GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f) * 1.3f);
   DrawRect(FLinearColor(0.014f,0.016f,0.047f,0.985f),Left,Top,Width,Height);
-  // Clickable close and page navigation, independent of talent-node activation.
-  DrawRect(FLinearColor(0.15f,0.35f,0.44f),Left+Width-96.f,Top+12.f,84.f,34.f);
-  DrawText(TEXT("CLOSE"),FLinearColor::White,Left+Width-84.f,Top+20.f,nullptr,0.77f);
-  DrawRect(FLinearColor(0.15f,0.35f,0.44f),Left+12.f,Top+Height-44.f,88.f,34.f);
-  DrawRect(FLinearColor(0.15f,0.35f,0.44f),Left+110.f,Top+Height-44.f,88.f,34.f);
-  DrawText(TEXT("PREV"),FLinearColor::White,Left+22.f,Top+Height-36.f,nullptr,0.73f);
-  DrawText(TEXT("NEXT"),FLinearColor::White,Left+120.f,Top+Height-36.f,nullptr,0.73f);
-
   if (Hero->TalentSelectedNode >= 27) {
    // 111 distinct Astral stars live on five virtualized pages. No 138-node
    // single-frame Canvas pass or hundreds of overlapping labels.
@@ -372,6 +364,14 @@ void AMoonfallCombatHUD::DrawHUD()
    DrawText(TEXT("PgUp/PgDn / LB/RB: page   Tab / D-pad: star   Enter/A: unlock   Wheel: zoom"),
       FLinearColor(0.76f,0.79f,0.94f),Left+20.f,Top+Height-35.f,
       nullptr,bSmall ? 0.43f : 0.71f);
+  // Clickable close and page navigation, independent of talent-node activation.
+  DrawRect(FLinearColor(0.15f,0.35f,0.44f),Left+Width-96.f,Top+12.f,84.f,34.f);
+  DrawText(TEXT("CLOSE"),FLinearColor::White,Left+Width-84.f,Top+20.f,nullptr,0.77f);
+  DrawRect(FLinearColor(0.15f,0.35f,0.44f),Left+12.f,Top+Height-44.f,88.f,34.f);
+  DrawRect(FLinearColor(0.15f,0.35f,0.44f),Left+110.f,Top+Height-44.f,88.f,34.f);
+  DrawText(TEXT("PREV"),FLinearColor::White,Left+22.f,Top+Height-36.f,nullptr,0.73f);
+  DrawText(TEXT("NEXT"),FLinearColor::White,Left+120.f,Top+Height-36.f,nullptr,0.73f);
+
    return;
   }
 
@@ -603,6 +603,14 @@ void AMoonfallCombatHUD::DrawHUD()
   DrawText(TEXT("K / Esc: close    M: open map"),
     FLinearColor(0.70f,0.79f,0.91f),Left + 18.f,Top + Height - 35.f,
     nullptr,bSmall ? 0.68f : 0.83f);
+  // Clickable close and page navigation, independent of talent-node activation.
+  DrawRect(FLinearColor(0.15f,0.35f,0.44f),Left+Width-96.f,Top+12.f,84.f,34.f);
+  DrawText(TEXT("CLOSE"),FLinearColor::White,Left+Width-84.f,Top+20.f,nullptr,0.77f);
+  DrawRect(FLinearColor(0.15f,0.35f,0.44f),Left+12.f,Top+Height-44.f,88.f,34.f);
+  DrawRect(FLinearColor(0.15f,0.35f,0.44f),Left+110.f,Top+Height-44.f,88.f,34.f);
+  DrawText(TEXT("PREV"),FLinearColor::White,Left+22.f,Top+Height-36.f,nullptr,0.73f);
+  DrawText(TEXT("NEXT"),FLinearColor::White,Left+120.f,Top+Height-36.f,nullptr,0.73f);
+
   return;
  }
  if (Hero->bAtlasOpen) {
