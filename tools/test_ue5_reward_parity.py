@@ -652,41 +652,40 @@ class UE5RewardParity(unittest.TestCase):
         self.assertIn("SpawnedActors.Add(Record.DropId, Loot);", restore)
         self.assertEqual(restore.count("TActorIterator<AMoonfallGroundLoot>"), 1)
 
-    def test_nearby_loot_is_not_starved_by_distant_persisted_actors(self):
+    def test_auto_loot_collects_all_reachable_items_without_a_six_item_limit(self):
+        tick = self.hero.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1].split(
+            "void AMoonfallHeroPawn::", 1)[0]
         pickup = self.hero.split("void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[1].split(
             "void AMoonfallHeroPawn::EquipBestInventoryAction()", 1)[0]
+        self.assertIn("NextAutoLootAt = Now + 0.35f;", tick)
+        self.assertIn("PickupNearestGroundLoot();", tick)
+        self.assertIn("!bOptionsOpen && !bInventoryOpen", tick)
+        self.assertIn("float NextAutoLootAt = 0.f;", self.hero_h)
         self.assertIn("for (TActorIterator<AMoonfallGroundLoot> It(GetWorld()); It; ++It)", pickup)
+        self.assertIn("NearbyLoot.Add(Candidate);", pickup)
+        self.assertNotIn("MaxLootPerPress", pickup)
         self.assertNotIn("MaxLootScanned", pickup)
-        self.assertNotIn("Scanned < ", pickup)
-        self.assertIn("constexpr int32 MaxLootPerPress = 6;", pickup)
-        self.assertIn("if (InsertAt >= MaxLootPerPress) continue;", pickup)
-        self.assertIn("NearbyLoot.Insert(Candidate, InsertAt);", pickup)
-        self.assertIn("NearbyLoot.RemoveAt(MaxLootPerPress);", pickup)
+        self.assertIn("InventoryItemCodes.Num() >= 4096", pickup)
         self.assertIn("FMath::Square(250.f)", pickup)
         self.assertIn("ECC_Visibility", pickup)
-        self.assertIn("if (IsValid(Loot)) Loot->TryCollect();", pickup)
+        self.assertIn("if (IsValid(Loot) && !Loot->TryCollect())", pickup)
+        self.assertNotIn("TryInteractWithNearbyKey()", pickup)
 
-    def test_pickup_prunes_expensive_visibility_traces_and_recovers_missing_saved_drops(self):
+    def test_auto_loot_recovers_missing_saved_drops_and_respects_save_failures(self):
         pickup = self.hero.split("void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[1].split(
             "void AMoonfallHeroPawn::EquipBestInventoryAction()", 1)[0]
         self.assertIn("for (int32 Attempt = 0; Attempt < 2; ++Attempt)", pickup)
         self.assertIn("NearbyLoot.Reset();", pickup)
-        self.assertIn("NearbyDistanceSq.Reset();", pickup)
-        self.assertIn("if (InsertAt >= MaxLootPerPress) continue;", pickup)
-        self.assertLess(pickup.index("if (InsertAt >= MaxLootPerPress) continue;"),
-                        pickup.index("GetWorld()->LineTraceSingleByChannel("))
-        self.assertLess(pickup.index("GetWorld()->LineTraceSingleByChannel("),
-                        pickup.index("NearbyLoot.Insert(Candidate, InsertAt);"))
         self.assertIn("if (!NearbyLoot.IsEmpty() || Attempt > 0) break;", pickup)
         self.assertIn("if (Record.LevelId != CurrentLevelId) continue;", pickup)
-        self.assertIn("if (FMath::Abs(Record.Location.Z - HeroPosition.Z) > 150.f) continue;", pickup)
         self.assertIn("if (!bNearbySavedLoot) break;", pickup)
         self.assertIn("RestorePendingWorldEquipmentDrops();", pickup)
-        self.assertLess(pickup.index("if (!bNearbySavedLoot) break;"),
-                        pickup.index("RestorePendingWorldEquipmentDrops();"))
         self.assertEqual(pickup.count("RestorePendingWorldEquipmentDrops();"), 1)
-        self.assertIn("constexpr int32 MaxLootPerPress = 6;", pickup)
-        self.assertIn("if (IsValid(Loot)) Loot->TryCollect();", pickup)
+        self.assertIn("NextAutoLootAt = GetWorld()->GetTimeSeconds() + 2.f;", pickup)
+        self.assertIn("if (InventoryItemCodes.Num() >= 4096) break;", pickup)
+        self.assertIn("GetWorld()->LineTraceSingleByChannel(", pickup)
+        self.assertNotIn("EquipInventoryItem(", pickup)
+        self.assertNotIn("SalvageInventoryItem(", pickup)
 
     def test_equipment_remains_manual_and_hud_shows_rewards(self):
         self.assertIn("void PickupNearestGroundLoot();", self.hero_h)
