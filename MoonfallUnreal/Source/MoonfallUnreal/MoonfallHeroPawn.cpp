@@ -1002,6 +1002,9 @@ void AMoonfallHeroPawn::LeftClickContextAction()
       const int32 Action = HUD->GetCharacterActionAtScreenPosition(this, MouseX, MouseY);
       if (Action < 0) return;
       if (Action == 7) { ToggleInventory(); return; }
+      if (Action == 8) { PreviousCharacterStatsPage(); return; }
+      if (Action == 9) { NextCharacterStatsPage(); return; }
+      if (Action == 10) { ToggleCharacterStats(); return; }
       if (InventoryItemCodes.Num() <= 0) return;
       if (Action == 0) {
        InventorySelection = FMath::Max(0,InventorySelection - 1);
