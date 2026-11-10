@@ -16,6 +16,7 @@ class MOONFALLUNREAL_API AMoonfallKeyGate : public AActor
  GENERATED_BODY()
 public:
  AMoonfallKeyGate();
+ virtual void BeginPlay() override;
 
  UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Moonfall|Quest Gate")
  FName RequiredKeyId = FName(TEXT("fallen_gate_key"));
@@ -35,10 +36,15 @@ public:
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Quest Gate")
  void OnGateUnlocked();
 
+ // Separate load notification avoids replaying first-unlock FX every restart.
+ UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Quest Gate")
+ void OnSavedGateRestored();
+
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Quest Gate")
  void OnGateLocked(FName MissingKeyId);
 
 protected:
+ void ApplyOpenState();
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Quest Gate")
  TObjectPtr<USceneComponent> GateRoot;
 
