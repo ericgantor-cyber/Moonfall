@@ -27,7 +27,8 @@ public:
  UPROPERTY(SaveGame) int32 EquippedArmor = 0;
  UPROPERTY(SaveGame) int32 EquippedAccessory = 0;
  UPROPERTY(SaveGame) int32 SalvageMaterials = 0;
- // Defaults to quality order for preexisting V2 saves lacking this field.
- UPROPERTY(SaveGame) int32 InventorySortMode = 1;
+ // Preserve pickup order for existing V2 saves without this field.
+ // 0 pickup, 1 quality, 2 slot; every value is a valid bag mode.
+ UPROPERTY(SaveGame) int32 InventorySortMode = 0;
 
 };
