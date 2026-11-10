@@ -28,6 +28,14 @@ static func add_item(state:Dictionary,item_id:String,count:int=1)->bool:
  state["items"]=items
  return true
 
+## Auto-collection of earned currency. Never overflows the saved gold cap.
+static func add_gold(state:Dictionary,amount:int)->int:
+ if amount<=0:return 0
+ var before:int=clampi(int(state.get("gold",0)),0,99999999)
+ var after:int=mini(99999999,before+amount)
+ state["gold"]=after
+ return after-before
+
 static func equip(state:Dictionary,item_id:String,hero_level:int)->bool:
  var item:Dictionary=CATALOG.get_item(item_id)
  if item.is_empty() or hero_level<int(item.get("level_required",1)):return false
