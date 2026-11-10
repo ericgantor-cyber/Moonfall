@@ -421,6 +421,39 @@ class UE5RewardParity(unittest.TestCase):
         self.assertLess(salvage.index("if (!SaveRewardProgress())"),
                         salvage.index("InventorySelection = FMath::Clamp("))
 
+    def test_equipment_loadout_and_crafting_commit_atomically(self):
+        for field in ("EquippedWeaponCode", "EquippedArmorCode", "EquippedAccessoryCode"):
+            self.assertIn(f"UPROPERTY(SaveGame) int32 {field} = 0;", self.save)
+            self.assertIn(f"Save->{field} = {field};", self.hero)
+            self.assertIn(f"Save->{field}", self.hero)
+        loader = self.hero.split("bool AMoonfallHeroPawn::LoadRewardProgress()", 1)[1].split(
+            "bool AMoonfallHeroPawn::SaveRewardProgress()", 1)[0]
+        self.assertIn("InventoryItemCodes.Contains(Code)", loader)
+        self.assertIn("PreviousArmorTierOnLoad", loader)
+        self.assertIn("ArmorHealthDelta", loader)
+        self.assertIn("EquipmentTier = FMath::Max(", loader)
+        equip = self.hero.split("bool AMoonfallHeroPawn::EquipInventoryItem(", 1)[1].split(
+            "\n}\n", 1)[0]
+        self.assertIn("if (!bDeferEquippedSave && !SaveRewardProgress())", equip)
+        self.assertIn("*EquippedCode = PreviousCode;", equip)
+        self.assertIn("MaxHealth = PreviousMaxHealth;", equip)
+        self.assertIn("EQUIP SAVE FAILED - LOADOUT RESTORED", equip)
+        self.assertIn("bool bDeferEquippedSave = false;", self.hero_h)
+        for name in ("UpgradeInventoryItem", "AscendInventoryItemRarity", "ReforgeInventoryItemAffix"):
+            craft = self.hero.split(f"bool AMoonfallHeroPawn::{name}(", 1)[1].split(
+                "\n}\n", 1)[0]
+            self.assertIn("bDeferEquippedSave = true;", craft)
+            self.assertIn("bDeferEquippedSave = false;", craft)
+            self.assertIn("const int32 OldSalvage = Salvage;", craft)
+            self.assertIn("if (!SaveRewardProgress())", craft)
+            self.assertIn("InventoryItemCodes[InventoryIndex] = Code;", craft)
+            self.assertIn("Salvage = OldSalvage;", craft)
+            self.assertIn("*LiveCode = OldEquippedCode;", craft)
+            self.assertIn("MaxHealth = OldMaxHealth;", craft)
+            self.assertIn("CRAFT SAVE FAILED - ITEM AND MATERIALS RESTORED", craft)
+            self.assertLess(craft.index("if (!SaveRewardProgress())"),
+                            craft.index("OnEquipment", craft.index("if (!SaveRewardProgress())"))
+
     def test_equipment_remains_manual_and_hud_shows_rewards(self):
         self.assertIn("void PickupNearestGroundLoot();", self.hero_h)
         self.assertIn("Loot->TryCollect()", self.hero)
