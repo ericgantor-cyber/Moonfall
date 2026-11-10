@@ -5,6 +5,7 @@
 #include "Components/TextRenderComponent.h"
 #include "UObject/ConstructorHelpers.h"
 #include "Engine/StaticMesh.h"
+#include "Kismet/GameplayStatics.h"
 
 AMoonfallKeyPickup::AMoonfallKeyPickup()
 {
@@ -26,11 +27,30 @@ AMoonfallKeyPickup::AMoonfallKeyPickup()
  KeyLabel->SetTextRenderColor(FColor(255, 215, 110));
 }
 
+void AMoonfallKeyPickup::BeginPlay()
+{
+ Super::BeginPlay();
+ // A level may still contain an old placeholder after the key was saved.
+ // The player may not have begun Play yet, so TryCollect also handles this.
+ const AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(
+   UGameplayStatics::GetPlayerPawn(this, 0));
+ if (IsValid(Hero) && Hero->HasQuestKey(KeyId))
+  Destroy();
+}
+
 bool AMoonfallKeyPickup::TryCollect(AActor* Candidate)
 {
  AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(Candidate);
  if (!IsValid(Hero) || Hero->Health <= 0.f || Hero->bInventoryOpen || Hero->bOptionsOpen)
   return false;
+ // A saved key may be represented by a leftover actor after streaming.
+ // Clearing that duplicate is harmless; a new key is destroyed only after
+ // CollectQuestKey has safely committed the save.
+ if (Hero->HasQuestKey(KeyId))
+ {
+  Destroy();
+  return true;
+ }
  // The hero's whitelist rejects malformed or unrelated key IDs.
  if (!Hero->CollectQuestKey(KeyId)) return false;
  Destroy();
