@@ -1293,7 +1293,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             action = self.hero_cpp.split(f"void AMoonfallHeroPawn::{name}()", 1)[1].split("\n}", 1)[0]
             self.assertIn("bOptionsOpen || bAtlasOpen", action)
             self.assertIn("if (bInventoryOpen)", action)
-            self.assertIn("InventorySelection", action)
+            self.assertIn("InventoryViewStart", action)
+            self.assertNotIn("InventorySelection =", action)
             self.assertLess(action.index("if (bInventoryOpen)"),
                             action.index("CameraDistance ="))
             self.assertIn("return;", action)
