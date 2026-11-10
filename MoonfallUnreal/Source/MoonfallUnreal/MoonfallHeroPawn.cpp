@@ -1947,8 +1947,11 @@ bool AMoonfallHeroPawn::RegisterWorldEquipmentDrops(
  if (!GetWorld() || bRewardSaveLoadFailed || NewDrops.IsEmpty()
      || NewDrops.Num() > 3 || PendingWorldLoot.Num() + NewDrops.Num() > 512)
   return false;
+ TSet<FGuid> BatchIds;
  for (const FMoonfallWorldLootRecord& Record : NewDrops)
  {
+  if (BatchIds.Contains(Record.DropId)) return false;
+  BatchIds.Add(Record.DropId);
   const int32 Code = Record.ItemCode;
   const int32 Affix = Code / 100000;
   const int32 Slot = (Code / 10000) % 10;
