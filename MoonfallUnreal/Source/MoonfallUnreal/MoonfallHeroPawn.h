@@ -138,6 +138,8 @@ public:
  static constexpr int32 KeyLootBase = 9000000;
  static constexpr int32 MaxKeyId = 9999;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Keys") TArray<int32> KeyRingIds;
+ // The last newly acquired distinct key, for immediate HUD feedback.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Keys") int32 LastCollectedKeyId = 0;
  UFUNCTION(BlueprintCallable, Category="Moonfall|Keys") bool AddKeyToRing(int32 KeyId);
  UFUNCTION(BlueprintPure, Category="Moonfall|Keys") bool HasKey(int32 KeyId) const;
  UFUNCTION(BlueprintCallable, Category="Moonfall|Keys") bool SpawnGroundKeyDrop(int32 KeyId, FVector DropLocation);
