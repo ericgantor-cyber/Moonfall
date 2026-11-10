@@ -968,10 +968,27 @@ bool AMoonfallHeroPawn::TryRewardPerfectDodge() {
 
 bool AMoonfallHeroPawn::ApplyMoonfallDamageFrom(float Amount, const FVector& SourceLocation) {
  bLastIncomingHitParried = false;
+ IncomingDamageSchool = -1;
  IncomingDamageSource = SourceLocation;
  bHasIncomingDamageSource = true;
  ApplyMoonfallDamage(Amount);
  bHasIncomingDamageSource = false;
+ IncomingDamageSchool = -1;
+ return bLastIncomingHitParried;
+}
+
+bool AMoonfallHeroPawn::ApplyMoonfallElementalDamageFrom(
+ float Amount, const FVector& SourceLocation, int32 School)
+{
+ // Never allow invalid school values to bypass physical armor.
+ if (School < 0 || School >= 5) return ApplyMoonfallDamageFrom(Amount,SourceLocation);
+ bLastIncomingHitParried = false;
+ IncomingDamageSchool = School;
+ IncomingDamageSource = SourceLocation;
+ bHasIncomingDamageSource = true;
+ ApplyMoonfallDamage(Amount);
+ bHasIncomingDamageSource = false;
+ IncomingDamageSchool = -1;
  return bLastIncomingHitParried;
 }
 
@@ -990,7 +1007,14 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
    + GetVersatilityBonus() * 0.5f
    + FMath::Min(0.02f,GetArmorRating()*0.000025f)
    + (GetSetPieceCount(2) >= 3 ? 0.025f : 0.f));
- const float ArmoredDamage = Amount * (1.f - ArmorMitigation);
+ // Magical hits use their school resistance, not physical armor, and still
+ // flow through the same directional guard, perfect parry and impact callbacks.
+ const float SchoolMitigation = IncomingDamageSchool >= 0 && IncomingDamageSchool < 5
+     ? FMath::Clamp(GetResistance(IncomingDamageSchool)*0.004f
+         + GetVersatilityBonus()*0.5f,0.f,0.45f) : 0.f;
+ const float EffectiveMitigation = IncomingDamageSchool >= 0 && IncomingDamageSchool < 5
+     ? SchoolMitigation : ArmorMitigation;
+ const float ArmoredDamage = Amount * (1.f - EffectiveMitigation);
  float DamageAfterGuard = ArmoredDamage;
  // Enemy attacks must come from the front 150-degree guard cone.
  // Older environment damage with no provided origin retains its guard behavior.
