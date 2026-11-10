@@ -103,6 +103,17 @@ class InventoryCapacityPort(unittest.TestCase):
         self.assertLess(left.index("CycleInventorySort();"), left.index("InventorySelection = ClickedIndex"))
         self.assertNotIn("EquipInventoryItem(", left)
 
+    def test_sort_button_blocks_underlying_gear_row_hit_test(self):
+        hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        hit = body(hud, "int32 AMoonfallCombatHUD::GetInventoryItemAtScreenPosition(")
+        sort_guard = "if (IsInventorySortButtonAtScreenPosition(Hero, X, Y)) return -1;"
+        self.assertIn(sort_guard, hit)
+        self.assertLess(hit.index(sort_guard), hit.index("const int32 Count"))
+        self.assertLess(hit.index(sort_guard), hit.index("for (int32 Index = PageStart"))
+        right = body(self.hero, "void AMoonfallHeroPawn::RightClickContextAction()")
+        self.assertIn("HUD->GetInventoryItemAtScreenPosition(this, MouseX, MouseY)", right)
+        self.assertNotIn("IsInventoryEquipButtonAtScreenPosition", right)
+
     def test_inventory_has_no_equip_or_page_buttons(self):
         hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
         left = body(self.hero, "void AMoonfallHeroPawn::LeftClickContextAction()")
