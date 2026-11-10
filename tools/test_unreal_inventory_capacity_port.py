@@ -195,7 +195,7 @@ class InventoryCapacityPort(unittest.TestCase):
                        "PreviousCharacterStatsPage()", "EquipSelectedInventoryItem()",
                        "UpgradeSelectedInventoryItem()", "SalvageSelectedInventoryItem()"):
             self.assertIn(action, confirm)
-        self.assertIn("if (!bTalentsOpen) ToggleAtlas();", confirm)
+        self.assertIn("if (!bTalentsOpen && MenuActionFocus == 0) ToggleAtlas();", confirm)
         trigger = body(self.hero, "void AMoonfallHeroPawn::SwitchInventoryPage()")
         self.assertIn("ActivateFocusedMenuAction();", trigger)
         for name in ("OptionsUp", "OptionsDown"):
@@ -209,6 +209,16 @@ class InventoryCapacityPort(unittest.TestCase):
         self.assertIn("Hero->MenuActionFocus==Action", hud)
         self.assertIn("Hero->MenuActionFocus==i+7", hud)
         self.assertIn("Hero->MenuActionFocus==14", hud)
+        self.assertIn("Hero->MenuActionFocus == 0 ? FLinearColor(0.72f,0.53f,0.20f)", hud)
+        for name in ("OptionsUp", "OptionsDown"):
+            controls = body(self.hero, "void AMoonfallHeroPawn::" + name + "()")
+            self.assertIn("bAtlasOpen && !bTalentsOpen", controls)
+            self.assertIn("MenuActionFocus=0; return;", controls)
+        for name in ("OptionsLeft", "OptionsRight"):
+            controls = body(self.hero, "void AMoonfallHeroPawn::" + name + "()")
+            self.assertIn("if (MenuActionFocus < 0)", controls)
+            self.assertLess(controls.index("if (MenuActionFocus < 0)"),
+                            controls.index("AdjustOption("))
         # Opening a menu must not leave a destructive action selected.
         self.assertIn("if (MenuActionFocus < 0) return;", confirm)
         self.assertEqual(confirm.count("if (MenuActionFocus < 0) return;"), 2)
