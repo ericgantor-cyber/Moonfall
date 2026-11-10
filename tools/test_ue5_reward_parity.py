@@ -73,6 +73,23 @@ class UE5RewardParity(unittest.TestCase):
         for label in ("Wardens' Crest", "Outlaw Seal", "Fallen Gate Key"):
             self.assertIn(label, self.hud)
 
+    def test_unreal_dungeon_gate_requires_owned_key_and_preserves_it(self):
+        gate_h = (ROOT / "MoonfallKeyGate.h").read_text()
+        gate_cpp = (ROOT / "MoonfallKeyGate.cpp").read_text()
+        self.assertIn('FName RequiredKeyId = FName(TEXT("fallen_gate_key"))', gate_h)
+        self.assertIn("bool TryUnlock(AActor* Candidate);", gate_h)
+        self.assertIn("PrimaryActorTick.bCanEverTick = false;", gate_cpp)
+        self.assertIn("SetRootComponent(GateRoot);", gate_cpp)
+        self.assertIn("KeyProximity->SetupAttachment(GateRoot);", gate_cpp)
+        self.assertIn("Cast<AMoonfallHeroPawn>(Candidate)", gate_cpp)
+        self.assertIn("!Hero->HasQuestKey(RequiredKeyId)", gate_cpp)
+        self.assertIn("OnGateLocked(RequiredKeyId);", gate_cpp)
+        self.assertIn("GateMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);", gate_cpp)
+        self.assertIn("OnGateUnlocked();", gate_cpp)
+        self.assertIn("TryUnlock(OtherActor);", gate_cpp)
+        self.assertNotIn("CollectedKeys.Remove", gate_cpp)
+        self.assertNotIn("CollectQuestKey(", gate_cpp)
+
     def test_equipment_remains_manual_and_hud_shows_rewards(self):
         self.assertIn("void PickupNearestGroundLoot();", self.hero_h)
         self.assertIn("Loot->TryCollect()", self.hero)
