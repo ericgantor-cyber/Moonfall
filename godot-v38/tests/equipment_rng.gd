@@ -95,5 +95,11 @@ func _run()->void:
  for i in range(200):
   noisy["loot_rolls"].append({"item_id":"missing_item_"+str(i),"rarity_index":4,"power_bonus":12,"affixes":[{"stat":"Power","value":30}]})
  check(INVENTORY.totals(noisy)==legendary,"unrelated roll history cannot change equipped stats")
+ # Unrelated malformed roll metadata must never be parsed for combat totals.
+ noisy["loot_rolls"].append({"item_id":"missing_item_bad","rarity_index":{"corrupt":true},"power_bonus":{"corrupt":true},"affixes":[{"stat":"Power","value":{"corrupt":true}}]})
+ check(INVENTORY.totals(noisy)==legendary,"unrelated malformed rolls are ignored before stat ranking")
+ var empty_gear:Dictionary=INVENTORY.new_state()
+ empty_gear["loot_rolls"]=noisy["loot_rolls"].duplicate(true)
+ check(int(INVENTORY.totals(empty_gear)["weapon_power"])==0,"unequipped loot history never grants weapon power")
  print("GEAR RNG "+("PASS" if errors==0 else "FAIL"))
  quit(0 if errors==0 else 1)
