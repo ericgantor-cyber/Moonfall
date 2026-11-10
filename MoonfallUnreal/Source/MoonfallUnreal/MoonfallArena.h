@@ -9,6 +9,9 @@ public:
  AMoonfallArena();
  virtual void BeginPlay() override;
  UPROPERTY(EditAnywhere, Category="Dungeon") int32 EnemyCount = 5;
+ // Opt-in developer test: explore for a physical key and explicitly unlock a gate.
+ // Disabled in regular arenas until a real region/dungeon is authored.
+ UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Dungeon|Key Trial") bool bEnableKeyTrial = false;
  // NAME_None keeps the previous combined showcase. Select one god per arena
  // by setting this to z_void_reaper or nyra_eclipse_queen in the editor.
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Dungeon|Divine") FName FeaturedDivineBossId = NAME_None;

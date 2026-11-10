@@ -15,6 +15,8 @@ public:
  AMoonfallGroundLoot();
  void InitializeLoot(int32 InItemCode);
  int32 GetItemCode() const { return ItemCode; }
+ void SetPersistentDropId(const FGuid& Id) { PersistentDropId = Id; }
+ const FGuid& GetPersistentDropId() const { return PersistentDropId; }
  bool TryCollect();
 private:
  UPROPERTY(VisibleAnywhere) USceneComponent* SceneRoot;
@@ -22,5 +24,6 @@ private:
  UPROPERTY(VisibleAnywhere) UStaticMeshComponent* RarityBeacon;
  UPROPERTY(VisibleAnywhere) UTextRenderComponent* ItemLabel;
  UPROPERTY(VisibleAnywhere) int32 ItemCode = 0;
+ FGuid PersistentDropId;
  bool bCollected = false;
 };

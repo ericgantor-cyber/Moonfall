@@ -1,5 +1,8 @@
 #include "MoonfallArena.h"
 #include "MoonfallEnemy.h"
+#include "MoonfallHeroPawn.h"
+#include "MoonfallKeyPickup.h"
+#include "MoonfallKeyGate.h"
 #include "Components/SceneComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/World.h"
@@ -27,6 +30,40 @@ void AMoonfallArena::BeginPlay() {
  CreateBlock(FVector(0,1500,200),FVector(30,1,5));
  CreateBlock(FVector(0,-1500,200),FVector(30,1,5));
  if (!GetWorld()) return;
+ // Optional local test of the full find-key -> collect -> unlock chain.
+ // Only enabled by the level author. No automatic gate opening, no key
+ // granted on proximity, and no change to the original divine encounters.
+ if (bEnableKeyTrial)
+ {
+  const FName TrialKey(TEXT("wardens_crest"));
+  const FVector KeyLocation = GetActorLocation() + FVector(-640.f, 520.f, 75.f);
+  const FVector GateLocation = GetActorLocation() + FVector(640.f, 520.f, 160.f);
+  const FTransform KeyTransform(FRotator::ZeroRotator, KeyLocation);
+  // A saved key must not respawn as an uncollectable duplicate in the trial.
+  const AMoonfallHeroPawn* TrialHero =
+    Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0));
+  if (!IsValid(TrialHero) || !TrialHero->HasQuestKey(TrialKey))
+  {
+   AMoonfallKeyPickup* KeyPickup = Cast<AMoonfallKeyPickup>(
+     UGameplayStatics::BeginDeferredActorSpawnFromClass(
+       this, AMoonfallKeyPickup::StaticClass(), KeyTransform));
+   if (KeyPickup)
+   {
+    KeyPickup->KeyId = TrialKey;
+    UGameplayStatics::FinishSpawningActor(KeyPickup, KeyTransform);
+   }
+  }
+  const FTransform GateTransform(FRotator::ZeroRotator, GateLocation);
+  AMoonfallKeyGate* Gate = Cast<AMoonfallKeyGate>(
+    UGameplayStatics::BeginDeferredActorSpawnFromClass(
+      this, AMoonfallKeyGate::StaticClass(), GateTransform));
+  if (Gate)
+  {
+   Gate->RequiredKeyId = TrialKey;
+   Gate->GateId = FName(TEXT("wardens_trial_gate"));
+   UGameplayStatics::FinishSpawningActor(Gate, GateTransform);
+  }
+ }
  const bool bZEncounter = FeaturedDivineBossId == FName(TEXT("z_void_reaper"));
  const bool bNyraEncounter = FeaturedDivineBossId == FName(TEXT("nyra_eclipse_queen"));
  const bool bSingleDivineEncounter = bZEncounter || bNyraEncounter;

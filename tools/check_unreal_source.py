@@ -182,7 +182,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "void AMoonfallHeroPawn::AdjustOption", 1)[0]
         self.assertIn("bInventoryOpen = !bInventoryOpen;", toggle)
         self.assertIn("EquipInventoryItem(InventorySelection);", toggle)
-        self.assertIn("if (bInventoryOpen) { bInventoryOpen = false; bCharacterStatsOpen = false; return; }", toggle)
+        self.assertIn("if (bInventoryOpen) { bInventoryOpen = false; bCharacterStatsOpen = false; bKeyRingInventoryOpen = false; UpdateInventoryMouseInput(); return; }", toggle)
         self.assertIn("InventorySelection = FMath::Max(0, InventorySelection - 1);", toggle)
         self.assertIn("InventorySelection = FMath::Min(FMath::Max(0, InventoryItemCodes.Num() - 1), InventorySelection + 1);", toggle)
         self.assertIn("if (bInventoryOpen) { EquipSelectedInventoryItem(); return; }", toggle)
@@ -197,7 +197,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("I / Select / Esc: close", self.hud)
         self.assertNotIn("FinisherShockwave", self.hero_cpp)
 
-    def test_diablo_style_ground_loot_requires_explicit_pickup(self):
+    def test_diablo_style_ground_loot_automatically_collects_nearby_equipment(self):
         import re
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
         ground_h = (ROOT / "MoonfallGroundLoot.h").read_text(encoding="utf-8")
@@ -207,18 +207,26 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         for action in ('ActionName="PickupLoot",Key=F', 'ActionName="PickupLoot",Key=Gamepad_FaceButton_Left'):
             self.assertIn(action, inputs)
         self.assertIn('BindAction(TEXT("PickupLoot"), IE_Pressed', self.hero_cpp)
+        self.assertIn("&AMoonfallHeroPawn::InteractWithNearbyWorld", self.hero_cpp)
+        self.assertIn("TryInteractWithNearbyKey();", self.hero_cpp.split("void AMoonfallHeroPawn::InteractWithNearbyWorld()", 1)[1].split("void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[0])
         self.assertIn("void PickupNearestGroundLoot();", self.hero_h)
         self.assertIn("void SpawnGroundEquipmentDrop(", self.hero_h)
         self.assertIn("bool CollectGroundEquipmentCode(int32 ItemCode);", self.hero_h)
         spawn = self.hero_cpp.split("void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(", 1)[1].split(
             "void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[0]
-        self.assertIn("RollEquipmentCode(bEliteEnemy, bBossEnemy)", spawn)
-        self.assertIn("const int32 DropCount = bBossEnemy ? 3 : (bEliteEnemy ? 2 : 1);", spawn)
+        self.assertIn("RollEquipmentCode(bEliteEnemy, bBossEnemy, PreferredSlot)", spawn)
+        self.assertIn("const int32 BaseDropCount = bBossEnemy ? 3 : (bEliteEnemy ? 2 : 1);", spawn)
+        self.assertIn("const int32 BonusDropChance = bBossEnemy ? 50 : (bEliteEnemy ? 35 : 20);", spawn)
+        self.assertIn("const int32 DropCount = BaseDropCount + (FMath::RandRange(0, 99) < BonusDropChance ? 1 : 0);", spawn)
         self.assertIn("for (int32 Drop = 0; Drop < DropCount; ++Drop)", spawn)
         self.assertIn("Spread * FMath::Cos(Angle)", spawn)
         self.assertIn("Spread * FMath::Sin(Angle)", spawn)
-        self.assertIn("SpawnActor<AMoonfallGroundLoot>", spawn)
-        self.assertIn("Loot->InitializeLoot(ItemCode);", spawn)
+        self.assertIn("if (Drops.IsEmpty() || RegisterWorldEquipmentDrops(Drops)) return;", spawn)
+        register = self.hero_cpp.split("bool AMoonfallHeroPawn::RegisterWorldEquipmentDrops(", 1)[1].split(
+            "void AMoonfallHeroPawn::RestorePendingWorldEquipmentDrops()", 1)[0]
+        self.assertIn("Loot->InitializeLoot(Record.ItemCode);", register)
+        self.assertLess(register.index("if (!SaveRewardProgress())"),
+                        register.index("BeginDeferredActorSpawnFromClass("))
         pickup = self.hero_cpp.split("void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[1].split(
             "void AMoonfallHeroPawn::EquipBestInventoryAction()", 1)[0]
         self.assertIn("bOptionsOpen || bInventoryOpen", pickup)
@@ -226,10 +234,14 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("TActorIterator<AMoonfallGroundLoot>", pickup)
         self.assertIn("Loot->TryCollect()", pickup)
         collect = self.hero_cpp.split("bool AMoonfallHeroPawn::CollectGroundEquipmentCode(", 1)[1].split(
-            "void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(", 1)[0]
+            "bool AMoonfallHeroPawn::CollectPersistedGroundEquipmentCode(", 1)[0]
         self.assertIn("ItemCode != Affix * 100000 + SlotIndex * 10000", collect)
         self.assertIn("InventoryItemCodes.Add(ItemCode);", collect)
-        self.assertNotIn("EquippedCode =", collect)
+        self.assertIn("const bool bAutoEquipEmptySlot = *EquippedCode == 0;", collect)
+        self.assertIn("if (bAutoEquipEmptySlot)", collect)
+        self.assertIn("*EquippedCode = ItemCode;", collect)
+        self.assertIn("if (!SaveRewardProgress())", collect)
+        self.assertIn("*EquippedCode = 0;", collect)
         self.assertNotIn("Salvage =", collect)
         self.assertNotIn("RemoveAt(", collect)
         self.assertIn("PrimaryActorTick.bCanEverTick = false;", ground_cpp)
@@ -237,40 +249,49 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("CreateDefaultSubobject<UStaticMeshComponent>", ground_cpp)
         self.assertIn("SetTextRenderColor(QualityColor);", ground_cpp)
         self.assertIn("if (bCollected || ItemCode <= 0) return false;", ground_cpp)
-        self.assertIn("Hero->CollectGroundEquipmentCode(ItemCode)", ground_cpp)
-        self.assertLess(ground_cpp.index("Hero->CollectGroundEquipmentCode(ItemCode)"), ground_cpp.index("Destroy();"))
+        self.assertIn("Hero->CollectPersistedGroundEquipmentCode(ItemCode, PersistentDropId)", ground_cpp)
+        self.assertLess(ground_cpp.index("Hero->CollectPersistedGroundEquipmentCode(ItemCode, PersistentDropId)"), ground_cpp.index("Destroy();"))
         self.assertIn("ItemCode = 0;", ground_h)
         self.assertNotIn("SetLifeSpan(", ground_cpp)
         self.assertNotIn("FinisherShockwave", self.hero_cpp)
 
-    def test_nearby_batch_loot_is_range_and_cover_safe(self):
+    def test_unlimited_auto_loot_is_range_and_cover_safe(self):
         pickup = self.hero_cpp.split("void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[1].split(
             "void AMoonfallHeroPawn::EquipBestInventoryAction()", 1)[0]
-        self.assertIn("constexpr int32 MaxLootScanned = 128;", pickup)
-        self.assertIn("constexpr int32 MaxLootPerPress = 6;", pickup)
-        self.assertIn("It && Scanned < MaxLootScanned;", pickup)
+        self.assertNotIn("MaxLootPerPress", pickup)
+        self.assertIn("for (TActorIterator<AMoonfallGroundLoot> It(GetWorld()); It; ++It)", pickup)
+        self.assertNotIn("MaxLootScanned", pickup)
+        self.assertNotIn("Scanned < ", pickup)
         self.assertIn("FMath::Square(250.f)", pickup)
         self.assertIn("FMath::Abs(LootPosition.Z - HeroPosition.Z) > 150.f", pickup)
         self.assertIn("SCENE_QUERY_STAT(MoonfallGroundLootPickupSight)", pickup)
         self.assertIn("LootSightParams.AddIgnoredActor(Candidate);", pickup)
         self.assertIn("GetWorld()->LineTraceSingleByChannel(LootSightHit,", pickup)
-        self.assertIn("NearbyLoot.Insert(Candidate, InsertAt);", pickup)
-        self.assertIn("NearbyLoot.RemoveAt(MaxLootPerPress);", pickup)
+        self.assertIn("NearbyLoot.Add(Candidate);", pickup)
+        self.assertIn("InventoryItemCodes.Num() >= 4096", pickup)
         self.assertIn("for (AMoonfallGroundLoot* Loot : NearbyLoot)", pickup)
-        self.assertIn("if (IsValid(Loot)) Loot->TryCollect();", pickup)
+        tick = self.hero_cpp.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1].split(
+            "void AMoonfallHeroPawn::", 1)[0]
+        self.assertIn("NextAutoLootAt = Now + 0.35f;", tick)
+        self.assertIn("PickupNearestGroundLoot();", tick)
+        self.assertIn("float NextAutoLootAt = 0.f;", self.hero_h)
+        self.assertNotIn("TryInteractWithNearbyKey()", pickup)
+        self.assertIn("if (IsValid(Loot) && !Loot->TryCollect())", pickup)
         self.assertNotIn("EquipInventoryItem(", pickup)
         self.assertNotIn("SalvageInventoryItem(", pickup)
         self.assertNotIn("PrimaryActorTick", pickup)
 
     def test_inventory_accepts_new_loot_without_rejection_or_auto_cleanup(self):
         loot = self.hero_cpp.split("void AMoonfallHeroPawn::AwardEquipmentDrop(", 1)[1].split(
-            "bool AMoonfallHeroPawn::EquipInventoryItem(", 1)[0]
-        self.assertIn("InventoryItemCodes.Add(ItemCode);", loot)
+            "bool AMoonfallHeroPawn::CollectGroundEquipmentCode(", 1)[0]
+        self.assertIn("if (CollectGroundEquipmentCode(ItemCode))", loot)
         self.assertNotIn("InventoryItemCodes.Num() >= 30", loot)
         self.assertNotIn("DiscardIndex", loot)
         self.assertNotIn("DiscardedCode", loot)
         self.assertNotIn("InventoryItemCodes.RemoveAt(", loot)
-        self.assertIn("InventorySelection = FMath::Clamp(InventorySelection, 0, InventoryItemCodes.Num() - 1);", loot)
+        self.assertIn("InventorySelection = FMath::Clamp(", loot)
+        self.assertIn("Loot->InitializeLoot(ItemCode);", loot)
+        self.assertNotIn("*EquippedCode = ItemCode;", loot)
 
     def test_primary_stats_sheet_is_read_only_and_affects_combat_recovery(self):
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
@@ -287,7 +308,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("GetInsight() * 0.002f", self.hero_cpp)
         self.assertIn("GetResolve() * 0.003f", self.hero_cpp)
         self.assertIn("if (bInventoryOpen && !bOptionsOpen && Health > 0.f)", self.hero_cpp)
-        self.assertIn("if (!bInventoryOpen) bCharacterStatsOpen = false;", self.hero_cpp)
+        self.assertIn("if (!bInventoryOpen) {\n  bCharacterStatsOpen = false;\n  bKeyRingInventoryOpen = false;\n }", self.hero_cpp)
         self.assertIn("if (!bCharacterStatsOpen) ForgeInventoryItemLevels(InventorySelection, 5);", self.hero_cpp)
         self.assertIn("if (!bCharacterStatsOpen) ReforgeInventoryItemAffix(InventorySelection);", self.hero_cpp)
         self.assertIn("if (Hero->bCharacterStatsOpen)", hud)
@@ -545,9 +566,10 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("OnHealthChanged(Health, MaxHealth);", equip)
         self.assertLess(equip.index("Code != Affix * 100000"), equip.index("*EquippedTier = Tier;"))
         loot = self.hero_cpp.split("void AMoonfallHeroPawn::AwardEquipmentDrop(", 1)[1].split(
-            "bool AMoonfallHeroPawn::EquipInventoryItem(", 1)[0]
-        self.assertIn("*EquippedCode = ItemCode;", loot)
-        self.assertIn("InventoryItemCodes.Add(ItemCode);", loot)
+            "bool AMoonfallHeroPawn::CollectGroundEquipmentCode(", 1)[0]
+        self.assertIn("if (CollectGroundEquipmentCode(ItemCode))", loot)
+        self.assertNotIn("*EquippedCode = ItemCode;", loot)
+        self.assertIn("if (!bDeferEquippedSave && !SaveRewardProgress())", equip)
 
     def test_random_item_affixes_apply_bounded_slot_specific_bonuses(self):
         for field in ("LastLootAffix", "WeaponAffix", "ArmorAffix", "AccessoryAffix"):
@@ -558,8 +580,11 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("FMath::RandRange(1, 3)", loot)
         self.assertIn("LastLootAffix * 100000 + LastLootSlot * 10000", loot)
         self.assertIn("int32* EquippedAffix =", self.hero_cpp)
-        self.assertIn("*EquippedAffix = LastLootAffix;", self.hero_cpp)
-        self.assertLess(self.hero_cpp.index("if (NewTier > *Slot) {"), self.hero_cpp.index("*EquippedAffix = LastLootAffix;"))
+        self.assertIn("*EquippedAffix = Affix;", self.hero_cpp)
+        grant = self.hero_cpp.split("void AMoonfallHeroPawn::AwardEquipmentDrop(", 1)[1].split(
+            "bool AMoonfallHeroPawn::CollectGroundEquipmentCode(", 1)[0]
+        self.assertIn("CollectGroundEquipmentCode(ItemCode)", grant)
+        self.assertNotIn("*EquippedAffix = LastLootAffix;", grant)
         cast = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split(
             "void AMoonfallHeroPawn::CastLeft()", 1)[0]
         self.assertIn("(WeaponAffix == 1 ? 0.06f : 0.f)", cast)
@@ -575,7 +600,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         loot = self.hero_cpp.split("int32 AMoonfallHeroPawn::RollEquipmentCode(", 1)[1].split(
             "void AMoonfallHeroPawn::AwardEquipmentDrop(", 1)[0]
         self.assertIn("const int32 LootRoll = FMath::RandRange(0, 99);", loot)
-        self.assertIn("LastLootSlot = FMath::RandRange(0, 2);", loot)
+        self.assertIn("LastLootSlot = PreferredSlot >= 0 && PreferredSlot <= 2", loot)
+        self.assertIn("PreferredSlot : FMath::RandRange(0, 2);", loot)
         self.assertIn("const int32 RarityBias = FMath::Clamp(Level / 5, 0, 12);", loot)
         self.assertIn("LastLootRarity = bBossEnemy", loot)
         self.assertIn("Level >= 60 && LootRoll < 12 ? 5", loot)
@@ -2379,7 +2405,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('void AMoonfallHeroPawn::EndGuard()', self.hero_cpp)
         self.assertIn("NextParryAt = Now + FMath::Clamp(ParryCooldownSeconds, 0.3f, 2.f);", self.hero_cpp)
         self.assertIn("Stamina < GuardStaminaCost) return;", self.hero_cpp)
-        self.assertIn("if (Health <= 0.f) {\n  // Prevent lingering movement/jump input from carrying through defeat.\n  StopJumping();\n  if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();\n  // Clear any held sprint so a later respawn cannot inherit it.\n  EndSprint();\n  EndGuard();\n  // Defeat clears every gameplay menu so the death/respawn screen stays visible.\n  bInventoryOpen = false;\n  bOptionsOpen = false;\n }", self.hero_cpp)
+        self.assertIn("if (Health <= 0.f) {\n  // Prevent lingering movement/jump input from carrying through defeat.\n  StopJumping();\n  if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();\n  // Clear any held sprint so a later respawn cannot inherit it.\n  EndSprint();\n  EndGuard();\n  // Defeat clears every gameplay menu so the death/respawn screen stays visible.\n  bInventoryOpen = false;\n  bCharacterStatsOpen = false;\n  bKeyRingInventoryOpen = false;\n  bOptionsOpen = false;\n  UpdateInventoryMouseInput();\n }", self.hero_cpp)
         self.assertIn("ParryWindowEndsAt = -1.f", self.hero_cpp)
         self.assertIn("DamageAfterGuard *= 0.4f", self.hero_cpp)
         self.assertIn("Stamina = FMath::Clamp(Stamina - RequiredGuardCost, 0.f, MaxStamina)", self.hero_cpp)

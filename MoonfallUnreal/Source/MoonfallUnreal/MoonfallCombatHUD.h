@@ -8,6 +8,7 @@ class MOONFALLUNREAL_API AMoonfallCombatHUD : public AHUD
  GENERATED_BODY()
 public:
  virtual void DrawHUD() override;
+ virtual void NotifyHitBoxClick(FName BoxName) override;
 private:
  float DisplayHealth = -1.f;
  float DisplayMana = -1.f;

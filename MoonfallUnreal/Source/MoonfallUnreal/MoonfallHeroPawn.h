@@ -1,11 +1,13 @@
 #pragma once
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
+#include "MoonfallRewardSaveGame.h"
 #include "MoonfallHeroPawn.generated.h"
 class USpringArmComponent;
 class UCameraComponent;
 class UAnimMontage;
 class AMoonfallEnemy;
+class AMoonfallKeyPickup;
 class UStaticMeshComponent;
 class UPointLightComponent;
 UCLASS()
@@ -88,11 +90,43 @@ public:
   UFUNCTION(BlueprintCallable, Category="Moonfall|Finishers") int32 RegisterFinisherKill(bool bShatterKill, bool bBossKill, FVector DefeatedLocation, AMoonfallEnemy* DefeatedEnemy);
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Finishers") void OnFinisherChain(int32 ChainStep, bool bShatterKill, bool bBossKill);
  UFUNCTION(BlueprintCallable, Category="Moonfall|Progression") void AwardExperience(int32 Amount);
+ // Godot reward parity: currency auto-awards on defeat, physical keys and
+ // equipment require an explicit interaction, with persistent door progression.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Rewards") int64 Gold = 0;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Rewards") int64 ConfirmedRewardKills = 0;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Rewards") TArray<FName> CollectedKeys;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Rewards") TArray<FName> CompletedFactionQuests;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Rewards") TArray<FName> UnlockedGateIds;
+ // Protect an unreadable or future-schema save from accidental overwrite.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Rewards") bool bRewardSaveLoadFailed = false;
+ // Set after first load attempt: gates may reuse validated hero progress.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Rewards") bool bRewardSaveInitialized = false;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Rewards") bool HasUnlockedGate(FName GateId) const;
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Rewards") bool CommitGateUnlock(FName GateId, FName RequiredKeyId);
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Rewards") bool bKeyRingExpanded = false;
+ // Transient inventory popover; never persisted as character progress.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Rewards") bool bKeyRingInventoryOpen = false;
+ // HUD notices update only after deliberate key/door interactions, no polling.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Rewards") FString KeyInteractionNotice;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Rewards") float KeyInteractionNoticeUntil = -1.f;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Rewards") bool bKeyInteractionNoticeError = false;
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Rewards") bool CompleteFactionQuest(FName QuestId);
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Rewards") void ToggleKeyRing();
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Rewards") int64 AddGold(int64 Amount);
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Rewards") bool CollectQuestKey(FName KeyId);
+ UFUNCTION(BlueprintPure, Category="Moonfall|Rewards") bool HasQuestKey(FName KeyId) const;
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Rewards") void AwardEnemyCurrency(bool bEliteEnemy, bool bBossEnemy, FVector DefeatedLocation);
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Rewards") bool SaveRewardProgress();
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Rewards") bool LoadRewardProgress();
  UFUNCTION(BlueprintCallable, Category="Moonfall|Loot") void AwardEquipmentDrop(bool bEliteEnemy, bool bBossEnemy);
  // Drop equipment in the world; only an explicit pickup moves it to inventory.
  UFUNCTION(BlueprintCallable, Category="Moonfall|Loot") void SpawnGroundEquipmentDrop(bool bEliteEnemy, bool bBossEnemy, FVector DefeatedLocation);
  UFUNCTION(BlueprintCallable, Category="Moonfall|Loot") bool CollectGroundEquipmentCode(int32 ItemCode);
+ // Transactional pickup: removes the saved world-drop ID with the bag grant.
+ bool CollectPersistedGroundEquipmentCode(int32 ItemCode, const FGuid& DropId);
  UFUNCTION(BlueprintCallable, Category="Moonfall|Loot") void PickupNearestGroundLoot();
+ // The interaction key remains for quest keys and gates; equipment is automatic.
+ void InteractWithNearbyWorld();
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Loot") int32 EquipmentTier = 0;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Loot") int32 Salvage = 0;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Loot") int32 LastLootRarity = 0;
@@ -238,6 +272,19 @@ private:
  void BreakGuard();
  void BeginGuard();
  void EndGuard();
+ void UpdateInventoryMouseInput();
+ bool TryInteractWithNearbyKey();
+ // Weak reference does not keep a collected/destroyed key alive.
+ TWeakObjectPtr<AMoonfallKeyPickup> PendingMilestoneKey;
+ // Bounded persistent world drops share the reward save transaction.
+ UPROPERTY() TArray<FMoonfallWorldLootRecord> PendingWorldLoot;
+ bool RegisterWorldEquipmentDrops(const TArray<FMoonfallWorldLootRecord>& NewDrops);
+ void RestorePendingWorldEquipmentDrops();
+ // Auto-loot runs on a short interval; never scan every rendered frame.
+ float NextAutoLootAt = 0.f;
+ void SpawnMilestoneKey(const FVector& Location);
+ // During crafting, equipped updates participate in the outer save transaction.
+ bool bDeferEquippedSave = false;
  void InventoryConfirm();
  void InventorySalvage();
  void OpenOptions();
@@ -248,6 +295,7 @@ private:
  void AdjustOption(int32 Direction);
  void CycleGraphicsQuality();
  void ToggleDisplayMode();
- int32 RollEquipmentCode(bool bEliteEnemy, bool bBossEnemy);
+ // Optional category keeps a single encounter's first three drops varied.
+ int32 RollEquipmentCode(bool bEliteEnemy, bool bBossEnemy, int32 PreferredSlot = INDEX_NONE);
  bool TryCast(int32 School, int32 Hand, float Multiplier);
 };
