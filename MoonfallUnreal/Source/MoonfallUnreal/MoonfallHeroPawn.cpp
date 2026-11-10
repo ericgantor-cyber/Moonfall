@@ -134,7 +134,7 @@ AMoonfallHeroPawn::AMoonfallHeroPawn()
 }
 namespace
 {
- const FString RewardSaveSlot(TEXT("Moonfall_RewardProgress_v1"));
+ const FString& RewardSaveSlot = UMoonfallRewardSaveGame::GetRewardSlotName();
  constexpr int32 RewardSaveUser = 0;
 
  bool IsSupportedQuestKey(FName KeyId)
