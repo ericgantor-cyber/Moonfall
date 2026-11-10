@@ -22,16 +22,26 @@ Moonfall's fully migrated Godot world or finished dungeon.
 9. Save/restart, enable the trial again: the already collected key should not
    create another pickup. The gate should still require a deliberate unlock
    interaction.
-10. Disable Key Trial and verify regular arenas remain unchanged.
+10. Repeat with a saved open gate: it must stay physically closed after load
+    until a deliberate interaction, then open using its saved ID even if the
+    corresponding key's state has changed.
+11. Test failed saves: a key pickup must remain in the world and a gate must
+    stay closed if its newly unlocked state cannot be persisted.
+12. Disable Key Trial and verify regular arenas remain unchanged.
 
 ## Known limitations
 
 - This is **not verified by Unreal compilation** or an interactive packaged
   Windows test. GitHub source checks are static contracts, not UE build tests.
-- SaveGame progress is in a single local slot; multi-character profiles and
-  full world/door persistence are not yet integrated.
-- Gate unlock state is per spawned gate actor; a freshly spawned gate must be
-  interacted with again even if its key remains collected.
+- SaveGame progress is in a single local slot; multi-character profiles are
+  not yet supported. Named gates now save their IDs in version 2, and version-1
+  saves can still be loaded.
+- A newly spawned named gate remains visually locked until you explicitly
+  interact. That interaction restores the saved unlock without consuming keys.
+  Legacy gates with no unique GateId are session-only.
+- If key, quest, or door progress cannot be saved, the action must fail
+  without destroying the world key or opening the gate. Test read-only save
+  directories and save/restart recovery before publishing.
 - Fixed trial actor positions and placeholder meshes are for a temporary
   mechanics test, not handcrafted world placement.
 - Z and Nyra's original artwork is not edited.
