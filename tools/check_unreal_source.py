@@ -183,7 +183,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("bInventoryOpen = false;", toggle)
         self.assertIn("bCharacterStatsOpen = false;", toggle)
         self.assertIn("UpdateInventoryMouseMode();", toggle)
-        self.assertIn("MenuActionFocus=FMath::Clamp(MenuActionFocus-1", toggle)
+        self.assertIn("MenuActionFocus=MenuActionFocus<0 ? 0 : FMath::Clamp(MenuActionFocus-1", toggle)
         self.assertIn("MenuActionFocus=FMath::Clamp(MenuActionFocus+1", toggle)
         self.assertIn("InventorySelection=FMath::Max(0,InventorySelection-1)", toggle)
         self.assertIn("InventorySelection=FMath::Min(FMath::Max(0,InventoryItemCodes.Num()-1)", toggle)
