@@ -157,6 +157,11 @@ class InventoryCapacityPort(unittest.TestCase):
         hit = body(hud, "int32 AMoonfallCombatHUD::GetAtlasMenuActionAtScreenPosition(")
         self.assertIn("return 3;", hit)
         self.assertIn('TEXT("CONFIRM!") : TEXT("RESPEC")', hud)
+        for name in ("SelectNextTalentPage", "SelectPreviousTalentPage",
+                     "ActivateTalentNode", "SelectNextTalentNode",
+                     "SelectPreviousTalentNode"):
+            method = body(self.hero, "AMoonfallHeroPawn::" + name + "(")
+            self.assertIn("bTalentRespecArmed = false;", method)
         for name in ("ToggleTalents", "ToggleAtlas", "ToggleInventory",
                      "ToggleCharacterStats", "OpenOptions"):
             method = body(self.hero, "AMoonfallHeroPawn::" + name + "(")
