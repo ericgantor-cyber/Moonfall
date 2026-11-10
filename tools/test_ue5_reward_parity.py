@@ -166,6 +166,31 @@ class UE5RewardParity(unittest.TestCase):
         arena = (ROOT / "MoonfallArena.cpp").read_text()
         self.assertIn('Gate->GateId = FName(TEXT("wardens_trial_gate"));', arena)
 
+    def test_saved_door_opens_on_load_without_proximity_or_replaying_first_unlock(self):
+        gate = (ROOT / "MoonfallKeyGate.cpp").read_text()
+        header = (ROOT / "MoonfallKeyGate.h").read_text()
+        self.assertIn("virtual void BeginPlay() override;", header)
+        self.assertIn("void OnSavedGateRestored();", header)
+        self.assertIn("void AMoonfallKeyGate::BeginPlay()", gate)
+        load = gate.split("void AMoonfallKeyGate::BeginPlay()", 1)[1].split(
+            "bool AMoonfallKeyGate::TryUnlock(", 1)[0]
+        self.assertIn("if (GateId.IsNone()) return;", load)
+        self.assertIn("UGameplayStatics::LoadGameFromSlot(SlotName, 0)", load)
+        self.assertIn("Saved->SchemaVersion != 2", load)
+        self.assertIn("Saved->UnlockedGateIds.Contains(GateId)", load)
+        self.assertIn("ApplyOpenState();", load)
+        self.assertIn("OnSavedGateRestored();", load)
+        self.assertNotIn("OnGateUnlocked();", load)
+        self.assertNotIn("OnComponentBeginOverlap", gate)
+        unlock = gate.split("bool AMoonfallKeyGate::TryUnlock(", 1)[1].split(
+            "void AMoonfallKeyGate::ApplyOpenState()", 1)[0]
+        self.assertLess(unlock.index("Hero->CommitGateUnlock(GateId, RequiredKeyId)"),
+                        unlock.index("ApplyOpenState();"))
+        self.assertIn("OnGateUnlocked();", unlock)
+        apply = gate.split("void AMoonfallKeyGate::ApplyOpenState()", 1)[1]
+        self.assertIn("bUnlocked = true;", apply)
+        self.assertIn("GateMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);", apply)
+
     def test_no_key_or_quest_is_consumed_on_save_failure(self):
         pickup = (ROOT / "MoonfallKeyPickup.cpp").read_text()
         collect = self.hero.split("bool AMoonfallHeroPawn::CollectQuestKey(", 1)[1].split(
