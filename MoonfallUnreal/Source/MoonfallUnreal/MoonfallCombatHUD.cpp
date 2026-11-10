@@ -58,6 +58,39 @@ bool AMoonfallCombatHUD::IsInventorySortButtonAtScreenPosition(
    Y >= ButtonY && Y < ButtonY + 33.f;
 }
 
+
+int32 AMoonfallCombatHUD::GetInventoryItemsPerPage() const
+{
+ if (!Canvas) return 2;
+ const float Height = FMath::Min(580.f, FMath::Max(280.f, Canvas->SizeY - 24.f));
+ return FMath::Clamp(FMath::FloorToInt((Height - 290.f) / 25.f), 2, 8);
+}
+
+int32 AMoonfallCombatHUD::GetInventoryPageButtonAtScreenPosition(
+    const AMoonfallHeroPawn* Hero, float X, float Y) const
+{
+ if (!Canvas || !IsValid(Hero) || !Hero->bInventoryOpen ||
+     Hero->bCharacterStatsOpen || Hero->bOptionsOpen ||
+     Canvas->SizeX < 1100.f || Canvas->SizeY < 540.f ||
+     !FMath::IsFinite(X) || !FMath::IsFinite(Y)) return 0;
+ const float Width = FMath::Min(1040.f, FMath::Max(280.f, Canvas->SizeX - 24.f));
+ const float Height = FMath::Min(580.f, FMath::Max(280.f, Canvas->SizeY - 24.f));
+ const float DetailLeft = (Canvas->SizeX - Width) * 0.5f + Width - 330.f;
+ const float ButtonY = (Canvas->SizeY - Height) * 0.5f + Height - 96.f;
+ const int32 PerPage = GetInventoryItemsPerPage();
+ const int32 Count = Hero->InventoryItemCodes.Num();
+ if (Count <= PerPage) return 0;
+ const int32 Selection = FMath::Clamp(Hero->InventorySelection, 0, Count - 1);
+ const int32 CurrentPage = Selection / PerPage;
+ const int32 LastPage = (Count - 1) / PerPage;
+ if (Y < ButtonY || Y >= ButtonY + 32.f) return 0;
+ if (CurrentPage > 0 && X >= DetailLeft + 14.f && X < DetailLeft + 151.f)
+  return -1;
+ if (CurrentPage < LastPage && X >= DetailLeft + 161.f && X < DetailLeft + 298.f)
+  return 1;
+ return 0;
+}
+
 void AMoonfallCombatHUD::DrawHUD()
 {
  Super::DrawHUD();
@@ -317,10 +350,26 @@ void AMoonfallCombatHUD::DrawHUD()
     DrawText(TEXT("Select an item to inspect gear."),
       FLinearColor::White,DetailLeft + 14.f,DetailTop + 55.f,nullptr,0.82f);
    }
+   // Page navigation is enabled only when the pane is tall enough for controls.
+   if (PanelHeight >= 516.f && Count > PerPage) {
+    const int32 CurrentPage = Selected / PerPage;
+    const int32 LastPage = (Count - 1) / PerPage;
+    const float ButtonY = Top + PanelHeight - 96.f;
+    const float BackX = DetailLeft + 14.f;
+    const float NextX = DetailLeft + 161.f;
+    DrawRect(CurrentPage > 0 ? FLinearColor(0.17f,0.34f,0.43f)
+      : FLinearColor(0.13f,0.14f,0.19f),BackX,ButtonY,137.f,32.f);
+    DrawRect(CurrentPage < LastPage ? FLinearColor(0.17f,0.34f,0.43f)
+      : FLinearColor(0.13f,0.14f,0.19f),NextX,ButtonY,137.f,32.f);
+    DrawText(TEXT("PREV PAGE"),FLinearColor::White,BackX + 14.f,
+      ButtonY + 7.f,nullptr,0.82f);
+    DrawText(TEXT("NEXT PAGE"),FLinearColor::White,NextX + 14.f,
+      ButtonY + 7.f,nullptr,0.82f);
+   }
    if (bBagFull)
     DrawText(TEXT("BAG FULL: salvage spare gear"),
       FLinearColor(1.f,0.45f,0.35f),DetailLeft + 14.f,
-      DetailTop + PanelHeight - 132.f,nullptr,0.76f);
+      DetailTop + PanelHeight - 183.f,nullptr,0.76f);
   }
   // The selected item's score is advisory only; it never calls EquipInventoryItem.
   if (Count > 0)
