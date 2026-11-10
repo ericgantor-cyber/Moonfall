@@ -139,6 +139,7 @@ public:
  void UnlockArcaneAegis();
  void UnlockIronWill();
  UFUNCTION(BlueprintCallable, Category="Moonfall|Talents") bool RespecTalents();
+ void RespecTalentAction();
 
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Inventory") bool bCharacterStatsOpen = false;
  UFUNCTION(BlueprintCallable, Category="Moonfall|Inventory") void ToggleCharacterStats();
