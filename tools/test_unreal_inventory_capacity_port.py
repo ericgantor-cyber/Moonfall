@@ -114,6 +114,28 @@ class InventoryCapacityPort(unittest.TestCase):
         self.assertIn("HUD->GetInventoryItemAtScreenPosition(this, MouseX, MouseY)", right)
         self.assertNotIn("IsInventoryEquipButtonAtScreenPosition", right)
 
+    def test_mouse_wheel_browses_bag_without_changing_camera(self):
+        hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
+        self.assertIn('ActionName="ZoomIn",Key=MouseScrollUp', inputs)
+        self.assertIn('ActionName="ZoomOut",Key=MouseScrollDown', inputs)
+        for name, change in (("ZoomCameraIn", "InventorySelection - 3"),
+                             ("ZoomCameraOut", "InventorySelection + 3")):
+            action = body(self.hero, "void AMoonfallHeroPawn::" + name + "()")
+            self.assertIn("if (bInventoryOpen)", action)
+            self.assertIn(change, action)
+            self.assertIn("InventoryItemCodes.Num() - 1", action)
+            self.assertIn("return;", action)
+            self.assertLess(action.index("if (bInventoryOpen)"),
+                            action.index("CameraDistance ="))
+            self.assertNotIn("EquipInventoryItem(", action)
+            self.assertNotIn("SalvageInventoryItem(", action)
+            self.assertNotIn("InventoryItemCodes.RemoveAt(", action)
+        self.assertIn("Wheel: browse 3", hud)
+        self.assertNotIn('TEXT("EQUIP SELECTED")', hud)
+        self.assertNotIn('TEXT("PREV PAGE")', hud)
+        self.assertNotIn('TEXT("NEXT PAGE")', hud)
+
     def test_inventory_has_no_equip_or_page_buttons(self):
         hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
         left = body(self.hero, "void AMoonfallHeroPawn::LeftClickContextAction()")
