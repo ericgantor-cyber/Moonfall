@@ -308,10 +308,28 @@ void AMoonfallHeroPawn::AwardEnemyCurrency(bool bEliteEnemy, bool bBossEnemy, FV
 {
  // Invoke only from a confirmed enemy death, never from the damage or HUD loop.
  if (Health <= 0.f) return;
+ const int64 PreviousKills = ConfirmedRewardKills;
  if (ConfirmedRewardKills < MAX_int64) ++ConfirmedRewardKills;
  // Match Godot's growing per-kill payout without a gameplay gold ceiling.
  const int64 BaseGold = 3 + ConfirmedRewardKills / 4;
- AddGold(BaseGold);
+ if (Gold >= MAX_int64)
+ {
+  // Even at the currency's physical int64 limit, kill progress still saves.
+  if (!SaveRewardProgress())
+  {
+   ConfirmedRewardKills = PreviousKills;
+   return;
+  }
+ }
+ else
+ {
+  const int64 GrantedGold = AddGold(BaseGold);
+  if (GrantedGold <= 0)
+  {
+   ConfirmedRewardKills = PreviousKills;
+   return;
+  }
+ }
  if (ConfirmedRewardKills == 5)
   SpawnMilestoneKey(DefeatedLocation);
 }
