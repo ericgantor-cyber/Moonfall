@@ -91,6 +91,10 @@ void AMoonfallCombatHUD::DrawHUD()
     Count, Hero->Salvage, PageStart / PerPage + 1,
     FMath::Max(1, (Count + PerPage - 1) / PerPage)), FLinearColor(0.75f,0.72f,0.91f),
     Left + 18.f, Top + 49.f, nullptr, 0.9f);
+  // Rewards stay outside the equipment bag and require no pickup button.
+  DrawText(FString::Printf(TEXT("Gold %lld  |  Key ring %d"), 
+    static_cast<long long>(Hero->Gold), Hero->CollectedKeys.Num()),
+    FLinearColor(0.98f,0.84f,0.42f), Left + 18.f, Top + 75.f, nullptr, 0.85f);
   if (Count == 0)
    DrawText(TEXT("No equipment yet. Defeat enemies to find gear."), FLinearColor::White,
      Left + 18.f, Top + 100.f, nullptr, 0.92f);
@@ -356,7 +360,7 @@ void AMoonfallCombatHUD::DrawHUD()
  if (!bCompactScreen) {
   const TCHAR* RarityNames[] = { TEXT("COMMON"), TEXT("UNCOMMON"), TEXT("RARE"), TEXT("EPIC") };
   const int32 Rarity = FMath::Clamp(Hero->LastLootRarity, 0, 5);
-  DrawText(FString::Printf(TEXT("Gear W:%d A:%d C:%d | Salvage %d | Bag %d/30"),
+  DrawText(FString::Printf(TEXT("Gear W:%d A:%d C:%d | Salvage %d | Bag %d"),
    Hero->WeaponTier, Hero->ArmorTier, Hero->AccessoryTier, Hero->Salvage, Hero->InventoryItemCodes.Num()),
    FLinearColor(0.85f,0.84f,0.95f), 24.f, Canvas->SizeY - 75.f, nullptr, 0.8f);
   if (Hero->InventoryItemCodes.Num() > 0) {
