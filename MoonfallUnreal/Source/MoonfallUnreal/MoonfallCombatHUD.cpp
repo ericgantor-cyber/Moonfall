@@ -52,6 +52,8 @@ int32 AMoonfallCombatHUD::GetInventoryItemAtScreenPosition(
      !FMath::IsFinite(X) || !FMath::IsFinite(Y)) return -1;
  // In combined view the left bag remains selectable while C stays open.
  if (!Hero->bBagPanelOpen) return -1;
+ if (!MoonfallDualPanels(Canvas,Hero) && Hero->bCharacterStatsOpen &&
+     Hero->bMenuFocusCharacter) return -1;
  // The SORT button owns its entire rectangle, even when a compact
  // viewport puts it over an equipment row. Neither mouse button can
  // accidentally select or equip a row through the SORT control.
@@ -116,6 +118,9 @@ int32 AMoonfallCombatHUD::GetCharacterActionAtScreenPosition(
  if (!Canvas || !IsValid(Hero) || !Hero->bInventoryOpen ||
      !Hero->bCharacterStatsOpen || Hero->bOptionsOpen ||
      !FMath::IsFinite(X) || !FMath::IsFinite(Y)) return -1;
+ // On compact screens B and C use the focused pane, never overlapping clicks.
+ if (!MoonfallDualPanels(Canvas,Hero) && Hero->bBagPanelOpen &&
+     !Hero->bMenuFocusCharacter) return -1;
  for (int32 Action = 0; Action < 11; ++Action) {
   float BX = 0.f, BY = 0.f, BW = 0.f, BH = 0.f;
   if (!MoonfallCharacterActionRect(Canvas,MoonfallDualPanels(Canvas,Hero),Action,BX,BY,BW,BH)) continue;
@@ -150,6 +155,8 @@ int32 AMoonfallCombatHUD::GetInventoryActionAtScreenPosition(
  if (!Canvas || !IsValid(Hero) || !Hero->bBagPanelOpen ||
      Hero->bOptionsOpen ||
      !FMath::IsFinite(X) || !FMath::IsFinite(Y)) return -1;
+ if (!MoonfallDualPanels(Canvas,Hero) && Hero->bCharacterStatsOpen &&
+     Hero->bMenuFocusCharacter) return -1;
  for (int32 Action=0;Action<8;++Action) {
   float BX=0.f,BY=0.f,BW=0.f,BH=0.f;
   if (!MoonfallBagActionRect(Canvas,MoonfallDualPanels(Canvas,Hero),Action,BX,BY,BW,BH)) continue;
@@ -217,6 +224,8 @@ bool AMoonfallCombatHUD::IsInventorySortButtonAtScreenPosition(
  if (!Canvas || !IsValid(Hero) || !Hero->bBagPanelOpen ||
      Hero->bOptionsOpen ||
      !FMath::IsFinite(X) || !FMath::IsFinite(Y)) return false;
+ if (!MoonfallDualPanels(Canvas,Hero) && Hero->bCharacterStatsOpen &&
+     Hero->bMenuFocusCharacter) return false;
  if (MoonfallDualPanels(Canvas,Hero)) {
   float L=0.f,T=0.f,W=0.f,H=0.f;
   MoonfallDualBagGeometry(Canvas,L,T,W,H);
@@ -868,7 +877,10 @@ void AMoonfallCombatHUD::DrawHUD()
        FLinearColor(0.60f,0.62f,0.66f),X+3.f,Y+9.f,nullptr,0.61f);
    }
   }
-  if (Hero->bCharacterStatsOpen) {
+  // Compact fallback shows one usable panel at a time, without closing either.
+  const bool bDrawCharacter=Hero->bCharacterStatsOpen &&
+      (!Hero->bBagPanelOpen || bDual || Hero->bMenuFocusCharacter);
+  if (bDrawCharacter) {
    // C remains a fully interactive equipment and stat panel.
    // In dual mode B is visible and selectable to its left.
    DrawText(TEXT("MOONFALL  |  CHARACTER"), FLinearColor::White,
