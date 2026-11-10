@@ -106,6 +106,12 @@ class InventoryCapacityPort(unittest.TestCase):
         self.assertIn("Save->KeyRingIds = KeyRingIds;", self.hero)
         self.assertIn("KeyRingIds = Save->KeyRingIds;", self.hero)
         self.assertIn("Save->KeyRingIds[I-1] >= Id", self.hero)
+        self.assertIn("int32 LastCollectedKeyId = 0;", header)
+        self.assertIn("LastCollectedKeyId = KeyId;", ring)
+        self.assertLess(ring.index("if (KeyRingIds.Contains(KeyId)) return true;"),
+                        ring.index("LastCollectedKeyId = KeyId;"))
+        self.assertIn("LastCollectedKeyId = 0;", self.hero)
+        self.assertIn('TEXT("  |  RECENT KEY #%d")', hud)
         self.assertIn("DrawKeyRingSummary(", hud)
         self.assertIn('TEXT("KEY RING  %d  %s")', hud)
 
