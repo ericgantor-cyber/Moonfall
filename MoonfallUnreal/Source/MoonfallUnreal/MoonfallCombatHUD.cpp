@@ -52,16 +52,41 @@ int32 AMoonfallCombatHUD::GetInventoryItemAtScreenPosition(
 
 
 // One shared, resolution-responsive grid for drawing and mouse hit testing.
-static bool MoonfallCharacterActionRect(const UCanvas* Canvas, int32 Action,
+// When B and C are both open, lay out two independent, clickable panels.
+// Below the split-screen breakpoint the existing full-size panels remain usable.
+static bool MoonfallDualPanels(const UCanvas* Canvas,const AMoonfallHeroPawn* Hero)
+{
+ return Canvas && IsValid(Hero) && Hero->bBagPanelOpen &&
+     Hero->bCharacterStatsOpen && Canvas->SizeX >= 960.f &&
+     Canvas->SizeY >= 480.f;
+}
+static void MoonfallDualBagGeometry(const UCanvas* Canvas,
+    float& Left,float& Top,float& Width,float& Height)
+{
+ Width=FMath::Clamp((Canvas->SizeX-36.f)*0.48f,280.f,680.f);
+ Height=FMath::Min(860.f,FMath::Max(280.f,Canvas->SizeY-24.f));
+ Left=12.f; Top=(Canvas->SizeY-Height)*0.5f;
+}
+static void MoonfallDualCharacterGeometry(const UCanvas* Canvas,
+    float& Left,float& Top,float& Width,float& Height)
+{
+ Width=FMath::Max(280.f,Canvas->SizeX-
+     FMath::Clamp((Canvas->SizeX-36.f)*0.48f,280.f,680.f)-36.f);
+ Width=FMath::Min(Width,1040.f);
+ Height=FMath::Min(860.f,FMath::Max(280.f,Canvas->SizeY-24.f));
+ Left=Canvas->SizeX-Width-12.f; Top=(Canvas->SizeY-Height)*0.5f;
+}
+static bool MoonfallCharacterActionRect(const UCanvas* Canvas, bool bDual, int32 Action,
     float& X, float& Y, float& W, float& H)
 {
  if (!Canvas || Action < 0 || Action >= 11) return false;
  const bool bWide = Canvas->SizeX >= 1100.f && Canvas->SizeY >= 600.f;
- const float PanelWidth = FMath::Min(bWide ? 1040.f : 680.f,
+ float PanelWidth = FMath::Min(bWide ? 1040.f : 680.f,
    FMath::Max(280.f,Canvas->SizeX - 24.f));
- const float PanelHeight = FMath::Min(860.f,FMath::Max(280.f,Canvas->SizeY - 24.f));
- const float Left = (Canvas->SizeX - PanelWidth) * 0.5f;
- const float Top = (Canvas->SizeY - PanelHeight) * 0.5f;
+ float PanelHeight = FMath::Min(860.f,FMath::Max(280.f,Canvas->SizeY - 24.f));
+ float Left = (Canvas->SizeX - PanelWidth) * 0.5f;
+ float Top = (Canvas->SizeY - PanelHeight) * 0.5f;
+ if (bDual) MoonfallDualCharacterGeometry(Canvas,Left,Top,PanelWidth,PanelHeight);
  W = (PanelWidth - 48.f) / 3.f;
  H = 32.f;
  X = Left + 12.f + float(Action % 3) * (W + 6.f);
@@ -77,7 +102,7 @@ int32 AMoonfallCombatHUD::GetCharacterActionAtScreenPosition(
      !FMath::IsFinite(X) || !FMath::IsFinite(Y)) return -1;
  for (int32 Action = 0; Action < 11; ++Action) {
   float BX = 0.f, BY = 0.f, BW = 0.f, BH = 0.f;
-  if (!MoonfallCharacterActionRect(Canvas,Action,BX,BY,BW,BH)) continue;
+  if (!MoonfallCharacterActionRect(Canvas,MoonfallDualPanels(Canvas,Hero),Action,BX,BY,BW,BH)) continue;
   if (X >= BX && X < BX + BW && Y >= BY && Y < BY + BH)
    return Action;
  }
@@ -842,7 +867,7 @@ void AMoonfallCombatHUD::DrawHUD()
       Left,Top+PanelHeight-171.f,PanelWidth,171.f);
    for (int32 Action = 0; Action < 11; ++Action) {
     float BX=0.f,BY=0.f,BW=0.f,BH=0.f;
-    if (!MoonfallCharacterActionRect(Canvas,Action,BX,BY,BW,BH)) continue;
+    if (!MoonfallCharacterActionRect(Canvas,MoonfallDualPanels(Canvas,Hero),Action,BX,BY,BW,BH)) continue;
     const bool bEnabled = Action >= 7 ||
        (bHasCandidate && (Action != 0 || CandidateIndex > 0) &&
         (Action != 1 || CandidateIndex+1 < Hero->InventoryItemCodes.Num()));
@@ -891,7 +916,7 @@ void AMoonfallCombatHUD::DrawHUD()
       Left,Top+PanelHeight-171.f,PanelWidth,171.f);
    for (int32 Action = 0; Action < 11; ++Action) {
     float BX=0.f,BY=0.f,BW=0.f,BH=0.f;
-    if (!MoonfallCharacterActionRect(Canvas,Action,BX,BY,BW,BH)) continue;
+    if (!MoonfallCharacterActionRect(Canvas,MoonfallDualPanels(Canvas,Hero),Action,BX,BY,BW,BH)) continue;
     const bool bEnabled = Action >= 7 ||
        (bHasCandidate && (Action != 0 || CandidateIndex > 0) &&
         (Action != 1 || CandidateIndex+1 < Hero->InventoryItemCodes.Num()));
