@@ -1883,12 +1883,21 @@ void AMoonfallHeroPawn::ResolveTalentRespecConfirmation(bool bConfirm)
  }
  bTalentRespecArmed = false;
  TalentRespecChoice = 1;
- if (bConfirm) RespecTalents();
+ if (bConfirm) {
+  // Only an explicit YES grants a single use. RespecTalents consumes
+  // the authorization before reading or changing any talent points.
+  bTalentRespecCommitAuthorized = true;
+  RespecTalents();
+  bTalentRespecCommitAuthorized = false;
+ }
 }
 
 bool AMoonfallHeroPawn::RespecTalents()
 {
- // Explicit Backspace only inside K; no implicit resets or costs.
+ // Public Blueprint callers cannot bypass the player-facing Yes/No dialog.
+ const bool bAuthorized = bTalentRespecCommitAuthorized;
+ bTalentRespecCommitAuthorized = false;
+ if (!bAuthorized) return false;
  if (!bAtlasOpen || !bTalentsOpen || bInventoryOpen || bOptionsOpen ||
      !FMath::IsFinite(Health) || Health <= 0.f) return false;
  TalentForceRank = 0;
