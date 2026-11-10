@@ -109,6 +109,31 @@ class InventoryCapacityPort(unittest.TestCase):
         self.assertIn("DrawKeyRingSummary(", hud)
         self.assertIn('TEXT("KEY RING  %d  %s")', hud)
 
+    def test_compact_b_c_pane_focus_and_bag_only_actions(self):
+        hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        header = (ROOT / "MoonfallHeroPawn.h").read_text(encoding="utf-8")
+        inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
+        self.assertIn("void SwitchOpenInventoryPane();", header)
+        self.assertIn('ActionName="InventoryPaneSwitch",Key=Gamepad_RightThumbstick', inputs)
+        self.assertIn('ActionName="InventoryPaneSwitch",Key=BackSlash', inputs)
+        self.assertIn('BindAction(TEXT("InventoryPaneSwitch"), IE_Pressed', self.hero)
+        switch = body(self.hero, "void AMoonfallHeroPawn::SwitchOpenInventoryPane()")
+        self.assertIn("bMenuFocusCharacter = !bMenuFocusCharacter;", switch)
+        self.assertIn("MenuActionFocus = -1;", switch)
+        self.assertIn("const bool bDrawCharacter=Hero->bCharacterStatsOpen", hud)
+        self.assertIn("!Hero->bBagPanelOpen || bDual || Hero->bMenuFocusCharacter", hud)
+        hit = body(hud, "int32 AMoonfallCombatHUD::GetInventoryActionAtScreenPosition(")
+        self.assertIn("Hero->bMenuFocusCharacter", hit)
+        gear = body(hud, "int32 AMoonfallCombatHUD::GetCharacterActionAtScreenPosition(")
+        self.assertIn("!Hero->bMenuFocusCharacter", gear)
+        salvage = body(self.hero, "void AMoonfallHeroPawn::InventorySalvage()")
+        self.assertIn("bCharacterStatsOpen && bMenuFocusCharacter", salvage)
+        sorter = body(self.hero, "void AMoonfallHeroPawn::CycleInventorySort()")
+        self.assertIn("bCharacterStatsOpen && bMenuFocusCharacter", sorter)
+        for zoom in ("ZoomCameraIn", "ZoomCameraOut"):
+            section = body(self.hero, "void AMoonfallHeroPawn::" + zoom + "()")
+            self.assertIn("if (bBagPanelOpen)", section)
+
     def test_b_and_c_are_independent_and_simultaneously_clickable(self):
         header = (ROOT / "MoonfallHeroPawn.h").read_text(encoding="utf-8")
         hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
@@ -171,7 +196,8 @@ class InventoryCapacityPort(unittest.TestCase):
             self.assertIn('TEXT("' + label + '")', hud)
         left = body(self.hero, "void AMoonfallHeroPawn::LeftClickContextAction()")
         self.assertIn("HUD->GetCharacterActionAtScreenPosition(this, MouseX, MouseY)", left)
-        self.assertIn("if (Action == 7) { ToggleInventory(); return; }", left)
+        self.assertIn("if (Action == 7) {", left)
+        self.assertIn("if (bBagPanelOpen) { bMenuFocusCharacter = false; MenuActionFocus = -1; }", left)
         for action, method in ((8, "PreviousCharacterStatsPage"),
                                (9, "NextCharacterStatsPage"),
                                (10, "ToggleCharacterStats")):
@@ -365,7 +391,8 @@ class InventoryCapacityPort(unittest.TestCase):
             self.assertIn('TEXT("' + title + '")', hud)
         click = body(self.hero, "void AMoonfallHeroPawn::LeftClickContextAction()")
         self.assertIn("HUD->GetInventoryActionAtScreenPosition(this,MouseX,MouseY)", click)
-        self.assertIn("if (BagAction == 6) { ToggleCharacterStats(); return; }", click)
+        self.assertIn("if (BagAction == 6) {", click)
+        self.assertIn("if (bCharacterStatsOpen) { bMenuFocusCharacter = true; MenuActionFocus = -1; }", click)
         self.assertIn("if (BagAction == 7) { ToggleInventory(); return; }", click)
         for action, method in ((0,"EquipSelectedInventoryItem"),
                                (1,"UpgradeSelectedInventoryItem"),
@@ -465,7 +492,7 @@ class InventoryCapacityPort(unittest.TestCase):
         for name, change in (("ZoomCameraIn", "InventoryViewStart - 1"),
                              ("ZoomCameraOut", "InventoryViewStart + 1")):
             action = body(self.hero, "void AMoonfallHeroPawn::" + name + "()")
-            self.assertIn("if (bInventoryOpen)", action)
+            self.assertIn("if (bBagPanelOpen)", action)
             self.assertIn(change, action)
             self.assertIn("GetInventoryVisibleRowCount()", action)
             self.assertIn("InventoryItemCodes.Num() - VisibleRows", action)
