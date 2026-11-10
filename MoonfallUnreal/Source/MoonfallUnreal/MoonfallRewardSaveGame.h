@@ -10,9 +10,11 @@ class MOONFALLUNREAL_API UMoonfallRewardSaveGame : public USaveGame
 {
  GENERATED_BODY()
 public:
- UPROPERTY(SaveGame) int32 SchemaVersion = 1;
+ UPROPERTY(SaveGame) int32 SchemaVersion = 2;
  UPROPERTY(SaveGame) int64 Gold = 0;
  UPROPERTY(SaveGame) int64 ConfirmedKills = 0;
  UPROPERTY(SaveGame) TArray<FName> CollectedKeys;
  UPROPERTY(SaveGame) TArray<FName> CompletedFactionQuests;
+ // Stable authored gate IDs. v1 saves load with this list empty.
+ UPROPERTY(SaveGame) TArray<FName> UnlockedGateIds;
 };
