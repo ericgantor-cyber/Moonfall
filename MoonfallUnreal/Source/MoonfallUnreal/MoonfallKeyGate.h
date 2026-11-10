@@ -5,12 +5,10 @@
 #include "MoonfallKeyGate.generated.h"
 
 class USceneComponent;
-class UBoxComponent;
 class UStaticMeshComponent;
-class UPrimitiveComponent;
 
-// Place in a UE5 dungeon level or Blueprint. Walking up to a gate with its
-// already-collected quest key opens it; keys are never consumed.
+// Place in a UE5 dungeon level or Blueprint. Gates stay locked on approach.
+// An explicit interaction calls TryUnlock; valid quest keys are not consumed.
 UCLASS()
 class MOONFALLUNREAL_API AMoonfallKeyGate : public AActor
 {
@@ -24,6 +22,7 @@ public:
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Quest Gate")
  bool bUnlocked = false;
 
+ // Only an explicit UI/Blueprint interaction attempts unlocking.
  UFUNCTION(BlueprintCallable, Category="Moonfall|Quest Gate")
  bool TryUnlock(AActor* Candidate);
 
@@ -40,11 +39,4 @@ protected:
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Quest Gate")
  TObjectPtr<UStaticMeshComponent> GateMesh;
 
- UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Quest Gate")
- TObjectPtr<UBoxComponent> KeyProximity;
-
- UFUNCTION()
- void OnKeyProximityBegin(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,
-     UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep,
-     const FHitResult& SweepResult);
 };
