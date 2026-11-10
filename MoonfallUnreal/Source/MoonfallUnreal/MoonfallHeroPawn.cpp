@@ -155,6 +155,14 @@ void AMoonfallHeroPawn::BeginPlay() {
 void AMoonfallHeroPawn::Tick(float DeltaSeconds)
 {
  Super::Tick(DeltaSeconds);
+ // Collect reachable equipment automatically, throttled to avoid per-frame world scans.
+ if (FMath::IsFinite(DeltaSeconds) && DeltaSeconds > 0.f) {
+  AutoLootElapsed += FMath::Min(DeltaSeconds, 0.1f);
+  if (AutoLootElapsed >= 0.35f) {
+   AutoLootElapsed = 0.f;
+   PickupNearestGroundLoot();
+  }
+ }
  UpdateNativeFinisher(DeltaSeconds);
  // Expire the visible combo stage even if the player stops attacking.
  // Also discard defeated or destroyed targets to avoid a stale combo HUD.
@@ -1326,8 +1334,11 @@ bool AMoonfallHeroPawn::CollectGroundEquipmentCode(int32 ItemCode)
      || (Rarity == 0 && Affix != 0)
      || ItemCode != Affix * 100000 + SlotIndex * 10000 + Rarity * 1000 + Tier)
   return false;
- // Picking up an item NEVER equips, automatically salvages, or deletes gear.
+ // Keep every valid pickup, and only auto-equip if that equipment slot is vacant.
  InventoryItemCodes.Add(ItemCode);
+ const int32 EquippedSlotCode = SlotIndex == 0 ? EquippedWeaponCode
+     : (SlotIndex == 1 ? EquippedArmorCode : EquippedAccessoryCode);
+ if (EquippedSlotCode <= 0) EquipInventoryItem(InventoryItemCodes.Num() - 1);
  LastLootAffix = Affix;
  LastLootSlot = SlotIndex;
  LastLootRarity = Rarity;
@@ -1363,21 +1374,12 @@ void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(bool bEliteEnemy, bool bBossEne
 void AMoonfallHeroPawn::PickupNearestGroundLoot()
 {
  if (Health <= 0.f || bOptionsOpen || bInventoryOpen || !GetWorld()) return;
- // One explicit pickup press handles a nearby cluster, reducing repeated
- // input without ever automatically equipping, salvaging or destroying loot.
- // Keep actor iteration and collection bounded for a continuous world.
- constexpr int32 MaxLootScanned = 128;
- constexpr int32 MaxLootPerPress = 6;
+ // Gather all reachable nearby loot, without an arbitrary per-batch item limit.
  TArray<AMoonfallGroundLoot*> NearbyLoot;
- NearbyLoot.Reserve(MaxLootPerPress);
  TArray<float> NearbyDistanceSq;
- NearbyDistanceSq.Reserve(MaxLootPerPress);
  const FVector HeroPosition = GetActorLocation();
  const float PickupRangeSq = FMath::Square(250.f);
- int32 Scanned = 0;
- for (TActorIterator<AMoonfallGroundLoot> It(GetWorld());
-      It && Scanned < MaxLootScanned; ++It) {
-  ++Scanned;
+ for (TActorIterator<AMoonfallGroundLoot> It(GetWorld()); It; ++It) {
   AMoonfallGroundLoot* Candidate = *It;
   if (!IsValid(Candidate) || Candidate->GetItemCode() <= 0) continue;
   const FVector LootPosition = Candidate->GetActorLocation();
@@ -1396,13 +1398,8 @@ void AMoonfallHeroPawn::PickupNearestGroundLoot()
   int32 InsertAt = 0;
   while (InsertAt < NearbyDistanceSq.Num() && NearbyDistanceSq[InsertAt] <= DistanceSq)
    ++InsertAt;
-  if (InsertAt >= MaxLootPerPress) continue;
   NearbyLoot.Insert(Candidate, InsertAt);
   NearbyDistanceSq.Insert(DistanceSq, InsertAt);
-  if (NearbyLoot.Num() > MaxLootPerPress) {
-   NearbyLoot.RemoveAt(MaxLootPerPress);
-   NearbyDistanceSq.RemoveAt(MaxLootPerPress);
-  }
  }
  for (AMoonfallGroundLoot* Loot : NearbyLoot) {
   if (IsValid(Loot)) Loot->TryCollect();
