@@ -151,6 +151,19 @@ Moonfall's fully migrated Godot world or finished dungeon.
   enemy deaths still write independently. Verify gameplay on native UE5
   Windows builds before concluding that combat stutter has improved.
 
+## Cross-map pickup hardening and saved-actor collision checks
+
+- Persisted pickups now require an exact match of GUID, item code **and**
+  current map before removing a saved record. Test that a stale world actor
+  from map A cannot claim its saved loot while in map B.
+- During restoration, the existing actor index records both GUID and item
+  code in one world scan. A conflicting actor with the same GUID but a
+  different code is logged and skipped rather than silently accepted as
+  the saved item. Inspect Unreal logs for GUID collision warnings.
+- Verify that failed pickups still leave saved records and the physical
+  pickup intact, and that successful pickups persist normally after restart.
+  Native UE5 compilation and cross-map gameplay validation remain pending.
+
 ## Map-aware world-loot persistence (reward save v5)
 
 - New persistent drops store the originating level name alongside their GUID,
