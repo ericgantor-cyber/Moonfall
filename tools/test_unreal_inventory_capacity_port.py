@@ -498,7 +498,7 @@ class InventoryCapacityPort(unittest.TestCase):
             self.assertIn("InventoryItemCodes.Num() - VisibleRows", action)
             self.assertNotIn("InventorySelection =", action)
             self.assertIn("return;", action)
-            self.assertLess(action.index("if (bInventoryOpen)"),
+            self.assertLess(action.index("if (bBagPanelOpen)"),
                             action.index("CameraDistance ="))
             self.assertNotIn("EquipInventoryItem(", action)
             self.assertNotIn("SalvageInventoryItem(", action)
