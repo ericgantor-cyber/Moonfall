@@ -113,7 +113,7 @@ class InventoryCapacityPort(unittest.TestCase):
         self.assertIn("!bBagPanelOpen || bOptionsOpen", method)
         self.assertIn("Entries.StableSort(", method)
         # Sorting changes persisted bag order, so the 16s autosave must see it.
-        self.assertLess(method.index("bProgressDirty = true;"), method.index("if (InventoryItemCodes.Num()<2) return;"))
+        self.assertLess(method.index("bProgressDirty=true;"), method.index("if (InventoryItemCodes.Num()<2) return;"))
         self.assertIn("SelectedId=InventoryPickupIds[OldSelection]", method)
         self.assertIn("InventorySelection=Index;", method)
         self.assertIn("if (Mode==0) return A.PickupId<B.PickupId;", method)
