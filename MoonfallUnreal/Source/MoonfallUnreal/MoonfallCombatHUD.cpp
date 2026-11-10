@@ -148,6 +148,8 @@ int32 AMoonfallCombatHUD::GetAtlasMenuActionAtScreenPosition(
  const float L=(Canvas->SizeX-W)*0.5f,T=(Canvas->SizeY-H)*0.5f;
  if (X >= L+W-96.f && X < L+W-12.f &&
      Y >= T+12.f && Y < T+46.f) return 0;
+ if (Talents && X >= L+W-205.f && X < L+W-105.f &&
+     Y >= T+12.f && Y < T+46.f) return 3;
  if (Talents && Y >= T+H-44.f && Y < T+H-10.f) {
   if (X >= L+12.f && X < L+100.f) return 1;
   if (X >= L+110.f && X < L+198.f) return 2;
@@ -398,6 +400,10 @@ void AMoonfallCombatHUD::DrawHUD()
   // Clickable close and page navigation, independent of talent-node activation.
   DrawRect(FLinearColor(0.15f,0.35f,0.44f),Left+Width-96.f,Top+12.f,84.f,34.f);
   DrawText(TEXT("CLOSE"),FLinearColor::White,Left+Width-84.f,Top+20.f,nullptr,0.77f);
+  DrawRect(Hero->bTalentRespecArmed ? FLinearColor(0.60f,0.22f,0.24f)
+    : FLinearColor(0.15f,0.35f,0.44f),Left+Width-205.f,Top+12.f,100.f,34.f);
+  DrawText(Hero->bTalentRespecArmed ? TEXT("CONFIRM!") : TEXT("RESPEC"),
+    FLinearColor::White,Left+Width-195.f,Top+20.f,nullptr,0.74f);
   DrawRect(FLinearColor(0.15f,0.35f,0.44f),Left+12.f,Top+Height-44.f,88.f,34.f);
   DrawRect(FLinearColor(0.15f,0.35f,0.44f),Left+110.f,Top+Height-44.f,88.f,34.f);
   DrawText(TEXT("PREV"),FLinearColor::White,Left+22.f,Top+Height-36.f,nullptr,0.73f);
@@ -637,6 +643,10 @@ void AMoonfallCombatHUD::DrawHUD()
   // Clickable close and page navigation, independent of talent-node activation.
   DrawRect(FLinearColor(0.15f,0.35f,0.44f),Left+Width-96.f,Top+12.f,84.f,34.f);
   DrawText(TEXT("CLOSE"),FLinearColor::White,Left+Width-84.f,Top+20.f,nullptr,0.77f);
+  DrawRect(Hero->bTalentRespecArmed ? FLinearColor(0.60f,0.22f,0.24f)
+    : FLinearColor(0.15f,0.35f,0.44f),Left+Width-205.f,Top+12.f,100.f,34.f);
+  DrawText(Hero->bTalentRespecArmed ? TEXT("CONFIRM!") : TEXT("RESPEC"),
+    FLinearColor::White,Left+Width-195.f,Top+20.f,nullptr,0.74f);
   DrawRect(FLinearColor(0.15f,0.35f,0.44f),Left+12.f,Top+Height-44.f,88.f,34.f);
   DrawRect(FLinearColor(0.15f,0.35f,0.44f),Left+110.f,Top+Height-44.f,88.f,34.f);
   DrawText(TEXT("PREV"),FLinearColor::White,Left+22.f,Top+Height-36.f,nullptr,0.73f);
