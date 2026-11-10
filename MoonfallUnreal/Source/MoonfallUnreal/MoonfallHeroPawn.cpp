@@ -463,7 +463,8 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier, bool
    * (bTalentCelestialWell ? 0.90f : 1.f)
    * (bTalentInfiniteCurrent ? 0.90f : 1.f)
    * (bTalentSoulConduit ? 0.95f : 1.f)
-   * (bTalentRadiantNexus ? 0.95f : 1.f);
+   * (bTalentRadiantNexus ? 0.95f : 1.f)
+   * (bTalentAetherCovenant ? 0.95f : 1.f);
  const float EffectMultiplier = bOvercharged ? 2.2f : Multiplier;
  const float Time = GetWorld()->GetTimeSeconds();
  if (!FMath::IsFinite(Health) || !FMath::IsFinite(MaxHealth) || MaxHealth <= 0.f || Health > MaxHealth || !FMath::IsFinite(MaxMana) || MaxMana <= 0.f || !FMath::IsFinite(Mana) || !FMath::IsFinite(SpellPowerMultiplier) || SpellPowerMultiplier <= 0.f || Mana < Costs[School] * ManaCostMultiplier || Time - LastCastTime[Hand] < Cooldowns[School] / (1.f + GetHasteBonus())) return false;
@@ -528,7 +529,8 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier, bool
         + (bTalentVoidCrown ? 0.20f : 0.f)
         + (bTalentEclipseHeart ? 0.25f : 0.f)
         + (bTalentDuskSovereign ? 0.20f : 0.f)
-        + (bTalentNightfallAscension ? 0.15f : 0.f) : 0.f))
+        + (bTalentNightfallAscension ? 0.15f : 0.f)
+        + (bTalentCrimsonNova ? 0.10f : 0.f) : 0.f))
     * (bTalentAstralSurge ? 1.10f : 1.f) * MightMultiplier;
   // Reject invalid damage before spending mana or consuming a hard-earned counter.
   if (!FMath::IsFinite(SpellDamage) || SpellDamage <= 0.f) return false;
@@ -946,6 +948,7 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
    if (bTalentWorldguard) DamageAfterGuard *= 0.90f;
    if (bTalentUnbrokenBastion) DamageAfterGuard *= 0.95f;
    if (bTalentTitanSoul) DamageAfterGuard *= 0.95f;
+   if (bTalentLastCitadel) DamageAfterGuard *= 0.95f;
   }
   OnGuardImpact(ArmoredDamage - DamageAfterGuard, bPerfectParry);
   if (Stamina < GuardStaminaCost) BreakGuard();
@@ -1107,7 +1110,9 @@ int32 AMoonfallHeroPawn::GetUnspentTalentPoints() const
    - int32(bTalentDuskSovereign) - int32(bTalentSoulConduit)
    - int32(bTalentUnbrokenBastion)
    - int32(bTalentNightfallAscension) - int32(bTalentRadiantNexus)
-   - int32(bTalentTitanSoul));
+   - int32(bTalentTitanSoul)
+   - int32(bTalentCrimsonNova) - int32(bTalentAetherCovenant)
+   - int32(bTalentLastCitadel));
 }
 
 bool AMoonfallHeroPawn::SpendTalentPoint(int32 Branch)
@@ -1130,7 +1135,7 @@ void AMoonfallHeroPawn::SpendWardTalent() { SpendTalentPoint(2); }
 
 bool AMoonfallHeroPawn::ActivateTalentNode(int32 Node)
 {
- if (Node < 0 || Node >= 24 || !bAtlasOpen || !bTalentsOpen ||
+ if (Node < 0 || Node >= 27 || !bAtlasOpen || !bTalentsOpen ||
      bOptionsOpen || bInventoryOpen || Health <= 0.f) return false;
  TalentSelectedNode = Node;
  return Node < 3 ? SpendTalentPoint(Node) : UnlockTalentNode(Node);
@@ -1138,19 +1143,19 @@ bool AMoonfallHeroPawn::ActivateTalentNode(int32 Node)
 
 void AMoonfallHeroPawn::ActivateSelectedTalentNode()
 {
- ActivateTalentNode(FMath::Clamp(TalentSelectedNode,0,23));
+ ActivateTalentNode(FMath::Clamp(TalentSelectedNode,0,26));
 }
 
 void AMoonfallHeroPawn::SelectNextTalentNode()
 {
  if (bAtlasOpen && bTalentsOpen && !bOptionsOpen && Health > 0.f)
-  TalentSelectedNode = (FMath::Clamp(TalentSelectedNode,0,23) + 1) % 24;
+  TalentSelectedNode = (FMath::Clamp(TalentSelectedNode,0,26) + 1) % 27;
 }
 
 void AMoonfallHeroPawn::SelectPreviousTalentNode()
 {
  if (bAtlasOpen && bTalentsOpen && !bOptionsOpen && Health > 0.f)
-  TalentSelectedNode = (FMath::Clamp(TalentSelectedNode,0,23) + 23) % 24;
+  TalentSelectedNode = (FMath::Clamp(TalentSelectedNode,0,26) + 26) % 27;
 }
 
 bool AMoonfallHeroPawn::CanUnlockTalentNode(int32 Node) const
@@ -1186,6 +1191,10 @@ bool AMoonfallHeroPawn::CanUnlockTalentNode(int32 Node) const
  if (Node == 21) return bTalentDuskSovereign && bTalentUnbrokenBastion && !bTalentNightfallAscension;
  if (Node == 22) return bTalentDuskSovereign && bTalentSoulConduit && !bTalentRadiantNexus;
  if (Node == 23) return bTalentSoulConduit && bTalentUnbrokenBastion && !bTalentTitanSoul;
+ // Ninth-tier convergence nodes each require two transcendents.
+ if (Node == 24) return bTalentNightfallAscension && bTalentTitanSoul && !bTalentCrimsonNova;
+ if (Node == 25) return bTalentNightfallAscension && bTalentRadiantNexus && !bTalentAetherCovenant;
+ if (Node == 26) return bTalentRadiantNexus && bTalentTitanSoul && !bTalentLastCitadel;
  return false;
 }
 
@@ -1212,7 +1221,10 @@ bool AMoonfallHeroPawn::UnlockTalentNode(int32 Node)
    : Node == 20 ? &bTalentUnbrokenBastion
    : Node == 21 ? &bTalentNightfallAscension
    : Node == 22 ? &bTalentRadiantNexus
-   : Node == 23 ? &bTalentTitanSoul : nullptr;
+   : Node == 23 ? &bTalentTitanSoul
+   : Node == 24 ? &bTalentCrimsonNova
+   : Node == 25 ? &bTalentAetherCovenant
+   : Node == 26 ? &bTalentLastCitadel : nullptr;
  if (!Flag || *Flag) return false;
  *Flag = true;
  return true;
@@ -1256,6 +1268,9 @@ bool AMoonfallHeroPawn::RespecTalents()
  bTalentNightfallAscension = false;
  bTalentRadiantNexus = false;
  bTalentTitanSoul = false;
+ bTalentCrimsonNova = false;
+ bTalentAetherCovenant = false;
+ bTalentLastCitadel = false;
  return true;
 }
 
