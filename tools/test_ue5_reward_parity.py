@@ -146,9 +146,9 @@ class UE5RewardParity(unittest.TestCase):
         self.assertNotIn("OnComponentBeginOverlap", gate_cpp)
 
     def test_v2_saves_retain_v1_compatibility_and_named_gates(self):
-        self.assertIn("int32 SchemaVersion = 4;", self.save)
+        self.assertIn("int32 SchemaVersion = 5;", self.save)
         self.assertIn("TArray<FName> UnlockedGateIds;", self.save)
-        self.assertIn("Save->SchemaVersion != 1 && Save->SchemaVersion != 2 && Save->SchemaVersion != 3 && Save->SchemaVersion != 4", self.hero)
+        self.assertIn("Save->SchemaVersion != 1 && Save->SchemaVersion != 2 && Save->SchemaVersion != 3 && Save->SchemaVersion != 4 && Save->SchemaVersion != 5", self.hero)
         self.assertIn("if (Save->SchemaVersion >= 2)", self.hero)
         self.assertIn("Save->UnlockedGateIds = UnlockedGateIds;", self.hero)
         self.assertIn("UnlockedGateIds.Num() < 256", self.hero)
@@ -178,7 +178,7 @@ class UE5RewardParity(unittest.TestCase):
             "bool AMoonfallKeyGate::TryUnlock(", 1)[0]
         self.assertIn("if (GateId.IsNone()) return;", load)
         self.assertIn("UGameplayStatics::LoadGameFromSlot(SlotName, 0)", load)
-        self.assertIn("Saved->SchemaVersion != 2 && Saved->SchemaVersion != 3 && Saved->SchemaVersion != 4", load)
+        self.assertIn("Saved->SchemaVersion != 2 && Saved->SchemaVersion != 3 && Saved->SchemaVersion != 4 && Saved->SchemaVersion != 5", load)
         self.assertIn("Saved->UnlockedGateIds.Contains(GateId)", load)
         self.assertIn("ApplyOpenState();", load)
         self.assertIn("OnSavedGateRestored();", load)
@@ -305,7 +305,7 @@ class UE5RewardParity(unittest.TestCase):
             "bool AMoonfallHeroPawn::SaveRewardProgress()", 1)[0]
         self.assertIn("bRewardSaveLoadFailed = true;", loader)
         self.assertIn("bRewardSaveLoadFailed = false;", loader)
-        self.assertIn("Save->SchemaVersion != 1 && Save->SchemaVersion != 2 && Save->SchemaVersion != 3 && Save->SchemaVersion != 4", loader)
+        self.assertIn("Save->SchemaVersion != 1 && Save->SchemaVersion != 2 && Save->SchemaVersion != 3 && Save->SchemaVersion != 4 && Save->SchemaVersion != 5", loader)
         validated_load = loader.split("if (!Save ||", 1)[1]
         self.assertIn("CollectedKeys.Reset();", validated_load)
         self.assertIn("Gold = 0;", validated_load)
@@ -378,7 +378,7 @@ class UE5RewardParity(unittest.TestCase):
 
     def test_v3_ground_loot_pickup_is_durable_and_transactional(self):
         ground = (ROOT / "MoonfallGroundLoot.cpp").read_text()
-        self.assertIn("int32 SchemaVersion = 4;", self.save)
+        self.assertIn("int32 SchemaVersion = 5;", self.save)
         self.assertIn("TArray<int32> InventoryItemCodes;", self.save)
         self.assertIn("Save->InventoryItemCodes = InventoryItemCodes;", self.hero)
         loader = self.hero.split("bool AMoonfallHeroPawn::LoadRewardProgress()", 1)[1].split(
@@ -402,7 +402,7 @@ class UE5RewardParity(unittest.TestCase):
                         ground.index("bCollected = true;"))
         self.assertLess(ground.index("bCollected = true;"), ground.index("Destroy();"))
         gate = (ROOT / "MoonfallKeyGate.cpp").read_text()
-        self.assertIn("Saved->SchemaVersion != 2 && Saved->SchemaVersion != 3 && Saved->SchemaVersion != 4", gate)
+        self.assertIn("Saved->SchemaVersion != 2 && Saved->SchemaVersion != 3 && Saved->SchemaVersion != 4 && Saved->SchemaVersion != 5", gate)
 
     def test_salvage_and_loot_save_as_one_rollback_safe_transaction(self):
         self.assertIn("UPROPERTY(SaveGame) int32 Salvage = 0;", self.save)
@@ -502,7 +502,7 @@ class UE5RewardParity(unittest.TestCase):
         self.assertNotIn("SalvageInventoryItem(", collect)
 
     def test_v4_ground_drops_persist_until_atomic_pickup(self):
-        self.assertIn("int32 SchemaVersion = 4;", self.save)
+        self.assertIn("int32 SchemaVersion = 5;", self.save)
         self.assertIn("struct FMoonfallWorldLootRecord", self.save)
         self.assertIn("UPROPERTY(SaveGame) FGuid DropId;", self.save)
         self.assertIn("TArray<FMoonfallWorldLootRecord> PendingWorldLoot;", self.save)
@@ -591,6 +591,28 @@ class UE5RewardParity(unittest.TestCase):
         self.assertIn("LOOT NOT SAVED - SOME WORLD DROPS FAILED", spawn)
         self.assertLess(spawn.index("RegisterWorldEquipmentDrops(Drops)"),
                         spawn.index("Fallback->InitializeLoot(Record.ItemCode);"))
+
+    def test_v5_world_loot_is_level_scoped_with_legacy_migration(self):
+        self.assertIn("int32 SchemaVersion = 5;", self.save)
+        self.assertIn("UPROPERTY(SaveGame) FName LevelId = NAME_None;", self.save)
+        load = self.hero.split("bool AMoonfallHeroPawn::LoadRewardProgress()", 1)[1].split(
+            "bool AMoonfallHeroPawn::SaveRewardProgress()", 1)[0]
+        self.assertIn("if (Save->SchemaVersion >= 4)", load)
+        self.assertIn("if (Save->SchemaVersion == 4) Accepted.LevelId = CurrentLevelId;", load)
+        self.assertIn("if (Accepted.LevelId.IsNone()) continue;", load)
+        self.assertIn("PendingWorldLoot.Add(Accepted);", load)
+        register = self.hero.split("bool AMoonfallHeroPawn::RegisterWorldEquipmentDrops(", 1)[1].split(
+            "void AMoonfallHeroPawn::RestorePendingWorldEquipmentDrops()", 1)[0]
+        self.assertIn("Record.LevelId != CurrentLevelId", register)
+        restore = self.hero.split("void AMoonfallHeroPawn::RestorePendingWorldEquipmentDrops()", 1)[1].split(
+            "void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(", 1)[0]
+        self.assertIn("Record.LevelId != CurrentLevelId", restore)
+        spawn = self.hero.split("void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(", 1)[1].split(
+            "bool AMoonfallHeroPawn::TryInteractWithNearbyKey()", 1)[0]
+        self.assertIn("Record.LevelId = CurrentLevelId;", spawn)
+        self.assertIn("UGameplayStatics::GetCurrentLevelName(this, true)", self.hero)
+        gate = (ROOT / "MoonfallKeyGate.cpp").read_text()
+        self.assertIn("Saved->SchemaVersion != 5", gate)
 
     def test_equipment_remains_manual_and_hud_shows_rewards(self):
         self.assertIn("void PickupNearestGroundLoot();", self.hero_h)
