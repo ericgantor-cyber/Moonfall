@@ -172,7 +172,7 @@ bool AMoonfallHeroPawn::LoadRewardProgress()
  }
  const UMoonfallRewardSaveGame* Save = Cast<UMoonfallRewardSaveGame>(
    UGameplayStatics::LoadGameFromSlot(RewardSaveSlot, RewardSaveUser));
- if (!Save || (Save->SchemaVersion != 1 && Save->SchemaVersion != 2 && Save->SchemaVersion != 3 && Save->SchemaVersion != 4))
+ if (!Save || (Save->SchemaVersion != 1 && Save->SchemaVersion != 2 && Save->SchemaVersion != 3 && Save->SchemaVersion != 4 && Save->SchemaVersion != 5))
  {
   bRewardSaveLoadFailed = true;
   bRewardSaveInitialized = true;
@@ -276,6 +276,9 @@ bool AMoonfallHeroPawn::LoadRewardProgress()
  }
  if (Save->SchemaVersion >= 4)
  {
+  // Legacy v4 had no level identifier. Associate those existing records
+  // with the level where they are first migrated instead of dropping them.
+  const FName CurrentLevelId(*UGameplayStatics::GetCurrentLevelName(this, true));
   for (const FMoonfallWorldLootRecord& Record : Save->PendingWorldLoot)
   {
    if (PendingWorldLoot.Num() >= 512) break;
@@ -292,7 +295,10 @@ bool AMoonfallHeroPawn::LoadRewardProgress()
        || (Rarity == 0 && Affix != 0)
        || Code != Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier)
     continue;
-   PendingWorldLoot.Add(Record);
+   FMoonfallWorldLootRecord Accepted = Record;
+   if (Save->SchemaVersion == 4) Accepted.LevelId = CurrentLevelId;
+   if (Accepted.LevelId.IsNone()) continue;
+   PendingWorldLoot.Add(Accepted);
   }
  }
  bKeyRingExpanded = !CollectedKeys.IsEmpty();
@@ -1950,6 +1956,8 @@ bool AMoonfallHeroPawn::RegisterWorldEquipmentDrops(
  if (!GetWorld() || bRewardSaveLoadFailed || NewDrops.IsEmpty()
      || NewDrops.Num() > 4 || PendingWorldLoot.Num() + NewDrops.Num() > 512)
   return false;
+ const FName CurrentLevelId(*UGameplayStatics::GetCurrentLevelName(this, true));
+ if (CurrentLevelId.IsNone()) return false;
  TSet<FGuid> BatchIds;
  for (const FMoonfallWorldLootRecord& Record : NewDrops)
  {
@@ -1961,6 +1969,7 @@ bool AMoonfallHeroPawn::RegisterWorldEquipmentDrops(
   const int32 Rarity = (Code / 1000) % 10;
   const int32 Tier = Code % 1000;
   if (!Record.DropId.IsValid() || Record.Location.ContainsNaN()
+      || Record.LevelId != CurrentLevelId
       || PendingWorldLoot.ContainsByPredicate([&](const FMoonfallWorldLootRecord& Existing)
          { return Existing.DropId == Record.DropId; })
       || Affix < 0 || Affix > 3 || Slot < 0 || Slot > 2
@@ -1998,6 +2007,7 @@ bool AMoonfallHeroPawn::RegisterWorldEquipmentDrops(
 void AMoonfallHeroPawn::RestorePendingWorldEquipmentDrops()
 {
  if (!GetWorld() || bRewardSaveLoadFailed) return;
+ const FName CurrentLevelId(*UGameplayStatics::GetCurrentLevelName(this, true));
  // Build an index once, rather than scanning all world actors for each
  // saved drop. Both existing-actor and saved-record counts are bounded.
  TSet<FGuid> SpawnedIds;
@@ -2008,7 +2018,7 @@ void AMoonfallHeroPawn::RestorePendingWorldEquipmentDrops()
  }
  for (const FMoonfallWorldLootRecord& Record : PendingWorldLoot)
  {
-  if (SpawnedIds.Contains(Record.DropId)) continue;
+  if (Record.LevelId != CurrentLevelId || SpawnedIds.Contains(Record.DropId)) continue;
   const FTransform SpawnTransform(FRotator::ZeroRotator, Record.Location);
   AMoonfallGroundLoot* Loot = Cast<AMoonfallGroundLoot>(
     UGameplayStatics::BeginDeferredActorSpawnFromClass(
@@ -2031,6 +2041,7 @@ void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(bool bEliteEnemy, bool bBossEne
  const int32 BonusDropChance = bBossEnemy ? 50 : (bEliteEnemy ? 35 : 20);
  const int32 DropCount = BaseDropCount + (FMath::RandRange(0, 99) < BonusDropChance ? 1 : 0);
  const FVector Origin = DefeatedLocation.ContainsNaN() ? GetActorLocation() : DefeatedLocation;
+ const FName CurrentLevelId(*UGameplayStatics::GetCurrentLevelName(this, true));
  TArray<FMoonfallWorldLootRecord> Drops;
  Drops.Reserve(DropCount);
  // Randomized without replacement for the first three rewards, so a boss
@@ -2052,6 +2063,7 @@ void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(bool bEliteEnemy, bool bBossEne
   FMoonfallWorldLootRecord Record;
   Record.DropId = FGuid::NewGuid();
   Record.ItemCode = ItemCode;
+  Record.LevelId = CurrentLevelId;
   Record.Location = Origin + FVector(Spread * FMath::Cos(Angle),
     Spread * FMath::Sin(Angle), 45.f);
   Drops.Add(Record);
