@@ -1,4 +1,6 @@
 #include "MoonfallHeroPawn.h"
+#include "MoonfallRewardSaveGame.h"
+#include "Kismet/GameplayStatics.h"
 #include "Camera/CameraComponent.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
@@ -127,8 +129,89 @@ AMoonfallHeroPawn::AMoonfallHeroPawn()
  FinisherFlash->SetAttenuationRadius(420.f);
  FinisherFlash->SetVisibility(false);
 }
+namespace
+{
+ const FString RewardSaveSlot(TEXT("Moonfall_RewardProgress_v1"));
+ constexpr int32 RewardSaveUser = 0;
+
+ bool IsSupportedQuestKey(FName KeyId)
+ {
+  return KeyId == FName(TEXT("wardens_crest"))
+      || KeyId == FName(TEXT("outlaw_seal"))
+      || KeyId == FName(TEXT("fallen_gate_key"));
+ }
+}
+
+bool AMoonfallHeroPawn::LoadRewardProgress()
+{
+ Gold = 0;
+ ConfirmedRewardKills = 0;
+ CollectedKeys.Reset();
+ if (!UGameplayStatics::DoesSaveGameExist(RewardSaveSlot, RewardSaveUser)) return true;
+ const UMoonfallRewardSaveGame* Save = Cast<UMoonfallRewardSaveGame>(
+   UGameplayStatics::LoadGameFromSlot(RewardSaveSlot, RewardSaveUser));
+ if (!Save || Save->SchemaVersion != 1) return false;
+ Gold = FMath::Max<int64>(0, Save->Gold);
+ ConfirmedRewardKills = FMath::Max<int64>(0, Save->ConfirmedKills);
+ for (const FName KeyId : Save->CollectedKeys)
+ {
+  if (IsSupportedQuestKey(KeyId) && !CollectedKeys.Contains(KeyId) && CollectedKeys.Num() < 128)
+   CollectedKeys.Add(KeyId);
+ }
+ return true;
+}
+
+bool AMoonfallHeroPawn::SaveRewardProgress()
+{
+ UMoonfallRewardSaveGame* Save = Cast<UMoonfallRewardSaveGame>(
+   UGameplayStatics::CreateSaveGameObject(UMoonfallRewardSaveGame::StaticClass()));
+ if (!Save) return false;
+ Save->Gold = FMath::Max<int64>(0, Gold);
+ Save->ConfirmedKills = FMath::Max<int64>(0, ConfirmedRewardKills);
+ Save->CollectedKeys = CollectedKeys;
+ return UGameplayStatics::SaveGameToSlot(Save, RewardSaveSlot, RewardSaveUser);
+}
+
+int64 AMoonfallHeroPawn::AddGold(int64 Amount)
+{
+ if (Amount <= 0) return 0;
+ Gold = FMath::Max<int64>(0, Gold);
+ const int64 Granted = FMath::Min<int64>(Amount, MAX_int64 - Gold);
+ if (Granted <= 0) return 0;
+ Gold += Granted;
+ SaveRewardProgress();
+ return Granted;
+}
+
+bool AMoonfallHeroPawn::HasQuestKey(FName KeyId) const
+{
+ return IsSupportedQuestKey(KeyId) && CollectedKeys.Contains(KeyId);
+}
+
+bool AMoonfallHeroPawn::CollectQuestKey(FName KeyId)
+{
+ if (!IsSupportedQuestKey(KeyId) || HasQuestKey(KeyId) || CollectedKeys.Num() >= 128)
+  return false;
+ CollectedKeys.Add(KeyId);
+ SaveRewardProgress();
+ return true;
+}
+
+void AMoonfallHeroPawn::AwardEnemyCurrency(bool bEliteEnemy, bool bBossEnemy)
+{
+ // Invoke only from a confirmed enemy death, never from the damage or HUD loop.
+ if (Health <= 0.f) return;
+ if (ConfirmedRewardKills < MAX_int64) ++ConfirmedRewardKills;
+ // Match Godot's growing per-kill payout without a gameplay gold ceiling.
+ const int64 BaseGold = 3 + ConfirmedRewardKills / 4;
+ AddGold(BaseGold);
+ if (ConfirmedRewardKills == 5)
+  CollectQuestKey(FName(TEXT("fallen_gate_key")));
+}
+
 void AMoonfallHeroPawn::BeginPlay() {
  Super::BeginPlay();
+ LoadRewardProgress();
  // Blueprint defaults are applied after the native constructor. Capture the
  // actual authored walk speed before sprint/guard begin changing MaxWalkSpeed.
  if (GetCharacterMovement()) {
