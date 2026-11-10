@@ -28,4 +28,8 @@ public:
  // transient; pickups only disappear after this inventory is saved.
  UPROPERTY(SaveGame) TArray<int32> InventoryItemCodes;
  UPROPERTY(SaveGame) int32 Salvage = 0;
+ // v3 also retains the deliberate loadout; inventory entries remain canonical.
+ UPROPERTY(SaveGame) int32 EquippedWeaponCode = 0;
+ UPROPERTY(SaveGame) int32 EquippedArmorCode = 0;
+ UPROPERTY(SaveGame) int32 EquippedAccessoryCode = 0;
 };
