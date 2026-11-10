@@ -71,6 +71,18 @@ bool AMoonfallCombatHUD::IsInventorySortButtonAtScreenPosition(
 
 
 
+// Shared positioning for all Astral pages. Rendering and hit testing must agree.
+static FVector2D MoonfallAstralStarPosition(float Left, float Top, float Width,
+ float Height, float Zoom, int32 LocalIndex)
+{
+ const float LayoutZoom = FMath::Clamp(Zoom,0.75f,1.10f);
+ const float Column = 0.23f + (LocalIndex % 3) * 0.27f;
+ const float Row = 0.19f + (LocalIndex / 3) * 0.07f;
+ return FVector2D(
+  Left + Width * (0.50f + (Column - 0.50f) * LayoutZoom),
+  Top + Height * (0.47f + (Row - 0.47f) * LayoutZoom));
+}
+
 int32 AMoonfallCombatHUD::GetTalentNodeAtScreenPosition(
  const AMoonfallHeroPawn* Hero, float X, float Y) const
 {
@@ -82,6 +94,27 @@ int32 AMoonfallCombatHUD::GetTalentNodeAtScreenPosition(
  const float Left = (Canvas->SizeX - Width) * 0.5f;
  const float Top = (Canvas->SizeY - Height) * 0.5f;
  if (X < Left || X > Left + Width || Y < Top || Y > Top + Height) return -1;
+ if (Hero->TalentSelectedNode >= 27) {
+  const int32 Page = FMath::Clamp(Hero->TalentSelectedNode / 27,1,5);
+  const float Zoom = FMath::Clamp(FMath::IsFinite(Hero->TalentZoom) ? Hero->TalentZoom : 1.f,0.75f,1.35f);
+  const float Scale = FMath::Clamp(FMath::Min(Width / 960.f,Height / 700.f),0.50f,1.15f);
+  float BestDistanceSq = TNumericLimits<float>::Max();
+  int32 BestNode = -1;
+  for (int32 Local = 0; Local < 27; ++Local) {
+   const int32 Node = Page * 27 + Local;
+   if (Node >= 138) break;
+   const FVector2D Position = MoonfallAstralStarPosition(Left,Top,Width,Height,Zoom,Local);
+   const float DX = X - Position.X, DY = Y - Position.Y;
+   const float Radius = 12.f * Scale * Zoom + 6.f;
+   const float DistanceSq = DX * DX + DY * DY;
+   if (DistanceSq <= Radius * Radius && DistanceSq < BestDistanceSq) {
+    BestDistanceSq = DistanceSq;
+    BestNode = Node;
+   }
+  }
+  return BestNode;
+ }
+
  const float Zoom = FMath::Clamp(FMath::IsFinite(Hero->TalentZoom) ? Hero->TalentZoom : 1.f,0.75f,1.35f);
   // Capped layout displacement keeps every star onscreen at maximum wheel zoom.
   const float LayoutZoom = FMath::Min(Zoom,1.10f);
@@ -163,6 +196,92 @@ void AMoonfallCombatHUD::DrawHUD()
   const float Pulse = Hero->bReduceMotion ? 1.f : 0.80f + 0.20f * FMath::Sin(
     (GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f) * 1.3f);
   DrawRect(FLinearColor(0.014f,0.016f,0.047f,0.985f),Left,Top,Width,Height);
+  if (Hero->TalentSelectedNode >= 27) {
+   // 111 distinct Astral stars live on five virtualized pages. No 138-node
+   // single-frame Canvas pass or hundreds of overlapping labels.
+   const int32 Page = FMath::Clamp(Hero->TalentSelectedNode / 27,1,5);
+   const FLinearColor BranchColors[] = {
+    FLinearColor(1.f,0.48f,0.29f),FLinearColor(0.41f,0.76f,1.f),
+    FLinearColor(0.52f,0.92f,0.68f)
+   };
+   const FLinearColor Locked(0.25f,0.29f,0.40f,0.90f);
+   DrawText(FString::Printf(TEXT("ASTRAL CONSTELLATION     PAGE %d / 6"),Page+1),
+     FLinearColor(0.94f,0.88f,1.f),Left + 20.f,Top + 17.f,
+     nullptr,bSmall ? 0.85f : 1.18f);
+   DrawText(FString::Printf(TEXT("111 new talents  |  %d unspent points  |  owned %d / 111"),
+       Hero->GetUnspentTalentPoints(),Hero->GetAstralTalentCount(-1)),
+     FLinearColor(0.93f,0.76f,0.44f),Left + 20.f,Top + 49.f,
+     nullptr,bSmall ? 0.56f : 0.80f);
+   DrawText(TEXT("FORCE                     FOCUS                     WARD"),
+     FLinearColor(0.66f,0.80f,0.97f),Left + Width * 0.14f,Top + Height * 0.115f,
+     nullptr,bSmall ? 0.46f : 0.80f);
+   for (int32 Local = 0; Local < 27; ++Local) {
+    const int32 Node = Page * 27 + Local;
+    if (Node >= 138) break;
+    const int32 Astral = Node - 27;
+    const int32 Branch = Astral % 3;
+    const int32 Stage = Astral / 3;
+    const FVector2D P = MoonfallAstralStarPosition(Left,Top,Width,Height,Zoom,Local);
+    const bool bOwned = Hero->IsAstralTalentUnlocked(Astral);
+    const bool bReady = Hero->CanUnlockAstralTalent(Astral);
+    const FLinearColor Color = bOwned ? BranchColors[Branch] :
+       bReady ? FLinearColor(0.97f,0.81f,0.46f) : Locked;
+    if (Stage > 0) {
+     const int32 Previous = Node - 3;
+     if (Previous >= Page * 27) {
+      const FVector2D From = MoonfallAstralStarPosition(
+       Left,Top,Width,Height,Zoom,Local-3);
+      DrawLine(From.X,From.Y,P.X,P.Y,
+        Hero->IsAstralTalentUnlocked(Astral-3) ? BranchColors[Branch] : Locked,
+        1.8f * Scale);
+     }
+     if (Stage % 6 == 0 && Previous >= Page * 27) {
+      const int32 CrossBranch = (Branch+1) % 3;
+      const FVector2D From = MoonfallAstralStarPosition(
+       Left,Top,Width,Height,Zoom,(Local/3-1)*3+CrossBranch);
+      DrawLine(From.X,From.Y,P.X,P.Y,
+        Hero->IsAstralTalentUnlocked((Stage-1)*3+CrossBranch)
+          ? FLinearColor(0.68f,0.58f,0.87f) : Locked,1.2f * Scale);
+     }
+    }
+    const float R = 12.f * Scale * Zoom;
+    for (int32 Seg = 0; Seg < 16; ++Seg) {
+     const float A = 2.f * PI * Seg / 16.f;
+     const float B = 2.f * PI * (Seg+1) / 16.f;
+     DrawLine(P.X + R*FMath::Cos(A),P.Y + R*FMath::Sin(A),
+       P.X + R*FMath::Cos(B),P.Y + R*FMath::Sin(B),Color,1.7f*Scale);
+    }
+    DrawRect(Color,P.X-2.5f*Scale,P.Y-2.5f*Scale,5.f*Scale,5.f*Scale);
+    if (Node == Hero->TalentSelectedNode) {
+     for (int32 Seg = 0; Seg < 16; ++Seg) {
+      const float A = 2.f * PI * Seg / 16.f;
+      const float B = 2.f * PI * (Seg+1) / 16.f;
+      DrawLine(P.X + (R+6.f*Scale)*FMath::Cos(A),P.Y + (R+6.f*Scale)*FMath::Sin(A),
+       P.X + (R+6.f*Scale)*FMath::Cos(B),P.Y + (R+6.f*Scale)*FMath::Sin(B),
+       FLinearColor(1.f,0.86f,0.39f),1.9f*Scale);
+     }
+    }
+    if (!bSmall)
+     DrawText(FString::Printf(TEXT("%d"),Stage+1),Color,
+       P.X+R+3.f*Scale,P.Y-7.f*Scale,nullptr,0.53f);
+   }
+   const int32 Selected = FMath::Clamp(Hero->TalentSelectedNode - 27,0,110);
+   const bool bOwned = Hero->IsAstralTalentUnlocked(Selected);
+   const bool bReady = Hero->CanUnlockAstralTalent(Selected);
+   DrawText(Hero->GetAstralTalentName(Selected),
+      FLinearColor(1.f,0.90f,0.70f),Left+20.f,Top+Height-101.f,
+      nullptr,bSmall ? 0.70f : 1.03f);
+   DrawText(bOwned ? TEXT("UNLOCKED") : bReady ? TEXT("READY - click or Enter to invest")
+       : TEXT("LOCKED - requires the connected previous stars"),
+       bOwned ? FLinearColor(0.55f,0.92f,0.70f) :
+       bReady ? FLinearColor(1.f,0.81f,0.51f) : FLinearColor(0.67f,0.71f,0.83f),
+       Left+20.f,Top+Height-70.f,nullptr,bSmall ? 0.53f : 0.73f);
+   DrawText(TEXT("PgUp/PgDn / LB/RB: page   Tab / D-pad: star   Enter/A: unlock   Wheel: zoom"),
+      FLinearColor(0.76f,0.79f,0.94f),Left+20.f,Top+Height-35.f,
+      nullptr,bSmall ? 0.43f : 0.71f);
+   return;
+  }
+
   // Layered nebula glints and star dust, deterministic from star index.
   const FVector2D GalaxyCenter(Left + Width * 0.50f,Top + Height * 0.49f);
   for (int32 Ring = 0; Ring < 5; ++Ring) {
@@ -385,6 +504,9 @@ void AMoonfallCombatHUD::DrawHUD()
   DrawText(TEXT("Click a star / Tab / D-pad: select     Enter / A: invest     Wheel: zoom"),
     FLinearColor(0.86f,0.82f,0.99f),Left + 18.f,Top + Height - 105.f,
     nullptr,bSmall ? 0.43f : 0.67f);
+  DrawText(TEXT("PgDn / RB: next talent page     111 new Astral stars"),
+    FLinearColor(0.81f,0.72f,0.99f),Left+18.f,Top+Height-146.f,
+    nullptr,bSmall ? 0.48f : 0.72f);
   DrawText(TEXT("K / Esc: close    M: open map"),
     FLinearColor(0.70f,0.79f,0.91f),Left + 18.f,Top + Height - 35.f,
     nullptr,bSmall ? 0.68f : 0.83f);
