@@ -299,6 +299,45 @@ class InventoryCapacityPort(unittest.TestCase):
         self.assertNotIn("RowY + Branch * 49.f", panel)
         self.assertNotIn("SpendTalentPoint(", panel)
 
+    def test_constellation_focus_zoom_and_pointer_actions_are_isolated(self):
+        hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        hud_header = (ROOT / "MoonfallCombatHUD.h").read_text(encoding="utf-8")
+        header = (ROOT / "MoonfallHeroPawn.h").read_text(encoding="utf-8")
+        inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
+        for name, key in (("TalentNext", "Tab"), ("TalentPrevious", "Gamepad_DPad_Left"),
+                          ("TalentActivate", "Enter"), ("TalentActivate", "Gamepad_FaceButton_Bottom")):
+            self.assertIn(f'ActionName="{name}",Key={key}', inputs)
+            self.assertIn(f'BindAction(TEXT("{name}"), IE_Pressed', self.hero)
+        self.assertIn("TalentZoom = 1.f", header)
+        self.assertIn("TalentSelectedNode = 0", header)
+        self.assertIn("GetTalentNodeAtScreenPosition(", hud_header)
+        self.assertIn("GetTalentNodeAtScreenPosition(", hud)
+        hit = body(hud, "int32 AMoonfallCombatHUD::GetTalentNodeAtScreenPosition(")
+        self.assertIn("DX * DX + DY * DY <= Radius * Radius", hit)
+        self.assertIn("return Tier * 3 + Branch;", hit)
+        left = body(self.hero, "void AMoonfallHeroPawn::LeftClickContextAction()")
+        self.assertIn("if (bAtlasOpen && bTalentsOpen)", left)
+        self.assertIn("HUD->GetTalentNodeAtScreenPosition(this,X,Y)", left)
+        self.assertIn("ActivateTalentNode(Node);", left)
+        self.assertIn("if (bAtlasOpen) return;", left)
+        activation = body(self.hero, "bool AMoonfallHeroPawn::ActivateTalentNode(int32 Node)")
+        self.assertIn("Node < 0 || Node >= 9", activation)
+        self.assertIn("SpendTalentPoint(Node) : UnlockTalentNode(Node)", activation)
+        zoomin = body(self.hero, "void AMoonfallHeroPawn::ZoomCameraIn()")
+        zoomout = body(self.hero, "void AMoonfallHeroPawn::ZoomCameraOut()")
+        self.assertIn("TalentZoom = FMath::Clamp", zoomin)
+        self.assertIn("TalentZoom = FMath::Clamp", zoomout)
+        self.assertIn("CameraDistance = FMath::Clamp", zoomin)
+        self.assertIn("CameraDistance = FMath::Clamp", zoomout)
+        mouse = body(self.hero, "void AMoonfallHeroPawn::UpdateInventoryMouseMode()")
+        self.assertIn("bInventoryOpen || (bAtlasOpen && bTalentsOpen)", mouse)
+        panel = hud.split("if (Hero->bAtlasOpen && Hero->bTalentsOpen) {", 1)[1].split(
+            "if (Hero->bAtlasOpen) {", 1)[0]
+        self.assertIn("TalentSelectedNode == Tier * 3 + Branch", panel)
+        self.assertIn("Hero->bReduceMotion ? 1.f", panel)
+        self.assertIn("Wheel: zoom", panel)
+        self.assertIn("const float Zoom =", panel)
+
     def test_inventory_has_no_equip_or_page_buttons(self):
         hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
         left = body(self.hero, "void AMoonfallHeroPawn::LeftClickContextAction()")
