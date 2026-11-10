@@ -151,6 +151,24 @@ Moonfall's fully migrated Godot world or finished dungeon.
   enemy deaths still write independently. Verify gameplay on native UE5
   Windows builds before concluding that combat stutter has improved.
 
+## Automatic equipment pickup without the six-item cap
+
+- Walk within 250 cm of dropped equipment with line of sight and within
+  150 cm height difference. All reachable items should automatically
+  enter the bag, without pressing F or controller pickup.
+- Auto-loot checks at 0.35-second intervals, not every rendered frame.
+  Inventory and Options pause it. If a save/collection fails, the actor
+  remains and the next check backs off for two seconds. A full 4096-item
+  bag must stop collection without destroying remaining loot.
+- Verify quest keys and dungeon gates still require explicit interaction
+  (F/controller). Auto-equip should only fill an empty matching gear slot.
+- With at least seven reachable drops nearby, verify **all** are collected
+  as inventory capacity permits, including drops spawned after 128 others.
+  Confirm walls, altitude and map identity still block invalid pickups.
+- Native UE5 performance warning: every pickup still invokes an individual
+  durable inventory save, even when many are auto-collected in one interval.
+  Profile disk write spikes on large loot piles before shipping.
+
 ## Pickup visibility optimization and on-demand recovery
 
 - When six nearer reachable pickups are already candidates, distant actors
