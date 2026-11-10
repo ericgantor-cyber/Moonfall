@@ -434,6 +434,23 @@ void AMoonfallCombatHUD::DrawHUD()
     FLinearColor(0.95f,0.84f,0.47f), 24.f, Canvas->SizeY - 55.f, nullptr, 0.8f);
   }
  }
+ // Accessible key/door notice: no flashing, no extra widgets, expires naturally.
+ const float NowSeconds = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f;
+ if (!Hero->KeyInteractionNotice.IsEmpty()
+     && Hero->KeyInteractionNoticeUntil > NowSeconds)
+ {
+  const float TextSize = FMath::Clamp(Hero->CombatTextScale, 0.75f, 2.f);
+  const float NoticeX = FMath::Max(16.f, Canvas->SizeX * 0.5f - 180.f);
+  const float NoticeY = FMath::Max(18.f, Canvas->SizeY * 0.23f);
+  DrawRect(FLinearColor(0.04f,0.03f,0.09f,0.86f),
+    NoticeX - 12.f, NoticeY - 8.f,
+    FMath::Min(390.f, Canvas->SizeX - NoticeX), 38.f * TextSize);
+  DrawText(Hero->KeyInteractionNotice,
+    Hero->bKeyInteractionNoticeError
+      ? FLinearColor(1.f,0.73f,0.42f)
+      : FLinearColor(0.76f,1.f,0.75f),
+    NoticeX, NoticeY, nullptr, 0.80f * TextSize);
+ }
  if (!bCompactScreen) DrawText(TEXT("ESC  OPTIONS"), FLinearColor(0.73f, 0.70f, 0.83f, 0.85f),
           FMath::Max(16.f, Canvas->SizeX - 142.f), Canvas->SizeY - 37.f, nullptr, 0.82f);
  int32 VisibleDamageNumbers = 0;
