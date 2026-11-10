@@ -97,6 +97,8 @@ public:
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Rewards") TArray<FName> UnlockedGateIds;
  // Protect an unreadable or future-schema save from accidental overwrite.
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Rewards") bool bRewardSaveLoadFailed = false;
+ // Set after first load attempt: gates may reuse validated hero progress.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Rewards") bool bRewardSaveInitialized = false;
  UFUNCTION(BlueprintPure, Category="Moonfall|Rewards") bool HasUnlockedGate(FName GateId) const;
  UFUNCTION(BlueprintCallable, Category="Moonfall|Rewards") bool CommitGateUnlock(FName GateId, FName RequiredKeyId);
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Rewards") bool bKeyRingExpanded = false;
