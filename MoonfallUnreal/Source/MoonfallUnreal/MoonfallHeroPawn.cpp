@@ -460,7 +460,8 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier, bool
  // The reduction is applied before checking and spending mana.
  const float ManaCostMultiplier = (bOvercharged ? 2.8f : Multiplier)
    * (bTalentFocusKeystone ? 0.90f : 1.f)
-   * (bTalentCelestialWell ? 0.90f : 1.f);
+   * (bTalentCelestialWell ? 0.90f : 1.f)
+   * (bTalentInfiniteCurrent ? 0.90f : 1.f);
  const float EffectMultiplier = bOvercharged ? 2.2f : Multiplier;
  const float Time = GetWorld()->GetTimeSeconds();
  if (!FMath::IsFinite(Health) || !FMath::IsFinite(MaxHealth) || MaxHealth <= 0.f || Health > MaxHealth || !FMath::IsFinite(MaxMana) || MaxMana <= 0.f || !FMath::IsFinite(Mana) || !FMath::IsFinite(SpellPowerMultiplier) || SpellPowerMultiplier <= 0.f || Mana < Costs[School] * ManaCostMultiplier || Time - LastCastTime[Hand] < Cooldowns[School] / (1.f + GetHasteBonus())) return false;
@@ -522,7 +523,8 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier, bool
       + (bCriticalSpell ? (bTalentForceKeystone ? 0.20f : 0.f)
         + (bTalentBattleWeave ? 0.15f : 0.f)
         + (bTalentStarbreaker ? 0.25f : 0.f)
-        + (bTalentVoidCrown ? 0.20f : 0.f) : 0.f))
+        + (bTalentVoidCrown ? 0.20f : 0.f)
+        + (bTalentEclipseHeart ? 0.25f : 0.f) : 0.f))
     * (bTalentAstralSurge ? 1.10f : 1.f) * MightMultiplier;
   // Reject invalid damage before spending mana or consuming a hard-earned counter.
   if (!FMath::IsFinite(SpellDamage) || SpellDamage <= 0.f) return false;
@@ -937,6 +939,7 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
    if (bTalentWardKeystone) DamageAfterGuard *= 0.8f;
    if (bTalentEternalSentinel) DamageAfterGuard *= 0.85f;
    if (bTalentAdamantOath) DamageAfterGuard *= 0.90f;
+   if (bTalentWorldguard) DamageAfterGuard *= 0.90f;
   }
   OnGuardImpact(ArmoredDamage - DamageAfterGuard, bPerfectParry);
   if (Stamina < GuardStaminaCost) BreakGuard();
@@ -1092,7 +1095,9 @@ int32 AMoonfallHeroPawn::GetUnspentTalentPoints() const
    - int32(bTalentStarbreaker) - int32(bTalentAstralSurge)
    - int32(bTalentEternalSentinel)
    - int32(bTalentVoidCrown) - int32(bTalentCelestialWell)
-   - int32(bTalentAdamantOath));
+   - int32(bTalentAdamantOath)
+   - int32(bTalentEclipseHeart) - int32(bTalentInfiniteCurrent)
+   - int32(bTalentWorldguard));
 }
 
 bool AMoonfallHeroPawn::SpendTalentPoint(int32 Branch)
@@ -1115,7 +1120,7 @@ void AMoonfallHeroPawn::SpendWardTalent() { SpendTalentPoint(2); }
 
 bool AMoonfallHeroPawn::ActivateTalentNode(int32 Node)
 {
- if (Node < 0 || Node >= 15 || !bAtlasOpen || !bTalentsOpen ||
+ if (Node < 0 || Node >= 18 || !bAtlasOpen || !bTalentsOpen ||
      bOptionsOpen || bInventoryOpen || Health <= 0.f) return false;
  TalentSelectedNode = Node;
  return Node < 3 ? SpendTalentPoint(Node) : UnlockTalentNode(Node);
@@ -1123,19 +1128,19 @@ bool AMoonfallHeroPawn::ActivateTalentNode(int32 Node)
 
 void AMoonfallHeroPawn::ActivateSelectedTalentNode()
 {
- ActivateTalentNode(FMath::Clamp(TalentSelectedNode,0,14));
+ ActivateTalentNode(FMath::Clamp(TalentSelectedNode,0,17));
 }
 
 void AMoonfallHeroPawn::SelectNextTalentNode()
 {
  if (bAtlasOpen && bTalentsOpen && !bOptionsOpen && Health > 0.f)
-  TalentSelectedNode = (FMath::Clamp(TalentSelectedNode,0,11) + 1) % 15;
+  TalentSelectedNode = (FMath::Clamp(TalentSelectedNode,0,17) + 1) % 18;
 }
 
 void AMoonfallHeroPawn::SelectPreviousTalentNode()
 {
  if (bAtlasOpen && bTalentsOpen && !bOptionsOpen && Health > 0.f)
-  TalentSelectedNode = (FMath::Clamp(TalentSelectedNode,0,11) + 14) % 15;
+  TalentSelectedNode = (FMath::Clamp(TalentSelectedNode,0,17) + 17) % 18;
 }
 
 bool AMoonfallHeroPawn::CanUnlockTalentNode(int32 Node) const
@@ -1159,6 +1164,10 @@ bool AMoonfallHeroPawn::CanUnlockTalentNode(int32 Node) const
  if (Node == 12) return bTalentStarbreaker && bTalentAstralSurge && !bTalentVoidCrown;
  if (Node == 13) return bTalentAstralSurge && bTalentEternalSentinel && !bTalentCelestialWell;
  if (Node == 14) return bTalentEternalSentinel && bTalentStarbreaker && !bTalentAdamantOath;
+ // Tier VI: two connected crown talents must already be owned.
+ if (Node == 15) return bTalentVoidCrown && bTalentAdamantOath && !bTalentEclipseHeart;
+ if (Node == 16) return bTalentVoidCrown && bTalentCelestialWell && !bTalentInfiniteCurrent;
+ if (Node == 17) return bTalentCelestialWell && bTalentAdamantOath && !bTalentWorldguard;
  return false;
 }
 
@@ -1176,7 +1185,10 @@ bool AMoonfallHeroPawn::UnlockTalentNode(int32 Node)
    : Node == 11 ? &bTalentEternalSentinel
    : Node == 12 ? &bTalentVoidCrown
    : Node == 13 ? &bTalentCelestialWell
-   : Node == 14 ? &bTalentAdamantOath : nullptr;
+   : Node == 14 ? &bTalentAdamantOath
+   : Node == 15 ? &bTalentEclipseHeart
+   : Node == 16 ? &bTalentInfiniteCurrent
+   : Node == 17 ? &bTalentWorldguard : nullptr;
  if (!Flag || *Flag) return false;
  *Flag = true;
  return true;
@@ -1211,6 +1223,9 @@ bool AMoonfallHeroPawn::RespecTalents()
  bTalentVoidCrown = false;
  bTalentCelestialWell = false;
  bTalentAdamantOath = false;
+ bTalentEclipseHeart = false;
+ bTalentInfiniteCurrent = false;
+ bTalentWorldguard = false;
  return true;
 }
 
