@@ -754,6 +754,48 @@ class InventoryCapacityPort(unittest.TestCase):
             self.assertNotIn(label,self.hero)
             self.assertNotIn(label,hero_h)
 
+    def test_progress_save_is_versioned_validated_and_not_per_frame(self):
+        save_path = ROOT / "MoonfallProgressSaveGame.h"
+        save = save_path.read_text(encoding="utf-8")
+        header = (ROOT / "MoonfallHeroPawn.h").read_text(encoding="utf-8")
+        self.assertIn("class MOONFALLUNREAL_API UMoonfallProgressSaveGame : public USaveGame", save)
+        self.assertIn("Version = 1",save)
+        self.assertIn("TArray<int32> RootRanks",save)
+        self.assertIn("TArray<uint8> CoreUnlocks",save)
+        self.assertIn("TArray<uint8> AstralUnlocks",save)
+        self.assertIn("EndPlay(const EEndPlayReason::Type EndPlayReason) override",header)
+        self.assertIn("SaveProgress()",header)
+        self.assertIn("LoadProgress()",header)
+        self.assertIn("LoadProgress();",body(self.hero,"void AMoonfallHeroPawn::BeginPlay()"))
+        saving = body(self.hero,"bool AMoonfallHeroPawn::SaveProgress()")
+        loading = body(self.hero,"bool AMoonfallHeroPawn::LoadProgress()")
+        self.assertIn("SaveGameToSlot(Save,TEXT(\"MoonfallHeroProgressV1\"),0)",saving)
+        self.assertIn("LoadGameFromSlot(TEXT(\"MoonfallHeroProgressV1\"),0)",loading)
+        self.assertIn("Save->CoreUnlocks.Num() != 24",loading)
+        self.assertIn("Save->AstralUnlocks.Num() != AstralTalentCount",loading)
+        self.assertIn("Save->Version != 1",loading)
+        self.assertIn("Spent > Save->Level - 1",loading)
+        self.assertIn("Save->RootRanks[I] < 3",loading)
+        self.assertIn("PrerequisiteA[24]",loading)
+        self.assertIn("PrerequisiteB[24]",loading)
+        self.assertIn("Stage % 6 == 0",loading)
+        self.assertIn("if (Stage == 0)",loading)
+        self.assertIn("AstralTalentUnlocked = Save->AstralUnlocks",loading)
+        self.assertIn("MaxHealth - 2.f * FMath::Clamp(ArmorTier,0,25)",saving)
+        self.assertIn("MaxHealth = Save->MaxHealth + 2.f * FMath::Clamp(ArmorTier,0,25)",loading)
+        self.assertIn("if (bProgressDirty && GetWorld()",body(self.hero,"void AMoonfallHeroPawn::Tick(float DeltaSeconds)"))
+        self.assertIn("LastProgressSaveAt >= 16.f",self.hero)
+        self.assertIn("if (bProgressDirty) SaveProgress();",body(self.hero,"void AMoonfallHeroPawn::EndPlay("))
+        for method in ("SpendTalentPoint(int32 Branch)", "UnlockTalentNode(int32 Node)",
+                       "UnlockAstralTalent(int32 Index)", "RespecTalents()"):
+            # Every valid edit marks the snapshot dirty; invalid attempts cannot trigger saving.
+            section = self.hero.split("AMoonfallHeroPawn::"+method,1)[1].split("\n}\n",1)[0]
+            self.assertIn("bProgressDirty = true;",section)
+        self.assertIn("bProgressDirty = true;",body(self.hero,"void AMoonfallHeroPawn::AwardExperience(int32 Amount)"))
+        self.assertNotIn("GetHitChance(",self.hero)
+        self.assertNotIn("GetDodgeChance(",self.hero)
+        self.assertNotIn("GetParryChance(",self.hero)
+
     def test_inventory_has_no_equip_or_page_buttons(self):
         hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
         left = body(self.hero, "void AMoonfallHeroPawn::LeftClickContextAction()")
