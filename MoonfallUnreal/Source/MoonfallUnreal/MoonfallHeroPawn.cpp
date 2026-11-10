@@ -1796,33 +1796,37 @@ int32 AMoonfallHeroPawn::RollEquipmentCode(bool bEliteEnemy, bool bBossEnemy)
 
 // Legacy direct grant remains available for scripted rewards. Enemy deaths
 // instead spawn a ground actor, so equipment is not auto-collected on kills.
+// Scripted reward grants use exactly the same durable inventory transaction as
+// manual ground pickups. Equipment is NEVER auto-equipped by a reward script.
 void AMoonfallHeroPawn::AwardEquipmentDrop(bool bEliteEnemy, bool bBossEnemy)
 {
+ if (!GetWorld() || Health <= 0.f) return;
  const int32 ItemCode = RollEquipmentCode(bEliteEnemy, bBossEnemy);
  if (ItemCode <= 0) return;
- const int32 NewTier = LastLootTier;
- // Do not reject new loot, automatically salvage, or silently discard items.
- // The paginated inventory supports growth beyond the former 30-slot limit.
- InventoryItemCodes.Add(ItemCode);
- InventorySelection = FMath::Clamp(InventorySelection, 0, InventoryItemCodes.Num() - 1);
- // Rotate awards across equipment categories; higher-tier items replace lower tiers.
- int32* Slot = LastLootSlot == 2 ? &AccessoryTier : (LastLootSlot == 1 ? &ArmorTier : &WeaponTier);
- int32* EquippedAffix = LastLootSlot == 2 ? &AccessoryAffix : (LastLootSlot == 1 ? &ArmorAffix : &WeaponAffix);
- // A new trait is equipped only when upgrading tiers; same-tier items remain
- // inventory choices rather than silently replacing the player's current perk.
- if (NewTier > *Slot) {
-  *EquippedAffix = LastLootAffix;
-  const int32 Previous = *Slot;
-  *Slot = NewTier;
-  int32* EquippedCode = LastLootSlot == 2 ? &EquippedAccessoryCode : (LastLootSlot == 1 ? &EquippedArmorCode : &EquippedWeaponCode);
-  *EquippedCode = ItemCode;
-  EquipmentTier = FMath::Max(WeaponTier, FMath::Max(ArmorTier, AccessoryTier));
-  if (Slot == &ArmorTier) {
-   MaxHealth += 2.f * (NewTier - Previous);
-   Health = FMath::Min(MaxHealth, Health + 2.f * (NewTier - Previous));
-   OnHealthChanged(Health, MaxHealth);
-  }
+ if (CollectGroundEquipmentCode(ItemCode))
+ {
+  InventorySelection = FMath::Clamp(InventorySelection, 0,
+    FMath::Max(0, InventoryItemCodes.Num() - 1));
+  return;
  }
+ // If inventory storage cannot commit, leave the same rolled equipment on the
+ // ground for an explicit later retry, instead of losing it or rerolling.
+ const FTransform SpawnTransform(FRotator::ZeroRotator,
+   GetActorLocation() + GetActorForwardVector() * 110.f + FVector(0.f, 0.f, 45.f));
+ AMoonfallGroundLoot* Loot = Cast<AMoonfallGroundLoot>(
+   UGameplayStatics::BeginDeferredActorSpawnFromClass(
+     this, AMoonfallGroundLoot::StaticClass(), SpawnTransform,
+     ESpawnActorCollisionHandlingMethod::AlwaysSpawn));
+ if (Loot)
+ {
+  Loot->InitializeLoot(ItemCode);
+  UGameplayStatics::FinishSpawningActor(Loot, SpawnTransform);
+ }
+ KeyInteractionNotice = Loot
+   ? TEXT("REWARD UNSAVED - ITEM LEFT ON GROUND")
+   : TEXT("REWARD UNSAVED - COULD NOT SPAWN RECOVERY DROP");
+ bKeyInteractionNoticeError = true;
+ KeyInteractionNoticeUntil = GetWorld()->GetTimeSeconds() + 6.f;
 }
 
 bool AMoonfallHeroPawn::CollectGroundEquipmentCode(int32 ItemCode)
