@@ -60,6 +60,7 @@ void AMoonfallArena::BeginPlay() {
   if (Gate)
   {
    Gate->RequiredKeyId = TrialKey;
+   Gate->GateId = FName(TEXT("wardens_trial_gate"));
    UGameplayStatics::FinishSpawningActor(Gate, GateTransform);
   }
  }
