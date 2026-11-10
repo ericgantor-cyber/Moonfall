@@ -51,11 +51,19 @@ static func craft(state:Dictionary,item_id:String,hero_level:int)->bool:
  if item.is_empty() or hero_level<int(item["level_required"]):return false
  var material:String=str(item["name"]).split(" ")[0]
  var cost:int=2+int(item["tier"])*3
- var materials:Dictionary=state.get("materials",{})
- if int(materials.get(material,0))<cost:return false
- materials[material]=int(materials[material])-cost
+ var materials_value:Variant=state.get("materials",{})
+ var items_value:Variant=state.get("items",{})
+ if not materials_value is Dictionary or not items_value is Dictionary:return false
+ var materials:Dictionary=materials_value
+ var items:Dictionary=items_value
+ var available:int=_safe_roll_number(materials.get(material,0),999999)
+ var owned:int=_safe_roll_number(items.get(item_id,0),9999)
+ # Crafting is atomic: never consume materials when the item stack is full.
+ if available<cost or owned>=9999:return false
+ if not add_item(state,item_id):return false
+ materials[material]=available-cost
  state["materials"]=materials
- return add_item(state,item_id)
+ return true
 
 static func loot_enemy(state:Dictionary,hero_level:int,seed:int)->Dictionary:
  var item:Dictionary=CATALOG.loot_for_level(hero_level,seed)
