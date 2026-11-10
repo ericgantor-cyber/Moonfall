@@ -2,6 +2,7 @@
 #include "MoonfallHeroPawn.h"
 #include "Components/SceneComponent.h"
 #include "Components/StaticMeshComponent.h"
+#include "Components/TextRenderComponent.h"
 #include "UObject/ConstructorHelpers.h"
 #include "Engine/StaticMesh.h"
 
@@ -19,6 +20,13 @@ AMoonfallKeyGate::AMoonfallKeyGate()
  GateMesh->SetRelativeScale3D(FVector(0.7f, 3.f, 3.f));
  GateMesh->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
  GateMesh->SetCollisionResponseToAllChannels(ECR_Block);
+ GateLabel = CreateDefaultSubobject<UTextRenderComponent>(TEXT("GateLabel"));
+ GateLabel->SetupAttachment(GateRoot);
+ GateLabel->SetRelativeLocation(FVector(0.f, 0.f, 185.f));
+ GateLabel->SetWorldSize(25.f);
+ GateLabel->SetHorizontalAlignment(EHorizTextAligment::EHTA_Center);
+ GateLabel->SetText(FText::FromString(TEXT("LOCKED  [F / X]")));
+ GateLabel->SetTextRenderColor(FColor(255, 204, 125));
 
 
 }
@@ -37,6 +45,7 @@ bool AMoonfallKeyGate::TryUnlock(AActor* Candidate)
  bUnlocked = true;
  GateMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
  GateMesh->SetVisibility(false, true);
+ GateLabel->SetVisibility(false);
  OnGateUnlocked();
  return true;
 }
