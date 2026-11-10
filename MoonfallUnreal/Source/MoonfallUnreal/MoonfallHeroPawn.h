@@ -112,6 +112,9 @@ public:
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Map") bool bAtlasOpen = false;
  UFUNCTION(BlueprintCallable, Category="Moonfall|Map") void ToggleAtlas();
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") bool bTalentsOpen = false;
+ // Zoom only the constellation, not the gameplay camera or world map.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") float TalentZoom = 1.f;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") int32 TalentSelectedNode = 0;
  UFUNCTION(BlueprintCallable, Category="Moonfall|Talents") void ToggleTalents();
  // One shared player talent tree. Bosses Z and Nyra are not player classes.
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") int32 TalentForceRank = 0;
@@ -132,6 +135,11 @@ public:
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") bool bTalentIronWill = false;
  UFUNCTION(BlueprintPure, Category="Moonfall|Talents") bool CanUnlockTalentNode(int32 Node) const;
  UFUNCTION(BlueprintCallable, Category="Moonfall|Talents") bool UnlockTalentNode(int32 Node);
+ // Indexed player-side API shared by mouse, keyboard and controller navigation.
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Talents") bool ActivateTalentNode(int32 Node);
+ void ActivateSelectedTalentNode();
+ void SelectNextTalentNode();
+ void SelectPreviousTalentNode();
  void UnlockForceKeystone();
  void UnlockFocusKeystone();
  void UnlockWardKeystone();
