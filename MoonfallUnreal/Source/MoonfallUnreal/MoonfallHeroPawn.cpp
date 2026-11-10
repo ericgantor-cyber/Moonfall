@@ -971,6 +971,7 @@ void AMoonfallHeroPawn::LeftClickContextAction()
      }
      if (bTalentsOpen && Nav == 1) { SelectPreviousTalentPage(); return; }
      if (bTalentsOpen && Nav == 2) { SelectNextTalentPage(); return; }
+     if (bTalentsOpen && Nav == 3) { RespecTalentAction(); return; }
     }
    }
   }
