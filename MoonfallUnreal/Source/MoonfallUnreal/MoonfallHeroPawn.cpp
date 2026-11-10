@@ -330,7 +330,9 @@ void AMoonfallHeroPawn::AwardEnemyCurrency(bool bEliteEnemy, bool bBossEnemy, FV
    return;
   }
  }
- if (ConfirmedRewardKills == 5)
+ // If the fifth-kill key could not spawn (streaming, world setup), retry
+ // after subsequent confirmed kills until it exists or has been collected.
+ if (ConfirmedRewardKills >= 5 && !HasQuestKey(FName(TEXT("fallen_gate_key"))))
   SpawnMilestoneKey(DefeatedLocation);
 }
 
