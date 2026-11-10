@@ -1,6 +1,7 @@
 #pragma once
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
+#include "MoonfallRewardSaveGame.h"
 #include "MoonfallHeroPawn.generated.h"
 class USpringArmComponent;
 class UCameraComponent;
@@ -121,6 +122,8 @@ public:
  // Drop equipment in the world; only an explicit pickup moves it to inventory.
  UFUNCTION(BlueprintCallable, Category="Moonfall|Loot") void SpawnGroundEquipmentDrop(bool bEliteEnemy, bool bBossEnemy, FVector DefeatedLocation);
  UFUNCTION(BlueprintCallable, Category="Moonfall|Loot") bool CollectGroundEquipmentCode(int32 ItemCode);
+ // Transactional pickup: removes the saved world-drop ID with the bag grant.
+ bool CollectPersistedGroundEquipmentCode(int32 ItemCode, const FGuid& DropId);
  UFUNCTION(BlueprintCallable, Category="Moonfall|Loot") void PickupNearestGroundLoot();
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Loot") int32 EquipmentTier = 0;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Loot") int32 Salvage = 0;
@@ -271,6 +274,10 @@ private:
  bool TryInteractWithNearbyKey();
  // Weak reference does not keep a collected/destroyed key alive.
  TWeakObjectPtr<AMoonfallKeyPickup> PendingMilestoneKey;
+ // Bounded persistent world drops share the reward save transaction.
+ UPROPERTY() TArray<FMoonfallWorldLootRecord> PendingWorldLoot;
+ bool RegisterWorldEquipmentDrop(int32 ItemCode, const FVector& Location);
+ void RestorePendingWorldEquipmentDrops();
  void SpawnMilestoneKey(const FVector& Location);
  // During crafting, equipped updates participate in the outer save transaction.
  bool bDeferEquippedSave = false;
