@@ -4,6 +4,7 @@
 #include "GameFramework/Actor.h"
 #include "MoonfallKeyGate.generated.h"
 
+class USceneComponent;
 class UBoxComponent;
 class UStaticMeshComponent;
 class UPrimitiveComponent;
@@ -33,6 +34,9 @@ public:
  void OnGateLocked(FName MissingKeyId);
 
 protected:
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Quest Gate")
+ TObjectPtr<USceneComponent> GateRoot;
+
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Quest Gate")
  TObjectPtr<UStaticMeshComponent> GateMesh;
 
