@@ -72,9 +72,14 @@ static func loot_enemy(state:Dictionary,hero_level:int,seed:int)->Dictionary:
   return drop
  return item
 
+static func _safe_roll_number(value:Variant,maximum:int)->int:
+ # Saved loot metadata is untrusted; avoid casting objects or arrays to int.
+ if typeof(value)!=TYPE_INT and typeof(value)!=TYPE_FLOAT:return 0
+ return clampi(int(value),0,maximum)
+
 static func _roll_strength(roll:Dictionary)->int:
  # Count only bounded bonuses that contribute to a hero stat.
- var strength:int=clampi(int(roll.get("power_bonus",0)),0,12)
+ var strength:int=_safe_roll_number(roll.get("power_bonus",0),12)
  var used:Dictionary={}
  var affixes:Variant=roll.get("affixes",[])
  if not affixes is Array:return strength
@@ -83,7 +88,7 @@ static func _roll_strength(roll:Dictionary)->int:
   var stat:String=str(affix.get("stat",""))
   if not RNG.AFFIXES.has(stat) or used.has(stat):continue
   used[stat]=true
-  strength+=clampi(int(affix.get("value",0)),0,30)
+  strength+=_safe_roll_number(affix.get("value",0),30)
  return strength
 
 static func totals(state:Dictionary)->Dictionary:
@@ -110,7 +115,7 @@ static func totals(state:Dictionary)->Dictionary:
   var roll_id:String=str(roll.get("item_id",""))
   if not eligible_ids.has(roll_id):continue
   var current:Dictionary=best_by_item.get(roll_id,{})
-  var rarity:int=clampi(int(roll.get("rarity_index",0)),0,4)
+  var rarity:int=_safe_roll_number(roll.get("rarity_index",0),4)
   var current_rarity:int=int(current.get("rarity_index",-1))
   if rarity>current_rarity or (rarity==current_rarity and _roll_strength(roll)>_roll_strength(current)):
    best_by_item[roll_id]=roll
@@ -126,7 +131,7 @@ static func totals(state:Dictionary)->Dictionary:
    "offhand","accessory":stats["magic"]+=power
   # Apply only a matching owned item's highest rolled bonus.
   var best_roll:Dictionary=best_by_item.get(item_id,{})
-  var bonus:int=clampi(int(best_roll.get("power_bonus",0)),0,12)
+  var bonus:int=_safe_roll_number(best_roll.get("power_bonus",0),12)
   if str(item["category"])=="weapon":stats["weapon_power"]+=bonus
   elif str(item["category"])=="armor":stats["armor"]+=bonus
   else:stats["magic"]+=bonus
