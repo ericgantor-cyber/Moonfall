@@ -264,7 +264,7 @@ bool AMoonfallHeroPawn::SaveProgress()
  UMoonfallProgressSaveGame* Save = Cast<UMoonfallProgressSaveGame>(
    UGameplayStatics::CreateSaveGameObject(UMoonfallProgressSaveGame::StaticClass()));
  if (!Save) return false;
- Save->Version = 1;
+ Save->Version = 2;
  Save->Level = Level;
  Save->Experience = FMath::Max(0,Experience);
  Save->MaxHealth = FMath::Clamp(FMath::IsFinite(MaxHealth)
@@ -298,6 +298,29 @@ bool AMoonfallHeroPawn::SaveProgress()
     uint8(bTalentLastCitadel)
  };
  Save->AstralUnlocks = AstralTalentUnlocked;
+ // Copy the bag and equipped codes as one atomic snapshot. The worn slots
+ // must still point to an owned entry and be legal for that equipment slot.
+ Save->InventoryCodes = InventoryItemCodes;
+ Save->EquippedWeapon = EquippedWeaponCode;
+ Save->EquippedArmor = EquippedArmorCode;
+ Save->EquippedAccessory = EquippedAccessoryCode;
+ Save->SalvageMaterials = Salvage;
+ if (Save->InventoryCodes.Num() > MaxInventoryItems ||
+     Save->SalvageMaterials < 0 || Save->SalvageMaterials > 9999) return false;
+ for (int32 Code : Save->InventoryCodes) {
+  int32 Trait = 0, Rarity = 0, Tier = 0;
+  const int32 Slot = (Code / 10000) % 10;
+  if (!DecodeEquippedItem(Code,Slot,Trait,Rarity,Tier)) return false;
+ }
+ const int32 WornCodes[3] = {
+  Save->EquippedWeapon,Save->EquippedArmor,Save->EquippedAccessory
+ };
+ for (int32 Slot = 0; Slot < 3; ++Slot) {
+  if (WornCodes[Slot] == 0) continue;
+  int32 Trait = 0, Rarity = 0, Tier = 0;
+  if (!DecodeEquippedItem(WornCodes[Slot],Slot,Trait,Rarity,Tier) ||
+      !Save->InventoryCodes.Contains(WornCodes[Slot])) return false;
+ }
  // No corrupted save may be emitted if a Blueprint/external edit expanded the array.
  if (Save->AstralUnlocks.Num() != AstralTalentCount) return false;
  if (UGameplayStatics::SaveGameToSlot(Save,TEXT("MoonfallHeroProgressV1"),0)) {
@@ -314,7 +337,7 @@ bool AMoonfallHeroPawn::LoadProgress()
      !UGameplayStatics::DoesSaveGameExist(TEXT("MoonfallHeroProgressV1"),0)) return false;
  const UMoonfallProgressSaveGame* Save = Cast<UMoonfallProgressSaveGame>(
    UGameplayStatics::LoadGameFromSlot(TEXT("MoonfallHeroProgressV1"),0));
- if (!Save || Save->Version != 1 || Save->Level < 1 || Save->Level > 100 ||
+ if (!Save || (Save->Version != 1 && Save->Version != 2) || Save->Level < 1 || Save->Level > 100 ||
      Save->RootRanks.Num() != 3 || Save->CoreUnlocks.Num() != 24 ||
      Save->AstralUnlocks.Num() != AstralTalentCount ||
      !FMath::IsFinite(Save->MaxHealth) || !FMath::IsFinite(Save->MaxMana) ||
@@ -367,10 +390,47 @@ bool AMoonfallHeroPawn::LoadProgress()
  // Keep a single authoritative Level-derived budget, even if a save was edited.
  if (Spent > Save->Level - 1) return false;
 
+ // V2 validates *every* item, worn ownership and inventory size before applying
+ // any stat, root rank or resource. V1 preserves the preexisting inventory.
+ if (Save->Version == 2) {
+  if (Save->InventoryCodes.Num() > MaxInventoryItems ||
+      Save->SalvageMaterials < 0 || Save->SalvageMaterials > 9999) return false;
+  for (int32 Code : Save->InventoryCodes) {
+   int32 Trait = 0, Rarity = 0, Tier = 0;
+   const int32 Slot = (Code / 10000) % 10;
+   if (!DecodeEquippedItem(Code,Slot,Trait,Rarity,Tier)) return false;
+  }
+  const int32 WornCodes[3] = {
+   Save->EquippedWeapon,Save->EquippedArmor,Save->EquippedAccessory
+  };
+  for (int32 Slot = 0; Slot < 3; ++Slot) {
+   if (WornCodes[Slot] == 0) continue;
+   int32 Trait = 0, Rarity = 0, Tier = 0;
+   if (!DecodeEquippedItem(WornCodes[Slot],Slot,Trait,Rarity,Tier) ||
+       !Save->InventoryCodes.Contains(WornCodes[Slot])) return false;
+  }
+ }
  // Atomic application only after the entire snapshot has passed validation.
  Level = Save->Level;
  Experience = Save->Experience;
  ExperienceToNextLevel = Threshold;
+ if (Save->Version == 2) {
+  // Restore all three equipped items from the validated owned inventory.
+  InventoryItemCodes = Save->InventoryCodes;
+  EquippedWeaponCode = Save->EquippedWeapon;
+  EquippedArmorCode = Save->EquippedArmor;
+  EquippedAccessoryCode = Save->EquippedAccessory;
+  WeaponTier = ValidEquippedTier(EquippedWeaponCode,0);
+  ArmorTier = ValidEquippedTier(EquippedArmorCode,1);
+  AccessoryTier = ValidEquippedTier(EquippedAccessoryCode,2);
+  WeaponAffix = EquippedWeaponCode > 0 ? EquippedWeaponCode / 100000 : 0;
+  ArmorAffix = EquippedArmorCode > 0 ? EquippedArmorCode / 100000 : 0;
+  AccessoryAffix = EquippedAccessoryCode > 0 ? EquippedAccessoryCode / 100000 : 0;
+  EquipmentTier = FMath::Max(WeaponTier,FMath::Max(ArmorTier,AccessoryTier));
+  Salvage = Save->SalvageMaterials;
+  InventorySelection = 0;
+  InventoryViewStart = 0;
+ }
  MaxHealth = Save->MaxHealth + 2.f * FMath::Clamp(ArmorTier,0,25);
  MaxMana = Save->MaxMana;
  SpellPowerMultiplier = 1.f + 0.025f * FMath::Min(Level - 1, 30)
