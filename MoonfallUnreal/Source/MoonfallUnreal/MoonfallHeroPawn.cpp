@@ -1798,6 +1798,9 @@ void AMoonfallHeroPawn::CycleInventorySort()
  if (!bInventoryOpen || bCharacterStatsOpen || bOptionsOpen ||
      !FMath::IsFinite(Health) || Health <= 0.f) return;
  InventorySortMode = InventorySortMode == 1 ? 2 : 1;
+ // Sorting reorders the saved bag; persist it with the normal autosave cycle.
+ // Record the mode change even when there are fewer than two items.
+ bProgressDirty = true;
  if (InventoryItemCodes.Num() < 2) return;
  const int32 OldSelection = FMath::Clamp(InventorySelection, 0, InventoryItemCodes.Num() - 1);
  const int32 SelectedCode = InventoryItemCodes[OldSelection];
