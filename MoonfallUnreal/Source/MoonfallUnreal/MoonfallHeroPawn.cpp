@@ -1648,13 +1648,24 @@ bool AMoonfallHeroPawn::TryInteractWithNearbyKey()
    Nearest = Candidate;
   }
  };
+ // Do not allow a stale already-owned pickup to steal a door interaction.
+ // Collect references first, then destroy after iteration so the world actor
+ // iterator stays stable. No tick or background cleanup is required.
+ TArray<AMoonfallKeyPickup*> StaleOwnedKeys;
  for (TActorIterator<AMoonfallKeyPickup> It(GetWorld()); It && Scanned < 128; ++It)
  {
   ++Scanned;
-  // Include leftover actors for already-collected keys so TryCollect can
-  // remove them if their BeginPlay ran before the player loaded its save.
-  if (IsValid(*It)) Consider(*It);
+  AMoonfallKeyPickup* Pickup = *It;
+  if (!IsValid(Pickup)) continue;
+  if (HasQuestKey(Pickup->KeyId))
+  {
+   StaleOwnedKeys.Add(Pickup);
+   continue;
+  }
+  Consider(Pickup);
  }
+ for (AMoonfallKeyPickup* Pickup : StaleOwnedKeys)
+  if (IsValid(Pickup)) Pickup->Destroy();
  Scanned = 0;
  for (TActorIterator<AMoonfallKeyGate> It(GetWorld()); It && Scanned < 128; ++It)
  {
