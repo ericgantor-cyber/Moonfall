@@ -2357,7 +2357,17 @@ void AMoonfallHeroPawn::OptionsLeft() {
   if (MenuActionFocus < 0) { MenuActionFocus=OptionsSelection; return; }
   MenuActionFocus=OptionsSelection; AdjustOption(-1); return;
  }
- if (bInventoryOpen) { InventorySelection=FMath::Max(0,InventorySelection-1); InventoryViewStart=InventorySelection; return; }
+ if (bInventoryOpen) {
+  // D-pad left navigates the active pane, never the bag behind C.
+  if (bCharacterStatsOpen && bMenuFocusCharacter) {
+   PreviousCharacterStatsPage();
+   return;
+  }
+  if (!bBagPanelOpen) return;
+  InventorySelection=FMath::Max(0,InventorySelection-1);
+  InventoryViewStart=InventorySelection;
+  return;
+ }
 }
 void AMoonfallHeroPawn::OptionsRight() {
  if (bAtlasOpen && bTalentsOpen && bTalentRespecArmed) { TalentRespecChoice=1; return; }
@@ -2365,7 +2375,17 @@ void AMoonfallHeroPawn::OptionsRight() {
   if (MenuActionFocus < 0) { MenuActionFocus=OptionsSelection+7; return; }
   MenuActionFocus=OptionsSelection+7; AdjustOption(1); return;
  }
- if (bInventoryOpen) { InventorySelection=FMath::Min(FMath::Max(0,InventoryItemCodes.Num()-1),InventorySelection+1); InventoryViewStart=InventorySelection; return; }
+ if (bInventoryOpen) {
+  // D-pad right navigates the active pane, never the bag behind C.
+  if (bCharacterStatsOpen && bMenuFocusCharacter) {
+   NextCharacterStatsPage();
+   return;
+  }
+  if (!bBagPanelOpen) return;
+  InventorySelection=FMath::Min(FMath::Max(0,InventoryItemCodes.Num()-1),InventorySelection+1);
+  InventoryViewStart=InventorySelection;
+  return;
+ }
 }
 void AMoonfallHeroPawn::AdjustOption(int32 Direction) {
  if (!bOptionsOpen || !GEngine) return;
