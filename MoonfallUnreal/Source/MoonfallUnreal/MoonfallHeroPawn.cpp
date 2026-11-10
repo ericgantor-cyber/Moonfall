@@ -317,10 +317,23 @@ void AMoonfallHeroPawn::ToggleKeyRing()
 void AMoonfallHeroPawn::SpawnMilestoneKey(const FVector& Location)
 {
  if (!GetWorld() || HasQuestKey(FName(TEXT("fallen_gate_key")))) return;
- // One outstanding world key at a time. Save/load can recreate a missed drop
- // near the player, so a lost temporary actor never soft-locks the dungeon.
+ const FName MilestoneKey(TEXT("fallen_gate_key"));
+ // Avoid iterating every key actor on each later enemy kill. A weak pointer
+ // automatically becomes invalid if a pickup is collected or destroyed.
+ if (PendingMilestoneKey.IsValid() && PendingMilestoneKey->GetWorld() == GetWorld()
+     && PendingMilestoneKey->KeyId == MilestoneKey)
+  return;
+ PendingMilestoneKey.Reset();
+ // First discovery still handles keys placed by level authors or saved-world
+ // reconstruction; only the first unresolved attempt scans the world.
  for (TActorIterator<AMoonfallKeyPickup> It(GetWorld()); It; ++It)
-  if (IsValid(*It) && It->KeyId == FName(TEXT("fallen_gate_key"))) return;
+ {
+  if (IsValid(*It) && It->KeyId == MilestoneKey)
+  {
+   PendingMilestoneKey = *It;
+   return;
+  }
+ }
  // Assign the key ID *before* BeginPlay, or the placeholder is briefly
  // initialized as the wrong item when SpawnActor invokes BeginPlay inline.
  const FTransform SpawnTransform(FRotator::ZeroRotator,
@@ -331,8 +344,9 @@ void AMoonfallHeroPawn::SpawnMilestoneKey(const FVector& Location)
      ESpawnActorCollisionHandlingMethod::AlwaysSpawn));
  if (Pickup)
  {
-  Pickup->KeyId = FName(TEXT("fallen_gate_key"));
+  Pickup->KeyId = MilestoneKey;
   UGameplayStatics::FinishSpawningActor(Pickup, SpawnTransform);
+  if (IsValid(Pickup)) PendingMilestoneKey = Pickup;
  }
 }
 
