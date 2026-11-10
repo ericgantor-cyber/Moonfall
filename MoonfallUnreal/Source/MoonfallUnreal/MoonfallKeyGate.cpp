@@ -39,6 +39,16 @@ bool AMoonfallKeyGate::TryUnlock(AActor* Candidate)
  // Reject a blank/unknown key: the hero's whitelist checks supported IDs.
  if (!Hero->HasQuestKey(RequiredKeyId))
  {
+  // Explicit interaction gives a clear clue; walking past never opens it.
+  const TCHAR* MissingKeyName = TEXT("MATCHING KEY");
+  if (RequiredKeyId == FName(TEXT("wardens_crest")))
+   MissingKeyName = TEXT("WARDENS' CREST");
+  else if (RequiredKeyId == FName(TEXT("outlaw_seal")))
+   MissingKeyName = TEXT("OUTLAW SEAL");
+  else if (RequiredKeyId == FName(TEXT("fallen_gate_key")))
+   MissingKeyName = TEXT("FALLEN GATE KEY");
+  GateLabel->SetText(FText::FromString(
+    FString::Printf(TEXT("REQUIRES %s  [F / X]"), MissingKeyName)));
   OnGateLocked(RequiredKeyId);
   return false;
  }
