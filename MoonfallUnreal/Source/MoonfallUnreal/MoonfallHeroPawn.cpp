@@ -703,6 +703,7 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("TalentArcaneAegis"), IE_Pressed, this, &AMoonfallHeroPawn::UnlockArcaneAegis);
  Input->BindAction(TEXT("TalentIronWill"), IE_Pressed, this, &AMoonfallHeroPawn::UnlockIronWill);
  Input->BindAction(TEXT("TalentRespec"), IE_Pressed, this, &AMoonfallHeroPawn::RespecTalentAction);
+ Input->BindAction(TEXT("CancelTalentDialog"), IE_Pressed, this, &AMoonfallHeroPawn::CancelTalentRespecDialog);
  Input->BindAction(TEXT("TalentNext"), IE_Pressed, this, &AMoonfallHeroPawn::SelectNextTalentNode);
  Input->BindAction(TEXT("TalentPrevious"), IE_Pressed, this, &AMoonfallHeroPawn::SelectPreviousTalentNode);
  Input->BindAction(TEXT("TalentActivate"), IE_Pressed, this, &AMoonfallHeroPawn::ActivateSelectedTalentNode);
@@ -1852,6 +1853,12 @@ void AMoonfallHeroPawn::UnlockBattleWeave() { UnlockTalentNode(6); }
 void AMoonfallHeroPawn::UnlockArcaneAegis() { UnlockTalentNode(7); }
 void AMoonfallHeroPawn::UnlockIronWill() { UnlockTalentNode(8); }
 
+void AMoonfallHeroPawn::CancelTalentRespecDialog()
+{
+ if (!bAtlasOpen || !bTalentsOpen || !bTalentRespecArmed) return;
+ ResolveTalentRespecConfirmation(false);
+}
+
 void AMoonfallHeroPawn::RespecTalentAction()
 {
  if (!bAtlasOpen || !bTalentsOpen || bInventoryOpen || bOptionsOpen ||
@@ -2224,6 +2231,11 @@ void AMoonfallHeroPawn::UpgradeSelectedInventoryItem()
 }
 
 void AMoonfallHeroPawn::OpenOptions() {
+ // Cancel the modal on Esc/Start; a second press can close K normally.
+ if (bAtlasOpen && bTalentsOpen && bTalentRespecArmed) {
+  CancelTalentRespecDialog();
+  return;
+ }
  // The defeat screen owns input until respawn; do not reopen gameplay menus.
  bTalentRespecArmed = false;
  if (Health <= 0.f || !FMath::IsFinite(Health)) return;
