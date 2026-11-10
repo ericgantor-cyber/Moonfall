@@ -164,10 +164,16 @@ void AMoonfallCombatHUD::DrawHUD()
       : TEXT("ADVISOR: no higher-scoring gear found"),
     FLinearColor(0.54f,0.94f,0.76f), Left + 18.f, Top + 128.f,
     nullptr, Canvas->SizeX < 900.f ? 0.64f : 0.75f);
-  DrawText(FString::Printf(TEXT("%d items  |  %d salvage  |  page %d / %d"),
-    Count, Hero->Salvage, PageStart / PerPage + 1,
-    FMath::Max(1, (Count + PerPage - 1) / PerPage)), FLinearColor(0.75f,0.72f,0.91f),
+  const bool bBagFull = Count >= AMoonfallHeroPawn::MaxInventoryItems;
+  DrawText(FString::Printf(TEXT("%d / %d items  |  %d salvage  |  page %d / %d"),
+    Count, AMoonfallHeroPawn::MaxInventoryItems, Hero->Salvage,
+    PageStart / PerPage + 1, FMath::Max(1, (Count + PerPage - 1) / PerPage)),
+    bBagFull ? FLinearColor(1.f,0.45f,0.35f) : FLinearColor(0.75f,0.72f,0.91f),
     Left + 18.f, Top + 49.f, nullptr, 0.9f);
+  if (bBagFull)
+   DrawText(TEXT("BAG FULL - salvage unused gear to collect more loot"),
+     FLinearColor(1.f,0.45f,0.35f), Left + 18.f, Top + 83.f,
+     nullptr, Canvas->SizeX < 900.f ? 0.65f : 0.82f);
   if (Count == 0)
    DrawText(TEXT("No equipment yet. Defeat enemies to find gear."), FLinearColor::White,
      Left + 18.f, Top + 100.f, nullptr, 0.92f);
