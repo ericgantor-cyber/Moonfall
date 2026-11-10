@@ -113,6 +113,17 @@ void AMoonfallEnemy::RegisterComboMilestone(int32 Stage) {
  OnComboMilestone(Stage);
 }
 
+float AMoonfallEnemy::GetSchoolResistance(int32 School) const
+{
+ const float Resistance = School == 0 ? FireResistance
+   : School == 1 ? FrostResistance
+   : School == 2 ? NatureResistance
+   : School == 3 ? ShadowResistance
+   : School == 4 ? ArcaneResistance : 0.f;
+ return School >= 0 && School < 5 && FMath::IsFinite(Resistance)
+   ? FMath::Clamp(Resistance,0.f,100.f) : 0.f;
+}
+
 void AMoonfallEnemy::TakeSpellDamage(float Amount) {
   // Ignore invalid/no-op hits so they cannot trigger phase changes, feedback, or loot.
   if (!FMath::IsFinite(Amount) || Amount <= 0.f || Health <= 0.f) return;
@@ -455,8 +466,11 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
      CachedWaypoint = FVector::ZeroVector;
      OnPerfectDodged(DodgePressure);
     }
-    const bool bParried = Hero->ApplyMoonfallDamageFrom(
-      IncomingAttackDamage, GetActorLocation());
+    const bool bParried = AttackMagicSchool >= 0 && AttackMagicSchool < 5
+      ? Hero->ApplyMoonfallElementalDamageFrom(
+          IncomingAttackDamage, GetActorLocation(), AttackMagicSchool)
+      : Hero->ApplyMoonfallDamageFrom(
+          IncomingAttackDamage, GetActorLocation());
     if (bParried) {
      // A successful parry ends this attack chain and opens counterplay.
      // Bosses recover sooner than ordinary enemies but cannot hit instantly.
