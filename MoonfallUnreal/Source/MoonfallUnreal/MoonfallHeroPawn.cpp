@@ -2247,6 +2247,13 @@ void AMoonfallHeroPawn::PickupNearestGroundLoot()
   if (FMath::Abs(LootPosition.Z - HeroPosition.Z) > 150.f) continue;
   const float DistanceSq = FVector::DistSquared2D(LootPosition, HeroPosition);
   if (!FMath::IsFinite(DistanceSq) || DistanceSq > PickupRangeSq) continue;
+  // Distance selection is cheap. Avoid a collision trace for any item that
+  // cannot beat our six nearest *reachable* candidates. Blocked items do not
+  // occupy a slot, so a farther visible pickup remains eligible.
+  int32 InsertAt = 0;
+  while (InsertAt < NearbyDistanceSq.Num() && NearbyDistanceSq[InsertAt] <= DistanceSq)
+   ++InsertAt;
+  if (InsertAt >= MaxLootPerPress) continue;
   // A nearby pickup must be reachable: walls and solid cover block collection.
   FCollisionQueryParams LootSightParams(SCENE_QUERY_STAT(MoonfallGroundLootPickupSight), false);
   LootSightParams.AddIgnoredActor(this);
@@ -2256,10 +2263,6 @@ void AMoonfallHeroPawn::PickupNearestGroundLoot()
       HeroPosition + FVector(0.f, 0.f, 40.f),
       LootPosition + FVector(0.f, 0.f, 40.f),
       ECC_Visibility, LootSightParams)) continue;
-  int32 InsertAt = 0;
-  while (InsertAt < NearbyDistanceSq.Num() && NearbyDistanceSq[InsertAt] <= DistanceSq)
-   ++InsertAt;
-  if (InsertAt >= MaxLootPerPress) continue;
   NearbyLoot.Insert(Candidate, InsertAt);
   NearbyDistanceSq.Insert(DistanceSq, InsertAt);
   if (NearbyLoot.Num() > MaxLootPerPress) {
