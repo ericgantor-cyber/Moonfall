@@ -223,7 +223,7 @@ public:
  // Controller A switches existing inventory pages, never closes the menu.
  // Controller menu focus. D-pad up/down moves through visible buttons;
  // gamepad A activates one focused action without requiring a mouse.
- UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|UI") int32 MenuActionFocus = 0;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|UI") int32 MenuActionFocus = -1;
  void ActivateFocusedMenuAction();
  void SwitchInventoryPage();
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Inventory") int32 InventorySelection = 0;
