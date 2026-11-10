@@ -30,6 +30,21 @@ static func add_item(state:Dictionary,item_id:String,count:int=1)->bool:
  state["items"]=items
  return true
 
+## Currency has no artificial gameplay cap; only the engine's 64-bit integer boundary.
+const MAX_GOLD:int = 9223372036854775807
+
+## Gold rewards grow with confirmed kills and are gathered automatically.
+static func gold_for_kill(kill_count:int)->int:
+ if kill_count<=0:return 0
+ return 3+kill_count/4
+
+static func add_gold(state:Dictionary,amount:int)->int:
+ if amount<=0:return 0
+ var before:int=maxi(0,int(state.get("gold",0)))
+ var granted:int=mini(amount,MAX_GOLD-before)
+ state["gold"]=before+granted
+ return granted
+
 static func equip(state:Dictionary,item_id:String,hero_level:int)->bool:
  var item:Dictionary=CATALOG.get_item(item_id)
  if item.is_empty() or hero_level<int(item.get("level_required",1)):return false
@@ -141,7 +156,7 @@ static func normalize(saved:Dictionary)->Dictionary:
   for material in prior_materials:
    if str(material)!="" and int(prior_materials[material])>0:
     state["materials"][str(material)]=clampi(int(prior_materials[material]),0,999999)
- state["gold"]=clampi(int(saved.get("gold",0)),0,99999999)
+ state["gold"]=maxi(0,int(saved.get("gold",0)))
  state["loot_pity"]=clampi(int(saved.get("loot_pity",0)),0,80)
  var prior_rolls:Variant=saved.get("loot_rolls",[])
  if prior_rolls is Array:

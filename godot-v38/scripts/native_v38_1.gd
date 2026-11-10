@@ -2,7 +2,12 @@ extends "res://scripts/native_v38_0.gd"
 ## First playable realm-choice integration. All locations stay in the same world.
 const REALM_ETHICS := preload("res://scripts/systems/morality_reputation.gd")
 const EQUIPMENT := preload("res://scripts/systems/equipment_inventory.gd")
+const KEY_RING := preload("res://scripts/systems/key_ring.gd")
 var gear_state:Dictionary = {}
+var key_ring_state:Dictionary = {}
+var key_ring_button:Button
+var key_ring_details:Label
+var key_ring_expanded:bool = false
 var gear_status:Label
 var realm_ethics:Dictionary = {}
 var realm_panel:PanelContainer
@@ -18,6 +23,7 @@ var realm_companion_ethic:String = "Good"
 func _ready() -> void:
  realm_ethics = REALM_ETHICS.new_state()
  gear_state = EQUIPMENT.new_state()
+ key_ring_state = KEY_RING.new_state()
  super._ready()
  _build_realm_choice_panel()
 
@@ -28,6 +34,8 @@ func _start_game(selected_hero:String) -> void:
  realm_elemental_kills = 0
  realm_companion_ethic = "Good"
  gear_state = EQUIPMENT.new_state()
+ key_ring_state = KEY_RING.new_state()
+ key_ring_expanded = false
  EQUIPMENT.add_item(gear_state,"ashwood_sword")
  EQUIPMENT.equip(gear_state,"ashwood_sword",1)
  _refresh_realm_choices()
@@ -35,6 +43,7 @@ func _start_game(selected_hero:String) -> void:
 func _checkpoint_extra_data() -> Dictionary:
  var data:Dictionary = super._checkpoint_extra_data()
  data["gear_state"] = gear_state.duplicate(true)
+ data["key_ring_state"] = key_ring_state.duplicate(true)
  data["realm_ethics"] = realm_ethics.duplicate(true)
  data["realm_victories"] = realm_victories
  data["realm_elemental_kills"] = realm_elemental_kills
@@ -45,6 +54,8 @@ func _restore_data(data:Dictionary) -> void:
  super._restore_data(data)
  var extra:Variant = data.get("optional_resources", {})
  gear_state = EQUIPMENT.normalize(extra.get("gear_state",{}) if extra is Dictionary else {})
+ key_ring_state = KEY_RING.normalize(extra.get("key_ring_state",{}) if extra is Dictionary else {})
+ key_ring_expanded = not key_ring_state["keys"].is_empty()
  realm_ethics = REALM_ETHICS.normalize(extra.get("realm_ethics", {}) if extra is Dictionary else {})
  realm_victories = maxi(0,int(extra.get("realm_victories",0))) if extra is Dictionary else 0
  realm_elemental_kills = maxi(0,int(extra.get("realm_elemental_kills",0))) if extra is Dictionary else 0
@@ -78,6 +89,14 @@ func _build_realm_choice_panel() -> void:
  gear_status=Label.new()
  gear_status.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
  layout.add_child(gear_status)
+ key_ring_button = Button.new()
+ key_ring_button.name = "KeyRingToggle"
+ key_ring_button.pressed.connect(_toggle_key_ring)
+ layout.add_child(key_ring_button)
+ key_ring_details = Label.new()
+ key_ring_details.name = "KeyRingDetails"
+ key_ring_details.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+ layout.add_child(key_ring_details)
  var equip_button:Button=Button.new()
  equip_button.text="EQUIP BEST OWNED WEAPON"
  equip_button.pressed.connect(_equip_best_realm_weapon)
@@ -112,6 +131,8 @@ func _complete_realm_quest(quest:Dictionary)->void:
  if not REALM_ETHICS.quest_available(realm_ethics,str(quest["faction"]),int(quest["minimum"]),str(quest["alignment"])):return
  if REALM_ETHICS.normalize(realm_ethics)["choices"].has(id):return
  realm_ethics=REALM_ETHICS.apply_choice(realm_ethics,id,int(quest["moral"]),quest["factions"])
+ if id=="realm_wardens_oath":_award_key("wardens_crest")
+ elif id=="realm_outlaw_pact":_award_key("outlaw_seal")
  _show_message("Quest completed: "+str(quest["text"]),3.0)
  _refresh_realm_choices()
 
@@ -137,9 +158,14 @@ func _refresh_realm_choices() -> void:
  if is_instance_valid(realm_companion):
   var loyalty:int=REALM_ETHICS.companion_loyalty(state,realm_companion_ethic)
   realm_companion.text="ACTIVE COMPANION: "+realm_companion_ethic+" | Loyalty "+str(loyalty)+" | "+("Loyal" if loyalty>=55 else "Uncertain")
+ if is_instance_valid(key_ring_button):
+  key_ring_button.text = ("▼ " if key_ring_expanded else "▶ ")+"KEY RING ("+str(key_ring_state.get("keys",[]).size())+")"
+ if is_instance_valid(key_ring_details):
+  key_ring_details.visible = key_ring_expanded
+  key_ring_details.text = KEY_RING.display_lines(key_ring_state)
  if is_instance_valid(gear_status):
   var stats:Dictionary=EQUIPMENT.totals(gear_state)
-  gear_status.text="GEAR | Weapon +"+str(stats["weapon_power"])+" • Armor "+str(stats["armor"])+" • Magic "+str(stats["magic"])+" | Owned types "+str(gear_state.get("items",{}).size())
+  gear_status.text="GOLD "+str(gear_state.get("gold",0))+" | GEAR | Weapon +"+str(stats["weapon_power"])+" • Armor "+str(stats["armor"])+" • Magic "+str(stats["magic"])+" | Owned types "+str(gear_state.get("items",{}).size())
  var decided:bool = state["choices"].has("realm_village_aid") or state["choices"].has("realm_village_betray")
  for button in realm_choice_buttons:
   if is_instance_valid(button):
@@ -171,6 +197,10 @@ func _apply_player_hit(target:Dictionary,base_damage:float,stagger_strength:floa
   return
  target["realm_kill_recorded"]=true
  realm_victories+=1
+ # Collect enemy gold directly into the persistent purse with no pickup key.
+ var gold_found:int=EQUIPMENT.gold_for_kill(realm_victories)
+ EQUIPMENT.add_gold(gear_state,gold_found)
+ if realm_victories==5:_award_key("fallen_gate_key")
  # Award one deterministic catalog item for each confirmed player kill.
  var dropped:Dictionary=EQUIPMENT.loot_enemy(gear_state,maxi(1,realm_victories/6+1),realm_victories*37)
  if not dropped.is_empty() and realm_victories%5==0:
@@ -200,3 +230,14 @@ func _equip_best_realm_weapon()->void:
  if selected_id!="" and EQUIPMENT.equip(gear_state,selected_id,maxi(1,realm_victories/6+1)):
   _show_message("Equipped: "+str(EQUIPMENT.CATALOG.get_item(selected_id).get("name","")),2.0)
  _refresh_realm_choices()
+
+func _toggle_key_ring()->void:
+ key_ring_expanded = not key_ring_expanded
+ _refresh_realm_choices()
+
+func _award_key(key_id:String)->void:
+ # Quest and milestone keys enter the ring immediately, without a bag action.
+ if KEY_RING.add_key(key_ring_state,key_id):
+  key_ring_expanded = true
+  _show_message("Key collected: "+str(KEY_RING.KEY_NAMES[key_id]),3.0)
+  _refresh_realm_choices()
