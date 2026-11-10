@@ -520,7 +520,7 @@ class UE5RewardParity(unittest.TestCase):
         self.assertIn("Loot->SetPersistentDropId(Record.DropId);", registration)
         spawn = self.hero.split("void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(", 1)[1].split(
             "bool AMoonfallHeroPawn::TryInteractWithNearbyKey()", 1)[0]
-        self.assertIn("RegisterWorldEquipmentDrop(ItemCode, SpawnAt);", spawn)
+        self.assertIn("if (RegisterWorldEquipmentDrop(ItemCode, SpawnAt)) continue;", spawn)
         collect = self.hero.split("bool AMoonfallHeroPawn::CollectPersistedGroundEquipmentCode(", 1)[1].split(
             "bool AMoonfallHeroPawn::RegisterWorldEquipmentDrop(", 1)[0]
         self.assertIn("PendingWorldLoot.RemoveAt(Index);", collect)
@@ -530,6 +530,24 @@ class UE5RewardParity(unittest.TestCase):
         ground_cpp = (ROOT / "MoonfallGroundLoot.cpp").read_text()
         self.assertIn("GetPersistentDropId() const", ground_h)
         self.assertIn("CollectPersistedGroundEquipmentCode(ItemCode, PersistentDropId)", ground_cpp)
+
+    def test_world_loot_overflow_falls_back_to_visible_temporary_pickup(self):
+        restore = self.hero.split("void AMoonfallHeroPawn::RestorePendingWorldEquipmentDrops()", 1)[1].split(
+            "void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(", 1)[0]
+        self.assertIn("TSet<FGuid> SpawnedIds;", restore)
+        self.assertIn("SpawnedIds.Contains(Record.DropId)", restore)
+        self.assertIn("SpawnedIds.Add(Record.DropId);", restore)
+        self.assertLess(restore.index("for (TActorIterator<AMoonfallGroundLoot>"),
+                        restore.index("for (const FMoonfallWorldLootRecord& Record"))
+        self.assertEqual(restore.count("TActorIterator<AMoonfallGroundLoot>"), 1)
+        spawn = self.hero.split("void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(", 1)[1].split(
+            "bool AMoonfallHeroPawn::TryInteractWithNearbyKey()", 1)[0]
+        self.assertIn("if (RegisterWorldEquipmentDrop(ItemCode, SpawnAt)) continue;", spawn)
+        self.assertIn("Fallback->InitializeLoot(ItemCode);", spawn)
+        self.assertIn("LOOT NOT SAVED - TEMPORARY DROP, COLLECT BEFORE EXIT", spawn)
+        self.assertIn("LOOT NOT SAVED - WORLD DROP FAILED", spawn)
+        self.assertLess(spawn.index("RegisterWorldEquipmentDrop(ItemCode, SpawnAt)"),
+                        spawn.index("Fallback->InitializeLoot(ItemCode);"))
 
     def test_equipment_remains_manual_and_hud_shows_rewards(self):
         self.assertIn("void PickupNearestGroundLoot();", self.hero_h)
