@@ -19,6 +19,9 @@ public:
  int32 GetCharacterActionAtScreenPosition(const AMoonfallHeroPawn* Hero, float X, float Y) const;
  // Settings: 0..6 previous value, 7..13 next value, 14 close.
  int32 GetOptionsActionAtScreenPosition(const AMoonfallHeroPawn* Hero, float X, float Y) const;
+ // B bag: 0 equip, 1 upgrade, 2 ascend, 3 reforge, 4 forge five,
+ // 5 salvage, 6 open character, 7 close backpack.
+ int32 GetInventoryActionAtScreenPosition(const AMoonfallHeroPawn* Hero, float X, float Y) const;
  // Map and constellation: clickable close, with page controls for talents.
  int32 GetAtlasMenuActionAtScreenPosition(const AMoonfallHeroPawn* Hero, float X, float Y) const;
  // Read-only constellation node hit test, returns -1 outside the nine visible stars.
