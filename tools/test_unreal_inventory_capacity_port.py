@@ -236,6 +236,50 @@ class InventoryCapacityPort(unittest.TestCase):
         self.assertNotIn("ZTalentRank", header)
         self.assertNotIn("NyraTalentRank", header)
 
+    def test_constellation_keystones_links_and_respec_are_gated(self):
+        inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
+        header = (ROOT / "MoonfallHeroPawn.h").read_text(encoding="utf-8")
+        hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        for name, key in (("TalentForceKeystone", "Four"),
+                          ("TalentFocusKeystone", "Five"),
+                          ("TalentWardKeystone", "Six"),
+                          ("TalentBattleWeave", "Seven"),
+                          ("TalentArcaneAegis", "Eight"),
+                          ("TalentIronWill", "Nine"),
+                          ("TalentRespec", "BackSpace")):
+            self.assertIn(f'ActionName="{name}",Key={key}', inputs)
+            self.assertIn(f'BindAction(TEXT("{name}"), IE_Pressed', self.hero)
+        for field in ("bTalentForceKeystone", "bTalentFocusKeystone",
+                      "bTalentWardKeystone", "bTalentBattleWeave",
+                      "bTalentArcaneAegis", "bTalentIronWill"):
+            self.assertIn(field + " = false;", header)
+        gate = body(self.hero, "bool AMoonfallHeroPawn::CanUnlockTalentNode(int32 Node) const")
+        self.assertIn("GetUnspentTalentPoints() <= 0", gate)
+        for check in ("TalentForceRank >= 3", "TalentFocusRank >= 3",
+                      "TalentWardRank >= 3",
+                      "bTalentForceKeystone && bTalentFocusKeystone",
+                      "bTalentFocusKeystone && bTalentWardKeystone",
+                      "bTalentWardKeystone && bTalentForceKeystone"):
+            self.assertIn(check, gate)
+        unlock = body(self.hero, "bool AMoonfallHeroPawn::UnlockTalentNode(int32 Node)")
+        self.assertIn("if (!CanUnlockTalentNode(Node)) return false;", unlock)
+        self.assertIn("*Flag = true;", unlock)
+        points = body(self.hero, "int32 AMoonfallHeroPawn::GetUnspentTalentPoints() const")
+        self.assertIn("int32(bTalentForceKeystone)", points)
+        self.assertIn("int32(bTalentIronWill)", points)
+        respec = body(self.hero, "bool AMoonfallHeroPawn::RespecTalents()")
+        self.assertIn("!bAtlasOpen || !bTalentsOpen", respec)
+        self.assertIn("TalentForceRank = 0;", respec)
+        self.assertIn("bTalentIronWill = false;", respec)
+        self.assertIn('TEXT("7  BATTLE WEAVE")', hud)
+        self.assertIn('TEXT("8  ARCANE AEGIS")', hud)
+        self.assertIn('TEXT("9  IRON WILL")', hud)
+        self.assertIn("DrawLine(CenterX[", hud)
+        self.assertIn("Requires 2 keystones", hud)
+        self.assertIn("Backspace: respec", hud)
+        self.assertNotIn("ZTalentRank", header)
+        self.assertNotIn("NyraTalentRank", header)
+
     def test_inventory_has_no_equip_or_page_buttons(self):
         hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
         left = body(self.hero, "void AMoonfallHeroPawn::LeftClickContextAction()")
