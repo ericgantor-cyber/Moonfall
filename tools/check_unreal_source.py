@@ -287,7 +287,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("GetInsight() * 0.002f", self.hero_cpp)
         self.assertIn("GetResolve() * 0.003f", self.hero_cpp)
         self.assertIn("if (bInventoryOpen && !bOptionsOpen && Health > 0.f)", self.hero_cpp)
-        self.assertIn("if (!bInventoryOpen) bCharacterStatsOpen = false;", self.hero_cpp)
+        self.assertIn("if (!bInventoryOpen) {\n  bCharacterStatsOpen = false;\n  bKeyRingInventoryOpen = false;\n }", self.hero_cpp)
         self.assertIn("if (!bCharacterStatsOpen) ForgeInventoryItemLevels(InventorySelection, 5);", self.hero_cpp)
         self.assertIn("if (!bCharacterStatsOpen) ReforgeInventoryItemAffix(InventorySelection);", self.hero_cpp)
         self.assertIn("if (Hero->bCharacterStatsOpen)", hud)
