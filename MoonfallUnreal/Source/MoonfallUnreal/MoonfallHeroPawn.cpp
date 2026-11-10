@@ -929,7 +929,8 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
     Stamina = FMath::Clamp(Stamina + PerfectParryStaminaReward, 0.f, MaxStamina);
   } else {
    // Bulwark improves sustained frontal blocking, not perfect parry.
-   DamageAfterGuard *= bTalentWardKeystone ? 0.32f : 0.4f;
+   DamageAfterGuard *= 0.4f;
+   if (bTalentWardKeystone) DamageAfterGuard *= 0.8f;
   }
   OnGuardImpact(ArmoredDamage - DamageAfterGuard, bPerfectParry);
   if (Stamina < GuardStaminaCost) BreakGuard();
