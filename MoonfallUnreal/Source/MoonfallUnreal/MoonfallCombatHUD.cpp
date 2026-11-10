@@ -664,7 +664,7 @@ void AMoonfallCombatHUD::DrawHUD()
   DrawRect(FLinearColor(0.025f,0.035f,0.075f,0.97f),Left,Top,Width,Height);
   DrawText(TEXT("MOONFALL  |  MAP"),FLinearColor::White,
     Left + 20.f,Top + 17.f,nullptr,1.3f);
-  DrawRect(FLinearColor(0.15f,0.35f,0.44f),Left+Width-96.f,Top+12.f,84.f,34.f);
+  DrawRect(Hero->MenuActionFocus == 0 ? FLinearColor(0.72f,0.53f,0.20f) : FLinearColor(0.15f,0.35f,0.44f),Left+Width-96.f,Top+12.f,84.f,34.f);
   DrawText(TEXT("CLOSE"),FLinearColor::White,Left+Width-84.f,Top+20.f,nullptr,0.77f);
   const FVector WorldPos = Hero->GetActorLocation();
   const bool bValidWorldPos = FMath::IsFinite(WorldPos.X) &&
