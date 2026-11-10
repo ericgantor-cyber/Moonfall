@@ -37,7 +37,7 @@ bool AMoonfallKeyGate::TryUnlock(AActor* Candidate)
  AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(Candidate);
  if (!IsValid(Hero) || Hero->Health <= 0.f) return false;
  // Reject a blank/unknown key: the hero's whitelist checks supported IDs.
- if (!Hero->HasQuestKey(RequiredKeyId))
+ if (!Hero->HasQuestKey(RequiredKeyId) && !Hero->HasUnlockedGate(GateId))
  {
   // Explicit interaction gives a clear clue; walking past never opens it.
   const TCHAR* MissingKeyName = TEXT("MATCHING KEY");
@@ -52,6 +52,9 @@ bool AMoonfallKeyGate::TryUnlock(AActor* Candidate)
   OnGateLocked(RequiredKeyId);
   return false;
  }
+ // Commit the door state first. A failed disk save must not make a gate
+ // appear permanently solved when the next session still considers it locked.
+ if (!Hero->CommitGateUnlock(GateId, RequiredKeyId)) return false;
  bUnlocked = true;
  GateMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
  GateMesh->SetVisibility(false, true);
