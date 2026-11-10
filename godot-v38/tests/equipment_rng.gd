@@ -36,6 +36,104 @@ func _run()->void:
   check(result==RNG.roll(item,seed),"RNG remains deterministic "+str(seed))
  check(int(RNG.roll(item,3,0,80)["rarity_index"])>=3,"pity guarantees epic")
  check(RNG.next_pity(80,3)==0,"pity resets after rare roll")
+ # Crafting must not charge materials when a stack cannot accept another item.
+ var craft_item:Dictionary=CATALOG.get_item("ashwood_sword")
+ var craft_material:String=str(craft_item["name"]).split(" ")[0]
+ var craft_cost:int=2+int(craft_item["tier"])*3
+ var full_stack:Dictionary=INVENTORY.new_state()
+ full_stack["items"]["ashwood_sword"]=9999
+ full_stack["materials"][craft_material]=craft_cost+5
+ check(not INVENTORY.craft(full_stack,"ashwood_sword",99),"full item stack rejects crafting")
+ check(int(full_stack["materials"][craft_material])==craft_cost+5,"failed full-stack craft preserves materials")
+ check(int(full_stack["items"]["ashwood_sword"])==9999,"failed full-stack craft preserves items")
+ full_stack["items"]["ashwood_sword"]=9998
+ check(INVENTORY.craft(full_stack,"ashwood_sword",99),"available stack permits crafting")
+ check(int(full_stack["items"]["ashwood_sword"])==9999 and int(full_stack["materials"][craft_material])==5,"successful craft grants exactly one item and charges once")
+ var corrupt_craft:Dictionary=INVENTORY.new_state()
+ corrupt_craft["materials"][craft_material]=[craft_cost]
+ check(not INVENTORY.craft(corrupt_craft,"ashwood_sword",99),"malformed materials cannot fund crafting")
+ # Mutations on malformed saved state must fail without crashing or granting loot.
+ var broken_items:Dictionary=INVENTORY.new_state()
+ broken_items["items"]="invalid"
+ check(not INVENTORY.add_item(broken_items,"ashwood_sword"),"malformed item collection rejects grants")
+ check(not INVENTORY.equip(broken_items,"ashwood_sword",99),"malformed item collection rejects equip")
+ var broken_slots:Dictionary=INVENTORY.new_state()
+ INVENTORY.add_item(broken_slots,"ashwood_sword")
+ broken_slots["equipped"]="invalid"
+ check(not INVENTORY.equip(broken_slots,"ashwood_sword",99),"malformed equipped collection rejects equip")
+ var broken_materials:Dictionary=INVENTORY.new_state()
+ broken_materials["materials"]="invalid"
+ check(not INVENTORY.add_material(broken_materials,"Ashwood",1),"malformed materials reject grants")
+ var broken_counts:Dictionary=INVENTORY.new_state()
+ broken_counts["items"]["ashwood_sword"]={"bad":true}
+ check(INVENTORY.add_item(broken_counts,"ashwood_sword"),"invalid item count can recover through valid grant")
+ check(int(broken_counts["items"]["ashwood_sword"])==1,"recovered item count is one")
+ broken_counts["materials"]["Ashwood"]=["bad"]
+ check(INVENTORY.add_material(broken_counts,"Ashwood",2),"invalid material count can recover through valid grant")
+ check(int(broken_counts["materials"]["Ashwood"])==2,"recovered material count is two")
+ var capped:Dictionary=INVENTORY.new_state()
+ capped["items"]["ashwood_sword"]=9999
+ capped["materials"]["Ashwood"]=999999
+ check(not INVENTORY.add_item(capped,"ashwood_sword"),"full item stack rejects phantom grant")
+ check(not INVENTORY.add_material(capped,"Ashwood",1),"full material stack rejects phantom grant")
+ check(int(capped["items"]["ashwood_sword"])==9999 and int(capped["materials"]["Ashwood"])==999999,"full-stack rejection preserves resources")
+ # Huge externally supplied counts must saturate, never wrap to negative.
+ var huge_grants:Dictionary=INVENTORY.new_state()
+ check(INVENTORY.add_item(huge_grants,"ashwood_sword",9223372036854775807),"huge item grant succeeds without overflow")
+ check(int(huge_grants["items"]["ashwood_sword"])==9999,"huge item grant saturates at item cap")
+ check(not INVENTORY.add_item(huge_grants,"ashwood_sword",1),"saturated item stack rejects additional grant")
+ check(INVENTORY.add_material(huge_grants,"Ashwood",9223372036854775807),"huge material grant succeeds without overflow")
+ check(int(huge_grants["materials"]["Ashwood"])==999999,"huge material grant saturates at material cap")
+ check(not INVENTORY.add_material(huge_grants,"Ashwood",1),"saturated material stack rejects additional grant")
+ var partial_grants:Dictionary=INVENTORY.new_state()
+ partial_grants["items"]["ashwood_sword"]=9998
+ partial_grants["materials"]["Ashwood"]=999998
+ check(INVENTORY.add_item(partial_grants,"ashwood_sword",9223372036854775807),"near-full item grant safely saturates")
+ check(INVENTORY.add_material(partial_grants,"Ashwood",9223372036854775807),"near-full material grant safely saturates")
+ check(int(partial_grants["items"]["ashwood_sword"])==9999 and int(partial_grants["materials"]["Ashwood"])==999999,"near-full grants preserve valid capped counts")
+ check(int(INVENTORY.normalize(huge_grants)["items"]["ashwood_sword"])==9999,"saturated item survives save normalization")
+ # Failed loot grants must not create phantom rarity rolls or spend pity.
+ var loot_candidate:Dictionary=CATALOG.loot_for_level(12,42)
+ check(not loot_candidate.is_empty(),"deterministic loot fixture exists")
+ if not loot_candidate.is_empty():
+  var loot_id:String=str(loot_candidate["id"])
+  var loot_full:Dictionary=INVENTORY.new_state()
+  loot_full["items"][loot_id]=9999
+  loot_full["loot_pity"]=17
+  check(INVENTORY.loot_enemy(loot_full,12,42).is_empty(),"full stack cannot award phantom loot")
+  check(int(loot_full["items"][loot_id])==9999,"failed loot preserves full item stack")
+  check(loot_full["loot_rolls"].is_empty() and int(loot_full["loot_pity"])==17,"failed loot preserves rolls and pity")
+  var loot_corrupt:Dictionary=INVENTORY.new_state()
+  loot_corrupt["items"]="invalid"
+  loot_corrupt["loot_pity"]=17
+  check(INVENTORY.loot_enemy(loot_corrupt,12,42).is_empty(),"malformed inventory rejects enemy loot")
+  check(loot_corrupt["loot_rolls"].is_empty() and int(loot_corrupt["loot_pity"])==17,"malformed inventory cannot advance pity")
+  # Corrupt roll history must not award an item without recording its roll.
+  var loot_bad_history:Dictionary=INVENTORY.new_state()
+  loot_bad_history["loot_rolls"]="invalid"
+  loot_bad_history["loot_pity"]=17
+  check(INVENTORY.loot_enemy(loot_bad_history,12,42).is_empty(),"malformed roll history rejects loot atomically")
+  check(loot_bad_history["items"].is_empty() and int(loot_bad_history["loot_pity"])==17,"failed roll-history validation preserves inventory and pity")
+  var loot_bad_pity:Dictionary=INVENTORY.new_state()
+  loot_bad_pity["loot_pity"]={"invalid":true}
+  check(not INVENTORY.loot_enemy(loot_bad_pity,12,42).is_empty(),"malformed pity safely recovers on valid loot")
+  check(loot_bad_pity["loot_rolls"].size()==1 and loot_bad_pity["items"].has(loot_id),"recovered pity records both item and roll")
+  var loot_open:Dictionary=INVENTORY.new_state()
+  loot_open["items"][loot_id]=9998
+  check(not INVENTORY.loot_enemy(loot_open,12,42).is_empty(),"available stack accepts enemy loot")
+  check(int(loot_open["items"][loot_id])==9999 and loot_open["loot_rolls"].size()==1,"successful loot grants one item and one roll")
+ # Oversized live histories must shrink to the same 250-roll save bound.
+ var oversized:Dictionary=INVENTORY.new_state()
+ for i in range(500):
+  oversized["loot_rolls"].append({"item_id":"ashwood_sword","rarity_index":0,"power_bonus":i})
+ var old_history:Array=oversized["loot_rolls"].duplicate(true)
+ var bounded_drop:Dictionary=INVENTORY.loot_enemy(oversized,12,42)
+ check(not bounded_drop.is_empty(),"oversized history still awards valid enemy loot")
+ check(oversized["loot_rolls"].size()==250,"successful loot bounds oversized history to 250")
+ check(old_history.size()==500,"loot history trimming does not mutate old array aliases")
+ check(int(oversized["loot_rolls"][0]["power_bonus"])==251,"history retains newest 249 previous rolls")
+ check(oversized["loot_rolls"][-1]==bounded_drop["roll"],"latest awarded roll is recorded at history tail")
+ check(INVENTORY.normalize(oversized)["loot_rolls"].size()==250,"bounded loot history survives normalization")
  var state:Dictionary=INVENTORY.new_state()
  var drop:Dictionary=INVENTORY.loot_enemy(state,12,42)
  check(drop.has("roll") and state["loot_rolls"].size()==1,"loot roll persisted")
@@ -44,10 +142,76 @@ func _run()->void:
  INVENTORY.add_item(empowered,"ashwood_sword")
  INVENTORY.equip(empowered,"ashwood_sword",1)
  var ordinary:int=int(INVENTORY.totals(empowered)["weapon_power"])
+ # Stale or tampered equipped references must not grant free combat stats.
+ var unowned:Dictionary=INVENTORY.new_state()
+ unowned["equipped"]["weapon"]="ashwood_sword"
+ check(int(INVENTORY.totals(unowned)["weapon_power"])==0,"unowned equipped item grants no power")
+ var wrong_slot:Dictionary=INVENTORY.new_state()
+ INVENTORY.add_item(wrong_slot,"ashwood_sword")
+ wrong_slot["equipped"]["helmet"]="ashwood_sword"
+ check(int(INVENTORY.totals(wrong_slot)["weapon_power"])==0,"wrong-slot equipment grants no power")
+ var stale:Dictionary=empowered.duplicate(true)
+ stale["items"].erase("ashwood_sword")
+ check(int(INVENTORY.totals(stale)["weapon_power"])==0,"removed item grants no stale equipment power")
+ check(int(INVENTORY.totals(empowered)["weapon_power"])==ordinary,"valid equipped item retains its power")
+ # Malformed legacy save fields must not crash combat stat calculation.
+ for field in ["equipped","items"]:
+  var malformed:Dictionary=empowered.duplicate(true)
+  malformed[field]="invalid"
+  check(int(INVENTORY.totals(malformed)["weapon_power"])==0,"invalid "+field+" safely grants no stats")
+ var bad_rolls:Dictionary=empowered.duplicate(true)
+ bad_rolls["loot_rolls"]="invalid"
+ check(int(INVENTORY.totals(bad_rolls)["weapon_power"])==ordinary,"invalid loot rolls retain base stats")
+ bad_rolls["loot_rolls"]=[{"item_id":"ashwood_sword","rarity_index":4,"power_bonus":5,"affixes":"invalid"}]
+ check(int(INVENTORY.totals(bad_rolls)["weapon_power"])==ordinary+5,"invalid affixes retain bounded rarity bonus")
+ # Corrupt numeric inventory/save fields must be ignored, not coerced into power.
+ var corrupt_owned:Dictionary=empowered.duplicate(true)
+ corrupt_owned["items"]["ashwood_sword"]={"bad":true}
+ check(int(INVENTORY.totals(corrupt_owned)["weapon_power"])==0,"non-numeric owned quantity grants no combat stats")
+ var corrupt_saved:Dictionary=empowered.duplicate(true)
+ corrupt_saved["items"]["ashwood_sword"]={"bad":true}
+ corrupt_saved["materials"]={"Ashwood":["bad"]}
+ corrupt_saved["gold"]={"bad":true}
+ corrupt_saved["loot_pity"]=["bad"]
+ var clean_saved:Dictionary=INVENTORY.normalize(corrupt_saved)
+ check(not clean_saved["items"].has("ashwood_sword"),"invalid saved item quantity is dropped")
+ check(clean_saved["materials"].is_empty(),"invalid saved materials are dropped")
+ check(int(clean_saved["gold"])==0 and int(clean_saved["loot_pity"])==0,"invalid saved currency and pity reset safely")
+ # Nonfinite or oversized floating-point save values must not reach int().
+ var float_corrupt:Dictionary=empowered.duplicate(true)
+ float_corrupt["items"]["ashwood_sword"]=NAN
+ check(int(INVENTORY.totals(float_corrupt)["weapon_power"])==0,"NaN owned quantity grants no stats")
+ float_corrupt["items"]["ashwood_sword"]=INF
+ check(int(INVENTORY.totals(float_corrupt)["weapon_power"])==ordinary,"infinite owned quantity saturates safely")
+ float_corrupt["items"]["ashwood_sword"]=-INF
+ check(int(INVENTORY.totals(float_corrupt)["weapon_power"])==0,"negative infinite quantity grants no stats")
+ var float_saved:Dictionary=empowered.duplicate(true)
+ float_saved["gold"]=NAN
+ float_saved["loot_pity"]=INF
+ float_saved["materials"]={"Ashwood":INF,"Broken":NAN}
+ var normalized_float:Dictionary=INVENTORY.normalize(float_saved)
+ check(int(normalized_float["gold"])==0,"NaN gold normalizes to zero")
+ check(int(normalized_float["loot_pity"])==80,"infinite pity clamps to limit")
+ check(int(normalized_float["materials"]["Ashwood"])==999999,"infinite material stack clamps safely")
+ check(not normalized_float["materials"].has("Broken"),"NaN material quantity is discarded")
+ # A matching owned roll may contain malformed numeric values in an old save.
+ var malformed_numbers:Dictionary=empowered.duplicate(true)
+ malformed_numbers["loot_rolls"]=[{"item_id":"ashwood_sword","rarity_index":{"bad":true},"power_bonus":["bad"],"affixes":[{"stat":"Power","value":{"bad":true}},{"stat":"Crit","value":["bad"]}]}]
+ var numeric_stats:Dictionary=INVENTORY.totals(malformed_numbers)
+ check(int(numeric_stats["weapon_power"])==ordinary,"malformed numeric loot bonuses are ignored")
+ check(int(numeric_stats["crit"])==0,"malformed numeric affixes grant no crit")
+ check(INVENTORY.totals(INVENTORY.normalize(malformed_numbers))==numeric_stats,"malformed numeric loot survives safe save normalization")
  empowered["loot_rolls"].append({"item_id":"ashwood_sword","rarity_index":3,"power_bonus":6,"affixes":[{"stat":"Power","value":4},{"stat":"Crit","value":3}]})
  var stats:Dictionary=INVENTORY.totals(empowered)
  check(int(stats["weapon_power"])==ordinary+10,"rolled Power and rarity modify equipped damage")
  check(int(stats["crit"])==3,"critical affix enters character stats")
+ # A corrupt saved roll cannot multiply a stat by repeating its affix.
+ var duplicate_affix:Dictionary=empowered.duplicate(true)
+ duplicate_affix["loot_rolls"]=[{"item_id":"ashwood_sword","rarity_index":3,"power_bonus":6,"affixes":[{"stat":"Power","value":4},{"stat":"Power","value":30},{"stat":"Crit","value":3},{"stat":"Crit","value":30},"invalid"]}]
+ var deduped:Dictionary=INVENTORY.totals(duplicate_affix)
+ check(int(deduped["weapon_power"])==ordinary+10,"duplicate Power affix cannot stack")
+ check(int(deduped["crit"])==3,"duplicate Crit affix cannot stack")
+ check(INVENTORY.totals(INVENTORY.normalize(duplicate_affix))==deduped,"duplicate-affix guard survives save roundtrip")
  check(int(INVENTORY.normalize(empowered)["loot_rolls"].size())==1,"bonuses survive save normalization")
  # Within the same rarity, the strongest valid roll must win rather than the oldest.
  empowered["loot_rolls"].append({"item_id":"ashwood_sword","rarity_index":3,"power_bonus":6,"affixes":[{"stat":"Power","value":9},{"stat":"Crit","value":4}]})
@@ -61,5 +225,16 @@ func _run()->void:
  check(int(legendary["weapon_power"])==ordinary+9,"higher rarity takes precedence")
  check(int(legendary["crit"])==0,"highest rarity supplies affixes")
  check(int(INVENTORY.normalize(empowered)["loot_rolls"].size())==4,"all valid duplicate rolls survive save normalization")
+ # Unrelated loot history must not change equipped stats after roll indexing.
+ var noisy:Dictionary=empowered.duplicate(true)
+ for i in range(200):
+  noisy["loot_rolls"].append({"item_id":"missing_item_"+str(i),"rarity_index":4,"power_bonus":12,"affixes":[{"stat":"Power","value":30}]})
+ check(INVENTORY.totals(noisy)==legendary,"unrelated roll history cannot change equipped stats")
+ # Unrelated malformed roll metadata must never be parsed for combat totals.
+ noisy["loot_rolls"].append({"item_id":"missing_item_bad","rarity_index":{"corrupt":true},"power_bonus":{"corrupt":true},"affixes":[{"stat":"Power","value":{"corrupt":true}}]})
+ check(INVENTORY.totals(noisy)==legendary,"unrelated malformed rolls are ignored before stat ranking")
+ var empty_gear:Dictionary=INVENTORY.new_state()
+ empty_gear["loot_rolls"]=noisy["loot_rolls"].duplicate(true)
+ check(int(INVENTORY.totals(empty_gear)["weapon_power"])==0,"unequipped loot history never grants weapon power")
  print("GEAR RNG "+("PASS" if errors==0 else "FAIL"))
  quit(0 if errors==0 else 1)
