@@ -59,6 +59,27 @@ class InventoryCapacityPort(unittest.TestCase):
         self.assertIn("GetEquipmentUpgradeScore(Selected)", hud)
         self.assertIn("bWideInventory ? 1040.f : 680.f", hud)
 
+    def test_inventory_sort_is_explicit_and_does_not_modify_gear(self):
+        method = body(self.hero, "void AMoonfallHeroPawn::CycleInventorySort()")
+        self.assertIn("!bInventoryOpen || bCharacterStatsOpen || bOptionsOpen", method)
+        self.assertIn("InventoryItemCodes.StableSort(", method)
+        self.assertIn("SelectedOccurrence", method)
+        self.assertIn("InventorySelection = Index;", method)
+        self.assertIn("if (AValid != BValid) return AValid;", method)
+        self.assertIn("if (Mode == 2 && ASlot != BSlot) return ASlot < BSlot;", method)
+        for forbidden in ("InventoryItemCodes.RemoveAt(", "Salvage -=", "EquipInventoryItem(",
+                          "InventoryItemCodes.Empty(", "Destroy("):
+            self.assertNotIn(forbidden, method)
+
+    def test_sort_controls_and_visible_mode(self):
+        config = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
+        hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        self.assertIn('ActionName="InventorySort",Key=F8', config)
+        self.assertIn('ActionName="InventorySort",Key=Gamepad_LeftThumbstick', config)
+        self.assertIn('Input->BindAction(TEXT("InventorySort")', self.hero)
+        self.assertIn("InventorySortMode == 1", hud)
+        self.assertIn('TEXT("F8 / L3: sort gear', hud)
+
     def test_failed_pickup_keeps_world_actor(self):
         method = body(self.loot, "bool AMoonfallGroundLoot::TryCollect()")
         self.assertLess(
