@@ -178,10 +178,10 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn('BindAction(TEXT("InventoryConfirm"), IE_Pressed', self.hero_cpp)
         toggle = self.hero_cpp.split("void AMoonfallHeroPawn::ToggleInventory()", 1)[1].split(
             "void AMoonfallHeroPawn::AdjustOption", 1)[0]
-        self.assertIn("bInventoryOpen = !bInventoryOpen;", toggle)
-        self.assertIn("EquipInventoryItem(InventorySelection);", toggle)
-        self.assertIn("bInventoryOpen = false;", toggle)
-        self.assertIn("bCharacterStatsOpen = false;", toggle)
+        self.assertIn("bBagPanelOpen = !bBagPanelOpen;", toggle)
+        self.assertIn("bInventoryOpen = bBagPanelOpen || bCharacterStatsOpen;", toggle)
+        self.assertIn("bMenuFocusCharacter = !bBagPanelOpen && bCharacterStatsOpen;", toggle)
+        self.assertNotIn("EquipInventoryItem(InventorySelection);", toggle)
         self.assertIn("UpdateInventoryMouseMode();", toggle)
         self.assertIn("MenuActionFocus=MenuActionFocus<0 ? 0 : FMath::Clamp(MenuActionFocus-1", toggle)
         self.assertIn("MenuActionFocus=FMath::Clamp(MenuActionFocus+1", toggle)
@@ -193,7 +193,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             )[1].split("void AMoonfallHeroPawn::", 1)[0]
             self.assertNotIn("EquipSelectedInventoryItem(", navigation)
             self.assertNotIn("EquipInventoryItem(", navigation)
-        self.assertIn("EquipInventoryItem(InventorySelection);", toggle)
+        self.assertIn("EquipSelectedInventoryItem();", self.hero_cpp)
         self.assertIn("if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || !FMath::IsFinite(Value)) return;", self.hero_cpp)
         self.assertIn("bOptionsOpen || bInventoryOpen || !GetWorld()", self.hero_cpp)
         self.assertIn("if (Hero->bInventoryOpen)", self.hud)
@@ -366,10 +366,11 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("bInventoryOpen = false;", atlas)
         self.assertIn("bCharacterStatsOpen = false;", atlas)
         self.assertIn("if (bAtlasOpen) { bAtlasOpen = false; bTalentsOpen = false; }", inventory)
-        self.assertIn("if (bCharacterStatsOpen)", inventory)
-        self.assertIn("bCharacterStatsOpen = false;", inventory)
-        self.assertLess(inventory.index("if (bCharacterStatsOpen)"),
-                        inventory.index("bInventoryOpen = !bInventoryOpen;"))
+        self.assertIn("bBagPanelOpen = !bBagPanelOpen;", inventory)
+        self.assertIn("bInventoryOpen = bBagPanelOpen || bCharacterStatsOpen;", inventory)
+        self.assertNotIn("bCharacterStatsOpen = false;", inventory)
+        self.assertIn("bCharacterStatsOpen = !bCharacterStatsOpen;", character)
+        self.assertIn("bInventoryOpen = bBagPanelOpen || bCharacterStatsOpen;", character)
         self.assertIn("if (bAtlasOpen) { bAtlasOpen = false; bTalentsOpen = false; }", character)
         self.assertIn("UpdateInventoryMouseMode();", atlas)
         self.assertIn("UpdateInventoryMouseMode();", inventory)
@@ -416,9 +417,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         body = self.hero_cpp.split(
             "bool AMoonfallHeroPawn::SalvageInventoryItem(int32 InventoryIndex)", 1
         )[1].split("bool AMoonfallHeroPawn::UpgradeInventoryItem(", 1)[0]
-        self.assertIn("!bInventoryOpen || bCharacterStatsOpen || bOptionsOpen", body)
+        self.assertIn("!bBagPanelOpen || bOptionsOpen", body)
         self.assertIn("!FMath::IsFinite(Health) || Health <= 0.f", body)
-        self.assertLess(body.index("!bInventoryOpen"),
+        self.assertLess(body.index("!bBagPanelOpen"),
                         body.index("InventoryItemCodes.RemoveAt(InventoryIndex);"))
         self.assertIn("if (Copies <= 1) return false;", body)
 
@@ -656,7 +657,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         )[1].split("void AMoonfallHeroPawn::CastBoth()", 1)[0]
         self.assertIn("if (bOptionsOpen) return;", mouse)
         self.assertIn("if (bInventoryOpen) {", mouse)
-        self.assertIn("if (bCharacterStatsOpen) return;", mouse)
+        self.assertIn("if (!bBagPanelOpen) return;", mouse)
         self.assertIn("EquipSelectedInventoryItem();", mouse)
         self.assertIn("bRightMouseHeld = true;", mouse)
         self.assertLess(mouse.index("EquipSelectedInventoryItem();"),
@@ -761,7 +762,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("GetInsight() * 0.002f", self.hero_cpp)
         self.assertIn("GetResolve() * 0.003f", self.hero_cpp)
         self.assertIn("if (bOptionsOpen || !FMath::IsFinite(Health) || Health <= 0.f) return;", self.hero_cpp)
-        self.assertIn("if (!bInventoryOpen) bCharacterStatsOpen = false;", self.hero_cpp)
+        self.assertIn("bInventoryOpen = bBagPanelOpen || bCharacterStatsOpen;", self.hero_cpp)
         self.assertIn("ForgeInventoryItemLevels(InventorySelection, 5);", self.hero_cpp)
         self.assertIn("ReforgeInventoryItemAffix(InventorySelection);", self.hero_cpp)
         self.assertIn("if (Hero->bCharacterStatsOpen)", hud)
@@ -787,11 +788,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("ResetMouseCastChord();", toggle)
         self.assertIn("EndSprint();", toggle)
         self.assertIn("EndGuard();", toggle)
-        self.assertIn("bInventoryOpen = true;", toggle)
-        self.assertIn("bCharacterStatsOpen = true;", toggle)
-        self.assertIn("else if (bCharacterStatsOpen)", toggle)
-        self.assertIn("bCharacterStatsOpen = false;", toggle)
-        self.assertIn("bInventoryOpen = false;", toggle)
+        self.assertIn("bCharacterStatsOpen = !bCharacterStatsOpen;", toggle)
+        self.assertIn("bInventoryOpen = bBagPanelOpen || bCharacterStatsOpen;", toggle)
+        self.assertNotIn("bBagPanelOpen = false;", toggle)
         self.assertIn("UpdateInventoryMouseMode();", toggle)
         self.assertIn('TEXT("CLOSE")', self.hud)
         self.assertIn('TEXT("CHARACTER")', self.hud)
@@ -2927,7 +2926,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('void AMoonfallHeroPawn::EndGuard()', self.hero_cpp)
         self.assertIn("NextParryAt = Now + FMath::Clamp(ParryCooldownSeconds, 0.3f, 2.f);", self.hero_cpp)
         self.assertIn("Stamina < GuardStaminaCost) return;", self.hero_cpp)
-        self.assertIn("if (Health <= 0.f) {\n  // Prevent lingering movement/jump input from carrying through defeat.\n  StopJumping();\n  if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();\n  // Clear any held sprint so a later respawn cannot inherit it.\n  EndSprint();\n  EndGuard();\n  // Defeat clears every gameplay menu and releases the inventory cursor.\n  bInventoryOpen = false;\n  bCharacterStatsOpen = false;\n  bAtlasOpen = false;\n  bTalentsOpen = false;\n  bOptionsOpen = false;\n  ResetMouseCastChord();\n  UpdateInventoryMouseMode();\n }", self.hero_cpp)
+        self.assertIn("if (Health <= 0.f) {\n  // Prevent lingering movement/jump input from carrying through defeat.\n  StopJumping();\n  if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();\n  // Clear any held sprint so a later respawn cannot inherit it.\n  EndSprint();\n  EndGuard();\n  // Defeat clears every gameplay menu and releases the inventory cursor.\n  bInventoryOpen = false;\n  bBagPanelOpen = false;\n  bCharacterStatsOpen = false;\n  bAtlasOpen = false;\n  bTalentsOpen = false;\n  bOptionsOpen = false;\n  ResetMouseCastChord();\n  UpdateInventoryMouseMode();\n }", self.hero_cpp)
         self.assertIn("ParryWindowEndsAt = -1.f", self.hero_cpp)
         self.assertIn("DamageAfterGuard *= 0.4f", self.hero_cpp)
         self.assertIn("Stamina = FMath::Clamp(Stamina - RequiredGuardCost, 0.f, MaxStamina)", self.hero_cpp)
