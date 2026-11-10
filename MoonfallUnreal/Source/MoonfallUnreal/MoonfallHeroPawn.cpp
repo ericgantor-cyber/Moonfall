@@ -347,9 +347,9 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
       * (1.f + FMath::Clamp(AccessoryTier * 0.012f, 0.f, 0.25f) + (AccessoryAffix == 3 ? 0.08f : 0.f)
         + FMath::Clamp(((EquippedAccessoryCode / 1000) % 10) * 0.02f, 0.f, 0.10f)
         + (GetSetPieceCount(3) >= 3 ? 0.06f : 0.f)
-        + FMath::Clamp(GetInsight() * 0.002f, 0.f, 0.20f)
-        + FMath::Clamp(GetManaRegenPerFive()*0.003f, 0.f, 0.10f))
-      * SafeRecoveryDelta);
+        + FMath::Clamp(GetInsight() * 0.002f, 0.f, 0.20f))
+      * SafeRecoveryDelta
+      + GetManaRegenPerFive() * 0.20f * SafeRecoveryDelta * CombatManaFactor);
  // Recovery in either menu is bounded and never revives a defeated hero.
  if ((bOptionsOpen || bInventoryOpen) && Health > 0.f && FMath::IsFinite(Health)
      && FMath::IsFinite(MaxHealth) && MaxHealth > 0.f && Health < MaxHealth
@@ -358,7 +358,7 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
      && !bInCombatRecoveryWindow) {
   const float BeforeRegen = Health;
   Health = FMath::Min(MaxHealth, Health + FMath::Clamp(MenuHealthRegenPerSecond, 0.f, 20.f)
-      * SafeRecoveryDelta * (1.f + FMath::Min(0.10f,GetHealthRegenPerFive()*0.004f)));
+      * SafeRecoveryDelta + GetHealthRegenPerFive() * 0.20f * SafeRecoveryDelta);
   if (Health > BeforeRegen) OnHealthChanged(Health, MaxHealth);
  }
  // Sprint drains only while moving, and never drains while paused in Options.
