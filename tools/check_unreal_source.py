@@ -217,7 +217,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("for (int32 Drop = 0; Drop < DropCount; ++Drop)", spawn)
         self.assertIn("Spread * FMath::Cos(Angle)", spawn)
         self.assertIn("Spread * FMath::Sin(Angle)", spawn)
-        self.assertIn("SpawnActor<AMoonfallGroundLoot>", spawn)
+        self.assertIn("RegisterWorldEquipmentDrop(ItemCode, SpawnAt);", spawn)
         self.assertIn("Loot->InitializeLoot(ItemCode);", spawn)
         pickup = self.hero_cpp.split("void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[1].split(
             "void AMoonfallHeroPawn::EquipBestInventoryAction()", 1)[0]
@@ -241,8 +241,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("CreateDefaultSubobject<UStaticMeshComponent>", ground_cpp)
         self.assertIn("SetTextRenderColor(QualityColor);", ground_cpp)
         self.assertIn("if (bCollected || ItemCode <= 0) return false;", ground_cpp)
-        self.assertIn("Hero->CollectGroundEquipmentCode(ItemCode)", ground_cpp)
-        self.assertLess(ground_cpp.index("Hero->CollectGroundEquipmentCode(ItemCode)"), ground_cpp.index("Destroy();"))
+        self.assertIn("Hero->CollectPersistedGroundEquipmentCode(ItemCode, PersistentDropId)", ground_cpp)
+        self.assertLess(ground_cpp.index("Hero->CollectPersistedGroundEquipmentCode(ItemCode, PersistentDropId)"), ground_cpp.index("Destroy();"))
         self.assertIn("ItemCode = 0;", ground_h)
         self.assertNotIn("SetLifeSpan(", ground_cpp)
         self.assertNotIn("FinisherShockwave", self.hero_cpp)
