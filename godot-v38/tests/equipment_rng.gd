@@ -93,6 +93,16 @@ func _run()->void:
   loot_corrupt["loot_pity"]=17
   check(INVENTORY.loot_enemy(loot_corrupt,12,42).is_empty(),"malformed inventory rejects enemy loot")
   check(loot_corrupt["loot_rolls"].is_empty() and int(loot_corrupt["loot_pity"])==17,"malformed inventory cannot advance pity")
+  # Corrupt roll history must not award an item without recording its roll.
+  var loot_bad_history:Dictionary=INVENTORY.new_state()
+  loot_bad_history["loot_rolls"]="invalid"
+  loot_bad_history["loot_pity"]=17
+  check(INVENTORY.loot_enemy(loot_bad_history,12,42).is_empty(),"malformed roll history rejects loot atomically")
+  check(loot_bad_history["items"].is_empty() and int(loot_bad_history["loot_pity"])==17,"failed roll-history validation preserves inventory and pity")
+  var loot_bad_pity:Dictionary=INVENTORY.new_state()
+  loot_bad_pity["loot_pity"]={"invalid":true}
+  check(not INVENTORY.loot_enemy(loot_bad_pity,12,42).is_empty(),"malformed pity safely recovers on valid loot")
+  check(loot_bad_pity["loot_rolls"].size()==1 and loot_bad_pity["items"].has(loot_id),"recovered pity records both item and roll")
   var loot_open:Dictionary=INVENTORY.new_state()
   loot_open["items"][loot_id]=9998
   check(not INVENTORY.loot_enemy(loot_open,12,42).is_empty(),"available stack accepts enemy loot")
