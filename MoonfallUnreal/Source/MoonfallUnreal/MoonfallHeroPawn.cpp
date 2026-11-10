@@ -89,6 +89,98 @@ int32 AMoonfallHeroPawn::GetResolve() const
    ValidEquippedTier(EquippedArmorCode, 1), 10, 100);
 }
 
+// Character stats are pure and bounded: derived from level and valid equipped
+// slot codes; inventory contents never buff the wearer.
+int32 AMoonfallHeroPawn::GetStrength() const
+{
+ return FMath::Clamp(8 + GetMight() + ValidEquippedTier(EquippedWeaponCode,0),8,250);
+}
+int32 AMoonfallHeroPawn::GetAgility() const
+{
+ return FMath::Clamp(10 + FMath::Clamp(Level,1,100)/3 +
+   ValidEquippedTier(EquippedWeaponCode,0) + TalentFocusRank,10,200);
+}
+int32 AMoonfallHeroPawn::GetStaminaAttribute() const
+{
+ return FMath::Clamp(10 + GetResolve()/2 + ValidEquippedTier(EquippedArmorCode,1),10,180);
+}
+int32 AMoonfallHeroPawn::GetIntellect() const
+{
+ return FMath::Clamp(8 + GetInsight() + ValidEquippedTier(EquippedAccessoryCode,2),8,250);
+}
+int32 AMoonfallHeroPawn::GetSpirit() const
+{
+ return FMath::Clamp(10 + GetInsight()/2 + TalentFocusRank,10,180);
+}
+float AMoonfallHeroPawn::GetHitChance() const
+{
+ return FMath::Clamp(0.92f + GetAgility()*0.00025f +
+   ValidEquippedTier(EquippedWeaponCode,0)*0.001f,0.92f,0.99f);
+}
+float AMoonfallHeroPawn::GetDodgeChance() const
+{
+ return FMath::Clamp(0.02f + GetAgility()*0.00025f,0.f,0.12f);
+}
+float AMoonfallHeroPawn::GetParryChance() const
+{
+ return FMath::Clamp(0.02f + GetStrength()*0.00015f,0.f,0.10f);
+}
+float AMoonfallHeroPawn::GetBlockChance() const
+{
+ return FMath::Clamp(0.04f + GetResolve()*0.0003f,0.f,0.14f);
+}
+float AMoonfallHeroPawn::GetBlockValue() const
+{
+ return FMath::Clamp(GetStrength()*0.10f + GetResolve()*0.10f,0.f,60.f);
+}
+int32 AMoonfallHeroPawn::GetArmorRating() const
+{
+ return FMath::Clamp(GetAgility()*2 + GetResolve()*2 +
+   ValidEquippedTier(EquippedArmorCode,1)*18,0,1500);
+}
+int32 AMoonfallHeroPawn::GetDefenseRating() const
+{
+ return FMath::Clamp(FMath::Clamp(Level,1,100)*5 + GetResolve()/3,0,650);
+}
+float AMoonfallHeroPawn::GetMeleeAttackPower() const
+{
+ return FMath::Clamp(GetStrength()*2.f + GetAgility()*0.5f,0.f,600.f);
+}
+float AMoonfallHeroPawn::GetRangedAttackPower() const
+{
+ return FMath::Clamp(GetAgility()*1.5f + GetStrength()*0.3f,0.f,500.f);
+}
+float AMoonfallHeroPawn::GetSpellDamagePower() const
+{
+ return FMath::Clamp(GetIntellect()*1.5f +
+   ValidEquippedTier(EquippedAccessoryCode,2)*2.f,0.f,500.f);
+}
+float AMoonfallHeroPawn::GetSpellHealingPower() const
+{
+ return FMath::Clamp(GetIntellect()*1.25f + GetSpirit()*0.40f,0.f,450.f);
+}
+float AMoonfallHeroPawn::GetSpellPenetration() const
+{
+ return FMath::Clamp(GetIntellect()*0.16f +
+   ValidEquippedTier(EquippedAccessoryCode,2),0.f,60.f);
+}
+float AMoonfallHeroPawn::GetSpellPierce() const
+{
+ return FMath::Clamp(GetSpellPenetration()*0.20f,0.f,12.f);
+}
+float AMoonfallHeroPawn::GetResistance(int32 School) const
+{
+ if (School < 0 || School >= 5) return 0.f;
+ const int32 Tier = ValidEquippedTier(EquippedArmorCode,1);
+ const float Natural = GetResolve()*0.15f + Tier*1.5f;
+ const float SchoolBonus = School == 0 ? GetStrength()*0.04f
+    : School == 1 ? GetStaminaAttribute()*0.04f
+    : School == 2 ? GetSpirit()*0.04f
+    : School == 3 ? GetResolve()*0.04f
+    : GetIntellect()*0.04f;
+ return FMath::Clamp(Natural+SchoolBonus,0.f,100.f);
+}
+
 float AMoonfallHeroPawn::GetCriticalChance() const
 {
  // Force: 2-piece improves critical chances. A 3-piece grants mastery.
