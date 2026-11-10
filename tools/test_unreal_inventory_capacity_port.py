@@ -94,32 +94,15 @@ class InventoryCapacityPort(unittest.TestCase):
         self.assertLess(left.index("CycleInventorySort();"), left.index("InventorySelection = ClickedIndex"))
         self.assertNotIn("EquipInventoryItem(", left)
 
-    def test_explicit_equip_button_has_matching_hitbox_and_dispatch(self):
+    def test_inventory_has_no_equip_or_page_buttons(self):
         hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
-        header = (ROOT / "MoonfallCombatHUD.h").read_text(encoding="utf-8")
-        self.assertIn("IsInventoryEquipButtonAtScreenPosition(", header)
-        hit = body(hud, "bool AMoonfallCombatHUD::IsInventoryEquipButtonAtScreenPosition(")
-        self.assertIn("Canvas->SizeX < 1100.f || Canvas->SizeY < 549.f", hit)
-        self.assertIn("Height < 525.f", hit)
-        self.assertIn("CanEquipSelectedInventoryItem(Hero)", hit)
-        eligibility = body(hud, "bool AMoonfallCombatHUD::CanEquipSelectedInventoryItem(")
-        self.assertIn("InventoryItemCodes.IsValidIndex(Hero->InventorySelection)", eligibility)
-        self.assertIn("Code != Equipped", eligibility)
-        self.assertIn("Tier > 25", eligibility)
-        self.assertIn("Rarity > 5", eligibility)
-        self.assertIn("Hero->Health <= 0.f", eligibility)
-        self.assertIn('TEXT("ALREADY EQUIPPED")', hud)
-        self.assertIn('TEXT("CANNOT EQUIP")', hud)
-        self.assertIn("DetailLeft + 14.f && X < DetailLeft + 298.f", hit)
-        self.assertIn("Y < ButtonY + 36.f", hit)
-        self.assertIn('TEXT("EQUIP SELECTED")', hud)
         left = body(self.hero, "void AMoonfallHeroPawn::LeftClickContextAction()")
-        self.assertLess(left.index("IsInventoryEquipButtonAtScreenPosition"),
-                        left.index("GetInventoryItemAtScreenPosition"))
-        self.assertIn("EquipSelectedInventoryItem();", left)
-        self.assertNotIn("SalvageInventoryItem(", left)
+        self.assertNotIn("IsInventoryEquipButtonAtScreenPosition", hud + left)
+        self.assertNotIn('TEXT("EQUIP SELECTED")', hud)
         self.assertNotIn('TEXT("PREV PAGE")', hud)
         self.assertNotIn('TEXT("NEXT PAGE")', hud)
+        self.assertNotIn("EquipSelectedInventoryItem();", left)
+        self.assertIn("GetInventoryItemAtScreenPosition", left)
 
     def test_failed_pickup_keeps_world_actor(self):
         method = body(self.loot, "bool AMoonfallGroundLoot::TryCollect()")
