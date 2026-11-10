@@ -114,6 +114,22 @@ class UE5RewardParity(unittest.TestCase):
         self.assertNotIn("OnComponentBeginOverlap", gate_cpp)
         self.assertNotIn('ActionName="KeyRing",Key=K', (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text())
 
+    def test_opt_in_key_trial_is_placed_and_never_auto_unlocks(self):
+        arena_h = (ROOT / "MoonfallArena.h").read_text()
+        arena_cpp = (ROOT / "MoonfallArena.cpp").read_text()
+        gate_cpp = (ROOT / "MoonfallKeyGate.cpp").read_text()
+        self.assertIn("bool bEnableKeyTrial = false;", arena_h)
+        self.assertIn("if (bEnableKeyTrial)", arena_cpp)
+        self.assertIn("AMoonfallKeyPickup::StaticClass()", arena_cpp)
+        self.assertIn("AMoonfallKeyGate::StaticClass()", arena_cpp)
+        self.assertIn("KeyPickup->KeyId = TrialKey;", arena_cpp)
+        self.assertIn("Gate->RequiredKeyId = TrialKey;", arena_cpp)
+        self.assertIn("BeginDeferredActorSpawnFromClass", arena_cpp)
+        self.assertIn("FinishSpawningActor(KeyPickup, KeyTransform);", arena_cpp)
+        self.assertIn("FinishSpawningActor(Gate, GateTransform);", arena_cpp)
+        self.assertNotIn("Gate->TryUnlock(", arena_cpp)
+        self.assertNotIn("OnComponentBeginOverlap", gate_cpp)
+
     def test_equipment_remains_manual_and_hud_shows_rewards(self):
         self.assertIn("void PickupNearestGroundLoot();", self.hero_h)
         self.assertIn("Loot->TryCollect()", self.hero)
