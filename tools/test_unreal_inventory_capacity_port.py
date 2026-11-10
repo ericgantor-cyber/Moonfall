@@ -110,7 +110,7 @@ class InventoryCapacityPort(unittest.TestCase):
         self.assertIn(guard, right)
         selected = right.index("InventorySelection = ClickedIndex;")
         equipped = right.index("EquipSelectedInventoryItem();")
-        end_guard = right.index("\\n     }", equipped)
+        end_guard = right.index("\n     }", equipped)
         self.assertLess(right.index(guard), selected)
         self.assertLess(selected, equipped)
         self.assertLess(equipped, end_guard)
