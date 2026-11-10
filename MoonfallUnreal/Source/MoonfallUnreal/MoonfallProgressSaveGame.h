@@ -23,6 +23,9 @@ public:
  // Version 2: validated inventory/gear snapshot. A version-1 slot still
  // loads progression only; no upgrade code touches that legacy inventory.
  UPROPERTY(SaveGame) TArray<int32> InventoryCodes;
+ // Version 3: one stable pickup ID per bag entry, even for duplicate codes.
+ UPROPERTY(SaveGame) TArray<int32> InventoryPickupIds;
+ UPROPERTY(SaveGame) int32 NextInventoryPickupId = 1;
  // Dynamically growing, unique key IDs; not counted toward bag capacity.
  UPROPERTY(SaveGame) TArray<int32> KeyRingIds;
  UPROPERTY(SaveGame) int32 EquippedWeapon = 0;
