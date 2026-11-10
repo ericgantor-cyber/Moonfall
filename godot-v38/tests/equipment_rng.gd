@@ -77,6 +77,26 @@ func _run()->void:
  check(not INVENTORY.add_item(capped,"ashwood_sword"),"full item stack rejects phantom grant")
  check(not INVENTORY.add_material(capped,"Ashwood",1),"full material stack rejects phantom grant")
  check(int(capped["items"]["ashwood_sword"])==9999 and int(capped["materials"]["Ashwood"])==999999,"full-stack rejection preserves resources")
+ # Failed loot grants must not create phantom rarity rolls or spend pity.
+ var loot_candidate:Dictionary=CATALOG.loot_for_level(12,42)
+ check(not loot_candidate.is_empty(),"deterministic loot fixture exists")
+ if not loot_candidate.is_empty():
+  var loot_id:String=str(loot_candidate["id"])
+  var loot_full:Dictionary=INVENTORY.new_state()
+  loot_full["items"][loot_id]=9999
+  loot_full["loot_pity"]=17
+  check(INVENTORY.loot_enemy(loot_full,12,42).is_empty(),"full stack cannot award phantom loot")
+  check(int(loot_full["items"][loot_id])==9999,"failed loot preserves full item stack")
+  check(loot_full["loot_rolls"].is_empty() and int(loot_full["loot_pity"])==17,"failed loot preserves rolls and pity")
+  var loot_corrupt:Dictionary=INVENTORY.new_state()
+  loot_corrupt["items"]="invalid"
+  loot_corrupt["loot_pity"]=17
+  check(INVENTORY.loot_enemy(loot_corrupt,12,42).is_empty(),"malformed inventory rejects enemy loot")
+  check(loot_corrupt["loot_rolls"].is_empty() and int(loot_corrupt["loot_pity"])==17,"malformed inventory cannot advance pity")
+  var loot_open:Dictionary=INVENTORY.new_state()
+  loot_open["items"][loot_id]=9998
+  check(not INVENTORY.loot_enemy(loot_open,12,42).is_empty(),"available stack accepts enemy loot")
+  check(int(loot_open["items"][loot_id])==9999 and loot_open["loot_rolls"].size()==1,"successful loot grants one item and one roll")
  var state:Dictionary=INVENTORY.new_state()
  var drop:Dictionary=INVENTORY.loot_enemy(state,12,42)
  check(drop.has("roll") and state["loot_rolls"].size()==1,"loot roll persisted")
