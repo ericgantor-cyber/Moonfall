@@ -696,6 +696,7 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("Inventory"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleInventory);
  Input->BindAction(TEXT("CharacterStats"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleCharacterStats);
  Input->BindAction(TEXT("InventoryPage"), IE_Pressed, this, &AMoonfallHeroPawn::SwitchInventoryPage);
+ Input->BindAction(TEXT("InventoryPaneSwitch"), IE_Pressed, this, &AMoonfallHeroPawn::SwitchOpenInventoryPane);
  Input->BindAction(TEXT("InventorySort"), IE_Pressed, this, &AMoonfallHeroPawn::CycleInventorySort);
  Input->BindAction(TEXT("InventorySalvage"), IE_Pressed, this, &AMoonfallHeroPawn::InventorySalvage);
  Input->BindAction(TEXT("UpgradeGear"), IE_Pressed, this, &AMoonfallHeroPawn::UpgradeSelectedInventoryItem);
@@ -735,7 +736,7 @@ void AMoonfallHeroPawn::ZoomCameraIn() {
   return;
  }
  if (!FMath::IsFinite(Health) || Health <= 0.f || bOptionsOpen || bAtlasOpen) return;
- if (bInventoryOpen) {
+ if (bBagPanelOpen) {
   // WoW-style bag viewport scroll: one row per notch, no selection changes.
   // Clamp to the last *full visible viewport*, with no dead wheel ticks.
   int32 VisibleRows = 2;
@@ -754,7 +755,7 @@ void AMoonfallHeroPawn::ZoomCameraOut() {
   return;
  }
  if (!FMath::IsFinite(Health) || Health <= 0.f || bOptionsOpen || bAtlasOpen) return;
- if (bInventoryOpen) {
+ if (bBagPanelOpen) {
   // Scroll the visible bag list independently of highlighted equipment.
   // Clamp to the last *full visible viewport*, with no dead wheel ticks.
   int32 VisibleRows = 2;
@@ -1024,7 +1025,11 @@ void AMoonfallHeroPawn::LeftClickContextAction()
       if (Action >= 0) {
        bMenuFocusCharacter = true;
       MenuActionFocus=Action;
-      if (Action == 7) { ToggleInventory(); return; }
+      if (Action == 7) {
+       if (bBagPanelOpen) { bMenuFocusCharacter = false; MenuActionFocus = -1; }
+       else ToggleInventory();
+       return;
+      }
       if (Action == 8) { PreviousCharacterStatsPage(); return; }
       if (Action == 9) { NextCharacterStatsPage(); return; }
       if (Action == 10) { ToggleCharacterStats(); return; }
@@ -1051,7 +1056,11 @@ void AMoonfallHeroPawn::LeftClickContextAction()
      if (BagAction >= 0) {
       bMenuFocusCharacter = false;
       MenuActionFocus=BagAction;
-      if (BagAction == 6) { ToggleCharacterStats(); return; }
+      if (BagAction == 6) {
+       if (bCharacterStatsOpen) { bMenuFocusCharacter = true; MenuActionFocus = -1; }
+       else ToggleCharacterStats();
+       return;
+      }
       if (BagAction == 7) { ToggleInventory(); return; }
       if (!InventoryItemCodes.IsValidIndex(InventorySelection)) return;
       switch (BagAction) {
@@ -1495,6 +1504,16 @@ void AMoonfallHeroPawn::SwitchInventoryPage()
 {
  ActivateFocusedMenuAction();
 }
+void AMoonfallHeroPawn::SwitchOpenInventoryPane()
+{
+ if (!bInventoryOpen || !bBagPanelOpen || !bCharacterStatsOpen ||
+     bOptionsOpen || bAtlasOpen || !FMath::IsFinite(Health) || Health <= 0.f)
+  return;
+ // R-stick click / backslash changes the active pane, not the gear.
+ bMenuFocusCharacter = !bMenuFocusCharacter;
+ MenuActionFocus = -1;
+}
+
 void AMoonfallHeroPawn::ActivateFocusedMenuAction()
 {
  if (!FMath::IsFinite(Health) || Health <= 0.f) return;
@@ -1517,7 +1536,11 @@ void AMoonfallHeroPawn::ActivateFocusedMenuAction()
  if (MenuActionFocus < 0) return; // Avoid accidental equip or salvage on opening B/C.
  const int32 Focus=FMath::Clamp(MenuActionFocus,0,bMenuFocusCharacter ? 10 : 7);
  if (bMenuFocusCharacter && bCharacterStatsOpen) {
-  if (Focus==7) { ToggleInventory(); return; }
+  if (Focus==7) {
+   if (bBagPanelOpen) { bMenuFocusCharacter = false; MenuActionFocus = -1; }
+   else ToggleInventory();
+   return;
+  }
   if (Focus==8) { PreviousCharacterStatsPage(); return; }
   if (Focus==9) { NextCharacterStatsPage(); return; }
   if (Focus==10) { ToggleCharacterStats(); return; }
@@ -1533,7 +1556,11 @@ void AMoonfallHeroPawn::ActivateFocusedMenuAction()
    default: break;
   }
  } else if (bBagPanelOpen) {
-  if (Focus==6) { ToggleCharacterStats(); return; }
+  if (Focus==6) {
+   if (bCharacterStatsOpen) { bMenuFocusCharacter = true; MenuActionFocus = -1; }
+   else ToggleCharacterStats();
+   return;
+  }
   if (Focus==7) { ToggleInventory(); return; }
   if (!InventoryItemCodes.IsValidIndex(InventorySelection)) return;
   switch(Focus) {
