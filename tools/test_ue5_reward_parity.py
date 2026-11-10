@@ -30,13 +30,15 @@ class UE5RewardParity(unittest.TestCase):
         self.assertIn("!IsSupportedQuestKey(KeyId) || HasQuestKey(KeyId)", self.hero)
         self.assertIn("CollectedKeys.Num() < 128", self.hero)
         self.assertIn("if (ConfirmedRewardKills == 5)", self.hero)
+        self.assertIn("SpawnMilestoneKey(DefeatedLocation);", self.hero)
+        self.assertNotIn('CollectQuestKey(FName(TEXT("fallen_gate_key")))', self.hero)
         self.assertIn("SaveRewardProgress();", self.hero.split("bool AMoonfallHeroPawn::CollectQuestKey", 1)[1])
 
     def test_gold_is_from_confirmed_death_not_hud_or_damage(self):
         death = self.enemy.split("OnEnemyDefeated(bLastHitWasShatter);", 1)[1]
-        self.assertIn("Hero->AwardEnemyCurrency(bElite, bBoss);", death)
+        self.assertIn("Hero->AwardEnemyCurrency(bElite, bBoss, GetActorLocation());", death)
         self.assertIn("Hero->SpawnGroundEquipmentDrop(bElite, bBoss, GetActorLocation());", death)
-        self.assertEqual(self.enemy.count("Hero->AwardEnemyCurrency(bElite, bBoss);"), 1)
+        self.assertEqual(self.enemy.count("Hero->AwardEnemyCurrency(bElite, bBoss, GetActorLocation());"), 1)
         self.assertIn("const int64 BaseGold = 3 + ConfirmedRewardKills / 4;", self.hero)
         self.assertIn("AddGold(BaseGold);", self.hero)
 
@@ -91,6 +93,26 @@ class UE5RewardParity(unittest.TestCase):
         self.assertIn("explicit interaction", gate_h)
         self.assertNotIn("CollectedKeys.Remove", gate_cpp)
         self.assertNotIn("CollectQuestKey(", gate_cpp)
+
+    def test_ac_style_manual_world_keys_and_locked_gate_interaction(self):
+        key_h = (ROOT / "MoonfallKeyPickup.h").read_text()
+        key_cpp = (ROOT / "MoonfallKeyPickup.cpp").read_text()
+        gate_cpp = (ROOT / "MoonfallKeyGate.cpp").read_text()
+        self.assertIn("class MOONFALLUNREAL_API AMoonfallKeyPickup", key_h)
+        self.assertIn("PrimaryActorTick.bCanEverTick = false;", key_cpp)
+        self.assertIn("Hero->CollectQuestKey(KeyId)", key_cpp)
+        self.assertIn("Destroy();", key_cpp)
+        self.assertIn("if (TryInteractWithNearbyKey()) return;", self.hero)
+        self.assertIn("TActorIterator<AMoonfallKeyPickup>", self.hero)
+        self.assertIn("TActorIterator<AMoonfallKeyGate>", self.hero)
+        self.assertIn("FMath::Square(230.f)", self.hero)
+        self.assertIn("MoonfallKeyInteractSight", self.hero)
+        self.assertIn("Gate->TryUnlock(this);", self.hero)
+        self.assertIn("Key->TryCollect(this);", self.hero)
+        self.assertIn("SpawnMilestoneKey(DefeatedLocation);", self.hero)
+        self.assertIn("SpawnMilestoneKey(GetActorLocation()", self.hero)
+        self.assertNotIn("OnComponentBeginOverlap", gate_cpp)
+        self.assertNotIn('ActionName="KeyRing",Key=K', (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text())
 
     def test_equipment_remains_manual_and_hud_shows_rewards(self):
         self.assertIn("void PickupNearestGroundLoot();", self.hero_h)
