@@ -638,7 +638,10 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier, bool
   // Reject invalid damage before spending mana or consuming a hard-earned counter.
   if (!FMath::IsFinite(SpellDamage) || SpellDamage <= 0.f) return false;
   const float HealthBeforeSpell = Enemy->Health;
-  Enemy->TakeSpellDamage(SpellDamage);
+  // WoW Forever-inspired hit rating: a valid traced hostile spell can miss.
+  // Mana, cooldown and OnSpellCast still resolve at the end of the cast.
+  const bool bSpellHit = FMath::FRand() <= GetHitChance();
+  if (bSpellHit) Enemy->TakeSpellDamage(SpellDamage);
   // A valid hostile cast is combat even if enemy defenses absorb all HP damage.
   // Combo stages, posture, and counter rewards still require real damage.
   CombatRecoveryEndsAt = FMath::Max(
@@ -695,7 +698,8 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier, bool
  Mana -= Costs[School] * ManaCostMultiplier;
  LastCastTime[Hand] = Time;
  if (School == 3) {
-  Health = FMath::Min(MaxHealth, Health + 24.f * EffectMultiplier * SpellPowerMultiplier);
+  Health = FMath::Min(MaxHealth, Health + 24.f * EffectMultiplier * SpellPowerMultiplier
+      * (1.f + FMath::Min(0.10f,GetSpellHealingPower()*0.0002f)));
   OnHealthChanged(Health, MaxHealth);
  }
  OnSpellCast(School, Hand == 0);
@@ -1053,6 +1057,8 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
    if (bTalentUnbrokenBastion) DamageAfterGuard *= 0.95f;
    if (bTalentTitanSoul) DamageAfterGuard *= 0.95f;
    if (bTalentLastCitadel) DamageAfterGuard *= 0.95f;
+   // Block value offsets a small amount of remaining guarded damage.
+   DamageAfterGuard = FMath::Max(0.f,DamageAfterGuard - GetBlockValue()*0.025f);
    DamageAfterGuard *= (1.f - FMath::Min(0.12f, GetAstralTalentCount(2) * 0.003f));
   }
   OnGuardImpact(ArmoredDamage - DamageAfterGuard, bPerfectParry);
