@@ -782,6 +782,21 @@ void AMoonfallCombatHUD::DrawHUD()
     FLinearColor(0.7f,0.85f,0.88f),Left + 20.f,Top + Height - 43.f,nullptr,0.78f);
   return;
  }
+ // Expandable Key Ring: no equipment slots and no fixed ring slots.
+ const auto DrawKeyRingSummary = [&](float X,float Y,float W) {
+  DrawRect(FLinearColor(0.075f,0.062f,0.115f,0.97f),X,Y,W,38.f);
+  FString Keys;
+  const int32 Total=Hero->KeyRingIds.Num();
+  const int32 Preview=FMath::Min(5,Total);
+  for (int32 I=0;I<Preview;++I) {
+   if (!Keys.IsEmpty()) Keys+=TEXT(", ");
+   Keys+=FString::FromInt(Hero->KeyRingIds[I]);
+  }
+  if (Total>Preview) Keys+=FString::Printf(TEXT("  +%d more"),Total-Preview);
+  DrawText(FString::Printf(TEXT("KEY RING  %d  %s"),Total,Total==0?TEXT("(empty)"):*Keys),
+      FLinearColor(0.99f,0.83f,0.43f),X+9.f,Y+11.f,nullptr,
+      W<480.f ? 0.57f : 0.72f);
+ };
  if (Hero->bInventoryOpen) {
   // One continuous scrollable bag: all item codes share one list and one viewport.
   const bool bDual = MoonfallDualPanels(Canvas,Hero);
@@ -834,6 +849,7 @@ void AMoonfallCombatHUD::DrawHUD()
        Code%1000,(Code/1000)%10),FLinearColor::White,
        BagL+14.f,Y+3.f,nullptr,0.68f);
    }
+   DrawKeyRingSummary(BagL+8.f,BagT+BagH-135.f,BagW-16.f);
    DrawRect(FLinearColor(0.04f,0.035f,0.10f,0.99f),
        BagL,BagT+BagH-90.f,BagW,90.f);
    const TCHAR* BagLabels[8] = {
@@ -934,6 +950,7 @@ void AMoonfallCombatHUD::DrawHUD()
         Hero->CharacterStatsPage + 1),
       FLinearColor(0.83f,0.83f,0.98f),Left+18.f,Top+PanelHeight-29.f,
       nullptr,Canvas->SizeX<900.f ? 0.54f : 0.78f);
+   if (!Hero->bBagPanelOpen) DrawKeyRingSummary(Left+10.f,Top+PanelHeight-210.f,PanelWidth-20.f);
    // Overlay the interactive controls last, above stat text on all C pages.
    DrawRect(FLinearColor(0.04f,0.035f,0.10f,0.99f),
       Left,Top+PanelHeight-171.f,PanelWidth,171.f);
@@ -1281,6 +1298,7 @@ void AMoonfallCombatHUD::DrawHUD()
   }
   DrawText(TEXT("LT: equip best   U / RT: +1 tier   H / RB: forge 5   R / B: ascend   G / LB: reforge"),
      FLinearColor(0.78f,0.90f,0.95f), Left + 18.f, Top + PanelHeight - 70.f, nullptr, 0.74f);
+  DrawKeyRingSummary(Left+10.f,Top+PanelHeight-135.f,PanelWidth-20.f);
   // Interactive bag footer drawn last so buttons remain above status text.
   DrawRect(FLinearColor(0.04f,0.035f,0.10f,0.99f),
     Left,Top+PanelHeight-90.f,PanelWidth,90.f);
