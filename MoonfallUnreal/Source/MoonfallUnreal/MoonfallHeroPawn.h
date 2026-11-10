@@ -217,6 +217,8 @@ public:
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") int32 TalentRespecChoice = 1;
  void RespecTalentAction();
  void ResolveTalentRespecConfirmation(bool bConfirm);
+ // One-use authorization; public/Blueprint calls cannot bypass Yes/No.
+ bool bTalentRespecCommitAuthorized = false;
  void CancelTalentRespecDialog();
 
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Inventory") bool bCharacterStatsOpen = false;
