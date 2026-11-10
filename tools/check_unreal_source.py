@@ -379,7 +379,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                               "TryCast(", "Mana -="):
                 self.assertNotIn(forbidden, body)
 
-    def test_j_toggles_atlas_not_gear_selection(self):
+    def test_m_toggles_map_not_gear_selection(self):
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
         self.assertIn('ActionName="Atlas",Key=M', inputs)
         self.assertNotIn('ActionName="AdvisorSelect"', inputs)
@@ -409,7 +409,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Hero->GetActorLocation()", atlas)
         self.assertIn("FMath::IsFinite(WorldPos.X)", atlas)
         self.assertIn("Undiscovered terrain is not shown", atlas)
-        self.assertIn("J / Esc: close", atlas)
+        self.assertIn("M / Esc: close", atlas)
         self.assertNotIn("J: advisor", self.hud)
 
     def test_direct_salvage_fails_closed_when_menus_or_health_invalid(self):
