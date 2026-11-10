@@ -64,4 +64,11 @@ Moonfall's fully migrated Godot world or finished dungeon.
   actor failed to spawn; duplicates already owned are dismissed when a pickup
   is initialized or explicitly interacted with. This still requires native
   gameplay/save-restart verification.
+- Invalid or future-version reward saves are now protected against silent
+  overwrite: `LoadRewardProgress` signals failure and subsequent reward
+  save attempts fail closed. Back up the original slot before testing this
+  scenario. Do not delete or migrate a player's slot automatically.
+- Native validation should test a deliberately malformed/unsupported-version
+  copy of the reward slot, confirm the original bytes are preserved, and
+  restore the backup afterward.
 - Z and Nyra's original artwork is not edited.
