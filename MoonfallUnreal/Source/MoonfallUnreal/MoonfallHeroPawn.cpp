@@ -2081,17 +2081,33 @@ void AMoonfallHeroPawn::EnsureInventoryPickupIds()
 {
  // Existing V1/V2 inventories have no IDs. Their current order is the
  // migration baseline. Never change a valid live ledger.
- if (InventoryPickupIds.Num() == InventoryItemCodes.Num() &&
-     NextInventoryPickupId > 0) {
+ if (InventoryPickupIds.Num() == InventoryItemCodes.Num()) {
   bool bValid=true;
+  int32 HighestId=0;
   TSet<int32> Seen;
   for (int32 Id : InventoryPickupIds) {
-   if (Id <= 0 || Id >= NextInventoryPickupId || Seen.Contains(Id)) {
-    bValid=false; break;
-   }
+   if (Id <= 0 || Seen.Contains(Id)) { bValid=false; break; }
    Seen.Add(Id);
+   HighestId=FMath::Max(HighestId,Id);
   }
-  if (bValid) return;
+  if (bValid) {
+   // The counter can exhaust int32 even with a small bag after many pickups.
+   // Compact identities by their original ordering, not the current sorted
+   // row positions. This preserves duplicate items and their pickup sequence.
+   if (NextInventoryPickupId > HighestId &&
+       NextInventoryPickupId < MAX_int32-1) return;
+   TArray<int32> SortedIds=InventoryPickupIds;
+   SortedIds.Sort();
+   TMap<int32,int32> CompactIds;
+   CompactIds.Reserve(SortedIds.Num());
+   for (int32 Index=0;Index<SortedIds.Num();++Index)
+    CompactIds.Add(SortedIds[Index],Index+1);
+   for (int32& Id : InventoryPickupIds)
+    Id=CompactIds.FindChecked(Id);
+   NextInventoryPickupId=InventoryPickupIds.Num()+1;
+   bProgressDirty=true;
+   return;
+  }
  }
  InventoryPickupIds.Reset(InventoryItemCodes.Num());
  for (int32 Index=0;Index<InventoryItemCodes.Num();++Index)
