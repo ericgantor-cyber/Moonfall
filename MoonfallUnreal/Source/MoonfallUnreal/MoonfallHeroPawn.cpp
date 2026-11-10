@@ -719,7 +719,7 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("AscendGear"), IE_Pressed, this, &AMoonfallHeroPawn::AscendSelectedInventoryItem);
  Input->BindAction(TEXT("ReforgeGear"), IE_Pressed, this, &AMoonfallHeroPawn::ReforgeSelectedInventoryItem);
  Input->BindAction(TEXT("EquipBest"), IE_Pressed, this, &AMoonfallHeroPawn::EquipBestInventoryAction);
- Input->BindAction(TEXT("PickupLoot"), IE_Pressed, this, &AMoonfallHeroPawn::PickupNearestGroundLoot);
+ Input->BindAction(TEXT("PickupLoot"), IE_Pressed, this, &AMoonfallHeroPawn::InteractWithNearbyWorld);
  Input->BindAction(TEXT("OptionsUp"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsUp);
  Input->BindAction(TEXT("OptionsDown"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsDown);
  Input->BindAction(TEXT("OptionsLeft"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsLeft);
@@ -2235,6 +2235,13 @@ bool AMoonfallHeroPawn::TryInteractWithNearbyKey()
   return true;
  }
  return false;
+}
+
+void AMoonfallHeroPawn::InteractWithNearbyWorld()
+{
+ // Manual world interaction is retained for keys and keyed doors.
+ // Equipment no longer depends on pressing the pickup button.
+ TryInteractWithNearbyKey();
 }
 
 void AMoonfallHeroPawn::PickupNearestGroundLoot()
