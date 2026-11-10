@@ -375,6 +375,9 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("TalentArcaneAegis"), IE_Pressed, this, &AMoonfallHeroPawn::UnlockArcaneAegis);
  Input->BindAction(TEXT("TalentIronWill"), IE_Pressed, this, &AMoonfallHeroPawn::UnlockIronWill);
  Input->BindAction(TEXT("TalentRespec"), IE_Pressed, this, &AMoonfallHeroPawn::RespecTalentAction);
+ Input->BindAction(TEXT("TalentNext"), IE_Pressed, this, &AMoonfallHeroPawn::SelectNextTalentNode);
+ Input->BindAction(TEXT("TalentPrevious"), IE_Pressed, this, &AMoonfallHeroPawn::SelectPreviousTalentNode);
+ Input->BindAction(TEXT("TalentActivate"), IE_Pressed, this, &AMoonfallHeroPawn::ActivateSelectedTalentNode);
  Input->BindAction(TEXT("PickupLoot"), IE_Pressed, this, &AMoonfallHeroPawn::PickupNearestGroundLoot);
  Input->BindAction(TEXT("OptionsUp"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsUp);
  Input->BindAction(TEXT("OptionsDown"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsDown);
@@ -382,6 +385,10 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("OptionsRight"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsRight);
 }
 void AMoonfallHeroPawn::ZoomCameraIn() {
+ if (bTalentsOpen && bAtlasOpen && !bOptionsOpen && Health > 0.f) {
+  TalentZoom = FMath::Clamp((FMath::IsFinite(TalentZoom) ? TalentZoom : 1.f) + 0.1f,0.75f,1.35f);
+  return;
+ }
  if (!FMath::IsFinite(Health) || Health <= 0.f || bOptionsOpen || bAtlasOpen) return;
  if (bInventoryOpen) {
   // WoW-style bag viewport scroll: one row per notch, no selection changes.
@@ -397,6 +404,10 @@ void AMoonfallHeroPawn::ZoomCameraIn() {
  CameraDistance = FMath::Clamp((FMath::IsFinite(CameraDistance) ? CameraDistance : 450.f) - 65.f, 250.f, 850.f);
 }
 void AMoonfallHeroPawn::ZoomCameraOut() {
+ if (bTalentsOpen && bAtlasOpen && !bOptionsOpen && Health > 0.f) {
+  TalentZoom = FMath::Clamp((FMath::IsFinite(TalentZoom) ? TalentZoom : 1.f) - 0.1f,0.75f,1.35f);
+  return;
+ }
  if (!FMath::IsFinite(Health) || Health <= 0.f || bOptionsOpen || bAtlasOpen) return;
  if (bInventoryOpen) {
   // Scroll the visible bag list independently of highlighted equipment.
@@ -573,6 +584,21 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier, bool
 void AMoonfallHeroPawn::CastLeft() { if (bOptionsOpen || bInventoryOpen) return; TryCast(LeftSpell, 0, 1.f); }
 void AMoonfallHeroPawn::LeftClickContextAction()
 {
+ if (bAtlasOpen && bTalentsOpen) {
+  if (APlayerController* PC = Cast<APlayerController>(GetController())) {
+   if (AMoonfallCombatHUD* HUD = Cast<AMoonfallCombatHUD>(PC->GetHUD())) {
+    float X = 0.f, Y = 0.f;
+    if (PC->GetMousePosition(X,Y)) {
+     const int32 Node = HUD->GetTalentNodeAtScreenPosition(this,X,Y);
+     if (Node >= 0) {
+      TalentSelectedNode = Node;
+      ActivateTalentNode(Node);
+     }
+    }
+   }
+  }
+  return;
+ }
  if (bAtlasOpen) return;
  // Mouse left selects a visible bag row, but never equips or salvages it.
  // Outside menus the same button performs the usual left-hand spell.
@@ -981,7 +1007,7 @@ void AMoonfallHeroPawn::ToggleCharacterStats()
  // C opens character info from gameplay; controller A still switches
  // between the character sheet and inventory without equipping anything.
  if (bOptionsOpen || !FMath::IsFinite(Health) || Health <= 0.f) return;
- if (bAtlasOpen) { bAtlasOpen = false; bTalentsOpen = false; }
+ if (bAtlasOpen) { bAtlasOpen = false; bTalentsOpen = false; UpdateInventoryMouseMode(); }
  if (!bInventoryOpen) {
   ResetMouseCastChord();
   StopJumping();
@@ -1005,7 +1031,7 @@ void AMoonfallHeroPawn::UpdateInventoryMouseMode()
 {
  if (APlayerController* Controller = Cast<APlayerController>(GetController())) {
   if (!Controller->IsLocalController()) return;
-  if (bInventoryOpen && FMath::IsFinite(Health) && Health > 0.f) {
+  if ((bInventoryOpen || (bAtlasOpen && bTalentsOpen)) && FMath::IsFinite(Health) && Health > 0.f) {
    // GameAndUI preserves the bound right-click action without hiding the cursor.
    FInputModeGameAndUI InputMode;
    InputMode.SetHideCursorDuringCapture(false);
@@ -1038,6 +1064,7 @@ void AMoonfallHeroPawn::ToggleAtlas()
  }
  bAtlasOpen = !bWasMapOpen;
  bTalentsOpen = false;
+ UpdateInventoryMouseMode();
 }
 
 int32 AMoonfallHeroPawn::GetUnspentTalentPoints() const
@@ -1067,6 +1094,31 @@ bool AMoonfallHeroPawn::SpendTalentPoint(int32 Branch)
 void AMoonfallHeroPawn::SpendForceTalent() { SpendTalentPoint(0); }
 void AMoonfallHeroPawn::SpendFocusTalent() { SpendTalentPoint(1); }
 void AMoonfallHeroPawn::SpendWardTalent() { SpendTalentPoint(2); }
+
+bool AMoonfallHeroPawn::ActivateTalentNode(int32 Node)
+{
+ if (Node < 0 || Node >= 9 || !bAtlasOpen || !bTalentsOpen ||
+     bOptionsOpen || bInventoryOpen || Health <= 0.f) return false;
+ TalentSelectedNode = Node;
+ return Node < 3 ? SpendTalentPoint(Node) : UnlockTalentNode(Node);
+}
+
+void AMoonfallHeroPawn::ActivateSelectedTalentNode()
+{
+ ActivateTalentNode(FMath::Clamp(TalentSelectedNode,0,8));
+}
+
+void AMoonfallHeroPawn::SelectNextTalentNode()
+{
+ if (bAtlasOpen && bTalentsOpen && !bOptionsOpen && Health > 0.f)
+  TalentSelectedNode = (FMath::Clamp(TalentSelectedNode,0,8) + 1) % 9;
+}
+
+void AMoonfallHeroPawn::SelectPreviousTalentNode()
+{
+ if (bAtlasOpen && bTalentsOpen && !bOptionsOpen && Health > 0.f)
+  TalentSelectedNode = (FMath::Clamp(TalentSelectedNode,0,8) + 8) % 9;
+}
 
 bool AMoonfallHeroPawn::CanUnlockTalentNode(int32 Node) const
 {
@@ -1132,6 +1184,7 @@ void AMoonfallHeroPawn::ToggleTalents()
  if (bAtlasOpen && bTalentsOpen) {
   bTalentsOpen = false;
   bAtlasOpen = false;
+  UpdateInventoryMouseMode();
   return;
  }
  if (!bAtlasOpen) {
@@ -1147,12 +1200,13 @@ void AMoonfallHeroPawn::ToggleTalents()
  }
  bAtlasOpen = true;
  bTalentsOpen = true;
+ UpdateInventoryMouseMode();
 }
 
 void AMoonfallHeroPawn::ToggleInventory() {
  if (bOptionsOpen || !FMath::IsFinite(Health) || Health <= 0.f) return;
  ResetMouseCastChord();
- if (bAtlasOpen) { bAtlasOpen = false; bTalentsOpen = false; }
+ if (bAtlasOpen) { bAtlasOpen = false; bTalentsOpen = false; UpdateInventoryMouseMode(); }
  if (bCharacterStatsOpen) {
   // B returns from character info directly to the editable inventory.
   bCharacterStatsOpen = false;
@@ -1422,6 +1476,7 @@ void AMoonfallHeroPawn::OpenOptions() {
  if (bAtlasOpen) {
   bAtlasOpen = false;
   bTalentsOpen = false;
+  UpdateInventoryMouseMode();
   return;
  }
  if (bInventoryOpen) {
