@@ -1469,6 +1469,7 @@ void AMoonfallHeroPawn::ActivateFocusedMenuAction()
 {
  if (!FMath::IsFinite(Health) || Health <= 0.f) return;
  if (bOptionsOpen) {
+  if (MenuActionFocus < 0) return; // A cannot select an unhighlighted setting.
   const int32 Focus=FMath::Clamp(MenuActionFocus,0,14);
   if (Focus==14) { OpenOptions(); return; }
   OptionsSelection=Focus%7;
@@ -1481,6 +1482,7 @@ void AMoonfallHeroPawn::ActivateFocusedMenuAction()
   return;
  }
  if (!bInventoryOpen) return;
+ if (MenuActionFocus < 0) return; // Avoid accidental equip or salvage on opening B/C.
  const int32 Focus=FMath::Clamp(MenuActionFocus,0,bCharacterStatsOpen ? 10 : 7);
  if (bCharacterStatsOpen) {
   if (Focus==7) { ToggleInventory(); return; }
@@ -1545,17 +1547,17 @@ void AMoonfallHeroPawn::ToggleCharacterStats()
   EndGuard();
   bInventoryOpen = true;
   bCharacterStatsOpen = true;
-  MenuActionFocus = 0;
+  MenuActionFocus = -1;
   UpdateInventoryMouseMode();
  } else if (bCharacterStatsOpen) {
   // C closes character info without leaving the inventory behind.
   bCharacterStatsOpen = false;
   bInventoryOpen = false;
-  MenuActionFocus = 0;
+  MenuActionFocus = -1;
   UpdateInventoryMouseMode();
  } else {
   bCharacterStatsOpen = true;
-  MenuActionFocus = 0;
+  MenuActionFocus = -1;
  }
 }
 
@@ -1597,7 +1599,7 @@ void AMoonfallHeroPawn::ToggleAtlas()
  }
  bAtlasOpen = !bWasMapOpen;
  bTalentsOpen = false;
- MenuActionFocus = 0;
+ MenuActionFocus = -1;
  UpdateInventoryMouseMode();
 }
 
@@ -1907,7 +1909,7 @@ void AMoonfallHeroPawn::ToggleTalents()
  }
  bAtlasOpen = true;
  bTalentsOpen = true;
- MenuActionFocus = 0;
+ MenuActionFocus = -1;
  UpdateInventoryMouseMode();
 }
 
@@ -1920,7 +1922,7 @@ void AMoonfallHeroPawn::ToggleInventory() {
  if (bCharacterStatsOpen) {
   // B returns from character info directly to the editable inventory.
   bCharacterStatsOpen = false;
-  MenuActionFocus = 0;
+  MenuActionFocus = -1;
   return;
  }
  if (!bInventoryOpen) {
@@ -1932,7 +1934,7 @@ void AMoonfallHeroPawn::ToggleInventory() {
   InventoryViewStart = InventorySelection;
  }
  bInventoryOpen = !bInventoryOpen;
- MenuActionFocus = 0;
+ MenuActionFocus = -1;
  if (!bInventoryOpen) bCharacterStatsOpen = false;
  UpdateInventoryMouseMode();
 }
@@ -2212,12 +2214,12 @@ void AMoonfallHeroPawn::OpenOptions() {
   EndGuard();
  }
  bOptionsOpen = !bOptionsOpen;
- MenuActionFocus = 0;
+ MenuActionFocus = -1;
  UpdateInventoryMouseMode();
 }
 void AMoonfallHeroPawn::OptionsUp() {
- if (bOptionsOpen) { MenuActionFocus=FMath::Clamp(MenuActionFocus-1,0,14); OptionsSelection=MenuActionFocus%7; return; }
- if (bInventoryOpen) { MenuActionFocus=FMath::Clamp(MenuActionFocus-1,0,bCharacterStatsOpen?10:7); return; }
+ if (bOptionsOpen) { MenuActionFocus=MenuActionFocus<0 ? 0 : FMath::Clamp(MenuActionFocus-1,0,14); OptionsSelection=MenuActionFocus%7; return; }
+ if (bInventoryOpen) { MenuActionFocus=MenuActionFocus<0 ? 0 : FMath::Clamp(MenuActionFocus-1,0,bCharacterStatsOpen?10:7); return; }
 }
 void AMoonfallHeroPawn::OptionsDown() {
  if (bOptionsOpen) { MenuActionFocus=FMath::Clamp(MenuActionFocus+1,0,14); OptionsSelection=MenuActionFocus%7; return; }
