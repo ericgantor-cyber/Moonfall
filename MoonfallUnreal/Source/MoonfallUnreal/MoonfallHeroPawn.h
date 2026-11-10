@@ -272,6 +272,8 @@ private:
  // Weak reference does not keep a collected/destroyed key alive.
  TWeakObjectPtr<AMoonfallKeyPickup> PendingMilestoneKey;
  void SpawnMilestoneKey(const FVector& Location);
+ // During crafting, equipped updates participate in the outer save transaction.
+ bool bDeferEquippedSave = false;
  void InventoryConfirm();
  void InventorySalvage();
  void OpenOptions();
