@@ -20,6 +20,11 @@ public:
  UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Moonfall|Quest Gate")
  FName RequiredKeyId = FName(TEXT("fallen_gate_key"));
 
+ // Give every authored gate a unique ID to preserve an opened door between
+ // sessions. NAME_None remains a compatible, non-persistent gate.
+ UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Moonfall|Quest Gate")
+ FName GateId = NAME_None;
+
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Quest Gate")
  bool bUnlocked = false;
 
