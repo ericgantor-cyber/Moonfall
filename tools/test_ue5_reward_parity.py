@@ -113,6 +113,13 @@ class UE5RewardParity(unittest.TestCase):
         self.assertIn("MoonfallKeyInteractSight", self.hero)
         self.assertIn("Gate->TryUnlock(this);", self.hero)
         self.assertIn("Key->TryCollect(this);", self.hero)
+        interaction = self.hero.split("bool AMoonfallHeroPawn::TryInteractWithNearbyKey()", 1)[1].split(
+            "void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[0]
+        pickup_branch = interaction.split("if (AMoonfallKeyPickup* Key = Cast<AMoonfallKeyPickup>(Nearest))", 1)[1].split(
+            "if (AMoonfallKeyGate* Gate", 1)[0]
+        self.assertIn("Key->TryCollect(this);", pickup_branch)
+        self.assertIn("return true;", pickup_branch)
+        self.assertNotIn("return Key->TryCollect(this);", pickup_branch)
         self.assertIn("SpawnMilestoneKey(DefeatedLocation);", self.hero)
         self.assertIn("SpawnMilestoneKey(GetActorLocation()", self.hero)
         self.assertNotIn("OnComponentBeginOverlap", gate_cpp)
