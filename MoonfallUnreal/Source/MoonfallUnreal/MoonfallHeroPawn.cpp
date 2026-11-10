@@ -1786,7 +1786,9 @@ int32 AMoonfallHeroPawn::RollEquipmentCode(bool bEliteEnemy, bool bBossEnemy)
  // Roll randomized item stats once at death; pickup is handled separately.
  // Keep boss/elite rewards meaningful: guaranteed epic for bosses, at least rare
  // for elites. Regular enemies use weighted chances with a modest level bias.
- const int32 NewTier = FMath::Clamp(Level / 5 + (bBossEnemy ? 2 : (bEliteEnemy ? 1 : 0)), 1, 25);
+ const int32 BaseTier = Level / 5 + (bBossEnemy ? 2 : (bEliteEnemy ? 1 : 0));
+ // Small per-item variation adds RNG without causing wild power spikes.
+ const int32 NewTier = FMath::Clamp(BaseTier + FMath::RandRange(-1, 1), 1, 25);
  const int32 LootRoll = FMath::RandRange(0, 99);
  const int32 RarityBias = FMath::Clamp(Level / 5, 0, 12);
  // Existing rarity codes 0-3 are stable for compatibility.
@@ -1945,7 +1947,7 @@ bool AMoonfallHeroPawn::RegisterWorldEquipmentDrops(
  // One save for one enemy's drops, including all boss/elite items. Never
  // partially commit an encounter, and never spawn before persistence succeeds.
  if (!GetWorld() || bRewardSaveLoadFailed || NewDrops.IsEmpty()
-     || NewDrops.Num() > 3 || PendingWorldLoot.Num() + NewDrops.Num() > 512)
+     || NewDrops.Num() > 4 || PendingWorldLoot.Num() + NewDrops.Num() > 512)
   return false;
  TSet<FGuid> BatchIds;
  for (const FMoonfallWorldLootRecord& Record : NewDrops)
@@ -2022,7 +2024,11 @@ void AMoonfallHeroPawn::RestorePendingWorldEquipmentDrops()
 void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(bool bEliteEnemy, bool bBossEnemy, FVector DefeatedLocation)
 {
  if (!GetWorld() || Health <= 0.f) return;
- const int32 DropCount = bBossEnemy ? 3 : (bEliteEnemy ? 2 : 1);
+ // Guarantee the base drops, then roll one extra. Keep the encounter
+ // bounded to four so all items still commit in one save transaction.
+ const int32 BaseDropCount = bBossEnemy ? 3 : (bEliteEnemy ? 2 : 1);
+ const int32 BonusDropChance = bBossEnemy ? 50 : (bEliteEnemy ? 35 : 20);
+ const int32 DropCount = BaseDropCount + (FMath::RandRange(0, 99) < BonusDropChance ? 1 : 0);
  const FVector Origin = DefeatedLocation.ContainsNaN() ? GetActorLocation() : DefeatedLocation;
  TArray<FMoonfallWorldLootRecord> Drops;
  Drops.Reserve(DropCount);
