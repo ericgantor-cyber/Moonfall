@@ -149,7 +149,7 @@ class InventoryCapacityPort(unittest.TestCase):
         self.assertIn('ActionName="TalentRespec",Key=BackSpace', inputs)
         self.assertIn('ActionName="TalentRespec",Key=Gamepad_FaceButton_Top', inputs)
         action = body(self.hero, "void AMoonfallHeroPawn::RespecTalentAction()")
-        self.assertIn("if (!bTalentRespecArmed)", action)
+        self.assertIn("if (!bTalentRespecArmed || !FMath::IsFinite(TalentRespecConfirmUntil)", action)
         self.assertIn("bTalentRespecArmed = true;", action)
         self.assertIn("TalentRespecConfirmUntil = Now + 5.f;", action)
         self.assertIn("Now > TalentRespecConfirmUntil", action)
