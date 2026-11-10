@@ -943,7 +943,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("ArmorRarity * 0.005f", hud)
         self.assertIn("AccessoryRarity * 0.02f", hud)
         self.assertIn("Equipped: +%.1f%% spell damage", hud)
-        self.assertIn("FMath::FloorToInt((PanelHeight - 355.f) / 25.f), 2, 22", hud)
+        self.assertIn("FMath::FloorToInt((PanelHeight - 355.f) / 25.f), 2, 20", hud)
         self.assertIn("Top + 145.f + (Index - PageStart) * RowSpacing", hud)
         self.assertIn("Top + 75.f", hud)
         self.assertIn("Hero->ArmorAffix == 2 ? 0.06f : 0.f", hud)
