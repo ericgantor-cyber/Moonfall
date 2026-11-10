@@ -476,6 +476,31 @@ class UE5RewardParity(unittest.TestCase):
         self.assertIn("if (!SaveRewardProgress())", pickup)
         self.assertIn("InventoryItemCodes.Pop();", pickup)
 
+    def test_pickup_auto_equips_only_an_empty_matching_slot(self):
+        collect = self.hero.split("bool AMoonfallHeroPawn::CollectGroundEquipmentCode(", 1)[1].split(
+            "void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(", 1)[0]
+        self.assertIn("const bool bAutoEquipEmptySlot = *EquippedCode == 0;", collect)
+        self.assertIn("if (bAutoEquipEmptySlot)", collect)
+        self.assertIn("*EquippedCode = ItemCode;", collect)
+        self.assertIn("*EquippedTier = Tier;", collect)
+        self.assertIn("*EquippedAffix = Affix;", collect)
+        self.assertIn("if (SlotIndex == 1)", collect)
+        self.assertIn("const float HealthBonus = 2.f * Tier;", collect)
+        self.assertIn("InventoryItemCodes.Add(ItemCode);", collect)
+        self.assertIn("if (!SaveRewardProgress())", collect)
+        self.assertIn("InventoryItemCodes.Pop();", collect)
+        self.assertIn("*EquippedCode = 0;", collect)
+        self.assertIn("EquipmentTier = PreviousEquipmentTier;", collect)
+        self.assertIn("MaxHealth = PreviousMaxHealth;", collect)
+        self.assertIn("Health = PreviousHealth;", collect)
+        self.assertLess(collect.index("InventoryItemCodes.Add(ItemCode);"),
+                        collect.index("if (!SaveRewardProgress())"))
+        self.assertLess(collect.index("if (!SaveRewardProgress())"),
+                        collect.index("OnHealthChanged(Health, MaxHealth);"))
+        self.assertEqual(collect.count("SaveRewardProgress()"), 1)
+        self.assertNotIn("EquipInventoryItem(", collect)
+        self.assertNotIn("SalvageInventoryItem(", collect)
+
     def test_equipment_remains_manual_and_hud_shows_rewards(self):
         self.assertIn("void PickupNearestGroundLoot();", self.hero_h)
         self.assertIn("Loot->TryCollect()", self.hero)
