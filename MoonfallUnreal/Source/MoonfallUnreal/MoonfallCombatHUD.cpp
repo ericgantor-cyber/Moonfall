@@ -827,8 +827,8 @@ void AMoonfallCombatHUD::DrawHUD()
    const float ButtonX = Left + ListWidth - 166.f;
    const float ButtonY = ListWidth >= 500.f ? Top + 12.f : Top + PanelHeight - 109.f;
    DrawRect(FLinearColor(0.13f,0.34f,0.43f,0.97f),ButtonX,ButtonY,148.f,33.f);
-   const TCHAR* NextSort = Hero->InventorySortMode == 1 ? TEXT("SLOT")
-     : TEXT("QUALITY");
+   const TCHAR* NextSort = Hero->InventorySortMode == 0 ? TEXT("QUALITY")
+     : (Hero->InventorySortMode == 1 ? TEXT("SLOT") : TEXT("PICKUP"));
    DrawText(FString::Printf(TEXT("SORT: %s"),NextSort),
      FLinearColor::White,ButtonX + 10.f,ButtonY + 7.f,nullptr,0.88f);
   }
@@ -843,7 +843,8 @@ void AMoonfallCombatHUD::DrawHUD()
        BagL+12.f,BagT+18.f,nullptr,0.94f);
    DrawRect(FLinearColor(0.13f,0.34f,0.43f,0.97f),
        BagL+BagW-158.f,BagT+12.f,148.f,33.f);
-   DrawText(Hero->InventorySortMode==1 ? TEXT("SORT: SLOT") : TEXT("SORT: QUALITY"),
+   DrawText(Hero->InventorySortMode==0 ? TEXT("SORT: QUALITY") :
+       (Hero->InventorySortMode==1 ? TEXT("SORT: SLOT") : TEXT("SORT: PICKUP")),
        FLinearColor::White,BagL+BagW-149.f,BagT+20.f,nullptr,0.73f);
    const int32 BagCount=Hero->InventoryItemCodes.Num();
    const int32 Per=FMath::Clamp(FMath::FloorToInt((BagH-230.f)/25.f),2,20);
