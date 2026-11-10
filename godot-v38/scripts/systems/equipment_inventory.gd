@@ -58,9 +58,11 @@ static func craft(state:Dictionary,item_id:String,hero_level:int)->bool:
  var cost:int=2+int(item["tier"])*3
  var materials:Dictionary=state.get("materials",{})
  if int(materials.get(material,0))<cost:return false
+ # Add crafted gear first; never charge ingredients for a rejected stack.
+ if not add_item(state,item_id):return false
  materials[material]=int(materials[material])-cost
  state["materials"]=materials
- return add_item(state,item_id)
+ return true
 
 static func loot_enemy(state:Dictionary,hero_level:int,seed:int)->Dictionary:
  var item:Dictionary=CATALOG.loot_for_level(hero_level,seed)
