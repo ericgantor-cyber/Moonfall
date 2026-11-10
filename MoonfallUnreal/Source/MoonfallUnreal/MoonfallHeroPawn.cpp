@@ -367,8 +367,17 @@ void AMoonfallHeroPawn::AwardEnemyCurrency(bool bEliteEnemy, bool bBossEnemy, FV
 
 void AMoonfallHeroPawn::BeginPlay() {
  Super::BeginPlay();
- LoadRewardProgress();
- if (ConfirmedRewardKills >= 5 && !HasQuestKey(FName(TEXT("fallen_gate_key"))))
+ if (!LoadRewardProgress())
+ {
+  // An unreadable or newer-version save is protected against overwrite.
+  // Tell the player immediately rather than silently disabling rewards.
+  KeyInteractionNotice = TEXT("REWARD SAVE ERROR - ORIGINAL FILE PROTECTED");
+  KeyInteractionNoticeUntil = GetWorld()
+    ? GetWorld()->GetTimeSeconds() + 12.f : 12.f;
+  bKeyInteractionNoticeError = true;
+ }
+ if (!bRewardSaveLoadFailed && ConfirmedRewardKills >= 5
+     && !HasQuestKey(FName(TEXT("fallen_gate_key"))))
   SpawnMilestoneKey(GetActorLocation() + GetActorForwardVector() * 125.f);
  // Blueprint defaults are applied after the native constructor. Capture the
  // actual authored walk speed before sprint/guard begin changing MaxWalkSpeed.
