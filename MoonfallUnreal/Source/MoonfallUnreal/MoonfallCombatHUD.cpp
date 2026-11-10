@@ -29,7 +29,7 @@ int32 AMoonfallCombatHUD::GetInventoryItemAtScreenPosition(
  const float Top = (Canvas->SizeY - PanelHeight) * 0.5f;
  const int32 PerPage = FMath::Clamp(FMath::FloorToInt((PanelHeight - 290.f) / 25.f), 2, 8);
  const int32 Selected = FMath::Clamp(Hero->InventorySelection, 0, Count - 1);
- const int32 PageStart = Selected / PerPage * PerPage;
+ const int32 PageStart = FMath::Clamp(Hero->InventoryViewStart, 0, FMath::Max(0, Count - PerPage));
  const int32 PageEnd = FMath::Min(Count, PageStart + PerPage);
  const float RowSpacing = FMath::Max(21.f, (PanelHeight - 290.f) / PerPage);
  if (X < Left + 12.f || X > Left + ListWidth - 12.f) return -1;
@@ -194,7 +194,7 @@ void AMoonfallCombatHUD::DrawHUD()
   // Reserve height for a real equipment-stat line and three controls rows.
   const int32 PerPage = FMath::Clamp(FMath::FloorToInt((PanelHeight - 290.f) / 25.f), 2, 8);
   const int32 Selected = FMath::Clamp(Hero->InventorySelection, 0, FMath::Max(0, Count - 1));
-  const int32 PageStart = Selected / PerPage * PerPage;
+  const int32 PageStart = FMath::Clamp(Hero->InventoryViewStart, 0, FMath::Max(0, Count - PerPage));
   const int32 PageEnd = FMath::Min(Count, PageStart + PerPage);
   // Local advisor reads inventory and current set bonuses, never mutates gear.
   // Show the inventory index even when its recommendation is on another page.
@@ -210,9 +210,9 @@ void AMoonfallCombatHUD::DrawHUD()
   const bool bBagFull = Count >= AMoonfallHeroPawn::MaxInventoryItems;
   const TCHAR* SortName = Hero->InventorySortMode == 1 ? TEXT("Quality")
     : (Hero->InventorySortMode == 2 ? TEXT("Slot") : TEXT("Pickup"));
-  DrawText(FString::Printf(TEXT("%d / %d items  |  %d salvage  |  page %d / %d  |  %s"),
+  DrawText(FString::Printf(TEXT("%d / %d items  |  %d salvage  |  showing %d-%d  |  %s"),
     Count, AMoonfallHeroPawn::MaxInventoryItems, Hero->Salvage,
-    PageStart / PerPage + 1, FMath::Max(1, (Count + PerPage - 1) / PerPage), SortName),
+    Count > 0 ? PageStart + 1 : 0, PageEnd, SortName),
     bBagFull ? FLinearColor(1.f,0.45f,0.35f) : FLinearColor(0.75f,0.72f,0.91f),
     Left + 18.f, Top + 49.f, nullptr, 0.9f);
   if (bBagFull && !bWideInventory)
@@ -372,7 +372,7 @@ void AMoonfallCombatHUD::DrawHUD()
   DrawText(FString::Printf(TEXT("Sets: Force %d/3  Ward %d/3  Focus %d/3    2pc + 3pc unlock bonuses"),
     ForcePieces, WardPieces, FocusPieces), FLinearColor(0.59f,0.95f,0.77f),
     Left + 18.f, Top + 113.f, nullptr, Canvas->SizeX < 900.f ? 0.61f : 0.72f);
-  DrawText(TEXT("F8 / L3: sort gear  |  Wheel: browse 3  |  Left-click: select  |  Right-click row: equip"),
+  DrawText(TEXT("F8 / L3: sort gear  |  Wheel: scroll bag  |  Left-click: select  |  Right-click row: equip"),
      FLinearColor(0.8f,0.93f,0.98f), Left + 18.f, Top + PanelHeight - 73.f, nullptr, 0.72f);
   DrawText(TEXT("Left-click: select  Up/Down: browse  Left/Right: skip 5  Right-click row: equip  Delete / X: salvage"),
      FLinearColor::White, Left + 18.f, Top + PanelHeight - 51.f, nullptr, 0.75f);
