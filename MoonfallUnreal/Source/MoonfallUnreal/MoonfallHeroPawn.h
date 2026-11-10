@@ -209,6 +209,10 @@ public:
  void RespecTalentAction();
 
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Inventory") bool bCharacterStatsOpen = false;
+ // C-page tabs: overview, offensive/primary, defenses and resistances.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Stats") int32 CharacterStatsPage = 0;
+ void NextCharacterStatsPage();
+ void PreviousCharacterStatsPage();
  UFUNCTION(BlueprintCallable, Category="Moonfall|Inventory") void ToggleCharacterStats();
  // Controller A switches existing inventory pages, never closes the menu.
  void SwitchInventoryPage();
