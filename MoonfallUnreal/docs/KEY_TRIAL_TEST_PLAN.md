@@ -74,6 +74,11 @@ Moonfall's fully migrated Godot world or finished dungeon.
   overwrite: `LoadRewardProgress` signals failure and subsequent reward
   save attempts fail closed. Back up the original slot before testing this
   scenario. Do not delete or migrate a player's slot automatically.
+- When a kill cannot persist its reward, the existing HUD feedback now
+  warns for 6 seconds that gold and kill progress were not saved, or that an
+  invalid save is protected. In a read-only test save, verify the in-memory
+  kill count and gold roll back and no milestone key is awarded for that
+  failed transaction.
 - Native validation should test a deliberately malformed/unsupported-version
   copy of the reward slot, confirm the original bytes are preserved, and
   restore the backup afterward.
