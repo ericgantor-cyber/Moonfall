@@ -160,6 +160,7 @@ bool AMoonfallHeroPawn::LoadRewardProgress()
   CollectedKeys.Reset();
   CompletedFactionQuests.Reset();
   UnlockedGateIds.Reset();
+  PendingWorldLoot.Reset();
   InventoryItemCodes.Reset();
   Salvage = 0;
   EquippedWeaponCode = EquippedArmorCode = EquippedAccessoryCode = 0;
@@ -171,7 +172,7 @@ bool AMoonfallHeroPawn::LoadRewardProgress()
  }
  const UMoonfallRewardSaveGame* Save = Cast<UMoonfallRewardSaveGame>(
    UGameplayStatics::LoadGameFromSlot(RewardSaveSlot, RewardSaveUser));
- if (!Save || (Save->SchemaVersion != 1 && Save->SchemaVersion != 2 && Save->SchemaVersion != 3))
+ if (!Save || (Save->SchemaVersion != 1 && Save->SchemaVersion != 2 && Save->SchemaVersion != 3 && Save->SchemaVersion != 4))
  {
   bRewardSaveLoadFailed = true;
   bRewardSaveInitialized = true;
@@ -185,6 +186,7 @@ bool AMoonfallHeroPawn::LoadRewardProgress()
  CollectedKeys.Reset();
  CompletedFactionQuests.Reset();
  UnlockedGateIds.Reset();
+ PendingWorldLoot.Reset();
  InventoryItemCodes.Reset();
  Salvage = 0;
  EquippedWeaponCode = EquippedArmorCode = EquippedAccessoryCode = 0;
@@ -272,6 +274,27 @@ bool AMoonfallHeroPawn::LoadRewardProgress()
   Health = FMath::Clamp(Health + ArmorHealthDelta, 1.f, MaxHealth);
   OnHealthChanged(Health, MaxHealth);
  }
+ if (Save->SchemaVersion >= 4)
+ {
+  for (const FMoonfallWorldLootRecord& Record : Save->PendingWorldLoot)
+  {
+   if (PendingWorldLoot.Num() >= 512) break;
+   const int32 Code = Record.ItemCode;
+   const int32 Affix = Code / 100000;
+   const int32 Slot = (Code / 10000) % 10;
+   const int32 Rarity = (Code / 1000) % 10;
+   const int32 Tier = Code % 1000;
+   if (!Record.DropId.IsValid() || Record.Location.ContainsNaN()
+       || PendingWorldLoot.ContainsByPredicate([&](const FMoonfallWorldLootRecord& Existing)
+          { return Existing.DropId == Record.DropId; })
+       || Affix < 0 || Affix > 3 || Slot < 0 || Slot > 2
+       || Rarity < 0 || Rarity > 5 || Tier < 1 || Tier > 25
+       || (Rarity == 0 && Affix != 0)
+       || Code != Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier)
+    continue;
+   PendingWorldLoot.Add(Record);
+  }
+ }
  bKeyRingExpanded = !CollectedKeys.IsEmpty();
  return true;
 }
@@ -294,6 +317,7 @@ bool AMoonfallHeroPawn::SaveRewardProgress()
  Save->EquippedWeaponCode = EquippedWeaponCode;
  Save->EquippedArmorCode = EquippedArmorCode;
  Save->EquippedAccessoryCode = EquippedAccessoryCode;
+ Save->PendingWorldLoot = PendingWorldLoot;
  return UGameplayStatics::SaveGameToSlot(Save, RewardSaveSlot, RewardSaveUser);
 }
 
@@ -480,6 +504,7 @@ void AMoonfallHeroPawn::BeginPlay() {
     ? GetWorld()->GetTimeSeconds() + 12.f : 12.f;
   bKeyInteractionNoticeError = true;
  }
+ if (!bRewardSaveLoadFailed) RestorePendingWorldEquipmentDrops();
  if (!bRewardSaveLoadFailed && ConfirmedRewardKills >= 5
      && !HasQuestKey(FName(TEXT("fallen_gate_key"))))
   SpawnMilestoneKey(GetActorLocation() + GetActorForwardVector() * 125.f);
