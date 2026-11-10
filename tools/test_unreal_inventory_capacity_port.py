@@ -82,6 +82,22 @@ class InventoryCapacityPort(unittest.TestCase):
                           "InventoryItemCodes.Empty(", "Destroy("):
             self.assertNotIn(forbidden, method)
 
+    def test_sort_mode_survives_version_two_save_round_trip(self):
+        source = self.hero
+        save_header = (ROOT / "MoonfallProgressSaveGame.h").read_text(encoding="utf-8")
+        self.assertIn("UPROPERTY(SaveGame) int32 InventorySortMode = 1;", save_header)
+        save = body(source, "bool AMoonfallHeroPawn::SaveProgress()")
+        load = body(source, "bool AMoonfallHeroPawn::LoadProgress()")
+        self.assertIn("Save->InventorySortMode = InventorySortMode;", save)
+        self.assertIn("InventorySortMode = Save->InventorySortMode;", load)
+        # Invalid values cannot be written or loaded, and loading only
+        # applies the mode after the snapshot has passed validation.
+        guard = "(Save->InventorySortMode != 1 && Save->InventorySortMode != 2)"
+        self.assertIn(guard, save)
+        self.assertIn(guard, load)
+        self.assertLess(load.index(guard), load.index("InventorySortMode = Save->InventorySortMode;"))
+        self.assertLess(load.index("if (Save->Version == 2) {"), load.index("InventorySortMode = Save->InventorySortMode;"))
+
     def test_sort_controls_and_visible_mode(self):
         config = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
         hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
