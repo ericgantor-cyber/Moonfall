@@ -119,19 +119,25 @@ class InventoryCapacityPort(unittest.TestCase):
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
         self.assertIn('ActionName="ZoomIn",Key=MouseScrollUp', inputs)
         self.assertIn('ActionName="ZoomOut",Key=MouseScrollDown', inputs)
-        for name, change in (("ZoomCameraIn", "InventorySelection - 3"),
-                             ("ZoomCameraOut", "InventorySelection + 3")):
+        for name, change in (("ZoomCameraIn", "InventoryViewStart - 1"),
+                             ("ZoomCameraOut", "InventoryViewStart + 1")):
             action = body(self.hero, "void AMoonfallHeroPawn::" + name + "()")
             self.assertIn("if (bInventoryOpen)", action)
             self.assertIn(change, action)
             self.assertIn("InventoryItemCodes.Num() - 1", action)
+            self.assertNotIn("InventorySelection =", action)
             self.assertIn("return;", action)
             self.assertLess(action.index("if (bInventoryOpen)"),
                             action.index("CameraDistance ="))
             self.assertNotIn("EquipInventoryItem(", action)
             self.assertNotIn("SalvageInventoryItem(", action)
             self.assertNotIn("InventoryItemCodes.RemoveAt(", action)
-        self.assertIn("Wheel: browse 3", hud)
+        self.assertIn("Wheel: scroll bag", hud)
+        self.assertIn("InventoryViewStart", (ROOT / "MoonfallHeroPawn.h").read_text(encoding="utf-8"))
+        self.assertIn("Hero->InventoryViewStart", hud)
+        self.assertIn("showing %d-%d", hud)
+        self.assertIn("const int32 PageStart = FMath::Clamp(", hud)
+        self.assertNotIn("PageStart = Selected / PerPage * PerPage", hud)
         self.assertNotIn('TEXT("EQUIP SELECTED")', hud)
         self.assertNotIn('TEXT("PREV PAGE")', hud)
         self.assertNotIn('TEXT("NEXT PAGE")', hud)
