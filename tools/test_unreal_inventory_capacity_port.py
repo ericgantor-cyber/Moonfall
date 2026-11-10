@@ -190,7 +190,7 @@ class InventoryCapacityPort(unittest.TestCase):
                        "PreviousCharacterStatsPage()", "EquipSelectedInventoryItem()",
                        "UpgradeSelectedInventoryItem()", "SalvageSelectedInventoryItem()"):
             self.assertIn(action, confirm)
-        self.assertIn("if (bTalentsOpen) return;", confirm)
+        self.assertIn("if (!bTalentsOpen) ToggleAtlas();", confirm)
         trigger = body(self.hero, "void AMoonfallHeroPawn::SwitchInventoryPage()")
         self.assertIn("ActivateFocusedMenuAction();", trigger)
         for name in ("OptionsUp", "OptionsDown"):
@@ -255,8 +255,8 @@ class InventoryCapacityPort(unittest.TestCase):
                         click.index("if (bAtlasOpen && bTalentsOpen)"))
         mouse = body(self.hero, "void AMoonfallHeroPawn::UpdateInventoryMouseMode()")
         self.assertIn("bInventoryOpen || bAtlasOpen || bOptionsOpen", mouse)
-        self.assertIn("bOptionsOpen = !bOptionsOpen;\\n UpdateInventoryMouseMode();".replace("\\n", "\n"),
-                      self.hero)
+        self.assertIn("bOptionsOpen = !bOptionsOpen;", self.hero)
+        self.assertIn("MenuActionFocus = 0;\\n UpdateInventoryMouseMode();".replace("\\n","\n"), self.hero)
 
     def test_sort_mode_survives_version_two_save_round_trip(self):
         source = self.hero
@@ -529,7 +529,7 @@ class InventoryCapacityPort(unittest.TestCase):
         self.assertIn("CameraDistance = FMath::Clamp", zoomin)
         self.assertIn("CameraDistance = FMath::Clamp", zoomout)
         mouse = body(self.hero, "void AMoonfallHeroPawn::UpdateInventoryMouseMode()")
-        self.assertIn("bInventoryOpen || (bAtlasOpen && bTalentsOpen)", mouse)
+        self.assertIn("bInventoryOpen || bAtlasOpen || bOptionsOpen", mouse)
         panel = hud.split("if (Hero->bAtlasOpen && Hero->bTalentsOpen) {", 1)[1].split(
             "if (Hero->bAtlasOpen) {", 1)[0]
         self.assertIn("TalentSelectedNode == Tier * 3 + Branch", panel)
@@ -1041,7 +1041,8 @@ class InventoryCapacityPort(unittest.TestCase):
         self.assertNotIn('TEXT("EQUIP SELECTED")', hud)
         self.assertNotIn('TEXT("PREV PAGE")', hud)
         self.assertNotIn('TEXT("NEXT PAGE")', hud)
-        self.assertNotIn("EquipSelectedInventoryItem();", left)
+        self.assertIn("case 0: EquipSelectedInventoryItem(); break;", left)
+        self.assertIn("if (InventoryItemCodes.IsValidIndex(ClickedIndex))", left)
         self.assertIn("GetInventoryItemAtScreenPosition", left)
 
     def test_right_click_requires_a_visible_item_row_to_equip(self):
