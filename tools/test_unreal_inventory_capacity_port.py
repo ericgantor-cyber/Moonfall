@@ -490,6 +490,19 @@ class InventoryCapacityPort(unittest.TestCase):
         self.assertIn("HUD->GetInventoryItemAtScreenPosition(this, MouseX, MouseY)", right)
         self.assertNotIn("IsInventoryEquipButtonAtScreenPosition", right)
 
+    def test_c_only_menu_never_zooms_world_camera(self):
+        # The bag is independent of C; C must still suppress world zoom.
+        for name in ("ZoomCameraIn", "ZoomCameraOut"):
+            action = body(self.hero, "void AMoonfallHeroPawn::" + name + "()")
+            self.assertIn("if (bBagPanelOpen)", action)
+            self.assertIn("if (bInventoryOpen) return;", action)
+            self.assertLess(action.index("if (bBagPanelOpen)"),
+                            action.index("if (bInventoryOpen) return;"))
+            self.assertLess(action.index("if (bInventoryOpen) return;"),
+                            action.index("CameraDistance ="))
+        character = body(self.hero, "void AMoonfallHeroPawn::ToggleCharacterStats()")
+        self.assertIn("bInventoryOpen = bBagPanelOpen || bCharacterStatsOpen;", character)
+
     def test_mouse_wheel_browses_bag_without_changing_camera(self):
         hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
