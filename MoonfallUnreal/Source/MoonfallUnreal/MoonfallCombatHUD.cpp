@@ -101,6 +101,28 @@ void AMoonfallCombatHUD::DrawHUD()
   DrawText(TEXT("WASD / Arrows / D-pad: navigate    Esc / Start: close"),FLinearColor::White,MenuLeft+18.f,MenuTop+MenuHeight-28.f,nullptr,0.85f);
   return;
  }
+ if (Hero->bAtlasOpen && Hero->bTalentsOpen) {
+  // Talents is a separate read-only foundation. No fabricated allocations.
+  const float Width = FMath::Min(700.f, FMath::Max(280.f, Canvas->SizeX - 24.f));
+  const float Height = FMath::Min(500.f, FMath::Max(280.f, Canvas->SizeY - 24.f));
+  const float Left = (Canvas->SizeX - Width) * 0.5f;
+  const float Top = (Canvas->SizeY - Height) * 0.5f;
+  DrawRect(FLinearColor(0.055f,0.045f,0.12f,0.97f),Left,Top,Width,Height);
+  DrawText(TEXT("MOONFALL  |  TALENTS"),FLinearColor::White,
+    Left + 20.f,Top + 20.f,nullptr,1.3f);
+  DrawText(FString::Printf(TEXT("Level %d  |  Might %d  |  Insight %d"),
+    Hero->Level,Hero->GetMight(),Hero->GetInsight()),
+    FLinearColor(0.7f,0.89f,0.98f),Left + 20.f,Top + 88.f,nullptr,0.95f);
+  DrawText(FString::Printf(TEXT("Crit %.1f%%  |  Haste %.1f%%"),
+    Hero->GetCriticalChance() * 100.f,Hero->GetHasteBonus() * 100.f),
+    FLinearColor(0.7f,0.89f,0.98f),Left + 20.f,Top + 126.f,nullptr,0.95f);
+  DrawText(TEXT("Talent allocation tree not yet implemented."),
+    FLinearColor(0.98f,0.81f,0.47f),Left + 20.f,Top + 196.f,nullptr,0.95f);
+  DrawText(TEXT("K / Esc: close    M: open map"),
+    FLinearColor(0.8f,0.86f,0.97f),Left + 20.f,Top + Height - 36.f,
+    nullptr,0.85f);
+  return;
+ }
  if (Hero->bAtlasOpen) {
   // UE5 Atlas foundation: live world coordinates, no invented discovered
   // terrain, locations, or markers. Future exploration data can fill cells.
@@ -109,7 +131,7 @@ void AMoonfallCombatHUD::DrawHUD()
   const float Left = (Canvas->SizeX - Width) * 0.5f;
   const float Top = (Canvas->SizeY - Height) * 0.5f;
   DrawRect(FLinearColor(0.025f,0.035f,0.075f,0.97f),Left,Top,Width,Height);
-  DrawText(TEXT("MOONFALL  |  ATLAS"),FLinearColor::White,
+  DrawText(TEXT("MOONFALL  |  MAP"),FLinearColor::White,
     Left + 20.f,Top + 17.f,nullptr,1.3f);
   const FVector WorldPos = Hero->GetActorLocation();
   const bool bValidWorldPos = FMath::IsFinite(WorldPos.X) &&
@@ -135,7 +157,7 @@ void AMoonfallCombatHUD::DrawHUD()
    DrawText(TEXT("World coordinates unavailable"),FLinearColor::White,
       Left + 20.f,Top + Height - 76.f,nullptr,0.9f);
   }
-  DrawText(TEXT("Undiscovered terrain is not shown  |  J / Esc: close"),
+  DrawText(TEXT("Undiscovered terrain is not shown  |  M / Esc: close"),
     FLinearColor(0.7f,0.85f,0.88f),Left + 20.f,Top + Height - 43.f,nullptr,0.78f);
   return;
  }
