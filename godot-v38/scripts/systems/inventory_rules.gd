@@ -89,12 +89,26 @@ static func craft_issue(recipe:Dictionary,materials:Dictionary,bag_count:int,cap
  return ""
 
 static func craft_commit(recipe:Dictionary,materials:Dictionary)->Dictionary:
- # Caller validates with craft_issue first; each recipe has a fixed, known cost.
- var costs:Dictionary=recipe.get("cost",{})
+ # Validate every ingredient before changing any balance, even if a caller
+ # forgot craft_issue or inventory changed between preview and commit.
+ var failure:Dictionary={"gear":{},"material":""}
+ var costs_value:Variant=recipe.get("cost",null)
+ if not (costs_value is Dictionary):return failure
+ var costs:Dictionary=costs_value
+ if costs.is_empty() or str(recipe.get("result","")).is_empty():return failure
+ for key in costs.keys():
+  var amount_value:Variant=costs[key]
+  if not (amount_value is int):return failure
+  var needed:int=amount_value
+  if needed<=0 or needed>MATERIAL_LIMIT:return failure
+  var available:int=int(materials.get(str(key),0))
+  if available<needed:return failure
+ var power:int=int(recipe.get("power",0))
+ if power<0:return failure
  for key in costs.keys():
   materials[str(key)]=int(materials.get(str(key),0))-int(costs[key])
- if int(recipe.get("power",0))>0:
-  return {"gear":{"name":recipe["result"],"rarity":"Crafted","power":recipe["power"]},"material":""}
+ if power>0:
+  return {"gear":{"name":recipe["result"],"rarity":"Crafted","power":power},"material":""}
  return {"gear":{},"material":str(recipe["result"])}
 
 static func equip_copy(items:Array,index:int)->Dictionary:
