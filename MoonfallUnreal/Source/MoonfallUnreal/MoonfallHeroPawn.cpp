@@ -93,7 +93,9 @@ float AMoonfallHeroPawn::GetCriticalChance() const
 {
  // Force: 2-piece improves critical chances. A 3-piece grants mastery.
  const float TraitCrit = ValidEquippedRarityBonus(EquippedWeaponCode, 0, 1, 0.008f);
- return FMath::Clamp(0.05f + TraitCrit + FMath::Clamp(TalentForceRank, 0, 10) * 0.005f + (GetSetPieceCount(1) >= 2 ? 0.03f : 0.f),
+ return FMath::Clamp(0.05f + TraitCrit + FMath::Clamp(TalentForceRank, 0, 10) * 0.005f
+   + (bTalentForceKeystone ? 0.02f : 0.f) + (bTalentBattleWeave ? 0.01f : 0.f)
+   + (GetSetPieceCount(1) >= 2 ? 0.03f : 0.f),
    0.05f, 0.25f);
 }
 
@@ -101,7 +103,9 @@ float AMoonfallHeroPawn::GetHasteBonus() const
 {
  // Focus: faster spell recovery at two matching items.
  const float TraitHaste = ValidEquippedRarityBonus(EquippedAccessoryCode, 2, 3, 0.006f);
- return FMath::Clamp(TraitHaste + FMath::Clamp(TalentFocusRank, 0, 10) * 0.01f + (GetSetPieceCount(3) >= 2 ? 0.04f : 0.f),
+ return FMath::Clamp(TraitHaste + FMath::Clamp(TalentFocusRank, 0, 10) * 0.01f
+   + (bTalentFocusKeystone ? 0.02f : 0.f) + (bTalentArcaneAegis ? 0.01f : 0.f)
+   + (GetSetPieceCount(3) >= 2 ? 0.04f : 0.f),
    0.f, 0.20f);
 }
 
@@ -120,7 +124,9 @@ float AMoonfallHeroPawn::GetVersatilityBonus() const
 {
  // Ward: Versatility increases damage dealt and halves its defensive effect.
  const float TraitVersatility = ValidEquippedRarityBonus(EquippedArmorCode, 1, 2, 0.005f);
- return FMath::Clamp(TraitVersatility + FMath::Clamp(TalentWardRank, 0, 10) * 0.008f + (GetSetPieceCount(2) >= 2 ? 0.03f : 0.f),
+ return FMath::Clamp(TraitVersatility + FMath::Clamp(TalentWardRank, 0, 10) * 0.008f
+   + (bTalentWardKeystone ? 0.015f : 0.f) + (bTalentIronWill ? 0.015f : 0.f)
+   + (GetSetPieceCount(2) >= 2 ? 0.03f : 0.f),
    0.f, 0.12f);
 }
 
@@ -362,6 +368,13 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("TalentForce"), IE_Pressed, this, &AMoonfallHeroPawn::SpendForceTalent);
  Input->BindAction(TEXT("TalentFocus"), IE_Pressed, this, &AMoonfallHeroPawn::SpendFocusTalent);
  Input->BindAction(TEXT("TalentWard"), IE_Pressed, this, &AMoonfallHeroPawn::SpendWardTalent);
+ Input->BindAction(TEXT("TalentForceKeystone"), IE_Pressed, this, &AMoonfallHeroPawn::UnlockForceKeystone);
+ Input->BindAction(TEXT("TalentFocusKeystone"), IE_Pressed, this, &AMoonfallHeroPawn::UnlockFocusKeystone);
+ Input->BindAction(TEXT("TalentWardKeystone"), IE_Pressed, this, &AMoonfallHeroPawn::UnlockWardKeystone);
+ Input->BindAction(TEXT("TalentBattleWeave"), IE_Pressed, this, &AMoonfallHeroPawn::UnlockBattleWeave);
+ Input->BindAction(TEXT("TalentArcaneAegis"), IE_Pressed, this, &AMoonfallHeroPawn::UnlockArcaneAegis);
+ Input->BindAction(TEXT("TalentIronWill"), IE_Pressed, this, &AMoonfallHeroPawn::UnlockIronWill);
+ Input->BindAction(TEXT("TalentRespec"), IE_Pressed, this, &AMoonfallHeroPawn::RespecTalents);
  Input->BindAction(TEXT("PickupLoot"), IE_Pressed, this, &AMoonfallHeroPawn::PickupNearestGroundLoot);
  Input->BindAction(TEXT("OptionsUp"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsUp);
  Input->BindAction(TEXT("OptionsDown"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsDown);
@@ -1031,7 +1044,10 @@ int32 AMoonfallHeroPawn::GetUnspentTalentPoints() const
 {
  // Level 1 begins with no points. Clamp overspending after external level edits.
  return FMath::Max(0, FMath::Clamp(Level, 1, 100) - 1
-   - TalentForceRank - TalentFocusRank - TalentWardRank);
+   - TalentForceRank - TalentFocusRank - TalentWardRank
+   - int32(bTalentForceKeystone) - int32(bTalentFocusKeystone)
+   - int32(bTalentWardKeystone) - int32(bTalentBattleWeave)
+   - int32(bTalentArcaneAegis) - int32(bTalentIronWill));
 }
 
 bool AMoonfallHeroPawn::SpendTalentPoint(int32 Branch)
@@ -1051,6 +1067,60 @@ bool AMoonfallHeroPawn::SpendTalentPoint(int32 Branch)
 void AMoonfallHeroPawn::SpendForceTalent() { SpendTalentPoint(0); }
 void AMoonfallHeroPawn::SpendFocusTalent() { SpendTalentPoint(1); }
 void AMoonfallHeroPawn::SpendWardTalent() { SpendTalentPoint(2); }
+
+bool AMoonfallHeroPawn::CanUnlockTalentNode(int32 Node) const
+{
+ if (!bAtlasOpen || !bTalentsOpen || bInventoryOpen || bOptionsOpen ||
+     !FMath::IsFinite(Health) || Health <= 0.f ||
+     GetUnspentTalentPoints() <= 0) return false;
+ // Tier II: invest three ranks in a root branch.
+ if (Node == 3) return TalentForceRank >= 3 && !bTalentForceKeystone;
+ if (Node == 4) return TalentFocusRank >= 3 && !bTalentFocusKeystone;
+ if (Node == 5) return TalentWardRank >= 3 && !bTalentWardKeystone;
+ // Tier III: linked keystones in both connected branches.
+ if (Node == 6) return bTalentForceKeystone && bTalentFocusKeystone && !bTalentBattleWeave;
+ if (Node == 7) return bTalentFocusKeystone && bTalentWardKeystone && !bTalentArcaneAegis;
+ if (Node == 8) return bTalentWardKeystone && bTalentForceKeystone && !bTalentIronWill;
+ return false;
+}
+
+bool AMoonfallHeroPawn::UnlockTalentNode(int32 Node)
+{
+ if (!CanUnlockTalentNode(Node)) return false;
+ bool* Flag = Node == 3 ? &bTalentForceKeystone
+   : Node == 4 ? &bTalentFocusKeystone
+   : Node == 5 ? &bTalentWardKeystone
+   : Node == 6 ? &bTalentBattleWeave
+   : Node == 7 ? &bTalentArcaneAegis
+   : Node == 8 ? &bTalentIronWill : nullptr;
+ if (!Flag || *Flag) return false;
+ *Flag = true;
+ return true;
+}
+
+void AMoonfallHeroPawn::UnlockForceKeystone() { UnlockTalentNode(3); }
+void AMoonfallHeroPawn::UnlockFocusKeystone() { UnlockTalentNode(4); }
+void AMoonfallHeroPawn::UnlockWardKeystone() { UnlockTalentNode(5); }
+void AMoonfallHeroPawn::UnlockBattleWeave() { UnlockTalentNode(6); }
+void AMoonfallHeroPawn::UnlockArcaneAegis() { UnlockTalentNode(7); }
+void AMoonfallHeroPawn::UnlockIronWill() { UnlockTalentNode(8); }
+
+bool AMoonfallHeroPawn::RespecTalents()
+{
+ // Explicit Backspace only inside K; no implicit resets or costs.
+ if (!bAtlasOpen || !bTalentsOpen || bInventoryOpen || bOptionsOpen ||
+     !FMath::IsFinite(Health) || Health <= 0.f) return false;
+ TalentForceRank = 0;
+ TalentFocusRank = 0;
+ TalentWardRank = 0;
+ bTalentForceKeystone = false;
+ bTalentFocusKeystone = false;
+ bTalentWardKeystone = false;
+ bTalentBattleWeave = false;
+ bTalentArcaneAegis = false;
+ bTalentIronWill = false;
+ return true;
+}
 
 void AMoonfallHeroPawn::ToggleTalents()
 {
