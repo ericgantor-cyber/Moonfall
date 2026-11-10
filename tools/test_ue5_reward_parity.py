@@ -264,6 +264,20 @@ class UE5RewardParity(unittest.TestCase):
         self.assertIn("FMath::Clamp(Hero->CombatTextScale, 0.75f, 2.f)", self.hud)
         self.assertNotIn("Tick(", interaction)
 
+    def test_facing_priority_keeps_accessible_nearest_fallback(self):
+        interaction = self.hero.split("bool AMoonfallHeroPawn::TryInteractWithNearbyKey()", 1)[1].split(
+            "void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[0]
+        self.assertIn("AActor* NearestFacing = nullptr;", interaction)
+        self.assertIn("const FVector Facing = GetActorForwardVector().GetSafeNormal2D();", interaction)
+        self.assertIn("FVector::DotProduct(Facing, Direction) >= 0.25f", interaction)
+        self.assertIn("DistanceSq <= BestFacingDistanceSq", interaction)
+        self.assertIn("if (NearestFacing) Nearest = NearestFacing;", interaction)
+        self.assertIn("DistanceSq > RangeSquared", interaction)
+        self.assertNotIn("DistanceSq > BestDistanceSq) return;", interaction)
+        self.assertIn("AActor* Nearest = nullptr;", interaction)
+        self.assertIn("if (AMoonfallKeyPickup* Key = Cast<AMoonfallKeyPickup>(Nearest))", interaction)
+        self.assertIn("if (AMoonfallKeyGate* Gate = Cast<AMoonfallKeyGate>(Nearest))", interaction)
+
     def test_equipment_remains_manual_and_hud_shows_rewards(self):
         self.assertIn("void PickupNearestGroundLoot();", self.hero_h)
         self.assertIn("Loot->TryCollect()", self.hero)
