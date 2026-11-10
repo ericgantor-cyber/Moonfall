@@ -82,19 +82,38 @@ class InventoryCapacityPort(unittest.TestCase):
                           "InventoryItemCodes.Empty(", "Destroy("):
             self.assertNotIn(forbidden, method)
 
-    def test_forge_entry_points_reject_read_only_character_sheet(self):
-        # UI shortcuts alone are not sufficient: Blueprint/direct callers
-        # must honor the read-only character view before touching resources.
+    def test_character_sheet_allows_deliberate_gear_actions(self):
+        # C can equip and upgrade the deliberately selected bag item;
+        # B retains sorting and salvage, and gameplay cannot forge.
         for name in (
             "UpgradeInventoryItem",
             "ReforgeInventoryItemAffix",
             "AscendInventoryItemRarity",
             "ForgeInventoryItemLevels",
+            "EquipInventoryItem",
         ):
             method = body(self.hero, "AMoonfallHeroPawn::" + name + "(")
-            guard = "if (!bInventoryOpen || bCharacterStatsOpen || bOptionsOpen ||"
-            self.assertIn(guard, method, name)
-            self.assertLess(method.index(guard), method.index("InventoryItemCodes[InventoryIndex]"), name)
+            self.assertIn("!bInventoryOpen", method, name)
+            self.assertIn("bOptionsOpen", method, name)
+            self.assertNotIn("bCharacterStatsOpen || bOptionsOpen", method, name)
+        for name in ("CycleInventorySort", "SalvageInventoryItem"):
+            method = body(self.hero, "AMoonfallHeroPawn::" + name + "(")
+            self.assertIn("bCharacterStatsOpen || bOptionsOpen", method, name)
+        for name in ("UpgradeSelectedInventoryItem",
+                     "ReforgeSelectedInventoryItem",
+                     "AscendSelectedInventoryItem",
+                     "ForgeFiveSelectedInventoryItem"):
+            method = body(self.hero, "void AMoonfallHeroPawn::" + name + "()")
+            self.assertNotIn("if (!bCharacterStatsOpen)", method)
+        hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        hit = body(hud, "int32 AMoonfallCombatHUD::GetInventoryItemAtScreenPosition(")
+        self.assertIn("if (Hero->bCharacterStatsOpen)", hit)
+        self.assertIn("Hero->InventorySelection : -1;", hit)
+        self.assertIn('TEXT("RIGHT-CLICK: EQUIP")', hud)
+        right = body(self.hero, "void AMoonfallHeroPawn::RightClickContextAction()")
+        self.assertNotIn("if (bCharacterStatsOpen) return;", right)
+        self.assertIn("HUD->GetInventoryItemAtScreenPosition", right)
+        self.assertIn("EquipSelectedInventoryItem();", right)
 
     def test_sort_mode_survives_version_two_save_round_trip(self):
         source = self.hero
