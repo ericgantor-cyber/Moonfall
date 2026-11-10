@@ -248,7 +248,8 @@ class UE5RewardParity(unittest.TestCase):
         self.assertIn("UGameplayStatics::FinishSpawningActor(Pickup, SpawnTransform);", self.hero)
         milestone = self.hero.split("void AMoonfallHeroPawn::SpawnMilestoneKey(", 1)[1].split(
             "void AMoonfallHeroPawn::AwardEnemyCurrency(", 1)[0]
-        self.assertLess(milestone.index('Pickup->KeyId = FName(TEXT("fallen_gate_key"));'),
+        self.assertIn('const FName MilestoneKey(TEXT("fallen_gate_key"));', milestone)
+        self.assertLess(milestone.index("Pickup->KeyId = MilestoneKey;"),
                         milestone.index("FinishSpawningActor(Pickup, SpawnTransform);"))
         self.assertNotIn("SpawnActor<AMoonfallKeyPickup>", milestone)
         self.assertIn("RefreshKeyLabel();", pickup_cpp.split("void AMoonfallKeyPickup::BeginPlay()", 1)[1])
@@ -345,6 +346,22 @@ class UE5RewardParity(unittest.TestCase):
         self.assertIn("Saved->UnlockedGateIds.Contains(GateId)", restore)
         self.assertIn("ApplyOpenState();", restore)
         self.assertIn("OnSavedGateRestored();", restore)
+
+    def test_milestone_pickup_is_cached_weakly_without_losing_recovery(self):
+        self.assertIn("TWeakObjectPtr<AMoonfallKeyPickup> PendingMilestoneKey;", self.hero_h)
+        spawn = self.hero.split("void AMoonfallHeroPawn::SpawnMilestoneKey(", 1)[1].split(
+            "void AMoonfallHeroPawn::AwardEnemyCurrency(", 1)[0]
+        self.assertIn("PendingMilestoneKey.IsValid()", spawn)
+        self.assertIn("PendingMilestoneKey->GetWorld() == GetWorld()", spawn)
+        self.assertIn("PendingMilestoneKey.Reset();", spawn)
+        self.assertIn("TActorIterator<AMoonfallKeyPickup>", spawn)
+        self.assertIn("PendingMilestoneKey = *It;", spawn)
+        self.assertIn("if (IsValid(Pickup)) PendingMilestoneKey = Pickup;", spawn)
+        self.assertLess(spawn.index("PendingMilestoneKey.IsValid()"),
+                        spawn.index("TActorIterator<AMoonfallKeyPickup>"))
+        self.assertLess(spawn.index("Pickup->KeyId = MilestoneKey;"),
+                        spawn.index("FinishSpawningActor(Pickup, SpawnTransform);"))
+        self.assertIn("if (ConfirmedRewardKills >= 5", self.hero)
 
     def test_equipment_remains_manual_and_hud_shows_rewards(self):
         self.assertIn("void PickupNearestGroundLoot();", self.hero_h)
