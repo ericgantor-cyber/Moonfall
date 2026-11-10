@@ -813,7 +813,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("ActivateFocusedMenuAction();", trigger)
         self.assertIn("if (!bInventoryOpen) return;", trigger)
         self.assertIn("!FMath::IsFinite(Health) || Health <= 0.f", trigger)
-        self.assertIn("if (!bTalentsOpen) ToggleAtlas();", trigger)
+        self.assertIn("if (!bTalentsOpen && MenuActionFocus == 0) ToggleAtlas();", trigger)
         self.assertIn("ToggleCharacterStats();", trigger)
         self.assertIn("EquipSelectedInventoryItem();", trigger)
         self.assertIn("SalvageSelectedInventoryItem();", trigger)
