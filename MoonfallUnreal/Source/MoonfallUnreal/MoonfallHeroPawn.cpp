@@ -1547,7 +1547,6 @@ void AMoonfallHeroPawn::ToggleCharacterStats()
  bTalentRespecArmed = false;
  if (bOptionsOpen || !FMath::IsFinite(Health) || Health <= 0.f) return;
  if (bAtlasOpen) { bAtlasOpen = false; bTalentsOpen = false; }
- UpdateInventoryMouseMode();
  if (!bInventoryOpen) {
   ResetMouseCastChord();
   StopJumping();
@@ -1567,6 +1566,7 @@ void AMoonfallHeroPawn::ToggleCharacterStats()
  } else {
   bCharacterStatsOpen = true;
   MenuActionFocus = -1;
+  UpdateInventoryMouseMode();
  }
 }
 
@@ -1967,11 +1967,11 @@ void AMoonfallHeroPawn::ToggleInventory() {
  bTalentRespecArmed = false;
  ResetMouseCastChord();
  if (bAtlasOpen) { bAtlasOpen = false; bTalentsOpen = false; }
- UpdateInventoryMouseMode();
  if (bCharacterStatsOpen) {
   // B returns from character info directly to the editable inventory.
   bCharacterStatsOpen = false;
   MenuActionFocus = -1;
+  UpdateInventoryMouseMode();
   return;
  }
  if (!bInventoryOpen) {
@@ -2252,12 +2252,14 @@ void AMoonfallHeroPawn::OpenOptions() {
  if (bAtlasOpen) {
   bAtlasOpen = false;
   bTalentsOpen = false;
+  MenuActionFocus = -1;
   UpdateInventoryMouseMode();
   return;
  }
  if (bInventoryOpen) {
   bInventoryOpen = false;
   bCharacterStatsOpen = false;
+  MenuActionFocus = -1;
   UpdateInventoryMouseMode();
   return;
  }
