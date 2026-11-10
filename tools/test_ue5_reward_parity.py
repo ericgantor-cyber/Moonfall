@@ -303,8 +303,11 @@ class UE5RewardParity(unittest.TestCase):
         self.assertIn("bRewardSaveLoadFailed = true;", loader)
         self.assertIn("bRewardSaveLoadFailed = false;", loader)
         self.assertIn("Save->SchemaVersion != 1 && Save->SchemaVersion != 2", loader)
-        self.assertLess(loader.index("if (!Save ||"), loader.index("CollectedKeys.Reset();"))
-        self.assertLess(loader.index("if (!Save ||"), loader.index("Gold = 0;"))
+        validated_load = loader.split("if (!Save ||", 1)[1]
+        self.assertIn("CollectedKeys.Reset();", validated_load)
+        self.assertIn("Gold = 0;", validated_load)
+        self.assertIn("bRewardSaveLoadFailed = true;", loader)
+        self.assertIn("if (!UGameplayStatics::DoesSaveGameExist(", loader)
         save_method = self.hero.split("bool AMoonfallHeroPawn::SaveRewardProgress()", 1)[1].split(
             "int64 AMoonfallHeroPawn::AddGold(", 1)[0]
         self.assertIn("if (bRewardSaveLoadFailed) return false;", save_method)
