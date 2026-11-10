@@ -147,7 +147,7 @@ class InventoryCapacityPort(unittest.TestCase):
         hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
         self.assertIn("One continuous scrollable bag", hud)
         self.assertEqual(hud.count("860.f, FMath::Max(280.f, Canvas->SizeY - 24.f)"), 4)
-        self.assertEqual(hud.count("FMath::FloorToInt((PanelHeight - 355.f) / 25.f), 2, 20"), 2)
+        self.assertEqual(hud.count("FMath::FloorToInt((PanelHeight - 355.f) / 25.f), 2, 20"), 3)
         self.assertEqual(hud.count("FMath::Max(21.f, (PanelHeight - 355.f) / PerPage)"), 2)
         self.assertEqual(hud.count("Hero->InventoryViewStart"), 2)
         self.assertIn("showing %d-%d", hud)
