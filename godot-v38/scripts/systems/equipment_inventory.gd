@@ -79,7 +79,9 @@ static func craft(state:Dictionary,item_id:String,hero_level:int)->bool:
 static func loot_enemy(state:Dictionary,hero_level:int,seed:int)->Dictionary:
  var item:Dictionary=CATALOG.loot_for_level(hero_level,seed)
  if not item.is_empty():
-  add_item(state,str(item["id"]))
+  # A full or malformed inventory must not award a phantom drop or
+  # advance rarity pity when the item was never actually received.
+  if not add_item(state,str(item["id"])):return {}
   var rarity:Dictionary=RNG.roll(item,seed+int(state.get("loot_pity",0))*9973,0,int(state.get("loot_pity",0)))
   state["loot_pity"]=RNG.next_pity(int(state.get("loot_pity",0)),int(rarity["rarity_index"]))
   var rolls:Array=state.get("loot_rolls",[])
