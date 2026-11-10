@@ -34,7 +34,12 @@ Moonfall's fully migrated Godot world or finished dungeon.
     collection, an already-owned key, missing-key door, successful unlock,
     and failed-save key/door attempts. The text must clear after 3.5 seconds
     without flashes and respect the combat text size preference.
-13. Disable Key Trial and verify regular arenas remain unchanged.
+13. Put a key behind the hero and another key or locked door in front,
+    both within interaction range. F/controller pickup should prefer the
+    front-facing object, regardless of spawn/actor iteration order.
+14. Remove the front-facing object and retry: the reachable rear object
+    must remain interactable as an accessibility fallback.
+15. Disable Key Trial and verify regular arenas remain unchanged.
 
 ## Known limitations
 
