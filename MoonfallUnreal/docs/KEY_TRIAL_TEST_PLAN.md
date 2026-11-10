@@ -151,6 +151,17 @@ Moonfall's fully migrated Godot world or finished dungeon.
   enemy deaths still write independently. Verify gameplay on native UE5
   Windows builds before concluding that combat stutter has improved.
 
+## Manual loot interaction with many persistent drops
+
+- Scatter more than 128 persistent loot actors across the map, then spawn
+  a new pickup next to the hero. Press F/controller pickup and confirm the
+  nearby item is collectable even if it was spawned after those distant drops.
+- Each press still chooses at most six nearest valid candidates within 250 cm
+  and performs height/visibility checks. Verify multiple adjacent pickups
+  are gathered in proximity order, not actor iteration order.
+- The actor scan is now unbounded per explicit button press; profile worst
+  case worlds with hundreds of transient actors. It does not run every frame.
+
 ## Orphan and duplicate persistent pickup cleanup
 
 - Restore world loot with two actors carrying the same persisted GUID.
