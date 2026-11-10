@@ -545,7 +545,8 @@ class UE5RewardParity(unittest.TestCase):
         self.assertIn("const int32 BaseTier = Level / 5", loot_roll)
         self.assertIn("BaseTier + FMath::RandRange(-1, 1)", loot_roll)
         self.assertIn("FMath::Clamp(BaseTier + FMath::RandRange(-1, 1), 1, 25)", loot_roll)
-        self.assertIn("LastLootSlot = FMath::RandRange(0, 2);", loot_roll)
+        self.assertIn("LastLootSlot = PreferredSlot >= 0 && PreferredSlot <= 2", loot_roll)
+        self.assertIn("PreferredSlot : FMath::RandRange(0, 2);", loot_roll)
         self.assertIn("const int32 LootRoll = FMath::RandRange(0, 99);", loot_roll)
         spawn = self.hero.split("void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(", 1)[1].split(
             "bool AMoonfallHeroPawn::TryInteractWithNearbyKey()", 1)[0]
@@ -556,6 +557,23 @@ class UE5RewardParity(unittest.TestCase):
             "void AMoonfallHeroPawn::RestorePendingWorldEquipmentDrops()", 1)[0]
         self.assertIn("NewDrops.Num() > 4", batch)
         self.assertEqual(batch.count("SaveRewardProgress()"), 1)
+
+    def test_encounter_loot_slots_are_diverse_without_replacing_item_rng(self):
+        roll = self.hero.split("int32 AMoonfallHeroPawn::RollEquipmentCode(", 1)[1].split(
+            "void AMoonfallHeroPawn::AwardEquipmentDrop(", 1)[0]
+        spawn = self.hero.split("void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(", 1)[1].split(
+            "bool AMoonfallHeroPawn::TryInteractWithNearbyKey()", 1)[0]
+        self.assertIn("int32 PreferredSlot = INDEX_NONE", self.hero_h)
+        self.assertIn("TArray<int32> UnusedSlots = {0, 1, 2};", spawn)
+        self.assertIn("PreferredSlot = UnusedSlots[Choice];", spawn)
+        self.assertIn("UnusedSlots.RemoveAtSwap(Choice);", spawn)
+        self.assertIn("if (!UnusedSlots.IsEmpty())", spawn)
+        self.assertIn("RollEquipmentCode(bEliteEnemy, bBossEnemy, PreferredSlot)", spawn)
+        self.assertIn("PreferredSlot : FMath::RandRange(0, 2);", roll)
+        self.assertIn("const int32 LootRoll = FMath::RandRange(0, 99);", roll)
+        self.assertIn("BaseTier + FMath::RandRange(-1, 1)", roll)
+        self.assertLess(spawn.index("UnusedSlots.RemoveAtSwap(Choice);"),
+                        spawn.index("RollEquipmentCode(bEliteEnemy, bBossEnemy, PreferredSlot)"))
 
     def test_world_loot_overflow_falls_back_to_visible_temporary_pickup(self):
         restore = self.hero.split("void AMoonfallHeroPawn::RestorePendingWorldEquipmentDrops()", 1)[1].split(
