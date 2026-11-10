@@ -291,6 +291,7 @@ private:
  void AdjustOption(int32 Direction);
  void CycleGraphicsQuality();
  void ToggleDisplayMode();
- int32 RollEquipmentCode(bool bEliteEnemy, bool bBossEnemy);
+ // Optional category keeps a single encounter's first three drops varied.
+ int32 RollEquipmentCode(bool bEliteEnemy, bool bBossEnemy, int32 PreferredSlot = INDEX_NONE);
  bool TryCast(int32 School, int32 Hand, float Multiplier);
 };
