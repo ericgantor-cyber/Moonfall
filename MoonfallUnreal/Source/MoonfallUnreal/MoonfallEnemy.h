@@ -13,6 +13,22 @@ public:
  virtual void BeginPlay() override;
  UPROPERTY(EditAnywhere, Category="Combat") float ChaseSpeed = 180.f;
  UPROPERTY(EditAnywhere, Category="Combat") float AttackDamage = 8.f;
+ // -1 = physical (legacy default). 0..4 = Fire/Frost/Nature/Shadow/Arcane.
+ // Authors can opt individual enemy attacks into magic damage without changing
+ // existing melee actors or the parry/dodge timing pipeline.
+ UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat|Schools",
+   meta=(ClampMin="-1", ClampMax="4")) int32 AttackMagicSchool = -1;
+ UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat|Schools",
+   meta=(ClampMin="0.0", ClampMax="100.0")) float FireResistance = 0.f;
+ UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat|Schools",
+   meta=(ClampMin="0.0", ClampMax="100.0")) float FrostResistance = 0.f;
+ UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat|Schools",
+   meta=(ClampMin="0.0", ClampMax="100.0")) float NatureResistance = 0.f;
+ UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat|Schools",
+   meta=(ClampMin="0.0", ClampMax="100.0")) float ShadowResistance = 0.f;
+ UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat|Schools",
+   meta=(ClampMin="0.0", ClampMax="100.0")) float ArcaneResistance = 0.f;
+ UFUNCTION(BlueprintPure, Category="Combat|Schools") float GetSchoolResistance(int32 School) const;
  UPROPERTY(EditAnywhere, Category="Combat") float AttackRange = 145.f;
  UPROPERTY(EditAnywhere, Category="Combat") float AttackCooldown = 1.3f;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat") bool bElite = false;

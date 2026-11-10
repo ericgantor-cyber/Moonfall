@@ -7,12 +7,338 @@
 #include "Engine/Canvas.h"
 #include "Engine/Engine.h"
 #include "GameFramework/GameUserSettings.h"
+// When B and C are both open, lay out two independent, clickable panels.
+// Below the split-screen breakpoint the existing full-size panels remain usable.
+static bool MoonfallDualPanels(const UCanvas* Canvas,const AMoonfallHeroPawn* Hero)
+{
+ return Canvas && IsValid(Hero) && Hero->bBagPanelOpen &&
+     Hero->bCharacterStatsOpen && Canvas->SizeX >= 960.f &&
+     Canvas->SizeY >= 480.f;
+}
+static void MoonfallDualBagGeometry(const UCanvas* Canvas,
+    float& Left,float& Top,float& Width,float& Height)
+{
+ Width=FMath::Clamp((Canvas->SizeX-36.f)*0.48f,280.f,680.f);
+ Height=FMath::Min(860.f,FMath::Max(280.f,Canvas->SizeY-24.f));
+ Left=12.f; Top=(Canvas->SizeY-Height)*0.5f;
+}
+static void MoonfallDualCharacterGeometry(const UCanvas* Canvas,
+    float& Left,float& Top,float& Width,float& Height)
+{
+ Width=FMath::Max(280.f,Canvas->SizeX-
+     FMath::Clamp((Canvas->SizeX-36.f)*0.48f,280.f,680.f)-36.f);
+ Width=FMath::Min(Width,1040.f);
+ Height=FMath::Min(860.f,FMath::Max(280.f,Canvas->SizeY-24.f));
+ Left=Canvas->SizeX-Width-12.f; Top=(Canvas->SizeY-Height)*0.5f;
+}
+int32 AMoonfallCombatHUD::GetInventoryVisibleRowCount() const
+{
+ if (!Canvas) return 2;
+ const float PanelHeight = FMath::Min(860.f, FMath::Max(280.f, Canvas->SizeY - 24.f));
+ const AMoonfallHeroPawn* Hero = PlayerOwner
+    ? Cast<AMoonfallHeroPawn>(PlayerOwner->GetPawn()) : nullptr;
+ if (MoonfallDualPanels(Canvas,Hero))
+  return FMath::Clamp(FMath::FloorToInt((PanelHeight - 230.f)/25.f),2,20);
+ return FMath::Clamp(FMath::FloorToInt((PanelHeight - 355.f) / 25.f), 2, 20);
+}
+
+int32 AMoonfallCombatHUD::GetInventoryItemAtScreenPosition(
+    const AMoonfallHeroPawn* Hero, float X, float Y) const
+{
+ // Use the same geometry and scroll window as DrawHUD. The hit test is read-only
+ // and never chooses a hidden or off-page entry.
+ if (!Canvas || !IsValid(Hero) || !Hero->bInventoryOpen ||
+     Hero->bOptionsOpen ||
+     !FMath::IsFinite(X) || !FMath::IsFinite(Y)) return -1;
+ // In combined view the left bag remains selectable while C stays open.
+ if (!Hero->bBagPanelOpen) return -1;
+ if (!MoonfallDualPanels(Canvas,Hero) && Hero->bCharacterStatsOpen &&
+     Hero->bMenuFocusCharacter) return -1;
+ // The SORT button owns its entire rectangle, even when a compact
+ // viewport puts it over an equipment row. Neither mouse button can
+ // accidentally select or equip a row through the SORT control.
+ if (IsInventorySortButtonAtScreenPosition(Hero, X, Y)) return -1;
+ const int32 Count = Hero->InventoryItemCodes.Num();
+ if (Count <= 0) return -1;
+ if (MoonfallDualPanels(Canvas,Hero)) {
+  float L=0.f,T=0.f,W=0.f,H=0.f;
+  MoonfallDualBagGeometry(Canvas,L,T,W,H);
+  const int32 Per=FMath::Clamp(FMath::FloorToInt((H-230.f)/25.f),2,20);
+  const int32 Start=FMath::Clamp(Hero->InventoryViewStart,0,FMath::Max(0,Count-Per));
+  if (X<L+12.f || X>L+W-12.f) return -1;
+  for (int32 Index=Start;Index<FMath::Min(Count,Start+Per);++Index) {
+   const float RowTop=T+100.f+(Index-Start)*25.f;
+   if (Y>=RowTop && Y<RowTop+23.f) return Index;
+  }
+  return -1;
+ }
+ const bool bWideInventory = Canvas->SizeX >= 1100.f && Canvas->SizeY >= 600.f;
+ const float PanelWidth = FMath::Min(bWideInventory ? 1040.f : 680.f, FMath::Max(280.f, Canvas->SizeX - 24.f));
+ const float ListWidth = bWideInventory ? PanelWidth - 340.f : PanelWidth;
+ const float PanelHeight = FMath::Min(860.f, FMath::Max(280.f, Canvas->SizeY - 24.f));
+ const float Left = (Canvas->SizeX - PanelWidth) * 0.5f;
+ const float Top = (Canvas->SizeY - PanelHeight) * 0.5f;
+ const int32 PerPage = FMath::Clamp(FMath::FloorToInt((PanelHeight - 355.f) / 25.f), 2, 20);
+ const int32 Selected = FMath::Clamp(Hero->InventorySelection, 0, Count - 1);
+ const int32 PageStart = FMath::Clamp(Hero->InventoryViewStart, 0, FMath::Max(0, Count - PerPage));
+ const int32 PageEnd = FMath::Min(Count, PageStart + PerPage);
+ const float RowSpacing = FMath::Max(21.f, (PanelHeight - 355.f) / PerPage);
+ if (X < Left + 12.f || X > Left + ListWidth - 12.f) return -1;
+ for (int32 Index = PageStart; Index < PageEnd; ++Index) {
+  const float RowTop = Top + 145.f + (Index - PageStart) * RowSpacing - 3.f;
+  if (Y >= RowTop && Y < RowTop + RowSpacing - 3.f)
+   return Index;
+ }
+ return -1;
+}
+
+
+// One shared, resolution-responsive grid for drawing and mouse hit testing.
+static bool MoonfallCharacterActionRect(const UCanvas* Canvas, bool bDual, int32 Action,
+    float& X, float& Y, float& W, float& H)
+{
+ if (!Canvas || Action < 0 || Action >= 11) return false;
+ const bool bWide = Canvas->SizeX >= 1100.f && Canvas->SizeY >= 600.f;
+ float PanelWidth = FMath::Min(bWide ? 1040.f : 680.f,
+   FMath::Max(280.f,Canvas->SizeX - 24.f));
+ float PanelHeight = FMath::Min(860.f,FMath::Max(280.f,Canvas->SizeY - 24.f));
+ float Left = (Canvas->SizeX - PanelWidth) * 0.5f;
+ float Top = (Canvas->SizeY - PanelHeight) * 0.5f;
+ if (bDual) MoonfallDualCharacterGeometry(Canvas,Left,Top,PanelWidth,PanelHeight);
+ W = (PanelWidth - 48.f) / 3.f;
+ H = 32.f;
+ X = Left + 12.f + float(Action % 3) * (W + 6.f);
+ Y = Top + PanelHeight - 165.f + float(Action / 3) * 37.f;
+ return true;
+}
+
+int32 AMoonfallCombatHUD::GetCharacterActionAtScreenPosition(
+    const AMoonfallHeroPawn* Hero, float X, float Y) const
+{
+ if (!Canvas || !IsValid(Hero) || !Hero->bInventoryOpen ||
+     !Hero->bCharacterStatsOpen || Hero->bOptionsOpen ||
+     !FMath::IsFinite(X) || !FMath::IsFinite(Y)) return -1;
+ // On compact screens B and C use the focused pane, never overlapping clicks.
+ if (!MoonfallDualPanels(Canvas,Hero) && Hero->bBagPanelOpen &&
+     !Hero->bMenuFocusCharacter) return -1;
+ for (int32 Action = 0; Action < 11; ++Action) {
+  float BX = 0.f, BY = 0.f, BW = 0.f, BH = 0.f;
+  if (!MoonfallCharacterActionRect(Canvas,MoonfallDualPanels(Canvas,Hero),Action,BX,BY,BW,BH)) continue;
+  if (X >= BX && X < BX + BW && Y >= BY && Y < BY + BH)
+   return Action;
+ }
+ return -1;
+}
+
+static bool MoonfallBagActionRect(const UCanvas* Canvas, bool bDual, int32 Action,
+    float& X, float& Y, float& W, float& H)
+{
+ if (!Canvas || Action < 0 || Action >= 8) return false;
+ const bool bWide = Canvas->SizeX >= 1100.f && Canvas->SizeY >= 600.f;
+ const float PanelWidth=FMath::Min(bWide ? 1040.f : 680.f,
+   FMath::Max(280.f,Canvas->SizeX-24.f));
+ const float PanelHeight=FMath::Min(860.f,FMath::Max(280.f,Canvas->SizeY-24.f));
+ float Left=(Canvas->SizeX-PanelWidth)*0.5f;
+ float Top=(Canvas->SizeY-PanelHeight)*0.5f;
+ float ActualWidth=PanelWidth,ActualHeight=PanelHeight;
+ if (bDual) MoonfallDualBagGeometry(Canvas,Left,Top,ActualWidth,ActualHeight);
+ W=(ActualWidth-42.f)/4.f;
+ H=32.f;
+ X=Left+12.f+float(Action%4)*(W+6.f);
+ Y=Top+ActualHeight-82.f+float(Action/4)*37.f;
+ return true;
+}
+
+int32 AMoonfallCombatHUD::GetInventoryActionAtScreenPosition(
+    const AMoonfallHeroPawn* Hero,float X,float Y) const
+{
+ if (!Canvas || !IsValid(Hero) || !Hero->bBagPanelOpen ||
+     Hero->bOptionsOpen ||
+     !FMath::IsFinite(X) || !FMath::IsFinite(Y)) return -1;
+ if (!MoonfallDualPanels(Canvas,Hero) && Hero->bCharacterStatsOpen &&
+     Hero->bMenuFocusCharacter) return -1;
+ for (int32 Action=0;Action<8;++Action) {
+  float BX=0.f,BY=0.f,BW=0.f,BH=0.f;
+  if (!MoonfallBagActionRect(Canvas,MoonfallDualPanels(Canvas,Hero),Action,BX,BY,BW,BH)) continue;
+  if (X>=BX && X<BX+BW && Y>=BY && Y<BY+BH) return Action;
+ }
+ return -1;
+}
+
+int32 AMoonfallCombatHUD::GetOptionsActionAtScreenPosition(
+    const AMoonfallHeroPawn* Hero, float X, float Y) const
+{
+ if (!Canvas || !IsValid(Hero) || !Hero->bOptionsOpen ||
+     !FMath::IsFinite(X) || !FMath::IsFinite(Y)) return -1;
+ const float W = FMath::Min(560.f,FMath::Max(240.f,Canvas->SizeX-24.f));
+ const float H = FMath::Min(550.f,FMath::Max(280.f,Canvas->SizeY-24.f));
+ const float L = (Canvas->SizeX-W)*0.5f, T = (Canvas->SizeY-H)*0.5f;
+ if (X >= L+W-100.f && X < L+W-12.f &&
+     Y >= T+H-43.f && Y < T+H-9.f) return 14;
+ const float Gap = (H-130.f)/7.f;
+ for (int32 Row=0; Row<7; ++Row) {
+  const float Y0 = T+66.f+Row*Gap;
+  if (Y < Y0 || Y >= Y0+FMath::Min(34.f,Gap-2.f)) continue;
+  if (X >= L+W-104.f && X < L+W-65.f) return Row;
+  if (X >= L+W-55.f && X < L+W-16.f) return 7+Row;
+ }
+ return -1;
+}
+
+int32 AMoonfallCombatHUD::GetAtlasMenuActionAtScreenPosition(
+    const AMoonfallHeroPawn* Hero, float X, float Y) const
+{
+ if (!Canvas || !IsValid(Hero) || !Hero->bAtlasOpen ||
+     Hero->bOptionsOpen || !FMath::IsFinite(X) || !FMath::IsFinite(Y)) return -1;
+ const bool Talents = Hero->bTalentsOpen;
+ const float W = Talents ? FMath::Min(1120.f,FMath::Max(280.f,Canvas->SizeX-24.f))
+   : FMath::Min(700.f,FMath::Max(280.f,Canvas->SizeX-24.f));
+ const float H = Talents ? FMath::Min(800.f,FMath::Max(280.f,Canvas->SizeY-24.f))
+   : FMath::Min(650.f,FMath::Max(280.f,Canvas->SizeY-24.f));
+ const float L=(Canvas->SizeX-W)*0.5f,T=(Canvas->SizeY-H)*0.5f;
+ if (Talents && Hero->bTalentRespecArmed) {
+  const float DialogW=FMath::Min(380.f,W-24.f);
+  const float DialogL=L+(W-DialogW)*0.5f;
+  const float DialogT=T+(H-170.f)*0.5f;
+  const float ButtonW=(DialogW-42.f)*0.5f;
+  if (Y>=DialogT+111.f && Y<DialogT+151.f) {
+   if (X>=DialogL+14.f && X<DialogL+14.f+ButtonW) return 4; // YES
+   if (X>=DialogL+28.f+ButtonW && X<DialogL+28.f+2.f*ButtonW) return 5; // NO
+  }
+  return -1; // Modal dialog blocks every underlying button and talent.
+ }
+ if (X >= L+W-96.f && X < L+W-12.f &&
+     Y >= T+12.f && Y < T+46.f) return 0;
+ if (Talents && X >= L+W-205.f && X < L+W-105.f &&
+     Y >= T+12.f && Y < T+46.f) return 3;
+ if (Talents && Y >= T+H-44.f && Y < T+H-10.f) {
+  if (X >= L+12.f && X < L+100.f) return 1;
+  if (X >= L+110.f && X < L+198.f) return 2;
+ }
+ return -1;
+}
+
+bool AMoonfallCombatHUD::IsInventorySortButtonAtScreenPosition(
+    const AMoonfallHeroPawn* Hero, float X, float Y) const
+{
+ if (!Canvas || !IsValid(Hero) || !Hero->bBagPanelOpen ||
+     Hero->bOptionsOpen ||
+     !FMath::IsFinite(X) || !FMath::IsFinite(Y)) return false;
+ if (!MoonfallDualPanels(Canvas,Hero) && Hero->bCharacterStatsOpen &&
+     Hero->bMenuFocusCharacter) return false;
+ if (MoonfallDualPanels(Canvas,Hero)) {
+  float L=0.f,T=0.f,W=0.f,H=0.f;
+  MoonfallDualBagGeometry(Canvas,L,T,W,H);
+  return X>=L+W-158.f && X<L+W-10.f &&
+      Y>=T+12.f && Y<T+45.f;
+ }
+ const bool bWideInventory = Canvas->SizeX >= 1100.f && Canvas->SizeY >= 600.f;
+ const float PanelWidth = FMath::Min(bWideInventory ? 1040.f : 680.f,
+   FMath::Max(280.f, Canvas->SizeX - 24.f));
+ const float ListWidth = bWideInventory ? PanelWidth - 340.f : PanelWidth;
+ const float PanelHeight = FMath::Min(860.f, FMath::Max(280.f, Canvas->SizeY - 24.f));
+ const float Left = (Canvas->SizeX - PanelWidth) * 0.5f;
+ const float Top = (Canvas->SizeY - PanelHeight) * 0.5f;
+ // Compact windows put the button on the bottom row to avoid title overlap.
+ const float ButtonX = Left + ListWidth - 166.f;
+ const float ButtonY = ListWidth >= 500.f ? Top + 12.f : Top + PanelHeight - 109.f;
+ return X >= ButtonX && X < ButtonX + 148.f &&
+   Y >= ButtonY && Y < ButtonY + 33.f;
+}
+
+
+
+// Shared positioning for all Astral pages. Rendering and hit testing must agree.
+static FVector2D MoonfallAstralStarPosition(float Left, float Top, float Width,
+ float Height, float Zoom, int32 LocalIndex)
+{
+ const float LayoutZoom = FMath::Clamp(Zoom,0.75f,1.10f);
+ const float Column = 0.23f + (LocalIndex % 3) * 0.27f;
+ const float Row = 0.19f + (LocalIndex / 3) * 0.07f;
+ return FVector2D(
+  Left + Width * (0.50f + (Column - 0.50f) * LayoutZoom),
+  Top + Height * (0.47f + (Row - 0.47f) * LayoutZoom));
+}
+
+int32 AMoonfallCombatHUD::GetTalentNodeAtScreenPosition(
+ const AMoonfallHeroPawn* Hero, float X, float Y) const
+{
+ if (!Canvas || !IsValid(Hero) || !Hero->bAtlasOpen || !Hero->bTalentsOpen ||
+     Hero->bOptionsOpen || Hero->bInventoryOpen || Hero->Health <= 0.f ||
+     !FMath::IsFinite(X) || !FMath::IsFinite(Y)) return -1;
+ const float Width = FMath::Min(1120.f,FMath::Max(280.f,Canvas->SizeX - 24.f));
+ const float Height = FMath::Min(800.f,FMath::Max(280.f,Canvas->SizeY - 24.f));
+ const float Left = (Canvas->SizeX - Width) * 0.5f;
+ const float Top = (Canvas->SizeY - Height) * 0.5f;
+ if (X < Left || X > Left + Width || Y < Top || Y > Top + Height) return -1;
+ if (Hero->TalentSelectedNode >= 27) {
+  const int32 Page = FMath::Clamp(Hero->TalentSelectedNode / 27,1,5);
+  const float Zoom = FMath::Clamp(FMath::IsFinite(Hero->TalentZoom) ? Hero->TalentZoom : 1.f,0.75f,1.35f);
+  const float Scale = FMath::Clamp(FMath::Min(Width / 960.f,Height / 700.f),0.50f,1.15f);
+  float BestDistanceSq = TNumericLimits<float>::Max();
+  int32 BestNode = -1;
+  for (int32 Local = 0; Local < 27; ++Local) {
+   const int32 Node = Page * 27 + Local;
+   if (Node >= 138) break;
+   const FVector2D Position = MoonfallAstralStarPosition(Left,Top,Width,Height,Zoom,Local);
+   const float DX = X - Position.X, DY = Y - Position.Y;
+   const float Radius = 12.f * Scale * Zoom + 6.f;
+   const float DistanceSq = DX * DX + DY * DY;
+   if (DistanceSq <= Radius * Radius && DistanceSq < BestDistanceSq) {
+    BestDistanceSq = DistanceSq;
+    BestNode = Node;
+   }
+  }
+  return BestNode;
+ }
+
+ const float Zoom = FMath::Clamp(FMath::IsFinite(Hero->TalentZoom) ? Hero->TalentZoom : 1.f,0.75f,1.35f);
+  // Capped layout displacement keeps every star onscreen at maximum wheel zoom.
+  const float LayoutZoom = FMath::Min(Zoom,1.10f);
+ const float Scale = FMath::Clamp(FMath::Min(Width / 960.f,Height / 700.f),0.50f,1.15f);
+ const float CenterX[] = {
+  Left + Width * (0.50f + (0.23f - 0.50f) * LayoutZoom),
+  Left + Width * 0.50f,
+  Left + Width * (0.50f + (0.77f - 0.50f) * LayoutZoom)
+ };
+ const float TierY[] = {
+  Top + Height * (0.47f + (0.19f - 0.47f) * LayoutZoom),
+  Top + Height * (0.47f + (0.26f - 0.47f) * LayoutZoom),
+  Top + Height * (0.47f + (0.33f - 0.47f) * LayoutZoom),
+  Top + Height * (0.47f + (0.40f - 0.47f) * LayoutZoom),
+  Top + Height * (0.47f + (0.47f - 0.47f) * LayoutZoom),
+  Top + Height * (0.47f + (0.54f - 0.47f) * LayoutZoom),
+  Top + Height * (0.47f + (0.61f - 0.47f) * LayoutZoom),
+  Top + Height * (0.47f + (0.68f - 0.47f) * LayoutZoom),
+  Top + Height * (0.47f + (0.75f - 0.47f) * LayoutZoom)
+ };
+ // Closest-star hit testing prevents spending on a neighboring talent.
+ float BestDistanceSq = TNumericLimits<float>::Max();
+ int32 ClosestNode = -1;
+ for (int32 Tier = 0; Tier < 9; ++Tier)
+  for (int32 Branch = 0; Branch < 3; ++Branch) {
+   const float DX = X - CenterX[Branch], DY = Y - TierY[Tier];
+   const float Radius = (12.f + Tier * 0.75f) * Scale * Zoom + 5.f;
+   const float DistanceSq = DX * DX + DY * DY;
+   if (DistanceSq <= Radius * Radius && DistanceSq < BestDistanceSq) {
+    BestDistanceSq = DistanceSq;
+    ClosestNode = Tier * 3 + Branch;
+   }
+  }
+ return ClosestNode;
+}
+
 void AMoonfallCombatHUD::DrawHUD()
 {
  Super::DrawHUD();
  if (!Canvas) return;
  const AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this,0));
  if (!IsValid(Hero)) return;
+ // A newly opened bag must never inherit advice cached in an earlier menu.
+ if (!Hero->bInventoryOpen || Hero->bCharacterStatsOpen || Hero->bOptionsOpen) {
+  CachedAdvisorHero = nullptr;
+  NextAdvisorRefreshAt = -1.f;
+ }
  if (Hero->bOptionsOpen) {
   const float MenuWidth = FMath::Min(560.f, FMath::Max(240.f, Canvas->SizeX - 24.f));
   const float MenuHeight = FMath::Min(550.f, FMath::Max(280.f, Canvas->SizeY - 24.f));
@@ -27,27 +353,641 @@ void AMoonfallCombatHUD::DrawHUD()
    Settings->GetResolutionScaleInformationEx(ScalePct, ScaleNormalized, ScaleMin, ScaleMax);
    const FIntPoint Res = Settings->GetScreenResolution();
    const FString Rows[] = {FString::Printf(TEXT("Resolution: %d x %d"),Res.X,Res.Y),FString::Printf(TEXT("Render scale: %.0f%%"),ScalePct),FString::Printf(TEXT("Quality preset: %d (0 Low - 3 Epic)"),Settings->GetOverallScalabilityLevel()),FString::Printf(TEXT("Frame Generation: %s (%s)"),Hero->FrameGenerationPreference==0?TEXT("Off"):Hero->FrameGenerationPreference==1?TEXT("Auto"):TEXT("On"),Hero->bFrameGenerationPluginDetected?TEXT("plugin detected; inactive"):TEXT("plugin unavailable")),FString::Printf(TEXT("Reduced motion: %s"),Hero->bReduceMotion?TEXT("On"):TEXT("Off")),FString::Printf(TEXT("Combat text size: %.0f%%"),Hero->CombatTextScale * 100.f),FString::Printf(TEXT("Boss warning visibility: %.0f%%"),Hero->BossWarningScale * 100.f)};
-   for (int32 i=0;i<7;++i) DrawText(Rows[i],i==Hero->OptionsSelection?FLinearColor::Yellow:FLinearColor::White,MenuLeft+20.f,MenuTop+75.f+i*MenuRowGap,nullptr,1.1f);
+   for (int32 i=0;i<7;++i) {
+    DrawText(Rows[i],i==Hero->OptionsSelection?FLinearColor::Yellow:FLinearColor::White,
+      MenuLeft+20.f,MenuTop+75.f+i*MenuRowGap,nullptr,1.1f);
+    const float ControlY=MenuTop+66.f+i*MenuRowGap;
+    const float ControlH=FMath::Min(34.f,MenuRowGap-2.f);
+    DrawRect(Hero->MenuActionFocus==i ? FLinearColor(0.72f,0.53f,0.20f) : FLinearColor(0.15f,0.35f,0.44f),MenuLeft+MenuWidth-104.f,ControlY,39.f,ControlH);
+    DrawRect(Hero->MenuActionFocus==i+7 ? FLinearColor(0.72f,0.53f,0.20f) : FLinearColor(0.15f,0.35f,0.44f),MenuLeft+MenuWidth-55.f,ControlY,39.f,ControlH);
+    DrawText(TEXT("-"),FLinearColor::White,MenuLeft+MenuWidth-91.f,ControlY+5.f,nullptr,0.95f);
+    DrawText(TEXT("+"),FLinearColor::White,MenuLeft+MenuWidth-42.f,ControlY+5.f,nullptr,0.95f);
+   }
   }
-  DrawText(TEXT("WASD / Arrows / D-pad: navigate    Esc / Start: close"),FLinearColor::White,MenuLeft+18.f,MenuTop+MenuHeight-28.f,nullptr,0.85f);
+  DrawRect(Hero->MenuActionFocus==14 ? FLinearColor(0.72f,0.53f,0.20f) : FLinearColor(0.15f,0.35f,0.44f),MenuLeft+MenuWidth-100.f,MenuTop+MenuHeight-43.f,88.f,34.f);
+  DrawText(TEXT("CLOSE"),FLinearColor::White,MenuLeft+MenuWidth-89.f,MenuTop+MenuHeight-35.f,nullptr,0.85f);
   return;
  }
+ // A dedicated modal overlay is drawn last on both K layouts.
+ // Geometry is shared exactly with GetAtlasMenuActionAtScreenPosition.
+ const auto DrawRespecConfirmation = [&](float Left,float Top,float Width,float Height) {
+  if (!Hero->bTalentRespecArmed) return;
+  const float DialogW=FMath::Min(380.f,Width-24.f);
+  const float DialogL=Left+(Width-DialogW)*0.5f;
+  const float DialogT=Top+(Height-170.f)*0.5f;
+  const float ButtonW=(DialogW-42.f)*0.5f;
+  DrawRect(FLinearColor(0.025f,0.022f,0.057f,0.97f),DialogL,DialogT,DialogW,170.f);
+  DrawText(TEXT("ARE YOU SURE?"),FLinearColor::White,
+    DialogL+18.f,DialogT+18.f,nullptr,Width<600.f?0.82f:1.10f);
+  DrawText(TEXT("Reset all spent talent points?"),FLinearColor(0.92f,0.86f,0.96f),
+    DialogL+18.f,DialogT+56.f,nullptr,Width<600.f?0.57f:0.80f);
+  DrawText(TEXT("D-pad: choose   A: confirm   B/Esc: cancel"),FLinearColor(0.77f,0.78f,0.90f),
+    DialogL+18.f,DialogT+82.f,nullptr,Width<600.f?0.49f:0.65f);
+  for (int32 Choice=0;Choice<2;++Choice) {
+   const float X=DialogL+14.f+Choice*(ButtonW+14.f);
+   const bool bSelected=Hero->TalentRespecChoice==Choice;
+   DrawRect(bSelected ? FLinearColor(0.65f,0.46f,0.19f)
+       : FLinearColor(0.17f,0.33f,0.41f),X,DialogT+111.f,ButtonW,40.f);
+   DrawText(Choice==0?TEXT("YES"):TEXT("NO"),FLinearColor::White,
+     X+14.f,DialogT+122.f,nullptr,0.84f);
+  }
+ };
+ if (Hero->bAtlasOpen && Hero->bTalentsOpen) {
+  // Native Canvas constellation: circular celestial nodes and illuminated paths.
+  // Purely visual animation; no textures, random allocations or auto-spend.
+  const float Width = FMath::Min(1120.f, FMath::Max(280.f, Canvas->SizeX - 24.f));
+  const float Height = FMath::Min(800.f, FMath::Max(280.f, Canvas->SizeY - 24.f));
+  const float Left = (Canvas->SizeX - Width) * 0.5f;
+  const float Top = (Canvas->SizeY - Height) * 0.5f;
+  const float Scale = FMath::Clamp(FMath::Min(Width / 960.f, Height / 700.f), 0.50f, 1.15f);
+  const bool bSmall = Width < 570.f || Height < 540.f;
+  const float Zoom = FMath::Clamp(FMath::IsFinite(Hero->TalentZoom) ? Hero->TalentZoom : 1.f,0.75f,1.35f);
+  // Capped layout displacement keeps every star onscreen at maximum wheel zoom.
+  const float LayoutZoom = FMath::Min(Zoom,1.10f);
+  const float Pulse = Hero->bReduceMotion ? 1.f : 0.80f + 0.20f * FMath::Sin(
+    (GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f) * 1.3f);
+  DrawRect(FLinearColor(0.014f,0.016f,0.047f,0.985f),Left,Top,Width,Height);
+  if (Hero->TalentSelectedNode >= 27) {
+   // 111 distinct Astral stars live on five virtualized pages. No 138-node
+   // single-frame Canvas pass or hundreds of overlapping labels.
+   const int32 Page = FMath::Clamp(Hero->TalentSelectedNode / 27,1,5);
+   const FLinearColor BranchColors[] = {
+    FLinearColor(1.f,0.48f,0.29f),FLinearColor(0.41f,0.76f,1.f),
+    FLinearColor(0.52f,0.92f,0.68f)
+   };
+   const FLinearColor Locked(0.25f,0.29f,0.40f,0.90f);
+   DrawText(FString::Printf(TEXT("ASTRAL CONSTELLATION     PAGE %d / 6"),Page+1),
+     FLinearColor(0.94f,0.88f,1.f),Left + 20.f,Top + 17.f,
+     nullptr,bSmall ? 0.85f : 1.18f);
+   DrawText(FString::Printf(TEXT("111 new talents  |  %d unspent points  |  owned %d / 111"),
+       Hero->GetUnspentTalentPoints(),Hero->GetAstralTalentCount(-1)),
+     FLinearColor(0.93f,0.76f,0.44f),Left + 20.f,Top + 49.f,
+     nullptr,bSmall ? 0.56f : 0.80f);
+   DrawText(TEXT("FORCE                     FOCUS                     WARD"),
+     FLinearColor(0.66f,0.80f,0.97f),Left + Width * 0.14f,Top + Height * 0.115f,
+     nullptr,bSmall ? 0.46f : 0.80f);
+   for (int32 Local = 0; Local < 27; ++Local) {
+    const int32 Node = Page * 27 + Local;
+    if (Node >= 138) break;
+    const int32 Astral = Node - 27;
+    const int32 Branch = Astral % 3;
+    const int32 Stage = Astral / 3;
+    const FVector2D P = MoonfallAstralStarPosition(Left,Top,Width,Height,Zoom,Local);
+    const bool bOwned = Hero->IsAstralTalentUnlocked(Astral);
+    const bool bReady = Hero->CanUnlockAstralTalent(Astral);
+    const FLinearColor Color = bOwned ? BranchColors[Branch] :
+       bReady ? FLinearColor(0.97f,0.81f,0.46f) : Locked;
+    if (Stage > 0) {
+     const int32 Previous = Node - 3;
+     if (Previous >= Page * 27) {
+      const FVector2D From = MoonfallAstralStarPosition(
+       Left,Top,Width,Height,Zoom,Local-3);
+      DrawLine(From.X,From.Y,P.X,P.Y,
+        Hero->IsAstralTalentUnlocked(Astral-3) ? BranchColors[Branch] : Locked,
+        1.8f * Scale);
+     }
+     if (Stage % 6 == 0 && Previous >= Page * 27) {
+      const int32 CrossBranch = (Branch+1) % 3;
+      const FVector2D From = MoonfallAstralStarPosition(
+       Left,Top,Width,Height,Zoom,(Local/3-1)*3+CrossBranch);
+      DrawLine(From.X,From.Y,P.X,P.Y,
+        Hero->IsAstralTalentUnlocked((Stage-1)*3+CrossBranch)
+          ? FLinearColor(0.68f,0.58f,0.87f) : Locked,1.2f * Scale);
+     }
+    }
+    const float R = 12.f * Scale * Zoom;
+    for (int32 Seg = 0; Seg < 16; ++Seg) {
+     const float A = 2.f * PI * Seg / 16.f;
+     const float B = 2.f * PI * (Seg+1) / 16.f;
+     DrawLine(P.X + R*FMath::Cos(A),P.Y + R*FMath::Sin(A),
+       P.X + R*FMath::Cos(B),P.Y + R*FMath::Sin(B),Color,1.7f*Scale);
+    }
+    DrawRect(Color,P.X-2.5f*Scale,P.Y-2.5f*Scale,5.f*Scale,5.f*Scale);
+    if (Node == Hero->TalentSelectedNode) {
+     for (int32 Seg = 0; Seg < 16; ++Seg) {
+      const float A = 2.f * PI * Seg / 16.f;
+      const float B = 2.f * PI * (Seg+1) / 16.f;
+      DrawLine(P.X + (R+6.f*Scale)*FMath::Cos(A),P.Y + (R+6.f*Scale)*FMath::Sin(A),
+       P.X + (R+6.f*Scale)*FMath::Cos(B),P.Y + (R+6.f*Scale)*FMath::Sin(B),
+       FLinearColor(1.f,0.86f,0.39f),1.9f*Scale);
+     }
+    }
+    if (!bSmall)
+     DrawText(FString::Printf(TEXT("%d"),Stage+1),Color,
+       P.X+R+3.f*Scale,P.Y-7.f*Scale,nullptr,0.53f);
+   }
+   const int32 Selected = FMath::Clamp(Hero->TalentSelectedNode - 27,0,110);
+   const bool bOwned = Hero->IsAstralTalentUnlocked(Selected);
+   const bool bReady = Hero->CanUnlockAstralTalent(Selected);
+   DrawText(Hero->GetAstralTalentName(Selected),
+      FLinearColor(1.f,0.90f,0.70f),Left+20.f,Top+Height-101.f,
+      nullptr,bSmall ? 0.70f : 1.03f);
+   DrawText(bOwned ? TEXT("UNLOCKED") : bReady ? TEXT("READY - click or Enter to invest")
+       : TEXT("LOCKED - requires the connected previous stars"),
+       bOwned ? FLinearColor(0.55f,0.92f,0.70f) :
+       bReady ? FLinearColor(1.f,0.81f,0.51f) : FLinearColor(0.67f,0.71f,0.83f),
+       Left+20.f,Top+Height-70.f,nullptr,bSmall ? 0.53f : 0.73f);
+   DrawText(TEXT("PgUp/PgDn / LB/RB: page   Tab / D-pad: star   Enter/A: unlock   Wheel: zoom"),
+      FLinearColor(0.76f,0.79f,0.94f),Left+20.f,Top+Height-35.f,
+      nullptr,bSmall ? 0.43f : 0.71f);
+  // Clickable close and page navigation, independent of talent-node activation.
+  DrawRect(FLinearColor(0.15f,0.35f,0.44f),Left+Width-96.f,Top+12.f,84.f,34.f);
+  DrawText(TEXT("CLOSE"),FLinearColor::White,Left+Width-84.f,Top+20.f,nullptr,0.77f);
+  DrawRect(Hero->bTalentRespecArmed ? FLinearColor(0.60f,0.22f,0.24f)
+    : FLinearColor(0.15f,0.35f,0.44f),Left+Width-205.f,Top+12.f,100.f,34.f);
+  DrawText(TEXT("RESPEC"),
+    FLinearColor::White,Left+Width-195.f,Top+20.f,nullptr,0.74f);
+  DrawRect(FLinearColor(0.15f,0.35f,0.44f),Left+12.f,Top+Height-44.f,88.f,34.f);
+  DrawRect(FLinearColor(0.15f,0.35f,0.44f),Left+110.f,Top+Height-44.f,88.f,34.f);
+  DrawText(TEXT("PREV"),FLinearColor::White,Left+22.f,Top+Height-36.f,nullptr,0.73f);
+  DrawText(TEXT("NEXT"),FLinearColor::White,Left+120.f,Top+Height-36.f,nullptr,0.73f);
+
+   DrawRespecConfirmation(Left,Top,Width,Height);
+
+   return;
+  }
+
+  // Layered nebula glints and star dust, deterministic from star index.
+  const FVector2D GalaxyCenter(Left + Width * 0.50f,Top + Height * 0.49f);
+  for (int32 Ring = 0; Ring < 5; ++Ring) {
+   const float Radius = FMath::Min(Width,Height) * (0.18f + Ring * 0.105f);
+   const FLinearColor Color(0.15f,0.13f,0.29f,0.12f);
+   for (int32 Arc = 0; Arc < 64; ++Arc) {
+    const float A = 2.f * PI * Arc / 64.f;
+    const float B = 2.f * PI * (Arc + 1) / 64.f;
+    DrawLine(GalaxyCenter.X + Radius * FMath::Cos(A),
+      GalaxyCenter.Y + Radius * FMath::Sin(A),
+      GalaxyCenter.X + Radius * FMath::Cos(B),
+      GalaxyCenter.Y + Radius * FMath::Sin(B),Color,0.75f);
+   }
+  }
+  for (int32 Star = 0; Star < 85; ++Star) {
+   const float X = Left + 16.f + FMath::Fmod(Star * 173.31f + 51.f,FMath::Max(1.f,Width - 32.f));
+   const float Y = Top + 115.f * Scale + FMath::Fmod(Star * 97.73f + 31.f,
+     FMath::Max(1.f,Height - 195.f * Scale));
+   const float Bright = 0.18f + 0.12f * (Star % 4);
+   DrawRect(FLinearColor(0.62f,0.75f,1.f,Bright),
+     X,Y,Star % 9 == 0 ? 2.f : 1.f,Star % 9 == 0 ? 2.f : 1.f);
+  }
+  DrawText(TEXT("MOONFALL   /   CELESTIAL TALENTS"),FLinearColor(0.94f,0.89f,1.f),
+    Left + 22.f,Top + 18.f,nullptr,bSmall ? 0.95f : 1.32f);
+  DrawText(FString::Printf(TEXT("LV %d    |    UNSPENT TALENT POINTS: %d"),
+    Hero->Level,Hero->GetUnspentTalentPoints()),
+    FLinearColor(0.97f,0.78f,0.42f),Left + 22.f,Top + 53.f,nullptr,
+    bSmall ? 0.66f : 0.87f);
+  DrawText(FString::Printf(TEXT("Crit %.1f%%  /  Haste %.1f%%  /  Versatility %.1f%%"),
+    Hero->GetCriticalChance() * 100.f,Hero->GetHasteBonus() * 100.f,
+    Hero->GetVersatilityBonus() * 100.f),
+    FLinearColor(0.65f,0.83f,0.90f),Left + 22.f,Top + 80.f,nullptr,
+    bSmall ? 0.58f : 0.73f);
+  // Three-root branches, three major stars and three converging hybrids.
+  const int32 Ranks[] = {Hero->TalentForceRank,Hero->TalentFocusRank,Hero->TalentWardRank};
+  const TCHAR* BranchNames[] = {TEXT("1  FORCE"),TEXT("2  FOCUS"),TEXT("3  WARD")};
+  const TCHAR* Benefits[] = {TEXT("+0.5% crit / rank"),TEXT("+1% haste / rank"),TEXT("+0.8% versatility / rank")};
+  const TCHAR* KeystoneNames[] = {TEXT("4  BATTLE FURY"),TEXT("5  MIND FLOW"),TEXT("6  BULWARK")};
+  const TCHAR* HybridNames[] = {TEXT("7  BATTLE WEAVE"),TEXT("8  ARCANE AEGIS"),TEXT("9  IRON WILL")};
+  const TCHAR* ApexNames[] = {TEXT("STARBREAKER"),TEXT("ASTRAL SURGE"),TEXT("ETERNAL SENTINEL")};
+  const TCHAR* CrownNames[] = {TEXT("VOID CROWN"),TEXT("CELESTIAL WELL"),TEXT("ADAMANT OATH")};
+  const TCHAR* MythicNames[] = {TEXT("ECLIPSE HEART"),TEXT("INFINITE CURRENT"),TEXT("WORLDGUARD")};
+  const TCHAR* AscendantNames[] = {TEXT("DUSK SOVEREIGN"),TEXT("SOUL CONDUIT"),TEXT("UNBROKEN BASTION")};
+  const TCHAR* TranscendentNames[] = {TEXT("NIGHTFALL ASCENSION"),TEXT("RADIANT NEXUS"),TEXT("TITAN SOUL")};
+  const TCHAR* ConvergenceNames[] = {TEXT("CRIMSON NOVA"),TEXT("AETHER COVENANT"),TEXT("LAST CITADEL")};
+  const bool Unlocked[] = {
+   Hero->bTalentForceKeystone,Hero->bTalentFocusKeystone,Hero->bTalentWardKeystone,
+   Hero->bTalentBattleWeave,Hero->bTalentArcaneAegis,Hero->bTalentIronWill,
+   Hero->bTalentStarbreaker,Hero->bTalentAstralSurge,Hero->bTalentEternalSentinel,
+   Hero->bTalentVoidCrown,Hero->bTalentCelestialWell,Hero->bTalentAdamantOath,
+   Hero->bTalentEclipseHeart,Hero->bTalentInfiniteCurrent,Hero->bTalentWorldguard,
+   Hero->bTalentDuskSovereign,Hero->bTalentSoulConduit,Hero->bTalentUnbrokenBastion,
+   Hero->bTalentNightfallAscension,Hero->bTalentRadiantNexus,Hero->bTalentTitanSoul,
+   Hero->bTalentCrimsonNova,Hero->bTalentAetherCovenant,Hero->bTalentLastCitadel
+  };
+  const FLinearColor BranchColors[] = {
+   FLinearColor(1.f,0.53f,0.30f),FLinearColor(0.38f,0.73f,1.f),
+   FLinearColor(0.49f,0.90f,0.66f)
+  };
+  const FLinearColor Locked(0.23f,0.27f,0.37f,0.90f);
+  const FLinearColor UnlockedColor(0.73f,0.88f,1.f,0.96f);
+  const float CenterX[] = {
+   Left + Width * (0.50f + (0.23f - 0.50f) * LayoutZoom),
+   Left + Width * 0.50f,
+   Left + Width * (0.50f + (0.77f - 0.50f) * LayoutZoom)
+  };
+  const float TierY[] = {
+   Top + Height * (0.47f + (0.19f - 0.47f) * LayoutZoom),
+   Top + Height * (0.47f + (0.26f - 0.47f) * LayoutZoom),
+   Top + Height * (0.47f + (0.33f - 0.47f) * LayoutZoom),
+   Top + Height * (0.47f + (0.40f - 0.47f) * LayoutZoom),
+  Top + Height * (0.47f + (0.47f - 0.47f) * LayoutZoom),
+  Top + Height * (0.47f + (0.54f - 0.47f) * LayoutZoom),
+  Top + Height * (0.47f + (0.61f - 0.47f) * LayoutZoom),
+  Top + Height * (0.47f + (0.68f - 0.47f) * LayoutZoom),
+  Top + Height * (0.47f + (0.75f - 0.47f) * LayoutZoom)
+  };
+  // Luminous roots and links: draw dark rails under living colored filaments.
+  for (int32 Branch = 0; Branch < 3; ++Branch) {
+   DrawLine(CenterX[Branch],TierY[0],CenterX[Branch],TierY[1],
+     FLinearColor(0.12f,0.16f,0.23f,0.95f),5.f * Scale);
+   DrawLine(CenterX[Branch],TierY[0],CenterX[Branch],TierY[1],
+     Ranks[Branch] >= 3 ? BranchColors[Branch] : Locked,
+     (Ranks[Branch] >= 3 ? 2.5f * Pulse : 1.f) * Scale);
+  }
+  const int32 LinkA[] = {0,1,2};
+  const int32 LinkB[] = {1,2,0};
+  for (int32 Link = 0; Link < 3; ++Link) {
+   DrawLine(CenterX[LinkA[Link]],TierY[1],CenterX[Link],TierY[2],
+     Unlocked[LinkA[Link]] ? UnlockedColor : Locked,1.7f * Scale);
+   DrawLine(CenterX[LinkB[Link]],TierY[1],CenterX[Link],TierY[2],
+     Unlocked[LinkB[Link]] ? UnlockedColor : Locked,1.7f * Scale);
+  }
+  // Tier IV apex stars require converging paths from the earlier hybrid tier.
+  const int32 ApexA[] = {0,0,1};
+  const int32 ApexB[] = {2,1,2};
+  for (int32 Apex = 0; Apex < 3; ++Apex) {
+   DrawLine(CenterX[ApexA[Apex]],TierY[2],CenterX[Apex],TierY[3],
+     Unlocked[3 + ApexA[Apex]] ? UnlockedColor : Locked,1.8f * Scale);
+   DrawLine(CenterX[ApexB[Apex]],TierY[2],CenterX[Apex],TierY[3],
+     Unlocked[3 + ApexB[Apex]] ? UnlockedColor : Locked,1.8f * Scale);
+  }
+  // Crown links converge only after two neighboring apex talents.
+  const int32 CrownA[] = {0,1,2};
+  const int32 CrownB[] = {1,2,0};
+  for (int32 Crown = 0; Crown < 3; ++Crown) {
+   DrawLine(CenterX[CrownA[Crown]],TierY[3],CenterX[Crown],TierY[4],
+     Unlocked[6 + CrownA[Crown]] ? UnlockedColor : Locked,2.f * Scale);
+   DrawLine(CenterX[CrownB[Crown]],TierY[3],CenterX[Crown],TierY[4],
+     Unlocked[6 + CrownB[Crown]] ? UnlockedColor : Locked,2.f * Scale);
+  }
+  // Sixth-tier mythic stars converge from two existing crown talents.
+  const int32 MythicA[] = {0,0,1};
+  const int32 MythicB[] = {2,1,2};
+  for (int32 Mythic = 0; Mythic < 3; ++Mythic) {
+   DrawLine(CenterX[MythicA[Mythic]],TierY[4],CenterX[Mythic],TierY[5],
+     Unlocked[9 + MythicA[Mythic]] ? UnlockedColor : Locked,2.f * Scale);
+   DrawLine(CenterX[MythicB[Mythic]],TierY[4],CenterX[Mythic],TierY[5],
+     Unlocked[9 + MythicB[Mythic]] ? UnlockedColor : Locked,2.f * Scale);
+  }
+  // Ascendant links: each star requires two converging mythic powers.
+  const int32 AscendantA[] = {0,0,1};
+  const int32 AscendantB[] = {2,1,2};
+  for (int32 Ascendant = 0; Ascendant < 3; ++Ascendant) {
+   DrawLine(CenterX[AscendantA[Ascendant]],TierY[5],CenterX[Ascendant],TierY[6],
+     Unlocked[12 + AscendantA[Ascendant]] ? UnlockedColor : Locked,2.f * Scale);
+   DrawLine(CenterX[AscendantB[Ascendant]],TierY[5],CenterX[Ascendant],TierY[6],
+     Unlocked[12 + AscendantB[Ascendant]] ? UnlockedColor : Locked,2.f * Scale);
+  }
+  // Tier VIII transcendent connections require two adjacent ascendant stars.
+  const int32 TranscendentA[] = {0,0,1};
+  const int32 TranscendentB[] = {2,1,2};
+  for (int32 Transcendent = 0; Transcendent < 3; ++Transcendent) {
+   DrawLine(CenterX[TranscendentA[Transcendent]],TierY[6],CenterX[Transcendent],TierY[7],
+     Unlocked[15 + TranscendentA[Transcendent]] ? UnlockedColor : Locked,2.f * Scale);
+   DrawLine(CenterX[TranscendentB[Transcendent]],TierY[6],CenterX[Transcendent],TierY[7],
+     Unlocked[15 + TranscendentB[Transcendent]] ? UnlockedColor : Locked,2.f * Scale);
+  }
+  // Ninth-tier convergences from two existing transcendent paths.
+  const int32 ConvergenceA[] = {0,0,1};
+  const int32 ConvergenceB[] = {2,1,2};
+  for (int32 Convergence = 0; Convergence < 3; ++Convergence) {
+   DrawLine(CenterX[ConvergenceA[Convergence]],TierY[7],CenterX[Convergence],TierY[8],
+     Unlocked[18 + ConvergenceA[Convergence]] ? UnlockedColor : Locked,2.f * Scale);
+   DrawLine(CenterX[ConvergenceB[Convergence]],TierY[7],CenterX[Convergence],TierY[8],
+     Unlocked[18 + ConvergenceB[Convergence]] ? UnlockedColor : Locked,2.f * Scale);
+  }
+  // Each node is concentric rings and a star core rather than a rectangle.
+  // Ring segments are bounded for predictable frame cost.
+  for (int32 Tier = 0; Tier < 9; ++Tier) {
+   for (int32 Branch = 0; Branch < 3; ++Branch) {
+    const bool bActive = Tier == 0 ? Ranks[Branch] > 0
+      : Unlocked[(Tier - 1) * 3 + Branch];
+    const bool bAvailable = Tier == 0 ? Hero->GetUnspentTalentPoints() > 0 && Ranks[Branch] < 10
+      : Hero->CanUnlockTalentNode(3 + (Tier - 1) * 3 + Branch);
+    const FLinearColor Color = bActive ? BranchColors[Branch]
+      : bAvailable ? FLinearColor(0.83f,0.73f,0.52f) : Locked;
+    const float R = (12.f + Tier * 0.75f) * Scale * Zoom;
+    const float X = CenterX[Branch],Y = TierY[Tier];
+    for (int32 Seg = 0; Seg < 24; ++Seg) {
+     const float A = 2.f * PI * Seg / 24.f;
+     const float B = 2.f * PI * (Seg + 1) / 24.f;
+     DrawLine(X + R * FMath::Cos(A),Y + R * FMath::Sin(A),
+       X + R * FMath::Cos(B),Y + R * FMath::Sin(B),Color,2.f * Scale);
+     if (bActive)
+      DrawLine(X + (R + 5.f * Pulse) * FMath::Cos(A),
+        Y + (R + 5.f * Pulse) * FMath::Sin(A),
+        X + (R + 5.f * Pulse) * FMath::Cos(B),
+        Y + (R + 5.f * Pulse) * FMath::Sin(B),
+        FLinearColor(Color.R,Color.G,Color.B,0.27f),1.f * Scale);
+    }
+    DrawRect(Color,X - 4.f * Scale,Y - 4.f * Scale,8.f * Scale,8.f * Scale);
+    if (Hero->TalentSelectedNode == Tier * 3 + Branch) {
+     const float FocusR = R + 5.f * Scale;
+     for (int32 Seg = 0; Seg < 24; ++Seg) {
+      const float A = 2.f * PI * Seg / 24.f;
+      const float B = 2.f * PI * (Seg + 1) / 24.f;
+      DrawLine(X + FocusR * FMath::Cos(A),Y + FocusR * FMath::Sin(A),
+       X + FocusR * FMath::Cos(B),Y + FocusR * FMath::Sin(B),
+       FLinearColor(1.f,0.90f,0.49f),2.2f * Scale);
+     }
+    }
+    const TCHAR* Name = Tier == 0 ? BranchNames[Branch]
+      : Tier == 1 ? KeystoneNames[Branch]
+      : Tier == 2 ? HybridNames[Branch]
+      : Tier == 3 ? ApexNames[Branch]
+      : Tier == 4 ? CrownNames[Branch]
+      : Tier == 5 ? MythicNames[Branch]
+      : Tier == 6 ? AscendantNames[Branch]
+      : Tier == 7 ? TranscendentNames[Branch] : ConvergenceNames[Branch];
+    if (!bSmall || Hero->TalentSelectedNode == Tier * 3 + Branch)
+    DrawText(Name,bActive ? FLinearColor(1.f,0.94f,0.85f) : FLinearColor(0.71f,0.76f,0.88f),
+      X - (bSmall ? 35.f : 59.f) * Scale,Y + R + 9.f * Scale,
+      nullptr,bSmall ? 0.49f : 0.75f);
+    if (Tier == 0)
+     DrawText(FString::Printf(TEXT("%d / 10"),Ranks[Branch]),Color,
+       X - 17.f * Scale,Y - R - 24.f * Scale,nullptr,bSmall ? 0.5f : 0.75f);
+    if (Tier == 0 && !bSmall && Hero->TalentSelectedNode == Tier * 3 + Branch)
+     DrawText(Benefits[Branch],FLinearColor(0.70f,0.79f,0.86f),
+       X - 60.f * Scale,Y + R + 28.f * Scale,nullptr,0.62f);
+    if (Tier == 1 && !bSmall && !bActive && Hero->TalentSelectedNode == Tier * 3 + Branch)
+     DrawText(TEXT("Needs 3 root ranks"),FLinearColor(0.57f,0.65f,0.74f),
+       X - 57.f * Scale,Y + R + 28.f * Scale,nullptr,0.62f);
+    if (Tier == 2 && !bSmall && !bActive && Hero->TalentSelectedNode == Tier * 3 + Branch)
+     DrawText(TEXT("Requires 2 keystones"),FLinearColor(0.57f,0.65f,0.74f),
+       X - 67.f * Scale,Y + R + 28.f * Scale,nullptr,0.60f);
+   }
+  }
+  DrawText(TEXT("Unlock higher tiers by owning both linked stars. Gold = available; colored = owned."),
+    FLinearColor(0.75f,0.72f,0.93f),Left + 18.f,Top + Height - 126.f,
+    nullptr,bSmall ? 0.42f : 0.68f);
+  DrawLine(Left + 18.f,Top + Height - 87.f,Left + Width - 18.f,
+    Top + Height - 87.f,FLinearColor(0.32f,0.30f,0.48f,0.65f),1.f);
+  DrawText(TEXT("1-3: roots   4-6: keystones   7-9: hybrids   Apex: click/Enter   Backspace: respec"),
+    FLinearColor(0.91f,0.86f,0.98f),Left + 18.f,Top + Height - 70.f,
+    nullptr,bSmall ? 0.48f : 0.75f);
+  DrawText(FString::Printf(TEXT("Selected star %d / 27     Zoom %.0f%%"),Hero->TalentSelectedNode + 1,Zoom * 100.f),
+    FLinearColor(0.97f,0.81f,0.51f),Left + Width * 0.58f,Top + 54.f,
+    nullptr,bSmall ? 0.55f : 0.76f);
+  DrawText(TEXT("Click a star / Tab / D-pad: select     Enter / A: invest     Wheel: zoom"),
+    FLinearColor(0.86f,0.82f,0.99f),Left + 18.f,Top + Height - 105.f,
+    nullptr,bSmall ? 0.43f : 0.67f);
+  DrawText(TEXT("PgDn / RB: next talent page     111 new Astral stars"),
+    FLinearColor(0.81f,0.72f,0.99f),Left+18.f,Top+Height-146.f,
+    nullptr,bSmall ? 0.48f : 0.72f);
+  DrawText(TEXT("K / Esc: close    M: open map"),
+    FLinearColor(0.70f,0.79f,0.91f),Left + 18.f,Top + Height - 35.f,
+    nullptr,bSmall ? 0.68f : 0.83f);
+  // Clickable close and page navigation, independent of talent-node activation.
+  DrawRect(FLinearColor(0.15f,0.35f,0.44f),Left+Width-96.f,Top+12.f,84.f,34.f);
+  DrawText(TEXT("CLOSE"),FLinearColor::White,Left+Width-84.f,Top+20.f,nullptr,0.77f);
+  DrawRect(Hero->bTalentRespecArmed ? FLinearColor(0.60f,0.22f,0.24f)
+    : FLinearColor(0.15f,0.35f,0.44f),Left+Width-205.f,Top+12.f,100.f,34.f);
+  DrawText(TEXT("RESPEC"),
+    FLinearColor::White,Left+Width-195.f,Top+20.f,nullptr,0.74f);
+  DrawRect(FLinearColor(0.15f,0.35f,0.44f),Left+12.f,Top+Height-44.f,88.f,34.f);
+  DrawRect(FLinearColor(0.15f,0.35f,0.44f),Left+110.f,Top+Height-44.f,88.f,34.f);
+  DrawText(TEXT("PREV"),FLinearColor::White,Left+22.f,Top+Height-36.f,nullptr,0.73f);
+  DrawText(TEXT("NEXT"),FLinearColor::White,Left+120.f,Top+Height-36.f,nullptr,0.73f);
+
+  DrawRespecConfirmation(Left,Top,Width,Height);
+
+  return;
+ }
+ if (Hero->bAtlasOpen) {
+  // UE5 Atlas foundation: live world coordinates, no invented discovered
+  // terrain, locations, or markers. Future exploration data can fill cells.
+  const float Width = FMath::Min(700.f, FMath::Max(280.f, Canvas->SizeX - 24.f));
+  const float Height = FMath::Min(650.f, FMath::Max(280.f, Canvas->SizeY - 24.f));
+  const float Left = (Canvas->SizeX - Width) * 0.5f;
+  const float Top = (Canvas->SizeY - Height) * 0.5f;
+  DrawRect(FLinearColor(0.025f,0.035f,0.075f,0.97f),Left,Top,Width,Height);
+  DrawText(TEXT("MOONFALL  |  MAP"),FLinearColor::White,
+    Left + 20.f,Top + 17.f,nullptr,1.3f);
+  DrawRect(Hero->MenuActionFocus == 0 ? FLinearColor(0.72f,0.53f,0.20f) : FLinearColor(0.15f,0.35f,0.44f),Left+Width-96.f,Top+12.f,84.f,34.f);
+  DrawText(TEXT("CLOSE"),FLinearColor::White,Left+Width-84.f,Top+20.f,nullptr,0.77f);
+  const FVector WorldPos = Hero->GetActorLocation();
+  const bool bValidWorldPos = FMath::IsFinite(WorldPos.X) &&
+    FMath::IsFinite(WorldPos.Y) && FMath::IsFinite(WorldPos.Z);
+  const float MapSize = FMath::Max(140.f, FMath::Min(Width - 48.f, Height - 150.f));
+  const float MapLeft = Left + (Width - MapSize) * 0.5f;
+  const float MapTop = Top + 61.f;
+  DrawRect(FLinearColor(0.085f,0.12f,0.17f),MapLeft,MapTop,MapSize,MapSize);
+  for (int32 GridIndex = 1; GridIndex < 10; ++GridIndex) {
+   const float Offset = MapSize * GridIndex / 10.f;
+   DrawRect(FLinearColor(0.20f,0.28f,0.35f,0.50f),MapLeft + Offset,MapTop,1.f,MapSize);
+   DrawRect(FLinearColor(0.20f,0.28f,0.35f,0.50f),MapLeft,MapTop + Offset,MapSize,1.f);
+  }
+  if (bValidWorldPos) {
+   const float CenterX = MapLeft + MapSize * 0.5f;
+   const float CenterY = MapTop + MapSize * 0.5f;
+   DrawRect(FLinearColor(0.98f,0.82f,0.25f),CenterX - 5.f,CenterY - 5.f,10.f,10.f);
+   DrawText(TEXT("YOU"),FLinearColor::Yellow,CenterX + 9.f,CenterY - 8.f,nullptr,0.85f);
+   DrawText(FString::Printf(TEXT("World X %.0f   Y %.0f   Z %.0f"),
+     WorldPos.X,WorldPos.Y,WorldPos.Z),FLinearColor(0.8f,0.9f,1.f),
+     Left + 20.f,Top + Height - 76.f,nullptr,0.9f);
+  } else {
+   DrawText(TEXT("World coordinates unavailable"),FLinearColor::White,
+      Left + 20.f,Top + Height - 76.f,nullptr,0.9f);
+  }
+  DrawText(TEXT("Undiscovered terrain is not shown  |  M / Esc: close"),
+    FLinearColor(0.7f,0.85f,0.88f),Left + 20.f,Top + Height - 43.f,nullptr,0.78f);
+  return;
+ }
+ // Expandable Key Ring: no equipment slots and no fixed ring slots.
+ const auto DrawKeyRingSummary = [&](float X,float Y,float W) {
+  DrawRect(FLinearColor(0.075f,0.062f,0.115f,0.97f),X,Y,W,38.f);
+  FString Keys;
+  const int32 Total=Hero->KeyRingIds.Num();
+  const int32 Preview=FMath::Min(5,Total);
+  for (int32 I=0;I<Preview;++I) {
+   if (!Keys.IsEmpty()) Keys+=TEXT(", ");
+   Keys+=FString::FromInt(Hero->KeyRingIds[I]);
+  }
+  if (Total>Preview) Keys+=FString::Printf(TEXT("  +%d more"),Total-Preview);
+  if (Hero->LastCollectedKeyId > 0 &&
+      Hero->KeyRingIds.Contains(Hero->LastCollectedKeyId))
+   Keys+=FString::Printf(TEXT("  |  RECENT KEY #%d"),Hero->LastCollectedKeyId);
+  DrawText(FString::Printf(TEXT("KEY RING  %d  %s"),Total,Total==0?TEXT("(empty)"):*Keys),
+      FLinearColor(0.99f,0.83f,0.43f),X+9.f,Y+11.f,nullptr,
+      W<480.f ? 0.57f : 0.72f);
+ };
  if (Hero->bInventoryOpen) {
-  // Canvas-only paginated inventory: no extra actors, widgets, or hidden controls.
-  const float PanelWidth = FMath::Min(680.f, FMath::Max(280.f, Canvas->SizeX - 24.f));
-  const float PanelHeight = FMath::Min(580.f, FMath::Max(280.f, Canvas->SizeY - 24.f));
-  const float Left = (Canvas->SizeX - PanelWidth) * 0.5f;
-  const float Top = (Canvas->SizeY - PanelHeight) * 0.5f;
+  // One continuous scrollable bag: all item codes share one list and one viewport.
+  const bool bDual = MoonfallDualPanels(Canvas,Hero);
+  const bool bWideInventory = Canvas->SizeX >= 1100.f && Canvas->SizeY >= 600.f;
+  float PanelWidth = FMath::Min(bWideInventory ? 1040.f : 680.f, FMath::Max(280.f, Canvas->SizeX - 24.f));
+  float PanelHeight = FMath::Min(860.f, FMath::Max(280.f, Canvas->SizeY - 24.f));
+  float Left = (Canvas->SizeX - PanelWidth) * 0.5f;
+  float Top = (Canvas->SizeY - PanelHeight) * 0.5f;
+  if (bDual) MoonfallDualCharacterGeometry(Canvas,Left,Top,PanelWidth,PanelHeight);
+  const float ListWidth = bDual ? PanelWidth : (bWideInventory ? PanelWidth - 340.f : PanelWidth);
   DrawRect(FLinearColor(0.04f, 0.035f, 0.10f, 0.96f), Left, Top, PanelWidth, PanelHeight);
   DrawText(TEXT("MOONFALL  |  INVENTORY"), FLinearColor::White, Left + 18.f, Top + 16.f, nullptr, 1.3f);
-  if (Hero->bCharacterStatsOpen) {
-   // Character sheet is a read-only page. Inventory operations remain locked
-   // while it is open; controller and keyboard switch pages with the same input.
+  // Explicit clickable control, with a matching hit region above.
+  // No sorting happens during DrawHUD; only a deliberate click changes mode.
+  if (!Hero->bCharacterStatsOpen) {
+   const float ButtonX = Left + ListWidth - 166.f;
+   const float ButtonY = ListWidth >= 500.f ? Top + 12.f : Top + PanelHeight - 109.f;
+   DrawRect(FLinearColor(0.13f,0.34f,0.43f,0.97f),ButtonX,ButtonY,148.f,33.f);
+   const TCHAR* NextSort = Hero->InventorySortMode == 0 ? TEXT("QUALITY")
+     : (Hero->InventorySortMode == 1 ? TEXT("SLOT") : TEXT("PICKUP"));
+   DrawText(FString::Printf(TEXT("SORT: %s"),NextSort),
+     FLinearColor::White,ButtonX + 10.f,ButtonY + 7.f,nullptr,0.88f);
+  }
+
+  if (bDual) {
+   // The full inventory stays present beside the equipped stats panel.
+   // Scroll offset and selection are shared by both panels.
+   float BagL=0.f,BagT=0.f,BagW=0.f,BagH=0.f;
+   MoonfallDualBagGeometry(Canvas,BagL,BagT,BagW,BagH);
+   DrawRect(FLinearColor(0.04f,0.035f,0.10f,0.97f),BagL,BagT,BagW,BagH);
+   DrawText(TEXT("MOONFALL  |  BAG"),FLinearColor::White,
+       BagL+12.f,BagT+18.f,nullptr,0.94f);
+   DrawRect(FLinearColor(0.13f,0.34f,0.43f,0.97f),
+       BagL+BagW-158.f,BagT+12.f,148.f,33.f);
+   DrawText(Hero->InventorySortMode==0 ? TEXT("SORT: QUALITY") :
+       (Hero->InventorySortMode==1 ? TEXT("SORT: SLOT") : TEXT("SORT: PICKUP")),
+       FLinearColor::White,BagL+BagW-149.f,BagT+20.f,nullptr,0.73f);
+   const int32 BagCount=Hero->InventoryItemCodes.Num();
+   const int32 Per=FMath::Clamp(FMath::FloorToInt((BagH-230.f)/25.f),2,20);
+   const int32 Start=FMath::Clamp(Hero->InventoryViewStart,0,FMath::Max(0,BagCount-Per));
+   DrawText(FString::Printf(TEXT("GEAR  %d / %d"),BagCount>0 ? FMath::Clamp(Hero->InventorySelection+1,1,BagCount):0,BagCount),
+       FLinearColor(0.75f,0.86f,0.99f),BagL+12.f,BagT+63.f,nullptr,0.78f);
+   for (int32 Index=Start;Index<FMath::Min(BagCount,Start+Per);++Index) {
+    const int32 Code=Hero->InventoryItemCodes[Index];
+    const float Y=BagT+100.f+(Index-Start)*25.f;
+    if (Index==Hero->InventorySelection)
+     DrawRect(FLinearColor(0.20f,0.34f,0.45f,0.93f),BagL+9.f,Y-2.f,BagW-18.f,24.f);
+    DrawText(FString::Printf(TEXT("%d  %s  T%d  R%d"),Index+1,
+       (Code/10000)%10==0 ? TEXT("WEAPON") :
+       ((Code/10000)%10==1 ? TEXT("ARMOR") : TEXT("ACCESSORY")),
+       Code%1000,(Code/1000)%10),FLinearColor::White,
+       BagL+14.f,Y+3.f,nullptr,0.68f);
+   }
+   DrawKeyRingSummary(BagL+8.f,BagT+BagH-135.f,BagW-16.f);
+   DrawRect(FLinearColor(0.04f,0.035f,0.10f,0.99f),
+       BagL,BagT+BagH-90.f,BagW,90.f);
+   const TCHAR* BagLabels[8] = {
+     TEXT("EQUIP"),TEXT("UPGRADE"),TEXT("ASCEND"),TEXT("REFORGE"),
+     TEXT("FORGE x5"),TEXT("SALVAGE"),TEXT("CHARACTER"),TEXT("CLOSE")
+   };
+   for (int32 Action=0;Action<8;++Action) {
+    float X=0.f,Y=0.f,W=0.f,H=0.f;
+    if (!MoonfallBagActionRect(Canvas,true,Action,X,Y,W,H)) continue;
+    const bool bEnabled=Action>=6 || BagCount>0;
+    DrawRect(!Hero->bMenuFocusCharacter && Hero->MenuActionFocus==Action ?
+       FLinearColor(0.72f,0.53f,0.20f) :
+       bEnabled ? FLinearColor(0.15f,0.38f,0.45f,0.97f)
+       : FLinearColor(0.18f,0.18f,0.22f,0.94f),X,Y,W,H);
+    DrawText(BagLabels[Action],bEnabled?FLinearColor::White:
+       FLinearColor(0.60f,0.62f,0.66f),X+3.f,Y+9.f,nullptr,0.61f);
+   }
+  }
+  // Compact fallback shows one usable panel at a time, without closing either.
+  const bool bDrawCharacter=Hero->bCharacterStatsOpen &&
+      (!Hero->bBagPanelOpen || bDual || Hero->bMenuFocusCharacter);
+  if (bDrawCharacter) {
+   // C remains a fully interactive equipment and stat panel.
+   // In dual mode B is visible and selectable to its left.
    DrawText(TEXT("MOONFALL  |  CHARACTER"), FLinearColor::White,
      Left + 18.f, Top + 17.f, nullptr, 1.35f);
    DrawText(FString::Printf(TEXT("Level %d  |  XP %d / %d  |  Salvage %d"),
       Hero->Level, Hero->Experience, Hero->ExperienceToNextLevel, Hero->Salvage),
       FLinearColor(0.78f,0.83f,1.f), Left + 18.f, Top + 57.f, nullptr, 0.95f);
+   // C combines equipped stats with a fully clickable, explicit gear menu.
+   const int32 CandidateIndex = Hero->InventorySelection;
+   const bool bHasCandidate = Hero->InventoryItemCodes.IsValidIndex(CandidateIndex);
+   const int32 CandidateCode = bHasCandidate ? Hero->InventoryItemCodes[CandidateIndex] : 0;
+   const int32 CandidateSlot = (CandidateCode / 10000) % 10;
+   const TCHAR* CandidateSlotName = CandidateSlot == 0 ? TEXT("Weapon")
+      : CandidateSlot == 1 ? TEXT("Armor") : TEXT("Accessory");
+   DrawText(bHasCandidate
+      ? FString::Printf(TEXT("SELECTED %d/%d  %s  T%d  R%d"),
+          CandidateIndex + 1,Hero->InventoryItemCodes.Num(),CandidateSlotName,
+          CandidateCode % 1000,(CandidateCode / 1000) % 10)
+      : TEXT("NO GEAR SELECTED"),
+      FLinearColor(0.77f,0.94f,0.84f),Left+18.f,Top+77.f,nullptr,
+      Canvas->SizeX < 900.f ? 0.55f : 0.78f);
+   const TCHAR* Actions[11] = {
+      TEXT("PREV"),TEXT("NEXT"),TEXT("EQUIP"),
+      TEXT("UPGRADE"),TEXT("ASCEND"),TEXT("REFORGE"),
+      TEXT("FORGE x5"),TEXT("OPEN BAG"),TEXT("STATS -"),TEXT("STATS +"),TEXT("CLOSE")
+   };
+   // WoW Forever-style breakdown on accessible C subpages. The original
+   // overview and B/C switching behavior stay unchanged. These are Moonfall
+   // derived values, not exact WoW class ratings.
+   if (Hero->CharacterStatsPage != 0) {
+    const bool bOffense = Hero->CharacterStatsPage == 1;
+    const FString StatLinesOffense[] = {
+     TEXT("PRIMARY ATTRIBUTES"),
+     FString::Printf(TEXT("Strength: %d    Agility: %d"),Hero->GetStrength(),Hero->GetAgility()),
+     FString::Printf(TEXT("Stamina: %d    Intellect: %d"),Hero->GetStaminaAttribute(),Hero->GetIntellect()),
+     FString::Printf(TEXT("Spirit: %d    MP5: %.1f"),Hero->GetSpirit(),Hero->GetManaRegenPerFive()),
+     TEXT("ATTACK AND SPELL POWER"),
+     FString::Printf(TEXT("Melee AP: %.0f    Ranged AP: %.0f"),Hero->GetMeleeAttackPower(),Hero->GetRangedAttackPower()),
+     FString::Printf(TEXT("Critical Strike: %.1f%%"),
+        Hero->GetCriticalChance()*100.f),
+     FString::Printf(TEXT("Haste: %.1f%%    Mastery: %.1f%%"),
+        Hero->GetHasteBonus()*100.f,Hero->GetMasteryBonus()*100.f),
+     FString::Printf(TEXT("Spell Damage: %.0f    Spell Healing: %.0f"),
+        Hero->GetSpellDamagePower(),Hero->GetSpellHealingPower()),
+     FString::Printf(TEXT("Spell Penetration: %.0f    Spell Pierce: %.0f"),
+        Hero->GetSpellPenetration(),Hero->GetSpellPierce()),
+     FString::Printf(TEXT("Versatility: %.1f%%    Expertise: %.1f"),
+        Hero->GetVersatilityBonus()*100.f,Hero->GetExpertiseRating()),
+     TEXT("Moonfall scaling; not WoW class formulas")
+    };
+    const FString StatLinesDefense[] = {
+     TEXT("DEFENSIVE RATINGS"),
+     FString::Printf(TEXT("Armor: %d    Defense: %d"),Hero->GetArmorRating(),Hero->GetDefenseRating()),
+     TEXT("Guard, dodge and parry use player input, not passive stats"),
+     TEXT("ELEMENTAL RESISTANCES"),
+     FString::Printf(TEXT("Fire: %.0f    Frost: %.0f"),Hero->GetResistance(0),Hero->GetResistance(1)),
+     FString::Printf(TEXT("Nature: %.0f    Shadow: %.0f"),Hero->GetResistance(2),Hero->GetResistance(3)),
+     FString::Printf(TEXT("Arcane: %.0f    HP regen/5s: %.1f"),
+        Hero->GetResistance(4),Hero->GetHealthRegenPerFive()),
+     TEXT("RESOURCE TOTALS"),
+     FString::Printf(TEXT("Health: %.0f / %.0f"),Hero->Health,Hero->MaxHealth),
+     FString::Printf(TEXT("Mana: %.0f / %.0f"),Hero->Mana,Hero->MaxMana),
+     FString::Printf(TEXT("Stamina: %.0f / %.0f"),Hero->Stamina,Hero->MaxStamina),
+     TEXT("Elemental defenses active for school attacks; guard/dodge/parry stay manual")
+    };
+    const int32 StatCount = bOffense ? UE_ARRAY_COUNT(StatLinesOffense) : UE_ARRAY_COUNT(StatLinesDefense);
+    const float DetailRow = FMath::Clamp((PanelHeight-145.f)/float(StatCount),10.f,34.f);
+    const float DetailScale = PanelHeight < 370.f ? 0.52f
+       : (Canvas->SizeX < 900.f ? 0.73f : 0.91f);
+    for (int32 I = 0; I < StatCount; ++I) {
+     const FString& Line = bOffense ? StatLinesOffense[I] : StatLinesDefense[I];
+     const bool bSection = Line == TEXT("PRIMARY ATTRIBUTES") ||
+       Line == TEXT("ATTACK AND SPELL POWER") || Line == TEXT("DEFENSIVE RATINGS") ||
+       Line == TEXT("ELEMENTAL RESISTANCES") || Line == TEXT("RESOURCE TOTALS");
+     DrawText(Line,bSection ? FLinearColor(0.55f,0.94f,0.77f) : FLinearColor::White,
+       Left+18.f,Top+96.f+I*DetailRow,nullptr,DetailScale);
+    }
+    DrawText(FString::Printf(TEXT("C STATS %d / 3    PgUp/PgDn or D-pad: switch    C/A/B: close"),
+        Hero->CharacterStatsPage + 1),
+      FLinearColor(0.83f,0.83f,0.98f),Left+18.f,Top+PanelHeight-29.f,
+      nullptr,Canvas->SizeX<900.f ? 0.54f : 0.78f);
+   // On very short character sheets the fixed stat/action rows already
+   // consume the panel; B still exposes the full key ring without overlap.
+   if (!Hero->bBagPanelOpen && PanelHeight >= 400.f)
+    DrawKeyRingSummary(Left+10.f,Top+PanelHeight-210.f,PanelWidth-20.f);
+   // Overlay the interactive controls last, above stat text on all C pages.
+   DrawRect(FLinearColor(0.04f,0.035f,0.10f,0.99f),
+      Left,Top+PanelHeight-171.f,PanelWidth,171.f);
+   for (int32 Action = 0; Action < 11; ++Action) {
+    float BX=0.f,BY=0.f,BW=0.f,BH=0.f;
+    if (!MoonfallCharacterActionRect(Canvas,MoonfallDualPanels(Canvas,Hero),Action,BX,BY,BW,BH)) continue;
+    const bool bEnabled = Action >= 7 ||
+       (bHasCandidate && (Action != 0 || CandidateIndex > 0) &&
+        (Action != 1 || CandidateIndex+1 < Hero->InventoryItemCodes.Num()));
+    DrawRect((!bDual || Hero->bMenuFocusCharacter) && Hero->MenuActionFocus==Action ? FLinearColor(0.72f,0.53f,0.20f) :
+       bEnabled ? FLinearColor(0.15f,0.38f,0.45f,0.97f)
+        : FLinearColor(0.18f,0.18f,0.22f,0.94f),BX,BY,BW,BH);
+    DrawText(Actions[Action],bEnabled ? FLinearColor::White
+        : FLinearColor(0.60f,0.62f,0.66f),BX+6.f,BY+8.f,
+        nullptr,Canvas->SizeX<600.f ? 0.62f : 0.78f);
+   }
+    return;
+   }
    const float RowHeight = FMath::Clamp((PanelHeight - 145.f) / 11.f, 13.f, 36.f);
    const float StartY = Top + 96.f;
    const FString CharacterLines[] = {
@@ -76,25 +1016,102 @@ void AMoonfallCombatHUD::DrawHUD()
       Row == 0 || Row == 4 || Row == 7 ? FLinearColor(0.52f,0.91f,0.76f) : FLinearColor::White,
       Left + 18.f, StartY + Row * RowHeight, nullptr,
       PanelHeight < 360.f ? 0.55f : (Canvas->SizeX < 900.f ? 0.75f : 0.90f));
-   DrawText(TEXT("P / A: back to inventory    I / Select / Esc: close"),
+   DrawText(TEXT("C / A: close character info    B / Select / Esc: close"),
      FLinearColor(0.81f,0.83f,0.97f), Left + 18.f, Top + PanelHeight - 29.f,
      nullptr, 0.8f);
+   // Overlay the interactive controls last, above stat text on all C pages.
+   DrawRect(FLinearColor(0.04f,0.035f,0.10f,0.99f),
+      Left,Top+PanelHeight-171.f,PanelWidth,171.f);
+   for (int32 Action = 0; Action < 11; ++Action) {
+    float BX=0.f,BY=0.f,BW=0.f,BH=0.f;
+    if (!MoonfallCharacterActionRect(Canvas,MoonfallDualPanels(Canvas,Hero),Action,BX,BY,BW,BH)) continue;
+    const bool bEnabled = Action >= 7 ||
+       (bHasCandidate && (Action != 0 || CandidateIndex > 0) &&
+        (Action != 1 || CandidateIndex+1 < Hero->InventoryItemCodes.Num()));
+    DrawRect((!bDual || Hero->bMenuFocusCharacter) && Hero->MenuActionFocus==Action ? FLinearColor(0.72f,0.53f,0.20f) :
+       bEnabled ? FLinearColor(0.15f,0.38f,0.45f,0.97f)
+        : FLinearColor(0.18f,0.18f,0.22f,0.94f),BX,BY,BW,BH);
+    DrawText(Actions[Action],bEnabled ? FLinearColor::White
+        : FLinearColor(0.60f,0.62f,0.66f),BX+6.f,BY+8.f,
+        nullptr,Canvas->SizeX<600.f ? 0.62f : 0.78f);
+   }
    return;
   }
   const int32 Count = Hero->InventoryItemCodes.Num();
-  // Reserve height for a real equipment-stat line and three controls rows.
-  const int32 PerPage = FMath::Clamp(FMath::FloorToInt((PanelHeight - 290.f) / 25.f), 2, 8);
+  // Show as many bag rows as fit without covering the summary and controls.
+  const int32 PerPage = FMath::Clamp(FMath::FloorToInt((PanelHeight - 355.f) / 25.f), 2, 20);
   const int32 Selected = FMath::Clamp(Hero->InventorySelection, 0, FMath::Max(0, Count - 1));
-  const int32 PageStart = Selected / PerPage * PerPage;
+  const int32 PageStart = FMath::Clamp(Hero->InventoryViewStart, 0, FMath::Max(0, Count - PerPage));
   const int32 PageEnd = FMath::Min(Count, PageStart + PerPage);
-  DrawText(FString::Printf(TEXT("%d items  |  %d salvage  |  page %d / %d"),
-    Count, Hero->Salvage, PageStart / PerPage + 1,
-    FMath::Max(1, (Count + PerPage - 1) / PerPage)), FLinearColor(0.75f,0.72f,0.91f),
+  // Thin one-bag scroll indicator (not another button). Keep the thumb
+  // proportional even when the backpack contains thousands of items.
+  if (Count > PerPage) {
+   const float TrackX = Left + ListWidth - 9.f;
+   const float TrackTop = Top + 145.f;
+   const float TrackHeight = FMath::Max(42.f, PanelHeight - 355.f);
+   const float ThumbHeight = FMath::Max(14.f, TrackHeight * PerPage / Count);
+   const float ScrollRatio = float(PageStart) / FMath::Max(1, Count - PerPage);
+   DrawRect(FLinearColor(0.14f,0.16f,0.22f,0.94f),
+     TrackX,TrackTop,4.f,TrackHeight);
+   DrawRect(FLinearColor(0.52f,0.86f,0.92f,0.96f),
+     TrackX,TrackTop + ScrollRatio * (TrackHeight - ThumbHeight),4.f,ThumbHeight);
+  }
+  // Scrolling does not alter selection: make an off-screen selection obvious.
+  if (PanelHeight >= 500.f && Count > 0 && (Selected < PageStart || Selected >= PageEnd))
+   DrawText(FString::Printf(TEXT("Selected item %d is %s"),
+     Selected + 1, Selected < PageStart ? TEXT("above") : TEXT("below")),
+     FLinearColor(0.92f,0.84f,0.53f),Left + 18.f,Top + PanelHeight - 219.f,
+     nullptr,0.72f);
+  // Local advisor reads inventory and current set bonuses, never mutates gear.
+  // Show the inventory index even when its recommendation is outside the visible bag.
+  const float AdvisorNow = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f;
+  const bool bAdvisorItemChanged = CachedAdvisorIndex >= 0 &&
+    (!Hero->InventoryItemCodes.IsValidIndex(CachedAdvisorIndex) ||
+     Hero->InventoryItemCodes[CachedAdvisorIndex] != CachedAdvisorItemCode);
+  // Immediate invalidation for bag size, worn gear and sorting; a short
+  // refresh interval also picks up same-count crafting and loot replacements.
+  if (CachedAdvisorHero != Hero || CachedAdvisorCount != Count ||
+      CachedAdvisorWeapon != Hero->EquippedWeaponCode ||
+      CachedAdvisorArmor != Hero->EquippedArmorCode ||
+      CachedAdvisorAccessory != Hero->EquippedAccessoryCode ||
+      CachedAdvisorSortMode != Hero->InventorySortMode ||
+      bAdvisorItemChanged || AdvisorNow >= NextAdvisorRefreshAt) {
+   CachedAdvisorIndex = Hero->GetRecommendedEquipmentIndex();
+   CachedAdvisorHero = Hero;
+   CachedAdvisorCount = Count;
+   CachedAdvisorWeapon = Hero->EquippedWeaponCode;
+   CachedAdvisorArmor = Hero->EquippedArmorCode;
+   CachedAdvisorAccessory = Hero->EquippedAccessoryCode;
+   CachedAdvisorSortMode = Hero->InventorySortMode;
+   CachedAdvisorItemCode = Hero->InventoryItemCodes.IsValidIndex(CachedAdvisorIndex)
+     ? Hero->InventoryItemCodes[CachedAdvisorIndex] : -1;
+   NextAdvisorRefreshAt = AdvisorNow + 0.25f;
+  }
+  const int32 AdvisedIndex = CachedAdvisorIndex;
+  const int32 SelectedImprovement = Hero->GetEquipmentUpgradeScore(Selected);
+  DrawText(AdvisedIndex >= 0
+    ? FString::Printf(TEXT("ADVISOR: item %d  (+%d points)  |  equip manually"),
+        AdvisedIndex + 1, Hero->GetEquipmentUpgradeScore(AdvisedIndex))
+    : Count == 0 ? TEXT("ADVISOR: no items to compare")
+      : TEXT("ADVISOR: no higher-scoring gear found"),
+    FLinearColor(0.54f,0.94f,0.76f), Left + 18.f, Top + 128.f,
+    nullptr, Canvas->SizeX < 900.f ? 0.64f : 0.75f);
+  const bool bBagFull = Count >= AMoonfallHeroPawn::MaxInventoryItems;
+  const TCHAR* SortName = Hero->InventorySortMode == 1 ? TEXT("Quality")
+    : (Hero->InventorySortMode == 2 ? TEXT("Slot") : TEXT("Pickup"));
+  DrawText(FString::Printf(TEXT("%d / %d items  |  %d salvage  |  showing %d-%d  |  %s"),
+    Count, AMoonfallHeroPawn::MaxInventoryItems, Hero->Salvage,
+    Count > 0 ? PageStart + 1 : 0, PageEnd, SortName),
+    bBagFull ? FLinearColor(1.f,0.45f,0.35f) : FLinearColor(0.75f,0.72f,0.91f),
     Left + 18.f, Top + 49.f, nullptr, 0.9f);
+  if (bBagFull && !bWideInventory)
+   DrawText(TEXT("BAG FULL - salvage unused gear to collect more loot"),
+     FLinearColor(1.f,0.45f,0.35f), Left + 18.f, Top + 83.f,
+     nullptr, Canvas->SizeX < 900.f ? 0.65f : 0.82f);
   if (Count == 0)
    DrawText(TEXT("No equipment yet. Defeat enemies to find gear."), FLinearColor::White,
      Left + 18.f, Top + 100.f, nullptr, 0.92f);
-  const float RowSpacing = FMath::Max(21.f, (PanelHeight - 290.f) / PerPage);
+  const float RowSpacing = FMath::Max(21.f, (PanelHeight - 355.f) / PerPage);
   for (int32 Index = PageStart; Index < PageEnd; ++Index) {
    const int32 Code = Hero->InventoryItemCodes[Index];
    const int32 Affix = Code / 100000;
@@ -104,14 +1121,20 @@ void AMoonfallCombatHUD::DrawHUD()
    const TCHAR* Slots[] = {TEXT("Weapon"), TEXT("Armor"), TEXT("Accessory")};
    const TCHAR* Rarities[] = {TEXT("Common"), TEXT("Uncommon"), TEXT("Rare"), TEXT("Epic"), TEXT("Emerald"), TEXT("Legendary")};
    const TCHAR* Traits[] = {TEXT("None"), TEXT("Force"), TEXT("Ward"), TEXT("Focus")};
-   const bool bValid = Code > 0 && Slot <= 2 && Affix <= 3 && Rarity <= 5 && Tier >= 1 && Tier <= 25;
-   const bool bEquipped = Code == (Slot == 0 ? Hero->EquippedWeaponCode
+   const bool bValid = Code > 0 && Slot >= 0 && Slot <= 2
+     && Affix >= 0 && Affix <= 3 && Rarity >= 0 && Rarity <= 5
+     && Tier >= 1 && Tier <= 25 && (Rarity != 0 || Affix == 0)
+     && Code == Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier;
+   const bool bEquipped = bValid && Code == (Slot == 0 ? Hero->EquippedWeaponCode
      : Slot == 1 ? Hero->EquippedArmorCode : Hero->EquippedAccessoryCode);
+   const bool bAdvised = Index == AdvisedIndex;
    const float Y = Top + 145.f + (Index - PageStart) * RowSpacing;
    if (Index == Selected) DrawRect(FLinearColor(0.25f,0.18f,0.43f,0.90f),
-     Left + 12.f, Y - 3.f, PanelWidth - 24.f, RowSpacing - 3.f);
-   const FString Row = bValid ? FString::Printf(TEXT("%02d  %s  T%d  %s  %s%s"),
-      Index + 1, Slots[Slot], Tier, Rarities[Rarity], Traits[Affix], bEquipped ? TEXT("  [EQUIPPED]") : TEXT(""))
+     Left + 12.f, Y - 3.f, ListWidth - 24.f, RowSpacing - 3.f);
+   const FString Row = bValid ? FString::Printf(TEXT("%02d  %s  T%d  %s  %s%s%s"),
+      Index + 1, Slots[Slot], Tier, Rarities[Rarity], Traits[Affix],
+      bEquipped ? TEXT(" [EQUIPPED]") : TEXT(""),
+      bAdvised ? TEXT(" [ADVISOR]") : TEXT(""))
     : FString::Printf(TEXT("%02d  Invalid item"), Index + 1);
    // Item names retain a clear text label plus a distinct quality color.
    const FLinearColor RarityColors[] = {FLinearColor(0.90f,0.90f,0.90f),
@@ -122,6 +1145,93 @@ void AMoonfallCombatHUD::DrawHUD()
      : (bValid ? RarityColors[Rarity] : FLinearColor::White),
      Left + 20.f, Y, nullptr, Canvas->SizeX < 900.f ? 0.75f : 0.9f);
   }
+  // Expanded two-column inventory on desktop; compact layout remains on small screens.
+  // Inspection only: viewing an item never mutates gear or materials.
+  if (bWideInventory) {
+   const float DetailLeft = Left + ListWidth + 10.f;
+   const float DetailTop = Top + 43.f;
+   DrawRect(FLinearColor(0.075f,0.065f,0.15f,0.98f),
+     DetailLeft, DetailTop, 312.f, PanelHeight - 94.f);
+   DrawText(TEXT("GEAR INSPECTION"), FLinearColor(0.56f,0.93f,0.80f),
+     DetailLeft + 14.f, DetailTop + 13.f, nullptr, 1.08f);
+   if (Hero->InventoryItemCodes.IsValidIndex(Selected)) {
+    const int32 Code = Hero->InventoryItemCodes[Selected];
+    const int32 Affix = Code / 100000;
+    const int32 Slot = (Code / 10000) % 10;
+    const int32 Rarity = (Code / 1000) % 10;
+    const int32 Tier = Code % 1000;
+    const bool bValid = Code > 0 && Slot >= 0 && Slot <= 2
+      && Affix >= 0 && Affix <= 3 && Rarity >= 0 && Rarity <= 5
+      && Tier >= 1 && Tier <= 25 && (Rarity != 0 || Affix == 0)
+      && Code == Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier;
+    if (bValid) {
+     const TCHAR* Slots[] = {TEXT("Weapon"),TEXT("Armor"),TEXT("Accessory")};
+     const TCHAR* Rarities[] = {TEXT("Common"),TEXT("Uncommon"),TEXT("Rare"),
+       TEXT("Epic"),TEXT("Emerald"),TEXT("Legendary")};
+     const TCHAR* Traits[] = {TEXT("None"),TEXT("Force"),TEXT("Ward"),TEXT("Focus")};
+     const int32 Equipped = Slot == 0 ? Hero->EquippedWeaponCode
+       : (Slot == 1 ? Hero->EquippedArmorCode : Hero->EquippedAccessoryCode);
+     const int32 EquippedTier = Equipped % 1000;
+     const int32 EquippedRarity = (Equipped / 1000) % 10;
+     const int32 SalvageReward = 1 + Rarity * 2 + Tier / 5;
+     const int32 UpgradeCost = 4 + Tier * 2 + Rarity * 3;
+     const int32 AscendCost = 20 + Tier * 3 + Rarity * 15;
+     const int32 ReforgeCost = 12 + Tier * 2 + Rarity * 8;
+     const float TextX = DetailLeft + 14.f;
+     const FLinearColor DetailColor(0.85f,0.89f,1.f);
+     DrawText(FString::Printf(TEXT("%s  /  %s"),Slots[Slot],Rarities[Rarity]),
+       FLinearColor(1.f,0.83f,0.46f),TextX,DetailTop + 50.f,nullptr,0.91f);
+     DrawText(FString::Printf(TEXT("Tier %d / 25  |  Trait: %s"),Tier,Traits[Affix]),
+       DetailColor,TextX,DetailTop + 77.f,nullptr,0.87f);
+     DrawText(Code == Equipped ? TEXT("CURRENTLY EQUIPPED") : TEXT("IN BACKPACK"),
+       Code == Equipped ? FLinearColor(0.48f,0.96f,0.65f) : DetailColor,
+       TextX,DetailTop + 104.f,nullptr,0.85f);
+     DrawText(FString::Printf(TEXT("Worn: Tier %d  /  rarity %d"),
+       EquippedTier,EquippedRarity),DetailColor,TextX,DetailTop + 137.f,nullptr,0.85f);
+     DrawText(FString::Printf(TEXT("Advisor: %+d points"),
+       Hero->GetEquipmentUpgradeScore(Selected)),DetailColor,
+       TextX,DetailTop + 164.f,nullptr,0.85f);
+     DrawText(TEXT("CRAFTING & SALVAGE"),FLinearColor(0.56f,0.93f,0.80f),
+       TextX,DetailTop + 200.f,nullptr,0.93f);
+     DrawText(FString::Printf(TEXT("Salvage value: %d"),SalvageReward),
+       DetailColor,TextX,DetailTop + 227.f,nullptr,0.85f);
+     DrawText(Tier < 25 ? FString::Printf(TEXT("Upgrade: %d salvage"),UpgradeCost)
+       : TEXT("Upgrade: MAX TIER"),Tier < 25 && Hero->Salvage >= UpgradeCost
+       ? FLinearColor(0.52f,0.96f,0.69f) : FLinearColor(0.75f,0.70f,0.78f),
+       TextX,DetailTop + 254.f,nullptr,0.85f);
+     DrawText(Rarity < 5 ? FString::Printf(TEXT("Ascend: %d salvage"),AscendCost)
+       : TEXT("Ascend: MAX RARITY"),Rarity < 5 && Hero->Salvage >= AscendCost
+       ? FLinearColor(0.52f,0.96f,0.69f) : FLinearColor(0.75f,0.70f,0.78f),
+       TextX,DetailTop + 281.f,nullptr,0.85f);
+     DrawText(Rarity >= 2 ? FString::Printf(TEXT("Reforge: %d salvage"),ReforgeCost)
+       : TEXT("Reforge: Rare+ only"),Rarity >= 2 && Hero->Salvage >= ReforgeCost
+       ? FLinearColor(0.52f,0.96f,0.69f) : FLinearColor(0.75f,0.70f,0.78f),
+       TextX,DetailTop + 308.f,nullptr,0.85f);
+     DrawText(TEXT("Actions are manual; no auto-equip."),
+       FLinearColor(0.69f,0.75f,0.85f),TextX,DetailTop + 339.f,nullptr,0.73f);
+    } else {
+     DrawText(TEXT("Invalid equipment code"),
+       FLinearColor(1.f,0.45f,0.35f),DetailLeft + 14.f,
+       DetailTop + 55.f,nullptr,0.9f);
+    }
+   } else {
+    DrawText(TEXT("Select an item to inspect gear."),
+      FLinearColor::White,DetailLeft + 14.f,DetailTop + 55.f,nullptr,0.82f);
+   }
+   if (bBagFull)
+    DrawText(TEXT("BAG FULL: salvage spare gear"),
+      FLinearColor(1.f,0.45f,0.35f),DetailLeft + 14.f,
+      DetailTop + PanelHeight - 132.f,nullptr,0.76f);
+  }
+  // The selected item's score is advisory only; it never calls EquipInventoryItem.
+  if (Count > 0)
+   DrawText(SelectedImprovement > 0
+     ? FString::Printf(TEXT("Selected: +%d advisor points vs worn slot"), SelectedImprovement)
+     : TEXT("Selected: no advised improvement vs worn slot"),
+     SelectedImprovement > 0 ? FLinearColor(0.56f,0.94f,0.75f)
+       : FLinearColor(0.77f,0.77f,0.85f),
+     Left + 18.f, Top + PanelHeight - 178.f, nullptr,
+     Canvas->SizeX < 900.f ? 0.65f : 0.75f);
   // Live stat summary mirrors the modifiers applied in combat and recovery.
   const int32 WeaponRarity = FMath::Clamp((Hero->EquippedWeaponCode / 1000) % 10, 0, 5);
   const int32 ArmorRarity = FMath::Clamp((Hero->EquippedArmorCode / 1000) % 10, 0, 5);
@@ -151,7 +1261,9 @@ void AMoonfallCombatHUD::DrawHUD()
   DrawText(FString::Printf(TEXT("Sets: Force %d/3  Ward %d/3  Focus %d/3    2pc + 3pc unlock bonuses"),
     ForcePieces, WardPieces, FocusPieces), FLinearColor(0.59f,0.95f,0.77f),
     Left + 18.f, Top + 113.f, nullptr, Canvas->SizeX < 900.f ? 0.61f : 0.72f);
-  DrawText(TEXT("WASD / D-pad: select   Enter / Y: equip   Delete / X: salvage"),
+  DrawText(TEXT("F8 / L3: sort gear  |  Wheel: scroll bag  |  Left-click: select  |  Right-click row: equip"),
+     FLinearColor(0.8f,0.93f,0.98f), Left + 18.f, Top + PanelHeight - 73.f, nullptr, 0.72f);
+  DrawText(TEXT("Left-click: select  Up/Down: browse  Left/Right: skip 5  Right-click row: equip  Delete / X: salvage"),
      FLinearColor::White, Left + 18.f, Top + PanelHeight - 51.f, nullptr, 0.75f);
   // Display cost for the actual selected item, rather than a formula
   // players must calculate while navigating the inventory.
@@ -203,10 +1315,30 @@ void AMoonfallCombatHUD::DrawHUD()
      ? FLinearColor(0.50f,0.95f,0.62f) : FLinearColor(0.98f,0.67f,0.45f),
      Left + 18.f, Top + PanelHeight - 89.f, nullptr, 0.82f);
   }
-  DrawText(TEXT("B / LT: equip best   U / RT: +1 tier   H / RB: forge 5   R / B: ascend   G / LB: reforge"),
+  DrawText(TEXT("LT: equip best   U / RT: +1 tier   H / RB: forge 5   R / B: ascend   G / LB: reforge"),
      FLinearColor(0.78f,0.90f,0.95f), Left + 18.f, Top + PanelHeight - 70.f, nullptr, 0.74f);
-  DrawText(TEXT("P / A: character stats    I / Select / Esc: close"), FLinearColor::White,
-     Left + 18.f, Top + PanelHeight - 28.f, nullptr, 0.8f);
+  // The compact viewport's rows start at Top+145. Keep the ring
+  // above them rather than drawing a status overlay over selectable gear.
+  DrawKeyRingSummary(Left+10.f,
+    PanelHeight < 400.f ? Top+85.f : Top+PanelHeight-135.f,PanelWidth-20.f);
+  // Interactive bag footer drawn last so buttons remain above status text.
+  DrawRect(FLinearColor(0.04f,0.035f,0.10f,0.99f),
+    Left,Top+PanelHeight-90.f,PanelWidth,90.f);
+  const TCHAR* BagActions[8]={
+    TEXT("EQUIP"),TEXT("UPGRADE"),TEXT("ASCEND"),TEXT("REFORGE"),
+    TEXT("FORGE x5"),TEXT("SALVAGE"),TEXT("CHARACTER"),TEXT("CLOSE")
+  };
+  for (int32 Action=0;Action<8;++Action) {
+   float BX=0.f,BY=0.f,BW=0.f,BH=0.f;
+   if (!MoonfallBagActionRect(Canvas,MoonfallDualPanels(Canvas,Hero),Action,BX,BY,BW,BH)) continue;
+   const bool Enabled=Action>=6 || Count>0;
+   DrawRect((!bDual || Hero->bMenuFocusCharacter) && Hero->MenuActionFocus==Action ? FLinearColor(0.72f,0.53f,0.20f) :
+     Enabled ? FLinearColor(0.15f,0.38f,0.45f,0.97f)
+      : FLinearColor(0.18f,0.18f,0.22f,0.94f),BX,BY,BW,BH);
+   DrawText(BagActions[Action],Enabled ? FLinearColor::White
+       : FLinearColor(0.60f,0.62f,0.66f),BX+6.f,BY+8.f,nullptr,
+       Canvas->SizeX<650.f ? 0.54f : 0.73f);
+  }
   return;
  }
  // Nearest living boss, displayed without creating additional widget actors.
@@ -354,13 +1486,17 @@ void AMoonfallCombatHUD::DrawHUD()
            CX + Radius + 14.f, CY - 13.f, nullptr, 0.96f * LabelScale);
  }
  if (!bCompactScreen) {
-  const TCHAR* RarityNames[] = { TEXT("COMMON"), TEXT("UNCOMMON"), TEXT("RARE"), TEXT("EPIC") };
-  const int32 Rarity = FMath::Clamp(Hero->LastLootRarity, 0, 5);
-  DrawText(FString::Printf(TEXT("Gear W:%d A:%d C:%d | Salvage %d | Bag %d/30"),
+  // All six item rarities must be represented before indexing the label.
+  // A received item is reported independently of the current bag size.
+  const TCHAR* RarityNames[] = { TEXT("COMMON"), TEXT("UNCOMMON"),
+    TEXT("RARE"), TEXT("EPIC"), TEXT("EMERALD"), TEXT("LEGENDARY") };
+  const int32 Rarity = FMath::Clamp(Hero->LastLootRarity, 0,
+    static_cast<int32>(UE_ARRAY_COUNT(RarityNames)) - 1);
+  DrawText(FString::Printf(TEXT("Gear W:%d A:%d C:%d | Salvage %d | Bag %d"),
    Hero->WeaponTier, Hero->ArmorTier, Hero->AccessoryTier, Hero->Salvage, Hero->InventoryItemCodes.Num()),
    FLinearColor(0.85f,0.84f,0.95f), 24.f, Canvas->SizeY - 75.f, nullptr, 0.8f);
-  if (Hero->InventoryItemCodes.Num() > 0) {
-   DrawText(FString::Printf(TEXT("Last drop: %s Tier %d (%+d vs equipped)"),
+  if (Hero->LastLootTier > 0) {
+   DrawText(FString::Printf(TEXT("Last received: %s Tier %d (%+d vs equipped)"),
     RarityNames[Rarity], Hero->LastLootTier, Hero->LastLootUpgrade),
     FLinearColor(0.95f,0.84f,0.47f), 24.f, Canvas->SizeY - 55.f, nullptr, 0.8f);
   }

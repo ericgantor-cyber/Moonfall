@@ -7,6 +7,8 @@
 #include "Engine/StaticMesh.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Kismet/GameplayStatics.h"
+#include "CollisionQueryParams.h"
+#include "Engine/World.h"
 
 AMoonfallGroundLoot::AMoonfallGroundLoot()
 {
@@ -37,7 +39,22 @@ AMoonfallGroundLoot::AMoonfallGroundLoot()
 
 void AMoonfallGroundLoot::InitializeLoot(int32 InItemCode)
 {
- if (ItemCode != 0 || InItemCode <= 0) return;
+ // A repeated initialization must never replace an existing, valid drop.
+ if (ItemCode != 0 || bCollected) return;
+ // Failed initialization must not leave an unusable world actor behind.
+ if (InItemCode <= 0) { Destroy(); return; }
+ if (InItemCode > AMoonfallHeroPawn::KeyLootBase &&
+     InItemCode <= AMoonfallHeroPawn::KeyLootBase + AMoonfallHeroPawn::MaxKeyId) {
+  ItemCode = InItemCode;
+  const int32 KeyId=ItemCode-AMoonfallHeroPawn::KeyLootBase;
+  ItemLabel->SetText(FText::FromString(FString::Printf(
+     TEXT("KEY %d  [F / X]"),KeyId)));
+  ItemLabel->SetTextRenderColor(FColor(245,201,63));
+  // Key drops are gold and use the same reach and line-of-sight checks.
+  if (UMaterialInstanceDynamic* Beacon=RarityBeacon->CreateAndSetMaterialInstanceDynamic(0))
+   Beacon->SetVectorParameterValue(TEXT("Color"),FLinearColor(FColor(245,201,63)));
+  return;
+ }
  const int32 Affix = InItemCode / 100000;
  const int32 Slot = (InItemCode / 10000) % 10;
  const int32 Rarity = (InItemCode / 1000) % 10;
@@ -45,8 +62,10 @@ void AMoonfallGroundLoot::InitializeLoot(int32 InItemCode)
  if (Affix < 0 || Affix > 3 || Slot < 0 || Slot > 2 ||
      Rarity < 0 || Rarity > 5 || Tier < 1 || Tier > 25 ||
      (Rarity == 0 && Affix != 0) ||
-     InItemCode != Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier)
+     InItemCode != Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier) {
+  Destroy();
   return;
+ }
  ItemCode = InItemCode;
  const TCHAR* SlotNames[] = {TEXT("Weapon"), TEXT("Armor"), TEXT("Accessory")};
  const TCHAR* QualityNames[] = {TEXT("Common"), TEXT("Uncommon"), TEXT("Rare"), TEXT("Epic"), TEXT("Emerald"), TEXT("Legendary")};
@@ -69,7 +88,28 @@ bool AMoonfallGroundLoot::TryCollect()
 {
  if (bCollected || ItemCode <= 0) return false;
  AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0));
- if (!IsValid(Hero) || !Hero->CollectGroundEquipmentCode(ItemCode)) return false;
+ if (!IsValid(Hero) || !GetWorld()) return false;
+ // Enforce pickup reachability at the item boundary as well as in the hero's
+ // candidate search. Blueprint or future callers must not collect distant loot.
+ const FVector HeroPosition = Hero->GetActorLocation();
+ const FVector LootPosition = GetActorLocation();
+ // Extreme finite positions can still overflow the squared-distance result.
+ // Never allow a nonfinite distance to bypass the pickup boundary.
+ if (HeroPosition.ContainsNaN() || LootPosition.ContainsNaN()) return false;
+ const float DistanceSq = FVector::DistSquared2D(HeroPosition, LootPosition);
+ if (!FMath::IsFinite(DistanceSq) ||
+     FMath::Abs(LootPosition.Z - HeroPosition.Z) > 150.f ||
+     DistanceSq > FMath::Square(250.f))
+  return false;
+ FCollisionQueryParams SightParams(SCENE_QUERY_STAT(MoonfallGroundLootCollectSight), false);
+ SightParams.AddIgnoredActor(Hero);
+ SightParams.AddIgnoredActor(this);
+ FHitResult SightHit;
+ if (GetWorld()->LineTraceSingleByChannel(SightHit,
+     HeroPosition + FVector(0.f, 0.f, 40.f),
+     LootPosition + FVector(0.f, 0.f, 40.f),
+     ECC_Visibility, SightParams)) return false;
+ if (!Hero->CollectGroundEquipmentCode(ItemCode)) return false;
  bCollected = true;
  Destroy();
  return true;

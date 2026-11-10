@@ -11,6 +11,10 @@
 #include "Interfaces/IPluginManager.h"
 #include "MoonfallEnemy.h"
 #include "MoonfallGroundLoot.h"
+#include "MoonfallCombatHUD.h"
+#include "MoonfallProgressSaveGame.h"
+#include "Kismet/GameplayStatics.h"
+#include "GameFramework/PlayerController.h"
 #include "EngineUtils.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Components/StaticMeshComponent.h"
@@ -23,21 +27,47 @@
 #include "CollisionQueryParams.h"
 // Equipment stats are intentionally derived from equipped codes, never the
 // inventory list: carrying loot cannot accidentally grant combat bonuses.
-// Ignore malformed codes so externally edited Blueprint state fails closed.
+// All combat bonuses share one strict decoder. Invalid or wrong-slot codes
+// must not grant rarity, tier, affix or set bonuses.
+namespace {
+bool DecodeEquippedItem(int32 Code, int32 ExpectedSlot, int32& OutTrait, int32& OutRarity, int32& OutTier)
+{
+ if (Code <= 0 || ExpectedSlot < 0 || ExpectedSlot > 2) return false;
+ const int32 Trait = Code / 100000;
+ const int32 Slot = (Code / 10000) % 10;
+ const int32 Rarity = (Code / 1000) % 10;
+ const int32 Tier = Code % 1000;
+ // Match RollEquipmentCode/EquipInventoryItem: common gear and some
+ // uncommon gear legitimately have no trait (0). Common gear has rarity 0.
+ if (Trait < 0 || Trait > 3 || Slot != ExpectedSlot ||
+     Rarity < 0 || Rarity > 5 || Tier < 1 || Tier > 25 ||
+     (Rarity == 0 && Trait != 0) ||
+     Code != Trait * 100000 + Slot * 10000 + Rarity * 1000 + Tier) return false;
+ OutTrait = Trait;
+ OutRarity = Rarity;
+ OutTier = Tier;
+ return true;
+}
+int32 ValidEquippedTier(int32 Code, int32 Slot)
+{
+ int32 Trait = 0, Rarity = 0, Tier = 0;
+ return DecodeEquippedItem(Code, Slot, Trait, Rarity, Tier) ? Tier : 0;
+}
+float ValidEquippedRarityBonus(int32 Code, int32 Slot, int32 ExpectedTrait, float PerRarity)
+{
+ int32 Trait = 0, Rarity = 0, Tier = 0;
+ return DecodeEquippedItem(Code, Slot, Trait, Rarity, Tier) && Trait == ExpectedTrait
+     ? Rarity * PerRarity : 0.f;
+}
+}
 int32 AMoonfallHeroPawn::GetSetPieceCount(int32 Affix) const
 {
  if (Affix < 1 || Affix > 3) return 0;
  const int32 Codes[3] = {EquippedWeaponCode, EquippedArmorCode, EquippedAccessoryCode};
  int32 Pieces = 0;
  for (int32 Slot = 0; Slot < 3; ++Slot) {
-  const int32 Code = Codes[Slot];
-  const int32 Trait = Code / 100000;
-  const int32 ItemSlot = (Code / 10000) % 10;
-  const int32 Rarity = (Code / 1000) % 10;
-  const int32 Tier = Code % 1000;
-  if (Code > 0 && Trait == Affix && ItemSlot == Slot && Rarity >= 1
-      && Rarity <= 5 && Tier >= 1 && Tier <= 25
-      && Code == Trait * 100000 + Slot * 10000 + Rarity * 1000 + Tier)
+  int32 Trait = 0, Rarity = 0, Tier = 0;
+  if (DecodeEquippedItem(Codes[Slot], Slot, Trait, Rarity, Tier) && Trait == Affix)
    ++Pieces;
  }
  return Pieces;
@@ -45,42 +75,138 @@ int32 AMoonfallHeroPawn::GetSetPieceCount(int32 Affix) const
 
 int32 AMoonfallHeroPawn::GetMight() const
 {
- return FMath::Clamp(10 + FMath::Max(0, Level - 1) / 2 + FMath::Clamp(WeaponTier, 0, 25), 10, 100);
+ return FMath::Clamp(10 + FMath::Max(0, Level - 1) / 2 +
+   ValidEquippedTier(EquippedWeaponCode, 0), 10, 100);
 }
 
 int32 AMoonfallHeroPawn::GetInsight() const
 {
- return FMath::Clamp(10 + FMath::Max(0, Level - 1) / 2 + FMath::Clamp(AccessoryTier, 0, 25), 10, 100);
+ return FMath::Clamp(10 + FMath::Max(0, Level - 1) / 2 +
+   ValidEquippedTier(EquippedAccessoryCode, 2), 10, 100);
 }
 
 int32 AMoonfallHeroPawn::GetResolve() const
 {
- return FMath::Clamp(10 + FMath::Max(0, Level - 1) / 2 + FMath::Clamp(ArmorTier, 0, 25), 10, 100);
+ return FMath::Clamp(10 + FMath::Max(0, Level - 1) / 2 +
+   ValidEquippedTier(EquippedArmorCode, 1), 10, 100);
+}
+
+// Character stats are pure and bounded: derived from level and valid equipped
+// slot codes; inventory contents never buff the wearer.
+int32 AMoonfallHeroPawn::GetStrength() const
+{
+ return FMath::Clamp(8 + GetMight() + ValidEquippedTier(EquippedWeaponCode,0),8,250);
+}
+int32 AMoonfallHeroPawn::GetAgility() const
+{
+ return FMath::Clamp(10 + FMath::Clamp(Level,1,100)/3 +
+   ValidEquippedTier(EquippedWeaponCode,0) + TalentFocusRank,10,200);
+}
+int32 AMoonfallHeroPawn::GetStaminaAttribute() const
+{
+ return FMath::Clamp(10 + GetResolve()/2 + ValidEquippedTier(EquippedArmorCode,1),10,180);
+}
+int32 AMoonfallHeroPawn::GetIntellect() const
+{
+ return FMath::Clamp(8 + GetInsight() + ValidEquippedTier(EquippedAccessoryCode,2),8,250);
+}
+int32 AMoonfallHeroPawn::GetSpirit() const
+{
+ return FMath::Clamp(10 + GetInsight()/2 + TalentFocusRank,10,180);
+}
+int32 AMoonfallHeroPawn::GetArmorRating() const
+{
+ return FMath::Clamp(GetAgility()*2 + GetResolve()*2 +
+   ValidEquippedTier(EquippedArmorCode,1)*18,0,1500);
+}
+int32 AMoonfallHeroPawn::GetDefenseRating() const
+{
+ return FMath::Clamp(FMath::Clamp(Level,1,100)*5 + GetResolve()/3,0,650);
+}
+float AMoonfallHeroPawn::GetMeleeAttackPower() const
+{
+ return FMath::Clamp(GetStrength()*2.f + GetAgility()*0.5f,0.f,600.f);
+}
+float AMoonfallHeroPawn::GetRangedAttackPower() const
+{
+ return FMath::Clamp(GetAgility()*1.5f + GetStrength()*0.3f,0.f,500.f);
+}
+float AMoonfallHeroPawn::GetSpellDamagePower() const
+{
+ return FMath::Clamp(GetIntellect()*1.5f +
+   ValidEquippedTier(EquippedAccessoryCode,2)*2.f,0.f,500.f);
+}
+float AMoonfallHeroPawn::GetSpellHealingPower() const
+{
+ return FMath::Clamp(GetIntellect()*1.25f + GetSpirit()*0.40f,0.f,450.f);
+}
+float AMoonfallHeroPawn::GetSpellPenetration() const
+{
+ return FMath::Clamp(GetIntellect()*0.16f +
+   ValidEquippedTier(EquippedAccessoryCode,2),0.f,60.f);
+}
+float AMoonfallHeroPawn::GetSpellPierce() const
+{
+ return FMath::Clamp(GetSpellPenetration()*0.20f,0.f,12.f);
+}
+float AMoonfallHeroPawn::GetExpertiseRating() const
+{
+ return FMath::Clamp(GetStrength()*0.08f +
+   ValidEquippedTier(EquippedWeaponCode,0)*0.5f,0.f,25.f);
+}
+
+float AMoonfallHeroPawn::GetManaRegenPerFive() const
+{
+ return FMath::Clamp(GetSpirit()*0.25f,0.f,50.f);
+}
+
+float AMoonfallHeroPawn::GetHealthRegenPerFive() const
+{
+ return FMath::Clamp(GetSpirit()*0.15f,0.f,30.f);
+}
+
+float AMoonfallHeroPawn::GetResistance(int32 School) const
+{
+ if (School < 0 || School >= 5) return 0.f;
+ const int32 Tier = ValidEquippedTier(EquippedArmorCode,1);
+ const float Natural = GetResolve()*0.15f + Tier*1.5f;
+ const float SchoolBonus = School == 0 ? GetStrength()*0.04f
+    : School == 1 ? GetStaminaAttribute()*0.04f
+    : School == 2 ? GetSpirit()*0.04f
+    : School == 3 ? GetResolve()*0.04f
+    : GetIntellect()*0.04f;
+ return FMath::Clamp(Natural+SchoolBonus,0.f,100.f);
 }
 
 float AMoonfallHeroPawn::GetCriticalChance() const
 {
  // Force: 2-piece improves critical chances. A 3-piece grants mastery.
- const int32 Rarity = FMath::Clamp((EquippedWeaponCode / 1000) % 10, 0, 5);
- const float TraitCrit = WeaponAffix == 1 ? Rarity * 0.008f : 0.f;
- return FMath::Clamp(0.05f + TraitCrit + (GetSetPieceCount(1) >= 2 ? 0.03f : 0.f),
+ const float TraitCrit = ValidEquippedRarityBonus(EquippedWeaponCode, 0, 1, 0.008f);
+ return FMath::Clamp(0.05f + TraitCrit + FMath::Clamp(TalentForceRank, 0, 10) * 0.005f
+   + (bTalentForceKeystone ? 0.02f : 0.f) + (bTalentBattleWeave ? 0.01f : 0.f)
+   + (GetSetPieceCount(1) >= 2 ? 0.03f : 0.f)
+   + FMath::Min(0.02f,GetAstralTalentCount(0) * 0.0005f),
    0.05f, 0.25f);
 }
 
 float AMoonfallHeroPawn::GetHasteBonus() const
 {
  // Focus: faster spell recovery at two matching items.
- const int32 Rarity = FMath::Clamp((EquippedAccessoryCode / 1000) % 10, 0, 5);
- const float TraitHaste = AccessoryAffix == 3 ? Rarity * 0.006f : 0.f;
- return FMath::Clamp(TraitHaste + (GetSetPieceCount(3) >= 2 ? 0.04f : 0.f),
+ const float TraitHaste = ValidEquippedRarityBonus(EquippedAccessoryCode, 2, 3, 0.006f);
+ return FMath::Clamp(TraitHaste + FMath::Clamp(TalentFocusRank, 0, 10) * 0.01f
+   + (bTalentFocusKeystone ? 0.02f : 0.f) + (bTalentArcaneAegis ? 0.01f : 0.f)
+   + (GetSetPieceCount(3) >= 2 ? 0.04f : 0.f)
+   + FMath::Min(0.025f,GetAstralTalentCount(1) * 0.0007f),
    0.f, 0.20f);
 }
 
 float AMoonfallHeroPawn::GetMasteryBonus() const
 {
- // Mastery rewards overall equipped power; triple Force strengthens spells.
- const float GearMastery = FMath::Clamp((WeaponTier + ArmorTier + AccessoryTier)
-   * 0.0015f, 0.f, 0.12f);
+ // Mastery rewards overall valid equipped power; triple Force strengthens spells.
+ const float GearMastery = FMath::Clamp((
+   ValidEquippedTier(EquippedWeaponCode, 0) +
+   ValidEquippedTier(EquippedArmorCode, 1) +
+   ValidEquippedTier(EquippedAccessoryCode, 2)) * 0.0015f, 0.f, 0.12f);
  return FMath::Clamp(GearMastery + (GetSetPieceCount(1) >= 3 ? 0.04f : 0.f),
    0.f, 0.16f);
 }
@@ -88,15 +214,18 @@ float AMoonfallHeroPawn::GetMasteryBonus() const
 float AMoonfallHeroPawn::GetVersatilityBonus() const
 {
  // Ward: Versatility increases damage dealt and halves its defensive effect.
- const int32 Rarity = FMath::Clamp((EquippedArmorCode / 1000) % 10, 0, 5);
- const float TraitVersatility = ArmorAffix == 2 ? Rarity * 0.005f : 0.f;
- return FMath::Clamp(TraitVersatility + (GetSetPieceCount(2) >= 2 ? 0.03f : 0.f),
+ const float TraitVersatility = ValidEquippedRarityBonus(EquippedArmorCode, 1, 2, 0.005f);
+ return FMath::Clamp(TraitVersatility + FMath::Clamp(TalentWardRank, 0, 10) * 0.008f
+   + (bTalentWardKeystone ? 0.015f : 0.f) + (bTalentIronWill ? 0.015f : 0.f)
+   + (GetSetPieceCount(2) >= 2 ? 0.03f : 0.f)
+   + FMath::Min(0.02f,GetAstralTalentCount(2) * 0.0005f),
    0.f, 0.12f);
 }
 
 AMoonfallHeroPawn::AMoonfallHeroPawn()
 {
  PrimaryActorTick.bCanEverTick = true;
+ AstralTalentUnlocked.Init(uint8(0), AstralTalentCount);
  CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
  CameraBoom->SetupAttachment(GetRootComponent());
  CameraBoom->TargetArmLength = CameraDistance;
@@ -127,6 +256,277 @@ AMoonfallHeroPawn::AMoonfallHeroPawn()
  FinisherFlash->SetAttenuationRadius(420.f);
  FinisherFlash->SetVisibility(false);
 }
+// Only progression is saved here. Inventory/gear/world snapshots are separate
+// systems; never restore stale inventory or equipment codes from this slot.
+bool AMoonfallHeroPawn::SaveProgress()
+{
+ if (!HasAuthority() || Level < 1 || Level > 100) return false;
+ UMoonfallProgressSaveGame* Save = Cast<UMoonfallProgressSaveGame>(
+   UGameplayStatics::CreateSaveGameObject(UMoonfallProgressSaveGame::StaticClass()));
+ if (!Save) return false;
+ Save->Version = 3;
+ Save->Level = Level;
+ Save->Experience = FMath::Max(0,Experience);
+ Save->MaxHealth = FMath::Clamp(FMath::IsFinite(MaxHealth)
+   ? MaxHealth - 2.f * FMath::Clamp(ArmorTier,0,25) : 100.f,100.f,20000.f);
+ Save->MaxMana = FMath::Clamp(FMath::IsFinite(MaxMana) ? MaxMana : 100.f,100.f,20000.f);
+ Save->RootRanks = {TalentForceRank,TalentFocusRank,TalentWardRank};
+ Save->CoreUnlocks = {
+    uint8(bTalentForceKeystone),
+    uint8(bTalentFocusKeystone),
+    uint8(bTalentWardKeystone),
+    uint8(bTalentBattleWeave),
+    uint8(bTalentArcaneAegis),
+    uint8(bTalentIronWill),
+    uint8(bTalentStarbreaker),
+    uint8(bTalentAstralSurge),
+    uint8(bTalentEternalSentinel),
+    uint8(bTalentVoidCrown),
+    uint8(bTalentCelestialWell),
+    uint8(bTalentAdamantOath),
+    uint8(bTalentEclipseHeart),
+    uint8(bTalentInfiniteCurrent),
+    uint8(bTalentWorldguard),
+    uint8(bTalentDuskSovereign),
+    uint8(bTalentSoulConduit),
+    uint8(bTalentUnbrokenBastion),
+    uint8(bTalentNightfallAscension),
+    uint8(bTalentRadiantNexus),
+    uint8(bTalentTitanSoul),
+    uint8(bTalentCrimsonNova),
+    uint8(bTalentAetherCovenant),
+    uint8(bTalentLastCitadel)
+ };
+ Save->AstralUnlocks = AstralTalentUnlocked;
+ // Copy the bag and equipped codes as one atomic snapshot. The worn slots
+ // must still point to an owned entry and be legal for that equipment slot.
+ EnsureInventoryPickupIds();
+ Save->InventoryCodes = InventoryItemCodes;
+ Save->InventoryPickupIds = InventoryPickupIds;
+ Save->NextInventoryPickupId = NextInventoryPickupId;
+ if (Save->InventoryPickupIds.Num() != Save->InventoryCodes.Num() ||
+     Save->NextInventoryPickupId <= 0) return false;
+ TSet<int32> SavedIds;
+ for (int32 Id : Save->InventoryPickupIds) {
+  if (Id <= 0 || Id >= Save->NextInventoryPickupId ||
+      SavedIds.Contains(Id)) return false;
+  SavedIds.Add(Id);
+ }
+ Save->KeyRingIds = KeyRingIds;
+ if (Save->KeyRingIds.Num() > MaxKeyId) return false;
+ for (int32 I=0;I<Save->KeyRingIds.Num();++I) {
+  const int32 Id=Save->KeyRingIds[I];
+  if (Id < 1 || Id > MaxKeyId || (I>0 && Save->KeyRingIds[I-1] >= Id)) return false;
+ }
+ Save->EquippedWeapon = EquippedWeaponCode;
+ Save->EquippedArmor = EquippedArmorCode;
+ Save->EquippedAccessory = EquippedAccessoryCode;
+ Save->SalvageMaterials = Salvage;
+ Save->InventorySortMode = InventorySortMode;
+ if (Save->InventoryCodes.Num() > MaxInventoryItems ||
+     Save->SalvageMaterials < 0 || Save->SalvageMaterials > 9999 ||
+     (Save->InventorySortMode < 0 || Save->InventorySortMode > 2)) return false;
+ for (int32 Code : Save->InventoryCodes) {
+  int32 Trait = 0, Rarity = 0, Tier = 0;
+  const int32 Slot = (Code / 10000) % 10;
+  if (!DecodeEquippedItem(Code,Slot,Trait,Rarity,Tier)) return false;
+ }
+ const int32 WornCodes[3] = {
+  Save->EquippedWeapon,Save->EquippedArmor,Save->EquippedAccessory
+ };
+ for (int32 Slot = 0; Slot < 3; ++Slot) {
+  if (WornCodes[Slot] == 0) continue;
+  int32 Trait = 0, Rarity = 0, Tier = 0;
+  if (!DecodeEquippedItem(WornCodes[Slot],Slot,Trait,Rarity,Tier) ||
+      !Save->InventoryCodes.Contains(WornCodes[Slot])) return false;
+ }
+ // No corrupted save may be emitted if a Blueprint/external edit expanded the array.
+ if (Save->AstralUnlocks.Num() != AstralTalentCount) return false;
+ if (UGameplayStatics::SaveGameToSlot(Save,TEXT("MoonfallHeroProgressV1"),0)) {
+  bProgressDirty = false;
+  if (GetWorld()) LastProgressSaveAt = GetWorld()->GetTimeSeconds();
+  return true;
+ }
+ return false;
+}
+
+bool AMoonfallHeroPawn::LoadProgress()
+{
+ if (!HasAuthority() ||
+     !UGameplayStatics::DoesSaveGameExist(TEXT("MoonfallHeroProgressV1"),0)) return false;
+ const UMoonfallProgressSaveGame* Save = Cast<UMoonfallProgressSaveGame>(
+   UGameplayStatics::LoadGameFromSlot(TEXT("MoonfallHeroProgressV1"),0));
+ if (!Save || (Save->Version != 1 && Save->Version != 2 && Save->Version != 3) || Save->Level < 1 || Save->Level > 100 ||
+     Save->RootRanks.Num() != 3 || Save->CoreUnlocks.Num() != 24 ||
+     Save->AstralUnlocks.Num() != AstralTalentCount ||
+     !FMath::IsFinite(Save->MaxHealth) || !FMath::IsFinite(Save->MaxMana) ||
+     Save->MaxHealth < 100.f || Save->MaxHealth > 20000.f ||
+     Save->MaxMana < 100.f || Save->MaxMana > 20000.f) return false;
+ const int32 Threshold = 100 + (Save->Level - 1) * 55;
+ if (Save->Experience < 0 || Save->Experience >= Threshold ||
+     (Save->Level == 100 && Save->Experience != 0)) return false;
+
+ int32 Spent = 0;
+ for (int32 Rank : Save->RootRanks) {
+  if (Rank < 0 || Rank > 10) return false;
+  Spent += Rank;
+ }
+ // Core nodes are topologically ordered, so every requirement can only
+ // reference an earlier unlock (roots are represented by their three ranks).
+ static const int32 PrerequisiteA[24] = {
+  -1,-1,-1,0,1,2,3,3,4,6,7,8,9,9,10,12,12,13,15,15,16,18,18,19
+ };
+ static const int32 PrerequisiteB[24] = {
+  -1,-1,-1,1,2,0,5,4,5,7,8,6,11,10,11,14,13,14,17,16,17,20,19,20
+ };
+ for (int32 I = 0; I < 24; ++I) {
+  const uint8 Owned = Save->CoreUnlocks[I];
+  if (Owned > 1) return false;
+  if (!Owned) continue;
+  ++Spent;
+  if (I < 3) {
+   if (Save->RootRanks[I] < 3) return false;
+  } else if (!Save->CoreUnlocks[PrerequisiteA[I]] ||
+             !Save->CoreUnlocks[PrerequisiteB[I]]) return false;
+ }
+ // The Astral stage-0 stars depend on Tier IX; later stages chain in
+ // increasing order, with every sixth stage also requiring a cross-link.
+ for (int32 I = 0; I < AstralTalentCount; ++I) {
+  const uint8 Owned = Save->AstralUnlocks[I];
+  if (Owned > 1) return false;
+  if (!Owned) continue;
+  ++Spent;
+  const int32 Stage = I / 3;
+  const int32 Branch = I % 3;
+  if (Stage == 0) {
+   if (!Save->CoreUnlocks[21 + Branch]) return false;
+  } else {
+   if (!Save->AstralUnlocks[I - 3]) return false;
+   if (Stage % 6 == 0 &&
+       !Save->AstralUnlocks[(Stage - 1)*3 + (Branch + 1)%3]) return false;
+  }
+ }
+ // Keep a single authoritative Level-derived budget, even if a save was edited.
+ if (Spent > Save->Level - 1) return false;
+
+ // V2 validates *every* item, worn ownership and inventory size before applying
+ // any stat, root rank or resource. V1 preserves the preexisting inventory.
+ if (Save->Version >= 2) {
+  if (Save->Version == 3) {
+   if (Save->InventoryPickupIds.Num()!=Save->InventoryCodes.Num() ||
+       Save->NextInventoryPickupId<=0) return false;
+   TSet<int32> SeenPickupIds;
+   for (int32 Id : Save->InventoryPickupIds) {
+    if (Id<=0 || Id>=Save->NextInventoryPickupId ||
+        SeenPickupIds.Contains(Id)) return false;
+    SeenPickupIds.Add(Id);
+   }
+  }
+  if (Save->KeyRingIds.Num() > MaxKeyId) return false;
+  for (int32 I=0;I<Save->KeyRingIds.Num();++I) {
+   const int32 Id=Save->KeyRingIds[I];
+   if (Id < 1 || Id > MaxKeyId || (I>0 && Save->KeyRingIds[I-1] >= Id)) return false;
+  }
+  if (Save->InventoryCodes.Num() > MaxInventoryItems ||
+      Save->SalvageMaterials < 0 || Save->SalvageMaterials > 9999 ||
+     (Save->InventorySortMode < 0 || Save->InventorySortMode > 2)) return false;
+  for (int32 Code : Save->InventoryCodes) {
+   int32 Trait = 0, Rarity = 0, Tier = 0;
+   const int32 Slot = (Code / 10000) % 10;
+   if (!DecodeEquippedItem(Code,Slot,Trait,Rarity,Tier)) return false;
+  }
+  const int32 WornCodes[3] = {
+   Save->EquippedWeapon,Save->EquippedArmor,Save->EquippedAccessory
+  };
+  for (int32 Slot = 0; Slot < 3; ++Slot) {
+   if (WornCodes[Slot] == 0) continue;
+   int32 Trait = 0, Rarity = 0, Tier = 0;
+   if (!DecodeEquippedItem(WornCodes[Slot],Slot,Trait,Rarity,Tier) ||
+       !Save->InventoryCodes.Contains(WornCodes[Slot])) return false;
+  }
+ }
+ // Atomic application only after the entire snapshot has passed validation.
+ Level = Save->Level;
+ Experience = Save->Experience;
+ ExperienceToNextLevel = Threshold;
+ if (Save->Version >= 2) {
+  // Restore all three equipped items from the validated owned inventory.
+  InventoryItemCodes = Save->InventoryCodes;
+  if (Save->Version == 3) {
+   InventoryPickupIds = Save->InventoryPickupIds;
+   NextInventoryPickupId = Save->NextInventoryPickupId;
+  } else {
+   // Legacy V2 order is the best available pickup-order baseline.
+   InventoryPickupIds.Reset(InventoryItemCodes.Num());
+   for (int32 Index=0;Index<InventoryItemCodes.Num();++Index)
+    InventoryPickupIds.Add(Index+1);
+   NextInventoryPickupId=InventoryPickupIds.Num()+1;
+  }
+  KeyRingIds = Save->KeyRingIds;
+  LastCollectedKeyId = 0; // The last discovery badge is session-only.
+  EquippedWeaponCode = Save->EquippedWeapon;
+  EquippedArmorCode = Save->EquippedArmor;
+  EquippedAccessoryCode = Save->EquippedAccessory;
+  WeaponTier = ValidEquippedTier(EquippedWeaponCode,0);
+  ArmorTier = ValidEquippedTier(EquippedArmorCode,1);
+  AccessoryTier = ValidEquippedTier(EquippedAccessoryCode,2);
+  WeaponAffix = EquippedWeaponCode > 0 ? EquippedWeaponCode / 100000 : 0;
+  ArmorAffix = EquippedArmorCode > 0 ? EquippedArmorCode / 100000 : 0;
+  AccessoryAffix = EquippedAccessoryCode > 0 ? EquippedAccessoryCode / 100000 : 0;
+  EquipmentTier = FMath::Max(WeaponTier,FMath::Max(ArmorTier,AccessoryTier));
+  Salvage = Save->SalvageMaterials;
+  InventorySortMode = Save->InventorySortMode;
+  InventorySelection = 0;
+  InventoryViewStart = 0;
+ }
+ MaxHealth = Save->MaxHealth + 2.f * FMath::Clamp(ArmorTier,0,25);
+ MaxMana = Save->MaxMana;
+ SpellPowerMultiplier = 1.f + 0.025f * FMath::Min(Level - 1, 30)
+   + 0.012f * FMath::Max(0, Level - 31);
+ Health = FMath::Clamp(Health,1.f,MaxHealth);
+ Mana = FMath::Clamp(Mana,0.f,MaxMana);
+ TalentForceRank = Save->RootRanks[0];
+ TalentFocusRank = Save->RootRanks[1];
+ TalentWardRank = Save->RootRanks[2];
+ bool* const CoreFlags[24] = {
+    &bTalentForceKeystone,
+    &bTalentFocusKeystone,
+    &bTalentWardKeystone,
+    &bTalentBattleWeave,
+    &bTalentArcaneAegis,
+    &bTalentIronWill,
+    &bTalentStarbreaker,
+    &bTalentAstralSurge,
+    &bTalentEternalSentinel,
+    &bTalentVoidCrown,
+    &bTalentCelestialWell,
+    &bTalentAdamantOath,
+    &bTalentEclipseHeart,
+    &bTalentInfiniteCurrent,
+    &bTalentWorldguard,
+    &bTalentDuskSovereign,
+    &bTalentSoulConduit,
+    &bTalentUnbrokenBastion,
+    &bTalentNightfallAscension,
+    &bTalentRadiantNexus,
+    &bTalentTitanSoul,
+    &bTalentCrimsonNova,
+    &bTalentAetherCovenant,
+    &bTalentLastCitadel
+ };
+ for (int32 I = 0; I < 24; ++I)
+  *CoreFlags[I] = Save->CoreUnlocks[I] != 0;
+ AstralTalentUnlocked = Save->AstralUnlocks;
+ bProgressDirty = false;
+ return true;
+}
+
+void AMoonfallHeroPawn::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+ if (bProgressDirty) SaveProgress();
+ Super::EndPlay(EndPlayReason);
+}
+
 void AMoonfallHeroPawn::BeginPlay() {
  Super::BeginPlay();
  // Blueprint defaults are applied after the native constructor. Capture the
@@ -151,10 +551,17 @@ void AMoonfallHeroPawn::BeginPlay() {
  const TSharedPtr<IPlugin> DLSS = IPluginManager::Get().FindPlugin(TEXT("DLSS"));
  bFrameGenerationPluginDetected = (FSR.IsValid() && FSR->IsEnabled()) || (DLSS.IsValid() && DLSS->IsEnabled());
  // Detection is only a hint, never proof of a supported frame-generation runtime.
+ LoadProgress();
 }
 void AMoonfallHeroPawn::Tick(float DeltaSeconds)
 {
  Super::Tick(DeltaSeconds);
+ // No disk writes per frame or per attack. Persist dirty XP/talents every 16s
+ // and on normal world teardown; if a write fails it remains dirty for retry.
+ if (bProgressDirty && GetWorld() &&
+     FMath::IsFinite(GetWorld()->GetTimeSeconds()) &&
+     GetWorld()->GetTimeSeconds() - LastProgressSaveAt >= 16.f)
+  SaveProgress();
  UpdateNativeFinisher(DeltaSeconds);
  // Expire the visible combo stage even if the player stops attacking.
  // Also discard defeated or destroyed targets to avoid a stale combo HUD.
@@ -195,12 +602,13 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
          ? FMath::Clamp(CombatManaRegenMultiplier, 0.f, 1.f) : 0.5f) : 1.f;
  if (Health > 0.f && FMath::IsFinite(Mana) && FMath::IsFinite(MaxMana) && MaxMana > 0.f
      && FMath::IsFinite(ManaRegenPerSecond) && ManaRegenPerSecond > 0.f && Mana >= 0.f && Mana < MaxMana)
-  Mana = FMath::Min(MaxMana, Mana + FMath::Clamp(ManaRegenPerSecond, 0.f, 250.f) * MenuRecoveryBoost * CombatManaFactor
+  Mana = FMath::Min(MaxMana, Mana + FMath::Clamp(ManaRegenPerSecond, 0.f, 250.f) * MenuRecoveryBoost * CombatManaFactor * (bTalentArcaneAegis ? 1.15f : 1.f)
       * (1.f + FMath::Clamp(AccessoryTier * 0.012f, 0.f, 0.25f) + (AccessoryAffix == 3 ? 0.08f : 0.f)
         + FMath::Clamp(((EquippedAccessoryCode / 1000) % 10) * 0.02f, 0.f, 0.10f)
         + (GetSetPieceCount(3) >= 3 ? 0.06f : 0.f)
         + FMath::Clamp(GetInsight() * 0.002f, 0.f, 0.20f))
-      * SafeRecoveryDelta);
+      * SafeRecoveryDelta
+      + GetManaRegenPerFive() * 0.20f * SafeRecoveryDelta * CombatManaFactor);
  // Recovery in either menu is bounded and never revives a defeated hero.
  if ((bOptionsOpen || bInventoryOpen) && Health > 0.f && FMath::IsFinite(Health)
      && FMath::IsFinite(MaxHealth) && MaxHealth > 0.f && Health < MaxHealth
@@ -209,7 +617,7 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
      && !bInCombatRecoveryWindow) {
   const float BeforeRegen = Health;
   Health = FMath::Min(MaxHealth, Health + FMath::Clamp(MenuHealthRegenPerSecond, 0.f, 20.f)
-      * SafeRecoveryDelta);
+      * SafeRecoveryDelta + GetHealthRegenPerFive() * 0.20f * SafeRecoveryDelta);
   if (Health > BeforeRegen) OnHealthChanged(Health, MaxHealth);
  }
  // Sprint drains only while moving, and never drains while paused in Options.
@@ -287,7 +695,7 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
  if (Health > 0.f && !bSprinting && !bGuarding && GetWorld() && GetWorld()->GetTimeSeconds() >= StaminaRegenStartsAt
      && FMath::IsFinite(Stamina) && FMath::IsFinite(MaxStamina) && MaxStamina > 0.f
      && FMath::IsFinite(StaminaRegenPerSecond) && StaminaRegenPerSecond > 0.f) {
-  Stamina = FMath::Clamp(Stamina + FMath::Clamp(StaminaRegenPerSecond, 0.f, 250.f) * StaminaDelta * MenuRecoveryBoost
+  Stamina = FMath::Clamp(Stamina + FMath::Clamp(StaminaRegenPerSecond, 0.f, 250.f) * StaminaDelta * MenuRecoveryBoost * (bTalentIronWill ? 1.20f : 1.f)
     * (1.f + FMath::Clamp(GetResolve() * 0.003f, 0.f, 0.30f)), 0.f, MaxStamina);
  }
 }
@@ -303,7 +711,11 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("Jump"), IE_Pressed, this, &AMoonfallHeroPawn::TryJump);
  Input->BindAction(TEXT("Jump"), IE_Released, this, &ACharacter::StopJumping);
  Input->BindAction(TEXT("CastLeft"), IE_Pressed, this, &AMoonfallHeroPawn::CastLeft);
+ Input->BindAction(TEXT("LeftClickContext"), IE_Pressed, this, &AMoonfallHeroPawn::LeftClickContextAction);
+ Input->BindAction(TEXT("LeftClickContext"), IE_Released, this, &AMoonfallHeroPawn::ReleaseLeftClickContext);
  Input->BindAction(TEXT("CastRight"), IE_Pressed, this, &AMoonfallHeroPawn::CastRight);
+ Input->BindAction(TEXT("RightClickContext"), IE_Pressed, this, &AMoonfallHeroPawn::RightClickContextAction);
+ Input->BindAction(TEXT("RightClickContext"), IE_Released, this, &AMoonfallHeroPawn::ReleaseRightClickContext);
  Input->BindAction(TEXT("DualCast"), IE_Pressed, this, &AMoonfallHeroPawn::CastBoth);
  Input->BindAction(TEXT("Dodge"), IE_Pressed, this, &AMoonfallHeroPawn::Dodge);
  Input->BindAction(TEXT("Sprint"), IE_Pressed, this, &AMoonfallHeroPawn::BeginSprint);
@@ -315,13 +727,35 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("Options"), IE_Pressed, this, &AMoonfallHeroPawn::OpenOptions);
  Input->BindAction(TEXT("Inventory"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleInventory);
  Input->BindAction(TEXT("CharacterStats"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleCharacterStats);
- Input->BindAction(TEXT("InventoryConfirm"), IE_Pressed, this, &AMoonfallHeroPawn::InventoryConfirm);
+ Input->BindAction(TEXT("InventoryPage"), IE_Pressed, this, &AMoonfallHeroPawn::SwitchInventoryPage);
+ Input->BindAction(TEXT("InventoryPaneSwitch"), IE_Pressed, this, &AMoonfallHeroPawn::SwitchOpenInventoryPane);
+ Input->BindAction(TEXT("InventorySort"), IE_Pressed, this, &AMoonfallHeroPawn::CycleInventorySort);
  Input->BindAction(TEXT("InventorySalvage"), IE_Pressed, this, &AMoonfallHeroPawn::InventorySalvage);
  Input->BindAction(TEXT("UpgradeGear"), IE_Pressed, this, &AMoonfallHeroPawn::UpgradeSelectedInventoryItem);
  Input->BindAction(TEXT("ForgeFive"), IE_Pressed, this, &AMoonfallHeroPawn::ForgeFiveSelectedInventoryItem);
  Input->BindAction(TEXT("AscendGear"), IE_Pressed, this, &AMoonfallHeroPawn::AscendSelectedInventoryItem);
  Input->BindAction(TEXT("ReforgeGear"), IE_Pressed, this, &AMoonfallHeroPawn::ReforgeSelectedInventoryItem);
  Input->BindAction(TEXT("EquipBest"), IE_Pressed, this, &AMoonfallHeroPawn::EquipBestInventoryAction);
+ Input->BindAction(TEXT("Atlas"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleAtlas);
+ Input->BindAction(TEXT("Talents"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleTalents);
+ Input->BindAction(TEXT("TalentForce"), IE_Pressed, this, &AMoonfallHeroPawn::SpendForceTalent);
+ Input->BindAction(TEXT("TalentFocus"), IE_Pressed, this, &AMoonfallHeroPawn::SpendFocusTalent);
+ Input->BindAction(TEXT("TalentWard"), IE_Pressed, this, &AMoonfallHeroPawn::SpendWardTalent);
+ Input->BindAction(TEXT("TalentForceKeystone"), IE_Pressed, this, &AMoonfallHeroPawn::UnlockForceKeystone);
+ Input->BindAction(TEXT("TalentFocusKeystone"), IE_Pressed, this, &AMoonfallHeroPawn::UnlockFocusKeystone);
+ Input->BindAction(TEXT("TalentWardKeystone"), IE_Pressed, this, &AMoonfallHeroPawn::UnlockWardKeystone);
+ Input->BindAction(TEXT("TalentBattleWeave"), IE_Pressed, this, &AMoonfallHeroPawn::UnlockBattleWeave);
+ Input->BindAction(TEXT("TalentArcaneAegis"), IE_Pressed, this, &AMoonfallHeroPawn::UnlockArcaneAegis);
+ Input->BindAction(TEXT("TalentIronWill"), IE_Pressed, this, &AMoonfallHeroPawn::UnlockIronWill);
+ Input->BindAction(TEXT("TalentRespec"), IE_Pressed, this, &AMoonfallHeroPawn::RespecTalentAction);
+ Input->BindAction(TEXT("CancelTalentDialog"), IE_Pressed, this, &AMoonfallHeroPawn::CancelTalentRespecDialog);
+ Input->BindAction(TEXT("TalentNext"), IE_Pressed, this, &AMoonfallHeroPawn::SelectNextTalentNode);
+ Input->BindAction(TEXT("TalentPrevious"), IE_Pressed, this, &AMoonfallHeroPawn::SelectPreviousTalentNode);
+ Input->BindAction(TEXT("TalentActivate"), IE_Pressed, this, &AMoonfallHeroPawn::ActivateSelectedTalentNode);
+ Input->BindAction(TEXT("CharacterStatsNext"), IE_Pressed, this, &AMoonfallHeroPawn::NextCharacterStatsPage);
+ Input->BindAction(TEXT("CharacterStatsPrevious"), IE_Pressed, this, &AMoonfallHeroPawn::PreviousCharacterStatsPage);
+ Input->BindAction(TEXT("TalentNextPage"), IE_Pressed, this, &AMoonfallHeroPawn::SelectNextTalentPage);
+ Input->BindAction(TEXT("TalentPreviousPage"), IE_Pressed, this, &AMoonfallHeroPawn::SelectPreviousTalentPage);
  Input->BindAction(TEXT("PickupLoot"), IE_Pressed, this, &AMoonfallHeroPawn::PickupNearestGroundLoot);
  Input->BindAction(TEXT("OptionsUp"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsUp);
  Input->BindAction(TEXT("OptionsDown"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsDown);
@@ -329,22 +763,74 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("OptionsRight"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsRight);
 }
 void AMoonfallHeroPawn::ZoomCameraIn() {
- if (Health <= 0.f || bOptionsOpen || bInventoryOpen) return;
+ if (bTalentsOpen && bAtlasOpen && !bOptionsOpen && Health > 0.f) {
+  TalentZoom = FMath::Clamp((FMath::IsFinite(TalentZoom) ? TalentZoom : 1.f) + 0.1f,0.75f,1.35f);
+  return;
+ }
+ if (!FMath::IsFinite(Health) || Health <= 0.f || bOptionsOpen || bAtlasOpen) return;
+ if (bBagPanelOpen) {
+  // When B and C share a compact screen, C can cover the bag completely.
+  // Ignore wheel events there instead of scrolling hidden gear or zooming.
+  if (bCharacterStatsOpen && bMenuFocusCharacter) {
+   int32 ViewWidth=0,ViewHeight=0;
+   const APlayerController* PC=Cast<APlayerController>(GetController());
+   if (!PC) return;
+   PC->GetViewportSize(ViewWidth,ViewHeight);
+   if (ViewWidth < 960 || ViewHeight < 480) return;
+  }
+  // WoW-style bag viewport scroll: one row per notch, no selection changes.
+  // Clamp to the last *full visible viewport*, with no dead wheel ticks.
+  int32 VisibleRows = 2;
+  if (const APlayerController* PC = Cast<APlayerController>(GetController()))
+   if (const AMoonfallCombatHUD* HUD = Cast<AMoonfallCombatHUD>(PC->GetHUD()))
+    VisibleRows = HUD->GetInventoryVisibleRowCount();
+  InventoryViewStart = FMath::Clamp(InventoryViewStart - 1, 0,
+    FMath::Max(0, InventoryItemCodes.Num() - VisibleRows));
+  return;
+ }
+ // C-only view owns the mouse wheel; never zoom gameplay behind a menu.
+ if (bInventoryOpen) return;
  CameraDistance = FMath::Clamp((FMath::IsFinite(CameraDistance) ? CameraDistance : 450.f) - 65.f, 250.f, 850.f);
 }
 void AMoonfallHeroPawn::ZoomCameraOut() {
- if (Health <= 0.f || bOptionsOpen || bInventoryOpen) return;
+ if (bTalentsOpen && bAtlasOpen && !bOptionsOpen && Health > 0.f) {
+  TalentZoom = FMath::Clamp((FMath::IsFinite(TalentZoom) ? TalentZoom : 1.f) - 0.1f,0.75f,1.35f);
+  return;
+ }
+ if (!FMath::IsFinite(Health) || Health <= 0.f || bOptionsOpen || bAtlasOpen) return;
+ if (bBagPanelOpen) {
+  // When B and C share a compact screen, C can cover the bag completely.
+  // Ignore wheel events there instead of scrolling hidden gear or zooming.
+  if (bCharacterStatsOpen && bMenuFocusCharacter) {
+   int32 ViewWidth=0,ViewHeight=0;
+   const APlayerController* PC=Cast<APlayerController>(GetController());
+   if (!PC) return;
+   PC->GetViewportSize(ViewWidth,ViewHeight);
+   if (ViewWidth < 960 || ViewHeight < 480) return;
+  }
+  // Scroll the visible bag list independently of highlighted equipment.
+  // Clamp to the last *full visible viewport*, with no dead wheel ticks.
+  int32 VisibleRows = 2;
+  if (const APlayerController* PC = Cast<APlayerController>(GetController()))
+   if (const AMoonfallCombatHUD* HUD = Cast<AMoonfallCombatHUD>(PC->GetHUD()))
+    VisibleRows = HUD->GetInventoryVisibleRowCount();
+  InventoryViewStart = FMath::Clamp(InventoryViewStart + 1, 0,
+    FMath::Max(0, InventoryItemCodes.Num() - VisibleRows));
+  return;
+ }
+ // C-only view owns the mouse wheel; never zoom gameplay behind a menu.
+ if (bInventoryOpen) return;
  CameraDistance = FMath::Clamp((FMath::IsFinite(CameraDistance) ? CameraDistance : 450.f) + 65.f, 250.f, 850.f);
 }
 void AMoonfallHeroPawn::TryJump()
 {
  // Jump must obey the same defeated/menu input locks as Dodge and Cast.
- if (Health <= 0.f || bOptionsOpen || bInventoryOpen) return;
+ if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen) return;
  Jump();
 }
 void AMoonfallHeroPawn::MoveForward(float Value)
 {
- if (Health <= 0.f || bOptionsOpen || bInventoryOpen || !FMath::IsFinite(Value)) return;
+ if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || !FMath::IsFinite(Value)) return;
  if (Controller && !FMath::IsNearlyZero(Value))
  {
   const FRotator Yaw(0.f, Controller->GetControlRotation().Yaw, 0.f);
@@ -353,22 +839,36 @@ void AMoonfallHeroPawn::MoveForward(float Value)
 }
 void AMoonfallHeroPawn::MoveRight(float Value)
 {
- if (Health <= 0.f || bOptionsOpen || bInventoryOpen || !FMath::IsFinite(Value)) return;
+ if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen || !FMath::IsFinite(Value)) return;
  if (Controller && !FMath::IsNearlyZero(Value))
  {
   const FRotator Yaw(0.f, Controller->GetControlRotation().Yaw, 0.f);
   AddMovementInput(FRotationMatrix(Yaw).GetUnitAxis(EAxis::Y), Value);
  }
 }
-void AMoonfallHeroPawn::Turn(float Value) { if (Health > 0.f && !bOptionsOpen && !bInventoryOpen && FMath::IsFinite(Value)) AddControllerYawInput(Value); }
-void AMoonfallHeroPawn::LookUp(float Value) { if (Health > 0.f && !bOptionsOpen && !bInventoryOpen && FMath::IsFinite(Value)) AddControllerPitchInput(Value); }
-bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
+void AMoonfallHeroPawn::Turn(float Value) { if (Health > 0.f && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && FMath::IsFinite(Value)) AddControllerYawInput(Value); }
+void AMoonfallHeroPawn::LookUp(float Value) { if (Health > 0.f && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && FMath::IsFinite(Value)) AddControllerPitchInput(Value); }
+bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier, bool bOvercharged)
 {
+ if (bAtlasOpen) return false;
  static const float Costs[6] = {16.f,13.f,22.f,25.f,18.f,14.f};
  static const float Cooldowns[6] = {0.8f,0.65f,1.2f,2.f,1.f,0.9f};
  if (Health <= 0.f || bOptionsOpen || bInventoryOpen || !GetWorld() || School < 0 || School >= 6 || Hand < 0 || Hand > 1 || !FMath::IsFinite(Multiplier) || Multiplier <= 0.f || Multiplier > 2.f) return false;
+ // Skyrim-inspired two-hand overcharge: the same spell in both hands costs
+ // 2.8x mana for 2.2x effect. Single-hand casts retain their previous values.
+ // Mind Flow lowers actual casting costs, including dual-hand overcharge.
+ // The reduction is applied before checking and spending mana.
+ const float ManaCostMultiplier = (bOvercharged ? 2.8f : Multiplier)
+   * (bTalentFocusKeystone ? 0.90f : 1.f)
+   * (bTalentCelestialWell ? 0.90f : 1.f)
+   * (bTalentInfiniteCurrent ? 0.90f : 1.f)
+   * (bTalentSoulConduit ? 0.95f : 1.f)
+   * (bTalentRadiantNexus ? 0.95f : 1.f)
+   * (bTalentAetherCovenant ? 0.95f : 1.f)
+   * (1.f - FMath::Min(0.12f, GetAstralTalentCount(1) * 0.003f));
+ const float EffectMultiplier = bOvercharged ? 2.2f : Multiplier;
  const float Time = GetWorld()->GetTimeSeconds();
- if (!FMath::IsFinite(Health) || !FMath::IsFinite(MaxHealth) || MaxHealth <= 0.f || Health > MaxHealth || !FMath::IsFinite(MaxMana) || MaxMana <= 0.f || !FMath::IsFinite(Mana) || !FMath::IsFinite(SpellPowerMultiplier) || SpellPowerMultiplier <= 0.f || Mana < Costs[School] * Multiplier || Time - LastCastTime[Hand] < Cooldowns[School] / (1.f + GetHasteBonus())) return false;
+ if (!FMath::IsFinite(Health) || !FMath::IsFinite(MaxHealth) || MaxHealth <= 0.f || Health > MaxHealth || !FMath::IsFinite(MaxMana) || MaxMana <= 0.f || !FMath::IsFinite(Mana) || !FMath::IsFinite(SpellPowerMultiplier) || SpellPowerMultiplier <= 0.f || Mana < Costs[School] * ManaCostMultiplier || Time - LastCastTime[Hand] < Cooldowns[School] / (1.f + GetHasteBonus())) return false;
  if (School == 3 && Health >= MaxHealth) return false;
  if (School != 3) {
   if (!IsValid(FollowCamera)) return false;
@@ -420,13 +920,35 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
   // Crit is rolled only after a valid enemy was acquired.
   const bool bCriticalSpell = FMath::FRand() < GetCriticalChance();
   const float MightMultiplier = 1.f + FMath::Clamp(GetMight() * 0.001f, 0.f, 0.10f);
-  const float SpellDamage = (18.f + School * 5.f) * Multiplier * SpellPowerMultiplier
+  // Map Moonfall's six cast schools onto five elemental resistance types.
+  // School 3 heals and never enters this hostile spell branch.
+  // 0 Fire, 1 Frost, 2 Arcane, 4 Nature, 5 Shadow.
+  static const int32 ElementSchoolForCast[6] = {0,1,4,-1,2,3};
+  const int32 ElementSchool = ElementSchoolForCast[School];
+  const float EffectiveResistance = ElementSchool >= 0
+    ? FMath::Max(0.f,Enemy->GetSchoolResistance(ElementSchool)
+        - GetSpellPenetration() - GetSpellPierce()) : 0.f;
+  const float ResistanceMultiplier = 1.f - FMath::Clamp(
+      EffectiveResistance * 0.004f,0.f,0.40f);
+  const float SpellDamage = (18.f + School * 5.f) * EffectMultiplier * SpellPowerMultiplier
     * WeaponDamageBonus * CounterMultiplier * MomentumBonus * HitComboMultiplier
-    * (1.f + GetMasteryBonus()) * (1.f + GetVersatilityBonus())
-    * (bCriticalSpell ? 1.5f : 1.f) * MightMultiplier;
+    * ResistanceMultiplier * (1.f + GetMasteryBonus()) * (1.f + GetVersatilityBonus())
+    * ((bCriticalSpell ? 1.5f : 1.f)
+      + (bCriticalSpell ? (bTalentForceKeystone ? 0.20f : 0.f)
+        + (bTalentBattleWeave ? 0.15f : 0.f)
+        + (bTalentStarbreaker ? 0.25f : 0.f)
+        + (bTalentVoidCrown ? 0.20f : 0.f)
+        + (bTalentEclipseHeart ? 0.25f : 0.f)
+        + (bTalentDuskSovereign ? 0.20f : 0.f)
+        + (bTalentNightfallAscension ? 0.15f : 0.f)
+        + (bTalentCrimsonNova ? 0.10f : 0.f) : 0.f))
+    * (1.f + FMath::Min(0.08f,GetSpellDamagePower()*0.0002f))
+    * (bTalentAstralSurge ? 1.10f : 1.f)
+    * (1.f + FMath::Min(0.12f, GetAstralTalentCount(0) * 0.002f)) * MightMultiplier;
   // Reject invalid damage before spending mana or consuming a hard-earned counter.
   if (!FMath::IsFinite(SpellDamage) || SpellDamage <= 0.f) return false;
   const float HealthBeforeSpell = Enemy->Health;
+  // Valid traced hostile spells resolve normally; no random Hit stat.
   Enemy->TakeSpellDamage(SpellDamage);
   // A valid hostile cast is combat even if enemy defenses absorb all HP damage.
   // Combo stages, posture, and counter rewards still require real damage.
@@ -478,29 +1000,242 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
   }
   const FColor SpellColors[6] = {FColor(245, 60, 39), FColor(65, 204, 245), FColor(168, 72, 236), FColor(72, 230, 130), FColor(245, 224, 64), FColor(76, 178, 68)};
   const FColor ImpactColor = SpellColors[School];
-  DrawDebugSphere(GetWorld(), Hit.ImpactPoint, 24.f * Multiplier, 12, ImpactColor, false, 0.22f, 0, 2.f);
+  DrawDebugSphere(GetWorld(), Hit.ImpactPoint, 24.f * EffectMultiplier, 12, ImpactColor, false, 0.22f, 0, 2.f);
   DrawDebugLine(GetWorld(), Origin, Hit.ImpactPoint, ImpactColor, false, 0.12f, 0, 1.5f);
  }
- Mana -= Costs[School] * Multiplier;
+ Mana -= Costs[School] * ManaCostMultiplier;
  LastCastTime[Hand] = Time;
  if (School == 3) {
-  Health = FMath::Min(MaxHealth, Health + 24.f * Multiplier * SpellPowerMultiplier);
+  Health = FMath::Min(MaxHealth, Health + 24.f * EffectMultiplier * SpellPowerMultiplier
+      * (1.f + FMath::Min(0.10f,GetSpellHealingPower()*0.0002f)));
   OnHealthChanged(Health, MaxHealth);
  }
  OnSpellCast(School, Hand == 0);
  return true;
 }
-void AMoonfallHeroPawn::CastLeft() { if (bOptionsOpen) return; TryCast(LeftSpell, 0, 1.f); }
-void AMoonfallHeroPawn::CastRight() { if (bOptionsOpen) return; TryCast(RightSpell, 1, 1.f); }
+void AMoonfallHeroPawn::CastLeft() { if (bOptionsOpen || bInventoryOpen) return; TryCast(LeftSpell, 0, 1.f); }
+void AMoonfallHeroPawn::LeftClickContextAction()
+{
+ // Every modal page routes its click before any combat input.
+ if (bOptionsOpen || bAtlasOpen) {
+  if (APlayerController* PC = Cast<APlayerController>(GetController())) {
+   if (AMoonfallCombatHUD* HUD = Cast<AMoonfallCombatHUD>(PC->GetHUD())) {
+    float X=0.f,Y=0.f;
+    if (PC->GetMousePosition(X,Y)) {
+     if (bOptionsOpen) {
+      const int32 Action=HUD->GetOptionsActionAtScreenPosition(this,X,Y);
+      if (Action == 14) { OpenOptions(); return; }
+      if (Action >= 0 && Action < 14) {
+       MenuActionFocus=Action;
+       OptionsSelection=Action%7;
+       AdjustOption(Action<7 ? -1 : 1);
+      }
+      return;
+     }
+     const int32 Nav=HUD->GetAtlasMenuActionAtScreenPosition(this,X,Y);
+     if (bTalentsOpen && bTalentRespecArmed) {
+      if (Nav == 4) ResolveTalentRespecConfirmation(true);
+      else if (Nav == 5) ResolveTalentRespecConfirmation(false);
+      // The dialog consumes all other clicks, including underlying stars.
+      return;
+     }
+     if (Nav == 0) {
+      if (bTalentsOpen) ToggleTalents(); else ToggleAtlas();
+      return;
+     }
+     if (bTalentsOpen && Nav == 1) { SelectPreviousTalentPage(); return; }
+     if (bTalentsOpen && Nav == 2) { SelectNextTalentPage(); return; }
+     if (bTalentsOpen && Nav == 3) { RespecTalentAction(); return; }
+    }
+   }
+  }
+ }
+ if (bAtlasOpen && bTalentsOpen) {
+  if (APlayerController* PC = Cast<APlayerController>(GetController())) {
+   if (AMoonfallCombatHUD* HUD = Cast<AMoonfallCombatHUD>(PC->GetHUD())) {
+    float X = 0.f, Y = 0.f;
+    if (PC->GetMousePosition(X,Y)) {
+     const int32 Node = HUD->GetTalentNodeAtScreenPosition(this,X,Y);
+     if (Node >= 0) {
+      TalentSelectedNode = Node;
+      ActivateTalentNode(Node);
+     }
+    }
+   }
+  }
+  return;
+ }
+ if (bAtlasOpen) return;
+ // Mouse left selects a visible bag row, but never equips or salvages it.
+ // Outside menus the same button performs the usual left-hand spell.
+ if (bOptionsOpen) return;
+ if (bInventoryOpen) {
+  if (APlayerController* Controller = Cast<APlayerController>(GetController())) {
+   if (AMoonfallCombatHUD* HUD = Cast<AMoonfallCombatHUD>(Controller->GetHUD())) {
+    float MouseX = 0.f, MouseY = 0.f;
+    if (Controller->GetMousePosition(MouseX, MouseY)) {
+     if (bCharacterStatsOpen) {
+      const int32 Action = HUD->GetCharacterActionAtScreenPosition(this, MouseX, MouseY);
+      if (Action >= 0) {
+       bMenuFocusCharacter = true;
+      MenuActionFocus=Action;
+      if (Action == 7) {
+       if (bBagPanelOpen) { bMenuFocusCharacter = false; MenuActionFocus = -1; }
+       else ToggleInventory();
+       return;
+      }
+      if (Action == 8) { PreviousCharacterStatsPage(); return; }
+      if (Action == 9) { NextCharacterStatsPage(); return; }
+      if (Action == 10) { ToggleCharacterStats(); return; }
+      if (InventoryItemCodes.Num() <= 0) return;
+      if (Action == 0) {
+       InventorySelection = FMath::Max(0,InventorySelection - 1);
+      } else if (Action == 1) {
+       InventorySelection = FMath::Min(InventoryItemCodes.Num()-1,InventorySelection + 1);
+      } else if (InventoryItemCodes.IsValidIndex(InventorySelection)) {
+       switch (Action) {
+        case 2: EquipSelectedInventoryItem(); break;
+        case 3: UpgradeSelectedInventoryItem(); break;
+        case 4: AscendSelectedInventoryItem(); break;
+        case 5: ReforgeSelectedInventoryItem(); break;
+        case 6: ForgeFiveSelectedInventoryItem(); break;
+        default: break;
+       }
+      }
+      InventoryViewStart = InventorySelection;
+      return;
+      }
+     }
+     const int32 BagAction = HUD->GetInventoryActionAtScreenPosition(this,MouseX,MouseY);
+     if (BagAction >= 0) {
+      bMenuFocusCharacter = false;
+      MenuActionFocus=BagAction;
+      if (BagAction == 6) {
+       if (bCharacterStatsOpen) { bMenuFocusCharacter = true; MenuActionFocus = -1; }
+       else ToggleCharacterStats();
+       return;
+      }
+      if (BagAction == 7) { ToggleInventory(); return; }
+      if (!InventoryItemCodes.IsValidIndex(InventorySelection)) return;
+      switch (BagAction) {
+       case 0: EquipSelectedInventoryItem(); break;
+       case 1: UpgradeSelectedInventoryItem(); break;
+       case 2: AscendSelectedInventoryItem(); break;
+       case 3: ReforgeSelectedInventoryItem(); break;
+       case 4: ForgeFiveSelectedInventoryItem(); break;
+       case 5: SalvageSelectedInventoryItem(); break;
+       default: break;
+      }
+      return;
+     }
+     if (HUD->IsInventorySortButtonAtScreenPosition(this, MouseX, MouseY)) {
+      bMenuFocusCharacter = false;
+      MenuActionFocus = -1;
+      CycleInventorySort();
+      return;
+     }
+     const int32 ClickedIndex = HUD->GetInventoryItemAtScreenPosition(this, MouseX, MouseY);
+     if (InventoryItemCodes.IsValidIndex(ClickedIndex)) {
+      InventorySelection = ClickedIndex;
+      bMenuFocusCharacter = false;
+      MenuActionFocus = -1;
+     }
+    }
+   }
+  }
+  return;
+ }
+ // Defer the individual spell until release so the second button can
+ // form a dual-cast chord without the first cast consuming its cooldown.
+ bLeftMouseHeld = true;
+ if (bRightMouseHeld && !bMouseChordConsumed) {
+  bMouseChordConsumed = true;
+  CastBoth();
+ }
+}
+void AMoonfallHeroPawn::CastRight()
+{
+ if (bAtlasOpen) return;
+ // Keyboard and controller right-hand cast input must never equip gear.
+ // Gamepad RB is also bound to forging while inventory is open.
+ if (bOptionsOpen || bInventoryOpen) return;
+ TryCast(RightSpell, 1, 1.f);
+}
+void AMoonfallHeroPawn::RightClickContextAction()
+{
+ if (bAtlasOpen) return;
+ // Only the physical right mouse button equips from inventory.
+ // Controller shoulder buttons keep combat/forge behavior separate.
+ if (bOptionsOpen) return;
+ if (bInventoryOpen) {
+  // Character actions are explicit left-click buttons only.
+  if (!bBagPanelOpen) return;
+  if (APlayerController* Controller = Cast<APlayerController>(GetController())) {
+   if (AMoonfallCombatHUD* HUD = Cast<AMoonfallCombatHUD>(Controller->GetHUD())) {
+    float MouseX = 0.f, MouseY = 0.f;
+    if (Controller->GetMousePosition(MouseX, MouseY)) {
+     const int32 ClickedIndex = HUD->GetInventoryItemAtScreenPosition(this, MouseX, MouseY);
+     // A right-click on empty inventory space must never equip the
+     // previously selected item. Only the clicked visible row can equip.
+     if (InventoryItemCodes.IsValidIndex(ClickedIndex)) {
+      InventorySelection = ClickedIndex;
+      bMenuFocusCharacter = false;
+      MenuActionFocus = -1;
+      EquipSelectedInventoryItem();
+     }
+    }
+   }
+  }
+  return;
+ }
+ bRightMouseHeld = true;
+ if (bLeftMouseHeld && !bMouseChordConsumed) {
+  bMouseChordConsumed = true;
+  CastBoth();
+ }
+}
+void AMoonfallHeroPawn::ResetMouseCastChord()
+{
+ bLeftMouseHeld = false;
+ bRightMouseHeld = false;
+ bMouseChordConsumed = false;
+}
+void AMoonfallHeroPawn::ReleaseLeftClickContext()
+{
+ const bool bSingleCast = bLeftMouseHeld && !bMouseChordConsumed;
+ bLeftMouseHeld = false;
+ if (bSingleCast && !bOptionsOpen && !bInventoryOpen)
+  TryCast(LeftSpell, 0, 1.f);
+ if (!bLeftMouseHeld && !bRightMouseHeld) bMouseChordConsumed = false;
+}
+void AMoonfallHeroPawn::ReleaseRightClickContext()
+{
+ const bool bSingleCast = bRightMouseHeld && !bMouseChordConsumed;
+ bRightMouseHeld = false;
+ if (bSingleCast && !bOptionsOpen && !bInventoryOpen)
+  TryCast(RightSpell, 1, 1.f);
+ if (!bLeftMouseHeld && !bRightMouseHeld) bMouseChordConsumed = false;
+}
 void AMoonfallHeroPawn::CastBoth()
 {
- if (bOptionsOpen) return;
+ if (bAtlasOpen) return;
+ // LT can mean Equip Best in inventory: reject combat before doing spell work.
+ if (bOptionsOpen || bInventoryOpen || bAtlasOpen || !FMath::IsFinite(Health) || Health <= 0.f) return;
  if (LeftSpell != RightSpell || !GetWorld()) return;
+ // Validate both hands before spending mana or applying a single overcharge.
+ if (LeftSpell < 0 || LeftSpell >= 6 || RightSpell < 0 || RightSpell >= 6) return;
  const float Time = GetWorld()->GetTimeSeconds();
+ const float Haste = GetHasteBonus();
  static const float Cooldowns[6] = {0.8f,0.65f,1.2f,2.f,1.f,0.9f};
- if (LeftSpell < 0 || LeftSpell >= 6 || RightSpell < 0 || RightSpell >= 6 || Time - LastCastTime[1] < Cooldowns[LeftSpell]) return;
- if (TryCast(LeftSpell, 0, 2.f))
+ if (!FMath::IsFinite(Time) || !FMath::IsFinite(Haste) || Haste <= -1.f ||
+     !FMath::IsFinite(LastCastTime[0]) || !FMath::IsFinite(LastCastTime[1])) return;
+ const float SharedCooldown = Cooldowns[LeftSpell] / (1.f + Haste);
+ if (!FMath::IsFinite(SharedCooldown) || SharedCooldown <= 0.f ||
+     Time - LastCastTime[0] < SharedCooldown ||
+     Time - LastCastTime[1] < SharedCooldown) return;
+ if (TryCast(LeftSpell, 0, 2.f, true))
  {
+  // One payment and one spell effect, but both hands enter cooldown.
   LastCastTime[1] = LastCastTime[0];
   OnSpellCast(LeftSpell, false);
  }
@@ -519,6 +1254,7 @@ void AMoonfallHeroPawn::BreakGuard()
 
 void AMoonfallHeroPawn::BeginGuard()
 {
+ if (bAtlasOpen) return;
  if (bOptionsOpen || bInventoryOpen || Health <= 0.f || !FMath::IsFinite(Health) || !GetWorld() || bGuarding
      // Do not stack a fresh parry window on top of dodge invulnerability.
      || GetWorld()->GetTimeSeconds() < DamageImmunityUntil
@@ -580,6 +1316,7 @@ void AMoonfallHeroPawn::EndSprint() {
 
 void AMoonfallHeroPawn::Dodge()
 {
+ if (bAtlasOpen) return;
  if (bOptionsOpen || bInventoryOpen || Health <= 0.f || !GetWorld()) return;
  const float Now = GetWorld()->GetTimeSeconds();
  // Nonfinite cooldown timestamps must not allow repeated dodges or immunity.
@@ -640,10 +1377,27 @@ bool AMoonfallHeroPawn::TryRewardPerfectDodge() {
 
 bool AMoonfallHeroPawn::ApplyMoonfallDamageFrom(float Amount, const FVector& SourceLocation) {
  bLastIncomingHitParried = false;
+ IncomingDamageSchool = -1;
  IncomingDamageSource = SourceLocation;
  bHasIncomingDamageSource = true;
  ApplyMoonfallDamage(Amount);
  bHasIncomingDamageSource = false;
+ IncomingDamageSchool = -1;
+ return bLastIncomingHitParried;
+}
+
+bool AMoonfallHeroPawn::ApplyMoonfallElementalDamageFrom(
+ float Amount, const FVector& SourceLocation, int32 School)
+{
+ // Never allow invalid school values to bypass physical armor.
+ if (School < 0 || School >= 5) return ApplyMoonfallDamageFrom(Amount,SourceLocation);
+ bLastIncomingHitParried = false;
+ IncomingDamageSchool = School;
+ IncomingDamageSource = SourceLocation;
+ bHasIncomingDamageSource = true;
+ ApplyMoonfallDamage(Amount);
+ bHasIncomingDamageSource = false;
+ IncomingDamageSchool = -1;
  return bLastIncomingHitParried;
 }
 
@@ -660,8 +1414,16 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
    + (ArmorAffix == 2 ? 0.06f : 0.f)
    + FMath::Clamp(((EquippedArmorCode / 1000) % 10) * 0.005f, 0.f, 0.025f)
    + GetVersatilityBonus() * 0.5f
+   + FMath::Min(0.02f,GetArmorRating()*0.000025f)
    + (GetSetPieceCount(2) >= 3 ? 0.025f : 0.f));
- const float ArmoredDamage = Amount * (1.f - ArmorMitigation);
+ // Magical hits use their school resistance, not physical armor, and still
+ // flow through the same directional guard, perfect parry and impact callbacks.
+ const float SchoolMitigation = IncomingDamageSchool >= 0 && IncomingDamageSchool < 5
+     ? FMath::Clamp(GetResistance(IncomingDamageSchool)*0.004f
+         + GetVersatilityBonus()*0.5f,0.f,0.45f) : 0.f;
+ const float EffectiveMitigation = IncomingDamageSchool >= 0 && IncomingDamageSchool < 5
+     ? SchoolMitigation : ArmorMitigation;
+ const float ArmoredDamage = Amount * (1.f - EffectiveMitigation);
  float DamageAfterGuard = ArmoredDamage;
  // Enemy attacks must come from the front 150-degree guard cone.
  // Older environment damage with no provided origin retains its guard behavior.
@@ -713,7 +1475,16 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
    if (FMath::IsFinite(PerfectParryStaminaReward) && PerfectParryStaminaReward > 0.f)
     Stamina = FMath::Clamp(Stamina + PerfectParryStaminaReward, 0.f, MaxStamina);
   } else {
+   // Bulwark improves sustained frontal blocking, not perfect parry.
    DamageAfterGuard *= 0.4f;
+   if (bTalentWardKeystone) DamageAfterGuard *= 0.8f;
+   if (bTalentEternalSentinel) DamageAfterGuard *= 0.85f;
+   if (bTalentAdamantOath) DamageAfterGuard *= 0.90f;
+   if (bTalentWorldguard) DamageAfterGuard *= 0.90f;
+   if (bTalentUnbrokenBastion) DamageAfterGuard *= 0.95f;
+   if (bTalentTitanSoul) DamageAfterGuard *= 0.95f;
+   if (bTalentLastCitadel) DamageAfterGuard *= 0.95f;
+   DamageAfterGuard *= (1.f - FMath::Min(0.12f, GetAstralTalentCount(2) * 0.003f));
   }
   OnGuardImpact(ArmoredDamage - DamageAfterGuard, bPerfectParry);
   if (Stamina < GuardStaminaCost) BreakGuard();
@@ -748,9 +1519,15 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
   // Clear any held sprint so a later respawn cannot inherit it.
   EndSprint();
   EndGuard();
-  // Defeat clears every gameplay menu so the death/respawn screen stays visible.
+  // Defeat clears every gameplay menu and releases the inventory cursor.
   bInventoryOpen = false;
+  bBagPanelOpen = false;
+  bCharacterStatsOpen = false;
+  bAtlasOpen = false;
+  bTalentsOpen = false;
   bOptionsOpen = false;
+  ResetMouseCastChord();
+  UpdateInventoryMouseMode();
  }
  if (!bReduceMotion) ImpactCameraOffset = FMath::Clamp(ImpactCameraOffset + FMath::Min(DamageTaken * 0.5f, 18.f), 0.f, 24.f);
  OnDamageImpact(DamageTaken);
@@ -777,35 +1554,635 @@ void AMoonfallHeroPawn::ToggleDisplayMode() {
  Settings->SaveSettings();
 }
 
-void AMoonfallHeroPawn::ToggleCharacterStats()
+void AMoonfallHeroPawn::SwitchInventoryPage()
 {
- if (bInventoryOpen && !bOptionsOpen && Health > 0.f)
-  bCharacterStatsOpen = !bCharacterStatsOpen;
+ ActivateFocusedMenuAction();
+}
+void AMoonfallHeroPawn::SwitchOpenInventoryPane()
+{
+ if (!bInventoryOpen || !bBagPanelOpen || !bCharacterStatsOpen ||
+     bOptionsOpen || bAtlasOpen || !FMath::IsFinite(Health) || Health <= 0.f)
+  return;
+ // R-stick click / backslash changes the active pane, not the gear.
+ bMenuFocusCharacter = !bMenuFocusCharacter;
+ MenuActionFocus = -1;
 }
 
-void AMoonfallHeroPawn::ToggleInventory() {
- if (bOptionsOpen || Health <= 0.f) return;
+void AMoonfallHeroPawn::ActivateFocusedMenuAction()
+{
+ if (!FMath::IsFinite(Health) || Health <= 0.f) return;
+ if (bOptionsOpen) {
+  if (MenuActionFocus < 0) return; // A cannot select an unhighlighted setting.
+  const int32 Focus=FMath::Clamp(MenuActionFocus,0,14);
+  if (Focus==14) { OpenOptions(); return; }
+  OptionsSelection=Focus%7;
+  AdjustOption(Focus<7 ? -1 : 1);
+  return;
+ }
+ if (bAtlasOpen) {
+  // Talent A is handled by the existing talent activation binding.
+  // On M, A closes only after the CLOSE button is deliberately focused.
+  // K retains its own talent A-button activation path.
+  if (!bTalentsOpen && MenuActionFocus == 0) ToggleAtlas();
+  return;
+ }
+ if (!bInventoryOpen) return;
+ if (MenuActionFocus < 0) return; // Avoid accidental equip or salvage on opening B/C.
+ const int32 Focus=FMath::Clamp(MenuActionFocus,0,bMenuFocusCharacter ? 10 : 7);
+ if (bMenuFocusCharacter && bCharacterStatsOpen) {
+  if (Focus==7) {
+   if (bBagPanelOpen) { bMenuFocusCharacter = false; MenuActionFocus = -1; }
+   else ToggleInventory();
+   return;
+  }
+  if (Focus==8) { PreviousCharacterStatsPage(); return; }
+  if (Focus==9) { NextCharacterStatsPage(); return; }
+  if (Focus==10) { ToggleCharacterStats(); return; }
+  if (!InventoryItemCodes.IsValidIndex(InventorySelection)) return;
+  switch(Focus) {
+   case 0: InventorySelection=FMath::Max(0,InventorySelection-1); break;
+   case 1: InventorySelection=FMath::Min(InventoryItemCodes.Num()-1,InventorySelection+1); break;
+   case 2: EquipSelectedInventoryItem(); break;
+   case 3: UpgradeSelectedInventoryItem(); break;
+   case 4: AscendSelectedInventoryItem(); break;
+   case 5: ReforgeSelectedInventoryItem(); break;
+   case 6: ForgeFiveSelectedInventoryItem(); break;
+   default: break;
+  }
+ } else if (bBagPanelOpen) {
+  if (Focus==6) {
+   if (bCharacterStatsOpen) { bMenuFocusCharacter = true; MenuActionFocus = -1; }
+   else ToggleCharacterStats();
+   return;
+  }
+  if (Focus==7) { ToggleInventory(); return; }
+  if (!InventoryItemCodes.IsValidIndex(InventorySelection)) return;
+  switch(Focus) {
+   case 0: EquipSelectedInventoryItem(); break;
+   case 1: UpgradeSelectedInventoryItem(); break;
+   case 2: AscendSelectedInventoryItem(); break;
+   case 3: ReforgeSelectedInventoryItem(); break;
+   case 4: ForgeFiveSelectedInventoryItem(); break;
+   case 5: SalvageSelectedInventoryItem(); break;
+   default: break;
+  }
+ }
+ InventoryViewStart=InventorySelection;
+}
+
+void AMoonfallHeroPawn::NextCharacterStatsPage()
+{
+ if (bInventoryOpen && bCharacterStatsOpen && !bOptionsOpen &&
+     !bAtlasOpen && FMath::IsFinite(Health) && Health > 0.f)
+  CharacterStatsPage = (FMath::Clamp(CharacterStatsPage,0,2) + 1) % 3;
+}
+
+void AMoonfallHeroPawn::PreviousCharacterStatsPage()
+{
+ if (bInventoryOpen && bCharacterStatsOpen && !bOptionsOpen &&
+     !bAtlasOpen && FMath::IsFinite(Health) && Health > 0.f)
+  CharacterStatsPage = (FMath::Clamp(CharacterStatsPage,0,2) + 2) % 3;
+}
+
+void AMoonfallHeroPawn::ToggleCharacterStats()
+{
+ if (bOptionsOpen || !FMath::IsFinite(Health) || Health <= 0.f) return;
+ bTalentRespecArmed = false;
+ if (bAtlasOpen) { bAtlasOpen = false; bTalentsOpen = false; }
+ if (!bInventoryOpen) {
+  ResetMouseCastChord();
+  StopJumping();
+  if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
+  EndSprint();
+  EndGuard();
+ }
+ bCharacterStatsOpen = !bCharacterStatsOpen; // C affects only C, not B.
+ bInventoryOpen = bBagPanelOpen || bCharacterStatsOpen;
+ bMenuFocusCharacter = bCharacterStatsOpen;
+ MenuActionFocus = -1;
+ UpdateInventoryMouseMode();
+}
+
+void AMoonfallHeroPawn::UpdateInventoryMouseMode()
+{
+ if (APlayerController* Controller = Cast<APlayerController>(GetController())) {
+  if (!Controller->IsLocalController()) return;
+  if ((bInventoryOpen || bAtlasOpen || bOptionsOpen) && FMath::IsFinite(Health) && Health > 0.f) {
+   // GameAndUI preserves the bound right-click action without hiding the cursor.
+   FInputModeGameAndUI InputMode;
+   InputMode.SetHideCursorDuringCapture(false);
+   InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
+   Controller->SetInputMode(InputMode);
+   Controller->bShowMouseCursor = true;
+  } else {
+   Controller->SetInputMode(FInputModeGameOnly());
+   Controller->bShowMouseCursor = false;
+  }
+ }
+}
+
+void AMoonfallHeroPawn::ToggleAtlas()
+{
+ if (!FMath::IsFinite(Health) || Health <= 0.f || bOptionsOpen) return;
+ bTalentRespecArmed = false;
+ ResetMouseCastChord();
+ // M always opens the map, or closes it when the map is already visible.
+ const bool bWasMapOpen = bAtlasOpen && !bTalentsOpen;
+ if (!bAtlasOpen) {
+  StopJumping();
+  if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
+  EndSprint();
+  EndGuard();
+  if (bInventoryOpen) {
+   bInventoryOpen = false;
+   bBagPanelOpen = false;
+   bCharacterStatsOpen = false;
+   UpdateInventoryMouseMode();
+  }
+ }
+ bAtlasOpen = !bWasMapOpen;
+ bTalentsOpen = false;
+ MenuActionFocus = -1;
+ UpdateInventoryMouseMode();
+}
+
+// Astral extension: 111 distinctly named, point-costing, sequential stars.
+// There are 37 stages per branch; every sixth stage needs a neighboring branch
+// at the previous stage, forming a finite directed dependency graph.
+bool AMoonfallHeroPawn::IsAstralTalentUnlocked(int32 Index) const
+{
+ return Index >= 0 && Index < AstralTalentCount
+   && AstralTalentUnlocked.IsValidIndex(Index) && AstralTalentUnlocked[Index] != 0;
+}
+
+int32 AMoonfallHeroPawn::GetAstralTalentCount(int32 Branch) const
+{
+ if (Branch < -1 || Branch > 2) return 0;
+ int32 Count = 0;
+ for (int32 Index = 0; Index < AstralTalentCount; ++Index)
+  if ((Branch == -1 || Index % 3 == Branch) && IsAstralTalentUnlocked(Index))
+   ++Count;
+ return Count;
+}
+
+FString AMoonfallHeroPawn::GetAstralTalentName(int32 Index) const
+{
+ if (Index < 0 || Index >= AstralTalentCount) return TEXT("Unknown Star");
+ static const TCHAR* const Motifs[37] = {
+  TEXT("Ashen Wake"),TEXT("Emberbrand"),TEXT("Riftwalker"),
+  TEXT("Runic Pulse"),TEXT("Blood Comet"),TEXT("Solar Fang"),
+  TEXT("Thunderwake"),TEXT("Starforge"),TEXT("Phantom Ember"),
+  TEXT("Crimson Tide"),TEXT("Arcane Shard"),TEXT("Shadowflame"),
+  TEXT("Celestial Rift"),TEXT("Astral Blade"),TEXT("Moonshard"),
+  TEXT("Void Lantern"),TEXT("Dawnshatter"),TEXT("Astral Eclipse"),
+  TEXT("Titan Spark"),TEXT("Spiritstorm"),TEXT("Radiant Echo"),
+  TEXT("Dusk Herald"),TEXT("Rift Crown"),TEXT("Phoenix Crest"),
+  TEXT("Phantom Star"),TEXT("Eternal Prism"),TEXT("Moonfire Oath"),
+  TEXT("Netherstorm"),TEXT("Skybreaker"),TEXT("Dragon Halo"),
+  TEXT("Iron Meteor"),TEXT("Cosmic Bloom"),TEXT("Eclipse Wings"),
+  TEXT("Starfall Crown"),TEXT("Nebula Heart"),TEXT("Origin Flame"),
+  TEXT("Godstar Ascendant")
+ };
+ static const TCHAR* const Branches[3] = {TEXT("FORCE"),TEXT("FOCUS"),TEXT("WARD")};
+ return FString::Printf(TEXT("%s / %s"),Branches[Index % 3],Motifs[Index / 3]);
+}
+
+bool AMoonfallHeroPawn::CanUnlockAstralTalent(int32 Index) const
+{
+ if (Index < 0 || Index >= AstralTalentCount || !bAtlasOpen || !bTalentsOpen
+   || bInventoryOpen || bOptionsOpen || !FMath::IsFinite(Health)
+   || Health <= 0.f || GetUnspentTalentPoints() <= 0
+   || IsAstralTalentUnlocked(Index)) return false;
+ const int32 Branch = Index % 3;
+ const int32 Stage = Index / 3;
+ if (Stage == 0) {
+  const bool Roots[3] = {bTalentCrimsonNova,bTalentAetherCovenant,bTalentLastCitadel};
+  return Roots[Branch];
+ }
+ if (!IsAstralTalentUnlocked(Index - 3)) return false;
+ // The cross-link is always in the previous stage, never a cycle.
+ if (Stage % 6 == 0 && !IsAstralTalentUnlocked((Stage - 1) * 3 + (Branch + 1) % 3))
+  return false;
+ return true;
+}
+
+bool AMoonfallHeroPawn::UnlockAstralTalent(int32 Index)
+{
+ if (!CanUnlockAstralTalent(Index) || !AstralTalentUnlocked.IsValidIndex(Index)) return false;
+ AstralTalentUnlocked[Index] = 1;
+ bProgressDirty = true;
+ return true;
+}
+
+void AMoonfallHeroPawn::SelectNextTalentPage()
+{
+ if (bTalentRespecArmed) return; // Dialog owns focus.
+ if (!bAtlasOpen || !bTalentsOpen || bOptionsOpen || Health <= 0.f) return;
+ const int32 Page = FMath::Clamp(TalentSelectedNode,0,137) / 27;
+ bTalentRespecArmed = false;
+ TalentSelectedNode = ((Page + 1) % 6) * 27;
+}
+
+void AMoonfallHeroPawn::SelectPreviousTalentPage()
+{
+ if (bTalentRespecArmed) return; // Dialog owns focus.
+ if (!bAtlasOpen || !bTalentsOpen || bOptionsOpen || Health <= 0.f) return;
+ const int32 Page = FMath::Clamp(TalentSelectedNode,0,137) / 27;
+ bTalentRespecArmed = false;
+ TalentSelectedNode = ((Page + 5) % 6) * 27;
+}
+
+int32 AMoonfallHeroPawn::GetUnspentTalentPoints() const
+{
+ // Level 1 begins with no points. Clamp overspending after external level edits.
+ return FMath::Max(0, FMath::Clamp(Level, 1, 100) - 1
+   - TalentForceRank - TalentFocusRank - TalentWardRank
+   - int32(bTalentForceKeystone) - int32(bTalentFocusKeystone)
+   - int32(bTalentWardKeystone) - int32(bTalentBattleWeave)
+   - int32(bTalentArcaneAegis) - int32(bTalentIronWill)
+   - int32(bTalentStarbreaker) - int32(bTalentAstralSurge)
+   - int32(bTalentEternalSentinel)
+   - int32(bTalentVoidCrown) - int32(bTalentCelestialWell)
+   - int32(bTalentAdamantOath)
+   - int32(bTalentEclipseHeart) - int32(bTalentInfiniteCurrent)
+   - int32(bTalentWorldguard)
+   - int32(bTalentDuskSovereign) - int32(bTalentSoulConduit)
+   - int32(bTalentUnbrokenBastion)
+   - int32(bTalentNightfallAscension) - int32(bTalentRadiantNexus)
+   - int32(bTalentTitanSoul)
+   - int32(bTalentCrimsonNova) - int32(bTalentAetherCovenant)
+   - int32(bTalentLastCitadel) - GetAstralTalentCount(-1));
+}
+
+bool AMoonfallHeroPawn::SpendTalentPoint(int32 Branch)
+{
+ // Talents belong to the playable hero, not the Z/Nyra bosses.
+ // Never spend points from combat, inventory, map, or the death screen.
+ if (!bAtlasOpen || !bTalentsOpen || bInventoryOpen || bOptionsOpen ||
+     !FMath::IsFinite(Health) || Health <= 0.f ||
+     GetUnspentTalentPoints() <= 0) return false;
+ int32* Rank = Branch == 0 ? &TalentForceRank
+   : (Branch == 1 ? &TalentFocusRank : (Branch == 2 ? &TalentWardRank : nullptr));
+ if (!Rank || *Rank < 0 || *Rank >= 10) return false;
+ ++(*Rank);
+ bProgressDirty = true;
+ return true;
+}
+
+void AMoonfallHeroPawn::SpendForceTalent() { SpendTalentPoint(0); }
+void AMoonfallHeroPawn::SpendFocusTalent() { SpendTalentPoint(1); }
+void AMoonfallHeroPawn::SpendWardTalent() { SpendTalentPoint(2); }
+
+bool AMoonfallHeroPawn::ActivateTalentNode(int32 Node)
+{
+ if (bTalentRespecArmed) return false;
+ if (Node < 0 || Node >= 138 || !bAtlasOpen || !bTalentsOpen ||
+     bOptionsOpen || bInventoryOpen || Health <= 0.f) return false;
+ bTalentRespecArmed = false; // Any deliberate star action cancels a pending reset.
+ TalentSelectedNode = Node;
+ return Node < 3 ? SpendTalentPoint(Node) : Node < 27 ? UnlockTalentNode(Node) : UnlockAstralTalent(Node - 27);
+}
+
+void AMoonfallHeroPawn::ActivateSelectedTalentNode()
+{
+ // Gamepad A confirms the selected dialog answer, never a star underneath.
+ if (bTalentRespecArmed) {
+  ResolveTalentRespecConfirmation(TalentRespecChoice == 0);
+  return;
+ }
+ ActivateTalentNode(FMath::Clamp(TalentSelectedNode,0,137));
+}
+
+void AMoonfallHeroPawn::SelectNextTalentNode()
+{
+ if (bTalentRespecArmed) return; // D-pad belongs to Yes/No while the dialog is open.
+ if (bAtlasOpen && bTalentsOpen && !bOptionsOpen && Health > 0.f)
+  TalentSelectedNode = (FMath::Clamp(TalentSelectedNode,0,137) + 1) % 138;
+}
+
+void AMoonfallHeroPawn::SelectPreviousTalentNode()
+{
+ if (bTalentRespecArmed) return; // Do not change stars behind the confirmation.
+ if (bAtlasOpen && bTalentsOpen && !bOptionsOpen && Health > 0.f)
+  TalentSelectedNode = (FMath::Clamp(TalentSelectedNode,0,137) + 137) % 138;
+}
+
+bool AMoonfallHeroPawn::CanUnlockTalentNode(int32 Node) const
+{
+ if (!bAtlasOpen || !bTalentsOpen || bInventoryOpen || bOptionsOpen ||
+     !FMath::IsFinite(Health) || Health <= 0.f ||
+     GetUnspentTalentPoints() <= 0) return false;
+ // Tier II: invest three ranks in a root branch.
+ if (Node == 3) return TalentForceRank >= 3 && !bTalentForceKeystone;
+ if (Node == 4) return TalentFocusRank >= 3 && !bTalentFocusKeystone;
+ if (Node == 5) return TalentWardRank >= 3 && !bTalentWardKeystone;
+ // Tier III: linked keystones in both connected branches.
+ if (Node == 6) return bTalentForceKeystone && bTalentFocusKeystone && !bTalentBattleWeave;
+ if (Node == 7) return bTalentFocusKeystone && bTalentWardKeystone && !bTalentArcaneAegis;
+ if (Node == 8) return bTalentWardKeystone && bTalentForceKeystone && !bTalentIronWill;
+ // Apex: cross-branch commitment, not character-locked classes.
+ if (Node == 9) return bTalentBattleWeave && bTalentIronWill && !bTalentStarbreaker;
+ if (Node == 10) return bTalentBattleWeave && bTalentArcaneAegis && !bTalentAstralSurge;
+ if (Node == 11) return bTalentArcaneAegis && bTalentIronWill && !bTalentEternalSentinel;
+ // Fifth-tier crowns each demand a full apex path and a second sibling apex.
+ if (Node == 12) return bTalentStarbreaker && bTalentAstralSurge && !bTalentVoidCrown;
+ if (Node == 13) return bTalentAstralSurge && bTalentEternalSentinel && !bTalentCelestialWell;
+ if (Node == 14) return bTalentEternalSentinel && bTalentStarbreaker && !bTalentAdamantOath;
+ // Tier VI: two connected crown talents must already be owned.
+ if (Node == 15) return bTalentVoidCrown && bTalentAdamantOath && !bTalentEclipseHeart;
+ if (Node == 16) return bTalentVoidCrown && bTalentCelestialWell && !bTalentInfiniteCurrent;
+ if (Node == 17) return bTalentCelestialWell && bTalentAdamantOath && !bTalentWorldguard;
+ // Tier VII: each ascendant draws strength from two unlocked mythic constellations.
+ if (Node == 18) return bTalentEclipseHeart && bTalentWorldguard && !bTalentDuskSovereign;
+ if (Node == 19) return bTalentEclipseHeart && bTalentInfiniteCurrent && !bTalentSoulConduit;
+ if (Node == 20) return bTalentInfiniteCurrent && bTalentWorldguard && !bTalentUnbrokenBastion;
+ // Tier VIII transcendent nodes require two ascendant stars.
+ if (Node == 21) return bTalentDuskSovereign && bTalentUnbrokenBastion && !bTalentNightfallAscension;
+ if (Node == 22) return bTalentDuskSovereign && bTalentSoulConduit && !bTalentRadiantNexus;
+ if (Node == 23) return bTalentSoulConduit && bTalentUnbrokenBastion && !bTalentTitanSoul;
+ // Ninth-tier convergence nodes each require two transcendents.
+ if (Node == 24) return bTalentNightfallAscension && bTalentTitanSoul && !bTalentCrimsonNova;
+ if (Node == 25) return bTalentNightfallAscension && bTalentRadiantNexus && !bTalentAetherCovenant;
+ if (Node == 26) return bTalentRadiantNexus && bTalentTitanSoul && !bTalentLastCitadel;
+ return false;
+}
+
+bool AMoonfallHeroPawn::UnlockTalentNode(int32 Node)
+{
+ if (!CanUnlockTalentNode(Node)) return false;
+ bool* Flag = Node == 3 ? &bTalentForceKeystone
+   : Node == 4 ? &bTalentFocusKeystone
+   : Node == 5 ? &bTalentWardKeystone
+   : Node == 6 ? &bTalentBattleWeave
+   : Node == 7 ? &bTalentArcaneAegis
+   : Node == 8 ? &bTalentIronWill
+   : Node == 9 ? &bTalentStarbreaker
+   : Node == 10 ? &bTalentAstralSurge
+   : Node == 11 ? &bTalentEternalSentinel
+   : Node == 12 ? &bTalentVoidCrown
+   : Node == 13 ? &bTalentCelestialWell
+   : Node == 14 ? &bTalentAdamantOath
+   : Node == 15 ? &bTalentEclipseHeart
+   : Node == 16 ? &bTalentInfiniteCurrent
+   : Node == 17 ? &bTalentWorldguard
+   : Node == 18 ? &bTalentDuskSovereign
+   : Node == 19 ? &bTalentSoulConduit
+   : Node == 20 ? &bTalentUnbrokenBastion
+   : Node == 21 ? &bTalentNightfallAscension
+   : Node == 22 ? &bTalentRadiantNexus
+   : Node == 23 ? &bTalentTitanSoul
+   : Node == 24 ? &bTalentCrimsonNova
+   : Node == 25 ? &bTalentAetherCovenant
+   : Node == 26 ? &bTalentLastCitadel : nullptr;
+ if (!Flag || *Flag) return false;
+ *Flag = true;
+ bProgressDirty = true;
+ return true;
+}
+
+void AMoonfallHeroPawn::UnlockForceKeystone() { UnlockTalentNode(3); }
+void AMoonfallHeroPawn::UnlockFocusKeystone() { UnlockTalentNode(4); }
+void AMoonfallHeroPawn::UnlockWardKeystone() { UnlockTalentNode(5); }
+void AMoonfallHeroPawn::UnlockBattleWeave() { UnlockTalentNode(6); }
+void AMoonfallHeroPawn::UnlockArcaneAegis() { UnlockTalentNode(7); }
+void AMoonfallHeroPawn::UnlockIronWill() { UnlockTalentNode(8); }
+
+void AMoonfallHeroPawn::CancelTalentRespecDialog()
+{
+ if (!bAtlasOpen || !bTalentsOpen || !bTalentRespecArmed) return;
+ ResolveTalentRespecConfirmation(false);
+}
+
+void AMoonfallHeroPawn::RespecTalentAction()
+{
+ if (!bAtlasOpen || !bTalentsOpen || bInventoryOpen || bOptionsOpen ||
+     !FMath::IsFinite(Health) || Health <= 0.f) {
+  bTalentRespecArmed = false;
+  return;
+ }
+ // Opening RESPEC never resets the build. Subsequent respec key presses
+ // cannot act as an implicit Yes; players must choose from the dialog.
+ if (bTalentRespecArmed) return;
+ bTalentRespecArmed = true;
+ TalentRespecChoice = 1; // No is the safe default.
+}
+
+void AMoonfallHeroPawn::ResolveTalentRespecConfirmation(bool bConfirm)
+{
+ if (!bTalentRespecArmed) return;
+ if (!bAtlasOpen || !bTalentsOpen || bInventoryOpen || bOptionsOpen ||
+     !FMath::IsFinite(Health) || Health <= 0.f) {
+  bTalentRespecArmed = false;
+  return;
+ }
+ bTalentRespecArmed = false;
+ TalentRespecChoice = 1;
+ if (bConfirm) {
+  // Only an explicit YES grants a single use. RespecTalents consumes
+  // the authorization before reading or changing any talent points.
+  bTalentRespecCommitAuthorized = true;
+  RespecTalents();
+  bTalentRespecCommitAuthorized = false;
+ }
+}
+
+bool AMoonfallHeroPawn::RespecTalents()
+{
+ // Public Blueprint callers cannot bypass the player-facing Yes/No dialog.
+ const bool bAuthorized = bTalentRespecCommitAuthorized;
+ bTalentRespecCommitAuthorized = false;
+ if (!bAuthorized) return false;
+ if (!bAtlasOpen || !bTalentsOpen || bInventoryOpen || bOptionsOpen ||
+     !FMath::IsFinite(Health) || Health <= 0.f) return false;
+ TalentForceRank = 0;
+ TalentFocusRank = 0;
+ TalentWardRank = 0;
+ bTalentForceKeystone = false;
+ bTalentFocusKeystone = false;
+ bTalentWardKeystone = false;
+ bTalentBattleWeave = false;
+ bTalentArcaneAegis = false;
+ bTalentIronWill = false;
+ bTalentStarbreaker = false;
+ bTalentAstralSurge = false;
+ bTalentEternalSentinel = false;
+ bTalentVoidCrown = false;
+ bTalentCelestialWell = false;
+ bTalentAdamantOath = false;
+ bTalentEclipseHeart = false;
+ bTalentInfiniteCurrent = false;
+ bTalentWorldguard = false;
+ bTalentDuskSovereign = false;
+ bTalentSoulConduit = false;
+ bTalentUnbrokenBastion = false;
+ bTalentNightfallAscension = false;
+ bTalentRadiantNexus = false;
+ bTalentTitanSoul = false;
+ bTalentCrimsonNova = false;
+ bTalentAetherCovenant = false;
+ bTalentLastCitadel = false;
+ AstralTalentUnlocked.Init(uint8(0), AstralTalentCount);
+ bTalentRespecArmed = false;
+ bProgressDirty = true;
+ return true;
+}
+
+void AMoonfallHeroPawn::ToggleTalents()
+{
+ if (!FMath::IsFinite(Health) || Health <= 0.f || bOptionsOpen) return;
+ bTalentRespecArmed = false;
+ ResetMouseCastChord();
+ // Reuse the gameplay menu lock of the map, but show a separate K screen.
+ if (bAtlasOpen && bTalentsOpen) {
+  bTalentsOpen = false;
+  bAtlasOpen = false;
+  UpdateInventoryMouseMode();
+  return;
+ }
+ if (!bAtlasOpen) {
+  StopJumping();
+  if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
+  EndSprint();
+  EndGuard();
+  if (bInventoryOpen) {
+   bInventoryOpen = false;
+   bBagPanelOpen = false;
+   bCharacterStatsOpen = false;
+   UpdateInventoryMouseMode();
+  }
+ }
+ bAtlasOpen = true;
+ bTalentsOpen = true;
+ MenuActionFocus = -1;
+ UpdateInventoryMouseMode();
+}
+
+void AMoonfallHeroPawn::ToggleInventory()
+{
+ if (bOptionsOpen || !FMath::IsFinite(Health) || Health <= 0.f) return;
+ bTalentRespecArmed = false;
+ ResetMouseCastChord();
+ if (bAtlasOpen) { bAtlasOpen = false; bTalentsOpen = false; }
  if (!bInventoryOpen) {
   StopJumping();
   if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
   EndSprint();
   EndGuard();
-  InventorySelection = FMath::Clamp(InventorySelection, 0, FMath::Max(0, InventoryItemCodes.Num() - 1));
+  InventorySelection=FMath::Clamp(InventorySelection,0,FMath::Max(0,InventoryItemCodes.Num()-1));
+  InventoryViewStart=InventorySelection;
  }
- bInventoryOpen = !bInventoryOpen;
- if (!bInventoryOpen) bCharacterStatsOpen = false;
+ bBagPanelOpen = !bBagPanelOpen; // B affects only the bag, never C.
+ bInventoryOpen = bBagPanelOpen || bCharacterStatsOpen;
+ bMenuFocusCharacter = !bBagPanelOpen && bCharacterStatsOpen;
+ MenuActionFocus = -1;
+ UpdateInventoryMouseMode();
+}
+void AMoonfallHeroPawn::EnsureInventoryPickupIds()
+{
+ // Existing V1/V2 inventories have no IDs. Their current order is the
+ // migration baseline. Never change a valid live ledger.
+ if (InventoryPickupIds.Num() == InventoryItemCodes.Num()) {
+  bool bValid=true;
+  int32 HighestId=0;
+  TSet<int32> Seen;
+  for (int32 Id : InventoryPickupIds) {
+   if (Id <= 0 || Seen.Contains(Id)) { bValid=false; break; }
+   Seen.Add(Id);
+   HighestId=FMath::Max(HighestId,Id);
+  }
+  if (bValid) {
+   // The counter can exhaust int32 even with a small bag after many pickups.
+   // Compact identities by their original ordering, not the current sorted
+   // row positions. This preserves duplicate items and their pickup sequence.
+   if (NextInventoryPickupId > HighestId &&
+       NextInventoryPickupId < MAX_int32-1) return;
+   TArray<int32> SortedIds=InventoryPickupIds;
+   SortedIds.Sort();
+   TMap<int32,int32> CompactIds;
+   CompactIds.Reserve(SortedIds.Num());
+   for (int32 Index=0;Index<SortedIds.Num();++Index)
+    CompactIds.Add(SortedIds[Index],Index+1);
+   for (int32& Id : InventoryPickupIds)
+    Id=CompactIds.FindChecked(Id);
+   NextInventoryPickupId=InventoryPickupIds.Num()+1;
+   bProgressDirty=true;
+   return;
+  }
+ }
+ InventoryPickupIds.Reset(InventoryItemCodes.Num());
+ for (int32 Index=0;Index<InventoryItemCodes.Num();++Index)
+  InventoryPickupIds.Add(Index+1);
+ NextInventoryPickupId=InventoryPickupIds.Num()+1;
+ bProgressDirty=true;
+}
+
+void AMoonfallHeroPawn::CycleInventorySort()
+{
+ if (!bBagPanelOpen || bOptionsOpen ||
+     (bCharacterStatsOpen && bMenuFocusCharacter) ||
+     !FMath::IsFinite(Health) || Health <= 0.f) return;
+ // 0=original pickup order, 1=quality, 2=slot. All are reachable.
+ InventorySortMode=(FMath::Clamp(InventorySortMode,0,2)+1)%3;
+ ApplyInventorySortPreservingSelection();
+ bProgressDirty=true;
+}
+
+void AMoonfallHeroPawn::ApplyInventorySortPreservingSelection()
+{
+ EnsureInventoryPickupIds();
+ if (InventoryItemCodes.Num()<2) return;
+ const int32 OldSelection=FMath::Clamp(InventorySelection,0,InventoryItemCodes.Num()-1);
+ const int32 SelectedId=InventoryPickupIds[OldSelection];
+ struct FBagEntry { int32 Code; int32 PickupId; };
+ TArray<FBagEntry> Entries;
+ Entries.Reserve(InventoryItemCodes.Num());
+ for (int32 Index=0;Index<InventoryItemCodes.Num();++Index)
+  Entries.Add({InventoryItemCodes[Index],InventoryPickupIds[Index]});
+ const int32 Mode=InventorySortMode;
+ Entries.StableSort([Mode](const FBagEntry& A,const FBagEntry& B)
+ {
+  if (Mode==0) return A.PickupId<B.PickupId;
+  const int32 ASlot=(A.Code/10000)%10, BSlot=(B.Code/10000)%10;
+  const int32 ARarity=(A.Code/1000)%10, BRarity=(B.Code/1000)%10;
+  const int32 ATier=A.Code%1000, BTier=B.Code%1000;
+  if (Mode==2 && ASlot!=BSlot) return ASlot<BSlot;
+  if (ARarity!=BRarity) return ARarity>BRarity;
+  if (ATier!=BTier) return ATier>BTier;
+  if (Mode==1 && ASlot!=BSlot) return ASlot<BSlot;
+  return A.PickupId<B.PickupId;
+ });
+ for (int32 Index=0;Index<Entries.Num();++Index) {
+  InventoryItemCodes[Index]=Entries[Index].Code;
+  InventoryPickupIds[Index]=Entries[Index].PickupId;
+  if (Entries[Index].PickupId==SelectedId) {
+   InventorySelection=Index;
+   InventoryViewStart=Index;
+  }
+ }
 }
 void AMoonfallHeroPawn::EquipSelectedInventoryItem() {
- if (!bInventoryOpen || bCharacterStatsOpen || !InventoryItemCodes.IsValidIndex(InventorySelection)) return;
+ if (!bInventoryOpen || !InventoryItemCodes.IsValidIndex(InventorySelection)) return;
  EquipInventoryItem(InventorySelection);
 }
 void AMoonfallHeroPawn::SalvageSelectedInventoryItem() {
- if (bInventoryOpen && !bCharacterStatsOpen) SalvageInventoryItem(InventorySelection);
+ // B and C may be open together. Only B's deliberate active selection
+ // authorizes salvage; opening C must not silently disable the bag action.
+ if (bBagPanelOpen && (!bCharacterStatsOpen || !bMenuFocusCharacter))
+  SalvageInventoryItem(InventorySelection);
 }
-void AMoonfallHeroPawn::InventorySalvage() { SalvageSelectedInventoryItem(); }
+void AMoonfallHeroPawn::InventorySalvage()
+{
+ // Controller X is a B-only action, even when C is also visible.
+ if (!bBagPanelOpen || (bCharacterStatsOpen && bMenuFocusCharacter)) return;
+ SalvageSelectedInventoryItem();
+}
 bool AMoonfallHeroPawn::SalvageInventoryItem(int32 InventoryIndex)
 {
- if (Health <= 0.f || !InventoryItemCodes.IsValidIndex(InventoryIndex)) return false;
+ // Enforce the inventory menu boundary for Blueprint and direct callers too.
+ // A background call must never destroy a bag item or award free salvage.
+ if (!bBagPanelOpen || bOptionsOpen ||
+     !FMath::IsFinite(Health) || Health <= 0.f ||
+     !InventoryItemCodes.IsValidIndex(InventoryIndex)) return false;
  const int32 Code = InventoryItemCodes[InventoryIndex];
  if (Code <= 0) return false;
  // The final inventory copy of equipped gear is protected. Extra duplicates
@@ -830,15 +2207,20 @@ bool AMoonfallHeroPawn::SalvageInventoryItem(int32 InventoryIndex)
  // Higher rarity/tier gear produces more salvage, never exceeding the cap.
  const int32 SalvageReward = 1 + Rarity * 2 + Tier / 5;
  Salvage = FMath::Clamp(Salvage + SalvageReward, 0, 9999);
+ EnsureInventoryPickupIds();
  InventoryItemCodes.RemoveAt(InventoryIndex);
+ InventoryPickupIds.RemoveAt(InventoryIndex);
  InventorySelection = FMath::Clamp(InventorySelection, 0, FMath::Max(0, InventoryItemCodes.Num() - 1));
+ // A shrinking bag never leaves the scroll viewport stranded past its end.
+ InventoryViewStart = FMath::Clamp(InventoryViewStart, 0, FMath::Max(0, InventoryItemCodes.Num() - 1));
+ bProgressDirty = true;
  return true;
 }
 bool AMoonfallHeroPawn::UpgradeInventoryItem(int32 InventoryIndex)
 {
  // Craft the selected inventory item on explicit input. If it is worn,
  // upgrade that equipped slot too, without auto-equipping other bag items.
- if (!bInventoryOpen || bOptionsOpen || Health <= 0.f
+ if (!bInventoryOpen || bOptionsOpen || !FMath::IsFinite(Health) || Health <= 0.f
      || !InventoryItemCodes.IsValidIndex(InventoryIndex)) return false;
  const int32 Code = InventoryItemCodes[InventoryIndex];
  if (Code <= 0) return false;
@@ -855,6 +2237,9 @@ bool AMoonfallHeroPawn::UpgradeInventoryItem(int32 InventoryIndex)
  const int32 EquippedCode = Slot == 0 ? EquippedWeaponCode
      : (Slot == 1 ? EquippedArmorCode : EquippedAccessoryCode);
  const bool bUpgradingEquipped = Code == EquippedCode;
+ // Snapshot the currently worn tier before the equip sync updates it.
+ const int32 PreviousEquippedTier = Slot == 0 ? WeaponTier
+     : (Slot == 1 ? ArmorTier : AccessoryTier);
  // Higher tiers and rarities consume more of the salvage recovered from drops.
  const int32 Cost = 4 + Tier * 2 + Rarity * 3;
  if (Salvage < Cost) return false;
@@ -867,8 +2252,9 @@ bool AMoonfallHeroPawn::UpgradeInventoryItem(int32 InventoryIndex)
   return false;
  }
  Salvage -= Cost;
- LastLootUpgrade = (Tier + 1) - (Slot == 0 ? WeaponTier : (Slot == 1 ? ArmorTier : AccessoryTier));
+ LastLootUpgrade = (Tier + 1) - PreviousEquippedTier;
  OnEquipmentCrafted(NewCode, Cost);
+ bProgressDirty = true;
  return true;
 }
 
@@ -876,7 +2262,7 @@ bool AMoonfallHeroPawn::ReforgeInventoryItemAffix(int32 InventoryIndex)
 {
  // Explicit crafting inside inventory only. Common/uncommon traits cannot be
  // reforged; rare and higher retain their tier and quality unchanged.
- if (!bInventoryOpen || bOptionsOpen || Health <= 0.f
+ if (!bInventoryOpen || bOptionsOpen || !FMath::IsFinite(Health) || Health <= 0.f
      || !InventoryItemCodes.IsValidIndex(InventoryIndex)) return false;
  const int32 Code = InventoryItemCodes[InventoryIndex];
  if (Code <= 0) return false;
@@ -907,18 +2293,19 @@ bool AMoonfallHeroPawn::ReforgeInventoryItemAffix(int32 InventoryIndex)
  Salvage -= Cost;
  LastLootAffix = NewAffix;
  OnEquipmentReforged(NewCode, Cost);
+ bProgressDirty = true;
  return true;
 }
 
 void AMoonfallHeroPawn::ReforgeSelectedInventoryItem()
 {
- if (!bCharacterStatsOpen) ReforgeInventoryItemAffix(InventorySelection);
+ ReforgeInventoryItemAffix(InventorySelection);
 }
 
 bool AMoonfallHeroPawn::AscendInventoryItemRarity(int32 InventoryIndex)
 {
  // Explicit inventory-only crafting. Ascension does not change tier or affix.
- if (!bInventoryOpen || bOptionsOpen || Health <= 0.f
+ if (!bInventoryOpen || bOptionsOpen || !FMath::IsFinite(Health) || Health <= 0.f
      || !InventoryItemCodes.IsValidIndex(InventoryIndex)) return false;
  const int32 Code = InventoryItemCodes[InventoryIndex];
  if (Code <= 0) return false;
@@ -946,17 +2333,18 @@ bool AMoonfallHeroPawn::AscendInventoryItemRarity(int32 InventoryIndex)
  Salvage -= Cost;
  LastLootRarity = Rarity + 1;
  OnEquipmentAscended(NewCode, Cost);
+ bProgressDirty = true;
  return true;
 }
 
 void AMoonfallHeroPawn::AscendSelectedInventoryItem()
 {
- if (!bCharacterStatsOpen) AscendInventoryItemRarity(InventorySelection);
+ AscendInventoryItemRarity(InventorySelection);
 }
 
 int32 AMoonfallHeroPawn::ForgeInventoryItemLevels(int32 InventoryIndex, int32 MaxLevels)
 {
- if (!bInventoryOpen || bOptionsOpen || Health <= 0.f
+ if (!bInventoryOpen || bOptionsOpen || !FMath::IsFinite(Health) || Health <= 0.f
      || !InventoryItemCodes.IsValidIndex(InventoryIndex)) return 0;
  // Reuse validated, transactional one-tier crafting for every step.
  // No special currency discount, overflow, or forced equipment changes.
@@ -971,19 +2359,39 @@ int32 AMoonfallHeroPawn::ForgeInventoryItemLevels(int32 InventoryIndex, int32 Ma
 
 void AMoonfallHeroPawn::ForgeFiveSelectedInventoryItem()
 {
- if (!bCharacterStatsOpen) ForgeInventoryItemLevels(InventorySelection, 5);
+ ForgeInventoryItemLevels(InventorySelection, 5);
 }
 
 void AMoonfallHeroPawn::UpgradeSelectedInventoryItem()
 {
- if (!bCharacterStatsOpen) UpgradeInventoryItem(InventorySelection);
+ UpgradeInventoryItem(InventorySelection);
 }
 
-void AMoonfallHeroPawn::InventoryConfirm() { EquipSelectedInventoryItem(); }
 void AMoonfallHeroPawn::OpenOptions() {
+ // Cancel the modal on Esc/Start; a second press can close K normally.
+ if (bAtlasOpen && bTalentsOpen && bTalentRespecArmed) {
+  CancelTalentRespecDialog();
+  return;
+ }
  // The defeat screen owns input until respawn; do not reopen gameplay menus.
+ bTalentRespecArmed = false;
  if (Health <= 0.f || !FMath::IsFinite(Health)) return;
- if (bInventoryOpen) { bInventoryOpen = false; bCharacterStatsOpen = false; return; }
+ ResetMouseCastChord();
+ if (bAtlasOpen) {
+  bAtlasOpen = false;
+  bTalentsOpen = false;
+  MenuActionFocus = -1;
+  UpdateInventoryMouseMode();
+  return;
+ }
+ if (bInventoryOpen) {
+  bInventoryOpen = false;
+  bBagPanelOpen = false;
+  bCharacterStatsOpen = false;
+  MenuActionFocus = -1;
+  UpdateInventoryMouseMode();
+  return;
+ }
  if (!bOptionsOpen) {
   StopJumping();
   if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
@@ -991,28 +2399,56 @@ void AMoonfallHeroPawn::OpenOptions() {
   EndGuard();
  }
  bOptionsOpen = !bOptionsOpen;
+ MenuActionFocus = -1;
+ UpdateInventoryMouseMode();
 }
 void AMoonfallHeroPawn::OptionsUp() {
- if (bInventoryOpen) {
-  InventorySelection = FMath::Max(0, InventorySelection - 1);
-  return;
- }
- if (bOptionsOpen) OptionsSelection = (OptionsSelection + 6) % 7;
+ if (bAtlasOpen && bTalentsOpen && bTalentRespecArmed) { TalentRespecChoice=0; return; }
+ if (bAtlasOpen && !bTalentsOpen && !bOptionsOpen) { MenuActionFocus=0; return; }
+ if (bOptionsOpen) { MenuActionFocus=MenuActionFocus<0 ? 0 : FMath::Clamp(MenuActionFocus-1,0,14); OptionsSelection=MenuActionFocus%7; return; }
+ if (bInventoryOpen) { MenuActionFocus=MenuActionFocus<0 ? 0 : FMath::Clamp(MenuActionFocus-1,0,bMenuFocusCharacter?10:7); return; }
 }
 void AMoonfallHeroPawn::OptionsDown() {
- if (bInventoryOpen) {
-  InventorySelection = FMath::Min(FMath::Max(0, InventoryItemCodes.Num() - 1), InventorySelection + 1);
-  return;
- }
- if (bOptionsOpen) OptionsSelection = (OptionsSelection + 1) % 7;
+ if (bAtlasOpen && bTalentsOpen && bTalentRespecArmed) { TalentRespecChoice=1; return; }
+ if (bAtlasOpen && !bTalentsOpen && !bOptionsOpen) { MenuActionFocus=0; return; }
+ if (bOptionsOpen) { MenuActionFocus=FMath::Clamp(MenuActionFocus+1,0,14); OptionsSelection=MenuActionFocus%7; return; }
+ if (bInventoryOpen) { MenuActionFocus=FMath::Clamp(MenuActionFocus+1,0,bMenuFocusCharacter?10:7); return; }
 }
 void AMoonfallHeroPawn::OptionsLeft() {
- if (bInventoryOpen) { EquipSelectedInventoryItem(); return; }
- AdjustOption(-1);
+ if (bAtlasOpen && bTalentsOpen && bTalentRespecArmed) { TalentRespecChoice=0; return; }
+ if (bOptionsOpen) {
+  if (MenuActionFocus < 0) { MenuActionFocus=OptionsSelection; return; }
+  MenuActionFocus=OptionsSelection; AdjustOption(-1); return;
+ }
+ if (bInventoryOpen) {
+  // D-pad left navigates the active pane, never the bag behind C.
+  if (bCharacterStatsOpen && bMenuFocusCharacter) {
+   PreviousCharacterStatsPage();
+   return;
+  }
+  if (!bBagPanelOpen) return;
+  InventorySelection=FMath::Max(0,InventorySelection-1);
+  InventoryViewStart=InventorySelection;
+  return;
+ }
 }
 void AMoonfallHeroPawn::OptionsRight() {
- if (bInventoryOpen) { EquipSelectedInventoryItem(); return; }
- AdjustOption(1);
+ if (bAtlasOpen && bTalentsOpen && bTalentRespecArmed) { TalentRespecChoice=1; return; }
+ if (bOptionsOpen) {
+  if (MenuActionFocus < 0) { MenuActionFocus=OptionsSelection+7; return; }
+  MenuActionFocus=OptionsSelection+7; AdjustOption(1); return;
+ }
+ if (bInventoryOpen) {
+  // D-pad right navigates the active pane, never the bag behind C.
+  if (bCharacterStatsOpen && bMenuFocusCharacter) {
+   NextCharacterStatsPage();
+   return;
+  }
+  if (!bBagPanelOpen) return;
+  InventorySelection=FMath::Min(FMath::Max(0,InventoryItemCodes.Num()-1),InventorySelection+1);
+  InventoryViewStart=InventorySelection;
+  return;
+ }
 }
 void AMoonfallHeroPawn::AdjustOption(int32 Direction) {
  if (!bOptionsOpen || !GEngine) return;
@@ -1236,17 +2672,21 @@ void AMoonfallHeroPawn::AwardExperience(int32 Amount)
   ++Level;
   ExperienceToNextLevel = 100 + (Level - 1) * 55;
   MaxHealth += 4.f;
+  // Stamina and Intellect contribute bounded resource growth at each level.
+  MaxHealth += FMath::Min(2.f,GetStaminaAttribute()*0.02f);
+  MaxMana = FMath::Max(1.f,MaxMana + FMath::Min(1.5f,GetIntellect()*0.01f));
   SpellPowerMultiplier = 1.f + 0.025f * FMath::Min(Level - 1, 30) + 0.012f * FMath::Max(0, Level - 31);
   Health = FMath::Min(MaxHealth, Health + 12.f);
   Mana = FMath::Min(MaxMana, Mana + 10.f);
   OnHealthChanged(Health, MaxHealth);
  }
  if (Level >= 100) Experience = 0;
+ bProgressDirty = true;
 }
 
 int32 AMoonfallHeroPawn::RollEquipmentCode(bool bEliteEnemy, bool bBossEnemy)
 {
- if (Health <= 0.f) return 0;
+ if (!FMath::IsFinite(Health) || Health <= 0.f) return 0;
  // Roll randomized item stats once at death; pickup is handled separately.
  // Keep boss/elite rewards meaningful: guaranteed epic for bosses, at least rare
  // for elites. Regular enemies use weighted chances with a modest level bias.
@@ -1256,7 +2696,7 @@ int32 AMoonfallHeroPawn::RollEquipmentCode(bool bEliteEnemy, bool bBossEnemy)
  // Existing rarity codes 0-3 are stable for compatibility.
  // 4 Emerald and 5 Legendary add special high-end reward targets.
  // Bosses always roll at least Epic; max-level bosses can yield Legendary.
- LastLootRarity = bBossEnemy
+ const int32 RolledRarity = bBossEnemy
    ? (Level >= 60 && LootRoll < 12 ? 5 : (Level >= 30 && LootRoll < 40 ? 4 : 3))
    : (bEliteEnemy
      ? (Level >= 50 && LootRoll < 3 ? 5 : (Level >= 20 && LootRoll < 12 ? 4
@@ -1265,21 +2705,18 @@ int32 AMoonfallHeroPawn::RollEquipmentCode(bool bEliteEnemy, bool bBossEnemy)
        : (LootRoll < 3 + RarityBias / 3 ? 3
        : (LootRoll < 18 + RarityBias ? 2
        : (LootRoll < 53 + RarityBias ? 1 : 0)))))));
- LastLootTier = NewTier;
  // Enemy rank influences quality, not gear slot: any enemy can drop
  // weapons, armor, or accessories.
- LastLootSlot = FMath::RandRange(0, 2);
+ const int32 RolledSlot = FMath::RandRange(0, 2);
  // Rare and better drops carry one randomized trait. Lower rarities may
  // roll a trait, but common items never do. These are encoded in item IDs.
- LastLootAffix = LastLootRarity == 0 ? 0
-   : (LastLootRarity == 1 && FMath::RandRange(0, 99) < 60
+ const int32 RolledAffix = RolledRarity == 0 ? 0
+   : (RolledRarity == 1 && FMath::RandRange(0, 99) < 60
      ? 0 : FMath::RandRange(1, 3));
- const int32 PreviousTier = LastLootSlot == 2 ? AccessoryTier : (LastLootSlot == 1 ? ArmorTier : WeaponTier);
- LastLootUpgrade = NewTier - PreviousTier;
  // Compact item code: affix (100000s), slot (10000s), rarity (1000s),
  // tier (units). Distinct drops persist until the player salvages them.
- const int32 ItemCode = LastLootAffix * 100000 + LastLootSlot * 10000
-   + LastLootRarity * 1000 + NewTier;
+ const int32 ItemCode = RolledAffix * 100000 + RolledSlot * 10000
+   + RolledRarity * 1000 + NewTier;
  return ItemCode;
 }
 
@@ -1287,36 +2724,80 @@ int32 AMoonfallHeroPawn::RollEquipmentCode(bool bEliteEnemy, bool bBossEnemy)
 // instead spawn a ground actor, so equipment is not auto-collected on kills.
 void AMoonfallHeroPawn::AwardEquipmentDrop(bool bEliteEnemy, bool bBossEnemy)
 {
+ // Legacy scripted rewards are direct inventory grants, never automatic equips.
+ // Enemy kills still create world loot through SpawnGroundEquipmentDrop.
+ if (!FMath::IsFinite(Health) || Health <= 0.f) return;
  const int32 ItemCode = RollEquipmentCode(bEliteEnemy, bBossEnemy);
  if (ItemCode <= 0) return;
- const int32 NewTier = LastLootTier;
- // Do not reject new loot, automatically salvage, or silently discard items.
- // The paginated inventory supports growth beyond the former 30-slot limit.
+ // Mirror Godot's bounded item inventory: failed awards must not announce loot.
+ // UE stores individual item codes, rather than Godot's stack counts.
+ if (InventoryItemCodes.Num() >= MaxInventoryItems) return;
+ // A scripted grant has been received. Only now update the loot notification.
+ // Keep the player's existing inventory selection and worn gear unchanged.
+ const int32 RolledAffix = ItemCode / 100000;
+ const int32 RolledSlot = (ItemCode / 10000) % 10;
+ const int32 RolledRarity = (ItemCode / 1000) % 10;
+ const int32 RolledTier = ItemCode % 1000;
+ EnsureInventoryPickupIds();
  InventoryItemCodes.Add(ItemCode);
- InventorySelection = FMath::Clamp(InventorySelection, 0, InventoryItemCodes.Num() - 1);
- // Rotate awards across equipment categories; higher-tier items replace lower tiers.
- int32* Slot = LastLootSlot == 2 ? &AccessoryTier : (LastLootSlot == 1 ? &ArmorTier : &WeaponTier);
- int32* EquippedAffix = LastLootSlot == 2 ? &AccessoryAffix : (LastLootSlot == 1 ? &ArmorAffix : &WeaponAffix);
- // A new trait is equipped only when upgrading tiers; same-tier items remain
- // inventory choices rather than silently replacing the player's current perk.
- if (NewTier > *Slot) {
-  *EquippedAffix = LastLootAffix;
-  const int32 Previous = *Slot;
-  *Slot = NewTier;
-  int32* EquippedCode = LastLootSlot == 2 ? &EquippedAccessoryCode : (LastLootSlot == 1 ? &EquippedArmorCode : &EquippedWeaponCode);
-  *EquippedCode = ItemCode;
-  EquipmentTier = FMath::Max(WeaponTier, FMath::Max(ArmorTier, AccessoryTier));
-  if (Slot == &ArmorTier) {
-   MaxHealth += 2.f * (NewTier - Previous);
-   Health = FMath::Min(MaxHealth, Health + 2.f * (NewTier - Previous));
-   OnHealthChanged(Health, MaxHealth);
-  }
- }
+ InventoryPickupIds.Add(NextInventoryPickupId++);
+ // Keep the selected sort mode accurate immediately after new loot arrives.
+ if (InventorySortMode != 0) ApplyInventorySortPreservingSelection();
+ LastLootAffix = RolledAffix;
+ LastLootSlot = RolledSlot;
+ LastLootRarity = RolledRarity;
+ LastLootTier = RolledTier;
+ const int32 EquippedTier = RolledSlot == 0 ? WeaponTier
+     : (RolledSlot == 1 ? ArmorTier : AccessoryTier);
+ LastLootUpgrade = RolledTier - EquippedTier;
+ bProgressDirty = true;
+}
+
+bool AMoonfallHeroPawn::HasKey(int32 KeyId) const
+{
+ return KeyId >= 1 && KeyId <= MaxKeyId && KeyRingIds.Contains(KeyId);
+}
+
+bool AMoonfallHeroPawn::AddKeyToRing(int32 KeyId)
+{
+ // No fixed key slots: new distinct keys grow the ring automatically.
+ // Duplicate keys are already owned, so pickup may consume duplicate drops
+ // without granting inventory items or creating unnecessary save writes.
+ if (!HasAuthority() || KeyId < 1 || KeyId > MaxKeyId ||
+     !FMath::IsFinite(Health) || Health <= 0.f || bOptionsOpen ||
+     bInventoryOpen || bAtlasOpen) return false;
+ if (KeyRingIds.Contains(KeyId)) return true;
+ if (KeyRingIds.Num() >= MaxKeyId) return false;
+ KeyRingIds.Add(KeyId);
+ KeyRingIds.Sort();
+ LastCollectedKeyId = KeyId;
+ bProgressDirty = true;
+ return true;
+}
+
+bool AMoonfallHeroPawn::SpawnGroundKeyDrop(int32 KeyId,FVector DropLocation)
+{
+ if (!HasAuthority() || !GetWorld() || KeyId < 1 || KeyId > MaxKeyId ||
+     DropLocation.ContainsNaN() || !FMath::IsFinite(DropLocation.X) ||
+     !FMath::IsFinite(DropLocation.Y) || !FMath::IsFinite(DropLocation.Z)) return false;
+ FActorSpawnParameters Params;
+ Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+ AMoonfallGroundLoot* Loot = GetWorld()->SpawnActor<AMoonfallGroundLoot>(
+     AMoonfallGroundLoot::StaticClass(),DropLocation,FRotator::ZeroRotator,Params);
+ if (!IsValid(Loot)) return false;
+ Loot->InitializeLoot(KeyLootBase + KeyId);
+ return Loot->GetItemCode() == KeyLootBase + KeyId;
 }
 
 bool AMoonfallHeroPawn::CollectGroundEquipmentCode(int32 ItemCode)
 {
- if (Health <= 0.f || ItemCode <= 0) return false;
+ if (bAtlasOpen) return false;
+ // Reserved key loot routes to the ring before any equipment/bag checks.
+ if (ItemCode > KeyLootBase && ItemCode <= KeyLootBase + MaxKeyId)
+  return AddKeyToRing(ItemCode - KeyLootBase);
+ // Enforce the same gameplay state at the collection boundary as the
+ // manual pickup input. Other future callers must not bypass open menus.
+ if (!FMath::IsFinite(Health) || Health <= 0.f || bOptionsOpen || bInventoryOpen || ItemCode <= 0) return false;
  const int32 Affix = ItemCode / 100000;
  const int32 SlotIndex = (ItemCode / 10000) % 10;
  const int32 Rarity = (ItemCode / 1000) % 10;
@@ -1326,8 +2807,15 @@ bool AMoonfallHeroPawn::CollectGroundEquipmentCode(int32 ItemCode)
      || (Rarity == 0 && Affix != 0)
      || ItemCode != Affix * 100000 + SlotIndex * 10000 + Rarity * 1000 + Tier)
   return false;
+ // Preserve the physical ground drop when the bag is full. TryCollect must
+ // only destroy the actor after CollectGroundEquipmentCode returns true.
+ if (InventoryItemCodes.Num() >= MaxInventoryItems) return false;
  // Picking up an item NEVER equips, automatically salvages, or deletes gear.
+ EnsureInventoryPickupIds();
  InventoryItemCodes.Add(ItemCode);
+ InventoryPickupIds.Add(NextInventoryPickupId++);
+ // Keep the selected sort mode accurate immediately after new loot arrives.
+ if (InventorySortMode != 0) ApplyInventorySortPreservingSelection();
  LastLootAffix = Affix;
  LastLootSlot = SlotIndex;
  LastLootRarity = Rarity;
@@ -1335,16 +2823,25 @@ bool AMoonfallHeroPawn::CollectGroundEquipmentCode(int32 ItemCode)
  const int32 EquippedTier = SlotIndex == 0 ? WeaponTier
      : (SlotIndex == 1 ? ArmorTier : AccessoryTier);
  LastLootUpgrade = Tier - EquippedTier;
+ bProgressDirty = true;
  return true;
 }
 
 void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(bool bEliteEnemy, bool bBossEnemy, FVector DefeatedLocation)
 {
- if (!GetWorld() || Health <= 0.f) return;
+ if (!GetWorld() || !FMath::IsFinite(Health) || Health <= 0.f) return;
  // Bosses scatter three rewards, elites two, regular enemies one.
  // All remain on the ground until individually collected; never auto-salvage.
  const int32 DropCount = bBossEnemy ? 3 : (bEliteEnemy ? 2 : 1);
- const FVector Origin = DefeatedLocation.ContainsNaN() ? GetActorLocation() : DefeatedLocation;
+ // A corrupt enemy location must never generate loot at infinite world coordinates.
+ // Fall back to the hero only if the hero location is also fully finite.
+ const auto FiniteLocation = [](const FVector& Location) {
+  return FMath::IsFinite(Location.X) && FMath::IsFinite(Location.Y) &&
+         FMath::IsFinite(Location.Z);
+ };
+ const FVector HeroPosition = GetActorLocation();
+ const FVector Origin = FiniteLocation(DefeatedLocation) ? DefeatedLocation : HeroPosition;
+ if (!FiniteLocation(Origin)) return;
  for (int32 Drop = 0; Drop < DropCount; ++Drop) {
   const int32 ItemCode = RollEquipmentCode(bEliteEnemy, bBossEnemy);
   if (ItemCode <= 0) continue;
@@ -1352,6 +2849,7 @@ void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(bool bEliteEnemy, bool bBossEne
   const float Spread = DropCount == 1 ? 0.f : 105.f;
   const FVector SpawnAt = Origin + FVector(Spread * FMath::Cos(Angle),
     Spread * FMath::Sin(Angle), 45.f);
+  if (!FiniteLocation(SpawnAt)) continue;
   FActorSpawnParameters Params;
   Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
   if (AMoonfallGroundLoot* Loot = GetWorld()->SpawnActor<AMoonfallGroundLoot>(
@@ -1362,59 +2860,112 @@ void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(bool bEliteEnemy, bool bBossEne
 
 void AMoonfallHeroPawn::PickupNearestGroundLoot()
 {
- if (Health <= 0.f || bOptionsOpen || bInventoryOpen || !GetWorld()) return;
- // One explicit pickup press handles a nearby cluster, reducing repeated
- // input without ever automatically equipping, salvaging or destroying loot.
- // Keep actor iteration and collection bounded for a continuous world.
- constexpr int32 MaxLootScanned = 128;
+ if (bAtlasOpen) return;
+ if (!FMath::IsFinite(Health) || Health <= 0.f || bOptionsOpen || bInventoryOpen || !GetWorld()) return;
+ // One actor pass prevents distant drops from starving nearby ones. Keep the
+ // closest 96 so blocked loot does not hide reachable drops behind it.
+ // Expensive visibility traces happen only within TryCollect, never per actor.
+ constexpr int32 MaxLootCandidates = 96;
  constexpr int32 MaxLootPerPress = 6;
  TArray<AMoonfallGroundLoot*> NearbyLoot;
- NearbyLoot.Reserve(MaxLootPerPress);
+ NearbyLoot.Reserve(MaxLootCandidates);
  TArray<float> NearbyDistanceSq;
- NearbyDistanceSq.Reserve(MaxLootPerPress);
+ NearbyDistanceSq.Reserve(MaxLootCandidates);
  const FVector HeroPosition = GetActorLocation();
  const float PickupRangeSq = FMath::Square(250.f);
- int32 Scanned = 0;
- for (TActorIterator<AMoonfallGroundLoot> It(GetWorld());
-      It && Scanned < MaxLootScanned; ++It) {
-  ++Scanned;
+ for (TActorIterator<AMoonfallGroundLoot> It(GetWorld()); It; ++It) {
   AMoonfallGroundLoot* Candidate = *It;
   if (!IsValid(Candidate) || Candidate->GetItemCode() <= 0) continue;
   const FVector LootPosition = Candidate->GetActorLocation();
   if (FMath::Abs(LootPosition.Z - HeroPosition.Z) > 150.f) continue;
   const float DistanceSq = FVector::DistSquared2D(LootPosition, HeroPosition);
   if (!FMath::IsFinite(DistanceSq) || DistanceSq > PickupRangeSq) continue;
-  // A nearby pickup must be reachable: walls and solid cover block collection.
-  FCollisionQueryParams LootSightParams(SCENE_QUERY_STAT(MoonfallGroundLootPickupSight), false);
-  LootSightParams.AddIgnoredActor(this);
-  LootSightParams.AddIgnoredActor(Candidate);
-  FHitResult LootSightHit;
-  if (GetWorld()->LineTraceSingleByChannel(LootSightHit,
-      HeroPosition + FVector(0.f, 0.f, 40.f),
-      LootPosition + FVector(0.f, 0.f, 40.f),
-      ECC_Visibility, LootSightParams)) continue;
   int32 InsertAt = 0;
   while (InsertAt < NearbyDistanceSq.Num() && NearbyDistanceSq[InsertAt] <= DistanceSq)
    ++InsertAt;
-  if (InsertAt >= MaxLootPerPress) continue;
+  if (InsertAt >= MaxLootCandidates) continue;
   NearbyLoot.Insert(Candidate, InsertAt);
   NearbyDistanceSq.Insert(DistanceSq, InsertAt);
-  if (NearbyLoot.Num() > MaxLootPerPress) {
-   NearbyLoot.RemoveAt(MaxLootPerPress);
-   NearbyDistanceSq.RemoveAt(MaxLootPerPress);
+  if (NearbyLoot.Num() > MaxLootCandidates) {
+   NearbyLoot.RemoveAt(MaxLootCandidates);
+   NearbyDistanceSq.RemoveAt(MaxLootCandidates);
   }
  }
+ int32 Collected = 0;
  for (AMoonfallGroundLoot* Loot : NearbyLoot) {
-  if (IsValid(Loot)) Loot->TryCollect();
+  if (!IsValid(Loot)) continue;
+  // Failed or obstructed pickups do not count toward six successes.
+  // TryCollect is the sole authority for reach, cover and item validity.
+  if (Loot->TryCollect() && ++Collected >= MaxLootPerPress) break;
  }
 }
 
-void AMoonfallHeroPawn::EquipBestInventoryAction() { if (!bCharacterStatsOpen) EquipBestInventoryUpgrades(); }
+// A deterministic, no-network gear advisor. Tier has the largest weight;
+// rarity and set synergy only break close ties, so an AI hint never silently
+// changes equipment or overrides a deliberate player preference.
+int32 AMoonfallHeroPawn::GetEquipmentUpgradeScore(int32 InventoryIndex) const
+{
+ // Suppress advice outside a valid inventory state, including direct
+ // Blueprint queries, while preserving a read-only score for valid entries.
+ if (!bInventoryOpen || bOptionsOpen ||
+     !FMath::IsFinite(Health) || Health <= 0.f ||
+     !InventoryItemCodes.IsValidIndex(InventoryIndex)) return 0;
+ const int32 Candidate = InventoryItemCodes[InventoryIndex];
+ if (Candidate <= 0) return 0;
+ const int32 Slot = (Candidate / 10000) % 10;
+ int32 Trait = 0, Rarity = 0, Tier = 0;
+ if (!DecodeEquippedItem(Candidate, Slot, Trait, Rarity, Tier)) return 0;
+ const int32 EquippedCodes[3] = {EquippedWeaponCode, EquippedArmorCode, EquippedAccessoryCode};
+ if (Candidate == EquippedCodes[Slot]) return 0;
+ const auto GearScore = [&](int32 Code) {
+  int32 ScoredTrait = 0, ScoredRarity = 0, ScoredTier = 0;
+  if (!DecodeEquippedItem(Code, Slot, ScoredTrait, ScoredRarity, ScoredTier)) return 0;
+  // Existing valid gear gains a small bonus for set synergy with the OTHER
+  // slots only. No double-counting its own set piece.
+  int32 MatchingPieces = 0;
+  if (ScoredTrait > 0) {
+   for (int32 OtherSlot = 0; OtherSlot < 3; ++OtherSlot) {
+    if (OtherSlot == Slot) continue;
+    int32 OtherTrait = 0, OtherRarity = 0, OtherTier = 0;
+    if (DecodeEquippedItem(EquippedCodes[OtherSlot], OtherSlot,
+                           OtherTrait, OtherRarity, OtherTier) &&
+        OtherTrait == ScoredTrait) ++MatchingPieces;
+   }
+  }
+  const int32 SynergyScore = MatchingPieces == 2 ? 80
+      : (MatchingPieces == 1 ? 40 : 0);
+  return ScoredTier * 1000 + ScoredRarity * 100 +
+         (ScoredTrait > 0 ? 10 : 0) + SynergyScore;
+ };
+ return GearScore(Candidate) - GearScore(EquippedCodes[Slot]);
+}
+
+int32 AMoonfallHeroPawn::GetRecommendedEquipmentIndex() const
+{
+ // Only advise while the inventory is displayed. This function is read-only
+ // and does not change selection, worn gear, health, currency or the save.
+ if (!bInventoryOpen || bOptionsOpen ||
+     !FMath::IsFinite(Health) || Health <= 0.f)
+  return -1;
+ int32 BestIndex = -1;
+ int32 BestImprovement = 0;
+ for (int32 Index = 0; Index < InventoryItemCodes.Num(); ++Index) {
+  const int32 Improvement = GetEquipmentUpgradeScore(Index);
+  if (Improvement > BestImprovement) {
+   BestImprovement = Improvement;
+   BestIndex = Index;
+  }
+ }
+ return BestIndex;
+}
+
+void AMoonfallHeroPawn::EquipBestInventoryAction() { EquipBestInventoryUpgrades(); }
 
 int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()
 {
- // Only a deliberate input while viewing inventory can change worn equipment.
- if (!bInventoryOpen || bOptionsOpen || Health <= 0.f) return 0;
+ // Require valid hero state before even scanning the inventory. The explicit
+ // EquipInventoryItem boundary independently enforces the same restriction.
+ if (!bInventoryOpen || bOptionsOpen || !FMath::IsFinite(Health) || Health <= 0.f) return 0;
  const int32 EquippedCodes[3] = {EquippedWeaponCode, EquippedArmorCode, EquippedAccessoryCode};
  int32 BestScores[3] = {-1, -1, -1};
  int32 BestIndices[3] = {-1, -1, -1};
@@ -1459,7 +3010,11 @@ int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()
 
 bool AMoonfallHeroPawn::EquipInventoryItem(int32 InventoryIndex)
 {
- if (Health <= 0.f || !InventoryItemCodes.IsValidIndex(InventoryIndex)) return false;
+ // Equipping is always deliberate and inventory-scoped, even when called
+ // directly from a Blueprint or by the worn-item crafting sync path.
+ if (!FMath::IsFinite(Health) || Health <= 0.f || !bInventoryOpen ||
+     bOptionsOpen ||
+     !InventoryItemCodes.IsValidIndex(InventoryIndex)) return false;
  const int32 Code = InventoryItemCodes[InventoryIndex];
  if (Code <= 0) return false;
  // Validate every decoded field before mutating equipped items or health.
@@ -1489,5 +3044,6 @@ bool AMoonfallHeroPawn::EquipInventoryItem(int32 InventoryIndex)
   Health = FMath::Clamp(Health + HealthDelta, 1.f, MaxHealth);
   OnHealthChanged(Health, MaxHealth);
  }
+ bProgressDirty = true;
  return true;
 }
