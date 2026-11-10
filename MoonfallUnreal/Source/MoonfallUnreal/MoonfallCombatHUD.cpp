@@ -7,6 +7,13 @@
 #include "Engine/Canvas.h"
 #include "Engine/Engine.h"
 #include "GameFramework/GameUserSettings.h"
+int32 AMoonfallCombatHUD::GetInventoryVisibleRowCount() const
+{
+ if (!Canvas) return 2;
+ const float PanelHeight = FMath::Min(860.f, FMath::Max(280.f, Canvas->SizeY - 24.f));
+ return FMath::Clamp(FMath::FloorToInt((PanelHeight - 355.f) / 25.f), 2, 20);
+}
+
 int32 AMoonfallCombatHUD::GetInventoryItemAtScreenPosition(
     const AMoonfallHeroPawn* Hero, float X, float Y) const
 {
@@ -196,6 +203,25 @@ void AMoonfallCombatHUD::DrawHUD()
   const int32 Selected = FMath::Clamp(Hero->InventorySelection, 0, FMath::Max(0, Count - 1));
   const int32 PageStart = FMath::Clamp(Hero->InventoryViewStart, 0, FMath::Max(0, Count - PerPage));
   const int32 PageEnd = FMath::Min(Count, PageStart + PerPage);
+  // Thin one-bag scroll indicator (not another button). Keep the thumb
+  // proportional even when the backpack contains thousands of items.
+  if (Count > PerPage) {
+   const float TrackX = Left + ListWidth - 9.f;
+   const float TrackTop = Top + 145.f;
+   const float TrackHeight = FMath::Max(42.f, PanelHeight - 355.f);
+   const float ThumbHeight = FMath::Max(14.f, TrackHeight * PerPage / Count);
+   const float ScrollRatio = float(PageStart) / FMath::Max(1, Count - PerPage);
+   DrawRect(FLinearColor(0.14f,0.16f,0.22f,0.94f),
+     TrackX,TrackTop,4.f,TrackHeight);
+   DrawRect(FLinearColor(0.52f,0.86f,0.92f,0.96f),
+     TrackX,TrackTop + ScrollRatio * (TrackHeight - ThumbHeight),4.f,ThumbHeight);
+  }
+  // Scrolling does not alter selection: make an off-screen selection obvious.
+  if (Count > 0 && (Selected < PageStart || Selected >= PageEnd))
+   DrawText(FString::Printf(TEXT("Selected item %d is %s"),
+     Selected + 1, Selected < PageStart ? TEXT("above") : TEXT("below")),
+     FLinearColor(0.92f,0.84f,0.53f),Left + 18.f,Top + PanelHeight - 196.f,
+     nullptr,0.72f);
   // Local advisor reads inventory and current set bonuses, never mutates gear.
   // Show the inventory index even when its recommendation is outside the visible bag.
   const int32 AdvisedIndex = Hero->GetRecommendedEquipmentIndex();
