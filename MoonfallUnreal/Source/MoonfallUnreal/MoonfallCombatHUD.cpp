@@ -59,6 +59,24 @@ bool AMoonfallCombatHUD::IsInventorySortButtonAtScreenPosition(
 }
 
 
+
+bool AMoonfallCombatHUD::IsInventoryEquipButtonAtScreenPosition(
+    const AMoonfallHeroPawn* Hero, float X, float Y) const
+{
+ if (!Canvas || !IsValid(Hero) || !Hero->bInventoryOpen ||
+     Hero->bCharacterStatsOpen || Hero->bOptionsOpen ||
+     Canvas->SizeX < 1100.f || Canvas->SizeY < 549.f ||
+     !FMath::IsFinite(X) || !FMath::IsFinite(Y) ||
+     !Hero->InventoryItemCodes.IsValidIndex(Hero->InventorySelection)) return false;
+ const float Width = FMath::Min(1040.f, FMath::Max(280.f, Canvas->SizeX - 24.f));
+ const float Height = FMath::Min(580.f, FMath::Max(280.f, Canvas->SizeY - 24.f));
+ if (Height < 525.f) return false;
+ const float DetailLeft = (Canvas->SizeX - Width) * 0.5f + Width - 330.f;
+ const float ButtonY = (Canvas->SizeY - Height) * 0.5f + Height - 94.f;
+ return X >= DetailLeft + 14.f && X < DetailLeft + 298.f &&
+   Y >= ButtonY && Y < ButtonY + 36.f;
+}
+
 void AMoonfallCombatHUD::DrawHUD()
 {
  Super::DrawHUD();
@@ -318,10 +336,18 @@ void AMoonfallCombatHUD::DrawHUD()
     DrawText(TEXT("Select an item to inspect gear."),
       FLinearColor::White,DetailLeft + 14.f,DetailTop + 55.f,nullptr,0.82f);
    }
+   // An explicit, non-destructive equip action. Hidden on short screens.
+   if (PanelHeight >= 525.f && Hero->InventoryItemCodes.IsValidIndex(Selected)) {
+    const float ButtonY = Top + PanelHeight - 94.f;
+    DrawRect(FLinearColor(0.13f,0.36f,0.30f,0.98f),
+      DetailLeft + 14.f,ButtonY,284.f,36.f);
+    DrawText(TEXT("EQUIP SELECTED"),FLinearColor::White,
+      DetailLeft + 51.f,ButtonY + 8.f,nullptr,1.f);
+   }
    if (bBagFull)
     DrawText(TEXT("BAG FULL: salvage spare gear"),
       FLinearColor(1.f,0.45f,0.35f),DetailLeft + 14.f,
-      DetailTop + PanelHeight - 132.f,nullptr,0.76f);
+      Top + PanelHeight - 127.f,nullptr,0.76f);
   }
   // The selected item's score is advisory only; it never calls EquipInventoryItem.
   if (Count > 0)
