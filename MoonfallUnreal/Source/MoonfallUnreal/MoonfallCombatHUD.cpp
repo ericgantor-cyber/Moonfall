@@ -7,6 +7,30 @@
 #include "Engine/Canvas.h"
 #include "Engine/Engine.h"
 #include "GameFramework/GameUserSettings.h"
+// When B and C are both open, lay out two independent, clickable panels.
+// Below the split-screen breakpoint the existing full-size panels remain usable.
+static bool MoonfallDualPanels(const UCanvas* Canvas,const AMoonfallHeroPawn* Hero)
+{
+ return Canvas && IsValid(Hero) && Hero->bBagPanelOpen &&
+     Hero->bCharacterStatsOpen && Canvas->SizeX >= 960.f &&
+     Canvas->SizeY >= 480.f;
+}
+static void MoonfallDualBagGeometry(const UCanvas* Canvas,
+    float& Left,float& Top,float& Width,float& Height)
+{
+ Width=FMath::Clamp((Canvas->SizeX-36.f)*0.48f,280.f,680.f);
+ Height=FMath::Min(860.f,FMath::Max(280.f,Canvas->SizeY-24.f));
+ Left=12.f; Top=(Canvas->SizeY-Height)*0.5f;
+}
+static void MoonfallDualCharacterGeometry(const UCanvas* Canvas,
+    float& Left,float& Top,float& Width,float& Height)
+{
+ Width=FMath::Max(280.f,Canvas->SizeX-
+     FMath::Clamp((Canvas->SizeX-36.f)*0.48f,280.f,680.f)-36.f);
+ Width=FMath::Min(Width,1040.f);
+ Height=FMath::Min(860.f,FMath::Max(280.f,Canvas->SizeY-24.f));
+ Left=Canvas->SizeX-Width-12.f; Top=(Canvas->SizeY-Height)*0.5f;
+}
 int32 AMoonfallCombatHUD::GetInventoryVisibleRowCount() const
 {
  if (!Canvas) return 2;
@@ -68,30 +92,6 @@ int32 AMoonfallCombatHUD::GetInventoryItemAtScreenPosition(
 
 
 // One shared, resolution-responsive grid for drawing and mouse hit testing.
-// When B and C are both open, lay out two independent, clickable panels.
-// Below the split-screen breakpoint the existing full-size panels remain usable.
-static bool MoonfallDualPanels(const UCanvas* Canvas,const AMoonfallHeroPawn* Hero)
-{
- return Canvas && IsValid(Hero) && Hero->bBagPanelOpen &&
-     Hero->bCharacterStatsOpen && Canvas->SizeX >= 960.f &&
-     Canvas->SizeY >= 480.f;
-}
-static void MoonfallDualBagGeometry(const UCanvas* Canvas,
-    float& Left,float& Top,float& Width,float& Height)
-{
- Width=FMath::Clamp((Canvas->SizeX-36.f)*0.48f,280.f,680.f);
- Height=FMath::Min(860.f,FMath::Max(280.f,Canvas->SizeY-24.f));
- Left=12.f; Top=(Canvas->SizeY-Height)*0.5f;
-}
-static void MoonfallDualCharacterGeometry(const UCanvas* Canvas,
-    float& Left,float& Top,float& Width,float& Height)
-{
- Width=FMath::Max(280.f,Canvas->SizeX-
-     FMath::Clamp((Canvas->SizeX-36.f)*0.48f,280.f,680.f)-36.f);
- Width=FMath::Min(Width,1040.f);
- Height=FMath::Min(860.f,FMath::Max(280.f,Canvas->SizeY-24.f));
- Left=Canvas->SizeX-Width-12.f; Top=(Canvas->SizeY-Height)*0.5f;
-}
 static bool MoonfallCharacterActionRect(const UCanvas* Canvas, bool bDual, int32 Action,
     float& X, float& Y, float& W, float& H)
 {
