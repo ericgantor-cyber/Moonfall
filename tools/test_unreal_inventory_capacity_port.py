@@ -82,6 +82,33 @@ class InventoryCapacityPort(unittest.TestCase):
                           "InventoryItemCodes.Empty(", "Destroy("):
             self.assertNotIn(forbidden, method)
 
+    def test_auto_expanding_key_ring_pickups_and_persistence(self):
+        header = (ROOT / "MoonfallHeroPawn.h").read_text(encoding="utf-8")
+        save = (ROOT / "MoonfallProgressSaveGame.h").read_text(encoding="utf-8")
+        loot = (ROOT / "MoonfallGroundLoot.cpp").read_text(encoding="utf-8")
+        hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        for member in ("TArray<int32> KeyRingIds;", "bool AddKeyToRing(int32 KeyId)",
+                       "bool HasKey(int32 KeyId) const",
+                       "bool SpawnGroundKeyDrop(int32 KeyId, FVector DropLocation)"):
+            self.assertIn(member, header)
+        self.assertIn("UPROPERTY(SaveGame) TArray<int32> KeyRingIds;", save)
+        ring = body(self.hero, "bool AMoonfallHeroPawn::AddKeyToRing(int32 KeyId)")
+        for statement in ("KeyRingIds.Contains(KeyId)", "KeyRingIds.Add(KeyId);",
+                          "KeyRingIds.Sort();", "bProgressDirty = true;"):
+            self.assertIn(statement, ring)
+        self.assertNotIn("InventoryItemCodes.Add", ring)
+        self.assertNotIn("MaxInventoryItems", ring)
+        collector = body(self.hero, "bool AMoonfallHeroPawn::CollectGroundEquipmentCode(int32 ItemCode)")
+        self.assertLess(collector.index("return AddKeyToRing("),
+                        collector.index("InventoryItemCodes.Num() >= MaxInventoryItems"))
+        self.assertIn("AMoonfallHeroPawn::KeyLootBase", loot)
+        self.assertIn("KEY %d  [F / X]", loot)
+        self.assertIn("Save->KeyRingIds = KeyRingIds;", self.hero)
+        self.assertIn("KeyRingIds = Save->KeyRingIds;", self.hero)
+        self.assertIn("Save->KeyRingIds[I-1] >= Id", self.hero)
+        self.assertIn("DrawKeyRingSummary(", hud)
+        self.assertIn('TEXT("KEY RING  %d  %s")', hud)
+
     def test_b_and_c_are_independent_and_simultaneously_clickable(self):
         header = (ROOT / "MoonfallHeroPawn.h").read_text(encoding="utf-8")
         hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
