@@ -119,10 +119,14 @@ static func totals(state:Dictionary)->Dictionary:
   else:stats["magic"]+=bonus
   var affixes:Variant=best_roll.get("affixes",[])
   if not affixes is Array:continue
+  var applied_affixes:Dictionary={}
   for affix in affixes:
    if not affix is Dictionary:continue
+   var stat:String=str(affix.get("stat",""))
+   if not RNG.AFFIXES.has(stat) or applied_affixes.has(stat):continue
+   applied_affixes[stat]=true
    var value:int=clampi(int(affix.get("value",0)),0,30)
-   match str(affix.get("stat","")):
+   match stat:
     "Power":stats["weapon_power"]+=value
     "Vitality":stats["vitality"]+=value
     "Haste":stats["haste"]+=value
