@@ -513,6 +513,8 @@ class UE5RewardParity(unittest.TestCase):
             "void AMoonfallHeroPawn::RestorePendingWorldEquipmentDrops()", 1)[0]
         self.assertIn("PendingWorldLoot.Num() + NewDrops.Num() > 512", batch)
         self.assertIn("PendingWorldLoot.Append(NewDrops);", batch)
+        self.assertIn("TSet<FGuid> BatchIds;", batch)
+        self.assertIn("if (BatchIds.Contains(Record.DropId)) return false;", batch)
         self.assertIn("PendingWorldLoot.SetNum(OriginalCount);", batch)
         self.assertEqual(batch.count("SaveRewardProgress()"), 1)
         self.assertLess(batch.index("PendingWorldLoot.Append(NewDrops);"),
