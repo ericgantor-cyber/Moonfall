@@ -1939,44 +1939,52 @@ bool AMoonfallHeroPawn::CollectPersistedGroundEquipmentCode(int32 ItemCode, cons
  return false;
 }
 
-bool AMoonfallHeroPawn::RegisterWorldEquipmentDrop(int32 ItemCode, const FVector& Location)
+bool AMoonfallHeroPawn::RegisterWorldEquipmentDrops(
+  const TArray<FMoonfallWorldLootRecord>& NewDrops)
 {
- if (!GetWorld() || bRewardSaveLoadFailed || PendingWorldLoot.Num() >= 512
-     || Location.ContainsNaN() || ItemCode <= 0) return false;
- const int32 Affix = ItemCode / 100000;
- const int32 Slot = (ItemCode / 10000) % 10;
- const int32 Rarity = (ItemCode / 1000) % 10;
- const int32 Tier = ItemCode % 1000;
- if (Affix < 0 || Affix > 3 || Slot < 0 || Slot > 2
-     || Rarity < 0 || Rarity > 5 || Tier < 1 || Tier > 25
-     || (Rarity == 0 && Affix != 0)
-     || ItemCode != Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier)
+ // One save for one enemy's drops, including all boss/elite items. Never
+ // partially commit an encounter, and never spawn before persistence succeeds.
+ if (!GetWorld() || bRewardSaveLoadFailed || NewDrops.IsEmpty()
+     || NewDrops.Num() > 3 || PendingWorldLoot.Num() + NewDrops.Num() > 512)
   return false;
- FMoonfallWorldLootRecord Record;
- Record.DropId = FGuid::NewGuid();
- Record.ItemCode = ItemCode;
- Record.Location = Location;
- PendingWorldLoot.Add(Record);
+ for (const FMoonfallWorldLootRecord& Record : NewDrops)
+ {
+  const int32 Code = Record.ItemCode;
+  const int32 Affix = Code / 100000;
+  const int32 Slot = (Code / 10000) % 10;
+  const int32 Rarity = (Code / 1000) % 10;
+  const int32 Tier = Code % 1000;
+  if (!Record.DropId.IsValid() || Record.Location.ContainsNaN()
+      || PendingWorldLoot.ContainsByPredicate([&](const FMoonfallWorldLootRecord& Existing)
+         { return Existing.DropId == Record.DropId; })
+      || Affix < 0 || Affix > 3 || Slot < 0 || Slot > 2
+      || Rarity < 0 || Rarity > 5 || Tier < 1 || Tier > 25
+      || (Rarity == 0 && Affix != 0)
+      || Code != Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier)
+   return false;
+ }
+ const int32 OriginalCount = PendingWorldLoot.Num();
+ PendingWorldLoot.Append(NewDrops);
  if (!SaveRewardProgress())
  {
-  PendingWorldLoot.Pop();
-  KeyInteractionNotice = TEXT("WORLD LOOT SAVE FAILED - DROP NOT COMMITTED");
+  PendingWorldLoot.SetNum(OriginalCount);
+  KeyInteractionNotice = TEXT("WORLD LOOT SAVE FAILED - DROPS NOT COMMITTED");
   bKeyInteractionNoticeError = true;
   KeyInteractionNoticeUntil = GetWorld()->GetTimeSeconds() + 6.f;
   return false;
  }
- // Persist first, then materialize. If spawning fails or process exits,
- // the record survives and is recreated on the next load.
- const FTransform SpawnTransform(FRotator::ZeroRotator, Location);
- AMoonfallGroundLoot* Loot = Cast<AMoonfallGroundLoot>(
-   UGameplayStatics::BeginDeferredActorSpawnFromClass(
-     this, AMoonfallGroundLoot::StaticClass(), SpawnTransform,
-     ESpawnActorCollisionHandlingMethod::AlwaysSpawn));
- if (Loot)
+ // Even when spawning fails, the durable records are replayed on next load.
+ for (const FMoonfallWorldLootRecord& Record : NewDrops)
  {
+  const FTransform Transform(FRotator::ZeroRotator, Record.Location);
+  AMoonfallGroundLoot* Loot = Cast<AMoonfallGroundLoot>(
+    UGameplayStatics::BeginDeferredActorSpawnFromClass(
+      this, AMoonfallGroundLoot::StaticClass(), Transform,
+      ESpawnActorCollisionHandlingMethod::AlwaysSpawn));
+  if (!Loot) continue;
   Loot->SetPersistentDropId(Record.DropId);
-  Loot->InitializeLoot(ItemCode);
-  UGameplayStatics::FinishSpawningActor(Loot, SpawnTransform);
+  Loot->InitializeLoot(Record.ItemCode);
+  UGameplayStatics::FinishSpawningActor(Loot, Transform);
  }
  return true;
 }
@@ -2011,37 +2019,47 @@ void AMoonfallHeroPawn::RestorePendingWorldEquipmentDrops()
 void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(bool bEliteEnemy, bool bBossEnemy, FVector DefeatedLocation)
 {
  if (!GetWorld() || Health <= 0.f) return;
- // Bosses scatter three rewards, elites two, regular enemies one.
- // All remain on the ground until individually collected; never auto-salvage.
  const int32 DropCount = bBossEnemy ? 3 : (bEliteEnemy ? 2 : 1);
  const FVector Origin = DefeatedLocation.ContainsNaN() ? GetActorLocation() : DefeatedLocation;
- for (int32 Drop = 0; Drop < DropCount; ++Drop) {
+ TArray<FMoonfallWorldLootRecord> Drops;
+ Drops.Reserve(DropCount);
+ for (int32 Drop = 0; Drop < DropCount; ++Drop)
+ {
   const int32 ItemCode = RollEquipmentCode(bEliteEnemy, bBossEnemy);
   if (ItemCode <= 0) continue;
   const float Angle = 2.f * PI * static_cast<float>(Drop) / static_cast<float>(DropCount);
   const float Spread = DropCount == 1 ? 0.f : 105.f;
-  const FVector SpawnAt = Origin + FVector(Spread * FMath::Cos(Angle),
+  FMoonfallWorldLootRecord Record;
+  Record.DropId = FGuid::NewGuid();
+  Record.ItemCode = ItemCode;
+  Record.Location = Origin + FVector(Spread * FMath::Cos(Angle),
     Spread * FMath::Sin(Angle), 45.f);
-  if (RegisterWorldEquipmentDrop(ItemCode, SpawnAt)) continue;
-  // The disk may be read-only or the bounded ledger may be full. Do not
-  // silently discard earned equipment: spawn a clearly temporary pickup.
-  // It can only become durable once the player successfully collects it.
-  const FTransform FallbackTransform(FRotator::ZeroRotator, SpawnAt);
+  Drops.Add(Record);
+ }
+ if (Drops.IsEmpty() || RegisterWorldEquipmentDrops(Drops)) return;
+ // A failed save or full ledger must not silently delete a rolled reward.
+ // Spawn the exact encounter drops temporarily and clearly warn the player.
+ bool bAnySpawnFailed = false;
+ for (const FMoonfallWorldLootRecord& Record : Drops)
+ {
+  const FTransform Transform(FRotator::ZeroRotator, Record.Location);
   AMoonfallGroundLoot* Fallback = Cast<AMoonfallGroundLoot>(
     UGameplayStatics::BeginDeferredActorSpawnFromClass(
-      this, AMoonfallGroundLoot::StaticClass(), FallbackTransform,
+      this, AMoonfallGroundLoot::StaticClass(), Transform,
       ESpawnActorCollisionHandlingMethod::AlwaysSpawn));
-  if (Fallback)
+  if (!Fallback)
   {
-   Fallback->InitializeLoot(ItemCode);
-   UGameplayStatics::FinishSpawningActor(Fallback, FallbackTransform);
+   bAnySpawnFailed = true;
+   continue;
   }
-  KeyInteractionNotice = Fallback
-    ? TEXT("LOOT NOT SAVED - TEMPORARY DROP, COLLECT BEFORE EXIT")
-    : TEXT("LOOT NOT SAVED - WORLD DROP FAILED");
-  bKeyInteractionNoticeError = true;
-  KeyInteractionNoticeUntil = GetWorld()->GetTimeSeconds() + 8.f;
+  Fallback->InitializeLoot(Record.ItemCode);
+  UGameplayStatics::FinishSpawningActor(Fallback, Transform);
  }
+ KeyInteractionNotice = bAnySpawnFailed
+   ? TEXT("LOOT NOT SAVED - SOME WORLD DROPS FAILED")
+   : TEXT("LOOT NOT SAVED - TEMPORARY DROPS, COLLECT BEFORE EXIT");
+ bKeyInteractionNoticeError = true;
+ KeyInteractionNoticeUntil = GetWorld()->GetTimeSeconds() + 8.f;
 }
 
 bool AMoonfallHeroPawn::TryInteractWithNearbyKey()
