@@ -296,12 +296,19 @@ void AMoonfallHeroPawn::SpawnMilestoneKey(const FVector& Location)
  // near the player, so a lost temporary actor never soft-locks the dungeon.
  for (TActorIterator<AMoonfallKeyPickup> It(GetWorld()); It; ++It)
   if (IsValid(*It) && It->KeyId == FName(TEXT("fallen_gate_key"))) return;
- FActorSpawnParameters Params;
- Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
- AMoonfallKeyPickup* Pickup = GetWorld()->SpawnActor<AMoonfallKeyPickup>(
-   AMoonfallKeyPickup::StaticClass(), Location + FVector(0.f, 0.f, 32.f),
-   FRotator::ZeroRotator, Params);
- if (Pickup) Pickup->KeyId = FName(TEXT("fallen_gate_key"));
+ // Assign the key ID *before* BeginPlay, or the placeholder is briefly
+ // initialized as the wrong item when SpawnActor invokes BeginPlay inline.
+ const FTransform SpawnTransform(FRotator::ZeroRotator,
+   Location + FVector(0.f, 0.f, 32.f));
+ AMoonfallKeyPickup* Pickup = Cast<AMoonfallKeyPickup>(
+   UGameplayStatics::BeginDeferredActorSpawnFromClass(
+     this, AMoonfallKeyPickup::StaticClass(), SpawnTransform,
+     ESpawnActorCollisionHandlingMethod::AlwaysSpawn));
+ if (Pickup)
+ {
+  Pickup->KeyId = FName(TEXT("fallen_gate_key"));
+  UGameplayStatics::FinishSpawningActor(Pickup, SpawnTransform);
+ }
 }
 
 void AMoonfallHeroPawn::AwardEnemyCurrency(bool bEliteEnemy, bool bBossEnemy, FVector DefeatedLocation)
