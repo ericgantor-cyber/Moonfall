@@ -12,6 +12,8 @@ struct FMoonfallWorldLootRecord
  UPROPERTY(SaveGame) FGuid DropId;
  UPROPERTY(SaveGame) int32 ItemCode = 0;
  UPROPERTY(SaveGame) FVector Location = FVector::ZeroVector;
+ // v5: level identity prevents a drop from appearing in the wrong map.
+ UPROPERTY(SaveGame) FName LevelId = NAME_None;
 };
 
 // Separate, versioned reward progress. Does not replace the equipment save.
@@ -27,7 +29,7 @@ public:
   static const FString Slot(TEXT("Moonfall_RewardProgress_v1"));
   return Slot;
  }
- UPROPERTY(SaveGame) int32 SchemaVersion = 4;
+ UPROPERTY(SaveGame) int32 SchemaVersion = 5;
  UPROPERTY(SaveGame) int64 Gold = 0;
  UPROPERTY(SaveGame) int64 ConfirmedKills = 0;
  UPROPERTY(SaveGame) TArray<FName> CollectedKeys;
@@ -41,6 +43,6 @@ public:
  UPROPERTY(SaveGame) int32 EquippedWeaponCode = 0;
  UPROPERTY(SaveGame) int32 EquippedArmorCode = 0;
  UPROPERTY(SaveGame) int32 EquippedAccessoryCode = 0;
- // v4: persisted world drops. IDs make pickup removal unambiguous.
+ // v4: persisted world drops; v5 adds their source level IDs.
  UPROPERTY(SaveGame) TArray<FMoonfallWorldLootRecord> PendingWorldLoot;
 };
