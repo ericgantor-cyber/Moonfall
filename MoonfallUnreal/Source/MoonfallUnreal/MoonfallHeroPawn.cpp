@@ -2229,10 +2229,10 @@ void AMoonfallHeroPawn::PickupNearestGroundLoot()
 {
  if (Health <= 0.f || bOptionsOpen || bInventoryOpen || !GetWorld()) return;
  if (TryInteractWithNearbyKey()) return;
- // One explicit pickup press handles a nearby cluster, reducing repeated
- // input without ever automatically equipping, salvaging or destroying loot.
- // Keep actor iteration and collection bounded for a continuous world.
- constexpr int32 MaxLootScanned = 128;
+ // One explicit press collects up to six nearby items. Search all live
+ // pickups rather than just the first 128 actors: in a persistent world,
+ // old distant drops must never starve a nearby new reward.
+ // The nearest-item candidate array stays bounded to six entries.
  constexpr int32 MaxLootPerPress = 6;
  TArray<AMoonfallGroundLoot*> NearbyLoot;
  NearbyLoot.Reserve(MaxLootPerPress);
@@ -2240,10 +2240,7 @@ void AMoonfallHeroPawn::PickupNearestGroundLoot()
  NearbyDistanceSq.Reserve(MaxLootPerPress);
  const FVector HeroPosition = GetActorLocation();
  const float PickupRangeSq = FMath::Square(250.f);
- int32 Scanned = 0;
- for (TActorIterator<AMoonfallGroundLoot> It(GetWorld());
-      It && Scanned < MaxLootScanned; ++It) {
-  ++Scanned;
+ for (TActorIterator<AMoonfallGroundLoot> It(GetWorld()); It; ++It) {
   AMoonfallGroundLoot* Candidate = *It;
   if (!IsValid(Candidate) || Candidate->GetItemCode() <= 0) continue;
   const FVector LootPosition = Candidate->GetActorLocation();
