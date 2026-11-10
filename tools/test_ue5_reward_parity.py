@@ -454,6 +454,28 @@ class UE5RewardParity(unittest.TestCase):
             self.assertLess(craft.index("if (!SaveRewardProgress())"),
                             craft.index("OnEquipment", craft.index("if (!SaveRewardProgress())")))
 
+    def test_scripted_equipment_reward_saves_or_leaves_same_rolled_item(self):
+        grant = self.hero.split("void AMoonfallHeroPawn::AwardEquipmentDrop(", 1)[1].split(
+            "bool AMoonfallHeroPawn::CollectGroundEquipmentCode(", 1)[0]
+        self.assertIn("const int32 ItemCode = RollEquipmentCode(", grant)
+        self.assertIn("if (CollectGroundEquipmentCode(ItemCode))", grant)
+        self.assertIn("AMoonfallGroundLoot::StaticClass()", grant)
+        self.assertIn("Loot->InitializeLoot(ItemCode);", grant)
+        self.assertIn("UGameplayStatics::FinishSpawningActor(Loot, SpawnTransform);", grant)
+        self.assertIn("REWARD UNSAVED - ITEM LEFT ON GROUND", grant)
+        self.assertIn("REWARD UNSAVED - COULD NOT SPAWN RECOVERY DROP", grant)
+        self.assertLess(grant.index("if (CollectGroundEquipmentCode(ItemCode))"),
+                        grant.index("BeginDeferredActorSpawnFromClass("))
+        self.assertLess(grant.index("Loot->InitializeLoot(ItemCode);"),
+                        grant.index("FinishSpawningActor(Loot, SpawnTransform);"))
+        self.assertNotIn("InventoryItemCodes.Add(ItemCode);", grant)
+        self.assertNotIn("*EquippedCode = ItemCode;", grant)
+        self.assertNotIn("MaxHealth +=", grant)
+        pickup = self.hero.split("bool AMoonfallHeroPawn::CollectGroundEquipmentCode(", 1)[1].split(
+            "void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(", 1)[0]
+        self.assertIn("if (!SaveRewardProgress())", pickup)
+        self.assertIn("InventoryItemCodes.Pop();", pickup)
+
     def test_equipment_remains_manual_and_hud_shows_rewards(self):
         self.assertIn("void PickupNearestGroundLoot();", self.hero_h)
         self.assertIn("Loot->TryCollect()", self.hero)
