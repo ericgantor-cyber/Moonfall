@@ -109,8 +109,14 @@ Moonfall's fully migrated Godot world or finished dungeon.
   the original item and previous salvage value must both be restored.
 - Test invalid item codes in a *backup* v3 save. Malformed entries must not
   materialize in the inventory, and the loaded bag is capped at 4,096 items.
-- IMPORTANT: Current v3 persistence covers ground-loot pickups and salvage
-  transactions, **not full equipped gear, crafting, upgrades, or loose
-  uncollected world drops**. Do not publish as a complete equipment save until
-  those systems are integrated and native Windows UE5 compilation/gameplay
-  tests pass.
+- Schema v3 now also saves the explicitly equipped weapon, armor and
+  accessory item codes, and upgrade/ascend/reforge crafting transactions.
+  Restore only equipped items still present in the validated saved bag.
+  Verify worn armor correctly adjusts health exactly once after load/reload.
+- With save writes denied, attempt direct equipping and each crafting action
+  on an unworn and worn item. The original inventory code, salvage currency,
+  equipped code/tier/affix and armor-derived health must be restored.
+- IMPORTANT: Loose uncollected world drops and the legacy direct-grant path
+  are not fully persisted yet. In-world loot spawning and complete loadout
+  restore still require actual native Windows UE5 compilation and gameplay
+  tests before treating this as a production-ready equipment save.
