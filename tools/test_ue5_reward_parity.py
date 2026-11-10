@@ -29,7 +29,7 @@ class UE5RewardParity(unittest.TestCase):
             self.assertIn(key, self.hero)
         self.assertIn("!IsSupportedQuestKey(KeyId) || HasQuestKey(KeyId)", self.hero)
         self.assertIn("CollectedKeys.Num() < 128", self.hero)
-        self.assertIn("if (ConfirmedRewardKills == 5)", self.hero)
+        self.assertIn('if (ConfirmedRewardKills >= 5 && !HasQuestKey(FName(TEXT("fallen_gate_key"))))', self.hero)
         self.assertIn("SpawnMilestoneKey(DefeatedLocation);", self.hero)
         self.assertNotIn('CollectQuestKey(FName(TEXT("fallen_gate_key")))', self.hero)
         self.assertIn("if (!SaveRewardProgress())", self.hero.split("bool AMoonfallHeroPawn::CollectQuestKey", 1)[1])
@@ -182,6 +182,19 @@ class UE5RewardParity(unittest.TestCase):
         self.assertIn("ConfirmedRewardKills = PreviousKills;", kill)
         self.assertIn("if (Gold >= MAX_int64)", kill)
         self.assertIn("const int64 GrantedGold = AddGold(BaseGold);", kill)
+
+    def test_key_drop_recovery_and_stale_world_cleanup(self):
+        key_cpp = (ROOT / "MoonfallKeyPickup.cpp").read_text()
+        key_h = (ROOT / "MoonfallKeyPickup.h").read_text()
+        self.assertIn("virtual void BeginPlay() override;", key_h)
+        self.assertIn("void AMoonfallKeyPickup::BeginPlay()", key_cpp)
+        self.assertIn("Hero->HasQuestKey(KeyId)", key_cpp)
+        self.assertIn("if (!Hero->CollectQuestKey(KeyId)) return false;", key_cpp)
+        self.assertIn("Destroy();", key_cpp)
+        self.assertIn("if (IsValid(*It)) Consider(*It);", self.hero)
+        self.assertNotIn("if (IsValid(*It) && !HasQuestKey(It->KeyId)) Consider(*It);", self.hero)
+        self.assertIn('if (ConfirmedRewardKills >= 5 && !HasQuestKey(FName(TEXT("fallen_gate_key"))))', self.hero)
+        self.assertIn("SpawnMilestoneKey(DefeatedLocation);", self.hero)
 
     def test_equipment_remains_manual_and_hud_shows_rewards(self):
         self.assertIn("void PickupNearestGroundLoot();", self.hero_h)
