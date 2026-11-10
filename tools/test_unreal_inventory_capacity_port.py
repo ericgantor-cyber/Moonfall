@@ -106,14 +106,33 @@ class InventoryCapacityPort(unittest.TestCase):
             method = body(self.hero, "void AMoonfallHeroPawn::" + name + "()")
             self.assertNotIn("if (!bCharacterStatsOpen)", method)
         hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
-        hit = body(hud, "int32 AMoonfallCombatHUD::GetInventoryItemAtScreenPosition(")
-        self.assertIn("if (Hero->bCharacterStatsOpen)", hit)
-        self.assertIn("Hero->InventorySelection : -1;", hit)
-        self.assertIn('TEXT("RIGHT-CLICK: EQUIP")', hud)
+        header = (ROOT / "MoonfallCombatHUD.h").read_text(encoding="utf-8")
+        self.assertIn("GetCharacterActionAtScreenPosition(", header)
+        hit = body(hud, "int32 AMoonfallCombatHUD::GetCharacterActionAtScreenPosition(")
+        self.assertIn("!Hero->bCharacterStatsOpen", hit)
+        self.assertIn("for (int32 Action = 0; Action < 8; ++Action)", hit)
+        self.assertIn("MoonfallCharacterActionRect(Canvas,Action", hit)
+        self.assertIn("return Action;", hit)
+        row_hit = body(hud, "int32 AMoonfallCombatHUD::GetInventoryItemAtScreenPosition(")
+        self.assertIn("if (Hero->bCharacterStatsOpen) return -1;", row_hit)
+        for label in ("PREV", "NEXT", "EQUIP", "UPGRADE",
+                      "ASCEND", "REFORGE", "FORGE x5", "OPEN BAG"):
+            self.assertIn('TEXT("' + label + '")', hud)
+        left = body(self.hero, "void AMoonfallHeroPawn::LeftClickContextAction()")
+        self.assertIn("HUD->GetCharacterActionAtScreenPosition(this, MouseX, MouseY)", left)
+        self.assertIn("if (Action == 7) { ToggleInventory(); return; }", left)
+        for action, call in ((2,"EquipSelectedInventoryItem"),
+                             (3,"UpgradeSelectedInventoryItem"),
+                             (4,"AscendSelectedInventoryItem"),
+                             (5,"ReforgeSelectedInventoryItem"),
+                             (6,"ForgeFiveSelectedInventoryItem")):
+            self.assertIn(f"case {action}: {call}(); break;", left)
+        self.assertLess(left.index("if (bCharacterStatsOpen) {"),
+                        left.index("IsInventorySortButtonAtScreenPosition"))
         right = body(self.hero, "void AMoonfallHeroPawn::RightClickContextAction()")
-        self.assertNotIn("if (bCharacterStatsOpen) return;", right)
+        self.assertIn("if (bCharacterStatsOpen) return;", right)
         self.assertIn("HUD->GetInventoryItemAtScreenPosition", right)
-        self.assertIn("EquipSelectedInventoryItem();", right)
+
 
     def test_sort_mode_survives_version_two_save_round_trip(self):
         source = self.hero
