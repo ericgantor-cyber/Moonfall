@@ -323,7 +323,7 @@ void AMoonfallCombatHUD::DrawHUD()
     DialogL+18.f,DialogT+18.f,nullptr,Width<600.f?0.82f:1.10f);
   DrawText(TEXT("Reset all spent talent points?"),FLinearColor(0.92f,0.86f,0.96f),
     DialogL+18.f,DialogT+56.f,nullptr,Width<600.f?0.57f:0.80f);
-  DrawText(TEXT("D-pad: choose   A: confirm"),FLinearColor(0.77f,0.78f,0.90f),
+  DrawText(TEXT("D-pad: choose   A: confirm   B/Esc: cancel"),FLinearColor(0.77f,0.78f,0.90f),
     DialogL+18.f,DialogT+82.f,nullptr,Width<600.f?0.49f:0.65f);
   for (int32 Choice=0;Choice<2;++Choice) {
    const float X=DialogL+14.f+Choice*(ButtonW+14.f);
