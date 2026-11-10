@@ -666,6 +666,28 @@ class UE5RewardParity(unittest.TestCase):
         self.assertIn("ECC_Visibility", pickup)
         self.assertIn("if (IsValid(Loot)) Loot->TryCollect();", pickup)
 
+    def test_pickup_prunes_expensive_visibility_traces_and_recovers_missing_saved_drops(self):
+        pickup = self.hero.split("void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[1].split(
+            "void AMoonfallHeroPawn::EquipBestInventoryAction()", 1)[0]
+        self.assertIn("for (int32 Attempt = 0; Attempt < 2; ++Attempt)", pickup)
+        self.assertIn("NearbyLoot.Reset();", pickup)
+        self.assertIn("NearbyDistanceSq.Reset();", pickup)
+        self.assertIn("if (InsertAt >= MaxLootPerPress) continue;", pickup)
+        self.assertLess(pickup.index("if (InsertAt >= MaxLootPerPress) continue;"),
+                        pickup.index("GetWorld()->LineTraceSingleByChannel("))
+        self.assertLess(pickup.index("GetWorld()->LineTraceSingleByChannel("),
+                        pickup.index("NearbyLoot.Insert(Candidate, InsertAt);"))
+        self.assertIn("if (!NearbyLoot.IsEmpty() || Attempt > 0) break;", pickup)
+        self.assertIn("if (Record.LevelId != CurrentLevelId) continue;", pickup)
+        self.assertIn("if (FMath::Abs(Record.Location.Z - HeroPosition.Z) > 150.f) continue;", pickup)
+        self.assertIn("if (!bNearbySavedLoot) break;", pickup)
+        self.assertIn("RestorePendingWorldEquipmentDrops();", pickup)
+        self.assertLess(pickup.index("if (!bNearbySavedLoot) break;"),
+                        pickup.index("RestorePendingWorldEquipmentDrops();"))
+        self.assertEqual(pickup.count("RestorePendingWorldEquipmentDrops();"), 1)
+        self.assertIn("constexpr int32 MaxLootPerPress = 6;", pickup)
+        self.assertIn("if (IsValid(Loot)) Loot->TryCollect();", pickup)
+
     def test_equipment_remains_manual_and_hud_shows_rewards(self):
         self.assertIn("void PickupNearestGroundLoot();", self.hero_h)
         self.assertIn("Loot->TryCollect()", self.hero)
