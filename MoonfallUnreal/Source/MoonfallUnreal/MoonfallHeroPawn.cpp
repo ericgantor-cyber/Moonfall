@@ -241,7 +241,22 @@ void AMoonfallHeroPawn::ToggleKeyRing()
   bKeyRingInventoryOpen = !bKeyRingInventoryOpen;
 }
 
-void AMoonfallHeroPawn::AwardEnemyCurrency(bool bEliteEnemy, bool bBossEnemy)
+void AMoonfallHeroPawn::SpawnMilestoneKey(const FVector& Location)
+{
+ if (!GetWorld() || HasQuestKey(FName(TEXT("fallen_gate_key")))) return;
+ // One outstanding world key at a time. Save/load can recreate a missed drop
+ // near the player, so a lost temporary actor never soft-locks the dungeon.
+ for (TActorIterator<AMoonfallKeyPickup> It(GetWorld()); It; ++It)
+  if (IsValid(*It) && It->KeyId == FName(TEXT("fallen_gate_key"))) return;
+ FActorSpawnParameters Params;
+ Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+ AMoonfallKeyPickup* Pickup = GetWorld()->SpawnActor<AMoonfallKeyPickup>(
+   AMoonfallKeyPickup::StaticClass(), Location + FVector(0.f, 0.f, 32.f),
+   FRotator::ZeroRotator, Params);
+ if (Pickup) Pickup->KeyId = FName(TEXT("fallen_gate_key"));
+}
+
+void AMoonfallHeroPawn::AwardEnemyCurrency(bool bEliteEnemy, bool bBossEnemy, FVector DefeatedLocation)
 {
  // Invoke only from a confirmed enemy death, never from the damage or HUD loop.
  if (Health <= 0.f) return;
@@ -250,12 +265,14 @@ void AMoonfallHeroPawn::AwardEnemyCurrency(bool bEliteEnemy, bool bBossEnemy)
  const int64 BaseGold = 3 + ConfirmedRewardKills / 4;
  AddGold(BaseGold);
  if (ConfirmedRewardKills == 5)
-  CollectQuestKey(FName(TEXT("fallen_gate_key")));
+  SpawnMilestoneKey(DefeatedLocation);
 }
 
 void AMoonfallHeroPawn::BeginPlay() {
  Super::BeginPlay();
  LoadRewardProgress();
+ if (ConfirmedRewardKills >= 5 && !HasQuestKey(FName(TEXT("fallen_gate_key"))))
+  SpawnMilestoneKey(GetActorLocation() + GetActorForwardVector() * 125.f);
  // Blueprint defaults are applied after the native constructor. Capture the
  // actual authored walk speed before sprint/guard begin changing MaxWalkSpeed.
  if (GetCharacterMovement()) {
