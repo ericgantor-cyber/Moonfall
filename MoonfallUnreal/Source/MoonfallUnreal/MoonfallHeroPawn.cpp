@@ -12,6 +12,8 @@
 #include "MoonfallEnemy.h"
 #include "MoonfallGroundLoot.h"
 #include "MoonfallCombatHUD.h"
+#include "MoonfallProgressSaveGame.h"
+#include "Kismet/GameplayStatics.h"
 #include "GameFramework/PlayerController.h"
 #include "EngineUtils.h"
 #include "Components/SkeletalMeshComponent.h"
@@ -254,6 +256,168 @@ AMoonfallHeroPawn::AMoonfallHeroPawn()
  FinisherFlash->SetAttenuationRadius(420.f);
  FinisherFlash->SetVisibility(false);
 }
+// Only progression is saved here. Inventory/gear/world snapshots are separate
+// systems; never restore stale inventory or equipment codes from this slot.
+bool AMoonfallHeroPawn::SaveProgress()
+{
+ if (!HasAuthority() || Level < 1 || Level > 100) return false;
+ UMoonfallProgressSaveGame* Save = Cast<UMoonfallProgressSaveGame>(
+   UGameplayStatics::CreateSaveGameObject(UMoonfallProgressSaveGame::StaticClass()));
+ if (!Save) return false;
+ Save->Version = 1;
+ Save->Level = Level;
+ Save->Experience = FMath::Max(0,Experience);
+ Save->MaxHealth = FMath::Clamp(FMath::IsFinite(MaxHealth) ? MaxHealth : 100.f,100.f,20000.f);
+ Save->MaxMana = FMath::Clamp(FMath::IsFinite(MaxMana) ? MaxMana : 100.f,100.f,20000.f);
+ Save->RootRanks = {TalentForceRank,TalentFocusRank,TalentWardRank};
+ Save->CoreUnlocks = {
+    uint8(bTalentForceKeystone),
+    uint8(bTalentFocusKeystone),
+    uint8(bTalentWardKeystone),
+    uint8(bTalentBattleWeave),
+    uint8(bTalentArcaneAegis),
+    uint8(bTalentIronWill),
+    uint8(bTalentStarbreaker),
+    uint8(bTalentAstralSurge),
+    uint8(bTalentEternalSentinel),
+    uint8(bTalentVoidCrown),
+    uint8(bTalentCelestialWell),
+    uint8(bTalentAdamantOath),
+    uint8(bTalentEclipseHeart),
+    uint8(bTalentInfiniteCurrent),
+    uint8(bTalentWorldguard),
+    uint8(bTalentDuskSovereign),
+    uint8(bTalentSoulConduit),
+    uint8(bTalentUnbrokenBastion),
+    uint8(bTalentNightfallAscension),
+    uint8(bTalentRadiantNexus),
+    uint8(bTalentTitanSoul),
+    uint8(bTalentCrimsonNova),
+    uint8(bTalentAetherCovenant),
+    uint8(bTalentLastCitadel)
+ };
+ Save->AstralUnlocks = AstralTalentUnlocked;
+ // No corrupted save may be emitted if a Blueprint/external edit expanded the array.
+ if (Save->AstralUnlocks.Num() != AstralTalentCount) return false;
+ if (UGameplayStatics::SaveGameToSlot(Save,TEXT("MoonfallHeroProgressV1"),0)) {
+  bProgressDirty = false;
+  if (GetWorld()) LastProgressSaveAt = GetWorld()->GetTimeSeconds();
+  return true;
+ }
+ return false;
+}
+
+bool AMoonfallHeroPawn::LoadProgress()
+{
+ if (!HasAuthority() ||
+     !UGameplayStatics::DoesSaveGameExist(TEXT("MoonfallHeroProgressV1"),0)) return false;
+ const UMoonfallProgressSaveGame* Save = Cast<UMoonfallProgressSaveGame>(
+   UGameplayStatics::LoadGameFromSlot(TEXT("MoonfallHeroProgressV1"),0));
+ if (!Save || Save->Version != 1 || Save->Level < 1 || Save->Level > 100 ||
+     Save->RootRanks.Num() != 3 || Save->CoreUnlocks.Num() != 24 ||
+     Save->AstralUnlocks.Num() != AstralTalentCount ||
+     !FMath::IsFinite(Save->MaxHealth) || !FMath::IsFinite(Save->MaxMana) ||
+     Save->MaxHealth < 100.f || Save->MaxHealth > 20000.f ||
+     Save->MaxMana < 100.f || Save->MaxMana > 20000.f) return false;
+ const int32 Threshold = 100 + (Save->Level - 1) * 55;
+ if (Save->Experience < 0 || Save->Experience >= Threshold ||
+     (Save->Level == 100 && Save->Experience != 0)) return false;
+
+ int32 Spent = 0;
+ for (int32 Rank : Save->RootRanks) {
+  if (Rank < 0 || Rank > 10) return false;
+  Spent += Rank;
+ }
+ // Core nodes are topologically ordered, so every requirement can only
+ // reference an earlier unlock (roots are represented by their three ranks).
+ static const int32 PrerequisiteA[24] = {
+  -1,-1,-1,0,1,2,3,3,4,6,7,8,9,9,10,12,12,13,15,15,16,18,18,19
+ };
+ static const int32 PrerequisiteB[24] = {
+  -1,-1,-1,1,2,0,5,4,5,7,8,6,11,10,11,14,13,14,17,16,17,20,19,20
+ };
+ for (int32 I = 0; I < 24; ++I) {
+  const uint8 Owned = Save->CoreUnlocks[I];
+  if (Owned > 1) return false;
+  if (!Owned) continue;
+  ++Spent;
+  if (I < 3) {
+   if (Save->RootRanks[I] < 3) return false;
+  } else if (!Save->CoreUnlocks[PrerequisiteA[I]] ||
+             !Save->CoreUnlocks[PrerequisiteB[I]]) return false;
+ }
+ // The Astral stage-0 stars depend on Tier IX; later stages chain in
+ // increasing order, with every sixth stage also requiring a cross-link.
+ for (int32 I = 0; I < AstralTalentCount; ++I) {
+  const uint8 Owned = Save->AstralUnlocks[I];
+  if (Owned > 1) return false;
+  if (!Owned) continue;
+  ++Spent;
+  const int32 Stage = I / 3;
+  const int32 Branch = I % 3;
+  if (Stage == 0) {
+   if (!Save->CoreUnlocks[21 + Branch]) return false;
+  } else {
+   if (!Save->AstralUnlocks[I - 3]) return false;
+   if (Stage % 6 == 0 &&
+       !Save->AstralUnlocks[(Stage - 1)*3 + (Branch + 1)%3]) return false;
+  }
+ }
+ // Keep a single authoritative Level-derived budget, even if a save was edited.
+ if (Spent > Save->Level - 1) return false;
+
+ // Atomic application only after the entire snapshot has passed validation.
+ Level = Save->Level;
+ Experience = Save->Experience;
+ ExperienceToNextLevel = Threshold;
+ MaxHealth = Save->MaxHealth;
+ MaxMana = Save->MaxMana;
+ SpellPowerMultiplier = 1.f + 0.025f * FMath::Min(Level - 1, 30)
+   + 0.012f * FMath::Max(0, Level - 31);
+ Health = FMath::Clamp(Health,1.f,MaxHealth);
+ Mana = FMath::Clamp(Mana,0.f,MaxMana);
+ TalentForceRank = Save->RootRanks[0];
+ TalentFocusRank = Save->RootRanks[1];
+ TalentWardRank = Save->RootRanks[2];
+ bool* const CoreFlags[24] = {
+    &bTalentForceKeystone,
+    &bTalentFocusKeystone,
+    &bTalentWardKeystone,
+    &bTalentBattleWeave,
+    &bTalentArcaneAegis,
+    &bTalentIronWill,
+    &bTalentStarbreaker,
+    &bTalentAstralSurge,
+    &bTalentEternalSentinel,
+    &bTalentVoidCrown,
+    &bTalentCelestialWell,
+    &bTalentAdamantOath,
+    &bTalentEclipseHeart,
+    &bTalentInfiniteCurrent,
+    &bTalentWorldguard,
+    &bTalentDuskSovereign,
+    &bTalentSoulConduit,
+    &bTalentUnbrokenBastion,
+    &bTalentNightfallAscension,
+    &bTalentRadiantNexus,
+    &bTalentTitanSoul,
+    &bTalentCrimsonNova,
+    &bTalentAetherCovenant,
+    &bTalentLastCitadel
+ };
+ for (int32 I = 0; I < 24; ++I)
+  *CoreFlags[I] = Save->CoreUnlocks[I] != 0;
+ AstralTalentUnlocked = Save->AstralUnlocks;
+ bProgressDirty = false;
+ return true;
+}
+
+void AMoonfallHeroPawn::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+ if (bProgressDirty) SaveProgress();
+ Super::EndPlay(EndPlayReason);
+}
+
 void AMoonfallHeroPawn::BeginPlay() {
  Super::BeginPlay();
  // Blueprint defaults are applied after the native constructor. Capture the
@@ -278,10 +442,17 @@ void AMoonfallHeroPawn::BeginPlay() {
  const TSharedPtr<IPlugin> DLSS = IPluginManager::Get().FindPlugin(TEXT("DLSS"));
  bFrameGenerationPluginDetected = (FSR.IsValid() && FSR->IsEnabled()) || (DLSS.IsValid() && DLSS->IsEnabled());
  // Detection is only a hint, never proof of a supported frame-generation runtime.
+ LoadProgress();
 }
 void AMoonfallHeroPawn::Tick(float DeltaSeconds)
 {
  Super::Tick(DeltaSeconds);
+ // No disk writes per frame or per attack. Persist dirty XP/talents every 16s
+ // and on normal world teardown; if a write fails it remains dirty for retry.
+ if (bProgressDirty && GetWorld() &&
+     FMath::IsFinite(GetWorld()->GetTimeSeconds()) &&
+     GetWorld()->GetTimeSeconds() - LastProgressSaveAt >= 16.f)
+  SaveProgress();
  UpdateNativeFinisher(DeltaSeconds);
  // Expire the visible combo stage even if the player stops attacking.
  // Also discard defeated or destroyed targets to avoid a stale combo HUD.
@@ -1308,6 +1479,7 @@ bool AMoonfallHeroPawn::UnlockAstralTalent(int32 Index)
 {
  if (!CanUnlockAstralTalent(Index) || !AstralTalentUnlocked.IsValidIndex(Index)) return false;
  AstralTalentUnlocked[Index] = 1;
+ bProgressDirty = true;
  return true;
 }
 
@@ -1358,6 +1530,7 @@ bool AMoonfallHeroPawn::SpendTalentPoint(int32 Branch)
    : (Branch == 1 ? &TalentFocusRank : (Branch == 2 ? &TalentWardRank : nullptr));
  if (!Rank || *Rank < 0 || *Rank >= 10) return false;
  ++(*Rank);
+ bProgressDirty = true;
  return true;
 }
 
@@ -1459,6 +1632,7 @@ bool AMoonfallHeroPawn::UnlockTalentNode(int32 Node)
    : Node == 26 ? &bTalentLastCitadel : nullptr;
  if (!Flag || *Flag) return false;
  *Flag = true;
+ bProgressDirty = true;
  return true;
 }
 
@@ -1504,6 +1678,7 @@ bool AMoonfallHeroPawn::RespecTalents()
  bTalentAetherCovenant = false;
  bTalentLastCitadel = false;
  AstralTalentUnlocked.Init(uint8(0), AstralTalentCount);
+ bProgressDirty = true;
  return true;
 }
 
@@ -2091,6 +2266,7 @@ void AMoonfallHeroPawn::AwardExperience(int32 Amount)
   OnHealthChanged(Health, MaxHealth);
  }
  if (Level >= 100) Experience = 0;
+ bProgressDirty = true;
 }
 
 int32 AMoonfallHeroPawn::RollEquipmentCode(bool bEliteEnemy, bool bBossEnemy)
