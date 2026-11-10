@@ -54,7 +54,8 @@ void AMoonfallKeyGate::BeginPlay()
   if (!UGameplayStatics::DoesSaveGameExist(SlotName, 0)) return;
   const UMoonfallRewardSaveGame* Saved = Cast<UMoonfallRewardSaveGame>(
     UGameplayStatics::LoadGameFromSlot(SlotName, 0));
-  if (!Saved || Saved->SchemaVersion != 2 || !Saved->UnlockedGateIds.Contains(GateId))
+  if (!Saved || (Saved->SchemaVersion != 2 && Saved->SchemaVersion != 3)
+      || !Saved->UnlockedGateIds.Contains(GateId))
    return;
  }
  ApplyOpenState();
