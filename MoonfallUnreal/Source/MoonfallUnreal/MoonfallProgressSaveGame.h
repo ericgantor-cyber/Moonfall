@@ -20,4 +20,12 @@ public:
  UPROPERTY(SaveGame) TArray<uint8> CoreUnlocks;
  // 111 one-point flags for Astral nodes 27..137.
  UPROPERTY(SaveGame) TArray<uint8> AstralUnlocks;
+ // Version 2: validated inventory/gear snapshot. A version-1 slot still
+ // loads progression only; no upgrade code touches that legacy inventory.
+ UPROPERTY(SaveGame) TArray<int32> InventoryCodes;
+ UPROPERTY(SaveGame) int32 EquippedWeapon = 0;
+ UPROPERTY(SaveGame) int32 EquippedArmor = 0;
+ UPROPERTY(SaveGame) int32 EquippedAccessory = 0;
+ UPROPERTY(SaveGame) int32 SalvageMaterials = 0;
+
 };
