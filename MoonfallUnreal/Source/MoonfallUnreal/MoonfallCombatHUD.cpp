@@ -580,6 +580,64 @@ void AMoonfallCombatHUD::DrawHUD()
    DrawText(FString::Printf(TEXT("Level %d  |  XP %d / %d  |  Salvage %d"),
       Hero->Level, Hero->Experience, Hero->ExperienceToNextLevel, Hero->Salvage),
       FLinearColor(0.78f,0.83f,1.f), Left + 18.f, Top + 57.f, nullptr, 0.95f);
+   // WoW Forever-style breakdown on accessible C subpages. The original
+   // overview and B/C switching behavior stay unchanged. These are Moonfall
+   // derived values, not exact WoW class ratings.
+   if (Hero->CharacterStatsPage != 0) {
+    const bool bOffense = Hero->CharacterStatsPage == 1;
+    const FString StatLinesOffense[] = {
+     TEXT("PRIMARY ATTRIBUTES"),
+     FString::Printf(TEXT("Strength: %d    Agility: %d"),Hero->GetStrength(),Hero->GetAgility()),
+     FString::Printf(TEXT("Stamina: %d    Intellect: %d"),Hero->GetStaminaAttribute(),Hero->GetIntellect()),
+     FString::Printf(TEXT("Spirit: %d"),Hero->GetSpirit()),
+     TEXT("ATTACK AND SPELL POWER"),
+     FString::Printf(TEXT("Melee AP: %.0f    Ranged AP: %.0f"),Hero->GetMeleeAttackPower(),Hero->GetRangedAttackPower()),
+     FString::Printf(TEXT("Hit Chance: %.1f%%    Critical: %.1f%%"),
+        Hero->GetHitChance()*100.f,Hero->GetCriticalChance()*100.f),
+     FString::Printf(TEXT("Haste: %.1f%%    Mastery: %.1f%%"),
+        Hero->GetHasteBonus()*100.f,Hero->GetMasteryBonus()*100.f),
+     FString::Printf(TEXT("Spell Damage: %.0f    Spell Healing: %.0f"),
+        Hero->GetSpellDamagePower(),Hero->GetSpellHealingPower()),
+     FString::Printf(TEXT("Spell Penetration: %.0f    Spell Pierce: %.0f"),
+        Hero->GetSpellPenetration(),Hero->GetSpellPierce()),
+     FString::Printf(TEXT("Versatility: %.1f%%"),Hero->GetVersatilityBonus()*100.f),
+     TEXT("Moonfall scaling; not WoW class formulas")
+    };
+    const FString StatLinesDefense[] = {
+     TEXT("DEFENSIVE RATINGS"),
+     FString::Printf(TEXT("Armor: %d    Defense: %d"),Hero->GetArmorRating(),Hero->GetDefenseRating()),
+     FString::Printf(TEXT("Dodge: %.1f%%    Parry: %.1f%%"),
+        Hero->GetDodgeChance()*100.f,Hero->GetParryChance()*100.f),
+     FString::Printf(TEXT("Block chance: %.1f%%    Block value: %.1f"),
+        Hero->GetBlockChance()*100.f,Hero->GetBlockValue()),
+     TEXT("ELEMENTAL RESISTANCES"),
+     FString::Printf(TEXT("Fire: %.0f    Frost: %.0f"),Hero->GetResistance(0),Hero->GetResistance(1)),
+     FString::Printf(TEXT("Nature: %.0f    Shadow: %.0f"),Hero->GetResistance(2),Hero->GetResistance(3)),
+     FString::Printf(TEXT("Arcane: %.0f"),Hero->GetResistance(4)),
+     TEXT("RESOURCE TOTALS"),
+     FString::Printf(TEXT("Health: %.0f / %.0f"),Hero->Health,Hero->MaxHealth),
+     FString::Printf(TEXT("Mana: %.0f / %.0f"),Hero->Mana,Hero->MaxMana),
+     FString::Printf(TEXT("Stamina: %.0f / %.0f"),Hero->Stamina,Hero->MaxStamina),
+     TEXT("Some ratings are informational until combat school support")
+    };
+    const int32 StatCount = bOffense ? UE_ARRAY_COUNT(StatLinesOffense) : UE_ARRAY_COUNT(StatLinesDefense);
+    const float DetailRow = FMath::Clamp((PanelHeight-145.f)/float(StatCount),10.f,34.f);
+    const float DetailScale = PanelHeight < 370.f ? 0.52f
+       : (Canvas->SizeX < 900.f ? 0.73f : 0.91f);
+    for (int32 I = 0; I < StatCount; ++I) {
+     const FString& Line = bOffense ? StatLinesOffense[I] : StatLinesDefense[I];
+     const bool bSection = Line == TEXT("PRIMARY ATTRIBUTES") ||
+       Line == TEXT("ATTACK AND SPELL POWER") || Line == TEXT("DEFENSIVE RATINGS") ||
+       Line == TEXT("ELEMENTAL RESISTANCES") || Line == TEXT("RESOURCE TOTALS");
+     DrawText(Line,bSection ? FLinearColor(0.55f,0.94f,0.77f) : FLinearColor::White,
+       Left+18.f,Top+96.f+I*DetailRow,nullptr,DetailScale);
+    }
+    DrawText(FString::Printf(TEXT("C STATS %d / 3    PgUp/PgDn or D-pad: switch    C/A/B: close"),
+        Hero->CharacterStatsPage + 1),
+      FLinearColor(0.83f,0.83f,0.98f),Left+18.f,Top+PanelHeight-29.f,
+      nullptr,Canvas->SizeX<900.f ? 0.54f : 0.78f);
+    return;
+   }
    const float RowHeight = FMath::Clamp((PanelHeight - 145.f) / 11.f, 13.f, 36.f);
    const float StartY = Top + 96.f;
    const FString CharacterLines[] = {
