@@ -1922,6 +1922,94 @@ bool AMoonfallHeroPawn::CollectGroundEquipmentCode(int32 ItemCode)
  return true;
 }
 
+bool AMoonfallHeroPawn::CollectPersistedGroundEquipmentCode(int32 ItemCode, const FGuid& DropId)
+{
+ if (!DropId.IsValid()) return CollectGroundEquipmentCode(ItemCode);
+ const int32 Index = PendingWorldLoot.IndexOfByPredicate(
+   [&](const FMoonfallWorldLootRecord& Record)
+   { return Record.DropId == DropId && Record.ItemCode == ItemCode; });
+ if (Index == INDEX_NONE) return false;
+ // SaveRewardProgress is invoked once by the bag transaction. On failure
+ // CollectGroundEquipmentCode restores the bag and equipped state, and the
+ // ledger is restored here so the physical pickup stays available.
+ const FMoonfallWorldLootRecord Record = PendingWorldLoot[Index];
+ PendingWorldLoot.RemoveAt(Index);
+ if (CollectGroundEquipmentCode(ItemCode)) return true;
+ PendingWorldLoot.Insert(Record, Index);
+ return false;
+}
+
+bool AMoonfallHeroPawn::RegisterWorldEquipmentDrop(int32 ItemCode, const FVector& Location)
+{
+ if (!GetWorld() || bRewardSaveLoadFailed || PendingWorldLoot.Num() >= 512
+     || Location.ContainsNaN() || ItemCode <= 0) return false;
+ const int32 Affix = ItemCode / 100000;
+ const int32 Slot = (ItemCode / 10000) % 10;
+ const int32 Rarity = (ItemCode / 1000) % 10;
+ const int32 Tier = ItemCode % 1000;
+ if (Affix < 0 || Affix > 3 || Slot < 0 || Slot > 2
+     || Rarity < 0 || Rarity > 5 || Tier < 1 || Tier > 25
+     || (Rarity == 0 && Affix != 0)
+     || ItemCode != Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier)
+  return false;
+ FMoonfallWorldLootRecord Record;
+ Record.DropId = FGuid::NewGuid();
+ Record.ItemCode = ItemCode;
+ Record.Location = Location;
+ PendingWorldLoot.Add(Record);
+ if (!SaveRewardProgress())
+ {
+  PendingWorldLoot.Pop();
+  KeyInteractionNotice = TEXT("WORLD LOOT SAVE FAILED - DROP NOT COMMITTED");
+  bKeyInteractionNoticeError = true;
+  KeyInteractionNoticeUntil = GetWorld()->GetTimeSeconds() + 6.f;
+  return false;
+ }
+ // Persist first, then materialize. If spawning fails or process exits,
+ // the record survives and is recreated on the next load.
+ const FTransform SpawnTransform(FRotator::ZeroRotator, Location);
+ AMoonfallGroundLoot* Loot = Cast<AMoonfallGroundLoot>(
+   UGameplayStatics::BeginDeferredActorSpawnFromClass(
+     this, AMoonfallGroundLoot::StaticClass(), SpawnTransform,
+     ESpawnActorCollisionHandlingMethod::AlwaysSpawn));
+ if (Loot)
+ {
+  Loot->SetPersistentDropId(Record.DropId);
+  Loot->InitializeLoot(ItemCode);
+  UGameplayStatics::FinishSpawningActor(Loot, SpawnTransform);
+ }
+ return true;
+}
+
+void AMoonfallHeroPawn::RestorePendingWorldEquipmentDrops()
+{
+ if (!GetWorld() || bRewardSaveLoadFailed) return;
+ // Replay only committed IDs. Scan existing actors to avoid duplicates if
+ // this function is invoked again in the same world.
+ for (const FMoonfallWorldLootRecord& Record : PendingWorldLoot)
+ {
+  bool bAlreadySpawned = false;
+  for (TActorIterator<AMoonfallGroundLoot> It(GetWorld()); It; ++It)
+  {
+   if (IsValid(*It) && It->GetPersistentDropId() == Record.DropId)
+   {
+    bAlreadySpawned = true;
+    break;
+   }
+  }
+  if (bAlreadySpawned) continue;
+  const FTransform SpawnTransform(FRotator::ZeroRotator, Record.Location);
+  AMoonfallGroundLoot* Loot = Cast<AMoonfallGroundLoot>(
+    UGameplayStatics::BeginDeferredActorSpawnFromClass(
+      this, AMoonfallGroundLoot::StaticClass(), SpawnTransform,
+      ESpawnActorCollisionHandlingMethod::AlwaysSpawn));
+  if (!Loot) continue;
+  Loot->SetPersistentDropId(Record.DropId);
+  Loot->InitializeLoot(Record.ItemCode);
+  UGameplayStatics::FinishSpawningActor(Loot, SpawnTransform);
+ }
+}
+
 void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(bool bEliteEnemy, bool bBossEnemy, FVector DefeatedLocation)
 {
  if (!GetWorld() || Health <= 0.f) return;
@@ -1936,11 +2024,7 @@ void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(bool bEliteEnemy, bool bBossEne
   const float Spread = DropCount == 1 ? 0.f : 105.f;
   const FVector SpawnAt = Origin + FVector(Spread * FMath::Cos(Angle),
     Spread * FMath::Sin(Angle), 45.f);
-  FActorSpawnParameters Params;
-  Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-  if (AMoonfallGroundLoot* Loot = GetWorld()->SpawnActor<AMoonfallGroundLoot>(
-      AMoonfallGroundLoot::StaticClass(), SpawnAt, FRotator::ZeroRotator, Params))
-   Loot->InitializeLoot(ItemCode);
+  RegisterWorldEquipmentDrop(ItemCode, SpawnAt);
  }
 }
 
