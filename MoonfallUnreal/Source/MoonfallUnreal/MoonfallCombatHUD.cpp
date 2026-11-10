@@ -22,14 +22,26 @@ int32 AMoonfallCombatHUD::GetInventoryItemAtScreenPosition(
  if (!Canvas || !IsValid(Hero) || !Hero->bInventoryOpen ||
      Hero->bOptionsOpen ||
      !FMath::IsFinite(X) || !FMath::IsFinite(Y)) return -1;
- // The C page has its own clickable actions, not bag-row hit testing.
- if (Hero->bCharacterStatsOpen) return -1;
+ // In combined view the left bag remains selectable while C stays open.
+ if (!Hero->bBagPanelOpen) return -1;
  // The SORT button owns its entire rectangle, even when a compact
  // viewport puts it over an equipment row. Neither mouse button can
  // accidentally select or equip a row through the SORT control.
  if (IsInventorySortButtonAtScreenPosition(Hero, X, Y)) return -1;
  const int32 Count = Hero->InventoryItemCodes.Num();
  if (Count <= 0) return -1;
+ if (MoonfallDualPanels(Canvas,Hero)) {
+  float L=0.f,T=0.f,W=0.f,H=0.f;
+  MoonfallDualBagGeometry(Canvas,L,T,W,H);
+  const int32 Per=FMath::Clamp(FMath::FloorToInt((H-230.f)/25.f),2,20);
+  const int32 Start=FMath::Clamp(Hero->InventoryViewStart,0,FMath::Max(0,Count-Per));
+  if (X<L+12.f || X>L+W-12.f) return -1;
+  for (int32 Index=Start;Index<FMath::Min(Count,Start+Per);++Index) {
+   const float RowTop=T+100.f+(Index-Start)*25.f;
+   if (Y>=RowTop && Y<RowTop+23.f) return Index;
+  }
+  return -1;
+ }
  const bool bWideInventory = Canvas->SizeX >= 1100.f && Canvas->SizeY >= 600.f;
  const float PanelWidth = FMath::Min(bWideInventory ? 1040.f : 680.f, FMath::Max(280.f, Canvas->SizeX - 24.f));
  const float ListWidth = bWideInventory ? PanelWidth - 340.f : PanelWidth;
@@ -109,7 +121,7 @@ int32 AMoonfallCombatHUD::GetCharacterActionAtScreenPosition(
  return -1;
 }
 
-static bool MoonfallBagActionRect(const UCanvas* Canvas, int32 Action,
+static bool MoonfallBagActionRect(const UCanvas* Canvas, bool bDual, int32 Action,
     float& X, float& Y, float& W, float& H)
 {
  if (!Canvas || Action < 0 || Action >= 8) return false;
@@ -117,24 +129,26 @@ static bool MoonfallBagActionRect(const UCanvas* Canvas, int32 Action,
  const float PanelWidth=FMath::Min(bWide ? 1040.f : 680.f,
    FMath::Max(280.f,Canvas->SizeX-24.f));
  const float PanelHeight=FMath::Min(860.f,FMath::Max(280.f,Canvas->SizeY-24.f));
- const float Left=(Canvas->SizeX-PanelWidth)*0.5f;
- const float Top=(Canvas->SizeY-PanelHeight)*0.5f;
- W=(PanelWidth-42.f)/4.f;
+ float Left=(Canvas->SizeX-PanelWidth)*0.5f;
+ float Top=(Canvas->SizeY-PanelHeight)*0.5f;
+ float ActualWidth=PanelWidth,ActualHeight=PanelHeight;
+ if (bDual) MoonfallDualBagGeometry(Canvas,Left,Top,ActualWidth,ActualHeight);
+ W=(ActualWidth-42.f)/4.f;
  H=32.f;
  X=Left+12.f+float(Action%4)*(W+6.f);
- Y=Top+PanelHeight-82.f+float(Action/4)*37.f;
+ Y=Top+ActualHeight-82.f+float(Action/4)*37.f;
  return true;
 }
 
 int32 AMoonfallCombatHUD::GetInventoryActionAtScreenPosition(
     const AMoonfallHeroPawn* Hero,float X,float Y) const
 {
- if (!Canvas || !IsValid(Hero) || !Hero->bInventoryOpen ||
-     Hero->bCharacterStatsOpen || Hero->bOptionsOpen ||
+ if (!Canvas || !IsValid(Hero) || !Hero->bBagPanelOpen ||
+     Hero->bOptionsOpen ||
      !FMath::IsFinite(X) || !FMath::IsFinite(Y)) return -1;
  for (int32 Action=0;Action<8;++Action) {
   float BX=0.f,BY=0.f,BW=0.f,BH=0.f;
-  if (!MoonfallBagActionRect(Canvas,Action,BX,BY,BW,BH)) continue;
+  if (!MoonfallBagActionRect(Canvas,MoonfallDualPanels(Canvas,Hero),Action,BX,BY,BW,BH)) continue;
   if (X>=BX && X<BX+BW && Y>=BY && Y<BY+BH) return Action;
  }
  return -1;
@@ -196,9 +210,15 @@ int32 AMoonfallCombatHUD::GetAtlasMenuActionAtScreenPosition(
 bool AMoonfallCombatHUD::IsInventorySortButtonAtScreenPosition(
     const AMoonfallHeroPawn* Hero, float X, float Y) const
 {
- if (!Canvas || !IsValid(Hero) || !Hero->bInventoryOpen ||
-     Hero->bCharacterStatsOpen || Hero->bOptionsOpen ||
+ if (!Canvas || !IsValid(Hero) || !Hero->bBagPanelOpen ||
+     Hero->bOptionsOpen ||
      !FMath::IsFinite(X) || !FMath::IsFinite(Y)) return false;
+ if (MoonfallDualPanels(Canvas,Hero)) {
+  float L=0.f,T=0.f,W=0.f,H=0.f;
+  MoonfallDualBagGeometry(Canvas,L,T,W,H);
+  return X>=L+W-158.f && X<L+W-10.f &&
+      Y>=T+12.f && Y<T+45.f;
+ }
  const bool bWideInventory = Canvas->SizeX >= 1100.f && Canvas->SizeY >= 600.f;
  const float PanelWidth = FMath::Min(bWideInventory ? 1040.f : 680.f,
    FMath::Max(280.f, Canvas->SizeX - 24.f));
@@ -1218,7 +1238,7 @@ void AMoonfallCombatHUD::DrawHUD()
   };
   for (int32 Action=0;Action<8;++Action) {
    float BX=0.f,BY=0.f,BW=0.f,BH=0.f;
-   if (!MoonfallBagActionRect(Canvas,Action,BX,BY,BW,BH)) continue;
+   if (!MoonfallBagActionRect(Canvas,MoonfallDualPanels(Canvas,Hero),Action,BX,BY,BW,BH)) continue;
    const bool Enabled=Action>=6 || Count>0;
    DrawRect(Hero->MenuActionFocus==Action ? FLinearColor(0.72f,0.53f,0.20f) :
      Enabled ? FLinearColor(0.15f,0.38f,0.45f,0.97f)
