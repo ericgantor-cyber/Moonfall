@@ -1780,7 +1780,7 @@ void AMoonfallHeroPawn::AwardExperience(int32 Amount)
  if (Level >= 100) Experience = 0;
 }
 
-int32 AMoonfallHeroPawn::RollEquipmentCode(bool bEliteEnemy, bool bBossEnemy)
+int32 AMoonfallHeroPawn::RollEquipmentCode(bool bEliteEnemy, bool bBossEnemy, int32 PreferredSlot)
 {
  if (Health <= 0.f) return 0;
  // Roll randomized item stats once at death; pickup is handled separately.
@@ -1806,7 +1806,8 @@ int32 AMoonfallHeroPawn::RollEquipmentCode(bool bEliteEnemy, bool bBossEnemy)
  LastLootTier = NewTier;
  // Enemy rank influences quality, not gear slot: any enemy can drop
  // weapons, armor, or accessories.
- LastLootSlot = FMath::RandRange(0, 2);
+ LastLootSlot = PreferredSlot >= 0 && PreferredSlot <= 2
+   ? PreferredSlot : FMath::RandRange(0, 2);
  // Rare and better drops carry one randomized trait. Lower rarities may
  // roll a trait, but common items never do. These are encoded in item IDs.
  LastLootAffix = LastLootRarity == 0 ? 0
@@ -2032,9 +2033,19 @@ void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(bool bEliteEnemy, bool bBossEne
  const FVector Origin = DefeatedLocation.ContainsNaN() ? GetActorLocation() : DefeatedLocation;
  TArray<FMoonfallWorldLootRecord> Drops;
  Drops.Reserve(DropCount);
+ // Randomized without replacement for the first three rewards, so a boss
+ // always drops weapon, armor and accessory before its optional wild-card.
+ TArray<int32> UnusedSlots = {0, 1, 2};
  for (int32 Drop = 0; Drop < DropCount; ++Drop)
  {
-  const int32 ItemCode = RollEquipmentCode(bEliteEnemy, bBossEnemy);
+  int32 PreferredSlot = INDEX_NONE;
+  if (!UnusedSlots.IsEmpty())
+  {
+   const int32 Choice = FMath::RandRange(0, UnusedSlots.Num() - 1);
+   PreferredSlot = UnusedSlots[Choice];
+   UnusedSlots.RemoveAtSwap(Choice);
+  }
+  const int32 ItemCode = RollEquipmentCode(bEliteEnemy, bBossEnemy, PreferredSlot);
   if (ItemCode <= 0) continue;
   const float Angle = 2.f * PI * static_cast<float>(Drop) / static_cast<float>(DropCount);
   const float Spread = DropCount == 1 ? 0.f : 105.f;
