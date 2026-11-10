@@ -140,6 +140,19 @@ class InventoryCapacityPort(unittest.TestCase):
         self.assertIn("HUD->GetInventoryItemAtScreenPosition", right)
 
 
+    def test_mouse_and_controller_focus_share_the_same_button(self):
+        click = body(self.hero, "void AMoonfallHeroPawn::LeftClickContextAction()")
+        # Mouse actions update controller focus, so switching input methods
+        # cannot silently activate a different, stale menu action.
+        for name in ("Action", "BagAction"):
+            statement = "MenuActionFocus=" + name + ";"
+            self.assertIn(statement, click)
+        self.assertLess(click.index("MenuActionFocus=BagAction;"),
+                        click.index("if (BagAction == 6)"))
+        self.assertLess(click.index("MenuActionFocus=Action;", click.index("if (bCharacterStatsOpen)")),
+                        click.index("if (Action == 7)"))
+        self.assertIn("MenuActionFocus=Action;\\n       OptionsSelection=Action%7;".replace("\\n","\n"),click)
+
     def test_controller_focus_and_confirm_for_main_menus(self):
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
         header = (ROOT / "MoonfallHeroPawn.h").read_text(encoding="utf-8")
