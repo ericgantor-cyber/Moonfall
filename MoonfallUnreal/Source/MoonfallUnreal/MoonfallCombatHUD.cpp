@@ -372,7 +372,7 @@ void AMoonfallCombatHUD::DrawHUD()
   DrawText(FString::Printf(TEXT("Sets: Force %d/3  Ward %d/3  Focus %d/3    2pc + 3pc unlock bonuses"),
     ForcePieces, WardPieces, FocusPieces), FLinearColor(0.59f,0.95f,0.77f),
     Left + 18.f, Top + 113.f, nullptr, Canvas->SizeX < 900.f ? 0.61f : 0.72f);
-  DrawText(TEXT("F8 / L3: sort gear  |  Left-click: select  |  Up/Down: browse  |  Right-click row: equip"),
+  DrawText(TEXT("F8 / L3: sort gear  |  Wheel: browse 3  |  Left-click: select  |  Right-click row: equip"),
      FLinearColor(0.8f,0.93f,0.98f), Left + 18.f, Top + PanelHeight - 73.f, nullptr, 0.72f);
   DrawText(TEXT("Left-click: select  Up/Down: browse  Left/Right: skip 5  Right-click row: equip  Delete / X: salvage"),
      FLinearColor::White, Left + 18.f, Top + PanelHeight - 51.f, nullptr, 0.75f);
