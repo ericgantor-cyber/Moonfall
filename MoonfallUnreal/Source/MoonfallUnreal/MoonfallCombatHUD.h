@@ -11,13 +11,23 @@ public:
  virtual void DrawHUD() override;
  // Current one-bag visible capacity, shared with mouse-wheel bounds.
  int32 GetInventoryVisibleRowCount() const;
- // Read-only hit test for the currently displayed inventory page.
+ // Read-only hit test for the visible rows of the single scrolling bag.
  // Returns -1 if the pointer is outside a visible equipment row.
  int32 GetInventoryItemAtScreenPosition(const AMoonfallHeroPawn* Hero, float X, float Y) const;
  // Visible SORT button hit test, shared with the inventory drawing geometry.
  bool IsInventorySortButtonAtScreenPosition(const AMoonfallHeroPawn* Hero, float X, float Y) const;
- // Click-to-equip in the wide inspection pane. Never targets a hidden item.
 private:
+ // Throttle the full-bag advisor scan so 9,999 items aren't evaluated on
+ // every frame. All resulting advice remains read-only and never equips.
+ const AMoonfallHeroPawn* CachedAdvisorHero = nullptr;
+ int32 CachedAdvisorIndex = -1;
+ int32 CachedAdvisorCount = -1;
+ int32 CachedAdvisorWeapon = -1;
+ int32 CachedAdvisorArmor = -1;
+ int32 CachedAdvisorAccessory = -1;
+ int32 CachedAdvisorSortMode = -1;
+ int32 CachedAdvisorItemCode = -1;
+ float NextAdvisorRefreshAt = -1.f;
  float DisplayHealth = -1.f;
  float DisplayMana = -1.f;
  float DisplayStamina = -1.f;
