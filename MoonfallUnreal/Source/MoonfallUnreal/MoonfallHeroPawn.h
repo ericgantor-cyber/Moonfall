@@ -209,6 +209,9 @@ public:
  void UnlockArcaneAegis();
  void UnlockIronWill();
  UFUNCTION(BlueprintCallable, Category="Moonfall|Talents") bool RespecTalents();
+ // Respec is armed on first press and confirmed on a second explicit press.
+ // Leaving the talent menu cancels it, protecting invested points.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") bool bTalentRespecArmed = false;
  void RespecTalentAction();
 
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Inventory") bool bCharacterStatsOpen = false;
