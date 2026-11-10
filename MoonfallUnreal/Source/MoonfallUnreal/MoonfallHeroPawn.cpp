@@ -365,11 +365,23 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("OptionsRight"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsRight);
 }
 void AMoonfallHeroPawn::ZoomCameraIn() {
- if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen) return;
+ if (!FMath::IsFinite(Health) || Health <= 0.f || bOptionsOpen || bAtlasOpen) return;
+ if (bInventoryOpen) {
+  // Wheel up browses gear instead of changing the camera behind the menu.
+  InventorySelection = FMath::Clamp(InventorySelection - 3, 0,
+    FMath::Max(0, InventoryItemCodes.Num() - 1));
+  return;
+ }
  CameraDistance = FMath::Clamp((FMath::IsFinite(CameraDistance) ? CameraDistance : 450.f) - 65.f, 250.f, 850.f);
 }
 void AMoonfallHeroPawn::ZoomCameraOut() {
- if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bAtlasOpen) return;
+ if (!FMath::IsFinite(Health) || Health <= 0.f || bOptionsOpen || bAtlasOpen) return;
+ if (bInventoryOpen) {
+  // Wheel down browses three rows, without equipping or salvaging.
+  InventorySelection = FMath::Clamp(InventorySelection + 3, 0,
+    FMath::Max(0, InventoryItemCodes.Num() - 1));
+  return;
+ }
  CameraDistance = FMath::Clamp((FMath::IsFinite(CameraDistance) ? CameraDistance : 450.f) + 65.f, 250.f, 850.f);
 }
 void AMoonfallHeroPawn::TryJump()
@@ -1297,7 +1309,7 @@ void AMoonfallHeroPawn::OptionsDown() {
 }
 void AMoonfallHeroPawn::OptionsLeft() {
  if (bInventoryOpen) {
-  // Directional input only navigates. Confirm (Enter / Y) equips gear.
+  // Directional input only browses gear. Equipping is row right-click only.
   InventorySelection = FMath::Clamp(InventorySelection - 5, 0,
     FMath::Max(0, InventoryItemCodes.Num() - 1));
   return;
