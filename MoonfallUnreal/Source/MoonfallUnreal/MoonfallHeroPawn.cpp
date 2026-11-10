@@ -2121,10 +2121,15 @@ void AMoonfallHeroPawn::CycleInventorySort()
  if (!bBagPanelOpen || bOptionsOpen ||
      (bCharacterStatsOpen && bMenuFocusCharacter) ||
      !FMath::IsFinite(Health) || Health <= 0.f) return;
- EnsureInventoryPickupIds();
  // 0=original pickup order, 1=quality, 2=slot. All are reachable.
  InventorySortMode=(FMath::Clamp(InventorySortMode,0,2)+1)%3;
+ ApplyInventorySortPreservingSelection();
  bProgressDirty=true;
+}
+
+void AMoonfallHeroPawn::ApplyInventorySortPreservingSelection()
+{
+ EnsureInventoryPickupIds();
  if (InventoryItemCodes.Num()<2) return;
  const int32 OldSelection=FMath::Clamp(InventorySelection,0,InventoryItemCodes.Num()-1);
  const int32 SelectedId=InventoryPickupIds[OldSelection];
@@ -2736,6 +2741,8 @@ void AMoonfallHeroPawn::AwardEquipmentDrop(bool bEliteEnemy, bool bBossEnemy)
  EnsureInventoryPickupIds();
  InventoryItemCodes.Add(ItemCode);
  InventoryPickupIds.Add(NextInventoryPickupId++);
+ // Keep the selected sort mode accurate immediately after new loot arrives.
+ if (InventorySortMode != 0) ApplyInventorySortPreservingSelection();
  LastLootAffix = RolledAffix;
  LastLootSlot = RolledSlot;
  LastLootRarity = RolledRarity;
@@ -2807,6 +2814,8 @@ bool AMoonfallHeroPawn::CollectGroundEquipmentCode(int32 ItemCode)
  EnsureInventoryPickupIds();
  InventoryItemCodes.Add(ItemCode);
  InventoryPickupIds.Add(NextInventoryPickupId++);
+ // Keep the selected sort mode accurate immediately after new loot arrives.
+ if (InventorySortMode != 0) ApplyInventorySortPreservingSelection();
  LastLootAffix = Affix;
  LastLootSlot = SlotIndex;
  LastLootRarity = Rarity;
