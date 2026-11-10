@@ -27,11 +27,11 @@ int32 AMoonfallCombatHUD::GetInventoryItemAtScreenPosition(
  const float PanelHeight = FMath::Min(860.f, FMath::Max(280.f, Canvas->SizeY - 24.f));
  const float Left = (Canvas->SizeX - PanelWidth) * 0.5f;
  const float Top = (Canvas->SizeY - PanelHeight) * 0.5f;
- const int32 PerPage = FMath::Clamp(FMath::FloorToInt((PanelHeight - 290.f) / 25.f), 2, 22);
+ const int32 PerPage = FMath::Clamp(FMath::FloorToInt((PanelHeight - 355.f) / 25.f), 2, 20);
  const int32 Selected = FMath::Clamp(Hero->InventorySelection, 0, Count - 1);
  const int32 PageStart = FMath::Clamp(Hero->InventoryViewStart, 0, FMath::Max(0, Count - PerPage));
  const int32 PageEnd = FMath::Min(Count, PageStart + PerPage);
- const float RowSpacing = FMath::Max(21.f, (PanelHeight - 290.f) / PerPage);
+ const float RowSpacing = FMath::Max(21.f, (PanelHeight - 355.f) / PerPage);
  if (X < Left + 12.f || X > Left + ListWidth - 12.f) return -1;
  for (int32 Index = PageStart; Index < PageEnd; ++Index) {
   const float RowTop = Top + 145.f + (Index - PageStart) * RowSpacing - 3.f;
@@ -192,7 +192,7 @@ void AMoonfallCombatHUD::DrawHUD()
   }
   const int32 Count = Hero->InventoryItemCodes.Num();
   // Show as many bag rows as fit without covering the summary and controls.
-  const int32 PerPage = FMath::Clamp(FMath::FloorToInt((PanelHeight - 290.f) / 25.f), 2, 22);
+  const int32 PerPage = FMath::Clamp(FMath::FloorToInt((PanelHeight - 355.f) / 25.f), 2, 20);
   const int32 Selected = FMath::Clamp(Hero->InventorySelection, 0, FMath::Max(0, Count - 1));
   const int32 PageStart = FMath::Clamp(Hero->InventoryViewStart, 0, FMath::Max(0, Count - PerPage));
   const int32 PageEnd = FMath::Min(Count, PageStart + PerPage);
@@ -222,7 +222,7 @@ void AMoonfallCombatHUD::DrawHUD()
   if (Count == 0)
    DrawText(TEXT("No equipment yet. Defeat enemies to find gear."), FLinearColor::White,
      Left + 18.f, Top + 100.f, nullptr, 0.92f);
-  const float RowSpacing = FMath::Max(21.f, (PanelHeight - 290.f) / PerPage);
+  const float RowSpacing = FMath::Max(21.f, (PanelHeight - 355.f) / PerPage);
   for (int32 Index = PageStart; Index < PageEnd; ++Index) {
    const int32 Code = Hero->InventoryItemCodes[Index];
    const int32 Affix = Code / 100000;
