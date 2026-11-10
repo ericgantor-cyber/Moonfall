@@ -107,6 +107,19 @@ Moonfall's fully migrated Godot world or finished dungeon.
 - Test scripted equipment grants with both empty and occupied slots.
   They share the same pickup transaction and do not replace occupied gear.
 
+## Diverse loot categories within an encounter
+
+- For the first three equipment drops from one enemy, choose random
+  weapon/armor/accessory categories **without replacement**. Bosses with
+  three or four drops therefore cover all three categories, and elites
+  with two drops get two different equipment categories.
+- A fourth bonus boss drop has a fully randomized category. Rarity, traits,
+  tier range, atomic world-loot saving, and empty-slot-only auto-equip remain
+  unchanged.
+- Native UE5 test: defeat several elites and bosses, confirm category
+  coverage and save/reload of each exact item code. Repeat with failed
+  saves to verify the same diverse items reappear as temporary drops.
+
 ## Randomized enemy loot
 
 - Regular enemies always roll one item plus a 20% chance for a second.
