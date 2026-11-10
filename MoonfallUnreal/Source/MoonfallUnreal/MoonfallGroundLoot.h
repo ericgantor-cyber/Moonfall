@@ -16,6 +16,7 @@ public:
  void InitializeLoot(int32 InItemCode);
  int32 GetItemCode() const { return ItemCode; }
  void SetPersistentDropId(const FGuid& Id) { PersistentDropId = Id; }
+ const FGuid& GetPersistentDropId() const { return PersistentDropId; }
  bool TryCollect();
 private:
  UPROPERTY(VisibleAnywhere) USceneComponent* SceneRoot;
