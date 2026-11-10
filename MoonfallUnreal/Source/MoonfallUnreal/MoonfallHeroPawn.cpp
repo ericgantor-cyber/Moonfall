@@ -1627,7 +1627,9 @@ bool AMoonfallHeroPawn::TryInteractWithNearbyKey()
  for (TActorIterator<AMoonfallKeyPickup> It(GetWorld()); It && Scanned < 128; ++It)
  {
   ++Scanned;
-  if (IsValid(*It) && !HasQuestKey(It->KeyId)) Consider(*It);
+  // Include leftover actors for already-collected keys so TryCollect can
+  // remove them if their BeginPlay ran before the player loaded its save.
+  if (IsValid(*It)) Consider(*It);
  }
  Scanned = 0;
  for (TActorIterator<AMoonfallKeyGate> It(GetWorld()); It && Scanned < 128; ++It)
