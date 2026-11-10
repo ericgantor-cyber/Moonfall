@@ -14,4 +14,5 @@ public:
  UPROPERTY(SaveGame) int64 Gold = 0;
  UPROPERTY(SaveGame) int64 ConfirmedKills = 0;
  UPROPERTY(SaveGame) TArray<FName> CollectedKeys;
+ UPROPERTY(SaveGame) TArray<FName> CompletedFactionQuests;
 };
