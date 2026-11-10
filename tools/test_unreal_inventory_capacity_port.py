@@ -235,6 +235,24 @@ class InventoryCapacityPort(unittest.TestCase):
             self.assertIn("ResetMouseCastChord();", method)
         self.assertIn("// The defeat screen owns input until respawn; do not reopen gameplay menus.", self.hero)
 
+    def test_cursor_mode_updates_after_menu_state_transitions(self):
+        # UI mode must be refreshed only after changing the modal flags.
+        inventory = body(self.hero, "void AMoonfallHeroPawn::ToggleInventory()")
+        character = body(self.hero, "void AMoonfallHeroPawn::ToggleCharacterStats()")
+        options = body(self.hero, "void AMoonfallHeroPawn::OpenOptions()")
+        bag_return = inventory.split("if (bCharacterStatsOpen) {", 1)[1].split("return;", 1)[0]
+        self.assertLess(bag_return.index("bCharacterStatsOpen = false;"),
+                        bag_return.index("UpdateInventoryMouseMode();"))
+        self.assertNotIn("UpdateInventoryMouseMode();\\n if (bCharacterStatsOpen)".replace("\\n","\n"), inventory)
+        self.assertNotIn("UpdateInventoryMouseMode();\\n if (!bInventoryOpen)".replace("\\n","\n"), character)
+        sheet_open = character.split("} else {", 1)[1]
+        self.assertLess(sheet_open.index("bCharacterStatsOpen = true;"),
+                        sheet_open.index("UpdateInventoryMouseMode();"))
+        for flag in ("bAtlasOpen = false;", "bInventoryOpen = false;"):
+            branch = options.split(flag, 1)[1].split("return;", 1)[0]
+            self.assertIn("MenuActionFocus = -1;", branch)
+            self.assertIn("UpdateInventoryMouseMode();", branch)
+
     def test_controller_focus_and_confirm_for_main_menus(self):
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
         header = (ROOT / "MoonfallHeroPawn.h").read_text(encoding="utf-8")
