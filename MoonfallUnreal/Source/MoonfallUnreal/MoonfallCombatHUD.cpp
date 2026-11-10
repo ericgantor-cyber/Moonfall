@@ -217,10 +217,10 @@ void AMoonfallCombatHUD::DrawHUD()
      TrackX,TrackTop + ScrollRatio * (TrackHeight - ThumbHeight),4.f,ThumbHeight);
   }
   // Scrolling does not alter selection: make an off-screen selection obvious.
-  if (Count > 0 && (Selected < PageStart || Selected >= PageEnd))
+  if (PanelHeight >= 500.f && Count > 0 && (Selected < PageStart || Selected >= PageEnd))
    DrawText(FString::Printf(TEXT("Selected item %d is %s"),
      Selected + 1, Selected < PageStart ? TEXT("above") : TEXT("below")),
-     FLinearColor(0.92f,0.84f,0.53f),Left + 18.f,Top + PanelHeight - 196.f,
+     FLinearColor(0.92f,0.84f,0.53f),Left + 18.f,Top + PanelHeight - 219.f,
      nullptr,0.72f);
   // Local advisor reads inventory and current set bonuses, never mutates gear.
   // Show the inventory index even when its recommendation is outside the visible bag.
