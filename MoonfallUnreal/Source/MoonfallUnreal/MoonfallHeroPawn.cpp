@@ -305,8 +305,10 @@ bool AMoonfallHeroPawn::SaveProgress()
  Save->EquippedArmor = EquippedArmorCode;
  Save->EquippedAccessory = EquippedAccessoryCode;
  Save->SalvageMaterials = Salvage;
+ Save->InventorySortMode = InventorySortMode;
  if (Save->InventoryCodes.Num() > MaxInventoryItems ||
-     Save->SalvageMaterials < 0 || Save->SalvageMaterials > 9999) return false;
+     Save->SalvageMaterials < 0 || Save->SalvageMaterials > 9999 ||
+     (Save->InventorySortMode != 1 && Save->InventorySortMode != 2)) return false;
  for (int32 Code : Save->InventoryCodes) {
   int32 Trait = 0, Rarity = 0, Tier = 0;
   const int32 Slot = (Code / 10000) % 10;
@@ -394,7 +396,8 @@ bool AMoonfallHeroPawn::LoadProgress()
  // any stat, root rank or resource. V1 preserves the preexisting inventory.
  if (Save->Version == 2) {
   if (Save->InventoryCodes.Num() > MaxInventoryItems ||
-      Save->SalvageMaterials < 0 || Save->SalvageMaterials > 9999) return false;
+      Save->SalvageMaterials < 0 || Save->SalvageMaterials > 9999 ||
+     (Save->InventorySortMode != 1 && Save->InventorySortMode != 2)) return false;
   for (int32 Code : Save->InventoryCodes) {
    int32 Trait = 0, Rarity = 0, Tier = 0;
    const int32 Slot = (Code / 10000) % 10;
@@ -428,6 +431,7 @@ bool AMoonfallHeroPawn::LoadProgress()
   AccessoryAffix = EquippedAccessoryCode > 0 ? EquippedAccessoryCode / 100000 : 0;
   EquipmentTier = FMath::Max(WeaponTier,FMath::Max(ArmorTier,AccessoryTier));
   Salvage = Save->SalvageMaterials;
+  InventorySortMode = Save->InventorySortMode;
   InventorySelection = 0;
   InventoryViewStart = 0;
  }
