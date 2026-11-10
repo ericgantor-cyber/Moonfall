@@ -25,6 +25,7 @@ public:
  bool TryCollect(AActor* Candidate);
 
 protected:
+ void RefreshKeyLabel();
  UPROPERTY(VisibleAnywhere) TObjectPtr<USceneComponent> KeyRoot;
  UPROPERTY(VisibleAnywhere) TObjectPtr<UStaticMeshComponent> KeyMesh;
  UPROPERTY(VisibleAnywhere) TObjectPtr<UTextRenderComponent> KeyLabel;
