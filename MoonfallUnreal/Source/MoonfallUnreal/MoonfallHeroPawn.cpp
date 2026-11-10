@@ -267,7 +267,8 @@ bool AMoonfallHeroPawn::SaveProgress()
  Save->Version = 1;
  Save->Level = Level;
  Save->Experience = FMath::Max(0,Experience);
- Save->MaxHealth = FMath::Clamp(FMath::IsFinite(MaxHealth) ? MaxHealth : 100.f,100.f,20000.f);
+ Save->MaxHealth = FMath::Clamp(FMath::IsFinite(MaxHealth)
+   ? MaxHealth - 2.f * FMath::Clamp(ArmorTier,0,25) : 100.f,100.f,20000.f);
  Save->MaxMana = FMath::Clamp(FMath::IsFinite(MaxMana) ? MaxMana : 100.f,100.f,20000.f);
  Save->RootRanks = {TalentForceRank,TalentFocusRank,TalentWardRank};
  Save->CoreUnlocks = {
@@ -370,7 +371,7 @@ bool AMoonfallHeroPawn::LoadProgress()
  Level = Save->Level;
  Experience = Save->Experience;
  ExperienceToNextLevel = Threshold;
- MaxHealth = Save->MaxHealth;
+ MaxHealth = Save->MaxHealth + 2.f * FMath::Clamp(ArmorTier,0,25);
  MaxMana = Save->MaxMana;
  SpellPowerMultiplier = 1.f + 0.025f * FMath::Min(Level - 1, 30)
    + 0.012f * FMath::Max(0, Level - 31);
