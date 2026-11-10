@@ -146,9 +146,9 @@ class UE5RewardParity(unittest.TestCase):
         self.assertNotIn("OnComponentBeginOverlap", gate_cpp)
 
     def test_v2_saves_retain_v1_compatibility_and_named_gates(self):
-        self.assertIn("int32 SchemaVersion = 2;", self.save)
+        self.assertIn("int32 SchemaVersion = 3;", self.save)
         self.assertIn("TArray<FName> UnlockedGateIds;", self.save)
-        self.assertIn("Save->SchemaVersion != 1 && Save->SchemaVersion != 2", self.hero)
+        self.assertIn("Save->SchemaVersion != 1 && Save->SchemaVersion != 2 && Save->SchemaVersion != 3", self.hero)
         self.assertIn("if (Save->SchemaVersion >= 2)", self.hero)
         self.assertIn("Save->UnlockedGateIds = UnlockedGateIds;", self.hero)
         self.assertIn("UnlockedGateIds.Num() < 256", self.hero)
@@ -178,7 +178,7 @@ class UE5RewardParity(unittest.TestCase):
             "bool AMoonfallKeyGate::TryUnlock(", 1)[0]
         self.assertIn("if (GateId.IsNone()) return;", load)
         self.assertIn("UGameplayStatics::LoadGameFromSlot(SlotName, 0)", load)
-        self.assertIn("Saved->SchemaVersion != 2", load)
+        self.assertIn("Saved->SchemaVersion != 2 && Saved->SchemaVersion != 3", load)
         self.assertIn("Saved->UnlockedGateIds.Contains(GateId)", load)
         self.assertIn("ApplyOpenState();", load)
         self.assertIn("OnSavedGateRestored();", load)
@@ -305,7 +305,7 @@ class UE5RewardParity(unittest.TestCase):
             "bool AMoonfallHeroPawn::SaveRewardProgress()", 1)[0]
         self.assertIn("bRewardSaveLoadFailed = true;", loader)
         self.assertIn("bRewardSaveLoadFailed = false;", loader)
-        self.assertIn("Save->SchemaVersion != 1 && Save->SchemaVersion != 2", loader)
+        self.assertIn("Save->SchemaVersion != 1 && Save->SchemaVersion != 2 && Save->SchemaVersion != 3", loader)
         validated_load = loader.split("if (!Save ||", 1)[1]
         self.assertIn("CollectedKeys.Reset();", validated_load)
         self.assertIn("Gold = 0;", validated_load)
@@ -375,6 +375,34 @@ class UE5RewardParity(unittest.TestCase):
         self.assertIn("if (GrantedGold <= 0)", kill)
         self.assertIn("SpawnMilestoneKey(DefeatedLocation);", kill)
         self.assertIn("Hero->KeyInteractionNoticeUntil > NowSeconds", self.hud)
+
+    def test_v3_ground_loot_pickup_is_durable_and_transactional(self):
+        ground = (ROOT / "MoonfallGroundLoot.cpp").read_text()
+        self.assertIn("int32 SchemaVersion = 3;", self.save)
+        self.assertIn("TArray<int32> InventoryItemCodes;", self.save)
+        self.assertIn("Save->InventoryItemCodes = InventoryItemCodes;", self.hero)
+        loader = self.hero.split("bool AMoonfallHeroPawn::LoadRewardProgress()", 1)[1].split(
+            "bool AMoonfallHeroPawn::SaveRewardProgress()", 1)[0]
+        self.assertIn("if (Save->SchemaVersion >= 3)", loader)
+        self.assertIn("InventoryItemCodes.Reset();", loader)
+        self.assertIn("InventoryItemCodes.Num() >= 4096", loader)
+        self.assertIn("InventoryItemCodes.Add(Code);", loader)
+        method = self.hero.split("bool AMoonfallHeroPawn::CollectGroundEquipmentCode(", 1)[1].split(
+            "void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(", 1)[0]
+        self.assertIn("InventoryItemCodes.Add(ItemCode);", method)
+        self.assertIn("if (!SaveRewardProgress())", method)
+        self.assertIn("InventoryItemCodes.Pop();", method)
+        self.assertIn("LOOT SAVE FAILED - ITEM LEFT ON GROUND", method)
+        self.assertLess(method.index("InventoryItemCodes.Add(ItemCode);"),
+                        method.index("if (!SaveRewardProgress())"))
+        self.assertLess(method.index("if (!SaveRewardProgress())"),
+                        method.index("LastLootAffix = Affix;"))
+        self.assertIn("!Hero->CollectGroundEquipmentCode(ItemCode)", ground)
+        self.assertLess(ground.index("!Hero->CollectGroundEquipmentCode(ItemCode)"),
+                        ground.index("bCollected = true;"))
+        self.assertLess(ground.index("bCollected = true;"), ground.index("Destroy();"))
+        gate = (ROOT / "MoonfallKeyGate.cpp").read_text()
+        self.assertIn("Saved->SchemaVersion != 2 && Saved->SchemaVersion != 3", gate)
 
     def test_equipment_remains_manual_and_hud_shows_rewards(self):
         self.assertIn("void PickupNearestGroundLoot();", self.hero_h)
