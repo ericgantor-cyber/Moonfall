@@ -93,6 +93,20 @@ Moonfall's fully migrated Godot world or finished dungeon.
   loaded reward save is corrupt or has an unsupported schema.
 - Z and Nyra's original artwork is not edited.
 
+## Empty-slot-only auto-equip verification
+
+- Start with an empty weapon, armor and accessory loadout. Collect one item
+  for each slot using F/controller pickup. Each first item should equip,
+  and the inventory and loadout should survive a save/restart.
+- Collect a stronger item for an occupied slot. It must enter the bag
+  without replacing the currently worn piece; equipping an upgrade remains
+  an explicit inventory action.
+- With writes denied, collect an item for an empty slot. The bag entry,
+  equipped code, tier and affix, and any armor-derived health bonus must
+  roll back; the world pickup remains available for retry.
+- Test scripted equipment grants with both empty and occupied slots.
+  They share the same pickup transaction and do not replace occupied gear.
+
 ## UE5 loot and save v3 verification
 
 - Upgrade a copy of a valid schema-v1 or v2 reward save. Gold, keys, quests
