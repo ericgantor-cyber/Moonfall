@@ -165,7 +165,7 @@ func _refresh_realm_choices() -> void:
   key_ring_details.text = KEY_RING.display_lines(key_ring_state)
  if is_instance_valid(gear_status):
   var stats:Dictionary=EQUIPMENT.totals(gear_state)
-  gear_status.text="GEAR | Weapon +"+str(stats["weapon_power"])+" • Armor "+str(stats["armor"])+" • Magic "+str(stats["magic"])+" | Owned types "+str(gear_state.get("items",{}).size())
+  gear_status.text="GOLD "+str(gear_state.get("gold",0))+" | GEAR | Weapon +"+str(stats["weapon_power"])+" • Armor "+str(stats["armor"])+" • Magic "+str(stats["magic"])+" | Owned types "+str(gear_state.get("items",{}).size())
  var decided:bool = state["choices"].has("realm_village_aid") or state["choices"].has("realm_village_betray")
  for button in realm_choice_buttons:
   if is_instance_valid(button):
@@ -197,6 +197,9 @@ func _apply_player_hit(target:Dictionary,base_damage:float,stagger_strength:floa
   return
  target["realm_kill_recorded"]=true
  realm_victories+=1
+ # Collect enemy gold directly into the persistent purse with no pickup key.
+ var gold_found:int=3+mini(60,realm_victories/4)
+ EQUIPMENT.add_gold(gear_state,gold_found)
  if realm_victories==5:_award_key("fallen_gate_key")
  # Award one deterministic catalog item for each confirmed player kill.
  var dropped:Dictionary=EQUIPMENT.loot_enemy(gear_state,maxi(1,realm_victories/6+1),realm_victories*37)
@@ -233,6 +236,7 @@ func _toggle_key_ring()->void:
  _refresh_realm_choices()
 
 func _award_key(key_id:String)->void:
+ # Quest and milestone keys enter the ring immediately, without a bag action.
  if KEY_RING.add_key(key_ring_state,key_id):
   key_ring_expanded = true
   _show_message("Key collected: "+str(KEY_RING.KEY_NAMES[key_id]),3.0)
