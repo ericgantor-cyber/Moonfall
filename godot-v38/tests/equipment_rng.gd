@@ -122,6 +122,18 @@ func _run()->void:
   loot_open["items"][loot_id]=9998
   check(not INVENTORY.loot_enemy(loot_open,12,42).is_empty(),"available stack accepts enemy loot")
   check(int(loot_open["items"][loot_id])==9999 and loot_open["loot_rolls"].size()==1,"successful loot grants one item and one roll")
+ # Oversized live histories must shrink to the same 250-roll save bound.
+ var oversized:Dictionary=INVENTORY.new_state()
+ for i in range(500):
+  oversized["loot_rolls"].append({"item_id":"ashwood_sword","rarity_index":0,"power_bonus":i})
+ var old_history:Array=oversized["loot_rolls"].duplicate(true)
+ var bounded_drop:Dictionary=INVENTORY.loot_enemy(oversized,12,42)
+ check(not bounded_drop.is_empty(),"oversized history still awards valid enemy loot")
+ check(oversized["loot_rolls"].size()==250,"successful loot bounds oversized history to 250")
+ check(old_history.size()==500,"loot history trimming does not mutate old array aliases")
+ check(int(oversized["loot_rolls"][0]["power_bonus"])==251,"history retains newest 249 previous rolls")
+ check(oversized["loot_rolls"][-1]==bounded_drop["roll"],"latest awarded roll is recorded at history tail")
+ check(INVENTORY.normalize(oversized)["loot_rolls"].size()==250,"bounded loot history survives normalization")
  var state:Dictionary=INVENTORY.new_state()
  var drop:Dictionary=INVENTORY.loot_enemy(state,12,42)
  check(drop.has("roll") and state["loot_rolls"].size()==1,"loot roll persisted")
