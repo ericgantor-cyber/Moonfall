@@ -512,6 +512,16 @@ void AMoonfallHeroPawn::BeginPlay() {
 void AMoonfallHeroPawn::Tick(float DeltaSeconds)
 {
  Super::Tick(DeltaSeconds);
+ // Clear the confirmation visually as well as functionally when expired.
+ if (bTalentRespecArmed && GetWorld()) {
+  const float Now = GetWorld()->GetTimeSeconds();
+  if (!bAtlasOpen || !bTalentsOpen || !FMath::IsFinite(Now) ||
+      !FMath::IsFinite(TalentRespecConfirmUntil) ||
+      Now > TalentRespecConfirmUntil) {
+   bTalentRespecArmed = false;
+   TalentRespecConfirmUntil = -1.f;
+  }
+ }
  // No disk writes per frame or per attack. Persist dirty XP/talents every 16s
  // and on normal world teardown; if a write fails it remains dirty for retry.
  if (bProgressDirty && GetWorld() &&
@@ -1838,16 +1848,25 @@ void AMoonfallHeroPawn::UnlockIronWill() { UnlockTalentNode(8); }
 
 void AMoonfallHeroPawn::RespecTalentAction()
 {
+ const UWorld* World = GetWorld();
+ const float Now = World ? World->GetTimeSeconds() : -1.f;
  if (!bAtlasOpen || !bTalentsOpen || bInventoryOpen || bOptionsOpen ||
-     !FMath::IsFinite(Health) || Health <= 0.f) {
+     !FMath::IsFinite(Health) || Health <= 0.f ||
+     !World || !FMath::IsFinite(Now)) {
   bTalentRespecArmed = false;
+  TalentRespecConfirmUntil = -1.f;
   return;
  }
- if (!bTalentRespecArmed) {
+ // A confirmation expires after five seconds. A late second press re-arms
+ // instead of unexpectedly wiping 138 possible talent allocations.
+ if (!bTalentRespecArmed || !FMath::IsFinite(TalentRespecConfirmUntil) ||
+     Now > TalentRespecConfirmUntil) {
   bTalentRespecArmed = true;
+  TalentRespecConfirmUntil = Now + 5.f;
   return;
  }
  bTalentRespecArmed = false;
+ TalentRespecConfirmUntil = -1.f;
  RespecTalents();
 }
 
