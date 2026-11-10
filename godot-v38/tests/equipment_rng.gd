@@ -70,6 +70,13 @@ func _run()->void:
  var stats:Dictionary=INVENTORY.totals(empowered)
  check(int(stats["weapon_power"])==ordinary+10,"rolled Power and rarity modify equipped damage")
  check(int(stats["crit"])==3,"critical affix enters character stats")
+ # A corrupt saved roll cannot multiply a stat by repeating its affix.
+ var duplicate_affix:Dictionary=empowered.duplicate(true)
+ duplicate_affix["loot_rolls"]=[{"item_id":"ashwood_sword","rarity_index":3,"power_bonus":6,"affixes":[{"stat":"Power","value":4},{"stat":"Power","value":30},{"stat":"Crit","value":3},{"stat":"Crit","value":30},"invalid"]}]
+ var deduped:Dictionary=INVENTORY.totals(duplicate_affix)
+ check(int(deduped["weapon_power"])==ordinary+10,"duplicate Power affix cannot stack")
+ check(int(deduped["crit"])==3,"duplicate Crit affix cannot stack")
+ check(INVENTORY.totals(INVENTORY.normalize(duplicate_affix))==deduped,"duplicate-affix guard survives save roundtrip")
  check(int(INVENTORY.normalize(empowered)["loot_rolls"].size())==1,"bonuses survive save normalization")
  # Within the same rarity, the strongest valid roll must win rather than the oldest.
  empowered["loot_rolls"].append({"item_id":"ashwood_sword","rarity_index":3,"power_bonus":6,"affixes":[{"stat":"Power","value":9},{"stat":"Crit","value":4}]})
