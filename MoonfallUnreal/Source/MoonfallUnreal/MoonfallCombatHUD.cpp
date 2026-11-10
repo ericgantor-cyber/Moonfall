@@ -617,7 +617,7 @@ void AMoonfallCombatHUD::DrawHUD()
      FString::Printf(TEXT("Health: %.0f / %.0f"),Hero->Health,Hero->MaxHealth),
      FString::Printf(TEXT("Mana: %.0f / %.0f"),Hero->Mana,Hero->MaxMana),
      FString::Printf(TEXT("Stamina: %.0f / %.0f"),Hero->Stamina,Hero->MaxStamina),
-     TEXT("Some ratings are informational until combat school support")
+     TEXT("Elemental defenses active for school attacks; guard/dodge/parry stay manual")
     };
     const int32 StatCount = bOffense ? UE_ARRAY_COUNT(StatLinesOffense) : UE_ARRAY_COUNT(StatLinesDefense);
     const float DetailRow = FMath::Clamp((PanelHeight-145.f)/float(StatCount),10.f,34.f);
