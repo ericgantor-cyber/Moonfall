@@ -162,6 +162,10 @@ bool AMoonfallHeroPawn::LoadRewardProgress()
   UnlockedGateIds.Reset();
   InventoryItemCodes.Reset();
   Salvage = 0;
+  EquippedWeaponCode = EquippedArmorCode = EquippedAccessoryCode = 0;
+  WeaponTier = ArmorTier = AccessoryTier = 0;
+  WeaponAffix = ArmorAffix = AccessoryAffix = 0;
+  EquipmentTier = 0;
   bKeyRingExpanded = false;
   return true;
  }
@@ -182,6 +186,10 @@ bool AMoonfallHeroPawn::LoadRewardProgress()
  UnlockedGateIds.Reset();
  InventoryItemCodes.Reset();
  Salvage = 0;
+ EquippedWeaponCode = EquippedArmorCode = EquippedAccessoryCode = 0;
+ WeaponTier = ArmorTier = AccessoryTier = 0;
+ WeaponAffix = ArmorAffix = AccessoryAffix = 0;
+ EquipmentTier = 0;
  bKeyRingExpanded = false;
  Gold = FMath::Max<int64>(0, Save->Gold);
  ConfirmedRewardKills = FMath::Max<int64>(0, Save->ConfirmedKills);
@@ -225,6 +233,36 @@ bool AMoonfallHeroPawn::LoadRewardProgress()
     InventoryItemCodes.Add(Code);
   }
  }
+ // Restore only equipped items still present in the validated saved bag.
+ // Missing or malformed codes never grant combat stats on load.
+ if (Save->SchemaVersion >= 3)
+ {
+  const int32 SavedEquipped[3] = {Save->EquippedWeaponCode,
+    Save->EquippedArmorCode, Save->EquippedAccessoryCode};
+  int32* LiveCodes[3] = {&EquippedWeaponCode, &EquippedArmorCode,
+    &EquippedAccessoryCode};
+  int32* LiveTiers[3] = {&WeaponTier, &ArmorTier, &AccessoryTier};
+  int32* LiveAffixes[3] = {&WeaponAffix, &ArmorAffix, &AccessoryAffix};
+  for (int32 Slot = 0; Slot < 3; ++Slot)
+  {
+   const int32 Code = SavedEquipped[Slot];
+   const int32 Affix = Code / 100000;
+   const int32 EncodedSlot = (Code / 10000) % 10;
+   const int32 Rarity = (Code / 1000) % 10;
+   const int32 Tier = Code % 1000;
+   if (Code > 0 && EncodedSlot == Slot && Affix >= 0 && Affix <= 3
+       && Rarity >= 0 && Rarity <= 5 && Tier >= 1 && Tier <= 25
+       && (Rarity != 0 || Affix == 0)
+       && Code == Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier
+       && InventoryItemCodes.Contains(Code))
+   {
+    *LiveCodes[Slot] = Code;
+    *LiveTiers[Slot] = Tier;
+    *LiveAffixes[Slot] = Affix;
+   }
+  }
+  EquipmentTier = FMath::Max(WeaponTier, FMath::Max(ArmorTier, AccessoryTier));
+ }
  bKeyRingExpanded = !CollectedKeys.IsEmpty();
  return true;
 }
@@ -244,6 +282,9 @@ bool AMoonfallHeroPawn::SaveRewardProgress()
  Save->UnlockedGateIds = UnlockedGateIds;
  Save->InventoryItemCodes = InventoryItemCodes;
  Save->Salvage = FMath::Clamp(Salvage, 0, 9999);
+ Save->EquippedWeaponCode = EquippedWeaponCode;
+ Save->EquippedArmorCode = EquippedArmorCode;
+ Save->EquippedAccessoryCode = EquippedAccessoryCode;
  return UGameplayStatics::SaveGameToSlot(Save, RewardSaveSlot, RewardSaveUser);
 }
 
