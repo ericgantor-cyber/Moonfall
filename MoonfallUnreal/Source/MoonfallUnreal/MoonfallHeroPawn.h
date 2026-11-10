@@ -157,6 +157,18 @@ public:
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") bool bTalentCrimsonNova = false;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") bool bTalentAetherCovenant = false;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") bool bTalentLastCitadel = false;
+ // 111 additional Astral stars across three branches and 37 ranks.
+ // Entries are boolean unlocks, not editable point or power values.
+ static constexpr int32 AstralTalentCount = 111;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents")
+ TArray<uint8> AstralTalentUnlocked;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Talents") bool IsAstralTalentUnlocked(int32 Index) const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Talents") bool CanUnlockAstralTalent(int32 Index) const;
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Talents") bool UnlockAstralTalent(int32 Index);
+ UFUNCTION(BlueprintPure, Category="Moonfall|Talents") int32 GetAstralTalentCount(int32 Branch) const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Talents") FString GetAstralTalentName(int32 Index) const;
+ void SelectNextTalentPage();
+ void SelectPreviousTalentPage();
  UFUNCTION(BlueprintPure, Category="Moonfall|Talents") bool CanUnlockTalentNode(int32 Node) const;
  UFUNCTION(BlueprintCallable, Category="Moonfall|Talents") bool UnlockTalentNode(int32 Node);
  // Indexed player-side API shared by mouse, keyboard and controller navigation.
