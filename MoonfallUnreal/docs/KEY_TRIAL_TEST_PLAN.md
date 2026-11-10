@@ -75,6 +75,10 @@ Moonfall's fully migrated Godot world or finished dungeon.
 - Native validation should test a deliberately malformed/unsupported-version
   copy of the reward slot, confirm the original bytes are preserved, and
   restore the backup afterward.
+- Both the hero and named gates now read the shared save-slot identifier
+  from `UMoonfallRewardSaveGame::GetRewardSlotName()`; the existing on-disk
+  `Moonfall_RewardProgress_v1` filename is deliberately unchanged to
+  preserve v1/v2 save compatibility.
 - Named gates reuse the hero's already-validated reward state when the hero
   initializes first, avoiding one disk read per door. If a gate initializes
   first, it loads the existing reward slot directly. Check both initialization
