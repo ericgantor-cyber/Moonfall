@@ -225,7 +225,11 @@ class UE5RewardParity(unittest.TestCase):
         self.assertIn("Hero->HasQuestKey(KeyId)", key_cpp)
         self.assertIn("if (!Hero->CollectQuestKey(KeyId)) return false;", key_cpp)
         self.assertIn("Destroy();", key_cpp)
-        self.assertIn("if (IsValid(*It)) Consider(*It);", self.hero)
+        self.assertIn("if (HasQuestKey(Pickup->KeyId))", self.hero)
+        self.assertIn("StaleOwnedKeys.Add(Pickup);", self.hero)
+        self.assertIn("for (AMoonfallKeyPickup* Pickup : StaleOwnedKeys)", self.hero)
+        self.assertIn("if (IsValid(Pickup)) Pickup->Destroy();", self.hero)
+        self.assertIn("Consider(Pickup);", self.hero)
         self.assertNotIn("if (IsValid(*It) && !HasQuestKey(It->KeyId)) Consider(*It);", self.hero)
         self.assertIn('if (ConfirmedRewardKills >= 5 && !HasQuestKey(FName(TEXT("fallen_gate_key"))))', self.hero)
         self.assertIn("SpawnMilestoneKey(DefeatedLocation);", self.hero)
@@ -277,6 +281,20 @@ class UE5RewardParity(unittest.TestCase):
         self.assertIn("AActor* Nearest = nullptr;", interaction)
         self.assertIn("if (AMoonfallKeyPickup* Key = Cast<AMoonfallKeyPickup>(Nearest))", interaction)
         self.assertIn("if (AMoonfallKeyGate* Gate = Cast<AMoonfallKeyGate>(Nearest))", interaction)
+
+    def test_stale_owned_keys_do_not_preempt_new_door_interactions(self):
+        interaction = self.hero.split("bool AMoonfallHeroPawn::TryInteractWithNearbyKey()", 1)[1].split(
+            "void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[0]
+        self.assertIn("TArray<AMoonfallKeyPickup*> StaleOwnedKeys;", interaction)
+        self.assertIn("if (HasQuestKey(Pickup->KeyId))", interaction)
+        self.assertIn("StaleOwnedKeys.Add(Pickup);", interaction)
+        self.assertLess(interaction.index("StaleOwnedKeys.Add(Pickup);"),
+                        interaction.index("Consider(Pickup);"))
+        self.assertIn("for (AMoonfallKeyPickup* Pickup : StaleOwnedKeys)", interaction)
+        self.assertIn("if (IsValid(Pickup)) Pickup->Destroy();", interaction)
+        self.assertLess(interaction.index("for (AMoonfallKeyPickup* Pickup : StaleOwnedKeys)"),
+                        interaction.index("for (TActorIterator<AMoonfallKeyGate>"))
+        self.assertIn("if (NearestFacing) Nearest = NearestFacing;", interaction)
 
     def test_equipment_remains_manual_and_hud_shows_rewards(self):
         self.assertIn("void PickupNearestGroundLoot();", self.hero_h)
