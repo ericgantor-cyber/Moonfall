@@ -717,6 +717,43 @@ class InventoryCapacityPort(unittest.TestCase):
         self.assertIn("DamageAfterGuard *= 0.4f;", self.hero)
         self.assertIn("Guard, dodge and parry use player input, not passive stats", hud)
 
+    def test_elemental_resistances_and_penetration_affect_actual_combat(self):
+        enemy_h = (ROOT / "MoonfallEnemy.h").read_text(encoding="utf-8")
+        enemy = (ROOT / "MoonfallEnemy.cpp").read_text(encoding="utf-8")
+        hero_h = (ROOT / "MoonfallHeroPawn.h").read_text(encoding="utf-8")
+        hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        for name in ("FireResistance", "FrostResistance", "NatureResistance",
+                     "ShadowResistance", "ArcaneResistance"):
+            self.assertIn("float " + name + " = 0.f;", enemy_h)
+            self.assertIn(name, enemy)
+        self.assertIn("AttackMagicSchool = -1;", enemy_h)
+        self.assertIn("GetSchoolResistance(int32 School) const", enemy_h)
+        self.assertIn("FMath::Clamp(Resistance,0.f,100.f)", enemy)
+        self.assertIn("Hero->ApplyMoonfallElementalDamageFrom(", enemy)
+        self.assertIn("Hero->ApplyMoonfallDamageFrom(", enemy)
+        self.assertIn("bool ApplyMoonfallElementalDamageFrom(", hero_h)
+        self.assertIn("IncomingDamageSchool = -1;", hero_h)
+        magical = body(self.hero,
+            "bool AMoonfallHeroPawn::ApplyMoonfallElementalDamageFrom(")
+        self.assertIn("if (School < 0 || School >= 5) return ApplyMoonfallDamageFrom", magical)
+        self.assertIn("IncomingDamageSchool = School;", magical)
+        self.assertIn("IncomingDamageSchool = -1;", magical)
+        hurt = body(self.hero,"void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount)")
+        self.assertIn("GetResistance(IncomingDamageSchool)*0.004f",hurt)
+        self.assertIn("SchoolMitigation : ArmorMitigation;",hurt)
+        self.assertIn("DamageAfterGuard *= 0.4f;",hurt)
+        cast = body(self.hero,
+            "bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier, bool bOvercharged)")
+        self.assertIn("ElementSchoolForCast[6] = {0,1,4,-1,2,3}",cast)
+        self.assertIn("Enemy->GetSchoolResistance(ElementSchool)",cast)
+        self.assertIn("- GetSpellPenetration() - GetSpellPierce()",cast)
+        self.assertIn("ResistanceMultiplier * (1.f + GetMasteryBonus())",cast)
+        self.assertIn("Elemental defenses active for school attacks",hud)
+        for label in ("GetHitChance", "GetDodgeChance", "GetParryChance",
+                      "GetBlockChance", "GetBlockValue"):
+            self.assertNotIn(label,self.hero)
+            self.assertNotIn(label,hero_h)
+
     def test_inventory_has_no_equip_or_page_buttons(self):
         hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
         left = body(self.hero, "void AMoonfallHeroPawn::LeftClickContextAction()")
