@@ -14,6 +14,8 @@
 #include "Interfaces/IPluginManager.h"
 #include "MoonfallEnemy.h"
 #include "MoonfallGroundLoot.h"
+#include "MoonfallKeyPickup.h"
+#include "MoonfallKeyGate.h"
 #include "EngineUtils.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Components/StaticMeshComponent.h"
@@ -1511,9 +1513,59 @@ void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(bool bEliteEnemy, bool bBossEne
  }
 }
 
+bool AMoonfallHeroPawn::TryInteractWithNearbyKey()
+{
+ // AC-style interaction, not proximity auto-unlock: the existing F / controller
+ // pickup action searches only when pressed. No per-frame actors or polling.
+ if (Health <= 0.f || bOptionsOpen || bInventoryOpen || !GetWorld()) return false;
+ const FVector HeroPosition = GetActorLocation();
+ const float RangeSquared = FMath::Square(230.f);
+ float BestDistanceSq = RangeSquared;
+ AActor* Nearest = nullptr;
+ int32 Scanned = 0;
+ auto Consider = [&](AActor* Candidate)
+ {
+  if (!IsValid(Candidate) || Candidate == this) return;
+  const FVector At = Candidate->GetActorLocation();
+  if (FMath::Abs(At.Z - HeroPosition.Z) > 150.f) return;
+  const float DistanceSq = FVector::DistSquared2D(At, HeroPosition);
+  if (!FMath::IsFinite(DistanceSq) || DistanceSq > BestDistanceSq) return;
+  FCollisionQueryParams Params(SCENE_QUERY_STAT(MoonfallKeyInteractSight), false);
+  Params.AddIgnoredActor(this);
+  Params.AddIgnoredActor(Candidate);
+  FHitResult Obstacle;
+  if (GetWorld()->LineTraceSingleByChannel(Obstacle, HeroPosition + FVector(0,0,40.f),
+       At + FVector(0,0,40.f), ECC_Visibility, Params)) return;
+  BestDistanceSq = DistanceSq;
+  Nearest = Candidate;
+ };
+ for (TActorIterator<AMoonfallKeyPickup> It(GetWorld()); It && Scanned < 128; ++It)
+ {
+  ++Scanned;
+  if (IsValid(*It) && !HasQuestKey(It->KeyId)) Consider(*It);
+ }
+ Scanned = 0;
+ for (TActorIterator<AMoonfallKeyGate> It(GetWorld()); It && Scanned < 128; ++It)
+ {
+  ++Scanned;
+  if (IsValid(*It) && !It->bUnlocked) Consider(*It);
+ }
+ if (AMoonfallKeyPickup* Key = Cast<AMoonfallKeyPickup>(Nearest))
+  return Key->TryCollect(this);
+ if (AMoonfallKeyGate* Gate = Cast<AMoonfallKeyGate>(Nearest))
+ {
+  Gate->TryUnlock(this);
+  // A locked gate still consumes this deliberate interaction, preventing
+  // equipment behind the closed door from being collected in the same press.
+  return true;
+ }
+ return false;
+}
+
 void AMoonfallHeroPawn::PickupNearestGroundLoot()
 {
  if (Health <= 0.f || bOptionsOpen || bInventoryOpen || !GetWorld()) return;
+ if (TryInteractWithNearbyKey()) return;
  // One explicit pickup press handles a nearby cluster, reducing repeated
  // input without ever automatically equipping, salvaging or destroying loot.
  // Keep actor iteration and collection bounded for a continuous world.
