@@ -149,6 +149,17 @@ class InventoryCapacityPort(unittest.TestCase):
         self.assertNotIn("TalentRespecConfirmUntil", header + self.hero + hud)
         self.assertIn('ActionName="TalentRespec",Key=BackSpace', inputs)
         self.assertIn('ActionName="TalentRespec",Key=Gamepad_FaceButton_Top', inputs)
+        self.assertIn('ActionName="CancelTalentDialog",Key=Gamepad_FaceButton_Right', inputs)
+        self.assertIn('BindAction(TEXT("CancelTalentDialog"), IE_Pressed', self.hero)
+        cancel = body(self.hero, "void AMoonfallHeroPawn::CancelTalentRespecDialog()")
+        self.assertIn("if (!bAtlasOpen || !bTalentsOpen || !bTalentRespecArmed) return;", cancel)
+        self.assertIn("ResolveTalentRespecConfirmation(false);", cancel)
+        esc = body(self.hero, "void AMoonfallHeroPawn::OpenOptions()")
+        self.assertIn("CancelTalentRespecDialog();", esc)
+        self.assertLess(esc.index("CancelTalentRespecDialog();"),
+                        esc.index("bAtlasOpen = false;"))
+        self.assertIn('TEXT("D-pad: choose   A: confirm   B/Esc: cancel")', hud)
+
         action = body(self.hero, "void AMoonfallHeroPawn::RespecTalentAction()")
         self.assertIn("if (bTalentRespecArmed) return;", action)
         self.assertIn("bTalentRespecArmed = true;", action)
