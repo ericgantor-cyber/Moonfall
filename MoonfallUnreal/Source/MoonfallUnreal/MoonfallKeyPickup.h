@@ -16,6 +16,7 @@ class MOONFALLUNREAL_API AMoonfallKeyPickup : public AActor
  GENERATED_BODY()
 public:
  AMoonfallKeyPickup();
+ virtual void BeginPlay() override;
 
  UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Moonfall|Keys")
  FName KeyId = FName(TEXT("fallen_gate_key"));
