@@ -198,6 +198,23 @@ class UE5RewardParity(unittest.TestCase):
         self.assertIn('if (ConfirmedRewardKills >= 5 && !HasQuestKey(FName(TEXT("fallen_gate_key"))))', self.hero)
         self.assertIn("SpawnMilestoneKey(DefeatedLocation);", self.hero)
 
+    def test_world_keys_show_names_and_milestone_spawn_is_deferred(self):
+        pickup_cpp = (ROOT / "MoonfallKeyPickup.cpp").read_text()
+        pickup_h = (ROOT / "MoonfallKeyPickup.h").read_text()
+        self.assertIn("void RefreshKeyLabel();", pickup_h)
+        self.assertIn("RefreshKeyLabel();", pickup_cpp)
+        for name in ("WARDENS' CREST", "OUTLAW SEAL", "FALLEN GATE KEY"):
+            self.assertIn(name, pickup_cpp)
+        self.assertIn("Name + TEXT(\"  [F / X]\")", pickup_cpp)
+        self.assertIn("UGameplayStatics::BeginDeferredActorSpawnFromClass(", self.hero)
+        self.assertIn("UGameplayStatics::FinishSpawningActor(Pickup, SpawnTransform);", self.hero)
+        milestone = self.hero.split("void AMoonfallHeroPawn::SpawnMilestoneKey(", 1)[1].split(
+            "void AMoonfallHeroPawn::AwardEnemyCurrency(", 1)[0]
+        self.assertLess(milestone.index('Pickup->KeyId = FName(TEXT("fallen_gate_key"));'),
+                        milestone.index("FinishSpawningActor(Pickup, SpawnTransform);"))
+        self.assertNotIn("SpawnActor<AMoonfallKeyPickup>", milestone)
+        self.assertIn("RefreshKeyLabel();", pickup_cpp.split("void AMoonfallKeyPickup::BeginPlay()", 1)[1])
+
     def test_equipment_remains_manual_and_hud_shows_rewards(self):
         self.assertIn("void PickupNearestGroundLoot();", self.hero_h)
         self.assertIn("Loot->TryCollect()", self.hero)
