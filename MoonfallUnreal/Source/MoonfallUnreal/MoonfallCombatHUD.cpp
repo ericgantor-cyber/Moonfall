@@ -55,7 +55,7 @@ int32 AMoonfallCombatHUD::GetInventoryItemAtScreenPosition(
 static bool MoonfallCharacterActionRect(const UCanvas* Canvas, int32 Action,
     float& X, float& Y, float& W, float& H)
 {
- if (!Canvas || Action < 0 || Action >= 8) return false;
+ if (!Canvas || Action < 0 || Action >= 11) return false;
  const bool bWide = Canvas->SizeX >= 1100.f && Canvas->SizeY >= 600.f;
  const float PanelWidth = FMath::Min(bWide ? 1040.f : 680.f,
    FMath::Max(280.f,Canvas->SizeX - 24.f));
@@ -65,7 +65,7 @@ static bool MoonfallCharacterActionRect(const UCanvas* Canvas, int32 Action,
  W = (PanelWidth - 48.f) / 3.f;
  H = 32.f;
  X = Left + 12.f + float(Action % 3) * (W + 6.f);
- Y = Top + PanelHeight - 124.f + float(Action / 3) * 37.f;
+ Y = Top + PanelHeight - 165.f + float(Action / 3) * 37.f;
  return true;
 }
 
@@ -75,7 +75,7 @@ int32 AMoonfallCombatHUD::GetCharacterActionAtScreenPosition(
  if (!Canvas || !IsValid(Hero) || !Hero->bInventoryOpen ||
      !Hero->bCharacterStatsOpen || Hero->bOptionsOpen ||
      !FMath::IsFinite(X) || !FMath::IsFinite(Y)) return -1;
- for (int32 Action = 0; Action < 8; ++Action) {
+ for (int32 Action = 0; Action < 11; ++Action) {
   float BX = 0.f, BY = 0.f, BW = 0.f, BH = 0.f;
   if (!MoonfallCharacterActionRect(Canvas,Action,BX,BY,BW,BH)) continue;
   if (X >= BX && X < BX + BW && Y >= BY && Y < BY + BH)
@@ -728,10 +728,10 @@ void AMoonfallCombatHUD::DrawHUD()
       : TEXT("NO GEAR SELECTED"),
       FLinearColor(0.77f,0.94f,0.84f),Left+18.f,Top+77.f,nullptr,
       Canvas->SizeX < 900.f ? 0.55f : 0.78f);
-   const TCHAR* Actions[8] = {
+   const TCHAR* Actions[11] = {
       TEXT("PREV"),TEXT("NEXT"),TEXT("EQUIP"),
       TEXT("UPGRADE"),TEXT("ASCEND"),TEXT("REFORGE"),
-      TEXT("FORGE x5"),TEXT("OPEN BAG")
+      TEXT("FORGE x5"),TEXT("OPEN BAG"),TEXT("STATS -"),TEXT("STATS +"),TEXT("CLOSE")
    };
    // WoW Forever-style breakdown on accessible C subpages. The original
    // overview and B/C switching behavior stay unchanged. These are Moonfall
@@ -790,11 +790,11 @@ void AMoonfallCombatHUD::DrawHUD()
       nullptr,Canvas->SizeX<900.f ? 0.54f : 0.78f);
    // Overlay the interactive controls last, above stat text on all C pages.
    DrawRect(FLinearColor(0.04f,0.035f,0.10f,0.99f),
-      Left,Top+PanelHeight-130.f,PanelWidth,130.f);
-   for (int32 Action = 0; Action < 8; ++Action) {
+      Left,Top+PanelHeight-171.f,PanelWidth,171.f);
+   for (int32 Action = 0; Action < 11; ++Action) {
     float BX=0.f,BY=0.f,BW=0.f,BH=0.f;
     if (!MoonfallCharacterActionRect(Canvas,Action,BX,BY,BW,BH)) continue;
-    const bool bEnabled = Action == 7 ||
+    const bool bEnabled = Action >= 7 ||
        (bHasCandidate && (Action != 0 || CandidateIndex > 0) &&
         (Action != 1 || CandidateIndex+1 < Hero->InventoryItemCodes.Num()));
     DrawRect(bEnabled ? FLinearColor(0.15f,0.38f,0.45f,0.97f)
@@ -838,11 +838,11 @@ void AMoonfallCombatHUD::DrawHUD()
      nullptr, 0.8f);
    // Overlay the interactive controls last, above stat text on all C pages.
    DrawRect(FLinearColor(0.04f,0.035f,0.10f,0.99f),
-      Left,Top+PanelHeight-130.f,PanelWidth,130.f);
-   for (int32 Action = 0; Action < 8; ++Action) {
+      Left,Top+PanelHeight-171.f,PanelWidth,171.f);
+   for (int32 Action = 0; Action < 11; ++Action) {
     float BX=0.f,BY=0.f,BW=0.f,BH=0.f;
     if (!MoonfallCharacterActionRect(Canvas,Action,BX,BY,BW,BH)) continue;
-    const bool bEnabled = Action == 7 ||
+    const bool bEnabled = Action >= 7 ||
        (bHasCandidate && (Action != 0 || CandidateIndex > 0) &&
         (Action != 1 || CandidateIndex+1 < Hero->InventoryItemCodes.Num()));
     DrawRect(bEnabled ? FLinearColor(0.15f,0.38f,0.45f,0.97f)
