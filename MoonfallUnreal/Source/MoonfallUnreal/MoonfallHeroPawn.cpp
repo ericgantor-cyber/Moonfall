@@ -855,7 +855,8 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
   const float SpellDamage = (18.f + School * 5.f) * Multiplier * SpellPowerMultiplier
     * WeaponDamageBonus * CounterMultiplier * MomentumBonus * HitComboMultiplier
     * (1.f + GetMasteryBonus()) * (1.f + GetVersatilityBonus())
-    * (bCriticalSpell ? 1.5f : 1.f) * MightMultiplier * GetTwilightSpellMultiplier();
+    * (bCriticalSpell ? 1.5f : 1.f) * MightMultiplier * GetTwilightSpellMultiplier()
+    * (1.f + 0.04f * ArcaneTalentRank);
   // Reject invalid damage before spending mana or consuming a hard-earned counter.
   if (!FMath::IsFinite(SpellDamage) || SpellDamage <= 0.f) return false;
   const float HealthBeforeSpell = Enemy->Health;
@@ -944,6 +945,7 @@ void AMoonfallHeroPawn::CommitPendingMouseCast()
  if (bOptionsOpen || bInventoryOpen || !FMath::IsFinite(Health) || Health <= 0.f) return;
  if (Hand == 0 && bWeaponSpellStance) StrikeWithWeapon();
  else if (Hand == 0) CastLeft();
+ else if (Hand == 1 && bDualWieldStance) StrikeWithOffhandWeapon();
  else if (Hand == 1) CastRight();
 }
 void AMoonfallHeroPawn::QueueMouseCast(int32 Hand)
@@ -972,7 +974,8 @@ void AMoonfallHeroPawn::QueueMouseCast(int32 Hand)
    {
     // A mixed-hand chord is two normal actions, not an overcharged spell.
     StrikeWithWeapon();
-    CastRight();
+    if (bDualWieldStance) StrikeWithOffhandWeapon();
+    else CastRight();
    }
    else if (LeftSpell == RightSpell) CastBoth();
    else
@@ -985,6 +988,7 @@ void AMoonfallHeroPawn::QueueMouseCast(int32 Hand)
   }
   else if (Hand == 0 && bWeaponSpellStance) StrikeWithWeapon();
   else if (Hand == 0) CastLeft();
+  else if (bDualWieldStance) StrikeWithOffhandWeapon();
   else CastRight();
   return;
  }
@@ -1030,23 +1034,26 @@ void AMoonfallHeroPawn::MouseRightReleased()
 }
 void AMoonfallHeroPawn::SelectHandSetup(int32 Setup)
 {
- if (Setup < 0 || Setup > 3 || !bInventoryOpen || bCharacterStatsOpen || bOptionsOpen
+ if (Setup < 0 || Setup > 4 || !bInventoryOpen || bCharacterStatsOpen || bOptionsOpen
      || !FMath::IsFinite(Health) || Health <= 0.f || !GetWorld()) return;
- // 0 spell/spell, 1 weapon/spell, 2 spell/shield guard, 3 weapon/shield guard.
+ // 0 spell/spell, 1 weapon/spell, 2 spell/shield, 3 weapon/shield,
+ // 4 paired melee weapons (mainhand + secondary strike).
  // Equipment selection does not consume or alter any saved item.
  GetWorldTimerManager().ClearTimer(MouseCastTimer);
  PendingMouseHand = -1;
  EndGuard();
- bWeaponSpellStance = (Setup == 1 || Setup == 3);
+ bWeaponSpellStance = (Setup == 1 || Setup == 3 || Setup == 4);
  bSpellShieldStance = (Setup == 2 || Setup == 3);
+ bDualWieldStance = Setup == 4;
  bMouseChordConsumed = false;
 }
 void AMoonfallHeroPawn::CycleHandSetup()
 {
  // Blueprint/controller-compatible forward cycle; the HUD exposes direct choices.
- const int32 CurrentSetup = bSpellShieldStance ? (bWeaponSpellStance ? 3 : 2)
-   : (bWeaponSpellStance ? 1 : 0);
- SelectHandSetup((CurrentSetup + 1) % 4);
+ const int32 CurrentSetup = bDualWieldStance ? 4
+   : (bSpellShieldStance ? (bWeaponSpellStance ? 3 : 2)
+     : (bWeaponSpellStance ? 1 : 0));
+ SelectHandSetup((CurrentSetup + 1) % 5);
 }
 void AMoonfallHeroPawn::ToggleWeaponSpell()
 {
@@ -1056,7 +1063,44 @@ void AMoonfallHeroPawn::ToggleWeaponSpell()
  PendingMouseHand = -1;
  bWeaponSpellStance = !bWeaponSpellStance;
  bSpellShieldStance = false;
+ bDualWieldStance = false;
  EndGuard();
+}
+void AMoonfallHeroPawn::StrikeWithOffhandWeapon()
+{
+ // Secondary strike is a shorter, weaker, independently timed melee attack.
+ // Until an equipped off-hand slot lands, the same verified weapon tier
+ // supplies damage; no new loot item or asset is fabricated.
+ if (!bDualWieldStance || EquippedWeaponCode <= 0 || !GetWorld()
+     || !IsValid(FollowCamera) || bOptionsOpen || bInventoryOpen
+     || !FMath::IsFinite(Health) || Health <= 0.f) return;
+ const float Now = GetWorld()->GetTimeSeconds();
+ if (!FMath::IsFinite(Now) || Now < NextWeaponStrikeAt) return;
+ const FVector Start = GetActorLocation() + FVector(0.f, 0.f, 55.f);
+ const FVector Facing = FollowCamera->GetForwardVector().GetSafeNormal2D();
+ const FVector End = Start + (Facing.IsNearlyZero()
+   ? GetActorForwardVector().GetSafeNormal2D() : Facing) * 205.f;
+ FCollisionQueryParams Params(SCENE_QUERY_STAT(MoonfallOffhandStrike), false, this);
+ FHitResult Hit;
+ NextWeaponStrikeAt = Now + 0.32f;
+ if (!GetWorld()->LineTraceSingleByChannel(Hit, Start, End, ECC_Visibility, Params))
+ {
+  OnWeaponStrike(0.f, false);
+  return;
+ }
+ AMoonfallEnemy* Enemy = Cast<AMoonfallEnemy>(Hit.GetActor());
+ if (!IsValid(Enemy) || !FMath::IsFinite(Enemy->Health) || Enemy->Health <= 0.f)
+ {
+  OnWeaponStrike(0.f, false);
+  return;
+ }
+ const float Damage = (7.f + FMath::Clamp(WeaponTier, 0, 25))
+   * GetTwilightWeaponMultiplier() * (1.f + 0.04f * BladeTalentRank)
+   * (1.f + 0.06f * TwinStrikeTalentRank);
+ const float PreviousHealth = Enemy->Health;
+ Enemy->TakeSpellDamage(Damage);
+ const float Dealt = FMath::Max(0.f, PreviousHealth - Enemy->Health);
+ OnWeaponStrike(Dealt, Dealt > 0.f);
 }
 void AMoonfallHeroPawn::StrikeWithWeapon()
 {
@@ -1086,7 +1130,7 @@ void AMoonfallHeroPawn::StrikeWithWeapon()
   return;
  }
  const float Damage = (12.f + 2.f * FMath::Clamp(WeaponTier, 0, 25))
-   * GetTwilightWeaponMultiplier();
+   * GetTwilightWeaponMultiplier() * (1.f + 0.04f * BladeTalentRank);
  const float PreviousHealth = Enemy->Health;
  Enemy->TakeSpellDamage(Damage);
  NextWeaponStrikeAt = Now + 0.45f;
@@ -2026,6 +2070,27 @@ void AMoonfallHeroPawn::UpdateNativeFinisher(float DeltaSeconds)
    : FLinearColor(0.2f, 0.78f, 1.f));
  FinisherFlash->SetIntensity((bReduceMotion ? 900.f : (bNativeFinisherBoss ? 4800.f : 3500.f)) * Envelope);
  FinisherFlash->SetVisibility(true);
+}
+
+int32 AMoonfallHeroPawn::GetUnspentTalentPoints() const
+{
+ return FMath::Max(0, FMath::Clamp(Level, 1, 100) - 1
+   - BladeTalentRank - ArcaneTalentRank - TwinStrikeTalentRank);
+}
+bool AMoonfallHeroPawn::SpendTalentPoint(int32 TalentIndex)
+{
+ if (!GetWorld() || bOptionsOpen || !bInventoryOpen || bRewardSaveLoadFailed
+     || !FMath::IsFinite(Health) || Health <= 0.f
+     || TalentIndex < 0 || TalentIndex > 2 || GetUnspentTalentPoints() <= 0)
+  return false;
+ int32* Rank = TalentIndex == 0 ? &BladeTalentRank
+   : (TalentIndex == 1 ? &ArcaneTalentRank : &TwinStrikeTalentRank);
+ if (*Rank >= 5) return false;
+ ++(*Rank);
+ KeyInteractionNotice = TEXT("TALENT UNLOCKED");
+ bKeyInteractionNoticeError = false;
+ KeyInteractionNoticeUntil = GetWorld()->GetTimeSeconds() + 3.5f;
+ return true;
 }
 
 void AMoonfallHeroPawn::AwardExperience(int32 Amount)
