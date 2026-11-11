@@ -31,6 +31,11 @@ public:
  UFUNCTION(BlueprintPure, Category="Moonfall|Race") float GetRaceManaRegenBonus() const;
  // Each ancestry receives a distinct on-demand combat power; no artwork changes.
  UFUNCTION(BlueprintCallable, Category="Moonfall|NPC") void TalkToNearestNPC();
+ // Reputation is a permanent value for recognized world factions.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Faction") TMap<FName, int32> FactionReputation;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Faction") int32 GetFactionReputation(FName Faction) const;
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Faction") bool ChangeFactionReputation(FName Faction, int32 Delta);
+
  UFUNCTION(BlueprintCallable, Category="Moonfall|Race") bool ActivateRacePower();
  void TriggerRacePower() { ActivateRacePower(); }
  UFUNCTION(BlueprintPure, Category="Moonfall|Race") FString GetRacePowerName() const;
