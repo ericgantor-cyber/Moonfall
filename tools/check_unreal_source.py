@@ -337,6 +337,16 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('ActionMappings=(ActionName="EquipOffhand",Key=T)', controls)
         self.assertIn('Input->BindAction(TEXT("EquipOffhand")', self.hero_cpp)
 
+    def test_clearing_authored_weapon_restores_engine_proxy_geometry(self):
+        self.assertIn("UPROPERTY(Transient) TObjectPtr<UStaticMesh> DefaultWeaponProxyMesh;", self.hero_h)
+        self.assertIn("DefaultWeaponProxyMesh = SlashMesh.Succeeded() ? SlashMesh.Object : nullptr;", self.hero_cpp)
+        setup = self.hero_cpp.split("void AMoonfallHeroPawn::InitializeDualWieldVisuals()", 1)[1].split(
+            "void AMoonfallHeroPawn::AuditDualWieldRigChanges()", 1)[0]
+        for hand in ("Mainhand", "Offhand"):
+            self.assertIn(hand + "Visual->SetStaticMesh(" + hand + "MeshAsset.Get());", setup)
+            self.assertIn(hand + "Visual->SetStaticMesh(DefaultWeaponProxyMesh.Get());", setup)
+            self.assertIn(hand + "Visual->SetRelativeScale3D(ProxyScale);", setup)
+
     def test_custom_dual_weapon_mesh_scales_do_not_inherit_proxy_scale(self):
         self.assertIn("FVector MainhandMeshScale = FVector::OneVector;", self.hero_h)
         self.assertIn("FVector OffhandMeshScale = FVector::OneVector;", self.hero_h)
@@ -347,8 +357,10 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Scale.GetMax() <= 10.f", setup)
         self.assertIn("ValidWeaponScale(MainhandMeshScale) ? MainhandMeshScale : FVector::OneVector", setup)
         self.assertIn("ValidWeaponScale(OffhandMeshScale) ? OffhandMeshScale : FVector::OneVector", setup)
-        self.assertIn("else MainhandVisual->SetRelativeScale3D(ProxyScale);", setup)
-        self.assertIn("else OffhandVisual->SetRelativeScale3D(ProxyScale);", setup)
+        self.assertIn("MainhandVisual->SetStaticMesh(DefaultWeaponProxyMesh.Get());", setup)
+        self.assertIn("MainhandVisual->SetRelativeScale3D(ProxyScale);", setup)
+        self.assertIn("OffhandVisual->SetStaticMesh(DefaultWeaponProxyMesh.Get());", setup)
+        self.assertIn("OffhandVisual->SetRelativeScale3D(ProxyScale);", setup)
         self.assertIn("MainhandVisual->SetStaticMesh(MainhandMeshAsset.Get());", setup)
         self.assertIn("OffhandVisual->SetStaticMesh(OffhandMeshAsset.Get());", setup)
 
