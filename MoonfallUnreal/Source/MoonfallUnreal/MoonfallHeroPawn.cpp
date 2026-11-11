@@ -13,6 +13,7 @@
 #include "Misc/ConfigCacheIni.h"
 #include "Interfaces/IPluginManager.h"
 #include "MoonfallEnemy.h"
+#include "MoonfallWorldNPC.h"
 #include "MoonfallGroundLoot.h"
 #include "EngineUtils.h"
 #include "Components/SkeletalMeshComponent.h"
@@ -340,6 +341,7 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("EquipBest"), IE_Pressed, this, &AMoonfallHeroPawn::EquipBestInventoryAction);
  Input->BindAction(TEXT("PickupLoot"), IE_Pressed, this, &AMoonfallHeroPawn::PickupNearestGroundLoot);
  Input->BindAction(TEXT("RacePower"), IE_Pressed, this, &AMoonfallHeroPawn::TriggerRacePower);
+ Input->BindAction(TEXT("TalkNPC"), IE_Pressed, this, &AMoonfallHeroPawn::TalkToNearestNPC);
  Input->BindAction(TEXT("OptionsUp"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsUp);
  Input->BindAction(TEXT("OptionsDown"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsDown);
  Input->BindAction(TEXT("OptionsLeft"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsLeft);
@@ -1769,4 +1771,22 @@ bool AMoonfallHeroPawn::ActivateRacePower() {
  OnHealthChanged(Health, MaxHealth);
  OnRacePowerActivated(FName(MoonfallRacePowerNames[RaceId]));
  return true;
+}
+
+void AMoonfallHeroPawn::TalkToNearestNPC() {
+ if (!GetWorld() || Health <= 0.f || bOptionsOpen || bInventoryOpen) return;
+ AMoonfallWorldNPC* Nearest = nullptr;
+ float BestDistSq = FMath::Square(400.f);
+ int32 Checked = 0;
+ // Bound this explicit interaction scan. No work is done each frame.
+ for (TActorIterator<AMoonfallWorldNPC> It(GetWorld()); It && Checked < 64; ++It, ++Checked) {
+  AMoonfallWorldNPC* Candidate = *It;
+  if (!IsValid(Candidate)) continue;
+  const float DistSq = FVector::DistSquared(GetActorLocation(), Candidate->GetActorLocation());
+  if (DistSq < BestDistSq) {
+   BestDistSq = DistSq;
+   Nearest = Candidate;
+  }
+ }
+ if (Nearest) Nearest->TryTalk(this);
 }
