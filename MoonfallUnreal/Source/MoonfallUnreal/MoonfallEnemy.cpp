@@ -20,6 +20,10 @@ AMoonfallEnemy::AMoonfallEnemy() {
   // The original collision sphere is non-uniformly scaled for navigation.
   // Do not stretch authored skeletons by inheriting its X/Y/Z scale.
   CharacterRig->SetAbsolute(false, false, true);
+  // Large mob groups should not update full skeletal poses while offscreen.
+  // Combat AI and damage still tick on their separate actor, unaffected.
+  CharacterRig->VisibilityBasedAnimTickOption =
+    EVisibilityBasedAnimTickOption::OnlyTickPoseWhenRendered;
   CharacterRig->SetCollisionEnabled(ECollisionEnabled::NoCollision);
   CharacterRig->SetGenerateOverlapEvents(false);
   CharacterRig->SetHiddenInGame(true);
