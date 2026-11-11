@@ -116,20 +116,22 @@ bool AMoonfallWorldNPC::TryTalk(AMoonfallHeroPawn* Hero) {
  else if (Disposition != TEXT("Trusted") && Bond <= -60)
   Reaction = FText::FromString(TEXT("I remember what you did. Keep your distance."));
  // Accepted one-time contracts have useful, contextual status.
- if (Hero->GetResidentQuestState(ResidentId) == 1)
+ if (Disposition != TEXT("Hostile") && Hero->GetResidentQuestState(ResidentId) == 1)
   Reaction = FText::FromString(FString::Printf(
     TEXT("Bring me %d salvage to help our settlement."), GetContractSalvageCost()));
- else if (Hero->GetResidentQuestState(ResidentId) == 2)
+ else if (Disposition != TEXT("Hostile") && Hero->GetResidentQuestState(ResidentId) == 2)
   Reaction = FText::FromString(TEXT("Our people remember your help. Thank you."));
  OnDialogueStarted(Hero, Reaction);
  return true;
 }
 
 bool AMoonfallWorldNPC::OfferResidentQuest(AMoonfallHeroPawn* Hero) {
- if (ResidentId.IsNone() || !CanHeroInteract(Hero)) return false;
+ if (ResidentId.IsNone() || !CanHeroInteract(Hero)
+     || Hero->GetFactionReputation(FactionId) <= -50) return false;
  return Hero->AcceptResidentQuest(ResidentId);
 }
 bool AMoonfallWorldNPC::TurnInResidentQuest(AMoonfallHeroPawn* Hero) {
- if (ResidentId.IsNone() || !CanHeroInteract(Hero)) return false;
+ if (ResidentId.IsNone() || !CanHeroInteract(Hero)
+     || Hero->GetFactionReputation(FactionId) <= -50) return false;
  return Hero->CompleteResidentQuest(this);
 }
