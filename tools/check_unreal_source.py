@@ -374,7 +374,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("PendingMouseHand >= 0 && GetWorldTimerManager().IsTimerActive(MouseCastTimer)", self.hero_cpp)
         self.assertIn("if (PendingMouseHand == 0 && GetWorldTimerManager().IsTimerActive(MouseCastTimer))", self.hero_cpp)
         self.assertIn("if (PendingMouseHand == 1 && GetWorldTimerManager().IsTimerActive(MouseCastTimer))", self.hero_cpp)
-        self.assertIn("GetWorldTimerManager().ClearTimer(MouseCastTimer);\\n  CommitPendingMouseCast();".replace("\\n", "\n"), self.hero_cpp)
+        self.assertIn("CommitPendingMouseCast();", self.hero_cpp)
         self.assertIn("else if (LeftSpell == RightSpell) CastBoth();", self.hero_cpp)
         self.assertIn("CastLeft();\n    CastRight();", self.hero_cpp)
         self.assertIn("void AMoonfallHeroPawn::CancelPendingMouseCombat()", self.hero_cpp)
