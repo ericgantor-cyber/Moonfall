@@ -903,6 +903,14 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
 // Small chord grace period prevents the first mouse click from consuming
 // the spell cooldown before the second button can request Dual Cast.
 // Keyboard/controller casting remains immediate.
+void AMoonfallHeroPawn::CancelPendingMouseCombat()
+{
+ GetWorldTimerManager().ClearTimer(MouseCastTimer);
+ PendingMouseHand = -1;
+ bMouseLeftHeld = false;
+ bMouseRightHeld = false;
+ bMouseChordConsumed = false;
+}
 void AMoonfallHeroPawn::CommitPendingMouseCast()
 {
  const int32 Hand = PendingMouseHand;
@@ -940,7 +948,14 @@ void AMoonfallHeroPawn::QueueMouseCast(int32 Hand)
     StrikeWithWeapon();
     CastRight();
    }
-   else CastBoth();
+   else if (LeftSpell == RightSpell) CastBoth();
+   else
+   {
+    // Different schools cannot overcharge; cast each hand once as in
+    // Skyrim's independent dual-hand spell combinations.
+    CastLeft();
+    CastRight();
+   }
   }
   else if (Hand == 0 && bWeaponSpellStance) StrikeWithWeapon();
   else if (Hand == 0) CastLeft();
@@ -1358,6 +1373,7 @@ void AMoonfallHeroPawn::ToggleCharacterStats()
   if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
   EndSprint();
   EndGuard();
+  CancelPendingMouseCombat();
   bInventoryOpen = true;
   bCharacterStatsOpen = true;
   bKeyRingInventoryOpen = false;
@@ -1382,6 +1398,7 @@ void AMoonfallHeroPawn::ToggleInventory() {
   if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
   EndSprint();
   EndGuard();
+  CancelPendingMouseCombat();
   InventorySelection = FMath::Clamp(InventorySelection, 0, FMath::Max(0, InventoryItemCodes.Num() - 1));
  }
  bInventoryOpen = !bInventoryOpen;
@@ -1716,6 +1733,7 @@ void AMoonfallHeroPawn::OpenOptions() {
   if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
   EndSprint();
   EndGuard();
+  CancelPendingMouseCombat();
  }
  bOptionsOpen = !bOptionsOpen;
 }
