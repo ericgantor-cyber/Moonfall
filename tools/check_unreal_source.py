@@ -785,7 +785,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("float MenuHealthRegenPerSecond = 2.f;", self.hero_h)
         self.assertIn("float MenuRecoveryMultiplier = 1.5f;", self.hero_h)
         self.assertIn("FMath::Clamp(MenuRecoveryMultiplier, 1.f, 2.f)", tick)
-        self.assertIn("Mana + FMath::Clamp(ManaRegenPerSecond, 0.f, 250.f) * MenuRecoveryBoost", tick)
+        self.assertIn("Mana + FMath::Clamp(ManaRegenPerSecond, 0.f, 250.f) * (1.f + GetRaceManaRegenBonus()) * MenuRecoveryBoost", tick)
 
     def test_menu_health_regen_waits_after_real_damage(self):
         tick = self.hero_cpp.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1].split(
@@ -808,7 +808,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "void AMoonfallHeroPawn::CycleGraphicsQuality()", 1)[0]
         self.assertIn("GetWorld()->GetTimeSeconds() < CombatRecoveryEndsAt", tick)
         self.assertIn("FMath::Clamp(CombatManaRegenMultiplier, 0.f, 1.f)", tick)
-        self.assertIn("FMath::Clamp(ManaRegenPerSecond, 0.f, 250.f) * MenuRecoveryBoost * CombatManaFactor", tick)
+        self.assertIn("FMath::Clamp(ManaRegenPerSecond, 0.f, 250.f) * (1.f + GetRaceManaRegenBonus()) * MenuRecoveryBoost * CombatManaFactor", tick)
         self.assertIn("CombatRecoveryEndsAt = FMath::Max(", cast)
         self.assertIn("CombatRecoveryEndsAt = FMath::Max(", damage)
         self.assertIn("Mana + FMath::Clamp(PerfectParryManaReward, 0.f, 15.f)", damage)
@@ -1071,7 +1071,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("bSprintExhausted = true;", tick)
         self.assertIn("!bSprinting && !bGuarding && GetWorld()", tick)
         self.assertIn("FMath::IsFinite(StaminaRegenPerSecond) && StaminaRegenPerSecond > 0.f", tick)
-        self.assertIn("Stamina + FMath::Clamp(StaminaRegenPerSecond, 0.f, 250.f) * StaminaDelta * MenuRecoveryBoost", tick)
+        self.assertIn("Stamina + FMath::Clamp(StaminaRegenPerSecond, 0.f, 250.f) * (1.f + GetRaceStaminaRegenBonus()) * StaminaDelta * MenuRecoveryBoost", tick)
         self.assertIn("FMath::IsFinite(SprintSpeedMultiplier)", tick)
         self.assertIn("float SprintAccelerationRate = 9.f;", self.hero_h)
         self.assertIn("NormalWalkSpeed * FMath::Clamp(SprintSpeedMultiplier", tick)
@@ -1101,7 +1101,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         tick = self.hero_cpp.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1].split(
             "void AMoonfallHeroPawn::SetupPlayerInputComponent", 1)[0]
         self.assertIn("GetTimeSeconds() >= StaminaRegenStartsAt", tick)
-        self.assertIn("FMath::Clamp(Stamina + FMath::Clamp(StaminaRegenPerSecond, 0.f, 250.f) * StaminaDelta * MenuRecoveryBoost", tick)
+        self.assertIn("FMath::Clamp(Stamina + FMath::Clamp(StaminaRegenPerSecond, 0.f, 250.f) * (1.f + GetRaceStaminaRegenBonus()) * StaminaDelta * MenuRecoveryBoost", tick)
         self.assertIn("Health > 0.f", tick)
 
     def test_dodge_cooldown_is_bounded_and_never_overlaps_immunity(self):
