@@ -18,6 +18,17 @@ AMoonfallWorldNPC::AMoonfallWorldNPC() {
  DisplayName = FText::FromString(TEXT("Wayfarer"));
  Greeting = FText::FromString(TEXT("The road stretches on. Need directions?"));
 }
+int32 AMoonfallWorldNPC::GetBondWithHero(const AMoonfallHeroPawn* Hero) const {
+ return IsValid(Hero) ? Hero->GetResidentBond(ResidentId) : 0;
+}
+bool AMoonfallWorldNPC::RewardResidentTrust(AMoonfallHeroPawn* Hero, int32 Points) {
+ if (!IsValid(Hero) || ResidentId.IsNone() || Points <= 0 || Points > 10
+     || Hero->Health <= 0.f || Hero->bOptionsOpen || Hero->bInventoryOpen
+     || !GetWorld() || !FMath::IsFinite(InteractRange)) return false;
+ if (FVector::DistSquared(Hero->GetActorLocation(), GetActorLocation())
+     > FMath::Square(FMath::Clamp(InteractRange, 50.f, 400.f))) return false;
+ return Hero->ChangeResidentBond(ResidentId, Points);
+}
 FString AMoonfallWorldNPC::GetRaceName() const { return FString(MoonfallRaces::Name(RaceId)); }
 FString AMoonfallWorldNPC::GetCurrentActivity() const {
  // Cyclical ambient schedule derived on demand, avoiding a per-NPC Tick.
@@ -87,6 +98,14 @@ bool AMoonfallWorldNPC::TryTalk(AMoonfallHeroPawn* Hero) {
  else if (Disposition == TEXT("Neutral") && !SharesRaceWith(Hero) && SocialRole == FName(TEXT("Scout"))
      && GetCurrentActivity() == TEXT("Reporting"))
   Reaction = FText::FromString(TEXT("The roads have changed. I am reporting what I saw."));
+ // Individual trust changes the greeting without changing faction rank.
+ // Negative bonds can come from quest consequences, not conversation farming.
+ const int32 Bond = GetBondWithHero(Hero);
+ if (Disposition != TEXT("Hostile") && Bond >= 60)
+  Reaction = FText::FromString(FString::Printf(
+    TEXT("My trusted companion, %s stands with you."), *DisplayName.ToString()));
+ else if (Disposition != TEXT("Trusted") && Bond <= -60)
+  Reaction = FText::FromString(TEXT("I remember what you did. Keep your distance."));
  OnDialogueStarted(Hero, Reaction);
  return true;
 }
