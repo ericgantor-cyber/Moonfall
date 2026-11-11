@@ -23,7 +23,7 @@ AMoonfallKeyPickup::AMoonfallKeyPickup()
  KeyLabel->SetRelativeLocation(FVector(0.f, 0.f, 55.f));
  KeyLabel->SetHorizontalAlignment(EHorizTextAligment::EHTA_Center);
  KeyLabel->SetWorldSize(20.f);
- KeyLabel->SetText(FText::FromString(TEXT("KEY - F / CLICK")));
+ KeyLabel->SetText(FText::FromString(TEXT("KEY - F")));
  KeyLabel->SetTextRenderColor(FColor(255, 215, 110));
 }
 
@@ -38,7 +38,7 @@ void AMoonfallKeyPickup::RefreshKeyLabel()
   Name = TEXT("OUTLAW SEAL");
  else if (KeyId == FName(TEXT("fallen_gate_key")))
   Name = TEXT("FALLEN GATE KEY");
- KeyLabel->SetText(FText::FromString(Name + TEXT(" - F / CLICK")));
+ KeyLabel->SetText(FText::FromString(Name + TEXT(" - F")));
 }
 
 void AMoonfallKeyPickup::BeginPlay()
