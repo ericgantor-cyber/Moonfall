@@ -141,6 +141,7 @@ void AMoonfallHeroPawn::BeginPlay() {
  if (GConfig) GConfig->GetInt(TEXT("Moonfall.Graphics"), TEXT("FrameGenerationPreference"), SavedPreference, GGameUserSettingsIni);
  FrameGenerationPreference = FMath::Clamp(SavedPreference, 0, 2);
  if (GConfig) GConfig->GetBool(TEXT("Moonfall.Accessibility"), TEXT("ReduceMotion"), bReduceMotion, GGameUserSettingsIni);
+ if (GConfig) GConfig->GetBool(TEXT("Moonfall.Gameplay"), TEXT("AutoLootEnabled"), bAutoLootEnabled, GGameUserSettingsIni);
  if (GConfig) GConfig->GetFloat(TEXT("Moonfall.Accessibility"), TEXT("CombatTextScale"), CombatTextScale, GGameUserSettingsIni);
  CombatTextScale = FMath::Clamp(FMath::RoundToFloat(CombatTextScale * 4.f) / 4.f, 0.75f, 2.f);
  if (GConfig) GConfig->GetFloat(TEXT("Moonfall.Accessibility"), TEXT("BossWarningScale"), BossWarningScale, GGameUserSettingsIni);
@@ -156,7 +157,7 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
 {
  Super::Tick(DeltaSeconds);
  // Collect reachable equipment automatically, throttled to avoid per-frame world scans.
- if (FMath::IsFinite(DeltaSeconds) && DeltaSeconds > 0.f) {
+ if (bAutoLootEnabled && FMath::IsFinite(DeltaSeconds) && DeltaSeconds > 0.f) {
   AutoLootElapsed += FMath::Min(DeltaSeconds, 0.1f);
   if (AutoLootElapsed >= 0.35f) {
    AutoLootElapsed = 0.f;
@@ -1005,14 +1006,14 @@ void AMoonfallHeroPawn::OptionsUp() {
   InventorySelection = FMath::Max(0, InventorySelection - 1);
   return;
  }
- if (bOptionsOpen) OptionsSelection = (OptionsSelection + 6) % 7;
+ if (bOptionsOpen) OptionsSelection = (OptionsSelection + 7) % 8;
 }
 void AMoonfallHeroPawn::OptionsDown() {
  if (bInventoryOpen) {
   InventorySelection = FMath::Min(FMath::Max(0, InventoryItemCodes.Num() - 1), InventorySelection + 1);
   return;
  }
- if (bOptionsOpen) OptionsSelection = (OptionsSelection + 1) % 7;
+ if (bOptionsOpen) OptionsSelection = (OptionsSelection + 1) % 8;
 }
 void AMoonfallHeroPawn::OptionsLeft() {
  if (bInventoryOpen) { EquipSelectedInventoryItem(); return; }
@@ -1058,6 +1059,14 @@ void AMoonfallHeroPawn::AdjustOption(int32 Direction) {
   CombatTextScale = FMath::Clamp(CombatTextScale + Direction * 0.25f, 0.75f, 2.f);
   if (GConfig) {
    GConfig->SetFloat(TEXT("Moonfall.Accessibility"), TEXT("CombatTextScale"), CombatTextScale, GGameUserSettingsIni);
+   GConfig->Flush(false, GGameUserSettingsIni);
+  }
+  return;
+ } else if (OptionsSelection == 7) {
+  bAutoLootEnabled = Direction > 0;
+  AutoLootElapsed = 0.f;
+  if (GConfig) {
+   GConfig->SetBool(TEXT("Moonfall.Gameplay"), TEXT("AutoLootEnabled"), bAutoLootEnabled, GGameUserSettingsIni);
    GConfig->Flush(false, GGameUserSettingsIni);
   }
   return;
