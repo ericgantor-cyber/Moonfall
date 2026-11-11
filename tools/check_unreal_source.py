@@ -271,6 +271,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("GetWorld()->LineTraceSingleByChannel(LootSightHit,", pickup)
         self.assertIn("NearbyLoot.Add(Candidate);", pickup)
         self.assertIn("InventoryItemCodes.Num() >= 4096", pickup)
+        self.assertIn("if (!bAutoLootEnabled || !FMath::IsFinite(Health)", pickup)
         self.assertIn("for (AMoonfallGroundLoot* Loot : NearbyLoot)", pickup)
         tick = self.hero_cpp.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1].split(
             "void AMoonfallHeroPawn::", 1)[0]
