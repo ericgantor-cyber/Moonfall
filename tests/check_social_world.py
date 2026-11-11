@@ -116,6 +116,17 @@ class TestSocialWorld(unittest.TestCase):
   self.assertIn("Hero->ResidentTurnInConfirmUntil",hud)
   self.assertIn("if (ResidentContextSelection != Row) bResidentTurnInPending = false;",self.hero)
   self.assertIn("Resident->TurnInResidentQuest(this)",self.hero)
+ def test_hover_and_quest_status_ui(self):
+  hud=(ROOT/"MoonfallCombatHUD.cpp").read_text()
+  self.assertIn("GetMousePosition(CursorX, CursorY)",hud)
+  self.assertIn("const bool bHover",hud)
+  self.assertIn("(bHover || Row == Hero->ResidentContextSelection)",hud)
+  self.assertIn('TEXT("Available")',hud)
+  self.assertIn('TEXT("Active")',hud)
+  self.assertIn('TEXT("Completed")',hud)
+  self.assertIn('TEXT("Contract: %s  |  Faction %s")',hud)
+  self.assertIn("Closing dialogue does not change mouse cursor visibility.",self.hero)
+  self.assertNotIn("bResidentCursorWasVisible",self.hero)
  def test_no_n_v_quest_bindings(self):
   self.assertNotIn('ActionName="TalkNPC"',self.input)
   self.assertNotIn('ActionName="ResidentQuest"',self.input)
