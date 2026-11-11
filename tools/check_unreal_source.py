@@ -2538,6 +2538,20 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("RightSpell < 0 || RightSpell >= 6", dual)
         self.assertIn("TryCast(LeftSpell, 0, 2.2f)", dual)
         self.assertIn("const float ManaCostMultiplier = Multiplier > 2.f ? 2.8f : Multiplier;", self.hero_cpp)
+        self.assertIn("Enemy->ApplyDualCastImpact();", self.hero_cpp)
+        self.assertIn("Multiplier > 2.f && School != 3 && ActualSpellDamage > 0.f && Enemy->Health > 0.f", self.hero_cpp)
+        self.assertIn("OnDualCastReleased(LeftSpell);", dual)
+        self.assertIn("void OnDualCastReleased(int32 School);", self.hero_h)
+        enemy_h = (ROOT / "MoonfallEnemy.h").read_text(encoding="utf-8")
+        enemy_cpp = (ROOT / "MoonfallEnemy.cpp").read_text(encoding="utf-8")
+        impact = enemy_cpp.split("void AMoonfallEnemy::ApplyDualCastImpact()", 1)[1].split("void AMoonfallEnemy::ApplyPostureDamage(", 1)[0]
+        self.assertIn("void ApplyDualCastImpact();", enemy_h)
+        self.assertIn("void OnDualCastImpact(float ReactionSeconds);", enemy_h)
+        self.assertIn("NextDualCastImpactAt = Now + CooldownSeconds;", impact)
+        self.assertIn("Now < PostureBrokenUntil", impact)
+        self.assertIn("bBoss ? 0.12f : (bElite ? 0.20f : 0.32f)", impact)
+        self.assertIn("bBoss ? 3.0f : (bElite ? 1.8f : 1.0f)", impact)
+        self.assertIn("OnDualCastImpact(ReactionSeconds);", impact)
         self.assertIn("Multiplier <= 0.f || Multiplier > 2.2f", self.hero_cpp)
 
     def test_spell_cast_validates_health_state(self):
