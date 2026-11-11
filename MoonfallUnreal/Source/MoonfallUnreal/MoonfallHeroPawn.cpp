@@ -1885,7 +1885,8 @@ void AMoonfallHeroPawn::AwardEquipmentDrop(bool bEliteEnemy, bool bBossEnemy)
 
 bool AMoonfallHeroPawn::CollectGroundEquipmentCode(int32 ItemCode)
 {
- if (Health <= 0.f || ItemCode <= 0) return false;
+ // Refuse invalid or defeated state before modifying saved equipment.
+ if (!FMath::IsFinite(Health) || Health <= 0.f || ItemCode <= 0) return false;
  const int32 Affix = ItemCode / 100000;
  const int32 SlotIndex = (ItemCode / 10000) % 10;
  const int32 Rarity = (ItemCode / 1000) % 10;
