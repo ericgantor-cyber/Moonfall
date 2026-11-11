@@ -6,6 +6,7 @@
 
 class USceneComponent;
 class UStaticMeshComponent;
+class USphereComponent;
 class UTextRenderComponent;
 
 // AC-style discoverable key: world pickup requires an explicit interaction.
@@ -28,5 +29,7 @@ protected:
  void RefreshKeyLabel();
  UPROPERTY(VisibleAnywhere) TObjectPtr<USceneComponent> KeyRoot;
  UPROPERTY(VisibleAnywhere) TObjectPtr<UStaticMeshComponent> KeyMesh;
+ // Larger query-only target for mouse-look click interactions.
+ UPROPERTY(VisibleAnywhere) TObjectPtr<USphereComponent> AimTarget;
  UPROPERTY(VisibleAnywhere) TObjectPtr<UTextRenderComponent> KeyLabel;
 };
