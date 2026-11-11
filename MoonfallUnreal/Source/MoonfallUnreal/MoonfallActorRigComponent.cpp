@@ -24,9 +24,10 @@ void UMoonfallActorRigComponent::RefreshRig()
  {
   // An explicitly selected rig must belong to the same actor. A rig
   // reference on another actor is never safe to animate from this component.
-  if (IsValid(PreferredRigMesh))
+  if (PreferredRigMesh != nullptr)
   {
-   if (PreferredRigMesh->GetOwner() == Owner
+   if (IsValid(PreferredRigMesh)
+       && PreferredRigMesh->GetOwner() == Owner
        && IsValid(PreferredRigMesh->GetSkeletalMeshAsset()))
     RigMesh = PreferredRigMesh;
    // Fail closed for invalid explicit selections rather than silently
