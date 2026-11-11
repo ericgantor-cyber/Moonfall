@@ -7,6 +7,34 @@
 #include "Engine/Canvas.h"
 #include "Engine/Engine.h"
 #include "GameFramework/GameUserSettings.h"
+int32 AMoonfallCombatHUD::GetInventoryItemAtScreenPosition(
+    const AMoonfallHeroPawn* Hero, float X, float Y) const
+{
+ // Use the same geometry and pagination as DrawHUD. The hit test is read-only
+ // and never chooses a hidden or off-page entry.
+ if (!Canvas || !IsValid(Hero) || !Hero->bInventoryOpen ||
+     Hero->bCharacterStatsOpen || Hero->bOptionsOpen ||
+     !FMath::IsFinite(X) || !FMath::IsFinite(Y)) return -1;
+ const int32 Count = Hero->InventoryItemCodes.Num();
+ if (Count <= 0) return -1;
+ const float PanelWidth = FMath::Min(680.f, FMath::Max(280.f, Canvas->SizeX - 24.f));
+ const float PanelHeight = FMath::Min(580.f, FMath::Max(280.f, Canvas->SizeY - 24.f));
+ const float Left = (Canvas->SizeX - PanelWidth) * 0.5f;
+ const float Top = (Canvas->SizeY - PanelHeight) * 0.5f;
+ const int32 PerPage = FMath::Clamp(FMath::FloorToInt((PanelHeight - 290.f) / 25.f), 2, 8);
+ const int32 Selected = FMath::Clamp(Hero->InventorySelection, 0, Count - 1);
+ const int32 PageStart = Selected / PerPage * PerPage;
+ const int32 PageEnd = FMath::Min(Count, PageStart + PerPage);
+ const float RowSpacing = FMath::Max(21.f, (PanelHeight - 290.f) / PerPage);
+ if (X < Left + 12.f || X > Left + PanelWidth - 12.f) return -1;
+ for (int32 Index = PageStart; Index < PageEnd; ++Index) {
+  const float RowTop = Top + 145.f + (Index - PageStart) * RowSpacing - 3.f;
+  if (Y >= RowTop && Y < RowTop + RowSpacing - 3.f)
+   return Index;
+ }
+ return -1;
+}
+
 void AMoonfallCombatHUD::DrawHUD()
 {
  Super::DrawHUD();
@@ -30,6 +58,44 @@ void AMoonfallCombatHUD::DrawHUD()
    for (int32 i=0;i<7;++i) DrawText(Rows[i],i==Hero->OptionsSelection?FLinearColor::Yellow:FLinearColor::White,MenuLeft+20.f,MenuTop+75.f+i*MenuRowGap,nullptr,1.1f);
   }
   DrawText(TEXT("WASD / Arrows / D-pad: navigate    Esc / Start: close"),FLinearColor::White,MenuLeft+18.f,MenuTop+MenuHeight-28.f,nullptr,0.85f);
+  return;
+ }
+ if (Hero->bAtlasOpen) {
+  // UE5 Atlas foundation: live world coordinates, no invented discovered
+  // terrain, locations, or markers. Future exploration data can fill cells.
+  const float Width = FMath::Min(700.f, FMath::Max(280.f, Canvas->SizeX - 24.f));
+  const float Height = FMath::Min(650.f, FMath::Max(280.f, Canvas->SizeY - 24.f));
+  const float Left = (Canvas->SizeX - Width) * 0.5f;
+  const float Top = (Canvas->SizeY - Height) * 0.5f;
+  DrawRect(FLinearColor(0.025f,0.035f,0.075f,0.97f),Left,Top,Width,Height);
+  DrawText(TEXT("MOONFALL  |  ATLAS"),FLinearColor::White,
+    Left + 20.f,Top + 17.f,nullptr,1.3f);
+  const FVector WorldPos = Hero->GetActorLocation();
+  const bool bValidWorldPos = FMath::IsFinite(WorldPos.X) &&
+    FMath::IsFinite(WorldPos.Y) && FMath::IsFinite(WorldPos.Z);
+  const float MapSize = FMath::Max(140.f, FMath::Min(Width - 48.f, Height - 150.f));
+  const float MapLeft = Left + (Width - MapSize) * 0.5f;
+  const float MapTop = Top + 61.f;
+  DrawRect(FLinearColor(0.085f,0.12f,0.17f),MapLeft,MapTop,MapSize,MapSize);
+  for (int32 GridIndex = 1; GridIndex < 10; ++GridIndex) {
+   const float Offset = MapSize * GridIndex / 10.f;
+   DrawRect(FLinearColor(0.20f,0.28f,0.35f,0.50f),MapLeft + Offset,MapTop,1.f,MapSize);
+   DrawRect(FLinearColor(0.20f,0.28f,0.35f,0.50f),MapLeft,MapTop + Offset,MapSize,1.f);
+  }
+  if (bValidWorldPos) {
+   const float CenterX = MapLeft + MapSize * 0.5f;
+   const float CenterY = MapTop + MapSize * 0.5f;
+   DrawRect(FLinearColor(0.98f,0.82f,0.25f),CenterX - 5.f,CenterY - 5.f,10.f,10.f);
+   DrawText(TEXT("YOU"),FLinearColor::Yellow,CenterX + 9.f,CenterY - 8.f,nullptr,0.85f);
+   DrawText(FString::Printf(TEXT("World X %.0f   Y %.0f   Z %.0f"),
+     WorldPos.X,WorldPos.Y,WorldPos.Z),FLinearColor(0.8f,0.9f,1.f),
+     Left + 20.f,Top + Height - 76.f,nullptr,0.9f);
+  } else {
+   DrawText(TEXT("World coordinates unavailable"),FLinearColor::White,
+      Left + 20.f,Top + Height - 76.f,nullptr,0.9f);
+  }
+  DrawText(TEXT("Undiscovered terrain is not shown  |  J / Esc: close"),
+    FLinearColor(0.7f,0.85f,0.88f),Left + 20.f,Top + Height - 43.f,nullptr,0.78f);
   return;
  }
  if (Hero->bInventoryOpen) {
@@ -76,7 +142,7 @@ void AMoonfallCombatHUD::DrawHUD()
       Row == 0 || Row == 4 || Row == 7 ? FLinearColor(0.52f,0.91f,0.76f) : FLinearColor::White,
       Left + 18.f, StartY + Row * RowHeight, nullptr,
       PanelHeight < 360.f ? 0.55f : (Canvas->SizeX < 900.f ? 0.75f : 0.90f));
-   DrawText(TEXT("P / A: back to inventory    I / Select / Esc: close"),
+   DrawText(TEXT("C / A: close character info    B / Select / Esc: close"),
      FLinearColor(0.81f,0.83f,0.97f), Left + 18.f, Top + PanelHeight - 29.f,
      nullptr, 0.8f);
    return;
@@ -87,6 +153,17 @@ void AMoonfallCombatHUD::DrawHUD()
   const int32 Selected = FMath::Clamp(Hero->InventorySelection, 0, FMath::Max(0, Count - 1));
   const int32 PageStart = Selected / PerPage * PerPage;
   const int32 PageEnd = FMath::Min(Count, PageStart + PerPage);
+  // Local advisor reads inventory and current set bonuses, never mutates gear.
+  // Show the inventory index even when its recommendation is on another page.
+  const int32 AdvisedIndex = Hero->GetRecommendedEquipmentIndex();
+  const int32 SelectedImprovement = Hero->GetEquipmentUpgradeScore(Selected);
+  DrawText(AdvisedIndex >= 0
+    ? FString::Printf(TEXT("ADVISOR: item %d  (+%d points)  |  equip manually"),
+        AdvisedIndex + 1, Hero->GetEquipmentUpgradeScore(AdvisedIndex))
+    : Count == 0 ? TEXT("ADVISOR: no items to compare")
+      : TEXT("ADVISOR: no higher-scoring gear found"),
+    FLinearColor(0.54f,0.94f,0.76f), Left + 18.f, Top + 128.f,
+    nullptr, Canvas->SizeX < 900.f ? 0.64f : 0.75f);
   DrawText(FString::Printf(TEXT("%d items  |  %d salvage  |  page %d / %d"),
     Count, Hero->Salvage, PageStart / PerPage + 1,
     FMath::Max(1, (Count + PerPage - 1) / PerPage)), FLinearColor(0.75f,0.72f,0.91f),
@@ -104,14 +181,20 @@ void AMoonfallCombatHUD::DrawHUD()
    const TCHAR* Slots[] = {TEXT("Weapon"), TEXT("Armor"), TEXT("Accessory")};
    const TCHAR* Rarities[] = {TEXT("Common"), TEXT("Uncommon"), TEXT("Rare"), TEXT("Epic"), TEXT("Emerald"), TEXT("Legendary")};
    const TCHAR* Traits[] = {TEXT("None"), TEXT("Force"), TEXT("Ward"), TEXT("Focus")};
-   const bool bValid = Code > 0 && Slot <= 2 && Affix <= 3 && Rarity <= 5 && Tier >= 1 && Tier <= 25;
-   const bool bEquipped = Code == (Slot == 0 ? Hero->EquippedWeaponCode
+   const bool bValid = Code > 0 && Slot >= 0 && Slot <= 2
+     && Affix >= 0 && Affix <= 3 && Rarity >= 0 && Rarity <= 5
+     && Tier >= 1 && Tier <= 25 && (Rarity != 0 || Affix == 0)
+     && Code == Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier;
+   const bool bEquipped = bValid && Code == (Slot == 0 ? Hero->EquippedWeaponCode
      : Slot == 1 ? Hero->EquippedArmorCode : Hero->EquippedAccessoryCode);
+   const bool bAdvised = Index == AdvisedIndex;
    const float Y = Top + 145.f + (Index - PageStart) * RowSpacing;
    if (Index == Selected) DrawRect(FLinearColor(0.25f,0.18f,0.43f,0.90f),
      Left + 12.f, Y - 3.f, PanelWidth - 24.f, RowSpacing - 3.f);
-   const FString Row = bValid ? FString::Printf(TEXT("%02d  %s  T%d  %s  %s%s"),
-      Index + 1, Slots[Slot], Tier, Rarities[Rarity], Traits[Affix], bEquipped ? TEXT("  [EQUIPPED]") : TEXT(""))
+   const FString Row = bValid ? FString::Printf(TEXT("%02d  %s  T%d  %s  %s%s%s"),
+      Index + 1, Slots[Slot], Tier, Rarities[Rarity], Traits[Affix],
+      bEquipped ? TEXT(" [EQUIPPED]") : TEXT(""),
+      bAdvised ? TEXT(" [ADVISOR]") : TEXT(""))
     : FString::Printf(TEXT("%02d  Invalid item"), Index + 1);
    // Item names retain a clear text label plus a distinct quality color.
    const FLinearColor RarityColors[] = {FLinearColor(0.90f,0.90f,0.90f),
@@ -122,6 +205,15 @@ void AMoonfallCombatHUD::DrawHUD()
      : (bValid ? RarityColors[Rarity] : FLinearColor::White),
      Left + 20.f, Y, nullptr, Canvas->SizeX < 900.f ? 0.75f : 0.9f);
   }
+  // The selected item's score is advisory only; it never calls EquipInventoryItem.
+  if (Count > 0)
+   DrawText(SelectedImprovement > 0
+     ? FString::Printf(TEXT("Selected: +%d advisor points vs worn slot"), SelectedImprovement)
+     : TEXT("Selected: no advised improvement vs worn slot"),
+     SelectedImprovement > 0 ? FLinearColor(0.56f,0.94f,0.75f)
+       : FLinearColor(0.77f,0.77f,0.85f),
+     Left + 18.f, Top + PanelHeight - 178.f, nullptr,
+     Canvas->SizeX < 900.f ? 0.65f : 0.75f);
   // Live stat summary mirrors the modifiers applied in combat and recovery.
   const int32 WeaponRarity = FMath::Clamp((Hero->EquippedWeaponCode / 1000) % 10, 0, 5);
   const int32 ArmorRarity = FMath::Clamp((Hero->EquippedArmorCode / 1000) % 10, 0, 5);
@@ -151,7 +243,7 @@ void AMoonfallCombatHUD::DrawHUD()
   DrawText(FString::Printf(TEXT("Sets: Force %d/3  Ward %d/3  Focus %d/3    2pc + 3pc unlock bonuses"),
     ForcePieces, WardPieces, FocusPieces), FLinearColor(0.59f,0.95f,0.77f),
     Left + 18.f, Top + 113.f, nullptr, Canvas->SizeX < 900.f ? 0.61f : 0.72f);
-  DrawText(TEXT("WASD / D-pad: select   Enter / Y: equip   Delete / X: salvage"),
+  DrawText(TEXT("Left-click: select  Up/Down: browse  Left/Right: skip 5  Right-click / Enter / Y: equip  Delete / X: salvage"),
      FLinearColor::White, Left + 18.f, Top + PanelHeight - 51.f, nullptr, 0.75f);
   // Display cost for the actual selected item, rather than a formula
   // players must calculate while navigating the inventory.
@@ -203,9 +295,9 @@ void AMoonfallCombatHUD::DrawHUD()
      ? FLinearColor(0.50f,0.95f,0.62f) : FLinearColor(0.98f,0.67f,0.45f),
      Left + 18.f, Top + PanelHeight - 89.f, nullptr, 0.82f);
   }
-  DrawText(TEXT("B / LT: equip best   U / RT: +1 tier   H / RB: forge 5   R / B: ascend   G / LB: reforge"),
+  DrawText(TEXT("LT: equip best   U / RT: +1 tier   H / RB: forge 5   R / B: ascend   G / LB: reforge"),
      FLinearColor(0.78f,0.90f,0.95f), Left + 18.f, Top + PanelHeight - 70.f, nullptr, 0.74f);
-  DrawText(TEXT("P / A: character stats    I / Select / Esc: close"), FLinearColor::White,
+  DrawText(TEXT("C / A: character info    B / Select / Esc: close"), FLinearColor::White,
      Left + 18.f, Top + PanelHeight - 28.f, nullptr, 0.8f);
   return;
  }
@@ -354,13 +446,17 @@ void AMoonfallCombatHUD::DrawHUD()
            CX + Radius + 14.f, CY - 13.f, nullptr, 0.96f * LabelScale);
  }
  if (!bCompactScreen) {
-  const TCHAR* RarityNames[] = { TEXT("COMMON"), TEXT("UNCOMMON"), TEXT("RARE"), TEXT("EPIC") };
-  const int32 Rarity = FMath::Clamp(Hero->LastLootRarity, 0, 5);
-  DrawText(FString::Printf(TEXT("Gear W:%d A:%d C:%d | Salvage %d | Bag %d/30"),
+  // All six item rarities must be represented before indexing the label.
+  // A received item is reported independently of the current bag size.
+  const TCHAR* RarityNames[] = { TEXT("COMMON"), TEXT("UNCOMMON"),
+    TEXT("RARE"), TEXT("EPIC"), TEXT("EMERALD"), TEXT("LEGENDARY") };
+  const int32 Rarity = FMath::Clamp(Hero->LastLootRarity, 0,
+    static_cast<int32>(UE_ARRAY_COUNT(RarityNames)) - 1);
+  DrawText(FString::Printf(TEXT("Gear W:%d A:%d C:%d | Salvage %d | Bag %d"),
    Hero->WeaponTier, Hero->ArmorTier, Hero->AccessoryTier, Hero->Salvage, Hero->InventoryItemCodes.Num()),
    FLinearColor(0.85f,0.84f,0.95f), 24.f, Canvas->SizeY - 75.f, nullptr, 0.8f);
-  if (Hero->InventoryItemCodes.Num() > 0) {
-   DrawText(FString::Printf(TEXT("Last drop: %s Tier %d (%+d vs equipped)"),
+  if (Hero->LastLootTier > 0) {
+   DrawText(FString::Printf(TEXT("Last received: %s Tier %d (%+d vs equipped)"),
     RarityNames[Rarity], Hero->LastLootTier, Hero->LastLootUpgrade),
     FLinearColor(0.95f,0.84f,0.47f), 24.f, Canvas->SizeY - 55.f, nullptr, 0.8f);
   }

@@ -106,10 +106,17 @@ public:
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Loot") int32 LastLootUpgrade = 0;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Loot") TArray<int32> InventoryItemCodes;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Inventory") bool bInventoryOpen = false;
+ // J toggles this read-only UE5 Atlas overlay, separate from gear and options.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Map") bool bAtlasOpen = false;
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Map") void ToggleAtlas();
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Inventory") bool bCharacterStatsOpen = false;
  UFUNCTION(BlueprintCallable, Category="Moonfall|Inventory") void ToggleCharacterStats();
+ // Controller A switches existing inventory pages, never closes the menu.
+ void SwitchInventoryPage();
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Inventory") int32 InventorySelection = 0;
  UFUNCTION(BlueprintCallable, Category="Moonfall|Inventory") void ToggleInventory();
+ // Preserve right-click combat outside inventory while enabling pointer-driven loot management.
+ void UpdateInventoryMouseMode();
  UFUNCTION(BlueprintCallable, Category="Moonfall|Inventory") void EquipSelectedInventoryItem();
  // Salvage only un-equipped entries. Returns false for invalid/protected gear.
  UFUNCTION(BlueprintCallable, Category="Moonfall|Inventory") bool SalvageInventoryItem(int32 InventoryIndex);
@@ -133,8 +140,16 @@ public:
  // Equip a validated inventory entry by index; the item remains in inventory.
  UFUNCTION(BlueprintCallable, Category="Moonfall|Equipment") bool EquipInventoryItem(int32 InventoryIndex);
  // Explicit inventory action, never automatic on loot pickup.
+ // Lightweight local gear advisor: evaluates worn gear, item quality and
+ // Force/Ward/Focus set synergy. It never equips, salvages or changes saves.
+ // Returns -1 if there is no strictly better inventory choice.
+ UFUNCTION(BlueprintPure, Category="Moonfall|Equipment|Advisor") int32 GetRecommendedEquipmentIndex() const;
+ // A positive score means the specified bag item improves its own worn slot.
+ // Zero or negative means keep the current gear; invalid indices return 0.
+ UFUNCTION(BlueprintPure, Category="Moonfall|Equipment|Advisor") int32 GetEquipmentUpgradeScore(int32 InventoryIndex) const;
  UFUNCTION(BlueprintCallable, Category="Moonfall|Equipment") int32 EquipBestInventoryUpgrades();
  void EquipBestInventoryAction();
+
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Equipment") void OnBestLoadoutEquipped(int32 UpgradesEquipped);
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Equipment") int32 EquippedWeaponCode = 0;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Equipment") int32 EquippedArmorCode = 0;
@@ -230,8 +245,19 @@ private:
  void ZoomCameraIn();
  void ZoomCameraOut();
  void CastLeft();
+ // Left mouse selects pointed gear in inventory, casts during combat.
+ void LeftClickContextAction();
+ void ReleaseLeftClickContext();
  void CastRight();
+ // Mouse-specific context action: equip inventory row or cast outside menus.
+ void RightClickContextAction();
+ void ReleaseRightClickContext();
  void CastBoth();
+ // Transient mouse chord state, never serialized to saves.
+ bool bLeftMouseHeld = false;
+ bool bRightMouseHeld = false;
+ bool bMouseChordConsumed = false;
+ void ResetMouseCastChord();
  void Dodge();
  void BeginSprint();
  void EndSprint();
@@ -249,5 +275,5 @@ private:
  void CycleGraphicsQuality();
  void ToggleDisplayMode();
  int32 RollEquipmentCode(bool bEliteEnemy, bool bBossEnemy);
- bool TryCast(int32 School, int32 Hand, float Multiplier);
+ bool TryCast(int32 School, int32 Hand, float Multiplier, bool bOvercharged = false);
 };

@@ -4,10 +4,14 @@ on:
     paths:
       - 'MoonfallUnreal/**'
       - '.github/workflows/unreal-source-checks.yml'
+      - 'tools/test_unreal_loot_collection_safety.py'
+      - 'tools/test_unreal_equipment_stat_validation.py'
   pull_request:
     paths:
       - 'MoonfallUnreal/**'
       - '.github/workflows/unreal-source-checks.yml'
+      - 'tools/test_unreal_loot_collection_safety.py'
+      - 'tools/test_unreal_equipment_stat_validation.py'
 jobs:
   source-check:
     runs-on: ubuntu-latest
@@ -47,8 +51,8 @@ jobs:
           hero = (root/'MoonfallUnreal'/'MoonfallHeroPawn.cpp').read_text()
           assert 'NextPathRefreshAt' in enemy and 'CachedWaypoint' in enemy
           assert 'SetLifeSpan(1.25f)' in enemy
-          assert 'Health > 0.f && !bOptionsOpen && !bInventoryOpen && FMath::IsFinite(Value)) AddControllerYawInput' in hero
-          assert 'Health > 0.f && !bOptionsOpen && !bInventoryOpen && FMath::IsFinite(Value)) AddControllerPitchInput' in hero
+          assert 'Health > 0.f && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && FMath::IsFinite(Value)) AddControllerYawInput' in hero
+          assert 'Health > 0.f && !bOptionsOpen && !bInventoryOpen && !bAtlasOpen && FMath::IsFinite(Value)) AddControllerPitchInput' in hero
           assert 'ManaRegenPerSecond' in hero and 'Tick(float DeltaSeconds)' in hero
           assert 'DamageImmunityUntil' in hero and 'NextDodgeAt' in hero
           assert 'IncomingStage >= 12 ? 1 : IncomingStage + 1' in hero
@@ -67,13 +71,28 @@ jobs:
           assert 'TEXT("HEAVY")' in enemy and 'TEXT("SWEEP")' in enemy
           inputs = Path('MoonfallUnreal/Config/DefaultInput.ini').read_text()
           hud = (root/'MoonfallUnreal'/'MoonfallCombatHUD.cpp').read_text()
-          assert 'ActionName="CastLeft",Key=LeftMouseButton' in inputs
-          assert 'ActionName="CastRight",Key=RightMouseButton' in inputs
+          assert 'ActionName="LeftClickContext",Key=LeftMouseButton' in inputs
+          assert 'ActionName="CastLeft",Key=Gamepad_LeftShoulder' in inputs
+          assert 'ActionName="CastLeft",Key=LeftMouseButton' not in inputs
+          assert 'void AMoonfallHeroPawn::LeftClickContextAction()' in hero
+          assert 'ActionName="RightClickContext",Key=RightMouseButton' in inputs
+          assert 'ActionName="CastRight",Key=Gamepad_RightShoulder' in inputs
+          assert 'ActionName="ForgeFive",Key=Gamepad_RightShoulder' in inputs
+          assert 'ActionName="CastRight",Key=RightMouseButton' not in inputs
+          assert 'void AMoonfallHeroPawn::RightClickContextAction()' in hero
+          assert 'if (bOptionsOpen || bInventoryOpen) return;' in hero
           assert 'ActionName="DualCast",Key=Gamepad_LeftTrigger' in inputs
           assert 'DrawArc(Radius * 0.85f' in hud and 'DrawArc(Radius * 0.97f' in hud
           assert 'DisplayHealth = FMath::FInterpTo' in hud and 'LevelGlowUntil' in hud
           print('Input mapping and combat source checks passed. Unreal compilation NOT performed.')
           PY
+
+      - name: Run integrated Unreal equipment and loot regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tools -p 'test_unreal_equipment_stat_validation.py' -v
+          python3 -m unittest discover -s tools -p 'test_unreal_loot_collection_safety.py' -v
 
       - name: Parse Windows build scripts
         shell: pwsh
