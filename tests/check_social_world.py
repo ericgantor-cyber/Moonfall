@@ -98,6 +98,18 @@ class TestSocialWorld(unittest.TestCase):
   self.assertIn("FVector::DistSquared(GetActorLocation(), Resident->GetActorLocation()) > FMath::Square(400.f)",self.hero)
   self.assertIn("!bResidentContextOpen && FMath::IsFinite(Value)",self.hero)
   self.assertIn("bResidentContextOpen || !GetWorld() || School < 0",self.hero)
+ def test_turn_in_requires_deliberate_second_choice(self):
+  hud=(ROOT/"MoonfallCombatHUD.cpp").read_text()
+  self.assertIn("bResidentTurnInPending = false",self.hero_h)
+  self.assertIn("ResidentTurnInConfirmUntil",self.hero_h)
+  self.assertIn("GetTimeSeconds() + 6.f",self.hero)
+  self.assertIn("if (!bResidentTurnInPending || !GetWorld()",self.hero)
+  self.assertIn("GetTimeSeconds() > ResidentTurnInConfirmUntil",self.hero)
+  self.assertIn("Confirm spending %d salvage",self.hero)
+  self.assertIn("Confirm turn-in",hud)
+  self.assertIn("Hero->ResidentTurnInConfirmUntil",hud)
+  self.assertIn("if (ResidentContextSelection != Row) bResidentTurnInPending = false;",self.hero)
+  self.assertIn("Resident->TurnInResidentQuest(this)",self.hero)
  def test_no_n_v_quest_bindings(self):
   self.assertNotIn('ActionName="TalkNPC"',self.input)
   self.assertNotIn('ActionName="ResidentQuest"',self.input)
