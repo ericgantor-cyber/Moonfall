@@ -157,12 +157,17 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
 {
  Super::Tick(DeltaSeconds);
  // Collect reachable equipment automatically, throttled to avoid per-frame world scans.
- if (bAutoLootEnabled && FMath::IsFinite(DeltaSeconds) && DeltaSeconds > 0.f) {
-  AutoLootElapsed += FMath::Min(DeltaSeconds, 0.1f);
+ if (bAutoLootEnabled && FMath::IsFinite(DeltaSeconds) && DeltaSeconds > 0.f
+     && Health > 0.f && !bOptionsOpen && !bInventoryOpen) {
+  // Use elapsed time even when frame time exceeds 100 ms; cap long hitches.
+  AutoLootElapsed += FMath::Min(DeltaSeconds, 1.f);
   if (AutoLootElapsed >= 0.35f) {
-   AutoLootElapsed = 0.f;
+   AutoLootElapsed = FMath::Fmod(AutoLootElapsed, 0.35f);
    PickupNearestGroundLoot();
   }
+ } else {
+  // Avoid needless scans and immediate pickup after exiting a paused menu.
+  AutoLootElapsed = 0.f;
  }
  UpdateNativeFinisher(DeltaSeconds);
  // Expire the visible combo stage even if the player stops attacking.
