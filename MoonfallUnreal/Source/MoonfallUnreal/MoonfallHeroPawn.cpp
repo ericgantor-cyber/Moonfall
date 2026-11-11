@@ -47,17 +47,17 @@ int32 AMoonfallHeroPawn::GetSetPieceCount(int32 Affix) const
 
 int32 AMoonfallHeroPawn::GetMight() const
 {
- return FMath::Clamp(10 + FMath::Max(0, Level - 1) / 2 + FMath::Clamp(WeaponTier, 0, 25), 10, 100);
+ return FMath::Clamp(10 + FMath::Max(0, Level - 1) / 2 + FMath::Clamp(WeaponTier, 0, 25) + GetRaceMightBonus(), 10, 100);
 }
 
 int32 AMoonfallHeroPawn::GetInsight() const
 {
- return FMath::Clamp(10 + FMath::Max(0, Level - 1) / 2 + FMath::Clamp(AccessoryTier, 0, 25), 10, 100);
+ return FMath::Clamp(10 + FMath::Max(0, Level - 1) / 2 + FMath::Clamp(AccessoryTier, 0, 25) + GetRaceInsightBonus(), 10, 100);
 }
 
 int32 AMoonfallHeroPawn::GetResolve() const
 {
- return FMath::Clamp(10 + FMath::Max(0, Level - 1) / 2 + FMath::Clamp(ArmorTier, 0, 25), 10, 100);
+ return FMath::Clamp(10 + FMath::Max(0, Level - 1) / 2 + FMath::Clamp(ArmorTier, 0, 25) + GetRaceResolveBonus(), 10, 100);
 }
 
 float AMoonfallHeroPawn::GetCriticalChance() const
@@ -209,7 +209,7 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
          ? FMath::Clamp(CombatManaRegenMultiplier, 0.f, 1.f) : 0.5f) : 1.f;
  if (Health > 0.f && FMath::IsFinite(Mana) && FMath::IsFinite(MaxMana) && MaxMana > 0.f
      && FMath::IsFinite(ManaRegenPerSecond) && ManaRegenPerSecond > 0.f && Mana >= 0.f && Mana < MaxMana)
-  Mana = FMath::Min(MaxMana, Mana + FMath::Clamp(ManaRegenPerSecond, 0.f, 250.f) * MenuRecoveryBoost * CombatManaFactor
+  Mana = FMath::Min(MaxMana, Mana + FMath::Clamp(ManaRegenPerSecond, 0.f, 250.f) * (1.f + GetRaceManaRegenBonus()) * MenuRecoveryBoost * CombatManaFactor
       * (1.f + FMath::Clamp(AccessoryTier * 0.012f, 0.f, 0.25f) + (AccessoryAffix == 3 ? 0.08f : 0.f)
         + FMath::Clamp(((EquippedAccessoryCode / 1000) % 10) * 0.02f, 0.f, 0.10f)
         + (GetSetPieceCount(3) >= 3 ? 0.06f : 0.f)
@@ -301,7 +301,7 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
  if (Health > 0.f && !bSprinting && !bGuarding && GetWorld() && GetWorld()->GetTimeSeconds() >= StaminaRegenStartsAt
      && FMath::IsFinite(Stamina) && FMath::IsFinite(MaxStamina) && MaxStamina > 0.f
      && FMath::IsFinite(StaminaRegenPerSecond) && StaminaRegenPerSecond > 0.f) {
-  Stamina = FMath::Clamp(Stamina + FMath::Clamp(StaminaRegenPerSecond, 0.f, 250.f) * StaminaDelta * MenuRecoveryBoost
+  Stamina = FMath::Clamp(Stamina + FMath::Clamp(StaminaRegenPerSecond, 0.f, 250.f) * (1.f + GetRaceStaminaRegenBonus()) * StaminaDelta * MenuRecoveryBoost
     * (1.f + FMath::Clamp(GetResolve() * 0.003f, 0.f, 0.30f)), 0.f, MaxStamina);
  }
 }
@@ -1526,6 +1526,8 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
      UGameplayStatics::CreateSaveGameObject(UMoonfallPersistentSave::StaticClass()));
  if (!Save) return false;
  Save->CheckpointLocation = GetActorLocation();
+ Save->RaceId = FMath::Clamp(RaceId, 0, 11);
+ Save->bRaceChosen = bRaceChosen;
  Save->Level = FMath::Clamp(Level, 1, 100);
  Save->Experience = FMath::Clamp(Experience, 0, 1000000);
  Save->Salvage = FMath::Clamp(Salvage, 0, 100000000);
@@ -1543,7 +1545,9 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  if (!UGameplayStatics::DoesSaveGameExist(MoonfallWorldSlot, 0)) return false;
  const UMoonfallPersistentSave* Save = Cast<UMoonfallPersistentSave>(
      UGameplayStatics::LoadGameFromSlot(MoonfallWorldSlot, 0));
- if (!Save || Save->Version != 1) return false;
+ if (!Save || (Save->Version != 1 && Save->Version != 2)) return false;
+ RaceId = Save->Version >= 2 ? FMath::Clamp(Save->RaceId, 0, 11) : 0;
+ bRaceChosen = Save->Version >= 2 && Save->bRaceChosen;
  Level = FMath::Clamp(Save->Level, 1, 100);
  Experience = FMath::Clamp(Save->Experience, 0, 1000000);
  ExperienceToNextLevel = 100 + (Level - 1) * 55;
@@ -1592,3 +1596,53 @@ void AMoonfallHeroPawn::RespawnAtCheckpoint() {
  }
  if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
 }
+
+// One unified roster. Every ancestry shares the same world, quests and progression.
+// Index order is stable across saves; never reorder IDs in a shipped build.
+namespace {
+struct FMoonfallRaceProfile {
+ const TCHAR* Name;
+ int32 Might;
+ int32 Insight;
+ int32 Resolve;
+ float StaminaRegen;
+ float ManaRegen;
+};
+constexpr FMoonfallRaceProfile MoonfallRaces[] = {
+ {TEXT("Human"),      2, 2, 2, 0.02f, 0.02f},
+ {TEXT("High Elf"),   0, 6, 0, 0.00f, 0.10f},
+ {TEXT("Wood Elf"),   3, 3, 0, 0.10f, 0.02f},
+ {TEXT("Dwarf"),      3, 0, 5, 0.06f, 0.00f},
+ {TEXT("Halfling"),   1, 3, 2, 0.12f, 0.02f},
+ {TEXT("Orc"),        6, 0, 2, 0.07f, 0.00f},
+ {TEXT("Goblin"),     3, 3, 0, 0.12f, 0.02f},
+ {TEXT("Troll"),      4, 0, 5, 0.03f, 0.00f},
+ {TEXT("Entkin"),     1, 2, 6, 0.02f, 0.04f},
+ {TEXT("Shadowborn"), 4, 4, 0, 0.05f, 0.05f},
+ {TEXT("Moonborn"),   0, 5, 3, 0.00f, 0.12f},
+ {TEXT("Draconid"),   5, 2, 2, 0.04f, 0.04f}
+};
+const FMoonfallRaceProfile& RaceProfile(int32 Id) {
+ return MoonfallRaces[FMath::Clamp(Id, 0, 11)];
+}
+}
+bool AMoonfallHeroPawn::ChooseRace(int32 NewRaceId) {
+ // Character creation is a single deliberate choice, not an unlimited respec.
+ if (bRaceChosen || NewRaceId < 0 || NewRaceId > 11 || Health <= 0.f) return false;
+ const int32 OldId = RaceId;
+ RaceId = NewRaceId;
+ bRaceChosen = true;
+ // Fail closed on save error: no unsaved race lock.
+ if (!SaveWorldProgress()) {
+  RaceId = OldId;
+  bRaceChosen = false;
+  return false;
+ }
+ return true;
+}
+FString AMoonfallHeroPawn::GetRaceName() const { return FString(RaceProfile(RaceId).Name); }
+int32 AMoonfallHeroPawn::GetRaceMightBonus() const { return RaceProfile(RaceId).Might; }
+int32 AMoonfallHeroPawn::GetRaceInsightBonus() const { return RaceProfile(RaceId).Insight; }
+int32 AMoonfallHeroPawn::GetRaceResolveBonus() const { return RaceProfile(RaceId).Resolve; }
+float AMoonfallHeroPawn::GetRaceStaminaRegenBonus() const { return RaceProfile(RaceId).StaminaRegen; }
+float AMoonfallHeroPawn::GetRaceManaRegenBonus() const { return RaceProfile(RaceId).ManaRegen; }
