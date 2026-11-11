@@ -337,6 +337,28 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('ActionMappings=(ActionName="EquipOffhand",Key=T)', controls)
         self.assertIn('Input->BindAction(TEXT("EquipOffhand")', self.hero_cpp)
 
+    def test_dual_wield_custom_blade_meshes_and_hand_socket_fallback(self):
+        for name in ("MainhandMeshAsset", "OffhandMeshAsset",
+                     "MainhandSocket", "OffhandSocket"):
+            self.assertIn(name, self.hero_h)
+        self.assertIn("void AMoonfallHeroPawn::InitializeDualWieldVisuals()", self.hero_cpp)
+        self.assertIn("InitializeDualWieldVisuals();", self.hero_cpp)
+        visuals = self.hero_cpp.split("void AMoonfallHeroPawn::InitializeDualWieldVisuals()", 1)[1].split(
+            "void AMoonfallHeroPawn::BeginWeaponSwing(", 1)[0]
+        self.assertIn("MainhandVisual->SetStaticMesh(MainhandMeshAsset.Get());", visuals)
+        self.assertIn("OffhandVisual->SetStaticMesh(OffhandMeshAsset.Get());", visuals)
+        self.assertIn("BodyMesh->DoesSocketExist(MainhandSocket)", visuals)
+        self.assertIn("BodyMesh->DoesSocketExist(OffhandSocket)", visuals)
+        self.assertIn("SnapToTargetNotIncludingScale", visuals)
+        self.assertIn("MainhandVisual->SetCollisionEnabled(ECollisionEnabled::NoCollision);", visuals)
+        self.assertIn("OffhandVisual->SetCollisionEnabled(ECollisionEnabled::NoCollision);", visuals)
+        swing = self.hero_cpp.split("void AMoonfallHeroPawn::BeginWeaponSwing(", 1)[1].split(
+            "void AMoonfallHeroPawn::UpdateWeaponVisuals()", 1)[0]
+        self.assertIn("if (!bReduceMotion && GetMesh())", swing)
+        self.assertIn("OnDualWieldSwing(bOffhand);", swing)
+        self.assertIn("if (!bReduceMotion)", swing)
+        self.assertNotIn("if (!GetWorld() || bReduceMotion) return;", swing)
+
     def test_dual_wield_visuals_and_swing_hooks_are_non_destructive(self):
         self.assertIn("TObjectPtr<UStaticMeshComponent> MainhandVisual;", self.hero_h)
         self.assertIn("TObjectPtr<UStaticMeshComponent> OffhandVisual;", self.hero_h)
