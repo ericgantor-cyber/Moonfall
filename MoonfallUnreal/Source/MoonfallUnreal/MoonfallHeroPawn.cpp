@@ -342,6 +342,7 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("PickupLoot"), IE_Pressed, this, &AMoonfallHeroPawn::PickupNearestGroundLoot);
  Input->BindAction(TEXT("RacePower"), IE_Pressed, this, &AMoonfallHeroPawn::TriggerRacePower);
  Input->BindAction(TEXT("TalkNPC"), IE_Pressed, this, &AMoonfallHeroPawn::TalkToNearestNPC);
+ Input->BindAction(TEXT("ResidentQuest"), IE_Pressed, this, &AMoonfallHeroPawn::InteractWithNearestResidentQuest);
  Input->BindAction(TEXT("OptionsUp"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsUp);
  Input->BindAction(TEXT("OptionsDown"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsDown);
  Input->BindAction(TEXT("OptionsLeft"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsLeft);
@@ -1813,22 +1814,56 @@ bool AMoonfallHeroPawn::ActivateRacePower() {
  return true;
 }
 
-void AMoonfallHeroPawn::TalkToNearestNPC() {
- if (!GetWorld() || Health <= 0.f || bOptionsOpen || bInventoryOpen) return;
+AMoonfallWorldNPC* AMoonfallHeroPawn::GetNearestResidentNPC() const {
+ if (!GetWorld() || Health <= 0.f || bOptionsOpen || bInventoryOpen) return nullptr;
  AMoonfallWorldNPC* Nearest = nullptr;
  float BestDistSq = FMath::Square(400.f);
  int32 Checked = 0;
- // Bound this explicit interaction scan. No work is done each frame.
+ // Query only after explicit input; no per-frame scanning or NPC Tick.
  for (TActorIterator<AMoonfallWorldNPC> It(GetWorld()); It && Checked < 64; ++It, ++Checked) {
   AMoonfallWorldNPC* Candidate = *It;
   if (!IsValid(Candidate)) continue;
   const float DistSq = FVector::DistSquared(GetActorLocation(), Candidate->GetActorLocation());
-  if (DistSq < BestDistSq) {
+  if (FMath::IsFinite(DistSq) && DistSq < BestDistSq) {
    BestDistSq = DistSq;
    Nearest = Candidate;
   }
  }
- if (Nearest) Nearest->TryTalk(this);
+ return Nearest;
+}
+void AMoonfallHeroPawn::TalkToNearestNPC() {
+ if (AMoonfallWorldNPC* Nearest = GetNearestResidentNPC()) Nearest->TryTalk(this);
+}
+void AMoonfallHeroPawn::InteractWithNearestResidentQuest() {
+ AMoonfallWorldNPC* Resident = GetNearestResidentNPC();
+ if (!IsValid(Resident) || !Resident->CanHeroInteract(this)) {
+  OnResidentQuestFeedback(FText::FromString(TEXT("Move closer to a resident to discuss a contract.")), false);
+  return;
+ }
+ const int32 State = GetResidentQuestState(Resident->ResidentId);
+ if (State == 2) {
+  OnResidentQuestFeedback(FText::FromString(TEXT("This resident's contract is already complete.")), false);
+  return;
+ }
+ if (State == 0) {
+  const bool bAccepted = Resident->OfferResidentQuest(this);
+  OnResidentQuestFeedback(bAccepted
+    ? FText::FromString(FString::Printf(TEXT("Accepted: bring %d salvage to %s."),
+        Resident->GetContractSalvageCost(), *Resident->DisplayName.ToString()))
+    : FText::FromString(TEXT("This resident cannot offer a contract right now.")), bAccepted);
+  return;
+ }
+ const int32 Cost = Resident->GetContractSalvageCost();
+ if (Salvage < Cost) {
+  OnResidentQuestFeedback(FText::FromString(FString::Printf(
+      TEXT("Need %d salvage, carrying %d."), Cost, Salvage)), false);
+  return;
+ }
+ // A second deliberate keypress pays salvage; dialogue never spends it.
+ const bool bCompleted = Resident->TurnInResidentQuest(this);
+ OnResidentQuestFeedback(bCompleted
+    ? FText::FromString(TEXT("Contract complete: +6 personal bond, +3 faction reputation."))
+    : FText::FromString(TEXT("Contract could not be completed; nothing was spent.")), bCompleted);
 }
 
 // Bounded, persistent faction relationship API. No free reputation on repeated talk.
