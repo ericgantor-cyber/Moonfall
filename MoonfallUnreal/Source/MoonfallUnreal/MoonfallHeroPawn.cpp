@@ -2336,6 +2336,11 @@ bool AMoonfallHeroPawn::CollectGroundEquipmentCode(int32 ItemCode)
  int32* EquippedAffix = SlotIndex == 0 ? &WeaponAffix
    : (SlotIndex == 1 ? &ArmorAffix : &AccessoryAffix);
  const bool bAutoEquipEmptySlot = *EquippedCode == 0;
+ // A second weapon auto-fills only an EMPTY offhand, after the main weapon.
+ // Existing worn items are never replaced and collection still saves once.
+ const bool bAutoEquipEmptyOffhand = SlotIndex == 0 && !bAutoEquipEmptySlot
+   && EquippedWeaponCode > 0 && EquippedOffhandCode == 0
+   && InventoryItemCodes.Contains(EquippedWeaponCode);
  // Capture the worn tier before an empty slot is filled so loot comparison
  // reports the real gain instead of subtracting the newly equipped tier.
  const int32 PreviousSlotTier = *EquippedTier;
@@ -2343,6 +2348,11 @@ bool AMoonfallHeroPawn::CollectGroundEquipmentCode(int32 ItemCode)
  const float PreviousMaxHealth = MaxHealth;
  const float PreviousHealth = Health;
  InventoryItemCodes.Add(ItemCode);
+ if (bAutoEquipEmptyOffhand)
+ {
+  EquippedOffhandCode = ItemCode;
+  OffhandTier = Tier;
+ }
  if (bAutoEquipEmptySlot)
  {
   *EquippedCode = ItemCode;
@@ -2360,6 +2370,11 @@ bool AMoonfallHeroPawn::CollectGroundEquipmentCode(int32 ItemCode)
  {
   bAutoLootSaveFailedThisSweep = true;
   InventoryItemCodes.Pop();
+  if (bAutoEquipEmptyOffhand)
+  {
+   EquippedOffhandCode = 0;
+   OffhandTier = 0;
+  }
   if (bAutoEquipEmptySlot)
   {
    *EquippedCode = 0;
