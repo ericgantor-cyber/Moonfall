@@ -250,8 +250,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('SetBool(TEXT("Moonfall.Gameplay"), TEXT("AutoLootEnabled")', self.hero_cpp)
         self.assertIn('OptionsSelection == 7', self.hero_cpp)
         self.assertIn('% 8', self.hero_cpp)
-        self.assertIn('Hero->bAutoLootEnabled', self.hud_cpp)
-        self.assertIn('for (int32 i=0;i<8;++i)', self.hud_cpp)
+        self.assertIn('Hero->bAutoLootEnabled', self.hud)
+        self.assertIn('for (int32 i=0;i<8;++i)', self.hud)
         self.assertIn('BindAction(TEXT("PickupLoot"), IE_Pressed', self.hero_cpp)
 
     def test_nearby_batch_loot_is_range_and_cover_safe(self):
