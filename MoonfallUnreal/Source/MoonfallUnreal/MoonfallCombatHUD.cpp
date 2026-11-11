@@ -8,6 +8,7 @@
 #include "Engine/Canvas.h"
 #include "Engine/Engine.h"
 #include "GameFramework/GameUserSettings.h"
+#include "GameFramework/PlayerController.h"
 void AMoonfallCombatHUD::DrawHUD()
 {
  Super::DrawHUD();
@@ -37,15 +38,27 @@ void AMoonfallCombatHUD::DrawHUD()
        && Hero->GetWorld()->GetTimeSeconds() <= Hero->ResidentTurnInConfirmUntil
        ? FString(TEXT("Confirm turn-in")) : QuestAction,
      TEXT("Close") };
+   // Mouse hover and gamepad selection share row geometry.
+   float CursorX = -1.f, CursorY = -1.f;
+   bool bCursorInMenu = false;
+   if (const APlayerController* PC = Cast<APlayerController>(Hero->GetController()))
+    bCursorInMenu = PC->bShowMouseCursor && PC->GetMousePosition(CursorX, CursorY);
    for (int32 Row = 0; Row < 3; ++Row) {
     const float Y = T + 122.f + Row * 53.f;
-    DrawRect(Row == Hero->ResidentContextSelection
+    const bool bHover = bCursorInMenu && CursorX >= L + 14.f &&
+      CursorX <= L + W - 14.f && CursorY >= Y && CursorY <= Y + 43.f;
+    DrawRect((bHover || Row == Hero->ResidentContextSelection)
         ? FLinearColor(0.24f,0.22f,0.43f,0.98f)
         : FLinearColor(0.10f,0.10f,0.18f,0.94f), L + 14.f, Y, W - 28.f, 43.f);
     DrawText(Names[Row], Row == 1 && Quest == 2
         ? FLinearColor(0.64f,0.66f,0.72f) : FLinearColor::White,
         L + 25.f, Y + 10.f, nullptr, 1.f);
    }
+   const FString ContractStatus = Quest == 0 ? TEXT("Available")
+     : Quest == 1 ? TEXT("Active") : TEXT("Completed");
+   DrawText(FString::Printf(TEXT("Contract: %s  |  Faction %s"),
+     *ContractStatus, *Resident->FactionId.ToString()),
+     FLinearColor(0.83f,0.81f,0.94f), L + 18.f, T + 77.f, nullptr, 0.76f);
    DrawText(FString::Printf(TEXT("Salvage: %d / %d"),
        Hero->Salvage, Resident->GetContractSalvageCost()),
        FLinearColor(0.76f,0.87f,0.68f), L + 18.f, T + H - 58.f, nullptr, 0.86f);
