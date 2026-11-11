@@ -162,8 +162,14 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
 {
  Super::Tick(DeltaSeconds);
  // A streaming/despawned resident must not leave player cursor or input locked.
- if (bResidentContextOpen &&
-     (!FocusedResident.IsValid() || !FocusedResident->CanHeroInteract(this))) CloseResidentContext();
+ if (bResidentContextOpen) {
+  const AMoonfallWorldNPC* Resident = FocusedResident.Get();
+  // Check cheap safety/range every tick. Full LOS is revalidated only
+  // on actual choices, avoiding a world trace on every player frame.
+  if (!IsValid(Resident) || Health <= 0.f || bOptionsOpen || bInventoryOpen ||
+      FVector::DistSquared(GetActorLocation(), Resident->GetActorLocation()) > FMath::Square(400.f))
+   CloseResidentContext();
+ }
  // Keep one save slot forever; only alive characters overwrite the checkpoint.
  if (Health > 0.f) {
   DefeatElapsedSeconds = 0.f;
