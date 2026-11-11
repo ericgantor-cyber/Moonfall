@@ -573,6 +573,7 @@ void AMoonfallHeroPawn::AwardEnemyCurrency(bool bEliteEnemy, bool bBossEnemy, FV
 
 void AMoonfallHeroPawn::BeginPlay() {
  Super::BeginPlay();
+ InitializeDualWieldVisuals();
  if (!LoadRewardProgress())
  {
   // An unreadable or newer-version save is protected against overwrite.
@@ -1139,14 +1140,49 @@ void AMoonfallHeroPawn::ToggleWeaponSpell()
  bDualWieldStance = false;
  EndGuard();
 }
+void AMoonfallHeroPawn::InitializeDualWieldVisuals()
+{
+ if (!MainhandVisual || !OffhandVisual) return;
+ // Blueprint-authored assets replace only the sword proxies, never the hero art.
+ if (IsValid(MainhandMeshAsset))
+  MainhandVisual->SetStaticMesh(MainhandMeshAsset.Get());
+ if (IsValid(OffhandMeshAsset))
+  OffhandVisual->SetStaticMesh(OffhandMeshAsset.Get());
+ USkeletalMeshComponent* BodyMesh = GetMesh();
+ // Only bind to actually existing socket names. Some prototype heroes
+ // have no skeleton, so the original capsule-relative fallback stays valid.
+ if (IsValid(BodyMesh) && !MainhandSocket.IsNone()
+     && BodyMesh->DoesSocketExist(MainhandSocket))
+ {
+  MainhandVisual->AttachToComponent(BodyMesh,
+    FAttachmentTransformRules::SnapToTargetNotIncludingScale, MainhandSocket);
+  MainhandVisual->SetRelativeLocation(FVector::ZeroVector);
+ }
+ if (IsValid(BodyMesh) && !OffhandSocket.IsNone()
+     && BodyMesh->DoesSocketExist(OffhandSocket))
+ {
+  OffhandVisual->AttachToComponent(BodyMesh,
+    FAttachmentTransformRules::SnapToTargetNotIncludingScale, OffhandSocket);
+  OffhandVisual->SetRelativeLocation(FVector::ZeroVector);
+ }
+ // Visual-only equipment must never interfere with combat visibility traces.
+ MainhandVisual->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+ OffhandVisual->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+ MainhandVisual->SetGenerateOverlapEvents(false);
+ OffhandVisual->SetGenerateOverlapEvents(false);
+}
+
 void AMoonfallHeroPawn::BeginWeaponSwing(bool bOffhand)
 {
- if (!GetWorld() || bReduceMotion) return;
+ if (!GetWorld()) return;
  const float Now = GetWorld()->GetTimeSeconds();
  if (!FMath::IsFinite(Now)) return;
- if (bOffhand) OffhandSwingStartedAt = Now;
- else MainhandSwingStartedAt = Now;
- if (GetMesh())
+ if (!bReduceMotion)
+ {
+  if (bOffhand) OffhandSwingStartedAt = Now;
+  else MainhandSwingStartedAt = Now;
+ }
+ if (!bReduceMotion && GetMesh())
  {
   if (UAnimInstance* Anim = GetMesh()->GetAnimInstance())
   {
@@ -1167,6 +1203,7 @@ void AMoonfallHeroPawn::UpdateWeaponVisuals()
  OffhandVisual->SetHiddenInGame(!bShowOffhand);
  if (!bShowMain && !bShowOffhand) return;
  const float Now = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f;
+ if (!FMath::IsFinite(Now)) return;
  // Opposing, bounded blade sweeps make both hands readable even with
  // no external montage assets. Reduced-motion mode disables the sweep.
  const float MainAge = Now - MainhandSwingStartedAt;
