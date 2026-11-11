@@ -421,6 +421,33 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("FMath::IsFinite(Played) && Played > 0.f", swing)
         self.assertIn("OnDualWieldSwing(bOffhand);", swing)
 
+    def test_enemy_elite_and_boss_share_optional_skeletal_rig(self):
+        self.assertIn("class USkeletalMeshComponent;", self.enemy_h)
+        self.assertIn("TObjectPtr<USkeletalMeshComponent> CharacterRig;", self.enemy_h)
+        self.assertIn("TObjectPtr<UAnimMontage> AttackRigMontage;", self.enemy_h)
+        self.assertIn("TObjectPtr<UAnimMontage> HitRigMontage;", self.enemy_h)
+        self.assertIn("TObjectPtr<UAnimMontage> DeathRigMontage;", self.enemy_h)
+        self.assertIn("void RefreshCharacterRig();", self.enemy_h)
+        self.assertIn("void OnCharacterRigCue(FName CueId, bool bMontagePlayed);", self.enemy_h)
+        self.assertIn("CreateDefaultSubobject<USkeletalMeshComponent>(TEXT(\"CharacterRig\"))", self.enemy_cpp)
+        self.assertIn("CharacterRig->SetupAttachment(Body);", self.enemy_cpp)
+        self.assertIn("CharacterRig->SetCollisionEnabled(ECollisionEnabled::NoCollision);", self.enemy_cpp)
+        self.assertIn("CharacterRig->SetCanEverAffectNavigation(false);", self.enemy_cpp)
+        self.assertIn("RefreshCharacterRig();", self.enemy_cpp)
+        rig = self.enemy_cpp.split("void AMoonfallEnemy::RefreshCharacterRig()", 1)[1].split(
+            "void AMoonfallEnemy::CancelDivineSignature()", 1)[0]
+        self.assertIn("bCharacterRigActive = IsValid(CharacterRig->GetSkeletalMeshAsset());", rig)
+        self.assertIn("CharacterRig->SetHiddenInGame(!bCharacterRigActive);", rig)
+        self.assertIn("Body->SetVisibility(!bCharacterRigActive, false);", rig)
+        self.assertIn("Anim->Montage_Play(Montage, 1.f)", rig)
+        self.assertIn("OnCharacterRigCue(CueId, bLastRigMontagePlayed);", rig)
+        for cue, montage in (("Attack", "AttackRigMontage"),
+                             ("Hit", "HitRigMontage"), ("Defeat", "DeathRigMontage")):
+            self.assertIn('PlayCharacterRigCue(FName(TEXT("' + cue + '")), '
+                          + montage + ".Get());", self.enemy_cpp)
+        self.assertIn("UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=\"Combat\") bool bElite", self.enemy_h)
+        self.assertIn("UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=\"Combat\") bool bBoss", self.enemy_h)
+
     def test_dual_wield_rig_diagnostics_and_montage_playback_safety(self):
         for item in ("ResolvedMainhandSocket", "ResolvedOffhandSocket",
                      "bMainhandMontageReady", "bOffhandMontageReady"):
