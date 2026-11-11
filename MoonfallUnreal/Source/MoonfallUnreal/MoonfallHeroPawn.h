@@ -223,6 +223,13 @@ public:
  UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|DualWield") FVector OffhandMeshScale = FVector::OneVector;
  UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|DualWield") FName MainhandSocket = TEXT("hand_rSocket");
  UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|DualWield") FName OffhandSocket = TEXT("hand_lSocket");
+ // Automatically resolve common skeleton hand names when the authored
+ // socket is absent. This does not alter bones, skinning or imported meshes.
+ UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|DualWield") bool bAllowHandSocketFallbacks = true;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|DualWield") bool bMainhandRigAttached = false;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|DualWield") bool bOffhandRigAttached = false;
+ // Call after switching a Blueprint's skeletal mesh or weapon assets.
+ UFUNCTION(BlueprintCallable, Category="Moonfall|DualWield") void RefreshDualWieldRig();
  // Per-hand grips are authored independently of the original character rig.
  // Socket offsets apply only when a matching skeletal socket exists.
  UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|DualWield") FVector MainhandSocketOffset = FVector::ZeroVector;
