@@ -17,7 +17,8 @@ public:
  int32 GetItemCode() const { return ItemCode; }
  void SetPersistentDropId(const FGuid& Id) { PersistentDropId = Id; }
  const FGuid& GetPersistentDropId() const { return PersistentDropId; }
- bool TryCollect();
+ // Explicit F interaction can collect one item even when auto-loot is disabled.
+ bool TryCollect(bool bManualInteraction = false);
 private:
  UPROPERTY(VisibleAnywhere) USceneComponent* SceneRoot;
  UPROPERTY(VisibleAnywhere) UStaticMeshComponent* PickupMesh;
