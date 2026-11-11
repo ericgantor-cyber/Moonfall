@@ -511,6 +511,7 @@ void AMoonfallHeroPawn::BeginPlay() {
   bKeyInteractionNoticeError = true;
  }
  if (!bRewardSaveLoadFailed) RestorePendingWorldEquipmentDrops();
+ if (GConfig) GConfig->GetBool(TEXT("Moonfall.Gameplay"), TEXT("AutoLootEnabled"), bAutoLootEnabled, GGameUserSettingsIni);
  if (!bRewardSaveLoadFailed && ConfirmedRewardKills >= 5
      && !HasQuestKey(FName(TEXT("fallen_gate_key"))))
   SpawnMilestoneKey(GetActorLocation() + GetActorForwardVector() * 125.f);
@@ -542,7 +543,7 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
  Super::Tick(DeltaSeconds);
  // Automatically collect all nearby reachable equipment, without a
  // per-press item cap or a world scan every rendered frame.
- if (GetWorld() && Health > 0.f && !bOptionsOpen && !bInventoryOpen
+ if (bAutoLootEnabled && GetWorld() && Health > 0.f && !bOptionsOpen && !bInventoryOpen
      && !bRewardSaveLoadFailed && InventoryItemCodes.Num() < 4096)
  {
   const float Now = GetWorld()->GetTimeSeconds();
@@ -1551,14 +1552,14 @@ void AMoonfallHeroPawn::OptionsUp() {
   InventorySelection = FMath::Max(0, InventorySelection - 1);
   return;
  }
- if (bOptionsOpen) OptionsSelection = (OptionsSelection + 6) % 7;
+ if (bOptionsOpen) OptionsSelection = (OptionsSelection + 7) % 8;
 }
 void AMoonfallHeroPawn::OptionsDown() {
  if (bInventoryOpen) {
   InventorySelection = FMath::Min(FMath::Max(0, InventoryItemCodes.Num() - 1), InventorySelection + 1);
   return;
  }
- if (bOptionsOpen) OptionsSelection = (OptionsSelection + 1) % 7;
+ if (bOptionsOpen) OptionsSelection = (OptionsSelection + 1) % 8;
 }
 void AMoonfallHeroPawn::OptionsLeft() {
  if (bInventoryOpen) { EquipSelectedInventoryItem(); return; }
@@ -1611,6 +1612,13 @@ void AMoonfallHeroPawn::AdjustOption(int32 Direction) {
   BossWarningScale = FMath::Clamp(BossWarningScale + Direction * 0.25f, 1.f, 2.f);
   if (GConfig) {
    GConfig->SetFloat(TEXT("Moonfall.Accessibility"), TEXT("BossWarningScale"), BossWarningScale, GGameUserSettingsIni);
+   GConfig->Flush(false, GGameUserSettingsIni);
+  }
+  return;
+ } else if (OptionsSelection == 7) {
+  bAutoLootEnabled = Direction > 0;
+  if (GConfig) {
+   GConfig->SetBool(TEXT("Moonfall.Gameplay"), TEXT("AutoLootEnabled"), bAutoLootEnabled, GGameUserSettingsIni);
    GConfig->Flush(false, GGameUserSettingsIni);
   }
   return;
