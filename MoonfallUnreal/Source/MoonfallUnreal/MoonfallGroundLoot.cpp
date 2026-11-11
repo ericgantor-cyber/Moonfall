@@ -70,7 +70,11 @@ bool AMoonfallGroundLoot::TryCollect()
 {
  if (bCollected || ItemCode <= 0) return false;
  AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0));
- if (!IsValid(Hero) || !GetWorld()) return false;
+ // Collection is automatic only; external callers must obey the user's
+ // loot preference and the same gameplay/menu locks as the periodic sweep.
+ if (!IsValid(Hero) || !GetWorld() || !Hero->bAutoLootEnabled
+     || !FMath::IsFinite(Hero->Health) || Hero->Health <= 0.f
+     || Hero->bOptionsOpen || Hero->bInventoryOpen) return false;
  // Enforce reachability here as well as in the auto-loot sweep; a direct
  // Blueprint caller cannot bypass the range, height or cover checks.
  const FVector HeroPosition = Hero->GetActorLocation();
