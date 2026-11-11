@@ -98,6 +98,10 @@ class TestSocialWorld(unittest.TestCase):
   self.assertIn("FVector::DistSquared(GetActorLocation(), Resident->GetActorLocation()) > FMath::Square(400.f)",self.hero)
   self.assertIn("!bResidentContextOpen && FMath::IsFinite(Value)",self.hero)
   self.assertIn("bResidentContextOpen || !GetWorld() || School < 0",self.hero)
+ def test_nearest_npc_skips_occluded_candidates(self):
+  self.assertIn("Candidate->CanHeroInteract(this)",self.hero)
+  self.assertIn("Checked < 64",self.hero)
+  self.assertIn("if (FMath::IsFinite(DistSq) && DistSq < BestDistSq &&",self.hero)
  def test_turn_in_requires_deliberate_second_choice(self):
   hud=(ROOT/"MoonfallCombatHUD.cpp").read_text()
   self.assertIn("bResidentTurnInPending = false",self.hero_h)
