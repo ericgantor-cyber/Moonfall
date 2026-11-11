@@ -1,6 +1,7 @@
 #include "MoonfallHeroPawn.h"
 #include "MoonfallPersistentSave.h"
 #include "Kismet/GameplayStatics.h"
+#include "Misc/DateTime.h"
 #include "Camera/CameraComponent.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
@@ -1531,6 +1532,9 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
  Save->CheckpointLocation = GetActorLocation();
  Save->RaceId = FMath::Clamp(RaceId, 0, 11);
  Save->bRaceChosen = bRaceChosen;
+ const float Cooldown = GetRacePowerCooldownRemaining();
+ Save->RacePowerReadyUtc = Cooldown > 0.f
+     ? FDateTime::UtcNow().ToUnixTimestamp() + FMath::CeilToInt64(FMath::Min(Cooldown, 45.f)) : 0;
  Save->Level = FMath::Clamp(Level, 1, 100);
  Save->Experience = FMath::Clamp(Experience, 0, 1000000);
  Save->Salvage = FMath::Clamp(Salvage, 0, 100000000);
@@ -1548,7 +1552,13 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  if (!UGameplayStatics::DoesSaveGameExist(MoonfallWorldSlot, 0)) return false;
  const UMoonfallPersistentSave* Save = Cast<UMoonfallPersistentSave>(
      UGameplayStatics::LoadGameFromSlot(MoonfallWorldSlot, 0));
- if (!Save || (Save->Version != 1 && Save->Version != 2)) return false;
+ if (!Save || Save->Version < 1 || Save->Version > 3) return false;
+ // Old save versions remain valid. Cooldowns cannot be cleared by reloading.
+ const int64 NowUtc = FDateTime::UtcNow().ToUnixTimestamp();
+ const int64 Remaining = Save->Version >= 3 && Save->RacePowerReadyUtc > NowUtc
+     ? FMath::Min<int64>(Save->RacePowerReadyUtc - NowUtc, 45) : 0;
+ RacePowerReadyAt = GetWorld() ? GetWorld()->GetTimeSeconds() + static_cast<float>(Remaining) : 0.f;
+ RacePowerActiveUntil = 0.f;
  RaceId = Save->Version >= 2 ? FMath::Clamp(Save->RaceId, 0, 11) : 0;
  bRaceChosen = Save->Version >= 2 && Save->bRaceChosen;
  Level = FMath::Clamp(Save->Level, 1, 100);
@@ -1644,11 +1654,11 @@ bool AMoonfallHeroPawn::ChooseRace(int32 NewRaceId) {
  return true;
 }
 FString AMoonfallHeroPawn::GetRaceName() const { return FString(RaceProfile(RaceId).Name); }
-int32 AMoonfallHeroPawn::GetRaceMightBonus() const { return RaceProfile(RaceId).Might; }
-int32 AMoonfallHeroPawn::GetRaceInsightBonus() const { return RaceProfile(RaceId).Insight; }
-int32 AMoonfallHeroPawn::GetRaceResolveBonus() const { return RaceProfile(RaceId).Resolve; }
-float AMoonfallHeroPawn::GetRaceStaminaRegenBonus() const { return RaceProfile(RaceId).StaminaRegen; }
-float AMoonfallHeroPawn::GetRaceManaRegenBonus() const { return RaceProfile(RaceId).ManaRegen; }
+int32 AMoonfallHeroPawn::GetRaceMightBonus() const { return bRaceChosen ? RaceProfile(RaceId).Might : 0; }
+int32 AMoonfallHeroPawn::GetRaceInsightBonus() const { return bRaceChosen ? RaceProfile(RaceId).Insight : 0; }
+int32 AMoonfallHeroPawn::GetRaceResolveBonus() const { return bRaceChosen ? RaceProfile(RaceId).Resolve : 0; }
+float AMoonfallHeroPawn::GetRaceStaminaRegenBonus() const { return bRaceChosen ? RaceProfile(RaceId).StaminaRegen : 0; }
+float AMoonfallHeroPawn::GetRaceManaRegenBonus() const { return bRaceChosen ? RaceProfile(RaceId).ManaRegen : 0; }
 
 
 namespace {
