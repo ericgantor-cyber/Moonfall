@@ -43,10 +43,19 @@ class TestSocialWorld(unittest.TestCase):
   self.assertIn("!SharesRaceWith(Hero)",self.npc)
   for role in ("Scholar","Tinker","Elder"):
    self.assertIn('FName(TEXT("'+role+'"))',self.npc)
+ def test_personal_bonds_persist_and_are_not_farmable(self):
+  self.assertIn("TMap<FName, int32> ResidentBonds",self.hero_h)
+  self.assertIn("TMap<FName, int32> ResidentBonds",self.save)
+  self.assertIn("Save->ResidentBonds = ResidentBonds;",self.hero)
+  self.assertIn("if (Save->Version >= 5)",self.hero)
+  self.assertIn("ResidentBonds.Remove(ResidentId)",self.hero)
+  self.assertIn("Hero->GetResidentBond(ResidentId) != 0",self.npc)
+  self.assertIn("GetBondWithHero(Hero)",self.npc)
+  self.assertIn("ResidentId = FName",self.arena)
  def test_reputation_is_bounded_and_saved(self):
   self.assertIn("TMap<FName, int32> FactionReputation",self.hero_h)
   self.assertIn("TMap<FName, int32> FactionReputation",self.save)
-  self.assertIn("Version = 4",self.save)
+  self.assertIn("Version = 5",self.save)
   self.assertIn("Save->FactionReputation = FactionReputation;",self.hero)
   self.assertIn("if (Save->Version >= 4)",self.hero)
   self.assertIn("FMath::Clamp(*Value, -100, 100)",self.hero)
