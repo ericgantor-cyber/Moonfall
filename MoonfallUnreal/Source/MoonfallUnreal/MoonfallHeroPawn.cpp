@@ -2366,8 +2366,9 @@ bool AMoonfallHeroPawn::TryInteractWithNearbyKey()
 {
  // AC-style interaction, not proximity auto-unlock: the existing F / controller
  // pickup action searches only when pressed. No per-frame actors or polling.
- if (Health <= 0.f || bOptionsOpen || bInventoryOpen || !GetWorld()) return false;
+ if (!FMath::IsFinite(Health) || Health <= 0.f || bOptionsOpen || bInventoryOpen || !GetWorld()) return false;
  const FVector HeroPosition = GetActorLocation();
+ if (HeroPosition.ContainsNaN()) return false;
  const float RangeSquared = FMath::Square(230.f);
  float BestDistanceSq = RangeSquared;
  float BestFacingDistanceSq = RangeSquared;
@@ -2376,7 +2377,6 @@ bool AMoonfallHeroPawn::TryInteractWithNearbyKey()
  // Prefer a nearby object ahead of the hero when several are reachable,
  // while still allowing a lone object behind them as an accessible fallback.
  const FVector Facing = GetActorForwardVector().GetSafeNormal2D();
- int32 Scanned = 0;
  auto Consider = [&](AActor* Candidate)
  {
   if (!IsValid(Candidate) || Candidate == this) return;
@@ -2409,9 +2409,8 @@ bool AMoonfallHeroPawn::TryInteractWithNearbyKey()
  // Collect references first, then destroy after iteration so the world actor
  // iterator stays stable. No tick or background cleanup is required.
  TArray<AMoonfallKeyPickup*> StaleOwnedKeys;
- for (TActorIterator<AMoonfallKeyPickup> It(GetWorld()); It && Scanned < 128; ++It)
+ for (TActorIterator<AMoonfallKeyPickup> It(GetWorld()); It; ++It)
  {
-  ++Scanned;
   AMoonfallKeyPickup* Pickup = *It;
   if (!IsValid(Pickup)) continue;
   if (HasQuestKey(Pickup->KeyId))
@@ -2423,10 +2422,8 @@ bool AMoonfallHeroPawn::TryInteractWithNearbyKey()
  }
  for (AMoonfallKeyPickup* Pickup : StaleOwnedKeys)
   if (IsValid(Pickup)) Pickup->Destroy();
- Scanned = 0;
- for (TActorIterator<AMoonfallKeyGate> It(GetWorld()); It && Scanned < 128; ++It)
+ for (TActorIterator<AMoonfallKeyGate> It(GetWorld()); It; ++It)
  {
-  ++Scanned;
   if (IsValid(*It) && !It->bUnlocked) Consider(*It);
  }
  // Facing is preference rather than a hard gate: accessible pickup input
