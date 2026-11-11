@@ -1070,7 +1070,7 @@ void AMoonfallHeroPawn::CastRight() { if (bOptionsOpen) return; TryCast(RightSpe
 void AMoonfallHeroPawn::CastBoth()
 {
  if (bOptionsOpen || bInventoryOpen || !GetWorld() || LeftSpell != RightSpell) return;
- if (LeftSpell < 0 || LeftSpell >= 6) return;
+ if (LeftSpell < 0 || LeftSpell >= 6 || RightSpell < 0 || RightSpell >= 6) return;
  const float Time = GetWorld()->GetTimeSeconds();
  static const float Cooldowns[6] = {0.8f,0.65f,1.2f,2.f,1.f,0.9f};
  const float Cooldown = Cooldowns[LeftSpell] / (1.f + GetHasteBonus());
