@@ -97,13 +97,21 @@ class TestSocialWorld(unittest.TestCase):
   self.assertIn("if (bResidentContextOpen &&",self.hero)
   self.assertIn("const AMoonfallWorldNPC* Resident = FocusedResident.Get();",self.hero)
   self.assertIn("if (!IsValid(Resident) || Health <= 0.f || bOptionsOpen || bInventoryOpen ||",self.hero)
-  self.assertIn("FVector::DistSquared(GetActorLocation(), Resident->GetActorLocation()) > FMath::Square(400.f)",self.hero)
+  self.assertIn("FVector::DistSquared(GetActorLocation(), Resident->GetActorLocation()) > FMath::Square(Range)",self.hero)
   self.assertIn("!bResidentContextOpen && FMath::IsFinite(Value)",self.hero)
   self.assertIn("bResidentContextOpen || !GetWorld() || School < 0",self.hero)
  def test_nearest_npc_skips_occluded_candidates(self):
   self.assertIn("Candidate->CanHeroInteract(this)",self.hero)
   self.assertIn("Checked < 64",self.hero)
   self.assertIn("if (FMath::IsFinite(DistSq) && DistSq < BestDistSq &&",self.hero)
+ def test_npc_menu_uses_actual_interaction_distance(self):
+  hud=(ROOT/"MoonfallCombatHUD.cpp").read_text()
+  self.assertIn("FMath::Clamp(Resident->InteractRange, 50.f, 400.f)",self.hero)
+  self.assertIn("FMath::Square(Range)",self.hero)
+  self.assertIn("FMath::Clamp(Resident->InteractRange, 50.f, 400.f)",hud)
+  self.assertIn("FMath::Square(InteractionRange)",hud)
+  self.assertIn("!CanHeroInteract(Hero)",self.npc)
+  self.assertNotIn("FMath::Square(FMath::Clamp(InteractRange, 50.f, 400.f))",self.npc)
  def test_turn_in_requires_two_separate_choices(self):
   hud=(ROOT/"MoonfallCombatHUD.cpp").read_text()
   self.assertIn("bResidentTurnInPending",self.hero_h)
