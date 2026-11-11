@@ -281,6 +281,7 @@ private:
  bool bMouseChordConsumed = false;
  void QueueMouseCast(int32 Hand);
  void CommitPendingMouseCast();
+ void CancelPendingMouseCombat();
  void MouseLeftPressed();
  void MouseLeftReleased();
  void MouseRightPressed();
