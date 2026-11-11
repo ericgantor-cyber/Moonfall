@@ -17,6 +17,9 @@ AMoonfallEnemy::AMoonfallEnemy() {
   SetRootComponent(Body);
   CharacterRig = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("CharacterRig"));
   CharacterRig->SetupAttachment(Body);
+  // The original collision sphere is non-uniformly scaled for navigation.
+  // Do not stretch authored skeletons by inheriting its X/Y/Z scale.
+  CharacterRig->SetAbsolute(false, false, true);
   CharacterRig->SetCollisionEnabled(ECollisionEnabled::NoCollision);
   CharacterRig->SetGenerateOverlapEvents(false);
   CharacterRig->SetHiddenInGame(true);
