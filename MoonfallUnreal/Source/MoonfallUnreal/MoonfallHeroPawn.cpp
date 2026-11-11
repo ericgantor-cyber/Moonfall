@@ -1144,10 +1144,28 @@ void AMoonfallHeroPawn::InitializeDualWieldVisuals()
 {
  if (!MainhandVisual || !OffhandVisual) return;
  // Blueprint-authored assets replace only the sword proxies, never the hero art.
+ // A real weapon uses its authored scale rather than inheriting the tiny
+ // Unreal cube placeholder scale. Reject malformed Blueprint scaling.
+ const FVector ProxyScale(0.09f, 0.035f, 0.68f);
+ auto ValidWeaponScale = [](const FVector& Scale)
+ {
+  return !Scale.ContainsNaN() && Scale.X > 0.f && Scale.Y > 0.f && Scale.Z > 0.f
+    && Scale.GetMax() <= 10.f;
+ };
  if (IsValid(MainhandMeshAsset))
+ {
   MainhandVisual->SetStaticMesh(MainhandMeshAsset.Get());
+  MainhandVisual->SetRelativeScale3D(
+    ValidWeaponScale(MainhandMeshScale) ? MainhandMeshScale : FVector::OneVector);
+ }
+ else MainhandVisual->SetRelativeScale3D(ProxyScale);
  if (IsValid(OffhandMeshAsset))
+ {
   OffhandVisual->SetStaticMesh(OffhandMeshAsset.Get());
+  OffhandVisual->SetRelativeScale3D(
+    ValidWeaponScale(OffhandMeshScale) ? OffhandMeshScale : FVector::OneVector);
+ }
+ else OffhandVisual->SetRelativeScale3D(ProxyScale);
  USkeletalMeshComponent* BodyMesh = GetMesh();
  // Only bind to actually existing socket names. Some prototype heroes
  // have no skeleton, so the original capsule-relative fallback stays valid.
