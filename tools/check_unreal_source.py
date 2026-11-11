@@ -521,17 +521,28 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("return false;", race_cpp)
         self.assertIn("FName RaceId = NAME_None;", self.enemy_h)
         self.assertIn("FName ResolvedRaceFamily = NAME_None;", self.enemy_h)
+        self.assertIn("float RaceMovementMultiplier = 1.f;", self.enemy_h)
         begin = self.enemy_cpp.split("void AMoonfallEnemy::BeginPlay()", 1)[1].split(
             "void AMoonfallEnemy::RefreshCharacterRig()", 1)[0]
         self.assertIn("UMoonfallRaceLibrary::FindRaceProfile(RaceId, RaceProfile)", begin)
         self.assertIn("RaceProfile.VitalityMultiplier", begin)
         self.assertIn("RaceProfile.PowerMultiplier", begin)
+        self.assertIn("RaceMovementMultiplier = bKnownRace && FMath::IsFinite(RaceProfile.SpeedMultiplier)", begin)
+        self.assertIn("FMath::Clamp(RaceProfile.SpeedMultiplier, 0.65f, 1.35f) : 1.f;", begin)
         self.assertIn("Health = FMath::Clamp(BaseHealth, 1.f, 100000.f) * HPScale;", begin)
         self.assertIn("AttackDamage = FMath::Clamp(BaseDamage, 1.f, 10000.f) * DamageScale;", begin)
         self.assertIn("if (bKnownRace)", begin)
         self.assertIn("Health = FMath::Clamp(Health * RaceHealthScale", begin)
         self.assertIn("AttackDamage = FMath::Clamp(AttackDamage * RaceDamageScale", begin)
         self.assertIn("bKnownRace ? FMath::Clamp", begin)
+
+    def test_race_speed_modifies_chase_only_without_mutating_base_speed(self):
+        tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
+        self.assertIn("const float SafeChaseSpeed = FMath::Clamp(FMath::IsFinite(ChaseSpeed)", tick)
+        self.assertIn("SafeChaseSpeed * RaceMovementMultiplier", tick)
+        self.assertIn("* ChaseMultiplier * SafeAIDelta, true, &Hit);", tick)
+        self.assertNotIn("ChaseSpeed *= RaceMovementMultiplier", self.enemy_cpp)
+        self.assertNotIn("ChaseSpeed = ChaseSpeed * RaceMovementMultiplier", self.enemy_cpp)
 
     def test_enemy_elite_and_boss_share_optional_skeletal_rig(self):
         self.assertIn("class USkeletalMeshComponent;", self.enemy_h)
