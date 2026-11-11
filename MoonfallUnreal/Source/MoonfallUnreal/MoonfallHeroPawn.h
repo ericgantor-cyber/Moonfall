@@ -28,6 +28,10 @@ public:
  UFUNCTION(BlueprintPure, Category="Moonfall|Equipment|Stats") float GetHasteBonus() const;
  UFUNCTION(BlueprintPure, Category="Moonfall|Equipment|Stats") float GetMasteryBonus() const;
  UFUNCTION(BlueprintPure, Category="Moonfall|Equipment|Stats") float GetVersatilityBonus() const;
+ // A single permanent world checkpoint. Death never erases experience or items.
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Persistence") bool SaveWorldProgress();
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Persistence") bool LoadWorldProgress();
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Persistence") void RespawnAtCheckpoint();
  UFUNCTION(BlueprintCallable, Category="Moonfall|Combat") void ApplyMoonfallDamage(float Amount);
  // Enemy strikes provide an origin so guard only catches frontal blows.
  bool ApplyMoonfallDamageFrom(float Amount, const FVector& SourceLocation);
@@ -146,6 +150,8 @@ public:
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Combat") int32 RightSpell = 1;
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Combat") void OnSpellCast(int32 School, bool bLeftHand);
 private:
+ float SecondsSinceLastWorldSave = 0.f;
+ float DefeatElapsedSeconds = 0.f;
  UPROPERTY(VisibleAnywhere) USpringArmComponent* CameraBoom;
  UPROPERTY(VisibleAnywhere) UCameraComponent* FollowCamera;
  float LastFinisherKillAt = -100.f;
