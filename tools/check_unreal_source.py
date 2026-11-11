@@ -319,6 +319,43 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Loot->InitializeLoot(ItemCode);", loot)
         self.assertNotIn("*EquippedCode = ItemCode;", loot)
 
+    def test_persisted_talent_and_offhand_save_contracts(self):
+        reward_h = (ROOT / "MoonfallRewardSaveGame.h").read_text(encoding="utf-8")
+        controls = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
+        self.assertIn("int32 SchemaVersion = 5;", reward_h)
+        for field in ("EquippedOffhandCode", "SavedCharacterLevel", "SavedCharacterExperience",
+                      "SavedBladeTalentRank", "SavedArcaneTalentRank", "SavedTwinStrikeTalentRank"):
+            self.assertIn(field, reward_h)
+            self.assertIn("Save->" + field, self.hero_cpp)
+        self.assertIn("if (!SaveRewardProgress())", self.hero_cpp.split(
+            "bool AMoonfallHeroPawn::SpendTalentPoint(", 1)[1].split("\n}", 1)[0])
+        self.assertIn("--(*Rank);", self.hero_cpp)
+        self.assertIn("TALENT SAVE FAILED - POINT RESTORED", self.hero_cpp)
+        self.assertIn("PointsLeft -= BladeTalentRank;", self.hero_cpp)
+        self.assertIn("PointsLeft -= ArcaneTalentRank;", self.hero_cpp)
+        self.assertIn("SavedCharacterLevel >= 1", self.hero_cpp)
+        self.assertIn('ActionMappings=(ActionName="EquipOffhand",Key=T)', controls)
+        self.assertIn('Input->BindAction(TEXT("EquipOffhand")', self.hero_cpp)
+
+    def test_offhand_weapon_requires_real_inventory_copy(self):
+        self.assertIn("bool AMoonfallHeroPawn::EquipOffhandInventoryItem(", self.hero_cpp)
+        self.assertIn("Code == EquippedWeaponCode ? 2 : 1", self.hero_cpp)
+        self.assertIn("if (Copies < CopiesNeeded || EquippedOffhandCode == Code)", self.hero_cpp)
+        self.assertIn("if (!SaveRewardProgress())", self.hero_cpp.split(
+            "bool AMoonfallHeroPawn::EquipOffhandInventoryItem(", 1)[1].split("\n}", 1)[0])
+        self.assertIn("EquippedOffhandCode = PreviousCode;", self.hero_cpp)
+        self.assertIn("OffhandTier = PreviousTier;", self.hero_cpp)
+        self.assertIn("EquippedOffhandCode <= 0", self.hero_cpp)
+        offhand = self.hero_cpp.split("void AMoonfallHeroPawn::StrikeWithOffhandWeapon()", 1)[1].split(
+            "void AMoonfallHeroPawn::StrikeWithWeapon()", 1)[0]
+        self.assertIn("FMath::Clamp(OffhandTier, 0, 25)", offhand)
+        self.assertIn("NextOffhandStrikeAt = Now + 0.32f;", offhand)
+        self.assertIn("Code == EquippedOffhandCode", self.hero_cpp)
+        self.assertIn("RequiredCopies = (Code == EquippedWeaponCode && Code == EquippedOffhandCode)", self.hero_cpp)
+        self.assertIn('FName(TEXT("MoonfallEquipOffhand"))', self.hud)
+        self.assertIn('TEXT("OFFHAND  T")', self.hud)
+        self.assertIn('TEXT("  [OFFHAND]")', self.hud)
+
     def test_dual_weapon_mode_and_spendable_talent_contracts(self):
         self.assertIn("bool bDualWieldStance = false;", self.hero_h)
         self.assertIn("float NextOffhandStrikeAt = 0.f;", self.hero_h)
