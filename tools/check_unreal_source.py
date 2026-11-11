@@ -421,6 +421,22 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("FMath::IsFinite(Played) && Played > 0.f", swing)
         self.assertIn("OnDualWieldSwing(bOffhand);", swing)
 
+    def test_all_character_rigs_keep_collision_scale_separate_and_validate_npc_ownership(self):
+        rig_h = (ROOT / "MoonfallActorRigComponent.h").read_text(encoding="utf-8")
+        rig_cpp = (ROOT / "MoonfallActorRigComponent.cpp").read_text(encoding="utf-8")
+        self.assertIn("TObjectPtr<USkeletalMeshComponent> PreferredRigMesh", rig_h)
+        self.assertIn("TObjectPtr<USkeletalMeshComponent> ActiveRigMesh", rig_h)
+        self.assertIn("PreferredRigMesh->GetOwner() == Owner", rig_cpp)
+        self.assertIn("IsValid(PreferredRigMesh->GetSkeletalMeshAsset())", rig_cpp)
+        self.assertIn("Owner->GetComponents<USkeletalMeshComponent>(Candidates);", rig_cpp)
+        self.assertIn("if (IsValid(Mesh) && IsValid(Mesh->GetSkeletalMeshAsset()))", rig_cpp)
+        self.assertIn("ActiveRigMesh = RigMesh.Get();", rig_cpp)
+        self.assertIn("bRigAvailable = RigMesh.IsValid();", rig_cpp)
+        self.assertIn("CharacterRig->SetAbsolute(false, false, true);", self.enemy_cpp)
+        self.assertIn("Body->SetRelativeScale3D(FVector(0.85f,0.85f,1.4f));", self.enemy_cpp)
+        self.assertIn("CharacterRig->SetCollisionEnabled(ECollisionEnabled::NoCollision);", self.enemy_cpp)
+        self.assertIn("CharacterRig->SetCanEverAffectNavigation(false);", self.enemy_cpp)
+
     def test_optional_npc_and_actor_rig_adapter_is_asset_preserving(self):
         rig_h = (ROOT / "MoonfallActorRigComponent.h").read_text(encoding="utf-8")
         rig_cpp = (ROOT / "MoonfallActorRigComponent.cpp").read_text(encoding="utf-8")
@@ -431,7 +447,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("bool PlayRigCue(FName CueId);", rig_h)
         self.assertIn("void OnRigCue(FName CueId, bool bPlayed);", rig_h)
         self.assertIn("PrimaryComponentTick.bCanEverTick = false;", rig_cpp)
-        self.assertIn("Owner->FindComponentByClass<USkeletalMeshComponent>()", rig_cpp)
+        self.assertIn("Owner->GetComponents<USkeletalMeshComponent>(Candidates);", rig_cpp)
         self.assertIn("IsValid(Mesh->GetSkeletalMeshAsset())", rig_cpp)
         self.assertIn("MontageCues.Find(CueId)", rig_cpp)
         self.assertIn("FMath::IsFinite(Duration) && Duration > 0.f", rig_cpp)
