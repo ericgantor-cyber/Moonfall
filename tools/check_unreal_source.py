@@ -291,7 +291,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('OptionsSelection + 1) % 8', self.hero_cpp)
         self.assertIn('for (int32 i=0;i<8;++i)', self.hud)
         ground_cpp = (ROOT / "MoonfallGroundLoot.cpp").read_text(encoding="utf-8")
-        self.assertIn('!Hero->bAutoLootEnabled', ground_cpp)
+        self.assertIn('(!bManualInteraction && !Hero->bAutoLootEnabled)', ground_cpp)
         self.assertIn('Hero->bOptionsOpen || Hero->bInventoryOpen', ground_cpp)
         self.assertIn('Hero->Health <= 0.f', ground_cpp)
         self.assertIn('SCENE_QUERY_STAT(MoonfallPersistedLootSight)', ground_cpp)
@@ -2652,6 +2652,18 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("AimTarget", pickup_h)
         self.assertNotIn("AimTarget", pickup)
         self.assertIn("KeyMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);", pickup)
+
+    def test_f_interaction_labels_and_actor_scan_match_controls(self):
+        key = (ROOT / "MoonfallKeyPickup.cpp").read_text(encoding="utf-8")
+        gate = (ROOT / "MoonfallKeyGate.cpp").read_text(encoding="utf-8")
+        self.assertIn('TEXT("KEY - F")', key)
+        self.assertIn('TEXT("LOCKED - F")', gate)
+        self.assertNotIn("F / CLICK", key + gate)
+        scan = self.hero_cpp.split("bool AMoonfallHeroPawn::TryInteractWithNearbyKey()", 1)[1].split(
+            "void AMoonfallHeroPawn::InteractWithNearbyWorld()", 1)[0]
+        self.assertNotIn("Scanned < 128", scan)
+        self.assertIn("!FMath::IsFinite(Health)", scan)
+        self.assertIn("HeroPosition.ContainsNaN()", scan)
 
     def test_f_interacts_with_all_existing_explicit_world_objects(self):
         world = self.hero_cpp.split("void AMoonfallHeroPawn::InteractWithNearbyWorld()", 1)[1].split(
