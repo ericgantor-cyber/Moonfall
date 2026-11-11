@@ -980,11 +980,23 @@ void AMoonfallHeroPawn::MouseRightPressed()
 }
 void AMoonfallHeroPawn::MouseLeftReleased()
 {
+ // A single tap should resolve on release, rather than waiting through the
+ // remaining chord grace period. Only the first pending hand owns that tap.
+ if (PendingMouseHand == 0 && GetWorldTimerManager().IsTimerActive(MouseCastTimer))
+ {
+  GetWorldTimerManager().ClearTimer(MouseCastTimer);
+  CommitPendingMouseCast();
+ }
  bMouseLeftHeld = false;
  if (!bMouseRightHeld) bMouseChordConsumed = false;
 }
 void AMoonfallHeroPawn::MouseRightReleased()
 {
+ if (PendingMouseHand == 1 && GetWorldTimerManager().IsTimerActive(MouseCastTimer))
+ {
+  GetWorldTimerManager().ClearTimer(MouseCastTimer);
+  CommitPendingMouseCast();
+ }
  bMouseRightHeld = false;
  if (bSpellShieldStance) EndGuard();
  if (!bMouseLeftHeld) bMouseChordConsumed = false;
