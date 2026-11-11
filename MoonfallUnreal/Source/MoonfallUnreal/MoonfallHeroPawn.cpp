@@ -971,9 +971,10 @@ void AMoonfallHeroPawn::MouseLeftPressed()
 {
  if (bMouseLeftHeld) return;
  bMouseLeftHeld = true;
- // Aimed interactables take the click. Ordinary left-click combat remains
- // unchanged whenever no supported key or gate is under the aim ray.
- bMouseLeftWorldInteraction = TryInteractWithAimedWorld();
+ // An already-held right hand belongs to combat (spell or shield).
+ // Do not hijack a dual-hand press to interact with a nearby door or key.
+ // A standalone left click may still interact before performing an attack.
+ bMouseLeftWorldInteraction = !bMouseRightHeld && TryInteractWithAimedWorld();
  if (bMouseLeftWorldInteraction) return;
  QueueMouseCast(0);
 }
