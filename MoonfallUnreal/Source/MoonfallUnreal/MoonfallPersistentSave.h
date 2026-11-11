@@ -8,7 +8,9 @@ UCLASS()
 class MOONFALLUNREAL_API UMoonfallPersistentSave : public USaveGame {
  GENERATED_BODY()
 public:
- UPROPERTY() int32 Version = 1;
+ UPROPERTY() int32 Version = 2;
+ UPROPERTY() int32 RaceId = 0;
+ UPROPERTY() bool bRaceChosen = false;
  UPROPERTY() FVector CheckpointLocation = FVector::ZeroVector;
  UPROPERTY() int32 Level = 1;
  UPROPERTY() int32 Experience = 0;
