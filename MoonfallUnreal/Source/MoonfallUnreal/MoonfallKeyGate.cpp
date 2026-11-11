@@ -66,7 +66,18 @@ bool AMoonfallKeyGate::TryUnlock(AActor* Candidate)
 {
  if (bUnlocked) return true;
  AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(Candidate);
- if (!IsValid(Hero) || Hero->Health <= 0.f) return false;
+ if (!IsValid(Hero) || !GetWorld() || !FMath::IsFinite(Hero->Health)
+     || Hero->Health <= 0.f || Hero->bOptionsOpen || Hero->bInventoryOpen)
+  return false;
+ // Blueprint callers cannot unlock a gate remotely, through a different
+ // floor, or while a gameplay-blocking menu is open. This does not add
+ // proximity auto-unlocking: a separate explicit interaction is still needed.
+ const FVector HeroPosition = Hero->GetActorLocation();
+ const FVector GatePosition = GetActorLocation();
+ if (HeroPosition.ContainsNaN() || GatePosition.ContainsNaN()
+     || FMath::Abs(HeroPosition.Z - GatePosition.Z) > 175.f
+     || FVector::DistSquared2D(HeroPosition, GatePosition) > FMath::Square(275.f))
+  return false;
  // Reject a blank/unknown key: the hero's whitelist checks supported IDs.
  if (!Hero->HasQuestKey(RequiredKeyId) && !Hero->HasUnlockedGate(GateId))
  {
