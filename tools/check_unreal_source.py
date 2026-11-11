@@ -247,6 +247,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
     def test_auto_loot_can_be_disabled_and_persists(self):
         self.assertIn('bool bAutoLootEnabled = true;', self.hero_h)
         self.assertIn('if (bAutoLootEnabled && FMath::IsFinite(DeltaSeconds)', self.hero_cpp)
+        self.assertIn('&& Health > 0.f && !bOptionsOpen && !bInventoryOpen)', self.hero_cpp)
+        self.assertIn('AutoLootElapsed = FMath::Fmod(AutoLootElapsed, 0.35f);', self.hero_cpp)
+        self.assertIn('AutoLootElapsed = 0.f;', self.hero_cpp)
         self.assertIn('GetBool(TEXT("Moonfall.Gameplay"), TEXT("AutoLootEnabled")', self.hero_cpp)
         self.assertIn('SetBool(TEXT("Moonfall.Gameplay"), TEXT("AutoLootEnabled")', self.hero_cpp)
         self.assertIn('OptionsSelection == 7', self.hero_cpp)
