@@ -2634,16 +2634,16 @@ class MoonfallIntegrationChecks(unittest.TestCase):
     def test_click_interaction_does_not_join_dual_hand_combat_chord(self):
         # Source-contract guard only; native mouse timing still needs playtesting.
         self.assertIn("bool bMouseLeftWorldInteraction = false;", self.hero_h)
-        left = self.hero_cpp.split("void AMoonfallHeroPawn::MouseLeftPressed()", 1)[1].split("\\n}", 1)[0]
+        left = self.hero_cpp.split("void AMoonfallHeroPawn::MouseLeftPressed()", 1)[1].split("\n}", 1)[0]
         self.assertIn("bMouseLeftWorldInteraction = TryInteractWithAimedWorld();", left)
         self.assertIn("if (bMouseLeftWorldInteraction) return;", left)
         self.assertLess(left.index("if (bMouseLeftWorldInteraction) return;"),
                         left.index("QueueMouseCast(0);"))
-        queued = self.hero_cpp.split("void AMoonfallHeroPawn::QueueMouseCast(int32 Hand)", 1)[1].split("\\n}", 1)[0]
+        queued = self.hero_cpp.split("void AMoonfallHeroPawn::QueueMouseCast(int32 Hand)", 1)[1].split("\n}", 1)[0]
         self.assertIn("bMouseLeftHeld && bMouseRightHeld && !bMouseLeftWorldInteraction", queued)
-        release = self.hero_cpp.split("void AMoonfallHeroPawn::MouseLeftReleased()", 1)[1].split("\\n}", 1)[0]
-        self.assertIn("bMouseLeftHeld = false;\\n bMouseLeftWorldInteraction = false;", release)
-        canceled = self.hero_cpp.split("void AMoonfallHeroPawn::CancelPendingMouseCombat()", 1)[1].split("\\n}", 1)[0]
+        release = self.hero_cpp.split("void AMoonfallHeroPawn::MouseLeftReleased()", 1)[1].split("\n}", 1)[0]
+        self.assertIn("bMouseLeftHeld = false;\n bMouseLeftWorldInteraction = false;", release)
+        canceled = self.hero_cpp.split("void AMoonfallHeroPawn::CancelPendingMouseCombat()", 1)[1].split("\n}", 1)[0]
         self.assertIn("bMouseLeftWorldInteraction = false;", canceled)
 
     def test_f_mouse_and_controller_world_interaction_preserved(self):
@@ -2651,8 +2651,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('ActionMappings=(ActionName="InteractWorld",Key=F)', controls)
         self.assertIn('ActionMappings=(ActionName="InteractWorld",Key=Gamepad_FaceButton_Left)', controls)
         self.assertIn('ActionMappings=(ActionName="MouseCastLeft",Key=LeftMouseButton)', controls)
-        self.assertIn("Input->BindAction(TEXT(\\\"InteractWorld\\\")", self.hero_cpp)
-        self.assertIn("Input->BindAction(TEXT(\\\"MouseCastLeft\\\")", self.hero_cpp)
+        self.assertIn('Input->BindAction(TEXT("InteractWorld")', self.hero_cpp)
+        self.assertIn('Input->BindAction(TEXT("MouseCastLeft")', self.hero_cpp)
         self.assertIn("bool AMoonfallHeroPawn::TryInteractWithAimedWorld()", self.hero_cpp)
 
     def test_direct_key_and_gate_transactions_require_reach_and_visibility(self):
