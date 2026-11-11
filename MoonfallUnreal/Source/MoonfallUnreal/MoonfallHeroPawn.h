@@ -213,6 +213,8 @@ public:
  // Non-destructive native proxy blades, replaceable with authored static meshes.
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|DualWield") TObjectPtr<UStaticMeshComponent> MainhandVisual;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|DualWield") TObjectPtr<UStaticMeshComponent> OffhandVisual;
+ // Preserve the engine-native proxy for restoring a removed authored mesh.
+ UPROPERTY(Transient) TObjectPtr<UStaticMesh> DefaultWeaponProxyMesh;
  // Designers may assign their own meshes and hand socket names in a subclass.
  // No changes are made to the original hero skeletal meshes or textures.
  UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|DualWield") TObjectPtr<UStaticMesh> MainhandMeshAsset;
