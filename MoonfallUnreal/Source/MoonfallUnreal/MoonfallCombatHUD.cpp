@@ -56,7 +56,8 @@ void AMoonfallCombatHUD::DrawHUD()
    DrawRect(FLinearColor(0.16f,0.23f,0.31f,0.96f), HandButtonX, HandButtonY, 225.f, 32.f);
    AddHitBox(FVector2D(HandButtonX, HandButtonY),
      FVector2D(225.f, 32.f), FName(TEXT("MoonfallHandSetup")), true, 20);
-   const TCHAR* HandLabel = Hero->bSpellShieldStance ? TEXT("SPELL + SHIELD GUARD")
+   const TCHAR* HandLabel = Hero->bSpellShieldStance
+     ? (Hero->bWeaponSpellStance ? TEXT("WEAPON + SHIELD") : TEXT("SPELL + SHIELD"))
      : (Hero->bWeaponSpellStance ? TEXT("WEAPON + SPELL") : TEXT("SPELL + SPELL"));
    DrawText(HandLabel, FLinearColor::White, HandButtonX + 8.f, HandButtonY + 7.f, nullptr, 0.83f);
   }
