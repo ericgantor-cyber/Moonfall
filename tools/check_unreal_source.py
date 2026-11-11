@@ -337,6 +337,21 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('ActionMappings=(ActionName="EquipOffhand",Key=T)', controls)
         self.assertIn('Input->BindAction(TEXT("EquipOffhand")', self.hero_cpp)
 
+    def test_custom_dual_weapon_mesh_scales_do_not_inherit_proxy_scale(self):
+        self.assertIn("FVector MainhandMeshScale = FVector::OneVector;", self.hero_h)
+        self.assertIn("FVector OffhandMeshScale = FVector::OneVector;", self.hero_h)
+        setup = self.hero_cpp.split("void AMoonfallHeroPawn::InitializeDualWieldVisuals()", 1)[1].split(
+            "void AMoonfallHeroPawn::BeginWeaponSwing(", 1)[0]
+        self.assertIn("const FVector ProxyScale(0.09f, 0.035f, 0.68f);", setup)
+        self.assertIn("!Scale.ContainsNaN()", setup)
+        self.assertIn("Scale.GetMax() <= 10.f", setup)
+        self.assertIn("ValidWeaponScale(MainhandMeshScale) ? MainhandMeshScale : FVector::OneVector", setup)
+        self.assertIn("ValidWeaponScale(OffhandMeshScale) ? OffhandMeshScale : FVector::OneVector", setup)
+        self.assertIn("else MainhandVisual->SetRelativeScale3D(ProxyScale);", setup)
+        self.assertIn("else OffhandVisual->SetRelativeScale3D(ProxyScale);", setup)
+        self.assertIn("MainhandVisual->SetStaticMesh(MainhandMeshAsset.Get());", setup)
+        self.assertIn("OffhandVisual->SetStaticMesh(OffhandMeshAsset.Get());", setup)
+
     def test_dual_wield_grip_tuning_is_respected_by_animation(self):
         for name in ("MainhandSocketOffset", "OffhandSocketOffset",
                      "MainhandGripRotation", "OffhandGripRotation",
