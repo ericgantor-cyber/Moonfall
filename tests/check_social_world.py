@@ -20,6 +20,9 @@ class TestSocialWorld(unittest.TestCase):
   self.assertIn("PrimaryActorTick.bCanEverTick = false;",self.npc)
  def test_social_reaction(self):
   self.assertIn("GetSocialDisposition",self.npc_h)
+  self.assertIn("GetCurrentActivity()",self.npc_h)
+  self.assertIn("FMath::FloorToInt",self.npc)
+  self.assertIn("GetCurrentActivity() == TEXT",self.npc)
   for word in ("Hostile","Wary","Neutral","Friendly","Trusted"):
    self.assertIn('TEXT("'+word+'")',self.npc)
   self.assertIn("OnDialogueStarted(Hero, Reaction);",self.npc)
