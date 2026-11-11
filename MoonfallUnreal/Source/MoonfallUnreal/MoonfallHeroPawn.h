@@ -10,6 +10,7 @@ class UAnimMontage;
 class AMoonfallEnemy;
 class AMoonfallKeyPickup;
 class UStaticMeshComponent;
+class UStaticMesh;
 class UPointLightComponent;
 UCLASS()
 class MOONFALLUNREAL_API AMoonfallHeroPawn : public ACharacter
@@ -212,11 +213,18 @@ public:
  // Non-destructive native proxy blades, replaceable with authored static meshes.
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|DualWield") TObjectPtr<UStaticMeshComponent> MainhandVisual;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|DualWield") TObjectPtr<UStaticMeshComponent> OffhandVisual;
+ // Designers may assign their own meshes and hand socket names in a subclass.
+ // No changes are made to the original hero skeletal meshes or textures.
+ UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|DualWield") TObjectPtr<UStaticMesh> MainhandMeshAsset;
+ UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|DualWield") TObjectPtr<UStaticMesh> OffhandMeshAsset;
+ UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|DualWield") FName MainhandSocket = TEXT("hand_rSocket");
+ UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|DualWield") FName OffhandSocket = TEXT("hand_lSocket");
  UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|DualWield") TObjectPtr<UAnimMontage> MainhandSwingMontage;
  UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|DualWield") TObjectPtr<UAnimMontage> OffhandSwingMontage;
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|DualWield") void OnDualWieldSwing(bool bOffhand);
  void BeginWeaponSwing(bool bOffhand);
  void UpdateWeaponVisuals();
+ void InitializeDualWieldVisuals();
  float MainhandSwingStartedAt = -100.f;
  float OffhandSwingStartedAt = -100.f;
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Combat") void OnSpellCast(int32 School, bool bLeftHand);
