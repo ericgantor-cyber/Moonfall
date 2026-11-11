@@ -1868,8 +1868,7 @@ void AMoonfallHeroPawn::CloseResidentContext() {
  if (!bResidentContextOpen && !FocusedResident.IsValid()) return;
  bResidentContextOpen = false;
  FocusedResident.Reset();
- if (APlayerController* PC = Cast<APlayerController>(Controller))
-  PC->bShowMouseCursor = bResidentCursorWasVisible;
+ // Closing dialogue does not change mouse cursor visibility.
  ResidentContextSelection = 0;
  bResidentTurnInPending = false;
  ResidentTurnInConfirmUntil = 0.f;
@@ -1893,7 +1892,6 @@ void AMoonfallHeroPawn::OpenFocusedResidentContext() {
  bResidentContextOpen = true;
  bResidentTurnInPending = false;
  if (APlayerController* PC = Cast<APlayerController>(Controller)) {
-  bResidentCursorWasVisible = PC->bShowMouseCursor;
   PC->bShowMouseCursor = true;
  }
  ResidentContextSelection = 0;
@@ -1928,8 +1926,7 @@ void AMoonfallHeroPawn::CastRightMouse() {
     bResidentContextOpen = true;
     bResidentTurnInPending = false;
     if (APlayerController* PC = Cast<APlayerController>(Controller)) {
-     bResidentCursorWasVisible = PC->bShowMouseCursor;
-     PC->bShowMouseCursor = true;
+        PC->bShowMouseCursor = true;
     }
     ResidentContextSelection = 0;
     OnResidentContextOpened(Resident, Resident->DisplayName,
