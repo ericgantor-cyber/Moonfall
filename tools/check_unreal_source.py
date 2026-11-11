@@ -352,6 +352,22 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("MainhandVisual->SetStaticMesh(MainhandMeshAsset.Get());", setup)
         self.assertIn("OffhandVisual->SetStaticMesh(OffhandMeshAsset.Get());", setup)
 
+    def test_weapon_reattachment_resets_stale_parent_space_and_detects_component_swaps(self):
+        self.assertIn("TWeakObjectPtr<USkeletalMeshComponent> ObservedWeaponRigComponent;", self.hero_h)
+        rig = self.hero_cpp.split("void AMoonfallHeroPawn::InitializeDualWieldVisuals()", 1)[1].split(
+            "void AMoonfallHeroPawn::AuditDualWieldRigChanges()", 1)[0]
+        self.assertIn("if (Weapon->AttachToComponent(BodyMesh,", rig)
+        self.assertIn("FAttachmentTransformRules::SnapToTargetNotIncludingScale, Socket)", rig)
+        self.assertIn("Weapon->AttachToComponent(Root,", rig)
+        self.assertIn("FAttachmentTransformRules::SnapToTargetNotIncludingScale);", rig)
+        self.assertIn("Weapon->SetRelativeLocation(FallbackOffset);", rig)
+        self.assertIn("ObservedWeaponRigComponent = IsValid(BodyMesh) ? BodyMesh : nullptr;", rig)
+        audit = self.hero_cpp.split("void AMoonfallHeroPawn::AuditDualWieldRigChanges()", 1)[1].split(
+            "void AMoonfallHeroPawn::RefreshDualWieldRig()", 1)[0]
+        self.assertIn("BodyMesh != ObservedWeaponRigComponent.Get()", audit)
+        self.assertIn("CurrentRig != ObservedWeaponRigAsset.Get()", audit)
+        self.assertIn("CurrentAnim != ObservedWeaponAnimInstance.Get()", audit)
+
     def test_replaced_skeletal_rigs_are_rechecked_without_frame_scans(self):
         self.assertIn("ObservedWeaponRigAsset", self.hero_h)
         self.assertIn("ObservedWeaponAnimInstance", self.hero_h)
@@ -423,7 +439,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             self.assertIn('TEXT("' + key + '")', rig)
         self.assertIn("if (bAllowHandSocketFallbacks)", rig)
         self.assertIn("FAttachmentTransformRules::SnapToTargetNotIncludingScale", rig)
-        self.assertIn("FAttachmentTransformRules::KeepRelativeTransform", rig)
+        self.assertNotIn("FAttachmentTransformRules::KeepRelativeTransform", rig)
+        self.assertIn("Weapon->AttachToComponent(Root,", rig)
         self.assertIn("FMath::IsFinite(AuthoredOffset.X)", rig)
         self.assertIn("AuthoredOffset.GetAbsMax() <= 100.f", rig)
         self.assertIn("bMainhandRigAttached = AttachWeapon(", rig)
