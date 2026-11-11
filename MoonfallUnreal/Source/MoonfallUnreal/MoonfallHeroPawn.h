@@ -170,6 +170,8 @@ public:
 private:
  float SecondsSinceLastWorldSave = 0.f;
  float DefeatElapsedSeconds = 0.f;
+ // Delay routine checkpoint overwrites after respawning into danger.
+ float NextSafeCheckpointAt = 0.f;
  float RacePowerReadyAt = 0.f;
  float RacePowerActiveUntil = 0.f;
  UPROPERTY(VisibleAnywhere) USpringArmComponent* CameraBoom;
