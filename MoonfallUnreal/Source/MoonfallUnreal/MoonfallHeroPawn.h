@@ -179,6 +179,9 @@ public:
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Equipment") int32 AccessoryTier = 0;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Combat") int32 LeftSpell = 0;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Combat") int32 RightSpell = 1;
+ // V switches between spell + spell and weapon + spell, with no save-schema change.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Combat") bool bWeaponSpellStance = false;
+ UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Combat") void OnWeaponStrike(float Damage, bool bConnected);
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Combat") void OnSpellCast(int32 School, bool bLeftHand);
  // Optional authored animation/VFX hook: no replacement character art needed.
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Combat") void OnDualCastReleased(int32 School);
@@ -281,6 +284,9 @@ private:
  void CastLeft();
  void CastRight();
  void CastBoth();
+ void ToggleWeaponSpell();
+ void StrikeWithWeapon();
+ float NextWeaponStrikeAt = 0.f;
  void Dodge();
  void BeginSprint();
  void EndSprint();
