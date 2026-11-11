@@ -352,6 +352,24 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("MainhandVisual->SetStaticMesh(MainhandMeshAsset.Get());", setup)
         self.assertIn("OffhandVisual->SetStaticMesh(OffhandMeshAsset.Get());", setup)
 
+    def test_swing_playback_diagnostics_do_not_reuse_stale_results(self):
+        for name in ("bMainhandMontagePlayed", "bOffhandMontagePlayed",
+                     "bMainhandSwingAttempted", "bOffhandSwingAttempted"):
+            self.assertIn(name, self.hero_h)
+        init = self.hero_cpp.split("void AMoonfallHeroPawn::InitializeDualWieldVisuals()", 1)[1].split(
+            "void AMoonfallHeroPawn::RefreshDualWieldRig()", 1)[0]
+        for name in ("bMainhandMontagePlayed", "bOffhandMontagePlayed",
+                     "bMainhandSwingAttempted", "bOffhandSwingAttempted"):
+            self.assertIn(name + " = false;", init)
+        swing = self.hero_cpp.split("void AMoonfallHeroPawn::BeginWeaponSwing(", 1)[1].split(
+            "void AMoonfallHeroPawn::UpdateWeaponVisuals()", 1)[0]
+        self.assertIn("bPlayed = false;", swing)
+        self.assertIn("bAttempted = !bReduceMotion;", swing)
+        self.assertIn("bReady = IsValid(Anim) && IsValid(Montage);", swing)
+        self.assertIn("if (bReady)", swing)
+        self.assertIn("FMath::IsFinite(Played) && Played > 0.f", swing)
+        self.assertIn("OnDualWieldSwing(bOffhand);", swing)
+
     def test_dual_wield_rig_diagnostics_and_montage_playback_safety(self):
         for item in ("ResolvedMainhandSocket", "ResolvedOffhandSocket",
                      "bMainhandMontageReady", "bOffhandMontageReady"):
@@ -365,8 +383,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         swing = self.hero_cpp.split("void AMoonfallHeroPawn::BeginWeaponSwing(", 1)[1].split(
             "void AMoonfallHeroPawn::UpdateWeaponVisuals()", 1)[0]
         self.assertIn("const float Played = Anim->Montage_Play(Montage, 1.f);", swing)
-        self.assertIn("bOffhandMontageReady = Played > 0.f;", swing)
-        self.assertIn("bMainhandMontageReady = Played > 0.f;", swing)
+        self.assertIn("bPlayed = FMath::IsFinite(Played) && Played > 0.f;", swing)
+        self.assertIn("bReady = IsValid(Anim) && IsValid(Montage);", swing)
         self.assertIn("OnDualWieldSwing(bOffhand);", swing)
 
     def test_multiple_rig_socket_names_and_rebinding_are_safe(self):
@@ -433,7 +451,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("OffhandVisual->SetCollisionEnabled(ECollisionEnabled::NoCollision);", visuals)
         swing = self.hero_cpp.split("void AMoonfallHeroPawn::BeginWeaponSwing(", 1)[1].split(
             "void AMoonfallHeroPawn::UpdateWeaponVisuals()", 1)[0]
-        self.assertIn("if (!bReduceMotion && GetMesh())", swing)
+        self.assertIn("if (!bReduceMotion)", swing)
         self.assertIn("OnDualWieldSwing(bOffhand);", swing)
         self.assertIn("if (!bReduceMotion)", swing)
         self.assertNotIn("if (!GetWorld() || bReduceMotion) return;", swing)
