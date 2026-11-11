@@ -1219,7 +1219,13 @@ void AMoonfallHeroPawn::ToggleCharacterStats()
 }
 
 void AMoonfallHeroPawn::ToggleInventory() {
- if (bOptionsOpen || Health <= 0.f) return;
+ if (bOptionsOpen || !FMath::IsFinite(Health) || Health <= 0.f) return;
+ if (bInventoryOpen && bCharacterStatsOpen) {
+  // B always selects the bag; don't close both panels when C's sheet is visible.
+  bCharacterStatsOpen = false;
+  bKeyRingInventoryOpen = false;
+  return;
+ }
  if (!bInventoryOpen) {
   StopJumping();
   if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
