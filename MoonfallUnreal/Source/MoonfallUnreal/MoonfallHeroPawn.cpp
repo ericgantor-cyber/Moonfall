@@ -980,8 +980,11 @@ void AMoonfallHeroPawn::StrikeWithWeapon()
  const float Now = GetWorld()->GetTimeSeconds();
  if (!FMath::IsFinite(Now) || Now < NextWeaponStrikeAt) return;
  // A short melee reach and independent cooldown keep weapons distinct from spells.
- const FVector Start = FollowCamera->GetComponentLocation();
- const FVector End = Start + FollowCamera->GetForwardVector() * 230.f;
+ // Trace from the hero, not the trailing camera. Otherwise nearby enemies
+ // can fall behind the camera's short melee ray in third-person view.
+ const FVector Start = GetActorLocation() + FVector(0.f, 0.f, 55.f);
+ const FVector Aim = FollowCamera->GetForwardVector().GetSafeNormal2D();
+ const FVector End = Start + (Aim.IsNearlyZero() ? GetActorForwardVector().GetSafeNormal2D() : Aim) * 230.f;
  FCollisionQueryParams Params(SCENE_QUERY_STAT(MoonfallHybridWeapon), false, this);
  FHitResult Hit;
  if (!GetWorld()->LineTraceSingleByChannel(Hit, Start, End, ECC_Visibility, Params))
@@ -1001,7 +1004,8 @@ void AMoonfallHeroPawn::StrikeWithWeapon()
  const float PreviousHealth = Enemy->Health;
  Enemy->TakeSpellDamage(Damage);
  NextWeaponStrikeAt = Now + 0.45f;
- OnWeaponStrike(FMath::Max(0.f, PreviousHealth - Enemy->Health), true);
+ const float DealtDamage = FMath::Max(0.f, PreviousHealth - Enemy->Health);
+ OnWeaponStrike(DealtDamage, DealtDamage > 0.f);
 }
 void AMoonfallHeroPawn::CastLeft() { if (bOptionsOpen) return; TryCast(LeftSpell, 0, 1.f); }
 void AMoonfallHeroPawn::CastRight() { if (bOptionsOpen) return; TryCast(RightSpell, 1, 1.f); }
