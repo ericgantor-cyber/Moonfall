@@ -917,10 +917,17 @@ void AMoonfallHeroPawn::QueueMouseCast(int32 Hand)
  if (bMouseChordConsumed) return;
  if (bMouseLeftHeld && bMouseRightHeld)
  {
-  GetWorldTimerManager().ClearTimer(MouseCastTimer);
-  PendingMouseHand = -1;
-  bMouseChordConsumed = true;
-  CastBoth();
+  // Only join presses during the 90ms grace window. An already committed
+  // single-hand spell must not be followed by a free extra Dual Cast.
+  if (PendingMouseHand >= 0 && GetWorldTimerManager().IsTimerActive(MouseCastTimer))
+  {
+   GetWorldTimerManager().ClearTimer(MouseCastTimer);
+   PendingMouseHand = -1;
+   bMouseChordConsumed = true;
+   CastBoth();
+  }
+  else if (Hand == 0) CastLeft();
+  else CastRight();
   return;
  }
  PendingMouseHand = Hand;
