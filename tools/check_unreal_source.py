@@ -1280,11 +1280,11 @@ class MoonfallIntegrationChecks(unittest.TestCase):
 
     def test_spell_cast_cost_and_cooldown_contract(self):
         cast = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split("\n}", 1)[0]
-        self.assertIn("Mana < Costs[School] * Multiplier", cast)
+        self.assertIn("Mana < Costs[School] * ManaCostMultiplier", cast)
         self.assertIn("Time - LastCastTime[Hand] < Cooldowns[School]", cast)
-        self.assertIn("Mana -= Costs[School] * Multiplier", cast)
+        self.assertIn("Mana -= Costs[School] * ManaCostMultiplier", cast)
         self.assertIn("LastCastTime[Hand] = Time", cast)
-        self.assertLess(cast.index("Mana < Costs[School] * Multiplier"), cast.index("Mana -= Costs[School] * Multiplier"))
+        self.assertLess(cast.index("Mana < Costs[School] * ManaCostMultiplier"), cast.index("Mana -= Costs[School] * ManaCostMultiplier"))
 
     def test_xp_and_loot_only_on_enemy_death(self):
         damage = self.enemy_cpp.split("void AMoonfallEnemy::TakeSpellDamage(float Amount) {", 1)[1].split("\n}", 1)[0]
@@ -2503,13 +2503,13 @@ class MoonfallIntegrationChecks(unittest.TestCase):
     def test_healing_at_full_health_costs_no_mana(self):
         cast = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split("\n}", 1)[0]
         self.assertIn("if (School == 3 && Health >= MaxHealth) return false", cast)
-        self.assertLess(cast.index("Health >= MaxHealth"), cast.index("Mana -= Costs[School] * Multiplier"))
+        self.assertLess(cast.index("Health >= MaxHealth"), cast.index("Mana -= Costs[School] * ManaCostMultiplier"))
 
     def test_spell_multiplier_validated_before_cast(self):
         cast = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split("\n}", 1)[0]
         self.assertIn("!FMath::IsFinite(Multiplier)", cast)
         self.assertIn("Multiplier <= 0.f", cast)
-        self.assertLess(cast.index("!FMath::IsFinite(Multiplier)"), cast.index("Mana -= Costs[School] * Multiplier"))
+        self.assertLess(cast.index("!FMath::IsFinite(Multiplier)"), cast.index("Mana -= Costs[School] * ManaCostMultiplier"))
 
     def test_hostile_spell_rejects_nonfinite_enemy_health_before_mutation(self):
         cast = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split(
@@ -2521,7 +2521,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(cast.index("!FMath::IsFinite(Enemy->Health)"),
                         cast.index("Enemy->TakeSpellDamage(SpellDamage);"))
         self.assertLess(cast.index("!FMath::IsFinite(Enemy->Health)"),
-                        cast.index("Mana -= Costs[School] * Multiplier;"))
+                        cast.index("Mana -= Costs[School] * ManaCostMultiplier;"))
         self.assertLess(cast.index("!FMath::IsFinite(Enemy->Health)"),
                         cast.index("HitComboStage = bComboAlive"))
 
@@ -2530,30 +2530,32 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("!FMath::IsFinite(Mana)", cast)
         self.assertIn("!FMath::IsFinite(SpellPowerMultiplier)", cast)
         self.assertIn("SpellPowerMultiplier <= 0.f", cast)
-        self.assertLess(cast.index("!FMath::IsFinite(Mana)"), cast.index("Mana -= Costs[School] * Multiplier"))
+        self.assertLess(cast.index("!FMath::IsFinite(Mana)"), cast.index("Mana -= Costs[School] * ManaCostMultiplier"))
 
     def test_dual_cast_checks_both_spell_indices(self):
         dual = self.hero_cpp.split("void AMoonfallHeroPawn::CastBoth()", 1)[1].split("\n}", 1)[0]
         self.assertIn("LeftSpell < 0 || LeftSpell >= 6", dual)
         self.assertIn("RightSpell < 0 || RightSpell >= 6", dual)
-        self.assertIn("TryCast(LeftSpell, 0, 2.f)", dual)
+        self.assertIn("TryCast(LeftSpell, 0, 2.2f)", dual)
+        self.assertIn("const float ManaCostMultiplier = Multiplier > 2.f ? 2.8f : Multiplier;", self.hero_cpp)
+        self.assertIn("Multiplier <= 0.f || Multiplier > 2.2f", self.hero_cpp)
 
     def test_spell_cast_validates_health_state(self):
         cast = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split("\n}", 1)[0]
         for guard in ("!FMath::IsFinite(Health)", "!FMath::IsFinite(MaxHealth)", "MaxHealth <= 0.f"):
             self.assertIn(guard, cast)
-            self.assertLess(cast.index(guard), cast.index("Mana -= Costs[School] * Multiplier"))
+            self.assertLess(cast.index(guard), cast.index("Mana -= Costs[School] * ManaCostMultiplier"))
 
     def test_spell_cast_validates_maximum_mana(self):
         cast = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split("\n}", 1)[0]
         self.assertIn("!FMath::IsFinite(MaxMana)", cast)
         self.assertIn("MaxMana <= 0.f", cast)
-        self.assertLess(cast.index("MaxMana <= 0.f"), cast.index("Mana -= Costs[School] * Multiplier"))
+        self.assertLess(cast.index("MaxMana <= 0.f"), cast.index("Mana -= Costs[School] * ManaCostMultiplier"))
 
     def test_spell_cast_rejects_overcap_health(self):
         cast = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split("\n}", 1)[0]
         self.assertIn("Health > MaxHealth", cast)
-        self.assertLess(cast.index("Health > MaxHealth"), cast.index("Mana -= Costs[School] * Multiplier"))
+        self.assertLess(cast.index("Health > MaxHealth"), cast.index("Mana -= Costs[School] * ManaCostMultiplier"))
 
     def test_dodge_and_blocked_hit_checks_retained(self):
         self.assertIn("GetSafeNormal2D()", self.enemy_cpp)
