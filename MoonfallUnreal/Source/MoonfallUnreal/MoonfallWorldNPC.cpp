@@ -1,5 +1,6 @@
 #include "MoonfallWorldNPC.h"
 #include "MoonfallHeroPawn.h"
+#include "MoonfallRaceCatalog.h"
 #include "Components/StaticMeshComponent.h"
 #include "UObject/ConstructorHelpers.h"
 #include "Engine/World.h"
@@ -17,6 +18,7 @@ AMoonfallWorldNPC::AMoonfallWorldNPC() {
  DisplayName = FText::FromString(TEXT("Wayfarer"));
  Greeting = FText::FromString(TEXT("The road stretches on. Need directions?"));
 }
+FString AMoonfallWorldNPC::GetRaceName() const { return FString(MoonfallRaces::Name(RaceId)); }
 bool AMoonfallWorldNPC::TryTalk(AMoonfallHeroPawn* Hero) {
  if (!IsValid(Hero) || !GetWorld() || Hero->Health <= 0.f
      || Hero->bInventoryOpen || Hero->bOptionsOpen) return false;
@@ -34,6 +36,9 @@ bool AMoonfallWorldNPC::TryTalk(AMoonfallHeroPawn* Hero) {
      Hit, From + FVector(0,0,55), To + FVector(0,0,55), ECC_Visibility, Params);
  if (bHit && Hit.GetActor() != this) return false;
  InteractionCount = FMath::Min(InteractionCount + 1, 1000000);
- OnDialogueStarted(Hero, Greeting);
+ // The existing custom greeting wins; default dialogue reflects ancestry.
+ const FText Spoken = Greeting.EqualTo(FText::FromString(TEXT("The road stretches on. Need directions?")))
+    ? FText::FromString(MoonfallRaces::Greeting(RaceId)) : Greeting;
+ OnDialogueStarted(Hero, Spoken);
  return true;
 }
