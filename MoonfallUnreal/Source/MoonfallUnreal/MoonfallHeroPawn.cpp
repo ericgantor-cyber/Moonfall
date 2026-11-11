@@ -1906,6 +1906,9 @@ bool AMoonfallHeroPawn::CollectGroundEquipmentCode(int32 ItemCode)
  int32* EquippedAffix = SlotIndex == 0 ? &WeaponAffix
    : (SlotIndex == 1 ? &ArmorAffix : &AccessoryAffix);
  const bool bAutoEquipEmptySlot = *EquippedCode == 0;
+ // Capture the worn tier before an empty slot is filled so loot comparison
+ // reports the real gain instead of subtracting the newly equipped tier.
+ const int32 PreviousSlotTier = *EquippedTier;
  const int32 PreviousEquipmentTier = EquipmentTier;
  const float PreviousMaxHealth = MaxHealth;
  const float PreviousHealth = Health;
@@ -1947,7 +1950,7 @@ bool AMoonfallHeroPawn::CollectGroundEquipmentCode(int32 ItemCode)
  LastLootSlot = SlotIndex;
  LastLootRarity = Rarity;
  LastLootTier = Tier;
- LastLootUpgrade = Tier - *EquippedTier;
+ LastLootUpgrade = Tier - PreviousSlotTier;
  return true;
 }
 
