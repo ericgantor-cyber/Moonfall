@@ -210,7 +210,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn('ActionName="PickupLoot"', inputs)
         self.assertNotIn('BindAction(TEXT("PickupLoot")', self.hero_cpp)
         self.assertIn("&AMoonfallHeroPawn::InteractWithNearbyWorld", self.hero_cpp)
-        self.assertIn("TryInteractWithNearbyKey();", self.hero_cpp.split("void AMoonfallHeroPawn::InteractWithNearbyWorld()", 1)[1].split("void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[0])
+        self.assertIn("if (TryInteractWithNearbyKey()) return;", self.hero_cpp.split("void AMoonfallHeroPawn::InteractWithNearbyWorld()", 1)[1].split("void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[0])
         self.assertIn("void PickupNearestGroundLoot();", self.hero_h)
         self.assertIn("void SpawnGroundEquipmentDrop(", self.hero_h)
         self.assertIn("bool CollectGroundEquipmentCode(int32 ItemCode);", self.hero_h)
@@ -2652,6 +2652,26 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("AimTarget", pickup_h)
         self.assertNotIn("AimTarget", pickup)
         self.assertIn("KeyMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);", pickup)
+
+    def test_f_interacts_with_all_existing_explicit_world_objects(self):
+        world = self.hero_cpp.split("void AMoonfallHeroPawn::InteractWithNearbyWorld()", 1)[1].split(
+            "void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[0]
+        loot_h = (ROOT / "MoonfallGroundLoot.h").read_text(encoding="utf-8")
+        loot_cpp = (ROOT / "MoonfallGroundLoot.cpp").read_text(encoding="utf-8")
+        self.assertIn("if (TryInteractWithNearbyKey()) return;", world)
+        self.assertIn("TActorIterator<AMoonfallGroundLoot>", world)
+        self.assertIn("NearestLoot->TryCollect(true);", world)
+        self.assertIn("MoonfallManualEquipmentSight", world)
+        self.assertIn("bool TryCollect(bool bManualInteraction = false);", loot_h)
+        self.assertIn("bool AMoonfallGroundLoot::TryCollect(bool bManualInteraction)", loot_cpp)
+        self.assertIn("(!bManualInteraction && !Hero->bAutoLootEnabled)", loot_cpp)
+        self.assertIn("SCENE_QUERY_STAT(MoonfallPersistedLootSight)", loot_cpp)
+        self.assertIn("CollectPersistedGroundEquipmentCode(ItemCode, PersistentDropId)", loot_cpp)
+        # The timed auto-loot sweep continues to use the default, non-manual path.
+        auto = self.hero_cpp.split("void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[1].split(
+            "void AMoonfallHeroPawn::EquipBestInventoryAction()", 1)[0]
+        self.assertIn("Loot->TryCollect()", auto)
+        self.assertNotIn("Loot->TryCollect(true)", auto)
 
     def test_direct_key_and_gate_transactions_require_reach_and_visibility(self):
         pickup = (ROOT / "MoonfallKeyPickup.cpp").read_text(encoding="utf-8")
