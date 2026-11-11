@@ -1872,6 +1872,7 @@ void AMoonfallHeroPawn::CloseResidentContext() {
  ResidentContextSelection = 0;
  bResidentTurnInPending = false;
  ResidentTurnInConfirmUntil = 0.f;
+ ResidentTurnInConfirmAfter = 0.f;
  ResidentFeedbackMessage.Empty();
  ResidentFeedbackUntil = 0.f;
  OnResidentContextClosed();
@@ -1888,6 +1889,10 @@ void AMoonfallHeroPawn::OpenFocusedResidentContext() {
  }
  AMoonfallWorldNPC* Resident = GetNearestResidentNPC();
  if (!IsValid(Resident) || !Resident->CanHeroInteract(this)) return;
+ StopJumping();
+ if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
+ EndSprint();
+ EndGuard();
  FocusedResident = Resident;
  bResidentContextOpen = true;
  bResidentTurnInPending = false;
@@ -1922,6 +1927,10 @@ void AMoonfallHeroPawn::CastRightMouse() {
   if (AMoonfallWorldNPC* Resident = Cast<AMoonfallWorldNPC>(Hit.GetActor())) {
    // A click on a civilian is never converted to a spell, even when too far.
    if (Resident->CanHeroInteract(this)) {
+    StopJumping();
+    if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
+    EndSprint();
+    EndGuard();
     FocusedResident = Resident;
     bResidentContextOpen = true;
     bResidentTurnInPending = false;
@@ -2008,9 +2017,12 @@ bool AMoonfallHeroPawn::ChooseResidentContextAction(int32 Choice) {
       || GetWorld()->GetTimeSeconds() > ResidentTurnInConfirmUntil) {
    bResidentTurnInPending = true;
    ResidentTurnInConfirmUntil = GetWorld() ? GetWorld()->GetTimeSeconds() + 6.f : 0.f;
+   ResidentTurnInConfirmAfter = GetWorld() ? GetWorld()->GetTimeSeconds() + 0.35f : 0.f;
    Message = FText::FromString(FString::Printf(
      TEXT("Confirm spending %d salvage: choose Turn In again."),
      Resident->GetContractSalvageCost()));
+  } else if (GetWorld()->GetTimeSeconds() < ResidentTurnInConfirmAfter) {
+   Message = FText::FromString(TEXT("Confirm once more after a short moment."));
   } else {
    bResidentTurnInPending = false;
    bSucceeded = Resident->TurnInResidentQuest(this);
