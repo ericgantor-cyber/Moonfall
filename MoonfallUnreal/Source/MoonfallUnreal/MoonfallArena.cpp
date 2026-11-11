@@ -48,6 +48,7 @@ void AMoonfallArena::BeginPlay() {
      AMoonfallWorldNPC::StaticClass(), GetActorLocation() + FVector(-350.f, 650.f, 60.f), FRotator::ZeroRotator)) {
   Guide->RaceId = 2; // Wood Elf
   Guide->SettlementId = FName(TEXT("Crossroads"));
+  Guide->ResidentId = FName(TEXT("CrossroadsGuide"));
   Guide->FactionId = FName(TEXT("Wanderers"));
   Guide->SocialRole = FName(TEXT("Guide"));
   Guide->DisplayName = FText::FromString(TEXT("Wandering Guide"));
@@ -76,6 +77,7 @@ void AMoonfallArena::BeginPlay() {
   if (AMoonfallWorldNPC* Person = GetWorld()->SpawnActor<AMoonfallWorldNPC>(
       AMoonfallWorldNPC::StaticClass(), GetActorLocation() + Resident.Offset, FRotator::ZeroRotator)) {
    Person->DisplayName = FText::FromString(Resident.Name);
+   Person->ResidentId = FName(FString(Resident.Name).Replace(TEXT(" "), TEXT("")));
    Person->RaceId = Resident.Race;
    Person->FactionId = FName(Resident.Faction);
    Person->SettlementId = FName(TEXT("Crossroads"));
