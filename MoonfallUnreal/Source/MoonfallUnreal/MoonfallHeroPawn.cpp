@@ -1852,7 +1852,10 @@ AMoonfallWorldNPC* AMoonfallHeroPawn::GetNearestResidentNPC() const {
   AMoonfallWorldNPC* Candidate = *It;
   if (!IsValid(Candidate)) continue;
   const float DistSq = FVector::DistSquared(GetActorLocation(), Candidate->GetActorLocation());
-  if (FMath::IsFinite(DistSq) && DistSq < BestDistSq) {
+  // Choose the closest *reachable* resident. A nearer NPC behind a wall
+  // must not prevent talking to another visible NPC on controller.
+  if (FMath::IsFinite(DistSq) && DistSq < BestDistSq &&
+      Candidate->CanHeroInteract(this)) {
    BestDistSq = DistSq;
    Nearest = Candidate;
   }
