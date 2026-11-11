@@ -471,6 +471,15 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("SetSkeletalMesh(", rig_cpp)
         self.assertNotIn("CreateDefaultSubobject", rig_cpp)
 
+    def test_enemy_boss_rig_asset_swaps_refresh_on_combat_cues(self):
+        self.assertIn("TWeakObjectPtr<UObject> ObservedCharacterRigAsset;", self.enemy_h)
+        rig = self.enemy_cpp.split("void AMoonfallEnemy::RefreshCharacterRig()", 1)[1].split(
+            "void AMoonfallEnemy::CancelDivineSignature()", 1)[0]
+        self.assertIn("ObservedCharacterRigAsset = CharacterRig->GetSkeletalMeshAsset();", rig)
+        self.assertIn("CharacterRig->GetSkeletalMeshAsset() != ObservedCharacterRigAsset.Get()", rig)
+        self.assertIn("RefreshCharacterRig();", rig)
+        self.assertIn("OnCharacterRigCue(CueId, bLastRigMontagePlayed);", rig)
+
     def test_enemy_elite_and_boss_share_optional_skeletal_rig(self):
         self.assertIn("class USkeletalMeshComponent;", self.enemy_h)
         self.assertIn("TObjectPtr<USkeletalMeshComponent> CharacterRig;", self.enemy_h)
