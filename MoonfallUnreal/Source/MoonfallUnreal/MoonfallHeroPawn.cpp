@@ -974,21 +974,25 @@ void AMoonfallHeroPawn::MouseRightReleased()
  if (bSpellShieldStance) EndGuard();
  if (!bMouseLeftHeld) bMouseChordConsumed = false;
 }
-void AMoonfallHeroPawn::CycleHandSetup()
+void AMoonfallHeroPawn::SelectHandSetup(int32 Setup)
 {
- if (!bInventoryOpen || bOptionsOpen || !FMath::IsFinite(Health) || Health <= 0.f) return;
+ if (Setup < 0 || Setup > 3 || !bInventoryOpen || bCharacterStatsOpen || bOptionsOpen
+     || !FMath::IsFinite(Health) || Health <= 0.f || !GetWorld()) return;
+ // 0 spell/spell, 1 weapon/spell, 2 spell/shield guard, 3 weapon/shield guard.
+ // Equipment selection does not consume or alter any saved item.
  GetWorldTimerManager().ClearTimer(MouseCastTimer);
  PendingMouseHand = -1;
- // Four hand combinations, inventory-click only. V stays unassigned.
- // Spell+spell -> weapon+spell -> spell+shield -> weapon+shield -> repeat.
- if (!bWeaponSpellStance && !bSpellShieldStance) bWeaponSpellStance = true;
- else if (bWeaponSpellStance && !bSpellShieldStance)
- { bWeaponSpellStance = false; bSpellShieldStance = true; }
- else if (!bWeaponSpellStance && bSpellShieldStance) bWeaponSpellStance = true;
- else { bWeaponSpellStance = false; bSpellShieldStance = false; }
- // Switching away from shield guard never leaves the old block held.
  EndGuard();
+ bWeaponSpellStance = (Setup == 1 || Setup == 3);
+ bSpellShieldStance = (Setup == 2 || Setup == 3);
  bMouseChordConsumed = false;
+}
+void AMoonfallHeroPawn::CycleHandSetup()
+{
+ // Blueprint/controller-compatible forward cycle; the HUD exposes direct choices.
+ const int32 CurrentSetup = bSpellShieldStance ? (bWeaponSpellStance ? 3 : 2)
+   : (bWeaponSpellStance ? 1 : 0);
+ SelectHandSetup((CurrentSetup + 1) % 4);
 }
 void AMoonfallHeroPawn::ToggleWeaponSpell()
 {
