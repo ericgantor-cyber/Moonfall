@@ -17,8 +17,13 @@ void AMoonfallCombatHUD::DrawHUD()
  if (!IsValid(Hero)) return;
  // Native Canvas resident menu. Matching click bounds are in HeroPawn.
  if (const AMoonfallWorldNPC* Resident = Hero->FocusedResident.Get()) {
-  if (Hero->Health > 0.f && IsValid(Resident) &&
-      FVector::DistSquared(Hero->GetActorLocation(), Resident->GetActorLocation()) <= FMath::Square(400.f)) {
+  const float InteractionRange = IsValid(Resident) && FMath::IsFinite(Resident->InteractRange)
+      ? FMath::Clamp(Resident->InteractRange, 50.f, 400.f) : 0.f;
+  if (Hero->Health > 0.f && IsValid(Resident) && InteractionRange > 0.f &&
+      !Hero->GetActorLocation().ContainsNaN() &&
+      !Resident->GetActorLocation().ContainsNaN() &&
+      FVector::DistSquared(Hero->GetActorLocation(), Resident->GetActorLocation()) <=
+          FMath::Square(InteractionRange)) {
    const float W = FMath::Min(490.f, FMath::Max(260.f, Canvas->SizeX - 24.f));
    const float H = FMath::Min(345.f, FMath::Max(270.f, Canvas->SizeY - 24.f));
    const float L = (Canvas->SizeX - W) * 0.5f, T = (Canvas->SizeY - H) * 0.5f;
