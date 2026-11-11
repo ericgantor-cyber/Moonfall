@@ -1,4 +1,6 @@
 #include "MoonfallHeroPawn.h"
+#include "MoonfallPersistentSave.h"
+#include "Kismet/GameplayStatics.h"
 #include "Camera/CameraComponent.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
@@ -151,10 +153,22 @@ void AMoonfallHeroPawn::BeginPlay() {
  const TSharedPtr<IPlugin> DLSS = IPluginManager::Get().FindPlugin(TEXT("DLSS"));
  bFrameGenerationPluginDetected = (FSR.IsValid() && FSR->IsEnabled()) || (DLSS.IsValid() && DLSS->IsEnabled());
  // Detection is only a hint, never proof of a supported frame-generation runtime.
+ LoadWorldProgress();
 }
 void AMoonfallHeroPawn::Tick(float DeltaSeconds)
 {
  Super::Tick(DeltaSeconds);
+ // Keep one save slot forever; only alive characters overwrite the checkpoint.
+ if (Health > 0.f) {
+  DefeatElapsedSeconds = 0.f;
+  SecondsSinceLastWorldSave += FMath::Clamp(DeltaSeconds, 0.f, 0.25f);
+  if (SecondsSinceLastWorldSave >= 2.f) {
+   if (SaveWorldProgress()) SecondsSinceLastWorldSave = 0.f;
+  }
+ } else {
+  DefeatElapsedSeconds += FMath::Clamp(DeltaSeconds, 0.f, 0.25f);
+  if (DefeatElapsedSeconds >= 3.f) RespawnAtCheckpoint();
+ }
  UpdateNativeFinisher(DeltaSeconds);
  // Expire the visible combo stage even if the player stops attacking.
  // Also discard defeated or destroyed targets to avoid a stale combo HUD.
@@ -1490,4 +1504,91 @@ bool AMoonfallHeroPawn::EquipInventoryItem(int32 InventoryIndex)
   OnHealthChanged(Health, MaxHealth);
  }
  return true;
+}
+
+
+namespace {
+const FString MoonfallWorldSlot(TEXT("MoonfallPersistentWorldV1"));
+bool ValidMoonfallItemCode(int32 Code) {
+ if (Code <= 0) return false;
+ const int32 Trait = Code / 100000;
+ const int32 Slot = (Code / 10000) % 10;
+ const int32 Rarity = (Code / 1000) % 10;
+ const int32 Tier = Code % 1000;
+ return Trait >= 1 && Trait <= 3 && Slot >= 0 && Slot <= 2
+     && Rarity >= 1 && Rarity <= 5 && Tier >= 1 && Tier <= 25
+     && Code == Trait * 100000 + Slot * 10000 + Rarity * 1000 + Tier;
+}
+}
+bool AMoonfallHeroPawn::SaveWorldProgress() {
+ if (Health <= 0.f || !GetWorld() || !FMath::IsFinite(MaxHealth)) return false;
+ UMoonfallPersistentSave* Save = Cast<UMoonfallPersistentSave>(
+     UGameplayStatics::CreateSaveGameObject(UMoonfallPersistentSave::StaticClass()));
+ if (!Save) return false;
+ Save->CheckpointLocation = GetActorLocation();
+ Save->Level = FMath::Clamp(Level, 1, 100);
+ Save->Experience = FMath::Clamp(Experience, 0, 1000000);
+ Save->Salvage = FMath::Clamp(Salvage, 0, 100000000);
+ Save->MaxHealth = FMath::Clamp(MaxHealth, 1.f, 100000.f);
+ // Retain inventory and the worn IDs so replacing gear never wipes old loot.
+ Save->InventoryItemCodes = InventoryItemCodes;
+ Save->EquippedWeaponCode = EquippedWeaponCode;
+ Save->EquippedArmorCode = EquippedArmorCode;
+ Save->EquippedAccessoryCode = EquippedAccessoryCode;
+ Save->LeftSpell = LeftSpell;
+ Save->RightSpell = RightSpell;
+ return UGameplayStatics::SaveGameToSlot(Save, MoonfallWorldSlot, 0);
+}
+bool AMoonfallHeroPawn::LoadWorldProgress() {
+ if (!UGameplayStatics::DoesSaveGameExist(MoonfallWorldSlot, 0)) return false;
+ const UMoonfallPersistentSave* Save = Cast<UMoonfallPersistentSave>(
+     UGameplayStatics::LoadGameFromSlot(MoonfallWorldSlot, 0));
+ if (!Save || Save->Version != 1) return false;
+ Level = FMath::Clamp(Save->Level, 1, 100);
+ Experience = FMath::Clamp(Save->Experience, 0, 1000000);
+ ExperienceToNextLevel = 100 + (Level - 1) * 55;
+ Salvage = FMath::Clamp(Save->Salvage, 0, 100000000);
+ MaxHealth = FMath::IsFinite(Save->MaxHealth)
+     ? FMath::Clamp(Save->MaxHealth, 1.f, 100000.f) : 100.f;
+ InventoryItemCodes.Reset();
+ for (int32 Code : Save->InventoryItemCodes) {
+  if (InventoryItemCodes.Num() >= 10000) break;
+  if (ValidMoonfallItemCode(Code)) InventoryItemCodes.Add(Code);
+ }
+ const auto RestoreGear = [this](int32 Code, int32 Slot, int32& Equipped, int32& Tier, int32& Affix) {
+  if (ValidMoonfallItemCode(Code) && ((Code / 10000) % 10) == Slot && InventoryItemCodes.Contains(Code)) {
+   Equipped = Code;
+   Tier = Code % 1000;
+   Affix = Code / 100000;
+  } else {
+   Equipped = 0;
+   Tier = 0;
+   Affix = 0;
+  }
+ };
+ RestoreGear(Save->EquippedWeaponCode, 0, EquippedWeaponCode, WeaponTier, WeaponAffix);
+ RestoreGear(Save->EquippedArmorCode, 1, EquippedArmorCode, ArmorTier, ArmorAffix);
+ RestoreGear(Save->EquippedAccessoryCode, 2, EquippedAccessoryCode, AccessoryTier, AccessoryAffix);
+ EquipmentTier = FMath::Max(WeaponTier, FMath::Max(ArmorTier, AccessoryTier));
+ LeftSpell = FMath::Clamp(Save->LeftSpell, 0, 100);
+ RightSpell = FMath::Clamp(Save->RightSpell, 0, 100);
+ Health = MaxHealth;
+ Mana = FMath::Max(0.f, MaxMana);
+ Stamina = FMath::Max(0.f, MaxStamina);
+ if (!Save->CheckpointLocation.ContainsNaN()
+     && Save->CheckpointLocation.SizeSquared() < 1.0e14f)
+  SetActorLocation(Save->CheckpointLocation, false, nullptr, ETeleportType::TeleportPhysics);
+ OnHealthChanged(Health, MaxHealth);
+ return true;
+}
+void AMoonfallHeroPawn::RespawnAtCheckpoint() {
+ DefeatElapsedSeconds = 0.f;
+ // No new run, no loot reset. Restore last living checkpoint.
+ if (!LoadWorldProgress()) {
+  Health = FMath::Max(1.f, MaxHealth);
+  Mana = FMath::Max(0.f, MaxMana);
+  Stamina = FMath::Max(0.f, MaxStamina);
+  OnHealthChanged(Health, MaxHealth);
+ }
+ if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
 }
