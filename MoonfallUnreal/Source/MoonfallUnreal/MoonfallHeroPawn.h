@@ -19,6 +19,16 @@ public:
  virtual void Tick(float DeltaSeconds) override;
  // Original Moonfall set themes use existing Force/Ward/Focus traits
  // on three equipped slots. No changes to encoded item IDs or saved gear.
+ // Twelve persistent fantasy ancestries. Choice locks on first selection.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Race") int32 RaceId = 0;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Race") bool bRaceChosen = false;
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Race") bool ChooseRace(int32 NewRaceId);
+ UFUNCTION(BlueprintPure, Category="Moonfall|Race") FString GetRaceName() const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Race") int32 GetRaceMightBonus() const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Race") int32 GetRaceInsightBonus() const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Race") int32 GetRaceResolveBonus() const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Race") float GetRaceStaminaRegenBonus() const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Race") float GetRaceManaRegenBonus() const;
  UFUNCTION(BlueprintPure, Category="Moonfall|Equipment|Sets") int32 GetSetPieceCount(int32 Affix) const;
  // Derived primary attributes, no additional persistent save schema.
  UFUNCTION(BlueprintPure, Category="Moonfall|Equipment|Stats") int32 GetMight() const;
