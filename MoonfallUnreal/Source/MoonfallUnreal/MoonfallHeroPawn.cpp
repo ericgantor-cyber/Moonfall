@@ -1858,7 +1858,10 @@ void AMoonfallHeroPawn::CloseResidentContext() {
  }
 }
 void AMoonfallHeroPawn::OpenFocusedResidentContext() {
- if (!GetWorld() || Health <= 0.f || bOptionsOpen || bInventoryOpen) return;
+ // One controller D-pad Up mapping serves options/inventory navigation
+ // and the contextual NPC menu without delivering duplicate key events.
+ if (bOptionsOpen || bInventoryOpen) { OptionsUp(); return; }
+ if (!GetWorld() || Health <= 0.f) return;
  if (FocusedResident.IsValid() && FocusedResident->CanHeroInteract(this)) {
   ResidentContextSelection = (ResidentContextSelection + 2) % 3;
   return;
