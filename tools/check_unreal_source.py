@@ -510,7 +510,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("static TArray<FName> GetRaceIds();", race_h)
         self.assertIn("static bool FindRaceProfile(FName RaceId, FMoonfallRaceProfile& Profile);", race_h)
         import re
-        ids = re.findall(r'\\{TEXT\\("([a-z_]+)"\\), TEXT\\("', race_cpp)
+        ids = re.findall(r'\{TEXT\("([a-z_]+)"\), TEXT\("', race_cpp)
         self.assertGreaterEqual(len(ids), 30)
         self.assertEqual(len(ids), len(set(ids)))
         for race in ("human", "high_elf", "wood_elf", "dwarf", "smallfolk",
@@ -526,8 +526,11 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("UMoonfallRaceLibrary::FindRaceProfile(RaceId, RaceProfile)", begin)
         self.assertIn("RaceProfile.VitalityMultiplier", begin)
         self.assertIn("RaceProfile.PowerMultiplier", begin)
-        self.assertIn("Health = FMath::Clamp(BaseHealth * HPScale * RaceHealthScale", begin)
-        self.assertIn("AttackDamage = FMath::Clamp(BaseDamage * DamageScale * RaceDamageScale", begin)
+        self.assertIn("Health = FMath::Clamp(BaseHealth, 1.f, 100000.f) * HPScale;", begin)
+        self.assertIn("AttackDamage = FMath::Clamp(BaseDamage, 1.f, 10000.f) * DamageScale;", begin)
+        self.assertIn("if (bKnownRace)", begin)
+        self.assertIn("Health = FMath::Clamp(Health * RaceHealthScale", begin)
+        self.assertIn("AttackDamage = FMath::Clamp(AttackDamage * RaceDamageScale", begin)
         self.assertIn("bKnownRace ? FMath::Clamp", begin)
 
     def test_enemy_elite_and_boss_share_optional_skeletal_rig(self):
