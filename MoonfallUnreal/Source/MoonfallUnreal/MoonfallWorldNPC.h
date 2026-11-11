@@ -23,6 +23,10 @@ public:
  UFUNCTION(BlueprintPure, Category="Moonfall|NPC|Bond") int32 GetBondWithHero(const AMoonfallHeroPawn* Hero) const;
  // Quest/dialogue event may call this; conversations alone never award bond points.
  UFUNCTION(BlueprintCallable, Category="Moonfall|NPC|Bond") bool RewardResidentTrust(AMoonfallHeroPawn* Hero, int32 Points);
+ UFUNCTION(BlueprintPure, Category="Moonfall|NPC|Quest") int32 GetContractSalvageCost() const;
+ UFUNCTION(BlueprintCallable, Category="Moonfall|NPC|Quest") bool CanHeroInteract(const AMoonfallHeroPawn* Hero) const;
+ UFUNCTION(BlueprintCallable, Category="Moonfall|NPC|Quest") bool OfferResidentQuest(AMoonfallHeroPawn* Hero);
+ UFUNCTION(BlueprintCallable, Category="Moonfall|NPC|Quest") bool TurnInResidentQuest(AMoonfallHeroPawn* Hero);
 
  // Server-side simple social role; branching dialogue may be authored in Blueprint.
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|NPC") FName SocialRole = FName(TEXT("Citizen"));
