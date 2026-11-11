@@ -127,6 +127,23 @@ AMoonfallHeroPawn::AMoonfallHeroPawn()
   Slash->SetCastShadow(false);
   Slash->SetHiddenInGame(true);
  }
+ // Original low-cost native sword silhouettes. These are replaceable
+ // UStaticMeshComponents and do not modify Z, Nyra, or any imported assets.
+ MainhandVisual = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("MainhandVisual"));
+ MainhandVisual->SetupAttachment(GetRootComponent());
+ OffhandVisual = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("OffhandVisual"));
+ OffhandVisual->SetupAttachment(GetRootComponent());
+ for (UStaticMeshComponent* Weapon : {MainhandVisual.Get(), OffhandVisual.Get()})
+ {
+  if (SlashMesh.Succeeded()) Weapon->SetStaticMesh(SlashMesh.Object);
+  Weapon->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+  Weapon->SetGenerateOverlapEvents(false);
+  Weapon->SetCastShadow(false);
+  Weapon->SetHiddenInGame(true);
+  Weapon->SetRelativeScale3D(FVector(0.09f, 0.035f, 0.68f));
+ }
+ MainhandVisual->SetRelativeLocation(FVector(35.f, 44.f, 12.f));
+ OffhandVisual->SetRelativeLocation(FVector(35.f, -44.f, 12.f));
  FinisherFlash = CreateDefaultSubobject<UPointLightComponent>(TEXT("FinisherFlash"));
  FinisherFlash->SetupAttachment(GetRootComponent());
  FinisherFlash->SetIntensity(0.f);
@@ -613,6 +630,7 @@ float AMoonfallHeroPawn::GetTwilightSpellMultiplier() const
 void AMoonfallHeroPawn::Tick(float DeltaSeconds)
 {
  Super::Tick(DeltaSeconds);
+ UpdateWeaponVisuals();
  // Advance a bounded original day/night cycle without real-world clock,
  // timer actors, save migration, or background updates while menus are open.
  if (!bOptionsOpen && !bInventoryOpen && FMath::IsFinite(DeltaSeconds)
@@ -1121,6 +1139,47 @@ void AMoonfallHeroPawn::ToggleWeaponSpell()
  bDualWieldStance = false;
  EndGuard();
 }
+void AMoonfallHeroPawn::BeginWeaponSwing(bool bOffhand)
+{
+ if (!GetWorld() || bReduceMotion) return;
+ const float Now = GetWorld()->GetTimeSeconds();
+ if (!FMath::IsFinite(Now)) return;
+ if (bOffhand) OffhandSwingStartedAt = Now;
+ else MainhandSwingStartedAt = Now;
+ if (GetMesh())
+ {
+  if (UAnimInstance* Anim = GetMesh()->GetAnimInstance())
+  {
+   UAnimMontage* Montage = bOffhand ? OffhandSwingMontage.Get() : MainhandSwingMontage.Get();
+   if (IsValid(Montage)) Anim->Montage_Play(Montage, 1.f);
+  }
+ }
+ OnDualWieldSwing(bOffhand);
+}
+void AMoonfallHeroPawn::UpdateWeaponVisuals()
+{
+ if (!MainhandVisual || !OffhandVisual) return;
+ const bool bActive = FMath::IsFinite(Health) && Health > 0.f
+   && !bOptionsOpen && !bInventoryOpen;
+ const bool bShowMain = bActive && bWeaponSpellStance && EquippedWeaponCode > 0;
+ const bool bShowOffhand = bActive && bDualWieldStance && EquippedOffhandCode > 0;
+ MainhandVisual->SetHiddenInGame(!bShowMain);
+ OffhandVisual->SetHiddenInGame(!bShowOffhand);
+ if (!bShowMain && !bShowOffhand) return;
+ const float Now = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f;
+ // Opposing, bounded blade sweeps make both hands readable even with
+ // no external montage assets. Reduced-motion mode disables the sweep.
+ const float MainAge = Now - MainhandSwingStartedAt;
+ const float OffAge = Now - OffhandSwingStartedAt;
+ const float MainSweep = !bReduceMotion && FMath::IsFinite(MainAge)
+   && MainAge >= 0.f && MainAge <= 0.30f
+   ? FMath::Sin(MainAge / 0.30f * PI) * 75.f : 0.f;
+ const float OffSweep = !bReduceMotion && FMath::IsFinite(OffAge)
+   && OffAge >= 0.f && OffAge <= 0.30f
+   ? FMath::Sin(OffAge / 0.30f * PI) * 75.f : 0.f;
+ if (bShowMain) MainhandVisual->SetRelativeRotation(FRotator(0.f, 10.f, -18.f - MainSweep));
+ if (bShowOffhand) OffhandVisual->SetRelativeRotation(FRotator(0.f, -10.f, 18.f + OffSweep));
+}
 void AMoonfallHeroPawn::StrikeWithOffhandWeapon()
 {
  // A separately equipped offhand weapon deals a shorter, weaker melee strike
@@ -1130,6 +1189,7 @@ void AMoonfallHeroPawn::StrikeWithOffhandWeapon()
      || !FMath::IsFinite(Health) || Health <= 0.f) return;
  const float Now = GetWorld()->GetTimeSeconds();
  if (!FMath::IsFinite(Now) || Now < NextOffhandStrikeAt) return;
+ BeginWeaponSwing(true);
  const FVector Start = GetActorLocation() + FVector(0.f, 0.f, 55.f);
  const FVector Facing = FollowCamera->GetForwardVector().GetSafeNormal2D();
  const FVector End = Start + (Facing.IsNearlyZero()
@@ -1162,6 +1222,7 @@ void AMoonfallHeroPawn::StrikeWithWeapon()
      || bOptionsOpen || bInventoryOpen || !FMath::IsFinite(Health) || Health <= 0.f) return;
  const float Now = GetWorld()->GetTimeSeconds();
  if (!FMath::IsFinite(Now) || Now < NextWeaponStrikeAt) return;
+ BeginWeaponSwing(false);
  // A short melee reach and independent cooldown keep weapons distinct from spells.
  // Trace from the hero, not the trailing camera. Otherwise nearby enemies
  // can fall behind the camera's short melee ray in third-person view.
