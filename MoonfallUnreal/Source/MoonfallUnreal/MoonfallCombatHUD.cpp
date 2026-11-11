@@ -64,7 +64,7 @@ void AMoonfallCombatHUD::DrawHUD()
        FLinearColor(0.76f,0.87f,0.68f), L + 18.f, T + H - 58.f, nullptr, 0.86f);
    if (Hero->GetWorld() && Hero->GetWorld()->GetTimeSeconds() < Hero->ResidentFeedbackUntil)
     DrawText(Hero->ResidentFeedbackMessage, FLinearColor(0.96f,0.78f,0.41f),
-        L + 18.f, T + 88.f, nullptr, 0.85f);
+        L + 18.f, T + 99.f, nullptr, 0.72f);
    DrawText(TEXT("Click choice  |  D-pad up/down + A  |  Esc / RMB: close"),
        FLinearColor(0.80f,0.79f,0.92f), L + 18.f, T + H - 31.f, nullptr,
        Canvas->SizeX < 850.f ? 0.65f : 0.78f);
