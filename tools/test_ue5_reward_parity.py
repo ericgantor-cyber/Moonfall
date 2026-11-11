@@ -65,7 +65,7 @@ class UE5RewardParity(unittest.TestCase):
         self.assertIn("NotifyHitBoxClick(FName BoxName)", self.hud)
         self.assertIn('AddHitBox(FVector2D(Left + 12.f, KeyRowY)', self.hud)
         self.assertIn('FName(TEXT("MoonfallKeyRing"))', self.hud)
-        self.assertIn("Hero->bInventoryOpen && !Hero->bOptionsOpen", self.hud)
+        self.assertIn("!IsValid(Hero) || !Hero->bInventoryOpen || Hero->bOptionsOpen", self.hud)
         self.assertIn("if (!Hero->bCharacterStatsOpen)", self.hud)
         self.assertIn('FString::Printf(TEXT("KEYS (%d)")', self.hud)
         self.assertIn("Hero->bKeyRingInventoryOpen", self.hud)
