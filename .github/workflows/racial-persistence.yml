@@ -1,0 +1,22 @@
+name: Moonfall racial persistence source checks
+on:
+  pull_request:
+    paths:
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallHeroPawn.cpp'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallHeroPawn.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallPersistentSave.h'
+      - 'MoonfallUnreal/Config/DefaultInput.ini'
+      - 'tests/check_racial_persistence.py'
+      - '.github/workflows/racial-persistence.yml'
+  workflow_dispatch:
+jobs:
+  racial-source-checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run race and checkpoint source-contract tests
+        run: python -m unittest discover -s tests -p check_racial_persistence.py -v
