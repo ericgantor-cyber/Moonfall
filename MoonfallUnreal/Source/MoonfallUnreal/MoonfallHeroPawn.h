@@ -1,6 +1,7 @@
 #pragma once
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
+#include "TimerManager.h"
 #include "MoonfallRewardSaveGame.h"
 #include "MoonfallHeroPawn.generated.h"
 class USpringArmComponent;
@@ -263,6 +264,18 @@ private:
  void LookUp(float Amount);
  void ZoomCameraIn();
  void ZoomCameraOut();
+ // Mouse chord inputs are separate from direct keyboard/controller casts.
+ FTimerHandle MouseCastTimer;
+ int32 PendingMouseHand = -1;
+ bool bMouseLeftHeld = false;
+ bool bMouseRightHeld = false;
+ bool bMouseChordConsumed = false;
+ void QueueMouseCast(int32 Hand);
+ void CommitPendingMouseCast();
+ void MouseLeftPressed();
+ void MouseLeftReleased();
+ void MouseRightPressed();
+ void MouseRightReleased();
  void CastLeft();
  void CastRight();
  void CastBoth();
