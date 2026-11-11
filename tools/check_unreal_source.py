@@ -421,6 +421,22 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("FMath::IsFinite(Played) && Played > 0.f", swing)
         self.assertIn("OnDualWieldSwing(bOffhand);", swing)
 
+    def test_npc_rig_refreshes_on_demand_after_asset_or_preference_changes(self):
+        rig_h = (ROOT / "MoonfallActorRigComponent.h").read_text(encoding="utf-8")
+        rig_cpp = (ROOT / "MoonfallActorRigComponent.cpp").read_text(encoding="utf-8")
+        self.assertIn("TWeakObjectPtr<UObject> ObservedRigAsset;", rig_h)
+        self.assertIn("TWeakObjectPtr<USkeletalMeshComponent> ObservedPreferredRigMesh;", rig_h)
+        self.assertIn("ObservedRigAsset = RigMesh.IsValid() ? RigMesh->GetSkeletalMeshAsset() : nullptr;", rig_cpp)
+        self.assertIn("ObservedPreferredRigMesh = PreferredRigMesh;", rig_cpp)
+        cue = rig_cpp.split("bool UMoonfallActorRigComponent::PlayRigCue(FName CueId)", 1)[1]
+        self.assertIn("RigMesh->GetOwner() != Owner", cue)
+        self.assertIn("PreferredRigMesh.Get() != ObservedPreferredRigMesh.Get()", cue)
+        self.assertIn("RigMesh->GetSkeletalMeshAsset() != ObservedRigAsset.Get()", cue)
+        self.assertIn("|| !RigMesh.IsValid()", cue)
+        self.assertIn("RefreshRig();", cue)
+        self.assertIn("OnRigCue(CueId, bLastCuePlayed);", cue)
+        self.assertIn("PrimaryComponentTick.bCanEverTick = false;", rig_cpp)
+
     def test_all_character_rigs_keep_collision_scale_separate_and_validate_npc_ownership(self):
         rig_h = (ROOT / "MoonfallActorRigComponent.h").read_text(encoding="utf-8")
         rig_cpp = (ROOT / "MoonfallActorRigComponent.cpp").read_text(encoding="utf-8")
