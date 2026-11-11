@@ -141,6 +141,7 @@ void AMoonfallHeroPawn::BeginPlay() {
  if (GConfig) GConfig->GetInt(TEXT("Moonfall.Graphics"), TEXT("FrameGenerationPreference"), SavedPreference, GGameUserSettingsIni);
  FrameGenerationPreference = FMath::Clamp(SavedPreference, 0, 2);
  if (GConfig) GConfig->GetBool(TEXT("Moonfall.Accessibility"), TEXT("ReduceMotion"), bReduceMotion, GGameUserSettingsIni);
+ if (GConfig) GConfig->GetBool(TEXT("Moonfall.Gameplay"), TEXT("AutoLootEnabled"), bAutoLootEnabled, GGameUserSettingsIni);
  if (GConfig) GConfig->GetFloat(TEXT("Moonfall.Accessibility"), TEXT("CombatTextScale"), CombatTextScale, GGameUserSettingsIni);
  CombatTextScale = FMath::Clamp(FMath::RoundToFloat(CombatTextScale * 4.f) / 4.f, 0.75f, 2.f);
  if (GConfig) GConfig->GetFloat(TEXT("Moonfall.Accessibility"), TEXT("BossWarningScale"), BossWarningScale, GGameUserSettingsIni);
@@ -155,6 +156,19 @@ void AMoonfallHeroPawn::BeginPlay() {
 void AMoonfallHeroPawn::Tick(float DeltaSeconds)
 {
  Super::Tick(DeltaSeconds);
+ // Collect reachable equipment automatically, throttled to avoid per-frame world scans.
+ if (bAutoLootEnabled && FMath::IsFinite(DeltaSeconds) && DeltaSeconds > 0.f
+     && Health > 0.f && !bOptionsOpen && !bInventoryOpen) {
+  // Use elapsed time even when frame time exceeds 100 ms; cap long hitches.
+  AutoLootElapsed += FMath::Min(DeltaSeconds, 1.f);
+  if (AutoLootElapsed >= 0.35f) {
+   AutoLootElapsed = FMath::Fmod(AutoLootElapsed, 0.35f);
+   PickupNearestGroundLoot();
+  }
+ } else {
+  // Avoid needless scans and immediate pickup after exiting a paused menu.
+  AutoLootElapsed = 0.f;
+ }
  UpdateNativeFinisher(DeltaSeconds);
  // Expire the visible combo stage even if the player stops attacking.
  // Also discard defeated or destroyed targets to avoid a stale combo HUD.
@@ -322,7 +336,6 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("AscendGear"), IE_Pressed, this, &AMoonfallHeroPawn::AscendSelectedInventoryItem);
  Input->BindAction(TEXT("ReforgeGear"), IE_Pressed, this, &AMoonfallHeroPawn::ReforgeSelectedInventoryItem);
  Input->BindAction(TEXT("EquipBest"), IE_Pressed, this, &AMoonfallHeroPawn::EquipBestInventoryAction);
- Input->BindAction(TEXT("PickupLoot"), IE_Pressed, this, &AMoonfallHeroPawn::PickupNearestGroundLoot);
  Input->BindAction(TEXT("OptionsUp"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsUp);
  Input->BindAction(TEXT("OptionsDown"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsDown);
  Input->BindAction(TEXT("OptionsLeft"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsLeft);
@@ -997,14 +1010,14 @@ void AMoonfallHeroPawn::OptionsUp() {
   InventorySelection = FMath::Max(0, InventorySelection - 1);
   return;
  }
- if (bOptionsOpen) OptionsSelection = (OptionsSelection + 6) % 7;
+ if (bOptionsOpen) OptionsSelection = (OptionsSelection + 7) % 8;
 }
 void AMoonfallHeroPawn::OptionsDown() {
  if (bInventoryOpen) {
   InventorySelection = FMath::Min(FMath::Max(0, InventoryItemCodes.Num() - 1), InventorySelection + 1);
   return;
  }
- if (bOptionsOpen) OptionsSelection = (OptionsSelection + 1) % 7;
+ if (bOptionsOpen) OptionsSelection = (OptionsSelection + 1) % 8;
 }
 void AMoonfallHeroPawn::OptionsLeft() {
  if (bInventoryOpen) { EquipSelectedInventoryItem(); return; }
@@ -1050,6 +1063,14 @@ void AMoonfallHeroPawn::AdjustOption(int32 Direction) {
   CombatTextScale = FMath::Clamp(CombatTextScale + Direction * 0.25f, 0.75f, 2.f);
   if (GConfig) {
    GConfig->SetFloat(TEXT("Moonfall.Accessibility"), TEXT("CombatTextScale"), CombatTextScale, GGameUserSettingsIni);
+   GConfig->Flush(false, GGameUserSettingsIni);
+  }
+  return;
+ } else if (OptionsSelection == 7) {
+  bAutoLootEnabled = Direction > 0;
+  AutoLootElapsed = 0.f;
+  if (GConfig) {
+   GConfig->SetBool(TEXT("Moonfall.Gameplay"), TEXT("AutoLootEnabled"), bAutoLootEnabled, GGameUserSettingsIni);
    GConfig->Flush(false, GGameUserSettingsIni);
   }
   return;
@@ -1326,15 +1347,18 @@ bool AMoonfallHeroPawn::CollectGroundEquipmentCode(int32 ItemCode)
      || (Rarity == 0 && Affix != 0)
      || ItemCode != Affix * 100000 + SlotIndex * 10000 + Rarity * 1000 + Tier)
   return false;
- // Picking up an item NEVER equips, automatically salvages, or deletes gear.
+ // Keep every valid pickup, and only auto-equip if that equipment slot is vacant.
+ const int32 PreviousEquippedTier = SlotIndex == 0 ? WeaponTier
+     : (SlotIndex == 1 ? ArmorTier : AccessoryTier);
  InventoryItemCodes.Add(ItemCode);
+ const int32 EquippedSlotCode = SlotIndex == 0 ? EquippedWeaponCode
+     : (SlotIndex == 1 ? EquippedArmorCode : EquippedAccessoryCode);
+ if (EquippedSlotCode <= 0) EquipInventoryItem(InventoryItemCodes.Num() - 1);
  LastLootAffix = Affix;
  LastLootSlot = SlotIndex;
  LastLootRarity = Rarity;
  LastLootTier = Tier;
- const int32 EquippedTier = SlotIndex == 0 ? WeaponTier
-     : (SlotIndex == 1 ? ArmorTier : AccessoryTier);
- LastLootUpgrade = Tier - EquippedTier;
+ LastLootUpgrade = Tier - PreviousEquippedTier;
  return true;
 }
 
@@ -1363,21 +1387,11 @@ void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(bool bEliteEnemy, bool bBossEne
 void AMoonfallHeroPawn::PickupNearestGroundLoot()
 {
  if (Health <= 0.f || bOptionsOpen || bInventoryOpen || !GetWorld()) return;
- // One explicit pickup press handles a nearby cluster, reducing repeated
- // input without ever automatically equipping, salvaging or destroying loot.
- // Keep actor iteration and collection bounded for a continuous world.
- constexpr int32 MaxLootScanned = 128;
- constexpr int32 MaxLootPerPress = 6;
+ // Gather all reachable nearby loot, without an arbitrary per-batch item limit.
  TArray<AMoonfallGroundLoot*> NearbyLoot;
- NearbyLoot.Reserve(MaxLootPerPress);
- TArray<float> NearbyDistanceSq;
- NearbyDistanceSq.Reserve(MaxLootPerPress);
  const FVector HeroPosition = GetActorLocation();
  const float PickupRangeSq = FMath::Square(250.f);
- int32 Scanned = 0;
- for (TActorIterator<AMoonfallGroundLoot> It(GetWorld());
-      It && Scanned < MaxLootScanned; ++It) {
-  ++Scanned;
+ for (TActorIterator<AMoonfallGroundLoot> It(GetWorld()); It; ++It) {
   AMoonfallGroundLoot* Candidate = *It;
   if (!IsValid(Candidate) || Candidate->GetItemCode() <= 0) continue;
   const FVector LootPosition = Candidate->GetActorLocation();
@@ -1393,16 +1407,7 @@ void AMoonfallHeroPawn::PickupNearestGroundLoot()
       HeroPosition + FVector(0.f, 0.f, 40.f),
       LootPosition + FVector(0.f, 0.f, 40.f),
       ECC_Visibility, LootSightParams)) continue;
-  int32 InsertAt = 0;
-  while (InsertAt < NearbyDistanceSq.Num() && NearbyDistanceSq[InsertAt] <= DistanceSq)
-   ++InsertAt;
-  if (InsertAt >= MaxLootPerPress) continue;
-  NearbyLoot.Insert(Candidate, InsertAt);
-  NearbyDistanceSq.Insert(DistanceSq, InsertAt);
-  if (NearbyLoot.Num() > MaxLootPerPress) {
-   NearbyLoot.RemoveAt(MaxLootPerPress);
-   NearbyDistanceSq.RemoveAt(MaxLootPerPress);
-  }
+  NearbyLoot.Add(Candidate);
  }
  for (AMoonfallGroundLoot* Loot : NearbyLoot) {
   if (IsValid(Loot)) Loot->TryCollect();
