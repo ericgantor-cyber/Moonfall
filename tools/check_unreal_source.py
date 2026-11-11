@@ -421,6 +421,24 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("FMath::IsFinite(Played) && Played > 0.f", swing)
         self.assertIn("OnDualWieldSwing(bOffhand);", swing)
 
+    def test_optional_npc_and_actor_rig_adapter_is_asset_preserving(self):
+        rig_h = (ROOT / "MoonfallActorRigComponent.h").read_text(encoding="utf-8")
+        rig_cpp = (ROOT / "MoonfallActorRigComponent.cpp").read_text(encoding="utf-8")
+        self.assertIn("UMoonfallActorRigComponent : public UActorComponent", rig_h)
+        self.assertIn("BlueprintSpawnableComponent", rig_h)
+        self.assertIn("TMap<FName, TObjectPtr<UAnimMontage>> MontageCues;", rig_h)
+        self.assertIn("void RefreshRig();", rig_h)
+        self.assertIn("bool PlayRigCue(FName CueId);", rig_h)
+        self.assertIn("void OnRigCue(FName CueId, bool bPlayed);", rig_h)
+        self.assertIn("PrimaryComponentTick.bCanEverTick = false;", rig_cpp)
+        self.assertIn("Owner->FindComponentByClass<USkeletalMeshComponent>()", rig_cpp)
+        self.assertIn("IsValid(Mesh->GetSkeletalMeshAsset())", rig_cpp)
+        self.assertIn("MontageCues.Find(CueId)", rig_cpp)
+        self.assertIn("FMath::IsFinite(Duration) && Duration > 0.f", rig_cpp)
+        self.assertIn("OnRigCue(CueId, bLastCuePlayed);", rig_cpp)
+        self.assertNotIn("SetSkeletalMesh(", rig_cpp)
+        self.assertNotIn("CreateDefaultSubobject", rig_cpp)
+
     def test_enemy_elite_and_boss_share_optional_skeletal_rig(self):
         self.assertIn("class USkeletalMeshComponent;", self.enemy_h)
         self.assertIn("TObjectPtr<USkeletalMeshComponent> CharacterRig;", self.enemy_h)
