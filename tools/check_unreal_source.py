@@ -238,6 +238,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         collect = self.hero_cpp.split("bool AMoonfallHeroPawn::CollectGroundEquipmentCode(", 1)[1].split(
             "bool AMoonfallHeroPawn::CollectPersistedGroundEquipmentCode(", 1)[0]
         self.assertIn("ItemCode != Affix * 100000 + SlotIndex * 10000", collect)
+        self.assertIn("!FMath::IsFinite(Health) || Health <= 0.f", collect)
         self.assertIn("InventoryItemCodes.Add(ItemCode);", collect)
         self.assertIn("const bool bAutoEquipEmptySlot = *EquippedCode == 0;", collect)
         self.assertIn("const int32 PreviousSlotTier = *EquippedTier;", collect)
