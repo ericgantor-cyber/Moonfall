@@ -34,7 +34,7 @@ void AMoonfallCombatHUD::DrawHUD()
      : Quest == 1 ? TEXT("Turn in salvage") : TEXT("Completed");
    const FString Names[3] = { TEXT("Talk"),
      Quest == 1 && Hero->bResidentTurnInPending && Hero->GetWorld()
-       && Hero->GetWorld()->GetTimeSeconds() <= Hero->ResidentFeedbackUntil + 2.f
+       && Hero->GetWorld()->GetTimeSeconds() <= Hero->ResidentTurnInConfirmUntil
        ? FString(TEXT("Confirm turn-in")) : QuestAction,
      TEXT("Close") };
    for (int32 Row = 0; Row < 3; ++Row) {
