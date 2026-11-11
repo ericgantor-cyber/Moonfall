@@ -21,6 +21,7 @@ void AMoonfallCombatHUD::NotifyHitBoxClick(FName BoxName)
  else if (BoxName == FName(TEXT("MoonfallTalentBlade"))) Hero->SpendTalentPoint(0);
  else if (BoxName == FName(TEXT("MoonfallTalentArcane"))) Hero->SpendTalentPoint(1);
  else if (BoxName == FName(TEXT("MoonfallTalentTwin"))) Hero->SpendTalentPoint(2);
+ else if (BoxName == FName(TEXT("MoonfallEquipOffhand"))) Hero->EquipSelectedOffhandInventoryItem();
 }
 
 void AMoonfallCombatHUD::DrawHUD()
@@ -81,7 +82,7 @@ void AMoonfallCombatHUD::DrawHUD()
    }
   }
   // Clickable, readable talent picks; a point is earned at each new level.
-  // These ranks currently belong to the active session only.
+  // Ranks save atomically to the versioned reward progress slot.
   if (!Hero->bCharacterStatsOpen) {
    const TCHAR* TalentLabels[3] = {TEXT("BLADES"), TEXT("ARCANE"), TEXT("TWIN STRIKE")};
    const FName TalentHitNames[3] = {FName(TEXT("MoonfallTalentBlade")),
@@ -101,6 +102,17 @@ void AMoonfallCombatHUD::DrawHUD()
     DrawText(FString::Printf(TEXT("%s %d/5"), TalentLabels[Talent], Ranks[Talent]),
       FLinearColor::White, X + 4.f, Y + 7.f, nullptr, Canvas->SizeX < 900.f ? 0.48f : 0.60f);
    }
+  }
+  if (!Hero->bCharacterStatsOpen) {
+   // Same menu-gated action as T: selected weapon becomes the real offhand.
+   const float ButtonX = Left + PanelWidth - 230.f;
+   const float ButtonY = Top + 10.f;
+   DrawRect(FLinearColor(0.20f,0.32f,0.38f,0.95f),
+      ButtonX, ButtonY, 100.f, 31.f);
+   AddHitBox(FVector2D(ButtonX, ButtonY), FVector2D(100.f, 31.f),
+      FName(TEXT("MoonfallEquipOffhand")), true, 20);
+   DrawText(TEXT("OFFHAND  T"), FLinearColor::White,
+      ButtonX + 6.f, ButtonY + 8.f, nullptr, 0.73f);
   }
   // Clicking Keys in the inventory opens a readable list without changing pages.
   if (!Hero->bCharacterStatsOpen) {
@@ -204,11 +216,13 @@ void AMoonfallCombatHUD::DrawHUD()
    const bool bValid = Code > 0 && Slot <= 2 && Affix <= 3 && Rarity <= 5 && Tier >= 1 && Tier <= 25;
    const bool bEquipped = Code == (Slot == 0 ? Hero->EquippedWeaponCode
      : Slot == 1 ? Hero->EquippedArmorCode : Hero->EquippedAccessoryCode);
+   const bool bOffhand = Slot == 0 && Code == Hero->EquippedOffhandCode;
    const float Y = Top + 175.f + (Index - PageStart) * RowSpacing;
    if (Index == Selected) DrawRect(FLinearColor(0.25f,0.18f,0.43f,0.90f),
      Left + 12.f, Y - 3.f, PanelWidth - 24.f, RowSpacing - 3.f);
    const FString Row = bValid ? FString::Printf(TEXT("%02d  %s  T%d  %s  %s%s"),
-      Index + 1, Slots[Slot], Tier, Rarities[Rarity], Traits[Affix], bEquipped ? TEXT("  [EQUIPPED]") : TEXT(""))
+      Index + 1, Slots[Slot], Tier, Rarities[Rarity], Traits[Affix],
+      bOffhand ? TEXT("  [OFFHAND]") : (bEquipped ? TEXT("  [EQUIPPED]") : TEXT("")))
     : FString::Printf(TEXT("%02d  Invalid item"), Index + 1);
    // Item names retain a clear text label plus a distinct quality color.
    const FLinearColor RarityColors[] = {FLinearColor(0.90f,0.90f,0.90f),
