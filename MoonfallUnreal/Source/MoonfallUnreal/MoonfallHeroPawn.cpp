@@ -321,6 +321,8 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("Jump"), IE_Released, this, &ACharacter::StopJumping);
  Input->BindAction(TEXT("CastLeft"), IE_Pressed, this, &AMoonfallHeroPawn::CastLeft);
  Input->BindAction(TEXT("CastRight"), IE_Pressed, this, &AMoonfallHeroPawn::CastRight);
+ Input->BindAction(TEXT("CastRightMouse"), IE_Pressed, this, &AMoonfallHeroPawn::CastRightMouse);
+ Input->BindAction(TEXT("ResidentContext"), IE_Pressed, this, &AMoonfallHeroPawn::OpenFocusedResidentContext);
  Input->BindAction(TEXT("DualCast"), IE_Pressed, this, &AMoonfallHeroPawn::CastBoth);
  Input->BindAction(TEXT("Dodge"), IE_Pressed, this, &AMoonfallHeroPawn::Dodge);
  Input->BindAction(TEXT("Sprint"), IE_Pressed, this, &AMoonfallHeroPawn::BeginSprint);
@@ -341,8 +343,6 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("EquipBest"), IE_Pressed, this, &AMoonfallHeroPawn::EquipBestInventoryAction);
  Input->BindAction(TEXT("PickupLoot"), IE_Pressed, this, &AMoonfallHeroPawn::PickupNearestGroundLoot);
  Input->BindAction(TEXT("RacePower"), IE_Pressed, this, &AMoonfallHeroPawn::TriggerRacePower);
- Input->BindAction(TEXT("TalkNPC"), IE_Pressed, this, &AMoonfallHeroPawn::TalkToNearestNPC);
- Input->BindAction(TEXT("ResidentQuest"), IE_Pressed, this, &AMoonfallHeroPawn::InteractWithNearestResidentQuest);
  Input->BindAction(TEXT("OptionsUp"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsUp);
  Input->BindAction(TEXT("OptionsDown"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsDown);
  Input->BindAction(TEXT("OptionsLeft"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsLeft);
@@ -1831,39 +1831,83 @@ AMoonfallWorldNPC* AMoonfallHeroPawn::GetNearestResidentNPC() const {
  }
  return Nearest;
 }
+void AMoonfallHeroPawn::CloseResidentContext() {
+ if (FocusedResident.IsValid()) {
+  FocusedResident.Reset();
+  OnResidentContextClosed();
+ }
+}
+void AMoonfallHeroPawn::OpenFocusedResidentContext() {
+ if (!GetWorld() || Health <= 0.f || bOptionsOpen || bInventoryOpen) return;
+ AMoonfallWorldNPC* Resident = GetNearestResidentNPC();
+ if (!IsValid(Resident) || !Resident->CanHeroInteract(this)) return;
+ FocusedResident = Resident;
+ OnResidentContextOpened(Resident, Resident->DisplayName,
+     GetResidentQuestState(Resident->ResidentId), Resident->GetContractSalvageCost());
+}
+void AMoonfallHeroPawn::CastRightMouse() {
+ if (Health <= 0.f || bOptionsOpen || bInventoryOpen || !GetWorld()) return;
+ // WoW-style: right click a visible NPC to open conversation; ordinary
+ // right clicks keep their existing right-hand combat spell.
+ FVector Eye, Aim;
+ FRotator ViewRotation;
+ if (!Controller) { CastRight(); return; }
+ Controller->GetPlayerViewPoint(Eye, ViewRotation);
+ Aim = Eye + ViewRotation.Vector() * 500.f;
+ FCollisionQueryParams Params(SCENE_QUERY_STAT(MoonfallNPCContext), false);
+ Params.AddIgnoredActor(this);
+ FHitResult Hit;
+ if (GetWorld()->LineTraceSingleByChannel(Hit, Eye, Aim, ECC_Visibility, Params)) {
+  AMoonfallWorldNPC* Resident = Cast<AMoonfallWorldNPC>(Hit.GetActor());
+  if (IsValid(Resident) && Resident->CanHeroInteract(this)) {
+   FocusedResident = Resident;
+   OnResidentContextOpened(Resident, Resident->DisplayName,
+       GetResidentQuestState(Resident->ResidentId), Resident->GetContractSalvageCost());
+   return;
+  }
+ }
+ CastRight();
+}
 void AMoonfallHeroPawn::TalkToNearestNPC() {
- if (AMoonfallWorldNPC* Nearest = GetNearestResidentNPC()) Nearest->TryTalk(this);
+ if (AMoonfallWorldNPC* Resident = GetNearestResidentNPC()) {
+  if (Resident->CanHeroInteract(this)) Resident->TryTalk(this);
+ }
 }
 void AMoonfallHeroPawn::InteractWithNearestResidentQuest() {
- AMoonfallWorldNPC* Resident = GetNearestResidentNPC();
+ // Existing Blueprint/API compatibility. Never auto-spend salvage.
+ OpenFocusedResidentContext();
+}
+bool AMoonfallHeroPawn::ChooseResidentContextAction(int32 Choice) {
+ AMoonfallWorldNPC* Resident = FocusedResident.Get();
  if (!IsValid(Resident) || !Resident->CanHeroInteract(this)) {
-  OnResidentQuestFeedback(FText::FromString(TEXT("Move closer to a resident to discuss a contract.")), false);
-  return;
+  CloseResidentContext();
+  return false;
  }
+ if (Choice == 0) return Resident->TryTalk(this);
+ if (Choice != 1) return false;
  const int32 State = GetResidentQuestState(Resident->ResidentId);
- if (State == 2) {
-  OnResidentQuestFeedback(FText::FromString(TEXT("This resident's contract is already complete.")), false);
-  return;
- }
+ bool bSucceeded = false;
+ FText Message;
  if (State == 0) {
-  const bool bAccepted = Resident->OfferResidentQuest(this);
-  OnResidentQuestFeedback(bAccepted
-    ? FText::FromString(FString::Printf(TEXT("Accepted: bring %d salvage to %s."),
-        Resident->GetContractSalvageCost(), *Resident->DisplayName.ToString()))
-    : FText::FromString(TEXT("This resident cannot offer a contract right now.")), bAccepted);
-  return;
+  bSucceeded = Resident->OfferResidentQuest(this);
+  Message = bSucceeded ? FText::FromString(TEXT("Contract accepted."))
+    : FText::FromString(TEXT("Contract unavailable."));
+ } else if (State == 1) {
+  if (Salvage < Resident->GetContractSalvageCost()) {
+   Message = FText::FromString(TEXT("Not enough salvage to complete this contract."));
+  } else {
+   bSucceeded = Resident->TurnInResidentQuest(this);
+   Message = bSucceeded ? FText::FromString(TEXT("Contract complete."))
+     : FText::FromString(TEXT("Contract could not be completed."));
+  }
+ } else {
+  Message = FText::FromString(TEXT("This contract is already complete."));
  }
- const int32 Cost = Resident->GetContractSalvageCost();
- if (Salvage < Cost) {
-  OnResidentQuestFeedback(FText::FromString(FString::Printf(
-      TEXT("Need %d salvage, carrying %d."), Cost, Salvage)), false);
-  return;
- }
- // A second deliberate keypress pays salvage; dialogue never spends it.
- const bool bCompleted = Resident->TurnInResidentQuest(this);
- OnResidentQuestFeedback(bCompleted
-    ? FText::FromString(TEXT("Contract complete: +6 personal bond, +3 faction reputation."))
-    : FText::FromString(TEXT("Contract could not be completed; nothing was spent.")), bCompleted);
+ OnResidentQuestFeedback(Message, bSucceeded);
+ // Keep menu available after accepting. Update quest state for UI.
+ if (bSucceeded) OnResidentContextOpened(Resident, Resident->DisplayName,
+      GetResidentQuestState(Resident->ResidentId), Resident->GetContractSalvageCost());
+ return bSucceeded;
 }
 
 // Bounded, persistent faction relationship API. No free reputation on repeated talk.
