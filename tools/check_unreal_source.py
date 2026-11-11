@@ -204,9 +204,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         ground_cpp = (ROOT / "MoonfallGroundLoot.cpp").read_text(encoding="utf-8")
         self.assertIn("Hero->SpawnGroundEquipmentDrop(bElite, bBoss, GetActorLocation());", self.enemy_cpp)
         self.assertNotIn("Hero->AwardEquipmentDrop(", self.enemy_cpp)
-        for action in ('ActionName="PickupLoot",Key=MiddleMouseButton', 'ActionName="PickupLoot",Key=Gamepad_FaceButton_Left'):
-            self.assertIn(action, inputs)
-        self.assertIn('BindAction(TEXT("PickupLoot"), IE_Pressed', self.hero_cpp)
+        self.assertNotIn('ActionName="PickupLoot"', inputs)
+        self.assertNotIn('BindAction(TEXT("PickupLoot")', self.hero_cpp)
         self.assertIn("void PickupNearestGroundLoot();", self.hero_h)
         self.assertIn("void SpawnGroundEquipmentDrop(", self.hero_h)
         self.assertIn("bool CollectGroundEquipmentCode(int32 ItemCode);", self.hero_h)
@@ -252,7 +251,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('% 8', self.hero_cpp)
         self.assertIn('Hero->bAutoLootEnabled', self.hud)
         self.assertIn('for (int32 i=0;i<8;++i)', self.hud)
-        self.assertIn('BindAction(TEXT("PickupLoot"), IE_Pressed', self.hero_cpp)
+        self.assertNotIn('BindAction(TEXT("PickupLoot")', self.hero_cpp)
 
     def test_nearby_batch_loot_is_range_and_cover_safe(self):
         pickup = self.hero_cpp.split("void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[1].split(
