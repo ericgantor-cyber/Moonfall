@@ -219,6 +219,14 @@ public:
  UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|DualWield") TObjectPtr<UStaticMesh> OffhandMeshAsset;
  UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|DualWield") FName MainhandSocket = TEXT("hand_rSocket");
  UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|DualWield") FName OffhandSocket = TEXT("hand_lSocket");
+ // Per-hand grips are authored independently of the original character rig.
+ // Socket offsets apply only when a matching skeletal socket exists.
+ UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|DualWield") FVector MainhandSocketOffset = FVector::ZeroVector;
+ UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|DualWield") FVector OffhandSocketOffset = FVector::ZeroVector;
+ UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|DualWield") FRotator MainhandGripRotation = FRotator(0.f, 10.f, -18.f);
+ UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|DualWield") FRotator OffhandGripRotation = FRotator(0.f, -10.f, 18.f);
+ UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|DualWield", meta=(ClampMin="0.10", ClampMax="1.0")) float MainhandSwingDuration = 0.30f;
+ UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|DualWield", meta=(ClampMin="0.10", ClampMax="1.0")) float OffhandSwingDuration = 0.30f;
  UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|DualWield") TObjectPtr<UAnimMontage> MainhandSwingMontage;
  UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|DualWield") TObjectPtr<UAnimMontage> OffhandSwingMontage;
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|DualWield") void OnDualWieldSwing(bool bOffhand);
