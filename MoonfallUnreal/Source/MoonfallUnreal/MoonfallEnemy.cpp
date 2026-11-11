@@ -141,6 +141,19 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
   const float HealthBeforeHit = Health;
   Health = FMath::Max(0.0f, Health - FMath::Max(0.0f, EffectiveDamage));
   const float ActualDamage = HealthBeforeHit - Health;
+  // A struck ordinary enemy investigates its attacker briefly. This does not
+  // reveal the hero forever or share omniscient positions with other enemies.
+  if (!bBoss && ActualDamage > 0.f && GetWorld()) {
+   const AMoonfallHeroPawn* Attacker = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0));
+   if (IsValid(Attacker) && Attacker->Health > 0.f
+       && !Attacker->GetActorLocation().ContainsNaN()
+       && FVector::DistSquared2D(GetActorLocation(), Attacker->GetActorLocation()) < FMath::Square(1800.f)) {
+    LastSawHeroAt = Now;
+    LastKnownHeroPosition = Attacker->GetActorLocation();
+    CachedWaypoint = FVector::ZeroVector;
+    NextPathRefreshAt = 0.f;
+   }
+  }
   // Wounded elites get a brief breathing-space maneuver, not an escape loop.
   // Bosses, dead enemies and enemies with broken posture never enter retreat.
   if (bElite && !bBoss && ActualDamage > 0.f && Health > 0.f
