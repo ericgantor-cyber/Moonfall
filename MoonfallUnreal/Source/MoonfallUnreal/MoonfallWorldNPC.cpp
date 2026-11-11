@@ -19,6 +19,15 @@ AMoonfallWorldNPC::AMoonfallWorldNPC() {
  Greeting = FText::FromString(TEXT("The road stretches on. Need directions?"));
 }
 FString AMoonfallWorldNPC::GetRaceName() const { return FString(MoonfallRaces::Name(RaceId)); }
+FString AMoonfallWorldNPC::GetCurrentActivity() const {
+ // Cyclical ambient schedule derived on demand, avoiding a per-NPC Tick.
+ const float WorldTime = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f;
+ const int32 Shift = FMath::FloorToInt(FMath::Max(0.f, WorldTime) / 300.f) % 3;
+ if (SocialRole == FName(TEXT("Guard"))) return Shift == 2 ? TEXT("Patrolling") : TEXT("Watching");
+ if (SocialRole == FName(TEXT("Merchant"))) return Shift == 2 ? TEXT("Restocking") : TEXT("Trading");
+ if (SocialRole == FName(TEXT("Scout"))) return Shift == 0 ? TEXT("Exploring") : TEXT("Reporting");
+ return Shift == 2 ? TEXT("Resting") : TEXT("Gathering");
+}
 FString AMoonfallWorldNPC::GetSocialDisposition(const AMoonfallHeroPawn* Hero) const {
  const int32 Reputation = IsValid(Hero) ? Hero->GetFactionReputation(FactionId) : 0;
  if (Reputation <= -50) return TEXT("Hostile");
@@ -59,6 +68,14 @@ bool AMoonfallWorldNPC::TryTalk(AMoonfallHeroPawn* Hero) {
   Reaction = FText::FromString(TEXT("Browse my wares when the market opens."));
  else if (Disposition == TEXT("Neutral") && SocialRole == FName(TEXT("Guard")))
   Reaction = FText::FromString(TEXT("Keep the peace inside our walls."));
+ // Activity is determined only when interacted with; inhabitants never spam
+ // navigation or world perception. Trust/hostility overrides daily routine.
+ if (Disposition == TEXT("Neutral") && SocialRole == FName(TEXT("Merchant"))
+     && GetCurrentActivity() == TEXT("Restocking"))
+  Reaction = FText::FromString(TEXT("The stall is closed while I restock."));
+ else if (Disposition == TEXT("Neutral") && SocialRole == FName(TEXT("Scout"))
+     && GetCurrentActivity() == TEXT("Reporting"))
+  Reaction = FText::FromString(TEXT("The roads have changed. I am reporting what I saw."));
  OnDialogueStarted(Hero, Reaction);
  return true;
 }
