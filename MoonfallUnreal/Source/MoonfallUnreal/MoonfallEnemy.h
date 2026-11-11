@@ -62,6 +62,10 @@ public:
  // Optional animation cue for earned hits 4/8/12; no new asset required.
  UFUNCTION(BlueprintImplementableEvent, Category="Combat|Combo") void OnComboMilestone(int32 Stage);
  void RegisterComboMilestone(int32 Stage);
+ // A successful overcharged hit causes a short, cooldown-limited impact.
+ // This is a hit reaction, not an instant full posture break.
+ UFUNCTION(BlueprintCallable, Category="Combat|Posture") void ApplyDualCastImpact();
+ UFUNCTION(BlueprintImplementableEvent, Category="Combat|Posture") void OnDualCastImpact(float ReactionSeconds);
  UFUNCTION(BlueprintCallable, Category="Combat|Posture") void ApplyPostureDamage(float Amount);
  UFUNCTION(BlueprintImplementableEvent, Category="Boss") void OnBossPhaseChanged(int32 NewPhase);
 private:
@@ -69,6 +73,7 @@ private:
  int32 SpawnBalanceLevel = 1;
  float BossPhaseMessageUntil = 0.f;
  float NextAttackAt = 0.f;
+ float NextDualCastImpactAt = 0.f;
  float NextPathRefreshAt = 0.f;
  float NextBlockedRepathAt = 0.f;
  // Ordinary enemies remember the last visible hero location for a short time.

@@ -7,6 +7,18 @@
 #include "Engine/Canvas.h"
 #include "Engine/Engine.h"
 #include "GameFramework/GameUserSettings.h"
+void AMoonfallCombatHUD::NotifyHitBoxClick(FName BoxName)
+{
+ Super::NotifyHitBoxClick(BoxName);
+ AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0));
+ if (!IsValid(Hero) || !Hero->bInventoryOpen || Hero->bOptionsOpen) return;
+ if (BoxName == FName(TEXT("MoonfallKeyRing"))) Hero->ToggleKeyRing();
+ else if (BoxName == FName(TEXT("MoonfallHandSpellSpell"))) Hero->SelectHandSetup(0);
+ else if (BoxName == FName(TEXT("MoonfallHandWeaponSpell"))) Hero->SelectHandSetup(1);
+ else if (BoxName == FName(TEXT("MoonfallHandSpellShield"))) Hero->SelectHandSetup(2);
+ else if (BoxName == FName(TEXT("MoonfallHandWeaponShield"))) Hero->SelectHandSetup(3);
+}
+
 void AMoonfallCombatHUD::DrawHUD()
 {
  Super::DrawHUD();
@@ -18,7 +30,7 @@ void AMoonfallCombatHUD::DrawHUD()
   const float MenuHeight = FMath::Min(550.f, FMath::Max(280.f, Canvas->SizeY - 24.f));
   const float MenuLeft = Canvas->SizeX * 0.5f - MenuWidth * 0.5f;
   const float MenuTop = Canvas->SizeY * 0.5f - MenuHeight * 0.5f;
-  const float MenuRowGap = (MenuHeight - 130.f) / 7.f;
+  const float MenuRowGap = (MenuHeight - 130.f) / 8.f;
   DrawRect(FLinearColor(0.04f,0.03f,0.11f,0.94f),MenuLeft,MenuTop,MenuWidth,MenuHeight);
   DrawText(TEXT("MOONFALL  |  GRAPHICS & ACCESSIBILITY"),FLinearColor::White,MenuLeft+18.f,MenuTop+17.f,nullptr,1.25f);
   UGameUserSettings* Settings = GEngine ? GEngine->GetGameUserSettings() : nullptr;
@@ -26,8 +38,8 @@ void AMoonfallCombatHUD::DrawHUD()
    float ScalePct = 100.f, ScaleNormalized = 0.f, ScaleMin = 50.f, ScaleMax = 100.f;
    Settings->GetResolutionScaleInformationEx(ScalePct, ScaleNormalized, ScaleMin, ScaleMax);
    const FIntPoint Res = Settings->GetScreenResolution();
-   const FString Rows[] = {FString::Printf(TEXT("Resolution: %d x %d"),Res.X,Res.Y),FString::Printf(TEXT("Render scale: %.0f%%"),ScalePct),FString::Printf(TEXT("Quality preset: %d (0 Low - 3 Epic)"),Settings->GetOverallScalabilityLevel()),FString::Printf(TEXT("Frame Generation: %s (%s)"),Hero->FrameGenerationPreference==0?TEXT("Off"):Hero->FrameGenerationPreference==1?TEXT("Auto"):TEXT("On"),Hero->bFrameGenerationPluginDetected?TEXT("plugin detected; inactive"):TEXT("plugin unavailable")),FString::Printf(TEXT("Reduced motion: %s"),Hero->bReduceMotion?TEXT("On"):TEXT("Off")),FString::Printf(TEXT("Combat text size: %.0f%%"),Hero->CombatTextScale * 100.f),FString::Printf(TEXT("Boss warning visibility: %.0f%%"),Hero->BossWarningScale * 100.f)};
-   for (int32 i=0;i<7;++i) DrawText(Rows[i],i==Hero->OptionsSelection?FLinearColor::Yellow:FLinearColor::White,MenuLeft+20.f,MenuTop+75.f+i*MenuRowGap,nullptr,1.1f);
+   const FString Rows[] = {FString::Printf(TEXT("Resolution: %d x %d"),Res.X,Res.Y),FString::Printf(TEXT("Render scale: %.0f%%"),ScalePct),FString::Printf(TEXT("Quality preset: %d (0 Low - 3 Epic)"),Settings->GetOverallScalabilityLevel()),FString::Printf(TEXT("Frame Generation: %s (%s)"),Hero->FrameGenerationPreference==0?TEXT("Off"):Hero->FrameGenerationPreference==1?TEXT("Auto"):TEXT("On"),Hero->bFrameGenerationPluginDetected?TEXT("plugin detected; inactive"):TEXT("plugin unavailable")),FString::Printf(TEXT("Reduced motion: %s"),Hero->bReduceMotion?TEXT("On"):TEXT("Off")),FString::Printf(TEXT("Combat text size: %.0f%%"),Hero->CombatTextScale * 100.f),FString::Printf(TEXT("Boss warning visibility: %.0f%%"),Hero->BossWarningScale * 100.f),FString::Printf(TEXT("Auto loot: %s"),Hero->bAutoLootEnabled?TEXT("On"):TEXT("Off"))};
+   for (int32 i=0;i<8;++i) DrawText(Rows[i],i==Hero->OptionsSelection?FLinearColor::Yellow:FLinearColor::White,MenuLeft+20.f,MenuTop+75.f+i*MenuRowGap,nullptr,1.1f);
   }
   DrawText(TEXT("WASD / Arrows / D-pad: navigate    Esc / Start: close"),FLinearColor::White,MenuLeft+18.f,MenuTop+MenuHeight-28.f,nullptr,0.85f);
   return;
@@ -40,6 +52,40 @@ void AMoonfallCombatHUD::DrawHUD()
   const float Top = (Canvas->SizeY - PanelHeight) * 0.5f;
   DrawRect(FLinearColor(0.04f, 0.035f, 0.10f, 0.96f), Left, Top, PanelWidth, PanelHeight);
   DrawText(TEXT("MOONFALL  |  INVENTORY"), FLinearColor::White, Left + 18.f, Top + 16.f, nullptr, 1.3f);
+  // Four directly clickable configurations. No stance-toggle key; V is free.
+  // Keep the buttons below equipment stats and above the first inventory row.
+  if (!Hero->bCharacterStatsOpen) {
+   const TCHAR* Labels[4] = {TEXT("SPELL+SPELL"), TEXT("WEAPON+SPELL"),
+     TEXT("SPELL+SHIELD"), TEXT("WEAPON+SHIELD")};
+   const FName HitNames[4] = {FName(TEXT("MoonfallHandSpellSpell")),
+     FName(TEXT("MoonfallHandWeaponSpell")), FName(TEXT("MoonfallHandSpellShield")),
+     FName(TEXT("MoonfallHandWeaponShield"))};
+   const int32 SelectedHand = Hero->bSpellShieldStance
+     ? (Hero->bWeaponSpellStance ? 3 : 2) : (Hero->bWeaponSpellStance ? 1 : 0);
+   const float ButtonGap = 5.f;
+   const float ButtonWidth = (PanelWidth - 36.f - ButtonGap * 3.f) / 4.f;
+   for (int32 Choice = 0; Choice < 4; ++Choice) {
+    const float X = Left + 18.f + Choice * (ButtonWidth + ButtonGap);
+    const float Y = Top + 132.f;
+    DrawRect(Choice == SelectedHand ? FLinearColor(0.28f,0.42f,0.36f,0.96f)
+      : FLinearColor(0.16f,0.23f,0.31f,0.96f), X, Y, ButtonWidth, 30.f);
+    AddHitBox(FVector2D(X, Y), FVector2D(ButtonWidth, 30.f),
+      HitNames[Choice], true, 20);
+    DrawText(Labels[Choice], FLinearColor::White, X + 4.f, Y + 8.f,
+      nullptr, Canvas->SizeX < 900.f ? 0.50f : 0.65f);
+   }
+  }
+  // Clicking Keys in the inventory opens a readable list without changing pages.
+  if (!Hero->bCharacterStatsOpen) {
+   const float KeyButtonX = Left + PanelWidth - 120.f;
+   const float KeyButtonY = Top + 10.f;
+   DrawRect(FLinearColor(0.23f,0.17f,0.32f,0.96f),
+     KeyButtonX, KeyButtonY, 106.f, 31.f);
+   AddHitBox(FVector2D(KeyButtonX, KeyButtonY),
+     FVector2D(106.f, 31.f), FName(TEXT("MoonfallKeyRing")), true, 20);
+   DrawText(FString::Printf(TEXT("KEYS (%d)"), Hero->CollectedKeys.Num()),
+     FLinearColor(0.99f,0.85f,0.46f), KeyButtonX + 10.f, KeyButtonY + 7.f, nullptr, 0.84f);
+  }
   if (Hero->bCharacterStatsOpen) {
    // Character sheet is a read-only page. Inventory operations remain locked
    // while it is open; controller and keyboard switch pages with the same input.
@@ -76,25 +122,49 @@ void AMoonfallCombatHUD::DrawHUD()
       Row == 0 || Row == 4 || Row == 7 ? FLinearColor(0.52f,0.91f,0.76f) : FLinearColor::White,
       Left + 18.f, StartY + Row * RowHeight, nullptr,
       PanelHeight < 360.f ? 0.55f : (Canvas->SizeX < 900.f ? 0.75f : 0.90f));
-   DrawText(TEXT("P / A: back to inventory    I / Select / Esc: close"),
+   // Real clickable row: AHUD dispatches mouse clicks through this hitbox.
+   // No keyboard shortcut and no click-through when character sheet is closed.
+   const float KeyRowY = Top + PanelHeight - 65.f;
+   DrawRect(FLinearColor(0.15f,0.12f,0.22f,0.95f),
+     Left + 12.f, KeyRowY, PanelWidth - 24.f, 28.f);
+   AddHitBox(FVector2D(Left + 12.f, KeyRowY),
+     FVector2D(PanelWidth - 24.f, 28.f), FName(TEXT("MoonfallKeyRing")), true, 20);
+   FString KeyNames = Hero->bKeyRingExpanded ? TEXT("▼ KEY RING: ") : TEXT("▶ KEY RING (click to expand)");
+   if (Hero->bKeyRingExpanded) {
+    if (Hero->CollectedKeys.IsEmpty()) {
+     KeyNames += TEXT("empty");
+    } else {
+     for (const FName KeyId : Hero->CollectedKeys) {
+      if (KeyNames != TEXT("▼ KEY RING: ")) KeyNames += TEXT(" | ");
+      if (KeyId == FName(TEXT("wardens_crest"))) KeyNames += TEXT("Wardens' Crest");
+      else if (KeyId == FName(TEXT("outlaw_seal"))) KeyNames += TEXT("Outlaw Seal");
+      else if (KeyId == FName(TEXT("fallen_gate_key"))) KeyNames += TEXT("Fallen Gate Key");
+     }
+    }
+   }
+   DrawText(KeyNames, FLinearColor(0.99f,0.84f,0.48f),
+     Left + 18.f, KeyRowY + 5.f, nullptr,
+     Canvas->SizeX < 900.f ? 0.57f : 0.75f);
+   DrawText(TEXT("C / A: back to inventory    I / Select / Esc: close"),
      FLinearColor(0.81f,0.83f,0.97f), Left + 18.f, Top + PanelHeight - 29.f,
      nullptr, 0.8f);
    return;
   }
   const int32 Count = Hero->InventoryItemCodes.Num();
   // Reserve height for a real equipment-stat line and three controls rows.
-  const int32 PerPage = FMath::Clamp(FMath::FloorToInt((PanelHeight - 290.f) / 25.f), 2, 8);
+  const int32 PerPage = FMath::Clamp(FMath::FloorToInt((PanelHeight - 330.f) / 25.f), 2, 8);
   const int32 Selected = FMath::Clamp(Hero->InventorySelection, 0, FMath::Max(0, Count - 1));
   const int32 PageStart = Selected / PerPage * PerPage;
   const int32 PageEnd = FMath::Min(Count, PageStart + PerPage);
-  DrawText(FString::Printf(TEXT("%d items  |  %d salvage  |  page %d / %d"),
-    Count, Hero->Salvage, PageStart / PerPage + 1,
-    FMath::Max(1, (Count + PerPage - 1) / PerPage)), FLinearColor(0.75f,0.72f,0.91f),
-    Left + 18.f, Top + 49.f, nullptr, 0.9f);
+  DrawText(FString::Printf(TEXT("Items %d | Salvage %d | Gold %lld | Keys %d | %d/%d"),
+    Count, Hero->Salvage, static_cast<long long>(Hero->Gold), Hero->CollectedKeys.Num(),
+    PageStart / PerPage + 1, FMath::Max(1, (Count + PerPage - 1) / PerPage)),
+    FLinearColor(0.93f,0.82f,0.55f), Left + 18.f, Top + 49.f, nullptr,
+    Canvas->SizeX < 900.f ? 0.60f : 0.78f);
   if (Count == 0)
    DrawText(TEXT("No equipment yet. Defeat enemies to find gear."), FLinearColor::White,
      Left + 18.f, Top + 100.f, nullptr, 0.92f);
-  const float RowSpacing = FMath::Max(21.f, (PanelHeight - 290.f) / PerPage);
+  const float RowSpacing = FMath::Max(21.f, (PanelHeight - 330.f) / PerPage);
   for (int32 Index = PageStart; Index < PageEnd; ++Index) {
    const int32 Code = Hero->InventoryItemCodes[Index];
    const int32 Affix = Code / 100000;
@@ -107,7 +177,7 @@ void AMoonfallCombatHUD::DrawHUD()
    const bool bValid = Code > 0 && Slot <= 2 && Affix <= 3 && Rarity <= 5 && Tier >= 1 && Tier <= 25;
    const bool bEquipped = Code == (Slot == 0 ? Hero->EquippedWeaponCode
      : Slot == 1 ? Hero->EquippedArmorCode : Hero->EquippedAccessoryCode);
-   const float Y = Top + 145.f + (Index - PageStart) * RowSpacing;
+   const float Y = Top + 175.f + (Index - PageStart) * RowSpacing;
    if (Index == Selected) DrawRect(FLinearColor(0.25f,0.18f,0.43f,0.90f),
      Left + 12.f, Y - 3.f, PanelWidth - 24.f, RowSpacing - 3.f);
    const FString Row = bValid ? FString::Printf(TEXT("%02d  %s  T%d  %s  %s%s"),
@@ -205,8 +275,33 @@ void AMoonfallCombatHUD::DrawHUD()
   }
   DrawText(TEXT("B / LT: equip best   U / RT: +1 tier   H / RB: forge 5   R / B: ascend   G / LB: reforge"),
      FLinearColor(0.78f,0.90f,0.95f), Left + 18.f, Top + PanelHeight - 70.f, nullptr, 0.74f);
-  DrawText(TEXT("P / A: character stats    I / Select / Esc: close"), FLinearColor::White,
+  DrawText(TEXT("C / A: character stats    I / Select / Esc: close"), FLinearColor::White,
      Left + 18.f, Top + PanelHeight - 28.f, nullptr, 0.8f);
+  if (Hero->bKeyRingInventoryOpen) {
+   // Compact popover, on top of equipment rows. The KEYS button remains visible
+   // above it so the same mouse click closes the panel.
+   const float PopWidth = FMath::Min(300.f, PanelWidth - 24.f);
+   const float PopLeft = Left + PanelWidth - PopWidth - 12.f;
+   const float PopTop = Top + 46.f;
+   DrawRect(FLinearColor(0.09f,0.075f,0.16f,0.99f),
+     PopLeft, PopTop, PopWidth, 136.f);
+   DrawText(TEXT("COLLECTED QUEST KEYS"), FLinearColor(0.99f,0.85f,0.46f),
+     PopLeft + 12.f, PopTop + 11.f, nullptr, 0.83f);
+   if (Hero->CollectedKeys.IsEmpty())
+    DrawText(TEXT("No keys collected yet"), FLinearColor::White,
+      PopLeft + 12.f, PopTop + 42.f, nullptr, 0.78f);
+   int32 Displayed = 0;
+   for (const FName KeyId : Hero->CollectedKeys) {
+    const TCHAR* KeyName = nullptr;
+    if (KeyId == FName(TEXT("wardens_crest"))) KeyName = TEXT("Wardens' Crest");
+    else if (KeyId == FName(TEXT("outlaw_seal"))) KeyName = TEXT("Outlaw Seal");
+    else if (KeyId == FName(TEXT("fallen_gate_key"))) KeyName = TEXT("Fallen Gate Key");
+    if (!KeyName) continue;
+    DrawText(KeyName, FLinearColor(0.92f,0.94f,1.f),
+      PopLeft + 12.f, PopTop + 39.f + Displayed * 26.f, nullptr, 0.78f);
+    if (++Displayed == 3) break;
+   }
+  }
   return;
  }
  // Nearest living boss, displayed without creating additional widget actors.
@@ -356,7 +451,7 @@ void AMoonfallCombatHUD::DrawHUD()
  if (!bCompactScreen) {
   const TCHAR* RarityNames[] = { TEXT("COMMON"), TEXT("UNCOMMON"), TEXT("RARE"), TEXT("EPIC") };
   const int32 Rarity = FMath::Clamp(Hero->LastLootRarity, 0, 5);
-  DrawText(FString::Printf(TEXT("Gear W:%d A:%d C:%d | Salvage %d | Bag %d/30"),
+  DrawText(FString::Printf(TEXT("Gear W:%d A:%d C:%d | Salvage %d | Bag %d"),
    Hero->WeaponTier, Hero->ArmorTier, Hero->AccessoryTier, Hero->Salvage, Hero->InventoryItemCodes.Num()),
    FLinearColor(0.85f,0.84f,0.95f), 24.f, Canvas->SizeY - 75.f, nullptr, 0.8f);
   if (Hero->InventoryItemCodes.Num() > 0) {
@@ -364,6 +459,23 @@ void AMoonfallCombatHUD::DrawHUD()
     RarityNames[Rarity], Hero->LastLootTier, Hero->LastLootUpgrade),
     FLinearColor(0.95f,0.84f,0.47f), 24.f, Canvas->SizeY - 55.f, nullptr, 0.8f);
   }
+ }
+ // Accessible key/door notice: no flashing, no extra widgets, expires naturally.
+ const float NowSeconds = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f;
+ if (!Hero->KeyInteractionNotice.IsEmpty()
+     && Hero->KeyInteractionNoticeUntil > NowSeconds)
+ {
+  const float TextSize = FMath::Clamp(Hero->CombatTextScale, 0.75f, 2.f);
+  const float NoticeX = FMath::Max(16.f, Canvas->SizeX * 0.5f - 180.f);
+  const float NoticeY = FMath::Max(18.f, Canvas->SizeY * 0.23f);
+  DrawRect(FLinearColor(0.04f,0.03f,0.09f,0.86f),
+    NoticeX - 12.f, NoticeY - 8.f,
+    FMath::Min(390.f, Canvas->SizeX - NoticeX), 38.f * TextSize);
+  DrawText(Hero->KeyInteractionNotice,
+    Hero->bKeyInteractionNoticeError
+      ? FLinearColor(1.f,0.73f,0.42f)
+      : FLinearColor(0.76f,1.f,0.75f),
+    NoticeX, NoticeY, nullptr, 0.80f * TextSize);
  }
  if (!bCompactScreen) DrawText(TEXT("ESC  OPTIONS"), FLinearColor(0.73f, 0.70f, 0.83f, 0.85f),
           FMath::Max(16.f, Canvas->SizeX - 142.f), Canvas->SizeY - 37.f, nullptr, 0.82f);

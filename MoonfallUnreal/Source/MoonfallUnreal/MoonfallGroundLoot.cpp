@@ -7,6 +7,7 @@
 #include "Engine/StaticMesh.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Kismet/GameplayStatics.h"
+#include "Engine/World.h"
 
 AMoonfallGroundLoot::AMoonfallGroundLoot()
 {
@@ -55,7 +56,7 @@ void AMoonfallGroundLoot::InitializeLoot(int32 InItemCode)
    FColor(245,201,63), FColor(183,89,244), FColor(58,214,107),
    FColor(255,132,32)};
  const FColor QualityColor = Colors[Rarity];
- ItemLabel->SetText(FText::FromString(FString::Printf(TEXT("%s %s%s  T%d  [F / X]"),
+ ItemLabel->SetText(FText::FromString(FString::Printf(TEXT("%s %s%s  T%d"),
    QualityNames[Rarity], TraitNames[Affix], SlotNames[Slot], Tier)));
  ItemLabel->SetTextRenderColor(QualityColor);
  // Colored beacon and object communicate rarity without transient effects or tick.
@@ -69,7 +70,28 @@ bool AMoonfallGroundLoot::TryCollect()
 {
  if (bCollected || ItemCode <= 0) return false;
  AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0));
- if (!IsValid(Hero) || !Hero->CollectGroundEquipmentCode(ItemCode)) return false;
+ // Collection is automatic only; external callers must obey the user's
+ // loot preference and the same gameplay/menu locks as the periodic sweep.
+ if (!IsValid(Hero) || !GetWorld() || !Hero->bAutoLootEnabled
+     || !FMath::IsFinite(Hero->Health) || Hero->Health <= 0.f
+     || Hero->bOptionsOpen || Hero->bInventoryOpen) return false;
+ // Enforce reachability here as well as in the auto-loot sweep; a direct
+ // Blueprint caller cannot bypass the range, height or cover checks.
+ const FVector HeroPosition = Hero->GetActorLocation();
+ const FVector LootPosition = GetActorLocation();
+ if (HeroPosition.ContainsNaN() || LootPosition.ContainsNaN()
+     || FMath::Abs(LootPosition.Z - HeroPosition.Z) > 150.f
+     || FVector::DistSquared2D(HeroPosition, LootPosition) > FMath::Square(250.f))
+  return false;
+ FCollisionQueryParams SightParams(SCENE_QUERY_STAT(MoonfallPersistedLootSight), false);
+ SightParams.AddIgnoredActor(Hero);
+ SightParams.AddIgnoredActor(this);
+ FHitResult SightHit;
+ if (GetWorld()->LineTraceSingleByChannel(SightHit,
+     HeroPosition + FVector(0.f, 0.f, 40.f),
+     LootPosition + FVector(0.f, 0.f, 40.f),
+     ECC_Visibility, SightParams)) return false;
+ if (!Hero->CollectPersistedGroundEquipmentCode(ItemCode, PersistentDropId)) return false;
  bCollected = true;
  Destroy();
  return true;
