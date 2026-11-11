@@ -27,7 +27,7 @@ void AMoonfallCombatHUD::DrawHUD()
   const float MenuHeight = FMath::Min(550.f, FMath::Max(280.f, Canvas->SizeY - 24.f));
   const float MenuLeft = Canvas->SizeX * 0.5f - MenuWidth * 0.5f;
   const float MenuTop = Canvas->SizeY * 0.5f - MenuHeight * 0.5f;
-  const float MenuRowGap = (MenuHeight - 130.f) / 7.f;
+  const float MenuRowGap = (MenuHeight - 130.f) / 8.f;
   DrawRect(FLinearColor(0.04f,0.03f,0.11f,0.94f),MenuLeft,MenuTop,MenuWidth,MenuHeight);
   DrawText(TEXT("MOONFALL  |  GRAPHICS & ACCESSIBILITY"),FLinearColor::White,MenuLeft+18.f,MenuTop+17.f,nullptr,1.25f);
   UGameUserSettings* Settings = GEngine ? GEngine->GetGameUserSettings() : nullptr;
@@ -35,8 +35,8 @@ void AMoonfallCombatHUD::DrawHUD()
    float ScalePct = 100.f, ScaleNormalized = 0.f, ScaleMin = 50.f, ScaleMax = 100.f;
    Settings->GetResolutionScaleInformationEx(ScalePct, ScaleNormalized, ScaleMin, ScaleMax);
    const FIntPoint Res = Settings->GetScreenResolution();
-   const FString Rows[] = {FString::Printf(TEXT("Resolution: %d x %d"),Res.X,Res.Y),FString::Printf(TEXT("Render scale: %.0f%%"),ScalePct),FString::Printf(TEXT("Quality preset: %d (0 Low - 3 Epic)"),Settings->GetOverallScalabilityLevel()),FString::Printf(TEXT("Frame Generation: %s (%s)"),Hero->FrameGenerationPreference==0?TEXT("Off"):Hero->FrameGenerationPreference==1?TEXT("Auto"):TEXT("On"),Hero->bFrameGenerationPluginDetected?TEXT("plugin detected; inactive"):TEXT("plugin unavailable")),FString::Printf(TEXT("Reduced motion: %s"),Hero->bReduceMotion?TEXT("On"):TEXT("Off")),FString::Printf(TEXT("Combat text size: %.0f%%"),Hero->CombatTextScale * 100.f),FString::Printf(TEXT("Boss warning visibility: %.0f%%"),Hero->BossWarningScale * 100.f)};
-   for (int32 i=0;i<7;++i) DrawText(Rows[i],i==Hero->OptionsSelection?FLinearColor::Yellow:FLinearColor::White,MenuLeft+20.f,MenuTop+75.f+i*MenuRowGap,nullptr,1.1f);
+   const FString Rows[] = {FString::Printf(TEXT("Resolution: %d x %d"),Res.X,Res.Y),FString::Printf(TEXT("Render scale: %.0f%%"),ScalePct),FString::Printf(TEXT("Quality preset: %d (0 Low - 3 Epic)"),Settings->GetOverallScalabilityLevel()),FString::Printf(TEXT("Frame Generation: %s (%s)"),Hero->FrameGenerationPreference==0?TEXT("Off"):Hero->FrameGenerationPreference==1?TEXT("Auto"):TEXT("On"),Hero->bFrameGenerationPluginDetected?TEXT("plugin detected; inactive"):TEXT("plugin unavailable")),FString::Printf(TEXT("Reduced motion: %s"),Hero->bReduceMotion?TEXT("On"):TEXT("Off")),FString::Printf(TEXT("Combat text size: %.0f%%"),Hero->CombatTextScale * 100.f),FString::Printf(TEXT("Boss warning visibility: %.0f%%"),Hero->BossWarningScale * 100.f),FString::Printf(TEXT("Auto loot: %s"),Hero->bAutoLootEnabled?TEXT("On"):TEXT("Off"))};
+   for (int32 i=0;i<8;++i) DrawText(Rows[i],i==Hero->OptionsSelection?FLinearColor::Yellow:FLinearColor::White,MenuLeft+20.f,MenuTop+75.f+i*MenuRowGap,nullptr,1.1f);
   }
   DrawText(TEXT("WASD / Arrows / D-pad: navigate    Esc / Start: close"),FLinearColor::White,MenuLeft+18.f,MenuTop+MenuHeight-28.f,nullptr,0.85f);
   return;
