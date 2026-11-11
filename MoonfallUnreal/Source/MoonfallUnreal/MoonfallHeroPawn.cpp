@@ -1343,6 +1343,8 @@ bool AMoonfallHeroPawn::CollectGroundEquipmentCode(int32 ItemCode)
      || ItemCode != Affix * 100000 + SlotIndex * 10000 + Rarity * 1000 + Tier)
   return false;
  // Keep every valid pickup, and only auto-equip if that equipment slot is vacant.
+ const int32 PreviousEquippedTier = SlotIndex == 0 ? WeaponTier
+     : (SlotIndex == 1 ? ArmorTier : AccessoryTier);
  InventoryItemCodes.Add(ItemCode);
  const int32 EquippedSlotCode = SlotIndex == 0 ? EquippedWeaponCode
      : (SlotIndex == 1 ? EquippedArmorCode : EquippedAccessoryCode);
@@ -1351,9 +1353,7 @@ bool AMoonfallHeroPawn::CollectGroundEquipmentCode(int32 ItemCode)
  LastLootSlot = SlotIndex;
  LastLootRarity = Rarity;
  LastLootTier = Tier;
- const int32 EquippedTier = SlotIndex == 0 ? WeaponTier
-     : (SlotIndex == 1 ? ArmorTier : AccessoryTier);
- LastLootUpgrade = Tier - EquippedTier;
+ LastLootUpgrade = Tier - PreviousEquippedTier;
  return true;
 }
 
@@ -1384,7 +1384,6 @@ void AMoonfallHeroPawn::PickupNearestGroundLoot()
  if (Health <= 0.f || bOptionsOpen || bInventoryOpen || !GetWorld()) return;
  // Gather all reachable nearby loot, without an arbitrary per-batch item limit.
  TArray<AMoonfallGroundLoot*> NearbyLoot;
- TArray<float> NearbyDistanceSq;
  const FVector HeroPosition = GetActorLocation();
  const float PickupRangeSq = FMath::Square(250.f);
  for (TActorIterator<AMoonfallGroundLoot> It(GetWorld()); It; ++It) {
@@ -1403,11 +1402,7 @@ void AMoonfallHeroPawn::PickupNearestGroundLoot()
       HeroPosition + FVector(0.f, 0.f, 40.f),
       LootPosition + FVector(0.f, 0.f, 40.f),
       ECC_Visibility, LootSightParams)) continue;
-  int32 InsertAt = 0;
-  while (InsertAt < NearbyDistanceSq.Num() && NearbyDistanceSq[InsertAt] <= DistanceSq)
-   ++InsertAt;
-  NearbyLoot.Insert(Candidate, InsertAt);
-  NearbyDistanceSq.Insert(DistanceSq, InsertAt);
+  NearbyLoot.Add(Candidate);
  }
  for (AMoonfallGroundLoot* Loot : NearbyLoot) {
   if (IsValid(Loot)) Loot->TryCollect();
