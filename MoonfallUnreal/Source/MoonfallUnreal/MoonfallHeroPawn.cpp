@@ -337,6 +337,7 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("ReforgeGear"), IE_Pressed, this, &AMoonfallHeroPawn::ReforgeSelectedInventoryItem);
  Input->BindAction(TEXT("EquipBest"), IE_Pressed, this, &AMoonfallHeroPawn::EquipBestInventoryAction);
  Input->BindAction(TEXT("PickupLoot"), IE_Pressed, this, &AMoonfallHeroPawn::PickupNearestGroundLoot);
+ Input->BindAction(TEXT("RacePower"), IE_Pressed, this, &AMoonfallHeroPawn::ActivateRacePower);
  Input->BindAction(TEXT("OptionsUp"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsUp);
  Input->BindAction(TEXT("OptionsDown"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsDown);
  Input->BindAction(TEXT("OptionsLeft"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsLeft);
@@ -436,7 +437,7 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
   const float MightMultiplier = 1.f + FMath::Clamp(GetMight() * 0.001f, 0.f, 0.10f);
   const float SpellDamage = (18.f + School * 5.f) * Multiplier * SpellPowerMultiplier
     * WeaponDamageBonus * CounterMultiplier * MomentumBonus * HitComboMultiplier
-    * (1.f + GetMasteryBonus()) * (1.f + GetVersatilityBonus())
+    * (1.f + GetMasteryBonus()) * (1.f + GetVersatilityBonus()) * ((GetWorld() && GetWorld()->GetTimeSeconds() < RacePowerActiveUntil && (RaceId == 1 || RaceId == 9 || RaceId == 10)) ? 1.15f : 1.f)
     * (bCriticalSpell ? 1.5f : 1.f) * MightMultiplier;
   // Reject invalid damage before spending mana or consuming a hard-earned counter.
   if (!FMath::IsFinite(SpellDamage) || SpellDamage <= 0.f) return false;
@@ -675,7 +676,9 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
    + FMath::Clamp(((EquippedArmorCode / 1000) % 10) * 0.005f, 0.f, 0.025f)
    + GetVersatilityBonus() * 0.5f
    + (GetSetPieceCount(2) >= 3 ? 0.025f : 0.f));
- const float ArmoredDamage = Amount * (1.f - ArmorMitigation);
+ const bool bRacialWard = bRaceChosen && (RaceId == 3 || RaceId == 7 || RaceId == 8)
+   && Now < RacePowerActiveUntil;
+ const float ArmoredDamage = Amount * (1.f - ArmorMitigation) * (bRacialWard ? 0.85f : 1.f);
  float DamageAfterGuard = ArmoredDamage;
  // Enemy attacks must come from the front 150-degree guard cone.
  // Older environment damage with no provided origin retains its guard behavior.
@@ -1646,3 +1649,87 @@ int32 AMoonfallHeroPawn::GetRaceInsightBonus() const { return RaceProfile(RaceId
 int32 AMoonfallHeroPawn::GetRaceResolveBonus() const { return RaceProfile(RaceId).Resolve; }
 float AMoonfallHeroPawn::GetRaceStaminaRegenBonus() const { return RaceProfile(RaceId).StaminaRegen; }
 float AMoonfallHeroPawn::GetRaceManaRegenBonus() const { return RaceProfile(RaceId).ManaRegen; }
+
+
+namespace {
+const TCHAR* MoonfallRacePowerNames[] = {
+ TEXT("Adventurer's Resolve"), TEXT("Starfire Focus"), TEXT("Forest Step"),
+ TEXT("Stoneguard"), TEXT("Lucky Escape"), TEXT("War Cry"),
+ TEXT("Quickcraft"), TEXT("Trollhide"), TEXT("Rootward"),
+ TEXT("Night Veil"), TEXT("Moon Surge"), TEXT("Drakeheart")
+};
+}
+FString AMoonfallHeroPawn::GetRacePowerName() const {
+ return FString(MoonfallRacePowerNames[FMath::Clamp(RaceId, 0, 11)]);
+}
+float AMoonfallHeroPawn::GetRacePowerCooldownRemaining() const {
+ if (!GetWorld()) return 0.f;
+ return FMath::Max(0.f, RacePowerReadyAt - GetWorld()->GetTimeSeconds());
+}
+float AMoonfallHeroPawn::GetRacePowerDurationRemaining() const {
+ if (!GetWorld()) return 0.f;
+ return FMath::Max(0.f, RacePowerActiveUntil - GetWorld()->GetTimeSeconds());
+}
+bool AMoonfallHeroPawn::ActivateRacePower() {
+ if (!bRaceChosen || !GetWorld() || Health <= 0.f || bInventoryOpen || bOptionsOpen) return false;
+ const float Now = GetWorld()->GetTimeSeconds();
+ if (!FMath::IsFinite(Now) || Now < RacePowerReadyAt) return false;
+ // Unique racial power effects (bounded resources and temporary buffs).
+ const float SafeMaxMana = FMath::IsFinite(MaxMana) ? FMath::Clamp(MaxMana, 0.f, 100000.f) : 0.f;
+ const float SafeMaxStamina = FMath::IsFinite(MaxStamina) ? FMath::Clamp(MaxStamina, 0.f, 100000.f) : 0.f;
+ const float SafeMaxHealth = FMath::IsFinite(MaxHealth) ? FMath::Clamp(MaxHealth, 1.f, 100000.f) : 100.f;
+ float Duration = 8.f;
+ switch (RaceId) {
+ case 0: // Human: balanced recovery.
+  Mana = FMath::Clamp(Mana + SafeMaxMana * 0.15f, 0.f, SafeMaxMana);
+  Stamina = FMath::Clamp(Stamina + SafeMaxStamina * 0.15f, 0.f, SafeMaxStamina);
+  break;
+ case 1: // High Elf: arcane focus, increases spells while active.
+  Mana = FMath::Clamp(Mana + SafeMaxMana * 0.30f, 0.f, SafeMaxMana);
+  break;
+ case 2: // Wood Elf: longer agility / stamina boon.
+  Duration = 12.f;
+  Stamina = FMath::Clamp(Stamina + SafeMaxStamina * 0.35f, 0.f, SafeMaxStamina);
+  break;
+ case 3: // Dwarf: short damage ward.
+  Duration = 10.f;
+  Stamina = FMath::Clamp(Stamina + SafeMaxStamina * 0.10f, 0.f, SafeMaxStamina);
+  break;
+ case 4: // Halfling: large stamina refill.
+  Duration = 6.f;
+  Stamina = FMath::Clamp(Stamina + SafeMaxStamina * 0.45f, 0.f, SafeMaxStamina);
+  break;
+ case 5: // Orc: battle stamina and a small restorative heal.
+  Health = FMath::Clamp(Health + SafeMaxHealth * 0.08f, 0.f, SafeMaxHealth);
+  Stamina = FMath::Clamp(Stamina + SafeMaxStamina * 0.20f, 0.f, SafeMaxStamina);
+  break;
+ case 6: // Goblin: rapid mana and stamina refill.
+  Duration = 5.f;
+  Mana = FMath::Clamp(Mana + SafeMaxMana * 0.22f, 0.f, SafeMaxMana);
+  Stamina = FMath::Clamp(Stamina + SafeMaxStamina * 0.22f, 0.f, SafeMaxStamina);
+  break;
+ case 7: // Troll: regeneration and ward.
+  Health = FMath::Clamp(Health + SafeMaxHealth * 0.12f, 0.f, SafeMaxHealth);
+  break;
+ case 8: // Entkin: strongest protective duration, small heal.
+  Duration = 14.f;
+  Health = FMath::Clamp(Health + SafeMaxHealth * 0.08f, 0.f, SafeMaxHealth);
+  break;
+ case 9: // Shadowborn: shadow-powered spells and stamina.
+  Stamina = FMath::Clamp(Stamina + SafeMaxStamina * 0.22f, 0.f, SafeMaxStamina);
+  break;
+ case 10: // Moonborn: arcane surge.
+  Mana = FMath::Clamp(Mana + SafeMaxMana * 0.38f, 0.f, SafeMaxMana);
+  break;
+ case 11: // Draconid: balanced magic and a burst of recovery.
+  Health = FMath::Clamp(Health + SafeMaxHealth * 0.07f, 0.f, SafeMaxHealth);
+  Mana = FMath::Clamp(Mana + SafeMaxMana * 0.18f, 0.f, SafeMaxMana);
+  break;
+ default: return false;
+ }
+ RacePowerActiveUntil = Now + Duration;
+ RacePowerReadyAt = Now + 45.f;
+ OnHealthChanged(Health, MaxHealth);
+ OnRacePowerActivated(FName(MoonfallRacePowerNames[RaceId]));
+ return true;
+}
