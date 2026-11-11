@@ -6,6 +6,7 @@
 #include "GameFramework/SpringArmComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Components/InputComponent.h"
+#include "TimerManager.h"
 #include "Engine/World.h"
 #include "DrawDebugHelpers.h"
 #include "Engine/Engine.h"
@@ -702,6 +703,10 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("Jump"), IE_Released, this, &ACharacter::StopJumping);
  Input->BindAction(TEXT("CastLeft"), IE_Pressed, this, &AMoonfallHeroPawn::CastLeft);
  Input->BindAction(TEXT("CastRight"), IE_Pressed, this, &AMoonfallHeroPawn::CastRight);
+ Input->BindAction(TEXT("MouseCastLeft"), IE_Pressed, this, &AMoonfallHeroPawn::MouseLeftPressed);
+ Input->BindAction(TEXT("MouseCastLeft"), IE_Released, this, &AMoonfallHeroPawn::MouseLeftReleased);
+ Input->BindAction(TEXT("MouseCastRight"), IE_Pressed, this, &AMoonfallHeroPawn::MouseRightPressed);
+ Input->BindAction(TEXT("MouseCastRight"), IE_Released, this, &AMoonfallHeroPawn::MouseRightReleased);
  Input->BindAction(TEXT("DualCast"), IE_Pressed, this, &AMoonfallHeroPawn::CastBoth);
  Input->BindAction(TEXT("Dodge"), IE_Pressed, this, &AMoonfallHeroPawn::Dodge);
  Input->BindAction(TEXT("Sprint"), IE_Pressed, this, &AMoonfallHeroPawn::BeginSprint);
@@ -887,6 +892,55 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
  }
  OnSpellCast(School, Hand == 0);
  return true;
+}
+// Small chord grace period prevents the first mouse click from consuming
+// the spell cooldown before the second button can request Dual Cast.
+// Keyboard/controller casting remains immediate.
+void AMoonfallHeroPawn::CommitPendingMouseCast()
+{
+ const int32 Hand = PendingMouseHand;
+ PendingMouseHand = -1;
+ if (bOptionsOpen || bInventoryOpen || !FMath::IsFinite(Health) || Health <= 0.f) return;
+ if (Hand == 0) CastLeft();
+ else if (Hand == 1) CastRight();
+}
+void AMoonfallHeroPawn::QueueMouseCast(int32 Hand)
+{
+ if (!GetWorld() || bOptionsOpen || bInventoryOpen || !FMath::IsFinite(Health) || Health <= 0.f) return;
+ if (bMouseChordConsumed) return;
+ if (bMouseLeftHeld && bMouseRightHeld)
+ {
+  GetWorldTimerManager().ClearTimer(MouseCastTimer);
+  PendingMouseHand = -1;
+  bMouseChordConsumed = true;
+  CastBoth();
+  return;
+ }
+ PendingMouseHand = Hand;
+ GetWorldTimerManager().SetTimer(MouseCastTimer, this,
+  &AMoonfallHeroPawn::CommitPendingMouseCast, 0.09f, false);
+}
+void AMoonfallHeroPawn::MouseLeftPressed()
+{
+ if (bMouseLeftHeld) return;
+ bMouseLeftHeld = true;
+ QueueMouseCast(0);
+}
+void AMoonfallHeroPawn::MouseRightPressed()
+{
+ if (bMouseRightHeld) return;
+ bMouseRightHeld = true;
+ QueueMouseCast(1);
+}
+void AMoonfallHeroPawn::MouseLeftReleased()
+{
+ bMouseLeftHeld = false;
+ if (!bMouseRightHeld) bMouseChordConsumed = false;
+}
+void AMoonfallHeroPawn::MouseRightReleased()
+{
+ bMouseRightHeld = false;
+ if (!bMouseLeftHeld) bMouseChordConsumed = false;
 }
 void AMoonfallHeroPawn::CastLeft() { if (bOptionsOpen) return; TryCast(LeftSpell, 0, 1.f); }
 void AMoonfallHeroPawn::CastRight() { if (bOptionsOpen) return; TryCast(RightSpell, 1, 1.f); }
