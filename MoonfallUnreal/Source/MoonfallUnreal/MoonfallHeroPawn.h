@@ -257,6 +257,7 @@ public:
  void UpdateWeaponVisuals();
  void InitializeDualWieldVisuals();
  // Observe rig/animation asset changes once per second, not each rendered frame.
+ TWeakObjectPtr<USkeletalMeshComponent> ObservedWeaponRigComponent;
  TWeakObjectPtr<UObject> ObservedWeaponRigAsset;
  TWeakObjectPtr<UAnimInstance> ObservedWeaponAnimInstance;
  float NextDualWieldRigAuditAt = 0.f;
