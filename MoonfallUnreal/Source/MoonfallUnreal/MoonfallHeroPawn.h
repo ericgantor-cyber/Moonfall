@@ -234,6 +234,12 @@ public:
  // Indicates whether an authored montage is usable by the current anim instance.
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|DualWield") bool bMainhandMontageReady = false;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|DualWield") bool bOffhandMontageReady = false;
+ // Readiness means an animation instance and montage are configured;
+ // playback success is recorded separately for the most recent swing.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|DualWield") bool bMainhandMontagePlayed = false;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|DualWield") bool bOffhandMontagePlayed = false;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|DualWield") bool bMainhandSwingAttempted = false;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|DualWield") bool bOffhandSwingAttempted = false;
  // Call after switching a Blueprint's skeletal mesh or weapon assets.
  UFUNCTION(BlueprintCallable, Category="Moonfall|DualWield") void RefreshDualWieldRig();
  // Per-hand grips are authored independently of the original character rig.
