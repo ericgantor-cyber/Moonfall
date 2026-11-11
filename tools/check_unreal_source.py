@@ -264,7 +264,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("SCENE_QUERY_STAT(MoonfallGroundLootPickupSight)", pickup)
         self.assertIn("LootSightParams.AddIgnoredActor(Candidate);", pickup)
         self.assertIn("GetWorld()->LineTraceSingleByChannel(LootSightHit,", pickup)
-        self.assertIn("NearbyLoot.Insert(Candidate, InsertAt);", pickup)
+        self.assertIn("NearbyLoot.Add(Candidate);", pickup)
+        self.assertNotIn("NearbyDistanceSq", pickup)
         self.assertNotIn("NearbyLoot.RemoveAt(", pickup)
         self.assertIn("for (AMoonfallGroundLoot* Loot : NearbyLoot)", pickup)
         self.assertIn("if (IsValid(Loot)) Loot->TryCollect();", pickup)
@@ -273,6 +274,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("AutoLootElapsed", self.hero_cpp)
         self.assertIn("PickupNearestGroundLoot();", self.hero_cpp)
         self.assertIn("if (EquippedSlotCode <= 0) EquipInventoryItem(", self.hero_cpp)
+        collected = self.hero_cpp.split("bool AMoonfallHeroPawn::CollectGroundEquipmentCode(", 1)[1].split("void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(", 1)[0]
+        self.assertLess(collected.index("PreviousEquippedTier"), collected.index("EquipInventoryItem("))
+        self.assertIn("LastLootUpgrade = Tier - PreviousEquippedTier;", collected)
 
     def test_inventory_accepts_new_loot_without_rejection_or_auto_cleanup(self):
         loot = self.hero_cpp.split("void AMoonfallHeroPawn::AwardEquipmentDrop(", 1)[1].split(
