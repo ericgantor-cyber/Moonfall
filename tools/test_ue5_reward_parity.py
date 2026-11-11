@@ -671,7 +671,10 @@ class UE5RewardParity(unittest.TestCase):
         self.assertIn("InventoryItemCodes.Num() >= 4096", pickup)
         self.assertIn("FMath::Square(250.f)", pickup)
         self.assertIn("ECC_Visibility", pickup)
-        self.assertIn("if (IsValid(Loot) && !Loot->TryCollect())", pickup)
+        self.assertIn("if (IsValid(Loot) && !Loot->TryCollect() && bAutoLootSaveFailedThisSweep)", pickup)
+        self.assertIn("bAutoLootSaveFailedThisSweep = false;", pickup)
+        self.assertIn("bAutoLootSaveFailedThisSweep = true;", self.hero)
+        self.assertLess(pickup.index("bAutoLootSaveFailedThisSweep = false;"), pickup.index("for (AMoonfallGroundLoot* Loot : NearbyLoot)"))
         self.assertNotIn("TryInteractWithNearbyKey()", pickup)
 
     def test_auto_loot_recovers_missing_saved_drops_and_respects_save_failures(self):
