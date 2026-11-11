@@ -18,17 +18,37 @@ void UMoonfallActorRigComponent::BeginPlay()
 void UMoonfallActorRigComponent::RefreshRig()
 {
  RigMesh.Reset();
+ ActiveRigMesh = nullptr;
  AActor* Owner = GetOwner();
  if (IsValid(Owner))
  {
-  // Only use an existing authored skeletal mesh on the owning actor.
-  // Never synthesize, retarget or overwrite the artist's original assets.
-  if (USkeletalMeshComponent* Mesh = Owner->FindComponentByClass<USkeletalMeshComponent>())
+  // An explicitly selected rig must belong to the same actor. A rig
+  // reference on another actor is never safe to animate from this component.
+  if (IsValid(PreferredRigMesh))
   {
-   if (IsValid(Mesh) && IsValid(Mesh->GetSkeletalMeshAsset()))
-    RigMesh = Mesh;
+   if (PreferredRigMesh->GetOwner() == Owner
+       && IsValid(PreferredRigMesh->GetSkeletalMeshAsset()))
+    RigMesh = PreferredRigMesh;
+   // Fail closed for invalid explicit selections rather than silently
+   // animating an unrelated mesh such as an NPC's clothing or equipment.
+  }
+  else
+  {
+   // Auto-discovery is intentionally bounded to the first valid mesh.
+   // The first skeletal component can be empty on Blueprint actors.
+   TArray<USkeletalMeshComponent*> Candidates;
+   Owner->GetComponents<USkeletalMeshComponent>(Candidates);
+   for (USkeletalMeshComponent* Mesh : Candidates)
+   {
+    if (IsValid(Mesh) && IsValid(Mesh->GetSkeletalMeshAsset()))
+    {
+     RigMesh = Mesh;
+     break;
+    }
+   }
   }
  }
+ ActiveRigMesh = RigMesh.Get();
  bRigAvailable = RigMesh.IsValid();
  bLastCuePlayed = false;
 }
