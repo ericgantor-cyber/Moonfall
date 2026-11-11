@@ -421,6 +421,19 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("FMath::IsFinite(Played) && Played > 0.f", swing)
         self.assertIn("OnDualWieldSwing(bOffhand);", swing)
 
+    def test_all_character_montage_calls_guard_pending_kill_anim_instances(self):
+        rig_cpp = (ROOT / "MoonfallActorRigComponent.cpp").read_text(encoding="utf-8")
+        npc = rig_cpp.split("bool UMoonfallActorRigComponent::PlayRigCue(FName CueId)", 1)[1]
+        self.assertIn("UAnimInstance* Anim = RigMesh->GetAnimInstance();", npc)
+        self.assertIn("if (IsValid(Anim))", npc)
+        self.assertIn("Anim->Montage_Play(Entry->Get(), 1.f)", npc)
+        enemy = self.enemy_cpp.split("void AMoonfallEnemy::PlayCharacterRigCue(", 1)[1].split(
+            "void AMoonfallEnemy::CancelDivineSignature()", 1)[0]
+        self.assertIn("UAnimInstance* Anim = CharacterRig->GetAnimInstance();", enemy)
+        self.assertIn("if (IsValid(Anim))", enemy)
+        self.assertIn("Anim->Montage_Play(Montage, 1.f)", enemy)
+        self.assertIn("OnCharacterRigCue(CueId, bLastRigMontagePlayed);", enemy)
+
     def test_npc_rig_refreshes_on_demand_after_asset_or_preference_changes(self):
         rig_h = (ROOT / "MoonfallActorRigComponent.h").read_text(encoding="utf-8")
         rig_cpp = (ROOT / "MoonfallActorRigComponent.cpp").read_text(encoding="utf-8")
