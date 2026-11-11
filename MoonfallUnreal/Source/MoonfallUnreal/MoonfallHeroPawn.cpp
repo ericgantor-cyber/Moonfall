@@ -165,6 +165,8 @@ bool AMoonfallHeroPawn::LoadRewardProgress()
   InventoryItemCodes.Reset();
   Salvage = 0;
   EquippedWeaponCode = EquippedArmorCode = EquippedAccessoryCode = 0;
+  EquippedOffhandCode = OffhandTier = 0;
+  BladeTalentRank = ArcaneTalentRank = TwinStrikeTalentRank = 0;
   WeaponTier = ArmorTier = AccessoryTier = 0;
   WeaponAffix = ArmorAffix = AccessoryAffix = 0;
   EquipmentTier = 0;
@@ -191,6 +193,8 @@ bool AMoonfallHeroPawn::LoadRewardProgress()
  InventoryItemCodes.Reset();
  Salvage = 0;
  EquippedWeaponCode = EquippedArmorCode = EquippedAccessoryCode = 0;
+ EquippedOffhandCode = OffhandTier = 0;
+ BladeTalentRank = ArcaneTalentRank = TwinStrikeTalentRank = 0;
  WeaponTier = ArmorTier = AccessoryTier = 0;
  WeaponAffix = ArmorAffix = AccessoryAffix = 0;
  EquipmentTier = 0;
@@ -267,6 +271,50 @@ bool AMoonfallHeroPawn::LoadRewardProgress()
   }
   EquipmentTier = FMath::Max(WeaponTier, FMath::Max(ArmorTier, AccessoryTier));
  }
+ // Version-5 reward saves allow additive optional fields. Old saves leave
+ // these defaults at zero; validate all derived stats before granting them.
+ if (Save->SavedCharacterLevel >= 1 && Save->SavedCharacterLevel <= 100)
+ {
+  const int32 PreviousLevel = Level;
+  Level = FMath::Clamp(Save->SavedCharacterLevel, 1, 100);
+  ExperienceToNextLevel = 100 + (Level - 1) * 55;
+  Experience = Level >= 100 ? 0
+    : FMath::Clamp(Save->SavedCharacterExperience, 0, ExperienceToNextLevel - 1);
+  MaxHealth = FMath::Max(1.f, MaxHealth + 4.f * (Level - PreviousLevel));
+  Health = FMath::Clamp(Health + 4.f * (Level - PreviousLevel), 1.f, MaxHealth);
+  SpellPowerMultiplier = 1.f + 0.025f * FMath::Min(Level - 1, 30)
+    + 0.012f * FMath::Max(0, Level - 31);
+ }
+ // Talent allocations cannot exceed five ranks per branch or the
+ // available Level-1 point budget, including when loading edited saves.
+ int32 PointsLeft = FMath::Max(0, Level - 1);
+ BladeTalentRank = FMath::Min(FMath::Clamp(Save->SavedBladeTalentRank, 0, 5), PointsLeft);
+ PointsLeft -= BladeTalentRank;
+ ArcaneTalentRank = FMath::Min(FMath::Clamp(Save->SavedArcaneTalentRank, 0, 5), PointsLeft);
+ PointsLeft -= ArcaneTalentRank;
+ TwinStrikeTalentRank = FMath::Min(FMath::Clamp(Save->SavedTwinStrikeTalentRank, 0, 5), PointsLeft);
+ // Offhand is a separate, verified weapon from the existing saved bag.
+ // Matching main/offhand item codes require two physical inventory copies.
+ const int32 OffhandCode = Save->EquippedOffhandCode;
+ const int32 OffhandAffix = OffhandCode / 100000;
+ const int32 OffhandSlot = (OffhandCode / 10000) % 10;
+ const int32 OffhandRarity = (OffhandCode / 1000) % 10;
+ const int32 SavedOffhandTier = OffhandCode % 1000;
+ const int32 RequiredCopies = OffhandCode == EquippedWeaponCode ? 2 : 1;
+ if (OffhandCode > 0 && OffhandSlot == 0 && OffhandAffix >= 0 && OffhandAffix <= 3
+     && OffhandRarity >= 0 && OffhandRarity <= 5
+     && SavedOffhandTier >= 1 && SavedOffhandTier <= 25
+     && (OffhandRarity != 0 || OffhandAffix == 0)
+     && OffhandCode == OffhandAffix * 100000 + OffhandRarity * 1000 + SavedOffhandTier)
+ {
+  int32 Copies = 0;
+  for (const int32 BagCode : InventoryItemCodes) if (BagCode == OffhandCode) ++Copies;
+  if (Copies >= RequiredCopies)
+  {
+   EquippedOffhandCode = OffhandCode;
+   OffhandTier = SavedOffhandTier;
+  }
+ }
  // Preserve authored base stats and avoid double-applying armor on reload.
  if (PreviousArmorTierOnLoad != ArmorTier)
  {
@@ -324,6 +372,12 @@ bool AMoonfallHeroPawn::SaveRewardProgress()
  Save->EquippedWeaponCode = EquippedWeaponCode;
  Save->EquippedArmorCode = EquippedArmorCode;
  Save->EquippedAccessoryCode = EquippedAccessoryCode;
+ Save->EquippedOffhandCode = EquippedOffhandCode;
+ Save->SavedCharacterLevel = FMath::Clamp(Level, 1, 100);
+ Save->SavedCharacterExperience = FMath::Max(0, Experience);
+ Save->SavedBladeTalentRank = FMath::Clamp(BladeTalentRank, 0, 5);
+ Save->SavedArcaneTalentRank = FMath::Clamp(ArcaneTalentRank, 0, 5);
+ Save->SavedTwinStrikeTalentRank = FMath::Clamp(TwinStrikeTalentRank, 0, 5);
  Save->PendingWorldLoot = PendingWorldLoot;
  return UGameplayStatics::SaveGameToSlot(Save, RewardSaveSlot, RewardSaveUser);
 }
