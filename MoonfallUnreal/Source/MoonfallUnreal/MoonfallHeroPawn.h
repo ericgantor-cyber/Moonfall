@@ -184,6 +184,7 @@ public:
  // Shield-style guard shares the existing stamina, parry and frontal block rules.
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Combat") bool bSpellShieldStance = false;
  UFUNCTION(BlueprintCallable, Category="Moonfall|Inventory") void CycleHandSetup();
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Inventory") void SelectHandSetup(int32 Setup);
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Combat") void OnWeaponStrike(float Damage, bool bConnected);
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Combat") void OnSpellCast(int32 School, bool bLeftHand);
  // Optional authored animation/VFX hook: no replacement character art needed.
