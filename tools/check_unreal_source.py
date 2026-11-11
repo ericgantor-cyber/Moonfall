@@ -2655,6 +2655,16 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('Input->BindAction(TEXT("MouseCastLeft")', self.hero_cpp)
         self.assertIn("bool AMoonfallHeroPawn::TryInteractWithAimedWorld()", self.hero_cpp)
 
+    def test_key_click_target_has_accessible_nonblocking_collision(self):
+        pickup_h = (ROOT / "MoonfallKeyPickup.h").read_text(encoding="utf-8")
+        pickup = (ROOT / "MoonfallKeyPickup.cpp").read_text(encoding="utf-8")
+        self.assertIn("TObjectPtr<USphereComponent> AimTarget;", pickup_h)
+        self.assertIn("AimTarget->InitSphereRadius(65.f);", pickup)
+        self.assertIn("AimTarget->SetCollisionEnabled(ECollisionEnabled::QueryOnly);", pickup)
+        self.assertIn("AimTarget->SetCollisionResponseToChannel(ECC_Visibility, ECR_Block);", pickup)
+        self.assertIn("AimTarget->SetGenerateOverlapEvents(false);", pickup)
+        self.assertIn("KeyMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);", pickup)
+
     def test_direct_key_and_gate_transactions_require_reach_and_visibility(self):
         pickup = (ROOT / "MoonfallKeyPickup.cpp").read_text(encoding="utf-8")
         gate = (ROOT / "MoonfallKeyGate.cpp").read_text(encoding="utf-8")
