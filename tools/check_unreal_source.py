@@ -461,6 +461,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         rig_cpp = (ROOT / "MoonfallActorRigComponent.cpp").read_text(encoding="utf-8")
         self.assertIn("TObjectPtr<USkeletalMeshComponent> PreferredRigMesh", rig_h)
         self.assertIn("TObjectPtr<USkeletalMeshComponent> ActiveRigMesh", rig_h)
+        self.assertIn("if (PreferredRigMesh != nullptr)", rig_cpp)
+        self.assertIn("if (IsValid(PreferredRigMesh)", rig_cpp)
         self.assertIn("PreferredRigMesh->GetOwner() == Owner", rig_cpp)
         self.assertIn("IsValid(PreferredRigMesh->GetSkeletalMeshAsset())", rig_cpp)
         self.assertIn("Owner->GetComponents<USkeletalMeshComponent>(Candidates);", rig_cpp)
