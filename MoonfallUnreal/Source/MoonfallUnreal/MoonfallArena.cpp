@@ -46,6 +46,7 @@ void AMoonfallArena::BeginPlay() {
  // The player or an interaction UI calls TryTalk; the actor never ticks.
  if (AMoonfallWorldNPC* Guide = GetWorld()->SpawnActor<AMoonfallWorldNPC>(
      AMoonfallWorldNPC::StaticClass(), GetActorLocation() + FVector(-350.f, 650.f, 60.f), FRotator::ZeroRotator)) {
+  Guide->RaceId = 2; // Wood Elf
   Guide->DisplayName = FText::FromString(TEXT("Wandering Guide"));
   Guide->Greeting = FText::FromString(TEXT("Every road belongs to the same world. Stay alert beyond the gate."));
  }
@@ -58,6 +59,8 @@ void AMoonfallArena::BeginPlay() {
   AMoonfallEnemy* Enemy = Cast<AMoonfallEnemy>(UGameplayStatics::BeginDeferredActorSpawnFromClass(
     this, AMoonfallEnemy::StaticClass(), SpawnTransform));
   if (!Enemy) continue;
+  // Each ordinary combatant has a stable racial origin; boss IDs/art are unaffected.
+  Enemy->RaceId = i % 12;
   // The selected preset spawns only the corresponding divine boss in
   // the final slot. NAME_None retains the previous two-god test showcase.
   // Actual regional encounter placement is deferred to world migration.
