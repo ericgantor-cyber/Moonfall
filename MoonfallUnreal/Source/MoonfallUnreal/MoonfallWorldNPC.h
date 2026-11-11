@@ -18,6 +18,12 @@ public:
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|NPC|Race", meta=(ClampMin="0", ClampMax="11")) int32 RaceId = 0;
  UFUNCTION(BlueprintPure, Category="Moonfall|NPC|Race") FString GetRaceName() const;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|NPC") FName SettlementId = NAME_None;
+ // Stable authored ID, not GetName() or transient spawn index.
+ UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|NPC|Bond") FName ResidentId = NAME_None;
+ UFUNCTION(BlueprintPure, Category="Moonfall|NPC|Bond") int32 GetBondWithHero(const AMoonfallHeroPawn* Hero) const;
+ // Quest/dialogue event may call this; conversations alone never award bond points.
+ UFUNCTION(BlueprintCallable, Category="Moonfall|NPC|Bond") bool RewardResidentTrust(AMoonfallHeroPawn* Hero, int32 Points);
+
  // Server-side simple social role; branching dialogue may be authored in Blueprint.
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|NPC") FName SocialRole = FName(TEXT("Citizen"));
  UFUNCTION(BlueprintPure, Category="Moonfall|NPC") FString GetSocialDisposition(const AMoonfallHeroPawn* Hero) const;
