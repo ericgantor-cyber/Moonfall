@@ -1539,6 +1539,7 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
  Save->RaceId = FMath::Clamp(RaceId, 0, 11);
  Save->FactionReputation = FactionReputation;
  Save->ResidentBonds = ResidentBonds;
+ Save->ResidentQuestStates = ResidentQuestStates;
  Save->bRaceChosen = bRaceChosen;
  const float Cooldown = GetRacePowerCooldownRemaining();
  Save->RacePowerReadyUtc = Cooldown > 0.f
@@ -1560,7 +1561,16 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  if (!UGameplayStatics::DoesSaveGameExist(MoonfallWorldSlot, 0)) return false;
  const UMoonfallPersistentSave* Save = Cast<UMoonfallPersistentSave>(
      UGameplayStatics::LoadGameFromSlot(MoonfallWorldSlot, 0));
- if (!Save || Save->Version < 1 || Save->Version > 5) return false;
+ if (!Save || Save->Version < 1 || Save->Version > 6) return false;
+ ResidentQuestStates.Reset();
+ if (Save->Version >= 6) {
+  // Ignore unknown, malformed and oversized quest entries from disk.
+  if (Save->ResidentQuestStates.Num() <= 64) {
+   for (const auto& Entry : Save->ResidentQuestStates)
+    if (Entry.Value == 1 || Entry.Value == 2)
+     ResidentQuestStates.Add(Entry.Key, Entry.Value);
+  }
+ }
  // Old saves begin with no personal bonds. Only named settlement residents are restored.
  ResidentBonds.Reset();
  if (Save->Version >= 5) {
@@ -1884,6 +1894,51 @@ bool AMoonfallHeroPawn::ChangeResidentBond(FName ResidentId, int32 Delta) {
  if (!SaveWorldProgress()) {
   if (Previous == 0) ResidentBonds.Remove(ResidentId);
   else ResidentBonds.Add(ResidentId, Previous);
+  return false;
+ }
+ return true;
+}
+
+int32 AMoonfallHeroPawn::GetResidentQuestState(FName ResidentId) const {
+ if (!IsNamedMoonfallResident(ResidentId)) return 0;
+ if (const int32* Value = ResidentQuestStates.Find(ResidentId))
+  return (*Value == 1 || *Value == 2) ? *Value : 0;
+ return 0;
+}
+bool AMoonfallHeroPawn::AcceptResidentQuest(FName ResidentId) {
+ if (!IsNamedMoonfallResident(ResidentId) || Health <= 0.f
+     || bOptionsOpen || bInventoryOpen || GetResidentQuestState(ResidentId) != 0) return false;
+ ResidentQuestStates.Add(ResidentId, 1);
+ if (!SaveWorldProgress()) {
+  ResidentQuestStates.Remove(ResidentId);
+  return false;
+ }
+ return true;
+}
+bool AMoonfallHeroPawn::CompleteResidentQuest(AMoonfallWorldNPC* Resident) {
+ if (!IsValid(Resident) || !Resident->CanHeroInteract(this)
+     || !IsNamedMoonfallResident(Resident->ResidentId)
+     || GetResidentQuestState(Resident->ResidentId) != 1) return false;
+ const int32 Cost = Resident->GetContractSalvageCost();
+ if (Cost < 1 || Cost > 30 || Salvage < Cost) return false;
+ const FName Id = Resident->ResidentId;
+ const FName Faction = Resident->FactionId;
+ if (!IsMoonfallFaction(Faction)) return false;
+ // One atomic save: pay salvage, earn 6 bond and 3 faction reputation.
+ const int32 PreviousSalvage = Salvage;
+ const int32 PreviousBond = GetResidentBond(Id);
+ const int32 PreviousRep = GetFactionReputation(Faction);
+ Salvage -= Cost;
+ ResidentQuestStates.Add(Id, 2);
+ ResidentBonds.Add(Id, FMath::Clamp(PreviousBond + 6, -100, 100));
+ FactionReputation.Add(Faction, FMath::Clamp(PreviousRep + 3, -100, 100));
+ if (!SaveWorldProgress()) {
+  Salvage = PreviousSalvage;
+  ResidentQuestStates.Add(Id, 1);
+  if (PreviousBond == 0) ResidentBonds.Remove(Id);
+  else ResidentBonds.Add(Id, PreviousBond);
+  if (PreviousRep == 0) FactionReputation.Remove(Faction);
+  else FactionReputation.Add(Faction, PreviousRep);
   return false;
  }
  return true;
