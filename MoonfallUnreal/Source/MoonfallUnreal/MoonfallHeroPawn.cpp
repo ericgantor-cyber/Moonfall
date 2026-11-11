@@ -1740,6 +1740,9 @@ bool AMoonfallHeroPawn::ActivateRacePower() {
  RacePowerActiveUntil = Now + Duration;
  RacePowerReadyAt = Now + 45.f;
  OnHealthChanged(Health, MaxHealth);
+ // Save immediately so a quick exit/death cannot undo the cooldown.
+ // This uses the existing single persistent slot without opening a new run.
+ SaveWorldProgress();
  OnRacePowerActivated(FName(MoonfallRacePowerNames[RaceId]));
  return true;
 }
