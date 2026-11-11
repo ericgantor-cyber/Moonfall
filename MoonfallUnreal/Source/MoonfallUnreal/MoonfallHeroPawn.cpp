@@ -908,7 +908,6 @@ void AMoonfallHeroPawn::CancelPendingMouseCombat()
  GetWorldTimerManager().ClearTimer(MouseCastTimer);
  PendingMouseHand = -1;
  bMouseLeftHeld = false;
- bMouseLeftWorldInteraction = false;
  bMouseRightHeld = false;
  bMouseChordConsumed = false;
 }
@@ -934,7 +933,7 @@ void AMoonfallHeroPawn::QueueMouseCast(int32 Hand)
   else BeginGuard();
   return;
  }
- if (bMouseLeftHeld && bMouseRightHeld && !bMouseLeftWorldInteraction)
+ if (bMouseLeftHeld && bMouseRightHeld)
  {
   // Only join presses during the 90ms grace window. An already committed
   // single-hand spell must not be followed by a free extra Dual Cast.
@@ -971,11 +970,7 @@ void AMoonfallHeroPawn::MouseLeftPressed()
 {
  if (bMouseLeftHeld) return;
  bMouseLeftHeld = true;
- // An already-held right hand belongs to combat (spell or shield).
- // Do not hijack a dual-hand press to interact with a nearby door or key.
- // A standalone left click may still interact before performing an attack.
- bMouseLeftWorldInteraction = !bMouseRightHeld && TryInteractWithAimedWorld();
- if (bMouseLeftWorldInteraction) return;
+ // Left mouse is reserved for combat. F/controller interact with keys/gates.
  QueueMouseCast(0);
 }
 void AMoonfallHeroPawn::MouseRightPressed()
@@ -994,7 +989,6 @@ void AMoonfallHeroPawn::MouseLeftReleased()
   CommitPendingMouseCast();
  }
  bMouseLeftHeld = false;
- bMouseLeftWorldInteraction = false;
  if (!bMouseRightHeld) bMouseChordConsumed = false;
 }
 void AMoonfallHeroPawn::MouseRightReleased()
@@ -2366,73 +2360,6 @@ void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(bool bEliteEnemy, bool bBossEne
    : TEXT("LOOT NOT SAVED - TEMPORARY DROPS, COLLECT BEFORE EXIT");
  bKeyInteractionNoticeError = true;
  KeyInteractionNoticeUntil = GetWorld()->GetTimeSeconds() + 8.f;
-}
-
-bool AMoonfallHeroPawn::TryInteractWithAimedWorld()
-{
- if (!GetWorld() || !FMath::IsFinite(Health) || Health <= 0.f
-     || bOptionsOpen || bInventoryOpen) return false;
- APlayerController* PC = Cast<APlayerController>(GetController());
- if (!PC) return false;
- // In normal gameplay Moonfall uses mouse-look with a hidden cursor.
- // Clicking therefore selects the object at the central camera aim ray.
- FVector ViewLocation;
- FRotator ViewRotation;
- PC->GetPlayerViewPoint(ViewLocation, ViewRotation);
- if (ViewLocation.ContainsNaN() || ViewRotation.ContainsNaN()) return false;
- FHitResult Hit;
- FCollisionQueryParams Params(SCENE_QUERY_STAT(MoonfallAimedWorldInteract), false);
- Params.AddIgnoredActor(this);
- if (!GetWorld()->LineTraceSingleByChannel(Hit, ViewLocation,
-       ViewLocation + ViewRotation.Vector() * 2000.f, ECC_Visibility, Params))
-  return false;
- AActor* Target = Hit.GetActor();
- const bool bKey = IsValid(Cast<AMoonfallKeyPickup>(Target));
- const bool bGate = IsValid(Cast<AMoonfallKeyGate>(Target));
- if (!bKey && !bGate) return false;
- const FVector HeroAt = GetActorLocation();
- const FVector TargetAt = Target->GetActorLocation();
- // An aimed click never grants a remote pickup or bypasses blocked corridors.
- if (HeroAt.ContainsNaN() || TargetAt.ContainsNaN()
-     || FMath::Abs(HeroAt.Z - TargetAt.Z) > 150.f
-     || FVector::DistSquared2D(HeroAt, TargetAt) > FMath::Square(230.f))
- {
-  KeyInteractionNotice = TEXT("MOVE CLOSER TO INTERACT");
-  bKeyInteractionNoticeError = true;
-  KeyInteractionNoticeUntil = GetWorld()->GetTimeSeconds() + 2.5f;
-  return true;
- }
- FCollisionQueryParams ReachParams(SCENE_QUERY_STAT(MoonfallClickReach), false);
- ReachParams.AddIgnoredActor(this);
- ReachParams.AddIgnoredActor(Target);
- FHitResult Obstacle;
- if (GetWorld()->LineTraceSingleByChannel(Obstacle,
-       HeroAt + FVector(0.f, 0.f, 40.f),
-       TargetAt + FVector(0.f, 0.f, 40.f), ECC_Visibility, ReachParams))
- {
-  KeyInteractionNotice = TEXT("INTERACTION BLOCKED");
-  bKeyInteractionNoticeError = true;
-  KeyInteractionNoticeUntil = GetWorld()->GetTimeSeconds() + 2.5f;
-  return true;
- }
- bool bSucceeded = false;
- if (AMoonfallKeyPickup* Key = Cast<AMoonfallKeyPickup>(Target))
- {
-  bSucceeded = Key->TryCollect(this);
-  KeyInteractionNotice = bSucceeded ? TEXT("QUEST KEY COLLECTED")
-    : TEXT("KEY NOT COLLECTED - CHECK SAVE OR KEY ID");
- }
- else if (AMoonfallKeyGate* Gate = Cast<AMoonfallKeyGate>(Target))
- {
-  bSucceeded = Gate->TryUnlock(this);
-  KeyInteractionNotice = bSucceeded ? TEXT("DOOR UNLOCKED")
-    : (HasQuestKey(Gate->RequiredKeyId) ? TEXT("DOOR NOT OPENED - CHECK SAVE")
-                                      : TEXT("LOCKED - FIND THE MATCHING KEY"));
- }
- bKeyInteractionNoticeError = !bSucceeded;
- KeyInteractionNoticeUntil = GetWorld()->GetTimeSeconds() + 3.5f;
- // Never turn a gate/key click into an attack, even if the save fails.
- return true;
 }
 
 bool AMoonfallHeroPawn::TryInteractWithNearbyKey()
