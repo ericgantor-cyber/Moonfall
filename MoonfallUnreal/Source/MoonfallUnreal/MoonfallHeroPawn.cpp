@@ -2464,9 +2464,42 @@ bool AMoonfallHeroPawn::TryInteractWithNearbyKey()
 
 void AMoonfallHeroPawn::InteractWithNearbyWorld()
 {
- // Manual world interaction is retained for keys and keyed doors.
- // Equipment no longer depends on pressing the pickup button.
- TryInteractWithNearbyKey();
+ // One explicit F/controller press interacts with one reachable object.
+ // Keys and gates take priority; their failed attempts never collect loot
+ // behind them. Auto-loot is still an independent optional feature.
+ if (!GetWorld() || !FMath::IsFinite(Health) || Health <= 0.f
+     || bInventoryOpen || bOptionsOpen || bRewardSaveLoadFailed) return;
+ if (TryInteractWithNearbyKey()) return;
+ if (InventoryItemCodes.Num() >= 4096) return;
+ const FVector HeroAt = GetActorLocation();
+ if (HeroAt.ContainsNaN()) return;
+ const float MaxDistanceSq = FMath::Square(230.f);
+ AMoonfallGroundLoot* NearestLoot = nullptr;
+ float ClosestSq = MaxDistanceSq;
+ for (TActorIterator<AMoonfallGroundLoot> It(GetWorld()); It; ++It)
+ {
+  AMoonfallGroundLoot* Loot = *It;
+  if (!IsValid(Loot) || Loot->GetItemCode() <= 0) continue;
+  const FVector At = Loot->GetActorLocation();
+  if (At.ContainsNaN() || FMath::Abs(At.Z - HeroAt.Z) > 150.f) continue;
+  const float DistanceSq = FVector::DistSquared2D(HeroAt, At);
+  if (!FMath::IsFinite(DistanceSq) || DistanceSq > ClosestSq) continue;
+  FCollisionQueryParams Sight(SCENE_QUERY_STAT(MoonfallManualEquipmentSight), false);
+  Sight.AddIgnoredActor(this);
+  Sight.AddIgnoredActor(Loot);
+  FHitResult Hit;
+  if (GetWorld()->LineTraceSingleByChannel(Hit,
+        HeroAt + FVector(0.f, 0.f, 40.f),
+        At + FVector(0.f, 0.f, 40.f), ECC_Visibility, Sight)) continue;
+  NearestLoot = Loot;
+  ClosestSq = DistanceSq;
+ }
+ if (!IsValid(NearestLoot)) return;
+ const bool bCollected = NearestLoot->TryCollect(true);
+ KeyInteractionNotice = bCollected ? TEXT("EQUIPMENT COLLECTED")
+    : TEXT("EQUIPMENT NOT COLLECTED - CHECK INVENTORY OR SAVE");
+ bKeyInteractionNoticeError = !bCollected;
+ KeyInteractionNoticeUntil = GetWorld()->GetTimeSeconds() + 3.5f;
 }
 
 void AMoonfallHeroPawn::PickupNearestGroundLoot()
