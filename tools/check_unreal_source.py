@@ -322,7 +322,12 @@ class MoonfallIntegrationChecks(unittest.TestCase):
     def test_primary_stats_sheet_is_read_only_and_affects_combat_recovery(self):
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
         hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        self.assertIn('ActionName="CharacterStats",Key=C', inputs)
         self.assertIn('ActionName="CharacterStats",Key=P', inputs)
+        self.assertIn('ActionName="Inventory",Key=B', inputs)
+        self.assertIn('ActionName="DualCast",Key=V', inputs)
+        self.assertNotIn('ActionName="DualCast",Key=C', inputs)
+        self.assertNotIn('ActionName="EquipBest",Key=B', inputs)
         self.assertIn('ActionName="CharacterStats",Key=Gamepad_FaceButton_Bottom', inputs)
         self.assertIn('BindAction(TEXT("CharacterStats"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleCharacterStats)', self.hero_cpp)
         self.assertIn("void ToggleCharacterStats();", self.hero_h)
@@ -333,7 +338,12 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("GetMight() * 0.001f", self.hero_cpp)
         self.assertIn("GetInsight() * 0.002f", self.hero_cpp)
         self.assertIn("GetResolve() * 0.003f", self.hero_cpp)
-        self.assertIn("if (bInventoryOpen && !bOptionsOpen && Health > 0.f)", self.hero_cpp)
+        character_toggle = self.hero_cpp.split("void AMoonfallHeroPawn::ToggleCharacterStats()", 1)[1].split("void AMoonfallHeroPawn::ToggleInventory()", 1)[0]
+        self.assertIn("if (!bInventoryOpen)", character_toggle)
+        self.assertIn("bInventoryOpen = true;", character_toggle)
+        self.assertIn("bCharacterStatsOpen = true;", character_toggle)
+        self.assertIn("UpdateInventoryMouseInput();", character_toggle)
+        self.assertIn("bCharacterStatsOpen = !bCharacterStatsOpen;", character_toggle)
         self.assertIn("if (!bInventoryOpen) {\n  bCharacterStatsOpen = false;\n  bKeyRingInventoryOpen = false;\n }", self.hero_cpp)
         self.assertIn("if (!bCharacterStatsOpen) ForgeInventoryItemLevels(InventorySelection, 5);", self.hero_cpp)
         self.assertIn("if (!bCharacterStatsOpen) ReforgeInventoryItemAffix(InventorySelection);", self.hero_cpp)
@@ -341,8 +351,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("PRIMARY ATTRIBUTES", hud)
         self.assertIn("SECONDARY STATS", hud)
         self.assertIn("EQUIPMENT SET BONUSES", hud)
-        self.assertIn("P / A: back to inventory", hud)
-        self.assertIn("P / A: character stats", hud)
+        self.assertIn("C / A: back to inventory", hud)
+        self.assertIn("C / A: character stats", hud)
 
     def test_wow_inspired_secondary_stats_and_three_slot_trait_sets(self):
         hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
@@ -521,7 +531,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
 
     def test_explicit_equip_best_loadout_is_validated_and_never_auto_equips_loot(self):
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
-        self.assertIn('ActionName="EquipBest",Key=B', inputs)
+        self.assertIn('ActionName="EquipBest",Key=F8', inputs)
         self.assertIn('ActionName="EquipBest",Key=Gamepad_LeftTrigger', inputs)
         self.assertIn('BindAction(TEXT("EquipBest"), IE_Pressed, this, &AMoonfallHeroPawn::EquipBestInventoryAction)', self.hero_cpp)
         self.assertIn("void EquipBestInventoryAction();", self.hero_h)
