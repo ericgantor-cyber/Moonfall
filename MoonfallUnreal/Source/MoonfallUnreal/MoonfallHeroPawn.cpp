@@ -708,7 +708,6 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("MouseCastRight"), IE_Pressed, this, &AMoonfallHeroPawn::MouseRightPressed);
  Input->BindAction(TEXT("MouseCastRight"), IE_Released, this, &AMoonfallHeroPawn::MouseRightReleased);
  Input->BindAction(TEXT("DualCast"), IE_Pressed, this, &AMoonfallHeroPawn::CastBoth);
- Input->BindAction(TEXT("ToggleWeaponSpell"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleWeaponSpell);
  Input->BindAction(TEXT("Dodge"), IE_Pressed, this, &AMoonfallHeroPawn::Dodge);
  Input->BindAction(TEXT("Sprint"), IE_Pressed, this, &AMoonfallHeroPawn::BeginSprint);
  Input->BindAction(TEXT("Sprint"), IE_Released, this, &AMoonfallHeroPawn::EndSprint);
@@ -919,8 +918,10 @@ void AMoonfallHeroPawn::QueueMouseCast(int32 Hand)
  if (bMouseChordConsumed) return;
  if (bSpellShieldStance)
  {
-  // Shield guard is held while right mouse is down; the left hand still casts.
-  if (Hand == 0) CastLeft();
+  // Shield guard is held while right mouse is down; the left hand
+  // independently uses either the equipped weapon or the selected spell.
+  if (Hand == 0 && bWeaponSpellStance) StrikeWithWeapon();
+  else if (Hand == 0) CastLeft();
   else BeginGuard();
   return;
  }
@@ -978,11 +979,13 @@ void AMoonfallHeroPawn::CycleHandSetup()
  if (!bInventoryOpen || bOptionsOpen || !FMath::IsFinite(Health) || Health <= 0.f) return;
  GetWorldTimerManager().ClearTimer(MouseCastTimer);
  PendingMouseHand = -1;
- // Inventory controls three mutually exclusive hand combinations.
- // No keybinding is assigned to V.
+ // Four hand combinations, inventory-click only. V stays unassigned.
+ // Spell+spell -> weapon+spell -> spell+shield -> weapon+shield -> repeat.
  if (!bWeaponSpellStance && !bSpellShieldStance) bWeaponSpellStance = true;
- else if (bWeaponSpellStance) { bWeaponSpellStance = false; bSpellShieldStance = true; }
- else bSpellShieldStance = false;
+ else if (bWeaponSpellStance && !bSpellShieldStance)
+ { bWeaponSpellStance = false; bSpellShieldStance = true; }
+ else if (!bWeaponSpellStance && bSpellShieldStance) bWeaponSpellStance = true;
+ else { bWeaponSpellStance = false; bSpellShieldStance = false; }
  // Switching away from shield guard never leaves the old block held.
  EndGuard();
  bMouseChordConsumed = false;
