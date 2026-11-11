@@ -47,8 +47,31 @@ void AMoonfallArena::BeginPlay() {
  if (AMoonfallWorldNPC* Guide = GetWorld()->SpawnActor<AMoonfallWorldNPC>(
      AMoonfallWorldNPC::StaticClass(), GetActorLocation() + FVector(-350.f, 650.f, 60.f), FRotator::ZeroRotator)) {
   Guide->RaceId = 2; // Wood Elf
+  Guide->SettlementId = FName(TEXT("Crossroads"));
+  Guide->FactionId = FName(TEXT("Wanderers"));
+  Guide->SocialRole = FName(TEXT("Guide"));
   Guide->DisplayName = FText::FromString(TEXT("Wandering Guide"));
   Guide->Greeting = FText::FromString(TEXT("Every road belongs to the same world. Stay alert beyond the gate."));
+ }
+ // Small, fixed population in this existing world, not extra runs or
+ // an endlessly spawning village. Scripted outposts can reuse the actor.
+ struct FResident { const TCHAR* Name; int32 Race; const TCHAR* Faction;
+   const TCHAR* Role; FVector Offset; };
+ const FResident Residents[] = {
+  {TEXT("Birchroot"), 8, TEXT("VerdantCircle"), TEXT("Elder"), FVector(-690.f,540.f,60.f)},
+  {TEXT("Anvilkeeper"), 3, TEXT("StoneHearth"), TEXT("Merchant"), FVector(-690.f,160.f,60.f)},
+  {TEXT("Silverwatch"), 10, TEXT("MoonCoven"), TEXT("Guard"), FVector(-690.f,-180.f,60.f)},
+  {TEXT("Ember Scout"), 5, TEXT("AshenClans"), TEXT("Scout"), FVector(-690.f,-520.f,60.f)}
+ };
+ for (const FResident& Resident : Residents) {
+  if (AMoonfallWorldNPC* Person = GetWorld()->SpawnActor<AMoonfallWorldNPC>(
+      AMoonfallWorldNPC::StaticClass(), GetActorLocation() + Resident.Offset, FRotator::ZeroRotator)) {
+   Person->DisplayName = FText::FromString(Resident.Name);
+   Person->RaceId = Resident.Race;
+   Person->FactionId = FName(Resident.Faction);
+   Person->SettlementId = FName(TEXT("Crossroads"));
+   Person->SocialRole = FName(Resident.Role);
+  }
  }
  const int32 Count = FMath::Clamp(EnemyCount,0,12);
  for (int32 i=0;i<Count;++i) {
