@@ -1977,7 +1977,12 @@ bool AMoonfallHeroPawn::ChooseResidentContextAction(int32 Choice) {
   return false;
  }
  if (Choice == 2) { CloseResidentContext(); return true; }
- if (Choice == 0) return Resident->TryTalk(this);
+ if (Choice == 0) {
+  if (!Resident->TryTalk(this)) return false;
+  ResidentFeedbackMessage = Resident->LastSpokenLine.ToString();
+  ResidentFeedbackUntil = GetWorld() ? GetWorld()->GetTimeSeconds() + 8.f : 0.f;
+  return true;
+ }
  if (Choice != 1) return false;
  const int32 State = GetResidentQuestState(Resident->ResidentId);
  bool bSucceeded = false;
