@@ -17,6 +17,10 @@ void AMoonfallCombatHUD::NotifyHitBoxClick(FName BoxName)
  else if (BoxName == FName(TEXT("MoonfallHandWeaponSpell"))) Hero->SelectHandSetup(1);
  else if (BoxName == FName(TEXT("MoonfallHandSpellShield"))) Hero->SelectHandSetup(2);
  else if (BoxName == FName(TEXT("MoonfallHandWeaponShield"))) Hero->SelectHandSetup(3);
+ else if (BoxName == FName(TEXT("MoonfallHandDualWeapons"))) Hero->SelectHandSetup(4);
+ else if (BoxName == FName(TEXT("MoonfallTalentBlade"))) Hero->SpendTalentPoint(0);
+ else if (BoxName == FName(TEXT("MoonfallTalentArcane"))) Hero->SpendTalentPoint(1);
+ else if (BoxName == FName(TEXT("MoonfallTalentTwin"))) Hero->SpendTalentPoint(2);
 }
 
 void AMoonfallCombatHUD::DrawHUD()
@@ -52,19 +56,20 @@ void AMoonfallCombatHUD::DrawHUD()
   const float Top = (Canvas->SizeY - PanelHeight) * 0.5f;
   DrawRect(FLinearColor(0.04f, 0.035f, 0.10f, 0.96f), Left, Top, PanelWidth, PanelHeight);
   DrawText(TEXT("MOONFALL  |  INVENTORY"), FLinearColor::White, Left + 18.f, Top + 16.f, nullptr, 1.3f);
-  // Four directly clickable configurations. No stance-toggle key; V is free.
+  // Five directly clickable configurations. No stance-toggle key.
   // Keep the buttons below equipment stats and above the first inventory row.
   if (!Hero->bCharacterStatsOpen) {
-   const TCHAR* Labels[4] = {TEXT("SPELL+SPELL"), TEXT("WEAPON+SPELL"),
-     TEXT("SPELL+SHIELD"), TEXT("WEAPON+SHIELD")};
-   const FName HitNames[4] = {FName(TEXT("MoonfallHandSpellSpell")),
+   const TCHAR* Labels[5] = {TEXT("SPELL+SPELL"), TEXT("WEAPON+SPELL"),
+     TEXT("SPELL+SHIELD"), TEXT("WEAPON+SHIELD"), TEXT("DUAL WEAPONS")};
+   const FName HitNames[5] = {FName(TEXT("MoonfallHandSpellSpell")),
      FName(TEXT("MoonfallHandWeaponSpell")), FName(TEXT("MoonfallHandSpellShield")),
-     FName(TEXT("MoonfallHandWeaponShield"))};
-   const int32 SelectedHand = Hero->bSpellShieldStance
-     ? (Hero->bWeaponSpellStance ? 3 : 2) : (Hero->bWeaponSpellStance ? 1 : 0);
+     FName(TEXT("MoonfallHandWeaponShield")), FName(TEXT("MoonfallHandDualWeapons"))};
+   const int32 SelectedHand = Hero->bDualWieldStance ? 4
+     : (Hero->bSpellShieldStance
+       ? (Hero->bWeaponSpellStance ? 3 : 2) : (Hero->bWeaponSpellStance ? 1 : 0));
    const float ButtonGap = 5.f;
-   const float ButtonWidth = (PanelWidth - 36.f - ButtonGap * 3.f) / 4.f;
-   for (int32 Choice = 0; Choice < 4; ++Choice) {
+   const float ButtonWidth = (PanelWidth - 36.f - ButtonGap * 4.f) / 5.f;
+   for (int32 Choice = 0; Choice < 5; ++Choice) {
     const float X = Left + 18.f + Choice * (ButtonWidth + ButtonGap);
     const float Y = Top + 132.f;
     DrawRect(Choice == SelectedHand ? FLinearColor(0.28f,0.42f,0.36f,0.96f)
@@ -73,6 +78,28 @@ void AMoonfallCombatHUD::DrawHUD()
       HitNames[Choice], true, 20);
     DrawText(Labels[Choice], FLinearColor::White, X + 4.f, Y + 8.f,
       nullptr, Canvas->SizeX < 900.f ? 0.50f : 0.65f);
+   }
+  }
+  // Clickable, readable talent picks; a point is earned at each new level.
+  // These ranks currently belong to the active session only.
+  if (!Hero->bCharacterStatsOpen) {
+   const TCHAR* TalentLabels[3] = {TEXT("BLADES"), TEXT("ARCANE"), TEXT("TWIN STRIKE")};
+   const FName TalentHitNames[3] = {FName(TEXT("MoonfallTalentBlade")),
+     FName(TEXT("MoonfallTalentArcane")), FName(TEXT("MoonfallTalentTwin"))};
+   const int32 Ranks[3] = {Hero->BladeTalentRank, Hero->ArcaneTalentRank,
+     Hero->TwinStrikeTalentRank};
+   DrawText(FString::Printf(TEXT("TALENTS  %d POINTS"), Hero->GetUnspentTalentPoints()),
+     FLinearColor(0.96f,0.80f,0.50f), Left + 18.f, Top + 97.f, nullptr, 0.69f);
+   const float TalentStartX = Left + FMath::Min(190.f, PanelWidth * 0.39f);
+   const float TalentWidth = (PanelWidth - (TalentStartX - Left) - 22.f) / 3.f;
+   for (int32 Talent = 0; Talent < 3; ++Talent) {
+    const float X = TalentStartX + Talent * TalentWidth;
+    const float Y = Top + 96.f;
+    DrawRect(FLinearColor(0.20f,0.20f,0.32f,0.96f), X, Y, TalentWidth - 4.f, 26.f);
+    AddHitBox(FVector2D(X, Y), FVector2D(TalentWidth - 4.f, 26.f),
+      TalentHitNames[Talent], true, 21);
+    DrawText(FString::Printf(TEXT("%s %d/5"), TalentLabels[Talent], Ranks[Talent]),
+      FLinearColor::White, X + 4.f, Y + 7.f, nullptr, Canvas->SizeX < 900.f ? 0.48f : 0.60f);
    }
   }
   // Clicking Keys in the inventory opens a readable list without changing pages.
