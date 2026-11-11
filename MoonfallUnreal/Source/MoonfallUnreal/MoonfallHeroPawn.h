@@ -256,6 +256,11 @@ public:
  void BeginWeaponSwing(bool bOffhand);
  void UpdateWeaponVisuals();
  void InitializeDualWieldVisuals();
+ // Observe rig/animation asset changes once per second, not each rendered frame.
+ TWeakObjectPtr<UObject> ObservedWeaponRigAsset;
+ TWeakObjectPtr<UAnimInstance> ObservedWeaponAnimInstance;
+ float NextDualWieldRigAuditAt = 0.f;
+ void AuditDualWieldRigChanges();
  float MainhandSwingStartedAt = -100.f;
  float OffhandSwingStartedAt = -100.f;
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Combat") void OnSpellCast(int32 School, bool bLeftHand);
