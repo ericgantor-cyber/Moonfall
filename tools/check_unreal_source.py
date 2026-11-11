@@ -378,7 +378,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             body = self.hero_cpp.split("void AMoonfallHeroPawn::" + fn, 1)[1].split("\n}", 1)[0]
             self.assertIn("CancelPendingMouseCombat();", body)
         self.assertIn("else if (Hand == 0) CastLeft();", self.hero_cpp)
-        self.assertIn('else CastBoth();', self.hero_cpp)
+        self.assertIn('else if (LeftSpell == RightSpell) CastBoth();', self.hero_cpp)
         self.assertIn('0.09f, false);', self.hero_cpp)
         self.assertIn('ActionName="DualCast",Key=Gamepad_LeftTrigger', inputs)
         self.assertNotIn('ActionName="DualCast",Key=C', inputs)
