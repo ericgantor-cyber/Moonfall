@@ -2254,7 +2254,10 @@ void AMoonfallHeroPawn::InteractWithNearbyWorld()
 
 void AMoonfallHeroPawn::PickupNearestGroundLoot()
 {
- if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bRewardSaveLoadFailed
+ // Public/Blueprint callers must respect the same toggle and safety locks
+ // as the timed automatic sweep. OFF never collects even through a direct call.
+ if (!bAutoLootEnabled || !FMath::IsFinite(Health) || Health <= 0.f
+     || bOptionsOpen || bInventoryOpen || bRewardSaveLoadFailed
      || !GetWorld() || InventoryItemCodes.Num() >= 4096) return;
  // Auto-loot processes every reachable item within 250 cm. Quest keys and
  // gates are deliberately excluded and retain their manual interactions.
