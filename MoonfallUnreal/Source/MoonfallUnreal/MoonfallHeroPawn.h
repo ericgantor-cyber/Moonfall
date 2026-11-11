@@ -35,6 +35,11 @@ public:
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Faction") TMap<FName, int32> FactionReputation;
  UFUNCTION(BlueprintPure, Category="Moonfall|Faction") int32 GetFactionReputation(FName Faction) const;
  UFUNCTION(BlueprintCallable, Category="Moonfall|Faction") bool ChangeFactionReputation(FName Faction, int32 Delta);
+ // One save-slot relationship per authored resident ID, never per spawned actor instance.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC|Bond") TMap<FName, int32> ResidentBonds;
+ UFUNCTION(BlueprintPure, Category="Moonfall|NPC|Bond") int32 GetResidentBond(FName ResidentId) const;
+ UFUNCTION(BlueprintCallable, Category="Moonfall|NPC|Bond") bool ChangeResidentBond(FName ResidentId, int32 Delta);
+
 
  UFUNCTION(BlueprintCallable, Category="Moonfall|Race") bool ActivateRacePower();
  void TriggerRacePower() { ActivateRacePower(); }
