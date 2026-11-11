@@ -88,7 +88,9 @@ class TestSocialWorld(unittest.TestCase):
   self.assertIn("bResidentContextOpen = false;",self.hero)
   self.assertIn("PC->bShowMouseCursor = bResidentCursorWasVisible;",self.hero)
   self.assertIn("if (bResidentContextOpen &&",self.hero)
-  self.assertIn("!FocusedResident.IsValid() || !FocusedResident->CanHeroInteract(this)",self.hero)
+  self.assertIn("const AMoonfallWorldNPC* Resident = FocusedResident.Get();",self.hero)
+  self.assertIn("if (!IsValid(Resident) || Health <= 0.f || bOptionsOpen || bInventoryOpen ||",self.hero)
+  self.assertIn("FVector::DistSquared(GetActorLocation(), Resident->GetActorLocation()) > FMath::Square(400.f)",self.hero)
   self.assertIn("!bResidentContextOpen && FMath::IsFinite(Value)",self.hero)
   self.assertIn("bResidentContextOpen || !GetWorld() || School < 0",self.hero)
  def test_no_n_v_quest_bindings(self):
