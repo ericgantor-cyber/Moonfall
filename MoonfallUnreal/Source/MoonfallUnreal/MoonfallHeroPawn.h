@@ -43,6 +43,11 @@ public:
  UFUNCTION(BlueprintCallable, Category="Moonfall|NPC|Quest") void InteractWithNearestResidentQuest();
  UFUNCTION(BlueprintPure, Category="Moonfall|NPC") AMoonfallWorldNPC* GetNearestResidentNPC() const;
  UPROPERTY(Transient) TWeakObjectPtr<AMoonfallWorldNPC> FocusedResident;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC") int32 ResidentContextSelection = 0;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC") FString ResidentFeedbackMessage;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC") float ResidentFeedbackUntil = 0.f;
+ // Mouse click is context-sensitive: inventory/menus first, otherwise combat.
+ void ResidentContextMouseClick();
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|NPC|Quest") void OnResidentQuestFeedback(FText Message, bool bSuccess);
 
  // Reputation is a permanent value for recognized world factions.
