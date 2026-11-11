@@ -80,8 +80,17 @@ class TestSocialWorld(unittest.TestCase):
   self.assertIn("ResidentContextSelection = Row;",self.hero)
   self.assertIn("ChooseResidentContextAction(Row)",self.hero)
   self.assertIn("ChooseResidentContextAction(ResidentContextSelection)",self.hero)
-  self.assertIn("FocusedResident.IsValid() || !GetWorld() || School < 0",self.hero)
+  self.assertIn("bResidentContextOpen || !GetWorld() || School < 0",self.hero)
   self.assertIn('ActionName="ResidentMouseClick",Key=LeftMouseButton',self.input)
+ def test_modal_cleanup_after_npc_streamout(self):
+  self.assertIn("bool bResidentContextOpen = false",self.hero_h)
+  self.assertIn("if (!bResidentContextOpen && !FocusedResident.IsValid()) return;",self.hero)
+  self.assertIn("bResidentContextOpen = false;",self.hero)
+  self.assertIn("PC->bShowMouseCursor = bResidentCursorWasVisible;",self.hero)
+  self.assertIn("if (bResidentContextOpen &&",self.hero)
+  self.assertIn("!FocusedResident.IsValid() || !FocusedResident->CanHeroInteract(this)",self.hero)
+  self.assertIn("!bResidentContextOpen && FMath::IsFinite(Value)",self.hero)
+  self.assertIn("bResidentContextOpen || !GetWorld() || School < 0",self.hero)
  def test_no_n_v_quest_bindings(self):
   self.assertNotIn('ActionName="TalkNPC"',self.input)
   self.assertNotIn('ActionName="ResidentQuest"',self.input)
