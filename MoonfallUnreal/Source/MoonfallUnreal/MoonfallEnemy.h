@@ -19,6 +19,10 @@ public:
  UPROPERTY(EditAnywhere, Category="Combat") float AttackCooldown = 1.3f;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat") bool bElite = false;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat") bool bBoss = false;
+ // Assign a catalog race in enemy/elite/boss Blueprints. None preserves
+ // existing combat balance and legacy spawns.
+ UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Races") FName RaceId = NAME_None;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Races") FName ResolvedRaceFamily = NAME_None;
  // Divine world bosses are NPC encounters, never playable hero identities.
  // The exact source artwork is intentionally not recreated or modified here.
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Boss|Divine") FName DivineBossId = NAME_None;
