@@ -908,6 +908,7 @@ void AMoonfallHeroPawn::CancelPendingMouseCombat()
  GetWorldTimerManager().ClearTimer(MouseCastTimer);
  PendingMouseHand = -1;
  bMouseLeftHeld = false;
+ bMouseLeftWorldInteraction = false;
  bMouseRightHeld = false;
  bMouseChordConsumed = false;
 }
@@ -933,7 +934,7 @@ void AMoonfallHeroPawn::QueueMouseCast(int32 Hand)
   else BeginGuard();
   return;
  }
- if (bMouseLeftHeld && bMouseRightHeld)
+ if (bMouseLeftHeld && bMouseRightHeld && !bMouseLeftWorldInteraction)
  {
   // Only join presses during the 90ms grace window. An already committed
   // single-hand spell must not be followed by a free extra Dual Cast.
@@ -972,7 +973,8 @@ void AMoonfallHeroPawn::MouseLeftPressed()
  bMouseLeftHeld = true;
  // Aimed interactables take the click. Ordinary left-click combat remains
  // unchanged whenever no supported key or gate is under the aim ray.
- if (TryInteractWithAimedWorld()) return;
+ bMouseLeftWorldInteraction = TryInteractWithAimedWorld();
+ if (bMouseLeftWorldInteraction) return;
  QueueMouseCast(0);
 }
 void AMoonfallHeroPawn::MouseRightPressed()
@@ -991,6 +993,7 @@ void AMoonfallHeroPawn::MouseLeftReleased()
   CommitPendingMouseCast();
  }
  bMouseLeftHeld = false;
+ bMouseLeftWorldInteraction = false;
  if (!bMouseRightHeld) bMouseChordConsumed = false;
 }
 void AMoonfallHeroPawn::MouseRightReleased()
