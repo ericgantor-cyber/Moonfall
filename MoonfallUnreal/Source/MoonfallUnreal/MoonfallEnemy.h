@@ -3,6 +3,8 @@
 #include "GameFramework/Actor.h"
 #include "MoonfallEnemy.generated.h"
 class UStaticMeshComponent;
+class USkeletalMeshComponent;
+class UAnimMontage;
 UCLASS()
 class MOONFALLUNREAL_API AMoonfallEnemy : public AActor
 {
@@ -123,6 +125,20 @@ private:
  float CurrentAttackRangeMultiplier = 1.f;
 public:
  UPROPERTY(VisibleAnywhere) UStaticMeshComponent* Body;
+ // Shared optional skeletal rig used by normal enemies, elites and bosses.
+ // The original sphere Body stays the physics/navigation root and the
+ // fallback visual; assigning a skeletal mesh never alters imported art.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Rig") TObjectPtr<USkeletalMeshComponent> CharacterRig;
+ UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|Rig") TObjectPtr<UAnimMontage> AttackRigMontage;
+ UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|Rig") TObjectPtr<UAnimMontage> DeathRigMontage;
+ UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|Rig") TObjectPtr<UAnimMontage> HitRigMontage;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Rig") bool bCharacterRigActive = false;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Rig") bool bLastRigMontagePlayed = false;
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Rig") void RefreshCharacterRig();
+ UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Rig") void OnCharacterRigCue(FName CueId, bool bMontagePlayed);
+private:
+ void PlayCharacterRigCue(FName CueId, UAnimMontage* Montage);
+public:
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Combat") float LastHitAmount = 0.f;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Combat") float LastHitTime = -10.f;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Combat") bool bLastHitWasShatter = false;
