@@ -1202,17 +1202,24 @@ void AMoonfallHeroPawn::InitializeDualWieldVisuals()
   if (!IsValid(Weapon)) return false;
   if (IsValid(BodyMesh) && !Socket.IsNone())
   {
-   Weapon->AttachToComponent(BodyMesh,
-     FAttachmentTransformRules::SnapToTargetNotIncludingScale, Socket);
-   const bool bValidOffset = FMath::IsFinite(AuthoredOffset.X)
-      && FMath::IsFinite(AuthoredOffset.Y) && FMath::IsFinite(AuthoredOffset.Z)
-      && AuthoredOffset.GetAbsMax() <= 100.f;
-   Weapon->SetRelativeLocation(bValidOffset ? AuthoredOffset : FVector::ZeroVector);
-   return true;
+   if (Weapon->AttachToComponent(BodyMesh,
+       FAttachmentTransformRules::SnapToTargetNotIncludingScale, Socket))
+   {
+    const bool bValidOffset = FMath::IsFinite(AuthoredOffset.X)
+       && FMath::IsFinite(AuthoredOffset.Y) && FMath::IsFinite(AuthoredOffset.Z)
+       && AuthoredOffset.GetAbsMax() <= 100.f;
+    Weapon->SetRelativeLocation(bValidOffset ? AuthoredOffset : FVector::ZeroVector);
+    return true;
+   }
   }
   if (USceneComponent* Root = GetRootComponent())
-   Weapon->AttachToComponent(Root, FAttachmentTransformRules::KeepRelativeTransform);
-  Weapon->SetRelativeLocation(FallbackOffset);
+  {
+   // Root fallback must reset the relative transform when changing parents.
+   // KeepRelativeTransform would retain a socket-space rotation/scale.
+   Weapon->AttachToComponent(Root,
+     FAttachmentTransformRules::SnapToTargetNotIncludingScale);
+   Weapon->SetRelativeLocation(FallbackOffset);
+  }
   return false;
  };
  bMainhandRigAttached = AttachWeapon(MainhandVisual.Get(), RightSocket,
@@ -1230,6 +1237,7 @@ void AMoonfallHeroPawn::InitializeDualWieldVisuals()
  bOffhandMontagePlayed = false;
  bMainhandSwingAttempted = false;
  bOffhandSwingAttempted = false;
+ ObservedWeaponRigComponent = IsValid(BodyMesh) ? BodyMesh : nullptr;
  ObservedWeaponRigAsset = IsValid(BodyMesh) ? BodyMesh->GetSkeletalMeshAsset() : nullptr;
  ObservedWeaponAnimInstance = ActiveAnim;
  // Visual-only equipment must never interfere with combat visibility traces.
@@ -1250,7 +1258,8 @@ void AMoonfallHeroPawn::AuditDualWieldRigChanges()
  UAnimInstance* CurrentAnim = IsValid(BodyMesh) ? BodyMesh->GetAnimInstance() : nullptr;
  // Mesh changes invalidate hand sockets; animation-instance replacements
  // invalidate montage readiness. Re-evaluate only after either changes.
- if (CurrentRig != ObservedWeaponRigAsset.Get()
+ if (BodyMesh != ObservedWeaponRigComponent.Get()
+     || CurrentRig != ObservedWeaponRigAsset.Get()
      || CurrentAnim != ObservedWeaponAnimInstance.Get())
   InitializeDualWieldVisuals();
 }
