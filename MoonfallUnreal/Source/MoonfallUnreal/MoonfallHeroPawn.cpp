@@ -1538,6 +1538,7 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
  Save->CheckpointLocation = GetActorLocation();
  Save->RaceId = FMath::Clamp(RaceId, 0, 11);
  Save->FactionReputation = FactionReputation;
+ Save->ResidentBonds = ResidentBonds;
  Save->bRaceChosen = bRaceChosen;
  const float Cooldown = GetRacePowerCooldownRemaining();
  Save->RacePowerReadyUtc = Cooldown > 0.f
@@ -1559,7 +1560,24 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  if (!UGameplayStatics::DoesSaveGameExist(MoonfallWorldSlot, 0)) return false;
  const UMoonfallPersistentSave* Save = Cast<UMoonfallPersistentSave>(
      UGameplayStatics::LoadGameFromSlot(MoonfallWorldSlot, 0));
- if (!Save || Save->Version < 1 || Save->Version > 4) return false;
+ if (!Save || Save->Version < 1 || Save->Version > 5) return false;
+ // Old saves begin with no personal bonds. Only named settlement residents are restored.
+ ResidentBonds.Reset();
+ if (Save->Version >= 5) {
+  static const FName ValidIds[] = {
+   FName(TEXT("CrossroadsGuide")), FName(TEXT("Alden")),
+   FName(TEXT("Starweaver")), FName(TEXT("Leafwhisper")),
+   FName(TEXT("Anvilkeeper")), FName(TEXT("PipHearthfoot")),
+   FName(TEXT("EmberScout")), FName(TEXT("Geargrin")),
+   FName(TEXT("Mossfang")), FName(TEXT("Birchroot")),
+   FName(TEXT("Duskveil")), FName(TEXT("Silverwatch")),
+   FName(TEXT("Ashscale"))
+  };
+  for (FName Key : ValidIds) {
+   if (const int32* Value = Save->ResidentBonds.Find(Key))
+    ResidentBonds.Add(Key, FMath::Clamp(*Value, -100, 100));
+  }
+ }
  // Do not trust malformed faction records or unknown save keys.
  FactionReputation.Reset();
  if (Save->Version >= 4) {
@@ -1828,6 +1846,44 @@ bool AMoonfallHeroPawn::ChangeFactionReputation(FName Faction, int32 Delta) {
  if (!SaveWorldProgress()) {
   if (OldValue == 0) FactionReputation.Remove(Faction);
   else FactionReputation.Add(Faction, OldValue);
+  return false;
+ }
+ return true;
+}
+
+namespace {
+bool IsNamedMoonfallResident(FName Id) {
+ static const FName ResidentIds[] = {
+  FName(TEXT("CrossroadsGuide")), FName(TEXT("Alden")),
+  FName(TEXT("Starweaver")), FName(TEXT("Leafwhisper")),
+  FName(TEXT("Anvilkeeper")), FName(TEXT("PipHearthfoot")),
+  FName(TEXT("EmberScout")), FName(TEXT("Geargrin")),
+  FName(TEXT("Mossfang")), FName(TEXT("Birchroot")),
+  FName(TEXT("Duskveil")), FName(TEXT("Silverwatch")),
+  FName(TEXT("Ashscale"))
+ };
+ for (const FName Candidate : ResidentIds) if (Id == Candidate) return true;
+ return false;
+}
+}
+int32 AMoonfallHeroPawn::GetResidentBond(FName ResidentId) const {
+ if (!IsNamedMoonfallResident(ResidentId)) return 0;
+ if (const int32* Value = ResidentBonds.Find(ResidentId))
+  return FMath::Clamp(*Value, -100, 100);
+ return 0;
+}
+bool AMoonfallHeroPawn::ChangeResidentBond(FName ResidentId, int32 Delta) {
+ if (!IsNamedMoonfallResident(ResidentId) || Delta == 0 || Health <= 0.f) return false;
+ const int32 Previous = GetResidentBond(ResidentId);
+ const int32 Next = static_cast<int32>(FMath::Clamp(
+     static_cast<int64>(Previous) + static_cast<int64>(Delta),
+     static_cast<int64>(-100), static_cast<int64>(100)));
+ if (Next == Previous) return false;
+ ResidentBonds.Add(ResidentId, Next);
+ // Failed disk writes must not grant a relationship or destroy the old one.
+ if (!SaveWorldProgress()) {
+  if (Previous == 0) ResidentBonds.Remove(ResidentId);
+  else ResidentBonds.Add(ResidentId, Previous);
   return false;
  }
  return true;
