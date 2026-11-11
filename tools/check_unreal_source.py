@@ -335,7 +335,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("if (Hand == 0 && bWeaponSpellStance) StrikeWithWeapon();", self.hero_cpp)
         self.assertIn("bWeaponSpellStance = (Setup == 1 || Setup == 3);", self.hero_cpp)
         self.assertIn("bSpellShieldStance = (Setup == 2 || Setup == 3);", self.hero_cpp)
-        self.assertIn("else { bWeaponSpellStance = false; bSpellShieldStance = false; }", self.hero_cpp)
+        self.assertIn("SelectHandSetup((CurrentSetup + 1) % 4);", self.hero_cpp)
         self.assertIn("if (bSpellShieldStance) EndGuard();", self.hero_cpp)
         for key in ("MoonfallHandSpellSpell", "MoonfallHandWeaponSpell", "MoonfallHandSpellShield", "MoonfallHandWeaponShield"):
             self.assertIn('FName(TEXT("' + key + '"))', self.hud)
@@ -374,7 +374,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("PendingMouseHand >= 0 && GetWorldTimerManager().IsTimerActive(MouseCastTimer)", self.hero_cpp)
         self.assertIn("if (PendingMouseHand == 0 && GetWorldTimerManager().IsTimerActive(MouseCastTimer))", self.hero_cpp)
         self.assertIn("if (PendingMouseHand == 1 && GetWorldTimerManager().IsTimerActive(MouseCastTimer))", self.hero_cpp)
-        self.assertIn("GetWorldTimerManager().ClearTimer(MouseCastTimer);\\n  CommitPendingMouseCast();", self.hero_cpp)
+        self.assertIn("GetWorldTimerManager().ClearTimer(MouseCastTimer);\\n  CommitPendingMouseCast();".replace("\\n", "\n"), self.hero_cpp)
         self.assertIn("else if (LeftSpell == RightSpell) CastBoth();", self.hero_cpp)
         self.assertIn("CastLeft();\n    CastRight();", self.hero_cpp)
         self.assertIn("void AMoonfallHeroPawn::CancelPendingMouseCombat()", self.hero_cpp)
