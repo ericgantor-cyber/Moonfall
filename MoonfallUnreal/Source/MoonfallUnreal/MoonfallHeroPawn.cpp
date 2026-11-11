@@ -708,6 +708,7 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("MouseCastRight"), IE_Pressed, this, &AMoonfallHeroPawn::MouseRightPressed);
  Input->BindAction(TEXT("MouseCastRight"), IE_Released, this, &AMoonfallHeroPawn::MouseRightReleased);
  Input->BindAction(TEXT("DualCast"), IE_Pressed, this, &AMoonfallHeroPawn::CastBoth);
+ Input->BindAction(TEXT("ToggleWeaponSpell"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleWeaponSpell);
  Input->BindAction(TEXT("Dodge"), IE_Pressed, this, &AMoonfallHeroPawn::Dodge);
  Input->BindAction(TEXT("Sprint"), IE_Pressed, this, &AMoonfallHeroPawn::BeginSprint);
  Input->BindAction(TEXT("Sprint"), IE_Released, this, &AMoonfallHeroPawn::EndSprint);
@@ -908,7 +909,8 @@ void AMoonfallHeroPawn::CommitPendingMouseCast()
  const int32 Hand = PendingMouseHand;
  PendingMouseHand = -1;
  if (bOptionsOpen || bInventoryOpen || !FMath::IsFinite(Health) || Health <= 0.f) return;
- if (Hand == 0) CastLeft();
+ if (Hand == 0 && bWeaponSpellStance) StrikeWithWeapon();
+ else if (Hand == 0) CastLeft();
  else if (Hand == 1) CastRight();
 }
 void AMoonfallHeroPawn::QueueMouseCast(int32 Hand)
@@ -924,8 +926,15 @@ void AMoonfallHeroPawn::QueueMouseCast(int32 Hand)
    GetWorldTimerManager().ClearTimer(MouseCastTimer);
    PendingMouseHand = -1;
    bMouseChordConsumed = true;
-   CastBoth();
+   if (bWeaponSpellStance)
+   {
+    // A mixed-hand chord is two normal actions, not an overcharged spell.
+    StrikeWithWeapon();
+    CastRight();
+   }
+   else CastBoth();
   }
+  else if (Hand == 0 && bWeaponSpellStance) StrikeWithWeapon();
   else if (Hand == 0) CastLeft();
   else CastRight();
   return;
@@ -955,6 +964,44 @@ void AMoonfallHeroPawn::MouseRightReleased()
 {
  bMouseRightHeld = false;
  if (!bMouseLeftHeld) bMouseChordConsumed = false;
+}
+void AMoonfallHeroPawn::ToggleWeaponSpell()
+{
+ if (bOptionsOpen || bInventoryOpen || !FMath::IsFinite(Health) || Health <= 0.f) return;
+ // Cancel pending mouse input so switching stance never releases a stale cast.
+ GetWorldTimerManager().ClearTimer(MouseCastTimer);
+ PendingMouseHand = -1;
+ bWeaponSpellStance = !bWeaponSpellStance;
+}
+void AMoonfallHeroPawn::StrikeWithWeapon()
+{
+ if (!bWeaponSpellStance || EquippedWeaponCode <= 0 || !GetWorld() || !IsValid(FollowCamera)
+     || bOptionsOpen || bInventoryOpen || !FMath::IsFinite(Health) || Health <= 0.f) return;
+ const float Now = GetWorld()->GetTimeSeconds();
+ if (!FMath::IsFinite(Now) || Now < NextWeaponStrikeAt) return;
+ // A short melee reach and independent cooldown keep weapons distinct from spells.
+ const FVector Start = FollowCamera->GetComponentLocation();
+ const FVector End = Start + FollowCamera->GetForwardVector() * 230.f;
+ FCollisionQueryParams Params(SCENE_QUERY_STAT(MoonfallHybridWeapon), false, this);
+ FHitResult Hit;
+ if (!GetWorld()->LineTraceSingleByChannel(Hit, Start, End, ECC_Visibility, Params))
+ {
+  NextWeaponStrikeAt = Now + 0.45f;
+  OnWeaponStrike(0.f, false);
+  return;
+ }
+ AMoonfallEnemy* Enemy = Cast<AMoonfallEnemy>(Hit.GetActor());
+ if (!IsValid(Enemy) || !FMath::IsFinite(Enemy->Health) || Enemy->Health <= 0.f)
+ {
+  NextWeaponStrikeAt = Now + 0.45f;
+  OnWeaponStrike(0.f, false);
+  return;
+ }
+ const float Damage = 12.f + 2.f * FMath::Clamp(WeaponTier, 0, 25);
+ const float PreviousHealth = Enemy->Health;
+ Enemy->TakeSpellDamage(Damage);
+ NextWeaponStrikeAt = Now + 0.45f;
+ OnWeaponStrike(FMath::Max(0.f, PreviousHealth - Enemy->Health), true);
 }
 void AMoonfallHeroPawn::CastLeft() { if (bOptionsOpen) return; TryCast(LeftSpell, 0, 1.f); }
 void AMoonfallHeroPawn::CastRight() { if (bOptionsOpen) return; TryCast(RightSpell, 1, 1.f); }
