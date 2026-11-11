@@ -121,6 +121,7 @@ AMoonfallHeroPawn::AMoonfallHeroPawn()
  FinisherSlashB = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("FinisherSlashB"));
  FinisherSlashB->SetupAttachment(GetRootComponent());
  static ConstructorHelpers::FObjectFinder<UStaticMesh> SlashMesh(TEXT("/Engine/BasicShapes/Cube.Cube"));
+ DefaultWeaponProxyMesh = SlashMesh.Succeeded() ? SlashMesh.Object : nullptr;
  for (UStaticMeshComponent* Slash : {FinisherSlashA, FinisherSlashB}) {
   if (SlashMesh.Succeeded()) Slash->SetStaticMesh(SlashMesh.Object);
   Slash->SetCollisionEnabled(ECollisionEnabled::NoCollision);
@@ -1159,14 +1160,22 @@ void AMoonfallHeroPawn::InitializeDualWieldVisuals()
   MainhandVisual->SetRelativeScale3D(
     ValidWeaponScale(MainhandMeshScale) ? MainhandMeshScale : FVector::OneVector);
  }
- else MainhandVisual->SetRelativeScale3D(ProxyScale);
+ else
+ {
+  MainhandVisual->SetStaticMesh(DefaultWeaponProxyMesh.Get());
+  MainhandVisual->SetRelativeScale3D(ProxyScale);
+ }
  if (IsValid(OffhandMeshAsset))
  {
   OffhandVisual->SetStaticMesh(OffhandMeshAsset.Get());
   OffhandVisual->SetRelativeScale3D(
     ValidWeaponScale(OffhandMeshScale) ? OffhandMeshScale : FVector::OneVector);
  }
- else OffhandVisual->SetRelativeScale3D(ProxyScale);
+ else
+ {
+  OffhandVisual->SetStaticMesh(DefaultWeaponProxyMesh.Get());
+  OffhandVisual->SetRelativeScale3D(ProxyScale);
+ }
  USkeletalMeshComponent* BodyMesh = GetMesh();
  // Different skeletons may use different names; never modify the source rig.
  // Only test candidate sockets when explicitly refreshing or at BeginPlay.
