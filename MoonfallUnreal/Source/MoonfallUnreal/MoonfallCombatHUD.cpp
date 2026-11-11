@@ -1,6 +1,7 @@
 #include "MoonfallCombatHUD.h"
 #include "MoonfallHeroPawn.h"
 #include "MoonfallEnemy.h"
+#include "MoonfallWorldNPC.h"
 #include "EngineUtils.h"
 #include "Engine/World.h"
 #include "Kismet/GameplayStatics.h"
@@ -13,6 +14,42 @@ void AMoonfallCombatHUD::DrawHUD()
  if (!Canvas) return;
  const AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this,0));
  if (!IsValid(Hero)) return;
+ // Native Canvas resident menu. Matching click bounds are in HeroPawn.
+ if (const AMoonfallWorldNPC* Resident = Hero->FocusedResident.Get()) {
+  if (Hero->Health > 0.f && Resident->CanHeroInteract(Hero)) {
+   const float W = FMath::Min(490.f, FMath::Max(260.f, Canvas->SizeX - 24.f));
+   const float H = FMath::Min(345.f, FMath::Max(270.f, Canvas->SizeY - 24.f));
+   const float L = (Canvas->SizeX - W) * 0.5f, T = (Canvas->SizeY - H) * 0.5f;
+   DrawRect(FLinearColor(0.025f, 0.028f, 0.07f, 0.96f), L, T, W, H);
+   DrawRect(FLinearColor(0.42f, 0.28f, 0.68f, 0.90f), L, T, W, 5.f);
+   DrawText(Resident->DisplayName.ToString(), FLinearColor::White,
+     L + 18.f, T + 16.f, nullptr, Canvas->SizeX < 900.f ? 0.95f : 1.25f);
+   DrawText(FString::Printf(TEXT("%s  |  %s  |  Trust %d"),
+     *Resident->GetRaceName(), *Resident->GetSocialDisposition(Hero),
+     Resident->GetBondWithHero(Hero)), FLinearColor(0.70f,0.83f,0.98f),
+     L + 18.f, T + 53.f, nullptr, 0.90f);
+   const int32 Quest = Hero->GetResidentQuestState(Resident->ResidentId);
+   const FString QuestAction = Quest == 0 ? TEXT("Accept contract")
+     : Quest == 1 ? TEXT("Turn in salvage") : TEXT("Completed");
+   const FString Names[3] = { TEXT("Talk"), QuestAction, TEXT("Close") };
+   for (int32 Row = 0; Row < 3; ++Row) {
+    const float Y = T + 122.f + Row * 53.f;
+    DrawRect(Row == Hero->ResidentContextSelection
+        ? FLinearColor(0.24f,0.22f,0.43f,0.98f)
+        : FLinearColor(0.10f,0.10f,0.18f,0.94f), L + 14.f, Y, W - 28.f, 43.f);
+    DrawText(Names[Row], Row == 1 && Quest == 2
+        ? FLinearColor(0.64f,0.66f,0.72f) : FLinearColor::White,
+        L + 25.f, Y + 10.f, nullptr, 1.f);
+   }
+   DrawText(FString::Printf(TEXT("Salvage: %d / %d"),
+       Hero->Salvage, Resident->GetContractSalvageCost()),
+       FLinearColor(0.76f,0.87f,0.68f), L + 18.f, T + H - 58.f, nullptr, 0.86f);
+   DrawText(TEXT("Click choice  |  D-pad up/down + A  |  Esc / RMB: close"),
+       FLinearColor(0.80f,0.79f,0.92f), L + 18.f, T + H - 31.f, nullptr,
+       Canvas->SizeX < 850.f ? 0.65f : 0.78f);
+   return;
+  }
+ }
  if (Hero->bOptionsOpen) {
   const float MenuWidth = FMath::Min(560.f, FMath::Max(240.f, Canvas->SizeX - 24.f));
   const float MenuHeight = FMath::Min(550.f, FMath::Max(280.f, Canvas->SizeY - 24.f));
