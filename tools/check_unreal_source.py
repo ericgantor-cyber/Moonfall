@@ -352,6 +352,23 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("MainhandVisual->SetStaticMesh(MainhandMeshAsset.Get());", setup)
         self.assertIn("OffhandVisual->SetStaticMesh(OffhandMeshAsset.Get());", setup)
 
+    def test_dual_wield_rig_diagnostics_and_montage_playback_safety(self):
+        for item in ("ResolvedMainhandSocket", "ResolvedOffhandSocket",
+                     "bMainhandMontageReady", "bOffhandMontageReady"):
+            self.assertIn(item, self.hero_h)
+        init = self.hero_cpp.split("void AMoonfallHeroPawn::InitializeDualWieldVisuals()", 1)[1].split(
+            "void AMoonfallHeroPawn::RefreshDualWieldRig()", 1)[0]
+        self.assertIn("ResolvedMainhandSocket = bMainhandRigAttached ? RightSocket : NAME_None;", init)
+        self.assertIn("ResolvedOffhandSocket = bOffhandRigAttached ? LeftSocket : NAME_None;", init)
+        self.assertIn("bMainhandMontageReady = IsValid(ActiveAnim) && IsValid(MainhandSwingMontage);", init)
+        self.assertIn("bOffhandMontageReady = IsValid(ActiveAnim) && IsValid(OffhandSwingMontage);", init)
+        swing = self.hero_cpp.split("void AMoonfallHeroPawn::BeginWeaponSwing(", 1)[1].split(
+            "void AMoonfallHeroPawn::UpdateWeaponVisuals()", 1)[0]
+        self.assertIn("const float Played = Anim->Montage_Play(Montage, 1.f);", swing)
+        self.assertIn("bOffhandMontageReady = Played > 0.f;", swing)
+        self.assertIn("bMainhandMontageReady = Played > 0.f;", swing)
+        self.assertIn("OnDualWieldSwing(bOffhand);", swing)
+
     def test_multiple_rig_socket_names_and_rebinding_are_safe(self):
         for key in ("bAllowHandSocketFallbacks", "bMainhandRigAttached",
                     "bOffhandRigAttached", "RefreshDualWieldRig()"):
@@ -438,7 +455,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("bReduceMotion", visual)
         self.assertIn("MainhandVisual->SetRelativeRotation", visual)
         self.assertIn("OffhandVisual->SetRelativeRotation", visual)
-        self.assertIn("if (IsValid(Montage)) Anim->Montage_Play(Montage, 1.f);", self.hero_cpp)
+        self.assertIn("const float Played = Anim->Montage_Play(Montage, 1.f);", self.hero_cpp)
         self.assertIn("BeginWeaponSwing(true);", self.hero_cpp)
         self.assertIn("BeginWeaponSwing(false);", self.hero_cpp)
         self.assertIn("Weapon->SetCollisionEnabled(ECollisionEnabled::NoCollision);", self.hero_cpp)
