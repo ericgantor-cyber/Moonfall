@@ -163,7 +163,8 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
  if (Health > 0.f) {
   DefeatElapsedSeconds = 0.f;
   SecondsSinceLastWorldSave += FMath::Clamp(DeltaSeconds, 0.f, 0.25f);
-  if (SecondsSinceLastWorldSave >= 2.f) {
+  if (SecondsSinceLastWorldSave >= 2.f && GetWorld()
+      && GetWorld()->GetTimeSeconds() >= NextSafeCheckpointAt) {
    if (SaveWorldProgress()) SecondsSinceLastWorldSave = 0.f;
   }
  } else {
@@ -1526,6 +1527,9 @@ bool ValidMoonfallItemCode(int32 Code) {
 }
 bool AMoonfallHeroPawn::SaveWorldProgress() {
  if (Health <= 0.f || !GetWorld() || !FMath::IsFinite(MaxHealth)) return false;
+ // Do not serialize a mid-fall or invalid checkpoint.
+ if ((GetCharacterMovement() && GetCharacterMovement()->IsFalling())
+     || GetActorLocation().ContainsNaN() || GetActorLocation().SizeSquared() >= 1.0e14f) return false;
  UMoonfallPersistentSave* Save = Cast<UMoonfallPersistentSave>(
      UGameplayStatics::CreateSaveGameObject(UMoonfallPersistentSave::StaticClass()));
  if (!Save) return false;
@@ -1608,6 +1612,12 @@ void AMoonfallHeroPawn::RespawnAtCheckpoint() {
   OnHealthChanged(Health, MaxHealth);
  }
  if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
+ if (GetWorld()) {
+  const float Now = GetWorld()->GetTimeSeconds();
+  DamageImmunityUntil = FMath::Max(DamageImmunityUntil, Now + 3.f);
+  NextSafeCheckpointAt = Now + 5.f;
+  SecondsSinceLastWorldSave = 0.f;
+ }
 }
 
 // One unified roster. Every ancestry shares the same world, quests and progression.
