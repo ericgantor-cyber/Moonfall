@@ -370,7 +370,7 @@ void AMoonfallHeroPawn::TryJump()
 }
 void AMoonfallHeroPawn::MoveForward(float Value)
 {
- if (Health <= 0.f || bOptionsOpen || bInventoryOpen || !FMath::IsFinite(Value)) return;
+ if (Health <= 0.f || bOptionsOpen || bInventoryOpen || FocusedResident.IsValid() || !FMath::IsFinite(Value)) return;
  if (Controller && !FMath::IsNearlyZero(Value))
  {
   const FRotator Yaw(0.f, Controller->GetControlRotation().Yaw, 0.f);
@@ -379,7 +379,7 @@ void AMoonfallHeroPawn::MoveForward(float Value)
 }
 void AMoonfallHeroPawn::MoveRight(float Value)
 {
- if (Health <= 0.f || bOptionsOpen || bInventoryOpen || !FMath::IsFinite(Value)) return;
+ if (Health <= 0.f || bOptionsOpen || bInventoryOpen || FocusedResident.IsValid() || !FMath::IsFinite(Value)) return;
  if (Controller && !FMath::IsNearlyZero(Value))
  {
   const FRotator Yaw(0.f, Controller->GetControlRotation().Yaw, 0.f);
@@ -392,7 +392,7 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
 {
  static const float Costs[6] = {16.f,13.f,22.f,25.f,18.f,14.f};
  static const float Cooldowns[6] = {0.8f,0.65f,1.2f,2.f,1.f,0.9f};
- if (Health <= 0.f || bOptionsOpen || bInventoryOpen || !GetWorld() || School < 0 || School >= 6 || Hand < 0 || Hand > 1 || !FMath::IsFinite(Multiplier) || Multiplier <= 0.f || Multiplier > 2.f) return false;
+ if (Health <= 0.f || bOptionsOpen || bInventoryOpen || FocusedResident.IsValid() || !GetWorld() || School < 0 || School >= 6 || Hand < 0 || Hand > 1 || !FMath::IsFinite(Multiplier) || Multiplier <= 0.f || Multiplier > 2.f) return false;
  const float Time = GetWorld()->GetTimeSeconds();
  if (!FMath::IsFinite(Health) || !FMath::IsFinite(MaxHealth) || MaxHealth <= 0.f || Health > MaxHealth || !FMath::IsFinite(MaxMana) || MaxMana <= 0.f || !FMath::IsFinite(Mana) || !FMath::IsFinite(SpellPowerMultiplier) || SpellPowerMultiplier <= 0.f || Mana < Costs[School] * Multiplier || Time - LastCastTime[Hand] < Cooldowns[School] / (1.f + GetHasteBonus())) return false;
  if (School == 3 && Health >= MaxHealth) return false;
@@ -606,7 +606,7 @@ void AMoonfallHeroPawn::EndSprint() {
 
 void AMoonfallHeroPawn::Dodge()
 {
- if (bOptionsOpen || bInventoryOpen || Health <= 0.f || !GetWorld()) return;
+ if (bOptionsOpen || bInventoryOpen || FocusedResident.IsValid() || Health <= 0.f || !GetWorld()) return;
  const float Now = GetWorld()->GetTimeSeconds();
  // Nonfinite cooldown timestamps must not allow repeated dodges or immunity.
  if (!FMath::IsFinite(Now) || !FMath::IsFinite(NextDodgeAt)
@@ -770,6 +770,7 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
   LastSuccessfulHitAt = -100.f;
  }
  if (Health <= 0.f) {
+  CloseResidentContext();
   // Prevent lingering movement/jump input from carrying through defeat.
   StopJumping();
   if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
@@ -1850,6 +1851,8 @@ AMoonfallWorldNPC* AMoonfallHeroPawn::GetNearestResidentNPC() const {
 void AMoonfallHeroPawn::CloseResidentContext() {
  if (FocusedResident.IsValid()) {
   FocusedResident.Reset();
+  if (APlayerController* PC = Cast<APlayerController>(Controller))
+   PC->bShowMouseCursor = bResidentCursorWasVisible;
   ResidentContextSelection = 0;
   OnResidentContextClosed();
  }
@@ -1863,6 +1866,10 @@ void AMoonfallHeroPawn::OpenFocusedResidentContext() {
  AMoonfallWorldNPC* Resident = GetNearestResidentNPC();
  if (!IsValid(Resident) || !Resident->CanHeroInteract(this)) return;
  FocusedResident = Resident;
+ if (APlayerController* PC = Cast<APlayerController>(Controller)) {
+  bResidentCursorWasVisible = PC->bShowMouseCursor;
+  PC->bShowMouseCursor = true;
+ }
  ResidentContextSelection = 0;
  OnResidentContextOpened(Resident, Resident->DisplayName,
      GetResidentQuestState(Resident->ResidentId), Resident->GetContractSalvageCost());
@@ -1892,6 +1899,10 @@ void AMoonfallHeroPawn::CastRightMouse() {
    // A click on a civilian is never converted to a spell, even when too far.
    if (Resident->CanHeroInteract(this)) {
     FocusedResident = Resident;
+    if (APlayerController* PC = Cast<APlayerController>(Controller)) {
+     bResidentCursorWasVisible = PC->bShowMouseCursor;
+     PC->bShowMouseCursor = true;
+    }
     ResidentContextSelection = 0;
     OnResidentContextOpened(Resident, Resident->DisplayName,
         GetResidentQuestState(Resident->ResidentId), Resident->GetContractSalvageCost());
