@@ -53,6 +53,8 @@ void AMoonfallEnemy::BeginPlay() {
  FMoonfallRaceProfile RaceProfile;
  const bool bKnownRace = UMoonfallRaceLibrary::FindRaceProfile(RaceId, RaceProfile);
  ResolvedRaceFamily = bKnownRace ? RaceProfile.Family : NAME_None;
+ RaceMovementMultiplier = bKnownRace && FMath::IsFinite(RaceProfile.SpeedMultiplier)
+   ? FMath::Clamp(RaceProfile.SpeedMultiplier, 0.65f, 1.35f) : 1.f;
  const float RaceHealthScale = bKnownRace ? FMath::Clamp(RaceProfile.VitalityMultiplier, 0.5f, 2.f) : 1.f;
  const float RaceDamageScale = bKnownRace ? FMath::Clamp(RaceProfile.PowerMultiplier, 0.5f, 2.f) : 1.f;
  // Preserve the exact legacy level-scaling path for unassigned races.
@@ -761,7 +763,8 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
     && Now >= TacticalRetreatUntil && Now < TacticalReengageUntil;
   const float SafeChaseSpeed = FMath::Clamp(FMath::IsFinite(ChaseSpeed) ? ChaseSpeed : 0.f, 0.f, 2000.f);
   const float ChaseMultiplier = bTacticalReengage ? 1.2f : 1.f;
-  AddActorWorldOffset(Direction.GetSafeNormal() * SafeChaseSpeed * ChaseMultiplier * SafeAIDelta, true, &Hit);
+  AddActorWorldOffset(Direction.GetSafeNormal() * SafeChaseSpeed * RaceMovementMultiplier
+    * ChaseMultiplier * SafeAIDelta, true, &Hit);
   // Collision can trap packs at tight doorways. First try one short
   // sideways swept step, alternating sides on successive collisions.
   // Rate-limit attempts so wall contact never triggers an extra movement
