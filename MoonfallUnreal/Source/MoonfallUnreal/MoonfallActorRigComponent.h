@@ -16,6 +16,14 @@ class MOONFALLUNREAL_API UMoonfallActorRigComponent : public UActorComponent
 public:
  UMoonfallActorRigComponent();
 
+ // For actors with multiple skeletal meshes, choose the intended rig
+ // explicitly. When unset, auto-discovery selects the first valid mesh.
+ UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Rig")
+ TObjectPtr<USkeletalMeshComponent> PreferredRigMesh = nullptr;
+
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Rig")
+ TObjectPtr<USkeletalMeshComponent> ActiveRigMesh = nullptr;
+
  // Assign montages in the actor Blueprint; missing cues do not affect gameplay.
  UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Moonfall|Rig")
  TMap<FName, TObjectPtr<UAnimMontage>> MontageCues;
