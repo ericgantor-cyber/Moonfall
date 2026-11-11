@@ -337,6 +337,26 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('ActionMappings=(ActionName="EquipOffhand",Key=T)', controls)
         self.assertIn('Input->BindAction(TEXT("EquipOffhand")', self.hero_cpp)
 
+    def test_offhand_crafting_is_atomic_and_rejects_ambiguous_copies(self):
+        for name in ("UpgradeInventoryItem", "ReforgeInventoryItemAffix",
+                     "AscendInventoryItemRarity"):
+            body = self.hero_cpp.split(
+                "bool AMoonfallHeroPawn::" + name + "(", 1)[1].split("\n}", 1)[0]
+            self.assertIn("if (Code == EquippedOffhandCode && Code == EquippedWeaponCode) return false;", body)
+            self.assertIn("const bool bCraftingOffhand = Slot == 0 && Code == EquippedOffhandCode;", body)
+            self.assertIn("if (MatchingCopies != 1) return false;", body)
+            self.assertIn("if (bCraftingOffhand)", body)
+            self.assertIn("EquippedOffhandCode = NewCode;", body)
+            self.assertIn("OffhandTier = NewCode % 1000;", body)
+            self.assertIn("const int32 PreviousOffhandCode = EquippedOffhandCode;", body)
+            self.assertIn("const int32 PreviousOffhandTier = OffhandTier;", body)
+            rollback = body.split("if (!SaveRewardProgress())", 1)[1]
+            self.assertIn("InventoryItemCodes[InventoryIndex] = Code;", rollback)
+            self.assertIn("Salvage = OldSalvage;", rollback)
+            self.assertIn("EquippedOffhandCode = PreviousOffhandCode;", rollback)
+            self.assertIn("OffhandTier = PreviousOffhandTier;", rollback)
+            self.assertNotIn("if (Code == EquippedOffhandCode) return false;", body)
+
     def test_empty_offhand_autofill_rolls_back_if_loot_save_fails(self):
         collect = self.hero_cpp.split("bool AMoonfallHeroPawn::CollectGroundEquipmentCode(", 1)[1].split(
             "bool AMoonfallHeroPawn::CollectPersistedGroundEquipmentCode(", 1)[0]
