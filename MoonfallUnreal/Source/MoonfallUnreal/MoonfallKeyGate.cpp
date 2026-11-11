@@ -27,7 +27,7 @@ AMoonfallKeyGate::AMoonfallKeyGate()
  GateLabel->SetRelativeLocation(FVector(0.f, 0.f, 185.f));
  GateLabel->SetWorldSize(25.f);
  GateLabel->SetHorizontalAlignment(EHorizTextAligment::EHTA_Center);
- GateLabel->SetText(FText::FromString(TEXT("LOCKED - F / CLICK")));
+ GateLabel->SetText(FText::FromString(TEXT("LOCKED - F")));
  GateLabel->SetTextRenderColor(FColor(255, 204, 125));
 
 
@@ -100,7 +100,7 @@ bool AMoonfallKeyGate::TryUnlock(AActor* Candidate)
   else if (RequiredKeyId == FName(TEXT("fallen_gate_key")))
    MissingKeyName = TEXT("FALLEN GATE KEY");
   GateLabel->SetText(FText::FromString(
-    FString::Printf(TEXT("REQUIRES %s - F / CLICK"), MissingKeyName)));
+    FString::Printf(TEXT("REQUIRES %s - F"), MissingKeyName)));
   OnGateLocked(RequiredKeyId);
   return false;
  }
