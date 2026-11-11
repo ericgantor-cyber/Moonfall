@@ -2588,6 +2588,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Time - LastCastTime[0] < Cooldown || Time - LastCastTime[1] < Cooldown", dual)
         self.assertIn("!FMath::IsFinite(LastCastTime[0]) || !FMath::IsFinite(LastCastTime[1])", dual)
         self.assertIn("bOptionsOpen || bInventoryOpen", dual)
+        self.assertIn("bWeaponSpellStance || bSpellShieldStance || bGuarding", dual)
+        self.assertLess(dual.index("bWeaponSpellStance || bSpellShieldStance || bGuarding"),
+                        dual.index("TryCast(LeftSpell, 0, 2.2f)"))
         self.assertIn("const float ManaCostMultiplier = Multiplier > 2.f ? 2.8f : Multiplier;", self.hero_cpp)
         self.assertIn("Enemy->ApplyDualCastImpact();", self.hero_cpp)
         self.assertIn("Multiplier > 2.f && School != 3 && ActualSpellDamage > 0.f && Enemy->Health > 0.f", self.hero_cpp)
