@@ -421,6 +421,12 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("FMath::IsFinite(Played) && Played > 0.f", swing)
         self.assertIn("OnDualWieldSwing(bOffhand);", swing)
 
+    def test_hero_rig_header_declares_animation_and_mesh_component_types(self):
+        self.assertIn("class UAnimInstance;", self.hero_h)
+        self.assertIn("class USkeletalMeshComponent;", self.hero_h)
+        self.assertIn("TWeakObjectPtr<UAnimInstance> ObservedWeaponAnimInstance;", self.hero_h)
+        self.assertIn("TWeakObjectPtr<USkeletalMeshComponent> ObservedWeaponRigComponent;", self.hero_h)
+
     def test_all_character_montage_calls_guard_pending_kill_anim_instances(self):
         rig_cpp = (ROOT / "MoonfallActorRigComponent.cpp").read_text(encoding="utf-8")
         npc = rig_cpp.split("bool UMoonfallActorRigComponent::PlayRigCue(FName CueId)", 1)[1]
