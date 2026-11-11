@@ -319,6 +319,29 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Loot->InitializeLoot(ItemCode);", loot)
         self.assertNotIn("*EquippedCode = ItemCode;", loot)
 
+    def test_dual_weapon_mode_and_spendable_talent_contracts(self):
+        self.assertIn("bool bDualWieldStance = false;", self.hero_h)
+        self.assertIn("float NextOffhandStrikeAt = 0.f;", self.hero_h)
+        self.assertIn("if (Setup < 0 || Setup > 4", self.hero_cpp)
+        self.assertIn("bDualWieldStance = Setup == 4;", self.hero_cpp)
+        self.assertIn('FName(TEXT("MoonfallHandDualWeapons"))', self.hud)
+        self.assertIn("Hero->SelectHandSetup(4);", self.hud)
+        self.assertIn("void AMoonfallHeroPawn::StrikeWithOffhandWeapon()", self.hero_cpp)
+        offhand = self.hero_cpp.split("void AMoonfallHeroPawn::StrikeWithOffhandWeapon()", 1)[1].split(
+            "void AMoonfallHeroPawn::StrikeWithWeapon()", 1)[0]
+        self.assertIn("NextOffhandStrikeAt = Now + 0.32f;", offhand)
+        self.assertNotIn("NextWeaponStrikeAt", offhand)
+        self.assertIn("if (bDualWieldStance) StrikeWithOffhandWeapon();", self.hero_cpp)
+        self.assertIn("GetUnspentTalentPoints() const", self.hero_h)
+        self.assertIn("SpendTalentPoint(int32 TalentIndex)", self.hero_h)
+        self.assertIn("if (*Rank >= 5) return false;", self.hero_cpp)
+        self.assertIn("GetUnspentTalentPoints() <= 0", self.hero_cpp)
+        for name in ("MoonfallTalentBlade", "MoonfallTalentArcane", "MoonfallTalentTwin"):
+            self.assertIn(name, self.hud)
+        self.assertIn("0.04f * BladeTalentRank", self.hero_cpp)
+        self.assertIn("0.04f * ArcaneTalentRank", self.hero_cpp)
+        self.assertIn("0.06f * TwinStrikeTalentRank", self.hero_cpp)
+
     def test_primary_stats_sheet_is_read_only_and_affects_combat_recovery(self):
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
         hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
@@ -333,9 +356,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("if (bSpellShieldStance)", self.hero_cpp)
         self.assertIn("else BeginGuard();", self.hero_cpp)
         self.assertIn("if (Hand == 0 && bWeaponSpellStance) StrikeWithWeapon();", self.hero_cpp)
-        self.assertIn("bWeaponSpellStance = (Setup == 1 || Setup == 3);", self.hero_cpp)
+        self.assertIn("bWeaponSpellStance = (Setup == 1 || Setup == 3 || Setup == 4);", self.hero_cpp)
         self.assertIn("bSpellShieldStance = (Setup == 2 || Setup == 3);", self.hero_cpp)
-        self.assertIn("SelectHandSetup((CurrentSetup + 1) % 4);", self.hero_cpp)
+        self.assertIn("SelectHandSetup((CurrentSetup + 1) % 5);", self.hero_cpp)
         self.assertIn("if (bSpellShieldStance) EndGuard();", self.hero_cpp)
         for key in ("MoonfallHandSpellSpell", "MoonfallHandWeaponSpell", "MoonfallHandSpellShield", "MoonfallHandWeaponShield"):
             self.assertIn('FName(TEXT("' + key + '"))', self.hud)
@@ -344,7 +367,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Hero->SelectHandSetup(2);", self.hud)
         self.assertIn("Hero->SelectHandSetup(3);", self.hud)
         self.assertIn("void AMoonfallHeroPawn::SelectHandSetup(int32 Setup)", self.hero_cpp)
-        self.assertIn("bWeaponSpellStance = (Setup == 1 || Setup == 3);", self.hero_cpp)
+        self.assertIn("bWeaponSpellStance = (Setup == 1 || Setup == 3 || Setup == 4);", self.hero_cpp)
         self.assertIn("bSpellShieldStance = (Setup == 2 || Setup == 3);", self.hero_cpp)
         self.assertIn("const float Y = Top + 175.f + (Index - PageStart) * RowSpacing;", self.hud)
         self.assertIn('TEXT("SPELL+SHIELD")', self.hud)
