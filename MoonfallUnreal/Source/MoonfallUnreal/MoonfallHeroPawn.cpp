@@ -321,6 +321,7 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("Jump"), IE_Pressed, this, &AMoonfallHeroPawn::TryJump);
  Input->BindAction(TEXT("Jump"), IE_Released, this, &ACharacter::StopJumping);
  Input->BindAction(TEXT("CastLeft"), IE_Pressed, this, &AMoonfallHeroPawn::CastLeft);
+ Input->BindAction(TEXT("ResidentMouseClick"), IE_Pressed, this, &AMoonfallHeroPawn::ResidentContextMouseClick);
  Input->BindAction(TEXT("CastRight"), IE_Pressed, this, &AMoonfallHeroPawn::CastRight);
  Input->BindAction(TEXT("CastRightMouse"), IE_Pressed, this, &AMoonfallHeroPawn::CastRightMouse);
  Input->BindAction(TEXT("ResidentContext"), IE_Pressed, this, &AMoonfallHeroPawn::OpenFocusedResidentContext);
@@ -359,6 +360,10 @@ void AMoonfallHeroPawn::ZoomCameraOut() {
 }
 void AMoonfallHeroPawn::TryJump()
 {
+ if (FocusedResident.IsValid() && !bOptionsOpen && !bInventoryOpen) {
+  ChooseResidentContextAction(ResidentContextSelection);
+  return;
+ }
  // Jump must obey the same defeated/menu input locks as Dodge and Cast.
  if (Health <= 0.f || bOptionsOpen || bInventoryOpen) return;
  Jump();
@@ -807,6 +812,7 @@ void AMoonfallHeroPawn::ToggleCharacterStats()
 }
 
 void AMoonfallHeroPawn::ToggleInventory() {
+ if (FocusedResident.IsValid()) CloseResidentContext();
  if (bOptionsOpen || Health <= 0.f) return;
  if (!bInventoryOpen) {
   StopJumping();
@@ -1004,6 +1010,7 @@ void AMoonfallHeroPawn::UpgradeSelectedInventoryItem()
 
 void AMoonfallHeroPawn::InventoryConfirm() { EquipSelectedInventoryItem(); }
 void AMoonfallHeroPawn::OpenOptions() {
+ if (FocusedResident.IsValid()) { CloseResidentContext(); return; }
  // The defeat screen owns input until respawn; do not reopen gameplay menus.
  if (Health <= 0.f || !FMath::IsFinite(Health)) return;
  if (bInventoryOpen) { bInventoryOpen = false; bCharacterStatsOpen = false; return; }
@@ -1016,6 +1023,10 @@ void AMoonfallHeroPawn::OpenOptions() {
  bOptionsOpen = !bOptionsOpen;
 }
 void AMoonfallHeroPawn::OptionsUp() {
+ if (FocusedResident.IsValid() && !bOptionsOpen && !bInventoryOpen) {
+  ResidentContextSelection = (ResidentContextSelection + 2) % 3;
+  return;
+ }
  if (bInventoryOpen) {
   InventorySelection = FMath::Max(0, InventorySelection - 1);
   return;
@@ -1023,6 +1034,10 @@ void AMoonfallHeroPawn::OptionsUp() {
  if (bOptionsOpen) OptionsSelection = (OptionsSelection + 6) % 7;
 }
 void AMoonfallHeroPawn::OptionsDown() {
+ if (FocusedResident.IsValid() && !bOptionsOpen && !bInventoryOpen) {
+  ResidentContextSelection = (ResidentContextSelection + 1) % 3;
+  return;
+ }
  if (bInventoryOpen) {
   InventorySelection = FMath::Min(FMath::Max(0, InventoryItemCodes.Num() - 1), InventorySelection + 1);
   return;
@@ -1835,18 +1850,25 @@ AMoonfallWorldNPC* AMoonfallHeroPawn::GetNearestResidentNPC() const {
 void AMoonfallHeroPawn::CloseResidentContext() {
  if (FocusedResident.IsValid()) {
   FocusedResident.Reset();
+  ResidentContextSelection = 0;
   OnResidentContextClosed();
  }
 }
 void AMoonfallHeroPawn::OpenFocusedResidentContext() {
  if (!GetWorld() || Health <= 0.f || bOptionsOpen || bInventoryOpen) return;
+ if (FocusedResident.IsValid() && FocusedResident->CanHeroInteract(this)) {
+  ResidentContextSelection = (ResidentContextSelection + 2) % 3;
+  return;
+ }
  AMoonfallWorldNPC* Resident = GetNearestResidentNPC();
  if (!IsValid(Resident) || !Resident->CanHeroInteract(this)) return;
  FocusedResident = Resident;
+ ResidentContextSelection = 0;
  OnResidentContextOpened(Resident, Resident->DisplayName,
      GetResidentQuestState(Resident->ResidentId), Resident->GetContractSalvageCost());
 }
 void AMoonfallHeroPawn::CastRightMouse() {
+ if (FocusedResident.IsValid()) { CloseResidentContext(); return; }
  if (Health <= 0.f || bOptionsOpen || bInventoryOpen || !GetWorld()) return;
  // WoW-style mouse pointer selection when a cursor is visible, or
  // AC-like central aim selection when using hidden-cursor mouse look.
@@ -1870,6 +1892,7 @@ void AMoonfallHeroPawn::CastRightMouse() {
    // A click on a civilian is never converted to a spell, even when too far.
    if (Resident->CanHeroInteract(this)) {
     FocusedResident = Resident;
+    ResidentContextSelection = 0;
     OnResidentContextOpened(Resident, Resident->DisplayName,
         GetResidentQuestState(Resident->ResidentId), Resident->GetContractSalvageCost());
    } else {
@@ -1880,6 +1903,33 @@ void AMoonfallHeroPawn::CastRightMouse() {
  }
  // All non-NPC right clicks retain right-hand attack behavior.
  CastRight();
+}
+void AMoonfallHeroPawn::ResidentContextMouseClick() {
+ if (!FocusedResident.IsValid()) { CastLeft(); return; }
+ if (!GetWorld() || bOptionsOpen || bInventoryOpen) { CloseResidentContext(); return; }
+ APlayerController* PC = Cast<APlayerController>(Controller);
+ if (!PC) return;
+ int32 Width = 0, Height = 0;
+ float MouseX = 0.f, MouseY = 0.f;
+ PC->GetViewportSize(Width, Height);
+ if (Width <= 0 || Height <= 0 || !PC->GetMousePosition(MouseX, MouseY)) return;
+ const float PanelW = FMath::Min(490.f, FMath::Max(260.f, Width - 24.f));
+ const float PanelH = FMath::Min(345.f, FMath::Max(270.f, Height - 24.f));
+ const float Left = (Width - PanelW) * 0.5f, Top = (Height - PanelH) * 0.5f;
+ if (MouseX < Left || MouseX > Left + PanelW || MouseY < Top || MouseY > Top + PanelH) {
+  CloseResidentContext();
+  return;
+ }
+ // Shared exact row bounds with the Canvas HUD renderer.
+ for (int32 Row = 0; Row < 3; ++Row) {
+  const float RowTop = Top + 122.f + Row * 53.f;
+  if (MouseY >= RowTop && MouseY <= RowTop + 43.f) {
+   ResidentContextSelection = Row;
+   if (Row == 2) CloseResidentContext();
+   else ChooseResidentContextAction(Row);
+   return;
+  }
+ }
 }
 void AMoonfallHeroPawn::TalkToNearestNPC() {
  if (AMoonfallWorldNPC* Resident = GetNearestResidentNPC()) {
@@ -1896,6 +1946,7 @@ bool AMoonfallHeroPawn::ChooseResidentContextAction(int32 Choice) {
   CloseResidentContext();
   return false;
  }
+ if (Choice == 2) { CloseResidentContext(); return true; }
  if (Choice == 0) return Resident->TryTalk(this);
  if (Choice != 1) return false;
  const int32 State = GetResidentQuestState(Resident->ResidentId);
@@ -1916,6 +1967,8 @@ bool AMoonfallHeroPawn::ChooseResidentContextAction(int32 Choice) {
  } else {
   Message = FText::FromString(TEXT("This contract is already complete."));
  }
+ ResidentFeedbackMessage = Message.ToString();
+ ResidentFeedbackUntil = GetWorld() ? GetWorld()->GetTimeSeconds() + 4.f : 0.f;
  OnResidentQuestFeedback(Message, bSucceeded);
  // Keep menu available after accepting. Update quest state for UI.
  if (bSucceeded) OnResidentContextOpened(Resident, Resident->DisplayName,
