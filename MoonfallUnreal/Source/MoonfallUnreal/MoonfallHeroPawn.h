@@ -300,6 +300,8 @@ private:
  void EndGuard();
  void UpdateInventoryMouseInput();
  bool TryInteractWithNearbyKey();
+ // Primary mouse click targets quest keys and gates before triggering combat.
+ bool TryInteractWithAimedWorld();
  // Weak reference does not keep a collected/destroyed key alive.
  TWeakObjectPtr<AMoonfallKeyPickup> PendingMilestoneKey;
  // Bounded persistent world drops share the reward save transaction.
