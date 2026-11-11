@@ -2685,6 +2685,31 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Loot->TryCollect()", auto)
         self.assertNotIn("Loot->TryCollect(true)", auto)
 
+    def test_moonfall_twilight_phase_is_bounded_and_nonblocking(self):
+        self.assertIn("float TwilightCycleSeconds = 1440.f;", self.hero_h)
+        self.assertIn("float TwilightElapsedSeconds = 0.f;", self.hero_h)
+        for fn in ("IsTwilightNight", "GetTwilightWeaponMultiplier", "GetTwilightSpellMultiplier"):
+            self.assertIn("AMoonfallHeroPawn::" + fn + "() const", self.hero_cpp)
+        tick = self.hero_cpp.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1].split(
+            "void AMoonfallHeroPawn::", 1)[0]
+        self.assertIn("!bOptionsOpen && !bInventoryOpen", tick)
+        self.assertIn("FMath::IsFinite(DeltaSeconds)", tick)
+        self.assertIn("FMath::Clamp(DeltaSeconds, 0.f, 0.1f)", tick)
+        self.assertIn("FMath::Fmod(", tick)
+
+    def test_twilight_damage_bonus_is_original_and_hud_visible(self):
+        self.assertIn("return IsTwilightNight() ? 1.f : 1.10f;", self.hero_cpp)
+        self.assertIn("return IsTwilightNight() ? 1.10f : 1.f;", self.hero_cpp)
+        weapon = self.hero_cpp.split("void AMoonfallHeroPawn::StrikeWithWeapon()", 1)[1].split(
+            "void AMoonfallHeroPawn::CastLeft()", 1)[0]
+        spell = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split(
+            "void AMoonfallHeroPawn::CastLeft()", 1)[0]
+        self.assertIn("* GetTwilightWeaponMultiplier()", weapon)
+        self.assertIn("* GetTwilightSpellMultiplier()", spell)
+        self.assertIn('TEXT("DAY  +10% WEAPON POWER")', self.hud)
+        self.assertIn('TEXT("NIGHT  +10% SPELL POWER")', self.hud)
+        self.assertIn("Hero->IsTwilightNight()", self.hud)
+
     def test_f_equipment_targeting_prefers_visible_front_drops(self):
         world = self.hero_cpp.split("void AMoonfallHeroPawn::InteractWithNearbyWorld()", 1)[1].split(
             "void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[0]
