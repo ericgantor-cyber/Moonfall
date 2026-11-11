@@ -1655,6 +1655,9 @@ bool AMoonfallHeroPawn::UpgradeInventoryItem(int32 InventoryIndex)
  if (!bInventoryOpen || bOptionsOpen || Health <= 0.f
      || !InventoryItemCodes.IsValidIndex(InventoryIndex)) return false;
  const int32 Code = InventoryItemCodes[InventoryIndex];
+ // Offhand currently uses the same bag format as the main weapon. Protect
+ // its separate saved identity until both-slot crafting is fully transactional.
+ if (Code == EquippedOffhandCode) return false;
  if (Code <= 0) return false;
  const int32 Affix = Code / 100000;
  const int32 Slot = (Code / 10000) % 10;
@@ -1733,6 +1736,9 @@ bool AMoonfallHeroPawn::ReforgeInventoryItemAffix(int32 InventoryIndex)
  if (!bInventoryOpen || bOptionsOpen || Health <= 0.f
      || !InventoryItemCodes.IsValidIndex(InventoryIndex)) return false;
  const int32 Code = InventoryItemCodes[InventoryIndex];
+ // Offhand currently uses the same bag format as the main weapon. Protect
+ // its separate saved identity until both-slot crafting is fully transactional.
+ if (Code == EquippedOffhandCode) return false;
  if (Code <= 0) return false;
  const int32 Affix = Code / 100000;
  const int32 Slot = (Code / 10000) % 10;
@@ -1815,6 +1821,9 @@ bool AMoonfallHeroPawn::AscendInventoryItemRarity(int32 InventoryIndex)
  if (!bInventoryOpen || bOptionsOpen || Health <= 0.f
      || !InventoryItemCodes.IsValidIndex(InventoryIndex)) return false;
  const int32 Code = InventoryItemCodes[InventoryIndex];
+ // Offhand currently uses the same bag format as the main weapon. Protect
+ // its separate saved identity until both-slot crafting is fully transactional.
+ if (Code == EquippedOffhandCode) return false;
  if (Code <= 0) return false;
  const int32 Affix = Code / 100000;
  const int32 Slot = (Code / 10000) % 10;
