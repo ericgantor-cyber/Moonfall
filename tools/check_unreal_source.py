@@ -337,6 +337,29 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('ActionMappings=(ActionName="EquipOffhand",Key=T)', controls)
         self.assertIn('Input->BindAction(TEXT("EquipOffhand")', self.hero_cpp)
 
+    def test_dual_wield_visuals_and_swing_hooks_are_non_destructive(self):
+        self.assertIn("TObjectPtr<UStaticMeshComponent> MainhandVisual;", self.hero_h)
+        self.assertIn("TObjectPtr<UStaticMeshComponent> OffhandVisual;", self.hero_h)
+        self.assertIn("MainhandSwingMontage;", self.hero_h)
+        self.assertIn("OffhandSwingMontage;", self.hero_h)
+        self.assertIn("OnDualWieldSwing(bool bOffhand)", self.hero_h)
+        self.assertIn('CreateDefaultSubobject<UStaticMeshComponent>(TEXT("MainhandVisual"))', self.hero_cpp)
+        self.assertIn('CreateDefaultSubobject<UStaticMeshComponent>(TEXT("OffhandVisual"))', self.hero_cpp)
+        visual = self.hero_cpp.split("void AMoonfallHeroPawn::UpdateWeaponVisuals()", 1)[1].split(
+            "void AMoonfallHeroPawn::StrikeWithOffhandWeapon()", 1)[0]
+        self.assertIn("EquippedWeaponCode > 0", visual)
+        self.assertIn("EquippedOffhandCode > 0", visual)
+        self.assertIn("MainhandVisual->SetHiddenInGame(!bShowMain);", visual)
+        self.assertIn("OffhandVisual->SetHiddenInGame(!bShowOffhand);", visual)
+        self.assertIn("bReduceMotion", visual)
+        self.assertIn("MainhandVisual->SetRelativeRotation", visual)
+        self.assertIn("OffhandVisual->SetRelativeRotation", visual)
+        self.assertIn("if (IsValid(Montage)) Anim->Montage_Play(Montage, 1.f);", self.hero_cpp)
+        self.assertIn("BeginWeaponSwing(true);", self.hero_cpp)
+        self.assertIn("BeginWeaponSwing(false);", self.hero_cpp)
+        self.assertIn("Weapon->SetCollisionEnabled(ECollisionEnabled::NoCollision);", self.hero_cpp)
+        self.assertIn("Weapon->SetGenerateOverlapEvents(false);", self.hero_cpp)
+
     def test_offhand_crafting_is_atomic_and_rejects_ambiguous_copies(self):
         for name in ("UpgradeInventoryItem", "ReforgeInventoryItemAffix",
                      "AscendInventoryItemRarity"):
