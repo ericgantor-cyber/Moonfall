@@ -1684,6 +1684,12 @@ bool AMoonfallHeroPawn::ActivateRacePower() {
  if (!bRaceChosen || !GetWorld() || Health <= 0.f || bInventoryOpen || bOptionsOpen) return false;
  const float Now = GetWorld()->GetTimeSeconds();
  if (!FMath::IsFinite(Now) || Now < RacePowerReadyAt) return false;
+ // Preserve state so a failed disk save never consumes a one-time power.
+ const float PreviousHealth = Health;
+ const float PreviousMana = Mana;
+ const float PreviousStamina = Stamina;
+ const float PreviousReadyAt = RacePowerReadyAt;
+ const float PreviousActiveUntil = RacePowerActiveUntil;
  // Unique racial power effects (bounded resources and temporary buffs).
  const float SafeMaxMana = FMath::IsFinite(MaxMana) ? FMath::Clamp(MaxMana, 0.f, 100000.f) : 0.f;
  const float SafeMaxStamina = FMath::IsFinite(MaxStamina) ? FMath::Clamp(MaxStamina, 0.f, 100000.f) : 0.f;
@@ -1739,10 +1745,18 @@ bool AMoonfallHeroPawn::ActivateRacePower() {
  }
  RacePowerActiveUntil = Now + Duration;
  RacePowerReadyAt = Now + 45.f;
+ // Persist cooldown and refreshed resources together. On disk failure do not
+ // grant free power, consume cooldown, or tell UI the ability succeeded.
+ if (!SaveWorldProgress()) {
+  Health = PreviousHealth;
+  Mana = PreviousMana;
+  Stamina = PreviousStamina;
+  RacePowerReadyAt = PreviousReadyAt;
+  RacePowerActiveUntil = PreviousActiveUntil;
+  OnHealthChanged(Health, MaxHealth);
+  return false;
+ }
  OnHealthChanged(Health, MaxHealth);
- // Save immediately so a quick exit/death cannot undo the cooldown.
- // This uses the existing single persistent slot without opening a new run.
- SaveWorldProgress();
  OnRacePowerActivated(FName(MoonfallRacePowerNames[RaceId]));
  return true;
 }
