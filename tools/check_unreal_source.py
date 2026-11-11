@@ -335,6 +335,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('GetWorldTimerManager().ClearTimer(MouseCastTimer);', self.hero_cpp)
         self.assertIn('GetWorldTimerManager().SetTimer(MouseCastTimer', self.hero_cpp)
         self.assertIn('bMouseChordConsumed = true;', self.hero_cpp)
+        self.assertIn("PendingMouseHand >= 0 && GetWorldTimerManager().IsTimerActive(MouseCastTimer)", self.hero_cpp)
+        self.assertIn("else if (Hand == 0) CastLeft();", self.hero_cpp)
         self.assertIn('  CastBoth();', self.hero_cpp)
         self.assertIn('0.09f, false);', self.hero_cpp)
         self.assertIn('ActionName="DualCast",Key=Gamepad_LeftTrigger', inputs)
