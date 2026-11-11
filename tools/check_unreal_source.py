@@ -239,6 +239,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Hero->CollectGroundEquipmentCode(ItemCode)", ground_cpp)
         self.assertLess(ground_cpp.index("Hero->CollectGroundEquipmentCode(ItemCode)"), ground_cpp.index("Destroy();"))
         self.assertIn("ItemCode = 0;", ground_h)
+        self.assertNotIn('[F / X]', ground_cpp)
+        self.assertIn('TEXT("%s %s%s  T%d")', ground_cpp)
         self.assertNotIn("SetLifeSpan(", ground_cpp)
         self.assertNotIn("FinisherShockwave", self.hero_cpp)
 
