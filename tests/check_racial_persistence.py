@@ -42,7 +42,10 @@ class TestRacialPersistence(unittest.TestCase):
         self.assertIn("Save->Version < 1 || Save->Version > 3", self.cpp)
         self.assertIn("Save->Version >= 3 && Save->RacePowerReadyUtc > NowUtc", self.cpp)
         self.assertIn("RacePowerReadyAt = GetWorld()", self.cpp)
-        self.assertIn("SaveWorldProgress();\n OnRacePowerActivated", self.cpp)
+        self.assertIn("if (!SaveWorldProgress()) {", self.cpp)
+        self.assertIn("RacePowerReadyAt = PreviousReadyAt;", self.cpp)
+        self.assertIn("RacePowerActiveUntil = PreviousActiveUntil;", self.cpp)
+        self.assertIn("OnRacePowerActivated(FName(MoonfallRacePowerNames[RaceId]));", self.cpp)
 
     def test_not_a_new_run(self):
         self.assertIn('MoonfallPersistentWorldV1', self.cpp)
