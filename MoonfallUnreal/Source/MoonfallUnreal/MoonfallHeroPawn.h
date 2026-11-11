@@ -20,6 +20,14 @@ public:
  virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
  virtual void BeginPlay() override;
  virtual void Tick(float DeltaSeconds) override;
+ // Original Moonfall twilight cycle. Time passes only while playing, not in menus.
+ // Dawn favors weapon strikes; night empowers offensive spells.
+ UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Twilight",
+   meta=(ClampMin="60.0", ClampMax="3600.0")) float TwilightCycleSeconds = 1440.f;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Twilight") float TwilightElapsedSeconds = 0.f;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Twilight") bool IsTwilightNight() const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Twilight") float GetTwilightWeaponMultiplier() const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Twilight") float GetTwilightSpellMultiplier() const;
  // Original Moonfall set themes use existing Force/Ward/Focus traits
  // on three equipped slots. No changes to encoded item IDs or saved gear.
  UFUNCTION(BlueprintPure, Category="Moonfall|Equipment|Sets") int32 GetSetPieceCount(int32 Affix) const;
