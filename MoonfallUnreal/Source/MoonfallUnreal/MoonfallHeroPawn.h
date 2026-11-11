@@ -217,6 +217,10 @@ public:
  // No changes are made to the original hero skeletal meshes or textures.
  UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|DualWield") TObjectPtr<UStaticMesh> MainhandMeshAsset;
  UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|DualWield") TObjectPtr<UStaticMesh> OffhandMeshAsset;
+ // Authored weapons should not inherit the 0.09 x 0.035 x 0.68 cube-proxy scale.
+ // These scales apply only to assigned custom mesh assets (not character art).
+ UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|DualWield") FVector MainhandMeshScale = FVector::OneVector;
+ UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|DualWield") FVector OffhandMeshScale = FVector::OneVector;
  UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|DualWield") FName MainhandSocket = TEXT("hand_rSocket");
  UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|DualWield") FName OffhandSocket = TEXT("hand_lSocket");
  // Per-hand grips are authored independently of the original character rig.
