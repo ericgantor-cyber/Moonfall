@@ -10,6 +10,7 @@
 #include "DrawDebugHelpers.h"
 #include "Engine/Engine.h"
 #include "GameFramework/GameUserSettings.h"
+#include "GameFramework/PlayerController.h"
 #include "Misc/ConfigCacheIni.h"
 #include "Interfaces/IPluginManager.h"
 #include "MoonfallEnemy.h"
@@ -1847,25 +1848,37 @@ void AMoonfallHeroPawn::OpenFocusedResidentContext() {
 }
 void AMoonfallHeroPawn::CastRightMouse() {
  if (Health <= 0.f || bOptionsOpen || bInventoryOpen || !GetWorld()) return;
- // WoW-style: right click a visible NPC to open conversation; ordinary
- // right clicks keep their existing right-hand combat spell.
- FVector Eye, Aim;
- FRotator ViewRotation;
- if (!Controller) { CastRight(); return; }
- Controller->GetPlayerViewPoint(Eye, ViewRotation);
- Aim = Eye + ViewRotation.Vector() * 500.f;
- FCollisionQueryParams Params(SCENE_QUERY_STAT(MoonfallNPCContext), false);
- Params.AddIgnoredActor(this);
+ // WoW-style mouse pointer selection when a cursor is visible, or
+ // AC-like central aim selection when using hidden-cursor mouse look.
  FHitResult Hit;
- if (GetWorld()->LineTraceSingleByChannel(Hit, Eye, Aim, ECC_Visibility, Params)) {
-  AMoonfallWorldNPC* Resident = Cast<AMoonfallWorldNPC>(Hit.GetActor());
-  if (IsValid(Resident) && Resident->CanHeroInteract(this)) {
-   FocusedResident = Resident;
-   OnResidentContextOpened(Resident, Resident->DisplayName,
-       GetResidentQuestState(Resident->ResidentId), Resident->GetContractSalvageCost());
+ bool bHit = false;
+ if (APlayerController* PC = Cast<APlayerController>(Controller)) {
+  if (PC->bShowMouseCursor) {
+   bHit = PC->GetHitResultUnderCursor(ECC_Visibility, false, Hit);
+  } else {
+   FVector Eye;
+   FRotator ViewRotation;
+   PC->GetPlayerViewPoint(Eye, ViewRotation);
+   FCollisionQueryParams Params(SCENE_QUERY_STAT(MoonfallNPCContext), false);
+   Params.AddIgnoredActor(this);
+   bHit = GetWorld()->LineTraceSingleByChannel(
+       Hit, Eye, Eye + ViewRotation.Vector() * 500.f, ECC_Visibility, Params);
+  }
+ }
+ if (bHit) {
+  if (AMoonfallWorldNPC* Resident = Cast<AMoonfallWorldNPC>(Hit.GetActor())) {
+   // A click on a civilian is never converted to a spell, even when too far.
+   if (Resident->CanHeroInteract(this)) {
+    FocusedResident = Resident;
+    OnResidentContextOpened(Resident, Resident->DisplayName,
+        GetResidentQuestState(Resident->ResidentId), Resident->GetContractSalvageCost());
+   } else {
+    OnResidentQuestFeedback(FText::FromString(TEXT("Move closer to interact.")), false);
+   }
    return;
   }
  }
+ // All non-NPC right clicks retain right-hand attack behavior.
  CastRight();
 }
 void AMoonfallHeroPawn::TalkToNearestNPC() {
