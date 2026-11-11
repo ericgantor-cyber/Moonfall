@@ -917,6 +917,13 @@ void AMoonfallHeroPawn::QueueMouseCast(int32 Hand)
 {
  if (!GetWorld() || bOptionsOpen || bInventoryOpen || !FMath::IsFinite(Health) || Health <= 0.f) return;
  if (bMouseChordConsumed) return;
+ if (bSpellShieldStance)
+ {
+  // Shield guard is held while right mouse is down; the left hand still casts.
+  if (Hand == 0) CastLeft();
+  else BeginGuard();
+  return;
+ }
  if (bMouseLeftHeld && bMouseRightHeld)
  {
   // Only join presses during the 90ms grace window. An already committed
@@ -963,7 +970,22 @@ void AMoonfallHeroPawn::MouseLeftReleased()
 void AMoonfallHeroPawn::MouseRightReleased()
 {
  bMouseRightHeld = false;
+ if (bSpellShieldStance) EndGuard();
  if (!bMouseLeftHeld) bMouseChordConsumed = false;
+}
+void AMoonfallHeroPawn::CycleHandSetup()
+{
+ if (!bInventoryOpen || bOptionsOpen || !FMath::IsFinite(Health) || Health <= 0.f) return;
+ GetWorldTimerManager().ClearTimer(MouseCastTimer);
+ PendingMouseHand = -1;
+ // Inventory controls three mutually exclusive hand combinations.
+ // No keybinding is assigned to V.
+ if (!bWeaponSpellStance && !bSpellShieldStance) bWeaponSpellStance = true;
+ else if (bWeaponSpellStance) { bWeaponSpellStance = false; bSpellShieldStance = true; }
+ else bSpellShieldStance = false;
+ // Switching away from shield guard never leaves the old block held.
+ EndGuard();
+ bMouseChordConsumed = false;
 }
 void AMoonfallHeroPawn::ToggleWeaponSpell()
 {
@@ -972,6 +994,8 @@ void AMoonfallHeroPawn::ToggleWeaponSpell()
  GetWorldTimerManager().ClearTimer(MouseCastTimer);
  PendingMouseHand = -1;
  bWeaponSpellStance = !bWeaponSpellStance;
+ bSpellShieldStance = false;
+ EndGuard();
 }
 void AMoonfallHeroPawn::StrikeWithWeapon()
 {
