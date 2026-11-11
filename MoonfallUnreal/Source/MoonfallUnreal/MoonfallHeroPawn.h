@@ -7,6 +7,8 @@
 class USpringArmComponent;
 class UCameraComponent;
 class UAnimMontage;
+class UAnimInstance;
+class USkeletalMeshComponent;
 class AMoonfallEnemy;
 class AMoonfallKeyPickup;
 class UStaticMeshComponent;
