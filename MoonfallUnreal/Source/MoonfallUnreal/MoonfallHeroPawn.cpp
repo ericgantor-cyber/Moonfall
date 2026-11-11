@@ -1122,10 +1122,9 @@ void AMoonfallHeroPawn::ToggleWeaponSpell()
 }
 void AMoonfallHeroPawn::StrikeWithOffhandWeapon()
 {
- // Secondary strike is a shorter, weaker, independently timed melee attack.
- // Until an equipped off-hand slot lands, the same verified weapon tier
- // supplies damage; no new loot item or asset is fabricated.
- if (!bDualWieldStance || EquippedWeaponCode <= 0 || !GetWorld()
+ // A separately equipped offhand weapon deals a shorter, weaker melee strike
+ // with its OWN saved tier and independent cooldown.
+ if (!bDualWieldStance || EquippedOffhandCode <= 0 || !GetWorld()
      || !IsValid(FollowCamera) || bOptionsOpen || bInventoryOpen
      || !FMath::IsFinite(Health) || Health <= 0.f) return;
  const float Now = GetWorld()->GetTimeSeconds();
@@ -1148,7 +1147,7 @@ void AMoonfallHeroPawn::StrikeWithOffhandWeapon()
   OnWeaponStrike(0.f, false);
   return;
  }
- const float Damage = (7.f + FMath::Clamp(WeaponTier, 0, 25))
+ const float Damage = (7.f + FMath::Clamp(OffhandTier, 0, 25))
    * GetTwilightWeaponMultiplier() * (1.f + 0.04f * BladeTalentRank)
    * (1.f + 0.06f * TwinStrikeTalentRank);
  const float PreviousHealth = Enemy->Health;
@@ -1555,6 +1554,49 @@ void AMoonfallHeroPawn::ToggleInventory() {
  }
  UpdateInventoryMouseInput();
 }
+bool AMoonfallHeroPawn::EquipOffhandInventoryItem(int32 InventoryIndex)
+{
+ if (!bInventoryOpen || bCharacterStatsOpen || bOptionsOpen || bRewardSaveLoadFailed
+     || !FMath::IsFinite(Health) || Health <= 0.f
+     || !InventoryItemCodes.IsValidIndex(InventoryIndex) || !GetWorld()) return false;
+ const int32 Code = InventoryItemCodes[InventoryIndex];
+ const int32 Affix = Code / 100000;
+ const int32 Slot = (Code / 10000) % 10;
+ const int32 Rarity = (Code / 1000) % 10;
+ const int32 Tier = Code % 1000;
+ if (Code <= 0 || Slot != 0 || Affix < 0 || Affix > 3
+     || Rarity < 0 || Rarity > 5 || Tier < 1 || Tier > 25
+     || (Rarity == 0 && Affix != 0)
+     || Code != Affix * 100000 + Rarity * 1000 + Tier)
+  return false;
+ // A single bag copy cannot occupy both hands at once.
+ const int32 CopiesNeeded = Code == EquippedWeaponCode ? 2 : 1;
+ int32 Copies = 0;
+ for (const int32 Candidate : InventoryItemCodes) if (Candidate == Code) ++Copies;
+ if (Copies < CopiesNeeded || EquippedOffhandCode == Code) return false;
+ const int32 PreviousCode = EquippedOffhandCode;
+ const int32 PreviousTier = OffhandTier;
+ EquippedOffhandCode = Code;
+ OffhandTier = Tier;
+ if (!SaveRewardProgress())
+ {
+  EquippedOffhandCode = PreviousCode;
+  OffhandTier = PreviousTier;
+  KeyInteractionNotice = TEXT("OFFHAND SAVE FAILED - LOADOUT RESTORED");
+  bKeyInteractionNoticeError = true;
+  KeyInteractionNoticeUntil = GetWorld()->GetTimeSeconds() + 6.f;
+  return false;
+ }
+ KeyInteractionNotice = TEXT("OFFHAND WEAPON EQUIPPED");
+ bKeyInteractionNoticeError = false;
+ KeyInteractionNoticeUntil = GetWorld()->GetTimeSeconds() + 3.5f;
+ return true;
+}
+void AMoonfallHeroPawn::EquipSelectedOffhandInventoryItem()
+{
+ if (bInventoryOpen && !bCharacterStatsOpen)
+  EquipOffhandInventoryItem(InventorySelection);
+}
 void AMoonfallHeroPawn::EquipSelectedInventoryItem() {
  if (!bInventoryOpen || bCharacterStatsOpen || !InventoryItemCodes.IsValidIndex(InventorySelection)) return;
  EquipInventoryItem(InventorySelection);
@@ -1571,12 +1613,13 @@ bool AMoonfallHeroPawn::SalvageInventoryItem(int32 InventoryIndex)
  // The final inventory copy of equipped gear is protected. Extra duplicates
  // may be salvaged because the worn code remains represented in the bag.
  const bool bEquippedCode = Code == EquippedWeaponCode || Code == EquippedArmorCode
-     || Code == EquippedAccessoryCode;
+     || Code == EquippedAccessoryCode || Code == EquippedOffhandCode;
  if (bEquippedCode) {
   int32 Copies = 0;
   for (const int32 Candidate : InventoryItemCodes)
    if (Candidate == Code) ++Copies;
-  if (Copies <= 1) return false;
+  const int32 RequiredCopies = (Code == EquippedWeaponCode && Code == EquippedOffhandCode) ? 2 : 1;
+  if (Copies <= RequiredCopies) return false;
  }
  const int32 Affix = Code / 100000;
  const int32 SlotIndex = (Code / 10000) % 10;
@@ -2806,6 +2849,13 @@ bool AMoonfallHeroPawn::EquipInventoryItem(int32 InventoryIndex)
  int32* EquippedAffix = SlotIndex == 0 ? &WeaponAffix : (SlotIndex == 1 ? &ArmorAffix : &AccessoryAffix);
  int32* EquippedCode = SlotIndex == 0 ? &EquippedWeaponCode
      : (SlotIndex == 1 ? &EquippedArmorCode : &EquippedAccessoryCode);
+ // Never equip the same single weapon item in both hands.
+ if (SlotIndex == 0 && Code == EquippedOffhandCode)
+ {
+  int32 Copies = 0;
+  for (const int32 BagCode : InventoryItemCodes) if (BagCode == Code) ++Copies;
+  if (Copies < 2) return false;
+ }
  if (*EquippedCode == Code && *EquippedTier == Tier && *EquippedAffix == Affix) return false;
  const int32 PreviousTier = *EquippedTier;
  const int32 PreviousAffix = *EquippedAffix;
