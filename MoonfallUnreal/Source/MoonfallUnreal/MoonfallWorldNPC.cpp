@@ -116,9 +116,11 @@ bool AMoonfallWorldNPC::TryTalk(AMoonfallHeroPawn* Hero) {
  else if (Disposition != TEXT("Trusted") && Bond <= -60)
   Reaction = FText::FromString(TEXT("I remember what you did. Keep your distance."));
  // Accepted one-time contracts have useful, contextual status.
- if (Disposition != TEXT("Hostile") && Hero->GetResidentQuestState(ResidentId) == 1)
+ if (Disposition != TEXT("Hostile") && Hero->GetResidentQuestState(ResidentId) == 0)
+  Reaction = FText::FromString(TEXT("I have a task for you. Press V to accept my contract."));
+ else if (Disposition != TEXT("Hostile") && Hero->GetResidentQuestState(ResidentId) == 1)
   Reaction = FText::FromString(FString::Printf(
-    TEXT("Bring me %d salvage to help our settlement."), GetContractSalvageCost()));
+    TEXT("Bring me %d salvage. Press V when ready to turn it in."), GetContractSalvageCost()));
  else if (Disposition != TEXT("Hostile") && Hero->GetResidentQuestState(ResidentId) == 2)
   Reaction = FText::FromString(TEXT("Our people remember your help. Thank you."));
  OnDialogueStarted(Hero, Reaction);
