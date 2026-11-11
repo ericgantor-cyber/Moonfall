@@ -19,6 +19,14 @@ AMoonfallWorldNPC::AMoonfallWorldNPC() {
  Greeting = FText::FromString(TEXT("The road stretches on. Need directions?"));
 }
 FString AMoonfallWorldNPC::GetRaceName() const { return FString(MoonfallRaces::Name(RaceId)); }
+FString AMoonfallWorldNPC::GetSocialDisposition(const AMoonfallHeroPawn* Hero) const {
+ const int32 Reputation = IsValid(Hero) ? Hero->GetFactionReputation(FactionId) : 0;
+ if (Reputation <= -50) return TEXT("Hostile");
+ if (Reputation <= -15) return TEXT("Wary");
+ if (Reputation >= 50) return TEXT("Trusted");
+ if (Reputation >= 15) return TEXT("Friendly");
+ return TEXT("Neutral");
+}
 bool AMoonfallWorldNPC::TryTalk(AMoonfallHeroPawn* Hero) {
  if (!IsValid(Hero) || !GetWorld() || Hero->Health <= 0.f
      || Hero->bInventoryOpen || Hero->bOptionsOpen) return false;
@@ -39,6 +47,18 @@ bool AMoonfallWorldNPC::TryTalk(AMoonfallHeroPawn* Hero) {
  // The existing custom greeting wins; default dialogue reflects ancestry.
  const FText Spoken = Greeting.EqualTo(FText::FromString(TEXT("The road stretches on. Need directions?")))
     ? FText::FromString(MoonfallRaces::Greeting(RaceId)) : Greeting;
- OnDialogueStarted(Hero, Spoken);
+ // Social reaction uses a stable disposition. Negative reputation changes
+ // dialogue but does not magically turn a civilian into a hostile actor.
+ FText Reaction = Spoken;
+ const FString Disposition = GetSocialDisposition(Hero);
+ if (Disposition == TEXT("Hostile")) Reaction = FText::FromString(TEXT("You are not welcome here."));
+ else if (Disposition == TEXT("Wary")) Reaction = FText::FromString(TEXT("Speak carefully, stranger."));
+ else if (Disposition == TEXT("Trusted")) Reaction = FText::FromString(TEXT("Welcome back, friend of our people."));
+ // Citizens provide contextual opening lines without spawning dialogue actors.
+ if (Disposition == TEXT("Neutral") && SocialRole == FName(TEXT("Merchant")))
+  Reaction = FText::FromString(TEXT("Browse my wares when the market opens."));
+ else if (Disposition == TEXT("Neutral") && SocialRole == FName(TEXT("Guard")))
+  Reaction = FText::FromString(TEXT("Keep the peace inside our walls."));
+ OnDialogueStarted(Hero, Reaction);
  return true;
 }
