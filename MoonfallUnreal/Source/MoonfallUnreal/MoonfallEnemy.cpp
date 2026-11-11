@@ -55,8 +55,14 @@ void AMoonfallEnemy::BeginPlay() {
  ResolvedRaceFamily = bKnownRace ? RaceProfile.Family : NAME_None;
  const float RaceHealthScale = bKnownRace ? FMath::Clamp(RaceProfile.VitalityMultiplier, 0.5f, 2.f) : 1.f;
  const float RaceDamageScale = bKnownRace ? FMath::Clamp(RaceProfile.PowerMultiplier, 0.5f, 2.f) : 1.f;
- Health = FMath::Clamp(BaseHealth * HPScale * RaceHealthScale, 1.f, 100000.f);
- AttackDamage = FMath::Clamp(BaseDamage * DamageScale * RaceDamageScale, 1.f, 10000.f);
+ // Preserve the exact legacy level-scaling path for unassigned races.
+ Health = FMath::Clamp(BaseHealth, 1.f, 100000.f) * HPScale;
+ AttackDamage = FMath::Clamp(BaseDamage, 1.f, 10000.f) * DamageScale;
+ if (bKnownRace)
+ {
+  Health = FMath::Clamp(Health * RaceHealthScale, 1.f, 100000.f);
+  AttackDamage = FMath::Clamp(AttackDamage * RaceDamageScale, 1.f, 10000.f);
+ }
  MaxHealthAtSpawn = FMath::Max(1.f, Health);
  BossMaxHealth = bBoss ? MaxHealthAtSpawn : 0.f;
  // Bosses and elites require sustained pressure rather than a fixed three-parry break.
