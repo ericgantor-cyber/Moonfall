@@ -16,7 +16,8 @@ void AMoonfallCombatHUD::DrawHUD()
  if (!IsValid(Hero)) return;
  // Native Canvas resident menu. Matching click bounds are in HeroPawn.
  if (const AMoonfallWorldNPC* Resident = Hero->FocusedResident.Get()) {
-  if (Hero->Health > 0.f && Resident->CanHeroInteract(Hero)) {
+  if (Hero->Health > 0.f && IsValid(Resident) &&
+      FVector::DistSquared(Hero->GetActorLocation(), Resident->GetActorLocation()) <= FMath::Square(400.f)) {
    const float W = FMath::Min(490.f, FMath::Max(260.f, Canvas->SizeX - 24.f));
    const float H = FMath::Min(345.f, FMath::Max(270.f, Canvas->SizeY - 24.f));
    const float L = (Canvas->SizeX - W) * 0.5f, T = (Canvas->SizeY - H) * 0.5f;
@@ -44,6 +45,9 @@ void AMoonfallCombatHUD::DrawHUD()
    DrawText(FString::Printf(TEXT("Salvage: %d / %d"),
        Hero->Salvage, Resident->GetContractSalvageCost()),
        FLinearColor(0.76f,0.87f,0.68f), L + 18.f, T + H - 58.f, nullptr, 0.86f);
+   if (Hero->GetWorld() && Hero->GetWorld()->GetTimeSeconds() < Hero->ResidentFeedbackUntil)
+    DrawText(Hero->ResidentFeedbackMessage, FLinearColor(0.96f,0.78f,0.41f),
+        L + 18.f, T + 88.f, nullptr, 0.85f);
    DrawText(TEXT("Click choice  |  D-pad up/down + A  |  Esc / RMB: close"),
        FLinearColor(0.80f,0.79f,0.92f), L + 18.f, T + H - 31.f, nullptr,
        Canvas->SizeX < 850.f ? 0.65f : 0.78f);
