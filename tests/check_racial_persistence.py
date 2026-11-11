@@ -22,6 +22,7 @@ class TestRacialPersistence(unittest.TestCase):
                      "Moonborn", "Draconid"):
             self.assertIn('TEXT("' + race + '")', roster)
         self.assertIn('ActionName="RacePower",Key=T', self.input)
+        self.assertIn('ActionName="RacePower",Key=Gamepad_FaceButton_Top', self.input)
         self.assertIn("&AMoonfallHeroPawn::TriggerRacePower", self.cpp)
         self.assertIn("void TriggerRacePower() { ActivateRacePower(); }", self.header)
 
@@ -41,6 +42,7 @@ class TestRacialPersistence(unittest.TestCase):
         self.assertIn("Save->Version < 1 || Save->Version > 3", self.cpp)
         self.assertIn("Save->Version >= 3 && Save->RacePowerReadyUtc > NowUtc", self.cpp)
         self.assertIn("RacePowerReadyAt = GetWorld()", self.cpp)
+        self.assertIn("SaveWorldProgress();\n OnRacePowerActivated", self.cpp)
 
     def test_not_a_new_run(self):
         self.assertIn('MoonfallPersistentWorldV1', self.cpp)
