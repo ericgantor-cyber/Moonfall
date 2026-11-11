@@ -310,6 +310,7 @@ private:
  void ToggleWeaponSpell();
  void StrikeWithWeapon();
  float NextWeaponStrikeAt = 0.f;
+ float NextOffhandStrikeAt = 0.f;
  void Dodge();
  void BeginSprint();
  void EndSprint();
