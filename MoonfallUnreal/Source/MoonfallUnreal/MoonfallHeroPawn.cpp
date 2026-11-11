@@ -1929,6 +1929,7 @@ bool AMoonfallHeroPawn::CollectGroundEquipmentCode(int32 ItemCode)
  }
  if (!SaveRewardProgress())
  {
+  bAutoLootSaveFailedThisSweep = true;
   InventoryItemCodes.Pop();
   if (bAutoEquipEmptySlot)
   {
@@ -2265,6 +2266,7 @@ void AMoonfallHeroPawn::PickupNearestGroundLoot()
      || !GetWorld() || InventoryItemCodes.Num() >= 4096) return;
  // Auto-loot processes every reachable item within 250 cm. Quest keys and
  // gates are deliberately excluded and retain their manual interactions.
+ bAutoLootSaveFailedThisSweep = false;
  const FVector HeroPosition = GetActorLocation();
  const float PickupRangeSq = FMath::Square(250.f);
  TArray<AMoonfallGroundLoot*> NearbyLoot;
@@ -2310,9 +2312,10 @@ void AMoonfallHeroPawn::PickupNearestGroundLoot()
  for (AMoonfallGroundLoot* Loot : NearbyLoot)
  {
   if (InventoryItemCodes.Num() >= 4096) break;
-  if (IsValid(Loot) && !Loot->TryCollect())
+  if (IsValid(Loot) && !Loot->TryCollect() && bAutoLootSaveFailedThisSweep)
   {
-   // Stop repeated failed saves within this sweep; preserve other drops.
+   // Back off only when disk persistence failed. An unreachable or stale
+   // pickup must not prevent other valid drops from being collected.
    NextAutoLootAt = GetWorld()->GetTimeSeconds() + 2.f;
    break;
   }
