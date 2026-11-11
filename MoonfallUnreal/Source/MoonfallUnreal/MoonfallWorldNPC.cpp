@@ -27,6 +27,9 @@ bool AMoonfallWorldNPC::RewardResidentTrust(AMoonfallHeroPawn* Hero, int32 Point
      || !GetWorld() || !FMath::IsFinite(InteractRange)) return false;
  if (FVector::DistSquared(Hero->GetActorLocation(), GetActorLocation())
      > FMath::Square(FMath::Clamp(InteractRange, 50.f, 400.f))) return false;
+ // One introductory favor per resident; further bond progression belongs
+ // to verified quest milestones, not an endlessly reusable conversation key.
+ if (Hero->GetResidentBond(ResidentId) != 0) return false;
  return Hero->ChangeResidentBond(ResidentId, Points);
 }
 FString AMoonfallWorldNPC::GetRaceName() const { return FString(MoonfallRaces::Name(RaceId)); }
