@@ -166,8 +166,12 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
   const AMoonfallWorldNPC* Resident = FocusedResident.Get();
   // Check cheap safety/range every tick. Full LOS is revalidated only
   // on actual choices, avoiding a world trace on every player frame.
+  const float Range = IsValid(Resident) && FMath::IsFinite(Resident->InteractRange)
+      ? FMath::Clamp(Resident->InteractRange, 50.f, 400.f) : 0.f;
   if (!IsValid(Resident) || Health <= 0.f || bOptionsOpen || bInventoryOpen ||
-      FVector::DistSquared(GetActorLocation(), Resident->GetActorLocation()) > FMath::Square(400.f))
+      Range <= 0.f || GetActorLocation().ContainsNaN() ||
+      Resident->GetActorLocation().ContainsNaN() ||
+      FVector::DistSquared(GetActorLocation(), Resident->GetActorLocation()) > FMath::Square(Range))
    CloseResidentContext();
  }
  // Keep one save slot forever; only alive characters overwrite the checkpoint.
