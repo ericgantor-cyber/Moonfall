@@ -27,6 +27,22 @@ class TestSocialWorld(unittest.TestCase):
    self.assertIn('TEXT("'+word+'")',self.npc)
   self.assertIn("OnDialogueStarted(Hero, Reaction);",self.npc)
   self.assertIn("LineTraceSingleByChannel",self.npc)
+ def test_all_twelve_races_and_ancestry_dialogue(self):
+  names=("Alden","Starweaver","Leafwhisper","Anvilkeeper",
+    "Pip Hearthfoot","Ember Scout","Geargrin","Mossfang",
+    "Birchroot","Duskveil","Silverwatch","Ashscale")
+  residents=self.arena.split("const FResident Residents[] = {",1)[1].split("};",1)[0]
+  for name in names:
+   self.assertIn('TEXT("'+name+'")',residents)
+  for race in range(12):
+   self.assertIn(", "+str(race)+", TEXT(", residents)
+  self.assertIn("SharesRaceWith",self.npc_h)
+  self.assertIn("Hero->bRaceChosen",self.npc)
+  self.assertIn("Hero->RaceId == MoonfallRaces::Validated(RaceId)",self.npc)
+  self.assertIn('TEXT("A fellow %s! %s")',self.npc)
+  self.assertIn("!SharesRaceWith(Hero)",self.npc)
+  for role in ("Scholar","Tinker","Elder"):
+   self.assertIn('FName(TEXT("'+role+'"))',self.npc)
  def test_reputation_is_bounded_and_saved(self):
   self.assertIn("TMap<FName, int32> FactionReputation",self.hero_h)
   self.assertIn("TMap<FName, int32> FactionReputation",self.save)
