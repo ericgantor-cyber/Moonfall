@@ -2184,6 +2184,16 @@ bool AMoonfallHeroPawn::SpendTalentPoint(int32 TalentIndex)
    : (TalentIndex == 1 ? &ArcaneTalentRank : &TwinStrikeTalentRank);
  if (*Rank >= 5) return false;
  ++(*Rank);
+ // Talent spending must be an atomic saved transaction. Do not lose points
+ // or grant a rank when the current save file cannot be updated.
+ if (!SaveRewardProgress())
+ {
+  --(*Rank);
+  KeyInteractionNotice = TEXT("TALENT SAVE FAILED - POINT RESTORED");
+  bKeyInteractionNoticeError = true;
+  KeyInteractionNoticeUntil = GetWorld()->GetTimeSeconds() + 6.f;
+  return false;
+ }
  KeyInteractionNotice = TEXT("TALENT UNLOCKED");
  bKeyInteractionNoticeError = false;
  KeyInteractionNoticeUntil = GetWorld()->GetTimeSeconds() + 3.5f;
@@ -2205,6 +2215,14 @@ void AMoonfallHeroPawn::AwardExperience(int32 Amount)
   OnHealthChanged(Health, MaxHealth);
  }
  if (Level >= 100) Experience = 0;
+ // XP and level now share the existing durable reward slot with talent ranks.
+ // Preserve the in-memory reward if storage fails, but warn on every failure.
+ if (!bRewardSaveLoadFailed && !SaveRewardProgress() && GetWorld())
+ {
+  KeyInteractionNotice = TEXT("PROGRESSION SAVE FAILED - RETRY BEFORE EXIT");
+  bKeyInteractionNoticeError = true;
+  KeyInteractionNoticeUntil = GetWorld()->GetTimeSeconds() + 6.f;
+ }
 }
 
 int32 AMoonfallHeroPawn::RollEquipmentCode(bool bEliteEnemy, bool bBossEnemy, int32 PreferredSlot)
