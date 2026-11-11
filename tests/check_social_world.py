@@ -13,6 +13,7 @@ class TestSocialWorld(unittest.TestCase):
   cls.hero_h=(ROOT/"MoonfallHeroPawn.h").read_text()
   cls.save=(ROOT/"MoonfallPersistentSave.h").read_text()
   cls.arena=(ROOT/"MoonfallArena.cpp").read_text()
+  cls.input=(ROOT.parents[1]/"Config"/"DefaultInput.ini").read_text()
  def test_fixed_settlement(self):
   self.assertIn('SettlementId = FName(TEXT("Crossroads"))',self.arena)
   for resident in ("Birchroot","Anvilkeeper","Silverwatch","Ember Scout"):
@@ -67,6 +68,12 @@ class TestSocialWorld(unittest.TestCase):
   self.assertIn("GetContractSalvageCost",self.npc)
   self.assertIn("CanHeroInteract(Hero)",self.npc)
   self.assertIn("Hero->GetResidentQuestState(ResidentId) == 1)",self.npc)
+ def test_no_n_v_quest_bindings(self):
+  self.assertNotIn('ActionName="TalkNPC"',self.input)
+  self.assertNotIn('ActionName="ResidentQuest"',self.input)
+  self.assertIn('ActionName="CastRightMouse",Key=RightMouseButton',self.input)
+  self.assertIn('ActionName="ResidentContext",Key=Gamepad_DPad_Up',self.input)
+  self.assertNotIn('ActionName="CastRight",Key=RightMouseButton',self.input)
  def test_contextual_npc_controls(self):
   self.assertIn("GetNearestResidentNPC()",self.hero)
   self.assertIn("&AMoonfallHeroPawn::CastRightMouse",self.hero)
