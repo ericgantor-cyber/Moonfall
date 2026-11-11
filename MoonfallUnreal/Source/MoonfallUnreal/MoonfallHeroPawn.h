@@ -6,6 +6,7 @@ class USpringArmComponent;
 class UCameraComponent;
 class UAnimMontage;
 class AMoonfallEnemy;
+class AMoonfallWorldNPC;
 class UStaticMeshComponent;
 class UPointLightComponent;
 UCLASS()
@@ -39,6 +40,12 @@ public:
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC|Bond") TMap<FName, int32> ResidentBonds;
  UFUNCTION(BlueprintPure, Category="Moonfall|NPC|Bond") int32 GetResidentBond(FName ResidentId) const;
  UFUNCTION(BlueprintCallable, Category="Moonfall|NPC|Bond") bool ChangeResidentBond(FName ResidentId, int32 Delta);
+ // One-shot racial resident contracts: 0 unavailable, 1 accepted, 2 completed.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|NPC|Quest") TMap<FName, int32> ResidentQuestStates;
+ UFUNCTION(BlueprintPure, Category="Moonfall|NPC|Quest") int32 GetResidentQuestState(FName ResidentId) const;
+ UFUNCTION(BlueprintCallable, Category="Moonfall|NPC|Quest") bool AcceptResidentQuest(FName ResidentId);
+ UFUNCTION(BlueprintCallable, Category="Moonfall|NPC|Quest") bool CompleteResidentQuest(AMoonfallWorldNPC* Resident);
+
 
 
  UFUNCTION(BlueprintCallable, Category="Moonfall|Race") bool ActivateRacePower();
