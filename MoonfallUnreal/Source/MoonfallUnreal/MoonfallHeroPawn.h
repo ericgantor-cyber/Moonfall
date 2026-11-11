@@ -29,6 +29,13 @@ public:
  UFUNCTION(BlueprintPure, Category="Moonfall|Race") int32 GetRaceResolveBonus() const;
  UFUNCTION(BlueprintPure, Category="Moonfall|Race") float GetRaceStaminaRegenBonus() const;
  UFUNCTION(BlueprintPure, Category="Moonfall|Race") float GetRaceManaRegenBonus() const;
+ // Each ancestry receives a distinct on-demand combat power; no artwork changes.
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Race") bool ActivateRacePower();
+ UFUNCTION(BlueprintPure, Category="Moonfall|Race") FString GetRacePowerName() const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Race") float GetRacePowerCooldownRemaining() const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Race") float GetRacePowerDurationRemaining() const;
+ UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Race") void OnRacePowerActivated(FName PowerName);
+
  UFUNCTION(BlueprintPure, Category="Moonfall|Equipment|Sets") int32 GetSetPieceCount(int32 Affix) const;
  // Derived primary attributes, no additional persistent save schema.
  UFUNCTION(BlueprintPure, Category="Moonfall|Equipment|Stats") int32 GetMight() const;
@@ -162,6 +169,8 @@ public:
 private:
  float SecondsSinceLastWorldSave = 0.f;
  float DefeatElapsedSeconds = 0.f;
+ float RacePowerReadyAt = 0.f;
+ float RacePowerActiveUntil = 0.f;
  UPROPERTY(VisibleAnywhere) USpringArmComponent* CameraBoom;
  UPROPERTY(VisibleAnywhere) UCameraComponent* FollowCamera;
  float LastFinisherKillAt = -100.f;
