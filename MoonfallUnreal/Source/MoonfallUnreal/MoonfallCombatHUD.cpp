@@ -33,11 +33,7 @@ void AMoonfallCombatHUD::DrawHUD()
    const int32 Quest = Hero->GetResidentQuestState(Resident->ResidentId);
    const FString QuestAction = Quest == 0 ? TEXT("Accept contract")
      : Quest == 1 ? TEXT("Turn in salvage") : TEXT("Completed");
-   const FString Names[3] = { TEXT("Talk"),
-     Quest == 1 && Hero->bResidentTurnInPending && Hero->GetWorld()
-       && Hero->GetWorld()->GetTimeSeconds() <= Hero->ResidentTurnInConfirmUntil
-       ? FString(TEXT("Confirm turn-in")) : QuestAction,
-     TEXT("Close") };
+   const FString Names[3] = { TEXT("Talk"), QuestAction, TEXT("Close") };
    // Mouse hover and gamepad selection share row geometry.
    float CursorX = -1.f, CursorY = -1.f;
    bool bCursorInMenu = false;
