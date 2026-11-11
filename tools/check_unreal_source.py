@@ -449,6 +449,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("ActiveRigMesh = RigMesh.Get();", rig_cpp)
         self.assertIn("bRigAvailable = RigMesh.IsValid();", rig_cpp)
         self.assertIn("CharacterRig->SetAbsolute(false, false, true);", self.enemy_cpp)
+        self.assertIn("EVisibilityBasedAnimTickOption::OnlyTickPoseWhenRendered", self.enemy_cpp)
         self.assertIn("Body->SetRelativeScale3D(FVector(0.85f,0.85f,1.4f));", self.enemy_cpp)
         self.assertIn("CharacterRig->SetCollisionEnabled(ECollisionEnabled::NoCollision);", self.enemy_cpp)
         self.assertIn("CharacterRig->SetCanEverAffectNavigation(false);", self.enemy_cpp)
