@@ -83,7 +83,8 @@ void AMoonfallEnemy::PlayCharacterRigCue(FName CueId, UAnimMontage* Montage)
  bLastRigMontagePlayed = false;
  if (bCharacterRigActive && IsValid(CharacterRig) && IsValid(Montage))
  {
-  if (UAnimInstance* Anim = CharacterRig->GetAnimInstance())
+  UAnimInstance* Anim = CharacterRig->GetAnimInstance();
+  if (IsValid(Anim))
   {
    const float Played = Anim->Montage_Play(Montage, 1.f);
    bLastRigMontagePlayed = FMath::IsFinite(Played) && Played > 0.f;
