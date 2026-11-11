@@ -52,6 +52,24 @@ void AMoonfallEnemy::CancelDivineSignature() {
  OnDivineAttackInterrupted(InterruptedMove);
 }
 
+void AMoonfallEnemy::ApplyDualCastImpact()
+{
+ if (!GetWorld() || !FMath::IsFinite(Health) || Health <= 0.f) return;
+ const float Now = GetWorld()->GetTimeSeconds();
+ if (!FMath::IsFinite(Now) || !FMath::IsFinite(NextDualCastImpactAt)
+     || !FMath::IsFinite(PostureBrokenUntil) || Now < NextDualCastImpactAt
+     || Now < PostureBrokenUntil) return;
+ // Bosses resist chain control; elites have a shorter flinch than mobs.
+ const float ReactionSeconds = bBoss ? 0.12f : (bElite ? 0.20f : 0.32f);
+ const float CooldownSeconds = bBoss ? 3.0f : (bElite ? 1.8f : 1.0f);
+ NextDualCastImpactAt = Now + CooldownSeconds;
+ HitReactionEndsAt = FMath::Max(
+   FMath::IsFinite(HitReactionEndsAt) ? HitReactionEndsAt : Now,
+   Now + ReactionSeconds);
+ // Existing stagger handling interrupts attack windups on the next tick.
+ OnDualCastImpact(ReactionSeconds);
+}
+
 void AMoonfallEnemy::ApplyPostureDamage(float Amount) {
  if (Health <= 0.f || !GetWorld() || !FMath::IsFinite(Amount) || Amount <= 0.f
      || !FMath::IsFinite(MaxPosture) || MaxPosture <= 0.f) return;
