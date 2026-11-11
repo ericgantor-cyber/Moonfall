@@ -352,6 +352,28 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("MainhandVisual->SetStaticMesh(MainhandMeshAsset.Get());", setup)
         self.assertIn("OffhandVisual->SetStaticMesh(OffhandMeshAsset.Get());", setup)
 
+    def test_replaced_skeletal_rigs_are_rechecked_without_frame_scans(self):
+        self.assertIn("ObservedWeaponRigAsset", self.hero_h)
+        self.assertIn("ObservedWeaponAnimInstance", self.hero_h)
+        self.assertIn("NextDualWieldRigAuditAt", self.hero_h)
+        self.assertIn("void AuditDualWieldRigChanges();", self.hero_h)
+        audit = self.hero_cpp.split("void AMoonfallHeroPawn::AuditDualWieldRigChanges()", 1)[1].split(
+            "void AMoonfallHeroPawn::RefreshDualWieldRig()", 1)[0]
+        self.assertIn("NextDualWieldRigAuditAt = Now + 1.f;", audit)
+        self.assertIn("GetSkeletalMeshAsset()", audit)
+        self.assertIn("GetAnimInstance()", audit)
+        self.assertIn("CurrentRig != ObservedWeaponRigAsset.Get()", audit)
+        self.assertIn("CurrentAnim != ObservedWeaponAnimInstance.Get()", audit)
+        self.assertIn("InitializeDualWieldVisuals();", audit)
+        tick = self.hero_cpp.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1].split(
+            "\n}", 1)[0]
+        self.assertIn("AuditDualWieldRigChanges();", tick)
+        self.assertNotIn("InitializeDualWieldVisuals();", tick)
+        init = self.hero_cpp.split("void AMoonfallHeroPawn::InitializeDualWieldVisuals()", 1)[1].split(
+            "void AMoonfallHeroPawn::AuditDualWieldRigChanges()", 1)[0]
+        self.assertIn("ObservedWeaponRigAsset =", init)
+        self.assertIn("ObservedWeaponAnimInstance = ActiveAnim;", init)
+
     def test_swing_playback_diagnostics_do_not_reuse_stale_results(self):
         for name in ("bMainhandMontagePlayed", "bOffhandMontagePlayed",
                      "bMainhandSwingAttempted", "bOffhandSwingAttempted"):
@@ -364,7 +386,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         swing = self.hero_cpp.split("void AMoonfallHeroPawn::BeginWeaponSwing(", 1)[1].split(
             "void AMoonfallHeroPawn::UpdateWeaponVisuals()", 1)[0]
         self.assertIn("bPlayed = false;", swing)
-        self.assertIn("bAttempted = !bReduceMotion;", swing)
+        self.assertIn("bAttempted = false;", swing)
+        self.assertIn("bAttempted = true;", swing)
         self.assertIn("bReady = IsValid(Anim) && IsValid(Montage);", swing)
         self.assertIn("if (bReady)", swing)
         self.assertIn("FMath::IsFinite(Played) && Played > 0.f", swing)
