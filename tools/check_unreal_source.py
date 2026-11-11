@@ -2635,7 +2635,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         # Source-contract guard only; native mouse timing still needs playtesting.
         self.assertIn("bool bMouseLeftWorldInteraction = false;", self.hero_h)
         left = self.hero_cpp.split("void AMoonfallHeroPawn::MouseLeftPressed()", 1)[1].split("\n}", 1)[0]
-        self.assertIn("bMouseLeftWorldInteraction = TryInteractWithAimedWorld();", left)
+        self.assertIn("bMouseLeftWorldInteraction = !bMouseRightHeld && TryInteractWithAimedWorld();", left)
         self.assertIn("if (bMouseLeftWorldInteraction) return;", left)
         self.assertLess(left.index("if (bMouseLeftWorldInteraction) return;"),
                         left.index("QueueMouseCast(0);"))
@@ -2645,6 +2645,14 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("bMouseLeftHeld = false;\n bMouseLeftWorldInteraction = false;", release)
         canceled = self.hero_cpp.split("void AMoonfallHeroPawn::CancelPendingMouseCombat()", 1)[1].split("\n}", 1)[0]
         self.assertIn("bMouseLeftWorldInteraction = false;", canceled)
+
+    def test_right_mouse_combat_precedes_world_interaction(self):
+        # Left click while right hand is held must follow combat/chord routing,
+        # not consume the input on a coincidentally targeted key or gate.
+        left = self.hero_cpp.split("void AMoonfallHeroPawn::MouseLeftPressed()", 1)[1].split("\n}", 1)[0]
+        self.assertIn("!bMouseRightHeld && TryInteractWithAimedWorld()", left)
+        self.assertLess(left.index("!bMouseRightHeld && TryInteractWithAimedWorld()"),
+                        left.index("QueueMouseCast(0);"))
 
     def test_f_mouse_and_controller_world_interaction_preserved(self):
         controls = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
