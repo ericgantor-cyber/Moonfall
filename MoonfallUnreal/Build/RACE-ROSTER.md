@@ -21,7 +21,7 @@ The native Blueprint library `UMoonfallRaceLibrary` provides 30 stable race IDs:
 - Call `GetRaceIds` to populate character-selection or spawn UI. Use `FindRaceProfile` for translated display names/families and trait multipliers.
 - `bPlayableCandidate` flags only **potential** playable choices. It does not automatically make any race selectable or change Z/Nyra. The original protagonists' identities and artwork remain exactly as provided.
 - On an `AMoonfallEnemy` Blueprint, set `RaceId` to one of the IDs. At spawn, a known race modifies **health and attack damage only** with bounded multipliers, preserving elite/boss level scaling. Unknown or empty IDs preserve previous behavior. `ResolvedRaceFamily` exposes the family for UI, spawning and loot rules.
-- `SpeedMultiplier` is **catalog metadata only** in this iteration. It is not applied to enemy movement or AI.
+- `SpeedMultiplier` now affects enemy **chase movement**, clamped to 0.65×–1.35× and resolved once at spawn as `RaceMovementMultiplier`. It does not change attack cadence, navigation query frequency, or stored `ChaseSpeed`. Unassigned/unknown races use exactly 1×.
 - Assign original mesh, animation rig, sound and portrait assets per Blueprint. Nothing automatically creates art, skeletons, race-specific AI, or character selection.
 
 ## Verification still required
