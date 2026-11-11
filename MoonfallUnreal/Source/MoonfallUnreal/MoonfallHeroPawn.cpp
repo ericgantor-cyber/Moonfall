@@ -1156,14 +1156,14 @@ void AMoonfallHeroPawn::InitializeDualWieldVisuals()
  {
   MainhandVisual->AttachToComponent(BodyMesh,
     FAttachmentTransformRules::SnapToTargetNotIncludingScale, MainhandSocket);
-  MainhandVisual->SetRelativeLocation(FVector::ZeroVector);
+  MainhandVisual->SetRelativeLocation(MainhandSocketOffset);
  }
  if (IsValid(BodyMesh) && !OffhandSocket.IsNone()
      && BodyMesh->DoesSocketExist(OffhandSocket))
  {
   OffhandVisual->AttachToComponent(BodyMesh,
     FAttachmentTransformRules::SnapToTargetNotIncludingScale, OffhandSocket);
-  OffhandVisual->SetRelativeLocation(FVector::ZeroVector);
+  OffhandVisual->SetRelativeLocation(OffhandSocketOffset);
  }
  // Visual-only equipment must never interfere with combat visibility traces.
  MainhandVisual->SetCollisionEnabled(ECollisionEnabled::NoCollision);
@@ -1208,14 +1208,30 @@ void AMoonfallHeroPawn::UpdateWeaponVisuals()
  // no external montage assets. Reduced-motion mode disables the sweep.
  const float MainAge = Now - MainhandSwingStartedAt;
  const float OffAge = Now - OffhandSwingStartedAt;
+ const float MainDuration = FMath::IsFinite(MainhandSwingDuration)
+   ? FMath::Clamp(MainhandSwingDuration, 0.10f, 1.f) : 0.30f;
+ const float OffDuration = FMath::IsFinite(OffhandSwingDuration)
+   ? FMath::Clamp(OffhandSwingDuration, 0.10f, 1.f) : 0.30f;
  const float MainSweep = !bReduceMotion && FMath::IsFinite(MainAge)
-   && MainAge >= 0.f && MainAge <= 0.30f
-   ? FMath::Sin(MainAge / 0.30f * PI) * 75.f : 0.f;
+   && MainAge >= 0.f && MainAge <= MainDuration
+   ? FMath::Sin(MainAge / MainDuration * PI) * 75.f : 0.f;
  const float OffSweep = !bReduceMotion && FMath::IsFinite(OffAge)
-   && OffAge >= 0.f && OffAge <= 0.30f
-   ? FMath::Sin(OffAge / 0.30f * PI) * 75.f : 0.f;
- if (bShowMain) MainhandVisual->SetRelativeRotation(FRotator(0.f, 10.f, -18.f - MainSweep));
- if (bShowOffhand) OffhandVisual->SetRelativeRotation(FRotator(0.f, -10.f, 18.f + OffSweep));
+   && OffAge >= 0.f && OffAge <= OffDuration
+   ? FMath::Sin(OffAge / OffDuration * PI) * 75.f : 0.f;
+ // Preserve the authored grip orientation while adding swing motion.
+ // Without this, per-frame animation overwrites any Blueprint grip tuning.
+ if (bShowMain)
+ {
+  FRotator Grip = MainhandGripRotation;
+  Grip.Roll -= MainSweep;
+  MainhandVisual->SetRelativeRotation(Grip);
+ }
+ if (bShowOffhand)
+ {
+  FRotator Grip = OffhandGripRotation;
+  Grip.Roll += OffSweep;
+  OffhandVisual->SetRelativeRotation(Grip);
+ }
 }
 void AMoonfallHeroPawn::StrikeWithOffhandWeapon()
 {
