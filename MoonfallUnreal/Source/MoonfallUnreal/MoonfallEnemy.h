@@ -138,6 +138,7 @@ public:
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Rig") void OnCharacterRigCue(FName CueId, bool bMontagePlayed);
 private:
  void PlayCharacterRigCue(FName CueId, UAnimMontage* Montage);
+ TWeakObjectPtr<UObject> ObservedCharacterRigAsset;
 public:
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Combat") float LastHitAmount = 0.f;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Combat") float LastHitTime = -10.f;
