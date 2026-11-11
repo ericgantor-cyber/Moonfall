@@ -82,6 +82,11 @@ class TestSocialWorld(unittest.TestCase):
   self.assertIn("ChooseResidentContextAction(ResidentContextSelection)",self.hero)
   self.assertIn("bResidentContextOpen || !GetWorld() || School < 0",self.hero)
   self.assertIn('ActionName="ResidentMouseClick",Key=LeftMouseButton',self.input)
+ def test_native_spoken_dialogue_without_blueprint_widget(self):
+  self.assertIn("LastSpokenLine",self.npc_h)
+  self.assertIn("LastSpokenLine = Reaction;",self.npc)
+  self.assertIn("ResidentFeedbackMessage = Resident->LastSpokenLine.ToString();",self.hero)
+  self.assertIn("GetTimeSeconds() + 8.f",self.hero)
  def test_modal_cleanup_after_npc_streamout(self):
   self.assertIn("bool bResidentContextOpen = false",self.hero_h)
   self.assertIn("if (!bResidentContextOpen && !FocusedResident.IsValid()) return;",self.hero)
