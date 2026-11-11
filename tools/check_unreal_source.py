@@ -502,6 +502,34 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("RefreshCharacterRig();", rig)
         self.assertIn("OnCharacterRigCue(CueId, bLastRigMontagePlayed);", rig)
 
+    def test_original_fantasy_race_catalog_and_enemy_balance(self):
+        race_h = (ROOT / "MoonfallRaceLibrary.h").read_text(encoding="utf-8")
+        race_cpp = (ROOT / "MoonfallRaceLibrary.cpp").read_text(encoding="utf-8")
+        self.assertIn("USTRUCT(BlueprintType)", race_h)
+        self.assertIn("UMoonfallRaceLibrary : public UBlueprintFunctionLibrary", race_h)
+        self.assertIn("static TArray<FName> GetRaceIds();", race_h)
+        self.assertIn("static bool FindRaceProfile(FName RaceId, FMoonfallRaceProfile& Profile);", race_h)
+        import re
+        ids = re.findall(r'\\{TEXT\\("([a-z_]+)"\\), TEXT\\("', race_cpp)
+        self.assertGreaterEqual(len(ids), 30)
+        self.assertEqual(len(ids), len(set(ids)))
+        for race in ("human", "high_elf", "wood_elf", "dwarf", "smallfolk",
+                     "orc", "goblin", "troll", "treekin", "dragon", "wraith",
+                     "fire_demon", "stonekin", "ancient_spirit"):
+            self.assertIn(race, ids)
+        self.assertIn("Profile = FMoonfallRaceProfile();", race_cpp)
+        self.assertIn("return false;", race_cpp)
+        self.assertIn("FName RaceId = NAME_None;", self.enemy_h)
+        self.assertIn("FName ResolvedRaceFamily = NAME_None;", self.enemy_h)
+        begin = self.enemy_cpp.split("void AMoonfallEnemy::BeginPlay()", 1)[1].split(
+            "void AMoonfallEnemy::RefreshCharacterRig()", 1)[0]
+        self.assertIn("UMoonfallRaceLibrary::FindRaceProfile(RaceId, RaceProfile)", begin)
+        self.assertIn("RaceProfile.VitalityMultiplier", begin)
+        self.assertIn("RaceProfile.PowerMultiplier", begin)
+        self.assertIn("Health = FMath::Clamp(BaseHealth * HPScale * RaceHealthScale", begin)
+        self.assertIn("AttackDamage = FMath::Clamp(BaseDamage * DamageScale * RaceDamageScale", begin)
+        self.assertIn("bKnownRace ? FMath::Clamp", begin)
+
     def test_enemy_elite_and_boss_share_optional_skeletal_rig(self):
         self.assertIn("class USkeletalMeshComponent;", self.enemy_h)
         self.assertIn("TObjectPtr<USkeletalMeshComponent> CharacterRig;", self.enemy_h)
