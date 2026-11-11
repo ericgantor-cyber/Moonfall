@@ -26,7 +26,14 @@ FString AMoonfallWorldNPC::GetCurrentActivity() const {
  if (SocialRole == FName(TEXT("Guard"))) return Shift == 2 ? TEXT("Patrolling") : TEXT("Watching");
  if (SocialRole == FName(TEXT("Merchant"))) return Shift == 2 ? TEXT("Restocking") : TEXT("Trading");
  if (SocialRole == FName(TEXT("Scout"))) return Shift == 0 ? TEXT("Exploring") : TEXT("Reporting");
+ if (SocialRole == FName(TEXT("Scholar"))) return Shift == 2 ? TEXT("Studying") : TEXT("Teaching");
+ if (SocialRole == FName(TEXT("Tinker"))) return Shift == 2 ? TEXT("Repairing") : TEXT("Inventing");
+ if (SocialRole == FName(TEXT("Elder"))) return Shift == 2 ? TEXT("Reflecting") : TEXT("Advising");
  return Shift == 2 ? TEXT("Resting") : TEXT("Gathering");
+}
+bool AMoonfallWorldNPC::SharesRaceWith(const AMoonfallHeroPawn* Hero) const {
+ return IsValid(Hero) && Hero->bRaceChosen
+    && Hero->RaceId == MoonfallRaces::Validated(RaceId);
 }
 FString AMoonfallWorldNPC::GetSocialDisposition(const AMoonfallHeroPawn* Hero) const {
  const int32 Reputation = IsValid(Hero) ? Hero->GetFactionReputation(FactionId) : 0;
@@ -60,20 +67,24 @@ bool AMoonfallWorldNPC::TryTalk(AMoonfallHeroPawn* Hero) {
  // dialogue but does not magically turn a civilian into a hostile actor.
  FText Reaction = Spoken;
  const FString Disposition = GetSocialDisposition(Hero);
+ // Shared ancestry earns recognition, not free reputation or blocked quests.
+ if (Disposition == TEXT("Neutral") && SharesRaceWith(Hero))
+  Reaction = FText::FromString(FString::Printf(
+     TEXT("A fellow %s! %s"), MoonfallRaces::Name(RaceId), *Spoken.ToString()));
  if (Disposition == TEXT("Hostile")) Reaction = FText::FromString(TEXT("You are not welcome here."));
  else if (Disposition == TEXT("Wary")) Reaction = FText::FromString(TEXT("Speak carefully, stranger."));
  else if (Disposition == TEXT("Trusted")) Reaction = FText::FromString(TEXT("Welcome back, friend of our people."));
  // Citizens provide contextual opening lines without spawning dialogue actors.
- if (Disposition == TEXT("Neutral") && SocialRole == FName(TEXT("Merchant")))
+ if (Disposition == TEXT("Neutral") && !SharesRaceWith(Hero) && SocialRole == FName(TEXT("Merchant")))
   Reaction = FText::FromString(TEXT("Browse my wares when the market opens."));
- else if (Disposition == TEXT("Neutral") && SocialRole == FName(TEXT("Guard")))
+ else if (Disposition == TEXT("Neutral") && !SharesRaceWith(Hero) && SocialRole == FName(TEXT("Guard")))
   Reaction = FText::FromString(TEXT("Keep the peace inside our walls."));
  // Activity is determined only when interacted with; inhabitants never spam
  // navigation or world perception. Trust/hostility overrides daily routine.
- if (Disposition == TEXT("Neutral") && SocialRole == FName(TEXT("Merchant"))
+ if (Disposition == TEXT("Neutral") && !SharesRaceWith(Hero) && SocialRole == FName(TEXT("Merchant"))
      && GetCurrentActivity() == TEXT("Restocking"))
   Reaction = FText::FromString(TEXT("The stall is closed while I restock."));
- else if (Disposition == TEXT("Neutral") && SocialRole == FName(TEXT("Scout"))
+ else if (Disposition == TEXT("Neutral") && !SharesRaceWith(Hero) && SocialRole == FName(TEXT("Scout"))
      && GetCurrentActivity() == TEXT("Reporting"))
   Reaction = FText::FromString(TEXT("The roads have changed. I am reporting what I saw."));
  OnDialogueStarted(Hero, Reaction);
