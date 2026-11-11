@@ -1069,7 +1069,10 @@ void AMoonfallHeroPawn::CastLeft() { if (bOptionsOpen) return; TryCast(LeftSpell
 void AMoonfallHeroPawn::CastRight() { if (bOptionsOpen) return; TryCast(RightSpell, 1, 1.f); }
 void AMoonfallHeroPawn::CastBoth()
 {
- if (bOptionsOpen || bInventoryOpen || !GetWorld() || LeftSpell != RightSpell) return;
+ // Only two equipped spell hands can form an overcharged cast. A controller
+ // DualCast button must never bypass weapon/shield inventory selections.
+ if (bWeaponSpellStance || bSpellShieldStance || bGuarding
+     || bOptionsOpen || bInventoryOpen || !GetWorld() || LeftSpell != RightSpell) return;
  if (LeftSpell < 0 || LeftSpell >= 6 || RightSpell < 0 || RightSpell >= 6) return;
  const float Time = GetWorld()->GetTimeSeconds();
  static const float Cooldowns[6] = {0.8f,0.65f,1.2f,2.f,1.f,0.9f};
