@@ -1,5 +1,6 @@
 #include "MoonfallArena.h"
 #include "MoonfallEnemy.h"
+#include "MoonfallWorldNPC.h"
 #include "Components/SceneComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/World.h"
@@ -40,6 +41,13 @@ void AMoonfallArena::BeginPlay() {
   CreateBlock(FVector(-CoverOffset, CoverOffset, 160.f), CoverScale);
   CreateBlock(FVector(CoverOffset,-CoverOffset, 160.f), CoverScale);
   CreateBlock(FVector(-CoverOffset,-CoverOffset,160.f), CoverScale);
+ }
+ // Fixed showcase NPC in the existing world. No separate gameplay mode.
+ // The player or an interaction UI calls TryTalk; the actor never ticks.
+ if (AMoonfallWorldNPC* Guide = GetWorld()->SpawnActor<AMoonfallWorldNPC>(
+     AMoonfallWorldNPC::StaticClass(), GetActorLocation() + FVector(-350.f, 650.f, 60.f), FRotator::ZeroRotator)) {
+  Guide->DisplayName = FText::FromString(TEXT("Wandering Guide"));
+  Guide->Greeting = FText::FromString(TEXT("Every road belongs to the same world. Stay alert beyond the gate."));
  }
  const int32 Count = FMath::Clamp(EnemyCount,0,12);
  for (int32 i=0;i<Count;++i) {
