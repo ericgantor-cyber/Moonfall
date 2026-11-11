@@ -2685,6 +2685,22 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Loot->TryCollect()", auto)
         self.assertNotIn("Loot->TryCollect(true)", auto)
 
+    def test_f_equipment_targeting_prefers_visible_front_drops(self):
+        world = self.hero_cpp.split("void AMoonfallHeroPawn::InteractWithNearbyWorld()", 1)[1].split(
+            "void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[0]
+        self.assertIn("if (TryInteractWithNearbyKey()) return;", world)
+        self.assertIn("NearestFacingLoot", world)
+        self.assertIn("FVector::DotProduct(Facing, Direction) >= 0.25f", world)
+        self.assertIn("if (IsValid(NearestFacingLoot)) NearestLoot = NearestFacingLoot;", world)
+        self.assertIn("if (GetWorld()->LineTraceSingleByChannel", world)
+        self.assertIn("FMath::Abs(At.Z - HeroAt.Z) > 150.f", world)
+        self.assertIn("NearestLoot->TryCollect(true)", world)
+        self.assertLess(world.index("if (TryInteractWithNearbyKey()) return;"),
+                        world.index("NearestLoot->TryCollect(true)"))
+        self.assertIn("INVENTORY FULL - EQUIPMENT LEFT ON GROUND", world)
+        self.assertIn("NOTHING IN REACH - MOVE CLOSER", world)
+        self.assertNotIn("TryInteractWithAimedWorld", world)
+
     def test_direct_key_and_gate_transactions_require_reach_and_visibility(self):
         pickup = (ROOT / "MoonfallKeyPickup.cpp").read_text(encoding="utf-8")
         gate = (ROOT / "MoonfallKeyGate.cpp").read_text(encoding="utf-8")
