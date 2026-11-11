@@ -104,14 +104,24 @@ class TestSocialWorld(unittest.TestCase):
   self.assertIn("Candidate->CanHeroInteract(this)",self.hero)
   self.assertIn("Checked < 64",self.hero)
   self.assertIn("if (FMath::IsFinite(DistSq) && DistSq < BestDistSq &&",self.hero)
- def test_turn_in_is_one_action_only(self):
+ def test_turn_in_requires_two_separate_choices(self):
   hud=(ROOT/"MoonfallCombatHUD.cpp").read_text()
+  self.assertIn("bResidentTurnInPending",self.hero_h)
+  self.assertIn("ResidentTurnInConfirmUntil",self.hero_h)
+  self.assertIn("ResidentTurnInConfirmAfter",self.hero_h)
+  self.assertIn("GetTimeSeconds() + 6.f",self.hero)
+  self.assertIn("GetTimeSeconds() + 0.35f",self.hero)
+  self.assertIn("GetTimeSeconds() < ResidentTurnInConfirmAfter",self.hero)
+  self.assertIn("Confirm spending %d salvage",self.hero)
+  self.assertIn("Confirm turn-in",hud)
   self.assertIn("Resident->TurnInResidentQuest(this)",self.hero)
-  self.assertIn("if (Salvage < Resident->GetContractSalvageCost())",self.hero)
-  self.assertIn("GetResidentQuestState(Resident->ResidentId)",self.hero)
-  self.assertNotIn("bResidentTurnInPending",self.hero)
-  self.assertNotIn("ResidentTurnInConfirmAfter",self.hero)
-  self.assertNotIn("Confirm turn-in",hud)
+ def test_opening_dialogue_does_not_force_stop_movement(self):
+  source=self.hero.split("void AMoonfallHeroPawn::OpenFocusedResidentContext()",1)[1].split(
+    "void AMoonfallHeroPawn::ResidentContextMouseClick()",1)[0]
+  self.assertNotIn("StopJumping();",source)
+  self.assertNotIn("StopMovementImmediately();",source)
+  self.assertNotIn("EndSprint();",source)
+  self.assertNotIn("EndGuard();",source)
  def test_hover_and_quest_status_ui(self):
   hud=(ROOT/"MoonfallCombatHUD.cpp").read_text()
   self.assertIn("GetMousePosition(CursorX, CursorY)",hud)
@@ -123,8 +133,6 @@ class TestSocialWorld(unittest.TestCase):
   self.assertIn('TEXT("Contract: %s  |  Faction %s")',hud)
   self.assertIn("Closing dialogue does not change mouse cursor visibility.",self.hero)
   self.assertNotIn("bResidentCursorWasVisible",self.hero)
- def test_npc_open_stops_movement(self):
-  self.assertIn("GetCharacterMovement()->StopMovementImmediately();",self.hero)
  def test_no_n_v_quest_bindings(self):
   self.assertNotIn('ActionName="TalkNPC"',self.input)
   self.assertNotIn('ActionName="ResidentQuest"',self.input)
