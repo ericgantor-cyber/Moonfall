@@ -1069,11 +1069,17 @@ void AMoonfallHeroPawn::CastLeft() { if (bOptionsOpen) return; TryCast(LeftSpell
 void AMoonfallHeroPawn::CastRight() { if (bOptionsOpen) return; TryCast(RightSpell, 1, 1.f); }
 void AMoonfallHeroPawn::CastBoth()
 {
- if (bOptionsOpen) return;
- if (LeftSpell != RightSpell || !GetWorld()) return;
+ if (bOptionsOpen || bInventoryOpen || !GetWorld() || LeftSpell != RightSpell) return;
+ if (LeftSpell < 0 || LeftSpell >= 6) return;
  const float Time = GetWorld()->GetTimeSeconds();
  static const float Cooldowns[6] = {0.8f,0.65f,1.2f,2.f,1.f,0.9f};
- if (LeftSpell < 0 || LeftSpell >= 6 || RightSpell < 0 || RightSpell >= 6 || Time - LastCastTime[1] < Cooldowns[LeftSpell]) return;
+ const float Cooldown = Cooldowns[LeftSpell] / (1.f + GetHasteBonus());
+ // Both hands must be available. In particular, a recent off-hand cast
+ // cannot be bypassed by clicking both buttons, and haste works identically
+ // for single and combined spells.
+ if (!FMath::IsFinite(Time) || !FMath::IsFinite(Cooldown) || Cooldown <= 0.f
+     || !FMath::IsFinite(LastCastTime[0]) || !FMath::IsFinite(LastCastTime[1])
+     || Time - LastCastTime[0] < Cooldown || Time - LastCastTime[1] < Cooldown) return;
  if (TryCast(LeftSpell, 0, 2.2f))
  {
   LastCastTime[1] = LastCastTime[0];
