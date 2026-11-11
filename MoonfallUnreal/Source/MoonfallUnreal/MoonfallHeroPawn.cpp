@@ -1199,8 +1199,23 @@ void AMoonfallHeroPawn::UpdateInventoryMouseInput()
 
 void AMoonfallHeroPawn::ToggleCharacterStats()
 {
- if (bInventoryOpen && !bOptionsOpen && Health > 0.f)
-  bCharacterStatsOpen = !bCharacterStatsOpen;
+ if (bOptionsOpen || !FMath::IsFinite(Health) || Health <= 0.f) return;
+ if (!bInventoryOpen)
+ {
+  // C opens the character sheet directly from gameplay.
+  StopJumping();
+  if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
+  EndSprint();
+  EndGuard();
+  bInventoryOpen = true;
+  bCharacterStatsOpen = true;
+  bKeyRingInventoryOpen = false;
+  UpdateInventoryMouseInput();
+  return;
+ }
+ // When the inventory is already open, C switches between character
+ // information and the bag without changing the current selection.
+ bCharacterStatsOpen = !bCharacterStatsOpen;
 }
 
 void AMoonfallHeroPawn::ToggleInventory() {
