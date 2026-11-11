@@ -539,9 +539,35 @@ void AMoonfallHeroPawn::BeginPlay() {
  bFrameGenerationPluginDetected = (FSR.IsValid() && FSR->IsEnabled()) || (DLSS.IsValid() && DLSS->IsEnabled());
  // Detection is only a hint, never proof of a supported frame-generation runtime.
 }
+bool AMoonfallHeroPawn::IsTwilightNight() const
+{
+ const float Period = FMath::IsFinite(TwilightCycleSeconds)
+   ? FMath::Clamp(TwilightCycleSeconds, 60.f, 3600.f) : 1440.f;
+ const float Elapsed = FMath::IsFinite(TwilightElapsedSeconds)
+   ? FMath::Fmod(FMath::Max(0.f, TwilightElapsedSeconds), Period) : 0.f;
+ return Elapsed >= Period * 0.5f;
+}
+float AMoonfallHeroPawn::GetTwilightWeaponMultiplier() const
+{
+ return IsTwilightNight() ? 1.f : 1.10f;
+}
+float AMoonfallHeroPawn::GetTwilightSpellMultiplier() const
+{
+ return IsTwilightNight() ? 1.10f : 1.f;
+}
+
 void AMoonfallHeroPawn::Tick(float DeltaSeconds)
 {
  Super::Tick(DeltaSeconds);
+ // Advance a bounded original day/night cycle without real-world clock,
+ // timer actors, save migration, or background updates while menus are open.
+ if (!bOptionsOpen && !bInventoryOpen && FMath::IsFinite(DeltaSeconds)
+     && FMath::IsFinite(TwilightElapsedSeconds) && FMath::IsFinite(TwilightCycleSeconds))
+ {
+  const float Period = FMath::Clamp(TwilightCycleSeconds, 60.f, 3600.f);
+  TwilightElapsedSeconds = FMath::Fmod(
+    TwilightElapsedSeconds + FMath::Clamp(DeltaSeconds, 0.f, 0.1f), Period);
+ }
  // Automatically collect all nearby reachable equipment, without a
  // per-press item cap or a world scan every rendered frame.
  if (bAutoLootEnabled && GetWorld() && Health > 0.f && !bOptionsOpen && !bInventoryOpen
@@ -829,7 +855,7 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
   const float SpellDamage = (18.f + School * 5.f) * Multiplier * SpellPowerMultiplier
     * WeaponDamageBonus * CounterMultiplier * MomentumBonus * HitComboMultiplier
     * (1.f + GetMasteryBonus()) * (1.f + GetVersatilityBonus())
-    * (bCriticalSpell ? 1.5f : 1.f) * MightMultiplier;
+    * (bCriticalSpell ? 1.5f : 1.f) * MightMultiplier * GetTwilightSpellMultiplier();
   // Reject invalid damage before spending mana or consuming a hard-earned counter.
   if (!FMath::IsFinite(SpellDamage) || SpellDamage <= 0.f) return false;
   const float HealthBeforeSpell = Enemy->Health;
@@ -1059,7 +1085,8 @@ void AMoonfallHeroPawn::StrikeWithWeapon()
   OnWeaponStrike(0.f, false);
   return;
  }
- const float Damage = 12.f + 2.f * FMath::Clamp(WeaponTier, 0, 25);
+ const float Damage = (12.f + 2.f * FMath::Clamp(WeaponTier, 0, 25))
+   * GetTwilightWeaponMultiplier();
  const float PreviousHealth = Enemy->Health;
  Enemy->TakeSpellDamage(Damage);
  NextWeaponStrikeAt = Now + 0.45f;
