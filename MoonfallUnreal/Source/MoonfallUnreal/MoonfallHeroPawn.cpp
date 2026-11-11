@@ -1681,6 +1681,15 @@ bool AMoonfallHeroPawn::UpgradeInventoryItem(int32 InventoryIndex)
  // When this particular selected weapon occupies ONLY the offhand, update
  // its code atomically alongside the bag, salvage cost and all worn gear.
  const bool bCraftingOffhand = Slot == 0 && Code == EquippedOffhandCode;
+ if (bCraftingOffhand)
+ {
+  // If multiple copies have the same code, the selected inventory row
+  // cannot identify which physical copy is worn in the offhand.
+  int32 MatchingCopies = 0;
+  for (const int32 BagCode : InventoryItemCodes)
+   if (BagCode == Code) ++MatchingCopies;
+  if (MatchingCopies != 1) return false;
+ }
  const int32 PreviousOffhandCode = EquippedOffhandCode;
  const int32 PreviousOffhandTier = OffhandTier;
  // The bag, salvage and worn stats must either all commit or all roll back.
@@ -1775,6 +1784,15 @@ bool AMoonfallHeroPawn::ReforgeInventoryItemAffix(int32 InventoryIndex)
  // When this particular selected weapon occupies ONLY the offhand, update
  // its code atomically alongside the bag, salvage cost and all worn gear.
  const bool bCraftingOffhand = Slot == 0 && Code == EquippedOffhandCode;
+ if (bCraftingOffhand)
+ {
+  // If multiple copies have the same code, the selected inventory row
+  // cannot identify which physical copy is worn in the offhand.
+  int32 MatchingCopies = 0;
+  for (const int32 BagCode : InventoryItemCodes)
+   if (BagCode == Code) ++MatchingCopies;
+  if (MatchingCopies != 1) return false;
+ }
  const int32 PreviousOffhandCode = EquippedOffhandCode;
  const int32 PreviousOffhandTier = OffhandTier;
  const int32 EquippedCode = Slot == 0 ? EquippedWeaponCode
@@ -1878,6 +1896,15 @@ bool AMoonfallHeroPawn::AscendInventoryItemRarity(int32 InventoryIndex)
  // When this particular selected weapon occupies ONLY the offhand, update
  // its code atomically alongside the bag, salvage cost and all worn gear.
  const bool bCraftingOffhand = Slot == 0 && Code == EquippedOffhandCode;
+ if (bCraftingOffhand)
+ {
+  // If multiple copies have the same code, the selected inventory row
+  // cannot identify which physical copy is worn in the offhand.
+  int32 MatchingCopies = 0;
+  for (const int32 BagCode : InventoryItemCodes)
+   if (BagCode == Code) ++MatchingCopies;
+  if (MatchingCopies != 1) return false;
+ }
  const int32 PreviousOffhandCode = EquippedOffhandCode;
  const int32 PreviousOffhandTier = OffhandTier;
  // The bag, salvage and worn stats must either all commit or all roll back.
