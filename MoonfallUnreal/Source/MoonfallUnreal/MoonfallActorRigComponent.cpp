@@ -73,7 +73,10 @@ bool UMoonfallActorRigComponent::PlayRigCue(FName CueId)
   const TObjectPtr<UAnimMontage>* Entry = MontageCues.Find(CueId);
   if (Entry && IsValid(Entry->Get()))
   {
-   if (UAnimInstance* Anim = RigMesh->GetAnimInstance())
+   // Animation instances may be pending destruction during a rig hot-swap.
+   // Check UObject validity before calling into Montage_Play.
+   UAnimInstance* Anim = RigMesh->GetAnimInstance();
+   if (IsValid(Anim))
    {
     const float Duration = Anim->Montage_Play(Entry->Get(), 1.f);
     bLastCuePlayed = FMath::IsFinite(Duration) && Duration > 0.f;
