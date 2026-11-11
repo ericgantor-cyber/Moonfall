@@ -352,6 +352,31 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("MainhandVisual->SetStaticMesh(MainhandMeshAsset.Get());", setup)
         self.assertIn("OffhandVisual->SetStaticMesh(OffhandMeshAsset.Get());", setup)
 
+    def test_multiple_rig_socket_names_and_rebinding_are_safe(self):
+        for key in ("bAllowHandSocketFallbacks", "bMainhandRigAttached",
+                    "bOffhandRigAttached", "RefreshDualWieldRig()"):
+            self.assertIn(key, self.hero_h)
+        rig = self.hero_cpp.split("void AMoonfallHeroPawn::InitializeDualWieldVisuals()", 1)[1].split(
+            "void AMoonfallHeroPawn::RefreshDualWieldRig()", 1)[0]
+        self.assertIn("BodyMesh->DoesSocketExist(MainhandSocket)", rig)
+        self.assertIn("BodyMesh->DoesSocketExist(OffhandSocket)", rig)
+        for key in ("hand_r", "RightHand", "RightHandSocket", "weapon_r",
+                    "hand_l", "LeftHand", "LeftHandSocket", "weapon_l"):
+            self.assertIn('TEXT("' + key + '")', rig)
+        self.assertIn("if (bAllowHandSocketFallbacks)", rig)
+        self.assertIn("FAttachmentTransformRules::SnapToTargetNotIncludingScale", rig)
+        self.assertIn("FAttachmentTransformRules::KeepRelativeTransform", rig)
+        self.assertIn("FMath::IsFinite(AuthoredOffset.X)", rig)
+        self.assertIn("AuthoredOffset.GetAbsMax() <= 100.f", rig)
+        self.assertIn("bMainhandRigAttached = AttachWeapon(", rig)
+        self.assertIn("bOffhandRigAttached = AttachWeapon(", rig)
+        self.assertIn("Weapon->SetRelativeLocation(FallbackOffset);", rig)
+        refresh = self.hero_cpp.split("void AMoonfallHeroPawn::RefreshDualWieldRig()", 1)[1].split(
+            "void AMoonfallHeroPawn::BeginWeaponSwing(", 1)[0]
+        self.assertIn("InitializeDualWieldVisuals();", refresh)
+        self.assertNotIn("RefreshDualWieldRig();", self.hero_cpp.split(
+            "void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1].split("\n}", 1)[0])
+
     def test_dual_wield_grip_tuning_is_respected_by_animation(self):
         for name in ("MainhandSocketOffset", "OffhandSocketOffset",
                      "MainhandGripRotation", "OffhandGripRotation",
@@ -360,8 +385,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             self.assertIn(name, self.hero_cpp)
         init = self.hero_cpp.split("void AMoonfallHeroPawn::InitializeDualWieldVisuals()", 1)[1].split(
             "void AMoonfallHeroPawn::BeginWeaponSwing(", 1)[0]
-        self.assertIn("MainhandVisual->SetRelativeLocation(MainhandSocketOffset);", init)
-        self.assertIn("OffhandVisual->SetRelativeLocation(OffhandSocketOffset);", init)
+        self.assertIn("MainhandSocketOffset, FVector(35.f, 44.f, 12.f)", init)
+        self.assertIn("OffhandSocketOffset, FVector(35.f, -44.f, 12.f)", init)
         visual = self.hero_cpp.split("void AMoonfallHeroPawn::UpdateWeaponVisuals()", 1)[1].split(
             "void AMoonfallHeroPawn::StrikeWithOffhandWeapon()", 1)[0]
         self.assertIn("FMath::IsFinite(MainhandSwingDuration)", visual)
