@@ -1,4 +1,5 @@
 #include "MoonfallEnemy.h"
+#include "MoonfallRaceLibrary.h"
 #include "Components/StaticMeshComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Animation/AnimInstance.h"
@@ -47,8 +48,15 @@ void AMoonfallEnemy::BeginPlay() {
  // Blueprint tuning must not overflow enemy vitality or damage at spawn.
  const float BaseHealth = FMath::IsFinite(Health) && Health > 0.f ? Health : 1.f;
  const float BaseDamage = FMath::IsFinite(AttackDamage) && AttackDamage > 0.f ? AttackDamage : 1.f;
- Health = FMath::Clamp(BaseHealth, 1.f, 100000.f) * HPScale;
- AttackDamage = FMath::Clamp(BaseDamage, 1.f, 10000.f) * DamageScale;
+ // Race traits apply once when an enemy spawns. Unknown/unassigned race IDs
+ // retain legacy behavior; never overwrite manually authored visual assets.
+ FMoonfallRaceProfile RaceProfile;
+ const bool bKnownRace = UMoonfallRaceLibrary::FindRaceProfile(RaceId, RaceProfile);
+ ResolvedRaceFamily = bKnownRace ? RaceProfile.Family : NAME_None;
+ const float RaceHealthScale = bKnownRace ? FMath::Clamp(RaceProfile.VitalityMultiplier, 0.5f, 2.f) : 1.f;
+ const float RaceDamageScale = bKnownRace ? FMath::Clamp(RaceProfile.PowerMultiplier, 0.5f, 2.f) : 1.f;
+ Health = FMath::Clamp(BaseHealth * HPScale * RaceHealthScale, 1.f, 100000.f);
+ AttackDamage = FMath::Clamp(BaseDamage * DamageScale * RaceDamageScale, 1.f, 10000.f);
  MaxHealthAtSpawn = FMath::Max(1.f, Health);
  BossMaxHealth = bBoss ? MaxHealthAtSpawn : 0.f;
  // Bosses and elites require sustained pressure rather than a fixed three-parry break.
