@@ -282,6 +282,7 @@ private:
  void RestorePendingWorldEquipmentDrops();
  // Auto-loot runs on a short interval; never scan every rendered frame.
  float NextAutoLootAt = 0.f;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Loot") bool bAutoLootEnabled = true;
  void SpawnMilestoneKey(const FVector& Location);
  // During crafting, equipped updates participate in the outer save transaction.
  bool bDeferEquippedSave = false;
