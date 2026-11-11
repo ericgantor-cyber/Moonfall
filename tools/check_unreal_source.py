@@ -344,6 +344,10 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("bCharacterStatsOpen = true;", character_toggle)
         self.assertIn("UpdateInventoryMouseInput();", character_toggle)
         self.assertIn("bCharacterStatsOpen = !bCharacterStatsOpen;", character_toggle)
+        inventory_toggle = self.hero_cpp.split("void AMoonfallHeroPawn::ToggleInventory()", 1)[1].split("void AMoonfallHeroPawn::EquipSelectedInventoryItem()", 1)[0]
+        self.assertIn("if (bInventoryOpen && bCharacterStatsOpen)", inventory_toggle)
+        self.assertLess(inventory_toggle.index("if (bInventoryOpen && bCharacterStatsOpen)"), inventory_toggle.index("bInventoryOpen = !bInventoryOpen;"))
+        self.assertIn("bCharacterStatsOpen = false;", inventory_toggle)
         self.assertIn("if (!bInventoryOpen) {\n  bCharacterStatsOpen = false;\n  bKeyRingInventoryOpen = false;\n }", self.hero_cpp)
         self.assertIn("if (!bCharacterStatsOpen) ForgeInventoryItemLevels(InventorySelection, 5);", self.hero_cpp)
         self.assertIn("if (!bCharacterStatsOpen) ReforgeInventoryItemAffix(InventorySelection);", self.hero_cpp)
