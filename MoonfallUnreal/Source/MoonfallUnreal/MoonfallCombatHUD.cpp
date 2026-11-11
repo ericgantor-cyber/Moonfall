@@ -13,7 +13,10 @@ void AMoonfallCombatHUD::NotifyHitBoxClick(FName BoxName)
  AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0));
  if (!IsValid(Hero) || !Hero->bInventoryOpen || Hero->bOptionsOpen) return;
  if (BoxName == FName(TEXT("MoonfallKeyRing"))) Hero->ToggleKeyRing();
- else if (BoxName == FName(TEXT("MoonfallHandSetup"))) Hero->CycleHandSetup();
+ else if (BoxName == FName(TEXT("MoonfallHandSpellSpell"))) Hero->SelectHandSetup(0);
+ else if (BoxName == FName(TEXT("MoonfallHandWeaponSpell"))) Hero->SelectHandSetup(1);
+ else if (BoxName == FName(TEXT("MoonfallHandSpellShield"))) Hero->SelectHandSetup(2);
+ else if (BoxName == FName(TEXT("MoonfallHandWeaponShield"))) Hero->SelectHandSetup(3);
 }
 
 void AMoonfallCombatHUD::DrawHUD()
@@ -49,17 +52,28 @@ void AMoonfallCombatHUD::DrawHUD()
   const float Top = (Canvas->SizeY - PanelHeight) * 0.5f;
   DrawRect(FLinearColor(0.04f, 0.035f, 0.10f, 0.96f), Left, Top, PanelWidth, PanelHeight);
   DrawText(TEXT("MOONFALL  |  INVENTORY"), FLinearColor::White, Left + 18.f, Top + 16.f, nullptr, 1.3f);
-  // Clickable hand setup; no stance-toggle keyboard shortcut.
+  // Four directly clickable configurations. No stance-toggle key; V is free.
+  // Keep the buttons below equipment stats and above the first inventory row.
   if (!Hero->bCharacterStatsOpen) {
-   const float HandButtonX = Left + 18.f;
-   const float HandButtonY = Top + 45.f;
-   DrawRect(FLinearColor(0.16f,0.23f,0.31f,0.96f), HandButtonX, HandButtonY, 225.f, 32.f);
-   AddHitBox(FVector2D(HandButtonX, HandButtonY),
-     FVector2D(225.f, 32.f), FName(TEXT("MoonfallHandSetup")), true, 20);
-   const TCHAR* HandLabel = Hero->bSpellShieldStance
-     ? (Hero->bWeaponSpellStance ? TEXT("WEAPON + SHIELD") : TEXT("SPELL + SHIELD"))
-     : (Hero->bWeaponSpellStance ? TEXT("WEAPON + SPELL") : TEXT("SPELL + SPELL"));
-   DrawText(HandLabel, FLinearColor::White, HandButtonX + 8.f, HandButtonY + 7.f, nullptr, 0.83f);
+   const TCHAR* Labels[4] = {TEXT("SPELL+SPELL"), TEXT("WEAPON+SPELL"),
+     TEXT("SPELL+SHIELD"), TEXT("WEAPON+SHIELD")};
+   const FName HitNames[4] = {FName(TEXT("MoonfallHandSpellSpell")),
+     FName(TEXT("MoonfallHandWeaponSpell")), FName(TEXT("MoonfallHandSpellShield")),
+     FName(TEXT("MoonfallHandWeaponShield"))};
+   const int32 SelectedHand = Hero->bSpellShieldStance
+     ? (Hero->bWeaponSpellStance ? 3 : 2) : (Hero->bWeaponSpellStance ? 1 : 0);
+   const float ButtonGap = 5.f;
+   const float ButtonWidth = (PanelWidth - 36.f - ButtonGap * 3.f) / 4.f;
+   for (int32 Choice = 0; Choice < 4; ++Choice) {
+    const float X = Left + 18.f + Choice * (ButtonWidth + ButtonGap);
+    const float Y = Top + 132.f;
+    DrawRect(Choice == SelectedHand ? FLinearColor(0.28f,0.42f,0.36f,0.96f)
+      : FLinearColor(0.16f,0.23f,0.31f,0.96f), X, Y, ButtonWidth, 30.f);
+    AddHitBox(FVector2D(X, Y), FVector2D(ButtonWidth, 30.f),
+      HitNames[Choice], true, 20);
+    DrawText(Labels[Choice], FLinearColor::White, X + 4.f, Y + 8.f,
+      nullptr, Canvas->SizeX < 900.f ? 0.50f : 0.65f);
+   }
   }
   // Clicking Keys in the inventory opens a readable list without changing pages.
   if (!Hero->bCharacterStatsOpen) {
@@ -138,7 +152,7 @@ void AMoonfallCombatHUD::DrawHUD()
   }
   const int32 Count = Hero->InventoryItemCodes.Num();
   // Reserve height for a real equipment-stat line and three controls rows.
-  const int32 PerPage = FMath::Clamp(FMath::FloorToInt((PanelHeight - 290.f) / 25.f), 2, 8);
+  const int32 PerPage = FMath::Clamp(FMath::FloorToInt((PanelHeight - 330.f) / 25.f), 2, 8);
   const int32 Selected = FMath::Clamp(Hero->InventorySelection, 0, FMath::Max(0, Count - 1));
   const int32 PageStart = Selected / PerPage * PerPage;
   const int32 PageEnd = FMath::Min(Count, PageStart + PerPage);
@@ -150,7 +164,7 @@ void AMoonfallCombatHUD::DrawHUD()
   if (Count == 0)
    DrawText(TEXT("No equipment yet. Defeat enemies to find gear."), FLinearColor::White,
      Left + 18.f, Top + 100.f, nullptr, 0.92f);
-  const float RowSpacing = FMath::Max(21.f, (PanelHeight - 290.f) / PerPage);
+  const float RowSpacing = FMath::Max(21.f, (PanelHeight - 330.f) / PerPage);
   for (int32 Index = PageStart; Index < PageEnd; ++Index) {
    const int32 Code = Hero->InventoryItemCodes[Index];
    const int32 Affix = Code / 100000;
@@ -163,7 +177,7 @@ void AMoonfallCombatHUD::DrawHUD()
    const bool bValid = Code > 0 && Slot <= 2 && Affix <= 3 && Rarity <= 5 && Tier >= 1 && Tier <= 25;
    const bool bEquipped = Code == (Slot == 0 ? Hero->EquippedWeaponCode
      : Slot == 1 ? Hero->EquippedArmorCode : Hero->EquippedAccessoryCode);
-   const float Y = Top + 145.f + (Index - PageStart) * RowSpacing;
+   const float Y = Top + 175.f + (Index - PageStart) * RowSpacing;
    if (Index == Selected) DrawRect(FLinearColor(0.25f,0.18f,0.43f,0.90f),
      Left + 12.f, Y - 3.f, PanelWidth - 24.f, RowSpacing - 3.f);
    const FString Row = bValid ? FString::Printf(TEXT("%02d  %s  T%d  %s  %s%s"),
