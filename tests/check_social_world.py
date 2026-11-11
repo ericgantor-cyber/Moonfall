@@ -127,6 +127,13 @@ class TestSocialWorld(unittest.TestCase):
   self.assertIn('TEXT("Contract: %s  |  Faction %s")',hud)
   self.assertIn("Closing dialogue does not change mouse cursor visibility.",self.hero)
   self.assertNotIn("bResidentCursorWasVisible",self.hero)
+ def test_no_accidental_double_click_or_movement_drift(self):
+  self.assertIn("ResidentTurnInConfirmAfter",self.hero_h)
+  self.assertIn("GetTimeSeconds() + 0.35f",self.hero)
+  self.assertIn("GetTimeSeconds() < ResidentTurnInConfirmAfter",self.hero)
+  self.assertIn("Confirm once more after a short moment.",self.hero)
+  self.assertIn("GetCharacterMovement()->StopMovementImmediately();",self.hero)
+  self.assertIn("ResidentTurnInConfirmAfter = 0.f;",self.hero)
  def test_no_n_v_quest_bindings(self):
   self.assertNotIn('ActionName="TalkNPC"',self.input)
   self.assertNotIn('ActionName="ResidentQuest"',self.input)
