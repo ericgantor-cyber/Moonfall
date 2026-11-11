@@ -2631,46 +2631,26 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("ApplyMoonfallDamage", self.enemy_cpp)
 
 
-    def test_click_interaction_does_not_join_dual_hand_combat_chord(self):
-        # Source-contract guard only; native mouse timing still needs playtesting.
-        self.assertIn("bool bMouseLeftWorldInteraction = false;", self.hero_h)
-        left = self.hero_cpp.split("void AMoonfallHeroPawn::MouseLeftPressed()", 1)[1].split("\n}", 1)[0]
-        self.assertIn("bMouseLeftWorldInteraction = !bMouseRightHeld && TryInteractWithAimedWorld();", left)
-        self.assertIn("if (bMouseLeftWorldInteraction) return;", left)
-        self.assertLess(left.index("if (bMouseLeftWorldInteraction) return;"),
-                        left.index("QueueMouseCast(0);"))
-        queued = self.hero_cpp.split("void AMoonfallHeroPawn::QueueMouseCast(int32 Hand)", 1)[1].split("\n}", 1)[0]
-        self.assertIn("bMouseLeftHeld && bMouseRightHeld && !bMouseLeftWorldInteraction", queued)
-        release = self.hero_cpp.split("void AMoonfallHeroPawn::MouseLeftReleased()", 1)[1].split("\n}", 1)[0]
-        self.assertIn("bMouseLeftHeld = false;\n bMouseLeftWorldInteraction = false;", release)
-        canceled = self.hero_cpp.split("void AMoonfallHeroPawn::CancelPendingMouseCombat()", 1)[1].split("\n}", 1)[0]
-        self.assertIn("bMouseLeftWorldInteraction = false;", canceled)
-
-    def test_right_mouse_combat_precedes_world_interaction(self):
-        # Left click while right hand is held must follow combat/chord routing,
-        # not consume the input on a coincidentally targeted key or gate.
-        left = self.hero_cpp.split("void AMoonfallHeroPawn::MouseLeftPressed()", 1)[1].split("\n}", 1)[0]
-        self.assertIn("!bMouseRightHeld && TryInteractWithAimedWorld()", left)
-        self.assertLess(left.index("!bMouseRightHeld && TryInteractWithAimedWorld()"),
-                        left.index("QueueMouseCast(0);"))
-
-    def test_f_mouse_and_controller_world_interaction_preserved(self):
+    def test_left_mouse_only_attacks_and_f_interacts(self):
         controls = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
         self.assertIn('ActionMappings=(ActionName="InteractWorld",Key=F)', controls)
         self.assertIn('ActionMappings=(ActionName="InteractWorld",Key=Gamepad_FaceButton_Left)', controls)
         self.assertIn('ActionMappings=(ActionName="MouseCastLeft",Key=LeftMouseButton)', controls)
         self.assertIn('Input->BindAction(TEXT("InteractWorld")', self.hero_cpp)
-        self.assertIn('Input->BindAction(TEXT("MouseCastLeft")', self.hero_cpp)
-        self.assertIn("bool AMoonfallHeroPawn::TryInteractWithAimedWorld()", self.hero_cpp)
+        left = self.hero_cpp.split("void AMoonfallHeroPawn::MouseLeftPressed()", 1)[1].split("\n}", 1)[0]
+        self.assertIn("QueueMouseCast(0);", left)
+        self.assertNotIn("TryInteractWithAimedWorld", left)
+        self.assertNotIn("TryInteractWithAimedWorld", self.hero_cpp)
+        self.assertNotIn("bMouseLeftWorldInteraction", self.hero_cpp)
+        self.assertNotIn("bMouseLeftWorldInteraction", self.hero_h)
+        queued = self.hero_cpp.split("void AMoonfallHeroPawn::QueueMouseCast(int32 Hand)", 1)[1].split("\n}", 1)[0]
+        self.assertIn("bMouseLeftHeld && bMouseRightHeld", queued)
 
-    def test_key_click_target_has_accessible_nonblocking_collision(self):
+    def test_quest_key_has_no_orphan_click_collision(self):
         pickup_h = (ROOT / "MoonfallKeyPickup.h").read_text(encoding="utf-8")
         pickup = (ROOT / "MoonfallKeyPickup.cpp").read_text(encoding="utf-8")
-        self.assertIn("TObjectPtr<USphereComponent> AimTarget;", pickup_h)
-        self.assertIn("AimTarget->InitSphereRadius(65.f);", pickup)
-        self.assertIn("AimTarget->SetCollisionEnabled(ECollisionEnabled::QueryOnly);", pickup)
-        self.assertIn("AimTarget->SetCollisionResponseToChannel(ECC_Visibility, ECR_Block);", pickup)
-        self.assertIn("AimTarget->SetGenerateOverlapEvents(false);", pickup)
+        self.assertNotIn("AimTarget", pickup_h)
+        self.assertNotIn("AimTarget", pickup)
         self.assertIn("KeyMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);", pickup)
 
     def test_direct_key_and_gate_transactions_require_reach_and_visibility(self):
