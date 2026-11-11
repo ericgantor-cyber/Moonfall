@@ -1849,13 +1849,17 @@ AMoonfallWorldNPC* AMoonfallHeroPawn::GetNearestResidentNPC() const {
  return Nearest;
 }
 void AMoonfallHeroPawn::CloseResidentContext() {
- if (FocusedResident.IsValid()) {
-  FocusedResident.Reset();
-  if (APlayerController* PC = Cast<APlayerController>(Controller))
-   PC->bShowMouseCursor = bResidentCursorWasVisible;
-  ResidentContextSelection = 0;
-  OnResidentContextClosed();
- }
+ // Never depend on actor lifetime for menu cleanup: streaming or destruction
+ // can invalidate the NPC pointer without closing the active input modal.
+ if (!bResidentContextOpen && !FocusedResident.IsValid()) return;
+ bResidentContextOpen = false;
+ FocusedResident.Reset();
+ if (APlayerController* PC = Cast<APlayerController>(Controller))
+  PC->bShowMouseCursor = bResidentCursorWasVisible;
+ ResidentContextSelection = 0;
+ ResidentFeedbackMessage.Empty();
+ ResidentFeedbackUntil = 0.f;
+ OnResidentContextClosed();
 }
 void AMoonfallHeroPawn::OpenFocusedResidentContext() {
  // One controller D-pad Up mapping serves options/inventory navigation
@@ -1869,6 +1873,7 @@ void AMoonfallHeroPawn::OpenFocusedResidentContext() {
  AMoonfallWorldNPC* Resident = GetNearestResidentNPC();
  if (!IsValid(Resident) || !Resident->CanHeroInteract(this)) return;
  FocusedResident = Resident;
+ bResidentContextOpen = true;
  if (APlayerController* PC = Cast<APlayerController>(Controller)) {
   bResidentCursorWasVisible = PC->bShowMouseCursor;
   PC->bShowMouseCursor = true;
@@ -1878,7 +1883,7 @@ void AMoonfallHeroPawn::OpenFocusedResidentContext() {
      GetResidentQuestState(Resident->ResidentId), Resident->GetContractSalvageCost());
 }
 void AMoonfallHeroPawn::CastRightMouse() {
- if (FocusedResident.IsValid()) { CloseResidentContext(); return; }
+ if (bResidentContextOpen) { CloseResidentContext(); return; }
  if (Health <= 0.f || bOptionsOpen || bInventoryOpen || !GetWorld()) return;
  // WoW-style mouse pointer selection when a cursor is visible, or
  // AC-like central aim selection when using hidden-cursor mouse look.
@@ -1902,6 +1907,7 @@ void AMoonfallHeroPawn::CastRightMouse() {
    // A click on a civilian is never converted to a spell, even when too far.
    if (Resident->CanHeroInteract(this)) {
     FocusedResident = Resident;
+    bResidentContextOpen = true;
     if (APlayerController* PC = Cast<APlayerController>(Controller)) {
      bResidentCursorWasVisible = PC->bShowMouseCursor;
      PC->bShowMouseCursor = true;
@@ -1919,7 +1925,8 @@ void AMoonfallHeroPawn::CastRightMouse() {
  CastRight();
 }
 void AMoonfallHeroPawn::ResidentContextMouseClick() {
- if (!FocusedResident.IsValid()) { CastLeft(); return; }
+ if (!bResidentContextOpen) { CastLeft(); return; }
+ if (!FocusedResident.IsValid()) { CloseResidentContext(); return; }
  if (!GetWorld() || bOptionsOpen || bInventoryOpen) { CloseResidentContext(); return; }
  APlayerController* PC = Cast<APlayerController>(Controller);
  if (!PC) return;
@@ -1956,7 +1963,7 @@ void AMoonfallHeroPawn::InteractWithNearestResidentQuest() {
 }
 bool AMoonfallHeroPawn::ChooseResidentContextAction(int32 Choice) {
  AMoonfallWorldNPC* Resident = FocusedResident.Get();
- if (!IsValid(Resident) || !Resident->CanHeroInteract(this)) {
+ if (!bResidentContextOpen || !IsValid(Resident) || !Resident->CanHeroInteract(this)) {
   CloseResidentContext();
   return false;
  }
