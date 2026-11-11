@@ -52,6 +52,10 @@ class TestRacialPersistence(unittest.TestCase):
         self.assertIn("if (SecondsSinceLastWorldSave >= 2.f)", self.cpp)
         self.assertIn("if (DefeatElapsedSeconds >= 3.f) RespawnAtCheckpoint();", self.cpp)
         self.assertIn("if (Health <= 0.f || !GetWorld()", self.cpp)
+        self.assertIn("GetCharacterMovement()->IsFalling()", self.cpp)
+        self.assertIn("GetActorLocation().ContainsNaN()", self.cpp)
+        self.assertIn("DamageImmunityUntil = FMath::Max(DamageImmunityUntil, Now + 3.f)", self.cpp)
+        self.assertIn("NextSafeCheckpointAt = Now + 5.f;", self.cpp)
 
 if __name__ == "__main__":
     unittest.main()
