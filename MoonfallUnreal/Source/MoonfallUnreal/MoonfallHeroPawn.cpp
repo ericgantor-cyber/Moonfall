@@ -1075,14 +1075,14 @@ void AMoonfallHeroPawn::StrikeWithOffhandWeapon()
      || !IsValid(FollowCamera) || bOptionsOpen || bInventoryOpen
      || !FMath::IsFinite(Health) || Health <= 0.f) return;
  const float Now = GetWorld()->GetTimeSeconds();
- if (!FMath::IsFinite(Now) || Now < NextWeaponStrikeAt) return;
+ if (!FMath::IsFinite(Now) || Now < NextOffhandStrikeAt) return;
  const FVector Start = GetActorLocation() + FVector(0.f, 0.f, 55.f);
  const FVector Facing = FollowCamera->GetForwardVector().GetSafeNormal2D();
  const FVector End = Start + (Facing.IsNearlyZero()
    ? GetActorForwardVector().GetSafeNormal2D() : Facing) * 205.f;
  FCollisionQueryParams Params(SCENE_QUERY_STAT(MoonfallOffhandStrike), false, this);
  FHitResult Hit;
- NextWeaponStrikeAt = Now + 0.32f;
+ NextOffhandStrikeAt = Now + 0.32f;
  if (!GetWorld()->LineTraceSingleByChannel(Hit, Start, End, ECC_Visibility, Params))
  {
   OnWeaponStrike(0.f, false);
