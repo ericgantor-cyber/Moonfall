@@ -1656,9 +1656,10 @@ bool AMoonfallHeroPawn::UpgradeInventoryItem(int32 InventoryIndex)
  if (!bInventoryOpen || bOptionsOpen || Health <= 0.f
      || !InventoryItemCodes.IsValidIndex(InventoryIndex)) return false;
  const int32 Code = InventoryItemCodes[InventoryIndex];
- // Offhand currently uses the same bag format as the main weapon. Protect
- // its separate saved identity until both-slot crafting is fully transactional.
- if (Code == EquippedOffhandCode) return false;
+ // Identical codes can represent two distinct bag copies. Until the UI
+ // identifies exact copies, crafting a weapon occupying BOTH hands is
+ // ambiguous; keep it locked rather than silently modifying both weapons.
+ if (Code == EquippedOffhandCode && Code == EquippedWeaponCode) return false;
  if (Code <= 0) return false;
  const int32 Affix = Code / 100000;
  const int32 Slot = (Code / 10000) % 10;
@@ -1677,6 +1678,11 @@ bool AMoonfallHeroPawn::UpgradeInventoryItem(int32 InventoryIndex)
  const int32 Cost = 4 + Tier * 2 + Rarity * 3;
  if (Salvage < Cost) return false;
  const int32 NewCode = Affix * 100000 + Slot * 10000 + Rarity * 1000 + (Tier + 1);
+ // When this particular selected weapon occupies ONLY the offhand, update
+ // its code atomically alongside the bag, salvage cost and all worn gear.
+ const bool bCraftingOffhand = Slot == 0 && Code == EquippedOffhandCode;
+ const int32 PreviousOffhandCode = EquippedOffhandCode;
+ const int32 PreviousOffhandTier = OffhandTier;
  // The bag, salvage and worn stats must either all commit or all roll back.
  const int32 OldSalvage = Salvage;
  const int32 OldEquippedCode = Slot == 0 ? EquippedWeaponCode
@@ -1690,6 +1696,11 @@ bool AMoonfallHeroPawn::UpgradeInventoryItem(int32 InventoryIndex)
  const float OldHealth = Health;
  bDeferEquippedSave = true;
  InventoryItemCodes[InventoryIndex] = NewCode;
+ if (bCraftingOffhand)
+ {
+  EquippedOffhandCode = NewCode;
+  OffhandTier = NewCode % 1000;
+ }
  // Reuse the existing equip path so all derived stats, notably armor HP,
  // update together. Roll back the inventory mutation on unexpected failure.
  if (bUpgradingEquipped && !EquipInventoryItem(InventoryIndex)) {
@@ -1703,6 +1714,11 @@ bool AMoonfallHeroPawn::UpgradeInventoryItem(int32 InventoryIndex)
  {
   InventoryItemCodes[InventoryIndex] = Code;
   Salvage = OldSalvage;
+  if (bCraftingOffhand)
+  {
+   EquippedOffhandCode = PreviousOffhandCode;
+   OffhandTier = PreviousOffhandTier;
+  }
   if (bUpgradingEquipped)
   {
    int32* LiveCode = Slot == 0 ? &EquippedWeaponCode
@@ -1737,9 +1753,10 @@ bool AMoonfallHeroPawn::ReforgeInventoryItemAffix(int32 InventoryIndex)
  if (!bInventoryOpen || bOptionsOpen || Health <= 0.f
      || !InventoryItemCodes.IsValidIndex(InventoryIndex)) return false;
  const int32 Code = InventoryItemCodes[InventoryIndex];
- // Offhand currently uses the same bag format as the main weapon. Protect
- // its separate saved identity until both-slot crafting is fully transactional.
- if (Code == EquippedOffhandCode) return false;
+ // Identical codes can represent two distinct bag copies. Until the UI
+ // identifies exact copies, crafting a weapon occupying BOTH hands is
+ // ambiguous; keep it locked rather than silently modifying both weapons.
+ if (Code == EquippedOffhandCode && Code == EquippedWeaponCode) return false;
  if (Code <= 0) return false;
  const int32 Affix = Code / 100000;
  const int32 Slot = (Code / 10000) % 10;
@@ -1755,6 +1772,11 @@ bool AMoonfallHeroPawn::ReforgeInventoryItemAffix(int32 InventoryIndex)
  const int32 NewAffix = Affix == 0 ? FMath::RandRange(1, 3)
      : 1 + ((Affix - 1 + FMath::RandRange(1, 2)) % 3);
  const int32 NewCode = NewAffix * 100000 + Slot * 10000 + Rarity * 1000 + Tier;
+ // When this particular selected weapon occupies ONLY the offhand, update
+ // its code atomically alongside the bag, salvage cost and all worn gear.
+ const bool bCraftingOffhand = Slot == 0 && Code == EquippedOffhandCode;
+ const int32 PreviousOffhandCode = EquippedOffhandCode;
+ const int32 PreviousOffhandTier = OffhandTier;
  const int32 EquippedCode = Slot == 0 ? EquippedWeaponCode
      : (Slot == 1 ? EquippedArmorCode : EquippedAccessoryCode);
  const bool bReforgingEquipped = Code == EquippedCode;
@@ -1771,6 +1793,11 @@ bool AMoonfallHeroPawn::ReforgeInventoryItemAffix(int32 InventoryIndex)
  const float OldHealth = Health;
  bDeferEquippedSave = true;
  InventoryItemCodes[InventoryIndex] = NewCode;
+ if (bCraftingOffhand)
+ {
+  EquippedOffhandCode = NewCode;
+  OffhandTier = NewCode % 1000;
+ }
  // Keep the bag and the worn item in sync, including direct combat bonuses.
  // Roll back and leave salvage untouched if that sync unexpectedly fails.
  if (bReforgingEquipped && !EquipInventoryItem(InventoryIndex)) {
@@ -1784,6 +1811,11 @@ bool AMoonfallHeroPawn::ReforgeInventoryItemAffix(int32 InventoryIndex)
  {
   InventoryItemCodes[InventoryIndex] = Code;
   Salvage = OldSalvage;
+  if (bCraftingOffhand)
+  {
+   EquippedOffhandCode = PreviousOffhandCode;
+   OffhandTier = PreviousOffhandTier;
+  }
   if (bReforgingEquipped)
   {
    int32* LiveCode = Slot == 0 ? &EquippedWeaponCode
@@ -1822,9 +1854,10 @@ bool AMoonfallHeroPawn::AscendInventoryItemRarity(int32 InventoryIndex)
  if (!bInventoryOpen || bOptionsOpen || Health <= 0.f
      || !InventoryItemCodes.IsValidIndex(InventoryIndex)) return false;
  const int32 Code = InventoryItemCodes[InventoryIndex];
- // Offhand currently uses the same bag format as the main weapon. Protect
- // its separate saved identity until both-slot crafting is fully transactional.
- if (Code == EquippedOffhandCode) return false;
+ // Identical codes can represent two distinct bag copies. Until the UI
+ // identifies exact copies, crafting a weapon occupying BOTH hands is
+ // ambiguous; keep it locked rather than silently modifying both weapons.
+ if (Code == EquippedOffhandCode && Code == EquippedWeaponCode) return false;
  if (Code <= 0) return false;
  const int32 Affix = Code / 100000;
  const int32 Slot = (Code / 10000) % 10;
@@ -1842,6 +1875,11 @@ bool AMoonfallHeroPawn::AscendInventoryItemRarity(int32 InventoryIndex)
      : (Slot == 1 ? EquippedArmorCode : EquippedAccessoryCode);
  const bool bAscendingEquipped = Code == EquippedCode;
  const int32 NewCode = Affix * 100000 + Slot * 10000 + (Rarity + 1) * 1000 + Tier;
+ // When this particular selected weapon occupies ONLY the offhand, update
+ // its code atomically alongside the bag, salvage cost and all worn gear.
+ const bool bCraftingOffhand = Slot == 0 && Code == EquippedOffhandCode;
+ const int32 PreviousOffhandCode = EquippedOffhandCode;
+ const int32 PreviousOffhandTier = OffhandTier;
  // The bag, salvage and worn stats must either all commit or all roll back.
  const int32 OldSalvage = Salvage;
  const int32 OldEquippedCode = Slot == 0 ? EquippedWeaponCode
@@ -1855,6 +1893,11 @@ bool AMoonfallHeroPawn::AscendInventoryItemRarity(int32 InventoryIndex)
  const float OldHealth = Health;
  bDeferEquippedSave = true;
  InventoryItemCodes[InventoryIndex] = NewCode;
+ if (bCraftingOffhand)
+ {
+  EquippedOffhandCode = NewCode;
+  OffhandTier = NewCode % 1000;
+ }
  if (bAscendingEquipped && !EquipInventoryItem(InventoryIndex)) {
   bDeferEquippedSave = false;
   InventoryItemCodes[InventoryIndex] = Code;
@@ -1866,6 +1909,11 @@ bool AMoonfallHeroPawn::AscendInventoryItemRarity(int32 InventoryIndex)
  {
   InventoryItemCodes[InventoryIndex] = Code;
   Salvage = OldSalvage;
+  if (bCraftingOffhand)
+  {
+   EquippedOffhandCode = PreviousOffhandCode;
+   OffhandTier = PreviousOffhandTier;
+  }
   if (bAscendingEquipped)
   {
    int32* LiveCode = Slot == 0 ? &EquippedWeaponCode
