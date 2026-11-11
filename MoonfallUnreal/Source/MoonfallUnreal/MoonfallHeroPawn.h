@@ -228,6 +228,12 @@ public:
  UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|DualWield") bool bAllowHandSocketFallbacks = true;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|DualWield") bool bMainhandRigAttached = false;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|DualWield") bool bOffhandRigAttached = false;
+ // Inspect which sockets a rig actually resolved, without guessing in UI.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|DualWield") FName ResolvedMainhandSocket = NAME_None;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|DualWield") FName ResolvedOffhandSocket = NAME_None;
+ // Indicates whether an authored montage is usable by the current anim instance.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|DualWield") bool bMainhandMontageReady = false;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|DualWield") bool bOffhandMontageReady = false;
  // Call after switching a Blueprint's skeletal mesh or weapon assets.
  UFUNCTION(BlueprintCallable, Category="Moonfall|DualWield") void RefreshDualWieldRig();
  // Per-hand grips are authored independently of the original character rig.
