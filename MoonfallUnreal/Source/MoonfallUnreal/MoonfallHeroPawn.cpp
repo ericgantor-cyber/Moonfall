@@ -631,6 +631,7 @@ float AMoonfallHeroPawn::GetTwilightSpellMultiplier() const
 void AMoonfallHeroPawn::Tick(float DeltaSeconds)
 {
  Super::Tick(DeltaSeconds);
+ AuditDualWieldRigChanges();
  UpdateWeaponVisuals();
  // Advance a bounded original day/night cycle without real-world clock,
  // timer actors, save migration, or background updates while menus are open.
@@ -1229,6 +1230,8 @@ void AMoonfallHeroPawn::InitializeDualWieldVisuals()
  bOffhandMontagePlayed = false;
  bMainhandSwingAttempted = false;
  bOffhandSwingAttempted = false;
+ ObservedWeaponRigAsset = IsValid(BodyMesh) ? BodyMesh->GetSkeletalMeshAsset() : nullptr;
+ ObservedWeaponAnimInstance = ActiveAnim;
  // Visual-only equipment must never interfere with combat visibility traces.
  MainhandVisual->SetCollisionEnabled(ECollisionEnabled::NoCollision);
  OffhandVisual->SetCollisionEnabled(ECollisionEnabled::NoCollision);
@@ -1236,6 +1239,21 @@ void AMoonfallHeroPawn::InitializeDualWieldVisuals()
  OffhandVisual->SetGenerateOverlapEvents(false);
 }
 
+void AMoonfallHeroPawn::AuditDualWieldRigChanges()
+{
+ if (!GetWorld()) return;
+ const float Now = GetWorld()->GetTimeSeconds();
+ if (!FMath::IsFinite(Now) || Now < NextDualWieldRigAuditAt) return;
+ NextDualWieldRigAuditAt = Now + 1.f;
+ USkeletalMeshComponent* BodyMesh = GetMesh();
+ UObject* CurrentRig = IsValid(BodyMesh) ? BodyMesh->GetSkeletalMeshAsset() : nullptr;
+ UAnimInstance* CurrentAnim = IsValid(BodyMesh) ? BodyMesh->GetAnimInstance() : nullptr;
+ // Mesh changes invalidate hand sockets; animation-instance replacements
+ // invalidate montage readiness. Re-evaluate only after either changes.
+ if (CurrentRig != ObservedWeaponRigAsset.Get()
+     || CurrentAnim != ObservedWeaponAnimInstance.Get())
+  InitializeDualWieldVisuals();
+}
 void AMoonfallHeroPawn::RefreshDualWieldRig()
 {
  // Rebind only on explicit request, not every Tick.
@@ -1253,7 +1271,7 @@ void AMoonfallHeroPawn::BeginWeaponSwing(bool bOffhand)
  bool& bAttempted = bOffhand ? bOffhandSwingAttempted : bMainhandSwingAttempted;
  bool& bReady = bOffhand ? bOffhandMontageReady : bMainhandMontageReady;
  bPlayed = false;
- bAttempted = !bReduceMotion;
+ bAttempted = false;
  USkeletalMeshComponent* BodyMesh = GetMesh();
  UAnimInstance* Anim = IsValid(BodyMesh) ? BodyMesh->GetAnimInstance() : nullptr;
  UAnimMontage* Montage = bOffhand ? OffhandSwingMontage.Get() : MainhandSwingMontage.Get();
@@ -1265,6 +1283,7 @@ void AMoonfallHeroPawn::BeginWeaponSwing(bool bOffhand)
   // Failed/incompatible montage playback never suppresses normal melee hits.
   if (bReady)
   {
+   bAttempted = true;
    const float Played = Anim->Montage_Play(Montage, 1.f);
    bPlayed = FMath::IsFinite(Played) && Played > 0.f;
   }
