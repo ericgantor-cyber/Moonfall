@@ -10,10 +10,10 @@
 void AMoonfallCombatHUD::NotifyHitBoxClick(FName BoxName)
 {
  Super::NotifyHitBoxClick(BoxName);
- if (BoxName != FName(TEXT("MoonfallKeyRing"))) return;
  AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0));
- if (IsValid(Hero) && Hero->bInventoryOpen && !Hero->bOptionsOpen)
-  Hero->ToggleKeyRing();
+ if (!IsValid(Hero) || !Hero->bInventoryOpen || Hero->bOptionsOpen) return;
+ if (BoxName == FName(TEXT("MoonfallKeyRing"))) Hero->ToggleKeyRing();
+ else if (BoxName == FName(TEXT("MoonfallHandSetup"))) Hero->CycleHandSetup();
 }
 
 void AMoonfallCombatHUD::DrawHUD()
@@ -49,6 +49,17 @@ void AMoonfallCombatHUD::DrawHUD()
   const float Top = (Canvas->SizeY - PanelHeight) * 0.5f;
   DrawRect(FLinearColor(0.04f, 0.035f, 0.10f, 0.96f), Left, Top, PanelWidth, PanelHeight);
   DrawText(TEXT("MOONFALL  |  INVENTORY"), FLinearColor::White, Left + 18.f, Top + 16.f, nullptr, 1.3f);
+  // Clickable hand setup; no stance-toggle keyboard shortcut.
+  if (!Hero->bCharacterStatsOpen) {
+   const float HandButtonX = Left + 18.f;
+   const float HandButtonY = Top + 45.f;
+   DrawRect(FLinearColor(0.16f,0.23f,0.31f,0.96f), HandButtonX, HandButtonY, 225.f, 32.f);
+   AddHitBox(FVector2D(HandButtonX, HandButtonY),
+     FVector2D(225.f, 32.f), FName(TEXT("MoonfallHandSetup")), true, 20);
+   const TCHAR* HandLabel = Hero->bSpellShieldStance ? TEXT("SPELL + SHIELD GUARD")
+     : (Hero->bWeaponSpellStance ? TEXT("WEAPON + SPELL") : TEXT("SPELL + SPELL"));
+   DrawText(HandLabel, FLinearColor::White, HandButtonX + 8.f, HandButtonY + 7.f, nullptr, 0.83f);
+  }
   // Clicking Keys in the inventory opens a readable list without changing pages.
   if (!Hero->bCharacterStatsOpen) {
    const float KeyButtonX = Left + PanelWidth - 120.f;
