@@ -1218,6 +1218,12 @@ void AMoonfallHeroPawn::InitializeDualWieldVisuals()
    MainhandSocketOffset, FVector(35.f, 44.f, 12.f));
  bOffhandRigAttached = AttachWeapon(OffhandVisual.Get(), LeftSocket,
    OffhandSocketOffset, FVector(35.f, -44.f, 12.f));
+ ResolvedMainhandSocket = bMainhandRigAttached ? RightSocket : NAME_None;
+ ResolvedOffhandSocket = bOffhandRigAttached ? LeftSocket : NAME_None;
+ // Diagnose missing animation bindings without changing skeletal assets.
+ UAnimInstance* ActiveAnim = IsValid(BodyMesh) ? BodyMesh->GetAnimInstance() : nullptr;
+ bMainhandMontageReady = IsValid(ActiveAnim) && IsValid(MainhandSwingMontage);
+ bOffhandMontageReady = IsValid(ActiveAnim) && IsValid(OffhandSwingMontage);
  // Visual-only equipment must never interfere with combat visibility traces.
  MainhandVisual->SetCollisionEnabled(ECollisionEnabled::NoCollision);
  OffhandVisual->SetCollisionEnabled(ECollisionEnabled::NoCollision);
@@ -1246,7 +1252,14 @@ void AMoonfallHeroPawn::BeginWeaponSwing(bool bOffhand)
   if (UAnimInstance* Anim = GetMesh()->GetAnimInstance())
   {
    UAnimMontage* Montage = bOffhand ? OffhandSwingMontage.Get() : MainhandSwingMontage.Get();
-   if (IsValid(Montage)) Anim->Montage_Play(Montage, 1.f);
+   // A missing, invalid or incompatible montage must not block melee damage,
+   // native sword motion or the Blueprint swing event.
+   if (IsValid(Montage))
+   {
+    const float Played = Anim->Montage_Play(Montage, 1.f);
+    if (bOffhand) bOffhandMontageReady = Played > 0.f;
+    else bMainhandMontageReady = Played > 0.f;
+   }
   }
  }
  OnDualWieldSwing(bOffhand);
