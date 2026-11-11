@@ -334,6 +334,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("StrikeWithWeapon();", self.hero_cpp)
         self.assertIn("CastRight();", self.hero_cpp)
         self.assertIn("SCENE_QUERY_STAT(MoonfallHybridWeapon)", self.hero_cpp)
+        self.assertIn("const FVector Start = GetActorLocation() + FVector(0.f, 0.f, 55.f);", self.hero_cpp)
+        self.assertIn("FollowCamera->GetForwardVector().GetSafeNormal2D();", self.hero_cpp)
+        self.assertIn("OnWeaponStrike(DealtDamage, DealtDamage > 0.f);", self.hero_cpp)
         self.assertIn("NextWeaponStrikeAt = Now + 0.45f;", self.hero_cpp)
         self.assertIn("void OnWeaponStrike(float Damage, bool bConnected);", self.hero_h)
         for action in ('MouseCastLeft', 'MouseCastRight'):
