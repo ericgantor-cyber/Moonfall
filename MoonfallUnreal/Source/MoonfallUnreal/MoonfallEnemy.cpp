@@ -61,6 +61,7 @@ void AMoonfallEnemy::RefreshCharacterRig()
  // Existing sphere enemies keep their appearance and collision. Subclasses
  // with a skeletal mesh can use it without changing the native AI root.
  bCharacterRigActive = IsValid(CharacterRig->GetSkeletalMeshAsset());
+ ObservedCharacterRigAsset = CharacterRig->GetSkeletalMeshAsset();
  CharacterRig->SetHiddenInGame(!bCharacterRigActive);
  Body->SetVisibility(!bCharacterRigActive, false);
  CharacterRig->SetCollisionEnabled(ECollisionEnabled::NoCollision);
@@ -70,6 +71,11 @@ void AMoonfallEnemy::RefreshCharacterRig()
 }
 void AMoonfallEnemy::PlayCharacterRigCue(FName CueId, UAnimMontage* Montage)
 {
+ // Pick up a changed or cleared skeletal asset on the next actual
+ // combat cue, not on every enemy AI tick.
+ if (IsValid(CharacterRig)
+     && CharacterRig->GetSkeletalMeshAsset() != ObservedCharacterRigAsset.Get())
+  RefreshCharacterRig();
  bLastRigMontagePlayed = false;
  if (bCharacterRigActive && IsValid(CharacterRig) && IsValid(Montage))
  {
