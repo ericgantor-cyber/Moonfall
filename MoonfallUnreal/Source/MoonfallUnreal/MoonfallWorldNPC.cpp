@@ -23,10 +23,7 @@ int32 AMoonfallWorldNPC::GetBondWithHero(const AMoonfallHeroPawn* Hero) const {
 }
 bool AMoonfallWorldNPC::RewardResidentTrust(AMoonfallHeroPawn* Hero, int32 Points) {
  if (!IsValid(Hero) || ResidentId.IsNone() || Points <= 0 || Points > 10
-     || Hero->Health <= 0.f || Hero->bOptionsOpen || Hero->bInventoryOpen
-     || !GetWorld() || !FMath::IsFinite(InteractRange)) return false;
- if (FVector::DistSquared(Hero->GetActorLocation(), GetActorLocation())
-     > FMath::Square(FMath::Clamp(InteractRange, 50.f, 400.f))) return false;
+     || !CanHeroInteract(Hero)) return false;
  // One introductory favor per resident; further bond progression belongs
  // to verified quest milestones, not an endlessly reusable conversation key.
  if (Hero->GetResidentBond(ResidentId) != 0) return false;
