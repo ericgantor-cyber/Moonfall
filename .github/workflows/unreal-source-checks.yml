@@ -69,8 +69,12 @@ jobs:
           assert 'TEXT("HEAVY")' in enemy and 'TEXT("SWEEP")' in enemy
           inputs = Path('MoonfallUnreal/Config/DefaultInput.ini').read_text()
           hud = (root/'MoonfallUnreal'/'MoonfallCombatHUD.cpp').read_text()
-          assert 'ActionName="CastLeft",Key=LeftMouseButton' in inputs
-          assert 'ActionName="CastRight",Key=RightMouseButton' in inputs
+          assert 'ActionName="MouseCastLeft",Key=LeftMouseButton' in inputs
+          assert 'ActionName="MouseCastRight",Key=RightMouseButton' in inputs
+          assert 'ActionName="CastLeft",Key=LeftMouseButton' not in inputs
+          assert 'ActionName="CastRight",Key=RightMouseButton' not in inputs
+          assert 'bMouseLeftHeld && bMouseRightHeld' in hero
+          assert 'CastBoth();' in hero
           assert 'ActionName="DualCast",Key=Gamepad_LeftTrigger' in inputs
           assert 'DrawArc(Radius * 0.85f' in hud and 'DrawArc(Radius * 0.97f' in hud
           assert 'DisplayHealth = FMath::FInterpTo' in hud and 'LevelGlowUntil' in hud
