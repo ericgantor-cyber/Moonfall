@@ -50,4 +50,5 @@ private:
  TWeakObjectPtr<USkeletalMeshComponent> RigMesh;
  // Detect a changed skeletal mesh on the next requested cue, without Tick.
  TWeakObjectPtr<UObject> ObservedRigAsset;
+ TWeakObjectPtr<USkeletalMeshComponent> ObservedPreferredRigMesh;
 };
