@@ -301,7 +301,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("TryInteractWithNearbyKey()", pickup)
         self.assertIn("bAutoLootSaveFailedThisSweep = false;", pickup)
         self.assertIn("if (IsValid(Loot) && !Loot->TryCollect() && bAutoLootSaveFailedThisSweep)", pickup)
-        self.assertIn("bAutoLootSaveFailedThisSweep = true;", collect)
+        self.assertIn("bAutoLootSaveFailedThisSweep = true;", self.hero_cpp.split("bool AMoonfallHeroPawn::CollectGroundEquipmentCode(", 1)[1].split("bool AMoonfallHeroPawn::CollectPersistedGroundEquipmentCode(", 1)[0])
         self.assertIn("bool bAutoLootSaveFailedThisSweep = false;", self.hero_h)
         self.assertNotIn("EquipInventoryItem(", pickup)
         self.assertNotIn("SalvageInventoryItem(", pickup)
