@@ -209,6 +209,16 @@ public:
  UFUNCTION(BlueprintCallable, Category="Moonfall|Inventory") void CycleHandSetup();
  UFUNCTION(BlueprintCallable, Category="Moonfall|Inventory") void SelectHandSetup(int32 Setup);
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Combat") void OnWeaponStrike(float Damage, bool bConnected);
+ // Non-destructive native proxy blades, replaceable with authored static meshes.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|DualWield") TObjectPtr<UStaticMeshComponent> MainhandVisual;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|DualWield") TObjectPtr<UStaticMeshComponent> OffhandVisual;
+ UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|DualWield") TObjectPtr<UAnimMontage> MainhandSwingMontage;
+ UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|DualWield") TObjectPtr<UAnimMontage> OffhandSwingMontage;
+ UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|DualWield") void OnDualWieldSwing(bool bOffhand);
+ void BeginWeaponSwing(bool bOffhand);
+ void UpdateWeaponVisuals();
+ float MainhandSwingStartedAt = -100.f;
+ float OffhandSwingStartedAt = -100.f;
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Combat") void OnSpellCast(int32 School, bool bLeftHand);
  // Optional authored animation/VFX hook: no replacement character art needed.
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Combat") void OnDualCastReleased(int32 School);
