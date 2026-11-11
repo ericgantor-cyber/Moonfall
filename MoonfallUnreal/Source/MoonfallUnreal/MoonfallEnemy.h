@@ -23,6 +23,8 @@ public:
  // existing combat balance and legacy spawns.
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Races") FName RaceId = NAME_None;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Races") FName ResolvedRaceFamily = NAME_None;
+ // Resolved once at spawn. Keeps existing ChaseSpeed and NPC navigation settings unchanged.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Races") float RaceMovementMultiplier = 1.f;
  // Divine world bosses are NPC encounters, never playable hero identities.
  // The exact source artwork is intentionally not recreated or modified here.
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Boss|Divine") FName DivineBossId = NAME_None;
