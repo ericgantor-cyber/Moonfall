@@ -2,6 +2,7 @@
 #include "MoonfallHeroPawn.h"
 #include "Components/SceneComponent.h"
 #include "Components/StaticMeshComponent.h"
+#include "Components/SphereComponent.h"
 #include "Components/TextRenderComponent.h"
 #include "UObject/ConstructorHelpers.h"
 #include "Engine/StaticMesh.h"
@@ -17,10 +18,17 @@ AMoonfallKeyPickup::AMoonfallKeyPickup()
  static ConstructorHelpers::FObjectFinder<UStaticMesh> Mesh(TEXT("/Engine/BasicShapes/Cube.Cube"));
  if (Mesh.Succeeded()) KeyMesh->SetStaticMesh(Mesh.Object);
  KeyMesh->SetRelativeScale3D(FVector(0.18f, 0.32f, 0.10f));
- // A tiny query-only target allows aimed clicking without blocking movement.
- KeyMesh->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
- KeyMesh->SetCollisionResponseToAllChannels(ECR_Ignore);
- KeyMesh->SetCollisionResponseToChannel(ECC_Visibility, ECR_Block);
+ // Rendered key never blocks player movement or the aimed interaction ray.
+ // Use a generous invisible target for accessible third-person mouse aiming.
+ KeyMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+ AimTarget = CreateDefaultSubobject<USphereComponent>(TEXT("AimTarget"));
+ AimTarget->SetupAttachment(KeyRoot);
+ AimTarget->InitSphereRadius(65.f);
+ AimTarget->SetRelativeLocation(FVector(0.f, 0.f, 45.f));
+ AimTarget->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+ AimTarget->SetCollisionResponseToAllChannels(ECR_Ignore);
+ AimTarget->SetCollisionResponseToChannel(ECC_Visibility, ECR_Block);
+ AimTarget->SetGenerateOverlapEvents(false);
  KeyLabel = CreateDefaultSubobject<UTextRenderComponent>(TEXT("KeyLabel"));
  KeyLabel->SetupAttachment(KeyRoot);
  KeyLabel->SetRelativeLocation(FVector(0.f, 0.f, 55.f));
