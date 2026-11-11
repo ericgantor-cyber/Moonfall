@@ -1167,27 +1167,68 @@ void AMoonfallHeroPawn::InitializeDualWieldVisuals()
  }
  else OffhandVisual->SetRelativeScale3D(ProxyScale);
  USkeletalMeshComponent* BodyMesh = GetMesh();
- // Only bind to actually existing socket names. Some prototype heroes
- // have no skeleton, so the original capsule-relative fallback stays valid.
- if (IsValid(BodyMesh) && !MainhandSocket.IsNone()
-     && BodyMesh->DoesSocketExist(MainhandSocket))
+ // Different skeletons may use different names; never modify the source rig.
+ // Only test candidate sockets when explicitly refreshing or at BeginPlay.
+ FName RightSocket = NAME_None;
+ FName LeftSocket = NAME_None;
+ if (IsValid(BodyMesh))
  {
-  MainhandVisual->AttachToComponent(BodyMesh,
-    FAttachmentTransformRules::SnapToTargetNotIncludingScale, MainhandSocket);
-  MainhandVisual->SetRelativeLocation(MainhandSocketOffset);
+  if (!MainhandSocket.IsNone() && BodyMesh->DoesSocketExist(MainhandSocket))
+   RightSocket = MainhandSocket;
+  if (!OffhandSocket.IsNone() && BodyMesh->DoesSocketExist(OffhandSocket))
+   LeftSocket = OffhandSocket;
+  if (bAllowHandSocketFallbacks)
+  {
+   if (RightSocket.IsNone())
+   {
+    const FName Candidates[] = {TEXT("hand_r"), TEXT("RightHand"), TEXT("RightHandSocket"), TEXT("weapon_r")};
+    for (const FName Candidate : Candidates)
+     if (BodyMesh->DoesSocketExist(Candidate)) { RightSocket = Candidate; break; }
+   }
+   if (LeftSocket.IsNone())
+   {
+    const FName Candidates[] = {TEXT("hand_l"), TEXT("LeftHand"), TEXT("LeftHandSocket"), TEXT("weapon_l")};
+    for (const FName Candidate : Candidates)
+     if (BodyMesh->DoesSocketExist(Candidate)) { LeftSocket = Candidate; break; }
+   }
+  }
  }
- if (IsValid(BodyMesh) && !OffhandSocket.IsNone()
-     && BodyMesh->DoesSocketExist(OffhandSocket))
+ // Reattach to the capsule fallback if a new rig has neither socket.
+ // Avoid leaving a blade attached to the previous skeleton after a swap.
+ auto AttachWeapon = [&](UStaticMeshComponent* Weapon, FName Socket,
+       const FVector& AuthoredOffset, const FVector& FallbackOffset) -> bool
  {
-  OffhandVisual->AttachToComponent(BodyMesh,
-    FAttachmentTransformRules::SnapToTargetNotIncludingScale, OffhandSocket);
-  OffhandVisual->SetRelativeLocation(OffhandSocketOffset);
- }
+  if (!IsValid(Weapon)) return false;
+  if (IsValid(BodyMesh) && !Socket.IsNone())
+  {
+   Weapon->AttachToComponent(BodyMesh,
+     FAttachmentTransformRules::SnapToTargetNotIncludingScale, Socket);
+   const bool bValidOffset = FMath::IsFinite(AuthoredOffset.X)
+      && FMath::IsFinite(AuthoredOffset.Y) && FMath::IsFinite(AuthoredOffset.Z)
+      && AuthoredOffset.GetAbsMax() <= 100.f;
+   Weapon->SetRelativeLocation(bValidOffset ? AuthoredOffset : FVector::ZeroVector);
+   return true;
+  }
+  if (USceneComponent* Root = GetRootComponent())
+   Weapon->AttachToComponent(Root, FAttachmentTransformRules::KeepRelativeTransform);
+  Weapon->SetRelativeLocation(FallbackOffset);
+  return false;
+ };
+ bMainhandRigAttached = AttachWeapon(MainhandVisual.Get(), RightSocket,
+   MainhandSocketOffset, FVector(35.f, 44.f, 12.f));
+ bOffhandRigAttached = AttachWeapon(OffhandVisual.Get(), LeftSocket,
+   OffhandSocketOffset, FVector(35.f, -44.f, 12.f));
  // Visual-only equipment must never interfere with combat visibility traces.
  MainhandVisual->SetCollisionEnabled(ECollisionEnabled::NoCollision);
  OffhandVisual->SetCollisionEnabled(ECollisionEnabled::NoCollision);
  MainhandVisual->SetGenerateOverlapEvents(false);
  OffhandVisual->SetGenerateOverlapEvents(false);
+}
+
+void AMoonfallHeroPawn::RefreshDualWieldRig()
+{
+ // Rebind only on explicit request, not every Tick.
+ InitializeDualWieldVisuals();
 }
 
 void AMoonfallHeroPawn::BeginWeaponSwing(bool bOffhand)
