@@ -1537,6 +1537,7 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
  if (!Save) return false;
  Save->CheckpointLocation = GetActorLocation();
  Save->RaceId = FMath::Clamp(RaceId, 0, 11);
+ Save->FactionReputation = FactionReputation;
  Save->bRaceChosen = bRaceChosen;
  const float Cooldown = GetRacePowerCooldownRemaining();
  Save->RacePowerReadyUtc = Cooldown > 0.f
@@ -1558,7 +1559,18 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  if (!UGameplayStatics::DoesSaveGameExist(MoonfallWorldSlot, 0)) return false;
  const UMoonfallPersistentSave* Save = Cast<UMoonfallPersistentSave>(
      UGameplayStatics::LoadGameFromSlot(MoonfallWorldSlot, 0));
- if (!Save || Save->Version < 1 || Save->Version > 3) return false;
+ if (!Save || Save->Version < 1 || Save->Version > 4) return false;
+ // Do not trust malformed faction records or unknown save keys.
+ FactionReputation.Reset();
+ if (Save->Version >= 4) {
+  static const FName Allowed[] = {FName(TEXT("Wanderers")),
+   FName(TEXT("VerdantCircle")), FName(TEXT("StoneHearth")),
+   FName(TEXT("MoonCoven")), FName(TEXT("AshenClans"))};
+  for (const FName Key : Allowed) {
+   if (const int32* Value = Save->FactionReputation.Find(Key))
+    FactionReputation.Add(Key, FMath::Clamp(*Value, -100, 100));
+  }
+ }
  // Old save versions remain valid. Cooldowns cannot be cleared by reloading.
  const int64 NowUtc = FDateTime::UtcNow().ToUnixTimestamp();
  const int64 Remaining = Save->Version >= 3 && Save->RacePowerReadyUtc > NowUtc
@@ -1789,4 +1801,34 @@ void AMoonfallHeroPawn::TalkToNearestNPC() {
   }
  }
  if (Nearest) Nearest->TryTalk(this);
+}
+
+// Bounded, persistent faction relationship API. No free reputation on repeated talk.
+namespace {
+bool IsMoonfallFaction(FName Faction) {
+ return Faction == FName(TEXT("Wanderers"))
+    || Faction == FName(TEXT("VerdantCircle"))
+    || Faction == FName(TEXT("StoneHearth"))
+    || Faction == FName(TEXT("MoonCoven"))
+    || Faction == FName(TEXT("AshenClans"));
+}
+}
+int32 AMoonfallHeroPawn::GetFactionReputation(FName Faction) const {
+ if (const int32* Value = FactionReputation.Find(Faction)) return FMath::Clamp(*Value, -100, 100);
+ return 0;
+}
+bool AMoonfallHeroPawn::ChangeFactionReputation(FName Faction, int32 Delta) {
+ if (!IsMoonfallFaction(Faction) || Delta == 0 || Health <= 0.f) return false;
+ const int32 OldValue = GetFactionReputation(Faction);
+ const int32 NewValue = static_cast<int32>(FMath::Clamp(
+    static_cast<int64>(OldValue) + static_cast<int64>(Delta),
+    static_cast<int64>(-100), static_cast<int64>(100)));
+ if (OldValue == NewValue) return false;
+ FactionReputation.Add(Faction, NewValue);
+ if (!SaveWorldProgress()) {
+  if (OldValue == 0) FactionReputation.Remove(Faction);
+  else FactionReputation.Add(Faction, OldValue);
+  return false;
+ }
+ return true;
 }
