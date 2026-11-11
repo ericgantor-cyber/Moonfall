@@ -2630,5 +2630,42 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("LineTraceSingleByChannel", self.enemy_cpp)
         self.assertIn("ApplyMoonfallDamage", self.enemy_cpp)
 
+
+    def test_click_interaction_does_not_join_dual_hand_combat_chord(self):
+        # Source-contract guard only; native mouse timing still needs playtesting.
+        self.assertIn("bool bMouseLeftWorldInteraction = false;", self.hero_h)
+        left = self.hero_cpp.split("void AMoonfallHeroPawn::MouseLeftPressed()", 1)[1].split("\\n}", 1)[0]
+        self.assertIn("bMouseLeftWorldInteraction = TryInteractWithAimedWorld();", left)
+        self.assertIn("if (bMouseLeftWorldInteraction) return;", left)
+        self.assertLess(left.index("if (bMouseLeftWorldInteraction) return;"),
+                        left.index("QueueMouseCast(0);"))
+        queued = self.hero_cpp.split("void AMoonfallHeroPawn::QueueMouseCast(int32 Hand)", 1)[1].split("\\n}", 1)[0]
+        self.assertIn("bMouseLeftHeld && bMouseRightHeld && !bMouseLeftWorldInteraction", queued)
+        release = self.hero_cpp.split("void AMoonfallHeroPawn::MouseLeftReleased()", 1)[1].split("\\n}", 1)[0]
+        self.assertIn("bMouseLeftHeld = false;\\n bMouseLeftWorldInteraction = false;", release)
+        canceled = self.hero_cpp.split("void AMoonfallHeroPawn::CancelPendingMouseCombat()", 1)[1].split("\\n}", 1)[0]
+        self.assertIn("bMouseLeftWorldInteraction = false;", canceled)
+
+    def test_f_mouse_and_controller_world_interaction_preserved(self):
+        controls = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
+        self.assertIn('ActionMappings=(ActionName="InteractWorld",Key=F)', controls)
+        self.assertIn('ActionMappings=(ActionName="InteractWorld",Key=Gamepad_FaceButton_Left)', controls)
+        self.assertIn('ActionMappings=(ActionName="MouseCastLeft",Key=LeftMouseButton)', controls)
+        self.assertIn("Input->BindAction(TEXT(\\\"InteractWorld\\\")", self.hero_cpp)
+        self.assertIn("Input->BindAction(TEXT(\\\"MouseCastLeft\\\")", self.hero_cpp)
+        self.assertIn("bool AMoonfallHeroPawn::TryInteractWithAimedWorld()", self.hero_cpp)
+
+    def test_direct_key_and_gate_transactions_require_reach_and_visibility(self):
+        pickup = (ROOT / "MoonfallKeyPickup.cpp").read_text(encoding="utf-8")
+        gate = (ROOT / "MoonfallKeyGate.cpp").read_text(encoding="utf-8")
+        for source, action, distance, sight in (
+            (pickup, "Hero->CollectQuestKey(KeyId)", "FVector::DistSquared2D(HeroAt, KeyAt)", "MoonfallKeyDirectCollectSight"),
+            (gate, "Hero->CommitGateUnlock(GateId, RequiredKeyId)", "FVector::DistSquared2D(HeroPosition, GatePosition)", "MoonfallGateDirectUnlockSight"),
+        ):
+            self.assertIn(distance, source)
+            self.assertIn(sight, source)
+            self.assertLess(source.index(distance), source.index(action))
+            self.assertLess(source.index(sight), source.index(action))
+
 if __name__ == "__main__":
     unittest.main()
