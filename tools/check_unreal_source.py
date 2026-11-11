@@ -204,7 +204,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         ground_cpp = (ROOT / "MoonfallGroundLoot.cpp").read_text(encoding="utf-8")
         self.assertIn("Hero->SpawnGroundEquipmentDrop(bElite, bBoss, GetActorLocation());", self.enemy_cpp)
         self.assertNotIn("Hero->AwardEquipmentDrop(", self.enemy_cpp)
-        for action in ('ActionName="PickupLoot",Key=F', 'ActionName="PickupLoot",Key=Gamepad_FaceButton_Left'):
+        for action in ('ActionName="PickupLoot",Key=MiddleMouseButton', 'ActionName="PickupLoot",Key=Gamepad_FaceButton_Left'):
             self.assertIn(action, inputs)
         self.assertIn('BindAction(TEXT("PickupLoot"), IE_Pressed', self.hero_cpp)
         self.assertIn("void PickupNearestGroundLoot();", self.hero_h)
