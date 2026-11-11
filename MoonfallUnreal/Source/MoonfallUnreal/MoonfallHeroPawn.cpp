@@ -1035,7 +1035,8 @@ void AMoonfallHeroPawn::OpenOptions() {
 void AMoonfallHeroPawn::OptionsUp() {
  if (FocusedResident.IsValid() && !bOptionsOpen && !bInventoryOpen) {
   ResidentContextSelection = (ResidentContextSelection + 2) % 3;
-   return;
+  bResidentTurnInPending = false;
+  return;
  }
  if (bInventoryOpen) {
   InventorySelection = FMath::Max(0, InventorySelection - 1);
@@ -1046,7 +1047,8 @@ void AMoonfallHeroPawn::OptionsUp() {
 void AMoonfallHeroPawn::OptionsDown() {
  if (FocusedResident.IsValid() && !bOptionsOpen && !bInventoryOpen) {
   ResidentContextSelection = (ResidentContextSelection + 1) % 3;
-   return;
+  bResidentTurnInPending = false;
+  return;
  }
  if (bInventoryOpen) {
   InventorySelection = FMath::Min(FMath::Max(0, InventoryItemCodes.Num() - 1), InventorySelection + 1);
@@ -1868,6 +1870,9 @@ void AMoonfallHeroPawn::CloseResidentContext() {
  FocusedResident.Reset();
  // Closing dialogue does not change mouse cursor visibility.
  ResidentContextSelection = 0;
+ bResidentTurnInPending = false;
+ ResidentTurnInConfirmUntil = 0.f;
+ ResidentTurnInConfirmAfter = 0.f;
  ResidentFeedbackMessage.Empty();
  ResidentFeedbackUntil = 0.f;
  OnResidentContextClosed();
@@ -1879,16 +1884,14 @@ void AMoonfallHeroPawn::OpenFocusedResidentContext() {
  if (!GetWorld() || Health <= 0.f) return;
  if (bResidentContextOpen && FocusedResident.IsValid() && FocusedResident->CanHeroInteract(this)) {
   ResidentContextSelection = (ResidentContextSelection + 2) % 3;
-   return;
+  bResidentTurnInPending = false;
+  return;
  }
  AMoonfallWorldNPC* Resident = GetNearestResidentNPC();
  if (!IsValid(Resident) || !Resident->CanHeroInteract(this)) return;
- StopJumping();
- if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
- EndSprint();
- EndGuard();
  FocusedResident = Resident;
  bResidentContextOpen = true;
+ bResidentTurnInPending = false;
  if (APlayerController* PC = Cast<APlayerController>(Controller)) {
   PC->bShowMouseCursor = true;
  }
@@ -1920,12 +1923,9 @@ void AMoonfallHeroPawn::CastRightMouse() {
   if (AMoonfallWorldNPC* Resident = Cast<AMoonfallWorldNPC>(Hit.GetActor())) {
    // A click on a civilian is never converted to a spell, even when too far.
    if (Resident->CanHeroInteract(this)) {
-    StopJumping();
-    if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
-    EndSprint();
-    EndGuard();
     FocusedResident = Resident;
     bResidentContextOpen = true;
+    bResidentTurnInPending = false;
        if (APlayerController* PC = Cast<APlayerController>(Controller)) {
         PC->bShowMouseCursor = true;
     }
@@ -1962,7 +1962,8 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
  for (int32 Row = 0; Row < 3; ++Row) {
   const float RowTop = Top + 122.f + Row * 53.f;
   if (MouseY >= RowTop && MouseY <= RowTop + 43.f) {
-   if (ResidentContextSelection != Row)   ResidentContextSelection = Row;
+   if (ResidentContextSelection != Row)   if (ResidentContextSelection != Row) bResidentTurnInPending = false;
+   ResidentContextSelection = Row;
    if (Row == 2) CloseResidentContext();
    else ChooseResidentContextAction(Row);
    return;
@@ -1986,6 +1987,7 @@ bool AMoonfallHeroPawn::ChooseResidentContextAction(int32 Choice) {
  }
  if (Choice == 2) { CloseResidentContext(); return true; }
  if (Choice == 0) {
+  bResidentTurnInPending = false;
   if (!Resident->TryTalk(this)) return false;
   ResidentFeedbackMessage = Resident->LastSpokenLine.ToString();
   ResidentFeedbackUntil = GetWorld() ? GetWorld()->GetTimeSeconds() + 8.f : 0.f;
@@ -2001,9 +2003,20 @@ bool AMoonfallHeroPawn::ChooseResidentContextAction(int32 Choice) {
     : FText::FromString(TEXT("Contract unavailable."));
  } else if (State == 1) {
   if (Salvage < Resident->GetContractSalvageCost()) {
+   bResidentTurnInPending = false;
    Message = FText::FromString(TEXT("Not enough salvage to complete this contract."));
+  } else if (!bResidentTurnInPending || !GetWorld()
+      || GetWorld()->GetTimeSeconds() > ResidentTurnInConfirmUntil) {
+   bResidentTurnInPending = true;
+   ResidentTurnInConfirmUntil = GetWorld() ? GetWorld()->GetTimeSeconds() + 6.f : 0.f;
+   ResidentTurnInConfirmAfter = GetWorld() ? GetWorld()->GetTimeSeconds() + 0.35f : 0.f;
+   Message = FText::FromString(FString::Printf(
+     TEXT("Confirm spending %d salvage: choose Turn In again."),
+     Resident->GetContractSalvageCost()));
+  } else if (GetWorld()->GetTimeSeconds() < ResidentTurnInConfirmAfter) {
+   Message = FText::FromString(TEXT("Confirm once more after a short moment."));
   } else {
-   // One deliberate Turn In action; persistent quest state prevents repeats.
+   bResidentTurnInPending = false;
    bSucceeded = Resident->TurnInResidentQuest(this);
    Message = bSucceeded ? FText::FromString(TEXT("Contract complete."))
      : FText::FromString(TEXT("Contract could not be completed."));
