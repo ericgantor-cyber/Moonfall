@@ -49,7 +49,7 @@ class TestRacialPersistence(unittest.TestCase):
 
     def test_not_a_new_run(self):
         self.assertIn('MoonfallPersistentWorldV1', self.cpp)
-        self.assertIn("if (SecondsSinceLastWorldSave >= 2.f)", self.cpp)
+        self.assertIn("if (SecondsSinceLastWorldSave >= 2.f && GetWorld()", self.cpp)
         self.assertIn("if (DefeatElapsedSeconds >= 3.f) RespawnAtCheckpoint();", self.cpp)
         self.assertIn("if (Health <= 0.f || !GetWorld()", self.cpp)
         self.assertIn("GetCharacterMovement()->IsFalling()", self.cpp)
