@@ -243,6 +243,17 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("SetLifeSpan(", ground_cpp)
         self.assertNotIn("FinisherShockwave", self.hero_cpp)
 
+    def test_auto_loot_can_be_disabled_and_persists(self):
+        self.assertIn('bool bAutoLootEnabled = true;', self.hero_h)
+        self.assertIn('if (bAutoLootEnabled && FMath::IsFinite(DeltaSeconds)', self.hero_cpp)
+        self.assertIn('GetBool(TEXT("Moonfall.Gameplay"), TEXT("AutoLootEnabled")', self.hero_cpp)
+        self.assertIn('SetBool(TEXT("Moonfall.Gameplay"), TEXT("AutoLootEnabled")', self.hero_cpp)
+        self.assertIn('OptionsSelection == 7', self.hero_cpp)
+        self.assertIn('% 8', self.hero_cpp)
+        self.assertIn('Hero->bAutoLootEnabled', self.hud_cpp)
+        self.assertIn('for (int32 i=0;i<8;++i)', self.hud_cpp)
+        self.assertIn('BindAction(TEXT("PickupLoot"), IE_Pressed', self.hero_cpp)
+
     def test_nearby_batch_loot_is_range_and_cover_safe(self):
         pickup = self.hero_cpp.split("void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[1].split(
             "void AMoonfallHeroPawn::EquipBestInventoryAction()", 1)[0]
