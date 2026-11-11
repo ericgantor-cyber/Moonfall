@@ -1224,6 +1224,11 @@ void AMoonfallHeroPawn::InitializeDualWieldVisuals()
  UAnimInstance* ActiveAnim = IsValid(BodyMesh) ? BodyMesh->GetAnimInstance() : nullptr;
  bMainhandMontageReady = IsValid(ActiveAnim) && IsValid(MainhandSwingMontage);
  bOffhandMontageReady = IsValid(ActiveAnim) && IsValid(OffhandSwingMontage);
+ // Refresh clears stale results from previously equipped rigs.
+ bMainhandMontagePlayed = false;
+ bOffhandMontagePlayed = false;
+ bMainhandSwingAttempted = false;
+ bOffhandSwingAttempted = false;
  // Visual-only equipment must never interfere with combat visibility traces.
  MainhandVisual->SetCollisionEnabled(ECollisionEnabled::NoCollision);
  OffhandVisual->SetCollisionEnabled(ECollisionEnabled::NoCollision);
@@ -1242,24 +1247,26 @@ void AMoonfallHeroPawn::BeginWeaponSwing(bool bOffhand)
  if (!GetWorld()) return;
  const float Now = GetWorld()->GetTimeSeconds();
  if (!FMath::IsFinite(Now)) return;
+ // Report the outcome of THIS specific attack; never carry a previous
+ // successful montage across missing assets, changed rigs, or reduced motion.
+ bool& bPlayed = bOffhand ? bOffhandMontagePlayed : bMainhandMontagePlayed;
+ bool& bAttempted = bOffhand ? bOffhandSwingAttempted : bMainhandSwingAttempted;
+ bool& bReady = bOffhand ? bOffhandMontageReady : bMainhandMontageReady;
+ bPlayed = false;
+ bAttempted = !bReduceMotion;
+ USkeletalMeshComponent* BodyMesh = GetMesh();
+ UAnimInstance* Anim = IsValid(BodyMesh) ? BodyMesh->GetAnimInstance() : nullptr;
+ UAnimMontage* Montage = bOffhand ? OffhandSwingMontage.Get() : MainhandSwingMontage.Get();
+ bReady = IsValid(Anim) && IsValid(Montage);
  if (!bReduceMotion)
  {
   if (bOffhand) OffhandSwingStartedAt = Now;
   else MainhandSwingStartedAt = Now;
- }
- if (!bReduceMotion && GetMesh())
- {
-  if (UAnimInstance* Anim = GetMesh()->GetAnimInstance())
+  // Failed/incompatible montage playback never suppresses normal melee hits.
+  if (bReady)
   {
-   UAnimMontage* Montage = bOffhand ? OffhandSwingMontage.Get() : MainhandSwingMontage.Get();
-   // A missing, invalid or incompatible montage must not block melee damage,
-   // native sword motion or the Blueprint swing event.
-   if (IsValid(Montage))
-   {
-    const float Played = Anim->Montage_Play(Montage, 1.f);
-    if (bOffhand) bOffhandMontageReady = Played > 0.f;
-    else bMainhandMontageReady = Played > 0.f;
-   }
+   const float Played = Anim->Montage_Play(Montage, 1.f);
+   bPlayed = FMath::IsFinite(Played) && Played > 0.f;
   }
  }
  OnDualWieldSwing(bOffhand);
