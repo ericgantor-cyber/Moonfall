@@ -1986,7 +1986,7 @@ bool AMoonfallHeroPawn::ChooseResidentContextAction(int32 Choice) {
  }
  if (Choice == 2) { CloseResidentContext(); return true; }
  if (Choice == 0) {
-   if (!Resident->TryTalk(this)) return false;
+  if (!Resident->TryTalk(this)) return false;
   ResidentFeedbackMessage = Resident->LastSpokenLine.ToString();
   ResidentFeedbackUntil = GetWorld() ? GetWorld()->GetTimeSeconds() + 8.f : 0.f;
   return true;
