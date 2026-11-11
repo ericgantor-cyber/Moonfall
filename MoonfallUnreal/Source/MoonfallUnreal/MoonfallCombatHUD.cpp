@@ -32,7 +32,11 @@ void AMoonfallCombatHUD::DrawHUD()
    const int32 Quest = Hero->GetResidentQuestState(Resident->ResidentId);
    const FString QuestAction = Quest == 0 ? TEXT("Accept contract")
      : Quest == 1 ? TEXT("Turn in salvage") : TEXT("Completed");
-   const FString Names[3] = { TEXT("Talk"), QuestAction, TEXT("Close") };
+   const FString Names[3] = { TEXT("Talk"),
+     Quest == 1 && Hero->bResidentTurnInPending && Hero->GetWorld()
+       && Hero->GetWorld()->GetTimeSeconds() <= Hero->ResidentFeedbackUntil + 2.f
+       ? FString(TEXT("Confirm turn-in")) : QuestAction,
+     TEXT("Close") };
    for (int32 Row = 0; Row < 3; ++Row) {
     const float Y = T + 122.f + Row * 53.f;
     DrawRect(Row == Hero->ResidentContextSelection
