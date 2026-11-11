@@ -337,6 +337,28 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('ActionMappings=(ActionName="EquipOffhand",Key=T)', controls)
         self.assertIn('Input->BindAction(TEXT("EquipOffhand")', self.hero_cpp)
 
+    def test_dual_wield_grip_tuning_is_respected_by_animation(self):
+        for name in ("MainhandSocketOffset", "OffhandSocketOffset",
+                     "MainhandGripRotation", "OffhandGripRotation",
+                     "MainhandSwingDuration", "OffhandSwingDuration"):
+            self.assertIn(name, self.hero_h)
+            self.assertIn(name, self.hero_cpp)
+        init = self.hero_cpp.split("void AMoonfallHeroPawn::InitializeDualWieldVisuals()", 1)[1].split(
+            "void AMoonfallHeroPawn::BeginWeaponSwing(", 1)[0]
+        self.assertIn("MainhandVisual->SetRelativeLocation(MainhandSocketOffset);", init)
+        self.assertIn("OffhandVisual->SetRelativeLocation(OffhandSocketOffset);", init)
+        visual = self.hero_cpp.split("void AMoonfallHeroPawn::UpdateWeaponVisuals()", 1)[1].split(
+            "void AMoonfallHeroPawn::StrikeWithOffhandWeapon()", 1)[0]
+        self.assertIn("FMath::IsFinite(MainhandSwingDuration)", visual)
+        self.assertIn("FMath::IsFinite(OffhandSwingDuration)", visual)
+        self.assertIn("FMath::Clamp(MainhandSwingDuration, 0.10f, 1.f)", visual)
+        self.assertIn("FMath::Clamp(OffhandSwingDuration, 0.10f, 1.f)", visual)
+        self.assertIn("FRotator Grip = MainhandGripRotation;", visual)
+        self.assertIn("FRotator Grip = OffhandGripRotation;", visual)
+        self.assertIn("Grip.Roll -= MainSweep;", visual)
+        self.assertIn("Grip.Roll += OffSweep;", visual)
+        self.assertNotIn("SetRelativeRotation(FRotator(0.f, 10.f, -18.f - MainSweep))", visual)
+
     def test_dual_wield_custom_blade_meshes_and_hand_socket_fallback(self):
         for name in ("MainhandMeshAsset", "OffhandMeshAsset",
                      "MainhandSocket", "OffhandSocket"):
