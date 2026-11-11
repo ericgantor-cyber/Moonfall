@@ -17,13 +17,16 @@ AMoonfallKeyPickup::AMoonfallKeyPickup()
  static ConstructorHelpers::FObjectFinder<UStaticMesh> Mesh(TEXT("/Engine/BasicShapes/Cube.Cube"));
  if (Mesh.Succeeded()) KeyMesh->SetStaticMesh(Mesh.Object);
  KeyMesh->SetRelativeScale3D(FVector(0.18f, 0.32f, 0.10f));
- KeyMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+ // A tiny query-only target allows aimed clicking without blocking movement.
+ KeyMesh->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+ KeyMesh->SetCollisionResponseToAllChannels(ECR_Ignore);
+ KeyMesh->SetCollisionResponseToChannel(ECC_Visibility, ECR_Block);
  KeyLabel = CreateDefaultSubobject<UTextRenderComponent>(TEXT("KeyLabel"));
  KeyLabel->SetupAttachment(KeyRoot);
  KeyLabel->SetRelativeLocation(FVector(0.f, 0.f, 55.f));
  KeyLabel->SetHorizontalAlignment(EHorizTextAligment::EHTA_Center);
  KeyLabel->SetWorldSize(20.f);
- KeyLabel->SetText(FText::FromString(TEXT("KEY  [F / X]")));
+ KeyLabel->SetText(FText::FromString(TEXT("KEY - CLICK")));
  KeyLabel->SetTextRenderColor(FColor(255, 215, 110));
 }
 
@@ -38,7 +41,7 @@ void AMoonfallKeyPickup::RefreshKeyLabel()
   Name = TEXT("OUTLAW SEAL");
  else if (KeyId == FName(TEXT("fallen_gate_key")))
   Name = TEXT("FALLEN GATE KEY");
- KeyLabel->SetText(FText::FromString(Name + TEXT("  [F / X]")));
+ KeyLabel->SetText(FText::FromString(Name + TEXT(" - CLICK")));
 }
 
 void AMoonfallKeyPickup::BeginPlay()
