@@ -99,6 +99,16 @@ public:
   UFUNCTION(BlueprintCallable, Category="Moonfall|Finishers") int32 RegisterFinisherKill(bool bShatterKill, bool bBossKill, FVector DefeatedLocation, AMoonfallEnemy* DefeatedEnemy);
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Finishers") void OnFinisherChain(int32 ChainStep, bool bShatterKill, bool bBossKill);
  UFUNCTION(BlueprintCallable, Category="Moonfall|Progression") void AwardExperience(int32 Amount);
+ // In-session talent allocation; earned points = Level - 1.
+ // Persistent talent ranks will follow the versioned progression save migration.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") int32 BladeTalentRank = 0;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") int32 ArcaneTalentRank = 0;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") int32 TwinStrikeTalentRank = 0;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Talents") int32 GetUnspentTalentPoints() const;
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Talents") bool SpendTalentPoint(int32 TalentIndex);
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Combat") bool bDualWieldStance = false;
+ // Paired-strike mode uses the existing main weapon until off-hand equipment is integrated.
+ void StrikeWithOffhandWeapon();
  // Godot reward parity: currency auto-awards on defeat, physical keys and
  // equipment require an explicit interaction, with persistent door progression.
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Rewards") int64 Gold = 0;
