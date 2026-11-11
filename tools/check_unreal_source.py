@@ -337,6 +337,20 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('ActionMappings=(ActionName="EquipOffhand",Key=T)', controls)
         self.assertIn('Input->BindAction(TEXT("EquipOffhand")', self.hero_cpp)
 
+    def test_empty_offhand_autofill_rolls_back_if_loot_save_fails(self):
+        collect = self.hero_cpp.split("bool AMoonfallHeroPawn::CollectGroundEquipmentCode(", 1)[1].split(
+            "bool AMoonfallHeroPawn::CollectPersistedGroundEquipmentCode(", 1)[0]
+        self.assertIn("const bool bAutoEquipEmptyOffhand = SlotIndex == 0", collect)
+        self.assertIn("EquippedOffhandCode == 0", collect)
+        self.assertIn("InventoryItemCodes.Contains(EquippedWeaponCode)", collect)
+        self.assertIn("if (bAutoEquipEmptyOffhand)", collect)
+        self.assertIn("EquippedOffhandCode = ItemCode;", collect)
+        self.assertIn("OffhandTier = Tier;", collect)
+        failure = collect.split("if (!SaveRewardProgress())", 1)[1]
+        self.assertIn("if (bAutoEquipEmptyOffhand)", failure)
+        self.assertIn("EquippedOffhandCode = 0;", failure)
+        self.assertIn("OffhandTier = 0;", failure)
+
     def test_offhand_weapon_requires_real_inventory_copy(self):
         self.assertIn("bool AMoonfallHeroPawn::EquipOffhandInventoryItem(", self.hero_cpp)
         self.assertIn("Code == EquippedWeaponCode ? 2 : 1", self.hero_cpp)
