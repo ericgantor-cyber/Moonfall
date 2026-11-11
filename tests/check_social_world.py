@@ -66,7 +66,17 @@ class TestSocialWorld(unittest.TestCase):
   self.assertIn("ResidentBonds.Add(Id",self.hero)
   self.assertIn("GetContractSalvageCost",self.npc)
   self.assertIn("CanHeroInteract(Hero)",self.npc)
-  self.assertIn("if (Hero->GetResidentQuestState(ResidentId) == 1)",self.npc)
+  self.assertIn("Hero->GetResidentQuestState(ResidentId) == 1)",self.npc)
+ def test_explicit_contract_controls_and_dialogue(self):
+  self.assertIn("GetNearestResidentNPC()",self.hero)
+  self.assertIn("&AMoonfallHeroPawn::InteractWithNearestResidentQuest",self.hero)
+  self.assertIn("void AMoonfallHeroPawn::InteractWithNearestResidentQuest()",self.hero)
+  self.assertIn("Resident->OfferResidentQuest(this)",self.hero)
+  self.assertIn("Resident->TurnInResidentQuest(this)",self.hero)
+  self.assertIn("if (Salvage < Cost)",self.hero)
+  self.assertIn("OnResidentQuestFeedback",self.hero_h)
+  self.assertIn("Press V to accept my contract",self.npc)
+  self.assertIn("Press V when ready to turn it in",self.npc)
  def test_reputation_is_bounded_and_saved(self):
   self.assertIn("TMap<FName, int32> FactionReputation",self.hero_h)
   self.assertIn("TMap<FName, int32> FactionReputation",self.save)
