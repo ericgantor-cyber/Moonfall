@@ -841,6 +841,10 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
        Time + (FMath::IsFinite(CombatRecoverySeconds)
        ? FMath::Clamp(CombatRecoverySeconds, 0.f, 12.f) : 5.f));
   const float ActualSpellDamage = FMath::Clamp(HealthBeforeSpell - Enemy->Health, 0.f, HealthBeforeSpell);
+  // Skyrim-inspired Impact: only a landed dual spell may interrupt its target.
+  // Healing, misses and absorbed hits never stagger.
+  if (Multiplier > 2.f && School != 3 && ActualSpellDamage > 0.f && Enemy->Health > 0.f)
+   Enemy->ApplyDualCastImpact();
   if (ActualSpellDamage > 0.f) {
    HitComboStage = bComboAlive ? (IncomingStage >= 12 ? 1 : IncomingStage + 1) : 1;
    LastHitComboTarget = Enemy;
@@ -958,6 +962,7 @@ void AMoonfallHeroPawn::CastBoth()
  {
   LastCastTime[1] = LastCastTime[0];
   OnSpellCast(LeftSpell, false);
+  OnDualCastReleased(LeftSpell);
  }
 }
 void AMoonfallHeroPawn::BreakGuard()
