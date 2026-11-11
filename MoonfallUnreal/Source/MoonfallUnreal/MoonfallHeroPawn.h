@@ -31,9 +31,18 @@ public:
  UFUNCTION(BlueprintPure, Category="Moonfall|Race") float GetRaceStaminaRegenBonus() const;
  UFUNCTION(BlueprintPure, Category="Moonfall|Race") float GetRaceManaRegenBonus() const;
  // Each ancestry receives a distinct on-demand combat power; no artwork changes.
+ // Target-focused context interaction: RMB on NPC; pad D-pad up near NPC.
+ // Choice buttons are implemented by UI using ChooseResidentContextAction.
+ UFUNCTION(BlueprintCallable, Category="Moonfall|NPC") void OpenFocusedResidentContext();
+ UFUNCTION(BlueprintCallable, Category="Moonfall|NPC") void CastRightMouse();
+ UFUNCTION(BlueprintCallable, Category="Moonfall|NPC") bool ChooseResidentContextAction(int32 Choice);
+ UFUNCTION(BlueprintCallable, Category="Moonfall|NPC") void CloseResidentContext();
+ UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|NPC") void OnResidentContextOpened(AMoonfallWorldNPC* Resident, FText ResidentName, int32 QuestState, int32 SalvageCost);
+ UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|NPC") void OnResidentContextClosed();
  UFUNCTION(BlueprintCallable, Category="Moonfall|NPC") void TalkToNearestNPC();
  UFUNCTION(BlueprintCallable, Category="Moonfall|NPC|Quest") void InteractWithNearestResidentQuest();
  UFUNCTION(BlueprintPure, Category="Moonfall|NPC") AMoonfallWorldNPC* GetNearestResidentNPC() const;
+ UPROPERTY(Transient) TWeakObjectPtr<AMoonfallWorldNPC> FocusedResident;
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|NPC|Quest") void OnResidentQuestFeedback(FText Message, bool bSuccess);
 
  // Reputation is a permanent value for recognized world factions.
