@@ -31,6 +31,7 @@ public:
  UFUNCTION(BlueprintPure, Category="Moonfall|Race") float GetRaceManaRegenBonus() const;
  // Each ancestry receives a distinct on-demand combat power; no artwork changes.
  UFUNCTION(BlueprintCallable, Category="Moonfall|Race") bool ActivateRacePower();
+ void TriggerRacePower() { ActivateRacePower(); }
  UFUNCTION(BlueprintPure, Category="Moonfall|Race") FString GetRacePowerName() const;
  UFUNCTION(BlueprintPure, Category="Moonfall|Race") float GetRacePowerCooldownRemaining() const;
  UFUNCTION(BlueprintPure, Category="Moonfall|Race") float GetRacePowerDurationRemaining() const;
