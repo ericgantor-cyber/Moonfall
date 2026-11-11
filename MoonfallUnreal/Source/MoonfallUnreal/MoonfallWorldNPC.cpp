@@ -123,6 +123,7 @@ bool AMoonfallWorldNPC::TryTalk(AMoonfallHeroPawn* Hero) {
     TEXT("Bring me %d salvage. Select Turn In when ready."), GetContractSalvageCost()));
  else if (Disposition != TEXT("Hostile") && Hero->GetResidentQuestState(ResidentId) == 2)
   Reaction = FText::FromString(TEXT("Our people remember your help. Thank you."));
+ LastSpokenLine = Reaction;
  OnDialogueStarted(Hero, Reaction);
  return true;
 }
