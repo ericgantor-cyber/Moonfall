@@ -1,5 +1,8 @@
 #include "MoonfallEnemy.h"
 #include "Components/StaticMeshComponent.h"
+#include "Components/SkeletalMeshComponent.h"
+#include "Animation/AnimInstance.h"
+#include "Animation/AnimMontage.h"
 #include "UObject/ConstructorHelpers.h"
 #include "MoonfallHeroPawn.h"
 #include "Kismet/GameplayStatics.h"
@@ -12,6 +15,12 @@
 AMoonfallEnemy::AMoonfallEnemy() {
   Body = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Body"));
   SetRootComponent(Body);
+  CharacterRig = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("CharacterRig"));
+  CharacterRig->SetupAttachment(Body);
+  CharacterRig->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+  CharacterRig->SetGenerateOverlapEvents(false);
+  CharacterRig->SetHiddenInGame(true);
+  CharacterRig->SetCanEverAffectNavigation(false);
   static ConstructorHelpers::FObjectFinder<UStaticMesh> Sphere(TEXT("/Engine/BasicShapes/Sphere.Sphere"));
   if (Sphere.Succeeded()) Body->SetStaticMesh(Sphere.Object);
   Body->SetCollisionProfileName(TEXT("BlockAll"));
@@ -21,6 +30,7 @@ AMoonfallEnemy::AMoonfallEnemy() {
 }
 void AMoonfallEnemy::BeginPlay() {
  Super::BeginPlay();
+ RefreshCharacterRig();
  // Scale only at spawn to avoid mid-fight HP spikes as the player levels.
  const AMoonfallHeroPawn* Player = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0));
  SpawnBalanceLevel = IsValid(Player) ? FMath::Clamp(Player->Level, 1, 100) : 1;
@@ -40,6 +50,34 @@ void AMoonfallEnemy::BeginPlay() {
    ? FMath::Clamp(MaxPosture * PostureMultiplier, 1.f, 10000.f) : 100.f * PostureMultiplier;
  Posture = 0.f;
  BasePostureAtSpawn = MaxPosture;
+}
+
+void AMoonfallEnemy::RefreshCharacterRig()
+{
+ if (!IsValid(Body) || !IsValid(CharacterRig)) return;
+ // Existing sphere enemies keep their appearance and collision. Subclasses
+ // with a skeletal mesh can use it without changing the native AI root.
+ bCharacterRigActive = IsValid(CharacterRig->GetSkeletalMeshAsset());
+ CharacterRig->SetHiddenInGame(!bCharacterRigActive);
+ Body->SetVisibility(!bCharacterRigActive, false);
+ CharacterRig->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+ CharacterRig->SetGenerateOverlapEvents(false);
+ CharacterRig->SetCanEverAffectNavigation(false);
+ bLastRigMontagePlayed = false;
+}
+void AMoonfallEnemy::PlayCharacterRigCue(FName CueId, UAnimMontage* Montage)
+{
+ bLastRigMontagePlayed = false;
+ if (bCharacterRigActive && IsValid(CharacterRig) && IsValid(Montage))
+ {
+  if (UAnimInstance* Anim = CharacterRig->GetAnimInstance())
+  {
+   const float Played = Anim->Montage_Play(Montage, 1.f);
+   bLastRigMontagePlayed = FMath::IsFinite(Played) && Played > 0.f;
+  }
+ }
+ // An absent rig or montage leaves all AI combat and native feedback intact.
+ OnCharacterRigCue(CueId, bLastRigMontagePlayed);
 }
 
 void AMoonfallEnemy::CancelDivineSignature() {
@@ -212,6 +250,8 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
     if (bDivinePhase) OnDivinePhaseEntered(DivineBossId, BossPhase, 1.5f);
    }
   }
+  if (Health > 0.f && ActualDamage > 0.f)
+   PlayCharacterRigCue(FName(TEXT("Hit")), HitRigMontage.Get());
   OnHitFeedback(ActualDamage, Health);
   // Hit feedback is now tracked by the HUD rather than persistent debug strings.
   LastHitAmount = ActualDamage;
@@ -250,6 +290,7 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
    // Set the fallback BEFORE registering: an immediately played finisher
    // shortens it to 1.25 seconds and must not be overridden afterward.
    SetLifeSpan(9.5f);
+   PlayCharacterRigCue(FName(TEXT("Defeat")), DeathRigMontage.Get());
    OnEnemyDefeated(bLastHitWasShatter);
    if (AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0))) {
     DefeatAnimationStyle = FMath::Max(1, Hero->RegisterFinisherKill(bLastHitWasShatter, bBoss, GetActorLocation(), this));
@@ -495,6 +536,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
      BossWarningEndTime = -1.f;
      CachedWaypoint = FVector::ZeroVector;
     } else if (!bPerfectDodge) {
+     PlayCharacterRigCue(FName(TEXT("Attack")), AttackRigMontage.Get());
      OnEnemyAttack();
     }
    }
