@@ -49,6 +49,7 @@ void UMoonfallActorRigComponent::RefreshRig()
   }
  }
  ActiveRigMesh = RigMesh.Get();
+ ObservedPreferredRigMesh = PreferredRigMesh;
  ObservedRigAsset = RigMesh.IsValid() ? RigMesh->GetSkeletalMeshAsset() : nullptr;
  bRigAvailable = RigMesh.IsValid();
  bLastCuePlayed = false;
@@ -60,12 +61,10 @@ bool UMoonfallActorRigComponent::PlayRigCue(FName CueId)
  // This component never polls, spawns geometry, or alters imported assets.
  AActor* Owner = GetOwner();
  const bool bOwnerChanged = RigMesh.IsValid() && RigMesh->GetOwner() != Owner;
- const bool bPreferredChanged = IsValid(PreferredRigMesh)
-   && RigMesh.Get() != PreferredRigMesh.Get();
+ const bool bPreferredChanged = PreferredRigMesh.Get() != ObservedPreferredRigMesh.Get();
  const bool bAssetChanged = RigMesh.IsValid()
    && RigMesh->GetSkeletalMeshAsset() != ObservedRigAsset.Get();
- if (bOwnerChanged || bPreferredChanged || bAssetChanged
-     || (bRigAvailable && !RigMesh.IsValid()))
+ if (bOwnerChanged || bPreferredChanged || bAssetChanged || !RigMesh.IsValid())
   RefreshRig();
  bLastCuePlayed = false;
  // Fail closed on an absent rig or cue but always notify the Blueprint.
