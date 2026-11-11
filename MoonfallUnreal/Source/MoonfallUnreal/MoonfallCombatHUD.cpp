@@ -460,6 +460,14 @@ void AMoonfallCombatHUD::DrawHUD()
     FLinearColor(0.95f,0.84f,0.47f), 24.f, Canvas->SizeY - 55.f, nullptr, 0.8f);
   }
  }
+ // Compact, always-readable twilight phase. No flashing or extra widgets.
+ // Small displays show phase only; wider screens also explain the bonus.
+ if (Hero->IsTwilightNight())
+  DrawText(bCompactScreen ? TEXT("NIGHT") : TEXT("NIGHT  +10% SPELL POWER"),
+    FLinearColor(0.70f,0.72f,1.f), 24.f, 18.f, nullptr, 0.82f);
+ else
+  DrawText(bCompactScreen ? TEXT("DAY") : TEXT("DAY  +10% WEAPON POWER"),
+    FLinearColor(1.f,0.83f,0.58f), 24.f, 18.f, nullptr, 0.82f);
  // Accessible key/door notice: no flashing, no extra widgets, expires naturally.
  const float NowSeconds = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f;
  if (!Hero->KeyInteractionNotice.IsEmpty()
