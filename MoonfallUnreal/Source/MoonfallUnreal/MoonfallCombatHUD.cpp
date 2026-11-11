@@ -119,7 +119,7 @@ void AMoonfallCombatHUD::DrawHUD()
    DrawText(KeyNames, FLinearColor(0.99f,0.84f,0.48f),
      Left + 18.f, KeyRowY + 5.f, nullptr,
      Canvas->SizeX < 900.f ? 0.57f : 0.75f);
-   DrawText(TEXT("P / A: back to inventory    I / Select / Esc: close"),
+   DrawText(TEXT("C / A: back to inventory    I / Select / Esc: close"),
      FLinearColor(0.81f,0.83f,0.97f), Left + 18.f, Top + PanelHeight - 29.f,
      nullptr, 0.8f);
    return;
@@ -249,7 +249,7 @@ void AMoonfallCombatHUD::DrawHUD()
   }
   DrawText(TEXT("B / LT: equip best   U / RT: +1 tier   H / RB: forge 5   R / B: ascend   G / LB: reforge"),
      FLinearColor(0.78f,0.90f,0.95f), Left + 18.f, Top + PanelHeight - 70.f, nullptr, 0.74f);
-  DrawText(TEXT("P / A: character stats    I / Select / Esc: close"), FLinearColor::White,
+  DrawText(TEXT("C / A: character stats    I / Select / Esc: close"), FLinearColor::White,
      Left + 18.f, Top + PanelHeight - 28.f, nullptr, 0.8f);
   if (Hero->bKeyRingInventoryOpen) {
    // Compact popover, on top of equipment rows. The KEYS button remains visible
