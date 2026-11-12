@@ -1491,3 +1491,29 @@ bool AMoonfallHeroPawn::EquipInventoryItem(int32 InventoryIndex)
  }
  return true;
 }
+
+ 
+int32 AMoonfallHeroPawn::GetItemPower(int32 ItemCode) const
+{
+ // Encoded as affix*100000 + slot*10000 + rarity*1000 + tier.
+ // Invalid or modified codes never contribute to the character score.
+ if (ItemCode <= 0) return 0;
+ const int32 Affix = ItemCode / 100000;
+ const int32 Slot = (ItemCode / 10000) % 10;
+ const int32 Rarity = (ItemCode / 1000) % 10;
+ const int32 Tier = ItemCode % 1000;
+ if (Affix < 0 || Affix > 3 || Slot < 0 || Slot > 2 ||
+     Rarity < 0 || Rarity > 5 || Tier < 1 || Tier > 25 ||
+     (Rarity == 0 && Affix != 0) ||
+     ItemCode != Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier)
+  return 0;
+ // Tier dominates rarity, rarity dominates trait within each equipment slot.
+ return Tier * 100 + Rarity * 10 + (Affix > 0 ? 1 : 0);
+}
+
+int32 AMoonfallHeroPawn::GetEquipmentPower() const
+{
+ return GetItemPower(EquippedWeaponCode) +
+        GetItemPower(EquippedArmorCode) +
+        GetItemPower(EquippedAccessoryCode);
+}

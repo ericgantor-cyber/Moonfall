@@ -48,9 +48,12 @@ void AMoonfallCombatHUD::DrawHUD()
    DrawText(FString::Printf(TEXT("Level %d  |  XP %d / %d  |  Salvage %d"),
       Hero->Level, Hero->Experience, Hero->ExperienceToNextLevel, Hero->Salvage),
       FLinearColor(0.78f,0.83f,1.f), Left + 18.f, Top + 57.f, nullptr, 0.95f);
-   const float RowHeight = FMath::Clamp((PanelHeight - 145.f) / 11.f, 13.f, 36.f);
+   const float RowHeight = FMath::Clamp((PanelHeight - 145.f) / 12.f, 12.f, 33.f);
    const float StartY = Top + 96.f;
    const FString CharacterLines[] = {
+     FString::Printf(TEXT("Equipment power: %d  |  W %d / A %d / T %d"),
+       Hero->GetEquipmentPower(), Hero->GetItemPower(Hero->EquippedWeaponCode),
+       Hero->GetItemPower(Hero->EquippedArmorCode), Hero->GetItemPower(Hero->EquippedAccessoryCode)),
      TEXT("PRIMARY ATTRIBUTES"),
      FString::Printf(TEXT("Might: %d    |    +%.1f%% hostile spell power"),
        Hero->GetMight(), FMath::Min(Hero->GetMight() * 0.1f, 10.f)),
@@ -73,7 +76,7 @@ void AMoonfallCombatHUD::DrawHUD()
    };
    for (int32 Row = 0; Row < UE_ARRAY_COUNT(CharacterLines); ++Row)
     DrawText(CharacterLines[Row],
-      Row == 0 || Row == 4 || Row == 7 ? FLinearColor(0.52f,0.91f,0.76f) : FLinearColor::White,
+      Row == 1 || Row == 5 || Row == 8 ? FLinearColor(0.52f,0.91f,0.76f) : FLinearColor::White,
       Left + 18.f, StartY + Row * RowHeight, nullptr,
       PanelHeight < 360.f ? 0.55f : (Canvas->SizeX < 900.f ? 0.75f : 0.90f));
    DrawText(TEXT("P / A: back to inventory    I / Select / Esc: close"),

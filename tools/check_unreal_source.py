@@ -1708,7 +1708,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
     def test_directional_guard_matches_character_facing_not_camera(self):
         self.assertIn("bOrientRotationToMovement = true", self.hero_cpp)
         damage = self.hero_cpp.split("void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {", 1)[1]
-        damage = damage.split("\\n}", 1)[0]
+        damage = damage.split("\n}", 1)[0]
         self.assertIn("GetActorForwardVector().GetSafeNormal2D()", damage)
         self.assertNotIn("GetControlRotation().Vector().GetSafeNormal2D()", damage)
         self.assertIn("FVector::DotProduct(GuardForward, ToSource) >= 0.258819f", damage)
@@ -2481,6 +2481,18 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("GetSafeNormal2D()", self.enemy_cpp)
         self.assertIn("LineTraceSingleByChannel", self.enemy_cpp)
         self.assertIn("ApplyMoonfallDamage", self.enemy_cpp)
+
+    def test_equipment_power_comparison_is_bounded_and_read_only(self):
+        for declaration in ("GetEquipmentPower() const", "GetItemPower(int32 ItemCode) const"):
+            self.assertIn(declaration, self.hero_h)
+            self.assertIn(declaration, self.hero_cpp)
+        score = self.hero_cpp.split("int32 AMoonfallHeroPawn::GetItemPower(", 1)[1].split("\\n}", 1)[0]
+        for guard in ("Rarity > 5", "Tier > 25", "Slot > 2", "Affix > 3",
+                      "ItemCode != Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier"):
+            self.assertIn(guard, score)
+        self.assertIn("Tier * 100 + Rarity * 10 + (Affix > 0 ? 1 : 0)", score)
+        self.assertIn("Hero->GetEquipmentPower()", self.hud)
+        self.assertIn("Hero->GetItemPower(Hero->EquippedWeaponCode)", self.hud)
 
 if __name__ == "__main__":
     unittest.main()
