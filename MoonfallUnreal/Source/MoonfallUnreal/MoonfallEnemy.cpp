@@ -23,7 +23,9 @@ void AMoonfallEnemy::BeginPlay() {
  Super::BeginPlay();
  // Scale only at spawn to avoid mid-fight HP spikes as the player levels.
  const AMoonfallHeroPawn* Player = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0));
- SpawnBalanceLevel = IsValid(Player) ? FMath::Clamp(Player->Level, 1, 100) : 1;
+ SpawnBalanceLevel = EncounterLevelOverride > 0
+   ? FMath::Clamp(EncounterLevelOverride, 1, 100)
+   : (IsValid(Player) ? FMath::Clamp(Player->Level, 1, 100) : 1);
  const float Levels = static_cast<float>(SpawnBalanceLevel - 1);
  const float HPScale = 1.f + 0.035f * FMath::Min(Levels, 30.f) + 0.018f * FMath::Max(0.f, Levels - 30.f);
  const float DamageScale = 1.f + 0.012f * FMath::Min(Levels, 30.f) + 0.006f * FMath::Max(0.f, Levels - 30.f);
@@ -560,8 +562,11 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
    LastKnownHeroPosition = HeroPosition;
   }
  }
+ // Scouts keep tracking the last seen position slightly longer, without
+ // gaining wall vision, extra navigation requests, or global aggro.
+ const float LastSeenGrace = ActorHasTag(FName(TEXT("DungeonScout"))) ? 4.f : 2.5f;
  const bool bHasRecentSight = bBoss || (FMath::IsFinite(LastSawHeroAt)
-   && Now - LastSawHeroAt <= 2.5f);
+   && Now - LastSawHeroAt <= LastSeenGrace);
  if (!bHasRecentSight) {
   CachedWaypoint = FVector::ZeroVector;
   NextPathRefreshAt = 0.f;
@@ -621,6 +626,11 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
      FlankSign = AttackSequence % 2 == 0 ? -1.f : 1.f;
      FlankDistance = 175.f;
     }
+   } else if (ActorHasTag(FName(TEXT("DungeonScout")))) {
+    // Scouts seek a wider side approach. Keep movement inside the existing
+    // swept-collision and nav-path safeguards.
+    FlankSign = GetUniqueID() % 2u == 0u ? -1.f : 1.f;
+    FlankDistance = 185.f;
    } else if (bElite) {
     // Switch flank side after a low-health withdrawal.
     FlankSign = bRetreatFlankLeft ? -1.f : 1.f;
@@ -704,7 +714,8 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
       && Distance > AttackRange * 0.45f && Distance > 1.f) {
    const FVector StrafeSide(-Difference.Y, Difference.X, 0.f);
    const float StrafeSign = (AttackSequence % 2 == 0) ? -1.f : 1.f;
-   const float StrafeSpeed = bBoss ? 95.f : 70.f;
+   const float StrafeSpeed = bBoss ? 95.f
+     : (ActorHasTag(FName(TEXT("DungeonPackLeader"))) ? 100.f : 70.f);
    const FVector StrafeStep = StrafeSide.GetSafeNormal() * StrafeSign
      * StrafeSpeed * SafeAIDelta;
    if (!StrafeStep.IsNearlyZero()) {
@@ -716,28 +727,33 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
    // Small-pack coordination: avoid three ordinary enemies delivering their
    // tells at once. Scan only at attack decisions, not on every AI tick;
    // cap work even in massive continuously explored regions.
-   if (!bBoss && !bElite) {
-    int32 NearbyWindingAllies = 0;
-    int32 ScannedActors = 0;
-    int32 ConsideredAllies = 0;
-    // Cap the iterator itself, not only eligible allies. Large worlds can
-    // contain many bosses, defeated actors, and inactive enemies.
-    for (TActorIterator<AMoonfallEnemy> It(GetWorld());
-         It && ScannedActors < 64 && ConsideredAllies < 32; ++It) {
-     ++ScannedActors;
-     const AMoonfallEnemy* Other = *It;
-     if (!IsValid(Other) || Other == this || Other->Health <= 0.f
-         || Other->bBoss || Other->bElite) continue;
-     ++ConsideredAllies;
-     if (Other->WindupEndsAt > Now
-         && FVector::DistSquared2D(Other->GetActorLocation(), GetActorLocation()) < FMath::Square(550.f)) {
-      if (++NearbyWindingAllies >= 2) break;
+   if (!bBoss) {
+    // Dungeon packs share a two-attacker pressure budget, including leaders.
+    // Other elites keep existing behavior. Evaluate only at attack decisions,
+    // never every AI tick, and hard cap the actor scan.
+    const bool bDungeonRole = ActorHasTag(FName(TEXT("DungeonScout")))
+      || ActorHasTag(FName(TEXT("DungeonPackLeader")));
+    const bool bCoordinate = !bElite || bDungeonRole;
+    if (bCoordinate) {
+     int32 NearbyWindingAllies = 0;
+     int32 ScannedActors = 0;
+     for (TActorIterator<AMoonfallEnemy> It(GetWorld());
+          It && ScannedActors < 64; ++It) {
+      ++ScannedActors;
+      const AMoonfallEnemy* Other = *It;
+      if (!IsValid(Other) || Other == this || Other->Health <= 0.f || Other->bBoss) continue;
+      // Keep dungeon role coordination in its own pack; never block an
+      // unrelated open-world mob's attack because a dungeon pack is nearby.
+      if (bDungeonRole && (DungeonPackId < 0 || Other->DungeonPackId != DungeonPackId || Other->GetOwner() != GetOwner())) continue;
+      if (!bDungeonRole && Other->DungeonPackId >= 0) continue;
+      if (Other->WindupEndsAt > Now
+          && FVector::DistSquared2D(Other->GetActorLocation(), GetActorLocation()) < FMath::Square(550.f)
+          && ++NearbyWindingAllies >= 2) break;
      }
-    }
-    if (NearbyWindingAllies >= 2) {
-     const float SlotDelay = 0.18f + 0.04f * static_cast<float>(GetUniqueID() % 4u);
-     NextAttackAt = Now + SlotDelay;
-     return;
+     if (NearbyWindingAllies >= 2) {
+      NextAttackAt = Now + 0.18f + 0.04f * static_cast<float>(GetUniqueID() % 4u);
+      return;
+     }
     }
    }
    // Alternate quick strikes, heavy attacks and wider sweeps with distinct warnings.

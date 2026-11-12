@@ -1,8 +1,12 @@
 #include "MoonfallArena.h"
 #include "MoonfallEnemy.h"
+#include "MoonfallHeroPawn.h"
 #include "Components/SceneComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/World.h"
+#include "EngineUtils.h"
+#include "CollisionQueryParams.h"
+#include "TimerManager.h"
 #include "Kismet/GameplayStatics.h"
 #include "UObject/UObjectGlobals.h"
 AMoonfallArena::AMoonfallArena() {
@@ -75,5 +79,245 @@ void AMoonfallArena::BeginPlay() {
    Enemy->AttackCooldown *= 1.15f;
   }
   UGameplayStatics::FinishSpawningActor(Enemy, SpawnTransform);
+ }
+ // Dungeon-only encounter rolls are deferred until the player arrives.
+ // Open-world zones never start this proximity check or its 5..11-mob rule.
+ if (bIsDungeonEncounter) {
+  GetWorldTimerManager().SetTimer(DungeonEntryTimer, this,
+    &AMoonfallArena::CheckDungeonEntry, 1.f, true);
+ }
+}
+
+void AMoonfallArena::CheckDungeonEntry() {
+ if (!bIsDungeonEncounter) {
+  GetWorldTimerManager().ClearTimer(DungeonEntryTimer);
+  return;
+ }
+ const AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(
+   UGameplayStatics::GetPlayerPawn(this, 0));
+ if (!IsValid(Hero) || !FMath::IsFinite(Hero->Health) || Hero->Health <= 0.f
+     || Hero->bOptionsOpen || Hero->bInventoryOpen) return;
+ constexpr float DungeonEncounterRadius = 1300.f;
+ if (FVector::DistSquared2D(Hero->GetActorLocation(), GetActorLocation())
+     > FMath::Square(DungeonEncounterRadius)) return;
+ // Lock encounter level on first entry, even if bonus packs do not roll.
+ // This avoids mobs suddenly becoming stronger when the player levels up.
+ const int32 MinLevel = FMath::Clamp(MinimumDungeonLevel, 1, 100);
+ const int32 MaxLevel = FMath::Clamp(MaximumDungeonLevel, MinLevel, 100);
+ LockedDungeonLevel = FMath::Clamp(Hero->Level, MinLevel, MaxLevel);
+ // Only one 25% roll per dungeon encounter, triggered on arrival.
+ GetWorldTimerManager().ClearTimer(DungeonEntryTimer);
+ if (FMath::FRand() >= 0.25f) return;
+ PendingBonusGroupSizes.Reserve(3);
+ for (int32 Group = 0; Group < 3; ++Group) {
+  PendingBonusGroupSizes.Add(FMath::RandRange(5, 11));
+ }
+ GetWorldTimerManager().SetTimer(BonusSpawnTimer, this,
+   &AMoonfallArena::SpawnNextBonusGroup, 4.f, false);
+}
+
+void AMoonfallArena::SpawnNextBonusGroup() {
+ UWorld* World = GetWorld();
+ if (!World || NextBonusGroup >= PendingBonusGroupSizes.Num()) return;
+ // Also guard scheduled callbacks if an arena is changed to a zone at runtime.
+ if (!bIsDungeonEncounter) {
+  PendingBonusGroupSizes.Empty();
+  GetWorldTimerManager().ClearTimer(BonusSpawnTimer);
+  return;
+ }
+ // Avoid fresh enemy spawns during a paused menu, after defeat, or mid-boss fight.
+ // Keep the queued group's size rather than rerolling it on retries.
+ const AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0));
+ if (!IsValid(Hero) || !FMath::IsFinite(Hero->Health) || Hero->Health <= 0.f) {
+  PendingBonusGroupSizes.Empty();
+  return;
+ }
+ // Prevent dormant dungeons from spawning bonus mobs after the player leaves.
+ // Keep the queued size and resume when the player returns.
+ constexpr float DungeonEncounterRadius = 1300.f;
+ if (Hero->bOptionsOpen || Hero->bInventoryOpen
+     || FVector::DistSquared2D(Hero->GetActorLocation(), GetActorLocation())
+          > FMath::Square(DungeonEncounterRadius)) {
+  GetWorldTimerManager().SetTimer(BonusSpawnTimer, this,
+    &AMoonfallArena::SpawnNextBonusGroup, 4.f, false);
+  return;
+ }
+ // Cap living enemies, including regular, elite, and divine bosses.
+ // Never fragment a group: postpone until all its members fit.
+ int32 LivingEnemies = 0;
+ bool bBossAlive = false;
+ for (TActorIterator<AMoonfallEnemy> It(World); It; ++It) {
+  if (IsValid(*It) && It->Health > 0.f) {
+   ++LivingEnemies;
+   bBossAlive |= It->bBoss;
+  }
+ }
+ // Respect divine encounters. Do not add a crowd while a boss is active.
+ if (bBossAlive) {
+  GetWorldTimerManager().SetTimer(BonusSpawnTimer, this,
+    &AMoonfallArena::SpawnNextBonusGroup, 4.f, false);
+  return;
+ }
+ const int32 GroupSize = PendingBonusGroupSizes[NextBonusGroup];
+ constexpr int32 MaxLivingEnemies = 24;
+ if (LivingEnemies + GroupSize > MaxLivingEnemies) {
+  GetWorldTimerManager().SetTimer(BonusSpawnTimer, this,
+    &AMoonfallArena::SpawnNextBonusGroup, 4.f, false);
+  return;
+ }
+ // Three widely separated groups, with terrain projected individually.
+ // Validate ALL group members before spawning to avoid partial packs.
+ // Biome-inspired formation profiles only, not new terrain/maps or enemy assets.
+ // Keep the whole cluster within the existing arena footprint.
+ // Shape: 0 ring, 1 elliptical pack, 2 staggered double row, 3 crescent.
+ struct FSpawnFormation { const TCHAR* Name; float CenterRadius; float MemberRadius; int32 Shape; };
+ static const FSpawnFormation Profiles[] = {
+  {TEXT("Forest"), 950.f, 230.f, 0},
+  {TEXT("Cave"), 780.f, 175.f, 2},
+  {TEXT("Foundry"), 1030.f, 260.f, 2},
+  {TEXT("Swamp"), 820.f, 210.f, 3},
+  {TEXT("Desert"), 1080.f, 245.f, 1},
+  {TEXT("Tundra"), 1060.f, 230.f, 1},
+  {TEXT("Volcanic"), 900.f, 190.f, 0},
+  {TEXT("Ruins"), 860.f, 205.f, 2},
+  {TEXT("Crypt"), 760.f, 170.f, 3},
+  {TEXT("Coast"), 1010.f, 220.f, 3},
+  {TEXT("Highlands"), 980.f, 200.f, 1},
+  {TEXT("Eclipse"), 920.f, 250.f, 0}
+ };
+ float GroupCenterRadius = Profiles[0].CenterRadius;
+ float MemberRadius = Profiles[0].MemberRadius;
+ int32 FormationShape = Profiles[0].Shape;
+ for (const FSpawnFormation& Profile : Profiles) {
+  if (SpawnBiome == FName(Profile.Name)) {
+   GroupCenterRadius = Profile.CenterRadius;
+   MemberRadius = Profile.MemberRadius;
+   FormationShape = Profile.Shape;
+   break;
+  }
+ }
+ constexpr float SpawnHeight = 90.f;
+ constexpr float MinPlayerDistance = 550.f;
+ // Rotate the candidate cluster each retry to explore different viable ground.
+ const float GroupAngle = (2.f * PI * NextBonusGroup) / 3.f
+   + 0.31f * TerrainPlacementAttempts;
+ const FVector GroupCenter = GetActorLocation() + FVector(
+   GroupCenterRadius * FMath::Cos(GroupAngle),
+   GroupCenterRadius * FMath::Sin(GroupAngle), 0.f);
+ TArray<FVector> ValidPositions;
+ ValidPositions.Reserve(GroupSize);
+ FCollisionQueryParams GroundParams(SCENE_QUERY_STAT(MoonfallMobGround), false);
+ bool bValidGroup = true;
+ for (int32 Member = 0; Member < GroupSize; ++Member) {
+  // Different biomes give packs different readable silhouettes.
+  // Keep all formation geometry safely inside the arena perimeter.
+  const float Angle = 2.f * PI * Member / GroupSize;
+  FVector Offset;
+  if (FormationShape == 1) {
+   Offset = FVector(MemberRadius * FMath::Cos(Angle),
+     MemberRadius * 0.62f * FMath::Sin(Angle), 0.f);
+  } else if (FormationShape == 2) {
+   const int32 Column = Member / 2;
+   const int32 Columns = (GroupSize + 1) / 2;
+   Offset = FVector((float(Column) - 0.5f * float(Columns - 1)) * 95.f,
+     (Member % 2 == 0 ? -75.f : 75.f), 0.f);
+  } else if (FormationShape == 3) {
+   const float Arc = -1.15f + 2.3f * float(Member) / float(FMath::Max(1, GroupSize - 1));
+   Offset = FVector(MemberRadius * (FMath::Cos(Arc) - 0.45f),
+     MemberRadius * FMath::Sin(Arc), 0.f);
+  } else {
+   Offset = FVector(MemberRadius * FMath::Cos(Angle),
+     MemberRadius * FMath::Sin(Angle), 0.f);
+  }
+  const float Rotation = 0.17f * TerrainPlacementAttempts;
+  const FVector Candidate = GroupCenter + Offset.RotateAngleAxis(
+    FMath::RadiansToDegrees(Rotation), FVector::UpVector);
+  FHitResult GroundHit;
+  const bool bHasGround = World->LineTraceSingleByChannel(GroundHit,
+    Candidate + FVector(0.f, 0.f, 450.f),
+    Candidate - FVector(0.f, 0.f, 500.f), ECC_WorldStatic, GroundParams);
+  if (!bHasGround || GroundHit.ImpactNormal.Z < 0.75f) {
+   bValidGroup = false;
+   break;
+  }
+  const FVector Position = GroundHit.ImpactPoint + FVector(0.f, 0.f, SpawnHeight);
+  if (FVector::DistSquared2D(Position, Hero->GetActorLocation())
+      < FMath::Square(MinPlayerDistance)
+      || World->OverlapBlockingTestByChannel(Position, FQuat::Identity,
+           ECC_Pawn, FCollisionShape::MakeSphere(55.f), GroundParams)) {
+   bValidGroup = false;
+   break;
+  }
+  ValidPositions.Add(Position);
+ }
+ if (!bValidGroup || ValidPositions.Num() != GroupSize) {
+  // Try other cluster locations rather than tracing the same blocked geometry forever.
+  // If the level has no safe pack-sized ground, fail closed without spawning inside walls.
+  constexpr int32 MaxPlacementAttempts = 12;
+  if (++TerrainPlacementAttempts >= MaxPlacementAttempts) {
+   PendingBonusGroupSizes.Empty();
+   GetWorldTimerManager().ClearTimer(BonusSpawnTimer);
+   return;
+  }
+  GetWorldTimerManager().SetTimer(BonusSpawnTimer, this,
+    &AMoonfallArena::SpawnNextBonusGroup, 4.f, false);
+  return;
+ }
+ // Spawn the entire pack as one logical unit: a collision failure must not
+ // silently produce fewer than 5..11 members or advance dungeon progression.
+ TArray<AMoonfallEnemy*> Spawned;
+ Spawned.Reserve(GroupSize);
+ // Fable-style mixed-priority pack: a quick scout in every group, and
+ // one durable elite leader in later groups. No summons, no extra enemies.
+ // Assign these roles before BeginPlay so existing elite AI and posture apply.
+ const int32 ScoutSlot = (NextBonusGroup * 3 + 1) % GroupSize;
+ const int32 LeaderSlot = NextBonusGroup > 0 ? (ScoutSlot + GroupSize / 2) % GroupSize : -1;
+ for (int32 Member = 0; Member < ValidPositions.Num(); ++Member) {
+  const FVector& Position = ValidPositions[Member];
+  const FTransform EnemyTransform(FRotator::ZeroRotator, Position);
+  AMoonfallEnemy* Enemy = World->SpawnActorDeferred<AMoonfallEnemy>(
+    AMoonfallEnemy::StaticClass(), EnemyTransform, this, nullptr,
+    ESpawnActorCollisionHandlingMethod::DontSpawnIfColliding);
+  if (!IsValid(Enemy)) break;
+  Enemy->EncounterLevelOverride = LockedDungeonLevel;
+  Enemy->DungeonPackId = NextBonusGroup;
+  if (Member == ScoutSlot) {
+   Enemy->ChaseSpeed = FMath::Clamp(Enemy->ChaseSpeed * 1.18f, 1.f, 300.f);
+   Enemy->Tags.AddUnique(FName(TEXT("DungeonScout")));
+  } else if (Member == LeaderSlot) {
+   Enemy->bElite = true;
+   Enemy->Tags.AddUnique(FName(TEXT("DungeonPackLeader")));
+  }
+  UGameplayStatics::FinishSpawningActor(Enemy, EnemyTransform);
+  if (!IsValid(Enemy) || Enemy->IsActorBeingDestroyed()) {
+   if (IsValid(Enemy)) Enemy->Destroy();
+   break;
+  }
+  Spawned.Add(Enemy);
+ }
+ if (Spawned.Num() != GroupSize) {
+  for (AMoonfallEnemy* Enemy : Spawned) {
+   if (IsValid(Enemy)) Enemy->Destroy();
+  }
+  // Bound even collision-failure retries, not just terrain-trace failures.
+  constexpr int32 MaxSpawnAttempts = 12;
+  if (++TerrainPlacementAttempts >= MaxSpawnAttempts) {
+   PendingBonusGroupSizes.Empty();
+   GetWorldTimerManager().ClearTimer(BonusSpawnTimer);
+   return;
+  }
+  GetWorldTimerManager().SetTimer(BonusSpawnTimer, this,
+    &AMoonfallArena::SpawnNextBonusGroup, 4.f, false);
+  return;
+ }
+ TerrainPlacementAttempts = 0;
+ ++BonusGroupsSpawned;
+ BonusMobsSpawned += GroupSize;
+ ++NextBonusGroup;
+ if (NextBonusGroup < PendingBonusGroupSizes.Num()) {
+  GetWorldTimerManager().SetTimer(BonusSpawnTimer, this,
+    &AMoonfallArena::SpawnNextBonusGroup, 8.f, false);
+ } else {
+  PendingBonusGroupSizes.Empty();
  }
 }

@@ -1905,18 +1905,20 @@ class MoonfallIntegrationChecks(unittest.TestCase):
     def test_ordinary_enemy_attack_coordination_is_bounded_and_keeps_bosses_independent(self):
         tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
         self.assertIn('#include "EngineUtils.h"', self.enemy_cpp)
-        self.assertIn("if (!bBoss && !bElite) {", tick)
-        self.assertIn("ScannedActors < 64 && ConsideredAllies < 32", tick)
+        self.assertIn("if (!bBoss) {", tick)
+        self.assertIn("const bool bCoordinate = !bElite || bDungeonRole;", tick)
+        self.assertIn("ScannedActors < 64", tick)
         self.assertIn("++ScannedActors;", tick)
         self.assertLess(tick.index("++ScannedActors;"), tick.index("if (!IsValid(Other)"))
-        self.assertIn("ConsideredAllies < 32", tick)
+        self.assertIn("Other->DungeonPackId != DungeonPackId", tick)
+        self.assertIn("Other->GetOwner() != GetOwner()", tick)
+        self.assertIn("!bDungeonRole && Other->DungeonPackId >= 0", tick)
         self.assertIn("Other->WindupEndsAt > Now", tick)
         self.assertIn("FVector::DistSquared2D(", tick)
         self.assertIn("FMath::Square(550.f)", tick)
-        self.assertIn("if (++NearbyWindingAllies >= 2) break;", tick)
-        self.assertIn("NextAttackAt = Now + SlotDelay;", tick)
-        self.assertIn("0.18f + 0.04f * static_cast<float>(GetUniqueID() % 4u)", tick)
-        self.assertLess(tick.index("if (!bBoss && !bElite) {"),
+        self.assertIn("++NearbyWindingAllies >= 2", tick)
+        self.assertIn("NextAttackAt = Now + 0.18f + 0.04f", tick)
+        self.assertLess(tick.index("if (!bBoss) {"),
                         tick.index("const int32 PatternCount ="))
         self.assertEqual(tick.count("Nav->FindPathToLocationSynchronously("), 1)
 
@@ -1950,7 +1952,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("WindupEndsAt < 0.f && Now < NextAttackAt", tick)
         self.assertIn("Now >= HitReactionEndsAt && Now >= PostureBrokenUntil", tick)
         self.assertIn("Distance > AttackRange * 0.45f && Distance > 1.f", tick)
-        self.assertIn("const float StrafeSpeed = bBoss ? 95.f : 70.f;", tick)
+        self.assertIn("const float StrafeSpeed = bBoss ? 95.f", tick)
+        self.assertIn('ActorHasTag(FName(TEXT("DungeonPackLeader"))) ? 100.f : 70.f', tick)
+        self.assertIn("&& (bElite || (bBoss && BossPhase >= 2))", tick)
         self.assertIn("StrafeSpeed * SafeAIDelta;", tick)
         self.assertIn("AddActorWorldOffset(StrafeStep, true, &StrafeHit);", tick)
         self.assertLess(tick.index("AddActorWorldOffset(StrafeStep, true, &StrafeHit);"),
@@ -2201,7 +2205,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("PerceptionParams.AddIgnoredActor(this);", tick)
         self.assertIn("PerceptionHit.GetActor() != Hero", tick)
         self.assertIn("LastKnownHeroPosition = HeroPosition;", tick)
-        self.assertIn("Now - LastSawHeroAt <= 2.5f", tick)
+        self.assertIn('ActorHasTag(FName(TEXT("DungeonScout"))) ? 4.f : 2.5f', tick)
+        self.assertIn("Now - LastSawHeroAt <= LastSeenGrace", tick)
         self.assertIn("if (!bHasRecentSight)", tick)
         self.assertIn("(!bBoss && !bCanSeeHero)", tick)
         self.assertIn("(!bBoss && !bCanSeeHero) ? LastKnownHeroPosition", tick)
@@ -2413,7 +2418,10 @@ class MoonfallIntegrationChecks(unittest.TestCase):
 
     def test_enemy_level_scaling_is_spawn_only(self):
         begin = self.enemy_cpp.split("void AMoonfallEnemy::BeginPlay() {", 1)[1].split("\n}", 1)[0]
-        self.assertIn("SpawnBalanceLevel = IsValid(Player)", begin)
+        self.assertIn("SpawnBalanceLevel = EncounterLevelOverride > 0", begin)
+        self.assertIn("FMath::Clamp(EncounterLevelOverride, 1, 100)", begin)
+        self.assertIn("IsValid(Player) ? FMath::Clamp(Player->Level, 1, 100) : 1", begin)
+        self.assertIn("int32 EncounterLevelOverride = 0;", self.enemy_h)
         self.assertIn("Health = FMath::Clamp(BaseHealth, 1.f, 100000.f) * HPScale", begin)
         self.assertIn("AttackDamage = FMath::Clamp(BaseDamage, 1.f, 10000.f) * DamageScale", begin)
 
