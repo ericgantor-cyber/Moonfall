@@ -281,5 +281,9 @@ Moonfall's classless talent tree permits spending points on unlocked nodes
 and resetting **the whole tree at once** with `respec(level)`. There is no
 individual-point refund helper. Full respec restores the earned point budget
 and removes every selected talent without changing level or equipment.
-Regression tests cover this behavior. This remains a Python reference
-implementation; native Godot and UE5 integration is still pending.
+Regression tests cover this behavior. The optional `current=` parameter now
+validates existing saved allocations before a full reset, rejecting broken
+prerequisites, unknown nodes and illegal point totals without mutating the
+provided map. The original `respec(level, data)` interface remains supported.
+This remains a Python reference implementation; native Godot and UE5
+integration is still pending.
