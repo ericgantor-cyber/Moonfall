@@ -62,6 +62,13 @@ class ClasslessTalentUIScreen(unittest.TestCase):
         self.assertIn('v406_web.select_node(v406_selected_node)', self.screen)
         self.assertNotIn('key.keycode == KEY_N or key.keycode == KEY_TAB', web)
 
+    def test_constellation_layout_is_cached_between_allocations(self):
+        web = (ROOT / "godot-v38/scripts/systems/moonfall_talent_web.gd").read_text(encoding="utf-8")
+        self.assertIn('var layout_changed: bool = points.is_empty()', web)
+        self.assertIn('if layout_changed:', web)
+        self.assertIn('layout_rebuild_count += 1', web)
+        self.assertIn('if dragging and mouse_down_on_node == "" or hover_changed:', web)
+
     def test_save_restores_classless_without_clobbering_legacy(self):
         self.assertIn('"classless_ranks":v406_ranks.duplicate(true)', self.screen)
         self.assertIn('resources.get("classless_ranks",{})', self.screen)
