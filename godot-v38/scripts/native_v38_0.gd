@@ -11,6 +11,12 @@ var v406_ranks:Dictionary={} # Separate from legacy combat ranks.
 var v406_active_branch:String="might"
 var v406_branch_bar:HBoxContainer
 var v406_respec_button:Button
+const V406_WEB:=preload("res://scripts/systems/moonfall_talent_web.gd")
+var v406_web:Control
+var v406_selected_node:String=""
+var v406_details:Label
+var v406_purchase_button:Button
+var v406_points_label:Label
 # Character creation keeps original Z/Nyra artwork; customization is identity and origin.
 var v399_creator:PanelContainer
 var v399_name:LineEdit
@@ -499,40 +505,109 @@ func _v398_build_tree()->void:
  var layer:CanvasLayer=get_node_or_null("NativeAtlasUI") as CanvasLayer
  if not is_instance_valid(layer):return
  v398_panel=PanelContainer.new()
- v398_panel.name="ClasslessTalentTree"
+ v398_panel.name="ClasslessTalentWeb"
  v398_panel.set_anchors_preset(Control.PRESET_CENTER)
- v398_panel.custom_minimum_size=Vector2(660,640)
- v398_panel.position=Vector2(-330,-320)
+ v398_panel.custom_minimum_size=Vector2(1100,730)
+ v398_panel.position=Vector2(-550,-365)
  layer.add_child(v398_panel)
- var layout:VBoxContainer=VBoxContainer.new()
- layout.add_theme_constant_override("separation",10)
- v398_panel.add_child(layout)
+ var outer:VBoxContainer=VBoxContainer.new()
+ outer.add_theme_constant_override("separation",10)
+ v398_panel.add_child(outer)
+ var header:HBoxContainer=HBoxContainer.new()
+ outer.add_child(header)
  var title:Label=Label.new()
- title.text="MOONFALL  |  CLASSLESS TALENTS"
- title.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
- layout.add_child(title)
+ title.text="MOONFALL  |  CLASSLESS TALENTS  |  CONSTELLATION WEB"
+ title.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+ header.add_child(title)
+ v406_points_label=Label.new()
+ header.add_child(v406_points_label)
+ var body:HBoxContainer=HBoxContainer.new()
+ body.add_theme_constant_override("separation",12)
+ body.size_flags_vertical=Control.SIZE_EXPAND_FILL
+ outer.add_child(body)
+ var graph_column:VBoxContainer=VBoxContainer.new()
+ graph_column.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+ graph_column.size_flags_vertical=Control.SIZE_EXPAND_FILL
+ body.add_child(graph_column)
  v406_branch_bar=HBoxContainer.new()
- v406_branch_bar.add_theme_constant_override("separation",9)
- layout.add_child(v406_branch_bar)
- var scroll:ScrollContainer=ScrollContainer.new()
- scroll.custom_minimum_size=Vector2(620,440)
- scroll.size_flags_vertical=Control.SIZE_EXPAND_FILL
- scroll.horizontal_scroll_mode=ScrollContainer.SCROLL_MODE_DISABLED
- layout.add_child(scroll)
+ graph_column.add_child(v406_branch_bar)
+ for branch_id in ["might","agility","arcana"]:
+  var focus:Button=Button.new()
+  focus.text=branch_id.to_upper()
+  focus.custom_minimum_size=Vector2(148,52)
+  focus.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+  focus.pressed.connect(_v406_select_branch.bind(branch_id))
+  v406_branch_bar.add_child(focus)
+ v406_web=V406_WEB.new()
+ v406_web.custom_minimum_size=Vector2(760,565)
+ v406_web.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+ v406_web.size_flags_vertical=Control.SIZE_EXPAND_FILL
+ v406_web.talent_selected.connect(_v406_web_selected)
+ graph_column.add_child(v406_web)
+ var graph_actions:HBoxContainer=HBoxContainer.new()
+ graph_column.add_child(graph_actions)
+ var fit:Button=Button.new()
+ fit.text="SHOW ENTIRE WEB"
+ fit.custom_minimum_size=Vector2(180,48)
+ fit.pressed.connect(func():v406_web.fit_all())
+ graph_actions.add_child(fit)
+ for action in ["-","+"]:
+  var zoom_button:Button=Button.new()
+  zoom_button.text=action
+  zoom_button.custom_minimum_size=Vector2(60,48)
+  zoom_button.pressed.connect(_v406_zoom.bind(1.2 if action=="+" else 1.0/1.2))
+  graph_actions.add_child(zoom_button)
+ var close_button:Button=Button.new()
+ close_button.text="CLOSE (K)"
+ close_button.custom_minimum_size=Vector2(120,48)
+ close_button.pressed.connect(_v398_toggle_tree)
+ graph_actions.add_child(close_button)
+ var side:VBoxContainer=VBoxContainer.new()
+ side.custom_minimum_size.x=265
+ body.add_child(side)
+ var side_title:Label=Label.new()
+ side_title.text="SELECTED TALENT"
+ side.add_child(side_title)
+ v406_details=Label.new()
+ v406_details.custom_minimum_size.y=170
+ v406_details.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+ side.add_child(v406_details)
+ v406_purchase_button=Button.new()
+ v406_purchase_button.text="SPEND TALENT POINT"
+ v406_purchase_button.custom_minimum_size.y=56
+ v406_purchase_button.pressed.connect(_v406_purchase_selected)
+ side.add_child(v406_purchase_button)
+ var index_title:Label=Label.new()
+ index_title.text="TALENT INDEX (KEYBOARD)"
+ side.add_child(index_title)
+ var index_scroll:ScrollContainer=ScrollContainer.new()
+ index_scroll.size_flags_vertical=Control.SIZE_EXPAND_FILL
+ index_scroll.custom_minimum_size.y=190
+ side.add_child(index_scroll)
  v398_tree_list=VBoxContainer.new()
- v398_tree_list.custom_minimum_size=Vector2(605,0)
- v398_tree_list.add_theme_constant_override("separation",6)
- scroll.add_child(v398_tree_list)
+ v398_tree_list.custom_minimum_size.x=248
+ index_scroll.add_child(v398_tree_list)
  v406_respec_button=Button.new()
- v406_respec_button.text="RESET ALL TALENT POINTS"
- v406_respec_button.custom_minimum_size.y=54.0
+ v406_respec_button.text="RESET ENTIRE TREE"
+ v406_respec_button.custom_minimum_size.y=58
  v406_respec_button.pressed.connect(_v406_respec)
- layout.add_child(v406_respec_button)
+ side.add_child(v406_respec_button)
  v398_panel.visible=false
+
+func _v406_zoom(factor:float)->void:
+ if is_instance_valid(v406_web):v406_web.zoom_by(factor)
 
 func _v406_select_branch(branch_id:String)->void:
  v406_active_branch=branch_id
+ if is_instance_valid(v406_web):v406_web.focus_branch(branch_id)
  _v398_refresh_tree()
+
+func _v406_web_selected(id:String)->void:
+ v406_selected_node=id
+ _v398_refresh_tree()
+
+func _v406_purchase_selected()->void:
+ if v406_selected_node!="":_v398_unlock(v406_selected_node)
 
 func _v398_refresh_tree()->void:
  if not is_instance_valid(v398_tree_list):return
@@ -540,53 +615,40 @@ func _v398_refresh_tree()->void:
  var level_now:int=clampi(int(hero_level),1,100)
  var state:Dictionary=CLASSLESS_TALENTS.evaluate(level_now,v406_ranks)
  if not bool(state.get("ok",false)):
-  var warning:Label=Label.new()
-  warning.text="Talent data unavailable: "+str(state.get("error","Unknown error"))
-  v398_tree_list.add_child(warning)
+  v406_details.text="Talent data unavailable: "+str(state.get("error","Unknown error"))
+  v406_purchase_button.disabled=true
   return
  var tree:Dictionary=CLASSLESS_TALENTS.load_tree()
- if is_instance_valid(v406_branch_bar):
-  for child in v406_branch_bar.get_children():child.queue_free()
-  for branch in tree.get("branches",[]):
-   var branch_id:String=str(branch.get("id",""))
-   var tab:Button=Button.new()
-   tab.text=str(branch.get("title",branch_id)).to_upper()+"  (36)"
-   tab.toggle_mode=true
-   tab.button_pressed=branch_id==v406_active_branch
-   tab.custom_minimum_size=Vector2(194,56)
-   tab.size_flags_horizontal=Control.SIZE_EXPAND_FILL
-   tab.pressed.connect(_v406_select_branch.bind(branch_id))
-   v406_branch_bar.add_child(tab)
- var heading:Label=Label.new()
- heading.text="Level "+str(level_now)+"  |  Available: "+str(state.get("available",0))+"  |  Spent: "+str(state.get("spent",0))+"  |  K to close"
- v398_tree_list.add_child(heading)
- var nodes:Array=tree.get("nodes",[])
- var last_tier:int=0
- for node in nodes:
+ v406_points_label.text="LEVEL "+str(level_now)+"  |  POINTS "+str(state.get("available",0))
+ if is_instance_valid(v406_web):
+  v406_web.selected_id=v406_selected_node
+  v406_web.set_data(tree,v406_ranks,level_now,int(state.get("available",0)))
+ var selected:Dictionary={}
+ for node in tree.get("nodes",[]):
+  if str(node.get("id",""))==v406_selected_node:selected=node
   if str(node.get("branch",""))!=v406_active_branch:continue
-  var tier:int=int(node.get("tier",0))
-  if tier!=last_tier:
-   var tier_title:Label=Label.new()
-   tier_title.text="TIER "+str(tier)+"   |   Level "+str(node.get("min_level",1))+"+"
-   tier_title.custom_minimum_size.y=34
-   v398_tree_list.add_child(tier_title)
-   last_tier=tier
-  var id:String=str(node.get("id",""))
-  var current_rank:int=int(v406_ranks.get(id,0))
-  var max_rank:int=int(node.get("max_rank",1))
-  var button:Button=Button.new()
-  var selected:String="  [LEARNED]" if current_rank>=max_rank else ""
-  button.text=str(node.get("title",id))+"  "+str(current_rank)+"/"+str(max_rank)+selected
-  button.custom_minimum_size.y=54.0
-  var preview:Dictionary=CLASSLESS_TALENTS.spend(level_now,v406_ranks,id)
-  button.disabled=not bool(preview.get("ok",false))
-  var effect:Dictionary=node.get("effect",{})
-  var requirements:Array=node.get("requires",[])
-  var needs:String="None" if requirements.is_empty() else ", ".join(PackedStringArray(requirements))
-  var bonus:String=str(effect.get("amount_per_rank",0))+" "+str(effect.get("kind",""))+" "+str(effect.get("stat",""))
-  button.tooltip_text="Bonus per rank: "+bonus+" | Prerequisites: "+needs+" | "+str(preview.get("error","Click to spend one point"))
-  button.pressed.connect(_v398_unlock.bind(id))
-  v398_tree_list.add_child(button)
+  var node_id:String=str(node.get("id",""))
+  var index_button:Button=Button.new()
+  index_button.text=str(node.get("title",node_id))+"  "+str(v406_ranks.get(node_id,0))+"/"+str(node.get("max_rank",1))
+  index_button.custom_minimum_size.y=42.0
+  index_button.pressed.connect(_v406_web_selected.bind(node_id))
+  v398_tree_list.add_child(index_button)
+ if selected.is_empty():
+  v406_details.text="Click a star in the web or choose a talent from the index.\nMouse wheel: zoom\nDrag: move map\nArrows / +/-: keyboard controls"
+  v406_purchase_button.disabled=true
+ else:
+  var title:String=str(selected.get("title",""))
+  var rank:int=int(v406_ranks.get(v406_selected_node,0))
+  var max_rank:int=int(selected.get("max_rank",1))
+  var effect:Dictionary=selected.get("effect",{})
+  var requires:Array=selected.get("requires",[])
+  var dependencies:String="None" if requires.is_empty() else ", ".join(PackedStringArray(requires))
+  var amount:String=str(effect.get("amount_per_rank",0))
+  var bonus:String=amount+" "+str(effect.get("kind",""))+" "+str(effect.get("stat",""))
+  v406_details.text=title+"\n"+str(selected.get("branch","")).to_upper()+" • TIER "+str(selected.get("tier",1))+"\nRank "+str(rank)+"/"+str(max_rank)+"  •  Level "+str(selected.get("min_level",1))+"+\nBonus: "+bonus+"\nRequires: "+dependencies
+  var preview:Dictionary=CLASSLESS_TALENTS.spend(level_now,v406_ranks,v406_selected_node)
+  v406_purchase_button.disabled=not bool(preview.get("ok",false))
+  v406_purchase_button.tooltip_text=str(preview.get("error","Learn one rank"))
  if is_instance_valid(v406_respec_button):
   v406_respec_button.disabled=v406_ranks.is_empty()
 
