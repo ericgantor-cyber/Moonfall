@@ -7,6 +7,8 @@
 #include "MoonfallCharacterCreationWidget.generated.h"
 
 class UHorizontalBox;
+class USceneComponent;
+class USpringArmComponent;
 class UImage;
 class UScrollBox;
 class UTextBlock;
@@ -67,6 +69,15 @@ public:
  UFUNCTION(BlueprintCallable, Category="Moonfall|Character Creation")
  void SetPreviewTexture(UTexture2D* ExistingMoonfallTexture);
 
+ // Bind dedicated PREVIEW-ONLY scene components, never the live player hero.
+ // When bound, dragging rotates the pivot and scrolling adjusts camera arm
+ // distance directly; otherwise the existing Blueprint callbacks are used.
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Character Creation|Mouse")
+ void BindPreviewRig(USceneComponent* PreviewPivot, USpringArmComponent* PreviewArm);
+
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Character Creation|Mouse")
+ void ResetPreviewView();
+
  UFUNCTION(BlueprintPure, Category="Moonfall|Character Creation")
  FMoonfallRaceSelectionState GetSelectionState() const { return Selection; }
 
@@ -91,6 +102,8 @@ private:
  void AdvanceFamily(bool bForward);
  void SelectRace(FName RaceId);
  bool IsOverPreview(const FVector2D& ScreenPosition) const;
+ void RotatePreview(float DeltaYaw);
+ void ZoomPreview(float ZoomSteps);
 
  UFUNCTION() void HandlePreviousRace();
  UFUNCTION() void HandleNextRace();
@@ -98,6 +111,7 @@ private:
  UFUNCTION() void HandleNextFamily();
  UFUNCTION() void HandleRaceChoice(FName RaceId);
  UFUNCTION() void HandleConfirmRace();
+ UFUNCTION() void HandleResetPreview();
 
  UPROPERTY(Transient) TObjectPtr<UScrollBox> RaceList;
  UPROPERTY(Transient) TObjectPtr<UTextBlock> RaceTitle;
@@ -107,6 +121,10 @@ private:
  UPROPERTY(Transient) TObjectPtr<UImage> PreviewImage;
  UPROPERTY(Transient) TObjectPtr<UTexture2D> PreviewTexture;
  bool bDraggingPreview = false;
+ TWeakObjectPtr<USceneComponent> PreviewRotationPivot;
+ TWeakObjectPtr<USpringArmComponent> PreviewZoomArm;
+ FRotator InitialPreviewRotation = FRotator::ZeroRotator;
+ float InitialPreviewArmLength = 300.f;
  UPROPERTY(Transient) FMoonfallRaceSelectionState Selection;
  UPROPERTY(Transient) FName CurrentFamily = NAME_None;
  UPROPERTY(Transient) FName CurrentRaceId = NAME_None;
