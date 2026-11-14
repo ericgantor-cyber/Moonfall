@@ -142,6 +142,23 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         human = next(row for row in rows if row[0] == "human")
         self.assertEqual(human[3:], ("true", "1.", "1.", "1."))
 
+    def test_playable_race_navigation_wraps_and_ignores_unplayable_races(self):
+        header = (ROOT / "MoonfallRaceLibrary.h").read_text(encoding="utf-8")
+        code = (ROOT / "MoonfallRaceLibrary.cpp").read_text(encoding="utf-8")
+        self.assertIn("static bool GetAdjacentPlayableRaceId(FName CurrentRaceId, FName Family,", header)
+        nav = code.split("UMoonfallRaceLibrary::GetAdjacentPlayableRaceId(", 1)[1].split(
+            "UMoonfallRaceLibrary::FindRaceProfile(", 1)[0]
+        self.assertIn("NextRaceId = NAME_None;", nav)
+        self.assertIn("if (!Row.bPlayable || (!Family.IsNone() && FName(Row.Family) != Family))", nav)
+        self.assertIn("if (Candidates.IsEmpty())", nav)
+        self.assertIn("Candidates.IndexOfByKey(CurrentRaceId)", nav)
+        self.assertIn("Index == INDEX_NONE", nav)
+        self.assertIn("(Index + 1) % Candidates.Num()", nav)
+        self.assertIn("(Index + Candidates.Num() - 1) % Candidates.Num()", nav)
+        self.assertIn("NextRaceId = Candidates[NextIndex];", nav)
+        self.assertNotIn("SaveGame", nav)
+        self.assertNotIn("SpawnActor", nav)
+
     def test_isolated_race_catalog_is_cpp_syntax_safe_and_does_not_replace_persistence(self):
         import re
         catalog = (ROOT / "MoonfallRaceLibrary.cpp").read_text(encoding="utf-8")
