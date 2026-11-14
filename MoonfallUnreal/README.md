@@ -142,6 +142,18 @@ in Unreal Editor. Button focus or an input-mode change in the owning menu
 could intercept keys. No 3D camera orbit, class grid, appearance editor or
 name entry has been implemented yet.
 
+**Optional direct 3D preview control:** Call `BindPreviewRig(PreviewPivot, PreviewArm)`
+on the widget, supplying a dedicated menu-only `USceneComponent` pivot and
+`USpringArmComponent` camera arm. Left drag now directly rotates that pivot
+and wheel zoom changes spring arm distance in the 125-650 range. The **RESET
+VIEW** button restores the initial pivot rotation and arm length. If no
+component is bound, the widget still calls the Blueprint rotate/zoom events.
+Never bind the live player pawn or its camera: these inputs are for a separate
+character-preview actor only. A 3D preview actor, SceneCapture and render
+target still must be set up by the owning Blueprint; this does not generate
+or replace Z/Nyra art. The image-only fallback cannot physically rotate a
+static portrait.
+
 The implementation has Python **source-contract** regression checks.
 A green source check is **not** proof of UE5.4 UHT/C++ compilation, packaged
 Windows gameplay, or accessibility focus behavior.
