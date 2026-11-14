@@ -55,7 +55,13 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Entry->Get()->GetSkeleton() == RigMesh->GetSkeletalMeshAsset()->GetSkeleton()", play)
         self.assertLess(play.index("Entry->Get()->GetSkeleton() == "),
                         play.index("Anim->Montage_Play("))
-        self.assertIn("OnRigCue(CueId, bLastCuePlayed);", play)
+        self.assertIn("const bool bPlayed = bLastCuePlayed;", play)
+        self.assertIn("OnRigCue(CueId, bPlayed);", play)
+        self.assertIn("return bPlayed;", play)
+        self.assertLess(play.index("const bool bPlayed = bLastCuePlayed;"),
+                        play.index("OnRigCue(CueId, bPlayed);"))
+        self.assertLess(play.index("OnRigCue(CueId, bPlayed);"),
+                        play.index("return bPlayed;"))
 
     def test_npc_cue_discovery_only_reports_rig_compatible_montages(self):
         rig = (ROOT / "MoonfallActorRigComponent.cpp").read_text(encoding="utf-8")
