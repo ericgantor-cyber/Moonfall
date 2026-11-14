@@ -12,6 +12,30 @@ func _initialize() -> void:
  if web.points.size() != 108:
   _fail("Web should plot 108 unique nodes")
   return
+ if web.next_available() != "iron_will":
+  _fail("The first available star must be the initial Might root")
+  return
+ if web.available_talent_ids().size() != 3:
+  _fail("Unspent level-16 character should see three accessible roots")
+  return
+ web.select_node("might_ashen_grip")
+ for prerequisite in ["might_ashen_grip", "titan_strike", "breaker", "guard", "iron_will"]:
+  if not web.prerequisite_path.has(prerequisite):
+   _fail("Selection must highlight the entire prerequisite web")
+   return
+ web.select_node("missing_talent")
+ if not web.prerequisite_path.is_empty():
+  _fail("Invalid selection must not retain a stale highlighted path")
+  return
+ web.set_data(tree, {"iron_will": 1}, 16, 14)
+ if not web.available_talent_ids().has("breaker") or not web.available_talent_ids().has("guard"):
+  _fail("Unspent points and valid roots must unlock second-tier skills")
+  return
+ web.set_data(tree, {}, 16, 0)
+ if not web.available_talent_ids().is_empty() or web.next_available() != "":
+  _fail("No available points must disable next-talent navigation")
+  return
+ web.set_data(tree, {}, 16, 15)
  for branch in ["might", "agility", "arcana"]:
   web.focus_branch(branch)
   if web.pan == Vector2.ZERO:
