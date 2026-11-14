@@ -24,6 +24,9 @@ var pan: Vector2 = Vector2.ZERO
 var selected_id: String = ""
 var dragging: bool = false
 var drag_distance: float = 0.0
+var hovered_id: String = ""
+var mouse_down_on_node: String = ""
+var node_info: Dictionary = {}
 
 func _ready() -> void:
  mouse_filter = Control.MOUSE_FILTER_STOP
@@ -55,8 +58,16 @@ func zoom_by(factor: float) -> void:
  zoom = clampf(zoom * factor, MIN_ZOOM, MAX_ZOOM)
  queue_redraw()
 
+func zoom_at(factor: float, screen_point: Vector2) -> void:
+ ## Keep the star under the cursor fixed while changing scale.
+ var before: Vector2 = _world_pos(screen_point)
+ zoom = clampf(zoom * factor, MIN_ZOOM, MAX_ZOOM)
+ pan = (screen_point - size * 0.5) / zoom - before
+ queue_redraw()
+
 func _layout_nodes() -> void:
  points.clear()
+ node_info.clear()
  var node_counts: Dictionary = {}
  for node in tree.get("nodes", []):
   if typeof(node) != TYPE_DICTIONARY:continue
@@ -75,7 +86,9 @@ func _layout_nodes() -> void:
   var radius: float = 105.0 + float(tier - 1) * 116.0
   if tier >= 4:
    radius += 24.0 if lane == 1 or lane == 2 else -12.0
-  points[str(node.get("id", ""))] = Vector2.from_angle(deg_to_rad(angle)) * radius
+  var talent_id: String = str(node.get("id", ""))
+  points[talent_id] = Vector2.from_angle(deg_to_rad(angle)) * radius
+  node_info[talent_id] = node
 
 func _screen_pos(world: Vector2) -> Vector2:
  return size * 0.5 + (world + pan) * zoom
@@ -97,31 +110,38 @@ func _gui_input(event: InputEvent) -> void:
  if event is InputEventMouseButton:
   var mouse: InputEventMouseButton = event
   if mouse.button_index == MOUSE_BUTTON_WHEEL_UP and mouse.pressed:
-   zoom_by(1.18)
+   zoom_at(1.18, mouse.position)
    accept_event()
    return
   if mouse.button_index == MOUSE_BUTTON_WHEEL_DOWN and mouse.pressed:
-   zoom_by(1.0 / 1.18)
+   zoom_at(1.0 / 1.18, mouse.position)
    accept_event()
    return
   if mouse.button_index == MOUSE_BUTTON_LEFT or mouse.button_index == MOUSE_BUTTON_MIDDLE:
    if mouse.pressed:
     dragging = true
     drag_distance = 0.0
+    mouse_down_on_node = _node_at(mouse.position) if mouse.button_index == MOUSE_BUTTON_LEFT else ""
     grab_focus()
    else:
     if dragging and mouse.button_index == MOUSE_BUTTON_LEFT and drag_distance < 9.0:
      var id: String = _node_at(mouse.position)
-     if id != "":
+     if id != "" and id == mouse_down_on_node:
       selected_id = id
       talent_selected.emit(id)
     dragging = false
+    mouse_down_on_node = ""
    accept_event()
    return
- if event is InputEventMouseMotion and dragging:
+ if event is InputEventMouseMotion:
   var motion: InputEventMouseMotion = event
-  pan += motion.relative / zoom
-  drag_distance += motion.relative.length()
+  if dragging:
+   drag_distance += motion.relative.length()
+   if mouse_down_on_node == "":pan += motion.relative / zoom
+  var next_hover: String = _node_at(motion.position)
+  if next_hover != hovered_id:
+   hovered_id = next_hover
+   tooltip_text = str(node_info.get(hovered_id, {}).get("title", "")) if hovered_id != "" else ""
   queue_redraw()
   accept_event()
   return
@@ -192,7 +212,14 @@ func _draw() -> void:
    draw_circle(center, maxf(2.0, radius * 0.27), col)
   if id == selected_id:
    draw_arc(center, radius + 6.0, 0, TAU, 36, Color.WHITE, 2.5, true)
+  elif id == hovered_id:
+   draw_arc(center, radius + 5.0, 0, TAU, 36, Color("#e3d9ab"), 2.2, true)
  var font: Font = ThemeDB.fallback_font
  if font != null:
   draw_string(font, Vector2(16, 32), "MOONFALL  •  CONSTELLATION WEB", HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color("#e0e7fa"))
-  draw_string(font, Vector2(16, size.y - 18), "Wheel: zoom  •  Drag: pan  •  Click: inspect  •  +/- and arrows: keyboard", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color("#b8c2d7"))
+  draw_string(font, Vector2(16, size.y - 18), "Wheel: zoom at cursor  •  Drag empty space: pan  •  Click: inspect  •  +/- and arrows: keyboard", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color("#b8c2d7"))
+  if hovered_id != "" and node_info.has(hovered_id):
+   var info: Dictionary = node_info[hovered_id]
+   var rank: int = int(allocations.get(hovered_id, 0))
+   var caption: String = str(info.get("title", hovered_id)) + "  [" + str(rank) + "/" + str(info.get("max_rank", 1)) + "]"
+   draw_string(font, Vector2(16, 60), caption, HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color("#f0e7ca"))
