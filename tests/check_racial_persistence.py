@@ -479,6 +479,11 @@ class TestRacialPersistence(unittest.TestCase):
         self.assertIn("Hero->ActiveShrineId == ShrineId", shrine_cpp)
         self.assertIn("const bool bDiscovered = IsValid(Hero) && Hero->HasDiscoveredShrine(ShrineId);", shrine_cpp)
         self.assertIn("bDiscovered ? TEXT(\"ACTIVE SHRINE\")", shrine_cpp)
+        self.assertIn("ShrineLabel->SetTextRenderColor(bCurrentRespawn ?", shrine_cpp)
+        self.assertIn("bDiscovered ? FColor(115, 245, 210)", shrine_cpp)
+        self.assertIn("FColor(170, 170, 170)", shrine_cpp)
+        self.assertLess(shrine_cpp.index('TEXT("ACTIVE RESPAWN SHRINE")'),
+                        shrine_cpp.index("ShrineLabel->SetTextRenderColor("))
 
     def test_new_shrine_requires_unblocked_capsule_sized_respawn(self):
         discover = self.cpp.split("bool AMoonfallHeroPawn::DiscoverShrine(", 1)[1].split(
