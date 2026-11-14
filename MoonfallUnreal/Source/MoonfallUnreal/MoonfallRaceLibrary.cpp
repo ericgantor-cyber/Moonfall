@@ -125,6 +125,22 @@ TArray<FName> UMoonfallRaceLibrary::GetPlayableRaceFamilies()
  return Result;
 }
 
+bool UMoonfallRaceLibrary::GetAdjacentPlayableRaceFamily(
+ FName CurrentFamily, bool bForward, FName& NextFamily)
+{
+ NextFamily = NAME_None;
+ const TArray<FName> Families = GetPlayableRaceFamilies();
+ if (Families.IsEmpty())
+  return false;
+ const int32 Index = Families.IndexOfByKey(CurrentFamily);
+ const int32 NextIndex = Index == INDEX_NONE
+   ? (bForward ? 0 : Families.Num() - 1)
+   : (bForward ? (Index + 1) % Families.Num()
+               : (Index + Families.Num() - 1) % Families.Num());
+ NextFamily = Families[NextIndex];
+ return true;
+}
+
 bool UMoonfallRaceLibrary::FindPlayableRaceProfile(FName RaceId, FMoonfallRaceProfile& Profile)
 {
  if (!FindRaceProfile(RaceId, Profile) || !Profile.bPlayableCandidate)
