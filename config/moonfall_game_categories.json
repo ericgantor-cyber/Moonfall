@@ -1,6 +1,6 @@
 {
-  "schema_version": 1,
-  "description": "Five stable Moonfall gameplay domains. This manifest is organizational metadata, not five separate games or runtime modes.",
+  "schema_version": 2,
+  "description": "Five interoperating gameplay ownership domains and a proposed upgrade backlog. This is not a statement of feature completion.",
   "categories": [
     {
       "id": "characters",
@@ -15,6 +15,53 @@
       "owners": [
         "MoonfallUnreal/Source/MoonfallUnreal/MoonfallHeroPawn.h",
         "MoonfallUnreal/Source/MoonfallUnreal/MoonfallRaceLibrary.h"
+      ],
+      "roadmap": [
+        {
+          "id": "hero_identity",
+          "title": "Hero identity and original art preservation",
+          "milestone": "foundation",
+          "depends_on": [],
+          "verification": "not_verified"
+        },
+        {
+          "id": "races_classes",
+          "title": "Races, classes and selection workflow",
+          "milestone": "foundation",
+          "depends_on": [
+            "hero_identity"
+          ],
+          "verification": "not_verified"
+        },
+        {
+          "id": "gear_visuals",
+          "title": "Gear appearance and nine slots",
+          "milestone": "integration",
+          "depends_on": [
+            "hero_identity",
+            "inventory_equipment"
+          ],
+          "verification": "not_verified"
+        },
+        {
+          "id": "character_stats",
+          "title": "Character stats and set effects",
+          "milestone": "integration",
+          "depends_on": [
+            "races_classes",
+            "item_progression"
+          ],
+          "verification": "not_verified"
+        },
+        {
+          "id": "character_inspection",
+          "title": "Character information screen (C)",
+          "milestone": "polish",
+          "depends_on": [
+            "character_stats"
+          ],
+          "verification": "not_verified"
+        }
       ]
     },
     {
@@ -28,7 +75,56 @@
         "combat resources"
       ],
       "owners": [
-        "MoonfallUnreal/Source/MoonfallUnreal/MoonfallEnemy.h"
+        "MoonfallUnreal/Source/MoonfallUnreal/MoonfallEnemy.h",
+        "MoonfallUnreal/Source/MoonfallUnreal/MoonfallGroundLoot.cpp"
+      ],
+      "roadmap": [
+        {
+          "id": "combat_core",
+          "title": "Weapon attacks and spell input",
+          "milestone": "foundation",
+          "depends_on": [
+            "hero_identity"
+          ],
+          "verification": "not_verified"
+        },
+        {
+          "id": "defense",
+          "title": "Dodge, block and parry windows",
+          "milestone": "integration",
+          "depends_on": [
+            "combat_core"
+          ],
+          "verification": "not_verified"
+        },
+        {
+          "id": "enemy_ai",
+          "title": "Mobs, elites and enemy AI",
+          "milestone": "integration",
+          "depends_on": [
+            "combat_core"
+          ],
+          "verification": "not_verified"
+        },
+        {
+          "id": "boss_system",
+          "title": "Multi-phase boss encounters",
+          "milestone": "polish",
+          "depends_on": [
+            "enemy_ai",
+            "defense"
+          ],
+          "verification": "not_verified"
+        },
+        {
+          "id": "combat_feedback",
+          "title": "Damage indicators and combat FX",
+          "milestone": "polish",
+          "depends_on": [
+            "combat_core"
+          ],
+          "verification": "not_verified"
+        }
       ]
     },
     {
@@ -43,7 +139,54 @@
       ],
       "owners": [
         "MoonfallUnreal/Source/MoonfallUnreal/MoonfallArena.h",
-        "Moonfall3D/main.tscn"
+        "Moonfall3D/main.tscn",
+        "MoonfallUnreal/Source/MoonfallUnreal/MoonfallWorldNPC.h"
+      ],
+      "roadmap": [
+        {
+          "id": "world_layout",
+          "title": "One connected world with biomes",
+          "milestone": "foundation",
+          "depends_on": [],
+          "verification": "not_verified"
+        },
+        {
+          "id": "dungeons",
+          "title": "Dungeons and Foundry encounters",
+          "milestone": "integration",
+          "depends_on": [
+            "world_layout",
+            "enemy_ai"
+          ],
+          "verification": "not_verified"
+        },
+        {
+          "id": "quest_world",
+          "title": "Quest NPCs and exploration",
+          "milestone": "integration",
+          "depends_on": [
+            "world_layout"
+          ],
+          "verification": "not_verified"
+        },
+        {
+          "id": "shrines_respawn",
+          "title": "Discovered shrines and respawn points",
+          "milestone": "integration",
+          "depends_on": [
+            "world_layout"
+          ],
+          "verification": "not_verified"
+        },
+        {
+          "id": "map_discovery",
+          "title": "Atlas terrain and fog of war",
+          "milestone": "polish",
+          "depends_on": [
+            "world_layout"
+          ],
+          "verification": "not_verified"
+        }
       ]
     },
     {
@@ -56,7 +199,58 @@
         "items and crafting",
         "upgrades and sets"
       ],
-      "owners": []
+      "owners": [
+        "godot-v38/scripts/systems/inventory_rules.gd",
+        "godot-v38/scripts/systems/equipment_inventory.gd"
+      ],
+      "roadmap": [
+        {
+          "id": "xp_levels",
+          "title": "XP and leveling loop",
+          "milestone": "foundation",
+          "depends_on": [
+            "combat_core"
+          ],
+          "verification": "not_verified"
+        },
+        {
+          "id": "inventory_equipment",
+          "title": "Loot, inventory (B), equip and drops",
+          "milestone": "foundation",
+          "depends_on": [
+            "hero_identity"
+          ],
+          "verification": "not_verified"
+        },
+        {
+          "id": "item_progression",
+          "title": "Item stats, rarities, sets and RNG",
+          "milestone": "integration",
+          "depends_on": [
+            "inventory_equipment",
+            "xp_levels"
+          ],
+          "verification": "not_verified"
+        },
+        {
+          "id": "crafting",
+          "title": "Crafting and professions",
+          "milestone": "polish",
+          "depends_on": [
+            "inventory_equipment"
+          ],
+          "verification": "not_verified"
+        },
+        {
+          "id": "upgrade_cards",
+          "title": "Level-up upgrades and rerolls",
+          "milestone": "integration",
+          "depends_on": [
+            "xp_levels"
+          ],
+          "verification": "not_verified"
+        }
+      ]
     },
     {
       "id": "interface",
@@ -70,8 +264,72 @@
       ],
       "owners": [
         "MoonfallUnreal/Source/MoonfallUnreal/MoonfallCombatHUD.h",
-        "MoonfallUnreal/Source/MoonfallUnreal/MoonfallUnreal.Build.cs"
+        "MoonfallUnreal/Source/MoonfallUnreal/MoonfallUnreal.Build.cs",
+        "godot-v38/scripts/systems/navigation_map.gd"
+      ],
+      "roadmap": [
+        {
+          "id": "input_settings",
+          "title": "Mouse, keyboard, controller and keybindings",
+          "milestone": "foundation",
+          "depends_on": [],
+          "verification": "not_verified"
+        },
+        {
+          "id": "hud_status",
+          "title": "Health, mana, XP, stamina HUD",
+          "milestone": "integration",
+          "depends_on": [
+            "hero_identity",
+            "combat_core"
+          ],
+          "verification": "not_verified"
+        },
+        {
+          "id": "menus_map",
+          "title": "Character/inventory menus and atlas (J)",
+          "milestone": "integration",
+          "depends_on": [
+            "input_settings",
+            "map_discovery",
+            "inventory_equipment"
+          ],
+          "verification": "not_verified"
+        },
+        {
+          "id": "save_resilience",
+          "title": "Autosave, recoverable loading and checkpoints",
+          "milestone": "integration",
+          "depends_on": [
+            "hero_identity",
+            "shrines_respawn"
+          ],
+          "verification": "not_verified"
+        },
+        {
+          "id": "build_performance",
+          "title": "Windows packaging, profiling and build tests",
+          "milestone": "polish",
+          "depends_on": [
+            "input_settings"
+          ],
+          "verification": "not_verified"
+        }
       ]
+    }
+  ],
+  "milestones": [
+    {
+      "id": "foundation",
+      "title": "Playable foundation"
+    },
+    {
+      "id": "integration",
+      "title": "Interconnected systems"
+    },
+    {
+      "id": "polish",
+      "title": "Content and release hardening"
     }
   ]
 }
