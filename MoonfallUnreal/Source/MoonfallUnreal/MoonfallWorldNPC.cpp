@@ -32,6 +32,26 @@ bool AMoonfallWorldNPC::RewardResidentTrust(AMoonfallHeroPawn* Hero, int32 Point
  if (Hero->GetResidentBond(ResidentId) != 0) return false;
  return Hero->ChangeResidentBond(ResidentId, Points);
 }
+int32 AMoonfallWorldNPC::GetContractSalvageCost() const {
+ return ResidentId == FName(TEXT("CrossroadsGuide")) ? 10
+   : 10 + (MoonfallRaces::Validated(RaceId) % 4) * 5;
+}
+bool AMoonfallWorldNPC::CanHeroInteract(const AMoonfallHeroPawn* Hero) const {
+ if (!IsValid(Hero) || !GetWorld() || Hero->Health <= 0.f
+     || Hero->bInventoryOpen || Hero->bOptionsOpen) return false;
+ const FVector From = Hero->GetActorLocation();
+ const FVector To = GetActorLocation();
+ const float Range = FMath::IsFinite(InteractRange)
+     ? FMath::Clamp(InteractRange, 50.f, 400.f) : 240.f;
+ if (From.ContainsNaN() || To.ContainsNaN()
+     || FVector::DistSquared(From, To) > FMath::Square(Range)) return false;
+ FCollisionQueryParams Params(SCENE_QUERY_STAT(MoonfallNPCTalk), false);
+ Params.AddIgnoredActor(Hero);
+ FHitResult Hit;
+ const bool bHit = GetWorld()->LineTraceSingleByChannel(
+     Hit, From + FVector(0,0,55), To + FVector(0,0,55), ECC_Visibility, Params);
+ return !bHit || Hit.GetActor() == this;
+}
 FString AMoonfallWorldNPC::GetRaceName() const { return FString(MoonfallRaces::Name(RaceId)); }
 FString AMoonfallWorldNPC::GetCurrentActivity() const {
  // Cyclical ambient schedule derived on demand, avoiding a per-NPC Tick.
@@ -58,21 +78,7 @@ FString AMoonfallWorldNPC::GetSocialDisposition(const AMoonfallHeroPawn* Hero) c
  return TEXT("Neutral");
 }
 bool AMoonfallWorldNPC::TryTalk(AMoonfallHeroPawn* Hero) {
- if (!IsValid(Hero) || !GetWorld() || Hero->Health <= 0.f
-     || Hero->bInventoryOpen || Hero->bOptionsOpen) return false;
- const FVector From = Hero->GetActorLocation();
- const FVector To = GetActorLocation();
- const float Range = FMath::IsFinite(InteractRange)
-     ? FMath::Clamp(InteractRange, 50.f, 400.f) : 240.f;
- if (From.ContainsNaN() || To.ContainsNaN()
-     || FVector::DistSquared(From, To) > FMath::Square(Range)) return false;
- // Only interact through unobstructed space; no dialogue through walls.
- FCollisionQueryParams Params(SCENE_QUERY_STAT(MoonfallNPCTalk), false);
- Params.AddIgnoredActor(Hero);
- FHitResult Hit;
- const bool bHit = GetWorld()->LineTraceSingleByChannel(
-     Hit, From + FVector(0,0,55), To + FVector(0,0,55), ECC_Visibility, Params);
- if (bHit && Hit.GetActor() != this) return false;
+ if (!CanHeroInteract(Hero)) return false;
  InteractionCount = FMath::Min(InteractionCount + 1, 1000000);
  // The existing custom greeting wins; default dialogue reflects ancestry.
  const FText Spoken = Greeting.EqualTo(FText::FromString(TEXT("The road stretches on. Need directions?")))
@@ -109,6 +115,23 @@ bool AMoonfallWorldNPC::TryTalk(AMoonfallHeroPawn* Hero) {
     TEXT("My trusted companion, %s stands with you."), *DisplayName.ToString()));
  else if (Disposition != TEXT("Trusted") && Bond <= -60)
   Reaction = FText::FromString(TEXT("I remember what you did. Keep your distance."));
+ // Accepted one-time contracts have useful, contextual status.
+ if (Disposition != TEXT("Hostile") && Hero->GetResidentQuestState(ResidentId) == 1)
+  Reaction = FText::FromString(FString::Printf(
+    TEXT("Bring me %d salvage to help our settlement."), GetContractSalvageCost()));
+ else if (Disposition != TEXT("Hostile") && Hero->GetResidentQuestState(ResidentId) == 2)
+  Reaction = FText::FromString(TEXT("Our people remember your help. Thank you."));
  OnDialogueStarted(Hero, Reaction);
  return true;
+}
+
+bool AMoonfallWorldNPC::OfferResidentQuest(AMoonfallHeroPawn* Hero) {
+ if (ResidentId.IsNone() || !CanHeroInteract(Hero)
+     || Hero->GetFactionReputation(FactionId) <= -50) return false;
+ return Hero->AcceptResidentQuest(ResidentId);
+}
+bool AMoonfallWorldNPC::TurnInResidentQuest(AMoonfallHeroPawn* Hero) {
+ if (ResidentId.IsNone() || !CanHeroInteract(Hero)
+     || Hero->GetFactionReputation(FactionId) <= -50) return false;
+ return Hero->CompleteResidentQuest(this);
 }

@@ -8,7 +8,8 @@ UCLASS()
 class MOONFALLUNREAL_API UMoonfallPersistentSave : public USaveGame {
  GENERATED_BODY()
 public:
- UPROPERTY() int32 Version = 5;
+ UPROPERTY() int32 Version = 6;
+ UPROPERTY() TMap<FName, int32> ResidentQuestStates;
  UPROPERTY() TMap<FName, int32> ResidentBonds;
  UPROPERTY() TMap<FName, int32> FactionReputation;
  // UTC expiration retains cooldown across quit/relaunch; no wall-clock-dependent buff duration.
