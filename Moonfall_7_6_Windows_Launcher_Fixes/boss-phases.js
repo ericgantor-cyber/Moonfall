@@ -5,8 +5,8 @@ const BOSS_PROFILES=Object.freeze({
  dragon:{thresholds:[.7,.35],attacks:['claw','flame-burst','meteor-storm'],rewards:['dragon-scale','ember-crown']},
  phoenix:{thresholds:[.65,.3],attacks:['firebolt','wing-inferno','rebirth-flare'],rewards:['phoenix-feather','solar-heart']},
  screamer:{thresholds:[.6,.25],attacks:['shriek','echo-pulse','silence-storm'],rewards:['echo-shard','void-voice']},
- // Hear, Speak, See: each phase unlocks a distinct attack; the final state is a combined frenzy.
- three_forbidden:{thresholds:[.75,.5,.25],attacks:['bone-wing-sweep','echo-rupture','silencing-curse','eclipsed-trinity'],rewards:['forbidden-wing-mantle','trinity-bone','fallen-choir-essence']},
+ // Four phases: Hear, Speak, See, then all three attack simultaneously.
+ three_forbidden:{thresholds:[.75,.5,.25],attacks:['echo-rupture','silencing-curse','shadow-wing-strike','eclipsed-trinity'],finalPhaseAttacks:['echo-rupture','silencing-curse','shadow-wing-strike'],rewards:['forbidden-wing-mantle','trinity-bone','fallen-choir-essence']},
  default:{thresholds:[.66,.33],attacks:['strike','charged-strike','final-fury'],rewards:['boss-essence']}
 });
 function createBossPhaseState(kind,maxHP){
@@ -25,7 +25,7 @@ function updateBossPhase(state,hp){
  state.hp=nextHP;
  const justDefeated=nextHP===0&&!state.defeated;
  if(justDefeated)state.defeated=true;
- return {phase:state.phase,phaseChanged:state.phase!==previousPhase,attack:profile.attacks[state.phase],justDefeated,rewards:justDefeated&&!state.rewardGranted?profile.rewards.slice():[]};
+ return {phase:state.phase,phaseChanged:state.phase!==previousPhase,attack:profile.attacks[state.phase],concurrentAttacks:profile.finalPhaseAttacks&&state.phase===profile.thresholds.length?profile.finalPhaseAttacks.slice():[],justDefeated,rewards:justDefeated&&!state.rewardGranted?profile.rewards.slice():[]};
 }
 function acknowledgeBossRewards(state){if(!state.defeated)throw new Error('Boss is not defeated');state.rewardGranted=true;}
 module.exports={BOSS_PROFILES,createBossPhaseState,updateBossPhase,acknowledgeBossRewards};
