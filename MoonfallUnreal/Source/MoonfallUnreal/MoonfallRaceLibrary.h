@@ -200,6 +200,24 @@ public:
   int32 Position, FName Family, float BaseVitality, float BasePower,
   float BaseSpeed, FMoonfallRaceSelectionState& State);
 
+ // A bounded page of race cards for Blueprint keyboard/controller grids.
+ // PageIndex is zero-based; 1-12 columns and 1-6 rows are supported.
+ // Invalid page or stat inputs fail with no partial cards or counters.
+ UFUNCTION(BlueprintPure, Category="Moonfall|Races")
+ static bool BuildPlayableRaceGridPage(
+  FName Family, int32 PageIndex, int32 Columns, int32 Rows,
+  float BaseVitality, float BasePower, float BaseSpeed,
+  TArray<FMoonfallRaceSelectionEntry>& Entries, int32& TotalPages);
+
+ // Arrow/D-pad movement in a grid. Horizontal moves wrap within the
+ // filtered roster; vertical moves preserve the column where possible,
+ // clamping to the final row. Invalid directions or layout fail closed.
+ UFUNCTION(BlueprintPure, Category="Moonfall|Races")
+ static bool MovePlayableRaceGridSelection(
+  FName CurrentRaceId, FName Family, int32 Columns, int32 Horizontal,
+  int32 Vertical, float BaseVitality, float BasePower, float BaseSpeed,
+  FMoonfallRaceSelectionState& State);
+
  // Returns false and an unmodified baseline profile for unknown identifiers.
  UFUNCTION(BlueprintPure, Category="Moonfall|Races")
  static bool FindRaceProfile(FName RaceId, FMoonfallRaceProfile& Profile);
