@@ -53,6 +53,23 @@ class ClasslessStatsTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             validate_config(broken)
 
+    def test_unified_character_sheet_includes_combat_ratings(self):
+        result = calculate(
+            10, 80, {"health": 25}, self.config,
+            combat_ratings={"hit": 72, "critical_strike": 100},
+            combat_bonuses={"armor": 250, "fire_resistance": 15},
+        )
+        self.assertEqual(result["stats"]["health"], 233)
+        self.assertEqual(result["combat"]["percentages"]["hit"], 94)
+        self.assertEqual(result["combat"]["percentages"]["critical_strike"], 10)
+        self.assertEqual(result["combat"]["flat"]["armor"], 250)
+        self.assertEqual(result["combat"]["flat"]["fire_resistance"], 15)
+        self.assertEqual(result["power"], 40)
+
+    def test_invalid_combat_ratings_fail_the_unified_sheet(self):
+        with self.assertRaises(ValueError):
+            calculate(10, config=self.config, combat_ratings={"hit": -2})
+
     def test_no_class_and_card_mechanics(self):
         # Policy text is allowed to mention forbidden mechanics to explicitly
         # prohibit them. Check the actual machine-readable configuration keys.
