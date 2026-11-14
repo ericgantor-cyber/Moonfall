@@ -88,6 +88,27 @@ class TalentTests(unittest.TestCase):
         self.assertEqual(reset["allocations"], {})
         self.assertEqual(original, {"iron_will": 1, "breaker": 1, "spirit_well": 1})
 
+    def test_full_respec_checks_saved_allocations_without_mutation(self):
+        original = {"iron_will": 1, "breaker": 1, "spirit_well": 1}
+        reset = respec(10, self.tree, current=original)
+        self.assertEqual(reset["spent"], 0)
+        self.assertEqual(reset["available"], 9)
+        self.assertEqual(reset["allocations"], {})
+        self.assertEqual(original, {"iron_will": 1, "breaker": 1, "spirit_well": 1})
+
+    def test_full_respec_rejects_invalid_saved_state(self):
+        for malformed in ([], "", (), False):
+            with self.assertRaisesRegex(ValueError, "Allocations must be a map"):
+                respec(10, self.tree, current=malformed)
+        for corrupt in ({"breaker": 1},
+                        {"iron_will": True},
+                        {"retired_talent": 1},
+                        {"iron_will": -1}):
+            with self.assertRaises(ValueError):
+                respec(10, self.tree, current=corrupt)
+        with self.assertRaises(ValueError):
+            respec(1, self.tree, current={"iron_will": 1})
+
     def test_no_classes_or_cards(self):
         self.assertEqual(evaluate(5, data=self.tree)["ruleset"], "classless_talent_tree")
         self.assertEqual({b["id"] for b in self.tree["branches"]},
