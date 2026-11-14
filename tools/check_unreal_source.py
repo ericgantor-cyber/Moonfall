@@ -46,6 +46,17 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("bool PlayRigCue(FName CueId)", rig_h)
         self.assertNotIn("SpawnActor", rig_cpp)
 
+    def test_rig_rejects_montages_for_other_skeletons(self):
+        rig = (ROOT / "MoonfallActorRigComponent.cpp").read_text(encoding="utf-8")
+        play = rig.split("bool UMoonfallActorRigComponent::PlayRigCue(", 1)[1].split(
+            "bool UMoonfallActorRigComponent::StopRigCue(", 1)[0]
+        self.assertIn('#include "Engine/SkeletalMesh.h"', rig)
+        self.assertIn("IsValid(Entry->Get()->GetSkeleton())", play)
+        self.assertIn("Entry->Get()->GetSkeleton() == RigMesh->GetSkeletalMeshAsset()->GetSkeleton()", play)
+        self.assertLess(play.index("Entry->Get()->GetSkeleton() == "),
+                        play.index("Anim->Montage_Play("))
+        self.assertIn("OnRigCue(CueId, bLastCuePlayed);", play)
+
     def test_character_primary_rig_precedes_accessory_discovery(self):
         rig = (ROOT / "MoonfallActorRigComponent.cpp").read_text(encoding="utf-8")
         self.assertIn('#include "GameFramework/Character.h"', rig)
