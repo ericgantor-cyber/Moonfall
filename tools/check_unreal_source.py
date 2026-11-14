@@ -543,6 +543,26 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("SaveGame", bind)
         self.assertNotIn("SpawnActor", bind)
 
+    def test_race_menu_keeps_scroll_position_and_releases_lost_mouse_capture(self):
+        header = (ROOT / "MoonfallCharacterCreationWidget.h").read_text(encoding="utf-8")
+        code = (ROOT / "MoonfallCharacterCreationWidget.cpp").read_text(encoding="utf-8")
+        self.assertIn("virtual void NativeOnMouseCaptureLost(", header)
+        self.assertIn("bool bRaceListInitialized = false;", header)
+        self.assertIn("FName LastRenderedFamily = NAME_None;", header)
+        list_fn = code.split("void UMoonfallCharacterCreationWidget::RefreshRaceList()", 1)[1].split(
+            "void UMoonfallCharacterCreationWidget::RefreshSelection()", 1)[0]
+        self.assertIn("LastRenderedFamily == CurrentFamily", list_fn)
+        self.assertIn("RaceList->GetScrollOffset()", list_fn)
+        self.assertIn("RaceList->ClearChildren();", list_fn)
+        self.assertIn("RaceList->SetScrollOffset(PreviousScrollOffset);", list_fn)
+        self.assertIn("LastRenderedFamily = CurrentFamily;", list_fn)
+        self.assertIn("bRaceListInitialized = true;", list_fn)
+        capture_fn = code.split("UMoonfallCharacterCreationWidget::NativeOnMouseCaptureLost(", 1)[1].split(
+            "void UMoonfallCharacterCreationWidget::HandleResetPreview()", 1)[0]
+        self.assertIn("bDraggingPreview = false;", capture_fn)
+        self.assertIn("Super::NativeOnMouseCaptureLost(CaptureLostEvent);", capture_fn)
+        self.assertNotIn("SaveGame", list_fn + capture_fn)
+
     def test_isolated_race_catalog_is_cpp_syntax_safe_and_does_not_replace_persistence(self):
         import re
         catalog = (ROOT / "MoonfallRaceLibrary.cpp").read_text(encoding="utf-8")
