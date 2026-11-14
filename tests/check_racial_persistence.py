@@ -278,7 +278,11 @@ class TestRacialPersistence(unittest.TestCase):
         self.assertLess(loader.index("TeleportTo(SavedCheckpoint"),
                         loader.index("ResidentQuestStates.Reset();"))
         self.assertNotIn("SetActorLocation(Save->CheckpointLocation", loader)
-        self.assertIn("if (!RestoreSafeSpawnLocation())", respawn)
+        self.assertIn("TeleportTo(RespawnCheckpointLocation, GetActorRotation(), false, false)", respawn)
+        self.assertIn("bFoundSafeRespawn = RestoreSafeSpawnLocation();", respawn)
+        self.assertLess(respawn.index("TeleportTo(RespawnCheckpointLocation"),
+                        respawn.index("bFoundSafeRespawn = RestoreSafeSpawnLocation();"))
+        self.assertIn("if (!bFoundSafeRespawn) {", respawn)
         self.assertIn("GetCharacterMovement()->StopMovementImmediately();", respawn)
         self.assertIn("NextSafeCheckpointAt = Now + 5.f;", respawn)
 
