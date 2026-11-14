@@ -52,6 +52,14 @@ public:
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Character Creation")
  void OnRacePreviewRequested(FName RaceId);
 
+ // The owning Blueprint rotates/zooms its existing 3D preview actor or
+ // SceneCapture. These events do not transform original sprites or art.
+ UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Character Creation|Mouse")
+ void OnPreviewRotateRequested(float DeltaYaw);
+
+ UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Character Creation|Mouse")
+ void OnPreviewZoomRequested(float ZoomSteps);
+
  UFUNCTION(BlueprintCallable, Category="Moonfall|Character Creation")
  bool InitializeSelection(FName PreferredRaceId, float InBaseVitality,
                           float InBasePower, float InBaseSpeed);
@@ -66,6 +74,14 @@ protected:
  virtual void NativeConstruct() override;
  virtual FReply NativeOnKeyDown(const FGeometry& InGeometry,
                                 const FKeyEvent& InKeyEvent) override;
+ virtual FReply NativeOnMouseButtonDown(const FGeometry& InGeometry,
+                                        const FPointerEvent& InMouseEvent) override;
+ virtual FReply NativeOnMouseButtonUp(const FGeometry& InGeometry,
+                                      const FPointerEvent& InMouseEvent) override;
+ virtual FReply NativeOnMouseMove(const FGeometry& InGeometry,
+                                  const FPointerEvent& InMouseEvent) override;
+ virtual FReply NativeOnMouseWheel(const FGeometry& InGeometry,
+                                   const FPointerEvent& InMouseEvent) override;
 
 private:
  void BuildLayout();
@@ -74,6 +90,7 @@ private:
  void AdvanceRace(bool bForward);
  void AdvanceFamily(bool bForward);
  void SelectRace(FName RaceId);
+ bool IsOverPreview(const FVector2D& ScreenPosition) const;
 
  UFUNCTION() void HandlePreviousRace();
  UFUNCTION() void HandleNextRace();
@@ -89,6 +106,7 @@ private:
  UPROPERTY(Transient) TObjectPtr<UTextBlock> PreviewCaption;
  UPROPERTY(Transient) TObjectPtr<UImage> PreviewImage;
  UPROPERTY(Transient) TObjectPtr<UTexture2D> PreviewTexture;
+ bool bDraggingPreview = false;
  UPROPERTY(Transient) FMoonfallRaceSelectionState Selection;
  UPROPERTY(Transient) FName CurrentFamily = NAME_None;
  UPROPERTY(Transient) FName CurrentRaceId = NAME_None;
