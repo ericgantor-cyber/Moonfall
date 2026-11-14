@@ -14,6 +14,27 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         cls.enemy_cpp = (ROOT / "MoonfallEnemy.cpp").read_text(encoding="utf-8")
         cls.hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
 
+    def test_race_profile_lists_keep_playable_and_family_filters(self):
+        import re
+        header = (ROOT / "MoonfallRaceLibrary.h").read_text(encoding="utf-8")
+        impl = (ROOT / "MoonfallRaceLibrary.cpp").read_text(encoding="utf-8")
+        self.assertIn("static TArray<FMoonfallRaceProfile> GetPlayableRaceProfiles();", header)
+        self.assertIn("static TArray<FMoonfallRaceProfile> GetRaceProfilesByFamily(FName Family);", header)
+        self.assertIn("UMoonfallRaceLibrary::GetPlayableRaceProfiles()", impl)
+        self.assertIn("UMoonfallRaceLibrary::GetRaceProfilesByFamily(FName Family)", impl)
+        playable = impl.split("UMoonfallRaceLibrary::GetPlayableRaceProfiles()", 1)[1].split(
+            "UMoonfallRaceLibrary::GetRaceProfilesByFamily(", 1)[0]
+        family = impl.split("UMoonfallRaceLibrary::GetRaceProfilesByFamily(", 1)[1].split(
+            "UMoonfallRaceLibrary::FindRaceProfile(", 1)[0]
+        self.assertIn("GetPlayableRaceIds()", playable)
+        self.assertIn("FindRaceProfile(RaceId, Profile) && Profile.bPlayableCandidate", playable)
+        self.assertIn("if (Family.IsNone()) return Result;", family)
+        self.assertIn("GetRaceIdsByFamily(Family)", family)
+        self.assertIn("FindRaceProfile(RaceId, Profile) && Profile.Family == Family", family)
+        self.assertEqual(len(re.findall(r'^\\s*\\{TEXT\\("([a-z_]+)"\\),', impl, re.MULTILINE)), 30)
+        self.assertNotIn("SaveGame", playable + family)
+        self.assertNotIn("SpawnActor", playable + family)
+
     def test_isolated_race_catalog_is_cpp_syntax_safe_and_does_not_replace_persistence(self):
         import re
         catalog = (ROOT / "MoonfallRaceLibrary.cpp").read_text(encoding="utf-8")
