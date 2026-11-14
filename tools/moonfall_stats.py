@@ -80,7 +80,9 @@ def calculate(level: int, gear_score: int = 0,
         raise ValueError("Level outside allowed range")
     if type(gear_score) is not int or not limits["min_gear_score"] <= gear_score <= limits["max_gear_score"]:
         raise ValueError("Gear score outside allowed range")
-    bonuses = gear_bonuses or {}
+    # Preserve invalid-but-empty inputs for validation instead of silently
+    # converting [] or "" into an empty dictionary.
+    bonuses = {} if gear_bonuses is None else gear_bonuses
     if not isinstance(bonuses, dict) or set(bonuses) - set(VITALS + DAMAGE):
         raise ValueError("Unknown gear bonus stat")
     for key, val in bonuses.items():
