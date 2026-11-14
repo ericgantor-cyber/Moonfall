@@ -208,6 +208,14 @@ class TestRacialPersistence(unittest.TestCase):
         self.assertIn("RespawnCheckpointLocation = SavedCheckpoint;", loader)
         self.assertIn("ActiveShrineId = Save->Version >= 7 ?", loader)
         self.assertIn("DiscoveredShrineIds = Save->Version >= 7 ?", loader)
+        # A loaded save must immediately update shrines already spawned in the world.
+        # Respawns re-enter LoadWorldProgress, so previously active labels cannot stay stale.
+        self.assertIn("TActorIterator<AMoonfallCheckpointShrine>", loader)
+        self.assertIn("It->RefreshShrineDisplay(this);", loader)
+        self.assertLess(loader.index("DiscoveredShrineIds = Save->Version >= 7 ?"),
+                        loader.index("It->RefreshShrineDisplay(this);"))
+        self.assertLess(loader.index("It->RefreshShrineDisplay(this);"),
+                        loader.index("ResidentQuestStates.Reset();"))
         self.assertIn("if (SecondsSinceLastWorldSave >= 2.f", self.cpp)
 
     def test_not_a_new_run(self):
