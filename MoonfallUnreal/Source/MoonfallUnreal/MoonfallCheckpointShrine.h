@@ -8,6 +8,7 @@ class USceneComponent;
 class USphereComponent;
 class UStaticMeshComponent;
 class UTextRenderComponent;
+class UPointLightComponent;
 class UPrimitiveComponent;
 class AMoonfallHeroPawn;
 
@@ -31,6 +32,8 @@ public:
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Shrine") USphereComponent* DiscoveryRange = nullptr;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Shrine") UStaticMeshComponent* ShrineBase = nullptr;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Shrine") UStaticMeshComponent* ShrineBeacon = nullptr;
+ // Static, shadow-free light: discovered shrines stay visibly awakened in dark areas.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Shrine") UPointLightComponent* ShrineLight = nullptr;
 
  // Raise the character center above the plinth/floor. TeleportTo performs
  // collision checks before the saved point is used.

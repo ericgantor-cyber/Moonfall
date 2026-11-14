@@ -260,6 +260,57 @@ class TestRacialPersistence(unittest.TestCase):
             "void AMoonfallHeroPawn::Tick(", 1)[0])
         self.assertIn("if (SaveWorldProgress()) SecondsSinceLastWorldSave = 0.f;", self.cpp)
 
+    def test_world_save_refuses_shrine_ledger_loader_would_reject(self):
+        saver = self.cpp.split("bool AMoonfallHeroPawn::SaveWorldProgress()", 1)[1].split(
+            "bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[0]
+        loader = self.cpp.split("bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[1].split(
+            "void AMoonfallHeroPawn::RespawnAtCheckpoint()", 1)[0]
+        # A valid save must survive the same uniqueness and active-ID checks
+        # performed during LoadWorldProgress. Never erase or sanitize a ledger.
+        self.assertIn("DiscoveredShrineIds.Num() > 64", saver)
+        self.assertIn("TSet<FName> UniqueShrines;", saver)
+        self.assertIn("for (const FName Id : DiscoveredShrineIds)", saver)
+        self.assertIn("Id.IsNone() || UniqueShrines.Contains(Id)", saver)
+        self.assertIn("UniqueShrines.Add(Id);", saver)
+        self.assertIn("!ActiveShrineId.IsNone() && !UniqueShrines.Contains(ActiveShrineId)", saver)
+        self.assertIn("ActiveShrineId.IsNone() && !UniqueShrines.IsEmpty()", saver)
+        self.assertIn("UniqueShrines.Contains(Id)", loader)
+        self.assertIn("UniqueShrines.Add(Id);", loader)
+        self.assertLess(saver.index("DiscoveredShrineIds.Num() > 64"),
+                        saver.index("TSet<FName> UniqueShrines;"))
+        self.assertLess(saver.index("TSet<FName> UniqueShrines;"),
+                        saver.index("UGameplayStatics::CreateSaveGameObject"))
+        self.assertLess(saver.index("ActiveShrineId.IsNone() && !UniqueShrines.IsEmpty()"),
+                        saver.index("UGameplayStatics::SaveGameToSlot"))
+        self.assertNotIn("DiscoveredShrineIds.Reset()", saver)
+        self.assertNotIn("ActiveShrineId = NAME_None;", saver)
+
+    def test_blocked_saved_checkpoint_remembers_validated_fallback(self):
+        loader = self.cpp.split("bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[1].split(
+            "void AMoonfallHeroPawn::RespawnAtCheckpoint()", 1)[0]
+        respawn = self.cpp.split("void AMoonfallHeroPawn::RespawnAtCheckpoint()", 1)[1].split(
+            "// One unified roster.", 1)[0]
+        saver = self.cpp.split("bool AMoonfallHeroPawn::SaveWorldProgress()", 1)[1].split(
+            "bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[0]
+        self.assertIn("FVector ResolvedCheckpoint = SavedCheckpoint;", loader)
+        self.assertIn("if (!TeleportTo(SavedCheckpoint, GetActorRotation(), false, false))", loader)
+        self.assertIn("if (!RestoreSafeSpawnLocation()) {", loader)
+        self.assertIn("ResolvedCheckpoint = GetActorLocation();", loader)
+        self.assertIn("RespawnCheckpointLocation = ResolvedCheckpoint;", loader)
+        self.assertNotIn("RespawnCheckpointLocation = SavedCheckpoint;", loader)
+        self.assertLess(loader.index("if (!RestoreSafeSpawnLocation()) {"),
+                        loader.index("ResolvedCheckpoint = GetActorLocation();"))
+        self.assertLess(loader.index("ResolvedCheckpoint = GetActorLocation();"),
+                        loader.index("RespawnCheckpointLocation = ResolvedCheckpoint;"))
+        self.assertLess(loader.index("RespawnCheckpointLocation = ResolvedCheckpoint;"),
+                        loader.index("ActiveShrineId = Save->Version >= 7 ?"))
+        self.assertIn("bPersistentSaveWritesBlocked = true;", loader)
+        self.assertIn("bWorldProgressLoadInProgress = false;", loader)
+        self.assertIn("Save->CheckpointLocation = RespawnCheckpointLocation;", saver)
+        self.assertIn("TeleportTo(RespawnCheckpointLocation, GetActorRotation(), false, false)", respawn)
+        self.assertIn("ActiveShrineId = Save->Version >= 7 ?", loader)
+        self.assertIn("DiscoveredShrineIds = Save->Version >= 7 ?", loader)
+
     def test_checkpoint_respawn_rejects_invalid_or_blocked_spawns(self):
         loader = self.cpp.split("bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[1].split(
             "void AMoonfallHeroPawn::RespawnAtCheckpoint()", 1)[0]
@@ -348,6 +399,19 @@ class TestRacialPersistence(unittest.TestCase):
         self.assertNotIn("SetActorTickEnabled(true)", shrine_cpp)
         self.assertIn("PrimaryActorTick.bCanEverTick = false;", shrine_cpp)
 
+    def test_discovered_shrines_are_not_reactivated(self):
+        shrine_cpp = (ROOT / "MoonfallCheckpointShrine.cpp").read_text(encoding="utf-8")
+        discover = self.cpp.split("bool AMoonfallHeroPawn::DiscoverShrine(", 1)[1].split(
+            "bool AMoonfallHeroPawn::SaveWorldProgress()", 1)[0]
+        check = shrine_cpp.split("void AMoonfallCheckpointShrine::CheckHeroAtSpawn(", 1)[1].split(
+            "void AMoonfallCheckpointShrine::TryDiscoverOrQueueRetry(", 1)[0]
+        attempt = shrine_cpp.split("void AMoonfallCheckpointShrine::TryDiscoverOrQueueRetry(", 1)[1].split(
+            "void AMoonfallCheckpointShrine::RetryPendingDiscovery()", 1)[0]
+        self.assertIn("bPersistentSaveWritesBlocked || HasDiscoveredShrine(Shrine->ShrineId)", discover)
+        self.assertIn("if (Hero->HasDiscoveredShrine(ShrineId) ||", check)
+        self.assertIn("if (Hero->HasDiscoveredShrine(ShrineId))", attempt)
+        self.assertNotIn("bPreviouslyDiscovered", discover)
+
     def test_shrine_discovery_retries_failed_entry_without_tick(self):
         shrine_cpp = (ROOT / "MoonfallCheckpointShrine.cpp").read_text(encoding="utf-8")
         shrine_h = (ROOT / "MoonfallCheckpointShrine.h").read_text(encoding="utf-8")
@@ -361,6 +425,48 @@ class TestRacialPersistence(unittest.TestCase):
         self.assertIn("OtherActor == PendingDiscoveryHero.Get()", shrine_cpp)
         self.assertIn("GetWorldTimerManager().ClearTimer(DiscoveryRetryTimer)", shrine_cpp)
         self.assertIn("FTimerHandle DiscoveryRetryTimer;", shrine_h)
+        self.assertNotIn("void AMoonfallCheckpointShrine::Tick(", shrine_cpp)
+
+    def test_fallback_keeps_discovered_shrines_active_without_mislabeling_respawn(self):
+        shrine_cpp = (ROOT / "MoonfallCheckpointShrine.cpp").read_text(encoding="utf-8")
+        hero_header = self.header
+        helper = self.cpp.split(
+            "bool AMoonfallHeroPawn::IsCurrentRespawnLocation(", 1)[1].split(
+            "bool AMoonfallHeroPawn::DiscoverShrine(", 1)[0]
+        loader = self.cpp.split("bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[1].split(
+            "void AMoonfallHeroPawn::RespawnAtCheckpoint()", 1)[0]
+        # Restore the discovered/active ID for migration but never claim the
+        # physical shrine is the respawn point after collision-safe fallback.
+        self.assertIn("bool IsCurrentRespawnLocation(const FVector& Location) const;", hero_header)
+        self.assertIn("bHasRespawnCheckpointLocation", helper)
+        self.assertIn("!Location.ContainsNaN()", helper)
+        self.assertIn("!RespawnCheckpointLocation.ContainsNaN()", helper)
+        self.assertIn("FVector::DistSquared(RespawnCheckpointLocation, Location)", helper)
+        self.assertIn("Hero->ActiveShrineId == ShrineId", shrine_cpp)
+        self.assertIn("Hero->IsCurrentRespawnLocation(GetRespawnLocation())", shrine_cpp)
+        label = shrine_cpp.split("void AMoonfallCheckpointShrine::RefreshShrineDisplay(", 1)[1].split(
+            "void AMoonfallCheckpointShrine::CheckHeroAtSpawn(", 1)[0]
+        self.assertLess(label.index("Hero->IsCurrentRespawnLocation(GetRespawnLocation())"),
+                        label.index('TEXT("ACTIVE RESPAWN SHRINE")'))
+        self.assertIn('TEXT("ACTIVE SHRINE")', label)
+        self.assertIn("bCurrentRespawn ? TEXT", label)
+        self.assertIn("bDiscovered ? TEXT", label)
+        self.assertIn("RespawnCheckpointLocation = ResolvedCheckpoint;", loader)
+        self.assertIn("ActiveShrineId = Save->Version >= 7 ?", loader)
+
+    def test_dawnwalker_influenced_shrine_beacon_is_event_driven_and_persistent(self):
+        shrine_h = (ROOT / "MoonfallCheckpointShrine.h").read_text(encoding="utf-8")
+        shrine_cpp = (ROOT / "MoonfallCheckpointShrine.cpp").read_text(encoding="utf-8")
+        status = shrine_cpp.split(
+            "void AMoonfallCheckpointShrine::RefreshShrineDisplay(", 1)[1].split(
+            "void AMoonfallCheckpointShrine::CheckHeroAtSpawn(", 1)[0]
+        self.assertIn("UPointLightComponent* ShrineLight", shrine_h)
+        self.assertIn('CreateDefaultSubobject<UPointLightComponent>(TEXT("ShrineLight"))', shrine_cpp)
+        self.assertIn("ShrineLight->SetCastShadows(false)", shrine_cpp)
+        self.assertIn("PrimaryActorTick.bCanEverTick = false", shrine_cpp)
+        self.assertIn("ShrineLight->SetIntensity(bCurrentRespawn ? 850.f : bDiscovered ? 450.f : 0.f)", status)
+        self.assertIn('bDiscovered ? TEXT("ACTIVE SHRINE")', status)
+        self.assertIn("ShrineLight->SetLightColor(bCurrentRespawn", status)
         self.assertNotIn("void AMoonfallCheckpointShrine::Tick(", shrine_cpp)
 
     def test_shrine_activation_has_clear_status_and_wall_guard(self):
@@ -383,9 +489,16 @@ class TestRacialPersistence(unittest.TestCase):
                         discover.index("DiscoveredShrineIds.Add(Shrine->ShrineId);"))
         self.assertIn("It->RefreshShrineDisplay(this);", discover)
         self.assertIn('TEXT("ACTIVE RESPAWN SHRINE")', shrine_cpp)
-        self.assertIn('TEXT("DISCOVERED SHRINE")', shrine_cpp)
+        self.assertIn('TEXT("ACTIVE SHRINE")', shrine_cpp)
         self.assertIn('TEXT("UNDISCOVERED SHRINE")', shrine_cpp)
         self.assertIn("Hero->ActiveShrineId == ShrineId", shrine_cpp)
+        self.assertIn("const bool bDiscovered = IsValid(Hero) && Hero->HasDiscoveredShrine(ShrineId);", shrine_cpp)
+        self.assertIn("bDiscovered ? TEXT(\"ACTIVE SHRINE\")", shrine_cpp)
+        self.assertIn("ShrineLabel->SetTextRenderColor(bCurrentRespawn ?", shrine_cpp)
+        self.assertIn("bDiscovered ? FColor(115, 245, 210)", shrine_cpp)
+        self.assertIn("FColor(170, 170, 170)", shrine_cpp)
+        self.assertLess(shrine_cpp.index('TEXT("ACTIVE RESPAWN SHRINE")'),
+                        shrine_cpp.index("ShrineLabel->SetTextRenderColor("))
 
     def test_new_shrine_requires_unblocked_capsule_sized_respawn(self):
         discover = self.cpp.split("bool AMoonfallHeroPawn::DiscoverShrine(", 1)[1].split(
@@ -441,7 +554,7 @@ class TestRacialPersistence(unittest.TestCase):
         self.assertIn("if (Save->Version >= 7)", loader)
         self.assertIn("Save->DiscoveredShrineIds.Num() > 64", loader)
         self.assertIn("UniqueShrines.Contains(Id)", loader)
-        self.assertIn("RespawnCheckpointLocation = SavedCheckpoint;", loader)
+        self.assertIn("RespawnCheckpointLocation = ResolvedCheckpoint;", loader)
         self.assertIn("ActiveShrineId = Save->Version >= 7 ?", loader)
         self.assertIn("DiscoveredShrineIds = Save->Version >= 7 ?", loader)
         # A loaded save must immediately update shrines already spawned in the world.
@@ -453,6 +566,29 @@ class TestRacialPersistence(unittest.TestCase):
         self.assertLess(loader.index("It->RefreshShrineDisplay(this);"),
                         loader.index("ResidentQuestStates.Reset();"))
         self.assertIn("if (SecondsSinceLastWorldSave >= 2.f", self.cpp)
+
+    def test_memory_only_respawn_replaces_blocked_checkpoint_after_safe_fallback(self):
+        # With no loadable disk slot, a blocked in-memory shrine must not be
+        # saved again on the next two-second autosave after a safe rescue.
+        respawn = self.cpp.split("void AMoonfallHeroPawn::RespawnAtCheckpoint()", 1)[1].split(
+            "// One unified roster.", 1)[0]
+        saver = self.cpp.split("bool AMoonfallHeroPawn::SaveWorldProgress()", 1)[1].split(
+            "bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[0]
+        self.assertIn("if (!LoadWorldProgress()) {", respawn)
+        self.assertIn("bFoundSafeRespawn = RestoreSafeSpawnLocation();", respawn)
+        fallback = respawn.split("bFoundSafeRespawn = RestoreSafeSpawnLocation();", 1)[1].split(
+            "if (!bFoundSafeRespawn) {", 1)[0]
+        self.assertIn("if (bFoundSafeRespawn) {", fallback)
+        self.assertIn("RespawnCheckpointLocation = GetActorLocation();", fallback)
+        self.assertIn("bHasRespawnCheckpointLocation = true;", fallback)
+        self.assertLess(fallback.index("if (bFoundSafeRespawn) {"),
+                        fallback.index("RespawnCheckpointLocation = GetActorLocation();"))
+        self.assertLess(fallback.index("RespawnCheckpointLocation = GetActorLocation();"),
+                        fallback.index("bHasRespawnCheckpointLocation = true;"))
+        self.assertLess(respawn.index("RespawnCheckpointLocation = GetActorLocation();"),
+                        respawn.index("Health = FMath::Max(1.f, MaxHealth);"))
+        self.assertIn("Save->CheckpointLocation = RespawnCheckpointLocation;", saver)
+        self.assertNotIn("bPersistentSaveWritesBlocked = false;", respawn)
 
     def test_failed_checkpoint_requires_collision_safe_location_before_revive(self):
         respawn = self.cpp.split("void AMoonfallHeroPawn::RespawnAtCheckpoint()", 1)[1].split(

@@ -4,6 +4,7 @@
 #include "Components/SphereComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Components/TextRenderComponent.h"
+#include "Components/PointLightComponent.h"
 #include "UObject/ConstructorHelpers.h"
 #include "Engine/StaticMesh.h"
 #include "Kismet/GameplayStatics.h"
@@ -30,6 +31,15 @@ AMoonfallCheckpointShrine::AMoonfallCheckpointShrine()
  ShrineBase->SetGenerateOverlapEvents(false);
  ShrineBeacon->SetGenerateOverlapEvents(false);
 
+ // Dark-fantasy beacon lighting without Tick, dynamic shadow casting,
+ // imported assets, or changes to Z and Nyra's original artwork.
+ ShrineLight = CreateDefaultSubobject<UPointLightComponent>(TEXT("ShrineLight"));
+ ShrineLight->SetupAttachment(SceneRoot);
+ ShrineLight->SetRelativeLocation(FVector(0.f, 0.f, 90.f));
+ ShrineLight->SetAttenuationRadius(420.f);
+ ShrineLight->SetCastShadows(false);
+ ShrineLight->SetIntensity(0.f);
+
  ShrineLabel = CreateDefaultSubobject<UTextRenderComponent>(TEXT("ShrineLabel"));
  ShrineLabel->SetupAttachment(SceneRoot);
  ShrineLabel->SetRelativeLocation(FVector(0.f, 0.f, 105.f));
@@ -52,11 +62,28 @@ void AMoonfallCheckpointShrine::RefreshShrineDisplay(const AMoonfallHeroPawn* He
 {
  if (!ShrineLabel) return;
  const bool bDiscovered = IsValid(Hero) && Hero->HasDiscoveredShrine(ShrineId);
- const bool bActive = bDiscovered && Hero->ActiveShrineId == ShrineId;
- // Text distinguishes activation without requiring color recognition or
- // changing Z, Nyra, or any authored shrine model/material.
- ShrineLabel->SetText(FText::FromString(bActive ? TEXT("ACTIVE RESPAWN SHRINE")
-     : bDiscovered ? TEXT("DISCOVERED SHRINE") : TEXT("UNDISCOVERED SHRINE")));
+ // Every discovered shrine stays active permanently. Only the shrine at
+ // the collision-safe checkpoint is the current respawn destination.
+ const bool bCurrentRespawn = bDiscovered && Hero->ActiveShrineId == ShrineId
+     && Hero->IsCurrentRespawnLocation(GetRespawnLocation());
+ // Text distinguishes the current respawn point without suggesting other
+ // discovered shrines have been deactivated.
+ ShrineLabel->SetText(FText::FromString(bCurrentRespawn ? TEXT("ACTIVE RESPAWN SHRINE")
+     : bDiscovered ? TEXT("ACTIVE SHRINE") : TEXT("UNDISCOVERED SHRINE")));
+ // High-contrast secondary cue. Permanent activation is independent from
+ // which shrine currently owns the respawn checkpoint; text remains primary
+ // so the state is still readable without color vision.
+ ShrineLabel->SetTextRenderColor(bCurrentRespawn ? FColor(255, 210, 105)
+     : bDiscovered ? FColor(115, 245, 210) : FColor(170, 170, 170));
+ if (ShrineLight)
+ {
+  // A discovered shrine stays lit, even if a later shrine becomes the
+  // respawn checkpoint. Only the current checkpoint gets the warm highlight.
+  ShrineLight->SetLightColor(bCurrentRespawn
+      ? FLinearColor(1.f, 0.65f, 0.25f)
+      : FLinearColor(0.15f, 0.85f, 0.72f));
+  ShrineLight->SetIntensity(bCurrentRespawn ? 850.f : bDiscovered ? 450.f : 0.f);
+ }
 }
 
 void AMoonfallCheckpointShrine::CheckHeroAtSpawn(AMoonfallHeroPawn* Hero)

@@ -1629,6 +1629,13 @@ bool AMoonfallHeroPawn::RestoreSafeSpawnLocation() {
 bool AMoonfallHeroPawn::HasDiscoveredShrine(FName ShrineId) const {
  return !ShrineId.IsNone() && DiscoveredShrineIds.Contains(ShrineId);
 }
+bool AMoonfallHeroPawn::IsCurrentRespawnLocation(const FVector& Location) const {
+ // When a blocked saved shrine recovers at PlayerStart, its ID remains
+ // discovered but must not be labeled as the current respawn destination.
+ return bHasRespawnCheckpointLocation && !Location.ContainsNaN()
+     && !RespawnCheckpointLocation.ContainsNaN()
+     && FVector::DistSquared(RespawnCheckpointLocation, Location) <= FMath::Square(10.f);
+}
 bool AMoonfallHeroPawn::DiscoverShrine(AMoonfallCheckpointShrine* Shrine) {
  if (!IsValid(Shrine) || Shrine->GetWorld() != GetWorld()
      || Shrine->ShrineId.IsNone() || Health <= 0.f
@@ -1705,6 +1712,16 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
  // would be exceeded; ground drops are not consumed in that case.
  if (InventoryItemCodes.Num() > 10000 || ResidentQuestStates.Num() > 64
      || DiscoveredShrineIds.Num() > 64) return false;
+ // A V7 save must be readable by our own loader. Reject duplicate, empty,
+ // or inconsistent shrine IDs rather than overwriting the last valid slot
+ // with a ledger that LoadWorldProgress() would reject on the next launch.
+ TSet<FName> UniqueShrines;
+ for (const FName Id : DiscoveredShrineIds) {
+  if (Id.IsNone() || UniqueShrines.Contains(Id)) return false;
+  UniqueShrines.Add(Id);
+ }
+ if ((!ActiveShrineId.IsNone() && !UniqueShrines.Contains(ActiveShrineId))
+     || (ActiveShrineId.IsNone() && !UniqueShrines.IsEmpty())) return false;
  // The checkpoint is the saved shrine, not the hero's airborne position.
  // Falling or jumping must not suppress progress saves or ground-loot pickup.
  // Still reject invalid world positions, and validate the shrine above.
@@ -1790,6 +1807,7 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  // Teleport can synchronously cause shrine overlap callbacks; do not let
  // those callbacks save stale loot, NPC state or the previous shrine ledger.
  bWorldProgressLoadInProgress = true;
+ FVector ResolvedCheckpoint = SavedCheckpoint;
  if (!TeleportTo(SavedCheckpoint, GetActorRotation(), false, false)) {
   // Saved position may be blocked by new dungeon geometry. Recover at an
   // authored PlayerStart instead of reviving inside a wall or at death site.
@@ -1799,10 +1817,14 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
    bWorldProgressLoadInProgress = false;
    return false;
   }
+  // The fallback teleport is collision-checked. Remember its actual location
+  // instead of persisting the blocked shrine coordinates on the next autosave.
+  // Retain the discovered-shrine ledger so existing progression is not lost.
+  ResolvedCheckpoint = GetActorLocation();
   UE_LOG(LogTemp, Warning, TEXT("Moonfall checkpoint blocked; using a safe PlayerStart."));
  }
  bPersistentSaveWritesBlocked = false;
- RespawnCheckpointLocation = SavedCheckpoint;
+ RespawnCheckpointLocation = ResolvedCheckpoint;
  bHasRespawnCheckpointLocation = true;
  ActiveShrineId = Save->Version >= 7 ? Save->ActiveShrineId : NAME_None;
  DiscoveredShrineIds = Save->Version >= 7 ? Save->DiscoveredShrineIds : TArray<FName>();
@@ -1908,8 +1930,16 @@ void AMoonfallHeroPawn::RespawnAtCheckpoint() {
       && !RespawnCheckpointLocation.ContainsNaN()
       && RespawnCheckpointLocation.SizeSquared() < 1.0e14f
       && TeleportTo(RespawnCheckpointLocation, GetActorRotation(), false, false);
-  if (!bFoundSafeRespawn)
+  if (!bFoundSafeRespawn) {
    bFoundSafeRespawn = RestoreSafeSpawnLocation();
+   if (bFoundSafeRespawn) {
+    // A memory-only checkpoint can become blocked when world geometry changes.
+    // Remember the collision-checked fallback, otherwise a subsequent autosave
+    // could re-persist the blocked position despite a successful rescue.
+    RespawnCheckpointLocation = GetActorLocation();
+    bHasRespawnCheckpointLocation = true;
+   }
+  }
   if (!bFoundSafeRespawn) {
    // Do not resurrect at the lethal position when every spawn is blocked.
    // Keep the defeat state and retry through the normal 3-second timer.
