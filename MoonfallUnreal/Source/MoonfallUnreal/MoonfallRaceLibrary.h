@@ -80,12 +80,12 @@ public:
  static TArray<FName> GetRaceFamilies();
 
  // Unique families containing playable race candidates, in catalog order.
- // Useful for accessible selection-screen family tabs.
+ // Useful for keyboard/controller character-selection family tabs.
  UFUNCTION(BlueprintPure, Category="Moonfall|Races")
  static TArray<FName> GetPlayableRaceFamilies();
 
- // Wrap between playable race family tabs for keyboard, controller and
- // single-switch navigation. Unknown family starts at either end.
+ // Wrap between playable race family tabs for keyboard and controller.
+ // Unknown family starts at either end.
  UFUNCTION(BlueprintPure, Category="Moonfall|Races")
  static bool GetAdjacentPlayableRaceFamily(FName CurrentFamily, bool bForward,
                                            FName& NextFamily);
@@ -132,7 +132,7 @@ public:
                                                 float BaseSpeed, FName Family,
                                                 TArray<FMoonfallRaceSelectionEntry>& Entries);
 
- // Selection navigation for keyboard/controller/switch-accessible menus.
+ // Selection navigation for keyboard and controller menus.
  // Wraps in catalog order and excludes nonplayable races. NAME_None family
  // navigates every playable race. An unknown current ID picks the first or
  // last available entry according to direction. No hero/save mutations.
@@ -140,12 +140,18 @@ public:
  static bool GetAdjacentPlayableRaceId(FName CurrentRaceId, FName Family,
                                        bool bForward, FName& NextRaceId);
 
- // UI/accessibility counter (1-based) for a selected playable race.
+ // UI counter (1-based) for a selected playable race.
  // NAME_None family includes the full playable roster. On failure both
  // outputs are zero; no selection, save or gameplay state is changed.
  UFUNCTION(BlueprintPure, Category="Moonfall|Races")
  static bool GetPlayableRaceSelectionPosition(FName RaceId, FName Family,
                                               int32& Position, int32& Total);
+
+ // Position and total count for keyboard/controller race-family tabs.
+ // Values are 1-based and reset to zero if the family is unavailable.
+ UFUNCTION(BlueprintPure, Category="Moonfall|Races")
+ static bool GetPlayableRaceFamilyPosition(FName Family, int32& Position,
+                                           int32& Total);
 
  // Returns false and an unmodified baseline profile for unknown identifiers.
  UFUNCTION(BlueprintPure, Category="Moonfall|Races")
