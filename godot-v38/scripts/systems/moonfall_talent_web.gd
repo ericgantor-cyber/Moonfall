@@ -11,7 +11,7 @@ const BRANCH_COLORS: Dictionary = {
 }
 const BRANCH_ANGLES: Dictionary = {"might": -150.0, "agility": -30.0, "arcana": 90.0}
 const LANE_ANGLES: Array[float] = [-26.0, -8.0, 8.0, 26.0]
-const MIN_ZOOM: float = 0.32
+const MIN_ZOOM: float = 0.16
 const MAX_ZOOM: float = 2.1
 const NODE_RADIUS: float = 13.0
 var tree: Dictionary = {}
@@ -19,7 +19,7 @@ var allocations: Dictionary = {}
 var level: int = 1
 var available: int = 0
 var points: Dictionary = {}
-var zoom: float = 0.52
+var zoom: float = 0.21
 var pan: Vector2 = Vector2.ZERO
 var selected_id: String = ""
 var dragging: bool = false
@@ -48,7 +48,7 @@ func focus_branch(branch_id: String) -> void:
 
 func fit_all() -> void:
  pan = Vector2.ZERO
- zoom = 0.32
+ zoom = clampf((minf(size.x, size.y) - 36.0) / 2660.0, MIN_ZOOM, MAX_ZOOM)
  queue_redraw()
 
 func zoom_by(factor: float) -> void:
