@@ -124,7 +124,6 @@ bool UMoonfallCharacterCreationWidget::InitializeSelection(
  BaseSpeed = InBaseSpeed;
  CurrentRaceId = Next.RaceId;
  CurrentFamily = NAME_None;
- Selection = Next;
  RefreshSelection();
  return true;
 }
@@ -201,7 +200,6 @@ void UMoonfallCharacterCreationWidget::SelectRace(FName RaceId)
      || Next.RaceId != RaceId)
   return;
  CurrentRaceId = Next.RaceId;
- Selection = Next;
  RefreshSelection();
 }
 
@@ -213,7 +211,6 @@ void UMoonfallCharacterCreationWidget::AdvanceRace(bool bForward)
       BaseVitality, BasePower, BaseSpeed, Next))
   return;
  CurrentRaceId = Next.RaceId;
- Selection = Next;
  RefreshSelection();
 }
 
@@ -226,7 +223,6 @@ void UMoonfallCharacterCreationWidget::AdvanceFamily(bool bForward)
   return;
  CurrentFamily = Next.Family;
  CurrentRaceId = Next.RaceId;
- Selection = Next;
  RefreshSelection();
 }
 
