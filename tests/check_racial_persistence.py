@@ -35,11 +35,11 @@ class TestRacialPersistence(unittest.TestCase):
         self.assertIn("if (!bRaceChosen || !GetWorld()", self.cpp)
 
     def test_persistent_cooldown_and_save_migration(self):
-        self.assertIn("int32 Version = 6", self.save)
+        self.assertIn("int32 Version = 7", self.save)
         self.assertIn("int64 RacePowerReadyUtc", self.save)
         self.assertIn("FDateTime::UtcNow().ToUnixTimestamp()", self.cpp)
         self.assertIn("Save->RacePowerReadyUtc =", self.cpp)
-        self.assertIn("Save->Version < 1 || Save->Version > 6", self.cpp)
+        self.assertIn("Save->Version < 1 || Save->Version > 7", self.cpp)
         self.assertIn("Save->Version >= 3 && Save->RacePowerReadyUtc > NowUtc", self.cpp)
         self.assertIn("RacePowerReadyAt = GetWorld()", self.cpp)
         self.assertIn("if (!SaveWorldProgress()) {", self.cpp)
@@ -70,7 +70,7 @@ class TestRacialPersistence(unittest.TestCase):
         self.assertIn("if (bPersistentSaveWritesBlocked) return false;", save)
         self.assertLess(save.index("if (bPersistentSaveWritesBlocked) return false;"),
                         save.index("UGameplayStatics::SaveGameToSlot("))
-        self.assertIn("Save->Version < 1 || Save->Version > 6", load)
+        self.assertIn("Save->Version < 1 || Save->Version > 7", load)
         self.assertIn("bPersistentSaveWritesBlocked = true;", load)
         self.assertIn("bPersistentSaveWritesBlocked = false;", load)
         self.assertLess(load.index("bPersistentSaveWritesBlocked = true;"),
@@ -121,6 +121,56 @@ class TestRacialPersistence(unittest.TestCase):
         self.assertIn("if (!RestoreSafeSpawnLocation())", respawn)
         self.assertIn("GetCharacterMovement()->StopMovementImmediately();", respawn)
         self.assertIn("NextSafeCheckpointAt = Now + 5.f;", respawn)
+
+    def test_new_shrines_are_automatic_and_use_stable_ids(self):
+        shrine_h = (ROOT / "MoonfallCheckpointShrine.h").read_text(encoding="utf-8")
+        shrine_cpp = (ROOT / "MoonfallCheckpointShrine.cpp").read_text(encoding="utf-8")
+        arena = (ROOT / "MoonfallArena.cpp").read_text(encoding="utf-8")
+        self.assertIn("class MOONFALLUNREAL_API AMoonfallCheckpointShrine", shrine_h)
+        self.assertIn("FName ShrineId = NAME_None;", shrine_h)
+        self.assertIn("OnComponentBeginOverlap.AddDynamic", shrine_cpp)
+        self.assertIn("Hero->DiscoverShrine(this)", shrine_cpp)
+        self.assertIn("PrimaryActorTick.bCanEverTick = false;", shrine_cpp)
+        self.assertIn("SetCollisionEnabled(ECollisionEnabled::QueryOnly)", shrine_cpp)
+        self.assertIn("SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap)", shrine_cpp)
+        self.assertIn("GetActorLocation() + FVector(0.f, 0.f, 130.f)", shrine_h)
+        self.assertIn("BeginDeferredActorSpawnFromClass", arena)
+        for stable_id in ("crossroads_west", "crimson_path", "moonlit_path"):
+            self.assertIn('TEXT("' + stable_id + '")', arena)
+        self.assertIn("Shrine->ShrineId = FName(Placement.Id);", arena)
+
+    def test_last_discovered_shrine_controls_respawn_not_autosave(self):
+        self.assertIn("int32 Version = 7;", self.save)
+        self.assertIn("FName ActiveShrineId = NAME_None;", self.save)
+        self.assertIn("TArray<FName> DiscoveredShrineIds;", self.save)
+        self.assertIn("bool DiscoverShrine(AMoonfallCheckpointShrine* Shrine)", self.header)
+        self.assertIn("FVector RespawnCheckpointLocation = FVector::ZeroVector;", self.header)
+        discover = self.cpp.split("bool AMoonfallHeroPawn::DiscoverShrine(", 1)[1].split(
+            "bool AMoonfallHeroPawn::SaveWorldProgress()", 1)[0]
+        saver = self.cpp.split("bool AMoonfallHeroPawn::SaveWorldProgress()", 1)[1].split(
+            "bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[0]
+        loader = self.cpp.split("bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[1].split(
+            "void AMoonfallHeroPawn::RespawnAtCheckpoint()", 1)[0]
+        self.assertIn("DiscoveredShrineIds.Num() >= 64", discover)
+        self.assertIn("HasDiscoveredShrine(Shrine->ShrineId)", discover)
+        self.assertIn("FVector::DistSquared2D(ShrineLocation, HeroLocation)", discover)
+        self.assertIn("ActiveShrineId = Shrine->ShrineId;", discover)
+        self.assertIn("RespawnCheckpointLocation = NewRespawn;", discover)
+        self.assertIn("if (!SaveWorldProgress())", discover)
+        self.assertIn("DiscoveredShrineIds.Remove(Shrine->ShrineId);", discover)
+        self.assertIn("ActiveShrineId = PreviousShrineId;", discover)
+        self.assertIn("OnShrineDiscovered(ActiveShrineId);", discover)
+        self.assertIn("Save->CheckpointLocation = RespawnCheckpointLocation;", saver)
+        self.assertNotIn("Save->CheckpointLocation = GetActorLocation();", saver)
+        self.assertIn("Save->ActiveShrineId = ActiveShrineId;", saver)
+        self.assertIn("Save->DiscoveredShrineIds = DiscoveredShrineIds;", saver)
+        self.assertIn("if (Save->Version >= 7)", loader)
+        self.assertIn("Save->DiscoveredShrineIds.Num() > 64", loader)
+        self.assertIn("UniqueShrines.Contains(Id)", loader)
+        self.assertIn("RespawnCheckpointLocation = SavedCheckpoint;", loader)
+        self.assertIn("ActiveShrineId = Save->Version >= 7 ?", loader)
+        self.assertIn("DiscoveredShrineIds = Save->Version >= 7 ?", loader)
+        self.assertIn("if (SecondsSinceLastWorldSave >= 2.f", self.cpp)
 
     def test_not_a_new_run(self):
         self.assertIn('MoonfallPersistentWorldV1', self.cpp)
