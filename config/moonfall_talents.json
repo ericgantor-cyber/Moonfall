@@ -1,0 +1,234 @@
+{
+  "schema_version": 1,
+  "description": "Moonfall-original classless constellation talent tree; design/prototype, not active in Godot or UE5. Influenced by Enshrouded and AC Valhalla, no copied graphics or named nodes.",
+  "points_per_level": 1,
+  "starting_points": 0,
+  "maximum_level": 100,
+  "branches": [
+    {
+      "id": "might",
+      "title": "Might",
+      "focus": "melee and durability"
+    },
+    {
+      "id": "agility",
+      "title": "Agility",
+      "focus": "ranged and mobility"
+    },
+    {
+      "id": "arcana",
+      "title": "Arcana",
+      "focus": "magic and sustain"
+    }
+  ],
+  "rules": [
+    "No character classes or locked branches",
+    "No upgrade cards or reroll choices",
+    "Automatically increased base stats remain separate from earned talent points",
+    "Spend points deliberately in persistent connected branches",
+    "Respec refunds spent talent points; does not change experience, levels or equipped items"
+  ],
+  "nodes": [
+    {
+      "id": "iron_will",
+      "title": "Iron Will",
+      "branch": "might",
+      "tier": 1,
+      "min_level": 1,
+      "requires": [],
+      "max_rank": 1,
+      "cost_per_rank": 1,
+      "effect": {
+        "stat": "melee_damage",
+        "amount_per_rank": 0.03,
+        "kind": "percent"
+      }
+    },
+    {
+      "id": "breaker",
+      "title": "Breaker",
+      "branch": "might",
+      "tier": 2,
+      "min_level": 4,
+      "requires": [
+        "iron_will"
+      ],
+      "max_rank": 1,
+      "cost_per_rank": 1,
+      "effect": {
+        "stat": "melee_damage",
+        "amount_per_rank": 0.04,
+        "kind": "percent"
+      }
+    },
+    {
+      "id": "guard",
+      "title": "Guard",
+      "branch": "might",
+      "tier": 2,
+      "min_level": 4,
+      "requires": [
+        "iron_will"
+      ],
+      "max_rank": 1,
+      "cost_per_rank": 1,
+      "effect": {
+        "stat": "health",
+        "amount_per_rank": 8,
+        "kind": "flat"
+      }
+    },
+    {
+      "id": "titan_strike",
+      "title": "Titan Strike",
+      "branch": "might",
+      "tier": 3,
+      "min_level": 10,
+      "requires": [
+        "breaker",
+        "guard"
+      ],
+      "max_rank": 1,
+      "cost_per_rank": 1,
+      "effect": {
+        "stat": "melee_damage",
+        "amount_per_rank": 0.08,
+        "kind": "percent"
+      }
+    },
+    {
+      "id": "swift_step",
+      "title": "Swift Step",
+      "branch": "agility",
+      "tier": 1,
+      "min_level": 1,
+      "requires": [],
+      "max_rank": 1,
+      "cost_per_rank": 1,
+      "effect": {
+        "stat": "stamina",
+        "amount_per_rank": 5,
+        "kind": "flat"
+      }
+    },
+    {
+      "id": "hawk_eye",
+      "title": "Hawk Eye",
+      "branch": "agility",
+      "tier": 2,
+      "min_level": 4,
+      "requires": [
+        "swift_step"
+      ],
+      "max_rank": 1,
+      "cost_per_rank": 1,
+      "effect": {
+        "stat": "ranged_damage",
+        "amount_per_rank": 0.04,
+        "kind": "percent"
+      }
+    },
+    {
+      "id": "wind_runner",
+      "title": "Wind Runner",
+      "branch": "agility",
+      "tier": 2,
+      "min_level": 4,
+      "requires": [
+        "swift_step"
+      ],
+      "max_rank": 1,
+      "cost_per_rank": 1,
+      "effect": {
+        "stat": "stamina",
+        "amount_per_rank": 8,
+        "kind": "flat"
+      }
+    },
+    {
+      "id": "eagle_strike",
+      "title": "Eagle Strike",
+      "branch": "agility",
+      "tier": 3,
+      "min_level": 10,
+      "requires": [
+        "hawk_eye",
+        "wind_runner"
+      ],
+      "max_rank": 1,
+      "cost_per_rank": 1,
+      "effect": {
+        "stat": "ranged_damage",
+        "amount_per_rank": 0.08,
+        "kind": "percent"
+      }
+    },
+    {
+      "id": "spirit_well",
+      "title": "Spirit Well",
+      "branch": "arcana",
+      "tier": 1,
+      "min_level": 1,
+      "requires": [],
+      "max_rank": 1,
+      "cost_per_rank": 1,
+      "effect": {
+        "stat": "mana",
+        "amount_per_rank": 8,
+        "kind": "flat"
+      }
+    },
+    {
+      "id": "spell_focus",
+      "title": "Spell Focus",
+      "branch": "arcana",
+      "tier": 2,
+      "min_level": 4,
+      "requires": [
+        "spirit_well"
+      ],
+      "max_rank": 1,
+      "cost_per_rank": 1,
+      "effect": {
+        "stat": "magic_damage",
+        "amount_per_rank": 0.04,
+        "kind": "percent"
+      }
+    },
+    {
+      "id": "soul_ward",
+      "title": "Soul Ward",
+      "branch": "arcana",
+      "tier": 2,
+      "min_level": 4,
+      "requires": [
+        "spirit_well"
+      ],
+      "max_rank": 1,
+      "cost_per_rank": 1,
+      "effect": {
+        "stat": "health",
+        "amount_per_rank": 8,
+        "kind": "flat"
+      }
+    },
+    {
+      "id": "starfall",
+      "title": "Starfall",
+      "branch": "arcana",
+      "tier": 3,
+      "min_level": 10,
+      "requires": [
+        "spell_focus",
+        "soul_ward"
+      ],
+      "max_rank": 1,
+      "cost_per_rank": 1,
+      "effect": {
+        "stat": "magic_damage",
+        "amount_per_rank": 0.08,
+        "kind": "percent"
+      }
+    }
+  ]
+}
