@@ -53,6 +53,28 @@ class ClasslessStatsTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             validate_config(broken)
 
+    def test_malformed_stat_config_reports_value_error(self):
+        # Corrupted configuration should not leak AttributeError/TypeError.
+        for broken in (None, [], "", {"schema_version": 1}):
+            with self.subTest(broken=broken), self.assertRaises(ValueError):
+                validate_config(broken)
+        for key, values in {
+            "attributes": (None, [], "invalid", {"might": {}}),
+            "auto_growth_per_level": (None, [], "invalid"),
+            "base": (None, [], "invalid"),
+            "power": (None, [], "invalid"),
+            "limits": (None, [], "invalid"),
+        }.items():
+            for value in values:
+                broken = copy.deepcopy(self.config)
+                broken[key] = value
+                with self.subTest(field=key, value=value), self.assertRaises(ValueError):
+                    validate_config(broken)
+        broken = copy.deepcopy(self.config)
+        broken["attributes"]["might"] = None
+        with self.assertRaisesRegex(ValueError, "Invalid attribute rule"):
+            validate_config(broken)
+
     def test_unified_character_sheet_includes_combat_ratings(self):
         result = calculate(
             10, 80, {"health": 25}, self.config,
