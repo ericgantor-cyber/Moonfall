@@ -19,6 +19,16 @@ struct FMoonfallRaceProfile
  UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Moonfall|Races") float SpeedMultiplier = 1.f;
 };
 
+// Read-only UI preview. Does not modify character stats or save data.
+USTRUCT(BlueprintType)
+struct FMoonfallRaceStatPreview
+{
+ GENERATED_BODY()
+ UPROPERTY(BlueprintReadOnly, Category="Moonfall|Races") float Vitality = 0.f;
+ UPROPERTY(BlueprintReadOnly, Category="Moonfall|Races") float Power = 0.f;
+ UPROPERTY(BlueprintReadOnly, Category="Moonfall|Races") float Speed = 0.f;
+};
+
 UCLASS()
 class MOONFALLUNREAL_API UMoonfallRaceLibrary : public UBlueprintFunctionLibrary
 {
@@ -44,6 +54,20 @@ public:
  // Full profile data for NPC/enemy catalog browsing by race family.
  UFUNCTION(BlueprintPure, Category="Moonfall|Races")
  static TArray<FMoonfallRaceProfile> GetRaceProfilesByFamily(FName Family);
+
+ // Unique family IDs in catalog order, for race browsing and NPC filtering.
+ UFUNCTION(BlueprintPure, Category="Moonfall|Races")
+ static TArray<FName> GetRaceFamilies();
+
+ // Reject nonplayable/unknown races for character-selection validation.
+ UFUNCTION(BlueprintPure, Category="Moonfall|Races")
+ static bool FindPlayableRaceProfile(FName RaceId, FMoonfallRaceProfile& Profile);
+
+ // Preview race-adjusted base stats without changing a hero or save file.
+ // Invalid race IDs, nonplayable races, or negative/nonfinite inputs fail closed.
+ UFUNCTION(BlueprintPure, Category="Moonfall|Races")
+ static bool PreviewPlayableRaceStats(FName RaceId, float BaseVitality, float BasePower,
+                                     float BaseSpeed, FMoonfallRaceStatPreview& Preview);
 
  // Returns false and an unmodified baseline profile for unknown identifiers.
  UFUNCTION(BlueprintPure, Category="Moonfall|Races")
