@@ -96,6 +96,8 @@ void UMoonfallCharacterCreationWidget::BuildLayout()
  AddLabel(WidgetTree, Center, TEXT("MOONFALL"), 30);
  AddLabel(WidgetTree, Center, TEXT("CHOOSE YOUR HERO"), 22);
  PreviewImage = WidgetTree->ConstructWidget<UImage>();
+ // Reserve a usable interaction region before a portrait or render target loads.
+ PreviewImage->SetDesiredSizeOverride(FVector2D(480.f, 600.f));
  UVerticalBoxSlot* PortraitSlot = Center->AddChildToVerticalBox(PreviewImage);
  PortraitSlot->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
  PreviewCaption = AddLabel(WidgetTree, Center, TEXT("Original Moonfall preview supplied by game"), 16);
@@ -117,7 +119,11 @@ void UMoonfallCharacterCreationWidget::BuildLayout()
  PreviousFamily->OnClicked.AddDynamic(this, &UMoonfallCharacterCreationWidget::HandlePreviousFamily);
  NextFamily->OnClicked.AddDynamic(this, &UMoonfallCharacterCreationWidget::HandleNextFamily);
 
- SetPreviewTexture(PreviewTexture);
+ // Preserve a preview source bound before NativeConstruct rebuilt the layout.
+ if (PreviewTarget)
+  SetPreviewRenderTarget(PreviewTarget);
+ else
+  SetPreviewTexture(PreviewTexture);
 }
 
 bool UMoonfallCharacterCreationWidget::InitializeSelection(
@@ -148,7 +154,10 @@ void UMoonfallCharacterCreationWidget::SetPreviewTexture(UTexture2D* ExistingMoo
   PreviewImage->SetVisibility(ESlateVisibility::Visible);
  }
  else
+ {
+  PreviewImage->SetBrush(FSlateBrush());
   PreviewImage->SetVisibility(ESlateVisibility::HitTestInvisible);
+ }
  if (PreviewCaption)
   PreviewCaption->SetText(FText::FromString(
     PreviewTexture ? TEXT("MOONFALL ORIGINAL CHARACTER ART")
@@ -164,7 +173,10 @@ void UMoonfallCharacterCreationWidget::SetPreviewRenderTarget(
   return;
  if (!PreviewTarget)
  {
+  PreviewImage->SetBrush(FSlateBrush());
   PreviewImage->SetVisibility(ESlateVisibility::HitTestInvisible);
+  if (PreviewCaption)
+   PreviewCaption->SetText(FText::FromString(TEXT("Character preview is configured by the game")));
   return;
  }
  FSlateBrush Brush;
@@ -179,13 +191,16 @@ void UMoonfallCharacterCreationWidget::SetPreviewRenderTarget(
 void UMoonfallCharacterCreationWidget::BindPreviewActor(
  AMoonfallCharacterPreviewActor* PreviewActor)
 {
- BoundPreviewActor = PreviewActor;
+ // Detach all controls first so an invalid actor cannot leave dangling
+ // movement references or a stale image behind.
+ bDraggingPreview = false;
+ BoundPreviewActor.Reset();
+ BindPreviewRig(nullptr, nullptr);
+ SetPreviewRenderTarget(nullptr);
  if (!IsValid(PreviewActor))
- {
-  BindPreviewRig(nullptr, nullptr);
-  SetPreviewRenderTarget(nullptr);
   return;
- }
+
+ BoundPreviewActor = PreviewActor;
  BindPreviewRig(PreviewActor->GetPreviewPivot(), PreviewActor->GetPreviewArm());
  PreviewActor->SetPreviewRenderTarget(PreviewActor->GetPreviewRenderTarget());
  SetPreviewRenderTarget(PreviewActor->GetPreviewRenderTarget());
