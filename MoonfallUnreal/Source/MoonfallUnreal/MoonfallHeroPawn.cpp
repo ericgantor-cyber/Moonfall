@@ -157,6 +157,12 @@ void AMoonfallHeroPawn::BeginPlay() {
  const TSharedPtr<IPlugin> DLSS = IPluginManager::Get().FindPlugin(TEXT("DLSS"));
  bFrameGenerationPluginDetected = (FSR.IsValid() && FSR->IsEnabled()) || (DLSS.IsValid() && DLSS->IsEnabled());
  // Detection is only a hint, never proof of a supported frame-generation runtime.
+ // Remember the level-authored spawn before a save load can relocate us.
+ // A map with no PlayerStart may still have a valid placed hero pawn.
+ const FVector SpawnLocation = GetActorLocation();
+ bHasInitialSpawnTransform = !SpawnLocation.ContainsNaN()
+     && SpawnLocation.SizeSquared() < 1.0e14f;
+ if (bHasInitialSpawnTransform) InitialSpawnTransform = GetActorTransform();
  LoadWorldProgress();
 }
 void AMoonfallHeroPawn::Tick(float DeltaSeconds)
@@ -1574,6 +1580,15 @@ bool RestoreMoonfallPlayerStart(AMoonfallHeroPawn* Hero) {
  return false;
 }
 }
+bool AMoonfallHeroPawn::RestoreSafeSpawnLocation() {
+ // Favor authored PlayerStart actors; use the original placed pawn transform
+ // only when a map has no usable PlayerStart. Collision checks stay enabled.
+ if (RestoreMoonfallPlayerStart(this)) return true;
+ if (!bHasInitialSpawnTransform) return false;
+ const FVector Location = InitialSpawnTransform.GetLocation();
+ if (Location.ContainsNaN() || Location.SizeSquared() >= 1.0e14f) return false;
+ return TeleportTo(Location, InitialSpawnTransform.GetRotation().Rotator(), false, false);
+}
 bool AMoonfallHeroPawn::SaveWorldProgress() {
  // Existing incompatible/unreadable save must never be replaced by autosave
  // or by a quest/gear/race update from the temporary in-memory character.
@@ -1629,7 +1644,7 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  if (!TeleportTo(SavedCheckpoint, GetActorRotation(), false, false)) {
   // Saved position may be blocked by new dungeon geometry. Recover at an
   // authored PlayerStart instead of reviving inside a wall or at death site.
-  if (!RestoreMoonfallPlayerStart(this)) {
+  if (!RestoreSafeSpawnLocation()) {
    bPersistentSaveWritesBlocked = true;
    UE_LOG(LogTemp, Warning, TEXT("Moonfall checkpoint and PlayerStart are blocked; writes disabled."));
    return false;
@@ -1726,7 +1741,9 @@ void AMoonfallHeroPawn::RespawnAtCheckpoint() {
  if (!LoadWorldProgress()) {
   // No valid save: recover near the intended level spawn instead of staying
   // on the deadly spot. An unreadable save remains write-protected.
-  RestoreMoonfallPlayerStart(this);
+  if (!RestoreSafeSpawnLocation()) {
+   UE_LOG(LogTemp, Warning, TEXT("Moonfall has no clear checkpoint, PlayerStart or original spawn."));
+  }
   Health = FMath::Max(1.f, MaxHealth);
   Mana = FMath::Max(0.f, MaxMana);
   Stamina = FMath::Max(0.f, MaxStamina);
