@@ -209,7 +209,8 @@ class TestRacialPersistence(unittest.TestCase):
         self.assertIn("bWorldProgressInitialized = true;", startup)
         self.assertLess(startup.index("LoadWorldProgress();"),
                         startup.index("bWorldProgressInitialized = true;"))
-        self.assertIn("!bWorldProgressInitialized || bPersistentSaveWritesBlocked", discover)
+        self.assertIn("!bWorldProgressInitialized || bWorldProgressLoadInProgress", discover)
+        self.assertIn("|| bPersistentSaveWritesBlocked", discover)
         self.assertIn("ShrineSight.AddIgnoredActor(this)", discover)
         self.assertIn("ShrineSight.AddIgnoredActor(Shrine)", discover)
         self.assertIn("LineTraceTestByChannel(HeroLocation", discover)
