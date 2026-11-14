@@ -185,6 +185,14 @@ public:
   float BaseVitality, float BasePower, float BaseSpeed,
   FMoonfallRaceSelectionState& State);
 
+ // Move between playable family tabs and resolve a complete new snapshot.
+ // Uses keyboard/controller input; failure leaves State default.
+ UFUNCTION(BlueprintPure, Category="Moonfall|Races")
+ static bool StepPlayableRaceFamilySelectionState(
+  FName CurrentRaceId, FName CurrentFamily, bool bForward,
+  float BaseVitality, float BasePower, float BaseSpeed,
+  FMoonfallRaceSelectionState& State);
+
  // Returns false and an unmodified baseline profile for unknown identifiers.
  UFUNCTION(BlueprintPure, Category="Moonfall|Races")
  static bool FindRaceProfile(FName RaceId, FMoonfallRaceProfile& Profile);
