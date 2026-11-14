@@ -35,6 +35,32 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("SaveGame", playable + family)
         self.assertNotIn("SpawnActor", playable + family)
 
+    def test_blueprint_race_selection_preview_is_read_only_and_fails_closed(self):
+        header = (ROOT / "MoonfallRaceLibrary.h").read_text(encoding="utf-8")
+        code = (ROOT / "MoonfallRaceLibrary.cpp").read_text(encoding="utf-8")
+        self.assertIn("struct FMoonfallRaceStatPreview", header)
+        self.assertIn("static TArray<FName> GetRaceFamilies();", header)
+        self.assertIn("static bool FindPlayableRaceProfile(FName RaceId, FMoonfallRaceProfile& Profile);", header)
+        self.assertIn("static bool PreviewPlayableRaceStats(FName RaceId, float BaseVitality, float BasePower,", header)
+        families = code.split("UMoonfallRaceLibrary::GetRaceFamilies()", 1)[1].split(
+            "UMoonfallRaceLibrary::FindPlayableRaceProfile(", 1)[0]
+        self.assertIn("if (!Result.Contains(Family))", families)
+        select = code.split("UMoonfallRaceLibrary::FindPlayableRaceProfile(", 1)[1].split(
+            "UMoonfallRaceLibrary::PreviewPlayableRaceStats(", 1)[0]
+        self.assertIn("!Profile.bPlayableCandidate", select)
+        self.assertIn("Profile = FMoonfallRaceProfile();", select)
+        preview = code.split("UMoonfallRaceLibrary::PreviewPlayableRaceStats(", 1)[1].split(
+            "UMoonfallRaceLibrary::FindRaceProfile(", 1)[0]
+        self.assertIn("Preview = FMoonfallRaceStatPreview();", preview)
+        self.assertIn("FindPlayableRaceProfile(RaceId, Profile)", preview)
+        for stat in ("Vitality", "Power", "Speed"):
+            self.assertIn("FMath::IsFinite(Base" + stat + ")", preview)
+            self.assertIn("Base" + stat + " < 0.f", preview)
+            self.assertIn("FMath::IsFinite(" + stat + ")", preview)
+            self.assertIn("Preview." + stat + " = " + stat + ";", preview)
+        self.assertNotIn("SaveGame", families + select + preview)
+        self.assertNotIn("SpawnActor", families + select + preview)
+
     def test_isolated_race_catalog_is_cpp_syntax_safe_and_does_not_replace_persistence(self):
         import re
         catalog = (ROOT / "MoonfallRaceLibrary.cpp").read_text(encoding="utf-8")
