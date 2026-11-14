@@ -176,6 +176,15 @@ public:
   FName CurrentRaceId, FName Family, float BaseVitality, float BasePower,
   float BaseSpeed, FMoonfallRaceSelectionState& State);
 
+ // For keyboard/controller next/previous input: advance within the
+ // selected family and return a complete read-only menu snapshot together.
+ // On failure State remains default, without changing any saved selection.
+ UFUNCTION(BlueprintPure, Category="Moonfall|Races")
+ static bool StepPlayableRaceSelectionState(
+  FName CurrentRaceId, FName Family, bool bForward,
+  float BaseVitality, float BasePower, float BaseSpeed,
+  FMoonfallRaceSelectionState& State);
+
  // Returns false and an unmodified baseline profile for unknown identifiers.
  UFUNCTION(BlueprintPure, Category="Moonfall|Races")
  static bool FindRaceProfile(FName RaceId, FMoonfallRaceProfile& Profile);
