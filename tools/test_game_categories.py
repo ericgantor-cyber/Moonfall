@@ -5,6 +5,7 @@ import json
 import unittest
 
 from check_game_categories import MANIFEST, ROOT, validate
+from moonfall_category_plan import build_plan, ordered_tracks, render_markdown
 
 
 class CategoryRoadmapTests(unittest.TestCase):
@@ -14,6 +15,47 @@ class CategoryRoadmapTests(unittest.TestCase):
 
     def fresh(self):
         return copy.deepcopy(self.baseline)
+
+    def test_all_tracks_are_scheduled_once_after_prerequisites(self):
+        plan = build_plan(self.fresh())
+        self.assertEqual(plan["total"], 25)
+        seen = set()
+        for item in plan["tracks"]:
+            self.assertNotIn(item["id"], seen)
+            self.assertTrue(set(item["depends_on"]).issubset(seen), item["id"])
+            self.assertFalse(item["prerequisite_only"])
+            seen.add(item["id"])
+
+    def test_category_plan_includes_external_dependencies(self):
+        tracks = ordered_tracks(self.fresh(), "interface")
+        ids = [item["id"] for item in tracks]
+        self.assertIn("map_discovery", ids)
+        self.assertIn("world_layout", ids)
+        self.assertIn("inventory_equipment", ids)
+        self.assertIn("save_resilience", ids)
+        self.assertTrue(next(item for item in tracks if item["id"] == "map_discovery")[
+            "prerequisite_only"
+        ])
+        self.assertFalse(next(item for item in tracks if item["id"] == "menus_map")[
+            "prerequisite_only"
+        ])
+        self.assertLess(ids.index("map_discovery"), ids.index("menus_map"))
+        self.assertLess(ids.index("world_layout"), ids.index("map_discovery"))
+
+    def test_workplan_is_deterministic_and_readable(self):
+        a = build_plan(self.fresh(), category="combat")
+        b = build_plan(self.fresh(), category="combat")
+        self.assertEqual(a, b)
+        markdown = render_markdown(a["tracks"], "combat")
+        self.assertIn("## Foundation", markdown)
+        self.assertIn("## Integration", markdown)
+        self.assertIn("## Polish", markdown)
+        self.assertIn("Prerequisite", markdown)
+        self.assertIn("not_verified", markdown)
+
+    def test_unknown_category_is_not_silently_accepted(self):
+        with self.assertRaisesRegex(ValueError, "Unknown category"):
+            ordered_tracks(self.fresh(), "mystery")
 
     def test_real_registry_valid(self):
         validate(self.fresh(), ROOT)
