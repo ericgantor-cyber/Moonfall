@@ -208,6 +208,9 @@ public:
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Combat") int32 RightSpell = 1;
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Combat") void OnSpellCast(int32 School, bool bLeftHand);
 private:
+ // Protect an existing unsupported or unreadable slot from routine autosaves.
+ // Cleared only after a supported save has been loaded successfully.
+ bool bPersistentSaveWritesBlocked = false;
  float SecondsSinceLastWorldSave = 0.f;
  float DefeatElapsedSeconds = 0.f;
  // Delay routine checkpoint overwrites after respawning into danger.
