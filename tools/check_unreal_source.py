@@ -31,7 +31,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("if (Family.IsNone()) return Result;", family)
         self.assertIn("GetRaceIdsByFamily(Family)", family)
         self.assertIn("FindRaceProfile(RaceId, Profile) && Profile.Family == Family", family)
-        self.assertEqual(len(re.findall(r'^\\s*\\{TEXT\\("([a-z_]+)"\\),', impl, re.MULTILINE)), 30)
+        self.assertEqual(len(re.findall(r'^\s*\{TEXT\("([a-z_]+)"\),', impl, re.MULTILINE)), 30)
         self.assertNotIn("SaveGame", playable + family)
         self.assertNotIn("SpawnActor", playable + family)
 
