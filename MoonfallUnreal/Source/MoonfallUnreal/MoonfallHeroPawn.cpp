@@ -1678,9 +1678,10 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
  // would be exceeded; ground drops are not consumed in that case.
  if (InventoryItemCodes.Num() > 10000 || ResidentQuestStates.Num() > 64
      || DiscoveredShrineIds.Num() > 64) return false;
- // Do not serialize a mid-fall or invalid checkpoint.
- if ((GetCharacterMovement() && GetCharacterMovement()->IsFalling())
-     || GetActorLocation().ContainsNaN() || GetActorLocation().SizeSquared() >= 1.0e14f) return false;
+ // The checkpoint is the saved shrine, not the hero's airborne position.
+ // Falling or jumping must not suppress progress saves or ground-loot pickup.
+ // Still reject invalid world positions, and validate the shrine above.
+ if (GetActorLocation().ContainsNaN() || GetActorLocation().SizeSquared() >= 1.0e14f) return false;
  UMoonfallPersistentSave* Save = Cast<UMoonfallPersistentSave>(
      UGameplayStatics::CreateSaveGameObject(UMoonfallPersistentSave::StaticClass()));
  if (!Save) return false;
