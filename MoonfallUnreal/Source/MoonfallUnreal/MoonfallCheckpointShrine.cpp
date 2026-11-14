@@ -80,7 +80,9 @@ void AMoonfallCheckpointShrine::CheckHeroAtSpawn(AMoonfallHeroPawn* Hero)
 void AMoonfallCheckpointShrine::TryDiscoverOrQueueRetry(AMoonfallHeroPawn* Hero)
 {
  if (!IsValid(Hero) || ShrineId.IsNone() || Hero->GetWorld() != GetWorld()) return;
- if (Hero->HasDiscoveredShrine(ShrineId))
+ if (Hero->HasDiscoveredShrine(ShrineId)
+     && Hero->ActiveShrineId == ShrineId
+     && Hero->IsCurrentRespawnLocation(GetRespawnLocation()))
  {
   RefreshShrineDisplay(Hero);
   GetWorldTimerManager().ClearTimer(DiscoveryRetryTimer);
