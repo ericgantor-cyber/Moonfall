@@ -1629,6 +1629,13 @@ bool AMoonfallHeroPawn::RestoreSafeSpawnLocation() {
 bool AMoonfallHeroPawn::HasDiscoveredShrine(FName ShrineId) const {
  return !ShrineId.IsNone() && DiscoveredShrineIds.Contains(ShrineId);
 }
+bool AMoonfallHeroPawn::IsCurrentRespawnLocation(const FVector& Location) const {
+ // When a blocked saved shrine recovers at PlayerStart, its ID remains
+ // discovered but must not be labeled as the current respawn destination.
+ return bHasRespawnCheckpointLocation && !Location.ContainsNaN()
+     && !RespawnCheckpointLocation.ContainsNaN()
+     && FVector::DistSquared(RespawnCheckpointLocation, Location) <= FMath::Square(10.f);
+}
 bool AMoonfallHeroPawn::DiscoverShrine(AMoonfallCheckpointShrine* Shrine) {
  if (!IsValid(Shrine) || Shrine->GetWorld() != GetWorld()
      || Shrine->ShrineId.IsNone() || Health <= 0.f
