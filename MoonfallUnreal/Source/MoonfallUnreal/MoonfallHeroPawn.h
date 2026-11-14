@@ -7,9 +7,12 @@
 class USpringArmComponent;
 class UCameraComponent;
 class UAnimMontage;
+class UAnimInstance;
+class USkeletalMeshComponent;
 class AMoonfallEnemy;
 class AMoonfallKeyPickup;
 class UStaticMeshComponent;
+class UStaticMesh;
 class UPointLightComponent;
 UCLASS()
 class MOONFALLUNREAL_API AMoonfallHeroPawn : public ACharacter
@@ -20,6 +23,14 @@ public:
  virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
  virtual void BeginPlay() override;
  virtual void Tick(float DeltaSeconds) override;
+ // Original Moonfall twilight cycle. Time passes only while playing, not in menus.
+ // Dawn favors weapon strikes; night empowers offensive spells.
+ UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Twilight",
+   meta=(ClampMin="60.0", ClampMax="3600.0")) float TwilightCycleSeconds = 1440.f;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Twilight") float TwilightElapsedSeconds = 0.f;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Twilight") bool IsTwilightNight() const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Twilight") float GetTwilightWeaponMultiplier() const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Twilight") float GetTwilightSpellMultiplier() const;
  // Original Moonfall set themes use existing Force/Ward/Focus traits
  // on three equipped slots. No changes to encoded item IDs or saved gear.
  UFUNCTION(BlueprintPure, Category="Moonfall|Equipment|Sets") int32 GetSetPieceCount(int32 Affix) const;
@@ -91,6 +102,16 @@ public:
   UFUNCTION(BlueprintCallable, Category="Moonfall|Finishers") int32 RegisterFinisherKill(bool bShatterKill, bool bBossKill, FVector DefeatedLocation, AMoonfallEnemy* DefeatedEnemy);
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Finishers") void OnFinisherChain(int32 ChainStep, bool bShatterKill, bool bBossKill);
  UFUNCTION(BlueprintCallable, Category="Moonfall|Progression") void AwardExperience(int32 Amount);
+ // In-session talent allocation; earned points = Level - 1.
+ // Persistent talent ranks will follow the versioned progression save migration.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") int32 BladeTalentRank = 0;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") int32 ArcaneTalentRank = 0;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Talents") int32 TwinStrikeTalentRank = 0;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Talents") int32 GetUnspentTalentPoints() const;
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Talents") bool SpendTalentPoint(int32 TalentIndex);
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Combat") bool bDualWieldStance = false;
+ // Paired-strike mode uses the existing main weapon until off-hand equipment is integrated.
+ void StrikeWithOffhandWeapon();
  // Godot reward parity: currency auto-awards on defeat, physical keys and
  // equipment require an explicit interaction, with persistent door progression.
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Rewards") int64 Gold = 0;
@@ -167,11 +188,16 @@ public:
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Crafting") void OnEquipmentCrafted(int32 NewItemCode, int32 SalvageSpent);
  // Equip a validated inventory entry by index; the item remains in inventory.
  UFUNCTION(BlueprintCallable, Category="Moonfall|Equipment") bool EquipInventoryItem(int32 InventoryIndex);
+ // Explicitly equip a distinct bag weapon to the second hand.
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Equipment") bool EquipOffhandInventoryItem(int32 InventoryIndex);
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Equipment") void EquipSelectedOffhandInventoryItem();
  // Explicit inventory action, never automatic on loot pickup.
  UFUNCTION(BlueprintCallable, Category="Moonfall|Equipment") int32 EquipBestInventoryUpgrades();
  void EquipBestInventoryAction();
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Equipment") void OnBestLoadoutEquipped(int32 UpgradesEquipped);
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Equipment") int32 EquippedWeaponCode = 0;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Equipment") int32 EquippedOffhandCode = 0;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Equipment") int32 OffhandTier = 0;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Equipment") int32 EquippedArmorCode = 0;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Equipment") int32 EquippedAccessoryCode = 0;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Equipment") int32 WeaponTier = 0;
@@ -186,6 +212,62 @@ public:
  UFUNCTION(BlueprintCallable, Category="Moonfall|Inventory") void CycleHandSetup();
  UFUNCTION(BlueprintCallable, Category="Moonfall|Inventory") void SelectHandSetup(int32 Setup);
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Combat") void OnWeaponStrike(float Damage, bool bConnected);
+ // Non-destructive native proxy blades, replaceable with authored static meshes.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|DualWield") TObjectPtr<UStaticMeshComponent> MainhandVisual;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|DualWield") TObjectPtr<UStaticMeshComponent> OffhandVisual;
+ // Preserve the engine-native proxy for restoring a removed authored mesh.
+ UPROPERTY(Transient) TObjectPtr<UStaticMesh> DefaultWeaponProxyMesh;
+ // Designers may assign their own meshes and hand socket names in a subclass.
+ // No changes are made to the original hero skeletal meshes or textures.
+ UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|DualWield") TObjectPtr<UStaticMesh> MainhandMeshAsset;
+ UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|DualWield") TObjectPtr<UStaticMesh> OffhandMeshAsset;
+ // Authored weapons should not inherit the 0.09 x 0.035 x 0.68 cube-proxy scale.
+ // These scales apply only to assigned custom mesh assets (not character art).
+ UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|DualWield") FVector MainhandMeshScale = FVector::OneVector;
+ UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|DualWield") FVector OffhandMeshScale = FVector::OneVector;
+ UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|DualWield") FName MainhandSocket = TEXT("hand_rSocket");
+ UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|DualWield") FName OffhandSocket = TEXT("hand_lSocket");
+ // Automatically resolve common skeleton hand names when the authored
+ // socket is absent. This does not alter bones, skinning or imported meshes.
+ UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|DualWield") bool bAllowHandSocketFallbacks = true;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|DualWield") bool bMainhandRigAttached = false;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|DualWield") bool bOffhandRigAttached = false;
+ // Inspect which sockets a rig actually resolved, without guessing in UI.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|DualWield") FName ResolvedMainhandSocket = NAME_None;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|DualWield") FName ResolvedOffhandSocket = NAME_None;
+ // Indicates whether an authored montage is usable by the current anim instance.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|DualWield") bool bMainhandMontageReady = false;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|DualWield") bool bOffhandMontageReady = false;
+ // Readiness means an animation instance and montage are configured;
+ // playback success is recorded separately for the most recent swing.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|DualWield") bool bMainhandMontagePlayed = false;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|DualWield") bool bOffhandMontagePlayed = false;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|DualWield") bool bMainhandSwingAttempted = false;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|DualWield") bool bOffhandSwingAttempted = false;
+ // Call after switching a Blueprint's skeletal mesh or weapon assets.
+ UFUNCTION(BlueprintCallable, Category="Moonfall|DualWield") void RefreshDualWieldRig();
+ // Per-hand grips are authored independently of the original character rig.
+ // Socket offsets apply only when a matching skeletal socket exists.
+ UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|DualWield") FVector MainhandSocketOffset = FVector::ZeroVector;
+ UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|DualWield") FVector OffhandSocketOffset = FVector::ZeroVector;
+ UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|DualWield") FRotator MainhandGripRotation = FRotator(0.f, 10.f, -18.f);
+ UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|DualWield") FRotator OffhandGripRotation = FRotator(0.f, -10.f, 18.f);
+ UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|DualWield", meta=(ClampMin="0.10", ClampMax="1.0")) float MainhandSwingDuration = 0.30f;
+ UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|DualWield", meta=(ClampMin="0.10", ClampMax="1.0")) float OffhandSwingDuration = 0.30f;
+ UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|DualWield") TObjectPtr<UAnimMontage> MainhandSwingMontage;
+ UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|DualWield") TObjectPtr<UAnimMontage> OffhandSwingMontage;
+ UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|DualWield") void OnDualWieldSwing(bool bOffhand);
+ void BeginWeaponSwing(bool bOffhand);
+ void UpdateWeaponVisuals();
+ void InitializeDualWieldVisuals();
+ // Observe rig/animation asset changes once per second, not each rendered frame.
+ TWeakObjectPtr<USkeletalMeshComponent> ObservedWeaponRigComponent;
+ TWeakObjectPtr<UObject> ObservedWeaponRigAsset;
+ TWeakObjectPtr<UAnimInstance> ObservedWeaponAnimInstance;
+ float NextDualWieldRigAuditAt = 0.f;
+ void AuditDualWieldRigChanges();
+ float MainhandSwingStartedAt = -100.f;
+ float OffhandSwingStartedAt = -100.f;
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Combat") void OnSpellCast(int32 School, bool bLeftHand);
  // Optional authored animation/VFX hook: no replacement character art needed.
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Combat") void OnDualCastReleased(int32 School);
@@ -292,6 +374,7 @@ private:
  void ToggleWeaponSpell();
  void StrikeWithWeapon();
  float NextWeaponStrikeAt = 0.f;
+ float NextOffhandStrikeAt = 0.f;
  void Dodge();
  void BeginSprint();
  void EndSprint();

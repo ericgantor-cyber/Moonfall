@@ -3,6 +3,8 @@
 #include "GameFramework/Actor.h"
 #include "MoonfallEnemy.generated.h"
 class UStaticMeshComponent;
+class USkeletalMeshComponent;
+class UAnimMontage;
 UCLASS()
 class MOONFALLUNREAL_API AMoonfallEnemy : public AActor
 {
@@ -17,6 +19,12 @@ public:
  UPROPERTY(EditAnywhere, Category="Combat") float AttackCooldown = 1.3f;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat") bool bElite = false;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat") bool bBoss = false;
+ // Assign a catalog race in enemy/elite/boss Blueprints. None preserves
+ // existing combat balance and legacy spawns.
+ UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Races") FName RaceId = NAME_None;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Races") FName ResolvedRaceFamily = NAME_None;
+ // Resolved once at spawn. Keeps existing ChaseSpeed and NPC navigation settings unchanged.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Races") float RaceMovementMultiplier = 1.f;
  // Divine world bosses are NPC encounters, never playable hero identities.
  // The exact source artwork is intentionally not recreated or modified here.
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Boss|Divine") FName DivineBossId = NAME_None;
@@ -123,6 +131,21 @@ private:
  float CurrentAttackRangeMultiplier = 1.f;
 public:
  UPROPERTY(VisibleAnywhere) UStaticMeshComponent* Body;
+ // Shared optional skeletal rig used by normal enemies, elites and bosses.
+ // The original sphere Body stays the physics/navigation root and the
+ // fallback visual; assigning a skeletal mesh never alters imported art.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Rig") TObjectPtr<USkeletalMeshComponent> CharacterRig;
+ UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|Rig") TObjectPtr<UAnimMontage> AttackRigMontage;
+ UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|Rig") TObjectPtr<UAnimMontage> DeathRigMontage;
+ UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|Rig") TObjectPtr<UAnimMontage> HitRigMontage;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Rig") bool bCharacterRigActive = false;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Rig") bool bLastRigMontagePlayed = false;
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Rig") void RefreshCharacterRig();
+ UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Rig") void OnCharacterRigCue(FName CueId, bool bMontagePlayed);
+private:
+ void PlayCharacterRigCue(FName CueId, UAnimMontage* Montage);
+ TWeakObjectPtr<UObject> ObservedCharacterRigAsset;
+public:
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Combat") float LastHitAmount = 0.f;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Combat") float LastHitTime = -10.f;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Combat") bool bLastHitWasShatter = false;

@@ -23,7 +23,7 @@ AMoonfallKeyPickup::AMoonfallKeyPickup()
  KeyLabel->SetRelativeLocation(FVector(0.f, 0.f, 55.f));
  KeyLabel->SetHorizontalAlignment(EHorizTextAligment::EHTA_Center);
  KeyLabel->SetWorldSize(20.f);
- KeyLabel->SetText(FText::FromString(TEXT("KEY  [F / X]")));
+ KeyLabel->SetText(FText::FromString(TEXT("KEY - F")));
  KeyLabel->SetTextRenderColor(FColor(255, 215, 110));
 }
 
@@ -38,7 +38,7 @@ void AMoonfallKeyPickup::RefreshKeyLabel()
   Name = TEXT("OUTLAW SEAL");
  else if (KeyId == FName(TEXT("fallen_gate_key")))
   Name = TEXT("FALLEN GATE KEY");
- KeyLabel->SetText(FText::FromString(Name + TEXT("  [F / X]")));
+ KeyLabel->SetText(FText::FromString(Name + TEXT(" - F")));
 }
 
 void AMoonfallKeyPickup::BeginPlay()
@@ -56,7 +56,24 @@ void AMoonfallKeyPickup::BeginPlay()
 bool AMoonfallKeyPickup::TryCollect(AActor* Candidate)
 {
  AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(Candidate);
- if (!IsValid(Hero) || Hero->Health <= 0.f || Hero->bInventoryOpen || Hero->bOptionsOpen)
+ if (!IsValid(Hero) || !GetWorld() || !FMath::IsFinite(Hero->Health)
+     || Hero->Health <= 0.f || Hero->bInventoryOpen || Hero->bOptionsOpen)
+  return false;
+ // Enforce physical reach even when a Blueprint calls TryCollect directly.
+ // This keeps an inaccessible key from being acquired across walls or floors.
+ const FVector HeroAt = Hero->GetActorLocation();
+ const FVector KeyAt = GetActorLocation();
+ if (HeroAt.ContainsNaN() || KeyAt.ContainsNaN()
+     || FMath::Abs(HeroAt.Z - KeyAt.Z) > 150.f
+     || FVector::DistSquared2D(HeroAt, KeyAt) > FMath::Square(230.f))
+  return false;
+ FCollisionQueryParams SightParams(SCENE_QUERY_STAT(MoonfallKeyDirectCollectSight), false);
+ SightParams.AddIgnoredActor(Hero);
+ SightParams.AddIgnoredActor(this);
+ FHitResult Obstruction;
+ if (GetWorld()->LineTraceSingleByChannel(Obstruction,
+       HeroAt + FVector(0.f, 0.f, 40.f),
+       KeyAt + FVector(0.f, 0.f, 40.f), ECC_Visibility, SightParams))
   return false;
  // A saved key may be represented by a leftover actor after streaming.
  // Clearing that duplicate is harmless; a new key is destroyed only after

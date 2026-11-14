@@ -210,7 +210,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn('ActionName="PickupLoot"', inputs)
         self.assertNotIn('BindAction(TEXT("PickupLoot")', self.hero_cpp)
         self.assertIn("&AMoonfallHeroPawn::InteractWithNearbyWorld", self.hero_cpp)
-        self.assertIn("TryInteractWithNearbyKey();", self.hero_cpp.split("void AMoonfallHeroPawn::InteractWithNearbyWorld()", 1)[1].split("void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[0])
+        self.assertIn("if (TryInteractWithNearbyKey()) return;", self.hero_cpp.split("void AMoonfallHeroPawn::InteractWithNearbyWorld()", 1)[1].split("void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[0])
         self.assertIn("void PickupNearestGroundLoot();", self.hero_h)
         self.assertIn("void SpawnGroundEquipmentDrop(", self.hero_h)
         self.assertIn("bool CollectGroundEquipmentCode(int32 ItemCode);", self.hero_h)
@@ -291,7 +291,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('OptionsSelection + 1) % 8', self.hero_cpp)
         self.assertIn('for (int32 i=0;i<8;++i)', self.hud)
         ground_cpp = (ROOT / "MoonfallGroundLoot.cpp").read_text(encoding="utf-8")
-        self.assertIn('!Hero->bAutoLootEnabled', ground_cpp)
+        self.assertIn('(!bManualInteraction && !Hero->bAutoLootEnabled)', ground_cpp)
         self.assertIn('Hero->bOptionsOpen || Hero->bInventoryOpen', ground_cpp)
         self.assertIn('Hero->Health <= 0.f', ground_cpp)
         self.assertIn('SCENE_QUERY_STAT(MoonfallPersistedLootSight)', ground_cpp)
@@ -319,6 +319,444 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Loot->InitializeLoot(ItemCode);", loot)
         self.assertNotIn("*EquippedCode = ItemCode;", loot)
 
+    def test_persisted_talent_and_offhand_save_contracts(self):
+        reward_h = (ROOT / "MoonfallRewardSaveGame.h").read_text(encoding="utf-8")
+        controls = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
+        self.assertIn("int32 SchemaVersion = 5;", reward_h)
+        for field in ("EquippedOffhandCode", "SavedCharacterLevel", "SavedCharacterExperience",
+                      "SavedBladeTalentRank", "SavedArcaneTalentRank", "SavedTwinStrikeTalentRank"):
+            self.assertIn(field, reward_h)
+            self.assertIn("Save->" + field, self.hero_cpp)
+        self.assertIn("if (!SaveRewardProgress())", self.hero_cpp.split(
+            "bool AMoonfallHeroPawn::SpendTalentPoint(", 1)[1].split("\n}", 1)[0])
+        self.assertIn("--(*Rank);", self.hero_cpp)
+        self.assertIn("TALENT SAVE FAILED - POINT RESTORED", self.hero_cpp)
+        self.assertIn("PointsLeft -= BladeTalentRank;", self.hero_cpp)
+        self.assertIn("PointsLeft -= ArcaneTalentRank;", self.hero_cpp)
+        self.assertIn("SavedCharacterLevel >= 1", self.hero_cpp)
+        self.assertIn('ActionMappings=(ActionName="EquipOffhand",Key=T)', controls)
+        self.assertIn('Input->BindAction(TEXT("EquipOffhand")', self.hero_cpp)
+
+    def test_clearing_authored_weapon_restores_engine_proxy_geometry(self):
+        self.assertIn("UPROPERTY(Transient) TObjectPtr<UStaticMesh> DefaultWeaponProxyMesh;", self.hero_h)
+        self.assertIn("DefaultWeaponProxyMesh = SlashMesh.Succeeded() ? SlashMesh.Object : nullptr;", self.hero_cpp)
+        setup = self.hero_cpp.split("void AMoonfallHeroPawn::InitializeDualWieldVisuals()", 1)[1].split(
+            "void AMoonfallHeroPawn::AuditDualWieldRigChanges()", 1)[0]
+        for hand in ("Mainhand", "Offhand"):
+            self.assertIn(hand + "Visual->SetStaticMesh(" + hand + "MeshAsset.Get());", setup)
+            self.assertIn(hand + "Visual->SetStaticMesh(DefaultWeaponProxyMesh.Get());", setup)
+            self.assertIn(hand + "Visual->SetRelativeScale3D(ProxyScale);", setup)
+
+    def test_custom_dual_weapon_mesh_scales_do_not_inherit_proxy_scale(self):
+        self.assertIn("FVector MainhandMeshScale = FVector::OneVector;", self.hero_h)
+        self.assertIn("FVector OffhandMeshScale = FVector::OneVector;", self.hero_h)
+        setup = self.hero_cpp.split("void AMoonfallHeroPawn::InitializeDualWieldVisuals()", 1)[1].split(
+            "void AMoonfallHeroPawn::BeginWeaponSwing(", 1)[0]
+        self.assertIn("const FVector ProxyScale(0.09f, 0.035f, 0.68f);", setup)
+        self.assertIn("!Scale.ContainsNaN()", setup)
+        self.assertIn("Scale.GetMax() <= 10.f", setup)
+        self.assertIn("ValidWeaponScale(MainhandMeshScale) ? MainhandMeshScale : FVector::OneVector", setup)
+        self.assertIn("ValidWeaponScale(OffhandMeshScale) ? OffhandMeshScale : FVector::OneVector", setup)
+        self.assertIn("MainhandVisual->SetStaticMesh(DefaultWeaponProxyMesh.Get());", setup)
+        self.assertIn("MainhandVisual->SetRelativeScale3D(ProxyScale);", setup)
+        self.assertIn("OffhandVisual->SetStaticMesh(DefaultWeaponProxyMesh.Get());", setup)
+        self.assertIn("OffhandVisual->SetRelativeScale3D(ProxyScale);", setup)
+        self.assertIn("MainhandVisual->SetStaticMesh(MainhandMeshAsset.Get());", setup)
+        self.assertIn("OffhandVisual->SetStaticMesh(OffhandMeshAsset.Get());", setup)
+
+    def test_weapon_reattachment_resets_stale_parent_space_and_detects_component_swaps(self):
+        self.assertIn("TWeakObjectPtr<USkeletalMeshComponent> ObservedWeaponRigComponent;", self.hero_h)
+        rig = self.hero_cpp.split("void AMoonfallHeroPawn::InitializeDualWieldVisuals()", 1)[1].split(
+            "void AMoonfallHeroPawn::AuditDualWieldRigChanges()", 1)[0]
+        self.assertIn("if (Weapon->AttachToComponent(BodyMesh,", rig)
+        self.assertIn("FAttachmentTransformRules::SnapToTargetNotIncludingScale, Socket)", rig)
+        self.assertIn("Weapon->AttachToComponent(Root,", rig)
+        self.assertIn("FAttachmentTransformRules::SnapToTargetNotIncludingScale);", rig)
+        self.assertIn("Weapon->SetRelativeLocation(FallbackOffset);", rig)
+        self.assertIn("ObservedWeaponRigComponent = IsValid(BodyMesh) ? BodyMesh : nullptr;", rig)
+        audit = self.hero_cpp.split("void AMoonfallHeroPawn::AuditDualWieldRigChanges()", 1)[1].split(
+            "void AMoonfallHeroPawn::RefreshDualWieldRig()", 1)[0]
+        self.assertIn("BodyMesh != ObservedWeaponRigComponent.Get()", audit)
+        self.assertIn("CurrentRig != ObservedWeaponRigAsset.Get()", audit)
+        self.assertIn("CurrentAnim != ObservedWeaponAnimInstance.Get()", audit)
+
+    def test_replaced_skeletal_rigs_are_rechecked_without_frame_scans(self):
+        self.assertIn("ObservedWeaponRigAsset", self.hero_h)
+        self.assertIn("ObservedWeaponAnimInstance", self.hero_h)
+        self.assertIn("NextDualWieldRigAuditAt", self.hero_h)
+        self.assertIn("void AuditDualWieldRigChanges();", self.hero_h)
+        audit = self.hero_cpp.split("void AMoonfallHeroPawn::AuditDualWieldRigChanges()", 1)[1].split(
+            "void AMoonfallHeroPawn::RefreshDualWieldRig()", 1)[0]
+        self.assertIn("NextDualWieldRigAuditAt = Now + 1.f;", audit)
+        self.assertIn("GetSkeletalMeshAsset()", audit)
+        self.assertIn("GetAnimInstance()", audit)
+        self.assertIn("CurrentRig != ObservedWeaponRigAsset.Get()", audit)
+        self.assertIn("CurrentAnim != ObservedWeaponAnimInstance.Get()", audit)
+        self.assertIn("InitializeDualWieldVisuals();", audit)
+        tick = self.hero_cpp.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1].split(
+            "\n}", 1)[0]
+        self.assertIn("AuditDualWieldRigChanges();", tick)
+        self.assertNotIn("InitializeDualWieldVisuals();", tick)
+        init = self.hero_cpp.split("void AMoonfallHeroPawn::InitializeDualWieldVisuals()", 1)[1].split(
+            "void AMoonfallHeroPawn::AuditDualWieldRigChanges()", 1)[0]
+        self.assertIn("ObservedWeaponRigAsset =", init)
+        self.assertIn("ObservedWeaponAnimInstance = ActiveAnim;", init)
+
+    def test_swing_playback_diagnostics_do_not_reuse_stale_results(self):
+        for name in ("bMainhandMontagePlayed", "bOffhandMontagePlayed",
+                     "bMainhandSwingAttempted", "bOffhandSwingAttempted"):
+            self.assertIn(name, self.hero_h)
+        init = self.hero_cpp.split("void AMoonfallHeroPawn::InitializeDualWieldVisuals()", 1)[1].split(
+            "void AMoonfallHeroPawn::RefreshDualWieldRig()", 1)[0]
+        for name in ("bMainhandMontagePlayed", "bOffhandMontagePlayed",
+                     "bMainhandSwingAttempted", "bOffhandSwingAttempted"):
+            self.assertIn(name + " = false;", init)
+        swing = self.hero_cpp.split("void AMoonfallHeroPawn::BeginWeaponSwing(", 1)[1].split(
+            "void AMoonfallHeroPawn::UpdateWeaponVisuals()", 1)[0]
+        self.assertIn("bPlayed = false;", swing)
+        self.assertIn("bAttempted = false;", swing)
+        self.assertIn("bAttempted = true;", swing)
+        self.assertIn("bReady = IsValid(Anim) && IsValid(Montage);", swing)
+        self.assertIn("if (bReady)", swing)
+        self.assertIn("FMath::IsFinite(Played) && Played > 0.f", swing)
+        self.assertIn("OnDualWieldSwing(bOffhand);", swing)
+
+    def test_hero_rig_header_declares_animation_and_mesh_component_types(self):
+        self.assertIn("class UAnimInstance;", self.hero_h)
+        self.assertIn("class USkeletalMeshComponent;", self.hero_h)
+        self.assertIn("TWeakObjectPtr<UAnimInstance> ObservedWeaponAnimInstance;", self.hero_h)
+        self.assertIn("TWeakObjectPtr<USkeletalMeshComponent> ObservedWeaponRigComponent;", self.hero_h)
+
+    def test_all_character_montage_calls_guard_pending_kill_anim_instances(self):
+        rig_cpp = (ROOT / "MoonfallActorRigComponent.cpp").read_text(encoding="utf-8")
+        npc = rig_cpp.split("bool UMoonfallActorRigComponent::PlayRigCue(FName CueId)", 1)[1]
+        self.assertIn("UAnimInstance* Anim = RigMesh->GetAnimInstance();", npc)
+        self.assertIn("if (IsValid(Anim))", npc)
+        self.assertIn("Anim->Montage_Play(Entry->Get(), 1.f)", npc)
+        enemy = self.enemy_cpp.split("void AMoonfallEnemy::PlayCharacterRigCue(", 1)[1].split(
+            "void AMoonfallEnemy::CancelDivineSignature()", 1)[0]
+        self.assertIn("UAnimInstance* Anim = CharacterRig->GetAnimInstance();", enemy)
+        self.assertIn("if (IsValid(Anim))", enemy)
+        self.assertIn("Anim->Montage_Play(Montage, 1.f)", enemy)
+        self.assertIn("OnCharacterRigCue(CueId, bLastRigMontagePlayed);", enemy)
+
+    def test_npc_rig_refreshes_on_demand_after_asset_or_preference_changes(self):
+        rig_h = (ROOT / "MoonfallActorRigComponent.h").read_text(encoding="utf-8")
+        rig_cpp = (ROOT / "MoonfallActorRigComponent.cpp").read_text(encoding="utf-8")
+        self.assertIn("TWeakObjectPtr<UObject> ObservedRigAsset;", rig_h)
+        self.assertIn("TWeakObjectPtr<USkeletalMeshComponent> ObservedPreferredRigMesh;", rig_h)
+        self.assertIn("ObservedRigAsset = RigMesh.IsValid() ? RigMesh->GetSkeletalMeshAsset() : nullptr;", rig_cpp)
+        self.assertIn("ObservedPreferredRigMesh = PreferredRigMesh;", rig_cpp)
+        cue = rig_cpp.split("bool UMoonfallActorRigComponent::PlayRigCue(FName CueId)", 1)[1]
+        self.assertIn("RigMesh->GetOwner() != Owner", cue)
+        self.assertIn("PreferredRigMesh.Get() != ObservedPreferredRigMesh.Get()", cue)
+        self.assertIn("RigMesh->GetSkeletalMeshAsset() != ObservedRigAsset.Get()", cue)
+        self.assertIn("|| !RigMesh.IsValid()", cue)
+        self.assertIn("RefreshRig();", cue)
+        self.assertIn("OnRigCue(CueId, bLastCuePlayed);", cue)
+        self.assertIn("PrimaryComponentTick.bCanEverTick = false;", rig_cpp)
+
+    def test_all_character_rigs_keep_collision_scale_separate_and_validate_npc_ownership(self):
+        rig_h = (ROOT / "MoonfallActorRigComponent.h").read_text(encoding="utf-8")
+        rig_cpp = (ROOT / "MoonfallActorRigComponent.cpp").read_text(encoding="utf-8")
+        self.assertIn("TObjectPtr<USkeletalMeshComponent> PreferredRigMesh", rig_h)
+        self.assertIn("TObjectPtr<USkeletalMeshComponent> ActiveRigMesh", rig_h)
+        self.assertIn("if (PreferredRigMesh != nullptr)", rig_cpp)
+        self.assertIn("if (IsValid(PreferredRigMesh)", rig_cpp)
+        self.assertIn("PreferredRigMesh->GetOwner() == Owner", rig_cpp)
+        self.assertIn("IsValid(PreferredRigMesh->GetSkeletalMeshAsset())", rig_cpp)
+        self.assertIn("Owner->GetComponents<USkeletalMeshComponent>(Candidates);", rig_cpp)
+        self.assertIn("if (IsValid(Mesh) && IsValid(Mesh->GetSkeletalMeshAsset()))", rig_cpp)
+        self.assertIn("ActiveRigMesh = RigMesh.Get();", rig_cpp)
+        self.assertIn("bRigAvailable = RigMesh.IsValid();", rig_cpp)
+        self.assertIn("CharacterRig->SetAbsolute(false, false, true);", self.enemy_cpp)
+        self.assertIn("EVisibilityBasedAnimTickOption::OnlyTickPoseWhenRendered", self.enemy_cpp)
+        self.assertIn("Body->SetRelativeScale3D(FVector(0.85f,0.85f,1.4f));", self.enemy_cpp)
+        self.assertIn("CharacterRig->SetCollisionEnabled(ECollisionEnabled::NoCollision);", self.enemy_cpp)
+        self.assertIn("CharacterRig->SetCanEverAffectNavigation(false);", self.enemy_cpp)
+
+    def test_optional_npc_and_actor_rig_adapter_is_asset_preserving(self):
+        rig_h = (ROOT / "MoonfallActorRigComponent.h").read_text(encoding="utf-8")
+        rig_cpp = (ROOT / "MoonfallActorRigComponent.cpp").read_text(encoding="utf-8")
+        self.assertIn("UMoonfallActorRigComponent : public UActorComponent", rig_h)
+        self.assertIn("BlueprintSpawnableComponent", rig_h)
+        self.assertIn("TMap<FName, TObjectPtr<UAnimMontage>> MontageCues;", rig_h)
+        self.assertIn("void RefreshRig();", rig_h)
+        self.assertIn("bool PlayRigCue(FName CueId);", rig_h)
+        self.assertIn("void OnRigCue(FName CueId, bool bPlayed);", rig_h)
+        self.assertIn("PrimaryComponentTick.bCanEverTick = false;", rig_cpp)
+        self.assertIn("Owner->GetComponents<USkeletalMeshComponent>(Candidates);", rig_cpp)
+        self.assertIn("IsValid(Mesh->GetSkeletalMeshAsset())", rig_cpp)
+        self.assertIn("MontageCues.Find(CueId)", rig_cpp)
+        self.assertIn("FMath::IsFinite(Duration) && Duration > 0.f", rig_cpp)
+        self.assertIn("OnRigCue(CueId, bLastCuePlayed);", rig_cpp)
+        self.assertNotIn("SetSkeletalMesh(", rig_cpp)
+        self.assertNotIn("CreateDefaultSubobject", rig_cpp)
+
+    def test_enemy_boss_rig_asset_swaps_refresh_on_combat_cues(self):
+        self.assertIn("TWeakObjectPtr<UObject> ObservedCharacterRigAsset;", self.enemy_h)
+        rig = self.enemy_cpp.split("void AMoonfallEnemy::RefreshCharacterRig()", 1)[1].split(
+            "void AMoonfallEnemy::CancelDivineSignature()", 1)[0]
+        self.assertIn("ObservedCharacterRigAsset = CharacterRig->GetSkeletalMeshAsset();", rig)
+        self.assertIn("CharacterRig->GetSkeletalMeshAsset() != ObservedCharacterRigAsset.Get()", rig)
+        self.assertIn("RefreshCharacterRig();", rig)
+        self.assertIn("OnCharacterRigCue(CueId, bLastRigMontagePlayed);", rig)
+
+    def test_original_fantasy_race_catalog_and_enemy_balance(self):
+        race_h = (ROOT / "MoonfallRaceLibrary.h").read_text(encoding="utf-8")
+        race_cpp = (ROOT / "MoonfallRaceLibrary.cpp").read_text(encoding="utf-8")
+        self.assertIn("USTRUCT(BlueprintType)", race_h)
+        self.assertIn("UMoonfallRaceLibrary : public UBlueprintFunctionLibrary", race_h)
+        self.assertIn("static TArray<FName> GetRaceIds();", race_h)
+        self.assertIn("static bool FindRaceProfile(FName RaceId, FMoonfallRaceProfile& Profile);", race_h)
+        import re
+        ids = re.findall(r'\{TEXT\("([a-z_]+)"\), TEXT\("', race_cpp)
+        self.assertGreaterEqual(len(ids), 30)
+        self.assertEqual(len(ids), len(set(ids)))
+        for race in ("human", "high_elf", "wood_elf", "dwarf", "smallfolk",
+                     "orc", "goblin", "troll", "treekin", "dragon", "wraith",
+                     "fire_demon", "stonekin", "ancient_spirit"):
+            self.assertIn(race, ids)
+        self.assertIn("Profile = FMoonfallRaceProfile();", race_cpp)
+        self.assertIn("return false;", race_cpp)
+        self.assertIn("FName RaceId = NAME_None;", self.enemy_h)
+        self.assertIn("FName ResolvedRaceFamily = NAME_None;", self.enemy_h)
+        self.assertIn("float RaceMovementMultiplier = 1.f;", self.enemy_h)
+        begin = self.enemy_cpp.split("void AMoonfallEnemy::BeginPlay()", 1)[1].split(
+            "void AMoonfallEnemy::RefreshCharacterRig()", 1)[0]
+        self.assertIn("UMoonfallRaceLibrary::FindRaceProfile(RaceId, RaceProfile)", begin)
+        self.assertIn("RaceProfile.VitalityMultiplier", begin)
+        self.assertIn("RaceProfile.PowerMultiplier", begin)
+        self.assertIn("RaceMovementMultiplier = bKnownRace && FMath::IsFinite(RaceProfile.SpeedMultiplier)", begin)
+        self.assertIn("FMath::Clamp(RaceProfile.SpeedMultiplier, 0.65f, 1.35f) : 1.f;", begin)
+        self.assertIn("Health = FMath::Clamp(BaseHealth, 1.f, 100000.f) * HPScale;", begin)
+        self.assertIn("AttackDamage = FMath::Clamp(BaseDamage, 1.f, 10000.f) * DamageScale;", begin)
+        self.assertIn("if (bKnownRace)", begin)
+        self.assertIn("Health = FMath::Clamp(Health * RaceHealthScale", begin)
+        self.assertIn("AttackDamage = FMath::Clamp(AttackDamage * RaceDamageScale", begin)
+        self.assertIn("bKnownRace ? FMath::Clamp", begin)
+
+    def test_race_speed_modifies_chase_only_without_mutating_base_speed(self):
+        tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
+        self.assertIn("const float SafeChaseSpeed = FMath::Clamp(FMath::IsFinite(ChaseSpeed)", tick)
+        self.assertIn("SafeChaseSpeed * RaceMovementMultiplier", tick)
+        self.assertIn("* ChaseMultiplier * SafeAIDelta, true, &Hit);", tick)
+        self.assertNotIn("ChaseSpeed *= RaceMovementMultiplier", self.enemy_cpp)
+        self.assertNotIn("ChaseSpeed = ChaseSpeed * RaceMovementMultiplier", self.enemy_cpp)
+
+    def test_enemy_elite_and_boss_share_optional_skeletal_rig(self):
+        self.assertIn("class USkeletalMeshComponent;", self.enemy_h)
+        self.assertIn("TObjectPtr<USkeletalMeshComponent> CharacterRig;", self.enemy_h)
+        self.assertIn("TObjectPtr<UAnimMontage> AttackRigMontage;", self.enemy_h)
+        self.assertIn("TObjectPtr<UAnimMontage> HitRigMontage;", self.enemy_h)
+        self.assertIn("TObjectPtr<UAnimMontage> DeathRigMontage;", self.enemy_h)
+        self.assertIn("void RefreshCharacterRig();", self.enemy_h)
+        self.assertIn("void OnCharacterRigCue(FName CueId, bool bMontagePlayed);", self.enemy_h)
+        self.assertIn("CreateDefaultSubobject<USkeletalMeshComponent>(TEXT(\"CharacterRig\"))", self.enemy_cpp)
+        self.assertIn("CharacterRig->SetupAttachment(Body);", self.enemy_cpp)
+        self.assertIn("CharacterRig->SetCollisionEnabled(ECollisionEnabled::NoCollision);", self.enemy_cpp)
+        self.assertIn("CharacterRig->SetCanEverAffectNavigation(false);", self.enemy_cpp)
+        self.assertIn("RefreshCharacterRig();", self.enemy_cpp)
+        rig = self.enemy_cpp.split("void AMoonfallEnemy::RefreshCharacterRig()", 1)[1].split(
+            "void AMoonfallEnemy::CancelDivineSignature()", 1)[0]
+        self.assertIn("bCharacterRigActive = IsValid(CharacterRig->GetSkeletalMeshAsset());", rig)
+        self.assertIn("CharacterRig->SetHiddenInGame(!bCharacterRigActive);", rig)
+        self.assertIn("Body->SetVisibility(!bCharacterRigActive, false);", rig)
+        self.assertIn("Anim->Montage_Play(Montage, 1.f)", rig)
+        self.assertIn("OnCharacterRigCue(CueId, bLastRigMontagePlayed);", rig)
+        for cue, montage in (("Attack", "AttackRigMontage"),
+                             ("Hit", "HitRigMontage"), ("Defeat", "DeathRigMontage")):
+            self.assertIn('PlayCharacterRigCue(FName(TEXT("' + cue + '")), '
+                          + montage + ".Get());", self.enemy_cpp)
+        self.assertIn("UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=\"Combat\") bool bElite", self.enemy_h)
+        self.assertIn("UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=\"Combat\") bool bBoss", self.enemy_h)
+
+    def test_dual_wield_rig_diagnostics_and_montage_playback_safety(self):
+        for item in ("ResolvedMainhandSocket", "ResolvedOffhandSocket",
+                     "bMainhandMontageReady", "bOffhandMontageReady"):
+            self.assertIn(item, self.hero_h)
+        init = self.hero_cpp.split("void AMoonfallHeroPawn::InitializeDualWieldVisuals()", 1)[1].split(
+            "void AMoonfallHeroPawn::RefreshDualWieldRig()", 1)[0]
+        self.assertIn("ResolvedMainhandSocket = bMainhandRigAttached ? RightSocket : NAME_None;", init)
+        self.assertIn("ResolvedOffhandSocket = bOffhandRigAttached ? LeftSocket : NAME_None;", init)
+        self.assertIn("bMainhandMontageReady = IsValid(ActiveAnim) && IsValid(MainhandSwingMontage);", init)
+        self.assertIn("bOffhandMontageReady = IsValid(ActiveAnim) && IsValid(OffhandSwingMontage);", init)
+        swing = self.hero_cpp.split("void AMoonfallHeroPawn::BeginWeaponSwing(", 1)[1].split(
+            "void AMoonfallHeroPawn::UpdateWeaponVisuals()", 1)[0]
+        self.assertIn("const float Played = Anim->Montage_Play(Montage, 1.f);", swing)
+        self.assertIn("bPlayed = FMath::IsFinite(Played) && Played > 0.f;", swing)
+        self.assertIn("bReady = IsValid(Anim) && IsValid(Montage);", swing)
+        self.assertIn("OnDualWieldSwing(bOffhand);", swing)
+
+    def test_multiple_rig_socket_names_and_rebinding_are_safe(self):
+        for key in ("bAllowHandSocketFallbacks", "bMainhandRigAttached",
+                    "bOffhandRigAttached", "RefreshDualWieldRig()"):
+            self.assertIn(key, self.hero_h)
+        rig = self.hero_cpp.split("void AMoonfallHeroPawn::InitializeDualWieldVisuals()", 1)[1].split(
+            "void AMoonfallHeroPawn::RefreshDualWieldRig()", 1)[0]
+        self.assertIn("BodyMesh->DoesSocketExist(MainhandSocket)", rig)
+        self.assertIn("BodyMesh->DoesSocketExist(OffhandSocket)", rig)
+        for key in ("hand_r", "RightHand", "RightHandSocket", "weapon_r",
+                    "hand_l", "LeftHand", "LeftHandSocket", "weapon_l"):
+            self.assertIn('TEXT("' + key + '")', rig)
+        self.assertIn("if (bAllowHandSocketFallbacks)", rig)
+        self.assertIn("FAttachmentTransformRules::SnapToTargetNotIncludingScale", rig)
+        self.assertNotIn("FAttachmentTransformRules::KeepRelativeTransform", rig)
+        self.assertIn("Weapon->AttachToComponent(Root,", rig)
+        self.assertIn("FMath::IsFinite(AuthoredOffset.X)", rig)
+        self.assertIn("AuthoredOffset.GetAbsMax() <= 100.f", rig)
+        self.assertIn("bMainhandRigAttached = AttachWeapon(", rig)
+        self.assertIn("bOffhandRigAttached = AttachWeapon(", rig)
+        self.assertIn("Weapon->SetRelativeLocation(FallbackOffset);", rig)
+        refresh = self.hero_cpp.split("void AMoonfallHeroPawn::RefreshDualWieldRig()", 1)[1].split(
+            "void AMoonfallHeroPawn::BeginWeaponSwing(", 1)[0]
+        self.assertIn("InitializeDualWieldVisuals();", refresh)
+        self.assertNotIn("RefreshDualWieldRig();", self.hero_cpp.split(
+            "void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1].split("\n}", 1)[0])
+
+    def test_dual_wield_grip_tuning_is_respected_by_animation(self):
+        for name in ("MainhandSocketOffset", "OffhandSocketOffset",
+                     "MainhandGripRotation", "OffhandGripRotation",
+                     "MainhandSwingDuration", "OffhandSwingDuration"):
+            self.assertIn(name, self.hero_h)
+            self.assertIn(name, self.hero_cpp)
+        init = self.hero_cpp.split("void AMoonfallHeroPawn::InitializeDualWieldVisuals()", 1)[1].split(
+            "void AMoonfallHeroPawn::BeginWeaponSwing(", 1)[0]
+        self.assertIn("MainhandSocketOffset, FVector(35.f, 44.f, 12.f)", init)
+        self.assertIn("OffhandSocketOffset, FVector(35.f, -44.f, 12.f)", init)
+        visual = self.hero_cpp.split("void AMoonfallHeroPawn::UpdateWeaponVisuals()", 1)[1].split(
+            "void AMoonfallHeroPawn::StrikeWithOffhandWeapon()", 1)[0]
+        self.assertIn("FMath::IsFinite(MainhandSwingDuration)", visual)
+        self.assertIn("FMath::IsFinite(OffhandSwingDuration)", visual)
+        self.assertIn("FMath::Clamp(MainhandSwingDuration, 0.10f, 1.f)", visual)
+        self.assertIn("FMath::Clamp(OffhandSwingDuration, 0.10f, 1.f)", visual)
+        self.assertIn("FRotator Grip = MainhandGripRotation;", visual)
+        self.assertIn("FRotator Grip = OffhandGripRotation;", visual)
+        self.assertIn("Grip.Roll -= MainSweep;", visual)
+        self.assertIn("Grip.Roll += OffSweep;", visual)
+        self.assertNotIn("SetRelativeRotation(FRotator(0.f, 10.f, -18.f - MainSweep))", visual)
+
+    def test_dual_wield_custom_blade_meshes_and_hand_socket_fallback(self):
+        for name in ("MainhandMeshAsset", "OffhandMeshAsset",
+                     "MainhandSocket", "OffhandSocket"):
+            self.assertIn(name, self.hero_h)
+        self.assertIn("void AMoonfallHeroPawn::InitializeDualWieldVisuals()", self.hero_cpp)
+        self.assertIn("InitializeDualWieldVisuals();", self.hero_cpp)
+        visuals = self.hero_cpp.split("void AMoonfallHeroPawn::InitializeDualWieldVisuals()", 1)[1].split(
+            "void AMoonfallHeroPawn::BeginWeaponSwing(", 1)[0]
+        self.assertIn("MainhandVisual->SetStaticMesh(MainhandMeshAsset.Get());", visuals)
+        self.assertIn("OffhandVisual->SetStaticMesh(OffhandMeshAsset.Get());", visuals)
+        self.assertIn("BodyMesh->DoesSocketExist(MainhandSocket)", visuals)
+        self.assertIn("BodyMesh->DoesSocketExist(OffhandSocket)", visuals)
+        self.assertIn("SnapToTargetNotIncludingScale", visuals)
+        self.assertIn("MainhandVisual->SetCollisionEnabled(ECollisionEnabled::NoCollision);", visuals)
+        self.assertIn("OffhandVisual->SetCollisionEnabled(ECollisionEnabled::NoCollision);", visuals)
+        swing = self.hero_cpp.split("void AMoonfallHeroPawn::BeginWeaponSwing(", 1)[1].split(
+            "void AMoonfallHeroPawn::UpdateWeaponVisuals()", 1)[0]
+        self.assertIn("if (!bReduceMotion)", swing)
+        self.assertIn("OnDualWieldSwing(bOffhand);", swing)
+        self.assertIn("if (!bReduceMotion)", swing)
+        self.assertNotIn("if (!GetWorld() || bReduceMotion) return;", swing)
+
+    def test_dual_wield_visuals_and_swing_hooks_are_non_destructive(self):
+        self.assertIn("TObjectPtr<UStaticMeshComponent> MainhandVisual;", self.hero_h)
+        self.assertIn("TObjectPtr<UStaticMeshComponent> OffhandVisual;", self.hero_h)
+        self.assertIn("MainhandSwingMontage;", self.hero_h)
+        self.assertIn("OffhandSwingMontage;", self.hero_h)
+        self.assertIn("OnDualWieldSwing(bool bOffhand)", self.hero_h)
+        self.assertIn('CreateDefaultSubobject<UStaticMeshComponent>(TEXT("MainhandVisual"))', self.hero_cpp)
+        self.assertIn('CreateDefaultSubobject<UStaticMeshComponent>(TEXT("OffhandVisual"))', self.hero_cpp)
+        visual = self.hero_cpp.split("void AMoonfallHeroPawn::UpdateWeaponVisuals()", 1)[1].split(
+            "void AMoonfallHeroPawn::StrikeWithOffhandWeapon()", 1)[0]
+        self.assertIn("EquippedWeaponCode > 0", visual)
+        self.assertIn("EquippedOffhandCode > 0", visual)
+        self.assertIn("MainhandVisual->SetHiddenInGame(!bShowMain);", visual)
+        self.assertIn("OffhandVisual->SetHiddenInGame(!bShowOffhand);", visual)
+        self.assertIn("bReduceMotion", visual)
+        self.assertIn("MainhandVisual->SetRelativeRotation", visual)
+        self.assertIn("OffhandVisual->SetRelativeRotation", visual)
+        self.assertIn("const float Played = Anim->Montage_Play(Montage, 1.f);", self.hero_cpp)
+        self.assertIn("BeginWeaponSwing(true);", self.hero_cpp)
+        self.assertIn("BeginWeaponSwing(false);", self.hero_cpp)
+        self.assertIn("Weapon->SetCollisionEnabled(ECollisionEnabled::NoCollision);", self.hero_cpp)
+        self.assertIn("Weapon->SetGenerateOverlapEvents(false);", self.hero_cpp)
+
+    def test_offhand_crafting_is_atomic_and_rejects_ambiguous_copies(self):
+        for name in ("UpgradeInventoryItem", "ReforgeInventoryItemAffix",
+                     "AscendInventoryItemRarity"):
+            body = self.hero_cpp.split(
+                "bool AMoonfallHeroPawn::" + name + "(", 1)[1].split("\n}", 1)[0]
+            self.assertIn("if (Code == EquippedOffhandCode && Code == EquippedWeaponCode) return false;", body)
+            self.assertIn("const bool bCraftingOffhand = Slot == 0 && Code == EquippedOffhandCode;", body)
+            self.assertIn("if (MatchingCopies != 1) return false;", body)
+            self.assertIn("if (bCraftingOffhand)", body)
+            self.assertIn("EquippedOffhandCode = NewCode;", body)
+            self.assertIn("OffhandTier = NewCode % 1000;", body)
+            self.assertIn("const int32 PreviousOffhandCode = EquippedOffhandCode;", body)
+            self.assertIn("const int32 PreviousOffhandTier = OffhandTier;", body)
+            rollback = body.split("if (!SaveRewardProgress())", 1)[1]
+            self.assertIn("InventoryItemCodes[InventoryIndex] = Code;", rollback)
+            self.assertIn("Salvage = OldSalvage;", rollback)
+            self.assertIn("EquippedOffhandCode = PreviousOffhandCode;", rollback)
+            self.assertIn("OffhandTier = PreviousOffhandTier;", rollback)
+            self.assertNotIn("if (Code == EquippedOffhandCode) return false;", body)
+
+    def test_empty_offhand_autofill_rolls_back_if_loot_save_fails(self):
+        collect = self.hero_cpp.split("bool AMoonfallHeroPawn::CollectGroundEquipmentCode(", 1)[1].split(
+            "bool AMoonfallHeroPawn::CollectPersistedGroundEquipmentCode(", 1)[0]
+        self.assertIn("const bool bAutoEquipEmptyOffhand = SlotIndex == 0", collect)
+        self.assertIn("EquippedOffhandCode == 0", collect)
+        self.assertIn("InventoryItemCodes.Contains(EquippedWeaponCode)", collect)
+        self.assertIn("if (bAutoEquipEmptyOffhand)", collect)
+        self.assertIn("EquippedOffhandCode = ItemCode;", collect)
+        self.assertIn("OffhandTier = Tier;", collect)
+        failure = collect.split("if (!SaveRewardProgress())", 1)[1]
+        self.assertIn("if (bAutoEquipEmptyOffhand)", failure)
+        self.assertIn("EquippedOffhandCode = 0;", failure)
+        self.assertIn("OffhandTier = 0;", failure)
+
+    def test_offhand_weapon_requires_real_inventory_copy(self):
+        self.assertIn("bool AMoonfallHeroPawn::EquipOffhandInventoryItem(", self.hero_cpp)
+        self.assertIn("Code == EquippedWeaponCode ? 2 : 1", self.hero_cpp)
+        self.assertIn("if (Copies < CopiesNeeded || EquippedOffhandCode == Code)", self.hero_cpp)
+        self.assertIn("if (!SaveRewardProgress())", self.hero_cpp.split(
+            "bool AMoonfallHeroPawn::EquipOffhandInventoryItem(", 1)[1].split("\n}", 1)[0])
+        self.assertIn("EquippedOffhandCode = PreviousCode;", self.hero_cpp)
+        self.assertIn("OffhandTier = PreviousTier;", self.hero_cpp)
+        self.assertIn("EquippedOffhandCode <= 0", self.hero_cpp)
+        offhand = self.hero_cpp.split("void AMoonfallHeroPawn::StrikeWithOffhandWeapon()", 1)[1].split(
+            "void AMoonfallHeroPawn::StrikeWithWeapon()", 1)[0]
+        self.assertIn("FMath::Clamp(OffhandTier, 0, 25)", offhand)
+        self.assertIn("NextOffhandStrikeAt = Now + 0.32f;", offhand)
+        self.assertIn("Code == EquippedOffhandCode", self.hero_cpp)
+        self.assertIn("RequiredCopies = (Code == EquippedWeaponCode && Code == EquippedOffhandCode)", self.hero_cpp)
+        self.assertIn('FName(TEXT("MoonfallEquipOffhand"))', self.hud)
+        self.assertIn('TEXT("OFFHAND  T")', self.hud)
+        self.assertIn('TEXT("  [OFFHAND]")', self.hud)
+
+    def test_dual_weapon_mode_and_spendable_talent_contracts(self):
+        self.assertIn("bool bDualWieldStance = false;", self.hero_h)
+        self.assertIn("float NextOffhandStrikeAt = 0.f;", self.hero_h)
+        self.assertIn("if (Setup < 0 || Setup > 4", self.hero_cpp)
+        self.assertIn("bDualWieldStance = Setup == 4;", self.hero_cpp)
+        self.assertIn('FName(TEXT("MoonfallHandDualWeapons"))', self.hud)
+        self.assertIn("Hero->SelectHandSetup(4);", self.hud)
+        self.assertIn("void AMoonfallHeroPawn::StrikeWithOffhandWeapon()", self.hero_cpp)
+        offhand = self.hero_cpp.split("void AMoonfallHeroPawn::StrikeWithOffhandWeapon()", 1)[1].split(
+            "void AMoonfallHeroPawn::StrikeWithWeapon()", 1)[0]
+        self.assertIn("NextOffhandStrikeAt = Now + 0.32f;", offhand)
+        self.assertNotIn("NextWeaponStrikeAt", offhand)
+        self.assertIn("if (bDualWieldStance) StrikeWithOffhandWeapon();", self.hero_cpp)
+        self.assertIn("GetUnspentTalentPoints() const", self.hero_h)
+        self.assertIn("SpendTalentPoint(int32 TalentIndex)", self.hero_h)
+        self.assertIn("if (*Rank >= 5) return false;", self.hero_cpp)
+        self.assertIn("GetUnspentTalentPoints() <= 0", self.hero_cpp)
+        for name in ("MoonfallTalentBlade", "MoonfallTalentArcane", "MoonfallTalentTwin"):
+            self.assertIn(name, self.hud)
+        self.assertIn("0.04f * BladeTalentRank", self.hero_cpp)
+        self.assertIn("0.04f * ArcaneTalentRank", self.hero_cpp)
+        self.assertIn("0.06f * TwinStrikeTalentRank", self.hero_cpp)
+
     def test_primary_stats_sheet_is_read_only_and_affects_combat_recovery(self):
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
         hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
@@ -333,9 +771,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("if (bSpellShieldStance)", self.hero_cpp)
         self.assertIn("else BeginGuard();", self.hero_cpp)
         self.assertIn("if (Hand == 0 && bWeaponSpellStance) StrikeWithWeapon();", self.hero_cpp)
-        self.assertIn("bWeaponSpellStance = (Setup == 1 || Setup == 3);", self.hero_cpp)
+        self.assertIn("bWeaponSpellStance = (Setup == 1 || Setup == 3 || Setup == 4);", self.hero_cpp)
         self.assertIn("bSpellShieldStance = (Setup == 2 || Setup == 3);", self.hero_cpp)
-        self.assertIn("SelectHandSetup((CurrentSetup + 1) % 4);", self.hero_cpp)
+        self.assertIn("SelectHandSetup((CurrentSetup + 1) % 5);", self.hero_cpp)
         self.assertIn("if (bSpellShieldStance) EndGuard();", self.hero_cpp)
         for key in ("MoonfallHandSpellSpell", "MoonfallHandWeaponSpell", "MoonfallHandSpellShield", "MoonfallHandWeaponShield"):
             self.assertIn('FName(TEXT("' + key + '"))', self.hud)
@@ -344,7 +782,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Hero->SelectHandSetup(2);", self.hud)
         self.assertIn("Hero->SelectHandSetup(3);", self.hud)
         self.assertIn("void AMoonfallHeroPawn::SelectHandSetup(int32 Setup)", self.hero_cpp)
-        self.assertIn("bWeaponSpellStance = (Setup == 1 || Setup == 3);", self.hero_cpp)
+        self.assertIn("bWeaponSpellStance = (Setup == 1 || Setup == 3 || Setup == 4);", self.hero_cpp)
         self.assertIn("bSpellShieldStance = (Setup == 2 || Setup == 3);", self.hero_cpp)
         self.assertIn("const float Y = Top + 175.f + (Index - PageStart) * RowSpacing;", self.hud)
         self.assertIn('TEXT("SPELL+SHIELD")', self.hud)
@@ -632,7 +1070,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Code == EquippedAccessoryCode", salvage)
         self.assertIn("if (bEquippedCode)", salvage)
         self.assertIn("for (const int32 Candidate : InventoryItemCodes)", salvage)
-        self.assertIn("if (Copies <= 1) return false;", salvage)
+        self.assertIn("RequiredCopies = (Code == EquippedWeaponCode && Code == EquippedOffhandCode) ? 2 : 1;", salvage)
+        self.assertIn("if (Copies <= RequiredCopies) return false;", salvage)
         self.assertIn("Rarity < 0 || Rarity > 5 || Tier < 1 || Tier > 25", salvage)
         self.assertIn("(Rarity == 0 && Affix != 0)", salvage)
         self.assertIn("const int32 SalvageReward = 1 + Rarity * 2 + Tier / 5;", salvage)
@@ -797,7 +1236,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("FMath::IsFinite(ChaseSpeed) ? ChaseSpeed : 0.f", tick)
         self.assertIn("const float SafeChaseSpeed = FMath::Clamp(", tick)
         self.assertIn("ChaseSpeed : 0.f, 0.f, 2000.f);", tick)
-        self.assertIn("SafeChaseSpeed * ChaseMultiplier * SafeAIDelta, true, &Hit)", tick)
+        self.assertIn("SafeChaseSpeed * RaceMovementMultiplier", tick)
+        self.assertIn("* ChaseMultiplier * SafeAIDelta, true, &Hit)", tick)
         self.assertLess(tick.index("const float SafeAIDelta"), tick.index("AddActorWorldOffset("))
 
     def test_ai_batch_invalid_spell_damage_cannot_consume_shatter(self):
@@ -2058,7 +2498,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Now >= TacticalRetreatUntil && Now < TacticalReengageUntil", self.enemy_cpp)
         self.assertIn("FlankSign = bRetreatFlankLeft ? -1.f : 1.f;", self.enemy_cpp)
         self.assertIn("const float ChaseMultiplier = bTacticalReengage ? 1.2f : 1.f;", self.enemy_cpp)
-        self.assertIn("SafeChaseSpeed * ChaseMultiplier * SafeAIDelta", self.enemy_cpp)
+        self.assertIn("SafeChaseSpeed * RaceMovementMultiplier", self.enemy_cpp)
+        self.assertIn("* ChaseMultiplier * SafeAIDelta", self.enemy_cpp)
         self.assertIn("NextAttackAt = FMath::Max(NextAttackAt, TacticalRetreatUntil + 0.25f);", self.enemy_cpp)
         self.assertIn("if (bElite && !bBoss && Now < TacticalRetreatUntil", self.enemy_cpp)
         self.assertIn("Now >= HitReactionEndsAt && Now >= PostureBrokenUntil", self.enemy_cpp)
@@ -2629,6 +3070,114 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("GetSafeNormal2D()", self.enemy_cpp)
         self.assertIn("LineTraceSingleByChannel", self.enemy_cpp)
         self.assertIn("ApplyMoonfallDamage", self.enemy_cpp)
+
+
+    def test_left_mouse_only_attacks_and_f_interacts(self):
+        controls = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
+        self.assertIn('ActionMappings=(ActionName="InteractWorld",Key=F)', controls)
+        self.assertIn('ActionMappings=(ActionName="InteractWorld",Key=Gamepad_FaceButton_Left)', controls)
+        self.assertIn('ActionMappings=(ActionName="MouseCastLeft",Key=LeftMouseButton)', controls)
+        self.assertIn('Input->BindAction(TEXT("InteractWorld")', self.hero_cpp)
+        left = self.hero_cpp.split("void AMoonfallHeroPawn::MouseLeftPressed()", 1)[1].split("\n}", 1)[0]
+        self.assertIn("QueueMouseCast(0);", left)
+        self.assertNotIn("TryInteractWithAimedWorld", left)
+        self.assertNotIn("TryInteractWithAimedWorld", self.hero_cpp)
+        self.assertNotIn("bMouseLeftWorldInteraction", self.hero_cpp)
+        self.assertNotIn("bMouseLeftWorldInteraction", self.hero_h)
+        queued = self.hero_cpp.split("void AMoonfallHeroPawn::QueueMouseCast(int32 Hand)", 1)[1].split("\n}", 1)[0]
+        self.assertIn("bMouseLeftHeld && bMouseRightHeld", queued)
+
+    def test_quest_key_has_no_orphan_click_collision(self):
+        pickup_h = (ROOT / "MoonfallKeyPickup.h").read_text(encoding="utf-8")
+        pickup = (ROOT / "MoonfallKeyPickup.cpp").read_text(encoding="utf-8")
+        self.assertNotIn("AimTarget", pickup_h)
+        self.assertNotIn("AimTarget", pickup)
+        self.assertIn("KeyMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);", pickup)
+
+    def test_f_interaction_labels_and_actor_scan_match_controls(self):
+        key = (ROOT / "MoonfallKeyPickup.cpp").read_text(encoding="utf-8")
+        gate = (ROOT / "MoonfallKeyGate.cpp").read_text(encoding="utf-8")
+        self.assertIn('TEXT("KEY - F")', key)
+        self.assertIn('TEXT("LOCKED - F")', gate)
+        self.assertNotIn("F / CLICK", key + gate)
+        scan = self.hero_cpp.split("bool AMoonfallHeroPawn::TryInteractWithNearbyKey()", 1)[1].split(
+            "void AMoonfallHeroPawn::InteractWithNearbyWorld()", 1)[0]
+        self.assertNotIn("Scanned < 128", scan)
+        self.assertIn("!FMath::IsFinite(Health)", scan)
+        self.assertIn("HeroPosition.ContainsNaN()", scan)
+
+    def test_f_interacts_with_all_existing_explicit_world_objects(self):
+        world = self.hero_cpp.split("void AMoonfallHeroPawn::InteractWithNearbyWorld()", 1)[1].split(
+            "void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[0]
+        loot_h = (ROOT / "MoonfallGroundLoot.h").read_text(encoding="utf-8")
+        loot_cpp = (ROOT / "MoonfallGroundLoot.cpp").read_text(encoding="utf-8")
+        self.assertIn("if (TryInteractWithNearbyKey()) return;", world)
+        self.assertIn("TActorIterator<AMoonfallGroundLoot>", world)
+        self.assertIn("NearestLoot->TryCollect(true);", world)
+        self.assertIn("MoonfallManualEquipmentSight", world)
+        self.assertIn("bool TryCollect(bool bManualInteraction = false);", loot_h)
+        self.assertIn("bool AMoonfallGroundLoot::TryCollect(bool bManualInteraction)", loot_cpp)
+        self.assertIn("(!bManualInteraction && !Hero->bAutoLootEnabled)", loot_cpp)
+        self.assertIn("SCENE_QUERY_STAT(MoonfallPersistedLootSight)", loot_cpp)
+        self.assertIn("CollectPersistedGroundEquipmentCode(ItemCode, PersistentDropId)", loot_cpp)
+        # The timed auto-loot sweep continues to use the default, non-manual path.
+        auto = self.hero_cpp.split("void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[1].split(
+            "void AMoonfallHeroPawn::EquipBestInventoryAction()", 1)[0]
+        self.assertIn("Loot->TryCollect()", auto)
+        self.assertNotIn("Loot->TryCollect(true)", auto)
+
+    def test_moonfall_twilight_phase_is_bounded_and_nonblocking(self):
+        self.assertIn("float TwilightCycleSeconds = 1440.f;", self.hero_h)
+        self.assertIn("float TwilightElapsedSeconds = 0.f;", self.hero_h)
+        for fn in ("IsTwilightNight", "GetTwilightWeaponMultiplier", "GetTwilightSpellMultiplier"):
+            self.assertIn("AMoonfallHeroPawn::" + fn + "() const", self.hero_cpp)
+        tick = self.hero_cpp.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1].split(
+            "void AMoonfallHeroPawn::", 1)[0]
+        self.assertIn("!bOptionsOpen && !bInventoryOpen", tick)
+        self.assertIn("FMath::IsFinite(DeltaSeconds)", tick)
+        self.assertIn("FMath::Clamp(DeltaSeconds, 0.f, 0.1f)", tick)
+        self.assertIn("FMath::Fmod(", tick)
+
+    def test_twilight_damage_bonus_is_original_and_hud_visible(self):
+        self.assertIn("return IsTwilightNight() ? 1.f : 1.10f;", self.hero_cpp)
+        self.assertIn("return IsTwilightNight() ? 1.10f : 1.f;", self.hero_cpp)
+        weapon = self.hero_cpp.split("void AMoonfallHeroPawn::StrikeWithWeapon()", 1)[1].split(
+            "void AMoonfallHeroPawn::CastLeft()", 1)[0]
+        spell = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split(
+            "void AMoonfallHeroPawn::CastLeft()", 1)[0]
+        self.assertIn("* GetTwilightWeaponMultiplier()", weapon)
+        self.assertIn("* GetTwilightSpellMultiplier()", spell)
+        self.assertIn('TEXT("DAY  +10% WEAPON POWER")', self.hud)
+        self.assertIn('TEXT("NIGHT  +10% SPELL POWER")', self.hud)
+        self.assertIn("Hero->IsTwilightNight()", self.hud)
+
+    def test_f_equipment_targeting_prefers_visible_front_drops(self):
+        world = self.hero_cpp.split("void AMoonfallHeroPawn::InteractWithNearbyWorld()", 1)[1].split(
+            "void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[0]
+        self.assertIn("if (TryInteractWithNearbyKey()) return;", world)
+        self.assertIn("NearestFacingLoot", world)
+        self.assertIn("FVector::DotProduct(Facing, Direction) >= 0.25f", world)
+        self.assertIn("if (IsValid(NearestFacingLoot)) NearestLoot = NearestFacingLoot;", world)
+        self.assertIn("if (GetWorld()->LineTraceSingleByChannel", world)
+        self.assertIn("FMath::Abs(At.Z - HeroAt.Z) > 150.f", world)
+        self.assertIn("NearestLoot->TryCollect(true)", world)
+        self.assertLess(world.index("if (TryInteractWithNearbyKey()) return;"),
+                        world.index("NearestLoot->TryCollect(true)"))
+        self.assertIn("INVENTORY FULL - EQUIPMENT LEFT ON GROUND", world)
+        self.assertIn("NOTHING IN REACH - MOVE CLOSER", world)
+        self.assertNotIn("TryInteractWithAimedWorld", world)
+
+    def test_direct_key_and_gate_transactions_require_reach_and_visibility(self):
+        pickup = (ROOT / "MoonfallKeyPickup.cpp").read_text(encoding="utf-8")
+        gate = (ROOT / "MoonfallKeyGate.cpp").read_text(encoding="utf-8")
+        for source, action, distance, sight in (
+            (pickup, "Hero->CollectQuestKey(KeyId)", "FVector::DistSquared2D(HeroAt, KeyAt)", "MoonfallKeyDirectCollectSight"),
+            (gate, "Hero->CommitGateUnlock(GateId, RequiredKeyId)", "FVector::DistSquared2D(HeroPosition, GatePosition)", "MoonfallGateDirectUnlockSight"),
+        ):
+            self.assertIn(distance, source)
+            self.assertIn(sight, source)
+            self.assertLess(source.index(distance), source.index(action))
+            self.assertLess(source.index(sight), source.index(action))
 
 if __name__ == "__main__":
     unittest.main()
