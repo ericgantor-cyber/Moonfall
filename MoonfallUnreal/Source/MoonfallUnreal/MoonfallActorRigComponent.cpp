@@ -89,6 +89,25 @@ TArray<FName> UMoonfallActorRigComponent::GetRigCueIds() const
  return Result;
 }
 
+bool UMoonfallActorRigComponent::IsRigCuePlaying(FName CueId) const
+{
+ if (!HasRigCue(CueId)) return false;
+ const AActor* Owner = GetOwner();
+ if (!IsValid(Owner) || !RigMesh.IsValid() || RigMesh->GetOwner() != Owner
+     || PreferredRigMesh.Get() != ObservedPreferredRigMesh.Get()
+     || (PreferredRigMesh != nullptr && PreferredRigMesh.Get() != RigMesh.Get())
+     || !IsValid(RigMesh->GetSkeletalMeshAsset())
+     || RigMesh->GetSkeletalMeshAsset() != ObservedRigAsset.Get())
+  return false;
+ const TObjectPtr<UAnimMontage>* Entry = MontageCues.Find(CueId);
+ if (!Entry || !IsValid(Entry->Get())
+     || !IsValid(Entry->Get()->GetSkeleton())
+     || Entry->Get()->GetSkeleton() != RigMesh->GetSkeletalMeshAsset()->GetSkeleton())
+  return false;
+ const UAnimInstance* Anim = RigMesh->GetAnimInstance();
+ return IsValid(Anim) && Anim->Montage_IsPlaying(Entry->Get());
+}
+
 bool UMoonfallActorRigComponent::PlayRigCue(FName CueId)
 {
  // Refresh on demand after swapping an NPC mesh or the preferred rig.
