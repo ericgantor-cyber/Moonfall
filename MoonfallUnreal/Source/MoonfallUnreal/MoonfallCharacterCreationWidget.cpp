@@ -1,4 +1,5 @@
 #include "MoonfallCharacterCreationWidget.h"
+#include "MoonfallCharacterPreviewActor.h"
 
 #include "Blueprint/WidgetTree.h"
 #include "Components/Border.h"
@@ -12,6 +13,8 @@
 #include "Components/VerticalBox.h"
 #include "Components/VerticalBoxSlot.h"
 #include "Engine/Texture2D.h"
+#include "Engine/TextureRenderTarget2D.h"
+#include "Styling/SlateBrush.h"
 #include "InputCoreTypes.h"
 #include "Input/Reply.h"
 
@@ -136,6 +139,7 @@ bool UMoonfallCharacterCreationWidget::InitializeSelection(
 void UMoonfallCharacterCreationWidget::SetPreviewTexture(UTexture2D* ExistingMoonfallTexture)
 {
  PreviewTexture = ExistingMoonfallTexture;
+ PreviewTarget = nullptr;
  if (!PreviewImage)
   return;
  if (PreviewTexture)
@@ -149,6 +153,42 @@ void UMoonfallCharacterCreationWidget::SetPreviewTexture(UTexture2D* ExistingMoo
   PreviewCaption->SetText(FText::FromString(
     PreviewTexture ? TEXT("MOONFALL ORIGINAL CHARACTER ART")
                    : TEXT("Character preview is configured by the game")));
+}
+
+void UMoonfallCharacterCreationWidget::SetPreviewRenderTarget(
+ UTextureRenderTarget2D* ExistingTarget)
+{
+ PreviewTarget = ExistingTarget;
+ PreviewTexture = nullptr;
+ if (!PreviewImage)
+  return;
+ if (!PreviewTarget)
+ {
+  PreviewImage->SetVisibility(ESlateVisibility::HitTestInvisible);
+  return;
+ }
+ FSlateBrush Brush;
+ Brush.SetResourceObject(PreviewTarget);
+ Brush.ImageSize = FVector2D(PreviewTarget->SizeX, PreviewTarget->SizeY);
+ PreviewImage->SetBrush(Brush);
+ PreviewImage->SetVisibility(ESlateVisibility::Visible);
+ if (PreviewCaption)
+  PreviewCaption->SetText(FText::FromString(TEXT("LIVE MOONFALL CHARACTER PREVIEW")));
+}
+
+void UMoonfallCharacterCreationWidget::BindPreviewActor(
+ AMoonfallCharacterPreviewActor* PreviewActor)
+{
+ BoundPreviewActor = PreviewActor;
+ if (!IsValid(PreviewActor))
+ {
+  BindPreviewRig(nullptr, nullptr);
+  SetPreviewRenderTarget(nullptr);
+  return;
+ }
+ BindPreviewRig(PreviewActor->GetPreviewPivot(), PreviewActor->GetPreviewArm());
+ PreviewActor->SetPreviewRenderTarget(PreviewActor->GetPreviewRenderTarget());
+ SetPreviewRenderTarget(PreviewActor->GetPreviewRenderTarget());
 }
 
 void UMoonfallCharacterCreationWidget::BindPreviewRig(
@@ -171,6 +211,8 @@ void UMoonfallCharacterCreationWidget::RotatePreview(float DeltaYaw)
  if (PreviewRotationPivot.IsValid())
  {
   PreviewRotationPivot->AddLocalRotation(FRotator(0.f, DeltaYaw, 0.f));
+  if (BoundPreviewActor.IsValid())
+   BoundPreviewActor->RefreshPreview();
   return;
  }
  OnPreviewRotateRequested(DeltaYaw);
@@ -188,6 +230,8 @@ void UMoonfallCharacterCreationWidget::ZoomPreview(float ZoomSteps)
    return;
   PreviewZoomArm->TargetArmLength =
     FMath::Clamp(Distance - ZoomSteps * 40.f, 125.f, 650.f);
+  if (BoundPreviewActor.IsValid())
+   BoundPreviewActor->RefreshPreview();
   return;
  }
  OnPreviewZoomRequested(ZoomSteps);
@@ -200,6 +244,8 @@ void UMoonfallCharacterCreationWidget::ResetPreviewView()
   PreviewRotationPivot->SetRelativeRotation(InitialPreviewRotation);
  if (PreviewZoomArm.IsValid())
   PreviewZoomArm->TargetArmLength = InitialPreviewArmLength;
+ if (BoundPreviewActor.IsValid())
+  BoundPreviewActor->RefreshPreview();
 }
 
 void UMoonfallCharacterCreationWidget::RefreshRaceList()
