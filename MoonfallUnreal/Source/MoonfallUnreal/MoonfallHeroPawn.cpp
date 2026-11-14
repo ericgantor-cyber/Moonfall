@@ -1640,13 +1640,8 @@ bool AMoonfallHeroPawn::DiscoverShrine(AMoonfallCheckpointShrine* Shrine) {
  if (!IsValid(Shrine) || Shrine->GetWorld() != GetWorld()
      || Shrine->ShrineId.IsNone() || Health <= 0.f
      || !bWorldProgressInitialized || bWorldProgressLoadInProgress
-     || bPersistentSaveWritesBlocked) return false;
- const bool bPreviouslyDiscovered = HasDiscoveredShrine(Shrine->ShrineId);
- // A recovered checkpoint can point to PlayerStart while its shrine is still
- // discovered. Allow safely reactivating that shrine without rediscovering it.
- if ((bPreviouslyDiscovered && ActiveShrineId == Shrine->ShrineId
-      && IsCurrentRespawnLocation(Shrine->GetRespawnLocation()))
-     || (!bPreviouslyDiscovered && DiscoveredShrineIds.Num() >= 64)) return false;
+     || bPersistentSaveWritesBlocked || HasDiscoveredShrine(Shrine->ShrineId)
+     || DiscoveredShrineIds.Num() >= 64) return false;
  const FVector ShrineLocation = Shrine->GetActorLocation();
  const FVector HeroLocation = GetActorLocation();
  const FVector NewRespawn = Shrine->GetRespawnLocation();
@@ -1680,14 +1675,14 @@ bool AMoonfallHeroPawn::DiscoverShrine(AMoonfallCheckpointShrine* Shrine) {
  const FName PreviousShrineId = ActiveShrineId;
  const FVector PreviousCheckpoint = RespawnCheckpointLocation;
  const bool bPreviousCheckpointValid = bHasRespawnCheckpointLocation;
- if (!bPreviouslyDiscovered) DiscoveredShrineIds.Add(Shrine->ShrineId);
+ DiscoveredShrineIds.Add(Shrine->ShrineId);
  ActiveShrineId = Shrine->ShrineId;
  RespawnCheckpointLocation = NewRespawn;
  bHasRespawnCheckpointLocation = true;
  // Unlock + checkpoint persist together. Failed saves cannot activate a
  // shrine in memory and silently lose it after quitting.
  if (!SaveWorldProgress()) {
-  if (!bPreviouslyDiscovered) DiscoveredShrineIds.Remove(Shrine->ShrineId);
+  DiscoveredShrineIds.Remove(Shrine->ShrineId);
   ActiveShrineId = PreviousShrineId;
   RespawnCheckpointLocation = PreviousCheckpoint;
   bHasRespawnCheckpointLocation = bPreviousCheckpointValid;
@@ -1699,8 +1694,7 @@ bool AMoonfallHeroPawn::DiscoverShrine(AMoonfallCheckpointShrine* Shrine) {
  // Old shrines stop showing ACTIVE without a per-frame world scan.
  for (TActorIterator<AMoonfallCheckpointShrine> It(GetWorld()); It; ++It)
   if (IsValid(*It)) It->RefreshShrineDisplay(this);
- // Reactivating a known shrine must not repeat its first-discovery reward.
- if (!bPreviouslyDiscovered) OnShrineDiscovered(ActiveShrineId);
+ OnShrineDiscovered(ActiveShrineId);
  return true;
 }
 bool AMoonfallHeroPawn::SaveWorldProgress() {
