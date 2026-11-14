@@ -58,6 +58,32 @@ class TalentTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "earlier tier"):
             validate(bad)
 
+    def test_malformed_tree_data_raises_value_error_not_runtime_crashes(self):
+        broken_values = (None, [], "not a tree", {"schema_version": 1})
+        for broken in broken_values:
+            with self.subTest(broken=broken), self.assertRaises(ValueError):
+                validate(broken)
+        for branch in (None, "might", {}, {"id": []}, {"id": ""}):
+            broken = copy.deepcopy(self.tree)
+            broken["branches"][0] = branch
+            with self.subTest(branch=branch), self.assertRaises(ValueError):
+                validate(broken)
+        for node in (None, "node", {}, {"id": []}, {"id": ""}):
+            broken = copy.deepcopy(self.tree)
+            broken["nodes"][0] = node
+            with self.subTest(node=node), self.assertRaises(ValueError):
+                validate(broken)
+        for effect in (None, [], "damage"):
+            broken = copy.deepcopy(self.tree)
+            broken["nodes"][0]["effect"] = effect
+            with self.subTest(effect=effect), self.assertRaises(ValueError):
+                validate(broken)
+        for prerequisite in ({"id": "iron_will"}, ["iron_will"], None, 1):
+            broken = copy.deepcopy(self.tree)
+            broken["nodes"][1]["requires"] = [prerequisite]
+            with self.subTest(prerequisite=prerequisite), self.assertRaises(ValueError):
+                validate(broken)
+
     def test_spend_rejects_malformed_and_invalid_existing_state(self):
         for bad_state in (None, [], "", False):
             with self.assertRaisesRegex(ValueError, "Allocations must be a map"):
