@@ -23,21 +23,47 @@
 #include "CollisionQueryParams.h"
 // Equipment stats are intentionally derived from equipped codes, never the
 // inventory list: carrying loot cannot accidentally grant combat bonuses.
-// Ignore malformed codes so externally edited Blueprint state fails closed.
+// All combat bonuses share one strict decoder. Invalid or wrong-slot codes
+// must not grant rarity, tier, affix or set bonuses.
+namespace {
+bool DecodeEquippedItem(int32 Code, int32 ExpectedSlot, int32& OutTrait, int32& OutRarity, int32& OutTier)
+{
+ if (Code <= 0 || ExpectedSlot < 0 || ExpectedSlot > 2) return false;
+ const int32 Trait = Code / 100000;
+ const int32 Slot = (Code / 10000) % 10;
+ const int32 Rarity = (Code / 1000) % 10;
+ const int32 Tier = Code % 1000;
+ // Match RollEquipmentCode/EquipInventoryItem: common gear and some
+ // uncommon gear legitimately have no trait (0). Common gear has rarity 0.
+ if (Trait < 0 || Trait > 3 || Slot != ExpectedSlot ||
+     Rarity < 0 || Rarity > 5 || Tier < 1 || Tier > 25 ||
+     (Rarity == 0 && Trait != 0) ||
+     Code != Trait * 100000 + Slot * 10000 + Rarity * 1000 + Tier) return false;
+ OutTrait = Trait;
+ OutRarity = Rarity;
+ OutTier = Tier;
+ return true;
+}
+int32 ValidEquippedTier(int32 Code, int32 Slot)
+{
+ int32 Trait = 0, Rarity = 0, Tier = 0;
+ return DecodeEquippedItem(Code, Slot, Trait, Rarity, Tier) ? Tier : 0;
+}
+float ValidEquippedRarityBonus(int32 Code, int32 Slot, int32 ExpectedTrait, float PerRarity)
+{
+ int32 Trait = 0, Rarity = 0, Tier = 0;
+ return DecodeEquippedItem(Code, Slot, Trait, Rarity, Tier) && Trait == ExpectedTrait
+     ? Rarity * PerRarity : 0.f;
+}
+}
 int32 AMoonfallHeroPawn::GetSetPieceCount(int32 Affix) const
 {
  if (Affix < 1 || Affix > 3) return 0;
  const int32 Codes[3] = {EquippedWeaponCode, EquippedArmorCode, EquippedAccessoryCode};
  int32 Pieces = 0;
  for (int32 Slot = 0; Slot < 3; ++Slot) {
-  const int32 Code = Codes[Slot];
-  const int32 Trait = Code / 100000;
-  const int32 ItemSlot = (Code / 10000) % 10;
-  const int32 Rarity = (Code / 1000) % 10;
-  const int32 Tier = Code % 1000;
-  if (Code > 0 && Trait == Affix && ItemSlot == Slot && Rarity >= 1
-      && Rarity <= 5 && Tier >= 1 && Tier <= 25
-      && Code == Trait * 100000 + Slot * 10000 + Rarity * 1000 + Tier)
+  int32 Trait = 0, Rarity = 0, Tier = 0;
+  if (DecodeEquippedItem(Codes[Slot], Slot, Trait, Rarity, Tier) && Trait == Affix)
    ++Pieces;
  }
  return Pieces;
@@ -45,24 +71,26 @@ int32 AMoonfallHeroPawn::GetSetPieceCount(int32 Affix) const
 
 int32 AMoonfallHeroPawn::GetMight() const
 {
- return FMath::Clamp(10 + FMath::Max(0, Level - 1) / 2 + FMath::Clamp(WeaponTier, 0, 25), 10, 100);
+ return FMath::Clamp(10 + FMath::Max(0, Level - 1) / 2 +
+   ValidEquippedTier(EquippedWeaponCode, 0), 10, 100);
 }
 
 int32 AMoonfallHeroPawn::GetInsight() const
 {
- return FMath::Clamp(10 + FMath::Max(0, Level - 1) / 2 + FMath::Clamp(AccessoryTier, 0, 25), 10, 100);
+ return FMath::Clamp(10 + FMath::Max(0, Level - 1) / 2 +
+   ValidEquippedTier(EquippedAccessoryCode, 2), 10, 100);
 }
 
 int32 AMoonfallHeroPawn::GetResolve() const
 {
- return FMath::Clamp(10 + FMath::Max(0, Level - 1) / 2 + FMath::Clamp(ArmorTier, 0, 25), 10, 100);
+ return FMath::Clamp(10 + FMath::Max(0, Level - 1) / 2 +
+   ValidEquippedTier(EquippedArmorCode, 1), 10, 100);
 }
 
 float AMoonfallHeroPawn::GetCriticalChance() const
 {
  // Force: 2-piece improves critical chances. A 3-piece grants mastery.
- const int32 Rarity = FMath::Clamp((EquippedWeaponCode / 1000) % 10, 0, 5);
- const float TraitCrit = WeaponAffix == 1 ? Rarity * 0.008f : 0.f;
+ const float TraitCrit = ValidEquippedRarityBonus(EquippedWeaponCode, 0, 1, 0.008f);
  return FMath::Clamp(0.05f + TraitCrit + (GetSetPieceCount(1) >= 2 ? 0.03f : 0.f),
    0.05f, 0.25f);
 }
@@ -70,17 +98,18 @@ float AMoonfallHeroPawn::GetCriticalChance() const
 float AMoonfallHeroPawn::GetHasteBonus() const
 {
  // Focus: faster spell recovery at two matching items.
- const int32 Rarity = FMath::Clamp((EquippedAccessoryCode / 1000) % 10, 0, 5);
- const float TraitHaste = AccessoryAffix == 3 ? Rarity * 0.006f : 0.f;
+ const float TraitHaste = ValidEquippedRarityBonus(EquippedAccessoryCode, 2, 3, 0.006f);
  return FMath::Clamp(TraitHaste + (GetSetPieceCount(3) >= 2 ? 0.04f : 0.f),
    0.f, 0.20f);
 }
 
 float AMoonfallHeroPawn::GetMasteryBonus() const
 {
- // Mastery rewards overall equipped power; triple Force strengthens spells.
- const float GearMastery = FMath::Clamp((WeaponTier + ArmorTier + AccessoryTier)
-   * 0.0015f, 0.f, 0.12f);
+ // Mastery rewards overall valid equipped power; triple Force strengthens spells.
+ const float GearMastery = FMath::Clamp((
+   ValidEquippedTier(EquippedWeaponCode, 0) +
+   ValidEquippedTier(EquippedArmorCode, 1) +
+   ValidEquippedTier(EquippedAccessoryCode, 2)) * 0.0015f, 0.f, 0.12f);
  return FMath::Clamp(GearMastery + (GetSetPieceCount(1) >= 3 ? 0.04f : 0.f),
    0.f, 0.16f);
 }
@@ -88,8 +117,7 @@ float AMoonfallHeroPawn::GetMasteryBonus() const
 float AMoonfallHeroPawn::GetVersatilityBonus() const
 {
  // Ward: Versatility increases damage dealt and halves its defensive effect.
- const int32 Rarity = FMath::Clamp((EquippedArmorCode / 1000) % 10, 0, 5);
- const float TraitVersatility = ArmorAffix == 2 ? Rarity * 0.005f : 0.f;
+ const float TraitVersatility = ValidEquippedRarityBonus(EquippedArmorCode, 1, 2, 0.005f);
  return FMath::Clamp(TraitVersatility + (GetSetPieceCount(2) >= 2 ? 0.03f : 0.f),
    0.f, 0.12f);
 }
