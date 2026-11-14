@@ -1,6 +1,7 @@
 #include "MoonfallCharacterCreationWidget.h"
 
 #include "Blueprint/WidgetTree.h"
+#include "Components/Border.h"
 #include "Components/HorizontalBox.h"
 #include "Components/HorizontalBoxSlot.h"
 #include "Components/Image.h"
@@ -21,6 +22,7 @@ namespace
   FSlateFontInfo Font = Label->GetFont();
   Font.Size = FontSize;
   Label->SetFont(Font);
+  Label->SetColorAndOpacity(FSlateColor(FLinearColor(0.91f, 0.78f, 0.50f, 1.f)));
   Panel->AddChildToVerticalBox(Label);
   return Label;
  }
@@ -30,6 +32,7 @@ namespace
   UButton* Button = Tree->ConstructWidget<UButton>();
   UTextBlock* Text = Tree->ConstructWidget<UTextBlock>();
   Text->SetText(FText::FromString(Name));
+  Button->SetBackgroundColor(FLinearColor(0.23f, 0.19f, 0.12f, 1.f));
   Button->AddChild(Text);
   Panel->AddChildToVerticalBox(Button);
   return Button;
@@ -62,8 +65,12 @@ void UMoonfallCharacterCreationWidget::BuildLayout()
  if (!WidgetTree)
   return;
 
+ UBorder* Frame = WidgetTree->ConstructWidget<UBorder>();
+ Frame->SetBrushColor(FLinearColor(0.025f, 0.035f, 0.065f, 0.97f));
+ Frame->SetPadding(FMargin(24.f));
  UHorizontalBox* Root = WidgetTree->ConstructWidget<UHorizontalBox>();
- WidgetTree->RootWidget = Root;
+ Frame->AddChild(Root);
+ WidgetTree->RootWidget = Frame;
 
  UVerticalBox* Left = WidgetTree->ConstructWidget<UVerticalBox>();
  UVerticalBox* Center = WidgetTree->ConstructWidget<UVerticalBox>();
