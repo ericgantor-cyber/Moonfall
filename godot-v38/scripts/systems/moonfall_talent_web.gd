@@ -49,6 +49,13 @@ func focus_branch(branch_id: String) -> void:
  zoom = 0.75
  queue_redraw()
 
+func focus_node(talent_id: String) -> void:
+ if not points.has(talent_id):return
+ selected_id = talent_id
+ pan = -points[talent_id]
+ zoom = clampf(maxf(zoom, 0.75), MIN_ZOOM, MAX_ZOOM)
+ queue_redraw()
+
 func fit_all() -> void:
  pan = Vector2.ZERO
  zoom = clampf((minf(size.x, size.y) - 36.0) / 2660.0, MIN_ZOOM, MAX_ZOOM)
@@ -173,6 +180,13 @@ func _draw() -> void:
  for radius in [70.0, 135.0, 215.0]:
   draw_arc(mid, radius * zoom, 0.0, TAU, 64, Color(0.32, 0.42, 0.59, 0.18), 1.0, true)
  draw_circle(mid, maxf(4.0, 13.0 * zoom), center_color)
+ # The three open branches radiate from a shared progression origin.
+ for branch in BRANCH_ANGLES:
+  var direction: Vector2 = Vector2.from_angle(deg_to_rad(float(BRANCH_ANGLES[branch])))
+  var hub: Vector2 = _screen_pos(direction * 105.0)
+  var ray: Color = BRANCH_COLORS[branch]
+  ray.a = 0.35
+  draw_line(mid, hub, ray, 2.0, true)
  var nodes: Array = tree.get("nodes", [])
  # Connect prerequisites before drawing nodes, keeping links readable.
  for node in nodes:
