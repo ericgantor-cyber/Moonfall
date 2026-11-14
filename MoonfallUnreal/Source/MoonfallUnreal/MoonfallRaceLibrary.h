@@ -140,6 +140,13 @@ public:
  static bool GetAdjacentPlayableRaceId(FName CurrentRaceId, FName Family,
                                        bool bForward, FName& NextRaceId);
 
+ // UI/accessibility counter (1-based) for a selected playable race.
+ // NAME_None family includes the full playable roster. On failure both
+ // outputs are zero; no selection, save or gameplay state is changed.
+ UFUNCTION(BlueprintPure, Category="Moonfall|Races")
+ static bool GetPlayableRaceSelectionPosition(FName RaceId, FName Family,
+                                              int32& Position, int32& Total);
+
  // Returns false and an unmodified baseline profile for unknown identifiers.
  UFUNCTION(BlueprintPure, Category="Moonfall|Races")
  static bool FindRaceProfile(FName RaceId, FMoonfallRaceProfile& Profile);
