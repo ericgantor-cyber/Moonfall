@@ -288,6 +288,22 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("SpawnActor", step)
         self.assertNotIn("single-switch", header.lower())
 
+    def test_keyboard_controller_family_step_returns_matching_snapshot(self):
+        header = (ROOT / "MoonfallRaceLibrary.h").read_text(encoding="utf-8")
+        code = (ROOT / "MoonfallRaceLibrary.cpp").read_text(encoding="utf-8")
+        self.assertIn("static bool StepPlayableRaceFamilySelectionState(", header)
+        step = code.split("UMoonfallRaceLibrary::StepPlayableRaceFamilySelectionState(", 1)[1].split(
+            "UMoonfallRaceLibrary::FindRaceProfile(", 1)[0]
+        self.assertIn("State = FMoonfallRaceSelectionState();", step)
+        self.assertIn("GetAdjacentPlayableRaceFamilySelection(CurrentRaceId, CurrentFamily,", step)
+        self.assertIn("BuildPlayableRaceSelectionState(NextRaceId, NextFamily, BaseVitality,", step)
+        self.assertIn("Candidate.Family != NextFamily || Candidate.RaceId != NextRaceId", step)
+        self.assertIn("State = MoveTemp(Candidate);", step)
+        self.assertLess(step.index("Candidate.Family != NextFamily"), step.index("State = MoveTemp(Candidate);"))
+        self.assertNotIn("SaveGame", step)
+        self.assertNotIn("SpawnActor", step)
+        self.assertNotIn("single-switch", header.lower())
+
     def test_isolated_race_catalog_is_cpp_syntax_safe_and_does_not_replace_persistence(self):
         import re
         catalog = (ROOT / "MoonfallRaceLibrary.cpp").read_text(encoding="utf-8")
