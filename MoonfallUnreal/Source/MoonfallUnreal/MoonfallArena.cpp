@@ -1,6 +1,7 @@
 #include "MoonfallArena.h"
 #include "MoonfallEnemy.h"
 #include "MoonfallWorldNPC.h"
+#include "MoonfallCheckpointShrine.h"
 #include "Components/SceneComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/World.h"
@@ -28,6 +29,23 @@ void AMoonfallArena::BeginPlay() {
  CreateBlock(FVector(0,1500,200),FVector(30,1,5));
  CreateBlock(FVector(0,-1500,200),FVector(30,1,5));
  if (!GetWorld()) return;
+ // World shrines are discovered by walking into their proximity, not by
+ // defeating a boss or using an attack key. Stable IDs persist between saves.
+ const struct FShrinePlacement { const TCHAR* Id; FVector Offset; } Shrines[] = {
+  {TEXT("crossroads_west"), FVector(-1120.f, -720.f, 0.f)},
+  {TEXT("crimson_path"), FVector(1080.f, -750.f, 0.f)},
+  {TEXT("moonlit_path"), FVector(1040.f, 800.f, 0.f)}
+ };
+ for (const FShrinePlacement& Placement : Shrines) {
+  const FTransform SpawnTransform(FRotator::ZeroRotator, GetActorLocation() + Placement.Offset);
+  AMoonfallCheckpointShrine* Shrine = Cast<AMoonfallCheckpointShrine>(
+      UGameplayStatics::BeginDeferredActorSpawnFromClass(
+          this, AMoonfallCheckpointShrine::StaticClass(), SpawnTransform));
+  if (Shrine) {
+   Shrine->ShrineId = FName(Placement.Id);
+   UGameplayStatics::FinishSpawningActor(Shrine, SpawnTransform);
+  }
+ }
  const bool bZEncounter = FeaturedDivineBossId == FName(TEXT("z_void_reaper"));
  const bool bNyraEncounter = FeaturedDivineBossId == FName(TEXT("nyra_eclipse_queen"));
  const bool bSingleDivineEncounter = bZEncounter || bNyraEncounter;
