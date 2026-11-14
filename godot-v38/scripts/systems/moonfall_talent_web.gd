@@ -27,6 +27,7 @@ var drag_distance: float = 0.0
 var hovered_id: String = ""
 var mouse_down_on_node: String = ""
 var node_info: Dictionary = {}
+var layout_rebuild_count: int = 0
 var prerequisite_path: Dictionary = {}
 
 func _ready() -> void:
@@ -36,11 +37,15 @@ func _ready() -> void:
  queue_redraw()
 
 func set_data(next_tree: Dictionary, next_allocations: Dictionary, character_level: int, unspent: int) -> void:
+ # Purchases and panel refreshes change allocations, not constellation geometry.
+ # Rebuild the expensive 108-node layout only when the actual nodes change.
+ var layout_changed: bool = points.is_empty() or tree.get("nodes", []) != next_tree.get("nodes", [])
  tree = next_tree
  allocations = next_allocations.duplicate()
  level = character_level
  available = unspent
- _layout_nodes()
+ if layout_changed:
+  _layout_nodes()
  _update_prerequisite_path()
  queue_redraw()
 
@@ -120,6 +125,7 @@ func zoom_at(factor: float, screen_point: Vector2) -> void:
  queue_redraw()
 
 func _layout_nodes() -> void:
+ layout_rebuild_count += 1
  points.clear()
  node_info.clear()
  var node_counts: Dictionary = {}
@@ -193,10 +199,12 @@ func _gui_input(event: InputEvent) -> void:
    drag_distance += motion.relative.length()
    if mouse_down_on_node == "":pan += motion.relative / zoom
   var next_hover: String = _node_at(motion.position)
-  if next_hover != hovered_id:
+  var hover_changed: bool = next_hover != hovered_id
+  if hover_changed:
    hovered_id = next_hover
    tooltip_text = str(node_info.get(hovered_id, {}).get("title", "")) if hovered_id != "" else ""
-  queue_redraw()
+  if dragging and mouse_down_on_node == "" or hover_changed:
+   queue_redraw()
   accept_event()
   return
  if event is InputEventKey and event.pressed and not event.echo:
