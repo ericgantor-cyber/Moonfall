@@ -563,6 +563,26 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Super::NativeOnMouseCaptureLost(CaptureLostEvent);", capture_fn)
         self.assertNotIn("SaveGame", list_fn + capture_fn)
 
+    def test_race_selection_keeps_existing_buttons_for_focus_and_scroll(self):
+        header = (ROOT / "MoonfallCharacterCreationWidget.h").read_text(encoding="utf-8")
+        code = (ROOT / "MoonfallCharacterCreationWidget.cpp").read_text(encoding="utf-8")
+        self.assertIn("TMap<FName, TObjectPtr<UTextBlock>> RaceChoiceLabels;", header)
+        listing = code.split("void UMoonfallCharacterCreationWidget::RefreshRaceList()", 1)[1].split(
+            "void UMoonfallCharacterCreationWidget::RefreshSelection()", 1)[0]
+        self.assertIn("if (!bSameFamily || RaceChoiceLabels.Num() != Profiles.Num())", listing)
+        self.assertIn("RaceChoiceLabels.Reset();", listing)
+        self.assertIn("RaceChoiceLabels.Add(Profile.RaceId, Label);", listing)
+        self.assertIn("RaceChoiceLabels.Find(Profile.RaceId)", listing)
+        self.assertIn("(*Label)->SetText(", listing)
+        self.assertIn("RaceList->GetScrollOffset()", listing)
+        self.assertIn("RaceList->SetScrollOffset(PreviousScrollOffset);", listing)
+        self.assertLess(listing.index("RaceList->ClearChildren();"),
+                        listing.index("RaceChoiceLabels.Add(Profile.RaceId, Label);"))
+        self.assertLess(listing.index("RaceChoiceLabels.Add(Profile.RaceId, Label);"),
+                        listing.index("RaceChoiceLabels.Find(Profile.RaceId)"))
+        self.assertNotIn("SaveGame", listing)
+        self.assertNotIn("SpawnActor", listing)
+
     def test_isolated_race_catalog_is_cpp_syntax_safe_and_does_not_replace_persistence(self):
         import re
         catalog = (ROOT / "MoonfallRaceLibrary.cpp").read_text(encoding="utf-8")
