@@ -7,6 +7,7 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/PlayerStart.h"
 #include "Components/InputComponent.h"
+#include "Components/CapsuleComponent.h"
 #include "Engine/World.h"
 #include "DrawDebugHelpers.h"
 #include "Engine/Engine.h"
@@ -1647,6 +1648,22 @@ bool AMoonfallHeroPawn::DiscoverShrine(AMoonfallCheckpointShrine* Shrine) {
  ShrineSight.AddIgnoredActor(Shrine);
  if (GetWorld()->LineTraceTestByChannel(HeroLocation,
      ShrineLocation + FVector(0.f, 0.f, 80.f), ECC_Visibility, ShrineSight)) return false;
+ // Line of sight alone does not prove the saved spawn position is safe.
+ // Validate against the *actual scaled character capsule* before replacing
+ // the previous working checkpoint. Ignore the hero and shrine geometry.
+ const UCapsuleComponent* Capsule = GetCapsuleComponent();
+ if (!Capsule) return false;
+ float CapsuleRadius = 0.f;
+ float CapsuleHalfHeight = 0.f;
+ Capsule->GetScaledCapsuleSize(CapsuleRadius, CapsuleHalfHeight);
+ if (!FMath::IsFinite(CapsuleRadius) || !FMath::IsFinite(CapsuleHalfHeight)
+     || CapsuleRadius <= 0.f || CapsuleHalfHeight < CapsuleRadius) return false;
+ FCollisionQueryParams SpawnClearance(SCENE_QUERY_STAT(MoonfallShrineSpawnClearance), false);
+ SpawnClearance.AddIgnoredActor(this);
+ SpawnClearance.AddIgnoredActor(Shrine);
+ if (GetWorld()->OverlapBlockingTestByChannel(NewRespawn, GetActorQuat(),
+     ECC_Pawn, FCollisionShape::MakeCapsule(CapsuleRadius, CapsuleHalfHeight),
+     SpawnClearance)) return false;
  const FName PreviousShrineId = ActiveShrineId;
  const FVector PreviousCheckpoint = RespawnCheckpointLocation;
  const bool bPreviousCheckpointValid = bHasRespawnCheckpointLocation;
