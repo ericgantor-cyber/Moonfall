@@ -156,12 +156,22 @@ func _screen_pos(world: Vector2) -> Vector2:
 func _world_pos(screen: Vector2) -> Vector2:
  return (screen - size * 0.5) / zoom - pan
 
+func _visual_radius(talent_id: String) -> float:
+ var radius: float = maxf(5.0, NODE_RADIUS * zoom)
+ var node: Dictionary = node_info.get(talent_id, {})
+ if int(node.get("tier", 1)) == 3 or int(node.get("tier", 1)) == 11:
+  radius *= 1.5
+ return radius
+
 func _node_at(screen: Vector2) -> String:
  var closest: String = ""
  var closest_distance: float = 1.0e20
  for id in points:
   var distance: float = _screen_pos(points[id]).distance_to(screen)
-  if distance < maxf(16.0, NODE_RADIUS * zoom + 10.0) and distance < closest_distance:
+  # Every visible star must be clickable across all zoom levels,
+  # including the larger tier-3 / tier-11 capstones.
+  var hit_radius: float = maxf(16.0, _visual_radius(str(id)) + 10.0)
+  if distance < hit_radius and distance < closest_distance:
    closest = str(id)
    closest_distance = distance
  return closest
@@ -277,8 +287,7 @@ func _draw() -> void:
   for requirement in node.get("requires", []):
    if int(allocations.get(str(requirement), 0)) == 0:prereqs_ok = false
   var available_now: bool = prereqs_ok and level >= int(node.get("min_level", 1)) and available > 0 and rank < max_rank
-  var radius: float = maxf(5.0, NODE_RADIUS * zoom)
-  if int(node.get("tier", 1)) == 3 or int(node.get("tier", 1)) == 11:radius *= 1.5
+  var radius: float = _visual_radius(id)
   draw_circle(center, radius + 3.0, Color("#070d17"))
   col.a = 1.0 if rank > 0 else (0.8 if available_now else 0.30)
   draw_circle(center, radius, col if rank > 0 else Color("#111c30"))
