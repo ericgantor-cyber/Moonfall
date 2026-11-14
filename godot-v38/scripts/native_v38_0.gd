@@ -551,6 +551,11 @@ func _v398_build_tree()->void:
  fit.custom_minimum_size=Vector2(180,48)
  fit.pressed.connect(func():v406_web.fit_all())
  graph_actions.add_child(fit)
+ var next_button:Button=Button.new()
+ next_button.text="NEXT AVAILABLE (N)"
+ next_button.custom_minimum_size=Vector2(195,48)
+ next_button.pressed.connect(_v406_next_available)
+ graph_actions.add_child(next_button)
  for action in ["-","+"]:
   var zoom_button:Button=Button.new()
   zoom_button.text=action
@@ -594,6 +599,13 @@ func _v398_build_tree()->void:
  side.add_child(v406_respec_button)
  v398_panel.visible=false
 
+func _v406_next_available()->void:
+ if not is_instance_valid(v406_web):return
+ var next_id:String=v406_web.next_available(v406_selected_node)
+ if next_id=="":return
+ _v406_web_selected(next_id)
+ v406_web.focus_node(next_id)
+
 func _v406_zoom(factor:float)->void:
  if is_instance_valid(v406_web):v406_web.zoom_by(factor)
 
@@ -633,8 +645,8 @@ func _v398_refresh_tree()->void:
  var tree:Dictionary=CLASSLESS_TALENTS.load_tree()
  v406_points_label.text="LEVEL "+str(level_now)+"  |  POINTS "+str(state.get("available",0))
  if is_instance_valid(v406_web):
-  v406_web.selected_id=v406_selected_node
   v406_web.set_data(tree,v406_ranks,level_now,int(state.get("available",0)))
+  v406_web.select_node(v406_selected_node)
  var selected:Dictionary={}
  for node in tree.get("nodes",[]):
   if str(node.get("id",""))==v406_selected_node:selected=node
