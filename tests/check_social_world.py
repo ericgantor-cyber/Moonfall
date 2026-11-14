@@ -66,7 +66,9 @@ class TestSocialWorld(unittest.TestCase):
   self.assertIn("ResidentBonds.Add(Id",self.hero)
   self.assertIn("GetContractSalvageCost",self.npc)
   self.assertIn("CanHeroInteract(Hero)",self.npc)
-  self.assertIn("if (Hero->GetResidentQuestState(ResidentId) == 1)",self.npc)
+  # Quest dialogue must not override hostile faction reactions.
+  self.assertIn('if (Disposition != TEXT("Hostile") && Hero->GetResidentQuestState(ResidentId) == 1)',self.npc)
+  self.assertIn('else if (Disposition != TEXT("Hostile") && Hero->GetResidentQuestState(ResidentId) == 2)',self.npc)
  def test_reputation_is_bounded_and_saved(self):
   self.assertIn("TMap<FName, int32> FactionReputation",self.hero_h)
   self.assertIn("TMap<FName, int32> FactionReputation",self.save)
