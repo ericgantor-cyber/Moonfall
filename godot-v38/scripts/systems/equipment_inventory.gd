@@ -132,10 +132,17 @@ static func totals(state:Dictionary)->Dictionary:
   if str(item["category"])=="weapon":stats["weapon_power"]+=bonus
   elif str(item["category"])=="armor":stats["armor"]+=bonus
   else:stats["magic"]+=bonus
-  for affix in best_roll.get("affixes",[]):
+  # Treat imported rolls as untrusted: each supported stat applies once.
+  var seen_affixes:Dictionary={}
+  var rolled_affixes:Variant=best_roll.get("affixes",[])
+  if not rolled_affixes is Array:rolled_affixes=[]
+  for affix in rolled_affixes:
    if not affix is Dictionary:continue
+   var stat:String=str(affix.get("stat",""))
+   if not RNG.AFFIXES.has(stat) or seen_affixes.has(stat):continue
+   seen_affixes[stat]=true
    var value:int=clampi(int(affix.get("value",0)),0,30)
-   match str(affix.get("stat","")):
+   match stat:
     "Power":stats["weapon_power"]+=value
     "Vitality":stats["vitality"]+=value
     "Haste":stats["haste"]+=value
