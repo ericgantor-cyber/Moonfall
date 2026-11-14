@@ -88,5 +88,5 @@ def calculate(ratings: dict[str, int] | None = None,
 
 
 if __name__ == "__main__":
-    print(json.dumps(calculate({"critical_strike": 120, "hit": 90, "haste": 75},
+    print(json.dumps(calculate({"critical_strike": 120, "haste": 75},
                                {"armor": 300, "attack_power": 40}), indent=2))
