@@ -21,6 +21,15 @@ class ClasslessTalentUIScreen(unittest.TestCase):
         self.assertIn("CLASSLESS_TALENTS.spend(", self.screen)
         self.assertIn("button.disabled=not bool(preview.get(\"ok\",false))", self.screen)
 
+    def test_large_tree_has_accessible_branch_tabs_and_tiers(self):
+        self.assertIn('v406_active_branch:String="might"', self.screen)
+        self.assertIn('v406_branch_bar=HBoxContainer.new()', self.screen)
+        self.assertIn('tab.custom_minimum_size=Vector2(194,56)', self.screen)
+        self.assertIn('button.custom_minimum_size.y=54.0', self.screen)
+        self.assertIn('tier_title.text="TIER "', self.screen)
+        self.assertIn('scroll.horizontal_scroll_mode=ScrollContainer.SCROLL_MODE_DISABLED', self.screen)
+        self.assertIn('v406_respec_button.disabled=v406_ranks.is_empty()', self.screen)
+
     def test_save_restores_classless_without_clobbering_legacy(self):
         self.assertIn('"classless_ranks":v406_ranks.duplicate(true)', self.screen)
         self.assertIn('resources.get("classless_ranks",{})', self.screen)
