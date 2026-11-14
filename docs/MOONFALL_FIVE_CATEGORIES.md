@@ -200,3 +200,33 @@ for regressions. These are original Moonfall node names and balance
 values, not copied artwork or a claim that either engine has a working
 talent UI. Live integration requires GDScript/UE5 code, persistence
 migration and gameplay/Windows verification.
+
+
+## WoW Forever-inspired combat stats
+
+WoW Forever presents Strength, Agility, Stamina, Intellect and Spirit, plus
+Hit, Critical Strike, Haste, Armor, Dodge, Parry, Block and resistances.
+See [Warcraft Tavern's WoW Forever stat guide](https://www.warcrafttavern.com/forever/guides/stats/)
+and [ForeverDB's explanation](https://foreverdb.net/stats). These references
+are for **stat organization**, not copied class-specific formulas, artwork
+or character classes.
+
+Moonfall retains its own original, classless primary attributes
+(**Might, Agility, Arcana, Vitality, Resolve and Endurance**) and its
+spendable talent tree. The versioned
+`config/moonfall_combat_ratings.json` adds six optional rating stats:
+**Critical Strike, Hit Chance, Haste, Dodge, Parry and Block**. It also
+supports Armor, Attack Power, Spell Power, Health/Mana Regeneration and
+Fire/Frost/Shock Resistance. Rating-to-percent conversions, base values,
+and safety caps are **provisional Moonfall balancing choices**.
+
+The pure Python `tools/moonfall_combat_ratings.py` calculation validates
+input, converts ratings to capped percentages and clamps resistances. It
+is included in the `tools/moonfall_stats.py` consolidated character-sheet
+output as `combat`, but **the runtime character screen and combat in Godot
+and Unreal are not yet connected** to this reference model.
+
+Run `python tools/test_moonfall_combat_ratings.py` and
+`python tools/test_moonfall_stats.py` to check capped combat ratings and
+unified character-sheet output. No save data or hero artwork changes,
+and no class locks, random cards, or rerolls are introduced.
