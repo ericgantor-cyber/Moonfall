@@ -420,6 +420,33 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("SaveGame", code)
         self.assertNotIn("SpawnActor", code)
 
+    def test_character_creation_mouse_preview_drag_zoom_and_list_scroll(self):
+        header = (ROOT / "MoonfallCharacterCreationWidget.h").read_text(encoding="utf-8")
+        code = (ROOT / "MoonfallCharacterCreationWidget.cpp").read_text(encoding="utf-8")
+        self.assertIn("void OnPreviewRotateRequested(float DeltaYaw);", header)
+        self.assertIn("void OnPreviewZoomRequested(float ZoomSteps);", header)
+        for hook in ("NativeOnMouseButtonDown", "NativeOnMouseButtonUp",
+                     "NativeOnMouseMove", "NativeOnMouseWheel"):
+            self.assertIn(hook, header)
+            self.assertIn("UMoonfallCharacterCreationWidget::" + hook + "(", code)
+        self.assertIn("GetCachedGeometry().IsUnderLocation(ScreenPosition)", code)
+        self.assertIn("bDraggingPreview = true;", code)
+        self.assertIn("CaptureMouse(TakeWidget())", code)
+        self.assertIn("bDraggingPreview = false;", code)
+        self.assertIn("ReleaseMouseCapture()", code)
+        self.assertIn("InMouseEvent.IsMouseButtonDown(EKeys::LeftMouseButton)", code)
+        self.assertIn("GetCursorDelta().X", code)
+        self.assertIn("FMath::IsFinite(DeltaX)", code)
+        self.assertIn("OnPreviewRotateRequested(", code)
+        self.assertIn("GetWheelDelta()", code)
+        self.assertIn("FMath::IsFinite(WheelDelta)", code)
+        self.assertIn("OnPreviewZoomRequested(", code)
+        self.assertIn("Super::NativeOnMouseWheel(InGeometry, InMouseEvent)", code)
+        self.assertIn("ESlateVisibility::HitTestInvisible", code)
+        self.assertNotIn("single-switch", header.lower() + code.lower())
+        self.assertNotIn("SaveGame", code)
+        self.assertNotIn("SpawnActor", code)
+
     def test_isolated_race_catalog_is_cpp_syntax_safe_and_does_not_replace_persistence(self):
         import re
         catalog = (ROOT / "MoonfallRaceLibrary.cpp").read_text(encoding="utf-8")
