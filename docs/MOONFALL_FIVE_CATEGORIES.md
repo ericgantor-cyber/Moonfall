@@ -251,3 +251,14 @@ and no class locks, random cards, or rerolls are introduced.
 - The no-talents case retains existing base-stat behavior. This does not
   import WoW assets, create classes or cards, change saves, or imply a native
   UE5/Windows or Godot gameplay verification.
+
+## Secondary rating schema hardening
+
+The reference stat validator now strictly accepts only `critical_strike`
+and `haste` as percentage ratings, even when a caller supplies a modified
+config. The retired `hit`, `dodge`, `block`, and `parry` character
+ratings cannot be reintroduced by a JSON edit without failing CI. Eight
+approved flat stats remain explicitly named. The unified character model
+also rejects malformed empty gear inputs rather than silently interpreting
+them as no equipment. These checks protect the reference model and do not
+change live Godot/Unreal combat behavior.
