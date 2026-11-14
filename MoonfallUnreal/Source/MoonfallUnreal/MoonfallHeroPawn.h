@@ -7,6 +7,7 @@ class UCameraComponent;
 class UAnimMontage;
 class AMoonfallEnemy;
 class AMoonfallWorldNPC;
+class AMoonfallCheckpointShrine;
 class UStaticMeshComponent;
 class UPointLightComponent;
 UCLASS()
@@ -86,6 +87,13 @@ public:
  UFUNCTION(BlueprintPure, Category="Moonfall|Equipment|Stats") float GetHasteBonus() const;
  UFUNCTION(BlueprintPure, Category="Moonfall|Equipment|Stats") float GetMasteryBonus() const;
  UFUNCTION(BlueprintPure, Category="Moonfall|Equipment|Stats") float GetVersatilityBonus() const;
+ // Shrine discovery controls respawn. Regular two-second saves keep progress
+ // without moving the active checkpoint to every room crossed.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Shrines") FName ActiveShrineId = NAME_None;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Shrines") TArray<FName> DiscoveredShrineIds;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Shrines") bool HasDiscoveredShrine(FName ShrineId) const;
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Shrines") bool DiscoverShrine(AMoonfallCheckpointShrine* Shrine);
+ UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Shrines") void OnShrineDiscovered(FName ShrineId);
  // A single permanent world checkpoint. Death never erases experience or items.
  UFUNCTION(BlueprintCallable, Category="Moonfall|Persistence") bool SaveWorldProgress();
  UFUNCTION(BlueprintCallable, Category="Moonfall|Persistence") bool LoadWorldProgress();
@@ -213,6 +221,8 @@ private:
  FTransform InitialSpawnTransform = FTransform::Identity;
  bool bHasInitialSpawnTransform = false;
  bool RestoreSafeSpawnLocation();
+ FVector RespawnCheckpointLocation = FVector::ZeroVector;
+ bool bHasRespawnCheckpointLocation = false;
  // Protect an existing unsupported or unreadable slot from routine autosaves.
  // Cleared only after a supported save has been loaded successfully.
  bool bPersistentSaveWritesBlocked = false;
