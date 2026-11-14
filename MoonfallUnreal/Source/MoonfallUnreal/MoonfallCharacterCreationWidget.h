@@ -137,6 +137,8 @@ private:
  // Keep the current list offset on selection changes, but reset for a new family.
  bool bRaceListInitialized = false;
  FName LastRenderedFamily = NAME_None;
+ // Retain controls across selections so mouse/controller focus is not lost.
+ UPROPERTY(Transient) TMap<FName, TObjectPtr<UTextBlock>> RaceChoiceLabels;
  TWeakObjectPtr<USceneComponent> PreviewRotationPivot;
  TWeakObjectPtr<USpringArmComponent> PreviewZoomArm;
  FRotator InitialPreviewRotation = FRotator::ZeroRotator;
