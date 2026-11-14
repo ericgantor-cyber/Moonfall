@@ -247,7 +247,12 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("InventoryItemCodes.Add(ItemCode);", collect)
         self.assertNotIn("EquippedCode =", collect)
         self.assertNotIn("Salvage =", collect)
-        self.assertNotIn("RemoveAt(", collect)
+        # Failed save operations must roll back the just-added entry, while
+        # successful pickups never clean up or auto-salvage inventory items.
+        self.assertIn("if (!SaveWorldProgress()) {", collect)
+        failed_save = collect.split("if (!SaveWorldProgress()) {", 1)[1].split("return false;", 1)[0]
+        self.assertIn("InventoryItemCodes.RemoveAt(AddedIndex);", failed_save)
+        self.assertEqual(collect.count("InventoryItemCodes.RemoveAt("), 1)
         self.assertIn("PrimaryActorTick.bCanEverTick = false;", ground_cpp)
         self.assertIn("CreateDefaultSubobject<UTextRenderComponent>", ground_cpp)
         self.assertIn("CreateDefaultSubobject<UStaticMeshComponent>", ground_cpp)
