@@ -400,6 +400,26 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("alliance", code.lower())
         self.assertNotIn("horde", code.lower())
 
+    def test_race_selector_preview_and_confirmation_use_game_hooks(self):
+        header = (ROOT / "MoonfallCharacterCreationWidget.h").read_text(encoding="utf-8")
+        code = (ROOT / "MoonfallCharacterCreationWidget.cpp").read_text(encoding="utf-8")
+        self.assertIn("FMoonfallRaceSelectionConfirmed OnRaceConfirmed;", header)
+        self.assertIn("void OnRacePreviewRequested(FName RaceId);", header)
+        self.assertIn("void HandleConfirmRace();", header)
+        self.assertIn("OnRaceConfirmed.Broadcast(Selection.RaceId);", code)
+        self.assertIn("OnRacePreviewRequested(Next.RaceId);", code)
+        self.assertIn("bRaceChanged = Selection.RaceId != Next.RaceId", code)
+        self.assertIn('TEXT("CONTINUE")', code)
+        self.assertIn("EKeys::Enter", code)
+        self.assertIn("EKeys::Gamepad_FaceButton_Bottom", code)
+        # Keep the prior Selection intact until refresh compares it to the new race.
+        for function in ("SelectRace", "AdvanceRace", "AdvanceFamily"):
+            segment = code.split("void UMoonfallCharacterCreationWidget::" + function + "(", 1)[1].split(
+                "RefreshSelection();", 1)[0]
+            self.assertNotIn("Selection = Next;", segment)
+        self.assertNotIn("SaveGame", code)
+        self.assertNotIn("SpawnActor", code)
+
     def test_isolated_race_catalog_is_cpp_syntax_safe_and_does_not_replace_persistence(self):
         import re
         catalog = (ROOT / "MoonfallRaceLibrary.cpp").read_text(encoding="utf-8")
