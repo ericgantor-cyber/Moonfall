@@ -81,6 +81,19 @@ func _initialize() -> void:
  if web.zoom < web.MIN_ZOOM:
   _fail("Zoom must be bounded below")
   return
+ # Tier-11 capstone stars are drawn 1.5x larger; their entire visible
+ # circumference must remain selectable even at maximum zoom.
+ web.focus_node("might_immortal_march")
+ web.zoom_by(100.0)
+ var capstone_id: String = "might_immortal_march"
+ if not web.points.has(capstone_id):
+  _fail("Capstone node missing")
+  return
+ var capstone_center: Vector2 = web._screen_pos(web.points[capstone_id])
+ var capstone_radius: float = web._visual_radius(capstone_id)
+ if web._node_at(capstone_center + Vector2(capstone_radius - 1.0, 0.0)) != capstone_id:
+  _fail("Capstone edge must be clickable at maximum zoom")
+  return
  web.focus_node("might_moonforged_blade")
  if web.selected_id != "might_moonforged_blade":
   _fail("Keyboard talent index must select the requested constellation node")
