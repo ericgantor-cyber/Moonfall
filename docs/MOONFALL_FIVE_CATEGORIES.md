@@ -122,3 +122,28 @@ categories, duplicate owners, missing/unsafe paths, duplicate roadmap
 tracks, unknown dependencies, dependency cycles, out-of-order milestones,
 and unsupported completion claims. Do not mark work complete based solely
 on planning documents.
+
+
+## Executable dependency-ordered work plan
+
+Use the new tool to get a concrete, topologically sorted development sequence
+instead of manually picking arbitrary upgrades:
+
+```powershell
+python tools/moonfall_category_plan.py
+python tools/moonfall_category_plan.py --category combat
+python tools/moonfall_category_plan.py --category interface --format json
+python tools/moonfall_category_plan.py --output moonfall-plan.md
+```
+
+A filtered plan includes cross-category prerequisites (marked
+**Prerequisite**), even when they live outside the requested category.
+For example, the interface's atlas UI depends on world-map discovery and
+inventory data. The tool schedules these requirements ahead of the menu
+and never calls planned features implemented or tested.
+
+The generator uses the validated registry, stable milestone ordering and
+catalog tie-breaks. It does not change game files or saves. CI checks the
+full JSON plan and a filtered interface plan, plus positive and negative
+regression tests. Actual UE5.4 native compilation, Godot smoke testing,
+playable controls, and merge readiness remain separate requirements.
