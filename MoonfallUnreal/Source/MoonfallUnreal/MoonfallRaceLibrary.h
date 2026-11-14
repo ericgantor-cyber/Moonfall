@@ -40,6 +40,15 @@ struct FMoonfallRaceStatComparison
  UPROPERTY(BlueprintReadOnly, Category="Moonfall|Races") FMoonfallRaceStatPreview Delta;
 };
 
+// A single selection-screen entry with matching catalog data and preview stats.
+USTRUCT(BlueprintType)
+struct FMoonfallRaceSelectionEntry
+{
+ GENERATED_BODY()
+ UPROPERTY(BlueprintReadOnly, Category="Moonfall|Races") FMoonfallRaceProfile Profile;
+ UPROPERTY(BlueprintReadOnly, Category="Moonfall|Races") FMoonfallRaceStatPreview Stats;
+};
+
 UCLASS()
 class MOONFALLUNREAL_API UMoonfallRaceLibrary : public UBlueprintFunctionLibrary
 {
@@ -90,6 +99,13 @@ public:
  static bool ComparePlayableRaceStats(FName CurrentRaceId, FName CandidateRaceId,
                                       float BaseVitality, float BasePower, float BaseSpeed,
                                       FMoonfallRaceStatComparison& Comparison);
+
+ // Batch character-selection cards in stable catalog order. NAME_None family
+ // shows all playable races. Invalid stats fail without partial results.
+ UFUNCTION(BlueprintPure, Category="Moonfall|Races")
+ static bool BuildPlayableRaceSelectionEntries(float BaseVitality, float BasePower,
+                                                float BaseSpeed, FName Family,
+                                                TArray<FMoonfallRaceSelectionEntry>& Entries);
 
  // Returns false and an unmodified baseline profile for unknown identifiers.
  UFUNCTION(BlueprintPure, Category="Moonfall|Races")
