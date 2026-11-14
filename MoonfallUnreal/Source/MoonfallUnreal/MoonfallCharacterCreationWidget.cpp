@@ -11,6 +11,7 @@
 #include "Components/VerticalBoxSlot.h"
 #include "Engine/Texture2D.h"
 #include "InputCoreTypes.h"
+#include "Input/Reply.h"
 
 namespace
 {
@@ -139,7 +140,7 @@ void UMoonfallCharacterCreationWidget::SetPreviewTexture(UTexture2D* ExistingMoo
   PreviewImage->SetVisibility(ESlateVisibility::Visible);
  }
  else
-  PreviewImage->SetVisibility(ESlateVisibility::Collapsed);
+  PreviewImage->SetVisibility(ESlateVisibility::HitTestInvisible);
  if (PreviewCaption)
   PreviewCaption->SetText(FText::FromString(
     PreviewTexture ? TEXT("MOONFALL ORIGINAL CHARACTER ART")
@@ -224,6 +225,67 @@ void UMoonfallCharacterCreationWidget::AdvanceFamily(bool bForward)
  CurrentFamily = Next.Family;
  CurrentRaceId = Next.RaceId;
  RefreshSelection();
+}
+
+bool UMoonfallCharacterCreationWidget::IsOverPreview(
+ const FVector2D& ScreenPosition) const
+{
+ return PreviewImage && PreviewImage->GetCachedGeometry().IsUnderLocation(ScreenPosition);
+}
+
+FReply UMoonfallCharacterCreationWidget::NativeOnMouseButtonDown(
+ const FGeometry& InGeometry, const FPointerEvent& InMouseEvent)
+{
+ if (InMouseEvent.GetEffectingButton() == EKeys::LeftMouseButton
+     && IsOverPreview(InMouseEvent.GetScreenSpacePosition()))
+ {
+  bDraggingPreview = true;
+  return FReply::Handled().CaptureMouse(TakeWidget());
+ }
+ return Super::NativeOnMouseButtonDown(InGeometry, InMouseEvent);
+}
+
+FReply UMoonfallCharacterCreationWidget::NativeOnMouseButtonUp(
+ const FGeometry& InGeometry, const FPointerEvent& InMouseEvent)
+{
+ if (bDraggingPreview && InMouseEvent.GetEffectingButton() == EKeys::LeftMouseButton)
+ {
+  bDraggingPreview = false;
+  return FReply::Handled().ReleaseMouseCapture();
+ }
+ return Super::NativeOnMouseButtonUp(InGeometry, InMouseEvent);
+}
+
+FReply UMoonfallCharacterCreationWidget::NativeOnMouseMove(
+ const FGeometry& InGeometry, const FPointerEvent& InMouseEvent)
+{
+ if (bDraggingPreview)
+ {
+  if (!InMouseEvent.IsMouseButtonDown(EKeys::LeftMouseButton))
+  {
+   bDraggingPreview = false;
+   return FReply::Handled().ReleaseMouseCapture();
+  }
+  const float DeltaX = InMouseEvent.GetCursorDelta().X;
+  if (FMath::IsFinite(DeltaX) && !FMath::IsNearlyZero(DeltaX))
+   OnPreviewRotateRequested(FMath::Clamp(DeltaX * 0.35f, -20.f, 20.f));
+  return FReply::Handled();
+ }
+ return Super::NativeOnMouseMove(InGeometry, InMouseEvent);
+}
+
+FReply UMoonfallCharacterCreationWidget::NativeOnMouseWheel(
+ const FGeometry& InGeometry, const FPointerEvent& InMouseEvent)
+{
+ if (IsOverPreview(InMouseEvent.GetScreenSpacePosition()))
+ {
+  const float WheelDelta = InMouseEvent.GetWheelDelta();
+  if (FMath::IsFinite(WheelDelta) && !FMath::IsNearlyZero(WheelDelta))
+   OnPreviewZoomRequested(FMath::Clamp(WheelDelta, -1.f, 1.f));
+  return FReply::Handled();
+ }
+ // Outside the preview, the race list retains normal wheel scrolling.
+ return Super::NativeOnMouseWheel(InGeometry, InMouseEvent);
 }
 
 void UMoonfallCharacterCreationWidget::HandlePreviousRace() { AdvanceRace(false); }
