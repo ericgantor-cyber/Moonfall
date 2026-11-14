@@ -387,3 +387,19 @@ new tree; wiring them to live combat and UE5 is a separate task.
 node positions, branch focusing, zoom limits and mouse hit tests, in
 addition to existing talent spending/respec checks. Native Windows
 playtesting with user input remains separate from headless CI.
+
+## Constellation navigation overhaul
+
+Selecting a skill highlights its complete prerequisite chain back to
+the branch roots, including multi-prerequisite nodes. The highlighted route
+updates on both mouse and talent-index selection. Unrelated links remain
+subdued, while purchased paths keep their distinct bright appearance.
+
+The **NEXT AVAILABLE (N)** control cycles through skills whose
+prerequisites, required level, maximum rank and remaining point budget all
+allow a purchase. It focuses the selected star in the constellation. Players
+can also press **N** while the web has keyboard focus. **Tab remains reserved
+for ordinary keyboard focus navigation** rather than being intercepted by
+the web. An empty point budget gives no next unlock. This upgrade only
+changes selection, navigation and drawing, not save data, combat math,
+talent definitions or original artwork.
