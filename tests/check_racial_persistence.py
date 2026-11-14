@@ -303,6 +303,32 @@ class TestRacialPersistence(unittest.TestCase):
             self.assertIn('TEXT("' + stable_id + '")', arena)
         self.assertIn("Shrine->ShrineId = FName(Placement.Id);", arena)
 
+    def test_spawn_inside_shrine_works_after_initial_save_load(self):
+        shrine_h = (ROOT / "MoonfallCheckpointShrine.h").read_text(encoding="utf-8")
+        shrine_cpp = (ROOT / "MoonfallCheckpointShrine.cpp").read_text(encoding="utf-8")
+        startup = self.cpp.split("void AMoonfallHeroPawn::BeginPlay()", 1)[1].split(
+            "void AMoonfallHeroPawn::Tick(", 1)[0]
+        shrine_begin = shrine_cpp.split("void AMoonfallCheckpointShrine::BeginPlay()", 1)[1].split(
+            "void AMoonfallCheckpointShrine::OnDiscoveryOverlap(", 1)[0]
+        proximity = shrine_cpp.split("void AMoonfallCheckpointShrine::CheckHeroAtSpawn(", 1)[1].split(
+            "void AMoonfallCheckpointShrine::TryDiscoverOrQueueRetry(", 1)[0]
+        self.assertIn("void CheckHeroAtSpawn(AMoonfallHeroPawn* Hero);", shrine_h)
+        self.assertIn("for (TActorIterator<AMoonfallCheckpointShrine> It(GetWorld()); It; ++It)", startup)
+        self.assertIn("It->CheckHeroAtSpawn(this);", startup)
+        self.assertLess(startup.index("LoadWorldProgress();"),
+                        startup.index("bWorldProgressInitialized = true;"))
+        self.assertLess(startup.index("bWorldProgressInitialized = true;"),
+                        startup.index("It->CheckHeroAtSpawn(this);"))
+        self.assertIn("CheckHeroAtSpawn(Hero);", shrine_begin)
+        self.assertIn("RefreshShrineDisplay(Hero);", proximity)
+        self.assertIn("Hero->HasDiscoveredShrine(ShrineId)", proximity)
+        self.assertIn("FVector::DistSquared(HeroLocation, ShrineLocation)", proximity)
+        self.assertIn("HeroLocation.ContainsNaN()", proximity)
+        self.assertIn("ShrineLocation.ContainsNaN()", proximity)
+        self.assertIn("TryDiscoverOrQueueRetry(Hero);", proximity)
+        self.assertNotIn("SetActorTickEnabled(true)", shrine_cpp)
+        self.assertIn("PrimaryActorTick.bCanEverTick = false;", shrine_cpp)
+
     def test_shrine_discovery_retries_failed_entry_without_tick(self):
         shrine_cpp = (ROOT / "MoonfallCheckpointShrine.cpp").read_text(encoding="utf-8")
         shrine_h = (ROOT / "MoonfallCheckpointShrine.h").read_text(encoding="utf-8")
