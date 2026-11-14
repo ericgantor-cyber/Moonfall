@@ -159,6 +159,23 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("SaveGame", nav)
         self.assertNotIn("SpawnActor", nav)
 
+    def test_playable_race_family_tab_navigation_wraps_without_mutation(self):
+        header = (ROOT / "MoonfallRaceLibrary.h").read_text(encoding="utf-8")
+        code = (ROOT / "MoonfallRaceLibrary.cpp").read_text(encoding="utf-8")
+        self.assertIn("static bool GetAdjacentPlayableRaceFamily(FName CurrentFamily, bool bForward,", header)
+        nav = code.split("UMoonfallRaceLibrary::GetAdjacentPlayableRaceFamily(", 1)[1].split(
+            "UMoonfallRaceLibrary::FindPlayableRaceProfile(", 1)[0]
+        self.assertIn("NextFamily = NAME_None;", nav)
+        self.assertIn("GetPlayableRaceFamilies()", nav)
+        self.assertIn("if (Families.IsEmpty())", nav)
+        self.assertIn("Families.IndexOfByKey(CurrentFamily)", nav)
+        self.assertIn("Index == INDEX_NONE", nav)
+        self.assertIn("(Index + 1) % Families.Num()", nav)
+        self.assertIn("(Index + Families.Num() - 1) % Families.Num()", nav)
+        self.assertIn("NextFamily = Families[NextIndex];", nav)
+        self.assertNotIn("SaveGame", nav)
+        self.assertNotIn("SpawnActor", nav)
+
     def test_isolated_race_catalog_is_cpp_syntax_safe_and_does_not_replace_persistence(self):
         import re
         catalog = (ROOT / "MoonfallRaceLibrary.cpp").read_text(encoding="utf-8")
