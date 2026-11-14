@@ -262,3 +262,14 @@ approved flat stats remain explicitly named. The unified character model
 also rejects malformed empty gear inputs rather than silently interpreting
 them as no equipment. These checks protect the reference model and do not
 change live Godot/Unreal combat behavior.
+
+## Talent point state validation fix
+
+The Python `spend()` reference helper now rejects malformed or inconsistent
+existing talent allocations before purchasing an additional talent. This
+prevents an invalid saved state from appearing to be repaired by buying a
+missing prerequisite. It also normalizes zero-rank entries in the returned
+allocations and does not mutate the caller's original dictionary. Additional
+regression tests cover corrupted saves, invalid saved point ranks and
+missing prerequisites. Native save migration and gameplay integration are
+still pending, and neither engine's live save files have been modified.
