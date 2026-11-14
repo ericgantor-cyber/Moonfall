@@ -295,3 +295,28 @@ not silently interpreted as an omitted save. A call that omits `current`
 continues to make a clean full-tree reset for backward compatibility.
 Regression tests cover both paths, and no individual talent refund returns.
 These are reference-code checks, not native save-migration testing.
+
+## Godot-native talent-tree module (not yet wired to gameplay)
+
+The Godot 4 project now bundles `godot-v38/data/moonfall_talents.json`
+and a reusable `RefCounted` source module at
+`godot-v38/scripts/systems/moonfall_talent_tree.gd`. Its `evaluate`,
+`spend` and `respec` functions load that bundled tree, check ranks,
+level gates, prerequisites and point budgets, aggregate stat bonuses,
+and return error dictionaries for rejected choices. Only full-tree respec
+is supported; no individual-point refund exists.
+
+`tools/test_godot_talent_bridge.py` checks resource parity with
+`config/moonfall_talents.json`, the source-module interface, and the
+headless smoke-test contract. To actually exercise the module using an
+installed Godot engine, run from the repository root:
+
+```sh
+godot --headless --path godot-v38 --script res://tests/talent_tree_runtime.gd
+```
+
+The Godot runtime test is provided at
+`godot-v38/tests/talent_tree_runtime.gd` but requires a real engine run.
+**The module is not yet connected to live hero progression, the
+character UI or saved games**; Unreal feature parity and native Windows
+testing remain separate work. Nothing changes Z or Nyra art.
