@@ -75,6 +75,20 @@ class ClasslessStatsTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Invalid attribute rule"):
             validate_config(broken)
 
+    def test_stat_levels_cannot_exceed_talent_tree_limits(self):
+        for minimum, maximum in ((0, 100), (1, 101), (0, 101)):
+            broken = copy.deepcopy(self.config)
+            broken["limits"]["min_level"] = minimum
+            broken["limits"]["max_level"] = maximum
+            with self.subTest(minimum=minimum, maximum=maximum):
+                with self.assertRaisesRegex(ValueError, "talent tree level range"):
+                    validate_config(broken)
+                with self.assertRaises(ValueError):
+                    calculate(maximum, config=broken)
+        # Both boundaries of a valid range are supported.
+        self.assertEqual(calculate(1, config=self.config)["talents"]["level"], 1)
+        self.assertEqual(calculate(100, config=self.config)["talents"]["level"], 100)
+
     def test_unified_character_sheet_includes_combat_ratings(self):
         result = calculate(
             10, 80, {"health": 25}, self.config,
