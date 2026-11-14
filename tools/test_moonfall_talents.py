@@ -97,7 +97,7 @@ class TalentTests(unittest.TestCase):
         self.assertEqual(original, {"iron_will": 1, "breaker": 1, "spirit_well": 1})
 
     def test_full_respec_rejects_invalid_saved_state(self):
-        for malformed in ([], "", (), False):
+        for malformed in (None, [], "", (), False):
             with self.assertRaisesRegex(ValueError, "Allocations must be a map"):
                 respec(10, self.tree, current=malformed)
         for corrupt in ({"breaker": 1},
@@ -108,6 +108,14 @@ class TalentTests(unittest.TestCase):
                 respec(10, self.tree, current=corrupt)
         with self.assertRaises(ValueError):
             respec(1, self.tree, current={"iron_will": 1})
+
+    def test_respec_omitted_current_remains_compatible(self):
+        fresh = respec(10, self.tree)
+        self.assertEqual(fresh["available"], 9)
+        self.assertEqual(fresh["allocations"], {})
+        with self.assertRaisesRegex(ValueError, "Allocations must be a map"):
+            respec(10, self.tree, current=None)
+
 
     def test_no_classes_or_cards(self):
         self.assertEqual(evaluate(5, data=self.tree)["ruleset"], "classless_talent_tree")
