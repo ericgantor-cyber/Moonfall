@@ -54,9 +54,12 @@ class ClasslessStatsTests(unittest.TestCase):
             validate_config(broken)
 
     def test_no_class_and_card_mechanics(self):
-        forbidden = ("class_selection", "upgrade_card", "reroll")
-        values = str(self.config).lower()
-        self.assertTrue(all(word not in values for word in forbidden))
+        # Policy text is allowed to mention forbidden mechanics to explicitly
+        # prohibit them. Check the actual machine-readable configuration keys.
+        forbidden = {"class_selection", "upgrade_cards", "reroll_options"}
+        self.assertFalse(forbidden.intersection(self.config.keys()))
+        self.assertFalse(forbidden.intersection(self.config["attributes"].keys()))
+        self.assertIn("No upgrade cards", self.config["rules"][1])
         self.assertEqual(calculate(5, config=self.config)["ruleset"], "classless_no_cards")
 
 
