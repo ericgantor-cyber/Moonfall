@@ -56,6 +56,24 @@ void UMoonfallActorRigComponent::RefreshRig()
  bLastCuePlayed = false;
 }
 
+bool UMoonfallActorRigComponent::HasRigCue(FName CueId) const
+{
+ if (CueId.IsNone()) return false;
+ const TObjectPtr<UAnimMontage>* Entry = MontageCues.Find(CueId);
+ return Entry && IsValid(Entry->Get());
+}
+
+TArray<FName> UMoonfallActorRigComponent::GetRigCueIds() const
+{
+ TArray<FName> Result;
+ Result.Reserve(MontageCues.Num());
+ for (const auto& Pair : MontageCues)
+  if (!Pair.Key.IsNone() && IsValid(Pair.Value.Get()))
+   Result.Add(Pair.Key);
+ Result.Sort([](const FName& A, const FName& B) { return A.LexicalLess(B); });
+ return Result;
+}
+
 bool UMoonfallActorRigComponent::PlayRigCue(FName CueId)
 {
  // Refresh on demand after swapping an NPC mesh or the preferred rig.
@@ -88,4 +106,22 @@ bool UMoonfallActorRigComponent::PlayRigCue(FName CueId)
  }
  OnRigCue(CueId, bLastCuePlayed);
  return bLastCuePlayed;
+}
+
+bool UMoonfallActorRigComponent::StopRigCue(FName CueId, float BlendOutSeconds)
+{
+ // Do not stop unrelated montages if a cue is missing or the rig changed.
+ if (!HasRigCue(CueId) || !FMath::IsFinite(BlendOutSeconds) || BlendOutSeconds < 0.f)
+  return false;
+ AActor* Owner = GetOwner();
+ if (!IsValid(Owner) || !RigMesh.IsValid() || RigMesh->GetOwner() != Owner
+     || (PreferredRigMesh != nullptr && PreferredRigMesh.Get() != RigMesh.Get()))
+  return false;
+ UAnimInstance* Anim = RigMesh->GetAnimInstance();
+ const TObjectPtr<UAnimMontage>* Entry = MontageCues.Find(CueId);
+ if (!IsValid(Anim) || !Entry || !IsValid(Entry->Get())
+     || !Anim->Montage_IsPlaying(Entry->Get()))
+  return false;
+ Anim->Montage_Stop(BlendOutSeconds, Entry->Get());
+ return true;
 }
