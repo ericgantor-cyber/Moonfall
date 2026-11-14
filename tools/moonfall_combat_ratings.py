@@ -10,6 +10,12 @@ import math
 from pathlib import Path
 
 CONFIG = Path(__file__).resolve().parents[1] / "config/moonfall_combat_ratings.json"
+# Explicit design contract: retired Hit/Dodge/Block/Parry ratings cannot
+# reappear by editing the JSON file or passing a custom config.
+RATINGS = frozenset(("critical_strike", "haste"))
+FLAT_STATS = frozenset(("armor", "attack_power", "spell_power", "health_regen",
+                        "mana_regen", "fire_resistance", "frost_resistance",
+                        "shock_resistance"))
 
 
 def load() -> dict:
@@ -23,8 +29,10 @@ def validate(data: dict) -> None:
         raise ValueError("Unsupported combat rating schema")
     ratings = data.get("ratings")
     flat = data.get("flat_stats")
-    if not isinstance(ratings, dict) or not ratings or not isinstance(flat, dict) or not flat:
-        raise ValueError("Missing combat stat groups")
+    if not isinstance(ratings, dict) or set(ratings) != RATINGS:
+        raise ValueError("Combat ratings must be exactly Critical Strike and Haste")
+    if not isinstance(flat, dict) or set(flat) != FLAT_STATS:
+        raise ValueError("Invalid or missing supported flat combat stats")
     if set(ratings) & set(flat):
         raise ValueError("Duplicate combat stat ID")
     for key, values in ratings.items():
