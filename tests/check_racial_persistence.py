@@ -90,19 +90,35 @@ class TestRacialPersistence(unittest.TestCase):
             "bool AMoonfallHeroPawn::SaveWorldProgress()", 1)[0]
         self.assertIn('#include "GameFramework/PlayerStart.h"', self.cpp)
         self.assertIn("TActorIterator<APlayerStart>", helper)
+        fallback = self.cpp.split("bool AMoonfallHeroPawn::RestoreSafeSpawnLocation()", 1)[1].split(
+            "bool AMoonfallHeroPawn::SaveWorldProgress()", 1)[0]
+        begin = self.cpp.split("void AMoonfallHeroPawn::BeginPlay()", 1)[1].split(
+            "void AMoonfallHeroPawn::Tick(", 1)[0]
+        self.assertIn("FTransform InitialSpawnTransform = FTransform::Identity;", self.header)
+        self.assertIn("bool bHasInitialSpawnTransform = false;", self.header)
+        self.assertIn("bool RestoreSafeSpawnLocation();", self.header)
+        self.assertIn("bHasInitialSpawnTransform = !SpawnLocation.ContainsNaN()", begin)
+        self.assertIn("if (bHasInitialSpawnTransform) InitialSpawnTransform = GetActorTransform();", begin)
+        self.assertLess(begin.index("InitialSpawnTransform = GetActorTransform();"),
+                        begin.index("LoadWorldProgress();"))
+        self.assertIn("if (RestoreMoonfallPlayerStart(this)) return true;", fallback)
+        self.assertIn("if (!bHasInitialSpawnTransform) return false;", fallback)
+        self.assertIn("Location.ContainsNaN()", fallback)
+        self.assertIn("Location.SizeSquared() >= 1.0e14f", fallback)
+        self.assertIn("TeleportTo(Location, InitialSpawnTransform.GetRotation().Rotator(), false, false)", fallback)
         self.assertIn("Hero->TeleportTo(Start->GetActorLocation()", helper)
         self.assertIn("Start->GetActorRotation(), false, false", helper)
         self.assertIn("SavedCheckpoint.ContainsNaN()", loader)
         self.assertIn("SavedCheckpoint.SizeSquared() >= 1.0e14f", loader)
         self.assertIn("if (!TeleportTo(SavedCheckpoint, GetActorRotation(), false, false))", loader)
-        self.assertIn("if (!RestoreMoonfallPlayerStart(this))", loader)
+        self.assertIn("if (!RestoreSafeSpawnLocation())", loader)
         self.assertIn("bPersistentSaveWritesBlocked = true;", loader)
         self.assertLess(loader.index("SavedCheckpoint.ContainsNaN()"),
                         loader.index("ResidentQuestStates.Reset();"))
         self.assertLess(loader.index("TeleportTo(SavedCheckpoint"),
                         loader.index("ResidentQuestStates.Reset();"))
         self.assertNotIn("SetActorLocation(Save->CheckpointLocation", loader)
-        self.assertIn("RestoreMoonfallPlayerStart(this);", respawn)
+        self.assertIn("if (!RestoreSafeSpawnLocation())", respawn)
         self.assertIn("GetCharacterMovement()->StopMovementImmediately();", respawn)
         self.assertIn("NextSafeCheckpointAt = Now + 5.f;", respawn)
 
