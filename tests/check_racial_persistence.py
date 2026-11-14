@@ -22,6 +22,7 @@ class TestRacialPersistence(unittest.TestCase):
                      "Moonborn", "Draconid"):
             self.assertIn('TEXT("' + race + '")', roster)
         self.assertIn('ActionName="RacePower",Key=T', self.input)
+        self.assertIn('ActionName="RacePower",Key=Gamepad_FaceButton_Top', self.input)
         self.assertIn("&AMoonfallHeroPawn::TriggerRacePower", self.cpp)
         self.assertIn("void TriggerRacePower() { ActivateRacePower(); }", self.header)
 
@@ -34,19 +35,27 @@ class TestRacialPersistence(unittest.TestCase):
         self.assertIn("if (!bRaceChosen || !GetWorld()", self.cpp)
 
     def test_persistent_cooldown_and_save_migration(self):
-        self.assertIn("int32 Version = 3", self.save)
+        self.assertIn("int32 Version = 6", self.save)
         self.assertIn("int64 RacePowerReadyUtc", self.save)
         self.assertIn("FDateTime::UtcNow().ToUnixTimestamp()", self.cpp)
         self.assertIn("Save->RacePowerReadyUtc =", self.cpp)
-        self.assertIn("Save->Version < 1 || Save->Version > 3", self.cpp)
+        self.assertIn("Save->Version < 1 || Save->Version > 6", self.cpp)
         self.assertIn("Save->Version >= 3 && Save->RacePowerReadyUtc > NowUtc", self.cpp)
         self.assertIn("RacePowerReadyAt = GetWorld()", self.cpp)
+        self.assertIn("if (!SaveWorldProgress()) {", self.cpp)
+        self.assertIn("RacePowerReadyAt = PreviousReadyAt;", self.cpp)
+        self.assertIn("RacePowerActiveUntil = PreviousActiveUntil;", self.cpp)
+        self.assertIn("OnRacePowerActivated(FName(MoonfallRacePowerNames[RaceId]));", self.cpp)
 
     def test_not_a_new_run(self):
         self.assertIn('MoonfallPersistentWorldV1', self.cpp)
-        self.assertIn("if (SecondsSinceLastWorldSave >= 2.f)", self.cpp)
+        self.assertIn("if (SecondsSinceLastWorldSave >= 2.f && GetWorld()", self.cpp)
         self.assertIn("if (DefeatElapsedSeconds >= 3.f) RespawnAtCheckpoint();", self.cpp)
         self.assertIn("if (Health <= 0.f || !GetWorld()", self.cpp)
+        self.assertIn("GetCharacterMovement()->IsFalling()", self.cpp)
+        self.assertIn("GetActorLocation().ContainsNaN()", self.cpp)
+        self.assertIn("DamageImmunityUntil = FMath::Max(DamageImmunityUntil, Now + 3.f)", self.cpp)
+        self.assertIn("NextSafeCheckpointAt = Now + 5.f;", self.cpp)
 
 if __name__ == "__main__":
     unittest.main()
