@@ -508,7 +508,7 @@ func _v398_build_tree()->void:
  layout.add_theme_constant_override("separation",10)
  v398_panel.add_child(layout)
  var title:Label=Label.new()
- title.text="MOONFALL  |  CONSTELLATION TALENTS"
+ title.text="MOONFALL  |  CLASSLESS TALENTS"
  title.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
  layout.add_child(title)
  v406_branch_bar=HBoxContainer.new()
