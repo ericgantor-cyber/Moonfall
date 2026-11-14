@@ -12,6 +12,19 @@ func _initialize() -> void:
  if web.points.size() != 108:
   _fail("Web should plot 108 unique nodes")
   return
+ if web.layout_rebuild_count != 1:
+  _fail("Initial constellation must build once")
+  return
+ var original_positions: Dictionary = web.points.duplicate()
+ web.set_data(tree, {"iron_will": 1}, 16, 14)
+ if web.layout_rebuild_count != 1 or web.points != original_positions:
+  _fail("Allocation changes must not rebuild or move constellation stars")
+  return
+ web.set_data(tree, {}, 16, 15)
+ if web.layout_rebuild_count != 1:
+  _fail("Repeated panel refresh must reuse original constellation layout")
+  return
+
  if web.next_available() != "iron_will":
   _fail("The first available star must be the initial Might root")
   return
