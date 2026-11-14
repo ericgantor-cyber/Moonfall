@@ -1790,6 +1790,7 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  // Teleport can synchronously cause shrine overlap callbacks; do not let
  // those callbacks save stale loot, NPC state or the previous shrine ledger.
  bWorldProgressLoadInProgress = true;
+ FVector ResolvedCheckpoint = SavedCheckpoint;
  if (!TeleportTo(SavedCheckpoint, GetActorRotation(), false, false)) {
   // Saved position may be blocked by new dungeon geometry. Recover at an
   // authored PlayerStart instead of reviving inside a wall or at death site.
@@ -1799,10 +1800,14 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
    bWorldProgressLoadInProgress = false;
    return false;
   }
+  // The fallback teleport is collision-checked. Remember its actual location
+  // instead of persisting the blocked shrine coordinates on the next autosave.
+  // Retain the discovered-shrine ledger so existing progression is not lost.
+  ResolvedCheckpoint = GetActorLocation();
   UE_LOG(LogTemp, Warning, TEXT("Moonfall checkpoint blocked; using a safe PlayerStart."));
  }
  bPersistentSaveWritesBlocked = false;
- RespawnCheckpointLocation = SavedCheckpoint;
+ RespawnCheckpointLocation = ResolvedCheckpoint;
  bHasRespawnCheckpointLocation = true;
  ActiveShrineId = Save->Version >= 7 ? Save->ActiveShrineId : NAME_None;
  DiscoveredShrineIds = Save->Version >= 7 ? Save->DiscoveredShrineIds : TArray<FName>();
