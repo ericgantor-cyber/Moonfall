@@ -17,6 +17,12 @@ The `three_forbidden` profile in `boss-phases.js` has four states (phase indices
 
 In phase 4, the boss controller reports the three attack IDs **together** for use by an encounter scheduler. The live combat system does not currently execute simultaneous attacks from this data alone. The encounter implementation must schedule each attack independently in the same attack window, without sequentially replacing one with another, and retain visible safe lanes.
 
+
+## Encounter event scheduler (implemented, not yet hooked into gameplay)
+`Moonfall_7_6_Windows_Launcher_Fixes/three-forbidden-encounter.js` provides a separate pure event scheduler with `createEncounter(maxHP, frame)` and `encounterTick(state, hp, frame)`. Phase 4 activates **all three powers in one frame**, creating three independent warning windows. Their attack events then fire at separate warning deadlines (30, 36 and 42 frames); the scheduler never waits for one power to complete before enabling another. Ongoing cooldowns are independent, so their attack windows can overlap later.
+
+Events are `phase-change`, `warning`, `attack`, and `defeat`. Event IDs: `echo-rupture`, `silencing-curse`, `shadow-wing-strike`. This is logic only: an integration adapter still must turn these events into visible tells, hitboxes, damage, animation and sounds. Test with `node Moonfall_7_6_Windows_Launcher_Fixes/test-three-forbidden-encounter.js`. The scheduler does not alter the existing generic boss combat pipeline.
+
 ## Encounter implementation checklist (not implemented)
 - Spawn this as a distinct boss in a dark cathedral/crypt encounter appropriate to Moonfall's unified world.
 - Assign HP, contact damage, stagger resistance, arena boundaries, and difficulty scaling via existing game systems.
