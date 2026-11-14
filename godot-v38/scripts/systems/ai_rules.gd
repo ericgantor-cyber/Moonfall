@@ -17,7 +17,10 @@ static func approach(diff:Vector3,speed:float,spawn_id:int,is_boss:bool,boss_pha
  var advance:=diff.normalized()
  if not is_boss and distance<8.0:
   var side:=1.0 if spawn_id%2==0 else -1.0
-  advance=(advance+Vector3(-advance.z,0.0,advance.x)*side*0.42).normalized()
+  # Near contact, orbit instead of pushing through the hero every frame.
+  # Keep a small forward component so enemies still pursue moving targets.
+  var lateral_weight:=1.8 if distance<2.0 else 0.42
+  advance=(advance+Vector3(-advance.z,0.0,advance.x)*side*lateral_weight).normalized()
  if is_boss and boss_phase>=2:speed*=1.0+0.15*float(mini(boss_phase-1,12))
  return advance*speed
 
