@@ -29,6 +29,17 @@ struct FMoonfallRaceStatPreview
  UPROPERTY(BlueprintReadOnly, Category="Moonfall|Races") float Speed = 0.f;
 };
 
+// Read-only difference between two playable races using the same base stats.
+// Positive delta values mean Candidate is stronger than Current in that stat.
+USTRUCT(BlueprintType)
+struct FMoonfallRaceStatComparison
+{
+ GENERATED_BODY()
+ UPROPERTY(BlueprintReadOnly, Category="Moonfall|Races") FMoonfallRaceStatPreview Current;
+ UPROPERTY(BlueprintReadOnly, Category="Moonfall|Races") FMoonfallRaceStatPreview Candidate;
+ UPROPERTY(BlueprintReadOnly, Category="Moonfall|Races") FMoonfallRaceStatPreview Delta;
+};
+
 UCLASS()
 class MOONFALLUNREAL_API UMoonfallRaceLibrary : public UBlueprintFunctionLibrary
 {
@@ -68,6 +79,17 @@ public:
  UFUNCTION(BlueprintPure, Category="Moonfall|Races")
  static bool PreviewPlayableRaceStats(FName RaceId, float BaseVitality, float BasePower,
                                      float BaseSpeed, FMoonfallRaceStatPreview& Preview);
+
+ // UI-friendly, playable-only family list. Empty family returns an empty array.
+ UFUNCTION(BlueprintPure, Category="Moonfall|Races")
+ static TArray<FMoonfallRaceProfile> GetPlayableRaceProfilesByFamily(FName Family);
+
+ // Compare two playable races against identical base stats. On failure all
+ // outputs remain zeroed. No stat assignments, character art or save writes.
+ UFUNCTION(BlueprintPure, Category="Moonfall|Races")
+ static bool ComparePlayableRaceStats(FName CurrentRaceId, FName CandidateRaceId,
+                                      float BaseVitality, float BasePower, float BaseSpeed,
+                                      FMoonfallRaceStatComparison& Comparison);
 
  // Returns false and an unmodified baseline profile for unknown identifiers.
  UFUNCTION(BlueprintPure, Category="Moonfall|Races")
