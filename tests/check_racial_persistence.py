@@ -260,6 +260,32 @@ class TestRacialPersistence(unittest.TestCase):
             "void AMoonfallHeroPawn::Tick(", 1)[0])
         self.assertIn("if (SaveWorldProgress()) SecondsSinceLastWorldSave = 0.f;", self.cpp)
 
+    def test_blocked_saved_checkpoint_remembers_validated_fallback(self):
+        loader = self.cpp.split("bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[1].split(
+            "void AMoonfallHeroPawn::RespawnAtCheckpoint()", 1)[0]
+        respawn = self.cpp.split("void AMoonfallHeroPawn::RespawnAtCheckpoint()", 1)[1].split(
+            "// One unified roster.", 1)[0]
+        saver = self.cpp.split("bool AMoonfallHeroPawn::SaveWorldProgress()", 1)[1].split(
+            "bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[0]
+        self.assertIn("FVector ResolvedCheckpoint = SavedCheckpoint;", loader)
+        self.assertIn("if (!TeleportTo(SavedCheckpoint, GetActorRotation(), false, false))", loader)
+        self.assertIn("if (!RestoreSafeSpawnLocation()) {", loader)
+        self.assertIn("ResolvedCheckpoint = GetActorLocation();", loader)
+        self.assertIn("RespawnCheckpointLocation = ResolvedCheckpoint;", loader)
+        self.assertNotIn("RespawnCheckpointLocation = SavedCheckpoint;", loader)
+        self.assertLess(loader.index("if (!RestoreSafeSpawnLocation()) {"),
+                        loader.index("ResolvedCheckpoint = GetActorLocation();"))
+        self.assertLess(loader.index("ResolvedCheckpoint = GetActorLocation();"),
+                        loader.index("RespawnCheckpointLocation = ResolvedCheckpoint;"))
+        self.assertLess(loader.index("RespawnCheckpointLocation = ResolvedCheckpoint;"),
+                        loader.index("ActiveShrineId = Save->Version >= 7 ?"))
+        self.assertIn("bPersistentSaveWritesBlocked = true;", loader)
+        self.assertIn("bWorldProgressLoadInProgress = false;", loader)
+        self.assertIn("Save->CheckpointLocation = RespawnCheckpointLocation;", saver)
+        self.assertIn("TeleportTo(RespawnCheckpointLocation, GetActorRotation(), false, false)", respawn)
+        self.assertIn("ActiveShrineId = Save->Version >= 7 ?", loader)
+        self.assertIn("DiscoveredShrineIds = Save->Version >= 7 ?", loader)
+
     def test_checkpoint_respawn_rejects_invalid_or_blocked_spawns(self):
         loader = self.cpp.split("bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[1].split(
             "void AMoonfallHeroPawn::RespawnAtCheckpoint()", 1)[0]
@@ -441,7 +467,7 @@ class TestRacialPersistence(unittest.TestCase):
         self.assertIn("if (Save->Version >= 7)", loader)
         self.assertIn("Save->DiscoveredShrineIds.Num() > 64", loader)
         self.assertIn("UniqueShrines.Contains(Id)", loader)
-        self.assertIn("RespawnCheckpointLocation = SavedCheckpoint;", loader)
+        self.assertIn("RespawnCheckpointLocation = ResolvedCheckpoint;", loader)
         self.assertIn("ActiveShrineId = Save->Version >= 7 ?", loader)
         self.assertIn("DiscoveredShrineIds = Save->Version >= 7 ?", loader)
         # A loaded save must immediately update shrines already spawned in the world.
