@@ -22,6 +22,9 @@ public:
  virtual void BeginPlay() override;
  // Update the status label when a shrine is discovered. No per-frame Tick.
  void RefreshShrineDisplay(const AMoonfallHeroPawn* Hero);
+ // Called once when the hero finishes loading, including when a save teleports
+ // them onto an already-present shrine (no fresh overlap event is guaranteed).
+ void CheckHeroAtSpawn(AMoonfallHeroPawn* Hero);
 
  // Set a unique authored ID per shrine. Never derive save identity from actor names.
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Shrine") FName ShrineId = NAME_None;
