@@ -414,6 +414,31 @@ class TestRacialPersistence(unittest.TestCase):
         self.assertIn("FTimerHandle DiscoveryRetryTimer;", shrine_h)
         self.assertNotIn("void AMoonfallCheckpointShrine::Tick(", shrine_cpp)
 
+    def test_fallback_respawn_does_not_mislabel_old_shrine_as_active(self):
+        shrine_cpp = (ROOT / "MoonfallCheckpointShrine.cpp").read_text(encoding="utf-8")
+        hero_header = self.header
+        helper = self.cpp.split(
+            "bool AMoonfallHeroPawn::IsCurrentRespawnLocation(", 1)[1].split(
+            "bool AMoonfallHeroPawn::DiscoverShrine(", 1)[0]
+        loader = self.cpp.split("bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[1].split(
+            "void AMoonfallHeroPawn::RespawnAtCheckpoint()", 1)[0]
+        # Restore the discovered/active ID for migration but never claim the
+        # physical shrine is the respawn point after collision-safe fallback.
+        self.assertIn("bool IsCurrentRespawnLocation(const FVector& Location) const;", hero_header)
+        self.assertIn("bHasRespawnCheckpointLocation", helper)
+        self.assertIn("!Location.ContainsNaN()", helper)
+        self.assertIn("!RespawnCheckpointLocation.ContainsNaN()", helper)
+        self.assertIn("FVector::DistSquared(RespawnCheckpointLocation, Location)", helper)
+        self.assertIn("Hero->ActiveShrineId == ShrineId", shrine_cpp)
+        self.assertIn("Hero->IsCurrentRespawnLocation(GetRespawnLocation())", shrine_cpp)
+        label = shrine_cpp.split("void AMoonfallCheckpointShrine::RefreshShrineDisplay(", 1)[1].split(
+            "void AMoonfallCheckpointShrine::CheckHeroAtSpawn(", 1)[0]
+        self.assertLess(label.index("Hero->IsCurrentRespawnLocation(GetRespawnLocation())"),
+                        label.index('TEXT("ACTIVE RESPAWN SHRINE")'))
+        self.assertIn('TEXT("DISCOVERED SHRINE")', label)
+        self.assertIn("RespawnCheckpointLocation = ResolvedCheckpoint;", loader)
+        self.assertIn("ActiveShrineId = Save->Version >= 7 ?", loader)
+
     def test_shrine_activation_has_clear_status_and_wall_guard(self):
         shrine_cpp = (ROOT / "MoonfallCheckpointShrine.cpp").read_text(encoding="utf-8")
         discover = self.cpp.split("bool AMoonfallHeroPawn::DiscoverShrine(", 1)[1].split(
