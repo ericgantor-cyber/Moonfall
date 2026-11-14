@@ -141,6 +141,30 @@ bool UMoonfallRaceLibrary::GetAdjacentPlayableRaceFamily(
  return true;
 }
 
+bool UMoonfallRaceLibrary::ResolvePlayableRaceForFamily(
+ FName CurrentRaceId, FName Family, FName& ResolvedRaceId)
+{
+ ResolvedRaceId = NAME_None;
+ FMoonfallRaceProfile Current;
+ if (FindPlayableRaceProfile(CurrentRaceId, Current)
+     && (Family.IsNone() || Current.Family == Family))
+ {
+  ResolvedRaceId = Current.RaceId;
+  return true;
+ }
+
+ // A family switch always starts with the first eligible playable race;
+ // no wrapping or skipping is needed until navigation begins.
+ for (const FRaceRow& Row : RaceRows)
+ {
+  if (!Row.bPlayable || (!Family.IsNone() && FName(Row.Family) != Family))
+   continue;
+  ResolvedRaceId = FName(Row.Id);
+  return true;
+ }
+ return false;
+}
+
 bool UMoonfallRaceLibrary::FindPlayableRaceProfile(FName RaceId, FMoonfallRaceProfile& Profile)
 {
  if (!FindRaceProfile(RaceId, Profile) || !Profile.bPlayableCandidate)
