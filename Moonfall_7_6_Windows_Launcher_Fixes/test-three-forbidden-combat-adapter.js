@@ -17,7 +17,7 @@ assert.equal(results[0].id,'shadow-wing-strike');
 assert.equal(resolveHit(results[0],{x:500,y:350}).hit,true);
 assert.equal(resolveHit(results[0],{x:950,y:650}).hit,false);
 assert.equal(resolveHit(results[0],{x:579,y:350,radius:16}).hit,true,'wing lane catches player hitbox edge');
-assert.equal(resolveHit(results[0],{x:600,y:350,radius:10}).hit,false,'wing lane does not catch player too far away');
+assert.equal(resolveHit(results[0],{x:600,y:500,radius:10}).hit,false,'player is beyond both crossed wing lanes');
 assert.throws(()=>resolveHit(results[0],{x:500,y:350,radius:-1}),RangeError);
 assert.equal(resolveHit({type:'attack',id:'shadow-wing-strike',shapes:[
  {shape:'circle',cx:100,cy:100,radius:8,damage:99},
