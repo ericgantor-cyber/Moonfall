@@ -14,20 +14,26 @@ class ClasslessTalentUIScreen(unittest.TestCase):
         cls.screen = SCREEN.read_text(encoding="utf-8")
         cls.model = MODEL.read_text(encoding="utf-8")
 
-    def test_existing_keyboard_panel_uses_classless_tree(self):
+    def test_keyboard_panel_uses_interactive_classless_web(self):
         self.assertIn("event.keycode==KEY_K", self.screen)
         self.assertIn("CLASSLESS TALENTS", self.screen)
         self.assertIn("CLASSLESS_TALENTS.evaluate(", self.screen)
         self.assertIn("CLASSLESS_TALENTS.spend(", self.screen)
-        self.assertIn("button.disabled=not bool(preview.get(\"ok\",false))", self.screen)
+        self.assertIn("v406_purchase_button.disabled=not bool(preview.get(", self.screen)
+        self.assertIn('V406_WEB.new()', self.screen)
+        self.assertIn('v406_web.talent_selected.connect(_v406_web_selected)', self.screen)
 
-    def test_large_tree_has_accessible_branch_tabs_and_tiers(self):
-        self.assertIn('v406_active_branch:String="might"', self.screen)
-        self.assertIn('v406_branch_bar=HBoxContainer.new()', self.screen)
-        self.assertIn('tab.custom_minimum_size=Vector2(194,56)', self.screen)
-        self.assertIn('button.custom_minimum_size.y=54.0', self.screen)
-        self.assertIn('tier_title.text="TIER "', self.screen)
-        self.assertIn('scroll.horizontal_scroll_mode=ScrollContainer.SCROLL_MODE_DISABLED', self.screen)
+    def test_web_has_pan_zoom_keyboard_and_large_controls(self):
+        web = (ROOT / "godot-v38/scripts/systems/moonfall_talent_web.gd").read_text(encoding="utf-8")
+        for token in ("_draw()", "draw_line(", "draw_circle(",
+                      "MOUSE_BUTTON_WHEEL_UP", "MOUSE_BUTTON_WHEEL_DOWN",
+                      "drag_distance", "KEY_LEFT", "KEY_HOME", "KEY_EQUAL",
+                      "talent_selected.emit(", "func focus_branch(", "func fit_all("):
+            self.assertIn(token, web)
+        self.assertIn('v406_web.custom_minimum_size=Vector2(760,565)', self.screen)
+        self.assertIn('focus.custom_minimum_size=Vector2(148,52)', self.screen)
+        self.assertIn('v406_purchase_button.custom_minimum_size.y=56', self.screen)
+        self.assertIn('index_button.custom_minimum_size.y=42.0', self.screen)
         self.assertIn('v406_respec_button.disabled=v406_ranks.is_empty()', self.screen)
 
     def test_save_restores_classless_without_clobbering_legacy(self):
