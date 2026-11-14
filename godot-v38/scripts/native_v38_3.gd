@@ -3,6 +3,7 @@ extends "res://scripts/native_v38_2.gd"
 var pad_atlas_previous:Dictionary={}
 var pad_atlas_cursor:Vector2=Vector2.ZERO
 var pad_atlas_legend:Label
+var pad_atlas_device:int=-1
 const PAD_ATLAS_DEADZONE:float=0.24
 
 func _ready()->void:
@@ -30,14 +31,27 @@ func _process(delta:float)->void:
  if devices.is_empty():
   # A disconnected controller must not retain pressed-button edges.
   pad_atlas_previous.clear()
+  pad_atlas_device=-1
+  pad_atlas_cursor=Vector2.ZERO
   return
  var device:int=devices[0]
- # Update BACK's held/released state even while menus or death UI are up.
- # A stale pressed state otherwise loses the first press after resuming.
+ if device!=pad_atlas_device:
+  # Do not inherit held edges or cursor position from another controller.
+  pad_atlas_previous.clear()
+  pad_atlas_cursor=Vector2.ZERO
+  pad_atlas_device=device
+ # Sample all map buttons every frame, even when the map is closed.
+ # Otherwise a release while closed is missed and the next press is lost.
  var toggle:bool=_pad_pressed(device,JOY_BUTTON_BACK,"map")
- if not hero_playing or death_active or menu_open:return
- if toggle:
-  _toggle_atlas()
+ var mark:bool=_pad_pressed(device,JOY_BUTTON_A,"mark")
+ var clear:bool=_pad_pressed(device,JOY_BUTTON_X,"clear")
+ var close:bool=_pad_pressed(device,JOY_BUTTON_B,"close")
+ var zoom_out:bool=_pad_pressed(device,JOY_BUTTON_LEFT_SHOULDER,"zoom_out")
+ var zoom_in:bool=_pad_pressed(device,JOY_BUTTON_RIGHT_SHOULDER,"zoom_in")
+ if not hero_playing or death_active or menu_open:
+  pad_atlas_cursor=Vector2.ZERO
+  return
+ if toggle:_toggle_atlas()
  if not is_instance_valid(atlas_panel) or not atlas_panel.visible:
   pad_atlas_cursor=Vector2.ZERO
   return
@@ -47,12 +61,15 @@ func _process(delta:float)->void:
   var speed:float=atlas_zoom_radius*0.85
   pad_atlas_cursor+=stick*speed*minf(delta,0.05)
   pad_atlas_cursor=pad_atlas_cursor.limit_length(atlas_zoom_radius)
- if _pad_pressed(device,JOY_BUTTON_A,"mark") and is_instance_valid(player):
+ if mark and is_instance_valid(player):
   var here:Vector3=player.global_position
   _atlas_select_waypoint(Vector3(here.x+pad_atlas_cursor.x,here.y,here.z+pad_atlas_cursor.y))
- if _pad_pressed(device,JOY_BUTTON_X,"clear"):_atlas_clear()
- if _pad_pressed(device,JOY_BUTTON_B,"close"):atlas_panel.visible=false
- if _pad_pressed(device,JOY_BUTTON_LEFT_SHOULDER,"zoom_out"):_atlas_zoom(1.333333)
- if _pad_pressed(device,JOY_BUTTON_RIGHT_SHOULDER,"zoom_in"):_atlas_zoom(0.75)
+ if clear:_atlas_clear()
+ if close:
+  atlas_panel.visible=false
+  pad_atlas_cursor=Vector2.ZERO
+  return
+ if zoom_out:_atlas_zoom(1.333333)
+ if zoom_in:_atlas_zoom(0.75)
  if is_instance_valid(pad_atlas_legend):
   pad_atlas_legend.text="GAMEPAD BACK map | RIGHT STICK target (%.0f, %.0f) | A mark | B close | X clear | LB/RB zoom" % [pad_atlas_cursor.x,pad_atlas_cursor.y]
