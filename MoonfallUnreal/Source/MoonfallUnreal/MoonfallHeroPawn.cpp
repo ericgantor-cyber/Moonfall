@@ -1393,8 +1393,16 @@ bool AMoonfallHeroPawn::CollectGroundEquipmentCode(int32 ItemCode)
      || (Rarity == 0 && Affix != 0)
      || ItemCode != Affix * 100000 + SlotIndex * 10000 + Rarity * 1000 + Tier)
   return false;
- // Picking up an item NEVER equips, automatically salvages, or deletes gear.
- InventoryItemCodes.Add(ItemCode);
+ // Ground loot remains in the world until it is safely recorded.
+ // SaveGameToSlot is synchronous here; a failed save must leave pickup and
+ // all last-loot UI values untouched, even when this code already exists.
+ if (InventoryItemCodes.Num() >= 10000) return false;
+ const int32 OldLootAffix = LastLootAffix;
+ const int32 OldLootSlot = LastLootSlot;
+ const int32 OldLootRarity = LastLootRarity;
+ const int32 OldLootTier = LastLootTier;
+ const int32 OldLootUpgrade = LastLootUpgrade;
+ const int32 AddedIndex = InventoryItemCodes.Add(ItemCode);
  LastLootAffix = Affix;
  LastLootSlot = SlotIndex;
  LastLootRarity = Rarity;
@@ -1402,6 +1410,15 @@ bool AMoonfallHeroPawn::CollectGroundEquipmentCode(int32 ItemCode)
  const int32 EquippedTier = SlotIndex == 0 ? WeaponTier
      : (SlotIndex == 1 ? ArmorTier : AccessoryTier);
  LastLootUpgrade = Tier - EquippedTier;
+ if (!SaveWorldProgress()) {
+  InventoryItemCodes.RemoveAt(AddedIndex);
+  LastLootAffix = OldLootAffix;
+  LastLootSlot = OldLootSlot;
+  LastLootRarity = OldLootRarity;
+  LastLootTier = OldLootTier;
+  LastLootUpgrade = OldLootUpgrade;
+  return false;
+ }
  return true;
 }
 
@@ -1656,6 +1673,11 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
      || RespawnCheckpointLocation.ContainsNaN()
      || RespawnCheckpointLocation.SizeSquared() >= 1.0e14f) return false;
  if (Health <= 0.f || !GetWorld() || !FMath::IsFinite(MaxHealth)) return false;
+ // Never create a save that this version's loader will reject on reload.
+ // The source collection remains intact if its supported serialized size
+ // would be exceeded; ground drops are not consumed in that case.
+ if (InventoryItemCodes.Num() > 10000 || ResidentQuestStates.Num() > 64
+     || DiscoveredShrineIds.Num() > 64) return false;
  // Do not serialize a mid-fall or invalid checkpoint.
  if ((GetCharacterMovement() && GetCharacterMovement()->IsFalling())
      || GetActorLocation().ContainsNaN() || GetActorLocation().SizeSquared() >= 1.0e14f) return false;
