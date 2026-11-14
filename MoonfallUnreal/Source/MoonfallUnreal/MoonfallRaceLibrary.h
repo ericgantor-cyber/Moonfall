@@ -32,9 +32,18 @@ public:
  UFUNCTION(BlueprintPure, Category="Moonfall|Races")
  static TArray<FName> GetPlayableRaceIds();
 
+ // Return complete character-selection metadata in one Blueprint call.
+ // This is a catalog lookup, not a player race-selection or save mutation.
+ UFUNCTION(BlueprintPure, Category="Moonfall|Races")
+ static TArray<FMoonfallRaceProfile> GetPlayableRaceProfiles();
+
  // Filter the original roster by family, including nonplayable enemy races.
  UFUNCTION(BlueprintPure, Category="Moonfall|Races")
  static TArray<FName> GetRaceIdsByFamily(FName Family);
+
+ // Full profile data for NPC/enemy catalog browsing by race family.
+ UFUNCTION(BlueprintPure, Category="Moonfall|Races")
+ static TArray<FMoonfallRaceProfile> GetRaceProfilesByFamily(FName Family);
 
  // Returns false and an unmodified baseline profile for unknown identifiers.
  UFUNCTION(BlueprintPure, Category="Moonfall|Races")
