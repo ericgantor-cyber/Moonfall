@@ -225,6 +225,28 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("SaveGame", fn)
         self.assertNotIn("SpawnActor", fn)
 
+    def test_playable_family_position_counts_only_available_tabs(self):
+        header = (ROOT / "MoonfallRaceLibrary.h").read_text(encoding="utf-8")
+        code = (ROOT / "MoonfallRaceLibrary.cpp").read_text(encoding="utf-8")
+        self.assertIn("static bool GetPlayableRaceFamilyPosition(FName Family, int32& Position,", header)
+        fn = code.split("UMoonfallRaceLibrary::GetPlayableRaceFamilyPosition(", 1)[1].split(
+            "UMoonfallRaceLibrary::FindRaceProfile(", 1)[0]
+        self.assertIn("Position = 0;", fn)
+        self.assertIn("Total = 0;", fn)
+        self.assertIn("GetPlayableRaceFamilies()", fn)
+        self.assertIn("Families.IndexOfByKey(Family)", fn)
+        self.assertIn("if (FoundIndex == INDEX_NONE)", fn)
+        self.assertLess(fn.index("if (FoundIndex == INDEX_NONE)"), fn.index("Position = FoundIndex + 1;"))
+        self.assertIn("Total = Families.Num();", fn)
+        self.assertNotIn("SaveGame", fn)
+        self.assertNotIn("SpawnActor", fn)
+
+    def test_race_selector_documents_keyboard_and_controller_only(self):
+        header = (ROOT / "MoonfallRaceLibrary.h").read_text(encoding="utf-8")
+        self.assertIn("keyboard and controller", header)
+        self.assertNotIn("single-switch", header.lower())
+        self.assertNotIn("switch-accessible", header.lower())
+
     def test_isolated_race_catalog_is_cpp_syntax_safe_and_does_not_replace_persistence(self):
         import re
         catalog = (ROOT / "MoonfallRaceLibrary.cpp").read_text(encoding="utf-8")
