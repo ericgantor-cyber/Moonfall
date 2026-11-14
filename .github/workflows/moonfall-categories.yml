@@ -1,0 +1,35 @@
+name: Moonfall five-category structure
+
+on:
+  pull_request:
+    paths:
+      - "config/moonfall_game_categories.json"
+      - "tools/check_game_categories.py"
+      - "tools/test_game_categories.py"
+      - "tools/moonfall_category_plan.py"
+      - "docs/MOONFALL_FIVE_CATEGORIES.md"
+      - ".github/workflows/moonfall-categories.yml"
+  push:
+    branches: [main]
+    paths:
+      - "config/moonfall_game_categories.json"
+      - "tools/check_game_categories.py"
+      - "tools/test_game_categories.py"
+      - "tools/moonfall_category_plan.py"
+      - "docs/MOONFALL_FIVE_CATEGORIES.md"
+      - ".github/workflows/moonfall-categories.yml"
+
+jobs:
+  check-categories:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python tools/check_game_categories.py
+      - run: python tools/test_game_categories.py
+      - run: python tools/moonfall_category_plan.py --format json --output /tmp/moonfall-plan.json
+      - run: python tools/moonfall_category_plan.py --category interface --output /tmp/moonfall-interface-plan.md
