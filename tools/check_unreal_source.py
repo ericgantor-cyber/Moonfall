@@ -61,6 +61,31 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("SaveGame", families + select + preview)
         self.assertNotIn("SpawnActor", families + select + preview)
 
+    def test_race_comparison_is_read_only_and_failure_atomic(self):
+        header = (ROOT / "MoonfallRaceLibrary.h").read_text(encoding="utf-8")
+        code = (ROOT / "MoonfallRaceLibrary.cpp").read_text(encoding="utf-8")
+        self.assertIn("struct FMoonfallRaceStatComparison", header)
+        self.assertIn("static TArray<FMoonfallRaceProfile> GetPlayableRaceProfilesByFamily(FName Family);", header)
+        self.assertIn("static bool ComparePlayableRaceStats(FName CurrentRaceId, FName CandidateRaceId,", header)
+        filt = code.split("UMoonfallRaceLibrary::GetPlayableRaceProfilesByFamily(", 1)[1].split(
+            "UMoonfallRaceLibrary::ComparePlayableRaceStats(", 1)[0]
+        self.assertIn("if (Family.IsNone()) return Result;", filt)
+        self.assertIn("GetRaceProfilesByFamily(Family)", filt)
+        self.assertIn("if (Profile.bPlayableCandidate)", filt)
+        comparison = code.split("UMoonfallRaceLibrary::ComparePlayableRaceStats(", 1)[1].split(
+            "UMoonfallRaceLibrary::FindRaceProfile(", 1)[0]
+        self.assertIn("Comparison = FMoonfallRaceStatComparison();", comparison)
+        self.assertIn("PreviewPlayableRaceStats(CurrentRaceId,", comparison)
+        self.assertIn("PreviewPlayableRaceStats(CandidateRaceId,", comparison)
+        for stat in ("Vitality", "Power", "Speed"):
+            self.assertIn("Candidate." + stat + " - Current." + stat, comparison)
+            self.assertIn("FMath::IsFinite(Delta" + stat + ")", comparison)
+            self.assertIn("Comparison.Delta." + stat + " = Delta" + stat + ";", comparison)
+        self.assertLess(comparison.index("FMath::IsFinite(DeltaSpeed)"),
+                        comparison.index("Comparison.Current = Current;"))
+        self.assertNotIn("SaveGame", comparison + filt)
+        self.assertNotIn("SpawnActor", comparison + filt)
+
     def test_isolated_race_catalog_is_cpp_syntax_safe_and_does_not_replace_persistence(self):
         import re
         catalog = (ROOT / "MoonfallRaceLibrary.cpp").read_text(encoding="utf-8")
