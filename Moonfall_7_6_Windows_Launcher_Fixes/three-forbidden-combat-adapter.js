@@ -1,6 +1,6 @@
 'use strict';
 // Renderer-neutral combat integration for The Three Forbidden.
-// Feed encounterTick events through consumeEvents; use hazards() for warnings;
+// Feed encounterTick events through consumeEvents; use returned warning shapes for rendering;
 // resolveHit() for damage decisions. Host game remains responsible for HP,
 // parry animation, stamina, drawing and actual entity spawning.
 const {planAttack}=require('./three-forbidden-patterns');
