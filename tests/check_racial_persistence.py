@@ -399,6 +399,24 @@ class TestRacialPersistence(unittest.TestCase):
         self.assertNotIn("SetActorTickEnabled(true)", shrine_cpp)
         self.assertIn("PrimaryActorTick.bCanEverTick = false;", shrine_cpp)
 
+    def test_discovered_shrine_can_reactivate_after_safe_fallback_without_duplicate_reward(self):
+        shrine_cpp = (ROOT / "MoonfallCheckpointShrine.cpp").read_text(encoding="utf-8")
+        discover = self.cpp.split("bool AMoonfallHeroPawn::DiscoverShrine(", 1)[1].split(
+            "bool AMoonfallHeroPawn::SaveWorldProgress()", 1)[0]
+        attempt = shrine_cpp.split(
+            "void AMoonfallCheckpointShrine::TryDiscoverOrQueueRetry(", 1)[1].split(
+            "void AMoonfallCheckpointShrine::RetryPendingDiscovery()", 1)[0]
+        self.assertIn("const bool bPreviouslyDiscovered = HasDiscoveredShrine(Shrine->ShrineId);", discover)
+        self.assertIn("IsCurrentRespawnLocation(Shrine->GetRespawnLocation())", discover)
+        self.assertIn("!bPreviouslyDiscovered && DiscoveredShrineIds.Num() >= 64", discover)
+        self.assertIn("if (!bPreviouslyDiscovered) DiscoveredShrineIds.Add(Shrine->ShrineId);", discover)
+        self.assertIn("if (!bPreviouslyDiscovered) DiscoveredShrineIds.Remove(Shrine->ShrineId);", discover)
+        self.assertIn("if (!bPreviouslyDiscovered) OnShrineDiscovered(ActiveShrineId);", discover)
+        self.assertIn("Hero->IsCurrentRespawnLocation(GetRespawnLocation())", attempt)
+        self.assertIn("if (Hero->DiscoverShrine(this))", attempt)
+        self.assertLess(attempt.index("Hero->IsCurrentRespawnLocation(GetRespawnLocation())"),
+                        attempt.index("if (Hero->DiscoverShrine(this))"))
+
     def test_shrine_discovery_retries_failed_entry_without_tick(self):
         shrine_cpp = (ROOT / "MoonfallCheckpointShrine.cpp").read_text(encoding="utf-8")
         shrine_h = (ROOT / "MoonfallCheckpointShrine.h").read_text(encoding="utf-8")
