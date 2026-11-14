@@ -69,6 +69,15 @@ class ClasslessTalentUIScreen(unittest.TestCase):
         self.assertIn('layout_rebuild_count += 1', web)
         self.assertIn('if dragging and mouse_down_on_node == "" or hover_changed:', web)
 
+    def test_large_capstone_hitboxes_match_drawn_stars(self):
+        web = (ROOT / "godot-v38/scripts/systems/moonfall_talent_web.gd").read_text(encoding="utf-8")
+        self.assertIn("func _visual_radius(talent_id: String)", web)
+        self.assertIn("_visual_radius(str(id)) + 10.0", web)
+        self.assertIn("var radius: float = _visual_radius(id)", web)
+        runtime = (ROOT / "godot-v38/tests/talent_web_runtime.gd").read_text(encoding="utf-8")
+        self.assertIn("capstone_radius - 1.0", runtime)
+        self.assertIn("Capstone edge must be clickable", runtime)
+
     def test_save_restores_classless_without_clobbering_legacy(self):
         self.assertIn('"classless_ranks":v406_ranks.duplicate(true)', self.screen)
         self.assertIn('resources.get("classless_ranks",{})', self.screen)
