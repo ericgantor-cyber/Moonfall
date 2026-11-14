@@ -125,6 +125,23 @@ class TestRacialPersistence(unittest.TestCase):
             with self.subTest(invalid_code=code):
                 self.assertFalse(valid_item_code(code))
 
+    def test_midair_progress_save_keeps_last_discovered_shrine(self):
+        saver = self.cpp.split("bool AMoonfallHeroPawn::SaveWorldProgress()", 1)[1].split(
+            "bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[0]
+        collect = self.cpp.split("bool AMoonfallHeroPawn::CollectGroundEquipmentCode(", 1)[1].split(
+            "void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(", 1)[0]
+        self.assertNotIn("IsFalling()", saver)
+        self.assertNotIn("Save->CheckpointLocation = GetActorLocation()", saver)
+        self.assertIn("Save->CheckpointLocation = RespawnCheckpointLocation;", saver)
+        self.assertIn("RespawnCheckpointLocation.ContainsNaN()", saver)
+        self.assertIn("RespawnCheckpointLocation.SizeSquared() >= 1.0e14f", saver)
+        self.assertIn("GetActorLocation().ContainsNaN()", saver)
+        self.assertIn("GetActorLocation().SizeSquared() >= 1.0e14f", saver)
+        self.assertLess(saver.index("RespawnCheckpointLocation.ContainsNaN()"),
+                        saver.index("UGameplayStatics::SaveGameToSlot("))
+        self.assertIn("if (!SaveWorldProgress()) {", collect)
+        self.assertIn("InventoryItemCodes.RemoveAt(AddedIndex);", collect)
+
     def test_ground_loot_pickup_is_transactional_and_durable_on_death(self):
         ground = (ROOT / "MoonfallGroundLoot.cpp").read_text(encoding="utf-8")
         collect = self.cpp.split("bool AMoonfallHeroPawn::CollectGroundEquipmentCode(", 1)[1].split(
@@ -367,7 +384,13 @@ class TestRacialPersistence(unittest.TestCase):
         self.assertIn("if (SecondsSinceLastWorldSave >= 2.f && GetWorld()", self.cpp)
         self.assertIn("if (DefeatElapsedSeconds >= 3.f) RespawnAtCheckpoint();", self.cpp)
         self.assertIn("if (Health <= 0.f || !GetWorld()", self.cpp)
-        self.assertIn("GetCharacterMovement()->IsFalling()", self.cpp)
+        saver = self.cpp.split("bool AMoonfallHeroPawn::SaveWorldProgress()", 1)[1].split(
+            "bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[0]
+        # A saved shrine never moves with the hero; jumping should not stop
+        # a two-second progress save or a transactional ground-loot pickup.
+        self.assertNotIn("GetCharacterMovement()->IsFalling()", saver)
+        self.assertIn("Save->CheckpointLocation = RespawnCheckpointLocation;", saver)
+        self.assertIn("GetActorLocation().ContainsNaN()", saver)
         self.assertIn("GetActorLocation().ContainsNaN()", self.cpp)
         self.assertIn("DamageImmunityUntil = FMath::Max(DamageImmunityUntil, Now + 3.f)", self.cpp)
         self.assertIn("NextSafeCheckpointAt = Now + 5.f;", self.cpp)
