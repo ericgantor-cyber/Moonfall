@@ -57,6 +57,23 @@ class CategoryRoadmapTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Unknown category"):
             ordered_tracks(self.fresh(), "mystery")
 
+    def test_classless_progression_and_no_upgrade_card_tracks(self):
+        data = self.fresh()
+        all_ids = {track["id"] for cat in data["categories"] for track in cat["roadmap"]}
+        self.assertIn("race_selection", all_ids)
+        self.assertIn("level_growth", all_ids)
+        self.assertNotIn("races_classes", all_ids)
+        self.assertNotIn("upgrade_cards", all_ids)
+        text = " ".join(
+            value for cat in data["categories"]
+            for value in ([cat["purpose"]] + cat["features"] +
+                          [track["title"] for track in cat["roadmap"]])
+        ).lower()
+        self.assertNotIn("classes", text)
+        self.assertNotIn("upgrade card", text)
+        self.assertNotIn("reroll", text)
+        validate(data, ROOT)
+
     def test_real_registry_valid(self):
         validate(self.fresh(), ROOT)
 
