@@ -320,3 +320,21 @@ The Godot runtime test is provided at
 **The module is not yet connected to live hero progression, the
 character UI or saved games**; Unreal feature parity and native Windows
 testing remain separate work. Nothing changes Z or Nyra art.
+
+## Native talent panel integration (draft)
+
+The existing Godot `K` talent screen now reads the Moonfall-original classless
+talent tree with its three open branches. Purchase buttons consult the native
+talent validator; unavailable or maxed talents are disabled. A single button
+resets **all** classless talents, not individual points. Changes call the
+existing save routine.
+
+A new additive `optional_resources.classless_ranks` checkpoint field stores
+the classless allocations. Loading validates this field before accepting it,
+defaulting to an empty tree for older saves. Legacy
+`optional_resources.celestial_ranks` stays intact as a compatibility field:
+the old six-branch combat calculations still consume it, so the new choices
+are **not yet incorporated into combat damage or resources**. This is an
+incremental UI-and-save step, not a finished progression migration. A follow-on
+change must decide how to retire legacy talent effects safely and apply the
+new stat bonuses without double counting. Original hero assets are unchanged.
