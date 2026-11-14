@@ -378,7 +378,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("virtual FReply NativeOnKeyDown(", header)
         for section in ("CHOOSE YOUR RACE", "CHOOSE YOUR HERO", "RACE DETAILS"):
             self.assertIn(section, code)
-        self.assertIn("WidgetTree->RootWidget = Root;", code)
+        self.assertIn("WidgetTree->RootWidget = Frame;", code)
+        self.assertIn("Frame->SetBrushColor(", code)
+        self.assertIn("Label->SetColorAndOpacity(", code)
         self.assertIn("WidgetTree->ConstructWidget<UScrollBox>()", code)
         self.assertIn("WidgetTree->ConstructWidget<UMoonfallRaceChoiceButton>()", code)
         self.assertIn("Choice->OnRaceActivated.AddDynamic(this,", code)
