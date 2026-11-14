@@ -83,6 +83,48 @@ class TestRacialPersistence(unittest.TestCase):
         self.assertLess(restored.index("bWorldProgressLoadInProgress = false;"),
                         restored.index("return true;"))
 
+    def test_common_and_traitless_loot_survives_save_reload_and_respawn(self):
+        # Regression: enemy drops and pickup accept common and traitless items,
+        # but the former load-only validator rejected all trait=0/rarity=0 items.
+        valid = self.cpp.split("bool ValidMoonfallItemCode(int32 Code)", 1)[1].split(
+            "bool RestoreMoonfallPlayerStart(", 1)[0]
+        pickup = self.cpp.split("bool AMoonfallHeroPawn::CollectGroundEquipmentCode(", 1)[1].split(
+            "void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(", 1)[0]
+        equip = self.cpp.split("bool AMoonfallHeroPawn::EquipInventoryItem(", 1)[1].split(
+            "namespace {", 1)[0]
+        rolls = self.cpp.split("int32 AMoonfallHeroPawn::RollEquipmentCode(", 1)[1].split(
+            "void AMoonfallHeroPawn::AwardEquipmentDrop(", 1)[0]
+        load = self.cpp.split("bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[1].split(
+            "void AMoonfallHeroPawn::RespawnAtCheckpoint()", 1)[0]
+        self.assertIn("Trait >= 0 && Trait <= 3", valid)
+        self.assertIn("Rarity >= 0 && Rarity <= 5", valid)
+        self.assertIn("(Rarity != 0 || Trait == 0)", valid)
+        self.assertIn("Tier >= 1 && Tier <= 25", valid)
+        self.assertIn("Code == Trait * 100000 + Slot * 10000 + Rarity * 1000 + Tier", valid)
+        self.assertIn("(Rarity == 0 && Affix != 0)", pickup)
+        self.assertIn("(Rarity == 0 && Affix != 0)", equip)
+        self.assertIn("LastLootAffix = LastLootRarity == 0 ? 0", rolls)
+        self.assertIn("LastLootRarity == 1 && FMath::RandRange(0, 99) < 60", rolls)
+        self.assertIn("if (ValidMoonfallItemCode(Code)) InventoryItemCodes.Add(Code);", load)
+        self.assertIn("ValidMoonfallItemCode(Code) && ((Code / 10000) % 10) == Slot", load)
+
+        def valid_item_code(code):
+            if code <= 0:
+                return False
+            affix, slot, rarity, tier = code // 100000, code // 10000 % 10, code // 1000 % 10, code % 1000
+            return (0 <= affix <= 3 and 0 <= slot <= 2 and 0 <= rarity <= 5
+                    and 1 <= tier <= 25 and (rarity != 0 or affix == 0)
+                    and code == affix * 100000 + slot * 10000 + rarity * 1000 + tier)
+
+        # Representative codes from actual loot encoding, including the two
+        # classes previously discarded on load, must all remain valid.
+        for code in (1, 12, 1001, 11003, 2007, 21001, 122004, 325025):
+            with self.subTest(item_code=code):
+                self.assertTrue(valid_item_code(code))
+        for code in (0, -1, 26, 100001, 35001, 6001, 1000000, 120026):
+            with self.subTest(invalid_code=code):
+                self.assertFalse(valid_item_code(code))
+
     def test_oversized_persistent_saves_are_write_protected_before_restore(self):
         loader = self.cpp.split("bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[1].split(
             "void AMoonfallHeroPawn::RespawnAtCheckpoint()", 1)[0]
