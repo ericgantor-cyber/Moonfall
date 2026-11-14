@@ -17,18 +17,24 @@ def load() -> dict:
 
 
 def validate(data: dict) -> None:
-    if data.get("schema_version") != 1:
+    if not isinstance(data, dict) or data.get("schema_version") != 1:
         raise ValueError("Unsupported talent schema")
     branches = data.get("branches")
     if not isinstance(branches, list) or len(branches) != 3:
         raise ValueError("Expected three talent branches")
+    if any(not isinstance(b, dict) or not isinstance(b.get("id"), str)
+           or not b["id"] for b in branches):
+        raise ValueError("Invalid talent branch definition")
     branch_ids = [b["id"] for b in branches]
     if len(set(branch_ids)) != 3:
         raise ValueError("Duplicate branch")
     nodes = data.get("nodes")
     if not isinstance(nodes, list) or not nodes:
         raise ValueError("Missing talent nodes")
-    ids = [node.get("id") for node in nodes]
+    if any(not isinstance(node, dict) or not isinstance(node.get("id"), str)
+           or not node["id"] for node in nodes):
+        raise ValueError("Invalid talent node definition")
+    ids = [node["id"] for node in nodes]
     if len(ids) != len(set(ids)):
         raise ValueError("Duplicate talent node")
     index = {node["id"]: node for node in nodes}
@@ -50,14 +56,16 @@ def validate(data: dict) -> None:
             raise ValueError("Invalid rank limit")
         if type(node.get("cost_per_rank")) is not int or node["cost_per_rank"] < 1:
             raise ValueError("Invalid point cost")
-        effect = node.get("effect", {})
-        if effect.get("stat") not in STATS or effect.get("kind") not in ("flat", "percent"):
+        effect = node.get("effect")
+        if not isinstance(effect, dict) or effect.get("stat") not in STATS or effect.get("kind") not in ("flat", "percent"):
             raise ValueError("Invalid talent effect")
         amount = effect.get("amount_per_rank")
         if type(amount) not in (int, float) or not math.isfinite(amount) or amount < 0:
             raise ValueError("Invalid effect value")
         deps = node.get("requires")
-        if not isinstance(deps, list) or len(deps) != len(set(deps)):
+        if not isinstance(deps, list) or any(not isinstance(dep, str) for dep in deps):
+            raise ValueError("Invalid prerequisites")
+        if len(deps) != len(set(deps)):
             raise ValueError("Invalid prerequisites")
         for dep in deps:
             if dep not in index or dep == node["id"]:
