@@ -27,6 +27,7 @@ var drag_distance: float = 0.0
 var hovered_id: String = ""
 var mouse_down_on_node: String = ""
 var node_info: Dictionary = {}
+var prerequisite_path: Dictionary = {}
 
 func _ready() -> void:
  mouse_filter = Control.MOUSE_FILTER_STOP
@@ -40,6 +41,7 @@ func set_data(next_tree: Dictionary, next_allocations: Dictionary, character_lev
  level = character_level
  available = unspent
  _layout_nodes()
+ _update_prerequisite_path()
  queue_redraw()
 
 func focus_branch(branch_id: String) -> void:
@@ -52,9 +54,54 @@ func focus_branch(branch_id: String) -> void:
 func focus_node(talent_id: String) -> void:
  if not points.has(talent_id):return
  selected_id = talent_id
+ _update_prerequisite_path()
  pan = -points[talent_id]
  zoom = clampf(maxf(zoom, 0.75), MIN_ZOOM, MAX_ZOOM)
  queue_redraw()
+
+func select_node(talent_id: String) -> void:
+ if not points.has(talent_id):return
+ selected_id = talent_id
+ _update_prerequisite_path()
+ queue_redraw()
+
+func _update_prerequisite_path() -> void:
+ prerequisite_path.clear()
+ if not node_info.has(selected_id):return
+ var pending: Array[String] = [selected_id]
+ while not pending.is_empty():
+  var current: String = pending.pop_back()
+  if prerequisite_path.has(current):continue
+  prerequisite_path[current] = true
+  var node: Dictionary = node_info.get(current, {})
+  for requirement in node.get("requires", []):
+   var dependency: String = str(requirement)
+   if node_info.has(dependency) and not prerequisite_path.has(dependency):
+    pending.append(dependency)
+
+func available_talent_ids() -> Array[String]:
+ var result: Array[String] = []
+ if available <= 0:return result
+ for node in tree.get("nodes", []):
+  if typeof(node) != TYPE_DICTIONARY:continue
+  var id: String = str(node.get("id", ""))
+  if not points.has(id):continue
+  if int(allocations.get(id, 0)) >= int(node.get("max_rank", 1)):continue
+  if level < int(node.get("min_level", 1)):continue
+  var requirements_met: bool = true
+  for requirement in node.get("requires", []):
+   if int(allocations.get(str(requirement), 0)) <= 0:
+    requirements_met = false
+    break
+  if requirements_met and int(node.get("cost_per_rank", 1)) <= available:
+   result.append(id)
+ return result
+
+func next_available(after_id: String = "") -> String:
+ var candidates: Array[String] = available_talent_ids()
+ if candidates.is_empty():return ""
+ var index: int = candidates.find(after_id)
+ return candidates[(index + 1) % candidates.size()]
 
 func fit_all() -> void:
  pan = Vector2.ZERO
@@ -134,7 +181,7 @@ func _gui_input(event: InputEvent) -> void:
     if dragging and mouse.button_index == MOUSE_BUTTON_LEFT and drag_distance < 9.0:
      var id: String = _node_at(mouse.position)
      if id != "" and id == mouse_down_on_node:
-      selected_id = id
+      select_node(id)
       talent_selected.emit(id)
     dragging = false
     mouse_down_on_node = ""
@@ -160,6 +207,11 @@ func _gui_input(event: InputEvent) -> void:
    zoom_by(1.0 / 1.2)
   elif key.keycode == KEY_HOME:
    fit_all()
+  elif key.keycode == KEY_N or key.keycode == KEY_TAB:
+   var next_id: String = next_available(selected_id)
+   if next_id != "":
+    focus_node(next_id)
+    talent_selected.emit(next_id)
   elif key.keycode == KEY_LEFT:
    pan.x += 100.0 / zoom
   elif key.keycode == KEY_RIGHT:
@@ -201,8 +253,9 @@ func _draw() -> void:
    var source: Vector2 = _screen_pos(points[source_id])
    var active: bool = int(allocations.get(source_id, 0)) > 0 and int(allocations.get(id, 0)) > 0
    var line_color: Color = branch_color
-   line_color.a = 0.9 if active else 0.23
-   draw_line(source, target, line_color, 3.2 if active else 1.6, true)
+   var on_path: bool = prerequisite_path.has(source_id) and prerequisite_path.has(id)
+   line_color.a = 0.95 if on_path else (0.9 if active else 0.16)
+   draw_line(source, target, line_color, 4.0 if on_path else (3.2 if active else 1.4), true)
  for node in nodes:
   var id: String = str(node.get("id", ""))
   if not points.has(id):continue
@@ -226,12 +279,14 @@ func _draw() -> void:
    draw_circle(center, maxf(2.0, radius * 0.27), col)
   if id == selected_id:
    draw_arc(center, radius + 6.0, 0, TAU, 36, Color.WHITE, 2.5, true)
+  elif prerequisite_path.has(id):
+   draw_arc(center, radius + 4.0, 0, TAU, 36, Color("#e3c98d"), 2.0, true)
   elif id == hovered_id:
    draw_arc(center, radius + 5.0, 0, TAU, 36, Color("#e3d9ab"), 2.2, true)
  var font: Font = ThemeDB.fallback_font
  if font != null:
   draw_string(font, Vector2(16, 32), "MOONFALL  •  CONSTELLATION WEB", HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color("#e0e7fa"))
-  draw_string(font, Vector2(16, size.y - 18), "Wheel: zoom at cursor  •  Drag empty space: pan  •  Click: inspect  •  +/- and arrows: keyboard", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color("#b8c2d7"))
+  draw_string(font, Vector2(16, size.y - 18), "Wheel: zoom  •  Drag: pan  •  N: next available  •  Home: fit  •  Arrows: move", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color("#b8c2d7"))
   if hovered_id != "" and node_info.has(hovered_id):
    var info: Dictionary = node_info[hovered_id]
    var rank: int = int(allocations.get(hovered_id, 0))
