@@ -144,6 +144,44 @@ bool UMoonfallRaceLibrary::PreviewPlayableRaceStats(
  return true;
 }
 
+TArray<FMoonfallRaceProfile> UMoonfallRaceLibrary::GetPlayableRaceProfilesByFamily(FName Family)
+{
+ TArray<FMoonfallRaceProfile> Result;
+ if (Family.IsNone()) return Result;
+ for (const FMoonfallRaceProfile& Profile : GetRaceProfilesByFamily(Family))
+ {
+  if (Profile.bPlayableCandidate)
+   Result.Add(Profile);
+ }
+ return Result;
+}
+
+bool UMoonfallRaceLibrary::ComparePlayableRaceStats(
+ FName CurrentRaceId, FName CandidateRaceId,
+ float BaseVitality, float BasePower, float BaseSpeed,
+ FMoonfallRaceStatComparison& Comparison)
+{
+ Comparison = FMoonfallRaceStatComparison();
+ FMoonfallRaceStatPreview Current;
+ FMoonfallRaceStatPreview Candidate;
+ if (!PreviewPlayableRaceStats(CurrentRaceId, BaseVitality, BasePower, BaseSpeed, Current)
+     || !PreviewPlayableRaceStats(CandidateRaceId, BaseVitality, BasePower, BaseSpeed, Candidate))
+  return false;
+
+ const float DeltaVitality = Candidate.Vitality - Current.Vitality;
+ const float DeltaPower = Candidate.Power - Current.Power;
+ const float DeltaSpeed = Candidate.Speed - Current.Speed;
+ if (!FMath::IsFinite(DeltaVitality) || !FMath::IsFinite(DeltaPower)
+     || !FMath::IsFinite(DeltaSpeed))
+  return false;
+ Comparison.Current = Current;
+ Comparison.Candidate = Candidate;
+ Comparison.Delta.Vitality = DeltaVitality;
+ Comparison.Delta.Power = DeltaPower;
+ Comparison.Delta.Speed = DeltaSpeed;
+ return true;
+}
+
 bool UMoonfallRaceLibrary::FindRaceProfile(FName RaceId, FMoonfallRaceProfile& Profile)
 {
  Profile = FMoonfallRaceProfile();
