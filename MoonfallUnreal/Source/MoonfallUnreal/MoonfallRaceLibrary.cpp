@@ -220,6 +220,29 @@ bool UMoonfallRaceLibrary::BuildPlayableRaceSelectionEntries(
  return true;
 }
 
+bool UMoonfallRaceLibrary::GetAdjacentPlayableRaceId(
+ FName CurrentRaceId, FName Family, bool bForward, FName& NextRaceId)
+{
+ NextRaceId = NAME_None;
+ TArray<FName> Candidates;
+ for (const FRaceRow& Row : RaceRows)
+ {
+  if (!Row.bPlayable || (!Family.IsNone() && FName(Row.Family) != Family))
+   continue;
+  Candidates.Add(FName(Row.Id));
+ }
+ if (Candidates.IsEmpty())
+  return false;
+ const int32 Index = Candidates.IndexOfByKey(CurrentRaceId);
+ // Unknown selections start at the leading/trailing edge, not position two.
+ const int32 NextIndex = Index == INDEX_NONE
+   ? (bForward ? 0 : Candidates.Num() - 1)
+   : (bForward ? (Index + 1) % Candidates.Num()
+               : (Index + Candidates.Num() - 1) % Candidates.Num());
+ NextRaceId = Candidates[NextIndex];
+ return true;
+}
+
 bool UMoonfallRaceLibrary::FindRaceProfile(FName RaceId, FMoonfallRaceProfile& Profile)
 {
  Profile = FMoonfallRaceProfile();
