@@ -61,6 +61,28 @@ class TestRacialPersistence(unittest.TestCase):
         self.assertIn("bool IsNamedMoonfallResident(FName Id);", self.cpp)
         self.assertIn("bool IsNamedMoonfallResident(FName Id) {", self.cpp)
 
+    def test_shrine_overlap_cannot_save_half_loaded_progress_on_respawn(self):
+        self.assertIn("bool bWorldProgressLoadInProgress = false;", self.header)
+        discover = self.cpp.split("bool AMoonfallHeroPawn::DiscoverShrine(", 1)[1].split(
+            "bool AMoonfallHeroPawn::SaveWorldProgress()", 1)[0]
+        loader = self.cpp.split("bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[1].split(
+            "void AMoonfallHeroPawn::RespawnAtCheckpoint()", 1)[0]
+        self.assertIn("|| bWorldProgressLoadInProgress", discover)
+        self.assertIn("bWorldProgressLoadInProgress = true;", loader)
+        self.assertLess(loader.index("bWorldProgressLoadInProgress = true;"),
+                        loader.index("if (!TeleportTo(SavedCheckpoint"))
+        fallback = loader.split("if (!RestoreSafeSpawnLocation()) {", 1)[1].split(
+            "UE_LOG(LogTemp, Warning, TEXT(\"Moonfall checkpoint blocked;", 1)[0]
+        self.assertIn("bWorldProgressLoadInProgress = false;", fallback)
+        self.assertLess(fallback.index("bWorldProgressLoadInProgress = false;"),
+                        fallback.index("return false;"))
+        restored = loader.split("InventoryItemCodes.Reset();", 1)[1]
+        self.assertIn("bWorldProgressLoadInProgress = false;", restored)
+        self.assertLess(restored.index("OnHealthChanged(Health, MaxHealth);"),
+                        restored.index("bWorldProgressLoadInProgress = false;"))
+        self.assertLess(restored.index("bWorldProgressLoadInProgress = false;"),
+                        restored.index("return true;"))
+
     def test_oversized_persistent_saves_are_write_protected_before_restore(self):
         loader = self.cpp.split("bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[1].split(
             "void AMoonfallHeroPawn::RespawnAtCheckpoint()", 1)[0]
