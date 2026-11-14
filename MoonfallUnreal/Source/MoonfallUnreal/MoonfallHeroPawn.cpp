@@ -1705,6 +1705,16 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
  // would be exceeded; ground drops are not consumed in that case.
  if (InventoryItemCodes.Num() > 10000 || ResidentQuestStates.Num() > 64
      || DiscoveredShrineIds.Num() > 64) return false;
+ // A V7 save must be readable by our own loader. Reject duplicate, empty,
+ // or inconsistent shrine IDs rather than overwriting the last valid slot
+ // with a ledger that LoadWorldProgress() would reject on the next launch.
+ TSet<FName> UniqueShrines;
+ for (const FName Id : DiscoveredShrineIds) {
+  if (Id.IsNone() || UniqueShrines.Contains(Id)) return false;
+  UniqueShrines.Add(Id);
+ }
+ if ((!ActiveShrineId.IsNone() && !UniqueShrines.Contains(ActiveShrineId))
+     || (ActiveShrineId.IsNone() && !UniqueShrines.IsEmpty())) return false;
  // The checkpoint is the saved shrine, not the hero's airborne position.
  // Falling or jumping must not suppress progress saves or ground-loot pickup.
  // Still reject invalid world positions, and validate the shrine above.
