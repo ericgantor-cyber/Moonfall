@@ -149,3 +149,33 @@ catalog tie-breaks. It does not change game files or saves. CI checks the
 full JSON plan and a filtered interface plan, plus positive and negative
 regression tests. Actual UE5.4 native compilation, Godot smoke testing,
 playable controls, and merge readiness remain separate requirements.
+
+
+## Original classless character stats: Enshrouded + Valhalla references
+
+Moonfall uses the **design principles**, not copied game assets or identical
+balance numbers:
+
+- **Enshrouded reference:** six attributes linked to melee, ranged, magic,
+  health, mana and stamina.
+- **Assassin's Creed Valhalla reference:** earned power, gear improvement and
+  open combat playstyles, without locking a character into a class.
+- **Moonfall implementation direction:** automatic growth at every level.
+  No classes, upgrade-card drafts or rerolls. Hero identity and original
+  Z/Nyra artwork are preserved.
+
+The new versioned `config/moonfall_stats.json` establishes original Moonfall
+stats: **Might, Agility, Arcana, Vitality, Resolve and Endurance**. These feed
+melee/ranged/magic damage and health/mana/stamina. Level growth is automatic
+and deterministic. Equipment bonuses apply separately, while overall Power
+is calculated from level and gear score. All coefficients are provisional
+balancing values, **not yet gameplay integration**.
+
+Run `python tools/moonfall_stats.py` for a sample character and
+`python tools/test_moonfall_stats.py` to validate automatic progression,
+resource values, gear bonuses and invalid inputs. The calculation is a
+side-effect-free Python reference model, not a C++/GDScript implementation;
+it does not touch saves or existing equipment. Integrating the model with
+Godot and Unreal requires native behavior tests, HUD verification and
+save migration review. Keep the UI character panel bound to the game's
+actual stats until integration is explicitly complete.
