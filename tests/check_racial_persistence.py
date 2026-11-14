@@ -379,6 +379,29 @@ class TestRacialPersistence(unittest.TestCase):
                         loader.index("ResidentQuestStates.Reset();"))
         self.assertIn("if (SecondsSinceLastWorldSave >= 2.f", self.cpp)
 
+    def test_failed_checkpoint_requires_collision_safe_location_before_revive(self):
+        respawn = self.cpp.split("void AMoonfallHeroPawn::RespawnAtCheckpoint()", 1)[1].split(
+            "// One unified roster.", 1)[0]
+        self.assertIn("if (!LoadWorldProgress()) {", respawn)
+        self.assertIn("bHasRespawnCheckpointLocation", respawn)
+        self.assertIn("!RespawnCheckpointLocation.ContainsNaN()", respawn)
+        self.assertIn("RespawnCheckpointLocation.SizeSquared() < 1.0e14f", respawn)
+        self.assertIn("TeleportTo(RespawnCheckpointLocation, GetActorRotation(), false, false)", respawn)
+        self.assertIn("if (!bFoundSafeRespawn)", respawn)
+        self.assertIn("bFoundSafeRespawn = RestoreSafeSpawnLocation();", respawn)
+        failed = respawn.split("if (!bFoundSafeRespawn) {", 1)[1].split("Health = FMath::Max", 1)[0]
+        self.assertIn("return;", failed)
+        self.assertNotIn("Health =", failed)
+        self.assertNotIn("DamageImmunityUntil =", failed)
+        self.assertLess(respawn.index("return;"), respawn.index("Health = FMath::Max(1.f, MaxHealth);"))
+        self.assertLess(respawn.index("Health = FMath::Max(1.f, MaxHealth);"),
+                        respawn.index("OnHealthChanged(Health, MaxHealth);"))
+        self.assertLess(respawn.index("OnHealthChanged(Health, MaxHealth);"),
+                        respawn.index("DamageImmunityUntil = FMath::Max"))
+        self.assertIn("DefeatElapsedSeconds = 0.f;", respawn)
+        self.assertNotIn("SetActorLocation(", respawn)
+        self.assertNotIn("bPersistentSaveWritesBlocked = false;", respawn)
+
     def test_not_a_new_run(self):
         self.assertIn('MoonfallPersistentWorldV1', self.cpp)
         self.assertIn("if (SecondsSinceLastWorldSave >= 2.f && GetWorld()", self.cpp)
