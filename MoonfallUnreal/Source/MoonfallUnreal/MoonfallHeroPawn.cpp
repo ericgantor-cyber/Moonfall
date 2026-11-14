@@ -1570,8 +1570,12 @@ bool ValidMoonfallItemCode(int32 Code) {
  const int32 Slot = (Code / 10000) % 10;
  const int32 Rarity = (Code / 1000) % 10;
  const int32 Tier = Code % 1000;
- return Trait >= 1 && Trait <= 3 && Slot >= 0 && Slot <= 2
-     && Rarity >= 1 && Rarity <= 5 && Tier >= 1 && Tier <= 25
+ // Match RollEquipmentCode, ground pickup and manual equip. Common gear
+ // has no trait; uncommon gear may be traitless. Reject only malformed codes,
+ // not legitimately collected rewards that must persist through respawning.
+ return Trait >= 0 && Trait <= 3 && Slot >= 0 && Slot <= 2
+     && Rarity >= 0 && Rarity <= 5 && Tier >= 1 && Tier <= 25
+     && (Rarity != 0 || Trait == 0)
      && Code == Trait * 100000 + Slot * 10000 + Rarity * 1000 + Tier;
 }
 // A collision-aware recovery location is safer than reviving at the death site.
