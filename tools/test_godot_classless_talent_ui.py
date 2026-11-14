@@ -36,6 +36,16 @@ class ClasslessTalentUIScreen(unittest.TestCase):
         self.assertIn('index_button.custom_minimum_size.y=42.0', self.screen)
         self.assertIn('v406_respec_button.disabled=v406_ranks.is_empty()', self.screen)
 
+    def test_constellation_cursor_zoom_and_hover_inspection(self):
+        web = (ROOT / "godot-v38/scripts/systems/moonfall_talent_web.gd").read_text(encoding="utf-8")
+        self.assertIn("func zoom_at(factor: float, screen_point: Vector2)", web)
+        self.assertIn('zoom_at(1.18, mouse.position)', web)
+        self.assertIn('zoom_at(1.0 / 1.18, mouse.position)', web)
+        self.assertIn('mouse_down_on_node', web)
+        self.assertIn('hovered_id', web)
+        self.assertIn('tooltip_text =', web)
+        self.assertIn('elif id == hovered_id:', web)
+
     def test_save_restores_classless_without_clobbering_legacy(self):
         self.assertIn('"classless_ranks":v406_ranks.duplicate(true)', self.screen)
         self.assertIn('resources.get("classless_ranks",{})', self.screen)
