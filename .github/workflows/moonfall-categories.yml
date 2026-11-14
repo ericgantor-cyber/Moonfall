@@ -5,6 +5,7 @@ on:
     paths:
       - "config/moonfall_game_categories.json"
       - "tools/check_game_categories.py"
+      - "tools/test_game_categories.py"
       - "docs/MOONFALL_FIVE_CATEGORIES.md"
       - ".github/workflows/moonfall-categories.yml"
   push:
@@ -12,6 +13,7 @@ on:
     paths:
       - "config/moonfall_game_categories.json"
       - "tools/check_game_categories.py"
+      - "tools/test_game_categories.py"
       - "docs/MOONFALL_FIVE_CATEGORIES.md"
       - ".github/workflows/moonfall-categories.yml"
 
@@ -26,3 +28,4 @@ jobs:
         with:
           python-version: "3.11"
       - run: python tools/check_game_categories.py
+      - run: python tools/test_game_categories.py
