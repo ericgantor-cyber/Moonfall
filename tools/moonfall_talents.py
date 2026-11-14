@@ -7,6 +7,7 @@ from pathlib import Path
 
 CONFIG = Path(__file__).resolve().parents[1] / "config" / "moonfall_talents.json"
 STATS = ("health", "mana", "stamina", "melee_damage", "ranged_damage", "magic_damage")
+_UNSET = object()  # Distinguish omitted saves from explicit null/corrupt saves.
 
 
 def load() -> dict:
@@ -134,15 +135,14 @@ def spend(level: int, current: dict[str, int], talent_id: str, data: dict | None
 
 
 def respec(level: int, data: dict | None = None, *,
-           current: dict[str, int] | None = None) -> dict:
-    """Reset the entire talent tree, optionally validating existing saved state.
+           current: dict[str, int] | object = _UNSET) -> dict:
+    """Reset the entire tree, rejecting a supplied corrupt saved state.
 
-    No single-node refunds. A supplied allocation map must be valid before
-    reset; a corrupted save must not be silently accepted. The old
-    respec(level, data) call remains compatible for a fresh full reset.
+    Omitted current means a fresh reset for backward compatibility. Explicit
+    null is a malformed save, not an instruction to bypass validation.
     """
     tree = data if data is not None else load()
-    if current is not None:
+    if current is not _UNSET:
         if not isinstance(current, dict):
             raise ValueError("Allocations must be a map")
         evaluate(level, current, tree)
