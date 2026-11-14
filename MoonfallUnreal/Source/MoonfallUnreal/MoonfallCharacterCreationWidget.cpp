@@ -200,8 +200,8 @@ void UMoonfallCharacterCreationWidget::BindPreviewActor(
  if (!IsValid(PreviewActor))
   return;
 
- BoundPreviewActor = PreviewActor;
  BindPreviewRig(PreviewActor->GetPreviewPivot(), PreviewActor->GetPreviewArm());
+ BoundPreviewActor = PreviewActor;
  PreviewActor->SetPreviewRenderTarget(PreviewActor->GetPreviewRenderTarget());
  SetPreviewRenderTarget(PreviewActor->GetPreviewRenderTarget());
 }
@@ -209,7 +209,9 @@ void UMoonfallCharacterCreationWidget::BindPreviewActor(
 void UMoonfallCharacterCreationWidget::BindPreviewRig(
  USceneComponent* PreviewPivot, USpringArmComponent* PreviewArm)
 {
- // Bind only the dedicated menu preview rig from the owning Blueprint.
+ // A custom rig overrides any previous actor binding; it cannot refresh
+ // the old actor's camera or keep its render target alive by accident.
+ BoundPreviewActor.Reset();
  PreviewRotationPivot = PreviewPivot;
  PreviewZoomArm = PreviewArm;
  if (PreviewRotationPivot.IsValid())
