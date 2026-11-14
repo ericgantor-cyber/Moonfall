@@ -399,34 +399,18 @@ class TestRacialPersistence(unittest.TestCase):
         self.assertNotIn("SetActorTickEnabled(true)", shrine_cpp)
         self.assertIn("PrimaryActorTick.bCanEverTick = false;", shrine_cpp)
 
-    def test_discovered_shrine_can_reactivate_after_safe_fallback_without_duplicate_reward(self):
+    def test_discovered_shrines_are_not_reactivated(self):
         shrine_cpp = (ROOT / "MoonfallCheckpointShrine.cpp").read_text(encoding="utf-8")
         discover = self.cpp.split("bool AMoonfallHeroPawn::DiscoverShrine(", 1)[1].split(
             "bool AMoonfallHeroPawn::SaveWorldProgress()", 1)[0]
-        attempt = shrine_cpp.split(
-            "void AMoonfallCheckpointShrine::TryDiscoverOrQueueRetry(", 1)[1].split(
-            "void AMoonfallCheckpointShrine::RetryPendingDiscovery()", 1)[0]
-        self.assertIn("const bool bPreviouslyDiscovered = HasDiscoveredShrine(Shrine->ShrineId);", discover)
-        self.assertIn("IsCurrentRespawnLocation(Shrine->GetRespawnLocation())", discover)
-        self.assertIn("!bPreviouslyDiscovered && DiscoveredShrineIds.Num() >= 64", discover)
-        self.assertIn("if (!bPreviouslyDiscovered) DiscoveredShrineIds.Add(Shrine->ShrineId);", discover)
-        self.assertIn("if (!bPreviouslyDiscovered) DiscoveredShrineIds.Remove(Shrine->ShrineId);", discover)
-        self.assertIn("if (!bPreviouslyDiscovered) OnShrineDiscovered(ActiveShrineId);", discover)
-        self.assertIn("Hero->IsCurrentRespawnLocation(GetRespawnLocation())", attempt)
-        self.assertIn("if (Hero->DiscoverShrine(this))", attempt)
-        self.assertLess(attempt.index("Hero->IsCurrentRespawnLocation(GetRespawnLocation())"),
-                        attempt.index("if (Hero->DiscoverShrine(this))"))
-
-    def test_spawn_check_reactivates_known_shrine_after_fallback(self):
-        shrine_cpp = (ROOT / "MoonfallCheckpointShrine.cpp").read_text(encoding="utf-8")
-        check = shrine_cpp.split(
-            "void AMoonfallCheckpointShrine::CheckHeroAtSpawn(", 1)[1].split(
+        check = shrine_cpp.split("void AMoonfallCheckpointShrine::CheckHeroAtSpawn(", 1)[1].split(
             "void AMoonfallCheckpointShrine::TryDiscoverOrQueueRetry(", 1)[0]
-        self.assertIn("Hero->HasDiscoveredShrine(ShrineId)", check)
-        self.assertIn("Hero->IsCurrentRespawnLocation(GetRespawnLocation())", check)
-        self.assertIn("Hero->ActiveShrineId == ShrineId", check)
-        self.assertIn("TryDiscoverOrQueueRetry(Hero);", check)
-        self.assertNotIn("if (Hero->HasDiscoveredShrine(ShrineId) ||", check)
+        attempt = shrine_cpp.split("void AMoonfallCheckpointShrine::TryDiscoverOrQueueRetry(", 1)[1].split(
+            "void AMoonfallCheckpointShrine::RetryPendingDiscovery()", 1)[0]
+        self.assertIn("bPersistentSaveWritesBlocked || HasDiscoveredShrine(Shrine->ShrineId)", discover)
+        self.assertIn("if (Hero->HasDiscoveredShrine(ShrineId) ||", check)
+        self.assertIn("if (Hero->HasDiscoveredShrine(ShrineId))", attempt)
+        self.assertNotIn("bPreviouslyDiscovered", discover)
 
     def test_shrine_discovery_retries_failed_entry_without_tick(self):
         shrine_cpp = (ROOT / "MoonfallCheckpointShrine.cpp").read_text(encoding="utf-8")
