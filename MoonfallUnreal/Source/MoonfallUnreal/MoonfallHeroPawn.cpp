@@ -121,12 +121,30 @@ AMoonfallHeroPawn::AMoonfallHeroPawn()
  FinisherSlashB = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("FinisherSlashB"));
  FinisherSlashB->SetupAttachment(GetRootComponent());
  static ConstructorHelpers::FObjectFinder<UStaticMesh> SlashMesh(TEXT("/Engine/BasicShapes/Cube.Cube"));
+ DefaultWeaponProxyMesh = SlashMesh.Succeeded() ? SlashMesh.Object : nullptr;
  for (UStaticMeshComponent* Slash : {FinisherSlashA, FinisherSlashB}) {
   if (SlashMesh.Succeeded()) Slash->SetStaticMesh(SlashMesh.Object);
   Slash->SetCollisionEnabled(ECollisionEnabled::NoCollision);
   Slash->SetCastShadow(false);
   Slash->SetHiddenInGame(true);
  }
+ // Original low-cost native sword silhouettes. These are replaceable
+ // UStaticMeshComponents and do not modify Z, Nyra, or any imported assets.
+ MainhandVisual = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("MainhandVisual"));
+ MainhandVisual->SetupAttachment(GetRootComponent());
+ OffhandVisual = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("OffhandVisual"));
+ OffhandVisual->SetupAttachment(GetRootComponent());
+ for (UStaticMeshComponent* Weapon : {MainhandVisual.Get(), OffhandVisual.Get()})
+ {
+  if (SlashMesh.Succeeded()) Weapon->SetStaticMesh(SlashMesh.Object);
+  Weapon->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+  Weapon->SetGenerateOverlapEvents(false);
+  Weapon->SetCastShadow(false);
+  Weapon->SetHiddenInGame(true);
+  Weapon->SetRelativeScale3D(FVector(0.09f, 0.035f, 0.68f));
+ }
+ MainhandVisual->SetRelativeLocation(FVector(35.f, 44.f, 12.f));
+ OffhandVisual->SetRelativeLocation(FVector(35.f, -44.f, 12.f));
  FinisherFlash = CreateDefaultSubobject<UPointLightComponent>(TEXT("FinisherFlash"));
  FinisherFlash->SetupAttachment(GetRootComponent());
  FinisherFlash->SetIntensity(0.f);
@@ -165,6 +183,8 @@ bool AMoonfallHeroPawn::LoadRewardProgress()
   InventoryItemCodes.Reset();
   Salvage = 0;
   EquippedWeaponCode = EquippedArmorCode = EquippedAccessoryCode = 0;
+  EquippedOffhandCode = OffhandTier = 0;
+  BladeTalentRank = ArcaneTalentRank = TwinStrikeTalentRank = 0;
   WeaponTier = ArmorTier = AccessoryTier = 0;
   WeaponAffix = ArmorAffix = AccessoryAffix = 0;
   EquipmentTier = 0;
@@ -191,6 +211,8 @@ bool AMoonfallHeroPawn::LoadRewardProgress()
  InventoryItemCodes.Reset();
  Salvage = 0;
  EquippedWeaponCode = EquippedArmorCode = EquippedAccessoryCode = 0;
+ EquippedOffhandCode = OffhandTier = 0;
+ BladeTalentRank = ArcaneTalentRank = TwinStrikeTalentRank = 0;
  WeaponTier = ArmorTier = AccessoryTier = 0;
  WeaponAffix = ArmorAffix = AccessoryAffix = 0;
  EquipmentTier = 0;
@@ -267,6 +289,50 @@ bool AMoonfallHeroPawn::LoadRewardProgress()
   }
   EquipmentTier = FMath::Max(WeaponTier, FMath::Max(ArmorTier, AccessoryTier));
  }
+ // Version-5 reward saves allow additive optional fields. Old saves leave
+ // these defaults at zero; validate all derived stats before granting them.
+ if (Save->SavedCharacterLevel >= 1 && Save->SavedCharacterLevel <= 100)
+ {
+  const int32 PreviousLevel = Level;
+  Level = FMath::Clamp(Save->SavedCharacterLevel, 1, 100);
+  ExperienceToNextLevel = 100 + (Level - 1) * 55;
+  Experience = Level >= 100 ? 0
+    : FMath::Clamp(Save->SavedCharacterExperience, 0, ExperienceToNextLevel - 1);
+  MaxHealth = FMath::Max(1.f, MaxHealth + 4.f * (Level - PreviousLevel));
+  Health = FMath::Clamp(Health + 4.f * (Level - PreviousLevel), 1.f, MaxHealth);
+  SpellPowerMultiplier = 1.f + 0.025f * FMath::Min(Level - 1, 30)
+    + 0.012f * FMath::Max(0, Level - 31);
+ }
+ // Talent allocations cannot exceed five ranks per branch or the
+ // available Level-1 point budget, including when loading edited saves.
+ int32 PointsLeft = FMath::Max(0, Level - 1);
+ BladeTalentRank = FMath::Min(FMath::Clamp(Save->SavedBladeTalentRank, 0, 5), PointsLeft);
+ PointsLeft -= BladeTalentRank;
+ ArcaneTalentRank = FMath::Min(FMath::Clamp(Save->SavedArcaneTalentRank, 0, 5), PointsLeft);
+ PointsLeft -= ArcaneTalentRank;
+ TwinStrikeTalentRank = FMath::Min(FMath::Clamp(Save->SavedTwinStrikeTalentRank, 0, 5), PointsLeft);
+ // Offhand is a separate, verified weapon from the existing saved bag.
+ // Matching main/offhand item codes require two physical inventory copies.
+ const int32 OffhandCode = Save->EquippedOffhandCode;
+ const int32 OffhandAffix = OffhandCode / 100000;
+ const int32 OffhandSlot = (OffhandCode / 10000) % 10;
+ const int32 OffhandRarity = (OffhandCode / 1000) % 10;
+ const int32 SavedOffhandTier = OffhandCode % 1000;
+ const int32 RequiredCopies = OffhandCode == EquippedWeaponCode ? 2 : 1;
+ if (OffhandCode > 0 && OffhandSlot == 0 && OffhandAffix >= 0 && OffhandAffix <= 3
+     && OffhandRarity >= 0 && OffhandRarity <= 5
+     && SavedOffhandTier >= 1 && SavedOffhandTier <= 25
+     && (OffhandRarity != 0 || OffhandAffix == 0)
+     && OffhandCode == OffhandAffix * 100000 + OffhandRarity * 1000 + SavedOffhandTier)
+ {
+  int32 Copies = 0;
+  for (const int32 BagCode : InventoryItemCodes) if (BagCode == OffhandCode) ++Copies;
+  if (Copies >= RequiredCopies)
+  {
+   EquippedOffhandCode = OffhandCode;
+   OffhandTier = SavedOffhandTier;
+  }
+ }
  // Preserve authored base stats and avoid double-applying armor on reload.
  if (PreviousArmorTierOnLoad != ArmorTier)
  {
@@ -324,6 +390,12 @@ bool AMoonfallHeroPawn::SaveRewardProgress()
  Save->EquippedWeaponCode = EquippedWeaponCode;
  Save->EquippedArmorCode = EquippedArmorCode;
  Save->EquippedAccessoryCode = EquippedAccessoryCode;
+ Save->EquippedOffhandCode = EquippedOffhandCode;
+ Save->SavedCharacterLevel = FMath::Clamp(Level, 1, 100);
+ Save->SavedCharacterExperience = FMath::Max(0, Experience);
+ Save->SavedBladeTalentRank = FMath::Clamp(BladeTalentRank, 0, 5);
+ Save->SavedArcaneTalentRank = FMath::Clamp(ArcaneTalentRank, 0, 5);
+ Save->SavedTwinStrikeTalentRank = FMath::Clamp(TwinStrikeTalentRank, 0, 5);
  Save->PendingWorldLoot = PendingWorldLoot;
  return UGameplayStatics::SaveGameToSlot(Save, RewardSaveSlot, RewardSaveUser);
 }
@@ -502,6 +574,7 @@ void AMoonfallHeroPawn::AwardEnemyCurrency(bool bEliteEnemy, bool bBossEnemy, FV
 
 void AMoonfallHeroPawn::BeginPlay() {
  Super::BeginPlay();
+ InitializeDualWieldVisuals();
  if (!LoadRewardProgress())
  {
   // An unreadable or newer-version save is protected against overwrite.
@@ -539,9 +612,37 @@ void AMoonfallHeroPawn::BeginPlay() {
  bFrameGenerationPluginDetected = (FSR.IsValid() && FSR->IsEnabled()) || (DLSS.IsValid() && DLSS->IsEnabled());
  // Detection is only a hint, never proof of a supported frame-generation runtime.
 }
+bool AMoonfallHeroPawn::IsTwilightNight() const
+{
+ const float Period = FMath::IsFinite(TwilightCycleSeconds)
+   ? FMath::Clamp(TwilightCycleSeconds, 60.f, 3600.f) : 1440.f;
+ const float Elapsed = FMath::IsFinite(TwilightElapsedSeconds)
+   ? FMath::Fmod(FMath::Max(0.f, TwilightElapsedSeconds), Period) : 0.f;
+ return Elapsed >= Period * 0.5f;
+}
+float AMoonfallHeroPawn::GetTwilightWeaponMultiplier() const
+{
+ return IsTwilightNight() ? 1.f : 1.10f;
+}
+float AMoonfallHeroPawn::GetTwilightSpellMultiplier() const
+{
+ return IsTwilightNight() ? 1.10f : 1.f;
+}
+
 void AMoonfallHeroPawn::Tick(float DeltaSeconds)
 {
  Super::Tick(DeltaSeconds);
+ AuditDualWieldRigChanges();
+ UpdateWeaponVisuals();
+ // Advance a bounded original day/night cycle without real-world clock,
+ // timer actors, save migration, or background updates while menus are open.
+ if (!bOptionsOpen && !bInventoryOpen && FMath::IsFinite(DeltaSeconds)
+     && FMath::IsFinite(TwilightElapsedSeconds) && FMath::IsFinite(TwilightCycleSeconds))
+ {
+  const float Period = FMath::Clamp(TwilightCycleSeconds, 60.f, 3600.f);
+  TwilightElapsedSeconds = FMath::Fmod(
+    TwilightElapsedSeconds + FMath::Clamp(DeltaSeconds, 0.f, 0.1f), Period);
+ }
  // Automatically collect all nearby reachable equipment, without a
  // per-press item cap or a world scan every rendered frame.
  if (bAutoLootEnabled && GetWorld() && Health > 0.f && !bOptionsOpen && !bInventoryOpen
@@ -719,6 +820,7 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("Inventory"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleInventory);
  Input->BindAction(TEXT("CharacterStats"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleCharacterStats);
  Input->BindAction(TEXT("InventoryConfirm"), IE_Pressed, this, &AMoonfallHeroPawn::InventoryConfirm);
+ Input->BindAction(TEXT("EquipOffhand"), IE_Pressed, this, &AMoonfallHeroPawn::EquipSelectedOffhandInventoryItem);
  Input->BindAction(TEXT("InventorySalvage"), IE_Pressed, this, &AMoonfallHeroPawn::InventorySalvage);
  Input->BindAction(TEXT("UpgradeGear"), IE_Pressed, this, &AMoonfallHeroPawn::UpgradeSelectedInventoryItem);
  Input->BindAction(TEXT("ForgeFive"), IE_Pressed, this, &AMoonfallHeroPawn::ForgeFiveSelectedInventoryItem);
@@ -829,7 +931,8 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
   const float SpellDamage = (18.f + School * 5.f) * Multiplier * SpellPowerMultiplier
     * WeaponDamageBonus * CounterMultiplier * MomentumBonus * HitComboMultiplier
     * (1.f + GetMasteryBonus()) * (1.f + GetVersatilityBonus())
-    * (bCriticalSpell ? 1.5f : 1.f) * MightMultiplier;
+    * (bCriticalSpell ? 1.5f : 1.f) * MightMultiplier * GetTwilightSpellMultiplier()
+    * (1.f + 0.04f * ArcaneTalentRank);
   // Reject invalid damage before spending mana or consuming a hard-earned counter.
   if (!FMath::IsFinite(SpellDamage) || SpellDamage <= 0.f) return false;
   const float HealthBeforeSpell = Enemy->Health;
@@ -918,6 +1021,7 @@ void AMoonfallHeroPawn::CommitPendingMouseCast()
  if (bOptionsOpen || bInventoryOpen || !FMath::IsFinite(Health) || Health <= 0.f) return;
  if (Hand == 0 && bWeaponSpellStance) StrikeWithWeapon();
  else if (Hand == 0) CastLeft();
+ else if (Hand == 1 && bDualWieldStance) StrikeWithOffhandWeapon();
  else if (Hand == 1) CastRight();
 }
 void AMoonfallHeroPawn::QueueMouseCast(int32 Hand)
@@ -946,7 +1050,8 @@ void AMoonfallHeroPawn::QueueMouseCast(int32 Hand)
    {
     // A mixed-hand chord is two normal actions, not an overcharged spell.
     StrikeWithWeapon();
-    CastRight();
+    if (bDualWieldStance) StrikeWithOffhandWeapon();
+    else CastRight();
    }
    else if (LeftSpell == RightSpell) CastBoth();
    else
@@ -959,6 +1064,7 @@ void AMoonfallHeroPawn::QueueMouseCast(int32 Hand)
   }
   else if (Hand == 0 && bWeaponSpellStance) StrikeWithWeapon();
   else if (Hand == 0) CastLeft();
+  else if (bDualWieldStance) StrikeWithOffhandWeapon();
   else CastRight();
   return;
  }
@@ -970,6 +1076,7 @@ void AMoonfallHeroPawn::MouseLeftPressed()
 {
  if (bMouseLeftHeld) return;
  bMouseLeftHeld = true;
+ // Left mouse is reserved for combat. F/controller interact with keys/gates.
  QueueMouseCast(0);
 }
 void AMoonfallHeroPawn::MouseRightPressed()
@@ -1003,23 +1110,26 @@ void AMoonfallHeroPawn::MouseRightReleased()
 }
 void AMoonfallHeroPawn::SelectHandSetup(int32 Setup)
 {
- if (Setup < 0 || Setup > 3 || !bInventoryOpen || bCharacterStatsOpen || bOptionsOpen
+ if (Setup < 0 || Setup > 4 || !bInventoryOpen || bCharacterStatsOpen || bOptionsOpen
      || !FMath::IsFinite(Health) || Health <= 0.f || !GetWorld()) return;
- // 0 spell/spell, 1 weapon/spell, 2 spell/shield guard, 3 weapon/shield guard.
+ // 0 spell/spell, 1 weapon/spell, 2 spell/shield, 3 weapon/shield,
+ // 4 paired melee weapons (mainhand + secondary strike).
  // Equipment selection does not consume or alter any saved item.
  GetWorldTimerManager().ClearTimer(MouseCastTimer);
  PendingMouseHand = -1;
  EndGuard();
- bWeaponSpellStance = (Setup == 1 || Setup == 3);
+ bWeaponSpellStance = (Setup == 1 || Setup == 3 || Setup == 4);
  bSpellShieldStance = (Setup == 2 || Setup == 3);
+ bDualWieldStance = Setup == 4;
  bMouseChordConsumed = false;
 }
 void AMoonfallHeroPawn::CycleHandSetup()
 {
  // Blueprint/controller-compatible forward cycle; the HUD exposes direct choices.
- const int32 CurrentSetup = bSpellShieldStance ? (bWeaponSpellStance ? 3 : 2)
-   : (bWeaponSpellStance ? 1 : 0);
- SelectHandSetup((CurrentSetup + 1) % 4);
+ const int32 CurrentSetup = bDualWieldStance ? 4
+   : (bSpellShieldStance ? (bWeaponSpellStance ? 3 : 2)
+     : (bWeaponSpellStance ? 1 : 0));
+ SelectHandSetup((CurrentSetup + 1) % 5);
 }
 void AMoonfallHeroPawn::ToggleWeaponSpell()
 {
@@ -1029,7 +1139,251 @@ void AMoonfallHeroPawn::ToggleWeaponSpell()
  PendingMouseHand = -1;
  bWeaponSpellStance = !bWeaponSpellStance;
  bSpellShieldStance = false;
+ bDualWieldStance = false;
  EndGuard();
+}
+void AMoonfallHeroPawn::InitializeDualWieldVisuals()
+{
+ if (!MainhandVisual || !OffhandVisual) return;
+ // Blueprint-authored assets replace only the sword proxies, never the hero art.
+ // A real weapon uses its authored scale rather than inheriting the tiny
+ // Unreal cube placeholder scale. Reject malformed Blueprint scaling.
+ const FVector ProxyScale(0.09f, 0.035f, 0.68f);
+ auto ValidWeaponScale = [](const FVector& Scale)
+ {
+  return !Scale.ContainsNaN() && Scale.X > 0.f && Scale.Y > 0.f && Scale.Z > 0.f
+    && Scale.GetMax() <= 10.f;
+ };
+ if (IsValid(MainhandMeshAsset))
+ {
+  MainhandVisual->SetStaticMesh(MainhandMeshAsset.Get());
+  MainhandVisual->SetRelativeScale3D(
+    ValidWeaponScale(MainhandMeshScale) ? MainhandMeshScale : FVector::OneVector);
+ }
+ else
+ {
+  MainhandVisual->SetStaticMesh(DefaultWeaponProxyMesh.Get());
+  MainhandVisual->SetRelativeScale3D(ProxyScale);
+ }
+ if (IsValid(OffhandMeshAsset))
+ {
+  OffhandVisual->SetStaticMesh(OffhandMeshAsset.Get());
+  OffhandVisual->SetRelativeScale3D(
+    ValidWeaponScale(OffhandMeshScale) ? OffhandMeshScale : FVector::OneVector);
+ }
+ else
+ {
+  OffhandVisual->SetStaticMesh(DefaultWeaponProxyMesh.Get());
+  OffhandVisual->SetRelativeScale3D(ProxyScale);
+ }
+ USkeletalMeshComponent* BodyMesh = GetMesh();
+ // Different skeletons may use different names; never modify the source rig.
+ // Only test candidate sockets when explicitly refreshing or at BeginPlay.
+ FName RightSocket = NAME_None;
+ FName LeftSocket = NAME_None;
+ if (IsValid(BodyMesh))
+ {
+  if (!MainhandSocket.IsNone() && BodyMesh->DoesSocketExist(MainhandSocket))
+   RightSocket = MainhandSocket;
+  if (!OffhandSocket.IsNone() && BodyMesh->DoesSocketExist(OffhandSocket))
+   LeftSocket = OffhandSocket;
+  if (bAllowHandSocketFallbacks)
+  {
+   if (RightSocket.IsNone())
+   {
+    const FName Candidates[] = {TEXT("hand_r"), TEXT("RightHand"), TEXT("RightHandSocket"), TEXT("weapon_r")};
+    for (const FName Candidate : Candidates)
+     if (BodyMesh->DoesSocketExist(Candidate)) { RightSocket = Candidate; break; }
+   }
+   if (LeftSocket.IsNone())
+   {
+    const FName Candidates[] = {TEXT("hand_l"), TEXT("LeftHand"), TEXT("LeftHandSocket"), TEXT("weapon_l")};
+    for (const FName Candidate : Candidates)
+     if (BodyMesh->DoesSocketExist(Candidate)) { LeftSocket = Candidate; break; }
+   }
+  }
+ }
+ // Reattach to the capsule fallback if a new rig has neither socket.
+ // Avoid leaving a blade attached to the previous skeleton after a swap.
+ auto AttachWeapon = [&](UStaticMeshComponent* Weapon, FName Socket,
+       const FVector& AuthoredOffset, const FVector& FallbackOffset) -> bool
+ {
+  if (!IsValid(Weapon)) return false;
+  if (IsValid(BodyMesh) && !Socket.IsNone())
+  {
+   if (Weapon->AttachToComponent(BodyMesh,
+       FAttachmentTransformRules::SnapToTargetNotIncludingScale, Socket))
+   {
+    const bool bValidOffset = FMath::IsFinite(AuthoredOffset.X)
+       && FMath::IsFinite(AuthoredOffset.Y) && FMath::IsFinite(AuthoredOffset.Z)
+       && AuthoredOffset.GetAbsMax() <= 100.f;
+    Weapon->SetRelativeLocation(bValidOffset ? AuthoredOffset : FVector::ZeroVector);
+    return true;
+   }
+  }
+  if (USceneComponent* Root = GetRootComponent())
+  {
+   // Root fallback must reset the relative transform when changing parents.
+   // KeepRelativeTransform would retain a socket-space rotation/scale.
+   Weapon->AttachToComponent(Root,
+     FAttachmentTransformRules::SnapToTargetNotIncludingScale);
+   Weapon->SetRelativeLocation(FallbackOffset);
+  }
+  return false;
+ };
+ bMainhandRigAttached = AttachWeapon(MainhandVisual.Get(), RightSocket,
+   MainhandSocketOffset, FVector(35.f, 44.f, 12.f));
+ bOffhandRigAttached = AttachWeapon(OffhandVisual.Get(), LeftSocket,
+   OffhandSocketOffset, FVector(35.f, -44.f, 12.f));
+ ResolvedMainhandSocket = bMainhandRigAttached ? RightSocket : NAME_None;
+ ResolvedOffhandSocket = bOffhandRigAttached ? LeftSocket : NAME_None;
+ // Diagnose missing animation bindings without changing skeletal assets.
+ UAnimInstance* ActiveAnim = IsValid(BodyMesh) ? BodyMesh->GetAnimInstance() : nullptr;
+ bMainhandMontageReady = IsValid(ActiveAnim) && IsValid(MainhandSwingMontage);
+ bOffhandMontageReady = IsValid(ActiveAnim) && IsValid(OffhandSwingMontage);
+ // Refresh clears stale results from previously equipped rigs.
+ bMainhandMontagePlayed = false;
+ bOffhandMontagePlayed = false;
+ bMainhandSwingAttempted = false;
+ bOffhandSwingAttempted = false;
+ ObservedWeaponRigComponent = IsValid(BodyMesh) ? BodyMesh : nullptr;
+ ObservedWeaponRigAsset = IsValid(BodyMesh) ? BodyMesh->GetSkeletalMeshAsset() : nullptr;
+ ObservedWeaponAnimInstance = ActiveAnim;
+ // Visual-only equipment must never interfere with combat visibility traces.
+ MainhandVisual->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+ OffhandVisual->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+ MainhandVisual->SetGenerateOverlapEvents(false);
+ OffhandVisual->SetGenerateOverlapEvents(false);
+}
+
+void AMoonfallHeroPawn::AuditDualWieldRigChanges()
+{
+ if (!GetWorld()) return;
+ const float Now = GetWorld()->GetTimeSeconds();
+ if (!FMath::IsFinite(Now) || Now < NextDualWieldRigAuditAt) return;
+ NextDualWieldRigAuditAt = Now + 1.f;
+ USkeletalMeshComponent* BodyMesh = GetMesh();
+ UObject* CurrentRig = IsValid(BodyMesh) ? BodyMesh->GetSkeletalMeshAsset() : nullptr;
+ UAnimInstance* CurrentAnim = IsValid(BodyMesh) ? BodyMesh->GetAnimInstance() : nullptr;
+ // Mesh changes invalidate hand sockets; animation-instance replacements
+ // invalidate montage readiness. Re-evaluate only after either changes.
+ if (BodyMesh != ObservedWeaponRigComponent.Get()
+     || CurrentRig != ObservedWeaponRigAsset.Get()
+     || CurrentAnim != ObservedWeaponAnimInstance.Get())
+  InitializeDualWieldVisuals();
+}
+void AMoonfallHeroPawn::RefreshDualWieldRig()
+{
+ // Rebind only on explicit request, not every Tick.
+ InitializeDualWieldVisuals();
+}
+
+void AMoonfallHeroPawn::BeginWeaponSwing(bool bOffhand)
+{
+ if (!GetWorld()) return;
+ const float Now = GetWorld()->GetTimeSeconds();
+ if (!FMath::IsFinite(Now)) return;
+ // Report the outcome of THIS specific attack; never carry a previous
+ // successful montage across missing assets, changed rigs, or reduced motion.
+ bool& bPlayed = bOffhand ? bOffhandMontagePlayed : bMainhandMontagePlayed;
+ bool& bAttempted = bOffhand ? bOffhandSwingAttempted : bMainhandSwingAttempted;
+ bool& bReady = bOffhand ? bOffhandMontageReady : bMainhandMontageReady;
+ bPlayed = false;
+ bAttempted = false;
+ USkeletalMeshComponent* BodyMesh = GetMesh();
+ UAnimInstance* Anim = IsValid(BodyMesh) ? BodyMesh->GetAnimInstance() : nullptr;
+ UAnimMontage* Montage = bOffhand ? OffhandSwingMontage.Get() : MainhandSwingMontage.Get();
+ bReady = IsValid(Anim) && IsValid(Montage);
+ if (!bReduceMotion)
+ {
+  if (bOffhand) OffhandSwingStartedAt = Now;
+  else MainhandSwingStartedAt = Now;
+  // Failed/incompatible montage playback never suppresses normal melee hits.
+  if (bReady)
+  {
+   bAttempted = true;
+   const float Played = Anim->Montage_Play(Montage, 1.f);
+   bPlayed = FMath::IsFinite(Played) && Played > 0.f;
+  }
+ }
+ OnDualWieldSwing(bOffhand);
+}
+void AMoonfallHeroPawn::UpdateWeaponVisuals()
+{
+ if (!MainhandVisual || !OffhandVisual) return;
+ const bool bActive = FMath::IsFinite(Health) && Health > 0.f
+   && !bOptionsOpen && !bInventoryOpen;
+ const bool bShowMain = bActive && bWeaponSpellStance && EquippedWeaponCode > 0;
+ const bool bShowOffhand = bActive && bDualWieldStance && EquippedOffhandCode > 0;
+ MainhandVisual->SetHiddenInGame(!bShowMain);
+ OffhandVisual->SetHiddenInGame(!bShowOffhand);
+ if (!bShowMain && !bShowOffhand) return;
+ const float Now = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f;
+ if (!FMath::IsFinite(Now)) return;
+ // Opposing, bounded blade sweeps make both hands readable even with
+ // no external montage assets. Reduced-motion mode disables the sweep.
+ const float MainAge = Now - MainhandSwingStartedAt;
+ const float OffAge = Now - OffhandSwingStartedAt;
+ const float MainDuration = FMath::IsFinite(MainhandSwingDuration)
+   ? FMath::Clamp(MainhandSwingDuration, 0.10f, 1.f) : 0.30f;
+ const float OffDuration = FMath::IsFinite(OffhandSwingDuration)
+   ? FMath::Clamp(OffhandSwingDuration, 0.10f, 1.f) : 0.30f;
+ const float MainSweep = !bReduceMotion && FMath::IsFinite(MainAge)
+   && MainAge >= 0.f && MainAge <= MainDuration
+   ? FMath::Sin(MainAge / MainDuration * PI) * 75.f : 0.f;
+ const float OffSweep = !bReduceMotion && FMath::IsFinite(OffAge)
+   && OffAge >= 0.f && OffAge <= OffDuration
+   ? FMath::Sin(OffAge / OffDuration * PI) * 75.f : 0.f;
+ // Preserve the authored grip orientation while adding swing motion.
+ // Without this, per-frame animation overwrites any Blueprint grip tuning.
+ if (bShowMain)
+ {
+  FRotator Grip = MainhandGripRotation;
+  Grip.Roll -= MainSweep;
+  MainhandVisual->SetRelativeRotation(Grip);
+ }
+ if (bShowOffhand)
+ {
+  FRotator Grip = OffhandGripRotation;
+  Grip.Roll += OffSweep;
+  OffhandVisual->SetRelativeRotation(Grip);
+ }
+}
+void AMoonfallHeroPawn::StrikeWithOffhandWeapon()
+{
+ // A separately equipped offhand weapon deals a shorter, weaker melee strike
+ // with its OWN saved tier and independent cooldown.
+ if (!bDualWieldStance || EquippedOffhandCode <= 0 || !GetWorld()
+     || !IsValid(FollowCamera) || bOptionsOpen || bInventoryOpen
+     || !FMath::IsFinite(Health) || Health <= 0.f) return;
+ const float Now = GetWorld()->GetTimeSeconds();
+ if (!FMath::IsFinite(Now) || Now < NextOffhandStrikeAt) return;
+ BeginWeaponSwing(true);
+ const FVector Start = GetActorLocation() + FVector(0.f, 0.f, 55.f);
+ const FVector Facing = FollowCamera->GetForwardVector().GetSafeNormal2D();
+ const FVector End = Start + (Facing.IsNearlyZero()
+   ? GetActorForwardVector().GetSafeNormal2D() : Facing) * 205.f;
+ FCollisionQueryParams Params(SCENE_QUERY_STAT(MoonfallOffhandStrike), false, this);
+ FHitResult Hit;
+ NextOffhandStrikeAt = Now + 0.32f;
+ if (!GetWorld()->LineTraceSingleByChannel(Hit, Start, End, ECC_Visibility, Params))
+ {
+  OnWeaponStrike(0.f, false);
+  return;
+ }
+ AMoonfallEnemy* Enemy = Cast<AMoonfallEnemy>(Hit.GetActor());
+ if (!IsValid(Enemy) || !FMath::IsFinite(Enemy->Health) || Enemy->Health <= 0.f)
+ {
+  OnWeaponStrike(0.f, false);
+  return;
+ }
+ const float Damage = (7.f + FMath::Clamp(OffhandTier, 0, 25))
+   * GetTwilightWeaponMultiplier() * (1.f + 0.04f * BladeTalentRank)
+   * (1.f + 0.06f * TwinStrikeTalentRank);
+ const float PreviousHealth = Enemy->Health;
+ Enemy->TakeSpellDamage(Damage);
+ const float Dealt = FMath::Max(0.f, PreviousHealth - Enemy->Health);
+ OnWeaponStrike(Dealt, Dealt > 0.f);
 }
 void AMoonfallHeroPawn::StrikeWithWeapon()
 {
@@ -1037,6 +1391,7 @@ void AMoonfallHeroPawn::StrikeWithWeapon()
      || bOptionsOpen || bInventoryOpen || !FMath::IsFinite(Health) || Health <= 0.f) return;
  const float Now = GetWorld()->GetTimeSeconds();
  if (!FMath::IsFinite(Now) || Now < NextWeaponStrikeAt) return;
+ BeginWeaponSwing(false);
  // A short melee reach and independent cooldown keep weapons distinct from spells.
  // Trace from the hero, not the trailing camera. Otherwise nearby enemies
  // can fall behind the camera's short melee ray in third-person view.
@@ -1058,7 +1413,8 @@ void AMoonfallHeroPawn::StrikeWithWeapon()
   OnWeaponStrike(0.f, false);
   return;
  }
- const float Damage = 12.f + 2.f * FMath::Clamp(WeaponTier, 0, 25);
+ const float Damage = (12.f + 2.f * FMath::Clamp(WeaponTier, 0, 25))
+   * GetTwilightWeaponMultiplier() * (1.f + 0.04f * BladeTalentRank);
  const float PreviousHealth = Enemy->Health;
  Enemy->TakeSpellDamage(Damage);
  NextWeaponStrikeAt = Now + 0.45f;
@@ -1429,6 +1785,49 @@ void AMoonfallHeroPawn::ToggleInventory() {
  }
  UpdateInventoryMouseInput();
 }
+bool AMoonfallHeroPawn::EquipOffhandInventoryItem(int32 InventoryIndex)
+{
+ if (!bInventoryOpen || bCharacterStatsOpen || bOptionsOpen || bRewardSaveLoadFailed
+     || !FMath::IsFinite(Health) || Health <= 0.f
+     || !InventoryItemCodes.IsValidIndex(InventoryIndex) || !GetWorld()) return false;
+ const int32 Code = InventoryItemCodes[InventoryIndex];
+ const int32 Affix = Code / 100000;
+ const int32 Slot = (Code / 10000) % 10;
+ const int32 Rarity = (Code / 1000) % 10;
+ const int32 Tier = Code % 1000;
+ if (Code <= 0 || Slot != 0 || Affix < 0 || Affix > 3
+     || Rarity < 0 || Rarity > 5 || Tier < 1 || Tier > 25
+     || (Rarity == 0 && Affix != 0)
+     || Code != Affix * 100000 + Rarity * 1000 + Tier)
+  return false;
+ // A single bag copy cannot occupy both hands at once.
+ const int32 CopiesNeeded = Code == EquippedWeaponCode ? 2 : 1;
+ int32 Copies = 0;
+ for (const int32 Candidate : InventoryItemCodes) if (Candidate == Code) ++Copies;
+ if (Copies < CopiesNeeded || EquippedOffhandCode == Code) return false;
+ const int32 PreviousCode = EquippedOffhandCode;
+ const int32 PreviousTier = OffhandTier;
+ EquippedOffhandCode = Code;
+ OffhandTier = Tier;
+ if (!SaveRewardProgress())
+ {
+  EquippedOffhandCode = PreviousCode;
+  OffhandTier = PreviousTier;
+  KeyInteractionNotice = TEXT("OFFHAND SAVE FAILED - LOADOUT RESTORED");
+  bKeyInteractionNoticeError = true;
+  KeyInteractionNoticeUntil = GetWorld()->GetTimeSeconds() + 6.f;
+  return false;
+ }
+ KeyInteractionNotice = TEXT("OFFHAND WEAPON EQUIPPED");
+ bKeyInteractionNoticeError = false;
+ KeyInteractionNoticeUntil = GetWorld()->GetTimeSeconds() + 3.5f;
+ return true;
+}
+void AMoonfallHeroPawn::EquipSelectedOffhandInventoryItem()
+{
+ if (bInventoryOpen && !bCharacterStatsOpen)
+  EquipOffhandInventoryItem(InventorySelection);
+}
 void AMoonfallHeroPawn::EquipSelectedInventoryItem() {
  if (!bInventoryOpen || bCharacterStatsOpen || !InventoryItemCodes.IsValidIndex(InventorySelection)) return;
  EquipInventoryItem(InventorySelection);
@@ -1445,12 +1844,13 @@ bool AMoonfallHeroPawn::SalvageInventoryItem(int32 InventoryIndex)
  // The final inventory copy of equipped gear is protected. Extra duplicates
  // may be salvaged because the worn code remains represented in the bag.
  const bool bEquippedCode = Code == EquippedWeaponCode || Code == EquippedArmorCode
-     || Code == EquippedAccessoryCode;
+     || Code == EquippedAccessoryCode || Code == EquippedOffhandCode;
  if (bEquippedCode) {
   int32 Copies = 0;
   for (const int32 Candidate : InventoryItemCodes)
    if (Candidate == Code) ++Copies;
-  if (Copies <= 1) return false;
+  const int32 RequiredCopies = (Code == EquippedWeaponCode && Code == EquippedOffhandCode) ? 2 : 1;
+  if (Copies <= RequiredCopies) return false;
  }
  const int32 Affix = Code / 100000;
  const int32 SlotIndex = (Code / 10000) % 10;
@@ -1486,6 +1886,10 @@ bool AMoonfallHeroPawn::UpgradeInventoryItem(int32 InventoryIndex)
  if (!bInventoryOpen || bOptionsOpen || Health <= 0.f
      || !InventoryItemCodes.IsValidIndex(InventoryIndex)) return false;
  const int32 Code = InventoryItemCodes[InventoryIndex];
+ // Identical codes can represent two distinct bag copies. Until the UI
+ // identifies exact copies, crafting a weapon occupying BOTH hands is
+ // ambiguous; keep it locked rather than silently modifying both weapons.
+ if (Code == EquippedOffhandCode && Code == EquippedWeaponCode) return false;
  if (Code <= 0) return false;
  const int32 Affix = Code / 100000;
  const int32 Slot = (Code / 10000) % 10;
@@ -1504,6 +1908,20 @@ bool AMoonfallHeroPawn::UpgradeInventoryItem(int32 InventoryIndex)
  const int32 Cost = 4 + Tier * 2 + Rarity * 3;
  if (Salvage < Cost) return false;
  const int32 NewCode = Affix * 100000 + Slot * 10000 + Rarity * 1000 + (Tier + 1);
+ // When this particular selected weapon occupies ONLY the offhand, update
+ // its code atomically alongside the bag, salvage cost and all worn gear.
+ const bool bCraftingOffhand = Slot == 0 && Code == EquippedOffhandCode;
+ if (bCraftingOffhand)
+ {
+  // If multiple copies have the same code, the selected inventory row
+  // cannot identify which physical copy is worn in the offhand.
+  int32 MatchingCopies = 0;
+  for (const int32 BagCode : InventoryItemCodes)
+   if (BagCode == Code) ++MatchingCopies;
+  if (MatchingCopies != 1) return false;
+ }
+ const int32 PreviousOffhandCode = EquippedOffhandCode;
+ const int32 PreviousOffhandTier = OffhandTier;
  // The bag, salvage and worn stats must either all commit or all roll back.
  const int32 OldSalvage = Salvage;
  const int32 OldEquippedCode = Slot == 0 ? EquippedWeaponCode
@@ -1517,6 +1935,11 @@ bool AMoonfallHeroPawn::UpgradeInventoryItem(int32 InventoryIndex)
  const float OldHealth = Health;
  bDeferEquippedSave = true;
  InventoryItemCodes[InventoryIndex] = NewCode;
+ if (bCraftingOffhand)
+ {
+  EquippedOffhandCode = NewCode;
+  OffhandTier = NewCode % 1000;
+ }
  // Reuse the existing equip path so all derived stats, notably armor HP,
  // update together. Roll back the inventory mutation on unexpected failure.
  if (bUpgradingEquipped && !EquipInventoryItem(InventoryIndex)) {
@@ -1530,6 +1953,11 @@ bool AMoonfallHeroPawn::UpgradeInventoryItem(int32 InventoryIndex)
  {
   InventoryItemCodes[InventoryIndex] = Code;
   Salvage = OldSalvage;
+  if (bCraftingOffhand)
+  {
+   EquippedOffhandCode = PreviousOffhandCode;
+   OffhandTier = PreviousOffhandTier;
+  }
   if (bUpgradingEquipped)
   {
    int32* LiveCode = Slot == 0 ? &EquippedWeaponCode
@@ -1564,6 +1992,10 @@ bool AMoonfallHeroPawn::ReforgeInventoryItemAffix(int32 InventoryIndex)
  if (!bInventoryOpen || bOptionsOpen || Health <= 0.f
      || !InventoryItemCodes.IsValidIndex(InventoryIndex)) return false;
  const int32 Code = InventoryItemCodes[InventoryIndex];
+ // Identical codes can represent two distinct bag copies. Until the UI
+ // identifies exact copies, crafting a weapon occupying BOTH hands is
+ // ambiguous; keep it locked rather than silently modifying both weapons.
+ if (Code == EquippedOffhandCode && Code == EquippedWeaponCode) return false;
  if (Code <= 0) return false;
  const int32 Affix = Code / 100000;
  const int32 Slot = (Code / 10000) % 10;
@@ -1579,6 +2011,20 @@ bool AMoonfallHeroPawn::ReforgeInventoryItemAffix(int32 InventoryIndex)
  const int32 NewAffix = Affix == 0 ? FMath::RandRange(1, 3)
      : 1 + ((Affix - 1 + FMath::RandRange(1, 2)) % 3);
  const int32 NewCode = NewAffix * 100000 + Slot * 10000 + Rarity * 1000 + Tier;
+ // When this particular selected weapon occupies ONLY the offhand, update
+ // its code atomically alongside the bag, salvage cost and all worn gear.
+ const bool bCraftingOffhand = Slot == 0 && Code == EquippedOffhandCode;
+ if (bCraftingOffhand)
+ {
+  // If multiple copies have the same code, the selected inventory row
+  // cannot identify which physical copy is worn in the offhand.
+  int32 MatchingCopies = 0;
+  for (const int32 BagCode : InventoryItemCodes)
+   if (BagCode == Code) ++MatchingCopies;
+  if (MatchingCopies != 1) return false;
+ }
+ const int32 PreviousOffhandCode = EquippedOffhandCode;
+ const int32 PreviousOffhandTier = OffhandTier;
  const int32 EquippedCode = Slot == 0 ? EquippedWeaponCode
      : (Slot == 1 ? EquippedArmorCode : EquippedAccessoryCode);
  const bool bReforgingEquipped = Code == EquippedCode;
@@ -1595,6 +2041,11 @@ bool AMoonfallHeroPawn::ReforgeInventoryItemAffix(int32 InventoryIndex)
  const float OldHealth = Health;
  bDeferEquippedSave = true;
  InventoryItemCodes[InventoryIndex] = NewCode;
+ if (bCraftingOffhand)
+ {
+  EquippedOffhandCode = NewCode;
+  OffhandTier = NewCode % 1000;
+ }
  // Keep the bag and the worn item in sync, including direct combat bonuses.
  // Roll back and leave salvage untouched if that sync unexpectedly fails.
  if (bReforgingEquipped && !EquipInventoryItem(InventoryIndex)) {
@@ -1608,6 +2059,11 @@ bool AMoonfallHeroPawn::ReforgeInventoryItemAffix(int32 InventoryIndex)
  {
   InventoryItemCodes[InventoryIndex] = Code;
   Salvage = OldSalvage;
+  if (bCraftingOffhand)
+  {
+   EquippedOffhandCode = PreviousOffhandCode;
+   OffhandTier = PreviousOffhandTier;
+  }
   if (bReforgingEquipped)
   {
    int32* LiveCode = Slot == 0 ? &EquippedWeaponCode
@@ -1646,6 +2102,10 @@ bool AMoonfallHeroPawn::AscendInventoryItemRarity(int32 InventoryIndex)
  if (!bInventoryOpen || bOptionsOpen || Health <= 0.f
      || !InventoryItemCodes.IsValidIndex(InventoryIndex)) return false;
  const int32 Code = InventoryItemCodes[InventoryIndex];
+ // Identical codes can represent two distinct bag copies. Until the UI
+ // identifies exact copies, crafting a weapon occupying BOTH hands is
+ // ambiguous; keep it locked rather than silently modifying both weapons.
+ if (Code == EquippedOffhandCode && Code == EquippedWeaponCode) return false;
  if (Code <= 0) return false;
  const int32 Affix = Code / 100000;
  const int32 Slot = (Code / 10000) % 10;
@@ -1663,6 +2123,20 @@ bool AMoonfallHeroPawn::AscendInventoryItemRarity(int32 InventoryIndex)
      : (Slot == 1 ? EquippedArmorCode : EquippedAccessoryCode);
  const bool bAscendingEquipped = Code == EquippedCode;
  const int32 NewCode = Affix * 100000 + Slot * 10000 + (Rarity + 1) * 1000 + Tier;
+ // When this particular selected weapon occupies ONLY the offhand, update
+ // its code atomically alongside the bag, salvage cost and all worn gear.
+ const bool bCraftingOffhand = Slot == 0 && Code == EquippedOffhandCode;
+ if (bCraftingOffhand)
+ {
+  // If multiple copies have the same code, the selected inventory row
+  // cannot identify which physical copy is worn in the offhand.
+  int32 MatchingCopies = 0;
+  for (const int32 BagCode : InventoryItemCodes)
+   if (BagCode == Code) ++MatchingCopies;
+  if (MatchingCopies != 1) return false;
+ }
+ const int32 PreviousOffhandCode = EquippedOffhandCode;
+ const int32 PreviousOffhandTier = OffhandTier;
  // The bag, salvage and worn stats must either all commit or all roll back.
  const int32 OldSalvage = Salvage;
  const int32 OldEquippedCode = Slot == 0 ? EquippedWeaponCode
@@ -1676,6 +2150,11 @@ bool AMoonfallHeroPawn::AscendInventoryItemRarity(int32 InventoryIndex)
  const float OldHealth = Health;
  bDeferEquippedSave = true;
  InventoryItemCodes[InventoryIndex] = NewCode;
+ if (bCraftingOffhand)
+ {
+  EquippedOffhandCode = NewCode;
+  OffhandTier = NewCode % 1000;
+ }
  if (bAscendingEquipped && !EquipInventoryItem(InventoryIndex)) {
   bDeferEquippedSave = false;
   InventoryItemCodes[InventoryIndex] = Code;
@@ -1687,6 +2166,11 @@ bool AMoonfallHeroPawn::AscendInventoryItemRarity(int32 InventoryIndex)
  {
   InventoryItemCodes[InventoryIndex] = Code;
   Salvage = OldSalvage;
+  if (bCraftingOffhand)
+  {
+   EquippedOffhandCode = PreviousOffhandCode;
+   OffhandTier = PreviousOffhandTier;
+  }
   if (bAscendingEquipped)
   {
    int32* LiveCode = Slot == 0 ? &EquippedWeaponCode
@@ -2000,6 +2484,37 @@ void AMoonfallHeroPawn::UpdateNativeFinisher(float DeltaSeconds)
  FinisherFlash->SetVisibility(true);
 }
 
+int32 AMoonfallHeroPawn::GetUnspentTalentPoints() const
+{
+ return FMath::Max(0, FMath::Clamp(Level, 1, 100) - 1
+   - BladeTalentRank - ArcaneTalentRank - TwinStrikeTalentRank);
+}
+bool AMoonfallHeroPawn::SpendTalentPoint(int32 TalentIndex)
+{
+ if (!GetWorld() || bOptionsOpen || !bInventoryOpen || bRewardSaveLoadFailed
+     || !FMath::IsFinite(Health) || Health <= 0.f
+     || TalentIndex < 0 || TalentIndex > 2 || GetUnspentTalentPoints() <= 0)
+  return false;
+ int32* Rank = TalentIndex == 0 ? &BladeTalentRank
+   : (TalentIndex == 1 ? &ArcaneTalentRank : &TwinStrikeTalentRank);
+ if (*Rank >= 5) return false;
+ ++(*Rank);
+ // Talent spending must be an atomic saved transaction. Do not lose points
+ // or grant a rank when the current save file cannot be updated.
+ if (!SaveRewardProgress())
+ {
+  --(*Rank);
+  KeyInteractionNotice = TEXT("TALENT SAVE FAILED - POINT RESTORED");
+  bKeyInteractionNoticeError = true;
+  KeyInteractionNoticeUntil = GetWorld()->GetTimeSeconds() + 6.f;
+  return false;
+ }
+ KeyInteractionNotice = TEXT("TALENT UNLOCKED");
+ bKeyInteractionNoticeError = false;
+ KeyInteractionNoticeUntil = GetWorld()->GetTimeSeconds() + 3.5f;
+ return true;
+}
+
 void AMoonfallHeroPawn::AwardExperience(int32 Amount)
 {
  if (Amount <= 0 || Health <= 0.f || Level >= 100) return;
@@ -2015,6 +2530,14 @@ void AMoonfallHeroPawn::AwardExperience(int32 Amount)
   OnHealthChanged(Health, MaxHealth);
  }
  if (Level >= 100) Experience = 0;
+ // XP and level now share the existing durable reward slot with talent ranks.
+ // Preserve the in-memory reward if storage fails, but warn on every failure.
+ if (!bRewardSaveLoadFailed && !SaveRewardProgress() && GetWorld())
+ {
+  KeyInteractionNotice = TEXT("PROGRESSION SAVE FAILED - RETRY BEFORE EXIT");
+  bKeyInteractionNoticeError = true;
+  KeyInteractionNoticeUntil = GetWorld()->GetTimeSeconds() + 6.f;
+ }
 }
 
 int32 AMoonfallHeroPawn::RollEquipmentCode(bool bEliteEnemy, bool bBossEnemy, int32 PreferredSlot)
@@ -2118,6 +2641,11 @@ bool AMoonfallHeroPawn::CollectGroundEquipmentCode(int32 ItemCode)
  int32* EquippedAffix = SlotIndex == 0 ? &WeaponAffix
    : (SlotIndex == 1 ? &ArmorAffix : &AccessoryAffix);
  const bool bAutoEquipEmptySlot = *EquippedCode == 0;
+ // A second weapon auto-fills only an EMPTY offhand, after the main weapon.
+ // Existing worn items are never replaced and collection still saves once.
+ const bool bAutoEquipEmptyOffhand = SlotIndex == 0 && !bAutoEquipEmptySlot
+   && EquippedWeaponCode > 0 && EquippedOffhandCode == 0
+   && InventoryItemCodes.Contains(EquippedWeaponCode);
  // Capture the worn tier before an empty slot is filled so loot comparison
  // reports the real gain instead of subtracting the newly equipped tier.
  const int32 PreviousSlotTier = *EquippedTier;
@@ -2125,6 +2653,11 @@ bool AMoonfallHeroPawn::CollectGroundEquipmentCode(int32 ItemCode)
  const float PreviousMaxHealth = MaxHealth;
  const float PreviousHealth = Health;
  InventoryItemCodes.Add(ItemCode);
+ if (bAutoEquipEmptyOffhand)
+ {
+  EquippedOffhandCode = ItemCode;
+  OffhandTier = Tier;
+ }
  if (bAutoEquipEmptySlot)
  {
   *EquippedCode = ItemCode;
@@ -2142,6 +2675,11 @@ bool AMoonfallHeroPawn::CollectGroundEquipmentCode(int32 ItemCode)
  {
   bAutoLootSaveFailedThisSweep = true;
   InventoryItemCodes.Pop();
+  if (bAutoEquipEmptyOffhand)
+  {
+   EquippedOffhandCode = 0;
+   OffhandTier = 0;
+  }
   if (bAutoEquipEmptySlot)
   {
    *EquippedCode = 0;
@@ -2365,8 +2903,9 @@ bool AMoonfallHeroPawn::TryInteractWithNearbyKey()
 {
  // AC-style interaction, not proximity auto-unlock: the existing F / controller
  // pickup action searches only when pressed. No per-frame actors or polling.
- if (Health <= 0.f || bOptionsOpen || bInventoryOpen || !GetWorld()) return false;
+ if (!FMath::IsFinite(Health) || Health <= 0.f || bOptionsOpen || bInventoryOpen || !GetWorld()) return false;
  const FVector HeroPosition = GetActorLocation();
+ if (HeroPosition.ContainsNaN()) return false;
  const float RangeSquared = FMath::Square(230.f);
  float BestDistanceSq = RangeSquared;
  float BestFacingDistanceSq = RangeSquared;
@@ -2375,7 +2914,6 @@ bool AMoonfallHeroPawn::TryInteractWithNearbyKey()
  // Prefer a nearby object ahead of the hero when several are reachable,
  // while still allowing a lone object behind them as an accessible fallback.
  const FVector Facing = GetActorForwardVector().GetSafeNormal2D();
- int32 Scanned = 0;
  auto Consider = [&](AActor* Candidate)
  {
   if (!IsValid(Candidate) || Candidate == this) return;
@@ -2408,9 +2946,8 @@ bool AMoonfallHeroPawn::TryInteractWithNearbyKey()
  // Collect references first, then destroy after iteration so the world actor
  // iterator stays stable. No tick or background cleanup is required.
  TArray<AMoonfallKeyPickup*> StaleOwnedKeys;
- for (TActorIterator<AMoonfallKeyPickup> It(GetWorld()); It && Scanned < 128; ++It)
+ for (TActorIterator<AMoonfallKeyPickup> It(GetWorld()); It; ++It)
  {
-  ++Scanned;
   AMoonfallKeyPickup* Pickup = *It;
   if (!IsValid(Pickup)) continue;
   if (HasQuestKey(Pickup->KeyId))
@@ -2422,10 +2959,8 @@ bool AMoonfallHeroPawn::TryInteractWithNearbyKey()
  }
  for (AMoonfallKeyPickup* Pickup : StaleOwnedKeys)
   if (IsValid(Pickup)) Pickup->Destroy();
- Scanned = 0;
- for (TActorIterator<AMoonfallKeyGate> It(GetWorld()); It && Scanned < 128; ++It)
+ for (TActorIterator<AMoonfallKeyGate> It(GetWorld()); It; ++It)
  {
-  ++Scanned;
   if (IsValid(*It) && !It->bUnlocked) Consider(*It);
  }
  // Facing is preference rather than a hard gate: accessible pickup input
@@ -2463,9 +2998,71 @@ bool AMoonfallHeroPawn::TryInteractWithNearbyKey()
 
 void AMoonfallHeroPawn::InteractWithNearbyWorld()
 {
- // Manual world interaction is retained for keys and keyed doors.
- // Equipment no longer depends on pressing the pickup button.
- TryInteractWithNearbyKey();
+ // One explicit F/controller press interacts with one reachable object.
+ // Keyed objects take priority. Auto-loot remains an independent toggle.
+ if (!GetWorld() || !FMath::IsFinite(Health) || Health <= 0.f
+     || bInventoryOpen || bOptionsOpen || bRewardSaveLoadFailed) return;
+ if (TryInteractWithNearbyKey()) return;
+ const float Now = GetWorld()->GetTimeSeconds();
+ if (InventoryItemCodes.Num() >= 4096)
+ {
+  KeyInteractionNotice = TEXT("INVENTORY FULL - EQUIPMENT LEFT ON GROUND");
+  bKeyInteractionNoticeError = true;
+  KeyInteractionNoticeUntil = Now + 3.5f;
+  return;
+ }
+ const FVector HeroAt = GetActorLocation();
+ if (HeroAt.ContainsNaN()) return;
+ const FVector Facing = GetActorForwardVector().GetSafeNormal2D();
+ const float MaxDistanceSq = FMath::Square(230.f);
+ AMoonfallGroundLoot* NearestLoot = nullptr;
+ AMoonfallGroundLoot* NearestFacingLoot = nullptr;
+ float ClosestSq = MaxDistanceSq;
+ float ClosestFacingSq = MaxDistanceSq;
+ for (TActorIterator<AMoonfallGroundLoot> It(GetWorld()); It; ++It)
+ {
+  AMoonfallGroundLoot* Loot = *It;
+  if (!IsValid(Loot) || Loot->GetItemCode() <= 0) continue;
+  const FVector At = Loot->GetActorLocation();
+  if (At.ContainsNaN() || FMath::Abs(At.Z - HeroAt.Z) > 150.f) continue;
+  const float DistanceSq = FVector::DistSquared2D(HeroAt, At);
+  if (!FMath::IsFinite(DistanceSq) || DistanceSq > MaxDistanceSq) continue;
+  // A blocked drop must never suppress another reachable drop.
+  FCollisionQueryParams Sight(SCENE_QUERY_STAT(MoonfallManualEquipmentSight), false);
+  Sight.AddIgnoredActor(this);
+  Sight.AddIgnoredActor(Loot);
+  FHitResult Hit;
+  if (GetWorld()->LineTraceSingleByChannel(Hit,
+        HeroAt + FVector(0.f, 0.f, 40.f),
+        At + FVector(0.f, 0.f, 40.f), ECC_Visibility, Sight)) continue;
+  // Match the key/gate targeting convention: front-facing first,
+  // with nearest visible drop behind the hero as an accessible fallback.
+  const FVector Direction = (At - HeroAt).GetSafeNormal2D();
+  if (FVector::DotProduct(Facing, Direction) >= 0.25f
+      && DistanceSq < ClosestFacingSq)
+  {
+   NearestFacingLoot = Loot;
+   ClosestFacingSq = DistanceSq;
+  }
+  if (DistanceSq < ClosestSq)
+  {
+   NearestLoot = Loot;
+   ClosestSq = DistanceSq;
+  }
+ }
+ if (IsValid(NearestFacingLoot)) NearestLoot = NearestFacingLoot;
+ if (!IsValid(NearestLoot))
+ {
+  KeyInteractionNotice = TEXT("NOTHING IN REACH - MOVE CLOSER");
+  bKeyInteractionNoticeError = true;
+  KeyInteractionNoticeUntil = Now + 2.f;
+  return;
+ }
+ const bool bCollected = NearestLoot->TryCollect(true);
+ KeyInteractionNotice = bCollected ? TEXT("EQUIPMENT COLLECTED")
+    : TEXT("EQUIPMENT NOT COLLECTED - CHECK INVENTORY OR SAVE");
+ bKeyInteractionNoticeError = !bCollected;
+ KeyInteractionNoticeUntil = Now + 3.5f;
 }
 
 void AMoonfallHeroPawn::PickupNearestGroundLoot()
@@ -2600,6 +3197,13 @@ bool AMoonfallHeroPawn::EquipInventoryItem(int32 InventoryIndex)
  int32* EquippedAffix = SlotIndex == 0 ? &WeaponAffix : (SlotIndex == 1 ? &ArmorAffix : &AccessoryAffix);
  int32* EquippedCode = SlotIndex == 0 ? &EquippedWeaponCode
      : (SlotIndex == 1 ? &EquippedArmorCode : &EquippedAccessoryCode);
+ // Never equip the same single weapon item in both hands.
+ if (SlotIndex == 0 && Code == EquippedOffhandCode)
+ {
+  int32 Copies = 0;
+  for (const int32 BagCode : InventoryItemCodes) if (BagCode == Code) ++Copies;
+  if (Copies < 2) return false;
+ }
  if (*EquippedCode == Code && *EquippedTier == Tier && *EquippedAffix == Affix) return false;
  const int32 PreviousTier = *EquippedTier;
  const int32 PreviousAffix = *EquippedAffix;

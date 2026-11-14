@@ -27,7 +27,7 @@ AMoonfallKeyGate::AMoonfallKeyGate()
  GateLabel->SetRelativeLocation(FVector(0.f, 0.f, 185.f));
  GateLabel->SetWorldSize(25.f);
  GateLabel->SetHorizontalAlignment(EHorizTextAligment::EHTA_Center);
- GateLabel->SetText(FText::FromString(TEXT("LOCKED  [F / X]")));
+ GateLabel->SetText(FText::FromString(TEXT("LOCKED - F")));
  GateLabel->SetTextRenderColor(FColor(255, 204, 125));
 
 
@@ -66,7 +66,28 @@ bool AMoonfallKeyGate::TryUnlock(AActor* Candidate)
 {
  if (bUnlocked) return true;
  AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(Candidate);
- if (!IsValid(Hero) || Hero->Health <= 0.f) return false;
+ if (!IsValid(Hero) || !GetWorld() || !FMath::IsFinite(Hero->Health)
+     || Hero->Health <= 0.f || Hero->bOptionsOpen || Hero->bInventoryOpen)
+  return false;
+ // Blueprint callers cannot unlock a gate remotely, through a different
+ // floor, or while a gameplay-blocking menu is open. This does not add
+ // proximity auto-unlocking: a separate explicit interaction is still needed.
+ const FVector HeroPosition = Hero->GetActorLocation();
+ const FVector GatePosition = GetActorLocation();
+ if (HeroPosition.ContainsNaN() || GatePosition.ContainsNaN()
+     || FMath::Abs(HeroPosition.Z - GatePosition.Z) > 175.f
+     || FVector::DistSquared2D(HeroPosition, GatePosition) > FMath::Square(275.f))
+  return false;
+ // Direct Blueprint calls must not open gates through intervening walls.
+ // Ignore the gate itself so the solid barrier does not block its own unlock.
+ FCollisionQueryParams SightParams(SCENE_QUERY_STAT(MoonfallGateDirectUnlockSight), false);
+ SightParams.AddIgnoredActor(Hero);
+ SightParams.AddIgnoredActor(this);
+ FHitResult Obstruction;
+ if (GetWorld()->LineTraceSingleByChannel(Obstruction,
+       HeroPosition + FVector(0.f, 0.f, 40.f),
+       GatePosition + FVector(0.f, 0.f, 40.f), ECC_Visibility, SightParams))
+  return false;
  // Reject a blank/unknown key: the hero's whitelist checks supported IDs.
  if (!Hero->HasQuestKey(RequiredKeyId) && !Hero->HasUnlockedGate(GateId))
  {
@@ -79,7 +100,7 @@ bool AMoonfallKeyGate::TryUnlock(AActor* Candidate)
   else if (RequiredKeyId == FName(TEXT("fallen_gate_key")))
    MissingKeyName = TEXT("FALLEN GATE KEY");
   GateLabel->SetText(FText::FromString(
-    FString::Printf(TEXT("REQUIRES %s  [F / X]"), MissingKeyName)));
+    FString::Printf(TEXT("REQUIRES %s - F"), MissingKeyName)));
   OnGateLocked(RequiredKeyId);
   return false;
  }

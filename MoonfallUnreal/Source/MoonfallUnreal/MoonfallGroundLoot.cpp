@@ -66,13 +66,13 @@ void AMoonfallGroundLoot::InitializeLoot(int32 InItemCode)
   PickupMaterial->SetVectorParameterValue(TEXT("Color"), FLinearColor(QualityColor));
 }
 
-bool AMoonfallGroundLoot::TryCollect()
+bool AMoonfallGroundLoot::TryCollect(bool bManualInteraction)
 {
  if (bCollected || ItemCode <= 0) return false;
  AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0));
- // Collection is automatic only; external callers must obey the user's
- // loot preference and the same gameplay/menu locks as the periodic sweep.
- if (!IsValid(Hero) || !GetWorld() || !Hero->bAutoLootEnabled
+ // Auto pickups obey the toggle. An explicit F interaction is allowed even
+ // when automatic collection is disabled, but all reach and save checks apply.
+ if (!IsValid(Hero) || !GetWorld() || (!bManualInteraction && !Hero->bAutoLootEnabled)
      || !FMath::IsFinite(Hero->Health) || Hero->Health <= 0.f
      || Hero->bOptionsOpen || Hero->bInventoryOpen) return false;
  // Enforce reachability here as well as in the auto-loot sweep; a direct

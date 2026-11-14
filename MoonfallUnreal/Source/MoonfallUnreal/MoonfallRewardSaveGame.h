@@ -43,6 +43,14 @@ public:
  UPROPERTY(SaveGame) int32 EquippedWeaponCode = 0;
  UPROPERTY(SaveGame) int32 EquippedArmorCode = 0;
  UPROPERTY(SaveGame) int32 EquippedAccessoryCode = 0;
+ // Additive optional fields on the existing version-5 reward slot.
+ // Missing fields in older saves deserialize to their declared defaults.
+ UPROPERTY(SaveGame) int32 EquippedOffhandCode = 0;
+ UPROPERTY(SaveGame) int32 SavedCharacterLevel = 0;
+ UPROPERTY(SaveGame) int32 SavedCharacterExperience = 0;
+ UPROPERTY(SaveGame) int32 SavedBladeTalentRank = 0;
+ UPROPERTY(SaveGame) int32 SavedArcaneTalentRank = 0;
+ UPROPERTY(SaveGame) int32 SavedTwinStrikeTalentRank = 0;
  // v4: persisted world drops; v5 adds their source level IDs.
  UPROPERTY(SaveGame) TArray<FMoonfallWorldLootRecord> PendingWorldLoot;
 };

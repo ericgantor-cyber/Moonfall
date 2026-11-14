@@ -17,6 +17,11 @@ void AMoonfallCombatHUD::NotifyHitBoxClick(FName BoxName)
  else if (BoxName == FName(TEXT("MoonfallHandWeaponSpell"))) Hero->SelectHandSetup(1);
  else if (BoxName == FName(TEXT("MoonfallHandSpellShield"))) Hero->SelectHandSetup(2);
  else if (BoxName == FName(TEXT("MoonfallHandWeaponShield"))) Hero->SelectHandSetup(3);
+ else if (BoxName == FName(TEXT("MoonfallHandDualWeapons"))) Hero->SelectHandSetup(4);
+ else if (BoxName == FName(TEXT("MoonfallTalentBlade"))) Hero->SpendTalentPoint(0);
+ else if (BoxName == FName(TEXT("MoonfallTalentArcane"))) Hero->SpendTalentPoint(1);
+ else if (BoxName == FName(TEXT("MoonfallTalentTwin"))) Hero->SpendTalentPoint(2);
+ else if (BoxName == FName(TEXT("MoonfallEquipOffhand"))) Hero->EquipSelectedOffhandInventoryItem();
 }
 
 void AMoonfallCombatHUD::DrawHUD()
@@ -52,19 +57,20 @@ void AMoonfallCombatHUD::DrawHUD()
   const float Top = (Canvas->SizeY - PanelHeight) * 0.5f;
   DrawRect(FLinearColor(0.04f, 0.035f, 0.10f, 0.96f), Left, Top, PanelWidth, PanelHeight);
   DrawText(TEXT("MOONFALL  |  INVENTORY"), FLinearColor::White, Left + 18.f, Top + 16.f, nullptr, 1.3f);
-  // Four directly clickable configurations. No stance-toggle key; V is free.
+  // Five directly clickable configurations. No stance-toggle key.
   // Keep the buttons below equipment stats and above the first inventory row.
   if (!Hero->bCharacterStatsOpen) {
-   const TCHAR* Labels[4] = {TEXT("SPELL+SPELL"), TEXT("WEAPON+SPELL"),
-     TEXT("SPELL+SHIELD"), TEXT("WEAPON+SHIELD")};
-   const FName HitNames[4] = {FName(TEXT("MoonfallHandSpellSpell")),
+   const TCHAR* Labels[5] = {TEXT("SPELL+SPELL"), TEXT("WEAPON+SPELL"),
+     TEXT("SPELL+SHIELD"), TEXT("WEAPON+SHIELD"), TEXT("DUAL WEAPONS")};
+   const FName HitNames[5] = {FName(TEXT("MoonfallHandSpellSpell")),
      FName(TEXT("MoonfallHandWeaponSpell")), FName(TEXT("MoonfallHandSpellShield")),
-     FName(TEXT("MoonfallHandWeaponShield"))};
-   const int32 SelectedHand = Hero->bSpellShieldStance
-     ? (Hero->bWeaponSpellStance ? 3 : 2) : (Hero->bWeaponSpellStance ? 1 : 0);
+     FName(TEXT("MoonfallHandWeaponShield")), FName(TEXT("MoonfallHandDualWeapons"))};
+   const int32 SelectedHand = Hero->bDualWieldStance ? 4
+     : (Hero->bSpellShieldStance
+       ? (Hero->bWeaponSpellStance ? 3 : 2) : (Hero->bWeaponSpellStance ? 1 : 0));
    const float ButtonGap = 5.f;
-   const float ButtonWidth = (PanelWidth - 36.f - ButtonGap * 3.f) / 4.f;
-   for (int32 Choice = 0; Choice < 4; ++Choice) {
+   const float ButtonWidth = (PanelWidth - 36.f - ButtonGap * 4.f) / 5.f;
+   for (int32 Choice = 0; Choice < 5; ++Choice) {
     const float X = Left + 18.f + Choice * (ButtonWidth + ButtonGap);
     const float Y = Top + 132.f;
     DrawRect(Choice == SelectedHand ? FLinearColor(0.28f,0.42f,0.36f,0.96f)
@@ -74,6 +80,39 @@ void AMoonfallCombatHUD::DrawHUD()
     DrawText(Labels[Choice], FLinearColor::White, X + 4.f, Y + 8.f,
       nullptr, Canvas->SizeX < 900.f ? 0.50f : 0.65f);
    }
+  }
+  // Clickable, readable talent picks; a point is earned at each new level.
+  // Ranks save atomically to the versioned reward progress slot.
+  if (!Hero->bCharacterStatsOpen) {
+   const TCHAR* TalentLabels[3] = {TEXT("BLADES"), TEXT("ARCANE"), TEXT("TWIN STRIKE")};
+   const FName TalentHitNames[3] = {FName(TEXT("MoonfallTalentBlade")),
+     FName(TEXT("MoonfallTalentArcane")), FName(TEXT("MoonfallTalentTwin"))};
+   const int32 Ranks[3] = {Hero->BladeTalentRank, Hero->ArcaneTalentRank,
+     Hero->TwinStrikeTalentRank};
+   DrawText(FString::Printf(TEXT("TALENTS  %d POINTS"), Hero->GetUnspentTalentPoints()),
+     FLinearColor(0.96f,0.80f,0.50f), Left + 18.f, Top + 97.f, nullptr, 0.69f);
+   const float TalentStartX = Left + FMath::Min(190.f, PanelWidth * 0.39f);
+   const float TalentWidth = (PanelWidth - (TalentStartX - Left) - 22.f) / 3.f;
+   for (int32 Talent = 0; Talent < 3; ++Talent) {
+    const float X = TalentStartX + Talent * TalentWidth;
+    const float Y = Top + 96.f;
+    DrawRect(FLinearColor(0.20f,0.20f,0.32f,0.96f), X, Y, TalentWidth - 4.f, 26.f);
+    AddHitBox(FVector2D(X, Y), FVector2D(TalentWidth - 4.f, 26.f),
+      TalentHitNames[Talent], true, 21);
+    DrawText(FString::Printf(TEXT("%s %d/5"), TalentLabels[Talent], Ranks[Talent]),
+      FLinearColor::White, X + 4.f, Y + 7.f, nullptr, Canvas->SizeX < 900.f ? 0.48f : 0.60f);
+   }
+  }
+  if (!Hero->bCharacterStatsOpen) {
+   // Same menu-gated action as T: selected weapon becomes the real offhand.
+   const float ButtonX = Left + PanelWidth - 230.f;
+   const float ButtonY = Top + 10.f;
+   DrawRect(FLinearColor(0.20f,0.32f,0.38f,0.95f),
+      ButtonX, ButtonY, 100.f, 31.f);
+   AddHitBox(FVector2D(ButtonX, ButtonY), FVector2D(100.f, 31.f),
+      FName(TEXT("MoonfallEquipOffhand")), true, 20);
+   DrawText(TEXT("OFFHAND  T"), FLinearColor::White,
+      ButtonX + 6.f, ButtonY + 8.f, nullptr, 0.73f);
   }
   // Clicking Keys in the inventory opens a readable list without changing pages.
   if (!Hero->bCharacterStatsOpen) {
@@ -177,11 +216,13 @@ void AMoonfallCombatHUD::DrawHUD()
    const bool bValid = Code > 0 && Slot <= 2 && Affix <= 3 && Rarity <= 5 && Tier >= 1 && Tier <= 25;
    const bool bEquipped = Code == (Slot == 0 ? Hero->EquippedWeaponCode
      : Slot == 1 ? Hero->EquippedArmorCode : Hero->EquippedAccessoryCode);
+   const bool bOffhand = Slot == 0 && Code == Hero->EquippedOffhandCode;
    const float Y = Top + 175.f + (Index - PageStart) * RowSpacing;
    if (Index == Selected) DrawRect(FLinearColor(0.25f,0.18f,0.43f,0.90f),
      Left + 12.f, Y - 3.f, PanelWidth - 24.f, RowSpacing - 3.f);
    const FString Row = bValid ? FString::Printf(TEXT("%02d  %s  T%d  %s  %s%s"),
-      Index + 1, Slots[Slot], Tier, Rarities[Rarity], Traits[Affix], bEquipped ? TEXT("  [EQUIPPED]") : TEXT(""))
+      Index + 1, Slots[Slot], Tier, Rarities[Rarity], Traits[Affix],
+      bOffhand ? TEXT("  [OFFHAND]") : (bEquipped ? TEXT("  [EQUIPPED]") : TEXT("")))
     : FString::Printf(TEXT("%02d  Invalid item"), Index + 1);
    // Item names retain a clear text label plus a distinct quality color.
    const FLinearColor RarityColors[] = {FLinearColor(0.90f,0.90f,0.90f),
@@ -460,6 +501,14 @@ void AMoonfallCombatHUD::DrawHUD()
     FLinearColor(0.95f,0.84f,0.47f), 24.f, Canvas->SizeY - 55.f, nullptr, 0.8f);
   }
  }
+ // Compact, always-readable twilight phase. No flashing or extra widgets.
+ // Small displays show phase only; wider screens also explain the bonus.
+ if (Hero->IsTwilightNight())
+  DrawText(bCompactScreen ? TEXT("NIGHT") : TEXT("NIGHT  +10% SPELL POWER"),
+    FLinearColor(0.70f,0.72f,1.f), 24.f, 18.f, nullptr, 0.82f);
+ else
+  DrawText(bCompactScreen ? TEXT("DAY") : TEXT("DAY  +10% WEAPON POWER"),
+    FLinearColor(1.f,0.83f,0.58f), 24.f, 18.f, nullptr, 0.82f);
  // Accessible key/door notice: no flashing, no extra widgets, expires naturally.
  const float NowSeconds = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f;
  if (!Hero->KeyInteractionNotice.IsEmpty()

@@ -88,7 +88,7 @@ class UE5RewardParity(unittest.TestCase):
         self.assertIn("!Hero->HasQuestKey(RequiredKeyId)", gate_cpp)
         self.assertIn("OnGateLocked(RequiredKeyId);", gate_cpp)
         self.assertIn("GateLabel->SetText(FText::FromString(", gate_cpp)
-        self.assertIn("REQUIRES %s  [F / X]", gate_cpp)
+        self.assertIn("REQUIRES %s - F", gate_cpp)
         self.assertIn('FName(TEXT("wardens_crest"))', gate_cpp)
         self.assertIn('FName(TEXT("outlaw_seal"))', gate_cpp)
         self.assertIn("GateMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);", gate_cpp)
@@ -109,7 +109,7 @@ class UE5RewardParity(unittest.TestCase):
         self.assertIn("Hero->CollectQuestKey(KeyId)", key_cpp)
         self.assertIn("Destroy();", key_cpp)
         self.assertIn("void AMoonfallHeroPawn::InteractWithNearbyWorld()", self.hero)
-        self.assertIn("TryInteractWithNearbyKey();", self.hero.split(
+        self.assertIn("if (TryInteractWithNearbyKey()) return;", self.hero.split(
             "void AMoonfallHeroPawn::InteractWithNearbyWorld()", 1)[1].split(
             "void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[0])
         self.assertIn("TActorIterator<AMoonfallKeyPickup>", self.hero)
@@ -246,7 +246,7 @@ class UE5RewardParity(unittest.TestCase):
         self.assertIn("RefreshKeyLabel();", pickup_cpp)
         for name in ("WARDENS' CREST", "OUTLAW SEAL", "FALLEN GATE KEY"):
             self.assertIn(name, pickup_cpp)
-        self.assertIn("Name + TEXT(\"  [F / X]\")", pickup_cpp)
+        self.assertIn("Name + TEXT(\" - F\")", pickup_cpp)
         self.assertIn("UGameplayStatics::BeginDeferredActorSpawnFromClass(", self.hero)
         self.assertIn("UGameplayStatics::FinishSpawningActor(Pickup, SpawnTransform);", self.hero)
         milestone = self.hero.split("void AMoonfallHeroPawn::SpawnMilestoneKey(", 1)[1].split(
