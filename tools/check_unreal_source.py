@@ -86,6 +86,30 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("SaveGame", comparison + filt)
         self.assertNotIn("SpawnActor", comparison + filt)
 
+    def test_playable_race_selection_entries_batch_is_ordered_and_atomic(self):
+        header = (ROOT / "MoonfallRaceLibrary.h").read_text(encoding="utf-8")
+        code = (ROOT / "MoonfallRaceLibrary.cpp").read_text(encoding="utf-8")
+        self.assertIn("struct FMoonfallRaceSelectionEntry", header)
+        self.assertIn("FMoonfallRaceProfile Profile;", header)
+        self.assertIn("FMoonfallRaceStatPreview Stats;", header)
+        self.assertIn("static bool BuildPlayableRaceSelectionEntries(float BaseVitality, float BasePower,", header)
+        batch = code.split("UMoonfallRaceLibrary::BuildPlayableRaceSelectionEntries(", 1)[1].split(
+            "UMoonfallRaceLibrary::FindRaceProfile(", 1)[0]
+        self.assertIn("Entries.Reset();", batch)
+        self.assertIn("GetPlayableRaceProfiles()", batch)
+        self.assertIn("if (!Family.IsNone() && Profile.Family != Family)", batch)
+        self.assertIn("Entry.Profile = Profile;", batch)
+        self.assertIn("PreviewPlayableRaceStats(Profile.RaceId, BaseVitality, BasePower,", batch)
+        self.assertIn("TArray<FMoonfallRaceSelectionEntry> Built;", batch)
+        self.assertIn("Entries = MoveTemp(Built);", batch)
+        self.assertLess(batch.index("Entries.Reset();"), batch.index("TArray<FMoonfallRaceSelectionEntry> Built;"))
+        self.assertLess(batch.index("if (!PreviewPlayableRaceStats("), batch.index("Entries = MoveTemp(Built);"))
+        for stat in ("Vitality", "Power", "Speed"):
+            self.assertIn("!FMath::IsFinite(Base" + stat + ")", batch)
+            self.assertIn("Base" + stat + " < 0.f", batch)
+        self.assertNotIn("SaveGame", batch)
+        self.assertNotIn("SpawnActor", batch)
+
     def test_isolated_race_catalog_is_cpp_syntax_safe_and_does_not_replace_persistence(self):
         import re
         catalog = (ROOT / "MoonfallRaceLibrary.cpp").read_text(encoding="utf-8")
