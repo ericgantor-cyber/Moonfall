@@ -260,6 +260,31 @@ class TestRacialPersistence(unittest.TestCase):
             "void AMoonfallHeroPawn::Tick(", 1)[0])
         self.assertIn("if (SaveWorldProgress()) SecondsSinceLastWorldSave = 0.f;", self.cpp)
 
+    def test_world_save_refuses_shrine_ledger_loader_would_reject(self):
+        saver = self.cpp.split("bool AMoonfallHeroPawn::SaveWorldProgress()", 1)[1].split(
+            "bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[0]
+        loader = self.cpp.split("bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[1].split(
+            "void AMoonfallHeroPawn::RespawnAtCheckpoint()", 1)[0]
+        # A valid save must survive the same uniqueness and active-ID checks
+        # performed during LoadWorldProgress. Never erase or sanitize a ledger.
+        self.assertIn("DiscoveredShrineIds.Num() > 64", saver)
+        self.assertIn("TSet<FName> UniqueShrines;", saver)
+        self.assertIn("for (const FName Id : DiscoveredShrineIds)", saver)
+        self.assertIn("Id.IsNone() || UniqueShrines.Contains(Id)", saver)
+        self.assertIn("UniqueShrines.Add(Id);", saver)
+        self.assertIn("!ActiveShrineId.IsNone() && !UniqueShrines.Contains(ActiveShrineId)", saver)
+        self.assertIn("ActiveShrineId.IsNone() && !UniqueShrines.IsEmpty()", saver)
+        self.assertIn("UniqueShrines.Contains(Id)", loader)
+        self.assertIn("UniqueShrines.Add(Id);", loader)
+        self.assertLess(saver.index("DiscoveredShrineIds.Num() > 64"),
+                        saver.index("TSet<FName> UniqueShrines;"))
+        self.assertLess(saver.index("TSet<FName> UniqueShrines;"),
+                        saver.index("UGameplayStatics::CreateSaveGameObject"))
+        self.assertLess(saver.index("ActiveShrineId.IsNone() && !UniqueShrines.IsEmpty()"),
+                        saver.index("UGameplayStatics::SaveGameToSlot"))
+        self.assertNotIn("DiscoveredShrineIds.Reset()", saver)
+        self.assertNotIn("ActiveShrineId = NAME_None;", saver)
+
     def test_blocked_saved_checkpoint_remembers_validated_fallback(self):
         loader = self.cpp.split("bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[1].split(
             "void AMoonfallHeroPawn::RespawnAtCheckpoint()", 1)[0]
