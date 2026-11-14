@@ -14,7 +14,7 @@ primary owning category**.
 | **4. Progression** | Rewards, XP, leveling, loot, gear, crafting and permanent improvements | XP, automatic stat growth, inventory (B), weapons and gear sets |
 | **5. Interface & Systems** | HUD, UI, input, accessibility, saves, performance and builds | HUD orbs, atlas (J), controller, mouse, Windows release pipeline |
 
-Moonfall is **classless**, and leveling does **not** present upgrade cards or reroll choices. Character progression instead uses earned XP, automatic stat growth, equipment, loot and crafting. This policy applies to new work in both engines; existing gameplay implementations require separate audits and verified migrations.
+Moonfall is **classless**, and leveling does **not** present upgrade cards or random reroll choices. Progression uses earned XP, automatic base-stat growth, **earned points spent on a connected talent tree**, equipment, loot and crafting. This policy applies to new work in both engines; existing gameplay implementations require separate audits and verified migrations.
 
 ## Practical boundaries
 
@@ -84,7 +84,7 @@ test evidence before its verification status can change.
 2. Loot, equipment and inventory on **B**.
 3. Rarity, RNG, gear sets and item stats.
 4. Crafting and professions.
-5. Automatic stat growth on level-up without selection pop-ups or rerolls.
+5. Automatic base-stat growth plus earned talent points spent on an open skill tree, without upgrade cards.
 
 ### Interface & Systems
 
@@ -161,7 +161,7 @@ balance numbers:
 - **Assassin's Creed Valhalla reference:** earned power, gear improvement and
   open combat playstyles, without locking a character into a class.
 - **Moonfall implementation direction:** automatic growth at every level.
-  No classes, upgrade-card drafts or rerolls. Hero identity and original
+  No classes, upgrade-card drafts or rerolls. **Talent points are player-selected** in an open tree. Hero identity and original
   Z/Nyra artwork are preserved.
 
 The new versioned `config/moonfall_stats.json` establishes original Moonfall
@@ -169,7 +169,7 @@ stats: **Might, Agility, Arcana, Vitality, Resolve and Endurance**. These feed
 melee/ranged/magic damage and health/mana/stamina. Level growth is automatic
 and deterministic. Equipment bonuses apply separately, while overall Power
 is calculated from level and gear score. All coefficients are provisional
-balancing values, **not yet gameplay integration**.
+balancing values, **not yet gameplay integration**. Talents provide **separate, player-selected** bonuses on top of these automatic values.
 
 Run `python tools/moonfall_stats.py` for a sample character and
 `python tools/test_moonfall_stats.py` to validate automatic progression,
@@ -179,3 +179,24 @@ it does not touch saves or existing equipment. Integrating the model with
 Godot and Unreal requires native behavior tests, HUD verification and
 save migration review. Keep the UI character panel bound to the game's
 actual stats until integration is explicitly complete.
+
+## Talent tree correction: inspired by Enshrouded and AC Valhalla
+
+The intended reference is the **branching talent/skill-tree design**,
+not replacing talent decisions with automatic stats. Use an original Moonfall
+tree with three interconnected themes: **Might, Agility and Arcana**. All
+branches are accessible to every hero. There are **no character classes,
+upgrade cards, random draft screens or rerolls**. Every level provides one
+talent point to spend deliberately on a node, subject to level gates,
+prerequisites and the available point budget. Automatic baseline stats and
+separate gear bonuses still apply.
+
+The versioned data file `config/moonfall_talents.json` defines a first
+**12-node prototype**. The pure Python reference calculator in
+`tools/moonfall_talents.py` validates branches, prerequisites, levels, ranks,
+point budgets and bonuses; `spend` allocates a point, while `respec`
+refunds the allocations. Run `python tools/test_moonfall_talents.py`
+for regressions. These are original Moonfall node names and balance
+values, not copied artwork or a claim that either engine has a working
+talent UI. Live integration requires GDScript/UE5 code, persistence
+migration and gameplay/Windows verification.
