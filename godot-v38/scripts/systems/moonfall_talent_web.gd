@@ -207,7 +207,7 @@ func _gui_input(event: InputEvent) -> void:
    zoom_by(1.0 / 1.2)
   elif key.keycode == KEY_HOME:
    fit_all()
-  elif key.keycode == KEY_N or key.keycode == KEY_TAB:
+  elif key.keycode == KEY_N:
    var next_id: String = next_available(selected_id)
    if next_id != "":
     focus_node(next_id)
