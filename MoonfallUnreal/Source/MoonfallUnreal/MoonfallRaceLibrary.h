@@ -84,6 +84,12 @@ public:
  UFUNCTION(BlueprintPure, Category="Moonfall|Races")
  static TArray<FName> GetPlayableRaceFamilies();
 
+ // Wrap between playable race family tabs for keyboard, controller and
+ // single-switch navigation. Unknown family starts at either end.
+ UFUNCTION(BlueprintPure, Category="Moonfall|Races")
+ static bool GetAdjacentPlayableRaceFamily(FName CurrentFamily, bool bForward,
+                                           FName& NextFamily);
+
  // Reject nonplayable/unknown races for character-selection validation.
  UFUNCTION(BlueprintPure, Category="Moonfall|Races")
  static bool FindPlayableRaceProfile(FName RaceId, FMoonfallRaceProfile& Profile);
