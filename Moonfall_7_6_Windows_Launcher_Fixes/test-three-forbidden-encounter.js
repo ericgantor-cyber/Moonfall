@@ -19,4 +19,12 @@ assert.throws(()=>createEncounter(0),RangeError);
 const all=createEncounter(100);
 assert.equal(encounterTick(all,20,0).filter(e=>e.type==='warning').length,3);
 for(const frame of [30,36,42])assert.equal(encounterTick(all,20,frame).filter(e=>e.type==='attack').length,1);
+// A temporarily full projectile budget must not discard an already warned attack.
+const blocked=createEncounter(100);
+assert.equal(encounterTick(blocked,100,0).filter(x=>x.type==='warning').length,1);
+assert.equal(encounterTick(blocked,100,36,{canAttack:false}).filter(x=>x.type==='attack').length,0);
+assert.equal(blocked.active.get('echo-rupture').fireAt,36);
+assert.equal(encounterTick(blocked,100,37,{canAttack:false}).filter(x=>x.type==='warning').length,0);
+assert.deepEqual(encounterTick(blocked,100,38,{canAttack:true}).map(x=>x.id),['echo-rupture']);
+assert.equal(blocked.active.get('echo-rupture').nextWarning,188);
 console.log('PASS: Three Forbidden independent 4-phase attack scheduler');
