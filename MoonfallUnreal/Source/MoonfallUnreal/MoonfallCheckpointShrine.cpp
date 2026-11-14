@@ -60,6 +60,11 @@ void AMoonfallCheckpointShrine::RefreshShrineDisplay(const AMoonfallHeroPawn* He
  // discovered shrines have been deactivated.
  ShrineLabel->SetText(FText::FromString(bCurrentRespawn ? TEXT("ACTIVE RESPAWN SHRINE")
      : bDiscovered ? TEXT("ACTIVE SHRINE") : TEXT("UNDISCOVERED SHRINE")));
+ // High-contrast secondary cue. Permanent activation is independent from
+ // which shrine currently owns the respawn checkpoint; text remains primary
+ // so the state is still readable without color vision.
+ ShrineLabel->SetTextRenderColor(bCurrentRespawn ? FColor(255, 210, 105)
+     : bDiscovered ? FColor(115, 245, 210) : FColor(170, 170, 170));
 }
 
 void AMoonfallCheckpointShrine::CheckHeroAtSpawn(AMoonfallHeroPawn* Hero)
