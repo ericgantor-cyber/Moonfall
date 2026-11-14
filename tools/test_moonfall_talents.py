@@ -3,7 +3,7 @@
 import copy
 import unittest
 
-from moonfall_talents import evaluate, load, refund, respec, spend, validate
+from moonfall_talents import evaluate, load, respec, spend, validate
 
 
 class TalentTests(unittest.TestCase):
@@ -78,35 +78,15 @@ class TalentTests(unittest.TestCase):
         self.assertEqual(old, {"iron_will": 0})
         self.assertEqual(state["spent"], 1)
 
-    def test_refund_unspent_point_without_changing_original(self):
-        current = {"iron_will": 1, "spirit_well": 1}
-        result = refund(6, current, "spirit_well", self.tree)
-        self.assertEqual(result["allocations"], {"iron_will": 1})
-        self.assertEqual(result["spent"], 1)
-        self.assertEqual(result["available"], 4)
-        self.assertEqual(result["bonuses"]["mana"]["flat"], 0)
-        self.assertEqual(current, {"iron_will": 1, "spirit_well": 1})
-
-    def test_refund_rejects_orphaned_dependent_node(self):
-        current = {"iron_will": 1, "breaker": 1}
-        with self.assertRaisesRegex(ValueError, "Missing talent prerequisite"):
-            refund(6, current, "iron_will", self.tree)
-        self.assertEqual(current["iron_will"], 1)
-        # Removing the leaf first makes its prerequisite refundable.
-        lower = refund(6, current, "breaker", self.tree)
-        empty = refund(6, lower["allocations"], "iron_will", self.tree)
-        self.assertEqual(empty["spent"], 0)
-
-    def test_refund_rejects_invalid_or_unpurchased_talents(self):
-        for bad in (None, [], "", False):
-            with self.assertRaisesRegex(ValueError, "Allocations must be a map"):
-                refund(6, bad, "iron_will", self.tree)
-        with self.assertRaisesRegex(ValueError, "Cannot refund an unpurchased"):
-            refund(6, {}, "iron_will", self.tree)
-        with self.assertRaisesRegex(ValueError, "Unknown talent choice"):
-            refund(6, {}, "unknown", self.tree)
-        with self.assertRaisesRegex(ValueError, "Missing talent prerequisite"):
-            refund(6, {"breaker": 1}, "breaker", self.tree)
+    def test_full_respec_restores_all_points_without_individual_refunds(self):
+        original = {"iron_will": 1, "breaker": 1, "spirit_well": 1}
+        state = evaluate(10, original, self.tree)
+        self.assertEqual(state["spent"], 3)
+        reset = respec(10, self.tree)
+        self.assertEqual(reset["spent"], 0)
+        self.assertEqual(reset["available"], 9)
+        self.assertEqual(reset["allocations"], {})
+        self.assertEqual(original, {"iron_will": 1, "breaker": 1, "spirit_well": 1})
 
     def test_no_classes_or_cards(self):
         self.assertEqual(evaluate(5, data=self.tree)["ruleset"], "classless_talent_tree")
