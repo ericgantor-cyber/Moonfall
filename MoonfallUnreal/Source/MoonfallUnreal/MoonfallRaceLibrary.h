@@ -49,6 +49,21 @@ struct FMoonfallRaceSelectionEntry
  UPROPERTY(BlueprintReadOnly, Category="Moonfall|Races") FMoonfallRaceStatPreview Stats;
 };
 
+// Read-only snapshot for a keyboard/controller character selection panel.
+USTRUCT(BlueprintType)
+struct FMoonfallRaceSelectionState
+{
+ GENERATED_BODY()
+ UPROPERTY(BlueprintReadOnly, Category="Moonfall|Races") FName RaceId = NAME_None;
+ UPROPERTY(BlueprintReadOnly, Category="Moonfall|Races") FName Family = NAME_None;
+ UPROPERTY(BlueprintReadOnly, Category="Moonfall|Races") FMoonfallRaceProfile Profile;
+ UPROPERTY(BlueprintReadOnly, Category="Moonfall|Races") FMoonfallRaceStatPreview Stats;
+ UPROPERTY(BlueprintReadOnly, Category="Moonfall|Races") int32 RacePosition = 0;
+ UPROPERTY(BlueprintReadOnly, Category="Moonfall|Races") int32 RaceTotal = 0;
+ UPROPERTY(BlueprintReadOnly, Category="Moonfall|Races") int32 FamilyPosition = 0;
+ UPROPERTY(BlueprintReadOnly, Category="Moonfall|Races") int32 FamilyTotal = 0;
+};
+
 UCLASS()
 class MOONFALLUNREAL_API UMoonfallRaceLibrary : public UBlueprintFunctionLibrary
 {
@@ -152,6 +167,14 @@ public:
  UFUNCTION(BlueprintPure, Category="Moonfall|Races")
  static bool GetPlayableRaceFamilyPosition(FName Family, int32& Position,
                                            int32& Total);
+
+ // Build one consistent menu snapshot after navigation. NAME_None family
+ // shows all playable races and leaves the family tab counters at zero.
+ // Failure returns a default state without modifying the actor or save.
+ UFUNCTION(BlueprintPure, Category="Moonfall|Races")
+ static bool BuildPlayableRaceSelectionState(
+  FName CurrentRaceId, FName Family, float BaseVitality, float BasePower,
+  float BaseSpeed, FMoonfallRaceSelectionState& State);
 
  // Returns false and an unmodified baseline profile for unknown identifiers.
  UFUNCTION(BlueprintPure, Category="Moonfall|Races")
