@@ -103,3 +103,75 @@ The prototype currently defaults to the generic engine Entry map. Before packagi
 7. Launch the packaged game and test the installer, gameplay and accessibility on Windows 10 and 11. A process-launch smoke test does not prove gameplay correctness.
 
 Packaging deliberately stops with an actionable error if the project-owned startup level is missing. The map and a verified Unreal Windows build have not yet been created by this change.
+
+
+## WoW-inspired Moonfall character creation (experimental, PR #930)
+
+The new native `UMoonfallCharacterCreationWidget` builds a dark fantasy UMG
+race-selection screen at runtime. This is an **original Moonfall interface**
+influenced by World of Warcraft's strong central character preview and
+separated race/detail panels, not a copy of Blizzard's UI or art.
+
+**Layout:** Scrollable playable-race list at left, a prominent center image
+area with previous/next and Continue buttons, and a right-hand race name,
+family and Vitality/Power/Speed preview with family navigation. The UI is
+intended for mouse, keyboard and controller. **No single-switch gameplay
+controls are included.**
+
+**Unreal Editor integration (not automated or native-compiled yet):**
+1. Compile the UE5.4 C++ project with UMG, Slate and SlateCore enabled.
+2. Create a Widget Blueprint derived from `MoonfallCharacterCreationWidget`.
+3. Create/display that widget from the character-creation menu and give it
+   keyboard/gamepad focus. The widget builds its layout in `NativeConstruct`
+   when its WidgetTree has no existing root; do not add a competing root.
+4. Optionally call `InitializeSelection(RaceId, BaseVitality, BasePower,
+   BaseSpeed)` to seed the preview. Base values must be finite/nonnegative.
+5. Implement `OnRacePreviewRequested(RaceId)` in the Widget Blueprint to
+   select the game's **existing approved original** Moonfall character
+   asset. Call `SetPreviewTexture(ExistingMoonfallTexture)` for a portrait.
+   This code does not import or modify Z/Nyra's art and does not yet render
+   a live 3D character viewport.
+6. Bind `OnRaceConfirmed(RaceId)` in the owning Blueprint to the existing
+   validated character creation workflow. This C++ widget does **not**
+   spawn heroes, create saves, or assume race selection applies gameplay stats.
+
+**Inputs:** Mouse-click a race; left-drag inside the central preview requests character rotation, and mouse-wheel over the preview requests zoom. Mouse-wheel outside the preview keeps normal scroll behavior in the race list. The owning Widget Blueprint must implement `OnPreviewRotateRequested(DeltaYaw)` and `OnPreviewZoomRequested(ZoomSteps)` to control the existing 3D preview actor/camera; the C++ widget only emits events, and it does not rotate or redraw Z/Nyra art. Left/Right arrows or D-pad cycle races;
+Up/Down arrows or D-pad cycle playable race families; Enter/controller
+south-face button confirms. These input routes need focus/gameplay testing
+in Unreal Editor. Button focus or an input-mode change in the owning menu
+could intercept keys. No 3D camera orbit, class grid, appearance editor or
+name entry has been implemented yet.
+
+**Optional direct 3D preview control:** Call `BindPreviewRig(PreviewPivot, PreviewArm)`
+on the widget, supplying a dedicated menu-only `USceneComponent` pivot and
+`USpringArmComponent` camera arm. Left drag now directly rotates that pivot
+and wheel zoom changes spring arm distance in the 125-650 range. The **RESET
+VIEW** button restores the initial pivot rotation and arm length. If no
+component is bound, the widget still calls the Blueprint rotate/zoom events.
+Never bind the live player pawn or its camera: these inputs are for a separate
+character-preview actor only. A 3D preview actor, SceneCapture and render
+target still must be set up by the owning Blueprint; this does not generate
+or replace Z/Nyra art. The image-only fallback cannot physically rotate a
+static portrait.
+
+The implementation has Python **source-contract** regression checks.
+A green source check is **not** proof of UE5.4 UHT/C++ compilation, packaged
+Windows gameplay, or accessibility focus behavior.
+
+
+**Native 3D preview actor (new):** The source now also includes
+`AMoonfallCharacterPreviewActor`, a no-tick, preview-only actor with a
+skeletal mesh component (unassigned), separate rotation pivot, spring arm,
+SceneCapture2D and an optional render target. In Unreal Editor, create a
+Blueprint child of this actor and assign an **approved original Moonfall**
+skeletal mesh to its `CharacterMesh` component. Create a
+`TextureRenderTarget2D` asset, configure it on `PreviewRenderTarget`,
+and position this dedicated actor in a character-preview scene with appropriate
+lighting. Create and display the character-creation widget, then call
+`BindPreviewActor(PreviewActor)` on the widget. The widget will display
+the capture render target and automatically refresh it after mouse rotation,
+zoom or reset. Use `RefreshPreview()` whenever the character mesh or pose
+changes. This preview actor does **not** spawn a playable hero or import
+assets; if no approved mesh/render target is supplied, the 3D preview will
+remain empty. SceneCapture and widget integration still require a native
+Unreal Engine 5.4 compile and visual test.

@@ -14,6 +14,575 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         cls.enemy_cpp = (ROOT / "MoonfallEnemy.cpp").read_text(encoding="utf-8")
         cls.hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
 
+    def test_race_profile_lists_keep_playable_and_family_filters(self):
+        import re
+        header = (ROOT / "MoonfallRaceLibrary.h").read_text(encoding="utf-8")
+        impl = (ROOT / "MoonfallRaceLibrary.cpp").read_text(encoding="utf-8")
+        self.assertIn("static TArray<FMoonfallRaceProfile> GetPlayableRaceProfiles();", header)
+        self.assertIn("static TArray<FMoonfallRaceProfile> GetRaceProfilesByFamily(FName Family);", header)
+        self.assertIn("UMoonfallRaceLibrary::GetPlayableRaceProfiles()", impl)
+        self.assertIn("UMoonfallRaceLibrary::GetRaceProfilesByFamily(FName Family)", impl)
+        playable = impl.split("UMoonfallRaceLibrary::GetPlayableRaceProfiles()", 1)[1].split(
+            "UMoonfallRaceLibrary::GetRaceProfilesByFamily(", 1)[0]
+        family = impl.split("UMoonfallRaceLibrary::GetRaceProfilesByFamily(", 1)[1].split(
+            "UMoonfallRaceLibrary::FindRaceProfile(", 1)[0]
+        self.assertIn("GetPlayableRaceIds()", playable)
+        self.assertIn("FindRaceProfile(RaceId, Profile) && Profile.bPlayableCandidate", playable)
+        self.assertIn("if (Family.IsNone()) return Result;", family)
+        self.assertIn("GetRaceIdsByFamily(Family)", family)
+        self.assertIn("FindRaceProfile(RaceId, Profile) && Profile.Family == Family", family)
+        self.assertEqual(len(re.findall(r'^\s*\{TEXT\("([a-z_]+)"\),', impl, re.MULTILINE)), 30)
+        self.assertNotIn("SaveGame", playable + family)
+        self.assertNotIn("SpawnActor", playable + family)
+
+    def test_blueprint_race_selection_preview_is_read_only_and_fails_closed(self):
+        header = (ROOT / "MoonfallRaceLibrary.h").read_text(encoding="utf-8")
+        code = (ROOT / "MoonfallRaceLibrary.cpp").read_text(encoding="utf-8")
+        self.assertIn("struct FMoonfallRaceStatPreview", header)
+        self.assertIn("static TArray<FName> GetRaceFamilies();", header)
+        self.assertIn("static bool FindPlayableRaceProfile(FName RaceId, FMoonfallRaceProfile& Profile);", header)
+        self.assertIn("static bool PreviewPlayableRaceStats(FName RaceId, float BaseVitality, float BasePower,", header)
+        families = code.split("UMoonfallRaceLibrary::GetRaceFamilies()", 1)[1].split(
+            "UMoonfallRaceLibrary::FindPlayableRaceProfile(", 1)[0]
+        self.assertIn("if (!Result.Contains(Family))", families)
+        select = code.split("UMoonfallRaceLibrary::FindPlayableRaceProfile(", 1)[1].split(
+            "UMoonfallRaceLibrary::PreviewPlayableRaceStats(", 1)[0]
+        self.assertIn("!Profile.bPlayableCandidate", select)
+        self.assertIn("Profile = FMoonfallRaceProfile();", select)
+        preview = code.split("UMoonfallRaceLibrary::PreviewPlayableRaceStats(", 1)[1].split(
+            "UMoonfallRaceLibrary::FindRaceProfile(", 1)[0]
+        self.assertIn("Preview = FMoonfallRaceStatPreview();", preview)
+        self.assertIn("FindPlayableRaceProfile(RaceId, Profile)", preview)
+        for stat in ("Vitality", "Power", "Speed"):
+            self.assertIn("FMath::IsFinite(Base" + stat + ")", preview)
+            self.assertIn("Base" + stat + " < 0.f", preview)
+            self.assertIn("FMath::IsFinite(" + stat + ")", preview)
+            self.assertIn("Preview." + stat + " = " + stat + ";", preview)
+        self.assertNotIn("SaveGame", families + select + preview)
+        self.assertNotIn("SpawnActor", families + select + preview)
+
+    def test_race_comparison_is_read_only_and_failure_atomic(self):
+        header = (ROOT / "MoonfallRaceLibrary.h").read_text(encoding="utf-8")
+        code = (ROOT / "MoonfallRaceLibrary.cpp").read_text(encoding="utf-8")
+        self.assertIn("struct FMoonfallRaceStatComparison", header)
+        self.assertIn("static TArray<FMoonfallRaceProfile> GetPlayableRaceProfilesByFamily(FName Family);", header)
+        self.assertIn("static bool ComparePlayableRaceStats(FName CurrentRaceId, FName CandidateRaceId,", header)
+        filt = code.split("UMoonfallRaceLibrary::GetPlayableRaceProfilesByFamily(", 1)[1].split(
+            "UMoonfallRaceLibrary::ComparePlayableRaceStats(", 1)[0]
+        self.assertIn("if (Family.IsNone()) return Result;", filt)
+        self.assertIn("GetRaceProfilesByFamily(Family)", filt)
+        self.assertIn("if (Profile.bPlayableCandidate)", filt)
+        comparison = code.split("UMoonfallRaceLibrary::ComparePlayableRaceStats(", 1)[1].split(
+            "UMoonfallRaceLibrary::FindRaceProfile(", 1)[0]
+        self.assertIn("Comparison = FMoonfallRaceStatComparison();", comparison)
+        self.assertIn("PreviewPlayableRaceStats(CurrentRaceId,", comparison)
+        self.assertIn("PreviewPlayableRaceStats(CandidateRaceId,", comparison)
+        for stat in ("Vitality", "Power", "Speed"):
+            self.assertIn("Candidate." + stat + " - Current." + stat, comparison)
+            self.assertIn("FMath::IsFinite(Delta" + stat + ")", comparison)
+            self.assertIn("Comparison.Delta." + stat + " = Delta" + stat + ";", comparison)
+        self.assertLess(comparison.index("FMath::IsFinite(DeltaSpeed)"),
+                        comparison.index("Comparison.Current = Current;"))
+        self.assertNotIn("SaveGame", comparison + filt)
+        self.assertNotIn("SpawnActor", comparison + filt)
+
+    def test_playable_race_selection_entries_batch_is_ordered_and_atomic(self):
+        header = (ROOT / "MoonfallRaceLibrary.h").read_text(encoding="utf-8")
+        code = (ROOT / "MoonfallRaceLibrary.cpp").read_text(encoding="utf-8")
+        self.assertIn("struct FMoonfallRaceSelectionEntry", header)
+        self.assertIn("FMoonfallRaceProfile Profile;", header)
+        self.assertIn("FMoonfallRaceStatPreview Stats;", header)
+        self.assertIn("static bool BuildPlayableRaceSelectionEntries(float BaseVitality, float BasePower,", header)
+        batch = code.split("UMoonfallRaceLibrary::BuildPlayableRaceSelectionEntries(", 1)[1].split(
+            "UMoonfallRaceLibrary::FindRaceProfile(", 1)[0]
+        self.assertIn("Entries.Reset();", batch)
+        self.assertIn("GetPlayableRaceProfiles()", batch)
+        self.assertIn("if (!Family.IsNone() && Profile.Family != Family)", batch)
+        self.assertIn("Entry.Profile = Profile;", batch)
+        self.assertIn("PreviewPlayableRaceStats(Profile.RaceId, BaseVitality, BasePower,", batch)
+        self.assertIn("TArray<FMoonfallRaceSelectionEntry> Built;", batch)
+        self.assertIn("Entries = MoveTemp(Built);", batch)
+        self.assertLess(batch.index("Entries.Reset();"), batch.index("TArray<FMoonfallRaceSelectionEntry> Built;"))
+        self.assertLess(batch.index("if (!PreviewPlayableRaceStats("), batch.index("Entries = MoveTemp(Built);"))
+        for stat in ("Vitality", "Power", "Speed"):
+            self.assertIn("!FMath::IsFinite(Base" + stat + ")", batch)
+            self.assertIn("Base" + stat + " < 0.f", batch)
+        self.assertNotIn("SaveGame", batch)
+        self.assertNotIn("SpawnActor", batch)
+
+    def test_race_catalog_values_and_playable_families_are_consistent(self):
+        import math
+        import re
+        code = (ROOT / "MoonfallRaceLibrary.cpp").read_text(encoding="utf-8")
+        header = (ROOT / "MoonfallRaceLibrary.h").read_text(encoding="utf-8")
+        self.assertIn("static TArray<FName> GetPlayableRaceFamilies();", header)
+        family_fn = code.split("UMoonfallRaceLibrary::GetPlayableRaceFamilies()", 1)[1].split(
+            "UMoonfallRaceLibrary::FindPlayableRaceProfile(", 1)[0]
+        self.assertIn("if (!Row.bPlayable) continue;", family_fn)
+        self.assertIn("if (!Result.Contains(Family))", family_fn)
+        self.assertIn("Result.Add(Family);", family_fn)
+        pattern = (
+            r'^\s*\{TEXT\("([a-z_]+)"\),\s*TEXT\("([^"]+)"\),\s*'
+            r'TEXT\("([A-Za-z]+)"\),\s*(true|false),\s*'
+            r'([0-9.]+)f,\s*([0-9.]+)f,\s*([0-9.]+)f\},'
+        )
+        rows = re.findall(pattern, code, re.MULTILINE)
+        self.assertEqual(len(rows), 30, "Every race must have a parseable stat row")
+        self.assertEqual(len({row[0] for row in rows}), 30)
+        playable = [row for row in rows if row[3] == "true"]
+        self.assertGreater(len(playable), 0)
+        self.assertLess(len(playable), 30)
+        families = {row[2] for row in rows}
+        self.assertTrue({row[2] for row in playable}.issubset(families))
+        for race_id, display_name, family, _, vitality, power, speed in rows:
+            self.assertTrue(display_name and family, race_id)
+            for value in (vitality, power, speed):
+                number = float(value)
+                self.assertTrue(math.isfinite(number) and 0.0 < number <= 3.0, race_id)
+        human = next(row for row in rows if row[0] == "human")
+        self.assertEqual(human[3:], ("true", "1.", "1.", "1."))
+
+    def test_playable_race_navigation_wraps_and_ignores_unplayable_races(self):
+        header = (ROOT / "MoonfallRaceLibrary.h").read_text(encoding="utf-8")
+        code = (ROOT / "MoonfallRaceLibrary.cpp").read_text(encoding="utf-8")
+        self.assertIn("static bool GetAdjacentPlayableRaceId(FName CurrentRaceId, FName Family,", header)
+        nav = code.split("UMoonfallRaceLibrary::GetAdjacentPlayableRaceId(", 1)[1].split(
+            "UMoonfallRaceLibrary::FindRaceProfile(", 1)[0]
+        self.assertIn("NextRaceId = NAME_None;", nav)
+        self.assertIn("if (!Row.bPlayable || (!Family.IsNone() && FName(Row.Family) != Family))", nav)
+        self.assertIn("if (Candidates.IsEmpty())", nav)
+        self.assertIn("Candidates.IndexOfByKey(CurrentRaceId)", nav)
+        self.assertIn("Index == INDEX_NONE", nav)
+        self.assertIn("(Index + 1) % Candidates.Num()", nav)
+        self.assertIn("(Index + Candidates.Num() - 1) % Candidates.Num()", nav)
+        self.assertIn("NextRaceId = Candidates[NextIndex];", nav)
+        self.assertNotIn("SaveGame", nav)
+        self.assertNotIn("SpawnActor", nav)
+
+    def test_playable_race_family_tab_navigation_wraps_without_mutation(self):
+        header = (ROOT / "MoonfallRaceLibrary.h").read_text(encoding="utf-8")
+        code = (ROOT / "MoonfallRaceLibrary.cpp").read_text(encoding="utf-8")
+        self.assertIn("static bool GetAdjacentPlayableRaceFamily(FName CurrentFamily, bool bForward,", header)
+        nav = code.split("UMoonfallRaceLibrary::GetAdjacentPlayableRaceFamily(", 1)[1].split(
+            "UMoonfallRaceLibrary::FindPlayableRaceProfile(", 1)[0]
+        self.assertIn("NextFamily = NAME_None;", nav)
+        self.assertIn("GetPlayableRaceFamilies()", nav)
+        self.assertIn("if (Families.IsEmpty())", nav)
+        self.assertIn("Families.IndexOfByKey(CurrentFamily)", nav)
+        self.assertIn("Index == INDEX_NONE", nav)
+        self.assertIn("(Index + 1) % Families.Num()", nav)
+        self.assertIn("(Index + Families.Num() - 1) % Families.Num()", nav)
+        self.assertIn("NextFamily = Families[NextIndex];", nav)
+        self.assertNotIn("SaveGame", nav)
+        self.assertNotIn("SpawnActor", nav)
+
+    def test_family_switch_keeps_valid_playable_race_or_selects_first(self):
+        header = (ROOT / "MoonfallRaceLibrary.h").read_text(encoding="utf-8")
+        code = (ROOT / "MoonfallRaceLibrary.cpp").read_text(encoding="utf-8")
+        self.assertIn("static bool ResolvePlayableRaceForFamily(FName CurrentRaceId, FName Family,", header)
+        fn = code.split("UMoonfallRaceLibrary::ResolvePlayableRaceForFamily(", 1)[1].split(
+            "UMoonfallRaceLibrary::FindPlayableRaceProfile(", 1)[0]
+        self.assertIn("ResolvedRaceId = NAME_None;", fn)
+        self.assertIn("FindPlayableRaceProfile(CurrentRaceId, Current)", fn)
+        self.assertIn("(Family.IsNone() || Current.Family == Family)", fn)
+        self.assertIn("ResolvedRaceId = Current.RaceId;", fn)
+        self.assertIn("if (!Row.bPlayable || (!Family.IsNone() && FName(Row.Family) != Family))", fn)
+        self.assertIn("ResolvedRaceId = FName(Row.Id);", fn)
+        self.assertIn("return false;", fn)
+        self.assertNotIn("SaveGame", fn)
+        self.assertNotIn("SpawnActor", fn)
+
+    def test_adjacent_family_and_race_navigation_are_atomic(self):
+        header = (ROOT / "MoonfallRaceLibrary.h").read_text(encoding="utf-8")
+        impl = (ROOT / "MoonfallRaceLibrary.cpp").read_text(encoding="utf-8")
+        self.assertIn("static bool GetAdjacentPlayableRaceFamilySelection(", header)
+        fn = impl.split("UMoonfallRaceLibrary::GetAdjacentPlayableRaceFamilySelection(", 1)[1].split(
+            "UMoonfallRaceLibrary::FindPlayableRaceProfile(", 1)[0]
+        self.assertIn("NextFamily = NAME_None;", fn)
+        self.assertIn("NextRaceId = NAME_None;", fn)
+        self.assertIn("GetAdjacentPlayableRaceFamily(CurrentFamily, bForward, CandidateFamily)", fn)
+        self.assertIn("ResolvePlayableRaceForFamily(CurrentRaceId, CandidateFamily, CandidateRace)", fn)
+        self.assertLess(fn.index("ResolvePlayableRaceForFamily("), fn.index("NextFamily = CandidateFamily;"))
+        self.assertLess(fn.index("NextFamily = CandidateFamily;"), fn.index("NextRaceId = CandidateRace;"))
+        self.assertNotIn("SaveGame", fn)
+        self.assertNotIn("SpawnActor", fn)
+
+    def test_playable_race_position_is_one_based_and_filtered(self):
+        header = (ROOT / "MoonfallRaceLibrary.h").read_text(encoding="utf-8")
+        impl = (ROOT / "MoonfallRaceLibrary.cpp").read_text(encoding="utf-8")
+        self.assertIn("static bool GetPlayableRaceSelectionPosition(FName RaceId, FName Family,", header)
+        fn = impl.split("UMoonfallRaceLibrary::GetPlayableRaceSelectionPosition(", 1)[1].split(
+            "UMoonfallRaceLibrary::FindRaceProfile(", 1)[0]
+        self.assertIn("Position = 0;", fn)
+        self.assertIn("Total = 0;", fn)
+        self.assertIn("if (!Row.bPlayable || (!Family.IsNone() && FName(Row.Family) != Family))", fn)
+        self.assertIn("++CandidateCount;", fn)
+        self.assertIn("if (RaceId == FName(Row.Id))", fn)
+        self.assertIn("FoundPosition = CandidateCount;", fn)
+        self.assertIn("if (FoundPosition == 0)", fn)
+        self.assertLess(fn.index("if (FoundPosition == 0)"), fn.index("Position = FoundPosition;"))
+        self.assertIn("Total = CandidateCount;", fn)
+        self.assertNotIn("SaveGame", fn)
+        self.assertNotIn("SpawnActor", fn)
+
+    def test_playable_family_position_counts_only_available_tabs(self):
+        header = (ROOT / "MoonfallRaceLibrary.h").read_text(encoding="utf-8")
+        code = (ROOT / "MoonfallRaceLibrary.cpp").read_text(encoding="utf-8")
+        self.assertIn("static bool GetPlayableRaceFamilyPosition(FName Family, int32& Position,", header)
+        fn = code.split("UMoonfallRaceLibrary::GetPlayableRaceFamilyPosition(", 1)[1].split(
+            "UMoonfallRaceLibrary::FindRaceProfile(", 1)[0]
+        self.assertIn("Position = 0;", fn)
+        self.assertIn("Total = 0;", fn)
+        self.assertIn("GetPlayableRaceFamilies()", fn)
+        self.assertIn("Families.IndexOfByKey(Family)", fn)
+        self.assertIn("if (FoundIndex == INDEX_NONE)", fn)
+        self.assertLess(fn.index("if (FoundIndex == INDEX_NONE)"), fn.index("Position = FoundIndex + 1;"))
+        self.assertIn("Total = Families.Num();", fn)
+        self.assertNotIn("SaveGame", fn)
+        self.assertNotIn("SpawnActor", fn)
+
+    def test_race_selector_documents_keyboard_and_controller_only(self):
+        header = (ROOT / "MoonfallRaceLibrary.h").read_text(encoding="utf-8")
+        self.assertIn("keyboard and controller", header)
+        self.assertNotIn("single-switch", header.lower())
+        self.assertNotIn("switch-accessible", header.lower())
+
+    def test_race_selection_snapshot_consistent_and_failure_atomic(self):
+        header = (ROOT / "MoonfallRaceLibrary.h").read_text(encoding="utf-8")
+        impl = (ROOT / "MoonfallRaceLibrary.cpp").read_text(encoding="utf-8")
+        self.assertIn("struct FMoonfallRaceSelectionState", header)
+        for name in ("RaceId", "Family", "Profile", "Stats", "RacePosition",
+                     "RaceTotal", "FamilyPosition", "FamilyTotal"):
+            self.assertIn(name, header)
+        self.assertIn("static bool BuildPlayableRaceSelectionState(", header)
+        fn = impl.split("UMoonfallRaceLibrary::BuildPlayableRaceSelectionState(", 1)[1].split(
+            "UMoonfallRaceLibrary::FindRaceProfile(", 1)[0]
+        self.assertIn("State = FMoonfallRaceSelectionState();", fn)
+        self.assertIn("FMoonfallRaceSelectionState Candidate;", fn)
+        self.assertIn("ResolvePlayableRaceForFamily(CurrentRaceId, Family, Candidate.RaceId)", fn)
+        self.assertIn("FindPlayableRaceProfile(Candidate.RaceId, Candidate.Profile)", fn)
+        self.assertIn("PreviewPlayableRaceStats(Candidate.RaceId, BaseVitality, BasePower,", fn)
+        self.assertIn("GetPlayableRaceSelectionPosition(Candidate.RaceId, Family,", fn)
+        self.assertIn("if (!Family.IsNone()", fn)
+        self.assertIn("GetPlayableRaceFamilyPosition(Family, Candidate.FamilyPosition,", fn)
+        self.assertIn("State = MoveTemp(Candidate);", fn)
+        self.assertLess(fn.index("GetPlayableRaceFamilyPosition("),
+                        fn.index("State = MoveTemp(Candidate);"))
+        self.assertNotIn("SaveGame", fn)
+        self.assertNotIn("SpawnActor", fn)
+
+    def test_keyboard_controller_race_step_returns_consistent_snapshot(self):
+        header = (ROOT / "MoonfallRaceLibrary.h").read_text(encoding="utf-8")
+        code = (ROOT / "MoonfallRaceLibrary.cpp").read_text(encoding="utf-8")
+        self.assertIn("static bool StepPlayableRaceSelectionState(", header)
+        step = code.split("UMoonfallRaceLibrary::StepPlayableRaceSelectionState(", 1)[1].split(
+            "UMoonfallRaceLibrary::FindRaceProfile(", 1)[0]
+        self.assertIn("State = FMoonfallRaceSelectionState();", step)
+        self.assertIn("GetAdjacentPlayableRaceId(CurrentRaceId, Family, bForward, NextRaceId)", step)
+        self.assertIn("BuildPlayableRaceSelectionState(NextRaceId, Family, BaseVitality,", step)
+        self.assertIn("if (Candidate.RaceId != NextRaceId)", step)
+        self.assertIn("State = MoveTemp(Candidate);", step)
+        self.assertLess(step.index("if (Candidate.RaceId != NextRaceId)"),
+                        step.index("State = MoveTemp(Candidate);"))
+        self.assertNotIn("SaveGame", step)
+        self.assertNotIn("SpawnActor", step)
+        self.assertNotIn("single-switch", header.lower())
+
+    def test_keyboard_controller_family_step_returns_matching_snapshot(self):
+        header = (ROOT / "MoonfallRaceLibrary.h").read_text(encoding="utf-8")
+        code = (ROOT / "MoonfallRaceLibrary.cpp").read_text(encoding="utf-8")
+        self.assertIn("static bool StepPlayableRaceFamilySelectionState(", header)
+        step = code.split("UMoonfallRaceLibrary::StepPlayableRaceFamilySelectionState(", 1)[1].split(
+            "UMoonfallRaceLibrary::FindRaceProfile(", 1)[0]
+        self.assertIn("State = FMoonfallRaceSelectionState();", step)
+        self.assertIn("GetAdjacentPlayableRaceFamilySelection(CurrentRaceId, CurrentFamily,", step)
+        self.assertIn("BuildPlayableRaceSelectionState(NextRaceId, NextFamily, BaseVitality,", step)
+        self.assertIn("Candidate.Family != NextFamily || Candidate.RaceId != NextRaceId", step)
+        self.assertIn("State = MoveTemp(Candidate);", step)
+        self.assertLess(step.index("Candidate.Family != NextFamily"), step.index("State = MoveTemp(Candidate);"))
+        self.assertNotIn("SaveGame", step)
+        self.assertNotIn("SpawnActor", step)
+        self.assertNotIn("single-switch", header.lower())
+
+    def test_keyboard_controller_position_selection_validates_grid_index(self):
+        header = (ROOT / "MoonfallRaceLibrary.h").read_text(encoding="utf-8")
+        code = (ROOT / "MoonfallRaceLibrary.cpp").read_text(encoding="utf-8")
+        self.assertIn("static bool SelectPlayableRaceAtPosition(", header)
+        fn = code.split("UMoonfallRaceLibrary::SelectPlayableRaceAtPosition(", 1)[1].split(
+            "UMoonfallRaceLibrary::FindRaceProfile(", 1)[0]
+        self.assertIn("State = FMoonfallRaceSelectionState();", fn)
+        self.assertIn("if (Position <= 0)", fn)
+        self.assertIn("if (!Row.bPlayable || (!Family.IsNone() && FName(Row.Family) != Family))", fn)
+        self.assertIn("++CurrentPosition;", fn)
+        self.assertIn("if (CurrentPosition != Position)", fn)
+        self.assertIn("BuildPlayableRaceSelectionState(FName(Row.Id), Family, BaseVitality,", fn)
+        self.assertIn("Candidate.RaceId != FName(Row.Id) || Candidate.RacePosition != Position", fn)
+        self.assertIn("State = MoveTemp(Candidate);", fn)
+        self.assertLess(fn.index("Candidate.RaceId != FName(Row.Id)"), fn.index("State = MoveTemp(Candidate);"))
+        self.assertNotIn("SaveGame", fn)
+        self.assertNotIn("SpawnActor", fn)
+        self.assertNotIn("single-switch", header.lower())
+
+    def test_race_grid_pagination_bounds_and_atomic_outputs(self):
+        header = (ROOT / "MoonfallRaceLibrary.h").read_text(encoding="utf-8")
+        impl = (ROOT / "MoonfallRaceLibrary.cpp").read_text(encoding="utf-8")
+        self.assertIn("static bool BuildPlayableRaceGridPage(", header)
+        page = impl.split("UMoonfallRaceLibrary::BuildPlayableRaceGridPage(", 1)[1].split(
+            "UMoonfallRaceLibrary::MovePlayableRaceGridSelection(", 1)[0]
+        self.assertIn("Entries.Reset();", page)
+        self.assertIn("TotalPages = 0;", page)
+        self.assertIn("Columns > 12", page)
+        self.assertIn("Rows > 6", page)
+        self.assertIn("PageIndex < 0", page)
+        self.assertIn("BuildPlayableRaceSelectionEntries(BaseVitality, BasePower, BaseSpeed,", page)
+        self.assertIn("if (PageIndex >= CandidatePages)", page)
+        self.assertIn("Page.Reserve(Last - First);", page)
+        self.assertIn("Entries = MoveTemp(Page);", page)
+        self.assertIn("TotalPages = CandidatePages;", page)
+        self.assertLess(page.index("if (PageIndex >= CandidatePages)"),
+                        page.index("Entries = MoveTemp(Page);"))
+
+    def test_race_grid_dpad_navigation_handles_partial_rows_and_invalid_axes(self):
+        header = (ROOT / "MoonfallRaceLibrary.h").read_text(encoding="utf-8")
+        impl = (ROOT / "MoonfallRaceLibrary.cpp").read_text(encoding="utf-8")
+        self.assertIn("static bool MovePlayableRaceGridSelection(", header)
+        grid = impl.split("UMoonfallRaceLibrary::MovePlayableRaceGridSelection(", 1)[1].split(
+            "UMoonfallRaceLibrary::FindRaceProfile(", 1)[0]
+        self.assertIn("State = FMoonfallRaceSelectionState();", grid)
+        self.assertIn("Columns < 1 || Columns > 12", grid)
+        self.assertIn("(Horizontal != 0 && Vertical != 0)", grid)
+        self.assertIn("(Horizontal == 0 && Vertical == 0)", grid)
+        self.assertIn("GetPlayableRaceProfilesByFamily(Family)", grid)
+        self.assertIn("CurrentIndex != INDEX_NONE", grid)
+        self.assertIn("(CurrentIndex + Horizontal + Profiles.Num()) % Profiles.Num()", grid)
+        self.assertIn("CurrentIndex / Columns", grid)
+        self.assertIn("CurrentIndex % Columns", grid)
+        self.assertIn("FMath::Clamp(CurrentRow + Vertical, 0, LastRow)", grid)
+        self.assertIn("FMath::Min(NextRow * Columns + CurrentColumn, Profiles.Num() - 1)", grid)
+        self.assertIn("BuildPlayableRaceSelectionState(Profiles[NextIndex].RaceId, Family,", grid)
+        self.assertIn("State = MoveTemp(Candidate);", grid)
+        self.assertNotIn("SaveGame", grid)
+        self.assertNotIn("SpawnActor", grid)
+        self.assertNotIn("single-switch", header.lower())
+
+    def test_wow_inspired_original_moonfall_character_creation_umg(self):
+        root = ROOT / "MoonfallCharacterCreationWidget"
+        header = root.with_suffix(".h").read_text(encoding="utf-8")
+        code = root.with_suffix(".cpp").read_text(encoding="utf-8")
+        build = (ROOT / "MoonfallUnreal.Build.cs").read_text(encoding="utf-8")
+        for dependency in ('"UMG"', '"Slate"', '"SlateCore"'):
+            self.assertIn(dependency, build)
+        self.assertIn("class MOONFALLUNREAL_API UMoonfallCharacterCreationWidget", header)
+        self.assertIn("class MOONFALLUNREAL_API UMoonfallRaceChoiceButton", header)
+        self.assertIn("void SetPreviewTexture(UTexture2D* ExistingMoonfallTexture);", header)
+        self.assertIn("virtual FReply NativeOnKeyDown(", header)
+        for section in ("CHOOSE YOUR RACE", "CHOOSE YOUR HERO", "RACE DETAILS"):
+            self.assertIn(section, code)
+        self.assertIn("WidgetTree->RootWidget = Frame;", code)
+        self.assertIn("Frame->SetBrushColor(", code)
+        self.assertIn("Label->SetColorAndOpacity(", code)
+        self.assertIn("WidgetTree->ConstructWidget<UScrollBox>()", code)
+        self.assertIn("WidgetTree->ConstructWidget<UMoonfallRaceChoiceButton>()", code)
+        self.assertIn("Choice->OnRaceActivated.AddDynamic(this,", code)
+        self.assertIn("UMoonfallRaceLibrary::GetPlayableRaceProfilesByFamily(CurrentFamily)", code)
+        self.assertIn("UMoonfallRaceLibrary::BuildPlayableRaceSelectionState(", code)
+        self.assertIn("UMoonfallRaceLibrary::StepPlayableRaceSelectionState(", code)
+        self.assertIn("UMoonfallRaceLibrary::StepPlayableRaceFamilySelectionState(", code)
+        self.assertIn("PreviewImage->SetBrushFromTexture(PreviewTexture);", code)
+        for key in ("EKeys::Left", "EKeys::Right", "EKeys::Up", "EKeys::Down",
+                    "EKeys::Gamepad_DPad_Left", "EKeys::Gamepad_DPad_Right",
+                    "EKeys::Gamepad_DPad_Up", "EKeys::Gamepad_DPad_Down"):
+            self.assertIn(key, code)
+        self.assertNotIn("single-switch", header.lower() + code.lower())
+        self.assertNotIn("SaveGame", code)
+        self.assertNotIn("SpawnActor", code)
+        self.assertNotIn("blizzard", code.lower())
+        self.assertNotIn("alliance", code.lower())
+        self.assertNotIn("horde", code.lower())
+
+    def test_race_selector_preview_and_confirmation_use_game_hooks(self):
+        header = (ROOT / "MoonfallCharacterCreationWidget.h").read_text(encoding="utf-8")
+        code = (ROOT / "MoonfallCharacterCreationWidget.cpp").read_text(encoding="utf-8")
+        self.assertIn("FMoonfallRaceSelectionConfirmed OnRaceConfirmed;", header)
+        self.assertIn("void OnRacePreviewRequested(FName RaceId);", header)
+        self.assertIn("void HandleConfirmRace();", header)
+        self.assertIn("OnRaceConfirmed.Broadcast(Selection.RaceId);", code)
+        self.assertIn("OnRacePreviewRequested(Next.RaceId);", code)
+        self.assertIn("bRaceChanged = Selection.RaceId != Next.RaceId", code)
+        self.assertIn('TEXT("CONTINUE")', code)
+        self.assertIn("EKeys::Enter", code)
+        self.assertIn("EKeys::Gamepad_FaceButton_Bottom", code)
+        # Keep the prior Selection intact until refresh compares it to the new race.
+        for function in ("SelectRace", "AdvanceRace", "AdvanceFamily"):
+            segment = code.split("void UMoonfallCharacterCreationWidget::" + function + "(", 1)[1].split(
+                "RefreshSelection();", 1)[0]
+            self.assertNotIn("Selection = Next;", segment)
+        self.assertNotIn("SaveGame", code)
+        self.assertNotIn("SpawnActor", code)
+
+    def test_character_creation_mouse_preview_drag_zoom_and_list_scroll(self):
+        header = (ROOT / "MoonfallCharacterCreationWidget.h").read_text(encoding="utf-8")
+        code = (ROOT / "MoonfallCharacterCreationWidget.cpp").read_text(encoding="utf-8")
+        self.assertIn("void OnPreviewRotateRequested(float DeltaYaw);", header)
+        self.assertIn("void OnPreviewZoomRequested(float ZoomSteps);", header)
+        for hook in ("NativeOnMouseButtonDown", "NativeOnMouseButtonUp",
+                     "NativeOnMouseMove", "NativeOnMouseWheel"):
+            self.assertIn(hook, header)
+            self.assertIn("UMoonfallCharacterCreationWidget::" + hook + "(", code)
+        self.assertIn("GetCachedGeometry().IsUnderLocation(ScreenPosition)", code)
+        self.assertIn("bDraggingPreview = true;", code)
+        self.assertIn("CaptureMouse(TakeWidget())", code)
+        self.assertIn("bDraggingPreview = false;", code)
+        self.assertIn("ReleaseMouseCapture()", code)
+        self.assertIn("InMouseEvent.IsMouseButtonDown(EKeys::LeftMouseButton)", code)
+        self.assertIn("GetCursorDelta().X", code)
+        self.assertIn("FMath::IsFinite(DeltaX)", code)
+        self.assertIn("OnPreviewRotateRequested(", code)
+        self.assertIn("GetWheelDelta()", code)
+        self.assertIn("FMath::IsFinite(WheelDelta)", code)
+        self.assertIn("OnPreviewZoomRequested(", code)
+        self.assertIn("Super::NativeOnMouseWheel(InGeometry, InMouseEvent)", code)
+        self.assertIn("ESlateVisibility::HitTestInvisible", code)
+        self.assertNotIn("single-switch", header.lower() + code.lower())
+        self.assertNotIn("SaveGame", code)
+        self.assertNotIn("SpawnActor", code)
+
+    def test_dedicated_preview_rig_has_safe_rotation_zoom_and_reset(self):
+        header = (ROOT / "MoonfallCharacterCreationWidget.h").read_text(encoding="utf-8")
+        code = (ROOT / "MoonfallCharacterCreationWidget.cpp").read_text(encoding="utf-8")
+        self.assertIn("void BindPreviewRig(USceneComponent* PreviewPivot, USpringArmComponent* PreviewArm);", header)
+        self.assertIn("void ResetPreviewView();", header)
+        self.assertIn("TWeakObjectPtr<USceneComponent> PreviewRotationPivot;", header)
+        self.assertIn("TWeakObjectPtr<USpringArmComponent> PreviewZoomArm;", header)
+        for name in ("BindPreviewRig", "RotatePreview", "ZoomPreview", "ResetPreviewView"):
+            self.assertIn("UMoonfallCharacterCreationWidget::" + name + "(", code)
+        self.assertIn("InitialPreviewRotation = PreviewRotationPivot->GetRelativeRotation();", code)
+        self.assertIn("InitialPreviewArmLength = PreviewZoomArm->TargetArmLength;", code)
+        self.assertIn("PreviewRotationPivot->AddLocalRotation(FRotator(0.f, DeltaYaw, 0.f));", code)
+        self.assertIn("FMath::Clamp(Distance - ZoomSteps * 40.f, 125.f, 650.f)", code)
+        self.assertIn("PreviewRotationPivot->SetRelativeRotation(InitialPreviewRotation);", code)
+        self.assertIn("PreviewZoomArm->TargetArmLength = InitialPreviewArmLength;", code)
+        self.assertIn("OnPreviewRotateRequested(DeltaYaw);", code)
+        self.assertIn("OnPreviewZoomRequested(ZoomSteps);", code)
+        self.assertIn("RotatePreview(DeltaX * 0.35f);", code)
+        self.assertIn("ZoomPreview(WheelDelta);", code)
+        self.assertIn('TEXT("RESET VIEW")', code)
+        self.assertIn("HandleResetPreview()", code)
+        self.assertNotIn("SaveGame", code)
+        self.assertNotIn("SpawnActor", code)
+        self.assertNotIn("single-switch", header.lower() + code.lower())
+
+    def test_native_character_preview_actor_is_no_tick_and_asset_safe(self):
+        header = (ROOT / "MoonfallCharacterPreviewActor.h").read_text(encoding="utf-8")
+        code = (ROOT / "MoonfallCharacterPreviewActor.cpp").read_text(encoding="utf-8")
+        self.assertIn("class MOONFALLUNREAL_API AMoonfallCharacterPreviewActor", header)
+        self.assertIn("TObjectPtr<USkeletalMeshComponent> CharacterMesh;", header)
+        self.assertIn("TObjectPtr<USpringArmComponent> CameraArm;", header)
+        self.assertIn("TObjectPtr<USceneCaptureComponent2D> Capture;", header)
+        self.assertIn("TObjectPtr<UTextureRenderTarget2D> PreviewRenderTarget;", header)
+        self.assertIn("PrimaryActorTick.bCanEverTick = false;", code)
+        self.assertIn("CharacterMesh->SetupAttachment(RotationPivot);", code)
+        self.assertIn("CameraArm->SetupAttachment(StageRoot);", code)
+        self.assertIn("Capture->SetupAttachment(CameraArm, USpringArmComponent::SocketName);", code)
+        self.assertIn("Capture->bCaptureEveryFrame = false;", code)
+        self.assertIn("Capture->bCaptureOnMovement = false;", code)
+        self.assertIn("Capture->TextureTarget = InRenderTarget;", code)
+        self.assertIn("Capture->CaptureScene();", code)
+        self.assertNotIn("SpawnActor", code)
+        self.assertNotIn("SaveGame", code)
+        self.assertNotIn("SetSkeletalMesh(", code)
+
+    def test_character_widget_binds_preview_render_target_and_refreshes_it(self):
+        header = (ROOT / "MoonfallCharacterCreationWidget.h").read_text(encoding="utf-8")
+        code = (ROOT / "MoonfallCharacterCreationWidget.cpp").read_text(encoding="utf-8")
+        self.assertIn("void BindPreviewActor(AMoonfallCharacterPreviewActor* PreviewActor);", header)
+        self.assertIn("void SetPreviewRenderTarget(UTextureRenderTarget2D* ExistingTarget);", header)
+        self.assertIn("TWeakObjectPtr<AMoonfallCharacterPreviewActor> BoundPreviewActor;", header)
+        self.assertIn("Brush.SetResourceObject(PreviewTarget);", code)
+        self.assertIn("PreviewImage->SetBrush(Brush);", code)
+        self.assertIn("PreviewActor->GetPreviewPivot()", code)
+        self.assertIn("PreviewActor->GetPreviewArm()", code)
+        self.assertIn("PreviewActor->SetPreviewRenderTarget(PreviewActor->GetPreviewRenderTarget());", code)
+        self.assertIn("SetPreviewRenderTarget(PreviewActor->GetPreviewRenderTarget());", code)
+        self.assertGreaterEqual(code.count("BoundPreviewActor->RefreshPreview();"), 3)
+        self.assertNotIn("single-switch", header.lower() + code.lower())
+        self.assertNotIn("SaveGame", code)
+        self.assertNotIn("SpawnActor", code)
+
+    def test_preview_asset_swap_clears_stale_brush_and_preserves_preconstruct_bind(self):
+        code = (ROOT / "MoonfallCharacterCreationWidget.cpp").read_text(encoding="utf-8")
+        self.assertIn("PreviewImage->SetDesiredSizeOverride(FVector2D(480.f, 600.f));", code)
+        build = code.split("void UMoonfallCharacterCreationWidget::BuildLayout()", 1)[1].split(
+            "bool UMoonfallCharacterCreationWidget::InitializeSelection(", 1)[0]
+        self.assertIn("if (PreviewTarget)", build)
+        self.assertIn("SetPreviewRenderTarget(PreviewTarget);", build)
+        self.assertIn("SetPreviewTexture(PreviewTexture);", build)
+        portrait = code.split("void UMoonfallCharacterCreationWidget::SetPreviewTexture(", 1)[1].split(
+            "void UMoonfallCharacterCreationWidget::SetPreviewRenderTarget(", 1)[0]
+        render = code.split("void UMoonfallCharacterCreationWidget::SetPreviewRenderTarget(", 1)[1].split(
+            "void UMoonfallCharacterCreationWidget::BindPreviewActor(", 1)[0]
+        self.assertIn("PreviewTarget = nullptr;", portrait)
+        self.assertIn("PreviewTexture = nullptr;", render)
+        self.assertIn("PreviewImage->SetBrush(FSlateBrush());", portrait)
+        self.assertIn("PreviewImage->SetBrush(FSlateBrush());", render)
+        self.assertIn("Character preview is configured by the game", render)
+        bind = code.split("void UMoonfallCharacterCreationWidget::BindPreviewActor(", 1)[1].split(
+            "void UMoonfallCharacterCreationWidget::BindPreviewRig(", 1)[0]
+        self.assertIn("bDraggingPreview = false;", bind)
+        self.assertIn("BoundPreviewActor.Reset();", bind)
+        self.assertIn("BindPreviewRig(nullptr, nullptr);", bind)
+        self.assertIn("SetPreviewRenderTarget(nullptr);", bind)
+        self.assertLess(bind.index("BoundPreviewActor.Reset();"), bind.index("BoundPreviewActor = PreviewActor;"))
+        self.assertLess(bind.index("if (!IsValid(PreviewActor))"), bind.index("BoundPreviewActor = PreviewActor;"))
+        self.assertLess(bind.index("BindPreviewRig(PreviewActor->GetPreviewPivot()"),
+                        bind.index("BoundPreviewActor = PreviewActor;"))
+        custom = code.split("void UMoonfallCharacterCreationWidget::BindPreviewRig(", 1)[1].split(
+            "void UMoonfallCharacterCreationWidget::RotatePreview(", 1)[0]
+        self.assertIn("BoundPreviewActor.Reset();", custom)
+
+        self.assertNotIn("SaveGame", bind)
+        self.assertNotIn("SpawnActor", bind)
+
+    def test_race_menu_keeps_scroll_position_and_releases_lost_mouse_capture(self):
+        header = (ROOT / "MoonfallCharacterCreationWidget.h").read_text(encoding="utf-8")
+        code = (ROOT / "MoonfallCharacterCreationWidget.cpp").read_text(encoding="utf-8")
+        self.assertIn("virtual void NativeOnMouseCaptureLost(", header)
+        self.assertIn("bool bRaceListInitialized = false;", header)
+        self.assertIn("FName LastRenderedFamily = NAME_None;", header)
+        list_fn = code.split("void UMoonfallCharacterCreationWidget::RefreshRaceList()", 1)[1].split(
+            "void UMoonfallCharacterCreationWidget::RefreshSelection()", 1)[0]
+        self.assertIn("LastRenderedFamily == CurrentFamily", list_fn)
+        self.assertIn("RaceList->GetScrollOffset()", list_fn)
+        self.assertIn("RaceList->ClearChildren();", list_fn)
+        self.assertIn("RaceList->SetScrollOffset(PreviousScrollOffset);", list_fn)
+        self.assertIn("LastRenderedFamily = CurrentFamily;", list_fn)
+        self.assertIn("bRaceListInitialized = true;", list_fn)
+        capture_fn = code.split("UMoonfallCharacterCreationWidget::NativeOnMouseCaptureLost(", 1)[1].split(
+            "void UMoonfallCharacterCreationWidget::HandleResetPreview()", 1)[0]
+        self.assertIn("bDraggingPreview = false;", capture_fn)
+        self.assertIn("Super::NativeOnMouseCaptureLost(CaptureLostEvent);", capture_fn)
+        self.assertNotIn("SaveGame", list_fn + capture_fn)
+
+    def test_race_selection_keeps_existing_buttons_for_focus_and_scroll(self):
+        header = (ROOT / "MoonfallCharacterCreationWidget.h").read_text(encoding="utf-8")
+        code = (ROOT / "MoonfallCharacterCreationWidget.cpp").read_text(encoding="utf-8")
+        self.assertIn("TMap<FName, TObjectPtr<UTextBlock>> RaceChoiceLabels;", header)
+        listing = code.split("void UMoonfallCharacterCreationWidget::RefreshRaceList()", 1)[1].split(
+            "void UMoonfallCharacterCreationWidget::RefreshSelection()", 1)[0]
+        self.assertIn("if (!bSameFamily || RaceChoiceLabels.Num() != Profiles.Num())", listing)
+        self.assertIn("RaceChoiceLabels.Reset();", listing)
+        self.assertIn("RaceChoiceLabels.Add(Profile.RaceId, Label);", listing)
+        self.assertIn("RaceChoiceLabels.Find(Profile.RaceId)", listing)
+        self.assertIn("(*Label)->SetText(", listing)
+        self.assertIn("RaceList->GetScrollOffset()", listing)
+        self.assertIn("RaceList->SetScrollOffset(PreviousScrollOffset);", listing)
+        self.assertLess(listing.index("RaceList->ClearChildren();"),
+                        listing.index("RaceChoiceLabels.Add(Profile.RaceId, Label);"))
+        self.assertLess(listing.index("RaceChoiceLabels.Add(Profile.RaceId, Label);"),
+                        listing.index("RaceChoiceLabels.Find(Profile.RaceId)"))
+        self.assertNotIn("SaveGame", listing)
+        self.assertNotIn("SpawnActor", listing)
+
     def test_isolated_race_catalog_is_cpp_syntax_safe_and_does_not_replace_persistence(self):
         import re
         catalog = (ROOT / "MoonfallRaceLibrary.cpp").read_text(encoding="utf-8")
