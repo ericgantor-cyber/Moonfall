@@ -92,6 +92,9 @@ public:
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Shrines") FName ActiveShrineId = NAME_None;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Shrines") TArray<FName> DiscoveredShrineIds;
  UFUNCTION(BlueprintPure, Category="Moonfall|Shrines") bool HasDiscoveredShrine(FName ShrineId) const;
+ // A previously discovered shrine is not the active respawn point when the
+ // saved shrine was blocked and recovery moved the checkpoint to PlayerStart.
+ bool IsCurrentRespawnLocation(const FVector& Location) const;
  UFUNCTION(BlueprintCallable, Category="Moonfall|Shrines") bool DiscoverShrine(AMoonfallCheckpointShrine* Shrine);
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Shrines") void OnShrineDiscovered(FName ShrineId);
  // A single permanent world checkpoint. Death never erases experience or items.
