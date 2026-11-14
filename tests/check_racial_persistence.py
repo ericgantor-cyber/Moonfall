@@ -139,6 +139,44 @@ class TestRacialPersistence(unittest.TestCase):
             self.assertIn('TEXT("' + stable_id + '")', arena)
         self.assertIn("Shrine->ShrineId = FName(Placement.Id);", arena)
 
+    def test_shrine_discovery_retries_failed_entry_without_tick(self):
+        shrine_cpp = (ROOT / "MoonfallCheckpointShrine.cpp").read_text(encoding="utf-8")
+        shrine_h = (ROOT / "MoonfallCheckpointShrine.h").read_text(encoding="utf-8")
+        self.assertIn("PrimaryActorTick.bCanEverTick = false;", shrine_cpp)
+        self.assertIn("OnComponentEndOverlap.AddDynamic", shrine_cpp)
+        self.assertIn("GetWorldTimerManager().SetTimer(DiscoveryRetryTimer, this,", shrine_cpp)
+        self.assertIn("GetWorldTimerManager().IsTimerActive(DiscoveryRetryTimer)", shrine_cpp)
+        self.assertIn("DiscoveryRetryAttempts > 8", shrine_cpp)
+        self.assertIn("void AMoonfallCheckpointShrine::RetryPendingDiscovery()", shrine_cpp)
+        self.assertIn("void AMoonfallCheckpointShrine::OnDiscoveryEndOverlap(", shrine_cpp)
+        self.assertIn("OtherActor == PendingDiscoveryHero.Get()", shrine_cpp)
+        self.assertIn("GetWorldTimerManager().ClearTimer(DiscoveryRetryTimer)", shrine_cpp)
+        self.assertIn("FTimerHandle DiscoveryRetryTimer;", shrine_h)
+        self.assertNotIn("void AMoonfallCheckpointShrine::Tick(", shrine_cpp)
+
+    def test_shrine_activation_has_clear_status_and_wall_guard(self):
+        shrine_cpp = (ROOT / "MoonfallCheckpointShrine.cpp").read_text(encoding="utf-8")
+        discover = self.cpp.split("bool AMoonfallHeroPawn::DiscoverShrine(", 1)[1].split(
+            "bool AMoonfallHeroPawn::SaveWorldProgress()", 1)[0]
+        startup = self.cpp.split("void AMoonfallHeroPawn::BeginPlay()", 1)[1].split(
+            "void AMoonfallHeroPawn::Tick(", 1)[0]
+        self.assertIn("bool bWorldProgressInitialized = false;", self.header)
+        self.assertIn("bWorldProgressInitialized = true;", startup)
+        self.assertLess(startup.index("LoadWorldProgress();"),
+                        startup.index("bWorldProgressInitialized = true;"))
+        self.assertIn("!bWorldProgressInitialized || bPersistentSaveWritesBlocked", discover)
+        self.assertIn("ShrineSight.AddIgnoredActor(this)", discover)
+        self.assertIn("ShrineSight.AddIgnoredActor(Shrine)", discover)
+        self.assertIn("LineTraceTestByChannel(HeroLocation", discover)
+        self.assertIn("ECC_Visibility, ShrineSight", discover)
+        self.assertLess(discover.index("LineTraceTestByChannel(HeroLocation"),
+                        discover.index("DiscoveredShrineIds.Add(Shrine->ShrineId);"))
+        self.assertIn("It->RefreshShrineDisplay(this);", discover)
+        self.assertIn('TEXT("ACTIVE RESPAWN SHRINE")', shrine_cpp)
+        self.assertIn('TEXT("DISCOVERED SHRINE")', shrine_cpp)
+        self.assertIn('TEXT("UNDISCOVERED SHRINE")', shrine_cpp)
+        self.assertIn("Hero->ActiveShrineId == ShrineId", shrine_cpp)
+
     def test_last_discovered_shrine_controls_respawn_not_autosave(self):
         self.assertIn("int32 Version = 7;", self.save)
         self.assertIn("FName ActiveShrineId = NAME_None;", self.save)
