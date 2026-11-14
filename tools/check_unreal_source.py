@@ -323,6 +323,48 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("SpawnActor", fn)
         self.assertNotIn("single-switch", header.lower())
 
+    def test_race_grid_pagination_bounds_and_atomic_outputs(self):
+        header = (ROOT / "MoonfallRaceLibrary.h").read_text(encoding="utf-8")
+        impl = (ROOT / "MoonfallRaceLibrary.cpp").read_text(encoding="utf-8")
+        self.assertIn("static bool BuildPlayableRaceGridPage(", header)
+        page = impl.split("UMoonfallRaceLibrary::BuildPlayableRaceGridPage(", 1)[1].split(
+            "UMoonfallRaceLibrary::MovePlayableRaceGridSelection(", 1)[0]
+        self.assertIn("Entries.Reset();", page)
+        self.assertIn("TotalPages = 0;", page)
+        self.assertIn("Columns > 12", page)
+        self.assertIn("Rows > 6", page)
+        self.assertIn("PageIndex < 0", page)
+        self.assertIn("BuildPlayableRaceSelectionEntries(BaseVitality, BasePower, BaseSpeed,", page)
+        self.assertIn("if (PageIndex >= CandidatePages)", page)
+        self.assertIn("Page.Reserve(Last - First);", page)
+        self.assertIn("Entries = MoveTemp(Page);", page)
+        self.assertIn("TotalPages = CandidatePages;", page)
+        self.assertLess(page.index("if (PageIndex >= CandidatePages)"),
+                        page.index("Entries = MoveTemp(Page);"))
+
+    def test_race_grid_dpad_navigation_handles_partial_rows_and_invalid_axes(self):
+        header = (ROOT / "MoonfallRaceLibrary.h").read_text(encoding="utf-8")
+        impl = (ROOT / "MoonfallRaceLibrary.cpp").read_text(encoding="utf-8")
+        self.assertIn("static bool MovePlayableRaceGridSelection(", header)
+        grid = impl.split("UMoonfallRaceLibrary::MovePlayableRaceGridSelection(", 1)[1].split(
+            "UMoonfallRaceLibrary::FindRaceProfile(", 1)[0]
+        self.assertIn("State = FMoonfallRaceSelectionState();", grid)
+        self.assertIn("Columns < 1 || Columns > 12", grid)
+        self.assertIn("(Horizontal != 0 && Vertical != 0)", grid)
+        self.assertIn("(Horizontal == 0 && Vertical == 0)", grid)
+        self.assertIn("GetPlayableRaceProfilesByFamily(Family)", grid)
+        self.assertIn("CurrentIndex != INDEX_NONE", grid)
+        self.assertIn("(CurrentIndex + Horizontal + Profiles.Num()) % Profiles.Num()", grid)
+        self.assertIn("CurrentIndex / Columns", grid)
+        self.assertIn("CurrentIndex % Columns", grid)
+        self.assertIn("FMath::Clamp(CurrentRow + Vertical, 0, LastRow)", grid)
+        self.assertIn("FMath::Min(NextRow * Columns + CurrentColumn, Profiles.Num() - 1)", grid)
+        self.assertIn("BuildPlayableRaceSelectionState(Profiles[NextIndex].RaceId, Family,", grid)
+        self.assertIn("State = MoveTemp(Candidate);", grid)
+        self.assertNotIn("SaveGame", grid)
+        self.assertNotIn("SpawnActor", grid)
+        self.assertNotIn("single-switch", header.lower())
+
     def test_isolated_race_catalog_is_cpp_syntax_safe_and_does_not_replace_persistence(self):
         import re
         catalog = (ROOT / "MoonfallRaceLibrary.cpp").read_text(encoding="utf-8")
