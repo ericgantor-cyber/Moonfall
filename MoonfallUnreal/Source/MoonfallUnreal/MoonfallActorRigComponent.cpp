@@ -2,6 +2,7 @@
 #include "Components/SkeletalMeshComponent.h"
 #include "Animation/AnimInstance.h"
 #include "Animation/AnimMontage.h"
+#include "Engine/SkeletalMesh.h"
 #include "GameFramework/Actor.h"
 #include "GameFramework/Character.h"
 
@@ -106,8 +107,12 @@ bool UMoonfallActorRigComponent::PlayRigCue(FName CueId)
      && IsValid(RigMesh->GetSkeletalMeshAsset()))
  {
   const TObjectPtr<UAnimMontage>* Entry = MontageCues.Find(CueId);
-  if (Entry && IsValid(Entry->Get()))
+  if (Entry && IsValid(Entry->Get())
+      && IsValid(Entry->Get()->GetSkeleton())
+      && Entry->Get()->GetSkeleton() == RigMesh->GetSkeletalMeshAsset()->GetSkeleton())
   {
+   // A montage authored for a different skeleton must not be played on
+   // this rig. Use an explicitly compatible animation asset instead.
    // Animation instances may be pending destruction during a rig hot-swap.
    // Check UObject validity before calling into Montage_Play.
    UAnimInstance* Anim = RigMesh->GetAnimInstance();
