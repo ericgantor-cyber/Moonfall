@@ -429,6 +429,82 @@ bool UMoonfallRaceLibrary::SelectPlayableRaceAtPosition(
  return false;
 }
 
+bool UMoonfallRaceLibrary::BuildPlayableRaceGridPage(
+ FName Family, int32 PageIndex, int32 Columns, int32 Rows,
+ float BaseVitality, float BasePower, float BaseSpeed,
+ TArray<FMoonfallRaceSelectionEntry>& Entries, int32& TotalPages)
+{
+ Entries.Reset();
+ TotalPages = 0;
+ if (PageIndex < 0 || Columns < 1 || Columns > 12 || Rows < 1 || Rows > 6)
+  return false;
+ const int32 PageSize = Columns * Rows; // Maximum 72 items, no overflow.
+ TArray<FMoonfallRaceSelectionEntry> AllEntries;
+ if (!BuildPlayableRaceSelectionEntries(BaseVitality, BasePower, BaseSpeed,
+                                         Family, AllEntries) || AllEntries.IsEmpty())
+  return false;
+ const int32 CandidatePages = 1 + (AllEntries.Num() - 1) / PageSize;
+ if (PageIndex >= CandidatePages)
+  return false;
+ const int32 First = PageIndex * PageSize; // PageIndex is bounded by CandidatePages.
+ const int32 Last = FMath::Min(First + PageSize, AllEntries.Num());
+ TArray<FMoonfallRaceSelectionEntry> Page;
+ Page.Reserve(Last - First);
+ for (int32 Index = First; Index < Last; ++Index)
+  Page.Add(AllEntries[Index]);
+ Entries = MoveTemp(Page);
+ TotalPages = CandidatePages;
+ return true;
+}
+
+bool UMoonfallRaceLibrary::MovePlayableRaceGridSelection(
+ FName CurrentRaceId, FName Family, int32 Columns, int32 Horizontal,
+ int32 Vertical, float BaseVitality, float BasePower, float BaseSpeed,
+ FMoonfallRaceSelectionState& State)
+{
+ State = FMoonfallRaceSelectionState();
+ if (Columns < 1 || Columns > 12 || Horizontal < -1 || Horizontal > 1
+     || Vertical < -1 || Vertical > 1
+     || (Horizontal == 0 && Vertical == 0)
+     || (Horizontal != 0 && Vertical != 0))
+  return false;
+ const TArray<FMoonfallRaceProfile> Profiles =
+  Family.IsNone() ? GetPlayableRaceProfiles() : GetPlayableRaceProfilesByFamily(Family);
+ if (Profiles.IsEmpty())
+  return false;
+ int32 CurrentIndex = INDEX_NONE;
+ for (int32 Index = 0; Index < Profiles.Num(); ++Index)
+ {
+  if (Profiles[Index].RaceId == CurrentRaceId)
+  {
+   CurrentIndex = Index;
+   break;
+  }
+ }
+ // An unknown selection starts at the first card, avoiding a double move.
+ int32 NextIndex = 0;
+ if (CurrentIndex != INDEX_NONE)
+ {
+  if (Horizontal != 0)
+   NextIndex = (CurrentIndex + Horizontal + Profiles.Num()) % Profiles.Num();
+  else
+  {
+   const int32 CurrentRow = CurrentIndex / Columns;
+   const int32 CurrentColumn = CurrentIndex % Columns;
+   const int32 LastRow = (Profiles.Num() - 1) / Columns;
+   const int32 NextRow = FMath::Clamp(CurrentRow + Vertical, 0, LastRow);
+   NextIndex = FMath::Min(NextRow * Columns + CurrentColumn, Profiles.Num() - 1);
+  }
+ }
+ FMoonfallRaceSelectionState Candidate;
+ if (!BuildPlayableRaceSelectionState(Profiles[NextIndex].RaceId, Family,
+                                      BaseVitality, BasePower, BaseSpeed, Candidate)
+     || Candidate.RaceId != Profiles[NextIndex].RaceId)
+  return false;
+ State = MoveTemp(Candidate);
+ return true;
+}
+
 bool UMoonfallRaceLibrary::FindRaceProfile(FName RaceId, FMoonfallRaceProfile& Profile)
 {
  Profile = FMoonfallRaceProfile();
