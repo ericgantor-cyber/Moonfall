@@ -269,6 +269,8 @@ void UMoonfallCharacterCreationWidget::RefreshRaceList()
 {
  if (!RaceList || !WidgetTree)
   return;
+ const bool bSameFamily = bRaceListInitialized && LastRenderedFamily == CurrentFamily;
+ const float PreviousScrollOffset = bSameFamily ? RaceList->GetScrollOffset() : 0.f;
  RaceList->ClearChildren();
  const TArray<FMoonfallRaceProfile> Profiles = CurrentFamily.IsNone()
    ? UMoonfallRaceLibrary::GetPlayableRaceProfiles()
@@ -285,6 +287,9 @@ void UMoonfallCharacterCreationWidget::RefreshRaceList()
   Choice->AddChild(Label);
   RaceList->AddChild(Choice);
  }
+ RaceList->SetScrollOffset(PreviousScrollOffset);
+ LastRenderedFamily = CurrentFamily;
+ bRaceListInitialized = true;
 }
 
 void UMoonfallCharacterCreationWidget::RefreshSelection()
@@ -404,6 +409,13 @@ FReply UMoonfallCharacterCreationWidget::NativeOnMouseWheel(
  }
  // Outside the preview, the race list retains normal wheel scrolling.
  return Super::NativeOnMouseWheel(InGeometry, InMouseEvent);
+}
+
+void UMoonfallCharacterCreationWidget::NativeOnMouseCaptureLost(
+ const FCaptureLostEvent& CaptureLostEvent)
+{
+ bDraggingPreview = false;
+ Super::NativeOnMouseCaptureLost(CaptureLostEvent);
 }
 
 void UMoonfallCharacterCreationWidget::HandleResetPreview() { ResetPreviewView(); }
