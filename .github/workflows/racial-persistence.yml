@@ -7,6 +7,10 @@ on:
       - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallPersistentSave.h'
       - 'MoonfallUnreal/Config/DefaultInput.ini'
       - 'tests/check_racial_persistence.py'
+      - 'tests/check_social_world.py'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallWorldNPC.cpp'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallWorldNPC.h'
+      - 'MoonfallUnreal/Source/MoonfallUnreal/MoonfallArena.cpp'
       - '.github/workflows/racial-persistence.yml'
   workflow_dispatch:
 jobs:
@@ -20,3 +24,5 @@ jobs:
           python-version: '3.12'
       - name: Run race and checkpoint source-contract tests
         run: python -m unittest discover -s tests -p check_racial_persistence.py -v
+      - name: Check settlement and faction contracts
+        run: python -m unittest discover -s tests -p check_social_world.py -v
