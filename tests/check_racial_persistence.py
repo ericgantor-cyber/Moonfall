@@ -432,6 +432,35 @@ class TestRacialPersistence(unittest.TestCase):
         self.assertNotIn("SetActorLocation(", respawn)
         self.assertNotIn("bPersistentSaveWritesBlocked = false;", respawn)
 
+    def test_respawn_rechecks_nearby_shrines_after_reviving(self):
+        # A teleport can deliver the pawn into an undiscovered shrine while
+        # Health is still zero. BeginOverlap rejects it, so recovery must
+        # trigger exactly one additional proximity check after revival.
+        respawn = self.cpp.split("void AMoonfallHeroPawn::RespawnAtCheckpoint()", 1)[1].split(
+            "// One unified roster.", 1)[0]
+        shrine_h = (ROOT / "MoonfallCheckpointShrine.h").read_text(encoding="utf-8")
+        shrine_cpp = (ROOT / "MoonfallCheckpointShrine.cpp").read_text(encoding="utf-8")
+        startup = self.cpp.split("void AMoonfallHeroPawn::BeginPlay()", 1)[1].split(
+            "void AMoonfallHeroPawn::Tick(", 1)[0]
+        self.assertIn("bool bFoundSafeRespawn =", respawn)
+        self.assertIn("if (!bFoundSafeRespawn) {", respawn)
+        self.assertIn("return;", respawn)
+        self.assertIn("Health = FMath::Max(1.f, MaxHealth);", respawn)
+        self.assertIn("DamageImmunityUntil = FMath::Max", respawn)
+        self.assertIn("for (TActorIterator<AMoonfallCheckpointShrine> It(GetWorld()); It; ++It)", respawn)
+        self.assertIn("if (IsValid(*It)) It->CheckHeroAtSpawn(this);", respawn)
+        self.assertLess(respawn.index("if (!bFoundSafeRespawn) {"),
+                        respawn.index("if (IsValid(*It)) It->CheckHeroAtSpawn(this);"))
+        self.assertLess(respawn.index("Health = FMath::Max(1.f, MaxHealth);"),
+                        respawn.index("It->CheckHeroAtSpawn(this);"))
+        self.assertLess(respawn.index("DamageImmunityUntil = FMath::Max"),
+                        respawn.index("It->CheckHeroAtSpawn(this);"))
+        self.assertEqual(respawn.count("It->CheckHeroAtSpawn(this);"), 1)
+        self.assertIn("It->CheckHeroAtSpawn(this);", startup)
+        self.assertIn("void CheckHeroAtSpawn(AMoonfallHeroPawn* Hero);", shrine_h)
+        self.assertIn("TryDiscoverOrQueueRetry(Hero);", shrine_cpp)
+        self.assertIn("PrimaryActorTick.bCanEverTick = false;", shrine_cpp)
+
     def test_not_a_new_run(self):
         self.assertIn('MoonfallPersistentWorldV1', self.cpp)
         self.assertIn("if (SecondsSinceLastWorldSave >= 2.f && GetWorld()", self.cpp)
