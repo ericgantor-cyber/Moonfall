@@ -23,10 +23,7 @@ int32 AMoonfallWorldNPC::GetBondWithHero(const AMoonfallHeroPawn* Hero) const {
 }
 bool AMoonfallWorldNPC::RewardResidentTrust(AMoonfallHeroPawn* Hero, int32 Points) {
  if (!IsValid(Hero) || ResidentId.IsNone() || Points <= 0 || Points > 10
-     || Hero->Health <= 0.f || Hero->bOptionsOpen || Hero->bInventoryOpen
-     || !GetWorld() || !FMath::IsFinite(InteractRange)) return false;
- if (FVector::DistSquared(Hero->GetActorLocation(), GetActorLocation())
-     > FMath::Square(FMath::Clamp(InteractRange, 50.f, 400.f))) return false;
+     || !CanHeroInteract(Hero)) return false;
  // One introductory favor per resident; further bond progression belongs
  // to verified quest milestones, not an endlessly reusable conversation key.
  if (Hero->GetResidentBond(ResidentId) != 0) return false;
@@ -116,11 +113,14 @@ bool AMoonfallWorldNPC::TryTalk(AMoonfallHeroPawn* Hero) {
  else if (Disposition != TEXT("Trusted") && Bond <= -60)
   Reaction = FText::FromString(TEXT("I remember what you did. Keep your distance."));
  // Accepted one-time contracts have useful, contextual status.
- if (Disposition != TEXT("Hostile") && Hero->GetResidentQuestState(ResidentId) == 1)
+ if (Disposition != TEXT("Hostile") && Hero->GetResidentQuestState(ResidentId) == 0)
+  Reaction = FText::FromString(TEXT("I have a task for you. Select Accept in our conversation."));
+ else if (Disposition != TEXT("Hostile") && Hero->GetResidentQuestState(ResidentId) == 1)
   Reaction = FText::FromString(FString::Printf(
-    TEXT("Bring me %d salvage to help our settlement."), GetContractSalvageCost()));
+    TEXT("Bring me %d salvage. Select Turn In when ready."), GetContractSalvageCost()));
  else if (Disposition != TEXT("Hostile") && Hero->GetResidentQuestState(ResidentId) == 2)
   Reaction = FText::FromString(TEXT("Our people remember your help. Thank you."));
+ LastSpokenLine = Reaction;
  OnDialogueStarted(Hero, Reaction);
  return true;
 }
