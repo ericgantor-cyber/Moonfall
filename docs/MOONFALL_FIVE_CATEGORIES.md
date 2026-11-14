@@ -275,17 +275,11 @@ missing prerequisites. Native save migration and gameplay integration are
 still pending, and neither engine's live save files have been modified.
 
 
-## Safe talent point refunds
+## Full-tree respec only
 
-The Python reference talent tree now supports `refund(level, allocations,
-talent_id)`, which returns a new state with **one purchased rank refunded**,
-without altering the saved input dictionary. It refuses to refund a node
-that still supports an active dependent talent, preventing broken paths
-and inconsistent spent-point totals. Refunds of unpurchased talents,
-unknown nodes, invalid ranks and malformed saved allocations are rejected.
-This is distinct from `respec`, which resets the entire tree.
-
-Regression tests cover successful refunds, failed refunds that would
-orphan a dependent node, and the correct order for refunding a prerequisite
-chain. The Godot and UE5 games do not yet have a wired refund UI or save
-migration, and this feature does not modify their runtime combat.
+Moonfall's classless talent tree permits spending points on unlocked nodes
+and resetting **the whole tree at once** with `respec(level)`. There is no
+individual-point refund helper. Full respec restores the earned point budget
+and removes every selected talent without changing level or equipment.
+Regression tests cover this behavior. This remains a Python reference
+implementation; native Godot and UE5 integration is still pending.
