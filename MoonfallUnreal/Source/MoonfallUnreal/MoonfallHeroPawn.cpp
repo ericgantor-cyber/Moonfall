@@ -1563,6 +1563,9 @@ bool ValidMoonfallItemCode(int32 Code) {
 }
 }
 bool AMoonfallHeroPawn::SaveWorldProgress() {
+ // Existing incompatible/unreadable save must never be replaced by autosave
+ // or by a quest/gear/race update from the temporary in-memory character.
+ if (bPersistentSaveWritesBlocked) return false;
  if (Health <= 0.f || !GetWorld() || !FMath::IsFinite(MaxHealth)) return false;
  // Do not serialize a mid-fall or invalid checkpoint.
  if ((GetCharacterMovement() && GetCharacterMovement()->IsFalling())
@@ -1596,7 +1599,14 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  if (!UGameplayStatics::DoesSaveGameExist(MoonfallWorldSlot, 0)) return false;
  const UMoonfallPersistentSave* Save = Cast<UMoonfallPersistentSave>(
      UGameplayStatics::LoadGameFromSlot(MoonfallWorldSlot, 0));
- if (!Save || Save->Version < 1 || Save->Version > 6) return false;
+ if (!Save || Save->Version < 1 || Save->Version > 6) {
+  // Protect newer/corrupt-but-detected saves. Calling Tick's two-second
+  // autosave must not replace progress from another Moonfall version.
+  bPersistentSaveWritesBlocked = true;
+  UE_LOG(LogTemp, Warning, TEXT("Moonfall save slot is unreadable or has an unsupported version; writes disabled."));
+  return false;
+ }
+ bPersistentSaveWritesBlocked = false;
  ResidentQuestStates.Reset();
  if (Save->Version >= 6) {
   // Ignore unknown, malformed and oversized quest entries from disk.
