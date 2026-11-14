@@ -1734,6 +1734,13 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  bHasRespawnCheckpointLocation = true;
  ActiveShrineId = Save->Version >= 7 ? Save->ActiveShrineId : NAME_None;
  DiscoveredShrineIds = Save->Version >= 7 ? Save->DiscoveredShrineIds : TArray<FName>();
+ // Refresh any shrines that began play before the save was loaded.
+ // This also fixes stale ACTIVE labels when death reloads an earlier save.
+ // A shrine spawned later refreshes itself in its own BeginPlay.
+ if (GetWorld()) {
+  for (TActorIterator<AMoonfallCheckpointShrine> It(GetWorld()); It; ++It)
+   if (IsValid(*It)) It->RefreshShrineDisplay(this);
+ }
  ResidentQuestStates.Reset();
  if (Save->Version >= 6) {
   // Ignore unknown, malformed and oversized quest entries from disk.
