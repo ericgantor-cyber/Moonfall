@@ -301,6 +301,28 @@ bool UMoonfallRaceLibrary::GetAdjacentPlayableRaceId(
  return true;
 }
 
+bool UMoonfallRaceLibrary::GetPlayableRaceSelectionPosition(
+ FName RaceId, FName Family, int32& Position, int32& Total)
+{
+ Position = 0;
+ Total = 0;
+ int32 CandidateCount = 0;
+ int32 FoundPosition = 0;
+ for (const FRaceRow& Row : RaceRows)
+ {
+  if (!Row.bPlayable || (!Family.IsNone() && FName(Row.Family) != Family))
+   continue;
+  ++CandidateCount;
+  if (RaceId == FName(Row.Id))
+   FoundPosition = CandidateCount;
+ }
+ if (FoundPosition == 0)
+  return false;
+ Position = FoundPosition;
+ Total = CandidateCount;
+ return true;
+}
+
 bool UMoonfallRaceLibrary::FindRaceProfile(FName RaceId, FMoonfallRaceProfile& Profile)
 {
  Profile = FMoonfallRaceProfile();
