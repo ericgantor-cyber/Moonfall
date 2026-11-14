@@ -69,7 +69,9 @@ bool UMoonfallActorRigComponent::PlayRigCue(FName CueId)
   RefreshRig();
  bLastCuePlayed = false;
  // Fail closed on an absent rig or cue but always notify the Blueprint.
- if (!CueId.IsNone() && RigMesh.IsValid())
+ if (!CueId.IsNone() && IsValid(Owner) && RigMesh.IsValid()
+     && RigMesh->GetOwner() == Owner
+     && IsValid(RigMesh->GetSkeletalMeshAsset()))
  {
   const TObjectPtr<UAnimMontage>* Entry = MontageCues.Find(CueId);
   if (Entry && IsValid(Entry->Get()))
