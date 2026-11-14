@@ -143,7 +143,11 @@ bool UMoonfallActorRigComponent::StopRigCue(FName CueId, float BlendOutSeconds)
   return false;
  UAnimInstance* Anim = RigMesh->GetAnimInstance();
  const TObjectPtr<UAnimMontage>* Entry = MontageCues.Find(CueId);
+ // Match the playback compatibility rule before stopping a montage.
+ // A changed cue map must not target an unrelated skeleton.
  if (!IsValid(Anim) || !Entry || !IsValid(Entry->Get())
+     || !IsValid(Entry->Get()->GetSkeleton())
+     || Entry->Get()->GetSkeleton() != RigMesh->GetSkeletalMeshAsset()->GetSkeleton()
      || !Anim->Montage_IsPlaying(Entry->Get()))
   return false;
  Anim->Montage_Stop(BlendOutSeconds, Entry->Get());
