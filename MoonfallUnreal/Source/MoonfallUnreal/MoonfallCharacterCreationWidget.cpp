@@ -97,6 +97,8 @@ void UMoonfallCharacterCreationWidget::BuildLayout()
  UButton* NextRace = AddAction(WidgetTree, Center, TEXT("Next Race"));
  PreviousRace->OnClicked.AddDynamic(this, &UMoonfallCharacterCreationWidget::HandlePreviousRace);
  NextRace->OnClicked.AddDynamic(this, &UMoonfallCharacterCreationWidget::HandleNextRace);
+ UButton* Confirm = AddAction(WidgetTree, Center, TEXT("CONTINUE"));
+ Confirm->OnClicked.AddDynamic(this, &UMoonfallCharacterCreationWidget::HandleConfirmRace);
 
  AddLabel(WidgetTree, Right, TEXT("RACE DETAILS"), 24);
  RaceTitle = AddLabel(WidgetTree, Right, TEXT(""), 23);
@@ -173,9 +175,12 @@ void UMoonfallCharacterCreationWidget::RefreshSelection()
  if (!UMoonfallRaceLibrary::BuildPlayableRaceSelectionState(
       CurrentRaceId, CurrentFamily, BaseVitality, BasePower, BaseSpeed, Next))
   return;
+ const bool bRaceChanged = Selection.RaceId != Next.RaceId;
  Selection = Next;
  CurrentRaceId = Next.RaceId;
  RefreshRaceList();
+ if (bRaceChanged)
+  OnRacePreviewRequested(Next.RaceId);
  if (RaceTitle)
   RaceTitle->SetText(Next.Profile.DisplayName);
  if (FamilyTitle)
@@ -230,11 +235,18 @@ void UMoonfallCharacterCreationWidget::HandleNextRace() { AdvanceRace(true); }
 void UMoonfallCharacterCreationWidget::HandlePreviousFamily() { AdvanceFamily(false); }
 void UMoonfallCharacterCreationWidget::HandleNextFamily() { AdvanceFamily(true); }
 void UMoonfallCharacterCreationWidget::HandleRaceChoice(FName RaceId) { SelectRace(RaceId); }
+void UMoonfallCharacterCreationWidget::HandleConfirmRace()
+{
+ if (!Selection.RaceId.IsNone() && Selection.Profile.bPlayableCandidate)
+  OnRaceConfirmed.Broadcast(Selection.RaceId);
+}
 
 FReply UMoonfallCharacterCreationWidget::NativeOnKeyDown(
  const FGeometry& InGeometry, const FKeyEvent& InKeyEvent)
 {
  const FKey Key = InKeyEvent.GetKey();
+ if (Key == EKeys::Enter || Key == EKeys::Gamepad_FaceButton_Bottom)
+ { HandleConfirmRace(); return FReply::Handled(); }
  if (Key == EKeys::Left || Key == EKeys::Gamepad_DPad_Left)
  { AdvanceRace(false); return FReply::Handled(); }
  if (Key == EKeys::Right || Key == EKeys::Gamepad_DPad_Right)
