@@ -133,5 +133,12 @@ jobs:
         run: node verify-project.js
       - name: Test boss phase engine
         run: node test-boss-phases.js
+      - name: Test Three Forbidden four-phase boss, overlapping attacks and collision
+        shell: bash
+        run: |
+          set -euo pipefail
+          node test-three-forbidden-encounter.js
+          node test-three-forbidden-patterns.js
+          node test-three-forbidden-combat-adapter.js
       - name: Audit embedded asset sizes
         run: node audit-bloat.js
