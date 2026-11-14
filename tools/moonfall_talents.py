@@ -133,8 +133,20 @@ def spend(level: int, current: dict[str, int], talent_id: str, data: dict | None
 
 
 
-def respec(level: int, data: dict | None = None) -> dict:
-    return evaluate(level, {}, data)
+def respec(level: int, data: dict | None = None, *,
+           current: dict[str, int] | None = None) -> dict:
+    """Reset the entire talent tree, optionally validating existing saved state.
+
+    No single-node refunds. A supplied allocation map must be valid before
+    reset; a corrupted save must not be silently accepted. The old
+    respec(level, data) call remains compatible for a fresh full reset.
+    """
+    tree = data if data is not None else load()
+    if current is not None:
+        if not isinstance(current, dict):
+            raise ValueError("Allocations must be a map")
+        evaluate(level, current, tree)
+    return evaluate(level, {}, tree)
 
 
 if __name__ == "__main__":
