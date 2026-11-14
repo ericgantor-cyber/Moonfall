@@ -279,14 +279,26 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("PrimaryActorTick", pickup)
 
     def test_inventory_accepts_new_loot_without_rejection_or_auto_cleanup(self):
-        loot = self.hero_cpp.split("void AMoonfallHeroPawn::AwardEquipmentDrop(", 1)[1].split(
-            "bool AMoonfallHeroPawn::EquipInventoryItem(", 1)[0]
-        self.assertIn("InventoryItemCodes.Add(ItemCode);", loot)
-        self.assertNotIn("InventoryItemCodes.Num() >= 30", loot)
-        self.assertNotIn("DiscardIndex", loot)
-        self.assertNotIn("DiscardedCode", loot)
-        self.assertNotIn("InventoryItemCodes.RemoveAt(", loot)
-        self.assertIn("InventorySelection = FMath::Clamp(InventorySelection, 0, InventoryItemCodes.Num() - 1);", loot)
+        award = self.hero_cpp.split("void AMoonfallHeroPawn::AwardEquipmentDrop(", 1)[1].split(
+            "bool AMoonfallHeroPawn::CollectGroundEquipmentCode(", 1)[0]
+        collect = self.hero_cpp.split("bool AMoonfallHeroPawn::CollectGroundEquipmentCode(", 1)[1].split(
+            "void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(", 1)[0]
+        self.assertIn("InventoryItemCodes.Add(ItemCode);", award)
+        self.assertNotIn("InventoryItemCodes.Num() >= 30", award)
+        self.assertNotIn("DiscardIndex", award)
+        self.assertNotIn("DiscardedCode", award)
+        self.assertNotIn("InventoryItemCodes.RemoveAt(", award)
+        self.assertIn("InventorySelection = FMath::Clamp(InventorySelection, 0, InventoryItemCodes.Num() - 1);", award)
+        # A failed disk write must not consume ground loot. The rollback is
+        # explicitly inside the failed-save branch, never on successful pickup.
+        self.assertIn("const int32 AddedIndex = InventoryItemCodes.Add(ItemCode);", collect)
+        self.assertIn("if (!SaveWorldProgress()) {", collect)
+        self.assertIn("InventoryItemCodes.RemoveAt(AddedIndex);", collect)
+        self.assertLess(collect.index("if (!SaveWorldProgress()) {"),
+                        collect.index("InventoryItemCodes.RemoveAt(AddedIndex);"))
+        self.assertLess(collect.index("InventoryItemCodes.RemoveAt(AddedIndex);"),
+                        collect.index("return false;", collect.index("if (!SaveWorldProgress()) {")))
+        self.assertLess(collect.index("if (!SaveWorldProgress()) {"), collect.rindex("return true;"))
 
     def test_primary_stats_sheet_is_read_only_and_affects_combat_recovery(self):
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
