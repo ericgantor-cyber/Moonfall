@@ -70,9 +70,14 @@ void AMoonfallCheckpointShrine::CheckHeroAtSpawn(AMoonfallHeroPawn* Hero)
  RefreshShrineDisplay(Hero);
  const FVector HeroLocation = Hero->GetActorLocation();
  const FVector ShrineLocation = GetActorLocation();
- if (Hero->HasDiscoveredShrine(ShrineId) || HeroLocation.ContainsNaN()
-     || ShrineLocation.ContainsNaN()
-     || FVector::DistSquared(HeroLocation, ShrineLocation) > FMath::Square(220.f))
+ // A restored hero may already overlap a discovered shrine after falling
+ // back from a blocked checkpoint. Recheck activation even without a fresh
+ // overlap event; only skip a shrine that is still the active destination.
+ if (HeroLocation.ContainsNaN() || ShrineLocation.ContainsNaN()
+     || FVector::DistSquared(HeroLocation, ShrineLocation) > FMath::Square(220.f)
+     || (Hero->HasDiscoveredShrine(ShrineId)
+         && Hero->ActiveShrineId == ShrineId
+         && Hero->IsCurrentRespawnLocation(GetRespawnLocation())))
   return;
  TryDiscoverOrQueueRetry(Hero);
 }
