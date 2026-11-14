@@ -31,7 +31,8 @@ void AMoonfallArena::BeginPlay() {
  if (!GetWorld()) return;
  // World shrines are discovered by walking into their proximity, not by
  // defeating a boss or using an attack key. Stable IDs persist between saves.
- const struct FShrinePlacement { const TCHAR* Id; FVector Offset; } Shrines[] = {
+ struct FShrinePlacement { const TCHAR* Id; FVector Offset; };
+ const FShrinePlacement Shrines[] = {
   {TEXT("crossroads_west"), FVector(-1120.f, -720.f, 0.f)},
   {TEXT("crimson_path"), FVector(1080.f, -750.f, 0.f)},
   {TEXT("moonlit_path"), FVector(1040.f, 800.f, 0.f)}
