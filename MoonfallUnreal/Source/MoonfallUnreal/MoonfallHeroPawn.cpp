@@ -1427,6 +1427,8 @@ bool AMoonfallHeroPawn::CollectGroundEquipmentCode(int32 ItemCode)
   LastLootUpgrade = OldLootUpgrade;
   return false;
  }
+ // This pickup was saved synchronously; avoid a duplicate autosave next Tick.
+ SecondsSinceLastWorldSave = 0.f;
  return true;
 }
 
@@ -1680,6 +1682,8 @@ bool AMoonfallHeroPawn::DiscoverShrine(AMoonfallCheckpointShrine* Shrine) {
   bHasRespawnCheckpointLocation = bPreviousCheckpointValid;
   return false;
  }
+ // Shrine discovery saved the world already; restart the autosave interval.
+ SecondsSinceLastWorldSave = 0.f;
  // Discovery is rare, so update visual statuses only after a saved change.
  // Old shrines stop showing ACTIVE without a per-frame world scan.
  for (TActorIterator<AMoonfallCheckpointShrine> It(GetWorld()); It; ++It)
