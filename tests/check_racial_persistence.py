@@ -505,6 +505,29 @@ class TestRacialPersistence(unittest.TestCase):
                         loader.index("ResidentQuestStates.Reset();"))
         self.assertIn("if (SecondsSinceLastWorldSave >= 2.f", self.cpp)
 
+    def test_memory_only_respawn_replaces_blocked_checkpoint_after_safe_fallback(self):
+        # With no loadable disk slot, a blocked in-memory shrine must not be
+        # saved again on the next two-second autosave after a safe rescue.
+        respawn = self.cpp.split("void AMoonfallHeroPawn::RespawnAtCheckpoint()", 1)[1].split(
+            "// One unified roster.", 1)[0]
+        saver = self.cpp.split("bool AMoonfallHeroPawn::SaveWorldProgress()", 1)[1].split(
+            "bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[0]
+        self.assertIn("if (!LoadWorldProgress()) {", respawn)
+        self.assertIn("bFoundSafeRespawn = RestoreSafeSpawnLocation();", respawn)
+        fallback = respawn.split("bFoundSafeRespawn = RestoreSafeSpawnLocation();", 1)[1].split(
+            "if (!bFoundSafeRespawn) {", 1)[0]
+        self.assertIn("if (bFoundSafeRespawn) {", fallback)
+        self.assertIn("RespawnCheckpointLocation = GetActorLocation();", fallback)
+        self.assertIn("bHasRespawnCheckpointLocation = true;", fallback)
+        self.assertLess(fallback.index("if (bFoundSafeRespawn) {"),
+                        fallback.index("RespawnCheckpointLocation = GetActorLocation();"))
+        self.assertLess(fallback.index("RespawnCheckpointLocation = GetActorLocation();"),
+                        fallback.index("bHasRespawnCheckpointLocation = true;"))
+        self.assertLess(respawn.index("RespawnCheckpointLocation = GetActorLocation();"),
+                        respawn.index("Health = FMath::Max(1.f, MaxHealth);"))
+        self.assertIn("Save->CheckpointLocation = RespawnCheckpointLocation;", saver)
+        self.assertNotIn("bPersistentSaveWritesBlocked = false;", respawn)
+
     def test_failed_checkpoint_requires_collision_safe_location_before_revive(self):
         respawn = self.cpp.split("void AMoonfallHeroPawn::RespawnAtCheckpoint()", 1)[1].split(
             "// One unified roster.", 1)[0]
