@@ -57,6 +57,20 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                         play.index("Anim->Montage_Play("))
         self.assertIn("OnRigCue(CueId, bLastCuePlayed);", play)
 
+    def test_npc_cue_discovery_only_reports_rig_compatible_montages(self):
+        rig = (ROOT / "MoonfallActorRigComponent.cpp").read_text(encoding="utf-8")
+        has_cue = rig.split("bool UMoonfallActorRigComponent::HasRigCue(", 1)[1].split(
+            "TArray<FName> UMoonfallActorRigComponent::GetRigCueIds()", 1)[0]
+        list_cues = rig.split("TArray<FName> UMoonfallActorRigComponent::GetRigCueIds()", 1)[1].split(
+            "bool UMoonfallActorRigComponent::IsRigCuePlaying(", 1)[0]
+        self.assertIn("RigMesh->GetOwner() != Owner", has_cue)
+        self.assertIn("RigMesh->GetSkeletalMeshAsset() != ObservedRigAsset.Get()", has_cue)
+        self.assertIn("Entry->Get()->GetSkeleton() == RigMesh->GetSkeletalMeshAsset()->GetSkeleton()", has_cue)
+        self.assertIn("if (HasRigCue(Pair.Key))", list_cues)
+        self.assertIn("Result.Sort(", list_cues)
+        self.assertNotIn("RefreshRig()", has_cue)
+        self.assertNotIn("RefreshRig()", list_cues)
+
     def test_npc_cue_playing_query_is_safe_and_blueprint_readable(self):
         rig = (ROOT / "MoonfallActorRigComponent.cpp").read_text(encoding="utf-8")
         header = (ROOT / "MoonfallActorRigComponent.h").read_text(encoding="utf-8")
