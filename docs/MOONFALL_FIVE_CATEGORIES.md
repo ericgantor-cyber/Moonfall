@@ -226,8 +226,12 @@ and safety caps are **provisional Moonfall balancing choices**.
 The pure Python `tools/moonfall_combat_ratings.py` calculation validates
 input, converts ratings to capped percentages and clamps resistances. It
 is included in the `tools/moonfall_stats.py` consolidated character-sheet
-output as `combat`, but **the runtime character screen and combat in Godot
-and Unreal are not yet connected** to this reference model.
+output as `combat`. The calculator also accepts `talent_allocations`,
+validates prerequisites and available points, then applies talent flat
+bonuses and percentage multipliers after base-stat growth and gear bonuses.
+Talent choices and unused points appear in the returned `talents` field.
+This is still a **Python reference model**, not a runtime Unreal/Godot
+character screen or combat feature.
 
 The former Hit, Dodge, Block and Parry ratings have been explicitly
 removed from the reference config and rejected in stat inputs.
@@ -236,3 +240,14 @@ Run `python tools/test_moonfall_combat_ratings.py` and
 `python tools/test_moonfall_stats.py` to check capped combat ratings and
 unified character-sheet output. No save data or hero artwork changes,
 and no class locks, random cards, or rerolls are introduced.
+
+## Stat calculator fixes
+
+- Removed a stale `hit` key from the combat-rating demo command, so its
+  example can run after the removal of Hit, Dodge, Parry and Block ratings.
+- The combined character sheet can now receive earned talent allocations,
+  rejects unearned/invalid node choices, and stacks base stats, equipment,
+  flat talent bonuses and percentage talent bonuses in a defined order.
+- The no-talents case retains existing base-stat behavior. This does not
+  import WoW assets, create classes or cards, change saves, or imply a native
+  UE5/Windows or Godot gameplay verification.
