@@ -52,7 +52,8 @@ void AMoonfallCheckpointShrine::RefreshShrineDisplay(const AMoonfallHeroPawn* He
 {
  if (!ShrineLabel) return;
  const bool bDiscovered = IsValid(Hero) && Hero->HasDiscoveredShrine(ShrineId);
- const bool bActive = bDiscovered && Hero->ActiveShrineId == ShrineId;
+ const bool bActive = bDiscovered && Hero->ActiveShrineId == ShrineId
+     && Hero->IsCurrentRespawnLocation(GetRespawnLocation());
  // Text distinguishes activation without requiring color recognition or
  // changing Z, Nyra, or any authored shrine model/material.
  ShrineLabel->SetText(FText::FromString(bActive ? TEXT("ACTIVE RESPAWN SHRINE")
