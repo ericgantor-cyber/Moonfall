@@ -75,8 +75,7 @@
         "combat resources"
       ],
       "owners": [
-        "MoonfallUnreal/Source/MoonfallUnreal/MoonfallEnemy.h",
-        "MoonfallUnreal/Source/MoonfallUnreal/MoonfallGroundLoot.cpp"
+        "MoonfallUnreal/Source/MoonfallUnreal/MoonfallEnemy.h"
       ],
       "roadmap": [
         {
@@ -181,7 +180,7 @@
         {
           "id": "map_discovery",
           "title": "Atlas terrain and fog of war",
-          "milestone": "polish",
+          "milestone": "integration",
           "depends_on": [
             "world_layout"
           ],
@@ -201,7 +200,8 @@
       ],
       "owners": [
         "godot-v38/scripts/systems/inventory_rules.gd",
-        "godot-v38/scripts/systems/equipment_inventory.gd"
+        "godot-v38/scripts/systems/equipment_inventory.gd",
+        "MoonfallUnreal/Source/MoonfallUnreal/MoonfallGroundLoot.cpp"
       ],
       "roadmap": [
         {
