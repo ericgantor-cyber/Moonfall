@@ -125,6 +125,38 @@ class TestRacialPersistence(unittest.TestCase):
             with self.subTest(invalid_code=code):
                 self.assertFalse(valid_item_code(code))
 
+    def test_ground_loot_pickup_is_transactional_and_durable_on_death(self):
+        ground = (ROOT / "MoonfallGroundLoot.cpp").read_text(encoding="utf-8")
+        collect = self.cpp.split("bool AMoonfallHeroPawn::CollectGroundEquipmentCode(", 1)[1].split(
+            "void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(", 1)[0]
+        saver = self.cpp.split("bool AMoonfallHeroPawn::SaveWorldProgress()", 1)[1].split(
+            "bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[0]
+        loader = self.cpp.split("bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[1].split(
+            "void AMoonfallHeroPawn::RespawnAtCheckpoint()", 1)[0]
+        pickup = ground.split("bool AMoonfallGroundLoot::TryCollect()", 1)[1]
+        self.assertIn("if (InventoryItemCodes.Num() >= 10000) return false;", collect)
+        self.assertIn("const int32 AddedIndex = InventoryItemCodes.Add(ItemCode);", collect)
+        self.assertIn("if (!SaveWorldProgress()) {", collect)
+        self.assertIn("InventoryItemCodes.RemoveAt(AddedIndex);", collect)
+        for field in ("Affix", "Slot", "Rarity", "Tier", "Upgrade"):
+            self.assertIn("const int32 OldLoot" + field + " = LastLoot" + field + ";", collect)
+            self.assertIn("LastLoot" + field + " = OldLoot" + field + ";", collect)
+        self.assertLess(collect.index("InventoryItemCodes.Num() >= 10000"),
+                        collect.index("InventoryItemCodes.Add(ItemCode);"))
+        self.assertLess(collect.index("InventoryItemCodes.Add(ItemCode);"),
+                        collect.index("if (!SaveWorldProgress()) {"))
+        self.assertLess(collect.index("InventoryItemCodes.RemoveAt(AddedIndex);"),
+                        collect.index("return false;", collect.index("if (!SaveWorldProgress()) {")))
+        self.assertLess(collect.index("if (!SaveWorldProgress()) {"), collect.rindex("return true;"))
+        self.assertIn("if (InventoryItemCodes.Num() > 10000 || ResidentQuestStates.Num() > 64", saver)
+        self.assertIn("|| DiscoveredShrineIds.Num() > 64", saver)
+        self.assertIn("Save->InventoryItemCodes = InventoryItemCodes;", saver)
+        self.assertIn("Save->InventoryItemCodes.Num() > 10000", loader)
+        self.assertIn("!Hero->CollectGroundEquipmentCode(ItemCode)", pickup)
+        self.assertLess(pickup.index("Hero->CollectGroundEquipmentCode(ItemCode)"),
+                        pickup.index("bCollected = true;"))
+        self.assertLess(pickup.index("bCollected = true;"), pickup.index("Destroy();"))
+
     def test_all_world_saves_blocked_while_checkpoint_is_restoring(self):
         saver = self.cpp.split("bool AMoonfallHeroPawn::SaveWorldProgress()", 1)[1].split(
             "bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[0]
