@@ -30,6 +30,37 @@ if ($LASTEXITCODE -ne 0 -or -not ($vsInstall | Where-Object { -not [string]::IsN
 }
 Write-Host "Detected Visual Studio C++ toolchain: $($vsInstall | Select-Object -First 1)"
 
+# The release workflow already creates this asset. First-time local packaging
+# reuses the same editor generator without overwriting a valid existing map.
+$editorCompiledForStartupMap = $false
+$startupMap = Join-Path $repoRoot 'MoonfallUnreal\Content\Maps\MoonfallStart.umap'
+$engineConfig = Join-Path $repoRoot 'MoonfallUnreal\Config\DefaultEngine.ini'
+if (-not $CompileOnly -and -not $CompilePreflightOnly -and -not $PreflightOnly) {
+    $hasSavedMap = Test-Path -LiteralPath $startupMap -PathType Leaf
+    $configIsReady = $false
+    if (Test-Path -LiteralPath $engineConfig -PathType Leaf) {
+        $configTextBefore = Get-Content -LiteralPath $engineConfig -Raw
+        $configIsReady = ($configTextBefore -match '(?m)^\s*GameDefaultMap=/Game/Maps/MoonfallStart\s*$') -and
+            ($configTextBefore -match '(?m)^\s*EditorStartupMap=/Game/Maps/MoonfallStart\s*$')
+    }
+    if (-not $hasSavedMap -or -not $configIsReady) {
+        Write-Host 'Preparing Moonfall startup map with Unreal Editor...'
+        & $build MoonfallUnrealEditor Win64 Development "-Project=$project" -WaitMutex -NoHotReload
+        if ($LASTEXITCODE -ne 0) { throw "Unreal Editor compilation failed before map generation: $LASTEXITCODE" }
+        $editorCompiledForStartupMap = $true
+        $editor = Join-Path $UnrealRoot 'Engine\Binaries\Win64\UnrealEditor-Cmd.exe'
+        $generator = Join-Path $PSScriptRoot 'Create-StartupLevel.py'
+        if (-not (Test-Path -LiteralPath $editor -PathType Leaf)) { throw "UnrealEditor-Cmd.exe missing: $editor" }
+        if (-not (Test-Path -LiteralPath $generator -PathType Leaf)) { throw "Startup-level generator missing: $generator" }
+        & $editor $project "-ExecutePythonScript=$generator" -unattended -nop4
+        if ($LASTEXITCODE -ne 0) { throw "Startup map generation failed: $LASTEXITCODE" }
+        if (-not (Test-Path -LiteralPath $startupMap -PathType Leaf)) {
+            throw 'Unreal Editor did not create MoonfallStart.umap; inspect its log.'
+        }
+    }
+}
+
+
 # A playable package needs a real project-owned level, not the engine's
 # generic /Engine/Maps/Entry placeholder. Compile-only remains possible.
 if (-not $CompileOnly -and -not $CompilePreflightOnly) {
@@ -96,9 +127,13 @@ if ($PreflightOnly) {
     exit 0
 }
 
-Write-Host 'Compiling Unreal 5.4 Editor target...'
-& $build MoonfallUnrealEditor Win64 Development "-Project=$project" -WaitMutex -NoHotReload
-if ($LASTEXITCODE -ne 0) { throw "Unreal editor compilation failed: $LASTEXITCODE" }
+if (-not $editorCompiledForStartupMap) {
+    Write-Host 'Compiling Unreal 5.4 Editor target...'
+    & $build MoonfallUnrealEditor Win64 Development "-Project=$project" -WaitMutex -NoHotReload
+    if ($LASTEXITCODE -ne 0) { throw "Unreal editor compilation failed: $LASTEXITCODE" }
+} else {
+    Write-Host 'Editor compilation already succeeded during startup map generation.'
+}
 
 if ($CompileOnly) {
     Write-Host 'Unreal Editor compilation succeeded. Compile-only mode: skipping packaging, launcher and NSIS.'
