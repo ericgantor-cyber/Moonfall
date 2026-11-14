@@ -368,6 +368,32 @@ class TestRacialPersistence(unittest.TestCase):
         self.assertIn('TEXT("UNDISCOVERED SHRINE")', shrine_cpp)
         self.assertIn("Hero->ActiveShrineId == ShrineId", shrine_cpp)
 
+    def test_new_shrine_requires_unblocked_capsule_sized_respawn(self):
+        discover = self.cpp.split("bool AMoonfallHeroPawn::DiscoverShrine(", 1)[1].split(
+            "bool AMoonfallHeroPawn::SaveWorldProgress()", 1)[0]
+        self.assertIn('#include "Components/CapsuleComponent.h"', self.cpp)
+        self.assertIn("const UCapsuleComponent* Capsule = GetCapsuleComponent();", discover)
+        self.assertIn("if (!Capsule) return false;", discover)
+        self.assertIn("Capsule->GetScaledCapsuleSize(CapsuleRadius, CapsuleHalfHeight);", discover)
+        self.assertIn("FMath::IsFinite(CapsuleRadius)", discover)
+        self.assertIn("FMath::IsFinite(CapsuleHalfHeight)", discover)
+        self.assertIn("CapsuleHalfHeight < CapsuleRadius", discover)
+        self.assertIn("SpawnClearance.AddIgnoredActor(this);", discover)
+        self.assertIn("SpawnClearance.AddIgnoredActor(Shrine);", discover)
+        self.assertIn("OverlapBlockingTestByChannel(NewRespawn, GetActorQuat()", discover)
+        self.assertIn("ECC_Pawn, FCollisionShape::MakeCapsule(CapsuleRadius, CapsuleHalfHeight)", discover)
+        self.assertIn("SpawnClearance)) return false;", discover)
+        self.assertLess(discover.index("LineTraceTestByChannel(HeroLocation"),
+                        discover.index("OverlapBlockingTestByChannel(NewRespawn"))
+        self.assertLess(discover.index("OverlapBlockingTestByChannel(NewRespawn"),
+                        discover.index("DiscoveredShrineIds.Add(Shrine->ShrineId);"))
+        self.assertLess(discover.index("OverlapBlockingTestByChannel(NewRespawn"),
+                        discover.index("ActiveShrineId = Shrine->ShrineId;"))
+        self.assertLess(discover.index("OverlapBlockingTestByChannel(NewRespawn"),
+                        discover.index("RespawnCheckpointLocation = NewRespawn;"))
+        self.assertLess(discover.index("OverlapBlockingTestByChannel(NewRespawn"),
+                        discover.index("if (!SaveWorldProgress()) {"))
+
     def test_last_discovered_shrine_controls_respawn_not_autosave(self):
         self.assertIn("int32 Version = 7;", self.save)
         self.assertIn("FName ActiveShrineId = NAME_None;", self.save)
