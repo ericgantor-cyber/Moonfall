@@ -58,6 +58,23 @@ TArray<FName> UMoonfallRaceLibrary::GetRaceIds()
  return Result;
 }
 
+TArray<FName> UMoonfallRaceLibrary::GetPlayableRaceIds()
+{
+ TArray<FName> Result;
+ for (const FRaceRow& Row : RaceRows)
+  if (Row.bPlayable) Result.Add(FName(Row.Id));
+ return Result;
+}
+
+TArray<FName> UMoonfallRaceLibrary::GetRaceIdsByFamily(FName Family)
+{
+ TArray<FName> Result;
+ if (Family.IsNone()) return Result;
+ for (const FRaceRow& Row : RaceRows)
+  if (Family == FName(Row.Family)) Result.Add(FName(Row.Id));
+ return Result;
+}
+
 bool UMoonfallRaceLibrary::FindRaceProfile(FName RaceId, FMoonfallRaceProfile& Profile)
 {
  Profile = FMoonfallRaceProfile();
