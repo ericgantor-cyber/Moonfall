@@ -16,6 +16,7 @@
 #include "Interfaces/IPluginManager.h"
 #include "MoonfallEnemy.h"
 #include "MoonfallWorldNPC.h"
+#include "MoonfallCheckpointShrine.h"
 #include "MoonfallGroundLoot.h"
 #include "EngineUtils.h"
 #include "Components/SkeletalMeshComponent.h"
@@ -162,7 +163,11 @@ void AMoonfallHeroPawn::BeginPlay() {
  const FVector SpawnLocation = GetActorLocation();
  bHasInitialSpawnTransform = !SpawnLocation.ContainsNaN()
      && SpawnLocation.SizeSquared() < 1.0e14f;
- if (bHasInitialSpawnTransform) InitialSpawnTransform = GetActorTransform();
+ if (bHasInitialSpawnTransform) {
+  InitialSpawnTransform = GetActorTransform();
+  RespawnCheckpointLocation = SpawnLocation;
+  bHasRespawnCheckpointLocation = true;
+ }
  LoadWorldProgress();
 }
 void AMoonfallHeroPawn::Tick(float DeltaSeconds)
@@ -1589,10 +1594,47 @@ bool AMoonfallHeroPawn::RestoreSafeSpawnLocation() {
  if (Location.ContainsNaN() || Location.SizeSquared() >= 1.0e14f) return false;
  return TeleportTo(Location, InitialSpawnTransform.GetRotation().Rotator(), false, false);
 }
+// Touching a new shrine sets the next death checkpoint, not every autosave.
+bool AMoonfallHeroPawn::HasDiscoveredShrine(FName ShrineId) const {
+ return !ShrineId.IsNone() && DiscoveredShrineIds.Contains(ShrineId);
+}
+bool AMoonfallHeroPawn::DiscoverShrine(AMoonfallCheckpointShrine* Shrine) {
+ if (!IsValid(Shrine) || Shrine->GetWorld() != GetWorld()
+     || Shrine->ShrineId.IsNone() || Health <= 0.f
+     || bPersistentSaveWritesBlocked || HasDiscoveredShrine(Shrine->ShrineId)
+     || DiscoveredShrineIds.Num() >= 64) return false;
+ const FVector ShrineLocation = Shrine->GetActorLocation();
+ const FVector HeroLocation = GetActorLocation();
+ const FVector NewRespawn = Shrine->GetRespawnLocation();
+ if (ShrineLocation.ContainsNaN() || HeroLocation.ContainsNaN()
+     || NewRespawn.ContainsNaN() || NewRespawn.SizeSquared() >= 1.0e14f
+     || FVector::DistSquared2D(ShrineLocation, HeroLocation) > FMath::Square(220.f)
+     || FMath::Abs(ShrineLocation.Z - HeroLocation.Z) > 200.f) return false;
+ const FName PreviousShrineId = ActiveShrineId;
+ const FVector PreviousCheckpoint = RespawnCheckpointLocation;
+ const bool bPreviousCheckpointValid = bHasRespawnCheckpointLocation;
+ DiscoveredShrineIds.Add(Shrine->ShrineId);
+ ActiveShrineId = Shrine->ShrineId;
+ RespawnCheckpointLocation = NewRespawn;
+ bHasRespawnCheckpointLocation = true;
+ // Unlock + checkpoint persist together. Failed saves cannot activate a
+ // shrine in memory and silently lose it after quitting.
+ if (!SaveWorldProgress()) {
+  DiscoveredShrineIds.Remove(Shrine->ShrineId);
+  ActiveShrineId = PreviousShrineId;
+  RespawnCheckpointLocation = PreviousCheckpoint;
+  bHasRespawnCheckpointLocation = bPreviousCheckpointValid;
+  return false;
+ }
+ OnShrineDiscovered(ActiveShrineId);
+ return true;
+}
 bool AMoonfallHeroPawn::SaveWorldProgress() {
  // Existing incompatible/unreadable save must never be replaced by autosave
  // or by a quest/gear/race update from the temporary in-memory character.
- if (bPersistentSaveWritesBlocked) return false;
+ if (bPersistentSaveWritesBlocked || !bHasRespawnCheckpointLocation
+     || RespawnCheckpointLocation.ContainsNaN()
+     || RespawnCheckpointLocation.SizeSquared() >= 1.0e14f) return false;
  if (Health <= 0.f || !GetWorld() || !FMath::IsFinite(MaxHealth)) return false;
  // Do not serialize a mid-fall or invalid checkpoint.
  if ((GetCharacterMovement() && GetCharacterMovement()->IsFalling())
@@ -1600,7 +1642,10 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
  UMoonfallPersistentSave* Save = Cast<UMoonfallPersistentSave>(
      UGameplayStatics::CreateSaveGameObject(UMoonfallPersistentSave::StaticClass()));
  if (!Save) return false;
- Save->CheckpointLocation = GetActorLocation();
+ // Never overwrite the shrine checkpoint with the hero's current position.
+ Save->CheckpointLocation = RespawnCheckpointLocation;
+ Save->ActiveShrineId = ActiveShrineId;
+ Save->DiscoveredShrineIds = DiscoveredShrineIds;
  Save->RaceId = FMath::Clamp(RaceId, 0, 11);
  Save->FactionReputation = FactionReputation;
  Save->ResidentBonds = ResidentBonds;
@@ -1626,12 +1671,33 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  if (!UGameplayStatics::DoesSaveGameExist(MoonfallWorldSlot, 0)) return false;
  const UMoonfallPersistentSave* Save = Cast<UMoonfallPersistentSave>(
      UGameplayStatics::LoadGameFromSlot(MoonfallWorldSlot, 0));
- if (!Save || Save->Version < 1 || Save->Version > 6) {
+ if (!Save || Save->Version < 1 || Save->Version > 7) {
   // Protect newer/corrupt-but-detected saves. Calling Tick's two-second
   // autosave must not replace progress from another Moonfall version.
   bPersistentSaveWritesBlocked = true;
   UE_LOG(LogTemp, Warning, TEXT("Moonfall save slot is unreadable or has an unsupported version; writes disabled."));
   return false;
+ }
+ // Validate the V7 discovered-shrine ledger before touching live progress.
+ // Old V1-V6 saves retain their legacy checkpoint until a shrine is found.
+ if (Save->Version >= 7) {
+  TSet<FName> UniqueShrines;
+  if (Save->DiscoveredShrineIds.Num() > 64) {
+   bPersistentSaveWritesBlocked = true;
+   return false;
+  }
+  for (const FName Id : Save->DiscoveredShrineIds) {
+   if (Id.IsNone() || UniqueShrines.Contains(Id)) {
+    bPersistentSaveWritesBlocked = true;
+    return false;
+   }
+   UniqueShrines.Add(Id);
+  }
+  if ((!Save->ActiveShrineId.IsNone() && !UniqueShrines.Contains(Save->ActiveShrineId))
+      || (Save->ActiveShrineId.IsNone() && !UniqueShrines.IsEmpty())) {
+   bPersistentSaveWritesBlocked = true;
+   return false;
+  }
  }
  // Validate and resolve the checkpoint before touching saved progression.
  // An unchecked SetActorLocation can embed the pawn inside solid geometry.
@@ -1652,6 +1718,10 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
   UE_LOG(LogTemp, Warning, TEXT("Moonfall checkpoint blocked; using a safe PlayerStart."));
  }
  bPersistentSaveWritesBlocked = false;
+ RespawnCheckpointLocation = SavedCheckpoint;
+ bHasRespawnCheckpointLocation = true;
+ ActiveShrineId = Save->Version >= 7 ? Save->ActiveShrineId : NAME_None;
+ DiscoveredShrineIds = Save->Version >= 7 ? Save->DiscoveredShrineIds : TArray<FName>();
  ResidentQuestStates.Reset();
  if (Save->Version >= 6) {
   // Ignore unknown, malformed and oversized quest entries from disk.
