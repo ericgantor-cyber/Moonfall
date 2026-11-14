@@ -57,6 +57,32 @@ class CombatRatingTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             validate(bad)
 
+    def test_custom_config_cannot_restore_removed_ratings(self):
+        for removed in ("hit", "dodge", "block", "parry"):
+            changed = copy.deepcopy(self.config)
+            changed["ratings"][removed] = copy.deepcopy(changed["ratings"]["haste"])
+            with self.assertRaisesRegex(ValueError, "exactly Critical Strike and Haste"):
+                validate(changed)
+            with self.assertRaises(ValueError):
+                calculate(config=changed)
+
+    def test_custom_config_cannot_remove_required_stats(self):
+        changed = copy.deepcopy(self.config)
+        del changed["ratings"]["haste"]
+        with self.assertRaisesRegex(ValueError, "exactly Critical Strike and Haste"):
+            validate(changed)
+        changed = copy.deepcopy(self.config)
+        del changed["flat_stats"]["armor"]
+        with self.assertRaisesRegex(ValueError, "supported flat combat stats"):
+            validate(changed)
+
+    def test_empty_wrong_type_rejected(self):
+        for wrong in ([], "", (), False):
+            with self.assertRaises(ValueError):
+                calculate(ratings=wrong, config=self.config)
+            with self.assertRaises(ValueError):
+                calculate(flat_bonuses=wrong, config=self.config)
+
     def test_all_ratings_are_classless_and_optional(self):
         result = calculate(config=self.config)
         self.assertEqual(set(result["percentages"]), {"critical_strike", "haste"})
