@@ -1647,9 +1647,12 @@ bool AMoonfallHeroPawn::DiscoverShrine(AMoonfallCheckpointShrine* Shrine) {
  return true;
 }
 bool AMoonfallHeroPawn::SaveWorldProgress() {
- // Existing incompatible/unreadable save must never be replaced by autosave
- // or by a quest/gear/race update from the temporary in-memory character.
- if (bPersistentSaveWritesBlocked || !bHasRespawnCheckpointLocation
+ // Wait until initial save restoration finishes. During respawn TeleportTo and
+ // OnHealthChanged can synchronously notify Blueprint listeners, which must
+ // not save half-restored inventory, quests, equipment or shrine progress.
+ // Also protect existing incompatible/unreadable save slots.
+ if (!bWorldProgressInitialized || bWorldProgressLoadInProgress
+     || bPersistentSaveWritesBlocked || !bHasRespawnCheckpointLocation
      || RespawnCheckpointLocation.ContainsNaN()
      || RespawnCheckpointLocation.SizeSquared() >= 1.0e14f) return false;
  if (Health <= 0.f || !GetWorld() || !FMath::IsFinite(MaxHealth)) return false;
