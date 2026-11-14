@@ -59,6 +59,23 @@ void AMoonfallCheckpointShrine::RefreshShrineDisplay(const AMoonfallHeroPawn* He
      : bDiscovered ? TEXT("DISCOVERED SHRINE") : TEXT("UNDISCOVERED SHRINE")));
 }
 
+void AMoonfallCheckpointShrine::CheckHeroAtSpawn(AMoonfallHeroPawn* Hero)
+{
+ if (!IsValid(Hero) || Hero->GetWorld() != GetWorld() || ShrineId.IsNone())
+  return;
+ // A shrine can begin play before the hero restores its saved checkpoint.
+ // The subsequent one-time hero scan must handle that ordering, without
+ // relying on a fresh overlap or a per-frame shrine Tick.
+ RefreshShrineDisplay(Hero);
+ const FVector HeroLocation = Hero->GetActorLocation();
+ const FVector ShrineLocation = GetActorLocation();
+ if (Hero->HasDiscoveredShrine(ShrineId) || HeroLocation.ContainsNaN()
+     || ShrineLocation.ContainsNaN()
+     || FVector::DistSquared(HeroLocation, ShrineLocation) > FMath::Square(220.f))
+  return;
+ TryDiscoverOrQueueRetry(Hero);
+}
+
 void AMoonfallCheckpointShrine::TryDiscoverOrQueueRetry(AMoonfallHeroPawn* Hero)
 {
  if (!IsValid(Hero) || ShrineId.IsNone() || Hero->GetWorld() != GetWorld()) return;
@@ -112,10 +129,7 @@ void AMoonfallCheckpointShrine::BeginPlay()
  // Actors created after the hero loads should show saved status immediately.
  // Actors created during startup will respond when the player enters overlap.
  AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0));
- RefreshShrineDisplay(Hero);
- if (IsValid(Hero) && !Hero->HasDiscoveredShrine(ShrineId) &&
-     FVector::DistSquared(GetActorLocation(), Hero->GetActorLocation()) <= FMath::Square(220.f))
-  TryDiscoverOrQueueRetry(Hero);
+ CheckHeroAtSpawn(Hero);
 }
 
 void AMoonfallCheckpointShrine::OnDiscoveryOverlap(
