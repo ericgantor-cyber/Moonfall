@@ -337,6 +337,28 @@ bool UMoonfallRaceLibrary::GetPlayableRaceFamilyPosition(
  return true;
 }
 
+bool UMoonfallRaceLibrary::BuildPlayableRaceSelectionState(
+ FName CurrentRaceId, FName Family, float BaseVitality, float BasePower,
+ float BaseSpeed, FMoonfallRaceSelectionState& State)
+{
+ State = FMoonfallRaceSelectionState();
+ FMoonfallRaceSelectionState Candidate;
+ if (!ResolvePlayableRaceForFamily(CurrentRaceId, Family, Candidate.RaceId)
+     || !FindPlayableRaceProfile(Candidate.RaceId, Candidate.Profile)
+     || !PreviewPlayableRaceStats(Candidate.RaceId, BaseVitality, BasePower,
+                                  BaseSpeed, Candidate.Stats)
+     || !GetPlayableRaceSelectionPosition(Candidate.RaceId, Family,
+                                          Candidate.RacePosition, Candidate.RaceTotal))
+  return false;
+ Candidate.Family = Family;
+ if (!Family.IsNone()
+     && !GetPlayableRaceFamilyPosition(Family, Candidate.FamilyPosition,
+                                       Candidate.FamilyTotal))
+  return false;
+ State = MoveTemp(Candidate);
+ return true;
+}
+
 bool UMoonfallRaceLibrary::FindRaceProfile(FName RaceId, FMoonfallRaceProfile& Profile)
 {
  Profile = FMoonfallRaceProfile();
