@@ -1602,7 +1602,8 @@ bool AMoonfallHeroPawn::HasDiscoveredShrine(FName ShrineId) const {
 bool AMoonfallHeroPawn::DiscoverShrine(AMoonfallCheckpointShrine* Shrine) {
  if (!IsValid(Shrine) || Shrine->GetWorld() != GetWorld()
      || Shrine->ShrineId.IsNone() || Health <= 0.f
-     || !bWorldProgressInitialized || bPersistentSaveWritesBlocked || HasDiscoveredShrine(Shrine->ShrineId)
+     || !bWorldProgressInitialized || bWorldProgressLoadInProgress
+     || bPersistentSaveWritesBlocked || HasDiscoveredShrine(Shrine->ShrineId)
      || DiscoveredShrineIds.Num() >= 64) return false;
  const FVector ShrineLocation = Shrine->GetActorLocation();
  const FVector HeroLocation = GetActorLocation();
@@ -1729,12 +1730,16 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
   UE_LOG(LogTemp, Warning, TEXT("Moonfall save checkpoint is invalid; preserving original save."));
   return false;
  }
+ // Teleport can synchronously cause shrine overlap callbacks; do not let
+ // those callbacks save stale loot, NPC state or the previous shrine ledger.
+ bWorldProgressLoadInProgress = true;
  if (!TeleportTo(SavedCheckpoint, GetActorRotation(), false, false)) {
   // Saved position may be blocked by new dungeon geometry. Recover at an
   // authored PlayerStart instead of reviving inside a wall or at death site.
   if (!RestoreSafeSpawnLocation()) {
    bPersistentSaveWritesBlocked = true;
    UE_LOG(LogTemp, Warning, TEXT("Moonfall checkpoint and PlayerStart are blocked; writes disabled."));
+   bWorldProgressLoadInProgress = false;
    return false;
   }
   UE_LOG(LogTemp, Warning, TEXT("Moonfall checkpoint blocked; using a safe PlayerStart."));
@@ -1832,6 +1837,7 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  Stamina = FMath::Max(0.f, MaxStamina);
  // Location was already collision-checked before restoring inventory.
  OnHealthChanged(Health, MaxHealth);
+ bWorldProgressLoadInProgress = false;
  return true;
 }
 void AMoonfallHeroPawn::RespawnAtCheckpoint() {
