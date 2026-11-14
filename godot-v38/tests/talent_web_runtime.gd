@@ -24,8 +24,8 @@ func _initialize() -> void:
    _fail("Selection must highlight the entire prerequisite web")
    return
  web.select_node("missing_talent")
- if not web.prerequisite_path.is_empty():
-  _fail("Invalid selection must not retain a stale highlighted path")
+ if web.selected_id != "might_ashen_grip" or not web.prerequisite_path.has("iron_will"):
+  _fail("Unknown stars must preserve the current selection and route")
   return
  web.set_data(tree, {"iron_will": 1}, 16, 14)
  if not web.available_talent_ids().has("breaker") or not web.available_talent_ids().has("guard"):
