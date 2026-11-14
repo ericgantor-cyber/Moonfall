@@ -157,3 +157,21 @@ static portrait.
 The implementation has Python **source-contract** regression checks.
 A green source check is **not** proof of UE5.4 UHT/C++ compilation, packaged
 Windows gameplay, or accessibility focus behavior.
+
+
+**Native 3D preview actor (new):** The source now also includes
+`AMoonfallCharacterPreviewActor`, a no-tick, preview-only actor with a
+skeletal mesh component (unassigned), separate rotation pivot, spring arm,
+SceneCapture2D and an optional render target. In Unreal Editor, create a
+Blueprint child of this actor and assign an **approved original Moonfall**
+skeletal mesh to its `CharacterMesh` component. Create a
+`TextureRenderTarget2D` asset, configure it on `PreviewRenderTarget`,
+and position this dedicated actor in a character-preview scene with appropriate
+lighting. Create and display the character-creation widget, then call
+`BindPreviewActor(PreviewActor)` on the widget. The widget will display
+the capture render target and automatically refresh it after mouse rotation,
+zoom or reset. Use `RefreshPreview()` whenever the character mesh or pose
+changes. This preview actor does **not** spawn a playable hero or import
+assets; if no approved mesh/render target is supplied, the 3D preview will
+remain empty. SceneCapture and widget integration still require a native
+Unreal Engine 5.4 compile and visual test.
