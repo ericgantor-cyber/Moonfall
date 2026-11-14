@@ -125,6 +125,28 @@ class TestRacialPersistence(unittest.TestCase):
             with self.subTest(invalid_code=code):
                 self.assertFalse(valid_item_code(code))
 
+    def test_all_world_saves_blocked_while_checkpoint_is_restoring(self):
+        saver = self.cpp.split("bool AMoonfallHeroPawn::SaveWorldProgress()", 1)[1].split(
+            "bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[0]
+        loader = self.cpp.split("bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[1].split(
+            "void AMoonfallHeroPawn::RespawnAtCheckpoint()", 1)[0]
+        startup = self.cpp.split("void AMoonfallHeroPawn::BeginPlay()", 1)[1].split(
+            "void AMoonfallHeroPawn::Tick(", 1)[0]
+        self.assertIn("bool bWorldProgressInitialized = false;", self.header)
+        self.assertIn("bool bWorldProgressLoadInProgress = false;", self.header)
+        self.assertIn("if (!bWorldProgressInitialized || bWorldProgressLoadInProgress", saver)
+        self.assertIn("|| bPersistentSaveWritesBlocked || !bHasRespawnCheckpointLocation", saver)
+        self.assertLess(saver.index("if (!bWorldProgressInitialized || bWorldProgressLoadInProgress"),
+                        saver.index("UGameplayStatics::CreateSaveGameObject("))
+        self.assertLess(saver.index("if (!bWorldProgressInitialized || bWorldProgressLoadInProgress"),
+                        saver.index("UGameplayStatics::SaveGameToSlot("))
+        self.assertLess(startup.index("LoadWorldProgress();"), startup.index("bWorldProgressInitialized = true;"))
+        self.assertLess(loader.index("bWorldProgressLoadInProgress = true;"),
+                        loader.index("if (!TeleportTo(SavedCheckpoint"))
+        self.assertIn("bWorldProgressLoadInProgress = false;", loader)
+        self.assertLess(loader.index("OnHealthChanged(Health, MaxHealth);"),
+                        loader.rindex("bWorldProgressLoadInProgress = false;"))
+
     def test_oversized_persistent_saves_are_write_protected_before_restore(self):
         loader = self.cpp.split("bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[1].split(
             "void AMoonfallHeroPawn::RespawnAtCheckpoint()", 1)[0]
@@ -146,6 +168,7 @@ class TestRacialPersistence(unittest.TestCase):
         saver = self.cpp.split("bool AMoonfallHeroPawn::SaveWorldProgress()", 1)[1].split(
             "bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[0]
         self.assertIn("bPersistentSaveWritesBlocked || !bHasRespawnCheckpointLocation", saver)
+        self.assertIn("if (!bWorldProgressInitialized || bWorldProgressLoadInProgress", saver)
         self.assertIn("UGameplayStatics::SaveGameToSlot", saver)
 
     def test_future_version_save_is_not_overwritten_by_autosave(self):
@@ -154,8 +177,9 @@ class TestRacialPersistence(unittest.TestCase):
             "bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[0]
         load = self.cpp.split("bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[1].split(
             "void AMoonfallHeroPawn::RespawnAtCheckpoint()", 1)[0]
-        self.assertIn("if (bPersistentSaveWritesBlocked || !bHasRespawnCheckpointLocation", save)
-        self.assertLess(save.index("if (bPersistentSaveWritesBlocked || !bHasRespawnCheckpointLocation"),
+        self.assertIn("if (!bWorldProgressInitialized || bWorldProgressLoadInProgress", save)
+        self.assertIn("bPersistentSaveWritesBlocked || !bHasRespawnCheckpointLocation", save)
+        self.assertLess(save.index("if (!bWorldProgressInitialized || bWorldProgressLoadInProgress"),
                         save.index("UGameplayStatics::SaveGameToSlot("))
         self.assertIn("Save->Version < 1 || Save->Version > 7", load)
         self.assertIn("bPersistentSaveWritesBlocked = true;", load)
