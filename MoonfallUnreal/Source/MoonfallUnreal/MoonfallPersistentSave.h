@@ -8,7 +8,8 @@ UCLASS()
 class MOONFALLUNREAL_API UMoonfallPersistentSave : public USaveGame {
  GENERATED_BODY()
 public:
- UPROPERTY() int32 Version = 6;
+ // Version 7: separate shrine checkpoints from two-second progress autosaves.
+ UPROPERTY() int32 Version = 7;
  UPROPERTY() TMap<FName, int32> ResidentQuestStates;
  UPROPERTY() TMap<FName, int32> ResidentBonds;
  UPROPERTY() TMap<FName, int32> FactionReputation;
@@ -16,7 +17,11 @@ public:
  UPROPERTY() int64 RacePowerReadyUtc = 0;
  UPROPERTY() int32 RaceId = 0;
  UPROPERTY() bool bRaceChosen = false;
+ // For V7 this location changes on shrine discovery, not during autosave.
+ // V1-V6 retain their last saved location as a legacy checkpoint.
  UPROPERTY() FVector CheckpointLocation = FVector::ZeroVector;
+ UPROPERTY() FName ActiveShrineId = NAME_None;
+ UPROPERTY() TArray<FName> DiscoveredShrineIds;
  UPROPERTY() int32 Level = 1;
  UPROPERTY() int32 Experience = 0;
  UPROPERTY() int32 Salvage = 0;
