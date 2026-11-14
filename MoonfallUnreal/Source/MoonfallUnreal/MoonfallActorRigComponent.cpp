@@ -3,6 +3,7 @@
 #include "Animation/AnimInstance.h"
 #include "Animation/AnimMontage.h"
 #include "GameFramework/Actor.h"
+#include "GameFramework/Character.h"
 
 UMoonfallActorRigComponent::UMoonfallActorRigComponent()
 {
@@ -35,16 +36,29 @@ void UMoonfallActorRigComponent::RefreshRig()
   }
   else
   {
-   // Auto-discovery is intentionally bounded to the first valid mesh.
-   // The first skeletal component can be empty on Blueprint actors.
-   TArray<USkeletalMeshComponent*> Candidates;
-   Owner->GetComponents<USkeletalMeshComponent>(Candidates);
-   for (USkeletalMeshComponent* Mesh : Candidates)
+   // ACharacter actors have a canonical body mesh. Prefer it to clothing,
+   // weapon or cosmetic skeletal components found earlier in component order.
+   if (const ACharacter* Character = Cast<ACharacter>(Owner))
    {
-    if (IsValid(Mesh) && IsValid(Mesh->GetSkeletalMeshAsset()))
+    USkeletalMeshComponent* MainMesh = Character->GetMesh();
+    if (IsValid(MainMesh) && MainMesh->GetOwner() == Owner
+        && IsValid(MainMesh->GetSkeletalMeshAsset()))
+     RigMesh = MainMesh;
+   }
+   // Non-Character NPCs and characters without a valid body mesh still
+   // support the original one-time component discovery without polling.
+   if (!RigMesh.IsValid())
+   {
+    TArray<USkeletalMeshComponent*> Candidates;
+    Owner->GetComponents<USkeletalMeshComponent>(Candidates);
+    for (USkeletalMeshComponent* Mesh : Candidates)
     {
-     RigMesh = Mesh;
-     break;
+     if (IsValid(Mesh) && Mesh->GetOwner() == Owner
+         && IsValid(Mesh->GetSkeletalMeshAsset()))
+     {
+      RigMesh = Mesh;
+      break;
+     }
     }
    }
   }
