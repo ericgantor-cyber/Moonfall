@@ -1908,6 +1908,12 @@ void AMoonfallHeroPawn::RespawnAtCheckpoint() {
   DamageImmunityUntil = FMath::Max(DamageImmunityUntil, Now + 3.f);
   NextSafeCheckpointAt = Now + 5.f;
   SecondsSinceLastWorldSave = 0.f;
+  // A collision-aware respawn can trigger shrine overlap while Health <= 0,
+  // before the saved or fallback health restoration. That overlap is refused
+  // and does not necessarily fire again once the hero is alive. Recheck once
+  // after a successful respawn, never while stuck at an unsafe death site.
+  for (TActorIterator<AMoonfallCheckpointShrine> It(GetWorld()); It; ++It)
+   if (IsValid(*It)) It->CheckHeroAtSpawn(this);
  }
 }
 
