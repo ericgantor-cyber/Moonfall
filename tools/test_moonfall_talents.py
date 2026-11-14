@@ -58,6 +58,26 @@ class TalentTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "earlier tier"):
             validate(bad)
 
+    def test_spend_rejects_malformed_and_invalid_existing_state(self):
+        for bad_state in (None, [], "", False):
+            with self.assertRaisesRegex(ValueError, "Allocations must be a map"):
+                spend(5, bad_state, "iron_will", self.tree)
+        # A corrupted save must not be silently repaired by buying a missing
+        # prerequisite with the next point.
+        with self.assertRaisesRegex(ValueError, "Missing talent prerequisite"):
+            spend(5, {"breaker": 1}, "iron_will", self.tree)
+        with self.assertRaisesRegex(ValueError, "Invalid allocated rank"):
+            spend(5, {"iron_will": True}, "spirit_well", self.tree)
+        with self.assertRaisesRegex(ValueError, "Unknown talent choice"):
+            spend(5, {"retired_node": 1}, "iron_will", self.tree)
+
+    def test_spend_canonicalizes_zero_rank_from_saved_data(self):
+        old = {"iron_will": 0}
+        state = spend(5, old, "spirit_well", self.tree)
+        self.assertEqual(state["allocations"], {"spirit_well": 1})
+        self.assertEqual(old, {"iron_will": 0})
+        self.assertEqual(state["spent"], 1)
+
     def test_no_classes_or_cards(self):
         self.assertEqual(evaluate(5, data=self.tree)["ruleset"], "classless_talent_tree")
         self.assertEqual({b["id"] for b in self.tree["branches"]},
