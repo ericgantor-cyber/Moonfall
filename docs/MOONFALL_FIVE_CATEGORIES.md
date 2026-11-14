@@ -338,3 +338,27 @@ are **not yet incorporated into combat damage or resources**. This is an
 incremental UI-and-save step, not a finished progression migration. A follow-on
 change must decide how to retire legacy talent effects safely and apply the
 new stat bonuses without double counting. Original hero assets are unchanged.
+
+## Expanded constellation progression: 108 talents
+
+The three classless branches now have **36 nodes each** and **11 tiers**
+(108 unique talents total). The original 12 nodes and their identifiers,
+prerequisites and costs are preserved for save compatibility. Newly added
+tiers begin at levels 16, 24, 32, 42, 52, 62, 72 and 82. Each later tier
+branches into multiple paths with prerequisites from earlier tiers; some
+advanced nodes require multiple connected talents. All branches remain
+simultaneously accessible, with **no classes or upgrade cards**.
+
+The native Godot talent screen now uses three large, selectable branch tabs,
+tier headings, larger talent buttons, per-node prerequisite/bonus tooltips,
+a scrollable tree and an always-visible **full-tree respec** control. No
+individual talent refunds were added. The new nodes use the existing flat
+health/mana/stamina and percentage damage effect model; they are not new
+spells, combat animations or weapon abilities. The legacy combat talent
+effects are still kept for save compatibility and the new bonuses are not
+yet connected to combat; balancing and UE5 runtime parity remain pending.
+
+The expanded JSON is mirrored exactly under `godot-v38/data`. Python tests
+validate count, reachable late-game prerequisite paths, level requirements,
+and full respec. The Godot smoke test also checks count, branch sizes, a new
+level-16 purchase and reset. Neither original hero artwork file is changed.
