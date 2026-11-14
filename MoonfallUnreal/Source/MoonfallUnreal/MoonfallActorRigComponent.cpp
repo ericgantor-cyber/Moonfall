@@ -73,9 +73,20 @@ void UMoonfallActorRigComponent::RefreshRig()
 
 bool UMoonfallActorRigComponent::HasRigCue(FName CueId) const
 {
+ // A cue is available only when it can run on the currently observed rig.
+ // Keep this BlueprintPure query side-effect free; PlayRigCue refreshes
+ // after a mesh swap before attempting to play anything.
  if (CueId.IsNone()) return false;
+ const AActor* Owner = GetOwner();
+ if (!IsValid(Owner) || !RigMesh.IsValid() || RigMesh->GetOwner() != Owner
+     || PreferredRigMesh.Get() != ObservedPreferredRigMesh.Get()
+     || (PreferredRigMesh != nullptr && PreferredRigMesh.Get() != RigMesh.Get())
+     || !IsValid(RigMesh->GetSkeletalMeshAsset())
+     || RigMesh->GetSkeletalMeshAsset() != ObservedRigAsset.Get())
+  return false;
  const TObjectPtr<UAnimMontage>* Entry = MontageCues.Find(CueId);
- return Entry && IsValid(Entry->Get());
+ return Entry && IsValid(Entry->Get()) && IsValid(Entry->Get()->GetSkeleton())
+     && Entry->Get()->GetSkeleton() == RigMesh->GetSkeletalMeshAsset()->GetSkeleton();
 }
 
 TArray<FName> UMoonfallActorRigComponent::GetRigCueIds() const
@@ -83,7 +94,7 @@ TArray<FName> UMoonfallActorRigComponent::GetRigCueIds() const
  TArray<FName> Result;
  Result.Reserve(MontageCues.Num());
  for (const auto& Pair : MontageCues)
-  if (!Pair.Key.IsNone() && IsValid(Pair.Value.Get()))
+  if (HasRigCue(Pair.Key))
    Result.Add(Pair.Key);
  Result.Sort([](const FName& A, const FName& B) { return A.LexicalLess(B); });
  return Result;
