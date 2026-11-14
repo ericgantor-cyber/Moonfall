@@ -304,6 +304,25 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("SpawnActor", step)
         self.assertNotIn("single-switch", header.lower())
 
+    def test_keyboard_controller_position_selection_validates_grid_index(self):
+        header = (ROOT / "MoonfallRaceLibrary.h").read_text(encoding="utf-8")
+        code = (ROOT / "MoonfallRaceLibrary.cpp").read_text(encoding="utf-8")
+        self.assertIn("static bool SelectPlayableRaceAtPosition(", header)
+        fn = code.split("UMoonfallRaceLibrary::SelectPlayableRaceAtPosition(", 1)[1].split(
+            "UMoonfallRaceLibrary::FindRaceProfile(", 1)[0]
+        self.assertIn("State = FMoonfallRaceSelectionState();", fn)
+        self.assertIn("if (Position <= 0)", fn)
+        self.assertIn("if (!Row.bPlayable || (!Family.IsNone() && FName(Row.Family) != Family))", fn)
+        self.assertIn("++CurrentPosition;", fn)
+        self.assertIn("if (CurrentPosition != Position)", fn)
+        self.assertIn("BuildPlayableRaceSelectionState(FName(Row.Id), Family, BaseVitality,", fn)
+        self.assertIn("Candidate.RaceId != FName(Row.Id) || Candidate.RacePosition != Position", fn)
+        self.assertIn("State = MoveTemp(Candidate);", fn)
+        self.assertLess(fn.index("Candidate.RaceId != FName(Row.Id)"), fn.index("State = MoveTemp(Candidate);"))
+        self.assertNotIn("SaveGame", fn)
+        self.assertNotIn("SpawnActor", fn)
+        self.assertNotIn("single-switch", header.lower())
+
     def test_isolated_race_catalog_is_cpp_syntax_safe_and_does_not_replace_persistence(self):
         import re
         catalog = (ROOT / "MoonfallRaceLibrary.cpp").read_text(encoding="utf-8")
