@@ -36,13 +36,16 @@ func _run()->void:
   var tips:GDScript=load("res://scripts/systems/tips_codex_v376.gd") as GDScript
   check(tips!=null and "Alt and right-drag" in tips.source_code,"in-game controls describe separate orbit and guard inputs")
   check("if aim_locked_id>=0 and locked.is_empty():aim_locked_id=-1" in source,"invalid lock-on targets are released")
+  check("body.get_instance_id()==aim_locked_id" in source,"target lock compares actor identity without scanning the beast catalog")
+  check("aim_locked_id=target_body.get_instance_id()" in source,"target lock captures stable actor instance ID")
+  check(not ("beasts.find(target)" in source or "beasts.find(beast)" in source),"aiming avoids dictionary equality scans")
   check("if not hero_playing or menu_open or death_active or wait_open or wait_transition_active:return" in source,"aimed flame blocked during non-gameplay states")
   check("if which!=\"fire\":" in source and "super._spell(which)" in source,"other spells retain inherited behavior")
  if ui!=null:
   var source:String=ui.source_code
   check("AIM_PREFS_PATH" in source and "config.save(AIM_PREFS_PATH)" in source,"aim assist setting persisted")
   check("aim_input_source==\"mouse\"" in source,"mouse aiming restored with connected controller")
-  check("beasts.find(target)==aim_locked_id" in source,"locked marker matches actual target")
+  check("body.get_instance_id()==aim_locked_id" in source,"locked marker uses stable actor identity")
   check("aim_options.visible=hero_playing and not menu_open and not death_active" in source,"aim controls hidden outside gameplay")
  # Divine final-phase attack telegraphs have a bounded, visible second strike.
  var divine:GDScript=load("res://scripts/native_v38_8.gd") as GDScript
