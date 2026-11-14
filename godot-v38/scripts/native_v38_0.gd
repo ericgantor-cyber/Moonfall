@@ -12,6 +12,7 @@ var v406_active_branch:String="might"
 var v406_branch_bar:HBoxContainer
 var v406_respec_button:Button
 const V406_WEB:=preload("res://scripts/systems/moonfall_talent_web.gd")
+const V406_PANEL_LAYOUT:=preload("res://scripts/systems/moonfall_talent_panel_layout.gd")
 var v406_web:Control
 var v406_selected_node:String=""
 var v406_details:Label
@@ -510,6 +511,8 @@ func _v398_build_tree()->void:
  v398_panel.custom_minimum_size=Vector2(1100,730)
  v398_panel.position=Vector2(-550,-365)
  layer.add_child(v398_panel)
+ get_viewport().size_changed.connect(_v406_fit_panel_to_viewport)
+ _v406_fit_panel_to_viewport()
  var outer:VBoxContainer=VBoxContainer.new()
  outer.add_theme_constant_override("separation",10)
  v398_panel.add_child(outer)
@@ -598,6 +601,13 @@ func _v398_build_tree()->void:
  v406_respec_button.pressed.connect(_v406_respec)
  side.add_child(v406_respec_button)
  v398_panel.visible=false
+
+func _v406_fit_panel_to_viewport()->void:
+ if not is_instance_valid(v398_panel):return
+ var layout:Dictionary=V406_PANEL_LAYOUT.placement(get_viewport().get_visible_rect().size)
+ var factor:float=float(layout["scale"])
+ v398_panel.scale=Vector2(factor,factor)
+ v398_panel.position=layout["offset_from_center"]
 
 func _v406_next_available()->void:
  if not is_instance_valid(v406_web):return
@@ -693,7 +703,9 @@ func _v406_respec()->void:
 func _v398_toggle_tree()->void:
  if not hero_playing or death_active or menu_open or not is_instance_valid(v398_panel):return
  v398_panel.visible=not v398_panel.visible
- if v398_panel.visible:_v398_refresh_tree()
+ if v398_panel.visible:
+  _v406_fit_panel_to_viewport()
+  _v398_refresh_tree()
 
 func _unhandled_input(event:InputEvent)->void:
  if event is InputEventKey and event.pressed and not event.echo and event.keycode==KEY_ESCAPE and v401_z_intro_timer>0.0:
