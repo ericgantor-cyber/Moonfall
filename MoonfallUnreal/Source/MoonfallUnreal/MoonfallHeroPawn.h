@@ -223,6 +223,8 @@ private:
  bool RestoreSafeSpawnLocation();
  FVector RespawnCheckpointLocation = FVector::ZeroVector;
  bool bHasRespawnCheckpointLocation = false;
+ // Never write a shrine save before the initial persistent slot has loaded.
+ bool bWorldProgressInitialized = false;
  // Protect an existing unsupported or unreadable slot from routine autosaves.
  // Cleared only after a supported save has been loaded successfully.
  bool bPersistentSaveWritesBlocked = false;
