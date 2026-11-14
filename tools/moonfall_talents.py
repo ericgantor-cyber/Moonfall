@@ -133,31 +133,6 @@ def spend(level: int, current: dict[str, int], talent_id: str, data: dict | None
 
 
 
-def refund(level: int, current: dict[str, int], talent_id: str,
-           data: dict | None = None) -> dict:
-    """Refund one purchased rank, rejecting any break in an active talent chain.
-
-    Returns a new evaluated state. Neither the original allocation map nor
-    game saves are mutated by this reference implementation.
-    """
-    tree = data if data is not None else load()
-    if not isinstance(current, dict):
-        raise ValueError("Allocations must be a map")
-    prior = evaluate(level, current, tree)
-    if talent_id not in {node["id"] for node in tree["nodes"]}:
-        raise ValueError("Unknown talent choice")
-    chosen = dict(prior["allocations"])
-    if chosen.get(talent_id, 0) == 0:
-        raise ValueError("Cannot refund an unpurchased talent")
-    if chosen[talent_id] == 1:
-        del chosen[talent_id]
-    else:
-        chosen[talent_id] -= 1
-    # The same validator that guards spending also protects refunds from
-    # orphaning active dependent nodes.
-    return evaluate(level, chosen, tree)
-
-
 def respec(level: int, data: dict | None = None) -> dict:
     return evaluate(level, {}, data)
 
