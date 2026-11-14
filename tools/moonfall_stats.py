@@ -10,6 +10,7 @@ from pathlib import Path
 
 from moonfall_combat_ratings import calculate as calculate_combat_ratings
 from moonfall_talents import evaluate as evaluate_talents
+from moonfall_talents import load as load_talent_tree
 
 ROOT = Path(__file__).resolve().parents[1]
 CONFIG = ROOT / "config/moonfall_stats.json"
@@ -69,6 +70,10 @@ def validate_config(data: dict) -> None:
             raise ValueError("Stat range limits must be integers")
         if limits[low] < 0 or limits[low] > limits[high]:
             raise ValueError("Invalid stat range")
+    # The combined character sheet always evaluates the talent tree, so its
+    # allowed level interval must fit inside the talent system's interval.
+    if limits["min_level"] < 1 or limits["max_level"] > load_talent_tree()["maximum_level"]:
+        raise ValueError("Stat levels must fit the talent tree level range")
 
 
 def calculate(level: int, gear_score: int = 0,
