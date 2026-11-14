@@ -182,6 +182,31 @@ bool UMoonfallRaceLibrary::ComparePlayableRaceStats(
  return true;
 }
 
+bool UMoonfallRaceLibrary::BuildPlayableRaceSelectionEntries(
+ float BaseVitality, float BasePower, float BaseSpeed, FName Family,
+ TArray<FMoonfallRaceSelectionEntry>& Entries)
+{
+ Entries.Reset();
+ if (!FMath::IsFinite(BaseVitality) || BaseVitality < 0.f
+     || !FMath::IsFinite(BasePower) || BasePower < 0.f
+     || !FMath::IsFinite(BaseSpeed) || BaseSpeed < 0.f)
+  return false;
+ TArray<FMoonfallRaceSelectionEntry> Built;
+ for (const FMoonfallRaceProfile& Profile : GetPlayableRaceProfiles())
+ {
+  if (!Family.IsNone() && Profile.Family != Family)
+   continue;
+  FMoonfallRaceSelectionEntry Entry;
+  Entry.Profile = Profile;
+  if (!PreviewPlayableRaceStats(Profile.RaceId, BaseVitality, BasePower,
+                                BaseSpeed, Entry.Stats))
+   return false; // Entries stays empty if any intermediate calculation fails.
+  Built.Add(Entry);
+ }
+ Entries = MoveTemp(Built);
+ return true;
+}
+
 bool UMoonfallRaceLibrary::FindRaceProfile(FName RaceId, FMoonfallRaceProfile& Profile)
 {
  Profile = FMoonfallRaceProfile();
