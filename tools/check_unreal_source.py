@@ -509,6 +509,34 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("SaveGame", code)
         self.assertNotIn("SpawnActor", code)
 
+    def test_preview_asset_swap_clears_stale_brush_and_preserves_preconstruct_bind(self):
+        code = (ROOT / "MoonfallCharacterCreationWidget.cpp").read_text(encoding="utf-8")
+        self.assertIn("PreviewImage->SetDesiredSizeOverride(FVector2D(480.f, 600.f));", code)
+        build = code.split("void UMoonfallCharacterCreationWidget::BuildLayout()", 1)[1].split(
+            "bool UMoonfallCharacterCreationWidget::InitializeSelection(", 1)[0]
+        self.assertIn("if (PreviewTarget)", build)
+        self.assertIn("SetPreviewRenderTarget(PreviewTarget);", build)
+        self.assertIn("SetPreviewTexture(PreviewTexture);", build)
+        portrait = code.split("void UMoonfallCharacterCreationWidget::SetPreviewTexture(", 1)[1].split(
+            "void UMoonfallCharacterCreationWidget::SetPreviewRenderTarget(", 1)[0]
+        render = code.split("void UMoonfallCharacterCreationWidget::SetPreviewRenderTarget(", 1)[1].split(
+            "void UMoonfallCharacterCreationWidget::BindPreviewActor(", 1)[0]
+        self.assertIn("PreviewTarget = nullptr;", portrait)
+        self.assertIn("PreviewTexture = nullptr;", render)
+        self.assertIn("PreviewImage->SetBrush(FSlateBrush());", portrait)
+        self.assertIn("PreviewImage->SetBrush(FSlateBrush());", render)
+        self.assertIn("Character preview is configured by the game", render)
+        bind = code.split("void UMoonfallCharacterCreationWidget::BindPreviewActor(", 1)[1].split(
+            "void UMoonfallCharacterCreationWidget::BindPreviewRig(", 1)[0]
+        self.assertIn("bDraggingPreview = false;", bind)
+        self.assertIn("BoundPreviewActor.Reset();", bind)
+        self.assertIn("BindPreviewRig(nullptr, nullptr);", bind)
+        self.assertIn("SetPreviewRenderTarget(nullptr);", bind)
+        self.assertLess(bind.index("BoundPreviewActor.Reset();"), bind.index("BoundPreviewActor = PreviewActor;"))
+        self.assertLess(bind.index("if (!IsValid(PreviewActor))"), bind.index("BoundPreviewActor = PreviewActor;"))
+        self.assertNotIn("SaveGame", bind)
+        self.assertNotIn("SpawnActor", bind)
+
     def test_isolated_race_catalog_is_cpp_syntax_safe_and_does_not_replace_persistence(self):
         import re
         catalog = (ROOT / "MoonfallRaceLibrary.cpp").read_text(encoding="utf-8")
