@@ -46,6 +46,20 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("bool PlayRigCue(FName CueId)", rig_h)
         self.assertNotIn("SpawnActor", rig_cpp)
 
+    def test_character_primary_rig_precedes_accessory_discovery(self):
+        rig = (ROOT / "MoonfallActorRigComponent.cpp").read_text(encoding="utf-8")
+        self.assertIn('#include "GameFramework/Character.h"', rig)
+        refresh = rig.split("void UMoonfallActorRigComponent::RefreshRig()", 1)[1].split(
+            "bool UMoonfallActorRigComponent::HasRigCue(", 1)[0]
+        self.assertIn("Cast<ACharacter>(Owner)", refresh)
+        self.assertIn("Character->GetMesh()", refresh)
+        self.assertIn("MainMesh->GetOwner() == Owner", refresh)
+        self.assertIn("if (!RigMesh.IsValid())", refresh)
+        self.assertIn("Mesh->GetOwner() == Owner", refresh)
+        self.assertLess(refresh.index("Character->GetMesh()"),
+                        refresh.index("Owner->GetComponents<USkeletalMeshComponent>(Candidates)"))
+        self.assertIn("PrimaryComponentTick.bCanEverTick = false", rig)
+
     def test_race_roster_blueprint_filters_preserve_ids(self):
         race_cpp = (ROOT / "MoonfallRaceLibrary.cpp").read_text(encoding="utf-8")
         race_h = (ROOT / "MoonfallRaceLibrary.h").read_text(encoding="utf-8")
