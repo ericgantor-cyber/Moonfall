@@ -120,6 +120,9 @@ def spend(level: int, current: dict[str, int], talent_id: str, data: dict | None
     tree = data if data is not None else load()
     # Never accept an invalid or malformed saved state simply because the
     # requested new node would otherwise satisfy the final dependencies.
+    # Unlike evaluate(), spend() requires an explicit saved allocation map.
+    if not isinstance(current, dict):
+        raise ValueError("Allocations must be a map")
     prior = evaluate(level, current, tree)
     index = {node["id"]: node for node in tree["nodes"]}
     if talent_id not in index:
