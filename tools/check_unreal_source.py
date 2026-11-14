@@ -472,6 +472,43 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("SpawnActor", code)
         self.assertNotIn("single-switch", header.lower() + code.lower())
 
+    def test_native_character_preview_actor_is_no_tick_and_asset_safe(self):
+        header = (ROOT / "MoonfallCharacterPreviewActor.h").read_text(encoding="utf-8")
+        code = (ROOT / "MoonfallCharacterPreviewActor.cpp").read_text(encoding="utf-8")
+        self.assertIn("class MOONFALLUNREAL_API AMoonfallCharacterPreviewActor", header)
+        self.assertIn("TObjectPtr<USkeletalMeshComponent> CharacterMesh;", header)
+        self.assertIn("TObjectPtr<USpringArmComponent> CameraArm;", header)
+        self.assertIn("TObjectPtr<USceneCaptureComponent2D> Capture;", header)
+        self.assertIn("TObjectPtr<UTextureRenderTarget2D> PreviewRenderTarget;", header)
+        self.assertIn("PrimaryActorTick.bCanEverTick = false;", code)
+        self.assertIn("CharacterMesh->SetupAttachment(RotationPivot);", code)
+        self.assertIn("CameraArm->SetupAttachment(StageRoot);", code)
+        self.assertIn("Capture->SetupAttachment(CameraArm, USpringArmComponent::SocketName);", code)
+        self.assertIn("Capture->bCaptureEveryFrame = false;", code)
+        self.assertIn("Capture->bCaptureOnMovement = false;", code)
+        self.assertIn("Capture->TextureTarget = InRenderTarget;", code)
+        self.assertIn("Capture->CaptureScene();", code)
+        self.assertNotIn("SpawnActor", code)
+        self.assertNotIn("SaveGame", code)
+        self.assertNotIn("SetSkeletalMesh(", code)
+
+    def test_character_widget_binds_preview_render_target_and_refreshes_it(self):
+        header = (ROOT / "MoonfallCharacterCreationWidget.h").read_text(encoding="utf-8")
+        code = (ROOT / "MoonfallCharacterCreationWidget.cpp").read_text(encoding="utf-8")
+        self.assertIn("void BindPreviewActor(AMoonfallCharacterPreviewActor* PreviewActor);", header)
+        self.assertIn("void SetPreviewRenderTarget(UTextureRenderTarget2D* ExistingTarget);", header)
+        self.assertIn("TWeakObjectPtr<AMoonfallCharacterPreviewActor> BoundPreviewActor;", header)
+        self.assertIn("Brush.SetResourceObject(PreviewTarget);", code)
+        self.assertIn("PreviewImage->SetBrush(Brush);", code)
+        self.assertIn("PreviewActor->GetPreviewPivot()", code)
+        self.assertIn("PreviewActor->GetPreviewArm()", code)
+        self.assertIn("PreviewActor->SetPreviewRenderTarget(PreviewActor->GetPreviewRenderTarget());", code)
+        self.assertIn("SetPreviewRenderTarget(PreviewActor->GetPreviewRenderTarget());", code)
+        self.assertGreaterEqual(code.count("BoundPreviewActor->RefreshPreview();"), 3)
+        self.assertNotIn("single-switch", header.lower() + code.lower())
+        self.assertNotIn("SaveGame", code)
+        self.assertNotIn("SpawnActor", code)
+
     def test_isolated_race_catalog_is_cpp_syntax_safe_and_does_not_replace_persistence(self):
         import re
         catalog = (ROOT / "MoonfallRaceLibrary.cpp").read_text(encoding="utf-8")
