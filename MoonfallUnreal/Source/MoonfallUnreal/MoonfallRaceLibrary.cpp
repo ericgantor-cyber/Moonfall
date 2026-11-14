@@ -112,6 +112,19 @@ TArray<FName> UMoonfallRaceLibrary::GetRaceFamilies()
  return Result;
 }
 
+TArray<FName> UMoonfallRaceLibrary::GetPlayableRaceFamilies()
+{
+ TArray<FName> Result;
+ for (const FRaceRow& Row : RaceRows)
+ {
+  if (!Row.bPlayable) continue;
+  const FName Family(Row.Family);
+  if (!Result.Contains(Family))
+   Result.Add(Family);
+ }
+ return Result;
+}
+
 bool UMoonfallRaceLibrary::FindPlayableRaceProfile(FName RaceId, FMoonfallRaceProfile& Profile)
 {
  if (!FindRaceProfile(RaceId, Profile) || !Profile.bPlayableCandidate)
