@@ -1872,12 +1872,23 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
 }
 void AMoonfallHeroPawn::RespawnAtCheckpoint() {
  DefeatElapsedSeconds = 0.f;
- // No new run, no loot reset. Restore last living checkpoint.
+ // No new run and no loot reset. Prefer a fully restored on-disk checkpoint.
  if (!LoadWorldProgress()) {
-  // No valid save: recover near the intended level spawn instead of staying
-  // on the deadly spot. An unreadable save remains write-protected.
-  if (!RestoreSafeSpawnLocation()) {
-   UE_LOG(LogTemp, Warning, TEXT("Moonfall has no clear checkpoint, PlayerStart or original spawn."));
+  // A missing, unreadable or blocked save should not erase progress. Try the
+  // last known in-memory shrine (if valid) before the authored level spawn.
+  // All teleports use collision checks, never a forced placement.
+  bool bFoundSafeRespawn = bHasRespawnCheckpointLocation
+      && !RespawnCheckpointLocation.ContainsNaN()
+      && RespawnCheckpointLocation.SizeSquared() < 1.0e14f
+      && TeleportTo(RespawnCheckpointLocation, GetActorRotation(), false, false);
+  if (!bFoundSafeRespawn)
+   bFoundSafeRespawn = RestoreSafeSpawnLocation();
+  if (!bFoundSafeRespawn) {
+   // Do not resurrect at the lethal position when every spawn is blocked.
+   // Keep the defeat state and retry through the normal 3-second timer.
+   // An incompatible save remains write-protected.
+   UE_LOG(LogTemp, Warning, TEXT("Moonfall has no collision-safe shrine, PlayerStart or initial spawn; staying defeated."));
+   return;
   }
   Health = FMath::Max(1.f, MaxHealth);
   Mana = FMath::Max(0.f, MaxMana);
