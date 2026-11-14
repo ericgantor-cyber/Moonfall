@@ -588,7 +588,7 @@ func _v398_build_tree()->void:
  v398_tree_list.custom_minimum_size.x=248
  index_scroll.add_child(v398_tree_list)
  v406_respec_button=Button.new()
- v406_respec_button.text="RESET ENTIRE TREE"
+ v406_respec_button.text="RESET ALL TALENT POINTS"
  v406_respec_button.custom_minimum_size.y=58
  v406_respec_button.pressed.connect(_v406_respec)
  side.add_child(v406_respec_button)
