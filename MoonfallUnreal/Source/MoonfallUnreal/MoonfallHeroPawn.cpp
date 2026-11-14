@@ -1,4 +1,7 @@
 #include "MoonfallHeroPawn.h"
+#include "MoonfallPersistentSave.h"
+#include "Kismet/GameplayStatics.h"
+#include "Misc/DateTime.h"
 #include "Camera/CameraComponent.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
@@ -7,9 +10,11 @@
 #include "DrawDebugHelpers.h"
 #include "Engine/Engine.h"
 #include "GameFramework/GameUserSettings.h"
+#include "GameFramework/PlayerController.h"
 #include "Misc/ConfigCacheIni.h"
 #include "Interfaces/IPluginManager.h"
 #include "MoonfallEnemy.h"
+#include "MoonfallWorldNPC.h"
 #include "MoonfallGroundLoot.h"
 #include "EngineUtils.h"
 #include "Components/SkeletalMeshComponent.h"
@@ -45,17 +50,17 @@ int32 AMoonfallHeroPawn::GetSetPieceCount(int32 Affix) const
 
 int32 AMoonfallHeroPawn::GetMight() const
 {
- return FMath::Clamp(10 + FMath::Max(0, Level - 1) / 2 + FMath::Clamp(WeaponTier, 0, 25), 10, 100);
+ return FMath::Clamp(10 + FMath::Max(0, Level - 1) / 2 + FMath::Clamp(WeaponTier, 0, 25) + GetRaceMightBonus(), 10, 100);
 }
 
 int32 AMoonfallHeroPawn::GetInsight() const
 {
- return FMath::Clamp(10 + FMath::Max(0, Level - 1) / 2 + FMath::Clamp(AccessoryTier, 0, 25), 10, 100);
+ return FMath::Clamp(10 + FMath::Max(0, Level - 1) / 2 + FMath::Clamp(AccessoryTier, 0, 25) + GetRaceInsightBonus(), 10, 100);
 }
 
 int32 AMoonfallHeroPawn::GetResolve() const
 {
- return FMath::Clamp(10 + FMath::Max(0, Level - 1) / 2 + FMath::Clamp(ArmorTier, 0, 25), 10, 100);
+ return FMath::Clamp(10 + FMath::Max(0, Level - 1) / 2 + FMath::Clamp(ArmorTier, 0, 25) + GetRaceResolveBonus(), 10, 100);
 }
 
 float AMoonfallHeroPawn::GetCriticalChance() const
@@ -151,10 +156,36 @@ void AMoonfallHeroPawn::BeginPlay() {
  const TSharedPtr<IPlugin> DLSS = IPluginManager::Get().FindPlugin(TEXT("DLSS"));
  bFrameGenerationPluginDetected = (FSR.IsValid() && FSR->IsEnabled()) || (DLSS.IsValid() && DLSS->IsEnabled());
  // Detection is only a hint, never proof of a supported frame-generation runtime.
+ LoadWorldProgress();
 }
 void AMoonfallHeroPawn::Tick(float DeltaSeconds)
 {
  Super::Tick(DeltaSeconds);
+ // A streaming/despawned resident must not leave player cursor or input locked.
+ if (bResidentContextOpen) {
+  const AMoonfallWorldNPC* Resident = FocusedResident.Get();
+  // Check cheap safety/range every tick. Full LOS is revalidated only
+  // on actual choices, avoiding a world trace on every player frame.
+  const float Range = IsValid(Resident) && FMath::IsFinite(Resident->InteractRange)
+      ? FMath::Clamp(Resident->InteractRange, 50.f, 400.f) : 0.f;
+  if (!IsValid(Resident) || Health <= 0.f || bOptionsOpen || bInventoryOpen ||
+      Range <= 0.f || GetActorLocation().ContainsNaN() ||
+      Resident->GetActorLocation().ContainsNaN() ||
+      FVector::DistSquared(GetActorLocation(), Resident->GetActorLocation()) > FMath::Square(Range))
+   CloseResidentContext();
+ }
+ // Keep one save slot forever; only alive characters overwrite the checkpoint.
+ if (Health > 0.f) {
+  DefeatElapsedSeconds = 0.f;
+  SecondsSinceLastWorldSave += FMath::Clamp(DeltaSeconds, 0.f, 0.25f);
+  if (SecondsSinceLastWorldSave >= 2.f && GetWorld()
+      && GetWorld()->GetTimeSeconds() >= NextSafeCheckpointAt) {
+   if (SaveWorldProgress()) SecondsSinceLastWorldSave = 0.f;
+  }
+ } else {
+  DefeatElapsedSeconds += FMath::Clamp(DeltaSeconds, 0.f, 0.25f);
+  if (DefeatElapsedSeconds >= 3.f) RespawnAtCheckpoint();
+ }
  UpdateNativeFinisher(DeltaSeconds);
  // Expire the visible combo stage even if the player stops attacking.
  // Also discard defeated or destroyed targets to avoid a stale combo HUD.
@@ -195,7 +226,7 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
          ? FMath::Clamp(CombatManaRegenMultiplier, 0.f, 1.f) : 0.5f) : 1.f;
  if (Health > 0.f && FMath::IsFinite(Mana) && FMath::IsFinite(MaxMana) && MaxMana > 0.f
      && FMath::IsFinite(ManaRegenPerSecond) && ManaRegenPerSecond > 0.f && Mana >= 0.f && Mana < MaxMana)
-  Mana = FMath::Min(MaxMana, Mana + FMath::Clamp(ManaRegenPerSecond, 0.f, 250.f) * MenuRecoveryBoost * CombatManaFactor
+  Mana = FMath::Min(MaxMana, Mana + FMath::Clamp(ManaRegenPerSecond, 0.f, 250.f) * (1.f + GetRaceManaRegenBonus()) * MenuRecoveryBoost * CombatManaFactor
       * (1.f + FMath::Clamp(AccessoryTier * 0.012f, 0.f, 0.25f) + (AccessoryAffix == 3 ? 0.08f : 0.f)
         + FMath::Clamp(((EquippedAccessoryCode / 1000) % 10) * 0.02f, 0.f, 0.10f)
         + (GetSetPieceCount(3) >= 3 ? 0.06f : 0.f)
@@ -287,7 +318,7 @@ void AMoonfallHeroPawn::Tick(float DeltaSeconds)
  if (Health > 0.f && !bSprinting && !bGuarding && GetWorld() && GetWorld()->GetTimeSeconds() >= StaminaRegenStartsAt
      && FMath::IsFinite(Stamina) && FMath::IsFinite(MaxStamina) && MaxStamina > 0.f
      && FMath::IsFinite(StaminaRegenPerSecond) && StaminaRegenPerSecond > 0.f) {
-  Stamina = FMath::Clamp(Stamina + FMath::Clamp(StaminaRegenPerSecond, 0.f, 250.f) * StaminaDelta * MenuRecoveryBoost
+  Stamina = FMath::Clamp(Stamina + FMath::Clamp(StaminaRegenPerSecond, 0.f, 250.f) * (1.f + GetRaceStaminaRegenBonus()) * StaminaDelta * MenuRecoveryBoost
     * (1.f + FMath::Clamp(GetResolve() * 0.003f, 0.f, 0.30f)), 0.f, MaxStamina);
  }
 }
@@ -303,7 +334,10 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("Jump"), IE_Pressed, this, &AMoonfallHeroPawn::TryJump);
  Input->BindAction(TEXT("Jump"), IE_Released, this, &ACharacter::StopJumping);
  Input->BindAction(TEXT("CastLeft"), IE_Pressed, this, &AMoonfallHeroPawn::CastLeft);
+ Input->BindAction(TEXT("ResidentMouseClick"), IE_Pressed, this, &AMoonfallHeroPawn::ResidentContextMouseClick);
  Input->BindAction(TEXT("CastRight"), IE_Pressed, this, &AMoonfallHeroPawn::CastRight);
+ Input->BindAction(TEXT("CastRightMouse"), IE_Pressed, this, &AMoonfallHeroPawn::CastRightMouse);
+ Input->BindAction(TEXT("ResidentContext"), IE_Pressed, this, &AMoonfallHeroPawn::OpenFocusedResidentContext);
  Input->BindAction(TEXT("DualCast"), IE_Pressed, this, &AMoonfallHeroPawn::CastBoth);
  Input->BindAction(TEXT("Dodge"), IE_Pressed, this, &AMoonfallHeroPawn::Dodge);
  Input->BindAction(TEXT("Sprint"), IE_Pressed, this, &AMoonfallHeroPawn::BeginSprint);
@@ -323,6 +357,7 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("ReforgeGear"), IE_Pressed, this, &AMoonfallHeroPawn::ReforgeSelectedInventoryItem);
  Input->BindAction(TEXT("EquipBest"), IE_Pressed, this, &AMoonfallHeroPawn::EquipBestInventoryAction);
  Input->BindAction(TEXT("PickupLoot"), IE_Pressed, this, &AMoonfallHeroPawn::PickupNearestGroundLoot);
+ Input->BindAction(TEXT("RacePower"), IE_Pressed, this, &AMoonfallHeroPawn::TriggerRacePower);
  Input->BindAction(TEXT("OptionsUp"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsUp);
  Input->BindAction(TEXT("OptionsDown"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsDown);
  Input->BindAction(TEXT("OptionsLeft"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsLeft);
@@ -338,13 +373,17 @@ void AMoonfallHeroPawn::ZoomCameraOut() {
 }
 void AMoonfallHeroPawn::TryJump()
 {
+ if (FocusedResident.IsValid() && !bOptionsOpen && !bInventoryOpen) {
+  ChooseResidentContextAction(ResidentContextSelection);
+  return;
+ }
  // Jump must obey the same defeated/menu input locks as Dodge and Cast.
  if (Health <= 0.f || bOptionsOpen || bInventoryOpen) return;
  Jump();
 }
 void AMoonfallHeroPawn::MoveForward(float Value)
 {
- if (Health <= 0.f || bOptionsOpen || bInventoryOpen || !FMath::IsFinite(Value)) return;
+ if (Health <= 0.f || bOptionsOpen || bInventoryOpen || FocusedResident.IsValid() || !FMath::IsFinite(Value)) return;
  if (Controller && !FMath::IsNearlyZero(Value))
  {
   const FRotator Yaw(0.f, Controller->GetControlRotation().Yaw, 0.f);
@@ -353,20 +392,20 @@ void AMoonfallHeroPawn::MoveForward(float Value)
 }
 void AMoonfallHeroPawn::MoveRight(float Value)
 {
- if (Health <= 0.f || bOptionsOpen || bInventoryOpen || !FMath::IsFinite(Value)) return;
+ if (Health <= 0.f || bOptionsOpen || bInventoryOpen || FocusedResident.IsValid() || !FMath::IsFinite(Value)) return;
  if (Controller && !FMath::IsNearlyZero(Value))
  {
   const FRotator Yaw(0.f, Controller->GetControlRotation().Yaw, 0.f);
   AddMovementInput(FRotationMatrix(Yaw).GetUnitAxis(EAxis::Y), Value);
  }
 }
-void AMoonfallHeroPawn::Turn(float Value) { if (Health > 0.f && !bOptionsOpen && !bInventoryOpen && FMath::IsFinite(Value)) AddControllerYawInput(Value); }
-void AMoonfallHeroPawn::LookUp(float Value) { if (Health > 0.f && !bOptionsOpen && !bInventoryOpen && FMath::IsFinite(Value)) AddControllerPitchInput(Value); }
+void AMoonfallHeroPawn::Turn(float Value) { if (Health > 0.f && !bOptionsOpen && !bInventoryOpen && !bResidentContextOpen && FMath::IsFinite(Value)) AddControllerYawInput(Value); }
+void AMoonfallHeroPawn::LookUp(float Value) { if (Health > 0.f && !bOptionsOpen && !bInventoryOpen && !bResidentContextOpen && FMath::IsFinite(Value)) AddControllerPitchInput(Value); }
 bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
 {
  static const float Costs[6] = {16.f,13.f,22.f,25.f,18.f,14.f};
  static const float Cooldowns[6] = {0.8f,0.65f,1.2f,2.f,1.f,0.9f};
- if (Health <= 0.f || bOptionsOpen || bInventoryOpen || !GetWorld() || School < 0 || School >= 6 || Hand < 0 || Hand > 1 || !FMath::IsFinite(Multiplier) || Multiplier <= 0.f || Multiplier > 2.f) return false;
+ if (Health <= 0.f || bOptionsOpen || bInventoryOpen || bResidentContextOpen || !GetWorld() || School < 0 || School >= 6 || Hand < 0 || Hand > 1 || !FMath::IsFinite(Multiplier) || Multiplier <= 0.f || Multiplier > 2.f) return false;
  const float Time = GetWorld()->GetTimeSeconds();
  if (!FMath::IsFinite(Health) || !FMath::IsFinite(MaxHealth) || MaxHealth <= 0.f || Health > MaxHealth || !FMath::IsFinite(MaxMana) || MaxMana <= 0.f || !FMath::IsFinite(Mana) || !FMath::IsFinite(SpellPowerMultiplier) || SpellPowerMultiplier <= 0.f || Mana < Costs[School] * Multiplier || Time - LastCastTime[Hand] < Cooldowns[School] / (1.f + GetHasteBonus())) return false;
  if (School == 3 && Health >= MaxHealth) return false;
@@ -422,7 +461,7 @@ bool AMoonfallHeroPawn::TryCast(int32 School, int32 Hand, float Multiplier)
   const float MightMultiplier = 1.f + FMath::Clamp(GetMight() * 0.001f, 0.f, 0.10f);
   const float SpellDamage = (18.f + School * 5.f) * Multiplier * SpellPowerMultiplier
     * WeaponDamageBonus * CounterMultiplier * MomentumBonus * HitComboMultiplier
-    * (1.f + GetMasteryBonus()) * (1.f + GetVersatilityBonus())
+    * (1.f + GetMasteryBonus()) * (1.f + GetVersatilityBonus()) * ((GetWorld() && GetWorld()->GetTimeSeconds() < RacePowerActiveUntil && (RaceId == 1 || RaceId == 9 || RaceId == 10)) ? 1.15f : 1.f)
     * (bCriticalSpell ? 1.5f : 1.f) * MightMultiplier;
   // Reject invalid damage before spending mana or consuming a hard-earned counter.
   if (!FMath::IsFinite(SpellDamage) || SpellDamage <= 0.f) return false;
@@ -580,7 +619,7 @@ void AMoonfallHeroPawn::EndSprint() {
 
 void AMoonfallHeroPawn::Dodge()
 {
- if (bOptionsOpen || bInventoryOpen || Health <= 0.f || !GetWorld()) return;
+ if (bOptionsOpen || bInventoryOpen || FocusedResident.IsValid() || Health <= 0.f || !GetWorld()) return;
  const float Now = GetWorld()->GetTimeSeconds();
  // Nonfinite cooldown timestamps must not allow repeated dodges or immunity.
  if (!FMath::IsFinite(Now) || !FMath::IsFinite(NextDodgeAt)
@@ -661,7 +700,9 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
    + FMath::Clamp(((EquippedArmorCode / 1000) % 10) * 0.005f, 0.f, 0.025f)
    + GetVersatilityBonus() * 0.5f
    + (GetSetPieceCount(2) >= 3 ? 0.025f : 0.f));
- const float ArmoredDamage = Amount * (1.f - ArmorMitigation);
+ const bool bRacialWard = bRaceChosen && (RaceId == 3 || RaceId == 7 || RaceId == 8)
+   && Now < RacePowerActiveUntil;
+ const float ArmoredDamage = Amount * (1.f - ArmorMitigation) * (bRacialWard ? 0.85f : 1.f);
  float DamageAfterGuard = ArmoredDamage;
  // Enemy attacks must come from the front 150-degree guard cone.
  // Older environment damage with no provided origin retains its guard behavior.
@@ -742,6 +783,7 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
   LastSuccessfulHitAt = -100.f;
  }
  if (Health <= 0.f) {
+  CloseResidentContext();
   // Prevent lingering movement/jump input from carrying through defeat.
   StopJumping();
   if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
@@ -784,6 +826,7 @@ void AMoonfallHeroPawn::ToggleCharacterStats()
 }
 
 void AMoonfallHeroPawn::ToggleInventory() {
+ if (FocusedResident.IsValid()) CloseResidentContext();
  if (bOptionsOpen || Health <= 0.f) return;
  if (!bInventoryOpen) {
   StopJumping();
@@ -981,6 +1024,7 @@ void AMoonfallHeroPawn::UpgradeSelectedInventoryItem()
 
 void AMoonfallHeroPawn::InventoryConfirm() { EquipSelectedInventoryItem(); }
 void AMoonfallHeroPawn::OpenOptions() {
+ if (FocusedResident.IsValid()) { CloseResidentContext(); return; }
  // The defeat screen owns input until respawn; do not reopen gameplay menus.
  if (Health <= 0.f || !FMath::IsFinite(Health)) return;
  if (bInventoryOpen) { bInventoryOpen = false; bCharacterStatsOpen = false; return; }
@@ -993,6 +1037,11 @@ void AMoonfallHeroPawn::OpenOptions() {
  bOptionsOpen = !bOptionsOpen;
 }
 void AMoonfallHeroPawn::OptionsUp() {
+ if (FocusedResident.IsValid() && !bOptionsOpen && !bInventoryOpen) {
+  ResidentContextSelection = (ResidentContextSelection + 2) % 3;
+  bResidentTurnInPending = false;
+  return;
+ }
  if (bInventoryOpen) {
   InventorySelection = FMath::Max(0, InventorySelection - 1);
   return;
@@ -1000,6 +1049,11 @@ void AMoonfallHeroPawn::OptionsUp() {
  if (bOptionsOpen) OptionsSelection = (OptionsSelection + 6) % 7;
 }
 void AMoonfallHeroPawn::OptionsDown() {
+ if (FocusedResident.IsValid() && !bOptionsOpen && !bInventoryOpen) {
+  ResidentContextSelection = (ResidentContextSelection + 1) % 3;
+  bResidentTurnInPending = false;
+  return;
+ }
  if (bInventoryOpen) {
   InventorySelection = FMath::Min(FMath::Max(0, InventoryItemCodes.Num() - 1), InventorySelection + 1);
   return;
@@ -1488,6 +1542,625 @@ bool AMoonfallHeroPawn::EquipInventoryItem(int32 InventoryIndex)
   MaxHealth = FMath::Max(1.f, MaxHealth + HealthDelta);
   Health = FMath::Clamp(Health + HealthDelta, 1.f, MaxHealth);
   OnHealthChanged(Health, MaxHealth);
+ }
+ return true;
+}
+
+
+namespace {
+const FString MoonfallWorldSlot(TEXT("MoonfallPersistentWorldV1"));
+// Defined with the faction/relationship helpers below; shared by save migration.
+bool IsNamedMoonfallResident(FName Id);
+bool ValidMoonfallItemCode(int32 Code) {
+ if (Code <= 0) return false;
+ const int32 Trait = Code / 100000;
+ const int32 Slot = (Code / 10000) % 10;
+ const int32 Rarity = (Code / 1000) % 10;
+ const int32 Tier = Code % 1000;
+ return Trait >= 1 && Trait <= 3 && Slot >= 0 && Slot <= 2
+     && Rarity >= 1 && Rarity <= 5 && Tier >= 1 && Tier <= 25
+     && Code == Trait * 100000 + Slot * 10000 + Rarity * 1000 + Tier;
+}
+}
+bool AMoonfallHeroPawn::SaveWorldProgress() {
+ // Existing incompatible/unreadable save must never be replaced by autosave
+ // or by a quest/gear/race update from the temporary in-memory character.
+ if (bPersistentSaveWritesBlocked) return false;
+ if (Health <= 0.f || !GetWorld() || !FMath::IsFinite(MaxHealth)) return false;
+ // Do not serialize a mid-fall or invalid checkpoint.
+ if ((GetCharacterMovement() && GetCharacterMovement()->IsFalling())
+     || GetActorLocation().ContainsNaN() || GetActorLocation().SizeSquared() >= 1.0e14f) return false;
+ UMoonfallPersistentSave* Save = Cast<UMoonfallPersistentSave>(
+     UGameplayStatics::CreateSaveGameObject(UMoonfallPersistentSave::StaticClass()));
+ if (!Save) return false;
+ Save->CheckpointLocation = GetActorLocation();
+ Save->RaceId = FMath::Clamp(RaceId, 0, 11);
+ Save->FactionReputation = FactionReputation;
+ Save->ResidentBonds = ResidentBonds;
+ Save->ResidentQuestStates = ResidentQuestStates;
+ Save->bRaceChosen = bRaceChosen;
+ const float Cooldown = GetRacePowerCooldownRemaining();
+ Save->RacePowerReadyUtc = Cooldown > 0.f
+     ? FDateTime::UtcNow().ToUnixTimestamp() + FMath::CeilToInt64(FMath::Min(Cooldown, 45.f)) : 0;
+ Save->Level = FMath::Clamp(Level, 1, 100);
+ Save->Experience = FMath::Clamp(Experience, 0, 1000000);
+ Save->Salvage = FMath::Clamp(Salvage, 0, 100000000);
+ Save->MaxHealth = FMath::Clamp(MaxHealth, 1.f, 100000.f);
+ // Retain inventory and the worn IDs so replacing gear never wipes old loot.
+ Save->InventoryItemCodes = InventoryItemCodes;
+ Save->EquippedWeaponCode = EquippedWeaponCode;
+ Save->EquippedArmorCode = EquippedArmorCode;
+ Save->EquippedAccessoryCode = EquippedAccessoryCode;
+ Save->LeftSpell = LeftSpell;
+ Save->RightSpell = RightSpell;
+ return UGameplayStatics::SaveGameToSlot(Save, MoonfallWorldSlot, 0);
+}
+bool AMoonfallHeroPawn::LoadWorldProgress() {
+ if (!UGameplayStatics::DoesSaveGameExist(MoonfallWorldSlot, 0)) return false;
+ const UMoonfallPersistentSave* Save = Cast<UMoonfallPersistentSave>(
+     UGameplayStatics::LoadGameFromSlot(MoonfallWorldSlot, 0));
+ if (!Save || Save->Version < 1 || Save->Version > 6) {
+  // Protect newer/corrupt-but-detected saves. Calling Tick's two-second
+  // autosave must not replace progress from another Moonfall version.
+  bPersistentSaveWritesBlocked = true;
+  UE_LOG(LogTemp, Warning, TEXT("Moonfall save slot is unreadable or has an unsupported version; writes disabled."));
+  return false;
+ }
+ bPersistentSaveWritesBlocked = false;
+ ResidentQuestStates.Reset();
+ if (Save->Version >= 6) {
+  // Ignore unknown, malformed and oversized quest entries from disk.
+  if (Save->ResidentQuestStates.Num() <= 64) {
+   for (const auto& Entry : Save->ResidentQuestStates)
+    if (IsNamedMoonfallResident(Entry.Key) && (Entry.Value == 1 || Entry.Value == 2))
+     ResidentQuestStates.Add(Entry.Key, Entry.Value);
+  }
+ }
+ // Old saves begin with no personal bonds. Only named settlement residents are restored.
+ ResidentBonds.Reset();
+ if (Save->Version >= 5) {
+  static const FName ValidIds[] = {
+   FName(TEXT("CrossroadsGuide")), FName(TEXT("Alden")),
+   FName(TEXT("Starweaver")), FName(TEXT("Leafwhisper")),
+   FName(TEXT("Anvilkeeper")), FName(TEXT("PipHearthfoot")),
+   FName(TEXT("EmberScout")), FName(TEXT("Geargrin")),
+   FName(TEXT("Mossfang")), FName(TEXT("Birchroot")),
+   FName(TEXT("Duskveil")), FName(TEXT("Silverwatch")),
+   FName(TEXT("Ashscale"))
+  };
+  for (FName Key : ValidIds) {
+   if (const int32* Value = Save->ResidentBonds.Find(Key))
+    ResidentBonds.Add(Key, FMath::Clamp(*Value, -100, 100));
+  }
+ }
+ // Do not trust malformed faction records or unknown save keys.
+ FactionReputation.Reset();
+ if (Save->Version >= 4) {
+  static const FName Allowed[] = {FName(TEXT("Wanderers")),
+   FName(TEXT("VerdantCircle")), FName(TEXT("StoneHearth")),
+   FName(TEXT("MoonCoven")), FName(TEXT("AshenClans"))};
+  for (const FName Key : Allowed) {
+   if (const int32* Value = Save->FactionReputation.Find(Key))
+    FactionReputation.Add(Key, FMath::Clamp(*Value, -100, 100));
+  }
+ }
+ // Old save versions remain valid. Cooldowns cannot be cleared by reloading.
+ const int64 NowUtc = FDateTime::UtcNow().ToUnixTimestamp();
+ const int64 Remaining = Save->Version >= 3 && Save->RacePowerReadyUtc > NowUtc
+     ? FMath::Min<int64>(Save->RacePowerReadyUtc - NowUtc, 45) : 0;
+ RacePowerReadyAt = GetWorld() ? GetWorld()->GetTimeSeconds() + static_cast<float>(Remaining) : 0.f;
+ RacePowerActiveUntil = 0.f;
+ RaceId = Save->Version >= 2 ? FMath::Clamp(Save->RaceId, 0, 11) : 0;
+ bRaceChosen = Save->Version >= 2 && Save->bRaceChosen;
+ Level = FMath::Clamp(Save->Level, 1, 100);
+ Experience = FMath::Clamp(Save->Experience, 0, 1000000);
+ ExperienceToNextLevel = 100 + (Level - 1) * 55;
+ Salvage = FMath::Clamp(Save->Salvage, 0, 100000000);
+ MaxHealth = FMath::IsFinite(Save->MaxHealth)
+     ? FMath::Clamp(Save->MaxHealth, 1.f, 100000.f) : 100.f;
+ InventoryItemCodes.Reset();
+ // Cap the number of inspected entries, not just accepted items: an oversized
+ // corrupted save with invalid codes must not cause an unbounded load loop.
+ const int32 LoadScanCount = FMath::Min(Save->InventoryItemCodes.Num(), 10000);
+ for (int32 Index = 0; Index < LoadScanCount; ++Index) {
+  const int32 Code = Save->InventoryItemCodes[Index];
+  if (ValidMoonfallItemCode(Code)) InventoryItemCodes.Add(Code);
+ }
+ const auto RestoreGear = [this](int32 Code, int32 Slot, int32& Equipped, int32& Tier, int32& Affix) {
+  if (ValidMoonfallItemCode(Code) && ((Code / 10000) % 10) == Slot && InventoryItemCodes.Contains(Code)) {
+   Equipped = Code;
+   Tier = Code % 1000;
+   Affix = Code / 100000;
+  } else {
+   Equipped = 0;
+   Tier = 0;
+   Affix = 0;
+  }
+ };
+ RestoreGear(Save->EquippedWeaponCode, 0, EquippedWeaponCode, WeaponTier, WeaponAffix);
+ RestoreGear(Save->EquippedArmorCode, 1, EquippedArmorCode, ArmorTier, ArmorAffix);
+ RestoreGear(Save->EquippedAccessoryCode, 2, EquippedAccessoryCode, AccessoryTier, AccessoryAffix);
+ EquipmentTier = FMath::Max(WeaponTier, FMath::Max(ArmorTier, AccessoryTier));
+ LeftSpell = FMath::Clamp(Save->LeftSpell, 0, 100);
+ RightSpell = FMath::Clamp(Save->RightSpell, 0, 100);
+ Health = MaxHealth;
+ Mana = FMath::Max(0.f, MaxMana);
+ Stamina = FMath::Max(0.f, MaxStamina);
+ if (!Save->CheckpointLocation.ContainsNaN()
+     && Save->CheckpointLocation.SizeSquared() < 1.0e14f)
+  SetActorLocation(Save->CheckpointLocation, false, nullptr, ETeleportType::TeleportPhysics);
+ OnHealthChanged(Health, MaxHealth);
+ return true;
+}
+void AMoonfallHeroPawn::RespawnAtCheckpoint() {
+ DefeatElapsedSeconds = 0.f;
+ // No new run, no loot reset. Restore last living checkpoint.
+ if (!LoadWorldProgress()) {
+  Health = FMath::Max(1.f, MaxHealth);
+  Mana = FMath::Max(0.f, MaxMana);
+  Stamina = FMath::Max(0.f, MaxStamina);
+  OnHealthChanged(Health, MaxHealth);
+ }
+ if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
+ if (GetWorld()) {
+  const float Now = GetWorld()->GetTimeSeconds();
+  DamageImmunityUntil = FMath::Max(DamageImmunityUntil, Now + 3.f);
+  NextSafeCheckpointAt = Now + 5.f;
+  SecondsSinceLastWorldSave = 0.f;
+ }
+}
+
+// One unified roster. Every ancestry shares the same world, quests and progression.
+// Index order is stable across saves; never reorder IDs in a shipped build.
+namespace {
+struct FMoonfallRaceProfile {
+ const TCHAR* Name;
+ int32 Might;
+ int32 Insight;
+ int32 Resolve;
+ float StaminaRegen;
+ float ManaRegen;
+};
+constexpr FMoonfallRaceProfile MoonfallRaces[] = {
+ {TEXT("Human"),      2, 2, 2, 0.02f, 0.02f},
+ {TEXT("High Elf"),   0, 6, 0, 0.00f, 0.10f},
+ {TEXT("Wood Elf"),   3, 3, 0, 0.10f, 0.02f},
+ {TEXT("Dwarf"),      3, 0, 5, 0.06f, 0.00f},
+ {TEXT("Halfling"),   1, 3, 2, 0.12f, 0.02f},
+ {TEXT("Orc"),        6, 0, 2, 0.07f, 0.00f},
+ {TEXT("Goblin"),     3, 3, 0, 0.12f, 0.02f},
+ {TEXT("Troll"),      4, 0, 5, 0.03f, 0.00f},
+ {TEXT("Entkin"),     1, 2, 6, 0.02f, 0.04f},
+ {TEXT("Shadowborn"), 4, 4, 0, 0.05f, 0.05f},
+ {TEXT("Moonborn"),   0, 5, 3, 0.00f, 0.12f},
+ {TEXT("Draconid"),   5, 2, 2, 0.04f, 0.04f}
+};
+const FMoonfallRaceProfile& RaceProfile(int32 Id) {
+ return MoonfallRaces[FMath::Clamp(Id, 0, 11)];
+}
+}
+bool AMoonfallHeroPawn::ChooseRace(int32 NewRaceId) {
+ // Character creation is a single deliberate choice, not an unlimited respec.
+ if (bRaceChosen || NewRaceId < 0 || NewRaceId > 11 || Health <= 0.f) return false;
+ const int32 OldId = RaceId;
+ RaceId = NewRaceId;
+ bRaceChosen = true;
+ // Fail closed on save error: no unsaved race lock.
+ if (!SaveWorldProgress()) {
+  RaceId = OldId;
+  bRaceChosen = false;
+  return false;
+ }
+ return true;
+}
+FString AMoonfallHeroPawn::GetRaceName() const { return FString(RaceProfile(RaceId).Name); }
+int32 AMoonfallHeroPawn::GetRaceMightBonus() const { return bRaceChosen ? RaceProfile(RaceId).Might : 0; }
+int32 AMoonfallHeroPawn::GetRaceInsightBonus() const { return bRaceChosen ? RaceProfile(RaceId).Insight : 0; }
+int32 AMoonfallHeroPawn::GetRaceResolveBonus() const { return bRaceChosen ? RaceProfile(RaceId).Resolve : 0; }
+float AMoonfallHeroPawn::GetRaceStaminaRegenBonus() const { return bRaceChosen ? RaceProfile(RaceId).StaminaRegen : 0; }
+float AMoonfallHeroPawn::GetRaceManaRegenBonus() const { return bRaceChosen ? RaceProfile(RaceId).ManaRegen : 0; }
+
+
+namespace {
+const TCHAR* MoonfallRacePowerNames[] = {
+ TEXT("Adventurer's Resolve"), TEXT("Starfire Focus"), TEXT("Forest Step"),
+ TEXT("Stoneguard"), TEXT("Lucky Escape"), TEXT("War Cry"),
+ TEXT("Quickcraft"), TEXT("Trollhide"), TEXT("Rootward"),
+ TEXT("Night Veil"), TEXT("Moon Surge"), TEXT("Drakeheart")
+};
+}
+FString AMoonfallHeroPawn::GetRacePowerName() const {
+ return FString(MoonfallRacePowerNames[FMath::Clamp(RaceId, 0, 11)]);
+}
+float AMoonfallHeroPawn::GetRacePowerCooldownRemaining() const {
+ if (!GetWorld()) return 0.f;
+ return FMath::Max(0.f, RacePowerReadyAt - GetWorld()->GetTimeSeconds());
+}
+float AMoonfallHeroPawn::GetRacePowerDurationRemaining() const {
+ if (!GetWorld()) return 0.f;
+ return FMath::Max(0.f, RacePowerActiveUntil - GetWorld()->GetTimeSeconds());
+}
+bool AMoonfallHeroPawn::ActivateRacePower() {
+ if (!bRaceChosen || !GetWorld() || Health <= 0.f || bInventoryOpen || bOptionsOpen) return false;
+ const float Now = GetWorld()->GetTimeSeconds();
+ if (!FMath::IsFinite(Now) || Now < RacePowerReadyAt) return false;
+ // Preserve state so a failed disk save never consumes a one-time power.
+ const float PreviousHealth = Health;
+ const float PreviousMana = Mana;
+ const float PreviousStamina = Stamina;
+ const float PreviousReadyAt = RacePowerReadyAt;
+ const float PreviousActiveUntil = RacePowerActiveUntil;
+ // Unique racial power effects (bounded resources and temporary buffs).
+ const float SafeMaxMana = FMath::IsFinite(MaxMana) ? FMath::Clamp(MaxMana, 0.f, 100000.f) : 0.f;
+ const float SafeMaxStamina = FMath::IsFinite(MaxStamina) ? FMath::Clamp(MaxStamina, 0.f, 100000.f) : 0.f;
+ const float SafeMaxHealth = FMath::IsFinite(MaxHealth) ? FMath::Clamp(MaxHealth, 1.f, 100000.f) : 100.f;
+ float Duration = 8.f;
+ switch (RaceId) {
+ case 0: // Human: balanced recovery.
+  Mana = FMath::Clamp(Mana + SafeMaxMana * 0.15f, 0.f, SafeMaxMana);
+  Stamina = FMath::Clamp(Stamina + SafeMaxStamina * 0.15f, 0.f, SafeMaxStamina);
+  break;
+ case 1: // High Elf: arcane focus, increases spells while active.
+  Mana = FMath::Clamp(Mana + SafeMaxMana * 0.30f, 0.f, SafeMaxMana);
+  break;
+ case 2: // Wood Elf: longer agility / stamina boon.
+  Duration = 12.f;
+  Stamina = FMath::Clamp(Stamina + SafeMaxStamina * 0.35f, 0.f, SafeMaxStamina);
+  break;
+ case 3: // Dwarf: short damage ward.
+  Duration = 10.f;
+  Stamina = FMath::Clamp(Stamina + SafeMaxStamina * 0.10f, 0.f, SafeMaxStamina);
+  break;
+ case 4: // Halfling: large stamina refill.
+  Duration = 6.f;
+  Stamina = FMath::Clamp(Stamina + SafeMaxStamina * 0.45f, 0.f, SafeMaxStamina);
+  break;
+ case 5: // Orc: battle stamina and a small restorative heal.
+  Health = FMath::Clamp(Health + SafeMaxHealth * 0.08f, 0.f, SafeMaxHealth);
+  Stamina = FMath::Clamp(Stamina + SafeMaxStamina * 0.20f, 0.f, SafeMaxStamina);
+  break;
+ case 6: // Goblin: rapid mana and stamina refill.
+  Duration = 5.f;
+  Mana = FMath::Clamp(Mana + SafeMaxMana * 0.22f, 0.f, SafeMaxMana);
+  Stamina = FMath::Clamp(Stamina + SafeMaxStamina * 0.22f, 0.f, SafeMaxStamina);
+  break;
+ case 7: // Troll: regeneration and ward.
+  Health = FMath::Clamp(Health + SafeMaxHealth * 0.12f, 0.f, SafeMaxHealth);
+  break;
+ case 8: // Entkin: strongest protective duration, small heal.
+  Duration = 14.f;
+  Health = FMath::Clamp(Health + SafeMaxHealth * 0.08f, 0.f, SafeMaxHealth);
+  break;
+ case 9: // Shadowborn: shadow-powered spells and stamina.
+  Stamina = FMath::Clamp(Stamina + SafeMaxStamina * 0.22f, 0.f, SafeMaxStamina);
+  break;
+ case 10: // Moonborn: arcane surge.
+  Mana = FMath::Clamp(Mana + SafeMaxMana * 0.38f, 0.f, SafeMaxMana);
+  break;
+ case 11: // Draconid: balanced magic and a burst of recovery.
+  Health = FMath::Clamp(Health + SafeMaxHealth * 0.07f, 0.f, SafeMaxHealth);
+  Mana = FMath::Clamp(Mana + SafeMaxMana * 0.18f, 0.f, SafeMaxMana);
+  break;
+ default: return false;
+ }
+ RacePowerActiveUntil = Now + Duration;
+ RacePowerReadyAt = Now + 45.f;
+ // Persist cooldown and refreshed resources together. On disk failure do not
+ // grant free power, consume cooldown, or tell UI the ability succeeded.
+ if (!SaveWorldProgress()) {
+  Health = PreviousHealth;
+  Mana = PreviousMana;
+  Stamina = PreviousStamina;
+  RacePowerReadyAt = PreviousReadyAt;
+  RacePowerActiveUntil = PreviousActiveUntil;
+  OnHealthChanged(Health, MaxHealth);
+  return false;
+ }
+ OnHealthChanged(Health, MaxHealth);
+ OnRacePowerActivated(FName(MoonfallRacePowerNames[RaceId]));
+ return true;
+}
+
+AMoonfallWorldNPC* AMoonfallHeroPawn::GetNearestResidentNPC() const {
+ if (!GetWorld() || Health <= 0.f || bOptionsOpen || bInventoryOpen) return nullptr;
+ AMoonfallWorldNPC* Nearest = nullptr;
+ float BestDistSq = FMath::Square(400.f);
+ int32 Checked = 0;
+ // Query only after explicit input; no per-frame scanning or NPC Tick.
+ for (TActorIterator<AMoonfallWorldNPC> It(GetWorld()); It && Checked < 64; ++It, ++Checked) {
+  AMoonfallWorldNPC* Candidate = *It;
+  if (!IsValid(Candidate)) continue;
+  const float DistSq = FVector::DistSquared(GetActorLocation(), Candidate->GetActorLocation());
+  // Choose the closest *reachable* resident. A nearer NPC behind a wall
+  // must not prevent talking to another visible NPC on controller.
+  if (FMath::IsFinite(DistSq) && DistSq < BestDistSq &&
+      Candidate->CanHeroInteract(this)) {
+   BestDistSq = DistSq;
+   Nearest = Candidate;
+  }
+ }
+ return Nearest;
+}
+void AMoonfallHeroPawn::CloseResidentContext() {
+ // Never depend on actor lifetime for menu cleanup: streaming or destruction
+ // can invalidate the NPC pointer without closing the active input modal.
+ if (!bResidentContextOpen && !FocusedResident.IsValid()) return;
+ bResidentContextOpen = false;
+ FocusedResident.Reset();
+ // Closing dialogue does not change mouse cursor visibility.
+ ResidentContextSelection = 0;
+ bResidentTurnInPending = false;
+ ResidentTurnInConfirmUntil = 0.f;
+ ResidentTurnInConfirmAfter = 0.f;
+ ResidentFeedbackMessage.Empty();
+ ResidentFeedbackUntil = 0.f;
+ OnResidentContextClosed();
+}
+void AMoonfallHeroPawn::OpenFocusedResidentContext() {
+ // One controller D-pad Up mapping serves options/inventory navigation
+ // and the contextual NPC menu without delivering duplicate key events.
+ if (bOptionsOpen || bInventoryOpen) { OptionsUp(); return; }
+ if (!GetWorld() || Health <= 0.f) return;
+ if (bResidentContextOpen && FocusedResident.IsValid() && FocusedResident->CanHeroInteract(this)) {
+  ResidentContextSelection = (ResidentContextSelection + 2) % 3;
+  bResidentTurnInPending = false;
+  return;
+ }
+ AMoonfallWorldNPC* Resident = GetNearestResidentNPC();
+ if (!IsValid(Resident) || !Resident->CanHeroInteract(this)) return;
+ FocusedResident = Resident;
+ bResidentContextOpen = true;
+ bResidentTurnInPending = false;
+ if (APlayerController* PC = Cast<APlayerController>(Controller)) {
+  PC->bShowMouseCursor = true;
+ }
+ ResidentContextSelection = 0;
+ OnResidentContextOpened(Resident, Resident->DisplayName,
+     GetResidentQuestState(Resident->ResidentId), Resident->GetContractSalvageCost());
+}
+void AMoonfallHeroPawn::CastRightMouse() {
+ if (bResidentContextOpen) { CloseResidentContext(); return; }
+ if (Health <= 0.f || bOptionsOpen || bInventoryOpen || !GetWorld()) return;
+ // WoW-style mouse pointer selection when a cursor is visible, or
+ // AC-like central aim selection when using hidden-cursor mouse look.
+ FHitResult Hit;
+ bool bHit = false;
+ if (APlayerController* PC = Cast<APlayerController>(Controller)) {
+  if (PC->bShowMouseCursor) {
+   bHit = PC->GetHitResultUnderCursor(ECC_Visibility, false, Hit);
+  } else {
+   FVector Eye;
+   FRotator ViewRotation;
+   PC->GetPlayerViewPoint(Eye, ViewRotation);
+   FCollisionQueryParams Params(SCENE_QUERY_STAT(MoonfallNPCContext), false);
+   Params.AddIgnoredActor(this);
+   bHit = GetWorld()->LineTraceSingleByChannel(
+       Hit, Eye, Eye + ViewRotation.Vector() * 500.f, ECC_Visibility, Params);
+  }
+ }
+ if (bHit) {
+  if (AMoonfallWorldNPC* Resident = Cast<AMoonfallWorldNPC>(Hit.GetActor())) {
+   // A click on a civilian is never converted to a spell, even when too far.
+   if (Resident->CanHeroInteract(this)) {
+    FocusedResident = Resident;
+    bResidentContextOpen = true;
+    bResidentTurnInPending = false;
+       if (APlayerController* PC = Cast<APlayerController>(Controller)) {
+        PC->bShowMouseCursor = true;
+    }
+    ResidentContextSelection = 0;
+    OnResidentContextOpened(Resident, Resident->DisplayName,
+        GetResidentQuestState(Resident->ResidentId), Resident->GetContractSalvageCost());
+   } else {
+    OnResidentQuestFeedback(FText::FromString(TEXT("Move closer to interact.")), false);
+   }
+   return;
+  }
+ }
+ // All non-NPC right clicks retain right-hand attack behavior.
+ CastRight();
+}
+void AMoonfallHeroPawn::ResidentContextMouseClick() {
+ if (!bResidentContextOpen) { CastLeft(); return; }
+ if (!FocusedResident.IsValid()) { CloseResidentContext(); return; }
+ if (!GetWorld() || bOptionsOpen || bInventoryOpen) { CloseResidentContext(); return; }
+ APlayerController* PC = Cast<APlayerController>(Controller);
+ if (!PC) return;
+ int32 Width = 0, Height = 0;
+ float MouseX = 0.f, MouseY = 0.f;
+ PC->GetViewportSize(Width, Height);
+ if (Width <= 0 || Height <= 0 || !PC->GetMousePosition(MouseX, MouseY)) return;
+ const float PanelW = FMath::Min(490.f, FMath::Max(260.f, Width - 24.f));
+ const float PanelH = FMath::Min(345.f, FMath::Max(270.f, Height - 24.f));
+ const float Left = (Width - PanelW) * 0.5f, Top = (Height - PanelH) * 0.5f;
+ if (MouseX < Left || MouseX > Left + PanelW || MouseY < Top || MouseY > Top + PanelH) {
+  CloseResidentContext();
+  return;
+ }
+ // Shared exact row bounds with the Canvas HUD renderer.
+ for (int32 Row = 0; Row < 3; ++Row) {
+  const float RowTop = Top + 122.f + Row * 53.f;
+  if (MouseY >= RowTop && MouseY <= RowTop + 43.f) {
+   if (ResidentContextSelection != Row)   if (ResidentContextSelection != Row) bResidentTurnInPending = false;
+   ResidentContextSelection = Row;
+   if (Row == 2) CloseResidentContext();
+   else ChooseResidentContextAction(Row);
+   return;
+  }
+ }
+}
+void AMoonfallHeroPawn::TalkToNearestNPC() {
+ if (AMoonfallWorldNPC* Resident = GetNearestResidentNPC()) {
+  if (Resident->CanHeroInteract(this)) Resident->TryTalk(this);
+ }
+}
+void AMoonfallHeroPawn::InteractWithNearestResidentQuest() {
+ // Existing Blueprint/API compatibility. Never auto-spend salvage.
+ OpenFocusedResidentContext();
+}
+bool AMoonfallHeroPawn::ChooseResidentContextAction(int32 Choice) {
+ AMoonfallWorldNPC* Resident = FocusedResident.Get();
+ if (!bResidentContextOpen || !IsValid(Resident) || !Resident->CanHeroInteract(this)) {
+  CloseResidentContext();
+  return false;
+ }
+ if (Choice == 2) { CloseResidentContext(); return true; }
+ if (Choice == 0) {
+  bResidentTurnInPending = false;
+  if (!Resident->TryTalk(this)) return false;
+  ResidentFeedbackMessage = Resident->LastSpokenLine.ToString();
+  ResidentFeedbackUntil = GetWorld() ? GetWorld()->GetTimeSeconds() + 8.f : 0.f;
+  return true;
+ }
+ if (Choice != 1) return false;
+ const int32 State = GetResidentQuestState(Resident->ResidentId);
+ bool bSucceeded = false;
+ FText Message;
+ if (State == 0) {
+  bSucceeded = Resident->OfferResidentQuest(this);
+  Message = bSucceeded ? FText::FromString(TEXT("Contract accepted."))
+    : FText::FromString(TEXT("Contract unavailable."));
+ } else if (State == 1) {
+  if (Salvage < Resident->GetContractSalvageCost()) {
+   bResidentTurnInPending = false;
+   Message = FText::FromString(TEXT("Not enough salvage to complete this contract."));
+  } else if (!bResidentTurnInPending || !GetWorld()
+      || GetWorld()->GetTimeSeconds() > ResidentTurnInConfirmUntil) {
+   bResidentTurnInPending = true;
+   ResidentTurnInConfirmUntil = GetWorld() ? GetWorld()->GetTimeSeconds() + 6.f : 0.f;
+   ResidentTurnInConfirmAfter = GetWorld() ? GetWorld()->GetTimeSeconds() + 0.35f : 0.f;
+   Message = FText::FromString(FString::Printf(
+     TEXT("Confirm spending %d salvage: choose Turn In again."),
+     Resident->GetContractSalvageCost()));
+  } else if (GetWorld()->GetTimeSeconds() < ResidentTurnInConfirmAfter) {
+   Message = FText::FromString(TEXT("Confirm once more after a short moment."));
+  } else {
+   bResidentTurnInPending = false;
+   bSucceeded = Resident->TurnInResidentQuest(this);
+   Message = bSucceeded ? FText::FromString(TEXT("Contract complete."))
+     : FText::FromString(TEXT("Contract could not be completed."));
+  }
+ } else {
+  Message = FText::FromString(TEXT("This contract is already complete."));
+ }
+ ResidentFeedbackMessage = Message.ToString();
+ ResidentFeedbackUntil = GetWorld() ? GetWorld()->GetTimeSeconds() + 4.f : 0.f;
+ OnResidentQuestFeedback(Message, bSucceeded);
+ // Keep menu available after accepting. Update quest state for UI.
+ if (bSucceeded) OnResidentContextOpened(Resident, Resident->DisplayName,
+      GetResidentQuestState(Resident->ResidentId), Resident->GetContractSalvageCost());
+ return bSucceeded;
+}
+
+// Bounded, persistent faction relationship API. No free reputation on repeated talk.
+namespace {
+bool IsMoonfallFaction(FName Faction) {
+ return Faction == FName(TEXT("Wanderers"))
+    || Faction == FName(TEXT("VerdantCircle"))
+    || Faction == FName(TEXT("StoneHearth"))
+    || Faction == FName(TEXT("MoonCoven"))
+    || Faction == FName(TEXT("AshenClans"));
+}
+}
+int32 AMoonfallHeroPawn::GetFactionReputation(FName Faction) const {
+ if (const int32* Value = FactionReputation.Find(Faction)) return FMath::Clamp(*Value, -100, 100);
+ return 0;
+}
+bool AMoonfallHeroPawn::ChangeFactionReputation(FName Faction, int32 Delta) {
+ if (!IsMoonfallFaction(Faction) || Delta == 0 || Health <= 0.f) return false;
+ const int32 OldValue = GetFactionReputation(Faction);
+ const int32 NewValue = static_cast<int32>(FMath::Clamp(
+    static_cast<int64>(OldValue) + static_cast<int64>(Delta),
+    static_cast<int64>(-100), static_cast<int64>(100)));
+ if (OldValue == NewValue) return false;
+ FactionReputation.Add(Faction, NewValue);
+ if (!SaveWorldProgress()) {
+  if (OldValue == 0) FactionReputation.Remove(Faction);
+  else FactionReputation.Add(Faction, OldValue);
+  return false;
+ }
+ return true;
+}
+
+namespace {
+bool IsNamedMoonfallResident(FName Id) {
+ static const FName ResidentIds[] = {
+  FName(TEXT("CrossroadsGuide")), FName(TEXT("Alden")),
+  FName(TEXT("Starweaver")), FName(TEXT("Leafwhisper")),
+  FName(TEXT("Anvilkeeper")), FName(TEXT("PipHearthfoot")),
+  FName(TEXT("EmberScout")), FName(TEXT("Geargrin")),
+  FName(TEXT("Mossfang")), FName(TEXT("Birchroot")),
+  FName(TEXT("Duskveil")), FName(TEXT("Silverwatch")),
+  FName(TEXT("Ashscale"))
+ };
+ for (const FName Candidate : ResidentIds) if (Id == Candidate) return true;
+ return false;
+}
+}
+int32 AMoonfallHeroPawn::GetResidentBond(FName ResidentId) const {
+ if (!IsNamedMoonfallResident(ResidentId)) return 0;
+ if (const int32* Value = ResidentBonds.Find(ResidentId))
+  return FMath::Clamp(*Value, -100, 100);
+ return 0;
+}
+bool AMoonfallHeroPawn::ChangeResidentBond(FName ResidentId, int32 Delta) {
+ if (!IsNamedMoonfallResident(ResidentId) || Delta == 0 || Health <= 0.f) return false;
+ const int32 Previous = GetResidentBond(ResidentId);
+ const int32 Next = static_cast<int32>(FMath::Clamp(
+     static_cast<int64>(Previous) + static_cast<int64>(Delta),
+     static_cast<int64>(-100), static_cast<int64>(100)));
+ if (Next == Previous) return false;
+ ResidentBonds.Add(ResidentId, Next);
+ // Failed disk writes must not grant a relationship or destroy the old one.
+ if (!SaveWorldProgress()) {
+  if (Previous == 0) ResidentBonds.Remove(ResidentId);
+  else ResidentBonds.Add(ResidentId, Previous);
+  return false;
+ }
+ return true;
+}
+
+int32 AMoonfallHeroPawn::GetResidentQuestState(FName ResidentId) const {
+ if (!IsNamedMoonfallResident(ResidentId)) return 0;
+ if (const int32* Value = ResidentQuestStates.Find(ResidentId))
+  return (*Value == 1 || *Value == 2) ? *Value : 0;
+ return 0;
+}
+bool AMoonfallHeroPawn::AcceptResidentQuest(FName ResidentId) {
+ if (!IsNamedMoonfallResident(ResidentId) || Health <= 0.f
+     || bOptionsOpen || bInventoryOpen || GetResidentQuestState(ResidentId) != 0) return false;
+ ResidentQuestStates.Add(ResidentId, 1);
+ if (!SaveWorldProgress()) {
+  ResidentQuestStates.Remove(ResidentId);
+  return false;
+ }
+ return true;
+}
+bool AMoonfallHeroPawn::CompleteResidentQuest(AMoonfallWorldNPC* Resident) {
+ if (!IsValid(Resident) || !Resident->CanHeroInteract(this)
+     || !IsNamedMoonfallResident(Resident->ResidentId)
+     || GetResidentQuestState(Resident->ResidentId) != 1) return false;
+ const int32 Cost = Resident->GetContractSalvageCost();
+ if (Cost < 1 || Cost > 30 || Salvage < Cost) return false;
+ const FName Id = Resident->ResidentId;
+ const FName Faction = Resident->FactionId;
+ if (!IsMoonfallFaction(Faction)) return false;
+ // One atomic save: pay salvage, earn 6 bond and 3 faction reputation.
+ const int32 PreviousSalvage = Salvage;
+ const int32 PreviousBond = GetResidentBond(Id);
+ const int32 PreviousRep = GetFactionReputation(Faction);
+ Salvage -= Cost;
+ ResidentQuestStates.Add(Id, 2);
+ ResidentBonds.Add(Id, FMath::Clamp(PreviousBond + 6, -100, 100));
+ FactionReputation.Add(Faction, FMath::Clamp(PreviousRep + 3, -100, 100));
+ if (!SaveWorldProgress()) {
+  Salvage = PreviousSalvage;
+  ResidentQuestStates.Add(Id, 1);
+  if (PreviousBond == 0) ResidentBonds.Remove(Id);
+  else ResidentBonds.Add(Id, PreviousBond);
+  if (PreviousRep == 0) FactionReputation.Remove(Faction);
+  else FactionReputation.Add(Faction, PreviousRep);
+  return false;
  }
  return true;
 }

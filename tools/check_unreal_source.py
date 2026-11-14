@@ -136,6 +136,22 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                         script.index("if ($PreflightOnly)"))
         self.assertLess(script.index("dotnet --list-sdks"), script.index("if ($PreflightOnly)"))
 
+    def test_local_build_bootstraps_missing_startup_map_safely(self):
+        script = (ROOT.parents[1] / "Build" / "Build-Windows.ps1").read_text(encoding="utf-8")
+        generator = (ROOT.parents[1] / "Build" / "Create-StartupLevel.py").read_text(encoding="utf-8")
+        self.assertIn("if (-not $CompileOnly -and -not $CompilePreflightOnly -and -not $PreflightOnly) {", script)
+        self.assertIn("$editorCompiledForStartupMap = $false", script)
+        self.assertIn("if (-not $hasSavedMap -or -not $configIsReady) {", script)
+        self.assertIn("Create-StartupLevel.py", script)
+        self.assertIn('"-ExecutePythonScript=$generator"', script)
+        self.assertIn("if ($LASTEXITCODE -ne 0) { throw \"Startup map generation failed:", script)
+        self.assertIn("if (-not $editorCompiledForStartupMap) {", script)
+        self.assertLess(script.index("Preparing Moonfall startup map with Unreal Editor"),
+                        script.index("if (-not (Test-Path -LiteralPath $startupMap -PathType Leaf))"))
+        self.assertIn("if map_file.exists():", generator)
+        self.assertIn("if map_exists:", generator)
+        self.assertIn("levels.save_current_level()", generator)
+
     def test_progression_declared_and_defined(self):
         for name in ("AwardExperience", "AwardEquipmentDrop", "RewardPerfectDodge"):
             self.assertIn(name + "(", self.hero_h)
@@ -186,7 +202,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("InventorySelection = FMath::Max(0, InventorySelection - 1);", toggle)
         self.assertIn("InventorySelection = FMath::Min(FMath::Max(0, InventoryItemCodes.Num() - 1), InventorySelection + 1);", toggle)
         self.assertIn("if (bInventoryOpen) { EquipSelectedInventoryItem(); return; }", toggle)
-        self.assertIn("if (Health <= 0.f || bOptionsOpen || bInventoryOpen || !FMath::IsFinite(Value)) return;", self.hero_cpp)
+        self.assertIn("if (Health <= 0.f || bOptionsOpen || bInventoryOpen || FocusedResident.IsValid() || !FMath::IsFinite(Value)) return;", self.hero_cpp)
         self.assertIn("bOptionsOpen || bInventoryOpen || !GetWorld()", self.hero_cpp)
         self.assertIn("if (Hero->bInventoryOpen)", self.hud)
         self.assertIn("const int32 PerPage = FMath::Clamp(FMath::FloorToInt((PanelHeight - 290.f) / 25.f), 2, 8);", self.hud)
@@ -785,7 +801,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("float MenuHealthRegenPerSecond = 2.f;", self.hero_h)
         self.assertIn("float MenuRecoveryMultiplier = 1.5f;", self.hero_h)
         self.assertIn("FMath::Clamp(MenuRecoveryMultiplier, 1.f, 2.f)", tick)
-        self.assertIn("Mana + FMath::Clamp(ManaRegenPerSecond, 0.f, 250.f) * MenuRecoveryBoost", tick)
+        self.assertIn("Mana + FMath::Clamp(ManaRegenPerSecond, 0.f, 250.f) * (1.f + GetRaceManaRegenBonus()) * MenuRecoveryBoost", tick)
 
     def test_menu_health_regen_waits_after_real_damage(self):
         tick = self.hero_cpp.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1].split(
@@ -808,7 +824,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "void AMoonfallHeroPawn::CycleGraphicsQuality()", 1)[0]
         self.assertIn("GetWorld()->GetTimeSeconds() < CombatRecoveryEndsAt", tick)
         self.assertIn("FMath::Clamp(CombatManaRegenMultiplier, 0.f, 1.f)", tick)
-        self.assertIn("FMath::Clamp(ManaRegenPerSecond, 0.f, 250.f) * MenuRecoveryBoost * CombatManaFactor", tick)
+        self.assertIn("FMath::Clamp(ManaRegenPerSecond, 0.f, 250.f) * (1.f + GetRaceManaRegenBonus()) * MenuRecoveryBoost * CombatManaFactor", tick)
         self.assertIn("CombatRecoveryEndsAt = FMath::Max(", cast)
         self.assertIn("CombatRecoveryEndsAt = FMath::Max(", damage)
         self.assertIn("Mana + FMath::Clamp(PerfectParryManaReward, 0.f, 15.f)", damage)
@@ -920,9 +936,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         for axis in ("MoveForward", "MoveRight"):
             body = controls.split(f"void AMoonfallHeroPawn::{axis}(float Value)", 1)[1].split(
                 "}", 1)[0]
-            self.assertIn("Health <= 0.f || bOptionsOpen || bInventoryOpen || !FMath::IsFinite(Value)", body)
+            self.assertIn("Health <= 0.f || bOptionsOpen || bInventoryOpen || FocusedResident.IsValid() || !FMath::IsFinite(Value)", body)
         for axis, call in (("Turn", "AddControllerYawInput"), ("LookUp", "AddControllerPitchInput")):
-            self.assertIn(f"void AMoonfallHeroPawn::{axis}(float Value) {{ if (Health > 0.f && !bOptionsOpen && !bInventoryOpen && FMath::IsFinite(Value)) {call}(Value); }}", controls)
+            self.assertIn(f"void AMoonfallHeroPawn::{axis}(float Value) {{ if (Health > 0.f && !bOptionsOpen && !bInventoryOpen && !bResidentContextOpen && FMath::IsFinite(Value)) {call}(Value); }}", controls)
 
     def test_menu_entry_and_defeat_cancel_lingering_jumps_and_velocity(self):
         inventory = self.hero_cpp.split("void AMoonfallHeroPawn::ToggleInventory()", 1)[1].split(
@@ -1071,7 +1087,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("bSprintExhausted = true;", tick)
         self.assertIn("!bSprinting && !bGuarding && GetWorld()", tick)
         self.assertIn("FMath::IsFinite(StaminaRegenPerSecond) && StaminaRegenPerSecond > 0.f", tick)
-        self.assertIn("Stamina + FMath::Clamp(StaminaRegenPerSecond, 0.f, 250.f) * StaminaDelta * MenuRecoveryBoost", tick)
+        self.assertIn("Stamina + FMath::Clamp(StaminaRegenPerSecond, 0.f, 250.f) * (1.f + GetRaceStaminaRegenBonus()) * StaminaDelta * MenuRecoveryBoost", tick)
         self.assertIn("FMath::IsFinite(SprintSpeedMultiplier)", tick)
         self.assertIn("float SprintAccelerationRate = 9.f;", self.hero_h)
         self.assertIn("NormalWalkSpeed * FMath::Clamp(SprintSpeedMultiplier", tick)
@@ -1101,7 +1117,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         tick = self.hero_cpp.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1].split(
             "void AMoonfallHeroPawn::SetupPlayerInputComponent", 1)[0]
         self.assertIn("GetTimeSeconds() >= StaminaRegenStartsAt", tick)
-        self.assertIn("FMath::Clamp(Stamina + FMath::Clamp(StaminaRegenPerSecond, 0.f, 250.f) * StaminaDelta * MenuRecoveryBoost", tick)
+        self.assertIn("FMath::Clamp(Stamina + FMath::Clamp(StaminaRegenPerSecond, 0.f, 250.f) * (1.f + GetRaceStaminaRegenBonus()) * StaminaDelta * MenuRecoveryBoost", tick)
         self.assertIn("Health > 0.f", tick)
 
     def test_dodge_cooldown_is_bounded_and_never_overlaps_immunity(self):
@@ -2277,7 +2293,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(damage.index("const float DamageTaken = PreviousHealth - Health;"),
                         damage.index("if (DamageTaken > 0.f) {",))
         self.assertLess(damage.index("if (DamageTaken > 0.f) {",),
-                        damage.index("if (Health <= 0.f) {\n  // Prevent lingering movement/jump input from carrying through defeat.\n  StopJumping();\n  if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();\n  // Clear any held sprint so a later respawn cannot inherit it.\n  EndSprint();\n  EndGuard();"))
+                        damage.index("if (Health <= 0.f) {\n  CloseResidentContext();\n  // Prevent lingering movement/jump input from carrying through defeat.\n  StopJumping();\n  if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();\n  // Clear any held sprint so a later respawn cannot inherit it.\n  EndSprint();\n  EndGuard();"))
         break_guard = self.hero_cpp.split("void AMoonfallHeroPawn::BreakGuard()", 1)[1].split(
             "void AMoonfallHeroPawn::BeginGuard()", 1)[0]
         self.assertIn("ParryCounterUntil = -1.f;", break_guard)
@@ -2379,7 +2395,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('void AMoonfallHeroPawn::EndGuard()', self.hero_cpp)
         self.assertIn("NextParryAt = Now + FMath::Clamp(ParryCooldownSeconds, 0.3f, 2.f);", self.hero_cpp)
         self.assertIn("Stamina < GuardStaminaCost) return;", self.hero_cpp)
-        self.assertIn("if (Health <= 0.f) {\n  // Prevent lingering movement/jump input from carrying through defeat.\n  StopJumping();\n  if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();\n  // Clear any held sprint so a later respawn cannot inherit it.\n  EndSprint();\n  EndGuard();\n  // Defeat clears every gameplay menu so the death/respawn screen stays visible.\n  bInventoryOpen = false;\n  bOptionsOpen = false;\n }", self.hero_cpp)
+        self.assertIn("if (Health <= 0.f) {\n  CloseResidentContext();\n  // Prevent lingering movement/jump input from carrying through defeat.\n  StopJumping();\n  if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();\n  // Clear any held sprint so a later respawn cannot inherit it.\n  EndSprint();\n  EndGuard();\n  // Defeat clears every gameplay menu so the death/respawn screen stays visible.\n  bInventoryOpen = false;\n  bOptionsOpen = false;\n }", self.hero_cpp)
         self.assertIn("ParryWindowEndsAt = -1.f", self.hero_cpp)
         self.assertIn("DamageAfterGuard *= 0.4f", self.hero_cpp)
         self.assertIn("Stamina = FMath::Clamp(Stamina - RequiredGuardCost, 0.f, MaxStamina)", self.hero_cpp)
