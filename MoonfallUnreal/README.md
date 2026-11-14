@@ -135,7 +135,7 @@ controls are included.**
    validated character creation workflow. This C++ widget does **not**
    spawn heroes, create saves, or assume race selection applies gameplay stats.
 
-**Inputs:** Mouse-click a race; Left/Right arrows or D-pad cycle races;
+**Inputs:** Mouse-click a race; left-drag inside the central preview requests character rotation, and mouse-wheel over the preview requests zoom. Mouse-wheel outside the preview keeps normal scroll behavior in the race list. The owning Widget Blueprint must implement `OnPreviewRotateRequested(DeltaYaw)` and `OnPreviewZoomRequested(ZoomSteps)` to control the existing 3D preview actor/camera; the C++ widget only emits events, and it does not rotate or redraw Z/Nyra art. Left/Right arrows or D-pad cycle races;
 Up/Down arrows or D-pad cycle playable race families; Enter/controller
 south-face button confirms. These input routes need focus/gameplay testing
 in Unreal Editor. Button focus or an input-mode change in the owning menu
