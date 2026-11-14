@@ -153,8 +153,11 @@ bool UMoonfallActorRigComponent::PlayRigCue(FName CueId)
    }
   }
  }
- OnRigCue(CueId, bLastCuePlayed);
- return bLastCuePlayed;
+ // Blueprint callbacks may replace or destroy their owning actor.
+ // Capture the outcome first and do not access this component afterward.
+ const bool bPlayed = bLastCuePlayed;
+ OnRigCue(CueId, bPlayed);
+ return bPlayed;
 }
 
 bool UMoonfallActorRigComponent::StopRigCue(FName CueId, float BlendOutSeconds)
