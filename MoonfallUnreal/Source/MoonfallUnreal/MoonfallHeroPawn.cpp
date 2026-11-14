@@ -169,6 +169,7 @@ void AMoonfallHeroPawn::BeginPlay() {
   bHasRespawnCheckpointLocation = true;
  }
  LoadWorldProgress();
+ bWorldProgressInitialized = true;
 }
 void AMoonfallHeroPawn::Tick(float DeltaSeconds)
 {
@@ -1601,7 +1602,7 @@ bool AMoonfallHeroPawn::HasDiscoveredShrine(FName ShrineId) const {
 bool AMoonfallHeroPawn::DiscoverShrine(AMoonfallCheckpointShrine* Shrine) {
  if (!IsValid(Shrine) || Shrine->GetWorld() != GetWorld()
      || Shrine->ShrineId.IsNone() || Health <= 0.f
-     || bPersistentSaveWritesBlocked || HasDiscoveredShrine(Shrine->ShrineId)
+     || !bWorldProgressInitialized || bPersistentSaveWritesBlocked || HasDiscoveredShrine(Shrine->ShrineId)
      || DiscoveredShrineIds.Num() >= 64) return false;
  const FVector ShrineLocation = Shrine->GetActorLocation();
  const FVector HeroLocation = GetActorLocation();
@@ -1610,6 +1611,13 @@ bool AMoonfallHeroPawn::DiscoverShrine(AMoonfallCheckpointShrine* Shrine) {
      || NewRespawn.ContainsNaN() || NewRespawn.SizeSquared() >= 1.0e14f
      || FVector::DistSquared2D(ShrineLocation, HeroLocation) > FMath::Square(220.f)
      || FMath::Abs(ShrineLocation.Z - HeroLocation.Z) > 200.f) return false;
+ // A proximity trigger can overlap through walls. Only an unobstructed
+ // discovered shrine may become the persisted respawn checkpoint.
+ FCollisionQueryParams ShrineSight(SCENE_QUERY_STAT(MoonfallShrineDiscovery), false);
+ ShrineSight.AddIgnoredActor(this);
+ ShrineSight.AddIgnoredActor(Shrine);
+ if (GetWorld()->LineTraceTestByChannel(HeroLocation,
+     ShrineLocation + FVector(0.f, 0.f, 80.f), ECC_Visibility, ShrineSight)) return false;
  const FName PreviousShrineId = ActiveShrineId;
  const FVector PreviousCheckpoint = RespawnCheckpointLocation;
  const bool bPreviousCheckpointValid = bHasRespawnCheckpointLocation;
@@ -1626,6 +1634,10 @@ bool AMoonfallHeroPawn::DiscoverShrine(AMoonfallCheckpointShrine* Shrine) {
   bHasRespawnCheckpointLocation = bPreviousCheckpointValid;
   return false;
  }
+ // Discovery is rare, so update visual statuses only after a saved change.
+ // Old shrines stop showing ACTIVE without a per-frame world scan.
+ for (TActorIterator<AMoonfallCheckpointShrine> It(GetWorld()); It; ++It)
+  if (IsValid(*It)) It->RefreshShrineDisplay(this);
  OnShrineDiscovered(ActiveShrineId);
  return true;
 }
