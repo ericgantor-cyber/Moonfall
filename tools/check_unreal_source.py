@@ -65,6 +65,12 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("A.LexicalLess(B)", rig_cpp)
         self.assertIn("!HasRigCue(CueId)", rig_cpp)
         self.assertIn("RigMesh->GetOwner() != Owner", rig_cpp)
+        stop = rig_cpp.split("bool UMoonfallActorRigComponent::StopRigCue(", 1)[1]
+        self.assertIn("PreferredRigMesh.Get() != ObservedPreferredRigMesh.Get()", stop)
+        self.assertIn("RigMesh->GetSkeletalMeshAsset() != ObservedRigAsset.Get()", stop)
+        self.assertIn("!IsValid(RigMesh->GetSkeletalMeshAsset())", stop)
+        self.assertLess(stop.index("ObservedRigAsset.Get()"),
+                        stop.index("Anim->Montage_Stop("))
         self.assertIn("Anim->Montage_IsPlaying(Entry->Get())", rig_cpp)
         self.assertIn("Anim->Montage_Stop(BlendOutSeconds, Entry->Get());", rig_cpp)
         self.assertNotIn("Montage_Stop(BlendOutSeconds, nullptr)", rig_cpp)
