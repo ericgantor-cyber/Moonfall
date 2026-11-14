@@ -44,6 +44,17 @@ func _initialize() -> void:
  if web.zoom < web.MIN_ZOOM:
   _fail("Zoom must be bounded below")
   return
+ web.focus_node("might_moonforged_blade")
+ if web.selected_id != "might_moonforged_blade":
+  _fail("Keyboard talent index must select the requested constellation node")
+  return
+ if web._screen_pos(web.points["might_moonforged_blade"]).distance_to(web.size * 0.5) > 0.1:
+  _fail("Focused talent should be centered in the viewport")
+  return
+ web.focus_node("missing_talent")
+ if web.selected_id != "might_moonforged_blade":
+  _fail("Unknown focus target should not lose current selection")
+  return
  var root_id: String = "iron_will"
  var root_pos: Vector2 = web._screen_pos(web.points[root_id])
  if web._node_at(root_pos) != root_id:
