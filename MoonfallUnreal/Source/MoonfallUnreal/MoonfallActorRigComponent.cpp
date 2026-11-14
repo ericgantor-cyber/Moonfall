@@ -114,8 +114,13 @@ bool UMoonfallActorRigComponent::StopRigCue(FName CueId, float BlendOutSeconds)
  if (!HasRigCue(CueId) || !FMath::IsFinite(BlendOutSeconds) || BlendOutSeconds < 0.f)
   return false;
  AActor* Owner = GetOwner();
+ // Stop requests must not operate on stale rig state following an asset
+ // swap or a preferred-mesh change. Refresh must happen on a new play request.
  if (!IsValid(Owner) || !RigMesh.IsValid() || RigMesh->GetOwner() != Owner
-     || (PreferredRigMesh != nullptr && PreferredRigMesh.Get() != RigMesh.Get()))
+     || PreferredRigMesh.Get() != ObservedPreferredRigMesh.Get()
+     || (PreferredRigMesh != nullptr && PreferredRigMesh.Get() != RigMesh.Get())
+     || !IsValid(RigMesh->GetSkeletalMeshAsset())
+     || RigMesh->GetSkeletalMeshAsset() != ObservedRigAsset.Get())
   return false;
  UAnimInstance* Anim = RigMesh->GetAnimInstance();
  const TObjectPtr<UAnimMontage>* Entry = MontageCues.Find(CueId);
