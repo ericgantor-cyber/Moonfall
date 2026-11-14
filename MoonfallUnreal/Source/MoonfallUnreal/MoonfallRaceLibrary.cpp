@@ -165,6 +165,24 @@ bool UMoonfallRaceLibrary::ResolvePlayableRaceForFamily(
  return false;
 }
 
+bool UMoonfallRaceLibrary::GetAdjacentPlayableRaceFamilySelection(
+ FName CurrentRaceId, FName CurrentFamily, bool bForward,
+ FName& NextFamily, FName& NextRaceId)
+{
+ NextFamily = NAME_None;
+ NextRaceId = NAME_None;
+ FName CandidateFamily;
+ if (!GetAdjacentPlayableRaceFamily(CurrentFamily, bForward, CandidateFamily))
+  return false;
+ FName CandidateRace;
+ if (!ResolvePlayableRaceForFamily(CurrentRaceId, CandidateFamily, CandidateRace))
+  return false;
+ // Commit both outputs only after both operations succeeded.
+ NextFamily = CandidateFamily;
+ NextRaceId = CandidateRace;
+ return true;
+}
+
 bool UMoonfallRaceLibrary::FindPlayableRaceProfile(FName RaceId, FMoonfallRaceProfile& Profile)
 {
  if (!FindRaceProfile(RaceId, Profile) || !Profile.bPlayableCandidate)
