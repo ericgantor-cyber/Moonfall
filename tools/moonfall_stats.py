@@ -25,17 +25,19 @@ def load_config() -> dict:
 
 
 def validate_config(data: dict) -> None:
-    if data.get("schema_version") != 1:
+    if not isinstance(data, dict) or data.get("schema_version") != 1:
         raise ValueError("Unsupported stat schema")
     attrs = data.get("attributes", {})
     growth = data.get("auto_growth_per_level", {})
-    if not isinstance(attrs, dict) or set(attrs) != set(KEYS) or set(growth) != set(KEYS):
+    if not isinstance(attrs, dict) or not isinstance(growth, dict) or set(attrs) != set(KEYS) or set(growth) != set(KEYS):
         raise ValueError("Exactly six classless attributes required")
-    if set(data.get("base", {})) != set(VITALS + DAMAGE):
+    if not isinstance(data.get("base"), dict) or set(data["base"]) != set(VITALS + DAMAGE):
         raise ValueError("Base stats must include three resources and three damage types")
     seen_targets = set()
     for key in KEYS:
         rule = attrs[key]
+        if not isinstance(rule, dict):
+            raise ValueError("Invalid attribute rule")
         target = rule.get("stat")
         kind = rule.get("kind")
         if target not in VITALS + DAMAGE or target in seen_targets:
@@ -51,14 +53,16 @@ def validate_config(data: dict) -> None:
     for key, val in data["base"].items():
         if type(val) not in (int, float) or not math.isfinite(val) or val <= 0:
             raise ValueError(f"Invalid base stat: {key}")
-    power = data.get("power", {})
-    if power.get("rounding") != "floor":
+    power = data.get("power")
+    if not isinstance(power, dict) or power.get("rounding") != "floor":
         raise ValueError("Only deterministic floor power scoring is supported")
     for name in ("level_weight", "gear_score_weight"):
         value = power.get(name)
         if type(value) not in (int, float) or not math.isfinite(value) or value < 0:
             raise ValueError("Power weights must be finite and nonnegative")
-    limits = data.get("limits", {})
+    limits = data.get("limits")
+    if not isinstance(limits, dict):
+        raise ValueError("Invalid stat range limits")
     for low, high in (("min_level", "max_level"),
                       ("min_gear_score", "max_gear_score")):
         if type(limits.get(low)) is not int or type(limits.get(high)) is not int:
