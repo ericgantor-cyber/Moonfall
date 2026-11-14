@@ -8,6 +8,8 @@ import json
 import math
 from pathlib import Path
 
+from moonfall_combat_ratings import calculate as calculate_combat_ratings
+
 ROOT = Path(__file__).resolve().parents[1]
 CONFIG = ROOT / "config/moonfall_stats.json"
 KEYS = ("might", "agility", "arcana", "vitality", "resolve", "endurance")
@@ -66,7 +68,9 @@ def validate_config(data: dict) -> None:
 
 def calculate(level: int, gear_score: int = 0,
               gear_bonuses: dict[str, float] | None = None,
-              config: dict | None = None) -> dict:
+              config: dict | None = None,
+              combat_ratings: dict[str, int] | None = None,
+              combat_bonuses: dict[str, float] | None = None) -> dict:
     data = config if config is not None else load_config()
     validate_config(data)
     limits = data["limits"]
@@ -95,7 +99,9 @@ def calculate(level: int, gear_score: int = 0,
     power = math.floor(level * data["power"]["level_weight"] +
                        gear_score * data["power"]["gear_score_weight"])
     return {"level": level, "attributes": attrs, "stats": stats,
-            "gear_score": gear_score, "power": power, "ruleset": "classless_no_cards"}
+            "gear_score": gear_score, "power": power,
+            "combat": calculate_combat_ratings(combat_ratings, combat_bonuses),
+            "ruleset": "classless_no_cards"}
 
 
 if __name__ == "__main__":
