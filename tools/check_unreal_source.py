@@ -14,6 +14,135 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         cls.enemy_cpp = (ROOT / "MoonfallEnemy.cpp").read_text(encoding="utf-8")
         cls.hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
 
+    def test_isolated_race_catalog_is_cpp_syntax_safe_and_does_not_replace_persistence(self):
+        import re
+        catalog = (ROOT / "MoonfallRaceLibrary.cpp").read_text(encoding="utf-8")
+        catalog_h = (ROOT / "MoonfallRaceLibrary.h").read_text(encoding="utf-8")
+        race_ids = re.findall(r'^\s*\{TEXT\("([a-z_]+)"\),', catalog, re.MULTILINE)
+        self.assertEqual(len(race_ids), 30)
+        self.assertEqual(len(set(race_ids)), 30)
+        # C++ accepts 1.f, not the nonstandard integer token 1f.
+        self.assertIsNone(re.search(r'(?<![\w.])\d+f\b', catalog))
+        self.assertIn("static bool FindRaceProfile", catalog_h)
+        self.assertIn("UMoonfallRaceLibrary::FindRaceProfile", catalog)
+        self.assertIn("LoadWorldProgress();", self.hero_cpp)
+        self.assertIn("bPersistentSaveWritesBlocked", self.hero_cpp)
+        self.assertTrue((ROOT / "MoonfallPersistentSave.h").is_file())
+        self.assertFalse((ROOT / "MoonfallRewardSaveGame.h").exists())
+
+    def test_optional_actor_rig_is_no_tick_and_actor_owned(self):
+        rig_cpp = (ROOT / "MoonfallActorRigComponent.cpp").read_text(encoding="utf-8")
+        rig_h = (ROOT / "MoonfallActorRigComponent.h").read_text(encoding="utf-8")
+        self.assertIn("PrimaryComponentTick.bCanEverTick = false", rig_cpp)
+        self.assertIn("PreferredRigMesh->GetOwner() == Owner", rig_cpp)
+        self.assertIn("IsValid(Anim)", rig_cpp)
+        # A detached or hot-swapped mesh must never receive a montage cue.
+        self.assertIn("if (!CueId.IsNone() && IsValid(Owner) && RigMesh.IsValid()", rig_cpp)
+        self.assertIn("RigMesh->GetOwner() == Owner", rig_cpp)
+        self.assertIn("IsValid(RigMesh->GetSkeletalMeshAsset())", rig_cpp)
+        self.assertLess(rig_cpp.index("RigMesh->GetOwner() == Owner"),
+                        rig_cpp.index("Anim->Montage_Play("))
+        self.assertIn("bPreferredChanged || bAssetChanged", rig_cpp)
+        self.assertIn("bool PlayRigCue(FName CueId)", rig_h)
+        self.assertNotIn("SpawnActor", rig_cpp)
+
+    def test_rig_rejects_montages_for_other_skeletons(self):
+        rig = (ROOT / "MoonfallActorRigComponent.cpp").read_text(encoding="utf-8")
+        play = rig.split("bool UMoonfallActorRigComponent::PlayRigCue(", 1)[1].split(
+            "bool UMoonfallActorRigComponent::StopRigCue(", 1)[0]
+        self.assertIn('#include "Engine/SkeletalMesh.h"', rig)
+        self.assertIn("IsValid(Entry->Get()->GetSkeleton())", play)
+        self.assertIn("Entry->Get()->GetSkeleton() == RigMesh->GetSkeletalMeshAsset()->GetSkeleton()", play)
+        self.assertLess(play.index("Entry->Get()->GetSkeleton() == "),
+                        play.index("Anim->Montage_Play("))
+        self.assertIn("const bool bPlayed = bLastCuePlayed;", play)
+        self.assertIn("OnRigCue(CueId, bPlayed);", play)
+        self.assertIn("return bPlayed;", play)
+        self.assertLess(play.index("const bool bPlayed = bLastCuePlayed;"),
+                        play.index("OnRigCue(CueId, bPlayed);"))
+        self.assertLess(play.index("OnRigCue(CueId, bPlayed);"),
+                        play.index("return bPlayed;"))
+
+    def test_npc_cue_discovery_only_reports_rig_compatible_montages(self):
+        rig = (ROOT / "MoonfallActorRigComponent.cpp").read_text(encoding="utf-8")
+        has_cue = rig.split("bool UMoonfallActorRigComponent::HasRigCue(", 1)[1].split(
+            "TArray<FName> UMoonfallActorRigComponent::GetRigCueIds()", 1)[0]
+        list_cues = rig.split("TArray<FName> UMoonfallActorRigComponent::GetRigCueIds()", 1)[1].split(
+            "bool UMoonfallActorRigComponent::IsRigCuePlaying(", 1)[0]
+        self.assertIn("RigMesh->GetOwner() != Owner", has_cue)
+        self.assertIn("RigMesh->GetSkeletalMeshAsset() != ObservedRigAsset.Get()", has_cue)
+        self.assertIn("Entry->Get()->GetSkeleton() == RigMesh->GetSkeletalMeshAsset()->GetSkeleton()", has_cue)
+        self.assertIn("if (HasRigCue(Pair.Key))", list_cues)
+        self.assertIn("Result.Sort(", list_cues)
+        self.assertNotIn("RefreshRig()", has_cue)
+        self.assertNotIn("RefreshRig()", list_cues)
+
+    def test_npc_cue_playing_query_is_safe_and_blueprint_readable(self):
+        rig = (ROOT / "MoonfallActorRigComponent.cpp").read_text(encoding="utf-8")
+        header = (ROOT / "MoonfallActorRigComponent.h").read_text(encoding="utf-8")
+        query = rig.split("bool UMoonfallActorRigComponent::IsRigCuePlaying(", 1)[1].split(
+            "bool UMoonfallActorRigComponent::PlayRigCue(", 1)[0]
+        self.assertIn("bool IsRigCuePlaying(FName CueId) const;", header)
+        self.assertIn("if (!HasRigCue(CueId)) return false;", query)
+        self.assertIn("RigMesh->GetOwner() != Owner", query)
+        self.assertIn("RigMesh->GetSkeletalMeshAsset() != ObservedRigAsset.Get()", query)
+        self.assertIn("Entry->Get()->GetSkeleton() != RigMesh->GetSkeletalMeshAsset()->GetSkeleton()", query)
+        self.assertIn("Anim->Montage_IsPlaying(Entry->Get())", query)
+        self.assertNotIn("RefreshRig()", query)
+
+    def test_stopping_npc_cue_validates_montage_skeleton(self):
+        rig = (ROOT / "MoonfallActorRigComponent.cpp").read_text(encoding="utf-8")
+        stop = rig.split("bool UMoonfallActorRigComponent::StopRigCue(", 1)[1]
+        self.assertIn("!IsValid(Entry->Get()->GetSkeleton())", stop)
+        self.assertIn("Entry->Get()->GetSkeleton() != RigMesh->GetSkeletalMeshAsset()->GetSkeleton()", stop)
+        self.assertLess(stop.index("Entry->Get()->GetSkeleton() !="),
+                        stop.index("Anim->Montage_Stop(BlendOutSeconds, Entry->Get());"))
+        self.assertIn("!Anim->Montage_IsPlaying(Entry->Get())", stop)
+
+    def test_character_primary_rig_precedes_accessory_discovery(self):
+        rig = (ROOT / "MoonfallActorRigComponent.cpp").read_text(encoding="utf-8")
+        self.assertIn('#include "GameFramework/Character.h"', rig)
+        refresh = rig.split("void UMoonfallActorRigComponent::RefreshRig()", 1)[1].split(
+            "bool UMoonfallActorRigComponent::HasRigCue(", 1)[0]
+        self.assertIn("Cast<ACharacter>(Owner)", refresh)
+        self.assertIn("Character->GetMesh()", refresh)
+        self.assertIn("MainMesh->GetOwner() == Owner", refresh)
+        self.assertIn("if (!RigMesh.IsValid())", refresh)
+        self.assertIn("Mesh->GetOwner() == Owner", refresh)
+        self.assertLess(refresh.index("Character->GetMesh()"),
+                        refresh.index("Owner->GetComponents<USkeletalMeshComponent>(Candidates)"))
+        self.assertIn("PrimaryComponentTick.bCanEverTick = false", rig)
+
+    def test_race_roster_blueprint_filters_preserve_ids(self):
+        race_cpp = (ROOT / "MoonfallRaceLibrary.cpp").read_text(encoding="utf-8")
+        race_h = (ROOT / "MoonfallRaceLibrary.h").read_text(encoding="utf-8")
+        self.assertIn("static TArray<FName> GetPlayableRaceIds();", race_h)
+        self.assertIn("static TArray<FName> GetRaceIdsByFamily(FName Family);", race_h)
+        self.assertIn("if (Row.bPlayable) Result.Add(FName(Row.Id));", race_cpp)
+        self.assertIn("if (Family.IsNone()) return Result;", race_cpp)
+        self.assertIn("if (Family == FName(Row.Family))", race_cpp)
+        self.assertIn("if (RaceId.IsNone()) return false;", race_cpp)
+
+    def test_npc_rig_exposes_deterministic_cues_and_safe_targeted_stop(self):
+        rig_cpp = (ROOT / "MoonfallActorRigComponent.cpp").read_text(encoding="utf-8")
+        rig_h = (ROOT / "MoonfallActorRigComponent.h").read_text(encoding="utf-8")
+        self.assertIn("bool HasRigCue(FName CueId) const;", rig_h)
+        self.assertIn("TArray<FName> GetRigCueIds() const;", rig_h)
+        self.assertIn("bool StopRigCue(FName CueId, float BlendOutSeconds = 0.2f);", rig_h)
+        self.assertIn("A.LexicalLess(B)", rig_cpp)
+        self.assertIn("!HasRigCue(CueId)", rig_cpp)
+        self.assertIn("RigMesh->GetOwner() != Owner", rig_cpp)
+        stop = rig_cpp.split("bool UMoonfallActorRigComponent::StopRigCue(", 1)[1]
+        self.assertIn("PreferredRigMesh.Get() != ObservedPreferredRigMesh.Get()", stop)
+        self.assertIn("RigMesh->GetSkeletalMeshAsset() != ObservedRigAsset.Get()", stop)
+        self.assertIn("!IsValid(RigMesh->GetSkeletalMeshAsset())", stop)
+        self.assertLess(stop.index("ObservedRigAsset.Get()"),
+                        stop.index("Anim->Montage_Stop("))
+        self.assertIn("Anim->Montage_IsPlaying(Entry->Get())", rig_cpp)
+        self.assertIn("Anim->Montage_Stop(BlendOutSeconds, Entry->Get());", rig_cpp)
+        self.assertNotIn("Montage_Stop(BlendOutSeconds, nullptr)", rig_cpp)
+        self.assertNotIn("PrimaryComponentTick.bCanEverTick = true", rig_cpp)
+
     def test_unreal_startup_level_generator_is_safe_and_parseable(self):
         import ast
         import json
