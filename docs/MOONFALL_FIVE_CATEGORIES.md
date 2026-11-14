@@ -287,3 +287,11 @@ prerequisites, unknown nodes and illegal point totals without mutating the
 provided map. The original `respec(level, data)` interface remains supported.
 This remains a Python reference implementation; native Godot and UE5
 integration is still pending.
+
+### Full respec null-save fix
+
+A supplied `current=None` is now rejected as a malformed saved allocation,
+not silently interpreted as an omitted save. A call that omits `current`
+continues to make a clean full-tree reset for backward compatibility.
+Regression tests cover both paths, and no individual talent refund returns.
+These are reference-code checks, not native save-migration testing.
