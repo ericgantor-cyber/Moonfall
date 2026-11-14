@@ -6,6 +6,8 @@
 #include "MoonfallRaceLibrary.h"
 #include "MoonfallCharacterCreationWidget.generated.h"
 
+class AMoonfallCharacterPreviewActor;
+class UTextureRenderTarget2D;
 class UHorizontalBox;
 class USceneComponent;
 class USpringArmComponent;
@@ -69,6 +71,14 @@ public:
  UFUNCTION(BlueprintCallable, Category="Moonfall|Character Creation")
  void SetPreviewTexture(UTexture2D* ExistingMoonfallTexture);
 
+ // Display the isolated Unreal 3D capture (never replace original art).
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Character Creation|Preview")
+ void SetPreviewRenderTarget(UTextureRenderTarget2D* ExistingTarget);
+
+ // One-call preview camera, rotation pivot and render target connection.
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Character Creation|Preview")
+ void BindPreviewActor(AMoonfallCharacterPreviewActor* PreviewActor);
+
  // Bind dedicated PREVIEW-ONLY scene components, never the live player hero.
  // When bound, dragging rotates the pivot and scrolling adjusts camera arm
  // distance directly; otherwise the existing Blueprint callbacks are used.
@@ -120,6 +130,8 @@ private:
  UPROPERTY(Transient) TObjectPtr<UTextBlock> PreviewCaption;
  UPROPERTY(Transient) TObjectPtr<UImage> PreviewImage;
  UPROPERTY(Transient) TObjectPtr<UTexture2D> PreviewTexture;
+ UPROPERTY(Transient) TObjectPtr<UTextureRenderTarget2D> PreviewTarget;
+ TWeakObjectPtr<AMoonfallCharacterPreviewActor> BoundPreviewActor;
  bool bDraggingPreview = false;
  TWeakObjectPtr<USceneComponent> PreviewRotationPivot;
  TWeakObjectPtr<USpringArmComponent> PreviewZoomArm;
