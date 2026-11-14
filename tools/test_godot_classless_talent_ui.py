@@ -45,6 +45,9 @@ class ClasslessTalentUIScreen(unittest.TestCase):
         self.assertIn('hovered_id', web)
         self.assertIn('tooltip_text =', web)
         self.assertIn('elif id == hovered_id:', web)
+        self.assertIn("func focus_node(talent_id: String)", web)
+        self.assertIn("v406_web.focus_node(id)", self.screen)
+        self.assertIn("_v406_index_selected.bind(node_id)", self.screen)
 
     def test_save_restores_classless_without_clobbering_legacy(self):
         self.assertIn('"classless_ranks":v406_ranks.duplicate(true)', self.screen)
