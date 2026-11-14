@@ -61,5 +61,40 @@ func _run()->void:
  check(int(legendary["weapon_power"])==ordinary+9,"higher rarity takes precedence")
  check(int(legendary["crit"])==0,"highest rarity supplies affixes")
  check(int(INVENTORY.normalize(empowered)["loot_rolls"].size())==4,"all valid duplicate rolls survive save normalization")
+ # Equipment must be owned and match its equipped slot before granting stats.
+ var unowned:Dictionary=INVENTORY.new_state()
+ unowned["equipped"]["weapon"]="ashwood_sword"
+ check(int(INVENTORY.totals(unowned)["weapon_power"])==0,"unowned equipment grants zero stats")
+ var wrong_slot:Dictionary=INVENTORY.new_state()
+ INVENTORY.add_item(wrong_slot,"ashwood_sword")
+ wrong_slot["equipped"]["helmet"]="ashwood_sword"
+ check(int(INVENTORY.totals(wrong_slot)["weapon_power"])==0,"weapon in helmet slot grants zero stats")
+ var stale:Dictionary=empowered.duplicate(true)
+ stale["items"].erase("ashwood_sword")
+ check(int(INVENTORY.totals(stale)["weapon_power"])==0,"removed owned item gives no stale stats")
+ var malformed:Dictionary=INVENTORY.new_state()
+ INVENTORY.add_item(malformed,"ashwood_sword")
+ INVENTORY.equip(malformed,"ashwood_sword",1)
+ malformed["loot_rolls"].append({"item_id":"ashwood_sword","rarity_index":4,"power_bonus":0,"affixes":[{"stat":"Power","value":5},{"stat":"Power","value":30},{"stat":"Crit","value":7},"invalid"]})
+ check(int(INVENTORY.totals(malformed)["weapon_power"])==ordinary+5,"duplicate Power affix cannot stack")
+ check(int(INVENTORY.totals(malformed)["crit"])==7,"distinct valid affix is preserved")
+ malformed["loot_rolls"][0]["affixes"]="invalid"
+ check(int(INVENTORY.totals(malformed)["weapon_power"])==ordinary,"invalid affix list ignored safely")
+ var corrupted:Dictionary=empowered.duplicate(true)
+ corrupted["items"]["ashwood_sword"]={"bad":true}
+ check(int(INVENTORY.totals(corrupted)["weapon_power"])==0,"invalid owned count does not grant stats")
+ corrupted=empowered.duplicate(true)
+ corrupted["loot_rolls"]=[{"item_id":"ashwood_sword","rarity_index":4,"power_bonus":{"bad":true},"affixes":[{"stat":"Power","value":["bad"]}]}]
+ check(int(INVENTORY.totals(corrupted)["weapon_power"])==ordinary,"invalid roll numeric values ignored")
+ var saved:Dictionary=INVENTORY.new_state()
+ saved["gold"]=999999999999
+ check(INVENTORY.normalize(saved)["gold"]==999999999999,"large uncapped gold balance survives safe normalization")
+ saved["gold"]={"bad":true}
+ check(INVENTORY.normalize(saved)["gold"]==0,"malformed gold save safely resets to zero")
+ var at_limit:Dictionary=INVENTORY.new_state()
+ at_limit["items"]["ashwood_sword"]=9999
+ check(not INVENTORY.add_item(at_limit,"ashwood_sword",1),"full item stack remains rejected")
+ at_limit["materials"]["Ashwood"]=999999
+ check(not INVENTORY.add_material(at_limit,"Ashwood",1),"full material stack remains rejected")
  print("GEAR RNG "+("PASS" if errors==0 else "FAIL"))
  quit(0 if errors==0 else 1)
