@@ -323,6 +323,20 @@ bool UMoonfallRaceLibrary::GetPlayableRaceSelectionPosition(
  return true;
 }
 
+bool UMoonfallRaceLibrary::GetPlayableRaceFamilyPosition(
+ FName Family, int32& Position, int32& Total)
+{
+ Position = 0;
+ Total = 0;
+ const TArray<FName> Families = GetPlayableRaceFamilies();
+ const int32 FoundIndex = Families.IndexOfByKey(Family);
+ if (FoundIndex == INDEX_NONE)
+  return false;
+ Position = FoundIndex + 1;
+ Total = Families.Num();
+ return true;
+}
+
 bool UMoonfallRaceLibrary::FindRaceProfile(FName RaceId, FMoonfallRaceProfile& Profile)
 {
  Profile = FMoonfallRaceProfile();
