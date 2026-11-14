@@ -534,6 +534,12 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("SetPreviewRenderTarget(nullptr);", bind)
         self.assertLess(bind.index("BoundPreviewActor.Reset();"), bind.index("BoundPreviewActor = PreviewActor;"))
         self.assertLess(bind.index("if (!IsValid(PreviewActor))"), bind.index("BoundPreviewActor = PreviewActor;"))
+        self.assertLess(bind.index("BindPreviewRig(PreviewActor->GetPreviewPivot()"),
+                        bind.index("BoundPreviewActor = PreviewActor;"))
+        custom = code.split("void UMoonfallCharacterCreationWidget::BindPreviewRig(", 1)[1].split(
+            "void UMoonfallCharacterCreationWidget::RotatePreview(", 1)[0]
+        self.assertIn("BoundPreviewActor.Reset();", custom)
+
         self.assertNotIn("SaveGame", bind)
         self.assertNotIn("SpawnActor", bind)
 
