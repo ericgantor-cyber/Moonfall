@@ -6,6 +6,8 @@
 #include "Components/HorizontalBoxSlot.h"
 #include "Components/Image.h"
 #include "Components/ScrollBox.h"
+#include "Components/SceneComponent.h"
+#include "GameFramework/SpringArmComponent.h"
 #include "Components/TextBlock.h"
 #include "Components/VerticalBox.h"
 #include "Components/VerticalBoxSlot.h"
@@ -100,6 +102,8 @@ void UMoonfallCharacterCreationWidget::BuildLayout()
  NextRace->OnClicked.AddDynamic(this, &UMoonfallCharacterCreationWidget::HandleNextRace);
  UButton* Confirm = AddAction(WidgetTree, Center, TEXT("CONTINUE"));
  Confirm->OnClicked.AddDynamic(this, &UMoonfallCharacterCreationWidget::HandleConfirmRace);
+ UButton* ResetView = AddAction(WidgetTree, Center, TEXT("RESET VIEW"));
+ ResetView->OnClicked.AddDynamic(this, &UMoonfallCharacterCreationWidget::HandleResetPreview);
 
  AddLabel(WidgetTree, Right, TEXT("RACE DETAILS"), 24);
  RaceTitle = AddLabel(WidgetTree, Right, TEXT(""), 23);
@@ -145,6 +149,57 @@ void UMoonfallCharacterCreationWidget::SetPreviewTexture(UTexture2D* ExistingMoo
   PreviewCaption->SetText(FText::FromString(
     PreviewTexture ? TEXT("MOONFALL ORIGINAL CHARACTER ART")
                    : TEXT("Character preview is configured by the game")));
+}
+
+void UMoonfallCharacterCreationWidget::BindPreviewRig(
+ USceneComponent* PreviewPivot, USpringArmComponent* PreviewArm)
+{
+ // Bind only the dedicated menu preview rig from the owning Blueprint.
+ PreviewRotationPivot = PreviewPivot;
+ PreviewZoomArm = PreviewArm;
+ if (PreviewRotationPivot.IsValid())
+  InitialPreviewRotation = PreviewRotationPivot->GetRelativeRotation();
+ if (PreviewZoomArm.IsValid())
+  InitialPreviewArmLength = PreviewZoomArm->TargetArmLength;
+}
+
+void UMoonfallCharacterCreationWidget::RotatePreview(float DeltaYaw)
+{
+ if (!FMath::IsFinite(DeltaYaw) || FMath::IsNearlyZero(DeltaYaw))
+  return;
+ DeltaYaw = FMath::Clamp(DeltaYaw, -20.f, 20.f);
+ if (PreviewRotationPivot.IsValid())
+ {
+  PreviewRotationPivot->AddLocalRotation(FRotator(0.f, DeltaYaw, 0.f));
+  return;
+ }
+ OnPreviewRotateRequested(DeltaYaw);
+}
+
+void UMoonfallCharacterCreationWidget::ZoomPreview(float ZoomSteps)
+{
+ if (!FMath::IsFinite(ZoomSteps) || FMath::IsNearlyZero(ZoomSteps))
+  return;
+ ZoomSteps = FMath::Clamp(ZoomSteps, -1.f, 1.f);
+ if (PreviewZoomArm.IsValid())
+ {
+  const float Distance = PreviewZoomArm->TargetArmLength;
+  if (!FMath::IsFinite(Distance))
+   return;
+  PreviewZoomArm->TargetArmLength =
+    FMath::Clamp(Distance - ZoomSteps * 40.f, 125.f, 650.f);
+  return;
+ }
+ OnPreviewZoomRequested(ZoomSteps);
+}
+
+void UMoonfallCharacterCreationWidget::ResetPreviewView()
+{
+ bDraggingPreview = false;
+ if (PreviewRotationPivot.IsValid())
+  PreviewRotationPivot->SetRelativeRotation(InitialPreviewRotation);
+ if (PreviewZoomArm.IsValid())
+  PreviewZoomArm->TargetArmLength = InitialPreviewArmLength;
 }
 
 void UMoonfallCharacterCreationWidget::RefreshRaceList()
@@ -268,7 +323,7 @@ FReply UMoonfallCharacterCreationWidget::NativeOnMouseMove(
   }
   const float DeltaX = InMouseEvent.GetCursorDelta().X;
   if (FMath::IsFinite(DeltaX) && !FMath::IsNearlyZero(DeltaX))
-   OnPreviewRotateRequested(FMath::Clamp(DeltaX * 0.35f, -20.f, 20.f));
+   RotatePreview(DeltaX * 0.35f);
   return FReply::Handled();
  }
  return Super::NativeOnMouseMove(InGeometry, InMouseEvent);
@@ -281,13 +336,14 @@ FReply UMoonfallCharacterCreationWidget::NativeOnMouseWheel(
  {
   const float WheelDelta = InMouseEvent.GetWheelDelta();
   if (FMath::IsFinite(WheelDelta) && !FMath::IsNearlyZero(WheelDelta))
-   OnPreviewZoomRequested(FMath::Clamp(WheelDelta, -1.f, 1.f));
+   ZoomPreview(WheelDelta);
   return FReply::Handled();
  }
  // Outside the preview, the race list retains normal wheel scrolling.
  return Super::NativeOnMouseWheel(InGeometry, InMouseEvent);
 }
 
+void UMoonfallCharacterCreationWidget::HandleResetPreview() { ResetPreviewView(); }
 void UMoonfallCharacterCreationWidget::HandlePreviousRace() { AdvanceRace(false); }
 void UMoonfallCharacterCreationWidget::HandleNextRace() { AdvanceRace(true); }
 void UMoonfallCharacterCreationWidget::HandlePreviousFamily() { AdvanceFamily(false); }
