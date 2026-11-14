@@ -170,6 +170,13 @@ void AMoonfallHeroPawn::BeginPlay() {
  }
  LoadWorldProgress();
  bWorldProgressInitialized = true;
+ // When a shrine spawned before this pawn, BeginPlay overlap notifications
+ // may have happened before save load was complete. A one-time scan after
+ // the saved position and shrine ledger are restored closes that gap.
+ if (GetWorld()) {
+  for (TActorIterator<AMoonfallCheckpointShrine> It(GetWorld()); It; ++It)
+   if (IsValid(*It)) It->CheckHeroAtSpawn(this);
+ }
 }
 void AMoonfallHeroPawn::Tick(float DeltaSeconds)
 {
