@@ -14,6 +14,25 @@ class UE5RewardParity(unittest.TestCase):
         cls.save = (ROOT / "MoonfallRewardSaveGame.h").read_text()
         cls.hud = (ROOT / "MoonfallCombatHUD.cpp").read_text()
 
+    def test_oversized_reward_slot_is_blocked_without_partial_restore(self):
+        loader = self.hero.split("bool AMoonfallHeroPawn::LoadRewardProgress()", 1)[1].split(
+            "bool AMoonfallHeroPawn::SaveRewardProgress()", 1)[0]
+        before_restore = loader.split("const int32 PreviousArmorTierOnLoad = ArmorTier;", 1)[0]
+        for collection, maximum in (
+            ("CollectedKeys", 128), ("CompletedFactionQuests", 64),
+            ("UnlockedGateIds", 256), ("InventoryItemCodes", 4096),
+            ("PendingWorldLoot", 512),
+        ):
+            self.assertIn(f"Save->{collection}.Num() > {maximum}", before_restore)
+        self.assertIn("bRewardSaveLoadFailed = true;", before_restore)
+        self.assertIn("return false;", before_restore)
+        self.assertIn("bRewardSaveInitialized = true;", before_restore)
+        self.assertLess(before_restore.index("Save->CollectedKeys.Num() > 128"),
+                        before_restore.rindex("bRewardSaveLoadFailed = false;"))
+        saver = self.hero.split("bool AMoonfallHeroPawn::SaveRewardProgress()", 1)[1].split(
+            "int64 AMoonfallHeroPawn::AddGold", 1)[0]
+        self.assertIn("if (bRewardSaveLoadFailed) return false;", saver)
+
     def test_persistent_reward_schema_and_engine_limit(self):
         self.assertIn("class MOONFALLUNREAL_API UMoonfallRewardSaveGame : public USaveGame", self.save)
         for field in ("int64 Gold = 0", "int64 ConfirmedKills = 0", "TArray<FName> CollectedKeys"):
