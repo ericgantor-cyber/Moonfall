@@ -11,10 +11,44 @@ class TalentTests(unittest.TestCase):
     def setUpClass(cls):
         cls.tree = load()
 
-    def test_twelve_nodes_three_open_branches(self):
-        self.assertEqual(len(self.tree["nodes"]), 12)
+    def test_108_nodes_three_open_branches(self):
+        self.assertEqual(len(self.tree["nodes"]), 108)
+        self.assertEqual({branch: sum(node["branch"] == branch for node in self.tree["nodes"])
+                          for branch in ("might", "agility", "arcana")},
+                         {"might": 36, "agility": 36, "arcana": 36})
+        self.assertEqual(max(node["tier"] for node in self.tree["nodes"]), 11)
         self.assertEqual(len(self.tree["branches"]), 3)
         validate(self.tree)
+
+    def test_every_expanded_talent_chain_is_reachable(self):
+        nodes = {node["id"]: node for node in self.tree["nodes"]}
+        self.assertEqual(len(nodes), 108)
+        for branch in ("might", "agility", "arcana"):
+            for leaf in [node for node in nodes.values()
+                         if node["branch"] == branch and node["tier"] == 11]:
+                unlocked = {}
+                def purchase_dependencies(node_id):
+                    for prerequisite in nodes[node_id]["requires"]:
+                        purchase_dependencies(prerequisite)
+                    unlocked[node_id] = 1
+                purchase_dependencies(leaf["id"])
+                result = evaluate(100, unlocked, self.tree)
+                self.assertEqual(result["spent"], len(unlocked))
+                self.assertIn(leaf["id"], result["allocations"])
+
+    def test_new_tiers_respect_gates_and_full_respec(self):
+        fresh = evaluate(16, {"iron_will": 1, "breaker": 1, "guard": 1,
+                              "titan_strike": 1}, self.tree)
+        self.assertTrue(fresh["available"] > 0)
+        target = "might_ashen_grip"
+        with self.assertRaisesRegex(ValueError, "level gate"):
+            evaluate(15, {**fresh["allocations"], target: 1}, self.tree)
+        purchased = spend(16, fresh["allocations"], target, self.tree)
+        self.assertEqual(purchased["spent"], 5)
+        assert purchased["bonuses"]["melee_damage"]["percent"] > fresh["bonuses"]["melee_damage"]["percent"]
+        reset = respec(16, self.tree, current=purchased["allocations"])
+        self.assertEqual(reset["spent"], 0)
+        self.assertEqual(reset["available"], 15)
 
     def test_level_gives_points_without_auto_allocating_talents(self):
         state = evaluate(5, {}, self.tree)
