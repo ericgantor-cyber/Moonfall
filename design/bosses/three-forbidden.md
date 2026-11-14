@@ -31,6 +31,12 @@ Events are `phase-change`, `warning`, `attack`, and `defeat`. Event IDs: `echo-r
 
 The `test-three-forbidden-patterns.js` script checks geometries and a deterministic 4,000-tick logical stress scenario. This is **not** a Windows/UE5 compile, measured performance benchmark, or proof of playability.
 
+
+## Combat adapter upgrade (committed; not plugged into live combat yet)
+`three-forbidden-combat-adapter.js` consumes encounter scheduler events and keeps each warning's geometry locked until its attack resolves. Three overlapping phase-four warnings therefore remain independent, including the locked circular curse target. It supplies point-collision checks, basic dodge/invulnerability immunity, and parry handling for the physical shadow-wing strike. Each attack's multiple rectangles only damage a player once per resolution, not once per overlapping geometry. Defeat clears pending attacks.
+
+The host game must render warning geometry, create and animate the boss, supply player/defense state, apply damage, handle stamina and parry timing, play VFX/SFX, and award loot. Tests are provided in `test-three-forbidden-combat-adapter.js`, but are **not yet confirmed executed** by CI or a running game. Do not claim this boss is playable or merged.
+
 ## Encounter implementation checklist (not implemented)
 - Spawn this as a distinct boss in a dark cathedral/crypt encounter appropriate to Moonfall's unified world.
 - Assign HP, contact damage, stagger resistance, arena boundaries, and difficulty scaling via existing game systems.
