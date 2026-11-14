@@ -47,8 +47,8 @@ jobs:
           hero = (root/'MoonfallUnreal'/'MoonfallHeroPawn.cpp').read_text()
           assert 'NextPathRefreshAt' in enemy and 'CachedWaypoint' in enemy
           assert 'SetLifeSpan(1.25f)' in enemy
-          assert 'Health > 0.f && !bOptionsOpen && !bInventoryOpen && FMath::IsFinite(Value)) AddControllerYawInput' in hero
-          assert 'Health > 0.f && !bOptionsOpen && !bInventoryOpen && FMath::IsFinite(Value)) AddControllerPitchInput' in hero
+          assert 'Health > 0.f && !bOptionsOpen && !bInventoryOpen && !bResidentContextOpen && FMath::IsFinite(Value)) AddControllerYawInput' in hero
+          assert 'Health > 0.f && !bOptionsOpen && !bInventoryOpen && !bResidentContextOpen && FMath::IsFinite(Value)) AddControllerPitchInput' in hero
           assert 'ManaRegenPerSecond' in hero and 'Tick(float DeltaSeconds)' in hero
           assert 'DamageImmunityUntil' in hero and 'NextDodgeAt' in hero
           assert 'IncomingStage >= 12 ? 1 : IncomingStage + 1' in hero
@@ -67,8 +67,14 @@ jobs:
           assert 'TEXT("HEAVY")' in enemy and 'TEXT("SWEEP")' in enemy
           inputs = Path('MoonfallUnreal/Config/DefaultInput.ini').read_text()
           hud = (root/'MoonfallUnreal'/'MoonfallCombatHUD.cpp').read_text()
-          assert 'ActionName="CastLeft",Key=LeftMouseButton' in inputs
-          assert 'ActionName="CastRight",Key=RightMouseButton' in inputs
+          # Context-aware mouse handlers preserve combat when not on an NPC.
+          assert 'ActionName="ResidentMouseClick",Key=LeftMouseButton' in inputs
+          assert 'ActionName="CastRightMouse",Key=RightMouseButton' in inputs
+          assert 'ActionName="CastLeft",Key=Z' in inputs
+          assert 'ActionName="CastRight",Key=X' in inputs
+          assert 'CastLeft(); return;' in hero and 'CastRight();' in hero
+          assert 'ActionName="TalkNPC"' not in inputs
+          assert 'ActionName="ResidentQuest"' not in inputs
           assert 'ActionName="DualCast",Key=Gamepad_LeftTrigger' in inputs
           assert 'DrawArc(Radius * 0.85f' in hud and 'DrawArc(Radius * 0.97f' in hud
           assert 'DisplayHealth = FMath::FInterpTo' in hud and 'LevelGlowUntil' in hud
