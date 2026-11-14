@@ -417,6 +417,17 @@ class TestRacialPersistence(unittest.TestCase):
         self.assertLess(attempt.index("Hero->IsCurrentRespawnLocation(GetRespawnLocation())"),
                         attempt.index("if (Hero->DiscoverShrine(this))"))
 
+    def test_spawn_check_reactivates_known_shrine_after_fallback(self):
+        shrine_cpp = (ROOT / "MoonfallCheckpointShrine.cpp").read_text(encoding="utf-8")
+        check = shrine_cpp.split(
+            "void AMoonfallCheckpointShrine::CheckHeroAtSpawn(", 1)[1].split(
+            "void AMoonfallCheckpointShrine::TryDiscoverOrQueueRetry(", 1)[0]
+        self.assertIn("Hero->HasDiscoveredShrine(ShrineId)", check)
+        self.assertIn("Hero->IsCurrentRespawnLocation(GetRespawnLocation())", check)
+        self.assertIn("Hero->ActiveShrineId == ShrineId", check)
+        self.assertIn("TryDiscoverOrQueueRetry(Hero);", check)
+        self.assertNotIn("if (Hero->HasDiscoveredShrine(ShrineId) ||", check)
+
     def test_shrine_discovery_retries_failed_entry_without_tick(self):
         shrine_cpp = (ROOT / "MoonfallCheckpointShrine.cpp").read_text(encoding="utf-8")
         shrine_h = (ROOT / "MoonfallCheckpointShrine.h").read_text(encoding="utf-8")
