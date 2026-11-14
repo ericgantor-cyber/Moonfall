@@ -47,6 +47,20 @@ class TestRacialPersistence(unittest.TestCase):
         self.assertIn("RacePowerActiveUntil = PreviousActiveUntil;", self.cpp)
         self.assertIn("OnRacePowerActivated(FName(MoonfallRacePowerNames[RaceId]));", self.cpp)
 
+    def test_malformed_saves_cannot_restore_unknown_quests_or_scan_unbounded_inventory(self):
+        # Both are source contracts until a real UE5 save migration test is run.
+        loader = self.cpp.split("bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[1].split(
+            "void AMoonfallHeroPawn::RespawnAtCheckpoint()", 1)[0]
+        self.assertIn("IsNamedMoonfallResident(Entry.Key)", loader)
+        self.assertIn("Entry.Value == 1 || Entry.Value == 2", loader)
+        self.assertIn("Save->ResidentQuestStates.Num() <= 64", loader)
+        self.assertIn("FMath::Min(Save->InventoryItemCodes.Num(), 10000)", loader)
+        self.assertIn("Index < LoadScanCount", loader)
+        self.assertIn("ValidMoonfallItemCode(Code)", loader)
+        self.assertNotIn("for (int32 Code : Save->InventoryItemCodes)", loader)
+        self.assertIn("bool IsNamedMoonfallResident(FName Id);", self.cpp)
+        self.assertIn("bool IsNamedMoonfallResident(FName Id) {", self.cpp)
+
     def test_not_a_new_run(self):
         self.assertIn('MoonfallPersistentWorldV1', self.cpp)
         self.assertIn("if (SecondsSinceLastWorldSave >= 2.f && GetWorld()", self.cpp)
