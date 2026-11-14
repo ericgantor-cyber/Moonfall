@@ -5,7 +5,9 @@
 #include "Camera/CameraComponent.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "GameFramework/PlayerStart.h"
 #include "Components/InputComponent.h"
+#include "Components/CapsuleComponent.h"
 #include "Engine/World.h"
 #include "DrawDebugHelpers.h"
 #include "Engine/Engine.h"
@@ -15,6 +17,7 @@
 #include "Interfaces/IPluginManager.h"
 #include "MoonfallEnemy.h"
 #include "MoonfallWorldNPC.h"
+#include "MoonfallCheckpointShrine.h"
 #include "MoonfallGroundLoot.h"
 #include "EngineUtils.h"
 #include "Components/SkeletalMeshComponent.h"
@@ -156,7 +159,25 @@ void AMoonfallHeroPawn::BeginPlay() {
  const TSharedPtr<IPlugin> DLSS = IPluginManager::Get().FindPlugin(TEXT("DLSS"));
  bFrameGenerationPluginDetected = (FSR.IsValid() && FSR->IsEnabled()) || (DLSS.IsValid() && DLSS->IsEnabled());
  // Detection is only a hint, never proof of a supported frame-generation runtime.
+ // Remember the level-authored spawn before a save load can relocate us.
+ // A map with no PlayerStart may still have a valid placed hero pawn.
+ const FVector SpawnLocation = GetActorLocation();
+ bHasInitialSpawnTransform = !SpawnLocation.ContainsNaN()
+     && SpawnLocation.SizeSquared() < 1.0e14f;
+ if (bHasInitialSpawnTransform) {
+  InitialSpawnTransform = GetActorTransform();
+  RespawnCheckpointLocation = SpawnLocation;
+  bHasRespawnCheckpointLocation = true;
+ }
  LoadWorldProgress();
+ bWorldProgressInitialized = true;
+ // When a shrine spawned before this pawn, BeginPlay overlap notifications
+ // may have happened before save load was complete. A one-time scan after
+ // the saved position and shrine ledger are restored closes that gap.
+ if (GetWorld()) {
+  for (TActorIterator<AMoonfallCheckpointShrine> It(GetWorld()); It; ++It)
+   if (IsValid(*It)) It->CheckHeroAtSpawn(this);
+ }
 }
 void AMoonfallHeroPawn::Tick(float DeltaSeconds)
 {
@@ -1380,8 +1401,16 @@ bool AMoonfallHeroPawn::CollectGroundEquipmentCode(int32 ItemCode)
      || (Rarity == 0 && Affix != 0)
      || ItemCode != Affix * 100000 + SlotIndex * 10000 + Rarity * 1000 + Tier)
   return false;
- // Picking up an item NEVER equips, automatically salvages, or deletes gear.
- InventoryItemCodes.Add(ItemCode);
+ // Ground loot remains in the world until it is safely recorded.
+ // SaveGameToSlot is synchronous here; a failed save must leave pickup and
+ // all last-loot UI values untouched, even when this code already exists.
+ if (InventoryItemCodes.Num() >= 10000) return false;
+ const int32 OldLootAffix = LastLootAffix;
+ const int32 OldLootSlot = LastLootSlot;
+ const int32 OldLootRarity = LastLootRarity;
+ const int32 OldLootTier = LastLootTier;
+ const int32 OldLootUpgrade = LastLootUpgrade;
+ const int32 AddedIndex = InventoryItemCodes.Add(ItemCode);
  LastLootAffix = Affix;
  LastLootSlot = SlotIndex;
  LastLootRarity = Rarity;
@@ -1389,6 +1418,17 @@ bool AMoonfallHeroPawn::CollectGroundEquipmentCode(int32 ItemCode)
  const int32 EquippedTier = SlotIndex == 0 ? WeaponTier
      : (SlotIndex == 1 ? ArmorTier : AccessoryTier);
  LastLootUpgrade = Tier - EquippedTier;
+ if (!SaveWorldProgress()) {
+  InventoryItemCodes.RemoveAt(AddedIndex);
+  LastLootAffix = OldLootAffix;
+  LastLootSlot = OldLootSlot;
+  LastLootRarity = OldLootRarity;
+  LastLootTier = OldLootTier;
+  LastLootUpgrade = OldLootUpgrade;
+  return false;
+ }
+ // This pickup was saved synchronously; avoid a duplicate autosave next Tick.
+ SecondsSinceLastWorldSave = 0.f;
  return true;
 }
 
@@ -1557,23 +1597,126 @@ bool ValidMoonfallItemCode(int32 Code) {
  const int32 Slot = (Code / 10000) % 10;
  const int32 Rarity = (Code / 1000) % 10;
  const int32 Tier = Code % 1000;
- return Trait >= 1 && Trait <= 3 && Slot >= 0 && Slot <= 2
-     && Rarity >= 1 && Rarity <= 5 && Tier >= 1 && Tier <= 25
+ // Match RollEquipmentCode, ground pickup and manual equip. Common gear
+ // has no trait; uncommon gear may be traitless. Reject only malformed codes,
+ // not legitimately collected rewards that must persist through respawning.
+ return Trait >= 0 && Trait <= 3 && Slot >= 0 && Slot <= 2
+     && Rarity >= 0 && Rarity <= 5 && Tier >= 1 && Tier <= 25
+     && (Rarity != 0 || Trait == 0)
      && Code == Trait * 100000 + Slot * 10000 + Rarity * 1000 + Tier;
 }
+// A collision-aware recovery location is safer than reviving at the death site.
+// The level generator supplies a PlayerStart; authored worlds can supply more.
+bool RestoreMoonfallPlayerStart(AMoonfallHeroPawn* Hero) {
+ if (!IsValid(Hero) || !Hero->GetWorld()) return false;
+ for (TActorIterator<APlayerStart> It(Hero->GetWorld()); It; ++It) {
+  const APlayerStart* Start = *It;
+  if (IsValid(Start) && Hero->TeleportTo(Start->GetActorLocation(),
+      Start->GetActorRotation(), false, false)) return true;
+ }
+ return false;
+}
+}
+bool AMoonfallHeroPawn::RestoreSafeSpawnLocation() {
+ // Favor authored PlayerStart actors; use the original placed pawn transform
+ // only when a map has no usable PlayerStart. Collision checks stay enabled.
+ if (RestoreMoonfallPlayerStart(this)) return true;
+ if (!bHasInitialSpawnTransform) return false;
+ const FVector Location = InitialSpawnTransform.GetLocation();
+ if (Location.ContainsNaN() || Location.SizeSquared() >= 1.0e14f) return false;
+ return TeleportTo(Location, InitialSpawnTransform.GetRotation().Rotator(), false, false);
+}
+// Touching a new shrine sets the next death checkpoint, not every autosave.
+bool AMoonfallHeroPawn::HasDiscoveredShrine(FName ShrineId) const {
+ return !ShrineId.IsNone() && DiscoveredShrineIds.Contains(ShrineId);
+}
+bool AMoonfallHeroPawn::DiscoverShrine(AMoonfallCheckpointShrine* Shrine) {
+ if (!IsValid(Shrine) || Shrine->GetWorld() != GetWorld()
+     || Shrine->ShrineId.IsNone() || Health <= 0.f
+     || !bWorldProgressInitialized || bWorldProgressLoadInProgress
+     || bPersistentSaveWritesBlocked || HasDiscoveredShrine(Shrine->ShrineId)
+     || DiscoveredShrineIds.Num() >= 64) return false;
+ const FVector ShrineLocation = Shrine->GetActorLocation();
+ const FVector HeroLocation = GetActorLocation();
+ const FVector NewRespawn = Shrine->GetRespawnLocation();
+ if (ShrineLocation.ContainsNaN() || HeroLocation.ContainsNaN()
+     || NewRespawn.ContainsNaN() || NewRespawn.SizeSquared() >= 1.0e14f
+     || FVector::DistSquared2D(ShrineLocation, HeroLocation) > FMath::Square(220.f)
+     || FMath::Abs(ShrineLocation.Z - HeroLocation.Z) > 200.f) return false;
+ // A proximity trigger can overlap through walls. Only an unobstructed
+ // discovered shrine may become the persisted respawn checkpoint.
+ FCollisionQueryParams ShrineSight(SCENE_QUERY_STAT(MoonfallShrineDiscovery), false);
+ ShrineSight.AddIgnoredActor(this);
+ ShrineSight.AddIgnoredActor(Shrine);
+ if (GetWorld()->LineTraceTestByChannel(HeroLocation,
+     ShrineLocation + FVector(0.f, 0.f, 80.f), ECC_Visibility, ShrineSight)) return false;
+ // Line of sight alone does not prove the saved spawn position is safe.
+ // Validate against the *actual scaled character capsule* before replacing
+ // the previous working checkpoint. Ignore the hero and shrine geometry.
+ const UCapsuleComponent* Capsule = GetCapsuleComponent();
+ if (!Capsule) return false;
+ float CapsuleRadius = 0.f;
+ float CapsuleHalfHeight = 0.f;
+ Capsule->GetScaledCapsuleSize(CapsuleRadius, CapsuleHalfHeight);
+ if (!FMath::IsFinite(CapsuleRadius) || !FMath::IsFinite(CapsuleHalfHeight)
+     || CapsuleRadius <= 0.f || CapsuleHalfHeight < CapsuleRadius) return false;
+ FCollisionQueryParams SpawnClearance(SCENE_QUERY_STAT(MoonfallShrineSpawnClearance), false);
+ SpawnClearance.AddIgnoredActor(this);
+ SpawnClearance.AddIgnoredActor(Shrine);
+ if (GetWorld()->OverlapBlockingTestByChannel(NewRespawn, GetActorQuat(),
+     ECC_Pawn, FCollisionShape::MakeCapsule(CapsuleRadius, CapsuleHalfHeight),
+     SpawnClearance)) return false;
+ const FName PreviousShrineId = ActiveShrineId;
+ const FVector PreviousCheckpoint = RespawnCheckpointLocation;
+ const bool bPreviousCheckpointValid = bHasRespawnCheckpointLocation;
+ DiscoveredShrineIds.Add(Shrine->ShrineId);
+ ActiveShrineId = Shrine->ShrineId;
+ RespawnCheckpointLocation = NewRespawn;
+ bHasRespawnCheckpointLocation = true;
+ // Unlock + checkpoint persist together. Failed saves cannot activate a
+ // shrine in memory and silently lose it after quitting.
+ if (!SaveWorldProgress()) {
+  DiscoveredShrineIds.Remove(Shrine->ShrineId);
+  ActiveShrineId = PreviousShrineId;
+  RespawnCheckpointLocation = PreviousCheckpoint;
+  bHasRespawnCheckpointLocation = bPreviousCheckpointValid;
+  return false;
+ }
+ // Shrine discovery saved the world already; restart the autosave interval.
+ SecondsSinceLastWorldSave = 0.f;
+ // Discovery is rare, so update visual statuses only after a saved change.
+ // Old shrines stop showing ACTIVE without a per-frame world scan.
+ for (TActorIterator<AMoonfallCheckpointShrine> It(GetWorld()); It; ++It)
+  if (IsValid(*It)) It->RefreshShrineDisplay(this);
+ OnShrineDiscovered(ActiveShrineId);
+ return true;
 }
 bool AMoonfallHeroPawn::SaveWorldProgress() {
- // Existing incompatible/unreadable save must never be replaced by autosave
- // or by a quest/gear/race update from the temporary in-memory character.
- if (bPersistentSaveWritesBlocked) return false;
+ // Wait until initial save restoration finishes. During respawn TeleportTo and
+ // OnHealthChanged can synchronously notify Blueprint listeners, which must
+ // not save half-restored inventory, quests, equipment or shrine progress.
+ // Also protect existing incompatible/unreadable save slots.
+ if (!bWorldProgressInitialized || bWorldProgressLoadInProgress
+     || bPersistentSaveWritesBlocked || !bHasRespawnCheckpointLocation
+     || RespawnCheckpointLocation.ContainsNaN()
+     || RespawnCheckpointLocation.SizeSquared() >= 1.0e14f) return false;
  if (Health <= 0.f || !GetWorld() || !FMath::IsFinite(MaxHealth)) return false;
- // Do not serialize a mid-fall or invalid checkpoint.
- if ((GetCharacterMovement() && GetCharacterMovement()->IsFalling())
-     || GetActorLocation().ContainsNaN() || GetActorLocation().SizeSquared() >= 1.0e14f) return false;
+ // Never create a save that this version's loader will reject on reload.
+ // The source collection remains intact if its supported serialized size
+ // would be exceeded; ground drops are not consumed in that case.
+ if (InventoryItemCodes.Num() > 10000 || ResidentQuestStates.Num() > 64
+     || DiscoveredShrineIds.Num() > 64) return false;
+ // The checkpoint is the saved shrine, not the hero's airborne position.
+ // Falling or jumping must not suppress progress saves or ground-loot pickup.
+ // Still reject invalid world positions, and validate the shrine above.
+ if (GetActorLocation().ContainsNaN() || GetActorLocation().SizeSquared() >= 1.0e14f) return false;
  UMoonfallPersistentSave* Save = Cast<UMoonfallPersistentSave>(
      UGameplayStatics::CreateSaveGameObject(UMoonfallPersistentSave::StaticClass()));
  if (!Save) return false;
- Save->CheckpointLocation = GetActorLocation();
+ // Never overwrite the shrine checkpoint with the hero's current position.
+ Save->CheckpointLocation = RespawnCheckpointLocation;
+ Save->ActiveShrineId = ActiveShrineId;
+ Save->DiscoveredShrineIds = DiscoveredShrineIds;
  Save->RaceId = FMath::Clamp(RaceId, 0, 11);
  Save->FactionReputation = FactionReputation;
  Save->ResidentBonds = ResidentBonds;
@@ -1599,14 +1742,78 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  if (!UGameplayStatics::DoesSaveGameExist(MoonfallWorldSlot, 0)) return false;
  const UMoonfallPersistentSave* Save = Cast<UMoonfallPersistentSave>(
      UGameplayStatics::LoadGameFromSlot(MoonfallWorldSlot, 0));
- if (!Save || Save->Version < 1 || Save->Version > 6) {
+ if (!Save || Save->Version < 1 || Save->Version > 7) {
   // Protect newer/corrupt-but-detected saves. Calling Tick's two-second
   // autosave must not replace progress from another Moonfall version.
   bPersistentSaveWritesBlocked = true;
   UE_LOG(LogTemp, Warning, TEXT("Moonfall save slot is unreadable or has an unsupported version; writes disabled."));
   return false;
  }
+ // Fail closed on oversized legacy or V7 collections. Simply scanning the
+ // first 10,000 inventory entries (or skipping a large quest-state map)
+ // would silently discard the remainder on the next two-second autosave.
+ // Keep the original slot intact rather than saving truncated progress.
+ if (Save->InventoryItemCodes.Num() > 10000
+     || (Save->Version >= 6 && Save->ResidentQuestStates.Num() > 64)) {
+  bPersistentSaveWritesBlocked = true;
+  UE_LOG(LogTemp, Warning, TEXT("Moonfall saved inventory or resident quests exceed supported bounds; original save protected."));
+  return false;
+ }
+ // Validate the V7 discovered-shrine ledger before touching live progress.
+ // Old V1-V6 saves retain their legacy checkpoint until a shrine is found.
+ if (Save->Version >= 7) {
+  TSet<FName> UniqueShrines;
+  if (Save->DiscoveredShrineIds.Num() > 64) {
+   bPersistentSaveWritesBlocked = true;
+   return false;
+  }
+  for (const FName Id : Save->DiscoveredShrineIds) {
+   if (Id.IsNone() || UniqueShrines.Contains(Id)) {
+    bPersistentSaveWritesBlocked = true;
+    return false;
+   }
+   UniqueShrines.Add(Id);
+  }
+  if ((!Save->ActiveShrineId.IsNone() && !UniqueShrines.Contains(Save->ActiveShrineId))
+      || (Save->ActiveShrineId.IsNone() && !UniqueShrines.IsEmpty())) {
+   bPersistentSaveWritesBlocked = true;
+   return false;
+  }
+ }
+ // Validate and resolve the checkpoint before touching saved progression.
+ // An unchecked SetActorLocation can embed the pawn inside solid geometry.
+ const FVector SavedCheckpoint = Save->CheckpointLocation;
+ if (SavedCheckpoint.ContainsNaN() || SavedCheckpoint.SizeSquared() >= 1.0e14f) {
+  bPersistentSaveWritesBlocked = true;
+  UE_LOG(LogTemp, Warning, TEXT("Moonfall save checkpoint is invalid; preserving original save."));
+  return false;
+ }
+ // Teleport can synchronously cause shrine overlap callbacks; do not let
+ // those callbacks save stale loot, NPC state or the previous shrine ledger.
+ bWorldProgressLoadInProgress = true;
+ if (!TeleportTo(SavedCheckpoint, GetActorRotation(), false, false)) {
+  // Saved position may be blocked by new dungeon geometry. Recover at an
+  // authored PlayerStart instead of reviving inside a wall or at death site.
+  if (!RestoreSafeSpawnLocation()) {
+   bPersistentSaveWritesBlocked = true;
+   UE_LOG(LogTemp, Warning, TEXT("Moonfall checkpoint and PlayerStart are blocked; writes disabled."));
+   bWorldProgressLoadInProgress = false;
+   return false;
+  }
+  UE_LOG(LogTemp, Warning, TEXT("Moonfall checkpoint blocked; using a safe PlayerStart."));
+ }
  bPersistentSaveWritesBlocked = false;
+ RespawnCheckpointLocation = SavedCheckpoint;
+ bHasRespawnCheckpointLocation = true;
+ ActiveShrineId = Save->Version >= 7 ? Save->ActiveShrineId : NAME_None;
+ DiscoveredShrineIds = Save->Version >= 7 ? Save->DiscoveredShrineIds : TArray<FName>();
+ // Refresh any shrines that began play before the save was loaded.
+ // This also fixes stale ACTIVE labels when death reloads an earlier save.
+ // A shrine spawned later refreshes itself in its own BeginPlay.
+ if (GetWorld()) {
+  for (TActorIterator<AMoonfallCheckpointShrine> It(GetWorld()); It; ++It)
+   if (IsValid(*It)) It->RefreshShrineDisplay(this);
+ }
  ResidentQuestStates.Reset();
  if (Save->Version >= 6) {
   // Ignore unknown, malformed and oversized quest entries from disk.
@@ -1686,16 +1893,31 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  Health = MaxHealth;
  Mana = FMath::Max(0.f, MaxMana);
  Stamina = FMath::Max(0.f, MaxStamina);
- if (!Save->CheckpointLocation.ContainsNaN()
-     && Save->CheckpointLocation.SizeSquared() < 1.0e14f)
-  SetActorLocation(Save->CheckpointLocation, false, nullptr, ETeleportType::TeleportPhysics);
+ // Location was already collision-checked before restoring inventory.
  OnHealthChanged(Health, MaxHealth);
+ bWorldProgressLoadInProgress = false;
  return true;
 }
 void AMoonfallHeroPawn::RespawnAtCheckpoint() {
  DefeatElapsedSeconds = 0.f;
- // No new run, no loot reset. Restore last living checkpoint.
+ // No new run and no loot reset. Prefer a fully restored on-disk checkpoint.
  if (!LoadWorldProgress()) {
+  // A missing, unreadable or blocked save should not erase progress. Try the
+  // last known in-memory shrine (if valid) before the authored level spawn.
+  // All teleports use collision checks, never a forced placement.
+  bool bFoundSafeRespawn = bHasRespawnCheckpointLocation
+      && !RespawnCheckpointLocation.ContainsNaN()
+      && RespawnCheckpointLocation.SizeSquared() < 1.0e14f
+      && TeleportTo(RespawnCheckpointLocation, GetActorRotation(), false, false);
+  if (!bFoundSafeRespawn)
+   bFoundSafeRespawn = RestoreSafeSpawnLocation();
+  if (!bFoundSafeRespawn) {
+   // Do not resurrect at the lethal position when every spawn is blocked.
+   // Keep the defeat state and retry through the normal 3-second timer.
+   // An incompatible save remains write-protected.
+   UE_LOG(LogTemp, Warning, TEXT("Moonfall has no collision-safe shrine, PlayerStart or initial spawn; staying defeated."));
+   return;
+  }
   Health = FMath::Max(1.f, MaxHealth);
   Mana = FMath::Max(0.f, MaxMana);
   Stamina = FMath::Max(0.f, MaxStamina);
@@ -1707,6 +1929,12 @@ void AMoonfallHeroPawn::RespawnAtCheckpoint() {
   DamageImmunityUntil = FMath::Max(DamageImmunityUntil, Now + 3.f);
   NextSafeCheckpointAt = Now + 5.f;
   SecondsSinceLastWorldSave = 0.f;
+  // A collision-aware respawn can trigger shrine overlap while Health <= 0,
+  // before the saved or fallback health restoration. That overlap is refused
+  // and does not necessarily fire again once the hero is alive. Recheck once
+  // after a successful respawn, never while stuck at an unsafe death site.
+  for (TActorIterator<AMoonfallCheckpointShrine> It(GetWorld()); It; ++It)
+   if (IsValid(*It)) It->CheckHeroAtSpawn(this);
  }
 }
 

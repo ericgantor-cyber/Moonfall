@@ -7,6 +7,7 @@ class UCameraComponent;
 class UAnimMontage;
 class AMoonfallEnemy;
 class AMoonfallWorldNPC;
+class AMoonfallCheckpointShrine;
 class UStaticMeshComponent;
 class UPointLightComponent;
 UCLASS()
@@ -86,6 +87,13 @@ public:
  UFUNCTION(BlueprintPure, Category="Moonfall|Equipment|Stats") float GetHasteBonus() const;
  UFUNCTION(BlueprintPure, Category="Moonfall|Equipment|Stats") float GetMasteryBonus() const;
  UFUNCTION(BlueprintPure, Category="Moonfall|Equipment|Stats") float GetVersatilityBonus() const;
+ // Shrine discovery controls respawn. Regular two-second saves keep progress
+ // without moving the active checkpoint to every room crossed.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Shrines") FName ActiveShrineId = NAME_None;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Shrines") TArray<FName> DiscoveredShrineIds;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Shrines") bool HasDiscoveredShrine(FName ShrineId) const;
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Shrines") bool DiscoverShrine(AMoonfallCheckpointShrine* Shrine);
+ UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Shrines") void OnShrineDiscovered(FName ShrineId);
  // A single permanent world checkpoint. Death never erases experience or items.
  UFUNCTION(BlueprintCallable, Category="Moonfall|Persistence") bool SaveWorldProgress();
  UFUNCTION(BlueprintCallable, Category="Moonfall|Persistence") bool LoadWorldProgress();
@@ -208,6 +216,18 @@ public:
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Combat") int32 RightSpell = 1;
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Combat") void OnSpellCast(int32 School, bool bLeftHand);
 private:
+ // Fallback for levels without a usable PlayerStart. Capture the actual
+ // authored spawn before the saved checkpoint is applied during BeginPlay.
+ FTransform InitialSpawnTransform = FTransform::Identity;
+ bool bHasInitialSpawnTransform = false;
+ bool RestoreSafeSpawnLocation();
+ FVector RespawnCheckpointLocation = FVector::ZeroVector;
+ bool bHasRespawnCheckpointLocation = false;
+ // Never write a shrine save before the initial persistent slot has loaded.
+ bool bWorldProgressInitialized = false;
+ // Collision-aware teleport during load can fire shrine overlaps before all
+ // progress has been restored. Never allow nested discovery saves in this phase.
+ bool bWorldProgressLoadInProgress = false;
  // Protect an existing unsupported or unreadable slot from routine autosaves.
  // Cleared only after a supported save has been loaded successfully.
  bool bPersistentSaveWritesBlocked = false;
