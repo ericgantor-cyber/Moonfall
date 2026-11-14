@@ -116,7 +116,7 @@ class CategoryRoadmapTests(unittest.TestCase):
     def test_rejects_circular_dependency(self):
         data = self.fresh()
         # Both tracks are in the foundation milestone.
-        data["categories"][0]["roadmap"][0]["depends_on"] = ["races_classes"]
+        data["categories"][0]["roadmap"][0]["depends_on"] = ["race_selection"]
         with self.assertRaisesRegex(ValueError, "Cyclic roadmap dependency"):
             validate(data, ROOT)
 
