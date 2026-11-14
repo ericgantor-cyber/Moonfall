@@ -427,7 +427,7 @@ class TestRacialPersistence(unittest.TestCase):
         self.assertIn("FTimerHandle DiscoveryRetryTimer;", shrine_h)
         self.assertNotIn("void AMoonfallCheckpointShrine::Tick(", shrine_cpp)
 
-    def test_fallback_respawn_does_not_mislabel_old_shrine_as_active(self):
+    def test_fallback_keeps_discovered_shrines_active_without_mislabeling_respawn(self):
         shrine_cpp = (ROOT / "MoonfallCheckpointShrine.cpp").read_text(encoding="utf-8")
         hero_header = self.header
         helper = self.cpp.split(
@@ -448,7 +448,9 @@ class TestRacialPersistence(unittest.TestCase):
             "void AMoonfallCheckpointShrine::CheckHeroAtSpawn(", 1)[0]
         self.assertLess(label.index("Hero->IsCurrentRespawnLocation(GetRespawnLocation())"),
                         label.index('TEXT("ACTIVE RESPAWN SHRINE")'))
-        self.assertIn('TEXT("DISCOVERED SHRINE")', label)
+        self.assertIn('TEXT("ACTIVE SHRINE")', label)
+        self.assertIn("bCurrentRespawn ? TEXT", label)
+        self.assertIn("bDiscovered ? TEXT", label)
         self.assertIn("RespawnCheckpointLocation = ResolvedCheckpoint;", loader)
         self.assertIn("ActiveShrineId = Save->Version >= 7 ?", loader)
 
@@ -472,9 +474,11 @@ class TestRacialPersistence(unittest.TestCase):
                         discover.index("DiscoveredShrineIds.Add(Shrine->ShrineId);"))
         self.assertIn("It->RefreshShrineDisplay(this);", discover)
         self.assertIn('TEXT("ACTIVE RESPAWN SHRINE")', shrine_cpp)
-        self.assertIn('TEXT("DISCOVERED SHRINE")', shrine_cpp)
+        self.assertIn('TEXT("ACTIVE SHRINE")', shrine_cpp)
         self.assertIn('TEXT("UNDISCOVERED SHRINE")', shrine_cpp)
         self.assertIn("Hero->ActiveShrineId == ShrineId", shrine_cpp)
+        self.assertIn("const bool bDiscovered = IsValid(Hero) && Hero->HasDiscoveredShrine(ShrineId);", shrine_cpp)
+        self.assertIn("bDiscovered ? TEXT(\"ACTIVE SHRINE\")", shrine_cpp)
 
     def test_new_shrine_requires_unblocked_capsule_sized_respawn(self):
         discover = self.cpp.split("bool AMoonfallHeroPawn::DiscoverShrine(", 1)[1].split(
