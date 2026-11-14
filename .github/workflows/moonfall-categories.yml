@@ -13,6 +13,9 @@ on:
       - "config/moonfall_talents.json"
       - "tools/moonfall_talents.py"
       - "tools/test_moonfall_talents.py"
+      - "config/moonfall_combat_ratings.json"
+      - "tools/moonfall_combat_ratings.py"
+      - "tools/test_moonfall_combat_ratings.py"
       - "docs/MOONFALL_FIVE_CATEGORIES.md"
       - ".github/workflows/moonfall-categories.yml"
   push:
@@ -28,6 +31,9 @@ on:
       - "config/moonfall_talents.json"
       - "tools/moonfall_talents.py"
       - "tools/test_moonfall_talents.py"
+      - "config/moonfall_combat_ratings.json"
+      - "tools/moonfall_combat_ratings.py"
+      - "tools/test_moonfall_combat_ratings.py"
       - "docs/MOONFALL_FIVE_CATEGORIES.md"
       - ".github/workflows/moonfall-categories.yml"
 
@@ -45,5 +51,6 @@ jobs:
       - run: python tools/test_game_categories.py
       - run: python tools/test_moonfall_stats.py
       - run: python tools/test_moonfall_talents.py
+      - run: python tools/test_moonfall_combat_ratings.py
       - run: python tools/moonfall_category_plan.py --format json --output /tmp/moonfall-plan.json
       - run: python tools/moonfall_category_plan.py --category interface --output /tmp/moonfall-interface-plan.md
