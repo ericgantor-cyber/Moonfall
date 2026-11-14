@@ -100,6 +100,50 @@ TArray<FMoonfallRaceProfile> UMoonfallRaceLibrary::GetRaceProfilesByFamily(FName
  return Result;
 }
 
+TArray<FName> UMoonfallRaceLibrary::GetRaceFamilies()
+{
+ TArray<FName> Result;
+ for (const FRaceRow& Row : RaceRows)
+ {
+  const FName Family(Row.Family);
+  if (!Result.Contains(Family))
+   Result.Add(Family);
+ }
+ return Result;
+}
+
+bool UMoonfallRaceLibrary::FindPlayableRaceProfile(FName RaceId, FMoonfallRaceProfile& Profile)
+{
+ if (!FindRaceProfile(RaceId, Profile) || !Profile.bPlayableCandidate)
+ {
+  Profile = FMoonfallRaceProfile();
+  return false;
+ }
+ return true;
+}
+
+bool UMoonfallRaceLibrary::PreviewPlayableRaceStats(
+ FName RaceId, float BaseVitality, float BasePower, float BaseSpeed,
+ FMoonfallRaceStatPreview& Preview)
+{
+ Preview = FMoonfallRaceStatPreview();
+ FMoonfallRaceProfile Profile;
+ if (!FindPlayableRaceProfile(RaceId, Profile)
+     || !FMath::IsFinite(BaseVitality) || BaseVitality < 0.f
+     || !FMath::IsFinite(BasePower) || BasePower < 0.f
+     || !FMath::IsFinite(BaseSpeed) || BaseSpeed < 0.f)
+  return false;
+ const float Vitality = BaseVitality * Profile.VitalityMultiplier;
+ const float Power = BasePower * Profile.PowerMultiplier;
+ const float Speed = BaseSpeed * Profile.SpeedMultiplier;
+ if (!FMath::IsFinite(Vitality) || !FMath::IsFinite(Power) || !FMath::IsFinite(Speed))
+  return false;
+ Preview.Vitality = Vitality;
+ Preview.Power = Power;
+ Preview.Speed = Speed;
+ return true;
+}
+
 bool UMoonfallRaceLibrary::FindRaceProfile(FName RaceId, FMoonfallRaceProfile& Profile)
 {
  Profile = FMoonfallRaceProfile();
