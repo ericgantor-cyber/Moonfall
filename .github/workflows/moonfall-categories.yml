@@ -16,6 +16,10 @@ on:
       - "config/moonfall_combat_ratings.json"
       - "tools/moonfall_combat_ratings.py"
       - "tools/test_moonfall_combat_ratings.py"
+      - "tools/test_godot_talent_bridge.py"
+      - "godot-v38/data/moonfall_talents.json"
+      - "godot-v38/scripts/systems/moonfall_talent_tree.gd"
+      - "godot-v38/tests/talent_tree_runtime.gd"
       - "docs/MOONFALL_FIVE_CATEGORIES.md"
       - ".github/workflows/moonfall-categories.yml"
   push:
@@ -34,6 +38,10 @@ on:
       - "config/moonfall_combat_ratings.json"
       - "tools/moonfall_combat_ratings.py"
       - "tools/test_moonfall_combat_ratings.py"
+      - "tools/test_godot_talent_bridge.py"
+      - "godot-v38/data/moonfall_talents.json"
+      - "godot-v38/scripts/systems/moonfall_talent_tree.gd"
+      - "godot-v38/tests/talent_tree_runtime.gd"
       - "docs/MOONFALL_FIVE_CATEGORIES.md"
       - ".github/workflows/moonfall-categories.yml"
 
@@ -52,5 +60,6 @@ jobs:
       - run: python tools/test_moonfall_stats.py
       - run: python tools/test_moonfall_talents.py
       - run: python tools/test_moonfall_combat_ratings.py
+      - run: python tools/test_godot_talent_bridge.py
       - run: python tools/moonfall_category_plan.py --format json --output /tmp/moonfall-plan.json
       - run: python tools/moonfall_category_plan.py --category interface --output /tmp/moonfall-interface-plan.md
