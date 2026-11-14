@@ -1923,8 +1923,16 @@ void AMoonfallHeroPawn::RespawnAtCheckpoint() {
       && !RespawnCheckpointLocation.ContainsNaN()
       && RespawnCheckpointLocation.SizeSquared() < 1.0e14f
       && TeleportTo(RespawnCheckpointLocation, GetActorRotation(), false, false);
-  if (!bFoundSafeRespawn)
+  if (!bFoundSafeRespawn) {
    bFoundSafeRespawn = RestoreSafeSpawnLocation();
+   if (bFoundSafeRespawn) {
+    // A memory-only checkpoint can become blocked when world geometry changes.
+    // Remember the collision-checked fallback, otherwise a subsequent autosave
+    // could re-persist the blocked position despite a successful rescue.
+    RespawnCheckpointLocation = GetActorLocation();
+    bHasRespawnCheckpointLocation = true;
+   }
+  }
   if (!bFoundSafeRespawn) {
    // Do not resurrect at the lethal position when every spawn is blocked.
    // Keep the defeat state and retry through the normal 3-second timer.
