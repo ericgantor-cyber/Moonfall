@@ -214,8 +214,11 @@ or character classes.
 Moonfall retains its own original, classless primary attributes
 (**Might, Agility, Arcana, Vitality, Resolve and Endurance**) and its
 spendable talent tree. The versioned
-`config/moonfall_combat_ratings.json` adds six optional rating stats:
-**Critical Strike, Hit Chance, Haste, Dodge, Parry and Block**. It also
+`config/moonfall_combat_ratings.json` adds two optional ratings:
+**Critical Strike and Haste**. **Hit Chance, Dodge, Parry and Block are
+not character ratings in Moonfall.** Dodging, parrying and blocking can
+remain player-controlled combat actions, not equipment-derived percentages.
+It also
 supports Armor, Attack Power, Spell Power, Health/Mana Regeneration and
 Fire/Frost/Shock Resistance. Rating-to-percent conversions, base values,
 and safety caps are **provisional Moonfall balancing choices**.
@@ -225,6 +228,9 @@ input, converts ratings to capped percentages and clamps resistances. It
 is included in the `tools/moonfall_stats.py` consolidated character-sheet
 output as `combat`, but **the runtime character screen and combat in Godot
 and Unreal are not yet connected** to this reference model.
+
+The former Hit, Dodge, Block and Parry ratings have been explicitly
+removed from the reference config and rejected in stat inputs.
 
 Run `python tools/test_moonfall_combat_ratings.py` and
 `python tools/test_moonfall_stats.py` to check capped combat ratings and
