@@ -110,6 +110,38 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("SaveGame", batch)
         self.assertNotIn("SpawnActor", batch)
 
+    def test_race_catalog_values_and_playable_families_are_consistent(self):
+        import math
+        import re
+        code = (ROOT / "MoonfallRaceLibrary.cpp").read_text(encoding="utf-8")
+        header = (ROOT / "MoonfallRaceLibrary.h").read_text(encoding="utf-8")
+        self.assertIn("static TArray<FName> GetPlayableRaceFamilies();", header)
+        family_fn = code.split("UMoonfallRaceLibrary::GetPlayableRaceFamilies()", 1)[1].split(
+            "UMoonfallRaceLibrary::FindPlayableRaceProfile(", 1)[0]
+        self.assertIn("if (!Row.bPlayable) continue;", family_fn)
+        self.assertIn("if (!Result.Contains(Family))", family_fn)
+        self.assertIn("Result.Add(Family);", family_fn)
+        pattern = (
+            r'^\s*\{TEXT\("([a-z_]+)"\),\s*TEXT\("([^"]+)"\),\s*'
+            r'TEXT\("([A-Za-z]+)"\),\s*(true|false),\s*'
+            r'([0-9.]+)f,\s*([0-9.]+)f,\s*([0-9.]+)f\},'
+        )
+        rows = re.findall(pattern, code, re.MULTILINE)
+        self.assertEqual(len(rows), 30, "Every race must have a parseable stat row")
+        self.assertEqual(len({row[0] for row in rows}), 30)
+        playable = [row for row in rows if row[3] == "true"]
+        self.assertGreater(len(playable), 0)
+        self.assertLess(len(playable), 30)
+        families = {row[2] for row in rows}
+        self.assertTrue({row[2] for row in playable}.issubset(families))
+        for race_id, display_name, family, _, vitality, power, speed in rows:
+            self.assertTrue(display_name and family, race_id)
+            for value in (vitality, power, speed):
+                number = float(value)
+                self.assertTrue(math.isfinite(number) and 0.0 < number <= 3.0, race_id)
+        human = next(row for row in rows if row[0] == "human")
+        self.assertEqual(human[3:], ("true", "1.", "1.", "1."))
+
     def test_isolated_race_catalog_is_cpp_syntax_safe_and_does_not_replace_persistence(self):
         import re
         catalog = (ROOT / "MoonfallRaceLibrary.cpp").read_text(encoding="utf-8")
