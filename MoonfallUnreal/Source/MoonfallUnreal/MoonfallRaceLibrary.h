@@ -79,6 +79,11 @@ public:
  UFUNCTION(BlueprintPure, Category="Moonfall|Races")
  static TArray<FName> GetRaceFamilies();
 
+ // Unique families containing playable race candidates, in catalog order.
+ // Useful for accessible selection-screen family tabs.
+ UFUNCTION(BlueprintPure, Category="Moonfall|Races")
+ static TArray<FName> GetPlayableRaceFamilies();
+
  // Reject nonplayable/unknown races for character-selection validation.
  UFUNCTION(BlueprintPure, Category="Moonfall|Races")
  static bool FindPlayableRaceProfile(FName RaceId, FMoonfallRaceProfile& Profile);
