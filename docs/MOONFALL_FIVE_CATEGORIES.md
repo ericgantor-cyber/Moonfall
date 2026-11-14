@@ -8,11 +8,13 @@ primary owning category**.
 
 | Category | Owns | Player-facing examples |
 | --- | --- | --- |
-| **1. Characters** | Heroes, races, classes, character details, identity and appearance | Z and Nyra, race selection, character info (C), equipment appearance |
+| **1. Characters** | Heroes, playable races, character details, identity and appearance | Z and Nyra, race selection, character info (C), equipment appearance |
 | **2. Combat** | Attacks, spells, defensive actions, enemies and bosses | Melee, dodge, parry, stamina consumption, boss phases |
 | **3. World** | Connected overworld, zones, biomes, dungeons, exploration and quests | Mech Foundry, caves, fog-of-war map, shrines and quest locations |
-| **4. Progression** | Rewards, XP, leveling, loot, gear, crafting and permanent improvements | Upgrade cards, XP, inventory (B), weapons, sets and upgrades |
+| **4. Progression** | Rewards, XP, leveling, loot, gear, crafting and permanent improvements | XP, automatic stat growth, inventory (B), weapons and gear sets |
 | **5. Interface & Systems** | HUD, UI, input, accessibility, saves, performance and builds | HUD orbs, atlas (J), controller, mouse, Windows release pipeline |
+
+Moonfall is **classless**, and leveling does **not** present upgrade cards or reroll choices. Character progression instead uses earned XP, automatic stat growth, equipment, loot and crafting. This policy applies to new work in both engines; existing gameplay implementations require separate audits and verified migrations.
 
 ## Practical boundaries
 
@@ -55,7 +57,7 @@ test evidence before its verification status can change.
 ### Characters
 
 1. Preserve Z and Nyra as original character identities and art.
-2. Race and class creation with original Moonfall choices.
+2. Race selection with original Moonfall character designs.
 3. Equipment appearance and nine equipped slots.
 4. Stats and equipment set-effect integration.
 5. Character information and inspection on **C**.
@@ -82,7 +84,7 @@ test evidence before its verification status can change.
 2. Loot, equipment and inventory on **B**.
 3. Rarity, RNG, gear sets and item stats.
 4. Crafting and professions.
-5. Level-up cards, choices and rerolls.
+5. Automatic stat growth on level-up without selection pop-ups or rerolls.
 
 ### Interface & Systems
 
