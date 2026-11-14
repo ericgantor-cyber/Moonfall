@@ -1690,6 +1690,16 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
   UE_LOG(LogTemp, Warning, TEXT("Moonfall save slot is unreadable or has an unsupported version; writes disabled."));
   return false;
  }
+ // Fail closed on oversized legacy or V7 collections. Simply scanning the
+ // first 10,000 inventory entries (or skipping a large quest-state map)
+ // would silently discard the remainder on the next two-second autosave.
+ // Keep the original slot intact rather than saving truncated progress.
+ if (Save->InventoryItemCodes.Num() > 10000
+     || (Save->Version >= 6 && Save->ResidentQuestStates.Num() > 64)) {
+  bPersistentSaveWritesBlocked = true;
+  UE_LOG(LogTemp, Warning, TEXT("Moonfall saved inventory or resident quests exceed supported bounds; original save protected."));
+  return false;
+ }
  // Validate the V7 discovered-shrine ledger before touching live progress.
  // Old V1-V6 saves retain their legacy checkpoint until a shrine is found.
  if (Save->Version >= 7) {
