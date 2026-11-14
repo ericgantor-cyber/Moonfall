@@ -67,7 +67,9 @@ class TestSocialWorld(unittest.TestCase):
   self.assertIn("ResidentBonds.Add(Id",self.hero)
   self.assertIn("GetContractSalvageCost",self.npc)
   self.assertIn("CanHeroInteract(Hero)",self.npc)
-  self.assertIn("Hero->GetResidentQuestState(ResidentId) == 1)",self.npc)
+  # Ensure quest status never overrides a hostile faction response.
+  self.assertIn('if (Disposition != TEXT("Hostile") && Hero->GetResidentQuestState(ResidentId) == 1)',self.npc)
+  self.assertIn('else if (Disposition != TEXT("Hostile") && Hero->GetResidentQuestState(ResidentId) == 2)',self.npc)
  def test_native_canvas_menu_and_input_safety(self):
   hud=(ROOT/"MoonfallCombatHUD.cpp").read_text()
   self.assertIn("Hero->FocusedResident.Get()",hud)
