@@ -67,8 +67,8 @@ class TestRacialPersistence(unittest.TestCase):
             "bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[0]
         load = self.cpp.split("bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[1].split(
             "void AMoonfallHeroPawn::RespawnAtCheckpoint()", 1)[0]
-        self.assertIn("if (bPersistentSaveWritesBlocked) return false;", save)
-        self.assertLess(save.index("if (bPersistentSaveWritesBlocked) return false;"),
+        self.assertIn("if (bPersistentSaveWritesBlocked || !bHasRespawnCheckpointLocation", save)
+        self.assertLess(save.index("if (bPersistentSaveWritesBlocked || !bHasRespawnCheckpointLocation"),
                         save.index("UGameplayStatics::SaveGameToSlot("))
         self.assertIn("Save->Version < 1 || Save->Version > 7", load)
         self.assertIn("bPersistentSaveWritesBlocked = true;", load)
@@ -98,7 +98,7 @@ class TestRacialPersistence(unittest.TestCase):
         self.assertIn("bool bHasInitialSpawnTransform = false;", self.header)
         self.assertIn("bool RestoreSafeSpawnLocation();", self.header)
         self.assertIn("bHasInitialSpawnTransform = !SpawnLocation.ContainsNaN()", begin)
-        self.assertIn("if (bHasInitialSpawnTransform) InitialSpawnTransform = GetActorTransform();", begin)
+        self.assertIn("InitialSpawnTransform = GetActorTransform();", begin)
         self.assertLess(begin.index("InitialSpawnTransform = GetActorTransform();"),
                         begin.index("LoadWorldProgress();"))
         self.assertIn("if (RestoreMoonfallPlayerStart(this)) return true;", fallback)
