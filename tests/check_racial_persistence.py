@@ -142,6 +142,25 @@ class TestRacialPersistence(unittest.TestCase):
         self.assertIn("if (!SaveWorldProgress()) {", collect)
         self.assertIn("InventoryItemCodes.RemoveAt(AddedIndex);", collect)
 
+    def test_immediate_durable_writes_reset_the_two_second_autosave_clock(self):
+        collect = self.cpp.split("bool AMoonfallHeroPawn::CollectGroundEquipmentCode(", 1)[1].split(
+            "void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(", 1)[0]
+        discover = self.cpp.split("bool AMoonfallHeroPawn::DiscoverShrine(", 1)[1].split(
+            "bool AMoonfallHeroPawn::SaveWorldProgress()", 1)[0]
+        tick = self.cpp.split("void AMoonfallHeroPawn::Tick(", 1)[1].split(
+            "void AMoonfallHeroPawn::SetupPlayerInputComponent(", 1)[0]
+        for section in (collect, discover):
+            self.assertEqual(section.count("SecondsSinceLastWorldSave = 0.f;"), 1)
+            failure = section.split("if (!SaveWorldProgress()) {", 1)[1].split(
+                "return false;", 1)[0]
+            self.assertNotIn("SecondsSinceLastWorldSave = 0.f;", failure)
+            self.assertLess(section.index("if (!SaveWorldProgress()) {"),
+                            section.index("SecondsSinceLastWorldSave = 0.f;"))
+            self.assertLess(section.index("return false;", section.index("if (!SaveWorldProgress()) {")),
+                            section.index("SecondsSinceLastWorldSave = 0.f;"))
+        self.assertIn("if (SaveWorldProgress()) SecondsSinceLastWorldSave = 0.f;", tick)
+        self.assertIn("SecondsSinceLastWorldSave >= 2.f", tick)
+
     def test_ground_loot_pickup_is_transactional_and_durable_on_death(self):
         ground = (ROOT / "MoonfallGroundLoot.cpp").read_text(encoding="utf-8")
         collect = self.cpp.split("bool AMoonfallHeroPawn::CollectGroundEquipmentCode(", 1)[1].split(
