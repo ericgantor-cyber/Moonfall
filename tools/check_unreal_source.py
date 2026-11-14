@@ -136,6 +136,22 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                         script.index("if ($PreflightOnly)"))
         self.assertLess(script.index("dotnet --list-sdks"), script.index("if ($PreflightOnly)"))
 
+    def test_local_build_bootstraps_missing_startup_map_safely(self):
+        script = (ROOT.parents[1] / "Build" / "Build-Windows.ps1").read_text(encoding="utf-8")
+        generator = (ROOT.parents[1] / "Build" / "Create-StartupLevel.py").read_text(encoding="utf-8")
+        self.assertIn("if (-not $CompileOnly -and -not $CompilePreflightOnly -and -not $PreflightOnly) {", script)
+        self.assertIn("$editorCompiledForStartupMap = $false", script)
+        self.assertIn("if (-not $hasSavedMap -or -not $configIsReady) {", script)
+        self.assertIn("Create-StartupLevel.py", script)
+        self.assertIn('"-ExecutePythonScript=$generator"', script)
+        self.assertIn("if ($LASTEXITCODE -ne 0) { throw \"Startup map generation failed:", script)
+        self.assertIn("if (-not $editorCompiledForStartupMap) {", script)
+        self.assertLess(script.index("Preparing Moonfall startup map with Unreal Editor"),
+                        script.index("if (-not (Test-Path -LiteralPath $startupMap -PathType Leaf))"))
+        self.assertIn("if map_file.exists():", generator)
+        self.assertIn("if map_exists:", generator)
+        self.assertIn("levels.save_current_level()", generator)
+
     def test_progression_declared_and_defined(self):
         for name in ("AwardExperience", "AwardEquipmentDrop", "RewardPerfectDodge"):
             self.assertIn(name + "(", self.hero_h)
