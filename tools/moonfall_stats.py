@@ -9,6 +9,7 @@ import math
 from pathlib import Path
 
 from moonfall_combat_ratings import calculate as calculate_combat_ratings
+from moonfall_talents import evaluate as evaluate_talents
 
 ROOT = Path(__file__).resolve().parents[1]
 CONFIG = ROOT / "config/moonfall_stats.json"
@@ -70,7 +71,8 @@ def calculate(level: int, gear_score: int = 0,
               gear_bonuses: dict[str, float] | None = None,
               config: dict | None = None,
               combat_ratings: dict[str, int] | None = None,
-              combat_bonuses: dict[str, float] | None = None) -> dict:
+              combat_bonuses: dict[str, float] | None = None,
+              talent_allocations: dict[str, int] | None = None) -> dict:
     data = config if config is not None else load_config()
     validate_config(data)
     limits = data["limits"]
@@ -96,12 +98,19 @@ def calculate(level: int, gear_score: int = 0,
             stats[target] *= 1 + attrs[name] * rate
     for key, bonus in bonuses.items():
         stats[key] = max(0.0, stats[key] + bonus)
+    # Talent choices are evaluated independently from automatic level growth.
+    # Apply flat talents first, then percentages on the combined base + gear
+    # value. A 0.03 talent bonus means +3%, not 3 percentage points.
+    talents = evaluate_talents(level, talent_allocations)
+    for key, effect in talents["bonuses"].items():
+        stats[key] = max(0.0, (stats[key] + effect["flat"]) *
+                         (1.0 + effect["percent"]))
     power = math.floor(level * data["power"]["level_weight"] +
                        gear_score * data["power"]["gear_score_weight"])
     return {"level": level, "attributes": attrs, "stats": stats,
             "gear_score": gear_score, "power": power,
             "combat": calculate_combat_ratings(combat_ratings, combat_bonuses),
-            "ruleset": "classless_no_cards"}
+            "talents": talents, "ruleset": "classless_no_cards"}
 
 
 if __name__ == "__main__":
