@@ -46,6 +46,30 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("bool PlayRigCue(FName CueId)", rig_h)
         self.assertNotIn("SpawnActor", rig_cpp)
 
+    def test_race_roster_blueprint_filters_preserve_ids(self):
+        race_cpp = (ROOT / "MoonfallRaceLibrary.cpp").read_text(encoding="utf-8")
+        race_h = (ROOT / "MoonfallRaceLibrary.h").read_text(encoding="utf-8")
+        self.assertIn("static TArray<FName> GetPlayableRaceIds();", race_h)
+        self.assertIn("static TArray<FName> GetRaceIdsByFamily(FName Family);", race_h)
+        self.assertIn("if (Row.bPlayable) Result.Add(FName(Row.Id));", race_cpp)
+        self.assertIn("if (Family.IsNone()) return Result;", race_cpp)
+        self.assertIn("if (Family == FName(Row.Family))", race_cpp)
+        self.assertIn("if (RaceId.IsNone()) return false;", race_cpp)
+
+    def test_npc_rig_exposes_deterministic_cues_and_safe_targeted_stop(self):
+        rig_cpp = (ROOT / "MoonfallActorRigComponent.cpp").read_text(encoding="utf-8")
+        rig_h = (ROOT / "MoonfallActorRigComponent.h").read_text(encoding="utf-8")
+        self.assertIn("bool HasRigCue(FName CueId) const;", rig_h)
+        self.assertIn("TArray<FName> GetRigCueIds() const;", rig_h)
+        self.assertIn("bool StopRigCue(FName CueId, float BlendOutSeconds = 0.2f);", rig_h)
+        self.assertIn("A.LexicalLess(B)", rig_cpp)
+        self.assertIn("!HasRigCue(CueId)", rig_cpp)
+        self.assertIn("RigMesh->GetOwner() != Owner", rig_cpp)
+        self.assertIn("Anim->Montage_IsPlaying(Entry->Get())", rig_cpp)
+        self.assertIn("Anim->Montage_Stop(BlendOutSeconds, Entry->Get());", rig_cpp)
+        self.assertNotIn("Montage_Stop(BlendOutSeconds, nullptr)", rig_cpp)
+        self.assertNotIn("PrimaryComponentTick.bCanEverTick = true", rig_cpp)
+
     def test_unreal_startup_level_generator_is_safe_and_parseable(self):
         import ast
         import json
