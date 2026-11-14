@@ -36,6 +36,12 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("PrimaryComponentTick.bCanEverTick = false", rig_cpp)
         self.assertIn("PreferredRigMesh->GetOwner() == Owner", rig_cpp)
         self.assertIn("IsValid(Anim)", rig_cpp)
+        # A detached or hot-swapped mesh must never receive a montage cue.
+        self.assertIn("if (!CueId.IsNone() && IsValid(Owner) && RigMesh.IsValid()", rig_cpp)
+        self.assertIn("RigMesh->GetOwner() == Owner", rig_cpp)
+        self.assertIn("IsValid(RigMesh->GetSkeletalMeshAsset())", rig_cpp)
+        self.assertLess(rig_cpp.index("RigMesh->GetOwner() == Owner"),
+                        rig_cpp.index("Anim->Montage_Play("))
         self.assertIn("bPreferredChanged || bAssetChanged", rig_cpp)
         self.assertIn("bool PlayRigCue(FName CueId)", rig_h)
         self.assertNotIn("SpawnActor", rig_cpp)
