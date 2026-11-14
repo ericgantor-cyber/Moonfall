@@ -270,24 +270,38 @@ void UMoonfallCharacterCreationWidget::RefreshRaceList()
  if (!RaceList || !WidgetTree)
   return;
  const bool bSameFamily = bRaceListInitialized && LastRenderedFamily == CurrentFamily;
- const float PreviousScrollOffset = bSameFamily ? RaceList->GetScrollOffset() : 0.f;
- RaceList->ClearChildren();
  const TArray<FMoonfallRaceProfile> Profiles = CurrentFamily.IsNone()
    ? UMoonfallRaceLibrary::GetPlayableRaceProfiles()
    : UMoonfallRaceLibrary::GetPlayableRaceProfilesByFamily(CurrentFamily);
+ if (!bSameFamily || RaceChoiceLabels.Num() != Profiles.Num())
+ {
+  // Only recreate controls when the catalog/family changes. The selected
+  // button retains keyboard/controller focus during normal navigation.
+  const float PreviousScrollOffset = bSameFamily ? RaceList->GetScrollOffset() : 0.f;
+  RaceChoiceLabels.Reset();
+  RaceList->ClearChildren();
+  for (const FMoonfallRaceProfile& Profile : Profiles)
+  {
+   UMoonfallRaceChoiceButton* Choice =
+     WidgetTree->ConstructWidget<UMoonfallRaceChoiceButton>();
+   Choice->InitializeChoice(Profile.RaceId);
+   Choice->OnRaceActivated.AddDynamic(this, &UMoonfallCharacterCreationWidget::HandleRaceChoice);
+   UTextBlock* Label = WidgetTree->ConstructWidget<UTextBlock>();
+   Choice->AddChild(Label);
+   RaceList->AddChild(Choice);
+   RaceChoiceLabels.Add(Profile.RaceId, Label);
+  }
+  RaceList->SetScrollOffset(PreviousScrollOffset);
+ }
+ // Update the marker and accessible text without destroying clickable widgets.
  for (const FMoonfallRaceProfile& Profile : Profiles)
  {
-  UMoonfallRaceChoiceButton* Choice =
-    WidgetTree->ConstructWidget<UMoonfallRaceChoiceButton>();
-  Choice->InitializeChoice(Profile.RaceId);
-  Choice->OnRaceActivated.AddDynamic(this, &UMoonfallCharacterCreationWidget::HandleRaceChoice);
-  UTextBlock* Label = WidgetTree->ConstructWidget<UTextBlock>();
-  const FString Prefix = Profile.RaceId == Selection.RaceId ? TEXT("> ") : TEXT("  ");
-  Label->SetText(FText::FromString(Prefix + Profile.DisplayName.ToString()));
-  Choice->AddChild(Label);
-  RaceList->AddChild(Choice);
+  if (const TObjectPtr<UTextBlock>* Label = RaceChoiceLabels.Find(Profile.RaceId))
+  {
+   const FString Prefix = Profile.RaceId == Selection.RaceId ? TEXT("> ") : TEXT("  ");
+   (*Label)->SetText(FText::FromString(Prefix + Profile.DisplayName.ToString()));
+  }
  }
- RaceList->SetScrollOffset(PreviousScrollOffset);
  LastRenderedFamily = CurrentFamily;
  bRaceListInitialized = true;
 }
