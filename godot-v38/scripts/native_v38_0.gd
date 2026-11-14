@@ -8,6 +8,9 @@ var v398_panel:PanelContainer
 var v398_tree_list:VBoxContainer
 var v398_ranks:Dictionary={}
 var v406_ranks:Dictionary={} # Separate from legacy combat ranks.
+var v406_active_branch:String="might"
+var v406_branch_bar:HBoxContainer
+var v406_respec_button:Button
 # Character creation keeps original Z/Nyra artwork; customization is identity and origin.
 var v399_creator:PanelContainer
 var v399_name:LineEdit
@@ -496,53 +499,96 @@ func _v398_build_tree()->void:
  var layer:CanvasLayer=get_node_or_null("NativeAtlasUI") as CanvasLayer
  if not is_instance_valid(layer):return
  v398_panel=PanelContainer.new()
- v398_panel.name="CelestialTalentTree"
+ v398_panel.name="ClasslessTalentTree"
  v398_panel.set_anchors_preset(Control.PRESET_CENTER)
- v398_panel.custom_minimum_size=Vector2(490,550)
- v398_panel.position=Vector2(-245,-275)
+ v398_panel.custom_minimum_size=Vector2(660,640)
+ v398_panel.position=Vector2(-330,-320)
  layer.add_child(v398_panel)
- var scroller:ScrollContainer=ScrollContainer.new()
- v398_panel.add_child(scroller)
+ var layout:VBoxContainer=VBoxContainer.new()
+ layout.add_theme_constant_override("separation",10)
+ v398_panel.add_child(layout)
+ var title:Label=Label.new()
+ title.text="MOONFALL  |  CONSTELLATION TALENTS"
+ title.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+ layout.add_child(title)
+ v406_branch_bar=HBoxContainer.new()
+ v406_branch_bar.add_theme_constant_override("separation",9)
+ layout.add_child(v406_branch_bar)
+ var scroll:ScrollContainer=ScrollContainer.new()
+ scroll.custom_minimum_size=Vector2(620,440)
+ scroll.size_flags_vertical=Control.SIZE_EXPAND_FILL
+ scroll.horizontal_scroll_mode=ScrollContainer.SCROLL_MODE_DISABLED
+ layout.add_child(scroll)
  v398_tree_list=VBoxContainer.new()
- v398_tree_list.custom_minimum_size=Vector2(465,0)
- scroller.add_child(v398_tree_list)
+ v398_tree_list.custom_minimum_size=Vector2(605,0)
+ v398_tree_list.add_theme_constant_override("separation",6)
+ scroll.add_child(v398_tree_list)
+ v406_respec_button=Button.new()
+ v406_respec_button.text="RESET ALL TALENT POINTS"
+ v406_respec_button.custom_minimum_size.y=54.0
+ v406_respec_button.pressed.connect(_v406_respec)
+ layout.add_child(v406_respec_button)
  v398_panel.visible=false
+
+func _v406_select_branch(branch_id:String)->void:
+ v406_active_branch=branch_id
+ _v398_refresh_tree()
 
 func _v398_refresh_tree()->void:
  if not is_instance_valid(v398_tree_list):return
  for child in v398_tree_list.get_children():child.queue_free()
  var level_now:int=clampi(int(hero_level),1,100)
  var state:Dictionary=CLASSLESS_TALENTS.evaluate(level_now,v406_ranks)
- var heading:Label=Label.new()
- heading.text="CLASSLESS TALENTS  |  Points: "+str(state.get("available",0))+"  |  K to close"
- v398_tree_list.add_child(heading)
  if not bool(state.get("ok",false)):
   var warning:Label=Label.new()
   warning.text="Talent data unavailable: "+str(state.get("error","Unknown error"))
   v398_tree_list.add_child(warning)
   return
  var tree:Dictionary=CLASSLESS_TALENTS.load_tree()
- for branch in tree.get("branches",[]):
-  var section:Label=Label.new()
-  section.text=str(branch.get("title",branch.get("id",""))).to_upper()
-  v398_tree_list.add_child(section)
-  for node in tree.get("nodes",[]):
-   if str(node.get("branch",""))!=str(branch.get("id","")):continue
-   var id:String=str(node.get("id",""))
-   var button:Button=Button.new()
-   button.text=str(node.get("title",id))+"  "+str(v406_ranks.get(id,0))+"/"+str(node.get("max_rank",1))
-   button.custom_minimum_size.y=46.0
-   var preview:Dictionary=CLASSLESS_TALENTS.spend(level_now,v406_ranks,id)
-   button.disabled=not bool(preview.get("ok",false))
-   button.tooltip_text=str(preview.get("error","Spend a talent point"))
-   button.pressed.connect(_v398_unlock.bind(id))
-   v398_tree_list.add_child(button)
- var reset_button:Button=Button.new()
- reset_button.text="RESET ALL TALENT POINTS"
- reset_button.custom_minimum_size.y=52.0
- reset_button.disabled=v406_ranks.is_empty()
- reset_button.pressed.connect(_v406_respec)
- v398_tree_list.add_child(reset_button)
+ if is_instance_valid(v406_branch_bar):
+  for child in v406_branch_bar.get_children():child.queue_free()
+  for branch in tree.get("branches",[]):
+   var branch_id:String=str(branch.get("id",""))
+   var tab:Button=Button.new()
+   tab.text=str(branch.get("title",branch_id)).to_upper()+"  (36)"
+   tab.toggle_mode=true
+   tab.button_pressed=branch_id==v406_active_branch
+   tab.custom_minimum_size=Vector2(194,56)
+   tab.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+   tab.pressed.connect(_v406_select_branch.bind(branch_id))
+   v406_branch_bar.add_child(tab)
+ var heading:Label=Label.new()
+ heading.text="Level "+str(level_now)+"  |  Available: "+str(state.get("available",0))+"  |  Spent: "+str(state.get("spent",0))+"  |  K to close"
+ v398_tree_list.add_child(heading)
+ var nodes:Array=tree.get("nodes",[])
+ var last_tier:int=0
+ for node in nodes:
+  if str(node.get("branch",""))!=v406_active_branch:continue
+  var tier:int=int(node.get("tier",0))
+  if tier!=last_tier:
+   var tier_title:Label=Label.new()
+   tier_title.text="TIER "+str(tier)+"   |   Level "+str(node.get("min_level",1))+"+"
+   tier_title.custom_minimum_size.y=34
+   v398_tree_list.add_child(tier_title)
+   last_tier=tier
+  var id:String=str(node.get("id",""))
+  var current_rank:int=int(v406_ranks.get(id,0))
+  var max_rank:int=int(node.get("max_rank",1))
+  var button:Button=Button.new()
+  var selected:String="  [LEARNED]" if current_rank>=max_rank else ""
+  button.text=str(node.get("title",id))+"  "+str(current_rank)+"/"+str(max_rank)+selected
+  button.custom_minimum_size.y=54.0
+  var preview:Dictionary=CLASSLESS_TALENTS.spend(level_now,v406_ranks,id)
+  button.disabled=not bool(preview.get("ok",false))
+  var effect:Dictionary=node.get("effect",{})
+  var requirements:Array=node.get("requires",[])
+  var needs:String="None" if requirements.is_empty() else ", ".join(requirements)
+  var bonus:String=str(effect.get("amount_per_rank",0))+" "+str(effect.get("kind",""))+" "+str(effect.get("stat",""))
+  button.tooltip_text="Bonus per rank: "+bonus+" | Prerequisites: "+needs+" | "+str(preview.get("error","Click to spend one point"))
+  button.pressed.connect(_v398_unlock.bind(id))
+  v398_tree_list.add_child(button)
+ if is_instance_valid(v406_respec_button):
+  v406_respec_button.disabled=v406_ranks.is_empty()
 
 func _v398_unlock(id:String)->void:
  var changed:Dictionary=CLASSLESS_TALENTS.spend(clampi(int(hero_level),1,100),v406_ranks,id)
