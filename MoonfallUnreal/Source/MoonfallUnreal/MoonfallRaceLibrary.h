@@ -97,6 +97,13 @@ public:
  static bool ResolvePlayableRaceForFamily(FName CurrentRaceId, FName Family,
                                           FName& ResolvedRaceId);
 
+ // Move a family tab and resolve its race together for a single input event.
+ // Outputs reset to NAME_None on failure; no character or save data changes.
+ UFUNCTION(BlueprintPure, Category="Moonfall|Races")
+ static bool GetAdjacentPlayableRaceFamilySelection(
+  FName CurrentRaceId, FName CurrentFamily, bool bForward,
+  FName& NextFamily, FName& NextRaceId);
+
  // Reject nonplayable/unknown races for character-selection validation.
  UFUNCTION(BlueprintPure, Category="Moonfall|Races")
  static bool FindPlayableRaceProfile(FName RaceId, FMoonfallRaceProfile& Profile);
