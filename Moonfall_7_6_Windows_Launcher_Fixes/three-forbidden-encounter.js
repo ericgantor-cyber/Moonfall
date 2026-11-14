@@ -26,8 +26,12 @@ function encounterTick(state,hp,frame,options={}){
   if(!state.active.has(power.id))state.active.set(power.id,{nextWarning:frame,fireAt:null});
   const timer=state.active.get(power.id);
   if(timer.fireAt!==null&&frame>=timer.fireAt){
-   if(options.canAttack!==false)events.push({type:'attack',id:power.id,owner:power.owner,frame});
-   timer.fireAt=null;timer.nextWarning=frame+power.cooldown;
+   // A full projectile/FX budget must not silently delete an already telegraphed attack.
+   // Keep it pending until the host can emit it; retry without creating new warnings.
+   if(options.canAttack!==false){
+    events.push({type:'attack',id:power.id,owner:power.owner,frame});
+    timer.fireAt=null;timer.nextWarning=frame+power.cooldown;
+   }
   }
   if(timer.fireAt===null&&frame>=timer.nextWarning){
    timer.fireAt=frame+power.warning;
