@@ -191,12 +191,13 @@
     {
       "id": "progression",
       "title": "Progression",
-      "purpose": "XP, organic level-based growth, loot, equipment, crafting, stats and item improvements",
+      "purpose": "XP, automatic base stat growth, classless talent trees, loot, equipment, crafting and item improvements",
       "features": [
         "leveling and stat growth",
+        "branching talent tree",
         "loot and inventory",
         "items and crafting",
-        "upgrades and sets"
+        "gear upgrades and sets"
       ],
       "owners": [
         "godot-v38/scripts/systems/inventory_rules.gd",
@@ -243,7 +244,7 @@
         },
         {
           "id": "level_growth",
-          "title": "Automatic level-based stat growth without choice prompts",
+          "title": "Automatic base stats plus spendable points in a classless talent tree",
           "milestone": "integration",
           "depends_on": [
             "xp_levels"
