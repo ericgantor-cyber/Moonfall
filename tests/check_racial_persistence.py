@@ -81,6 +81,31 @@ class TestRacialPersistence(unittest.TestCase):
             "void AMoonfallHeroPawn::Tick(", 1)[0])
         self.assertIn("if (SaveWorldProgress()) SecondsSinceLastWorldSave = 0.f;", self.cpp)
 
+    def test_checkpoint_respawn_rejects_invalid_or_blocked_spawns(self):
+        loader = self.cpp.split("bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[1].split(
+            "void AMoonfallHeroPawn::RespawnAtCheckpoint()", 1)[0]
+        respawn = self.cpp.split("void AMoonfallHeroPawn::RespawnAtCheckpoint()", 1)[1].split(
+            "// One unified roster.", 1)[0]
+        helper = self.cpp.split("bool RestoreMoonfallPlayerStart(", 1)[1].split(
+            "bool AMoonfallHeroPawn::SaveWorldProgress()", 1)[0]
+        self.assertIn('#include "GameFramework/PlayerStart.h"', self.cpp)
+        self.assertIn("TActorIterator<APlayerStart>", helper)
+        self.assertIn("Hero->TeleportTo(Start->GetActorLocation()", helper)
+        self.assertIn("Start->GetActorRotation(), false, false", helper)
+        self.assertIn("SavedCheckpoint.ContainsNaN()", loader)
+        self.assertIn("SavedCheckpoint.SizeSquared() >= 1.0e14f", loader)
+        self.assertIn("if (!TeleportTo(SavedCheckpoint, GetActorRotation(), false, false))", loader)
+        self.assertIn("if (!RestoreMoonfallPlayerStart(this))", loader)
+        self.assertIn("bPersistentSaveWritesBlocked = true;", loader)
+        self.assertLess(loader.index("SavedCheckpoint.ContainsNaN()"),
+                        loader.index("ResidentQuestStates.Reset();"))
+        self.assertLess(loader.index("TeleportTo(SavedCheckpoint"),
+                        loader.index("ResidentQuestStates.Reset();"))
+        self.assertNotIn("SetActorLocation(Save->CheckpointLocation", loader)
+        self.assertIn("RestoreMoonfallPlayerStart(this);", respawn)
+        self.assertIn("GetCharacterMovement()->StopMovementImmediately();", respawn)
+        self.assertIn("NextSafeCheckpointAt = Now + 5.f;", respawn)
+
     def test_not_a_new_run(self):
         self.assertIn('MoonfallPersistentWorldV1', self.cpp)
         self.assertIn("if (SecondsSinceLastWorldSave >= 2.f && GetWorld()", self.cpp)
