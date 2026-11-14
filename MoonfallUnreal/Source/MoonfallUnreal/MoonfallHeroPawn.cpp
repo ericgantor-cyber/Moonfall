@@ -1457,49 +1457,48 @@ void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(bool bEliteEnemy, bool bBossEne
 void AMoonfallHeroPawn::PickupNearestGroundLoot()
 {
  if (Health <= 0.f || bOptionsOpen || bInventoryOpen || !GetWorld()) return;
- // One explicit pickup press handles a nearby cluster, reducing repeated
- // input without ever automatically equipping, salvaging or destroying loot.
- // Keep actor iteration and collection bounded for a continuous world.
- constexpr int32 MaxLootScanned = 128;
+ // Scan all loot actors so distant old drops cannot starve nearby pickups.
+ // Only the closest candidates are subjected to expensive visibility traces.
+ constexpr int32 MaxLootCandidates = 24;
  constexpr int32 MaxLootPerPress = 6;
  TArray<AMoonfallGroundLoot*> NearbyLoot;
- NearbyLoot.Reserve(MaxLootPerPress);
+ NearbyLoot.Reserve(MaxLootCandidates);
  TArray<float> NearbyDistanceSq;
- NearbyDistanceSq.Reserve(MaxLootPerPress);
+ NearbyDistanceSq.Reserve(MaxLootCandidates);
  const FVector HeroPosition = GetActorLocation();
  const float PickupRangeSq = FMath::Square(250.f);
- int32 Scanned = 0;
- for (TActorIterator<AMoonfallGroundLoot> It(GetWorld());
-      It && Scanned < MaxLootScanned; ++It) {
-  ++Scanned;
+ for (TActorIterator<AMoonfallGroundLoot> It(GetWorld()); It; ++It) {
   AMoonfallGroundLoot* Candidate = *It;
   if (!IsValid(Candidate) || Candidate->GetItemCode() <= 0) continue;
   const FVector LootPosition = Candidate->GetActorLocation();
   if (FMath::Abs(LootPosition.Z - HeroPosition.Z) > 150.f) continue;
   const float DistanceSq = FVector::DistSquared2D(LootPosition, HeroPosition);
   if (!FMath::IsFinite(DistanceSq) || DistanceSq > PickupRangeSq) continue;
-  // A nearby pickup must be reachable: walls and solid cover block collection.
-  FCollisionQueryParams LootSightParams(SCENE_QUERY_STAT(MoonfallGroundLootPickupSight), false);
-  LootSightParams.AddIgnoredActor(this);
-  LootSightParams.AddIgnoredActor(Candidate);
-  FHitResult LootSightHit;
-  if (GetWorld()->LineTraceSingleByChannel(LootSightHit,
-      HeroPosition + FVector(0.f, 0.f, 40.f),
-      LootPosition + FVector(0.f, 0.f, 40.f),
-      ECC_Visibility, LootSightParams)) continue;
   int32 InsertAt = 0;
   while (InsertAt < NearbyDistanceSq.Num() && NearbyDistanceSq[InsertAt] <= DistanceSq)
    ++InsertAt;
-  if (InsertAt >= MaxLootPerPress) continue;
+  if (InsertAt >= MaxLootCandidates) continue;
   NearbyLoot.Insert(Candidate, InsertAt);
   NearbyDistanceSq.Insert(DistanceSq, InsertAt);
-  if (NearbyLoot.Num() > MaxLootPerPress) {
-   NearbyLoot.RemoveAt(MaxLootPerPress);
-   NearbyDistanceSq.RemoveAt(MaxLootPerPress);
+  if (NearbyLoot.Num() > MaxLootCandidates) {
+   NearbyLoot.RemoveAt(MaxLootCandidates);
+   NearbyDistanceSq.RemoveAt(MaxLootCandidates);
   }
  }
+ int32 Collected = 0;
  for (AMoonfallGroundLoot* Loot : NearbyLoot) {
-  if (IsValid(Loot)) Loot->TryCollect();
+  if (!IsValid(Loot)) continue;
+  // Preserve the existing cover check; an obstructed nearby drop must not
+  // prevent a slightly farther but reachable drop from being collected.
+  FCollisionQueryParams LootSightParams(SCENE_QUERY_STAT(MoonfallGroundLootPickupSight), false);
+  LootSightParams.AddIgnoredActor(this);
+  LootSightParams.AddIgnoredActor(Loot);
+  FHitResult LootSightHit;
+  if (GetWorld()->LineTraceSingleByChannel(LootSightHit,
+      HeroPosition + FVector(0.f, 0.f, 40.f),
+      Loot->GetActorLocation() + FVector(0.f, 0.f, 40.f),
+      ECC_Visibility, LootSightParams)) continue;
+  if (Loot->TryCollect() && ++Collected >= MaxLootPerPress) break;
  }
 }
 
