@@ -103,6 +103,7 @@ protected:
                                   const FPointerEvent& InMouseEvent) override;
  virtual FReply NativeOnMouseWheel(const FGeometry& InGeometry,
                                    const FPointerEvent& InMouseEvent) override;
+ virtual void NativeOnMouseCaptureLost(const FCaptureLostEvent& CaptureLostEvent) override;
 
 private:
  void BuildLayout();
@@ -133,6 +134,9 @@ private:
  UPROPERTY(Transient) TObjectPtr<UTextureRenderTarget2D> PreviewTarget;
  TWeakObjectPtr<AMoonfallCharacterPreviewActor> BoundPreviewActor;
  bool bDraggingPreview = false;
+ // Keep the current list offset on selection changes, but reset for a new family.
+ bool bRaceListInitialized = false;
+ FName LastRenderedFamily = NAME_None;
  TWeakObjectPtr<USceneComponent> PreviewRotationPivot;
  TWeakObjectPtr<USpringArmComponent> PreviewZoomArm;
  FRotator InitialPreviewRotation = FRotator::ZeroRotator;
