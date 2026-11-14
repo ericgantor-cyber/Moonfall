@@ -73,6 +73,35 @@ class ClasslessStatsTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 calculate(10, config=self.config, combat_ratings={removed: 10})
 
+    def test_equipped_gear_and_talents_stack_once(self):
+        # At level 5, Might grows by four (10 * 1.1 = 11 melee damage).
+        # Iron Will gives +3% and Spirit Well adds 8 mana.
+        result = calculate(
+            5, gear_bonuses={"melee_damage": 2},
+            talent_allocations={"iron_will": 1, "spirit_well": 1},
+            config=self.config,
+        )
+        self.assertAlmostEqual(result["stats"]["melee_damage"], (11 + 2) * 1.03)
+        self.assertEqual(result["stats"]["mana"], 128)
+        self.assertEqual(result["talents"]["spent"], 2)
+        self.assertEqual(result["talents"]["available"], 2)
+        self.assertEqual(result["combat"]["percentages"]["haste"], 0)
+
+    def test_invalid_talents_rejected_by_unified_character_sheet(self):
+        for allocations in ({"breaker": 1}, {"iron_will": True},
+                            {"iron_will": 2}, {"unknown": 1}):
+            with self.assertRaises(ValueError):
+                calculate(5, config=self.config, talent_allocations=allocations)
+        with self.assertRaisesRegex(ValueError, "Not enough talent points"):
+            calculate(1, config=self.config, talent_allocations={"iron_will": 1})
+
+    def test_no_talent_allocation_preserves_previous_base_stats(self):
+        original = calculate(10, config=self.config)
+        self.assertEqual(original["stats"]["health"], 208)
+        self.assertEqual(original["stats"]["mana"], 145)
+        self.assertEqual(original["stats"]["stamina"], 136)
+        self.assertEqual(original["talents"]["spent"], 0)
+
     def test_no_class_and_card_mechanics(self):
         # Policy text is allowed to mention forbidden mechanics to explicitly
         # prohibit them. Check the actual machine-readable configuration keys.
