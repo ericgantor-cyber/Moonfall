@@ -603,6 +603,13 @@ func _v406_select_branch(branch_id:String)->void:
  _v398_refresh_tree()
 
 func _v406_web_selected(id:String)->void:
+ # Keep the keyboard-friendly index in sync when selecting a star in
+ # another branch without moving or resetting the player's web view.
+ var tree:Dictionary=CLASSLESS_TALENTS.load_tree()
+ for node in tree.get("nodes",[]):
+  if str(node.get("id",""))!=id:continue
+  v406_active_branch=str(node.get("branch",v406_active_branch))
+  break
  v406_selected_node=id
  _v398_refresh_tree()
 
