@@ -51,6 +51,17 @@ class ClasslessTalentUIScreen(unittest.TestCase):
         self.assertIn('v406_selected_node=id', self.screen)
         self.assertIn("_v406_index_selected.bind(node_id)", self.screen)
 
+    def test_unlockable_navigation_and_prerequisite_highlights(self):
+        web = (ROOT / "godot-v38/scripts/systems/moonfall_talent_web.gd").read_text(encoding="utf-8")
+        for token in ('func next_available(', 'func available_talent_ids(',
+                      'func _update_prerequisite_path()', 'prerequisite_path.has(id)',
+                      'KEY_N', 'func select_node('):
+            self.assertIn(token, web)
+        self.assertIn('next_button.text="NEXT AVAILABLE (N)"', self.screen)
+        self.assertIn('v406_web.next_available(v406_selected_node)', self.screen)
+        self.assertIn('v406_web.select_node(v406_selected_node)', self.screen)
+        self.assertNotIn('key.keycode == KEY_N or key.keycode == KEY_TAB', web)
+
     def test_save_restores_classless_without_clobbering_legacy(self):
         self.assertIn('"classless_ranks":v406_ranks.duplicate(true)', self.screen)
         self.assertIn('resources.get("classless_ranks",{})', self.screen)
