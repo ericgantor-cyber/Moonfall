@@ -90,6 +90,13 @@ public:
  static bool GetAdjacentPlayableRaceFamily(FName CurrentFamily, bool bForward,
                                            FName& NextFamily);
 
+ // Resolve a race when switching family tabs. Keep the current playable
+ // race if it belongs to the new family; otherwise choose the first valid
+ // candidate. NAME_None shows all playable races. No selection is persisted.
+ UFUNCTION(BlueprintPure, Category="Moonfall|Races")
+ static bool ResolvePlayableRaceForFamily(FName CurrentRaceId, FName Family,
+                                          FName& ResolvedRaceId);
+
  // Reject nonplayable/unknown races for character-selection validation.
  UFUNCTION(BlueprintPure, Category="Moonfall|Races")
  static bool FindPlayableRaceProfile(FName RaceId, FMoonfallRaceProfile& Profile);
