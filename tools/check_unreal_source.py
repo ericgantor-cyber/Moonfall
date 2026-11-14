@@ -14,6 +14,32 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         cls.enemy_cpp = (ROOT / "MoonfallEnemy.cpp").read_text(encoding="utf-8")
         cls.hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
 
+    def test_isolated_race_catalog_is_cpp_syntax_safe_and_does_not_replace_persistence(self):
+        import re
+        catalog = (ROOT / "MoonfallRaceLibrary.cpp").read_text(encoding="utf-8")
+        catalog_h = (ROOT / "MoonfallRaceLibrary.h").read_text(encoding="utf-8")
+        race_ids = re.findall(r'^\s*\{TEXT\("([a-z_]+)"\),', catalog, re.MULTILINE)
+        self.assertEqual(len(race_ids), 30)
+        self.assertEqual(len(set(race_ids)), 30)
+        # C++ accepts 1.f, not the nonstandard integer token 1f.
+        self.assertIsNone(re.search(r'(?<![\w.])\d+f\b', catalog))
+        self.assertIn("static bool FindRaceProfile", catalog_h)
+        self.assertIn("UMoonfallRaceLibrary::FindRaceProfile", catalog)
+        self.assertIn("LoadWorldProgress();", self.hero_cpp)
+        self.assertIn("bPersistentSaveWritesBlocked", self.hero_cpp)
+        self.assertTrue((ROOT / "MoonfallPersistentSave.h").is_file())
+        self.assertFalse((ROOT / "MoonfallRewardSaveGame.h").exists())
+
+    def test_optional_actor_rig_is_no_tick_and_actor_owned(self):
+        rig_cpp = (ROOT / "MoonfallActorRigComponent.cpp").read_text(encoding="utf-8")
+        rig_h = (ROOT / "MoonfallActorRigComponent.h").read_text(encoding="utf-8")
+        self.assertIn("PrimaryComponentTick.bCanEverTick = false", rig_cpp)
+        self.assertIn("PreferredRigMesh->GetOwner() == Owner", rig_cpp)
+        self.assertIn("IsValid(Anim)", rig_cpp)
+        self.assertIn("bPreferredChanged || bAssetChanged", rig_cpp)
+        self.assertIn("bool PlayRigCue(FName CueId)", rig_h)
+        self.assertNotIn("SpawnActor", rig_cpp)
+
     def test_unreal_startup_level_generator_is_safe_and_parseable(self):
         import ast
         import json
