@@ -5,6 +5,7 @@
 #include "Camera/CameraComponent.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "GameFramework/PlayerStart.h"
 #include "Components/InputComponent.h"
 #include "Engine/World.h"
 #include "DrawDebugHelpers.h"
@@ -1561,6 +1562,17 @@ bool ValidMoonfallItemCode(int32 Code) {
      && Rarity >= 1 && Rarity <= 5 && Tier >= 1 && Tier <= 25
      && Code == Trait * 100000 + Slot * 10000 + Rarity * 1000 + Tier;
 }
+// A collision-aware recovery location is safer than reviving at the death site.
+// The level generator supplies a PlayerStart; authored worlds can supply more.
+bool RestoreMoonfallPlayerStart(AMoonfallHeroPawn* Hero) {
+ if (!IsValid(Hero) || !Hero->GetWorld()) return false;
+ for (TActorIterator<APlayerStart> It(Hero->GetWorld()); It; ++It) {
+  const APlayerStart* Start = *It;
+  if (IsValid(Start) && Hero->TeleportTo(Start->GetActorLocation(),
+      Start->GetActorRotation(), false, false)) return true;
+ }
+ return false;
+}
 }
 bool AMoonfallHeroPawn::SaveWorldProgress() {
  // Existing incompatible/unreadable save must never be replaced by autosave
@@ -1605,6 +1617,24 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
   bPersistentSaveWritesBlocked = true;
   UE_LOG(LogTemp, Warning, TEXT("Moonfall save slot is unreadable or has an unsupported version; writes disabled."));
   return false;
+ }
+ // Validate and resolve the checkpoint before touching saved progression.
+ // An unchecked SetActorLocation can embed the pawn inside solid geometry.
+ const FVector SavedCheckpoint = Save->CheckpointLocation;
+ if (SavedCheckpoint.ContainsNaN() || SavedCheckpoint.SizeSquared() >= 1.0e14f) {
+  bPersistentSaveWritesBlocked = true;
+  UE_LOG(LogTemp, Warning, TEXT("Moonfall save checkpoint is invalid; preserving original save."));
+  return false;
+ }
+ if (!TeleportTo(SavedCheckpoint, GetActorRotation(), false, false)) {
+  // Saved position may be blocked by new dungeon geometry. Recover at an
+  // authored PlayerStart instead of reviving inside a wall or at death site.
+  if (!RestoreMoonfallPlayerStart(this)) {
+   bPersistentSaveWritesBlocked = true;
+   UE_LOG(LogTemp, Warning, TEXT("Moonfall checkpoint and PlayerStart are blocked; writes disabled."));
+   return false;
+  }
+  UE_LOG(LogTemp, Warning, TEXT("Moonfall checkpoint blocked; using a safe PlayerStart."));
  }
  bPersistentSaveWritesBlocked = false;
  ResidentQuestStates.Reset();
@@ -1686,9 +1716,7 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  Health = MaxHealth;
  Mana = FMath::Max(0.f, MaxMana);
  Stamina = FMath::Max(0.f, MaxStamina);
- if (!Save->CheckpointLocation.ContainsNaN()
-     && Save->CheckpointLocation.SizeSquared() < 1.0e14f)
-  SetActorLocation(Save->CheckpointLocation, false, nullptr, ETeleportType::TeleportPhysics);
+ // Location was already collision-checked before restoring inventory.
  OnHealthChanged(Health, MaxHealth);
  return true;
 }
@@ -1696,6 +1724,9 @@ void AMoonfallHeroPawn::RespawnAtCheckpoint() {
  DefeatElapsedSeconds = 0.f;
  // No new run, no loot reset. Restore last living checkpoint.
  if (!LoadWorldProgress()) {
+  // No valid save: recover near the intended level spawn instead of staying
+  // on the deadly spot. An unreadable save remains write-protected.
+  RestoreMoonfallPlayerStart(this);
   Health = FMath::Max(1.f, MaxHealth);
   Mana = FMath::Max(0.f, MaxMana);
   Stamina = FMath::Max(0.f, MaxStamina);
