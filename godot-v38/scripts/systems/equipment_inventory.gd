@@ -23,10 +23,14 @@ static func slot_for(item:Dictionary)->String:
 
 static func add_item(state:Dictionary,item_id:String,count:int=1)->bool:
  if count<=0 or CATALOG.get_item(item_id).is_empty():return false
- var items:Dictionary=state.get("items",{})
- var current:int=clampi(int(items.get(item_id,0)),0,9999)
- if count>9999-current:return false
- items[item_id]=current+count
+ var value:Variant=state.get("items",{})
+ if not value is Dictionary:return false
+ var items:Dictionary=value
+ var owned:int=_safe_roll_number(items.get(item_id,0),9999)
+ if owned>=9999:return false
+ # Saturate before addition: an untrusted large count must not overflow int64.
+ if count>9999-owned:return false
+ items[item_id]=owned+count
  state["items"]=items
  return true
 
@@ -48,21 +52,27 @@ static func add_gold(state:Dictionary,amount:int)->int:
 static func equip(state:Dictionary,item_id:String,hero_level:int)->bool:
  var item:Dictionary=CATALOG.get_item(item_id)
  if item.is_empty() or hero_level<int(item.get("level_required",1)):return false
- if int(state.get("items",{}).get(item_id,0))<1:return false
+ var owned_value:Variant=state.get("items",{})
+ if not owned_value is Dictionary or _safe_roll_number(owned_value.get(item_id,0),9999)<1:return false
  var slot:String=slot_for(item)
  if slot=="" or not SLOTS.has(slot):return false
- var slots:Dictionary=state.get("equipped",{})
+ var slots_value:Variant=state.get("equipped",{})
+ if not slots_value is Dictionary:return false
+ var slots:Dictionary=slots_value
  slots[slot]=item_id
  state["equipped"]=slots
  return true
 
 static func add_material(state:Dictionary,material:String,count:int)->bool:
  if material=="" or count<=0:return false
- var materials:Dictionary=state.get("materials",{})
- # Reject overflow rather than claiming materials were awarded when the cap is full.
- var current:int=maxi(0,int(materials.get(material,0)))
- if current>=999999 or count>999999-current:return false
- materials[material]=current+count
+ var value:Variant=state.get("materials",{})
+ if not value is Dictionary:return false
+ var materials:Dictionary=value
+ var available:int=_safe_roll_number(materials.get(material,0),999999)
+ if available>=999999:return false
+ # Bound the increment first to avoid signed integer overflow.
+ if count>999999-available:return false
+ materials[material]=available+count
  state["materials"]=materials
  return true
 
@@ -71,33 +81,62 @@ static func craft(state:Dictionary,item_id:String,hero_level:int)->bool:
  if item.is_empty() or hero_level<int(item["level_required"]):return false
  var material:String=str(item["name"]).split(" ")[0]
  var cost:int=2+int(item["tier"])*3
- var materials:Dictionary=state.get("materials",{})
- if int(materials.get(material,0))<cost:return false
- # Add crafted gear first; never charge ingredients for a rejected stack.
+ var materials_value:Variant=state.get("materials",{})
+ var items_value:Variant=state.get("items",{})
+ if not materials_value is Dictionary or not items_value is Dictionary:return false
+ var materials:Dictionary=materials_value
+ var items:Dictionary=items_value
+ var available:int=_safe_roll_number(materials.get(material,0),999999)
+ var owned:int=_safe_roll_number(items.get(item_id,0),9999)
+ # Crafting is atomic: never consume materials when the item stack is full.
+ if available<cost or owned>=9999:return false
  if not add_item(state,item_id):return false
- materials[material]=int(materials[material])-cost
+ materials[material]=available-cost
  state["materials"]=materials
  return true
 
 static func loot_enemy(state:Dictionary,hero_level:int,seed:int)->Dictionary:
  var item:Dictionary=CATALOG.loot_for_level(hero_level,seed)
- if not item.is_empty():
-  # A full stack must not create phantom loot or advance pity/roll history.
-  if not add_item(state,str(item["id"])):return {}
-  var rarity:Dictionary=RNG.roll(item,seed+int(state.get("loot_pity",0))*9973,0,int(state.get("loot_pity",0)))
-  state["loot_pity"]=RNG.next_pity(int(state.get("loot_pity",0)),int(rarity["rarity_index"]))
-  var rolls:Array=state.get("loot_rolls",[])
-  rolls.append(rarity)
-  if rolls.size()>250:rolls.pop_front()
-  state["loot_rolls"]=rolls
-  var drop:Dictionary=item.duplicate(true)
-  drop["roll"]=rarity
-  return drop
- return item
+ if item.is_empty():return {}
+ # Validate all mutable reward fields before granting the item. A malformed
+ # legacy save must not grant an item and then fail while recording its roll.
+ var pity_value:Variant=state.get("loot_pity",0)
+ var rolls_value:Variant=state.get("loot_rolls",[])
+ if not rolls_value is Array:return {}
+ var pity:int=_safe_roll_number(pity_value,80)
+ var rarity:Dictionary=RNG.roll(item,seed+pity*9973,0,pity)
+ if rarity.is_empty() or not rarity.has("rarity_index"):return {}
+ if not add_item(state,str(item["id"])):return {}
+ # Bound even corrupted in-memory histories before recording the new drop.
+ # Work on a copy so a failed reward never mutates the caller's roll list.
+ var rolls:Array=rolls_value.slice(-249)
+ rolls.append(rarity)
+ state["loot_rolls"]=rolls
+ state["loot_pity"]=RNG.next_pity(pity,int(rarity["rarity_index"]))
+ var drop:Dictionary=item.duplicate(true)
+ drop["roll"]=rarity
+ return drop
+
+static func _safe_roll_number(value:Variant,maximum:int)->int:
+ # Saved loot metadata is untrusted; avoid casting objects or arrays to int.
+ if typeof(value)==TYPE_INT:return clampi(value,0,maximum)
+ if typeof(value)!=TYPE_FLOAT:return 0
+ # Compare before conversion: NaN, infinity and out-of-range saved floats
+ # must never be passed to int(), which can yield undefined results.
+ if not value>=0.0:return 0
+ if value>=float(maximum):return maximum
+ return int(value)
+
+static func _safe_gold_number(value:Variant)->int:
+ # Unlike gear stacks, valid currency must keep the full nonnegative int64 range.
+ if typeof(value)==TYPE_INT:return maxi(0,value)
+ if typeof(value)!=TYPE_FLOAT or not value>=0.0:return 0
+ if value>=float(MAX_GOLD):return MAX_GOLD
+ return maxi(0,int(value))
 
 static func _roll_strength(roll:Dictionary)->int:
  # Count only bounded bonuses that contribute to a hero stat.
- var strength:int=clampi(int(roll.get("power_bonus",0)),0,12)
+ var strength:int=_safe_roll_number(roll.get("power_bonus",0),12)
  var used:Dictionary={}
  var affixes:Variant=roll.get("affixes",[])
  if not affixes is Array:return strength
@@ -106,42 +145,62 @@ static func _roll_strength(roll:Dictionary)->int:
   var stat:String=str(affix.get("stat",""))
   if not RNG.AFFIXES.has(stat) or used.has(stat):continue
   used[stat]=true
-  strength+=clampi(int(affix.get("value",0)),0,30)
+  strength+=_safe_roll_number(affix.get("value",0),30)
  return strength
 
 static func totals(state:Dictionary)->Dictionary:
  var stats:Dictionary={"weapon_power":0,"armor":0,"magic":0,"vitality":0,"haste":0,"crit":0,"ward":0,"elemental":0}
- var slots:Dictionary=state.get("equipped",{})
+ var slots_value:Variant=state.get("equipped",{})
+ var owned_value:Variant=state.get("items",{})
+ var rolls_value:Variant=state.get("loot_rolls",[])
+ if not slots_value is Dictionary or not owned_value is Dictionary:return stats
+ var slots:Dictionary=slots_value
+ var owned:Dictionary=owned_value
+ var rolls:Array=rolls_value if rolls_value is Array else []
+ # Index the strongest roll once per item instead of scanning the entire
+ # saved roll history for every equipped slot on every stat refresh.
+ var eligible_ids:Dictionary={}
  for slot in SLOTS:
-  var item:Dictionary=CATALOG.get_item(str(slots.get(slot,"")))
-  if item.is_empty():continue
+  var equipped_id:String=str(slots.get(slot,""))
+  if _safe_roll_number(owned.get(equipped_id,0),9999)<1:continue
+  var equipped_item:Dictionary=CATALOG.get_item(equipped_id)
+  if not equipped_item.is_empty() and slot_for(equipped_item)==slot:
+   eligible_ids[equipped_id]=true
+ var best_by_item:Dictionary={}
+ for roll in rolls:
+  if not roll is Dictionary:continue
+  var roll_id:String=str(roll.get("item_id",""))
+  if not eligible_ids.has(roll_id):continue
+  var current:Dictionary=best_by_item.get(roll_id,{})
+  var rarity:int=_safe_roll_number(roll.get("rarity_index",0),4)
+  var current_rarity:int=int(current.get("rarity_index",-1))
+  if rarity>current_rarity or (rarity==current_rarity and _roll_strength(roll)>_roll_strength(current)):
+   best_by_item[roll_id]=roll
+ for slot in SLOTS:
+  var item_id:String=str(slots.get(slot,""))
+  if _safe_roll_number(owned.get(item_id,0),9999)<1:continue
+  var item:Dictionary=CATALOG.get_item(item_id)
+  if item.is_empty() or slot_for(item)!=slot:continue
   var power:int=int(item["power"])
   match str(item["category"]):
    "weapon":stats["weapon_power"]+=power
    "armor":stats["armor"]+=power
    "offhand","accessory":stats["magic"]+=power
   # Apply only a matching owned item's highest rolled bonus.
-  var best_roll:Dictionary={}
-  for roll in state.get("loot_rolls",[]):
-   if roll is Dictionary and str(roll.get("item_id",""))==str(item["id"]):
-    var rolled_rarity:int=clampi(int(roll.get("rarity_index",0)),0,4)
-    var best_rarity:int=int(best_roll.get("rarity_index",-1))
-    if rolled_rarity>best_rarity or (rolled_rarity==best_rarity and _roll_strength(roll)>_roll_strength(best_roll)):
-     best_roll=roll
-  var bonus:int=clampi(int(best_roll.get("power_bonus",0)),0,12)
+  var best_roll:Dictionary=best_by_item.get(item_id,{})
+  var bonus:int=_safe_roll_number(best_roll.get("power_bonus",0),12)
   if str(item["category"])=="weapon":stats["weapon_power"]+=bonus
   elif str(item["category"])=="armor":stats["armor"]+=bonus
   else:stats["magic"]+=bonus
-  # Treat imported rolls as untrusted: each supported stat applies once.
-  var seen_affixes:Dictionary={}
-  var rolled_affixes:Variant=best_roll.get("affixes",[])
-  if not rolled_affixes is Array:rolled_affixes=[]
-  for affix in rolled_affixes:
+  var affixes:Variant=best_roll.get("affixes",[])
+  if not affixes is Array:continue
+  var applied_affixes:Dictionary={}
+  for affix in affixes:
    if not affix is Dictionary:continue
    var stat:String=str(affix.get("stat",""))
-   if not RNG.AFFIXES.has(stat) or seen_affixes.has(stat):continue
-   seen_affixes[stat]=true
-   var value:int=clampi(int(affix.get("value",0)),0,30)
+   if not RNG.AFFIXES.has(stat) or applied_affixes.has(stat):continue
+   applied_affixes[stat]=true
+   var value:int=_safe_roll_number(affix.get("value",0),30)
    match stat:
     "Power":stats["weapon_power"]+=value
     "Vitality":stats["vitality"]+=value
@@ -156,15 +215,15 @@ static func normalize(saved:Dictionary)->Dictionary:
  var prior_items:Variant=saved.get("items",{})
  if prior_items is Dictionary:
   for id in prior_items:
-   var count:int=clampi(int(prior_items[id]),0,9999)
+   var count:int=_safe_roll_number(prior_items[id],9999)
    if count>0 and not CATALOG.get_item(str(id)).is_empty():state["items"][str(id)]=count
  var prior_materials:Variant=saved.get("materials",{})
  if prior_materials is Dictionary:
   for material in prior_materials:
-   if str(material)!="" and int(prior_materials[material])>0:
-    state["materials"][str(material)]=clampi(int(prior_materials[material]),0,999999)
- state["gold"]=maxi(0,int(saved.get("gold",0)))
- state["loot_pity"]=clampi(int(saved.get("loot_pity",0)),0,80)
+   if str(material)!="" and _safe_roll_number(prior_materials[material],999999)>0:
+    state["materials"][str(material)]=_safe_roll_number(prior_materials[material],999999)
+ state["gold"]=_safe_gold_number(saved.get("gold",0))
+ state["loot_pity"]=_safe_roll_number(saved.get("loot_pity",0),80)
  var prior_rolls:Variant=saved.get("loot_rolls",[])
  if prior_rolls is Array:
   for entry in prior_rolls.slice(-250):

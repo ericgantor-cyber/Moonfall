@@ -71,5 +71,34 @@ func _run()->void:
  check(int(guarded["crit"])==7,"distinct supported affix still applies")
  malformed["loot_rolls"][0]["affixes"]="invalid"
  check(int(INVENTORY.totals(malformed)["weapon_power"])==ordinary,"malformed affix payload ignored")
+ # Reconciled from PR #905: equipment bonuses require actual ownership and
+ # a matching slot even when stale or corrupted save data is supplied.
+ var unowned:Dictionary=INVENTORY.new_state()
+ unowned["equipped"]["weapon"]="ashwood_sword"
+ check(int(INVENTORY.totals(unowned)["weapon_power"])==0,"unowned equipment cannot grant combat stats")
+ var wrong_slot:Dictionary=INVENTORY.new_state()
+ INVENTORY.add_item(wrong_slot,"ashwood_sword")
+ wrong_slot["equipped"]["helmet"]="ashwood_sword"
+ check(int(INVENTORY.totals(wrong_slot)["weapon_power"])==0,"weapon in helmet slot cannot grant bonuses")
+ var stale:Dictionary=empowered.duplicate(true)
+ stale["items"].erase("ashwood_sword")
+ check(int(INVENTORY.totals(stale)["weapon_power"])==0,"removed item cannot keep phantom combat stats")
+ # Preserve PR #900's separate duplicate-affix and malformed-list cases above.
+ var corrupted_owned:Dictionary=empowered.duplicate(true)
+ corrupted_owned["items"]["ashwood_sword"]={"bad":true}
+ check(int(INVENTORY.totals(corrupted_owned)["weapon_power"])==0,"malformed owned count cannot grant stats")
+ var corrupted_rolls:Dictionary=empowered.duplicate(true)
+ corrupted_rolls["loot_rolls"]=[{"item_id":"ashwood_sword","rarity_index":4,"power_bonus":{"bad":true},"affixes":[{"stat":"Power","value":["bad"]}]}]
+ check(int(INVENTORY.totals(corrupted_rolls)["weapon_power"])==ordinary,"malformed roll numbers are ignored")
+ var saved_currency:Dictionary=INVENTORY.new_state()
+ saved_currency["gold"]=999999999999
+ check(INVENTORY.normalize(saved_currency)["gold"]==999999999999,"unlimited currency is preserved")
+ saved_currency["gold"]={"bad":true}
+ check(INVENTORY.normalize(saved_currency)["gold"]==0,"malformed gold cannot corrupt loaded stats")
+ var full_stacks:Dictionary=INVENTORY.new_state()
+ full_stacks["items"]["ashwood_sword"]=9999
+ check(not INVENTORY.add_item(full_stacks,"ashwood_sword",1),"full item stacks reject rewards")
+ full_stacks["materials"]["Ashwood"]=999999
+ check(not INVENTORY.add_material(full_stacks,"Ashwood",1),"full material stacks reject rewards")
  print("GEAR RNG "+("PASS" if errors==0 else "FAIL"))
  quit(0 if errors==0 else 1)
