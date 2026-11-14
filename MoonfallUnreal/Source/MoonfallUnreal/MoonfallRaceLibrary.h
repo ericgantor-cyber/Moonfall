@@ -28,6 +28,14 @@ public:
  UFUNCTION(BlueprintPure, Category="Moonfall|Races")
  static TArray<FName> GetRaceIds();
 
+ // Only candidates marked playable. Does not alter save IDs or character art.
+ UFUNCTION(BlueprintPure, Category="Moonfall|Races")
+ static TArray<FName> GetPlayableRaceIds();
+
+ // Filter the original roster by family, including nonplayable enemy races.
+ UFUNCTION(BlueprintPure, Category="Moonfall|Races")
+ static TArray<FName> GetRaceIdsByFamily(FName Family);
+
  // Returns false and an unmodified baseline profile for unknown identifiers.
  UFUNCTION(BlueprintPure, Category="Moonfall|Races")
  static bool FindRaceProfile(FName RaceId, FMoonfallRaceProfile& Profile);
