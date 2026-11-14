@@ -1549,6 +1549,8 @@ bool AMoonfallHeroPawn::EquipInventoryItem(int32 InventoryIndex)
 
 namespace {
 const FString MoonfallWorldSlot(TEXT("MoonfallPersistentWorldV1"));
+// Defined with the faction/relationship helpers below; shared by save migration.
+bool IsNamedMoonfallResident(FName Id);
 bool ValidMoonfallItemCode(int32 Code) {
  if (Code <= 0) return false;
  const int32 Trait = Code / 100000;
@@ -1600,7 +1602,7 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
   // Ignore unknown, malformed and oversized quest entries from disk.
   if (Save->ResidentQuestStates.Num() <= 64) {
    for (const auto& Entry : Save->ResidentQuestStates)
-    if (Entry.Value == 1 || Entry.Value == 2)
+    if (IsNamedMoonfallResident(Entry.Key) && (Entry.Value == 1 || Entry.Value == 2))
      ResidentQuestStates.Add(Entry.Key, Entry.Value);
   }
  }
@@ -1647,8 +1649,11 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  MaxHealth = FMath::IsFinite(Save->MaxHealth)
      ? FMath::Clamp(Save->MaxHealth, 1.f, 100000.f) : 100.f;
  InventoryItemCodes.Reset();
- for (int32 Code : Save->InventoryItemCodes) {
-  if (InventoryItemCodes.Num() >= 10000) break;
+ // Cap the number of inspected entries, not just accepted items: an oversized
+ // corrupted save with invalid codes must not cause an unbounded load loop.
+ const int32 LoadScanCount = FMath::Min(Save->InventoryItemCodes.Num(), 10000);
+ for (int32 Index = 0; Index < LoadScanCount; ++Index) {
+  const int32 Code = Save->InventoryItemCodes[Index];
   if (ValidMoonfallItemCode(Code)) InventoryItemCodes.Add(Code);
  }
  const auto RestoreGear = [this](int32 Code, int32 Slot, int32& Equipped, int32& Tier, int32& Affix) {
