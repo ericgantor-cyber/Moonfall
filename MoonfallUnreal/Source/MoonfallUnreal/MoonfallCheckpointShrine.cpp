@@ -45,21 +45,77 @@ AMoonfallCheckpointShrine::AMoonfallCheckpointShrine()
  DiscoveryRange->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
  DiscoveryRange->SetGenerateOverlapEvents(true);
  DiscoveryRange->OnComponentBeginOverlap.AddDynamic(this, &AMoonfallCheckpointShrine::OnDiscoveryOverlap);
+ DiscoveryRange->OnComponentEndOverlap.AddDynamic(this, &AMoonfallCheckpointShrine::OnDiscoveryEndOverlap);
+}
+
+void AMoonfallCheckpointShrine::RefreshShrineDisplay(const AMoonfallHeroPawn* Hero)
+{
+ if (!ShrineLabel) return;
+ const bool bDiscovered = IsValid(Hero) && Hero->HasDiscoveredShrine(ShrineId);
+ const bool bActive = bDiscovered && Hero->ActiveShrineId == ShrineId;
+ // Text distinguishes activation without requiring color recognition or
+ // changing Z, Nyra, or any authored shrine model/material.
+ ShrineLabel->SetText(FText::FromString(bActive ? TEXT("ACTIVE RESPAWN SHRINE")
+     : bDiscovered ? TEXT("DISCOVERED SHRINE") : TEXT("UNDISCOVERED SHRINE")));
+}
+
+void AMoonfallCheckpointShrine::TryDiscoverOrQueueRetry(AMoonfallHeroPawn* Hero)
+{
+ if (!IsValid(Hero) || ShrineId.IsNone() || Hero->GetWorld() != GetWorld()) return;
+ if (Hero->HasDiscoveredShrine(ShrineId))
+ {
+  RefreshShrineDisplay(Hero);
+  GetWorldTimerManager().ClearTimer(DiscoveryRetryTimer);
+  PendingDiscoveryHero.Reset();
+  return;
+ }
+ if (Hero->DiscoverShrine(this))
+ {
+  RefreshShrineDisplay(Hero);
+  GetWorldTimerManager().ClearTimer(DiscoveryRetryTimer);
+  PendingDiscoveryHero.Reset();
+  return;
+ }
+ // If an entry occurs mid-fall or while a transient save cannot complete,
+ // an overlap event will not fire again until the hero leaves. Retry at most
+ // eight times while nearby, with no per-frame Actor Tick.
+ const FVector Location = Hero->GetActorLocation();
+ if (Hero->Health <= 0.f || Location.ContainsNaN() ||
+     FVector::DistSquared(Location, GetActorLocation()) > FMath::Square(220.f)) return;
+ if (!GetWorldTimerManager().IsTimerActive(DiscoveryRetryTimer))
+ {
+  DiscoveryRetryAttempts = 0;
+  PendingDiscoveryHero = Hero;
+  GetWorldTimerManager().SetTimer(DiscoveryRetryTimer, this,
+      &AMoonfallCheckpointShrine::RetryPendingDiscovery, 1.f, true);
+ }
+}
+
+void AMoonfallCheckpointShrine::RetryPendingDiscovery()
+{
+ AMoonfallHeroPawn* Hero = PendingDiscoveryHero.Get();
+ if (!IsValid(Hero) || ShrineId.IsNone() || Hero->GetWorld() != GetWorld()
+     || Hero->Health <= 0.f || Hero->GetActorLocation().ContainsNaN()
+     || FVector::DistSquared(Hero->GetActorLocation(), GetActorLocation()) > FMath::Square(220.f)
+     || ++DiscoveryRetryAttempts > 8)
+ {
+  GetWorldTimerManager().ClearTimer(DiscoveryRetryTimer);
+  PendingDiscoveryHero.Reset();
+  return;
+ }
+ TryDiscoverOrQueueRetry(Hero);
 }
 
 void AMoonfallCheckpointShrine::BeginPlay()
 {
  Super::BeginPlay();
- // A player may already be standing near a shrine spawned at level start.
+ // Actors created after the hero loads should show saved status immediately.
+ // Actors created during startup will respond when the player enters overlap.
  AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0));
- if (IsValid(Hero) && !ShrineId.IsNone()) {
-  if (Hero->HasDiscoveredShrine(ShrineId)) {
-   ShrineLabel->SetText(FText::FromString(TEXT("DISCOVERED SHRINE")));
-  } else if (FVector::DistSquared(GetActorLocation(), Hero->GetActorLocation()) <= FMath::Square(220.f)
-             && Hero->DiscoverShrine(this)) {
-   ShrineLabel->SetText(FText::FromString(TEXT("SHRINE DISCOVERED")));
-  }
- }
+ RefreshShrineDisplay(Hero);
+ if (IsValid(Hero) && !Hero->HasDiscoveredShrine(ShrineId) &&
+     FVector::DistSquared(GetActorLocation(), Hero->GetActorLocation()) <= FMath::Square(220.f))
+  TryDiscoverOrQueueRetry(Hero);
 }
 
 void AMoonfallCheckpointShrine::OnDiscoveryOverlap(
@@ -67,11 +123,16 @@ void AMoonfallCheckpointShrine::OnDiscoveryOverlap(
  UPrimitiveComponent* OtherComp, int32 OtherBodyIndex,
  bool bFromSweep, const FHitResult& SweepResult)
 {
- AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(OtherActor);
- if (!IsValid(Hero) || ShrineId.IsNone()) return;
- if (Hero->HasDiscoveredShrine(ShrineId)) {
-  ShrineLabel->SetText(FText::FromString(TEXT("DISCOVERED SHRINE")));
- } else if (Hero->DiscoverShrine(this)) {
-  ShrineLabel->SetText(FText::FromString(TEXT("SHRINE DISCOVERED")));
+ TryDiscoverOrQueueRetry(Cast<AMoonfallHeroPawn>(OtherActor));
+}
+
+void AMoonfallCheckpointShrine::OnDiscoveryEndOverlap(
+ UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,
+ UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
+{
+ if (OtherActor == PendingDiscoveryHero.Get())
+ {
+  GetWorldTimerManager().ClearTimer(DiscoveryRetryTimer);
+  PendingDiscoveryHero.Reset();
  }
 }
