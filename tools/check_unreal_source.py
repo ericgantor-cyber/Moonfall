@@ -176,6 +176,22 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("SaveGame", nav)
         self.assertNotIn("SpawnActor", nav)
 
+    def test_family_switch_keeps_valid_playable_race_or_selects_first(self):
+        header = (ROOT / "MoonfallRaceLibrary.h").read_text(encoding="utf-8")
+        code = (ROOT / "MoonfallRaceLibrary.cpp").read_text(encoding="utf-8")
+        self.assertIn("static bool ResolvePlayableRaceForFamily(FName CurrentRaceId, FName Family,", header)
+        fn = code.split("UMoonfallRaceLibrary::ResolvePlayableRaceForFamily(", 1)[1].split(
+            "UMoonfallRaceLibrary::FindPlayableRaceProfile(", 1)[0]
+        self.assertIn("ResolvedRaceId = NAME_None;", fn)
+        self.assertIn("FindPlayableRaceProfile(CurrentRaceId, Current)", fn)
+        self.assertIn("(Family.IsNone() || Current.Family == Family)", fn)
+        self.assertIn("ResolvedRaceId = Current.RaceId;", fn)
+        self.assertIn("if (!Row.bPlayable || (!Family.IsNone() && FName(Row.Family) != Family))", fn)
+        self.assertIn("ResolvedRaceId = FName(Row.Id);", fn)
+        self.assertIn("return false;", fn)
+        self.assertNotIn("SaveGame", fn)
+        self.assertNotIn("SpawnActor", fn)
+
     def test_isolated_race_catalog_is_cpp_syntax_safe_and_does_not_replace_persistence(self):
         import re
         catalog = (ROOT / "MoonfallRaceLibrary.cpp").read_text(encoding="utf-8")
