@@ -606,6 +606,11 @@ func _v406_web_selected(id:String)->void:
  v406_selected_node=id
  _v398_refresh_tree()
 
+func _v406_index_selected(id:String)->void:
+ v406_selected_node=id
+ if is_instance_valid(v406_web):v406_web.focus_node(id)
+ _v398_refresh_tree()
+
 func _v406_purchase_selected()->void:
  if v406_selected_node!="":_v398_unlock(v406_selected_node)
 
@@ -631,7 +636,7 @@ func _v398_refresh_tree()->void:
   var index_button:Button=Button.new()
   index_button.text=str(node.get("title",node_id))+"  "+str(v406_ranks.get(node_id,0))+"/"+str(node.get("max_rank",1))
   index_button.custom_minimum_size.y=42.0
-  index_button.pressed.connect(_v406_web_selected.bind(node_id))
+  index_button.pressed.connect(_v406_index_selected.bind(node_id))
   v398_tree_list.add_child(index_button)
  if selected.is_empty():
   v406_details.text="Click a star in the web or choose a talent from the index.\nMouse wheel: zoom\nDrag: move map\nArrows / +/-: keyboard controls"
