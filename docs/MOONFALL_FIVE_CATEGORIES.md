@@ -362,3 +362,28 @@ The expanded JSON is mirrored exactly under `godot-v38/data`. Python tests
 validate count, reachable late-game prerequisite paths, level requirements,
 and full respec. The Godot smoke test also checks count, branch sizes, a new
 level-16 purchase and reset. Neither original hero artwork file is changed.
+
+## Full constellation web UI
+
+The three Might, Agility and Arcana talent branches now appear **together**
+on a single, original Moonfall star-map instead of separate linear lists.
+The native `moonfall_talent_web.gd` Control draws each node as a star,
+connects prerequisite paths, highlights purchased and available upgrades
+and lets players inspect any talent before spending a point.
+
+Controls: **mouse wheel** zoom; **drag empty map** to pan; **click a
+node** to inspect; **+/-** zoom and **arrow keys** pan while the web has
+keyboard focus; **Home** recenters; dedicated buttons focus a branch or
+fit the entire map to the screen. A keyboard-friendly talent index, clear
+details and spend button, and **RESET ALL TALENT POINTS** remain available
+beside the map. No individual refunds. The 108-node save format is unchanged.
+
+The design follows the broad constellation-and-connections idea seen in
+Assassin's Creed Valhalla, but all art, code, layout, names and skill
+values are original to Moonfall. These are **stat bonuses** in the
+new tree; wiring them to live combat and UE5 is a separate task.
+
+`godot-v38/tests/talent_web_runtime.gd` runs native Godot checks for
+node positions, branch focusing, zoom limits and mouse hit tests, in
+addition to existing talent spending/respec checks. Native Windows
+playtesting with user input remains separate from headless CI.
