@@ -5,7 +5,7 @@
     {
       "id": "characters",
       "title": "Characters",
-      "purpose": "Hero identity, races, classes, equipment slots, character art and stats",
+      "purpose": "Hero identity, playable races, equipment slots, original character art and stats",
       "features": [
         "Z and Nyra",
         "race selection",
@@ -25,8 +25,8 @@
           "verification": "not_verified"
         },
         {
-          "id": "races_classes",
-          "title": "Races, classes and selection workflow",
+          "id": "race_selection",
+          "title": "Playable races and character selection workflow",
           "milestone": "foundation",
           "depends_on": [
             "hero_identity"
@@ -48,7 +48,7 @@
           "title": "Character stats and set effects",
           "milestone": "integration",
           "depends_on": [
-            "races_classes",
+            "race_selection",
             "item_progression"
           ],
           "verification": "not_verified"
@@ -191,7 +191,7 @@
     {
       "id": "progression",
       "title": "Progression",
-      "purpose": "XP, level ups, cards, loot, equipment, crafting, stats and upgrades",
+      "purpose": "XP, organic level-based growth, loot, equipment, crafting, stats and item improvements",
       "features": [
         "leveling and stat growth",
         "loot and inventory",
@@ -242,8 +242,8 @@
           "verification": "not_verified"
         },
         {
-          "id": "upgrade_cards",
-          "title": "Level-up upgrades and rerolls",
+          "id": "level_growth",
+          "title": "Automatic level-based stat growth without choice prompts",
           "milestone": "integration",
           "depends_on": [
             "xp_levels"
