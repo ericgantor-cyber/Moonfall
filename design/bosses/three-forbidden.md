@@ -23,6 +23,14 @@ In phase 4, the boss controller reports the three attack IDs **together** for us
 
 Events are `phase-change`, `warning`, `attack`, and `defeat`. Event IDs: `echo-rupture`, `silencing-curse`, `shadow-wing-strike`. This is logic only: an integration adapter still must turn these events into visible tells, hitboxes, damage, animation and sounds. Test with `node Moonfall_7_6_Windows_Launcher_Fixes/test-three-forbidden-encounter.js`. The scheduler does not alter the existing generic boss combat pipeline.
 
+
+## Attack pattern overhaul (source complete; not yet wired to a live arena)
+`three-forbidden-patterns.js` converts scheduler warning and attack events into renderer-neutral geometry. Sonic `echo-rupture` uses a silver ring-sector with a 70-degree safe opening; `silencing-curse` uses a crimson circular hazard centered on the provided player position; `shadow-wing-strike` uses two crossing rectangular wing lanes leaving corners as safe zones. Warning geometry always has zero damage, and the matching attack geometry exposes nominal damage values for a future combat adapter.
+
+**Critical integration detail:** lock a curse target position when its warning is issued, and replay that same position when the attack resolves; do not recalculate from the moving player. For the ring and wing lanes, keep the warning's chosen geometry unchanged until resolution. The current event scheduler emits event identifiers; a future adapter must cache telegraph geometry, handle collision and dodging/parrying, and enforce the existing global projectile/FX budgets.
+
+The `test-three-forbidden-patterns.js` script checks geometries and a deterministic 4,000-tick logical stress scenario. This is **not** a Windows/UE5 compile, measured performance benchmark, or proof of playability.
+
 ## Encounter implementation checklist (not implemented)
 - Spawn this as a distinct boss in a dark cathedral/crypt encounter appropriate to Moonfall's unified world.
 - Assign HP, contact damage, stagger resistance, arena boundaries, and difficulty scaling via existing game systems.
