@@ -365,6 +365,39 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("SpawnActor", grid)
         self.assertNotIn("single-switch", header.lower())
 
+    def test_wow_inspired_original_moonfall_character_creation_umg(self):
+        root = ROOT / "MoonfallCharacterCreationWidget"
+        header = root.with_suffix(".h").read_text(encoding="utf-8")
+        code = root.with_suffix(".cpp").read_text(encoding="utf-8")
+        build = (ROOT / "MoonfallUnreal.Build.cs").read_text(encoding="utf-8")
+        for dependency in ('"UMG"', '"Slate"', '"SlateCore"'):
+            self.assertIn(dependency, build)
+        self.assertIn("class MOONFALLUNREAL_API UMoonfallCharacterCreationWidget", header)
+        self.assertIn("class MOONFALLUNREAL_API UMoonfallRaceChoiceButton", header)
+        self.assertIn("void SetPreviewTexture(UTexture2D* ExistingMoonfallTexture);", header)
+        self.assertIn("virtual FReply NativeOnKeyDown(", header)
+        for section in ("CHOOSE YOUR RACE", "CHOOSE YOUR HERO", "RACE DETAILS"):
+            self.assertIn(section, code)
+        self.assertIn("WidgetTree->RootWidget = Root;", code)
+        self.assertIn("WidgetTree->ConstructWidget<UScrollBox>()", code)
+        self.assertIn("WidgetTree->ConstructWidget<UMoonfallRaceChoiceButton>()", code)
+        self.assertIn("Choice->OnRaceActivated.AddDynamic(this,", code)
+        self.assertIn("UMoonfallRaceLibrary::GetPlayableRaceProfilesByFamily(CurrentFamily)", code)
+        self.assertIn("UMoonfallRaceLibrary::BuildPlayableRaceSelectionState(", code)
+        self.assertIn("UMoonfallRaceLibrary::StepPlayableRaceSelectionState(", code)
+        self.assertIn("UMoonfallRaceLibrary::StepPlayableRaceFamilySelectionState(", code)
+        self.assertIn("PreviewImage->SetBrushFromTexture(PreviewTexture);", code)
+        for key in ("EKeys::Left", "EKeys::Right", "EKeys::Up", "EKeys::Down",
+                    "EKeys::Gamepad_DPad_Left", "EKeys::Gamepad_DPad_Right",
+                    "EKeys::Gamepad_DPad_Up", "EKeys::Gamepad_DPad_Down"):
+            self.assertIn(key, code)
+        self.assertNotIn("single-switch", header.lower() + code.lower())
+        self.assertNotIn("SaveGame", code)
+        self.assertNotIn("SpawnActor", code)
+        self.assertNotIn("blizzard", code.lower())
+        self.assertNotIn("alliance", code.lower())
+        self.assertNotIn("horde", code.lower())
+
     def test_isolated_race_catalog_is_cpp_syntax_safe_and_does_not_replace_persistence(self):
         import re
         catalog = (ROOT / "MoonfallRaceLibrary.cpp").read_text(encoding="utf-8")
