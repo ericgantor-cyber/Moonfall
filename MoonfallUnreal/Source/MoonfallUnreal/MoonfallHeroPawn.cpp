@@ -199,6 +199,20 @@ bool AMoonfallHeroPawn::LoadRewardProgress()
   bRewardSaveInitialized = true;
   return false;
  }
+ // Reject oversized serialized lists before clearing the live state.
+ // Silently truncating saved inventory, gates or world drops and then saving
+ // would permanently discard data from an existing, possibly newer save.
+ // Treat these as unreadable and keep the original slot write-protected.
+ if (Save->CollectedKeys.Num() > 128 || Save->CompletedFactionQuests.Num() > 64
+     || Save->UnlockedGateIds.Num() > 256
+     || Save->InventoryItemCodes.Num() > 4096
+     || Save->PendingWorldLoot.Num() > 512)
+ {
+  bRewardSaveLoadFailed = true;
+  bRewardSaveInitialized = true;
+  UE_LOG(LogTemp, Warning, TEXT("Moonfall reward save has oversized arrays; preserving original file without writes."));
+  return false;
+ }
  bRewardSaveLoadFailed = false;
  bRewardSaveInitialized = true;
  const int32 PreviousArmorTierOnLoad = ArmorTier;
