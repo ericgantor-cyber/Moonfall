@@ -193,6 +193,13 @@ public:
   float BaseVitality, float BasePower, float BaseSpeed,
   FMoonfallRaceSelectionState& State);
 
+ // Direct 1-based index selection for keyboard/controller menu grids.
+ // Out-of-range or nonplayable indices fail with a default snapshot.
+ UFUNCTION(BlueprintPure, Category="Moonfall|Races")
+ static bool SelectPlayableRaceAtPosition(
+  int32 Position, FName Family, float BaseVitality, float BasePower,
+  float BaseSpeed, FMoonfallRaceSelectionState& State);
+
  // Returns false and an unmodified baseline profile for unknown identifiers.
  UFUNCTION(BlueprintPure, Category="Moonfall|Races")
  static bool FindRaceProfile(FName RaceId, FMoonfallRaceProfile& Profile);
