@@ -35,11 +35,23 @@ private:
 // race list at left, prominent central preview, details and stats at right.
 // The game supplies the optional preview texture; this class never replaces
 // existing Z/Nyra images or introduces Warcraft assets or factions.
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FMoonfallRaceSelectionConfirmed, FName, RaceId);
+
 UCLASS(Blueprintable)
 class MOONFALLUNREAL_API UMoonfallCharacterCreationWidget : public UUserWidget
 {
  GENERATED_BODY()
 public:
+ // The owning Blueprint can connect this to its existing hero creation flow.
+ // Confirmation here never writes a save or spawns an actor.
+ UPROPERTY(BlueprintAssignable, Category="Moonfall|Character Creation")
+ FMoonfallRaceSelectionConfirmed OnRaceConfirmed;
+
+ // Request the existing character image/model for this race. Owning game
+ // decides whether to provide an original Moonfall portrait or preview.
+ UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Character Creation")
+ void OnRacePreviewRequested(FName RaceId);
+
  UFUNCTION(BlueprintCallable, Category="Moonfall|Character Creation")
  bool InitializeSelection(FName PreferredRaceId, float InBaseVitality,
                           float InBasePower, float InBaseSpeed);
@@ -68,6 +80,7 @@ private:
  UFUNCTION() void HandlePreviousFamily();
  UFUNCTION() void HandleNextFamily();
  UFUNCTION() void HandleRaceChoice(FName RaceId);
+ UFUNCTION() void HandleConfirmRace();
 
  UPROPERTY(Transient) TObjectPtr<UScrollBox> RaceList;
  UPROPERTY(Transient) TObjectPtr<UTextBlock> RaceTitle;
