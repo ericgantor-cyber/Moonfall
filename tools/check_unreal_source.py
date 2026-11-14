@@ -247,6 +247,30 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("single-switch", header.lower())
         self.assertNotIn("switch-accessible", header.lower())
 
+    def test_race_selection_snapshot_consistent_and_failure_atomic(self):
+        header = (ROOT / "MoonfallRaceLibrary.h").read_text(encoding="utf-8")
+        impl = (ROOT / "MoonfallRaceLibrary.cpp").read_text(encoding="utf-8")
+        self.assertIn("struct FMoonfallRaceSelectionState", header)
+        for name in ("RaceId", "Family", "Profile", "Stats", "RacePosition",
+                     "RaceTotal", "FamilyPosition", "FamilyTotal"):
+            self.assertIn(name, header)
+        self.assertIn("static bool BuildPlayableRaceSelectionState(", header)
+        fn = impl.split("UMoonfallRaceLibrary::BuildPlayableRaceSelectionState(", 1)[1].split(
+            "UMoonfallRaceLibrary::FindRaceProfile(", 1)[0]
+        self.assertIn("State = FMoonfallRaceSelectionState();", fn)
+        self.assertIn("FMoonfallRaceSelectionState Candidate;", fn)
+        self.assertIn("ResolvePlayableRaceForFamily(CurrentRaceId, Family, Candidate.RaceId)", fn)
+        self.assertIn("FindPlayableRaceProfile(Candidate.RaceId, Candidate.Profile)", fn)
+        self.assertIn("PreviewPlayableRaceStats(Candidate.RaceId, BaseVitality, BasePower,", fn)
+        self.assertIn("GetPlayableRaceSelectionPosition(Candidate.RaceId, Family,", fn)
+        self.assertIn("if (!Family.IsNone()", fn)
+        self.assertIn("GetPlayableRaceFamilyPosition(Family, Candidate.FamilyPosition,", fn)
+        self.assertIn("State = MoveTemp(Candidate);", fn)
+        self.assertLess(fn.index("GetPlayableRaceFamilyPosition("),
+                        fn.index("State = MoveTemp(Candidate);"))
+        self.assertNotIn("SaveGame", fn)
+        self.assertNotIn("SpawnActor", fn)
+
     def test_isolated_race_catalog_is_cpp_syntax_safe_and_does_not_replace_persistence(self):
         import re
         catalog = (ROOT / "MoonfallRaceLibrary.cpp").read_text(encoding="utf-8")
