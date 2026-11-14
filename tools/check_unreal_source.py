@@ -57,6 +57,19 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                         play.index("Anim->Montage_Play("))
         self.assertIn("OnRigCue(CueId, bLastCuePlayed);", play)
 
+    def test_npc_cue_playing_query_is_safe_and_blueprint_readable(self):
+        rig = (ROOT / "MoonfallActorRigComponent.cpp").read_text(encoding="utf-8")
+        header = (ROOT / "MoonfallActorRigComponent.h").read_text(encoding="utf-8")
+        query = rig.split("bool UMoonfallActorRigComponent::IsRigCuePlaying(", 1)[1].split(
+            "bool UMoonfallActorRigComponent::PlayRigCue(", 1)[0]
+        self.assertIn("bool IsRigCuePlaying(FName CueId) const;", header)
+        self.assertIn("if (!HasRigCue(CueId)) return false;", query)
+        self.assertIn("RigMesh->GetOwner() != Owner", query)
+        self.assertIn("RigMesh->GetSkeletalMeshAsset() != ObservedRigAsset.Get()", query)
+        self.assertIn("Entry->Get()->GetSkeleton() != RigMesh->GetSkeletalMeshAsset()->GetSkeleton()", query)
+        self.assertIn("Anim->Montage_IsPlaying(Entry->Get())", query)
+        self.assertNotIn("RefreshRig()", query)
+
     def test_stopping_npc_cue_validates_montage_skeleton(self):
         rig = (ROOT / "MoonfallActorRigComponent.cpp").read_text(encoding="utf-8")
         stop = rig.split("bool UMoonfallActorRigComponent::StopRigCue(", 1)[1]
