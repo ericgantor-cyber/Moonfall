@@ -102,6 +102,11 @@ class ClasslessStatsTests(unittest.TestCase):
         self.assertEqual(original["stats"]["stamina"], 136)
         self.assertEqual(original["talents"]["spent"], 0)
 
+    def test_empty_wrong_type_gear_bonuses_are_rejected(self):
+        for wrong in ([], "", (), False):
+            with self.assertRaisesRegex(ValueError, "Unknown gear bonus stat"):
+                calculate(10, gear_bonuses=wrong, config=self.config)
+
     def test_no_class_and_card_mechanics(self):
         # Policy text is allowed to mention forbidden mechanics to explicitly
         # prohibit them. Check the actual machine-readable configuration keys.
