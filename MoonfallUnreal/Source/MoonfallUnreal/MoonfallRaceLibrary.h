@@ -112,6 +112,14 @@ public:
                                                 float BaseSpeed, FName Family,
                                                 TArray<FMoonfallRaceSelectionEntry>& Entries);
 
+ // Selection navigation for keyboard/controller/switch-accessible menus.
+ // Wraps in catalog order and excludes nonplayable races. NAME_None family
+ // navigates every playable race. An unknown current ID picks the first or
+ // last available entry according to direction. No hero/save mutations.
+ UFUNCTION(BlueprintPure, Category="Moonfall|Races")
+ static bool GetAdjacentPlayableRaceId(FName CurrentRaceId, FName Family,
+                                       bool bForward, FName& NextRaceId);
+
  // Returns false and an unmodified baseline profile for unknown identifiers.
  UFUNCTION(BlueprintPure, Category="Moonfall|Races")
  static bool FindRaceProfile(FName RaceId, FMoonfallRaceProfile& Profile);
