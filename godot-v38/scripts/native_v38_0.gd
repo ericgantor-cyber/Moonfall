@@ -582,7 +582,7 @@ func _v398_refresh_tree()->void:
   button.disabled=not bool(preview.get("ok",false))
   var effect:Dictionary=node.get("effect",{})
   var requirements:Array=node.get("requires",[])
-  var needs:String="None" if requirements.is_empty() else ", ".join(requirements)
+  var needs:String="None" if requirements.is_empty() else ", ".join(PackedStringArray(requirements))
   var bonus:String=str(effect.get("amount_per_rank",0))+" "+str(effect.get("kind",""))+" "+str(effect.get("stat",""))
   button.tooltip_text="Bonus per rank: "+bonus+" | Prerequisites: "+needs+" | "+str(preview.get("error","Click to spend one point"))
   button.pressed.connect(_v398_unlock.bind(id))
