@@ -454,6 +454,21 @@ class TestRacialPersistence(unittest.TestCase):
         self.assertIn("RespawnCheckpointLocation = ResolvedCheckpoint;", loader)
         self.assertIn("ActiveShrineId = Save->Version >= 7 ?", loader)
 
+    def test_dawnwalker_influenced_shrine_beacon_is_event_driven_and_persistent(self):
+        shrine_h = (ROOT / "MoonfallCheckpointShrine.h").read_text(encoding="utf-8")
+        shrine_cpp = (ROOT / "MoonfallCheckpointShrine.cpp").read_text(encoding="utf-8")
+        status = shrine_cpp.split(
+            "void AMoonfallCheckpointShrine::RefreshShrineDisplay(", 1)[1].split(
+            "void AMoonfallCheckpointShrine::CheckHeroAtSpawn(", 1)[0]
+        self.assertIn("UPointLightComponent* ShrineLight", shrine_h)
+        self.assertIn('CreateDefaultSubobject<UPointLightComponent>(TEXT("ShrineLight"))', shrine_cpp)
+        self.assertIn("ShrineLight->SetCastShadows(false)", shrine_cpp)
+        self.assertIn("PrimaryActorTick.bCanEverTick = false", shrine_cpp)
+        self.assertIn("ShrineLight->SetIntensity(bCurrentRespawn ? 850.f : bDiscovered ? 450.f : 0.f)", status)
+        self.assertIn('bDiscovered ? TEXT("ACTIVE SHRINE")', status)
+        self.assertIn("ShrineLight->SetLightColor(bCurrentRespawn", status)
+        self.assertNotIn("void AMoonfallCheckpointShrine::Tick(", shrine_cpp)
+
     def test_shrine_activation_has_clear_status_and_wall_guard(self):
         shrine_cpp = (ROOT / "MoonfallCheckpointShrine.cpp").read_text(encoding="utf-8")
         discover = self.cpp.split("bool AMoonfallHeroPawn::DiscoverShrine(", 1)[1].split(
