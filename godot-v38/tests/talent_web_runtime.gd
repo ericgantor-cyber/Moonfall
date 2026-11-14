@@ -21,6 +21,21 @@ func _initialize() -> void:
  if web.pan != Vector2.ZERO:
   _fail("Fit-all must recenter the complete web")
   return
+ # Zooming at a location must keep that point stationary on screen.
+ web.fit_all()
+ var anchor_world: Vector2 = web.points["iron_will"]
+ var anchor_screen: Vector2 = web._screen_pos(anchor_world)
+ web.zoom_at(1.6, anchor_screen)
+ if web._screen_pos(anchor_world).distance_to(anchor_screen) > 0.1:
+  _fail("Cursor-anchored zoom must preserve the selected position")
+  return
+ web.zoom_at(0.625, anchor_screen)
+ if web._screen_pos(anchor_world).distance_to(anchor_screen) > 0.1:
+  _fail("Cursor-anchored zoom-out must preserve the selected position")
+  return
+ if web.node_info.size() != 108:
+  _fail("All talent hover metadata must be available")
+  return
  web.zoom_by(30.0)
  if web.zoom > web.MAX_ZOOM:
   _fail("Zoom must be bounded above")
