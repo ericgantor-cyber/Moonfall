@@ -3,9 +3,11 @@ extends "res://scripts/native_v37_7.gd"
 ## leaving the combat/loot/world/save systems untouched and inheritance intact.
 const V380_RULES:=preload("res://scripts/systems/overhaul_v380.gd")
 const CELESTIAL_TALENTS:=preload("res://scripts/systems/celestial_talents_v398.gd")
+const CLASSLESS_TALENTS:=preload("res://scripts/systems/moonfall_talent_tree.gd")
 var v398_panel:PanelContainer
 var v398_tree_list:VBoxContainer
 var v398_ranks:Dictionary={}
+var v406_ranks:Dictionary={} # Separate from legacy combat ranks.
 # Character creation keeps original Z/Nyra artwork; customization is identity and origin.
 var v399_creator:PanelContainer
 var v399_name:LineEdit
@@ -509,27 +511,51 @@ func _v398_build_tree()->void:
 func _v398_refresh_tree()->void:
  if not is_instance_valid(v398_tree_list):return
  for child in v398_tree_list.get_children():child.queue_free()
- var level_now:int=maxi(1,int(hero_level))
- var points:int=CELESTIAL_TALENTS.points_for_level(level_now)-CELESTIAL_TALENTS.points_spent(v398_ranks)
+ var level_now:int=clampi(int(hero_level),1,100)
+ var state:Dictionary=CLASSLESS_TALENTS.evaluate(level_now,v406_ranks)
  var heading:Label=Label.new()
- heading.text="CELESTIAL TALENTS  |  Points: "+str(points)+"  |  K to close"
+ heading.text="CLASSLESS TALENTS  |  Points: "+str(state.get("available",0))+"  |  K to close"
  v398_tree_list.add_child(heading)
- for branch in CELESTIAL_TALENTS.BRANCHES:
+ if not bool(state.get("ok",false)):
+  var warning:Label=Label.new()
+  warning.text="Talent data unavailable: "+str(state.get("error","Unknown error"))
+  v398_tree_list.add_child(warning)
+  return
+ var tree:Dictionary=CLASSLESS_TALENTS.load_tree()
+ for branch in tree.get("branches",[]):
   var section:Label=Label.new()
-  section.text=str(branch).to_upper()
+  section.text=str(branch.get("title",branch.get("id",""))).to_upper()
   v398_tree_list.add_child(section)
-  for id in CELESTIAL_TALENTS.TALENTS:
-   var info:Dictionary=CELESTIAL_TALENTS.TALENTS[id]
-   if str(info["branch"])!=str(branch):continue
-   if info.has("hero") and str(info["hero"])!=str(hero):continue
-   var talent_button:Button=Button.new()
-   talent_button.text=str(id).replace("_"," ").capitalize()+"  "+str(v398_ranks.get(id,0))+"/"+str(info["max_rank"])
-   talent_button.disabled=not CELESTIAL_TALENTS.can_unlock(str(hero),level_now,v398_ranks,str(id))
-   talent_button.pressed.connect(_v398_unlock.bind(str(id)))
-   v398_tree_list.add_child(talent_button)
+  for node in tree.get("nodes",[]):
+   if str(node.get("branch",""))!=str(branch.get("id","")):continue
+   var id:String=str(node.get("id",""))
+   var button:Button=Button.new()
+   button.text=str(node.get("title",id))+"  "+str(v406_ranks.get(id,0))+"/"+str(node.get("max_rank",1))
+   button.custom_minimum_size.y=46.0
+   var preview:Dictionary=CLASSLESS_TALENTS.spend(level_now,v406_ranks,id)
+   button.disabled=not bool(preview.get("ok",false))
+   button.tooltip_text=str(preview.get("error","Spend a talent point"))
+   button.pressed.connect(_v398_unlock.bind(id))
+   v398_tree_list.add_child(button)
+ var reset_button:Button=Button.new()
+ reset_button.text="RESET ALL TALENT POINTS"
+ reset_button.custom_minimum_size.y=52.0
+ reset_button.disabled=v406_ranks.is_empty()
+ reset_button.pressed.connect(_v406_respec)
+ v398_tree_list.add_child(reset_button)
 
 func _v398_unlock(id:String)->void:
- v398_ranks=CELESTIAL_TALENTS.unlock(str(hero),maxi(1,int(hero_level)),v398_ranks,id)
+ var changed:Dictionary=CLASSLESS_TALENTS.spend(clampi(int(hero_level),1,100),v406_ranks,id)
+ if not bool(changed.get("ok",false)):return
+ v406_ranks=changed["allocations"].duplicate(true)
+ _save_game()
+ _v398_refresh_tree()
+
+func _v406_respec()->void:
+ var changed:Dictionary=CLASSLESS_TALENTS.respec(clampi(int(hero_level),1,100),v406_ranks)
+ if not bool(changed.get("ok",false)):return
+ v406_ranks=changed["allocations"].duplicate(true)
+ _save_game()
  _v398_refresh_tree()
 
 func _v398_toggle_tree()->void:
@@ -766,18 +792,20 @@ func _start_game(selected_hero:String)->void:
  v387_stamina=V387_MAX_STAMINA
  v387_stamina_regen_wait=0.0
  v398_ranks={}
+ v406_ranks={}
  v401_z_intro_seen=false
  _v401_end_z_intro()
  if is_instance_valid(v398_panel):v398_panel.visible=false
 
 func _checkpoint_extra_data()->Dictionary:
- return {"mana":clampf(v385_mana,0.0,V385_MAX_MANA),"stamina":clampf(v387_stamina,0.0,V387_MAX_STAMINA),"celestial_ranks":v398_ranks.duplicate(true),"character_identity":v399_identity.duplicate(true)}
+ return {"mana":clampf(v385_mana,0.0,V385_MAX_MANA),"stamina":clampf(v387_stamina,0.0,V387_MAX_STAMINA),"celestial_ranks":v398_ranks.duplicate(true),"classless_ranks":v406_ranks.duplicate(true),"character_identity":v399_identity.duplicate(true)}
 
 func _restore_data(data:Dictionary)->void:
  super._restore_data(data)
  _v400_apply_adventurer_look()
  v387_stamina_regen_wait=0.0
  v398_ranks={}
+ v406_ranks={}
  v399_identity={}
  var resources:Variant=data.get("optional_resources",{})
  if resources is Dictionary:
@@ -785,6 +813,10 @@ func _restore_data(data:Dictionary)->void:
   if saved_identity is Dictionary:v399_identity=saved_identity.duplicate(true)
   v385_mana=clampf(float(resources.get("mana",V385_MAX_MANA)),0.0,V385_MAX_MANA)
   v387_stamina=clampf(float(resources.get("stamina",V387_MAX_STAMINA)),0.0,V387_MAX_STAMINA)
+  var classless_saved:Variant=resources.get("classless_ranks",{})
+  if classless_saved is Dictionary:
+   var restored:Dictionary=CLASSLESS_TALENTS.evaluate(clampi(int(hero_level),1,100),classless_saved)
+   if bool(restored.get("ok",false)):v406_ranks=restored["allocations"].duplicate(true)
   var saved_ranks:Variant=resources.get("celestial_ranks",{})
   if saved_ranks is Dictionary:
    # Reconstruct only legal unlocks, respecting level, prerequisites, and hero choice.
