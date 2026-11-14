@@ -447,6 +447,31 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("SaveGame", code)
         self.assertNotIn("SpawnActor", code)
 
+    def test_dedicated_preview_rig_has_safe_rotation_zoom_and_reset(self):
+        header = (ROOT / "MoonfallCharacterCreationWidget.h").read_text(encoding="utf-8")
+        code = (ROOT / "MoonfallCharacterCreationWidget.cpp").read_text(encoding="utf-8")
+        self.assertIn("void BindPreviewRig(USceneComponent* PreviewPivot, USpringArmComponent* PreviewArm);", header)
+        self.assertIn("void ResetPreviewView();", header)
+        self.assertIn("TWeakObjectPtr<USceneComponent> PreviewRotationPivot;", header)
+        self.assertIn("TWeakObjectPtr<USpringArmComponent> PreviewZoomArm;", header)
+        for name in ("BindPreviewRig", "RotatePreview", "ZoomPreview", "ResetPreviewView"):
+            self.assertIn("UMoonfallCharacterCreationWidget::" + name + "(", code)
+        self.assertIn("InitialPreviewRotation = PreviewRotationPivot->GetRelativeRotation();", code)
+        self.assertIn("InitialPreviewArmLength = PreviewZoomArm->TargetArmLength;", code)
+        self.assertIn("PreviewRotationPivot->AddLocalRotation(FRotator(0.f, DeltaYaw, 0.f));", code)
+        self.assertIn("FMath::Clamp(Distance - ZoomSteps * 40.f, 125.f, 650.f)", code)
+        self.assertIn("PreviewRotationPivot->SetRelativeRotation(InitialPreviewRotation);", code)
+        self.assertIn("PreviewZoomArm->TargetArmLength = InitialPreviewArmLength;", code)
+        self.assertIn("OnPreviewRotateRequested(DeltaYaw);", code)
+        self.assertIn("OnPreviewZoomRequested(ZoomSteps);", code)
+        self.assertIn("RotatePreview(DeltaX * 0.35f);", code)
+        self.assertIn("ZoomPreview(WheelDelta);", code)
+        self.assertIn('TEXT("RESET VIEW")', code)
+        self.assertIn("HandleResetPreview()", code)
+        self.assertNotIn("SaveGame", code)
+        self.assertNotIn("SpawnActor", code)
+        self.assertNotIn("single-switch", header.lower() + code.lower())
+
     def test_isolated_race_catalog_is_cpp_syntax_safe_and_does_not_replace_persistence(self):
         import re
         catalog = (ROOT / "MoonfallRaceLibrary.cpp").read_text(encoding="utf-8")
