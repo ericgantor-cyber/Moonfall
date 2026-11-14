@@ -10,15 +10,17 @@ The `three_forbidden` profile in `boss-phases.js` has four states (phase indices
 
 | HP | Name | Phase controller attack ID | Intended encounter behavior |
 | --- | --- | --- | --- |
-| >75% | Hear No Evil | `bone-wing-sweep` | Sweeping feathers and directional bone strikes |
-| <=75% | Echo of Hearing | `echo-rupture` | Expanding sonic rings with clear gaps |
-| <=50% | Speak No Evil | `silencing-curse` | Marked curse zones; visible signal before burst; avoid removing core player input |
-| <=25% | See No Evil: Eclipsed Trinity | `eclipsed-trinity` | Three synchronized patterns with readable danger zones and safe lanes |
+| >75% | Phase 1: Hear No Evil | `echo-rupture` | Soundwave rings and wing sweeps |
+| <=75% | Phase 2: Speak No Evil | `silencing-curse` | Cursed vocal blasts and marked silence zones, without disabling essential player inputs |
+| <=50% | Phase 3: See No Evil | `shadow-wing-strike` | Darkness, sudden movement, and visible shadow-wing strikes |
+| <=25% | Phase 4: All Three at Once | `eclipsed-trinity` | All three skeletons attack together: `echo-rupture`, `silencing-curse`, and `shadow-wing-strike` are returned in `concurrentAttacks` |
+
+In phase 4, the boss controller reports the three attack IDs **together** for use by an encounter scheduler. The live combat system does not currently execute simultaneous attacks from this data alone. The encounter implementation must schedule each attack independently in the same attack window, without sequentially replacing one with another, and retain visible safe lanes.
 
 ## Encounter implementation checklist (not implemented)
 - Spawn this as a distinct boss in a dark cathedral/crypt encounter appropriate to Moonfall's unified world.
 - Assign HP, contact damage, stagger resistance, arena boundaries, and difficulty scaling via existing game systems.
-- Hook the phase state transitions into combat AI; this module currently **returns attack IDs**, not executable attacks.
+- Hook the phase state transitions into combat AI; this module currently **returns attack IDs**, including the phase-four `concurrentAttacks` array, not executable attacks.
 - Animate each skeleton and wing pair and make every hitbox match the visible animation.
 - Display readable telegraphs before damage and offer accessibility-friendly contrast/reduced flashing.
 - Make attacks dodgeable/parryable with stamina rules; never rely on sound cues alone.
