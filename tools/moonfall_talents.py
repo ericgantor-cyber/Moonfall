@@ -118,10 +118,13 @@ def evaluate(level: int, allocations: dict[str, int] | None = None,
 
 def spend(level: int, current: dict[str, int], talent_id: str, data: dict | None = None) -> dict:
     tree = data if data is not None else load()
+    # Never accept an invalid or malformed saved state simply because the
+    # requested new node would otherwise satisfy the final dependencies.
+    prior = evaluate(level, current, tree)
     index = {node["id"]: node for node in tree["nodes"]}
     if talent_id not in index:
         raise ValueError("Unknown talent choice")
-    chosen = dict(current)
+    chosen = dict(prior["allocations"])
     chosen[talent_id] = chosen.get(talent_id, 0) + 1
     return evaluate(level, chosen, tree)
 
