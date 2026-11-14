@@ -3,6 +3,35 @@ extends SceneTree
 const TALENTS = preload("res://scripts/systems/moonfall_talent_tree.gd")
 
 func _initialize() -> void:
+ var tree: Dictionary = TALENTS.load_tree()
+ var nodes: Array = tree.get("nodes", [])
+ if nodes.size() != 108:
+  _fail("Expanded tree must contain 108 talents")
+  return
+ var counts: Dictionary = {"might": 0, "agility": 0, "arcana": 0}
+ for node in nodes:
+  var branch_name: String = str(node.get("branch", ""))
+  if not counts.has(branch_name):
+   _fail("Unexpected talent branch")
+   return
+  counts[branch_name] += 1
+ for branch_name in counts:
+  if int(counts[branch_name]) != 36:
+   _fail("Each classless branch must contain 36 talents")
+   return
+ var advanced: Dictionary = {"iron_will": 1, "breaker": 1, "guard": 1, "titan_strike": 1}
+ var extended: Dictionary = TALENTS.spend(16, advanced, "might_ashen_grip")
+ if not bool(extended.get("ok", false)) or int(extended.get("spent", -1)) != 5:
+  _fail("First expanded talent must unlock at level 16")
+  return
+ var premature: Dictionary = TALENTS.spend(15, advanced, "might_ashen_grip")
+ if bool(premature.get("ok", true)):
+  _fail("Expanded level gates must reject premature purchases")
+  return
+ var advanced_reset: Dictionary = TALENTS.respec(16, extended["allocations"])
+ if not bool(advanced_reset.get("ok", false)) or int(advanced_reset.get("available", -1)) != 15:
+  _fail("Full respec must clear expanded talent allocations")
+  return
  var base: Dictionary = TALENTS.evaluate(5, {})
  if not bool(base.get("ok", false)) or int(base.get("available", -1)) != 4:
   _fail("Level 5 should have four unspent points")
