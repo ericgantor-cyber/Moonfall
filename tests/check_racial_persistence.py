@@ -61,6 +61,26 @@ class TestRacialPersistence(unittest.TestCase):
         self.assertIn("bool IsNamedMoonfallResident(FName Id);", self.cpp)
         self.assertIn("bool IsNamedMoonfallResident(FName Id) {", self.cpp)
 
+    def test_future_version_save_is_not_overwritten_by_autosave(self):
+        self.assertIn("bool bPersistentSaveWritesBlocked = false;", self.header)
+        save = self.cpp.split("bool AMoonfallHeroPawn::SaveWorldProgress()", 1)[1].split(
+            "bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[0]
+        load = self.cpp.split("bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[1].split(
+            "void AMoonfallHeroPawn::RespawnAtCheckpoint()", 1)[0]
+        self.assertIn("if (bPersistentSaveWritesBlocked) return false;", save)
+        self.assertLess(save.index("if (bPersistentSaveWritesBlocked) return false;"),
+                        save.index("UGameplayStatics::SaveGameToSlot("))
+        self.assertIn("Save->Version < 1 || Save->Version > 6", load)
+        self.assertIn("bPersistentSaveWritesBlocked = true;", load)
+        self.assertIn("bPersistentSaveWritesBlocked = false;", load)
+        self.assertLess(load.index("bPersistentSaveWritesBlocked = true;"),
+                        load.index("ResidentQuestStates.Reset();"))
+        self.assertLess(load.index("bPersistentSaveWritesBlocked = false;"),
+                        load.index("ResidentQuestStates.Reset();"))
+        self.assertIn("LoadWorldProgress();", self.cpp.split("void AMoonfallHeroPawn::BeginPlay()", 1)[1].split(
+            "void AMoonfallHeroPawn::Tick(", 1)[0])
+        self.assertIn("if (SaveWorldProgress()) SecondsSinceLastWorldSave = 0.f;", self.cpp)
+
     def test_not_a_new_run(self):
         self.assertIn('MoonfallPersistentWorldV1', self.cpp)
         self.assertIn("if (SecondsSinceLastWorldSave >= 2.f && GetWorld()", self.cpp)
