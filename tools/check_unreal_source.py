@@ -267,21 +267,47 @@ class MoonfallIntegrationChecks(unittest.TestCase):
     def test_nearby_batch_loot_is_range_and_cover_safe(self):
         pickup = self.hero_cpp.split("void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[1].split(
             "void AMoonfallHeroPawn::EquipBestInventoryAction()", 1)[0]
-        self.assertIn("constexpr int32 MaxLootScanned = 128;", pickup)
+        # Check the new nearest-first bounded candidate pool, not the removed global scan cap.
+        self.assertIn("constexpr int32 MaxLootCandidates = 24;", pickup)
         self.assertIn("constexpr int32 MaxLootPerPress = 6;", pickup)
-        self.assertIn("It && Scanned < MaxLootScanned;", pickup)
+        self.assertIn("TActorIterator<AMoonfallGroundLoot> It(GetWorld()); It; ++It", pickup)
+        self.assertNotIn("MaxLootScanned", pickup)
+        self.assertIn("if (InsertAt >= MaxLootCandidates) continue;", pickup)
         self.assertIn("FMath::Square(250.f)", pickup)
         self.assertIn("FMath::Abs(LootPosition.Z - HeroPosition.Z) > 150.f", pickup)
         self.assertIn("SCENE_QUERY_STAT(MoonfallGroundLootPickupSight)", pickup)
-        self.assertIn("LootSightParams.AddIgnoredActor(Candidate);", pickup)
+        self.assertIn("LootSightParams.AddIgnoredActor(Loot);", pickup)
         self.assertIn("GetWorld()->LineTraceSingleByChannel(LootSightHit,", pickup)
         self.assertIn("NearbyLoot.Insert(Candidate, InsertAt);", pickup)
-        self.assertIn("NearbyLoot.RemoveAt(MaxLootPerPress);", pickup)
+        self.assertIn("NearbyLoot.RemoveAt(MaxLootCandidates);", pickup)
         self.assertIn("for (AMoonfallGroundLoot* Loot : NearbyLoot)", pickup)
-        self.assertIn("if (IsValid(Loot)) Loot->TryCollect();", pickup)
+        self.assertIn("if (!IsValid(Loot)) continue;", pickup)
+        self.assertIn("if (Loot->TryCollect() && ++Collected >= MaxLootPerPress) break;", pickup)
+        self.assertLess(pickup.index("if (!IsValid(Loot)) continue;"), pickup.index("if (Loot->TryCollect() && ++Collected >= MaxLootPerPress) break;"))
         self.assertNotIn("EquipInventoryItem(", pickup)
         self.assertNotIn("SalvageInventoryItem(", pickup)
         self.assertNotIn("PrimaryActorTick", pickup)
+
+    def test_ground_loot_actor_enforces_reachability_before_destruction(self):
+        actor = (ROOT / "MoonfallGroundLoot.cpp").read_text(encoding="utf-8")
+        method = actor.split("bool AMoonfallGroundLoot::TryCollect()", 1)[1]
+        self.assertIn("if (!IsValid(Hero) || !GetWorld()) return false;", method)
+        self.assertIn("HeroPosition.ContainsNaN()", method)
+        self.assertIn("LootPosition.ContainsNaN()", method)
+        self.assertIn("FMath::IsFinite(DistanceSq)", method)
+        self.assertIn("DistanceSq > FMath::Square(250.f)", method)
+        self.assertIn("FMath::Abs(LootPosition.Z - HeroPosition.Z) > 150.f", method)
+        self.assertIn("SightParams.AddIgnoredActor(Hero);", method)
+        self.assertIn("SightParams.AddIgnoredActor(this);", method)
+        self.assertIn("GetWorld()->LineTraceSingleByChannel(SightHit,", method)
+        self.assertIn("ECC_Visibility, SightParams)) return false;", method)
+        self.assertIn("if (!Hero->CollectGroundEquipmentCode(ItemCode)) return false;", method)
+        self.assertLess(method.index("DistanceSq > FMath::Square(250.f)"),
+                        method.index("Hero->CollectGroundEquipmentCode(ItemCode)"))
+        self.assertLess(method.index("GetWorld()->LineTraceSingleByChannel(SightHit,"),
+                        method.index("Hero->CollectGroundEquipmentCode(ItemCode)"))
+        self.assertLess(method.index("Hero->CollectGroundEquipmentCode(ItemCode)"),
+                        method.index("Destroy();"))
 
     def test_inventory_accepts_new_loot_without_rejection_or_auto_cleanup(self):
         award = self.hero_cpp.split("void AMoonfallHeroPawn::AwardEquipmentDrop(", 1)[1].split(
