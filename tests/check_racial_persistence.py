@@ -61,6 +61,29 @@ class TestRacialPersistence(unittest.TestCase):
         self.assertIn("bool IsNamedMoonfallResident(FName Id);", self.cpp)
         self.assertIn("bool IsNamedMoonfallResident(FName Id) {", self.cpp)
 
+    def test_oversized_persistent_saves_are_write_protected_before_restore(self):
+        loader = self.cpp.split("bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[1].split(
+            "void AMoonfallHeroPawn::RespawnAtCheckpoint()", 1)[0]
+        for expression in (
+            "Save->InventoryItemCodes.Num() > 10000",
+            "Save->Version >= 6 && Save->ResidentQuestStates.Num() > 64",
+        ):
+            self.assertIn(expression, loader)
+        reject = loader.split("if (Save->InventoryItemCodes.Num() > 10000", 1)[1].split(
+            "// Validate the V7 discovered-shrine ledger", 1)[0]
+        self.assertIn("bPersistentSaveWritesBlocked = true;", reject)
+        self.assertIn("return false;", reject)
+        self.assertLess(loader.index("Save->InventoryItemCodes.Num() > 10000"),
+                        loader.index("TeleportTo(SavedCheckpoint"))
+        self.assertLess(loader.index("Save->InventoryItemCodes.Num() > 10000"),
+                        loader.index("ResidentQuestStates.Reset();"))
+        self.assertLess(loader.index("Save->InventoryItemCodes.Num() > 10000"),
+                        loader.index("InventoryItemCodes.Reset();"))
+        saver = self.cpp.split("bool AMoonfallHeroPawn::SaveWorldProgress()", 1)[1].split(
+            "bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[0]
+        self.assertIn("bPersistentSaveWritesBlocked || !bHasRespawnCheckpointLocation", saver)
+        self.assertIn("UGameplayStatics::SaveGameToSlot", saver)
+
     def test_future_version_save_is_not_overwritten_by_autosave(self):
         self.assertIn("bool bPersistentSaveWritesBlocked = false;", self.header)
         save = self.cpp.split("bool AMoonfallHeroPawn::SaveWorldProgress()", 1)[1].split(
