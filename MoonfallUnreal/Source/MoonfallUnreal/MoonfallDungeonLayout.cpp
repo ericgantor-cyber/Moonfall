@@ -23,6 +23,12 @@ AMoonfallDungeonLayout::AMoonfallDungeonLayout()
  HazardPlates = CreateDefaultSubobject<UInstancedStaticMeshComponent>(TEXT("DungeonHazardPlates"));
  HazardPlates->SetupAttachment(Root);
  HazardPlates->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+ // Visual-only instanced-mesh distance fade. Distant chambers do not need
+ // rendering from the arena or neighboring zones. Keep collision intact:
+ // actors, traps, loot and world traversal are never disabled by culling.
+ Floors->SetCullDistances(24000, 34000);
+ Walls->SetCullDistances(18000, 28000);
+ HazardPlates->SetCullDistances(12000, 22000);
  static ConstructorHelpers::FObjectFinder<UStaticMesh> Cube(TEXT("/Engine/BasicShapes/Cube.Cube"));
  if (Cube.Succeeded()) {
   Floors->SetStaticMesh(Cube.Object);
