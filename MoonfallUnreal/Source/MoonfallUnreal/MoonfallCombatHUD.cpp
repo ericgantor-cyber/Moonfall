@@ -117,7 +117,7 @@ void AMoonfallCombatHUD::DrawHUD()
      QualityName[Quality], FrameStatus, Hero->bReduceMotion ? TEXT("On") : TEXT("Off"),
      FString::Printf(TEXT("%.0f%%"), Hero->CombatTextScale * 100.f),
      FString::Printf(TEXT("%.0f%%"), Hero->BossWarningScale * 100.f),
-     Settings->GetFullscreenMode() == EWindowMode::Windowed ? TEXT("Windowed") : TEXT("Borderless")};
+     Settings->GetFullscreenMode() == EWindowMode::Windowed ? TEXT("Windowed") : Settings->GetFullscreenMode() == EWindowMode::WindowedFullscreen ? TEXT("Borderless") : TEXT("Fullscreen")};
    const float MinusX = MenuLeft + MenuWidth - 111.f;
    const float PlusX = MenuLeft + MenuWidth - 37.f;
    for (int32 i = 0; i < 8; ++i) {
