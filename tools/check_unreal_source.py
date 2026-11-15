@@ -3811,5 +3811,33 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('return !HasAnyErrors();', native)
         self.assertNotIn("World->SpawnActor", native)
 
+
+    def test_dynamic_nav_invokers_and_dungeon_map_retrofit_are_guarded(self):
+        engine = (ROOT.parents[1] / "Config" / "DefaultEngine.ini").read_text(encoding="utf-8")
+        creator = (ROOT.parents[1] / "Build" / "Create-StartupLevel.py").read_text(encoding="utf-8")
+        retrofit = (ROOT.parents[1] / "Build" / "Upgrade-DungeonNavigation.py").read_text(encoding="utf-8")
+        self.assertIn("bGenerateNavigationOnlyAroundNavigationInvokers=True", engine)
+        self.assertIn("RuntimeGeneration=Dynamic", engine)
+        self.assertIn("UNavigationInvokerComponent* DungeonNavigationInvoker;", self.hero_h)
+        self.assertIn('#include "NavigationInvokerComponent.h"', self.hero_cpp)
+        self.assertIn("CreateDefaultSubobject<UNavigationInvokerComponent>", self.hero_cpp)
+        self.assertIn("SetGenerationRadii(3000.f, 5000.f)", self.hero_cpp)
+        self.assertIn("Moonfall_DungeonWorld_NavBounds", creator)
+        self.assertIn("unreal.Vector(0.0, -10000.0, 100.0)", creator)
+        self.assertIn("unreal.Vector(225.0, 115.0, 6.0)", creator)
+        self.assertIn("Create-StartupLevel.py", (ROOT.parents[1] / "Build" / "Build-Windows.ps1").read_text(encoding="utf-8"))
+        self.assertIn("upgrade_existing_map_navigation()", retrofit)
+        self.assertIn("if matching:", retrofit)
+        self.assertIn("shutil.copy2(level_file, backup)", retrofit)
+        self.assertLess(retrofit.index("shutil.copy2(level_file, backup)"),
+                        retrofit.index("nav = actors.spawn_actor_from_class("))
+        self.assertIn("nav.get_actor_bounds(False)", retrofit)
+        self.assertIn("actors.destroy_actor(nav)", retrofit)
+        self.assertLess(retrofit.index("nav.get_actor_bounds(False)"),
+                        retrofit.index("save_current_level()"))
+        self.assertNotIn("new_level(", retrofit)
+        self.assertNotIn("remove(", retrofit)
+        self.assertIn("return", retrofit)
+
 if __name__ == "__main__":
     unittest.main()
