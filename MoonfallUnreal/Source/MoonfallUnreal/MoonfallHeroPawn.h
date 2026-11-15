@@ -188,6 +188,8 @@ public:
  // Matches the Canvas inventory row capacity on the active viewport.
  int32 GetInventoryVisibleRows() const;
  void KeepInventorySelectionVisible();
+ // Read-only pointer hit test sharing the inventory Canvas row geometry.
+ int32 HitTestInventoryRow() const;
  UFUNCTION(BlueprintCallable, Category="Moonfall|Inventory") void ToggleInventory();
  UFUNCTION(BlueprintCallable, Category="Moonfall|Inventory") void EquipSelectedInventoryItem();
  // Salvage only un-equipped entries. Returns false for invalid/protected gear.
@@ -338,10 +340,6 @@ private:
  void BreakGuard();
  void BeginGuard();
  void EndGuard();
- void InventoryPageUp();
- void InventoryPageDown();
- void InventoryFirst();
- void InventoryLast();
  void InventoryConfirm();
  void InventorySalvage();
  void OpenOptions();
