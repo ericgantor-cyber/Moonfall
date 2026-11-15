@@ -1377,7 +1377,7 @@ func _menu_tab(which: String) -> void:
     var amount:int=int(materials[key])
     if amount<=0:continue
     var stacks:Array[int]=INVENTORY_RULES.material_stack_counts(amount)
-    text+=str(key)+": "+str(amount)+" ("+str(stacks.size())+" stacks)\n"
+    text+=str(key)+": "+str(amount)+" ("+str(stacks.size())+" stacks) • Crafting storage\n"
     _material_hover_row(str(key),amount,stacks.size())
     found+=1
    if found==0:text+="No matching materials.\n"
@@ -1401,13 +1401,16 @@ func _menu_tab(which: String) -> void:
    text+="\n[b]Recipes[/b]\n"
    for i in range(RECIPES.size()):
     var recipe:Dictionary=RECIPES[i]
-    text+=str(i+1)+". "+str(recipe["name"])+" • "+str(recipe["cost"])+"\n"
+    text+="\n[b]"+str(i+1)+". "+str(recipe["name"])+"[/b]\n"+_recipe_hover_details(recipe)+"\n"
     _atlas_action("CRAFT: "+str(recipe["name"]),"craft:"+str(i),_recipe_hover_details(recipe))
    menu_body.text=text
   "Hunter":
    var text:="[b]HUNTER'S PATH[/b]\n\nHunter Senses: "+("ACTIVE" if senses_on else "INACTIVE")+"\nContracts completed: "+str(contracts_done.size())+"/6\nHunter Oil: "+str(int(hunter_oil_time))+"s\n"
    if contract_zone>=0:text+="\nACTIVE CONTRACT: "+str(REGIONS[contract_zone]["name"])+" · "+str(contract_kills)+" / 3 hostile beasts.\n"
    else:text+="\nAccept one regional monster contract; hunt three hostile beasts in that region.\n"
+   text+="\n\n[b]CONSUMABLES[/b]"
+   text+="\nHunter\'s Oil: "+str(materials.get("Hunter\'s Oil",0))+" owned • Temporary hunting effect (25 seconds). Dismount before use."
+   text+="\nHealing Draught: "+str(materials.get("Healing Draught",0))+" owned • Restores 35% maximum health. Dismount before use."
    menu_body.text=text
    _atlas_action("TOGGLE HUNTER SENSES","senses")
    for i in range(REGIONS.size()):
@@ -1436,7 +1439,7 @@ func _menu_tab(which: String) -> void:
 
 func _material_hover_row(name:String,amount:int,stack_count:int)->void:
  var row:=Label.new()
- row.text=name+"  × "+str(amount)
+ row.text=name+" × "+str(amount)+" • "+str(stack_count)+" stacks • Crafting storage"
  row.tooltip_text=name+"\nOwned: "+str(amount)+"\nStorage: Materials (separate from gear bag)\nStacks: "+str(stack_count)+" • 999 per stack\nUsed for crafting when required by recipes."
  row.mouse_filter=Control.MOUSE_FILTER_STOP
  row.custom_minimum_size=Vector2(270,30)
