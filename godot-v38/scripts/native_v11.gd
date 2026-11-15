@@ -1153,7 +1153,7 @@ func _inventory_action(action:String)->void:
     inventory_selected_index=-1
     return
    var selected_at:int=matching.find(inventory_selected_index)
-   if selected_at<0:selected_at=0
+   if selected_at<0:selected_at=0 if action=="inventory_select_next" else matching.size()-1
    else:selected_at=posmod(selected_at+(1 if action=="inventory_select_next" else -1),matching.size())
    inventory_selected_index=matching[selected_at]
    inventory_page=floori(float(selected_at)/float(INVENTORY_RULES.BAG_PAGE_SIZE))
@@ -1393,7 +1393,7 @@ func _inventory_tile(grid:GridContainer,gear:Dictionary,index:int)->void:
  normal_style.set_corner_radius_all(6)
  normal_style.set_content_margin_all(5)
  tile.add_theme_stylebox_override("normal",normal_style)
- var hover_style:StyleBoxFlat=normal_style.duplicate()
+ var hover_style:StyleBoxFlat=normal_style.duplicate() as StyleBoxFlat
  hover_style.bg_color=Color("#3b3b56")
  hover_style.set_border_width_all(3)
  tile.add_theme_stylebox_override("hover",hover_style)
