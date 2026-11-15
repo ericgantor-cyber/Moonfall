@@ -945,9 +945,12 @@ bool AMoonfallHeroPawn::SalvageInventoryItem(int32 InventoryIndex)
      || (Rarity == 0 && Affix != 0)
      || Code != Affix * 100000 + SlotIndex * 10000 + Rarity * 1000 + Tier)
   return false;
- // Higher rarity/tier gear produces more salvage, never exceeding the cap.
+ // Keep the same currency limit as SaveWorldProgress. Clamp before
+ // adding to avoid overflow and never erase a legitimate saved balance.
+ constexpr int32 MaxSalvage = 100000000;
  const int32 SalvageReward = 1 + Rarity * 2 + Tier / 5;
- Salvage = FMath::Clamp(Salvage + SalvageReward, 0, 9999);
+ const int32 SafeBalance = FMath::Clamp(Salvage, 0, MaxSalvage);
+ Salvage = SafeBalance + FMath::Min(SalvageReward, MaxSalvage - SafeBalance);
  InventoryItemCodes.RemoveAt(InventoryIndex);
  InventorySelection = FMath::Clamp(InventorySelection, 0, FMath::Max(0, InventoryItemCodes.Num() - 1));
  return true;
