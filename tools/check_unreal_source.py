@@ -797,6 +797,16 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("const float HealthDelta = 2.f * (Tier - PreviousTier);", equip)
         self.assertIn("MaxHealth = FMath::Max(1.f, MaxHealth + HealthDelta);", equip)
 
+    def test_save_rejects_unowned_or_wrong_slot_equipped_codes(self):
+        save = self.hero_cpp.split("bool AMoonfallHeroPawn::SaveWorldProgress()", 1)[1].split(
+            "bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[0]
+        self.assertIn("const int32 WornCodes[3] = {EquippedWeaponCode, EquippedArmorCode, EquippedAccessoryCode};", save)
+        self.assertIn("for (int32 Slot = 0; Slot < 3; ++Slot)", save)
+        self.assertIn("Code != 0 && (!ValidMoonfallItemCode(Code)", save)
+        self.assertIn("((Code / 10000) % 10) != Slot", save)
+        self.assertIn("!InventoryItemCodes.Contains(Code)", save)
+        self.assertLess(save.index("const int32 WornCodes[3]"), save.index("UGameplayStatics::SaveGameToSlot("))
+
     def test_malformed_inventory_saves_are_preserved_not_silently_truncated(self):
         hero = self.hero_cpp
         save = hero.split("bool AMoonfallHeroPawn::SaveWorldProgress()", 1)[1].split(
