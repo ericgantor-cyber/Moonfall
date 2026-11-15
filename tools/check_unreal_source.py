@@ -369,18 +369,17 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("bOptionsOpen = false;", defeat)
         self.assertLess(defeat.index("EndGuard();"), defeat.index("bOptionsOpen = false;"))
 
-    def test_keyboard_controller_inventory_overlay_navigation_and_equip(self):
+    def test_keyboard_controller_inventory_overlay_navigation_without_confirm_equip(self):
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
-        for binding in ('ActionName="Inventory",Key=I', 'ActionName="Inventory",Key=Gamepad_Special_Left',
-                        'ActionName="InventoryConfirm",Key=Enter',
-                        'ActionName="InventoryConfirm",Key=Gamepad_FaceButton_Top'):
+        for binding in ('ActionName="Inventory",Key=B', 'ActionName="Inventory",Key=I',
+                        'ActionName="Inventory",Key=Gamepad_Special_Left'):
             self.assertIn(binding, inputs)
         self.assertIn("bool bInventoryOpen = false;", self.hero_h)
         self.assertIn("int32 InventorySelection = 0;", self.hero_h)
         self.assertIn("void ToggleInventory();", self.hero_h)
         self.assertIn("void EquipSelectedInventoryItem();", self.hero_h)
         self.assertIn('BindAction(TEXT("Inventory"), IE_Pressed', self.hero_cpp)
-        self.assertIn('BindAction(TEXT("InventoryConfirm"), IE_Pressed', self.hero_cpp)
+        self.assertNotIn('BindAction(TEXT("InventoryConfirm"), IE_Pressed', self.hero_cpp)
         toggle = self.hero_cpp.split("void AMoonfallHeroPawn::ToggleInventory()", 1)[1].split(
             "void AMoonfallHeroPawn::AdjustOption", 1)[0]
         self.assertIn("bInventoryOpen = !bInventoryOpen;", toggle)
@@ -390,7 +389,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("InventorySelection = DisplayOrder[FMath::Clamp(CurrentRow - 1, 0, DisplayOrder.Num() - 1)];", toggle)
         self.assertIn("InventorySelection = DisplayOrder[FMath::Clamp(CurrentRow + 1, 0, DisplayOrder.Num() - 1)];", toggle)
         self.assertIn("if (bInventoryOpen) return;", toggle)
-        self.assertIn("void AMoonfallHeroPawn::InventoryConfirm() { EquipSelectedInventoryItem(); }", self.hero_cpp)
+        self.assertNotIn("void AMoonfallHeroPawn::InventoryConfirm()", self.hero_cpp)
+        self.assertNotIn("void InventoryConfirm();", self.hero_h)
+        self.assertNotIn('ActionName="InventoryConfirm"', inputs)
         self.assertIn("if (Health <= 0.f || bOptionsOpen || bInventoryOpen || FocusedResident.IsValid() || !FMath::IsFinite(Value)) return;", self.hero_cpp)
         self.assertIn("bOptionsOpen || bInventoryOpen || !GetWorld()", self.hero_cpp)
         self.assertIn("if (Hero->bInventoryOpen)", self.hud)
@@ -403,7 +404,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Hero->EquippedWeaponCode", self.hud)
         self.assertIn("Hero->EquippedArmorCode", self.hud)
         self.assertIn("Hero->EquippedAccessoryCode", self.hud)
-        self.assertIn("I / Select / Esc: close", self.hud)
+        self.assertIn("B / I / Select / Esc: close", self.hud)
         self.assertNotIn("FinisherShockwave", self.hero_cpp)
 
     def test_diablo_style_ground_loot_requires_explicit_pickup(self):
@@ -526,19 +527,19 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("PgUp/PgDn", self.hud)
         self.assertNotIn("Home/End", self.hud)
 
-    def test_controller_inventory_dpad_selects_and_confirm_equips_only(self):
+    def test_controller_inventory_dpad_selects_without_confirm_equip(self):
         inputs = (ROOT.parents[2] / "MoonfallUnreal" / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
         self.assertIn('ActionName="ResidentContext",Key=Gamepad_DPad_Up', inputs)
         self.assertIn('BindAction(TEXT("ResidentContext"), IE_Pressed', self.hero_cpp)
         resident_up = self.hero_cpp.split("void AMoonfallHeroPawn::OpenFocusedResidentContext()", 1)[1].split("\n}", 1)[0]
         self.assertIn("if (bOptionsOpen || bInventoryOpen) { OptionsUp(); return; }", resident_up)
         self.assertIn('ActionName="OptionsDown",Key=Gamepad_DPad_Down', inputs)
-        self.assertIn('ActionName="InventoryConfirm",Key=Gamepad_FaceButton_Top', inputs)
+        self.assertNotIn('ActionName="InventoryConfirm"', inputs)
+        self.assertIn('ActionName="RacePower",Key=Gamepad_FaceButton_Top', inputs)
         up = self.hero_cpp.split("void AMoonfallHeroPawn::OptionsUp()", 1)[1].split("\n}", 1)[0]
         down = self.hero_cpp.split("void AMoonfallHeroPawn::OptionsDown()", 1)[1].split("\n}", 1)[0]
         left = self.hero_cpp.split("void AMoonfallHeroPawn::OptionsLeft()", 1)[1].split("\n}", 1)[0]
         right = self.hero_cpp.split("void AMoonfallHeroPawn::OptionsRight()", 1)[1].split("\n}", 1)[0]
-        confirm = self.hero_cpp.split("void AMoonfallHeroPawn::InventoryConfirm()", 1)[1].split("\n}", 1)[0]
         for nav in (up, down):
             self.assertIn("if (bInventoryOpen)", nav)
             self.assertIn("InventorySelection =", nav)
@@ -547,7 +548,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             self.assertIn("if (bInventoryOpen) return;", horizontal)
             self.assertNotIn("EquipSelectedInventoryItem()", horizontal)
             self.assertNotIn("EquipInventoryItem(", horizontal)
-        self.assertIn("EquipSelectedInventoryItem()", confirm)
+        self.assertNotIn("InventoryConfirm()", self.hero_cpp)
 
     def test_mouse_sort_is_visual_only_and_safe_with_controller_selection(self):
         sort = self.hero_cpp.split("TArray<int32> AMoonfallHeroPawn::GetInventoryDisplayOrder() const", 1)[1].split("\n}", 1)[0]
@@ -964,7 +965,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
     def test_primary_stats_sheet_is_read_only_and_affects_combat_recovery(self):
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
         hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        self.assertIn('ActionName="CharacterStats",Key=C', inputs)
         self.assertIn('ActionName="CharacterStats",Key=P', inputs)
+        self.assertNotIn('ActionName="DualCast",Key=C', inputs)
         self.assertIn('ActionName="CharacterStats",Key=Gamepad_FaceButton_Bottom', inputs)
         self.assertIn('BindAction(TEXT("CharacterStats"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleCharacterStats)', self.hero_cpp)
         self.assertIn("void ToggleCharacterStats();", self.hero_h)
@@ -975,7 +978,13 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("GetMight() * 0.001f", self.hero_cpp)
         self.assertIn("GetInsight() * 0.002f", self.hero_cpp)
         self.assertIn("GetResolve() * 0.003f", self.hero_cpp)
-        self.assertIn("if (bInventoryOpen && !bOptionsOpen && Health > 0.f)", self.hero_cpp)
+        stats = self.hero_cpp.split("void AMoonfallHeroPawn::ToggleCharacterStats()", 1)[1].split(
+            "void AMoonfallHeroPawn::ToggleInventory()", 1)[0]
+        self.assertIn("if (!bInventoryOpen) {", stats)
+        self.assertIn("ToggleInventory();", stats)
+        self.assertIn("bCharacterStatsOpen = true;", stats)
+        self.assertIn("bCharacterStatsOpen = !bCharacterStatsOpen;", stats)
+        self.assertIn("if (bOptionsOpen || Health <= 0.f || !FMath::IsFinite(Health)) return;", stats)
         self.assertIn("if (!bInventoryOpen) bCharacterStatsOpen = false;", self.hero_cpp)
         self.assertIn("if (!bCharacterStatsOpen) ForgeInventoryItemLevels(InventorySelection, 5);", self.hero_cpp)
         self.assertIn("if (!bCharacterStatsOpen) ReforgeInventoryItemAffix(InventorySelection);", self.hero_cpp)
@@ -983,8 +992,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("PRIMARY ATTRIBUTES", hud)
         self.assertIn("SECONDARY STATS", hud)
         self.assertIn("EQUIPMENT SET BONUSES", hud)
-        self.assertIn("P / A: back to inventory", hud)
-        self.assertIn("P / A: character stats", hud)
+        self.assertIn("C / P / A: back to inventory", hud)
+        self.assertIn("C / P / A: character stats", hud)
 
     def test_wow_inspired_secondary_stats_and_three_slot_trait_sets(self):
         hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
@@ -1207,7 +1216,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
 
     def test_explicit_equip_best_loadout_is_validated_and_never_auto_equips_loot(self):
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
-        self.assertIn('ActionName="EquipBest",Key=B', inputs)
+        self.assertNotIn('ActionName="EquipBest",Key=B', inputs)
+        self.assertIn('ActionName="Inventory",Key=B', inputs)
         self.assertIn('ActionName="EquipBest",Key=Gamepad_LeftTrigger', inputs)
         self.assertIn('BindAction(TEXT("EquipBest"), IE_Pressed, this, &AMoonfallHeroPawn::EquipBestInventoryAction)', self.hero_cpp)
         self.assertIn("void EquipBestInventoryAction();", self.hero_h)
@@ -1239,7 +1249,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("void SalvageSelectedInventoryItem();", self.hero_h)
         self.assertIn('BindAction(TEXT("InventorySalvage"), IE_Pressed', self.hero_cpp)
         salvage = self.hero_cpp.split("bool AMoonfallHeroPawn::SalvageInventoryItem(int32 InventoryIndex)", 1)[1].split(
-            "void AMoonfallHeroPawn::InventoryConfirm()", 1)[0]
+            "void AMoonfallHeroPawn::OpenOptions()", 1)[0]
         self.assertIn("InventoryItemCodes.IsValidIndex(InventoryIndex)", salvage)
         self.assertIn("Code == EquippedWeaponCode || Code == EquippedArmorCode", salvage)
         self.assertIn("Code == EquippedAccessoryCode", salvage)
