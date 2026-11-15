@@ -229,6 +229,13 @@ void AMoonfallHeroPawn::BeginPlay() {
 void AMoonfallHeroPawn::Tick(float DeltaSeconds)
 {
  Super::Tick(DeltaSeconds);
+ // Only track pointer motion while dragging the inventory scrollbar.
+ if (bInventoryScrollbarDragging) {
+  if (!bInventoryOpen || bCharacterStatsOpen || bOptionsOpen || Health <= 0.f)
+   bInventoryScrollbarDragging = false;
+  else
+   ScrollInventoryToMouseTrack();
+ }
  // A streaming/despawned resident must not leave player cursor or input locked.
  if (bResidentContextOpen) {
   const AMoonfallWorldNPC* Resident = FocusedResident.Get();
@@ -406,6 +413,7 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("Jump"), IE_Released, this, &ACharacter::StopJumping);
  Input->BindAction(TEXT("CastLeft"), IE_Pressed, this, &AMoonfallHeroPawn::CastLeft);
  Input->BindAction(TEXT("ResidentMouseClick"), IE_Pressed, this, &AMoonfallHeroPawn::ResidentContextMouseClick);
+ Input->BindAction(TEXT("ResidentMouseClick"), IE_Released, this, &AMoonfallHeroPawn::ReleaseInventoryPointer);
  Input->BindAction(TEXT("CastRight"), IE_Pressed, this, &AMoonfallHeroPawn::CastRight);
  Input->BindAction(TEXT("CastRightMouse"), IE_Pressed, this, &AMoonfallHeroPawn::CastRightMouse);
  Input->BindAction(TEXT("ResidentContext"), IE_Pressed, this, &AMoonfallHeroPawn::OpenFocusedResidentContext);
@@ -488,10 +496,13 @@ bool AMoonfallHeroPawn::ScrollInventoryToMouseTrack()
  const float TrackY = Top + 145.f;
  const float RowSpacing = FMath::Max(21.f, (PanelHeight - 390.f) / Rows);
  const float TrackHeight = RowSpacing * Rows;
- // The visible track is 4px; extend its pointer target for easier clicking.
- if (MouseX < TrackX - 8.f || MouseX > TrackX + 8.f ||
-     MouseY < TrackY || MouseY > TrackY + TrackHeight)
+ // Initial click requires the track. Once dragging, clamped vertical motion
+ // continues even when the cursor moves horizontally beyond its narrow track.
+ if (!bInventoryScrollbarDragging &&
+     (MouseX < TrackX - 8.f || MouseX > TrackX + 8.f ||
+      MouseY < TrackY || MouseY > TrackY + TrackHeight))
   return false;
+ bInventoryScrollbarDragging = true;
  const float ThumbHeight = FMath::Max(14.f, TrackHeight * Rows / Count);
  const float Travel = FMath::Max(1.f, TrackHeight - ThumbHeight);
  const float Fraction = FMath::Clamp((MouseY - TrackY - ThumbHeight * 0.5f) / Travel, 0.f, 1.f);
@@ -1067,6 +1078,7 @@ void AMoonfallHeroPawn::ToggleInventory() {
   KeepInventorySelectionVisible();
  }
  bInventoryOpen = !bInventoryOpen;
+ bInventoryScrollbarDragging = false;
  if (APlayerController* PC = Cast<APlayerController>(Controller))
   PC->bShowMouseCursor = bInventoryOpen;
  if (!bInventoryOpen) bCharacterStatsOpen = false;
@@ -1266,7 +1278,7 @@ void AMoonfallHeroPawn::OpenOptions() {
  if (FocusedResident.IsValid()) { CloseResidentContext(); return; }
  // The defeat screen owns input until respawn; do not reopen gameplay menus.
  if (Health <= 0.f || !FMath::IsFinite(Health)) return;
- if (bInventoryOpen) { bInventoryOpen = false; bCharacterStatsOpen = false; return; }
+ if (bInventoryOpen) { bInventoryOpen = false; bCharacterStatsOpen = false; bInventoryScrollbarDragging = false; return; }
  if (!bOptionsOpen) {
   StopJumping();
   if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
@@ -2551,6 +2563,11 @@ void AMoonfallHeroPawn::CastRightMouse() {
  // All non-NPC right clicks retain right-hand attack behavior.
  CastRight();
 }
+void AMoonfallHeroPawn::ReleaseInventoryPointer()
+{
+ bInventoryScrollbarDragging = false;
+}
+
 void AMoonfallHeroPawn::ResidentContextMouseClick() {
  if (bInventoryOpen) {
   if (HitTestInventorySortButton()) {
