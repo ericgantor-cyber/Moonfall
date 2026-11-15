@@ -1378,6 +1378,7 @@ func _menu_tab(which: String) -> void:
     if amount<=0:continue
     var stacks:Array[int]=INVENTORY_RULES.material_stack_counts(amount)
     text+=str(key)+": "+str(amount)+" ("+str(stacks.size())+" stacks)\n"
+    _material_hover_row(str(key),amount,stacks.size())
     found+=1
    if found==0:text+="No matching materials.\n"
    text+="\nCraft items in the Professions tab."
@@ -1401,7 +1402,7 @@ func _menu_tab(which: String) -> void:
    for i in range(RECIPES.size()):
     var recipe:Dictionary=RECIPES[i]
     text+=str(i+1)+". "+str(recipe["name"])+" • "+str(recipe["cost"])+"\n"
-    _atlas_action("CRAFT: "+str(recipe["name"]),"craft:"+str(i))
+    _atlas_action("CRAFT: "+str(recipe["name"]),"craft:"+str(i),_recipe_hover_details(recipe))
    menu_body.text=text
   "Hunter":
    var text:="[b]HUNTER'S PATH[/b]\n\nHunter Senses: "+("ACTIVE" if senses_on else "INACTIVE")+"\nContracts completed: "+str(contracts_done.size())+"/6\nHunter Oil: "+str(int(hunter_oil_time))+"s\n"
@@ -1411,8 +1412,8 @@ func _menu_tab(which: String) -> void:
    _atlas_action("TOGGLE HUNTER SENSES","senses")
    for i in range(REGIONS.size()):
     if not (i in contracts_done):_atlas_action("ACCEPT: "+str(REGIONS[i]["name"]),"contract:"+str(i))
-   _atlas_action("USE HUNTER'S OIL","oil")
-   _atlas_action("USE HEALING DRAUGHT","heal")
+   _atlas_action("USE HUNTER'S OIL","oil","Hunter's Oil\nOwned: "+str(materials.get("Hunter's Oil",0))+"\nApplies a temporary hunting effect for 25 seconds. Dismount before use.")
+   _atlas_action("USE HEALING DRAUGHT","heal","Healing Draught\nOwned: "+str(materials.get("Healing Draught",0))+"\nRestores 35% of maximum health, up to full health. Dismount before use.")
   "Bestiary":
    var text:="[b]MOONFALL BESTIARY[/b]\nEight native beast families. Normal, Moon-Touched, Duskborn, and Elder variants may appear.\n\n"
    for k in BEASTS.keys():
@@ -1432,6 +1433,28 @@ func _menu_tab(which: String) -> void:
    _atlas_action("FULL GRAPHICS","full")
    _atlas_action("RESUME GAME","resume")
    _atlas_action("RETURN TO HERO SELECT","title")
+
+func _material_hover_row(name:String,amount:int,stack_count:int)->void:
+ var row:=Label.new()
+ row.text=name+"  × "+str(amount)
+ row.tooltip_text=name+"\nOwned: "+str(amount)+"\nStorage: Materials (separate from gear bag)\nStacks: "+str(stack_count)+" • 999 per stack\nUsed for crafting when required by recipes."
+ row.mouse_filter=Control.MOUSE_FILTER_STOP
+ row.custom_minimum_size=Vector2(270,30)
+ row.add_theme_font_size_override("font_size",15)
+ menu_buttons.add_child(row)
+
+func _recipe_hover_details(recipe:Dictionary)->String:
+ var info:String=str(recipe.get("name","Recipe"))
+ var costs_value:Variant=recipe.get("cost",{})
+ if costs_value is Dictionary:
+  var costs:Dictionary=costs_value
+  for material in costs.keys():
+   var required:int=int(costs[material])
+   info+="\n"+str(material)+": "+str(materials.get(str(material),0))+" / "+str(required)
+ var power:int=int(recipe.get("power",0))
+ if power>0:info+="\nCrafted equipment power: "+str(power)
+ info+="\nSelect Craft to attempt this recipe."
+ return info
 
 func _inventory_tile(grid:GridContainer,gear:Dictionary,index:int)->void:
  var tile:=Button.new()
