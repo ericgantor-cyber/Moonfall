@@ -3638,5 +3638,31 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("ApplyMoonfallDamage(", overlap)
         self.assertNotIn("SpawnActor", overlap)
 
+
+    def test_dungeon_side_traps_are_avoidable_and_cooldown_bounded(self):
+        layout_h = (ROOT / "MoonfallDungeonLayout.h").read_text(encoding="utf-8")
+        layout = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
+        for name in ("HazardTriggerA", "HazardTriggerB", "HazardTriggerC"):
+            self.assertIn("UBoxComponent* " + name + ";", layout_h)
+            self.assertIn('TEXT("' + name + '")', layout)
+        self.assertIn("FVector(90.f, 90.f, 110.f)", layout)
+        self.assertIn("const float Side = LayoutRandom.RandRange(0, 1) == 0 ? -315.f : 315.f;", layout)
+        self.assertIn("FVector(1.8f, 1.8f, 0.1f)", layout)
+        self.assertIn("Trigger->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);", layout)
+        self.assertIn("AMoonfallDungeonLayout::HandleHazardOverlap", layout)
+        self.assertIn("float HazardDamage = 12.f;", layout_h)
+        self.assertIn("float HazardCooldownSeconds = 2.f;", layout_h)
+        hazard = layout.split("void AMoonfallDungeonLayout::HandleHazardOverlap(", 1)[1]
+        self.assertIn("Hero->IsPlayerControlled()", hazard)
+        self.assertIn("!FMath::IsFinite(Hero->Health) || Hero->Health <= 0.f", hazard)
+        self.assertIn("!FMath::IsFinite(HazardDamage) || HazardDamage <= 0.f", hazard)
+        self.assertIn("!FMath::IsFinite(HazardCooldownSeconds)", hazard)
+        self.assertIn("Now < NextHazardDamageAt", hazard)
+        self.assertIn("FMath::Clamp(HazardCooldownSeconds, 0.5f, 20.f)", hazard)
+        self.assertIn("Hero->ApplyMoonfallDamage(FMath::Clamp(HazardDamage, 0.f, 100.f));", hazard)
+        self.assertLess(hazard.index("Hero->DiscoverDungeonEntrance("),
+                        hazard.index("Hero->ApplyMoonfallDamage("))
+        self.assertNotIn("GetWorld()->SpawnActor", hazard)
+
 if __name__ == "__main__":
     unittest.main()
