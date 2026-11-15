@@ -1306,6 +1306,8 @@ func _menu_tab(which: String) -> void:
     var selected_power:int=int(selected.get("power",0))
     text+="\n\n[b]ITEM INSPECTION[/b]\n[color="+_inventory_rarity_color(chosen_rarity)+"][b]"+str(selected.get("name","Gear"))+"[/b][/color]"
     text+="\n"+chosen_rarity+" • Item Power "+str(selected_power)
+    if not inventory_show_vault and not equipped.is_empty() and equipped==selected:
+     text+="\n[color=#57dc91][b]CURRENTLY EQUIPPED[/b][/color]"
     if selected.has("affix") and str(selected.get("affix",""))!="":
      text+="\nBonus: "+str(selected.get("affix","")).capitalize()+" • "+str(selected.get("affix_value",0))
     if not inventory_show_vault:
@@ -1316,7 +1318,8 @@ func _menu_tab(which: String) -> void:
      text+="\nDifference: [color="+("#57dc91" if difference>0 else "#ed8391" if difference<0 else "#c8d4e6")+"]"+("+" if difference>0 else "")+str(difference)+" Power[/color]"
     else:text+="\nIn vault • Withdraw to compare or equip."
     if inventory_show_vault:text+="\nWithdraw before equipping."
-    else:text+="\nRight-click VIEW to equip or use the Equip button."
+    elif not equipped.is_empty() and equipped==selected:text+="\nThis equipment is already active."
+    else:text+="\nRight-click its tile to equip or use Equip Selected."
    text+="\nEquipped: "+str(equipped.get("name","None"))+" • Power "+str(_equipment_power())
    menu_body.text=text
   "Materials":
@@ -1443,12 +1446,13 @@ func _atlas_action(label: String, action: String, tip: String="") -> void:
   var gear_index:int=int(action.get_slice(":",1))
   if gear_index>=0 and gear_index<gear_items.size() and not equipped.is_empty() and equipped==gear_items[gear_index]:
    button.disabled=true
-   button.tooltip_text="Already equipped. Choose another item before depositing this one."
+   button.tooltip_text="Already equipped." if action.begins_with("equip:") else "Cannot deposit equipped gear. Equip another item first."
  if action.begins_with("equip:") or action.begins_with("inventory_select:"):
-  if action.begins_with("equip:"):button.tooltip_text=(tip+"\n" if tip!="" else "")+"Left-click or right-click to equip."
-  elif inventory_show_vault:button.tooltip_text="Left-click to inspect; withdraw to bag before equipping."
-  else:button.tooltip_text="Left-click to inspect; right-click to equip."
-  button.gui_input.connect(_atlas_equip_mouse_input.bind(action))
+  if not button.disabled:
+   if action.begins_with("equip:"):button.tooltip_text=(tip+"\n" if tip!="" else "")+"Left-click or right-click to equip."
+   elif inventory_show_vault:button.tooltip_text="Left-click to inspect; withdraw to bag before equipping."
+   else:button.tooltip_text="Left-click to inspect; right-click to equip."
+   button.gui_input.connect(_atlas_equip_mouse_input.bind(action))
  button.pressed.connect(_atlas_execute.bind(action))
  menu_buttons.add_child(button)
 
