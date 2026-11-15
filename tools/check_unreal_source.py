@@ -784,8 +784,10 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(equip.index("Code != Affix * 100000"), equip.index("*EquippedTier = Tier;"))
         loot = self.hero_cpp.split("void AMoonfallHeroPawn::AwardEquipmentDrop(", 1)[1].split(
             "bool AMoonfallHeroPawn::EquipInventoryItem(", 1)[0]
-        self.assertIn("*EquippedCode = ItemCode;", loot)
         self.assertIn("InventoryItemCodes.Add(ItemCode);", loot)
+        self.assertIn("if (NewTier > GetValidatedEquippedTier(LastLootSlot))", loot)
+        self.assertIn("EquipInventoryItem(InventoryItemCodes.Num() - 1);", loot)
+        self.assertNotIn("*EquippedCode = ItemCode;", loot)
 
     def test_armor_health_changes_use_validated_previous_equipment(self):
         equip = self.hero_cpp.split("bool AMoonfallHeroPawn::EquipInventoryItem(int32 InventoryIndex)", 1)[1].split(
