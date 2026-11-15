@@ -2627,15 +2627,23 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
         && MouseY >= MenuTop + 12.f && MouseY <= MenuTop + 40.f) {
      OpenOptions();
     } else {
-     // Match the seven visible settings rows. Mouse selects a row; arrows/D-pad adjust it.
+     // Same seven row and +/- button geometry as MoonfallCombatHUD.
      const float RowGap = (MenuHeight - 130.f) / 7.f;
+     const float RowHeight = FMath::Min(38.f, RowGap - 2.f);
      const float FirstRowY = MenuTop + 63.f;
      const int32 ClickedRow = FMath::FloorToInt((MouseY - FirstRowY) / RowGap);
-     if (MouseX >= MenuLeft + 12.f && MouseX <= MenuLeft + MenuWidth - 12.f
+     const float RowY = FirstRowY + ClickedRow * RowGap;
+     if (MouseX >= MenuLeft + 10.f && MouseX <= MenuLeft + MenuWidth - 10.f
          && ClickedRow >= 0 && ClickedRow < 7
-         && MouseY >= FirstRowY + ClickedRow * RowGap
-         && MouseY <= FirstRowY + ClickedRow * RowGap + 38.f) {
+         && MouseY >= RowY && MouseY <= RowY + RowHeight) {
       OptionsSelection = ClickedRow;
+      const float MinusX = MenuLeft + MenuWidth - 111.f;
+      const float PlusX = MenuLeft + MenuWidth - 37.f;
+      const float ButtonHeight = FMath::Min(26.f, RowHeight);
+      if (MouseY <= RowY + ButtonHeight) {
+       if (MouseX >= MinusX && MouseX <= MinusX + 25.f) AdjustOption(-1);
+       else if (MouseX >= PlusX && MouseX <= PlusX + 25.f) AdjustOption(1);
+      }
      }
     }
    }
