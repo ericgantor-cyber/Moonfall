@@ -2626,6 +2626,17 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
     if (MouseX >= CloseX && MouseX <= CloseX + 28.f
         && MouseY >= MenuTop + 12.f && MouseY <= MenuTop + 40.f) {
      OpenOptions();
+    } else {
+     // Match the seven visible settings rows. Mouse selects a row; arrows/D-pad adjust it.
+     const float RowGap = (MenuHeight - 130.f) / 7.f;
+     const float FirstRowY = MenuTop + 63.f;
+     const int32 ClickedRow = FMath::FloorToInt((MouseY - FirstRowY) / RowGap);
+     if (MouseX >= MenuLeft + 12.f && MouseX <= MenuLeft + MenuWidth - 12.f
+         && ClickedRow >= 0 && ClickedRow < 7
+         && MouseY >= FirstRowY + ClickedRow * RowGap
+         && MouseY <= FirstRowY + ClickedRow * RowGap + 38.f) {
+      OptionsSelection = ClickedRow;
+     }
     }
    }
   }
