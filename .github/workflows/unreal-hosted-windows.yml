@@ -182,6 +182,37 @@ jobs:
           & .\game-source\MoonfallUnreal\Build\Build-Windows.ps1 -UnrealRoot $env:UE54_ROOT -CompileOnly
           if ($LASTEXITCODE -ne 0) { throw "Unreal compiler failed with exit code $LASTEXITCODE" }
           "Real Unreal Editor C++ compilation succeeded for source snapshot ${{ inputs.source_snapshot }}." >> $env:GITHUB_STEP_SUMMARY
+      - name: Create and validate Moonfall startup level for packaging
+        if: ${{ inputs.package_game }}
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $root = Join-Path $env:GITHUB_WORKSPACE 'game-source\MoonfallUnreal'
+          $project = Join-Path $root 'MoonfallUnreal.uproject'
+          $generator = Join-Path $root 'Build\Create-StartupLevel.py'
+          $map = Join-Path $root 'Content\Maps\MoonfallStart.umap'
+          $config = Join-Path $root 'Config\DefaultEngine.ini'
+          $editor = Join-Path $env:UE54_ROOT 'Engine\Binaries\Win64\UnrealEditor-Cmd.exe'
+          foreach ($file in @($project, $generator, $config, $editor)) {
+            if (-not (Test-Path -LiteralPath $file -PathType Leaf)) {
+              throw "Cannot prepare Moonfall startup map, missing: $file"
+            }
+          }
+          # The repository starts on Unreal's generic Entry map; generate a
+          # project-owned map on the temporary build machine before cooking.
+          & $editor $project "-ExecutePythonScript=$generator" -unattended -nop4 -nosplash
+          if ($LASTEXITCODE -ne 0) { throw "Moonfall startup map generation failed: $LASTEXITCODE" }
+          if (-not (Test-Path -LiteralPath $map -PathType Leaf) -or
+              (Get-Item -LiteralPath $map).Length -le 0) {
+            throw 'Unreal Editor did not save a valid MoonfallStart.umap.'
+          }
+          $ini = Get-Content -LiteralPath $config -Raw
+          foreach ($key in @('GameDefaultMap', 'EditorStartupMap')) {
+            if (-not [regex]::IsMatch($ini, "(?m)^$key=/Game/Maps/MoonfallStart\s*$")) {
+              throw "Moonfall startup map generator did not configure $key."
+            }
+          }
+          "Prepared project-owned /Game/Maps/MoonfallStart for Win64 cooking." >> $env:GITHUB_STEP_SUMMARY
       - name: Package actual Win64 Development game after successful Unreal C++ compile
         if: ${{ inputs.package_game }}
         shell: pwsh
@@ -196,7 +227,7 @@ jobs:
           if (Test-Path -LiteralPath $out) {
             throw "Refusing to overwrite pre-existing packaged game directory: $out"
           }
-          & $uat BuildCookRun "-project=$project" -noP4 -platform=Win64 -clientconfig=Development -build -cook -stage -pak -prereqs -archive "-archivedirectory=$out" -utf8output
+          & $uat BuildCookRun "-project=$project" -noP4 -platform=Win64 -clientconfig=Development -build -cook "-map=/Game/Maps/MoonfallStart" -stage -pak -prereqs -archive "-archivedirectory=$out" -utf8output
           if ($LASTEXITCODE -ne 0) {
             throw "Real Unreal Win64 packaging failed: $LASTEXITCODE"
           }
@@ -228,7 +259,7 @@ jobs:
         with:
           name: Moonfall-Hosted-Windows-UE-Compile-Logs
           path: |
-            MoonfallUnreal/Saved/Logs/
-            MoonfallUnreal/Intermediate/Build/Win64/*.log
+            game-source/MoonfallUnreal/Saved/Logs/
+            game-source/MoonfallUnreal/Intermediate/Build/Win64/*.log
           if-no-files-found: warn
           retention-days: 7
