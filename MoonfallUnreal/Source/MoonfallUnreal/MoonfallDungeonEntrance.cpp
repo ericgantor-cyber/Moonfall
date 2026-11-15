@@ -25,16 +25,30 @@ AMoonfallDungeonEntrance::AMoonfallDungeonEntrance()
  if (Cube.Succeeded()) EntranceMarker->SetStaticMesh(Cube.Object);
 }
 
+int32 AMoonfallDungeonEntrance::GetDungeonEntranceKey() const
+{
+ if (ZoneIndex < 0 || ZoneIndex >= 6 || DungeonIndex < 0 || DungeonIndex >= 5)
+  return INDEX_NONE;
+ return ZoneIndex * 5 + DungeonIndex;
+}
+
+void AMoonfallDungeonEntrance::SetEntranceEnabled(bool bEnabled)
+{
+ bEntranceEnabled = bEnabled;
+ // Visited entrances remain disabled to prevent event/reward duplication.
+ if (IsValid(DiscoveryTrigger))
+  DiscoveryTrigger->SetGenerateOverlapEvents(
+    bEntranceEnabled && !bVisitedThisSession && GetDungeonEntranceKey() != INDEX_NONE);
+}
+
 void AMoonfallDungeonEntrance::BeginPlay()
 {
  Super::BeginPlay();
- // Keep badly configured entrances from raising quest or world events.
- if (ZoneIndex < 0 || ZoneIndex >= 6 || DungeonIndex < 0 || DungeonIndex >= 5) {
-  DiscoveryTrigger->SetGenerateOverlapEvents(false);
-  return;
- }
+ // Do not register invalid or disabled entrances. Runtime re-enabling is
+ // supported through SetEntranceEnabled without re-binding the delegate.
  DiscoveryTrigger->OnComponentBeginOverlap.AddDynamic(
   this, &AMoonfallDungeonEntrance::OnEntranceOverlap);
+ SetEntranceEnabled(bEntranceEnabled);
 }
 
 void AMoonfallDungeonEntrance::OnEntranceOverlap(
@@ -42,7 +56,7 @@ void AMoonfallDungeonEntrance::OnEntranceOverlap(
  UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep,
  const FHitResult& SweepResult)
 {
- if (bVisitedThisSession) return;
+ if (bVisitedThisSession || !bEntranceEnabled || GetDungeonEntranceKey() == INDEX_NONE) return;
  AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(OtherActor);
  if (!IsValid(Hero) || !Hero->IsPlayerControlled()
      || !FMath::IsFinite(Hero->Health) || Hero->Health <= 0.f) return;
