@@ -225,6 +225,23 @@ class MouseMenusContract(unittest.TestCase):
         self.assertIn('_craft_skill_progress(crafting_skill,"Next milestone")', crafting)
         self.assertIn('_save_game()', crafting)
 
+    def test_recipe_category_and_available_craft_count(self):
+        section = self.source.split('  "Professions":', 1)[1].split('  "Hunter":', 1)[0]
+        self.assertIn('"CATEGORY: "+crafting_category.to_upper()', section)
+        self.assertIn('if crafting_category!="All" and category!=crafting_category:continue', section)
+        self.assertIn('"READY ×"+str(possible)', section)
+        self.assertIn('[b]CAN CRAFT:[/b]', section)
+        helper = self.source.split('func _recipe_possible_count(recipe:Dictionary)->int:', 1)[1].split('func _recipe_hover_details(', 1)[0]
+        self.assertIn('if costs.is_empty():return 0', helper)
+        self.assertIn('if required<=0:return 0', helper)
+        self.assertIn('materials.get(str(material),0)', helper)
+        self.assertIn('bag_capacity-gear_items.size()', helper)
+        self.assertIn('if int(recipe.get("power",0))>0:', helper)
+        handler = self.source.split('func _atlas_execute(action: String) -> void:', 1)[1]
+        self.assertIn('if action=="recipe_category":', handler)
+        self.assertIn('["All","Equipment","Consumable"]', handler)
+        self.assertIn('var crafting_category:String="All"', self.source)
+
     def test_inventory_search_clear_and_mouse_scroll(self):
         self.assertIn('inventory_search_input.clear_button_enabled=true', self.source)
         self.assertIn('inventory_search_input.text_changed.connect(_on_inventory_query_changed)', self.source)
