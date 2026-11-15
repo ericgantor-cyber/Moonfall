@@ -8,4 +8,5 @@ static func placement(viewport_size: Vector2) -> Dictionary:
  var usable: Vector2 = Vector2(maxf(1.0, viewport_size.x - VIEWPORT_MARGIN * 2.0), maxf(1.0, viewport_size.y - VIEWPORT_MARGIN * 2.0))
  var factor: float = minf(1.0, minf(usable.x / DESIGN_SIZE.x, usable.y / DESIGN_SIZE.y))
  var visual_size: Vector2 = DESIGN_SIZE * factor
- return {"scale": factor, "offset_from_center": visual_size * -0.5, "visual_size": visual_size}
+ var position: Vector2 = (viewport_size - visual_size) * 0.5
+ return {"scale": factor, "position": position, "visual_size": visual_size}
