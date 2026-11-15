@@ -2,6 +2,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/HUD.h"
 #include "MoonfallCombatHUD.generated.h"
+class AMoonfallHeroPawn;
 UCLASS()
 class MOONFALLUNREAL_API AMoonfallCombatHUD : public AHUD
 {
@@ -16,6 +17,7 @@ private:
  int32 LastShownLevel = -1;
  float LevelGlowUntil = 0.f;
  // Cache only the read-only selected-gear score, not the inventory itself.
+ TWeakObjectPtr<const AMoonfallHeroPawn> CachedAdvisorHero;
  bool bAdvisorScoreCached = false;
  float AdvisorScoreUpdatedAt = -1.f;
  int32 CachedAdvisorCount = -1;
