@@ -104,6 +104,19 @@ class ClasslessTalentUIScreen(unittest.TestCase):
         self.assertIn("RESET ALL TALENT POINTS", self.screen)
         self.assertNotIn("CLASSLESS_TALENTS.refund(", self.screen)
 
+    def test_respec_requires_explicit_confirmation(self):
+        self.assertIn('var reset_confirm:ConfirmationDialog=ConfirmationDialog.new()', self.screen)
+        self.assertIn('reset_confirm.confirmed.connect(_v406_respec)', self.screen)
+        self.assertIn('v406_respec_button.pressed.connect(func():reset_confirm.popup_centered())', self.screen)
+        self.assertNotIn('v406_respec_button.pressed.connect(_v406_respec)', self.screen)
+
+    def test_rank_feedback_and_point_cost_gate(self):
+        web = (ROOT / "godot-v38/scripts/systems/moonfall_talent_web.gd").read_text(encoding="utf-8")
+        self.assertIn('available >= int(node.get("cost_per_rank", 1))', web)
+        self.assertIn('var rank_arc: float = TAU * float(rank) / float(max_rank)', web)
+        self.assertIn('func tier_summary()', web)
+        self.assertIn('func focus_tier(target_tier: int)', web)
+
     def test_original_art_assets_still_preloaded(self):
         self.assertIn('Z_Original.webp', (ROOT / "godot-v38/scripts/main.gd").read_text(encoding="utf-8"))
         self.assertIn('Nyra_Original.png', (ROOT / "godot-v38/scripts/main.gd").read_text(encoding="utf-8"))
