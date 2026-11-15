@@ -45,7 +45,9 @@ func _apply_player_hit(target:Dictionary,base_damage:float,stagger_strength:floa
  if not rhythm_strike_active or not bool(target.get("hostile",false)) or not bool(target.get("alive",false)):return
  if float(target.get("hp",0.0))>=before:return
  var maximum:float=100.0 if bool(target.get("boss",false)) else 60.0
- var current:float=float(target.get("rhythm_posture",0.0))
+ var last_pressure_at:float=float(target.get("rhythm_last_pressure_at",map_time))
+ var current:float=RHYTHM.recovered_posture(float(target.get("rhythm_posture",0.0)),maxf(0.0,map_time-last_pressure_at))
+ target["rhythm_last_pressure_at"]=map_time
  var impact:float=12.0+4.0*float(clampi(RHYTHM.next_chain(rhythm_chain,map_time-rhythm_last_strike_at),1,RHYTHM.MAX_CHAIN)-1)
  var next_posture:float=RHYTHM.posture_after_hit(current,maximum,impact,v393_riposte_active)
  target["rhythm_posture"]=next_posture
@@ -85,6 +87,7 @@ func _rhythm_confirmed_enemy_dodge()->void:
 func _reset_native_beast(beast:Dictionary)->void:
  super._reset_native_beast(beast)
  beast["rhythm_posture"]=0.0
+ beast["rhythm_last_pressure_at"]=map_time
  beast["rhythm_break_immune_until"]=0.0
 
 func _rhythm_reset_transient_combat()->void:
