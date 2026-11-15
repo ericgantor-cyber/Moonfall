@@ -4068,7 +4068,10 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Boss->BossMaxHealth", hud)
         self.assertIn("Boss->BossWarningEndTime - GetWorld()->GetTimeSeconds()", hud)
         self.assertIn("FMath::IsFinite(WarningRemaining) && WarningRemaining > 0.f", hud)
-        self.assertIn('TEXT("%s  |  %.1fs  |  DODGE / PARRY")', hud)
+        self.assertIn('TEXT("%s  |  %.1fs  |  %s")', hud)
+        self.assertIn("RED - DODGE ONLY", hud)
+        self.assertIn("BLUE - PARRY / DODGE", hud)
+        self.assertIn("GUARD / PARRY / DODGE", hud)
         self.assertIn("Boss->DungeonBossAttackLabel.ToString()", hud)
         self.assertIn("Boss->DungeonBossAttackWarningDuration", hud)
         self.assertIn("Seconds / Boss->DungeonBossAttackWarningDuration", hud)
@@ -4102,6 +4105,41 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Boss->BossWarningEndTime - GetWorld()->GetTimeSeconds()", hud)
         self.assertNotIn("TakeSpellDamage(", hud)
         self.assertNotIn("MarkDungeonBossDefeated(", hud)
+
+
+    def test_phantom_blade_and_wukong_style_cues_obey_real_combat_rules(self):
+        hero = self.hero_cpp
+        hero_h = (ROOT / "MoonfallHeroPawn.h").read_text(encoding="utf-8")
+        enemy = (ROOT / "MoonfallEnemy.cpp").read_text(encoding="utf-8")
+        enemy_h = (ROOT / "MoonfallEnemy.h").read_text(encoding="utf-8")
+        hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        self.assertIn("bool ApplyMoonfallDodgeOnlyDamageFrom(float Amount, const FVector& SourceLocation);", hero_h)
+        self.assertIn("bool bIncomingDamageDodgeOnly = false;", hero_h)
+        dodge = hero.split("bool AMoonfallHeroPawn::ApplyMoonfallDodgeOnlyDamageFrom(", 1)[1].split(
+            "bool AMoonfallHeroPawn::ApplyMoonfallDamageFrom(", 1)[0]
+        self.assertLess(dodge.index("bIncomingDamageDodgeOnly = true;"),
+                        dodge.index("ApplyMoonfallDamageFrom(Amount, SourceLocation)"))
+        self.assertLess(dodge.index("ApplyMoonfallDamageFrom(Amount, SourceLocation)"),
+                        dodge.index("bIncomingDamageDodgeOnly = false;"))
+        damage = hero.split("void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount)", 1)[1].split(
+            "void AMoonfallHeroPawn::", 1)[0]
+        self.assertIn("!bIncomingDamageDodgeOnly && bGuarding", damage)
+        self.assertIn("!bIncomingDamageDodgeOnly && bGuarding && bFrontAttack", damage)
+        self.assertIn("GetWorld()->GetTimeSeconds() < DamageImmunityUntil", damage)
+        self.assertIn("bool bDungeonBossAttackDodgeOnly = false;", enemy_h)
+        self.assertIn("bDungeonBossAttackDodgeOnly = BossSpecialMove == 2", enemy)
+        self.assertIn("BossSpecialMove == 3 || BossSpecialMove == 5;", enemy)
+        self.assertIn("bDungeonBossAttackDodgeOnly = false;", enemy)
+        self.assertIn("Hero->ApplyMoonfallDodgeOnlyDamageFrom(IncomingAttackDamage, GetActorLocation())", enemy)
+        self.assertIn("Hero->ApplyMoonfallDamageFrom(IncomingAttackDamage, GetActorLocation())", enemy)
+        self.assertIn("const bool bRedDodge = bRegionalBoss && Boss->bDungeonBossAttackDodgeOnly;", hud)
+        self.assertIn("const bool bBlueParry =", hud)
+        for cue in ("RED - DODGE ONLY", "BLUE - PARRY / DODGE",
+                    "GUARD / PARRY / DODGE", "IMPACT SOON"):
+            self.assertIn(cue, hud)
+        self.assertIn("if (Seconds <= 0.3f)", hud)
+        self.assertIn("Hero->bReduceMotion", hud)
+        self.assertIn("Boss->BossWarningEndTime - GetWorld()->GetTimeSeconds()", hud)
 
 if __name__ == "__main__":
     unittest.main()
