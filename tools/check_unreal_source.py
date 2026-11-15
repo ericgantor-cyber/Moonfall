@@ -604,7 +604,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Rarity <= 5", hud)
         self.assertIn("Level >= 60 && LootRoll < 12 ? 5", self.hero_cpp)
         self.assertIn("Level >= 30 && LootRoll < 40 ? 4", self.hero_cpp)
-        self.assertIn("0.f, 0.075f);", self.hero_cpp)
+        self.assertIn("ValidEquippedRarity(EquippedWeaponCode, 0) * 0.015f, 0.f, 0.075f)", self.hero_cpp)
         self.assertIn("0.f, 0.025f)", self.hero_cpp)
         self.assertIn("0.f, 0.10f)", self.hero_cpp)
 
@@ -637,11 +637,11 @@ class MoonfallIntegrationChecks(unittest.TestCase):
 
     def test_equipped_rarity_adds_bounded_combat_stats_and_inventory_preview(self):
         hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
-        self.assertIn("((EquippedWeaponCode / 1000) % 10) * 0.015f", self.hero_cpp)
-        self.assertIn("((EquippedArmorCode / 1000) % 10) * 0.005f", self.hero_cpp)
-        self.assertIn("((EquippedAccessoryCode / 1000) % 10) * 0.02f", self.hero_cpp)
-        self.assertIn("0.075f);", self.hero_cpp)
-        self.assertIn("0.025f));", self.hero_cpp)
+        self.assertIn("ValidEquippedRarity(EquippedWeaponCode, 0) * 0.015f", self.hero_cpp)
+        self.assertIn("ValidEquippedRarity(EquippedArmorCode, 1) * 0.005f", self.hero_cpp)
+        self.assertIn("ValidEquippedRarity(EquippedAccessoryCode, 2) * 0.02f", self.hero_cpp)
+        self.assertIn("0.f, 0.075f) : 0.f);", self.hero_cpp)
+        self.assertIn("0.f, 0.025f) : 0.f)", self.hero_cpp)
         self.assertIn("0.10f)", self.hero_cpp)
         self.assertIn("WeaponRarity * 0.015f", hud)
         self.assertIn("ArmorRarity * 0.005f", hud)
@@ -793,12 +793,12 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(self.hero_cpp.index("if (NewTier > *Slot) {"), self.hero_cpp.index("*EquippedAffix = LastLootAffix;"))
         cast = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split(
             "void AMoonfallHeroPawn::CastLeft()", 1)[0]
-        self.assertIn("(WeaponAffix == 1 ? 0.06f : 0.f)", cast)
+        self.assertIn("bOwnedWeapon && ValidEquippedTraitRarity(EquippedWeaponCode, 0, 1) > 0.f ? 0.06f : 0.f", cast)
         damage = self.hero_cpp.split("void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount)", 1)[1].split(
             "void AMoonfallHeroPawn::CycleGraphicsQuality()", 1)[0]
         self.assertIn("FMath::Min(0.34f", damage)
-        self.assertIn("(ArmorAffix == 2 ? 0.06f : 0.f)", damage)
-        self.assertIn("(AccessoryAffix == 3 ? 0.08f : 0.f)", self.hero_cpp)
+        self.assertIn("bOwnedArmor && ValidEquippedTraitRarity(EquippedArmorCode, 1, 2) > 0.f ? 0.06f : 0.f", damage)
+        self.assertIn("ValidEquippedTraitRarity(EquippedAccessoryCode, 2, 3) > 0.f ? 0.08f : 0.f", self.hero_cpp)
         self.assertIn("InventoryItemCodes.Add(ItemCode);", self.hero_cpp)
         self.assertNotIn("FinisherShockwave", self.hero_cpp)
 
@@ -1064,7 +1064,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("FMath::IsFinite(DeltaSeconds) ? FMath::Clamp(DeltaSeconds, 0.f, 0.1f) : 0.f", tick)
         self.assertIn("const float StaminaDelta = SafeRecoveryDelta;", tick)
         self.assertIn("* SafeRecoveryDelta);", tick)
-        self.assertIn("FMath::Clamp(AccessoryTier * 0.012f, 0.f, 0.25f)", tick)
+        self.assertIn("FMath::Clamp(ValidEquippedTier(EquippedAccessoryCode, 2) * 0.012f, 0.f, 0.25f)", tick)
         self.assertIn("FMath::Clamp(CombatManaRegenMultiplier, 0.f, 1.f) : 0.5f", tick)
         self.assertIn("Mana >= 0.f && Mana < MaxMana", tick)
 
@@ -2535,7 +2535,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         cast = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split(
             "void AMoonfallHeroPawn::CastLeft()", 1)[0]
         self.assertIn("SchoolPostureWeights[6] = {0.8f, 0.65f, 1.35f, 0.f, 1.15f, 0.9f}", cast)
-        self.assertIn("FMath::Clamp(0.018f * WeaponTier, 0.f, 0.35f)", cast)
+        self.assertIn("FMath::Clamp(0.018f * ValidEquippedTier(EquippedWeaponCode, 0), 0.f, 0.35f)", cast)
         self.assertIn("const float ActualSpellDamage = FMath::Clamp(HealthBeforeSpell - Enemy->Health, 0.f, HealthBeforeSpell);", cast)
         self.assertIn("ActualSpellDamage > 0.f && Enemy->Health > 0.f", cast)
         self.assertIn("FMath::IsFinite(OffensiveSpellPostureMultiplier)", cast)
