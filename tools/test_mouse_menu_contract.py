@@ -276,20 +276,16 @@ class MouseMenusContract(unittest.TestCase):
         self.assertIn('return "BAG FULL"', helper)
         self.assertIn('return "BLOCKED"', helper)
 
-    def test_recipe_navigation_respects_filters_and_sorting(self):
+    def test_direct_recipe_list_without_previous_next_controls(self):
         section = self.source.split('  "Professions":', 1)[1].split('  "Hunter":', 1)[0]
-        self.assertIn('"PREVIOUS RECIPE","recipe_previous"', section)
-        self.assertIn('"NEXT RECIPE","recipe_next"', section)
-        handler = self.source.split(' if action=="recipe_previous" or action=="recipe_next":', 1)[1].split(' if action=="recipe_filter":', 1)[0]
-        self.assertIn('if not menu_open or current_tab!="Professions":return', handler)
-        self.assertIn('if crafting_category!="All" and category!=crafting_category:continue', handler)
-        self.assertIn('if crafting_craftable_only and INVENTORY_RULES.craft_issue', handler)
-        self.assertIn('if crafting_ready_first:', handler)
-        self.assertIn('visible=ready+blocked', handler)
-        self.assertIn('posmod(position+(1 if action=="recipe_next" else -1),visible.size())', handler)
-        self.assertIn('crafting_selected_index=visible[position]', handler)
-        self.assertIn('crafting_restore_focus=true', handler)
-        self.assertNotIn('_craft(', handler)
+        self.assertIn('for recipe_index in available:', section)
+        self.assertIn('_atlas_action(title,"recipe_select:"+str(recipe_index)', section)
+        self.assertIn('_recipe_hover_details(chosen)', section)
+        self.assertIn('crafting_selected_index=available[0]', section)
+        self.assertIn('crafting_restore_focus=false', section)
+        self.assertNotIn('"PREVIOUS RECIPE"', section)
+        self.assertNotIn('"NEXT RECIPE"', section)
+        self.assertNotIn('if action=="recipe_previous" or action=="recipe_next":', self.source)
 
     def test_inventory_search_clear_and_mouse_scroll(self):
         self.assertIn('inventory_search_input.clear_button_enabled=true', self.source)
