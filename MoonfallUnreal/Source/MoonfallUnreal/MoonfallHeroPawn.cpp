@@ -510,6 +510,29 @@ bool AMoonfallHeroPawn::ScrollInventoryToMouseTrack()
  return true;
 }
 
+bool AMoonfallHeroPawn::HitTestInventoryCloseButton() const
+{
+ if (Health <= 0.f || !bInventoryOpen || bOptionsOpen)
+  return false;
+ const APlayerController* PC = Cast<APlayerController>(Controller);
+ if (!PC || !PC->bShowMouseCursor) return false;
+ int32 Width = 0, Height = 0;
+ float MouseX = 0.f, MouseY = 0.f;
+ PC->GetViewportSize(Width, Height);
+ if (Width <= 0 || Height <= 0 || !PC->GetMousePosition(MouseX, MouseY))
+  return false;
+ const float PanelWidth = FMath::Min(720.f, FMath::Max(280.f,
+   FMath::Min(float(Width) - 24.f, float(Width) * 0.48f)));
+ const float PanelHeight = FMath::Min(860.f, FMath::Max(280.f, float(Height) - 24.f));
+ const float Left = float(Width) - PanelWidth - 12.f;
+ const float Top = (float(Height) - PanelHeight) * 0.5f;
+ const float SortWidth = PanelWidth < 550.f ? 105.f : 172.f;
+ const float SortX = Left + PanelWidth - SortWidth - 14.f;
+ const float CloseX = SortX - 36.f;
+ return MouseX >= CloseX && MouseX <= CloseX + 28.f &&
+        MouseY >= Top + 14.f && MouseY <= Top + 42.f;
+}
+
 bool AMoonfallHeroPawn::HitTestInventorySortButton() const
 {
  if (Health <= 0.f || !bInventoryOpen || bCharacterStatsOpen || bOptionsOpen)
@@ -1278,7 +1301,10 @@ void AMoonfallHeroPawn::OpenOptions() {
  if (FocusedResident.IsValid()) { CloseResidentContext(); return; }
  // The defeat screen owns input until respawn; do not reopen gameplay menus.
  if (Health <= 0.f || !FMath::IsFinite(Health)) return;
- if (bInventoryOpen) { bInventoryOpen = false; bCharacterStatsOpen = false; bInventoryScrollbarDragging = false; return; }
+ if (bInventoryOpen) {
+  ToggleInventory(); // Same cleanup path as the mouse close button.
+  return;
+ }
  if (!bOptionsOpen) {
   StopJumping();
   if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
@@ -2570,6 +2596,7 @@ void AMoonfallHeroPawn::ReleaseInventoryPointer()
 
 void AMoonfallHeroPawn::ResidentContextMouseClick() {
  if (bInventoryOpen) {
+  if (HitTestInventoryCloseButton()) { ToggleInventory(); return; }
   if (HitTestInventorySortButton()) {
    InventorySortMode = (InventorySortMode + 1) % 3;
    KeepInventorySelectionVisible();
