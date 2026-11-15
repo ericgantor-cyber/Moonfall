@@ -266,7 +266,7 @@ void AMoonfallCombatHUD::DrawHUD()
     Left + 18.f, Top + 113.f, nullptr, Canvas->SizeX < 900.f ? 0.61f : 0.72f);
   DrawText(TEXT("Mouse wheel: scroll   Left click: select   Right click: equip"),
      FLinearColor::White, Left + 18.f, Top + PanelHeight - 51.f, nullptr, 0.75f);
-  DrawText(TEXT("Mouse controls for gear   Delete / X: salvage"),
+  DrawText(TEXT("Click scrollbar: jump   Delete / X: salvage"),
      FLinearColor(0.80f,0.85f,0.97f), Left + 18.f, Top + PanelHeight - 68.f,
      nullptr, PanelWidth < 420.f ? 0.60f : 0.72f);
   // Display cost for the actual selected item, rather than a formula
