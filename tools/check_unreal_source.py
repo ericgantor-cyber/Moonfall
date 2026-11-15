@@ -787,6 +787,16 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("*EquippedCode = ItemCode;", loot)
         self.assertIn("InventoryItemCodes.Add(ItemCode);", loot)
 
+    def test_equip_best_ignores_unowned_equipped_gear(self):
+        auto = self.hero_cpp.split("int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()", 1)[1].split(
+            "void AMoonfallHeroPawn::", 1)[0]
+        baseline = auto.split("for (int32 Slot = 0; Slot < 3; ++Slot)", 1)[1].split(
+            "for (int32 Index = 0;", 1)[0]
+        self.assertIn("if (Code <= 0 || !InventoryItemCodes.Contains(Code)) continue;", baseline)
+        self.assertIn("int32 BestScores[3] = {-1, -1, -1};", auto)
+        self.assertIn("if (Score > BestScores[Slot])", auto)
+        self.assertIn("EquipInventoryItem(BestIndices[Slot])", auto)
+
     def test_loot_upgrade_preview_uses_validated_equipment_tiers(self):
         hero = self.hero_cpp
         roll = hero.split("int32 AMoonfallHeroPawn::RollEquipmentCode(", 1)[1].split(
