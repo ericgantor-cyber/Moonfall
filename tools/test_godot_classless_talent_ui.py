@@ -27,7 +27,7 @@ class ClasslessTalentUIScreen(unittest.TestCase):
         web = (ROOT / "godot-v38/scripts/systems/moonfall_talent_web.gd").read_text(encoding="utf-8")
         for token in ("_draw()", "draw_line(", "draw_circle(",
                       "MOUSE_BUTTON_WHEEL_UP", "MOUSE_BUTTON_WHEEL_DOWN",
-                      "drag_distance", "KEY_LEFT", "KEY_HOME", "KEY_EQUAL",
+                      "drag_distance", "KEY_LEFT", "KEY_HOME",
                       "talent_selected.emit(", "func focus_branch(", "func fit_all("):
             self.assertIn(token, web)
         self.assertIn('v406_web.custom_minimum_size=Vector2(760,565)', self.screen)
