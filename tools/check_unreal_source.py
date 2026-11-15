@@ -539,6 +539,27 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("2pc + 3pc unlock bonuses", hud)
         self.assertIn("Top + 145.f + (Index - PageStart) * RowSpacing", hud)
 
+    def test_live_combat_never_uses_unverified_equipment_fields(self):
+        source = self.hero_cpp
+        regen = source.split("const float CombatManaFactor =", 1)[1].split(
+            "// Recovery in either menu", 1)[0]
+        attack = source.split("const float WeaponDamageBonus =", 1)[1].split(
+            "const float MomentumBonus", 1)[0]
+        defense = source.split("const float ArmorMitigation =", 1)[1].split(
+            "const bool bRacialWard", 1)[0]
+        self.assertIn("ValidEquippedTier(EquippedAccessoryCode, 2)", regen)
+        self.assertIn("ValidEquippedRarity(EquippedAccessoryCode, 2)", regen)
+        self.assertIn("InventoryItemCodes.Contains(EquippedAccessoryCode)", regen)
+        self.assertIn("ValidEquippedTier(EquippedWeaponCode, 0)", attack)
+        self.assertIn("ValidEquippedRarity(EquippedWeaponCode, 0)", attack)
+        self.assertIn("bOwnedWeapon", attack)
+        self.assertIn("ValidEquippedTier(EquippedArmorCode, 1)", defense)
+        self.assertIn("ValidEquippedRarity(EquippedArmorCode, 1)", defense)
+        self.assertIn("bOwnedArmor", defense)
+        for block, unsafe in ((regen, "AccessoryTier *"), (attack, "WeaponTier"),
+                              (defense, "ArmorTier *")):
+            self.assertNotIn(unsafe, block)
+
     def test_rare_and_higher_affix_reforging_preserves_equipped_stats_and_costs(self):
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
         hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
