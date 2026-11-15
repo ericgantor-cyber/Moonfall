@@ -8,8 +8,10 @@ UCLASS()
 class MOONFALLUNREAL_API UMoonfallPersistentSave : public USaveGame {
  GENERATED_BODY()
 public:
- // Version 9: persistent per-chamber treasure, added to the V8 discovery ledger.
- UPROPERTY() int32 Version = 9;
+ // Version 10: 30 persistent dungeon boss defeats, preserving V9 treasure.
+ UPROPERTY() int32 Version = 10;
+ // One permanent defeat bit per dungeon; older saves default to no victories.
+ UPROPERTY() int32 DefeatedDungeonBossMask = 0;
  // 30 dungeons * 14 rooms. 0: ungenerated, positive: pending, -1: collected.
  UPROPERTY() TArray<int32> DungeonTreasureStates;
  UPROPERTY() int32 DiscoveredDungeonMask = 0;
