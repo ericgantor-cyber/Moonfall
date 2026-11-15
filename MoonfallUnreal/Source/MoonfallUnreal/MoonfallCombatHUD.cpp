@@ -249,8 +249,11 @@ void AMoonfallCombatHUD::DrawHUD()
   DrawText(FString::Printf(TEXT("Sets: Force %d/3  Ward %d/3  Focus %d/3    2pc + 3pc unlock bonuses"),
     ForcePieces, WardPieces, FocusPieces), FLinearColor(0.59f,0.95f,0.77f),
     Left + 18.f, Top + 113.f, nullptr, Canvas->SizeX < 900.f ? 0.61f : 0.72f);
-  DrawText(TEXT("Wheel: scroll   WASD / D-pad: select   Enter / Y: equip   Delete / X: salvage"),
+  DrawText(TEXT("Wheel: scroll   PgUp/PgDn: page   Home/End: first/last"),
      FLinearColor::White, Left + 18.f, Top + PanelHeight - 51.f, nullptr, 0.75f);
+  DrawText(TEXT("WASD / D-pad: select   Enter / Y: equip   Delete / X: salvage"),
+     FLinearColor(0.80f,0.85f,0.97f), Left + 18.f, Top + PanelHeight - 68.f,
+     nullptr, PanelWidth < 420.f ? 0.60f : 0.72f);
   // Display cost for the actual selected item, rather than a formula
   // players must calculate while navigating the inventory.
   if (Hero->InventoryItemCodes.IsValidIndex(Selected)) {
