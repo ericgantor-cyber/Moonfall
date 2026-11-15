@@ -1237,7 +1237,9 @@ func _menu_tab(which: String) -> void:
  if not is_instance_valid(menu_body):return
  if is_instance_valid(inventory_search_input):
   inventory_search_input.visible=which in ["Inventory","Materials"]
- for child in menu_buttons.get_children():child.queue_free()
+ for child in menu_buttons.get_children():
+  menu_buttons.remove_child(child)
+  child.queue_free()
  beast_guide.texture=null
  match which:
   "Character":
