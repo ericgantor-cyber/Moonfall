@@ -320,22 +320,23 @@ void AMoonfallCombatHUD::DrawHUD()
    const int32 EquippedAffix = EquippedCode > 0 ? EquippedCode / 100000 : 0;
    const int32 TierDelta = SelectedTier - EquippedTier;
    const int32 RarityDelta = SelectedRarity - EquippedRarity;
+   const bool bIsUpgrade = EquippedCode <= 0 || TierDelta > 0
+     || (TierDelta == 0 && RarityDelta > 0);
+   const bool bIsLower = EquippedCode > 0 && (TierDelta < 0
+     || (TierDelta == 0 && RarityDelta < 0));
    const TCHAR* CompareWord = EquippedCode <= 0 ? TEXT("EMPTY SLOT")
-     : TierDelta > 0 || (TierDelta == 0 && RarityDelta > 0) ? TEXT("UPGRADE")
-     : TierDelta < 0 || (TierDelta == 0 && RarityDelta < 0) ? TEXT("LOWER")
-     : TEXT("SIDEGRADE");
+     : bIsUpgrade ? TEXT("UPGRADE") : bIsLower ? TEXT("LOWER") : TEXT("SIDEGRADE");
+   const TCHAR* CompareRarities[] = {TEXT("Common"), TEXT("Uncommon"), TEXT("Rare"),
+     TEXT("Epic"), TEXT("Emerald"), TEXT("Legendary")};
+   const TCHAR* CompareTraits[] = {TEXT("None"), TEXT("Force"), TEXT("Ward"), TEXT("Focus")};
    const FString CompareLine = EquippedCode <= 0
      ? FString::Printf(TEXT("Compare: %s  |  equipped slot is empty"), CompareWord)
      : FString::Printf(TEXT("Compare: %s  |  T%d / %s / %s  vs  T%d / %s / %s"),
-       CompareWord, SelectedTier,
-       SelectedRarity <= 5 ? Rarities[SelectedRarity] : TEXT("Invalid"),
-       SelectedAffix <= 3 ? Traits[SelectedAffix] : TEXT("Invalid"),
-       EquippedTier,
-       EquippedRarity <= 5 ? Rarities[EquippedRarity] : TEXT("Invalid"),
-       EquippedAffix <= 3 ? Traits[EquippedAffix] : TEXT("Invalid"));
+       CompareWord, SelectedTier, CompareRarities[SelectedRarity], CompareTraits[SelectedAffix],
+       EquippedTier, CompareRarities[EquippedRarity], CompareTraits[EquippedAffix]);
    DrawText(CompareLine,
-     CompareWord == FString(TEXT("UPGRADE")) ? FLinearColor(0.42f,0.96f,0.62f)
-       : CompareWord == FString(TEXT("LOWER")) ? FLinearColor(0.96f,0.62f,0.42f)
+     bIsUpgrade ? FLinearColor(0.42f,0.96f,0.62f)
+       : bIsLower ? FLinearColor(0.96f,0.62f,0.42f)
        : FLinearColor(0.78f,0.86f,1.f),
      Left + 18.f, Top + PanelHeight - 110.f, nullptr, PanelWidth < 550.f ? 0.57f : 0.68f);
    const int32 NextCost = 4 + SelectedTier * 2 + SelectedRarity * 3;
