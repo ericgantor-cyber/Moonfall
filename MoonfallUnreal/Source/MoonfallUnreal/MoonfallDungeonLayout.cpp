@@ -224,6 +224,9 @@ void AMoonfallDungeonLayout::HandleFinalChamber(
  // Invalid/uninitialized save state does not permit a final-room event.
  if (!Hero->HasDiscoveredDungeon(ZoneIndex, DungeonIndex)
      && !Hero->DiscoverDungeonEntrance(ZoneIndex, DungeonIndex)) return;
+ // A failed spawn must not consume the final chamber event. Player can
+ // retreat and retry when collision or the global population cap clears.
+ if (!StartFinalBossChamber(Hero)) return;
  bFinalChamberNotified = true;
  FinalChamberTrigger->SetGenerateOverlapEvents(false);
  OnFinalChamberEntered(Hero);
@@ -365,5 +368,45 @@ bool AMoonfallDungeonLayout::SpawnTreasureChamber(
  Loot->InitializeDungeonReward(ZoneIndex, DungeonIndex, ChamberIndex);
  SpawnedTreasure[ChamberIndex] = Loot;
  OnDungeonTreasureSpawned(Hero, ChamberIndex, Code);
+ return true;
+}
+
+bool AMoonfallDungeonLayout::StartFinalBossChamber(AMoonfallHeroPawn* Hero)
+{
+ if (bFinalChamberNotified || !GetWorld() || !IsValid(Hero)
+     || !Hero->IsPlayerControlled() || !FMath::IsFinite(Hero->Health)
+     || Hero->Health <= 0.f
+     || ZoneIndex < 0 || ZoneIndex >= 6
+     || DungeonIndex < 0 || DungeonIndex >= 5) return false;
+ // Count all living world enemies once, on first final-room entry only.
+ // Bosses cannot bypass the same global cap imposed on combat chambers.
+ constexpr int32 MaxLiveWorldEnemies = 60;
+ int32 AliveWorldEnemies = 0;
+ for (TActorIterator<AMoonfallEnemy> It(GetWorld()); It; ++It) {
+  const AMoonfallEnemy* Other = *It;
+  if (!IsValid(Other) || Other->IsActorBeingDestroyed()) continue;
+  if (FMath::IsFinite(Other->Health) && Other->Health <= 0.f) continue;
+  if (++AliveWorldEnemies >= MaxLiveWorldEnemies) return false;
+ }
+ // Position the boss away from the centerline where the player enters.
+ const FVector Position = GetActorTransform().TransformPosition(
+   FVector((ChamberCount - 1) * ChamberLength + 270.f, 190.f, 100.f));
+ const FTransform SpawnTransform(GetActorRotation(), Position);
+ AMoonfallEnemy* Boss = GetWorld()->SpawnActorDeferred<AMoonfallEnemy>(
+   AMoonfallEnemy::StaticClass(), SpawnTransform, this, nullptr,
+   ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButDontSpawnIfColliding);
+ if (!IsValid(Boss)) return false;
+ // Keep the original Z and Nyra divine identifiers/art completely untouched.
+ // The generic existing boss logic supplies phases, combat, XP and gear drops.
+ Boss->bElite = true;
+ Boss->bBoss = true;
+ Boss->RaceId = (ZoneIndex * 5 + DungeonIndex) % 12;
+ Boss->Health = 400.f;
+ Boss->AttackDamage = 18.f;
+ Boss->ChaseSpeed = 165.f;
+ Boss->Tags.AddUnique(FName(TEXT("MoonfallDungeonBoss")));
+ Boss->FinishSpawning(SpawnTransform);
+ if (!IsValid(Boss) || Boss->IsActorBeingDestroyed()) return false;
+ OnDungeonBossSpawned(Hero, ZoneIndex, DungeonIndex);
  return true;
 }
