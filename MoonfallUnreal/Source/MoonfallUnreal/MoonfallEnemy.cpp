@@ -378,7 +378,13 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
  const bool bInCombatArea = Distance < 2200.f;
  const bool bDashing = bBoss && BossSpecialMove == 3 && WindupEndsAt > Now
    && WindupEndsAt - Now <= 0.25f;
- const float DesiredTickInterval = bDashing ? 0.03f : (bInCombatArea ? 0.1f : 0.4f);
+ // Dungeon trash mobs are spread across 30 long lanes. They do not need
+ // to poll the player multiple times per second while several kilometers away.
+ // Keep divine bosses, authored arena enemies and all nearby combat unchanged.
+ const bool bDistantDungeonMob = !bBoss && !bElite && !bInCombatArea
+   && Tags.Contains(FName(TEXT("MoonfallDungeonEncounter")));
+ const float DesiredTickInterval = bDashing ? 0.03f
+   : (bInCombatArea ? 0.1f : (bDistantDungeonMob ? 1.0f : 0.4f));
  if (!FMath::IsNearlyEqual(PrimaryActorTick.TickInterval, DesiredTickInterval)) {
   SetActorTickInterval(DesiredTickInterval);
  }
