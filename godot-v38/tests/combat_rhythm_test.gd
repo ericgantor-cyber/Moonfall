@@ -18,6 +18,8 @@ func _init() -> void:
  assert(not Rhythm.posture_broken(10.0, 0.0))
  assert(Rhythm.safe_stamina_cost(-5.0, 2) == 0.0)
  assert(Rhythm.safe_stamina_cost(20.0, 5, true) > Rhythm.safe_stamina_cost(20.0, 1))
+ assert(is_equal_approx(Rhythm.POSTURE_RECOVERY_DELAY,0.5))
+ assert(is_equal_approx(Rhythm.POSTURE_RECOVERY_RATE,5.0))
  assert(is_equal_approx(Rhythm.recovered_posture(50.0, 0.4),50.0))
  assert(is_equal_approx(Rhythm.recovered_posture(50.0, 0.5),50.0))
  assert(is_equal_approx(Rhythm.recovered_posture(50.0, 1.0),47.5))
