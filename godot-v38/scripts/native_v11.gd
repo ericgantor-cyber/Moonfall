@@ -1398,7 +1398,9 @@ func _menu_tab(which: String) -> void:
    if not companion.is_empty():text+="\nCompanion health: "+str(int(companion.get("hp",0)))+" / "+str(int(companion.get("max",80)))
    menu_body.text=text
   "Professions":
-   var text:="[b]PROFESSIONS / RECIPE BOOK[/b]\nSkinning "+str(skinning_skill)+" / 300  •  Leatherworking "+str(crafting_skill)+" / 300\n\n[b]RECIPES[/b]  •  Select a recipe to view materials and craft it.\n"
+   var text:="[b]PROFESSIONS / RECIPE BOOK[/b]\nSkinning "+str(skinning_skill)+" / 300 • "+_craft_skill_rank(skinning_skill)
+   text+="\nLeatherworking "+str(crafting_skill)+" / 300 • "+_craft_skill_rank(crafting_skill)
+   text+="\n"+_craft_skill_progress(crafting_skill)+"\n\n[b]RECIPES[/b] • Select a recipe to view materials and craft it.\n"
    _atlas_action("SHOW: "+("CRAFTABLE ONLY" if crafting_craftable_only else "ALL RECIPES"),"recipe_filter")
    var available:Array[int]=[]
    for i in range(RECIPES.size()):
@@ -1418,6 +1420,7 @@ func _menu_tab(which: String) -> void:
     text+="\n\n[b]SELECTED RECIPE: "+str(chosen.get("name","Recipe"))+"[/b]"
     text+="\n"+_recipe_hover_details(chosen)
     text+="\n\n[b]STATUS:[/b] "+("READY TO CRAFT" if chosen_issue=="" else chosen_issue)
+    if _combat_threat():text+="\nCrafting blocked while enemies are attacking."
     _atlas_action("CREATE: "+str(chosen.get("name","Recipe")),"craft_selected",chosen_issue if chosen_issue!="" else "Craft one of the selected recipe.")
    menu_body.text=text
   "Hunter":
@@ -1462,6 +1465,21 @@ func _material_hover_row(name:String,amount:int,stack_count:int)->void:
  row.add_theme_font_size_override("font_size",15)
  menu_buttons.add_child(row)
 
+func _craft_skill_rank(level:int)->String:
+ if level>=300:return "Master"
+ if level>=225:return "Artisan"
+ if level>=150:return "Expert"
+ if level>=75:return "Journeyman"
+ return "Apprentice"
+
+func _craft_skill_progress(level:int)->String:
+ if level>=300:return "Leatherworking: MAX RANK"
+ var current:int=clampi(level,1,300)
+ var next:int=75 if current<75 else 150 if current<150 else 225 if current<225 else 300
+ var start:int=1 if current<75 else 75 if current<150 else 150 if current<225 else 225
+ var filled:int=clampi(int(round(10.0*float(current-start)/float(next-start))),0,10)
+ return "Next rank at "+str(next)+" • ["+"■".repeat(filled)+"□".repeat(10-filled)+"]"
+
 func _recipe_hover_details(recipe:Dictionary)->String:
  var info:String=str(recipe.get("name","Recipe"))
  var costs_value:Variant=recipe.get("cost",{})
@@ -1469,7 +1487,8 @@ func _recipe_hover_details(recipe:Dictionary)->String:
   var costs:Dictionary=costs_value
   for material in costs.keys():
    var required:int=int(costs[material])
-   info+="\n"+str(material)+": "+str(materials.get(str(material),0))+" / "+str(required)
+   var owned:int=int(materials.get(str(material),0))
+   info+="\n"+str(material)+": "+str(owned)+" / "+str(required)+(" • READY" if owned>=required else " • NEED "+str(required-owned))
  var power:int=int(recipe.get("power",0))
  if power>0:info+="\nCrafted equipment power: "+str(power)
  info+="\nSelect Craft to attempt this recipe."
@@ -1569,6 +1588,7 @@ func _atlas_action(label: String, action: String, tip: String="") -> void:
   if crafting_selected_index<0 or crafting_selected_index>=RECIPES.size():button.disabled=true
   else:
    var issue:String=INVENTORY_RULES.craft_issue(RECIPES[crafting_selected_index],materials,gear_items.size(),bag_capacity)
+   if _combat_threat():issue="Cannot craft while enemies are attacking."
    if issue!="":
     button.disabled=true
     button.tooltip_text=issue
@@ -3092,8 +3112,10 @@ func _craft(index: int) -> void:
  var result:Dictionary=INVENTORY_RULES.craft_commit(recipe,materials)
  if not result["gear"].is_empty():gear_items.append(result["gear"])
  else:_gain_material(str(result["material"]),1)
+ var previous_rank:String=_craft_skill_rank(crafting_skill)
  crafting_skill=mini(300,crafting_skill+1)
- _show_message("Crafted "+str(recipe["name"])+"!",2)
+ var new_rank:String=_craft_skill_rank(crafting_skill)
+ _show_message("Crafted "+str(recipe["name"])+"! Leatherworking "+str(crafting_skill)+"/300"+(" • "+new_rank+" unlocked!" if new_rank!=previous_rank else ""),3)
  _save_game()
 
 func _use_consumable(item: String) -> void:
