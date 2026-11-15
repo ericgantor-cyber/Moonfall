@@ -1565,6 +1565,13 @@ func _atlas_action(label: String, action: String, tip: String="") -> void:
  if tip!="":button.tooltip_text=tip
  button.custom_minimum_size=Vector2(270,38)
  button.focus_mode=Control.FOCUS_ALL
+ if current_tab=="Professions" and action=="craft_selected":
+  if crafting_selected_index<0 or crafting_selected_index>=RECIPES.size():button.disabled=true
+  else:
+   var issue:String=INVENTORY_RULES.craft_issue(RECIPES[crafting_selected_index],materials,gear_items.size(),bag_capacity)
+   if issue!="":
+    button.disabled=true
+    button.tooltip_text=issue
  if current_tab=="Inventory" and not inventory_show_vault and (action.begins_with("equip:") or action.begins_with("inventory_deposit:")):
   var gear_index:int=int(action.get_slice(":",1))
   if gear_index>=0 and gear_index<gear_items.size() and not equipped.is_empty() and equipped==gear_items[gear_index]:
