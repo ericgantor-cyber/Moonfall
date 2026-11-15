@@ -1312,6 +1312,9 @@ void AMoonfallHeroPawn::OpenOptions() {
   EndGuard();
  }
  bOptionsOpen = !bOptionsOpen;
+ // Match the inventory close workflow and allow the Options X to be clicked.
+ if (APlayerController* PC = Cast<APlayerController>(Controller))
+  PC->bShowMouseCursor = bOptionsOpen;
 }
 void AMoonfallHeroPawn::OptionsUp() {
  if (FocusedResident.IsValid() && !bOptionsOpen && !bInventoryOpen) {
@@ -2595,6 +2598,27 @@ void AMoonfallHeroPawn::ReleaseInventoryPointer()
 }
 
 void AMoonfallHeroPawn::ResidentContextMouseClick() {
+ // All native modal panels own their mouse input before gameplay combat.
+ if (bOptionsOpen) {
+  if (APlayerController* PC = Cast<APlayerController>(Controller)) {
+   int32 Width = 0, Height = 0;
+   float MouseX = 0.f, MouseY = 0.f;
+   PC->GetViewportSize(Width, Height);
+   if (Width > 0 && Height > 0 && PC->bShowMouseCursor
+       && PC->GetMousePosition(MouseX, MouseY)) {
+    const float MenuWidth = FMath::Min(560.f, FMath::Max(240.f, float(Width) - 24.f));
+    const float MenuHeight = FMath::Min(550.f, FMath::Max(280.f, float(Height) - 24.f));
+    const float MenuLeft = (float(Width) - MenuWidth) * 0.5f;
+    const float MenuTop = (float(Height) - MenuHeight) * 0.5f;
+    const float CloseX = MenuLeft + MenuWidth - 42.f;
+    if (MouseX >= CloseX && MouseX <= CloseX + 28.f
+        && MouseY >= MenuTop + 12.f && MouseY <= MenuTop + 40.f) {
+     OpenOptions();
+    }
+   }
+  }
+  return;
+ }
  if (bInventoryOpen) {
   if (HitTestInventoryCloseButton()) { ToggleInventory(); return; }
   if (HitTestInventorySortButton()) {
@@ -2619,6 +2643,12 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
  const float PanelW = FMath::Min(490.f, FMath::Max(260.f, Width - 24.f));
  const float PanelH = FMath::Min(345.f, FMath::Max(270.f, Height - 24.f));
  const float Left = (Width - PanelW) * 0.5f, Top = (Height - PanelH) * 0.5f;
+ const float NpcCloseX = Left + PanelW - 42.f;
+ if (MouseX >= NpcCloseX && MouseX <= NpcCloseX + 28.f
+     && MouseY >= Top + 12.f && MouseY <= Top + 40.f) {
+  CloseResidentContext();
+  return;
+ }
  if (MouseX < Left || MouseX > Left + PanelW || MouseY < Top || MouseY > Top + PanelH) {
   CloseResidentContext();
   return;
