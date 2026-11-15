@@ -595,24 +595,38 @@ void AMoonfallCombatHUD::DrawHUD()
    const float Seconds = FMath::Clamp(WarningRemaining, 0.f, 10.f);
    const FString MoveName = bRegionalBoss && !Boss->DungeonBossAttackLabel.IsEmpty()
      ? Boss->DungeonBossAttackLabel.ToString() : FString(TEXT("INCOMING ATTACK"));
-   // The countdown and named tell are always visible together. Both are
-   // read-only HUD elements; attacks still resolve through enemy combat.
-   DrawText(FString::Printf(TEXT("%s  |  %.1fs  |  DODGE / PARRY"),
-      *MoveName, Seconds), FLinearColor(1.f,0.84f,0.26f),
-      X,Y+55.f,nullptr,FMath::Min(1.4f,0.77f * AlertScale));
+   // Phantom Blade-inspired readable parry/dodge vocabulary, paired with
+   // Wukong-style anticipation. Color is redundant with the explicit text.
+   // Red is truly dodge-only in the damage path. Blue stays parryable.
+   const bool bRedDodge = bRegionalBoss && Boss->bDungeonBossAttackDodgeOnly;
+   const bool bBlueParry = bRegionalBoss && !bRedDodge &&
+     (MoveName == TEXT("MOON CLEAVE") || MoveName == TEXT("SPINNING SWEEP"));
+   const FLinearColor CueColor = bRedDodge ? FLinearColor(1.f,0.22f,0.26f)
+     : bBlueParry ? FLinearColor(0.26f,0.72f,1.f)
+     : FLinearColor(1.f,0.81f,0.35f);
+   const TCHAR* ActionCue = bRedDodge ? TEXT("RED - DODGE ONLY")
+     : bBlueParry ? TEXT("BLUE - PARRY / DODGE")
+     : TEXT("GUARD / PARRY / DODGE");
+   DrawRect(CueColor,X-6.f,Y+51.f,5.f,22.f);
+   DrawText(FString::Printf(TEXT("%s  |  %.1fs  |  %s"),
+      *MoveName, Seconds, ActionCue),CueColor,
+      X+6.f,Y+55.f,nullptr,FMath::Min(1.35f,0.72f * AlertScale));
+   // A fixed, non-flashing impact cue remains readable with Reduce Motion.
+   if (Seconds <= 0.3f)
+    DrawText(TEXT("IMPACT SOON"),CueColor,X,Y+89.f,nullptr,0.78f);
    if (bRegionalBoss && FMath::IsFinite(Boss->DungeonBossAttackWarningDuration)
        && Boss->DungeonBossAttackWarningDuration > 0.f) {
     const float WarningProgress = FMath::Clamp(
       Seconds / Boss->DungeonBossAttackWarningDuration, 0.f, 1.f);
     DrawRect(FLinearColor(0.25f,0.13f,0.09f),X,Y+73.f,Width,4.f);
-    DrawRect(FLinearColor(1.f,0.70f,0.23f),
+    DrawRect(CueColor,
       X,Y+73.f,Width*WarningProgress,4.f);
    }
   }
   if (bRegionalBoss && Canvas->SizeY > 600.f)
    DrawText(FString::Printf(TEXT("DUNGEONS CLEARED  %d / 30  |  ZONES  %d / 6"),
      Hero->GetTotalDefeatedDungeonBosses(),Hero->GetClearedDungeonZoneCount()),
-     FLinearColor(0.75f,0.92f,0.83f),X,Y+80.f,nullptr,0.76f);
+     FLinearColor(0.75f,0.92f,0.83f),X,Y+112.f,nullptr,0.76f);
  }
  // Show only the nearest engaged non-boss posture target to avoid clutter.
  if (PostureTarget && GetOwningPlayerController()) {
