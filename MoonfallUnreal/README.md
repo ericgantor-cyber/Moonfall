@@ -103,3 +103,33 @@ The prototype currently defaults to the generic engine Entry map. Before packagi
 7. Launch the packaged game and test the installer, gameplay and accessibility on Windows 10 and 11. A process-launch smoke test does not prove gameplay correctness.
 
 Packaging deliberately stops with an actionable error if the project-owned startup level is missing. The map and a verified Unreal Windows build have not yet been created by this change.
+
+
+## Native UE5.4 dungeon stability verification (PR #948)
+
+The GitHub source checks do not compile C++, build navmesh geometry, or execute
+runtime collision. The dungeon C++ automation tests are in
+`Source/MoonfallUnreal/MoonfallDungeonWorldTests.cpp`. They verify 30 distinct
+six-zone world coordinates, invalid IDs, the entrance/boss endpoints, seeded
+room determinism, and three unique hazard room assignments **only when run in
+a real UE5.4 Editor build**.
+
+On Windows with Unreal Engine **5.4**, Visual Studio 2022 C++ build tools and
+a checked-out copy of this branch, run from the repository root:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\MoonfallUnreal\Build\Build-Windows.ps1 -UnrealRoot "C:\Program Files\Epic Games\UE_5.4" -CompileOnly
+& "C:\Program Files\Epic Games\UE_5.4\Engine\Binaries\Win64\UnrealEditor-Cmd.exe" ".\MoonfallUnreal\MoonfallUnreal.uproject" -unattended -NullRHI '-ExecCmds=Automation RunTests Moonfall.Dungeons; Quit' -log
+```
+
+Check the Unreal test log and **verify both tests passed**, not merely the
+process exit code. The game must still be launched in Play In Editor to check
+that the 30 physical dungeon lanes connect to the public road, that enemies
+navigate through the doors, that hazard overlap volumes are avoidable, and that
+treasure remains correctly claimed across restarting the game.
+
+The generated startup map's existing NavMeshBoundsVolume is intended for the
+original arena. It must be inspected and expanded or supplemented for the
+six-zone road and 30 dungeon interiors, then navigation must be rebuilt. Do not
+claim dungeon enemy pathfinding works beyond the original arena until that has
+been done. The original Z/Nyra art and Godot source are not modified here.
