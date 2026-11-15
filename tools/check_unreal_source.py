@@ -496,6 +496,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("const int32 Codes[3] = {EquippedWeaponCode, EquippedArmorCode, EquippedAccessoryCode};", sets)
         self.assertIn("DecodeEquippedItem(Codes[Slot], Slot, Trait, Rarity, Tier)", sets)
         self.assertIn("Rarity >= 1", sets)
+        self.assertIn("InventoryItemCodes.Contains(Codes[Slot])", sets)
         decoder = self.hero_cpp.split("bool DecodeEquippedItem(", 1)[1].split("int32 ValidEquippedTier(", 1)[0]
         for guard in ("Code <= 0", "Slot != ExpectedSlot", "Trait < 0 || Trait > 3",
                       "Rarity < 0 || Rarity > 5", "Tier < 1 || Tier > 25",
@@ -508,6 +509,13 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("ValidEquippedTraitRarity(EquippedWeaponCode, 0, 1)", self.hero_cpp)
         self.assertIn("ValidEquippedTraitRarity(EquippedArmorCode, 1, 2)", self.hero_cpp)
         self.assertIn("ValidEquippedTraitRarity(EquippedAccessoryCode, 2, 3)", self.hero_cpp)
+        # Every derived bonus must reject valid-looking codes for items not owned.
+        stats = self.hero_cpp.split("int32 AMoonfallHeroPawn::GetMight()", 1)[1].split(
+            "AMoonfallHeroPawn::AMoonfallHeroPawn()", 1)[0]
+        for code in ("EquippedWeaponCode", "EquippedArmorCode", "EquippedAccessoryCode"):
+            self.assertGreaterEqual(stats.count(f"InventoryItemCodes.Contains({code})"), 2)
+        self.assertIn("InventoryItemCodes.Contains(Codes[Slot])", sets)
+
         self.assertNotIn("InventoryItemCodes", sets)
         self.assertIn("GetSetPieceCount(1) >= 2 ? 0.03f", self.hero_cpp)
         self.assertIn("GetSetPieceCount(1) >= 3 ? 0.04f", self.hero_cpp)
