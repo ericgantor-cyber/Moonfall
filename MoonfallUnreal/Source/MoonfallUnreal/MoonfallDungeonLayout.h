@@ -53,12 +53,30 @@ public:
  TArray<TObjectPtr<UBoxComponent>> ChamberTriggers;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Dungeon|Rooms")
  UInstancedStaticMeshComponent* HazardPlates;
+ // Three pawn-only side-alcove traps. The 360-unit center route stays safe.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Dungeon|Hazards")
+ UBoxComponent* HazardTriggerA;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Dungeon|Hazards")
+ UBoxComponent* HazardTriggerB;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Dungeon|Hazards")
+ UBoxComponent* HazardTriggerC;
+ UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Dungeon|Hazards",
+   meta=(ClampMin="0.0", ClampMax="100.0"))
+ float HazardDamage = 12.f;
+ UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Dungeon|Hazards",
+   meta=(ClampMin="0.5", ClampMax="20.0"))
+ float HazardCooldownSeconds = 2.f;
 
  // Final-room entry is not a boss kill and grants no reward automatically.
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Dungeon")
  void OnFinalChamberEntered(AMoonfallHeroPawn* Hero);
 
 private:
+ float NextHazardDamageAt = -1.f;
+ UFUNCTION()
+ void HandleHazardOverlap(UPrimitiveComponent* Overlapped, AActor* OtherActor,
+    UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep,
+    const FHitResult& SweepResult);
  uint16 EnteredChambersMask = 0;
  bool bFinalChamberNotified = false;
  void BuildHazardChambers(int32 OutChambers[3]) const;
