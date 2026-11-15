@@ -4,6 +4,9 @@ const TALENTS = preload("res://scripts/systems/moonfall_talent_tree.gd")
 
 func _initialize() -> void:
  var tree: Dictionary = TALENTS.load_tree()
+ if int(tree.get("points_per_level", 0)) != 2:
+  _fail("Each character level must award two talent points")
+  return
  var nodes: Array = tree.get("nodes", [])
  if nodes.size() != 141:
   _fail("Expanded tree must contain 141 talents")
