@@ -658,7 +658,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("GetSetPieceCount(3)", hud)
         self.assertIn("Crit %.1f%%   Haste %.1f%%   Mastery %.1f%%   Versatility %.1f%%", hud)
         self.assertIn("2pc + 3pc unlock bonuses", hud)
-        self.assertIn("Top + 145.f + (Index - PageStart) * RowSpacing", hud)
+        self.assertIn("Top + 145.f + (DisplayPosition - PageStart) * RowSpacing", hud)
 
     def test_live_combat_never_uses_unverified_equipment_fields(self):
         source = self.hero_cpp
@@ -770,7 +770,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Equipped: +%.1f%% spell damage", hud)
         self.assertIn("const int32 PerPage = Hero->GetInventoryVisibleRows();", hud)
         self.assertIn("FMath::Clamp(FMath::FloorToInt((PanelHeight - 290.f) / 25.f), 2, 20)", self.hero_cpp)
-        self.assertIn("Top + 145.f + (Index - PageStart) * RowSpacing", hud)
+        self.assertIn("Top + 145.f + (DisplayPosition - PageStart) * RowSpacing", hud)
         self.assertIn("Top + 75.f", hud)
         self.assertIn("ArmorTrait == 2 && ArmorRarity > 0 ? 0.06f : 0.f", hud)
         self.assertIn("AccessoryTrait == 3 && AccessoryRarity > 0 ? 0.08f : 0.f", hud)
