@@ -41,7 +41,8 @@ class MouseMenusContract(unittest.TestCase):
         self.assertIn('var item_grid:=GridContainer.new()', self.source)
         self.assertIn('item_grid.columns=2', self.source)
         self.assertIn('_inventory_tile(item_grid,gear,index)', self.source)
-        self.assertIn('tile.custom_minimum_size=Vector2(140,78)', self.source)
+        self.assertIn('tile.custom_minimum_size=Vector2(124,78)', self.source)
+        self.assertIn('item_grid.size_flags_horizontal=Control.SIZE_EXPAND_FILL', self.source)
         self.assertIn('tile.focus_mode=Control.FOCUS_ALL', self.source)
         self.assertIn('normal_style.set_border_width_all(3 if selected else 1)', self.source)
         self.assertIn('normal_style.duplicate() as StyleBoxFlat', self.source)
@@ -107,6 +108,8 @@ class MouseMenusContract(unittest.TestCase):
         self.assertIn("chosen_affix==current_affix", self.source)
         self.assertIn("Same bonus difference:", self.source)
         self.assertIn("Different bonus types; compare their effects", self.source)
+        self.assertIn("One item has no bonus; review its overall power and effects.", self.source)
+        self.assertIn("You are already wearing this item.", self.source)
 
     def test_inventory_search_clear_and_mouse_scroll(self):
         self.assertIn('inventory_search_input.clear_button_enabled=true', self.source)
