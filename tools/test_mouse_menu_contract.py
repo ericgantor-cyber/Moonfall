@@ -47,7 +47,7 @@ class MouseMenusContract(unittest.TestCase):
         self.assertIn('normal_style.set_border_width_all(3 if selected else 1)', self.source)
         self.assertIn('normal_style.duplicate() as StyleBoxFlat', self.source)
         self.assertIn('tile.add_theme_stylebox_override("hover",hover_style)', self.source)
-        self.assertIn('Compared with equipped:', self.source)
+        self.assertIn('Power change:', self.source)
         self.assertIn('tile.pressed.connect(_atlas_execute.bind("inventory_select:"+str(index)))', self.source)
         self.assertIn('tile.gui_input.connect(_atlas_equip_mouse_input.bind("inventory_select:"+str(index)))', self.source)
         self.assertIn('"inventory_select_next","inventory_select_prev"', self.source)
@@ -87,7 +87,7 @@ class MouseMenusContract(unittest.TestCase):
         self.assertIn("inventory_restore_focus=false", sale)
 
     def test_equipped_item_status_and_action_guards(self):
-        self.assertIn('(" • EQUIPPED" if is_equipped else "")', self.source)
+        self.assertIn('if is_equipped:comparison="EQUIPPED"', self.source)
         self.assertIn('if not equipped.is_empty() and equipped==selected_item:', self.source)
         self.assertIn('button.disabled=true', self.source)
         self.assertIn('action.begins_with("inventory_deposit:")', self.source)
@@ -159,7 +159,7 @@ class MouseMenusContract(unittest.TestCase):
         self.assertIn('row.tooltip_text=name+', self.source)
         self.assertIn('row.mouse_filter=Control.MOUSE_FILTER_STOP', self.source)
         self.assertIn('Storage: Materials (separate from gear bag)', self.source)
-        self.assertIn('_recipe_hover_details(recipe)', self.source)
+        self.assertIn('_recipe_hover_details(chosen)', self.source)
         self.assertIn('func _recipe_hover_details(recipe:Dictionary)->String:', self.source)
         self.assertIn('materials.get(str(material),0)', self.source)
         self.assertIn("Hunter\'s Oil", self.source)
