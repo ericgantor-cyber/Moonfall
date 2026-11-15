@@ -1290,7 +1290,10 @@ func _menu_tab(which: String) -> void:
     if inventory_show_vault:
      _atlas_action("WITHDRAW SELECTED: "+str(selected_item.get("name","Gear")),"inventory_withdraw:"+str(inventory_selected_index))
     else:
-     _atlas_action("EQUIP SELECTED: "+str(selected_item.get("name","Gear")),"equip:"+str(inventory_selected_index))
+     if not equipped.is_empty() and equipped==selected_item:
+      _atlas_action("EQUIPPED: "+str(selected_item.get("name","Gear")),"equip:"+str(inventory_selected_index))
+     else:
+      _atlas_action("EQUIP SELECTED: "+str(selected_item.get("name","Gear")),"equip:"+str(inventory_selected_index))
      _atlas_action("DEPOSIT SELECTED","inventory_deposit:"+str(inventory_selected_index))
     if matches.size()>1:
      _atlas_action("PREVIOUS ITEM","inventory_select_prev")
@@ -1388,7 +1391,8 @@ func _inventory_tile(grid:GridContainer,gear:Dictionary,index:int)->void:
  var name:String=str(gear.get("name","Gear"))
  var selected:bool=inventory_selected_index==index
  tile.name="ItemTile_%d"%index
- tile.text=("◆ " if selected else "")+name+"\n"+rarity+" • "+str(gear.get("power",0))+" power"
+ var is_equipped:bool=not inventory_show_vault and not equipped.is_empty() and equipped==gear
+ tile.text=("◆ " if selected else "")+name+"\n"+rarity+" • "+str(gear.get("power",0))+" power"+(" • EQUIPPED" if is_equipped else "")
  tile.clip_text=true
  tile.custom_minimum_size=Vector2(140,78)
  tile.size_flags_horizontal=Control.SIZE_EXPAND_FILL
@@ -1413,7 +1417,7 @@ func _inventory_tile(grid:GridContainer,gear:Dictionary,index:int)->void:
  tile.tooltip_text=name+"\n"+rarity+" • Power "+str(gear.get("power",0))
  if not inventory_show_vault:
   tile.tooltip_text+="\nCompared with equipped: "+("+" if difference>0 else "")+str(difference)+" power"
- tile.tooltip_text+="\nLeft-click to inspect"+(" • Right-click to equip" if not inventory_show_vault else " • Withdraw to equip")
+ tile.tooltip_text+="\nLeft-click to inspect"+(" • Already equipped" if is_equipped else " • Right-click to equip" if not inventory_show_vault else " • Withdraw to equip")
  tile.pressed.connect(_atlas_execute.bind("inventory_select:"+str(index)))
  tile.gui_input.connect(_atlas_equip_mouse_input.bind("inventory_select:"+str(index)))
  grid.add_child(tile)
@@ -1435,6 +1439,11 @@ func _atlas_action(label: String, action: String, tip: String="") -> void:
  if tip!="":button.tooltip_text=tip
  button.custom_minimum_size=Vector2(270,38)
  button.focus_mode=Control.FOCUS_ALL
+ if current_tab=="Inventory" and not inventory_show_vault and (action.begins_with("equip:") or action.begins_with("inventory_deposit:")):
+  var gear_index:int=int(action.get_slice(":",1))
+  if gear_index>=0 and gear_index<gear_items.size() and not equipped.is_empty() and equipped==gear_items[gear_index]:
+   button.disabled=true
+   button.tooltip_text="Already equipped. Choose another item before depositing this one."
  if action.begins_with("equip:") or action.begins_with("inventory_select:"):
   if action.begins_with("equip:"):button.tooltip_text=(tip+"\n" if tip!="" else "")+"Left-click or right-click to equip."
   elif inventory_show_vault:button.tooltip_text="Left-click to inspect; withdraw to bag before equipping."
