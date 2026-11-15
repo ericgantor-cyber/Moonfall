@@ -187,12 +187,12 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $root = Join-Path $env:GITHUB_WORKSPACE 'game-source\\MoonfallUnreal'
+          $root = Join-Path $env:GITHUB_WORKSPACE 'game-source\MoonfallUnreal'
           $project = Join-Path $root 'MoonfallUnreal.uproject'
-          $generator = Join-Path $root 'Build\\Create-StartupLevel.py'
-          $map = Join-Path $root 'Content\\Maps\\MoonfallStart.umap'
-          $config = Join-Path $root 'Config\\DefaultEngine.ini'
-          $editor = Join-Path $env:UE54_ROOT 'Engine\\Binaries\\Win64\\UnrealEditor-Cmd.exe'
+          $generator = Join-Path $root 'Build\Create-StartupLevel.py'
+          $map = Join-Path $root 'Content\Maps\MoonfallStart.umap'
+          $config = Join-Path $root 'Config\DefaultEngine.ini'
+          $editor = Join-Path $env:UE54_ROOT 'Engine\Binaries\Win64\UnrealEditor-Cmd.exe'
           foreach ($file in @($project, $generator, $config, $editor)) {
             if (-not (Test-Path -LiteralPath $file -PathType Leaf)) {
               throw "Cannot prepare Moonfall startup map, missing: $file"
@@ -208,7 +208,7 @@ jobs:
           }
           $ini = Get-Content -LiteralPath $config -Raw
           foreach ($key in @('GameDefaultMap', 'EditorStartupMap')) {
-            if (-not [regex]::IsMatch($ini, "(?m)^$key=/Game/Maps/MoonfallStart\\s*$")) {
+            if (-not [regex]::IsMatch($ini, "(?m)^$key=/Game/Maps/MoonfallStart\s*$")) {
               throw "Moonfall startup map generator did not configure $key."
             }
           }
