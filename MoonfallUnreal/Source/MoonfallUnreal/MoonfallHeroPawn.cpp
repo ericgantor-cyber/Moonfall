@@ -1630,7 +1630,9 @@ bool AMoonfallHeroPawn::EquipInventoryItem(int32 InventoryIndex)
  int32* EquippedCode = SlotIndex == 0 ? &EquippedWeaponCode
      : (SlotIndex == 1 ? &EquippedArmorCode : &EquippedAccessoryCode);
  if (*EquippedCode == Code && *EquippedTier == Tier && *EquippedAffix == Affix) return false;
- const int32 PreviousTier = *EquippedTier;
+ // The cached Blueprint tier may be stale; only owned, correctly decoded
+ // equipment may influence the max-health delta when changing armor.
+ const int32 PreviousTier = GetValidatedEquippedTier(SlotIndex);
  *EquippedTier = Tier;
  *EquippedAffix = Affix;
  *EquippedCode = Code;
