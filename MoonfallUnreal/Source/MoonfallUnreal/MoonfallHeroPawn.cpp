@@ -1574,7 +1574,8 @@ int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()
  // Tier is primary, rarity secondary, an affix breaks ties.
  for (int32 Slot = 0; Slot < 3; ++Slot) {
   const int32 Code = EquippedCodes[Slot];
-  if (Code <= 0) continue;
+  // A stale or externally edited equipped code cannot outrank owned loot.
+  if (Code <= 0 || !InventoryItemCodes.Contains(Code)) continue;
   const int32 Affix = Code / 100000;
   const int32 EncodedSlot = (Code / 10000) % 10;
   const int32 Rarity = (Code / 1000) % 10;
