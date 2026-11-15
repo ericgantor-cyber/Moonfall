@@ -64,7 +64,7 @@ class TalentTests(unittest.TestCase):
             evaluate(95, chosen, self.tree)
         reset = respec(100, self.tree, current=chosen)
         self.assertEqual(reset["spent"], 0)
-        self.assertEqual(reset["available"], 99)
+        self.assertEqual(reset["available"], 198)
 
     def test_new_tiers_respect_gates_and_full_respec(self):
         fresh = evaluate(16, {"iron_will": 1, "breaker": 1, "guard": 1,
@@ -78,11 +78,11 @@ class TalentTests(unittest.TestCase):
         assert purchased["bonuses"]["melee_damage"]["percent"] > fresh["bonuses"]["melee_damage"]["percent"]
         reset = respec(16, self.tree, current=purchased["allocations"])
         self.assertEqual(reset["spent"], 0)
-        self.assertEqual(reset["available"], 15)
+        self.assertEqual(reset["available"], 30)
 
     def test_level_gives_points_without_auto_allocating_talents(self):
         state = evaluate(5, {}, self.tree)
-        self.assertEqual((state["earned"], state["available"], state["spent"]), (4, 4, 0))
+        self.assertEqual((state["earned"], state["available"], state["spent"]), (8, 8, 0))
         self.assertEqual(state["allocations"], {})
 
     def test_prerequisite_and_level_gate(self):
@@ -96,10 +96,10 @@ class TalentTests(unittest.TestCase):
 
     def test_spending_and_respec(self):
         state = spend(10, {}, "spirit_well", self.tree)
-        self.assertEqual(state["available"], 8)
+        self.assertEqual(state["available"], 17)
         self.assertEqual(state["bonuses"]["mana"]["flat"], 8)
         reset = respec(10, self.tree)
-        self.assertEqual(reset["available"], 9)
+        self.assertEqual(reset["available"], 18)
         self.assertEqual(reset["bonuses"]["mana"]["flat"], 0)
         self.assertEqual(reset["allocations"], {})
 
@@ -174,7 +174,7 @@ class TalentTests(unittest.TestCase):
         self.assertEqual(state["spent"], 3)
         reset = respec(10, self.tree)
         self.assertEqual(reset["spent"], 0)
-        self.assertEqual(reset["available"], 9)
+        self.assertEqual(reset["available"], 18)
         self.assertEqual(reset["allocations"], {})
         self.assertEqual(original, {"iron_will": 1, "breaker": 1, "spirit_well": 1})
 
@@ -182,7 +182,7 @@ class TalentTests(unittest.TestCase):
         original = {"iron_will": 1, "breaker": 1, "spirit_well": 1}
         reset = respec(10, self.tree, current=original)
         self.assertEqual(reset["spent"], 0)
-        self.assertEqual(reset["available"], 9)
+        self.assertEqual(reset["available"], 18)
         self.assertEqual(reset["allocations"], {})
         self.assertEqual(original, {"iron_will": 1, "breaker": 1, "spirit_well": 1})
 
