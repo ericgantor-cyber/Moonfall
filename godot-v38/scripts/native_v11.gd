@@ -1172,6 +1172,13 @@ func _inventory_action(action:String)->void:
   _:
    if action.begins_with("inventory_deposit:"):
     var idx:int=int(action.get_slice(":",1))
+    if idx<0 or idx>=gear_items.size():
+     _show_message("Item unavailable.",2)
+     return
+    # Prevent equipped gear from leaving the bag while still active.
+    if not equipped.is_empty() and equipped==gear_items[idx]:
+     _show_message("Unequip that item before depositing it.",2)
+     return
     if INVENTORY_RULES.transfer_gear(gear_items,vault_items,idx,INVENTORY_RULES.VAULT_LIMIT):
      inventory_selected_index=-1
      _save_game()
@@ -3330,6 +3337,8 @@ func _wallet_action(action:String)->void:
   var price:int=MONEY_RULES.sell_value(item)
   var item_name:String=str(item.get("name","Gear"))
   gear_items.remove_at(idx)
+  inventory_selected_index=-1
+  inventory_restore_focus=false
   _add_coins(price)
   _show_message("Sold "+item_name+" for "+MONEY_RULES.format_total(price),2)
   _save_game()
