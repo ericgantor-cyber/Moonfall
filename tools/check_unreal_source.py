@@ -3716,5 +3716,30 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("if (ChamberType == 2 && !SpawnTreasureChamber(Hero, ChamberIndex)) return;", layout)
         self.assertIn("const int32 Rarity = Stream.RandRange(2, 5);", self.hero_cpp)
 
+
+    def test_first_continuous_dungeon_integrated_in_startup_game_mode(self):
+        mode = (ROOT / "MoonfallUnrealGameMode.cpp").read_text(encoding="utf-8")
+        arena = (ROOT / "MoonfallArena.cpp").read_text(encoding="utf-8")
+        self.assertIn('#include "MoonfallDungeonLayout.h"', mode)
+        self.assertIn('GetWorld()->SpawnActor<AMoonfallArena>', mode)
+        self.assertIn('SpawnActorDeferred<AMoonfallDungeonLayout>', mode)
+        self.assertIn('FVector(0.f, -3100.f, 0.f)', mode)
+        self.assertIn('FRotator(0.f, -90.f, 0.f)', mode)
+        self.assertLess(mode.index('Dungeon->ZoneIndex = 0;'),
+                        mode.index('Dungeon->FinishSpawning(DungeonTransform);'))
+        self.assertLess(mode.index('Dungeon->DungeonIndex = 0;'),
+                        mode.index('Dungeon->FinishSpawning(DungeonTransform);'))
+        self.assertIn('Dungeon->bRandomizeChambers = true;', mode)
+        self.assertNotIn('OpenLevel(', mode)
+        self.assertIn('CreateBlock(FVector(-850,-1500,200),FVector(13,1,5));', arena)
+        self.assertIn('CreateBlock(FVector(850,-1500,200),FVector(13,1,5));', arena)
+        self.assertIn('CreateBlock(FVector(0,-2000,-20),FVector(5,10,0.4f));', arena)
+        self.assertNotIn('CreateBlock(FVector(0,-1500,200),FVector(30,1,5));', arena)
+        # The existing shrine, NPC, and featured-divine-boss systems remain.
+        for token in ('AMoonfallCheckpointShrine', 'AMoonfallWorldNPC',
+                      'FeaturedDivineBossId', 'FName(TEXT("z_void_reaper"))',
+                      'FName(TEXT("nyra_eclipse_queen"))'):
+            self.assertIn(token, arena)
+
 if __name__ == "__main__":
     unittest.main()
