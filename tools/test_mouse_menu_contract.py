@@ -57,9 +57,9 @@ class MouseMenusContract(unittest.TestCase):
         self.assertNotIn('_atlas_action("DEPOSIT: "+str(gear.get(', self.source)
 
     def test_new_hero_and_load_clear_item_selection(self):
-        self.assertIn('inventory_query=""\n inventory_selected_index=-1\n inventory_page=0', self.source)
+        self.assertIn('inventory_query=""\n inventory_selected_index=-1\n inventory_restore_focus=false\n inventory_page=0', self.source)
         self.assertIn('func _restore_data(data: Dictionary) -> void:\n # UI-only selection', self.source)
-        self.assertIn('inventory_selected_index=-1\n inventory_page=0\n inventory_show_vault=false', self.source)
+        self.assertIn('inventory_selected_index=-1\n inventory_restore_focus=false\n inventory_page=0\n inventory_show_vault=false', self.source)
 
     def test_vault_right_click_is_consumed_without_equipping(self):
         self.assertIn('if inventory_show_vault:\n    get_viewport().set_input_as_handled()\n    return', self.source)
@@ -98,6 +98,15 @@ class MouseMenusContract(unittest.TestCase):
         self.assertIn('CURRENTLY EQUIPPED', self.source)
         self.assertIn('This equipment is already active.', self.source)
         self.assertIn('Right-click its tile to equip or use Equip Selected.', self.source)
+
+    def test_equipped_bonus_comparison(self):
+        self.assertIn("func _inventory_bonus_label(item:Dictionary)->String:", self.source)
+        self.assertIn("[b]BONUS COMPARISON[/b]", self.source)
+        self.assertIn("Equipped bonus: ", self.source)
+        self.assertIn("Selected bonus: ", self.source)
+        self.assertIn("chosen_affix==current_affix", self.source)
+        self.assertIn("Same bonus difference:", self.source)
+        self.assertIn("Different bonus types; compare their effects", self.source)
 
     def test_inventory_search_clear_and_mouse_scroll(self):
         self.assertIn('inventory_search_input.clear_button_enabled=true', self.source)
