@@ -91,10 +91,17 @@ public:
  // Version 8: 30 stable dungeon entrances, six zones x five per zone.
  // Discovery is permanent, independent of shrine respawn progression.
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Dungeon") int32 DiscoveredDungeonMask = 0;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Dungeon|Treasure") TArray<int32> DungeonTreasureStates;
  UFUNCTION(BlueprintPure, Category="Moonfall|Dungeon") bool HasDiscoveredDungeon(int32 Zone, int32 Dungeon) const;
  UFUNCTION(BlueprintPure, Category="Moonfall|Dungeon") int32 GetDiscoveredDungeonCount(int32 Zone) const;
  UFUNCTION(BlueprintPure, Category="Moonfall|Dungeon") int32 GetNextUnchartedDungeonZone() const;
  UFUNCTION(BlueprintPure, Category="Moonfall|Dungeon") int32 GetTotalDiscoveredDungeons() const;
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Dungeon|Treasure")
+ int32 GetOrCreateDungeonTreasureCode(int32 Zone, int32 Dungeon, int32 Chamber, int32 LayoutSeed);
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Dungeon|Treasure")
+ bool CollectDungeonTreasureCode(int32 ItemCode, int32 Zone, int32 Dungeon, int32 Chamber);
+ UFUNCTION(BlueprintPure, Category="Moonfall|Dungeon|Treasure")
+ int32 GetDungeonTreasureState(int32 Zone, int32 Dungeon, int32 Chamber) const;
  UFUNCTION(BlueprintCallable, Category="Moonfall|Dungeon") bool DiscoverDungeonEntrance(int32 Zone, int32 Dungeon);
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Dungeon")
  void OnDungeonDiscovered(int32 Zone, int32 Dungeon);
@@ -377,5 +384,6 @@ private:
  void CycleGraphicsQuality();
  void ToggleDisplayMode();
  int32 RollEquipmentCode(bool bEliteEnemy, bool bBossEnemy);
+ bool CollectGroundEquipmentCodeImpl(int32 ItemCode, int32 DungeonTreasureKey);
  bool TryCast(int32 School, int32 Hand, float Multiplier);
 };
