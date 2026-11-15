@@ -3529,9 +3529,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
 
     def test_v8_dungeon_ledger_preserves_old_saves_and_rejects_bad_bits(self):
         save_h = (ROOT / "MoonfallPersistentSave.h").read_text(encoding="utf-8")
-        self.assertIn("UPROPERTY() int32 Version = 9;", save_h)
+        self.assertIn("UPROPERTY() int32 Version = 10;", save_h)
         self.assertIn("UPROPERTY() int32 DiscoveredDungeonMask = 0;", save_h)
-        self.assertIn("Version > 9", self.hero_cpp)
+        self.assertIn("Version > 10", self.hero_cpp)
         self.assertIn("Save->Version >= 8 ? Save->DiscoveredDungeonMask : 0", self.hero_cpp)
         self.assertIn("Save->DiscoveredDungeonMask = DiscoveredDungeonMask;", self.hero_cpp)
         self.assertIn("Save->Version >= 8 &&", self.hero_cpp)
@@ -3903,8 +3903,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("void OnDungeonBossSpawned(AMoonfallHeroPawn* Hero, int32 Zone, int32 Dungeon);", layout_h)
         self.assertIn("if (bFinalChamberNotified", final)
         self.assertLess(final.index("Hero->DiscoverDungeonEntrance("),
-                        final.index("if (!StartFinalBossChamber(Hero)) return;"))
-        self.assertLess(final.index("if (!StartFinalBossChamber(Hero)) return;"),
+                        final.index("&& !StartFinalBossChamber(Hero)) return;"))
+        self.assertLess(final.index("&& !StartFinalBossChamber(Hero)) return;"),
                         final.index("bFinalChamberNotified = true;"))
         self.assertLess(final.index("bFinalChamberNotified = true;"),
                         final.index("OnFinalChamberEntered(Hero);"))
@@ -3926,6 +3926,46 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("z_void_reaper", boss)
         self.assertNotIn("nyra_eclipse_queen", boss)
         self.assertNotIn("SaveWorldProgress(", boss)
+
+
+    def test_v10_boss_victory_is_saved_on_kill_and_preserves_legacy_saves(self):
+        save_h = (ROOT / "MoonfallPersistentSave.h").read_text(encoding="utf-8")
+        layout = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
+        enemy = (ROOT / "MoonfallEnemy.cpp").read_text(encoding="utf-8")
+        self.assertIn("UPROPERTY() int32 Version = 10;", save_h)
+        self.assertIn("UPROPERTY() int32 DefeatedDungeonBossMask = 0;", save_h)
+        self.assertIn("int32 DefeatedDungeonBossMask = 0;", self.hero_h)
+        self.assertIn("HasDefeatedDungeonBoss(int32 Zone, int32 Dungeon) const;", self.hero_h)
+        self.assertIn("MarkDungeonBossDefeated(int32 Zone, int32 Dungeon);", self.hero_h)
+        self.assertIn("Save->Version < 1 || Save->Version > 10", self.hero_cpp)
+        self.assertIn("Save->Version >= 10 ? Save->DefeatedDungeonBossMask : 0;", self.hero_cpp)
+        self.assertIn("Save->DefeatedDungeonBossMask = DefeatedDungeonBossMask;", self.hero_cpp)
+        self.assertIn("~static_cast<uint32>(Save->DiscoveredDungeonMask)", self.hero_cpp)
+        self.assertIn("~static_cast<uint32>(DiscoveredDungeonMask)", self.hero_cpp)
+        marker = self.hero_cpp.split("bool AMoonfallHeroPawn::MarkDungeonBossDefeated(", 1)[1].split(
+            "bool AMoonfallHeroPawn::HasDiscoveredDungeon(", 1)[0]
+        self.assertIn("!HasDiscoveredDungeon(Zone, Dungeon)", marker)
+        self.assertIn("HasDefeatedDungeonBoss(Zone, Dungeon)", marker)
+        self.assertIn("bWorldProgressLoadInProgress", marker)
+        self.assertIn("bPersistentSaveWritesBlocked", marker)
+        self.assertLess(marker.index("DefeatedDungeonBossMask |="),
+                        marker.index("if (!SaveWorldProgress())"))
+        self.assertLess(marker.index("if (!SaveWorldProgress())"),
+                        marker.index("DefeatedDungeonBossMask = PreviousMask;"))
+        final = layout.split("void AMoonfallDungeonLayout::HandleFinalChamber(", 1)[1].split(
+            "void AMoonfallDungeonLayout::HandleChamberOverlap(", 1)[0]
+        self.assertIn("Hero->HasDefeatedDungeonBoss(ZoneIndex, DungeonIndex)", final)
+        boss = layout.split("bool AMoonfallDungeonLayout::StartFinalBossChamber(", 1)[1]
+        self.assertLess(boss.index("Hero->HasDefeatedDungeonBoss(ZoneIndex, DungeonIndex)"),
+                        boss.index("SpawnActorDeferred<AMoonfallEnemy>"))
+        death = enemy.split("if (Health <= 0.0f) {", 1)[1].split(
+            "void AMoonfallEnemy::BeginFinisherDefeat(", 1)[0]
+        self.assertIn('Tags.Contains(FName(TEXT("MoonfallDungeonBoss")))', death)
+        self.assertIn("Cast<AMoonfallDungeonLayout>(GetOwner())", death)
+        self.assertIn("LivingHero->MarkDungeonBossDefeated(Dungeon->ZoneIndex, Dungeon->DungeonIndex);", death)
+        self.assertNotIn("MarkDungeonBossDefeated(", final)
+        self.assertNotIn("MarkDungeonBossDefeated(", boss)
+        self.assertIn("Hero->SpawnGroundEquipmentDrop(bElite, bBoss, GetActorLocation());", death)
 
 if __name__ == "__main__":
     unittest.main()
