@@ -153,6 +153,18 @@ class MouseMenusContract(unittest.TestCase):
         self.assertIn('Same bonus change:', hover)
         self.assertIn('Withdraw this item to equip it.', hover)
 
+    def test_material_recipe_and_consumable_hover_info(self):
+        self.assertIn('_material_hover_row(str(key),amount,stacks.size())', self.source)
+        self.assertIn('func _material_hover_row(name:String,amount:int,stack_count:int)->void:', self.source)
+        self.assertIn('row.tooltip_text=name+', self.source)
+        self.assertIn('row.mouse_filter=Control.MOUSE_FILTER_STOP', self.source)
+        self.assertIn('Storage: Materials (separate from gear bag)', self.source)
+        self.assertIn('_recipe_hover_details(recipe)', self.source)
+        self.assertIn('func _recipe_hover_details(recipe:Dictionary)->String:', self.source)
+        self.assertIn('materials.get(str(material),0)', self.source)
+        self.assertIn('Hunter\\'s Oil', self.source)
+        self.assertIn('Healing Draught', self.source)
+
     def test_inventory_search_clear_and_mouse_scroll(self):
         self.assertIn('inventory_search_input.clear_button_enabled=true', self.source)
         self.assertIn('inventory_search_input.text_changed.connect(_on_inventory_query_changed)', self.source)
