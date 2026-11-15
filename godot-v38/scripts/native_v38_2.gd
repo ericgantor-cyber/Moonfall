@@ -1086,14 +1086,6 @@ func _refresh_atlas()->void:
 
 func _unhandled_key_input(event:InputEvent)->void:
  if event is InputEventKey and event.pressed and not event.echo and is_instance_valid(atlas_panel) and atlas_panel.visible:
-  if event.keycode==KEY_EQUAL or event.keycode==KEY_KP_ADD:
-   _atlas_zoom(0.75)
-   get_viewport().set_input_as_handled()
-   return
-  if event.keycode==KEY_MINUS or event.keycode==KEY_KP_SUBTRACT:
-   _atlas_zoom(1.333333)
-   get_viewport().set_input_as_handled()
-   return
  if event is InputEventKey and event.pressed and not event.echo and event.keycode==KEY_M:
   if is_instance_valid(atlas_panel) and hero_playing and not menu_open and not death_active:
    _toggle_atlas()
