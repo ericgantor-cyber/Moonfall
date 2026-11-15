@@ -1,0 +1,22 @@
+extends SceneTree
+const Rhythm = preload("res://scripts/systems/combat_rhythm.gd")
+
+func _init() -> void:
+ assert(Rhythm.next_chain(1, 0.2) == 2)
+ assert(Rhythm.next_chain(5, 0.2) == 1)
+ assert(Rhythm.next_chain(2, 0.49) == 1)
+ assert(Rhythm.next_chain(3, NAN) == 1)
+ assert(Rhythm.chain_damage_multiplier(5, true) > Rhythm.chain_damage_multiplier(4))
+ assert(Rhythm.perfect_dodge(0.1, true))
+ assert(not Rhythm.perfect_dodge(0.2, true))
+ assert(not Rhythm.perfect_dodge(NAN, true))
+ assert(Rhythm.successful_parry(0.1, true))
+ assert(not Rhythm.successful_parry(0.1, false))
+ assert(not Rhythm.successful_parry(0.2, true))
+ assert(is_equal_approx(Rhythm.posture_after_hit(50.0, 100.0, 20.0, true), 90.0))
+ assert(Rhythm.posture_broken(100.0, 100.0))
+ assert(not Rhythm.posture_broken(10.0, 0.0))
+ assert(Rhythm.safe_stamina_cost(-5.0, 2) == 0.0)
+ assert(Rhythm.safe_stamina_cost(20.0, 5, true) > Rhythm.safe_stamina_cost(20.0, 1))
+ print("Combat rhythm rules: assertions passed")
+ quit()
