@@ -229,7 +229,7 @@ class MouseMenusContract(unittest.TestCase):
         section = self.source.split('  "Professions":', 1)[1].split('  "Hunter":', 1)[0]
         self.assertIn('"CATEGORY: "+crafting_category.to_upper()', section)
         self.assertIn('if crafting_category!="All" and category!=crafting_category:continue', section)
-        self.assertIn('"READY ×"+str(possible)', section)
+        self.assertIn('"READY ×"+str(_recipe_possible_count(entry))', section)
         self.assertIn('[b]CAN CRAFT:[/b]', section)
         helper = self.source.split('func _recipe_possible_count(recipe:Dictionary)->int:', 1)[1].split('func _recipe_hover_details(', 1)[0]
         self.assertIn('if costs.is_empty():return 0', helper)
@@ -248,6 +248,20 @@ class MouseMenusContract(unittest.TestCase):
         self.assertIn('menu_buttons.remove_child(child)', refresh)
         self.assertIn('child.queue_free()', refresh)
         self.assertLess(refresh.index('menu_buttons.remove_child(child)'), refresh.index('child.queue_free()'))
+
+    def test_recipe_ready_first_and_controller_focus(self):
+        section = self.source.split('  "Professions":', 1)[1].split('  "Hunter":', 1)[0]
+        self.assertIn('"recipe_order"', section)
+        self.assertIn('available=ready+blocked', section)
+        self.assertIn('Recipes: ', section)
+        self.assertIn('Ready: ', section)
+        self.assertIn('Missing: ', section)
+        self.assertIn('for recipe_index in available:', section)
+        self.assertIn('var crafting_ready_first:bool=false', self.source)
+        self.assertIn('var crafting_restore_focus:bool=false', self.source)
+        self.assertIn('if action=="recipe_order":', self.source)
+        self.assertIn('crafting_restore_focus=true', self.source)
+        self.assertIn('button.call_deferred("grab_focus")', self.source)
 
     def test_inventory_search_clear_and_mouse_scroll(self):
         self.assertIn('inventory_search_input.clear_button_enabled=true', self.source)
