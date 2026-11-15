@@ -706,14 +706,45 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         mouse = self.hero_cpp.split("void AMoonfallHeroPawn::ResidentContextMouseClick()", 1)[1].split("\n}", 1)[0]
         options = mouse.split("if (bOptionsOpen)", 1)[1].split("if (bInventoryOpen)", 1)[0]
         self.assertIn("const float RowGap = (MenuHeight - 130.f) / 7.f;", options)
+        self.assertIn("const float RowHeight = FMath::Min(38.f, RowGap - 2.f);", options)
         self.assertIn("const float FirstRowY = MenuTop + 63.f;", options)
         self.assertIn("const int32 ClickedRow = FMath::FloorToInt((MouseY - FirstRowY) / RowGap);", options)
         self.assertIn("ClickedRow >= 0 && ClickedRow < 7", options)
         self.assertIn("OptionsSelection = ClickedRow;", options)
+        self.assertIn("const float MinusX = MenuLeft + MenuWidth - 111.f;", options)
+        self.assertIn("const float PlusX = MenuLeft + MenuWidth - 37.f;", options)
+        self.assertIn("if (MouseX >= MinusX && MouseX <= MinusX + 25.f) AdjustOption(-1);", options)
+        self.assertIn("else if (MouseX >= PlusX && MouseX <= PlusX + 25.f) AdjustOption(1);", options)
+        self.assertLess(options.index("OptionsSelection = ClickedRow;"), options.index("AdjustOption(-1)"))
+        self.assertIn("const float MenuRowGap = (MenuHeight - 130.f) / 7.f;", self.hud)
+        self.assertIn("const float RowHeight = FMath::Min(38.f, MenuRowGap - 2.f);", self.hud)
+        self.assertIn("const float FirstRowY = MenuTop + 63.f;", self.hud)
+        self.assertIn("const float MinusX = MenuLeft + MenuWidth - 111.f;", self.hud)
+        self.assertIn("const float PlusX = MenuLeft + MenuWidth - 37.f;", self.hud)
+        self.assertIn("for (int32 i = 0; i < 7; ++i)", self.hud)
+        self.assertIn("Hero->OptionsSelection == i", self.hud)
+        self.assertIn("const FString Names[]", self.hud)
+        self.assertIn("const FString Values[]", self.hud)
+        self.assertIn("Frame generation is a preference only; no runtime integration.", self.hud)
         self.assertIn("void AMoonfallHeroPawn::OptionsLeft()", self.hero_cpp)
         self.assertIn("void AMoonfallHeroPawn::OptionsRight()", self.hero_cpp)
         self.assertIn("AdjustOption(-1);", self.hero_cpp)
         self.assertIn("AdjustOption(1);", self.hero_cpp)
+
+    def test_options_mouse_controls_only_adjust_a_selected_row(self):
+        mouse = self.hero_cpp.split("void AMoonfallHeroPawn::ResidentContextMouseClick()", 1)[1].split("\n}", 1)[0]
+        options = mouse.split("if (bOptionsOpen)", 1)[1].split("if (bInventoryOpen)", 1)[0]
+        adjust = self.hero_cpp.split("void AMoonfallHeroPawn::AdjustOption(int32 Direction)", 1)[1].split("\n}", 1)[0]
+        self.assertIn("if (MouseY <= RowY + ButtonHeight)", options)
+        self.assertIn("OptionsSelection = ClickedRow;", options)
+        self.assertIn("AdjustOption(-1);", options)
+        self.assertIn("AdjustOption(1);", options)
+        self.assertNotIn("CastLeft();", options)
+        self.assertNotIn("EquipInventoryItem(", options)
+        for index in range(7):
+            self.assertIn(f"OptionsSelection == {index}", adjust)
+        self.assertIn("Settings->SaveSettings();", adjust)
+        self.assertIn('GConfig->Flush(false, GGameUserSettingsIni);', adjust)
 
     def test_nearby_batch_loot_is_range_and_cover_safe(self):
         pickup = self.hero_cpp.split("void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[1].split(
