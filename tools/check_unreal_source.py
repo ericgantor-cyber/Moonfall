@@ -431,23 +431,33 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("InventoryItemCodes.Sort(", selection)
         self.assertNotIn("EquipInventoryItem(", selection)
 
-    def test_big_inventory_page_navigation_is_guarded_and_non_destructive(self):
+    def test_inventory_uses_mouse_and_wheel_not_keyboard_paging(self):
         inputs = (ROOT.parents[2] / "MoonfallUnreal" / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
-        for action, key in (("InventoryPageUp", "PageUp"), ("InventoryPageDown", "PageDown"),
-                            ("InventoryFirst", "Home"), ("InventoryLast", "End")):
-            self.assertIn(f'ActionName="{action}",Key={key}', inputs)
-            self.assertIn(f'BindAction(TEXT("{action}"), IE_Pressed', self.hero_cpp)
-            self.assertIn(f'void {action}();', self.hero_h)
-            method = self.hero_cpp.split(f"void AMoonfallHeroPawn::{action}()", 1)[1].split("\n}", 1)[0]
-            self.assertIn("Health <= 0.f || !bInventoryOpen || bCharacterStatsOpen || bOptionsOpen", method)
-            self.assertIn("InventorySelection =", method)
-            self.assertIn("KeepInventorySelectionVisible();", method)
-            for forbidden in ("EquipInventoryItem(", "SalvageInventoryItem(", "SaveWorldProgress(", "InventoryItemCodes.RemoveAt("):
-                self.assertNotIn(forbidden, method)
-        self.assertIn("InventorySelection + GetInventoryVisibleRows()", self.hero_cpp)
-        self.assertIn("InventorySelection - GetInventoryVisibleRows()", self.hero_cpp)
-        self.assertIn("PgUp/PgDn: page", self.hud)
-        self.assertIn("Home/End: first/last", self.hud)
+        for action in ("InventoryPageUp", "InventoryPageDown", "InventoryFirst", "InventoryLast"):
+            self.assertNotIn(f'ActionName="{action}"', inputs)
+            self.assertNotIn(f'BindAction(TEXT("{action}")', self.hero_cpp)
+            self.assertNotIn(f'void {action}();', self.hero_h)
+        hit = self.hero_cpp.split("int32 AMoonfallHeroPawn::HitTestInventoryRow() const", 1)[1].split("\n}", 1)[0]
+        self.assertIn("!bInventoryOpen || bCharacterStatsOpen || bOptionsOpen", hit)
+        self.assertIn("PC->GetMousePosition(MouseX, MouseY)", hit)
+        self.assertIn("const int32 Start = FMath::Clamp(InventoryViewStart", hit)
+        self.assertIn("const int32 End = FMath::Min(Count, Start + Rows);", hit)
+        self.assertIn("InventoryItemCodes.IsValidIndex(Index)", hit)
+        left = self.hero_cpp.split("void AMoonfallHeroPawn::ResidentContextMouseClick()", 1)[1].split("\n}", 1)[0]
+        right = self.hero_cpp.split("void AMoonfallHeroPawn::CastRightMouse()", 1)[1].split("\n}", 1)[0]
+        self.assertIn("if (bInventoryOpen)", left)
+        self.assertIn("if (HitIndex != INDEX_NONE) InventorySelection = HitIndex;", left)
+        self.assertNotIn("EquipInventoryItem(", left)
+        self.assertIn("if (bInventoryOpen)", right)
+        self.assertIn("InventorySelection = HitIndex;", right)
+        self.assertIn("EquipInventoryItem(HitIndex);", right)
+        self.assertLess(right.index("if (HitIndex != INDEX_NONE)"), right.index("EquipInventoryItem(HitIndex);"))
+        self.assertIn("PC->bShowMouseCursor = bInventoryOpen;", self.hero_cpp)
+        self.assertIn("Mouse wheel: scroll", self.hud)
+        self.assertIn("Left click: select", self.hud)
+        self.assertIn("Right click: equip", self.hud)
+        self.assertNotIn("PgUp/PgDn", self.hud)
+        self.assertNotIn("Home/End", self.hud)
 
     def test_nearby_batch_loot_is_range_and_cover_safe(self):
         pickup = self.hero_cpp.split("void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[1].split(
