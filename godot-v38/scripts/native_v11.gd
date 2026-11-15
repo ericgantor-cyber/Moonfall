@@ -1400,7 +1400,8 @@ func _menu_tab(which: String) -> void:
   "Professions":
    var text:="[b]PROFESSIONS / RECIPE BOOK[/b]\nSkinning "+str(skinning_skill)+" / 300 • "+_craft_skill_rank(skinning_skill)
    text+="\nLeatherworking "+str(crafting_skill)+" / 300 • "+_craft_skill_rank(crafting_skill)
-   text+="\n"+_craft_skill_progress(crafting_skill)+"\n\n[b]RECIPES[/b] • Select a recipe to view materials and craft it.\n"
+   text+="\n"+_craft_skill_progress(skinning_skill,"Skinning")
+   text+="\n"+_craft_skill_progress(crafting_skill,"Leatherworking")+"\n\n[b]RECIPES[/b] • Select a recipe to view materials and craft it.\n"
    _atlas_action("SHOW: "+("CRAFTABLE ONLY" if crafting_craftable_only else "ALL RECIPES"),"recipe_filter")
    var available:Array[int]=[]
    for i in range(RECIPES.size()):
@@ -1472,13 +1473,16 @@ func _craft_skill_rank(level:int)->String:
  if level>=75:return "Journeyman"
  return "Apprentice"
 
-func _craft_skill_progress(level:int)->String:
- if level>=300:return "Leatherworking: MAX RANK"
+func _craft_skill_progress(level:int,profession:String="Leatherworking")->String:
  var current:int=clampi(level,1,300)
- var next:int=75 if current<75 else 150 if current<150 else 225 if current<225 else 300
+ if current>=300:return profession+": MASTER • MAX 300/300 ["+"■".repeat(10)+"]"
+ var milestone:int=75 if current<75 else 150 if current<150 else 225 if current<225 else 300
  var start:int=1 if current<75 else 75 if current<150 else 150 if current<225 else 225
- var filled:int=clampi(int(round(10.0*float(current-start)/float(next-start))),0,10)
- return "Next rank at "+str(next)+" • ["+"■".repeat(filled)+"□".repeat(10-filled)+"]"
+ var range_size:int=milestone-start
+ var gained:int=current-start
+ var filled:int=clampi(int(round(10.0*float(gained)/float(range_size))),0,10)
+ var percent:int=clampi(int(round(100.0*float(gained)/float(range_size))),0,100)
+ return profession+": "+str(current)+"/300 • "+str(milestone-current)+" skill to "+_craft_skill_rank(milestone)+" ("+str(milestone)+") • "+str(percent)+"% ["+"■".repeat(filled)+"□".repeat(10-filled)+"]""
 
 func _recipe_hover_details(recipe:Dictionary)->String:
  var info:String=str(recipe.get("name","Recipe"))
@@ -3112,10 +3116,15 @@ func _craft(index: int) -> void:
  var result:Dictionary=INVENTORY_RULES.craft_commit(recipe,materials)
  if not result["gear"].is_empty():gear_items.append(result["gear"])
  else:_gain_material(str(result["material"]),1)
- var previous_rank:String=_craft_skill_rank(crafting_skill)
+ var skill_before:int=crafting_skill
+ var previous_rank:String=_craft_skill_rank(skill_before)
  crafting_skill=mini(300,crafting_skill+1)
  var new_rank:String=_craft_skill_rank(crafting_skill)
- _show_message("Crafted "+str(recipe["name"])+"! Leatherworking "+str(crafting_skill)+"/300"+(" • "+new_rank+" unlocked!" if new_rank!=previous_rank else ""),3)
+ var feedback:String="Crafted "+str(recipe["name"])+"! Leatherworking "+str(skill_before)+" → "+str(crafting_skill)+"/300"
+ if crafting_skill==skill_before:feedback+=" • Skill cap reached."
+ elif new_rank!=previous_rank:feedback+=" • "+new_rank.to_upper()+" RANK REACHED!"
+ else:feedback+=" • "+_craft_skill_progress(crafting_skill,"Next milestone")
+ _show_message(feedback,3)
  _save_game()
 
 func _use_consumable(item: String) -> void:
