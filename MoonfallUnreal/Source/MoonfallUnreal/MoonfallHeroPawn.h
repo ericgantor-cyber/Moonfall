@@ -338,6 +338,10 @@ private:
  void BreakGuard();
  void BeginGuard();
  void EndGuard();
+ void InventoryPageUp();
+ void InventoryPageDown();
+ void InventoryFirst();
+ void InventoryLast();
  void InventoryConfirm();
  void InventorySalvage();
  void OpenOptions();
