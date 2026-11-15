@@ -86,20 +86,60 @@ void AMoonfallCombatHUD::DrawHUD()
   const float MenuLeft = Canvas->SizeX * 0.5f - MenuWidth * 0.5f;
   const float MenuTop = Canvas->SizeY * 0.5f - MenuHeight * 0.5f;
   const float MenuRowGap = (MenuHeight - 130.f) / 7.f;
-  DrawRect(FLinearColor(0.04f,0.03f,0.11f,0.94f),MenuLeft,MenuTop,MenuWidth,MenuHeight);
+  const float RowHeight = FMath::Min(38.f, MenuRowGap - 2.f);
+  const float FirstRowY = MenuTop + 63.f;
+  const bool bCompactOptions = MenuWidth < 420.f;
+  DrawRect(FLinearColor(0.04f,0.03f,0.11f,0.94f), MenuLeft, MenuTop, MenuWidth, MenuHeight);
   const float OptionsCloseX = MenuLeft + MenuWidth - 42.f;
   DrawRect(FLinearColor(0.37f,0.16f,0.22f,0.96f), OptionsCloseX, MenuTop + 12.f, 28.f, 28.f);
   DrawText(TEXT("X"), FLinearColor::White, OptionsCloseX + 9.f, MenuTop + 16.f, nullptr, 0.9f);
-  DrawText(TEXT("MOONFALL  |  GRAPHICS & ACCESSIBILITY"),FLinearColor::White,MenuLeft+18.f,MenuTop+17.f,nullptr,1.25f);
+  DrawText(bCompactOptions ? TEXT("MOONFALL | OPTIONS") : TEXT("MOONFALL | GRAPHICS & ACCESSIBILITY"),
+      FLinearColor::White, MenuLeft + 18.f, MenuTop + 17.f, nullptr, bCompactOptions ? 0.83f : 1.05f);
   UGameUserSettings* Settings = GEngine ? GEngine->GetGameUserSettings() : nullptr;
   if (Settings) {
    float ScalePct = 100.f, ScaleNormalized = 0.f, ScaleMin = 50.f, ScaleMax = 100.f;
    Settings->GetResolutionScaleInformationEx(ScalePct, ScaleNormalized, ScaleMin, ScaleMax);
    const FIntPoint Res = Settings->GetScreenResolution();
-   const FString Rows[] = {FString::Printf(TEXT("Resolution: %d x %d"),Res.X,Res.Y),FString::Printf(TEXT("Render scale: %.0f%%"),ScalePct),FString::Printf(TEXT("Quality preset: %d (0 Low - 3 Epic)"),Settings->GetOverallScalabilityLevel()),FString::Printf(TEXT("Frame Generation: %s (%s)"),Hero->FrameGenerationPreference==0?TEXT("Off"):Hero->FrameGenerationPreference==1?TEXT("Auto"):TEXT("On"),Hero->bFrameGenerationPluginDetected?TEXT("plugin detected; inactive"):TEXT("plugin unavailable")),FString::Printf(TEXT("Reduced motion: %s"),Hero->bReduceMotion?TEXT("On"):TEXT("Off")),FString::Printf(TEXT("Combat text size: %.0f%%"),Hero->CombatTextScale * 100.f),FString::Printf(TEXT("Boss warning visibility: %.0f%%"),Hero->BossWarningScale * 100.f)};
-   for (int32 i=0;i<7;++i) DrawText(Rows[i],i==Hero->OptionsSelection?FLinearColor::Yellow:FLinearColor::White,MenuLeft+20.f,MenuTop+75.f+i*MenuRowGap,nullptr,1.1f);
+   // Short, readable values leave room for real mouse +/- targets on every row.
+   const FString ResLabel = Res == FIntPoint(1280,720) ? TEXT("720p")
+     : Res == FIntPoint(1920,1080) ? TEXT("1080p")
+     : Res == FIntPoint(2560,1440) ? TEXT("1440p")
+     : Res == FIntPoint(3840,2160) ? TEXT("4K")
+     : FString::Printf(TEXT("%dp"), Res.Y);
+   const int32 Quality = FMath::Clamp(Settings->GetOverallScalabilityLevel(), 0, 3);
+   const FString QualityName[] = {TEXT("Low"), TEXT("Med"), TEXT("High"), TEXT("Epic")};
+   const FString FrameStatus = Hero->FrameGenerationPreference == 0 ? TEXT("Off")
+     : Hero->FrameGenerationPreference == 1 ? TEXT("Auto") : TEXT("On");
+   const FString Names[] = {TEXT("Resolution"), TEXT("Render scale"), TEXT("Quality"),
+     TEXT("Frame gen"), TEXT("Reduced motion"), TEXT("Combat text"), TEXT("Boss alerts")};
+   const FString Values[] = {ResLabel, FString::Printf(TEXT("%.0f%%"), ScalePct),
+     QualityName[Quality], FrameStatus, Hero->bReduceMotion ? TEXT("On") : TEXT("Off"),
+     FString::Printf(TEXT("%.0f%%"), Hero->CombatTextScale * 100.f),
+     FString::Printf(TEXT("%.0f%%"), Hero->BossWarningScale * 100.f)};
+   const float MinusX = MenuLeft + MenuWidth - 111.f;
+   const float PlusX = MenuLeft + MenuWidth - 37.f;
+   for (int32 i = 0; i < 7; ++i) {
+    const float Y = FirstRowY + i * MenuRowGap;
+    const bool bSelected = Hero->OptionsSelection == i;
+    DrawRect(bSelected ? FLinearColor(0.22f,0.18f,0.36f,0.98f)
+                       : FLinearColor(0.09f,0.08f,0.16f,0.94f),
+       MenuLeft + 10.f, Y, MenuWidth - 20.f, RowHeight);
+    DrawText(Names[i], bSelected ? FLinearColor(0.96f,0.86f,0.56f) : FLinearColor::White,
+       MenuLeft + 17.f, Y + 3.f, nullptr, bCompactOptions ? 0.75f : 0.96f);
+    const float ButtonHeight = FMath::Min(26.f, RowHeight);
+    DrawRect(FLinearColor(0.20f,0.25f,0.37f,0.98f), MinusX, Y, 25.f, ButtonHeight);
+    DrawRect(FLinearColor(0.20f,0.25f,0.37f,0.98f), PlusX, Y, 25.f, ButtonHeight);
+    DrawText(TEXT("-"), FLinearColor::White, MinusX + 9.f, Y + 2.f, nullptr, 0.95f);
+    DrawText(TEXT("+"), FLinearColor::White, PlusX + 7.f, Y + 2.f, nullptr, 0.95f);
+    DrawText(Values[i], FLinearColor(0.75f,0.90f,1.f), MinusX + 28.f, Y + 3.f,
+      nullptr, bCompactOptions ? 0.68f : 0.79f);
+   }
   }
-  DrawText(TEXT("WASD / Arrows / D-pad: navigate    Esc / Start: close"),FLinearColor::White,MenuLeft+18.f,MenuTop+MenuHeight-28.f,nullptr,0.85f);
+  const FString Hint = Hero->OptionsSelection == 3
+    ? TEXT("Frame generation is a preference only; no runtime integration.")
+    : TEXT("Click +/- or use Left/Right | D-pad | Esc/Start: close");
+  DrawText(Hint, FLinearColor(0.74f,0.81f,0.91f), MenuLeft + 15.f,
+     MenuTop + MenuHeight - 28.f, nullptr, bCompactOptions ? 0.60f : 0.72f);
   return;
  }
  if (Hero->bInventoryOpen) {
