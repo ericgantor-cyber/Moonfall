@@ -651,8 +651,27 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(mouse.index("NpcCloseX ="), mouse.index("for (int32 Row = 0; Row < 3; ++Row)"))
         self.assertIn("PC->bShowMouseCursor = bOptionsOpen;", options)
         self.assertIn("ToggleInventory(); // Same cleanup path as the mouse close button.", options)
+        self.assertIn("if (bCharacterStatsOpen)", options)
+        self.assertIn("bCharacterStatsOpen = false;", options)
+        self.assertIn("bInventoryScrollbarDragging = false;", options)
+        self.assertLess(options.index("if (bCharacterStatsOpen)"), options.index("ToggleInventory(); // Same cleanup path as the mouse close button."))
         for forbidden in ("EquipInventoryItem(", "SalvageInventoryItem(", "SaveWorldProgress("):
             self.assertNotIn(forbidden, options)
+
+    def test_escape_closes_each_native_modal_and_backs_out_of_character_sheet(self):
+        options = self.hero_cpp.split("void AMoonfallHeroPawn::OpenOptions()", 1)[1].split("\n}", 1)[0]
+        close = self.hero_cpp.split("void AMoonfallHeroPawn::CloseResidentContext()", 1)[1].split("\n}", 1)[0]
+        self.assertIn("if (FocusedResident.IsValid()) { CloseResidentContext(); return; }", options)
+        self.assertIn("if (bOptionsOpen)", self.hero_cpp)
+        self.assertIn("if (bInventoryOpen)", options)
+        self.assertIn("if (bCharacterStatsOpen)", options)
+        self.assertIn("bCharacterStatsOpen = false;", options)
+        self.assertIn("ToggleInventory(); // Same cleanup path as the mouse close button.", options)
+        self.assertIn("bInventoryScrollbarDragging = false;", options)
+        self.assertIn("bOptionsOpen = !bOptionsOpen;", options)
+        self.assertIn("PC->bShowMouseCursor = bOptionsOpen;", options)
+        self.assertIn("bResidentContextOpen = false;", close)
+        self.assertIn("OnResidentContextClosed();", close)
 
     def test_nearby_batch_loot_is_range_and_cover_safe(self):
         pickup = self.hero_cpp.split("void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[1].split(
