@@ -3486,5 +3486,23 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                        "InventoryItemCodes.Add(", "InventoryItemCodes.RemoveAt("):
             self.assertNotIn(action, advisor)
 
+
+    def test_mainline_dungeon_entrance_has_no_unmerged_quest_dependency(self):
+        entrance_h = (ROOT / "MoonfallDungeonEntrance.h").read_text(encoding="utf-8")
+        entrance_cpp = (ROOT / "MoonfallDungeonEntrance.cpp").read_text(encoding="utf-8")
+        self.assertIn("class MOONFALLUNREAL_API AMoonfallDungeonEntrance", entrance_h)
+        self.assertIn("void OnEntranceVisited(AMoonfallHeroPawn* Hero, int32 Zone, int32 Dungeon);", entrance_h)
+        self.assertIn("PrimaryActorTick.bCanEverTick = false;", entrance_cpp)
+        self.assertIn("SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap)", entrance_cpp)
+        self.assertIn("ZoneIndex >= 6 || DungeonIndex < 0 || DungeonIndex >= 5", entrance_cpp)
+        self.assertIn("Hero->IsPlayerControlled()", entrance_cpp)
+        self.assertIn("!FMath::IsFinite(Hero->Health) || Hero->Health <= 0.f", entrance_cpp)
+        self.assertIn("if (bVisitedThisSession) return;", entrance_cpp)
+        self.assertLess(entrance_cpp.index("bVisitedThisSession = true;"),
+                        entrance_cpp.index("OnEntranceVisited(Hero, ZoneIndex, DungeonIndex);"))
+        self.assertNotIn("DiscoverDungeonEntrance(", entrance_cpp)
+        self.assertNotIn("SaveWorldProgress(", entrance_cpp)
+        self.assertNotIn("AddExperience(", entrance_cpp)
+
 if __name__ == "__main__":
     unittest.main()
