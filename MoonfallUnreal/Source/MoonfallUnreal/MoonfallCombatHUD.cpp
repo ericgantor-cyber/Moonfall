@@ -310,6 +310,34 @@ void AMoonfallCombatHUD::DrawHUD()
      bAscendable && Hero->Salvage >= AscendCost
        ? FLinearColor(0.55f,0.92f,0.75f) : FLinearColor(0.96f,0.66f,0.46f),
      Left + 18.f, Top + PanelHeight - 135.f, nullptr, 0.74f);
+   // Compare the highlighted item against the currently equipped item in
+   // the same slot. This is informational only and never changes gear.
+   const int32 EquippedCode = SelectedSlot == 0 ? Hero->EquippedWeaponCode
+     : SelectedSlot == 1 ? Hero->EquippedArmorCode
+     : SelectedSlot == 2 ? Hero->EquippedAccessoryCode : 0;
+   const int32 EquippedTier = EquippedCode > 0 ? EquippedCode % 1000 : 0;
+   const int32 EquippedRarity = EquippedCode > 0 ? (EquippedCode / 1000) % 10 : 0;
+   const int32 EquippedAffix = EquippedCode > 0 ? EquippedCode / 100000 : 0;
+   const int32 TierDelta = SelectedTier - EquippedTier;
+   const int32 RarityDelta = SelectedRarity - EquippedRarity;
+   const TCHAR* CompareWord = EquippedCode <= 0 ? TEXT("EMPTY SLOT")
+     : TierDelta > 0 || (TierDelta == 0 && RarityDelta > 0) ? TEXT("UPGRADE")
+     : TierDelta < 0 || (TierDelta == 0 && RarityDelta < 0) ? TEXT("LOWER")
+     : TEXT("SIDEGRADE");
+   const FString CompareLine = EquippedCode <= 0
+     ? FString::Printf(TEXT("Compare: %s  |  equipped slot is empty"), CompareWord)
+     : FString::Printf(TEXT("Compare: %s  |  T%d / %s / %s  vs  T%d / %s / %s"),
+       CompareWord, SelectedTier,
+       SelectedRarity <= 5 ? Rarities[SelectedRarity] : TEXT("Invalid"),
+       SelectedAffix <= 3 ? Traits[SelectedAffix] : TEXT("Invalid"),
+       EquippedTier,
+       EquippedRarity <= 5 ? Rarities[EquippedRarity] : TEXT("Invalid"),
+       EquippedAffix <= 3 ? Traits[EquippedAffix] : TEXT("Invalid"));
+   DrawText(CompareLine,
+     CompareWord == FString(TEXT("UPGRADE")) ? FLinearColor(0.42f,0.96f,0.62f)
+       : CompareWord == FString(TEXT("LOWER")) ? FLinearColor(0.96f,0.62f,0.42f)
+       : FLinearColor(0.78f,0.86f,1.f),
+     Left + 18.f, Top + PanelHeight - 110.f, nullptr, PanelWidth < 550.f ? 0.57f : 0.68f);
    const int32 NextCost = 4 + SelectedTier * 2 + SelectedRarity * 3;
    const FString ForgeStatus = !bForgeable ? TEXT("Crafting: MAX TIER or invalid")
      : FString::Printf(TEXT("Next tier: %d salvage  [%s]"),
