@@ -1075,9 +1075,15 @@ func _build_ui() -> void:
  var layout:=VBoxContainer.new()
  layout.add_theme_constant_override("separation",5)
  frame.add_child(layout)
+ var tab_scroll:=ScrollContainer.new()
+ tab_scroll.custom_minimum_size=Vector2(0,40)
+ tab_scroll.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+ tab_scroll.vertical_scroll_mode=ScrollContainer.SCROLL_MODE_DISABLED
+ tab_scroll.follow_focus=true
+ layout.add_child(tab_scroll)
  var tabs:=HBoxContainer.new()
  tabs.add_theme_constant_override("separation",3)
- layout.add_child(tabs)
+ tab_scroll.add_child(tabs)
  for tab in ["Character","World","Wallet","Inventory","Materials","Hero Skills","Tamer","Professions","Hunter","Bestiary","System"]:
   var tab_button:=Button.new()
   tab_button.text=tab
@@ -1088,10 +1094,12 @@ func _build_ui() -> void:
   tabs.add_child(tab_button)
   if not is_instance_valid(atlas_first_tab):atlas_first_tab=tab_button
  var contents:=HBoxContainer.new()
+ contents.size_flags_vertical=Control.SIZE_EXPAND_FILL
  contents.add_theme_constant_override("separation",8)
  layout.add_child(contents)
  var guide_column:=VBoxContainer.new()
- guide_column.custom_minimum_size=Vector2(270,470)
+ guide_column.custom_minimum_size=Vector2(270,400)
+ guide_column.size_flags_vertical=Control.SIZE_EXPAND_FILL
  contents.add_child(guide_column)
  beast_guide=TextureRect.new()
  beast_guide.custom_minimum_size=Vector2(268,165)
@@ -1109,6 +1117,7 @@ func _build_ui() -> void:
  guide_column.add_child(inventory_search_input)
  var action_scroll:=ScrollContainer.new()
  action_scroll.custom_minimum_size=Vector2(268,195)
+ action_scroll.size_flags_vertical=Control.SIZE_EXPAND_FILL
  action_scroll.follow_focus=true
  action_scroll.tooltip_text="Scroll the action list with your mouse wheel."
  guide_column.add_child(action_scroll)
@@ -1116,7 +1125,8 @@ func _build_ui() -> void:
  menu_buttons.add_theme_constant_override("separation",3)
  action_scroll.add_child(menu_buttons)
  var scroller:=ScrollContainer.new()
- scroller.custom_minimum_size=Vector2(780,468)
+ scroller.custom_minimum_size=Vector2(735,420)
+ scroller.size_flags_vertical=Control.SIZE_EXPAND_FILL
  scroller.size_flags_horizontal=Control.SIZE_EXPAND_FILL
  scroller.follow_focus=true
  scroller.tooltip_text="Scroll character details, inventory details, and settings with your mouse wheel."
@@ -1642,6 +1652,8 @@ func _atlas_action(label: String, action: String, tip: String="") -> void:
  button.custom_minimum_size=Vector2(260,32)
  button.add_theme_font_size_override("font_size",13)
  button.alignment=HORIZONTAL_ALIGNMENT_LEFT
+ button.clip_text=true
+ button.size_flags_horizontal=Control.SIZE_EXPAND_FILL
  button.focus_mode=Control.FOCUS_ALL
  if current_tab=="Professions" and action=="craft_selected":
   if crafting_selected_index<0 or crafting_selected_index>=RECIPES.size():button.disabled=true
