@@ -25,6 +25,14 @@ class AtlasMouseControls(unittest.TestCase):
         self.assertIn("waypoint_cleared.emit()", self.chart)
         self.assertIn('atlas_chart.connect("waypoint_cleared",_atlas_clear)', self.screen)
 
+    def test_atlas_keyboard_handler_has_no_empty_zoom_branch(self):
+        handler = self.screen.split("func _unhandled_key_input(event:InputEvent)->void:", 1)[1].split("func _process(", 1)[0]
+        self.assertIn("event.keycode==KEY_M:", handler)
+        self.assertIn("_toggle_atlas()", handler)
+        self.assertNotIn("and atlas_panel.visible:\n  if event", handler)
+        self.assertNotIn("KEY_EQUAL", handler)
+        self.assertNotIn("KEY_MINUS", handler)
+
     def test_no_plus_minus_zoom_buttons(self):
         self.assertNotIn('"ZOOM +"', self.screen)
         self.assertNotIn('"ZOOM -"', self.screen)
