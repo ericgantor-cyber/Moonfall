@@ -215,7 +215,7 @@ void AMoonfallCombatHUD::DrawHUD()
    DrawText(FString::Printf(TEXT("Level %d  |  XP %d / %d  |  Salvage %d"),
       Hero->Level, Hero->Experience, Hero->ExperienceToNextLevel, Hero->Salvage),
       FLinearColor(0.78f,0.83f,1.f), Left + 18.f, Top + 57.f, nullptr, 0.95f);
-   const float RowHeight = FMath::Clamp((PanelHeight - 145.f) / 11.f, 13.f, 36.f);
+   const float RowHeight = FMath::Clamp((PanelHeight - 145.f) / 13.f, 11.f, 31.f);
    const float StartY = Top + 96.f;
    const FString CharacterLines[] = {
      TEXT("PRIMARY ATTRIBUTES"),
@@ -236,11 +236,19 @@ void AMoonfallCombatHUD::DrawHUD()
      FString::Printf(TEXT("Ward %d/3: 2pc +3%% vers; 3pc +2.5%% protection"),
        Hero->GetSetPieceCount(2)),
      FString::Printf(TEXT("Focus %d/3: 2pc +4%% haste; 3pc +6%% mana regen"),
-       Hero->GetSetPieceCount(3))
+       Hero->GetSetPieceCount(3)),
+     TEXT("DUNGEON EXPLORATION"),
+     Hero->GetNextUnchartedDungeonZone() == INDEX_NONE
+       ? FString::Printf(TEXT("ALL 6 ZONES CHARTED  |  %d / 30 entrances"),
+           Hero->GetTotalDiscoveredDungeons())
+       : FString::Printf(TEXT("Zone %d: %d / 5  |  Total: %d / 30"),
+           Hero->GetNextUnchartedDungeonZone() + 1,
+           Hero->GetDiscoveredDungeonCount(Hero->GetNextUnchartedDungeonZone()),
+           Hero->GetTotalDiscoveredDungeons())
    };
    for (int32 Row = 0; Row < UE_ARRAY_COUNT(CharacterLines); ++Row)
     DrawText(CharacterLines[Row],
-      Row == 0 || Row == 4 || Row == 7 ? FLinearColor(0.52f,0.91f,0.76f) : FLinearColor::White,
+      Row == 0 || Row == 4 || Row == 7 || Row == 11 ? FLinearColor(0.52f,0.91f,0.76f) : FLinearColor::White,
       Left + 18.f, StartY + Row * RowHeight, nullptr,
       PanelHeight < 360.f ? 0.55f : (Canvas->SizeX < 900.f ? 0.75f : 0.90f));
    DrawText(TEXT("C / P / A: back to inventory    B / I / Select / Esc: close"),

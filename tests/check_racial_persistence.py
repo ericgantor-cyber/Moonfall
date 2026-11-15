@@ -35,11 +35,11 @@ class TestRacialPersistence(unittest.TestCase):
         self.assertIn("if (!bRaceChosen || !GetWorld()", self.cpp)
 
     def test_persistent_cooldown_and_save_migration(self):
-        self.assertIn("int32 Version = 7", self.save)
+        self.assertIn("int32 Version = 9", self.save)
         self.assertIn("int64 RacePowerReadyUtc", self.save)
         self.assertIn("FDateTime::UtcNow().ToUnixTimestamp()", self.cpp)
         self.assertIn("Save->RacePowerReadyUtc =", self.cpp)
-        self.assertIn("Save->Version < 1 || Save->Version > 7", self.cpp)
+        self.assertIn("Save->Version < 1 || Save->Version > 9", self.cpp)
         self.assertIn("Save->Version >= 3 && Save->RacePowerReadyUtc > NowUtc", self.cpp)
         self.assertIn("RacePowerReadyAt = GetWorld()", self.cpp)
         self.assertIn("if (!SaveWorldProgress()) {", self.cpp)
@@ -188,8 +188,10 @@ class TestRacialPersistence(unittest.TestCase):
         self.assertIn("|| DiscoveredShrineIds.Num() > 64", saver)
         self.assertIn("Save->InventoryItemCodes = InventoryItemCodes;", saver)
         self.assertIn("Save->InventoryItemCodes.Num() > 10000", loader)
-        self.assertIn("!Hero->CollectGroundEquipmentCode(ItemCode)", pickup)
-        self.assertLess(pickup.index("Hero->CollectGroundEquipmentCode(ItemCode)"),
+        self.assertIn("Hero->CollectGroundEquipmentCode(ItemCode)", pickup)
+        self.assertIn("Hero->CollectDungeonTreasureCode(ItemCode, RewardZone, RewardDungeon, RewardChamber)", pickup)
+        self.assertIn("if (!bSaved) return false;", pickup)
+        self.assertLess(pickup.index("if (!bSaved) return false;"),
                         pickup.index("bCollected = true;"))
         self.assertLess(pickup.index("bCollected = true;"), pickup.index("Destroy();"))
 
@@ -249,7 +251,7 @@ class TestRacialPersistence(unittest.TestCase):
         self.assertIn("bPersistentSaveWritesBlocked || !bHasRespawnCheckpointLocation", save)
         self.assertLess(save.index("if (!bWorldProgressInitialized || bWorldProgressLoadInProgress"),
                         save.index("UGameplayStatics::SaveGameToSlot("))
-        self.assertIn("Save->Version < 1 || Save->Version > 7", load)
+        self.assertIn("Save->Version < 1 || Save->Version > 9", load)
         self.assertIn("bPersistentSaveWritesBlocked = true;", load)
         self.assertIn("bPersistentSaveWritesBlocked = false;", load)
         self.assertLess(load.index("bPersistentSaveWritesBlocked = true;"),
@@ -527,7 +529,7 @@ class TestRacialPersistence(unittest.TestCase):
                         discover.index("if (!SaveWorldProgress()) {"))
 
     def test_last_discovered_shrine_controls_respawn_not_autosave(self):
-        self.assertIn("int32 Version = 7;", self.save)
+        self.assertIn("int32 Version = 9;", self.save)
         self.assertIn("FName ActiveShrineId = NAME_None;", self.save)
         self.assertIn("TArray<FName> DiscoveredShrineIds;", self.save)
         self.assertIn("bool DiscoverShrine(AMoonfallCheckpointShrine* Shrine)", self.header)

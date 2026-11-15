@@ -67,6 +67,15 @@ void AMoonfallGroundLoot::InitializeLoot(int32 InItemCode)
   PickupMaterial->SetVectorParameterValue(TEXT("Color"), FLinearColor(QualityColor));
 }
 
+void AMoonfallGroundLoot::InitializeDungeonReward(int32 Zone, int32 Dungeon, int32 Chamber)
+{
+ if (Zone < 0 || Zone >= 6 || Dungeon < 0 || Dungeon >= 5
+     || Chamber <= 0 || Chamber >= 13 || ItemCode <= 0) return;
+ RewardZone = Zone;
+ RewardDungeon = Dungeon;
+ RewardChamber = Chamber;
+}
+
 bool AMoonfallGroundLoot::TryCollect()
 {
  if (bCollected || ItemCode <= 0) return false;
@@ -92,7 +101,11 @@ bool AMoonfallGroundLoot::TryCollect()
      HeroPosition + FVector(0.f, 0.f, 40.f),
      LootPosition + FVector(0.f, 0.f, 40.f),
      ECC_Visibility, SightParams)) return false;
- if (!Hero->CollectGroundEquipmentCode(ItemCode)) return false;
+ const bool bDungeonTreasure = RewardZone != INDEX_NONE;
+ const bool bSaved = bDungeonTreasure
+   ? Hero->CollectDungeonTreasureCode(ItemCode, RewardZone, RewardDungeon, RewardChamber)
+   : Hero->CollectGroundEquipmentCode(ItemCode);
+ if (!bSaved) return false;
  bCollected = true;
  Destroy();
  return true;

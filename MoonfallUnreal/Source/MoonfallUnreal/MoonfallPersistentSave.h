@@ -8,8 +8,11 @@ UCLASS()
 class MOONFALLUNREAL_API UMoonfallPersistentSave : public USaveGame {
  GENERATED_BODY()
 public:
- // Version 7: separate shrine checkpoints from two-second progress autosaves.
- UPROPERTY() int32 Version = 7;
+ // Version 9: persistent per-chamber treasure, added to the V8 discovery ledger.
+ UPROPERTY() int32 Version = 9;
+ // 30 dungeons * 14 rooms. 0: ungenerated, positive: pending, -1: collected.
+ UPROPERTY() TArray<int32> DungeonTreasureStates;
+ UPROPERTY() int32 DiscoveredDungeonMask = 0;
  UPROPERTY() TMap<FName, int32> ResidentQuestStates;
  UPROPERTY() TMap<FName, int32> ResidentBonds;
  UPROPERTY() TMap<FName, int32> FactionReputation;

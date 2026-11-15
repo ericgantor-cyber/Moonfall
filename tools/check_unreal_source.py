@@ -446,7 +446,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("if (!SaveWorldProgress()) {", collect)
         failed_save = collect.split("if (!SaveWorldProgress()) {", 1)[1].split("return false;", 1)[0]
         self.assertIn("InventoryItemCodes.RemoveAt(AddedIndex);", failed_save)
-        self.assertEqual(collect.count("InventoryItemCodes.RemoveAt("), 1)
+        self.assertEqual(collect.count("InventoryItemCodes.RemoveAt("), 2)  # invalid reward or failed disk write
         self.assertIn("PrimaryActorTick.bCanEverTick = false;", ground_cpp)
         self.assertIn("CreateDefaultSubobject<UTextRenderComponent>", ground_cpp)
         self.assertIn("CreateDefaultSubobject<UStaticMeshComponent>", ground_cpp)
@@ -932,7 +932,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("SightParams.AddIgnoredActor(this);", method)
         self.assertIn("GetWorld()->LineTraceSingleByChannel(SightHit,", method)
         self.assertIn("ECC_Visibility, SightParams)) return false;", method)
-        self.assertIn("if (!Hero->CollectGroundEquipmentCode(ItemCode)) return false;", method)
+        self.assertIn("if (!bSaved) return false;", method)
         self.assertLess(method.index("DistanceSq > FMath::Square(250.f)"),
                         method.index("Hero->CollectGroundEquipmentCode(ItemCode)"))
         self.assertLess(method.index("GetWorld()->LineTraceSingleByChannel(SightHit,"),
@@ -957,8 +957,10 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("if (!SaveWorldProgress()) {", collect)
         self.assertIn("InventoryItemCodes.RemoveAt(AddedIndex);", collect)
         self.assertLess(collect.index("if (!SaveWorldProgress()) {"),
-                        collect.index("InventoryItemCodes.RemoveAt(AddedIndex);"))
-        self.assertLess(collect.index("InventoryItemCodes.RemoveAt(AddedIndex);"),
+                        collect.index("InventoryItemCodes.RemoveAt(AddedIndex);",
+                                      collect.index("if (!SaveWorldProgress()) {")))
+        self.assertLess(collect.index("InventoryItemCodes.RemoveAt(AddedIndex);",
+                                      collect.index("if (!SaveWorldProgress()) {")),
                         collect.index("return false;", collect.index("if (!SaveWorldProgress()) {")))
         self.assertLess(collect.index("if (!SaveWorldProgress()) {"), collect.rindex("return true;"))
 
@@ -2174,8 +2176,17 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("bComboSecondHitActive = false", damage)
 
     def test_enemy_ai_uses_distance_based_tick_intervals(self):
-        self.assertIn("bInCombatArea ? 0.1f : 0.4f", self.enemy_cpp)
-        self.assertIn("SetActorTickInterval(DesiredTickInterval)", self.enemy_cpp)
+        tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
+        self.assertIn("const bool bDistantDungeonMob = !bBoss && !bElite && !bInCombatArea", tick)
+        self.assertIn('Tags.Contains(FName(TEXT("MoonfallDungeonEncounter")))', tick)
+        self.assertIn("bDistantDungeonMob ? 1.0f : 0.4f", tick)
+        self.assertIn("bInCombatArea ? 0.1f", tick)
+        self.assertIn("bDashing ? 0.03f", tick)
+        self.assertLess(tick.index("const float Distance = Difference.Size();"),
+                        tick.index("const bool bDistantDungeonMob"))
+        self.assertLess(tick.index("const bool bDistantDungeonMob"),
+                        tick.index("SetActorTickInterval(DesiredTickInterval)"))
+        self.assertIn("SetActorTickInterval(DesiredTickInterval)", tick)
 
     def test_every_enemy_melee_can_reward_a_precise_dodge(self):
         impact = self.enemy_cpp.split("if (!bBlocked) {", 1)[1].split(
@@ -3115,7 +3126,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("const bool bLegacyGodSlot = !bSingleDivineEncounter && Count >= 5", arena)
         self.assertIn("const bool bZ = bNamedGodSlot ? bZEncounter : i == Count - 2;", arena)
         self.assertIn("else if (!bSingleDivineEncounter && Count == 4", arena)
-        self.assertEqual(arena.count("CreateBlock(FVector("), 9)
+        self.assertEqual(arena.count("CreateBlock(FVector("), 11)  # south gate and road add two blocks
         self.assertNotIn("PrimaryActorTick.bCanEverTick = true", arena)
         self.assertLess(arena.index("Enemy->DivineBossId ="), arena.index("FinishSpawningActor(Enemy, SpawnTransform)"))
 
@@ -3485,6 +3496,400 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         for action in ("EquipInventoryItem(", "EquipBestInventoryUpgrades(", "SaveWorldProgress(",
                        "InventoryItemCodes.Add(", "InventoryItemCodes.RemoveAt("):
             self.assertNotIn(action, advisor)
+
+
+    def test_mainline_dungeon_entrance_has_no_unmerged_quest_dependency(self):
+        entrance_h = (ROOT / "MoonfallDungeonEntrance.h").read_text(encoding="utf-8")
+        entrance_cpp = (ROOT / "MoonfallDungeonEntrance.cpp").read_text(encoding="utf-8")
+        self.assertIn("class MOONFALLUNREAL_API AMoonfallDungeonEntrance", entrance_h)
+        self.assertIn("void OnEntranceVisited(AMoonfallHeroPawn* Hero, int32 Zone, int32 Dungeon);", entrance_h)
+        self.assertIn("PrimaryActorTick.bCanEverTick = false;", entrance_cpp)
+        self.assertIn("SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap)", entrance_cpp)
+        self.assertIn("ZoneIndex >= 6 || DungeonIndex < 0 || DungeonIndex >= 5", entrance_cpp)
+        self.assertIn("Hero->IsPlayerControlled()", entrance_cpp)
+        self.assertIn("!FMath::IsFinite(Hero->Health) || Hero->Health <= 0.f", entrance_cpp)
+        self.assertIn("if (bVisitedThisSession || !bEntranceEnabled || GetDungeonEntranceKey() == INDEX_NONE) return;", entrance_cpp)
+        self.assertIn("int32 GetDungeonEntranceKey() const;", entrance_h)
+        self.assertIn("return ZoneIndex * 5 + DungeonIndex;", entrance_cpp)
+        self.assertIn("return INDEX_NONE;", entrance_cpp)
+        self.assertIn("void SetEntranceEnabled(bool bEnabled);", entrance_h)
+        self.assertIn("SetEntranceEnabled(bEntranceEnabled);", entrance_cpp)
+        self.assertIn("bEntranceEnabled && !bVisitedThisSession && GetDungeonEntranceKey() != INDEX_NONE", entrance_cpp)
+        self.assertIn("DiscoveryTrigger->SetGenerateOverlapEvents(false);", entrance_cpp)
+        self.assertLess(entrance_cpp.index("bVisitedThisSession = true;"),
+                        entrance_cpp.index("OnEntranceVisited(Hero, ZoneIndex, DungeonIndex);"))
+        self.assertIn("Hero->DiscoverDungeonEntrance(ZoneIndex, DungeonIndex)", entrance_cpp)
+        self.assertIn("Hero->HasDiscoveredDungeon(ZoneIndex, DungeonIndex)", entrance_cpp)
+        self.assertIn("if (!bAlreadyDiscovered)", entrance_cpp)
+        self.assertLess(entrance_cpp.index("Hero->DiscoverDungeonEntrance("),
+                        entrance_cpp.index("bVisitedThisSession = true;"))
+        self.assertNotIn("SaveWorldProgress(", entrance_cpp)
+        self.assertNotIn("AddExperience(", entrance_cpp)
+
+
+    def test_v8_dungeon_ledger_preserves_old_saves_and_rejects_bad_bits(self):
+        save_h = (ROOT / "MoonfallPersistentSave.h").read_text(encoding="utf-8")
+        self.assertIn("UPROPERTY() int32 Version = 9;", save_h)
+        self.assertIn("UPROPERTY() int32 DiscoveredDungeonMask = 0;", save_h)
+        self.assertIn("Version > 9", self.hero_cpp)
+        self.assertIn("Save->Version >= 8 ? Save->DiscoveredDungeonMask : 0", self.hero_cpp)
+        self.assertIn("Save->DiscoveredDungeonMask = DiscoveredDungeonMask;", self.hero_cpp)
+        self.assertIn("Save->Version >= 8 &&", self.hero_cpp)
+        self.assertIn("~((1u << 30) - 1u)", self.hero_cpp)
+        self.assertIn("bPersistentSaveWritesBlocked = true;", self.hero_cpp)
+
+    def test_dungeon_discovery_does_not_reward_failed_saves(self):
+        discovery = self.hero_cpp.split(
+            "bool AMoonfallHeroPawn::DiscoverDungeonEntrance(int32 Zone, int32 Dungeon)", 1
+        )[1].split("bool AMoonfallHeroPawn::SaveWorldProgress()", 1)[0]
+        for guard in ("Zone < 0 || Zone >= 6", "Dungeon < 0 || Dungeon >= 5",
+                      "bPersistentSaveWritesBlocked", "HasDiscoveredDungeon(Zone, Dungeon)"):
+            self.assertIn(guard, discovery)
+        self.assertIn("DiscoveredDungeonMask = PreviousMask;", discovery)
+        self.assertLess(discovery.index("if (!SaveWorldProgress())"),
+                        discovery.index("OnDungeonDiscovered(Zone, Dungeon);"))
+        self.assertNotIn("Experience +=", discovery)
+        self.assertIn("return true;", discovery)
+        self.assertIn("GetDiscoveredDungeonCount(int32 Zone) const", self.hero_cpp)
+
+
+    def test_zone_charting_is_exactly_fifth_saved_discovery(self):
+        self.assertIn("int32 GetNextUnchartedDungeonZone() const;", self.hero_h)
+        self.assertIn("int32 GetTotalDiscoveredDungeons() const;", self.hero_h)
+        self.assertIn("void OnDungeonZoneCharted(int32 Zone);", self.hero_h)
+        section = self.hero_cpp.split(
+            "bool AMoonfallHeroPawn::DiscoverDungeonEntrance(int32 Zone, int32 Dungeon)", 1
+        )[1].split("bool AMoonfallHeroPawn::SaveWorldProgress()", 1)[0]
+        self.assertIn("GetDiscoveredDungeonCount(Zone) == 4", section)
+        self.assertIn("if (bCompletesZone) OnDungeonZoneCharted(Zone);", section)
+        self.assertLess(section.index("if (!SaveWorldProgress())"),
+                        section.index("OnDungeonZoneCharted(Zone);"))
+        next_zone = self.hero_cpp.split(
+            "int32 AMoonfallHeroPawn::GetNextUnchartedDungeonZone() const", 1
+        )[1].split("int32 AMoonfallHeroPawn::GetTotalDiscoveredDungeons() const", 1)[0]
+        self.assertIn("GetDiscoveredDungeonCount(Zone) < 5", next_zone)
+        self.assertIn("return INDEX_NONE;", next_zone)
+
+    def test_character_page_shows_30_dungeon_exploration_progress(self):
+        page = self.hud.split("if (Hero->bCharacterStatsOpen) {", 1)[1].split(
+            "// Identical button rectangle", 1)[0]
+        self.assertIn("DUNGEON EXPLORATION", page)
+        self.assertIn("ALL 6 ZONES CHARTED", page)
+        self.assertIn("Zone %d: %d / 5  |  Total: %d / 30", page)
+        self.assertIn("Hero->GetTotalDiscoveredDungeons()", page)
+        self.assertIn("Hero->GetNextUnchartedDungeonZone()", page)
+        self.assertIn("(PanelHeight - 145.f) / 13.f", page)
+
+
+    def test_main_based_dungeon_layout_has_connected_colliding_rooms(self):
+        layout_h = (ROOT / "MoonfallDungeonLayout.h").read_text(encoding="utf-8")
+        layout = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
+        self.assertIn("class MOONFALLUNREAL_API AMoonfallDungeonLayout", layout_h)
+        self.assertIn("static constexpr int32 ChamberCount = 14;", layout_h)
+        self.assertIn("PrimaryActorTick.bCanEverTick = false;", layout)
+        self.assertIn("Floors->ClearInstances();", layout)
+        self.assertIn("Walls->ClearInstances();", layout)
+        self.assertIn("Chamber < ChamberCount", layout)
+        self.assertIn("Chamber < ChamberCount; ++Chamber", layout)
+        self.assertIn("Chamber < ChamberCount; ++Chamber", layout)
+        self.assertIn("FVector(ChamberLength / 100.f, ChamberWidth / 100.f, 0.4f)", layout)
+        self.assertIn("for (int32 Chamber = 1; Chamber < ChamberCount; ++Chamber)", layout)
+        self.assertIn("FVector(X, Side * 315.f, 150.f)", layout)
+        self.assertIn("Walls->SetCollisionResponseToAllChannels(ECR_Block);", layout)
+        self.assertIn("Floors->SetCollisionResponseToAllChannels(ECR_Block);", layout)
+        self.assertNotIn("UGameplayStatics::OpenLevel", layout)
+        self.assertNotIn("Tick(", layout)
+        self.assertNotIn("SpawnActor<", layout.split("void AMoonfallDungeonLayout::OnConstruction(", 1)[1].split("void AMoonfallDungeonLayout::BeginPlay()", 1)[0])
+
+    def test_dungeon_layout_guards_persistence_and_once_only_final_event(self):
+        layout = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
+        self.assertIn("ZoneIndex < 0 || ZoneIndex >= 6", layout)
+        self.assertIn("DungeonIndex < 0 || DungeonIndex >= 5", layout)
+        self.assertIn("Hero->IsPlayerControlled()", layout)
+        self.assertIn("!FMath::IsFinite(Hero->Health) || Hero->Health <= 0.f", layout)
+        self.assertIn("Hero->HasDiscoveredDungeon(ZoneIndex, DungeonIndex)", layout)
+        self.assertIn("Hero->DiscoverDungeonEntrance(ZoneIndex, DungeonIndex)", layout)
+        final = layout.split("void AMoonfallDungeonLayout::HandleFinalChamber(", 1)[1]
+        self.assertIn("if (bFinalChamberNotified", final)
+        self.assertIn("&& !Hero->DiscoverDungeonEntrance(ZoneIndex, DungeonIndex)) return;", final)
+        self.assertLess(final.index("bFinalChamberNotified = true;"),
+                        final.index("OnFinalChamberEntered(Hero);"))
+        self.assertIn("FinalChamberTrigger->SetGenerateOverlapEvents(false);", final)
+        self.assertNotIn("SaveWorldProgress(", layout)
+        self.assertNotIn("GiveExperience(", layout)
+
+
+    def test_seeded_dungeon_chamber_types_and_nonblocking_hazard_preview(self):
+        layout_h = (ROOT / "MoonfallDungeonLayout.h").read_text(encoding="utf-8")
+        layout = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
+        self.assertIn("int32 GetEffectiveLayoutSeed() const;", layout_h)
+        self.assertIn("int32 GetChamberType(int32 ChamberIndex) const;", layout_h)
+        self.assertIn("void OnChamberEntered(AMoonfallHeroPawn* Hero, int32 ChamberIndex, int32 ChamberType);", layout_h)
+        self.assertIn("TArray<TObjectPtr<UBoxComponent>> ChamberTriggers;", layout_h)
+        self.assertIn("return RoomRandom.RandRange(1, 4);", layout)
+        self.assertIn("FRandomStream Stream(GetEffectiveLayoutSeed());", layout)
+        self.assertIn("Swap(Candidates[Index], Candidates[Choice]);", layout)
+        self.assertIn("const int32 Choice = Stream.RandRange(Index, 11);", layout)
+        self.assertIn("HazardPlates->SetCollisionEnabled(ECollisionEnabled::NoCollision);", layout)
+        self.assertIn("HazardPlates->ClearInstances();", layout)
+        self.assertIn("FVector(Chamber * ChamberLength, Side, 8.f)", layout)
+        self.assertIn("return 6;", layout)
+        self.assertIn("return 0;", layout)
+
+    def test_dungeon_room_event_requires_safe_save_and_fires_once(self):
+        layout = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
+        overlap = layout.split("void AMoonfallDungeonLayout::HandleChamberOverlap(", 1)[1].split(
+            "void AMoonfallDungeonLayout::HandleHazardOverlap(", 1)[0]
+        self.assertIn("Hero->IsPlayerControlled()", overlap)
+        self.assertIn("Hero->DiscoverDungeonEntrance(ZoneIndex, DungeonIndex)", overlap)
+        self.assertIn("if ((EnteredChambersMask & Bit) != 0u) return;", overlap)
+        self.assertLess(overlap.index("&& !Hero->DiscoverDungeonEntrance("),
+                        overlap.index("EnteredChambersMask |= Bit;"))
+        self.assertLess(overlap.index("EnteredChambersMask |= Bit;"),
+                        overlap.index("OnChamberEntered(Hero, ChamberIndex, ChamberType);"))
+        self.assertNotIn("ApplyMoonfallDamage(", overlap)
+        self.assertNotIn("SpawnActor", overlap)
+
+
+    def test_dungeon_side_traps_are_avoidable_and_cooldown_bounded(self):
+        layout_h = (ROOT / "MoonfallDungeonLayout.h").read_text(encoding="utf-8")
+        layout = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
+        for name in ("HazardTriggerA", "HazardTriggerB", "HazardTriggerC"):
+            self.assertIn("UBoxComponent* " + name + ";", layout_h)
+            self.assertIn('TEXT("' + name + '")', layout)
+        self.assertIn("FVector(90.f, 90.f, 110.f)", layout)
+        self.assertIn("const float Side = LayoutRandom.RandRange(0, 1) == 0 ? -315.f : 315.f;", layout)
+        self.assertIn("FVector(1.8f, 1.8f, 0.1f)", layout)
+        self.assertIn("Trigger->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);", layout)
+        self.assertIn("AMoonfallDungeonLayout::HandleHazardOverlap", layout)
+        self.assertIn("float HazardDamage = 12.f;", layout_h)
+        self.assertIn("float HazardCooldownSeconds = 2.f;", layout_h)
+        hazard = layout.split("void AMoonfallDungeonLayout::HandleHazardOverlap(", 1)[1].split(
+            "bool AMoonfallDungeonLayout::StartCombatChamber(", 1)[0]
+        self.assertIn("Hero->IsPlayerControlled()", hazard)
+        self.assertIn("!FMath::IsFinite(Hero->Health) || Hero->Health <= 0.f", hazard)
+        self.assertIn("!FMath::IsFinite(HazardDamage) || HazardDamage <= 0.f", hazard)
+        self.assertIn("!FMath::IsFinite(HazardCooldownSeconds)", hazard)
+        self.assertIn("Now < NextHazardDamageAt", hazard)
+        self.assertIn("FMath::Clamp(HazardCooldownSeconds, 0.5f, 20.f)", hazard)
+        self.assertIn("Hero->ApplyMoonfallDamage(FMath::Clamp(HazardDamage, 0.f, 100.f));", hazard)
+        self.assertLess(hazard.index("Hero->DiscoverDungeonEntrance("),
+                        hazard.index("Hero->ApplyMoonfallDamage("))
+        self.assertNotIn("GetWorld()->SpawnActor", hazard)
+
+
+    def test_dungeon_combat_spawns_existing_enemies_only_on_entry(self):
+        layout_h = (ROOT / "MoonfallDungeonLayout.h").read_text(encoding="utf-8")
+        layout = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
+        self.assertIn("int32 EnemiesPerCombatChamber = 2;", layout_h)
+        self.assertIn("int32 SpawnedEncounterCount = 0;", layout_h)
+        self.assertIn("bool StartCombatChamber(AMoonfallHeroPawn* Hero, int32 ChamberIndex);", layout_h)
+        self.assertIn("void OnChamberEncounterSpawned(AMoonfallHeroPawn* Hero, int32 ChamberIndex,", layout_h)
+        chamber = layout.split("void AMoonfallDungeonLayout::HandleChamberOverlap(", 1)[1].split(
+            "void AMoonfallDungeonLayout::HandleHazardOverlap(", 1)[0]
+        self.assertIn("ChamberType == 1 && !StartCombatChamber(Hero, ChamberIndex)", chamber)
+        self.assertLess(chamber.index("StartCombatChamber(Hero, ChamberIndex)"),
+                        chamber.index("EnteredChambersMask |= Bit;"))
+        combat = layout.split("bool AMoonfallDungeonLayout::StartCombatChamber(", 1)[1]
+        self.assertIn("GetChamberType(ChamberIndex) != 1", combat)
+        self.assertIn("FMath::Max(0, 6 - SpawnedEncounterCount)", combat)
+        self.assertIn("constexpr int32 MaxLiveWorldEnemies = 60;", combat)
+        self.assertIn("TActorIterator<AMoonfallEnemy> It(GetWorld())", combat)
+        self.assertIn("if (++AliveWorldEnemies >= MaxLiveWorldEnemies) return false;", combat)
+        self.assertIn("FMath::Min(Requested, MaxLiveWorldEnemies - AliveWorldEnemies)", combat)
+        self.assertLess(combat.index("if (++AliveWorldEnemies >= MaxLiveWorldEnemies)"),
+                        combat.index("SpawnActorDeferred<AMoonfallEnemy>"))
+        self.assertIn("if (Remaining == 0) return true;", combat)
+        self.assertIn("FMath::Clamp(EnemiesPerCombatChamber, 1, 2)", combat)
+        self.assertIn("SpawnActorDeferred<AMoonfallEnemy>", combat)
+        self.assertIn("AdjustIfPossibleButDontSpawnIfColliding", combat)
+        self.assertIn("Enemy->bElite = bEliteEncounter;", combat)
+        self.assertIn("Enemy->bBoss = false;", combat)
+        self.assertLess(combat.index("Enemy->bElite = bEliteEncounter;"),
+                        combat.index("Enemy->FinishSpawning(SpawnTransform);"))
+        self.assertIn("if (Spawned == 0) return false;", combat)
+        self.assertIn("SpawnedEncounterCount += Spawned;", combat)
+        self.assertNotIn("UGameplayStatics::OpenLevel", combat)
+
+
+    def test_v9_dungeon_treasure_save_and_atomic_pickup(self):
+        saved = (ROOT / "MoonfallPersistentSave.h").read_text(encoding="utf-8")
+        loot = (ROOT / "MoonfallGroundLoot.cpp").read_text(encoding="utf-8")
+        layout = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
+        self.assertIn("TArray<int32> DungeonTreasureStates;", saved)
+        self.assertIn("Save->DungeonTreasureStates = DungeonTreasureStates;", self.hero_cpp)
+        self.assertIn("Save->Version >= 9", self.hero_cpp)
+        self.assertIn("DungeonTreasureStates.Num() > 420", self.hero_cpp)
+        self.assertIn("DungeonTreasureStates = Previous;", self.hero_cpp)
+        self.assertIn("DungeonTreasureStates[DungeonTreasureKey] = -1;", self.hero_cpp)
+        self.assertIn("DungeonTreasureStates[DungeonTreasureKey] = PreviousTreasureState;", self.hero_cpp)
+        self.assertIn("Hero->CollectDungeonTreasureCode(ItemCode, RewardZone, RewardDungeon, RewardChamber)", loot)
+        self.assertIn("GetOrCreateDungeonTreasureCode(", layout)
+        self.assertIn("Hero->GetDungeonTreasureState(ZoneIndex, DungeonIndex, ChamberIndex) == -1", layout)
+        self.assertIn("SpawnedTreasure[ChamberIndex].IsValid()", layout)
+        self.assertIn("Loot->InitializeDungeonReward(ZoneIndex, DungeonIndex, ChamberIndex);", layout)
+        self.assertIn("if (ChamberType == 2 && !SpawnTreasureChamber(Hero, ChamberIndex)) return;", layout)
+        self.assertIn("const int32 Rarity = Stream.RandRange(2, 5);", self.hero_cpp)
+
+
+    def test_full_six_zone_dungeon_network_integrated_in_continuous_world(self):
+        mode = (ROOT / "MoonfallUnrealGameMode.cpp").read_text(encoding="utf-8")
+        mode_h = (ROOT / "MoonfallUnrealGameMode.h").read_text(encoding="utf-8")
+        arena = (ROOT / "MoonfallArena.cpp").read_text(encoding="utf-8")
+        arena_h = (ROOT / "MoonfallArena.h").read_text(encoding="utf-8")
+        self.assertIn('#include "MoonfallDungeonLayout.h"', mode)
+        self.assertIn('GetWorld()->SpawnActor<AMoonfallArena>', mode)
+        self.assertIn('SpawnActorDeferred<AMoonfallDungeonLayout>', mode)
+        self.assertIn('static constexpr int32 DungeonZoneCount = 6;', mode_h)
+        self.assertIn('static constexpr int32 DungeonsPerZone = 5;', mode_h)
+        self.assertIn('static constexpr int32 TotalDungeons = DungeonZoneCount * DungeonsPerZone;', mode_h)
+        self.assertIn('static constexpr float DungeonLaneSpacing = 1350.f;', mode_h)
+        self.assertIn('ZoneIndex * DungeonsPerZone + DungeonIndex', mode)
+        self.assertIn('Slot / DungeonsPerZone', mode)
+        self.assertIn('Slot % DungeonsPerZone', mode)
+        self.assertIn('NextDungeonSlot < TotalDungeons', mode)
+        self.assertIn('constexpr int32 MaxLayoutsPerBatch = 2;', mode)
+        self.assertIn('int32 ReadyDungeonCount = 0;', mode_h)
+        self.assertIn('OnDungeonWorldReady(int32 ReadyCount);', mode_h)
+        self.assertIn('++ReadyDungeonCount;', mode)
+        self.assertIn('OnDungeonWorldReady(ReadyDungeonCount);', mode)
+        self.assertIn('only %d/%d layouts ready', mode)
+        self.assertIn('GetWorldTimerManager().SetTimer(', mode)
+        self.assertIn('GetWorldTimerManager().ClearTimer(DungeonSpawnTimer);', mode)
+        self.assertIn('AuthoredDungeonSlots.SetNumZeroed(TotalDungeons);', mode)
+        self.assertIn('TActorIterator<AMoonfallDungeonLayout>', mode)
+        self.assertLess(mode.index('TActorIterator<AMoonfallDungeonLayout>'),
+                        mode.index('SpawnActorDeferred<AMoonfallDungeonLayout>'))
+        self.assertIn('Layout->ZoneIndex = Zone;', mode)
+        self.assertIn('Layout->DungeonIndex = DungeonIndex;', mode)
+        self.assertIn('Layout->bRandomizeChambers = true;', mode)
+        self.assertLess(mode.index('Layout->DungeonIndex = DungeonIndex;'),
+                        mode.index('Layout->FinishSpawning(DungeonTransform);'))
+        self.assertIn('FVector(X, -3100.f, 0.f)', mode)
+        self.assertIn('FRotator(0.f, -90.f, 0.f)', mode)
+        self.assertNotIn('OpenLevel(', mode)
+        self.assertIn('CreateBlock(FVector(-850,-1500,200),FVector(13,1,5));', arena)
+        self.assertIn('CreateBlock(FVector(850,-1500,200),FVector(13,1,5));', arena)
+        self.assertIn('CreateBlock(FVector(0,-2000,-20),FVector(5,10,0.4f));', arena)
+        self.assertNotIn('CreateBlock(FVector(0,-1500,200),FVector(30,1,5));', arena)
+        self.assertIn('UInstancedStaticMeshComponent* DungeonRoad;', arena_h)
+        self.assertIn('TArray<TObjectPtr<UTextRenderComponent>> DungeonZoneSigns;', arena_h)
+        self.assertIn('for (int32 Zone = 0; Zone < 6; ++Zone)', arena)
+        self.assertIn('DungeonZoneSigns.Add(Sign);', arena)
+        self.assertIn('Sign->SetCollisionEnabled(ECollisionEnabled::NoCollision);', arena)
+        self.assertIn('DungeonRoad->SetCollisionResponseToAllChannels(ECR_Block);', arena)
+        self.assertIn('for (int32 Slot = 0; Slot < 30; ++Slot)', arena)
+        self.assertIn('FVector(X, -2500.f, -20.f), FVector(13.5f, 9.f, 0.4f)', arena)
+        self.assertIn('DungeonRoad->AddInstance(', arena)
+        # Check that the 30 adjacent physical lanes do not intersect and that
+        # the public road overlaps each chamber's front edge.
+        xs = [(slot - 14.5) * 1350 for slot in range(30)]
+        assert len(set(xs)) == 30
+        for left, right in zip(xs, xs[1:]):
+            self.assertGreaterEqual(right - left, 900 + 400)
+            self.assertLessEqual(right - left, 2 * 675)
+        self.assertLessEqual(abs(xs[0]) + 675, 21000)
+        road_min_y, road_max_y = -2500 - 450, -2500 + 450
+        dungeon_floor_min_y, dungeon_floor_max_y = -3100 - 600, -3100 + 600
+        bridge_min_y, bridge_max_y = -2000 - 500, -2000 + 500
+        self.assertGreater(min(road_max_y, dungeon_floor_max_y) -
+                           max(road_min_y, dungeon_floor_min_y), 100)
+        self.assertGreater(min(road_max_y, bridge_max_y) -
+                           max(road_min_y, bridge_min_y), 100)
+        # Preserve the original divine encounters, residents, and shrines.
+        for token in ('AMoonfallCheckpointShrine', 'AMoonfallWorldNPC',
+                      'FeaturedDivineBossId', 'FName(TEXT("z_void_reaper"))',
+                      'FName(TEXT("nyra_eclipse_queen"))'):
+            self.assertIn(token, arena)
+
+
+    def test_native_unreal_dungeon_automation_suite_is_present(self):
+        native = (ROOT / "MoonfallDungeonWorldTests.cpp").read_text(encoding="utf-8")
+        self.assertIn("#if WITH_DEV_AUTOMATION_TESTS", native)
+        self.assertIn("Moonfall.Dungeons.All30EntranceLocations", native)
+        self.assertIn("Moonfall.Dungeons.SeededRoomArchetypes", native)
+        self.assertIn("EAutomationTestFlags::EditorContext", native)
+        self.assertIn("GetDefault<AMoonfallUnrealGameMode>()", native)
+        self.assertIn("GetDefault<AMoonfallDungeonLayout>()", native)
+        self.assertIn("for (int32 Zone = 0; Zone < 6; ++Zone)", native)
+        self.assertIn("for (int32 Dungeon = 0; Dungeon < 5; ++Dungeon)", native)
+        self.assertIn('Locations.Num(), 30', native)
+        self.assertIn('Hazards, 3', native)
+        self.assertIn('Dungeon 5 rejected', native)
+        self.assertIn('Zone 6 rejected', native)
+        self.assertIn('return !HasAnyErrors();', native)
+        self.assertNotIn("World->SpawnActor", native)
+
+
+    def test_dynamic_nav_invokers_and_dungeon_map_retrofit_are_guarded(self):
+        engine = (ROOT.parents[1] / "Config" / "DefaultEngine.ini").read_text(encoding="utf-8")
+        creator = (ROOT.parents[1] / "Build" / "Create-StartupLevel.py").read_text(encoding="utf-8")
+        retrofit = (ROOT.parents[1] / "Build" / "Upgrade-DungeonNavigation.py").read_text(encoding="utf-8")
+        self.assertIn("bGenerateNavigationOnlyAroundNavigationInvokers=True", engine)
+        self.assertIn("RuntimeGeneration=Dynamic", engine)
+        self.assertIn("UNavigationInvokerComponent* DungeonNavigationInvoker;", self.hero_h)
+        self.assertIn('#include "NavigationInvokerComponent.h"', self.hero_cpp)
+        self.assertIn("CreateDefaultSubobject<UNavigationInvokerComponent>", self.hero_cpp)
+        self.assertIn("SetGenerationRadii(3000.f, 5000.f)", self.hero_cpp)
+        self.assertIn("Moonfall_DungeonWorld_NavBounds", creator)
+        self.assertIn("unreal.Vector(0.0, -10000.0, 100.0)", creator)
+        self.assertIn("unreal.Vector(225.0, 115.0, 6.0)", creator)
+        self.assertIn("Create-StartupLevel.py", (ROOT.parents[1] / "Build" / "Build-Windows.ps1").read_text(encoding="utf-8"))
+        self.assertIn("upgrade_existing_map_navigation()", retrofit)
+        self.assertIn("if matching:", retrofit)
+        self.assertIn("shutil.copy2(level_file, backup)", retrofit)
+        self.assertLess(retrofit.index("shutil.copy2(level_file, backup)"),
+                        retrofit.index("nav = actors.spawn_actor_from_class("))
+        self.assertIn("nav.get_actor_bounds(False)", retrofit)
+        self.assertIn("actors.destroy_actor(nav)", retrofit)
+        self.assertLess(retrofit.index("nav.get_actor_bounds(False)"),
+                        retrofit.index("save_current_level()"))
+        self.assertNotIn("new_level(", retrofit)
+        self.assertNotIn("remove(", retrofit)
+        self.assertIn("return", retrofit)
+
+
+    def test_windows_native_unreal_runner_fails_closed_on_missing_results(self):
+        script = (ROOT.parents[1] / "Build" / "Test-DungeonNative.ps1").read_text(encoding="utf-8")
+        self.assertIn("Test-UnrealEngineVersion.ps1", script)
+        self.assertIn("Build-Windows.ps1", script)
+        self.assertIn("-CompileOnly", script)
+        self.assertIn("UnrealEditor-Cmd.exe", script)
+        self.assertIn("Moonfall.Dungeons.All30EntranceLocations", script)
+        self.assertIn("Moonfall.Dungeons.SeededRoomArchetypes", script)
+        self.assertIn("-ExecCmds=Automation RunTests Moonfall.Dungeons; Quit", script)
+        self.assertIn("-TestExit=Automation Test Queue Empty", script)
+        self.assertIn("Test Completed", script)
+        self.assertIn("Passed", script)
+        self.assertIn("Failed", script)
+        self.assertIn("Moonfall-Dungeon-TestResult.txt", script)
+        self.assertIn("$editorExit -ne 0", script)
+        self.assertIn("$results.Values -contains $false", script)
+        self.assertIn("MOONFALL_NATIVE_DUNGEON_TESTS_PASS", script)
+        self.assertLess(script.index("if (Test-Path -LiteralPath $log)"),
+                        script.index("& $editor $project"))
+        self.assertNotIn("merge_pull_request", script)
+
+
+    def test_dungeon_world_distance_culling_preserves_walkable_collision(self):
+        layout = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
+        arena = (ROOT / "MoonfallArena.cpp").read_text(encoding="utf-8")
+        self.assertIn("Floors->SetCullDistances(24000, 34000);", layout)
+        self.assertIn("Walls->SetCullDistances(18000, 28000);", layout)
+        self.assertIn("HazardPlates->SetCullDistances(12000, 22000);", layout)
+        self.assertIn("DungeonRoad->SetCullDistances(24000, 34000);", arena)
+        for component in ("Floors", "Walls"):
+            self.assertIn(component + "->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);", layout)
+            self.assertIn(component + "->SetCollisionResponseToAllChannels(ECR_Block);", layout)
+        self.assertIn("DungeonRoad->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);", arena)
+        self.assertIn("DungeonRoad->SetCollisionResponseToAllChannels(ECR_Block);", arena)
+        self.assertIn("HazardPlates->SetCollisionEnabled(ECollisionEnabled::NoCollision);", layout)
+        self.assertNotIn("SetActorHiddenInGame(true)", layout)
+        self.assertNotIn("SetGenerateOverlapEvents(false);", layout.split(
+            "void AMoonfallDungeonLayout::OnConstruction(", 1)[1].split(
+            "void AMoonfallDungeonLayout::BeginPlay()", 1)[0])
+        for text in (layout, arena):
+            self.assertNotIn("SetActorEnableCollision(false);", text)
 
 if __name__ == "__main__":
     unittest.main()
