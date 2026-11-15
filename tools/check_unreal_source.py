@@ -3518,9 +3518,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
 
     def test_v8_dungeon_ledger_preserves_old_saves_and_rejects_bad_bits(self):
         save_h = (ROOT / "MoonfallPersistentSave.h").read_text(encoding="utf-8")
-        self.assertIn("UPROPERTY() int32 Version = 8;", save_h)
+        self.assertIn("UPROPERTY() int32 Version = 9;", save_h)
         self.assertIn("UPROPERTY() int32 DiscoveredDungeonMask = 0;", save_h)
-        self.assertIn("Version > 8", self.hero_cpp)
+        self.assertIn("Version > 9", self.hero_cpp)
         self.assertIn("Save->Version >= 8 ? Save->DiscoveredDungeonMask : 0", self.hero_cpp)
         self.assertIn("Save->DiscoveredDungeonMask = DiscoveredDungeonMask;", self.hero_cpp)
         self.assertIn("Save->Version >= 8 &&", self.hero_cpp)
@@ -3693,6 +3693,26 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("if (Spawned == 0) return false;", combat)
         self.assertIn("SpawnedEncounterCount += Spawned;", combat)
         self.assertNotIn("UGameplayStatics::OpenLevel", combat)
+
+
+    def test_v9_dungeon_treasure_save_and_atomic_pickup(self):
+        saved = (ROOT / "MoonfallPersistentSave.h").read_text(encoding="utf-8")
+        loot = (ROOT / "MoonfallGroundLoot.cpp").read_text(encoding="utf-8")
+        layout = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
+        self.assertIn("TArray<int32> DungeonTreasureStates;", saved)
+        self.assertIn("Save->DungeonTreasureStates = DungeonTreasureStates;", self.hero_cpp)
+        self.assertIn("Save->Version >= 9", self.hero_cpp)
+        self.assertIn("DungeonTreasureStates.Num() > 420", self.hero_cpp)
+        self.assertIn("DungeonTreasureStates = Previous;", self.hero_cpp)
+        self.assertIn("DungeonTreasureStates[DungeonTreasureKey] = -1;", self.hero_cpp)
+        self.assertIn("DungeonTreasureStates[DungeonTreasureKey] = PreviousTreasureState;", self.hero_cpp)
+        self.assertIn("Hero->CollectDungeonTreasureCode(ItemCode, RewardZone, RewardDungeon, RewardChamber)", loot)
+        self.assertIn("GetOrCreateDungeonTreasureCode(", layout)
+        self.assertIn("Hero->GetDungeonTreasureState(ZoneIndex, DungeonIndex, ChamberIndex) == -1", layout)
+        self.assertIn("SpawnedTreasure[ChamberIndex].IsValid()", layout)
+        self.assertIn("Loot->InitializeDungeonReward(ZoneIndex, DungeonIndex, ChamberIndex);", layout)
+        self.assertIn("if (ChamberType == 2 && !SpawnTreasureChamber(Hero, ChamberIndex)) return;", layout)
+        self.assertIn("const int32 Rarity = Stream.RandRange(2, 5);", self.hero_cpp)
 
 if __name__ == "__main__":
     unittest.main()
