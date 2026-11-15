@@ -1415,8 +1415,11 @@ void AMoonfallHeroPawn::AdjustOption(int32 Direction) {
  } else if (OptionsSelection == 7) {
   // Cycle the two supported window modes in either direction.
   const EWindowMode::Type CurrentMode = Settings->GetFullscreenMode();
-  Settings->SetFullscreenMode(CurrentMode == EWindowMode::Windowed
-      ? EWindowMode::WindowedFullscreen : EWindowMode::Windowed);
+  const EWindowMode::Type NextMode = CurrentMode == EWindowMode::Windowed
+      ? EWindowMode::WindowedFullscreen
+      : CurrentMode == EWindowMode::WindowedFullscreen
+        ? EWindowMode::Fullscreen : EWindowMode::Windowed;
+  Settings->SetFullscreenMode(NextMode);
  }
  Settings->ApplySettings(false);
  Settings->SaveSettings();
