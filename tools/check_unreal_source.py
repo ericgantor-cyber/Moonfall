@@ -3839,5 +3839,27 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("remove(", retrofit)
         self.assertIn("return", retrofit)
 
+
+    def test_windows_native_unreal_runner_fails_closed_on_missing_results(self):
+        script = (ROOT.parents[1] / "Build" / "Test-DungeonNative.ps1").read_text(encoding="utf-8")
+        self.assertIn("Test-UnrealEngineVersion.ps1", script)
+        self.assertIn("Build-Windows.ps1", script)
+        self.assertIn("-CompileOnly", script)
+        self.assertIn("UnrealEditor-Cmd.exe", script)
+        self.assertIn("Moonfall.Dungeons.All30EntranceLocations", script)
+        self.assertIn("Moonfall.Dungeons.SeededRoomArchetypes", script)
+        self.assertIn("-ExecCmds=Automation RunTests Moonfall.Dungeons; Quit", script)
+        self.assertIn("-TestExit=Automation Test Queue Empty", script)
+        self.assertIn("Test Completed", script)
+        self.assertIn("Passed", script)
+        self.assertIn("Failed", script)
+        self.assertIn("Moonfall-Dungeon-TestResult.txt", script)
+        self.assertIn("$editorExit -ne 0", script)
+        self.assertIn("$results.Values -contains $false", script)
+        self.assertIn("MOONFALL_NATIVE_DUNGEON_TESTS_PASS", script)
+        self.assertLess(script.index("if (Test-Path -LiteralPath $log)"),
+                        script.index("& $editor $project"))
+        self.assertNotIn("merge_pull_request", script)
+
 if __name__ == "__main__":
     unittest.main()
