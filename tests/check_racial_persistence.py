@@ -188,8 +188,10 @@ class TestRacialPersistence(unittest.TestCase):
         self.assertIn("|| DiscoveredShrineIds.Num() > 64", saver)
         self.assertIn("Save->InventoryItemCodes = InventoryItemCodes;", saver)
         self.assertIn("Save->InventoryItemCodes.Num() > 10000", loader)
-        self.assertIn("!Hero->CollectGroundEquipmentCode(ItemCode)", pickup)
-        self.assertLess(pickup.index("Hero->CollectGroundEquipmentCode(ItemCode)"),
+        self.assertIn("Hero->CollectGroundEquipmentCode(ItemCode)", pickup)
+        self.assertIn("Hero->CollectDungeonTreasureCode(ItemCode, RewardZone, RewardDungeon, RewardChamber)", pickup)
+        self.assertIn("if (!bSaved) return false;", pickup)
+        self.assertLess(pickup.index("if (!bSaved) return false;"),
                         pickup.index("bCollected = true;"))
         self.assertLess(pickup.index("bCollected = true;"), pickup.index("Destroy();"))
 
