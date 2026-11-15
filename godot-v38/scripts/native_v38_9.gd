@@ -84,35 +84,11 @@ func _rhythm_confirmed_enemy_dodge()->void:
  _show_message("PERFECT DODGE! Counter now!",0.85)
  if is_instance_valid(player):_cue(player.global_position+Vector3(0.0,-0.45,0.0),"dodge",Color("86e9ff"))
 
-func _refresh_boss_phase(beast:Dictionary)->void:
- # Keep the legacy three-phase boss AI working. This extra 2-5-stage
- # pressure system changes recovery pace only when an actual HP gate falls.
- var was_alive:bool=bool(beast.get("alive",false))
- super._refresh_boss_phase(beast)
- if not was_alive or not bool(beast.get("boss",false)):return
- var total:int=RHYTHM.boss_phase_count(int(beast.get("boss_id",0)),bool(beast.get("divine_id","")!=""))
- var previous:int=clampi(int(beast.get("rhythm_boss_phase",1)),1,total)
- var next_phase:int=RHYTHM.boss_combat_phase(float(beast.get("hp",0.0)),float(beast.get("max",1.0)),total)
- beast["rhythm_boss_phase_count"]=total
- if next_phase<=previous:return
- beast["rhythm_boss_phase"]=next_phase
- # Preserve the inherited warning and attack shape; shorten recovery modestly
- # and only on phase transitions, never once per frame or per damage tick.
- beast["attack"]=RHYTHM.boss_phase_attack_recovery(float(beast.get("attack",0.0)),next_phase,total)
- var title:Label3D=beast.get("nameplate") as Label3D
- if is_instance_valid(title):
-  title.text=str(beast.get("v400_family_name","ECLIPSE GUARDIAN"))+"  •  PHASE "+str(next_phase)+"/"+str(total)
- var body:Node3D=beast.get("body") as Node3D
- if is_instance_valid(body):_cue(body.global_position+Vector3(0.0,0.15,0.0),"spell",Color("f7bb75") if next_phase<total else Color("ff6caa"))
- _show_message("GUARDIAN PHASE "+str(next_phase)+"/"+str(total)+"!",1.5)
-
 func _reset_native_beast(beast:Dictionary)->void:
  super._reset_native_beast(beast)
  beast["rhythm_posture"]=0.0
  beast["rhythm_last_pressure_at"]=map_time
  beast["rhythm_break_immune_until"]=0.0
- beast["rhythm_boss_phase"]=1
- beast["rhythm_boss_phase_count"]=RHYTHM.boss_phase_count(int(beast.get("boss_id",0)),bool(beast.get("divine_id","")!="")) if bool(beast.get("boss",false)) else 0
 
 func _rhythm_reset_transient_combat()->void:
  # Never carry attack windows, dodge rewards, or counters across lives/saves.
