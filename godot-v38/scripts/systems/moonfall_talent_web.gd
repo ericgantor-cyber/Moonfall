@@ -255,11 +255,7 @@ func _gui_input(event: InputEvent) -> void:
   return
  if event is InputEventKey and event.pressed and not event.echo:
   var key: InputEventKey = event
-  if key.keycode == KEY_EQUAL or key.keycode == KEY_KP_ADD:
-   zoom_by(1.2)
-  elif key.keycode == KEY_MINUS or key.keycode == KEY_KP_SUBTRACT:
-   zoom_by(1.0 / 1.2)
-  elif key.keycode == KEY_HOME:
+  if key.keycode == KEY_HOME:
    fit_all()
   elif key.keycode == KEY_N:
    var next_id: String = next_available(selected_id)
