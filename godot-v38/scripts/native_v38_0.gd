@@ -696,6 +696,7 @@ func _v398_unlock(id:String)->void:
  var changed:Dictionary=CLASSLESS_TALENTS.spend(clampi(int(hero_level),1,100),v406_ranks,id)
  if not bool(changed.get("ok",false)):return
  v406_ranks=changed["allocations"].duplicate(true)
+ _v406_sync_health()
  _save_game()
  _v398_refresh_tree()
 
@@ -875,6 +876,7 @@ func _update_beast_step(beast:Dictionary,delta:float)->void:
 
 # Validated classless talents augment combat without mutating legacy stats or saves.
 var v406_damage_context:String=""
+var v406_applied_health_bonus:float=0.0
 var v406_bonuses_key:String=""
 var v406_bonuses_cache:Dictionary={}
 func _v406_bonus(stat:String,kind:String)->float:
@@ -888,6 +890,15 @@ func _v406_bonus(stat:String,kind:String)->float:
 
 func _v406_resource_max(stat:String,base:float)->float:
  return maxf(base,base*(1.0+_v406_bonus(stat,"percent"))+_v406_bonus(stat,"flat"))
+
+func _v406_sync_health()->void:
+ # Preserve current HP; never heal automatically when talent ranks change.
+ var old_cap:float=maxf(1.0,max_hp)
+ var base_cap:float=maxf(1.0,old_cap-v406_applied_health_bonus)
+ var target_cap:float=_v406_resource_max("health",base_cap)
+ v406_applied_health_bonus=target_cap-base_cap
+ max_hp=target_cap
+ hp=clampf(hp,0.0,max_hp)
 
 func _hero_damage_multiplier()->float:
  var base:float=super._hero_damage_multiplier()
@@ -984,6 +995,7 @@ func _restore_data(data:Dictionary)->void:
  v387_stamina_regen_wait=0.0
  v398_ranks={}
  v406_ranks={}
+ v406_applied_health_bonus=0.0
  v399_identity={}
  var resources:Variant=data.get("optional_resources",{})
  if resources is Dictionary:
@@ -994,6 +1006,8 @@ func _restore_data(data:Dictionary)->void:
   if classless_saved is Dictionary:
    var restored:Dictionary=CLASSLESS_TALENTS.evaluate(clampi(int(hero_level),1,100),classless_saved)
    if bool(restored.get("ok",false)):v406_ranks=restored["allocations"].duplicate(true)
+  _v406_sync_health()
+  hp=clampf(float(data.get("hp",hp)),1.0,max_hp)
   v385_mana=clampf(float(resources.get("mana",V385_MAX_MANA)),0.0,_v406_resource_max("mana",V385_MAX_MANA))
   v387_stamina=clampf(float(resources.get("stamina",V387_MAX_STAMINA)),0.0,_v406_resource_max("stamina",V387_MAX_STAMINA))
   var saved_ranks:Variant=resources.get("celestial_ranks",{})
@@ -1011,6 +1025,7 @@ func _restore_data(data:Dictionary)->void:
  else:
   v385_mana=V385_MAX_MANA
   v387_stamina=V387_MAX_STAMINA
+ _v406_sync_health()
 
 func _v384_refresh_vitals()->void:
  if is_instance_valid(v387_stamina_bar):
