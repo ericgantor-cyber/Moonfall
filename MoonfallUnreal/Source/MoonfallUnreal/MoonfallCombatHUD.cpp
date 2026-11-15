@@ -498,7 +498,7 @@ void AMoonfallCombatHUD::DrawHUD()
   // Same-count changes in other slots refresh within 0.25 seconds.
   const float AdvisorNow = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f;
   const int32 AdvisorCode = Count > 0 ? Hero->InventoryItemCodes[Selected] : 0;
-  const bool bRefreshAdvisor = !bAdvisorScoreCached
+  const bool bRefreshAdvisor = !bAdvisorScoreCached || CachedAdvisorHero.Get() != Hero
     || CachedAdvisorCount != Count || CachedAdvisorSelected != Selected
     || CachedAdvisorSelectedCode != AdvisorCode
     || CachedAdvisorWeapon != Hero->EquippedWeaponCode
@@ -508,6 +508,7 @@ void AMoonfallCombatHUD::DrawHUD()
     || AdvisorNow - AdvisorScoreUpdatedAt >= 0.25f;
   if (bRefreshAdvisor) {
    CachedAdvisorScore = Count > 0 ? Hero->GetEquipmentUpgradeScore(Selected) : 0;
+   CachedAdvisorHero = Hero;
    CachedAdvisorCount = Count;
    CachedAdvisorSelected = Selected;
    CachedAdvisorSelectedCode = AdvisorCode;
@@ -518,10 +519,13 @@ void AMoonfallCombatHUD::DrawHUD()
    bAdvisorScoreCached = true;
   }
   const int32 SelectedUpgradeScore = CachedAdvisorScore;
-  const FString AdvisorLine = Count == 0 ? TEXT("GEAR ADVISOR: find equipment to compare")
+  const bool bCompactAdvisor = PanelWidth < 550.f;
+  const FString AdvisorLine = Count == 0
+    ? (bCompactAdvisor ? TEXT("GEAR: EMPTY BAG") : TEXT("GEAR ADVISOR: find equipment to compare"))
     : SelectedUpgradeScore > 0
-      ? FString::Printf(TEXT("GEAR ADVISOR: selected gear is an upgrade (+%d)"), SelectedUpgradeScore)
-      : TEXT("GEAR ADVISOR: selected gear is not an upgrade");
+      ? (bCompactAdvisor ? FString::Printf(TEXT("GEAR: UPGRADE (+%d)"), SelectedUpgradeScore)
+         : FString::Printf(TEXT("GEAR ADVISOR: selected gear is an upgrade (+%d)"), SelectedUpgradeScore))
+      : (bCompactAdvisor ? TEXT("GEAR: NO UPGRADE") : TEXT("GEAR ADVISOR: selected gear is not an upgrade"));
   DrawText(AdvisorLine,
     SelectedUpgradeScore > 0 ? FLinearColor(0.50f,0.95f,0.62f)
       : FLinearColor(0.74f,0.82f,0.94f),
