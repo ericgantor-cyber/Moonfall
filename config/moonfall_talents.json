@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "description": "Moonfall-original 108-node classless constellation talent tree (36 per branch), with branching tier dependencies. Godot UI integration staged; UE5 parity pending.",
+  "description": "Moonfall-original 141-node classless constellation talent tree, 47 connected talents per branch. Godot UI integration staged; UE5 parity pending.",
   "points_per_level": 1,
   "starting_points": 0,
   "maximum_level": 100,
@@ -27,7 +27,7 @@
     "Automatically increased base stats remain separate from earned talent points",
     "Spend points deliberately in persistent connected branches",
     "Respec refunds spent talent points; does not change experience, levels or equipped items",
-    "108 talent nodes: 36 each in Might, Agility and Arcana; 11 tiers, open branches, full-tree respec only"
+    "141 talent nodes: 47 each in Might, Agility and Arcana; 14 tiers, open branches, full-tree respec only"
   ],
   "nodes": [
     {
@@ -1867,6 +1867,567 @@
         "stat": "magic_damage",
         "amount_per_rank": 0.0225,
         "kind": "percent"
+      }
+    },
+    {
+      "id": "might_cinder_vanguard",
+      "title": "Cinder Vanguard",
+      "branch": "might",
+      "tier": 12,
+      "min_level": 86,
+      "requires": [
+        "might_titan_s_legacy"
+      ],
+      "max_rank": 1,
+      "cost_per_rank": 1,
+      "effect": {
+        "stat": "melee_damage",
+        "amount_per_rank": 0.026,
+        "kind": "percent"
+      }
+    },
+    {
+      "id": "might_anvil_heart",
+      "title": "Anvil Heart",
+      "branch": "might",
+      "tier": 12,
+      "min_level": 86,
+      "requires": [
+        "might_eclipse_bastion"
+      ],
+      "max_rank": 1,
+      "cost_per_rank": 1,
+      "effect": {
+        "stat": "health",
+        "amount_per_rank": 22,
+        "kind": "flat"
+      }
+    },
+    {
+      "id": "might_ruin_cleaver",
+      "title": "Ruin Cleaver",
+      "branch": "might",
+      "tier": 12,
+      "min_level": 86,
+      "requires": [
+        "might_judgment_of_steel"
+      ],
+      "max_rank": 1,
+      "cost_per_rank": 1,
+      "effect": {
+        "stat": "melee_damage",
+        "amount_per_rank": 0.023,
+        "kind": "percent"
+      }
+    },
+    {
+      "id": "might_dreadnought",
+      "title": "Dreadnought",
+      "branch": "might",
+      "tier": 12,
+      "min_level": 86,
+      "requires": [
+        "might_might_ascendant"
+      ],
+      "max_rank": 1,
+      "cost_per_rank": 1,
+      "effect": {
+        "stat": "health",
+        "amount_per_rank": 18,
+        "kind": "flat"
+      }
+    },
+    {
+      "id": "might_sovereign_hammer",
+      "title": "Sovereign Hammer",
+      "branch": "might",
+      "tier": 13,
+      "min_level": 91,
+      "requires": [
+        "might_cinder_vanguard"
+      ],
+      "max_rank": 1,
+      "cost_per_rank": 1,
+      "effect": {
+        "stat": "melee_damage",
+        "amount_per_rank": 0.028,
+        "kind": "percent"
+      }
+    },
+    {
+      "id": "might_colossus_ward",
+      "title": "Colossus Ward",
+      "branch": "might",
+      "tier": 13,
+      "min_level": 91,
+      "requires": [
+        "might_anvil_heart"
+      ],
+      "max_rank": 1,
+      "cost_per_rank": 1,
+      "effect": {
+        "stat": "health",
+        "amount_per_rank": 26,
+        "kind": "flat"
+      }
+    },
+    {
+      "id": "might_shattercrest",
+      "title": "Shattercrest",
+      "branch": "might",
+      "tier": 13,
+      "min_level": 91,
+      "requires": [
+        "might_ruin_cleaver"
+      ],
+      "max_rank": 1,
+      "cost_per_rank": 1,
+      "effect": {
+        "stat": "melee_damage",
+        "amount_per_rank": 0.027,
+        "kind": "percent"
+      }
+    },
+    {
+      "id": "might_iron_dominion",
+      "title": "Iron Dominion",
+      "branch": "might",
+      "tier": 13,
+      "min_level": 91,
+      "requires": [
+        "might_dreadnought"
+      ],
+      "max_rank": 1,
+      "cost_per_rank": 1,
+      "effect": {
+        "stat": "health",
+        "amount_per_rank": 24,
+        "kind": "flat"
+      }
+    },
+    {
+      "id": "might_eclipse_champion",
+      "title": "Eclipse Champion",
+      "branch": "might",
+      "tier": 14,
+      "min_level": 96,
+      "requires": [
+        "might_sovereign_hammer"
+      ],
+      "max_rank": 1,
+      "cost_per_rank": 1,
+      "effect": {
+        "stat": "melee_damage",
+        "amount_per_rank": 0.032,
+        "kind": "percent"
+      }
+    },
+    {
+      "id": "might_living_citadel",
+      "title": "Living Citadel",
+      "branch": "might",
+      "tier": 14,
+      "min_level": 96,
+      "requires": [
+        "might_colossus_ward"
+      ],
+      "max_rank": 1,
+      "cost_per_rank": 1,
+      "effect": {
+        "stat": "health",
+        "amount_per_rank": 30,
+        "kind": "flat"
+      }
+    },
+    {
+      "id": "might_final_reckoning",
+      "title": "Final Reckoning",
+      "branch": "might",
+      "tier": 14,
+      "min_level": 96,
+      "requires": [
+        "might_shattercrest"
+      ],
+      "max_rank": 1,
+      "cost_per_rank": 1,
+      "effect": {
+        "stat": "melee_damage",
+        "amount_per_rank": 0.035,
+        "kind": "percent"
+      }
+    },
+    {
+      "id": "agility_duskwind_step",
+      "title": "Duskwind Step",
+      "branch": "agility",
+      "tier": 12,
+      "min_level": 86,
+      "requires": [
+        "agility_moonshadow"
+      ],
+      "max_rank": 1,
+      "cost_per_rank": 1,
+      "effect": {
+        "stat": "stamina",
+        "amount_per_rank": 22,
+        "kind": "flat"
+      }
+    },
+    {
+      "id": "agility_falcon_claw",
+      "title": "Falcon Claw",
+      "branch": "agility",
+      "tier": 12,
+      "min_level": 86,
+      "requires": [
+        "agility_skyhunter"
+      ],
+      "max_rank": 1,
+      "cost_per_rank": 1,
+      "effect": {
+        "stat": "ranged_damage",
+        "amount_per_rank": 0.025,
+        "kind": "percent"
+      }
+    },
+    {
+      "id": "agility_windborne",
+      "title": "Windborne",
+      "branch": "agility",
+      "tier": 12,
+      "min_level": 86,
+      "requires": [
+        "agility_astral_stride"
+      ],
+      "max_rank": 1,
+      "cost_per_rank": 1,
+      "effect": {
+        "stat": "stamina",
+        "amount_per_rank": 21,
+        "kind": "flat"
+      }
+    },
+    {
+      "id": "agility_silent_horizon",
+      "title": "Silent Horizon",
+      "branch": "agility",
+      "tier": 12,
+      "min_level": 86,
+      "requires": [
+        "agility_agility_ascendant"
+      ],
+      "max_rank": 1,
+      "cost_per_rank": 1,
+      "effect": {
+        "stat": "ranged_damage",
+        "amount_per_rank": 0.023,
+        "kind": "percent"
+      }
+    },
+    {
+      "id": "agility_mirage_runner",
+      "title": "Mirage Runner",
+      "branch": "agility",
+      "tier": 13,
+      "min_level": 91,
+      "requires": [
+        "agility_duskwind_step"
+      ],
+      "max_rank": 1,
+      "cost_per_rank": 1,
+      "effect": {
+        "stat": "stamina",
+        "amount_per_rank": 26,
+        "kind": "flat"
+      }
+    },
+    {
+      "id": "agility_celestial_hunt",
+      "title": "Celestial Hunt",
+      "branch": "agility",
+      "tier": 13,
+      "min_level": 91,
+      "requires": [
+        "agility_falcon_claw"
+      ],
+      "max_rank": 1,
+      "cost_per_rank": 1,
+      "effect": {
+        "stat": "ranged_damage",
+        "amount_per_rank": 0.028,
+        "kind": "percent"
+      }
+    },
+    {
+      "id": "agility_tempest_flight",
+      "title": "Tempest Flight",
+      "branch": "agility",
+      "tier": 13,
+      "min_level": 91,
+      "requires": [
+        "agility_windborne"
+      ],
+      "max_rank": 1,
+      "cost_per_rank": 1,
+      "effect": {
+        "stat": "stamina",
+        "amount_per_rank": 25,
+        "kind": "flat"
+      }
+    },
+    {
+      "id": "agility_specter_arrow",
+      "title": "Specter Arrow",
+      "branch": "agility",
+      "tier": 13,
+      "min_level": 91,
+      "requires": [
+        "agility_silent_horizon"
+      ],
+      "max_rank": 1,
+      "cost_per_rank": 1,
+      "effect": {
+        "stat": "ranged_damage",
+        "amount_per_rank": 0.027,
+        "kind": "percent"
+      }
+    },
+    {
+      "id": "agility_ghost_of_dawn",
+      "title": "Ghost of Dawn",
+      "branch": "agility",
+      "tier": 14,
+      "min_level": 96,
+      "requires": [
+        "agility_mirage_runner"
+      ],
+      "max_rank": 1,
+      "cost_per_rank": 1,
+      "effect": {
+        "stat": "stamina",
+        "amount_per_rank": 30,
+        "kind": "flat"
+      }
+    },
+    {
+      "id": "agility_skybreaker",
+      "title": "Skybreaker",
+      "branch": "agility",
+      "tier": 14,
+      "min_level": 96,
+      "requires": [
+        "agility_celestial_hunt"
+      ],
+      "max_rank": 1,
+      "cost_per_rank": 1,
+      "effect": {
+        "stat": "ranged_damage",
+        "amount_per_rank": 0.034,
+        "kind": "percent"
+      }
+    },
+    {
+      "id": "agility_horizon_sovereign",
+      "title": "Horizon Sovereign",
+      "branch": "agility",
+      "tier": 14,
+      "min_level": 96,
+      "requires": [
+        "agility_tempest_flight"
+      ],
+      "max_rank": 1,
+      "cost_per_rank": 1,
+      "effect": {
+        "stat": "stamina",
+        "amount_per_rank": 0.031,
+        "kind": "flat"
+      }
+    },
+    {
+      "id": "arcana_astral_ember",
+      "title": "Astral Ember",
+      "branch": "arcana",
+      "tier": 12,
+      "min_level": 86,
+      "requires": [
+        "arcana_moonfall_arcanum"
+      ],
+      "max_rank": 1,
+      "cost_per_rank": 1,
+      "effect": {
+        "stat": "magic_damage",
+        "amount_per_rank": 0.027,
+        "kind": "percent"
+      }
+    },
+    {
+      "id": "arcana_lunar_reservoir",
+      "title": "Lunar Reservoir",
+      "branch": "arcana",
+      "tier": 12,
+      "min_level": 86,
+      "requires": [
+        "arcana_starborn_reservoir"
+      ],
+      "max_rank": 1,
+      "cost_per_rank": 1,
+      "effect": {
+        "stat": "mana",
+        "amount_per_rank": 22,
+        "kind": "flat"
+      }
+    },
+    {
+      "id": "arcana_warden_of_stars",
+      "title": "Warden of Stars",
+      "branch": "arcana",
+      "tier": 12,
+      "min_level": 86,
+      "requires": [
+        "arcana_eternal_ward"
+      ],
+      "max_rank": 1,
+      "cost_per_rank": 1,
+      "effect": {
+        "stat": "health",
+        "amount_per_rank": 22,
+        "kind": "flat"
+      }
+    },
+    {
+      "id": "arcana_veil_of_eternity",
+      "title": "Veil of Eternity",
+      "branch": "arcana",
+      "tier": 12,
+      "min_level": 86,
+      "requires": [
+        "arcana_arcana_ascendant"
+      ],
+      "max_rank": 1,
+      "cost_per_rank": 1,
+      "effect": {
+        "stat": "magic_damage",
+        "amount_per_rank": 0.024,
+        "kind": "percent"
+      }
+    },
+    {
+      "id": "arcana_nebula_spear",
+      "title": "Nebula Spear",
+      "branch": "arcana",
+      "tier": 13,
+      "min_level": 91,
+      "requires": [
+        "arcana_astral_ember"
+      ],
+      "max_rank": 1,
+      "cost_per_rank": 1,
+      "effect": {
+        "stat": "magic_damage",
+        "amount_per_rank": 0.029,
+        "kind": "percent"
+      }
+    },
+    {
+      "id": "arcana_endless_font",
+      "title": "Endless Font",
+      "branch": "arcana",
+      "tier": 13,
+      "min_level": 91,
+      "requires": [
+        "arcana_lunar_reservoir"
+      ],
+      "max_rank": 1,
+      "cost_per_rank": 1,
+      "effect": {
+        "stat": "mana",
+        "amount_per_rank": 27,
+        "kind": "flat"
+      }
+    },
+    {
+      "id": "arcana_aegis_of_twilight",
+      "title": "Aegis of Twilight",
+      "branch": "arcana",
+      "tier": 13,
+      "min_level": 91,
+      "requires": [
+        "arcana_warden_of_stars"
+      ],
+      "max_rank": 1,
+      "cost_per_rank": 1,
+      "effect": {
+        "stat": "health",
+        "amount_per_rank": 27,
+        "kind": "flat"
+      }
+    },
+    {
+      "id": "arcana_rift_conduit",
+      "title": "Rift Conduit",
+      "branch": "arcana",
+      "tier": 13,
+      "min_level": 91,
+      "requires": [
+        "arcana_veil_of_eternity"
+      ],
+      "max_rank": 1,
+      "cost_per_rank": 1,
+      "effect": {
+        "stat": "magic_damage",
+        "amount_per_rank": 0.028,
+        "kind": "percent"
+      }
+    },
+    {
+      "id": "arcana_astral_coronation",
+      "title": "Astral Coronation",
+      "branch": "arcana",
+      "tier": 14,
+      "min_level": 96,
+      "requires": [
+        "arcana_nebula_spear"
+      ],
+      "max_rank": 1,
+      "cost_per_rank": 1,
+      "effect": {
+        "stat": "magic_damage",
+        "amount_per_rank": 0.034,
+        "kind": "percent"
+      }
+    },
+    {
+      "id": "arcana_fountain_of_moons",
+      "title": "Fountain of Moons",
+      "branch": "arcana",
+      "tier": 14,
+      "min_level": 96,
+      "requires": [
+        "arcana_endless_font"
+      ],
+      "max_rank": 1,
+      "cost_per_rank": 1,
+      "effect": {
+        "stat": "mana",
+        "amount_per_rank": 32,
+        "kind": "flat"
+      }
+    },
+    {
+      "id": "arcana_final_starward",
+      "title": "Final Starward",
+      "branch": "arcana",
+      "tier": 14,
+      "min_level": 96,
+      "requires": [
+        "arcana_aegis_of_twilight"
+      ],
+      "max_rank": 1,
+      "cost_per_rank": 1,
+      "effect": {
+        "stat": "health",
+        "amount_per_rank": 32,
+        "kind": "flat"
       }
     }
   ]
