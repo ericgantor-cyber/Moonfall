@@ -489,6 +489,17 @@ void AMoonfallCombatHUD::DrawHUD()
      ? FLinearColor(0.50f,0.95f,0.62f) : FLinearColor(0.98f,0.67f,0.45f),
      Left + 18.f, Top + PanelHeight - 89.f, nullptr, 0.82f);
   }
+  // One selected-item check per frame; never scan the full bag or auto-equip.
+  const int32 SelectedUpgradeScore = Count > 0 ? Hero->GetEquipmentUpgradeScore(Selected) : 0;
+  const FString AdvisorLine = Count == 0 ? TEXT("GEAR ADVISOR: find equipment to compare")
+    : SelectedUpgradeScore > 0
+      ? FString::Printf(TEXT("GEAR ADVISOR: selected gear is an upgrade (+%d)"), SelectedUpgradeScore)
+      : TEXT("GEAR ADVISOR: selected gear is not an upgrade");
+  DrawText(AdvisorLine,
+    SelectedUpgradeScore > 0 ? FLinearColor(0.50f,0.95f,0.62f)
+      : FLinearColor(0.74f,0.82f,0.94f),
+    Left + 18.f, Top + PanelHeight - 50.f, nullptr,
+    PanelWidth < 550.f ? 0.56f : 0.74f);
   DrawText(TEXT("LT: equip best   U / RT: +1 tier   H / RB: forge 5   R / B: ascend   G / LB: reforge"),
      FLinearColor(0.78f,0.90f,0.95f), Left + 18.f, Top + PanelHeight - 70.f, nullptr, 0.74f);
   DrawText(TEXT("C / P / A: character stats    B / I / Select / Esc: close"), FLinearColor::White,
