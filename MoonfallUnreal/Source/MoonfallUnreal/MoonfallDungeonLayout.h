@@ -53,6 +53,15 @@ public:
  TArray<TObjectPtr<UBoxComponent>> ChamberTriggers;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Dungeon|Rooms")
  UInstancedStaticMeshComponent* HazardPlates;
+
+ // Spawn only upon entering combat chambers, never in startup waves.
+ // Runtime budget is six dungeon enemies maximum, two per room.
+ UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Moonfall|Dungeon|Combat",
+   meta=(ClampMin="1", ClampMax="2"))
+ int32 EnemiesPerCombatChamber = 2;
+ UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Dungeon|Combat")
+ void OnChamberEncounterSpawned(AMoonfallHeroPawn* Hero, int32 ChamberIndex,
+   int32 SpawnedCount, bool bEliteEncounter);
  // Three pawn-only side-alcove traps. The 360-unit center route stays safe.
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Dungeon|Hazards")
  UBoxComponent* HazardTriggerA;
@@ -78,6 +87,8 @@ private:
     UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep,
     const FHitResult& SweepResult);
  uint16 EnteredChambersMask = 0;
+ int32 SpawnedEncounterCount = 0;
+ bool StartCombatChamber(AMoonfallHeroPawn* Hero, int32 ChamberIndex);
  bool bFinalChamberNotified = false;
  void BuildHazardChambers(int32 OutChambers[3]) const;
  UFUNCTION()
