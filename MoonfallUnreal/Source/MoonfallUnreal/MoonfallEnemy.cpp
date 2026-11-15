@@ -526,6 +526,11 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
    LockedAttackDirection = Difference.GetSafeNormal2D();
    WindupEndsAt = Now + CurrentWindup;
    BossWarningEndTime = WindupEndsAt;
+   if (bBoss && !DungeonBossFamily.IsNone()
+       && Tags.Contains(FName(TEXT("MoonfallDungeonBoss")))) {
+    DungeonBossAttackLabel = FText::FromString(TEXT("COMBO FOLLOW-UP"));
+    DungeonBossAttackWarningDuration = FMath::Clamp(CurrentWindup, 0.1f, 5.f);
+   }
   } else {
    bComboSecondHitActive = false;
   }
@@ -871,6 +876,20 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
    LockedAttackDirection = Difference.GetSafeNormal2D();
    WindupEndsAt = Now + CurrentWindup;
    if (bBoss) BossWarningEndTime = WindupEndsAt;
+   if (bRegionalBoss) {
+    // Stable readable move labels published only at warning startup.
+    const TCHAR* AttackLabel = BossSpecialMove == 1 ? TEXT("MOON CLEAVE")
+      : BossSpecialMove == 2 ? TEXT("HEAVY SLAM")
+      : BossSpecialMove == 3 ? TEXT("DASH STRIKE")
+      : BossSpecialMove == 4 ? TEXT("SPINNING SWEEP")
+      : BossSpecialMove == 5 ? TEXT("SKYFALL SLAM")
+      : Pattern == 0 ? TEXT("QUICK STRIKE")
+      : Pattern == 1 ? TEXT("POWER STRIKE")
+      : Pattern == 2 ? TEXT("WIDE SWEEP")
+      : TEXT("CRUSH ATTACK");
+    DungeonBossAttackLabel = FText::FromString(AttackLabel);
+    DungeonBossAttackWarningDuration = FMath::Clamp(CurrentWindup, 0.1f, 5.f);
+   }
    // Blueprint hooks run synchronously. Publish a fully initialized warning
    // clock before notifying the animation / accessible combat indicator.
    if (bDivineSignatureActive) {
