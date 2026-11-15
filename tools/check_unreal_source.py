@@ -393,6 +393,23 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("SetLifeSpan(", ground_cpp)
         self.assertNotIn("FinisherShockwave", self.hero_cpp)
 
+    def test_inventory_wheel_scrolls_viewport_without_equipping_or_zooming(self):
+        self.assertIn("int32 InventoryViewStart = 0;", self.hero_h)
+        zoom_in = self.hero_cpp.split("void AMoonfallHeroPawn::ZoomCameraIn()", 1)[1].split("\n}", 1)[0]
+        zoom_out = self.hero_cpp.split("void AMoonfallHeroPawn::ZoomCameraOut()", 1)[1].split("\n}", 1)[0]
+        for zoom in (zoom_in, zoom_out):
+            self.assertIn("bInventoryOpen && !bCharacterStatsOpen", zoom)
+            self.assertIn("InventoryViewStart =", zoom)
+            self.assertNotIn("InventorySelection =", zoom)
+            self.assertNotIn("EquipInventoryItem(", zoom)
+            self.assertLess(zoom.index("InventoryViewStart ="), zoom.index("CameraDistance ="))
+        self.assertIn("InventoryViewStart = FMath::Max(0, InventoryViewStart - 1)", zoom_in)
+        self.assertIn("InventoryViewStart + 1", zoom_out)
+        self.assertIn("InventoryViewStart = InventorySelection;", self.hero_cpp)
+        self.assertIn("FMath::Clamp(Hero->InventoryViewStart, 0, FMath::Max(0, Count - PerPage))", self.hud)
+        self.assertIn("const int32 PageEnd = FMath::Min(Count, PageStart + PerPage);", self.hud)
+        self.assertIn("Hero->InventoryItemCodes[Index]", self.hud)
+
     def test_nearby_batch_loot_is_range_and_cover_safe(self):
         pickup = self.hero_cpp.split("void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[1].split(
             "void AMoonfallHeroPawn::EquipBestInventoryAction()", 1)[0]
