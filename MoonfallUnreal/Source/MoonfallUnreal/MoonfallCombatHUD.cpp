@@ -439,9 +439,10 @@ void AMoonfallCombatHUD::DrawHUD()
            CX + Radius + 14.f, CY - 13.f, nullptr, 0.96f * LabelScale);
  }
  if (!bCompactScreen) {
-  const TCHAR* RarityNames[] = { TEXT("COMMON"), TEXT("UNCOMMON"), TEXT("RARE"), TEXT("EPIC") };
+  const TCHAR* RarityNames[] = { TEXT("COMMON"), TEXT("UNCOMMON"), TEXT("RARE"),
+    TEXT("EPIC"), TEXT("EMERALD"), TEXT("LEGENDARY") };
   const int32 Rarity = FMath::Clamp(Hero->LastLootRarity, 0, 5);
-  DrawText(FString::Printf(TEXT("Gear W:%d A:%d C:%d | Salvage %d | Bag %d/30"),
+  DrawText(FString::Printf(TEXT("Gear W:%d A:%d C:%d | Salvage %d | Bag %d"),
    Hero->WeaponTier, Hero->ArmorTier, Hero->AccessoryTier, Hero->Salvage, Hero->InventoryItemCodes.Num()),
    FLinearColor(0.85f,0.84f,0.95f), 24.f, Canvas->SizeY - 75.f, nullptr, 0.8f);
   if (Hero->InventoryItemCodes.Num() > 0) {
