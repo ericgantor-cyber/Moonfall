@@ -5,6 +5,7 @@
 #include "Camera/CameraComponent.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "NavigationInvokerComponent.h"
 #include "GameFramework/PlayerStart.h"
 #include "Components/InputComponent.h"
 #include "Components/CapsuleComponent.h"
@@ -153,6 +154,10 @@ float AMoonfallHeroPawn::GetVersatilityBonus() const
 AMoonfallHeroPawn::AMoonfallHeroPawn()
 {
  PrimaryActorTick.bCanEverTick = true;
+ DungeonNavigationInvoker = CreateDefaultSubobject<UNavigationInvokerComponent>(
+   TEXT("DungeonNavigationInvoker"));
+ // Small active navmesh radius helps keep 30 long dungeon lanes affordable.
+ DungeonNavigationInvoker->SetGenerationRadii(3000.f, 5000.f);
  CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
  CameraBoom->SetupAttachment(GetRootComponent());
  CameraBoom->TargetArmLength = CameraDistance;
