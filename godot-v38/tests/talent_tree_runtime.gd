@@ -38,11 +38,11 @@ func _initialize() -> void:
   _fail("Expanded level gates must reject premature purchases")
   return
  var advanced_reset: Dictionary = TALENTS.respec(16, extended["allocations"])
- if not bool(advanced_reset.get("ok", false)) or int(advanced_reset.get("available", -1)) != 15:
+ if not bool(advanced_reset.get("ok", false)) or int(advanced_reset.get("available", -1)) != 30:
   _fail("Full respec must clear expanded talent allocations")
   return
  var base: Dictionary = TALENTS.evaluate(5, {})
- if not bool(base.get("ok", false)) or int(base.get("available", -1)) != 4:
+ if not bool(base.get("ok", false)) or int(base.get("available", -1)) != 8:
   _fail("Level 5 should have four unspent points")
   return
  var first: Dictionary = TALENTS.spend(5, {}, "iron_will")
@@ -62,7 +62,7 @@ func _initialize() -> void:
   _fail("Unknown talents must be rejected")
   return
  var reset: Dictionary = TALENTS.respec(5, second["allocations"])
- if not bool(reset.get("ok", false)) or int(reset.get("available", -1)) != 4:
+ if not bool(reset.get("ok", false)) or int(reset.get("available", -1)) != 8:
   _fail("Full-tree respec must restore all points")
   return
  if not reset.get("allocations", {}).is_empty():
