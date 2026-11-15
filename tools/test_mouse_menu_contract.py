@@ -71,6 +71,18 @@ class MouseMenusContract(unittest.TestCase):
         self.assertIn('if selected and inventory_restore_focus:tile.call_deferred("grab_focus")', self.source)
         self.assertIn('inventory_restore_focus=false', self.source)
 
+    def test_equipped_gear_cannot_be_deposited(self):
+        deposit = self.source.split('if action.begins_with("inventory_deposit:"):', 1)[1].split('elif action.begins_with("inventory_withdraw:"):', 1)[0]
+        self.assertIn("if idx<0 or idx>=gear_items.size():", deposit)
+        self.assertIn("if not equipped.is_empty() and equipped==gear_items[idx]:", deposit)
+        self.assertIn("Unequip that item before depositing it.", deposit)
+        self.assertLess(deposit.index("if not equipped.is_empty()"), deposit.index("INVENTORY_RULES.transfer_gear("))
+
+    def test_selling_gear_resets_inventory_selection(self):
+        sale = self.source.split('elif action.begins_with("wallet_sell:"):', 1)[1].split('func _create_coin_drop(', 1)[0]
+        self.assertIn("gear_items.remove_at(idx)\\n  inventory_selected_index=-1", sale)
+        self.assertIn("inventory_restore_focus=false", sale)
+
     def test_inventory_search_clear_and_mouse_scroll(self):
         self.assertIn('inventory_search_input.clear_button_enabled=true', self.source)
         self.assertIn('inventory_search_input.text_changed.connect(_on_inventory_query_changed)', self.source)
