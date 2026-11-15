@@ -661,7 +661,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
     def test_escape_closes_each_native_modal_and_backs_out_of_character_sheet(self):
         options = self.hero_cpp.split("void AMoonfallHeroPawn::OpenOptions()", 1)[1].split("\n}", 1)[0]
         close = self.hero_cpp.split("void AMoonfallHeroPawn::CloseResidentContext()", 1)[1].split("\n}", 1)[0]
-        self.assertIn("if (FocusedResident.IsValid()) { CloseResidentContext(); return; }", options)
+        self.assertIn("if (bResidentContextOpen || FocusedResident.IsValid()) { CloseResidentContext(); return; }", options)
         self.assertIn("if (bOptionsOpen)", self.hero_cpp)
         self.assertIn("if (bInventoryOpen)", options)
         self.assertIn("if (bCharacterStatsOpen)", options)
@@ -672,6 +672,19 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("PC->bShowMouseCursor = bOptionsOpen;", options)
         self.assertIn("bResidentContextOpen = false;", close)
         self.assertIn("OnResidentContextClosed();", close)
+
+    def test_npc_close_restores_cursor_and_defeat_clears_menu_transients(self):
+        close = self.hero_cpp.split("void AMoonfallHeroPawn::CloseResidentContext()", 1)[1].split("\n}", 1)[0]
+        escape = self.hero_cpp.split("void AMoonfallHeroPawn::OpenOptions()", 1)[1].split("\n}", 1)[0]
+        defeat = self.hero_cpp.split("if (Health <= 0.f) {\n  CloseResidentContext();", 1)[1].split("\n }", 1)[0]
+        self.assertIn("PC->bShowMouseCursor = bOptionsOpen || bInventoryOpen;", close)
+        self.assertIn("if (bResidentContextOpen || FocusedResident.IsValid())", escape)
+        self.assertIn("bInventoryOpen = false;", defeat)
+        self.assertIn("bCharacterStatsOpen = false;", defeat)
+        self.assertIn("bOptionsOpen = false;", defeat)
+        self.assertIn("bInventoryScrollbarDragging = false;", defeat)
+        self.assertIn("PC->bShowMouseCursor = false;", defeat)
+        self.assertNotIn("SaveWorldProgress(", close)
 
     def test_nearby_batch_loot_is_range_and_cover_safe(self):
         pickup = self.hero_cpp.split("void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[1].split(
@@ -3095,7 +3108,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('void AMoonfallHeroPawn::EndGuard()', self.hero_cpp)
         self.assertIn("NextParryAt = Now + FMath::Clamp(ParryCooldownSeconds, 0.3f, 2.f);", self.hero_cpp)
         self.assertIn("Stamina < GuardStaminaCost) return;", self.hero_cpp)
-        self.assertIn("if (Health <= 0.f) {\n  CloseResidentContext();\n  // Prevent lingering movement/jump input from carrying through defeat.\n  StopJumping();\n  if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();\n  // Clear any held sprint so a later respawn cannot inherit it.\n  EndSprint();\n  EndGuard();\n  // Defeat clears every gameplay menu so the death/respawn screen stays visible.\n  bInventoryOpen = false;\n  bOptionsOpen = false;\n }", self.hero_cpp)
+        self.assertIn("if (Health <= 0.f) {\n  CloseResidentContext();\n  // Prevent lingering movement/jump input from carrying through defeat.\n  StopJumping();\n  if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();\n  // Clear any held sprint so a later respawn cannot inherit it.\n  EndSprint();\n  EndGuard();\n  // Defeat clears every gameplay menu so the death/respawn screen stays visible.\n  bInventoryOpen = false;\n  bCharacterStatsOpen = false;\n  bOptionsOpen = false;\n  bInventoryScrollbarDragging = false;\n  if (APlayerController* PC = Cast<APlayerController>(Controller))\n   PC->bShowMouseCursor = false;\n }", self.hero_cpp)
         self.assertIn("ParryWindowEndsAt = -1.f", self.hero_cpp)
         self.assertIn("DamageAfterGuard *= 0.4f", self.hero_cpp)
         self.assertIn("Stamina = FMath::Clamp(Stamina - RequiredGuardCost, 0.f, MaxStamina)", self.hero_cpp)
