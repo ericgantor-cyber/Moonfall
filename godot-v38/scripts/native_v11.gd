@@ -1459,6 +1459,10 @@ func _atlas_equip_mouse_input(event:InputEvent,action:String)->void:
    if inventory_show_vault:
     get_viewport().set_input_as_handled()
     return
+   var item_index:int=int(action.get_slice(":",1))
+   if item_index>=0 and item_index<gear_items.size() and not equipped.is_empty() and equipped==gear_items[item_index]:
+    get_viewport().set_input_as_handled()
+    return
    _atlas_execute("equip:"+action.get_slice(":",1))
   else:_atlas_execute(action)
   get_viewport().set_input_as_handled()
