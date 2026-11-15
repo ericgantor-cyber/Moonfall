@@ -30,6 +30,25 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertTrue((ROOT / "MoonfallPersistentSave.h").is_file())
         self.assertFalse((ROOT / "MoonfallRewardSaveGame.h").exists())
 
+    def test_hosted_unreal_packaging_generates_project_owned_startup_level(self):
+        workflow = (ROOT.parents[2] / ".github" / "workflows"
+                    / "unreal-hosted-windows.yml").read_text(encoding="utf-8")
+        prepare = workflow.index("Create and validate Moonfall startup level for packaging")
+        package = workflow.index("Package actual Win64 Development game after successful Unreal C++ compile")
+        self.assertLess(prepare, package)
+        section = workflow[prepare:package]
+        self.assertIn("inputs.package_game", section)
+        self.assertIn("Create-StartupLevel.py", section)
+        self.assertIn("UnrealEditor-Cmd.exe", section)
+        self.assertIn("-ExecutePythonScript=", section)
+        self.assertIn("MoonfallStart.umap", section)
+        self.assertIn("GameDefaultMap", section)
+        self.assertIn("EditorStartupMap", section)
+        self.assertIn("Moonfall startup map generation failed", section)
+        packaging = workflow[package:]
+        self.assertIn('"-map=/Game/Maps/MoonfallStart"', packaging)
+        self.assertIn("game-source/MoonfallUnreal/Saved/Logs/", packaging)
+
     def test_optional_actor_rig_is_no_tick_and_actor_owned(self):
         rig_cpp = (ROOT / "MoonfallActorRigComponent.cpp").read_text(encoding="utf-8")
         rig_h = (ROOT / "MoonfallActorRigComponent.h").read_text(encoding="utf-8")
