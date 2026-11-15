@@ -1,6 +1,7 @@
 #include "MoonfallDungeonLayout.h"
 #include "MoonfallHeroPawn.h"
 #include "MoonfallEnemy.h"
+#include "MoonfallGroundLoot.h"
 #include "Engine/World.h"
 #include "Components/SceneComponent.h"
 #include "Components/BoxComponent.h"
@@ -240,6 +241,7 @@ void AMoonfallDungeonLayout::HandleChamberOverlap(
   const int32 ChamberType = GetChamberType(ChamberIndex);
   // Failed spawn leaves the chamber retryable on a later overlap.
   if (ChamberType == 1 && !StartCombatChamber(Hero, ChamberIndex)) return;
+  if (ChamberType == 2 && !SpawnTreasureChamber(Hero, ChamberIndex)) return;
   EnteredChambersMask |= Bit;
   OnChamberEntered(Hero, ChamberIndex, ChamberType);
   return;
@@ -309,5 +311,41 @@ bool AMoonfallDungeonLayout::StartCombatChamber(AMoonfallHeroPawn* Hero, int32 C
  if (Spawned == 0) return false;
  SpawnedEncounterCount += Spawned;
  OnChamberEncounterSpawned(Hero, ChamberIndex, Spawned, bEliteEncounter);
+ return true;
+}
+
+bool AMoonfallDungeonLayout::SpawnTreasureChamber(
+ AMoonfallHeroPawn* Hero, int32 ChamberIndex)
+{
+ if (!GetWorld() || !IsValid(Hero) || !Hero->IsPlayerControlled()
+     || !FMath::IsFinite(Hero->Health) || Hero->Health <= 0.f
+     || ZoneIndex < 0 || ZoneIndex >= 6 || DungeonIndex < 0 || DungeonIndex >= 5
+     || ChamberIndex <= 0 || ChamberIndex >= ChamberCount - 1
+     || GetChamberType(ChamberIndex) != 2) return false;
+ // Only the saved reward record decides whether an item can be produced.
+ const int32 Code = Hero->GetOrCreateDungeonTreasureCode(
+   ZoneIndex, DungeonIndex, ChamberIndex, GetEffectiveLayoutSeed());
+ if (Code <= 0) {
+  // Claimed treasure is a successful, empty room; do not duplicate a pickup.
+  return Hero->GetDungeonTreasureState(ZoneIndex, DungeonIndex, ChamberIndex) == -1;
+ }
+ if (SpawnedTreasure[ChamberIndex].IsValid()) return true;
+ const FVector Position = GetActorTransform().TransformPosition(
+   FVector(ChamberIndex * ChamberLength, 185.f, 55.f));
+ FActorSpawnParameters Params;
+ Params.Owner = this;
+ Params.SpawnCollisionHandlingOverride =
+   ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+ AMoonfallGroundLoot* Loot = GetWorld()->SpawnActor<AMoonfallGroundLoot>(
+   AMoonfallGroundLoot::StaticClass(), Position, GetActorRotation(), Params);
+ if (!IsValid(Loot)) return false;
+ Loot->InitializeLoot(Code);
+ if (Loot->GetItemCode() != Code) {
+  Loot->Destroy();
+  return false;
+ }
+ Loot->InitializeDungeonReward(ZoneIndex, DungeonIndex, ChamberIndex);
+ SpawnedTreasure[ChamberIndex] = Loot;
+ OnDungeonTreasureSpawned(Hero, ChamberIndex, Code);
  return true;
 }
