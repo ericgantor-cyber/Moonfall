@@ -5,6 +5,11 @@ var rhythm_chain:int=0
 var rhythm_last_strike_at:float=-999.0
 var rhythm_strike_active:bool=false
 var rhythm_last_posture_message_at:float=-999.0
+var rhythm_dodge_started_at:float=-999.0
+var rhythm_dodge_rewarded:bool=false
+var rhythm_counter_until:float=-999.0
+const RHYTHM_COUNTER_MULTIPLIER:float=1.25
+const RHYTHM_COUNTER_SECONDS:float=1.0
 
 func _attack()->void:
  # The inherited attack owns input, cooldowns, stamina, damage, and animation.
@@ -24,9 +29,13 @@ func _attack()->void:
   rhythm_chain=previous_chain
 
 func _apply_player_hit(target:Dictionary,base_damage:float,stagger_strength:float=0.0)->void:
- # Real hostile contact only: no damage changes and no posture on spell hits.
+ # Only an actual melee hit consumes a counter reward; spells retain base damage.
  var before:float=float(target.get("hp",0.0))
- super._apply_player_hit(target,base_damage,stagger_strength)
+ var counter_ready:bool=rhythm_strike_active and map_time<=rhythm_counter_until and bool(target.get("hostile",false))
+ super._apply_player_hit(target,base_damage*(RHYTHM_COUNTER_MULTIPLIER if counter_ready else 1.0),stagger_strength)
+ if counter_ready and float(target.get("hp",0.0))<before:
+  rhythm_counter_until=-999.0
+  _show_message("DODGE COUNTER!",0.75)
  if not rhythm_strike_active or not bool(target.get("hostile",false)) or not bool(target.get("alive",false)):return
  if float(target.get("hp",0.0))>=before:return
  var maximum:float=100.0 if bool(target.get("boss",false)) else 60.0
@@ -41,9 +50,30 @@ func _apply_player_hit(target:Dictionary,base_damage:float,stagger_strength:floa
    rhythm_last_posture_message_at=map_time
    _show_message("POSTURE BROKEN!",0.8)
 
+func _dodge()->void:
+ var previous:float=dodge_time
+ super._dodge()
+ if dodge_time>previous and dodge_time>0.0:
+  rhythm_dodge_started_at=map_time
+  rhythm_dodge_rewarded=false
+
+func _apply_incoming_damage(raw:float)->void:
+ # Restrict the perfect window to active melee threat; do not affect
+ # environmental damage outside combat or the existing parry/guard path.
+ var elapsed:float=map_time-rhythm_dodge_started_at
+ if hero_playing and not menu_open and not death_active and not mounted and not wait_open and not wait_transition_active and not rhythm_dodge_rewarded and dodge_time>0.0 and _combat_threat() and RHYTHM.perfect_dodge(elapsed,raw>0.0):
+  rhythm_dodge_rewarded=true
+  rhythm_counter_until=map_time+RHYTHM_COUNTER_SECONDS
+  _show_message("PERFECT DODGE! Counter now!",0.85)
+  return
+ super._apply_incoming_damage(raw)
+
 func _start_game(selected_hero:String)->void:
  super._start_game(selected_hero)
  rhythm_chain=0
  rhythm_last_strike_at=-999.0
  rhythm_strike_active=false
  rhythm_last_posture_message_at=-999.0
+ rhythm_dodge_started_at=-999.0
+ rhythm_dodge_rewarded=false
+ rhythm_counter_until=-999.0
