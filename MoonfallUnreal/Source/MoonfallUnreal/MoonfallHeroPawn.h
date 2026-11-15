@@ -183,6 +183,8 @@ public:
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Inventory") bool bCharacterStatsOpen = false;
  UFUNCTION(BlueprintCallable, Category="Moonfall|Inventory") void ToggleCharacterStats();
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Inventory") int32 InventorySelection = 0;
+ // Transient visible row offset; wheel scrolling never changes selection or equipment.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Inventory") int32 InventoryViewStart = 0;
  UFUNCTION(BlueprintCallable, Category="Moonfall|Inventory") void ToggleInventory();
  UFUNCTION(BlueprintCallable, Category="Moonfall|Inventory") void EquipSelectedInventoryItem();
  // Salvage only un-equipped entries. Returns false for invalid/protected gear.
