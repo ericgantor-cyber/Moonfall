@@ -829,6 +829,25 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[0]
         self.assertIn("InventoryItemCodes.Num() > 10000", save)
 
+    def test_resident_quest_state_save_and_load_reject_lossy_records(self):
+        save = self.hero_cpp.split("bool AMoonfallHeroPawn::SaveWorldProgress()", 1)[1].split(
+            "bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[0]
+        load = self.hero_cpp.split("bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[1].split(
+            "void AMoonfallHeroPawn::", 1)[0]
+        self.assertIn("for (const auto& Entry : ResidentQuestStates)", save)
+        self.assertIn("!IsNamedMoonfallResident(Entry.Key) || (Entry.Value != 1 && Entry.Value != 2)", save)
+        self.assertLess(save.index("for (const auto& Entry : ResidentQuestStates)"),
+                        save.index("UGameplayStatics::SaveGameToSlot("))
+        self.assertIn("if (Save->Version >= 6) {", load)
+        self.assertIn("for (const auto& Entry : Save->ResidentQuestStates)", load)
+        guard = load.split("// Protect all saved quest entries", 1)[1].split(
+            "// Do not silently discard malformed saved gear", 1)[0]
+        self.assertIn("!IsNamedMoonfallResident(Entry.Key) || (Entry.Value != 1 && Entry.Value != 2)", guard)
+        self.assertIn("bPersistentSaveWritesBlocked = true;", guard)
+        self.assertIn("return false;", guard)
+        self.assertLess(load.index("// Protect all saved quest entries"),
+                        load.index("bWorldProgressLoadInProgress = true;"))
+
     def test_load_preflights_worn_item_ownership_before_mutating_progress(self):
         load = self.hero_cpp.split("bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[1].split(
             "void AMoonfallHeroPawn::", 1)[0]
