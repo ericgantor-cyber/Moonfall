@@ -135,6 +135,8 @@ var inventory_page:int=0
 var inventory_show_vault:bool=false
 var inventory_selected_index:int=-1
 var inventory_restore_focus:bool=false
+var crafting_selected_index:int=0
+var crafting_craftable_only:bool=false
 var inventory_search_input:LineEdit
 var equipped: Dictionary = {}
 var skinning_skill := 1
@@ -1396,13 +1398,27 @@ func _menu_tab(which: String) -> void:
    if not companion.is_empty():text+="\nCompanion health: "+str(int(companion.get("hp",0)))+" / "+str(int(companion.get("max",80)))
    menu_body.text=text
   "Professions":
-   var text:="[b]PROFESSIONS / CRAFTING[/b]\nSkinning "+str(skinning_skill)+" / 300\nLeatherworking "+str(crafting_skill)+" / 300\n\n[b]Materials:[/b]\n"
-   for k in materials.keys():text+=str(k)+": "+str(materials[k])+"\n"
-   text+="\n[b]Recipes[/b]\n"
+   var text:="[b]PROFESSIONS / RECIPE BOOK[/b]\nSkinning "+str(skinning_skill)+" / 300  •  Leatherworking "+str(crafting_skill)+" / 300\n\n[b]RECIPES[/b]  •  Select a recipe to view materials and craft it.\n"
+   _atlas_action("SHOW: "+("CRAFTABLE ONLY" if crafting_craftable_only else "ALL RECIPES"),"recipe_filter")
+   var available:Array[int]=[]
    for i in range(RECIPES.size()):
     var recipe:Dictionary=RECIPES[i]
-    text+="\n[b]"+str(i+1)+". "+str(recipe["name"])+"[/b]\n"+_recipe_hover_details(recipe)+"\n"
-    _atlas_action("CRAFT: "+str(recipe["name"]),"craft:"+str(i),_recipe_hover_details(recipe))
+    var issue:String=INVENTORY_RULES.craft_issue(recipe,materials,gear_items.size(),bag_capacity)
+    if crafting_craftable_only and issue!="":continue
+    available.append(i)
+    var category:String="Consumable" if int(recipe.get("power",0))==0 else "Equipment"
+    var label:String=("◆ " if crafting_selected_index==i else "")+str(recipe.get("name","Recipe"))+" • "+category+" • "+("READY" if issue=="" else "MISSING")
+    _atlas_action(label,"recipe_select:"+str(i),"Select to inspect materials and result.")
+   if available.is_empty():
+    text+="\nNo recipes match this filter. Switch to ALL RECIPES to see missing ingredients.\n"
+   else:
+    if not (crafting_selected_index in available):crafting_selected_index=available[0]
+    var chosen:Dictionary=RECIPES[crafting_selected_index]
+    var chosen_issue:String=INVENTORY_RULES.craft_issue(chosen,materials,gear_items.size(),bag_capacity)
+    text+="\n\n[b]SELECTED RECIPE: "+str(chosen.get("name","Recipe"))+"[/b]"
+    text+="\n"+_recipe_hover_details(chosen)
+    text+="\n\n[b]STATUS:[/b] "+("READY TO CRAFT" if chosen_issue=="" else chosen_issue)
+    _atlas_action("CREATE: "+str(chosen.get("name","Recipe")),"craft_selected",chosen_issue if chosen_issue!="" else "Craft one of the selected recipe.")
    menu_body.text=text
   "Hunter":
    var text:="[b]HUNTER'S PATH[/b]\n\nHunter Senses: "+("ACTIVE" if senses_on else "INACTIVE")+"\nContracts completed: "+str(contracts_done.size())+"/6\nHunter Oil: "+str(int(hunter_oil_time))+"s\n"
@@ -1566,7 +1582,24 @@ func _atlas_action(label: String, action: String, tip: String="") -> void:
 func _atlas_equip_mouse_input(event:InputEvent,action:String)->void:
  if not menu_open or current_tab!="Inventory":return
  if event is InputEventMouseButton and event.pressed and event.button_index==MOUSE_BUTTON_RIGHT:
-  if action.begins_with("inventory_select:"):
+  if action.begins_with("recipe_select:"):
+  if not menu_open or current_tab!="Professions":return
+  var recipe_index:int=int(action.get_slice(":",1))
+  if recipe_index<0 or recipe_index>=RECIPES.size():return
+  crafting_selected_index=recipe_index
+  _menu_tab("Professions")
+  return
+ if action=="recipe_filter":
+  if not menu_open or current_tab!="Professions":return
+  crafting_craftable_only=not crafting_craftable_only
+  _menu_tab("Professions")
+  return
+ if action=="craft_selected":
+  if not menu_open or current_tab!="Professions":return
+  _craft(crafting_selected_index)
+  _menu_tab("Professions")
+  return
+ if action.begins_with("inventory_select:"):
    if inventory_show_vault:
     get_viewport().set_input_as_handled()
     return
@@ -1684,6 +1717,8 @@ func _reset_new_adventure() -> void:
  inventory_restore_focus=false
  inventory_page=0
  inventory_show_vault=false
+ crafting_selected_index=0
+ crafting_craftable_only=false
  if is_instance_valid(inventory_search_input):inventory_search_input.text=""
  equipped={}
  learned_talents={}
