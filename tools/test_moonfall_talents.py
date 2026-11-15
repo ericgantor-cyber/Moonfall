@@ -42,11 +42,35 @@ class TalentTests(unittest.TestCase):
     def test_rejects_invalid_budget_ranks_and_nodes(self):
         with self.assertRaisesRegex(ValueError, "Not enough talent points"):
             evaluate(1, {"iron_will": 1}, self.tree)
-        for choice in ({"iron_will": 2}, {"iron_will": -1}, {"iron_will": True}):
+        for choice in ({"iron_will": 6}, {"iron_will": -1}, {"iron_will": True}):
             with self.assertRaisesRegex(ValueError, "Invalid allocated rank"):
                 evaluate(10, choice, self.tree)
         with self.assertRaisesRegex(ValueError, "Unknown talent choice"):
             spend(5, {}, "unknown", self.tree)
+
+    def test_multirank_caps_and_scaled_bonuses(self):
+        limits = {1: 5, 2: 3, 3: 1}
+        for node in self.tree["nodes"]:
+            self.assertEqual(node["max_rank"], limits[node["tier"]])
+        self.assertEqual(sum(n["max_rank"] for n in self.tree["nodes"]), 36)
+        state = evaluate(10, {"iron_will": 5, "breaker": 3}, self.tree)
+        self.assertEqual((state["spent"], state["available"]), (8, 1))
+        self.assertAlmostEqual(state["bonuses"]["melee_damage"]["percent"], .27)
+        with self.assertRaisesRegex(ValueError, "Invalid allocated rank"):
+            spend(10, state["allocations"], "breaker", self.tree)
+        with self.assertRaisesRegex(ValueError, "Not enough talent points"):
+            evaluate(5, {"iron_will": 5}, self.tree)
+        reset = respec(10, self.tree, current=state["allocations"])
+        self.assertEqual((reset["spent"], reset["available"]), (0, 9))
+
+    def test_multirank_spend_progression(self):
+        state = evaluate(10, {}, self.tree)
+        for rank in range(1, 6):
+            state = spend(10, state["allocations"], "spirit_well", self.tree)
+            self.assertEqual(state["allocations"]["spirit_well"], rank)
+            self.assertEqual(state["bonuses"]["mana"]["flat"], 8 * rank)
+        with self.assertRaisesRegex(ValueError, "Invalid allocated rank"):
+            spend(10, state["allocations"], "spirit_well", self.tree)
 
     def test_rejects_bad_prerequisites(self):
         bad = copy.deepcopy(self.tree)
