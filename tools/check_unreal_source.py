@@ -3607,5 +3607,36 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("SaveWorldProgress(", layout)
         self.assertNotIn("GiveExperience(", layout)
 
+
+    def test_seeded_dungeon_chamber_types_and_nonblocking_hazard_preview(self):
+        layout_h = (ROOT / "MoonfallDungeonLayout.h").read_text(encoding="utf-8")
+        layout = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
+        self.assertIn("int32 GetEffectiveLayoutSeed() const;", layout_h)
+        self.assertIn("int32 GetChamberType(int32 ChamberIndex) const;", layout_h)
+        self.assertIn("void OnChamberEntered(AMoonfallHeroPawn* Hero, int32 ChamberIndex, int32 ChamberType);", layout_h)
+        self.assertIn("TArray<TObjectPtr<UBoxComponent>> ChamberTriggers;", layout_h)
+        self.assertIn("return RoomRandom.RandRange(1, 4);", layout)
+        self.assertIn("FRandomStream Stream(GetEffectiveLayoutSeed());", layout)
+        self.assertIn("Swap(Candidates[Index], Candidates[Choice]);", layout)
+        self.assertIn("const int32 Choice = Stream.RandRange(Index, 11);", layout)
+        self.assertIn("HazardPlates->SetCollisionEnabled(ECollisionEnabled::NoCollision);", layout)
+        self.assertIn("HazardPlates->ClearInstances();", layout)
+        self.assertIn("FVector(Chamber * ChamberLength, Side, 8.f)", layout)
+        self.assertIn("return 6;", layout)
+        self.assertIn("return 0;", layout)
+
+    def test_dungeon_room_event_requires_safe_save_and_fires_once(self):
+        layout = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
+        overlap = layout.split("void AMoonfallDungeonLayout::HandleChamberOverlap(", 1)[1]
+        self.assertIn("Hero->IsPlayerControlled()", overlap)
+        self.assertIn("Hero->DiscoverDungeonEntrance(ZoneIndex, DungeonIndex)", overlap)
+        self.assertIn("if ((EnteredChambersMask & Bit) != 0u) return;", overlap)
+        self.assertLess(overlap.index("&& !Hero->DiscoverDungeonEntrance("),
+                        overlap.index("EnteredChambersMask |= Bit;"))
+        self.assertLess(overlap.index("EnteredChambersMask |= Bit;"),
+                        overlap.index("OnChamberEntered(Hero, ChamberIndex, GetChamberType(ChamberIndex));"))
+        self.assertNotIn("ApplyMoonfallDamage(", overlap)
+        self.assertNotIn("SpawnActor", overlap)
+
 if __name__ == "__main__":
     unittest.main()
