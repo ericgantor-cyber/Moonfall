@@ -189,6 +189,8 @@ public:
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Inventory") int32 InventorySortMode = 0;
  TArray<int32> GetInventoryDisplayOrder() const;
  bool HitTestInventorySortButton() const;
+ // Pointer close button is independent of gear and sort hit regions.
+ bool HitTestInventoryCloseButton() const;
  // Clickable scrollbar track changes only the transient display window.
  bool ScrollInventoryToMouseTrack();
  // Mouse drag is transient and cannot mutate inventory or equipped items.
