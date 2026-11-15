@@ -4068,7 +4068,10 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Boss->BossMaxHealth", hud)
         self.assertIn("Boss->BossWarningEndTime - GetWorld()->GetTimeSeconds()", hud)
         self.assertIn("FMath::IsFinite(WarningRemaining) && WarningRemaining > 0.f", hud)
-        self.assertIn("INCOMING ATTACK  |  %.1fs  |  DODGE / PARRY", hud)
+        self.assertIn('TEXT("%s  |  %.1fs  |  DODGE / PARRY")', hud)
+        self.assertIn("Boss->DungeonBossAttackLabel.ToString()", hud)
+        self.assertIn("Boss->DungeonBossAttackWarningDuration", hud)
+        self.assertIn("Seconds / Boss->DungeonBossAttackWarningDuration", hud)
         self.assertIn("Hero->BossWarningScale", hud)
         self.assertIn("Hero->GetTotalDefeatedDungeonBosses()", hud)
         self.assertIn("Hero->GetClearedDungeonZoneCount()", hud)
@@ -4076,6 +4079,28 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(hud.index("if (Hero->bInventoryOpen)"),
                         hud.index("const bool bRegionalBoss = Boss->bBoss"))
         self.assertNotIn("SetHealth(", hud)
+        self.assertNotIn("MarkDungeonBossDefeated(", hud)
+
+
+    def test_regional_attack_labels_match_actual_warning_and_combo_windups(self):
+        enemy_h = (ROOT / "MoonfallEnemy.h").read_text(encoding="utf-8")
+        enemy = (ROOT / "MoonfallEnemy.cpp").read_text(encoding="utf-8")
+        hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        self.assertIn("FText DungeonBossAttackLabel;", enemy_h)
+        self.assertIn("float DungeonBossAttackWarningDuration = 0.f;", enemy_h)
+        for label in ("MOON CLEAVE", "HEAVY SLAM", "DASH STRIKE",
+                      "SPINNING SWEEP", "SKYFALL SLAM", "QUICK STRIKE",
+                      "POWER STRIKE", "WIDE SWEEP", "CRUSH ATTACK",
+                      "COMBO FOLLOW-UP"):
+            self.assertIn('TEXT("' + label + '")', enemy)
+        self.assertIn("DungeonBossAttackLabel = FText::FromString(AttackLabel);", enemy)
+        self.assertIn('DungeonBossAttackLabel = FText::FromString(TEXT("COMBO FOLLOW-UP"));', enemy)
+        self.assertIn("DungeonBossAttackWarningDuration = FMath::Clamp(CurrentWindup, 0.1f, 5.f);", enemy)
+        self.assertIn("Seconds / Boss->DungeonBossAttackWarningDuration", hud)
+        self.assertIn("FMath::IsFinite(Boss->DungeonBossAttackWarningDuration)", hud)
+        self.assertIn("FMath::Clamp(WarningRemaining, 0.f, 10.f)", hud)
+        self.assertIn("Boss->BossWarningEndTime - GetWorld()->GetTimeSeconds()", hud)
+        self.assertNotIn("TakeSpellDamage(", hud)
         self.assertNotIn("MarkDungeonBossDefeated(", hud)
 
 if __name__ == "__main__":
