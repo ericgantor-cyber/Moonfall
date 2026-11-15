@@ -1302,6 +1302,12 @@ void AMoonfallHeroPawn::OpenOptions() {
  // The defeat screen owns input until respawn; do not reopen gameplay menus.
  if (Health <= 0.f || !FMath::IsFinite(Health)) return;
  if (bInventoryOpen) {
+  if (bCharacterStatsOpen) {
+   // Esc backs out of character details to the bag without closing the inventory.
+   bCharacterStatsOpen = false;
+   bInventoryScrollbarDragging = false;
+   return;
+  }
   ToggleInventory(); // Same cleanup path as the mouse close button.
   return;
  }
