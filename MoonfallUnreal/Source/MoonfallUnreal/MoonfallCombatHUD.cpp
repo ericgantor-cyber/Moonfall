@@ -167,7 +167,9 @@ void AMoonfallCombatHUD::DrawHUD()
    const TCHAR* Slots[] = {TEXT("Weapon"), TEXT("Armor"), TEXT("Accessory")};
    const TCHAR* Rarities[] = {TEXT("Common"), TEXT("Uncommon"), TEXT("Rare"), TEXT("Epic"), TEXT("Emerald"), TEXT("Legendary")};
    const TCHAR* Traits[] = {TEXT("None"), TEXT("Force"), TEXT("Ward"), TEXT("Focus")};
-   const bool bValid = Code > 0 && Slot <= 2 && Affix <= 3 && Rarity <= 5 && Tier >= 1 && Tier <= 25;
+   const bool bValid = Code > 0 && Slot <= 2 && Affix <= 3 && Rarity <= 5 && Tier >= 1 && Tier <= 25
+     && (Rarity != 0 || Affix == 0)
+     && Code == Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier;
    const bool bEquipped = Code == (Slot == 0 ? Hero->EquippedWeaponCode
      : Slot == 1 ? Hero->EquippedArmorCode : Hero->EquippedAccessoryCode);
    const float Y = Top + 145.f + (Index - PageStart) * RowSpacing;
@@ -185,18 +187,38 @@ void AMoonfallCombatHUD::DrawHUD()
      : (bValid ? RarityColors[Rarity] : FLinearColor::White),
      Left + 20.f, Y, nullptr, Canvas->SizeX < 900.f ? 0.75f : 0.9f);
   }
-  // Live stat summary mirrors the modifiers applied in combat and recovery.
-  const int32 WeaponRarity = FMath::Clamp((Hero->EquippedWeaponCode / 1000) % 10, 0, 5);
-  const int32 ArmorRarity = FMath::Clamp((Hero->EquippedArmorCode / 1000) % 10, 0, 5);
-  const int32 AccessoryRarity = FMath::Clamp((Hero->EquippedAccessoryCode / 1000) % 10, 0, 5);
-  const float WeaponBonusPct = 100.f * (FMath::Clamp(0.018f * Hero->WeaponTier, 0.f, 0.35f)
-    + (Hero->WeaponAffix == 1 ? 0.06f : 0.f) + WeaponRarity * 0.015f);
-  const float ArmorMitigationPct = 100.f * FMath::Min(0.34f, FMath::Min(0.28f, Hero->ArmorTier * 0.01f)
-    + (Hero->ArmorAffix == 2 ? 0.06f : 0.f) + ArmorRarity * 0.005f
+  // Match the combat decoder: a code only contributes while owned, correctly
+  // slotted and canonically encoded. HUD previews must never imply phantom stats.
+  const auto ReadOwnedGear = [Hero](int32 Code, int32 ExpectedSlot,
+                                   int32& Trait, int32& Rarity, int32& Tier) {
+   Trait = 0; Rarity = 0; Tier = 0;
+   if (Code <= 0 || !Hero->InventoryItemCodes.Contains(Code)) return;
+   const int32 EncodedTrait = Code / 100000;
+   const int32 Slot = (Code / 10000) % 10;
+   const int32 EncodedRarity = (Code / 1000) % 10;
+   const int32 EncodedTier = Code % 1000;
+   if (EncodedTrait < 0 || EncodedTrait > 3 || Slot != ExpectedSlot
+       || EncodedRarity < 0 || EncodedRarity > 5
+       || EncodedTier < 1 || EncodedTier > 25
+       || (EncodedRarity == 0 && EncodedTrait != 0)
+       || Code != EncodedTrait * 100000 + Slot * 10000 + EncodedRarity * 1000 + EncodedTier)
+    return;
+   Trait = EncodedTrait; Rarity = EncodedRarity; Tier = EncodedTier;
+  };
+  int32 WeaponTrait = 0, WeaponRarity = 0, WeaponTier = 0;
+  int32 ArmorTrait = 0, ArmorRarity = 0, ArmorTier = 0;
+  int32 AccessoryTrait = 0, AccessoryRarity = 0, AccessoryTier = 0;
+  ReadOwnedGear(Hero->EquippedWeaponCode, 0, WeaponTrait, WeaponRarity, WeaponTier);
+  ReadOwnedGear(Hero->EquippedArmorCode, 1, ArmorTrait, ArmorRarity, ArmorTier);
+  ReadOwnedGear(Hero->EquippedAccessoryCode, 2, AccessoryTrait, AccessoryRarity, AccessoryTier);
+  const float WeaponBonusPct = 100.f * (FMath::Clamp(0.018f * WeaponTier, 0.f, 0.35f)
+    + (WeaponTrait == 1 && WeaponRarity > 0 ? 0.06f : 0.f) + WeaponRarity * 0.015f);
+  const float ArmorMitigationPct = 100.f * FMath::Min(0.34f, FMath::Min(0.28f, ArmorTier * 0.01f)
+    + (ArmorTrait == 2 && ArmorRarity > 0 ? 0.06f : 0.f) + ArmorRarity * 0.005f
     + Hero->GetVersatilityBonus() * 0.5f
     + (Hero->GetSetPieceCount(2) >= 3 ? 0.025f : 0.f));
-  const float ManaRegenBonusPct = 100.f * (FMath::Clamp(Hero->AccessoryTier * 0.012f, 0.f, 0.25f)
-    + (Hero->AccessoryAffix == 3 ? 0.08f : 0.f) + AccessoryRarity * 0.02f
+  const float ManaRegenBonusPct = 100.f * (FMath::Clamp(AccessoryTier * 0.012f, 0.f, 0.25f)
+    + (AccessoryTrait == 3 && AccessoryRarity > 0 ? 0.08f : 0.f) + AccessoryRarity * 0.02f
     + (Hero->GetSetPieceCount(3) >= 3 ? 0.06f : 0.f));
   DrawText(FString::Printf(TEXT("Equipped: +%.1f%% spell damage  |  %.1f%% protection  |  +%.1f%% mana regen"),
     WeaponBonusPct, ArmorMitigationPct, ManaRegenBonusPct),
@@ -417,10 +439,12 @@ void AMoonfallCombatHUD::DrawHUD()
            CX + Radius + 14.f, CY - 13.f, nullptr, 0.96f * LabelScale);
  }
  if (!bCompactScreen) {
-  const TCHAR* RarityNames[] = { TEXT("COMMON"), TEXT("UNCOMMON"), TEXT("RARE"), TEXT("EPIC") };
+  const TCHAR* RarityNames[] = { TEXT("COMMON"), TEXT("UNCOMMON"), TEXT("RARE"),
+    TEXT("EPIC"), TEXT("EMERALD"), TEXT("LEGENDARY") };
   const int32 Rarity = FMath::Clamp(Hero->LastLootRarity, 0, 5);
-  DrawText(FString::Printf(TEXT("Gear W:%d A:%d C:%d | Salvage %d | Bag %d/30"),
-   Hero->WeaponTier, Hero->ArmorTier, Hero->AccessoryTier, Hero->Salvage, Hero->InventoryItemCodes.Num()),
+  DrawText(FString::Printf(TEXT("Gear W:%d A:%d C:%d | Salvage %d | Bag %d"),
+   Hero->GetValidatedEquippedTier(0), Hero->GetValidatedEquippedTier(1),
+    Hero->GetValidatedEquippedTier(2), Hero->Salvage, Hero->InventoryItemCodes.Num()),
    FLinearColor(0.85f,0.84f,0.95f), 24.f, Canvas->SizeY - 75.f, nullptr, 0.8f);
   if (Hero->InventoryItemCodes.Num() > 0) {
    DrawText(FString::Printf(TEXT("Last drop: %s Tier %d (%+d vs equipped)"),
