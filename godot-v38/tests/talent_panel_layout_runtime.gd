@@ -16,8 +16,15 @@ func _initialize() -> void:
  if visual.x > 768.01 or visual.y > 568.01:
   _fail("Scaled panel must stay inside the viewport margins")
   return
- if (small["offset_from_center"] + visual * 0.5).length() > 0.01:
-  _fail("Scaled panel must remain centered")
+ if (small["position"] + visual * 0.5 - Vector2(400,300)).length() > 0.01:
+  _fail("Scaled panel must be centered in absolute viewport coordinates")
+  return
+ if small["position"].x < 16.0 or small["position"].y < 16.0:
+  _fail("Scaled talent window must remain inside screen margins")
+  return
+ var large_position: Vector2 = desktop["position"]
+ if not large_position.is_equal_approx(Vector2(410,175)):
+  _fail("Desktop panel should start at its actual screen position")
   return
  var resized: Dictionary = LAYOUT.placement(Vector2(1280, 720))
  if resized["visual_size"].y > 688.01:
