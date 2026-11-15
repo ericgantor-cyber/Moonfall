@@ -494,7 +494,7 @@ int32 AMoonfallHeroPawn::GetInventoryVisibleRows() const
   Controller->GetViewportSize(ViewWidth, ViewHeight);
  // Match the Canvas panel height and reserve footer/stat space.
  const float PanelHeight = FMath::Min(860.f, FMath::Max(280.f, float(ViewHeight) - 24.f));
- return FMath::Clamp(FMath::FloorToInt((PanelHeight - 290.f) / 25.f), 2, 20);
+ return FMath::Clamp(FMath::FloorToInt((PanelHeight - 390.f) / 25.f), 2, 20);
 }
 
 void AMoonfallHeroPawn::KeepInventorySelectionVisible()
@@ -1246,7 +1246,10 @@ void AMoonfallHeroPawn::OptionsUp() {
   return;
  }
  if (bInventoryOpen) {
-  InventorySelection = FMath::Max(0, InventorySelection - 1);
+  const TArray<int32> DisplayOrder = GetInventoryDisplayOrder();
+  const int32 CurrentRow = DisplayOrder.Find(InventorySelection);
+  if (DisplayOrder.Num() > 0)
+   InventorySelection = DisplayOrder[FMath::Clamp(CurrentRow - 1, 0, DisplayOrder.Num() - 1)];
   KeepInventorySelectionVisible();
   return;
  }
@@ -1259,7 +1262,10 @@ void AMoonfallHeroPawn::OptionsDown() {
   return;
  }
  if (bInventoryOpen) {
-  InventorySelection = FMath::Min(FMath::Max(0, InventoryItemCodes.Num() - 1), InventorySelection + 1);
+  const TArray<int32> DisplayOrder = GetInventoryDisplayOrder();
+  const int32 CurrentRow = DisplayOrder.Find(InventorySelection);
+  if (DisplayOrder.Num() > 0)
+   InventorySelection = DisplayOrder[FMath::Clamp(CurrentRow + 1, 0, DisplayOrder.Num() - 1)];
   KeepInventorySelectionVisible();
   return;
  }
