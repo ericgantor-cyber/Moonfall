@@ -1276,6 +1276,7 @@ func _menu_tab(which: String) -> void:
    text+="\nFound "+str(matches.size())+" • Page "+str(inventory_page+1)+" / "+str(pages)+"\nClick a tile to inspect • Right-click a bag tile to equip.\n"
    var item_grid:=GridContainer.new()
    item_grid.columns=2
+   item_grid.size_flags_horizontal=Control.SIZE_EXPAND_FILL
    item_grid.add_theme_constant_override("h_separation",5)
    item_grid.add_theme_constant_override("v_separation",5)
    menu_buttons.add_child(item_grid)
@@ -1314,6 +1315,7 @@ func _menu_tab(which: String) -> void:
      var equipped_power:int=_equipment_power()
      var difference:int=selected_power-equipped_power
      text+="\n[b]COMPARE WITH EQUIPPED[/b]"
+     if not equipped.is_empty() and equipped==selected:text+="\nYou are already wearing this item."
      text+="\nCurrent: "+str(equipped.get("name","None"))+" • Power "+str(equipped_power)
      text+="\nDifference: [color="+("#57dc91" if difference>0 else "#ed8391" if difference<0 else "#c8d4e6")+"]"+("+" if difference>0 else "")+str(difference)+" Power[/color]"
      var current_affix:String=str(equipped.get("affix",""))
@@ -1325,6 +1327,7 @@ func _menu_tab(which: String) -> void:
       if chosen_affix!="" and chosen_affix==current_affix:
        var bonus_delta:float=float(selected.get("affix_value",0))-float(equipped.get("affix_value",0))
        text+="\nSame bonus difference: [color="+("#57dc91" if bonus_delta>0.0 else "#ed8391" if bonus_delta<0.0 else "#c8d4e6")+"]"+("+" if bonus_delta>0.0 else "")+str(snappedf(bonus_delta,0.001))+"[/color]"
+      elif chosen_affix=="" or current_affix=="":text+="\nOne item has no bonus; review its overall power and effects."
       else:text+="\nDifferent bonus types; compare their effects before equipping."
     else:text+="\nIn vault • Withdraw to compare or equip."
     if inventory_show_vault:text+="\nWithdraw before equipping."
@@ -1407,7 +1410,7 @@ func _inventory_tile(grid:GridContainer,gear:Dictionary,index:int)->void:
  var is_equipped:bool=not inventory_show_vault and not equipped.is_empty() and equipped==gear
  tile.text=("◆ " if selected else "")+name+"\n"+rarity+" • "+str(gear.get("power",0))+" power"+(" • EQUIPPED" if is_equipped else "")
  tile.clip_text=true
- tile.custom_minimum_size=Vector2(140,78)
+ tile.custom_minimum_size=Vector2(124,78)
  tile.size_flags_horizontal=Control.SIZE_EXPAND_FILL
  tile.focus_mode=Control.FOCUS_ALL
  tile.add_theme_font_size_override("font_size",14)
