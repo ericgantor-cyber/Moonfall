@@ -1694,6 +1694,22 @@ void AMoonfallHeroPawn::AwardEquipmentDrop(bool bEliteEnemy, bool bBossEnemy)
 }
 bool AMoonfallHeroPawn::CollectGroundEquipmentCode(int32 ItemCode)
 {
+ return CollectGroundEquipmentCodeImpl(ItemCode, INDEX_NONE);
+}
+
+bool AMoonfallHeroPawn::CollectDungeonTreasureCode(
+ int32 ItemCode, int32 Zone, int32 Dungeon, int32 Chamber)
+{
+ if (Zone < 0 || Zone >= 6 || Dungeon < 0 || Dungeon >= 5
+     || Chamber <= 0 || Chamber >= 13) return false;
+ const int32 Key = (Zone * 5 + Dungeon) * 14 + Chamber;
+ if (!DungeonTreasureStates.IsValidIndex(Key)
+     || DungeonTreasureStates[Key] != ItemCode || ItemCode <= 0) return false;
+ return CollectGroundEquipmentCodeImpl(ItemCode, Key);
+}
+
+bool AMoonfallHeroPawn::CollectGroundEquipmentCodeImpl(int32 ItemCode, int32 DungeonTreasureKey)
+{
  if (Health <= 0.f || ItemCode <= 0) return false;
  const int32 Affix = ItemCode / 100000;
  const int32 SlotIndex = (ItemCode / 10000) % 10;
@@ -1714,6 +1730,18 @@ bool AMoonfallHeroPawn::CollectGroundEquipmentCode(int32 ItemCode)
  const int32 OldLootTier = LastLootTier;
  const int32 OldLootUpgrade = LastLootUpgrade;
  const int32 AddedIndex = InventoryItemCodes.Add(ItemCode);
+ // Dungeon treasure is claimed in the SAME synchronous save as inventory.
+ // If writing fails, restore both fields before another pickup attempt.
+ const int32 PreviousTreasureState = DungeonTreasureKey != INDEX_NONE
+   && DungeonTreasureStates.IsValidIndex(DungeonTreasureKey)
+   ? DungeonTreasureStates[DungeonTreasureKey] : 0;
+ if (DungeonTreasureKey != INDEX_NONE) {
+  if (PreviousTreasureState != ItemCode) {
+   InventoryItemCodes.RemoveAt(AddedIndex);
+   return false;
+  }
+  DungeonTreasureStates[DungeonTreasureKey] = -1;
+ }
  LastLootAffix = Affix;
  LastLootSlot = SlotIndex;
  LastLootRarity = Rarity;
@@ -1722,6 +1750,8 @@ bool AMoonfallHeroPawn::CollectGroundEquipmentCode(int32 ItemCode)
  LastLootUpgrade = Tier - EquippedTier;
  if (!SaveWorldProgress()) {
   InventoryItemCodes.RemoveAt(AddedIndex);
+  if (DungeonTreasureKey != INDEX_NONE)
+   DungeonTreasureStates[DungeonTreasureKey] = PreviousTreasureState;
   LastLootAffix = OldLootAffix;
   LastLootSlot = OldLootSlot;
   LastLootRarity = OldLootRarity;
@@ -2053,6 +2083,44 @@ bool AMoonfallHeroPawn::DiscoverShrine(AMoonfallCheckpointShrine* Shrine) {
  OnShrineDiscovered(ActiveShrineId);
  return true;
 }
+int32 AMoonfallHeroPawn::GetDungeonTreasureState(int32 Zone, int32 Dungeon, int32 Chamber) const
+{
+ if (Zone < 0 || Zone >= 6 || Dungeon < 0 || Dungeon >= 5
+     || Chamber <= 0 || Chamber >= 13) return 0;
+ const int32 Key = (Zone * 5 + Dungeon) * 14 + Chamber;
+ return DungeonTreasureStates.IsValidIndex(Key) ? DungeonTreasureStates[Key] : 0;
+}
+
+int32 AMoonfallHeroPawn::GetOrCreateDungeonTreasureCode(
+ int32 Zone, int32 Dungeon, int32 Chamber, int32 LayoutSeed)
+{
+ if (Zone < 0 || Zone >= 6 || Dungeon < 0 || Dungeon >= 5
+     || Chamber <= 0 || Chamber >= 13 || Health <= 0.f
+     || !FMath::IsFinite(Health) || !bWorldProgressInitialized
+     || bWorldProgressLoadInProgress || bPersistentSaveWritesBlocked
+     || !HasDiscoveredDungeon(Zone, Dungeon)) return 0;
+ const int32 Key = (Zone * 5 + Dungeon) * 14 + Chamber;
+ if (DungeonTreasureStates.IsValidIndex(Key)) {
+  if (DungeonTreasureStates[Key] != 0)
+   return FMath::Max(0, DungeonTreasureStates[Key]);
+ }
+ // Use a deterministic seed, independent of framerate and visit order.
+ FRandomStream Stream(LayoutSeed ^ (Key * 15427 + 0x6C31));
+ const int32 Slot = Stream.RandRange(0, 2);
+ const int32 Rarity = Stream.RandRange(2, 5);
+ const int32 Affix = Stream.RandRange(0, 3);
+ const int32 Tier = FMath::Clamp(Level, 1, 25);
+ const int32 Code = Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier;
+ const TArray<int32> Previous = DungeonTreasureStates;
+ DungeonTreasureStates.SetNumZeroed(420);
+ DungeonTreasureStates[Key] = Code;
+ if (!SaveWorldProgress()) {
+  DungeonTreasureStates = Previous;
+  return 0;
+ }
+ return Code;
+}
+
 bool AMoonfallHeroPawn::HasDiscoveredDungeon(int32 Zone, int32 Dungeon) const
 {
  if (Zone < 0 || Zone >= 6 || Dungeon < 0 || Dungeon >= 5) return false;
@@ -2120,7 +2188,13 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
  // would be exceeded; ground drops are not consumed in that case.
  if (InventoryItemCodes.Num() > 10000 || ResidentQuestStates.Num() > 64
      || DiscoveredShrineIds.Num() > 64
-     || (static_cast<uint32>(DiscoveredDungeonMask) & ~((1u << 30) - 1u)) != 0u) return false;
+     || (static_cast<uint32>(DiscoveredDungeonMask) & ~((1u << 30) - 1u)) != 0u
+     || DungeonTreasureStates.Num() > 420) return false;
+ for (int32 Index = 0; Index < DungeonTreasureStates.Num(); ++Index) {
+  const int32 Code = DungeonTreasureStates[Index];
+  if (Code != 0 && Code != -1 && !ValidMoonfallItemCode(Code)) return false;
+  if (Code != 0 && (Index % 14 == 0 || Index % 14 == 13)) return false;
+ }
  // The loader only restores known residents with accepted or completed
  // contracts. Never save quest entries it would silently discard.
  for (const auto& Entry : ResidentQuestStates)
@@ -2184,6 +2258,7 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
  Save->ActiveShrineId = ActiveShrineId;
  Save->DiscoveredShrineIds = DiscoveredShrineIds;
  Save->DiscoveredDungeonMask = DiscoveredDungeonMask;
+ Save->DungeonTreasureStates = DungeonTreasureStates;
  Save->RaceId = FMath::Clamp(RaceId, 0, 11);
  Save->FactionReputation = FactionReputation;
  Save->ResidentBonds = ResidentBonds;
@@ -2209,7 +2284,7 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  if (!UGameplayStatics::DoesSaveGameExist(MoonfallWorldSlot, 0)) return false;
  const UMoonfallPersistentSave* Save = Cast<UMoonfallPersistentSave>(
      UGameplayStatics::LoadGameFromSlot(MoonfallWorldSlot, 0));
- if (!Save || Save->Version < 1 || Save->Version > 8) {
+ if (!Save || Save->Version < 1 || Save->Version > 9) {
   // Protect newer/corrupt-but-detected saves. Calling Tick's two-second
   // autosave must not replace progress from another Moonfall version.
   bPersistentSaveWritesBlocked = true;
@@ -2324,6 +2399,21 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
   bPersistentSaveWritesBlocked = true;
   return false;
  }
+ // Validate pending/claimed rewards before applying loaded progress.
+ if (Save->Version >= 9) {
+  if (Save->DungeonTreasureStates.Num() > 420) {
+   bPersistentSaveWritesBlocked = true;
+   return false;
+  }
+  for (int32 Index = 0; Index < Save->DungeonTreasureStates.Num(); ++Index) {
+   const int32 Code = Save->DungeonTreasureStates[Index];
+   if ((Code != 0 && Code != -1 && !ValidMoonfallItemCode(Code))
+       || (Code != 0 && (Index % 14 == 0 || Index % 14 == 13))) {
+    bPersistentSaveWritesBlocked = true;
+    return false;
+   }
+  }
+ }
  // Validate and resolve the checkpoint before touching saved progression.
  // An unchecked SetActorLocation can embed the pawn inside solid geometry.
  const FVector SavedCheckpoint = Save->CheckpointLocation;
@@ -2357,6 +2447,8 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  ActiveShrineId = Save->Version >= 7 ? Save->ActiveShrineId : NAME_None;
  DiscoveredShrineIds = Save->Version >= 7 ? Save->DiscoveredShrineIds : TArray<FName>();
  DiscoveredDungeonMask = Save->Version >= 8 ? Save->DiscoveredDungeonMask : 0;
+ DungeonTreasureStates = Save->Version >= 9
+   ? Save->DungeonTreasureStates : TArray<int32>();
  // Refresh any shrines that began play before the save was loaded.
  // This also fixes stale ACTIVE labels when death reloads an earlier save.
  // A shrine spawned later refreshes itself in its own BeginPlay.
