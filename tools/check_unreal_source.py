@@ -3561,8 +3561,6 @@ class MoonfallIntegrationChecks(unittest.TestCase):
 
     def test_character_page_shows_30_dungeon_exploration_progress(self):
         page = self.hud.split("if (Hero->bCharacterStatsOpen) {", 1)[1].split(
-            "if (Hero->bInventoryOpen)", 1)[0] if False else self.hud.split(
-            "if (Hero->bCharacterStatsOpen) {", 1)[1].split(
             "// Identical button rectangle", 1)[0]
         self.assertIn("DUNGEON EXPLORATION", page)
         self.assertIn("ALL 6 ZONES CHARTED", page)
