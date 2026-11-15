@@ -225,6 +225,9 @@ public:
  // Equip a validated inventory entry by index; the item remains in inventory.
  UFUNCTION(BlueprintCallable, Category="Moonfall|Equipment") bool EquipInventoryItem(int32 InventoryIndex);
  // Explicit inventory action, never automatic on loot pickup.
+ // Read-only advisor from #899. Never equips, sorts, saves or mutates the bag.
+ UFUNCTION(BlueprintPure, Category="Moonfall|Equipment") int32 GetEquipmentUpgradeScore(int32 InventoryIndex) const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Equipment") int32 GetRecommendedEquipmentIndex() const;
  UFUNCTION(BlueprintCallable, Category="Moonfall|Equipment") int32 EquipBestInventoryUpgrades();
  void EquipBestInventoryAction();
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Equipment") void OnBestLoadoutEquipped(int32 UpgradesEquipped);
