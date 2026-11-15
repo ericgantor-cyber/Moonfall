@@ -1264,7 +1264,8 @@ func _menu_tab(which: String) -> void:
     var selected:Dictionary=source[inventory_selected_index]
     text+="\n[b]SELECTED ITEM[/b] "+str(selected.get("name","Gear"))+" • "+str(selected.get("rarity","Common"))+" • Power "+str(selected.get("power",0))
     if selected.has("affix"):text+="\nAffix: "+str(selected.get("affix",""))+" • "+str(selected.get("affix_value",0))
-    text+="\nWithdraw before equipping." if inventory_show_vault else "\nRight-click VIEW to equip or use the Equip button."
+    if inventory_show_vault:text+="\nWithdraw before equipping."
+    else:text+="\nRight-click VIEW to equip or use the Equip button."
    text+="\nEquipped: "+str(equipped.get("name","None"))+" • Power "+str(_equipment_power())
    menu_body.text=text
   "Materials":
@@ -1340,7 +1341,9 @@ func _atlas_action(label: String, action: String, tip: String="") -> void:
  button.custom_minimum_size=Vector2(270,38)
  button.focus_mode=Control.FOCUS_ALL
  if action.begins_with("equip:") or action.begins_with("inventory_select:"):
-  button.tooltip_text=(tip+"\n" if tip!="" else "")+"Left-click or right-click to equip."
+  if action.begins_with("equip:"):button.tooltip_text=(tip+"\n" if tip!="" else "")+"Left-click or right-click to equip."
+  elif inventory_show_vault:button.tooltip_text="Left-click to inspect; withdraw to bag before equipping."
+  else:button.tooltip_text="Left-click to inspect; right-click to equip."
   button.gui_input.connect(_atlas_equip_mouse_input.bind(action))
  button.pressed.connect(_atlas_execute.bind(action))
  menu_buttons.add_child(button)
