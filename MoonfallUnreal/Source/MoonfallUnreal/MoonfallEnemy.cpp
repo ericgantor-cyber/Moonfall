@@ -796,6 +796,19 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
    if (bBoss && BossPhase >= 2 && AttackSequence % 7 == 0) BossSpecialMove = 3;
    if (bBoss && BossPhase >= 3 && AttackSequence % 9 == 0) BossSpecialMove = 4;
    if (bBoss && BossPhase >= 3 && AttackSequence % 11 == 0) BossSpecialMove = 5;
+   // Region-specific priorities reuse the five existing dodgeable special
+   // moves. Avoid changing native gods or adding extra per-frame AI work.
+   const bool bRegionalBoss = bBoss && !DungeonBossFamily.IsNone()
+     && Tags.Contains(FName(TEXT("MoonfallDungeonBoss")));
+   if (bRegionalBoss && BossPhase >= 2
+       && AttackSequence % (BossPhase >= 3 ? 3 : 4) == 0) {
+    if (DungeonBossFamily == FName(TEXT("Ashen"))
+        || DungeonBossFamily == FName(TEXT("Foundry"))) BossSpecialMove = 2;
+    else if (DungeonBossFamily == FName(TEXT("Verdant"))) BossSpecialMove = 4;
+    else if (DungeonBossFamily == FName(TEXT("Glacial"))) BossSpecialMove = 5;
+    else if (DungeonBossFamily == FName(TEXT("Storm"))) BossSpecialMove = 3;
+    else if (DungeonBossFamily == FName(TEXT("Eclipse"))) BossSpecialMove = 1;
+   }
    // Later-phase bosses alternate fast opener and a readable delayed follow-up.
    const bool bComboFollowUp = bBoss && BossPhase >= 2 && Pattern == 1;
    CurrentWindup = Pattern == 0 ? 0.38f : (Pattern == 1 ? 0.85f : (Pattern == 2 ? 0.65f : 1.05f));
@@ -862,6 +875,13 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
    // clock before notifying the animation / accessible combat indicator.
    if (bDivineSignatureActive) {
     OnDivineAttackTelegraphed(ActiveDivineMoveId, DivineSignatureCenter, DivineSignatureRadius, CurrentWindup);
+   } else if (bRegionalBoss && BossSpecialMove >= 1 && BossSpecialMove <= 5) {
+    const FName SpecialId = BossSpecialMove == 1 ? FName(TEXT("MoonCleave"))
+      : BossSpecialMove == 2 ? FName(TEXT("EclipseSlam"))
+      : BossSpecialMove == 3 ? FName(TEXT("DashStrike"))
+      : BossSpecialMove == 4 ? FName(TEXT("SpinningSweep"))
+      : FName(TEXT("SkyfallSlam"));
+    OnDungeonBossAttackTelegraphed(DungeonBossFamily, SpecialId, CurrentWindup);
    }
   }
  }
