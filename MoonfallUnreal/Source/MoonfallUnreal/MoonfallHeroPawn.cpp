@@ -2635,7 +2635,7 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
         && MouseY >= MenuTop + 12.f && MouseY <= MenuTop + 40.f) {
      OpenOptions();
     } else {
-     // Same seven row and +/- button geometry as MoonfallCombatHUD.
+     // Match all eight options rows and +/- button bounds to MoonfallCombatHUD.
      const float RowGap = (MenuHeight - 130.f) / 8.f;
      const float RowHeight = FMath::Min(38.f, RowGap - 2.f);
      const float FirstRowY = MenuTop + 63.f;
@@ -2645,7 +2645,7 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
          && ClickedRow >= 0 && ClickedRow < 8
          && MouseY >= RowY && MouseY <= RowY + RowHeight) {
       OptionsSelection = ClickedRow;
-      const float MinusX = MenuLeft + MenuWidth - 111.f;
+      const float MinusX = MenuLeft + MenuWidth - 145.f;
       const float PlusX = MenuLeft + MenuWidth - 37.f;
       const float ButtonHeight = FMath::Min(26.f, RowHeight);
       if (MouseY <= RowY + ButtonHeight) {
