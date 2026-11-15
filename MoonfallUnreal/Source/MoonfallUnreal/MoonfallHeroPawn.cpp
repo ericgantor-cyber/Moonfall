@@ -453,7 +453,7 @@ void AMoonfallHeroPawn::KeepInventorySelectionVisible()
  const int32 MaxStart = FMath::Max(0, Count - Rows);
  InventoryViewStart = FMath::Clamp(InventoryViewStart, 0, MaxStart);
  if (InventorySelection < InventoryViewStart)
-  KeepInventorySelectionVisible();
+  InventoryViewStart = InventorySelection;
  else if (InventorySelection >= InventoryViewStart + Rows)
   InventoryViewStart = InventorySelection - Rows + 1;
  InventoryViewStart = FMath::Clamp(InventoryViewStart, 0, MaxStart);
