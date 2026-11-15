@@ -244,7 +244,11 @@ func _gui_input(event: InputEvent) -> void:
   var hover_changed: bool = next_hover != hovered_id
   if hover_changed:
    hovered_id = next_hover
-   tooltip_text = str(node_info.get(hovered_id, {}).get("title", "")) if hovered_id != "" else ""
+   if hovered_id != "":
+    var hovered: Dictionary = node_info.get(hovered_id, {})
+    tooltip_text = str(hovered.get("title", "")) + "  " + str(allocations.get(hovered_id, 0)) + "/" + str(hovered.get("max_rank", 1)) + "  •  level " + str(hovered.get("min_level", 1)) + "+"
+   else:
+    tooltip_text = ""
   if dragging and mouse_down_on_node == "" or hover_changed:
    queue_redraw()
   accept_event()
@@ -324,12 +328,18 @@ func _draw() -> void:
   var prereqs_ok: bool = true
   for requirement in node.get("requires", []):
    if int(allocations.get(str(requirement), 0)) == 0:prereqs_ok = false
-  var available_now: bool = prereqs_ok and level >= int(node.get("min_level", 1)) and available > 0 and rank < max_rank
+  var available_now: bool = prereqs_ok and level >= int(node.get("min_level", 1)) and available >= int(node.get("cost_per_rank", 1)) and rank < max_rank
   var radius: float = _visual_radius(id)
   draw_circle(center, radius + 3.0, Color("#070d17"))
   col.a = 1.0 if rank > 0 else (0.8 if available_now else 0.30)
   draw_circle(center, radius, col if rank > 0 else Color("#111c30"))
   draw_arc(center, radius + 1.5, 0, TAU, 24, col, 2.0, true)
+  # A partial ring shows purchased ranks; a complete ring marks max rank.
+  if rank > 0 and max_rank > 1:
+   var rank_arc: float = TAU * float(rank) / float(max_rank)
+   draw_arc(center, radius + 3.5, -PI * 0.5, -PI * 0.5 + rank_arc, 32, Color.WHITE, 3.0, true)
+  elif rank == max_rank:
+   draw_arc(center, radius + 3.5, 0, TAU, 32, Color("#f5df9b"), 2.5, true)
   if available_now and rank == 0:
    draw_circle(center, maxf(2.0, radius * 0.27), col)
   if id == selected_id:
