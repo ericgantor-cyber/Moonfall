@@ -1,7 +1,7 @@
 extends Control
 ## Moonfall-original, zoomable 141-node constellation web.
-## Mouse: wheel zoom, drag empty space to pan, click a node to select.
-## Keyboard: +/- zoom, arrow keys pan, Home recenters the map.
+## Mouse: wheel zoom, left-click nodes, drag empty space or right/middle-drag to pan.
+## Keyboard: arrow keys pan, Home fits the web. Mouse zoom needs no +/- keys.
 signal talent_selected(talent_id: String)
 
 const BRANCH_COLORS: Dictionary = {
@@ -23,6 +23,7 @@ var zoom: float = 0.16
 var pan: Vector2 = Vector2.ZERO
 var selected_id: String = ""
 var dragging: bool = false
+var drag_button: int = 0
 var drag_distance: float = 0.0
 var hovered_id: String = ""
 var mouse_down_on_node: String = ""
@@ -219,19 +220,21 @@ func _gui_input(event: InputEvent) -> void:
    zoom_at(1.0 / 1.18, mouse.position)
    accept_event()
    return
-  if mouse.button_index == MOUSE_BUTTON_LEFT or mouse.button_index == MOUSE_BUTTON_MIDDLE:
+  if mouse.button_index == MOUSE_BUTTON_LEFT or mouse.button_index == MOUSE_BUTTON_MIDDLE or mouse.button_index == MOUSE_BUTTON_RIGHT:
    if mouse.pressed:
     dragging = true
+    drag_button = mouse.button_index
     drag_distance = 0.0
     mouse_down_on_node = _node_at(mouse.position) if mouse.button_index == MOUSE_BUTTON_LEFT else ""
     grab_focus()
-   else:
-    if dragging and mouse.button_index == MOUSE_BUTTON_LEFT and drag_distance < 9.0:
+   elif dragging and mouse.button_index == drag_button:
+    if mouse.button_index == MOUSE_BUTTON_LEFT and drag_distance < 9.0:
      var id: String = _node_at(mouse.position)
      if id != "" and id == mouse_down_on_node:
       select_node(id)
       talent_selected.emit(id)
     dragging = false
+    drag_button = 0
     mouse_down_on_node = ""
    accept_event()
    return
@@ -354,7 +357,7 @@ func _draw() -> void:
   else:
    tier_text += "  •  All tiers level-unlocked"
   draw_string(font, Vector2(16, 82), tier_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color("#b8c2d7"))
-  draw_string(font, Vector2(16, size.y - 18), "Wheel: zoom  •  Drag: pan  •  N: next available  •  PgUp/PgDn: tiers  •  Home: fit", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color("#b8c2d7"))
+  draw_string(font, Vector2(16, size.y - 18), "Wheel: zoom  •  Right/middle-drag: pan  •  Left-click: select  •  Home: fit", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color("#b8c2d7"))
   if hovered_id != "" and node_info.has(hovered_id):
    var info: Dictionary = node_info[hovered_id]
    var rank: int = int(allocations.get(hovered_id, 0))
