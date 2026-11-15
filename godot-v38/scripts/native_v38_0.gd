@@ -704,6 +704,7 @@ func _v406_respec()->void:
  var changed:Dictionary=CLASSLESS_TALENTS.respec(clampi(int(hero_level),1,100),v406_ranks)
  if not bool(changed.get("ok",false)):return
  v406_ranks=changed["allocations"].duplicate(true)
+ _v406_sync_health()
  _save_game()
  _v398_refresh_tree()
 
@@ -976,6 +977,7 @@ func _dodge()->void:
 
 func _start_game(selected_hero:String)->void:
  super._start_game("z") # Legacy save/combat slot; never expose Z as the playable character.
+ v406_applied_health_bonus=0.0
  _v400_apply_adventurer_look()
  v385_mana=V385_MAX_MANA
  v387_stamina=V387_MAX_STAMINA
