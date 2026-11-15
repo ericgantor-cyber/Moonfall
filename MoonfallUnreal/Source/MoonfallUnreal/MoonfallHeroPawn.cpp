@@ -950,6 +950,15 @@ bool AMoonfallHeroPawn::TryRewardPerfectDodge() {
  return true;
 }
 
+bool AMoonfallHeroPawn::ApplyMoonfallDodgeOnlyDamageFrom(float Amount, const FVector& SourceLocation) {
+ // Invulnerability from timed dodges still wins; only blocking and parrying
+ // are bypassed. Restore the scoped state before returning to the caller.
+ bIncomingDamageDodgeOnly = true;
+ const bool bParried = ApplyMoonfallDamageFrom(Amount, SourceLocation);
+ bIncomingDamageDodgeOnly = false;
+ return bParried;
+}
+
 bool AMoonfallHeroPawn::ApplyMoonfallDamageFrom(float Amount, const FVector& SourceLocation) {
  bLastIncomingHitParried = false;
  IncomingDamageSource = SourceLocation;
@@ -997,11 +1006,11 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
  // still costs stamina while held, and normal blocks retain heavy-hit pressure.
  // Perfect parries are deliberate responses to a known, front-facing
  // attacker. Environmental damage without a source may still be blocked.
- const bool bPerfectParry = bGuarding && bHasIncomingDamageSource && bFrontAttack
+ const bool bPerfectParry = !bIncomingDamageDodgeOnly && bGuarding && bHasIncomingDamageSource && bFrontAttack
      && FMath::IsFinite(ParryWindowEndsAt) && FMath::IsFinite(NextParryAt)
      && Now <= ParryWindowEndsAt && Now <= NextParryAt;
  const float RequiredGuardCost = bPerfectParry ? 0.f : HitGuardCost;
- if (bGuarding && bFrontAttack && !bOptionsOpen
+ if (!bIncomingDamageDodgeOnly && bGuarding && bFrontAttack && !bOptionsOpen
      && FMath::IsFinite(Stamina) && FMath::IsFinite(MaxStamina) && MaxStamina > 0.f
      && bValidGuardCost && FMath::IsFinite(RequiredGuardCost)
      && Stamina >= RequiredGuardCost) {
@@ -1033,7 +1042,7 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
   }
   OnGuardImpact(ArmoredDamage - DamageAfterGuard, bPerfectParry);
   if (Stamina < GuardStaminaCost) BreakGuard();
- } else if (bGuarding && bFrontAttack) {
+ } else if (!bIncomingDamageDodgeOnly && bGuarding && bFrontAttack) {
   // Insufficient stamina breaks guard without granting free damage reduction.
   BreakGuard();
  }
