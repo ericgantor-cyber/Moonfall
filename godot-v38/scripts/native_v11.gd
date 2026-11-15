@@ -1435,7 +1435,7 @@ func _menu_tab(which: String) -> void:
     var issue:String=INVENTORY_RULES.craft_issue(entry,materials,gear_items.size(),bag_capacity)
     if issue=="":ready_count+=1
     var kind:String="Consumable" if int(entry.get("power",0))==0 else "Equipment"
-    var title:String=("◆ " if crafting_selected_index==recipe_index else "")+str(entry.get("name","Recipe"))+" • "+kind+" • "+("READY ×"+str(_recipe_possible_count(entry)) if issue=="" else "MISSING")
+    var title:String=("◆ " if crafting_selected_index==recipe_index else "")+str(entry.get("name","Recipe"))+" • "+kind+" • "+("READY ×"+str(_recipe_possible_count(entry)) if issue=="" else _recipe_blocker_summary(entry))
     _atlas_action(title,"recipe_select:"+str(recipe_index),"Select to inspect materials and result.")
    crafting_restore_focus=false
    text+="\nRecipes: "+str(available.size())+" • Ready: "+str(ready_count)+" • Missing: "+str(available.size()-ready_count)
@@ -1447,7 +1447,7 @@ func _menu_tab(which: String) -> void:
     text+="\n\n[b]SELECTED RECIPE: "+str(chosen.get("name","Recipe"))+"[/b]"
     text+="\n"+_recipe_hover_details(chosen)
     text+="\n[b]CAN CRAFT:[/b] "+str(_recipe_possible_count(chosen))+" with current materials and bag space."
-    text+="\n\n[b]STATUS:[/b] "+("READY TO CRAFT" if chosen_issue=="" else chosen_issue)
+    text+="\n\n[b]STATUS:[/b] "+("READY TO CRAFT" if chosen_issue=="" else _recipe_blocker_summary(chosen)+" • "+chosen_issue)
     if _combat_threat():text+="\nCrafting blocked while enemies are attacking."
     _atlas_action("CREATE: "+str(chosen.get("name","Recipe")),"craft_selected",chosen_issue if chosen_issue!="" else "Craft one of the selected recipe.")
    menu_body.text=text
@@ -1510,6 +1510,18 @@ func _craft_skill_progress(level:int,profession:String="Leatherworking")->String
  var filled:int=clampi(int(round(10.0*float(gained)/float(range_size))),0,10)
  var percent:int=clampi(int(round(100.0*float(gained)/float(range_size))),0,100)
  return profession+": "+str(current)+"/300 • "+str(milestone-current)+" skill to "+_craft_skill_rank(milestone)+" ("+str(milestone)+") • "+str(percent)+"% ["+"■".repeat(filled)+"□".repeat(10-filled)+"]"
+
+func _recipe_blocker_summary(recipe:Dictionary)->String:
+ var costs:Dictionary=recipe.get("cost",{})
+ var missing:Array[String]=[]
+ for material in costs.keys():
+  var needed:int=int(costs[material])-int(materials.get(str(material),0))
+  if needed>0:missing.append(str(needed)+" "+str(material))
+ if not missing.is_empty():
+  return "NEED "+", ".join(missing)
+ if int(recipe.get("power",0))>0 and gear_items.size()>=bag_capacity:
+  return "BAG FULL"
+ return "BLOCKED"
 
 func _recipe_possible_count(recipe:Dictionary)->int:
  var costs:Dictionary=recipe.get("cost",{})
