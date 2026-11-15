@@ -102,6 +102,20 @@ public:
  bool HasDefeatedDungeonBoss(int32 Zone, int32 Dungeon) const;
  UFUNCTION(BlueprintCallable, Category="Moonfall|Dungeon|Boss")
  bool MarkDungeonBossDefeated(int32 Zone, int32 Dungeon);
+ // Permanent WoW-style zone/campaign completion counters (not discovery).
+ UFUNCTION(BlueprintPure, Category="Moonfall|Dungeon|Boss")
+ int32 GetDefeatedDungeonBossCount(int32 Zone) const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Dungeon|Boss")
+ int32 GetTotalDefeatedDungeonBosses() const;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Dungeon|Boss")
+ int32 GetClearedDungeonZoneCount() const;
+ // These fire only AFTER victory + its one-time salvage reward are saved.
+ UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Dungeon|Boss")
+ void OnDungeonBossVictory(int32 Zone, int32 Dungeon, int32 SalvageEarned);
+ UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Dungeon|Boss")
+ void OnDungeonZoneCleared(int32 Zone);
+ UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Dungeon|Boss")
+ void OnAllDungeonsCleared();
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Dungeon|Treasure") TArray<int32> DungeonTreasureStates;
  UFUNCTION(BlueprintPure, Category="Moonfall|Dungeon") bool HasDiscoveredDungeon(int32 Zone, int32 Dungeon) const;
  UFUNCTION(BlueprintPure, Category="Moonfall|Dungeon") int32 GetDiscoveredDungeonCount(int32 Zone) const;
