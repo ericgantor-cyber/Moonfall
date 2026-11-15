@@ -330,7 +330,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("if (bInventoryOpen) { bInventoryOpen = false; bCharacterStatsOpen = false; return; }", toggle)
         self.assertIn("InventorySelection = FMath::Max(0, InventorySelection - 1);", toggle)
         self.assertIn("InventorySelection = FMath::Min(FMath::Max(0, InventoryItemCodes.Num() - 1), InventorySelection + 1);", toggle)
-        self.assertIn("if (bInventoryOpen) { EquipSelectedInventoryItem(); return; }", toggle)
+        self.assertIn("if (bInventoryOpen) return;", toggle)
+        self.assertIn("void AMoonfallHeroPawn::InventoryConfirm() { EquipSelectedInventoryItem(); }", self.hero_cpp)
         self.assertIn("if (Health <= 0.f || bOptionsOpen || bInventoryOpen || FocusedResident.IsValid() || !FMath::IsFinite(Value)) return;", self.hero_cpp)
         self.assertIn("bOptionsOpen || bInventoryOpen || !GetWorld()", self.hero_cpp)
         self.assertIn("if (Hero->bInventoryOpen)", self.hud)
@@ -461,7 +462,10 @@ class MoonfallIntegrationChecks(unittest.TestCase):
 
     def test_controller_inventory_dpad_selects_and_confirm_equips_only(self):
         inputs = (ROOT.parents[2] / "MoonfallUnreal" / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
-        self.assertIn('ActionName="OptionsUp",Key=Gamepad_DPad_Up', inputs)
+        self.assertIn('ActionName="ResidentContext",Key=Gamepad_DPad_Up', inputs)
+        self.assertIn('BindAction(TEXT("ResidentContext"), IE_Pressed', self.hero_cpp)
+        resident_up = self.hero_cpp.split("void AMoonfallHeroPawn::OpenFocusedResidentContext()", 1)[1].split("\\n}", 1)[0]
+        self.assertIn("if (bOptionsOpen || bInventoryOpen) { OptionsUp(); return; }", resident_up)
         self.assertIn('ActionName="OptionsDown",Key=Gamepad_DPad_Down', inputs)
         self.assertIn('ActionName="InventoryConfirm",Key=Gamepad_FaceButton_Top', inputs)
         up = self.hero_cpp.split("void AMoonfallHeroPawn::OptionsUp()", 1)[1].split("\n}", 1)[0]
