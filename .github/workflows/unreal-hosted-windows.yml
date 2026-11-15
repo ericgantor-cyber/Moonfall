@@ -305,6 +305,31 @@ jobs:
           path: MoonfallUnrealPackaged/
           if-no-files-found: error
           retention-days: 7
+      - name: Collect Unreal AutomationTool failure logs
+        if: failure()
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $logRoot = Join-Path $env:APPDATA 'Unreal Engine\AutomationTool\Logs'
+          if (-not (Test-Path -LiteralPath $logRoot -PathType Container)) {
+            Write-Host 'No AutomationTool logs exist on this runner.'
+            exit 0
+          }
+          $destination = Join-Path $env:GITHUB_WORKSPACE 'UE-AutomationLogs'
+          New-Item -ItemType Directory -Path $destination -Force | Out-Null
+          $logs = @(Get-ChildItem -LiteralPath $logRoot -File -Recurse -Include '*.txt','*.log' |
+            Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 15)
+          foreach ($log in $logs) {
+            if ($log.Length -gt 20MB) {
+              Write-Warning "Skipping oversized AutomationTool log $($log.Name)"
+              continue
+            }
+            # Use indexed names to avoid collisions and do not copy the engine.
+            $target = Join-Path $destination ("uat-" + [array]::IndexOf($logs, $log) + $log.Extension)
+            Copy-Item -LiteralPath $log.FullName -Destination $target -ErrorAction Stop
+          }
+          Write-Host "Collected $(@(Get-ChildItem -LiteralPath $destination -File).Count) AutomationTool log files."
       - name: Upload Unreal diagnostics on failure
         if: failure()
         continue-on-error: true
@@ -314,5 +339,6 @@ jobs:
           path: |
             game-source/MoonfallUnreal/Saved/Logs/
             game-source/MoonfallUnreal/Intermediate/Build/Win64/*.log
+            UE-AutomationLogs/
           if-no-files-found: warn
           retention-days: 7
