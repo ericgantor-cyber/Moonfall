@@ -26,6 +26,12 @@ func _run()->void:
  assert(source.contains('_cue(player.global_position+Vector3(0.0,-0.35,0.0),"spell"'))
  assert(source.contains("BOSS POSTURE BROKEN!"))
  assert(source.contains("is_instance_valid(staggered_body)"))
+ assert(source.contains("if not eligible or attack_cooldown<=before_cooldown or not rhythm_strike_landed:return"))
+ assert(source.contains("rhythm_strike_landed=true"))
+ assert(source.contains('target["rhythm_break_immune_until"]=map_time+4.0'))
+ assert(source.contains('func _reset_native_beast(beast:Dictionary)->void:'))
+ assert(source.contains('beast["rhythm_posture"]=0.0'))
+ assert(source.contains('beast["rhythm_break_immune_until"]=0.0'))
  # Lifecycle must clear transient combo and dodge reward states.
  for entry in ["func _start_game(","func _restore_data(","func _respawn_player(","func _death_return_to_title("]:
   assert(source.contains(entry))
