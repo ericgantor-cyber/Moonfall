@@ -1799,6 +1799,64 @@ void AMoonfallHeroPawn::PickupNearestGroundLoot()
 
 void AMoonfallHeroPawn::EquipBestInventoryAction() { if (!bCharacterStatsOpen) EquipBestInventoryUpgrades(); }
 
+int32 AMoonfallHeroPawn::GetEquipmentUpgradeScore(int32 InventoryIndex) const
+{
+ // A candidate is only suggested while the player is safely browsing the bag.
+ if (!bInventoryOpen || bOptionsOpen || !FMath::IsFinite(Health) || Health <= 0.f
+     || !InventoryItemCodes.IsValidIndex(InventoryIndex)) return 0;
+ const int32 EquippedCodes[] = {EquippedWeaponCode, EquippedArmorCode, EquippedAccessoryCode};
+ const int32 Candidate = InventoryItemCodes[InventoryIndex];
+ const int32 Slot = (Candidate / 10000) % 10;
+ if (Slot < 0 || Slot > 2 || Candidate <= 0 || Candidate == EquippedCodes[Slot]) return 0;
+ const auto ValidCode = [this](int32 Code, int32 ExpectedSlot) {
+  if (Code <= 0 || !InventoryItemCodes.Contains(Code)) return false;
+  const int32 Affix = Code / 100000;
+  const int32 EncodedSlot = (Code / 10000) % 10;
+  const int32 Rarity = (Code / 1000) % 10;
+  const int32 Tier = Code % 1000;
+  return EncodedSlot == ExpectedSlot && Affix >= 0 && Affix <= 3
+    && Rarity >= 0 && Rarity <= 5 && Tier >= 1 && Tier <= 25
+    && (Rarity != 0 || Affix == 0)
+    && Code == Affix * 100000 + ExpectedSlot * 10000 + Rarity * 1000 + Tier;
+ };
+ if (!ValidCode(Candidate, Slot)) return 0;
+ const auto GearScore = [&](int32 Code) {
+  if (!ValidCode(Code, Slot)) return 0;
+  const int32 Affix = Code / 100000;
+  const int32 Rarity = (Code / 1000) % 10;
+  const int32 Tier = Code % 1000;
+  int32 MatchingPieces = 0;
+  if (Affix > 0) {
+   for (int32 OtherSlot = 0; OtherSlot < 3; ++OtherSlot) {
+    if (OtherSlot == Slot) continue;
+    const int32 OtherCode = EquippedCodes[OtherSlot];
+    if (ValidCode(OtherCode, OtherSlot) && OtherCode / 100000 == Affix)
+     ++MatchingPieces;
+   }
+  }
+  const int32 Synergy = MatchingPieces == 2 ? 80 : MatchingPieces == 1 ? 40 : 0;
+  return Tier * 1000 + Rarity * 100 + (Affix > 0 ? 10 : 0) + Synergy;
+ };
+ return GearScore(Candidate) - GearScore(EquippedCodes[Slot]);
+}
+
+int32 AMoonfallHeroPawn::GetRecommendedEquipmentIndex() const
+{
+ // An explicit on-demand query, not a per-frame scan of large bags.
+ if (!bInventoryOpen || bOptionsOpen || !FMath::IsFinite(Health) || Health <= 0.f)
+  return INDEX_NONE;
+ int32 BestIndex = INDEX_NONE;
+ int32 BestImprovement = 0;
+ for (int32 Index = 0; Index < InventoryItemCodes.Num(); ++Index) {
+  const int32 Improvement = GetEquipmentUpgradeScore(Index);
+  if (Improvement > BestImprovement) {
+   BestImprovement = Improvement;
+   BestIndex = Index;
+  }
+ }
+ return BestIndex;
+}
+
 int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()
 {
  // Only a deliberate input while viewing inventory can change worn equipment.
