@@ -797,6 +797,23 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("const float HealthDelta = 2.f * (Tier - PreviousTier);", equip)
         self.assertIn("MaxHealth = FMath::Max(1.f, MaxHealth + HealthDelta);", equip)
 
+    def test_malformed_inventory_saves_are_preserved_not_silently_truncated(self):
+        hero = self.hero_cpp
+        save = hero.split("bool AMoonfallHeroPawn::SaveWorldProgress()", 1)[1].split(
+            "bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[0]
+        load = hero.split("bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[1].split(
+            "void AMoonfallHeroPawn::", 1)[0]
+        self.assertIn("for (const int32 Code : InventoryItemCodes)", save)
+        self.assertIn("if (!ValidMoonfallItemCode(Code)) return false;", save)
+        self.assertIn("for (const int32 Code : Save->InventoryItemCodes)", load)
+        self.assertIn("if (!ValidMoonfallItemCode(Code)) {", load)
+        guard = load.split("for (const int32 Code : Save->InventoryItemCodes)", 1)[1].split(
+            "// Validate the V7 discovered-shrine ledger", 1)[0]
+        self.assertIn("bPersistentSaveWritesBlocked = true;", guard)
+        self.assertIn("return false;", guard)
+        self.assertLess(load.index("for (const int32 Code : Save->InventoryItemCodes)"),
+                        load.index("bWorldProgressLoadInProgress = true;"))
+
     def test_equip_best_ignores_unowned_equipped_gear(self):
         auto = self.hero_cpp.split("int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()", 1)[1].split(
             "void AMoonfallHeroPawn::", 1)[0]
