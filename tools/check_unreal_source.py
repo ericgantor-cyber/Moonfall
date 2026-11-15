@@ -416,6 +416,13 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("const int32 PageEnd = FMath::Min(Count, PageStart + PerPage);", self.hud)
         self.assertIn("Hero->InventoryItemCodes[Index]", self.hud)
 
+    def test_inventory_drag_cancels_when_scrollbar_disappears(self):
+        drag = self.hero_cpp.split("bool AMoonfallHeroPawn::ScrollInventoryToMouseTrack()", 1)[1].split("\n}", 1)[0]
+        self.assertIn("if (Count <= Rows) {", drag)
+        self.assertIn("bInventoryScrollbarDragging = false;", drag)
+        self.assertIn("InventoryViewStart = 0;", drag)
+        self.assertLess(drag.index("if (Count <= Rows) {"), drag.index("bInventoryScrollbarDragging = true;"))
+
     def test_expanded_responsive_inventory_keeps_visible_selection_and_safe_bounds(self):
         rows = self.hero_cpp.split("int32 AMoonfallHeroPawn::GetInventoryVisibleRows() const", 1)[1].split("\n}", 1)[0]
         selection = self.hero_cpp.split("void AMoonfallHeroPawn::KeepInventorySelectionVisible()", 1)[1].split("\n}", 1)[0]
