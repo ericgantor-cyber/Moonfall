@@ -8,15 +8,49 @@ func _initialize() -> void:
  root.add_child(web)
  web.size = Vector2(800, 600)
  var tree: Dictionary = TALENTS.load_tree()
+ if int(tree.get("points_per_level", 0)) != 2:
+  _fail("Constellation must grant two talent points per level")
+  return
  web.set_data(tree, {}, 16, 30)
  if web.points.size() != 141:
   _fail("Web should plot 141 unique nodes")
   return
+ var tier_progress: Dictionary = web.tier_summary()
+ if int(tier_progress.get("total", 0)) != 14 or int(tier_progress.get("unlocked", 0)) != 4:
+  _fail("Level 16 should unlock four of fourteen level-gated tiers")
+  return
+ if int(tier_progress.get("next_tier", 0)) != 5 or int(tier_progress.get("next_level", 0)) <= 16:
+  _fail("Tier summary must identify the next level-gated tier")
+  return
+ var tier_target: String = web.focus_tier(2)
+ if tier_target != "breaker" or web.selected_id != "breaker":
+  _fail("Keyboard tier navigation must focus accessible tier-two talents")
+  return
+ if web.focus_tier(14) != "":
+  _fail("Locked high-tier talents cannot be focused early")
+  return
+ # Per-rank costs must be respected by keyboard navigation and purchase glow.
+ var costly_tree: Dictionary = tree.duplicate(true)
+ for node in costly_tree["nodes"]:
+  if str(node.get("id", "")) == "iron_will":
+   node["cost_per_rank"] = 3
+ var cost_web: Control = WEB.new()
+ root.add_child(cost_web)
+ cost_web.size = Vector2(800, 600)
+ cost_web.set_data(costly_tree, {}, 2, 2)
+ if cost_web.available_talent_ids().has("iron_will"):
+  _fail("Talents must not appear purchasable without enough points")
+  return
+ cost_web.set_data(costly_tree, {}, 2, 3)
+ if not cost_web.available_talent_ids().has("iron_will"):
+  _fail("Talents must become available when the point cost is met")
+  return
+ cost_web.queue_free()
  if web.layout_rebuild_count != 1:
   _fail("Initial constellation must build once")
   return
  var original_positions: Dictionary = web.points.duplicate()
- web.set_data(tree, {"iron_will": 1}, 16, 14)
+ web.set_data(tree, {"iron_will": 1}, 16, 29)
  if web.layout_rebuild_count != 1 or web.points != original_positions:
   _fail("Allocation changes must not rebuild or move constellation stars")
   return
@@ -40,7 +74,7 @@ func _initialize() -> void:
  if web.selected_id != "might_ashen_grip" or not web.prerequisite_path.has("iron_will"):
   _fail("Unknown stars must preserve the current selection and route")
   return
- web.set_data(tree, {"iron_will": 1}, 16, 14)
+ web.set_data(tree, {"iron_will": 1}, 16, 29)
  if not web.available_talent_ids().has("breaker") or not web.available_talent_ids().has("guard"):
   _fail("Unspent points and valid roots must unlock second-tier skills")
   return
@@ -118,7 +152,7 @@ func _initialize() -> void:
  if web._node_at(root_pos) != root_id:
   _fail("Node hit-testing should select an original talent")
   return
- web.set_data(tree, {"iron_will": 1}, 16, 14)
+ web.set_data(tree, {"iron_will": 1}, 16, 29)
  if not web.points.has("might_moonforged_blade"):
   _fail("Expanded constellation points are missing")
   return
