@@ -242,6 +242,13 @@ class MouseMenusContract(unittest.TestCase):
         self.assertIn('["All","Equipment","Consumable"]', handler)
         self.assertIn('var crafting_category:String="All"', self.source)
 
+    def test_menu_refresh_detaches_stale_controls(self):
+        refresh = self.source.split('func _menu_tab(which: String) -> void:', 1)[1].split(' match which:', 1)[0]
+        self.assertIn('for child in menu_buttons.get_children():', refresh)
+        self.assertIn('menu_buttons.remove_child(child)', refresh)
+        self.assertIn('child.queue_free()', refresh)
+        self.assertLess(refresh.index('menu_buttons.remove_child(child)'), refresh.index('child.queue_free()'))
+
     def test_inventory_search_clear_and_mouse_scroll(self):
         self.assertIn('inventory_search_input.clear_button_enabled=true', self.source)
         self.assertIn('inventory_search_input.text_changed.connect(_on_inventory_query_changed)', self.source)
