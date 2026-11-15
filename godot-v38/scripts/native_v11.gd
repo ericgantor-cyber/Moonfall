@@ -1316,6 +1316,16 @@ func _menu_tab(which: String) -> void:
      text+="\n[b]COMPARE WITH EQUIPPED[/b]"
      text+="\nCurrent: "+str(equipped.get("name","None"))+" • Power "+str(equipped_power)
      text+="\nDifference: [color="+("#57dc91" if difference>0 else "#ed8391" if difference<0 else "#c8d4e6")+"]"+("+" if difference>0 else "")+str(difference)+" Power[/color]"
+     var current_affix:String=str(equipped.get("affix",""))
+     var chosen_affix:String=str(selected.get("affix",""))
+     if chosen_affix!="" or current_affix!="":
+      text+="\n[b]BONUS COMPARISON[/b]"
+      text+="\nEquipped bonus: "+_inventory_bonus_label(equipped)
+      text+="\nSelected bonus: "+_inventory_bonus_label(selected)
+      if chosen_affix!="" and chosen_affix==current_affix:
+       var bonus_delta:float=float(selected.get("affix_value",0))-float(equipped.get("affix_value",0))
+       text+="\nSame bonus difference: [color="+("#57dc91" if bonus_delta>0.0 else "#ed8391" if bonus_delta<0.0 else "#c8d4e6")+"]"+("+" if bonus_delta>0.0 else "")+str(snappedf(bonus_delta,0.001))+"[/color]"
+      else:text+="\nDifferent bonus types; compare their effects before equipping."
     else:text+="\nIn vault • Withdraw to compare or equip."
     if inventory_show_vault:text+="\nWithdraw before equipping."
     elif not equipped.is_empty() and equipped==selected:text+="\nThis equipment is already active."
@@ -1425,6 +1435,11 @@ func _inventory_tile(grid:GridContainer,gear:Dictionary,index:int)->void:
  tile.gui_input.connect(_atlas_equip_mouse_input.bind("inventory_select:"+str(index)))
  grid.add_child(tile)
  if selected and inventory_restore_focus:tile.call_deferred("grab_focus")
+
+func _inventory_bonus_label(item:Dictionary)->String:
+ var affix:String=str(item.get("affix",""))
+ if affix=="":return "None"
+ return affix.capitalize()+" ("+str(item.get("affix_value",0))+")"
 
 func _inventory_rarity_color(rarity:String)->String:
  match rarity:
