@@ -785,8 +785,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         loot = self.hero_cpp.split("void AMoonfallHeroPawn::AwardEquipmentDrop(", 1)[1].split(
             "bool AMoonfallHeroPawn::EquipInventoryItem(", 1)[0]
         self.assertIn("InventoryItemCodes.Add(ItemCode);", loot)
-        self.assertIn("if (NewTier > GetValidatedEquippedTier(LastLootSlot))", loot)
-        self.assertIn("EquipInventoryItem(InventoryItemCodes.Num() - 1);", loot)
+        self.assertIn("InventoryItemCodes.Add(ItemCode);", loot)
+        self.assertNotIn("EquipInventoryItem(", loot)
         self.assertNotIn("*EquippedCode = ItemCode;", loot)
 
     def test_armor_health_changes_use_validated_previous_equipment(self):
@@ -802,10 +802,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
     def test_scripted_rewards_use_validated_equip_and_health_delta(self):
         award = self.hero_cpp.split("void AMoonfallHeroPawn::AwardEquipmentDrop(", 1)[1].split(
             "bool AMoonfallHeroPawn::CollectGroundEquipmentCode(", 1)[0]
-        self.assertIn("if (NewTier > GetValidatedEquippedTier(LastLootSlot))", award)
-        self.assertIn("EquipInventoryItem(InventoryItemCodes.Num() - 1);", award)
-        self.assertLess(award.index("InventoryItemCodes.Add(ItemCode);"),
-                        award.index("EquipInventoryItem(InventoryItemCodes.Num() - 1);"))
+        self.assertIn("InventoryItemCodes.Add(ItemCode);", award)
+        self.assertNotIn("EquipInventoryItem(", award)
         self.assertNotIn("MaxHealth +=", award)
         self.assertNotIn("int32* Slot =", award)
 
