@@ -780,6 +780,16 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("*EquippedCode = ItemCode;", loot)
         self.assertIn("InventoryItemCodes.Add(ItemCode);", loot)
 
+    def test_loot_hud_supports_all_six_rarities_and_uncapped_bag(self):
+        hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        names = hud.split("const TCHAR* RarityNames[] =", 1)[1].split(";", 1)[0]
+        for rarity in ("COMMON", "UNCOMMON", "RARE", "EPIC", "EMERALD", "LEGENDARY"):
+            self.assertIn(f'TEXT("{rarity}")', names)
+        self.assertEqual(names.count('TEXT("'), 6)
+        self.assertIn("FMath::Clamp(Hero->LastLootRarity, 0, 5)", hud)
+        self.assertIn("Bag %d", hud)
+        self.assertNotIn("Bag %d/30", hud)
+
     def test_combat_hud_rejects_unowned_and_malformed_equipment(self):
         hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
         preview = hud.split("// Match the combat decoder:", 1)[1].split(
