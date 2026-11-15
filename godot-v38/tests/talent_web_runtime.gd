@@ -1,5 +1,5 @@
 extends SceneTree
-## Real Godot headless verification for the 108-node, keyboard-accessible web.
+## Real Godot headless verification for the 141-node, keyboard-accessible web.
 const WEB = preload("res://scripts/systems/moonfall_talent_web.gd")
 const TALENTS = preload("res://scripts/systems/moonfall_talent_tree.gd")
 
@@ -9,8 +9,8 @@ func _initialize() -> void:
  web.size = Vector2(800, 600)
  var tree: Dictionary = TALENTS.load_tree()
  web.set_data(tree, {}, 16, 15)
- if web.points.size() != 108:
-  _fail("Web should plot 108 unique nodes")
+ if web.points.size() != 141:
+  _fail("Web should plot 141 unique nodes")
   return
  if web.layout_rebuild_count != 1:
   _fail("Initial constellation must build once")
@@ -70,7 +70,15 @@ func _initialize() -> void:
  if web._screen_pos(anchor_world).distance_to(anchor_screen) > 0.1:
   _fail("Cursor-anchored zoom-out must preserve the selected position")
   return
- if web.node_info.size() != 108:
+ if not web.points.has("might_eclipse_champion") or not web.points.has("agility_horizon_sovereign") or not web.points.has("arcana_final_starward"):
+  _fail("All three new tier-14 capstones must appear on the constellation web")
+  return
+ web.fit_all()
+ var outermost: Vector2 = web._screen_pos(web.points["arcana_final_starward"])
+ if outermost.x < 0.0 or outermost.x > web.size.x or outermost.y < 0.0 or outermost.y > web.size.y:
+  _fail("The final tier must remain visible when fitting the entire web")
+  return
+ if web.node_info.size() != 141:
   _fail("All talent hover metadata must be available")
   return
  web.zoom_by(30.0)
