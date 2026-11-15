@@ -550,6 +550,22 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         for forbidden in ("EquipInventoryItem(", "SaveWorldProgress(", "InventoryItemCodes.RemoveAt("):
             self.assertNotIn(forbidden, hud)
 
+    def test_inventory_is_right_docked_with_matching_mouse_hit_bounds(self):
+        inventory = self.hud.split("if (Hero->bInventoryOpen)", 1)[1].split(
+            "// Nearest living boss", 1)[0]
+        sort = self.hero_cpp.split("bool AMoonfallHeroPawn::HitTestInventorySortButton() const", 1)[1].split("\n}", 1)[0]
+        rows = self.hero_cpp.split("int32 AMoonfallHeroPawn::HitTestInventoryRow() const", 1)[1].split("\n}", 1)[0]
+        self.assertIn("const float Left = Canvas->SizeX - PanelWidth - 12.f;", inventory)
+        for method in (sort, rows):
+            self.assertIn("const float Left = float(Width) - PanelWidth - 12.f;", method)
+            self.assertNotIn("(float(Width) - PanelWidth) * 0.5f", method)
+        self.assertNotIn("(Canvas->SizeX - PanelWidth) * 0.5f", inventory)
+        self.assertIn("const float Spacing = FMath::Max(21.f, (PanelHeight - 390.f) / Rows);", rows)
+        self.assertIn("const float RowSpacing = FMath::Max(21.f, (PanelHeight - 390.f) / PerPage);", inventory)
+        self.assertIn("const float SortX = Left + PanelWidth - SortWidth - 14.f;", sort)
+        self.assertIn("const float SortX = Left + PanelWidth - SortWidth - 14.f;", inventory)
+        self.assertIn("const float Y = Top + 145.f + (DisplayPosition - PageStart) * RowSpacing;", inventory)
+
     def test_nearby_batch_loot_is_range_and_cover_safe(self):
         pickup = self.hero_cpp.split("void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[1].split(
             "void AMoonfallHeroPawn::EquipBestInventoryAction()", 1)[0]
