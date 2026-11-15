@@ -24,7 +24,7 @@ class MouseMenusContract(unittest.TestCase):
         self.assertIn('action.begins_with("inventory_select:")', self.source)
         self.assertIn('inventory_selected_index=selected_index', self.source)
         self.assertIn('[b]ITEM INSPECTION[/b]', self.source)
-        self.assertIn('if inventory_show_vault:return', self.source)
+        self.assertIn('if inventory_show_vault:\n    get_viewport().set_input_as_handled()', self.source)
         self.assertIn('_atlas_execute("equip:"+action.get_slice(":",1))', self.source)
         self.assertIn('if selected_index<0 or selected_index>=inventory_source.size():return', self.source)
 
@@ -64,6 +64,12 @@ class MouseMenusContract(unittest.TestCase):
     def test_vault_right_click_is_consumed_without_equipping(self):
         self.assertIn('if inventory_show_vault:\n    get_viewport().set_input_as_handled()\n    return', self.source)
         self.assertIn('if not menu_open or current_tab!="Inventory":return', self.source)
+
+    def test_selection_restores_focus_after_grid_refresh(self):
+        self.assertIn('var inventory_restore_focus:bool=false', self.source)
+        self.assertIn('inventory_restore_focus=true', self.source)
+        self.assertIn('if selected and inventory_restore_focus:tile.call_deferred("grab_focus")', self.source)
+        self.assertIn('inventory_restore_focus=false', self.source)
 
     def test_inventory_search_clear_and_mouse_scroll(self):
         self.assertIn('inventory_search_input.clear_button_enabled=true', self.source)
