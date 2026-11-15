@@ -137,6 +137,7 @@ var inventory_selected_index:int=-1
 var inventory_restore_focus:bool=false
 var crafting_selected_index:int=0
 var crafting_craftable_only:bool=false
+var crafting_category:String="All"
 var inventory_search_input:LineEdit
 var equipped: Dictionary = {}
 var skinning_skill := 1
@@ -1403,23 +1404,27 @@ func _menu_tab(which: String) -> void:
    text+="\n"+_craft_skill_progress(skinning_skill,"Skinning")
    text+="\n"+_craft_skill_progress(crafting_skill,"Leatherworking")+"\n\n[b]RECIPES[/b] • Select a recipe to view materials and craft it.\n"
    _atlas_action("SHOW: "+("CRAFTABLE ONLY" if crafting_craftable_only else "ALL RECIPES"),"recipe_filter")
+   _atlas_action("CATEGORY: "+crafting_category.to_upper(),"recipe_category","Browse all recipes, equipment, or consumables.")
    var available:Array[int]=[]
    for i in range(RECIPES.size()):
     var recipe:Dictionary=RECIPES[i]
     var issue:String=INVENTORY_RULES.craft_issue(recipe,materials,gear_items.size(),bag_capacity)
     if crafting_craftable_only and issue!="":continue
-    available.append(i)
     var category:String="Consumable" if int(recipe.get("power",0))==0 else "Equipment"
-    var label:String=("◆ " if crafting_selected_index==i else "")+str(recipe.get("name","Recipe"))+" • "+category+" • "+("READY" if issue=="" else "MISSING")
+    if crafting_category!="All" and category!=crafting_category:continue
+    available.append(i)
+    var possible:int=_recipe_possible_count(recipe)
+    var label:String=("◆ " if crafting_selected_index==i else "")+str(recipe.get("name","Recipe"))+" • "+category+" • "+("READY ×"+str(possible) if issue=="" else "MISSING")
     _atlas_action(label,"recipe_select:"+str(i),"Select to inspect materials and result.")
    if available.is_empty():
-    text+="\nNo recipes match this filter. Switch to ALL RECIPES to see missing ingredients.\n"
+    text+="\nNo recipes match these filters. Change category or show all recipes.\n"
    else:
     if not (crafting_selected_index in available):crafting_selected_index=available[0]
     var chosen:Dictionary=RECIPES[crafting_selected_index]
     var chosen_issue:String=INVENTORY_RULES.craft_issue(chosen,materials,gear_items.size(),bag_capacity)
     text+="\n\n[b]SELECTED RECIPE: "+str(chosen.get("name","Recipe"))+"[/b]"
     text+="\n"+_recipe_hover_details(chosen)
+    text+="\n[b]CAN CRAFT:[/b] "+str(_recipe_possible_count(chosen))+" with current materials and bag space."
     text+="\n\n[b]STATUS:[/b] "+("READY TO CRAFT" if chosen_issue=="" else chosen_issue)
     if _combat_threat():text+="\nCrafting blocked while enemies are attacking."
     _atlas_action("CREATE: "+str(chosen.get("name","Recipe")),"craft_selected",chosen_issue if chosen_issue!="" else "Craft one of the selected recipe.")
@@ -1483,6 +1488,18 @@ func _craft_skill_progress(level:int,profession:String="Leatherworking")->String
  var filled:int=clampi(int(round(10.0*float(gained)/float(range_size))),0,10)
  var percent:int=clampi(int(round(100.0*float(gained)/float(range_size))),0,100)
  return profession+": "+str(current)+"/300 • "+str(milestone-current)+" skill to "+_craft_skill_rank(milestone)+" ("+str(milestone)+") • "+str(percent)+"% ["+"■".repeat(filled)+"□".repeat(10-filled)+"]"
+
+func _recipe_possible_count(recipe:Dictionary)->int:
+ var costs:Dictionary=recipe.get("cost",{})
+ if costs.is_empty():return 0
+ var possible:int=999
+ for material in costs.keys():
+  var required:int=int(costs[material])
+  if required<=0:return 0
+  possible=mini(possible,floori(float(materials.get(str(material),0))/float(required)))
+ if int(recipe.get("power",0))>0:
+  possible=mini(possible,maxi(0,bag_capacity-gear_items.size()))
+ return maxi(0,possible)
 
 func _recipe_hover_details(recipe:Dictionary)->String:
  var info:String=str(recipe.get("name","Recipe"))
@@ -1641,6 +1658,12 @@ func _atlas_execute(action: String) -> void:
  if action=="recipe_filter":
   if not menu_open or current_tab!="Professions":return
   crafting_craftable_only=not crafting_craftable_only
+  _menu_tab("Professions")
+  return
+ if action=="recipe_category":
+  if not menu_open or current_tab!="Professions":return
+  var categories:Array[String]=["All","Equipment","Consumable"]
+  crafting_category=categories[(categories.find(crafting_category)+1)%categories.size()]
   _menu_tab("Professions")
   return
  if action=="craft_selected":
