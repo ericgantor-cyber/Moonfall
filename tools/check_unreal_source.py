@@ -123,6 +123,21 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("if (Family == FName(Row.Family))", race_cpp)
         self.assertIn("if (RaceId.IsNone()) return false;", race_cpp)
 
+    def test_race_profile_catalog_blueprints_are_read_only_and_reuse_original_roster(self):
+        import re
+        race_cpp = (ROOT / "MoonfallRaceLibrary.cpp").read_text(encoding="utf-8")
+        race_h = (ROOT / "MoonfallRaceLibrary.h").read_text(encoding="utf-8")
+        for name in ("GetPlayableRaceProfiles", "GetRaceProfilesByFamily"):
+            self.assertIn("static TArray<FMoonfallRaceProfile> " + name + "(", race_h)
+            self.assertIn("UMoonfallRaceLibrary::" + name + "(", race_cpp)
+        self.assertIn("GetPlayableRaceIds()", race_cpp.split("UMoonfallRaceLibrary::GetPlayableRaceProfiles()", 1)[1].split("UMoonfallRaceLibrary::GetRaceProfilesByFamily(", 1)[0])
+        self.assertIn("GetRaceIdsByFamily(Family)", race_cpp.split("UMoonfallRaceLibrary::GetRaceProfilesByFamily(", 1)[1].split("UMoonfallRaceLibrary::FindRaceProfile(", 1)[0])
+        self.assertEqual(len(re.findall(r'^\\s*\\{TEXT\\("[a-z_]+"\\),', race_cpp, re.MULTILINE)), 30)
+        for name in ("GetPlayableRaceProfiles", "GetRaceProfilesByFamily"):
+            body = race_cpp.split("UMoonfallRaceLibrary::" + name + "(", 1)[1].split("\\n}\\n", 1)[0]
+            self.assertNotIn("SaveGame", body)
+            self.assertNotIn("SpawnActor", body)
+
     def test_npc_rig_exposes_deterministic_cues_and_safe_targeted_stop(self):
         rig_cpp = (ROOT / "MoonfallActorRigComponent.cpp").read_text(encoding="utf-8")
         rig_h = (ROOT / "MoonfallActorRigComponent.h").read_text(encoding="utf-8")
