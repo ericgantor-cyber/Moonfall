@@ -14,7 +14,10 @@ void AMoonfallCombatHUD::DrawHUD()
  Super::DrawHUD();
  if (!Canvas) return;
  const AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this,0));
- if (!IsValid(Hero)) return;
+ if (!IsValid(Hero)) { bAdvisorScoreCached = false; return; }
+ // A hidden bag/character sheet must not retain a previously computed score.
+ // Reopening the bag always recomputes advice for its current contents.
+ if (!Hero->bInventoryOpen || Hero->bCharacterStatsOpen) bAdvisorScoreCached = false;
  // Native Canvas resident menu. Matching click bounds are in HeroPawn.
  if (const AMoonfallWorldNPC* Resident = Hero->FocusedResident.Get()) {
   const float InteractionRange = IsValid(Resident) && FMath::IsFinite(Resident->InteractRange)
