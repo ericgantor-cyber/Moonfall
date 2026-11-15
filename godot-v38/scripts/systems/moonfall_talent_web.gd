@@ -108,6 +108,38 @@ func next_available(after_id: String = "") -> String:
  var index: int = candidates.find(after_id)
  return candidates[(index + 1) % candidates.size()]
 
+func tier_summary() -> Dictionary:
+ ## Level gates describe progression; prerequisites still determine purchases.
+ var gates: Dictionary = {}
+ for node in tree.get("nodes", []):
+  if typeof(node) != TYPE_DICTIONARY:continue
+  var tier: int = int(node.get("tier", 0))
+  if tier < 1:continue
+  var required_level: int = int(node.get("min_level", 1))
+  if not gates.has(tier) or required_level < int(gates[tier]):
+   gates[tier] = required_level
+ var unlocked: int = 0
+ var next_level: int = 0
+ var next_tier: int = 0
+ for tier in gates:
+  if level >= int(gates[tier]):
+   unlocked += 1
+  elif next_level == 0 or int(gates[tier]) < next_level:
+   next_level = int(gates[tier])
+   next_tier = int(tier)
+ return {"unlocked": unlocked, "total": gates.size(), "next_tier": next_tier, "next_level": next_level}
+
+func focus_tier(target_tier: int) -> String:
+ ## Navigate to a tier without spending points.
+ for node in tree.get("nodes", []):
+  if typeof(node) != TYPE_DICTIONARY:continue
+  if int(node.get("tier", 0)) != target_tier:continue
+  if level < int(node.get("min_level", 1)):continue
+  var target: String = str(node.get("id", ""))
+  focus_node(target)
+  return target
+ return ""
+
 func fit_all() -> void:
  pan = Vector2.ZERO
  zoom = clampf((minf(size.x, size.y) - 36.0) / 3500.0, MIN_ZOOM, MAX_ZOOM)
@@ -230,6 +262,12 @@ func _gui_input(event: InputEvent) -> void:
    if next_id != "":
     focus_node(next_id)
     talent_selected.emit(next_id)
+  elif key.keycode == KEY_PAGEUP or key.keycode == KEY_PAGEDOWN:
+   var current_tier: int = int(node_info.get(selected_id, {}).get("tier", 1))
+   var direction: int = 1 if key.keycode == KEY_PAGEDOWN else -1
+   var target_id: String = focus_tier(current_tier + direction)
+   if target_id != "":
+    talent_selected.emit(target_id)
   elif key.keycode == KEY_LEFT:
    pan.x += 100.0 / zoom
   elif key.keycode == KEY_RIGHT:
@@ -303,7 +341,7 @@ func _draw() -> void:
  var font: Font = ThemeDB.fallback_font
  if font != null:
   draw_string(font, Vector2(16, 32), "MOONFALL  •  CONSTELLATION WEB", HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color("#e0e7fa"))
-  draw_string(font, Vector2(16, size.y - 18), "Wheel: zoom  •  Drag: pan  •  N: next available  •  Home: fit  •  Arrows: move", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color("#b8c2d7"))
+  draw_string(font, Vector2(16, size.y - 18), "Wheel: zoom  •  Drag: pan  •  N: next available  •  PgUp/PgDn: tiers  •  Home: fit", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color("#b8c2d7"))
   if hovered_id != "" and node_info.has(hovered_id):
    var info: Dictionary = node_info[hovered_id]
    var rank: int = int(allocations.get(hovered_id, 0))
