@@ -829,6 +829,22 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[0]
         self.assertIn("InventoryItemCodes.Num() > 10000", save)
 
+    def test_load_preflights_worn_item_ownership_before_mutating_progress(self):
+        load = self.hero_cpp.split("bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[1].split(
+            "void AMoonfallHeroPawn::", 1)[0]
+        self.assertIn("const int32 SavedWornCodes[3] = {", load)
+        self.assertIn("Save->EquippedWeaponCode, Save->EquippedArmorCode, Save->EquippedAccessoryCode", load)
+        self.assertIn("((Code / 10000) % 10) != Slot", load)
+        self.assertIn("!Save->InventoryItemCodes.Contains(Code)", load)
+        guard = load.split("const int32 SavedWornCodes[3]", 1)[1].split(
+            "// Validate the V7 discovered-shrine ledger", 1)[0]
+        self.assertIn("bPersistentSaveWritesBlocked = true;", guard)
+        self.assertIn("return false;", guard)
+        self.assertLess(load.index("const int32 SavedWornCodes[3]"),
+                        load.index("bWorldProgressLoadInProgress = true;"))
+        self.assertLess(load.index("const int32 SavedWornCodes[3]"),
+                        load.index("RestoreGear(Save->EquippedWeaponCode"))
+
     def test_save_rejects_unowned_or_wrong_slot_equipped_codes(self):
         save = self.hero_cpp.split("bool AMoonfallHeroPawn::SaveWorldProgress()", 1)[1].split(
             "bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[0]
