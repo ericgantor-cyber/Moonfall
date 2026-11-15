@@ -2,6 +2,7 @@
 #include "Components/StaticMeshComponent.h"
 #include "UObject/ConstructorHelpers.h"
 #include "MoonfallHeroPawn.h"
+#include "MoonfallDungeonLayout.h"
 #include "MoonfallRaceCatalog.h"
 #include "Kismet/GameplayStatics.h"
 #include "Engine/World.h"
@@ -251,6 +252,16 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
    // Set the fallback BEFORE registering: an immediately played finisher
    // shortens it to 1.25 seconds and must not be overridden afterward.
    SetLifeSpan(9.5f);
+   // This is the actual killing blow, not room entry or a corpse expiration.
+   // Only enemies tagged by our own dungeon layout may affect its boss ledger.
+   if (bBoss && Tags.Contains(FName(TEXT("MoonfallDungeonBoss")))) {
+    if (const AMoonfallDungeonLayout* Dungeon = Cast<AMoonfallDungeonLayout>(GetOwner())) {
+     if (AMoonfallHeroPawn* LivingHero = Cast<AMoonfallHeroPawn>(
+         UGameplayStatics::GetPlayerPawn(this, 0))) {
+      LivingHero->MarkDungeonBossDefeated(Dungeon->ZoneIndex, Dungeon->DungeonIndex);
+     }
+    }
+   }
    OnEnemyDefeated(bLastHitWasShatter);
    if (AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0))) {
     DefeatAnimationStyle = FMath::Max(1, Hero->RegisterFinisherKill(bLastHitWasShatter, bBoss, GetActorLocation(), this));
