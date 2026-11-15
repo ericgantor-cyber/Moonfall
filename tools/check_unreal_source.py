@@ -3690,7 +3690,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("ChamberType == 1 && !StartCombatChamber(Hero, ChamberIndex)", chamber)
         self.assertLess(chamber.index("StartCombatChamber(Hero, ChamberIndex)"),
                         chamber.index("EnteredChambersMask |= Bit;"))
-        combat = layout.split("bool AMoonfallDungeonLayout::StartCombatChamber(", 1)[1]
+        combat = layout.split("bool AMoonfallDungeonLayout::StartCombatChamber(", 1)[1].split(
+            "bool AMoonfallDungeonLayout::SpawnTreasureChamber(", 1)[0]
         self.assertIn("GetChamberType(ChamberIndex) != 1", combat)
         self.assertIn("FMath::Max(0, 6 - SpawnedEncounterCount)", combat)
         self.assertIn("constexpr int32 MaxLiveWorldEnemies = 60;", combat)
@@ -3890,6 +3891,41 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "void AMoonfallDungeonLayout::BeginPlay()", 1)[0])
         for text in (layout, arena):
             self.assertNotIn("SetActorEnableCollision(false);", text)
+
+
+    def test_final_dungeon_room_spawns_one_generic_boss_after_durable_discovery(self):
+        layout_h = (ROOT / "MoonfallDungeonLayout.h").read_text(encoding="utf-8")
+        layout = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
+        final = layout.split("void AMoonfallDungeonLayout::HandleFinalChamber(", 1)[1].split(
+            "void AMoonfallDungeonLayout::HandleChamberOverlap(", 1)[0]
+        boss = layout.split("bool AMoonfallDungeonLayout::StartFinalBossChamber(", 1)[1]
+        self.assertIn("bool StartFinalBossChamber(AMoonfallHeroPawn* Hero);", layout_h)
+        self.assertIn("void OnDungeonBossSpawned(AMoonfallHeroPawn* Hero, int32 Zone, int32 Dungeon);", layout_h)
+        self.assertIn("if (bFinalChamberNotified", final)
+        self.assertLess(final.index("Hero->DiscoverDungeonEntrance("),
+                        final.index("if (!StartFinalBossChamber(Hero)) return;"))
+        self.assertLess(final.index("if (!StartFinalBossChamber(Hero)) return;"),
+                        final.index("bFinalChamberNotified = true;"))
+        self.assertLess(final.index("bFinalChamberNotified = true;"),
+                        final.index("OnFinalChamberEntered(Hero);"))
+        self.assertIn("constexpr int32 MaxLiveWorldEnemies = 60;", boss)
+        self.assertIn("TActorIterator<AMoonfallEnemy>", boss)
+        self.assertLess(boss.index("if (++AliveWorldEnemies >= MaxLiveWorldEnemies) return false;"),
+                        boss.index("SpawnActorDeferred<AMoonfallEnemy>"))
+        self.assertIn("ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButDontSpawnIfColliding", boss)
+        self.assertIn("Boss->bElite = true;", boss)
+        self.assertIn("Boss->bBoss = true;", boss)
+        self.assertIn("Boss->Health = 400.f;", boss)
+        self.assertIn("Boss->AttackDamage = 18.f;", boss)
+        self.assertIn("Boss->RaceId = (ZoneIndex * 5 + DungeonIndex) % 12;", boss)
+        self.assertIn('Boss->Tags.AddUnique(FName(TEXT("MoonfallDungeonBoss")));', boss)
+        self.assertLess(boss.index("Boss->bBoss = true;"),
+                        boss.index("Boss->FinishSpawning(SpawnTransform);"))
+        self.assertLess(boss.index("Boss->FinishSpawning(SpawnTransform);"),
+                        boss.index("OnDungeonBossSpawned(Hero, ZoneIndex, DungeonIndex);"))
+        self.assertNotIn("z_void_reaper", boss)
+        self.assertNotIn("nyra_eclipse_queen", boss)
+        self.assertNotIn("SaveWorldProgress(", boss)
 
 if __name__ == "__main__":
     unittest.main()
