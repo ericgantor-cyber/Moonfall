@@ -334,7 +334,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("if (Health <= 0.f || bOptionsOpen || bInventoryOpen || FocusedResident.IsValid() || !FMath::IsFinite(Value)) return;", self.hero_cpp)
         self.assertIn("bOptionsOpen || bInventoryOpen || !GetWorld()", self.hero_cpp)
         self.assertIn("if (Hero->bInventoryOpen)", self.hud)
-        self.assertIn("const int32 PerPage = FMath::Clamp(FMath::FloorToInt((PanelHeight - 290.f) / 25.f), 2, 8);", self.hud)
+        self.assertIn("const int32 PerPage = Hero->GetInventoryVisibleRows();", self.hud)
         self.assertIn("Hero->InventoryItemCodes[Index]", self.hud)
         self.assertIn("visible %d-%d / %d", self.hud)
         self.assertIn("if (Count > PerPage)", self.hud)
@@ -407,12 +407,29 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             self.assertNotIn("InventorySelection =", zoom)
             self.assertNotIn("EquipInventoryItem(", zoom)
             self.assertLess(zoom.index("InventoryViewStart ="), zoom.index("CameraDistance ="))
-        self.assertIn("InventoryViewStart = FMath::Max(0, InventoryViewStart - 1)", zoom_in)
+        self.assertIn("InventoryViewStart = FMath::Max(0, FMath::Min(InventoryViewStart", zoom_in)
         self.assertIn("InventoryViewStart + 1", zoom_out)
-        self.assertIn("InventoryViewStart = InventorySelection;", self.hero_cpp)
+        self.assertIn("KeepInventorySelectionVisible();", self.hero_cpp)
         self.assertIn("FMath::Clamp(Hero->InventoryViewStart, 0, FMath::Max(0, Count - PerPage))", self.hud)
         self.assertIn("const int32 PageEnd = FMath::Min(Count, PageStart + PerPage);", self.hud)
         self.assertIn("Hero->InventoryItemCodes[Index]", self.hud)
+
+    def test_expanded_responsive_inventory_keeps_visible_selection_and_safe_bounds(self):
+        rows = self.hero_cpp.split("int32 AMoonfallHeroPawn::GetInventoryVisibleRows() const", 1)[1].split("\n}", 1)[0]
+        selection = self.hero_cpp.split("void AMoonfallHeroPawn::KeepInventorySelectionVisible()", 1)[1].split("\n}", 1)[0]
+        self.assertIn("FMath::Min(860.f, FMath::Max(280.f, float(ViewHeight) - 24.f))", rows)
+        self.assertIn("FMath::Clamp(FMath::FloorToInt((PanelHeight - 290.f) / 25.f), 2, 20)", rows)
+        self.assertIn("FMath::Min(860.f, FMath::Max(280.f, Canvas->SizeY - 24.f))", self.hud)
+        self.assertIn("FMath::Min(800.f, FMath::Max(280.f, Canvas->SizeX - 24.f))", self.hud)
+        self.assertIn("const int32 PerPage = Hero->GetInventoryVisibleRows();", self.hud)
+        self.assertIn("if (InventorySelection < InventoryViewStart)", selection)
+        self.assertIn("InventorySelection >= InventoryViewStart + Rows", selection)
+        self.assertIn("InventoryViewStart = InventorySelection - Rows + 1;", selection)
+        self.assertIn("InventoryViewStart = FMath::Clamp(InventoryViewStart, 0, MaxStart);", selection)
+        self.assertIn("InventoryItemCodes.Num() - GetInventoryVisibleRows()", self.hero_cpp)
+        self.assertIn("Wheel: scroll", self.hud)
+        self.assertNotIn("InventoryItemCodes.Sort(", selection)
+        self.assertNotIn("EquipInventoryItem(", selection)
 
     def test_nearby_batch_loot_is_range_and_cover_safe(self):
         pickup = self.hero_cpp.split("void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[1].split(
