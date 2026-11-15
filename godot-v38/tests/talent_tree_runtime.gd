@@ -5,8 +5,8 @@ const TALENTS = preload("res://scripts/systems/moonfall_talent_tree.gd")
 func _initialize() -> void:
  var tree: Dictionary = TALENTS.load_tree()
  var nodes: Array = tree.get("nodes", [])
- if nodes.size() != 108:
-  _fail("Expanded tree must contain 108 talents")
+ if nodes.size() != 141:
+  _fail("Expanded tree must contain 141 talents")
   return
  var counts: Dictionary = {"might": 0, "agility": 0, "arcana": 0}
  for node in nodes:
@@ -16,9 +16,18 @@ func _initialize() -> void:
    return
   counts[branch_name] += 1
  for branch_name in counts:
-  if int(counts[branch_name]) != 36:
-   _fail("Each classless branch must contain 36 talents")
+  if int(counts[branch_name]) != 47:
+   _fail("Each classless branch must contain 47 talents")
    return
+ var high_tier: Dictionary = {"iron_will": 1, "breaker": 1, "guard": 1, "titan_strike": 1, "might_ashen_grip": 1, "might_rift_breaker": 1, "might_siege_instinct": 1, "might_oath_of_iron": 1, "might_warborn": 1, "might_moonforged_blade": 1, "might_worldsplitter": 1, "might_titan_s_legacy": 1, "might_cinder_vanguard": 1, "might_sovereign_hammer": 1}
+ var new_capstone: Dictionary = TALENTS.spend(96, high_tier, "might_eclipse_champion")
+ if not bool(new_capstone.get("ok", false)):
+  _fail("New tier-14 capstone should be purchasable at level 96")
+  return
+ var too_early: Dictionary = TALENTS.spend(95, high_tier, "might_eclipse_champion")
+ if bool(too_early.get("ok", true)):
+  _fail("Tier-14 capstone should be level-gated until 96")
+  return
  var advanced: Dictionary = {"iron_will": 1, "breaker": 1, "guard": 1, "titan_strike": 1}
  var extended: Dictionary = TALENTS.spend(16, advanced, "might_ashen_grip")
  if not bool(extended.get("ok", false)) or int(extended.get("spent", -1)) != 5:
