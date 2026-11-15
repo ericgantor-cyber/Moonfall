@@ -134,6 +134,7 @@ var inventory_sort:String="Default"
 var inventory_page:int=0
 var inventory_show_vault:bool=false
 var inventory_selected_index:int=-1
+var inventory_restore_focus:bool=false
 var inventory_search_input:LineEdit
 var equipped: Dictionary = {}
 var skinning_skill := 1
@@ -1135,6 +1136,7 @@ func _inventory_action(action:String)->void:
   "inventory_toggle":
    inventory_show_vault=not inventory_show_vault
    inventory_selected_index=-1
+   inventory_restore_focus=false
    inventory_page=0
   "inventory_filter":
    var filters: Array[String]=["All","Common","Uncommon","Rare","Epic","Legendary","Mythic","Crafted"]
@@ -1156,6 +1158,7 @@ func _inventory_action(action:String)->void:
    if selected_at<0:selected_at=0 if action=="inventory_select_next" else matching.size()-1
    else:selected_at=posmod(selected_at+(1 if action=="inventory_select_next" else -1),matching.size())
    inventory_selected_index=matching[selected_at]
+   inventory_restore_focus=true
    inventory_page=floori(float(selected_at)/float(INVENTORY_RULES.BAG_PAGE_SIZE))
   "inventory_upgrade":
    var cost:int=INVENTORY_RULES.upgrade_cost(bag_capacity)
@@ -1273,6 +1276,7 @@ func _menu_tab(which: String) -> void:
     var index:int=matches[n]
     var gear:Dictionary=source[index]
     _inventory_tile(item_grid,gear,index)
+   inventory_restore_focus=false
    if matches.is_empty():text+="No matching equipment. Defeat enemies or change your search.\n"
    if end>start:
     var selected_item:Dictionary=source[inventory_selected_index]
@@ -1406,6 +1410,7 @@ func _inventory_tile(grid:GridContainer,gear:Dictionary,index:int)->void:
  tile.pressed.connect(_atlas_execute.bind("inventory_select:"+str(index)))
  tile.gui_input.connect(_atlas_equip_mouse_input.bind("inventory_select:"+str(index)))
  grid.add_child(tile)
+ if selected and inventory_restore_focus:tile.call_deferred("grab_focus")
 
 func _inventory_rarity_color(rarity:String)->String:
  match rarity:
@@ -1454,6 +1459,7 @@ func _atlas_execute(action: String) -> void:
   var inventory_source:Array=vault_items if inventory_show_vault else gear_items
   if selected_index<0 or selected_index>=inventory_source.size():return
   inventory_selected_index=selected_index
+  inventory_restore_focus=true
   _menu_tab("Inventory")
   return
  if action.begins_with("inventory_"):
@@ -1544,6 +1550,7 @@ func _reset_new_adventure() -> void:
  vault_items.clear()
  inventory_query=""
  inventory_selected_index=-1
+ inventory_restore_focus=false
  inventory_page=0
  inventory_show_vault=false
  if is_instance_valid(inventory_search_input):inventory_search_input.text=""
@@ -3040,6 +3047,7 @@ func _normalize_saved_world_clock(data:Dictionary) -> float:
 func _restore_data(data: Dictionary) -> void:
  # UI-only selection never follows the previous hero into a loaded save.
  inventory_selected_index=-1
+ inventory_restore_focus=false
  inventory_page=0
  inventory_show_vault=false
  hero=str(data.get("hero","z"))
