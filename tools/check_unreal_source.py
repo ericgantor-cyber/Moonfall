@@ -779,6 +779,26 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         for start in range(len(modes)):
             self.assertEqual((start + 1 + 2) % len(modes), start)
 
+    def test_options_resolution_steps_from_actual_custom_resolution(self):
+        adjust = self.hero_cpp.split("void AMoonfallHeroPawn::AdjustOption(int32 Direction)", 1)[1].split("\n}", 1)[0]
+        resolution = adjust.split("if (OptionsSelection == 0)", 1)[1].split("else if (OptionsSelection == 1)", 1)[0]
+        self.assertIn("const FIntPoint CurrentResolution = Settings->GetScreenResolution();", resolution)
+        self.assertIn("const int64 CurrentPixels = int64(CurrentResolution.X) * int64(CurrentResolution.Y);", resolution)
+        self.assertIn("int32 Target = Direction < 0 ? 0 : 3;", resolution)
+        self.assertIn("for (int32 i = 3; i >= 0; --i)", resolution)
+        self.assertIn("for (int32 i = 0; i < 4; ++i)", resolution)
+        self.assertIn("< CurrentPixels", resolution)
+        self.assertIn("> CurrentPixels", resolution)
+        self.assertIn("if (CurrentResolution != Resolutions[Target])", resolution)
+        self.assertNotIn("int32 Current = 1;", resolution)
+        self.assertIn('FString::Printf(TEXT("%dx%d"), Res.X, Res.Y)', self.hud)
+        preset_pixels = [1280*720, 1920*1080, 2560*1440, 3840*2160]
+        for current in [800*600, 1600*900, 2048*1152, 3440*1440, 4096*2160]:
+            down = next((i for i in reversed(range(4)) if preset_pixels[i] < current), 0)
+            up = next((i for i in range(4) if preset_pixels[i] > current), 3)
+            self.assertLessEqual(preset_pixels[down], current)
+            self.assertGreaterEqual(preset_pixels[up], current)
+
     def test_nearby_batch_loot_is_range_and_cover_safe(self):
         pickup = self.hero_cpp.split("void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[1].split(
             "void AMoonfallHeroPawn::EquipBestInventoryAction()", 1)[0]
