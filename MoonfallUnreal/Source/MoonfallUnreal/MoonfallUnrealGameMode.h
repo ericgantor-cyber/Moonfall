@@ -21,6 +21,10 @@ public:
 
  UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Moonfall|Dungeon|World")
  bool bGenerateDungeonWorld = true;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Dungeon|World")
+ int32 ReadyDungeonCount = 0;
+ UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Dungeon|World")
+ void OnDungeonWorldReady(int32 ReadyCount);
  // Allows the atlas/quest system to locate a specific dungeon without
  // scanning every spawned actor or changing the existing save format.
  UFUNCTION(BlueprintPure, Category="Moonfall|Dungeon|World")
