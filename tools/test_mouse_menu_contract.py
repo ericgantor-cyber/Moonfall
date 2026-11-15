@@ -299,6 +299,17 @@ class MouseMenusContract(unittest.TestCase):
         self.assertIn('action_scroll.follow_focus=true', self.source)
         self.assertIn('button.focus_mode=Control.FOCUS_ALL', self.source)
 
+    def test_simple_ui_prevents_tab_and_sidebar_overflow(self):
+        self.assertIn('var tab_scroll:=ScrollContainer.new()', self.source)
+        self.assertIn('tab_scroll.follow_focus=true', self.source)
+        self.assertIn('tab_scroll.vertical_scroll_mode=ScrollContainer.SCROLL_MODE_DISABLED', self.source)
+        self.assertIn('tab_scroll.add_child(tabs)', self.source)
+        self.assertIn('action_scroll.size_flags_vertical=Control.SIZE_EXPAND_FILL', self.source)
+        self.assertIn('contents.size_flags_vertical=Control.SIZE_EXPAND_FILL', self.source)
+        self.assertIn('scroller.size_flags_vertical=Control.SIZE_EXPAND_FILL', self.source)
+        self.assertIn('button.clip_text=true', self.source)
+        self.assertIn('button.size_flags_horizontal=Control.SIZE_EXPAND_FILL', self.source)
+
     def test_inventory_search_clear_and_mouse_scroll(self):
         self.assertIn('inventory_search_input.clear_button_enabled=true', self.source)
         self.assertIn('inventory_search_input.text_changed.connect(_on_inventory_query_changed)', self.source)
