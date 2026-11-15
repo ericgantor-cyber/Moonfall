@@ -125,7 +125,7 @@ class ClasslessStatsTests(unittest.TestCase):
 
     def test_invalid_talents_rejected_by_unified_character_sheet(self):
         for allocations in ({"breaker": 1}, {"iron_will": True},
-                            {"iron_will": 2}, {"unknown": 1}):
+                            {"iron_will": 6}, {"unknown": 1}):
             with self.assertRaises(ValueError):
                 calculate(5, config=self.config, talent_allocations=allocations)
         with self.assertRaisesRegex(ValueError, "Not enough talent points"):
