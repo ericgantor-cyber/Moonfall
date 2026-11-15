@@ -2134,6 +2134,31 @@ bool AMoonfallHeroPawn::HasDefeatedDungeonBoss(int32 Zone, int32 Dungeon) const
      & (1u << (Zone * 5 + Dungeon))) != 0u;
 }
 
+int32 AMoonfallHeroPawn::GetDefeatedDungeonBossCount(int32 Zone) const
+{
+ if (Zone < 0 || Zone >= 6) return 0;
+ int32 Count = 0;
+ for (int32 Dungeon = 0; Dungeon < 5; ++Dungeon)
+  if (HasDefeatedDungeonBoss(Zone, Dungeon)) ++Count;
+ return Count;
+}
+
+int32 AMoonfallHeroPawn::GetTotalDefeatedDungeonBosses() const
+{
+ int32 Total = 0;
+ for (int32 Zone = 0; Zone < 6; ++Zone)
+  Total += GetDefeatedDungeonBossCount(Zone);
+ return Total;
+}
+
+int32 AMoonfallHeroPawn::GetClearedDungeonZoneCount() const
+{
+ int32 Cleared = 0;
+ for (int32 Zone = 0; Zone < 6; ++Zone)
+  if (GetDefeatedDungeonBossCount(Zone) == 5) ++Cleared;
+ return Cleared;
+}
+
 bool AMoonfallHeroPawn::MarkDungeonBossDefeated(int32 Zone, int32 Dungeon)
 {
  if (Zone < 0 || Zone >= 6 || Dungeon < 0 || Dungeon >= 5
@@ -2141,12 +2166,32 @@ bool AMoonfallHeroPawn::MarkDungeonBossDefeated(int32 Zone, int32 Dungeon)
      || bPersistentSaveWritesBlocked || !GetWorld()
      || !HasDiscoveredDungeon(Zone, Dungeon)
      || HasDefeatedDungeonBoss(Zone, Dungeon)) return false;
+ // The 30-bit permanent victory ledger doubles as the idempotency key for
+ // completion salvage. No extra save schema or one-shot reward flags needed.
  const int32 PreviousMask = DefeatedDungeonBossMask;
+ const int32 PreviousSalvage = Salvage;
+ const bool bCompletesZone = GetDefeatedDungeonBossCount(Zone) == 4;
+ const bool bCompletesWorld = GetTotalDefeatedDungeonBosses() == 29;
+ // Base reward grows by region, not framerate or RNG; one final-boss
+ // completion pays 20-57 salvage, fifth boss +100 and last world boss +500.
+ const int32 BaseReward = 20 + Zone * 5 + Dungeon * 2;
+ const int32 CompletionReward = BaseReward + (bCompletesZone ? 100 : 0)
+   + (bCompletesWorld ? 500 : 0);
+ constexpr int32 MaxSalvage = 100000000;
+ const int32 SafeSalvage = FMath::Clamp(Salvage, 0, MaxSalvage);
+ const int32 SalvageEarned = FMath::Min(CompletionReward, MaxSalvage - SafeSalvage);
  DefeatedDungeonBossMask |= static_cast<int32>(1u << (Zone * 5 + Dungeon));
+ Salvage = SafeSalvage + SalvageEarned;
+ // Save BOTH new ledger and salvage in a single world-save write. A failing
+ // save rolls both fields back. Do not notify Blueprint before persistence.
  if (!SaveWorldProgress()) {
   DefeatedDungeonBossMask = PreviousMask;
+  Salvage = PreviousSalvage;
   return false;
  }
+ OnDungeonBossVictory(Zone, Dungeon, SalvageEarned);
+ if (bCompletesZone) OnDungeonZoneCleared(Zone);
+ if (bCompletesWorld) OnAllDungeonsCleared();
  return true;
 }
 
