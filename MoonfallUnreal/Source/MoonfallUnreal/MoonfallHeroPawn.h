@@ -183,6 +183,24 @@ public:
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Inventory") bool bCharacterStatsOpen = false;
  UFUNCTION(BlueprintCallable, Category="Moonfall|Inventory") void ToggleCharacterStats();
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Inventory") int32 InventorySelection = 0;
+ // Transient visible row offset; wheel scrolling never changes selection or equipment.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Inventory") int32 InventoryViewStart = 0;
+ // Transient display mode: original order, rarity, then equipment slot.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Inventory") int32 InventorySortMode = 0;
+ TArray<int32> GetInventoryDisplayOrder() const;
+ bool HitTestInventorySortButton() const;
+ // Pointer close button is independent of gear and sort hit regions.
+ bool HitTestInventoryCloseButton() const;
+ // Clickable scrollbar track changes only the transient display window.
+ bool ScrollInventoryToMouseTrack();
+ // Mouse drag is transient and cannot mutate inventory or equipped items.
+ bool bInventoryScrollbarDragging = false;
+ void ReleaseInventoryPointer();
+ // Matches the Canvas inventory row capacity on the active viewport.
+ int32 GetInventoryVisibleRows() const;
+ void KeepInventorySelectionVisible();
+ // Read-only pointer hit test sharing the inventory Canvas row geometry.
+ int32 HitTestInventoryRow() const;
  UFUNCTION(BlueprintCallable, Category="Moonfall|Inventory") void ToggleInventory();
  UFUNCTION(BlueprintCallable, Category="Moonfall|Inventory") void EquipSelectedInventoryItem();
  // Salvage only un-equipped entries. Returns false for invalid/protected gear.

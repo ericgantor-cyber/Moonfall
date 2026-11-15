@@ -29,6 +29,10 @@ void AMoonfallCombatHUD::DrawHUD()
    const float L = (Canvas->SizeX - W) * 0.5f, T = (Canvas->SizeY - H) * 0.5f;
    DrawRect(FLinearColor(0.025f, 0.028f, 0.07f, 0.96f), L, T, W, H);
    DrawRect(FLinearColor(0.42f, 0.28f, 0.68f, 0.90f), L, T, W, 5.f);
+   // Standard close X in every interactive Moonfall panel.
+   const float NpcCloseX = L + W - 42.f;
+   DrawRect(FLinearColor(0.37f,0.16f,0.22f,0.96f), NpcCloseX, T + 12.f, 28.f, 28.f);
+   DrawText(TEXT("X"), FLinearColor::White, NpcCloseX + 9.f, T + 16.f, nullptr, 0.9f);
    DrawText(Resident->DisplayName.ToString(), FLinearColor::White,
      L + 18.f, T + 16.f, nullptr, Canvas->SizeX < 900.f ? 0.95f : 1.25f);
    DrawText(FString::Printf(TEXT("%s  |  %s  |  Trust %d"),
@@ -81,28 +85,125 @@ void AMoonfallCombatHUD::DrawHUD()
   const float MenuHeight = FMath::Min(550.f, FMath::Max(280.f, Canvas->SizeY - 24.f));
   const float MenuLeft = Canvas->SizeX * 0.5f - MenuWidth * 0.5f;
   const float MenuTop = Canvas->SizeY * 0.5f - MenuHeight * 0.5f;
-  const float MenuRowGap = (MenuHeight - 130.f) / 7.f;
-  DrawRect(FLinearColor(0.04f,0.03f,0.11f,0.94f),MenuLeft,MenuTop,MenuWidth,MenuHeight);
-  DrawText(TEXT("MOONFALL  |  GRAPHICS & ACCESSIBILITY"),FLinearColor::White,MenuLeft+18.f,MenuTop+17.f,nullptr,1.25f);
+  const float MenuRowGap = (MenuHeight - 130.f) / 8.f;
+  const float RowHeight = FMath::Min(38.f, MenuRowGap - 2.f);
+  const float FirstRowY = MenuTop + 63.f;
+  const bool bCompactOptions = MenuWidth < 420.f;
+  DrawRect(FLinearColor(0.04f,0.03f,0.11f,0.94f), MenuLeft, MenuTop, MenuWidth, MenuHeight);
+  const float OptionsCloseX = MenuLeft + MenuWidth - 42.f;
+  DrawRect(FLinearColor(0.37f,0.16f,0.22f,0.96f), OptionsCloseX, MenuTop + 12.f, 28.f, 28.f);
+  DrawText(TEXT("X"), FLinearColor::White, OptionsCloseX + 9.f, MenuTop + 16.f, nullptr, 0.9f);
+  DrawText(bCompactOptions ? TEXT("MOONFALL | OPTIONS") : TEXT("MOONFALL | GRAPHICS & ACCESSIBILITY"),
+      FLinearColor::White, MenuLeft + 18.f, MenuTop + 17.f, nullptr, bCompactOptions ? 0.83f : 1.05f);
   UGameUserSettings* Settings = GEngine ? GEngine->GetGameUserSettings() : nullptr;
   if (Settings) {
    float ScalePct = 100.f, ScaleNormalized = 0.f, ScaleMin = 50.f, ScaleMax = 100.f;
    Settings->GetResolutionScaleInformationEx(ScalePct, ScaleNormalized, ScaleMin, ScaleMax);
    const FIntPoint Res = Settings->GetScreenResolution();
-   const FString Rows[] = {FString::Printf(TEXT("Resolution: %d x %d"),Res.X,Res.Y),FString::Printf(TEXT("Render scale: %.0f%%"),ScalePct),FString::Printf(TEXT("Quality preset: %d (0 Low - 3 Epic)"),Settings->GetOverallScalabilityLevel()),FString::Printf(TEXT("Frame Generation: %s (%s)"),Hero->FrameGenerationPreference==0?TEXT("Off"):Hero->FrameGenerationPreference==1?TEXT("Auto"):TEXT("On"),Hero->bFrameGenerationPluginDetected?TEXT("plugin detected; inactive"):TEXT("plugin unavailable")),FString::Printf(TEXT("Reduced motion: %s"),Hero->bReduceMotion?TEXT("On"):TEXT("Off")),FString::Printf(TEXT("Combat text size: %.0f%%"),Hero->CombatTextScale * 100.f),FString::Printf(TEXT("Boss warning visibility: %.0f%%"),Hero->BossWarningScale * 100.f)};
-   for (int32 i=0;i<7;++i) DrawText(Rows[i],i==Hero->OptionsSelection?FLinearColor::Yellow:FLinearColor::White,MenuLeft+20.f,MenuTop+75.f+i*MenuRowGap,nullptr,1.1f);
+   // Short, readable values leave room for real mouse +/- targets on every row.
+   const FString ResLabel = Res == FIntPoint(1280,720) ? TEXT("720p")
+     : Res == FIntPoint(1920,1080) ? TEXT("1080p")
+     : Res == FIntPoint(2560,1440) ? TEXT("1440p")
+     : Res == FIntPoint(3840,2160) ? TEXT("4K UHD")
+     : FString::Printf(TEXT("%dx%d"), Res.X, Res.Y);
+   const int32 Quality = FMath::Clamp(Settings->GetOverallScalabilityLevel(), 0, 3);
+   const FString QualityName[] = {TEXT("Low"), TEXT("Med"), TEXT("High"), TEXT("Epic")};
+   const FString FrameStatus = Hero->FrameGenerationPreference == 0 ? TEXT("Off")
+     : Hero->FrameGenerationPreference == 1 ? TEXT("Auto") : TEXT("On");
+   const FString Names[] = {TEXT("Resolution"), TEXT("Render scale"), TEXT("Quality"),
+     TEXT("Frame gen"), TEXT("Reduced motion"), TEXT("Combat text"), TEXT("Boss alerts"),
+     TEXT("Display mode")};
+   const FString CompactNames[] = {TEXT("Res"), TEXT("Scale"), TEXT("Quality"),
+     TEXT("Frame"), TEXT("Motion"), TEXT("Text"), TEXT("Alerts"), TEXT("Mode")};
+   const FString Values[] = {ResLabel, FString::Printf(TEXT("%.0f%%"), ScalePct),
+     QualityName[Quality], FrameStatus, Hero->bReduceMotion ? TEXT("On") : TEXT("Off"),
+     FString::Printf(TEXT("%.0f%%"), Hero->CombatTextScale * 100.f),
+     FString::Printf(TEXT("%.0f%%"), Hero->BossWarningScale * 100.f),
+     Settings->GetFullscreenMode() == EWindowMode::Windowed ? TEXT("Windowed") : Settings->GetFullscreenMode() == EWindowMode::WindowedFullscreen ? TEXT("Borderless") : TEXT("Fullscreen")};
+   const float MinusX = MenuLeft + MenuWidth - 145.f;
+   const float PlusX = MenuLeft + MenuWidth - 37.f;
+   // Options mouse hover is visual only; clicks still choose and adjust explicitly.
+   float OptionsCursorX = -1.f, OptionsCursorY = -1.f;
+   bool bOptionsCursorVisible = false;
+   if (const APlayerController* PC = Cast<APlayerController>(Hero->GetController()))
+    bOptionsCursorVisible = PC->bShowMouseCursor
+      && PC->GetMousePosition(OptionsCursorX, OptionsCursorY);
+   for (int32 i = 0; i < 8; ++i) {
+    const float Y = FirstRowY + i * MenuRowGap;
+    const bool bSelected = Hero->OptionsSelection == i;
+    const bool bHoveredRow = bOptionsCursorVisible
+      && OptionsCursorX >= MenuLeft + 10.f && OptionsCursorX <= MenuLeft + MenuWidth - 10.f
+      && OptionsCursorY >= Y && OptionsCursorY <= Y + RowHeight;
+    DrawRect(bSelected ? FLinearColor(0.22f,0.18f,0.36f,0.98f)
+                       : bHoveredRow ? FLinearColor(0.15f,0.18f,0.29f,0.96f)
+                       : FLinearColor(0.09f,0.08f,0.16f,0.94f),
+       MenuLeft + 10.f, Y, MenuWidth - 20.f, RowHeight);
+    DrawText(bCompactOptions ? CompactNames[i] : Names[i], bSelected ? FLinearColor(0.96f,0.86f,0.56f) : FLinearColor::White,
+       MenuLeft + 17.f, Y + 3.f, nullptr, bCompactOptions ? 0.65f : 0.89f);
+    const float ButtonHeight = FMath::Min(26.f, RowHeight);
+    const bool bMinusHover = bOptionsCursorVisible && OptionsCursorX >= MinusX
+      && OptionsCursorX <= MinusX + 25.f && OptionsCursorY >= Y
+      && OptionsCursorY <= Y + ButtonHeight;
+    const bool bPlusHover = bOptionsCursorVisible && OptionsCursorX >= PlusX
+      && OptionsCursorX <= PlusX + 25.f && OptionsCursorY >= Y
+      && OptionsCursorY <= Y + ButtonHeight;
+    const FLinearColor IdleButton(0.20f,0.25f,0.37f,0.98f);
+    const FLinearColor HoverButton(0.35f,0.45f,0.60f,0.98f);
+    DrawRect(bMinusHover ? HoverButton : IdleButton, MinusX, Y, 25.f, ButtonHeight);
+    DrawRect(bPlusHover ? HoverButton : IdleButton, PlusX, Y, 25.f, ButtonHeight);
+    DrawText(TEXT("-"), FLinearColor::White, MinusX + 9.f, Y + 2.f, nullptr, 0.95f);
+    DrawText(TEXT("+"), FLinearColor::White, PlusX + 7.f, Y + 2.f, nullptr, 0.95f);
+    DrawText(Values[i], FLinearColor(0.75f,0.90f,1.f), MinusX + 31.f, Y + 3.f,
+      nullptr, bCompactOptions ? 0.57f : 0.72f);
+   }
   }
-  DrawText(TEXT("WASD / Arrows / D-pad: navigate    Esc / Start: close"),FLinearColor::White,MenuLeft+18.f,MenuTop+MenuHeight-28.f,nullptr,0.85f);
+  // Show concise, setting-specific help without covering the rows on small screens.
+  const FString SettingHelp[] = {
+    TEXT("Choose an available screen resolution"),
+    TEXT("Adjust image sharpness and performance"),
+    TEXT("Higher quality may reduce frame rate"),
+    TEXT("Frame generation is a preference only; no runtime integration."),
+    TEXT("Reduce impact shake and camera motion"),
+    TEXT("Scale damage numbers in combat"),
+    TEXT("Scale the visibility of boss warnings"),
+    TEXT("Choose Windowed, Borderless or Fullscreen")
+  };
+  const FString CompactHelp[] = {
+    TEXT("Screen resolution"), TEXT("Render scaling"), TEXT("Graphics preset"),
+    TEXT("FG preference only (inactive)"), TEXT("Less camera motion"),
+    TEXT("Damage text size"), TEXT("Boss alert size"), TEXT("Window mode")
+  };
+  const int32 HelpIndex = FMath::Clamp(Hero->OptionsSelection, 0, 7);
+  FString HelpText = bCompactOptions ? CompactHelp[HelpIndex] : SettingHelp[HelpIndex];
+  // Clarify 4K UHD's 3840x2160 output size and how render scale affects cost.
+  // This is guidance, never a hidden automatic graphics-setting change.
+  if (Settings && Settings->GetScreenResolution() == FIntPoint(3840,2160)) {
+   if (HelpIndex == 0)
+    HelpText = bCompactOptions ? TEXT("4K UHD: 3840x2160") : TEXT("4K UHD: 3840 x 2160 output; use render scale for performance");
+   else if (HelpIndex == 1)
+    HelpText = bCompactOptions ? TEXT("4K render scale: quality vs FPS")
+      : TEXT("4K render scale: 100% is sharpest; reduce for performance");
+  }
+  DrawText(HelpText, FLinearColor(0.74f,0.81f,0.91f), MenuLeft + 15.f,
+     MenuTop + MenuHeight - 28.f, nullptr, bCompactOptions ? 0.60f : 0.72f);
   return;
  }
  if (Hero->bInventoryOpen) {
-  // Canvas-only paginated inventory: no extra actors, widgets, or hidden controls.
-  const float PanelWidth = FMath::Min(680.f, FMath::Max(280.f, Canvas->SizeX - 24.f));
-  const float PanelHeight = FMath::Min(580.f, FMath::Max(280.f, Canvas->SizeY - 24.f));
-  const float Left = (Canvas->SizeX - PanelWidth) * 0.5f;
+  // Canvas-only continuous inventory: no extra actors, widgets, or hidden controls.
+  const float PanelWidth = FMath::Min(720.f, FMath::Max(280.f, FMath::Min(Canvas->SizeX - 24.f, Canvas->SizeX * 0.48f)));
+  const float PanelHeight = FMath::Min(860.f, FMath::Max(280.f, Canvas->SizeY - 24.f));
+  // Dock the inventory and character pane at the right, keeping the world visible to the left.
+  const float Left = Canvas->SizeX - PanelWidth - 12.f;
   const float Top = (Canvas->SizeY - PanelHeight) * 0.5f;
   DrawRect(FLinearColor(0.04f, 0.035f, 0.10f, 0.96f), Left, Top, PanelWidth, PanelHeight);
-  DrawText(TEXT("MOONFALL  |  INVENTORY"), FLinearColor::White, Left + 18.f, Top + 16.f, nullptr, 1.3f);
+  DrawText(PanelWidth < 550.f ? TEXT("INVENTORY") : TEXT("MOONFALL  |  INVENTORY"),
+    FLinearColor::White, Left + 18.f, Top + 16.f, nullptr, PanelWidth < 550.f ? 0.93f : 1.3f);
+  // Shared close button is visible on inventory and character views.
+  const float CloseSortWidth = PanelWidth < 550.f ? 105.f : 172.f;
+  const float CloseSortX = Left + PanelWidth - CloseSortWidth - 14.f;
+  const float CloseButtonX = CloseSortX - 36.f;
+  DrawRect(FLinearColor(0.37f,0.16f,0.22f,0.96f), CloseButtonX, Top + 14.f, 28.f, 28.f);
+  DrawText(TEXT("X"), FLinearColor::White, CloseButtonX + 9.f, Top + 18.f, nullptr, 0.9f);
   if (Hero->bCharacterStatsOpen) {
    // Character sheet is a read-only page. Inventory operations remain locked
    // while it is open; controller and keyboard switch pages with the same input.
@@ -144,21 +245,36 @@ void AMoonfallCombatHUD::DrawHUD()
      nullptr, 0.8f);
    return;
   }
+  // Identical button rectangle to HitTestInventorySortButton in HeroPawn.
+  const float SortWidth = PanelWidth < 550.f ? 105.f : 172.f;
+  const float SortX = Left + PanelWidth - SortWidth - 14.f;
+  const float SortY = Top + 14.f;
+  DrawRect(FLinearColor(0.18f,0.28f,0.42f,0.96f), SortX, SortY, SortWidth, 28.f);
+  DrawText(PanelWidth < 550.f
+       ? (Hero->InventorySortMode == 0 ? TEXT("SORT: NEW") :
+          Hero->InventorySortMode == 1 ? TEXT("SORT: QLTY") : TEXT("SORT: SLOT"))
+       : (Hero->InventorySortMode == 0 ? TEXT("SORT: ORIGINAL") :
+          Hero->InventorySortMode == 1 ? TEXT("SORT: QUALITY") : TEXT("SORT: SLOT")),
+     FLinearColor::White, SortX + 7.f, SortY + 5.f, nullptr, PanelWidth < 550.f ? 0.68f : 0.78f);
   const int32 Count = Hero->InventoryItemCodes.Num();
   // Reserve height for a real equipment-stat line and three controls rows.
-  const int32 PerPage = FMath::Clamp(FMath::FloorToInt((PanelHeight - 290.f) / 25.f), 2, 8);
+  const int32 PerPage = Hero->GetInventoryVisibleRows();
   const int32 Selected = FMath::Clamp(Hero->InventorySelection, 0, FMath::Max(0, Count - 1));
-  const int32 PageStart = Selected / PerPage * PerPage;
+  const TArray<int32> DisplayOrder = Hero->GetInventoryDisplayOrder();
+  const int32 HoveredIndex = Hero->HitTestInventoryRow();
+  // Wheel moves only the visible window; keyboard/controller selection remains independent.
+  const int32 PageStart = FMath::Clamp(Hero->InventoryViewStart, 0, FMath::Max(0, Count - PerPage));
   const int32 PageEnd = FMath::Min(Count, PageStart + PerPage);
-  DrawText(FString::Printf(TEXT("%d items  |  %d salvage  |  page %d / %d"),
-    Count, Hero->Salvage, PageStart / PerPage + 1,
-    FMath::Max(1, (Count + PerPage - 1) / PerPage)), FLinearColor(0.75f,0.72f,0.91f),
+  DrawText(FString::Printf(TEXT("%d items  |  %d salvage  |  visible %d-%d / %d"),
+    Count, Hero->Salvage, Count == 0 ? 0 : PageStart + 1,
+    PageEnd, Count), FLinearColor(0.75f,0.72f,0.91f),
     Left + 18.f, Top + 49.f, nullptr, 0.9f);
   if (Count == 0)
    DrawText(TEXT("No equipment yet. Defeat enemies to find gear."), FLinearColor::White,
      Left + 18.f, Top + 100.f, nullptr, 0.92f);
-  const float RowSpacing = FMath::Max(21.f, (PanelHeight - 290.f) / PerPage);
-  for (int32 Index = PageStart; Index < PageEnd; ++Index) {
+  const float RowSpacing = FMath::Max(21.f, (PanelHeight - 390.f) / PerPage);
+  for (int32 DisplayPosition = PageStart; DisplayPosition < PageEnd; ++DisplayPosition) {
+   const int32 Index = DisplayOrder[DisplayPosition];
    const int32 Code = Hero->InventoryItemCodes[Index];
    const int32 Affix = Code / 100000;
    const int32 Slot = (Code / 10000) % 10;
@@ -172,12 +288,14 @@ void AMoonfallCombatHUD::DrawHUD()
      && Code == Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier;
    const bool bEquipped = Code == (Slot == 0 ? Hero->EquippedWeaponCode
      : Slot == 1 ? Hero->EquippedArmorCode : Hero->EquippedAccessoryCode);
-   const float Y = Top + 145.f + (Index - PageStart) * RowSpacing;
+   const float Y = Top + 145.f + (DisplayPosition - PageStart) * RowSpacing;
    if (Index == Selected) DrawRect(FLinearColor(0.25f,0.18f,0.43f,0.90f),
      Left + 12.f, Y - 3.f, PanelWidth - 24.f, RowSpacing - 3.f);
+   else if (Index == HoveredIndex) DrawRect(FLinearColor(0.17f,0.32f,0.43f,0.80f),
+     Left + 12.f, Y - 3.f, PanelWidth - 24.f, RowSpacing - 3.f);
    const FString Row = bValid ? FString::Printf(TEXT("%02d  %s  T%d  %s  %s%s"),
-      Index + 1, Slots[Slot], Tier, Rarities[Rarity], Traits[Affix], bEquipped ? TEXT("  [EQUIPPED]") : TEXT(""))
-    : FString::Printf(TEXT("%02d  Invalid item"), Index + 1);
+      DisplayPosition + 1, Slots[Slot], Tier, Rarities[Rarity], Traits[Affix], bEquipped ? TEXT("  [EQUIPPED]") : TEXT(""))
+    : FString::Printf(TEXT("%02d  Invalid item"), DisplayPosition + 1);
    // Item names retain a clear text label plus a distinct quality color.
    const FLinearColor RarityColors[] = {FLinearColor(0.90f,0.90f,0.90f),
      FLinearColor(0.25f,0.69f,1.f), FLinearColor(0.96f,0.79f,0.25f),
@@ -186,6 +304,18 @@ void AMoonfallCombatHUD::DrawHUD()
    DrawText(Row, Index == Selected ? FLinearColor::Yellow
      : (bValid ? RarityColors[Rarity] : FLinearColor::White),
      Left + 20.f, Y, nullptr, Canvas->SizeX < 900.f ? 0.75f : 0.9f);
+  }
+  // Proportional scroll indicator. Clicking its track jumps the visible
+  // bag window without selecting, equipping or modifying saved gear.
+  if (Count > PerPage) {
+   const float TrackY = Top + 145.f;
+   const float TrackHeight = RowSpacing * PerPage;
+   const float TrackX = Left + PanelWidth - 11.f;
+   const float ThumbHeight = FMath::Max(14.f, TrackHeight * PerPage / Count);
+   const int32 MaxStart = FMath::Max(1, Count - PerPage);
+   const float ThumbY = TrackY + (TrackHeight - ThumbHeight) * PageStart / MaxStart;
+   DrawRect(FLinearColor(0.17f,0.16f,0.25f,0.95f), TrackX, TrackY, 4.f, TrackHeight);
+   DrawRect(FLinearColor(0.57f,0.81f,0.93f,1.f), TrackX, ThumbY, 6.f, ThumbHeight);
   }
   // Match the combat decoder: a code only contributes while owned, correctly
   // slotted and canonically encoded. HUD previews must never imply phantom stats.
@@ -236,8 +366,11 @@ void AMoonfallCombatHUD::DrawHUD()
   DrawText(FString::Printf(TEXT("Sets: Force %d/3  Ward %d/3  Focus %d/3    2pc + 3pc unlock bonuses"),
     ForcePieces, WardPieces, FocusPieces), FLinearColor(0.59f,0.95f,0.77f),
     Left + 18.f, Top + 113.f, nullptr, Canvas->SizeX < 900.f ? 0.61f : 0.72f);
-  DrawText(TEXT("WASD / D-pad: select   Enter / Y: equip   Delete / X: salvage"),
+  DrawText(TEXT("Mouse wheel: scroll   Left click: select   Right click: equip"),
      FLinearColor::White, Left + 18.f, Top + PanelHeight - 51.f, nullptr, 0.75f);
+  DrawText(TEXT("Drag scrollbar: browse   Delete / X: salvage"),
+     FLinearColor(0.80f,0.85f,0.97f), Left + 18.f, Top + PanelHeight - 68.f,
+     nullptr, PanelWidth < 420.f ? 0.60f : 0.72f);
   // Display cost for the actual selected item, rather than a formula
   // players must calculate while navigating the inventory.
   if (Hero->InventoryItemCodes.IsValidIndex(Selected)) {
@@ -264,6 +397,43 @@ void AMoonfallCombatHUD::DrawHUD()
      && SelectedAffix >= 0 && SelectedAffix <= 3
      && SelectedCode == SelectedAffix * 100000 + SelectedSlot * 10000
        + SelectedRarity * 1000 + SelectedTier;
+   // A dedicated, read-only selected-item summary above crafting and comparison.
+   // Keep this area hidden on very short viewports to avoid covering bag rows.
+   if (PanelHeight >= 500.f) {
+    const TCHAR* DetailSlots[] = {TEXT("Weapon"), TEXT("Armor"), TEXT("Accessory")};
+    const TCHAR* DetailRarities[] = {TEXT("Common"), TEXT("Uncommon"), TEXT("Rare"),
+      TEXT("Epic"), TEXT("Emerald"), TEXT("Legendary")};
+    const TCHAR* DetailTraits[] = {TEXT("None"), TEXT("Force"), TEXT("Ward"), TEXT("Focus")};
+    const bool bValidDetail = SelectedCode > 0 && SelectedSlot >= 0 && SelectedSlot <= 2
+      && SelectedRarity >= 0 && SelectedRarity <= 5
+      && SelectedAffix >= 0 && SelectedAffix <= 3 && SelectedTier >= 1 && SelectedTier <= 25
+      && (SelectedRarity != 0 || SelectedAffix == 0)
+      && SelectedCode == SelectedAffix * 100000 + SelectedSlot * 10000
+        + SelectedRarity * 1000 + SelectedTier;
+    const FLinearColor DetailColors[] = {FLinearColor(0.90f,0.90f,0.90f),
+      FLinearColor(0.25f,0.69f,1.f), FLinearColor(0.96f,0.79f,0.25f),
+      FLinearColor(0.72f,0.35f,0.96f), FLinearColor(0.23f,0.84f,0.42f),
+      FLinearColor(1.f,0.52f,0.12f)};
+    const FString ItemName = bValidDetail
+      ? FString::Printf(TEXT("SELECTED  |  %s  |  %s  |  Tier %d  |  %s"),
+          DetailSlots[SelectedSlot], DetailRarities[SelectedRarity], SelectedTier,
+          DetailTraits[SelectedAffix])
+      : TEXT("SELECTED  |  Invalid equipment data");
+    DrawText(ItemName,
+      bValidDetail ? DetailColors[SelectedRarity] : FLinearColor(1.f,0.48f,0.46f),
+      Left + 18.f, Top + PanelHeight - 230.f, nullptr, PanelWidth < 550.f ? 0.61f : 0.78f);
+    const int32 SetPieces = bValidDetail && SelectedAffix > 0
+      ? Hero->GetSetPieceCount(SelectedAffix) : 0;
+    const TCHAR* SetEffects[] = {TEXT("No set trait"), TEXT("2pc: +3% crit  |  3pc: +4% mastery"),
+      TEXT("2pc: +3% versatility  |  3pc: +2.5% protection"),
+      TEXT("2pc: +4% haste  |  3pc: +6% mana regen")};
+    const FString SetLine = bValidDetail && SelectedAffix > 0
+      ? FString::Printf(TEXT("EQUIPPED SET: %s %d/3  |  %s"),
+          DetailTraits[SelectedAffix], SetPieces, SetEffects[SelectedAffix])
+      : TEXT("EQUIPPED SET: no set bonus from this item");
+    DrawText(SetLine, FLinearColor(0.59f,0.95f,0.77f),
+      Left + 18.f, Top + PanelHeight - 207.f, nullptr, PanelWidth < 550.f ? 0.56f : 0.68f);
+   }
    const int32 ReforgeCost = 12 + SelectedTier * 2 + SelectedRarity * 8;
    DrawText(bReforgeable
      ? FString::Printf(TEXT("Reforge trait: %d salvage  [%s]"),
@@ -280,6 +450,37 @@ void AMoonfallCombatHUD::DrawHUD()
      bAscendable && Hero->Salvage >= AscendCost
        ? FLinearColor(0.55f,0.92f,0.75f) : FLinearColor(0.96f,0.66f,0.46f),
      Left + 18.f, Top + PanelHeight - 135.f, nullptr, 0.74f);
+   // Compare the highlighted item against the currently equipped item in
+   // the same slot. This is informational only and never changes gear.
+   const int32 EquippedCode = SelectedSlot == 0 ? Hero->EquippedWeaponCode
+     : SelectedSlot == 1 ? Hero->EquippedArmorCode
+     : SelectedSlot == 2 ? Hero->EquippedAccessoryCode : 0;
+   const int32 EquippedTier = EquippedCode > 0 ? EquippedCode % 1000 : 0;
+   const int32 EquippedRarity = EquippedCode > 0 ? (EquippedCode / 1000) % 10 : 0;
+   const int32 EquippedAffix = EquippedCode > 0 ? EquippedCode / 100000 : 0;
+   const int32 TierDelta = SelectedTier - EquippedTier;
+   const int32 RarityDelta = SelectedRarity - EquippedRarity;
+   const bool bIsUpgrade = EquippedCode <= 0 || TierDelta > 0
+     || (TierDelta == 0 && RarityDelta > 0);
+   const bool bIsLower = EquippedCode > 0 && (TierDelta < 0
+     || (TierDelta == 0 && RarityDelta < 0));
+   const TCHAR* CompareWord = EquippedCode <= 0 ? TEXT("EMPTY SLOT")
+     : bIsUpgrade ? TEXT("UPGRADE") : bIsLower ? TEXT("LOWER") : TEXT("SIDEGRADE");
+   const TCHAR* CompareRarities[] = {TEXT("Common"), TEXT("Uncommon"), TEXT("Rare"),
+     TEXT("Epic"), TEXT("Emerald"), TEXT("Legendary")};
+   const TCHAR* CompareTraits[] = {TEXT("None"), TEXT("Force"), TEXT("Ward"), TEXT("Focus")};
+   const FString CompareLine = EquippedCode <= 0
+     ? FString::Printf(TEXT("Compare: %s  |  equipped slot is empty"), CompareWord)
+     : FString::Printf(TEXT("Compare: %s  |  T%d / %s / %s  vs  T%d / %s / %s"),
+       CompareWord, SelectedTier, CompareRarities[FMath::Clamp(SelectedRarity, 0, 5)],
+       CompareTraits[FMath::Clamp(SelectedAffix, 0, 3)],
+       EquippedTier, CompareRarities[FMath::Clamp(EquippedRarity, 0, 5)],
+       CompareTraits[FMath::Clamp(EquippedAffix, 0, 3)]);
+   DrawText(CompareLine,
+     bIsUpgrade ? FLinearColor(0.42f,0.96f,0.62f)
+       : bIsLower ? FLinearColor(0.96f,0.62f,0.42f)
+       : FLinearColor(0.78f,0.86f,1.f),
+     Left + 18.f, Top + PanelHeight - 110.f, nullptr, PanelWidth < 550.f ? 0.57f : 0.68f);
    const int32 NextCost = 4 + SelectedTier * 2 + SelectedRarity * 3;
    const FString ForgeStatus = !bForgeable ? TEXT("Crafting: MAX TIER or invalid")
      : FString::Printf(TEXT("Next tier: %d salvage  [%s]"),

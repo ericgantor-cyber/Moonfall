@@ -229,6 +229,13 @@ void AMoonfallHeroPawn::BeginPlay() {
 void AMoonfallHeroPawn::Tick(float DeltaSeconds)
 {
  Super::Tick(DeltaSeconds);
+ // Only track pointer motion while dragging the inventory scrollbar.
+ if (bInventoryScrollbarDragging) {
+  if (!bInventoryOpen || bCharacterStatsOpen || bOptionsOpen || Health <= 0.f)
+   bInventoryScrollbarDragging = false;
+  else
+   ScrollInventoryToMouseTrack();
+ }
  // A streaming/despawned resident must not leave player cursor or input locked.
  if (bResidentContextOpen) {
   const AMoonfallWorldNPC* Resident = FocusedResident.Get();
@@ -406,6 +413,7 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("Jump"), IE_Released, this, &ACharacter::StopJumping);
  Input->BindAction(TEXT("CastLeft"), IE_Pressed, this, &AMoonfallHeroPawn::CastLeft);
  Input->BindAction(TEXT("ResidentMouseClick"), IE_Pressed, this, &AMoonfallHeroPawn::ResidentContextMouseClick);
+ Input->BindAction(TEXT("ResidentMouseClick"), IE_Released, this, &AMoonfallHeroPawn::ReleaseInventoryPointer);
  Input->BindAction(TEXT("CastRight"), IE_Pressed, this, &AMoonfallHeroPawn::CastRight);
  Input->BindAction(TEXT("CastRightMouse"), IE_Pressed, this, &AMoonfallHeroPawn::CastRightMouse);
  Input->BindAction(TEXT("ResidentContext"), IE_Pressed, this, &AMoonfallHeroPawn::OpenFocusedResidentContext);
@@ -434,11 +442,198 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("OptionsLeft"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsLeft);
  Input->BindAction(TEXT("OptionsRight"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsRight);
 }
+TArray<int32> AMoonfallHeroPawn::GetInventoryDisplayOrder() const
+{
+ TArray<int32> Order;
+ const int32 Count = InventoryItemCodes.Num();
+ Order.Reserve(Count);
+ for (int32 Index = 0; Index < Count; ++Index) Order.Add(Index);
+ if (InventorySortMode == 0) return Order;
+ // Sort only a temporary index array. Persistent inventory and equipped slots
+ // never change. Original position is the stable tie-breaker for duplicates.
+ Order.Sort([this](int32 A, int32 B) {
+  const int32 CodeA = InventoryItemCodes[A], CodeB = InventoryItemCodes[B];
+  const int32 SlotA = CodeA > 0 ? (CodeA / 10000) % 10 : 99;
+  const int32 SlotB = CodeB > 0 ? (CodeB / 10000) % 10 : 99;
+  const int32 RarityA = CodeA > 0 ? (CodeA / 1000) % 10 : -1;
+  const int32 RarityB = CodeB > 0 ? (CodeB / 1000) % 10 : -1;
+  const int32 TierA = CodeA > 0 ? CodeA % 1000 : -1;
+  const int32 TierB = CodeB > 0 ? CodeB % 1000 : -1;
+  if (InventorySortMode == 1) {
+   if (RarityA != RarityB) return RarityA > RarityB;
+   if (TierA != TierB) return TierA > TierB;
+   if (SlotA != SlotB) return SlotA < SlotB;
+  } else {
+   if (SlotA != SlotB) return SlotA < SlotB;
+   if (RarityA != RarityB) return RarityA > RarityB;
+   if (TierA != TierB) return TierA > TierB;
+  }
+  return A < B;
+ });
+ return Order;
+}
+
+bool AMoonfallHeroPawn::ScrollInventoryToMouseTrack()
+{
+ if (Health <= 0.f || !bInventoryOpen || bCharacterStatsOpen || bOptionsOpen)
+  return false;
+ const APlayerController* PC = Cast<APlayerController>(Controller);
+ if (!PC || !PC->bShowMouseCursor) return false;
+ int32 Width = 0, Height = 0;
+ float MouseX = 0.f, MouseY = 0.f;
+ PC->GetViewportSize(Width, Height);
+ if (Width <= 0 || Height <= 0 || !PC->GetMousePosition(MouseX, MouseY))
+  return false;
+ const int32 Rows = GetInventoryVisibleRows();
+ const int32 Count = InventoryItemCodes.Num();
+ // A bag may shrink while dragging after a salvage or item transfer.
+ // Cancel the drag rather than keeping a stale scrollbar gesture alive.
+ if (Count <= Rows) {
+  bInventoryScrollbarDragging = false;
+  InventoryViewStart = 0;
+  return false;
+ }
+ const float PanelWidth = FMath::Min(720.f, FMath::Max(280.f,
+   FMath::Min(float(Width) - 24.f, float(Width) * 0.48f)));
+ const float PanelHeight = FMath::Min(860.f, FMath::Max(280.f, float(Height) - 24.f));
+ const float Left = float(Width) - PanelWidth - 12.f;
+ const float Top = (float(Height) - PanelHeight) * 0.5f;
+ const float TrackX = Left + PanelWidth - 11.f;
+ const float TrackY = Top + 145.f;
+ const float RowSpacing = FMath::Max(21.f, (PanelHeight - 390.f) / Rows);
+ const float TrackHeight = RowSpacing * Rows;
+ // Initial click requires the track. Once dragging, clamped vertical motion
+ // continues even when the cursor moves horizontally beyond its narrow track.
+ if (!bInventoryScrollbarDragging &&
+     (MouseX < TrackX - 8.f || MouseX > TrackX + 8.f ||
+      MouseY < TrackY || MouseY > TrackY + TrackHeight))
+  return false;
+ bInventoryScrollbarDragging = true;
+ const float ThumbHeight = FMath::Max(14.f, TrackHeight * Rows / Count);
+ const float Travel = FMath::Max(1.f, TrackHeight - ThumbHeight);
+ const float Fraction = FMath::Clamp((MouseY - TrackY - ThumbHeight * 0.5f) / Travel, 0.f, 1.f);
+ InventoryViewStart = FMath::Clamp(FMath::RoundToInt(Fraction * (Count - Rows)), 0, Count - Rows);
+ return true;
+}
+
+bool AMoonfallHeroPawn::HitTestInventoryCloseButton() const
+{
+ if (Health <= 0.f || !bInventoryOpen || bOptionsOpen)
+  return false;
+ const APlayerController* PC = Cast<APlayerController>(Controller);
+ if (!PC || !PC->bShowMouseCursor) return false;
+ int32 Width = 0, Height = 0;
+ float MouseX = 0.f, MouseY = 0.f;
+ PC->GetViewportSize(Width, Height);
+ if (Width <= 0 || Height <= 0 || !PC->GetMousePosition(MouseX, MouseY))
+  return false;
+ const float PanelWidth = FMath::Min(720.f, FMath::Max(280.f,
+   FMath::Min(float(Width) - 24.f, float(Width) * 0.48f)));
+ const float PanelHeight = FMath::Min(860.f, FMath::Max(280.f, float(Height) - 24.f));
+ const float Left = float(Width) - PanelWidth - 12.f;
+ const float Top = (float(Height) - PanelHeight) * 0.5f;
+ const float SortWidth = PanelWidth < 550.f ? 105.f : 172.f;
+ const float SortX = Left + PanelWidth - SortWidth - 14.f;
+ const float CloseX = SortX - 36.f;
+ return MouseX >= CloseX && MouseX <= CloseX + 28.f &&
+        MouseY >= Top + 14.f && MouseY <= Top + 42.f;
+}
+
+bool AMoonfallHeroPawn::HitTestInventorySortButton() const
+{
+ if (Health <= 0.f || !bInventoryOpen || bCharacterStatsOpen || bOptionsOpen)
+  return false;
+ const APlayerController* PC = Cast<APlayerController>(Controller);
+ if (!PC || !PC->bShowMouseCursor) return false;
+ int32 Width = 0, Height = 0;
+ float MouseX = 0.f, MouseY = 0.f;
+ PC->GetViewportSize(Width, Height);
+ if (Width <= 0 || Height <= 0 || !PC->GetMousePosition(MouseX, MouseY)) return false;
+ const float PanelWidth = FMath::Min(720.f, FMath::Max(280.f, FMath::Min(float(Width) - 24.f, float(Width) * 0.48f)));
+ const float PanelHeight = FMath::Min(860.f, FMath::Max(280.f, float(Height) - 24.f));
+ // Right-docked inventory. Match MoonfallCombatHUD Canvas geometry exactly.
+ const float Left = float(Width) - PanelWidth - 12.f;
+ const float Top = (float(Height) - PanelHeight) * 0.5f;
+ const float SortWidth = PanelWidth < 550.f ? 105.f : 172.f;
+ const float SortX = Left + PanelWidth - SortWidth - 14.f;
+ const float SortY = Top + 14.f;
+ return MouseX >= SortX && MouseX <= SortX + SortWidth &&
+        MouseY >= SortY && MouseY <= SortY + 28.f;
+}
+
+int32 AMoonfallHeroPawn::GetInventoryVisibleRows() const
+{
+ int32 ViewWidth = 0;
+ int32 ViewHeight = 720;
+ if (APlayerController* Controller = Cast<APlayerController>(GetController()))
+  Controller->GetViewportSize(ViewWidth, ViewHeight);
+ // Match the Canvas panel height and reserve footer/stat space.
+ const float PanelHeight = FMath::Min(860.f, FMath::Max(280.f, float(ViewHeight) - 24.f));
+ return FMath::Clamp(FMath::FloorToInt((PanelHeight - 390.f) / 25.f), 2, 20);
+}
+
+void AMoonfallHeroPawn::KeepInventorySelectionVisible()
+{
+ const int32 Count = InventoryItemCodes.Num();
+ InventorySelection = FMath::Clamp(InventorySelection, 0, FMath::Max(0, Count - 1));
+ const int32 Rows = GetInventoryVisibleRows();
+ const int32 MaxStart = FMath::Max(0, Count - Rows);
+ const int32 DisplaySelection = GetInventoryDisplayOrder().Find(InventorySelection);
+ const int32 SelectedRow = DisplaySelection == INDEX_NONE ? 0 : DisplaySelection;
+ InventoryViewStart = FMath::Clamp(InventoryViewStart, 0, MaxStart);
+ if (SelectedRow < InventoryViewStart)
+  InventoryViewStart = SelectedRow;
+ else if (SelectedRow >= InventoryViewStart + Rows)
+  InventoryViewStart = SelectedRow - Rows + 1;
+ InventoryViewStart = FMath::Clamp(InventoryViewStart, 0, MaxStart);
+}
+
+int32 AMoonfallHeroPawn::HitTestInventoryRow() const
+{
+ if (Health <= 0.f || !bInventoryOpen || bCharacterStatsOpen || bOptionsOpen)
+  return INDEX_NONE;
+ const APlayerController* PC = Cast<APlayerController>(Controller);
+ if (!PC || !PC->bShowMouseCursor) return INDEX_NONE;
+ int32 Width = 0, Height = 0;
+ float MouseX = 0.f, MouseY = 0.f;
+ PC->GetViewportSize(Width, Height);
+ if (Width <= 0 || Height <= 0 || !PC->GetMousePosition(MouseX, MouseY))
+  return INDEX_NONE;
+ const float PanelWidth = FMath::Min(720.f, FMath::Max(280.f, FMath::Min(float(Width) - 24.f, float(Width) * 0.48f)));
+ const float PanelHeight = FMath::Min(860.f, FMath::Max(280.f, float(Height) - 24.f));
+ // Right-docked inventory. Match MoonfallCombatHUD Canvas geometry exactly.
+ const float Left = float(Width) - PanelWidth - 12.f;
+ const float Top = (float(Height) - PanelHeight) * 0.5f;
+ const int32 Rows = GetInventoryVisibleRows();
+ const int32 Count = InventoryItemCodes.Num();
+ const int32 Start = FMath::Clamp(InventoryViewStart, 0, FMath::Max(0, Count - Rows));
+ const int32 End = FMath::Min(Count, Start + Rows);
+ const float Spacing = FMath::Max(21.f, (PanelHeight - 390.f) / Rows);
+ const float FirstY = Top + 145.f;
+ if (MouseX < Left + 12.f || MouseX > Left + PanelWidth - 16.f ||
+     MouseY < FirstY - 3.f || MouseY >= FirstY + (End - Start) * Spacing)
+  return INDEX_NONE;
+ const int32 RelativeRow = FMath::FloorToInt((MouseY - FirstY) / Spacing);
+ const int32 DisplayPosition = Start + RelativeRow;
+ const TArray<int32> Order = GetInventoryDisplayOrder();
+ return DisplayPosition >= Start && DisplayPosition < End && Order.IsValidIndex(DisplayPosition)
+   && InventoryItemCodes.IsValidIndex(Order[DisplayPosition])
+   ? Order[DisplayPosition] : INDEX_NONE;
+}
+
 void AMoonfallHeroPawn::ZoomCameraIn() {
+ if (Health > 0.f && !bOptionsOpen && bInventoryOpen && !bCharacterStatsOpen) {
+  InventoryViewStart = FMath::Max(0, FMath::Min(InventoryViewStart, FMath::Max(0, InventoryItemCodes.Num() - GetInventoryVisibleRows())) - 1);
+  return;
+ }
  if (Health <= 0.f || bOptionsOpen || bInventoryOpen) return;
  CameraDistance = FMath::Clamp((FMath::IsFinite(CameraDistance) ? CameraDistance : 450.f) - 65.f, 250.f, 850.f);
 }
 void AMoonfallHeroPawn::ZoomCameraOut() {
+ if (Health > 0.f && !bOptionsOpen && bInventoryOpen && !bCharacterStatsOpen) {
+  InventoryViewStart = FMath::Min(FMath::Max(0, InventoryItemCodes.Num() - GetInventoryVisibleRows()), InventoryViewStart + 1);
+  return;
+ }
  if (Health <= 0.f || bOptionsOpen || bInventoryOpen) return;
  CameraDistance = FMath::Clamp((FMath::IsFinite(CameraDistance) ? CameraDistance : 450.f) + 65.f, 250.f, 850.f);
 }
@@ -867,7 +1062,11 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
   EndGuard();
   // Defeat clears every gameplay menu so the death/respawn screen stays visible.
   bInventoryOpen = false;
+  bCharacterStatsOpen = false;
   bOptionsOpen = false;
+  bInventoryScrollbarDragging = false;
+  if (APlayerController* PC = Cast<APlayerController>(Controller))
+   PC->bShowMouseCursor = false;
  }
  if (!bReduceMotion) ImpactCameraOffset = FMath::Clamp(ImpactCameraOffset + FMath::Min(DamageTaken * 0.5f, 18.f), 0.f, 24.f);
  OnDamageImpact(DamageTaken);
@@ -909,8 +1108,12 @@ void AMoonfallHeroPawn::ToggleInventory() {
   EndSprint();
   EndGuard();
   InventorySelection = FMath::Clamp(InventorySelection, 0, FMath::Max(0, InventoryItemCodes.Num() - 1));
+  KeepInventorySelectionVisible();
  }
  bInventoryOpen = !bInventoryOpen;
+ bInventoryScrollbarDragging = false;
+ if (APlayerController* PC = Cast<APlayerController>(Controller))
+  PC->bShowMouseCursor = bInventoryOpen;
  if (!bInventoryOpen) bCharacterStatsOpen = false;
 }
 void AMoonfallHeroPawn::EquipSelectedInventoryItem() {
@@ -1105,10 +1308,19 @@ void AMoonfallHeroPawn::UpgradeSelectedInventoryItem()
 
 void AMoonfallHeroPawn::InventoryConfirm() { EquipSelectedInventoryItem(); }
 void AMoonfallHeroPawn::OpenOptions() {
- if (FocusedResident.IsValid()) { CloseResidentContext(); return; }
+ if (bResidentContextOpen || FocusedResident.IsValid()) { CloseResidentContext(); return; }
  // The defeat screen owns input until respawn; do not reopen gameplay menus.
  if (Health <= 0.f || !FMath::IsFinite(Health)) return;
- if (bInventoryOpen) { bInventoryOpen = false; bCharacterStatsOpen = false; return; }
+ if (bInventoryOpen) {
+  if (bCharacterStatsOpen) {
+   // Esc backs out of character details to the bag without closing the inventory.
+   bCharacterStatsOpen = false;
+   bInventoryScrollbarDragging = false;
+   return;
+  }
+  ToggleInventory(); // Same cleanup path as the mouse close button.
+  return;
+ }
  if (!bOptionsOpen) {
   StopJumping();
   if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();
@@ -1116,6 +1328,9 @@ void AMoonfallHeroPawn::OpenOptions() {
   EndGuard();
  }
  bOptionsOpen = !bOptionsOpen;
+ // Match the inventory close workflow and allow the Options X to be clicked.
+ if (APlayerController* PC = Cast<APlayerController>(Controller))
+  PC->bShowMouseCursor = bOptionsOpen;
 }
 void AMoonfallHeroPawn::OptionsUp() {
  if (FocusedResident.IsValid() && !bOptionsOpen && !bInventoryOpen) {
@@ -1124,10 +1339,14 @@ void AMoonfallHeroPawn::OptionsUp() {
   return;
  }
  if (bInventoryOpen) {
-  InventorySelection = FMath::Max(0, InventorySelection - 1);
+  const TArray<int32> DisplayOrder = GetInventoryDisplayOrder();
+  const int32 CurrentRow = DisplayOrder.Find(InventorySelection);
+  if (DisplayOrder.Num() > 0)
+   InventorySelection = DisplayOrder[FMath::Clamp(CurrentRow - 1, 0, DisplayOrder.Num() - 1)];
+  KeepInventorySelectionVisible();
   return;
  }
- if (bOptionsOpen) OptionsSelection = (OptionsSelection + 6) % 7;
+ if (bOptionsOpen) OptionsSelection = (OptionsSelection + 7) % 8;
 }
 void AMoonfallHeroPawn::OptionsDown() {
  if (FocusedResident.IsValid() && !bOptionsOpen && !bInventoryOpen) {
@@ -1136,17 +1355,21 @@ void AMoonfallHeroPawn::OptionsDown() {
   return;
  }
  if (bInventoryOpen) {
-  InventorySelection = FMath::Min(FMath::Max(0, InventoryItemCodes.Num() - 1), InventorySelection + 1);
+  const TArray<int32> DisplayOrder = GetInventoryDisplayOrder();
+  const int32 CurrentRow = DisplayOrder.Find(InventorySelection);
+  if (DisplayOrder.Num() > 0)
+   InventorySelection = DisplayOrder[FMath::Clamp(CurrentRow + 1, 0, DisplayOrder.Num() - 1)];
+  KeepInventorySelectionVisible();
   return;
  }
- if (bOptionsOpen) OptionsSelection = (OptionsSelection + 1) % 7;
+ if (bOptionsOpen) OptionsSelection = (OptionsSelection + 1) % 8;
 }
 void AMoonfallHeroPawn::OptionsLeft() {
- if (bInventoryOpen) { EquipSelectedInventoryItem(); return; }
+ if (bInventoryOpen) return;
  AdjustOption(-1);
 }
 void AMoonfallHeroPawn::OptionsRight() {
- if (bInventoryOpen) { EquipSelectedInventoryItem(); return; }
+ if (bInventoryOpen) return;
  AdjustOption(1);
 }
 void AMoonfallHeroPawn::AdjustOption(int32 Direction) {
@@ -1155,9 +1378,28 @@ void AMoonfallHeroPawn::AdjustOption(int32 Direction) {
  if (!Settings) return;
  if (OptionsSelection == 0) {
   const FIntPoint Resolutions[] = {FIntPoint(1280,720), FIntPoint(1920,1080), FIntPoint(2560,1440), FIntPoint(3840,2160)};
-  int32 Current = 1;
-  for (int32 i = 0; i < 4; ++i) if (Settings->GetScreenResolution() == Resolutions[i]) Current = i;
-  Settings->SetScreenResolution(Resolutions[FMath::Clamp(Current + Direction, 0, 3)]);
+  const FIntPoint CurrentResolution = Settings->GetScreenResolution();
+  const int64 CurrentPixels = int64(CurrentResolution.X) * int64(CurrentResolution.Y);
+  int32 Target = Direction < 0 ? 0 : 3;
+  // Non-preset screen sizes must step relative to the current resolution,
+  // rather than incorrectly assuming 1080p.
+  if (Direction < 0) {
+   for (int32 i = 3; i >= 0; --i) {
+    if (int64(Resolutions[i].X) * int64(Resolutions[i].Y) < CurrentPixels) {
+     Target = i;
+     break;
+    }
+   }
+  } else {
+   for (int32 i = 0; i < 4; ++i) {
+    if (int64(Resolutions[i].X) * int64(Resolutions[i].Y) > CurrentPixels) {
+     Target = i;
+     break;
+    }
+   }
+  }
+  if (CurrentResolution != Resolutions[Target])
+   Settings->SetScreenResolution(Resolutions[Target]);
  } else if (OptionsSelection == 1) {
   float CurrentScale = 100.f;
   float NormalizedScale = 0.f, MinScale = 50.f, MaxScale = 100.f;
@@ -1195,6 +1437,15 @@ void AMoonfallHeroPawn::AdjustOption(int32 Direction) {
    GConfig->Flush(false, GGameUserSettingsIni);
   }
   return;
+ } else if (OptionsSelection == 7) {
+  // Minus and plus must navigate the three display modes in opposite directions.
+  const EWindowMode::Type CurrentMode = Settings->GetFullscreenMode();
+  const int32 CurrentIndex = CurrentMode == EWindowMode::Windowed ? 0
+      : CurrentMode == EWindowMode::WindowedFullscreen ? 1 : 2;
+  const int32 NextIndex = (CurrentIndex + (Direction < 0 ? 2 : 1)) % 3;
+  const EWindowMode::Type NextMode = NextIndex == 0 ? EWindowMode::Windowed
+      : NextIndex == 1 ? EWindowMode::WindowedFullscreen : EWindowMode::Fullscreen;
+  Settings->SetFullscreenMode(NextMode);
  }
  Settings->ApplySettings(false);
  Settings->SaveSettings();
@@ -2296,7 +2547,9 @@ void AMoonfallHeroPawn::CloseResidentContext() {
  if (!bResidentContextOpen && !FocusedResident.IsValid()) return;
  bResidentContextOpen = false;
  FocusedResident.Reset();
- // Closing dialogue does not change mouse cursor visibility.
+ // Return cursor ownership to whichever native modal is still active.
+ if (APlayerController* PC = Cast<APlayerController>(Controller))
+  PC->bShowMouseCursor = bOptionsOpen || bInventoryOpen;
  ResidentContextSelection = 0;
  bResidentTurnInPending = false;
  ResidentTurnInConfirmUntil = 0.f;
@@ -2328,6 +2581,15 @@ void AMoonfallHeroPawn::OpenFocusedResidentContext() {
      GetResidentQuestState(Resident->ResidentId), Resident->GetContractSalvageCost());
 }
 void AMoonfallHeroPawn::CastRightMouse() {
+ if (bInventoryOpen) {
+  if (HitTestInventorySortButton()) return;
+  const int32 HitIndex = HitTestInventoryRow();
+  if (HitIndex != INDEX_NONE) {
+   InventorySelection = HitIndex;
+   EquipInventoryItem(HitIndex);
+  }
+  return;
+ }
  if (bResidentContextOpen) { CloseResidentContext(); return; }
  if (Health <= 0.f || bOptionsOpen || bInventoryOpen || !GetWorld()) return;
  // WoW-style mouse pointer selection when a cursor is visible, or
@@ -2369,7 +2631,68 @@ void AMoonfallHeroPawn::CastRightMouse() {
  // All non-NPC right clicks retain right-hand attack behavior.
  CastRight();
 }
+void AMoonfallHeroPawn::ReleaseInventoryPointer()
+{
+ bInventoryScrollbarDragging = false;
+}
+
 void AMoonfallHeroPawn::ResidentContextMouseClick() {
+ // All native modal panels own their mouse input before gameplay combat.
+ if (bOptionsOpen) {
+  if (APlayerController* PC = Cast<APlayerController>(Controller)) {
+   int32 Width = 0, Height = 0;
+   float MouseX = 0.f, MouseY = 0.f;
+   PC->GetViewportSize(Width, Height);
+   if (Width > 0 && Height > 0 && PC->bShowMouseCursor
+       && PC->GetMousePosition(MouseX, MouseY)) {
+    const float MenuWidth = FMath::Min(560.f, FMath::Max(240.f, float(Width) - 24.f));
+    const float MenuHeight = FMath::Min(550.f, FMath::Max(280.f, float(Height) - 24.f));
+    const float MenuLeft = (float(Width) - MenuWidth) * 0.5f;
+    const float MenuTop = (float(Height) - MenuHeight) * 0.5f;
+    const float CloseX = MenuLeft + MenuWidth - 42.f;
+    if (MouseX >= CloseX && MouseX <= CloseX + 28.f
+        && MouseY >= MenuTop + 12.f && MouseY <= MenuTop + 40.f) {
+     OpenOptions();
+    } else {
+     // Match all eight options rows and +/- button bounds to MoonfallCombatHUD.
+     const float RowGap = (MenuHeight - 130.f) / 8.f;
+     const float RowHeight = FMath::Min(38.f, RowGap - 2.f);
+     const float FirstRowY = MenuTop + 63.f;
+     const int32 ClickedRow = FMath::FloorToInt((MouseY - FirstRowY) / RowGap);
+     const float RowY = FirstRowY + ClickedRow * RowGap;
+     if (MouseX >= MenuLeft + 10.f && MouseX <= MenuLeft + MenuWidth - 10.f
+         && ClickedRow >= 0 && ClickedRow < 8
+         && MouseY >= RowY && MouseY <= RowY + RowHeight) {
+      OptionsSelection = ClickedRow;
+      const float MinusX = MenuLeft + MenuWidth - 145.f;
+      const float PlusX = MenuLeft + MenuWidth - 37.f;
+      const float ButtonHeight = FMath::Min(26.f, RowHeight);
+      if (MouseY <= RowY + ButtonHeight) {
+       if (MouseX >= MinusX && MouseX <= MinusX + 25.f) AdjustOption(-1);
+       else if (MouseX >= PlusX && MouseX <= PlusX + 25.f) AdjustOption(1);
+      }
+     }
+    }
+   }
+  }
+  return;
+ }
+ if (bInventoryOpen) {
+  if (HitTestInventoryCloseButton()) {
+   // The X and Esc must back out of character details the same way.
+   OpenOptions();
+   return;
+  }
+  if (HitTestInventorySortButton()) {
+   InventorySortMode = (InventorySortMode + 1) % 3;
+   KeepInventorySelectionVisible();
+   return;
+  }
+  if (ScrollInventoryToMouseTrack()) return;
+  const int32 HitIndex = HitTestInventoryRow();
+  if (HitIndex != INDEX_NONE) InventorySelection = HitIndex;
+  return;
+ }
  if (!bResidentContextOpen) { CastLeft(); return; }
  if (!FocusedResident.IsValid()) { CloseResidentContext(); return; }
  if (!GetWorld() || bOptionsOpen || bInventoryOpen) { CloseResidentContext(); return; }
@@ -2382,6 +2705,12 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
  const float PanelW = FMath::Min(490.f, FMath::Max(260.f, Width - 24.f));
  const float PanelH = FMath::Min(345.f, FMath::Max(270.f, Height - 24.f));
  const float Left = (Width - PanelW) * 0.5f, Top = (Height - PanelH) * 0.5f;
+ const float NpcCloseX = Left + PanelW - 42.f;
+ if (MouseX >= NpcCloseX && MouseX <= NpcCloseX + 28.f
+     && MouseY >= Top + 12.f && MouseY <= Top + 40.f) {
+  CloseResidentContext();
+  return;
+ }
  if (MouseX < Left || MouseX > Left + PanelW || MouseY < Top || MouseY > Top + PanelH) {
   CloseResidentContext();
   return;
@@ -2390,7 +2719,7 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
  for (int32 Row = 0; Row < 3; ++Row) {
   const float RowTop = Top + 122.f + Row * 53.f;
   if (MouseY >= RowTop && MouseY <= RowTop + 43.f) {
-   if (ResidentContextSelection != Row)   if (ResidentContextSelection != Row) bResidentTurnInPending = false;
+   if (ResidentContextSelection != Row) bResidentTurnInPending = false;
    ResidentContextSelection = Row;
    if (Row == 2) CloseResidentContext();
    else ChooseResidentContextAction(Row);

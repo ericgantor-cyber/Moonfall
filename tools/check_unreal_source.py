@@ -30,49 +30,6 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertTrue((ROOT / "MoonfallPersistentSave.h").is_file())
         self.assertFalse((ROOT / "MoonfallRewardSaveGame.h").exists())
 
-    def test_hosted_unreal_packaging_generates_project_owned_startup_level(self):
-        workflow = (ROOT.parents[2] / ".github" / "workflows"
-                    / "unreal-hosted-windows.yml").read_text(encoding="utf-8")
-        prepare = workflow.index("Create and validate Moonfall startup level for packaging")
-        package = workflow.index("Package actual Win64 Development game after successful Unreal C++ compile")
-        self.assertLess(prepare, package)
-        section = workflow[prepare:package]
-        self.assertIn("inputs.package_game", section)
-        self.assertIn("Create-StartupLevel.py", section)
-        self.assertIn("UnrealEditor-Cmd.exe", section)
-        self.assertIn("-ExecutePythonScript=", section)
-        self.assertIn("MoonfallStart.umap", section)
-        self.assertIn("GameDefaultMap", section)
-        self.assertIn("EditorStartupMap", section)
-        self.assertIn("$sections.Count -ne 1", section)
-        self.assertIn("$entries.Count -ne 1", section)
-        self.assertIn("GameMapsSettings", section)
-        self.assertIn("Groups[1].Value.Trim()", section)
-        self.assertIn("Moonfall startup map generation failed", section)
-        packaging = workflow[package:]
-        self.assertIn('"-map=/Game/Maps/MoonfallStart"', packaging)
-        self.assertIn("game-source/MoonfallUnreal/Saved/Logs/", packaging)
-        self.assertIn("$games[0].Length -lt 512", packaging)
-        self.assertIn("ReadUInt16() -ne 0x5A4D", packaging)
-        self.assertIn("ReadUInt32() -ne 0x00004550", packaging)
-        self.assertIn("ReadUInt16() -ne 0x8664", packaging)
-        self.assertIn("ReadUInt16() -ne 0x20B", packaging)
-        self.assertIn("$reader.Dispose()", packaging)
-        self.assertIn("'.pak' -and $_.Length -gt 0", packaging)
-        self.assertIn("'.utoc' -and $_.Length -gt 0", packaging)
-        self.assertIn("[IO.Path]::ChangeExtension($utoc.FullName, '.ucas')", packaging)
-        self.assertIn("Test-Path -LiteralPath $ucasPath -PathType Leaf", packaging)
-        self.assertIn("(Get-Item -LiteralPath $ucasPath).Length -gt 0", packaging)
-        self.assertIn("$hasIoStorePair = $true", packaging)
-        self.assertIn("$pakFiles.Count -eq 0 -and -not $hasIoStorePair", packaging)
-        self.assertIn("matching .utoc/.ucas content archive pair", packaging)
-        diagnostics = workflow[workflow.index("Collect Unreal AutomationTool failure logs"):]
-        self.assertIn("if: failure()", diagnostics)
-        self.assertIn("'Unreal Engine\\AutomationTool\\Logs'", diagnostics)
-        self.assertIn("Select-Object -First 15", diagnostics)
-        self.assertIn("$log.Length -gt 20MB", diagnostics)
-        self.assertIn("UE-AutomationLogs/", diagnostics)
-
     def test_optional_actor_rig_is_no_tick_and_actor_owned(self):
         rig_cpp = (ROOT / "MoonfallActorRigComponent.cpp").read_text(encoding="utf-8")
         rig_h = (ROOT / "MoonfallActorRigComponent.h").read_text(encoding="utf-8")
@@ -165,6 +122,49 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("if (Family.IsNone()) return Result;", race_cpp)
         self.assertIn("if (Family == FName(Row.Family))", race_cpp)
         self.assertIn("if (RaceId.IsNone()) return false;", race_cpp)
+
+    def test_hosted_unreal_packaging_generates_project_owned_startup_level(self):
+        workflow = (ROOT.parents[2] / ".github" / "workflows"
+                    / "unreal-hosted-windows.yml").read_text(encoding="utf-8")
+        prepare = workflow.index("Create and validate Moonfall startup level for packaging")
+        package = workflow.index("Package actual Win64 Development game after successful Unreal C++ compile")
+        self.assertLess(prepare, package)
+        section = workflow[prepare:package]
+        self.assertIn("inputs.package_game", section)
+        self.assertIn("Create-StartupLevel.py", section)
+        self.assertIn("UnrealEditor-Cmd.exe", section)
+        self.assertIn("-ExecutePythonScript=", section)
+        self.assertIn("MoonfallStart.umap", section)
+        self.assertIn("GameDefaultMap", section)
+        self.assertIn("EditorStartupMap", section)
+        self.assertIn("$sections.Count -ne 1", section)
+        self.assertIn("$entries.Count -ne 1", section)
+        self.assertIn("GameMapsSettings", section)
+        self.assertIn("Groups[1].Value.Trim()", section)
+        self.assertIn("Moonfall startup map generation failed", section)
+        packaging = workflow[package:]
+        self.assertIn('"-map=/Game/Maps/MoonfallStart"', packaging)
+        self.assertIn("game-source/MoonfallUnreal/Saved/Logs/", packaging)
+        self.assertIn("$games[0].Length -lt 512", packaging)
+        self.assertIn("ReadUInt16() -ne 0x5A4D", packaging)
+        self.assertIn("ReadUInt32() -ne 0x00004550", packaging)
+        self.assertIn("ReadUInt16() -ne 0x8664", packaging)
+        self.assertIn("ReadUInt16() -ne 0x20B", packaging)
+        self.assertIn("$reader.Dispose()", packaging)
+        self.assertIn("'.pak' -and $_.Length -gt 0", packaging)
+        self.assertIn("'.utoc' -and $_.Length -gt 0", packaging)
+        self.assertIn("[IO.Path]::ChangeExtension($utoc.FullName, '.ucas')", packaging)
+        self.assertIn("Test-Path -LiteralPath $ucasPath -PathType Leaf", packaging)
+        self.assertIn("(Get-Item -LiteralPath $ucasPath).Length -gt 0", packaging)
+        self.assertIn("$hasIoStorePair = $true", packaging)
+        self.assertIn("$pakFiles.Count -eq 0 -and -not $hasIoStorePair", packaging)
+        self.assertIn("matching .utoc/.ucas content archive pair", packaging)
+        diagnostics = workflow[workflow.index("Collect Unreal AutomationTool failure logs"):]
+        self.assertIn("if: failure()", diagnostics)
+        self.assertIn("'Unreal Engine\\AutomationTool\\Logs'", diagnostics)
+        self.assertIn("Select-Object -First 15", diagnostics)
+        self.assertIn("$log.Length -gt 20MB", diagnostics)
+        self.assertIn("UE-AutomationLogs/", diagnostics)
 
     def test_race_profile_catalog_blueprints_are_read_only_and_reuse_original_roster(self):
         import re
@@ -385,15 +385,21 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "void AMoonfallHeroPawn::AdjustOption", 1)[0]
         self.assertIn("bInventoryOpen = !bInventoryOpen;", toggle)
         self.assertIn("EquipInventoryItem(InventorySelection);", toggle)
-        self.assertIn("if (bInventoryOpen) { bInventoryOpen = false; bCharacterStatsOpen = false; return; }", toggle)
-        self.assertIn("InventorySelection = FMath::Max(0, InventorySelection - 1);", toggle)
-        self.assertIn("InventorySelection = FMath::Min(FMath::Max(0, InventoryItemCodes.Num() - 1), InventorySelection + 1);", toggle)
-        self.assertIn("if (bInventoryOpen) { EquipSelectedInventoryItem(); return; }", toggle)
+        self.assertIn("if (bInventoryOpen) {", toggle)
+        self.assertIn("ToggleInventory(); // Same cleanup path as the mouse close button.", toggle)
+        self.assertIn("InventorySelection = DisplayOrder[FMath::Clamp(CurrentRow - 1, 0, DisplayOrder.Num() - 1)];", toggle)
+        self.assertIn("InventorySelection = DisplayOrder[FMath::Clamp(CurrentRow + 1, 0, DisplayOrder.Num() - 1)];", toggle)
+        self.assertIn("if (bInventoryOpen) return;", toggle)
+        self.assertIn("void AMoonfallHeroPawn::InventoryConfirm() { EquipSelectedInventoryItem(); }", self.hero_cpp)
         self.assertIn("if (Health <= 0.f || bOptionsOpen || bInventoryOpen || FocusedResident.IsValid() || !FMath::IsFinite(Value)) return;", self.hero_cpp)
         self.assertIn("bOptionsOpen || bInventoryOpen || !GetWorld()", self.hero_cpp)
         self.assertIn("if (Hero->bInventoryOpen)", self.hud)
-        self.assertIn("const int32 PerPage = FMath::Clamp(FMath::FloorToInt((PanelHeight - 290.f) / 25.f), 2, 8);", self.hud)
+        self.assertIn("const int32 PerPage = Hero->GetInventoryVisibleRows();", self.hud)
         self.assertIn("Hero->InventoryItemCodes[Index]", self.hud)
+        self.assertIn("visible %d-%d / %d", self.hud)
+        self.assertIn("if (Count > PerPage)", self.hud)
+        self.assertIn("const float ThumbHeight = FMath::Max(14.f, TrackHeight * PerPage / Count);", self.hud)
+        self.assertIn("const float ThumbY = TrackY + (TrackHeight - ThumbHeight) * PageStart / MaxStart;", self.hud)
         self.assertIn("Hero->EquippedWeaponCode", self.hud)
         self.assertIn("Hero->EquippedArmorCode", self.hud)
         self.assertIn("Hero->EquippedAccessoryCode", self.hud)
@@ -450,6 +456,442 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("ItemCode = 0;", ground_h)
         self.assertNotIn("SetLifeSpan(", ground_cpp)
         self.assertNotIn("FinisherShockwave", self.hero_cpp)
+
+    def test_inventory_wheel_scrolls_viewport_without_equipping_or_zooming(self):
+        self.assertIn("int32 InventoryViewStart = 0;", self.hero_h)
+        zoom_in = self.hero_cpp.split("void AMoonfallHeroPawn::ZoomCameraIn()", 1)[1].split("\n}", 1)[0]
+        zoom_out = self.hero_cpp.split("void AMoonfallHeroPawn::ZoomCameraOut()", 1)[1].split("\n}", 1)[0]
+        for zoom in (zoom_in, zoom_out):
+            self.assertIn("bInventoryOpen && !bCharacterStatsOpen", zoom)
+            self.assertIn("InventoryViewStart =", zoom)
+            self.assertNotIn("InventorySelection =", zoom)
+            self.assertNotIn("EquipInventoryItem(", zoom)
+            self.assertLess(zoom.index("InventoryViewStart ="), zoom.index("CameraDistance ="))
+        self.assertIn("InventoryViewStart = FMath::Max(0, FMath::Min(InventoryViewStart", zoom_in)
+        self.assertIn("InventoryViewStart + 1", zoom_out)
+        self.assertIn("KeepInventorySelectionVisible();", self.hero_cpp)
+        self.assertIn("FMath::Clamp(Hero->InventoryViewStart, 0, FMath::Max(0, Count - PerPage))", self.hud)
+        self.assertIn("const int32 PageEnd = FMath::Min(Count, PageStart + PerPage);", self.hud)
+        self.assertIn("Hero->InventoryItemCodes[Index]", self.hud)
+
+    def test_inventory_drag_cancels_when_scrollbar_disappears(self):
+        drag = self.hero_cpp.split("bool AMoonfallHeroPawn::ScrollInventoryToMouseTrack()", 1)[1].split("\n}", 1)[0]
+        self.assertIn("if (Count <= Rows) {", drag)
+        self.assertIn("bInventoryScrollbarDragging = false;", drag)
+        self.assertIn("InventoryViewStart = 0;", drag)
+        self.assertLess(drag.index("if (Count <= Rows) {"), drag.index("bInventoryScrollbarDragging = true;"))
+
+    def test_expanded_responsive_inventory_keeps_visible_selection_and_safe_bounds(self):
+        rows = self.hero_cpp.split("int32 AMoonfallHeroPawn::GetInventoryVisibleRows() const", 1)[1].split("\n}", 1)[0]
+        selection = self.hero_cpp.split("void AMoonfallHeroPawn::KeepInventorySelectionVisible()", 1)[1].split("\n}", 1)[0]
+        self.assertIn("FMath::Min(860.f, FMath::Max(280.f, float(ViewHeight) - 24.f))", rows)
+        self.assertIn("FMath::Clamp(FMath::FloorToInt((PanelHeight - 390.f) / 25.f), 2, 20)", rows)
+        self.assertIn("FMath::Min(860.f, FMath::Max(280.f, Canvas->SizeY - 24.f))", self.hud)
+        self.assertIn("FMath::Min(720.f, FMath::Max(280.f, FMath::Min(Canvas->SizeX - 24.f, Canvas->SizeX * 0.48f)))", self.hud)
+        self.assertIn("const int32 PerPage = Hero->GetInventoryVisibleRows();", self.hud)
+        self.assertIn("if (SelectedRow < InventoryViewStart)", selection)
+        self.assertIn("SelectedRow >= InventoryViewStart + Rows", selection)
+        self.assertIn("InventoryViewStart = SelectedRow - Rows + 1;", selection)
+        self.assertIn("InventoryViewStart = FMath::Clamp(InventoryViewStart, 0, MaxStart);", selection)
+        self.assertIn("InventoryItemCodes.Num() - GetInventoryVisibleRows()", self.hero_cpp)
+        self.assertIn("Mouse wheel: scroll", self.hud)
+        self.assertNotIn("InventoryItemCodes.Sort(", selection)
+        self.assertNotIn("EquipInventoryItem(", selection)
+
+    def test_inventory_uses_mouse_and_wheel_not_keyboard_paging(self):
+        inputs = (ROOT.parents[2] / "MoonfallUnreal" / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
+        for action in ("InventoryPageUp", "InventoryPageDown", "InventoryFirst", "InventoryLast"):
+            self.assertNotIn(f'ActionName="{action}"', inputs)
+            self.assertNotIn(f'BindAction(TEXT("{action}")', self.hero_cpp)
+            self.assertNotIn(f'void {action}();', self.hero_h)
+        hit = self.hero_cpp.split("int32 AMoonfallHeroPawn::HitTestInventoryRow() const", 1)[1].split("\n}", 1)[0]
+        self.assertIn("!bInventoryOpen || bCharacterStatsOpen || bOptionsOpen", hit)
+        self.assertIn("PC->GetMousePosition(MouseX, MouseY)", hit)
+        self.assertIn("const int32 Start = FMath::Clamp(InventoryViewStart", hit)
+        self.assertIn("const int32 End = FMath::Min(Count, Start + Rows);", hit)
+        self.assertIn("InventoryItemCodes.IsValidIndex(Order[DisplayPosition])", hit)
+        left = self.hero_cpp.split("void AMoonfallHeroPawn::ResidentContextMouseClick()", 1)[1].split("\n}", 1)[0]
+        right = self.hero_cpp.split("void AMoonfallHeroPawn::CastRightMouse()", 1)[1].split("\n}", 1)[0]
+        self.assertIn("if (bInventoryOpen)", left)
+        self.assertIn("if (HitIndex != INDEX_NONE) InventorySelection = HitIndex;", left)
+        self.assertNotIn("EquipInventoryItem(", left)
+        self.assertIn("if (bInventoryOpen)", right)
+        self.assertIn("InventorySelection = HitIndex;", right)
+        self.assertIn("EquipInventoryItem(HitIndex);", right)
+        self.assertLess(right.index("if (HitIndex != INDEX_NONE)"), right.index("EquipInventoryItem(HitIndex);"))
+        self.assertIn("PC->bShowMouseCursor = bInventoryOpen;", self.hero_cpp)
+        self.assertIn("Mouse wheel: scroll", self.hud)
+        self.assertIn("Left click: select", self.hud)
+        self.assertIn("Right click: equip", self.hud)
+        self.assertNotIn("PgUp/PgDn", self.hud)
+        self.assertNotIn("Home/End", self.hud)
+
+    def test_controller_inventory_dpad_selects_and_confirm_equips_only(self):
+        inputs = (ROOT.parents[2] / "MoonfallUnreal" / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
+        self.assertIn('ActionName="ResidentContext",Key=Gamepad_DPad_Up', inputs)
+        self.assertIn('BindAction(TEXT("ResidentContext"), IE_Pressed', self.hero_cpp)
+        resident_up = self.hero_cpp.split("void AMoonfallHeroPawn::OpenFocusedResidentContext()", 1)[1].split("\n}", 1)[0]
+        self.assertIn("if (bOptionsOpen || bInventoryOpen) { OptionsUp(); return; }", resident_up)
+        self.assertIn('ActionName="OptionsDown",Key=Gamepad_DPad_Down', inputs)
+        self.assertIn('ActionName="InventoryConfirm",Key=Gamepad_FaceButton_Top', inputs)
+        up = self.hero_cpp.split("void AMoonfallHeroPawn::OptionsUp()", 1)[1].split("\n}", 1)[0]
+        down = self.hero_cpp.split("void AMoonfallHeroPawn::OptionsDown()", 1)[1].split("\n}", 1)[0]
+        left = self.hero_cpp.split("void AMoonfallHeroPawn::OptionsLeft()", 1)[1].split("\n}", 1)[0]
+        right = self.hero_cpp.split("void AMoonfallHeroPawn::OptionsRight()", 1)[1].split("\n}", 1)[0]
+        confirm = self.hero_cpp.split("void AMoonfallHeroPawn::InventoryConfirm()", 1)[1].split("\n}", 1)[0]
+        for nav in (up, down):
+            self.assertIn("if (bInventoryOpen)", nav)
+            self.assertIn("InventorySelection =", nav)
+            self.assertIn("KeepInventorySelectionVisible();", nav)
+        for horizontal in (left, right):
+            self.assertIn("if (bInventoryOpen) return;", horizontal)
+            self.assertNotIn("EquipSelectedInventoryItem()", horizontal)
+            self.assertNotIn("EquipInventoryItem(", horizontal)
+        self.assertIn("EquipSelectedInventoryItem()", confirm)
+
+    def test_mouse_sort_is_visual_only_and_safe_with_controller_selection(self):
+        sort = self.hero_cpp.split("TArray<int32> AMoonfallHeroPawn::GetInventoryDisplayOrder() const", 1)[1].split("\n}", 1)[0]
+        button = self.hero_cpp.split("bool AMoonfallHeroPawn::HitTestInventorySortButton() const", 1)[1].split("\n}", 1)[0]
+        left = self.hero_cpp.split("void AMoonfallHeroPawn::ResidentContextMouseClick()", 1)[1].split("\n}", 1)[0]
+        right = self.hero_cpp.split("void AMoonfallHeroPawn::CastRightMouse()", 1)[1].split("\n}", 1)[0]
+        selection = self.hero_cpp.split("void AMoonfallHeroPawn::KeepInventorySelectionVisible()", 1)[1].split("\n}", 1)[0]
+        self.assertIn("int32 InventorySortMode = 0;", self.hero_h)
+        self.assertIn("GetInventoryDisplayOrder() const;", self.hero_h)
+        self.assertIn("TArray<int32> Order;", sort)
+        self.assertIn("Order.Sort([this](int32 A, int32 B)", sort)
+        self.assertIn("if (InventorySortMode == 1)", sort)
+        self.assertIn("if (SlotA != SlotB)", sort)
+        self.assertIn("return A < B;", sort)
+        for forbidden in ("InventoryItemCodes.Sort(", "InventoryItemCodes.RemoveAt(", "EquipInventoryItem(", "SaveWorldProgress("):
+            self.assertNotIn(forbidden, sort)
+        self.assertIn("const int32 DisplaySelection = GetInventoryDisplayOrder().Find(InventorySelection);", selection)
+        self.assertIn("const TArray<int32> DisplayOrder = Hero->GetInventoryDisplayOrder();", self.hud)
+        self.assertIn("const int32 Index = DisplayOrder[DisplayPosition];", self.hud)
+        self.assertIn("const float Y = Top + 145.f + (DisplayPosition - PageStart) * RowSpacing;", self.hud)
+        self.assertIn("const float SortWidth = PanelWidth < 550.f ? 105.f : 172.f;", button)
+        self.assertIn("const float SortY = Top + 14.f;", button)
+        self.assertIn("const float SortY = Top + 14.f;", self.hud)
+        self.assertIn("SORT: QUALITY", self.hud)
+        self.assertIn("SORT: SLOT", self.hud)
+        self.assertIn("if (HitTestInventorySortButton())", left)
+        self.assertIn("InventorySortMode = (InventorySortMode + 1) % 3;", left)
+        self.assertLess(left.index("if (HitTestInventorySortButton())"), left.index("HitTestInventoryRow()"))
+        self.assertIn("if (HitTestInventorySortButton()) return;", right)
+        self.assertNotIn("EquipInventoryItem(", button)
+        self.assertIn("InventoryItemCodes.IsValidIndex(Order[DisplayPosition])", self.hero_cpp)
+
+    def test_selected_gear_comparison_is_read_only_and_slot_specific(self):
+        block = self.hud.split("const int32 EquippedCode = SelectedSlot == 0", 1)[1].split("const int32 NextCost", 1)[0]
+        self.assertIn("SelectedSlot == 1 ? Hero->EquippedArmorCode", block)
+        self.assertIn("Hero->EquippedAccessoryCode", block)
+        self.assertIn("const int32 TierDelta = SelectedTier - EquippedTier;", block)
+        self.assertIn("const int32 RarityDelta = SelectedRarity - EquippedRarity;", block)
+        self.assertIn("TEXT(\"UPGRADE\")", block)
+        self.assertIn("TEXT(\"LOWER\")", block)
+        self.assertIn("TEXT(\"SIDEGRADE\")", block)
+        self.assertIn("FMath::Clamp(SelectedRarity, 0, 5)", block)
+        self.assertIn("FMath::Clamp(SelectedAffix, 0, 3)", block)
+        self.assertIn("Top + PanelHeight - 110.f", block)
+        for forbidden in ("EquipInventoryItem(", "InventoryItemCodes.RemoveAt(", "SaveWorldProgress("):
+            self.assertNotIn(forbidden, block)
+
+    def test_rarity_item_details_and_sorted_controller_selection_are_safe(self):
+        up = self.hero_cpp.split("void AMoonfallHeroPawn::OptionsUp()", 1)[1].split("\n}", 1)[0]
+        down = self.hero_cpp.split("void AMoonfallHeroPawn::OptionsDown()", 1)[1].split("\n}", 1)[0]
+        for method, direction in ((up, "- 1"), (down, "+ 1")):
+            self.assertIn("const TArray<int32> DisplayOrder = GetInventoryDisplayOrder();", method)
+            self.assertIn("const int32 CurrentRow = DisplayOrder.Find(InventorySelection);", method)
+            self.assertIn(f"FMath::Clamp(CurrentRow {direction}, 0, DisplayOrder.Num() - 1)", method)
+            self.assertIn("KeepInventorySelectionVisible();", method)
+            self.assertNotIn("EquipInventoryItem(", method)
+        self.assertIn("const float RowSpacing = FMath::Max(21.f, (PanelHeight - 390.f) / PerPage);", self.hud)
+        hud = self.hud.split("// A dedicated, read-only selected-item summary", 1)[1].split("const int32 ReforgeCost", 1)[0]
+        self.assertIn("PanelHeight >= 500.f", hud)
+        self.assertIn("bValidDetail", hud)
+        self.assertIn("DetailColors[SelectedRarity]", hud)
+        self.assertIn("Hero->GetSetPieceCount(SelectedAffix)", hud)
+        self.assertIn("EQUIPPED SET:", hud)
+        self.assertIn("Top + PanelHeight - 230.f", hud)
+        self.assertIn("Top + PanelHeight - 207.f", hud)
+        for forbidden in ("EquipInventoryItem(", "SaveWorldProgress(", "InventoryItemCodes.RemoveAt("):
+            self.assertNotIn(forbidden, hud)
+
+    def test_inventory_is_right_docked_with_matching_mouse_hit_bounds(self):
+        inventory = self.hud.split("if (Hero->bInventoryOpen)", 1)[1].split(
+            "// Nearest living boss", 1)[0]
+        sort = self.hero_cpp.split("bool AMoonfallHeroPawn::HitTestInventorySortButton() const", 1)[1].split("\n}", 1)[0]
+        rows = self.hero_cpp.split("int32 AMoonfallHeroPawn::HitTestInventoryRow() const", 1)[1].split("\n}", 1)[0]
+        self.assertIn("const float Left = Canvas->SizeX - PanelWidth - 12.f;", inventory)
+        for method in (sort, rows):
+            self.assertIn("const float Left = float(Width) - PanelWidth - 12.f;", method)
+            self.assertNotIn("(float(Width) - PanelWidth) * 0.5f", method)
+        self.assertNotIn("(Canvas->SizeX - PanelWidth) * 0.5f", inventory)
+        self.assertIn("const float Spacing = FMath::Max(21.f, (PanelHeight - 390.f) / Rows);", rows)
+        self.assertIn("const float RowSpacing = FMath::Max(21.f, (PanelHeight - 390.f) / PerPage);", inventory)
+        self.assertIn("const float SortX = Left + PanelWidth - SortWidth - 14.f;", sort)
+        self.assertIn("const float SortX = Left + PanelWidth - SortWidth - 14.f;", inventory)
+        self.assertIn("const float Y = Top + 145.f + (DisplayPosition - PageStart) * RowSpacing;", inventory)
+
+    def test_right_drawer_resizes_and_scrollbar_jumps_without_equipping(self):
+        inventory = self.hud.split("if (Hero->bInventoryOpen)", 1)[1].split(
+            "// Nearest living boss", 1)[0]
+        click = self.hero_cpp.split("void AMoonfallHeroPawn::ResidentContextMouseClick()", 1)[1].split("\n}", 1)[0]
+        scrollbar = self.hero_cpp.split("bool AMoonfallHeroPawn::ScrollInventoryToMouseTrack()", 1)[1].split("\n}", 1)[0]
+        self.assertIn("FMath::Min(Canvas->SizeX - 24.f, Canvas->SizeX * 0.48f)", inventory)
+        for handler in ("HitTestInventoryRow", "HitTestInventorySortButton", "ScrollInventoryToMouseTrack"):
+            block = self.hero_cpp.split(f"AMoonfallHeroPawn::{handler}(", 1)[1].split("\n}", 1)[0]
+            self.assertIn("FMath::Min(float(Width) - 24.f, float(Width) * 0.48f)", block)
+            self.assertIn("float(Width) - PanelWidth - 12.f", block)
+        self.assertIn("Count <= Rows", scrollbar)
+        self.assertIn("TrackX - 8.f", scrollbar)
+        self.assertIn("bInventoryScrollbarDragging = true;", scrollbar)
+        self.assertIn("TrackHeight = RowSpacing * Rows;", scrollbar)
+        self.assertIn("ThumbHeight * 0.5f", scrollbar)
+        self.assertIn("InventoryViewStart = FMath::Clamp(FMath::RoundToInt(", scrollbar)
+        self.assertNotIn("InventorySelection =", scrollbar)
+        self.assertNotIn("EquipInventoryItem(", scrollbar)
+        self.assertNotIn("SaveWorldProgress(", scrollbar)
+        self.assertIn("if (ScrollInventoryToMouseTrack()) return;", click)
+        self.assertLess(click.index("if (ScrollInventoryToMouseTrack()) return;"),
+                        click.index("HitTestInventoryRow()"))
+        self.assertIn("Drag scrollbar: browse", inventory)
+
+    def test_inventory_drag_and_hover_are_transient(self):
+        setup = self.hero_cpp.split("void AMoonfallHeroPawn::SetupPlayerInputComponent(", 1)[1].split("\n}", 1)[0]
+        tick = self.hero_cpp.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1].split("\n}", 1)[0]
+        scroll = self.hero_cpp.split("bool AMoonfallHeroPawn::ScrollInventoryToMouseTrack()", 1)[1].split("\n}", 1)[0]
+        release = self.hero_cpp.split("void AMoonfallHeroPawn::ReleaseInventoryPointer()", 1)[1].split("\n}", 1)[0]
+        self.assertIn("bool bInventoryScrollbarDragging = false;", self.hero_h)
+        self.assertIn("IE_Released, this, &AMoonfallHeroPawn::ReleaseInventoryPointer", setup)
+        self.assertIn("if (bInventoryScrollbarDragging)", tick)
+        self.assertIn("ScrollInventoryToMouseTrack();", tick)
+        self.assertIn("!bInventoryOpen || bCharacterStatsOpen || bOptionsOpen || Health <= 0.f", tick)
+        self.assertIn("bInventoryScrollbarDragging = false;", release)
+        self.assertIn("!bInventoryScrollbarDragging &&", scroll)
+        self.assertIn("bInventoryScrollbarDragging = true;", scroll)
+        self.assertIn("InventoryViewStart = FMath::Clamp(", scroll)
+        for forbidden in ("InventorySelection =", "EquipInventoryItem(", "InventoryItemCodes.RemoveAt(", "SaveWorldProgress("):
+            self.assertNotIn(forbidden, scroll)
+        self.assertIn("const int32 HoveredIndex = Hero->HitTestInventoryRow();", self.hud)
+        self.assertIn("else if (Index == HoveredIndex)", self.hud)
+        self.assertIn("Drag scrollbar: browse", self.hud)
+        self.assertIn("TrackX, ThumbY, 6.f, ThumbHeight", self.hud)
+
+    def test_right_inventory_close_button_and_escape_share_cursor_cleanup(self):
+        hud = self.hud.split("if (Hero->bInventoryOpen)", 1)[1].split(
+            "// Nearest living boss", 1)[0]
+        click = self.hero_cpp.split("void AMoonfallHeroPawn::ResidentContextMouseClick()", 1)[1].split("\n}", 1)[0]
+        close = self.hero_cpp.split("bool AMoonfallHeroPawn::HitTestInventoryCloseButton() const", 1)[1].split("\n}", 1)[0]
+        escape = self.hero_cpp.split("void AMoonfallHeroPawn::OpenOptions()", 1)[1].split("\n}", 1)[0]
+        toggle = self.hero_cpp.split("void AMoonfallHeroPawn::ToggleInventory()", 1)[1].split("\n}", 1)[0]
+        self.assertIn("bool HitTestInventoryCloseButton() const;", self.hero_h)
+        self.assertIn("const float CloseX = SortX - 36.f;", close)
+        self.assertIn("MouseX >= CloseX && MouseX <= CloseX + 28.f", close)
+        self.assertIn("MouseY >= Top + 14.f && MouseY <= Top + 42.f", close)
+        self.assertIn("const float CloseButtonX = CloseSortX - 36.f;", hud)
+        self.assertIn("DrawText(TEXT(\"X\")", hud)
+        self.assertLess(hud.index("DrawText(TEXT(\"X\")"), hud.index("if (Hero->bCharacterStatsOpen)"))
+        self.assertIn("if (HitTestInventoryCloseButton()) {", click)
+        self.assertIn("OpenOptions();", click)
+        self.assertIn("// The X and Esc must back out of character details the same way.", click)
+        self.assertLess(click.index("HitTestInventoryCloseButton()"), click.index("HitTestInventorySortButton()"))
+        self.assertIn("ToggleInventory(); // Same cleanup path as the mouse close button.", escape)
+        self.assertIn("bInventoryScrollbarDragging = false;", toggle)
+        self.assertIn("PC->bShowMouseCursor = bInventoryOpen;", toggle)
+        for forbidden in ("EquipInventoryItem(", "InventoryItemCodes.RemoveAt(", "SaveWorldProgress("):
+            self.assertNotIn(forbidden, close)
+
+    def test_close_x_on_every_native_modal_panel(self):
+        hud = self.hud
+        mouse = self.hero_cpp.split("void AMoonfallHeroPawn::ResidentContextMouseClick()", 1)[1].split("\n}", 1)[0]
+        options = self.hero_cpp.split("void AMoonfallHeroPawn::OpenOptions()", 1)[1].split("\n}", 1)[0]
+        self.assertIn("const float NpcCloseX = L + W - 42.f;", hud)
+        self.assertIn("const float OptionsCloseX = MenuLeft + MenuWidth - 42.f;", hud)
+        self.assertIn("const float CloseButtonX = CloseSortX - 36.f;", hud)
+        self.assertIn("if (bOptionsOpen) {", mouse)
+        self.assertIn("const float CloseX = MenuLeft + MenuWidth - 42.f;", mouse)
+        self.assertIn("OpenOptions();", mouse)
+        self.assertIn("const float NpcCloseX = Left + PanelW - 42.f;", mouse)
+        self.assertIn("CloseResidentContext();", mouse)
+        self.assertIn("if (HitTestInventoryCloseButton()) {", mouse)
+        self.assertIn("// The X and Esc must back out of character details the same way.", mouse)
+        self.assertIn("OpenOptions();", mouse)
+        self.assertLess(mouse.index("if (bOptionsOpen)"), mouse.index("if (bInventoryOpen)"))
+        self.assertLess(mouse.index("NpcCloseX ="), mouse.index("for (int32 Row = 0; Row < 3; ++Row)"))
+        self.assertIn("PC->bShowMouseCursor = bOptionsOpen;", options)
+        self.assertIn("ToggleInventory(); // Same cleanup path as the mouse close button.", options)
+        self.assertIn("if (bCharacterStatsOpen)", options)
+        self.assertIn("bCharacterStatsOpen = false;", options)
+        self.assertIn("bInventoryScrollbarDragging = false;", options)
+        self.assertLess(options.index("if (bCharacterStatsOpen)"), options.index("ToggleInventory(); // Same cleanup path as the mouse close button."))
+        for forbidden in ("EquipInventoryItem(", "SalvageInventoryItem(", "SaveWorldProgress("):
+            self.assertNotIn(forbidden, options)
+
+    def test_escape_closes_each_native_modal_and_backs_out_of_character_sheet(self):
+        options = self.hero_cpp.split("void AMoonfallHeroPawn::OpenOptions()", 1)[1].split("\n}", 1)[0]
+        close = self.hero_cpp.split("void AMoonfallHeroPawn::CloseResidentContext()", 1)[1].split("\n}", 1)[0]
+        self.assertIn("if (bResidentContextOpen || FocusedResident.IsValid()) { CloseResidentContext(); return; }", options)
+        self.assertIn("if (bOptionsOpen)", self.hero_cpp)
+        self.assertIn("if (bInventoryOpen)", options)
+        self.assertIn("if (bCharacterStatsOpen)", options)
+        self.assertIn("bCharacterStatsOpen = false;", options)
+        self.assertIn("ToggleInventory(); // Same cleanup path as the mouse close button.", options)
+        self.assertIn("bInventoryScrollbarDragging = false;", options)
+        self.assertIn("bOptionsOpen = !bOptionsOpen;", options)
+        self.assertIn("PC->bShowMouseCursor = bOptionsOpen;", options)
+        self.assertIn("bResidentContextOpen = false;", close)
+        self.assertIn("OnResidentContextClosed();", close)
+
+    def test_npc_close_restores_cursor_and_defeat_clears_menu_transients(self):
+        close = self.hero_cpp.split("void AMoonfallHeroPawn::CloseResidentContext()", 1)[1].split("\n}", 1)[0]
+        escape = self.hero_cpp.split("void AMoonfallHeroPawn::OpenOptions()", 1)[1].split("\n}", 1)[0]
+        defeat = self.hero_cpp.split("if (Health <= 0.f) {\n  CloseResidentContext();", 1)[1].split("\n }", 1)[0]
+        self.assertIn("PC->bShowMouseCursor = bOptionsOpen || bInventoryOpen;", close)
+        self.assertIn("if (bResidentContextOpen || FocusedResident.IsValid())", escape)
+        self.assertIn("bInventoryOpen = false;", defeat)
+        self.assertIn("bCharacterStatsOpen = false;", defeat)
+        self.assertIn("bOptionsOpen = false;", defeat)
+        self.assertIn("bInventoryScrollbarDragging = false;", defeat)
+        self.assertIn("PC->bShowMouseCursor = false;", defeat)
+        self.assertNotIn("SaveWorldProgress(", close)
+
+    def test_character_x_uses_same_navigation_as_esc_and_npc_choice_has_single_guard(self):
+        mouse = self.hero_cpp.split("void AMoonfallHeroPawn::ResidentContextMouseClick()", 1)[1].split("\n}", 1)[0]
+        escape = self.hero_cpp.split("void AMoonfallHeroPawn::OpenOptions()", 1)[1].split("\n}", 1)[0]
+        character_x = mouse.split("if (HitTestInventoryCloseButton()) {", 1)[1].split("\n  }", 1)[0]
+        self.assertIn("OpenOptions();", character_x)
+        self.assertNotIn("ToggleInventory();", character_x)
+        self.assertIn("if (bCharacterStatsOpen)", escape)
+        self.assertIn("bCharacterStatsOpen = false;", escape)
+        self.assertIn("ToggleInventory();", escape)
+        self.assertIn("if (ResidentContextSelection != Row) bResidentTurnInPending = false;", mouse)
+        self.assertNotIn("if (ResidentContextSelection != Row)   if", mouse)
+
+    def test_options_mouse_selects_all_visible_settings_rows(self):
+        mouse = self.hero_cpp.split("void AMoonfallHeroPawn::ResidentContextMouseClick()", 1)[1].split("\n}", 1)[0]
+        options = mouse.split("if (bOptionsOpen)", 1)[1].split("if (bInventoryOpen)", 1)[0]
+        self.assertIn("const float RowGap = (MenuHeight - 130.f) / 8.f;", options)
+        self.assertIn("const float RowHeight = FMath::Min(38.f, RowGap - 2.f);", options)
+        self.assertIn("const float FirstRowY = MenuTop + 63.f;", options)
+        self.assertIn("const int32 ClickedRow = FMath::FloorToInt((MouseY - FirstRowY) / RowGap);", options)
+        self.assertIn("ClickedRow >= 0 && ClickedRow < 8", options)
+        self.assertIn("OptionsSelection = ClickedRow;", options)
+        self.assertIn("const float MinusX = MenuLeft + MenuWidth - 145.f;", options)
+        self.assertIn("const float PlusX = MenuLeft + MenuWidth - 37.f;", options)
+        self.assertIn("if (MouseX >= MinusX && MouseX <= MinusX + 25.f) AdjustOption(-1);", options)
+        self.assertIn("else if (MouseX >= PlusX && MouseX <= PlusX + 25.f) AdjustOption(1);", options)
+        self.assertLess(options.index("OptionsSelection = ClickedRow;"), options.index("AdjustOption(-1)"))
+        self.assertIn("const float MenuRowGap = (MenuHeight - 130.f) / 8.f;", self.hud)
+        self.assertIn("const float RowHeight = FMath::Min(38.f, MenuRowGap - 2.f);", self.hud)
+        self.assertIn("const float FirstRowY = MenuTop + 63.f;", self.hud)
+        self.assertIn("const float MinusX = MenuLeft + MenuWidth - 145.f;", self.hud)
+        self.assertIn("const float PlusX = MenuLeft + MenuWidth - 37.f;", self.hud)
+        self.assertIn("for (int32 i = 0; i < 8; ++i)", self.hud)
+        self.assertIn("Hero->OptionsSelection == i", self.hud)
+        self.assertIn("const FString Names[]", self.hud)
+        self.assertIn("const FString Values[]", self.hud)
+        self.assertIn("const FString CompactNames[]", self.hud)
+        self.assertIn("bCompactOptions ? CompactNames[i] : Names[i]", self.hud)
+        self.assertIn("bHoveredRow ? FLinearColor", self.hud)
+        self.assertIn("bMinusHover ? HoverButton : IdleButton", self.hud)
+        self.assertIn("bPlusHover ? HoverButton : IdleButton", self.hud)
+        self.assertIn("MinusX + 31.f", self.hud)
+        self.assertIn("OptionsCursorX >= MenuLeft + 10.f", self.hud)
+        self.assertIn("Frame generation is a preference only; no runtime integration.", self.hud)
+        self.assertIn("const FString SettingHelp[]", self.hud)
+        self.assertIn("const FString CompactHelp[]", self.hud)
+        self.assertIn("const int32 HelpIndex = FMath::Clamp(Hero->OptionsSelection, 0, 7);", self.hud)
+        self.assertIn("FString HelpText = bCompactOptions ? CompactHelp[HelpIndex] : SettingHelp[HelpIndex];", self.hud)
+        self.assertIn("FG preference only (inactive)", self.hud)
+        self.assertIn('TEXT("Display mode")', self.hud)
+        self.assertIn('Settings->GetFullscreenMode() == EWindowMode::Windowed ? TEXT("Windowed") : Settings->GetFullscreenMode() == EWindowMode::WindowedFullscreen ? TEXT("Borderless") : TEXT("Fullscreen")', self.hud)
+        self.assertIn("else if (OptionsSelection == 7)", self.hero_cpp)
+        self.assertIn("CurrentMode == EWindowMode::WindowedFullscreen ? 1 : 2;", self.hero_cpp)
+        self.assertIn("const int32 NextIndex = (CurrentIndex + (Direction < 0 ? 2 : 1)) % 3;", self.hero_cpp)
+        self.assertIn("NextIndex == 1 ? EWindowMode::WindowedFullscreen : EWindowMode::Fullscreen;", self.hero_cpp)
+        self.assertIn('Settings->GetFullscreenMode() == EWindowMode::WindowedFullscreen ? TEXT("Borderless") : TEXT("Fullscreen")', self.hud)
+        self.assertIn("OptionsSelection = (OptionsSelection + 7) % 8;", self.hero_cpp)
+        self.assertIn("OptionsSelection = (OptionsSelection + 1) % 8;", self.hero_cpp)
+        self.assertIn("void AMoonfallHeroPawn::OptionsLeft()", self.hero_cpp)
+        self.assertIn("void AMoonfallHeroPawn::OptionsRight()", self.hero_cpp)
+        self.assertIn("AdjustOption(-1);", self.hero_cpp)
+        self.assertIn("AdjustOption(1);", self.hero_cpp)
+
+    def test_options_mouse_controls_only_adjust_a_selected_row(self):
+        mouse = self.hero_cpp.split("void AMoonfallHeroPawn::ResidentContextMouseClick()", 1)[1].split("\n}", 1)[0]
+        options = mouse.split("if (bOptionsOpen)", 1)[1].split("if (bInventoryOpen)", 1)[0]
+        adjust = self.hero_cpp.split("void AMoonfallHeroPawn::AdjustOption(int32 Direction)", 1)[1].split("\n}", 1)[0]
+        self.assertIn("if (MouseY <= RowY + ButtonHeight)", options)
+        self.assertIn("OptionsSelection = ClickedRow;", options)
+        self.assertIn("AdjustOption(-1);", options)
+        self.assertIn("AdjustOption(1);", options)
+        self.assertNotIn("CastLeft();", options)
+        self.assertNotIn("EquipInventoryItem(", options)
+        for index in range(8):
+            self.assertIn(f"OptionsSelection == {index}", adjust)
+        self.assertIn("Settings->SaveSettings();", adjust)
+        self.assertIn('GConfig->Flush(false, GGameUserSettingsIni);', adjust)
+
+    def test_display_mode_directional_navigation_is_reversible(self):
+        adjust = self.hero_cpp.split("void AMoonfallHeroPawn::AdjustOption(int32 Direction)", 1)[1].split("\n}", 1)[0]
+        mode = adjust.split("else if (OptionsSelection == 7)", 1)[1]
+        self.assertIn("CurrentMode == EWindowMode::Windowed ? 0", mode)
+        self.assertIn("CurrentMode == EWindowMode::WindowedFullscreen ? 1 : 2", mode)
+        self.assertIn("Direction < 0 ? 2 : 1", mode)
+        self.assertIn("Settings->SetFullscreenMode(NextMode);", mode)
+        self.assertIn("Settings->SaveSettings();", mode)
+        modes = ["Windowed", "Borderless", "Fullscreen"]
+        for start in range(len(modes)):
+            self.assertEqual((start + 1 + 2) % len(modes), start)
+
+    def test_4k_uhd_resolution_preset_is_visible_selectable_and_persisted(self):
+        adjust = self.hero_cpp.split("void AMoonfallHeroPawn::AdjustOption(int32 Direction)", 1)[1].split("\n}", 1)[0]
+        resolution = adjust.split("if (OptionsSelection == 0)", 1)[1].split("else if (OptionsSelection == 1)", 1)[0]
+        self.assertIn("FIntPoint(3840,2160)", resolution)
+        self.assertIn("int32 Target = Direction < 0 ? 0 : 3;", resolution)
+        self.assertIn("Settings->SetScreenResolution(Resolutions[Target]);", resolution)
+        self.assertIn("Settings->ApplySettings(false);", adjust)
+        self.assertIn("Settings->SaveSettings();", adjust)
+        self.assertIn('Res == FIntPoint(3840,2160) ? TEXT("4K UHD")', self.hud)
+        self.assertLess(2560 * 1440, 3840 * 2160)
+
+    def test_4k_ui_explains_resolution_and_render_scale_without_automatic_changes(self):
+        options = self.hud.split("if (Hero->bOptionsOpen)", 1)[1].split("if (Hero->bInventoryOpen)", 1)[0]
+        self.assertIn("Settings->GetScreenResolution() == FIntPoint(3840,2160)", options)
+        self.assertIn("if (HelpIndex == 0)", options)
+        self.assertIn("else if (HelpIndex == 1)", options)
+        self.assertIn("4K UHD: 3840 x 2160 output; use render scale for performance", options)
+        self.assertIn("4K render scale: 100% is sharpest; reduce for performance", options)
+        self.assertIn("HelpText = bCompactOptions", options)
+        self.assertNotIn("Settings->SetScreenResolution(", options)
+        self.assertNotIn("Settings->SetResolutionScaleValueEx(", options)
+        self.assertNotIn("Settings->ApplySettings(", options)
+
+    def test_options_resolution_steps_from_actual_custom_resolution(self):
+        adjust = self.hero_cpp.split("void AMoonfallHeroPawn::AdjustOption(int32 Direction)", 1)[1].split("\n}", 1)[0]
+        resolution = adjust.split("if (OptionsSelection == 0)", 1)[1].split("else if (OptionsSelection == 1)", 1)[0]
+        self.assertIn("const FIntPoint CurrentResolution = Settings->GetScreenResolution();", resolution)
+        self.assertIn("const int64 CurrentPixels = int64(CurrentResolution.X) * int64(CurrentResolution.Y);", resolution)
+        self.assertIn("int32 Target = Direction < 0 ? 0 : 3;", resolution)
+        self.assertIn("for (int32 i = 3; i >= 0; --i)", resolution)
+        self.assertIn("for (int32 i = 0; i < 4; ++i)", resolution)
+        self.assertIn("< CurrentPixels", resolution)
+        self.assertIn("> CurrentPixels", resolution)
+        self.assertIn("if (CurrentResolution != Resolutions[Target])", resolution)
+        self.assertNotIn("int32 Current = 1;", resolution)
+        self.assertIn('FString::Printf(TEXT("%dx%d"), Res.X, Res.Y)', self.hud)
+        preset_pixels = [1280*720, 1920*1080, 2560*1440, 3840*2160]
+        for current in [800*600, 1600*900, 2048*1152, 3440*1440, 4096*2160]:
+            down = next((i for i in reversed(range(4)) if preset_pixels[i] < current), 0)
+            up = next((i for i in range(4) if preset_pixels[i] > current), 3)
+            if current >= preset_pixels[0]:
+                self.assertLessEqual(preset_pixels[down], current)
+            else:
+                self.assertEqual(down, 0)
+            if current <= preset_pixels[-1]:
+                self.assertGreaterEqual(preset_pixels[up], current)
+            else:
+                self.assertEqual(up, 3)
 
     def test_nearby_batch_loot_is_range_and_cover_safe(self):
         pickup = self.hero_cpp.split("void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[1].split(
@@ -596,7 +1038,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("GetSetPieceCount(3)", hud)
         self.assertIn("Crit %.1f%%   Haste %.1f%%   Mastery %.1f%%   Versatility %.1f%%", hud)
         self.assertIn("2pc + 3pc unlock bonuses", hud)
-        self.assertIn("Top + 145.f + (Index - PageStart) * RowSpacing", hud)
+        self.assertIn("Top + 145.f + (DisplayPosition - PageStart) * RowSpacing", hud)
 
     def test_live_combat_never_uses_unverified_equipment_fields(self):
         source = self.hero_cpp
@@ -706,8 +1148,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("ArmorRarity * 0.005f", hud)
         self.assertIn("AccessoryRarity * 0.02f", hud)
         self.assertIn("Equipped: +%.1f%% spell damage", hud)
-        self.assertIn("FMath::FloorToInt((PanelHeight - 290.f) / 25.f), 2, 8", hud)
-        self.assertIn("Top + 145.f + (Index - PageStart) * RowSpacing", hud)
+        self.assertIn("const int32 PerPage = Hero->GetInventoryVisibleRows();", hud)
+        self.assertIn("FMath::Clamp(FMath::FloorToInt((PanelHeight - 390.f) / 25.f), 2, 20)", self.hero_cpp)
+        self.assertIn("Top + 145.f + (DisplayPosition - PageStart) * RowSpacing", hud)
         self.assertIn("Top + 75.f", hud)
         self.assertIn("ArmorTrait == 2 && ArmorRarity > 0 ? 0.06f : 0.f", hud)
         self.assertIn("AccessoryTrait == 3 && AccessoryRarity > 0 ? 0.08f : 0.f", hud)
@@ -2873,7 +3316,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('void AMoonfallHeroPawn::EndGuard()', self.hero_cpp)
         self.assertIn("NextParryAt = Now + FMath::Clamp(ParryCooldownSeconds, 0.3f, 2.f);", self.hero_cpp)
         self.assertIn("Stamina < GuardStaminaCost) return;", self.hero_cpp)
-        self.assertIn("if (Health <= 0.f) {\n  CloseResidentContext();\n  // Prevent lingering movement/jump input from carrying through defeat.\n  StopJumping();\n  if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();\n  // Clear any held sprint so a later respawn cannot inherit it.\n  EndSprint();\n  EndGuard();\n  // Defeat clears every gameplay menu so the death/respawn screen stays visible.\n  bInventoryOpen = false;\n  bOptionsOpen = false;\n }", self.hero_cpp)
+        self.assertIn("if (Health <= 0.f) {\n  CloseResidentContext();\n  // Prevent lingering movement/jump input from carrying through defeat.\n  StopJumping();\n  if (GetCharacterMovement()) GetCharacterMovement()->StopMovementImmediately();\n  // Clear any held sprint so a later respawn cannot inherit it.\n  EndSprint();\n  EndGuard();\n  // Defeat clears every gameplay menu so the death/respawn screen stays visible.\n  bInventoryOpen = false;\n  bCharacterStatsOpen = false;\n  bOptionsOpen = false;\n  bInventoryScrollbarDragging = false;\n  if (APlayerController* PC = Cast<APlayerController>(Controller))\n   PC->bShowMouseCursor = false;\n }", self.hero_cpp)
         self.assertIn("ParryWindowEndsAt = -1.f", self.hero_cpp)
         self.assertIn("DamageAfterGuard *= 0.4f", self.hero_cpp)
         self.assertIn("Stamina = FMath::Clamp(Stamina - RequiredGuardCost, 0.f, MaxStamina)", self.hero_cpp)
