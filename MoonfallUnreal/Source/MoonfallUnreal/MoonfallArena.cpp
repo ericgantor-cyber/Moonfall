@@ -5,6 +5,7 @@
 #include "Components/SceneComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Components/InstancedStaticMeshComponent.h"
+#include "Components/TextRenderComponent.h"
 #include "Engine/World.h"
 #include "Kismet/GameplayStatics.h"
 #include "UObject/UObjectGlobals.h"
@@ -50,6 +51,24 @@ void AMoonfallArena::BeginPlay() {
   const float X = (static_cast<float>(Slot) - 14.5f) * 1350.f;
   DungeonRoad->AddInstance(FTransform(FRotator::ZeroRotator,
     FVector(X, -2500.f, -20.f), FVector(13.5f, 9.f, 0.4f)));
+ }
+ // One readable sign for each five-dungeon zone. UI/map code can also obtain
+ // exact entrance positions from the game mode without scanning actors.
+ // Noncolliding components cost no Tick and do not obstruct the road.
+ for (int32 Zone = 0; Zone < 6; ++Zone) {
+  UTextRenderComponent* Sign = NewObject<UTextRenderComponent>(
+    this, FName(*FString::Printf(TEXT("DungeonZoneSign_%d"), Zone + 1)));
+  if (!IsValid(Sign)) continue;
+  Sign->SetupAttachment(GetRootComponent());
+  Sign->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+  Sign->SetText(FText::FromString(FString::Printf(TEXT("ZONE %d | DUNGEONS 1-5"), Zone + 1)));
+  Sign->SetHorizontalAlignment(EHorizTextAligment::EHTA_Center);
+  Sign->SetWorldSize(65.f);
+  Sign->SetTextRenderColor(FColor(114, 210, 236));
+  Sign->RegisterComponent();
+  const float ZoneCenterX = (static_cast<float>(Zone * 5 + 2) - 14.5f) * 1350.f;
+  Sign->SetRelativeLocation(FVector(ZoneCenterX, -2500.f, 120.f));
+  DungeonZoneSigns.Add(Sign);
  }
  if (!GetWorld()) return;
  // World shrines are discovered by walking into their proximity, not by
