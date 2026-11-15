@@ -73,7 +73,8 @@ int32 AMoonfallHeroPawn::GetSetPieceCount(int32 Affix) const
  int32 Pieces = 0;
  for (int32 Slot = 0; Slot < 3; ++Slot) {
   int32 Trait = 0, Rarity = 0, Tier = 0;
-  if (DecodeEquippedItem(Codes[Slot], Slot, Trait, Rarity, Tier)
+  if (InventoryItemCodes.Contains(Codes[Slot])
+      && DecodeEquippedItem(Codes[Slot], Slot, Trait, Rarity, Tier)
       && Trait == Affix && Rarity >= 1)
    ++Pieces;
  }
@@ -83,31 +84,36 @@ int32 AMoonfallHeroPawn::GetSetPieceCount(int32 Affix) const
 int32 AMoonfallHeroPawn::GetMight() const
 {
  return FMath::Clamp(10 + FMath::Max(0, Level - 1) / 2
-   + ValidEquippedTier(EquippedWeaponCode, 0) + GetRaceMightBonus(), 10, 100);
+   + (InventoryItemCodes.Contains(EquippedWeaponCode)
+     ? ValidEquippedTier(EquippedWeaponCode, 0) : 0) + GetRaceMightBonus(), 10, 100);
 }
 
 int32 AMoonfallHeroPawn::GetInsight() const
 {
  return FMath::Clamp(10 + FMath::Max(0, Level - 1) / 2
-   + ValidEquippedTier(EquippedAccessoryCode, 2) + GetRaceInsightBonus(), 10, 100);
+   + (InventoryItemCodes.Contains(EquippedAccessoryCode)
+     ? ValidEquippedTier(EquippedAccessoryCode, 2) : 0) + GetRaceInsightBonus(), 10, 100);
 }
 
 int32 AMoonfallHeroPawn::GetResolve() const
 {
  return FMath::Clamp(10 + FMath::Max(0, Level - 1) / 2
-   + ValidEquippedTier(EquippedArmorCode, 1) + GetRaceResolveBonus(), 10, 100);
+   + (InventoryItemCodes.Contains(EquippedArmorCode)
+     ? ValidEquippedTier(EquippedArmorCode, 1) : 0) + GetRaceResolveBonus(), 10, 100);
 }
 
 float AMoonfallHeroPawn::GetCriticalChance() const
 {
- const float TraitCrit = ValidEquippedTraitRarity(EquippedWeaponCode, 0, 1) * 0.008f;
+ const float TraitCrit = InventoryItemCodes.Contains(EquippedWeaponCode)
+   ? ValidEquippedTraitRarity(EquippedWeaponCode, 0, 1) * 0.008f : 0.f;
  return FMath::Clamp(0.05f + TraitCrit + (GetSetPieceCount(1) >= 2 ? 0.03f : 0.f),
    0.05f, 0.25f);
 }
 
 float AMoonfallHeroPawn::GetHasteBonus() const
 {
- const float TraitHaste = ValidEquippedTraitRarity(EquippedAccessoryCode, 2, 3) * 0.006f;
+ const float TraitHaste = InventoryItemCodes.Contains(EquippedAccessoryCode)
+   ? ValidEquippedTraitRarity(EquippedAccessoryCode, 2, 3) * 0.006f : 0.f;
  return FMath::Clamp(TraitHaste + (GetSetPieceCount(3) >= 2 ? 0.04f : 0.f),
    0.f, 0.20f);
 }
@@ -115,16 +121,17 @@ float AMoonfallHeroPawn::GetHasteBonus() const
 float AMoonfallHeroPawn::GetMasteryBonus() const
 {
  const float GearMastery = FMath::Clamp(
-   (ValidEquippedTier(EquippedWeaponCode, 0)
-    + ValidEquippedTier(EquippedArmorCode, 1)
-    + ValidEquippedTier(EquippedAccessoryCode, 2)) * 0.0015f, 0.f, 0.12f);
+   ((InventoryItemCodes.Contains(EquippedWeaponCode) ? ValidEquippedTier(EquippedWeaponCode, 0) : 0)
+    + (InventoryItemCodes.Contains(EquippedArmorCode) ? ValidEquippedTier(EquippedArmorCode, 1) : 0)
+    + (InventoryItemCodes.Contains(EquippedAccessoryCode) ? ValidEquippedTier(EquippedAccessoryCode, 2) : 0)) * 0.0015f, 0.f, 0.12f);
  return FMath::Clamp(GearMastery + (GetSetPieceCount(1) >= 3 ? 0.04f : 0.f),
    0.f, 0.16f);
 }
 
 float AMoonfallHeroPawn::GetVersatilityBonus() const
 {
- const float TraitVersatility = ValidEquippedTraitRarity(EquippedArmorCode, 1, 2) * 0.005f;
+ const float TraitVersatility = InventoryItemCodes.Contains(EquippedArmorCode)
+   ? ValidEquippedTraitRarity(EquippedArmorCode, 1, 2) * 0.005f : 0.f;
  return FMath::Clamp(TraitVersatility + (GetSetPieceCount(2) >= 2 ? 0.03f : 0.f),
    0.f, 0.12f);
 }
