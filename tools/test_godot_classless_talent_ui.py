@@ -27,7 +27,7 @@ class ClasslessTalentUIScreen(unittest.TestCase):
         web = (ROOT / "godot-v38/scripts/systems/moonfall_talent_web.gd").read_text(encoding="utf-8")
         for token in ("_draw()", "draw_line(", "draw_circle(",
                       "MOUSE_BUTTON_WHEEL_UP", "MOUSE_BUTTON_WHEEL_DOWN",
-                      "drag_distance", "KEY_LEFT", "KEY_HOME", "KEY_EQUAL",
+                      "drag_distance", "KEY_LEFT", "KEY_HOME",
                       "talent_selected.emit(", "func focus_branch(", "func fit_all("):
             self.assertIn(token, web)
         self.assertIn('v406_web.custom_minimum_size=Vector2(760,565)', self.screen)
@@ -50,6 +50,16 @@ class ClasslessTalentUIScreen(unittest.TestCase):
         self.assertIn('v406_active_branch=str(node.get("branch",v406_active_branch))', self.screen)
         self.assertIn('v406_selected_node=id', self.screen)
         self.assertIn("_v406_index_selected.bind(node_id)", self.screen)
+
+    def test_mouse_pan_and_zoom_without_plus_minus_keys(self):
+        web = (ROOT / "godot-v38/scripts/systems/moonfall_talent_web.gd").read_text(encoding="utf-8")
+        self.assertIn("MOUSE_BUTTON_RIGHT", web)
+        self.assertIn("drag_button = mouse.button_index", web)
+        self.assertIn("mouse.button_index == drag_button", web)
+        self.assertIn("mouse_down_on_node == \"\"", web)
+        self.assertIn("zoom_at(1.18, mouse.position)", web)
+        self.assertNotIn("key.keycode == KEY_EQUAL", web)
+        self.assertNotIn("key.keycode == KEY_MINUS", web)
 
     def test_unlockable_navigation_and_prerequisite_highlights(self):
         web = (ROOT / "godot-v38/scripts/systems/moonfall_talent_web.gd").read_text(encoding="utf-8")

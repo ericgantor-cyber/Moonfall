@@ -123,6 +123,64 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("if (Family == FName(Row.Family))", race_cpp)
         self.assertIn("if (RaceId.IsNone()) return false;", race_cpp)
 
+    def test_hosted_unreal_packaging_generates_project_owned_startup_level(self):
+        workflow = (ROOT.parents[2] / ".github" / "workflows"
+                    / "unreal-hosted-windows.yml").read_text(encoding="utf-8")
+        prepare = workflow.index("Create and validate Moonfall startup level for packaging")
+        package = workflow.index("Package actual Win64 Development game after successful Unreal C++ compile")
+        self.assertLess(prepare, package)
+        section = workflow[prepare:package]
+        self.assertIn("inputs.package_game", section)
+        self.assertIn("Create-StartupLevel.py", section)
+        self.assertIn("UnrealEditor-Cmd.exe", section)
+        self.assertIn("-ExecutePythonScript=", section)
+        self.assertIn("MoonfallStart.umap", section)
+        self.assertIn("GameDefaultMap", section)
+        self.assertIn("EditorStartupMap", section)
+        self.assertIn("$sections.Count -ne 1", section)
+        self.assertIn("$entries.Count -ne 1", section)
+        self.assertIn("GameMapsSettings", section)
+        self.assertIn("Groups[1].Value.Trim()", section)
+        self.assertIn("Moonfall startup map generation failed", section)
+        packaging = workflow[package:]
+        self.assertIn('"-map=/Game/Maps/MoonfallStart"', packaging)
+        self.assertIn("game-source/MoonfallUnreal/Saved/Logs/", packaging)
+        self.assertIn("$games[0].Length -lt 512", packaging)
+        self.assertIn("ReadUInt16() -ne 0x5A4D", packaging)
+        self.assertIn("ReadUInt32() -ne 0x00004550", packaging)
+        self.assertIn("ReadUInt16() -ne 0x8664", packaging)
+        self.assertIn("ReadUInt16() -ne 0x20B", packaging)
+        self.assertIn("$reader.Dispose()", packaging)
+        self.assertIn("'.pak' -and $_.Length -gt 0", packaging)
+        self.assertIn("'.utoc' -and $_.Length -gt 0", packaging)
+        self.assertIn("[IO.Path]::ChangeExtension($utoc.FullName, '.ucas')", packaging)
+        self.assertIn("Test-Path -LiteralPath $ucasPath -PathType Leaf", packaging)
+        self.assertIn("(Get-Item -LiteralPath $ucasPath).Length -gt 0", packaging)
+        self.assertIn("$hasIoStorePair = $true", packaging)
+        self.assertIn("$pakFiles.Count -eq 0 -and -not $hasIoStorePair", packaging)
+        self.assertIn("matching .utoc/.ucas content archive pair", packaging)
+        diagnostics = workflow[workflow.index("Collect Unreal AutomationTool failure logs"):]
+        self.assertIn("if: failure()", diagnostics)
+        self.assertIn("'Unreal Engine\\AutomationTool\\Logs'", diagnostics)
+        self.assertIn("Select-Object -First 15", diagnostics)
+        self.assertIn("$log.Length -gt 20MB", diagnostics)
+        self.assertIn("UE-AutomationLogs/", diagnostics)
+
+    def test_race_profile_catalog_blueprints_are_read_only_and_reuse_original_roster(self):
+        import re
+        race_cpp = (ROOT / "MoonfallRaceLibrary.cpp").read_text(encoding="utf-8")
+        race_h = (ROOT / "MoonfallRaceLibrary.h").read_text(encoding="utf-8")
+        for name in ("GetPlayableRaceProfiles", "GetRaceProfilesByFamily"):
+            self.assertIn("static TArray<FMoonfallRaceProfile> " + name + "(", race_h)
+            self.assertIn("UMoonfallRaceLibrary::" + name + "(", race_cpp)
+        self.assertIn("GetPlayableRaceIds()", race_cpp.split("UMoonfallRaceLibrary::GetPlayableRaceProfiles()", 1)[1].split("UMoonfallRaceLibrary::GetRaceProfilesByFamily(", 1)[0])
+        self.assertIn("GetRaceIdsByFamily(Family)", race_cpp.split("UMoonfallRaceLibrary::GetRaceProfilesByFamily(", 1)[1].split("UMoonfallRaceLibrary::FindRaceProfile(", 1)[0])
+        self.assertEqual(len(re.findall(r'^\s*\{TEXT\("[a-z_]+"\),', race_cpp, re.MULTILINE)), 30)
+        for name in ("GetPlayableRaceProfiles", "GetRaceProfilesByFamily"):
+            body = race_cpp.split("UMoonfallRaceLibrary::" + name + "(", 1)[1].split("\n}\n", 1)[0]
+            self.assertNotIn("SaveGame", body)
+            self.assertNotIn("SpawnActor", body)
+
     def test_npc_rig_exposes_deterministic_cues_and_safe_targeted_stop(self):
         rig_cpp = (ROOT / "MoonfallActorRigComponent.cpp").read_text(encoding="utf-8")
         rig_h = (ROOT / "MoonfallActorRigComponent.h").read_text(encoding="utf-8")
