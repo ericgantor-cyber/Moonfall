@@ -115,8 +115,16 @@ def create_new_startup_level():
         raise RuntimeError("Could not create 30-dungeon navigation bounds volume")
     dungeon_nav.set_actor_label("Moonfall_DungeonWorld_NavBounds")
     dungeon_nav.set_actor_scale3d(unreal.Vector(225.0, 115.0, 6.0))
-    # Brush dimensions are editor-dependent. Verify actual geometry extents
-    # and the green nav area with P before claiming full coverage.
+    # Validate the actual brush extent, not only the actor scale, before
+    # committing the new map. Reject undersized geometry explicitly.
+    origin, extent = dungeon_nav.get_actor_bounds(False)
+    if (origin.x - extent.x > -20500.0
+            or origin.x + extent.x < 20500.0
+            or origin.y - extent.y > -19800.0
+            or origin.y + extent.y < -1600.0):
+        raise RuntimeError("Dungeon nav brush is too small; startup map NOT saved")
+    # Dynamic nav with player invokers keeps generated tile work localized.
+    # Still press P and check real agent navigability during Editor playtests.
 
     if not levels.save_current_level():
         raise RuntimeError("Could not save MoonfallStart; configuration is unchanged")
