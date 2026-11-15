@@ -174,8 +174,17 @@ void AMoonfallCombatHUD::DrawHUD()
     TEXT("Damage text size"), TEXT("Boss alert size"), TEXT("Window mode")
   };
   const int32 HelpIndex = FMath::Clamp(Hero->OptionsSelection, 0, 7);
-  DrawText(bCompactOptions ? CompactHelp[HelpIndex] : SettingHelp[HelpIndex],
-     FLinearColor(0.74f,0.81f,0.91f), MenuLeft + 15.f,
+  FString HelpText = bCompactOptions ? CompactHelp[HelpIndex] : SettingHelp[HelpIndex];
+  // Clarify 4K UHD's 3840x2160 output size and how render scale affects cost.
+  // This is guidance, never a hidden automatic graphics-setting change.
+  if (Settings && Settings->GetScreenResolution() == FIntPoint(3840,2160)) {
+   if (HelpIndex == 0)
+    HelpText = bCompactOptions ? TEXT("4K UHD: 3840x2160") : TEXT("4K UHD: 3840 x 2160 output; use render scale for performance");
+   else if (HelpIndex == 1)
+    HelpText = bCompactOptions ? TEXT("4K render scale: quality vs FPS")
+      : TEXT("4K render scale: 100% is sharpest; reduce for performance");
+  }
+  DrawText(HelpText, FLinearColor(0.74f,0.81f,0.91f), MenuLeft + 15.f,
      MenuTop + MenuHeight - 28.f, nullptr, bCompactOptions ? 0.60f : 0.72f);
   return;
  }
