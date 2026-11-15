@@ -696,6 +696,8 @@ func _v398_unlock(id:String)->void:
  var changed:Dictionary=CLASSLESS_TALENTS.spend(clampi(int(hero_level),1,100),v406_ranks,id)
  if not bool(changed.get("ok",false)):return
  v406_ranks=changed["allocations"].duplicate(true)
+ _v406_invalidate_bonus_cache()
+ _v406_sync_health()
  _save_game()
  _v398_refresh_tree()
 
@@ -703,6 +705,8 @@ func _v406_respec()->void:
  var changed:Dictionary=CLASSLESS_TALENTS.respec(clampi(int(hero_level),1,100),v406_ranks)
  if not bool(changed.get("ok",false)):return
  v406_ranks=changed["allocations"].duplicate(true)
+ _v406_invalidate_bonus_cache()
+ _v406_sync_health()
  _save_game()
  _v398_refresh_tree()
 
@@ -873,6 +877,45 @@ func _update_beast_step(beast:Dictionary,delta:float)->void:
  # Bounded 1.8-meter/second separation that obeys physics collisions.
  body.move_and_collide(direction*1.8*minf(maxf(delta,0.0),0.05))
 
+# Validated classless talents augment combat without mutating legacy stats or saves.
+var v406_damage_context:String=""
+var v406_applied_health_bonus:float=0.0
+var v406_bonuses_level:int=-1
+var v406_bonuses_dirty:bool=true
+var v406_bonuses_cache:Dictionary={}
+func _v406_invalidate_bonus_cache()->void:
+ v406_bonuses_dirty=true
+
+func _v406_bonus(stat:String,kind:String)->float:
+ if v406_ranks.is_empty():return 0.0
+ if v406_bonuses_dirty or v406_bonuses_level!=hero_level:
+  v406_bonuses_dirty=false
+  v406_bonuses_level=hero_level
+  var state:Dictionary=CLASSLESS_TALENTS.evaluate(clampi(int(hero_level),1,100),v406_ranks)
+  v406_bonuses_cache=state.get("bonuses",{}) if bool(state.get("ok",false)) else {}
+ return float(v406_bonuses_cache.get(stat,{}).get(kind,0.0))
+
+func _v406_resource_max(stat:String,base:float)->float:
+ return maxf(base,base*(1.0+_v406_bonus(stat,"percent"))+_v406_bonus(stat,"flat"))
+
+func _v406_sync_health()->void:
+ # Preserve current HP; never heal automatically when talent ranks change.
+ var old_cap:float=maxf(1.0,max_hp)
+ var base_cap:float=maxf(1.0,old_cap-v406_applied_health_bonus)
+ var target_cap:float=_v406_resource_max("health",base_cap)
+ v406_applied_health_bonus=target_cap-base_cap
+ max_hp=target_cap
+ hp=clampf(hp,0.0,max_hp)
+ # Respec must not leave spent mana or stamina above the new caps.
+ v385_mana=clampf(v385_mana,0.0,_v406_resource_max("mana",V385_MAX_MANA))
+ v387_stamina=clampf(v387_stamina,0.0,_v406_resource_max("stamina",V387_MAX_STAMINA))
+
+func _hero_damage_multiplier()->float:
+ var base:float=super._hero_damage_multiplier()
+ if v406_damage_context=="melee":return base*(1.0+_v406_bonus("melee_damage","percent"))+_v406_bonus("melee_damage","flat")
+ if v406_damage_context=="magic":return base*(1.0+_v406_bonus("magic_damage","percent"))+_v406_bonus("magic_damage","flat")
+ return base
+
 func _attack()->void:
  if not hero_playing or menu_open or death_active or wait_open or wait_transition_active:
   v390_blocked_attacks+=1
@@ -895,7 +938,9 @@ func _attack()->void:
  var cooldown_before:float=attack_cooldown
  v391_heavy_attack_active=heavy_requested and not mounted and attack_cooldown<=0.0
  v393_riposte_active=map_time<=v393_riposte_until and not mounted and attack_cooldown<=0.0
+ v406_damage_context="melee"
  super._attack()
+ v406_damage_context=""
  v391_heavy_attack_active=false
  v393_riposte_active=false
  if attack_cooldown>cooldown_before:
@@ -910,7 +955,9 @@ func _spell(which:String)->void:
  # Rejected combat inputs must never consume mana while menus or death screens are active.
  if not hero_playing or menu_open or death_active or wait_open or wait_transition_active:return
  if mounted or ability_cooldown>0.0:
+  v406_damage_context="magic"
   super._spell(which)
+  v406_damage_context=""
   return
  var base_cost:float=15.0 if which=="dash" else 25.0 if which=="nova" else 30.0
  var cost:float=maxf(5.0,base_cost-2.0*float(v398_ranks.get("magic_focus",0))-3.0*float(v398_ranks.get("magic_mastery",0)))
@@ -918,7 +965,9 @@ func _spell(which:String)->void:
   _show_message("Not enough mana! Need "+str(roundi(cost))+".",1.3)
   return
  v385_mana-=cost
+ v406_damage_context="magic"
  super._spell(which)
+ v406_damage_context=""
 
 func _dodge()->void:
  # Inactive gameplay must not trigger dodge actions or resource warnings.
@@ -937,6 +986,8 @@ func _dodge()->void:
 
 func _start_game(selected_hero:String)->void:
  super._start_game("z") # Legacy save/combat slot; never expose Z as the playable character.
+ v406_applied_health_bonus=0.0
+ _v406_invalidate_bonus_cache()
  _v400_apply_adventurer_look()
  v385_mana=V385_MAX_MANA
  v387_stamina=V387_MAX_STAMINA
@@ -948,7 +999,7 @@ func _start_game(selected_hero:String)->void:
  if is_instance_valid(v398_panel):v398_panel.visible=false
 
 func _checkpoint_extra_data()->Dictionary:
- return {"mana":clampf(v385_mana,0.0,V385_MAX_MANA),"stamina":clampf(v387_stamina,0.0,V387_MAX_STAMINA),"celestial_ranks":v398_ranks.duplicate(true),"classless_ranks":v406_ranks.duplicate(true),"character_identity":v399_identity.duplicate(true)}
+ return {"mana":clampf(v385_mana,0.0,_v406_resource_max("mana",V385_MAX_MANA)),"stamina":clampf(v387_stamina,0.0,_v406_resource_max("stamina",V387_MAX_STAMINA)),"celestial_ranks":v398_ranks.duplicate(true),"classless_ranks":v406_ranks.duplicate(true),"character_identity":v399_identity.duplicate(true)}
 
 func _restore_data(data:Dictionary)->void:
  super._restore_data(data)
@@ -956,17 +1007,24 @@ func _restore_data(data:Dictionary)->void:
  v387_stamina_regen_wait=0.0
  v398_ranks={}
  v406_ranks={}
+ v406_applied_health_bonus=0.0
+ _v406_invalidate_bonus_cache()
  v399_identity={}
  var resources:Variant=data.get("optional_resources",{})
  if resources is Dictionary:
   var saved_identity:Variant=resources.get("character_identity",{})
   if saved_identity is Dictionary:v399_identity=saved_identity.duplicate(true)
-  v385_mana=clampf(float(resources.get("mana",V385_MAX_MANA)),0.0,V385_MAX_MANA)
-  v387_stamina=clampf(float(resources.get("stamina",V387_MAX_STAMINA)),0.0,V387_MAX_STAMINA)
+  # Restore validated ranks before clamping saved resources to their bonus caps.
   var classless_saved:Variant=resources.get("classless_ranks",{})
   if classless_saved is Dictionary:
    var restored:Dictionary=CLASSLESS_TALENTS.evaluate(clampi(int(hero_level),1,100),classless_saved)
-   if bool(restored.get("ok",false)):v406_ranks=restored["allocations"].duplicate(true)
+   if bool(restored.get("ok",false)):
+    v406_ranks=restored["allocations"].duplicate(true)
+    _v406_invalidate_bonus_cache()
+  _v406_sync_health()
+  hp=clampf(float(data.get("hp",hp)),1.0,max_hp)
+  v385_mana=clampf(float(resources.get("mana",V385_MAX_MANA)),0.0,_v406_resource_max("mana",V385_MAX_MANA))
+  v387_stamina=clampf(float(resources.get("stamina",V387_MAX_STAMINA)),0.0,_v406_resource_max("stamina",V387_MAX_STAMINA))
   var saved_ranks:Variant=resources.get("celestial_ranks",{})
   if saved_ranks is Dictionary:
    # Reconstruct only legal unlocks, respecting level, prerequisites, and hero choice.
@@ -982,19 +1040,23 @@ func _restore_data(data:Dictionary)->void:
  else:
   v385_mana=V385_MAX_MANA
   v387_stamina=V387_MAX_STAMINA
+ _v406_sync_health()
 
 func _v384_refresh_vitals()->void:
  if is_instance_valid(v387_stamina_bar):
-  v387_stamina_bar.value=clampf(v387_stamina,0.0,V387_MAX_STAMINA)
+  v387_stamina_bar.max_value=_v406_resource_max("stamina",V387_MAX_STAMINA)
+  v387_stamina_bar.value=clampf(v387_stamina,0.0,_v406_resource_max("stamina",V387_MAX_STAMINA))
   var orb_hint:Label=v387_stamina_bar.get_parent().get_node_or_null("V387_OrbLowStamina") as Label
   if is_instance_valid(orb_hint):orb_hint.visible=v387_stamina<V387_DODGE_COST
- if is_instance_valid(v387_fallback_stamina_bar):v387_fallback_stamina_bar.value=clampf(v387_stamina,0.0,V387_MAX_STAMINA)
+ if is_instance_valid(v387_fallback_stamina_bar):
+  v387_fallback_stamina_bar.max_value=_v406_resource_max("stamina",V387_MAX_STAMINA)
+  v387_fallback_stamina_bar.value=clampf(v387_stamina,0.0,_v406_resource_max("stamina",V387_MAX_STAMINA))
  if is_instance_valid(v387_stamina_warning):v387_stamina_warning.visible=v387_stamina<V387_DODGE_COST
  if is_instance_valid(v386_orb_values):
   var hp_value:int=clampi(roundi(hp),0,maxi(1,roundi(max_hp)))
-  var mana_value:int=clampi(roundi(v385_mana),0,roundi(V385_MAX_MANA))
+  var mana_value:int=clampi(roundi(v385_mana),0,roundi(_v406_resource_max("mana",V385_MAX_MANA)))
   var xp_value:int=clampi(hero_xp,0,maxi(1,hero_xp_to_next))
-  v386_orb_values.text="LIVE  ♥ %d/%d   ◆ %d/%d\n✦ %d/%d   STAM %d/%d" % [hp_value,roundi(max_hp),mana_value,roundi(V385_MAX_MANA),xp_value,hero_xp_to_next,roundi(v387_stamina),roundi(V387_MAX_STAMINA)]
+  v386_orb_values.text="LIVE  ♥ %d/%d   ◆ %d/%d\n✦ %d/%d   STAM %d/%d" % [hp_value,roundi(max_hp),mana_value,roundi(_v406_resource_max("mana",V385_MAX_MANA)),xp_value,hero_xp_to_next,roundi(v387_stamina),roundi(_v406_resource_max("stamina",V387_MAX_STAMINA))]
  if not is_instance_valid(v384_vitals_label):return
  if is_instance_valid(v384_rings):
   v384_rings.call("set_vitals",hp/maxf(1.0,max_hp),float(hero_xp)/float(maxi(1,hero_xp_to_next)))
@@ -1003,7 +1065,7 @@ func _v384_refresh_vitals()->void:
  var experience:int=maxi(0,hero_xp)
  var experience_target:int=maxi(1,hero_xp_to_next)
  # This display is backed by the spell-cost resource in v38.5.
- v384_vitals_label.text="[color=#ff555f]● HP   %d / %d[/color]\n[color=#5caeff]● MANA   %d / %d[/color]\n[color=#b786ff]● XP   %d / %d[/color]\n[color=#69e26b]● STAM   %d / %d[/color]" % [health,health_max,roundi(v385_mana),roundi(V385_MAX_MANA),experience,experience_target,roundi(v387_stamina),roundi(V387_MAX_STAMINA)]
+ v384_vitals_label.text="[color=#ff555f]● HP   %d / %d[/color]\n[color=#5caeff]● MANA   %d / %d[/color]\n[color=#b786ff]● XP   %d / %d[/color]\n[color=#69e26b]● STAM   %d / %d[/color]" % [health,health_max,roundi(v385_mana),roundi(_v406_resource_max("mana",V385_MAX_MANA)),experience,experience_target,roundi(v387_stamina),roundi(_v406_resource_max("stamina",V387_MAX_STAMINA))]
 
 func _unhandled_key_input(event:InputEvent)->void:
  if event is InputEventKey and event.pressed and not event.echo and event.keycode==KEY_F2 and hero_playing and not menu_open:
@@ -1030,13 +1092,13 @@ func _process(delta:float)->void:
      _v401_begin_z_intro()
      break
  if hero_playing and not death_active and not menu_open:
-  v385_mana=minf(V385_MAX_MANA,v385_mana+(V385_MANA_REGEN+0.75*float(v398_ranks.get("magic_focus",0)))*maxf(0.0,delta))
+  v385_mana=minf(_v406_resource_max("mana",V385_MAX_MANA),v385_mana+(V385_MANA_REGEN+0.75*float(v398_ranks.get("magic_focus",0)))*maxf(0.0,delta))
   var stamina_step:float=maxf(0.0,delta)
   if v387_stamina_regen_wait>0.0:
    var delay_used:float=minf(v387_stamina_regen_wait,stamina_step)
    v387_stamina_regen_wait-=delay_used
    stamina_step-=delay_used
-  if stamina_step>0.0:v387_stamina=minf(V387_MAX_STAMINA,v387_stamina+(V387_STAMINA_REGEN+1.5*float(v398_ranks.get("survival_fortitude",0)))*stamina_step)
+  if stamina_step>0.0:v387_stamina=minf(_v406_resource_max("stamina",V387_MAX_STAMINA),v387_stamina+(V387_STAMINA_REGEN+1.5*float(v398_ranks.get("survival_fortitude",0)))*stamina_step)
  if is_instance_valid(v384_vitals_panel):
   var vitals_visible:bool=hero_playing and not death_active and not menu_open
   v384_vitals_panel.visible=vitals_visible
