@@ -634,6 +634,26 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         for forbidden in ("EquipInventoryItem(", "InventoryItemCodes.RemoveAt(", "SaveWorldProgress("):
             self.assertNotIn(forbidden, close)
 
+    def test_close_x_on_every_native_modal_panel(self):
+        hud = self.hud
+        mouse = self.hero_cpp.split("void AMoonfallHeroPawn::ResidentContextMouseClick()", 1)[1].split("\n}", 1)[0]
+        options = self.hero_cpp.split("void AMoonfallHeroPawn::OpenOptions()", 1)[1].split("\n}", 1)[0]
+        self.assertIn("const float NpcCloseX = L + W - 42.f;", hud)
+        self.assertIn("const float OptionsCloseX = MenuLeft + MenuWidth - 42.f;", hud)
+        self.assertIn("const float CloseButtonX = CloseSortX - 36.f;", hud)
+        self.assertIn("if (bOptionsOpen) {", mouse)
+        self.assertIn("const float CloseX = MenuLeft + MenuWidth - 42.f;", mouse)
+        self.assertIn("OpenOptions();", mouse)
+        self.assertIn("const float NpcCloseX = Left + PanelW - 42.f;", mouse)
+        self.assertIn("CloseResidentContext();", mouse)
+        self.assertIn("if (HitTestInventoryCloseButton()) { ToggleInventory(); return; }", mouse)
+        self.assertLess(mouse.index("if (bOptionsOpen)"), mouse.index("if (bInventoryOpen)"))
+        self.assertLess(mouse.index("NpcCloseX ="), mouse.index("for (int32 Row = 0; Row < 3; ++Row)"))
+        self.assertIn("PC->bShowMouseCursor = bOptionsOpen;", options)
+        self.assertIn("ToggleInventory(); // Same cleanup path as the mouse close button.", options)
+        for forbidden in ("EquipInventoryItem(", "SalvageInventoryItem(", "SaveWorldProgress("):
+            self.assertNotIn(forbidden, options)
+
     def test_nearby_batch_loot_is_range_and_cover_safe(self):
         pickup = self.hero_cpp.split("void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[1].split(
             "void AMoonfallHeroPawn::EquipBestInventoryAction()", 1)[0]
