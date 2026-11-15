@@ -494,8 +494,20 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         sets = self.hero_cpp.split("int32 AMoonfallHeroPawn::GetSetPieceCount(", 1)[1].split(
             "float AMoonfallHeroPawn::GetCriticalChance()", 1)[0]
         self.assertIn("const int32 Codes[3] = {EquippedWeaponCode, EquippedArmorCode, EquippedAccessoryCode};", sets)
+        self.assertIn("DecodeEquippedItem(Codes[Slot], Slot, Trait, Rarity, Tier)", sets)
         self.assertIn("Rarity >= 1", sets)
-        self.assertIn("Code == Trait * 100000 + Slot * 10000 + Rarity * 1000 + Tier", sets)
+        decoder = self.hero_cpp.split("bool DecodeEquippedItem(", 1)[1].split("int32 ValidEquippedTier(", 1)[0]
+        for guard in ("Code <= 0", "Slot != ExpectedSlot", "Trait < 0 || Trait > 3",
+                      "Rarity < 0 || Rarity > 5", "Tier < 1 || Tier > 25",
+                      "(Rarity == 0 && Trait != 0)",
+                      "Code != Trait * 100000 + Slot * 10000 + Rarity * 1000 + Tier"):
+            self.assertIn(guard, decoder)
+        self.assertIn("ValidEquippedTier(EquippedWeaponCode, 0)", self.hero_cpp)
+        self.assertIn("ValidEquippedTier(EquippedArmorCode, 1)", self.hero_cpp)
+        self.assertIn("ValidEquippedTier(EquippedAccessoryCode, 2)", self.hero_cpp)
+        self.assertIn("ValidEquippedTraitRarity(EquippedWeaponCode, 0, 1)", self.hero_cpp)
+        self.assertIn("ValidEquippedTraitRarity(EquippedArmorCode, 1, 2)", self.hero_cpp)
+        self.assertIn("ValidEquippedTraitRarity(EquippedAccessoryCode, 2, 3)", self.hero_cpp)
         self.assertNotIn("InventoryItemCodes", sets)
         self.assertIn("GetSetPieceCount(1) >= 2 ? 0.03f", self.hero_cpp)
         self.assertIn("GetSetPieceCount(1) >= 3 ? 0.04f", self.hero_cpp)
