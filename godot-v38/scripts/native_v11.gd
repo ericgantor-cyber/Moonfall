@@ -1094,11 +1094,15 @@ func _build_ui() -> void:
  inventory_search_input.placeholder_text="Search equipment or materials..."
  inventory_search_input.custom_minimum_size=Vector2(295,34)
  inventory_search_input.max_length=80
+ inventory_search_input.clear_button_enabled=true
+ inventory_search_input.tooltip_text="Click to search bag or materials. Use the clear icon to reset."
  inventory_search_input.visible=false
  inventory_search_input.text_changed.connect(_on_inventory_query_changed)
  guide_column.add_child(inventory_search_input)
  var action_scroll:=ScrollContainer.new()
  action_scroll.custom_minimum_size=Vector2(295,175)
+ action_scroll.follow_focus=true
+ action_scroll.tooltip_text="Scroll the action list with your mouse wheel."
  guide_column.add_child(action_scroll)
  menu_buttons=VBoxContainer.new()
  menu_buttons.add_theme_constant_override("separation",6)
@@ -1106,6 +1110,8 @@ func _build_ui() -> void:
  var scroller:=ScrollContainer.new()
  scroller.custom_minimum_size=Vector2(735,452)
  scroller.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+ scroller.follow_focus=true
+ scroller.tooltip_text="Scroll character details, inventory details, and settings with your mouse wheel."
  contents.add_child(scroller)
  menu_body=RichTextLabel.new()
  menu_body.bbcode_enabled=true
@@ -1321,9 +1327,19 @@ func _atlas_action(label: String, action: String, tip: String="") -> void:
  var button:=Button.new()
  button.text=label
  if tip!="":button.tooltip_text=tip
- button.custom_minimum_size=Vector2(270,32)
+ button.custom_minimum_size=Vector2(270,38)
+ button.focus_mode=Control.FOCUS_ALL
+ if action.begins_with("equip:"):
+  button.tooltip_text=(tip+"\n" if tip!="" else "")+"Left-click or right-click to equip."
+  button.gui_input.connect(_atlas_equip_mouse_input.bind(action))
  button.pressed.connect(_atlas_execute.bind(action))
  menu_buttons.add_child(button)
+
+func _atlas_equip_mouse_input(event:InputEvent,action:String)->void:
+ if not menu_open or current_tab!="Inventory":return
+ if event is InputEventMouseButton and event.pressed and event.button_index==MOUSE_BUTTON_RIGHT:
+  _atlas_execute(action)
+  get_viewport().set_input_as_handled()
 
 func _branch_hex(branch: String) -> String:
  if branch=="Bond":return "#d783ee"
