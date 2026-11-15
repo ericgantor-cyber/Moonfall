@@ -736,7 +736,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("const FString SettingHelp[]", self.hud)
         self.assertIn("const FString CompactHelp[]", self.hud)
         self.assertIn("const int32 HelpIndex = FMath::Clamp(Hero->OptionsSelection, 0, 7);", self.hud)
-        self.assertIn("bCompactOptions ? CompactHelp[HelpIndex] : SettingHelp[HelpIndex]", self.hud)
+        self.assertIn("FString HelpText = bCompactOptions ? CompactHelp[HelpIndex] : SettingHelp[HelpIndex];", self.hud)
         self.assertIn("FG preference only (inactive)", self.hud)
         self.assertIn('TEXT("Display mode")', self.hud)
         self.assertIn('Settings->GetFullscreenMode() == EWindowMode::Windowed ? TEXT("Windowed") : Settings->GetFullscreenMode() == EWindowMode::WindowedFullscreen ? TEXT("Borderless") : TEXT("Fullscreen")', self.hud)
@@ -789,6 +789,18 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Settings->SaveSettings();", adjust)
         self.assertIn('Res == FIntPoint(3840,2160) ? TEXT("4K UHD")', self.hud)
         self.assertLess(2560 * 1440, 3840 * 2160)
+
+    def test_4k_ui_explains_resolution_and_render_scale_without_automatic_changes(self):
+        options = self.hud.split("if (Hero->bOptionsOpen)", 1)[1].split("if (Hero->bInventoryOpen)", 1)[0]
+        self.assertIn("Settings->GetScreenResolution() == FIntPoint(3840,2160)", options)
+        self.assertIn("if (HelpIndex == 0)", options)
+        self.assertIn("else if (HelpIndex == 1)", options)
+        self.assertIn("4K UHD: 3840 x 2160 output; use render scale for performance", options)
+        self.assertIn("4K render scale: 100% is sharpest; reduce for performance", options)
+        self.assertIn("HelpText = bCompactOptions", options)
+        self.assertNotIn("Settings->SetScreenResolution(", options)
+        self.assertNotIn("Settings->SetResolutionScaleValueEx(", options)
+        self.assertNotIn("Settings->ApplySettings(", options)
 
     def test_options_resolution_steps_from_actual_custom_resolution(self):
         adjust = self.hero_cpp.split("void AMoonfallHeroPawn::AdjustOption(int32 Direction)", 1)[1].split("\n}", 1)[0]
