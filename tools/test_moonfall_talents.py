@@ -11,21 +11,21 @@ class TalentTests(unittest.TestCase):
     def setUpClass(cls):
         cls.tree = load()
 
-    def test_108_nodes_three_open_branches(self):
-        self.assertEqual(len(self.tree["nodes"]), 108)
+    def test_141_nodes_three_open_branches(self):
+        self.assertEqual(len(self.tree["nodes"]), 141)
         self.assertEqual({branch: sum(node["branch"] == branch for node in self.tree["nodes"])
                           for branch in ("might", "agility", "arcana")},
-                         {"might": 36, "agility": 36, "arcana": 36})
-        self.assertEqual(max(node["tier"] for node in self.tree["nodes"]), 11)
+                         {"might": 47, "agility": 47, "arcana": 47})
+        self.assertEqual(max(node["tier"] for node in self.tree["nodes"]), 14)
         self.assertEqual(len(self.tree["branches"]), 3)
         validate(self.tree)
 
     def test_every_expanded_talent_chain_is_reachable(self):
         nodes = {node["id"]: node for node in self.tree["nodes"]}
-        self.assertEqual(len(nodes), 108)
+        self.assertEqual(len(nodes), 141)
         for branch in ("might", "agility", "arcana"):
             for leaf in [node for node in nodes.values()
-                         if node["branch"] == branch and node["tier"] == 11]:
+                         if node["branch"] == branch and node["tier"] == 14]:
                 unlocked = {}
                 def purchase_dependencies(node_id):
                     for prerequisite in nodes[node_id]["requires"]:
@@ -35,6 +35,36 @@ class TalentTests(unittest.TestCase):
                 result = evaluate(100, unlocked, self.tree)
                 self.assertEqual(result["spent"], len(unlocked))
                 self.assertIn(leaf["id"], result["allocations"])
+
+    def test_new_33_talents_have_unique_ids_and_valid_gates(self):
+        added = [node for node in self.tree["nodes"] if node["tier"] >= 12]
+        self.assertEqual(len(added), 33)
+        self.assertEqual({branch: sum(n["branch"] == branch for n in added)
+                          for branch in ("might", "agility", "arcana")},
+                         {"might": 11, "agility": 11, "arcana": 11})
+        self.assertEqual({tier: sum(n["tier"] == tier for n in added)
+                          for tier in (12, 13, 14)},
+                         {12: 12, 13: 12, 14: 9})
+        gates = {12: 86, 13: 91, 14: 96}
+        self.assertTrue(all(n["min_level"] == gates[n["tier"]] for n in added))
+        self.assertEqual(len({node["id"] for node in self.tree["nodes"]}), 141)
+
+    def test_new_capstone_path_survives_full_respec(self):
+        nodes = {n["id"]: n for n in self.tree["nodes"]}
+        chosen = {}
+        def unlock(node_id):
+            for requirement in nodes[node_id]["requires"]:
+                unlock(requirement)
+            chosen[node_id] = 1
+        unlock("might_eclipse_champion")
+        state = evaluate(100, chosen, self.tree)
+        self.assertIn("might_eclipse_champion", state["allocations"])
+        self.assertLess(state["spent"], state["earned"])
+        with self.assertRaisesRegex(ValueError, "level gate"):
+            evaluate(95, chosen, self.tree)
+        reset = respec(100, self.tree, current=chosen)
+        self.assertEqual(reset["spent"], 0)
+        self.assertEqual(reset["available"], 99)
 
     def test_new_tiers_respect_gates_and_full_respec(self):
         fresh = evaluate(16, {"iron_will": 1, "breaker": 1, "guard": 1,
