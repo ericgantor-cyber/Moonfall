@@ -191,6 +191,9 @@ public:
  bool HitTestInventorySortButton() const;
  // Clickable scrollbar track changes only the transient display window.
  bool ScrollInventoryToMouseTrack();
+ // Mouse drag is transient and cannot mutate inventory or equipped items.
+ bool bInventoryScrollbarDragging = false;
+ void ReleaseInventoryPointer();
  // Matches the Canvas inventory row capacity on the active viewport.
  int32 GetInventoryVisibleRows() const;
  void KeepInventorySelectionVisible();
