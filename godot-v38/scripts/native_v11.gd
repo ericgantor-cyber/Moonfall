@@ -1146,6 +1146,17 @@ func _inventory_action(action:String)->void:
    inventory_page=0
   "inventory_page_next":inventory_page+=1
   "inventory_page_prev":inventory_page=maxi(0,inventory_page-1)
+  "inventory_select_next","inventory_select_prev":
+   var source:Array=vault_items if inventory_show_vault else gear_items
+   var matching:Array[int]=INVENTORY_RULES.matching_gear_indices(source,inventory_query,inventory_filter,inventory_sort)
+   if matching.is_empty():
+    inventory_selected_index=-1
+    return
+   var selected_at:int=matching.find(inventory_selected_index)
+   if selected_at<0:selected_at=0
+   else:selected_at=posmod(selected_at+(1 if action=="inventory_select_next" else -1),matching.size())
+   inventory_selected_index=matching[selected_at]
+   inventory_page=selected_at/INVENTORY_RULES.BAG_PAGE_SIZE
   "inventory_upgrade":
    var cost:int=INVENTORY_RULES.upgrade_cost(bag_capacity)
    if cost<=0 or not _wallet_can_afford(cost*MONEY_RULES.COPPER_PER_GOLD):
@@ -1246,20 +1257,33 @@ func _menu_tab(which: String) -> void:
    var matches:Array[int]=INVENTORY_RULES.matching_gear_indices(source,inventory_query,inventory_filter,inventory_sort)
    var pages:int=INVENTORY_RULES.page_count(matches.size())
    inventory_page=clampi(inventory_page,0,pages-1)
-   text+="\nFound "+str(matches.size())+" • Page "+str(inventory_page+1)+" / "+str(pages)+"\nLeft-click VIEW to inspect • Right-click VIEW to equip from bag.\n\n"
-   for n in range(inventory_page*INVENTORY_RULES.BAG_PAGE_SIZE,mini((inventory_page+1)*INVENTORY_RULES.BAG_PAGE_SIZE,matches.size())):
+   var start:int=inventory_page*INVENTORY_RULES.BAG_PAGE_SIZE
+   var end:int=mini(start+INVENTORY_RULES.BAG_PAGE_SIZE,matches.size())
+   # Never keep a hidden or stale selection when the filter or page changes.
+   if end>start and not inventory_selected_index in matches.slice(start,end):
+    inventory_selected_index=matches[start]
+   elif matches.is_empty():inventory_selected_index=-1
+   text+="\nFound "+str(matches.size())+" • Page "+str(inventory_page+1)+" / "+str(pages)+"\nClick a tile to inspect • Right-click a bag tile to equip.\n"
+   var item_grid:=GridContainer.new()
+   item_grid.columns=2
+   item_grid.add_theme_constant_override("h_separation",5)
+   item_grid.add_theme_constant_override("v_separation",5)
+   menu_buttons.add_child(item_grid)
+   for n in range(start,end):
     var index:int=matches[n]
     var gear:Dictionary=source[index]
-    var rarity:String=str(gear.get("rarity","Common"))
-    var hue:String=_inventory_rarity_color(rarity)
-    text+=("[b]▶ " if inventory_selected_index==index else "")+str(index+1)+". [color="+hue+"]"+rarity+" "+str(gear.get("name","Gear"))+"[/color] • Power "+str(gear.get("power",0))+("[/b]" if inventory_selected_index==index else "")+"\n"
-    _atlas_action(("SELECTED: " if inventory_selected_index==index else "VIEW: ")+str(gear.get("name","Gear")),"inventory_select:"+str(index),"Left-click to inspect; right-click to equip from bag.")
-    if inventory_show_vault:
-     _atlas_action("WITHDRAW: "+str(gear.get("name","Gear")),"inventory_withdraw:"+str(index))
-    else:
-     _atlas_action("EQUIP: "+str(gear.get("name","Gear")),"equip:"+str(index))
-     _atlas_action("DEPOSIT: "+str(gear.get("name","Gear")),"inventory_deposit:"+str(index))
+    _inventory_tile(item_grid,gear,index)
    if matches.is_empty():text+="No matching equipment. Defeat enemies or change your search.\n"
+   if end>start:
+    var selected_item:Dictionary=source[inventory_selected_index]
+    if inventory_show_vault:
+     _atlas_action("WITHDRAW SELECTED: "+str(selected_item.get("name","Gear")),"inventory_withdraw:"+str(inventory_selected_index))
+    else:
+     _atlas_action("EQUIP SELECTED: "+str(selected_item.get("name","Gear")),"equip:"+str(inventory_selected_index))
+     _atlas_action("DEPOSIT SELECTED","inventory_deposit:"+str(inventory_selected_index))
+    if matches.size()>1:
+     _atlas_action("PREVIOUS ITEM","inventory_select_prev")
+     _atlas_action("NEXT ITEM","inventory_select_next")
    if inventory_page>0:_atlas_action("PREVIOUS PAGE","inventory_page_prev")
    if inventory_page+1<pages:_atlas_action("NEXT PAGE","inventory_page_next")
    if inventory_selected_index>=0 and inventory_selected_index<source.size():
@@ -1346,6 +1370,24 @@ func _menu_tab(which: String) -> void:
    _atlas_action("FULL GRAPHICS","full")
    _atlas_action("RESUME GAME","resume")
    _atlas_action("RETURN TO HERO SELECT","title")
+
+func _inventory_tile(grid:GridContainer,gear:Dictionary,index:int)->void:
+ var tile:=Button.new()
+ var rarity:String=str(gear.get("rarity","Common"))
+ var name:String=str(gear.get("name","Gear"))
+ var selected:bool=inventory_selected_index==index
+ tile.name="ItemTile_%d"%index
+ tile.text=("◆ " if selected else "")+name+"\n"+rarity+" • "+str(gear.get("power",0))+" power"
+ tile.clip_text=true
+ tile.custom_minimum_size=Vector2(140,66)
+ tile.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+ tile.focus_mode=Control.FOCUS_ALL
+ tile.add_theme_color_override("font_color",Color(_inventory_rarity_color(rarity)))
+ tile.add_theme_color_override("font_hover_color",Color(_inventory_rarity_color(rarity)))
+ tile.tooltip_text=name+"\n"+rarity+" • Power "+str(gear.get("power",0))+"\nLeft-click to inspect"+(" • Right-click to equip" if not inventory_show_vault else " • Withdraw to equip")
+ tile.pressed.connect(_atlas_execute.bind("inventory_select:"+str(index)))
+ tile.gui_input.connect(_atlas_equip_mouse_input.bind("inventory_select:"+str(index)))
+ grid.add_child(tile)
 
 func _inventory_rarity_color(rarity:String)->String:
  match rarity:
