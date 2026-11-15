@@ -1148,6 +1148,19 @@ func _inventory_action(action:String)->void:
    inventory_page=0
   "inventory_page_next":inventory_page+=1
   "inventory_page_prev":inventory_page=maxi(0,inventory_page-1)
+  "inventory_select_best":
+   if inventory_show_vault:return
+   var matching:Array[int]=INVENTORY_RULES.matching_gear_indices(gear_items,inventory_query,inventory_filter,inventory_sort)
+   if matching.is_empty():
+    _show_message("No matching equipment to inspect.",2)
+    return
+   var best_index:int=matching[0]
+   for index in matching:
+    if int(gear_items[index].get("power",0))>int(gear_items[best_index].get("power",0)):
+     best_index=index
+   inventory_selected_index=best_index
+   inventory_restore_focus=true
+   inventory_page=floori(float(matching.find(best_index))/float(INVENTORY_RULES.BAG_PAGE_SIZE))
   "inventory_select_next","inventory_select_prev":
    var source:Array=vault_items if inventory_show_vault else gear_items
    var matching:Array[int]=INVENTORY_RULES.matching_gear_indices(source,inventory_query,inventory_filter,inventory_sort)
@@ -1299,6 +1312,8 @@ func _menu_tab(which: String) -> void:
     if matches.size()>1:
      _atlas_action("PREVIOUS ITEM","inventory_select_prev")
      _atlas_action("NEXT ITEM","inventory_select_next")
+    if not inventory_show_vault and not matches.is_empty():
+     _atlas_action("FIND BEST POWER","inventory_select_best","Select the strongest matching item without equipping it.")
    if inventory_page>0:_atlas_action("PREVIOUS PAGE","inventory_page_prev")
    if inventory_page+1<pages:_atlas_action("NEXT PAGE","inventory_page_next")
    if inventory_selected_index>=0 and inventory_selected_index<source.size():
