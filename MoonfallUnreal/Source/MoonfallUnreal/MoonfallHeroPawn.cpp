@@ -402,6 +402,10 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAxis(TEXT("LookUp"), this, &AMoonfallHeroPawn::LookUp);
  Input->BindAction(TEXT("ZoomIn"), IE_Pressed, this, &AMoonfallHeroPawn::ZoomCameraIn);
  Input->BindAction(TEXT("ZoomOut"), IE_Pressed, this, &AMoonfallHeroPawn::ZoomCameraOut);
+ Input->BindAction(TEXT("InventoryPageUp"), IE_Pressed, this, &AMoonfallHeroPawn::InventoryPageUp);
+ Input->BindAction(TEXT("InventoryPageDown"), IE_Pressed, this, &AMoonfallHeroPawn::InventoryPageDown);
+ Input->BindAction(TEXT("InventoryFirst"), IE_Pressed, this, &AMoonfallHeroPawn::InventoryFirst);
+ Input->BindAction(TEXT("InventoryLast"), IE_Pressed, this, &AMoonfallHeroPawn::InventoryLast);
  Input->BindAction(TEXT("Jump"), IE_Pressed, this, &AMoonfallHeroPawn::TryJump);
  Input->BindAction(TEXT("Jump"), IE_Released, this, &ACharacter::StopJumping);
  Input->BindAction(TEXT("CastLeft"), IE_Pressed, this, &AMoonfallHeroPawn::CastLeft);
@@ -457,6 +461,37 @@ void AMoonfallHeroPawn::KeepInventorySelectionVisible()
  else if (InventorySelection >= InventoryViewStart + Rows)
   InventoryViewStart = InventorySelection - Rows + 1;
  InventoryViewStart = FMath::Clamp(InventoryViewStart, 0, MaxStart);
+}
+
+// Page navigation changes only the highlighted item and transient view offset.
+// It never equips, salvages, or mutates persistent inventory data.
+void AMoonfallHeroPawn::InventoryPageUp()
+{
+ if (Health <= 0.f || !bInventoryOpen || bCharacterStatsOpen || bOptionsOpen) return;
+ InventorySelection = FMath::Max(0, InventorySelection - GetInventoryVisibleRows());
+ KeepInventorySelectionVisible();
+}
+
+void AMoonfallHeroPawn::InventoryPageDown()
+{
+ if (Health <= 0.f || !bInventoryOpen || bCharacterStatsOpen || bOptionsOpen) return;
+ InventorySelection = FMath::Min(FMath::Max(0, InventoryItemCodes.Num() - 1),
+                                 InventorySelection + GetInventoryVisibleRows());
+ KeepInventorySelectionVisible();
+}
+
+void AMoonfallHeroPawn::InventoryFirst()
+{
+ if (Health <= 0.f || !bInventoryOpen || bCharacterStatsOpen || bOptionsOpen) return;
+ InventorySelection = 0;
+ KeepInventorySelectionVisible();
+}
+
+void AMoonfallHeroPawn::InventoryLast()
+{
+ if (Health <= 0.f || !bInventoryOpen || bCharacterStatsOpen || bOptionsOpen) return;
+ InventorySelection = FMath::Max(0, InventoryItemCodes.Num() - 1);
+ KeepInventorySelectionVisible();
 }
 
 void AMoonfallHeroPawn::ZoomCameraIn() {
