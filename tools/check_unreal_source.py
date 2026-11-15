@@ -3653,7 +3653,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("AMoonfallDungeonLayout::HandleHazardOverlap", layout)
         self.assertIn("float HazardDamage = 12.f;", layout_h)
         self.assertIn("float HazardCooldownSeconds = 2.f;", layout_h)
-        hazard = layout.split("void AMoonfallDungeonLayout::HandleHazardOverlap(", 1)[1]
+        hazard = layout.split("void AMoonfallDungeonLayout::HandleHazardOverlap(", 1)[1].split(
+            "bool AMoonfallDungeonLayout::StartCombatChamber(", 1)[0]
         self.assertIn("Hero->IsPlayerControlled()", hazard)
         self.assertIn("!FMath::IsFinite(Hero->Health) || Hero->Health <= 0.f", hazard)
         self.assertIn("!FMath::IsFinite(HazardDamage) || HazardDamage <= 0.f", hazard)
