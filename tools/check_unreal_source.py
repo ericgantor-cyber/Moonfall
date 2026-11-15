@@ -797,6 +797,19 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("const float HealthDelta = 2.f * (Tier - PreviousTier);", equip)
         self.assertIn("MaxHealth = FMath::Max(1.f, MaxHealth + HealthDelta);", equip)
 
+    def test_scripted_rewards_cannot_exceed_persisted_inventory_capacity(self):
+        award = self.hero_cpp.split("void AMoonfallHeroPawn::AwardEquipmentDrop(", 1)[1].split(
+            "bool AMoonfallHeroPawn::CollectGroundEquipmentCode(", 1)[0]
+        self.assertIn("if (InventoryItemCodes.Num() >= 10000) return;", award)
+        self.assertIn("if (!ValidMoonfallItemCode(ItemCode)) return;", award)
+        self.assertLess(award.index("if (InventoryItemCodes.Num() >= 10000) return;"),
+                        award.index("RollEquipmentCode(bEliteEnemy, bBossEnemy)"))
+        self.assertLess(award.index("if (!ValidMoonfallItemCode(ItemCode)) return;"),
+                        award.index("InventoryItemCodes.Add(ItemCode);"))
+        save = self.hero_cpp.split("bool AMoonfallHeroPawn::SaveWorldProgress()", 1)[1].split(
+            "bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[0]
+        self.assertIn("InventoryItemCodes.Num() > 10000", save)
+
     def test_save_rejects_unowned_or_wrong_slot_equipped_codes(self):
         save = self.hero_cpp.split("bool AMoonfallHeroPawn::SaveWorldProgress()", 1)[1].split(
             "bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[0]
