@@ -17,6 +17,9 @@ public:
  UPROPERTY(EditAnywhere, Category="Combat") float AttackCooldown = 1.3f;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat") bool bElite = false;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat") bool bBoss = false;
+ // Humanoid enemy ancestry, not a divine boss identity or visual asset.
+ UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat|Race", meta=(ClampMin="0", ClampMax="11")) int32 RaceId = 0;
+ UFUNCTION(BlueprintPure, Category="Combat|Race") FString GetRaceName() const;
  // Divine world bosses are NPC encounters, never playable hero identities.
  // The exact source artwork is intentionally not recreated or modified here.
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Boss|Divine") FName DivineBossId = NAME_None;
