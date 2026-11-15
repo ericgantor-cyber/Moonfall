@@ -37,6 +37,21 @@ class MouseMenusContract(unittest.TestCase):
         self.assertIn('selected_power-equipped_power', self.source)
         self.assertIn('In vault • Withdraw to compare or equip.', self.source)
 
+    def test_large_inventory_grid_and_selected_actions(self):
+        self.assertIn('var item_grid:=GridContainer.new()', self.source)
+        self.assertIn('item_grid.columns=2', self.source)
+        self.assertIn('_inventory_tile(item_grid,gear,index)', self.source)
+        self.assertIn('tile.custom_minimum_size=Vector2(140,66)', self.source)
+        self.assertIn('tile.focus_mode=Control.FOCUS_ALL', self.source)
+        self.assertIn('tile.pressed.connect(_atlas_execute.bind("inventory_select:"+str(index)))', self.source)
+        self.assertIn('tile.gui_input.connect(_atlas_equip_mouse_input.bind("inventory_select:"+str(index)))', self.source)
+        self.assertIn('"inventory_select_next","inventory_select_prev"', self.source)
+        self.assertIn('inventory_selected_index=matching[selected_at]', self.source)
+        self.assertIn('"EQUIP SELECTED: "', self.source)
+        self.assertIn('"DEPOSIT SELECTED"', self.source)
+        self.assertIn('"WITHDRAW SELECTED: "', self.source)
+        self.assertNotIn('_atlas_action("DEPOSIT: "+str(gear.get(', self.source)
+
     def test_inventory_search_clear_and_mouse_scroll(self):
         self.assertIn('inventory_search_input.clear_button_enabled=true', self.source)
         self.assertIn('inventory_search_input.text_changed.connect(_on_inventory_query_changed)', self.source)
