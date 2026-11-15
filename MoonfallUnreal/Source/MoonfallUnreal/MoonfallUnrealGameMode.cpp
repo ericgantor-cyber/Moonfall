@@ -4,6 +4,7 @@
 #include "MoonfallDungeonLayout.h"
 #include "MoonfallCombatHUD.h"
 #include "Engine/World.h"
+#include "EngineUtils.h"
 AMoonfallUnrealGameMode::AMoonfallUnrealGameMode()
 {
  DefaultPawnClass = AMoonfallHeroPawn::StaticClass();
@@ -14,6 +15,10 @@ void AMoonfallUnrealGameMode::BeginPlay() {
  Super::BeginPlay();
  if (!GetWorld()) return;
  GetWorld()->SpawnActor<AMoonfallArena>(FVector::ZeroVector, FRotator::ZeroRotator);
+ // If the map already contains the first dungeon, honor its authored copy
+ // instead of creating a duplicate and overlapping its collision geometry.
+ for (TActorIterator<AMoonfallDungeonLayout> It(GetWorld()); It; ++It)
+  if (IsValid(*It) && It->ZoneIndex == 0 && It->DungeonIndex == 0) return;
  // First playable dungeon starts just south of the arena gate. No loading
  // transition, spawn wave or overwriting authored startup-map actors.
  // Rotating local +X to world -Y keeps the dungeon connected to the road.
