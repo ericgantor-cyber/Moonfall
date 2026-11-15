@@ -107,6 +107,22 @@ Packaging deliberately stops with an actionable error if the project-owned start
 
 ## Native UE5.4 dungeon stability verification (PR #948)
 
+To run both tests with a single Windows command (including real Editor
+compilation), use:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\MoonfallUnreal\Build\Test-DungeonNative.ps1 -UnrealRoot "C:\Program Files\Epic Games\UE_5.4"
+```
+
+The runner records `MoonfallUnrealLocalBuild/DungeonAutomation/Moonfall-Dungeon-UE54.log`
+and `Moonfall-Dungeon-TestResult.txt`. It refuses to report a pass when either
+of the two required native tests is absent or failed, when the UE executable
+does not run, or when the test log is missing. Use `-SkipBuild` only if the
+exact PR head has already compiled successfully on that Windows computer.
+Run physical Play In Editor tests separately, since the unit tests do not
+verify walkability, FPS, AI pathfinding, or save/reload gameplay.
+
+
 The GitHub source checks do not compile C++, build navmesh geometry, or execute
 runtime collision. The dungeon C++ automation tests are in
 `Source/MoonfallUnreal/MoonfallDungeonWorldTests.cpp`. They verify 30 distinct
