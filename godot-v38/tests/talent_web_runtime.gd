@@ -12,6 +12,20 @@ func _initialize() -> void:
  if web.points.size() != 141:
   _fail("Web should plot 141 unique nodes")
   return
+ var tier_progress: Dictionary = web.tier_summary()
+ if int(tier_progress.get("total", 0)) != 14 or int(tier_progress.get("unlocked", 0)) != 4:
+  _fail("Level 16 should unlock four of fourteen level-gated tiers")
+  return
+ if int(tier_progress.get("next_tier", 0)) != 5 or int(tier_progress.get("next_level", 0)) <= 16:
+  _fail("Tier summary must identify the next level-gated tier")
+  return
+ var tier_target: String = web.focus_tier(2)
+ if tier_target != "breaker" or web.selected_id != "breaker":
+  _fail("Keyboard tier navigation must focus accessible tier-two talents")
+  return
+ if web.focus_tier(14) != "":
+  _fail("Locked high-tier talents cannot be focused early")
+  return
  if web.layout_rebuild_count != 1:
   _fail("Initial constellation must build once")
   return
