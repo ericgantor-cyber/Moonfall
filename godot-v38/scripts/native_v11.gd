@@ -1513,7 +1513,7 @@ func _craft_skill_progress(level:int,profession:String="Leatherworking")->String
 
 func _recipe_blocker_summary(recipe:Dictionary)->String:
  var costs:Dictionary=recipe.get("cost",{})
- var missing:Array[String]=[]
+ var missing:PackedStringArray=PackedStringArray()
  for material in costs.keys():
   var needed:int=int(costs[material])-int(materials.get(str(material),0))
   if needed>0:missing.append(str(needed)+" "+str(material))
