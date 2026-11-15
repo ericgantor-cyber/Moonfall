@@ -250,8 +250,32 @@ jobs:
               throw "Packaged Unreal game missing $folder"
             }
           }
-          if ($games[0].Length -le 0) {
-            throw 'Packaged MoonfallUnreal.exe is empty.'
+          if ($games[0].Length -lt 512) {
+            throw 'Packaged MoonfallUnreal.exe is too small to be a valid Windows executable.'
+          }
+          # Reject text, placeholder, or non-Win64 files mislabeled as .exe.
+          $stream = [IO.File]::OpenRead($games[0].FullName)
+          $reader = [IO.BinaryReader]::new($stream)
+          try {
+            if ($reader.ReadUInt16() -ne 0x5A4D) {
+              throw 'Packaged game is missing the Windows MZ header.'
+            }
+            $stream.Position = 0x3C
+            $peOffset = $reader.ReadInt32()
+            if ($peOffset -lt 0x40 -or $peOffset -gt $stream.Length - 26) {
+              throw 'Packaged game has an invalid PE header offset.'
+            }
+            $stream.Position = $peOffset
+            if ($reader.ReadUInt32() -ne 0x00004550 -or $reader.ReadUInt16() -ne 0x8664) {
+              throw 'Packaged game is not a Windows x64 PE executable.'
+            }
+            $stream.Position = $peOffset + 24
+            if ($reader.ReadUInt16() -ne 0x20B) {
+              throw 'Packaged game is not a PE32+ executable.'
+            }
+          } finally {
+            $reader.Dispose()
+            $stream.Dispose()
           }
           # A random config or log file does not prove that Unreal cooked assets.
           # UE 5.4 may emit legacy .pak archives or paired IoStore .utoc/.ucas.
