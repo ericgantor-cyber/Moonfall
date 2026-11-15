@@ -8,8 +8,9 @@ UCLASS()
 class MOONFALLUNREAL_API UMoonfallPersistentSave : public USaveGame {
  GENERATED_BODY()
 public:
- // Version 7: separate shrine checkpoints from two-second progress autosaves.
- UPROPERTY() int32 Version = 7;
+ // Version 8: bounded 30-dungeon discovery ledger; older V1-V7 slots remain readable.
+ UPROPERTY() int32 Version = 8;
+ UPROPERTY() int32 DiscoveredDungeonMask = 0;
  UPROPERTY() TMap<FName, int32> ResidentQuestStates;
  UPROPERTY() TMap<FName, int32> ResidentBonds;
  UPROPERTY() TMap<FName, int32> FactionReputation;
