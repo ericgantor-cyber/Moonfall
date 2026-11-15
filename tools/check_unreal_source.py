@@ -3734,6 +3734,11 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('Slot % DungeonsPerZone', mode)
         self.assertIn('NextDungeonSlot < TotalDungeons', mode)
         self.assertIn('constexpr int32 MaxLayoutsPerBatch = 2;', mode)
+        self.assertIn('int32 ReadyDungeonCount = 0;', mode_h)
+        self.assertIn('OnDungeonWorldReady(int32 ReadyCount);', mode_h)
+        self.assertIn('++ReadyDungeonCount;', mode)
+        self.assertIn('OnDungeonWorldReady(ReadyDungeonCount);', mode)
+        self.assertIn('only %d/%d layouts ready', mode)
         self.assertIn('GetWorldTimerManager().SetTimer(', mode)
         self.assertIn('GetWorldTimerManager().ClearTimer(DungeonSpawnTimer);', mode)
         self.assertIn('AuthoredDungeonSlots.SetNumZeroed(TotalDungeons);', mode)
@@ -3753,6 +3758,10 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('CreateBlock(FVector(0,-2000,-20),FVector(5,10,0.4f));', arena)
         self.assertNotIn('CreateBlock(FVector(0,-1500,200),FVector(30,1,5));', arena)
         self.assertIn('UInstancedStaticMeshComponent* DungeonRoad;', arena_h)
+        self.assertIn('TArray<TObjectPtr<UTextRenderComponent>> DungeonZoneSigns;', arena_h)
+        self.assertIn('for (int32 Zone = 0; Zone < 6; ++Zone)', arena)
+        self.assertIn('DungeonZoneSigns.Add(Sign);', arena)
+        self.assertIn('Sign->SetCollisionEnabled(ECollisionEnabled::NoCollision);', arena)
         self.assertIn('DungeonRoad->SetCollisionResponseToAllChannels(ECR_Block);', arena)
         self.assertIn('for (int32 Slot = 0; Slot < 30; ++Slot)', arena)
         self.assertIn('FVector(X, -2500.f, -20.f), FVector(13.5f, 9.f, 0.4f)', arena)
@@ -3765,7 +3774,13 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             self.assertGreaterEqual(right - left, 900 + 400)
             self.assertLessEqual(right - left, 2 * 675)
         self.assertLessEqual(abs(xs[0]) + 675, 21000)
-        self.assertLessEqual(-2650, -2050)
+        road_min_y, road_max_y = -2500 - 450, -2500 + 450
+        dungeon_floor_min_y, dungeon_floor_max_y = -3100 - 600, -3100 + 600
+        bridge_min_y, bridge_max_y = -2000 - 500, -2000 + 500
+        self.assertGreater(min(road_max_y, dungeon_floor_max_y) -
+                           max(road_min_y, dungeon_floor_min_y), 100)
+        self.assertGreater(min(road_max_y, bridge_max_y) -
+                           max(road_min_y, bridge_min_y), 100)
         # Preserve the original divine encounters, residents, and shrines.
         for token in ('AMoonfallCheckpointShrine', 'AMoonfallWorldNPC',
                       'FeaturedDivineBossId', 'FName(TEXT("z_void_reaper"))',
