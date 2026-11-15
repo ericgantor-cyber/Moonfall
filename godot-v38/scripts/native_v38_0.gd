@@ -696,6 +696,7 @@ func _v398_unlock(id:String)->void:
  var changed:Dictionary=CLASSLESS_TALENTS.spend(clampi(int(hero_level),1,100),v406_ranks,id)
  if not bool(changed.get("ok",false)):return
  v406_ranks=changed["allocations"].duplicate(true)
+ _v406_invalidate_bonus_cache()
  _v406_sync_health()
  _save_game()
  _v398_refresh_tree()
@@ -704,6 +705,7 @@ func _v406_respec()->void:
  var changed:Dictionary=CLASSLESS_TALENTS.respec(clampi(int(hero_level),1,100),v406_ranks)
  if not bool(changed.get("ok",false)):return
  v406_ranks=changed["allocations"].duplicate(true)
+ _v406_invalidate_bonus_cache()
  _v406_sync_health()
  _save_game()
  _v398_refresh_tree()
@@ -878,13 +880,17 @@ func _update_beast_step(beast:Dictionary,delta:float)->void:
 # Validated classless talents augment combat without mutating legacy stats or saves.
 var v406_damage_context:String=""
 var v406_applied_health_bonus:float=0.0
-var v406_bonuses_key:String=""
+var v406_bonuses_level:int=-1
+var v406_bonuses_dirty:bool=true
 var v406_bonuses_cache:Dictionary={}
+func _v406_invalidate_bonus_cache()->void:
+ v406_bonuses_dirty=true
+
 func _v406_bonus(stat:String,kind:String)->float:
  if v406_ranks.is_empty():return 0.0
- var cache_key:String=str(hero_level)+":"+JSON.stringify(v406_ranks)
- if cache_key!=v406_bonuses_key:
-  v406_bonuses_key=cache_key
+ if v406_bonuses_dirty or v406_bonuses_level!=hero_level:
+  v406_bonuses_dirty=false
+  v406_bonuses_level=hero_level
   var state:Dictionary=CLASSLESS_TALENTS.evaluate(clampi(int(hero_level),1,100),v406_ranks)
   v406_bonuses_cache=state.get("bonuses",{}) if bool(state.get("ok",false)) else {}
  return float(v406_bonuses_cache.get(stat,{}).get(kind,0.0))
@@ -981,6 +987,7 @@ func _dodge()->void:
 func _start_game(selected_hero:String)->void:
  super._start_game("z") # Legacy save/combat slot; never expose Z as the playable character.
  v406_applied_health_bonus=0.0
+ _v406_invalidate_bonus_cache()
  _v400_apply_adventurer_look()
  v385_mana=V385_MAX_MANA
  v387_stamina=V387_MAX_STAMINA
@@ -1001,6 +1008,7 @@ func _restore_data(data:Dictionary)->void:
  v398_ranks={}
  v406_ranks={}
  v406_applied_health_bonus=0.0
+ _v406_invalidate_bonus_cache()
  v399_identity={}
  var resources:Variant=data.get("optional_resources",{})
  if resources is Dictionary:
@@ -1010,7 +1018,9 @@ func _restore_data(data:Dictionary)->void:
   var classless_saved:Variant=resources.get("classless_ranks",{})
   if classless_saved is Dictionary:
    var restored:Dictionary=CLASSLESS_TALENTS.evaluate(clampi(int(hero_level),1,100),classless_saved)
-   if bool(restored.get("ok",false)):v406_ranks=restored["allocations"].duplicate(true)
+   if bool(restored.get("ok",false)):
+    v406_ranks=restored["allocations"].duplicate(true)
+    _v406_invalidate_bonus_cache()
   _v406_sync_health()
   hp=clampf(float(data.get("hp",hp)),1.0,max_hp)
   v385_mana=clampf(float(resources.get("mana",V385_MAX_MANA)),0.0,_v406_resource_max("mana",V385_MAX_MANA))
