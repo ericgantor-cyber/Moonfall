@@ -507,9 +507,9 @@ func _v398_build_tree()->void:
  if not is_instance_valid(layer):return
  v398_panel=PanelContainer.new()
  v398_panel.name="ClasslessTalentWeb"
- v398_panel.set_anchors_preset(Control.PRESET_CENTER)
+ v398_panel.set_anchors_preset(Control.PRESET_TOP_LEFT)
  v398_panel.custom_minimum_size=Vector2(1100,730)
- v398_panel.position=Vector2(-550,-365)
+ v398_panel.position=Vector2.ZERO
  layer.add_child(v398_panel)
  get_viewport().size_changed.connect(_v406_fit_panel_to_viewport)
  _v406_fit_panel_to_viewport()
@@ -607,7 +607,7 @@ func _v406_fit_panel_to_viewport()->void:
  var layout:Dictionary=V406_PANEL_LAYOUT.placement(get_viewport().get_visible_rect().size)
  var factor:float=float(layout["scale"])
  v398_panel.scale=Vector2(factor,factor)
- v398_panel.position=layout["offset_from_center"]
+ v398_panel.position=layout["position"]
 
 func _v406_next_available()->void:
  if not is_instance_valid(v406_web):return
