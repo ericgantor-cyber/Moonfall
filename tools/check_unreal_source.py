@@ -3793,5 +3793,23 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                       'FName(TEXT("nyra_eclipse_queen"))'):
             self.assertIn(token, arena)
 
+
+    def test_native_unreal_dungeon_automation_suite_is_present(self):
+        native = (ROOT / "MoonfallDungeonWorldTests.cpp").read_text(encoding="utf-8")
+        self.assertIn("#if WITH_DEV_AUTOMATION_TESTS", native)
+        self.assertIn("Moonfall.Dungeons.All30EntranceLocations", native)
+        self.assertIn("Moonfall.Dungeons.SeededRoomArchetypes", native)
+        self.assertIn("EAutomationTestFlags::EditorContext", native)
+        self.assertIn("GetDefault<AMoonfallUnrealGameMode>()", native)
+        self.assertIn("GetDefault<AMoonfallDungeonLayout>()", native)
+        self.assertIn("for (int32 Zone = 0; Zone < 6; ++Zone)", native)
+        self.assertIn("for (int32 Dungeon = 0; Dungeon < 5; ++Dungeon)", native)
+        self.assertIn('Locations.Num(), 30', native)
+        self.assertIn('Hazards, 3', native)
+        self.assertIn('Dungeon 5 rejected', native)
+        self.assertIn('Zone 6 rejected', native)
+        self.assertIn('return !HasAnyErrors();', native)
+        self.assertNotIn("World->SpawnActor", native)
+
 if __name__ == "__main__":
     unittest.main()
