@@ -727,7 +727,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("const FString Values[]", self.hud)
         self.assertIn("Frame generation is a preference only; no runtime integration.", self.hud)
         self.assertIn('TEXT("Display mode")', self.hud)
-        self.assertIn('Settings->GetFullscreenMode() == EWindowMode::Windowed ? TEXT("Windowed") : TEXT("Borderless")', self.hud)
+        self.assertIn('Settings->GetFullscreenMode() == EWindowMode::Windowed ? TEXT("Windowed") : Settings->GetFullscreenMode() == EWindowMode::WindowedFullscreen ? TEXT("Borderless") : TEXT("Fullscreen")', self.hud)
         self.assertIn("else if (OptionsSelection == 7)", self.hero_cpp)
         self.assertIn("CurrentMode == EWindowMode::WindowedFullscreen", self.hero_cpp)
         self.assertIn("? EWindowMode::Fullscreen : EWindowMode::Windowed;", self.hero_cpp)
