@@ -3541,5 +3541,35 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("return true;", discovery)
         self.assertIn("GetDiscoveredDungeonCount(int32 Zone) const", self.hero_cpp)
 
+
+    def test_zone_charting_is_exactly_fifth_saved_discovery(self):
+        self.assertIn("int32 GetNextUnchartedDungeonZone() const;", self.hero_h)
+        self.assertIn("int32 GetTotalDiscoveredDungeons() const;", self.hero_h)
+        self.assertIn("void OnDungeonZoneCharted(int32 Zone);", self.hero_h)
+        section = self.hero_cpp.split(
+            "bool AMoonfallHeroPawn::DiscoverDungeonEntrance(int32 Zone, int32 Dungeon)", 1
+        )[1].split("bool AMoonfallHeroPawn::SaveWorldProgress()", 1)[0]
+        self.assertIn("GetDiscoveredDungeonCount(Zone) == 4", section)
+        self.assertIn("if (bCompletesZone) OnDungeonZoneCharted(Zone);", section)
+        self.assertLess(section.index("if (!SaveWorldProgress())"),
+                        section.index("OnDungeonZoneCharted(Zone);"))
+        next_zone = self.hero_cpp.split(
+            "int32 AMoonfallHeroPawn::GetNextUnchartedDungeonZone() const", 1
+        )[1].split("int32 AMoonfallHeroPawn::GetTotalDiscoveredDungeons() const", 1)[0]
+        self.assertIn("GetDiscoveredDungeonCount(Zone) < 5", next_zone)
+        self.assertIn("return INDEX_NONE;", next_zone)
+
+    def test_character_page_shows_30_dungeon_exploration_progress(self):
+        page = self.hud.split("if (Hero->bCharacterStatsOpen) {", 1)[1].split(
+            "if (Hero->bInventoryOpen)", 1)[0] if False else self.hud.split(
+            "if (Hero->bCharacterStatsOpen) {", 1)[1].split(
+            "// Identical button rectangle", 1)[0]
+        self.assertIn("DUNGEON EXPLORATION", page)
+        self.assertIn("ALL 6 ZONES CHARTED", page)
+        self.assertIn("Zone %d: %d / 5  |  Total: %d / 30", page)
+        self.assertIn("Hero->GetTotalDiscoveredDungeons()", page)
+        self.assertIn("Hero->GetNextUnchartedDungeonZone()", page)
+        self.assertIn("(PanelHeight - 145.f) / 13.f", page)
+
 if __name__ == "__main__":
     unittest.main()
