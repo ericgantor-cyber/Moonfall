@@ -491,8 +491,12 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
      CachedWaypoint = FVector::ZeroVector;
      OnPerfectDodged(DodgePressure);
     }
-    const bool bParried = Hero->ApplyMoonfallDamageFrom(
-      IncomingAttackDamage, GetActorLocation());
+    const bool bDodgeOnlyStrike = bBoss
+      && Tags.Contains(FName(TEXT("MoonfallDungeonBoss")))
+      && bDungeonBossAttackDodgeOnly;
+    const bool bParried = bDodgeOnlyStrike
+      ? Hero->ApplyMoonfallDodgeOnlyDamageFrom(IncomingAttackDamage, GetActorLocation())
+      : Hero->ApplyMoonfallDamageFrom(IncomingAttackDamage, GetActorLocation());
     if (bParried) {
      // A successful parry ends this attack chain and opens counterplay.
      // Bosses recover sooner than ordinary enemies but cannot hit instantly.
@@ -530,6 +534,7 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
        && Tags.Contains(FName(TEXT("MoonfallDungeonBoss")))) {
     DungeonBossAttackLabel = FText::FromString(TEXT("COMBO FOLLOW-UP"));
     DungeonBossAttackWarningDuration = FMath::Clamp(CurrentWindup, 0.1f, 5.f);
+    bDungeonBossAttackDodgeOnly = false;
    }
   } else {
    bComboSecondHitActive = false;
@@ -889,6 +894,10 @@ void AMoonfallEnemy::Tick(float DeltaSeconds) {
       : TEXT("CRUSH ATTACK");
     DungeonBossAttackLabel = FText::FromString(AttackLabel);
     DungeonBossAttackWarningDuration = FMath::Clamp(CurrentWindup, 0.1f, 5.f);
+    // Red is dodge-only. Blue sweeps are parryable; ordinary strikes
+    // preserve the existing neutral guard and parry mechanics.
+    bDungeonBossAttackDodgeOnly = BossSpecialMove == 2
+      || BossSpecialMove == 3 || BossSpecialMove == 5;
    }
    // Blueprint hooks run synchronously. Publish a fully initialized warning
    // clock before notifying the animation / accessible combat indicator.
