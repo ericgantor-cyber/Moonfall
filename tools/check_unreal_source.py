@@ -736,8 +736,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn('TEXT("Display mode")', self.hud)
         self.assertIn('Settings->GetFullscreenMode() == EWindowMode::Windowed ? TEXT("Windowed") : Settings->GetFullscreenMode() == EWindowMode::WindowedFullscreen ? TEXT("Borderless") : TEXT("Fullscreen")', self.hud)
         self.assertIn("else if (OptionsSelection == 7)", self.hero_cpp)
-        self.assertIn("CurrentMode == EWindowMode::WindowedFullscreen", self.hero_cpp)
-        self.assertIn("? EWindowMode::Fullscreen : EWindowMode::Windowed;", self.hero_cpp)
+        self.assertIn("CurrentMode == EWindowMode::WindowedFullscreen ? 1 : 2;", self.hero_cpp)
+        self.assertIn("const int32 NextIndex = (CurrentIndex + (Direction < 0 ? 2 : 1)) % 3;", self.hero_cpp)
+        self.assertIn("NextIndex == 1 ? EWindowMode::WindowedFullscreen : EWindowMode::Fullscreen;", self.hero_cpp)
         self.assertIn('Settings->GetFullscreenMode() == EWindowMode::WindowedFullscreen ? TEXT("Borderless") : TEXT("Fullscreen")', self.hud)
         self.assertIn("OptionsSelection = (OptionsSelection + 7) % 8;", self.hero_cpp)
         self.assertIn("OptionsSelection = (OptionsSelection + 1) % 8;", self.hero_cpp)
@@ -760,6 +761,18 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             self.assertIn(f"OptionsSelection == {index}", adjust)
         self.assertIn("Settings->SaveSettings();", adjust)
         self.assertIn('GConfig->Flush(false, GGameUserSettingsIni);', adjust)
+
+    def test_display_mode_directional_navigation_is_reversible(self):
+        adjust = self.hero_cpp.split("void AMoonfallHeroPawn::AdjustOption(int32 Direction)", 1)[1].split("\n}", 1)[0]
+        mode = adjust.split("else if (OptionsSelection == 7)", 1)[1]
+        self.assertIn("CurrentMode == EWindowMode::Windowed ? 0", mode)
+        self.assertIn("CurrentMode == EWindowMode::WindowedFullscreen ? 1 : 2", mode)
+        self.assertIn("Direction < 0 ? 2 : 1", mode)
+        self.assertIn("Settings->SetFullscreenMode(NextMode);", mode)
+        self.assertIn("Settings->SaveSettings();", mode)
+        modes = ["Windowed", "Borderless", "Fullscreen"]
+        for start in range(len(modes)):
+            self.assertEqual((start + 1 + 2) % len(modes), start)
 
     def test_nearby_batch_loot_is_range_and_cover_safe(self):
         pickup = self.hero_cpp.split("void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[1].split(
