@@ -2623,10 +2623,8 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
     const float MenuLeft = (float(Width) - MenuWidth) * 0.5f;
     const float MenuTop = (float(Height) - MenuHeight) * 0.5f;
     const float CloseX = MenuLeft + MenuWidth - 42.f;
-    if (MouseX < MenuLeft || MouseX > MenuLeft + MenuWidth
-        || MouseY < MenuTop || MouseY > MenuTop + MenuHeight
-        || (MouseX >= CloseX && MouseX <= CloseX + 28.f
-            && MouseY >= MenuTop + 12.f && MouseY <= MenuTop + 40.f)) {
+    if (MouseX >= CloseX && MouseX <= CloseX + 28.f
+        && MouseY >= MenuTop + 12.f && MouseY <= MenuTop + 40.f) {
      OpenOptions();
     }
    }
@@ -2635,25 +2633,6 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
  }
  if (bInventoryOpen) {
   if (HitTestInventoryCloseButton()) { ToggleInventory(); return; }
-  // Clicking outside the right-docked panel closes it; consume the click so
-  // it cannot leak through into a world attack or equipment action.
-  if (APlayerController* PC = Cast<APlayerController>(Controller)) {
-   int32 Width = 0, Height = 0;
-   float MouseX = 0.f, MouseY = 0.f;
-   PC->GetViewportSize(Width, Height);
-   if (Width > 0 && Height > 0 && PC->GetMousePosition(MouseX, MouseY)) {
-    const float PanelWidth = FMath::Min(720.f, FMath::Max(280.f,
-      FMath::Min(float(Width) - 24.f, float(Width) * 0.48f)));
-    const float PanelHeight = FMath::Min(860.f, FMath::Max(280.f, float(Height) - 24.f));
-    const float Left = float(Width) - PanelWidth - 12.f;
-    const float Top = (float(Height) - PanelHeight) * 0.5f;
-    if (MouseX < Left || MouseX > Left + PanelWidth
-        || MouseY < Top || MouseY > Top + PanelHeight) {
-     ToggleInventory();
-     return;
-    }
-   }
-  }
   if (HitTestInventorySortButton()) {
    InventorySortMode = (InventorySortMode + 1) % 3;
    KeepInventorySelectionVisible();
