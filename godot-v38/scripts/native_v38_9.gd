@@ -64,17 +64,17 @@ func _dodge()->void:
   rhythm_dodge_started_at=map_time
   rhythm_dodge_rewarded=false
 
-func _apply_incoming_damage(raw:float)->void:
- # Restrict the perfect window to active melee threat; do not affect
- # environmental damage outside combat or the existing parry/guard path.
+func _rhythm_confirmed_enemy_dodge()->void:
+ # Called only when the existing divine-boss attack resolves on a real
+ # marked position and the player successfully dodged that attack.
+ # No generic damage/hazard interception; does not alter boss damage.
  var elapsed:float=map_time-rhythm_dodge_started_at
- if hero_playing and not menu_open and not death_active and not mounted and not wait_open and not wait_transition_active and not rhythm_dodge_rewarded and dodge_time>0.0 and _combat_threat() and RHYTHM.perfect_dodge(elapsed,raw>0.0):
-  rhythm_dodge_rewarded=true
-  rhythm_counter_until=map_time+RHYTHM_COUNTER_SECONDS
-  _show_message("PERFECT DODGE! Counter now!",0.85)
-  if is_instance_valid(player):_cue(player.global_position+Vector3(0.0,-0.45,0.0),"dodge",Color("86e9ff"))
-  return
- super._apply_incoming_damage(raw)
+ if not hero_playing or menu_open or death_active or mounted or wait_open or wait_transition_active:return
+ if rhythm_dodge_rewarded or dodge_time<=0.0 or not RHYTHM.perfect_dodge(elapsed,true):return
+ rhythm_dodge_rewarded=true
+ rhythm_counter_until=map_time+RHYTHM_COUNTER_SECONDS
+ _show_message("PERFECT DODGE! Counter now!",0.85)
+ if is_instance_valid(player):_cue(player.global_position+Vector3(0.0,-0.45,0.0),"dodge",Color("86e9ff"))
 
 func _start_game(selected_hero:String)->void:
  super._start_game(selected_hero)
