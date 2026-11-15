@@ -349,7 +349,7 @@ branches into multiple paths with prerequisites from earlier tiers; some
 advanced nodes require multiple connected talents. All branches remain
 simultaneously accessible, with **no classes or upgrade cards**.
 
-Characters earn **2 talent points per level** (0 at level 1, 8 at level 5, 30 at level 16), independent of automatically increasing base stats. The native Godot talent screen now uses three large, selectable branch tabs,
+The native Godot talent screen now uses three large, selectable branch tabs,
 tier headings, larger talent buttons, per-node prerequisite/bonus tooltips,
 a scrollable tree and an always-visible **full-tree respec** control. No
 individual talent refunds were added. The new nodes use the existing flat
