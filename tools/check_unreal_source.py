@@ -514,6 +514,21 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("EquipInventoryItem(", button)
         self.assertIn("InventoryItemCodes.IsValidIndex(Order[DisplayPosition])", self.hero_cpp)
 
+    def test_selected_gear_comparison_is_read_only_and_slot_specific(self):
+        block = self.hud.split("const int32 EquippedCode = SelectedSlot == 0", 1)[1].split("const int32 NextCost", 1)[0]
+        self.assertIn("SelectedSlot == 1 ? Hero->EquippedArmorCode", block)
+        self.assertIn("Hero->EquippedAccessoryCode", block)
+        self.assertIn("const int32 TierDelta = SelectedTier - EquippedTier;", block)
+        self.assertIn("const int32 RarityDelta = SelectedRarity - EquippedRarity;", block)
+        self.assertIn("TEXT(\"UPGRADE\")", block)
+        self.assertIn("TEXT(\"LOWER\")", block)
+        self.assertIn("TEXT(\"SIDEGRADE\")", block)
+        self.assertIn("FMath::Clamp(SelectedRarity, 0, 5)", block)
+        self.assertIn("FMath::Clamp(SelectedAffix, 0, 3)", block)
+        self.assertIn("Top + PanelHeight - 110.f", block)
+        for forbidden in ("EquipInventoryItem(", "InventoryItemCodes.RemoveAt(", "SaveWorldProgress("):
+            self.assertNotIn(forbidden, block)
+
     def test_nearby_batch_loot_is_range_and_cover_safe(self):
         pickup = self.hero_cpp.split("void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[1].split(
             "void AMoonfallHeroPawn::EquipBestInventoryAction()", 1)[0]
