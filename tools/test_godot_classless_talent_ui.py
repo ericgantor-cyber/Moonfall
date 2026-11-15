@@ -117,6 +117,27 @@ class ClasslessTalentUIScreen(unittest.TestCase):
         self.assertIn('func tier_summary()', web)
         self.assertIn('func focus_tier(target_tier: int)', web)
 
+    def test_classless_bonuses_reach_live_damage_calculations(self):
+        self.assertIn('func _hero_damage_multiplier()->float:', self.screen)
+        self.assertIn('super._hero_damage_multiplier()', self.screen)
+        self.assertIn('v406_damage_context="melee"', self.screen)
+        self.assertIn('v406_damage_context="magic"', self.screen)
+        self.assertIn('_v406_bonus("melee_damage","percent")', self.screen)
+        self.assertIn('_v406_bonus("magic_damage","percent")', self.screen)
+        self.assertIn('v406_bonuses_cache=state.get("bonuses",{})', self.screen)
+        self.assertIn('v406_damage_context=""', self.screen)
+
+    def test_bonus_resources_restore_before_cap_and_update_hud(self):
+        restore = self.screen.split('func _restore_data(data:Dictionary)->void:', 1)[1].split('func _v384_refresh_vitals()', 1)[0]
+        self.assertLess(restore.index('v406_ranks=restored["allocations"].duplicate(true)'),
+                        restore.index('v385_mana=clampf(float(resources.get("mana"'))
+        self.assertIn('_v406_resource_max("mana",V385_MAX_MANA)', restore)
+        self.assertIn('_v406_resource_max("stamina",V387_MAX_STAMINA)', restore)
+        self.assertIn('v387_stamina_bar.max_value=_v406_resource_max("stamina",V387_MAX_STAMINA)', self.screen)
+        self.assertIn('v387_fallback_stamina_bar.max_value=_v406_resource_max("stamina",V387_MAX_STAMINA)', self.screen)
+        self.assertIn('v385_mana=minf(_v406_resource_max("mana",V385_MAX_MANA)', self.screen)
+        self.assertIn('v387_stamina=minf(_v406_resource_max("stamina",V387_MAX_STAMINA)', self.screen)
+
     def test_original_art_assets_still_preloaded(self):
         self.assertIn('Z_Original.webp', (ROOT / "godot-v38/scripts/main.gd").read_text(encoding="utf-8"))
         self.assertIn('Nyra_Original.png', (ROOT / "godot-v38/scripts/main.gd").read_text(encoding="utf-8"))
