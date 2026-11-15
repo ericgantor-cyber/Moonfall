@@ -28,6 +28,15 @@ class MouseMenusContract(unittest.TestCase):
         self.assertIn('_atlas_execute("equip:"+action.get_slice(":",1))', self.source)
         self.assertIn('if selected_index<0 or selected_index>=inventory_source.size():return', self.source)
 
+    def test_wow_style_item_inspection(self):
+        self.assertIn('func _inventory_rarity_color(rarity:String)->String:', self.source)
+        self.assertIn('"Legendary":return', self.source)
+        self.assertIn('inventory_selected_index==index', self.source)
+        self.assertIn('[b]ITEM INSPECTION[/b]', self.source)
+        self.assertIn('[b]COMPARE WITH EQUIPPED[/b]', self.source)
+        self.assertIn('selected_power-equipped_power', self.source)
+        self.assertIn('In vault • Withdraw to compare or equip.', self.source)
+
     def test_inventory_search_clear_and_mouse_scroll(self):
         self.assertIn('inventory_search_input.clear_button_enabled=true', self.source)
         self.assertIn('inventory_search_input.text_changed.connect(_on_inventory_query_changed)', self.source)
