@@ -6,6 +6,7 @@ Writes a .before-dungeon-nav.umap backup first and adds only one labeled
 NavMeshBoundsVolume when no matching generated volume exists.
 """
 from pathlib import Path
+import filecmp
 import shutil
 import unreal
 
@@ -41,9 +42,10 @@ def upgrade_existing_map_navigation():
 
     # Never touch a real authored map without a byte-for-byte recovery copy.
     backup = level_file.with_suffix(".before-dungeon-nav.umap")
-    if backup.exists() and backup.stat().st_size == 0:
-        raise RuntimeError("Existing nav backup is empty, manual recovery needed")
-    if not backup.exists():
+    if backup.exists():
+        if backup.stat().st_size == 0 or not filecmp.cmp(level_file, backup, shallow=False):
+            raise RuntimeError("Backup already exists but differs from map. Inspect it before running again.")
+    else:
         shutil.copy2(level_file, backup)
     nav = actors.spawn_actor_from_class(
         unreal.NavMeshBoundsVolume, CENTER, unreal.Rotator(0.0, 0.0, 0.0))
