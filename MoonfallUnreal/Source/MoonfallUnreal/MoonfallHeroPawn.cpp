@@ -1340,7 +1340,7 @@ void AMoonfallHeroPawn::OptionsUp() {
   KeepInventorySelectionVisible();
   return;
  }
- if (bOptionsOpen) OptionsSelection = (OptionsSelection + 6) % 7;
+ if (bOptionsOpen) OptionsSelection = (OptionsSelection + 7) % 8;
 }
 void AMoonfallHeroPawn::OptionsDown() {
  if (FocusedResident.IsValid() && !bOptionsOpen && !bInventoryOpen) {
@@ -1356,7 +1356,7 @@ void AMoonfallHeroPawn::OptionsDown() {
   KeepInventorySelectionVisible();
   return;
  }
- if (bOptionsOpen) OptionsSelection = (OptionsSelection + 1) % 7;
+ if (bOptionsOpen) OptionsSelection = (OptionsSelection + 1) % 8;
 }
 void AMoonfallHeroPawn::OptionsLeft() {
  if (bInventoryOpen) return;
@@ -1412,6 +1412,11 @@ void AMoonfallHeroPawn::AdjustOption(int32 Direction) {
    GConfig->Flush(false, GGameUserSettingsIni);
   }
   return;
+ } else if (OptionsSelection == 7) {
+  // Cycle the two supported window modes in either direction.
+  const EWindowMode::Type CurrentMode = Settings->GetFullscreenMode();
+  Settings->SetFullscreenMode(CurrentMode == EWindowMode::Windowed
+      ? EWindowMode::WindowedFullscreen : EWindowMode::Windowed);
  }
  Settings->ApplySettings(false);
  Settings->SaveSettings();
@@ -2628,7 +2633,7 @@ void AMoonfallHeroPawn::ResidentContextMouseClick() {
      OpenOptions();
     } else {
      // Same seven row and +/- button geometry as MoonfallCombatHUD.
-     const float RowGap = (MenuHeight - 130.f) / 7.f;
+     const float RowGap = (MenuHeight - 130.f) / 8.f;
      const float RowHeight = FMath::Min(38.f, RowGap - 2.f);
      const float FirstRowY = MenuTop + 63.f;
      const int32 ClickedRow = FMath::FloorToInt((MouseY - FirstRowY) / RowGap);
