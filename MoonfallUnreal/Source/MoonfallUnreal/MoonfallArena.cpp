@@ -27,7 +27,13 @@ void AMoonfallArena::BeginPlay() {
  CreateBlock(FVector(1500,0,200),FVector(1,30,5));
  CreateBlock(FVector(-1500,0,200),FVector(1,30,5));
  CreateBlock(FVector(0,1500,200),FVector(30,1,5));
- CreateBlock(FVector(0,-1500,200),FVector(30,1,5));
+ // Southern gate: a 400-unit opening aligns with the walkable dungeon road.
+ // Split only this boundary; retain divine encounters, NPCs and shrine layout.
+ CreateBlock(FVector(-850,-1500,200),FVector(13,1,5));
+ CreateBlock(FVector(850,-1500,200),FVector(13,1,5));
+ // Ground bridge between arena Y=-1500 and first dungeon floor edge Y=-2500.
+ // Same top surface (Z=0) as the dungeon; no teleport or level load.
+ CreateBlock(FVector(0,-2000,-20),FVector(5,10,0.4f));
  if (!GetWorld()) return;
  // World shrines are discovered by walking into their proximity, not by
  // defeating a boss or using an attack key. Stable IDs persist between saves.
