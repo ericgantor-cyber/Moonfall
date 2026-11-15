@@ -516,7 +516,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             self.assertGreaterEqual(stats.count(f"InventoryItemCodes.Contains({code})"), 2)
         self.assertIn("InventoryItemCodes.Contains(Codes[Slot])", sets)
 
-        self.assertNotIn("InventoryItemCodes", sets)
+        # Inventory is used only as proof of ownership, never as a source of worn stats.
+        self.assertIn("InventoryItemCodes.Contains(Codes[Slot])", sets)
+        self.assertNotIn("for (int32 Code : InventoryItemCodes)", sets)
         self.assertIn("GetSetPieceCount(1) >= 2 ? 0.03f", self.hero_cpp)
         self.assertIn("GetSetPieceCount(1) >= 3 ? 0.04f", self.hero_cpp)
         self.assertIn("GetSetPieceCount(2) >= 2 ? 0.03f", self.hero_cpp)
