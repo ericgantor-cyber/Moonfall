@@ -71,6 +71,14 @@ float ValidEquippedTraitRarity(int32 Code, int32 Slot, int32 ExpectedTrait)
 }
 }
 
+int32 AMoonfallHeroPawn::GetValidatedEquippedTier(int32 Slot) const
+{
+ if (Slot < 0 || Slot > 2) return 0;
+ const int32 Code = Slot == 0 ? EquippedWeaponCode
+     : (Slot == 1 ? EquippedArmorCode : EquippedAccessoryCode);
+ return InventoryItemCodes.Contains(Code) ? ValidEquippedTier(Code, Slot) : 0;
+}
+
 int32 AMoonfallHeroPawn::GetSetPieceCount(int32 Affix) const
 {
  if (Affix < 1 || Affix > 3) return 0;
