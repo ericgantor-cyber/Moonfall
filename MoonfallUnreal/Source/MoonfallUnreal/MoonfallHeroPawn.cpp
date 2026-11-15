@@ -1842,6 +1842,21 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
    return false;
   }
  }
+ // Validate worn references before restoring anything. Otherwise RestoreGear
+ // would clear an unowned or wrong-slot item and a later autosave would
+ // permanently overwrite the original save with the missing equipment.
+ const int32 SavedWornCodes[3] = {
+  Save->EquippedWeaponCode, Save->EquippedArmorCode, Save->EquippedAccessoryCode
+ };
+ for (int32 Slot = 0; Slot < 3; ++Slot) {
+  const int32 Code = SavedWornCodes[Slot];
+  if (Code != 0 && (!ValidMoonfallItemCode(Code)
+      || ((Code / 10000) % 10) != Slot || !Save->InventoryItemCodes.Contains(Code))) {
+   bPersistentSaveWritesBlocked = true;
+   UE_LOG(LogTemp, Warning, TEXT("Moonfall save has inconsistent equipped gear; original save protected."));
+   return false;
+  }
+ }
  // Validate the V7 discovered-shrine ledger before touching live progress.
  // Old V1-V6 saves retain their legacy checkpoint until a shrine is found.
  if (Save->Version >= 7) {
