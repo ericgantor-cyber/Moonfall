@@ -423,9 +423,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("FMath::Min(860.f, FMath::Max(280.f, Canvas->SizeY - 24.f))", self.hud)
         self.assertIn("FMath::Min(800.f, FMath::Max(280.f, Canvas->SizeX - 24.f))", self.hud)
         self.assertIn("const int32 PerPage = Hero->GetInventoryVisibleRows();", self.hud)
-        self.assertIn("if (InventorySelection < InventoryViewStart)", selection)
-        self.assertIn("InventorySelection >= InventoryViewStart + Rows", selection)
-        self.assertIn("InventoryViewStart = InventorySelection - Rows + 1;", selection)
+        self.assertIn("if (SelectedRow < InventoryViewStart)", selection)
+        self.assertIn("SelectedRow >= InventoryViewStart + Rows", selection)
+        self.assertIn("InventoryViewStart = SelectedRow - Rows + 1;", selection)
         self.assertIn("InventoryViewStart = FMath::Clamp(InventoryViewStart, 0, MaxStart);", selection)
         self.assertIn("InventoryItemCodes.Num() - GetInventoryVisibleRows()", self.hero_cpp)
         self.assertIn("Mouse wheel: scroll", self.hud)
@@ -443,7 +443,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("PC->GetMousePosition(MouseX, MouseY)", hit)
         self.assertIn("const int32 Start = FMath::Clamp(InventoryViewStart", hit)
         self.assertIn("const int32 End = FMath::Min(Count, Start + Rows);", hit)
-        self.assertIn("InventoryItemCodes.IsValidIndex(Index)", hit)
+        self.assertIn("InventoryItemCodes.IsValidIndex(Order[DisplayPosition])", hit)
         left = self.hero_cpp.split("void AMoonfallHeroPawn::ResidentContextMouseClick()", 1)[1].split("\n}", 1)[0]
         right = self.hero_cpp.split("void AMoonfallHeroPawn::CastRightMouse()", 1)[1].split("\n}", 1)[0]
         self.assertIn("if (bInventoryOpen)", left)
@@ -482,6 +482,37 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             self.assertNotIn("EquipSelectedInventoryItem()", horizontal)
             self.assertNotIn("EquipInventoryItem(", horizontal)
         self.assertIn("EquipSelectedInventoryItem()", confirm)
+
+    def test_mouse_sort_is_visual_only_and_safe_with_controller_selection(self):
+        sort = self.hero_cpp.split("TArray<int32> AMoonfallHeroPawn::GetInventoryDisplayOrder() const", 1)[1].split("\n}", 1)[0]
+        button = self.hero_cpp.split("bool AMoonfallHeroPawn::HitTestInventorySortButton() const", 1)[1].split("\n}", 1)[0]
+        left = self.hero_cpp.split("void AMoonfallHeroPawn::ResidentContextMouseClick()", 1)[1].split("\n}", 1)[0]
+        right = self.hero_cpp.split("void AMoonfallHeroPawn::CastRightMouse()", 1)[1].split("\n}", 1)[0]
+        selection = self.hero_cpp.split("void AMoonfallHeroPawn::KeepInventorySelectionVisible()", 1)[1].split("\n}", 1)[0]
+        self.assertIn("int32 InventorySortMode = 0;", self.hero_h)
+        self.assertIn("GetInventoryDisplayOrder() const;", self.hero_h)
+        self.assertIn("TArray<int32> Order;", sort)
+        self.assertIn("Order.Sort([this](int32 A, int32 B)", sort)
+        self.assertIn("if (InventorySortMode == 1)", sort)
+        self.assertIn("if (SlotA != SlotB)", sort)
+        self.assertIn("return A < B;", sort)
+        for forbidden in ("InventoryItemCodes.Sort(", "InventoryItemCodes.RemoveAt(", "EquipInventoryItem(", "SaveWorldProgress("):
+            self.assertNotIn(forbidden, sort)
+        self.assertIn("const int32 DisplaySelection = GetInventoryDisplayOrder().Find(InventorySelection);", selection)
+        self.assertIn("const TArray<int32> DisplayOrder = Hero->GetInventoryDisplayOrder();", self.hud)
+        self.assertIn("const int32 Index = DisplayOrder[DisplayPosition];", self.hud)
+        self.assertIn("const float Y = Top + 145.f + (DisplayPosition - PageStart) * RowSpacing;", self.hud)
+        self.assertIn("const float SortWidth = PanelWidth < 550.f ? 105.f : 172.f;", button)
+        self.assertIn("const float SortY = Top + 14.f;", button)
+        self.assertIn("const float SortY = Top + 14.f;", self.hud)
+        self.assertIn("SORT: QUALITY", self.hud)
+        self.assertIn("SORT: SLOT", self.hud)
+        self.assertIn("if (HitTestInventorySortButton())", left)
+        self.assertIn("InventorySortMode = (InventorySortMode + 1) % 3;", left)
+        self.assertLess(left.index("if (HitTestInventorySortButton())"), left.index("HitTestInventoryRow()"))
+        self.assertIn("if (HitTestInventorySortButton()) return;", right)
+        self.assertNotIn("EquipInventoryItem(", button)
+        self.assertIn("InventoryItemCodes.IsValidIndex(Order[DisplayPosition])", self.hero_cpp)
 
     def test_nearby_batch_loot_is_range_and_cover_safe(self):
         pickup = self.hero_cpp.split("void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[1].split(
