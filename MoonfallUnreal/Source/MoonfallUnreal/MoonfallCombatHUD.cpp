@@ -105,6 +105,12 @@ void AMoonfallCombatHUD::DrawHUD()
   DrawRect(FLinearColor(0.04f, 0.035f, 0.10f, 0.96f), Left, Top, PanelWidth, PanelHeight);
   DrawText(PanelWidth < 550.f ? TEXT("INVENTORY") : TEXT("MOONFALL  |  INVENTORY"),
     FLinearColor::White, Left + 18.f, Top + 16.f, nullptr, PanelWidth < 550.f ? 0.93f : 1.3f);
+  // Shared close button is visible on inventory and character views.
+  const float CloseSortWidth = PanelWidth < 550.f ? 105.f : 172.f;
+  const float CloseSortX = Left + PanelWidth - CloseSortWidth - 14.f;
+  const float CloseButtonX = CloseSortX - 36.f;
+  DrawRect(FLinearColor(0.37f,0.16f,0.22f,0.96f), CloseButtonX, Top + 14.f, 28.f, 28.f);
+  DrawText(TEXT("X"), FLinearColor::White, CloseButtonX + 9.f, Top + 18.f, nullptr, 0.9f);
   if (Hero->bCharacterStatsOpen) {
    // Character sheet is a read-only page. Inventory operations remain locked
    // while it is open; controller and keyboard switch pages with the same input.
