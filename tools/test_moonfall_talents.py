@@ -11,6 +11,13 @@ class TalentTests(unittest.TestCase):
     def setUpClass(cls):
         cls.tree = load()
 
+    def test_two_points_are_earned_per_character_level(self):
+        self.assertEqual(self.tree["points_per_level"], 2)
+        self.assertEqual(self.tree["starting_points"], 0)
+        self.assertEqual(evaluate(1, {}, self.tree)["earned"], 0)
+        self.assertEqual(evaluate(5, {}, self.tree)["earned"], 8)
+        self.assertEqual(evaluate(16, {}, self.tree)["earned"], 30)
+
     def test_141_nodes_three_open_branches(self):
         self.assertEqual(len(self.tree["nodes"]), 141)
         self.assertEqual({branch: sum(node["branch"] == branch for node in self.tree["nodes"])
