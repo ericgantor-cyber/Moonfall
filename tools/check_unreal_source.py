@@ -703,7 +703,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("if (ResidentContextSelection != Row)   if", mouse)
 
     def test_options_mouse_selects_all_visible_settings_rows(self):
-        mouse = self.hero_cpp.split("void AMoonfallHeroPawn::ResidentContextMouseClick()", 1)[1].split("\\n}", 1)[0]
+        mouse = self.hero_cpp.split("void AMoonfallHeroPawn::ResidentContextMouseClick()", 1)[1].split("\n}", 1)[0]
         options = mouse.split("if (bOptionsOpen)", 1)[1].split("if (bInventoryOpen)", 1)[0]
         self.assertIn("const float RowGap = (MenuHeight - 130.f) / 7.f;", options)
         self.assertIn("const float FirstRowY = MenuTop + 63.f;", options)
