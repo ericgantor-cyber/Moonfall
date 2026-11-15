@@ -171,7 +171,7 @@ void AMoonfallCombatHUD::DrawHUD()
   if (Count == 0)
    DrawText(TEXT("No equipment yet. Defeat enemies to find gear."), FLinearColor::White,
      Left + 18.f, Top + 100.f, nullptr, 0.92f);
-  const float RowSpacing = FMath::Max(21.f, (PanelHeight - 290.f) / PerPage);
+  const float RowSpacing = FMath::Max(21.f, (PanelHeight - 390.f) / PerPage);
   for (int32 DisplayPosition = PageStart; DisplayPosition < PageEnd; ++DisplayPosition) {
    const int32 Index = DisplayOrder[DisplayPosition];
    const int32 Code = Hero->InventoryItemCodes[Index];
@@ -294,6 +294,43 @@ void AMoonfallCombatHUD::DrawHUD()
      && SelectedAffix >= 0 && SelectedAffix <= 3
      && SelectedCode == SelectedAffix * 100000 + SelectedSlot * 10000
        + SelectedRarity * 1000 + SelectedTier;
+   // A dedicated, read-only selected-item summary above crafting and comparison.
+   // Keep this area hidden on very short viewports to avoid covering bag rows.
+   if (PanelHeight >= 500.f) {
+    const TCHAR* DetailSlots[] = {TEXT("Weapon"), TEXT("Armor"), TEXT("Accessory")};
+    const TCHAR* DetailRarities[] = {TEXT("Common"), TEXT("Uncommon"), TEXT("Rare"),
+      TEXT("Epic"), TEXT("Emerald"), TEXT("Legendary")};
+    const TCHAR* DetailTraits[] = {TEXT("None"), TEXT("Force"), TEXT("Ward"), TEXT("Focus")};
+    const bool bValidDetail = SelectedCode > 0 && SelectedSlot >= 0 && SelectedSlot <= 2
+      && SelectedRarity >= 0 && SelectedRarity <= 5
+      && SelectedAffix >= 0 && SelectedAffix <= 3 && SelectedTier >= 1 && SelectedTier <= 25
+      && (SelectedRarity != 0 || SelectedAffix == 0)
+      && SelectedCode == SelectedAffix * 100000 + SelectedSlot * 10000
+        + SelectedRarity * 1000 + SelectedTier;
+    const FLinearColor DetailColors[] = {FLinearColor(0.90f,0.90f,0.90f),
+      FLinearColor(0.25f,0.69f,1.f), FLinearColor(0.96f,0.79f,0.25f),
+      FLinearColor(0.72f,0.35f,0.96f), FLinearColor(0.23f,0.84f,0.42f),
+      FLinearColor(1.f,0.52f,0.12f)};
+    const FString ItemName = bValidDetail
+      ? FString::Printf(TEXT("SELECTED  |  %s  |  %s  |  Tier %d  |  %s"),
+          DetailSlots[SelectedSlot], DetailRarities[SelectedRarity], SelectedTier,
+          DetailTraits[SelectedAffix])
+      : TEXT("SELECTED  |  Invalid equipment data");
+    DrawText(ItemName,
+      bValidDetail ? DetailColors[SelectedRarity] : FLinearColor(1.f,0.48f,0.46f),
+      Left + 18.f, Top + PanelHeight - 230.f, nullptr, PanelWidth < 550.f ? 0.61f : 0.78f);
+    const int32 SetPieces = bValidDetail && SelectedAffix > 0
+      ? Hero->GetSetPieceCount(SelectedAffix) : 0;
+    const TCHAR* SetEffects[] = {TEXT("No set trait"), TEXT("2pc: +3% crit  |  3pc: +4% mastery"),
+      TEXT("2pc: +3% versatility  |  3pc: +2.5% protection"),
+      TEXT("2pc: +4% haste  |  3pc: +6% mana regen")};
+    const FString SetLine = bValidDetail && SelectedAffix > 0
+      ? FString::Printf(TEXT("EQUIPPED SET: %s %d/3  |  %s"),
+          DetailTraits[SelectedAffix], SetPieces, SetEffects[SelectedAffix])
+      : TEXT("EQUIPPED SET: no set bonus from this item");
+    DrawText(SetLine, FLinearColor(0.59f,0.95f,0.77f),
+      Left + 18.f, Top + PanelHeight - 207.f, nullptr, PanelWidth < 550.f ? 0.56f : 0.68f);
+   }
    const int32 ReforgeCost = 12 + SelectedTier * 2 + SelectedRarity * 8;
    DrawText(bReforgeable
      ? FString::Printf(TEXT("Reforge trait: %d salvage  [%s]"),
