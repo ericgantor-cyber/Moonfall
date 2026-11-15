@@ -431,6 +431,24 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("InventoryItemCodes.Sort(", selection)
         self.assertNotIn("EquipInventoryItem(", selection)
 
+    def test_big_inventory_page_navigation_is_guarded_and_non_destructive(self):
+        inputs = (ROOT.parents[2] / "MoonfallUnreal" / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
+        for action, key in (("InventoryPageUp", "PageUp"), ("InventoryPageDown", "PageDown"),
+                            ("InventoryFirst", "Home"), ("InventoryLast", "End")):
+            self.assertIn(f'ActionName="{action}",Key={key}', inputs)
+            self.assertIn(f'BindAction(TEXT("{action}"), IE_Pressed', self.hero_cpp)
+            self.assertIn(f'void {action}();', self.hero_h)
+            method = self.hero_cpp.split(f"void AMoonfallHeroPawn::{action}()", 1)[1].split("\n}", 1)[0]
+            self.assertIn("Health <= 0.f || !bInventoryOpen || bCharacterStatsOpen || bOptionsOpen", method)
+            self.assertIn("InventorySelection =", method)
+            self.assertIn("KeepInventorySelectionVisible();", method)
+            for forbidden in ("EquipInventoryItem(", "SalvageInventoryItem(", "SaveWorldProgress(", "InventoryItemCodes.RemoveAt("):
+                self.assertNotIn(forbidden, method)
+        self.assertIn("InventorySelection + GetInventoryVisibleRows()", self.hero_cpp)
+        self.assertIn("InventorySelection - GetInventoryVisibleRows()", self.hero_cpp)
+        self.assertIn("PgUp/PgDn: page", self.hud)
+        self.assertIn("Home/End: first/last", self.hud)
+
     def test_nearby_batch_loot_is_range_and_cover_safe(self):
         pickup = self.hero_cpp.split("void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[1].split(
             "void AMoonfallHeroPawn::EquipBestInventoryAction()", 1)[0]
