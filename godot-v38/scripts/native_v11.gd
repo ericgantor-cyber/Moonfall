@@ -133,6 +133,7 @@ var inventory_filter:String="All"
 var inventory_sort:String="Default"
 var inventory_page:int=0
 var inventory_show_vault:bool=false
+var inventory_selected_index:int=-1
 var inventory_search_input:LineEdit
 var equipped: Dictionary = {}
 var skinning_skill := 1
@@ -1133,6 +1134,7 @@ func _inventory_action(action:String)->void:
  match action:
   "inventory_toggle":
    inventory_show_vault=not inventory_show_vault
+   inventory_selected_index=-1
    inventory_page=0
   "inventory_filter":
    var filters: Array[String]=["All","Common","Uncommon","Rare","Epic","Legendary","Mythic","Crafted"]
@@ -1157,11 +1159,13 @@ func _inventory_action(action:String)->void:
    if action.begins_with("inventory_deposit:"):
     var idx:int=int(action.get_slice(":",1))
     if INVENTORY_RULES.transfer_gear(gear_items,vault_items,idx,INVENTORY_RULES.VAULT_LIMIT):
+     inventory_selected_index=-1
      _save_game()
     else:_show_message("Vault full or item unavailable.",2)
    elif action.begins_with("inventory_withdraw:"):
     var idx:int=int(action.get_slice(":",1))
     if INVENTORY_RULES.transfer_gear(vault_items,gear_items,idx,bag_capacity):
+     inventory_selected_index=-1
      _save_game()
     else:_show_message("Bag full or item unavailable.",2)
 
@@ -1247,6 +1251,7 @@ func _menu_tab(which: String) -> void:
     var index:int=matches[n]
     var gear:Dictionary=source[index]
     text+=str(index+1)+". "+str(gear.get("rarity","Common"))+" "+str(gear.get("name","Gear"))+" • Power "+str(gear.get("power",0))+"\n"
+    _atlas_action(("SELECTED: " if inventory_selected_index==index else "VIEW: ")+str(gear.get("name","Gear")),"inventory_select:"+str(index),"Left-click to inspect; right-click to equip from bag.")
     if inventory_show_vault:
      _atlas_action("WITHDRAW: "+str(gear.get("name","Gear")),"inventory_withdraw:"+str(index))
     else:
@@ -1255,6 +1260,11 @@ func _menu_tab(which: String) -> void:
    if matches.is_empty():text+="No matching equipment. Defeat enemies or change your search.\n"
    if inventory_page>0:_atlas_action("PREVIOUS PAGE","inventory_page_prev")
    if inventory_page+1<pages:_atlas_action("NEXT PAGE","inventory_page_next")
+   if inventory_selected_index>=0 and inventory_selected_index<source.size():
+    var selected:Dictionary=source[inventory_selected_index]
+    text+="\n[b]SELECTED ITEM[/b] "+str(selected.get("name","Gear"))+" • "+str(selected.get("rarity","Common"))+" • Power "+str(selected.get("power",0))
+    if selected.has("affix"):text+="\nAffix: "+str(selected.get("affix",""))+" • "+str(selected.get("affix_value",0))
+    text+="\nWithdraw before equipping." if inventory_show_vault else "\nRight-click VIEW to equip or use the Equip button."
    text+="\nEquipped: "+str(equipped.get("name","None"))+" • Power "+str(_equipment_power())
    menu_body.text=text
   "Materials":
@@ -1329,7 +1339,7 @@ func _atlas_action(label: String, action: String, tip: String="") -> void:
  if tip!="":button.tooltip_text=tip
  button.custom_minimum_size=Vector2(270,38)
  button.focus_mode=Control.FOCUS_ALL
- if action.begins_with("equip:"):
+ if action.begins_with("equip:") or action.begins_with("inventory_select:"):
   button.tooltip_text=(tip+"\n" if tip!="" else "")+"Left-click or right-click to equip."
   button.gui_input.connect(_atlas_equip_mouse_input.bind(action))
  button.pressed.connect(_atlas_execute.bind(action))
@@ -1338,7 +1348,10 @@ func _atlas_action(label: String, action: String, tip: String="") -> void:
 func _atlas_equip_mouse_input(event:InputEvent,action:String)->void:
  if not menu_open or current_tab!="Inventory":return
  if event is InputEventMouseButton and event.pressed and event.button_index==MOUSE_BUTTON_RIGHT:
-  _atlas_execute(action)
+  if action.begins_with("inventory_select:"):
+   if inventory_show_vault:return
+   _atlas_execute("equip:"+action.get_slice(":",1))
+  else:_atlas_execute(action)
   get_viewport().set_input_as_handled()
 
 func _branch_hex(branch: String) -> String:
@@ -1347,6 +1360,13 @@ func _branch_hex(branch: String) -> String:
  return "#7fcce9"
 
 func _atlas_execute(action: String) -> void:
+ if action.begins_with("inventory_select:"):
+  var selected_index:int=int(action.get_slice(":",1))
+  var inventory_source:Array=vault_items if inventory_show_vault else gear_items
+  if selected_index<0 or selected_index>=inventory_source.size():return
+  inventory_selected_index=selected_index
+  _menu_tab("Inventory")
+  return
  if action.begins_with("inventory_"):
   _inventory_action(action)
   _menu_tab("Inventory")
@@ -2816,6 +2836,7 @@ func _use_consumable(item: String) -> void:
 
 func _equip(index: int) -> void:
  if index<0 or index>=gear_items.size():return
+ inventory_selected_index=index
  equipped=INVENTORY_RULES.equip_copy(gear_items,index)
  _show_message("Equipped "+str(equipped["name"]),2)
  _save_game()
