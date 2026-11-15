@@ -443,7 +443,8 @@ void AMoonfallCombatHUD::DrawHUD()
     TEXT("EPIC"), TEXT("EMERALD"), TEXT("LEGENDARY") };
   const int32 Rarity = FMath::Clamp(Hero->LastLootRarity, 0, 5);
   DrawText(FString::Printf(TEXT("Gear W:%d A:%d C:%d | Salvage %d | Bag %d"),
-   Hero->WeaponTier, Hero->ArmorTier, Hero->AccessoryTier, Hero->Salvage, Hero->InventoryItemCodes.Num()),
+   Hero->GetValidatedEquippedTier(0), Hero->GetValidatedEquippedTier(1),
+    Hero->GetValidatedEquippedTier(2), Hero->Salvage, Hero->InventoryItemCodes.Num()),
    FLinearColor(0.85f,0.84f,0.95f), 24.f, Canvas->SizeY - 75.f, nullptr, 0.8f);
   if (Hero->InventoryItemCodes.Num() > 0) {
    DrawText(FString::Printf(TEXT("Last drop: %s Tier %d (%+d vs equipped)"),
