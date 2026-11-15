@@ -404,7 +404,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Hero->EquippedWeaponCode", self.hud)
         self.assertIn("Hero->EquippedArmorCode", self.hud)
         self.assertIn("Hero->EquippedAccessoryCode", self.hud)
-        self.assertIn("I / Select / Esc: close", self.hud)
+        self.assertIn("B / I / Select / Esc: close", self.hud)
         self.assertNotIn("FinisherShockwave", self.hero_cpp)
 
     def test_diablo_style_ground_loot_requires_explicit_pickup(self):
@@ -978,7 +978,13 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("GetMight() * 0.001f", self.hero_cpp)
         self.assertIn("GetInsight() * 0.002f", self.hero_cpp)
         self.assertIn("GetResolve() * 0.003f", self.hero_cpp)
-        self.assertIn("if (bInventoryOpen && !bOptionsOpen && Health > 0.f)", self.hero_cpp)
+        stats = self.hero_cpp.split("void AMoonfallHeroPawn::ToggleCharacterStats()", 1)[1].split(
+            "void AMoonfallHeroPawn::ToggleInventory()", 1)[0]
+        self.assertIn("if (!bInventoryOpen) {", stats)
+        self.assertIn("ToggleInventory();", stats)
+        self.assertIn("bCharacterStatsOpen = true;", stats)
+        self.assertIn("bCharacterStatsOpen = !bCharacterStatsOpen;", stats)
+        self.assertIn("if (bOptionsOpen || Health <= 0.f || !FMath::IsFinite(Health)) return;", stats)
         self.assertIn("if (!bInventoryOpen) bCharacterStatsOpen = false;", self.hero_cpp)
         self.assertIn("if (!bCharacterStatsOpen) ForgeInventoryItemLevels(InventorySelection, 5);", self.hero_cpp)
         self.assertIn("if (!bCharacterStatsOpen) ReforgeInventoryItemAffix(InventorySelection);", self.hero_cpp)
@@ -986,8 +992,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("PRIMARY ATTRIBUTES", hud)
         self.assertIn("SECONDARY STATS", hud)
         self.assertIn("EQUIPMENT SET BONUSES", hud)
-        self.assertIn("P / A: back to inventory", hud)
-        self.assertIn("P / A: character stats", hud)
+        self.assertIn("C / P / A: back to inventory", hud)
+        self.assertIn("C / P / A: character stats", hud)
 
     def test_wow_inspired_secondary_stats_and_three_slot_trait_sets(self):
         hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
