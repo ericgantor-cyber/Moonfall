@@ -147,6 +147,14 @@ class ClasslessTalentUIScreen(unittest.TestCase):
         self.assertIn('v406_applied_health_bonus=0.0', self.screen)
         self.assertGreaterEqual(self.screen.count('_v406_sync_health()'), 4)
 
+    def test_health_talents_recalculate_after_respec_and_new_game(self):
+        respec = self.screen.split('func _v406_respec()->void:', 1)[1].split('func _v398_toggle_tree()', 1)[0]
+        self.assertLess(respec.index('v406_ranks=changed["allocations"].duplicate(true)'),
+                        respec.index('_v406_sync_health()'))
+        self.assertLess(respec.index('_v406_sync_health()'), respec.index('_save_game()'))
+        start = self.screen.split('func _start_game(selected_hero:String)->void:', 1)[1].split('func _checkpoint_extra_data()', 1)[0]
+        self.assertIn('v406_applied_health_bonus=0.0', start)
+
     def test_original_art_assets_still_preloaded(self):
         self.assertIn('Z_Original.webp', (ROOT / "godot-v38/scripts/main.gd").read_text(encoding="utf-8"))
         self.assertIn('Nyra_Original.png', (ROOT / "godot-v38/scripts/main.gd").read_text(encoding="utf-8"))
