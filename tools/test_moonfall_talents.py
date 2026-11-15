@@ -18,8 +18,14 @@ class TalentTests(unittest.TestCase):
 
     def test_level_gives_points_without_auto_allocating_talents(self):
         state = evaluate(5, {}, self.tree)
-        self.assertEqual((state["earned"], state["available"], state["spent"]), (4, 4, 0))
+        self.assertEqual((state["earned"], state["available"], state["spent"]), (8, 8, 0))
         self.assertEqual(state["allocations"], {})
+
+    def test_two_talent_points_per_level_gained(self):
+        self.assertEqual(self.tree["points_per_level"], 2)
+        for level, earned in ((1, 0), (2, 2), (5, 8), (10, 18), (100, 198)):
+            with self.subTest(level=level):
+                self.assertEqual(evaluate(level, {}, self.tree)["available"], earned)
 
     def test_prerequisite_and_level_gate(self):
         with self.assertRaisesRegex(ValueError, "Missing talent prerequisite"):
@@ -32,10 +38,10 @@ class TalentTests(unittest.TestCase):
 
     def test_spending_and_respec(self):
         state = spend(10, {}, "spirit_well", self.tree)
-        self.assertEqual(state["available"], 8)
+        self.assertEqual(state["available"], 17)
         self.assertEqual(state["bonuses"]["mana"]["flat"], 8)
         reset = respec(10, self.tree)
-        self.assertEqual(reset["available"], 9)
+        self.assertEqual(reset["available"], 18)
         self.assertEqual(reset["bonuses"]["mana"]["flat"], 0)
         self.assertEqual(reset["allocations"], {})
 
@@ -54,14 +60,14 @@ class TalentTests(unittest.TestCase):
             self.assertEqual(node["max_rank"], limits[node["tier"]])
         self.assertEqual(sum(n["max_rank"] for n in self.tree["nodes"]), 36)
         state = evaluate(10, {"iron_will": 5, "breaker": 3}, self.tree)
-        self.assertEqual((state["spent"], state["available"]), (8, 1))
+        self.assertEqual((state["spent"], state["available"]), (8, 10))
         self.assertAlmostEqual(state["bonuses"]["melee_damage"]["percent"], .27)
         with self.assertRaisesRegex(ValueError, "Invalid allocated rank"):
             spend(10, state["allocations"], "breaker", self.tree)
         with self.assertRaisesRegex(ValueError, "Not enough talent points"):
-            evaluate(5, {"iron_will": 5}, self.tree)
+            evaluate(3, {"iron_will": 5}, self.tree)
         reset = respec(10, self.tree, current=state["allocations"])
-        self.assertEqual((reset["spent"], reset["available"]), (0, 9))
+        self.assertEqual((reset["spent"], reset["available"]), (0, 18))
 
     def test_multirank_spend_progression(self):
         state = evaluate(10, {}, self.tree)
@@ -134,7 +140,7 @@ class TalentTests(unittest.TestCase):
         self.assertEqual(state["spent"], 3)
         reset = respec(10, self.tree)
         self.assertEqual(reset["spent"], 0)
-        self.assertEqual(reset["available"], 9)
+        self.assertEqual(reset["available"], 18)
         self.assertEqual(reset["allocations"], {})
         self.assertEqual(original, {"iron_will": 1, "breaker": 1, "spirit_well": 1})
 
@@ -142,7 +148,7 @@ class TalentTests(unittest.TestCase):
         original = {"iron_will": 1, "breaker": 1, "spirit_well": 1}
         reset = respec(10, self.tree, current=original)
         self.assertEqual(reset["spent"], 0)
-        self.assertEqual(reset["available"], 9)
+        self.assertEqual(reset["available"], 18)
         self.assertEqual(reset["allocations"], {})
         self.assertEqual(original, {"iron_will": 1, "breaker": 1, "spirit_well": 1})
 
@@ -161,7 +167,7 @@ class TalentTests(unittest.TestCase):
 
     def test_respec_omitted_current_remains_compatible(self):
         fresh = respec(10, self.tree)
-        self.assertEqual(fresh["available"], 9)
+        self.assertEqual(fresh["available"], 18)
         self.assertEqual(fresh["allocations"], {})
         with self.assertRaisesRegex(ValueError, "Allocations must be a map"):
             respec(10, self.tree, current=None)
