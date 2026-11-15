@@ -1427,8 +1427,7 @@ void AMoonfallHeroPawn::AwardEquipmentDrop(bool bEliteEnemy, bool bBossEnemy)
  if (InventoryItemCodes.Num() >= 10000) return;
  const int32 ItemCode = RollEquipmentCode(bEliteEnemy, bBossEnemy);
  if (!ValidMoonfallItemCode(ItemCode)) return;
- const int32 NewTier = LastLootTier;
- // Do not reject new loot, automatically salvage, or silently discard items.
+ // Keep every valid scripted reward in the bag without equipping it.
  // The paginated inventory supports growth beyond the former 30-slot limit.
  InventoryItemCodes.Add(ItemCode);
  InventorySelection = FMath::Clamp(InventorySelection, 0, InventoryItemCodes.Num() - 1);
