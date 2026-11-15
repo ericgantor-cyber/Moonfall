@@ -3684,6 +3684,12 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         combat = layout.split("bool AMoonfallDungeonLayout::StartCombatChamber(", 1)[1]
         self.assertIn("GetChamberType(ChamberIndex) != 1", combat)
         self.assertIn("FMath::Max(0, 6 - SpawnedEncounterCount)", combat)
+        self.assertIn("constexpr int32 MaxLiveWorldEnemies = 60;", combat)
+        self.assertIn("TActorIterator<AMoonfallEnemy> It(GetWorld())", combat)
+        self.assertIn("if (++AliveWorldEnemies >= MaxLiveWorldEnemies) return false;", combat)
+        self.assertIn("FMath::Min(Requested, MaxLiveWorldEnemies - AliveWorldEnemies)", combat)
+        self.assertLess(combat.index("if (++AliveWorldEnemies >= MaxLiveWorldEnemies)"),
+                        combat.index("SpawnActorDeferred<AMoonfallEnemy>"))
         self.assertIn("if (Remaining == 0) return true;", combat)
         self.assertIn("FMath::Clamp(EnemiesPerCombatChamber, 1, 2)", combat)
         self.assertIn("SpawnActorDeferred<AMoonfallEnemy>", combat)
