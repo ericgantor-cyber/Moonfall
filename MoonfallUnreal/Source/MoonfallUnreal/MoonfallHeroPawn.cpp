@@ -2068,6 +2068,21 @@ int32 AMoonfallHeroPawn::GetDiscoveredDungeonCount(int32 Zone) const
  return Count;
 }
 
+int32 AMoonfallHeroPawn::GetNextUnchartedDungeonZone() const
+{
+ for (int32 Zone = 0; Zone < 6; ++Zone)
+  if (GetDiscoveredDungeonCount(Zone) < 5) return Zone;
+ return INDEX_NONE;
+}
+
+int32 AMoonfallHeroPawn::GetTotalDiscoveredDungeons() const
+{
+ int32 Count = 0;
+ for (int32 Zone = 0; Zone < 6; ++Zone)
+  Count += GetDiscoveredDungeonCount(Zone);
+ return Count;
+}
+
 bool AMoonfallHeroPawn::DiscoverDungeonEntrance(int32 Zone, int32 Dungeon)
 {
  if (Zone < 0 || Zone >= 6 || Dungeon < 0 || Dungeon >= 5
@@ -2076,6 +2091,7 @@ bool AMoonfallHeroPawn::DiscoverDungeonEntrance(int32 Zone, int32 Dungeon)
      || bPersistentSaveWritesBlocked || !GetWorld()
      || HasDiscoveredDungeon(Zone, Dungeon)) return false;
  const int32 PreviousMask = DiscoveredDungeonMask;
+ const bool bCompletesZone = GetDiscoveredDungeonCount(Zone) == 4;
  DiscoveredDungeonMask |= static_cast<int32>(1u << (Zone * 5 + Dungeon));
  // Persist atomically before notifying UI. Failed writes roll back the bit,
  // while the original slot remains intact.
@@ -2084,6 +2100,8 @@ bool AMoonfallHeroPawn::DiscoverDungeonEntrance(int32 Zone, int32 Dungeon)
   return false;
  }
  OnDungeonDiscovered(Zone, Dungeon);
+ // The fifth distinct entrance charts the zone once, after durable saving.
+ if (bCompletesZone) OnDungeonZoneCharted(Zone);
  return true;
 }
 
