@@ -4,6 +4,7 @@
 #include "Components/BoxComponent.h"
 #include "Components/InstancedStaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
+#include "Math/RandomStream.h"
 #include "UObject/ConstructorHelpers.h"
 
 AMoonfallDungeonLayout::AMoonfallDungeonLayout()
@@ -15,10 +16,14 @@ AMoonfallDungeonLayout::AMoonfallDungeonLayout()
  Floors->SetupAttachment(Root);
  Walls = CreateDefaultSubobject<UInstancedStaticMeshComponent>(TEXT("DungeonWalls"));
  Walls->SetupAttachment(Root);
+ HazardPlates = CreateDefaultSubobject<UInstancedStaticMeshComponent>(TEXT("DungeonHazardPlates"));
+ HazardPlates->SetupAttachment(Root);
+ HazardPlates->SetCollisionEnabled(ECollisionEnabled::NoCollision);
  static ConstructorHelpers::FObjectFinder<UStaticMesh> Cube(TEXT("/Engine/BasicShapes/Cube.Cube"));
  if (Cube.Succeeded()) {
   Floors->SetStaticMesh(Cube.Object);
   Walls->SetStaticMesh(Cube.Object);
+  HazardPlates->SetStaticMesh(Cube.Object);
  }
  // Instanced geometry supports physical collision without one actor per tile.
  Floors->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
@@ -44,6 +49,59 @@ AMoonfallDungeonLayout::AMoonfallDungeonLayout()
  FinalChamberTrigger->SetCollisionResponseToAllChannels(ECR_Ignore);
  FinalChamberTrigger->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
  FinalChamberTrigger->SetGenerateOverlapEvents(true);
+ // Twelve interior room triggers, never entrance or final boss. Component
+ // indices correspond to chamber 1..12 and do not Tick.
+ for (int32 Chamber = 1; Chamber < ChamberCount - 1; ++Chamber) {
+  UBoxComponent* Trigger = CreateDefaultSubobject<UBoxComponent>(
+    FName(*FString::Printf(TEXT("ChamberTrigger_%02d"), Chamber)));
+  Trigger->SetupAttachment(Root);
+  Trigger->InitBoxExtent(FVector(220.f, 165.f, 140.f));
+  Trigger->SetRelativeLocation(FVector(Chamber * ChamberLength, 0.f, 145.f));
+  Trigger->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+  Trigger->SetCollisionResponseToAllChannels(ECR_Ignore);
+  Trigger->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
+  Trigger->SetGenerateOverlapEvents(true);
+  ChamberTriggers.Add(Trigger);
+ }
+}
+
+int32 AMoonfallDungeonLayout::GetEffectiveLayoutSeed() const
+{
+ return LayoutSeed != 0 ? LayoutSeed
+   : 1337 + FMath::Clamp(ZoneIndex, 0, 5) * 101
+     + FMath::Clamp(DungeonIndex, 0, 4) * 37;
+}
+
+void AMoonfallDungeonLayout::BuildHazardChambers(int32 OutChambers[3]) const
+{
+ if (!bRandomizeChambers) {
+  OutChambers[0] = 3; OutChambers[1] = 7; OutChambers[2] = 11;
+  return;
+ }
+ // Unbiased partial Fisher-Yates of the twelve interior rooms.
+ FRandomStream Stream(GetEffectiveLayoutSeed());
+ int32 Candidates[12];
+ for (int32 Index = 0; Index < 12; ++Index) Candidates[Index] = Index + 1;
+ for (int32 Index = 0; Index < 3; ++Index) {
+  const int32 Choice = Stream.RandRange(Index, 11);
+  Swap(Candidates[Index], Candidates[Choice]);
+  OutChambers[Index] = Candidates[Index];
+ }
+}
+
+int32 AMoonfallDungeonLayout::GetChamberType(int32 ChamberIndex) const
+{
+ if (ChamberIndex < 0 || ChamberIndex >= ChamberCount) return INDEX_NONE;
+ if (ChamberIndex == 0) return 0;
+ if (ChamberIndex == ChamberCount - 1) return 6;
+ int32 Hazards[3];
+ BuildHazardChambers(Hazards);
+ for (const int32 Hazard : Hazards)
+  if (Hazard == ChamberIndex) return 5;
+ if (!bRandomizeChambers) return 1 + ((ChamberIndex - 1) % 4);
+ // Independent per-room roll: a new archetype does not re-seed hazards.
+ FRandomStream RoomRandom(GetEffectiveLayoutSeed() ^ (ChamberIndex * 7919 + 0x41CD));
+ return RoomRandom.RandRange(1, 4);
 }
 
 void AMoonfallDungeonLayout::OnConstruction(const FTransform& Transform)
@@ -51,6 +109,17 @@ void AMoonfallDungeonLayout::OnConstruction(const FTransform& Transform)
  Super::OnConstruction(Transform);
  Floors->ClearInstances();
  Walls->ClearInstances();
+ HazardPlates->ClearInstances();
+ int32 HazardChambers[3];
+ BuildHazardChambers(HazardChambers);
+ FRandomStream LayoutRandom(GetEffectiveLayoutSeed() ^ 0x5A17);
+ for (const int32 Chamber : HazardChambers) {
+  const float Side = LayoutRandom.RandRange(0, 1) == 0 ? -265.f : 265.f;
+  // Visual-only side-alcove plate. No unavoidable path damage.
+  HazardPlates->AddInstance(FTransform(FRotator::ZeroRotator,
+    FVector(Chamber * ChamberLength, Side, 8.f),
+    FVector(2.8f, 2.6f, 0.1f)));
+ }
  // All fourteen chambers share a continuous floor and central door opening.
  for (int32 Chamber = 0; Chamber < ChamberCount; ++Chamber) {
   const float X = Chamber * ChamberLength;
@@ -84,12 +153,18 @@ void AMoonfallDungeonLayout::BeginPlay()
  if (ZoneIndex < 0 || ZoneIndex >= 6 || DungeonIndex < 0 || DungeonIndex >= 5) {
   EntranceTrigger->SetGenerateOverlapEvents(false);
   FinalChamberTrigger->SetGenerateOverlapEvents(false);
+  for (UBoxComponent* Trigger : ChamberTriggers)
+   if (IsValid(Trigger)) Trigger->SetGenerateOverlapEvents(false);
   return;
  }
  EntranceTrigger->OnComponentBeginOverlap.AddDynamic(
    this, &AMoonfallDungeonLayout::HandleEntrance);
  FinalChamberTrigger->OnComponentBeginOverlap.AddDynamic(
    this, &AMoonfallDungeonLayout::HandleFinalChamber);
+ for (UBoxComponent* Trigger : ChamberTriggers)
+  if (IsValid(Trigger))
+   Trigger->OnComponentBeginOverlap.AddDynamic(
+     this, &AMoonfallDungeonLayout::HandleChamberOverlap);
 }
 
 void AMoonfallDungeonLayout::HandleEntrance(
@@ -119,4 +194,26 @@ void AMoonfallDungeonLayout::HandleFinalChamber(
  bFinalChamberNotified = true;
  FinalChamberTrigger->SetGenerateOverlapEvents(false);
  OnFinalChamberEntered(Hero);
+}
+
+void AMoonfallDungeonLayout::HandleChamberOverlap(
+ UPrimitiveComponent* Overlapped, AActor* OtherActor,
+ UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep,
+ const FHitResult& SweepResult)
+{
+ AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(OtherActor);
+ if (!IsValid(Hero) || !Hero->IsPlayerControlled()
+     || !FMath::IsFinite(Hero->Health) || Hero->Health <= 0.f) return;
+ // Require a durable entrance discovery before announcing room events.
+ if (!Hero->HasDiscoveredDungeon(ZoneIndex, DungeonIndex)
+     && !Hero->DiscoverDungeonEntrance(ZoneIndex, DungeonIndex)) return;
+ for (int32 Index = 0; Index < ChamberTriggers.Num(); ++Index) {
+  if (ChamberTriggers[Index] != Overlapped) continue;
+  const int32 ChamberIndex = Index + 1;
+  const uint16 Bit = static_cast<uint16>(1u << ChamberIndex);
+  if ((EnteredChambersMask & Bit) != 0u) return;
+  EnteredChambersMask |= Bit;
+  OnChamberEntered(Hero, ChamberIndex, GetChamberType(ChamberIndex));
+  return;
+ }
 }
