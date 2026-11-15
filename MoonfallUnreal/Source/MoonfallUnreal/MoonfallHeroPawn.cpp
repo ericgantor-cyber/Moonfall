@@ -434,9 +434,34 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("OptionsLeft"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsLeft);
  Input->BindAction(TEXT("OptionsRight"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsRight);
 }
+int32 AMoonfallHeroPawn::GetInventoryVisibleRows() const
+{
+ int32 ViewWidth = 0;
+ int32 ViewHeight = 720;
+ if (APlayerController* Controller = Cast<APlayerController>(GetController()))
+  Controller->GetViewportSize(ViewWidth, ViewHeight);
+ // Match the Canvas panel height and reserve footer/stat space.
+ const float PanelHeight = FMath::Min(860.f, FMath::Max(280.f, float(ViewHeight) - 24.f));
+ return FMath::Clamp(FMath::FloorToInt((PanelHeight - 290.f) / 25.f), 2, 20);
+}
+
+void AMoonfallHeroPawn::KeepInventorySelectionVisible()
+{
+ const int32 Count = InventoryItemCodes.Num();
+ InventorySelection = FMath::Clamp(InventorySelection, 0, FMath::Max(0, Count - 1));
+ const int32 Rows = GetInventoryVisibleRows();
+ const int32 MaxStart = FMath::Max(0, Count - Rows);
+ InventoryViewStart = FMath::Clamp(InventoryViewStart, 0, MaxStart);
+ if (InventorySelection < InventoryViewStart)
+  KeepInventorySelectionVisible();
+ else if (InventorySelection >= InventoryViewStart + Rows)
+  InventoryViewStart = InventorySelection - Rows + 1;
+ InventoryViewStart = FMath::Clamp(InventoryViewStart, 0, MaxStart);
+}
+
 void AMoonfallHeroPawn::ZoomCameraIn() {
  if (Health > 0.f && !bOptionsOpen && bInventoryOpen && !bCharacterStatsOpen) {
-  InventoryViewStart = FMath::Max(0, InventoryViewStart - 1);
+  InventoryViewStart = FMath::Max(0, FMath::Min(InventoryViewStart, FMath::Max(0, InventoryItemCodes.Num() - GetInventoryVisibleRows())) - 1);
   return;
  }
  if (Health <= 0.f || bOptionsOpen || bInventoryOpen) return;
@@ -444,7 +469,7 @@ void AMoonfallHeroPawn::ZoomCameraIn() {
 }
 void AMoonfallHeroPawn::ZoomCameraOut() {
  if (Health > 0.f && !bOptionsOpen && bInventoryOpen && !bCharacterStatsOpen) {
-  InventoryViewStart = FMath::Min(FMath::Max(0, InventoryItemCodes.Num() - 1), InventoryViewStart + 1);
+  InventoryViewStart = FMath::Min(FMath::Max(0, InventoryItemCodes.Num() - GetInventoryVisibleRows()), InventoryViewStart + 1);
   return;
  }
  if (Health <= 0.f || bOptionsOpen || bInventoryOpen) return;
@@ -917,7 +942,7 @@ void AMoonfallHeroPawn::ToggleInventory() {
   EndSprint();
   EndGuard();
   InventorySelection = FMath::Clamp(InventorySelection, 0, FMath::Max(0, InventoryItemCodes.Num() - 1));
-  InventoryViewStart = InventorySelection;
+  KeepInventorySelectionVisible();
  }
  bInventoryOpen = !bInventoryOpen;
  if (!bInventoryOpen) bCharacterStatsOpen = false;
@@ -1134,7 +1159,7 @@ void AMoonfallHeroPawn::OptionsUp() {
  }
  if (bInventoryOpen) {
   InventorySelection = FMath::Max(0, InventorySelection - 1);
-  InventoryViewStart = InventorySelection;
+  KeepInventorySelectionVisible();
   return;
  }
  if (bOptionsOpen) OptionsSelection = (OptionsSelection + 6) % 7;
@@ -1147,7 +1172,7 @@ void AMoonfallHeroPawn::OptionsDown() {
  }
  if (bInventoryOpen) {
   InventorySelection = FMath::Min(FMath::Max(0, InventoryItemCodes.Num() - 1), InventorySelection + 1);
-  InventoryViewStart = InventorySelection;
+  KeepInventorySelectionVisible();
   return;
  }
  if (bOptionsOpen) OptionsSelection = (OptionsSelection + 1) % 7;
