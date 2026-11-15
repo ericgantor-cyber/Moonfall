@@ -339,10 +339,10 @@ incremental UI-and-save step, not a finished progression migration. A follow-on
 change must decide how to retire legacy talent effects safely and apply the
 new stat bonuses without double counting. Original hero assets are unchanged.
 
-## Expanded constellation progression: 108 talents
+## Expanded constellation progression: 141 talents
 
-The three classless branches now have **36 nodes each** and **11 tiers**
-(108 unique talents total). The original 12 nodes and their identifiers,
+The three classless branches now have **47 nodes each** and **14 tiers**
+(141 unique talents total). The original 12 nodes and their identifiers,
 prerequisites and costs are preserved for save compatibility. Newly added
 tiers begin at levels 16, 24, 32, 42, 52, 62, 72 and 82. Each later tier
 branches into multiple paths with prerequisites from earlier tiers; some
@@ -376,7 +376,7 @@ node** to inspect; **+/-** zoom and **arrow keys** pan while the web has
 keyboard focus; **Home** recenters; dedicated buttons focus a branch or
 fit the entire map to the screen. A keyboard-friendly talent index, clear
 details and spend button, and **RESET ALL TALENT POINTS** remain available
-beside the map. No individual refunds. The 108-node save format is unchanged.
+beside the map. No individual refunds. The 141-node tree extends the existing save format additively; all prior talent IDs remain valid.
 
 The design follows the broad constellation-and-connections idea seen in
 Assassin's Creed Valhalla, but all art, code, layout, names and skill
@@ -403,3 +403,9 @@ for ordinary keyboard focus navigation** rather than being intercepted by
 the web. An empty point budget gives no next unlock. This upgrade only
 changes selection, navigation and drawing, not save data, combat math,
 talent definitions or original artwork.
+
+## Additional 33 late-game constellation talents
+
+The skill web now includes **33 additional nodes**: **11 Might**, **11 Agility** and **11 Arcana**, for **141 total**. The extensions form tiers **12, 13, and 14**, gated at levels **86, 91, and 96**. Four talents are added to each branch at tiers 12 and 13, followed by three final-tier talents per branch. New original names, paths, bonuses and prerequisites are additive and preserve every existing saved talent ID. Every branch stays classless, and full-tree respec remains the only reset option.
+
+The constellation fit has been widened to include outer tier-14 stars, which are highlighted as capstones. These new nodes grant existing damage or health/mana/stamina stat modifiers; they do not create combat animations or spells. The bonuses are not yet wired into live combat. Godot and Python tests cover the expanded counts, branch distribution, prerequisites and final-tier level gates.
