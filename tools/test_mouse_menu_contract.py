@@ -56,6 +56,15 @@ class MouseMenusContract(unittest.TestCase):
         self.assertIn('"WITHDRAW SELECTED: "', self.source)
         self.assertNotIn('_atlas_action("DEPOSIT: "+str(gear.get(', self.source)
 
+    def test_new_hero_and_load_clear_item_selection(self):
+        self.assertIn('inventory_query=""\n inventory_selected_index=-1\n inventory_page=0', self.source)
+        self.assertIn('func _restore_data(data: Dictionary) -> void:\n # UI-only selection', self.source)
+        self.assertIn('inventory_selected_index=-1\n inventory_page=0\n inventory_show_vault=false', self.source)
+
+    def test_vault_right_click_is_consumed_without_equipping(self):
+        self.assertIn('if inventory_show_vault:\n    get_viewport().set_input_as_handled()\n    return', self.source)
+        self.assertIn('if not menu_open or current_tab!="Inventory":return', self.source)
+
     def test_inventory_search_clear_and_mouse_scroll(self):
         self.assertIn('inventory_search_input.clear_button_enabled=true', self.source)
         self.assertIn('inventory_search_input.text_changed.connect(_on_inventory_query_changed)', self.source)
