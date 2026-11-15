@@ -148,11 +148,12 @@ void AMoonfallCombatHUD::DrawHUD()
   // Reserve height for a real equipment-stat line and three controls rows.
   const int32 PerPage = FMath::Clamp(FMath::FloorToInt((PanelHeight - 290.f) / 25.f), 2, 8);
   const int32 Selected = FMath::Clamp(Hero->InventorySelection, 0, FMath::Max(0, Count - 1));
-  const int32 PageStart = Selected / PerPage * PerPage;
+  // Wheel moves only the visible window; keyboard/controller selection remains independent.
+  const int32 PageStart = FMath::Clamp(Hero->InventoryViewStart, 0, FMath::Max(0, Count - PerPage));
   const int32 PageEnd = FMath::Min(Count, PageStart + PerPage);
-  DrawText(FString::Printf(TEXT("%d items  |  %d salvage  |  page %d / %d"),
-    Count, Hero->Salvage, PageStart / PerPage + 1,
-    FMath::Max(1, (Count + PerPage - 1) / PerPage)), FLinearColor(0.75f,0.72f,0.91f),
+  DrawText(FString::Printf(TEXT("%d items  |  %d salvage  |  view %d / %d"),
+    Count, Hero->Salvage, Count == 0 ? 0 : PageStart + 1,
+    Count), FLinearColor(0.75f,0.72f,0.91f),
     Left + 18.f, Top + 49.f, nullptr, 0.9f);
   if (Count == 0)
    DrawText(TEXT("No equipment yet. Defeat enemies to find gear."), FLinearColor::White,
