@@ -96,6 +96,12 @@ public:
  // Version 8: 30 stable dungeon entrances, six zones x five per zone.
  // Discovery is permanent, independent of shrine respawn progression.
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Dungeon") int32 DiscoveredDungeonMask = 0;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Dungeon|Boss")
+ int32 DefeatedDungeonBossMask = 0;
+ UFUNCTION(BlueprintPure, Category="Moonfall|Dungeon|Boss")
+ bool HasDefeatedDungeonBoss(int32 Zone, int32 Dungeon) const;
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Dungeon|Boss")
+ bool MarkDungeonBossDefeated(int32 Zone, int32 Dungeon);
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Dungeon|Treasure") TArray<int32> DungeonTreasureStates;
  UFUNCTION(BlueprintPure, Category="Moonfall|Dungeon") bool HasDiscoveredDungeon(int32 Zone, int32 Dungeon) const;
  UFUNCTION(BlueprintPure, Category="Moonfall|Dungeon") int32 GetDiscoveredDungeonCount(int32 Zone) const;
