@@ -157,10 +157,25 @@ void AMoonfallCombatHUD::DrawHUD()
       nullptr, bCompactOptions ? 0.57f : 0.72f);
    }
   }
-  const FString Hint = Hero->OptionsSelection == 3
-    ? TEXT("Frame generation is a preference only; no runtime integration.")
-    : TEXT("Click +/- or use Left/Right | D-pad | Esc/Start: close");
-  DrawText(Hint, FLinearColor(0.74f,0.81f,0.91f), MenuLeft + 15.f,
+  // Show concise, setting-specific help without covering the rows on small screens.
+  const FString SettingHelp[] = {
+    TEXT("Choose an available screen resolution"),
+    TEXT("Adjust image sharpness and performance"),
+    TEXT("Higher quality may reduce frame rate"),
+    TEXT("Frame generation is a preference only; no runtime integration."),
+    TEXT("Reduce impact shake and camera motion"),
+    TEXT("Scale damage numbers in combat"),
+    TEXT("Scale the visibility of boss warnings"),
+    TEXT("Choose Windowed, Borderless or Fullscreen")
+  };
+  const FString CompactHelp[] = {
+    TEXT("Screen resolution"), TEXT("Render scaling"), TEXT("Graphics preset"),
+    TEXT("FG preference only (inactive)"), TEXT("Less camera motion"),
+    TEXT("Damage text size"), TEXT("Boss alert size"), TEXT("Window mode")
+  };
+  const int32 HelpIndex = FMath::Clamp(Hero->OptionsSelection, 0, 7);
+  DrawText(bCompactOptions ? CompactHelp[HelpIndex] : SettingHelp[HelpIndex],
+     FLinearColor(0.74f,0.81f,0.91f), MenuLeft + 15.f,
      MenuTop + MenuHeight - 28.f, nullptr, bCompactOptions ? 0.60f : 0.72f);
   return;
  }
