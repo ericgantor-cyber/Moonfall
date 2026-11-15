@@ -829,6 +829,25 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[0]
         self.assertIn("InventoryItemCodes.Num() > 10000", save)
 
+    def test_faction_and_resident_records_reject_lossy_save_round_trips(self):
+        save = self.hero_cpp.split("bool AMoonfallHeroPawn::SaveWorldProgress()", 1)[1].split(
+            "bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[0]
+        load = self.hero_cpp.split("bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[1].split(
+            "void AMoonfallHeroPawn::", 1)[0]
+        self.assertIn("for (const auto& Entry : FactionReputation)", save)
+        self.assertIn("Entry.Value < -100 || Entry.Value > 100", save)
+        self.assertIn("for (const auto& Entry : ResidentBonds)", save)
+        self.assertIn("if (!bKnownResident || Entry.Value < -100 || Entry.Value > 100) return false;", save)
+        self.assertIn("Save->FactionReputation", load)
+        self.assertIn("Save->ResidentBonds", load)
+        self.assertIn("bPersistentSaveWritesBlocked = true;", load)
+        self.assertIn("invalid faction reputation", load)
+        self.assertIn("invalid resident bond", load)
+        self.assertLess(load.index("invalid faction reputation"),
+                        load.index("bWorldProgressLoadInProgress = true;"))
+        self.assertLess(load.index("invalid resident bond"),
+                        load.index("bWorldProgressLoadInProgress = true;"))
+
     def test_resident_quest_state_save_and_load_reject_lossy_records(self):
         save = self.hero_cpp.split("bool AMoonfallHeroPawn::SaveWorldProgress()", 1)[1].split(
             "bool AMoonfallHeroPawn::LoadWorldProgress()", 1)[0]
