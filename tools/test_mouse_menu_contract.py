@@ -168,11 +168,27 @@ class MouseMenusContract(unittest.TestCase):
     def test_materials_and_consumables_visible_without_hover(self):
         self.assertIn('stacks) • Crafting storage', self.source)
         self.assertIn('row.text=name+" × "+str(amount)+" • "+str(stack_count)+" stacks • Crafting storage"', self.source)
-        self.assertIn('str(recipe["name"])+"[/b]', self.source)
-        self.assertIn('_recipe_hover_details(recipe)+"', self.source)
+        self.assertIn('[b]SELECTED RECIPE: ', self.source)
+        self.assertIn('_recipe_hover_details(chosen)', self.source)
         self.assertIn('[b]CONSUMABLES[/b]', self.source)
         self.assertIn('owned • Temporary hunting effect (25 seconds)', self.source)
         self.assertIn('owned • Restores 35% maximum health', self.source)
+
+    def test_wow_forever_style_recipe_book(self):
+        section = self.source.split('  "Professions":', 1)[1].split('  "Hunter":', 1)[0]
+        self.assertIn("PROFESSIONS / RECIPE BOOK", section)
+        self.assertIn('"recipe_filter"', section)
+        self.assertIn('"recipe_select:"+str(i)', section)
+        self.assertIn("crafting_craftable_only and issue", section)
+        self.assertIn("_recipe_hover_details(chosen)", section)
+        self.assertIn('"craft_selected"', section)
+        self.assertIn("INVENTORY_RULES.craft_issue", section)
+        self.assertIn("READY TO CRAFT", section)
+        self.assertIn('var crafting_selected_index:int=0', self.source)
+        self.assertIn('var crafting_craftable_only:bool=false', self.source)
+        self.assertIn('if action=="craft_selected":', self.source)
+        self.assertIn('_craft(crafting_selected_index)', self.source)
+        self.assertIn('button.disabled=true', self.source)
 
     def test_inventory_search_clear_and_mouse_scroll(self):
         self.assertIn('inventory_search_input.clear_button_enabled=true', self.source)
