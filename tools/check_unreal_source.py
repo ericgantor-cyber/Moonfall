@@ -3635,7 +3635,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(overlap.index("&& !Hero->DiscoverDungeonEntrance("),
                         overlap.index("EnteredChambersMask |= Bit;"))
         self.assertLess(overlap.index("EnteredChambersMask |= Bit;"),
-                        overlap.index("OnChamberEntered(Hero, ChamberIndex, GetChamberType(ChamberIndex));"))
+                        overlap.index("OnChamberEntered(Hero, ChamberIndex, ChamberType);"))
         self.assertNotIn("ApplyMoonfallDamage(", overlap)
         self.assertNotIn("SpawnActor", overlap)
 
@@ -3664,6 +3664,34 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(hazard.index("Hero->DiscoverDungeonEntrance("),
                         hazard.index("Hero->ApplyMoonfallDamage("))
         self.assertNotIn("GetWorld()->SpawnActor", hazard)
+
+
+    def test_dungeon_combat_spawns_existing_enemies_only_on_entry(self):
+        layout_h = (ROOT / "MoonfallDungeonLayout.h").read_text(encoding="utf-8")
+        layout = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
+        self.assertIn("int32 EnemiesPerCombatChamber = 2;", layout_h)
+        self.assertIn("int32 SpawnedEncounterCount = 0;", layout_h)
+        self.assertIn("bool StartCombatChamber(AMoonfallHeroPawn* Hero, int32 ChamberIndex);", layout_h)
+        self.assertIn("void OnChamberEncounterSpawned(AMoonfallHeroPawn* Hero, int32 ChamberIndex,", layout_h)
+        chamber = layout.split("void AMoonfallDungeonLayout::HandleChamberOverlap(", 1)[1].split(
+            "void AMoonfallDungeonLayout::HandleHazardOverlap(", 1)[0]
+        self.assertIn("ChamberType == 1 && !StartCombatChamber(Hero, ChamberIndex)", chamber)
+        self.assertLess(chamber.index("StartCombatChamber(Hero, ChamberIndex)"),
+                        chamber.index("EnteredChambersMask |= Bit;"))
+        combat = layout.split("bool AMoonfallDungeonLayout::StartCombatChamber(", 1)[1]
+        self.assertIn("GetChamberType(ChamberIndex) != 1", combat)
+        self.assertIn("FMath::Max(0, 6 - SpawnedEncounterCount)", combat)
+        self.assertIn("if (Remaining == 0) return true;", combat)
+        self.assertIn("FMath::Clamp(EnemiesPerCombatChamber, 1, 2)", combat)
+        self.assertIn("SpawnActorDeferred<AMoonfallEnemy>", combat)
+        self.assertIn("AdjustIfPossibleButDontSpawnIfColliding", combat)
+        self.assertIn("Enemy->bElite = bEliteEncounter;", combat)
+        self.assertIn("Enemy->bBoss = false;", combat)
+        self.assertLess(combat.index("Enemy->bElite = bEliteEncounter;"),
+                        combat.index("Enemy->FinishSpawning(SpawnTransform);"))
+        self.assertIn("if (Spawned == 0) return false;", combat)
+        self.assertIn("SpawnedEncounterCount += Spawned;", combat)
+        self.assertNotIn("UGameplayStatics::OpenLevel", combat)
 
 if __name__ == "__main__":
     unittest.main()
