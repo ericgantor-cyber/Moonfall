@@ -32,6 +32,14 @@ public:
  UFUNCTION(BlueprintPure, Category="Moonfall|Races")
  static TArray<FName> GetPlayableRaceIds();
 
+ // Read-only Blueprint catalog of playable race profiles, in stable roster order.
+ UFUNCTION(BlueprintPure, Category="Moonfall|Races")
+ static TArray<FMoonfallRaceProfile> GetPlayableRaceProfiles();
+
+ // Read-only profiles for a race family, including NPC/enemy races.
+ UFUNCTION(BlueprintPure, Category="Moonfall|Races")
+ static TArray<FMoonfallRaceProfile> GetRaceProfilesByFamily(FName Family);
+
  // Filter the original roster by family, including nonplayable enemy races.
  UFUNCTION(BlueprintPure, Category="Moonfall|Races")
  static TArray<FName> GetRaceIdsByFamily(FName Family);
