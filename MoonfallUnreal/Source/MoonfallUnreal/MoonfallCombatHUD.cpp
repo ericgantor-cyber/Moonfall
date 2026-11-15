@@ -99,7 +99,8 @@ void AMoonfallCombatHUD::DrawHUD()
   // Canvas-only continuous inventory: no extra actors, widgets, or hidden controls.
   const float PanelWidth = FMath::Min(800.f, FMath::Max(280.f, Canvas->SizeX - 24.f));
   const float PanelHeight = FMath::Min(860.f, FMath::Max(280.f, Canvas->SizeY - 24.f));
-  const float Left = (Canvas->SizeX - PanelWidth) * 0.5f;
+  // Dock the inventory and character pane at the right, keeping the world visible to the left.
+  const float Left = Canvas->SizeX - PanelWidth - 12.f;
   const float Top = (Canvas->SizeY - PanelHeight) * 0.5f;
   DrawRect(FLinearColor(0.04f, 0.035f, 0.10f, 0.96f), Left, Top, PanelWidth, PanelHeight);
   DrawText(PanelWidth < 550.f ? TEXT("INVENTORY") : TEXT("MOONFALL  |  INVENTORY"),
