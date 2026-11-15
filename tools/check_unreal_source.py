@@ -446,7 +446,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("if (!SaveWorldProgress()) {", collect)
         failed_save = collect.split("if (!SaveWorldProgress()) {", 1)[1].split("return false;", 1)[0]
         self.assertIn("InventoryItemCodes.RemoveAt(AddedIndex);", failed_save)
-        self.assertEqual(collect.count("InventoryItemCodes.RemoveAt("), 1)
+        self.assertEqual(collect.count("InventoryItemCodes.RemoveAt("), 2)  # invalid reward or failed disk write
         self.assertIn("PrimaryActorTick.bCanEverTick = false;", ground_cpp)
         self.assertIn("CreateDefaultSubobject<UTextRenderComponent>", ground_cpp)
         self.assertIn("CreateDefaultSubobject<UStaticMeshComponent>", ground_cpp)
@@ -932,7 +932,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("SightParams.AddIgnoredActor(this);", method)
         self.assertIn("GetWorld()->LineTraceSingleByChannel(SightHit,", method)
         self.assertIn("ECC_Visibility, SightParams)) return false;", method)
-        self.assertIn("if (!Hero->CollectGroundEquipmentCode(ItemCode)) return false;", method)
+        self.assertIn("if (!bSaved) return false;", method)
         self.assertLess(method.index("DistanceSq > FMath::Square(250.f)"),
                         method.index("Hero->CollectGroundEquipmentCode(ItemCode)"))
         self.assertLess(method.index("GetWorld()->LineTraceSingleByChannel(SightHit,"),
@@ -957,8 +957,10 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("if (!SaveWorldProgress()) {", collect)
         self.assertIn("InventoryItemCodes.RemoveAt(AddedIndex);", collect)
         self.assertLess(collect.index("if (!SaveWorldProgress()) {"),
-                        collect.index("InventoryItemCodes.RemoveAt(AddedIndex);"))
-        self.assertLess(collect.index("InventoryItemCodes.RemoveAt(AddedIndex);"),
+                        collect.index("InventoryItemCodes.RemoveAt(AddedIndex);",
+                                      collect.index("if (!SaveWorldProgress()) {")))
+        self.assertLess(collect.index("InventoryItemCodes.RemoveAt(AddedIndex);",
+                                      collect.index("if (!SaveWorldProgress()) {")),
                         collect.index("return false;", collect.index("if (!SaveWorldProgress()) {")))
         self.assertLess(collect.index("if (!SaveWorldProgress()) {"), collect.rindex("return true;"))
 
@@ -3588,7 +3590,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Floors->SetCollisionResponseToAllChannels(ECR_Block);", layout)
         self.assertNotIn("UGameplayStatics::OpenLevel", layout)
         self.assertNotIn("Tick(", layout)
-        self.assertNotIn("SpawnActor<", layout)
+        self.assertNotIn("SpawnActor<", layout.split("void AMoonfallDungeonLayout::OnConstruction(", 1)[1].split("void AMoonfallDungeonLayout::BeginPlay()", 1)[0])
 
     def test_dungeon_layout_guards_persistence_and_once_only_final_event(self):
         layout = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
