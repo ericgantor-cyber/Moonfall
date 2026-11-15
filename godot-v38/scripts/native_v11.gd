@@ -1379,12 +1379,30 @@ func _inventory_tile(grid:GridContainer,gear:Dictionary,index:int)->void:
  tile.name="ItemTile_%d"%index
  tile.text=("◆ " if selected else "")+name+"\n"+rarity+" • "+str(gear.get("power",0))+" power"
  tile.clip_text=true
- tile.custom_minimum_size=Vector2(140,66)
+ tile.custom_minimum_size=Vector2(140,78)
  tile.size_flags_horizontal=Control.SIZE_EXPAND_FILL
  tile.focus_mode=Control.FOCUS_ALL
+ tile.add_theme_font_size_override("font_size",14)
  tile.add_theme_color_override("font_color",Color(_inventory_rarity_color(rarity)))
  tile.add_theme_color_override("font_hover_color",Color(_inventory_rarity_color(rarity)))
- tile.tooltip_text=name+"\n"+rarity+" • Power "+str(gear.get("power",0))+"\nLeft-click to inspect"+(" • Right-click to equip" if not inventory_show_vault else " • Withdraw to equip")
+ tile.add_theme_color_override("font_focus_color",Color(_inventory_rarity_color(rarity)))
+ var normal_style:=StyleBoxFlat.new()
+ normal_style.bg_color=Color("#20232f") if not selected else Color("#373047")
+ normal_style.border_color=Color(_inventory_rarity_color(rarity))
+ normal_style.set_border_width_all(3 if selected else 1)
+ normal_style.set_corner_radius_all(6)
+ normal_style.set_content_margin_all(5)
+ tile.add_theme_stylebox_override("normal",normal_style)
+ var hover_style:StyleBoxFlat=normal_style.duplicate()
+ hover_style.bg_color=Color("#3b3b56")
+ hover_style.set_border_width_all(3)
+ tile.add_theme_stylebox_override("hover",hover_style)
+ tile.add_theme_stylebox_override("focus",hover_style)
+ var difference:int=int(gear.get("power",0))-_equipment_power()
+ tile.tooltip_text=name+"\n"+rarity+" • Power "+str(gear.get("power",0))
+ if not inventory_show_vault:
+  tile.tooltip_text+="\nCompared with equipped: "+("+" if difference>0 else "")+str(difference)+" power"
+ tile.tooltip_text+="\nLeft-click to inspect"+(" • Right-click to equip" if not inventory_show_vault else " • Withdraw to equip")
  tile.pressed.connect(_atlas_execute.bind("inventory_select:"+str(index)))
  tile.gui_input.connect(_atlas_equip_mouse_input.bind("inventory_select:"+str(index)))
  grid.add_child(tile)
