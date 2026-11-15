@@ -3573,11 +3573,11 @@ class MoonfallIntegrationChecks(unittest.TestCase):
     def test_character_page_shows_30_dungeon_exploration_progress(self):
         page = self.hud.split("if (Hero->bCharacterStatsOpen) {", 1)[1].split(
             "// Identical button rectangle", 1)[0]
-        self.assertIn("DUNGEON EXPLORATION", page)
-        self.assertIn("ALL 6 ZONES CHARTED", page)
-        self.assertIn("Zone %d: %d / 5  |  Total: %d / 30", page)
+        self.assertIn("DUNGEON CAMPAIGN", page)
+        self.assertIn("Bosses %d / 30  |  Zones cleared %d / 6  |  Entries %d / 30", page)
+        self.assertIn("Hero->GetTotalDefeatedDungeonBosses()", page)
+        self.assertIn("Hero->GetClearedDungeonZoneCount()", page)
         self.assertIn("Hero->GetTotalDiscoveredDungeons()", page)
-        self.assertIn("Hero->GetNextUnchartedDungeonZone()", page)
         self.assertIn("(PanelHeight - 145.f) / 13.f", page)
 
 
