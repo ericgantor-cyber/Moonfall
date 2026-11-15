@@ -26,6 +26,20 @@ func _initialize() -> void:
  if web.focus_tier(14) != "":
   _fail("Locked high-tier talents cannot be focused early")
   return
+ # Per-rank costs must be respected by keyboard navigation and purchase glow.
+ var costly_tree: Dictionary = tree.duplicate(true)
+ for node in costly_tree["nodes"]:
+  if str(node.get("id", "")) == "iron_will":
+   node["cost_per_rank"] = 3
+ web.set_data(costly_tree, {}, 2, 2)
+ if web.available_talent_ids().has("iron_will"):
+  _fail("Talents must not appear purchasable without enough points")
+  return
+ web.set_data(costly_tree, {}, 2, 3)
+ if not web.available_talent_ids().has("iron_will"):
+  _fail("Talents must become available when the point cost is met")
+  return
+ web.set_data(tree, {}, 16, 15)
  if web.layout_rebuild_count != 1:
   _fail("Initial constellation must build once")
   return
