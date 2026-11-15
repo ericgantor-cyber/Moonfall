@@ -716,7 +716,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("if (MouseX >= MinusX && MouseX <= MinusX + 25.f) AdjustOption(-1);", options)
         self.assertIn("else if (MouseX >= PlusX && MouseX <= PlusX + 25.f) AdjustOption(1);", options)
         self.assertLess(options.index("OptionsSelection = ClickedRow;"), options.index("AdjustOption(-1)"))
-        self.assertIn("const float MenuRowGap = (MenuHeight - 130.f) / 7.f;", self.hud)
+        self.assertIn("const float MenuRowGap = (MenuHeight - 130.f) / 8.f;", self.hud)
         self.assertIn("const float RowHeight = FMath::Min(38.f, MenuRowGap - 2.f);", self.hud)
         self.assertIn("const float FirstRowY = MenuTop + 63.f;", self.hud)
         self.assertIn("const float MinusX = MenuLeft + MenuWidth - 111.f;", self.hud)
