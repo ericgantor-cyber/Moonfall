@@ -4,8 +4,8 @@ const TALENTS = preload("res://scripts/systems/moonfall_talent_tree.gd")
 
 func _initialize() -> void:
  var base: Dictionary = TALENTS.evaluate(5, {})
- if not bool(base.get("ok", false)) or int(base.get("available", -1)) != 4:
-  _fail("Level 5 should have four unspent points")
+ if not bool(base.get("ok", false)) or int(base.get("available", -1)) != 8:
+  _fail("Level 5 should have eight unspent points")
   return
  var first: Dictionary = TALENTS.spend(5, {}, "iron_will")
  if not bool(first.get("ok", false)):
@@ -26,7 +26,7 @@ func _initialize() -> void:
  if bool(over_cap.get("ok", true)):
   _fail("Max-rank talents must reject further purchases")
   return
- var over_budget: Dictionary = TALENTS.evaluate(5, {"iron_will": 5})
+ var over_budget: Dictionary = TALENTS.evaluate(3, {"iron_will": 5})
  if bool(over_budget.get("ok", true)):
   _fail("Multi-rank talents must respect earned point budget")
   return
@@ -39,7 +39,7 @@ func _initialize() -> void:
   _fail("Unknown talents must be rejected")
   return
  var reset: Dictionary = TALENTS.respec(5, second["allocations"])
- if not bool(reset.get("ok", false)) or int(reset.get("available", -1)) != 4:
+ if not bool(reset.get("ok", false)) or int(reset.get("available", -1)) != 8:
   _fail("Full-tree respec must restore all points")
   return
  if not reset.get("allocations", {}).is_empty():
