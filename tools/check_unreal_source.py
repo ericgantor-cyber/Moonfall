@@ -787,6 +787,16 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("*EquippedCode = ItemCode;", loot)
         self.assertIn("InventoryItemCodes.Add(ItemCode);", loot)
 
+    def test_armor_health_changes_use_validated_previous_equipment(self):
+        equip = self.hero_cpp.split("bool AMoonfallHeroPawn::EquipInventoryItem(int32 InventoryIndex)", 1)[1].split(
+            "void AMoonfallHeroPawn::", 1)[0]
+        self.assertIn("const int32 PreviousTier = GetValidatedEquippedTier(SlotIndex);", equip)
+        self.assertNotIn("const int32 PreviousTier = *EquippedTier;", equip)
+        self.assertLess(equip.index("const int32 PreviousTier = GetValidatedEquippedTier"),
+                        equip.index("*EquippedCode = Code;"))
+        self.assertIn("const float HealthDelta = 2.f * (Tier - PreviousTier);", equip)
+        self.assertIn("MaxHealth = FMath::Max(1.f, MaxHealth + HealthDelta);", equip)
+
     def test_equip_best_ignores_unowned_equipped_gear(self):
         auto = self.hero_cpp.split("int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()", 1)[1].split(
             "void AMoonfallHeroPawn::", 1)[0]
