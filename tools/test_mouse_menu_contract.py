@@ -18,6 +18,16 @@ class MouseMenusContract(unittest.TestCase):
         self.assertIn('if not menu_open or current_tab!="Inventory":return', self.source)
         self.assertIn('_atlas_execute(action)', self.source)
 
+    def test_clickable_item_selection_and_preview(self):
+        self.assertIn('var inventory_selected_index:int=-1', self.source)
+        self.assertIn('"inventory_select:"+str(index)', self.source)
+        self.assertIn('action.begins_with("inventory_select:")', self.source)
+        self.assertIn('inventory_selected_index=selected_index', self.source)
+        self.assertIn('[b]SELECTED ITEM[/b]', self.source)
+        self.assertIn('if inventory_show_vault:return', self.source)
+        self.assertIn('_atlas_execute("equip:"+action.get_slice(":",1))', self.source)
+        self.assertIn('if selected_index<0 or selected_index>=inventory_source.size():return', self.source)
+
     def test_inventory_search_clear_and_mouse_scroll(self):
         self.assertIn('inventory_search_input.clear_button_enabled=true', self.source)
         self.assertIn('inventory_search_input.text_changed.connect(_on_inventory_query_changed)', self.source)
