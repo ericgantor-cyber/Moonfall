@@ -705,11 +705,11 @@ class MoonfallIntegrationChecks(unittest.TestCase):
     def test_options_mouse_selects_all_visible_settings_rows(self):
         mouse = self.hero_cpp.split("void AMoonfallHeroPawn::ResidentContextMouseClick()", 1)[1].split("\n}", 1)[0]
         options = mouse.split("if (bOptionsOpen)", 1)[1].split("if (bInventoryOpen)", 1)[0]
-        self.assertIn("const float RowGap = (MenuHeight - 130.f) / 7.f;", options)
+        self.assertIn("const float RowGap = (MenuHeight - 130.f) / 8.f;", options)
         self.assertIn("const float RowHeight = FMath::Min(38.f, RowGap - 2.f);", options)
         self.assertIn("const float FirstRowY = MenuTop + 63.f;", options)
         self.assertIn("const int32 ClickedRow = FMath::FloorToInt((MouseY - FirstRowY) / RowGap);", options)
-        self.assertIn("ClickedRow >= 0 && ClickedRow < 7", options)
+        self.assertIn("ClickedRow >= 0 && ClickedRow < 8", options)
         self.assertIn("OptionsSelection = ClickedRow;", options)
         self.assertIn("const float MinusX = MenuLeft + MenuWidth - 111.f;", options)
         self.assertIn("const float PlusX = MenuLeft + MenuWidth - 37.f;", options)
@@ -721,11 +721,17 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("const float FirstRowY = MenuTop + 63.f;", self.hud)
         self.assertIn("const float MinusX = MenuLeft + MenuWidth - 111.f;", self.hud)
         self.assertIn("const float PlusX = MenuLeft + MenuWidth - 37.f;", self.hud)
-        self.assertIn("for (int32 i = 0; i < 7; ++i)", self.hud)
+        self.assertIn("for (int32 i = 0; i < 8; ++i)", self.hud)
         self.assertIn("Hero->OptionsSelection == i", self.hud)
         self.assertIn("const FString Names[]", self.hud)
         self.assertIn("const FString Values[]", self.hud)
         self.assertIn("Frame generation is a preference only; no runtime integration.", self.hud)
+        self.assertIn('TEXT("Display mode")', self.hud)
+        self.assertIn('Settings->GetFullscreenMode() == EWindowMode::Windowed ? TEXT("Windowed") : TEXT("Borderless")', self.hud)
+        self.assertIn("else if (OptionsSelection == 7)", self.hero_cpp)
+        self.assertIn("EWindowMode::WindowedFullscreen : EWindowMode::Windowed", self.hero_cpp)
+        self.assertIn("OptionsSelection = (OptionsSelection + 7) % 8;", self.hero_cpp)
+        self.assertIn("OptionsSelection = (OptionsSelection + 1) % 8;", self.hero_cpp)
         self.assertIn("void AMoonfallHeroPawn::OptionsLeft()", self.hero_cpp)
         self.assertIn("void AMoonfallHeroPawn::OptionsRight()", self.hero_cpp)
         self.assertIn("AdjustOption(-1);", self.hero_cpp)
@@ -741,7 +747,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("AdjustOption(1);", options)
         self.assertNotIn("CastLeft();", options)
         self.assertNotIn("EquipInventoryItem(", options)
-        for index in range(7):
+        for index in range(8):
             self.assertIn(f"OptionsSelection == {index}", adjust)
         self.assertIn("Settings->SaveSettings();", adjust)
         self.assertIn('GConfig->Flush(false, GGameUserSettingsIni);', adjust)
