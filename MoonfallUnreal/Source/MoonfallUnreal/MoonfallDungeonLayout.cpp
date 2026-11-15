@@ -31,6 +31,19 @@ AMoonfallDungeonLayout::AMoonfallDungeonLayout()
  Walls->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
  Walls->SetCollisionResponseToAllChannels(ECR_Block);
 
+ HazardTriggerA = CreateDefaultSubobject<UBoxComponent>(TEXT("HazardTriggerA"));
+ HazardTriggerB = CreateDefaultSubobject<UBoxComponent>(TEXT("HazardTriggerB"));
+ HazardTriggerC = CreateDefaultSubobject<UBoxComponent>(TEXT("HazardTriggerC"));
+ UBoxComponent* HazardTriggers[] = {HazardTriggerA, HazardTriggerB, HazardTriggerC};
+ for (UBoxComponent* Trigger : HazardTriggers) {
+  Trigger->SetupAttachment(Root);
+  Trigger->InitBoxExtent(FVector(90.f, 90.f, 110.f));
+  Trigger->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+  Trigger->SetCollisionResponseToAllChannels(ECR_Ignore);
+  Trigger->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
+  Trigger->SetGenerateOverlapEvents(true);
+ }
+
  EntranceTrigger = CreateDefaultSubobject<UBoxComponent>(TEXT("EntranceTrigger"));
  EntranceTrigger->SetupAttachment(Root);
  EntranceTrigger->InitBoxExtent(FVector(260.f, 240.f, 160.f));
@@ -113,12 +126,16 @@ void AMoonfallDungeonLayout::OnConstruction(const FTransform& Transform)
  int32 HazardChambers[3];
  BuildHazardChambers(HazardChambers);
  FRandomStream LayoutRandom(GetEffectiveLayoutSeed() ^ 0x5A17);
- for (const int32 Chamber : HazardChambers) {
-  const float Side = LayoutRandom.RandRange(0, 1) == 0 ? -265.f : 265.f;
-  // Visual-only side-alcove plate. No unavoidable path damage.
+ UBoxComponent* HazardTriggers[] = {HazardTriggerA, HazardTriggerB, HazardTriggerC};
+ for (int32 Index = 0; Index < 3; ++Index) {
+  const int32 Chamber = HazardChambers[Index];
+  // Center 315, radius 90: closest point 225, outside the +/-180 center path.
+  const float Side = LayoutRandom.RandRange(0, 1) == 0 ? -315.f : 315.f;
+  HazardTriggers[Index]->SetRelativeLocation(
+    FVector(Chamber * ChamberLength, Side, 105.f));
   HazardPlates->AddInstance(FTransform(FRotator::ZeroRotator,
     FVector(Chamber * ChamberLength, Side, 8.f),
-    FVector(2.8f, 2.6f, 0.1f)));
+    FVector(1.8f, 1.8f, 0.1f)));
  }
  // All fourteen chambers share a continuous floor and central door opening.
  for (int32 Chamber = 0; Chamber < ChamberCount; ++Chamber) {
@@ -153,6 +170,8 @@ void AMoonfallDungeonLayout::BeginPlay()
  if (ZoneIndex < 0 || ZoneIndex >= 6 || DungeonIndex < 0 || DungeonIndex >= 5) {
   EntranceTrigger->SetGenerateOverlapEvents(false);
   FinalChamberTrigger->SetGenerateOverlapEvents(false);
+  for (UBoxComponent* Trigger : {HazardTriggerA, HazardTriggerB, HazardTriggerC})
+   if (IsValid(Trigger)) Trigger->SetGenerateOverlapEvents(false);
   for (UBoxComponent* Trigger : ChamberTriggers)
    if (IsValid(Trigger)) Trigger->SetGenerateOverlapEvents(false);
   return;
@@ -161,6 +180,10 @@ void AMoonfallDungeonLayout::BeginPlay()
    this, &AMoonfallDungeonLayout::HandleEntrance);
  FinalChamberTrigger->OnComponentBeginOverlap.AddDynamic(
    this, &AMoonfallDungeonLayout::HandleFinalChamber);
+ for (UBoxComponent* Trigger : {HazardTriggerA, HazardTriggerB, HazardTriggerC})
+  if (IsValid(Trigger))
+   Trigger->OnComponentBeginOverlap.AddDynamic(
+     this, &AMoonfallDungeonLayout::HandleHazardOverlap);
  for (UBoxComponent* Trigger : ChamberTriggers)
   if (IsValid(Trigger))
    Trigger->OnComponentBeginOverlap.AddDynamic(
@@ -216,4 +239,26 @@ void AMoonfallDungeonLayout::HandleChamberOverlap(
   OnChamberEntered(Hero, ChamberIndex, GetChamberType(ChamberIndex));
   return;
  }
+}
+
+void AMoonfallDungeonLayout::HandleHazardOverlap(
+ UPrimitiveComponent* Overlapped, AActor* OtherActor,
+ UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep,
+ const FHitResult& SweepResult)
+{
+ // Only the three bounded side traps may damage a living player.
+ if (Overlapped != HazardTriggerA && Overlapped != HazardTriggerB
+     && Overlapped != HazardTriggerC) return;
+ AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(OtherActor);
+ if (!IsValid(Hero) || !Hero->IsPlayerControlled()
+     || !FMath::IsFinite(Hero->Health) || Hero->Health <= 0.f
+     || !GetWorld() || !FMath::IsFinite(HazardDamage) || HazardDamage <= 0.f
+     || !FMath::IsFinite(HazardCooldownSeconds)) return;
+ // Never damage a player before their dungeon discovery is durably saved.
+ if (!Hero->HasDiscoveredDungeon(ZoneIndex, DungeonIndex)
+     && !Hero->DiscoverDungeonEntrance(ZoneIndex, DungeonIndex)) return;
+ const float Now = GetWorld()->GetTimeSeconds();
+ if (!FMath::IsFinite(Now) || Now < NextHazardDamageAt) return;
+ NextHazardDamageAt = Now + FMath::Clamp(HazardCooldownSeconds, 0.5f, 20.f);
+ Hero->ApplyMoonfallDamage(FMath::Clamp(HazardDamage, 0.f, 100.f));
 }
