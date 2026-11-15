@@ -138,6 +138,15 @@ class ClasslessTalentUIScreen(unittest.TestCase):
         self.assertIn('v385_mana=minf(_v406_resource_max("mana",V385_MAX_MANA)', self.screen)
         self.assertIn('v387_stamina=minf(_v406_resource_max("stamina",V387_MAX_STAMINA)', self.screen)
 
+    def test_health_talent_caps_and_no_free_healing(self):
+        self.assertIn('func _v406_sync_health()->void:', self.screen)
+        self.assertIn('var base_cap:float=maxf(1.0,old_cap-v406_applied_health_bonus)', self.screen)
+        self.assertIn('var target_cap:float=_v406_resource_max("health",base_cap)', self.screen)
+        self.assertIn('hp=clampf(hp,0.0,max_hp)', self.screen)
+        self.assertIn('hp=clampf(float(data.get("hp",hp)),1.0,max_hp)', self.screen)
+        self.assertIn('v406_applied_health_bonus=0.0', self.screen)
+        self.assertGreaterEqual(self.screen.count('_v406_sync_health()'), 4)
+
     def test_original_art_assets_still_preloaded(self):
         self.assertIn('Z_Original.webp', (ROOT / "godot-v38/scripts/main.gd").read_text(encoding="utf-8"))
         self.assertIn('Nyra_Original.png', (ROOT / "godot-v38/scripts/main.gd").read_text(encoding="utf-8"))
