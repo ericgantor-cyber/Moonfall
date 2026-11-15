@@ -780,6 +780,20 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("*EquippedCode = ItemCode;", loot)
         self.assertIn("InventoryItemCodes.Add(ItemCode);", loot)
 
+    def test_loot_upgrade_preview_uses_validated_equipment_tiers(self):
+        hero = self.hero_cpp
+        roll = hero.split("int32 AMoonfallHeroPawn::RollEquipmentCode(", 1)[1].split(
+            "void AMoonfallHeroPawn::AwardEquipmentDrop(", 1)[0]
+        pickup = hero.split("bool AMoonfallHeroPawn::CollectGroundEquipmentCode(", 1)[1].split(
+            "void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(", 1)[0]
+        craft = hero.split("bool AMoonfallHeroPawn::UpgradeInventoryItem(", 1)[1].split(
+            "bool AMoonfallHeroPawn::ReforgeInventoryItemAffix(", 1)[0]
+        self.assertIn("GetValidatedEquippedTier(LastLootSlot)", roll)
+        self.assertIn("GetValidatedEquippedTier(SlotIndex)", pickup)
+        self.assertIn("GetValidatedEquippedTier(Slot)", craft)
+        for section in (roll, pickup, craft):
+            self.assertNotIn("LastLootUpgrade = Tier - WeaponTier", section)
+
     def test_gear_hud_and_blueprint_tiers_reject_unowned_items(self):
         hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
         getter = self.hero_cpp.split("int32 AMoonfallHeroPawn::GetValidatedEquippedTier(int32 Slot) const", 1)[1].split(
