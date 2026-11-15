@@ -40,6 +40,7 @@ void AMoonfallUnrealGameMode::BeginPlay()
   GetWorld()->SpawnActor<AMoonfallArena>(FVector::ZeroVector, FRotator::ZeroRotator);
 
  if (!bGenerateDungeonWorld) return;
+ ReadyDungeonCount = 0;
  AuthoredDungeonSlots.SetNumZeroed(TotalDungeons);
  // Inspect authored layouts only once, rather than scanning world actors for
  // each of the thirty spawn requests. Never duplicate an authored dungeon.
@@ -49,7 +50,13 @@ void AMoonfallUnrealGameMode::BeginPlay()
   const int32 Dungeon = It->DungeonIndex;
   if (Zone >= 0 && Zone < DungeonZoneCount
       && Dungeon >= 0 && Dungeon < DungeonsPerZone)
-   AuthoredDungeonSlots[Zone * DungeonsPerZone + Dungeon] = 1;
+   {
+    const int32 Slot = Zone * DungeonsPerZone + Dungeon;
+    if (!AuthoredDungeonSlots[Slot]) {
+     AuthoredDungeonSlots[Slot] = 1;
+     ++ReadyDungeonCount;
+    }
+   }
  }
  NextDungeonSlot = 0;
  SpawnDungeonBatch();
@@ -60,10 +67,7 @@ void AMoonfallUnrealGameMode::BeginPlay()
 
 void AMoonfallUnrealGameMode::SpawnDungeonBatch()
 {
- if (!GetWorld()) {
-  GetWorldTimerManager().ClearTimer(DungeonSpawnTimer);
-  return;
- }
+ if (!GetWorld()) return;
  // Keep the startup frame responsive. Thirty layouts take no Tick of their own;
  // the short timer stops entirely when all slots have been considered.
  constexpr int32 MaxLayoutsPerBatch = 2;
@@ -86,7 +90,13 @@ void AMoonfallUnrealGameMode::SpawnDungeonBatch()
   Layout->DungeonIndex = DungeonIndex;
   Layout->bRandomizeChambers = true;
   Layout->FinishSpawning(DungeonTransform);
+  if (IsValid(Layout) && !Layout->IsActorBeingDestroyed()) ++ReadyDungeonCount;
  }
- if (NextDungeonSlot >= TotalDungeons)
+ if (NextDungeonSlot >= TotalDungeons) {
   GetWorldTimerManager().ClearTimer(DungeonSpawnTimer);
+  if (ReadyDungeonCount != TotalDungeons)
+   UE_LOG(LogTemp, Warning, TEXT("Moonfall dungeon world: only %d/%d layouts ready"),
+     ReadyDungeonCount, TotalDungeons);
+  OnDungeonWorldReady(ReadyDungeonCount);
+ }
 }
