@@ -3,6 +3,7 @@
 #include "GameFramework/Actor.h"
 #include "MoonfallArena.generated.h"
 class UInstancedStaticMeshComponent;
+class UTextRenderComponent;
 UCLASS()
 class MOONFALLUNREAL_API AMoonfallArena : public AActor {
  GENERATED_BODY()
@@ -13,6 +14,7 @@ public:
  // thirty individually ticking mesh actors.
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Dungeon|World")
  UInstancedStaticMeshComponent* DungeonRoad;
+ UPROPERTY(Transient) TArray<TObjectPtr<UTextRenderComponent>> DungeonZoneSigns;
  UPROPERTY(EditAnywhere, Category="Dungeon") int32 EnemyCount = 5;
  // NAME_None keeps the previous combined showcase. Select one god per arena
  // by setting this to z_void_reaper or nyra_eclipse_queen in the editor.
