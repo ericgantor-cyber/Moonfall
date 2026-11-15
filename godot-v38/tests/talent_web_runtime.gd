@@ -8,7 +8,10 @@ func _initialize() -> void:
  root.add_child(web)
  web.size = Vector2(800, 600)
  var tree: Dictionary = TALENTS.load_tree()
- web.set_data(tree, {}, 16, 15)
+ if int(tree.get("points_per_level", 0)) != 2:
+  _fail("Constellation must grant two talent points per level")
+  return
+ web.set_data(tree, {}, 16, 30)
  if web.points.size() != 141:
   _fail("Web should plot 141 unique nodes")
   return
@@ -47,11 +50,11 @@ func _initialize() -> void:
   _fail("Initial constellation must build once")
   return
  var original_positions: Dictionary = web.points.duplicate()
- web.set_data(tree, {"iron_will": 1}, 16, 14)
+ web.set_data(tree, {"iron_will": 1}, 16, 29)
  if web.layout_rebuild_count != 1 or web.points != original_positions:
   _fail("Allocation changes must not rebuild or move constellation stars")
   return
- web.set_data(tree, {}, 16, 15)
+ web.set_data(tree, {}, 16, 30)
  if web.layout_rebuild_count != 1:
   _fail("Repeated panel refresh must reuse original constellation layout")
   return
@@ -71,7 +74,7 @@ func _initialize() -> void:
  if web.selected_id != "might_ashen_grip" or not web.prerequisite_path.has("iron_will"):
   _fail("Unknown stars must preserve the current selection and route")
   return
- web.set_data(tree, {"iron_will": 1}, 16, 14)
+ web.set_data(tree, {"iron_will": 1}, 16, 29)
  if not web.available_talent_ids().has("breaker") or not web.available_talent_ids().has("guard"):
   _fail("Unspent points and valid roots must unlock second-tier skills")
   return
@@ -79,7 +82,7 @@ func _initialize() -> void:
  if not web.available_talent_ids().is_empty() or web.next_available() != "":
   _fail("No available points must disable next-talent navigation")
   return
- web.set_data(tree, {}, 16, 15)
+ web.set_data(tree, {}, 16, 30)
  for branch in ["might", "agility", "arcana"]:
   web.focus_branch(branch)
   if web.pan == Vector2.ZERO:
@@ -149,7 +152,7 @@ func _initialize() -> void:
  if web._node_at(root_pos) != root_id:
   _fail("Node hit-testing should select an original talent")
   return
- web.set_data(tree, {"iron_will": 1}, 16, 14)
+ web.set_data(tree, {"iron_will": 1}, 16, 29)
  if not web.points.has("might_moonforged_blade"):
   _fail("Expanded constellation points are missing")
   return
