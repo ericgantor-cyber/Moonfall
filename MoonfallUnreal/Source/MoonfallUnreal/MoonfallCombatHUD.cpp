@@ -593,9 +593,21 @@ void AMoonfallCombatHUD::DrawHUD()
    // Draw a concrete countdown, not just a vague warning. It uses the
    // authoritative attack clock and remains readable in reduced-motion mode.
    const float Seconds = FMath::Clamp(WarningRemaining, 0.f, 10.f);
-   DrawText(FString::Printf(TEXT("INCOMING ATTACK  |  %.1fs  |  DODGE / PARRY"),Seconds),
-     FLinearColor(1.f,0.84f,0.26f),X,Y+55.f,nullptr,
-     FMath::Min(1.4f,0.77f * AlertScale));
+   const FString MoveName = bRegionalBoss && !Boss->DungeonBossAttackLabel.IsEmpty()
+     ? Boss->DungeonBossAttackLabel.ToString() : FString(TEXT("INCOMING ATTACK"));
+   // The countdown and named tell are always visible together. Both are
+   // read-only HUD elements; attacks still resolve through enemy combat.
+   DrawText(FString::Printf(TEXT("%s  |  %.1fs  |  DODGE / PARRY"),
+      *MoveName, Seconds), FLinearColor(1.f,0.84f,0.26f),
+      X,Y+55.f,nullptr,FMath::Min(1.4f,0.77f * AlertScale));
+   if (bRegionalBoss && FMath::IsFinite(Boss->DungeonBossAttackWarningDuration)
+       && Boss->DungeonBossAttackWarningDuration > 0.f) {
+    const float WarningProgress = FMath::Clamp(
+      Seconds / Boss->DungeonBossAttackWarningDuration, 0.f, 1.f);
+    DrawRect(FLinearColor(0.25f,0.13f,0.09f),X,Y+73.f,Width,4.f);
+    DrawRect(FLinearColor(1.f,0.70f,0.23f),
+      X,Y+73.f,Width*WarningProgress,4.f);
+   }
   }
   if (bRegionalBoss && Canvas->SizeY > 600.f)
    DrawText(FString::Printf(TEXT("DUNGEONS CLEARED  %d / 30  |  ZONES  %d / 6"),
