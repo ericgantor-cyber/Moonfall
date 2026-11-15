@@ -138,6 +138,8 @@ var inventory_restore_focus:bool=false
 var crafting_selected_index:int=0
 var crafting_craftable_only:bool=false
 var crafting_category:String="All"
+var crafting_ready_first:bool=false
+var crafting_restore_focus:bool=false
 var inventory_search_input:LineEdit
 var equipped: Dictionary = {}
 var skinning_skill := 1
@@ -1407,6 +1409,7 @@ func _menu_tab(which: String) -> void:
    text+="\n"+_craft_skill_progress(crafting_skill,"Leatherworking")+"\n\n[b]RECIPES[/b] • Select a recipe to view materials and craft it.\n"
    _atlas_action("SHOW: "+("CRAFTABLE ONLY" if crafting_craftable_only else "ALL RECIPES"),"recipe_filter")
    _atlas_action("CATEGORY: "+crafting_category.to_upper(),"recipe_category","Browse all recipes, equipment, or consumables.")
+   _atlas_action("ORDER: "+("READY FIRST" if crafting_ready_first else "RECIPE LIST"),"recipe_order","Show craftable recipes first or restore the original recipe order.")
    var available:Array[int]=[]
    for i in range(RECIPES.size()):
     var recipe:Dictionary=RECIPES[i]
@@ -1417,7 +1420,24 @@ func _menu_tab(which: String) -> void:
     available.append(i)
     var possible:int=_recipe_possible_count(recipe)
     var label:String=("◆ " if crafting_selected_index==i else "")+str(recipe.get("name","Recipe"))+" • "+category+" • "+("READY ×"+str(possible) if issue=="" else "MISSING")
-    _atlas_action(label,"recipe_select:"+str(i),"Select to inspect materials and result.")
+    # Recipe buttons are built below, after sorting, to keep selection and focus consistent.
+   if crafting_ready_first:
+    var ready:Array[int]=[]
+    var blocked:Array[int]=[]
+    for recipe_index in available:
+     if INVENTORY_RULES.craft_issue(RECIPES[recipe_index],materials,gear_items.size(),bag_capacity)=="":ready.append(recipe_index)
+     else:blocked.append(recipe_index)
+    available=ready+blocked
+   var ready_count:int=0
+   for recipe_index in available:
+    var entry:Dictionary=RECIPES[recipe_index]
+    var issue:String=INVENTORY_RULES.craft_issue(entry,materials,gear_items.size(),bag_capacity)
+    if issue=="":ready_count+=1
+    var kind:String="Consumable" if int(entry.get("power",0))==0 else "Equipment"
+    var title:String=("◆ " if crafting_selected_index==recipe_index else "")+str(entry.get("name","Recipe"))+" • "+kind+" • "+("READY ×"+str(_recipe_possible_count(entry)) if issue=="" else "MISSING")
+    _atlas_action(title,"recipe_select:"+str(recipe_index),"Select to inspect materials and result.")
+   crafting_restore_focus=false
+   text+="\nRecipes: "+str(available.size())+" • Ready: "+str(ready_count)+" • Missing: "+str(available.size()-ready_count)
    if available.is_empty():
     text+="\nNo recipes match these filters. Change category or show all recipes.\n"
    else:
@@ -1628,6 +1648,8 @@ func _atlas_action(label: String, action: String, tip: String="") -> void:
    button.gui_input.connect(_atlas_equip_mouse_input.bind(action))
  button.pressed.connect(_atlas_execute.bind(action))
  menu_buttons.add_child(button)
+ if current_tab=="Professions" and crafting_restore_focus and action=="recipe_select:"+str(crafting_selected_index):
+  button.call_deferred("grab_focus")
 
 func _atlas_equip_mouse_input(event:InputEvent,action:String)->void:
  if not menu_open or current_tab!="Inventory":return
@@ -1655,6 +1677,7 @@ func _atlas_execute(action: String) -> void:
   var recipe_index:int=int(action.get_slice(":",1))
   if recipe_index<0 or recipe_index>=RECIPES.size():return
   crafting_selected_index=recipe_index
+  crafting_restore_focus=true
   _menu_tab("Professions")
   return
  if action=="recipe_filter":
@@ -1666,6 +1689,11 @@ func _atlas_execute(action: String) -> void:
   if not menu_open or current_tab!="Professions":return
   var categories:Array[String]=["All","Equipment","Consumable"]
   crafting_category=categories[(categories.find(crafting_category)+1)%categories.size()]
+  _menu_tab("Professions")
+  return
+ if action=="recipe_order":
+  if not menu_open or current_tab!="Professions":return
+  crafting_ready_first=not crafting_ready_first
   _menu_tab("Professions")
   return
  if action=="craft_selected":
