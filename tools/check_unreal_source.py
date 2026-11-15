@@ -797,6 +797,16 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("const float HealthDelta = 2.f * (Tier - PreviousTier);", equip)
         self.assertIn("MaxHealth = FMath::Max(1.f, MaxHealth + HealthDelta);", equip)
 
+    def test_scripted_rewards_use_validated_equip_and_health_delta(self):
+        award = self.hero_cpp.split("void AMoonfallHeroPawn::AwardEquipmentDrop(", 1)[1].split(
+            "bool AMoonfallHeroPawn::CollectGroundEquipmentCode(", 1)[0]
+        self.assertIn("if (NewTier > GetValidatedEquippedTier(LastLootSlot))", award)
+        self.assertIn("EquipInventoryItem(InventoryItemCodes.Num() - 1);", award)
+        self.assertLess(award.index("InventoryItemCodes.Add(ItemCode);"),
+                        award.index("EquipInventoryItem(InventoryItemCodes.Num() - 1);"))
+        self.assertNotIn("MaxHealth +=", award)
+        self.assertNotIn("int32* Slot =", award)
+
     def test_scripted_rewards_cannot_exceed_persisted_inventory_capacity(self):
         award = self.hero_cpp.split("void AMoonfallHeroPawn::AwardEquipmentDrop(", 1)[1].split(
             "bool AMoonfallHeroPawn::CollectGroundEquipmentCode(", 1)[0]
@@ -917,9 +927,12 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("LastLootAffix = LastLootRarity == 0 ? 0", loot)
         self.assertIn("FMath::RandRange(1, 3)", loot)
         self.assertIn("LastLootAffix * 100000 + LastLootSlot * 10000", loot)
-        self.assertIn("int32* EquippedAffix =", self.hero_cpp)
-        self.assertIn("*EquippedAffix = LastLootAffix;", self.hero_cpp)
-        self.assertLess(self.hero_cpp.index("if (NewTier > *Slot) {"), self.hero_cpp.index("*EquippedAffix = LastLootAffix;"))
+        award = self.hero_cpp.split("void AMoonfallHeroPawn::AwardEquipmentDrop(", 1)[1].split(
+            "bool AMoonfallHeroPawn::CollectGroundEquipmentCode(", 1)[0]
+        self.assertIn("if (NewTier > GetValidatedEquippedTier(LastLootSlot))", award)
+        self.assertIn("EquipInventoryItem(InventoryItemCodes.Num() - 1);", award)
+        for unsafe in ("*EquippedAffix = LastLootAffix;", "MaxHealth += 2.f", "*EquippedCode = ItemCode;"):
+            self.assertNotIn(unsafe, award)
         cast = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split(
             "void AMoonfallHeroPawn::CastLeft()", 1)[0]
         self.assertIn("bOwnedWeapon && ValidEquippedTraitRarity(EquippedWeaponCode, 0, 1) > 0.f ? 0.06f : 0.f", cast)
