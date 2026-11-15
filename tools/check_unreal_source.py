@@ -132,7 +132,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             self.assertIn("UMoonfallRaceLibrary::" + name + "(", race_cpp)
         self.assertIn("GetPlayableRaceIds()", race_cpp.split("UMoonfallRaceLibrary::GetPlayableRaceProfiles()", 1)[1].split("UMoonfallRaceLibrary::GetRaceProfilesByFamily(", 1)[0])
         self.assertIn("GetRaceIdsByFamily(Family)", race_cpp.split("UMoonfallRaceLibrary::GetRaceProfilesByFamily(", 1)[1].split("UMoonfallRaceLibrary::FindRaceProfile(", 1)[0])
-        self.assertEqual(len(re.findall(r'^\\s*\\{TEXT\\("[a-z_]+"\\),', race_cpp, re.MULTILINE)), 30)
+        self.assertEqual(len(re.findall(r'^\s*\{TEXT\("[a-z_]+"\),', race_cpp, re.MULTILINE)), 30)
         for name in ("GetPlayableRaceProfiles", "GetRaceProfilesByFamily"):
             body = race_cpp.split("UMoonfallRaceLibrary::" + name + "(", 1)[1].split("\\n}\\n", 1)[0]
             self.assertNotIn("SaveGame", body)
