@@ -33,11 +33,7 @@ func _run()->void:
  assert(source.contains('beast["rhythm_posture"]=0.0'))
  assert(source.contains('beast["rhythm_last_pressure_at"]=map_time'))
  assert(source.contains("RHYTHM.recovered_posture("))
- assert(source.contains("func _refresh_boss_phase(beast:Dictionary)->void:"))
- assert(source.contains("super._refresh_boss_phase(beast)"))
- assert(source.contains("RHYTHM.boss_combat_phase("))
- assert(source.contains("RHYTHM.boss_phase_attack_recovery("))
- assert(source.contains('beast["rhythm_boss_phase"]=1'))
+ assert(not source.contains("func _refresh_boss_phase(beast:Dictionary)->void:"))
  assert(source.contains('beast["rhythm_break_immune_until"]=0.0'))
  # Lifecycle must clear transient combo and dodge reward states.
  for entry in ["func _start_game(","func _restore_data(","func _respawn_player(","func _death_return_to_title("]:
