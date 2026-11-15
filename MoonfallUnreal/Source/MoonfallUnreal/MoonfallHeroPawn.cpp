@@ -1094,8 +1094,17 @@ void AMoonfallHeroPawn::ToggleDisplayMode() {
 
 void AMoonfallHeroPawn::ToggleCharacterStats()
 {
- if (bInventoryOpen && !bOptionsOpen && Health > 0.f)
-  bCharacterStatsOpen = !bCharacterStatsOpen;
+ if (bOptionsOpen || Health <= 0.f || !FMath::IsFinite(Health)) return;
+ // The C character sheet must open directly, without first pressing B.
+ // Reuse inventory opening to apply its movement, mouse and modal cleanup.
+ if (!bInventoryOpen) {
+  ToggleInventory();
+  if (!bInventoryOpen) return;
+  bCharacterStatsOpen = true;
+  return;
+ }
+ bCharacterStatsOpen = !bCharacterStatsOpen;
+ bInventoryScrollbarDragging = false;
 }
 
 void AMoonfallHeroPawn::ToggleInventory() {
