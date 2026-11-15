@@ -1818,7 +1818,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
     def test_normal_blocks_also_refresh_combat_recovery(self):
         damage = self.hero_cpp.split("void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount)", 1)[1].split(
             "void AMoonfallHeroPawn::CycleGraphicsQuality()", 1)[0]
-        guard = damage.split("if (bGuarding && bFrontAttack && !bOptionsOpen", 1)[1].split(
+        guard = damage.split("if (!bIncomingDamageDodgeOnly && bGuarding && bFrontAttack && !bOptionsOpen", 1)[1].split(
             "if (bPerfectParry) {", 1)[0]
         self.assertIn("CombatRecoveryEndsAt = FMath::Max(", guard)
         self.assertIn("Stamina = FMath::Clamp(Stamina - RequiredGuardCost, 0.f, MaxStamina)", guard)
@@ -1925,7 +1925,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
     def test_guard_impact_preserves_stamina_delay_and_resets_stale_counter(self):
         damage = self.hero_cpp.split("void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount)", 1)[1].split(
             "void AMoonfallHeroPawn::CycleGraphicsQuality()", 1)[0]
-        guard = damage.split("if (bGuarding && bFrontAttack && !bOptionsOpen", 1)[1].split(
+        guard = damage.split("if (!bIncomingDamageDodgeOnly && bGuarding && bFrontAttack && !bOptionsOpen", 1)[1].split(
             "OnGuardImpact(", 1)[0]
         self.assertIn("StaminaRegenStartsAt = FMath::Max(", guard)
         self.assertIn("FMath::IsFinite(StaminaRegenStartsAt) ? StaminaRegenStartsAt : Now", guard)
@@ -2647,7 +2647,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("bLastIncomingHitParried = false;", self.hero_cpp)
         self.assertIn("bLastIncomingHitParried = bHasIncomingDamageSource;", self.hero_cpp)
         self.assertIn("return bLastIncomingHitParried;", self.hero_cpp)
-        self.assertIn("const bool bParried = Hero->ApplyMoonfallDamageFrom(", self.enemy_cpp)
+        self.assertIn("const bool bParried = bDodgeOnlyStrike", self.enemy_cpp)
         self.assertIn("HitReactionEndsAt = FMath::Max(HitReactionEndsAt, Now + ParryStaggerSeconds);", self.enemy_cpp)
         self.assertIn("NextAttackAt = FMath::Max(NextAttackAt, HitReactionEndsAt + 0.35f);", self.enemy_cpp)
         self.assertIn("bComboSecondHitPending = false;", self.enemy_cpp)
@@ -2683,7 +2683,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("ParryWindowEndsAt = -1.f;", guard)
         damage = self.hero_cpp.split("void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount)", 1)[1].split(
             "void AMoonfallHeroPawn::CycleGraphicsQuality()", 1)[0]
-        self.assertIn("const bool bPerfectParry = bGuarding && bHasIncomingDamageSource && bFrontAttack", damage)
+        self.assertIn("const bool bPerfectParry = !bIncomingDamageDodgeOnly && bGuarding && bHasIncomingDamageSource && bFrontAttack", damage)
         self.assertIn("&& Now <= ParryWindowEndsAt && Now <= NextParryAt;", damage)
         self.assertIn("const bool bFrontAttack = !bHasIncomingDamageSource", damage)
         self.assertLess(damage.index("const bool bFrontAttack ="), damage.index("const bool bPerfectParry ="))
@@ -2701,7 +2701,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "void AMoonfallHeroPawn::CycleGraphicsQuality()", 1)[0]
         self.assertIn("Stamina >= RequiredGuardCost", damage)
         self.assertIn("const float RequiredGuardCost = bPerfectParry ? 0.f : HitGuardCost;", damage)
-        self.assertIn("const bool bPerfectParry = bGuarding && bHasIncomingDamageSource && bFrontAttack", damage)
+        self.assertIn("const bool bPerfectParry = !bIncomingDamageDodgeOnly && bGuarding && bHasIncomingDamageSource && bFrontAttack", damage)
         self.assertIn("&& Now <= ParryWindowEndsAt && Now <= NextParryAt;", damage)
         self.assertIn("float GuardImpactStaminaScale = 0.15f;", self.hero_h)
         self.assertIn("FMath::IsFinite(GuardImpactStaminaScale)", damage)
