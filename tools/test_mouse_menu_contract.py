@@ -190,6 +190,27 @@ class MouseMenusContract(unittest.TestCase):
         self.assertIn('_craft(crafting_selected_index)', self.source)
         self.assertIn('button.disabled=true', self.source)
 
+    def test_recipe_actions_live_in_menu_handler_not_mouse_input(self):
+        mouse_handler = self.source.split("func _atlas_equip_mouse_input(", 1)[1].split("func _branch_hex(", 1)[0]
+        menu_handler = self.source.split("func _atlas_execute(action: String) -> void:", 1)[1].split("func _reset_new_adventure(", 1)[0]
+        self.assertNotIn('recipe_select:', mouse_handler)
+        self.assertNotIn('craft_selected', mouse_handler)
+        self.assertIn('if action.begins_with("recipe_select:"):', menu_handler)
+        self.assertIn('if action=="recipe_filter":', menu_handler)
+        self.assertIn('if action=="craft_selected":', menu_handler)
+        self.assertIn('  if action.begins_with("inventory_select:"):', mouse_handler)
+
+    def test_crafting_progression_and_blocked_craft_feedback(self):
+        self.assertIn('func _craft_skill_rank(level:int)->String:', self.source)
+        self.assertIn('func _craft_skill_progress(level:int)->String:', self.source)
+        self.assertIn('_craft_skill_rank(crafting_skill)', self.source)
+        self.assertIn('_craft_skill_progress(crafting_skill)', self.source)
+        self.assertIn(' • NEED "+str(required-owned)', self.source)
+        self.assertIn('Crafting blocked while enemies are attacking.', self.source)
+        self.assertIn('if _combat_threat():issue="Cannot craft while enemies are attacking."', self.source)
+        self.assertIn('if new_rank!=previous_rank', self.source)
+        self.assertIn('button.disabled=true', self.source)
+
     def test_inventory_search_clear_and_mouse_scroll(self):
         self.assertIn('inventory_search_input.clear_button_enabled=true', self.source)
         self.assertIn('inventory_search_input.text_changed.connect(_on_inventory_query_changed)', self.source)
