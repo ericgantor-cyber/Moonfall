@@ -1246,11 +1246,13 @@ func _menu_tab(which: String) -> void:
    var matches:Array[int]=INVENTORY_RULES.matching_gear_indices(source,inventory_query,inventory_filter,inventory_sort)
    var pages:int=INVENTORY_RULES.page_count(matches.size())
    inventory_page=clampi(inventory_page,0,pages-1)
-   text+="\nFound "+str(matches.size())+" • Page "+str(inventory_page+1)+" / "+str(pages)+"\n\n"
+   text+="\nFound "+str(matches.size())+" • Page "+str(inventory_page+1)+" / "+str(pages)+"\nLeft-click VIEW to inspect • Right-click VIEW to equip from bag.\n\n"
    for n in range(inventory_page*INVENTORY_RULES.BAG_PAGE_SIZE,mini((inventory_page+1)*INVENTORY_RULES.BAG_PAGE_SIZE,matches.size())):
     var index:int=matches[n]
     var gear:Dictionary=source[index]
-    text+=str(index+1)+". "+str(gear.get("rarity","Common"))+" "+str(gear.get("name","Gear"))+" • Power "+str(gear.get("power",0))+"\n"
+    var rarity:String=str(gear.get("rarity","Common"))
+    var hue:String=_inventory_rarity_color(rarity)
+    text+=("[b]▶ " if inventory_selected_index==index else "")+str(index+1)+". [color="+hue+"]"+rarity+" "+str(gear.get("name","Gear"))+"[/color] • Power "+str(gear.get("power",0))+("[/b]" if inventory_selected_index==index else "")+"\n"
     _atlas_action(("SELECTED: " if inventory_selected_index==index else "VIEW: ")+str(gear.get("name","Gear")),"inventory_select:"+str(index),"Left-click to inspect; right-click to equip from bag.")
     if inventory_show_vault:
      _atlas_action("WITHDRAW: "+str(gear.get("name","Gear")),"inventory_withdraw:"+str(index))
@@ -1262,8 +1264,19 @@ func _menu_tab(which: String) -> void:
    if inventory_page+1<pages:_atlas_action("NEXT PAGE","inventory_page_next")
    if inventory_selected_index>=0 and inventory_selected_index<source.size():
     var selected:Dictionary=source[inventory_selected_index]
-    text+="\n[b]SELECTED ITEM[/b] "+str(selected.get("name","Gear"))+" • "+str(selected.get("rarity","Common"))+" • Power "+str(selected.get("power",0))
-    if selected.has("affix"):text+="\nAffix: "+str(selected.get("affix",""))+" • "+str(selected.get("affix_value",0))
+    var chosen_rarity:String=str(selected.get("rarity","Common"))
+    var selected_power:int=int(selected.get("power",0))
+    text+="\n\n[b]ITEM INSPECTION[/b]\n[color="+_inventory_rarity_color(chosen_rarity)+"][b]"+str(selected.get("name","Gear"))+"[/b][/color]"
+    text+="\n"+chosen_rarity+" • Item Power "+str(selected_power)
+    if selected.has("affix") and str(selected.get("affix",""))!="":
+     text+="\nBonus: "+str(selected.get("affix","")).capitalize()+" • "+str(selected.get("affix_value",0))
+    if not inventory_show_vault:
+     var equipped_power:int=_equipment_power()
+     var difference:int=selected_power-equipped_power
+     text+="\n[b]COMPARE WITH EQUIPPED[/b]"
+     text+="\nCurrent: "+str(equipped.get("name","None"))+" • Power "+str(equipped_power)
+     text+="\nDifference: [color="+("#57dc91" if difference>0 else "#ed8391" if difference<0 else "#c8d4e6")+"]"+("+" if difference>0 else "")+str(difference)+" Power[/color]"
+    else:text+="\nIn vault • Withdraw to compare or equip."
     if inventory_show_vault:text+="\nWithdraw before equipping."
     else:text+="\nRight-click VIEW to equip or use the Equip button."
    text+="\nEquipped: "+str(equipped.get("name","None"))+" • Power "+str(_equipment_power())
@@ -1333,6 +1346,16 @@ func _menu_tab(which: String) -> void:
    _atlas_action("FULL GRAPHICS","full")
    _atlas_action("RESUME GAME","resume")
    _atlas_action("RETURN TO HERO SELECT","title")
+
+func _inventory_rarity_color(rarity:String)->String:
+ match rarity:
+  "Uncommon":return "#62d77e"
+  "Rare":return "#5a9bf8"
+  "Epic":return "#b980ef"
+  "Legendary":return "#f7ac54"
+  "Mythic":return "#f7799a"
+  "Crafted":return "#62d8d3"
+  _:return "#dee5ee"
 
 func _atlas_action(label: String, action: String, tip: String="") -> void:
  var button:=Button.new()
