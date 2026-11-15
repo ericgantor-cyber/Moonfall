@@ -1156,7 +1156,7 @@ func _inventory_action(action:String)->void:
    if selected_at<0:selected_at=0
    else:selected_at=posmod(selected_at+(1 if action=="inventory_select_next" else -1),matching.size())
    inventory_selected_index=matching[selected_at]
-   inventory_page=selected_at/INVENTORY_RULES.BAG_PAGE_SIZE
+   inventory_page=floori(float(selected_at)/float(INVENTORY_RULES.BAG_PAGE_SIZE))
   "inventory_upgrade":
    var cost:int=INVENTORY_RULES.upgrade_cost(bag_capacity)
    if cost<=0 or not _wallet_can_afford(cost*MONEY_RULES.COPPER_PER_GOLD):
@@ -1260,7 +1260,7 @@ func _menu_tab(which: String) -> void:
    var start:int=inventory_page*INVENTORY_RULES.BAG_PAGE_SIZE
    var end:int=mini(start+INVENTORY_RULES.BAG_PAGE_SIZE,matches.size())
    # Never keep a hidden or stale selection when the filter or page changes.
-   if end>start and not inventory_selected_index in matches.slice(start,end):
+   if end>start and not (inventory_selected_index in matches.slice(start,end)):
     inventory_selected_index=matches[start]
    elif matches.is_empty():inventory_selected_index=-1
    text+="\nFound "+str(matches.size())+" • Page "+str(inventory_page+1)+" / "+str(pages)+"\nClick a tile to inspect • Right-click a bag tile to equip.\n"
