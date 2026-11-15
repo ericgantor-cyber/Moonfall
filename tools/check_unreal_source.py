@@ -3507,9 +3507,39 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("DiscoveryTrigger->SetGenerateOverlapEvents(false);", entrance_cpp)
         self.assertLess(entrance_cpp.index("bVisitedThisSession = true;"),
                         entrance_cpp.index("OnEntranceVisited(Hero, ZoneIndex, DungeonIndex);"))
-        self.assertNotIn("DiscoverDungeonEntrance(", entrance_cpp)
+        self.assertIn("Hero->DiscoverDungeonEntrance(ZoneIndex, DungeonIndex)", entrance_cpp)
+        self.assertIn("Hero->HasDiscoveredDungeon(ZoneIndex, DungeonIndex)", entrance_cpp)
+        self.assertIn("if (!bAlreadyDiscovered)", entrance_cpp)
+        self.assertLess(entrance_cpp.index("Hero->DiscoverDungeonEntrance("),
+                        entrance_cpp.index("bVisitedThisSession = true;"))
         self.assertNotIn("SaveWorldProgress(", entrance_cpp)
         self.assertNotIn("AddExperience(", entrance_cpp)
+
+
+    def test_v8_dungeon_ledger_preserves_old_saves_and_rejects_bad_bits(self):
+        save_h = (ROOT / "MoonfallPersistentSave.h").read_text(encoding="utf-8")
+        self.assertIn("UPROPERTY() int32 Version = 8;", save_h)
+        self.assertIn("UPROPERTY() int32 DiscoveredDungeonMask = 0;", save_h)
+        self.assertIn("Version > 8", self.hero_cpp)
+        self.assertIn("Save->Version >= 8 ? Save->DiscoveredDungeonMask : 0", self.hero_cpp)
+        self.assertIn("Save->DiscoveredDungeonMask = DiscoveredDungeonMask;", self.hero_cpp)
+        self.assertIn("Save->Version >= 8 &&", self.hero_cpp)
+        self.assertIn("~((1u << 30) - 1u)", self.hero_cpp)
+        self.assertIn("bPersistentSaveWritesBlocked = true;", self.hero_cpp)
+
+    def test_dungeon_discovery_does_not_reward_failed_saves(self):
+        discovery = self.hero_cpp.split(
+            "bool AMoonfallHeroPawn::DiscoverDungeonEntrance(int32 Zone, int32 Dungeon)", 1
+        )[1].split("bool AMoonfallHeroPawn::SaveWorldProgress()", 1)[0]
+        for guard in ("Zone < 0 || Zone >= 6", "Dungeon < 0 || Dungeon >= 5",
+                      "bPersistentSaveWritesBlocked", "HasDiscoveredDungeon(Zone, Dungeon)"):
+            self.assertIn(guard, discovery)
+        self.assertIn("DiscoveredDungeonMask = PreviousMask;", discovery)
+        self.assertLess(discovery.index("if (!SaveWorldProgress())"),
+                        discovery.index("OnDungeonDiscovered(Zone, Dungeon);"))
+        self.assertNotIn("Experience +=", discovery)
+        self.assertIn("return true;", discovery)
+        self.assertIn("GetDiscoveredDungeonCount(int32 Zone) const", self.hero_cpp)
 
 if __name__ == "__main__":
     unittest.main()
