@@ -1,7 +1,7 @@
 extends Control
 ## Moonfall-original, zoomable 141-node constellation web.
-## Mouse: wheel zoom, drag empty space to pan, click a node to select.
-## Keyboard: +/- zoom, arrow keys pan, Home recenters the map.
+## Mouse: wheel zoom, left-click nodes, drag empty space or right/middle-drag to pan.
+## Keyboard: arrow keys pan, Home fits the web. Mouse zoom needs no +/- keys.
 signal talent_selected(talent_id: String)
 
 const BRANCH_COLORS: Dictionary = {
@@ -23,6 +23,7 @@ var zoom: float = 0.16
 var pan: Vector2 = Vector2.ZERO
 var selected_id: String = ""
 var dragging: bool = false
+var drag_button: int = 0
 var drag_distance: float = 0.0
 var hovered_id: String = ""
 var mouse_down_on_node: String = ""
@@ -108,6 +109,38 @@ func next_available(after_id: String = "") -> String:
  var index: int = candidates.find(after_id)
  return candidates[(index + 1) % candidates.size()]
 
+func tier_summary() -> Dictionary:
+ ## Level gates describe progression; prerequisites still determine purchases.
+ var gates: Dictionary = {}
+ for node in tree.get("nodes", []):
+  if typeof(node) != TYPE_DICTIONARY:continue
+  var tier: int = int(node.get("tier", 0))
+  if tier < 1:continue
+  var required_level: int = int(node.get("min_level", 1))
+  if not gates.has(tier) or required_level < int(gates[tier]):
+   gates[tier] = required_level
+ var unlocked: int = 0
+ var next_level: int = 0
+ var next_tier: int = 0
+ for tier in gates:
+  if level >= int(gates[tier]):
+   unlocked += 1
+  elif next_level == 0 or int(gates[tier]) < next_level:
+   next_level = int(gates[tier])
+   next_tier = int(tier)
+ return {"unlocked": unlocked, "total": gates.size(), "next_tier": next_tier, "next_level": next_level}
+
+func focus_tier(target_tier: int) -> String:
+ ## Navigate to a tier without spending points.
+ for node in tree.get("nodes", []):
+  if typeof(node) != TYPE_DICTIONARY:continue
+  if int(node.get("tier", 0)) != target_tier:continue
+  if level < int(node.get("min_level", 1)):continue
+  var target: String = str(node.get("id", ""))
+  focus_node(target)
+  return target
+ return ""
+
 func fit_all() -> void:
  pan = Vector2.ZERO
  zoom = clampf((minf(size.x, size.y) - 36.0) / 3500.0, MIN_ZOOM, MAX_ZOOM)
@@ -187,19 +220,21 @@ func _gui_input(event: InputEvent) -> void:
    zoom_at(1.0 / 1.18, mouse.position)
    accept_event()
    return
-  if mouse.button_index == MOUSE_BUTTON_LEFT or mouse.button_index == MOUSE_BUTTON_MIDDLE:
+  if mouse.button_index == MOUSE_BUTTON_LEFT or mouse.button_index == MOUSE_BUTTON_MIDDLE or mouse.button_index == MOUSE_BUTTON_RIGHT:
    if mouse.pressed:
     dragging = true
+    drag_button = mouse.button_index
     drag_distance = 0.0
     mouse_down_on_node = _node_at(mouse.position) if mouse.button_index == MOUSE_BUTTON_LEFT else ""
     grab_focus()
-   else:
-    if dragging and mouse.button_index == MOUSE_BUTTON_LEFT and drag_distance < 9.0:
+   elif dragging and mouse.button_index == drag_button:
+    if mouse.button_index == MOUSE_BUTTON_LEFT and drag_distance < 9.0:
      var id: String = _node_at(mouse.position)
      if id != "" and id == mouse_down_on_node:
       select_node(id)
       talent_selected.emit(id)
     dragging = false
+    drag_button = 0
     mouse_down_on_node = ""
    accept_event()
    return
@@ -212,24 +247,30 @@ func _gui_input(event: InputEvent) -> void:
   var hover_changed: bool = next_hover != hovered_id
   if hover_changed:
    hovered_id = next_hover
-   tooltip_text = str(node_info.get(hovered_id, {}).get("title", "")) if hovered_id != "" else ""
+   if hovered_id != "":
+    var hovered: Dictionary = node_info.get(hovered_id, {})
+    tooltip_text = str(hovered.get("title", "")) + "  " + str(allocations.get(hovered_id, 0)) + "/" + str(hovered.get("max_rank", 1)) + "  •  level " + str(hovered.get("min_level", 1)) + "+"
+   else:
+    tooltip_text = ""
   if dragging and mouse_down_on_node == "" or hover_changed:
    queue_redraw()
   accept_event()
   return
  if event is InputEventKey and event.pressed and not event.echo:
   var key: InputEventKey = event
-  if key.keycode == KEY_EQUAL or key.keycode == KEY_KP_ADD:
-   zoom_by(1.2)
-  elif key.keycode == KEY_MINUS or key.keycode == KEY_KP_SUBTRACT:
-   zoom_by(1.0 / 1.2)
-  elif key.keycode == KEY_HOME:
+  if key.keycode == KEY_HOME:
    fit_all()
   elif key.keycode == KEY_N:
    var next_id: String = next_available(selected_id)
    if next_id != "":
     focus_node(next_id)
     talent_selected.emit(next_id)
+  elif key.keycode == KEY_PAGEUP or key.keycode == KEY_PAGEDOWN:
+   var current_tier: int = int(node_info.get(selected_id, {}).get("tier", 1))
+   var direction: int = 1 if key.keycode == KEY_PAGEDOWN else -1
+   var target_id: String = focus_tier(current_tier + direction)
+   if target_id != "":
+    talent_selected.emit(target_id)
   elif key.keycode == KEY_LEFT:
    pan.x += 100.0 / zoom
   elif key.keycode == KEY_RIGHT:
@@ -286,12 +327,18 @@ func _draw() -> void:
   var prereqs_ok: bool = true
   for requirement in node.get("requires", []):
    if int(allocations.get(str(requirement), 0)) == 0:prereqs_ok = false
-  var available_now: bool = prereqs_ok and level >= int(node.get("min_level", 1)) and available > 0 and rank < max_rank
+  var available_now: bool = prereqs_ok and level >= int(node.get("min_level", 1)) and available >= int(node.get("cost_per_rank", 1)) and rank < max_rank
   var radius: float = _visual_radius(id)
   draw_circle(center, radius + 3.0, Color("#070d17"))
   col.a = 1.0 if rank > 0 else (0.8 if available_now else 0.30)
   draw_circle(center, radius, col if rank > 0 else Color("#111c30"))
   draw_arc(center, radius + 1.5, 0, TAU, 24, col, 2.0, true)
+  # A partial ring shows purchased ranks; a complete ring marks max rank.
+  if rank > 0 and max_rank > 1:
+   var rank_arc: float = TAU * float(rank) / float(max_rank)
+   draw_arc(center, radius + 3.5, -PI * 0.5, -PI * 0.5 + rank_arc, 32, Color.WHITE, 3.0, true)
+  elif rank == max_rank:
+   draw_arc(center, radius + 3.5, 0, TAU, 32, Color("#f5df9b"), 2.5, true)
   if available_now and rank == 0:
    draw_circle(center, maxf(2.0, radius * 0.27), col)
   if id == selected_id:
@@ -303,7 +350,14 @@ func _draw() -> void:
  var font: Font = ThemeDB.fallback_font
  if font != null:
   draw_string(font, Vector2(16, 32), "MOONFALL  •  CONSTELLATION WEB", HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color("#e0e7fa"))
-  draw_string(font, Vector2(16, size.y - 18), "Wheel: zoom  •  Drag: pan  •  N: next available  •  Home: fit  •  Arrows: move", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color("#b8c2d7"))
+  var progress: Dictionary = tier_summary()
+  var tier_text: String = "TIERS " + str(progress["unlocked"]) + "/" + str(progress["total"])
+  if int(progress["next_tier"]) > 0:
+   tier_text += "  •  Next: tier " + str(progress["next_tier"]) + " at level " + str(progress["next_level"])
+  else:
+   tier_text += "  •  All tiers level-unlocked"
+  draw_string(font, Vector2(16, 82), tier_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color("#b8c2d7"))
+  draw_string(font, Vector2(16, size.y - 18), "Wheel: zoom  •  Right/middle-drag: pan  •  Left-click: select  •  Home: fit", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color("#b8c2d7"))
   if hovered_id != "" and node_info.has(hovered_id):
    var info: Dictionary = node_info[hovered_id]
    var rank: int = int(allocations.get(hovered_id, 0))
