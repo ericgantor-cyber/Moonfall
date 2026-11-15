@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "description": "Moonfall-original classless constellation talent tree; design/prototype, not active in Godot or UE5. Influenced by Enshrouded and AC Valhalla, no copied graphics or named nodes.",
-  "points_per_level": 1,
+  "points_per_level": 2,
   "starting_points": 0,
   "maximum_level": 100,
   "branches": [
