@@ -327,7 +327,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "void AMoonfallHeroPawn::AdjustOption", 1)[0]
         self.assertIn("bInventoryOpen = !bInventoryOpen;", toggle)
         self.assertIn("EquipInventoryItem(InventorySelection);", toggle)
-        self.assertIn("if (bInventoryOpen) { bInventoryOpen = false; bCharacterStatsOpen = false; bInventoryScrollbarDragging = false; return; }", toggle)
+        self.assertIn("if (bInventoryOpen) {", toggle)
+        self.assertIn("ToggleInventory(); // Same cleanup path as the mouse close button.", toggle)
         self.assertIn("InventorySelection = DisplayOrder[FMath::Clamp(CurrentRow - 1, 0, DisplayOrder.Num() - 1)];", toggle)
         self.assertIn("InventorySelection = DisplayOrder[FMath::Clamp(CurrentRow + 1, 0, DisplayOrder.Num() - 1)];", toggle)
         self.assertIn("if (bInventoryOpen) return;", toggle)
@@ -610,6 +611,28 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("else if (Index == HoveredIndex)", self.hud)
         self.assertIn("Drag scrollbar: browse", self.hud)
         self.assertIn("TrackX, ThumbY, 6.f, ThumbHeight", self.hud)
+
+    def test_right_inventory_close_button_and_escape_share_cursor_cleanup(self):
+        hud = self.hud.split("if (Hero->bInventoryOpen)", 1)[1].split(
+            "// Nearest living boss", 1)[0]
+        click = self.hero_cpp.split("void AMoonfallHeroPawn::ResidentContextMouseClick()", 1)[1].split("\n}", 1)[0]
+        close = self.hero_cpp.split("bool AMoonfallHeroPawn::HitTestInventoryCloseButton() const", 1)[1].split("\n}", 1)[0]
+        escape = self.hero_cpp.split("void AMoonfallHeroPawn::OpenOptions()", 1)[1].split("\n}", 1)[0]
+        toggle = self.hero_cpp.split("void AMoonfallHeroPawn::ToggleInventory()", 1)[1].split("\n}", 1)[0]
+        self.assertIn("bool HitTestInventoryCloseButton() const;", self.hero_h)
+        self.assertIn("const float CloseX = SortX - 36.f;", close)
+        self.assertIn("MouseX >= CloseX && MouseX <= CloseX + 28.f", close)
+        self.assertIn("MouseY >= Top + 14.f && MouseY <= Top + 42.f", close)
+        self.assertIn("const float CloseButtonX = CloseSortX - 36.f;", hud)
+        self.assertIn("DrawText(TEXT(\"X\")", hud)
+        self.assertLess(hud.index("DrawText(TEXT(\"X\")"), hud.index("if (Hero->bCharacterStatsOpen)"))
+        self.assertIn("if (HitTestInventoryCloseButton()) { ToggleInventory(); return; }", click)
+        self.assertLess(click.index("HitTestInventoryCloseButton()"), click.index("HitTestInventorySortButton()"))
+        self.assertIn("ToggleInventory(); // Same cleanup path as the mouse close button.", escape)
+        self.assertIn("bInventoryScrollbarDragging = false;", toggle)
+        self.assertIn("PC->bShowMouseCursor = bInventoryOpen;", toggle)
+        for forbidden in ("EquipInventoryItem(", "InventoryItemCodes.RemoveAt(", "SaveWorldProgress("):
+            self.assertNotIn(forbidden, close)
 
     def test_nearby_batch_loot_is_range_and_cover_safe(self):
         pickup = self.hero_cpp.split("void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[1].split(
