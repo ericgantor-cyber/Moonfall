@@ -76,8 +76,8 @@ func _rhythm_confirmed_enemy_dodge()->void:
  _show_message("PERFECT DODGE! Counter now!",0.85)
  if is_instance_valid(player):_cue(player.global_position+Vector3(0.0,-0.45,0.0),"dodge",Color("86e9ff"))
 
-func _start_game(selected_hero:String)->void:
- super._start_game(selected_hero)
+func _rhythm_reset_transient_combat()->void:
+ # Never carry attack windows, dodge rewards, or counters across lives/saves.
  rhythm_chain=0
  rhythm_last_strike_at=-999.0
  rhythm_strike_active=false
@@ -85,3 +85,22 @@ func _start_game(selected_hero:String)->void:
  rhythm_dodge_started_at=-999.0
  rhythm_dodge_rewarded=false
  rhythm_counter_until=-999.0
+
+func _start_game(selected_hero:String)->void:
+ _rhythm_reset_transient_combat()
+ super._start_game(selected_hero)
+ _rhythm_reset_transient_combat()
+
+func _restore_data(data:Dictionary)->void:
+ _rhythm_reset_transient_combat()
+ super._restore_data(data)
+ _rhythm_reset_transient_combat()
+
+func _respawn_player()->void:
+ _rhythm_reset_transient_combat()
+ super._respawn_player()
+ _rhythm_reset_transient_combat()
+
+func _death_return_to_title()->void:
+ _rhythm_reset_transient_combat()
+ super._death_return_to_title()
