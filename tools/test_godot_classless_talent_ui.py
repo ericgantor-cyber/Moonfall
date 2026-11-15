@@ -27,12 +27,9 @@ class ClasslessTalentUIScreen(unittest.TestCase):
         web = (ROOT / "godot-v38/scripts/systems/moonfall_talent_web.gd").read_text(encoding="utf-8")
         for token in ("_draw()", "draw_line(", "draw_circle(",
                       "MOUSE_BUTTON_WHEEL_UP", "MOUSE_BUTTON_WHEEL_DOWN",
-                      "drag_distance", "KEY_LEFT", "KEY_HOME", "KEY_PAGEUP",
+                      "drag_distance", "KEY_LEFT", "KEY_HOME",
                       "talent_selected.emit(", "func focus_branch(", "func fit_all("):
             self.assertIn(token, web)
-        self.assertNotIn("KEY_EQUAL", web)
-        self.assertNotIn("KEY_MINUS", web)
-        self.assertIn("func focus_tier(", web)
         self.assertIn('v406_web.custom_minimum_size=Vector2(760,565)', self.screen)
         self.assertIn('focus.custom_minimum_size=Vector2(148,52)', self.screen)
         self.assertIn('v406_purchase_button.custom_minimum_size.y=56', self.screen)
@@ -53,6 +50,16 @@ class ClasslessTalentUIScreen(unittest.TestCase):
         self.assertIn('v406_active_branch=str(node.get("branch",v406_active_branch))', self.screen)
         self.assertIn('v406_selected_node=id', self.screen)
         self.assertIn("_v406_index_selected.bind(node_id)", self.screen)
+
+    def test_mouse_pan_and_zoom_without_plus_minus_keys(self):
+        web = (ROOT / "godot-v38/scripts/systems/moonfall_talent_web.gd").read_text(encoding="utf-8")
+        self.assertIn("MOUSE_BUTTON_RIGHT", web)
+        self.assertIn("drag_button = mouse.button_index", web)
+        self.assertIn("mouse.button_index == drag_button", web)
+        self.assertIn("mouse_down_on_node == \"\"", web)
+        self.assertIn("zoom_at(1.18, mouse.position)", web)
+        self.assertNotIn("key.keycode == KEY_EQUAL", web)
+        self.assertNotIn("key.keycode == KEY_MINUS", web)
 
     def test_unlockable_navigation_and_prerequisite_highlights(self):
         web = (ROOT / "godot-v38/scripts/systems/moonfall_talent_web.gd").read_text(encoding="utf-8")
@@ -106,6 +113,78 @@ class ClasslessTalentUIScreen(unittest.TestCase):
         self.assertIn("CLASSLESS_TALENTS.respec(", self.screen)
         self.assertIn("RESET ALL TALENT POINTS", self.screen)
         self.assertNotIn("CLASSLESS_TALENTS.refund(", self.screen)
+
+    def test_respec_requires_explicit_confirmation(self):
+        self.assertIn('var reset_confirm:ConfirmationDialog=ConfirmationDialog.new()', self.screen)
+        self.assertIn('reset_confirm.confirmed.connect(_v406_respec)', self.screen)
+        self.assertIn('v406_respec_button.pressed.connect(func():reset_confirm.popup_centered())', self.screen)
+        self.assertNotIn('v406_respec_button.pressed.connect(_v406_respec)', self.screen)
+
+    def test_rank_feedback_and_point_cost_gate(self):
+        web = (ROOT / "godot-v38/scripts/systems/moonfall_talent_web.gd").read_text(encoding="utf-8")
+        self.assertIn('available >= int(node.get("cost_per_rank", 1))', web)
+        self.assertIn('var rank_arc: float = TAU * float(rank) / float(max_rank)', web)
+        self.assertIn('func tier_summary()', web)
+        self.assertIn('func focus_tier(target_tier: int)', web)
+
+    def test_classless_bonuses_reach_live_damage_calculations(self):
+        self.assertIn('func _hero_damage_multiplier()->float:', self.screen)
+        self.assertIn('super._hero_damage_multiplier()', self.screen)
+        self.assertIn('v406_damage_context="melee"', self.screen)
+        self.assertIn('v406_damage_context="magic"', self.screen)
+        self.assertIn('_v406_bonus("melee_damage","percent")', self.screen)
+        self.assertIn('_v406_bonus("magic_damage","percent")', self.screen)
+        self.assertIn('v406_bonuses_cache=state.get("bonuses",{})', self.screen)
+        self.assertNotIn('JSON.stringify(v406_ranks)', self.screen)
+        self.assertIn('if v406_bonuses_dirty or v406_bonuses_level!=hero_level:', self.screen)
+        self.assertIn('func _v406_invalidate_bonus_cache()->void:', self.screen)
+        self.assertIn('v406_damage_context=""', self.screen)
+
+    def test_bonus_resources_restore_before_cap_and_update_hud(self):
+        restore = self.screen.split('func _restore_data(data:Dictionary)->void:', 1)[1].split('func _v384_refresh_vitals()', 1)[0]
+        self.assertLess(restore.index('v406_ranks=restored["allocations"].duplicate(true)'),
+                        restore.index('v385_mana=clampf(float(resources.get("mana"'))
+        self.assertIn('_v406_resource_max("mana",V385_MAX_MANA)', restore)
+        self.assertIn('_v406_resource_max("stamina",V387_MAX_STAMINA)', restore)
+        self.assertIn('v387_stamina_bar.max_value=_v406_resource_max("stamina",V387_MAX_STAMINA)', self.screen)
+        self.assertIn('v387_fallback_stamina_bar.max_value=_v406_resource_max("stamina",V387_MAX_STAMINA)', self.screen)
+        self.assertIn('v385_mana=minf(_v406_resource_max("mana",V385_MAX_MANA)', self.screen)
+        self.assertIn('v387_stamina=minf(_v406_resource_max("stamina",V387_MAX_STAMINA)', self.screen)
+
+    def test_health_talent_caps_and_no_free_healing(self):
+        self.assertIn('func _v406_sync_health()->void:', self.screen)
+        self.assertIn('var base_cap:float=maxf(1.0,old_cap-v406_applied_health_bonus)', self.screen)
+        self.assertIn('var target_cap:float=_v406_resource_max("health",base_cap)', self.screen)
+        self.assertIn('hp=clampf(hp,0.0,max_hp)', self.screen)
+        self.assertIn('hp=clampf(float(data.get("hp",hp)),1.0,max_hp)', self.screen)
+        self.assertIn('v406_applied_health_bonus=0.0', self.screen)
+        self.assertGreaterEqual(self.screen.count('_v406_sync_health()'), 4)
+
+    def test_health_talents_recalculate_after_respec_and_new_game(self):
+        respec = self.screen.split('func _v406_respec()->void:', 1)[1].split('func _v398_toggle_tree()', 1)[0]
+        self.assertLess(respec.index('v406_ranks=changed["allocations"].duplicate(true)'),
+                        respec.index('_v406_sync_health()'))
+        self.assertLess(respec.index('_v406_sync_health()'), respec.index('_save_game()'))
+        start = self.screen.split('func _start_game(selected_hero:String)->void:', 1)[1].split('func _checkpoint_extra_data()', 1)[0]
+        self.assertIn('v406_applied_health_bonus=0.0', start)
+
+    def test_respec_clamps_current_mana_and_stamina(self):
+        sync = self.screen.split('func _v406_sync_health()->void:', 1)[1].split('func _hero_damage_multiplier()', 1)[0]
+        self.assertIn('v385_mana=clampf(v385_mana,0.0,_v406_resource_max("mana",V385_MAX_MANA))', sync)
+        self.assertIn('v387_stamina=clampf(v387_stamina,0.0,_v406_resource_max("stamina",V387_MAX_STAMINA))', sync)
+        respec = self.screen.split('func _v406_respec()->void:', 1)[1].split('func _v398_toggle_tree()', 1)[0]
+        self.assertLess(respec.index('_v406_sync_health()'), respec.index('_save_game()'))
+
+    def test_cache_invalidation_on_purchase_respec_restore_and_new_game(self):
+        purchase = self.screen.split('func _v398_unlock(id:String)->void:', 1)[1].split('func _v406_respec()', 1)[0]
+        respec = self.screen.split('func _v406_respec()->void:', 1)[1].split('func _v398_toggle_tree()', 1)[0]
+        for section in (purchase, respec):
+            self.assertLess(section.index('_v406_invalidate_bonus_cache()'),
+                            section.index('_v406_sync_health()'))
+        restore = self.screen.split('func _restore_data(data:Dictionary)->void:', 1)[1].split('func _v384_refresh_vitals()', 1)[0]
+        self.assertIn('_v406_invalidate_bonus_cache()', restore)
+        start = self.screen.split('func _start_game(selected_hero:String)->void:', 1)[1].split('func _checkpoint_extra_data()', 1)[0]
+        self.assertIn('_v406_invalidate_bonus_cache()', start)
 
     def test_original_art_assets_still_preloaded(self):
         self.assertIn('Z_Original.webp', (ROOT / "godot-v38/scripts/main.gd").read_text(encoding="utf-8"))
