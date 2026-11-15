@@ -79,7 +79,11 @@ public:
    meta=(ClampMin="0.5", ClampMax="20.0"))
  float HazardCooldownSeconds = 2.f;
 
- // Final-room entry is not a boss kill and grants no reward automatically.
+ // Entering the last chamber starts one native regional boss encounter.
+ // Victory is handled by the existing enemy death/XP/ground-loot pipeline.
+ UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Dungeon|Boss")
+ void OnDungeonBossSpawned(AMoonfallHeroPawn* Hero, int32 Zone, int32 Dungeon);
+ // Final-room entry does not count as a kill and grants no reward.
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Dungeon")
  void OnFinalChamberEntered(AMoonfallHeroPawn* Hero);
 
@@ -94,6 +98,7 @@ private:
  TWeakObjectPtr<AMoonfallGroundLoot> SpawnedTreasure[ChamberCount];
  bool SpawnTreasureChamber(AMoonfallHeroPawn* Hero, int32 ChamberIndex);
  bool StartCombatChamber(AMoonfallHeroPawn* Hero, int32 ChamberIndex);
+ bool StartFinalBossChamber(AMoonfallHeroPawn* Hero);
  bool bFinalChamberNotified = false;
  void BuildHazardChambers(int32 OutChambers[3]) const;
  UFUNCTION()
