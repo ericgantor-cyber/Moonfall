@@ -4,6 +4,7 @@
 #include "MoonfallDungeonLayout.generated.h"
 
 class AMoonfallHeroPawn;
+class AMoonfallGroundLoot;
 class UBoxComponent;
 class UInstancedStaticMeshComponent;
 class UPrimitiveComponent;
@@ -62,6 +63,8 @@ public:
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Dungeon|Combat")
  void OnChamberEncounterSpawned(AMoonfallHeroPawn* Hero, int32 ChamberIndex,
    int32 SpawnedCount, bool bEliteEncounter);
+ UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Dungeon|Treasure")
+ void OnDungeonTreasureSpawned(AMoonfallHeroPawn* Hero, int32 ChamberIndex, int32 ItemCode);
  // Three pawn-only side-alcove traps. The 360-unit center route stays safe.
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Dungeon|Hazards")
  UBoxComponent* HazardTriggerA;
@@ -88,6 +91,8 @@ private:
     const FHitResult& SweepResult);
  uint16 EnteredChambersMask = 0;
  int32 SpawnedEncounterCount = 0;
+ TWeakObjectPtr<AMoonfallGroundLoot> SpawnedTreasure[ChamberCount];
+ bool SpawnTreasureChamber(AMoonfallHeroPawn* Hero, int32 ChamberIndex);
  bool StartCombatChamber(AMoonfallHeroPawn* Hero, int32 ChamberIndex);
  bool bFinalChamberNotified = false;
  void BuildHazardChambers(int32 OutChambers[3]) const;
