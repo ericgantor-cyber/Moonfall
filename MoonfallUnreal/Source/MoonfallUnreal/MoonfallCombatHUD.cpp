@@ -151,9 +151,9 @@ void AMoonfallCombatHUD::DrawHUD()
   // Wheel moves only the visible window; keyboard/controller selection remains independent.
   const int32 PageStart = FMath::Clamp(Hero->InventoryViewStart, 0, FMath::Max(0, Count - PerPage));
   const int32 PageEnd = FMath::Min(Count, PageStart + PerPage);
-  DrawText(FString::Printf(TEXT("%d items  |  %d salvage  |  view %d / %d"),
+  DrawText(FString::Printf(TEXT("%d items  |  %d salvage  |  visible %d-%d / %d"),
     Count, Hero->Salvage, Count == 0 ? 0 : PageStart + 1,
-    Count), FLinearColor(0.75f,0.72f,0.91f),
+    PageEnd, Count), FLinearColor(0.75f,0.72f,0.91f),
     Left + 18.f, Top + 49.f, nullptr, 0.9f);
   if (Count == 0)
    DrawText(TEXT("No equipment yet. Defeat enemies to find gear."), FLinearColor::White,
@@ -187,6 +187,18 @@ void AMoonfallCombatHUD::DrawHUD()
    DrawText(Row, Index == Selected ? FLinearColor::Yellow
      : (bValid ? RarityColors[Rarity] : FLinearColor::White),
      Left + 20.f, Y, nullptr, Canvas->SizeX < 900.f ? 0.75f : 0.9f);
+  }
+  // Read-only proportional scroll indicator. No hit test, hidden inventory
+  // action, or selected-item mutation is introduced by this decoration.
+  if (Count > PerPage) {
+   const float TrackY = Top + 145.f;
+   const float TrackHeight = RowSpacing * PerPage;
+   const float TrackX = Left + PanelWidth - 11.f;
+   const float ThumbHeight = FMath::Max(14.f, TrackHeight * PerPage / Count);
+   const int32 MaxStart = FMath::Max(1, Count - PerPage);
+   const float ThumbY = TrackY + (TrackHeight - ThumbHeight) * PageStart / MaxStart;
+   DrawRect(FLinearColor(0.17f,0.16f,0.25f,0.95f), TrackX, TrackY, 4.f, TrackHeight);
+   DrawRect(FLinearColor(0.57f,0.81f,0.93f,1.f), TrackX, ThumbY, 4.f, ThumbHeight);
   }
   // Match the combat decoder: a code only contributes while owned, correctly
   // slotted and canonically encoded. HUD previews must never imply phantom stats.
