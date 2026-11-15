@@ -875,11 +875,16 @@ func _update_beast_step(beast:Dictionary,delta:float)->void:
 
 # Validated classless talents augment combat without mutating legacy stats or saves.
 var v406_damage_context:String=""
+var v406_bonuses_key:String=""
+var v406_bonuses_cache:Dictionary={}
 func _v406_bonus(stat:String,kind:String)->float:
  if v406_ranks.is_empty():return 0.0
- var state:Dictionary=CLASSLESS_TALENTS.evaluate(clampi(int(hero_level),1,100),v406_ranks)
- if not bool(state.get("ok",false)):return 0.0
- return float(state.get("bonuses",{}).get(stat,{}).get(kind,0.0))
+ var cache_key:String=str(hero_level)+":"+JSON.stringify(v406_ranks)
+ if cache_key!=v406_bonuses_key:
+  v406_bonuses_key=cache_key
+  var state:Dictionary=CLASSLESS_TALENTS.evaluate(clampi(int(hero_level),1,100),v406_ranks)
+  v406_bonuses_cache=state.get("bonuses",{}) if bool(state.get("ok",false)) else {}
+ return float(v406_bonuses_cache.get(stat,{}).get(kind,0.0))
 
 func _v406_resource_max(stat:String,base:float)->float:
  return maxf(base,base*(1.0+_v406_bonus(stat,"percent"))+_v406_bonus(stat,"flat"))
@@ -984,12 +989,13 @@ func _restore_data(data:Dictionary)->void:
  if resources is Dictionary:
   var saved_identity:Variant=resources.get("character_identity",{})
   if saved_identity is Dictionary:v399_identity=saved_identity.duplicate(true)
-  v385_mana=clampf(float(resources.get("mana",V385_MAX_MANA)),0.0,_v406_resource_max("mana",V385_MAX_MANA))
-  v387_stamina=clampf(float(resources.get("stamina",V387_MAX_STAMINA)),0.0,_v406_resource_max("stamina",V387_MAX_STAMINA))
+  # Restore validated ranks before clamping saved resources to their bonus caps.
   var classless_saved:Variant=resources.get("classless_ranks",{})
   if classless_saved is Dictionary:
    var restored:Dictionary=CLASSLESS_TALENTS.evaluate(clampi(int(hero_level),1,100),classless_saved)
    if bool(restored.get("ok",false)):v406_ranks=restored["allocations"].duplicate(true)
+  v385_mana=clampf(float(resources.get("mana",V385_MAX_MANA)),0.0,_v406_resource_max("mana",V385_MAX_MANA))
+  v387_stamina=clampf(float(resources.get("stamina",V387_MAX_STAMINA)),0.0,_v406_resource_max("stamina",V387_MAX_STAMINA))
   var saved_ranks:Variant=resources.get("celestial_ranks",{})
   if saved_ranks is Dictionary:
    # Reconstruct only legal unlocks, respecting level, prerequisites, and hero choice.
@@ -1008,10 +1014,13 @@ func _restore_data(data:Dictionary)->void:
 
 func _v384_refresh_vitals()->void:
  if is_instance_valid(v387_stamina_bar):
+  v387_stamina_bar.max_value=_v406_resource_max("stamina",V387_MAX_STAMINA)
   v387_stamina_bar.value=clampf(v387_stamina,0.0,_v406_resource_max("stamina",V387_MAX_STAMINA))
   var orb_hint:Label=v387_stamina_bar.get_parent().get_node_or_null("V387_OrbLowStamina") as Label
   if is_instance_valid(orb_hint):orb_hint.visible=v387_stamina<V387_DODGE_COST
- if is_instance_valid(v387_fallback_stamina_bar):v387_fallback_stamina_bar.value=clampf(v387_stamina,0.0,_v406_resource_max("stamina",V387_MAX_STAMINA))
+ if is_instance_valid(v387_fallback_stamina_bar):
+  v387_fallback_stamina_bar.max_value=_v406_resource_max("stamina",V387_MAX_STAMINA)
+  v387_fallback_stamina_bar.value=clampf(v387_stamina,0.0,_v406_resource_max("stamina",V387_MAX_STAMINA))
  if is_instance_valid(v387_stamina_warning):v387_stamina_warning.visible=v387_stamina<V387_DODGE_COST
  if is_instance_valid(v386_orb_values):
   var hp_value:int=clampi(roundi(hp),0,maxi(1,roundi(max_hp)))
