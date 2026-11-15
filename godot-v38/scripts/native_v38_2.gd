@@ -1079,7 +1079,6 @@ func _refresh_atlas()->void:
   atlas_readout.text+=" | Marker: %.0f m | Bearing: %.0f°" % [horizontal_distance,bearing]
 
 func _unhandled_key_input(event:InputEvent)->void:
- if event is InputEventKey and event.pressed and not event.echo and is_instance_valid(atlas_panel) and atlas_panel.visible:
  if event is InputEventKey and event.pressed and not event.echo and event.keycode==KEY_M:
   if is_instance_valid(atlas_panel) and hero_playing and not menu_open and not death_active:
    _toggle_atlas()
