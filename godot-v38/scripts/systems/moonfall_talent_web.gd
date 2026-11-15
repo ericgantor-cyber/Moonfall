@@ -341,6 +341,13 @@ func _draw() -> void:
  var font: Font = ThemeDB.fallback_font
  if font != null:
   draw_string(font, Vector2(16, 32), "MOONFALL  •  CONSTELLATION WEB", HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color("#e0e7fa"))
+  var progress: Dictionary = tier_summary()
+  var tier_text: String = "TIERS " + str(progress["unlocked"]) + "/" + str(progress["total"])
+  if int(progress["next_tier"]) > 0:
+   tier_text += "  •  Next: tier " + str(progress["next_tier"]) + " at level " + str(progress["next_level"])
+  else:
+   tier_text += "  •  All tiers level-unlocked"
+  draw_string(font, Vector2(16, 82), tier_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color("#b8c2d7"))
   draw_string(font, Vector2(16, size.y - 18), "Wheel: zoom  •  Drag: pan  •  N: next available  •  PgUp/PgDn: tiers  •  Home: fit", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color("#b8c2d7"))
   if hovered_id != "" and node_info.has(hovered_id):
    var info: Dictionary = node_info[hovered_id]
