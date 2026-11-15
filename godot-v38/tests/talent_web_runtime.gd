@@ -31,15 +31,18 @@ func _initialize() -> void:
  for node in costly_tree["nodes"]:
   if str(node.get("id", "")) == "iron_will":
    node["cost_per_rank"] = 3
- web.set_data(costly_tree, {}, 2, 2)
- if web.available_talent_ids().has("iron_will"):
+ var cost_web: Control = WEB.new()
+ root.add_child(cost_web)
+ cost_web.size = Vector2(800, 600)
+ cost_web.set_data(costly_tree, {}, 2, 2)
+ if cost_web.available_talent_ids().has("iron_will"):
   _fail("Talents must not appear purchasable without enough points")
   return
- web.set_data(costly_tree, {}, 2, 3)
- if not web.available_talent_ids().has("iron_will"):
+ cost_web.set_data(costly_tree, {}, 2, 3)
+ if not cost_web.available_talent_ids().has("iron_will"):
   _fail("Talents must become available when the point cost is met")
   return
- web.set_data(tree, {}, 16, 15)
+ cost_web.queue_free()
  if web.layout_rebuild_count != 1:
   _fail("Initial constellation must build once")
   return
