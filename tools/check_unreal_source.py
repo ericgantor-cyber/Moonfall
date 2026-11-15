@@ -328,8 +328,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("bInventoryOpen = !bInventoryOpen;", toggle)
         self.assertIn("EquipInventoryItem(InventorySelection);", toggle)
         self.assertIn("if (bInventoryOpen) { bInventoryOpen = false; bCharacterStatsOpen = false; return; }", toggle)
-        self.assertIn("InventorySelection = FMath::Max(0, InventorySelection - 1);", toggle)
-        self.assertIn("InventorySelection = FMath::Min(FMath::Max(0, InventoryItemCodes.Num() - 1), InventorySelection + 1);", toggle)
+        self.assertIn("InventorySelection = DisplayOrder[FMath::Clamp(CurrentRow - 1, 0, DisplayOrder.Num() - 1)];", toggle)
+        self.assertIn("InventorySelection = DisplayOrder[FMath::Clamp(CurrentRow + 1, 0, DisplayOrder.Num() - 1)];", toggle)
         self.assertIn("if (bInventoryOpen) return;", toggle)
         self.assertIn("void AMoonfallHeroPawn::InventoryConfirm() { EquipSelectedInventoryItem(); }", self.hero_cpp)
         self.assertIn("if (Health <= 0.f || bOptionsOpen || bInventoryOpen || FocusedResident.IsValid() || !FMath::IsFinite(Value)) return;", self.hero_cpp)
@@ -419,7 +419,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         rows = self.hero_cpp.split("int32 AMoonfallHeroPawn::GetInventoryVisibleRows() const", 1)[1].split("\n}", 1)[0]
         selection = self.hero_cpp.split("void AMoonfallHeroPawn::KeepInventorySelectionVisible()", 1)[1].split("\n}", 1)[0]
         self.assertIn("FMath::Min(860.f, FMath::Max(280.f, float(ViewHeight) - 24.f))", rows)
-        self.assertIn("FMath::Clamp(FMath::FloorToInt((PanelHeight - 290.f) / 25.f), 2, 20)", rows)
+        self.assertIn("FMath::Clamp(FMath::FloorToInt((PanelHeight - 390.f) / 25.f), 2, 20)", rows)
         self.assertIn("FMath::Min(860.f, FMath::Max(280.f, Canvas->SizeY - 24.f))", self.hud)
         self.assertIn("FMath::Min(800.f, FMath::Max(280.f, Canvas->SizeX - 24.f))", self.hud)
         self.assertIn("const int32 PerPage = Hero->GetInventoryVisibleRows();", self.hud)
@@ -528,6 +528,27 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("Top + PanelHeight - 110.f", block)
         for forbidden in ("EquipInventoryItem(", "InventoryItemCodes.RemoveAt(", "SaveWorldProgress("):
             self.assertNotIn(forbidden, block)
+
+    def test_rarity_item_details_and_sorted_controller_selection_are_safe(self):
+        up = self.hero_cpp.split("void AMoonfallHeroPawn::OptionsUp()", 1)[1].split("\n}", 1)[0]
+        down = self.hero_cpp.split("void AMoonfallHeroPawn::OptionsDown()", 1)[1].split("\n}", 1)[0]
+        for method, direction in ((up, "- 1"), (down, "+ 1")):
+            self.assertIn("const TArray<int32> DisplayOrder = GetInventoryDisplayOrder();", method)
+            self.assertIn("const int32 CurrentRow = DisplayOrder.Find(InventorySelection);", method)
+            self.assertIn(f"FMath::Clamp(CurrentRow {direction}, 0, DisplayOrder.Num() - 1)", method)
+            self.assertIn("KeepInventorySelectionVisible();", method)
+            self.assertNotIn("EquipInventoryItem(", method)
+        self.assertIn("const float RowSpacing = FMath::Max(21.f, (PanelHeight - 390.f) / PerPage);", self.hud)
+        hud = self.hud.split("// A dedicated, read-only selected-item summary", 1)[1].split("const int32 ReforgeCost", 1)[0]
+        self.assertIn("PanelHeight >= 500.f", hud)
+        self.assertIn("bValidDetail", hud)
+        self.assertIn("DetailColors[SelectedRarity]", hud)
+        self.assertIn("Hero->GetSetPieceCount(SelectedAffix)", hud)
+        self.assertIn("EQUIPPED SET:", hud)
+        self.assertIn("Top + PanelHeight - 230.f", hud)
+        self.assertIn("Top + PanelHeight - 207.f", hud)
+        for forbidden in ("EquipInventoryItem(", "SaveWorldProgress(", "InventoryItemCodes.RemoveAt("):
+            self.assertNotIn(forbidden, hud)
 
     def test_nearby_batch_loot_is_range_and_cover_safe(self):
         pickup = self.hero_cpp.split("void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[1].split(
@@ -784,7 +805,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("AccessoryRarity * 0.02f", hud)
         self.assertIn("Equipped: +%.1f%% spell damage", hud)
         self.assertIn("const int32 PerPage = Hero->GetInventoryVisibleRows();", hud)
-        self.assertIn("FMath::Clamp(FMath::FloorToInt((PanelHeight - 290.f) / 25.f), 2, 20)", self.hero_cpp)
+        self.assertIn("FMath::Clamp(FMath::FloorToInt((PanelHeight - 390.f) / 25.f), 2, 20)", self.hero_cpp)
         self.assertIn("Top + 145.f + (DisplayPosition - PageStart) * RowSpacing", hud)
         self.assertIn("Top + 75.f", hud)
         self.assertIn("ArmorTrait == 2 && ArmorRarity > 0 ? 0.06f : 0.f", hud)
