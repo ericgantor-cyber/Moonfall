@@ -257,6 +257,8 @@ class MouseMenusContract(unittest.TestCase):
         self.assertIn('Ready: ', section)
         self.assertIn('Missing: ', section)
         self.assertIn('for recipe_index in available:', section)
+        self.assertIn('if not available.is_empty() and not (crafting_selected_index in available):', section)
+        self.assertLess(section.index('crafting_selected_index=available[0]'), section.index('var title:String='))
         self.assertIn('var crafting_ready_first:bool=false', self.source)
         self.assertIn('var crafting_restore_focus:bool=false', self.source)
         self.assertIn('if action=="recipe_order":', self.source)
