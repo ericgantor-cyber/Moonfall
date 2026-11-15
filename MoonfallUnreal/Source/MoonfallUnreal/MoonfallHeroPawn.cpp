@@ -973,6 +973,9 @@ bool AMoonfallHeroPawn::UpgradeInventoryItem(int32 InventoryIndex)
  const int32 EquippedCode = Slot == 0 ? EquippedWeaponCode
      : (Slot == 1 ? EquippedArmorCode : EquippedAccessoryCode);
  const bool bUpgradingEquipped = Code == EquippedCode;
+ // Preserve the actual worn tier BEFORE equipping the crafted item.
+ // Reading after EquipInventoryItem reports zero gain for worn upgrades.
+ const int32 PreviousEquippedTier = GetValidatedEquippedTier(Slot);
  // Higher tiers and rarities consume more of the salvage recovered from drops.
  const int32 Cost = 4 + Tier * 2 + Rarity * 3;
  if (Salvage < Cost) return false;
@@ -985,7 +988,7 @@ bool AMoonfallHeroPawn::UpgradeInventoryItem(int32 InventoryIndex)
   return false;
  }
  Salvage -= Cost;
- LastLootUpgrade = (Tier + 1) - GetValidatedEquippedTier(Slot);
+ LastLootUpgrade = (Tier + 1) - PreviousEquippedTier;
  OnEquipmentCrafted(NewCode, Cost);
  return true;
 }
