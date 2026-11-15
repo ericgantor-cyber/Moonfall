@@ -434,6 +434,58 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("OptionsLeft"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsLeft);
  Input->BindAction(TEXT("OptionsRight"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsRight);
 }
+TArray<int32> AMoonfallHeroPawn::GetInventoryDisplayOrder() const
+{
+ TArray<int32> Order;
+ const int32 Count = InventoryItemCodes.Num();
+ Order.Reserve(Count);
+ for (int32 Index = 0; Index < Count; ++Index) Order.Add(Index);
+ if (InventorySortMode == 0) return Order;
+ // Sort only a temporary index array. Persistent inventory and equipped slots
+ // never change. Original position is the stable tie-breaker for duplicates.
+ Order.Sort([this](int32 A, int32 B) {
+  const int32 CodeA = InventoryItemCodes[A], CodeB = InventoryItemCodes[B];
+  const int32 SlotA = CodeA > 0 ? (CodeA / 10000) % 10 : 99;
+  const int32 SlotB = CodeB > 0 ? (CodeB / 10000) % 10 : 99;
+  const int32 RarityA = CodeA > 0 ? (CodeA / 1000) % 10 : -1;
+  const int32 RarityB = CodeB > 0 ? (CodeB / 1000) % 10 : -1;
+  const int32 TierA = CodeA > 0 ? CodeA % 1000 : -1;
+  const int32 TierB = CodeB > 0 ? CodeB % 1000 : -1;
+  if (InventorySortMode == 1) {
+   if (RarityA != RarityB) return RarityA > RarityB;
+   if (TierA != TierB) return TierA > TierB;
+   if (SlotA != SlotB) return SlotA < SlotB;
+  } else {
+   if (SlotA != SlotB) return SlotA < SlotB;
+   if (RarityA != RarityB) return RarityA > RarityB;
+   if (TierA != TierB) return TierA > TierB;
+  }
+  return A < B;
+ });
+ return Order;
+}
+
+bool AMoonfallHeroPawn::HitTestInventorySortButton() const
+{
+ if (Health <= 0.f || !bInventoryOpen || bCharacterStatsOpen || bOptionsOpen)
+  return false;
+ const APlayerController* PC = Cast<APlayerController>(Controller);
+ if (!PC || !PC->bShowMouseCursor) return false;
+ int32 Width = 0, Height = 0;
+ float MouseX = 0.f, MouseY = 0.f;
+ PC->GetViewportSize(Width, Height);
+ if (Width <= 0 || Height <= 0 || !PC->GetMousePosition(MouseX, MouseY)) return false;
+ const float PanelWidth = FMath::Min(800.f, FMath::Max(280.f, float(Width) - 24.f));
+ const float PanelHeight = FMath::Min(860.f, FMath::Max(280.f, float(Height) - 24.f));
+ const float Left = (float(Width) - PanelWidth) * 0.5f;
+ const float Top = (float(Height) - PanelHeight) * 0.5f;
+ const float SortWidth = PanelWidth < 550.f ? 105.f : 172.f;
+ const float SortX = Left + PanelWidth - SortWidth - 14.f;
+ const float SortY = Top + 14.f;
+ return MouseX >= SortX && MouseX <= SortX + SortWidth &&
+        MouseY >= SortY && MouseY <= SortY + 28.f;
+}
+
 int32 AMoonfallHeroPawn::GetInventoryVisibleRows() const
 {
  int32 ViewWidth = 0;
@@ -451,11 +503,13 @@ void AMoonfallHeroPawn::KeepInventorySelectionVisible()
  InventorySelection = FMath::Clamp(InventorySelection, 0, FMath::Max(0, Count - 1));
  const int32 Rows = GetInventoryVisibleRows();
  const int32 MaxStart = FMath::Max(0, Count - Rows);
+ const int32 DisplaySelection = GetInventoryDisplayOrder().Find(InventorySelection);
+ const int32 SelectedRow = DisplaySelection == INDEX_NONE ? 0 : DisplaySelection;
  InventoryViewStart = FMath::Clamp(InventoryViewStart, 0, MaxStart);
- if (InventorySelection < InventoryViewStart)
-  InventoryViewStart = InventorySelection;
- else if (InventorySelection >= InventoryViewStart + Rows)
-  InventoryViewStart = InventorySelection - Rows + 1;
+ if (SelectedRow < InventoryViewStart)
+  InventoryViewStart = SelectedRow;
+ else if (SelectedRow >= InventoryViewStart + Rows)
+  InventoryViewStart = SelectedRow - Rows + 1;
  InventoryViewStart = FMath::Clamp(InventoryViewStart, 0, MaxStart);
 }
 
@@ -484,9 +538,11 @@ int32 AMoonfallHeroPawn::HitTestInventoryRow() const
      MouseY < FirstY - 3.f || MouseY >= FirstY + (End - Start) * Spacing)
   return INDEX_NONE;
  const int32 RelativeRow = FMath::FloorToInt((MouseY - FirstY) / Spacing);
- const int32 Index = Start + RelativeRow;
- return Index >= Start && Index < End && InventoryItemCodes.IsValidIndex(Index)
-   ? Index : INDEX_NONE;
+ const int32 DisplayPosition = Start + RelativeRow;
+ const TArray<int32> Order = GetInventoryDisplayOrder();
+ return DisplayPosition >= Start && DisplayPosition < End && Order.IsValidIndex(DisplayPosition)
+   && InventoryItemCodes.IsValidIndex(Order[DisplayPosition])
+   ? Order[DisplayPosition] : INDEX_NONE;
 }
 
 void AMoonfallHeroPawn::ZoomCameraIn() {
@@ -2404,6 +2460,7 @@ void AMoonfallHeroPawn::OpenFocusedResidentContext() {
 }
 void AMoonfallHeroPawn::CastRightMouse() {
  if (bInventoryOpen) {
+  if (HitTestInventorySortButton()) return;
   const int32 HitIndex = HitTestInventoryRow();
   if (HitIndex != INDEX_NONE) {
    InventorySelection = HitIndex;
@@ -2454,6 +2511,11 @@ void AMoonfallHeroPawn::CastRightMouse() {
 }
 void AMoonfallHeroPawn::ResidentContextMouseClick() {
  if (bInventoryOpen) {
+  if (HitTestInventorySortButton()) {
+   InventorySortMode = (InventorySortMode + 1) % 3;
+   KeepInventorySelectionVisible();
+   return;
+  }
   const int32 HitIndex = HitTestInventoryRow();
   if (HitIndex != INDEX_NONE) InventorySelection = HitIndex;
   return;
