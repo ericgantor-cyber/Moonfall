@@ -1,5 +1,5 @@
 extends Control
-## Moonfall-original, zoomable 108-node constellation web.
+## Moonfall-original, zoomable 141-node constellation web.
 ## Mouse: wheel zoom, drag empty space to pan, click a node to select.
 ## Keyboard: +/- zoom, arrow keys pan, Home recenters the map.
 signal talent_selected(talent_id: String)
@@ -11,7 +11,7 @@ const BRANCH_COLORS: Dictionary = {
 }
 const BRANCH_ANGLES: Dictionary = {"might": -150.0, "agility": -30.0, "arcana": 90.0}
 const LANE_ANGLES: Array[float] = [-26.0, -8.0, 8.0, 26.0]
-const MIN_ZOOM: float = 0.16
+const MIN_ZOOM: float = 0.08
 const MAX_ZOOM: float = 2.1
 const NODE_RADIUS: float = 13.0
 var tree: Dictionary = {}
@@ -19,7 +19,7 @@ var allocations: Dictionary = {}
 var level: int = 1
 var available: int = 0
 var points: Dictionary = {}
-var zoom: float = 0.21
+var zoom: float = 0.16
 var pan: Vector2 = Vector2.ZERO
 var selected_id: String = ""
 var dragging: bool = false
@@ -38,7 +38,7 @@ func _ready() -> void:
 
 func set_data(next_tree: Dictionary, next_allocations: Dictionary, character_level: int, unspent: int) -> void:
  # Purchases and panel refreshes change allocations, not constellation geometry.
- # Rebuild the expensive 108-node layout only when the actual nodes change.
+ # Rebuild the expensive 141-node layout only when the actual nodes change.
  var layout_changed: bool = points.is_empty() or tree.get("nodes", []) != next_tree.get("nodes", [])
  tree = next_tree
  allocations = next_allocations.duplicate()
@@ -110,7 +110,7 @@ func next_available(after_id: String = "") -> String:
 
 func fit_all() -> void:
  pan = Vector2.ZERO
- zoom = clampf((minf(size.x, size.y) - 36.0) / 2660.0, MIN_ZOOM, MAX_ZOOM)
+ zoom = clampf((minf(size.x, size.y) - 36.0) / 3500.0, MIN_ZOOM, MAX_ZOOM)
  queue_redraw()
 
 func zoom_by(factor: float) -> void:
@@ -159,7 +159,7 @@ func _world_pos(screen: Vector2) -> Vector2:
 func _visual_radius(talent_id: String) -> float:
  var radius: float = maxf(5.0, NODE_RADIUS * zoom)
  var node: Dictionary = node_info.get(talent_id, {})
- if int(node.get("tier", 1)) == 3 or int(node.get("tier", 1)) == 11:
+ if int(node.get("tier", 1)) == 3 or int(node.get("tier", 1)) == 11 or int(node.get("tier", 1)) == 14:
   radius *= 1.5
  return radius
 
@@ -169,7 +169,7 @@ func _node_at(screen: Vector2) -> String:
  for id in points:
   var distance: float = _screen_pos(points[id]).distance_to(screen)
   # Every visible star must be clickable across all zoom levels,
-  # including the larger tier-3 / tier-11 capstones.
+  # including the larger tier-3 / tier-11 / tier-14 capstones.
   var hit_radius: float = maxf(16.0, _visual_radius(str(id)) + 10.0)
   if distance < hit_radius and distance < closest_distance:
    closest = str(id)
