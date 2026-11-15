@@ -1609,7 +1609,7 @@ func _atlas_action(label: String, action: String, tip: String="") -> void:
 func _atlas_equip_mouse_input(event:InputEvent,action:String)->void:
  if not menu_open or current_tab!="Inventory":return
  if event is InputEventMouseButton and event.pressed and event.button_index==MOUSE_BUTTON_RIGHT:
- if action.begins_with("inventory_select:"):
+  if action.begins_with("inventory_select:"):
    if inventory_show_vault:
     get_viewport().set_input_as_handled()
     return
