@@ -97,7 +97,7 @@ void AMoonfallCombatHUD::DrawHUD()
  }
  if (Hero->bInventoryOpen) {
   // Canvas-only continuous inventory: no extra actors, widgets, or hidden controls.
-  const float PanelWidth = FMath::Min(800.f, FMath::Max(280.f, Canvas->SizeX - 24.f));
+  const float PanelWidth = FMath::Min(720.f, FMath::Max(280.f, FMath::Min(Canvas->SizeX - 24.f, Canvas->SizeX * 0.48f)));
   const float PanelHeight = FMath::Min(860.f, FMath::Max(280.f, Canvas->SizeY - 24.f));
   // Dock the inventory and character pane at the right, keeping the world visible to the left.
   const float Left = Canvas->SizeX - PanelWidth - 12.f;
@@ -203,8 +203,8 @@ void AMoonfallCombatHUD::DrawHUD()
      : (bValid ? RarityColors[Rarity] : FLinearColor::White),
      Left + 20.f, Y, nullptr, Canvas->SizeX < 900.f ? 0.75f : 0.9f);
   }
-  // Read-only proportional scroll indicator. No hit test, hidden inventory
-  // action, or selected-item mutation is introduced by this decoration.
+  // Proportional scroll indicator. Clicking its track jumps the visible
+  // bag window without selecting, equipping or modifying saved gear.
   if (Count > PerPage) {
    const float TrackY = Top + 145.f;
    const float TrackHeight = RowSpacing * PerPage;
