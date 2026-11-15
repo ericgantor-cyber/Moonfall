@@ -435,10 +435,18 @@ void AMoonfallHeroPawn::SetupPlayerInputComponent(UInputComponent* Input)
  Input->BindAction(TEXT("OptionsRight"), IE_Pressed, this, &AMoonfallHeroPawn::OptionsRight);
 }
 void AMoonfallHeroPawn::ZoomCameraIn() {
+ if (Health > 0.f && !bOptionsOpen && bInventoryOpen && !bCharacterStatsOpen) {
+  InventoryViewStart = FMath::Max(0, InventoryViewStart - 1);
+  return;
+ }
  if (Health <= 0.f || bOptionsOpen || bInventoryOpen) return;
  CameraDistance = FMath::Clamp((FMath::IsFinite(CameraDistance) ? CameraDistance : 450.f) - 65.f, 250.f, 850.f);
 }
 void AMoonfallHeroPawn::ZoomCameraOut() {
+ if (Health > 0.f && !bOptionsOpen && bInventoryOpen && !bCharacterStatsOpen) {
+  InventoryViewStart = FMath::Min(FMath::Max(0, InventoryItemCodes.Num() - 1), InventoryViewStart + 1);
+  return;
+ }
  if (Health <= 0.f || bOptionsOpen || bInventoryOpen) return;
  CameraDistance = FMath::Clamp((FMath::IsFinite(CameraDistance) ? CameraDistance : 450.f) + 65.f, 250.f, 850.f);
 }
@@ -909,6 +917,7 @@ void AMoonfallHeroPawn::ToggleInventory() {
   EndSprint();
   EndGuard();
   InventorySelection = FMath::Clamp(InventorySelection, 0, FMath::Max(0, InventoryItemCodes.Num() - 1));
+  InventoryViewStart = InventorySelection;
  }
  bInventoryOpen = !bInventoryOpen;
  if (!bInventoryOpen) bCharacterStatsOpen = false;
@@ -1125,6 +1134,7 @@ void AMoonfallHeroPawn::OptionsUp() {
  }
  if (bInventoryOpen) {
   InventorySelection = FMath::Max(0, InventorySelection - 1);
+  InventoryViewStart = InventorySelection;
   return;
  }
  if (bOptionsOpen) OptionsSelection = (OptionsSelection + 6) % 7;
@@ -1137,6 +1147,7 @@ void AMoonfallHeroPawn::OptionsDown() {
  }
  if (bInventoryOpen) {
   InventorySelection = FMath::Min(FMath::Max(0, InventoryItemCodes.Num() - 1), InventorySelection + 1);
+  InventoryViewStart = InventorySelection;
   return;
  }
  if (bOptionsOpen) OptionsSelection = (OptionsSelection + 1) % 7;
