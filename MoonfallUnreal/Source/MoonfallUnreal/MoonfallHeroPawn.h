@@ -4,6 +4,7 @@
 #include "MoonfallHeroPawn.generated.h"
 class USpringArmComponent;
 class UCameraComponent;
+class UNavigationInvokerComponent;
 class UAnimMontage;
 class AMoonfallEnemy;
 class AMoonfallWorldNPC;
@@ -16,6 +17,10 @@ class MOONFALLUNREAL_API AMoonfallHeroPawn : public ACharacter
  GENERATED_BODY()
 public:
  AMoonfallHeroPawn();
+ // Runtime navigation generated near the player, not over the full 30-dungeon
+ // world at startup. Requires Dynamic Recast and level NavMeshBoundsVolumes.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Dungeon|Navigation")
+ UNavigationInvokerComponent* DungeonNavigationInvoker;
  virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
  virtual void BeginPlay() override;
  virtual void Tick(float DeltaSeconds) override;
