@@ -11,13 +11,6 @@ class TalentTests(unittest.TestCase):
     def setUpClass(cls):
         cls.tree = load()
 
-    def test_two_points_are_earned_per_character_level(self):
-        self.assertEqual(self.tree["points_per_level"], 2)
-        self.assertEqual(self.tree["starting_points"], 0)
-        self.assertEqual(evaluate(1, {}, self.tree)["earned"], 0)
-        self.assertEqual(evaluate(5, {}, self.tree)["earned"], 8)
-        self.assertEqual(evaluate(16, {}, self.tree)["earned"], 30)
-
     def test_141_nodes_three_open_branches(self):
         self.assertEqual(len(self.tree["nodes"]), 141)
         self.assertEqual({branch: sum(node["branch"] == branch for node in self.tree["nodes"])
@@ -92,6 +85,16 @@ class TalentTests(unittest.TestCase):
         self.assertEqual((state["earned"], state["available"], state["spent"]), (8, 8, 0))
         self.assertEqual(state["allocations"], {})
 
+    def test_two_points_per_level_and_multirank_roots(self):
+        self.assertEqual(self.tree["points_per_level"], 2)
+        for level, expected in ((1, 0), (2, 2), (5, 8), (10, 18), (100, 198)):
+            self.assertEqual(evaluate(level, {}, self.tree)["available"], expected)
+        self.assertEqual({n["id"]: n["max_rank"] for n in self.tree["nodes"] if n["tier"] == 1},
+                         {"iron_will": 5, "swift_step": 5, "spirit_well": 5})
+        built = evaluate(10, {"iron_will": 5, "breaker": 3}, self.tree)
+        self.assertEqual(built["spent"], 8)
+        self.assertAlmostEqual(built["bonuses"]["melee_damage"]["percent"], .27)
+
     def test_prerequisite_and_level_gate(self):
         with self.assertRaisesRegex(ValueError, "Missing talent prerequisite"):
             evaluate(5, {"breaker": 1}, self.tree)
@@ -113,7 +116,7 @@ class TalentTests(unittest.TestCase):
     def test_rejects_invalid_budget_ranks_and_nodes(self):
         with self.assertRaisesRegex(ValueError, "Not enough talent points"):
             evaluate(1, {"iron_will": 1}, self.tree)
-        for choice in ({"iron_will": 2}, {"iron_will": -1}, {"iron_will": True}):
+        for choice in ({"iron_will": 6}, {"iron_will": -1}, {"iron_will": True}):
             with self.assertRaisesRegex(ValueError, "Invalid allocated rank"):
                 evaluate(10, choice, self.tree)
         with self.assertRaisesRegex(ValueError, "Unknown talent choice"):
@@ -208,7 +211,7 @@ class TalentTests(unittest.TestCase):
 
     def test_respec_omitted_current_remains_compatible(self):
         fresh = respec(10, self.tree)
-        self.assertEqual(fresh["available"], 9)
+        self.assertEqual(fresh["available"], 18)
         self.assertEqual(fresh["allocations"], {})
         with self.assertRaisesRegex(ValueError, "Allocations must be a map"):
             respec(10, self.tree, current=None)
