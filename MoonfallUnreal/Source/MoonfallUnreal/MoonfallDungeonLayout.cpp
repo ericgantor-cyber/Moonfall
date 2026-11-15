@@ -3,6 +3,7 @@
 #include "MoonfallEnemy.h"
 #include "MoonfallGroundLoot.h"
 #include "Engine/World.h"
+#include "EngineUtils.h"
 #include "Components/SceneComponent.h"
 #include "Components/BoxComponent.h"
 #include "Components/InstancedStaticMeshComponent.h"
@@ -281,12 +282,23 @@ bool AMoonfallDungeonLayout::StartCombatChamber(AMoonfallHeroPawn* Hero, int32 C
  // excess chambers still count as visited rather than retrying forever.
  const int32 Remaining = FMath::Max(0, 6 - SpawnedEncounterCount);
  if (Remaining == 0) return true;
+ // Check global live population only on chamber entry, never every Tick.
+ // This protects slower Windows PCs when multiple dungeons remain visited.
+ constexpr int32 MaxLiveWorldEnemies = 60;
+ int32 AliveWorldEnemies = 0;
+ for (TActorIterator<AMoonfallEnemy> It(GetWorld()); It; ++It) {
+  const AMoonfallEnemy* Other = *It;
+  if (!IsValid(Other) || Other->IsActorBeingDestroyed()) continue;
+  if (FMath::IsFinite(Other->Health) && Other->Health <= 0.f) continue;
+  if (++AliveWorldEnemies >= MaxLiveWorldEnemies) return false;
+ }
  FRandomStream EncounterRandom(
    GetEffectiveLayoutSeed() ^ (ChamberIndex * 19001 + 0x53A9));
  const bool bEliteEncounter = EncounterRandom.RandRange(0, 4) == 0;
  const int32 Requested = bEliteEncounter ? 1
    : FMath::Clamp(EnemiesPerCombatChamber, 1, 2);
- const int32 Count = FMath::Min(Remaining, Requested);
+ const int32 Count = FMath::Min(Remaining,
+   FMath::Min(Requested, MaxLiveWorldEnemies - AliveWorldEnemies));
  int32 Spawned = 0;
  for (int32 Index = 0; Index < Count; ++Index) {
   const float Side = Index == 0 ? -200.f : 200.f;
