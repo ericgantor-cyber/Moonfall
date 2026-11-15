@@ -4030,5 +4030,31 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("DivineBossId =", boss)
         self.assertNotIn("DivineBossTitle =", boss)
 
+
+    def test_six_regional_dungeon_bosses_prioritize_distinct_existing_specials(self):
+        enemy = (ROOT / "MoonfallEnemy.cpp").read_text(encoding="utf-8")
+        header = (ROOT / "MoonfallEnemy.h").read_text(encoding="utf-8")
+        attack = enemy.split("   BossSpecialMove = bBoss && BossPhase >= 2", 1)[1].split(
+            "   // Later-phase bosses alternate fast opener", 1)[0]
+        self.assertIn('bBoss && !DungeonBossFamily.IsNone()', attack)
+        self.assertIn('Tags.Contains(FName(TEXT("MoonfallDungeonBoss")))', attack)
+        self.assertIn("bRegionalBoss && BossPhase >= 2", attack)
+        self.assertIn("AttackSequence % (BossPhase >= 3 ? 3 : 4) == 0", attack)
+        for family in ("Ashen", "Verdant", "Glacial", "Storm", "Foundry", "Eclipse"):
+            self.assertIn('DungeonBossFamily == FName(TEXT("' + family + '"))', attack)
+        for code in ("BossSpecialMove = 1;", "BossSpecialMove = 2;",
+                     "BossSpecialMove = 3;", "BossSpecialMove = 4;", "BossSpecialMove = 5;"):
+            self.assertIn(code, attack)
+        self.assertIn("void OnDungeonBossAttackTelegraphed(FName FamilyId, FName MoveId, float WarningSeconds);", header)
+        telegraph = enemy.split("   if (bDivineSignatureActive) {\n    OnDivineAttackTelegraphed(", 1)[1]
+        self.assertIn("} else if (bRegionalBoss && BossSpecialMove >= 1 && BossSpecialMove <= 5)", telegraph)
+        self.assertIn("OnDungeonBossAttackTelegraphed(DungeonBossFamily, SpecialId, CurrentWindup);", telegraph)
+        for move in ("MoonCleave", "EclipseSlam", "DashStrike", "SpinningSweep", "SkyfallSlam"):
+            self.assertIn('FName(TEXT("' + move + '"))', telegraph)
+        self.assertLess(enemy.index("WindupEndsAt = Now + CurrentWindup;"),
+                        enemy.index("OnDungeonBossAttackTelegraphed(DungeonBossFamily, SpecialId, CurrentWindup);"))
+        self.assertNotIn("DivineBossId =", attack)
+        self.assertNotIn("DivineBossTitle =", attack)
+
 if __name__ == "__main__":
     unittest.main()
