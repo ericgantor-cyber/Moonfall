@@ -1422,8 +1422,11 @@ int32 AMoonfallHeroPawn::RollEquipmentCode(bool bEliteEnemy, bool bBossEnemy)
 // instead spawn a ground actor, so equipment is not auto-collected on kills.
 void AMoonfallHeroPawn::AwardEquipmentDrop(bool bEliteEnemy, bool bBossEnemy)
 {
+ // Scripted rewards must honor the same persistent inventory capacity as
+ // ground pickups. Do not roll or mutate last-loot UI when the bag is full.
+ if (InventoryItemCodes.Num() >= 10000) return;
  const int32 ItemCode = RollEquipmentCode(bEliteEnemy, bBossEnemy);
- if (ItemCode <= 0) return;
+ if (!ValidMoonfallItemCode(ItemCode)) return;
  const int32 NewTier = LastLootTier;
  // Do not reject new loot, automatically salvage, or silently discard items.
  // The paginated inventory supports growth beyond the former 30-slot limit.
