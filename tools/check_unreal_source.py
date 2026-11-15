@@ -796,8 +796,14 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         for current in [800*600, 1600*900, 2048*1152, 3440*1440, 4096*2160]:
             down = next((i for i in reversed(range(4)) if preset_pixels[i] < current), 0)
             up = next((i for i in range(4) if preset_pixels[i] > current), 3)
-            self.assertLessEqual(preset_pixels[down], current)
-            self.assertGreaterEqual(preset_pixels[up], current)
+            if current >= preset_pixels[0]:
+                self.assertLessEqual(preset_pixels[down], current)
+            else:
+                self.assertEqual(down, 0)
+            if current <= preset_pixels[-1]:
+                self.assertGreaterEqual(preset_pixels[up], current)
+            else:
+                self.assertEqual(up, 3)
 
     def test_nearby_batch_loot_is_range_and_cover_safe(self):
         pickup = self.hero_cpp.split("void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[1].split(
