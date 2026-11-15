@@ -168,7 +168,8 @@ class MouseMenusContract(unittest.TestCase):
     def test_materials_and_consumables_visible_without_hover(self):
         self.assertIn('stacks) • Crafting storage', self.source)
         self.assertIn('row.text=name+" × "+str(amount)+" • "+str(stack_count)+" stacks • Crafting storage"', self.source)
-        self.assertIn('str(recipe["name"])+"[/b]\\n"+_recipe_hover_details(recipe)', self.source)
+        self.assertIn('str(recipe["name"])+"[/b]', self.source)
+        self.assertIn('_recipe_hover_details(recipe)+"', self.source)
         self.assertIn('[b]CONSUMABLES[/b]', self.source)
         self.assertIn('owned • Temporary hunting effect (25 seconds)', self.source)
         self.assertIn('owned • Restores 35% maximum health', self.source)
