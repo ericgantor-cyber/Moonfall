@@ -102,7 +102,8 @@ void AMoonfallCombatHUD::DrawHUD()
   const float Left = (Canvas->SizeX - PanelWidth) * 0.5f;
   const float Top = (Canvas->SizeY - PanelHeight) * 0.5f;
   DrawRect(FLinearColor(0.04f, 0.035f, 0.10f, 0.96f), Left, Top, PanelWidth, PanelHeight);
-  DrawText(TEXT("MOONFALL  |  INVENTORY"), FLinearColor::White, Left + 18.f, Top + 16.f, nullptr, 1.3f);
+  DrawText(PanelWidth < 550.f ? TEXT("INVENTORY") : TEXT("MOONFALL  |  INVENTORY"),
+    FLinearColor::White, Left + 18.f, Top + 16.f, nullptr, PanelWidth < 550.f ? 0.93f : 1.3f);
   if (Hero->bCharacterStatsOpen) {
    // Character sheet is a read-only page. Inventory operations remain locked
    // while it is open; controller and keyboard switch pages with the same input.
@@ -144,10 +145,22 @@ void AMoonfallCombatHUD::DrawHUD()
      nullptr, 0.8f);
    return;
   }
+  // Identical button rectangle to HitTestInventorySortButton in HeroPawn.
+  const float SortWidth = PanelWidth < 550.f ? 105.f : 172.f;
+  const float SortX = Left + PanelWidth - SortWidth - 14.f;
+  const float SortY = Top + 14.f;
+  DrawRect(FLinearColor(0.18f,0.28f,0.42f,0.96f), SortX, SortY, SortWidth, 28.f);
+  DrawText(PanelWidth < 550.f
+       ? (Hero->InventorySortMode == 0 ? TEXT("SORT: NEW") :
+          Hero->InventorySortMode == 1 ? TEXT("SORT: QLTY") : TEXT("SORT: SLOT"))
+       : (Hero->InventorySortMode == 0 ? TEXT("SORT: ORIGINAL") :
+          Hero->InventorySortMode == 1 ? TEXT("SORT: QUALITY") : TEXT("SORT: SLOT")),
+     FLinearColor::White, SortX + 7.f, SortY + 5.f, nullptr, PanelWidth < 550.f ? 0.68f : 0.78f);
   const int32 Count = Hero->InventoryItemCodes.Num();
   // Reserve height for a real equipment-stat line and three controls rows.
   const int32 PerPage = Hero->GetInventoryVisibleRows();
   const int32 Selected = FMath::Clamp(Hero->InventorySelection, 0, FMath::Max(0, Count - 1));
+  const TArray<int32> DisplayOrder = Hero->GetInventoryDisplayOrder();
   // Wheel moves only the visible window; keyboard/controller selection remains independent.
   const int32 PageStart = FMath::Clamp(Hero->InventoryViewStart, 0, FMath::Max(0, Count - PerPage));
   const int32 PageEnd = FMath::Min(Count, PageStart + PerPage);
@@ -159,7 +172,8 @@ void AMoonfallCombatHUD::DrawHUD()
    DrawText(TEXT("No equipment yet. Defeat enemies to find gear."), FLinearColor::White,
      Left + 18.f, Top + 100.f, nullptr, 0.92f);
   const float RowSpacing = FMath::Max(21.f, (PanelHeight - 290.f) / PerPage);
-  for (int32 Index = PageStart; Index < PageEnd; ++Index) {
+  for (int32 DisplayPosition = PageStart; DisplayPosition < PageEnd; ++DisplayPosition) {
+   const int32 Index = DisplayOrder[DisplayPosition];
    const int32 Code = Hero->InventoryItemCodes[Index];
    const int32 Affix = Code / 100000;
    const int32 Slot = (Code / 10000) % 10;
@@ -173,12 +187,12 @@ void AMoonfallCombatHUD::DrawHUD()
      && Code == Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier;
    const bool bEquipped = Code == (Slot == 0 ? Hero->EquippedWeaponCode
      : Slot == 1 ? Hero->EquippedArmorCode : Hero->EquippedAccessoryCode);
-   const float Y = Top + 145.f + (Index - PageStart) * RowSpacing;
+   const float Y = Top + 145.f + (DisplayPosition - PageStart) * RowSpacing;
    if (Index == Selected) DrawRect(FLinearColor(0.25f,0.18f,0.43f,0.90f),
      Left + 12.f, Y - 3.f, PanelWidth - 24.f, RowSpacing - 3.f);
    const FString Row = bValid ? FString::Printf(TEXT("%02d  %s  T%d  %s  %s%s"),
-      Index + 1, Slots[Slot], Tier, Rarities[Rarity], Traits[Affix], bEquipped ? TEXT("  [EQUIPPED]") : TEXT(""))
-    : FString::Printf(TEXT("%02d  Invalid item"), Index + 1);
+      DisplayPosition + 1, Slots[Slot], Tier, Rarities[Rarity], Traits[Affix], bEquipped ? TEXT("  [EQUIPPED]") : TEXT(""))
+    : FString::Printf(TEXT("%02d  Invalid item"), DisplayPosition + 1);
    // Item names retain a clear text label plus a distinct quality color.
    const FLinearColor RarityColors[] = {FLinearColor(0.90f,0.90f,0.90f),
      FLinearColor(0.25f,0.69f,1.f), FLinearColor(0.96f,0.79f,0.25f),
