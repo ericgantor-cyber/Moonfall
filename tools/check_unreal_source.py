@@ -44,6 +44,10 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("MoonfallStart.umap", section)
         self.assertIn("GameDefaultMap", section)
         self.assertIn("EditorStartupMap", section)
+        self.assertIn("$sections.Count -ne 1", section)
+        self.assertIn("$entries.Count -ne 1", section)
+        self.assertIn("GameMapsSettings", section)
+        self.assertIn("Groups[1].Value.Trim()", section)
         self.assertIn("Moonfall startup map generation failed", section)
         packaging = workflow[package:]
         self.assertIn('"-map=/Game/Maps/MoonfallStart"', packaging)
