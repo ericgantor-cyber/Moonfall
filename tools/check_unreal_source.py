@@ -3915,8 +3915,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButDontSpawnIfColliding", boss)
         self.assertIn("Boss->bElite = true;", boss)
         self.assertIn("Boss->bBoss = true;", boss)
-        self.assertIn("Boss->Health = 400.f;", boss)
-        self.assertIn("Boss->AttackDamage = 18.f;", boss)
+        self.assertIn("Boss->Health = Style.Health * RankScale;", boss)
+        self.assertIn("Boss->AttackDamage = Style.Damage * (1.f + 0.07f * DungeonIndex);", boss)
         self.assertIn("Boss->RaceId = (ZoneIndex * 5 + DungeonIndex) % 12;", boss)
         self.assertIn('Boss->Tags.AddUnique(FName(TEXT("MoonfallDungeonBoss")));', boss)
         self.assertLess(boss.index("Boss->bBoss = true;"),
@@ -3996,6 +3996,39 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                         block.index("if (bCompletesZone) OnDungeonZoneCleared(Zone);"))
         self.assertNotIn("AwardExperience(", block)
         self.assertNotIn("SpawnGroundEquipmentDrop(", block)
+
+
+    def test_thirty_ranked_bosses_have_six_distinct_combat_styles(self):
+        layout = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
+        enemy_h = (ROOT / "MoonfallEnemy.h").read_text(encoding="utf-8")
+        boss = layout.split("bool AMoonfallDungeonLayout::StartFinalBossChamber(", 1)[1]
+        for name in ("Ashen Warden", "Thorn Sentinel", "Frostbound Colossus",
+                     "Tempest Stalker", "Forged Juggernaut", "Eclipse Harbinger"):
+            self.assertIn('TEXT("' + name + '")', boss)
+        for family in ("Ashen", "Verdant", "Glacial", "Storm", "Foundry", "Eclipse"):
+            self.assertIn('TEXT("' + family + '")', boss)
+        self.assertIn("static const FDungeonBossStyle Styles[6]", boss)
+        self.assertIn("const FDungeonBossStyle& Style = Styles[ZoneIndex];", boss)
+        self.assertIn("const int32 Rank = DungeonIndex + 1;", boss)
+        self.assertIn("1.f + 0.12f * DungeonIndex", boss)
+        self.assertIn("Boss->Health = Style.Health * RankScale;", boss)
+        self.assertIn("Boss->AttackDamage = Style.Damage * (1.f + 0.07f * DungeonIndex);", boss)
+        self.assertIn("Boss->AttackRange = Style.AttackRange;", boss)
+        self.assertIn("Boss->AttackCooldown = Style.AttackCooldown;", boss)
+        self.assertIn("Boss->MaxPosture = Style.Posture * RankScale;", boss)
+        self.assertIn("Boss->DungeonBossFamily = FName(Style.Family);", boss)
+        self.assertIn("Boss->DungeonBossTitle = FText::FromString(", boss)
+        self.assertIn("Boss->DungeonBossRank = Rank;", boss)
+        self.assertIn("OnDungeonBossIdentityReady(", boss)
+        self.assertLess(boss.index("Boss->DungeonBossRank = Rank;"),
+                        boss.index("Boss->FinishSpawning(SpawnTransform);"))
+        self.assertLess(boss.index("Boss->FinishSpawning(SpawnTransform);"),
+                        boss.index("Boss->OnDungeonBossIdentityReady("))
+        for field in ("FName DungeonBossFamily", "FText DungeonBossTitle",
+                      "int32 DungeonBossRank"):
+            self.assertIn(field, enemy_h)
+        self.assertNotIn("DivineBossId =", boss)
+        self.assertNotIn("DivineBossTitle =", boss)
 
 if __name__ == "__main__":
     unittest.main()
