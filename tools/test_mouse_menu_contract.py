@@ -204,12 +204,26 @@ class MouseMenusContract(unittest.TestCase):
         self.assertIn('func _craft_skill_rank(level:int)->String:', self.source)
         self.assertIn('func _craft_skill_progress(level:int)->String:', self.source)
         self.assertIn('_craft_skill_rank(crafting_skill)', self.source)
-        self.assertIn('_craft_skill_progress(crafting_skill)', self.source)
+        self.assertIn('_craft_skill_progress(crafting_skill,"Leatherworking")', self.source)
+        self.assertIn('_craft_skill_progress(skinning_skill,"Skinning")', self.source)
         self.assertIn(' • NEED "+str(required-owned)', self.source)
         self.assertIn('Crafting blocked while enemies are attacking.', self.source)
         self.assertIn('if _combat_threat():issue="Cannot craft while enemies are attacking."', self.source)
         self.assertIn('if new_rank!=previous_rank', self.source)
         self.assertIn('button.disabled=true', self.source)
+
+    def test_skill_milestones_and_rank_feedback(self):
+        progression = self.source.split('func _craft_skill_progress(level:int,profession:String="Leatherworking")->String:', 1)[1].split('func _recipe_hover_details(', 1)[0]
+        self.assertIn('milestone-current', progression)
+        self.assertIn('percent', progression)
+        self.assertIn('_craft_skill_rank(milestone)', progression)
+        self.assertIn('current>=300:return profession+": MASTER • MAX', progression)
+        crafting = self.source.split('func _craft(index: int) -> void:', 1)[1].split('func _use_consumable(', 1)[0]
+        self.assertIn('var skill_before:int=crafting_skill', crafting)
+        self.assertIn('crafting_skill==skill_before:feedback+=" • Skill cap reached."', crafting)
+        self.assertIn('RANK REACHED!', crafting)
+        self.assertIn('_craft_skill_progress(crafting_skill,"Next milestone")', crafting)
+        self.assertIn('_save_game()', crafting)
 
     def test_inventory_search_clear_and_mouse_scroll(self):
         self.assertIn('inventory_search_input.clear_button_enabled=true', self.source)
