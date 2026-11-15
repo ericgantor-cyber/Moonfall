@@ -24,6 +24,16 @@ public:
  UPROPERTY(EditInstanceOnly, BlueprintReadOnly, Category="Moonfall|Dungeon")
  int32 DungeonIndex = 0;
 
+ // A stable 0..29 map/quest identity. Invalid authored pairs return INDEX_NONE.
+ UFUNCTION(BlueprintPure, Category="Moonfall|Dungeon")
+ int32 GetDungeonEntranceKey() const;
+
+ // Designers may disable a gate without destroying or replacing this actor.
+ UPROPERTY(EditInstanceOnly, BlueprintReadOnly, Category="Moonfall|Dungeon")
+ bool bEntranceEnabled = true;
+ UFUNCTION(BlueprintCallable, Category="Moonfall|Dungeon")
+ void SetEntranceEnabled(bool bEnabled);
+
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Dungeon")
  UBoxComponent* DiscoveryTrigger;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Dungeon")
