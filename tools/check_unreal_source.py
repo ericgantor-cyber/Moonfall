@@ -3730,6 +3730,10 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertLess(mode.index('Dungeon->DungeonIndex = 0;'),
                         mode.index('Dungeon->FinishSpawning(DungeonTransform);'))
         self.assertIn('Dungeon->bRandomizeChambers = true;', mode)
+        self.assertIn('TActorIterator<AMoonfallDungeonLayout>', mode)
+        self.assertIn('It->ZoneIndex == 0 && It->DungeonIndex == 0', mode)
+        self.assertLess(mode.index('TActorIterator<AMoonfallDungeonLayout>'),
+                        mode.index('SpawnActorDeferred<AMoonfallDungeonLayout>'))
         self.assertNotIn('OpenLevel(', mode)
         self.assertIn('CreateBlock(FVector(-850,-1500,200),FVector(13,1,5));', arena)
         self.assertIn('CreateBlock(FVector(850,-1500,200),FVector(13,1,5));', arena)
