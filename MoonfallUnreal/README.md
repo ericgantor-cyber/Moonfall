@@ -128,8 +128,29 @@ that the 30 physical dungeon lanes connect to the public road, that enemies
 navigate through the doors, that hazard overlap volumes are avoidable, and that
 treasure remains correctly claimed across restarting the game.
 
-The generated startup map's existing NavMeshBoundsVolume is intended for the
-original arena. It must be inspected and expanded or supplemented for the
-six-zone road and 30 dungeon interiors, then navigation must be rebuilt. Do not
-claim dungeon enemy pathfinding works beyond the original arena until that has
-been done. The original Z/Nyra art and Godot source are not modified here.
+The **new startup map generator** now places a second, broad NavMeshBoundsVolume
+covering the six-zone road and 30 dungeon interiors. The project is configured
+for **Dynamic Recast** with navigation generated only around the hero's
+`UNavigationInvokerComponent` (3000-unit tile generation, 5000-unit removal).
+The generator checks the actual nav brush extent before saving the new map.
+Epic documents both these settings for runtime-generated geometry.
+
+**Existing MoonfallStart.umap files are intentionally never overwritten by the
+startup generator.** On Windows, with Unreal Editor closed and the map backed
+up, run the opt-in retrofit using Unreal Editor 5.4:
+
+```powershell
+& "C:\Program Files\Epic Games\UE_5.4\Engine\Binaries\Win64\UnrealEditor-Cmd.exe" ".\MoonfallUnreal\MoonfallUnreal.uproject" '-ExecutePythonScript=MoonfallUnreal/Build/Upgrade-DungeonNavigation.py' -unattended -nop4 -log
+```
+
+That script verifies the existing map, creates a `.before-dungeon-nav.umap`
+backup, adds only the labeled dungeon-nav volume, checks the actual geometry
+bounds, then saves. It skips a map that already has the labeled volume and
+fails closed if a prior backup is stale. It does not relocate existing actors,
+replace existing nav volumes, or change any art.
+
+These changes are not proof of working navigation. **Build and test in UE5.4
+Editor**, use **P** to visualize actual walkable tiles, and verify enemies can
+cross dungeon doors and reach players across the road after new runtime geometry
+appears. Confirm tile generation, navmesh memory, and startup time on Windows
+10/11 before merging PR #948. Original Z/Nyra art and Godot are unchanged.
