@@ -1589,23 +1589,6 @@ func _atlas_action(label: String, action: String, tip: String="") -> void:
 func _atlas_equip_mouse_input(event:InputEvent,action:String)->void:
  if not menu_open or current_tab!="Inventory":return
  if event is InputEventMouseButton and event.pressed and event.button_index==MOUSE_BUTTON_RIGHT:
-  if action.begins_with("recipe_select:"):
-  if not menu_open or current_tab!="Professions":return
-  var recipe_index:int=int(action.get_slice(":",1))
-  if recipe_index<0 or recipe_index>=RECIPES.size():return
-  crafting_selected_index=recipe_index
-  _menu_tab("Professions")
-  return
- if action=="recipe_filter":
-  if not menu_open or current_tab!="Professions":return
-  crafting_craftable_only=not crafting_craftable_only
-  _menu_tab("Professions")
-  return
- if action=="craft_selected":
-  if not menu_open or current_tab!="Professions":return
-  _craft(crafting_selected_index)
-  _menu_tab("Professions")
-  return
  if action.begins_with("inventory_select:"):
    if inventory_show_vault:
     get_viewport().set_input_as_handled()
@@ -1624,6 +1607,23 @@ func _branch_hex(branch: String) -> String:
  return "#7fcce9"
 
 func _atlas_execute(action: String) -> void:
+ if action.begins_with("recipe_select:"):
+  if not menu_open or current_tab!="Professions":return
+  var recipe_index:int=int(action.get_slice(":",1))
+  if recipe_index<0 or recipe_index>=RECIPES.size():return
+  crafting_selected_index=recipe_index
+  _menu_tab("Professions")
+  return
+ if action=="recipe_filter":
+  if not menu_open or current_tab!="Professions":return
+  crafting_craftable_only=not crafting_craftable_only
+  _menu_tab("Professions")
+  return
+ if action=="craft_selected":
+  if not menu_open or current_tab!="Professions":return
+  _craft(crafting_selected_index)
+  _menu_tab("Professions")
+  return
  if action.begins_with("inventory_select:"):
   if not menu_open or current_tab!="Inventory":return
   var selected_index:int=int(action.get_slice(":",1))
