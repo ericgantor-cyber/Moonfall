@@ -929,8 +929,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("LastLootAffix * 100000 + LastLootSlot * 10000", loot)
         award = self.hero_cpp.split("void AMoonfallHeroPawn::AwardEquipmentDrop(", 1)[1].split(
             "bool AMoonfallHeroPawn::CollectGroundEquipmentCode(", 1)[0]
-        self.assertIn("if (NewTier > GetValidatedEquippedTier(LastLootSlot))", award)
-        self.assertIn("EquipInventoryItem(InventoryItemCodes.Num() - 1);", award)
+        self.assertNotIn("EquipInventoryItem(", award)
         for unsafe in ("*EquippedAffix = LastLootAffix;", "MaxHealth += 2.f", "*EquippedCode = ItemCode;"):
             self.assertNotIn(unsafe, award)
         cast = self.hero_cpp.split("bool AMoonfallHeroPawn::TryCast(", 1)[1].split(
