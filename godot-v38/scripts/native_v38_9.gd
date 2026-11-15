@@ -23,8 +23,12 @@ func _attack()->void:
  rhythm_strike_active=false
  if eligible and attack_cooldown>before_cooldown:
   rhythm_last_strike_at=map_time
-  if rhythm_chain==3:_show_message("TRIPLE STRIKE!",0.65)
-  elif rhythm_chain==5:_show_message("FIFTH STRIKE FINISHER!",0.75)
+  if rhythm_chain==3:
+   _show_message("TRIPLE STRIKE!",0.65)
+   if is_instance_valid(player):_cue(player.global_position+Vector3(0.0,-0.35,0.0),"attack",Color("89dfff"))
+  elif rhythm_chain==5:
+   _show_message("FIFTH STRIKE FINISHER!",0.75)
+   if is_instance_valid(player):_cue(player.global_position+Vector3(0.0,-0.35,0.0),"spell",Color("e8a2ff"))
  else:
   rhythm_chain=previous_chain
 
@@ -46,9 +50,12 @@ func _apply_player_hit(target:Dictionary,base_damage:float,stagger_strength:floa
  if RHYTHM.posture_broken(next_posture,maximum):
   target["rhythm_posture"]=0.0
   target["stagger_until"]=maxf(float(target.get("stagger_until",0.0)),map_time+(0.55 if bool(target.get("boss",false)) else 0.9))
+  var staggered_body:Node3D=target.get("body") as Node3D
+  if is_instance_valid(staggered_body):
+   _cue(staggered_body.global_position+Vector3(0.0,0.12,0.0),"spell",Color("ffc16e") if bool(target.get("boss",false)) else Color("d7c6ff"))
   if map_time-rhythm_last_posture_message_at>0.65:
    rhythm_last_posture_message_at=map_time
-   _show_message("POSTURE BROKEN!",0.8)
+   _show_message("BOSS POSTURE BROKEN!" if bool(target.get("boss",false)) else "POSTURE BROKEN!",0.8)
 
 func _dodge()->void:
  var previous:float=dodge_time
@@ -65,6 +72,7 @@ func _apply_incoming_damage(raw:float)->void:
   rhythm_dodge_rewarded=true
   rhythm_counter_until=map_time+RHYTHM_COUNTER_SECONDS
   _show_message("PERFECT DODGE! Counter now!",0.85)
+  if is_instance_valid(player):_cue(player.global_position+Vector3(0.0,-0.45,0.0),"dodge",Color("86e9ff"))
   return
  super._apply_incoming_damage(raw)
 
