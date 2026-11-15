@@ -3450,5 +3450,21 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                           "InventoryItemCodes.Remove", "InventoryItemCodes.Sort("):
             self.assertNotIn(forbidden, score + recommendation)
 
+
+    def test_inventory_advisor_is_read_only_and_scans_selected_row_only(self):
+        bag = self.hud.split("if (Hero->bInventoryOpen)", 1)[1].split(
+            "// Nearest living boss", 1)[0]
+        self.assertIn("Count > 0 ? Hero->GetEquipmentUpgradeScore(Selected) : 0", bag)
+        self.assertIn("GEAR ADVISOR: selected gear is an upgrade", bag)
+        self.assertIn("GEAR ADVISOR: selected gear is not an upgrade", bag)
+        self.assertIn("Count == 0 ? TEXT(\"GEAR ADVISOR: find equipment to compare\")", bag)
+        self.assertIn("Top + PanelHeight - 50.f", bag)
+        self.assertNotIn("GetRecommendedEquipmentIndex(", bag)
+        advisor = bag.split("// One selected-item check per frame", 1)[1].split(
+            'DrawText(TEXT("LT: equip best', 1)[0]
+        for action in ("EquipInventoryItem(", "EquipBestInventoryUpgrades(", "SaveWorldProgress(",
+                       "InventoryItemCodes.Add(", "InventoryItemCodes.RemoveAt("):
+            self.assertNotIn(action, advisor)
+
 if __name__ == "__main__":
     unittest.main()
