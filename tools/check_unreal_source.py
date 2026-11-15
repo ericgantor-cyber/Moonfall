@@ -3429,5 +3429,26 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("LineTraceSingleByChannel", self.enemy_cpp)
         self.assertIn("ApplyMoonfallDamage", self.enemy_cpp)
 
+
+    def test_read_only_gear_advisor_port_from_conflicted_pr_899(self):
+        self.assertIn("int32 GetEquipmentUpgradeScore(int32 InventoryIndex) const;", self.hero_h)
+        self.assertIn("int32 GetRecommendedEquipmentIndex() const;", self.hero_h)
+        score = self.hero_cpp.split(
+            "int32 AMoonfallHeroPawn::GetEquipmentUpgradeScore(int32 InventoryIndex) const", 1
+        )[1].split("int32 AMoonfallHeroPawn::GetRecommendedEquipmentIndex() const", 1)[0]
+        recommendation = self.hero_cpp.split(
+            "int32 AMoonfallHeroPawn::GetRecommendedEquipmentIndex() const", 1
+        )[1].split("int32 AMoonfallHeroPawn::EquipBestInventoryUpgrades()", 1)[0]
+        for contract in ("InventoryItemCodes.IsValidIndex(InventoryIndex)", "InventoryItemCodes.Contains(Code)",
+                         "EncodedSlot == ExpectedSlot", "Code == Affix * 100000",
+                         "Candidate == EquippedCodes[Slot]", "FMath::IsFinite(Health)"):
+            self.assertIn(contract, score)
+        self.assertIn("GetEquipmentUpgradeScore(Index)", recommendation)
+        self.assertIn("Improvement > BestImprovement", recommendation)
+        self.assertIn("return INDEX_NONE;", recommendation)
+        for forbidden in ("EquipInventoryItem(", "SaveWorldProgress(", "InventoryItemCodes.Add(",
+                          "InventoryItemCodes.Remove", "InventoryItemCodes.Sort("):
+            self.assertNotIn(forbidden, score + recommendation)
+
 if __name__ == "__main__":
     unittest.main()
