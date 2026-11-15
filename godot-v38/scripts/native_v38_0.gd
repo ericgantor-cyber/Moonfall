@@ -3,9 +3,21 @@ extends "res://scripts/native_v37_7.gd"
 ## leaving the combat/loot/world/save systems untouched and inheritance intact.
 const V380_RULES:=preload("res://scripts/systems/overhaul_v380.gd")
 const CELESTIAL_TALENTS:=preload("res://scripts/systems/celestial_talents_v398.gd")
+const CLASSLESS_TALENTS:=preload("res://scripts/systems/moonfall_talent_tree.gd")
 var v398_panel:PanelContainer
 var v398_tree_list:VBoxContainer
 var v398_ranks:Dictionary={}
+var v406_ranks:Dictionary={} # Separate from legacy combat ranks.
+var v406_active_branch:String="might"
+var v406_branch_bar:HBoxContainer
+var v406_respec_button:Button
+const V406_WEB:=preload("res://scripts/systems/moonfall_talent_web.gd")
+const V406_PANEL_LAYOUT:=preload("res://scripts/systems/moonfall_talent_panel_layout.gd")
+var v406_web:Control
+var v406_selected_node:String=""
+var v406_details:Label
+var v406_purchase_button:Button
+var v406_points_label:Label
 # Character creation keeps original Z/Nyra artwork; customization is identity and origin.
 var v399_creator:PanelContainer
 var v399_name:LineEdit
@@ -494,48 +506,212 @@ func _v398_build_tree()->void:
  var layer:CanvasLayer=get_node_or_null("NativeAtlasUI") as CanvasLayer
  if not is_instance_valid(layer):return
  v398_panel=PanelContainer.new()
- v398_panel.name="CelestialTalentTree"
- v398_panel.set_anchors_preset(Control.PRESET_CENTER)
- v398_panel.custom_minimum_size=Vector2(490,550)
- v398_panel.position=Vector2(-245,-275)
+ v398_panel.name="ClasslessTalentWeb"
+ v398_panel.set_anchors_preset(Control.PRESET_TOP_LEFT)
+ v398_panel.custom_minimum_size=Vector2(1100,730)
+ v398_panel.position=Vector2.ZERO
  layer.add_child(v398_panel)
- var scroller:ScrollContainer=ScrollContainer.new()
- v398_panel.add_child(scroller)
+ get_viewport().size_changed.connect(_v406_fit_panel_to_viewport)
+ _v406_fit_panel_to_viewport()
+ var outer:VBoxContainer=VBoxContainer.new()
+ outer.add_theme_constant_override("separation",10)
+ v398_panel.add_child(outer)
+ var header:HBoxContainer=HBoxContainer.new()
+ outer.add_child(header)
+ var title:Label=Label.new()
+ title.text="MOONFALL  |  CLASSLESS TALENTS  |  CONSTELLATION WEB"
+ title.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+ header.add_child(title)
+ v406_points_label=Label.new()
+ header.add_child(v406_points_label)
+ var body:HBoxContainer=HBoxContainer.new()
+ body.add_theme_constant_override("separation",12)
+ body.size_flags_vertical=Control.SIZE_EXPAND_FILL
+ outer.add_child(body)
+ var graph_column:VBoxContainer=VBoxContainer.new()
+ graph_column.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+ graph_column.size_flags_vertical=Control.SIZE_EXPAND_FILL
+ body.add_child(graph_column)
+ v406_branch_bar=HBoxContainer.new()
+ graph_column.add_child(v406_branch_bar)
+ for branch_id in ["might","agility","arcana"]:
+  var focus:Button=Button.new()
+  focus.text=branch_id.to_upper()
+  focus.custom_minimum_size=Vector2(148,52)
+  focus.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+  focus.pressed.connect(_v406_select_branch.bind(branch_id))
+  v406_branch_bar.add_child(focus)
+ v406_web=V406_WEB.new()
+ v406_web.custom_minimum_size=Vector2(760,565)
+ v406_web.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+ v406_web.size_flags_vertical=Control.SIZE_EXPAND_FILL
+ v406_web.talent_selected.connect(_v406_web_selected)
+ graph_column.add_child(v406_web)
+ var graph_actions:HBoxContainer=HBoxContainer.new()
+ graph_column.add_child(graph_actions)
+ var fit:Button=Button.new()
+ fit.text="SHOW ENTIRE WEB"
+ fit.custom_minimum_size=Vector2(180,48)
+ fit.pressed.connect(func():v406_web.fit_all())
+ graph_actions.add_child(fit)
+ var next_button:Button=Button.new()
+ next_button.text="NEXT AVAILABLE (N)"
+ next_button.custom_minimum_size=Vector2(195,48)
+ next_button.pressed.connect(_v406_next_available)
+ graph_actions.add_child(next_button)
+ for action in ["-","+"]:
+  var zoom_button:Button=Button.new()
+  zoom_button.text=action
+  zoom_button.custom_minimum_size=Vector2(60,48)
+  zoom_button.pressed.connect(_v406_zoom.bind(1.2 if action=="+" else 1.0/1.2))
+  graph_actions.add_child(zoom_button)
+ var close_button:Button=Button.new()
+ close_button.text="CLOSE (K)"
+ close_button.custom_minimum_size=Vector2(120,48)
+ close_button.pressed.connect(_v398_toggle_tree)
+ graph_actions.add_child(close_button)
+ var side:VBoxContainer=VBoxContainer.new()
+ side.custom_minimum_size.x=265
+ body.add_child(side)
+ var side_title:Label=Label.new()
+ side_title.text="SELECTED TALENT"
+ side.add_child(side_title)
+ v406_details=Label.new()
+ v406_details.custom_minimum_size.y=170
+ v406_details.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+ side.add_child(v406_details)
+ v406_purchase_button=Button.new()
+ v406_purchase_button.text="SPEND TALENT POINT"
+ v406_purchase_button.custom_minimum_size.y=56
+ v406_purchase_button.pressed.connect(_v406_purchase_selected)
+ side.add_child(v406_purchase_button)
+ var index_title:Label=Label.new()
+ index_title.text="TALENT INDEX (KEYBOARD)"
+ side.add_child(index_title)
+ var index_scroll:ScrollContainer=ScrollContainer.new()
+ index_scroll.size_flags_vertical=Control.SIZE_EXPAND_FILL
+ index_scroll.custom_minimum_size.y=190
+ side.add_child(index_scroll)
  v398_tree_list=VBoxContainer.new()
- v398_tree_list.custom_minimum_size=Vector2(465,0)
- scroller.add_child(v398_tree_list)
+ v398_tree_list.custom_minimum_size.x=248
+ index_scroll.add_child(v398_tree_list)
+ v406_respec_button=Button.new()
+ v406_respec_button.text="RESET ALL TALENT POINTS"
+ v406_respec_button.custom_minimum_size.y=58
+ var reset_confirm:ConfirmationDialog=ConfirmationDialog.new()
+ reset_confirm.title="Reset all talent ranks?"
+ reset_confirm.dialog_text="Refund every spent talent point? Your level, XP, and equipment will be preserved."
+ reset_confirm.ok_button_text="REFUND ALL POINTS"
+ reset_confirm.confirmed.connect(_v406_respec)
+ v398_panel.add_child(reset_confirm)
+ v406_respec_button.pressed.connect(func():reset_confirm.popup_centered())
+ side.add_child(v406_respec_button)
  v398_panel.visible=false
+
+func _v406_fit_panel_to_viewport()->void:
+ if not is_instance_valid(v398_panel):return
+ var layout:Dictionary=V406_PANEL_LAYOUT.placement(get_viewport().get_visible_rect().size)
+ var factor:float=float(layout["scale"])
+ v398_panel.scale=Vector2(factor,factor)
+ v398_panel.position=layout["position"]
+
+func _v406_next_available()->void:
+ if not is_instance_valid(v406_web):return
+ var next_id:String=v406_web.next_available(v406_selected_node)
+ if next_id=="":return
+ _v406_web_selected(next_id)
+ v406_web.focus_node(next_id)
+
+func _v406_zoom(factor:float)->void:
+ if is_instance_valid(v406_web):v406_web.zoom_by(factor)
+
+func _v406_select_branch(branch_id:String)->void:
+ v406_active_branch=branch_id
+ if is_instance_valid(v406_web):v406_web.focus_branch(branch_id)
+ _v398_refresh_tree()
+
+func _v406_web_selected(id:String)->void:
+ # Keep the keyboard-friendly index in sync when selecting a star in
+ # another branch without moving or resetting the player's web view.
+ var tree:Dictionary=CLASSLESS_TALENTS.load_tree()
+ for node in tree.get("nodes",[]):
+  if str(node.get("id",""))!=id:continue
+  v406_active_branch=str(node.get("branch",v406_active_branch))
+  break
+ v406_selected_node=id
+ _v398_refresh_tree()
+
+func _v406_index_selected(id:String)->void:
+ v406_selected_node=id
+ if is_instance_valid(v406_web):v406_web.focus_node(id)
+ _v398_refresh_tree()
+
+func _v406_purchase_selected()->void:
+ if v406_selected_node!="":_v398_unlock(v406_selected_node)
 
 func _v398_refresh_tree()->void:
  if not is_instance_valid(v398_tree_list):return
  for child in v398_tree_list.get_children():child.queue_free()
- var level_now:int=maxi(1,int(hero_level))
- var points:int=CELESTIAL_TALENTS.points_for_level(level_now)-CELESTIAL_TALENTS.points_spent(v398_ranks)
- var heading:Label=Label.new()
- heading.text="CELESTIAL TALENTS  |  Points: "+str(points)+"  |  K to close"
- v398_tree_list.add_child(heading)
- for branch in CELESTIAL_TALENTS.BRANCHES:
-  var section:Label=Label.new()
-  section.text=str(branch).to_upper()
-  v398_tree_list.add_child(section)
-  for id in CELESTIAL_TALENTS.TALENTS:
-   var info:Dictionary=CELESTIAL_TALENTS.TALENTS[id]
-   if str(info["branch"])!=str(branch):continue
-   if info.has("hero") and str(info["hero"])!=str(hero):continue
-   var talent_button:Button=Button.new()
-   talent_button.text=str(id).replace("_"," ").capitalize()+"  "+str(v398_ranks.get(id,0))+"/"+str(info["max_rank"])
-   talent_button.disabled=not CELESTIAL_TALENTS.can_unlock(str(hero),level_now,v398_ranks,str(id))
-   talent_button.pressed.connect(_v398_unlock.bind(str(id)))
-   v398_tree_list.add_child(talent_button)
+ var level_now:int=clampi(int(hero_level),1,100)
+ var state:Dictionary=CLASSLESS_TALENTS.evaluate(level_now,v406_ranks)
+ if not bool(state.get("ok",false)):
+  v406_details.text="Talent data unavailable: "+str(state.get("error","Unknown error"))
+  v406_purchase_button.disabled=true
+  return
+ var tree:Dictionary=CLASSLESS_TALENTS.load_tree()
+ v406_points_label.text="LEVEL "+str(level_now)+"  |  POINTS "+str(state.get("available",0))
+ if is_instance_valid(v406_web):
+  v406_web.set_data(tree,v406_ranks,level_now,int(state.get("available",0)))
+  v406_web.select_node(v406_selected_node)
+ var selected:Dictionary={}
+ for node in tree.get("nodes",[]):
+  if str(node.get("id",""))==v406_selected_node:selected=node
+  if str(node.get("branch",""))!=v406_active_branch:continue
+  var node_id:String=str(node.get("id",""))
+  var index_button:Button=Button.new()
+  index_button.text=str(node.get("title",node_id))+"  "+str(v406_ranks.get(node_id,0))+"/"+str(node.get("max_rank",1))
+  index_button.custom_minimum_size.y=42.0
+  index_button.pressed.connect(_v406_index_selected.bind(node_id))
+  v398_tree_list.add_child(index_button)
+ if selected.is_empty():
+  v406_details.text="Click a star in the web or choose a talent from the index.\nMouse wheel: zoom\nDrag: move map\nArrows / +/-: keyboard controls"
+  v406_purchase_button.disabled=true
+ else:
+  var title:String=str(selected.get("title",""))
+  var rank:int=int(v406_ranks.get(v406_selected_node,0))
+  var max_rank:int=int(selected.get("max_rank",1))
+  var effect:Dictionary=selected.get("effect",{})
+  var requires:Array=selected.get("requires",[])
+  var dependencies:String="None" if requires.is_empty() else ", ".join(PackedStringArray(requires))
+  var amount:String=str(effect.get("amount_per_rank",0))
+  var bonus:String=amount+" "+str(effect.get("kind",""))+" "+str(effect.get("stat",""))
+  v406_details.text=title+"\n"+str(selected.get("branch","")).to_upper()+" • TIER "+str(selected.get("tier",1))+"\nRank "+str(rank)+"/"+str(max_rank)+"  •  Level "+str(selected.get("min_level",1))+"+\nBonus: "+bonus+"\nRequires: "+dependencies
+  var preview:Dictionary=CLASSLESS_TALENTS.spend(level_now,v406_ranks,v406_selected_node)
+  v406_purchase_button.disabled=not bool(preview.get("ok",false))
+  v406_purchase_button.tooltip_text=str(preview.get("error","Learn one rank"))
+ if is_instance_valid(v406_respec_button):
+  v406_respec_button.disabled=v406_ranks.is_empty()
 
 func _v398_unlock(id:String)->void:
- v398_ranks=CELESTIAL_TALENTS.unlock(str(hero),maxi(1,int(hero_level)),v398_ranks,id)
+ var changed:Dictionary=CLASSLESS_TALENTS.spend(clampi(int(hero_level),1,100),v406_ranks,id)
+ if not bool(changed.get("ok",false)):return
+ v406_ranks=changed["allocations"].duplicate(true)
+ _save_game()
+ _v398_refresh_tree()
+
+func _v406_respec()->void:
+ var changed:Dictionary=CLASSLESS_TALENTS.respec(clampi(int(hero_level),1,100),v406_ranks)
+ if not bool(changed.get("ok",false)):return
+ v406_ranks=changed["allocations"].duplicate(true)
+ _save_game()
  _v398_refresh_tree()
 
 func _v398_toggle_tree()->void:
  if not hero_playing or death_active or menu_open or not is_instance_valid(v398_panel):return
  v398_panel.visible=not v398_panel.visible
- if v398_panel.visible:_v398_refresh_tree()
+ if v398_panel.visible:
+  _v406_fit_panel_to_viewport()
+  _v398_refresh_tree()
 
 func _unhandled_input(event:InputEvent)->void:
  if event is InputEventKey and event.pressed and not event.echo and event.keycode==KEY_ESCAPE and v401_z_intro_timer>0.0:
@@ -766,18 +942,20 @@ func _start_game(selected_hero:String)->void:
  v387_stamina=V387_MAX_STAMINA
  v387_stamina_regen_wait=0.0
  v398_ranks={}
+ v406_ranks={}
  v401_z_intro_seen=false
  _v401_end_z_intro()
  if is_instance_valid(v398_panel):v398_panel.visible=false
 
 func _checkpoint_extra_data()->Dictionary:
- return {"mana":clampf(v385_mana,0.0,V385_MAX_MANA),"stamina":clampf(v387_stamina,0.0,V387_MAX_STAMINA),"celestial_ranks":v398_ranks.duplicate(true),"character_identity":v399_identity.duplicate(true)}
+ return {"mana":clampf(v385_mana,0.0,V385_MAX_MANA),"stamina":clampf(v387_stamina,0.0,V387_MAX_STAMINA),"celestial_ranks":v398_ranks.duplicate(true),"classless_ranks":v406_ranks.duplicate(true),"character_identity":v399_identity.duplicate(true)}
 
 func _restore_data(data:Dictionary)->void:
  super._restore_data(data)
  _v400_apply_adventurer_look()
  v387_stamina_regen_wait=0.0
  v398_ranks={}
+ v406_ranks={}
  v399_identity={}
  var resources:Variant=data.get("optional_resources",{})
  if resources is Dictionary:
@@ -785,6 +963,10 @@ func _restore_data(data:Dictionary)->void:
   if saved_identity is Dictionary:v399_identity=saved_identity.duplicate(true)
   v385_mana=clampf(float(resources.get("mana",V385_MAX_MANA)),0.0,V385_MAX_MANA)
   v387_stamina=clampf(float(resources.get("stamina",V387_MAX_STAMINA)),0.0,V387_MAX_STAMINA)
+  var classless_saved:Variant=resources.get("classless_ranks",{})
+  if classless_saved is Dictionary:
+   var restored:Dictionary=CLASSLESS_TALENTS.evaluate(clampi(int(hero_level),1,100),classless_saved)
+   if bool(restored.get("ok",false)):v406_ranks=restored["allocations"].duplicate(true)
   var saved_ranks:Variant=resources.get("celestial_ranks",{})
   if saved_ranks is Dictionary:
    # Reconstruct only legal unlocks, respecting level, prerequisites, and hero choice.

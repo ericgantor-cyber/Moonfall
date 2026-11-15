@@ -320,3 +320,92 @@ The Godot runtime test is provided at
 **The module is not yet connected to live hero progression, the
 character UI or saved games**; Unreal feature parity and native Windows
 testing remain separate work. Nothing changes Z or Nyra art.
+
+## Native talent panel integration (draft)
+
+The existing Godot `K` talent screen now reads the Moonfall-original classless
+talent tree with its three open branches. Purchase buttons consult the native
+talent validator; unavailable or maxed talents are disabled. A single button
+resets **all** classless talents, not individual points. Changes call the
+existing save routine.
+
+A new additive `optional_resources.classless_ranks` checkpoint field stores
+the classless allocations. Loading validates this field before accepting it,
+defaulting to an empty tree for older saves. Legacy
+`optional_resources.celestial_ranks` stays intact as a compatibility field:
+the old six-branch combat calculations still consume it, so the new choices
+are **not yet incorporated into combat damage or resources**. This is an
+incremental UI-and-save step, not a finished progression migration. A follow-on
+change must decide how to retire legacy talent effects safely and apply the
+new stat bonuses without double counting. Original hero assets are unchanged.
+
+## Expanded constellation progression: 141 talents
+
+The three classless branches now have **47 nodes each** and **14 tiers**
+(141 unique talents total). The original 12 nodes and their identifiers,
+prerequisites and costs are preserved for save compatibility. Newly added
+tiers begin at levels 16, 24, 32, 42, 52, 62, 72 and 82. Each later tier
+branches into multiple paths with prerequisites from earlier tiers; some
+advanced nodes require multiple connected talents. All branches remain
+simultaneously accessible, with **no classes or upgrade cards**.
+
+The native Godot talent screen now uses three large, selectable branch tabs,
+tier headings, larger talent buttons, per-node prerequisite/bonus tooltips,
+a scrollable tree and an always-visible **full-tree respec** control. No
+individual talent refunds were added. The new nodes use the existing flat
+health/mana/stamina and percentage damage effect model; they are not new
+spells, combat animations or weapon abilities. The legacy combat talent
+effects are still kept for save compatibility and the new bonuses are not
+yet connected to combat; balancing and UE5 runtime parity remain pending.
+
+The expanded JSON is mirrored exactly under `godot-v38/data`. Python tests
+validate count, reachable late-game prerequisite paths, level requirements,
+and full respec. The Godot smoke test also checks count, branch sizes, a new
+level-16 purchase and reset. Neither original hero artwork file is changed.
+
+## Full constellation web UI
+
+The three Might, Agility and Arcana talent branches now appear **together**
+on a single, original Moonfall star-map instead of separate linear lists.
+The native `moonfall_talent_web.gd` Control draws each node as a star,
+connects prerequisite paths, highlights purchased and available upgrades
+and lets players inspect any talent before spending a point.
+
+Controls: **mouse wheel** zoom; **drag empty map** to pan; **click a
+node** to inspect; **+/-** zoom and **arrow keys** pan while the web has
+keyboard focus; **Home** recenters; dedicated buttons focus a branch or
+fit the entire map to the screen. A keyboard-friendly talent index, clear
+details and spend button, and **RESET ALL TALENT POINTS** remain available
+beside the map. No individual refunds. The 141-node tree extends the existing save format additively; all prior talent IDs remain valid.
+
+The design follows the broad constellation-and-connections idea seen in
+Assassin's Creed Valhalla, but all art, code, layout, names and skill
+values are original to Moonfall. These are **stat bonuses** in the
+new tree; wiring them to live combat and UE5 is a separate task.
+
+`godot-v38/tests/talent_web_runtime.gd` runs native Godot checks for
+node positions, branch focusing, zoom limits and mouse hit tests, in
+addition to existing talent spending/respec checks. Native Windows
+playtesting with user input remains separate from headless CI.
+
+## Constellation navigation overhaul
+
+Selecting a skill highlights its complete prerequisite chain back to
+the branch roots, including multi-prerequisite nodes. The highlighted route
+updates on both mouse and talent-index selection. Unrelated links remain
+subdued, while purchased paths keep their distinct bright appearance.
+
+The **NEXT AVAILABLE (N)** control cycles through skills whose
+prerequisites, required level, maximum rank and remaining point budget all
+allow a purchase. It focuses the selected star in the constellation. Players
+can also press **N** while the web has keyboard focus. **Tab remains reserved
+for ordinary keyboard focus navigation** rather than being intercepted by
+the web. An empty point budget gives no next unlock. This upgrade only
+changes selection, navigation and drawing, not save data, combat math,
+talent definitions or original artwork.
+
+## Additional 33 late-game constellation talents
+
+The skill web now includes **33 additional nodes**: **11 Might**, **11 Agility** and **11 Arcana**, for **141 total**. The extensions form tiers **12, 13, and 14**, gated at levels **86, 91, and 96**. Four talents are added to each branch at tiers 12 and 13, followed by three final-tier talents per branch. New original names, paths, bonuses and prerequisites are additive and preserve every existing saved talent ID. Every branch stays classless, and full-tree respec remains the only reset option.
+
+The constellation fit has been widened to include outer tier-14 stars, which are highlighted as capstones. These new nodes grant existing damage or health/mana/stamina stat modifiers; they do not create combat animations or spells. The bonuses are not yet wired into live combat. Godot and Python tests cover the expanded counts, branch distribution, prerequisites and final-tier level gates.

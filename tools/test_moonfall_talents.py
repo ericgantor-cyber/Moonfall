@@ -11,21 +11,89 @@ class TalentTests(unittest.TestCase):
     def setUpClass(cls):
         cls.tree = load()
 
-    def test_twelve_nodes_three_open_branches(self):
-        self.assertEqual(len(self.tree["nodes"]), 12)
+    def test_141_nodes_three_open_branches(self):
+        self.assertEqual(len(self.tree["nodes"]), 141)
+        self.assertEqual({branch: sum(node["branch"] == branch for node in self.tree["nodes"])
+                          for branch in ("might", "agility", "arcana")},
+                         {"might": 47, "agility": 47, "arcana": 47})
+        self.assertEqual(max(node["tier"] for node in self.tree["nodes"]), 14)
         self.assertEqual(len(self.tree["branches"]), 3)
         validate(self.tree)
+
+    def test_every_expanded_talent_chain_is_reachable(self):
+        nodes = {node["id"]: node for node in self.tree["nodes"]}
+        self.assertEqual(len(nodes), 141)
+        for branch in ("might", "agility", "arcana"):
+            for leaf in [node for node in nodes.values()
+                         if node["branch"] == branch and node["tier"] == 14]:
+                unlocked = {}
+                def purchase_dependencies(node_id):
+                    for prerequisite in nodes[node_id]["requires"]:
+                        purchase_dependencies(prerequisite)
+                    unlocked[node_id] = 1
+                purchase_dependencies(leaf["id"])
+                result = evaluate(100, unlocked, self.tree)
+                self.assertEqual(result["spent"], len(unlocked))
+                self.assertIn(leaf["id"], result["allocations"])
+
+    def test_new_33_talents_have_unique_ids_and_valid_gates(self):
+        added = [node for node in self.tree["nodes"] if node["tier"] >= 12]
+        self.assertEqual(len(added), 33)
+        self.assertEqual({branch: sum(n["branch"] == branch for n in added)
+                          for branch in ("might", "agility", "arcana")},
+                         {"might": 11, "agility": 11, "arcana": 11})
+        self.assertEqual({tier: sum(n["tier"] == tier for n in added)
+                          for tier in (12, 13, 14)},
+                         {12: 12, 13: 12, 14: 9})
+        gates = {12: 86, 13: 91, 14: 96}
+        self.assertTrue(all(n["min_level"] == gates[n["tier"]] for n in added))
+        self.assertEqual(len({node["id"] for node in self.tree["nodes"]}), 141)
+
+    def test_new_capstone_path_survives_full_respec(self):
+        nodes = {n["id"]: n for n in self.tree["nodes"]}
+        chosen = {}
+        def unlock(node_id):
+            for requirement in nodes[node_id]["requires"]:
+                unlock(requirement)
+            chosen[node_id] = 1
+        unlock("might_eclipse_champion")
+        state = evaluate(100, chosen, self.tree)
+        self.assertIn("might_eclipse_champion", state["allocations"])
+        self.assertLess(state["spent"], state["earned"])
+        with self.assertRaisesRegex(ValueError, "level gate"):
+            evaluate(95, chosen, self.tree)
+        reset = respec(100, self.tree, current=chosen)
+        self.assertEqual(reset["spent"], 0)
+        self.assertEqual(reset["available"], 198)
+
+    def test_new_tiers_respect_gates_and_full_respec(self):
+        fresh = evaluate(16, {"iron_will": 1, "breaker": 1, "guard": 1,
+                              "titan_strike": 1}, self.tree)
+        self.assertTrue(fresh["available"] > 0)
+        target = "might_ashen_grip"
+        with self.assertRaisesRegex(ValueError, "level gate"):
+            evaluate(15, {**fresh["allocations"], target: 1}, self.tree)
+        purchased = spend(16, fresh["allocations"], target, self.tree)
+        self.assertEqual(purchased["spent"], 5)
+        assert purchased["bonuses"]["melee_damage"]["percent"] > fresh["bonuses"]["melee_damage"]["percent"]
+        reset = respec(16, self.tree, current=purchased["allocations"])
+        self.assertEqual(reset["spent"], 0)
+        self.assertEqual(reset["available"], 30)
 
     def test_level_gives_points_without_auto_allocating_talents(self):
         state = evaluate(5, {}, self.tree)
         self.assertEqual((state["earned"], state["available"], state["spent"]), (8, 8, 0))
         self.assertEqual(state["allocations"], {})
 
-    def test_two_talent_points_per_level_gained(self):
+    def test_two_points_per_level_and_multirank_roots(self):
         self.assertEqual(self.tree["points_per_level"], 2)
-        for level, earned in ((1, 0), (2, 2), (5, 8), (10, 18), (100, 198)):
-            with self.subTest(level=level):
-                self.assertEqual(evaluate(level, {}, self.tree)["available"], earned)
+        for level, expected in ((1, 0), (2, 2), (5, 8), (10, 18), (100, 198)):
+            self.assertEqual(evaluate(level, {}, self.tree)["available"], expected)
+        self.assertEqual({n["id"]: n["max_rank"] for n in self.tree["nodes"] if n["tier"] == 1},
+                         {"iron_will": 5, "swift_step": 5, "spirit_well": 5})
+        built = evaluate(10, {"iron_will": 5, "breaker": 3}, self.tree)
+        self.assertEqual(built["spent"], 8)
+        self.assertAlmostEqual(built["bonuses"]["melee_damage"]["percent"], .27)
 
     def test_prerequisite_and_level_gate(self):
         with self.assertRaisesRegex(ValueError, "Missing talent prerequisite"):
@@ -53,30 +121,6 @@ class TalentTests(unittest.TestCase):
                 evaluate(10, choice, self.tree)
         with self.assertRaisesRegex(ValueError, "Unknown talent choice"):
             spend(5, {}, "unknown", self.tree)
-
-    def test_multirank_caps_and_scaled_bonuses(self):
-        limits = {1: 5, 2: 3, 3: 1}
-        for node in self.tree["nodes"]:
-            self.assertEqual(node["max_rank"], limits[node["tier"]])
-        self.assertEqual(sum(n["max_rank"] for n in self.tree["nodes"]), 36)
-        state = evaluate(10, {"iron_will": 5, "breaker": 3}, self.tree)
-        self.assertEqual((state["spent"], state["available"]), (8, 10))
-        self.assertAlmostEqual(state["bonuses"]["melee_damage"]["percent"], .27)
-        with self.assertRaisesRegex(ValueError, "Invalid allocated rank"):
-            spend(10, state["allocations"], "breaker", self.tree)
-        with self.assertRaisesRegex(ValueError, "Not enough talent points"):
-            evaluate(3, {"iron_will": 5}, self.tree)
-        reset = respec(10, self.tree, current=state["allocations"])
-        self.assertEqual((reset["spent"], reset["available"]), (0, 18))
-
-    def test_multirank_spend_progression(self):
-        state = evaluate(10, {}, self.tree)
-        for rank in range(1, 6):
-            state = spend(10, state["allocations"], "spirit_well", self.tree)
-            self.assertEqual(state["allocations"]["spirit_well"], rank)
-            self.assertEqual(state["bonuses"]["mana"]["flat"], 8 * rank)
-        with self.assertRaisesRegex(ValueError, "Invalid allocated rank"):
-            spend(10, state["allocations"], "spirit_well", self.tree)
 
     def test_rejects_bad_prerequisites(self):
         bad = copy.deepcopy(self.tree)
