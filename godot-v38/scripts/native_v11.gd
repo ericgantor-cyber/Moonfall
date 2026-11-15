@@ -1426,6 +1426,9 @@ func _menu_tab(which: String) -> void:
      if INVENTORY_RULES.craft_issue(RECIPES[recipe_index],materials,gear_items.size(),bag_capacity)=="":ready.append(recipe_index)
      else:blocked.append(recipe_index)
     available=ready+blocked
+   # Reconcile selection before creating list buttons, so the visible marker is correct.
+   if not available.is_empty() and not (crafting_selected_index in available):
+    crafting_selected_index=available[0]
    var ready_count:int=0
    for recipe_index in available:
     var entry:Dictionary=RECIPES[recipe_index]
@@ -1439,7 +1442,6 @@ func _menu_tab(which: String) -> void:
    if available.is_empty():
     text+="\nNo recipes match these filters. Change category or show all recipes.\n"
    else:
-    if not (crafting_selected_index in available):crafting_selected_index=available[0]
     var chosen:Dictionary=RECIPES[crafting_selected_index]
     var chosen_issue:String=INVENTORY_RULES.craft_issue(chosen,materials,gear_items.size(),bag_capacity)
     text+="\n\n[b]SELECTED RECIPE: "+str(chosen.get("name","Recipe"))+"[/b]"
