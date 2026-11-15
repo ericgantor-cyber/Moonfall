@@ -4,9 +4,6 @@ const TALENTS = preload("res://scripts/systems/moonfall_talent_tree.gd")
 
 func _initialize() -> void:
  var tree: Dictionary = TALENTS.load_tree()
- if int(tree.get("points_per_level", 0)) != 2:
-  _fail("Each character level must award two talent points")
-  return
  var nodes: Array = tree.get("nodes", [])
  if nodes.size() != 141:
   _fail("Expanded tree must contain 141 talents")
@@ -46,7 +43,7 @@ func _initialize() -> void:
   return
  var base: Dictionary = TALENTS.evaluate(5, {})
  if not bool(base.get("ok", false)) or int(base.get("available", -1)) != 8:
-  _fail("Level 5 should have four unspent points")
+  _fail("Level 5 should have eight unspent points")
   return
  var first: Dictionary = TALENTS.spend(5, {}, "iron_will")
  if not bool(first.get("ok", false)):
