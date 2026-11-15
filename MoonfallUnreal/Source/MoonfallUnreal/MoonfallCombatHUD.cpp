@@ -118,23 +118,41 @@ void AMoonfallCombatHUD::DrawHUD()
      FString::Printf(TEXT("%.0f%%"), Hero->CombatTextScale * 100.f),
      FString::Printf(TEXT("%.0f%%"), Hero->BossWarningScale * 100.f),
      Settings->GetFullscreenMode() == EWindowMode::Windowed ? TEXT("Windowed") : Settings->GetFullscreenMode() == EWindowMode::WindowedFullscreen ? TEXT("Borderless") : TEXT("Fullscreen")};
-   const float MinusX = MenuLeft + MenuWidth - 111.f;
+   const float MinusX = MenuLeft + MenuWidth - 145.f;
    const float PlusX = MenuLeft + MenuWidth - 37.f;
+   // Options mouse hover is visual only; clicks still choose and adjust explicitly.
+   float OptionsCursorX = -1.f, OptionsCursorY = -1.f;
+   bool bOptionsCursorVisible = false;
+   if (const APlayerController* PC = Cast<APlayerController>(Hero->GetController()))
+    bOptionsCursorVisible = PC->bShowMouseCursor
+      && PC->GetMousePosition(OptionsCursorX, OptionsCursorY);
    for (int32 i = 0; i < 8; ++i) {
     const float Y = FirstRowY + i * MenuRowGap;
     const bool bSelected = Hero->OptionsSelection == i;
+    const bool bHoveredRow = bOptionsCursorVisible
+      && OptionsCursorX >= MenuLeft + 10.f && OptionsCursorX <= MenuLeft + MenuWidth - 10.f
+      && OptionsCursorY >= Y && OptionsCursorY <= Y + RowHeight;
     DrawRect(bSelected ? FLinearColor(0.22f,0.18f,0.36f,0.98f)
+                       : bHoveredRow ? FLinearColor(0.15f,0.18f,0.29f,0.96f)
                        : FLinearColor(0.09f,0.08f,0.16f,0.94f),
        MenuLeft + 10.f, Y, MenuWidth - 20.f, RowHeight);
     DrawText(Names[i], bSelected ? FLinearColor(0.96f,0.86f,0.56f) : FLinearColor::White,
-       MenuLeft + 17.f, Y + 3.f, nullptr, bCompactOptions ? 0.75f : 0.96f);
+       MenuLeft + 17.f, Y + 3.f, nullptr, bCompactOptions ? 0.65f : 0.89f);
     const float ButtonHeight = FMath::Min(26.f, RowHeight);
-    DrawRect(FLinearColor(0.20f,0.25f,0.37f,0.98f), MinusX, Y, 25.f, ButtonHeight);
-    DrawRect(FLinearColor(0.20f,0.25f,0.37f,0.98f), PlusX, Y, 25.f, ButtonHeight);
+    const bool bMinusHover = bOptionsCursorVisible && OptionsCursorX >= MinusX
+      && OptionsCursorX <= MinusX + 25.f && OptionsCursorY >= Y
+      && OptionsCursorY <= Y + ButtonHeight;
+    const bool bPlusHover = bOptionsCursorVisible && OptionsCursorX >= PlusX
+      && OptionsCursorX <= PlusX + 25.f && OptionsCursorY >= Y
+      && OptionsCursorY <= Y + ButtonHeight;
+    const FLinearColor IdleButton(0.20f,0.25f,0.37f,0.98f);
+    const FLinearColor HoverButton(0.35f,0.45f,0.60f,0.98f);
+    DrawRect(bMinusHover ? HoverButton : IdleButton, MinusX, Y, 25.f, ButtonHeight);
+    DrawRect(bPlusHover ? HoverButton : IdleButton, PlusX, Y, 25.f, ButtonHeight);
     DrawText(TEXT("-"), FLinearColor::White, MinusX + 9.f, Y + 2.f, nullptr, 0.95f);
     DrawText(TEXT("+"), FLinearColor::White, PlusX + 7.f, Y + 2.f, nullptr, 0.95f);
-    DrawText(Values[i], FLinearColor(0.75f,0.90f,1.f), MinusX + 28.f, Y + 3.f,
-      nullptr, bCompactOptions ? 0.68f : 0.79f);
+    DrawText(Values[i], FLinearColor(0.75f,0.90f,1.f), MinusX + 31.f, Y + 3.f,
+      nullptr, bCompactOptions ? 0.57f : 0.72f);
    }
   }
   const FString Hint = Hero->OptionsSelection == 3
