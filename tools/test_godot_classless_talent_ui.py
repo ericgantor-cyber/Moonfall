@@ -78,6 +78,16 @@ class ClasslessTalentUIScreen(unittest.TestCase):
         self.assertIn("capstone_radius - 1.0", runtime)
         self.assertIn("Capstone edge must be clickable", runtime)
 
+    def test_responsive_constellation_panel(self):
+        layout = (ROOT / "godot-v38/scripts/systems/moonfall_talent_panel_layout.gd").read_text(encoding="utf-8")
+        self.assertIn("static func placement(viewport_size: Vector2)", layout)
+        self.assertIn("VIEWPORT_MARGIN", layout)
+        self.assertIn("get_viewport().size_changed.connect(_v406_fit_panel_to_viewport)", self.screen)
+        self.assertIn("V406_PANEL_LAYOUT.placement(", self.screen)
+        self.assertIn("v398_panel.scale=Vector2(factor,factor)", self.screen)
+        self.assertIn('v398_panel.position=layout["offset_from_center"]', self.screen)
+        self.assertIn("_v406_fit_panel_to_viewport()\n  _v398_refresh_tree()", self.screen)
+
     def test_save_restores_classless_without_clobbering_legacy(self):
         self.assertIn('"classless_ranks":v406_ranks.duplicate(true)', self.screen)
         self.assertIn('resources.get("classless_ranks",{})', self.screen)
