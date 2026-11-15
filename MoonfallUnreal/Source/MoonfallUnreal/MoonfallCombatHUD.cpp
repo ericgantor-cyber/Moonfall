@@ -113,6 +113,8 @@ void AMoonfallCombatHUD::DrawHUD()
    const FString Names[] = {TEXT("Resolution"), TEXT("Render scale"), TEXT("Quality"),
      TEXT("Frame gen"), TEXT("Reduced motion"), TEXT("Combat text"), TEXT("Boss alerts"),
      TEXT("Display mode")};
+   const FString CompactNames[] = {TEXT("Res"), TEXT("Scale"), TEXT("Quality"),
+     TEXT("Frame"), TEXT("Motion"), TEXT("Text"), TEXT("Alerts"), TEXT("Mode")};
    const FString Values[] = {ResLabel, FString::Printf(TEXT("%.0f%%"), ScalePct),
      QualityName[Quality], FrameStatus, Hero->bReduceMotion ? TEXT("On") : TEXT("Off"),
      FString::Printf(TEXT("%.0f%%"), Hero->CombatTextScale * 100.f),
@@ -136,7 +138,7 @@ void AMoonfallCombatHUD::DrawHUD()
                        : bHoveredRow ? FLinearColor(0.15f,0.18f,0.29f,0.96f)
                        : FLinearColor(0.09f,0.08f,0.16f,0.94f),
        MenuLeft + 10.f, Y, MenuWidth - 20.f, RowHeight);
-    DrawText(Names[i], bSelected ? FLinearColor(0.96f,0.86f,0.56f) : FLinearColor::White,
+    DrawText(bCompactOptions ? CompactNames[i] : Names[i], bSelected ? FLinearColor(0.96f,0.86f,0.56f) : FLinearColor::White,
        MenuLeft + 17.f, Y + 3.f, nullptr, bCompactOptions ? 0.65f : 0.89f);
     const float ButtonHeight = FMath::Min(26.f, RowHeight);
     const bool bMinusHover = bOptionsCursorVisible && OptionsCursorX >= MinusX
