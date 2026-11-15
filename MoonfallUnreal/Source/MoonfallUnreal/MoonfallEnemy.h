@@ -17,6 +17,15 @@ public:
  UPROPERTY(EditAnywhere, Category="Combat") float AttackCooldown = 1.3f;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat") bool bElite = false;
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat") bool bBoss = false;
+ // Generic dungeon-boss presentation only. Never replaces divine boss IDs.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Dungeon|Boss")
+ FName DungeonBossFamily = NAME_None;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Dungeon|Boss")
+ FText DungeonBossTitle;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Dungeon|Boss")
+ int32 DungeonBossRank = 0;
+ UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Dungeon|Boss")
+ void OnDungeonBossIdentityReady(FName FamilyId, FText Title, int32 Rank);
  // Humanoid enemy ancestry, not a divine boss identity or visual asset.
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat|Race", meta=(ClampMin="0", ClampMax="11")) int32 RaceId = 0;
  UFUNCTION(BlueprintPure, Category="Combat|Race") FString GetRaceName() const;
