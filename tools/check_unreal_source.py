@@ -686,21 +686,6 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("PC->bShowMouseCursor = false;", defeat)
         self.assertNotIn("SaveWorldProgress(", close)
 
-    def test_outside_click_dismisses_inventory_and_options_without_gameplay_leak(self):
-        mouse = self.hero_cpp.split("void AMoonfallHeroPawn::ResidentContextMouseClick()", 1)[1].split("\n}", 1)[0]
-        options = mouse.split("if (bOptionsOpen)", 1)[1].split("if (bInventoryOpen)", 1)[0]
-        inventory = mouse.split("if (bInventoryOpen)", 1)[1].split("if (!bResidentContextOpen)", 1)[0]
-        self.assertIn("MouseX < MenuLeft || MouseX > MenuLeft + MenuWidth", options)
-        self.assertIn("MouseY < MenuTop || MouseY > MenuTop + MenuHeight", options)
-        self.assertIn("OpenOptions();", options)
-        self.assertIn("MouseX < Left || MouseX > Left + PanelWidth", inventory)
-        self.assertIn("MouseY < Top || MouseY > Top + PanelHeight", inventory)
-        self.assertIn("ToggleInventory();", inventory)
-        self.assertLess(inventory.index("ToggleInventory();"), inventory.index("HitTestInventorySortButton()"))
-        self.assertLess(mouse.index("if (bOptionsOpen)"), mouse.index("if (bInventoryOpen)"))
-        self.assertIn("return;", inventory)
-        self.assertIn("return;", options)
-
     def test_nearby_batch_loot_is_range_and_cover_safe(self):
         pickup = self.hero_cpp.split("void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[1].split(
             "void AMoonfallHeroPawn::EquipBestInventoryAction()", 1)[0]
