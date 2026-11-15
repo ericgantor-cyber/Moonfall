@@ -258,9 +258,19 @@ jobs:
           $gameFiles = @(Get-ChildItem -LiteralPath (Join-Path $root 'MoonfallUnreal') -Recurse -File)
           $pakFiles = @($gameFiles | Where-Object { $_.Extension -eq '.pak' -and $_.Length -gt 0 })
           $utocFiles = @($gameFiles | Where-Object { $_.Extension -eq '.utoc' -and $_.Length -gt 0 })
-          $ucasFiles = @($gameFiles | Where-Object { $_.Extension -eq '.ucas' -and $_.Length -gt 0 })
-          if ($pakFiles.Count -eq 0 -and ($utocFiles.Count -eq 0 -or $ucasFiles.Count -eq 0)) {
-            throw 'Packaged game has no nonempty cooked .pak or paired .utoc/.ucas content archives.'
+          $hasIoStorePair = $false
+          foreach ($utoc in $utocFiles) {
+            # Two unrelated files are not an IoStore container. The .ucas data
+            # archive must sit beside the .utoc index and share its basename.
+            $ucasPath = [IO.Path]::ChangeExtension($utoc.FullName, '.ucas')
+            if ((Test-Path -LiteralPath $ucasPath -PathType Leaf) -and
+                (Get-Item -LiteralPath $ucasPath).Length -gt 0) {
+              $hasIoStorePair = $true
+              break
+            }
+          }
+          if ($pakFiles.Count -eq 0 -and -not $hasIoStorePair) {
+            throw 'Packaged game has no nonempty cooked .pak or matching .utoc/.ucas content archive pair.'
           }
           "Real UE Win64 Development game packaged for source snapshot ${{ inputs.source_snapshot }}. Gameplay and installation remain untested." >> $env:GITHUB_STEP_SUMMARY
       - name: Upload actual packaged game only after full engine build
