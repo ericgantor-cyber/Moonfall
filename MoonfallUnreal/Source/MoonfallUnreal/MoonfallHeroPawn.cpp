@@ -1372,9 +1372,28 @@ void AMoonfallHeroPawn::AdjustOption(int32 Direction) {
  if (!Settings) return;
  if (OptionsSelection == 0) {
   const FIntPoint Resolutions[] = {FIntPoint(1280,720), FIntPoint(1920,1080), FIntPoint(2560,1440), FIntPoint(3840,2160)};
-  int32 Current = 1;
-  for (int32 i = 0; i < 4; ++i) if (Settings->GetScreenResolution() == Resolutions[i]) Current = i;
-  Settings->SetScreenResolution(Resolutions[FMath::Clamp(Current + Direction, 0, 3)]);
+  const FIntPoint CurrentResolution = Settings->GetScreenResolution();
+  const int64 CurrentPixels = int64(CurrentResolution.X) * int64(CurrentResolution.Y);
+  int32 Target = Direction < 0 ? 0 : 3;
+  // Non-preset screen sizes must step relative to the current resolution,
+  // rather than incorrectly assuming 1080p.
+  if (Direction < 0) {
+   for (int32 i = 3; i >= 0; --i) {
+    if (int64(Resolutions[i].X) * int64(Resolutions[i].Y) < CurrentPixels) {
+     Target = i;
+     break;
+    }
+   }
+  } else {
+   for (int32 i = 0; i < 4; ++i) {
+    if (int64(Resolutions[i].X) * int64(Resolutions[i].Y) > CurrentPixels) {
+     Target = i;
+     break;
+    }
+   }
+  }
+  if (CurrentResolution != Resolutions[Target])
+   Settings->SetScreenResolution(Resolutions[Target]);
  } else if (OptionsSelection == 1) {
   float CurrentScale = 100.f;
   float NormalizedScale = 0.f, MinScale = 50.f, MaxScale = 100.f;
