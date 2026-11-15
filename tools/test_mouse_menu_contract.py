@@ -141,6 +141,18 @@ class MouseMenusContract(unittest.TestCase):
         self.assertNotIn("_equip(", section)
         self.assertIn('"FIND UPGRADE","inventory_select_upgrade"', self.source)
 
+    def test_all_gear_tiles_have_full_hover_information(self):
+        self.assertIn('tile.tooltip_text=_inventory_hover_details(gear,inventory_show_vault,is_equipped)', self.source)
+        hover = self.source.split('func _inventory_hover_details(item:Dictionary,in_vault:bool,is_equipped:bool)->String:', 1)[1].split('func _inventory_bonus_label(', 1)[0]
+        self.assertIn('rarity+" • Item Power "', hover)
+        self.assertIn('detail+="\\nBonus: "+_inventory_bonus_label(item)', hover)
+        self.assertIn('Location: Personal Vault', hover)
+        self.assertIn('Location: Equipment Bag', hover)
+        self.assertIn('CURRENTLY EQUIPPED', hover)
+        self.assertIn('Power change:', hover)
+        self.assertIn('Same bonus change:', hover)
+        self.assertIn('Withdraw this item to equip it.', hover)
+
     def test_inventory_search_clear_and_mouse_scroll(self):
         self.assertIn('inventory_search_input.clear_button_enabled=true', self.source)
         self.assertIn('inventory_search_input.text_changed.connect(_on_inventory_query_changed)', self.source)
