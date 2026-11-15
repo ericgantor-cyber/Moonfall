@@ -1161,6 +1161,22 @@ func _inventory_action(action:String)->void:
    inventory_selected_index=best_index
    inventory_restore_focus=true
    inventory_page=floori(float(matching.find(best_index))/float(INVENTORY_RULES.BAG_PAGE_SIZE))
+  "inventory_select_upgrade":
+   if inventory_show_vault:return
+   var matching:Array[int]=INVENTORY_RULES.matching_gear_indices(gear_items,inventory_query,inventory_filter,inventory_sort)
+   var equipped_power:int=_equipment_power()
+   var upgrade_index:int=-1
+   for index in matching:
+    var candidate_power:int=int(gear_items[index].get("power",0))
+    if candidate_power<=equipped_power:continue
+    if upgrade_index<0 or candidate_power>int(gear_items[upgrade_index].get("power",0)):
+     upgrade_index=index
+   if upgrade_index<0:
+    _show_message("No matching power upgrades found.",2)
+    return
+   inventory_selected_index=upgrade_index
+   inventory_restore_focus=true
+   inventory_page=floori(float(matching.find(upgrade_index))/float(INVENTORY_RULES.BAG_PAGE_SIZE))
   "inventory_select_next","inventory_select_prev":
    var source:Array=vault_items if inventory_show_vault else gear_items
    var matching:Array[int]=INVENTORY_RULES.matching_gear_indices(source,inventory_query,inventory_filter,inventory_sort)
@@ -1314,6 +1330,7 @@ func _menu_tab(which: String) -> void:
      _atlas_action("NEXT ITEM","inventory_select_next")
     if not inventory_show_vault and not matches.is_empty():
      _atlas_action("FIND BEST POWER","inventory_select_best","Select the strongest matching item without equipping it.")
+     _atlas_action("FIND UPGRADE","inventory_select_upgrade","Select the strongest matching item above your current equipment power. Does not equip.")
    if inventory_page>0:_atlas_action("PREVIOUS PAGE","inventory_page_prev")
    if inventory_page+1<pages:_atlas_action("NEXT PAGE","inventory_page_next")
    if inventory_selected_index>=0 and inventory_selected_index<source.size():
