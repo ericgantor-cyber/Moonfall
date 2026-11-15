@@ -3465,6 +3465,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             self.assertIn(field, bag)
         hud_header = (ROOT / "MoonfallCombatHUD.h").read_text(encoding="utf-8")
         self.assertIn("bool bAdvisorScoreCached = false;", hud_header)
+        self.assertIn("if (!Hero->bInventoryOpen || Hero->bCharacterStatsOpen) bAdvisorScoreCached = false;", self.hud)
+        self.assertIn("if (!IsValid(Hero)) { bAdvisorScoreCached = false; return; }", self.hud)
         self.assertIn("int32 CachedAdvisorScore = 0;", hud_header)
         self.assertIn("GEAR ADVISOR: selected gear is an upgrade", bag)
         self.assertIn("GEAR ADVISOR: selected gear is not an upgrade", bag)
