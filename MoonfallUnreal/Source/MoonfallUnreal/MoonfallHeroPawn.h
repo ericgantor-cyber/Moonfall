@@ -185,6 +185,9 @@ public:
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Inventory") int32 InventorySelection = 0;
  // Transient visible row offset; wheel scrolling never changes selection or equipment.
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Inventory") int32 InventoryViewStart = 0;
+ // Matches the Canvas inventory row capacity on the active viewport.
+ int32 GetInventoryVisibleRows() const;
+ void KeepInventorySelectionVisible();
  UFUNCTION(BlueprintCallable, Category="Moonfall|Inventory") void ToggleInventory();
  UFUNCTION(BlueprintCallable, Category="Moonfall|Inventory") void EquipSelectedInventoryItem();
  // Salvage only un-equipped entries. Returns false for invalid/protected gear.
