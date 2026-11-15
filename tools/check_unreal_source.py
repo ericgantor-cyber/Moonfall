@@ -780,6 +780,21 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("*EquippedCode = ItemCode;", loot)
         self.assertIn("InventoryItemCodes.Add(ItemCode);", loot)
 
+    def test_gear_hud_and_blueprint_tiers_reject_unowned_items(self):
+        hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        getter = self.hero_cpp.split("int32 AMoonfallHeroPawn::GetValidatedEquippedTier(int32 Slot) const", 1)[1].split(
+            "int32 AMoonfallHeroPawn::GetSetPieceCount(", 1)[0]
+        self.assertIn("int32 GetValidatedEquippedTier(int32 Slot) const;", self.hero_h)
+        self.assertIn("Slot < 0 || Slot > 2", getter)
+        self.assertIn("InventoryItemCodes.Contains(Code) ? ValidEquippedTier(Code, Slot) : 0", getter)
+        self.assertIn("GetValidatedEquippedTier(0)", hud)
+        self.assertIn("GetValidatedEquippedTier(1)", hud)
+        self.assertIn("GetValidatedEquippedTier(2)", hud)
+        gear_summary = hud.split('TEXT("Gear W:%d A:%d C:%d', 1)[1].split("FLinearColor(", 1)[0]
+        self.assertNotIn("Hero->WeaponTier", gear_summary)
+        self.assertNotIn("Hero->ArmorTier", gear_summary)
+        self.assertNotIn("Hero->AccessoryTier", gear_summary)
+
     def test_loot_hud_supports_all_six_rarities_and_uncapped_bag(self):
         hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
         names = hud.split("const TCHAR* RarityNames[] =", 1)[1].split(";", 1)[0]
