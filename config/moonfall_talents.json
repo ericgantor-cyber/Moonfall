@@ -27,7 +27,8 @@
     "Automatically increased base stats remain separate from earned talent points",
     "Spend points deliberately in persistent connected branches",
     "Respec refunds spent talent points; does not change experience, levels or equipped items",
-    "141 talent nodes: 47 each in Might, Agility and Arcana; 14 tiers, open branches, full-tree respec only"
+    "141 talent nodes: 47 each in Might, Agility and Arcana; 14 tiers, open branches, full-tree respec only",
+    "Two talent points awarded per level gained; level one starts with zero unspent points"
   ],
   "nodes": [
     {
@@ -37,7 +38,7 @@
       "tier": 1,
       "min_level": 1,
       "requires": [],
-      "max_rank": 1,
+      "max_rank": 5,
       "cost_per_rank": 1,
       "effect": {
         "stat": "melee_damage",
@@ -54,7 +55,7 @@
       "requires": [
         "iron_will"
       ],
-      "max_rank": 1,
+      "max_rank": 3,
       "cost_per_rank": 1,
       "effect": {
         "stat": "melee_damage",
@@ -71,7 +72,7 @@
       "requires": [
         "iron_will"
       ],
-      "max_rank": 1,
+      "max_rank": 3,
       "cost_per_rank": 1,
       "effect": {
         "stat": "health",
@@ -104,7 +105,7 @@
       "tier": 1,
       "min_level": 1,
       "requires": [],
-      "max_rank": 1,
+      "max_rank": 5,
       "cost_per_rank": 1,
       "effect": {
         "stat": "stamina",
@@ -121,7 +122,7 @@
       "requires": [
         "swift_step"
       ],
-      "max_rank": 1,
+      "max_rank": 3,
       "cost_per_rank": 1,
       "effect": {
         "stat": "ranged_damage",
@@ -138,7 +139,7 @@
       "requires": [
         "swift_step"
       ],
-      "max_rank": 1,
+      "max_rank": 3,
       "cost_per_rank": 1,
       "effect": {
         "stat": "stamina",
@@ -171,7 +172,7 @@
       "tier": 1,
       "min_level": 1,
       "requires": [],
-      "max_rank": 1,
+      "max_rank": 5,
       "cost_per_rank": 1,
       "effect": {
         "stat": "mana",
@@ -188,7 +189,7 @@
       "requires": [
         "spirit_well"
       ],
-      "max_rank": 1,
+      "max_rank": 3,
       "cost_per_rank": 1,
       "effect": {
         "stat": "magic_damage",
@@ -205,7 +206,7 @@
       "requires": [
         "spirit_well"
       ],
-      "max_rank": 1,
+      "max_rank": 3,
       "cost_per_rank": 1,
       "effect": {
         "stat": "health",
