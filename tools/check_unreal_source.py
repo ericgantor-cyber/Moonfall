@@ -626,7 +626,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("const float CloseButtonX = CloseSortX - 36.f;", hud)
         self.assertIn("DrawText(TEXT(\"X\")", hud)
         self.assertLess(hud.index("DrawText(TEXT(\"X\")"), hud.index("if (Hero->bCharacterStatsOpen)"))
-        self.assertIn("if (HitTestInventoryCloseButton()) { ToggleInventory(); return; }", click)
+        self.assertIn("if (HitTestInventoryCloseButton()) {", click)
+        self.assertIn("OpenOptions();", click)
+        self.assertIn("// The X and Esc must back out of character details the same way.", click)
         self.assertLess(click.index("HitTestInventoryCloseButton()"), click.index("HitTestInventorySortButton()"))
         self.assertIn("ToggleInventory(); // Same cleanup path as the mouse close button.", escape)
         self.assertIn("bInventoryScrollbarDragging = false;", toggle)
@@ -685,6 +687,18 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("bInventoryScrollbarDragging = false;", defeat)
         self.assertIn("PC->bShowMouseCursor = false;", defeat)
         self.assertNotIn("SaveWorldProgress(", close)
+
+    def test_character_x_uses_same_navigation_as_esc_and_npc_choice_has_single_guard(self):
+        mouse = self.hero_cpp.split("void AMoonfallHeroPawn::ResidentContextMouseClick()", 1)[1].split("\n}", 1)[0]
+        escape = self.hero_cpp.split("void AMoonfallHeroPawn::OpenOptions()", 1)[1].split("\n}", 1)[0]
+        character_x = mouse.split("if (HitTestInventoryCloseButton()) {", 1)[1].split("\n  }", 1)[0]
+        self.assertIn("OpenOptions();", character_x)
+        self.assertNotIn("ToggleInventory();", character_x)
+        self.assertIn("if (bCharacterStatsOpen)", escape)
+        self.assertIn("bCharacterStatsOpen = false;", escape)
+        self.assertIn("ToggleInventory();", escape)
+        self.assertIn("if (ResidentContextSelection != Row) bResidentTurnInPending = false;", mouse)
+        self.assertNotIn("if (ResidentContextSelection != Row)   if", mouse)
 
     def test_nearby_batch_loot_is_range_and_cover_safe(self):
         pickup = self.hero_cpp.split("void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[1].split(
