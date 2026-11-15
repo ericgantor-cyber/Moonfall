@@ -104,6 +104,19 @@ def create_new_startup_level():
         raise RuntimeError("Could not spawn NavMeshBoundsVolume; inspect the unsaved map")
     # Default brush dimensions vary. Verify and adjust navigation with P in Editor.
     nav.set_actor_scale3d(unreal.Vector(20.0, 20.0, 4.0))
+    # Runtime-generated dungeon geometry extends 20,250 units east/west and
+    # over 19,000 units south of the original arena. The old 20x20 volume
+    # covers only the arena. Add a second bounds volume for the dungeon world.
+    # Navigation invokers keep actual generated tiles close to the player.
+    dungeon_nav = actors.spawn_actor_from_class(
+        unreal.NavMeshBoundsVolume, unreal.Vector(0.0, -10000.0, 100.0),
+        unreal.Rotator(0.0, 0.0, 0.0))
+    if dungeon_nav is None:
+        raise RuntimeError("Could not create 30-dungeon navigation bounds volume")
+    dungeon_nav.set_actor_label("Moonfall_DungeonWorld_NavBounds")
+    dungeon_nav.set_actor_scale3d(unreal.Vector(225.0, 115.0, 6.0))
+    # Brush dimensions are editor-dependent. Verify actual geometry extents
+    # and the green nav area with P before claiming full coverage.
 
     if not levels.save_current_level():
         raise RuntimeError("Could not save MoonfallStart; configuration is unchanged")
