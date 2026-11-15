@@ -440,7 +440,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
 
     def test_inventory_accepts_new_loot_without_rejection_or_auto_cleanup(self):
         award = self.hero_cpp.split("void AMoonfallHeroPawn::AwardEquipmentDrop(", 1)[1].split(
-            "bool AMoonfallHeroPawn::CollectGroundEquipmentCode(", 1)[0]
+            "\\n}", 1)[0]
         collect = self.hero_cpp.split("bool AMoonfallHeroPawn::CollectGroundEquipmentCode(", 1)[1].split(
             "void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(", 1)[0]
         self.assertIn("InventoryItemCodes.Add(ItemCode);", award)
@@ -783,7 +783,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("OnHealthChanged(Health, MaxHealth);", equip)
         self.assertLess(equip.index("Code != Affix * 100000"), equip.index("*EquippedTier = Tier;"))
         loot = self.hero_cpp.split("void AMoonfallHeroPawn::AwardEquipmentDrop(", 1)[1].split(
-            "bool AMoonfallHeroPawn::EquipInventoryItem(", 1)[0]
+            "\\n}", 1)[0]
         self.assertIn("InventoryItemCodes.Add(ItemCode);", loot)
         self.assertIn("InventoryItemCodes.Add(ItemCode);", loot)
         self.assertNotIn("EquipInventoryItem(", loot)
