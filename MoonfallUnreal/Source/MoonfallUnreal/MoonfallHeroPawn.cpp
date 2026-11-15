@@ -1056,7 +1056,11 @@ void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {
   EndGuard();
   // Defeat clears every gameplay menu so the death/respawn screen stays visible.
   bInventoryOpen = false;
+  bCharacterStatsOpen = false;
   bOptionsOpen = false;
+  bInventoryScrollbarDragging = false;
+  if (APlayerController* PC = Cast<APlayerController>(Controller))
+   PC->bShowMouseCursor = false;
  }
  if (!bReduceMotion) ImpactCameraOffset = FMath::Clamp(ImpactCameraOffset + FMath::Min(DamageTaken * 0.5f, 18.f), 0.f, 24.f);
  OnDamageImpact(DamageTaken);
@@ -1298,7 +1302,7 @@ void AMoonfallHeroPawn::UpgradeSelectedInventoryItem()
 
 void AMoonfallHeroPawn::InventoryConfirm() { EquipSelectedInventoryItem(); }
 void AMoonfallHeroPawn::OpenOptions() {
- if (FocusedResident.IsValid()) { CloseResidentContext(); return; }
+ if (bResidentContextOpen || FocusedResident.IsValid()) { CloseResidentContext(); return; }
  // The defeat screen owns input until respawn; do not reopen gameplay menus.
  if (Health <= 0.f || !FMath::IsFinite(Health)) return;
  if (bInventoryOpen) {
@@ -2516,7 +2520,9 @@ void AMoonfallHeroPawn::CloseResidentContext() {
  if (!bResidentContextOpen && !FocusedResident.IsValid()) return;
  bResidentContextOpen = false;
  FocusedResident.Reset();
- // Closing dialogue does not change mouse cursor visibility.
+ // Return cursor ownership to whichever native modal is still active.
+ if (APlayerController* PC = Cast<APlayerController>(Controller))
+  PC->bShowMouseCursor = bOptionsOpen || bInventoryOpen;
  ResidentContextSelection = 0;
  bResidentTurnInPending = false;
  ResidentTurnInConfirmUntil = 0.f;
