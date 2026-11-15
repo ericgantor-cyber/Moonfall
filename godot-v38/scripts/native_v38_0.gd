@@ -900,6 +900,9 @@ func _v406_sync_health()->void:
  v406_applied_health_bonus=target_cap-base_cap
  max_hp=target_cap
  hp=clampf(hp,0.0,max_hp)
+ # Respec must not leave spent mana or stamina above the new caps.
+ v385_mana=clampf(v385_mana,0.0,_v406_resource_max("mana",V385_MAX_MANA))
+ v387_stamina=clampf(v387_stamina,0.0,_v406_resource_max("stamina",V387_MAX_STAMINA))
 
 func _hero_damage_multiplier()->float:
  var base:float=super._hero_damage_multiplier()
