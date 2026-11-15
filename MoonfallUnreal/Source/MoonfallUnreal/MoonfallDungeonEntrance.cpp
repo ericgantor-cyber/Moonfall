@@ -60,7 +60,12 @@ void AMoonfallDungeonEntrance::OnEntranceOverlap(
  AMoonfallHeroPawn* Hero = Cast<AMoonfallHeroPawn>(OtherActor);
  if (!IsValid(Hero) || !Hero->IsPlayerControlled()
      || !FMath::IsFinite(Hero->Health) || Hero->Health <= 0.f) return;
+ // Previously saved discoveries must not grant the reward again.
+ const bool bAlreadyDiscovered = Hero->HasDiscoveredDungeon(ZoneIndex, DungeonIndex);
+ if (!bAlreadyDiscovered && !Hero->DiscoverDungeonEntrance(ZoneIndex, DungeonIndex))
+  return; // Failed save: remain active so the player can retry.
  bVisitedThisSession = true;
  DiscoveryTrigger->SetGenerateOverlapEvents(false);
- OnEntranceVisited(Hero, ZoneIndex, DungeonIndex);
+ if (!bAlreadyDiscovered)
+  OnEntranceVisited(Hero, ZoneIndex, DungeonIndex);
 }
