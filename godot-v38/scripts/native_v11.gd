@@ -1482,7 +1482,7 @@ func _craft_skill_progress(level:int,profession:String="Leatherworking")->String
  var gained:int=current-start
  var filled:int=clampi(int(round(10.0*float(gained)/float(range_size))),0,10)
  var percent:int=clampi(int(round(100.0*float(gained)/float(range_size))),0,100)
- return profession+": "+str(current)+"/300 • "+str(milestone-current)+" skill to "+_craft_skill_rank(milestone)+" ("+str(milestone)+") • "+str(percent)+"% ["+"■".repeat(filled)+"□".repeat(10-filled)+"]""
+ return profession+": "+str(current)+"/300 • "+str(milestone-current)+" skill to "+_craft_skill_rank(milestone)+" ("+str(milestone)+") • "+str(percent)+"% ["+"■".repeat(filled)+"□".repeat(10-filled)+"]"
 
 func _recipe_hover_details(recipe:Dictionary)->String:
  var info:String=str(recipe.get("name","Recipe"))
