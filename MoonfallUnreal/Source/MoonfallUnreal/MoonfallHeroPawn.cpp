@@ -2127,6 +2127,29 @@ int32 AMoonfallHeroPawn::GetOrCreateDungeonTreasureCode(
  return Code;
 }
 
+bool AMoonfallHeroPawn::HasDefeatedDungeonBoss(int32 Zone, int32 Dungeon) const
+{
+ if (Zone < 0 || Zone >= 6 || Dungeon < 0 || Dungeon >= 5) return false;
+ return (static_cast<uint32>(DefeatedDungeonBossMask)
+     & (1u << (Zone * 5 + Dungeon))) != 0u;
+}
+
+bool AMoonfallHeroPawn::MarkDungeonBossDefeated(int32 Zone, int32 Dungeon)
+{
+ if (Zone < 0 || Zone >= 6 || Dungeon < 0 || Dungeon >= 5
+     || !bWorldProgressInitialized || bWorldProgressLoadInProgress
+     || bPersistentSaveWritesBlocked || !GetWorld()
+     || !HasDiscoveredDungeon(Zone, Dungeon)
+     || HasDefeatedDungeonBoss(Zone, Dungeon)) return false;
+ const int32 PreviousMask = DefeatedDungeonBossMask;
+ DefeatedDungeonBossMask |= static_cast<int32>(1u << (Zone * 5 + Dungeon));
+ if (!SaveWorldProgress()) {
+  DefeatedDungeonBossMask = PreviousMask;
+  return false;
+ }
+ return true;
+}
+
 bool AMoonfallHeroPawn::HasDiscoveredDungeon(int32 Zone, int32 Dungeon) const
 {
  if (Zone < 0 || Zone >= 6 || Dungeon < 0 || Dungeon >= 5) return false;
@@ -2195,7 +2218,10 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
  if (InventoryItemCodes.Num() > 10000 || ResidentQuestStates.Num() > 64
      || DiscoveredShrineIds.Num() > 64
      || (static_cast<uint32>(DiscoveredDungeonMask) & ~((1u << 30) - 1u)) != 0u
-     || DungeonTreasureStates.Num() > 420) return false;
+     || DungeonTreasureStates.Num() > 420
+     || (static_cast<uint32>(DefeatedDungeonBossMask) & ~((1u << 30) - 1u)) != 0u
+     || (static_cast<uint32>(DefeatedDungeonBossMask)
+         & ~static_cast<uint32>(DiscoveredDungeonMask)) != 0u) return false;
  for (int32 Index = 0; Index < DungeonTreasureStates.Num(); ++Index) {
   const int32 Code = DungeonTreasureStates[Index];
   if (Code != 0 && Code != -1 && !ValidMoonfallItemCode(Code)) return false;
@@ -2264,6 +2290,7 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
  Save->ActiveShrineId = ActiveShrineId;
  Save->DiscoveredShrineIds = DiscoveredShrineIds;
  Save->DiscoveredDungeonMask = DiscoveredDungeonMask;
+ Save->DefeatedDungeonBossMask = DefeatedDungeonBossMask;
  Save->DungeonTreasureStates = DungeonTreasureStates;
  Save->RaceId = FMath::Clamp(RaceId, 0, 11);
  Save->FactionReputation = FactionReputation;
@@ -2290,7 +2317,7 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  if (!UGameplayStatics::DoesSaveGameExist(MoonfallWorldSlot, 0)) return false;
  const UMoonfallPersistentSave* Save = Cast<UMoonfallPersistentSave>(
      UGameplayStatics::LoadGameFromSlot(MoonfallWorldSlot, 0));
- if (!Save || Save->Version < 1 || Save->Version > 9) {
+ if (!Save || Save->Version < 1 || Save->Version > 10) {
   // Protect newer/corrupt-but-detected saves. Calling Tick's two-second
   // autosave must not replace progress from another Moonfall version.
   bPersistentSaveWritesBlocked = true;
@@ -2405,6 +2432,15 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
   bPersistentSaveWritesBlocked = true;
   return false;
  }
+ // V10: Reject invalid/unexplored boss bits rather than silently
+ // overwriting the original save through the two-second autosave.
+ if (Save->Version >= 10 &&
+     ((static_cast<uint32>(Save->DefeatedDungeonBossMask) & ~((1u << 30) - 1u)) != 0u
+      || (static_cast<uint32>(Save->DefeatedDungeonBossMask)
+          & ~static_cast<uint32>(Save->DiscoveredDungeonMask)) != 0u)) {
+  bPersistentSaveWritesBlocked = true;
+  return false;
+ }
  // Validate pending/claimed rewards before applying loaded progress.
  if (Save->Version >= 9) {
   if (Save->DungeonTreasureStates.Num() > 420) {
@@ -2453,6 +2489,7 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  ActiveShrineId = Save->Version >= 7 ? Save->ActiveShrineId : NAME_None;
  DiscoveredShrineIds = Save->Version >= 7 ? Save->DiscoveredShrineIds : TArray<FName>();
  DiscoveredDungeonMask = Save->Version >= 8 ? Save->DiscoveredDungeonMask : 0;
+ DefeatedDungeonBossMask = Save->Version >= 10 ? Save->DefeatedDungeonBossMask : 0;
  DungeonTreasureStates = Save->Version >= 9
    ? Save->DungeonTreasureStates : TArray<int32>();
  // Refresh any shrines that began play before the save was loaded.
