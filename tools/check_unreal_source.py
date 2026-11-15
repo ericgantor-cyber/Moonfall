@@ -404,9 +404,11 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("if (InsertAt >= MaxLootCandidates) continue;", pickup)
         self.assertIn("FMath::Square(250.f)", pickup)
         self.assertIn("FMath::Abs(LootPosition.Z - HeroPosition.Z) > 150.f", pickup)
-        self.assertIn("SCENE_QUERY_STAT(MoonfallGroundLootPickupSight)", pickup)
-        self.assertIn("LootSightParams.AddIgnoredActor(Loot);", pickup)
-        self.assertIn("GetWorld()->LineTraceSingleByChannel(LootSightHit,", pickup)
+        # The actor validates range and line of sight at the mutation boundary.
+        # Candidate selection must not duplicate the expensive cover trace.
+        self.assertNotIn("SCENE_QUERY_STAT(MoonfallGroundLootPickupSight)", pickup)
+        self.assertNotIn("LineTraceSingleByChannel(", pickup)
+        self.assertIn("Loot->TryCollect()", pickup)
         self.assertIn("NearbyLoot.Insert(Candidate, InsertAt);", pickup)
         self.assertIn("NearbyLoot.RemoveAt(MaxLootCandidates);", pickup)
         self.assertIn("for (AMoonfallGroundLoot* Loot : NearbyLoot)", pickup)
