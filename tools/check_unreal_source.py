@@ -578,6 +578,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             self.assertIn("float(Width) - PanelWidth - 12.f", block)
         self.assertIn("Count <= Rows", scrollbar)
         self.assertIn("TrackX - 8.f", scrollbar)
+        self.assertIn("bInventoryScrollbarDragging = true;", scrollbar)
         self.assertIn("TrackHeight = RowSpacing * Rows;", scrollbar)
         self.assertIn("ThumbHeight * 0.5f", scrollbar)
         self.assertIn("InventoryViewStart = FMath::Clamp(FMath::RoundToInt(", scrollbar)
@@ -587,7 +588,28 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("if (ScrollInventoryToMouseTrack()) return;", click)
         self.assertLess(click.index("if (ScrollInventoryToMouseTrack()) return;"),
                         click.index("HitTestInventoryRow()"))
-        self.assertIn("Click scrollbar: jump", inventory)
+        self.assertIn("Drag scrollbar: browse", inventory)
+
+    def test_inventory_drag_and_hover_are_transient(self):
+        setup = self.hero_cpp.split("void AMoonfallHeroPawn::SetupPlayerInputComponent(", 1)[1].split("\n}", 1)[0]
+        tick = self.hero_cpp.split("void AMoonfallHeroPawn::Tick(float DeltaSeconds)", 1)[1].split("\n}", 1)[0]
+        scroll = self.hero_cpp.split("bool AMoonfallHeroPawn::ScrollInventoryToMouseTrack()", 1)[1].split("\n}", 1)[0]
+        release = self.hero_cpp.split("void AMoonfallHeroPawn::ReleaseInventoryPointer()", 1)[1].split("\n}", 1)[0]
+        self.assertIn("bool bInventoryScrollbarDragging = false;", self.hero_h)
+        self.assertIn("IE_Released, this, &AMoonfallHeroPawn::ReleaseInventoryPointer", setup)
+        self.assertIn("if (bInventoryScrollbarDragging)", tick)
+        self.assertIn("ScrollInventoryToMouseTrack();", tick)
+        self.assertIn("!bInventoryOpen || bCharacterStatsOpen || bOptionsOpen || Health <= 0.f", tick)
+        self.assertIn("bInventoryScrollbarDragging = false;", release)
+        self.assertIn("!bInventoryScrollbarDragging &&", scroll)
+        self.assertIn("bInventoryScrollbarDragging = true;", scroll)
+        self.assertIn("InventoryViewStart = FMath::Clamp(", scroll)
+        for forbidden in ("InventorySelection =", "EquipInventoryItem(", "InventoryItemCodes.RemoveAt(", "SaveWorldProgress("):
+            self.assertNotIn(forbidden, scroll)
+        self.assertIn("const int32 HoveredIndex = Hero->HitTestInventoryRow();", self.hud)
+        self.assertIn("else if (Index == HoveredIndex)", self.hud)
+        self.assertIn("Drag scrollbar: browse", self.hud)
+        self.assertIn("TrackX, ThumbY, 6.f, ThumbHeight", self.hud)
 
     def test_nearby_batch_loot_is_range_and_cover_safe(self):
         pickup = self.hero_cpp.split("void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[1].split(
