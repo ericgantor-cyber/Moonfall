@@ -332,8 +332,10 @@ void AMoonfallCombatHUD::DrawHUD()
    const FString CompareLine = EquippedCode <= 0
      ? FString::Printf(TEXT("Compare: %s  |  equipped slot is empty"), CompareWord)
      : FString::Printf(TEXT("Compare: %s  |  T%d / %s / %s  vs  T%d / %s / %s"),
-       CompareWord, SelectedTier, CompareRarities[SelectedRarity], CompareTraits[SelectedAffix],
-       EquippedTier, CompareRarities[EquippedRarity], CompareTraits[EquippedAffix]);
+       CompareWord, SelectedTier, CompareRarities[FMath::Clamp(SelectedRarity, 0, 5)],
+       CompareTraits[FMath::Clamp(SelectedAffix, 0, 3)],
+       EquippedTier, CompareRarities[FMath::Clamp(EquippedRarity, 0, 5)],
+       CompareTraits[FMath::Clamp(EquippedAffix, 0, 3)]);
    DrawText(CompareLine,
      bIsUpgrade ? FLinearColor(0.42f,0.96f,0.62f)
        : bIsLower ? FLinearColor(0.96f,0.62f,0.42f)
