@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "description": "Moonfall-original 141-node classless constellation talent tree, 47 connected talents per branch. Godot UI integration staged; UE5 parity pending.",
-  "points_per_level": 1,
+  "points_per_level": 2,
   "starting_points": 0,
   "maximum_level": 100,
   "branches": [
