@@ -1435,7 +1435,9 @@ func _atlas_equip_mouse_input(event:InputEvent,action:String)->void:
  if not menu_open or current_tab!="Inventory":return
  if event is InputEventMouseButton and event.pressed and event.button_index==MOUSE_BUTTON_RIGHT:
   if action.begins_with("inventory_select:"):
-   if inventory_show_vault:return
+   if inventory_show_vault:
+    get_viewport().set_input_as_handled()
+    return
    _atlas_execute("equip:"+action.get_slice(":",1))
   else:_atlas_execute(action)
   get_viewport().set_input_as_handled()
@@ -1447,6 +1449,7 @@ func _branch_hex(branch: String) -> String:
 
 func _atlas_execute(action: String) -> void:
  if action.begins_with("inventory_select:"):
+  if not menu_open or current_tab!="Inventory":return
   var selected_index:int=int(action.get_slice(":",1))
   var inventory_source:Array=vault_items if inventory_show_vault else gear_items
   if selected_index<0 or selected_index>=inventory_source.size():return
@@ -1540,6 +1543,7 @@ func _reset_new_adventure() -> void:
  bag_capacity=INVENTORY_RULES.BAG_START_CAPACITY
  vault_items.clear()
  inventory_query=""
+ inventory_selected_index=-1
  inventory_page=0
  inventory_show_vault=false
  if is_instance_valid(inventory_search_input):inventory_search_input.text=""
@@ -3034,6 +3038,10 @@ func _normalize_saved_world_clock(data:Dictionary) -> float:
  return fposmod(saved_clock,saved_cycle)/saved_cycle*DAY_LENGTH_SECONDS
 
 func _restore_data(data: Dictionary) -> void:
+ # UI-only selection never follows the previous hero into a loaded save.
+ inventory_selected_index=-1
+ inventory_page=0
+ inventory_show_vault=false
  hero=str(data.get("hero","z"))
  custom_hero_name=str(data.get("custom_hero_name","Wanderer")).substr(0,24)
  custom_hero_color=clampi(int(data.get("custom_hero_color",0)),0,4)
