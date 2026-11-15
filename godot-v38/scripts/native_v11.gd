@@ -1436,10 +1436,7 @@ func _menu_tab(which: String) -> void:
     if issue=="":ready_count+=1
     var kind:String="Consumable" if int(entry.get("power",0))==0 else "Equipment"
     var title:String=("◆ " if crafting_selected_index==recipe_index else "")+str(entry.get("name","Recipe"))+" • "+kind+" • "+("READY ×"+str(_recipe_possible_count(entry)) if issue=="" else _recipe_blocker_summary(entry))
-    _atlas_action(title,"recipe_select:"+str(recipe_index),"Select to inspect materials and result.")
-   if available.size()>1:
-    _atlas_action("PREVIOUS RECIPE","recipe_previous","Inspect the previous matching recipe.")
-    _atlas_action("NEXT RECIPE","recipe_next","Inspect the next matching recipe.")
+    _atlas_action(title,"recipe_select:"+str(recipe_index),"Select this recipe to see all ingredients and crafting information.")
    crafting_restore_focus=false
    text+="\nRecipes: "+str(available.size())+" • Ready: "+str(ready_count)+" • Missing: "+str(available.size()-ready_count)
    if available.is_empty():
@@ -1692,30 +1689,6 @@ func _atlas_execute(action: String) -> void:
   var recipe_index:int=int(action.get_slice(":",1))
   if recipe_index<0 or recipe_index>=RECIPES.size():return
   crafting_selected_index=recipe_index
-  crafting_restore_focus=true
-  _menu_tab("Professions")
-  return
- if action=="recipe_previous" or action=="recipe_next":
-  if not menu_open or current_tab!="Professions":return
-  var visible:Array[int]=[]
-  for i in range(RECIPES.size()):
-   var recipe:Dictionary=RECIPES[i]
-   var category:String="Consumable" if int(recipe.get("power",0))==0 else "Equipment"
-   if crafting_category!="All" and category!=crafting_category:continue
-   if crafting_craftable_only and INVENTORY_RULES.craft_issue(recipe,materials,gear_items.size(),bag_capacity)!="":continue
-   visible.append(i)
-  if crafting_ready_first:
-   var ready:Array[int]=[]
-   var blocked:Array[int]=[]
-   for index in visible:
-    if INVENTORY_RULES.craft_issue(RECIPES[index],materials,gear_items.size(),bag_capacity)=="":ready.append(index)
-    else:blocked.append(index)
-   visible=ready+blocked
-  if visible.is_empty():return
-  var position:int=visible.find(crafting_selected_index)
-  if position<0:position=0 if action=="recipe_next" else visible.size()-1
-  else:position=posmod(position+(1 if action=="recipe_next" else -1),visible.size())
-  crafting_selected_index=visible[position]
   crafting_restore_focus=true
   _menu_tab("Professions")
   return
