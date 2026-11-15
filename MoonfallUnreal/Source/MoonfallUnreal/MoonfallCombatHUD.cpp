@@ -162,6 +162,7 @@ void AMoonfallCombatHUD::DrawHUD()
   const int32 PerPage = Hero->GetInventoryVisibleRows();
   const int32 Selected = FMath::Clamp(Hero->InventorySelection, 0, FMath::Max(0, Count - 1));
   const TArray<int32> DisplayOrder = Hero->GetInventoryDisplayOrder();
+  const int32 HoveredIndex = Hero->HitTestInventoryRow();
   // Wheel moves only the visible window; keyboard/controller selection remains independent.
   const int32 PageStart = FMath::Clamp(Hero->InventoryViewStart, 0, FMath::Max(0, Count - PerPage));
   const int32 PageEnd = FMath::Min(Count, PageStart + PerPage);
@@ -191,6 +192,8 @@ void AMoonfallCombatHUD::DrawHUD()
    const float Y = Top + 145.f + (DisplayPosition - PageStart) * RowSpacing;
    if (Index == Selected) DrawRect(FLinearColor(0.25f,0.18f,0.43f,0.90f),
      Left + 12.f, Y - 3.f, PanelWidth - 24.f, RowSpacing - 3.f);
+   else if (Index == HoveredIndex) DrawRect(FLinearColor(0.17f,0.32f,0.43f,0.80f),
+     Left + 12.f, Y - 3.f, PanelWidth - 24.f, RowSpacing - 3.f);
    const FString Row = bValid ? FString::Printf(TEXT("%02d  %s  T%d  %s  %s%s"),
       DisplayPosition + 1, Slots[Slot], Tier, Rarities[Rarity], Traits[Affix], bEquipped ? TEXT("  [EQUIPPED]") : TEXT(""))
     : FString::Printf(TEXT("%02d  Invalid item"), DisplayPosition + 1);
@@ -213,7 +216,7 @@ void AMoonfallCombatHUD::DrawHUD()
    const int32 MaxStart = FMath::Max(1, Count - PerPage);
    const float ThumbY = TrackY + (TrackHeight - ThumbHeight) * PageStart / MaxStart;
    DrawRect(FLinearColor(0.17f,0.16f,0.25f,0.95f), TrackX, TrackY, 4.f, TrackHeight);
-   DrawRect(FLinearColor(0.57f,0.81f,0.93f,1.f), TrackX, ThumbY, 4.f, ThumbHeight);
+   DrawRect(FLinearColor(0.57f,0.81f,0.93f,1.f), TrackX, ThumbY, 6.f, ThumbHeight);
   }
   // Match the combat decoder: a code only contributes while owned, correctly
   // slotted and canonically encoded. HUD previews must never imply phantom stats.
@@ -266,7 +269,7 @@ void AMoonfallCombatHUD::DrawHUD()
     Left + 18.f, Top + 113.f, nullptr, Canvas->SizeX < 900.f ? 0.61f : 0.72f);
   DrawText(TEXT("Mouse wheel: scroll   Left click: select   Right click: equip"),
      FLinearColor::White, Left + 18.f, Top + PanelHeight - 51.f, nullptr, 0.75f);
-  DrawText(TEXT("Click scrollbar: jump   Delete / X: salvage"),
+  DrawText(TEXT("Drag scrollbar: browse   Delete / X: salvage"),
      FLinearColor(0.80f,0.85f,0.97f), Left + 18.f, Top + PanelHeight - 68.f,
      nullptr, PanelWidth < 420.f ? 0.60f : 0.72f);
   // Display cost for the actual selected item, rather than a formula
