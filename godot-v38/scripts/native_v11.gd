@@ -1468,14 +1468,39 @@ func _inventory_tile(grid:GridContainer,gear:Dictionary,index:int)->void:
  hover_style.set_border_width_all(3)
  tile.add_theme_stylebox_override("hover",hover_style)
  tile.add_theme_stylebox_override("focus",hover_style)
- tile.tooltip_text=name+"\n"+rarity+" • Power "+str(gear.get("power",0))
- if not inventory_show_vault:
-  tile.tooltip_text+="\nCompared with equipped: "+("+" if difference>0 else "")+str(difference)+" power"
+ # Every bag and vault item has a complete mouse-hover summary.
+ tile.tooltip_text=_inventory_hover_details(gear,inventory_show_vault,is_equipped)
  tile.tooltip_text+="\nLeft-click to inspect"+(" • Already equipped" if is_equipped else " • Right-click to equip" if not inventory_show_vault else " • Withdraw to equip")
  tile.pressed.connect(_atlas_execute.bind("inventory_select:"+str(index)))
  tile.gui_input.connect(_atlas_equip_mouse_input.bind("inventory_select:"+str(index)))
  grid.add_child(tile)
  if selected and inventory_restore_focus:tile.call_deferred("grab_focus")
+
+func _inventory_hover_details(item:Dictionary,in_vault:bool,is_equipped:bool)->String:
+ var name:String=str(item.get("name","Gear"))
+ var rarity:String=str(item.get("rarity","Common"))
+ var power:int=int(item.get("power",0))
+ var detail:String=name+"\n"+rarity+" • Item Power "+str(power)
+ detail+="\nBonus: "+_inventory_bonus_label(item)
+ if in_vault:
+  detail+="\nLocation: Personal Vault"
+  detail+="\nWithdraw this item to equip it."
+ else:
+  detail+="\nLocation: Equipment Bag"
+  if is_equipped:detail+="\nCURRENTLY EQUIPPED"
+  else:
+   var current_power:int=_equipment_power()
+   var difference:int=power-current_power
+   detail+="\nEquipped: "+str(equipped.get("name","None"))+" • Power "+str(current_power)
+   detail+="\nPower change: "+("+" if difference>0 else "")+str(difference)
+   var current_bonus:String=str(equipped.get("affix",""))
+   var candidate_bonus:String=str(item.get("affix",""))
+   if candidate_bonus!="" and candidate_bonus==current_bonus:
+    var bonus_difference:float=float(item.get("affix_value",0))-float(equipped.get("affix_value",0))
+    detail+="\nSame bonus change: "+("+" if bonus_difference>0.0 else "")+str(snappedf(bonus_difference,0.001))
+   elif current_bonus!="" or candidate_bonus!="":
+    detail+="\nEquipped bonus: "+_inventory_bonus_label(equipped)
+ return detail
 
 func _inventory_bonus_label(item:Dictionary)->String:
  var affix:String=str(item.get("affix",""))
