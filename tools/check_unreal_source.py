@@ -4056,5 +4056,27 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("DivineBossId =", attack)
         self.assertNotIn("DivineBossTitle =", attack)
 
+
+    def test_native_hud_shows_ranked_boss_name_phase_countdown_and_saved_campaign(self):
+        hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        self.assertIn("Boss->DungeonBossTitle.ToString()", hud)
+        self.assertIn("Boss->DungeonBossRank >= 1", hud)
+        self.assertIn("Boss->DungeonBossRank <= 5", hud)
+        self.assertIn("Boss->DungeonBossFamily.IsNone()", hud)
+        self.assertIn("REGIONAL BOSS  |  RANK %d / 5", hud)
+        self.assertIn("PHASE %d / 3", hud)
+        self.assertIn("Boss->BossMaxHealth", hud)
+        self.assertIn("Boss->BossWarningEndTime - GetWorld()->GetTimeSeconds()", hud)
+        self.assertIn("FMath::IsFinite(WarningRemaining) && WarningRemaining > 0.f", hud)
+        self.assertIn("INCOMING ATTACK  |  %.1fs  |  DODGE / PARRY", hud)
+        self.assertIn("Hero->BossWarningScale", hud)
+        self.assertIn("Hero->GetTotalDefeatedDungeonBosses()", hud)
+        self.assertIn("Hero->GetClearedDungeonZoneCount()", hud)
+        self.assertIn("Hero->GetTotalDiscoveredDungeons()", hud)
+        self.assertLess(hud.index("if (Hero->bInventoryOpen)"),
+                        hud.index("const bool bRegionalBoss = Boss->bBoss"))
+        self.assertNotIn("SetHealth(", hud)
+        self.assertNotIn("MarkDungeonBossDefeated(", hud)
+
 if __name__ == "__main__":
     unittest.main()
