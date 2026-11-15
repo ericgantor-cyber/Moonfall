@@ -30,6 +30,12 @@ public:
  // can play a clear icon, sound, animation or controller cue for this move.
  UFUNCTION(BlueprintImplementableEvent, Category="Moonfall|Dungeon|Boss")
  void OnDungeonBossAttackTelegraphed(FName FamilyId, FName MoveId, float WarningSeconds);
+ // Read-only native HUD warning. Updated only when an attack is committed;
+ // the existing warning deadline determines when this label is visible.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Dungeon|Boss")
+ FText DungeonBossAttackLabel;
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Dungeon|Boss")
+ float DungeonBossAttackWarningDuration = 0.f;
  // Humanoid enemy ancestry, not a divine boss identity or visual asset.
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat|Race", meta=(ClampMin="0", ClampMax="11")) int32 RaceId = 0;
  UFUNCTION(BlueprintPure, Category="Combat|Race") FString GetRaceName() const;
