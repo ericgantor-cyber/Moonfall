@@ -598,7 +598,13 @@ func _v398_build_tree()->void:
  v406_respec_button=Button.new()
  v406_respec_button.text="RESET ALL TALENT POINTS"
  v406_respec_button.custom_minimum_size.y=58
- v406_respec_button.pressed.connect(_v406_respec)
+ var reset_confirm:ConfirmationDialog=ConfirmationDialog.new()
+ reset_confirm.title="Reset all talent ranks?"
+ reset_confirm.dialog_text="Refund every spent talent point? Your level, XP, and equipment will be preserved."
+ reset_confirm.ok_button_text="REFUND ALL POINTS"
+ reset_confirm.confirmed.connect(_v406_respec)
+ v398_panel.add_child(reset_confirm)
+ v406_respec_button.pressed.connect(func():reset_confirm.popup_centered())
  side.add_child(v406_respec_button)
  v398_panel.visible=false
 
