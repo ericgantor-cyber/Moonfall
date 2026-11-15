@@ -2053,6 +2053,40 @@ bool AMoonfallHeroPawn::DiscoverShrine(AMoonfallCheckpointShrine* Shrine) {
  OnShrineDiscovered(ActiveShrineId);
  return true;
 }
+bool AMoonfallHeroPawn::HasDiscoveredDungeon(int32 Zone, int32 Dungeon) const
+{
+ if (Zone < 0 || Zone >= 6 || Dungeon < 0 || Dungeon >= 5) return false;
+ return (static_cast<uint32>(DiscoveredDungeonMask) & (1u << (Zone * 5 + Dungeon))) != 0u;
+}
+
+int32 AMoonfallHeroPawn::GetDiscoveredDungeonCount(int32 Zone) const
+{
+ if (Zone < 0 || Zone >= 6) return 0;
+ int32 Count = 0;
+ for (int32 Dungeon = 0; Dungeon < 5; ++Dungeon)
+  if (HasDiscoveredDungeon(Zone, Dungeon)) ++Count;
+ return Count;
+}
+
+bool AMoonfallHeroPawn::DiscoverDungeonEntrance(int32 Zone, int32 Dungeon)
+{
+ if (Zone < 0 || Zone >= 6 || Dungeon < 0 || Dungeon >= 5
+     || Health <= 0.f || !FMath::IsFinite(Health)
+     || !bWorldProgressInitialized || bWorldProgressLoadInProgress
+     || bPersistentSaveWritesBlocked || !GetWorld()
+     || HasDiscoveredDungeon(Zone, Dungeon)) return false;
+ const int32 PreviousMask = DiscoveredDungeonMask;
+ DiscoveredDungeonMask |= static_cast<int32>(1u << (Zone * 5 + Dungeon));
+ // Persist atomically before notifying UI. Failed writes roll back the bit,
+ // while the original slot remains intact.
+ if (!SaveWorldProgress()) {
+  DiscoveredDungeonMask = PreviousMask;
+  return false;
+ }
+ OnDungeonDiscovered(Zone, Dungeon);
+ return true;
+}
+
 bool AMoonfallHeroPawn::SaveWorldProgress() {
  // Wait until initial save restoration finishes. During respawn TeleportTo and
  // OnHealthChanged can synchronously notify Blueprint listeners, which must
@@ -2067,7 +2101,8 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
  // The source collection remains intact if its supported serialized size
  // would be exceeded; ground drops are not consumed in that case.
  if (InventoryItemCodes.Num() > 10000 || ResidentQuestStates.Num() > 64
-     || DiscoveredShrineIds.Num() > 64) return false;
+     || DiscoveredShrineIds.Num() > 64
+     || (static_cast<uint32>(DiscoveredDungeonMask) & ~((1u << 30) - 1u)) != 0u) return false;
  // The loader only restores known residents with accepted or completed
  // contracts. Never save quest entries it would silently discard.
  for (const auto& Entry : ResidentQuestStates)
@@ -2130,6 +2165,7 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
  Save->CheckpointLocation = RespawnCheckpointLocation;
  Save->ActiveShrineId = ActiveShrineId;
  Save->DiscoveredShrineIds = DiscoveredShrineIds;
+ Save->DiscoveredDungeonMask = DiscoveredDungeonMask;
  Save->RaceId = FMath::Clamp(RaceId, 0, 11);
  Save->FactionReputation = FactionReputation;
  Save->ResidentBonds = ResidentBonds;
@@ -2155,7 +2191,7 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  if (!UGameplayStatics::DoesSaveGameExist(MoonfallWorldSlot, 0)) return false;
  const UMoonfallPersistentSave* Save = Cast<UMoonfallPersistentSave>(
      UGameplayStatics::LoadGameFromSlot(MoonfallWorldSlot, 0));
- if (!Save || Save->Version < 1 || Save->Version > 7) {
+ if (!Save || Save->Version < 1 || Save->Version > 8) {
   // Protect newer/corrupt-but-detected saves. Calling Tick's two-second
   // autosave must not replace progress from another Moonfall version.
   bPersistentSaveWritesBlocked = true;
@@ -2264,6 +2300,12 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
    return false;
   }
  }
+ // Reject unsupported dungeon bits without modifying live state or overwriting the slot.
+ if (Save->Version >= 8 &&
+     (static_cast<uint32>(Save->DiscoveredDungeonMask) & ~((1u << 30) - 1u)) != 0u) {
+  bPersistentSaveWritesBlocked = true;
+  return false;
+ }
  // Validate and resolve the checkpoint before touching saved progression.
  // An unchecked SetActorLocation can embed the pawn inside solid geometry.
  const FVector SavedCheckpoint = Save->CheckpointLocation;
@@ -2296,6 +2338,7 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
  bHasRespawnCheckpointLocation = true;
  ActiveShrineId = Save->Version >= 7 ? Save->ActiveShrineId : NAME_None;
  DiscoveredShrineIds = Save->Version >= 7 ? Save->DiscoveredShrineIds : TArray<FName>();
+ DiscoveredDungeonMask = Save->Version >= 8 ? Save->DiscoveredDungeonMask : 0;
  // Refresh any shrines that began play before the save was loaded.
  // This also fixes stale ACTIVE labels when death reloads an earlier save.
  // A shrine spawned later refreshes itself in its own BeginPlay.
