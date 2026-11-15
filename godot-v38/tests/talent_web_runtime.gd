@@ -8,7 +8,7 @@ func _initialize() -> void:
  root.add_child(web)
  web.size = Vector2(800, 600)
  var tree: Dictionary = TALENTS.load_tree()
- web.set_data(tree, {}, 16, 15)
+ web.set_data(tree, {}, 16, 30)
  if web.points.size() != 141:
   _fail("Web should plot 141 unique nodes")
   return
@@ -20,7 +20,7 @@ func _initialize() -> void:
  if web.layout_rebuild_count != 1 or web.points != original_positions:
   _fail("Allocation changes must not rebuild or move constellation stars")
   return
- web.set_data(tree, {}, 16, 15)
+ web.set_data(tree, {}, 16, 30)
  if web.layout_rebuild_count != 1:
   _fail("Repeated panel refresh must reuse original constellation layout")
   return
@@ -48,7 +48,7 @@ func _initialize() -> void:
  if not web.available_talent_ids().is_empty() or web.next_available() != "":
   _fail("No available points must disable next-talent navigation")
   return
- web.set_data(tree, {}, 16, 15)
+ web.set_data(tree, {}, 16, 30)
  for branch in ["might", "agility", "arcana"]:
   web.focus_branch(branch)
   if web.pan == Vector2.ZERO:
