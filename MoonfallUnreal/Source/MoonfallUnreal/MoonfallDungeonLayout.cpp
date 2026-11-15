@@ -226,7 +226,8 @@ void AMoonfallDungeonLayout::HandleFinalChamber(
      && !Hero->DiscoverDungeonEntrance(ZoneIndex, DungeonIndex)) return;
  // A failed spawn must not consume the final chamber event. Player can
  // retreat and retry when collision or the global population cap clears.
- if (!StartFinalBossChamber(Hero)) return;
+ if (!Hero->HasDefeatedDungeonBoss(ZoneIndex, DungeonIndex)
+     && !StartFinalBossChamber(Hero)) return;
  bFinalChamberNotified = true;
  FinalChamberTrigger->SetGenerateOverlapEvents(false);
  OnFinalChamberEntered(Hero);
@@ -378,6 +379,8 @@ bool AMoonfallDungeonLayout::StartFinalBossChamber(AMoonfallHeroPawn* Hero)
      || Hero->Health <= 0.f
      || ZoneIndex < 0 || ZoneIndex >= 6
      || DungeonIndex < 0 || DungeonIndex >= 5) return false;
+ // Existing saves must not respawn permanently defeated bosses.
+ if (Hero->HasDefeatedDungeonBoss(ZoneIndex, DungeonIndex)) return true;
  // Count all living world enemies once, on first final-room entry only.
  // Bosses cannot bypass the same global cap imposed on combat chambers.
  constexpr int32 MaxLiveWorldEnemies = 60;
