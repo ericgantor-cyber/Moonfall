@@ -1776,6 +1776,15 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
      || DiscoveredShrineIds.Num() > 64) return false;
  for (const int32 Code : InventoryItemCodes)
   if (!ValidMoonfallItemCode(Code)) return false;
+ // Keep the equipped references consistent with the bag; otherwise the loader
+ // would silently clear an equipped slot on the next launch.
+ const int32 WornCodes[3] = {EquippedWeaponCode, EquippedArmorCode, EquippedAccessoryCode};
+ for (int32 Slot = 0; Slot < 3; ++Slot) {
+  const int32 Code = WornCodes[Slot];
+  if (Code != 0 && (!ValidMoonfallItemCode(Code)
+      || ((Code / 10000) % 10) != Slot || !InventoryItemCodes.Contains(Code)))
+   return false;
+ }
  // A V7 save must be readable by our own loader. Reject duplicate, empty,
  // or inconsistent shrine IDs rather than overwriting the last valid slot
  // with a ledger that LoadWorldProgress() would reject on the next launch.
