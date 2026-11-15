@@ -371,7 +371,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
 
     def test_keyboard_controller_inventory_overlay_navigation_without_confirm_equip(self):
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
-        for binding in ('ActionName="Inventory",Key=I', 'ActionName="Inventory",Key=Gamepad_Special_Left'):
+        for binding in ('ActionName="Inventory",Key=B', 'ActionName="Inventory",Key=I',
+                        'ActionName="Inventory",Key=Gamepad_Special_Left'):
             self.assertIn(binding, inputs)
         self.assertIn("bool bInventoryOpen = false;", self.hero_h)
         self.assertIn("int32 InventorySelection = 0;", self.hero_h)
@@ -964,7 +965,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
     def test_primary_stats_sheet_is_read_only_and_affects_combat_recovery(self):
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
         hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        self.assertIn('ActionName="CharacterStats",Key=C', inputs)
         self.assertIn('ActionName="CharacterStats",Key=P', inputs)
+        self.assertNotIn('ActionName="DualCast",Key=C', inputs)
         self.assertIn('ActionName="CharacterStats",Key=Gamepad_FaceButton_Bottom', inputs)
         self.assertIn('BindAction(TEXT("CharacterStats"), IE_Pressed, this, &AMoonfallHeroPawn::ToggleCharacterStats)', self.hero_cpp)
         self.assertIn("void ToggleCharacterStats();", self.hero_h)
@@ -1207,7 +1210,8 @@ class MoonfallIntegrationChecks(unittest.TestCase):
 
     def test_explicit_equip_best_loadout_is_validated_and_never_auto_equips_loot(self):
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
-        self.assertIn('ActionName="EquipBest",Key=B', inputs)
+        self.assertNotIn('ActionName="EquipBest",Key=B', inputs)
+        self.assertIn('ActionName="Inventory",Key=B', inputs)
         self.assertIn('ActionName="EquipBest",Key=Gamepad_LeftTrigger', inputs)
         self.assertIn('BindAction(TEXT("EquipBest"), IE_Pressed, this, &AMoonfallHeroPawn::EquipBestInventoryAction)', self.hero_cpp)
         self.assertIn("void EquipBestInventoryAction();", self.hero_h)
