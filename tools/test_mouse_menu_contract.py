@@ -92,6 +92,13 @@ class MouseMenusContract(unittest.TestCase):
         self.assertIn('action.begins_with("inventory_deposit:")', self.source)
         self.assertIn('not equipped.is_empty() and equipped==gear_items[item_index]', self.source)
 
+    def test_disabled_actions_keep_truthful_tooltips(self):
+        self.assertIn('if not button.disabled:', self.source)
+        self.assertIn('Cannot deposit equipped gear. Equip another item first.', self.source)
+        self.assertIn('CURRENTLY EQUIPPED', self.source)
+        self.assertIn('This equipment is already active.', self.source)
+        self.assertIn('Right-click its tile to equip or use Equip Selected.', self.source)
+
     def test_inventory_search_clear_and_mouse_scroll(self):
         self.assertIn('inventory_search_input.clear_button_enabled=true', self.source)
         self.assertIn('inventory_search_input.text_changed.connect(_on_inventory_query_changed)', self.source)
