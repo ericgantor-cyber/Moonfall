@@ -440,7 +440,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
 
     def test_inventory_accepts_new_loot_without_rejection_or_auto_cleanup(self):
         award = self.hero_cpp.split("void AMoonfallHeroPawn::AwardEquipmentDrop(", 1)[1].split(
-            "\\n}", 1)[0]
+            "\n}", 1)[0]
         collect = self.hero_cpp.split("bool AMoonfallHeroPawn::CollectGroundEquipmentCode(", 1)[1].split(
             "void AMoonfallHeroPawn::SpawnGroundEquipmentDrop(", 1)[0]
         self.assertIn("InventoryItemCodes.Add(ItemCode);", award)
@@ -783,7 +783,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("OnHealthChanged(Health, MaxHealth);", equip)
         self.assertLess(equip.index("Code != Affix * 100000"), equip.index("*EquippedTier = Tier;"))
         loot = self.hero_cpp.split("void AMoonfallHeroPawn::AwardEquipmentDrop(", 1)[1].split(
-            "\\n}", 1)[0]
+            "\n}", 1)[0]
         self.assertIn("InventoryItemCodes.Add(ItemCode);", loot)
         self.assertIn("InventoryItemCodes.Add(ItemCode);", loot)
         self.assertNotIn("EquipInventoryItem(", loot)
@@ -1609,7 +1609,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("if (bBoss) Hero->TryRewardPerfectDodge();", impact)
         reward = self.hero_cpp.split(
             "bool AMoonfallHeroPawn::TryRewardPerfectDodge() {", 1)[1].split(
-            "\\n}", 1)[0]
+            "\n}", 1)[0]
         self.assertIn("Now > PerfectDodgeWindowUntil", reward)
         self.assertIn("Now - LastPerfectDodgeRewardAt < 1.f", reward)
         self.assertIn("PerfectDodgeWindowUntil = -1.f", reward)
@@ -2080,7 +2080,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
     def test_directional_guard_matches_character_facing_not_camera(self):
         self.assertIn("bOrientRotationToMovement = true", self.hero_cpp)
         damage = self.hero_cpp.split("void AMoonfallHeroPawn::ApplyMoonfallDamage(float Amount) {", 1)[1]
-        damage = damage.split("\\n}", 1)[0]
+        damage = damage.split("\n}", 1)[0]
         self.assertIn("GetActorForwardVector().GetSafeNormal2D()", damage)
         self.assertNotIn("GetControlRotation().Vector().GetSafeNormal2D()", damage)
         self.assertIn("FVector::DotProduct(GuardForward, ToSource) >= 0.258819f", damage)
@@ -2357,7 +2357,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
 
     def test_divine_callbacks_observe_cleared_active_state(self):
         cpp = self.enemy_cpp
-        helper = cpp.split("void AMoonfallEnemy::CancelDivineSignature() {", 1)[1].split("\\n}", 1)[0]
+        helper = cpp.split("void AMoonfallEnemy::CancelDivineSignature() {", 1)[1].split("\n}", 1)[0]
         self.assertIn("if (!bDivineSignatureActive) return;", helper)
         self.assertIn("const FName InterruptedMove = ActiveDivineMoveId;", helper)
         self.assertLess(helper.index("bDivineSignatureActive = false;"),
