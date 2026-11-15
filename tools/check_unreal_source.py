@@ -3717,29 +3717,56 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("const int32 Rarity = Stream.RandRange(2, 5);", self.hero_cpp)
 
 
-    def test_first_continuous_dungeon_integrated_in_startup_game_mode(self):
+    def test_full_six_zone_dungeon_network_integrated_in_continuous_world(self):
         mode = (ROOT / "MoonfallUnrealGameMode.cpp").read_text(encoding="utf-8")
+        mode_h = (ROOT / "MoonfallUnrealGameMode.h").read_text(encoding="utf-8")
         arena = (ROOT / "MoonfallArena.cpp").read_text(encoding="utf-8")
+        arena_h = (ROOT / "MoonfallArena.h").read_text(encoding="utf-8")
         self.assertIn('#include "MoonfallDungeonLayout.h"', mode)
         self.assertIn('GetWorld()->SpawnActor<AMoonfallArena>', mode)
         self.assertIn('SpawnActorDeferred<AMoonfallDungeonLayout>', mode)
-        self.assertIn('FVector(0.f, -3100.f, 0.f)', mode)
-        self.assertIn('FRotator(0.f, -90.f, 0.f)', mode)
-        self.assertLess(mode.index('Dungeon->ZoneIndex = 0;'),
-                        mode.index('Dungeon->FinishSpawning(DungeonTransform);'))
-        self.assertLess(mode.index('Dungeon->DungeonIndex = 0;'),
-                        mode.index('Dungeon->FinishSpawning(DungeonTransform);'))
-        self.assertIn('Dungeon->bRandomizeChambers = true;', mode)
+        self.assertIn('static constexpr int32 DungeonZoneCount = 6;', mode_h)
+        self.assertIn('static constexpr int32 DungeonsPerZone = 5;', mode_h)
+        self.assertIn('static constexpr int32 TotalDungeons = DungeonZoneCount * DungeonsPerZone;', mode_h)
+        self.assertIn('static constexpr float DungeonLaneSpacing = 1350.f;', mode_h)
+        self.assertIn('ZoneIndex * DungeonsPerZone + DungeonIndex', mode)
+        self.assertIn('Slot / DungeonsPerZone', mode)
+        self.assertIn('Slot % DungeonsPerZone', mode)
+        self.assertIn('NextDungeonSlot < TotalDungeons', mode)
+        self.assertIn('constexpr int32 MaxLayoutsPerBatch = 2;', mode)
+        self.assertIn('GetWorldTimerManager().SetTimer(', mode)
+        self.assertIn('GetWorldTimerManager().ClearTimer(DungeonSpawnTimer);', mode)
+        self.assertIn('AuthoredDungeonSlots.SetNumZeroed(TotalDungeons);', mode)
         self.assertIn('TActorIterator<AMoonfallDungeonLayout>', mode)
-        self.assertIn('It->ZoneIndex == 0 && It->DungeonIndex == 0', mode)
         self.assertLess(mode.index('TActorIterator<AMoonfallDungeonLayout>'),
                         mode.index('SpawnActorDeferred<AMoonfallDungeonLayout>'))
+        self.assertIn('Layout->ZoneIndex = Zone;', mode)
+        self.assertIn('Layout->DungeonIndex = DungeonIndex;', mode)
+        self.assertIn('Layout->bRandomizeChambers = true;', mode)
+        self.assertLess(mode.index('Layout->DungeonIndex = DungeonIndex;'),
+                        mode.index('Layout->FinishSpawning(DungeonTransform);'))
+        self.assertIn('FVector(X, -3100.f, 0.f)', mode)
+        self.assertIn('FRotator(0.f, -90.f, 0.f)', mode)
         self.assertNotIn('OpenLevel(', mode)
         self.assertIn('CreateBlock(FVector(-850,-1500,200),FVector(13,1,5));', arena)
         self.assertIn('CreateBlock(FVector(850,-1500,200),FVector(13,1,5));', arena)
         self.assertIn('CreateBlock(FVector(0,-2000,-20),FVector(5,10,0.4f));', arena)
         self.assertNotIn('CreateBlock(FVector(0,-1500,200),FVector(30,1,5));', arena)
-        # The existing shrine, NPC, and featured-divine-boss systems remain.
+        self.assertIn('UInstancedStaticMeshComponent* DungeonRoad;', arena_h)
+        self.assertIn('DungeonRoad->SetCollisionResponseToAllChannels(ECR_Block);', arena)
+        self.assertIn('for (int32 Slot = 0; Slot < 30; ++Slot)', arena)
+        self.assertIn('FVector(X, -2500.f, -20.f), FVector(13.5f, 9.f, 0.4f)', arena)
+        self.assertIn('DungeonRoad->AddInstance(', arena)
+        # Check that the 30 adjacent physical lanes do not intersect and that
+        # the public road overlaps each chamber's front edge.
+        xs = [(slot - 14.5) * 1350 for slot in range(30)]
+        assert len(set(xs)) == 30
+        for left, right in zip(xs, xs[1:]):
+            self.assertGreaterEqual(right - left, 900 + 400)
+            self.assertLessEqual(right - left, 2 * 675)
+        self.assertLessEqual(abs(xs[0]) + 675, 21000)
+        self.assertLessEqual(-2650, -2050)
+        # Preserve the original divine encounters, residents, and shrines.
         for token in ('AMoonfallCheckpointShrine', 'AMoonfallWorldNPC',
                       'FeaturedDivineBossId', 'FName(TEXT("z_void_reaper"))',
                       'FName(TEXT("nyra_eclipse_queen"))'):
