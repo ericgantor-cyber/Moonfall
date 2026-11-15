@@ -791,6 +791,13 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("GetValidatedEquippedTier(LastLootSlot)", roll)
         self.assertIn("GetValidatedEquippedTier(SlotIndex)", pickup)
         self.assertIn("GetValidatedEquippedTier(Slot)", craft)
+        self.assertIn("const int32 PreviousEquippedTier = GetValidatedEquippedTier(Slot);", craft)
+        self.assertIn("LastLootUpgrade = (Tier + 1) - PreviousEquippedTier;", craft)
+        self.assertLess(craft.index("const int32 PreviousEquippedTier ="),
+                        craft.index("InventoryItemCodes[InventoryIndex] = NewCode;"))
+        self.assertLess(craft.index("const int32 PreviousEquippedTier ="),
+                        craft.index("EquipInventoryItem(InventoryIndex)"))
+        self.assertNotIn("LastLootUpgrade = (Tier + 1) - GetValidatedEquippedTier(Slot);", craft)
         for section in (roll, pickup, craft):
             self.assertNotIn("LastLootUpgrade = Tier - WeaponTier", section)
 
