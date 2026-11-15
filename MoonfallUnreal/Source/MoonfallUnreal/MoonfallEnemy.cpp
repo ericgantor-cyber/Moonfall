@@ -2,6 +2,7 @@
 #include "Components/StaticMeshComponent.h"
 #include "UObject/ConstructorHelpers.h"
 #include "MoonfallHeroPawn.h"
+#include "MoonfallRaceCatalog.h"
 #include "Kismet/GameplayStatics.h"
 #include "Engine/World.h"
 #include "NavigationSystem.h"
@@ -19,6 +20,7 @@ AMoonfallEnemy::AMoonfallEnemy() {
   PrimaryActorTick.bCanEverTick = true;
   PrimaryActorTick.TickInterval = 0.1f;
 }
+FString AMoonfallEnemy::GetRaceName() const { return FString(MoonfallRaces::Name(RaceId)); }
 void AMoonfallEnemy::BeginPlay() {
  Super::BeginPlay();
  // Scale only at spawn to avoid mid-fight HP spikes as the player levels.
@@ -30,8 +32,12 @@ void AMoonfallEnemy::BeginPlay() {
  // Blueprint tuning must not overflow enemy vitality or damage at spawn.
  const float BaseHealth = FMath::IsFinite(Health) && Health > 0.f ? Health : 1.f;
  const float BaseDamage = FMath::IsFinite(AttackDamage) && AttackDamage > 0.f ? AttackDamage : 1.f;
- Health = FMath::Clamp(BaseHealth, 1.f, 100000.f) * HPScale;
- AttackDamage = FMath::Clamp(BaseDamage, 1.f, 10000.f) * DamageScale;
+ // Apply modest race identity to ordinary and elite foes only.
+ // Preserve unique Z/Nyra and other authored boss tuning exactly.
+ const float RaceHealth = bBoss ? 1.f : MoonfallRaces::HealthScale(RaceId);
+ const float RaceDamage = bBoss ? 1.f : MoonfallRaces::DamageScale(RaceId);
+ Health = FMath::Clamp(BaseHealth, 1.f, 100000.f) * HPScale * RaceHealth;
+ AttackDamage = FMath::Clamp(BaseDamage, 1.f, 10000.f) * DamageScale * RaceDamage;
  MaxHealthAtSpawn = FMath::Max(1.f, Health);
  BossMaxHealth = bBoss ? MaxHealthAtSpawn : 0.f;
  // Bosses and elites require sustained pressure rather than a fixed three-parry break.
@@ -141,6 +147,19 @@ void AMoonfallEnemy::TakeSpellDamage(float Amount) {
   const float HealthBeforeHit = Health;
   Health = FMath::Max(0.0f, Health - FMath::Max(0.0f, EffectiveDamage));
   const float ActualDamage = HealthBeforeHit - Health;
+  // A struck ordinary enemy investigates its attacker briefly. This does not
+  // reveal the hero forever or share omniscient positions with other enemies.
+  if (!bBoss && ActualDamage > 0.f && GetWorld()) {
+   const AMoonfallHeroPawn* Attacker = Cast<AMoonfallHeroPawn>(UGameplayStatics::GetPlayerPawn(this, 0));
+   if (IsValid(Attacker) && Attacker->Health > 0.f
+       && !Attacker->GetActorLocation().ContainsNaN()
+       && FVector::DistSquared2D(GetActorLocation(), Attacker->GetActorLocation()) < FMath::Square(1800.f)) {
+    LastSawHeroAt = Now;
+    LastKnownHeroPosition = Attacker->GetActorLocation();
+    CachedWaypoint = FVector::ZeroVector;
+    NextPathRefreshAt = 0.f;
+   }
+  }
   // Wounded elites get a brief breathing-space maneuver, not an escape loop.
   // Bosses, dead enemies and enemies with broken posture never enter retreat.
   if (bElite && !bBoss && ActualDamage > 0.f && Health > 0.f
