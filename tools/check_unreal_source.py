@@ -459,6 +459,26 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("PgUp/PgDn", self.hud)
         self.assertNotIn("Home/End", self.hud)
 
+    def test_controller_inventory_dpad_selects_and_confirm_equips_only(self):
+        inputs = (ROOT.parents[2] / "MoonfallUnreal" / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
+        self.assertIn('ActionName="OptionsUp",Key=Gamepad_DPad_Up', inputs)
+        self.assertIn('ActionName="OptionsDown",Key=Gamepad_DPad_Down', inputs)
+        self.assertIn('ActionName="InventoryConfirm",Key=Gamepad_FaceButton_Top', inputs)
+        up = self.hero_cpp.split("void AMoonfallHeroPawn::OptionsUp()", 1)[1].split("\n}", 1)[0]
+        down = self.hero_cpp.split("void AMoonfallHeroPawn::OptionsDown()", 1)[1].split("\n}", 1)[0]
+        left = self.hero_cpp.split("void AMoonfallHeroPawn::OptionsLeft()", 1)[1].split("\n}", 1)[0]
+        right = self.hero_cpp.split("void AMoonfallHeroPawn::OptionsRight()", 1)[1].split("\n}", 1)[0]
+        confirm = self.hero_cpp.split("void AMoonfallHeroPawn::InventoryConfirm()", 1)[1].split("\n}", 1)[0]
+        for nav in (up, down):
+            self.assertIn("if (bInventoryOpen)", nav)
+            self.assertIn("InventorySelection =", nav)
+            self.assertIn("KeepInventorySelectionVisible();", nav)
+        for horizontal in (left, right):
+            self.assertIn("if (bInventoryOpen) return;", horizontal)
+            self.assertNotIn("EquipSelectedInventoryItem()", horizontal)
+            self.assertNotIn("EquipInventoryItem(", horizontal)
+        self.assertIn("EquipSelectedInventoryItem()", confirm)
+
     def test_nearby_batch_loot_is_range_and_cover_safe(self):
         pickup = self.hero_cpp.split("void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[1].split(
             "void AMoonfallHeroPawn::EquipBestInventoryAction()", 1)[0]
