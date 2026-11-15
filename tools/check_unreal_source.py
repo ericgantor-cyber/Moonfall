@@ -650,9 +650,9 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("FMath::FloorToInt((PanelHeight - 290.f) / 25.f), 2, 8", hud)
         self.assertIn("Top + 145.f + (Index - PageStart) * RowSpacing", hud)
         self.assertIn("Top + 75.f", hud)
-        self.assertIn("Hero->ArmorAffix == 2 ? 0.06f : 0.f", hud)
-        self.assertIn("Hero->AccessoryAffix == 3 ? 0.08f : 0.f", hud)
-        self.assertIn("Hero->WeaponAffix == 1 ? 0.06f : 0.f", hud)
+        self.assertIn("ArmorTrait == 2 && ArmorRarity > 0 ? 0.06f : 0.f", hud)
+        self.assertIn("AccessoryTrait == 3 && AccessoryRarity > 0 ? 0.08f : 0.f", hud)
+        self.assertIn("WeaponTrait == 1 && WeaponRarity > 0 ? 0.06f : 0.f", hud)
 
     def test_forge_five_reuses_safe_single_tier_crafting_and_hud_previews_cost(self):
         inputs = (ROOT.parents[1] / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
@@ -779,6 +779,22 @@ class MoonfallIntegrationChecks(unittest.TestCase):
             "bool AMoonfallHeroPawn::EquipInventoryItem(", 1)[0]
         self.assertIn("*EquippedCode = ItemCode;", loot)
         self.assertIn("InventoryItemCodes.Add(ItemCode);", loot)
+
+    def test_combat_hud_rejects_unowned_and_malformed_equipment(self):
+        hud = (ROOT / "MoonfallCombatHUD.cpp").read_text(encoding="utf-8")
+        preview = hud.split("// Match the combat decoder:", 1)[1].split(
+            'DrawText(FString::Printf(TEXT("Equipped: +%.1f%% spell damage', 1)[0]
+        self.assertIn("!Hero->InventoryItemCodes.Contains(Code)", preview)
+        self.assertIn("Slot != ExpectedSlot", preview)
+        self.assertIn("EncodedRarity == 0 && EncodedTrait != 0", preview)
+        self.assertIn("Code != EncodedTrait * 100000 + Slot * 10000", preview)
+        for code, slot in (("EquippedWeaponCode", "0"), ("EquippedArmorCode", "1"),
+                           ("EquippedAccessoryCode", "2")):
+            self.assertIn(f"ReadOwnedGear(Hero->{code}, {slot}", preview)
+        for unsafe in ("Hero->WeaponTier", "Hero->ArmorTier", "Hero->AccessoryTier",
+                       "Hero->WeaponAffix", "Hero->ArmorAffix", "Hero->AccessoryAffix"):
+            self.assertNotIn(unsafe, preview)
+        self.assertIn("Code == Affix * 100000 + Slot * 10000 + Rarity * 1000 + Tier", hud)
 
     def test_random_item_affixes_apply_bounded_slot_specific_bonuses(self):
         for field in ("LastLootAffix", "WeaponAffix", "ArmorAffix", "AccessoryAffix"):
