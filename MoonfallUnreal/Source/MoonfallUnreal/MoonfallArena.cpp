@@ -17,6 +17,9 @@ AMoonfallArena::AMoonfallArena() {
  DungeonRoad->SetupAttachment(GetRootComponent());
  DungeonRoad->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
  DungeonRoad->SetCollisionResponseToAllChannels(ECR_Block);
+ // Cull distant road tiles visually while their physical collision and
+ // NavMesh geometry remain intact for uninterrupted travel across zones.
+ DungeonRoad->SetCullDistances(24000, 34000);
  static ConstructorHelpers::FObjectFinder<UStaticMesh> Cube(TEXT("/Engine/BasicShapes/Cube.Cube"));
  if (Cube.Succeeded()) DungeonRoad->SetStaticMesh(Cube.Object);
 }
