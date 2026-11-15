@@ -807,6 +807,15 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertNotIn("MaxHealth +=", award)
         self.assertNotIn("int32* Slot =", award)
 
+    def test_scripted_loot_has_no_obsolete_auto_equip_tier_or_mutations(self):
+        award = self.hero_cpp.split("void AMoonfallHeroPawn::AwardEquipmentDrop(", 1)[1].split(
+            "bool AMoonfallHeroPawn::CollectGroundEquipmentCode(", 1)[0]
+        self.assertIn("InventoryItemCodes.Add(ItemCode);", award)
+        self.assertNotIn("const int32 NewTier = LastLootTier;", award)
+        self.assertNotIn("EquipInventoryItem(", award)
+        self.assertNotIn("*EquippedCode =", award)
+        self.assertNotIn("MaxHealth +=", award)
+
     def test_scripted_rewards_cannot_exceed_persisted_inventory_capacity(self):
         award = self.hero_cpp.split("void AMoonfallHeroPawn::AwardEquipmentDrop(", 1)[1].split(
             "bool AMoonfallHeroPawn::CollectGroundEquipmentCode(", 1)[0]
