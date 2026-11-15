@@ -45,3 +45,19 @@ static func recovered_posture(current:float, elapsed:float, grace:float = 2.0, r
  if current <= 0.0:return 0.0
  if elapsed <= grace or elapsed < 0.0:return current
  return maxf(0.0,current - (elapsed - maxf(grace,0.0))*maxf(recovery_per_second,0.0))
+
+## A configurable 2-to-5-stage encounter layered onto the existing guardian AI.
+## Preserve the engine's three canonical boss phases for legacy attacks and saves.
+static func boss_phase_count(boss_id:int, divine:bool) -> int:
+ return 5 if divine else 2 + posmod(boss_id,4)
+
+static func boss_combat_phase(health:float, max_health:float, phases:int) -> int:
+ if not is_finite(health) or not is_finite(max_health) or max_health<=0.0:return 1
+ var bounded:int=clampi(phases,2,5)
+ var fraction:float=clampf(health/max_health,0.0,1.0)
+ return clampi(1+int(floor((1.0-fraction)*float(bounded))),1,bounded)
+
+static func boss_phase_attack_recovery(base:float, phase:int, phases:int) -> float:
+ if not is_finite(base) or base<=0.0:return 0.0
+ var bounded:int=clampi(phases,2,5)
+ return maxf(0.65,base*(1.0-0.06*float(clampi(phase,1,bounded)-1)))
