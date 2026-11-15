@@ -162,7 +162,7 @@ class MouseMenusContract(unittest.TestCase):
         self.assertIn('_recipe_hover_details(recipe)', self.source)
         self.assertIn('func _recipe_hover_details(recipe:Dictionary)->String:', self.source)
         self.assertIn('materials.get(str(material),0)', self.source)
-        self.assertIn('Hunter\\'s Oil', self.source)
+        self.assertIn("Hunter\'s Oil", self.source)
         self.assertIn('Healing Draught', self.source)
 
     def test_inventory_search_clear_and_mouse_scroll(self):
