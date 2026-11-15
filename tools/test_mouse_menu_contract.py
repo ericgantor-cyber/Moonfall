@@ -265,6 +265,17 @@ class MouseMenusContract(unittest.TestCase):
         self.assertIn('crafting_restore_focus=true', self.source)
         self.assertIn('button.call_deferred("grab_focus")', self.source)
 
+    def test_recipe_list_shows_specific_missing_materials(self):
+        recipe_list = self.source.split('  "Professions":', 1)[1].split('  "Hunter":', 1)[0]
+        self.assertIn('_recipe_blocker_summary(entry)', recipe_list)
+        self.assertIn('_recipe_blocker_summary(chosen)', recipe_list)
+        helper = self.source.split('func _recipe_blocker_summary(recipe:Dictionary)->String:', 1)[1].split('func _recipe_possible_count(', 1)[0]
+        self.assertIn('int(costs[material])-int(materials.get(str(material),0))', helper)
+        self.assertIn('if needed>0:missing.append(', helper)
+        self.assertIn('return "NEED "+", ".join(missing)', helper)
+        self.assertIn('return "BAG FULL"', helper)
+        self.assertIn('return "BLOCKED"', helper)
+
     def test_inventory_search_clear_and_mouse_scroll(self):
         self.assertIn('inventory_search_input.clear_button_enabled=true', self.source)
         self.assertIn('inventory_search_input.text_changed.connect(_on_inventory_query_changed)', self.source)
