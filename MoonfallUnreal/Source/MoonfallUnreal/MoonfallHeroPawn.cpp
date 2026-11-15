@@ -1764,6 +1764,31 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
  for (const auto& Entry : ResidentQuestStates)
   if (!IsNamedMoonfallResident(Entry.Key) || (Entry.Value != 1 && Entry.Value != 2))
    return false;
+ // Reputation and bond maps must round-trip without silently dropping keys
+ // or clamping values on the next load.
+ static const FName SaveFactionIds[] = {FName(TEXT("Wanderers")),
+  FName(TEXT("VerdantCircle")), FName(TEXT("StoneHearth")),
+  FName(TEXT("MoonCoven")), FName(TEXT("AshenClans"))};
+ static const FName SaveResidentIds[] = {
+  FName(TEXT("CrossroadsGuide")), FName(TEXT("Alden")),
+  FName(TEXT("Starweaver")), FName(TEXT("Leafwhisper")),
+  FName(TEXT("Anvilkeeper")), FName(TEXT("PipHearthfoot")),
+  FName(TEXT("EmberScout")), FName(TEXT("Geargrin")),
+  FName(TEXT("Mossfang")), FName(TEXT("Birchroot")),
+  FName(TEXT("Duskveil")), FName(TEXT("Silverwatch")),
+  FName(TEXT("Ashscale"))
+ };
+ for (const auto& Entry : FactionReputation)
+  if (!SaveFactionIds[0].IsNone() &&
+      !((Entry.Key == SaveFactionIds[0]) || (Entry.Key == SaveFactionIds[1])
+       || (Entry.Key == SaveFactionIds[2]) || (Entry.Key == SaveFactionIds[3])
+       || (Entry.Key == SaveFactionIds[4])) || Entry.Value < -100 || Entry.Value > 100)
+   return false;
+ for (const auto& Entry : ResidentBonds) {
+  bool bKnownResident = false;
+  for (const FName Id : SaveResidentIds) if (Entry.Key == Id) { bKnownResident = true; break; }
+  if (!bKnownResident || Entry.Value < -100 || Entry.Value > 100) return false;
+ }
  for (const int32 Code : InventoryItemCodes)
   if (!ValidMoonfallItemCode(Code)) return false;
  // Keep the equipped references consistent with the bag; otherwise the loader
@@ -1837,6 +1862,42 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
   bPersistentSaveWritesBlocked = true;
   UE_LOG(LogTemp, Warning, TEXT("Moonfall saved inventory or resident quests exceed supported bounds; original save protected."));
   return false;
+ }
+ // Reputation and bond records must be valid before restoration; otherwise
+ // the allowlist/clamping below would silently alter the next saved version.
+ if (Save->Version >= 4) {
+  static const FName AllowedFactionIds[] = {FName(TEXT("Wanderers")),
+   FName(TEXT("VerdantCircle")), FName(TEXT("StoneHearth")),
+   FName(TEXT("MoonCoven")), FName(TEXT("AshenClans"))};
+  for (const auto& Entry : Save->FactionReputation) {
+   bool bKnown = false;
+   for (const FName Id : AllowedFactionIds) if (Entry.Key == Id) { bKnown = true; break; }
+   if (!bKnown || Entry.Value < -100 || Entry.Value > 100) {
+    bPersistentSaveWritesBlocked = true;
+    UE_LOG(LogTemp, Warning, TEXT("Moonfall save contains invalid faction reputation; original save protected."));
+    return false;
+   }
+  }
+ }
+ if (Save->Version >= 5) {
+  static const FName AllowedResidentIds[] = {
+   FName(TEXT("CrossroadsGuide")), FName(TEXT("Alden")),
+   FName(TEXT("Starweaver")), FName(TEXT("Leafwhisper")),
+   FName(TEXT("Anvilkeeper")), FName(TEXT("PipHearthfoot")),
+   FName(TEXT("EmberScout")), FName(TEXT("Geargrin")),
+   FName(TEXT("Mossfang")), FName(TEXT("Birchroot")),
+   FName(TEXT("Duskveil")), FName(TEXT("Silverwatch")),
+   FName(TEXT("Ashscale"))
+  };
+  for (const auto& Entry : Save->ResidentBonds) {
+   bool bKnown = false;
+   for (const FName Id : AllowedResidentIds) if (Entry.Key == Id) { bKnown = true; break; }
+   if (!bKnown || Entry.Value < -100 || Entry.Value > 100) {
+    bPersistentSaveWritesBlocked = true;
+    UE_LOG(LogTemp, Warning, TEXT("Moonfall save contains invalid resident bond; original save protected."));
+    return false;
+   }
+  }
  }
  // Protect all saved quest entries rather than filtering unsupported
  // residents or states and overwriting their original progress on autosave.
