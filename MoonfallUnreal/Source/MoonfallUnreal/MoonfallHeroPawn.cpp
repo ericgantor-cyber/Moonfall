@@ -1432,11 +1432,8 @@ void AMoonfallHeroPawn::AwardEquipmentDrop(bool bEliteEnemy, bool bBossEnemy)
  // The paginated inventory supports growth beyond the former 30-slot limit.
  InventoryItemCodes.Add(ItemCode);
  InventorySelection = FMath::Clamp(InventorySelection, 0, InventoryItemCodes.Num() - 1);
- // Preserve the scripted reward's existing higher-tier auto-equip behavior,
- // but use the same owned-item validation and bounded armor HP delta as
- // manual equipping. Equal-tier rewards remain inventory choices.
- if (NewTier > GetValidatedEquippedTier(LastLootSlot))
-  EquipInventoryItem(InventoryItemCodes.Num() - 1);
+ // Rewards are inventory choices only. Never auto-equip scripted drops;
+ // the player chooses when to change weapon, armor, or accessory.
 }
 bool AMoonfallHeroPawn::CollectGroundEquipmentCode(int32 ItemCode)
 {
