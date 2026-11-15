@@ -96,9 +96,9 @@ void AMoonfallCombatHUD::DrawHUD()
   return;
  }
  if (Hero->bInventoryOpen) {
-  // Canvas-only paginated inventory: no extra actors, widgets, or hidden controls.
-  const float PanelWidth = FMath::Min(680.f, FMath::Max(280.f, Canvas->SizeX - 24.f));
-  const float PanelHeight = FMath::Min(580.f, FMath::Max(280.f, Canvas->SizeY - 24.f));
+  // Canvas-only continuous inventory: no extra actors, widgets, or hidden controls.
+  const float PanelWidth = FMath::Min(800.f, FMath::Max(280.f, Canvas->SizeX - 24.f));
+  const float PanelHeight = FMath::Min(860.f, FMath::Max(280.f, Canvas->SizeY - 24.f));
   const float Left = (Canvas->SizeX - PanelWidth) * 0.5f;
   const float Top = (Canvas->SizeY - PanelHeight) * 0.5f;
   DrawRect(FLinearColor(0.04f, 0.035f, 0.10f, 0.96f), Left, Top, PanelWidth, PanelHeight);
@@ -146,7 +146,7 @@ void AMoonfallCombatHUD::DrawHUD()
   }
   const int32 Count = Hero->InventoryItemCodes.Num();
   // Reserve height for a real equipment-stat line and three controls rows.
-  const int32 PerPage = FMath::Clamp(FMath::FloorToInt((PanelHeight - 290.f) / 25.f), 2, 8);
+  const int32 PerPage = Hero->GetInventoryVisibleRows();
   const int32 Selected = FMath::Clamp(Hero->InventorySelection, 0, FMath::Max(0, Count - 1));
   // Wheel moves only the visible window; keyboard/controller selection remains independent.
   const int32 PageStart = FMath::Clamp(Hero->InventoryViewStart, 0, FMath::Max(0, Count - PerPage));
@@ -249,7 +249,7 @@ void AMoonfallCombatHUD::DrawHUD()
   DrawText(FString::Printf(TEXT("Sets: Force %d/3  Ward %d/3  Focus %d/3    2pc + 3pc unlock bonuses"),
     ForcePieces, WardPieces, FocusPieces), FLinearColor(0.59f,0.95f,0.77f),
     Left + 18.f, Top + 113.f, nullptr, Canvas->SizeX < 900.f ? 0.61f : 0.72f);
-  DrawText(TEXT("WASD / D-pad: select   Enter / Y: equip   Delete / X: salvage"),
+  DrawText(TEXT("Wheel: scroll   WASD / D-pad: select   Enter / Y: equip   Delete / X: salvage"),
      FLinearColor::White, Left + 18.f, Top + PanelHeight - 51.f, nullptr, 0.75f);
   // Display cost for the actual selected item, rather than a formula
   // players must calculate while navigating the inventory.
