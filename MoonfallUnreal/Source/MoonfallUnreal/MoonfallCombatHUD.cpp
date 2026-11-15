@@ -105,7 +105,7 @@ void AMoonfallCombatHUD::DrawHUD()
      : Res == FIntPoint(1920,1080) ? TEXT("1080p")
      : Res == FIntPoint(2560,1440) ? TEXT("1440p")
      : Res == FIntPoint(3840,2160) ? TEXT("4K")
-     : FString::Printf(TEXT("%dp"), Res.Y);
+     : FString::Printf(TEXT("%dx%d"), Res.X, Res.Y);
    const int32 Quality = FMath::Clamp(Settings->GetOverallScalabilityLevel(), 0, 3);
    const FString QualityName[] = {TEXT("Low"), TEXT("Med"), TEXT("High"), TEXT("Epic")};
    const FString FrameStatus = Hero->FrameGenerationPreference == 0 ? TEXT("Off")
