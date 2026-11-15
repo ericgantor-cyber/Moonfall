@@ -4,12 +4,20 @@
 #include "MoonfallCheckpointShrine.h"
 #include "Components/SceneComponent.h"
 #include "Components/StaticMeshComponent.h"
+#include "Components/InstancedStaticMeshComponent.h"
 #include "Engine/World.h"
 #include "Kismet/GameplayStatics.h"
 #include "UObject/UObjectGlobals.h"
+#include "UObject/ConstructorHelpers.h"
 AMoonfallArena::AMoonfallArena() {
  PrimaryActorTick.bCanEverTick = false;
  SetRootComponent(CreateDefaultSubobject<USceneComponent>(TEXT("Root")));
+ DungeonRoad = CreateDefaultSubobject<UInstancedStaticMeshComponent>(TEXT("DungeonRoad"));
+ DungeonRoad->SetupAttachment(GetRootComponent());
+ DungeonRoad->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+ DungeonRoad->SetCollisionResponseToAllChannels(ECR_Block);
+ static ConstructorHelpers::FObjectFinder<UStaticMesh> Cube(TEXT("/Engine/BasicShapes/Cube.Cube"));
+ if (Cube.Succeeded()) DungeonRoad->SetStaticMesh(Cube.Object);
 }
 void AMoonfallArena::CreateBlock(FVector Position, FVector Scale) {
  UStaticMeshComponent* Block = NewObject<UStaticMeshComponent>(this);
@@ -34,6 +42,15 @@ void AMoonfallArena::BeginPlay() {
  // Ground bridge between arena Y=-1500 and first dungeon floor edge Y=-2500.
  // Same top surface (Z=0) as the dungeon; no teleport or level load.
  CreateBlock(FVector(0,-2000,-20),FVector(5,10,0.4f));
+ // Instanced, flat east/west road. Every one of the 30 entrances overlaps
+ // the road by 200 units; the south arena bridge joins it at the center.
+ // Only 30 mesh instances, not 30 extra actors or dynamic pathfinding ticks.
+ DungeonRoad->ClearInstances();
+ for (int32 Slot = 0; Slot < 30; ++Slot) {
+  const float X = (static_cast<float>(Slot) - 14.5f) * 1350.f;
+  DungeonRoad->AddInstance(FTransform(FRotator::ZeroRotator,
+    FVector(X, -2500.f, -20.f), FVector(13.5f, 9.f, 0.4f)));
+ }
  if (!GetWorld()) return;
  // World shrines are discovered by walking into their proximity, not by
  // defeating a boss or using an attack key. Stable IDs persist between saves.
