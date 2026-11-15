@@ -3870,5 +3870,26 @@ class MoonfallIntegrationChecks(unittest.TestCase):
                         script.index("& $editor $project"))
         self.assertNotIn("merge_pull_request", script)
 
+
+    def test_dungeon_world_distance_culling_preserves_walkable_collision(self):
+        layout = (ROOT / "MoonfallDungeonLayout.cpp").read_text(encoding="utf-8")
+        arena = (ROOT / "MoonfallArena.cpp").read_text(encoding="utf-8")
+        self.assertIn("Floors->SetCullDistances(24000, 34000);", layout)
+        self.assertIn("Walls->SetCullDistances(18000, 28000);", layout)
+        self.assertIn("HazardPlates->SetCullDistances(12000, 22000);", layout)
+        self.assertIn("DungeonRoad->SetCullDistances(24000, 34000);", arena)
+        for component in ("Floors", "Walls"):
+            self.assertIn(component + "->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);", layout)
+            self.assertIn(component + "->SetCollisionResponseToAllChannels(ECR_Block);", layout)
+        self.assertIn("DungeonRoad->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);", arena)
+        self.assertIn("DungeonRoad->SetCollisionResponseToAllChannels(ECR_Block);", arena)
+        self.assertIn("HazardPlates->SetCollisionEnabled(ECollisionEnabled::NoCollision);", layout)
+        self.assertNotIn("SetActorHiddenInGame(true)", layout)
+        self.assertNotIn("SetGenerateOverlapEvents(false);", layout.split(
+            "void AMoonfallDungeonLayout::OnConstruction(", 1)[1].split(
+            "void AMoonfallDungeonLayout::BeginPlay()", 1)[0])
+        for text in (layout, arena):
+            self.assertNotIn("SetActorEnableCollision(false);", text)
+
 if __name__ == "__main__":
     unittest.main()
