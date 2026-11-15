@@ -1,5 +1,7 @@
 #include "MoonfallDungeonLayout.h"
 #include "MoonfallHeroPawn.h"
+#include "MoonfallEnemy.h"
+#include "Engine/World.h"
 #include "Components/SceneComponent.h"
 #include "Components/BoxComponent.h"
 #include "Components/InstancedStaticMeshComponent.h"
@@ -235,8 +237,11 @@ void AMoonfallDungeonLayout::HandleChamberOverlap(
   const int32 ChamberIndex = Index + 1;
   const uint16 Bit = static_cast<uint16>(1u << ChamberIndex);
   if ((EnteredChambersMask & Bit) != 0u) return;
+  const int32 ChamberType = GetChamberType(ChamberIndex);
+  // Failed spawn leaves the chamber retryable on a later overlap.
+  if (ChamberType == 1 && !StartCombatChamber(Hero, ChamberIndex)) return;
   EnteredChambersMask |= Bit;
-  OnChamberEntered(Hero, ChamberIndex, GetChamberType(ChamberIndex));
+  OnChamberEntered(Hero, ChamberIndex, ChamberType);
   return;
  }
 }
@@ -261,4 +266,48 @@ void AMoonfallDungeonLayout::HandleHazardOverlap(
  if (!FMath::IsFinite(Now) || Now < NextHazardDamageAt) return;
  NextHazardDamageAt = Now + FMath::Clamp(HazardCooldownSeconds, 0.5f, 20.f);
  Hero->ApplyMoonfallDamage(FMath::Clamp(HazardDamage, 0.f, 100.f));
+}
+
+bool AMoonfallDungeonLayout::StartCombatChamber(AMoonfallHeroPawn* Hero, int32 ChamberIndex)
+{
+ if (!GetWorld() || !IsValid(Hero) || !Hero->IsPlayerControlled()
+     || !FMath::IsFinite(Hero->Health) || Hero->Health <= 0.f
+     || ChamberIndex <= 0 || ChamberIndex >= ChamberCount - 1
+     || GetChamberType(ChamberIndex) != 1) return false;
+
+ // Hard lifetime budget. Visiting other chambers cannot raise it above six;
+ // excess chambers still count as visited rather than retrying forever.
+ const int32 Remaining = FMath::Max(0, 6 - SpawnedEncounterCount);
+ if (Remaining == 0) return true;
+ FRandomStream EncounterRandom(
+   GetEffectiveLayoutSeed() ^ (ChamberIndex * 19001 + 0x53A9));
+ const bool bEliteEncounter = EncounterRandom.RandRange(0, 4) == 0;
+ const int32 Requested = bEliteEncounter ? 1
+   : FMath::Clamp(EnemiesPerCombatChamber, 1, 2);
+ const int32 Count = FMath::Min(Remaining, Requested);
+ int32 Spawned = 0;
+ for (int32 Index = 0; Index < Count; ++Index) {
+  const float Side = Index == 0 ? -200.f : 200.f;
+  const float OffsetX = EncounterRandom.FRandRange(-150.f, 150.f);
+  const FVector Position = GetActorTransform().TransformPosition(
+    FVector(ChamberIndex * ChamberLength + OffsetX, Side, 100.f));
+  const FTransform SpawnTransform(GetActorRotation(), Position);
+  AMoonfallEnemy* Enemy = GetWorld()->SpawnActorDeferred<AMoonfallEnemy>(
+    AMoonfallEnemy::StaticClass(), SpawnTransform, this, nullptr,
+    ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButDontSpawnIfColliding);
+  if (!IsValid(Enemy)) continue;
+  // Set difficulty BEFORE BeginPlay performs the standard player-level scaling.
+  Enemy->bElite = bEliteEncounter;
+  Enemy->bBoss = false;
+  Enemy->Health = bEliteEncounter ? 145.f : 75.f;
+  Enemy->AttackDamage = bEliteEncounter ? 11.f : 7.f;
+  Enemy->ChaseSpeed = bEliteEncounter ? 165.f : 185.f;
+  Enemy->Tags.AddUnique(FName(TEXT("MoonfallDungeonEncounter")));
+  Enemy->FinishSpawning(SpawnTransform);
+  if (IsValid(Enemy) && !Enemy->IsActorBeingDestroyed()) ++Spawned;
+ }
+ if (Spawned == 0) return false;
+ SpawnedEncounterCount += Spawned;
+ OnChamberEncounterSpawned(Hero, ChamberIndex, Spawned, bEliteEncounter);
+ return true;
 }
