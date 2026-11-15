@@ -421,7 +421,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("FMath::Min(860.f, FMath::Max(280.f, float(ViewHeight) - 24.f))", rows)
         self.assertIn("FMath::Clamp(FMath::FloorToInt((PanelHeight - 390.f) / 25.f), 2, 20)", rows)
         self.assertIn("FMath::Min(860.f, FMath::Max(280.f, Canvas->SizeY - 24.f))", self.hud)
-        self.assertIn("FMath::Min(800.f, FMath::Max(280.f, Canvas->SizeX - 24.f))", self.hud)
+        self.assertIn("FMath::Min(720.f, FMath::Max(280.f, FMath::Min(Canvas->SizeX - 24.f, Canvas->SizeX * 0.48f)))", self.hud)
         self.assertIn("const int32 PerPage = Hero->GetInventoryVisibleRows();", self.hud)
         self.assertIn("if (SelectedRow < InventoryViewStart)", selection)
         self.assertIn("SelectedRow >= InventoryViewStart + Rows", selection)
@@ -565,6 +565,29 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("const float SortX = Left + PanelWidth - SortWidth - 14.f;", sort)
         self.assertIn("const float SortX = Left + PanelWidth - SortWidth - 14.f;", inventory)
         self.assertIn("const float Y = Top + 145.f + (DisplayPosition - PageStart) * RowSpacing;", inventory)
+
+    def test_right_drawer_resizes_and_scrollbar_jumps_without_equipping(self):
+        inventory = self.hud.split("if (Hero->bInventoryOpen)", 1)[1].split(
+            "// Nearest living boss", 1)[0]
+        click = self.hero_cpp.split("void AMoonfallHeroPawn::ResidentContextMouseClick()", 1)[1].split("\n}", 1)[0]
+        scrollbar = self.hero_cpp.split("bool AMoonfallHeroPawn::ScrollInventoryToMouseTrack()", 1)[1].split("\n}", 1)[0]
+        self.assertIn("FMath::Min(Canvas->SizeX - 24.f, Canvas->SizeX * 0.48f)", inventory)
+        for handler in ("HitTestInventoryRow", "HitTestInventorySortButton", "ScrollInventoryToMouseTrack"):
+            block = self.hero_cpp.split(f"AMoonfallHeroPawn::{handler}(", 1)[1].split("\n}", 1)[0]
+            self.assertIn("FMath::Min(float(Width) - 24.f, float(Width) * 0.48f)", block)
+            self.assertIn("float(Width) - PanelWidth - 12.f", block)
+        self.assertIn("Count <= Rows", scrollbar)
+        self.assertIn("TrackX - 8.f", scrollbar)
+        self.assertIn("TrackHeight = RowSpacing * Rows;", scrollbar)
+        self.assertIn("ThumbHeight * 0.5f", scrollbar)
+        self.assertIn("InventoryViewStart = FMath::Clamp(FMath::RoundToInt(", scrollbar)
+        self.assertNotIn("InventorySelection =", scrollbar)
+        self.assertNotIn("EquipInventoryItem(", scrollbar)
+        self.assertNotIn("SaveWorldProgress(", scrollbar)
+        self.assertIn("if (ScrollInventoryToMouseTrack()) return;", click)
+        self.assertLess(click.index("if (ScrollInventoryToMouseTrack()) return;"),
+                        click.index("HitTestInventoryRow()"))
+        self.assertIn("Click scrollbar: jump", inventory)
 
     def test_nearby_batch_loot_is_range_and_cover_safe(self):
         pickup = self.hero_cpp.split("void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[1].split(
