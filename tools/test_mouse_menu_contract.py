@@ -202,7 +202,7 @@ class MouseMenusContract(unittest.TestCase):
 
     def test_crafting_progression_and_blocked_craft_feedback(self):
         self.assertIn('func _craft_skill_rank(level:int)->String:', self.source)
-        self.assertIn('func _craft_skill_progress(level:int)->String:', self.source)
+        self.assertIn('func _craft_skill_progress(level:int,profession:String="Leatherworking")->String:', self.source)
         self.assertIn('_craft_skill_rank(crafting_skill)', self.source)
         self.assertIn('_craft_skill_progress(crafting_skill,"Leatherworking")', self.source)
         self.assertIn('_craft_skill_progress(skinning_skill,"Skinning")', self.source)
