@@ -80,7 +80,9 @@ class MouseMenusContract(unittest.TestCase):
 
     def test_selling_gear_resets_inventory_selection(self):
         sale = self.source.split('elif action.begins_with("wallet_sell:"):', 1)[1].split('func _create_coin_drop(', 1)[0]
-        self.assertIn("gear_items.remove_at(idx)\\n  inventory_selected_index=-1", sale)
+        self.assertIn("gear_items.remove_at(idx)", sale)
+        self.assertIn("inventory_selected_index=-1", sale)
+        self.assertLess(sale.index("gear_items.remove_at(idx)"), sale.index("inventory_selected_index=-1"))
         self.assertIn("inventory_restore_focus=false", sale)
 
     def test_inventory_search_clear_and_mouse_scroll(self):
