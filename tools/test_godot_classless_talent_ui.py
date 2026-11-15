@@ -125,6 +125,9 @@ class ClasslessTalentUIScreen(unittest.TestCase):
         self.assertIn('_v406_bonus("melee_damage","percent")', self.screen)
         self.assertIn('_v406_bonus("magic_damage","percent")', self.screen)
         self.assertIn('v406_bonuses_cache=state.get("bonuses",{})', self.screen)
+        self.assertNotIn('JSON.stringify(v406_ranks)', self.screen)
+        self.assertIn('if v406_bonuses_dirty or v406_bonuses_level!=hero_level:', self.screen)
+        self.assertIn('func _v406_invalidate_bonus_cache()->void:', self.screen)
         self.assertIn('v406_damage_context=""', self.screen)
 
     def test_bonus_resources_restore_before_cap_and_update_hud(self):
@@ -161,6 +164,17 @@ class ClasslessTalentUIScreen(unittest.TestCase):
         self.assertIn('v387_stamina=clampf(v387_stamina,0.0,_v406_resource_max("stamina",V387_MAX_STAMINA))', sync)
         respec = self.screen.split('func _v406_respec()->void:', 1)[1].split('func _v398_toggle_tree()', 1)[0]
         self.assertLess(respec.index('_v406_sync_health()'), respec.index('_save_game()'))
+
+    def test_cache_invalidation_on_purchase_respec_restore_and_new_game(self):
+        purchase = self.screen.split('func _v398_unlock(id:String)->void:', 1)[1].split('func _v406_respec()', 1)[0]
+        respec = self.screen.split('func _v406_respec()->void:', 1)[1].split('func _v398_toggle_tree()', 1)[0]
+        for section in (purchase, respec):
+            self.assertLess(section.index('_v406_invalidate_bonus_cache()'),
+                            section.index('_v406_sync_health()'))
+        restore = self.screen.split('func _restore_data(data:Dictionary)->void:', 1)[1].split('func _v384_refresh_vitals()', 1)[0]
+        self.assertIn('_v406_invalidate_bonus_cache()', restore)
+        start = self.screen.split('func _start_game(selected_hero:String)->void:', 1)[1].split('func _checkpoint_extra_data()', 1)[0]
+        self.assertIn('_v406_invalidate_bonus_cache()', start)
 
     def test_original_art_assets_still_preloaded(self):
         self.assertIn('Z_Original.webp', (ROOT / "godot-v38/scripts/main.gd").read_text(encoding="utf-8"))
