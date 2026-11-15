@@ -2176,8 +2176,17 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("bComboSecondHitActive = false", damage)
 
     def test_enemy_ai_uses_distance_based_tick_intervals(self):
-        self.assertIn("bInCombatArea ? 0.1f : 0.4f", self.enemy_cpp)
-        self.assertIn("SetActorTickInterval(DesiredTickInterval)", self.enemy_cpp)
+        tick = self.enemy_cpp.split("void AMoonfallEnemy::Tick(float DeltaSeconds)", 1)[1]
+        self.assertIn("const bool bDistantDungeonMob = !bBoss && !bElite && !bInCombatArea", tick)
+        self.assertIn('Tags.Contains(FName(TEXT("MoonfallDungeonEncounter")))', tick)
+        self.assertIn("bDistantDungeonMob ? 1.0f : 0.4f", tick)
+        self.assertIn("bInCombatArea ? 0.1f", tick)
+        self.assertIn("bDashing ? 0.03f", tick)
+        self.assertLess(tick.index("const float Distance = Difference.Size();"),
+                        tick.index("const bool bDistantDungeonMob"))
+        self.assertLess(tick.index("const bool bDistantDungeonMob"),
+                        tick.index("SetActorTickInterval(DesiredTickInterval)"))
+        self.assertIn("SetActorTickInterval(DesiredTickInterval)", tick)
 
     def test_every_enemy_melee_can_reward_a_precise_dodge(self):
         impact = self.enemy_cpp.split("if (!bBlocked) {", 1)[1].split(
