@@ -464,7 +464,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         inputs = (ROOT.parents[2] / "MoonfallUnreal" / "Config" / "DefaultInput.ini").read_text(encoding="utf-8")
         self.assertIn('ActionName="ResidentContext",Key=Gamepad_DPad_Up', inputs)
         self.assertIn('BindAction(TEXT("ResidentContext"), IE_Pressed', self.hero_cpp)
-        resident_up = self.hero_cpp.split("void AMoonfallHeroPawn::OpenFocusedResidentContext()", 1)[1].split("\\n}", 1)[0]
+        resident_up = self.hero_cpp.split("void AMoonfallHeroPawn::OpenFocusedResidentContext()", 1)[1].split("\n}", 1)[0]
         self.assertIn("if (bOptionsOpen || bInventoryOpen) { OptionsUp(); return; }", resident_up)
         self.assertIn('ActionName="OptionsDown",Key=Gamepad_DPad_Down', inputs)
         self.assertIn('ActionName="InventoryConfirm",Key=Gamepad_FaceButton_Top', inputs)
