@@ -486,7 +486,13 @@ bool AMoonfallHeroPawn::ScrollInventoryToMouseTrack()
   return false;
  const int32 Rows = GetInventoryVisibleRows();
  const int32 Count = InventoryItemCodes.Num();
- if (Count <= Rows) return false;
+ // A bag may shrink while dragging after a salvage or item transfer.
+ // Cancel the drag rather than keeping a stale scrollbar gesture alive.
+ if (Count <= Rows) {
+  bInventoryScrollbarDragging = false;
+  InventoryViewStart = 0;
+  return false;
+ }
  const float PanelWidth = FMath::Min(720.f, FMath::Max(280.f,
    FMath::Min(float(Width) - 24.f, float(Width) * 0.48f)));
  const float PanelHeight = FMath::Min(860.f, FMath::Max(280.f, float(Height) - 24.f));
