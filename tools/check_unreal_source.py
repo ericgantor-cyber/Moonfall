@@ -702,6 +702,19 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("if (ResidentContextSelection != Row) bResidentTurnInPending = false;", mouse)
         self.assertNotIn("if (ResidentContextSelection != Row)   if", mouse)
 
+    def test_options_mouse_selects_all_visible_settings_rows(self):
+        mouse = self.hero_cpp.split("void AMoonfallHeroPawn::ResidentContextMouseClick()", 1)[1].split("\\n}", 1)[0]
+        options = mouse.split("if (bOptionsOpen)", 1)[1].split("if (bInventoryOpen)", 1)[0]
+        self.assertIn("const float RowGap = (MenuHeight - 130.f) / 7.f;", options)
+        self.assertIn("const float FirstRowY = MenuTop + 63.f;", options)
+        self.assertIn("const int32 ClickedRow = FMath::FloorToInt((MouseY - FirstRowY) / RowGap);", options)
+        self.assertIn("ClickedRow >= 0 && ClickedRow < 7", options)
+        self.assertIn("OptionsSelection = ClickedRow;", options)
+        self.assertIn("void AMoonfallHeroPawn::OptionsLeft()", self.hero_cpp)
+        self.assertIn("void AMoonfallHeroPawn::OptionsRight()", self.hero_cpp)
+        self.assertIn("AdjustOption(-1);", self.hero_cpp)
+        self.assertIn("AdjustOption(1);", self.hero_cpp)
+
     def test_nearby_batch_loot_is_range_and_cover_safe(self):
         pickup = self.hero_cpp.split("void AMoonfallHeroPawn::PickupNearestGroundLoot()", 1)[1].split(
             "void AMoonfallHeroPawn::EquipBestInventoryAction()", 1)[0]
