@@ -427,7 +427,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("InventoryViewStart = InventorySelection - Rows + 1;", selection)
         self.assertIn("InventoryViewStart = FMath::Clamp(InventoryViewStart, 0, MaxStart);", selection)
         self.assertIn("InventoryItemCodes.Num() - GetInventoryVisibleRows()", self.hero_cpp)
-        self.assertIn("Wheel: scroll", self.hud)
+        self.assertIn("Mouse wheel: scroll", self.hud)
         self.assertNotIn("InventoryItemCodes.Sort(", selection)
         self.assertNotIn("EquipInventoryItem(", selection)
 
