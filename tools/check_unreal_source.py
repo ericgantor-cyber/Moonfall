@@ -52,7 +52,12 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         packaging = workflow[package:]
         self.assertIn('"-map=/Game/Maps/MoonfallStart"', packaging)
         self.assertIn("game-source/MoonfallUnreal/Saved/Logs/", packaging)
-        self.assertIn("if ($games[0].Length -le 0)", packaging)
+        self.assertIn("$games[0].Length -lt 512", packaging)
+        self.assertIn("ReadUInt16() -ne 0x5A4D", packaging)
+        self.assertIn("ReadUInt32() -ne 0x00004550", packaging)
+        self.assertIn("ReadUInt16() -ne 0x8664", packaging)
+        self.assertIn("ReadUInt16() -ne 0x20B", packaging)
+        self.assertIn("$reader.Dispose()", packaging)
         self.assertIn("'.pak' -and $_.Length -gt 0", packaging)
         self.assertIn("'.utoc' -and $_.Length -gt 0", packaging)
         self.assertIn("[IO.Path]::ChangeExtension($utoc.FullName, '.ucas')", packaging)
