@@ -287,6 +287,18 @@ class MouseMenusContract(unittest.TestCase):
         self.assertNotIn('"NEXT RECIPE"', section)
         self.assertNotIn('if action=="recipe_previous" or action=="recipe_next":', self.source)
 
+    def test_shared_atlas_uses_simple_compact_list_layout(self):
+        self.assertIn('frame.size=Vector2(1090,590)', self.source)
+        self.assertIn('tab_button.custom_minimum_size=Vector2(82,34)', self.source)
+        self.assertIn('menu_buttons.add_theme_constant_override("separation",3)', self.source)
+        self.assertIn('button.custom_minimum_size=Vector2(260,32)', self.source)
+        self.assertIn('button.alignment=HORIZONTAL_ALIGNMENT_LEFT', self.source)
+        self.assertIn('menu_body.add_theme_font_size_override("normal_font_size",15)', self.source)
+        self.assertIn('beast_guide.visible=which in ["Character","Bestiary"]', self.source)
+        self.assertIn('scroller.follow_focus=true', self.source)
+        self.assertIn('action_scroll.follow_focus=true', self.source)
+        self.assertIn('button.focus_mode=Control.FOCUS_ALL', self.source)
+
     def test_inventory_search_clear_and_mouse_scroll(self):
         self.assertIn('inventory_search_input.clear_button_enabled=true', self.source)
         self.assertIn('inventory_search_input.text_changed.connect(_on_inventory_query_changed)', self.source)
