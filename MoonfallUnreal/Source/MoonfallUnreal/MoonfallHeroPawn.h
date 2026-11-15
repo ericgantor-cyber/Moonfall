@@ -185,6 +185,10 @@ public:
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Inventory") int32 InventorySelection = 0;
  // Transient visible row offset; wheel scrolling never changes selection or equipment.
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Inventory") int32 InventoryViewStart = 0;
+ // Transient display mode: original order, rarity, then equipment slot.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Inventory") int32 InventorySortMode = 0;
+ TArray<int32> GetInventoryDisplayOrder() const;
+ bool HitTestInventorySortButton() const;
  // Matches the Canvas inventory row capacity on the active viewport.
  int32 GetInventoryVisibleRows() const;
  void KeepInventorySelectionVisible();
