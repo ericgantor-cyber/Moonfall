@@ -207,9 +207,18 @@ jobs:
             throw 'Unreal Editor did not save a valid MoonfallStart.umap.'
           }
           $ini = Get-Content -LiteralPath $config -Raw
+          # Require exactly one maps section with exactly one entry for each map.
+          # A stray duplicate in another section must not make a broken package pass.
+          $sections = @([regex]::Matches($ini, '(?m)^\s*\[/Script/EngineSettings.GameMapsSettings\]\s*$'))
+          if ($sections.Count -ne 1) {
+            throw "Expected one GameMapsSettings section, got $($sections.Count)"
+          }
+          $mapSection = ($ini -split '(?m)^\s*\[/Script/EngineSettings.GameMapsSettings\]\s*$', 2)[1]
+          $mapSection = ($mapSection -split '(?m)^\s*\[[^\r\n]+\]\s*$', 2)[0]
           foreach ($key in @('GameDefaultMap', 'EditorStartupMap')) {
-            if (-not [regex]::IsMatch($ini, "(?m)^$key=/Game/Maps/MoonfallStart\s*$")) {
-              throw "Moonfall startup map generator did not configure $key."
+            $entries = @([regex]::Matches($mapSection, "(?m)^\s*$key\s*=\s*(.*?)\s*$"))
+            if ($entries.Count -ne 1 -or $entries[0].Groups[1].Value.Trim() -ne '/Game/Maps/MoonfallStart') {
+              throw "Expected exactly one $key=/Game/Maps/MoonfallStart in GameMapsSettings."
             }
           }
           "Prepared project-owned /Game/Maps/MoonfallStart for Win64 cooking." >> $env:GITHUB_STEP_SUMMARY
