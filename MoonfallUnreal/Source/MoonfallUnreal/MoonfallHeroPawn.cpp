@@ -1759,6 +1759,11 @@ bool AMoonfallHeroPawn::SaveWorldProgress() {
  // would be exceeded; ground drops are not consumed in that case.
  if (InventoryItemCodes.Num() > 10000 || ResidentQuestStates.Num() > 64
      || DiscoveredShrineIds.Num() > 64) return false;
+ // The loader only restores known residents with accepted or completed
+ // contracts. Never save quest entries it would silently discard.
+ for (const auto& Entry : ResidentQuestStates)
+  if (!IsNamedMoonfallResident(Entry.Key) || (Entry.Value != 1 && Entry.Value != 2))
+   return false;
  for (const int32 Code : InventoryItemCodes)
   if (!ValidMoonfallItemCode(Code)) return false;
  // Keep the equipped references consistent with the bag; otherwise the loader
@@ -1832,6 +1837,17 @@ bool AMoonfallHeroPawn::LoadWorldProgress() {
   bPersistentSaveWritesBlocked = true;
   UE_LOG(LogTemp, Warning, TEXT("Moonfall saved inventory or resident quests exceed supported bounds; original save protected."));
   return false;
+ }
+ // Protect all saved quest entries rather than filtering unsupported
+ // residents or states and overwriting their original progress on autosave.
+ if (Save->Version >= 6) {
+  for (const auto& Entry : Save->ResidentQuestStates) {
+   if (!IsNamedMoonfallResident(Entry.Key) || (Entry.Value != 1 && Entry.Value != 2)) {
+    bPersistentSaveWritesBlocked = true;
+    UE_LOG(LogTemp, Warning, TEXT("Moonfall save contains invalid resident quest state; original save protected."));
+    return false;
+   }
+  }
  }
  // Do not silently discard malformed saved gear then overwrite the original
  // slot during autosave. Leave the slot untouched for backup or repair.
