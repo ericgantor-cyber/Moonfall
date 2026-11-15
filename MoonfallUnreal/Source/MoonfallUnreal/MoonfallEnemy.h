@@ -36,6 +36,9 @@ public:
  FText DungeonBossAttackLabel;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Dungeon|Boss")
  float DungeonBossAttackWarningDuration = 0.f;
+ // Red: dodge-only (cannot block/parry). Blue: standard parryable boss strike.
+ UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Moonfall|Dungeon|Boss")
+ bool bDungeonBossAttackDodgeOnly = false;
  // Humanoid enemy ancestry, not a divine boss identity or visual asset.
  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat|Race", meta=(ClampMin="0", ClampMax="11")) int32 RaceId = 0;
  UFUNCTION(BlueprintPure, Category="Combat|Race") FString GetRaceName() const;
