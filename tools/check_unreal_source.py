@@ -779,6 +779,17 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         for start in range(len(modes)):
             self.assertEqual((start + 1 + 2) % len(modes), start)
 
+    def test_4k_uhd_resolution_preset_is_visible_selectable_and_persisted(self):
+        adjust = self.hero_cpp.split("void AMoonfallHeroPawn::AdjustOption(int32 Direction)", 1)[1].split("\n}", 1)[0]
+        resolution = adjust.split("if (OptionsSelection == 0)", 1)[1].split("else if (OptionsSelection == 1)", 1)[0]
+        self.assertIn("FIntPoint(3840,2160)", resolution)
+        self.assertIn("int32 Target = Direction < 0 ? 0 : 3;", resolution)
+        self.assertIn("Settings->SetScreenResolution(Resolutions[Target]);", resolution)
+        self.assertIn("Settings->ApplySettings(false);", adjust)
+        self.assertIn("Settings->SaveSettings();", adjust)
+        self.assertIn('Res == FIntPoint(3840,2160) ? TEXT("4K UHD")', self.hud)
+        self.assertLess(2560 * 1440, 3840 * 2160)
+
     def test_options_resolution_steps_from_actual_custom_resolution(self):
         adjust = self.hero_cpp.split("void AMoonfallHeroPawn::AdjustOption(int32 Direction)", 1)[1].split("\n}", 1)[0]
         resolution = adjust.split("if (OptionsSelection == 0)", 1)[1].split("else if (OptionsSelection == 1)", 1)[0]
