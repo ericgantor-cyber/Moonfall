@@ -3477,7 +3477,7 @@ class MoonfallIntegrationChecks(unittest.TestCase):
         self.assertIn("int32 CachedAdvisorScore = 0;", hud_header)
         self.assertIn("GEAR ADVISOR: selected gear is an upgrade", bag)
         self.assertIn("GEAR ADVISOR: selected gear is not an upgrade", bag)
-        self.assertIn("Count == 0 ? TEXT(\"GEAR ADVISOR: find equipment to compare\")", bag)
+        self.assertIn("bCompactAdvisor ? TEXT(\"GEAR: EMPTY BAG\") : TEXT(\"GEAR ADVISOR: find equipment to compare\")", bag)
         self.assertIn("Top + PanelHeight - 50.f", bag)
         self.assertNotIn("GetRecommendedEquipmentIndex(", bag)
         advisor = bag.split("// Cache the read-only selected-row score.", 1)[1].split(
