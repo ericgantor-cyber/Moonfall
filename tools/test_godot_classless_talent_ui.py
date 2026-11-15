@@ -85,7 +85,9 @@ class ClasslessTalentUIScreen(unittest.TestCase):
         self.assertIn("get_viewport().size_changed.connect(_v406_fit_panel_to_viewport)", self.screen)
         self.assertIn("V406_PANEL_LAYOUT.placement(", self.screen)
         self.assertIn("v398_panel.scale=Vector2(factor,factor)", self.screen)
-        self.assertIn('v398_panel.position=layout["offset_from_center"]', self.screen)
+        self.assertIn('v398_panel.position=layout["position"]', self.screen)
+        self.assertIn('Control.PRESET_TOP_LEFT', self.screen)
+        self.assertNotIn('v398_panel.position=Vector2(-550,-365)', self.screen)
         self.assertIn("_v406_fit_panel_to_viewport()\n  _v398_refresh_tree()", self.screen)
 
     def test_save_restores_classless_without_clobbering_legacy(self):
